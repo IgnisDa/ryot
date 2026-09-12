@@ -37,34 +37,33 @@ export const makeAuthenticatedApi = (
 			}
 			return headers;
 		}).pipe(Effect.mapError((cause) => new AuthenticatedApiError({ cause }))),
-	run: <A, E>(scope: ApiScope, program: ContractProgram<A, E>) =>
-		Effect.gen(function* () {
-			const attempt = (forceRefresh: boolean) =>
-				Effect.gen(function* () {
-					const token = yield* tokens.accessToken(scope.serverUrl, forceRefresh);
-					return yield* Effect.tryPromise({
-						catch: (cause) => new AuthenticatedApiError({ cause }),
-						try: (signal) =>
-							runContract(program, {
-								signal,
-								baseUrl: serverApiUrl(scope.serverUrl),
-								...(token ? { headers: { Authorization: `Bearer ${token}` } } : {}),
-							}),
-					});
-				}).pipe(
-					Effect.mapError((cause) =>
-						cause instanceof AuthenticatedApiError ? cause : new AuthenticatedApiError({ cause }),
-					),
-				);
-			return yield* attempt(false).pipe(
-				Effect.catchTag("AuthenticatedApiError", (error) =>
-					error.cause instanceof AuthUnauthorized &&
-					error.cause.reason.code === "authentication-required"
-						? attempt(true)
-						: Effect.fail(error),
+	run: <A, E>(scope: ApiScope, program: ContractProgram<A, E>) => {
+		const attempt = (forceRefresh: boolean) =>
+			Effect.gen(function* () {
+				const token = yield* tokens.accessToken(scope.serverUrl, forceRefresh);
+				return yield* Effect.tryPromise({
+					catch: (cause) => new AuthenticatedApiError({ cause }),
+					try: (signal) =>
+						runContract(program, {
+							signal,
+							baseUrl: serverApiUrl(scope.serverUrl),
+							...(token ? { headers: { Authorization: `Bearer ${token}` } } : {}),
+						}),
+				});
+			}).pipe(
+				Effect.mapError((cause) =>
+					cause instanceof AuthenticatedApiError ? cause : new AuthenticatedApiError({ cause }),
 				),
 			);
-		}),
+		return attempt(false).pipe(
+			Effect.catchTag("AuthenticatedApiError", (error) =>
+				error.cause instanceof AuthUnauthorized &&
+				error.cause.reason.code === "authentication-required"
+					? attempt(true)
+					: Effect.fail(error),
+			),
+		);
+	},
 });
 
 export class AuthenticatedApi extends Context.Service<AuthenticatedApi, AuthenticatedApiService>()(

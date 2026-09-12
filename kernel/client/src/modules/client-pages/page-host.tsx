@@ -141,15 +141,15 @@ export function ClientPageDocumentHost() {
 	});
 	const [pool, setPool] = useState<FramePool>(() => ({ activeKey: null, entries: new Map() }));
 	const { entries, activeKey } = pool;
-	const reloadRequest = useRef<{
+	const [reloadRequest, setReloadRequest] = useState<{
 		readonly key: string;
 		readonly pathname: string;
 		readonly searchStr: string;
 		readonly navigationKey: string;
 		readonly previousDocument: ClientPageDocument | null;
-	}>(undefined);
+	}>();
 	const scopeKey = `${scope.serverUrl}\0${scope.userId}`;
-	const previousScope = useRef(scopeKey);
+	const [poolScope, setPoolScope] = useState(scopeKey);
 
 	const rendererContributor = document?.prepared.identity.contributors.find(
 		(contributor) =>
@@ -199,102 +199,120 @@ export function ClientPageDocumentHost() {
 		[edge.compact, edge.intent, edge.owner, entry, logicalLocation],
 	);
 
-	useLayoutEffect(() => {
-		if (previousScope.current === scopeKey) {
-			return;
-		}
-		previousScope.current = scopeKey;
-		reloadRequest.current = undefined;
+	const scopeChanged = poolScope !== scopeKey;
+	if (scopeChanged) {
+		setPoolScope(scopeKey);
+		setReloadRequest(undefined);
 		setPool({ activeKey: null, entries: new Map() });
-	}, [scopeKey]);
-
-	useLayoutEffect(() => {
-		if (document === null || navigation === undefined) {
-			if (document === null) {
-				reloadRequest.current = undefined;
-				setPool((current) =>
-					current.activeKey === null ? current : { ...current, activeKey: null },
-				);
-			}
-			return;
-		}
-		const compositionHash = document.prepared.composition.hash;
-		const requested = reloadRequest.current;
-		if (requested !== undefined && requested.previousDocument !== document) {
-			reloadRequest.current = undefined;
-			if (
-				requested.navigationKey === navigation.key &&
-				requested.pathname === location.pathname &&
-				requested.searchStr === location.searchStr
-			) {
-				setPool((current) => {
-					const previous = current.entries.get(requested.key);
-					if (
-						current.activeKey !== requested.key ||
-						previous?.navigation.key !== requested.navigationKey
-					) {
-						return current;
-					}
-					const existing = [...current.entries.values()].find(
-						(candidate) => candidate.compositionHash === compositionHash,
+	}
+	const [syncedPool, setSyncedPool] = useState<{
+		readonly document: ClientPageDocument | null;
+		readonly pathname: string;
+		readonly searchStr: string;
+		readonly navigation: PluginBridgeNavigationState | undefined;
+	}>();
+	if (
+		syncedPool === undefined ||
+		syncedPool.document !== document ||
+		syncedPool.navigation !== navigation ||
+		syncedPool.pathname !== location.pathname ||
+		syncedPool.searchStr !== location.searchStr
+	) {
+		setSyncedPool({
+			document,
+			navigation,
+			pathname: location.pathname,
+			searchStr: location.searchStr,
+		});
+		const syncPool = () => {
+			if (document === null || navigation === undefined) {
+				if (document === null) {
+					setReloadRequest(undefined);
+					setPool((current) =>
+						current.activeKey === null ? current : { ...current, activeKey: null },
 					);
-					const generation = (existing?.generation ?? -1) + 1;
-					const key = `${compositionHash}:${generation}`;
-					const next = new Map(current.entries);
-					next.delete(requested.key);
-					if (existing !== undefined) {
-						next.delete(existing.key);
-					}
-					return {
-						activeKey: key,
-						entries: retainCompositionRuntime(next, key, {
-							key,
-							document,
-							generation,
-							navigation,
-							compositionHash,
-							operationTargets: document.prepared.identity.operationTargets,
-							location: { pathname: location.pathname, searchStr: location.searchStr },
-						}),
-					};
-				});
+				}
 				return;
 			}
-		}
-		setPool((current) => {
-			const active =
-				current.activeKey === null ? undefined : current.entries.get(current.activeKey);
-			if (
-				active?.navigation.key === navigation.key &&
-				active.location.pathname === location.pathname &&
-				active.location.searchStr === location.searchStr &&
-				(active.compositionHash !== compositionHash ||
-					documentOwner(active.document.prepared) !== documentOwner(document.prepared))
-			) {
-				return current;
+			const compositionHash = document.prepared.composition.hash;
+			const requested = scopeChanged ? undefined : reloadRequest;
+			if (requested !== undefined && requested.previousDocument !== document) {
+				setReloadRequest(undefined);
+				if (
+					requested.navigationKey === navigation.key &&
+					requested.pathname === location.pathname &&
+					requested.searchStr === location.searchStr
+				) {
+					setPool((current) => {
+						const previous = current.entries.get(requested.key);
+						if (
+							current.activeKey !== requested.key ||
+							previous?.navigation.key !== requested.navigationKey
+						) {
+							return current;
+						}
+						const existing = [...current.entries.values()].find(
+							(candidate) => candidate.compositionHash === compositionHash,
+						);
+						const generation = (existing?.generation ?? -1) + 1;
+						const key = `${compositionHash}:${generation}`;
+						const next = new Map(current.entries);
+						next.delete(requested.key);
+						if (existing !== undefined) {
+							next.delete(existing.key);
+						}
+						return {
+							activeKey: key,
+							entries: retainCompositionRuntime(next, key, {
+								key,
+								document,
+								generation,
+								navigation,
+								compositionHash,
+								operationTargets: document.prepared.identity.operationTargets,
+								location: { pathname: location.pathname, searchStr: location.searchStr },
+							}),
+						};
+					});
+					return;
+				}
 			}
-			const existing = [...current.entries.values()].find(
-				(candidate) => candidate.compositionHash === compositionHash,
-			);
-			const generation = existing?.generation ?? 0;
-			const key = existing?.key ?? `${compositionHash}:${generation}`;
-			const next = retainCompositionRuntime(current.entries, key, {
-				key,
-				document,
-				generation,
-				navigation,
-				compositionHash,
-				operationTargets: document.prepared.identity.operationTargets,
-				location: { pathname: location.pathname, searchStr: location.searchStr },
+			setPool((current) => {
+				const active =
+					current.activeKey === null ? undefined : current.entries.get(current.activeKey);
+				if (
+					active?.navigation.key === navigation.key &&
+					active.location.pathname === location.pathname &&
+					active.location.searchStr === location.searchStr &&
+					(active.compositionHash !== compositionHash ||
+						documentOwner(active.document.prepared) !== documentOwner(document.prepared))
+				) {
+					return current;
+				}
+				const existing = [...current.entries.values()].find(
+					(candidate) => candidate.compositionHash === compositionHash,
+				);
+				const generation = existing?.generation ?? 0;
+				const key = existing?.key ?? `${compositionHash}:${generation}`;
+				const next = retainCompositionRuntime(current.entries, key, {
+					key,
+					document,
+					generation,
+					navigation,
+					compositionHash,
+					operationTargets: document.prepared.identity.operationTargets,
+					location: { pathname: location.pathname, searchStr: location.searchStr },
+				});
+				return { entries: next, activeKey: key };
 			});
-			return { entries: next, activeKey: key };
-		});
-	}, [document, location.pathname, location.searchStr, navigation]);
+		};
+		syncPool();
+	}
 
 	const displayedKey = rendersPluginSurface ? activeKey : null;
 	const activeDocument = displayedKey === null ? undefined : entries.get(displayedKey)?.document;
 	useLayoutEffect(() => {
-		if (displayedKey === null) {
+		if (displayedKey === null || activeDocument === undefined) {
 			return undefined;
 		}
 		header.activate(displayedKey);
@@ -319,12 +337,10 @@ export function ClientPageDocumentHost() {
 				searchStr: before.location.searchStr,
 				navigationKey: before.navigation.key,
 			};
-			reloadRequest.current = request;
-			void router.invalidate().catch(() => {
-				if (reloadRequest.current === request) {
-					reloadRequest.current = undefined;
-				}
-			});
+			setReloadRequest(request);
+			void router
+				.invalidate()
+				.catch(() => setReloadRequest((current) => (current === request ? undefined : current)));
 		},
 		[document, entries, router],
 	);
@@ -410,7 +426,6 @@ function ClientPageFrame(props: {
 	const router = useRouter();
 	const navigate = useNavigate();
 	const active = useRef(props.active);
-	active.current = props.active;
 	const { context, identity } = props.document.prepared;
 	const rendererPluginId =
 		context.renderer.kind === "plugin" ? context.renderer.pluginId : undefined;
@@ -436,6 +451,7 @@ function ClientPageFrame(props: {
 		[props.runtime, props.scope],
 	);
 	useLayoutEffect(() => {
+		active.current = props.active;
 		props.runtime.runSync(
 			Effect.map(EntityInterestService, (service) => service.refresh(props.scope)),
 		);

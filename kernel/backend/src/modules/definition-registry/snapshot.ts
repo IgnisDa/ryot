@@ -323,6 +323,16 @@ export const definitionSourceFromSnapshot = (snapshot: DefinitionSnapshot): Defi
 	),
 });
 
+const validateProperties = (
+	kind: string,
+	slug: string,
+	properties: unknown,
+	propertiesSchema: AppSchema | undefined,
+): Effect.Effect<Record<string, unknown>, DefinitionNotFound | PropertyValidationError> =>
+	propertiesSchema
+		? parseAppSchemaProperties({ kind, properties, propertiesSchema })
+		: Effect.fail(new DefinitionNotFound({ kind, slug }));
+
 export const definitionLookup = (snapshot: DefinitionSnapshot) => {
 	const getEntitySchema = (slug: string) => snapshot.entitySchemas[slug];
 	const getSignalSchema = (slug: string) => snapshot.signalSchemas[slug];
@@ -330,15 +340,6 @@ export const definitionLookup = (snapshot: DefinitionSnapshot) => {
 	const getRelationshipSchema = (slug: string) => snapshot.relationshipSchemas[slug];
 	const getEventSchema = (entitySchemaSlug: string, eventSchemaSlug: string) =>
 		getEntitySchema(entitySchemaSlug)?.eventSchemas[eventSchemaSlug];
-	const validateProperties = (
-		kind: string,
-		slug: string,
-		properties: unknown,
-		propertiesSchema: AppSchema | undefined,
-	): Effect.Effect<Record<string, unknown>, DefinitionNotFound | PropertyValidationError> =>
-		propertiesSchema
-			? parseAppSchemaProperties({ kind, properties, propertiesSchema })
-			: Effect.fail(new DefinitionNotFound({ kind, slug }));
 	const validateEntityProperties = (slug: string, properties: unknown) =>
 		validateProperties("Entity", slug, properties, getEntitySchema(slug)?.propertiesSchema);
 	const validateEventProperties = (

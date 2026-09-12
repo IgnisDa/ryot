@@ -263,6 +263,35 @@ const sessionKeys = (sessionId: string) => [
 	redisKeys.entityInterestSessionEntities(sessionId),
 ];
 
+const parseCommandOutcome = (result: unknown): InterestCommandOutcome => {
+	if (!Array.isArray(result) || !result.every((value) => typeof value === "string")) {
+		throw new Error("Redis returned an invalid entity interest command outcome");
+	}
+	const [status, rawRevision, ...rawPending] = result;
+	if (
+		status === "missing-session" ||
+		status === "revision-mismatch" ||
+		status === "limit-exceeded" ||
+		status === "overlap"
+	) {
+		return { status };
+	}
+	const revision = Number(rawRevision);
+	if (status !== "applied" || !Number.isSafeInteger(revision) || rawPending.length % 2 !== 0) {
+		throw new Error("Redis returned an invalid entity interest command outcome");
+	}
+	const pending: PendingInterest[] = [];
+	for (let index = 0; index < rawPending.length; index += 2) {
+		const entityId = rawPending[index];
+		const pendingRevision = Number(rawPending[index + 1]);
+		if (entityId === undefined || !Number.isSafeInteger(pendingRevision)) {
+			throw new Error("Redis returned an invalid pending interest token");
+		}
+		pending.push({ entityId, revision: pendingRevision });
+	}
+	return { status, pending, revision };
+};
+
 export class EntityInterestStore extends Context.Service<EntityInterestStore>()(
 	"EntityInterestStore",
 	{
@@ -284,38 +313,6 @@ export class EntityInterestStore extends Context.Service<EntityInterestStore>()(
 					REVERSE_KEY_SUFFIX,
 				];
 			});
-			const parseCommandOutcome = (result: unknown): InterestCommandOutcome => {
-				if (!Array.isArray(result) || !result.every((value) => typeof value === "string")) {
-					throw new Error("Redis returned an invalid entity interest command outcome");
-				}
-				const [status, rawRevision, ...rawPending] = result;
-				if (
-					status === "missing-session" ||
-					status === "revision-mismatch" ||
-					status === "limit-exceeded" ||
-					status === "overlap"
-				) {
-					return { status };
-				}
-				const revision = Number(rawRevision);
-				if (
-					status !== "applied" ||
-					!Number.isSafeInteger(revision) ||
-					rawPending.length % 2 !== 0
-				) {
-					throw new Error("Redis returned an invalid entity interest command outcome");
-				}
-				const pending: PendingInterest[] = [];
-				for (let index = 0; index < rawPending.length; index += 2) {
-					const entityId = rawPending[index];
-					const pendingRevision = Number(rawPending[index + 1]);
-					if (entityId === undefined || !Number.isSafeInteger(pendingRevision)) {
-						throw new Error("Redis returned an invalid pending interest token");
-					}
-					pending.push({ entityId, revision: pendingRevision });
-				}
-				return { status, pending, revision };
-			};
 
 			const openSession = Effect.fn("EntityInterestStore.openSession")(function* (input: {
 				readonly userId: UserId;

@@ -37,13 +37,14 @@ const routeKey = (url: string) => {
 	return `${parsed.pathname}${parsed.search}`;
 };
 
-const httpCall = (routes: Record<string, Route>): HttpCall =>
-	((_method, url) => {
+const httpCall =
+	(routes: Record<string, Route>): HttpCall =>
+	(_method, url) => {
 		const response = routes[routeKey(url)];
 		return response === failure || response === undefined
 			? hostFailure("request failed")
 			: httpSuccess(response);
-	}) as HttpCall;
+	};
 
 const libraries = (entries: Array<Record<string, JsonValue>>) => ({
 	MediaContainer: { Directory: entries },
@@ -627,38 +628,38 @@ describe("Komga yank", () => {
 	});
 });
 
-describe("YouTube Music yank", () => {
-	const setup = (songs?: ReadonlyArray<{ title: string; videoId: string }>) => {
-		const claims = new Set<string>();
-		const host = defineSandboxTestHost(youtubeMusicManifest, {
-			httpCall: httpCall({}),
-			log: () => hostSuccess(null),
-			span: () => hostSuccess(null),
-			claimPersistentValue: (key) => {
-				if (claims.has(key)) {
-					return hostSuccess({ value: true, claimed: false });
-				}
-				claims.add(key);
-				return hostSuccess({ claimed: true });
-			},
-			getCurrentIntegration: () =>
-				hostSuccess(
-					integrationRecord({
-						lot: "yank",
-						provider: "youtube_music",
-						providerSpecifics: { timezone: "UTC", authCookie: "cookie" },
-					}),
-				),
-		});
-		const run = (startedAt: string) =>
-			Effect.runPromise(
-				runYoutubeMusicYank({}, host, { ...execution, startedAt }, () =>
-					Effect.succeed(historyClient(songs)),
-				),
-			);
-		return { run, claims };
-	};
+const setup = (songs?: ReadonlyArray<{ title: string; videoId: string }>) => {
+	const claims = new Set<string>();
+	const host = defineSandboxTestHost(youtubeMusicManifest, {
+		httpCall: httpCall({}),
+		log: () => hostSuccess(null),
+		span: () => hostSuccess(null),
+		claimPersistentValue: (key) => {
+			if (claims.has(key)) {
+				return hostSuccess({ value: true, claimed: false });
+			}
+			claims.add(key);
+			return hostSuccess({ claimed: true });
+		},
+		getCurrentIntegration: () =>
+			hostSuccess(
+				integrationRecord({
+					lot: "yank",
+					provider: "youtube_music",
+					providerSpecifics: { timezone: "UTC", authCookie: "cookie" },
+				}),
+			),
+	});
+	const run = (startedAt: string) =>
+		Effect.runPromise(
+			runYoutubeMusicYank({}, host, { ...execution, startedAt }, () =>
+				Effect.succeed(historyClient(songs)),
+			),
+		);
+	return { run, claims };
+};
 
+describe("YouTube Music yank", () => {
 	it("returns a zone-local date and a positive sub-day TTL for a valid timezone", () => {
 		const { localDate, ttlSeconds } = dailyProgressWindow(
 			"America/New_York",

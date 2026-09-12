@@ -57,6 +57,14 @@ export const buildAuthorizationUrl = (
 	return url.toString();
 };
 
+const launch = (plan: OAuthLaunchPlan) =>
+	plan.client.nativeApplicationId !== null
+		? Effect.tryPromise({
+				try: () => Browser.open({ url: plan.authorizationUrl }),
+				catch: () => new OAuthLauncherError({ reason: "launch-failed" }),
+			}).pipe(Effect.asVoid)
+		: Effect.sync(() => window.location.assign(plan.authorizationUrl));
+
 export class OAuthLauncher extends Context.Service<OAuthLauncher>()("OAuthLauncher", {
 	make: Effect.gen(function* () {
 		const api = yield* PublicApi;
@@ -124,14 +132,6 @@ export class OAuthLauncher extends Context.Service<OAuthLauncher>()("OAuthLaunch
 				},
 			} as const;
 		});
-
-		const launch = (plan: OAuthLaunchPlan) =>
-			plan.client.nativeApplicationId !== null
-				? Effect.tryPromise({
-						try: () => Browser.open({ url: plan.authorizationUrl }),
-						catch: () => new OAuthLauncherError({ reason: "launch-failed" }),
-					}).pipe(Effect.asVoid)
-				: Effect.sync(() => window.location.assign(plan.authorizationUrl));
 
 		return { launch, prepare };
 	}),

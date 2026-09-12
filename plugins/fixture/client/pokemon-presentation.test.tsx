@@ -54,6 +54,29 @@ const rows = (items: readonly Record<string, unknown>[]) => ({
 	pageInfo: { limit: 100, hasMore: false, nextCursor: null },
 });
 
+const ExpansionPage = () => (
+	<div>
+		<PokemonCard
+			data={bulbasaur}
+			viewContext={{}}
+			reference={reference("pokemon-1", "Bulbasaur")}
+		/>
+		<PokemonRow data={missingno} viewContext={{}} reference={reference("pokemon-2", "MissingNo")} />
+	</div>
+);
+
+const ReplacementPage = () => {
+	const [data, setData] = useState(bulbasaur);
+	return (
+		<div>
+			<button type="button" onClick={() => setData({ ...data, name: "Bulbasaur updated" })}>
+				Replace data
+			</button>
+			<PokemonRow data={data} viewContext={{}} reference={reference("pokemon-1", data.name)} />
+		</div>
+	);
+};
+
 describe("Pokemon presentations", () => {
 	afterEach(disposePluginBridges);
 
@@ -159,21 +182,7 @@ describe("Pokemon presentations", () => {
 	});
 
 	it("renders artwork and keeps expansion local to each entity item", async () => {
-		const Page = () => (
-			<div>
-				<PokemonCard
-					data={bulbasaur}
-					viewContext={{}}
-					reference={reference("pokemon-1", "Bulbasaur")}
-				/>
-				<PokemonRow
-					data={missingno}
-					viewContext={{}}
-					reference={reference("pokemon-2", "MissingNo")}
-				/>
-			</div>
-		);
-		const page = mountPluginPage(Page, {
+		const page = mountPluginPage(ExpansionPage, {
 			location: entityLocation("pokemon-1", "pokemon"),
 			page: entityPageContext({
 				pluginId: "fixture",
@@ -232,18 +241,7 @@ describe("Pokemon presentations", () => {
 	});
 
 	it("keeps details expanded when replacement data has the same entity identity", async () => {
-		const Page = () => {
-			const [data, setData] = useState(bulbasaur);
-			return (
-				<div>
-					<button type="button" onClick={() => setData({ ...data, name: "Bulbasaur updated" })}>
-						Replace data
-					</button>
-					<PokemonRow data={data} viewContext={{}} reference={reference("pokemon-1", data.name)} />
-				</div>
-			);
-		};
-		const page = mountPluginPage(Page, {
+		const page = mountPluginPage(ReplacementPage, {
 			location: entityLocation("pokemon-1", "pokemon"),
 			page: entityPageContext({
 				pluginId: "fixture",

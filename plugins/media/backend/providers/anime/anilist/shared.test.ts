@@ -17,6 +17,9 @@ const makeHost = (httpCall: AnilistAnimeHost["httpCall"], allowNsfw = false) =>
 		getUserPreferences: () => Effect.succeed({ allowNsfw, disableIntegrations: false }),
 	});
 const execution = { metadata: {}, sandboxScriptId: "script_test" };
+const searchResponse = () =>
+	httpSuccess({ data: { Page: { media: [], pageInfo: { total: 41 } } } });
+
 describe("anime.anilist sandbox script", () => {
 	it("declares one script per operation", () => {
 		expect([
@@ -154,8 +157,6 @@ describe("anime.anilist sandbox script", () => {
 	});
 	it("requests non-adult media only until the user allows NSFW", () => {
 		const requestBodies: string[] = [];
-		const searchResponse = () =>
-			httpSuccess({ data: { Page: { media: [], pageInfo: { total: 41 } } } });
 		const collectBody = (options: { body?: string | undefined } | undefined) => {
 			requestBodies.push(options?.body ?? "");
 			return searchResponse();

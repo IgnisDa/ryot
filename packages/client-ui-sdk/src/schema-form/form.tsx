@@ -1,7 +1,7 @@
 import type { AppSchema } from "@ryot-app/contract/schema/property-schema";
 import { useForm } from "@tanstack/react-form";
 import { Match } from "effect";
-import { useRef, type ComponentProps, type ReactNode, type Ref } from "react";
+import { useRef, useState, type ComponentProps, type ReactNode, type Ref } from "react";
 
 import { Chip } from "../chips";
 import { Button } from "../index";
@@ -32,13 +32,15 @@ export type SchemaFormIcons = SchemaFileIcons & {
 	readonly chevron: ReactNode;
 };
 
+const emptySchemaFormValues: SchemaFormValues = {};
+
 export function useSchemaForm(props: {
 	mode?: SchemaFormMode;
 	schemas: readonly (AppSchema | undefined)[];
 	onSubmit: (values: SchemaFormValues) => void;
 }) {
 	return useForm({
-		defaultValues: {} as SchemaFormValues,
+		defaultValues: emptySchemaFormValues,
 		onSubmit: ({ value }) => props.onSubmit(value),
 		errorVisibility: ({ state }) => state.submissionAttempts > 0,
 		validators: [
@@ -124,21 +126,27 @@ function SchemaArrayControl(props: {
 	readonly inputRef: Ref<HTMLInputElement>;
 	readonly onChange: (value: SchemaFormValue) => void;
 }) {
-	const nextRowId = useRef(0);
-	const rowIds = useRef<string[]>([]);
+	const [rowIds, setRowIds] = useState<{ readonly ids: readonly string[]; readonly next: number }>({
+		next: 0,
+		ids: [],
+	});
 	const item = props.field.arrayItem;
 	if (item === undefined) {
 		return null;
 	}
 	const values = schemaArray(props.value);
-	while (rowIds.current.length < values.length) {
-		rowIds.current.push(`${props.field.key}-${nextRowId.current}`);
-		nextRowId.current += 1;
+	let currentRowIds = rowIds;
+	if (currentRowIds.ids.length !== values.length) {
+		const ids = currentRowIds.ids.slice(0, values.length);
+		let next = currentRowIds.next;
+		while (ids.length < values.length) {
+			ids.push(`${props.field.key}-${next}`);
+			next += 1;
+		}
+		currentRowIds = { ids, next };
+		setRowIds(currentRowIds);
 	}
-	if (rowIds.current.length > values.length) {
-		rowIds.current.length = values.length;
-	}
-	const rows = rowIds.current.map((id, index) => ({ id, value: values[index] }));
+	const rows = currentRowIds.ids.map((id, index) => ({ id, value: values[index] }));
 	const replace = (index: number, value: SchemaFormArrayValue) =>
 		props.onChange(
 			values.map((current, currentIndex) => (currentIndex === index ? value : current)),
@@ -183,7 +191,10 @@ function SchemaArrayControl(props: {
 						variant="secondary"
 						aria-label={`Remove ${props.field.label} item ${index + 1}`}
 						onClick={() => {
-							rowIds.current.splice(index, 1);
+							setRowIds({
+								next: currentRowIds.next,
+								ids: currentRowIds.ids.filter((_, currentIndex) => currentIndex !== index),
+							});
 							props.onChange(values.filter((_, currentIndex) => currentIndex !== index));
 						}}
 					>
@@ -197,8 +208,10 @@ function SchemaArrayControl(props: {
 				aria-label={`Add ${props.field.label} item`}
 				disabled={maximum !== undefined && values.length >= maximum}
 				onClick={() => {
-					rowIds.current.push(`${props.field.key}-${nextRowId.current}`);
-					nextRowId.current += 1;
+					setRowIds({
+						next: currentRowIds.next + 1,
+						ids: [...currentRowIds.ids, `${props.field.key}-${currentRowIds.next}`],
+					});
 					props.onChange([...values, item.type === "boolean" ? false : ""]);
 				}}
 			>

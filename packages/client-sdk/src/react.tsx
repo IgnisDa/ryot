@@ -271,6 +271,58 @@ export function createRyotMutation<Input, Data, HostServices = undefined>(
 	return new MutationDefinition(mutation);
 }
 
+const createPageRefreshRegistry = (schedule: RyotSchedule): ManagedPageRefreshRegistry => {
+	const handles = new Set<PageRefreshHandle>();
+	const catchUps = new Set<PageRefreshHandle>();
+	let generation = 0;
+	let refreshAll = false;
+	const run = async () => {
+		const selected = refreshAll
+			? [...handles]
+			: [...catchUps].filter((handle) => handles.has(handle));
+		refreshAll = false;
+		catchUps.clear();
+		await Promise.all(selected.map((handle) => Promise.resolve().then(handle)));
+	};
+	let refresh = createEntityRefresh(schedule, run);
+	let disposed = false;
+	return {
+		generation: () => generation,
+		hint: () => {
+			generation++;
+			refreshAll = true;
+			refresh.hint();
+		},
+		dispose: () => {
+			disposed = true;
+			handles.clear();
+			catchUps.clear();
+			refreshAll = false;
+			refresh.dispose();
+		},
+		activate: () => {
+			if (disposed) {
+				refresh = createEntityRefresh(schedule, run);
+				disposed = false;
+				if (refreshAll || catchUps.size > 0) {
+					refresh.hint();
+				}
+			}
+		},
+		register: (handle: PageRefreshHandle, consumedGeneration?: number) => {
+			handles.add(handle);
+			if (consumedGeneration !== undefined && consumedGeneration !== generation) {
+				catchUps.add(handle);
+				refresh.hint();
+			}
+			return () => {
+				handles.delete(handle);
+				catchUps.delete(handle);
+			};
+		},
+	};
+};
+
 export const RyotProvider = ({
 	runtime,
 	children,
@@ -296,57 +348,10 @@ export const RyotProvider = ({
 		[runtime],
 	);
 	const value = useMemo(() => ({ ...runtimeValue, hostServices }), [runtimeValue, hostServices]);
-	const refreshRegistry = useMemo<ManagedPageRefreshRegistry>(() => {
-		const handles = new Set<PageRefreshHandle>();
-		const catchUps = new Set<PageRefreshHandle>();
-		let generation = 0;
-		let refreshAll = false;
-		const run = async () => {
-			const selected = refreshAll
-				? [...handles]
-				: [...catchUps].filter((handle) => handles.has(handle));
-			refreshAll = false;
-			catchUps.clear();
-			await Promise.all(selected.map((handle) => Promise.resolve().then(handle)));
-		};
-		let refresh = createEntityRefresh(value.schedule, run);
-		let disposed = false;
-		return {
-			generation: () => generation,
-			hint: () => {
-				generation++;
-				refreshAll = true;
-				refresh.hint();
-			},
-			dispose: () => {
-				disposed = true;
-				handles.clear();
-				catchUps.clear();
-				refreshAll = false;
-				refresh.dispose();
-			},
-			activate: () => {
-				if (disposed) {
-					refresh = createEntityRefresh(value.schedule, run);
-					disposed = false;
-					if (refreshAll || catchUps.size > 0) {
-						refresh.hint();
-					}
-				}
-			},
-			register: (handle: PageRefreshHandle, consumedGeneration?: number) => {
-				handles.add(handle);
-				if (consumedGeneration !== undefined && consumedGeneration !== generation) {
-					catchUps.add(handle);
-					refresh.hint();
-				}
-				return () => {
-					handles.delete(handle);
-					catchUps.delete(handle);
-				};
-			},
-		};
-	}, [value.schedule]);
+	const refreshRegistry = useMemo(
+		() => createPageRefreshRegistry(value.schedule),
+		[value.schedule],
+	);
 	useEffect(() => {
 		refreshRegistry.activate();
 		const unsubscribe = value.client.mutationCompleted.subscribe(refreshRegistry.hint);
@@ -740,6 +745,8 @@ export const useEntityRefresh = (options: {
 	const controller = useRef<
 		| {
 				subscription: EntityInterestSubscription | undefined;
+				readonly client: RyotClient;
+				readonly identity: string;
 				readonly refresh: ReturnType<typeof createEntityRefresh>;
 		  }
 		| undefined
@@ -755,7 +762,7 @@ export const useEntityRefresh = (options: {
 			await latest.current.onRefresh(updates);
 			tracker.commit();
 		});
-		controller.current = { refresh, subscription: undefined };
+		controller.current = { client, refresh, subscription: undefined, identity: options.identity };
 		return () => {
 			controller.current = undefined;
 			refresh.dispose();
@@ -767,7 +774,7 @@ export const useEntityRefresh = (options: {
 		previous.current = { active, identity: options.identity };
 		const current = controller.current;
 		current?.refresh.block(!active || latest.current.blocked);
-		if (!active || !current) {
+		if (!active || current?.client !== client || current.identity !== options.identity) {
 			return undefined;
 		}
 		const subscription = entityTransport(() =>
@@ -814,7 +821,6 @@ export function useRyotQuery<Data, HostServices>(
 		throw new Error("useRyotQuery requires a query created by createRyotQuery");
 	}
 	// The definition declares the host type; React context cannot link that generic to a provider.
-	// oxlint-disable-next-line typescript/no-unsafe-type-assertion
 	const atom = query.atom(registry, client, hostServices, input);
 	useQueryInterest(client, schedule, atom, input, query.entityInterest);
 	const result = useAtomValue(atom);
@@ -861,8 +867,6 @@ export const useRyotMutation = <Input, Data, HostServices>(
 	// The definition declares the host type; React context cannot link that generic to a provider.
 	// oxlint-disable-next-line typescript/no-unsafe-type-assertion
 	const typedHostServices = hostServices as HostServices;
-	const latestHostServices = useRef(typedHostServices);
-	latestHostServices.current = typedHostServices;
 	if (!(mutation instanceof MutationDefinition)) {
 		throw new Error("useRyotMutation requires a mutation created by createRyotMutation");
 	}
@@ -871,11 +875,10 @@ export const useRyotMutation = <Input, Data, HostServices>(
 			Atom.fn<Input>()<Error, Data>((input) =>
 				Effect.tryPromise({
 					catch: (error) => (error instanceof Error ? error : new Error(String(error))),
-					try: (signal) =>
-						mutation.run({ input, client, signal, hostServices: latestHostServices.current }),
+					try: (signal) => mutation.run({ input, client, signal, hostServices: typedHostServices }),
 				}),
 			),
-		[client, mutation],
+		[client, mutation, typedHostServices],
 	);
 	const result = useAtomValue(atom);
 	const set = useAtomSet(atom);
@@ -933,13 +936,12 @@ export const managedAssetBatches = (
 
 const useStableManagedAssetLocators = (locators: readonly ManagedAssetLocator[]) => {
 	const key = canonicalAssetBatchKey(locators);
-	const ref = useRef<
-		{ readonly key: string; readonly locators: readonly ManagedAssetLocator[] } | undefined
-	>(undefined);
-	if (ref.current?.key !== key) {
-		ref.current = { key, locators };
+	const [stable, setStable] = useState({ key, locators });
+	if (stable.key !== key) {
+		setStable({ key, locators });
+		return locators;
 	}
-	return ref.current.locators;
+	return stable.locators;
 };
 
 const managedAssetBatchQuery = createRyotQuery<string, readonly ManagedAssetResolution[]>(

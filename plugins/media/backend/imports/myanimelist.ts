@@ -1,5 +1,10 @@
 import { Result } from "@ryot-app/sandbox-sdk/effect";
-import { XMLParser } from "@ryot-app/sandbox-sdk/fast-xml-parser";
+import {
+	COMMON_HTML,
+	CURRENCY,
+	EntityDecoder,
+	XMLParser,
+} from "@ryot-app/sandbox-sdk/fast-xml-parser";
 
 import { nowIso, parseDateWithFormat } from "./dates";
 import { getOrCreateMediaEntityGroup, type ImportMediaEntityGroupBuilder } from "./groups";
@@ -17,11 +22,16 @@ import type { MediaImportAdapterFailure } from "./schemas";
 type MyanimelistLot = "anime" | "manga";
 type MyanimelistXmlItem = Record<string, string | undefined>;
 
-const parser = new XMLParser({
-	htmlEntities: true,
-	parseTagValue: false,
-	isArray: (tagName) => tagName === "anime" || tagName === "manga",
-});
+const createParser = () =>
+	new XMLParser({
+		parseTagValue: false,
+		isArray: (tagName) => tagName === "anime" || tagName === "manga",
+		entityDecoder: new EntityDecoder({
+			numericAllowed: true,
+			namedEntities: { ...COMMON_HTML, ...CURRENCY },
+			limit: { applyLimitsTo: "all", maxExpandedLength: 100_000, maxTotalExpansions: Infinity },
+		}),
+	});
 
 const isObjectRecord = (value: unknown): value is Record<string, unknown> =>
 	typeof value === "object" && value !== null && !Array.isArray(value);
@@ -58,7 +68,7 @@ const assertWellFormedXml = (xml: string) => {
 
 const lotItems = (xmlText: string, lot: MyanimelistLot) => {
 	assertWellFormedXml(xmlText);
-	const document = parser.parse(xmlText) as unknown;
+	const document = createParser().parse(xmlText) as unknown;
 	if (!isObjectRecord(document) || !isObjectRecord(document["myanimelist"])) {
 		return [];
 	}

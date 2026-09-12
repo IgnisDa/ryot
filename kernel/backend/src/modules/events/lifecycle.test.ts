@@ -214,46 +214,46 @@ const execution = Layer.succeed(
 
 describe("Event lifecycle PostgreSQL", () => {
 	it.effect("event, change trigger and queued runs commit together and roll back together", () =>
-		withDatabase((observer) =>
-			Effect.gen(function* () {
-				const run = (id: string, fail: boolean) => {
-					let dispatched = 0;
-					return runEventCreateWorkflow(
-						{
-							userId,
-							command: command(id),
-							payload: [{ entityId, properties: {}, eventSchemaSlug }],
-						},
-						id,
-					).pipe(
-						Effect.provide(Layer.mergeAll(workflowLayer, planner(fail))),
-						Effect.provideService(WorkflowEngine, engine),
-						Effect.provideService(
-							WorkflowInstance,
-							WorkflowInstance.initial(EventCreateWorkflow, id),
-						),
-						Effect.provideService(
-							LifecycleExecution,
-							withLifecycleDispatch({
-								skipQueuedPolicies: () => Effect.void,
-								executePolicy: () => Effect.die("Unexpected policy"),
-								after: () =>
-									Effect.gen(function* () {
-										dispatched += 1;
-										const result = yield* Effect.promise(() =>
-											observer.query(
-												`SELECT (SELECT count(*) FROM event)::int AS events, (SELECT count(*) FROM automation_trigger WHERE category='change')::int AS changes, (SELECT count(*) FROM automation_run)::int AS runs`,
-											),
-										);
-										expect(result.rows).toEqual([
-											{ events: 1, runs: dispatched, changes: dispatched },
-										]);
-										return [];
-									}),
-							}),
-						),
-					);
-				};
+		withDatabase((observer) => {
+			const run = (id: string, fail: boolean) => {
+				let dispatched = 0;
+				return runEventCreateWorkflow(
+					{
+						userId,
+						command: command(id),
+						payload: [{ entityId, properties: {}, eventSchemaSlug }],
+					},
+					id,
+				).pipe(
+					Effect.provide(Layer.mergeAll(workflowLayer, planner(fail))),
+					Effect.provideService(WorkflowEngine, engine),
+					Effect.provideService(
+						WorkflowInstance,
+						WorkflowInstance.initial(EventCreateWorkflow, id),
+					),
+					Effect.provideService(
+						LifecycleExecution,
+						withLifecycleDispatch({
+							skipQueuedPolicies: () => Effect.void,
+							executePolicy: () => Effect.die("Unexpected policy"),
+							after: () =>
+								Effect.gen(function* () {
+									dispatched += 1;
+									const result = yield* Effect.promise(() =>
+										observer.query(
+											`SELECT (SELECT count(*) FROM event)::int AS events, (SELECT count(*) FROM automation_trigger WHERE category='change')::int AS changes, (SELECT count(*) FROM automation_run)::int AS runs`,
+										),
+									);
+									expect(result.rows).toEqual([
+										{ events: 1, runs: dispatched, changes: dispatched },
+									]);
+									return [];
+								}),
+						}),
+					),
+				);
+			};
+			return Effect.gen(function* () {
 				assertExitFails(
 					yield* Effect.exit(run("failed", true)),
 					new DbError({ message: "planning failed after run insertion" }),
@@ -266,8 +266,8 @@ describe("Event lifecycle PostgreSQL", () => {
 					)).rows,
 				).toEqual([{ runs: 0, events: 0, triggers: 1 }]);
 				expect((yield* run("accepted", false)).count).toBe(1);
-			}),
-		),
+			});
+		}),
 	);
 
 	it.effect("reference moves and deletes retain exact snapshots and advance updatedAt", () =>

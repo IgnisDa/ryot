@@ -1067,6 +1067,7 @@ describe("plugin bridge", () => {
 	it("round-trips a collection mutation and sanitizes invalid outcomes", async () => {
 		const calls: PluginCollectionRequest[] = [];
 		let count = 0;
+		const redactedFailure = { cause: "secret", reason: "private", outcome: "failure" };
 		const { init, received, failures, pluginPort } = connect({
 			onCollection: (request) => {
 				calls.push(request);
@@ -1075,11 +1076,7 @@ describe("plugin bridge", () => {
 					count === 1
 						? { outcome: "success", response: membership }
 						: // oxlint-disable-next-line typescript/no-unsafe-type-assertion -- verifies runtime detail redaction
-							({
-								cause: "secret",
-								reason: "private",
-								outcome: "failure",
-							} as unknown as PluginCollectionOutcome),
+							(redactedFailure as unknown as PluginCollectionOutcome),
 				);
 			},
 		});

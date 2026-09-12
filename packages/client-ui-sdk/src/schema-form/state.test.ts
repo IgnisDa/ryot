@@ -57,6 +57,8 @@ const schema = {
 	},
 } satisfies AppSchema;
 
+const withRules = (when: AppSchema["rules"]) => ({ ...schema, rules: when });
+
 const visibilitySchema = {
 	rules: [
 		{
@@ -395,7 +397,6 @@ describe("schema form state", () => {
 	});
 
 	it("evaluates existence, membership, and combined rule conditions", () => {
-		const conditional = (when: AppSchema["rules"]) => ({ ...schema, rules: when });
 		const values = { year: 2026, region: "uk", title: "Dune", note: undefined };
 		const noteRule = {
 			path: ["note"],
@@ -405,19 +406,19 @@ describe("schema form state", () => {
 
 		expect(
 			validateSchemaFormValues(
-				conditional([{ ...noteRule, when: { path: ["region"], operator: "exists" } }]),
+				withRules([{ ...noteRule, when: { path: ["region"], operator: "exists" } }]),
 				values,
 			).get("note"),
 		).toBe("Note is required");
 		expect(
 			validateSchemaFormValues(
-				conditional([{ ...noteRule, when: { path: ["region"], operator: "not_exists" } }]),
+				withRules([{ ...noteRule, when: { path: ["region"], operator: "not_exists" } }]),
 				values,
 			).get("note"),
 		).toBeUndefined();
 		expect(
 			validateSchemaFormValues(
-				conditional([
+				withRules([
 					{ ...noteRule, when: { operator: "in", path: ["region"], value: ["uk", "us"] } },
 				]),
 				values,
@@ -425,15 +426,13 @@ describe("schema form state", () => {
 		).toBe("Note is required");
 		expect(
 			validateSchemaFormValues(
-				conditional([
-					{ ...noteRule, when: { value: ["uk"], path: ["region"], operator: "not_in" } },
-				]),
+				withRules([{ ...noteRule, when: { value: ["uk"], path: ["region"], operator: "not_in" } }]),
 				values,
 			).get("note"),
 		).toBeUndefined();
 		expect(
 			validateSchemaFormValues(
-				conditional([
+				withRules([
 					{
 						...noteRule,
 						when: {
@@ -450,7 +449,7 @@ describe("schema form state", () => {
 		).toBe("Note is required");
 		expect(
 			validateSchemaFormValues(
-				conditional([
+				withRules([
 					{
 						...noteRule,
 						when: {

@@ -95,9 +95,8 @@ export const analyzeClientPluginTypes = (
 					.map(({ fileName }) => logicalFile(fileName))
 					.filter((path) => Object.hasOwn(files, path)),
 				diagnostics: diagnostics
-					.map(
-						(diagnostic): ClientPluginCompilerDiagnostic =>
-							normalizeTypeScriptDiagnostic(diagnostic, sourceFiles, fallbackFile, logicalFile),
+					.map((diagnostic): ClientPluginCompilerDiagnostic =>
+						normalizeTypeScriptDiagnostic(diagnostic, sourceFiles, fallbackFile, logicalFile),
 					)
 					.filter((diagnostic) => diagnostic.severity === "error"),
 			};

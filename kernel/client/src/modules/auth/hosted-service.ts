@@ -76,11 +76,12 @@ const request = <A>(operation: () => Promise<AuthResponse<A>>, fallback: string)
 		),
 	);
 
+const signInDemo = () => requestDemoSignIn(globalThis.fetch, window.location.origin);
+
 export class HostedAuthService extends Context.Service<HostedAuthService>()("HostedAuthService", {
 	make: Effect.sync(() => {
 		let hosted: ReturnType<typeof makeHostedClient> | undefined;
 		const client = () => (hosted ??= makeHostedClient());
-		const signInDemo = () => requestDemoSignIn(globalThis.fetch, window.location.origin);
 		const submitCredentials = Effect.fn("HostedAuthService.submitCredentials")(function* (input: {
 			readonly mode: "login" | "signup";
 			readonly values: CredentialsValues;

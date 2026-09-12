@@ -418,16 +418,16 @@ export const makePublicApiStub = (isServerKeyValidated = false) =>
 
 const stubMatchMedia = (isDesktop: boolean) => {
 	const original = window.matchMedia;
-	window.matchMedia = ((query: string) => ({
+	const legacyListeners = { addListener: () => undefined, removeListener: () => undefined };
+	window.matchMedia = (query: string) => ({
+		...legacyListeners,
 		media: query,
 		onchange: null,
 		dispatchEvent: () => false,
-		addListener: () => undefined,
-		removeListener: () => undefined,
 		addEventListener: () => undefined,
 		removeEventListener: () => undefined,
 		matches: isDesktop && query === "(min-width: 768px)",
-	})) as typeof window.matchMedia;
+	});
 	return () => {
 		window.matchMedia = original;
 	};

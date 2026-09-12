@@ -1,5 +1,10 @@
 import { KERNEL_SHORTCUTS } from "@ryot-app/client-plugin-contract";
-import { OverlayScope, useDismissOnOutside, useShortcut } from "@ryot-app/client-ui-sdk";
+import {
+	OverlayScope,
+	useDismissOnOutside,
+	useShortcut,
+	useValueChange,
+} from "@ryot-app/client-ui-sdk";
 import { AppIcon } from "@ryot-app/client-ui-sdk/icon";
 import type { NavigationData } from "@ryot-app/ryotql-recipes/navigation";
 import type {
@@ -7,7 +12,7 @@ import type {
 	PluginClientCatalogEntry,
 } from "@ryot-app/ryotql-recipes/plugin-client-catalog";
 import clsx from "clsx";
-import { useEffect, useId, useRef, useState } from "react";
+import { useEffect, useEffectEvent, useId, useRef, useState } from "react";
 
 import { workspacePickerSummary } from "#/modules/navigation/sidebar-sections";
 import { visibleWorkspaces } from "#/modules/navigation/workspace-state";
@@ -70,12 +75,18 @@ export function WorkspaceSwitcher(props: WorkspaceSwitcherProps) {
 		queueMicrotask(() => props.onCustomize?.());
 	};
 
-	useEffect(() => {
-		if (props.open) {
+	const openTarget = props.open ? JSON.stringify([currentSlug ?? null, initialIndex]) : undefined;
+	useValueChange(openTarget, (target) => {
+		if (target !== undefined) {
 			setActiveIndex(initialIndex);
-			items.current[initialIndex]?.focus();
 		}
-	}, [currentSlug, initialIndex, props.open]);
+	});
+	const focusInitialItem = useEffectEvent(() => items.current[initialIndex]?.focus());
+	useEffect(() => {
+		if (openTarget !== undefined) {
+			focusInitialItem();
+		}
+	}, [openTarget]);
 
 	useDismissOnOutside([container], () => props.onOpenChange(false), { enabled: props.open });
 
@@ -131,12 +142,12 @@ export function WorkspaceSwitcher(props: WorkspaceSwitcherProps) {
 						id={menuId}
 						role="menu"
 						aria-label="Workspaces"
-						className="absolute top-full left-0 z-50 mt-2 flex w-full flex-col gap-1 rounded-xl border border-border bg-surface p-1.5 shadow-card"
 						onBlur={(event) => {
-							if (!event.currentTarget.contains(event.relatedTarget as Node | null)) {
+							if (!event.currentTarget.contains(event.relatedTarget)) {
 								close(false);
 							}
 						}}
+						className="absolute top-full left-0 z-50 mt-2 flex w-full flex-col gap-1 rounded-xl border border-border bg-surface p-1.5 shadow-card"
 						onKeyDown={(event) => {
 							let nextIndex: number | null = null;
 							if (event.key === "Home") {

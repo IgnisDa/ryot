@@ -112,7 +112,7 @@ export function usePluginTitle(title: string | null) {
 	const { isActive } = usePluginScreenSurface();
 
 	useEffect(() => {
-		if (isActive) {
+		if (isActive && entry !== undefined) {
 			publishTitle(title);
 		}
 	}, [entry, isActive, publishTitle, title]);
@@ -128,7 +128,7 @@ export function usePageShortcut(
 	const enabled = (options.enabled ?? true) && isActive;
 	const handler = useEffectEvent(press);
 
-	useShortcut(shortcut, handler, { enabled });
+	useShortcut(shortcut, () => press(), { enabled });
 	useEffect(
 		() => (enabled ? navigation.registerShortcut(shortcut, handler) : undefined),
 		[enabled, navigation, shortcut],
@@ -335,6 +335,17 @@ const edgeStyle: CSSProperties = {
 
 const rootStyle: CSSProperties = { height: "100%", overflow: "hidden", position: "relative" };
 
+const frameFor = (
+	scrim: HTMLDivElement | null,
+	screens: ReadonlyMap<string, HTMLDivElement>,
+	outgoingKey: string | undefined,
+	incomingKey: string | undefined,
+) => ({
+	scrim,
+	incoming: incomingKey === undefined ? null : (screens.get(incomingKey) ?? null),
+	outgoing: outgoingKey === undefined ? null : (screens.get(outgoingKey) ?? null),
+});
+
 const idle: Presentation = { kind: "idle" };
 
 export const PluginRouter = () => {
@@ -373,27 +384,16 @@ export const PluginRouter = () => {
 	const popping = useMemo(
 		() =>
 			transition !== undefined && compact && !prefersReducedMotion()
-				? {
-						kind: "popping" as const,
-						leaving: transition.leaving,
-						incoming: transition.incoming,
-						from:
-							gesturePresentation.kind === "dragging"
-								? dragProgress(drag.current.dx, drag.current.width)
-								: 0,
-					}
+				? { kind: "popping" as const, leaving: transition.leaving, incoming: transition.incoming }
 				: undefined,
-		[compact, gesturePresentation, transition],
+		[compact, transition],
 	);
+	if (transition !== undefined && popping === undefined && gesturePresentation !== idle) {
+		setGesturePresentation(idle);
+	}
 	const presentation = popping ?? gesturePresentation;
 	const presented = useMemo(() => presentScreens(screens, presentation), [screens, presentation]);
 	const activeScreenKey = screens.at(-1)?.key;
-
-	const frameFor = (outgoingKey: string | undefined, incomingKey: string | undefined) => ({
-		scrim: scrimRef.current,
-		incoming: incomingKey === undefined ? null : (screenRefs.current.get(incomingKey) ?? null),
-		outgoing: outgoingKey === undefined ? null : (screenRefs.current.get(outgoingKey) ?? null),
-	});
 
 	useLayoutEffect(() => {
 		if (transition === undefined) {
@@ -401,12 +401,20 @@ export const PluginRouter = () => {
 		}
 		if (popping === undefined) {
 			settling.current = undefined;
-			setGesturePresentation(idle);
 			navigation.completeTransition(transition.id);
 			return undefined;
 		}
-		const frame = frameFor(popping.leaving.key, popping.incoming);
-		const settle = settling.current ?? settleProgress(frame, popping.from, 1);
+		const frame = frameFor(
+			scrimRef.current,
+			screenRefs.current,
+			popping.leaving.key,
+			popping.incoming,
+		);
+		const from =
+			gesturePresentation.kind === "dragging"
+				? dragProgress(drag.current.dx, drag.current.width)
+				: 0;
+		const settle = settling.current ?? settleProgress(frame, from, 1);
 		settling.current = undefined;
 		let cancelled = false;
 		void settle.then(() => {
@@ -419,7 +427,7 @@ export const PluginRouter = () => {
 		return () => {
 			cancelled = true;
 		};
-	}, [navigation, popping, transition]);
+	}, [gesturePresentation, navigation, popping, transition]);
 
 	useLayoutEffect(() => {
 		if (presentation.kind !== "idle") {
@@ -481,7 +489,7 @@ export const PluginRouter = () => {
 			return;
 		}
 		applyProgress(
-			frameFor(screens.at(-1)?.key, screens.at(-2)?.key),
+			frameFor(scrimRef.current, screenRefs.current, screens.at(-1)?.key, screens.at(-2)?.key),
 			dragProgress(current.dx, current.width),
 		);
 	};
@@ -492,7 +500,12 @@ export const PluginRouter = () => {
 			return;
 		}
 		current.active = false;
-		const frame = frameFor(screens.at(-1)?.key, screens.at(-2)?.key);
+		const frame = frameFor(
+			scrimRef.current,
+			screenRefs.current,
+			screens.at(-1)?.key,
+			screens.at(-2)?.key,
+		);
 		const progress = dragProgress(current.dx, current.width);
 		if (!current.engaged || !shouldCommit(current)) {
 			void settleProgress(frame, progress, 0).then(() => {

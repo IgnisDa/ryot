@@ -22,6 +22,8 @@ const makeHost = (httpCall: MyAnimeListAnimeHost["httpCall"], allowNsfw = false)
 
 const execution = { metadata: {}, sandboxScriptId: "script_test" };
 
+const emptyPage = () => httpSuccess({ data: [], paging: {} });
+
 describe("anime.myanimelist sandbox script", () => {
 	it("declares one script per operation", () => {
 		expect([
@@ -137,7 +139,6 @@ describe("anime.myanimelist sandbox script", () => {
 
 	it("requests the nsfw flag only when the user allows it", () => {
 		const requestUrls: string[] = [];
-		const emptyPage = () => httpSuccess({ data: [], paging: {} });
 		const collectUrl = (url: string) => {
 			requestUrls.push(url);
 			return emptyPage();
