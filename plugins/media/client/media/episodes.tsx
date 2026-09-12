@@ -30,13 +30,17 @@ export type MediaEpisodeRender<Episode extends MediaEpisode> = {
 
 export type MediaEpisodePagesCopy = MediaCursorPagesCopy;
 
-export type MediaEpisodePageInput = {
+/** A page request; `Scope` carries whatever else a caller's query needs beyond the container. */
+export type MediaEpisodePageInput<Scope extends object = Record<never, never>> = Scope & {
 	readonly after: string | null;
 	readonly entityId: string;
 	readonly containerId: string;
 };
 
-type MediaEpisodePageQuery<Episode> = RyotQuery<MediaEpisodePageInput, MediaCursorPage<Episode>>;
+type MediaEpisodePageQuery<Episode, Scope extends object> = RyotQuery<
+	MediaEpisodePageInput<Scope>,
+	MediaCursorPage<Episode>
+>;
 
 const metaLabel = (parts: readonly (string | undefined)[]) =>
 	parts.filter((part) => part !== undefined).join(" • ");
@@ -161,13 +165,17 @@ function MediaEpisodeList<Episode extends MediaEpisode>(props: {
  * Cursor-paged episode list whose first page leads with the parent's next-up episode, which the
  * summary resolves server-side; the caller passes it only to the container that holds it.
  */
-export function MediaEpisodePages<Episode extends MediaEpisode>(props: {
+export function MediaEpisodePages<
+	Episode extends MediaEpisode,
+	Scope extends object = Record<never, never>,
+>(props: {
+	readonly scope?: Scope;
 	readonly compact: boolean;
 	readonly entityId: string;
 	readonly containerId: string;
 	readonly copy: MediaEpisodePagesCopy;
 	readonly render: MediaEpisodeRender<Episode>;
-	readonly query: MediaEpisodePageQuery<Episode>;
+	readonly query: MediaEpisodePageQuery<Episode, Scope>;
 	readonly nextUp: Episode | null;
 }) {
 	const { render, nextUp } = props;
@@ -177,7 +185,12 @@ export function MediaEpisodePages<Episode extends MediaEpisode>(props: {
 			query={props.query}
 			key={props.containerId}
 			assets={(episodes) => mediaEpisodesManagedAssets(episodes, render.purpose)}
-			input={(after) => ({ after, entityId: props.entityId, containerId: props.containerId })}
+			input={(after) => ({
+				...props.scope,
+				after,
+				entityId: props.entityId,
+				containerId: props.containerId,
+			})}
 			renderPage={(episodes, index) => {
 				return (
 					<>
