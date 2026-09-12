@@ -6,10 +6,12 @@ import * as tables from "#lib/infrastructure/db/schema/tables/combined";
 import { DatabaseSession } from "#lib/infrastructure/db/session";
 import { makeAppConfigLayer, makeConfigProviderLayer } from "#lib/test-utils/effect";
 import { isolatedDatabaseLayer } from "#lib/test-utils/isolated-database";
+import { PluginConfigEncryptionKey } from "#modules/plugins/config-encryption-key";
 
 import { IntegrationsRepository } from "./repository";
 
 const services = IntegrationsRepository.layer.pipe(
+	Layer.provideMerge(PluginConfigEncryptionKey.layer),
 	Layer.provide(makeAppConfigLayer()),
 	Layer.provideMerge(isolatedDatabaseLayer("integration_health")),
 	Layer.provideMerge(makeConfigProviderLayer()),

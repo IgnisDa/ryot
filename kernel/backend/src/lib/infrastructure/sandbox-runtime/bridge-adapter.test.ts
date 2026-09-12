@@ -70,6 +70,28 @@ describe("bindSandboxHostFunctions", () => {
 		}),
 	);
 
+	it.effect("preserves boundary reason data in the normal host failure result", () =>
+		Effect.gen(function* () {
+			const bound = bindSandboxHostFunctions(
+				makeImplementations({
+					getPluginConfig: () =>
+						Effect.fail({
+							message: "A required plugin config value is not configured",
+							data: { keys: ["apiToken"], code: "missing-required-config" },
+						}),
+				}),
+				input,
+			);
+			const result = yield* bound.getPluginConfig([{ required: ["apiToken"] }]);
+
+			expect(result).toMatchObject({
+				success: false,
+				error: expect.stringContaining("not configured"),
+				data: { keys: ["apiToken"], code: "missing-required-config" },
+			});
+		}),
+	);
+
 	it.effect("decodes RPC arguments before calling a typed core implementation", () =>
 		Effect.gen(function* () {
 			const calls: unknown[] = [];

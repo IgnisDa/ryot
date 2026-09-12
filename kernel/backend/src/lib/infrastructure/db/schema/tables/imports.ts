@@ -38,7 +38,7 @@ import {
 	uniqueIndex,
 } from "drizzle-orm/pg-core";
 
-import type { PreparedIngestionRelease } from "#modules/imports/runtime/prepared-release";
+import type { PreparedIngestionReleaseCiphertext } from "#modules/imports/runtime/prepared-release";
 
 import { user } from "./auth";
 import { pluginInstallation } from "./core";
@@ -116,8 +116,8 @@ export const importRun = snakeCase.table(
 		collectionSealed: boolean().notNull().default(false),
 		expiryReason: text().$type<"setup-deadline-expired">(),
 		failureReason: jsonb().$type<ImportRunFailureReason>(),
-		preparedRelease: jsonb().$type<PreparedIngestionRelease>(),
 		createdAt: timestamp({ withTimezone: true }).defaultNow().notNull(),
+		preparedRelease: jsonb().$type<PreparedIngestionReleaseCiphertext>(),
 		status: text().notNull().$type<ImportRunStatus>().default("pending"),
 		inputSummary: jsonb().$type<Record<string, unknown>>().notNull().default({}),
 		integrationId: text().references(() => integration.id, { onDelete: "cascade" }),

@@ -6,6 +6,7 @@ import { DefinitionRepository } from "#modules/definition-registry/repository";
 import { EntitiesRepositoryLive } from "#modules/entities/repository";
 import { ImportSourceCatalog } from "#modules/plugins/import-source-catalog";
 import { IngestionReadinessService } from "#modules/plugins/ingestion-readiness-service";
+import { PluginInstallationRepository } from "#modules/plugins/installation-repository";
 import { PluginRuntimeResolverLive } from "#modules/plugins/runtime-resolver";
 import { SandboxExecutionServiceLive } from "#modules/sandbox/layer";
 import { SandboxExecutionService } from "#modules/sandbox/service";
@@ -135,6 +136,7 @@ export const ImportsServiceLive = ImportsService.layer.pipe(
 			ImportWorkflowPinningLive,
 			DataImportAdmissionLive,
 			IngestionReadinessService.layer,
+			PluginInstallationRepository.layer,
 			IngestionExecutionLive,
 		),
 	),
