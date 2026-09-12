@@ -1,10 +1,13 @@
-import { Effect } from "effect";
+import { integrationProvidersRecipe } from "@ryot-app/ryotql-recipes/integration-providers";
+import { Effect, Option } from "effect";
 
 import type { Client } from "~/fixtures/kernel";
 import {
+	collectRyotQLRecipeItems,
 	createAuthenticatedClient,
 	createIntegration,
 	deleteIntegration,
+	getIntegration,
 	installPrivateIntegrationPlugin,
 	invokePrivateIntegrationOperation,
 	listIntegrations,
@@ -15,6 +18,9 @@ import { assertTaggedError, requirePresent } from "~/support/assertions";
 import { describe, expect, it } from "~/support/effect-test";
 
 const providerSpecifics = { endpoint: "https://private.example.com" };
+
+const listProviders = (client: Client) =>
+	collectRyotQLRecipeItems(client, (after) => integrationProvidersRecipe({ after, limit: 100 }));
 
 const scopedIntegration = (client: Client, provider: string) =>
 	Effect.acquireRelease(createIntegration(client, { provider, providerSpecifics }), ({ id }) =>
@@ -35,8 +41,8 @@ describe("private integration providers", () => {
 				({ pluginSlug }) => releasePrivatePlugin(owner.client, pluginSlug),
 			);
 
-			const ownerProviders = yield* owner.client.call((c) => c.integrations.listProviders());
-			const outsiderProviders = yield* outsider.client.call((c) => c.integrations.listProviders());
+			const ownerProviders = yield* listProviders(owner.client);
+			const outsiderProviders = yield* listProviders(outsider.client);
 
 			expect(
 				requirePresent(
@@ -45,14 +51,18 @@ describe("private integration providers", () => {
 				),
 			).toMatchObject({
 				lot: "push",
-				isCreatable: true,
+				hasScript: true,
 				slug: plugin.providerSlug,
 				pluginSlug: plugin.pluginSlug,
 			});
 			expect(outsiderProviders.map(({ slug }) => slug)).not.toContain(plugin.providerSlug);
 
 			const created = yield* scopedIntegration(owner.client, plugin.providerSlug);
-			expect(created).toMatchObject({ isDisabled: false, provider: plugin.providerSlug });
+			const detail = requirePresent(
+				Option.getOrUndefined(yield* getIntegration(owner.client, created.id)),
+				"Expected owned integration",
+			);
+			expect(detail).toMatchObject({ isDisabled: false, provider: plugin.providerSlug });
 			expect((yield* listIntegrations(owner.client)).map(({ id }) => id)).toContain(created.id);
 			expect(
 				(yield* invokePrivateIntegrationOperation({
@@ -98,12 +108,12 @@ describe("private integration providers", () => {
 				({ pluginSlug: slug }) => releasePrivatePlugin(second.client, slug),
 			);
 
-			const firstProviders = (yield* first.client.call((c) =>
-				c.integrations.listProviders(),
-			)).filter(({ slug }) => slug === providerSlug);
-			const secondProviders = (yield* second.client.call((c) =>
-				c.integrations.listProviders(),
-			)).filter(({ slug }) => slug === providerSlug);
+			const firstProviders = (yield* listProviders(first.client)).filter(
+				({ slug }) => slug === providerSlug,
+			);
+			const secondProviders = (yield* listProviders(second.client)).filter(
+				({ slug }) => slug === providerSlug,
+			);
 			expect(firstProviders).toMatchObject([{ pluginSlug, name: "First sink" }]);
 			expect(secondProviders).toMatchObject([{ pluginSlug, name: "Second sink" }]);
 
@@ -152,7 +162,7 @@ describe("private integration providers", () => {
 
 			yield* updatePluginState(client, plugin.pluginSlug, { isDisabled: true });
 
-			const providers = yield* client.call((c) => c.integrations.listProviders());
+			const providers = yield* listProviders(client);
 			expect(providers.map(({ slug }) => slug)).not.toContain(plugin.providerSlug);
 
 			const failure = yield* Effect.flip(
@@ -162,9 +172,7 @@ describe("private integration providers", () => {
 			expect(failure.reason).toEqual({ code: "provider-not-found", provider: plugin.providerSlug });
 
 			yield* updatePluginState(client, plugin.pluginSlug, { isDisabled: false });
-			expect(
-				(yield* client.call((c) => c.integrations.listProviders())).map(({ slug }) => slug),
-			).toContain(plugin.providerSlug);
+			expect((yield* listProviders(client)).map(({ slug }) => slug)).toContain(plugin.providerSlug);
 		}),
 	);
 });

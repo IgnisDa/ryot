@@ -47,8 +47,8 @@ describe("company and media-group association variants", () => {
 
 			const { client } = yield* createAuthenticatedClient();
 			const [companySchemaId, movieSchemaId] = yield* Effect.all([
-				getBuiltinEntitySchemaSlug("company"),
-				getBuiltinEntitySchemaSlug("movie"),
+				getBuiltinEntitySchemaSlug(client, "company"),
+				getBuiltinEntitySchemaSlug(client, "movie"),
 			]);
 			const companyProvider = yield* installTestProvider({
 				client,
@@ -123,9 +123,9 @@ describe("company and media-group association variants", () => {
 
 			const { client } = yield* createAuthenticatedClient();
 			const [personSchemaId, companySchemaId, musicGroupSchemaId] = yield* Effect.all([
-				getBuiltinEntitySchemaSlug("person"),
-				getBuiltinEntitySchemaSlug("company"),
-				getBuiltinEntitySchemaSlug("music-group"),
+				getBuiltinEntitySchemaSlug(client, "person"),
+				getBuiltinEntitySchemaSlug(client, "company"),
+				getBuiltinEntitySchemaSlug(client, "music-group"),
 			]);
 			const personProvider = yield* installTestProvider({
 				client,

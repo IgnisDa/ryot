@@ -41,8 +41,8 @@ beforeAll(async () => {
 	await Effect.runPromise(
 		Effect.gen(function* () {
 			const { client } = yield* createAuthenticatedClient();
-			const personSchemaId = yield* getBuiltinEntitySchemaSlug("person");
-			movieSchemaId = yield* getBuiltinEntitySchemaSlug("movie");
+			const personSchemaId = yield* getBuiltinEntitySchemaSlug(client, "person");
+			movieSchemaId = yield* getBuiltinEntitySchemaSlug(client, "movie");
 			personProvider = yield* installTestProvider({
 				client,
 				scope: "system",
@@ -158,10 +158,10 @@ describe("dual-writer canonical identity", () => {
 				const dwMovieSlug = `movie.dual-writer-e2e-${crypto.randomUUID()}`;
 				const dwMovieExternalId = `dual-writer-movie-${crypto.randomUUID()}`;
 				const dwPersonSlug = `person.dual-writer-e2e-${crypto.randomUUID()}`;
-				const personSchemaId = yield* getBuiltinEntitySchemaSlug("person");
+				const { client } = yield* createAuthenticatedClient();
+				const personSchemaId = yield* getBuiltinEntitySchemaSlug(client, "person");
 				const dwPersonExternalId = `dual-writer-person-${crypto.randomUUID()}`;
 
-				const { client } = yield* createAuthenticatedClient();
 				const dwPersonProvider = yield* installTestProvider({
 					client,
 					scope: "system",
@@ -275,7 +275,8 @@ describe("association lifecycle via cron refresh", () => {
 			const ruMovieSlug = `movie.role-update-e2e-${crypto.randomUUID()}`;
 			const ruMovieExternalId = `role-update-movie-${crypto.randomUUID()}`;
 			const ruPersonSlug = `person.role-update-e2e-${crypto.randomUUID()}`;
-			const personSchemaId = yield* getBuiltinEntitySchemaSlug("person");
+			const { client } = yield* createAuthenticatedClient();
+			const personSchemaId = yield* getBuiltinEntitySchemaSlug(client, "person");
 			const ruPersonExternalId = `role-update-person-${crypto.randomUUID()}`;
 
 			const buildPersonSource = (roles: string[]) =>
@@ -303,7 +304,6 @@ describe("association lifecycle via cron refresh", () => {
 					}),
 				});
 
-			const { client } = yield* createAuthenticatedClient();
 			const ruPersonProvider = yield* installTestProvider({
 				client,
 				scope: "system",
@@ -402,7 +402,8 @@ describe("association lifecycle via cron refresh", () => {
 			Effect.gen(function* () {
 				const drMovieName = "Delete Recreate Movie";
 				const drPersonName = "Delete Recreate Person";
-				const personSchemaId = yield* getBuiltinEntitySchemaSlug("person");
+				const { client } = yield* createAuthenticatedClient();
+				const personSchemaId = yield* getBuiltinEntitySchemaSlug(client, "person");
 				const drMovieSlug = `movie.delete-recreate-e2e-${crypto.randomUUID()}`;
 				const drMovieExternalId = `delete-recreate-movie-${crypto.randomUUID()}`;
 				const drPersonSlug = `person.delete-recreate-e2e-${crypto.randomUUID()}`;
@@ -432,7 +433,6 @@ describe("association lifecycle via cron refresh", () => {
 						}),
 					});
 
-				const { client } = yield* createAuthenticatedClient();
 				yield* installTestProvider({
 					client,
 					scope: "system",

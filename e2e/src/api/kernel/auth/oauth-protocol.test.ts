@@ -22,7 +22,7 @@ import { beforeAll, describe, expect, it } from "~/support/effect-test";
 import { getApiUrl } from "~/support/harness-target";
 
 const OAUTH_REGISTER_PATH = "/api/auth/oauth2/register";
-const PLUGIN_LIST_PATH = "/plugins";
+const PLUGIN_EVENTS_PATH = "/plugins/events";
 
 let sessionCookie: string;
 
@@ -187,11 +187,12 @@ describe("OAuth protocol enforcement", () => {
 			expect(rotatedRefreshToken).not.toBe(initialRefreshToken);
 
 			const apiResponse = yield* Effect.promise(() =>
-				fetch(`${baseUrl}${PLUGIN_LIST_PATH}`, {
+				fetch(`${baseUrl}${PLUGIN_EVENTS_PATH}`, {
 					headers: { Authorization: `Bearer ${rotated.access_token}` },
 				}),
 			);
 			expect(apiResponse.status).toBe(200);
+			yield* Effect.promise(() => apiResponse.body?.cancel() ?? Promise.resolve());
 		}),
 	);
 
@@ -236,7 +237,9 @@ describe("OAuth protocol enforcement", () => {
 			const idToken = requirePresent(tokens.id_token, "OAuth exchange did not return an ID token");
 
 			const apiResponse = yield* Effect.promise(() =>
-				fetch(`${baseUrl}${PLUGIN_LIST_PATH}`, { headers: { Authorization: `Bearer ${idToken}` } }),
+				fetch(`${baseUrl}${PLUGIN_EVENTS_PATH}`, {
+					headers: { Authorization: `Bearer ${idToken}` },
+				}),
 			);
 			expect(apiResponse.status).toBe(401);
 		}),

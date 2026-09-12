@@ -5,7 +5,9 @@ import { join } from "node:path";
 import { SandboxProviderId, SandboxScriptId } from "@ryot-app/contract/schema/brands";
 import { Cause, Clock, Data, Effect, Schema } from "effect";
 
-import { adminHeaders, createAuthenticatedClient, getApiClient } from "~/fixtures/kernel";
+import { createAuthenticatedClient } from "~/fixtures/kernel";
+import { listAdminSandboxScripts } from "~/fixtures/kernel/admin-sandbox-scripts";
+import { listAdminSystemPlugins } from "~/fixtures/kernel/admin-system-plugins";
 import { requirePresent } from "~/support/assertions";
 
 import { decodeAppLines } from "./app-samples";
@@ -118,12 +120,17 @@ const setup = (config: DriverConfig) =>
 			() => import("./workload-plugin"),
 		);
 		const plugin = yield* installBenchmarkWorkloadPlugin({ client, runId: config.runId });
-		const scripts = yield* getApiClient().call(
-			(api) => api.testSupport.listSandboxScripts({ query: {} }),
-			adminHeaders(),
+		const media = requirePresent(
+			(yield* listAdminSystemPlugins).find(({ slug }) => slug === "media"),
+			"the shipped Media plugin is not installed",
+		);
+		const scripts = yield* listAdminSandboxScripts(
+			requirePresent(media.activeRevisionId, "the shipped Media plugin has no active revision"),
 		);
 		const details = requirePresent(
-			scripts.find(({ slug }) => slug === "music.youtube-music.details"),
+			scripts.find(
+				({ slug, providerId }) => slug === "music.youtube-music.details" && providerId !== null,
+			),
 			"the shipped YouTube Music details script is not installed",
 		);
 		const state: PersistedState = {

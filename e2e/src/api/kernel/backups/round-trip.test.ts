@@ -5,7 +5,7 @@ import {
 	RelationshipSchemaSlug,
 } from "@ryot-app/contract/schema/brands";
 import { column, document, eq, field, literal, rows, table } from "@ryot-app/ryotql";
-import { Effect } from "effect";
+import { Effect, Option } from "effect";
 
 import {
 	type Client,
@@ -25,10 +25,12 @@ import {
 	fakeProviderDetailsResult,
 	findBuiltinPluginBySlug,
 	findBuiltinSavedView,
+	findSavedViewById,
 	findPluginInstallationBySlug,
 	getClientRenderer,
 	getEntity,
 	getEntitySchema,
+	getNotificationSubscription,
 	getSavedView,
 	insertRelationshipRow,
 	installTestPluginBundle,
@@ -122,7 +124,11 @@ describe("backup export and restore round trip", () => {
 				name: "Coexisting backup renderer",
 				draftDefinition: rendererDefinition,
 			});
-			yield* publishClientRenderer(source.client, renderer.id, renderer.draftRevision);
+			yield* publishClientRenderer(
+				source.client,
+				renderer.id,
+				Option.getOrThrow(yield* getClientRenderer(source.client, renderer.id)).draftRevision,
+			);
 			const view = yield* createRendererSavedView(
 				source.client,
 				renderer.id,
@@ -135,19 +141,23 @@ describe("backup export and restore round trip", () => {
 			const restored = yield* restoreBackup(target.client, bytes);
 			assertCompleted(restored.run, "coexisting-account backup restore");
 
-			const restoredView = yield* getSavedView(target.client, view.slug);
+			const viewRecord = yield* findSavedViewById(source.client, view.id);
+			const restoredView = yield* getSavedView(target.client, viewRecord.slug);
 			expect(restoredView.id).not.toBe(view.id);
 			assert(restoredView.renderer.kind === "custom");
 			expect(restoredView.renderer.rendererId).not.toBe(renderer.id);
 			expect(
-				(yield* getClientRenderer(target.client, restoredView.renderer.rendererId)).draftDefinition,
+				Option.getOrThrow(yield* getClientRenderer(target.client, restoredView.renderer.rendererId))
+					.draftDefinition,
 			).toEqual(rendererDefinition);
 			expect((yield* findPluginInstallationBySlug(target.client, "media")).homeSavedViewId).toBe(
 				restoredView.id,
 			);
 
-			expect((yield* getClientRenderer(source.client, renderer.id)).id).toBe(renderer.id);
-			expect((yield* getSavedView(source.client, view.slug)).id).toBe(view.id);
+			expect(Option.getOrThrow(yield* getClientRenderer(source.client, renderer.id)).id).toBe(
+				renderer.id,
+			);
+			expect((yield* getSavedView(source.client, viewRecord.slug)).id).toBe(view.id);
 		}),
 	);
 
@@ -322,6 +332,7 @@ describe("backup export and restore round trip", () => {
 				"Plugin-owned backup view is missing",
 			);
 			const clonedPluginView = yield* cloneSavedView(source.client, pluginOwnedView.slug);
+			const clonedPluginViewRecord = yield* findSavedViewById(source.client, clonedPluginView.id);
 			const sourceMediaLibraryId = yield* getMediaLibraryId(source.client);
 			const targetMediaLibraryId = yield* getMediaLibraryId(target.client);
 			expect(targetMediaLibraryId).not.toBe(sourceMediaLibraryId);
@@ -391,7 +402,11 @@ describe("backup export and restore round trip", () => {
 				name: "Backup dashboard renderer",
 				draftDefinition: rendererDefinition,
 			});
-			yield* publishClientRenderer(source.client, renderer.id, renderer.draftRevision);
+			yield* publishClientRenderer(
+				source.client,
+				renderer.id,
+				Option.getOrThrow(yield* getClientRenderer(source.client, renderer.id)).draftRevision,
+			);
 			const viewEntity = table("entity", "backupViewEntity");
 			const viewDataSources = document({
 				entities: rows(viewEntity, {
@@ -405,6 +420,7 @@ describe("backup export and restore round trip", () => {
 				{ label: "Portable dashboard" },
 				{ name: "Backup dashboard", dataSources: viewDataSources },
 			);
+			const rendererViewRecord = yield* findSavedViewById(source.client, rendererView.id);
 			yield* setPluginHomeView(source.client, PluginSlug.make("media"), rendererView.id);
 
 			const builtinView = yield* findBuiltinSavedView(source.client);
@@ -423,7 +439,15 @@ describe("backup export and restore round trip", () => {
 				sourceSubscriptions.find(({ signalSchemaSlug }) => signalSchemaSlug === "review.created"),
 				"Missing default review notification subscription",
 			);
-			yield* setNotificationRuleActive(source.client, notificationSubscription.id, false);
+			expect(
+				yield* setNotificationRuleActive(source.client, notificationSubscription.id, false),
+			).toEqual({ id: notificationSubscription.id });
+			expect(
+				requirePresent(
+					yield* getNotificationSubscription(source.client, notificationSubscription.id),
+					"Source notification subscription is missing",
+				).isActive,
+			).toBe(false);
 			yield* updatePluginState(source.client, "media", { sortOrder: 73, isDisabled: true });
 
 			const { bytes } = yield* exportAndDownloadBackup(source.client, source.token);
@@ -505,19 +529,18 @@ describe("backup export and restore round trip", () => {
 
 			const restoredView = yield* getSavedView(target.client, builtinView.slug);
 			expect(restoredView).toMatchObject({ isDisabled: true, slug: builtinView.slug });
-			const restoredPluginView = yield* getSavedView(target.client, clonedPluginView.slug);
+			const restoredPluginView = yield* getSavedView(target.client, clonedPluginViewRecord.slug);
 			expect(restoredPluginView).toMatchObject({
 				settings: {},
 				dataSources: null,
 				renderer: { kind: "plugin", exportName: "backup-page" },
 			});
-			const restoredRendererView = yield* getSavedView(target.client, rendererView.slug);
+			const restoredRendererView = yield* getSavedView(target.client, rendererViewRecord.slug);
 			expect(restoredRendererView.id).not.toBe(rendererView.id);
 			assert(restoredRendererView.renderer.kind === "custom");
 			expect(restoredRendererView.renderer.rendererId).not.toBe(renderer.id);
-			const restoredRenderer = yield* getClientRenderer(
-				target.client,
-				restoredRendererView.renderer.rendererId,
+			const restoredRenderer = Option.getOrThrow(
+				yield* getClientRenderer(target.client, restoredRendererView.renderer.rendererId),
 			);
 			expect(restoredRenderer.draftDefinition).toEqual(rendererDefinition);
 			expect(restoredRenderer.draftDefinition.files[0]?.content).toBe(
