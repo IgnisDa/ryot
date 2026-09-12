@@ -155,8 +155,8 @@ pub async fn perform_single_application_job(
     let name = information.to_string();
     ryot_log!(trace, "Started job {:?}", information);
     let status = match information {
-        SingleApplicationJob::ImportFromExternalSource(user_id, input) => {
-            perform_import(&ss, user_id, input).await
+        SingleApplicationJob::ImportFromExternalSource(user_id, import_report_id, input) => {
+            perform_import(&ss, user_id, import_report_id, input).await
         }
         SingleApplicationJob::BulkMetadataProgressUpdate(user_id, input) => {
             bulk_metadata_progress_update(&ss, &user_id, input).await
