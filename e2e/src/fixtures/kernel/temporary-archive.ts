@@ -2,6 +2,7 @@ import { PluginArchiveError, writePluginArchive } from "@ryot-app/plugin-archive
 import { Effect } from "effect";
 
 import { getApiUrl } from "~/support/harness-target";
+import { webRequest } from "~/support/web-request";
 
 import type { Client } from "./auth";
 import { compilePluginPackage, type PluginPackageInput } from "./compiled-package";
@@ -17,12 +18,9 @@ export const uploadTemporaryArchive = (
 				payload: { kind: "temporary", fileName: options.fileName, contentType: "application/zip" },
 			}),
 		);
-		const uploadResponse = yield* Effect.promise(() =>
-			fetch(new URL(intent.uploadUrl, `${options.baseUrl ?? getApiUrl()}/`), {
-				method: intent.method,
-				headers: intent.headers,
-				body: new Uint8Array(bytes),
-			}),
+		const uploadResponse = yield* webRequest(
+			new URL(intent.uploadUrl, `${options.baseUrl ?? getApiUrl()}/`),
+			{ method: intent.method, headers: intent.headers, body: new Uint8Array(bytes) },
 		);
 		if (!uploadResponse.ok) {
 			throw new Error(`Could not upload temporary archive (${uploadResponse.status})`);

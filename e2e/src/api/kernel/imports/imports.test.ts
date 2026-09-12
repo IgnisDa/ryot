@@ -36,15 +36,17 @@ const uninstallWhenReleased = (installed: InstalledTestPlugin) =>
 	);
 
 describe("Plugin Import Public Boundary", () => {
-	beforeAll(async () => {
-		fixtureImportPlugin = await Effect.runPromise(installTestImportPlugin);
-	});
+	beforeAll(() =>
+		Effect.runPromise(
+			Effect.gen(function* () {
+				fixtureImportPlugin = yield* installTestImportPlugin;
+			}),
+		),
+	);
 
-	afterAll(async () => {
-		if (fixtureImportPlugin) {
-			await Effect.runPromise(uninstallWhenReleased(fixtureImportPlugin));
-		}
-	});
+	afterAll(
+		() => fixtureImportPlugin && Effect.runPromise(uninstallWhenReleased(fixtureImportPlugin)),
+	);
 
 	it.live("lists authenticated manifest sources with start availability", () =>
 		Effect.gen(function* () {
@@ -157,7 +159,7 @@ describe("Plugin Import Public Boundary", () => {
 	it.live("rejects malformed import payloads", () =>
 		Effect.gen(function* () {
 			const { token } = yield* createAuthenticatedClient();
-			const response = yield* Effect.promise(() => postApiJson("/imports/runs", [], token));
+			const response = yield* postApiJson("/imports/runs", [], token);
 
 			expect(response.status).toBe(400);
 		}),

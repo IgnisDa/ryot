@@ -48,19 +48,19 @@ const seedPopulatedMovie = (client: Client, name: string) =>
 const openInterestSocket = (auth: { client: Client }, entityIds: string[]) =>
 	Effect.gen(function* () {
 		const socket = yield* openInterestWebSocketScoped(auth);
-		const applied = yield* Effect.promise(() => socket.replaceInterest(entityIds));
+		const applied = yield* socket.replaceInterest(entityIds);
 		return { socket, applied };
 	});
 
 describe("entity translation via client-declared interest", () => {
-	beforeAll(async () => {
-		provider = await Effect.runPromise(
+	beforeAll(() =>
+		Effect.runPromise(
 			Effect.gen(function* () {
 				const { client, userId } = yield* createAuthenticatedClient();
 				providerClient = client;
 				providerUserId = userId;
 				const { schema } = yield* findBuiltinSchemaBySlug(client, "movie");
-				return yield* installTestProvider({
+				provider = yield* installTestProvider({
 					client,
 					rootEntitySchemaSlug: schema.id,
 					resolve: { externalId: "resolved-e2e-movie" },
@@ -77,12 +77,10 @@ describe("entity translation via client-declared interest", () => {
 					}),
 				});
 			}),
-		);
-	});
+		),
+	);
 
-	afterAll(async () => {
-		await Effect.runPromise(uninstallTestProvider(provider));
-	});
+	afterAll(() => Effect.runPromise(uninstallTestProvider(provider)));
 
 	it.live("executes the installed resolve operation independently", () =>
 		Effect.gen(function* () {
@@ -117,9 +115,9 @@ describe("entity translation via client-declared interest", () => {
 
 			const { socket, applied } = yield* openInterestSocket(auth, [movie.id]);
 			expect(applied).toEqual({ revision: 1, type: "applied" });
-			const event = yield* Effect.promise(() =>
-				socket.waitForEntityUpdated(movie.id, "translated", { timeoutMs: 30_000 }),
-			);
+			const event = yield* socket.waitForEntityUpdated(movie.id, "translated", {
+				timeoutMs: 30_000,
+			});
 			expect(event.reason).toBe("translated");
 
 			const localizedRead = yield* pollEntityUntilTranslationStatus(client, movie.id, "ready");
@@ -147,9 +145,9 @@ describe("entity translation via client-declared interest", () => {
 
 			const { socket, applied } = yield* openInterestSocket(auth, [movie.id]);
 			expect(applied).toEqual({ revision: 1, type: "applied" });
-			const event = yield* Effect.promise(() =>
-				socket.waitForEntityUpdated(movie.id, "translated", { timeoutMs: 30_000 }),
-			);
+			const event = yield* socket.waitForEntityUpdated(movie.id, "translated", {
+				timeoutMs: 30_000,
+			});
 			expect(event.reason).toBe("translated");
 
 			const settledRead = yield* pollEntityUntilTranslationStatus(client, movie.id, "none");
@@ -177,11 +175,9 @@ describe("entity translation via client-declared interest", () => {
 				expect(yield* countEntityTranslations(movie.id)).toBe(0);
 				const canonicalInterest = yield* openInterestSocket(canonical, [movie.id]);
 				expect(canonicalInterest.applied).toEqual({ revision: 1, type: "applied" });
-				expect(
-					yield* Effect.promise(() =>
-						canonicalInterest.socket.waitForEntityUpdated(movie.id, "populated"),
-					),
-				).toEqual({ entityId: movie.id, reason: "populated", type: "entity-updated" });
+				expect(yield* canonicalInterest.socket.waitForEntityUpdated(movie.id, "populated")).toEqual(
+					{ entityId: movie.id, reason: "populated", type: "entity-updated" },
+				);
 
 				const noPreference = yield* createAuthenticatedClient();
 				const { client: noPreferenceClient } = noPreference;
@@ -192,9 +188,7 @@ describe("entity translation via client-declared interest", () => {
 				const noPreferenceInterest = yield* openInterestSocket(noPreference, [movie.id]);
 				expect(noPreferenceInterest.applied).toEqual({ revision: 1, type: "applied" });
 				expect(
-					yield* Effect.promise(() =>
-						noPreferenceInterest.socket.waitForEntityUpdated(movie.id, "populated"),
-					),
+					yield* noPreferenceInterest.socket.waitForEntityUpdated(movie.id, "populated"),
 				).toEqual({ entityId: movie.id, reason: "populated", type: "entity-updated" });
 			}),
 	);
@@ -256,13 +250,13 @@ describe("entity translation via client-declared interest", () => {
 
 			const { socket, applied } = yield* openInterestSocket(auth, [seeded.id]);
 			expect(applied).toEqual({ revision: 1, type: "applied" });
-			const populatedEvent = yield* Effect.promise(() =>
-				socket.waitForEntityUpdated(seeded.id, "populated", { timeoutMs: 30_000 }),
-			);
+			const populatedEvent = yield* socket.waitForEntityUpdated(seeded.id, "populated", {
+				timeoutMs: 30_000,
+			});
 			expect(populatedEvent.reason).toBe("populated");
-			const translatedEvent = yield* Effect.promise(() =>
-				socket.waitForEntityUpdated(seeded.id, "translated", { timeoutMs: 30_000 }),
-			);
+			const translatedEvent = yield* socket.waitForEntityUpdated(seeded.id, "translated", {
+				timeoutMs: 30_000,
+			});
 			expect(translatedEvent.reason).toBe("translated");
 
 			const reasons = socket

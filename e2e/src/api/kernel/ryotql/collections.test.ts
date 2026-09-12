@@ -54,9 +54,7 @@ describe("RyotQL collections tracer", () => {
 
 	it.live("requires authentication", () =>
 		Effect.gen(function* () {
-			const response = yield* Effect.promise(() =>
-				postApiJson("/ryotql/execute", allCollectionsRecipe().document),
-			);
+			const response = yield* postApiJson("/ryotql/execute", allCollectionsRecipe().document);
 
 			expect(response.status).toBe(401);
 		}),

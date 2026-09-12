@@ -1,6 +1,3 @@
-import type { ChildProcess } from "node:child_process";
-import { readFile } from "node:fs/promises";
-
 import { Effect } from "effect";
 import getPort from "get-port";
 
@@ -28,8 +25,8 @@ const WORKFLOW_NAME = "NotificationDeliveryWorkflow";
 let apiPort: number;
 let logFile: string | undefined;
 let otlpServer: FakeHttpServer | undefined;
-let apiProcess: ChildProcess | undefined;
-let coreInfrastructure: Awaited<ReturnType<typeof startCoreTestInfrastructure>> | undefined;
+let apiProcess: ReturnType<typeof spawnApiProcess> | undefined;
+let coreInfrastructure: Effect.Success<ReturnType<typeof startCoreTestInfrastructure>> | undefined;
 
 function getApiUrl() {
 	return `http://127.0.0.1:${apiPort}/api`;
@@ -188,41 +185,57 @@ function findWorkflowSpan(userId: string) {
 	);
 }
 
-beforeAll(async () => {
-	const [infrastructure, server, port] = await Promise.all([
-		startCoreTestInfrastructure({ bucketName: S3_BUCKET_NAME }),
-		startFakeHttpServer(),
-		getPort(),
-	]);
-	apiPort = port;
-	otlpServer = server;
-	coreInfrastructure = infrastructure;
+beforeAll(
+	() =>
+		Effect.runPromise(
+			Effect.gen(function* () {
+				const [infrastructure, server, port] = yield* Effect.all(
+					[
+						startCoreTestInfrastructure({ bucketName: S3_BUCKET_NAME }),
+						startFakeHttpServer(),
+						Effect.promise(() => getPort()),
+					],
+					{ concurrency: "unbounded" },
+				);
+				apiPort = port;
+				otlpServer = server;
+				coreInfrastructure = infrastructure;
 
-	const apiOrigin = `http://127.0.0.1:${apiPort}`;
-	const env = buildApiEnv({
-		port: apiPort,
-		frontendUrl: apiOrigin,
-		label: "Observability API",
-		dbUrl: infrastructure.dbUrl,
-		s3BucketName: S3_BUCKET_NAME,
-		redisUrl: infrastructure.redisUrl,
-		s3Endpoint: infrastructure.s3Endpoint,
-		extraEnv: {
-			SERVER_LOG_LEVEL: "debug",
-			OTEL_EXPORTER_OTLP_ENDPOINT: server.url,
-			OTEL_EXPORTER_OTLP_HEADERS: "x-ryot-collector-token=collector-secret",
-		},
-	});
-	logFile = requireString(env.SERVER_LOG_FILE, "Observability api log file is missing");
-	apiProcess = spawnApiProcess(env);
-	await waitForHealthCheck(`${apiOrigin}/api/system/health`, "Observability Setup", 90);
-}, 120_000);
+				const apiOrigin = `http://127.0.0.1:${apiPort}`;
+				const env = buildApiEnv({
+					port: apiPort,
+					frontendUrl: apiOrigin,
+					label: "Observability API",
+					dbUrl: infrastructure.dbUrl,
+					s3BucketName: S3_BUCKET_NAME,
+					redisUrl: infrastructure.redisUrl,
+					s3Endpoint: infrastructure.s3Endpoint,
+					extraEnv: {
+						SERVER_LOG_LEVEL: "debug",
+						OTEL_EXPORTER_OTLP_ENDPOINT: server.url,
+						OTEL_EXPORTER_OTLP_HEADERS: "x-ryot-collector-token=collector-secret",
+					},
+				});
+				logFile = requireString(env.SERVER_LOG_FILE, "Observability api log file is missing");
+				apiProcess = spawnApiProcess(env);
+				yield* waitForHealthCheck(`${apiOrigin}/api/system/health`, "Observability Setup", 90);
+			}),
+		),
+	120_000,
+);
 
-afterAll(async () => {
-	await stopApiProcess(apiProcess);
-	otlpServer?.stop();
-	await stopCoreTestInfrastructure(coreInfrastructure);
-});
+afterAll(() =>
+	Effect.runPromise(
+		Effect.gen(function* () {
+			yield* stopApiProcess(apiProcess);
+			const server = otlpServer;
+			if (server) {
+				yield* Effect.promise(() => server.stop());
+			}
+			yield* stopCoreTestInfrastructure(coreInfrastructure);
+		}),
+	),
+);
 
 describe("API observability", () => {
 	it.live("exports spans with correlatable workflow and request logs", () =>
@@ -267,7 +280,9 @@ describe("API observability", () => {
 				"correlated workflow completion log",
 				Effect.gen(function* () {
 					const contents = yield* Effect.promise(() =>
-						readFile(requireLogFile(), "utf8").catch(() => ""),
+						Bun.file(requireLogFile())
+							.text()
+							.catch(() => ""),
 					);
 					return (
 						contents
@@ -285,7 +300,9 @@ describe("API observability", () => {
 				"correlated HTTP response log",
 				Effect.gen(function* () {
 					const contents = yield* Effect.promise(() =>
-						readFile(requireLogFile(), "utf8").catch(() => ""),
+						Bun.file(requireLogFile())
+							.text()
+							.catch(() => ""),
 					);
 					return (
 						contents

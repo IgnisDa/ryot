@@ -1,5 +1,3 @@
-import { randomUUID } from "node:crypto";
-
 import { UserId } from "@ryot-app/contract/schema/brands";
 import { godModeUsersRecipe } from "@ryot-app/ryotql-recipes/god-mode";
 import { pluginInstallationsRecipe } from "@ryot-app/ryotql-recipes/plugin-installations";
@@ -34,7 +32,7 @@ const listPluginsWithHeaders = (headers: Record<string, string>) =>
 	);
 const listUsers = (search: string) =>
 	executeAdminRyotQLRecipe(godModeUsersRecipe({ search, limit: 50 }));
-const unique = () => randomUUID();
+const unique = () => crypto.randomUUID();
 
 const getUserIdByEmail = (email: string) =>
 	Effect.gen(function* () {
