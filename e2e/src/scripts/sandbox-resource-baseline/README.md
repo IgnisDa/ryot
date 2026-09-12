@@ -46,6 +46,10 @@ bun run src/scripts/sandbox-resource-baseline/summarize-run.ts <output-directory
 `setup` creates the benchmark user and workload plugin; capture the fixture database template from
 that state before the matrices so every repetition starts from equivalent data.
 
+`variance` runs both unprofiled YouTube Music scenarios. Pass `ytm-search-variance` or
+`ytm-details-variance` to run only one. Direct details executions resolve the shipped script after
+each database restore, because changing the installed plugin archive can replace its script ID.
+
 ## Safety
 
 The watchdog stops only the resolved Ryot container, by full container ID, and never PostgreSQL or
