@@ -18,14 +18,14 @@ export const entityIdentitySelection = (entity: Table) => ({
 	schemaSlug: selectedField(column(entity, "entitySchemaSlug"), EntitySchemaSlug),
 });
 
-export const property = (entity: Table, path: string) =>
-	castText(jsonPath(column(entity, "properties"), path));
+export const property = (source: Table, path: string) =>
+	castText(jsonPath(column(source, "properties"), path));
 
-export const propertyDate = (entity: Table, path: string) =>
-	castDate(jsonPath(column(entity, "properties"), path));
+export const propertyDate = (source: Table, path: string) =>
+	castDate(jsonPath(column(source, "properties"), path));
 
-export const propertyNumber = (entity: Table, path: string) =>
-	castNumber(jsonPath(column(entity, "properties"), path));
+export const propertyNumber = (source: Table, path: string) =>
+	castNumber(jsonPath(column(source, "properties"), path));
 
 export const workoutDatesSelection = (entity: Table) => ({
 	endedAt: selectedField(propertyDate(entity, "endedAt"), Schema.NullOr(Schema.String)),
