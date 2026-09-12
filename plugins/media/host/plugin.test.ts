@@ -625,6 +625,7 @@ it("declares the complete media-owned source", () => {
 		},
 	]);
 	expect(mediaPlugin.importSources.map(({ slug }) => slug)).toEqual([
+		"spotify",
 		"netflix",
 		"goodreads",
 		"storygraph",
@@ -659,6 +660,10 @@ it("declares the complete media-owned source", () => {
 	expect(mediaPlugin.workflows).toContainEqual({
 		slug: "media-monitoring-sweep",
 		scriptSlug: "workflow.media-monitoring-sweep",
+	});
+	expect(mediaPlugin.workflows).toContainEqual({
+		slug: "media-import-segment",
+		scriptSlug: "workflow.media-import-segment",
 	});
 	expect(monitoringTargetsManifest).toMatchObject({
 		kind: "script",
