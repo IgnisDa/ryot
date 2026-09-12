@@ -7,6 +7,10 @@ import { assert, describe } from "vitest";
 
 import * as tables from "#lib/infrastructure/db/schema/tables/core";
 import { DatabaseSession } from "#lib/infrastructure/db/session";
+import {
+	applyBaselineMigration,
+	baselineMigrationStatements,
+} from "#lib/test-utils/baseline-migration";
 import { testDatabaseUrl } from "#lib/test-utils/database";
 import { makeAppConfigLayer } from "#lib/test-utils/effect";
 import { ARCHIVE_CODECS } from "#modules/backups/archive/schemas";
@@ -183,19 +187,16 @@ describe("persisted plugin configuration encryption key", () => {
 		return Effect.gen(function* () {
 			const session = yield* DatabaseSession;
 			const db = yield* session.current;
-			const directory = new URL("../../drizzle/", import.meta.url).pathname;
-			const paths = [...new Bun.Glob("*/migration.sql").scanSync({ cwd: directory })];
-			assert(paths.length === 1);
-			const ddl = yield* Effect.promise(() => Bun.file(directory + paths[0]).text());
+			const statements = yield* baselineMigrationStatements();
 			yield* Effect.acquireUseRelease(
 				session.transaction(
 					Effect.gen(function* () {
 						const tx = yield* session.current;
 						yield* tx.execute(sql`create schema ${sql.identifier(name)}`);
 						yield* tx.execute(sql`set local search_path to ${sql.identifier(name)}, public`);
-						for (const statement of ddl.split("--> statement-breakpoint")) {
-							yield* tx.execute(sql.raw(statement));
-						}
+						yield* applyBaselineMigration(statements, (statement) =>
+							tx.execute(sql.raw(statement)),
+						);
 					}),
 				),
 				() =>
