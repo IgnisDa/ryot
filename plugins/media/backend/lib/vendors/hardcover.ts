@@ -2,7 +2,8 @@ import type { SandboxHost } from "@ryot-app/sandbox-sdk/core";
 import { Effect } from "@ryot-app/sandbox-sdk/effect";
 import type { JsonValue } from "@ryot-app/sandbox-sdk/wire";
 
-import { asRecord, parseJsonResponse, stringValue, type UnknownRecord } from "../records";
+import { MediaSandboxError } from "../failures";
+import { asRecord, decodeJsonResponse, stringValue, type UnknownRecord } from "../records";
 
 export type HardcoverHost = SandboxHost<readonly ["httpCall", "getPluginConfig"]>;
 
@@ -22,13 +23,20 @@ export const idValue = (value: unknown) => {
 export const getHardcoverApiKey = (host: HardcoverHost) =>
 	host.getPluginConfig(["hardcoverApiKey"]).pipe(
 		Effect.map(({ hardcoverApiKey }) => hardcoverApiKey),
-		Effect.mapError((error) => new Error(error.message || "Could not load Hardcover API key")),
-		Effect.map((value) => {
+		Effect.mapError((error) => ({
+			...error,
+			message: error.message || "Could not load Hardcover API key",
+		})),
+		Effect.flatMap((value) => {
 			const apiKey = stringValue(value);
 			if (!apiKey) {
-				throw new Error("RYOT_PLUGIN_MEDIA_HARDCOVER_API_KEY is not configured");
+				return Effect.fail(
+					new MediaSandboxError({
+						message: "RYOT_PLUGIN_MEDIA_HARDCOVER_API_KEY is not configured",
+					}),
+				);
 			}
-			return apiKey;
+			return Effect.succeed(apiKey);
 		}),
 	);
 
@@ -44,8 +52,8 @@ export const hardcoverGql = (
 			headers: { Authorization: apiKey, "Content-Type": "application/json" },
 		})
 		.pipe(
-			Effect.mapError((error) => new Error(error.message || failureMessage)),
-			Effect.map((response) => parseJsonResponse(response.body, "Hardcover")),
+			Effect.mapError((error) => ({ ...error, message: error.message || failureMessage })),
+			Effect.flatMap((response) => decodeJsonResponse(response.body, "Hardcover")),
 		);
 
 export const firstGraphqlErrorMessage = (payload: UnknownRecord | null) => {

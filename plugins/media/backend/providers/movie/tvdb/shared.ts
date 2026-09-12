@@ -2,6 +2,7 @@ import { defineManifest } from "@ryot-app/sandbox-sdk/driver";
 import { Effect } from "@ryot-app/sandbox-sdk/effect";
 import { defineProvider } from "@ryot-app/sandbox-sdk/provider";
 
+import { MediaSandboxError } from "../../../lib/failures";
 import { parsePublishYear } from "../../../lib/parse-publish-year";
 import { asRecord, numberValue, recordsValue, stringValue } from "../../../lib/records";
 import {
@@ -37,25 +38,31 @@ export const details = defineProvider({
 	manifest,
 	operation: "details",
 	run: (input, host) => {
-		if (!/^\d+$/.test(input.externalId)) {
-			return Effect.fail(new Error("externalId must be a numeric TVDB movie ID"));
-		}
 		const language = bcp47ToTvdb("en");
 		return Effect.gen(function* () {
+			if (!/^\d+$/.test(input.externalId)) {
+				return yield* Effect.fail(
+					new MediaSandboxError({ message: "externalId must be a numeric TVDB movie ID" }),
+				);
+			}
 			const [data, translationData] = yield* Effect.all([
 				tvdbGet(host, `/movies/${input.externalId}/extended`),
 				tvdbGetOptional(host, `/movies/${input.externalId}/translations/${language}`),
 			]);
 			const movie = asRecord(data["data"]);
 			if (!movie) {
-				return yield* Effect.fail(new Error("TVDB returned no data for this movie"));
+				return yield* Effect.fail(
+					new MediaSandboxError({ message: "TVDB returned no data for this movie" }),
+				);
 			}
 
 			const translation = getTranslationFields(translationData);
 			const fallbackTitle = stringValue(movie["name"]) ?? stringValue(movie["title"]);
 			const title = translation.name ?? fallbackTitle;
 			if (!title) {
-				return yield* Effect.fail(new Error("TVDB returned no title for this movie"));
+				return yield* Effect.fail(
+					new MediaSandboxError({ message: "TVDB returned no title for this movie" }),
+				);
 			}
 
 			const images = collectImages(
@@ -145,25 +152,28 @@ export const details = defineProvider({
 export const translate = defineProvider({
 	manifest,
 	operation: "translate",
-	run: (input, host) => {
-		if (!/^\d+$/.test(input.externalId)) {
-			return Effect.fail(new Error("externalId must be a numeric TVDB movie ID"));
-		}
-		const providerLanguage = bcp47ToTvdb(input.language);
-		return Effect.all([
-			tvdbGetOptional(host, `/movies/${input.externalId}/translations/${providerLanguage}`),
-			tvdbGet(host, `/movies/${input.externalId}/extended`).pipe(
-				Effect.catch(() => Effect.succeed(null)),
-			),
-		]).pipe(
-			Effect.map(([translationData, detailsData]) => {
-				const image = getLocalizedArtwork(
-					detailsData ? asRecord(detailsData["data"])?.["artworks"] : null,
-					providerLanguage,
-					"cover",
+	run: (input, host) =>
+		Effect.gen(function* () {
+			if (!/^\d+$/.test(input.externalId)) {
+				return yield* Effect.fail(
+					new MediaSandboxError({ message: "externalId must be a numeric TVDB movie ID" }),
 				);
-				return buildTranslationResult(translationData, image);
-			}),
-		);
-	},
+			}
+			const providerLanguage = bcp47ToTvdb(input.language);
+			return yield* Effect.all([
+				tvdbGetOptional(host, `/movies/${input.externalId}/translations/${providerLanguage}`),
+				tvdbGet(host, `/movies/${input.externalId}/extended`).pipe(
+					Effect.catch(() => Effect.succeed(null)),
+				),
+			]).pipe(
+				Effect.map(([translationData, detailsData]) => {
+					const image = getLocalizedArtwork(
+						detailsData ? asRecord(detailsData["data"])?.["artworks"] : null,
+						providerLanguage,
+						"cover",
+					);
+					return buildTranslationResult(translationData, image);
+				}),
+			);
+		}),
 });

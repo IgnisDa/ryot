@@ -60,6 +60,7 @@ const renderWorkout = (data: WorkoutPresentationData, compact: boolean) => {
 };
 
 describe("workout presentation", () => {
+	// oxlint-disable-next-line effecttsgo/async-function -- Vitest awaits Testing Library's Promise-based waitFor.
 	it("renders date, derived duration, stored set summary, and expandable detail", async () => {
 		const page = renderWorkout(workout, false);
 		await waitFor(() => expect(page.container?.textContent).toContain("Push day"));
@@ -73,6 +74,7 @@ describe("workout presentation", () => {
 		expect(page.container?.querySelector("img")).toBeNull();
 	});
 
+	// oxlint-disable-next-line effecttsgo/async-function -- Vitest awaits Testing Library's Promise-based waitFor.
 	it("omits invalid dates, durations, and empty summaries in compact layout", async () => {
 		const page = renderWorkout(
 			{ ...workout, endedAt: null, exercises: [], startedAt: "invalid" },

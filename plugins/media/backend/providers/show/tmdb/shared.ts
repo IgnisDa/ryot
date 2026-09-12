@@ -2,6 +2,7 @@ import { defineManifest } from "@ryot-app/sandbox-sdk/driver";
 import { Effect, Schema } from "@ryot-app/sandbox-sdk/effect";
 import { defineProvider } from "@ryot-app/sandbox-sdk/provider";
 
+import { MediaSandboxError } from "../../../lib/failures";
 import { getUserAllowNsfw } from "../../../lib/host";
 import { parsePublishYear } from "../../../lib/parse-publish-year";
 import { numberValue, recordsValue, stringValue } from "../../../lib/records";
@@ -94,11 +95,13 @@ export const details = defineProvider({
 export const resolve = defineProvider({
 	operation: "resolve",
 	manifest: httpManifest,
-	run: (input, host) => {
-		if (input.identifierType !== "imdb") {
-			return Effect.fail(new Error("TMDB show resolve supports only imdb identifiers"));
-		}
-		return Effect.gen(function* () {
+	run: (input, host) =>
+		Effect.gen(function* () {
+			if (input.identifierType !== "imdb") {
+				return yield* Effect.fail(
+					new MediaSandboxError({ message: "TMDB show resolve supports only imdb identifiers" }),
+				);
+			}
 			const token = yield* getTmdbAccessToken(host);
 			const payload = yield* tmdbGet(
 				host,
@@ -109,8 +112,7 @@ export const resolve = defineProvider({
 			const [firstResult] = recordsValue(payload["tv_results"]);
 			const showId = numberValue(firstResult?.["id"]);
 			return { externalId: showId === null ? null : String(Math.trunc(showId)) };
-		});
-	},
+		}),
 });
 
 export const translate = defineProvider({

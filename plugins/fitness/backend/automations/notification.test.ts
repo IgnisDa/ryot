@@ -5,7 +5,7 @@ import { expect, it } from "vitest";
 
 import definition, { manifest } from "./notification.sandbox";
 
-it("formats workout.created exclusively from the inline signal", async () => {
+it("formats workout.created exclusively from the inline signal", () => {
 	const messages: string[] = [];
 	const input = Schema.decodeUnknownSync(automationInputSchema)({
 		automation: {
@@ -34,18 +34,23 @@ it("formats workout.created exclusively from the inline signal", async () => {
 			},
 		},
 	});
-	const result = await Effect.runPromise(
-		definition.run(
-			input,
-			defineSandboxTestHost(manifest, {
-				sendNotification: (message) => {
-					messages.push(message);
-					return Effect.succeed(null);
-				},
-			}),
-			{ metadata: {}, sandboxScriptId: "script-1" },
-		),
+	return Effect.runPromise(
+		definition
+			.run(
+				input,
+				defineSandboxTestHost(manifest, {
+					sendNotification: (message) => {
+						messages.push(message);
+						return Effect.succeed(null);
+					},
+				}),
+			)
+			.pipe(
+				Effect.map((result) => {
+					expect(result).toBeNull();
+					expect(messages).toEqual(["Workout Morning Run was created"]);
+					return result;
+				}),
+			),
 	);
-	expect(result).toBeNull();
-	expect(messages).toEqual(["Workout Morning Run was created"]);
 });

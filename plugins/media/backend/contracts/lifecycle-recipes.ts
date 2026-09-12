@@ -27,6 +27,7 @@ import {
 	type Recipe,
 	type RyotQLDocument,
 } from "@ryot-app/sandbox-sdk/ryotql";
+import type { SandboxHostError } from "@ryot-app/sandbox-sdk/wire";
 
 import {
 	entitySchemaIs,
@@ -490,7 +491,9 @@ export type EpisodicLifecycleSnapshotResult = Recipe.Success<
 	typeof episodicLifecycleSnapshotRecipe
 >;
 
-export const readEpisodicLifecycleSnapshot = <Error, Requirements>(
+export const readEpisodicLifecycleSnapshot = <Requirements>(
 	input: { readonly parentEntityId: string; readonly config: EpisodicKindConfig },
-	executeRyotql: (document: RyotQLDocument) => Effect.Effect<unknown, Error, Requirements>,
+	executeRyotql: (
+		document: RyotQLDocument,
+	) => Effect.Effect<unknown, SandboxHostError, Requirements>,
 ) => executeRyotqlRecipe(executeRyotql, episodicLifecycleSnapshotRecipe(input));

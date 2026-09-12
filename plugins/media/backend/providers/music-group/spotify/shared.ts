@@ -2,6 +2,7 @@ import { defineManifest } from "@ryot-app/sandbox-sdk/driver";
 import { Effect } from "@ryot-app/sandbox-sdk/effect";
 import { defineProvider } from "@ryot-app/sandbox-sdk/provider";
 
+import { MediaSandboxError } from "../../../lib/failures";
 import { asRecord, numberValue, stringValue } from "../../../lib/records";
 import {
 	getImagesSortedBySize,
@@ -72,7 +73,9 @@ export const details = defineProvider({
 			const album = asRecord(albumValue);
 			const title = stringValue(album?.["name"]);
 			if (!title) {
-				return yield* Effect.fail(new Error("Spotify album is missing name"));
+				return yield* Effect.fail(
+					new MediaSandboxError({ message: "Spotify album is missing name" }),
+				);
 			}
 
 			const parts = numberValue(album?.["total_tracks"]);

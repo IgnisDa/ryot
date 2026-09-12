@@ -1,5 +1,5 @@
 import type { CoreSandboxHostMethodMap } from "@ryot-app/sandbox-sdk/core";
-import { Effect } from "@ryot-app/sandbox-sdk/effect";
+import { Effect, Schema } from "@ryot-app/sandbox-sdk/effect";
 
 export type HttpHost = { readonly httpCall: CoreSandboxHostMethodMap["httpCall"] };
 type QueryValue = boolean | number | string | undefined;
@@ -60,5 +60,5 @@ export const requestSourceJson = (
 	input: Parameters<typeof requestSourceResponse>[1],
 ) =>
 	requestSourceResponse(host, input).pipe(
-		Effect.flatMap(({ body }) => Effect.try((): unknown => JSON.parse(body))),
+		Effect.flatMap(({ body }) => Schema.decodeEffect(Schema.fromJsonString(Schema.Unknown))(body)),
 	);

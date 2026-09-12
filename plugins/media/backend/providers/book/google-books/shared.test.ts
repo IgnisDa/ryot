@@ -83,6 +83,7 @@ describe("book.google-books sandbox script", () => {
 			),
 		);
 	});
+	// oxlint-disable-next-line effecttsgo/async-function -- Vitest awaits this Promise-returning test callback.
 	it("rejects invalid search options", async () => {
 		const host = makeHost(() => httpSuccess({ items: [], totalItems: 0 }));
 

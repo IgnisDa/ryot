@@ -12,6 +12,7 @@ const run = Effect.runPromise;
 const metadata = (Metadata: unknown[]) => ({ MediaContainer: { Metadata } });
 
 describe("credentialed media import adapters", () => {
+	// oxlint-disable-next-line effecttsgo/async-function -- Vitest awaits this Promise-returning test callback.
 	it("maps watched Trakt movies and episodes from paged history", async () => {
 		const host = stubHttpHost(({ path, method }) =>
 			method === "HEAD"
@@ -60,6 +61,7 @@ describe("credentialed media import adapters", () => {
 		});
 	});
 
+	// oxlint-disable-next-line effecttsgo/async-function -- Vitest awaits this Promise-returning test callback.
 	it("records the native Trakt missing-id failure", async () => {
 		const host = stubHttpHost(({ path, method }) =>
 			method === "HEAD"
@@ -92,6 +94,7 @@ describe("credentialed media import adapters", () => {
 		});
 	});
 
+	// oxlint-disable-next-line effecttsgo/async-function -- Vitest awaits this Promise-returning test callback.
 	it("imports a public Trakt list through its encoded path and paginates items", async () => {
 		const requests: Array<{ method: string; path: string; url: URL }> = [];
 		const host = stubHttpHost(({ url, path, method }) => {
@@ -151,6 +154,7 @@ describe("credentialed media import adapters", () => {
 		"https://trakt.tv/users/alice/lists",
 		"https://trakt.tv/users//lists/favorites",
 		"https://trakt.tv/users/alice/lists/favorites/extra",
+		// oxlint-disable-next-line effecttsgo/async-function -- Vitest awaits this Promise-returning test callback.
 	])("rejects an invalid public Trakt list URL before HTTP: %s", async (url) => {
 		let calls = 0;
 		const host = stubHttpHost(() => {
@@ -164,6 +168,7 @@ describe("credentialed media import adapters", () => {
 		expect(calls).toBe(0);
 	});
 
+	// oxlint-disable-next-line effecttsgo/async-function -- Vitest awaits this Promise-returning test callback.
 	it("returns an empty result for an empty public Trakt list", async () => {
 		const host = stubHttpHost(({ method }) =>
 			method === "HEAD" ? { headers: { "x-pagination-page-count": "1" } } : { body: [] },
@@ -179,6 +184,7 @@ describe("credentialed media import adapters", () => {
 		expect(result).toEqual({ failures: [], totalItems: 0, entityGroups: [] });
 	});
 
+	// oxlint-disable-next-line effecttsgo/async-function -- Vitest awaits this Promise-returning test callback.
 	it("records a normal failure for a public Trakt list item without identifiers", async () => {
 		const host = stubHttpHost(({ method }) =>
 			method === "HEAD"
@@ -209,6 +215,7 @@ describe("credentialed media import adapters", () => {
 		]);
 	});
 
+	// oxlint-disable-next-line effecttsgo/async-function -- Vitest awaits this Promise-returning test callback.
 	it("skips unsupported public Trakt list item types", async () => {
 		const host = stubHttpHost(({ method }) =>
 			method === "HEAD"
@@ -233,6 +240,7 @@ describe("credentialed media import adapters", () => {
 		expect(result.entityGroups).toMatchObject([{ itemIndex: 0 }]);
 	});
 
+	// oxlint-disable-next-line effecttsgo/async-function -- Vitest awaits this Promise-returning test callback.
 	it("maps Jellyfin played movies and episodes via series details", async () => {
 		const routes: Record<string, StubResponse> = {
 			"/Users/AuthenticateByName": { body: { AccessToken: "tok", User: { Id: "u1" } } },
@@ -285,6 +293,7 @@ describe("credentialed media import adapters", () => {
 		});
 	});
 
+	// oxlint-disable-next-line effecttsgo/async-function -- Vitest awaits this Promise-returning test callback.
 	it("records a Jellyfin failure for an item without a played timestamp", async () => {
 		const routes: Record<string, StubResponse> = {
 			"/Users/AuthenticateByName": { body: { AccessToken: "tok", User: { Id: "u1" } } },
@@ -311,6 +320,7 @@ describe("credentialed media import adapters", () => {
 		});
 	});
 
+	// oxlint-disable-next-line effecttsgo/async-function -- Vitest awaits this Promise-returning test callback.
 	it("maps Plex watched movies and per-episode show coverage by guid", async () => {
 		const routes: Record<string, StubResponse> = {
 			"/library/sections": {
@@ -382,6 +392,7 @@ describe("credentialed media import adapters", () => {
 		});
 	});
 
+	// oxlint-disable-next-line effecttsgo/async-function -- Vitest awaits this Promise-returning test callback.
 	it("records a Plex failure for a watched item without a provider id", async () => {
 		const routes: Record<string, StubResponse> = {
 			"/library/sections": {
@@ -411,6 +422,7 @@ describe("credentialed media import adapters", () => {
 		});
 	});
 
+	// oxlint-disable-next-line effecttsgo/async-function -- Vitest awaits this Promise-returning test callback.
 	it("maps Audiobookshelf Audible and ISBN items into library collections", async () => {
 		const routes: Record<string, StubResponse> = {
 			"/api/libraries": {
@@ -453,6 +465,7 @@ describe("credentialed media import adapters", () => {
 		});
 	});
 
+	// oxlint-disable-next-line effecttsgo/async-function -- Vitest awaits this Promise-returning test callback.
 	it("records an Audiobookshelf failure for missing media metadata", async () => {
 		const routes: Record<string, StubResponse> = {
 			"/api/libraries/lib1/items": { body: { results: [{ id: "x1", name: "Broken" }] } },
@@ -474,6 +487,7 @@ describe("credentialed media import adapters", () => {
 		});
 	});
 
+	// oxlint-disable-next-line effecttsgo/async-function -- Vitest awaits this Promise-returning test callback.
 	it("maps MediaTracker seen movies and games to resolved provider refs", async () => {
 		const routes: Record<string, StubResponse> = {
 			"/api/lists": { body: [] },
@@ -519,6 +533,7 @@ describe("credentialed media import adapters", () => {
 		});
 	});
 
+	// oxlint-disable-next-line effecttsgo/async-function -- Vitest awaits this Promise-returning test callback.
 	it("records a MediaTracker failure for a missing supported provider id", async () => {
 		const routes: Record<string, StubResponse> = {
 			"/api/lists": { body: [] },

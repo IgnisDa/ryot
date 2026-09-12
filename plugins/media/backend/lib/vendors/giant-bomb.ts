@@ -1,10 +1,11 @@
 import type { SandboxHost } from "@ryot-app/sandbox-sdk/core";
 import { Effect } from "@ryot-app/sandbox-sdk/effect";
 
+import { MediaSandboxError } from "../failures";
 import {
 	asRecord,
+	decodeJsonResponse,
 	numberValue,
-	parseJsonResponse,
 	stringValue,
 	type UnknownRecord,
 } from "../records";
@@ -17,15 +18,21 @@ export const GUID_PATTERN = /^\d+-\d+$/;
 export const getApiKey = (host: GiantBombHost) =>
 	host.getPluginConfig(["giantBombApiKey"]).pipe(
 		Effect.map(({ giantBombApiKey }) => giantBombApiKey),
-		Effect.mapError((error) => new Error(error.message || "Failed to retrieve GiantBomb API key")),
-		Effect.map((value) => {
+		Effect.mapError((error) => ({
+			...error,
+			message: error.message || "Failed to retrieve GiantBomb API key",
+		})),
+		Effect.flatMap((value) => {
 			const apiKey = stringValue(value);
 			if (!apiKey) {
-				throw new Error(
-					"GiantBomb API key is not configured. Set RYOT_PLUGIN_MEDIA_GIANT_BOMB_API_KEY in your environment.",
+				return Effect.fail(
+					new MediaSandboxError({
+						message:
+							"GiantBomb API key is not configured. Set RYOT_PLUGIN_MEDIA_GIANT_BOMB_API_KEY in your environment.",
+					}),
 				);
 			}
-			return apiKey;
+			return Effect.succeed(apiKey);
 		}),
 	);
 
@@ -34,20 +41,20 @@ export const giantBombRequest = (
 	path: string,
 	params: Readonly<Record<string, string>>,
 	failureMessage: string,
-): Effect.Effect<UnknownRecord | null, unknown> =>
+) =>
 	getApiKey(host).pipe(
 		Effect.flatMap((apiKey) => {
 			const search = new URLSearchParams({ format: "json", api_key: apiKey, ...params });
 			const url = `${BASE_URL}/${path}?${search.toString()}`;
 			return host.httpCall("GET", url, { headers: { Accept: "application/json" } }).pipe(
-				Effect.mapError((error) => new Error(error.message || failureMessage)),
-				Effect.map((response) => {
-					const payload = asRecord(parseJsonResponse(response.body, "GiantBomb"));
+				Effect.mapError((error) => ({ ...error, message: error.message || failureMessage })),
+				Effect.flatMap((response) => decodeJsonResponse(response.body, "GiantBomb")),
+				Effect.flatMap((response) => {
+					const payload = asRecord(response);
 					const errorValue = payload?.["error"];
-					if (typeof errorValue === "string" && errorValue && errorValue !== "OK") {
-						throw new Error(`GiantBomb API error: ${errorValue}`);
-					}
-					return payload;
+					return typeof errorValue === "string" && errorValue && errorValue !== "OK"
+						? Effect.fail(new MediaSandboxError({ message: `GiantBomb API error: ${errorValue}` }))
+						: Effect.succeed(payload);
 				}),
 			);
 		}),

@@ -1,3 +1,4 @@
+import { Effect } from "@ryot-app/client-sdk/effect";
 import {
 	createTestRyotClock,
 	disposePluginBridges,
@@ -80,12 +81,13 @@ const ReplacementPage = () => {
 describe("Pokemon presentations", () => {
 	afterEach(disposePluginBridges);
 
+	// oxlint-disable-next-line effecttsgo/async-function -- Vitest awaits the client test clock's Promise-based disposal.
 	it("loads Pokemon once and shares one deduplicated managed-artwork list", async () => {
 		const documents: unknown[] = [];
 		const clock = createTestRyotClock({
 			query: (document) => {
 				documents.push(document);
-				return Promise.resolve({
+				return Effect.succeed({
 					data: {
 						pokemon: rows([
 							{ ...bulbasaur, artwork: [{ type: "local", key: "pokemon/shared.png" }] },
@@ -112,17 +114,18 @@ describe("Pokemon presentations", () => {
 				});
 			},
 		});
-		const loaded = await loadPokemonPresentations({
-			client: clock.client,
-			signal: new AbortController().signal,
-			references: [
-				reference("pokemon-4", "Charmander"),
-				reference("pokemon-1", "Bulbasaur"),
-				reference("pokemon-2", "Ivysaur"),
-				reference("pokemon-3", "Venusaur"),
-				reference("pokemon-1", "Bulbasaur"),
-			],
-		});
+		const loaded = await Effect.runPromise(
+			loadPokemonPresentations({
+				client: clock.client,
+				references: [
+					reference("pokemon-4", "Charmander"),
+					reference("pokemon-1", "Bulbasaur"),
+					reference("pokemon-2", "Ivysaur"),
+					reference("pokemon-3", "Venusaur"),
+					reference("pokemon-1", "Bulbasaur"),
+				],
+			}),
+		);
 
 		expect(documents).toHaveLength(1);
 		expect(Object.keys(loaded).sort()).toEqual([
@@ -138,6 +141,36 @@ describe("Pokemon presentations", () => {
 		for (const pokemon of Object.values(loaded)) {
 			expect(pokemon.batchAssets).toBe(loaded["pokemon-1"]?.batchAssets);
 		}
+		await clock.dispose();
+	});
+
+	// oxlint-disable-next-line effecttsgo/async-function -- Vitest awaits the client test clock's Promise-based disposal.
+	it("interrupts an in-flight presentation query with its loader Effect", async () => {
+		let started = false;
+		let interrupted = false;
+		const clock = createTestRyotClock({
+			query: () =>
+				Effect.sync(() => {
+					started = true;
+				}).pipe(
+					Effect.andThen(Effect.never),
+					Effect.ensuring(
+						Effect.sync(() => {
+							interrupted = true;
+						}),
+					),
+				),
+		});
+		await Effect.runPromise(
+			Effect.race(
+				loadPokemonPresentations({
+					client: clock.client,
+					references: [reference("pokemon-1", "Bulbasaur")],
+				}),
+				Effect.promise(() => waitFor(() => expect(started).toBe(true))),
+			),
+		);
+		expect(interrupted).toBe(true);
 		await clock.dispose();
 	});
 
@@ -181,6 +214,7 @@ describe("Pokemon presentations", () => {
 		});
 	});
 
+	// oxlint-disable-next-line effecttsgo/async-function -- Vitest awaits Testing Library's Promise-based waitFor.
 	it("renders artwork and keeps expansion local to each entity item", async () => {
 		const page = mountPluginPage(ExpansionPage, {
 			location: entityLocation("pokemon-1", "pokemon"),
@@ -240,6 +274,7 @@ describe("Pokemon presentations", () => {
 		expect(rowButton.getAttribute("aria-expanded")).toBe("true");
 	});
 
+	// oxlint-disable-next-line effecttsgo/async-function -- Vitest awaits Testing Library's Promise-based waitFor.
 	it("keeps details expanded when replacement data has the same entity identity", async () => {
 		const page = mountPluginPage(ReplacementPage, {
 			location: entityLocation("pokemon-1", "pokemon"),

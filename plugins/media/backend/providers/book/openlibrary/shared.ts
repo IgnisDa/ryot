@@ -2,7 +2,14 @@ import { defineManifest } from "@ryot-app/sandbox-sdk/driver";
 import { Effect } from "@ryot-app/sandbox-sdk/effect";
 import { defineProvider } from "@ryot-app/sandbox-sdk/provider";
 
-import { type UnknownRecord, asRecord, numberValue, stringValue } from "../../../lib/records";
+import { MediaSandboxError } from "../../../lib/failures";
+import {
+	type UnknownRecord,
+	asRecord,
+	decodeJsonResponse,
+	numberValue,
+	stringValue,
+} from "../../../lib/records";
 import { createRoleAccumulator } from "../../../lib/role-accumulator";
 import { toTitleCase } from "../../../lib/title-case";
 import {
@@ -130,37 +137,29 @@ const collectAuthors = (host: OpenLibraryHost, workPayload: UnknownRecord | null
 	const accumulator = createRoleAccumulator();
 	const authorNameCache = new Map<string, string>();
 	const authors = workPayload?.["authors"];
-	return (Array.isArray(authors) ? authors : [])
-		.reduce<Effect.Effect<unknown, unknown>>((chain, authorEntry) => {
+	return Effect.gen(function* () {
+		for (const authorEntry of Array.isArray(authors) ? authors : []) {
 			const record = asRecord(authorEntry);
 			if (!record) {
-				return chain;
+				continue;
 			}
 			const nestedAuthor = asRecord(record["author"]);
 			const authorKey = authorKeyOf(record, nestedAuthor);
 			const personIdentifier = getKeySegment(authorKey);
 			if (!personIdentifier) {
-				return chain;
+				continue;
 			}
 			const inlineName = stringValue(nestedAuthor?.["name"]) ?? stringValue(record["name"]) ?? "";
-			return chain.pipe(
-				Effect.flatMap(() =>
-					inlineName
-						? Effect.succeed(inlineName)
-						: loadAuthorName(host, authorNameCache, authorKey),
-				),
-				Effect.map((authorName) => {
-					accumulator.add({
-						name: authorName,
-						externalId: personIdentifier,
-						providerSlug: "person.openlibrary",
-						relationshipProperties: { roles: ["Author"] },
-					});
-					return authorName;
-				}),
-			);
-		}, Effect.void)
-		.pipe(Effect.map(() => accumulator.entities));
+			const authorName = inlineName || (yield* loadAuthorName(host, authorNameCache, authorKey));
+			accumulator.add({
+				name: authorName,
+				externalId: personIdentifier,
+				providerSlug: "person.openlibrary",
+				relationshipProperties: { roles: ["Author"] },
+			});
+		}
+		return accumulator.entities;
+	});
 };
 
 export const details = defineProvider({
@@ -169,7 +168,7 @@ export const details = defineProvider({
 	run: (input, host) => {
 		const requestedIdentifier = getKeySegment(input.externalId);
 		if (!requestedIdentifier) {
-			return Effect.fail(new Error("externalId is required"));
+			return Effect.fail(new MediaSandboxError({ message: "externalId is required" }));
 		}
 		return Effect.gen(function* () {
 			const workValue = yield* loadOpenLibraryJson(
@@ -185,7 +184,9 @@ export const details = defineProvider({
 			const workPayload = asRecord(workValue);
 			const title = typeof workPayload?.["title"] === "string" ? workPayload["title"] : "";
 			if (!title) {
-				return yield* Effect.fail(new Error("OpenLibrary work payload is missing title"));
+				return yield* Effect.fail(
+					new MediaSandboxError({ message: "OpenLibrary work payload is missing title" }),
+				);
 			}
 			const externalId = getKeySegment(workPayload?.["key"]) || requestedIdentifier;
 
@@ -279,19 +280,18 @@ export const details = defineProvider({
 export const resolve = defineProvider({
 	manifest,
 	operation: "resolve",
-	run: (input, host) => {
-		if (input.identifierType !== "isbn") {
-			return Effect.fail(new Error("OpenLibrary resolve supports only isbn identifiers"));
-		}
-		return Effect.gen(function* () {
+	run: (input, host) =>
+		Effect.gen(function* () {
+			if (input.identifierType !== "isbn") {
+				return yield* Effect.fail(
+					new MediaSandboxError({ message: "OpenLibrary resolve supports only isbn identifiers" }),
+				);
+			}
 			const response = yield* host.httpCall(
 				"GET",
 				`https://openlibrary.org/isbn/${input.value}.json`,
 			);
-			const payloadValue = yield* Effect.try({
-				try: () => JSON.parse(response.body),
-				catch: () => new Error("OpenLibrary returned invalid JSON"),
-			});
+			const payloadValue = yield* decodeJsonResponse(response.body, "OpenLibrary");
 			const payload = asRecord(payloadValue);
 			const works = payload?.["works"];
 			const workKey = (Array.isArray(works) ? works : [])
@@ -303,10 +303,8 @@ export const resolve = defineProvider({
 				typeof key === "string" && key.startsWith("/works/") ? getKeySegment(key) : "";
 			return { externalId: fromWorks || fromKey || null };
 		}).pipe(
-			Effect.catchIf(
-				(error) => error.message === "not found",
-				() => Effect.succeed({ externalId: null }),
+			Effect.catch((error) =>
+				error.message === "not found" ? Effect.succeed({ externalId: null }) : Effect.fail(error),
 			),
-		);
-	},
+		),
 });

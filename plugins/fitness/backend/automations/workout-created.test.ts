@@ -6,7 +6,7 @@ import { expect, it } from "vitest";
 import { fitnessPlugin } from "../../host/plugin";
 import definition, { manifest } from "./workout-created.sandbox";
 
-it("emits an actor signal from the inline workout snapshot", async () => {
+it("emits an actor signal from the inline workout snapshot", () => {
 	const calls: unknown[] = [];
 	const input = Schema.decodeUnknownSync(automationInputSchema)({
 		automation: {
@@ -42,25 +42,30 @@ it("emits an actor signal from the inline workout snapshot", async () => {
 			},
 		},
 	});
-	await Effect.runPromise(
-		definition.run(
-			input,
-			defineSandboxTestHost(manifest, {
-				emitSignal: (request) => {
-					calls.push(request);
-					return Effect.succeed({ wasCreated: true, triggerId: "signal-1" });
-				},
-			}),
-			{ metadata: {}, sandboxScriptId: "script-1" },
-		),
+	return Effect.runPromise(
+		definition
+			.run(
+				input,
+				defineSandboxTestHost(manifest, {
+					emitSignal: (request) => {
+						calls.push(request);
+						return Effect.succeed({ wasCreated: true, triggerId: "signal-1" });
+					},
+				}),
+			)
+			.pipe(
+				Effect.map((result) => {
+					expect(calls).toEqual([
+						{
+							discriminator: "workout-1",
+							schemaSlug: "workout.created",
+							properties: { workoutId: "workout-1", workoutName: "Morning Run" },
+						},
+					]);
+					const hook = fitnessPlugin.hooks.find(({ slug }) => slug === "fitness.workout-created");
+					expect(hook).toMatchObject({ causationSources: ["api"] });
+					return result;
+				}),
+			),
 	);
-	expect(calls).toEqual([
-		{
-			discriminator: "workout-1",
-			schemaSlug: "workout.created",
-			properties: { workoutId: "workout-1", workoutName: "Morning Run" },
-		},
-	]);
-	const hook = fitnessPlugin.hooks.find(({ slug }) => slug === "fitness.workout-created");
-	expect(hook).toMatchObject({ causationSources: ["api"] });
 });

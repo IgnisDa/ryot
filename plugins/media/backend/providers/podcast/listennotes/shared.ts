@@ -3,7 +3,8 @@ import { defineManifest } from "@ryot-app/sandbox-sdk/driver";
 import { DateTime, Effect, Option } from "@ryot-app/sandbox-sdk/effect";
 import { defineProvider } from "@ryot-app/sandbox-sdk/provider";
 
-import { trimmedString } from "../../../lib/records";
+import { MediaSandboxError } from "../../../lib/failures";
+import { decodeJsonResponse, trimmedString } from "../../../lib/records";
 
 export const manifest = defineManifest({
 	kind: "provider",
@@ -55,20 +56,17 @@ const getIsoDateFromTimestamp = (value: unknown) => {
 };
 const getSourceUrl = (title: string, externalId: string) =>
 	`https://www.listennotes.com/podcasts/${trimmedString(title)}-${externalId}`;
-const parseJsonResponse = (responseBody: string): unknown => {
-	try {
-		return JSON.parse(responseBody);
-	} catch {
-		throw new Error("ListenNotes returned invalid JSON");
-	}
-};
 const getApiKey = (host: ListennotesHost) =>
 	host.getPluginConfig(["listennotesApiKey"]).pipe(
 		Effect.map(({ listennotesApiKey }) => listennotesApiKey),
 		Effect.flatMap((value) => {
 			const apiKey = typeof value === "string" ? value.trim() : "";
 			if (!apiKey) {
-				return Effect.fail(new Error("RYOT_PLUGIN_MEDIA_LISTENNOTES_API_KEY is not configured"));
+				return Effect.fail(
+					new MediaSandboxError({
+						message: "RYOT_PLUGIN_MEDIA_LISTENNOTES_API_KEY is not configured",
+					}),
+				);
 			}
 			return Effect.succeed(apiKey);
 		}),
@@ -91,13 +89,11 @@ const listennotesGet = (
 			return host
 				.httpCall("GET", `${BASE_URL}${path}${suffix}`, { headers: { "X-ListenAPI-Key": apiKey } })
 				.pipe(
-					Effect.mapError((error) => new Error(error.message || "ListenNotes request failed")),
-					Effect.flatMap((response) =>
-						Effect.try({
-							try: () => parseJsonResponse(response.body),
-							catch: (error) => (error instanceof Error ? error : new Error(String(error))),
-						}),
-					),
+					Effect.mapError((error) => ({
+						...error,
+						message: error.message || "ListenNotes request failed",
+					})),
+					Effect.flatMap((response) => decodeJsonResponse(response.body, "ListenNotes")),
 				);
 		}),
 	);
@@ -270,7 +266,7 @@ export const details = defineProvider({
 			const firstPage = yield* fetchPodcastDetails(host, input.externalId, null);
 			const title = trimmedString(firstPage?.["title"]);
 			if (!title) {
-				return yield* Effect.fail(new Error("Podcast is missing title"));
+				return yield* Effect.fail(new MediaSandboxError({ message: "Podcast is missing title" }));
 			}
 			const totalEpisodes = positiveInt(firstPage?.["total_episodes"]);
 			const episodes: MappedEpisode[] = [];
@@ -279,7 +275,10 @@ export const details = defineProvider({
 				currentPodcast: UnknownRecord | null,
 				episodeNumberOffset: number,
 				previousEpisodePubDate: number | null,
-			): Effect.Effect<UnknownRecord | null, unknown> => {
+			): Effect.Effect<
+				UnknownRecord | null,
+				Effect.Error<ReturnType<typeof fetchPodcastDetails>>
+			> => {
 				const pageEpisodes: MappedEpisode[] = [];
 				const rawEpisodesValue = currentPodcast?.["episodes"];
 				const rawEpisodes = Array.isArray(rawEpisodesValue) ? rawEpisodesValue : [];

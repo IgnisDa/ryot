@@ -228,7 +228,7 @@ describe("movie.tvdb sandbox script", () => {
 	it("translate still returns the translation when the details fetch fails", () => {
 		const host = makeHost((_method, url) =>
 			url.includes("/extended")
-				? Effect.fail(new Error("boom"))
+				? Effect.fail({ message: "boom" })
 				: httpSuccess({ data: { name: "Nombre", overview: "Descripción" } }),
 		);
 		return Effect.runPromise(

@@ -5,7 +5,6 @@ import { expect, it } from "vitest";
 import {
 	automationContext,
 	entityRecord,
-	execution,
 	hostSuccess,
 	ryotqlRows,
 } from "../../tests/backend/automations/automation-test-utils";
@@ -39,6 +38,7 @@ const addToMediaLibrarySchema = {
 	propertiesSchema: { fields: {} },
 };
 
+// oxlint-disable-next-line effecttsgo/async-function -- Vitest awaits this Promise-returning test callback.
 it("records an add-to-media-library event for a newly-created media membership", async () => {
 	const created: unknown[] = [];
 	const host = defineSandboxTestHost(manifest, {
@@ -50,7 +50,7 @@ it("records an add-to-media-library event for a newly-created media membership",
 		},
 	});
 
-	await Effect.runPromise(definition.run(relationshipContext(), host, execution));
+	await Effect.runPromise(definition.run(relationshipContext(), host));
 
 	expect(created).toEqual([
 		[
@@ -64,6 +64,7 @@ it("records an add-to-media-library event for a newly-created media membership",
 	]);
 });
 
+// oxlint-disable-next-line effecttsgo/async-function -- Vitest awaits this Promise-returning test callback.
 it("ignores non-media relationships", async () => {
 	let calls = 0;
 	const host = defineSandboxTestHost(manifest, {
@@ -82,9 +83,9 @@ it("ignores non-media relationships", async () => {
 	});
 
 	await Effect.runPromise(
-		definition.run(relationshipContext({ relationshipSchemaSlug: "owns" }), host, execution),
+		definition.run(relationshipContext({ relationshipSchemaSlug: "owns" }), host),
 	);
-	await Effect.runPromise(definition.run(relationshipContext(), host, execution));
+	await Effect.runPromise(definition.run(relationshipContext(), host));
 
 	expect(calls).toBe(1);
 });

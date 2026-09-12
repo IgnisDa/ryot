@@ -3,6 +3,7 @@ import { Effect } from "@ryot-app/sandbox-sdk/effect";
 import { defineSandboxTestHost, runSandboxTestScript } from "@ryot-app/sandbox-sdk/testing";
 import { describe, expect, it } from "vitest";
 
+import { mediaFailureMessage } from "../../../lib/error-message";
 import details, { manifest as detailsManifest } from "./details.sandbox";
 import search, { manifest as searchManifest } from "./search.sandbox";
 import { manifest } from "./shared";
@@ -128,7 +129,9 @@ describe("visual-novel.vndb sandbox script", () => {
 		return Effect.runPromise(
 			runSandboxTestScript(details, { externalId: "p1" }, host, execution).pipe(
 				Effect.flip,
-				Effect.map((error) => expect(String(error)).toContain("externalId must be a VNDB VN ID")),
+				Effect.map((error) =>
+					expect(mediaFailureMessage(error)).toContain("externalId must be a VNDB VN ID"),
+				),
 			),
 		);
 	});

@@ -3,6 +3,7 @@ import { DateTime, Effect, Option, Schema } from "@ryot-app/sandbox-sdk/effect";
 import { defineProvider } from "@ryot-app/sandbox-sdk/provider";
 import { strictStruct } from "@ryot-app/sandbox-sdk/wire";
 
+import { MediaSandboxError } from "../../../lib/failures";
 import { asRecord, numberValue, stringValue } from "../../../lib/records";
 import { type RoleRelatedEntity, createRoleAccumulator } from "../../../lib/role-accumulator";
 import {
@@ -193,7 +194,9 @@ const loadSearchOptions = (
 			const { data } = yield* makeIgdbRequest(host, source.path, body);
 			if (!Array.isArray(data)) {
 				return yield* Effect.fail(
-					new Error(`IGDB ${source.path} returned unexpected response format`),
+					new MediaSandboxError({
+						message: `IGDB ${source.path} returned unexpected response format`,
+					}),
 				);
 			}
 			for (const item of data) {
@@ -249,7 +252,9 @@ export const search = defineProvider({
 			return yield* makeIgdbRequest(host, "games", body).pipe(
 				Effect.flatMap(({ headers, data: results }) => {
 					if (!Array.isArray(results)) {
-						return Effect.fail(new Error("IGDB search returned unexpected response format"));
+						return Effect.fail(
+							new MediaSandboxError({ message: "IGDB search returned unexpected response format" }),
+						);
 					}
 					const totalItems = readTotalItems(headers, results.length, offset);
 					const items = results.flatMap((game) => {
@@ -305,7 +310,11 @@ export const details = defineProvider({
 	operation: "details",
 	run: (input, host) => {
 		if (!/^\d+$/.test(input.externalId)) {
-			return Effect.fail(new Error("externalId must be a numeric IGDB game ID (e.g., '1020')"));
+			return Effect.fail(
+				new MediaSandboxError({
+					message: "externalId must be a numeric IGDB game ID (e.g., '1020')",
+				}),
+			);
 		}
 		const gameBody = [`fields ${DETAIL_FIELDS};`, `where id = ${input.externalId};`].join("\n");
 		const ttbBody = [
@@ -320,12 +329,16 @@ export const details = defineProvider({
 				Effect.gen(function* () {
 					const gameList = gameResult.data;
 					if (!Array.isArray(gameList) || gameList.length === 0) {
-						return yield* Effect.fail(new Error("IGDB returned no game data for this externalId"));
+						return yield* Effect.fail(
+							new MediaSandboxError({ message: "IGDB returned no game data for this externalId" }),
+						);
 					}
 					const game = asRecord(gameList[0]);
 					const name = stringValue(game?.["name"]);
 					if (!name) {
-						return yield* Effect.fail(new Error("IGDB game payload is missing name"));
+						return yield* Effect.fail(
+							new MediaSandboxError({ message: "IGDB game payload is missing name" }),
+						);
 					}
 					const images: Array<{ type: "remote"; url: string; purpose: string }> = [];
 					const coverImageId = stringValue(asRecord(game?.["cover"])?.["image_id"]);

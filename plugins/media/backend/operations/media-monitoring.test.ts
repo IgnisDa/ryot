@@ -32,6 +32,7 @@ const libraryRows = (items: unknown[]) => ({
 });
 
 describe("media monitoring operations", () => {
+	// oxlint-disable-next-line effecttsgo/async-function -- Vitest awaits this Promise-returning test callback.
 	it("pushes monitorability and status into one query and keeps duplicate results aligned", async () => {
 		const documents: unknown[] = [];
 		const host = defineSandboxTestHost(statusManifest, {
@@ -89,6 +90,7 @@ describe("media monitoring operations", () => {
 		expect(serialized).not.toContain("show-season");
 	});
 
+	// oxlint-disable-next-line effecttsgo/async-function -- Vitest awaits this Promise-returning test callback.
 	it("enables valid targets with one atomic relationship batch and no user id", async () => {
 		const changes: unknown[] = [];
 		const documents: unknown[] = [];
@@ -151,6 +153,7 @@ describe("media monitoring operations", () => {
 		expect(JSON.stringify(changes)).not.toContain("userId");
 	});
 
+	// oxlint-disable-next-line effecttsgo/async-function -- Vitest awaits this Promise-returning test callback.
 	it("disables only existing monitoring edges and leaves ordinary media library membership alone", async () => {
 		const changes: unknown[] = [];
 		const host = defineSandboxTestHost(disableManifest, {

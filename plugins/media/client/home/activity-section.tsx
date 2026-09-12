@@ -22,12 +22,10 @@ const TITLE = "Your activity";
 
 type MediaActivityInput = ActivityWindow & { readonly timeZone: string };
 
-const mediaActivityQuery = createRyotQuery<MediaActivityInput, MediaActivity>(
-	({ input, client, signal }) =>
-		client.data.query(
-			mediaActivityRecipe({ from: input.from, until: input.until, timeZone: input.timeZone }),
-			{ signal },
-		),
+const mediaActivityQuery = createRyotQuery<MediaActivityInput, MediaActivity>(({ input, client }) =>
+	client.data.query(
+		mediaActivityRecipe({ from: input.from, until: input.until, timeZone: input.timeZone }),
+	),
 );
 
 const formatHours = (minutes: number) => Math.round(minutes / 60).toLocaleString("en-US");

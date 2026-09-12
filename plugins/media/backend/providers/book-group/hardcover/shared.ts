@@ -2,6 +2,7 @@ import { defineManifest } from "@ryot-app/sandbox-sdk/driver";
 import { Effect } from "@ryot-app/sandbox-sdk/effect";
 import { defineProvider } from "@ryot-app/sandbox-sdk/provider";
 
+import { MediaSandboxError } from "../../../lib/failures";
 import { asRecord, numberValue, stringValue } from "../../../lib/records";
 import {
 	escapeGraphqlString,
@@ -46,7 +47,9 @@ query {
 			const payload = asRecord(payloadValue);
 			const resultsData = asRecord(asRecord(asRecord(payload?.["data"])?.["search"])?.["results"]);
 			if (!resultsData) {
-				return yield* Effect.fail(new Error("Hardcover returned invalid response structure"));
+				return yield* Effect.fail(
+					new MediaSandboxError({ message: "Hardcover returned invalid response structure" }),
+				);
 			}
 			const found = numberValue(resultsData["found"]);
 			const totalItems = found === null ? 0 : Math.max(0, Math.trunc(found));
@@ -115,11 +118,15 @@ export const details = defineProvider({
 			);
 			const data = asRecord(asRecord(asRecord(payloadValue)?.["data"])?.["series_by_pk"]);
 			if (!data) {
-				return yield* Effect.fail(new Error("Hardcover returned no series data"));
+				return yield* Effect.fail(
+					new MediaSandboxError({ message: "Hardcover returned no series data" }),
+				);
 			}
 			const title = stringValue(data["name"]);
 			if (!title) {
-				return yield* Effect.fail(new Error("Hardcover series is missing name"));
+				return yield* Effect.fail(
+					new MediaSandboxError({ message: "Hardcover series is missing name" }),
+				);
 			}
 			const bookSeries = data["book_series"];
 			const relatedEntities = (Array.isArray(bookSeries) ? bookSeries : []).flatMap(
