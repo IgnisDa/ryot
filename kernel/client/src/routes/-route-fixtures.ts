@@ -124,7 +124,10 @@ export const userSettings: UserSettingsResult = {
 };
 
 export const makeUserSettingsStub = (overrides: Partial<UserSettingsApi["Service"]> = {}) =>
-	makeUserSettingsApi(overrides);
+	makeUserSettingsApi({
+		twoFactorStatus: () => Effect.succeed({ enabled: false, available: false }),
+		...overrides,
+	});
 
 export const makeAuthStub = (
 	overrides: Partial<AuthService["Service"]> = {},
@@ -155,7 +158,13 @@ export const makeOAuthRouteStubs = (
 			signInWithOidc: Effect.void,
 			resetPassword: () => Effect.void,
 			verifyTwoFactor: () => Effect.void,
+			twoFactorSession: Effect.die("not used"),
 			continueAfterInitialization: Effect.void,
+			enableTwoFactor: () => Effect.die("not used"),
+			disableTwoFactor: () => Effect.die("not used"),
+			confirmTwoFactor: () => Effect.die("not used"),
+			regenerateBackupCodes: () => Effect.die("not used"),
+			openTwoFactorManagement: () => Effect.die("not used"),
 			signInDemo: Effect.succeed({ mode: "demo" } as const),
 			initializationStatus: Effect.succeed({ status: "ready" } as const),
 			submitCredentials: () => Effect.succeed({ _tag: "Authenticated" } as const),

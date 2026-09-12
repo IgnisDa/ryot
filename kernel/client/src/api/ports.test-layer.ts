@@ -120,6 +120,7 @@ export const makeNotificationsApi = (overrides: Partial<NotificationsApi["Servic
 export const makeUserSettingsApi = (overrides: Partial<UserSettingsApi["Service"]> = {}) =>
 	Layer.succeed(UserSettingsApi, {
 		refreshAvatar: unused,
+		twoFactorStatus: unused,
 		updatePreferences: unused,
 		...overrides,
 	});

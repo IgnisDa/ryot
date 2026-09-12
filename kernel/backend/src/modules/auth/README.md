@@ -1,6 +1,6 @@
 # Auth
 
-Ryot is an OAuth 2.1 authorization server built with Better Auth's OAuth Provider plugin. Application APIs accept an OAuth token in `Authorization: Bearer <token>` or a user API key in `X-Api-Key`. Better Auth cookies authenticate only the hosted `/oauth/login` ceremony; API middleware never accepts them.
+Ryot is an OAuth 2.1 authorization server built with Better Auth's OAuth Provider plugin. Application APIs accept an OAuth token in `Authorization: Bearer <token>` or a user API key in `X-Api-Key`. Better Auth cookies authenticate only the hosted `/oauth/login` ceremony and the hosted `/oauth/two-factor` page, where a fresh password sign-in precedes TOTP management; API middleware never accepts them.
 
 ## First-Party Clients
 

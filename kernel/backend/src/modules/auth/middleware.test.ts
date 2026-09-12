@@ -86,6 +86,7 @@ it("protects demo hosted-session mutations and non-demo OAuth authorization", ()
 		"/two-factor/enable",
 		"/two-factor/disable",
 		"/two-factor/get-totp-uri",
+		"/two-factor/verify-totp",
 		"/two-factor/generate-backup-codes",
 		"/revoke-session",
 		"/revoke-sessions",
@@ -102,7 +103,7 @@ it("protects demo hosted-session mutations and non-demo OAuth authorization", ()
 	expect(isDemoProtectedAuthRequest("/oauth2/authorize", "demo", OAUTH_DEMO_WEB_CLIENT_ID)).toBe(
 		false,
 	);
-	for (const path of ["/sign-out", "/sign-in/email", "/two-factor/verify-totp"]) {
+	for (const path of ["/sign-out", "/sign-in/email"]) {
 		expect(isDemoProtectedAuthRequest(path, "demo")).toBe(false);
 	}
 });
