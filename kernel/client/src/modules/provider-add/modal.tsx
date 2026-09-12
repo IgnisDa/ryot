@@ -114,11 +114,13 @@ export function ProviderAddModal(props: ProviderAddModalProps) {
 		);
 	const importEntity: ComponentProps<typeof ProviderSearchPanel>["importEntity"] = ({
 		externalId,
+		onProgress,
 		providerId,
 	}) =>
 		runtime.runPromise(
 			Effect.flatMap(ProviderAddService, (service) =>
 				importProviderEntity({
+					onProgress,
 					poll: (jobId) => service.pollImport(scope, jobId),
 					start: service.startImport(scope, { externalId, providerId }),
 				}),
