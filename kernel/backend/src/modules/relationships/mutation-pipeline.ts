@@ -34,7 +34,8 @@ import {
 	type LifecycleCommittedStep,
 	type LifecyclePreparedStep,
 } from "#lib/infrastructure/lifecycle-workflow-step";
-import type { RelationshipSchemaDefinition } from "#modules/definition-registry/service";
+import { DefinitionRepository } from "#modules/definition-registry/repository";
+import type { RelationshipSchemaDefinition } from "#modules/definition-registry/snapshot";
 import { EntitiesRepository } from "#modules/entities/repository";
 import {
 	catalogDefinitionFingerprint,
@@ -364,6 +365,7 @@ export const commitRelationshipMutations = Effect.fn("RelationshipsService.commi
 		const repository = yield* RelationshipsRepository;
 		const planner = yield* LifecyclePlanner;
 		const runtime = yield* PluginRuntimeResolver;
+		const definitions = yield* DefinitionRepository;
 		const committed = yield* transaction(
 			Effect.gen(function* () {
 				let revalidated = pending.items;
@@ -373,11 +375,9 @@ export const commitRelationshipMutations = Effect.fn("RelationshipsService.commi
 					yield* runtime.lockCatalog();
 					const userCatalogs = new Map<
 						UserId,
-						Effect.Success<ReturnType<typeof runtime.getEffectiveDefinitions>>
+						Readonly<Record<string, RelationshipSchemaDefinition>>
 					>();
-					let globalCatalog: Effect.Success<
-						ReturnType<typeof runtime.getGlobalDefinitions>
-					> | null = null;
+					const globalSchemas = new Map<string, RelationshipSchemaDefinition | null>();
 					revalidated = yield* Effect.forEach(pending.items, (item) =>
 						Effect.gen(function* () {
 							const { mutation } = item;
@@ -390,18 +390,28 @@ export const commitRelationshipMutations = Effect.fn("RelationshipsService.commi
 									reason: { code: "concurrent-relationship-change" },
 								});
 							}
-							let definition: RelationshipSchemaDefinition | undefined;
+							const slug = mutation.input.relationshipSchemaSlug;
+							let definition: RelationshipSchemaDefinition | null | undefined;
 							if (mutation.input.scope === "user") {
-								let catalog = userCatalogs.get(mutation.input.userId);
+								const userId = mutation.input.userId;
+								let catalog = userCatalogs.get(userId);
 								if (!catalog) {
-									catalog = yield* runtime.getEffectiveDefinitions(mutation.input.userId);
-									userCatalogs.set(mutation.input.userId, catalog);
+									catalog = yield* definitions.findUserRelationshipSchemas(
+										userId,
+										pending.items.flatMap(({ mutation: candidate }) =>
+											candidate.input.scope === "user" && candidate.input.userId === userId
+												? [candidate.input.relationshipSchemaSlug]
+												: [],
+										),
+									);
+									userCatalogs.set(userId, catalog);
 								}
-								definition = catalog.relationshipSchemas[mutation.input.relationshipSchemaSlug];
+								definition = catalog[slug];
 							} else {
-								globalCatalog ??= yield* runtime.getGlobalDefinitions();
-								definition =
-									globalCatalog.relationshipSchemas[mutation.input.relationshipSchemaSlug];
+								if (!globalSchemas.has(slug)) {
+									globalSchemas.set(slug, yield* definitions.findGlobalRelationshipSchema(slug));
+								}
+								definition = globalSchemas.get(slug);
 							}
 							if (
 								!definition ||
@@ -732,12 +742,12 @@ export const prepareReconcileGlobalGroup = (
 ) =>
 	prepareProjectedRelationshipMutations(
 		Effect.gen(function* () {
-			const runtime = yield* PluginRuntimeResolver;
+			const definitions = yield* DefinitionRepository;
 			const repository = yield* RelationshipsRepository;
 			const database = yield* Database;
-			const definition = (yield* runtime.getGlobalDefinitions()).relationshipSchemas[
-				group.relationshipSchemaSlug
-			];
+			const definition = yield* definitions.findGlobalRelationshipSchema(
+				group.relationshipSchemaSlug,
+			);
 			if (!definition) {
 				return yield* new RelationshipNotFound({
 					reason: {

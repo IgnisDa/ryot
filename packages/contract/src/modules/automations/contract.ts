@@ -3,14 +3,10 @@ import { HttpApiEndpoint, HttpApiGroup, HttpApiSchema, OpenApi } from "effect/un
 
 import { AuthMiddleware } from "../../auth-middleware";
 import { DemoAccessPolicy } from "../../http-annotations";
-import { AutomationRunId, NotificationSubscriptionId, SignalSchemaSlug } from "../../schema/brands";
+import { AutomationRunId, NotificationSubscriptionId } from "../../schema/brands";
 import {
-	AutomationHistoryDetail,
-	AutomationHistoryFilters,
 	AutomationHistoryInternalError,
 	AutomationHistoryNotFound,
-	AutomationHistoryPage,
-	AutomationHistoryRequestError,
 	AutomationHistoryRetryBody,
 	AutomationHistoryRetryConflict,
 	AutomationHistoryRetryResult,
@@ -18,29 +14,15 @@ import {
 import {
 	AutomationConflictError,
 	AutomationNotFoundError,
-	CatalogSignalSchema,
-	InstalledNotificationRule,
 	InstallNotificationRuleBody,
 } from "./schemas";
 
 export const AutomationsGroup = HttpApiGroup.make("automations")
-	.annotate(OpenApi.Description, "Manages automation catalogs and notification rules.")
-	.add(
-		HttpApiEndpoint.get("listCatalog", "/automations/catalog", {
-			success: Schema.Array(CatalogSignalSchema),
-		}).annotate(OpenApi.Description, "Lists available automation signal schemas."),
-	)
-	.add(
-		HttpApiEndpoint.get("getCatalog", "/automations/catalog/:signalSchemaSlug", {
-			success: CatalogSignalSchema,
-			params: { signalSchemaSlug: SignalSchemaSlug },
-			error: [AutomationNotFoundError.pipe(HttpApiSchema.status(404))],
-		}).annotate(OpenApi.Description, "Returns an automation signal schema from the catalog."),
-	)
+	.annotate(OpenApi.Description, "Manages notification rules.")
 	.add(
 		HttpApiEndpoint.post("installRule", "/automations/rules", {
 			payload: InstallNotificationRuleBody,
-			success: InstalledNotificationRule.pipe(HttpApiSchema.status(201)),
+			success: Schema.Struct({ id: NotificationSubscriptionId }).pipe(HttpApiSchema.status(201)),
 			error: [
 				AutomationNotFoundError.pipe(HttpApiSchema.status(404)),
 				AutomationConflictError.pipe(HttpApiSchema.status(409)),
@@ -51,8 +33,8 @@ export const AutomationsGroup = HttpApiGroup.make("automations")
 	)
 	.add(
 		HttpApiEndpoint.post("activateRule", "/automations/rules/:ruleId/activate", {
-			success: InstalledNotificationRule,
 			params: { ruleId: NotificationSubscriptionId },
+			success: Schema.Struct({ id: NotificationSubscriptionId }),
 			error: [AutomationNotFoundError.pipe(HttpApiSchema.status(404))],
 		})
 			.annotate(DemoAccessPolicy, "protected")
@@ -60,8 +42,8 @@ export const AutomationsGroup = HttpApiGroup.make("automations")
 	)
 	.add(
 		HttpApiEndpoint.post("deactivateRule", "/automations/rules/:ruleId/deactivate", {
-			success: InstalledNotificationRule,
 			params: { ruleId: NotificationSubscriptionId },
+			success: Schema.Struct({ id: NotificationSubscriptionId }),
 			error: [AutomationNotFoundError.pipe(HttpApiSchema.status(404))],
 		})
 			.annotate(DemoAccessPolicy, "protected")
@@ -82,33 +64,8 @@ const historyErrors = [
 	AutomationHistoryNotFound.pipe(HttpApiSchema.status(404)),
 	AutomationHistoryInternalError.pipe(HttpApiSchema.status(500)),
 ];
-const listErrors = [
-	AutomationHistoryRequestError.pipe(HttpApiSchema.status(400)),
-	AutomationHistoryInternalError.pipe(HttpApiSchema.status(500)),
-];
-
 export const AutomationHistoryGroup = HttpApiGroup.make("automationHistory")
-	.annotate(OpenApi.Description, "Reads owned automation history and queues eligible retries.")
-	.add(
-		HttpApiEndpoint.get("listRuns", "/automations/runs", {
-			error: listErrors,
-			success: AutomationHistoryPage,
-			query: AutomationHistoryFilters,
-		}).annotate(
-			OpenApi.Description,
-			"Lists the authenticated user's runs in descending queued-time order with bounded cursor pagination.",
-		),
-	)
-	.add(
-		HttpApiEndpoint.get("getRun", "/automations/runs/:runId", {
-			error: historyErrors,
-			success: AutomationHistoryDetail,
-			params: { runId: AutomationRunId },
-		}).annotate(
-			OpenApi.Description,
-			"Reads an owned run with bounded, redacted retained artifacts and retry eligibility.",
-		),
-	)
+	.annotate(OpenApi.Description, "Queues eligible automation run retries.")
 	.add(
 		HttpApiEndpoint.post("retryRun", "/automations/runs/:runId/retry", {
 			params: { runId: AutomationRunId },

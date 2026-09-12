@@ -1,4 +1,5 @@
 import { it } from "@effect/vitest";
+import { AUTOMATION_HISTORY_LIMITS } from "@ryot-app/contract/modules/automations/history-schemas";
 import { DEFAULT_AUTOMATION_RETRY_POLICY } from "@ryot-app/contract/modules/automations/lifecycle";
 import { AutomationRunId, SignalSchemaSlug } from "@ryot-app/contract/schema/brands";
 import { stableStringify } from "@ryot-app/ts-utils/json";
@@ -30,6 +31,7 @@ import {
 	automationAttemptIdentity,
 	boundAutomationAttemptArtifacts,
 	type FinalizeAutomationAttempt,
+	projectAutomationAttemptHistory,
 } from "./attempt-repository";
 
 const now = new Date("2026-09-15T00:00:00.000Z");
@@ -169,6 +171,62 @@ unit("bounds each UTF-8/escaped artifact while preserving small values", () => {
 		returnedValue: false,
 	});
 	expect(automationAttemptIdentity(runId, 1)).not.toEqual(automationAttemptIdentity(runId, 2));
+});
+
+const diagnostics = {
+	failureKind: "business-failure",
+	error: { code: "private-error-code", message: "Authorization: Bearer private-token" },
+	logs: [
+		{
+			level: "error",
+			message: "password=private-password",
+			attributes: { nested: { count: 2, apiKey: "private-key" } },
+		},
+	],
+} satisfies Parameters<typeof projectAutomationAttemptHistory>[0];
+
+unit("projects attempt history with sensitive diagnostic redaction", () => {
+	const projected = projectAutomationAttemptHistory(diagnostics);
+	expect(projected.historyError).toEqual({
+		code: "business-failure",
+		message: "Authorization: [REDACTED]",
+	});
+	expect(projected.historyLogs).toEqual([
+		{
+			level: "error",
+			message: "password=[REDACTED]",
+			attributes: { nested: { count: 2, apiKey: "[REDACTED]" } },
+		},
+	]);
+	expect(JSON.stringify(projected)).not.toContain("private-");
+});
+
+unit("bounds UTF-8 attempt history and marks truncation", () => {
+	const huge = "😀".repeat(AUTOMATION_HISTORY_LIMITS.attemptBytes);
+	const projected = projectAutomationAttemptHistory({
+		...diagnostics,
+		error: { message: huge, code: "failure" },
+		logs: [
+			{ level: "info", message: huge },
+			{ level: "info", message: "small" },
+		],
+	});
+	expect(projected.historyArtifactsTruncated).toBe(true);
+	expect(projected.historyLogs).toEqual([{ level: "info", message: "small" }]);
+	expect(
+		Buffer.byteLength(
+			JSON.stringify({ logs: projected.historyLogs, error: projected.historyError }),
+		),
+	).toBeLessThan(AUTOMATION_HISTORY_LIMITS.attemptBytes);
+	const many = projectAutomationAttemptHistory({
+		...diagnostics,
+		logs: Array.from({ length: 100 }, () => ({ level: "info", message: "token=x ".repeat(30) })),
+	});
+	expect(many.historyArtifactsTruncated).toBe(true);
+	expect(many.historyLogs?.length).toBeGreaterThan(0);
+	expect(
+		Buffer.byteLength(JSON.stringify({ logs: many.historyLogs, error: many.historyError })),
+	).toBeLessThanOrEqual(AUTOMATION_HISTORY_LIMITS.attemptBytes);
 });
 
 describe("AutomationAttemptRepository (PostgreSQL)", () => {
@@ -396,11 +454,13 @@ describe("AutomationAttemptRepository (PostgreSQL)", () => {
 							pluginId: "plugin",
 							sourceHash: "source",
 							manifest: fixtureManifest(),
+							clientConfigSchema: { fields: {} },
 						});
 					yield* db
 						.insert(pluginConfigRevision)
 						.values({
 							id: "config",
+							configuredKeys: [],
 							scope: "environment",
 							encryptionKeyId: "key",
 							nonce: Buffer.alloc(12),
@@ -440,6 +500,47 @@ describe("AutomationAttemptRepository (PostgreSQL)", () => {
 						.set({ payloadPrunedAt: null, encryptedPayload: Buffer.alloc(16) });
 					expect(yield* repo.queueRetry({ now, runId, expectedAttemptCount: 1 })).toMatchObject({
 						attemptNumber: 2,
+					});
+				}),
+			),
+	);
+
+	it.effect(
+		"writes redacted attempt history when finalizing and clears it with pruned artifacts",
+		() =>
+			withDatabase(
+				Effect.gen(function* () {
+					yield* seed("after", 1);
+					const repo = yield* AutomationAttemptRepository;
+					const db = yield* Database;
+					yield* repo.claimNextAttempt({ now, runId, attemptNumber: 1 });
+					expect(yield* repo.retryEligibility(runId, now)).toBe("not-failed");
+					yield* repo.finalizeAttempt(
+						{
+							...failure,
+							logs: [{ level: "info", message: "password=private-password" }],
+							error: { code: "timeout", message: "Authorization: Bearer private-token" },
+						},
+						now,
+					);
+					const [finalized] = yield* db.select().from(automationRunAttempt);
+					expect(finalized).toMatchObject({
+						historyArtifactsTruncated: false,
+						historyLogs: [{ level: "info", message: "password=[REDACTED]" }],
+						historyError: { code: "sandbox-timeout", message: "Authorization: [REDACTED]" },
+					});
+					const expiry = DateTime.toDate(DateTime.makeUnsafe("2026-10-15T00:00:00.000Z"));
+					expect(
+						yield* repo.pruneArtifacts({ limit: 10, before: expiry, prunedAt: expiry }),
+					).toHaveLength(1);
+					const [pruned] = yield* db.select().from(automationRunAttempt);
+					expect(pruned).toMatchObject({
+						logs: null,
+						error: null,
+						historyLogs: null,
+						historyError: null,
+						artifactsPrunedAt: expiry,
+						historyArtifactsTruncated: false,
 					});
 				}),
 			),

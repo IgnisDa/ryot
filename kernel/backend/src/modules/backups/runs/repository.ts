@@ -1,13 +1,12 @@
 import { DbError } from "@ryot-app/contract/errors";
 import {
 	BackupConflict,
-	type BackupRun,
 	type BackupRunArtifactProvider,
 	type BackupRunFailure,
 	type BackupRunKind,
 } from "@ryot-app/contract/modules/backups/schemas";
 import { BackupRunId, UserId } from "@ryot-app/contract/schema/brands";
-import { and, asc, desc, eq, inArray, isNotNull, lte, notInArray } from "drizzle-orm";
+import { and, asc, eq, inArray, isNotNull, lte, notInArray } from "drizzle-orm";
 import { Context, DateTime, Effect, Layer } from "effect";
 
 import * as schema from "#lib/infrastructure/db/schema/tables/backups";
@@ -19,13 +18,13 @@ import {
 
 type BackupRunRow = typeof schema.backupRun.$inferSelect;
 
-type BackupRunArtifactRecord = BackupRun & {
+type BackupRunArtifactRecord = ReturnType<typeof normalizeRun> & {
 	readonly userId: UserId;
 	readonly artifactKey: string;
 	readonly artifactProvider: BackupRunArtifactProvider;
 };
 
-const normalizeRun = (row: BackupRunRow): BackupRun => ({
+const normalizeRun = (row: BackupRunRow) => ({
 	kind: row.kind,
 	status: row.status,
 	failure: row.failure,
@@ -115,20 +114,6 @@ export class BackupsRepository extends Context.Service<BackupsRepository>()("Bac
 					.limit(1),
 			);
 			return row ? normalizeArtifact(row) : null;
-		});
-
-		const listRunsByUserId = Effect.fn("BackupsRepository.listRunsByUserId")(function* (input: {
-			userId: UserId;
-		}) {
-			const db = yield* Database;
-			const rows = yield* mapDatabaseErrors(
-				db
-					.select()
-					.from(schema.backupRun)
-					.where(eq(schema.backupRun.userId, input.userId))
-					.orderBy(desc(schema.backupRun.createdAt), desc(schema.backupRun.id)),
-			);
-			return rows.map(normalizeRun);
 		});
 
 		const markRunRunning = Effect.fn("BackupsRepository.markRunRunning")(function* (input: {
@@ -319,7 +304,6 @@ export class BackupsRepository extends Context.Service<BackupsRepository>()("Bac
 			markRunRunning,
 			updateProgress,
 			getArtifactById,
-			listRunsByUserId,
 			deleteExpiredRunById,
 			listExpiredArtifacts,
 		};

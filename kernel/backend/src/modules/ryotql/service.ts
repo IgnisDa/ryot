@@ -1,13 +1,15 @@
 import type { CurrentUserValue } from "@ryot-app/contract/auth-middleware";
+import { DemoOperationProtected } from "@ryot-app/contract/auth-middleware";
 import { DbError } from "@ryot-app/contract/errors";
 import { RyotQLBadRequest, RyotQLInternalError } from "@ryot-app/contract/modules/ryotql/contract";
 import type { RyotQLDocument, RyotQLResult } from "@ryot-app/contract/modules/ryotql/language";
+import type { AccessClass } from "@ryot-app/contract/oauth";
 import { sql } from "drizzle-orm";
 import { Context, Effect, Layer, Match } from "effect";
 
 import { Database, mapDatabaseErrors } from "#lib/infrastructure/db/service";
 
-import type { RyotQLExecutionScope } from "./catalog";
+import type { RyotQLAudience, RyotQLExecutionScope } from "./catalog";
 import { executeNamedQuery } from "./executor";
 import { normalizeRyotQLDocument } from "./normalizer";
 import { validateRyotQLDocument } from "./validator";
@@ -27,7 +29,7 @@ export class RyotQLService extends Context.Service<RyotQLService>()("RyotQLServi
 				yield* Effect.logWarning("RyotQL validation failed", { diagnostic: validationError });
 				return yield* new RyotQLBadRequest({ reason: { code: "invalid-query" } });
 			}
-			const normalizedDocument = normalizeRyotQLDocument(document);
+			const normalizedDocument = normalizeRyotQLDocument(document, scope);
 
 			return yield* mapDatabaseErrors(
 				database.transaction((transaction) =>
@@ -69,27 +71,44 @@ export class RyotQLService extends Context.Service<RyotQLService>()("RyotQLServi
 			);
 		});
 
-		const executeForUser = (userId: string, language: string | null, document: RyotQLDocument) =>
-			executeWithScope({ userId, language, type: "user" }, document);
+		const executeForUser = (
+			userId: string,
+			language: string | null,
+			audience: RyotQLAudience,
+			document: RyotQLDocument,
+			accessClass: AccessClass = "standard",
+		) => {
+			const scope = { userId, language, audience, accessClass, type: "user" } as const;
+			return executeWithScope(scope, document).pipe(
+				Effect.catchIf(
+					(error): boolean =>
+						error instanceof RyotQLBadRequest &&
+						error.reason.code === "invalid-query" &&
+						accessClass === "demo" &&
+						validateRyotQLDocument(document, { ...scope, accessClass: "standard" }) === null,
+					() => new DemoOperationProtected({ reason: { code: "demo-operation-protected" } }),
+				),
+			);
+		};
 
 		const executeForPlugin = (
 			scope: Omit<Extract<RyotQLExecutionScope, { type: "plugin" }>, "type">,
 			document: RyotQLDocument,
 		) => executeWithScope({ ...scope, type: "plugin" }, document);
 
-		const validate = Effect.fn("RyotQLService.validate")(function* (document: RyotQLDocument) {
-			const validationError = validateRyotQLDocument(document, { type: "user" });
-			if (validationError) {
-				yield* Effect.logWarning("RyotQL validation failed", { diagnostic: validationError });
-				return yield* new RyotQLBadRequest({ reason: { code: "invalid-query" } });
-			}
-			return yield* Effect.void;
-		});
+		const executeForAdmin = (document: RyotQLDocument) =>
+			executeWithScope({ type: "admin" }, document);
 
-		const execute = (user: CurrentUserValue, document: RyotQLDocument) =>
-			executeForUser(user.id, user.preferences.language, document);
+		const execute = (user: CurrentUserValue, document: RyotQLDocument, accessClass: AccessClass) =>
+			executeForUser(user.id, user.preferences.language, "kernel", document, accessClass);
 
-		return { execute, validate, executeForUser, executeForPlugin };
+		const executeForPluginAudience = (
+			user: CurrentUserValue,
+			document: RyotQLDocument,
+			accessClass: AccessClass,
+		) => executeForUser(user.id, user.preferences.language, "plugin", document, accessClass);
+
+		return { execute, executeForUser, executeForAdmin, executeForPlugin, executeForPluginAudience };
 	}),
 }) {
 	static readonly layer = Layer.effect(this, this.make);

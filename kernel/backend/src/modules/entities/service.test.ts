@@ -27,7 +27,6 @@ import {
 } from "#lib/domain/lifecycle-execution";
 import * as tables from "#lib/infrastructure/db/schema/tables/combined";
 import { Database, DatabaseLive } from "#lib/infrastructure/db/service";
-import { PluginEnvironmentConfig } from "#lib/infrastructure/plugin-environment-config";
 import { testDatabaseUrl } from "#lib/test-utils/database";
 import { makeAppConfigLayer, makeConfigProviderLayer } from "#lib/test-utils/effect";
 import {
@@ -35,11 +34,14 @@ import {
 	withLifecycleDispatch,
 } from "#modules/automations/lifecycle.test-support";
 import { AutomationTriggerRepository } from "#modules/automations/trigger-repository";
-import { DefinitionRegistry, makeDefinitionRegistry } from "#modules/definition-registry/service";
+import { DefinitionRepository } from "#modules/definition-registry/repository";
+import {
+	buildDefinitionSnapshot,
+	type DefinitionSource,
+} from "#modules/definition-registry/snapshot";
 import { PluginConfigEncryptionKey } from "#modules/plugins/config-encryption-key";
 import { PluginConfigRevisions } from "#modules/plugins/config-revisions";
 import { PluginInstallationRepository } from "#modules/plugins/installation-repository";
-import { makePluginLoader, PluginLoader } from "#modules/plugins/loader";
 import { PluginRepository } from "#modules/plugins/repository";
 import { PluginRuntimeResolver } from "#modules/plugins/runtime-resolver";
 
@@ -91,7 +93,7 @@ const withEntities = <E>(
 	const name = `entity_test_${crypto.randomUUID().replaceAll("-", "")}`;
 	let changePlans = 0;
 	let schemaActivated = false;
-	const registry = makeDefinitionRegistry({
+	const source: DefinitionSource = {
 		savedViews: [],
 		signalSchemas: [],
 		relationshipSchemas: [],
@@ -115,29 +117,26 @@ const withEntities = <E>(
 				},
 			},
 		],
-	});
+	};
 	const base = Layer.mergeAll(
-		Layer.succeed(DefinitionRegistry, registry),
-		Layer.succeed(PluginLoader, makePluginLoader(registry)),
 		PluginRepository.layer,
 		PluginInstallationRepository.layer,
 		PluginConfigRevisions.layer,
 		PluginConfigEncryptionKey.layer,
-	).pipe(Layer.provideMerge(PluginEnvironmentConfig.layer));
+	);
 	const runtime = options.activateSchemaOnWrite
-		? Layer.mock(PluginRuntimeResolver)({
-				lockCatalog: () =>
-					Effect.sync(() => {
-						schemaActivated = true;
-					}),
-				getEffectiveDefinitions: () => {
-					const snapshot = registry.getSnapshot();
-					const definition = snapshot.entitySchemas[slug];
-					assert(definition);
-					return Effect.succeed({
-						...snapshot,
-						entitySchemas: {
-							...snapshot.entitySchemas,
+		? Layer.merge(
+				Layer.mock(PluginRuntimeResolver)({
+					lockCatalog: () =>
+						Effect.sync(() => {
+							schemaActivated = true;
+						}),
+				}),
+				Layer.mock(DefinitionRepository)({
+					findUserEntitySchemas: () => {
+						const definition = buildDefinitionSnapshot(source).entitySchemas[slug];
+						assert(definition);
+						return Effect.succeed({
 							[slug]: schemaActivated
 								? {
 										...definition,
@@ -153,11 +152,14 @@ const withEntities = <E>(
 										},
 									}
 								: definition,
-						},
-					});
-				},
-			})
-		: PluginRuntimeResolver.layer.pipe(Layer.provide(base));
+						});
+					},
+				}),
+			)
+		: Layer.merge(
+				PluginRuntimeResolver.layer.pipe(Layer.provide(base)),
+				DefinitionRepository.layer,
+			);
 	const repositories = Layer.mergeAll(
 		EntitiesRepository.layer.pipe(Layer.provide(Layer.merge(base, runtime))),
 		AutomationTriggerRepository.layer,
@@ -298,6 +300,7 @@ const withEntities = <E>(
 					for (const statement of ddl.split("--> statement-breakpoint")) {
 						yield* db.execute(sql.raw(statement));
 					}
+					yield* (yield* DefinitionRepository.make).replaceKernelDefinitions(source);
 					yield* db
 						.insert(tables.user)
 						.values({ id: owner, name: "Owner", preferences: {}, email: "owner@example.test" });

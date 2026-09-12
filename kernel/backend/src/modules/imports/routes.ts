@@ -8,13 +8,6 @@ import { ImportsService } from "./service";
 
 export const ImportsRoutesLive = HttpApiBuilder.group(AppContract, "imports", (handlers) =>
 	handlers
-		.handle("listSources", () =>
-			Effect.gen(function* () {
-				const user = yield* CurrentUser;
-				const service = yield* ImportsService;
-				return yield* service.listImportSources(user).pipe(dieOnDbError);
-			}),
-		)
 		.handle("createRun", ({ payload }) =>
 			Effect.gen(function* () {
 				const user = yield* CurrentUser;

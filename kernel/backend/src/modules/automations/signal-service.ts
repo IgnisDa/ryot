@@ -8,9 +8,9 @@ import { LifecycleCommand, lifecycleTrigger } from "#lib/domain/lifecycle-comman
 import { LifecycleExecution } from "#lib/domain/lifecycle-execution";
 import { Database, mapDatabaseErrors } from "#lib/infrastructure/db/service";
 import { parseAppSchemaProperties } from "#lib/property-schema/property-schema-runtime";
+import { DefinitionRepository } from "#modules/definition-registry/repository";
 import { EntitiesRepository } from "#modules/entities/repository";
 import { PluginRepository } from "#modules/plugins/repository";
-import { PluginRuntimeResolver } from "#modules/plugins/runtime-resolver";
 import { RelationshipSchemasRepository } from "#modules/relationship-schemas/repository";
 import { RelationshipsRepository } from "#modules/relationships/repository";
 import { SignalSchemasRepository } from "#modules/signals/signal-schemas-repository";
@@ -37,7 +37,7 @@ export class SignalEmissionService extends Context.Service<SignalEmissionService
 			const entities = yield* EntitiesRepository;
 			const relationships = yield* RelationshipsRepository;
 			const relationshipSchemas = yield* RelationshipSchemasRepository;
-			const runtime = yield* PluginRuntimeResolver;
+			const definitions = yield* DefinitionRepository;
 
 			const emitSignal = Effect.fn("SignalEmissionService.emitSignal")(function* (
 				input: EmitSignalInput,
@@ -102,9 +102,9 @@ export class SignalEmissionService extends Context.Service<SignalEmissionService
 								const relationshipSchema =
 									actorUserId === null
 										? yield* relationshipSchemas.findById(policy.relationshipSchemaSlug, null)
-										: (yield* runtime.getEffectiveDefinitions(actorUserId)).relationshipSchemas[
-												policy.relationshipSchemaSlug
-											];
+										: (yield* definitions.findUserRelationshipSchemas(actorUserId, [
+												policy.relationshipSchemaSlug,
+											]))[policy.relationshipSchemaSlug];
 								if (!relationshipSchema) {
 									return yield* badRequest("Signal audience relationship schema not found");
 								}
