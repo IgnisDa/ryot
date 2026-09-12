@@ -65,7 +65,7 @@
 		"@vitejs/plugin-react": "^6.0.1",
 		"jsdom": "^30.0.1",
 		"sharp": "^0.35.4",
-		"typescript": "^6.0.2",
+		"typescript": "7.0.2",
 		"vite": "^8.0.0",
 		"vitest": "4.1.9",
 		"vitest-axe": "^0.1.0"
