@@ -20,17 +20,20 @@ const document = {
 	},
 } as const;
 
-type ExecuteRequest = { readonly payload: ContractPayload<"ryotql", "execute"> };
-type ExecuteResult = Effect.Effect<ContractSuccess<"ryotql", "execute">, AuthenticatedApiError>;
+type ExecuteRequest = { readonly payload: ContractPayload<"ryotql", "executePlugin"> };
+type ExecuteResult = Effect.Effect<
+	ContractSuccess<"ryotql", "executePlugin">,
+	AuthenticatedApiError
+>;
 
 const makeApi = (execute: (request: ExecuteRequest) => ExecuteResult) =>
-	makeRyotQLApi({ execute: (_scope, request) => execute(request) });
+	makeRyotQLApi({ executePlugin: (_scope, request) => execute(request) });
 
 const failing = (cause: unknown) =>
 	makeApi(() => Effect.fail(new AuthenticatedApiError({ cause })));
 
 describe("plugin queries service", () => {
-	it.effect("executes the user-scoped RyotQL endpoint without adding identity fields", () => {
+	it.effect("executes the plugin-audience RyotQL endpoint without adding identity fields", () => {
 		const calls: ExecuteRequest[] = [];
 		const response = { data: {} };
 		const dependencies = makeApi((request) => {

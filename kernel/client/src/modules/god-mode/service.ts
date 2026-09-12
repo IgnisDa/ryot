@@ -1,5 +1,12 @@
 import type { ContractSuccess } from "@ryot-app/contract/client";
 import { UserId } from "@ryot-app/contract/schema/brands";
+import {
+	godModeUsersRecipe,
+	migrationReportRecipe,
+	type GodModeUsersPage,
+	type MigrationReportPage,
+	userLifecycleOperationRecipe,
+} from "@ryot-app/ryotql-recipes/god-mode";
 import { Context, Data, Effect, Layer } from "effect";
 
 import { GodModeApi } from "#/api/god-mode";
@@ -9,10 +16,10 @@ import {
 	runUserLifecycleOperation,
 } from "#/modules/god-mode/user-lifecycle";
 
-export type GodModeUsers = ContractSuccess<"godMode", "listUsers">;
-export type GodModeUser = ContractSuccess<"godMode", "listUsers">["users"][number];
+export type GodModeUsers = GodModeUsersPage;
+export type GodModeUser = GodModeUsers["items"][number];
 export type GodModeSetDisabledResult = ContractSuccess<"godMode", "setUserDisabled">;
-export type GodModeMigrationReport = ContractSuccess<"godMode", "getMigrationReport">;
+export type GodModeMigrationReport = MigrationReportPage;
 export type GodModePasswordResetResult = ContractSuccess<"godMode", "resetUserPassword">;
 
 export class GodModeSessionNotFound extends Data.TaggedError("GodModeSessionNotFound")<{
@@ -37,19 +44,18 @@ export class GodModeService extends Context.Service<GodModeService>()("GodModeSe
 		const listUsers = Effect.fn("GodModeService.listUsers")(function* (
 			sessionId: string,
 			search: string,
-			offset: number,
+			after: string | undefined,
 			limit: number,
 		) {
 			const { token, origin } = yield* credentials(sessionId);
-			return yield* api.listUsers(origin, token, {
-				query: { limit, offset, ...(search === "" ? {} : { search }) },
-			});
+			return yield* api.query(origin, token, godModeUsersRecipe({ limit, after, search }));
 		});
 		const getMigrationReport = Effect.fn("GodModeService.getMigrationReport")(function* (
 			sessionId: string,
+			after?: string,
 		) {
 			const { token, origin } = yield* credentials(sessionId);
-			return yield* api.getMigrationReport(origin, token);
+			return yield* api.query(origin, token, migrationReportRecipe({ after, limit: 50 }));
 		});
 		const resetUserPassword = Effect.fn("GodModeService.resetUserPassword")(function* (
 			sessionId: string,
@@ -80,7 +86,7 @@ export class GodModeService extends Context.Service<GodModeService>()("GodModeSe
 			const params = { userId: UserId.make(userId) };
 			return yield* runUserLifecycleOperation({
 				poll: (operationId) =>
-					api.getUserLifecycleOperation(origin, token, { params: { operationId } }),
+					api.query(origin, token, userLifecycleOperationRecipe({ id: operationId })),
 				start:
 					kind === "delete"
 						? api.deleteUser(origin, token, { params })

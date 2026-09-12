@@ -9,6 +9,7 @@ import type {
 	UpdateUserPreferencesBody,
 	UserPreferences,
 } from "@ryot-app/contract/modules/user-settings/schemas";
+import { userSettingsRecipe } from "@ryot-app/ryotql-recipes/user-settings";
 import { createFileRoute } from "@tanstack/react-router";
 import { Effect } from "effect";
 
@@ -27,19 +28,15 @@ export const Route = createFileRoute("/_authenticated/settings/preferences")({
 });
 
 const preferencesQuery = createRyotQuery<void, UserPreferences, KernelHostServices>(
-	({ signal, hostServices }) =>
-		hostServices.runtime.runPromise(
-			Effect.map(
-				Effect.flatMap(UserSettingsApi, (api) => api.get(hostServices.scope)),
-				(settings) => settings.preferences,
-			),
-			{ signal },
-		),
+	async ({ client, signal }) => {
+		const settings = await client.data.query(userSettingsRecipe(), { signal });
+		return settings.preferences;
+	},
 );
 
 const updatePreferencesMutation = createRyotMutation<
 	UpdateUserPreferencesBody,
-	UserPreferences,
+	void,
 	KernelHostServices
 >(({ input, client, signal, hostServices }) =>
 	hostServices.runtime.runPromise(
