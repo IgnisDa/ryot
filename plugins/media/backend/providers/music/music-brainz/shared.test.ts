@@ -1,4 +1,3 @@
-import type { SandboxHost } from "@ryot-app/sandbox-sdk/core";
 import { Effect } from "@ryot-app/sandbox-sdk/effect";
 import { defineSandboxTestHost, runSandboxTestScript } from "@ryot-app/sandbox-sdk/testing";
 import { describe, expect, it } from "vitest";
@@ -7,16 +6,15 @@ import details, { manifest as detailsManifest } from "./details.sandbox";
 import search, { manifest as searchManifest } from "./search.sandbox";
 import { manifest } from "./shared";
 
-type MusicBrainzHost = SandboxHost<typeof manifest.capabilities>;
 const httpSuccess = (body: unknown) =>
 	Effect.succeed({ status: 200, headers: {}, body: JSON.stringify(body) });
 const httpFailure = () => Effect.fail(new Error("not found"));
 const makeHost = (route: (url: string) => unknown) =>
 	defineSandboxTestHost(manifest, {
-		httpCall: ((_method: string, url: string) => {
+		httpCall: (_method: string, url: string) => {
 			const body = route(url);
 			return body === null ? httpFailure() : httpSuccess(body);
-		}) as MusicBrainzHost["httpCall"],
+		},
 	});
 const execution = { metadata: {}, sandboxScriptId: "script_test" };
 describe("music.music-brainz sandbox script", () => {

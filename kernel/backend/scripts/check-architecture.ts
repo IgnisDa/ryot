@@ -259,7 +259,7 @@ export const findDemoAccessPolicyViolations = (
 	files["/tsconfig.json"] = JSON.stringify({ files: Object.keys(files) });
 	const api = new API({ cwd: "/", fs: createVirtualFileSystem(files) });
 	return api
-		.updateSnapshot({ openProject: "/tsconfig.json" })
+		.updateSnapshot({ openProjects: ["/tsconfig.json"] })
 		.then((snapshot) => {
 			const project = snapshot.getProject("/tsconfig.json");
 			if (!project) {

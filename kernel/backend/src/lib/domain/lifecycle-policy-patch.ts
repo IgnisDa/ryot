@@ -128,7 +128,7 @@ export const applyLifecyclePolicyPatch = <Request extends AutomationRequestPaylo
 					properties,
 					...(patch.draft.name === undefined ? {} : { name: patch.draft.name }),
 				},
-			} as Request,
+			},
 		};
 	}
 	if (request.resource === "event" && patch.resource === "event") {
@@ -143,14 +143,11 @@ export const applyLifecyclePolicyPatch = <Request extends AutomationRequestPaylo
 						? {}
 						: { sessionEntityId: patch.draft.sessionEntityId }),
 				},
-			} as Request,
+			},
 		};
 	}
 	if (request.resource === "relationship" && patch.resource === "relationship") {
-		return {
-			ok: true,
-			request: { ...request, draft: { ...request.draft, properties } } as Request,
-		};
+		return { ok: true, request: { ...request, draft: { ...request.draft, properties } } };
 	}
 	return { ok: false, reason: "Policy patch resource does not match the retained request" };
 };

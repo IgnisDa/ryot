@@ -173,7 +173,9 @@ function MediaDetailFrame<SummaryData, OverviewData, Summary extends MediaEntity
 	const summaryResult = useRyotQuery(props.summaryQuery, { entityId: props.entityId });
 	const { commit, settled } = useMediaEntitySettle(props.entityId);
 	useEffect(() => {
-		commit();
+		if (summaryResult.data !== undefined || props.overviewData !== undefined) {
+			commit();
+		}
 	}, [commit, summaryResult.data, props.overviewData]);
 	const state = props.mapSummary(summaryResult);
 	const assets =

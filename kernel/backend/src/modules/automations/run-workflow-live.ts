@@ -179,6 +179,12 @@ export class AutomationRunWorkflowOperations extends Context.Service<
 	}
 >()("AutomationRunWorkflowOperations") {}
 
+const missing = () =>
+	new AutomationPreparationError({
+		kind: "missing-artifact",
+		message: "Pinned automation script or hook declaration is unavailable",
+	});
+
 export const AutomationRunWorkflowOperationsLive = Layer.effect(
 	AutomationRunWorkflowOperations,
 	Effect.gen(function* () {
@@ -211,11 +217,6 @@ export const AutomationRunWorkflowOperationsLive = Layer.effect(
 				}).pipe(Effect.provideService(Database, database)),
 			prepare: (payload) =>
 				Effect.gen(function* () {
-					const missing = () =>
-						new AutomationPreparationError({
-							kind: "missing-artifact",
-							message: "Pinned automation script or hook declaration is unavailable",
-						});
 					const run = yield* runs.findById(payload.runId);
 					if (!run?.sandboxScriptId) {
 						return yield* missing();
