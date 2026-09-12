@@ -1,11 +1,12 @@
+import { parseWithZod } from "@conform-to/zod/v4";
 import { Environment, Paddle } from "@paddle/paddle-node-sdk";
 import { render } from "@react-email/components";
 import { dayjs, type Dayjs } from "@ryot-app/ts-utils/dayjs";
-import { formatDateToNaiveDate } from "@ryot-app/ts-utils/format";
 import { and, desc, eq, isNull } from "drizzle-orm";
 import { createTransport } from "nodemailer";
 import * as openidClient from "openid-client";
 import type { ReactElement } from "react";
+import invariant from "tiny-invariant";
 import { match } from "ts-pattern";
 import z from "zod";
 
@@ -24,6 +25,30 @@ import {
 	getLegacyPaymentCatalog,
 	getPaymentEnvironment,
 } from "./payment-catalog";
+
+/**
+ * Format a `Date` into a Rust `NaiveDate`
+ */
+export const formatDateToNaiveDate = (t: Date | Dayjs) => dayjs(t).format("YYYY-MM-DD");
+
+export const processSubmission = <Schema extends z.ZodType>(
+	formData: FormData,
+	zodSchema: Schema,
+) => {
+	const submission = parseWithZod(formData, { schema: zodSchema });
+	if (submission.status !== "success") {
+		// oxlint-disable-next-line only-throw-error
+		throw Response.json({ submission, status: "idle" } as const, { status: 422 });
+	}
+	return submission.value;
+};
+
+export const getActionIntent = (request: Request) => {
+	const url = new URL(request.url);
+	const intent = url.searchParams.get("intent");
+	invariant(intent);
+	return intent;
+};
 
 export const getClientIp = (request: Request): string | undefined => {
 	const cfConnectingIp = request.headers.get("cf-connecting-ip");
