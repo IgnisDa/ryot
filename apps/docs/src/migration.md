@@ -155,8 +155,10 @@ The Generic JSON integration has been removed and is not carried over.
 
 ### What to expect after the upgrade
 
-Posters and details for your media are downloaded again as you browse. Right after the upgrade,
-some items may show only their title for a moment.
+Media that `v10` had already fetched keeps its posters and details. Items in your Monitoring
+collection, podcasts, shows not from TMDB, and cast and crew pages are downloaded again as you
+browse, so right after the upgrade some of them may show only their title for a moment.
+Recommendations are not carried over and come back when an item is refreshed.
 
 These are not carried over:
 

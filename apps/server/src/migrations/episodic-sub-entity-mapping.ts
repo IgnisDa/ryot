@@ -10,6 +10,17 @@ type LegacyEpisodicSubEntityMigrationInput = {
 	podcastToEpisodeRelationshipSchema: QualifiedSchema;
 };
 
+// TMDB children of a populated show are never rewritten by V2 until a refresh, which diffs them
+// against V2 output, so they carry the single original-size image TMDB population writes.
+const buildV2ImageSql = (valueSql: string, hasV2ImagesSql: string, purpose: "cover" | "still") =>
+	`CASE
+		WHEN ${hasV2ImagesSql} AND jsonb_typeof(${valueSql} -> 'poster_images') = 'array'
+			AND jsonb_array_length(${valueSql} -> 'poster_images') > 0
+		THEN jsonb_build_array(jsonb_build_object(
+			'type', 'remote', 'url', ${valueSql} -> 'poster_images' ->> 0, 'purpose', '${purpose}'
+		))
+	END`;
+
 export const buildLegacyEpisodicSubEntityMigrationSql = (
 	input: LegacyEpisodicSubEntityMigrationInput,
 ) => `
@@ -30,6 +41,9 @@ BEGIN
 		m.user_id,
 		season.value,
 		CASE WHEN m.provider_id IS NOT NULL THEN season.value ->> 'id' END AS external_id,
+		CASE WHEN m.provider_id IS NOT NULL THEN m.external_id END AS parent_external_id,
+		m.populated_at AS parent_populated_at,
+		legacy_metadata.source = 'tmdb' AS has_v2_images,
 		(season.value ->> 'season_number')::int AS season_number,
 		-- Provider children are shared across parents by provider identity. Custom children have no
 		-- provider identity, so their V1 ids only mean something within their own parent.
@@ -69,6 +83,9 @@ BEGIN
 		show_season.user_id,
 		show_season.value AS season_value,
 		episode.value AS episode_value,
+		show_season.parent_external_id,
+		show_season.parent_populated_at,
+		show_season.has_v2_images,
 		CASE WHEN show_season.provider_id IS NOT NULL THEN episode.value ->> 'id' END AS external_id,
 		show_season.entity_id AS season_entity_id,
 		CASE
@@ -278,12 +295,14 @@ BEGIN
 			'Season ' || show_seasons.season_number::text
 		),
 		show_seasons.created_at,
-		NULL,
+		show_seasons.parent_populated_at,
 		show_seasons.user_id,
 		jsonb_strip_nulls(jsonb_build_object(
-			'description',  show_seasons.value ->> 'overview',
-			'releaseDate',  show_seasons.value ->> 'publish_date',
-			'seasonNumber', (show_seasons.value ->> 'season_number')::int
+			'images',               ${buildV2ImageSql("show_seasons.value", "show_seasons.has_v2_images", "cover")},
+			'description',          show_seasons.value ->> 'overview',
+			'releaseDate',          show_seasons.value ->> 'publish_date',
+			'seasonNumber',         (show_seasons.value ->> 'season_number')::int,
+			'parentShowExternalId', show_seasons.parent_external_id
 		)),
 		${quoteSqlString(input.showSeasonEntitySchema.slug)},
 		${quoteNullableSqlString(input.showSeasonEntitySchema.pluginId)},
@@ -327,15 +346,17 @@ BEGIN
 			'Episode ' || (show_episodes.episode_value ->> 'episode_number')
 		),
 		show_episodes.created_at,
-		NULL,
+		show_episodes.parent_populated_at,
 		show_episodes.user_id,
 		jsonb_strip_nulls(jsonb_build_object(
-			'runtime',       CASE WHEN (show_episodes.episode_value ->> 'runtime') ~ '^[0-9]+$'
+			'images',               ${buildV2ImageSql("show_episodes.episode_value", "show_episodes.has_v2_images", "still")},
+			'runtime',              CASE WHEN (show_episodes.episode_value ->> 'runtime') ~ '^[0-9]+$'
 				THEN (show_episodes.episode_value ->> 'runtime')::int END,
-			'description',   show_episodes.episode_value ->> 'overview',
-			'publishDate',   show_episodes.episode_value ->> 'publish_date',
-			'seasonNumber',  (show_episodes.season_value ->> 'season_number')::int,
-			'episodeNumber', (show_episodes.episode_value ->> 'episode_number')::int
+			'description',          show_episodes.episode_value ->> 'overview',
+			'publishDate',          show_episodes.episode_value ->> 'publish_date',
+			'seasonNumber',         (show_episodes.season_value ->> 'season_number')::int,
+			'episodeNumber',        (show_episodes.episode_value ->> 'episode_number')::int,
+			'parentShowExternalId', show_episodes.parent_external_id
 		)),
 		${quoteSqlString(input.showEpisodeEntitySchema.slug)},
 		${quoteNullableSqlString(input.showEpisodeEntitySchema.pluginId)},

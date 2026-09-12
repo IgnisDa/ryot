@@ -6,10 +6,10 @@ import {
 	buildReportSql,
 } from "./shared";
 
-// Provider cast/crew credits between provider entities are rebuilt by V2 on population and are not
-// migrated. Only user-authored credits (an endpoint owned by a user) are migrated; both endpoints
-// are custom entities (migrated in full) or provider skeletons pulled into the referenced set, so
-// the INNER JOIN on "entity" is FK-safe. See "Slim Migration Strategy" in AGENTS.md.
+// User-authored credits (an endpoint owned by a user) migrate with that owner. Provider credits
+// migrate as global rows only for metadata that migrates populated, because V2 population rebuilds
+// them for every other provider entity. Both endpoints are custom entities (migrated in full) or
+// provider skeletons pulled into the referenced set, so the INNER JOIN on "entity" is FK-safe.
 
 type RelationshipMigrationInput = {
 	kind: "person" | "company";
@@ -87,7 +87,11 @@ BEGIN
 		INNER JOIN "metadata" metadata ON metadata.id = m2p.metadata_id
 		INNER JOIN relationship_targets ON relationship_targets.lot = metadata.lot
 		WHERE legacy_people.is_company = ${isCompanyFilter}
-			AND (legacy_people.person_user_id IS NOT NULL OR metadata.created_by_user_id IS NOT NULL)
+			AND (
+				legacy_people.person_user_id IS NOT NULL
+				OR metadata.created_by_user_id IS NOT NULL
+				OR EXISTS (SELECT 1 FROM _populated_metadata_ids p WHERE p.id = metadata.id::text)
+			)
 	), role_groups AS (
 		SELECT
 			metadata_id, person_id, relationship_schema_slug, relationship_schema_plugin_id, user_id, role,
@@ -144,10 +148,11 @@ BEGIN
 	INNER JOIN "entity" src ON src.id = rollups.person_id
 	INNER JOIN "entity" tgt ON tgt.id = rollups.metadata_id
 	WHERE rollups.user_id IS NOT NULL
+		OR EXISTS (SELECT 1 FROM _populated_metadata_ids p WHERE p.id = rollups.metadata_id::text)
 	ON CONFLICT ("user_id", "source_entity_id", "target_entity_id", "relationship_schema_slug", "relationship_schema_plugin_id") DO NOTHING;
 	GET DIAGNOSTICS rows_inserted = ROW_COUNT;
 
-	${buildReportSql(`${kindNotice} -> relationship`, [{ count: "rows_inserted", message: "user-authored row(s) migrated" }])}
+	${buildReportSql(`${kindNotice} -> relationship`, [{ count: "rows_inserted", message: "row(s) migrated" }])}
 END $$;
 `;
 };
