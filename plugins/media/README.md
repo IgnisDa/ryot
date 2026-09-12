@@ -280,7 +280,8 @@ order, with groups and their episodes sorted by TMDB's `order`. Episodes are ref
 provider external id as the `show-episode` entities rather than by season and episode number, because
 an order's positions are its own and only the id joins it back to stored episodes. Orders of an unknown
 type are dropped, and details always emit the property, so an empty array clears removed orders on
-refresh.
+refresh. Order fetches spend only the sandbox HTTP call budget that the show and its seasons leave, so
+orders past that budget are dropped rather than failing population.
 
 Provider details normalize source data into common properties and relationship groups. Consumers do
 not branch on provider identity. Supported relationship categories emit authoritative empty groups so
