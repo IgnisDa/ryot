@@ -629,9 +629,11 @@ it.live("keeps configured entity-browser controls within their declared source",
 		yield* runtime.getByRole("searchbox", { name: "Search Configured entity browser" }).fill("");
 		yield* page.waitForURL((url) => url.searchParams.get("search") === null);
 
+		yield* runtime.getByRole("button", { name: /Filters/ }).click();
 		yield* runtime.getByRole("button", { name: "Sort results: Default order" }).click();
 		yield* runtime.getByRole("radio", { name: "Name descending" }).click();
 		yield* page.waitForURL((url) => url.searchParams.get("sort") === "name-desc");
+		yield* page.keyboard.press("Escape");
 		expect(new URL(page.url()).searchParams.get("keep")).toBe("1");
 		expect(yield* runtime.locator("tbody tr").allInnerTexts()).toEqual([
 			expect.stringContaining("02 Zulu member"),
