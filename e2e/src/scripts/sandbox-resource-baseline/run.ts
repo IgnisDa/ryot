@@ -3,7 +3,7 @@ import { mkdir, readFile } from "node:fs/promises";
 import { join } from "node:path";
 
 import { SandboxProviderId, SandboxScriptId } from "@ryot-app/contract/schema/brands";
-import { Clock, Data, Effect, Schema } from "effect";
+import { Cause, Clock, Data, Effect, Schema } from "effect";
 
 import { adminHeaders, createAuthenticatedClient, getApiClient } from "~/fixtures/kernel";
 import { requirePresent } from "~/support/assertions";
@@ -182,6 +182,7 @@ const preflight = (config: DriverConfig, invocationId: string) =>
 		const { context } = yield* makeContext(config, invocationId);
 		const { remote } = context;
 		yield* remote.startHostSampler;
+		yield* remote.writeTokenFile(config.adminAccessToken);
 		yield* remote.startAppCollector;
 		const drill = yield* remote.watchdogDrill;
 		const [appOffset, hostOffset] = yield* Effect.all([
@@ -296,12 +297,22 @@ process.env["E2E_ADMIN_ACCESS_TOKEN"] = config.adminAccessToken;
 
 const invocationId = `${command}-${randomUUID().slice(0, 8)}`;
 
+const recordsInvocation = command !== "setup" && command !== "init";
+
+/**
+ * Captured so the failure handler below can close out the invocation it opened. A phase that dies
+ * mid-flight would otherwise stay `running` in the manifest forever, which is how the first
+ * `preflight` of run `2026-09-22T01-30-37Z` came to look like it was still in progress after the
+ * process had exited.
+ */
+let startedAtUtc: string | null = null;
+
 const program = Effect.gen(function* () {
 	yield* Effect.promise(() =>
 		mkdir(join(config.rawDirectory, "scenarios"), { mode: 0o700, recursive: true }),
 	);
-	const startedAtUtc = yield* isoNow;
-	if (command !== "setup" && command !== "init") {
+	startedAtUtc = yield* isoNow;
+	if (recordsInvocation) {
 		yield* recordInvocation(config, {
 			command,
 			startedAtUtc,
@@ -421,14 +432,12 @@ const program = Effect.gen(function* () {
 			break;
 		case "teardown": {
 			const { context } = yield* makeContext(config, invocationId);
-			const teardown = yield* context.remote.teardown;
-			const removeSamples = process.argv[3] === "--remove-samples";
-			if (removeSamples) {
-				yield* context.remote.removeSampleFiles;
-			}
+			const teardown = yield* context.remote.teardown({
+				removeSampleFiles: process.argv[3] === "--remove-samples",
+			});
 			yield* updateManifest(config, (manifest) => ({
 				...manifest,
-				teardown: { ...teardown, removedSampleFiles: removeSamples } as Record<string, unknown>,
+				teardown: teardown as Record<string, unknown>,
 			}));
 			yield* Effect.log("sandbox-resource-baseline.teardown", teardown);
 			break;
@@ -518,7 +527,7 @@ const program = Effect.gen(function* () {
 				],
 			});
 	}
-	if (command !== "setup" && command !== "init") {
+	if (recordsInvocation) {
 		yield* recordInvocation(config, {
 			command,
 			startedAtUtc,
@@ -532,4 +541,21 @@ const program = Effect.gen(function* () {
 	return undefined;
 });
 
-await Effect.runPromise(program);
+const recordFailure = (cause: Cause.Cause<unknown>) =>
+	Effect.gen(function* () {
+		if (!recordsInvocation || startedAtUtc === null) return;
+		yield* recordInvocation(config, {
+			command,
+			startedAtUtc,
+			invocationId,
+			scenarioIds: [],
+			outcome: "failed",
+			stopReason: Cause.pretty(cause),
+			completedAtUtc: yield* isoNow,
+		});
+	}).pipe(Effect.ignore);
+
+await Effect.runPromise(program.pipe(Effect.tapCause(recordFailure))).catch((error: unknown) => {
+	console.error(error);
+	process.exit(1);
+});
