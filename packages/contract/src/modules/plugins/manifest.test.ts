@@ -28,7 +28,6 @@ const authoredManifest = definePlugin({
 	httpRateLimits: [],
 	relationshipSchemas: [],
 	workflows: [{ slug: "refresh.workflow", scriptSlug: "workflow.test" }],
-	boot: [{ slug: "boot.test", scriptSlug: "automation.test", description: "Boot test data" }],
 	metadata: {
 		icon: "box",
 		name: "Test",
@@ -309,7 +308,6 @@ describe("definePlugin", () => {
 	});
 
 	it("contains only the supported manifest sections", () => {
-		type HasBoot = "boot" extends keyof PluginManifest ? true : false;
 		type HasCrons = "crons" extends keyof PluginManifest ? true : false;
 		type HasWorkflows = "workflows" extends keyof PluginManifest ? true : false;
 		type HasOperations = "operations" extends keyof PluginManifest ? true : false;
@@ -323,15 +321,14 @@ describe("definePlugin", () => {
 		const optionalSections: [
 			HasCapabilities,
 			HasCrons,
-			HasBoot,
 			HasOperations,
 			HasWorkflows,
 			HasImportSources,
 			HasUserBootstrap,
 			HasIntegrationProviders,
-		] = [false, true, true, true, true, true, true, true];
+		] = [false, true, true, true, true, true, true];
 
-		expect(optionalSections).toEqual([false, true, true, true, true, true, true, true]);
+		expect(optionalSections).toEqual([false, true, true, true, true, true, true]);
 	});
 
 	it("decodes the manifest with the canonical Effect schema", () => {
@@ -1270,13 +1267,7 @@ describe("definePlugin", () => {
 		).toThrow();
 	});
 
-	it("requires direct entries and hooks to reference existing automation scripts", () => {
-		expect(() =>
-			Schema.decodeUnknownSync(PluginManifest)({
-				...manifest,
-				boot: [{ ...manifest.boot[0], scriptSlug: "missing.script" }],
-			}),
-		).toThrow();
+	it("requires hooks to reference existing automation scripts", () => {
 		expect(() =>
 			Schema.decodeUnknownSync(PluginManifest)({
 				...manifest,
@@ -1346,34 +1337,6 @@ describe("definePlugin", () => {
 			Schema.decodeUnknownSync(PluginManifest)({
 				...manifest,
 				crons: [{ ...cron, timezone: "UTC" }],
-			}),
-		).toThrow();
-	});
-
-	it("strictly validates boot declarations", () => {
-		const boot = manifest.boot[0];
-		expect(() =>
-			Schema.decodeUnknownSync(PluginManifest)({
-				...manifest,
-				boot: [{ ...boot, slug: "Invalid/Slug" }],
-			}),
-		).toThrow();
-		expect(() =>
-			Schema.decodeUnknownSync(PluginManifest)({
-				...manifest,
-				boot: [{ ...boot, scriptSlug: "Invalid/Slug" }],
-			}),
-		).toThrow();
-		expect(() =>
-			Schema.decodeUnknownSync(PluginManifest)({
-				...manifest,
-				boot: [{ ...boot, description: " " }],
-			}),
-		).toThrow();
-		expect(() =>
-			Schema.decodeUnknownSync(PluginManifest)({
-				...manifest,
-				boot: [{ ...boot, schedule: "0 0 * * *" }],
 			}),
 		).toThrow();
 	});
