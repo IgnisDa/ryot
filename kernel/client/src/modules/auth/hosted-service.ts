@@ -1,7 +1,8 @@
 import { oauthProviderClient } from "@better-auth/oauth-provider/client";
+import { strictStruct } from "@ryot-app/contract/schema/utils";
 import { createAuthClient } from "better-auth/client";
 import { twoFactorClient } from "better-auth/client/plugins";
-import { Context, Data, Effect, Layer } from "effect";
+import { Context, Data, Effect, Layer, Schema } from "effect";
 
 import type { ServerOrigin } from "#/api/origin";
 import type { TwoFactorMethod } from "#/modules/auth/flow";
@@ -17,6 +18,38 @@ type AuthResponse<A> = {
 	readonly data: A;
 	readonly error: null | { readonly code?: string; readonly message?: string };
 };
+
+const DemoSignInResponse = strictStruct({ mode: Schema.Literals(["demo", "standard"]) });
+
+export const requestDemoSignIn = (fetcher: typeof fetch, baseURL: string) =>
+	Effect.gen(function* () {
+		const response = yield* Effect.tryPromise({
+			catch: (cause) =>
+				new HostedAuthError({
+					message: cause instanceof Error ? cause.message : "Could not open the shared demo.",
+				}),
+			try: () =>
+				fetcher(new URL("/api/auth/demo/sign-in", baseURL), {
+					body: "{}",
+					method: "POST",
+					cache: "no-store",
+					credentials: "same-origin",
+					headers: { "content-type": "application/json" },
+				}),
+		});
+		if (!response.ok) {
+			return yield* new HostedAuthError({ message: "Could not open the shared demo." });
+		}
+		const payload = yield* Effect.tryPromise({
+			try: () => response.json() as Promise<unknown>,
+			catch: () => new HostedAuthError({ message: "Could not read the shared demo response." }),
+		});
+		return yield* Schema.decodeUnknownEffect(DemoSignInResponse)(payload).pipe(
+			Effect.mapError(
+				() => new HostedAuthError({ message: "The shared demo returned an invalid response." }),
+			),
+		);
+	});
 
 const makeHostedClient = (baseURL = window.location.origin) =>
 	createAuthClient({
@@ -47,6 +80,7 @@ export class HostedAuthService extends Context.Service<HostedAuthService>()("Hos
 	make: Effect.sync(() => {
 		let hosted: ReturnType<typeof makeHostedClient> | undefined;
 		const client = () => (hosted ??= makeHostedClient());
+		const signInDemo = () => requestDemoSignIn(globalThis.fetch, window.location.origin);
 		const submitCredentials = Effect.fn("HostedAuthService.submitCredentials")(function* (input: {
 			readonly mode: "login" | "signup";
 			readonly values: CredentialsValues;
@@ -93,7 +127,7 @@ export class HostedAuthService extends Context.Service<HostedAuthService>()("Hos
 				"Could not reset your password.",
 			).pipe(Effect.asVoid);
 
-		return { resetPassword, signInWithOidc, verifyTwoFactor, submitCredentials };
+		return { signInDemo, resetPassword, signInWithOidc, verifyTwoFactor, submitCredentials };
 	}),
 }) {
 	static readonly layer = Layer.effect(this, this.make);

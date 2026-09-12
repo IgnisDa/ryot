@@ -15,6 +15,7 @@ import { useCallback, useEffect, useEffectEvent, useId, useMemo, useRef, useStat
 import { AuthService } from "#/modules/auth/service";
 import { ClientPageDocumentProvider } from "#/modules/client-pages/document";
 import { ClientPageDocumentHost } from "#/modules/client-pages/page-host";
+import { useIsDemoSession } from "#/modules/demo-protection";
 import {
 	CustomizeContext,
 	ClientPageOverlayContext,
@@ -110,6 +111,7 @@ export function AuthenticatedShell(props: {
 			? pluginHeader.title
 			: null;
 	const session = runtime.runSync(AuthService).session(server);
+	const isDemo = useIsDemoSession(session);
 	const selectWorkspace = async (slug: string) => {
 		impactLight();
 		await runtime.runPromise(
@@ -234,8 +236,8 @@ export function AuthenticatedShell(props: {
 		router.history.back();
 	});
 	const customizeController = useMemo<CustomizeController>(
-		() => ({ customize, onSave: saveCustomize, onLeave: requestLeaveCustomize }),
-		[customize],
+		() => ({ customize, readOnly: isDemo, onSave: saveCustomize, onLeave: requestLeaveCustomize }),
+		[customize, isDemo],
 	);
 	const {
 		header,
@@ -345,6 +347,7 @@ export function AuthenticatedShell(props: {
 				customizePanel={
 					customizeActive && isDesktop ? (
 						<CustomizeSidebarPanel
+							readOnly={isDemo}
 							customize={customize}
 							onSave={saveCustomize}
 							onLeave={requestLeaveCustomize}
