@@ -22,7 +22,15 @@ import type { RyotClient } from "@ryot-app/client-sdk";
 import { Button, ScreenFrame, useShortcut } from "@ryot-app/client-ui-sdk";
 import type { PreparedClientPage } from "@ryot-app/contract/modules/client-pages/schemas";
 import clsx from "clsx";
-import { useEffect, useRef, useState, type ReactNode, type RefObject } from "react";
+import {
+	useEffect,
+	useEffectEvent,
+	useLayoutEffect,
+	useRef,
+	useState,
+	type ReactNode,
+	type RefObject,
+} from "react";
 
 import type { WatchEntities } from "#/modules/entity-interest/service";
 import { subscribeNativeResume } from "#/modules/entity-interest/transport";
@@ -116,9 +124,9 @@ export function PluginFrame(props: {
 	const entityId = location.kind === "entity" ? location.entityId : undefined;
 	const routeSearch = location.kind === "route" ? location.search : undefined;
 	const entitySchemaSlug = location.kind === "entity" ? location.entitySchemaSlug : undefined;
-	const subscribeResume = props.subscribeResume;
+	const { subscribeResume, chromeTriggerRef } = props;
 	const latest = useRef(props);
-	const documentSrc = useRef(props.documentGrant.src);
+	const [documentSrc] = useState(props.documentGrant.src);
 	const frame = useRef<HTMLIFrameElement>(null);
 	const backSettle = useRef<number>(undefined);
 	const bridge = useRef<PluginBridgeSession>(undefined);
@@ -133,7 +141,9 @@ export function PluginFrame(props: {
 	const [frameStatus, setFrameStatus] = useState<"ready" | "loading" | "handshake-failure">(
 		"loading",
 	);
-	latest.current = props;
+	useLayoutEffect(() => {
+		latest.current = props;
+	});
 
 	const closeBridge = () => {
 		bridge.current?.close();
@@ -147,14 +157,16 @@ export function PluginFrame(props: {
 		closeBridge();
 		props.onReloadCurrent();
 	};
+	const failHandshake = useEffectEvent(() => {
+		closeBridge();
+		setFrameStatus("handshake-failure");
+	});
+	const releaseBridge = useEffectEvent(closeBridge);
 	useEffect(() => {
 		if (frameStatus !== "loading") {
 			return undefined;
 		}
-		const timeout = window.setTimeout(() => {
-			closeBridge();
-			setFrameStatus("handshake-failure");
-		}, BOOTSTRAP_TIMEOUT_MS);
+		const timeout = window.setTimeout(() => failHandshake(), BOOTSTRAP_TIMEOUT_MS);
 		return () => window.clearTimeout(timeout);
 	}, [frameStatus]);
 	useEffect(() => {
@@ -162,10 +174,7 @@ export function PluginFrame(props: {
 		if (!element) {
 			return undefined;
 		}
-		const failed = () => {
-			closeBridge();
-			setFrameStatus("handshake-failure");
-		};
+		const failed = () => failHandshake();
 		element.addEventListener("error", failed);
 		return () => element.removeEventListener("error", failed);
 	}, []);
@@ -185,7 +194,7 @@ export function PluginFrame(props: {
 			}
 		});
 		return () => {
-			closeBridge();
+			releaseBridge();
 			markCompositionStale.current = undefined;
 			document.removeEventListener("visibilitychange", onVisibilityChange);
 			releaseResume();
@@ -197,11 +206,16 @@ export function PluginFrame(props: {
 			return undefined;
 		}
 		freshnessRevision.current = props.freshnessCheckRevision;
+		const checkedDocumentKey = props.documentKey;
 		const controller = new AbortController();
 		void latest.current
 			.onCheckFreshness(controller.signal)
 			.then((current) => {
-				if (!controller.signal.aborted && !current) {
+				if (
+					!controller.signal.aborted &&
+					!current &&
+					latest.current.documentKey === checkedDocumentKey
+				) {
 					setUpdateAvailable(true);
 				}
 				return undefined;
@@ -211,11 +225,11 @@ export function PluginFrame(props: {
 	}, [props.freshnessCheckRevision, props.documentKey]);
 
 	useEffect(() => {
-		const current = latest.current;
-		if (documentKey.current === current.documentKey) {
+		if (documentKey.current === props.documentKey) {
 			return;
 		}
-		documentKey.current = current.documentKey;
+		documentKey.current = props.documentKey;
+		const current = latest.current;
 		setUpdateAvailable(false);
 		setOverlayCount(0);
 		setPageShortcuts([]);
@@ -227,24 +241,32 @@ export function PluginFrame(props: {
 		}
 	}, [props.documentKey]);
 
+	const locationKey = JSON.stringify([
+		key,
+		index,
+		compact,
+		leading,
+		edgeBack,
+		entityId,
+		routePath,
+		routeSearch,
+		entitySchemaSlug,
+	]);
+	const [bridgeLocation, setBridgeLocation] = useState({
+		key: locationKey,
+		navigation: props.navigation,
+	});
+	if (bridgeLocation.key !== locationKey) {
+		setBridgeLocation({ key: locationKey, navigation: props.navigation });
+	}
+	const bridgeNavigation = bridgeLocation.navigation;
 	useEffect(() => {
 		if (!props.active) {
 			return;
 		}
 		window.clearTimeout(backSettle.current);
-		bridge.current?.sendLocation(latest.current.navigation);
-	}, [
-		props.active,
-		compact,
-		edgeBack,
-		entityId,
-		entitySchemaSlug,
-		index,
-		key,
-		leading,
-		routePath,
-		routeSearch,
-	]);
+		bridge.current?.sendLocation(bridgeNavigation);
+	}, [props.active, bridgeNavigation]);
 
 	useEffect(
 		() =>
@@ -406,8 +428,8 @@ export function PluginFrame(props: {
 					/>
 				))}
 			<iframe
+				src={documentSrc}
 				sandbox="allow-scripts"
-				src={documentSrc.current}
 				referrerPolicy="no-referrer"
 				title={`${props.title} plugin`}
 				inert={props.inert === true || updateAvailable}
@@ -415,7 +437,7 @@ export function PluginFrame(props: {
 				ref={(node) => {
 					frame.current = node;
 					if (props.active) {
-						props.chromeTriggerRef.current = node;
+						chromeTriggerRef.current = node;
 					}
 				}}
 			/>
@@ -456,7 +478,9 @@ export function PluginFrame(props: {
 
 function PageShortcut(props: { readonly shortcut: PageShortcutKey; readonly onPress: () => void }) {
 	const press = useRef(props.onPress);
-	press.current = props.onPress;
+	useLayoutEffect(() => {
+		press.current = props.onPress;
+	});
 	useShortcut(props.shortcut, () => press.current());
 	return null;
 }

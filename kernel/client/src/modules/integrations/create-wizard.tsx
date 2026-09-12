@@ -7,7 +7,7 @@ import {
 	type SchemaFormValues,
 } from "@ryot-app/client-ui-sdk/schema-form";
 import { Match } from "effect";
-import { useEffect, useEffectEvent, useReducer, useState } from "react";
+import { useReducer, useState } from "react";
 
 import {
 	createIntegrationBody,
@@ -30,6 +30,7 @@ import { CatalogPicker, type CatalogPickerState } from "#/modules/ui/catalog/pic
 import { findBySlug } from "#/modules/ui/catalog/selection";
 import { schemaReviewRows } from "#/modules/ui/review-rows";
 import { useSchemaFileUpload } from "#/modules/ui/schema-form-upload";
+import { useFormSeed } from "#/modules/ui/use-form-seed";
 import { WizardShell } from "#/modules/ui/wizard/wizard-shell";
 import {
 	createWizardState,
@@ -178,7 +179,7 @@ export function IntegrationCreateWizard(props: CreateWizardProps) {
 	const listed = props.providers.status === "ready" ? props.providers.sources : [];
 	const provider = findBySlug(listed, state.slug);
 
-	const connect = useEffectEvent(async (values: SchemaFormValues) => {
+	const connect = async (values: SchemaFormValues) => {
 		if (provider === undefined) {
 			return;
 		}
@@ -195,25 +196,21 @@ export function IntegrationCreateWizard(props: CreateWizardProps) {
 		}
 		props.onCreated();
 		props.onClose();
-	});
+	};
 
-	const requestReview = useEffectEvent(() => {
+	const requestReview = () => {
 		setFailure(undefined);
 		dispatch({ type: "review-requested" });
-	});
+	};
 
 	const form = useSchemaForm({
 		onSubmit: requestReview,
 		schemas: [provider?.commonSchema, provider?.settingsSchema],
 	});
 
-	const seedForm = useEffectEvent(() => {
-		form.reset(provider === undefined ? {} : initialIntegrationFormValues(provider));
-	});
-
-	useEffect(() => {
-		seedForm();
-	}, [state.slug]);
+	useFormSeed(form, state.slug, () =>
+		provider === undefined ? {} : initialIntegrationFormValues(provider),
+	);
 
 	const goBack = () => {
 		setFailure(undefined);

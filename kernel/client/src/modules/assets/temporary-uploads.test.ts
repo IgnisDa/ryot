@@ -31,10 +31,10 @@ const originalFetch = globalThis.fetch;
 
 const stubFetch = (respond: (init: RequestInit | undefined) => Promise<Response>) => {
 	const inits: (RequestInit | undefined)[] = [];
-	globalThis.fetch = ((_input: RequestInfo | URL, init?: RequestInit) => {
+	globalThis.fetch = (_input: RequestInfo | URL, init?: RequestInit) => {
 		inits.push(init);
 		return respond(init);
-	}) as typeof globalThis.fetch;
+	};
 	return inits;
 };
 

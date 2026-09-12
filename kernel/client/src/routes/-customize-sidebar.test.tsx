@@ -33,6 +33,8 @@ import {
 	ClientPagesApiRouteStubs,
 	ClientPageSessionsRouteStubs,
 	NotificationChannelRouteStubs,
+	stubDesktopMatchMedia,
+	stubCompactMatchMedia,
 } from "#/routes/-route-fixtures";
 
 type SavedPlan = Parameters<CustomizeSidebarService["Service"]["save"]>[1];
@@ -90,23 +92,6 @@ const mountView = (
 	return { ...view, router };
 };
 
-const stubMatchMedia = (desktop: boolean) => {
-	const original = window.matchMedia;
-	window.matchMedia = ((query: string) => ({
-		media: query,
-		onchange: null,
-		dispatchEvent: () => false,
-		addListener: () => undefined,
-		removeListener: () => undefined,
-		addEventListener: () => undefined,
-		removeEventListener: () => undefined,
-		matches: desktop && query === "(min-width: 768px)",
-	})) as typeof window.matchMedia;
-	return () => {
-		window.matchMedia = original;
-	};
-};
-
 const openPanel = async () => {
 	const sidebar = await screen.findByTestId("desktop-sidebar");
 	return within(sidebar);
@@ -114,7 +99,7 @@ const openPanel = async () => {
 
 describe("customize sidebar route", () => {
 	it("opens read-only for demo sessions", async () => {
-		const restore = stubMatchMedia(true);
+		const restore = stubDesktopMatchMedia();
 		const saves: SavedPlan[] = [];
 		try {
 			const view = mountView("/customize-sidebar", saves, {
@@ -145,7 +130,7 @@ describe("customize sidebar route", () => {
 	});
 
 	it("turns the desktop sidebar into the customize panel and drops the nav and account footer", async () => {
-		const restore = stubMatchMedia(true);
+		const restore = stubDesktopMatchMedia();
 		try {
 			mountView("/customize-sidebar");
 			const panel = await openPanel();
@@ -161,7 +146,7 @@ describe("customize sidebar route", () => {
 	});
 
 	it("renders no mobile header or drawer over the customize screen", async () => {
-		const restore = stubMatchMedia(false);
+		const restore = stubCompactMatchMedia();
 		try {
 			mountView("/customize-sidebar");
 			await screen.findByRole("button", { name: "Cancel sidebar customization" });
@@ -174,7 +159,7 @@ describe("customize sidebar route", () => {
 	});
 
 	it("opens on the section named in the search params", async () => {
-		const restore = stubMatchMedia(true);
+		const restore = stubDesktopMatchMedia();
 		try {
 			const view = mountView("/customize-sidebar?section=savedViews");
 			await openPanel();
@@ -186,7 +171,7 @@ describe("customize sidebar route", () => {
 	});
 
 	it("leaves without asking while the draft is clean", async () => {
-		const restore = stubMatchMedia(true);
+		const restore = stubDesktopMatchMedia();
 		try {
 			const view = mountView("/customize-sidebar");
 			const panel = await openPanel();
@@ -201,7 +186,7 @@ describe("customize sidebar route", () => {
 	});
 
 	it("asks before discarding a dirty draft and stays put while editing continues", async () => {
-		const restore = stubMatchMedia(true);
+		const restore = stubDesktopMatchMedia();
 		try {
 			const view = mountView("/customize-sidebar");
 			const panel = await openPanel();
@@ -222,7 +207,7 @@ describe("customize sidebar route", () => {
 	// A load started while still on the customize route is the bug the ordering exists to prevent:
 	// the navigation that follows aborts it, so the sidebar keeps rendering the order just changed.
 	it("starts no load until it has left, so the navigation cannot abort the refresh", async () => {
-		const restore = stubMatchMedia(true);
+		const restore = stubDesktopMatchMedia();
 		try {
 			const view = mountView("/customize-sidebar");
 			const panel = await openPanel();
@@ -243,7 +228,7 @@ describe("customize sidebar route", () => {
 	});
 
 	it("saves the plan and leaves once the save succeeds", async () => {
-		const restore = stubMatchMedia(true);
+		const restore = stubDesktopMatchMedia();
 		const saves: SavedPlan[] = [];
 		try {
 			const view = mountView("/customize-sidebar", saves);
@@ -261,7 +246,7 @@ describe("customize sidebar route", () => {
 	});
 
 	it("moves to the first enabled workspace after disabling the current workspace", async () => {
-		const restore = stubMatchMedia(true);
+		const restore = stubDesktopMatchMedia();
 		const recorder = makeWorkspaceRecorder();
 		const primary = catalog[0];
 		const alternate = {

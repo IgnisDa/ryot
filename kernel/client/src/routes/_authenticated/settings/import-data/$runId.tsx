@@ -4,7 +4,7 @@ import { AppIcon } from "@ryot-app/client-ui-sdk/icon";
 import type { ImportRunDetail } from "@ryot-app/ryotql-recipes/import-runs";
 import { createFileRoute, notFound, useRouter } from "@tanstack/react-router";
 import { Effect } from "effect";
-import { useEffect, useEffectEvent, useRef, useState, type ReactNode } from "react";
+import { useEffect, useRef, useState, type ReactNode } from "react";
 
 import { ImportRunView, type ImportRunDetailState } from "#/modules/imports/import-run-view";
 import {
@@ -30,6 +30,7 @@ import {
 import { RunStatusPill } from "#/modules/ui/run/run-status-pill";
 import { RUN_POLL_MS, useRunPolling } from "#/modules/ui/run/use-run-polling";
 import { StatusState } from "#/modules/ui/status-state";
+import { useNowMs } from "#/modules/ui/use-now-ms";
 
 const detailState = (detail: ImportRunDetail): ImportRunDetailState | undefined =>
 	detail.run === undefined
@@ -101,15 +102,16 @@ function ImportRunRoute() {
 		readonly runId: string;
 		readonly detail: ImportRunDetail;
 	}>();
-	useEffect(() => {
-		if (detail.data !== undefined) {
-			setRetainedDetail({ runId, detail: detail.data });
-		}
-	}, [detail.data, runId]);
+	if (
+		detail.data !== undefined &&
+		(retainedDetail?.runId !== runId || retainedDetail.detail !== detail.data)
+	) {
+		setRetainedDetail({ runId, detail: detail.data });
+	}
 	const displayedDetail =
 		detail.data ?? (retainedDetail?.runId === runId ? retainedDetail.detail : undefined);
 	const state = displayedDetail === undefined ? undefined : detailState(displayedDetail);
-	const nowMs = Date.now();
+	const nowMs = useNowMs(RUN_POLL_MS);
 	const sourceNames = importSourceNames(sources.data ?? []);
 	const run = state?.status === "ready" ? state.run : undefined;
 	const title = run === undefined ? "Import" : importSourceName(run.source, sourceNames);
@@ -135,7 +137,7 @@ function ImportRunRoute() {
 		});
 	}, [backInterceptors, deletion.isPending, isConfirming, menuOpen]);
 
-	const confirmDelete = useEffectEvent(async () => {
+	const confirmDelete = async () => {
 		deletion.reset();
 		try {
 			await deletion.mutateAsync(runId);
@@ -148,7 +150,7 @@ function ImportRunRoute() {
 			return;
 		}
 		void navigate({ replace: true, to: "/settings/import-data", search: { start: undefined } });
-	});
+	};
 
 	const menuItems: readonly MenuItem[] = [
 		{

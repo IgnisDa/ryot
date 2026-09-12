@@ -30,15 +30,16 @@ export const oauthPendingKey = (origin: string, state: string) =>
 	`${OAUTH_PENDING_PREFIX}${encodeURIComponent(normalizeServerOrigin(origin))}:${state}`;
 export const oauthTokenKey = (origin: ServerOrigin) => `${OAUTH_TOKEN_PREFIX}${origin}`;
 
+const attemptStorage = <A>(reason: OAuthStorageError["reason"], evaluate: () => A) =>
+	Effect.try({ try: evaluate, catch: (cause) => new OAuthStorageError({ cause, reason }) });
+
 const browserOAuthStorage = (): OAuthStorageAdapter => {
 	const storage = typeof localStorage === "undefined" ? undefined : localStorage;
-	const attempt = <A>(reason: OAuthStorageError["reason"], evaluate: () => A) =>
-		Effect.try({ try: evaluate, catch: (cause) => new OAuthStorageError({ cause, reason }) });
 	return {
-		removeItem: (key) => attempt("write-failed", () => storage?.removeItem(key)),
-		getItem: (key) => attempt("read-failed", () => storage?.getItem(key) ?? null),
-		setItem: (key, value) => attempt("write-failed", () => storage?.setItem(key, value)),
-		keys: attempt("read-failed", () =>
+		removeItem: (key) => attemptStorage("write-failed", () => storage?.removeItem(key)),
+		getItem: (key) => attemptStorage("read-failed", () => storage?.getItem(key) ?? null),
+		setItem: (key, value) => attemptStorage("write-failed", () => storage?.setItem(key, value)),
+		keys: attemptStorage("read-failed", () =>
 			Array.from({ length: storage?.length ?? 0 }, (_, index) => storage?.key(index)).filter(
 				(key): key is string => typeof key === "string",
 			),
@@ -72,6 +73,9 @@ const secureOAuthStorage = (): OAuthStorageAdapter => {
 	};
 };
 
+const isFresh = (pending: PendingAuthorizationValue) =>
+	Date.now() - pending.createdAt <= PENDING_AUTHORIZATION_TTL_MS;
+
 const makeStorage = (adapter: OAuthStorageAdapter): OAuthStorage["Service"] => {
 	const evict = (key: string) => adapter.removeItem(key).pipe(Effect.catch(() => Effect.void));
 	const readUnverified = (key: string) =>
@@ -80,8 +84,6 @@ const makeStorage = (adapter: OAuthStorageAdapter): OAuthStorage["Service"] => {
 		Effect.try(() => Schema.decodeUnknownSync(schema)(JSON.parse(value))).pipe(
 			Effect.catch(() => Effect.as(evict(key), null)),
 		);
-	const isFresh = (pending: PendingAuthorizationValue) =>
-		Date.now() - pending.createdAt <= PENDING_AUTHORIZATION_TTL_MS;
 	const readPending = (key: string) =>
 		Effect.gen(function* () {
 			const value = yield* readUnverified(key);

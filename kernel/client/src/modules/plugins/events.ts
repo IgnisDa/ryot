@@ -130,23 +130,23 @@ const makePluginCatalogEventsService = (
 			}
 		};
 
-		return Effect.gen(function* () {
-			const connect = (forceRefresh: boolean) =>
-				Effect.gen(function* () {
-					const token = yield* tokens.accessToken(scope.serverUrl, forceRefresh);
-					if (token === null) {
-						return yield* Effect.never;
-					}
-					const unauthorized = yield* Effect.tryPromise({
-						catch: (cause) => new CatalogStreamClosed({ cause }),
-						try: (signal) => openCatalogStream(open, url, token, signal, onEvent),
-					});
-					if (!unauthorized) {
-						return yield* new CatalogStreamClosed({ cause: "stream ended" });
-					}
-					return unauthorized;
+		const connect = (forceRefresh: boolean) =>
+			Effect.gen(function* () {
+				const token = yield* tokens.accessToken(scope.serverUrl, forceRefresh);
+				if (token === null) {
+					return yield* Effect.never;
+				}
+				const unauthorized = yield* Effect.tryPromise({
+					catch: (cause) => new CatalogStreamClosed({ cause }),
+					try: (signal) => openCatalogStream(open, url, token, signal, onEvent),
 				});
+				if (!unauthorized) {
+					return yield* new CatalogStreamClosed({ cause: "stream ended" });
+				}
+				return unauthorized;
+			});
 
+		return Effect.gen(function* () {
 			if (yield* connect(false)) {
 				yield* connect(true);
 			}

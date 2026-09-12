@@ -7,7 +7,7 @@ import {
 	type SchemaFormValues,
 } from "@ryot-app/client-ui-sdk/schema-form";
 import { Match, Result } from "effect";
-import { useEffect, useEffectEvent, useReducer, useState } from "react";
+import { useReducer, useState } from "react";
 
 import {
 	notificationChannelChooseLabel,
@@ -30,6 +30,7 @@ import { findBySlug } from "#/modules/ui/catalog/selection";
 import { schemaReviewRows } from "#/modules/ui/review-rows";
 import { schemaFormIcons } from "#/modules/ui/schema-form-icons";
 import { useSchemaFileUpload } from "#/modules/ui/schema-form-upload";
+import { useFormSeed } from "#/modules/ui/use-form-seed";
 import { WizardShell } from "#/modules/ui/wizard/wizard-shell";
 import {
 	createWizardState,
@@ -167,7 +168,7 @@ export function NotificationChannelCreateWizard(props: {
 	const [state, dispatch] = useReducer(wizardReducer, undefined, createWizardState);
 	const definition = findBySlug(notificationChannelList, state.slug);
 
-	const add = useEffectEvent(async (values: SchemaFormValues) => {
+	const add = async (values: SchemaFormValues) => {
 		if (definition === undefined) {
 			return;
 		}
@@ -190,24 +191,18 @@ export function NotificationChannelCreateWizard(props: {
 		}
 		props.onCreated();
 		props.onClose();
-	});
+	};
 
-	const requestReview = useEffectEvent(() => {
+	const requestReview = () => {
 		setFailure(undefined);
 		dispatch({ type: "review-requested" });
-	});
+	};
 
 	const form = useSchemaForm({ onSubmit: requestReview, schemas: [definition?.schema] });
 
-	const seedForm = useEffectEvent(() => {
-		form.reset(
-			definition === undefined ? {} : initialNotificationChannelFormValues(definition.slug),
-		);
-	});
-
-	useEffect(() => {
-		seedForm();
-	}, [state.slug]);
+	useFormSeed(form, state.slug, () =>
+		definition === undefined ? {} : initialNotificationChannelFormValues(definition.slug),
+	);
 
 	const goBack = () => {
 		setFailure(undefined);

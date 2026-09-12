@@ -14,7 +14,7 @@ import {
 } from "@ryot-app/ryotql-recipes/backups";
 import { createFileRoute } from "@tanstack/react-router";
 import { Effect } from "effect";
-import { useEffect, useEffectEvent, useRef, useState, type ReactNode } from "react";
+import { useEffect, useRef, useState, type ReactNode } from "react";
 
 import { backupArchiveFileName, BackupsApi } from "#/api/backups";
 import type { KernelHostServices } from "#/host-services";
@@ -38,6 +38,7 @@ import { LoadErrorState } from "#/modules/ui/load-error-state";
 import { RUN_LIST_POLL_MS, useRunPolling } from "#/modules/ui/run/use-run-polling";
 import { useSearchParamModal } from "#/modules/ui/search-param-modal";
 import { StatusState } from "#/modules/ui/status-state";
+import { RELATIVE_TIME_REFRESH_MS, useNowMs } from "#/modules/ui/use-now-ms";
 
 const CREATE_FAILURE_DETAIL = "This backup could not be started. Try again.";
 
@@ -143,6 +144,7 @@ function BackupsStandard() {
 	}
 	const cursor = nextCursor === undefined ? firstPage?.pageInfo.nextCursor : nextCursor;
 	const live = liveBackupRun(runs);
+	const nowMs = useNowMs(RELATIVE_TIME_REFRESH_MS);
 
 	useEffect(() => () => controller.current.abort(), []);
 
@@ -153,7 +155,7 @@ function BackupsStandard() {
 		close: () => void navigate({ replace: true, search: { restore: undefined } }),
 	});
 
-	const startExport = useEffectEvent(async () => {
+	const startExport = async () => {
 		if (live !== undefined) {
 			return;
 		}
@@ -164,9 +166,9 @@ function BackupsStandard() {
 		} catch {
 			return;
 		}
-	});
+	};
 
-	const confirmDelete = useEffectEvent(async (run: BackupRunItem) => {
+	const confirmDelete = async (run: BackupRunItem) => {
 		if (!canDeleteBackupRun(run.status)) {
 			setPendingDelete(undefined);
 			return;
@@ -181,9 +183,9 @@ function BackupsStandard() {
 		setPendingDelete(undefined);
 		setOlderRuns([]);
 		setNextCursor(undefined);
-	});
+	};
 
-	const startDownload = useEffectEvent(async (run: BackupRunItem) => {
+	const startDownload = async (run: BackupRunItem) => {
 		if (downloading.current !== undefined) {
 			return;
 		}
@@ -203,9 +205,9 @@ function BackupsStandard() {
 			return;
 		}
 		saveBackupArchive(blob, backupArchiveFileName(run.id));
-	});
+	};
 
-	const loadMore = useEffectEvent(async () => {
+	const loadMore = async () => {
 		if (cursor === null || cursor === undefined || loadingMore) {
 			return;
 		}
@@ -226,7 +228,7 @@ function BackupsStandard() {
 				setLoadingMore(false);
 			}
 		}
-	});
+	};
 
 	useRunPolling({
 		refresh: query.refetch,
@@ -242,7 +244,7 @@ function BackupsStandard() {
 		<BackupsFrame>
 			<BackupsView
 				state={state}
-				nowMs={Date.now()}
+				nowMs={nowMs}
 				onOpenRestore={wizard.open}
 				downloadingRunId={downloadingRunId}
 				isCreating={createMutation.isPending}
