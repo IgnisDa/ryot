@@ -1,4 +1,5 @@
 import { isFiniteNumber } from "@ryot-app/ts-utils/lodash";
+import { Effect } from "effect";
 
 import { storage } from "#imports";
 
@@ -7,9 +8,12 @@ import { lookupMetadata, postIntegrationWebhook } from "../lib/contract-client";
 import type { ProgressDataWithMetadata } from "../lib/extension-types";
 import { ExtensionStatus } from "../lib/extension-types";
 import { logger } from "../lib/logger";
+import { errorMessage, fromPlatform } from "../lib/platform";
 
-async function handleMetadataLookup(data: { title: string }) {
-	const integrationUrl = await storage.getItem<string>(STORAGE_KEYS.INTEGRATION_URL);
+const handleMetadataLookup = Effect.fn("handleMetadataLookup")(function* (data: { title: string }) {
+	const integrationUrl = yield* fromPlatform(() =>
+		storage.getItem<string>(STORAGE_KEYS.INTEGRATION_URL),
+	);
 
 	if (!integrationUrl) {
 		throw new Error("Integration URL not found in storage");
@@ -17,16 +21,18 @@ async function handleMetadataLookup(data: { title: string }) {
 
 	logger.debug("Making metadata lookup request", { title: data.title, url: integrationUrl });
 
-	const result = await lookupMetadata(integrationUrl, data.title);
+	const result = yield* lookupMetadata(integrationUrl, data.title);
 
 	logger.debug("Metadata lookup response", { result });
 
 	return result;
-}
+});
 
-async function handleProgressData(progressData: ProgressDataWithMetadata, tabUrl?: string) {
-	try {
-		const integrationUrl = await storage.getItem<string>(STORAGE_KEYS.INTEGRATION_URL);
+const handleProgressData = (progressData: ProgressDataWithMetadata, tabUrl?: string) =>
+	Effect.gen(function* () {
+		const integrationUrl = yield* fromPlatform(() =>
+			storage.getItem<string>(STORAGE_KEYS.INTEGRATION_URL),
+		);
 
 		if (!integrationUrl) {
 			throw new Error("Integration URL not found in storage");
@@ -54,26 +60,27 @@ async function handleProgressData(progressData: ProgressDataWithMetadata, tabUrl
 
 		logger.debug("Sending integration data", { url: integrationUrl, payload: integrationPayload });
 
-		await postIntegrationWebhook(integrationUrl, integrationPayload);
+		yield* postIntegrationWebhook(integrationUrl, integrationPayload);
 
 		logger.info("Integration data sent successfully");
 
 		return { success: true };
-	} catch (error) {
-		logger.error("Integration data request failed", { error });
-		return { success: false, error: error instanceof Error ? error.message : "Unknown error" };
-	}
-}
+	}).pipe(
+		Effect.catchCause((cause) => {
+			logger.error("Integration data request failed", { error: cause });
+			return Effect.succeed({ success: false, error: errorMessage(cause) });
+		}),
+	);
 
-async function getCurrentStatus() {
-	const status = await storage.getItem<ExtensionStatus>(STORAGE_KEYS.EXTENSION_STATUS);
-	return status ?? ExtensionStatus.Idle;
-}
+const getCurrentStatus = () =>
+	fromPlatform(() => storage.getItem<ExtensionStatus>(STORAGE_KEYS.EXTENSION_STATUS)).pipe(
+		Effect.map((status) => status ?? ExtensionStatus.Idle),
+	);
 
-async function getCurrentCachedTitle() {
-	const title = await storage.getItem<string>(STORAGE_KEYS.CURRENT_PAGE_TITLE);
-	return title ?? null;
-}
+const getCurrentCachedTitle = () =>
+	fromPlatform(() => storage.getItem<string>(STORAGE_KEYS.CURRENT_PAGE_TITLE)).pipe(
+		Effect.map((title) => title ?? null),
+	);
 
 export default defineBackground(() => {
 	logger.info("Background script initialized");
@@ -83,60 +90,47 @@ export default defineBackground(() => {
 	});
 
 	browser.runtime.onMessage.addListener((message, sender, sendResponse) => {
-		if (message.type === MESSAGE_TYPES.GET_STATUS) {
-			getCurrentStatus()
-				.then((status) => {
-					sendResponse({ data: status, success: true });
-					return;
-				})
-				.catch((error) => {
-					logger.debug("Failed to get status", { error });
-					sendResponse({ success: false, error: error.message });
-				});
-
+		const respond = <A, E>(
+			program: Effect.Effect<A, E>,
+			label: string,
+			makeResponse: (result: A) => unknown,
+		) => {
+			void Effect.runPromise(program).then(
+				(result) => sendResponse(makeResponse(result)),
+				(error: unknown) => {
+					logger.debug(label, { error });
+					sendResponse({ success: false, error: errorMessage(error) });
+				},
+			);
 			return true;
+		};
+		if (message.type === MESSAGE_TYPES.GET_STATUS) {
+			return respond(getCurrentStatus(), "Failed to get status", (status) => ({
+				data: status,
+				success: true,
+			}));
 		}
 
 		if (message.type === MESSAGE_TYPES.SEND_PROGRESS_DATA) {
-			handleProgressData(message.data, sender.tab?.url)
-				.then((result) => {
-					sendResponse({ result, success: true });
-					return;
-				})
-				.catch((error) => {
-					logger.debug("Progress data request failed", { error });
-					sendResponse({ success: false, error: error.message });
-				});
-
-			return true;
+			return respond(
+				handleProgressData(message.data, sender.tab?.url),
+				"Progress data request failed",
+				(result) => ({ result, success: true }),
+			);
 		}
 
 		if (message.type === MESSAGE_TYPES.METADATA_LOOKUP) {
-			handleMetadataLookup(message.data)
-				.then((result) => {
-					sendResponse({ data: result, success: true });
-					return;
-				})
-				.catch((error) => {
-					logger.debug("Metadata lookup failed", { error });
-					sendResponse({ success: false, error: error.message });
-				});
-
-			return true;
+			return respond(handleMetadataLookup(message.data), "Metadata lookup failed", (result) => ({
+				data: result,
+				success: true,
+			}));
 		}
 
 		if (message.type === MESSAGE_TYPES.GET_CACHED_TITLE) {
-			getCurrentCachedTitle()
-				.then((title) => {
-					sendResponse({ data: title, success: true });
-					return;
-				})
-				.catch((error) => {
-					logger.debug("Failed to get cached title", { error });
-					sendResponse({ success: false, error: error.message });
-				});
-
-			return true;
+			return respond(getCurrentCachedTitle(), "Failed to get cached title", (title) => ({
+				data: title,
+				success: true,
+			}));
 		}
 
 		return undefined;
