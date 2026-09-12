@@ -51,7 +51,10 @@ export const getThumbnailUrls = (thumbnail: unknown): string[] => {
 export const getBestThumbnailUrl = (thumbnail: unknown) => getThumbnailUrls(thumbnail)[0] ?? null;
 
 export const createYoutubeMusicClient = (host: YoutubeMusicHost, language?: string) =>
-	createSdkYoutubeMusicClient(host, language);
+	createSdkYoutubeMusicClient(host, language, {
+		retrievePlayer: false,
+		retrieveInnertubeConfig: false,
+	});
 
 export const createYoutubeHistoryClient = (host: YoutubeMusicHost, authCookie: string) =>
 	createSdkYoutubeHistoryClient(host, authCookie);
