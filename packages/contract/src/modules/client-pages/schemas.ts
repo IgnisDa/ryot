@@ -45,7 +45,6 @@ export const ReplaceClientRendererDraftBody = strictStruct({
 export const PublishClientRendererBody = strictStruct({ expectedDraftRevision: Schema.Int });
 
 export const PublishClientRendererResponse = strictStruct({
-	buildId: Schema.String,
 	publishedHash: Schema.String,
 	publishedRevision: Schema.Int,
 });
@@ -73,7 +72,7 @@ export class ClientRendererNotFound extends Schema.TaggedError<ClientRendererNot
 ) {}
 
 const SavedViewClientPageTarget = strictStruct({
-	savedViewId: SavedViewId,
+	slug: Schema.String,
 	kind: Schema.Literal("saved-view"),
 });
 const PluginClientPageTarget = Schema.Union([
@@ -81,7 +80,7 @@ const PluginClientPageTarget = Schema.Union([
 	strictStruct({
 		path: Schema.String,
 		search: Schema.String,
-		pluginId: Schema.String,
+		pluginSlug: PluginSlug,
 		kind: Schema.Literal("plugin-route"),
 	}),
 ]);
@@ -171,12 +170,14 @@ export const ClientPageAutomaticRegistryIdentity = strictStruct({
 	layout: Schema.Literals(["grid", "list"]),
 });
 
-export const ClientPageGraphIdentity = strictStruct({
+export const ClientPageArtifactIdentity = strictStruct({
 	format: Schema.Int,
+	name: Schema.String,
 	apiVersion: Schema.Int,
 	bridgeVersion: Schema.Int,
 	compilerVersion: Schema.Int,
 	selectedExports: Schema.Array(Schema.String),
+	application: Schema.Literals(["page", "plugin-route"]),
 	automaticRegistry: Schema.Array(ClientPageAutomaticRegistryIdentity),
 	entry: strictStruct({ path: Schema.String, contributor: Schema.String }),
 	kernelAutomaticFallback: Schema.NullOr(
@@ -184,6 +185,13 @@ export const ClientPageGraphIdentity = strictStruct({
 			runtimeVersion: Schema.Int,
 			provider: Schema.Literal("kernel"),
 			layouts: Schema.Tuple([Schema.Literal("grid"), Schema.Literal("list")]),
+		}),
+	),
+	routeRegistry: Schema.NullOr(
+		strictStruct({
+			home: Schema.String,
+			notFound: Schema.optional(Schema.String),
+			routes: Schema.Array(strictStruct({ path: Schema.String, exportSpecifier: Schema.String })),
 		}),
 	),
 	contributors: Schema.Array(
@@ -212,7 +220,6 @@ export const ClientPageGraphIdentity = strictStruct({
 				pluginId: Schema.String,
 				namespace: Schema.String,
 				sourceHash: Schema.String,
-				installationId: Schema.String,
 				kind: Schema.Literal("plugin"),
 				pluginDependencies: Schema.Array(PluginSlug),
 				exports: Schema.Array(ClientPagePublicExportIdentity),
@@ -220,11 +227,10 @@ export const ClientPageGraphIdentity = strictStruct({
 		]),
 	),
 });
-export type ClientPageGraphIdentity = typeof ClientPageGraphIdentity.Type;
+export type ClientPageArtifactIdentity = typeof ClientPageArtifactIdentity.Type;
 
 const PreparedClientPageIdentityBase = {
-	buildId: Schema.String,
-	graphHash: Schema.String,
+	artifactKey: Schema.String,
 	artifactHash: Schema.String,
 	contributors: Schema.Array(ClientPageCodeContributor),
 	operationTargets: Schema.Array(ClientPageOperationTarget),
@@ -239,6 +245,17 @@ export const PreparedClientPageIdentity = Schema.Union([
 		rendererName: Schema.String,
 		target: SavedViewClientPageTarget,
 		kind: Schema.Literal("kernel-saved-view"),
+	}),
+	strictStruct({
+		...PreparedClientPageIdentityBase,
+		pluginId: Schema.String,
+		savedViewId: SavedViewId,
+		viewRevision: Schema.Int,
+		sourceHash: Schema.String,
+		exportName: Schema.String,
+		installationId: Schema.String,
+		target: SavedViewClientPageTarget,
+		kind: Schema.Literal("plugin-saved-view"),
 	}),
 	strictStruct({
 		...PreparedClientPageIdentityBase,
@@ -300,26 +317,15 @@ export const PreparedClientPage = strictStruct({
 		apiVersion: Schema.Int,
 		bridgeVersion: Schema.Int,
 		compilerVersion: Schema.Int,
+		grant: strictStruct({ src: Schema.String, grantId: Schema.String, expiresAt: Schema.String }),
 	}),
 });
 export type PreparedClientPage = typeof PreparedClientPage.Type;
 
-export const CreateClientPageSessionBody = strictStruct({ identity: PreparedClientPageIdentity });
+export const CheckClientPageFreshnessBody = strictStruct({ identity: PreparedClientPageIdentity });
+export const CheckClientPageFreshnessResponse = strictStruct({ current: Schema.Boolean });
 
-export const CreateClientPageSessionResponse = strictStruct({
-	token: Schema.String,
-	sessionId: Schema.String,
-	expiresAt: Schema.String,
-});
-
-export const RenewClientPageSessionResponse = strictStruct({ expiresAt: Schema.String });
-
-export class ClientPageStalePreparation extends Schema.TaggedError<ClientPageStalePreparation>()(
-	"ClientPageStalePreparation",
-	{ reason: strictStruct({ code: Schema.Literal("stale-preparation") }) },
-) {}
-
-export class ClientPageSessionNotFound extends Schema.TaggedError<ClientPageSessionNotFound>()(
-	"ClientPageSessionNotFound",
-	{ reason: strictStruct({ code: Schema.Literal("page-session-not-found") }) },
+export class ClientPageArtifactGrantNotFound extends Schema.TaggedError<ClientPageArtifactGrantNotFound>()(
+	"ClientPageArtifactGrantNotFound",
+	{ reason: strictStruct({ code: Schema.Literal("artifact-grant-not-found") }) },
 ) {}
