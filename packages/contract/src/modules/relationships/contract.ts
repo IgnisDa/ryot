@@ -1,6 +1,7 @@
 import { HttpApiEndpoint, HttpApiGroup, HttpApiSchema, OpenApi } from "effect/unstable/httpapi";
 
 import { AuthMiddleware } from "../../auth-middleware";
+import { DemoAccessPolicy } from "../../http-annotations";
 import {
 	CreateRelationshipBody,
 	RelationshipBadRequest,
@@ -18,6 +19,8 @@ export const RelationshipsGroup = HttpApiGroup.make("relationships")
 				RelationshipBadRequest.pipe(HttpApiSchema.status(400)),
 				RelationshipNotFound.pipe(HttpApiSchema.status(404)),
 			],
-		}).annotate(OpenApi.Description, "Create a relationship between entities."),
+		})
+			.annotate(DemoAccessPolicy, "allowed")
+			.annotate(OpenApi.Description, "Create a relationship between entities."),
 	)
 	.middleware(AuthMiddleware);
