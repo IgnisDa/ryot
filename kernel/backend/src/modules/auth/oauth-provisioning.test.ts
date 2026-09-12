@@ -5,6 +5,8 @@ import {
 	OAUTH_NATIVE_LOGOUT_CALLBACK_URIS,
 	OAUTH_SCOPES,
 	OAUTH_DEMO_WEB_CLIENT_ID,
+	OAUTH_IMPERSONATION_NATIVE_CLIENT_ID,
+	OAUTH_IMPERSONATION_WEB_CLIENT_ID,
 	OAUTH_WEB_CLIENT_ID,
 } from "@ryot-app/contract/oauth";
 import { Context, Effect, Layer, Option, Ref } from "effect";
@@ -53,6 +55,38 @@ it("builds the exact first-party clients and API resource", () => {
 			redirectUris: ["https://ryot.example/auth/callback"],
 			postLogoutRedirectUris: ["https://ryot.example/auth/logout/callback"],
 		}),
+		expect.objectContaining({
+			disabled: false,
+			requirePKCE: true,
+			skipConsent: true,
+			clientSecret: null,
+			applicationType: "web",
+			enableEndSession: true,
+			responseTypes: ["code"],
+			scopes: [...OAUTH_SCOPES],
+			clientCredentialsScopes: [],
+			tokenEndpointAuthMethod: "none",
+			clientId: OAUTH_IMPERSONATION_WEB_CLIENT_ID,
+			grantTypes: ["authorization_code", "refresh_token"],
+			redirectUris: ["https://ryot.example/auth/callback"],
+			postLogoutRedirectUris: ["https://ryot.example/auth/logout/callback"],
+		}),
+		expect.objectContaining({
+			disabled: false,
+			requirePKCE: true,
+			skipConsent: true,
+			clientSecret: null,
+			enableEndSession: true,
+			responseTypes: ["code"],
+			applicationType: "native",
+			scopes: [...OAUTH_SCOPES],
+			clientCredentialsScopes: [],
+			tokenEndpointAuthMethod: "none",
+			redirectUris: [...OAUTH_NATIVE_CALLBACK_URIS],
+			clientId: OAUTH_IMPERSONATION_NATIVE_CLIENT_ID,
+			grantTypes: ["authorization_code", "refresh_token"],
+			postLogoutRedirectUris: [...OAUTH_NATIVE_LOGOUT_CALLBACK_URIS],
+		}),
 	]);
 	expect(records.resource).toEqual({
 		id: "ryot-api",
@@ -83,6 +117,18 @@ it("builds the exact first-party clients and API resource", () => {
 			clientId: OAUTH_DEMO_WEB_CLIENT_ID,
 			resourceId: "https://ryot.example/api",
 			id: `internal-oauth-client-resource:${OAUTH_DEMO_WEB_CLIENT_ID}`,
+		},
+		{
+			createdAt: now,
+			resourceId: "https://ryot.example/api",
+			clientId: OAUTH_IMPERSONATION_WEB_CLIENT_ID,
+			id: `internal-oauth-client-resource:${OAUTH_IMPERSONATION_WEB_CLIENT_ID}`,
+		},
+		{
+			createdAt: now,
+			resourceId: "https://ryot.example/api",
+			clientId: OAUTH_IMPERSONATION_NATIVE_CLIENT_ID,
+			id: `internal-oauth-client-resource:${OAUTH_IMPERSONATION_NATIVE_CLIENT_ID}`,
 		},
 	]);
 });
@@ -120,8 +166,11 @@ const fakeAuthRepositoryLayer = Layer.effectContext(
 		return Context.make(
 			AuthRepository,
 			AuthRepository.of({
+				findSession: () => Effect.die("unused"),
+				findUserById: () => Effect.die("unused"),
 				getPortableProfile: () => Effect.die("unused"),
 				revokeUserOAuthTokens: () => Effect.die("unused"),
+				revokeSessionOAuthTokens: () => Effect.die("unused"),
 				upsertInternalOAuthClient: (client) =>
 					Ref.update(clients, (all) => new Map(all).set(client.clientId, client)),
 				upsertInternalOAuthResource: (resource) =>
@@ -185,15 +234,33 @@ layer(reprovisioningLayer)((test) => {
 			yield* second.provision();
 			const clients = yield* repository.clients;
 			const resources = yield* repository.resources;
-			expect(clients).toHaveLength(3);
+			expect(clients).toHaveLength(5);
 			expect(resources).toHaveLength(1);
-			expect(yield* repository.links).toHaveLength(3);
+			expect(yield* repository.links).toHaveLength(5);
 			expect(clients.get(OAUTH_WEB_CLIENT_ID)?.redirectUris).toEqual([
 				"https://second.example/auth/callback",
 			]);
 			expect(clients.get(OAUTH_NATIVE_CLIENT_ID)?.redirectUris).toEqual([
 				...OAUTH_NATIVE_CALLBACK_URIS,
 			]);
+			expect(clients.get(OAUTH_IMPERSONATION_WEB_CLIENT_ID)).toEqual(
+				expect.objectContaining({
+					requirePKCE: true,
+					skipConsent: true,
+					scopes: [...OAUTH_SCOPES],
+					redirectUris: ["https://second.example/auth/callback"],
+					postLogoutRedirectUris: ["https://second.example/auth/logout/callback"],
+				}),
+			);
+			expect(clients.get(OAUTH_IMPERSONATION_NATIVE_CLIENT_ID)).toEqual(
+				expect.objectContaining({
+					requirePKCE: true,
+					skipConsent: true,
+					scopes: [...OAUTH_SCOPES],
+					redirectUris: [...OAUTH_NATIVE_CALLBACK_URIS],
+					postLogoutRedirectUris: [...OAUTH_NATIVE_LOGOUT_CALLBACK_URIS],
+				}),
+			);
 			expect(clients.get(OAUTH_DEMO_WEB_CLIENT_ID)?.disabled).toBe(true);
 			expect(resources.get("ryot-api")?.identifier).toBe("https://second.example/api");
 		}),
