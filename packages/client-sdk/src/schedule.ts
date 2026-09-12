@@ -84,17 +84,20 @@ export type RyotPluginRuntime = ManagedRuntime.ManagedRuntime<
 	never
 >;
 
+const makeRyotLayer = (client: RyotClient, schedule: Layer.Layer<RyotScheduleService>) =>
+	Layer.mergeAll(RyotClientService.layer(client), schedule);
+
+export const makeRyotPluginLayer = (
+	client: RyotClient,
+	navigation: PluginRouterNavigation,
+	schedule: Layer.Layer<RyotScheduleService>,
+) => Layer.mergeAll(makeRyotLayer(client, schedule), RyotNavigationService.layer(navigation));
+
 export const makeRyotRuntime = (client: RyotClient): RyotRuntime =>
-	ManagedRuntime.make(Layer.mergeAll(RyotClientService.layer(client), RyotScheduleService.layer));
+	ManagedRuntime.make(makeRyotLayer(client, RyotScheduleService.layer));
 
 export const makeRyotPluginRuntime = (
 	client: RyotClient,
 	navigation: PluginRouterNavigation,
 ): RyotPluginRuntime =>
-	ManagedRuntime.make(
-		Layer.mergeAll(
-			RyotClientService.layer(client),
-			RyotScheduleService.layer,
-			RyotNavigationService.layer(navigation),
-		),
-	);
+	ManagedRuntime.make(makeRyotPluginLayer(client, navigation, RyotScheduleService.layer));

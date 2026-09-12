@@ -29,7 +29,7 @@ import { Fragment, act, createElement, type ComponentType } from "react";
 import { createRyotClient, type RyotClientAdapter } from "./index";
 import { createPluginNavigationStore, type PluginRouterNavigation } from "./navigation/store";
 import { bootstrapClientPage, createClientBootstrap } from "./plugin";
-import { RyotClientService, RyotNavigationService, RyotScheduleService } from "./schedule";
+import { makeRyotPluginLayer, RyotScheduleService } from "./schedule";
 
 // Fills only the required capabilities, so tests of a missing optional one still see
 // `unsupported-capability`.
@@ -105,20 +105,18 @@ export const createTestRyotClock = (
 ) => {
 	const client = createRyotClient(createTestRyotAdapter(overrides));
 	const runtime = ManagedRuntime.make(
-		Layer.mergeAll(
-			RyotClientService.layer(client),
-			RyotNavigationService.layer(navigation),
-			// `provideMerge`, not `provide`: the test clock must stay in the runtime's output context
-			// so `runtime.runPromise(TestClock.adjust(...))` reaches the same instance.
-			Layer.provideMerge(RyotScheduleService.layer, TestClock.layer({ warningDelay: "1 hour" })),
+		// Keep the test clock in the output so clock adjustments reach the same harness-owned instance.
+		Layer.provideMerge(
+			makeRyotPluginLayer(client, navigation, RyotScheduleService.layer),
+			TestClock.layer({ warningDelay: "1 hour" }),
 		),
 	);
 	const clock = runtime.runSync(Clock.Clock);
 	const bootstrap = createClientBootstrap((bootstrapClient, bootstrapNavigation) =>
 		ManagedRuntime.make(
-			Layer.mergeAll(
-				RyotClientService.layer(bootstrapClient),
-				RyotNavigationService.layer(bootstrapNavigation),
+			makeRyotPluginLayer(
+				bootstrapClient,
+				bootstrapNavigation,
 				Layer.provide(RyotScheduleService.layer, Layer.succeed(Clock.Clock, clock)),
 			),
 		),

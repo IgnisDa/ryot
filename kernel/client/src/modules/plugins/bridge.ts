@@ -383,8 +383,8 @@ export function openPluginBridge(options: PluginBridgeOptions): PluginBridgeSess
 		requestId: string,
 		type: PendingRequest["type"],
 		operation: () => Effect.Effect<Outcome>,
-		failure: Outcome,
 	) {
+		const failure = { outcome: "failure", reason: "transport" };
 		if (pending.has(requestId)) {
 			return;
 		}
@@ -429,16 +429,12 @@ export function openPluginBridge(options: PluginBridgeOptions): PluginBridgeSess
 	}
 
 	function handleOperation(request: PluginBridgeOperationRequest) {
-		runRequest(
-			request.requestId,
-			"operation",
-			() =>
-				options.onOperation({
-					input: request.input,
-					pluginSlug: request.pluginSlug,
-					operationSlug: request.operationSlug,
-				}),
-			{ outcome: "failure", reason: "transport" } satisfies PluginOperationOutcome,
+		runRequest(request.requestId, "operation", () =>
+			options.onOperation({
+				input: request.input,
+				pluginSlug: request.pluginSlug,
+				operationSlug: request.operationSlug,
+			}),
 		);
 	}
 
@@ -452,10 +448,7 @@ export function openPluginBridge(options: PluginBridgeOptions): PluginBridgeSess
 						pluginSlug: request.pluginSlug,
 					}
 				: { key: request.key, action: request.action, pluginSlug: request.pluginSlug };
-		runRequest(request.requestId, "storage", () => options.onStorage(capabilityRequest), {
-			outcome: "failure",
-			reason: "transport",
-		} satisfies PluginStorageOutcome);
+		runRequest(request.requestId, "storage", () => options.onStorage(capabilityRequest));
 	}
 
 	function handleCollection(request: PluginBridgeCollectionRequest) {
@@ -467,40 +460,25 @@ export function openPluginBridge(options: PluginBridgeOptions): PluginBridgeSess
 		} else {
 			capabilityRequest = { input: request.input, action: "remove-membership" };
 		}
-		runRequest(request.requestId, "collection", () => options.onCollection(capabilityRequest), {
-			outcome: "failure",
-			reason: "transport",
-		} satisfies PluginCollectionOutcome);
+		runRequest(request.requestId, "collection", () => options.onCollection(capabilityRequest));
 	}
 
 	function handleUpload(request: PluginBridgeUploadRequest) {
-		runRequest(
-			request.requestId,
-			"upload",
-			() =>
-				options.onUpload({
-					source: request.source,
-					fileName: request.fileName,
-					contentType: request.contentType,
-				}),
-			{ outcome: "failure", reason: "transport" } satisfies PluginUploadOutcome,
+		runRequest(request.requestId, "upload", () =>
+			options.onUpload({
+				source: request.source,
+				fileName: request.fileName,
+				contentType: request.contentType,
+			}),
 		);
 	}
 
 	function handleAssets(request: PluginBridgeAssetRequest) {
-		runRequest(request.requestId, "asset", () => options.onAssets({ assets: request.assets }), {
-			outcome: "failure",
-			reason: "transport",
-		} satisfies PluginAssetOutcome);
+		runRequest(request.requestId, "asset", () => options.onAssets({ assets: request.assets }));
 	}
 
 	function handleRyotQL(request: PluginBridgeRyotQLRequest) {
-		runRequest(
-			request.requestId,
-			"ryotql",
-			() => options.onRyotQL({ document: request.document }),
-			{ outcome: "failure", reason: "transport" } satisfies PluginRyotQLOutcome,
-		);
+		runRequest(request.requestId, "ryotql", () => options.onRyotQL({ document: request.document }));
 	}
 
 	function handleRyotQLCancel(request: PluginBridgeRyotQLCancel) {
