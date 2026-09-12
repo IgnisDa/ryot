@@ -19,5 +19,5 @@ The extension extracts media details from many video-streaming sites and sends p
 3. For Firefox, at `about:debugging`, select **This Firefox > Load Temporary Add-on** and choose
    the ZIP file.
 4. Under **Settings > Integrations**, create a Ryot Browser Extension integration. Copy its
-   webhook URL, which ends with `/_i/{integrationId}`.
+   webhook URL, which ends with a random secret token.
 5. Open the extension and enter the webhook URL.

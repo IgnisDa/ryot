@@ -1,8 +1,15 @@
-import { ImportRunId, IntegrationId, UserId } from "@ryot-app/contract/schema/brands";
+import {
+	ImportRunId,
+	IntegrationId,
+	IntegrationWebhookToken,
+	UserId,
+} from "@ryot-app/contract/schema/brands";
 
 import type { IntegrationRecord } from "./repository";
 
 const now = "2026-06-17T00:00:00.000Z";
+
+export const testWebhookToken = IntegrationWebhookToken.make("webhook-token-1");
 
 export const makeIntegration = (overrides: Partial<IntegrationRecord> = {}): IntegrationRecord => ({
 	name: null,
@@ -20,8 +27,8 @@ export const makeIntegration = (overrides: Partial<IntegrationRecord> = {}): Int
 	userId: UserId.make("user_1"),
 	pluginInstallationId: "inst_1",
 	id: IntegrationId.make("int_1"),
-	webhookUrl: "http://localhost:3000/_i/int_1",
 	extraSettings: { disableOnContinuousErrors: true },
+	webhookUrl: `http://localhost:3000/_i/${testWebhookToken}`,
 	...overrides,
 });
 
