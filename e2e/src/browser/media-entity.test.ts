@@ -14,7 +14,7 @@ import {
 } from "~/fixtures/kernel";
 import { insertLibraryMembership, seedGlobalShowEpisodeTree } from "~/fixtures/plugins/media";
 import { requirePresent } from "~/support/assertions";
-import { browserLayer, signInThroughHostedOAuth } from "~/support/browser";
+import { signInThroughHostedOAuth } from "~/support/browser";
 import { expect, it } from "~/support/effect-test";
 import { getApiUrl, getFrontendUrl } from "~/support/harness-target";
 import { webRequest } from "~/support/web-request";
@@ -88,7 +88,7 @@ it.live("automatically populates and translates a partial Show in the compiled M
 			"24",
 		);
 		expect((yield* getEntity(client, show.id)).populatedAt).not.toBeNull();
-	}).pipe(PlaywrightSpawner.withBrowser, Effect.provide(browserLayer)),
+	}).pipe(PlaywrightSpawner.withBrowser),
 );
 
 it.live("opens a Media Show entity from the canonical saved-view route", () =>
@@ -207,7 +207,7 @@ it.live("opens a Media Show entity from the canonical saved-view route", () =>
 
 		yield* page.goBack();
 		yield* page.waitForURL(`${frontendUrl}/v/all-shows`);
-	}).pipe(PlaywrightSpawner.withBrowser, Effect.provide(browserLayer)),
+	}).pipe(PlaywrightSpawner.withBrowser),
 );
 
 it.live("shows a kernel notice for a Media schema with no detail renderer", () =>
@@ -231,5 +231,5 @@ it.live("shows a kernel notice for a Media schema with no detail renderer", () =
 			.getByRole("heading", { level: 1, exact: true, name: "Entity page not registered" })
 			.waitFor({ state: "visible" });
 		expect(yield* page.locator('iframe[title="media plugin"]').count).toBe(0);
-	}).pipe(PlaywrightSpawner.withBrowser, Effect.provide(browserLayer)),
+	}).pipe(PlaywrightSpawner.withBrowser),
 );

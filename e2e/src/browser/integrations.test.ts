@@ -2,8 +2,8 @@ import { Effect } from "effect";
 import { Playwright, PlaywrightSpawner } from "effect-playwright";
 
 import { createTestUser } from "~/fixtures/kernel";
-import { browserLayer, signInThroughHostedOAuth } from "~/support/browser";
-import { beforeAll, expect, it } from "~/support/effect-test";
+import { signInThroughHostedOAuth } from "~/support/browser";
+import { beforeAll, expect, it, runPromise } from "~/support/effect-test";
 import { getFrontendUrl } from "~/support/harness-target";
 
 const SUITE_ID = crypto.randomUUID();
@@ -58,7 +58,7 @@ const withIntegrationsBrowser = <E, R>(run: (page: Playwright.Page) => Effect.Ef
 	});
 
 beforeAll(() =>
-	Effect.runPromise(
+	runPromise(
 		Effect.gen(function* () {
 			const user = yield* createTestUser();
 			email = user.email;
@@ -104,7 +104,7 @@ it.live("connects, edits and deletes an integration from settings", () =>
 			yield* page.getByText("No integrations yet").waitFor({ state: "visible" });
 			expect(yield* integrationRow(page, RENAMED_INTEGRATION).count).toBe(0);
 		}),
-	).pipe(PlaywrightSpawner.withBrowser, Effect.provide(browserLayer)),
+	).pipe(PlaywrightSpawner.withBrowser),
 );
 
 it.live("keeps the wizard in the URL so closing it returns to the list", () =>
@@ -121,5 +121,5 @@ it.live("keeps the wizard in the URL so closing it returns to the list", () =>
 			yield* wizard(page).waitFor({ state: "hidden" });
 			yield* page.waitForURL((url) => !url.searchParams.has("create"));
 		}),
-	).pipe(PlaywrightSpawner.withBrowser, Effect.provide(browserLayer)),
+	).pipe(PlaywrightSpawner.withBrowser),
 );

@@ -5,9 +5,9 @@ import { createInterface } from "node:readline/promises";
 import { fileURLToPath } from "node:url";
 
 import dotenv from "dotenv";
-import { Effect } from "effect";
 
 import { requirePresent } from "~/support/assertions";
+import { runPromise } from "~/support/e2e-runtime";
 import { getFrontendUrl } from "~/support/harness-target";
 
 import { createAuthenticatedClient } from "../fixtures/kernel/auth";
@@ -46,8 +46,8 @@ async function buildFixturePlugin() {
 
 async function main() {
 	await buildFixturePlugin();
-	const { client, email, password } = await Effect.runPromise(createAuthenticatedClient());
-	const installation = await Effect.runPromise(installFixtureClientPlugin(client, "A"));
+	const { client, email, password } = await runPromise(createAuthenticatedClient());
+	const installation = await runPromise(installFixtureClientPlugin(client, "A"));
 
 	if (installation.health !== "ready") {
 		throw new Error(
@@ -55,10 +55,10 @@ async function main() {
 		);
 	}
 	const pluginId = requirePresent(
-		await Effect.runPromise(findPluginIdBySlug(client, FIXTURE_CLIENT_PLUGIN_SLUG)),
+		await runPromise(findPluginIdBySlug(client, FIXTURE_CLIENT_PLUGIN_SLUG)),
 		"Installed fixture plugin was not found",
 	);
-	const primaryView = await Effect.runPromise(
+	const primaryView = await runPromise(
 		createPluginSavedView(
 			client,
 			{ kind: "plugin", pluginId, exportName: "fixture-home" },
@@ -66,7 +66,7 @@ async function main() {
 			{ name: "Task 10 primary plugin page", workspacePluginSlug: FIXTURE_CLIENT_PLUGIN_SLUG },
 		),
 	);
-	const secondaryView = await Effect.runPromise(
+	const secondaryView = await runPromise(
 		createPluginSavedView(
 			client,
 			{ kind: "plugin", pluginId, exportName: "fixture-home" },
@@ -74,9 +74,9 @@ async function main() {
 			{ name: "Task 10 secondary plugin page", workspacePluginSlug: FIXTURE_CLIENT_PLUGIN_SLUG },
 		),
 	);
-	const media = await Effect.runPromise(findBuiltinPluginBySlug(client, "media"));
-	const primaryViewRecord = await Effect.runPromise(findSavedViewById(client, primaryView.id));
-	await Effect.runPromise(setPluginHomeView(client, media.slug, primaryViewRecord.slug));
+	const media = await runPromise(findBuiltinPluginBySlug(client, "media"));
+	const primaryViewRecord = await runPromise(findSavedViewById(client, primaryView.id));
+	await runPromise(setPluginHomeView(client, media.slug, primaryViewRecord.slug));
 
 	const appBaseUrl = getFrontendUrl();
 
@@ -84,8 +84,8 @@ async function main() {
 	console.log(`Password: ${password}`);
 	console.log(`Plugin URL: ${appBaseUrl}/fixture`);
 	console.log(`Home URL: ${appBaseUrl}/media`);
-	const primaryRecord = await Effect.runPromise(findSavedViewById(client, primaryView.id));
-	const secondaryRecord = await Effect.runPromise(findSavedViewById(client, secondaryView.id));
+	const primaryRecord = await runPromise(findSavedViewById(client, primaryView.id));
+	const secondaryRecord = await runPromise(findSavedViewById(client, secondaryView.id));
 	console.log(`Primary URL: ${appBaseUrl}/v/${primaryRecord.slug}`);
 	console.log(`Secondary URL: ${appBaseUrl}/v/${secondaryRecord.slug}`);
 	console.log("Saved-view renderer: fixture/fixture-home");
@@ -97,10 +97,8 @@ async function main() {
 		input.close();
 	}
 
-	await Effect.runPromise(updateFixtureClientPlugin(client, "B"));
-	const updatedInstallation = await Effect.runPromise(
-		findPluginInstallationBySlug(client, "fixture"),
-	);
+	await runPromise(updateFixtureClientPlugin(client, "B"));
+	const updatedInstallation = await runPromise(findPluginInstallationBySlug(client, "fixture"));
 	if (updatedInstallation.health !== "ready") {
 		throw new Error(
 			`Fixture client plugin update finished with health '${updatedInstallation.health}'`,

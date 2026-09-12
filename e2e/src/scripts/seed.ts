@@ -46,6 +46,7 @@ import { createAuthClient } from "better-auth/client";
 import { Effect, Result, Schema } from "effect";
 
 import { requirePresent } from "~/support/assertions";
+import { runPromise } from "~/support/e2e-runtime";
 
 import { adminAccessTokenHeaders } from "../fixtures/kernel/admin";
 import { signInWithPassword } from "../fixtures/kernel/auth";
@@ -100,7 +101,7 @@ async function createAndSignIn(): Promise<{
 		throw new Error(`Sign up failed: ${signUpError.message}`);
 	}
 
-	const signIn = await Effect.runPromise(signInWithPassword(email, password, API_BASE_URL));
+	const signIn = await runPromise(signInWithPassword(email, password, API_BASE_URL));
 	if (signIn.error) throw new Error(`Sign in failed: ${signIn.error.message}`);
 	const token = requirePresent(signIn.token, "Sign in succeeded but no OAuth token was returned");
 	sessionCookie = requirePresent(
@@ -255,7 +256,7 @@ export default defineScript({
 			},
 		],
 	});
-	const pluginPackage = await Effect.runPromise(
+	const pluginPackage = await runPromise(
 		compilePluginPackage({ manifest, files: encodePluginSourceFiles({ [entry]: source }) }),
 	);
 	const installed = await apiClient.runAdmin((c) =>

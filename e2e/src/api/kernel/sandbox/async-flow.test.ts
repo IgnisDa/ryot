@@ -27,7 +27,7 @@ import {
 	requireObjectRecord,
 	requireString,
 } from "~/support/assertions";
-import { afterAll, beforeAll, describe, expect, it } from "~/support/effect-test";
+import { afterAll, beforeAll, describe, expect, it, runPromise } from "~/support/effect-test";
 import { type FakeHttpServer, startFakeHttpServer } from "~/support/fake-http-server";
 
 let httpServerUrl: string;
@@ -53,7 +53,7 @@ const configFixtureSchema = {
 } as const;
 
 beforeAll(() =>
-	Effect.runPromise(
+	runPromise(
 		Effect.gen(function* () {
 			httpServer = yield* startFakeHttpServer((url) =>
 				url.pathname === "/sandbox-http-error"

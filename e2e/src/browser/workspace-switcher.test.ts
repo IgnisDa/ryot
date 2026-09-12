@@ -2,7 +2,7 @@ import { Effect } from "effect";
 import { Playwright, PlaywrightSpawner } from "effect-playwright";
 
 import { createTestUser } from "~/fixtures/kernel";
-import { browserLayer, signInThroughHostedOAuth } from "~/support/browser";
+import { signInThroughHostedOAuth } from "~/support/browser";
 import { expect, it } from "~/support/effect-test";
 
 it.live("opens the desktop workspace switcher with its keyboard shortcut", () =>
@@ -35,5 +35,5 @@ it.live("opens the desktop workspace switcher with its keyboard shortcut", () =>
 
 		yield* page.keyboard.press("Escape");
 		yield* menu.waitFor({ state: "hidden" });
-	}).pipe(PlaywrightSpawner.withBrowser, Effect.provide(browserLayer)),
+	}).pipe(PlaywrightSpawner.withBrowser),
 );

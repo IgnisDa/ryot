@@ -22,7 +22,7 @@ import {
 import type { InstalledTestProvider } from "~/fixtures/kernel/sandbox-provider";
 import { seedMediaEntity, seedPopulatedProviderEntity } from "~/fixtures/plugins/media";
 import { assertPresent, requireObjectRecord } from "~/support/assertions";
-import { afterAll, beforeAll, describe, expect, it } from "~/support/effect-test";
+import { afterAll, beforeAll, describe, expect, it, runPromise } from "~/support/effect-test";
 
 const CANONICAL_LANGUAGE = "en";
 const TRANSLATED_ES_NAME = "Título Traducido E2E";
@@ -54,7 +54,7 @@ const openInterestSocket = (auth: { client: Client }, entityIds: string[]) =>
 
 describe("entity translation via client-declared interest", () => {
 	beforeAll(() =>
-		Effect.runPromise(
+		runPromise(
 			Effect.gen(function* () {
 				const { client, userId } = yield* createAuthenticatedClient();
 				providerClient = client;
@@ -80,7 +80,7 @@ describe("entity translation via client-declared interest", () => {
 		),
 	);
 
-	afterAll(() => Effect.runPromise(uninstallTestProvider(provider)));
+	afterAll(() => runPromise(uninstallTestProvider(provider)));
 
 	it.live("executes the installed resolve operation independently", () =>
 		Effect.gen(function* () {
