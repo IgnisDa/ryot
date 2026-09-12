@@ -39,7 +39,7 @@ const languageChoices: readonly SelectChoice[] = [
 	{ value: CUSTOM_LANGUAGE, label: "Other language..." },
 ];
 
-function PreferenceRow(props: {
+export function PreferenceRow(props: {
 	title: string;
 	detail: string;
 	checked: boolean;
@@ -168,21 +168,6 @@ export function PreferencesForm(props: {
 									title="Show NSFW content"
 									disabled={props.disabled === true || isSubmitting}
 									detail="Allow providers to include adult metadata and results."
-									onChange={(value) => {
-										field.handleChange(value);
-										changed();
-									}}
-								/>
-							)}
-						</form.Field>
-						<div className="h-px bg-border" />
-						<form.Field name="disableIntegrations">
-							{(field) => (
-								<PreferenceRow
-									checked={field.value}
-									title="Disable integrations"
-									disabled={props.disabled === true || isSubmitting}
-									detail="Pause all external integration processing for your account."
 									onChange={(value) => {
 										field.handleChange(value);
 										changed();

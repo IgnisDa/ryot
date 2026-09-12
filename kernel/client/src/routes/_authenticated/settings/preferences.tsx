@@ -1,57 +1,21 @@
-import { RyotClientError } from "@ryot-app/client-sdk";
-import {
-	createRyotMutation,
-	createRyotQuery,
-	useRyotMutation,
-	useRyotQuery,
-} from "@ryot-app/client-sdk/react";
+import { useRyotMutation, useRyotQuery } from "@ryot-app/client-sdk/react";
 import { StatusMessage } from "@ryot-app/client-ui-sdk";
-import type {
-	UpdateUserPreferencesBody,
-	UserPreferences,
-} from "@ryot-app/contract/modules/user-settings/schemas";
-import { userSettingsRecipe } from "@ryot-app/ryotql-recipes/user-settings";
 import { createFileRoute } from "@tanstack/react-router";
-import { Effect } from "effect";
 
-import { UserSettingsApi } from "#/api/user-settings";
-import type { KernelHostServices } from "#/host-services";
 import { AuthService } from "#/modules/auth/service";
 import { DemoProtectionMessage, useIsDemoSession } from "#/modules/demo-protection";
-import { EntityInterestService } from "#/modules/entity-interest/service";
 import { Appearance } from "#/modules/settings/appearance";
 import { PreferencesForm } from "#/modules/settings/preferences-form";
+import {
+	preferencesQuery,
+	updatePreferencesMutation,
+} from "#/modules/settings/preferences-service";
 import { SettingsFrame } from "#/modules/settings/settings-frame";
 import { SettingsSection } from "#/modules/settings/settings-section";
 
 export const Route = createFileRoute("/_authenticated/settings/preferences")({
 	component: PreferencesRoute,
 });
-
-const preferencesQuery = createRyotQuery<void, UserPreferences, KernelHostServices>(({ client }) =>
-	Effect.map(client.data.query(userSettingsRecipe()), (settings) => settings.preferences),
-);
-
-const updatePreferencesMutation = createRyotMutation<
-	UpdateUserPreferencesBody,
-	void,
-	KernelHostServices
->(({ input, client, hostServices }) =>
-	hostServices.runtime
-		.runSync(UserSettingsApi)
-		.updatePreferences(hostServices.scope, { payload: input })
-		.pipe(
-			Effect.tap(() =>
-				input.language === undefined
-					? Effect.void
-					: Effect.sync(() =>
-							hostServices.runtime.runSync(EntityInterestService).reconnect(hostServices.scope),
-						),
-			),
-			Effect.tap(() => Effect.sync(() => client.mutationCompleted.hint())),
-			Effect.mapError(() => new RyotClientError("transport")),
-		),
-);
 
 function PreferencesRoute() {
 	const { theme, server, runtime } = Route.useRouteContext();
@@ -81,10 +45,7 @@ function PreferencesRoute() {
 				<SettingsSection title="Appearance" detail="Choose how Ryot looks on this device.">
 					<Appearance theme={theme} />
 				</SettingsSection>
-				<SettingsSection
-					title="Content and data"
-					detail="Control metadata and background connections."
-				>
+				<SettingsSection title="Content" detail="Control the metadata providers return.">
 					{isDemo && <DemoProtectionMessage />}
 					{content}
 				</SettingsSection>

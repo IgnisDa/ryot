@@ -13,6 +13,7 @@ import {
 import {
 	IntegrationsView,
 	type IntegrationListState,
+	type IntegrationPauseState,
 } from "#/modules/integrations/integrations-view";
 import { integrationProviderNames } from "#/modules/integrations/provider-selection";
 import {
@@ -21,6 +22,10 @@ import {
 	integrationsQuery,
 	syncIntegrationsMutation,
 } from "#/modules/integrations/service";
+import {
+	preferencesQuery,
+	updatePreferencesMutation,
+} from "#/modules/settings/preferences-service";
 import { SettingsFrame } from "#/modules/settings/settings-frame";
 import { useSearchParamModal } from "#/modules/ui/search-param-modal";
 import { StatusState } from "#/modules/ui/status-state";
@@ -50,6 +55,9 @@ function IntegrationsRoute() {
 	const listed = useRyotQuery(integrationsQuery, limit);
 	const providerQuery = useRyotQuery(integrationProvidersQuery);
 	const sync = useRyotMutation(syncIntegrationsMutation);
+	const preferences = useRyotQuery(preferencesQuery);
+	const updatePreferences = useRyotMutation(updatePreferencesMutation);
+	const [requestedPause, setRequestedPause] = useState<boolean | undefined>();
 	const state = useLatestListState(listed, listState);
 	const nowMs = useNowMs(RELATIVE_TIME_REFRESH_MS);
 
@@ -81,6 +89,25 @@ function IntegrationsRoute() {
 		);
 	};
 
+	const storedPause = preferences.data?.disableIntegrations;
+	const pause: IntegrationPauseState | undefined =
+		storedPause === undefined
+			? undefined
+			: {
+					paused: requestedPause ?? storedPause,
+					isSaving: updatePreferences.isPending,
+					failed: updatePreferences.status === "error",
+				};
+
+	const changePause = (paused: boolean) => {
+		setRequestedPause(paused);
+		return Effect.runPromise(
+			updatePreferences
+				.mutateEffect({ disableIntegrations: paused })
+				.pipe(Effect.catchCause(() => Effect.sync(() => setRequestedPause(undefined)))),
+		);
+	};
+
 	const wizard = useSearchParamModal({
 		isOpen: create === true,
 		onCompleted: () => undefined,
@@ -96,6 +123,7 @@ function IntegrationsRoute() {
 				<IntegrationsView
 					state={state}
 					nowMs={nowMs}
+					pause={pause}
 					readOnly={isDemo}
 					onConnect={wizard.open}
 					syncDetail={syncDetail}
@@ -103,6 +131,7 @@ function IntegrationsRoute() {
 					isSyncing={sync.isPending}
 					syncSucceeded={syncSucceeded}
 					onSyncAll={() => void syncAll()}
+					onPauseChange={(paused) => void changePause(paused)}
 					isLoadingMore={listed.isFetching && limit > INTEGRATIONS_PAGE_SIZE}
 					onShowMore={() => setLimit((current) => current + INTEGRATIONS_PAGE_SIZE)}
 					providerNames={integrationProviderNames(
