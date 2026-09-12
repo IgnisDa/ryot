@@ -101,6 +101,7 @@ const allowedWarningCodes: ReadonlySet<MigrationReportAnomalyCode> = new Set([
 	"review-episode-ambiguous",
 	"asset-locator-unresolved",
 	"asset-deletion-failed",
+	"exercise-ownerless-unreferenced",
 	"integration-cache-provider-unmapped",
 	"integration-cache-entity-unresolved",
 ]);

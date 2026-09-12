@@ -1,6 +1,6 @@
 import { defineManifest } from "@ryot-app/sandbox-sdk/driver";
 import { DateTime, Effect, Option, Schema } from "@ryot-app/sandbox-sdk/effect";
-import { defineProvider } from "@ryot-app/sandbox-sdk/provider";
+import { defineProvider, type ProviderDetailsRelatedEntity } from "@ryot-app/sandbox-sdk/provider";
 import { strictStruct } from "@ryot-app/sandbox-sdk/wire";
 
 import { MediaSandboxError } from "../../../lib/failures";
@@ -141,7 +141,98 @@ const collectSuggestions = (similarGames: unknown) =>
 		}
 		return [{ name, providerSlug: "video-game.igdb", externalId: String(Math.trunc(id)) }];
 	});
-const SEARCH_FIELDS = "id, name, cover.image_id, first_release_date";
+const MAIN_GAME_TYPE = "Main Game";
+const BUNDLE_TYPE = "Bundle";
+const EDITION_KIND = "Edition";
+const RELATED_KIND = "Related";
+const CHILD_PAGE_SIZE = 500;
+const CHILD_MAX_PAGES = 4;
+const gameTypeName = (game: Record<string, unknown> | null) =>
+	stringValue(asRecord(game?.["game_type"])?.["type"]);
+const gameId = (value: unknown) => {
+	const id = numberValue(typeof value === "object" ? asRecord(value)?.["id"] : value);
+	return id === null ? null : String(Math.trunc(id));
+};
+const parentGameKind = (parentType: string | null, childType: string | null) =>
+	parentType === BUNDLE_TYPE || childType === BUNDLE_TYPE ? null : (childType ?? RELATED_KIND);
+const videoGameRelation = (
+	externalId: string,
+	name: unknown,
+	kind: string,
+): ProviderDetailsRelatedEntity => ({
+	externalId,
+	providerSlug: "video-game.igdb",
+	relationshipProperties: { kind },
+	name: stringValue(name) ?? "Loading...",
+});
+const collectChildren = (
+	gameRecord: Record<string, unknown> | null,
+	children: readonly unknown[],
+) => {
+	const parentId = gameId(gameRecord);
+	const parentType = gameTypeName(gameRecord);
+	const entities = new Map<string, ProviderDetailsRelatedEntity>();
+	for (const child of children) {
+		const record = asRecord(child);
+		const externalId = gameId(record);
+		if (externalId === null || entities.has(externalId)) {
+			continue;
+		}
+		const kind =
+			gameId(record?.["version_parent"]) === parentId
+				? EDITION_KIND
+				: parentGameKind(parentType, gameTypeName(record));
+		if (kind !== null) {
+			entities.set(externalId, videoGameRelation(externalId, record?.["name"], kind));
+		}
+	}
+	return [...entities.values()];
+};
+const collectParents = (game: Record<string, unknown> | null) => {
+	const entities = new Map<string, ProviderDetailsRelatedEntity>();
+	const versionParent = asRecord(game?.["version_parent"]);
+	const versionParentId = gameId(versionParent);
+	if (versionParentId !== null) {
+		entities.set(
+			versionParentId,
+			videoGameRelation(versionParentId, versionParent?.["name"], EDITION_KIND),
+		);
+	}
+	const parent = asRecord(game?.["parent_game"]);
+	const parentId = gameId(parent);
+	if (parentId !== null && !entities.has(parentId)) {
+		const kind = parentGameKind(gameTypeName(parent), gameTypeName(game));
+		if (kind !== null) {
+			entities.set(parentId, videoGameRelation(parentId, parent?.["name"], kind));
+		}
+	}
+	return [...entities.values()];
+};
+const loadChildren = (host: IgdbHost, externalId: string) =>
+	Effect.gen(function* () {
+		const rows: unknown[] = [];
+		for (let page = 0; page < CHILD_MAX_PAGES; page += 1) {
+			const body = [
+				"fields id, name, game_type.type, parent_game, version_parent;",
+				`where parent_game = ${externalId} | version_parent = ${externalId};`,
+				"sort id asc;",
+				`limit ${CHILD_PAGE_SIZE};`,
+				`offset ${page * CHILD_PAGE_SIZE};`,
+			].join("\n");
+			const { data } = yield* makeIgdbRequest(host, "games", body);
+			if (!Array.isArray(data)) {
+				return yield* new MediaSandboxError({
+					message: "IGDB game children returned unexpected response format",
+				});
+			}
+			rows.push(...data);
+			if (data.length < CHILD_PAGE_SIZE) {
+				return { rows, complete: true };
+			}
+		}
+		return { rows, complete: false };
+	});
+const SEARCH_FIELDS = "id, name, cover.image_id, first_release_date, game_type.type";
 const DETAIL_FIELDS = [
 	"id",
 	"slug",
@@ -164,6 +255,12 @@ const DETAIL_FIELDS = [
 	"release_dates.release_region.region",
 	"similar_games.id",
 	"similar_games.name",
+	"game_type.type",
+	"parent_game.id",
+	"parent_game.name",
+	"version_parent.id",
+	"version_parent.name",
+	"parent_game.game_type.type",
 ].join(", ");
 const IGDB_OPTIONS_PAGE_SIZE = 500;
 const searchOptionSources = {
@@ -259,6 +356,11 @@ export const search = defineProvider({
 							return [];
 						}
 						const publishYear = extractYear(record?.["first_release_date"]);
+						const gameType = gameTypeName(record);
+						const [firstMetadata, ...restMetadata] = [
+							...(publishYear === null ? [] : [publishYear]),
+							...(gameType === null || gameType === MAIN_GAME_TYPE ? [] : [gameType]),
+						];
 						const imageId = stringValue(asRecord(record?.["cover"])?.["image_id"]);
 						const image = imageId ? getImageUrl(imageId) : null;
 						return [
@@ -266,7 +368,9 @@ export const search = defineProvider({
 								title: name,
 								externalId: String(id),
 								...(image === null ? {} : { imageUrl: image }),
-								...(publishYear === null ? {} : { metadata: [publishYear] as const }),
+								...(firstMetadata === undefined
+									? {}
+									: { metadata: [firstMetadata, ...restMetadata] as const }),
 							},
 						];
 					});
@@ -318,8 +422,9 @@ export const details = defineProvider({
 		return Effect.all([
 			makeIgdbRequest(host, "games", gameBody),
 			makeIgdbRequest(host, "game_time_to_beats", ttbBody),
+			loadChildren(host, input.externalId),
 		]).pipe(
-			Effect.flatMap(([gameResult, ttbResult]) =>
+			Effect.flatMap(([gameResult, ttbResult, children]) =>
 				Effect.gen(function* () {
 					const gameList = gameResult.data;
 					if (!Array.isArray(gameList) || gameList.length === 0) {
@@ -372,6 +477,7 @@ export const details = defineProvider({
 							images,
 							genres,
 							timeToBeat,
+							gameType: gameTypeName(game),
 							description: stringValue(game?.["summary"]),
 							providerRating: numberValue(game?.["rating"]),
 							sourceUrl: `https://www.igdb.com/games/${gameSlug}`,
@@ -396,6 +502,20 @@ export const details = defineProvider({
 								synchronization: "authoritative" as const,
 								relationshipSchemaSlug: "media-suggestion",
 								entities: collectSuggestions(game?.["similar_games"]),
+							},
+							{
+								direction: "outgoing" as const,
+								entities: collectChildren(game, children.rows),
+								relationshipSchemaSlug: "video-game-to-video-game",
+								synchronization: children.complete
+									? ("authoritative" as const)
+									: ("additive" as const),
+							},
+							{
+								direction: "incoming" as const,
+								entities: collectParents(game),
+								synchronization: "authoritative" as const,
+								relationshipSchemaSlug: "video-game-to-video-game",
 							},
 						],
 					};

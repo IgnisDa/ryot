@@ -4,8 +4,7 @@ import { AppConfig } from "#lib/infrastructure/config/service";
 import { DatabaseSession } from "#lib/infrastructure/db/session";
 import { garbageCollectSandboxCompiledModules } from "#lib/infrastructure/sandbox-runtime/compiled-modules";
 import { PackageCacheManager } from "#lib/infrastructure/sandbox-runtime/runtime";
-
-import { PluginRepository } from "./repository";
+import { PluginRepository } from "#modules/plugins/repository";
 
 export class ScriptGarbageCollector extends Context.Service<ScriptGarbageCollector>()(
 	"ScriptGarbageCollector",

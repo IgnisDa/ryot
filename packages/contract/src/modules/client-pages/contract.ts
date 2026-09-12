@@ -6,27 +6,15 @@ import { AuthenticatedMutationEndpoint } from "../../authenticated-mutation-endp
 import { LogRouteTemplate } from "../../http-annotations";
 import {
 	ClientAssetNotFound,
-	ClientDocumentGrantNotFound,
+	ClientCompositionDocument,
+	ClientCompositionDocumentBody,
+	ClientPageDocumentStale,
 	ClientPagePreparationError,
 	CheckClientPageFreshnessBody,
 	CheckClientPageFreshnessResponse,
 	PrepareClientPageBody,
 	PreparedClientPage,
 } from "./schemas";
-
-export const ClientDocumentsGroup = HttpApiGroup.make("clientDocuments")
-	.annotate(OpenApi.Description, "Serves capability-bound client composition documents")
-	.add(
-		HttpApiEndpoint.get("document", "/client-pages/documents/:token", {
-			params: { token: Schema.String },
-			error: [ClientDocumentGrantNotFound.pipe(HttpApiSchema.status(404))],
-		})
-			.annotate(LogRouteTemplate, true)
-			.annotate(
-				OpenApi.Description,
-				"Generates no-store composition HTML with artifact access URLs for a document grant",
-			),
-	);
 
 export const ClientAssetsGroup = HttpApiGroup.make("clientAssets")
 	.annotate(OpenApi.Description, "Serves immutable public or capability-protected client artifacts")
@@ -49,10 +37,7 @@ export const ClientPagesGroup = HttpApiGroup.make("clientPages")
 			success: PreparedClientPage,
 			payload: PrepareClientPageBody,
 			error: [ClientPagePreparationError.pipe(HttpApiSchema.status(404))],
-		}).annotate(
-			OpenApi.Description,
-			"Resolves a client page, looks up its composition, and issues a document grant",
-		),
+		}).annotate(OpenApi.Description, "Resolves a client page and looks up its composition"),
 	)
 	.add(
 		AuthenticatedMutationEndpoint.post("allowed")("checkFreshness", "/client-pages/freshness", {
@@ -61,6 +46,16 @@ export const ClientPagesGroup = HttpApiGroup.make("clientPages")
 		}).annotate(
 			OpenApi.Description,
 			"Checks whether a prepared page still matches current catalog state",
+		),
+	)
+	.add(
+		AuthenticatedMutationEndpoint.post("allowed")("document", "/client-pages/document", {
+			success: ClientCompositionDocument,
+			payload: ClientCompositionDocumentBody,
+			error: [ClientPageDocumentStale.pipe(HttpApiSchema.status(409))],
+		}).annotate(
+			OpenApi.Description,
+			"Generates the composition document for a prepared page that still matches current catalog state",
 		),
 	)
 	.middleware(AuthMiddleware);

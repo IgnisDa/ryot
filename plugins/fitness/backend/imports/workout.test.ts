@@ -60,7 +60,7 @@ it("requests exact catalog resolution while preserving custom fallback data and 
 		alias: "exercise-0",
 		entitySchemaSlug: "exercise",
 		operationId: '["workout",0,"exercise",0]',
-		properties: { images: [], muscles: [], instructions: [], kind: "reps_and_weight" },
+		properties: { images: [], instructions: [], kind: "reps_and_weight" },
 		match: {
 			name: "Bench Press",
 			nameNormalization: "slug",

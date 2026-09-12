@@ -408,6 +408,15 @@ pub async fn upsert_workout_template(
     input: UserWorkoutInput,
     ss: &Arc<SupportingService>,
 ) -> Result<String> {
+    if let Some(id) = &input.update_workout_template_id {
+        let template = WorkoutTemplate::find_by_id(id)
+            .filter(workout_template::Column::UserId.eq(user_id))
+            .one(&ss.db)
+            .await?;
+        if template.is_none() {
+            bail!("Workout template with the given ID could not be found for this user.");
+        }
+    }
     let mut summary = WorkoutSummary::default();
     let mut information = WorkoutInformation {
         assets: input.assets,

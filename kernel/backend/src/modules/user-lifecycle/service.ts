@@ -50,6 +50,7 @@ export class UserLifecycleService extends Context.Service<UserLifecycleService>(
 				yield* auth.deleteUserSessions(claimed.operation.userId);
 				yield* auth.revokeUserOAuthTokens(claimed.operation.userId);
 				yield* auth.purgeApiKeyCaches(claimed.operation.userId, claimed.metadata.apiKeys);
+				yield* auth.revokePasswordResetLinks(claimed.operation.userId);
 				return (
 					(yield* repository.markAccessRevoked(operationId)) ??
 					(yield* new GodModeInternalFailure({ reason: { code: "access-revocation-failed" } }))

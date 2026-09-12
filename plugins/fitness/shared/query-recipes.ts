@@ -90,22 +90,52 @@ const workoutInclude = (parent: Table, limit: number) => {
 	});
 };
 
+const exerciseEquipmentInclude = (parent: Table) => {
+	const equipment = table("entity", "exerciseEquipment");
+	const relationship = table("relationship", "exerciseEquipmentRelationship");
+	return selectedInclude(relationship, {
+		limit: 100,
+		orderBy: [ascending(column(equipment, "name")), ascending(column(relationship, "id"))],
+		joins: [
+			join("inner", equipment, eq(column(relationship, "targetEntityId"), column(equipment, "id"))),
+		],
+		selection: {
+			id: selectedField(column(equipment, "id"), Schema.String),
+			name: selectedField(column(equipment, "name"), Schema.String),
+		},
+		where: and(
+			eq(column(relationship, "sourceEntityId"), column(parent, "id")),
+			eq(column(relationship, "relationshipSchemaSlug"), literal("exercise-uses-equipment")),
+			eq(column(equipment, "entitySchemaSlug"), literal("exercise-equipment")),
+		),
+	});
+};
+
 export const exerciseListRecipe = defineRecipe(
 	(input: EntityListInput & Pick<EntityFilterInput, "name">) => {
 		const entity = table("entity", "entity");
 		return {
-			map: ({ exercises }) => Result.succeed(exercises),
+			map: ({ exercises }) =>
+				Result.succeed({
+					...exercises,
+					items: exercises.items.map(({ equipment, ...exercise }) => ({
+						...exercise,
+						equipment: [
+							...new Map(equipment.items.map((item) => [item.id, item] as const)).values(),
+						],
+					})),
+				}),
 			queries: {
 				exercises: selectedRows(entity, {
 					after: input.after,
 					limit: input.limit,
 					orderBy: [ascending(column(entity, "name"))],
 					where: entityWhere(entity, "exercise", input),
+					include: { equipment: exerciseEquipmentInclude(entity) },
 					selection: {
 						...entityIdentitySelection(entity),
 						kind: selectedField(property(entity, "kind"), Schema.NullOr(Schema.String)),
 						level: selectedField(property(entity, "level"), Schema.NullOr(Schema.String)),
-						equipment: selectedField(property(entity, "equipment"), Schema.NullOr(Schema.String)),
 						image: selectedField(
 							jsonPath(column(entity, "properties"), "images", 0),
 							Schema.NullOr(JsonValue),
