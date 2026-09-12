@@ -749,6 +749,14 @@ it("keeps entity and import membership immediate and groups event membership by 
 	});
 });
 
+it("declares ownership sync only for integrations that import ownership", () => {
+	expect(
+		mediaPlugin.integrationProviders
+			.filter((provider) => "supportsOwnershipSync" in provider && provider.supportsOwnershipSync)
+			.map(({ slug }) => slug),
+	).toEqual(["komga", "plex_yank", "audiobookshelf"]);
+});
+
 it("records newly-created media library memberships as events", () => {
 	const hooks = mediaPlugin.hooks.filter(
 		({ slug }) => slug === "media.record-media-library-membership-event",
