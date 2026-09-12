@@ -1,4 +1,4 @@
-import { waitFor } from "@testing-library/dom";
+import { fireEvent, getByRole, waitFor } from "@testing-library/dom";
 import { Schema } from "effect";
 import { act, StrictMode, type ReactNode } from "react";
 import { createRoot, type Root } from "react-dom/client";
@@ -22,8 +22,9 @@ import {
 	useEntityRefresh,
 	usePageRefresh,
 	usePageRefreshRequest,
+	usePluginStorage,
 } from "./react";
-import { createTestRyotClock } from "./testing";
+import { createTestPluginStorage, createTestRyotClock } from "./testing";
 
 (
 	globalThis as typeof globalThis & { IS_REACT_ACT_ENVIRONMENT?: boolean }
@@ -1013,5 +1014,64 @@ describe("useRyotMutation", () => {
 
 		expect(container.textContent).toBe("1");
 		expect(calls).toBe(1);
+	});
+});
+
+describe("usePluginStorage", () => {
+	const EpisodeOrder = Schema.Struct({ order: Schema.Literals(["aired", "dvd"]) });
+
+	const mountStorage = (initial?: Parameters<typeof createTestPluginStorage>[0]) => {
+		const storage = createTestPluginStorage(initial);
+		const clock = makeClock({ accessStorage: storage.accessStorage });
+		const View = () => {
+			const state = usePluginStorage({ key: "order", pluginSlug: "media", schema: EpisodeOrder });
+			if (state.status === "loading") {
+				return <p>loading</p>;
+			}
+			return (
+				<>
+					<p>{state.value?.order ?? "unset"}</p>
+					<button type="button" onClick={() => void state.set({ order: "aired" })}>
+						set
+					</button>
+					<button type="button" onClick={() => void state.remove()}>
+						remove
+					</button>
+				</>
+			);
+		};
+		const container = render(<View />, clock.runtime);
+		const text = () => container.querySelector("p")?.textContent;
+		const click = async (name: string) => {
+			await act(async () => {
+				fireEvent.click(getByRole(container, "button", { name }));
+				await Promise.resolve();
+			});
+		};
+		return { text, click, storage };
+	};
+
+	it("starts loading, then exposes the stored value", async () => {
+		const { text } = mountStorage([["media:order", { order: "dvd" }]]);
+		expect(text()).toBe("loading");
+		await waitFor(() => expect(text()).toBe("dvd"));
+	});
+
+	it("treats a stored value that fails to decode as null", async () => {
+		const { text } = mountStorage([["media:order", { order: "streaming" }]]);
+		await waitFor(() => expect(text()).toBe("unset"));
+	});
+
+	it("updates the value locally and persists the encoded value", async () => {
+		const { text, click, storage } = mountStorage();
+		await waitFor(() => expect(text()).toBe("unset"));
+
+		await click("set");
+		expect(text()).toBe("aired");
+		expect(storage.entries.get("media:order")).toEqual({ order: "aired" });
+
+		await click("remove");
+		expect(text()).toBe("unset");
+		expect(storage.entries.has("media:order")).toBe(false);
 	});
 });

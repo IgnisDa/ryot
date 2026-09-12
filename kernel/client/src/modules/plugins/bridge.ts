@@ -9,6 +9,7 @@ import {
 	PluginAssetBridgeErrorReason,
 	PluginCollectionBridgeErrorReason,
 	PluginOperationBridgeErrorReason,
+	PluginStorageBridgeErrorReason,
 	PluginBridgeReady,
 	isPageShortcut,
 	type KernelShortcut,
@@ -41,6 +42,8 @@ import {
 	type PluginBridgeRyotQLRequest,
 	type PluginBridgeRyotQLResult,
 	type PluginBridgeScreenState,
+	type PluginBridgeStorageRequest,
+	type PluginBridgeStorageResult,
 	type PluginBridgeUploadRequest,
 	type PluginBridgeUploadResult,
 	type PluginOperationOutcome,
@@ -52,6 +55,8 @@ import {
 	type PluginThemeSnapshot,
 	type PluginCollectionOutcome,
 	type PluginCollectionRequest,
+	type PluginStorageOutcome,
+	type PluginStorageRequest,
 } from "@ryot-app/client-plugin-contract";
 import type { EntityInterestSubscription } from "@ryot-app/client-sdk";
 import { isJsonValue } from "@ryot-app/contract/schema/json";
@@ -89,7 +94,7 @@ type PluginBridgeState = "ready" | "active" | "closing" | "failed" | "disposed";
 
 type PendingRequest = {
 	readonly controller: AbortController;
-	readonly type: "asset" | "collection" | "operation" | "ryotql" | "upload";
+	readonly type: "asset" | "collection" | "operation" | "ryotql" | "storage" | "upload";
 };
 
 type PluginBridgeOptions = {
@@ -135,12 +140,17 @@ type PluginBridgeOptions = {
 		request: PluginUploadRequest,
 		signal: AbortSignal,
 	) => Promise<PluginUploadOutcome>;
+	readonly onStorage: (
+		request: PluginStorageRequest,
+		signal: AbortSignal,
+	) => Promise<PluginStorageOutcome>;
 };
 
 const decodeReady = Schema.decodeUnknownResult(PluginBridgeReady);
 const isAssetBridgeErrorReason = Schema.is(PluginAssetBridgeErrorReason);
 const isOperationBridgeErrorReason = Schema.is(PluginOperationBridgeErrorReason);
 const isCollectionBridgeErrorReason = Schema.is(PluginCollectionBridgeErrorReason);
+const isStorageBridgeErrorReason = Schema.is(PluginStorageBridgeErrorReason);
 const decodeClientMessage = Schema.decodeUnknownResult(PluginBridgeClientMessage);
 const decodeLifecycleClose = Schema.decodeUnknownResult(PluginBridgeLifecycleClose);
 
@@ -405,6 +415,58 @@ export function openPluginBridge(options: PluginBridgeOptions): PluginBridgeSess
 			});
 	}
 
+	function handleStorage(request: PluginBridgeStorageRequest) {
+		if (pending.has(request.requestId)) {
+			return;
+		}
+		if (pending.size >= CLIENT_BRIDGE_MAX_PENDING_REQUESTS) {
+			fail();
+			return;
+		}
+		const controller = new AbortController();
+		pending.set(request.requestId, { controller, type: "storage" });
+		const capabilityRequest: PluginStorageRequest =
+			request.action === "set"
+				? {
+						key: request.key,
+						value: request.value,
+						action: request.action,
+						pluginSlug: request.pluginSlug,
+					}
+				: { key: request.key, action: request.action, pluginSlug: request.pluginSlug };
+		void Promise.resolve()
+			.then(() => options.onStorage(capabilityRequest, controller.signal))
+			.catch(() => ({ outcome: "failure", reason: "transport" }) satisfies PluginStorageOutcome)
+			.then((outcome) => {
+				if (state !== "active" || pending.get(request.requestId)?.controller !== controller) {
+					return undefined;
+				}
+				let result: PluginStorageOutcome;
+				if (outcome.outcome === "failure" && isStorageBridgeErrorReason(outcome.reason)) {
+					result = { outcome: "failure", reason: outcome.reason };
+				} else if (outcome.outcome === "failure") {
+					result = { outcome: "failure", reason: "transport" };
+				} else if (outcome.value === null || isJsonValue(outcome.value)) {
+					result = { outcome: "success", value: outcome.value };
+				} else {
+					result = { outcome: "failure", reason: "transport" };
+				}
+				try {
+					channel.port1.postMessage({
+						...result,
+						type: "storage-result",
+						requestId: request.requestId,
+					} satisfies PluginBridgeStorageResult);
+					if (pending.get(request.requestId)?.controller === controller) {
+						pending.delete(request.requestId);
+					}
+				} catch {
+					fail();
+				}
+				return undefined;
+			});
+	}
+
 	function handleCollection(request: PluginBridgeCollectionRequest) {
 		if (pending.has(request.requestId)) {
 			return;
@@ -654,6 +716,7 @@ export function openPluginBridge(options: PluginBridgeOptions): PluginBridgeSess
 						Match.when({ type: "operation-request" }, (request) => handleOperation(request)),
 						Match.when({ type: "collection-request" }, (request) => handleCollection(request)),
 						Match.when({ type: "upload-request" }, (request) => handleUpload(request)),
+						Match.when({ type: "storage-request" }, (request) => handleStorage(request)),
 						Match.exhaustive,
 					);
 				return;
