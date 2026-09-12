@@ -7,6 +7,7 @@ import {
 	eq,
 	inArray,
 	join,
+	jsonPath,
 	literal,
 	selectedField,
 	selectedInclude,
@@ -25,25 +26,28 @@ export const workoutPresentationRecipe = defineRecipe((entityIds: readonly strin
 	return {
 		map: ({ workouts }) => {
 			return Result.succeed(
-				workouts.items.map(({ sets, ...item }) => {
-					const exercises = new Map<
-						string,
-						{ name: string; order: number | null; sets: (typeof sets.items)[number][] }
-					>();
+				workouts.items.map(({ sets, exerciseNotes, ...item }) => {
+					const createExercise = (set: (typeof sets.items)[number]) => ({
+						id: set.exerciseId,
+						name: set.exerciseName,
+						order: set.exerciseOrder,
+						sets: new Array<typeof set>(),
+						notes:
+							exerciseNotes?.find(({ exerciseOrder }) => exerciseOrder === set.exerciseOrder)
+								?.notes ?? [],
+					});
+					const exercises = new Map<string, ReturnType<typeof createExercise>>();
 					for (const set of sets.items) {
-						const current = exercises.get(set.exerciseId) ?? {
-							sets: [],
-							name: set.exerciseName,
-							order: set.exerciseOrder,
-						};
+						const key = `${set.exerciseOrder}:${set.exerciseId}`;
+						const current = exercises.get(key) ?? createExercise(set);
 						current.sets.push(set);
-						exercises.set(set.exerciseId, current);
+						exercises.set(key, current);
 					}
 					return {
 						...item,
-						exercises: [...exercises.entries()]
-							.map(([id, groupedExercise]) => Object.assign({ id }, groupedExercise))
-							.sort((left, right) => (left.order ?? 0) - (right.order ?? 0)),
+						exercises: [...exercises.values()].sort(
+							(left, right) => (left.order ?? 0) - (right.order ?? 0),
+						),
 					};
 				}),
 			);
@@ -52,11 +56,6 @@ export const workoutPresentationRecipe = defineRecipe((entityIds: readonly strin
 			workouts: selectedRows(workout, {
 				limit: 100,
 				orderBy: [ascending(column(workout, "id"))],
-				selection: {
-					id: selectedField(column(workout, "id"), Schema.String),
-					name: selectedField(column(workout, "name"), Schema.String),
-					...workoutDatesSelection(workout),
-				},
 				where: and(
 					eq(column(workout, "entitySchemaSlug"), literal("workout")),
 					inArray(
@@ -64,6 +63,22 @@ export const workoutPresentationRecipe = defineRecipe((entityIds: readonly strin
 						entityIds.map((entityId) => literal(entityId)),
 					),
 				),
+				selection: {
+					id: selectedField(column(workout, "id"), Schema.String),
+					name: selectedField(column(workout, "name"), Schema.String),
+					...workoutDatesSelection(workout),
+					exerciseNotes: selectedField(
+						jsonPath(column(workout, "properties"), "exerciseNotes"),
+						Schema.NullOr(
+							Schema.Array(
+								Schema.Struct({
+									notes: Schema.Array(Schema.String),
+									exerciseOrder: Schema.Int.check(Schema.isGreaterThanOrEqualTo(0)),
+								}),
+							),
+						),
+					),
+				},
 				include: {
 					sets: selectedInclude(event, {
 						limit: 100,

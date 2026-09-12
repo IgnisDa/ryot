@@ -25,6 +25,7 @@ const workout: WorkoutPresentationData = {
 			order: 0,
 			id: "exercise-1",
 			name: "Bench Press",
+			notes: ["Keep your elbows in.", "Control the descent."],
 			sets: [
 				{
 					reps: 8,
@@ -73,6 +74,15 @@ describe("workout presentation", () => {
 			expect(page.container?.textContent).toContain("1 exercise · 1 set");
 			expect(page.container?.textContent).toContain("Bench Press");
 			expect(page.container?.textContent).toContain("8 reps · 60 kg");
+			const exercise = page.container?.querySelector("details > ul > li");
+			expect(exercise).not.toBeNull();
+			for (const note of ["Keep your elbows in.", "Control the descent."]) {
+				const noteParagraphs = Array.from(page.container?.querySelectorAll("p") ?? []).filter(
+					(paragraph) => paragraph.textContent.includes(note),
+				);
+				expect(noteParagraphs).toHaveLength(1);
+				expect(noteParagraphs[0]?.closest("li")).toBe(exercise);
+			}
 			expect(page.container?.querySelector("details")).not.toBeNull();
 			expect(page.container?.querySelector("img")).toBeNull();
 		}),

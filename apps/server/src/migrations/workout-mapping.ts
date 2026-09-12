@@ -78,7 +78,7 @@ BEGIN
 												'note',     NULLIF(s.value ->> 'note', ''),
 												'reps',     ${buildDecimalStatField("s.value", "reps")},
 												'weight',   ${buildDecimalStatField("s.value", "weight")},
-												'duration', ${buildDecimalStatField("s.value", "duration")},
+												'duration', ${buildDecimalStatField("s.value", "duration")} * 60,
 												'distance', ${buildDecimalStatField("s.value", "distance")}
 											))
 											ORDER BY s.ordinality
@@ -163,6 +163,21 @@ BEGIN
 				'caloriesBurnt', w.calories_burnt,
 				'images',        ${buildLegacyImagesSql("w.information -> 'assets'")},
 				'videos',        ${buildLegacyVideosSql("w.information -> 'assets'")},
+				'exerciseNotes', COALESCE(
+					(
+						SELECT jsonb_agg(
+							jsonb_build_object(
+								'exerciseOrder', (ex.ordinality - 1)::int,
+								'notes', ex.value -> 'notes'
+							)
+							ORDER BY ex.ordinality
+						)
+						FROM jsonb_array_elements(COALESCE(w.information -> 'exercises', '[]'::jsonb))
+							WITH ORDINALITY AS ex(value, ordinality)
+						WHERE jsonb_array_length(COALESCE(ex.value -> 'notes', '[]'::jsonb)) > 0
+					),
+					'[]'::jsonb
+				),
 				'supersets',     CASE
 					WHEN jsonb_array_length(COALESCE(w.information -> 'supersets', '[]'::jsonb)) > 0
 					THEN w.information -> 'supersets'
@@ -244,11 +259,11 @@ BEGIN
 				'images',              ${buildLegacyImagesSql("ex.value -> 'assets'")},
 				'videos',              ${buildLegacyVideosSql("ex.value -> 'assets'")},
 				'reps',               ${buildDecimalStatField("s.value", "reps")},
-				'pace',               ${buildDecimalStatField("s.value", "pace")},
+				'pace',               ${buildDecimalStatField("s.value", "pace")} / 60,
 				'weight',             ${buildDecimalStatField("s.value", "weight")},
 				'oneRm',              ${buildDecimalStatField("s.value", "one_rm")},
 				'volume',             ${buildDecimalStatField("s.value", "volume")},
-				'duration',           ${buildDecimalStatField("s.value", "duration")},
+				'duration',           ${buildDecimalStatField("s.value", "duration")} * 60,
 				'distance',           ${buildDecimalStatField("s.value", "distance")}
 			)),
 			w.start_time,
