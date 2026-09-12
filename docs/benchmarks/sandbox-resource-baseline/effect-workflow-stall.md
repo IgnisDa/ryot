@@ -1,11 +1,12 @@
 # Effect Workflow Stall And The Sandbox Resource Benchmarks
 
-**Status:** open. Upstream issue
+**Status:** closed by run `2026-09-22T01-30-37Z` on Effect `4.0.0-rc.117`. Upstream issue
 [Effect-TS/effect#8312](https://github.com/Effect-TS/effect/issues/8312), standalone reproduction at
 [IgnisDa/effect-workflow-stall-repro](https://github.com/IgnisDa/effect-workflow-stall-repro).
 
 Read this before drawing decisions from live import throughput or latency in run
-`2026-09-19T09-33-37Z`, or in any run on Effect `4.0.0-rc.116`.
+`2026-09-19T09-33-37Z`, or in any run on Effect `4.0.0-rc.116`. Runs on `rc.117` and later are not
+affected; see "Verification" at the end.
 
 ## What happens
 
@@ -106,14 +107,66 @@ Decision questions 1, 2, 3 and 9 in `follow-up-data-gathering-plan.md` depend on
 them from hermetic evidence and non-stalled live evidence until the rerun below replaces the live
 figures.
 
-## Open follow-up
+## Verification
 
-When Effect publishes a release that fixes #8312:
+Run `2026-09-22T01-30-37Z` on Effect `4.0.0-rc.117` reran both affected scenarios and found the
+defect gone. Full results in `2026-09-22T01-30-37Z/report.md`.
 
-1. Bump `effect` and the matching `@effect/*` packages from `4.0.0-rc.116` in every workspace that
-   pins them. No Ryot code works around the stall, so nothing else needs to change.
-2. Deploy to the benchmark service and pass sampling preflight.
-3. Rerun the Phase 12 live concurrency matrix, plus any other scenario from run
-   `2026-09-19T09-33-37Z` whose artifact contains an import over 600 s, into a new run directory.
-4. Close this file when the rerun records no import over 600 s. Record the new run id and replace the
-   live throughput inputs used for the decisions.
+**The verdict rests on backend dead time, not on the latency rule above, and the rule needs one
+correction.** The 600 s threshold was calibrated on a live import costing about 165 s, so roughly
+765 s meant a stall. That reasoning does not transfer to the hermetic soak: twenty hermetic imports
+genuinely share two vCPUs for the length of a wave, so their *normal* per-import latency is
+1 520–1 760 s and all 120 trip the threshold while the backend is busy 91 to 99.5 percent of the
+time. The rule remains sound for the live matrix, where normal latency is 196–466 s and a stalled
+import stands out clearly — as it did on `rc.116`, at about 775 s against a 177 s median. Apply it
+only where the threshold sits above the workload's own cost.
+
+The sound criterion is contiguous backend idleness inside a wave, measured from the scenario
+artifact's own `series.application` — `activeExecutions` and `executingImportBodies` — scored over
+the full wave window `submittedAtMs..terminalAtMs`. Do not truncate that window: an earlier attempt
+truncated at the wave's execution ceiling to avoid counting the post-wave checkpoint tail, but that
+tail lies outside the window already, and truncating hid a real 141 s gap in one wave.
+
+A second discriminator is at least as sharp and needs no sampler at all: the **spread of request
+terminal times** within a wave. All 20 imports are submitted within 0.1 s, so a lost wake-up that
+delays some of them by ~600 s pulls that spread wide open. It is computable from the scenario
+artifact alone.
+
+| | `rc.116`, 10 waves | `rc.117`, 6 waves |
+| --- | --- | --- |
+| Busy % | 53.09–73.26 | 91.17–99.52 |
+| Longest contiguous idle | 124.0–424.0 s | 2.0–3.0 s, except wave 4 at 141.0 s |
+| Request terminal spread | 513.5–1 022.9 s | 19.7–26.7 s, except wave 4 at 1.9 s |
+| Requests over 600 s, live matrix | 17 of 252 | **0 of 252** |
+
+The `rc.116` pattern is present in every one of its ten waves. Under `rc.117` it is absent: five of
+six waves run 98.9 percent busy or better and finish their twenty imports inside a 27 s window.
+
+One gap does not fit and is recorded rather than smoothed over. Wave 4 of the `rc.117` soak went
+fully idle for 141 s in its tail and then released all twenty requests within 1.9 s. That is not the
+#8312 signature — a lost wake-up costs about 600 s, the `last_read` threshold, and it delays
+requests individually rather than releasing them together — but its cause is not established. See
+"The one gap that does not fit" in `2026-09-22T01-30-37Z/report.md`.
+
+Sampler cadence is part of the evidence: an outage yields one large inter-sample delta that looks
+exactly like dead time. Median cadence is 1.000 s in both runs and the largest single gap in the
+`rc.117` series is 1.599 s. Per-wave figures for both runs are in
+`2026-09-22T01-30-37Z/soak-dead-time.json`.
+
+The soak stopped at 6 of 10 waves because wave 7 exceeded the request timeout. That truncation is
+caused by a throughput regression, not by a stall, and is recorded as defect 6 of that run.
+
+### What the fix did not buy
+
+Wall-clock wave duration is unchanged, about 26 minutes either way. Per unit of working time `rc.117`
+runs at 2.21–2.45 executions per second against `rc.116`'s 4.32, so the recovered idle time is
+consumed by a roughly 2× throughput regression. Do not expect import throughput on `rc.117` to
+improve on the `rc.116` figures; expect it to be honest about where the time goes.
+
+### Decision inputs replaced
+
+Live throughput and latency for decision inputs 1, 2, 3 and 9 in `2026-09-19T09-33-37Z/report.md` are
+superseded by the `2026-09-22T01-30-37Z` matrix, which is stall-free. The direction of all four is
+unchanged. The previously unresolved question of import-path retention now has a first measurement,
+and the previously unresolved question of whether live health p95 at `c3` was a sampling artefact is
+resolved: it is reproducible and worse than the original figure.
