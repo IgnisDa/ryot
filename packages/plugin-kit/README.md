@@ -49,14 +49,17 @@ Installation recomputes that list from sources and rejects disagreement, so edit
 cannot widen a script. Renaming a script slug requires updating all manifest references.
 
 Each entry default-exports exactly one direct definition with static manifest, input schema, output
-schema, and Effect-returning `run`. The static manifest is the source of its metadata; there are no
-driver maps or runtime kind selection.
+schema, and Effect-returning `run`. `defineManifest` contains the script identity and kind plus its
+kind-specific authored fields, such as an automation `inputProjection` or provider
+`searchOptionsSchema`. It does not contain capabilities, configuration requirements, OAuth fields, or
+executable dependencies. The compiler derives those from the entry's used code and writes them to the
+build-derived script metadata. There are no driver maps or runtime kind selection.
 
 | Kind         | Helper                   | Use                                                             |
 | ------------ | ------------------------ | --------------------------------------------------------------- |
 | `script`     | `defineScript`           | Boot, cron, bootstrap, or internal execution                    |
 | `operation`  | `defineOperation`        | Public `plugins.invoke` entrypoint                              |
-| `workflow`   | `defineWorkflow`         | Deterministic durable orchestration; capabilities must be empty |
+| `workflow`   | `defineWorkflow`         | Deterministic durable orchestration; no local host capabilities |
 | `automation` | `defineAutomation`       | After hook (`automationType: "automation"`)                     |
 | `automation` | `defineAutomationPolicy` | Before hook (`automationType: "policy"`)                        |
 | `provider`   | `defineProvider`         | One logical provider operation                                  |
@@ -138,17 +141,26 @@ schemas. Retained execution reads use the pinned manifest schema; durable activi
 recorded read. System execution without a user cannot read user settings. `getUserPreferences` exposes
 the kernel-owned `disableIntegrations`; entity language remains a kernel preference.
 
-## Subject And Capabilities
+## Execution Authority
 
 Ingestion assigns plugin scope (`system` or `user`); manifests do not. Execution subject identifies
 whose data an invocation uses and does not widen plugin privilege. Kernel dispatch selects it, never
 script input. User plugins cannot declare `userBootstrap`, `httpRateLimits`, or `oauthProviders`,
 or use a system plugin slug.
 
-`capabilities` is an allowlist request, not a grant. The backend intersects it with host functions and
-policy for script kind, subject, plugin scope, provider association, and bootstrap designation. Domain
-modules still enforce ownership. Declare only used methods. `artifact-read` and `scratch` request
-filesystem grants. Workflows declare no capabilities and receive durable replay primitives only.
+The compiler follows each entry's used execution graph, including ordinary helpers, closures, direct
+host-method references, and local forwarding methods. It records that entry's used host capabilities
+in sorted compiled metadata; build and installation derive the values from source rather than trusting
+archive metadata. Executable dependencies do not merge authority: a parent keeps only its local
+capabilities, each child is checked against its own compiled metadata, and workflow replay has no local
+host capabilities.
+
+Ordinary scripts receive `ScriptHost`. Before-stage policies receive `PolicyHost`, whose type exposes
+only the policy-safe host methods. A helper typed as `Pick<ScriptHost, ...>` narrows TypeScript usage;
+it does not grant authorization. The runtime checks pinned compiled metadata against operation policy
+for script kind, subject, plugin scope, provider association, and bootstrap designation. Domain
+modules still enforce ownership. Filesystem capabilities are derived from SDK filesystem use; the
+kernel supplies any resource paths separately.
 
 Subject follows the dispatch path: cron uses system; user bootstrap uses the initialized user;
 user operations, imports, and user-triggered provider calls use the caller; integration operations add
@@ -241,8 +253,9 @@ even when the global entity already exists. `signalSchemas[].notificationHookSlu
 hook that targets that signal; it is never a script slug.
 
 Before hooks use `defineAutomationPolicy` and `automationType: "policy"`. They execute sequentially
-by `(position, pluginId, hookSlug)`; omitted `position` means 1000. Their capabilities are read-only:
-`executeRyotql`, schema/integration/config/preference reads, cache reads, and diagnostic `log`/`span`.
+by `(position, pluginId, hookSlug)`; omitted `position` means 1000. The compiler and runtime allow
+only the policy-safe host surface: `executeRyotql`, schema/integration/config/preference reads, cache
+reads, and diagnostic `log`/`span`.
 No domain writes, HTTP, signals, notifications, cache writes, persistent claims, child workflows, or filesystem grants
 are allowed. Outputs are `{ action: "allow" }`, `{ action: "reject", reason }`, or
 `{ action: "transform", patch }`. A patch must name the current resource and contain a non-empty
@@ -290,9 +303,10 @@ Exponential delays double from `initialDelayMs` (1–3,600,000) to `maxDelayMs` 
 must be at least the initial delay. Only kernel-classified infrastructure failures are retryable;
 schema failures, missing retained artifacts, and business failures are terminal. HTTP uncertain
 outcomes are terminal unless the hook declares `externalIdempotency: "run-id"`. Automatic retries
-for scripts with `httpCall` or `sendNotification` require this declaration. Declare it only if the
-external operation supports deduplication and receives `automation.runId` as its idempotency key.
-All attempts share that logical run ID; external exactly-once delivery is not guaranteed.
+require this declaration when the hook's reachable executable dependencies use `httpCall` or
+`sendNotification`, including delegated effects. Declare it only if the external operation supports
+deduplication and receives `automation.runId` as its idempotency key. All attempts share that logical
+run ID; external exactly-once delivery is not guaranteed.
 
 `causationSources` is an optional non-empty allowlist of `api`, `import`, `integration`, `bootstrap`,
 `provider-refresh`, or `automation`. Causation retains `initiator`, `executionId`, `rootExecutionId`,
@@ -302,11 +316,15 @@ attribution, set source to `automation`, and increment depth. Plugin input canno
 Depth and shared run budgets are kernel-enforced. Blocked policy planning rejects the write;
 blocked post-write planning retains the source mutation.
 
-`getPluginConfig({ required: ["token"], optional: ["threshold"] })` reads the pinned configuration
-revision. Missing required values fail; missing optional values are omitted. Keys must be literals or
-finite typed values. The compiler generates access metadata from the used helpers; manifests do not
-author config requirement lists. Configuration is
-never copied into automation input or history. `emitSignal` returns `{ triggerId, wasCreated }`.
+`getPluginConfig({ required: ["token"], optional: ["threshold"] })` reads only the requested keys
+from the pinned configuration revision. The compiler derives required and optional keys from the
+used calls, including calls reached through local helpers; keys must be literals or finite typed
+values. Values retain their exact `JsonValue` shape, so declared defaults such as `false` and `0` are
+returned rather than treated as missing. Missing required values fail with `missing-required-config`
+in SDK error `data`; unavailable optional values are omitted. Unrequested keys are not available to
+the script. The compiler records key metadata, not generated files for the full configuration schema;
+scripts do not author per-script key lists. Configuration is never copied into automation input or
+history. `emitSignal` returns `{ triggerId, wasCreated }`.
 Notification subscriptions remain portable user configuration; triggers, runs, attempts, retry
 state, logs, mutation receipts, pending batch evidence, and encryption keys are not account-backup data.
 
@@ -389,8 +407,9 @@ executable artifacts expire.
 
 `configSchema` is strict top-level `AppSchema` data with string, number, integer, boolean, or enum
 fields. It supports labels, descriptions, secrets, defaults, and ordinary validation, but not nested
-values, arrays, dates, translation, normalization, or schema rules. Script and import-source config
-requirements must name declared fields. Scripts declare host-owned configuration separately.
+values, arrays, dates, translation, normalization, or schema rules. Compiler-derived script keys and
+import-source configuration requirements must name declared fields. Script configuration access is
+derived from `getPluginConfig` calls, not authored as a separate list.
 
 Numeric `normalize.round.scale` in other manifest property schemas applies half-up rounding before
 validation.
