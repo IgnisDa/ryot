@@ -1,6 +1,5 @@
 import { DateTime, Duration, Result, Option } from "@ryot-app/sandbox-sdk/effect";
 
-import { normalizeWorkoutMeasurements } from "../../shared/workout-records";
 import { parseCsvText, readCsvCell, readOptionalCsvNumber, readRequiredCsvCell } from "./csv";
 import {
 	determineWorkoutExerciseKind,
@@ -124,12 +123,10 @@ const toWorkoutSet = (row: StrongAppRow): WorkoutImportSet => {
 		F: "failure",
 	};
 	const set: WorkoutImportSet = {
-		...normalizeWorkoutMeasurements({
-			reps: row.reps,
-			weight: row.weight,
-			duration: row.seconds,
-			distance: row.distance,
-		}),
+		reps: row.reps,
+		weight: row.weight,
+		duration: row.seconds,
+		distance: row.distance,
 		setLot: setLots[row.setOrder] ?? "normal",
 	};
 	if (row.notes) {
