@@ -6,8 +6,10 @@ import { Effect, Layer, Schema } from "effect";
 import { DurableQueue } from "effect/unstable/workflow";
 
 import { AppConfig } from "#lib/infrastructure/config/service";
+import { RedisService } from "#lib/infrastructure/redis";
 import { SandboxExecutionPrincipal } from "#lib/infrastructure/sandbox-runtime/execution-principal";
 import { SandboxService as RuntimeSandboxService } from "#lib/infrastructure/sandbox-runtime/service";
+import { readWorkflowJournal } from "#lib/infrastructure/sandbox-runtime/workflow-journal";
 
 import {
 	SandboxDurableHostDispatcher,
@@ -29,10 +31,14 @@ const SandboxExecutionQueuePayload = Schema.Struct({
 });
 export type SandboxExecutionQueuePayload = Schema.Schema.Type<typeof SandboxExecutionQueuePayload>;
 
-/** One replay's result, plus the durable host results it settled without ending. */
+/**
+ * One replay's result, plus the durable host results it settled without ending. A replay whose
+ * journal projection entries were lost never ran the script and sets `projectionMissing`.
+ */
 const SandboxReplayResult = Schema.Struct({
 	...SandboxExecutionResult.fields,
 	inline: Schema.Array(workflowReplayJournalEntrySchema),
+	projectionMissing: Schema.optional(Schema.Literal(true)),
 });
 export type SandboxReplayResult = Schema.Schema.Type<typeof SandboxReplayResult>;
 
@@ -65,6 +71,22 @@ export const executeSandboxExecution = Effect.fn("executeSandboxExecution")(func
 	const sandbox = yield* RuntimeSandboxService;
 	const dispatcher = yield* SandboxDurableHostDispatcher;
 
+	const replayJournal = yield* readWorkflowJournal(
+		yield* RedisService,
+		payload.workflowExecutionId,
+		payload.journalLength,
+	);
+	if (replayJournal === null) {
+		return {
+			logs: [],
+			inline: [],
+			error: null,
+			value: null,
+			status: "completed" as const,
+			projectionMissing: true as const,
+		};
+	}
+
 	const script = yield* repository.getScript(payload.principal.scriptId);
 	if (!script || script.contentHash !== payload.principal.contentHash) {
 		return yield* new SandboxRunError({
@@ -88,6 +110,7 @@ export const executeSandboxExecution = Effect.fn("executeSandboxExecution")(func
 			: payload.grants;
 
 	const result = yield* sandbox.run({
+		replayJournal,
 		context: payload.context,
 		startedAt: payload.startedAt,
 		principal: payload.principal,
@@ -100,7 +123,6 @@ export const executeSandboxExecution = Effect.fn("executeSandboxExecution")(func
 			? {
 					inlineDurableHost: {
 						capabilities: inlineCapabilities,
-						journalLength: payload.journalLength,
 						settle: (requests) =>
 							dispatcher.settleInline(
 								requests,

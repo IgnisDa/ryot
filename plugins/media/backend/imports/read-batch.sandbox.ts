@@ -1,12 +1,15 @@
 import { defineManifest, defineScript } from "@ryot-app/sandbox-sdk/driver";
 import { Effect, Schema } from "@ryot-app/sandbox-sdk/effect";
 
-import { mediaRecordReader, writeMediaCapture } from "./collection";
+import { mediaNormalizedRecordReader, writeMediaCapture } from "./collection";
 import { MediaSourceRecord } from "./collection-schemas";
 import { importEntityRefKey, importEntityRefIdentifier } from "./groups";
 import { MediaReadBatchInput, MediaReadBatchOutput } from "./process";
-import type { ImportMediaEntityGroup, MediaImportAdapterFailure } from "./schemas";
-import { MediaImportAdapterBatch } from "./schemas";
+import {
+	type MediaImportFailure,
+	MediaImportAdapterBatch,
+	type MediaImportBatchEntityGroup,
+} from "./schemas";
 
 export const manifest = defineManifest({
 	kind: "script",
@@ -19,13 +22,13 @@ export default defineScript({
 	output: MediaReadBatchOutput,
 	run: (input) =>
 		Effect.gen(function* () {
-			const read = mediaRecordReader();
+			const read = mediaNormalizedRecordReader();
 			let offset = input.offset;
 			let itemIndex = input.itemIndex;
 			let dedupKey = input.dedupKey;
 			let done = false;
-			const entityGroups: ImportMediaEntityGroup[] = [];
-			const failures: MediaImportAdapterFailure[] = [];
+			const entityGroups: MediaImportBatchEntityGroup[] = [];
+			const failures: MediaImportFailure[] = [];
 			let bytes = 0;
 			let operations = 0;
 			for (let count = 0; count < 25; count++) {
@@ -62,12 +65,13 @@ export default defineScript({
 						new TextEncoder().encode(importEntityRefIdentifier(record.group.entityRef)).length >
 							1024 ||
 						record.group.events.some(
-							(event) => new TextEncoder().encode(event.operationId ?? "").length > 512,
+							(event) => new TextEncoder().encode(event.operationId).length > 512,
 						)
 					) {
 						failures.push({
 							itemIndex: record.itemIndex,
 							stage: "input_transformation",
+							operationId: record.operationId,
 							sourceLabel: record.group.entityRef.sourceLabel,
 							sourceIdentifier: importEntityRefIdentifier(record.group.entityRef),
 							message: "Media source identity exceeds its bounded application descriptor",

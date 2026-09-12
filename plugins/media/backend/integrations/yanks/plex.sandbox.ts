@@ -116,7 +116,7 @@ export default defineScript({
 				if (Option.isNone(listingResult)) {
 					failures.push(
 						sourceFetchFailure({
-							itemIndex,
+							itemIndex: itemIndex++,
 							sourceLabel: String(directory.key),
 							sourceIdentifier: String(directory.key),
 							message: "Failed to fetch Plex library items",

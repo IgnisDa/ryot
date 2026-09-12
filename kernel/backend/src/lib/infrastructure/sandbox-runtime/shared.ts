@@ -19,6 +19,7 @@ import { automationInputSchema } from "@ryot-app/sandbox-sdk/automation";
 import type { SandboxHostImplementationMap as SdkSandboxHostImplementationMap } from "@ryot-app/sandbox-sdk/core";
 import type { SandboxHostError } from "@ryot-app/sandbox-sdk/wire";
 import type {
+	WorkflowReplayJournalEntry,
 	WorkflowDurableCallRequest,
 	WorkflowDurableResult,
 } from "@ryot-app/sandbox-sdk/workflow";
@@ -46,7 +47,6 @@ export type WorkflowHostRequest = Extract<WorkflowDurableCallRequest, { readonly
  * one durable result per request, or `null` when the batch must end the replay instead.
  */
 export type SandboxInlineDurableHost = {
-	readonly journalLength: number;
 	readonly capabilities: ReadonlyArray<SandboxHostCapability>;
 	readonly settle: (
 		requests: ReadonlyArray<WorkflowHostRequest>,
@@ -60,6 +60,7 @@ export type SandboxRunInput = {
 	readonly compiledCode: string;
 	readonly compiledFormat: number;
 	readonly workflowExecutionId?: string;
+	readonly replayJournal?: ReadonlyArray<WorkflowReplayJournalEntry>;
 	readonly hostCallDiscriminator?: number;
 	readonly grants?: SandboxExecutionGrants;
 	readonly principal: SandboxExecutionPrincipal;

@@ -1,3 +1,5 @@
+import { Schema } from "@ryot-app/sandbox-sdk/effect";
+import { genericImportChunkSchema } from "@ryot-app/sandbox-sdk/imports";
 import { expect, it } from "vitest";
 
 import { createMediaImportChunk } from "./chunks";
@@ -58,6 +60,7 @@ it("writes finalized episode subjects and keeps plugin-private episode data out 
 					sourceIdentifier: "20",
 					entitySchemaSlug: "show",
 					stage: "provider_resolution",
+					operationId: "source-failure",
 					message: "Could not resolve show episode S1E99",
 				},
 			],
@@ -68,12 +71,18 @@ it("writes finalized episode subjects and keeps plugin-private episode data out 
 					collectionMemberships: [],
 					events: [
 						{
+							operationId: "event-1",
 							eventSchemaSlug: "progress",
 							subjectEntityId: "episode-1",
 							properties: { progressPercent: 100 },
 							occurredAt: "2026-01-01T00:00:00.000Z",
 						},
-						{ properties: {}, eventSchemaSlug: "backlog", occurredAt: "2026-01-03T00:00:00.000Z" },
+						{
+							properties: {},
+							operationId: "event-2",
+							eventSchemaSlug: "backlog",
+							occurredAt: "2026-01-03T00:00:00.000Z",
+						},
 					],
 				},
 			],
@@ -90,6 +99,7 @@ it("writes finalized episode subjects and keeps plugin-private episode data out 
 			sourceIdentifier: "20",
 			entitySchemaSlug: "show",
 			stage: "provider_resolution",
+			operationId: "source-failure",
 			message: "Could not resolve show episode S1E99",
 		},
 	]);
@@ -141,6 +151,7 @@ it("turns missing and failed population results into staged failures without wri
 			sourceIdentifier: "20",
 			entitySchemaSlug: "show",
 			stage: "provider_resolution",
+			operationId: '["media",0,"entity"]',
 			message: "Media entity could not be resolved",
 		},
 		{
@@ -152,8 +163,38 @@ it("turns missing and failed population results into staged failures without wri
 			entitySchemaSlug: "show",
 			stage: "provider_details",
 			message: "Provider details failed",
+			operationId: '["media",1,"entity"]',
 		},
 	]);
+});
+
+it("gives each failed event of an unresolved group its own operation identity", () => {
+	const chunk = createMediaImportChunk(
+		{
+			failures: [],
+			populationResults: [],
+			entityGroups: [
+				{
+					itemIndex: 5,
+					entityRef: showRef,
+					collectionMemberships: [],
+					events: ["complete", "review"].map((eventSchemaSlug) => ({
+						properties: {},
+						eventSchemaSlug,
+						occurredAt: "2026-01-01T00:00:00.000Z",
+						operationId: `source-${eventSchemaSlug}`,
+					})),
+				},
+			],
+		},
+		ownershipSyncedAt,
+	);
+
+	expect(chunk.failures.map(({ operationId }) => operationId)).toEqual([
+		"source-complete",
+		"source-review",
+	]);
+	expect(() => Schema.decodeSync(genericImportChunkSchema)(chunk)).not.toThrow();
 });
 
 it("emits library membership and ownership as a generic relationship mutation", () => {
