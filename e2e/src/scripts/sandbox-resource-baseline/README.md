@@ -51,3 +51,28 @@ that state before the matrices so every repetition starts from equivalent data.
 The watchdog stops only the resolved Ryot container, by full container ID, and never PostgreSQL or
 Redis. Each repetition records watchdog triggers and cgroup OOM counters; a trigger marks the
 repetition `aborted` and the series stops rather than advancing to a higher concurrency.
+
+## Request timing
+
+Every request records end-to-end `latencyMs` plus a queue/execution split:
+
+- `queueWaitMs`: submit to first work start (first Deno worker spawn for direct executions,
+  first import phase start for `import`/`live-import`).
+- `executionMs`: summed work time (worker lifetimes for direct executions; replay-merged logical
+  phase durations for imports, so a replayed attempt never double-counts time).
+- `attempts`: recorded tries behind the request (worker attempts for direct; phase attempts
+  including replays and interrupts for imports — the two are not comparable).
+
+`queueWaitMs + executionMs` stays within `latencyMs`; the remainder is inter-phase gaps plus
+terminal-poll granularity. A request whose key has no timing record (unparseable job id, lost
+phase segments after a backend restart) keeps nulls rather than a fabricated zero.
+
+## Truncated runs
+
+A wave or request timeout, or a wave that fails over half its requests, ends the measurement
+early without failing the driver: the artifact records `outcome: "truncated"` (or `"failed"`
+when its requests failed) with a machine-readable `stopReason` (`wave-request-timeout`,
+`wave-failures`, `request-timeout`). Soak artifacts also carry `soak.expectedWaves` (designed),
+`soak.waves` (completed), and `soak.truncatedAtWave`. The summarizer excludes truncated
+repetitions from resource comparisons, and provenance rejects a `completed` artifact that
+carries fewer waves than designed, or a `truncated` artifact without a `stopReason`.
