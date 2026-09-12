@@ -1,8 +1,12 @@
-import { createHash } from "node:crypto";
+// Vite calls source-map path transforms synchronously with native filesystem paths.
+// oxlint-disable-next-line effecttsgo/node-builtin-import
 import { realpathSync } from "node:fs";
+// Native path operations here must remain synchronous inside Vite's source-map callback.
+// oxlint-disable-next-line effecttsgo/node-builtin-import
 import { basename, dirname, isAbsolute, relative, resolve, sep } from "node:path";
 
 import type { Node } from "@oxc-project/types";
+import { sha256Hex } from "@ryot-app/ts-utils/crypto";
 import type { TypeScriptProjectConfiguration } from "@ryot-app/typescript-compiler";
 import { Effect, Result } from "effect";
 import { parseAst } from "rolldown/parseAst";
@@ -195,7 +199,7 @@ const externalSourcePath = (source: string, absolute: string) => {
 		}
 	}
 	const identitySource = isAbsolute(source) ? normalized : source.split(sep).join("/");
-	const identity = createHash("sha256").update(identitySource).digest("hex").slice(0, 12);
+	const identity = sha256Hex(identitySource).slice(0, 12);
 	return `ryot:external/${identity}/${basename(source)}`;
 };
 

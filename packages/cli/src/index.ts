@@ -21,7 +21,7 @@ import {
 	derivePluginSandboxScripts,
 	pluginScriptCompileMismatchIssue,
 } from "@ryot-app/sandbox-compiler/plugin-manifest";
-import { Data, Effect, FileSystem, Option, Path, Schema, Stream } from "effect";
+import { Clock, Data, Effect, FileSystem, Option, Path, Schema, Stream } from "effect";
 import { Command, Flag } from "effect/unstable/cli";
 import { ChildProcess, ChildProcessSpawner } from "effect/unstable/process";
 
@@ -70,8 +70,9 @@ const loadManifest = Effect.fn("loadManifest")(function* (cwd: string) {
 
 	const manifestPath = path.resolve(cwd, manifestEntry);
 	const manifestUrl = yield* path.toFileUrl(manifestPath);
+	const cacheBust = yield* Clock.currentTimeMillis;
 	const manifestModule = yield* Effect.tryPromise({
-		try: () => import(`${manifestUrl.href}?cacheBust=${Date.now()}-${Math.random()}`),
+		try: () => import(`${manifestUrl.href}?cacheBust=${cacheBust}-${Math.random()}`),
 		catch: (error) =>
 			new BuildError({ message: `Unable to load plugin manifest: ${String(error)}` }),
 	});
@@ -308,12 +309,19 @@ const collectAuthoringInputs = Effect.fn("collectAuthoringInputs")(function* ({
 	);
 });
 
-const fingerprintAuthoringInputs = Effect.fn("fingerprintAuthoringInputs")(function* (
-	options: BuildOptions,
-) {
-	const inputs = yield* collectAuthoringInputs(options);
-	return JSON.stringify(inputs);
-});
+const sameAuthoringInputs = (left: ReadonlyArray<SourceFile>, right: ReadonlyArray<SourceFile>) =>
+	left.length === right.length &&
+	left.every(({ path, contents }, index) => {
+		const next = right[index];
+		if (next === undefined) {
+			return false;
+		}
+		return (
+			path === next.path &&
+			contents.length === next.contents.length &&
+			contents.every((byte, byteIndex) => byte === next.contents[byteIndex])
+		);
+	});
 
 const runBuildChild = Effect.fn("runBuildChild")(function* (options: BuildOptions) {
 	const path = yield* Path.Path;
@@ -337,7 +345,7 @@ const watchPlugin = Effect.fn("watchPlugin")(function* (
 	options: BuildOptions,
 	skipInitial: boolean,
 ) {
-	let currentFingerprint = yield* fingerprintAuthoringInputs(options);
+	let currentInputs = yield* collectAuthoringInputs(options);
 	if (!skipInitial) {
 		const initialExitCode = yield* runBuildChild(options);
 		if (initialExitCode !== 0) {
@@ -350,14 +358,14 @@ const watchPlugin = Effect.fn("watchPlugin")(function* (
 	return yield* Effect.forever(
 		Effect.gen(function* () {
 			yield* Effect.sleep("250 millis");
-			const nextFingerprint = yield* fingerprintAuthoringInputs(options);
-			if (nextFingerprint === currentFingerprint) {
+			const nextInputs = yield* collectAuthoringInputs(options);
+			if (sameAuthoringInputs(nextInputs, currentInputs)) {
 				return;
 			}
 
 			const rebuild = yield* Effect.result(runBuildChild(options));
 			if (rebuild._tag === "Success" && rebuild.success === 0) {
-				currentFingerprint = nextFingerprint;
+				currentInputs = nextInputs;
 				return;
 			}
 			if (rebuild._tag === "Success") {
