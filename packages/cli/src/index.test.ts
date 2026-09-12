@@ -75,7 +75,7 @@ it.layer(BunServices.layer)("ryot plugin build", (test) => {
 				`
 import { defineManifest, defineScript } from "@ryot-app/sandbox-sdk/driver";
 import { Effect, Schema } from "@ryot-app/sandbox-sdk/effect";
-export const manifest = defineManifest({ kind: "script", slug: "main", name: "Main", capabilities: ["getPluginConfig", "getOAuthAccessToken"] });
+export const manifest = defineManifest({ kind: "script", slug: "main", name: "Main" });
 export default defineScript({ manifest, input: Schema.Unknown, output: Schema.String, run: (_input, host) => Effect.gen(function* () {
   yield* host.getPluginConfig({ required: ["token"], optional: ["threshold"] });
   yield* host.getOAuthAccessToken({ field: "connection" });
@@ -88,7 +88,7 @@ export default defineScript({ manifest, input: Schema.Unknown, output: Schema.St
 				`
 import { defineManifest, defineWorkflow, defineWorkflowReference, Schema } from "@ryot-app/sandbox-sdk/workflow";
 const target = defineWorkflowReference({ workflowSlug: "kernel:event-create", input: Schema.Unknown, output: Schema.String });
-export const manifest = defineManifest({ kind: "workflow", slug: "root", name: "Root", capabilities: [] });
+export const manifest = defineManifest({ kind: "workflow", slug: "root", name: "Root" });
 export default defineWorkflow({ manifest, input: Schema.Unknown, output: Schema.String, run: (input, replay) => replay.child("write", target, input) });
 `,
 			);
@@ -102,8 +102,10 @@ export default defineWorkflow({ manifest, input: Schema.Unknown, output: Schema.
 				requiredPluginConfigKeys: ["token"],
 				oauthConnectionFields: ["connection"],
 				optionalPluginConfigKeys: ["threshold"],
+				capabilities: ["getOAuthAccessToken", "getPluginConfig"],
 			});
 			expect(archive.manifest.scripts.find(({ slug }) => slug === "root")).toMatchObject({
+				capabilities: [],
 				oauthConnectionFields: [],
 				requiredPluginConfigKeys: [],
 				optionalPluginConfigKeys: [],
@@ -126,7 +128,6 @@ import { defineManifest } from "@ryot-app/sandbox-sdk/driver";
 import { Effect } from "@ryot-app/sandbox-sdk/effect";
 export const manifest = defineManifest({
   kind: "automation", automationType: "${automationType}", slug: "${automationType}", name: "${automationType}",
-  capabilities: [],
   inputProjection: ${automationType === "policy" ? "{ event: { properties: [] } }" : "{ signal: { properties: [] } }"},
 });
 export default ${helper}({ manifest, run: () => Effect.succeed(${automationType === "policy" ? '{ action: "allow" as const }' : "null"}) });
@@ -140,6 +141,7 @@ export default ${helper}({ manifest, run: () => Effect.succeed(${automationType 
 			);
 			expect(archive.manifest.scripts.filter(({ kind }) => kind === "automation")).toMatchObject([
 				{
+					capabilities: [],
 					slug: "automation",
 					automationType: "automation",
 					entry: "backend/automation.sandbox.ts",
@@ -147,6 +149,7 @@ export default ${helper}({ manifest, run: () => Effect.succeed(${automationType 
 				},
 				{
 					slug: "policy",
+					capabilities: [],
 					automationType: "policy",
 					entry: "backend/policy.sandbox.ts",
 					inputProjection: { event: { properties: [] } },
