@@ -14,7 +14,7 @@ import {
 	type ProviderSummariesState,
 	resolveLibraryMembership,
 } from "#/modules/provider-add/panel";
-import { ProviderAddService } from "#/modules/provider-add/service";
+import { ProviderAddService, type ProviderSearchSummary } from "#/modules/provider-add/service";
 import { ClientStorage } from "#/persistence/storage";
 
 export const PROVIDER_ADD_TITLE = "Add from a provider";
@@ -32,6 +32,15 @@ type ProviderAddModalState = {
 	readonly providers: ProviderSummariesState;
 	readonly selectedProviderId: SandboxProviderId | undefined;
 };
+
+const loadedProviderState = (
+	remembered: SandboxProviderId | null,
+	result: ProviderAddOutcome<{ readonly items: readonly ProviderSearchSummary[] }>,
+): ProviderAddModalState => ({
+	selectedProviderId: remembered ?? undefined,
+	providers:
+		"value" in result ? { status: "ready", providers: result.value.items } : { status: "failed" },
+});
 
 export function ProviderAddModal(props: ProviderAddModalProps) {
 	const ryot = useRyot();
@@ -54,30 +63,26 @@ export function ProviderAddModal(props: ProviderAddModalProps) {
 			),
 		);
 
-	const loadProviderState = useEffectEvent(async (isActive: () => boolean) => {
-		const [remembered, result] = await Promise.all([
-			runtime.runPromise(
-				Effect.flatMap(ClientStorage, (storage) =>
-					storage.getRememberedProvider(scope, entitySchemaSlug),
-				).pipe(Effect.catch(() => Effect.succeed(null))),
-			),
-			runOutcome(
-				Effect.flatMap(ProviderAddService, (service) =>
-					service.loadProviders(ryot, entitySchemaSlug, props.ownerPluginId),
+	const loadProviderState = useEffectEvent(
+		(schemaSlug: EntitySchemaSlug, ownerPluginId: string | undefined, isActive: () => boolean) =>
+			Promise.all([
+				runtime.runPromise(
+					Effect.flatMap(ClientStorage, (storage) =>
+						storage.getRememberedProvider(scope, schemaSlug),
+					).pipe(Effect.catch(() => Effect.succeed(null))),
 				),
-			),
-		]);
-		if (!isActive()) {
-			return;
-		}
-		setState({
-			selectedProviderId: remembered ?? undefined,
-			providers:
-				"value" in result
-					? { status: "ready", providers: result.value.items }
-					: { status: "failed" },
-		});
-	});
+				runOutcome(
+					Effect.flatMap(ProviderAddService, (service) =>
+						service.loadProviders(ryot, schemaSlug, ownerPluginId),
+					),
+				),
+			]).then(([remembered, result]) => {
+				if (isActive()) {
+					setState(loadedProviderState(remembered, result));
+				}
+				return undefined;
+			}),
+	);
 
 	useEffect(
 		() => () => {
@@ -90,7 +95,7 @@ export function ProviderAddModal(props: ProviderAddModalProps) {
 
 	useEffect(() => {
 		let active = true;
-		void loadProviderState(() => active);
+		void loadProviderState(entitySchemaSlug, props.ownerPluginId, () => active);
 		return () => {
 			active = false;
 		};

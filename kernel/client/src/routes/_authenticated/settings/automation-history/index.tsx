@@ -1,7 +1,7 @@
 import { useRyotQuery } from "@ryot-app/client-sdk/react";
 import { AUTOMATION_HISTORY_LIMITS } from "@ryot-app/contract/modules/automations/history-schemas";
 import { createFileRoute } from "@tanstack/react-router";
-import { useEffect, useMemo, useState } from "react";
+import { useMemo, useState } from "react";
 
 import {
 	AutomationHistoryView,
@@ -13,8 +13,26 @@ import {
 } from "#/modules/automation-history/service";
 import { SettingsFrame } from "#/modules/settings/settings-frame";
 import { RUN_LIST_POLL_MS, useRunPolling } from "#/modules/ui/run/use-run-polling";
+import { useNowMs } from "#/modules/ui/use-now-ms";
 
 const isActiveRun = (status: string) => status === "queued" || status === "running";
+
+const withOlderPage = (
+	pages: readonly AutomationHistoryPageResult[],
+	result: AutomationHistoryPageResult,
+): readonly AutomationHistoryPageResult[] => {
+	const index = pages.findIndex((entry) => entry.cursor === result.cursor);
+	if (index !== -1) {
+		if (pages[index] === result) {
+			return pages;
+		}
+		return pages.map((entry, entryIndex) => (entryIndex === index ? result : entry));
+	}
+	if (pages.at(-1)?.page.nextCursor !== result.cursor) {
+		return pages;
+	}
+	return [...pages, result];
+};
 
 export const Route = createFileRoute("/_authenticated/settings/automation-history/")({
 	component: AutomationHistoryRoute,
@@ -34,52 +52,31 @@ function AutomationHistoryRoute() {
 	);
 	const currentPageQuery = useRyotQuery(automationHistoryPageQuery, currentPageInput);
 
-	useEffect(() => {
-		const result = firstPageQuery.data;
-		if (result === undefined) {
-			return;
-		}
-		const first = pages.at(0);
-		if (first !== undefined && first.page.nextCursor !== result.page.nextCursor) {
-			setCursor(undefined);
-		}
-		setPages((current) => {
-			const currentFirst = current.at(0);
-			if (currentFirst === result) {
-				return current;
-			}
-			if (currentFirst === undefined || currentFirst.page.nextCursor === result.page.nextCursor) {
-				return [result, ...current.slice(1)];
-			}
-			return [result];
-		});
-	}, [firstPageQuery.data, pages]);
-
-	useEffect(() => {
+	let nextPages = pages;
+	let nextPagesCursor = cursor;
+	const firstResult = firstPageQuery.data;
+	const currentFirst = pages.at(0);
+	if (firstResult !== undefined && currentFirst !== firstResult) {
 		if (
-			cursor === undefined ||
-			currentPageQuery.data === undefined ||
-			(pages.at(0) !== undefined &&
-				firstPageQuery.data !== undefined &&
-				pages.at(0)?.page.nextCursor !== firstPageQuery.data.page.nextCursor)
+			currentFirst === undefined ||
+			currentFirst.page.nextCursor === firstResult.page.nextCursor
 		) {
-			return;
+			nextPages = [firstResult, ...pages.slice(1)];
+		} else {
+			nextPages = [firstResult];
+			nextPagesCursor = undefined;
 		}
-		const result = currentPageQuery.data;
-		setPages((current) => {
-			const index = current.findIndex((entry) => entry.cursor === result.cursor);
-			if (index !== -1) {
-				if (current[index] === result) {
-					return current;
-				}
-				return current.map((entry, entryIndex) => (entryIndex === index ? result : entry));
-			}
-			if (current.at(-1)?.page.nextCursor !== result.cursor) {
-				return current;
-			}
-			return [...current, result];
-		});
-	}, [cursor, currentPageQuery.data, firstPageQuery.data, pages]);
+	}
+	const currentResult = currentPageQuery.data;
+	if (nextPagesCursor !== undefined && currentResult !== undefined) {
+		nextPages = withOlderPage(nextPages, currentResult);
+	}
+	if (nextPages !== pages) {
+		setPages(nextPages);
+	}
+	if (nextPagesCursor !== cursor) {
+		setCursor(nextPagesCursor);
+	}
 
 	const runs = pages.flatMap((entry) => entry.page.items);
 	const nextCursor = pages.at(-1)?.page.nextCursor ?? null;
@@ -112,11 +109,13 @@ function AutomationHistoryRoute() {
 		},
 	});
 
+	const nowMs = useNowMs(RUN_LIST_POLL_MS);
+
 	return (
 		<SettingsFrame title="Automation history" backFallbackHref="/settings">
 			<AutomationHistoryView
 				state={state}
-				nowMs={Date.now()}
+				nowMs={nowMs}
 				onRetry={query.refetch}
 				olderLoadFailed={pages.length > 0 && query.isError}
 				isLoadingOlder={cursor !== undefined && query.isFetching}
