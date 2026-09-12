@@ -149,6 +149,7 @@ export const makeGodModeApi = (overrides: Partial<GodModeApi["Service"]> = {}) =
 		downloadLogs: unused,
 		setUserDisabled: unused,
 		resetUserPassword: unused,
+		startUserImpersonation: unused,
 		...overrides,
 	});
 

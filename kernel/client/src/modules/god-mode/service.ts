@@ -1,4 +1,5 @@
 import type { ContractSuccess } from "@ryot-app/contract/client";
+import type { ImpersonationAuthorization } from "@ryot-app/contract/oauth";
 import { UserId } from "@ryot-app/contract/schema/brands";
 import {
 	godModeUsersRecipe,
@@ -93,6 +94,17 @@ export class GodModeService extends Context.Service<GodModeService>()("GodModeSe
 				params: { userId: UserId.make(userId) },
 			});
 		});
+		const startUserImpersonation = Effect.fn("GodModeService.startUserImpersonation")(function* (
+			sessionId: string,
+			userId: string,
+			authorization: ImpersonationAuthorization,
+		) {
+			const { token, origin } = yield* credentials(sessionId);
+			return yield* api.startUserImpersonation(origin, token, {
+				payload: authorization,
+				params: { userId: UserId.make(userId) },
+			});
+		});
 		const lifecycle = Effect.fn("GodModeService.lifecycle")(function* (
 			sessionId: string,
 			userId: string,
@@ -132,6 +144,7 @@ export class GodModeService extends Context.Service<GodModeService>()("GodModeSe
 			setUserDisabled,
 			resetUserPassword,
 			getMigrationReport,
+			startUserImpersonation,
 		};
 	}),
 }) {

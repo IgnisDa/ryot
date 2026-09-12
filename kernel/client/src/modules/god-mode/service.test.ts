@@ -1,5 +1,6 @@
 import { describe, expect, layer } from "@effect/vitest";
 import type { ContractSuccess } from "@ryot-app/contract/client";
+import type { ImpersonationAuthorization } from "@ryot-app/contract/oauth";
 import { UserId } from "@ryot-app/contract/schema/brands";
 import type { PreparedRecipe } from "@ryot-app/ryotql";
 import { Context, Effect, Fiber, Layer, Ref, Result } from "effect";
@@ -51,6 +52,14 @@ const resetResult = {
 	resetUrl: "https://ryot.example/reset-password?token=reset-secret",
 };
 
+const authorization: ImpersonationAuthorization = {
+	nonce: "nonce-1",
+	state: "state-1",
+	codeChallenge: "challenge-1",
+	clientId: "ryot-impersonation-web",
+	redirectUri: "https://ryot.example/auth/callback",
+};
+
 class FakeGodModeApi extends Context.Service<
 	FakeGodModeApi,
 	{
@@ -71,7 +80,14 @@ const godModeLayer = () =>
 			);
 			const recordCall = (call: GodModeCall) => Ref.update(calls, (all) => [...all, call]);
 			const record =
-				<M extends "resetUser" | "deleteUser" | "resetUserPassword" | "setUserDisabled">(
+				<
+					M extends
+						| "resetUser"
+						| "deleteUser"
+						| "resetUserPassword"
+						| "setUserDisabled"
+						| "startUserImpersonation",
+				>(
 					name: M,
 					respond: () => ContractSuccess<"godMode", M>,
 				) =>
@@ -84,6 +100,10 @@ const godModeLayer = () =>
 				resetUserPassword: record("resetUserPassword", () => ({
 					email: resetResult.email,
 					resetUrl: resetResult.resetUrl,
+				})),
+				startUserImpersonation: record("startUserImpersonation", () => ({
+					ticket: "handoff-ticket",
+					expiresAt: 1_800_000_000_000,
 				})),
 				listLogs: (requestedOrigin, token, after, limit) =>
 					recordCall({
@@ -215,6 +235,30 @@ describe("God Mode service", () => {
 	});
 
 	layer(godModeLayer())((test) => {
+		test.effect("starts impersonation with the session credentials and authorization", () =>
+			Effect.gen(function* () {
+				const sessions = yield* GodModeSessionService;
+				const sessionId = yield* sessions.create(origin, "admin-secret");
+				const service = yield* GodModeService;
+				const api = yield* FakeGodModeApi;
+
+				expect(yield* service.startUserImpersonation(sessionId, "user-1", authorization)).toEqual({
+					ticket: "handoff-ticket",
+					expiresAt: 1_800_000_000_000,
+				});
+				expect(yield* api.calls).toEqual([
+					{
+						origin,
+						token: "admin-secret",
+						name: "startUserImpersonation",
+						request: { payload: authorization, params: { userId: "user-1" } },
+					},
+				]);
+			}),
+		);
+	});
+
+	layer(godModeLayer())((test) => {
 		test.effect("passes server log cursors and limits through the session API", () =>
 			Effect.gen(function* () {
 				const sessions = yield* GodModeSessionService;
@@ -256,10 +300,12 @@ describe("God Mode service", () => {
 	});
 
 	layer(godModeLayer())((test) => {
-		test.effect("fails before transport when the session is missing", () => {
+		test.effect("fails before impersonation transport when the session is missing", () => {
 			return Effect.gen(function* () {
 				const service = yield* GodModeService;
-				const error = yield* Effect.flip(service.getMigrationReport("missing-session"));
+				const error = yield* Effect.flip(
+					service.startUserImpersonation("missing-session", "user-1", authorization),
+				);
 
 				expect(error).toEqual(new GodModeSessionNotFound({ sessionId: "missing-session" }));
 				expect(yield* (yield* FakeGodModeApi).calls).toEqual([]);

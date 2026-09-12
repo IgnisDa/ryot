@@ -11,12 +11,13 @@ import { FileDownloads, type FileDownloadRequest } from "#/modules/downloads/fil
 
 const scope: ApiScope = { userId: "user-1", serverUrl: decodeServerOrigin("https://ryot.example") };
 const runId = "run_1";
+const accessToken = "test.eyJzdWIiOiJ1c2VyLTEifQ.signature";
 
 const tokens: OAuthTokenService["Service"] = {
 	clear: () => Effect.void,
 	logout: () => Effect.succeed(null),
 	userInfo: () => Effect.succeed(null),
-	accessToken: () => Effect.succeed("token-1"),
+	accessToken: () => Effect.succeed(accessToken),
 	rejectAuthorization: () => Effect.die("not used"),
 	completeAuthorization: () => Effect.die("not used"),
 };
@@ -61,7 +62,9 @@ describe("imports API", () => {
 						"https://ryot.example/api/imports/runs/run_1/failures/download-url",
 					);
 					expect(seen[0]?.request.method).toBe("POST");
-					expect(seen[0]?.request.headers).toMatchObject({ authorization: "Bearer token-1" });
+					expect(seen[0]?.request.headers).toMatchObject({
+						authorization: `Bearer ${accessToken}`,
+					});
 					expect(downloads).toEqual([
 						{
 							fileName: importRunFailuresFileName(runId),
