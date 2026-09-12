@@ -1,5 +1,5 @@
 import { Effect, Option } from "effect";
-import { HttpServerError, HttpServerRequest, type HttpServerResponse } from "effect/unstable/http";
+import { HttpServerError, HttpServerRequest, type HttpServerResponse } from "effect/http";
 
 const responseLoggerDisabledRequests = new WeakSet<object>();
 

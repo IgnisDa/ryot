@@ -1,7 +1,7 @@
 import { expect, it, layer } from "@effect/vitest";
 import { UserId } from "@ryot-app/contract/schema/brands";
 import { Context, Effect, Layer, Ref } from "effect";
-import { WorkflowEngine } from "effect/unstable/workflow/WorkflowEngine";
+import { WorkflowEngine } from "effect/workflow/WorkflowEngine";
 
 import { makeWorkflowEngine } from "#lib/test-utils/effect";
 import { mutationAdmissionTestLayer } from "#lib/test-utils/mutation-admission";

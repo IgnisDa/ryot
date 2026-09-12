@@ -7,7 +7,7 @@ import {
 } from "@ryot-app/contract/modules/notifications/schemas";
 import type { NotificationChannelId, UserId } from "@ryot-app/contract/schema/brands";
 import { Context, Effect, Layer } from "effect";
-import { WorkflowEngine } from "effect/unstable/workflow/WorkflowEngine";
+import { WorkflowEngine } from "effect/workflow/WorkflowEngine";
 
 import { enqueueNotificationDelivery } from "./notification-delivery-workflow";
 import { NotificationsRepository } from "./repository";

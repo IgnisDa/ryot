@@ -1,8 +1,8 @@
 import { expect, layer } from "@effect/vitest";
 import { ImportRunId, IntegrationId, UserId } from "@ryot-app/contract/schema/brands";
 import { Context, Effect, Layer, Ref } from "effect";
-import { Workflow } from "effect/unstable/workflow";
-import { WorkflowEngine, WorkflowInstance } from "effect/unstable/workflow/WorkflowEngine";
+import { Workflow } from "effect/workflow";
+import { WorkflowEngine, WorkflowInstance } from "effect/workflow/WorkflowEngine";
 
 import { makeWorkflowEngine } from "#lib/test-utils/effect";
 

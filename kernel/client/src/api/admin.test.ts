@@ -1,7 +1,7 @@
 import { describe, expect, it } from "@effect/vitest";
 import { AuthUnauthorized } from "@ryot-app/contract/auth-middleware";
 import { Effect } from "effect";
-import { HttpClient, HttpClientError, HttpClientResponse } from "effect/unstable/http";
+import { HttpClient, HttpClientError, HttpClientResponse } from "effect/http";
 
 import { makeAdminApi } from "#/api/admin";
 import { decodeServerOrigin } from "#/api/origin";

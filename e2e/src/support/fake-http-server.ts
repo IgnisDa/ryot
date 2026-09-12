@@ -1,6 +1,6 @@
 import { BunHttpServer } from "@effect/platform-bun";
 import { Effect, Exit, Scope } from "effect";
-import { HttpServer, HttpServerRequest, HttpServerResponse } from "effect/unstable/http";
+import { HttpServer, HttpServerRequest, HttpServerResponse } from "effect/http";
 
 type ScopedFakeHttpServer = {
 	url: string;

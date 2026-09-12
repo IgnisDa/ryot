@@ -1,6 +1,6 @@
 import { BunServices } from "@effect/platform-bun";
 import { Effect, Layer } from "effect";
-import { FetchHttpClient } from "effect/unstable/http";
+import { FetchHttpClient } from "effect/http";
 
 const serverLayer = Layer.merge(BunServices.layer, FetchHttpClient.layer);
 

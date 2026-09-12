@@ -1,4 +1,5 @@
 import type { CurrentUserValue } from "@ryot-app/contract/auth-middleware";
+import type { DbError } from "@ryot-app/contract/errors";
 import { dataJsonSource } from "@ryot-app/contract/modules/imports/data-json";
 import type {
 	IngestionPlan,
@@ -24,7 +25,7 @@ import {
 import { IsoUtcString } from "@ryot-app/contract/schema/utils";
 import { stableStringify } from "@ryot-app/ts-utils/json";
 import { Context, Effect, Exit, Layer, Result } from "effect";
-import { WorkflowEngine } from "effect/unstable/workflow/WorkflowEngine";
+import { WorkflowEngine } from "effect/workflow/WorkflowEngine";
 
 import { rootLifecycleCommand } from "#lib/domain/lifecycle-command";
 import { DatabaseSession } from "#lib/infrastructure/db/session";
@@ -80,6 +81,9 @@ type DispatchImportRunInput = {
 	uploadIntentIds: ReadonlyArray<string>;
 	namedArtifactPaths: ImportSourceState["namedArtifactPaths"];
 };
+
+type CreateImportRunResult = { readonly id: string };
+type CreateImportRunError = DbError | ImportConflictError | ImportRequestError;
 
 const isTerminalStatus = (status: ImportRunStatus): boolean =>
 	status === "completed" || status === "failed" || status === "cancelled" || status === "expired";
@@ -252,7 +256,7 @@ export class ImportsService extends Context.Service<ImportsService>()("ImportsSe
 			workflowScriptId: SandboxScriptId,
 			plan: IngestionPlan,
 			pins: Omit<IngestionPins, "executionId">,
-		) {
+		): Effect.fn.Return<CreateImportRunResult, CreateImportRunError> {
 			const fileNames: Record<string, string> = {};
 			const claimedUploadIntentIds: string[] = [];
 			const namedArtifactPaths: Record<string, string> = {};
@@ -347,7 +351,7 @@ export class ImportsService extends Context.Service<ImportsService>()("ImportsSe
 				workflowScriptId: SandboxScriptId,
 				plan: IngestionPlan,
 				pins: Omit<IngestionPins, "executionId">,
-			) {
+			): Effect.fn.Return<CreateImportRunResult, CreateImportRunError> {
 				const inputSummary = buildImportInputSummary(body.source, {});
 				const sourcePayload = buildImportSourcePayload(properties, registered) ?? {};
 				const run = yield* createManualRun({
@@ -375,7 +379,7 @@ export class ImportsService extends Context.Service<ImportsService>()("ImportsSe
 		const startImportRun = Effect.fn("ImportsService.startImportRun")(function* (
 			user: CurrentUserValue,
 			body: CreateImportRunBody,
-		) {
+		): Effect.fn.Return<CreateImportRunResult, CreateImportRunError> {
 			if (body.source === dataJsonSource) {
 				return yield* dataAdmission.startUpload(user, body);
 			}

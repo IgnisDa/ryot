@@ -2,8 +2,8 @@ import { InternalError, internalError } from "@ryot-app/contract/errors";
 import { AccountGeneration } from "@ryot-app/contract/schema/account-generation";
 import { SandboxScriptId, UserId } from "@ryot-app/contract/schema/brands";
 import { Cause, Context, Effect, Layer, Result, Schema } from "effect";
-import { Activity, Workflow } from "effect/unstable/workflow";
-import { WorkflowEngine, type WorkflowInstance } from "effect/unstable/workflow/WorkflowEngine";
+import { Activity, Workflow } from "effect/workflow";
+import { WorkflowEngine, type WorkflowInstance } from "effect/workflow/WorkflowEngine";
 
 import { DatabaseSession } from "#lib/infrastructure/db/session";
 import type { DurableSchema } from "#lib/infrastructure/workflow";

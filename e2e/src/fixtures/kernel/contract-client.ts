@@ -5,7 +5,7 @@ import {
 } from "@ryot-app/contract/client";
 import type { UserId } from "@ryot-app/contract/schema/brands";
 import { Effect, Schema } from "effect";
-import type { HttpClient } from "effect/unstable/http";
+import type { HttpClient } from "effect/http";
 
 import { getApiUrl } from "~/support/harness-target";
 import { webRequest } from "~/support/web-request";

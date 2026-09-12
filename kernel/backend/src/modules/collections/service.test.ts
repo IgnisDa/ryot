@@ -19,7 +19,7 @@ import {
 import type { AppSchema } from "@ryot-app/contract/schema/property-schema";
 import { stableStringify } from "@ryot-app/ts-utils/json";
 import { Context, Effect, Layer, Ref } from "effect";
-import { WorkflowEngine, WorkflowInstance } from "effect/unstable/workflow/WorkflowEngine";
+import { WorkflowEngine, WorkflowInstance } from "effect/workflow/WorkflowEngine";
 
 import { LifecyclePlanner } from "#lib/domain/lifecycle";
 import { rootLifecycleCommand } from "#lib/domain/lifecycle-command";

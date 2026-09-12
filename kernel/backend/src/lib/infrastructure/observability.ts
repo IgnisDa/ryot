@@ -13,14 +13,14 @@ import {
 	Tracer,
 	References,
 } from "effect";
-import { FetchHttpClient } from "effect/unstable/http";
+import { FetchHttpClient } from "effect/http";
 import {
 	OtlpExporter,
 	OtlpLogger,
 	OtlpMetrics,
 	OtlpSerialization,
 	OtlpTracer,
-} from "effect/unstable/observability";
+} from "effect/observability";
 import { createStream, type RotatingFileStream } from "rotating-file-stream";
 
 import { AppConfig, type AppConfigValue, parseOtlpHeaders } from "./config/service";

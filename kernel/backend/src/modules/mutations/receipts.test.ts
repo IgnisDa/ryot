@@ -9,8 +9,8 @@ import {
 } from "@ryot-app/contract/schema/brands";
 import { eq } from "drizzle-orm";
 import { DateTime, Deferred, Effect, Fiber, Layer, Schema } from "effect";
-import { Workflow } from "effect/unstable/workflow";
-import { WorkflowInstance } from "effect/unstable/workflow/WorkflowEngine";
+import { Workflow } from "effect/workflow";
+import { WorkflowInstance } from "effect/workflow/WorkflowEngine";
 
 import { rootLifecycleCommand } from "#lib/domain/lifecycle-command";
 import * as tables from "#lib/infrastructure/db/schema/tables/combined";

@@ -11,8 +11,8 @@ import type { AccessClass } from "@ryot-app/contract/oauth";
 import { UserId } from "@ryot-app/contract/schema/brands";
 import { column, field, rows, table } from "@ryot-app/ryotql";
 import { Context, Effect, Layer, Ref } from "effect";
-import { HttpClientRequest, HttpRouter, HttpServer } from "effect/unstable/http";
-import { HttpApiMiddleware, HttpApiTest } from "effect/unstable/httpapi";
+import { HttpClientRequest, HttpRouter, HttpServer } from "effect/http";
+import { HttpApiMiddleware, HttpApiTest } from "effect/http-api";
 
 import { mapDatabaseErrors } from "#lib/infrastructure/db/errors";
 import { fakeDatabaseSession } from "#lib/test-utils/effect";

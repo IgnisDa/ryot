@@ -1,7 +1,7 @@
 import { describe, expect, layer } from "@effect/vitest";
 import { SandboxScriptId, UserId } from "@ryot-app/contract/schema/brands";
 import { Effect, Layer, MutableRef, Ref } from "effect";
-import { FetchHttpClient } from "effect/unstable/http";
+import { FetchHttpClient } from "effect/http";
 
 import { makeRedisService } from "#lib/test-utils/effect";
 

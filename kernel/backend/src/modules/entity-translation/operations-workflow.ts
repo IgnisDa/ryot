@@ -1,7 +1,7 @@
 import { SandboxRunError, toSandboxRunError } from "@ryot-app/contract/errors";
 import { SandboxScriptId } from "@ryot-app/contract/schema/brands";
 import { Context, Effect, Layer } from "effect";
-import type { WorkflowEngine, WorkflowInstance } from "effect/unstable/workflow/WorkflowEngine";
+import type { WorkflowEngine, WorkflowInstance } from "effect/workflow/WorkflowEngine";
 
 import type { DurableSchema } from "#lib/infrastructure/workflow";
 import { makeActivity } from "#lib/infrastructure/workflow-scope";

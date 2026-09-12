@@ -1,7 +1,7 @@
 import { expect, it } from "@effect/vitest";
 import { Duration, Effect, Layer, Queue, Schema } from "effect";
 import { TestClock } from "effect/testing";
-import { WorkflowEngine } from "effect/unstable/workflow/WorkflowEngine";
+import { WorkflowEngine } from "effect/workflow/WorkflowEngine";
 
 import { makeAppConfigLayer, makeWorkflowEngine } from "#lib/test-utils/effect";
 

@@ -18,7 +18,7 @@
 		"check": "node --test ci/oxlint/ryot-plugin.test.mjs && turbo check"
 	},
 	"devDependencies": {
-		"@effect/tsgo": "0.46.0",
+		"@effect/tsgo": "0.48.0",
 		"bun-types": "1.4.2",
 		"eslint-plugin-perfectionist": "5.12.1",
 		"oxfmt": "0.70.0",
@@ -28,8 +28,5 @@
 		"turbo": "2.10.12",
 		"typescript": "7.0.2"
 	},
-	"packageManager": "bun@1.4.2",
-	"patchedDependencies": {
-		"effect@4.0.0-rc.117": "patches/effect@4.0.0-rc.117.patch"
-	}
+	"packageManager": "bun@1.4.2"
 }

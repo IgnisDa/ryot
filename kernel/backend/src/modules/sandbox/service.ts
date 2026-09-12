@@ -10,8 +10,8 @@ import { SandboxScriptId, type UserId } from "@ryot-app/contract/schema/brands";
 import { jsonValueSchema } from "@ryot-app/sandbox-sdk/wire";
 import { generateId } from "better-auth";
 import { Context, Effect, Layer, Option, Redacted, Schema } from "effect";
-import type { Workflow } from "effect/unstable/workflow";
-import { WorkflowEngine } from "effect/unstable/workflow/WorkflowEngine";
+import type { Workflow } from "effect/workflow";
+import { WorkflowEngine } from "effect/workflow/WorkflowEngine";
 
 import { AppConfig } from "#lib/infrastructure/config/service";
 import { DatabaseSession } from "#lib/infrastructure/db/session";

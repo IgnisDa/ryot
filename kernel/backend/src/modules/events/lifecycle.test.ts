@@ -12,8 +12,8 @@ import {
 } from "@ryot-app/contract/schema/brands";
 import { and, eq, sql } from "drizzle-orm";
 import { Context, DateTime, Effect, Layer, Redacted, Ref, Schema, Scope } from "effect";
-import { Workflow } from "effect/unstable/workflow";
-import { WorkflowEngine, WorkflowInstance } from "effect/unstable/workflow/WorkflowEngine";
+import { Workflow } from "effect/workflow";
+import { WorkflowEngine, WorkflowInstance } from "effect/workflow/WorkflowEngine";
 import { Client } from "pg";
 
 import { LifecyclePlanner } from "#lib/domain/lifecycle";

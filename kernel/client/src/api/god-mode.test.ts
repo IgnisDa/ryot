@@ -2,7 +2,7 @@ import { describe, expect, it } from "@effect/vitest";
 import { ImpersonationAuthorization } from "@ryot-app/contract/oauth";
 import { UserId } from "@ryot-app/contract/schema/brands";
 import { Effect, Layer, ManagedRuntime, Schema } from "effect";
-import { HttpClient, HttpClientResponse, type HttpClientRequest } from "effect/unstable/http";
+import { HttpClient, HttpClientResponse, type HttpClientRequest } from "effect/http";
 
 import { AdminApi, makeAdminApi } from "#/api/admin";
 import { GodModeApi } from "#/api/god-mode";

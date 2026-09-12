@@ -24,7 +24,7 @@ import type {
 } from "@ryot-app/contract/schema/brands";
 import { generateId } from "better-auth";
 import { Context, DateTime, Effect, Result, Layer } from "effect";
-import { WorkflowEngine } from "effect/unstable/workflow/WorkflowEngine";
+import { WorkflowEngine } from "effect/workflow/WorkflowEngine";
 
 import { DatabaseSession } from "#lib/infrastructure/db/session";
 import { ProKeyService } from "#lib/infrastructure/pro-key";

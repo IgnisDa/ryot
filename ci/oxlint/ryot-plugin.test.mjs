@@ -68,17 +68,17 @@ ruleTester.run("no-promise-chains", plugin.rules["no-promise-chains"], {
 ruleTester.run("no-workflow-to-layer", plugin.rules["no-workflow-to-layer"], {
 	valid: [
 		"const unrelated = { toLayer() {} }; unrelated.toLayer(run);",
-		'import { Workflow as W } from "effect/unstable/workflow"; function run(W) { const job = W.make("job", {}); job.toLayer(run); }',
-		'import { Workflow } from "effect/unstable/workflow"; const job = Workflow.make("job", {}); function run(job) { job.toLayer(run); }',
+		'import { Workflow as W } from "effect/workflow"; function run(W) { const job = W.make("job", {}); job.toLayer(run); }',
+		'import { Workflow } from "effect/workflow"; const job = Workflow.make("job", {}); function run(job) { job.toLayer(run); }',
 	],
 	invalid: [
 		{
 			errors: [{ message: /Register workflows with implementWorkflow/ }],
-			code: 'import { Workflow as W } from "effect/unstable/workflow"; const job = W.make("job", {}); job.toLayer(run);',
+			code: 'import { Workflow as W } from "effect/workflow"; const job = W.make("job", {}); job.toLayer(run);',
 		},
 		{
 			errors: [{ message: /Register workflows with implementWorkflow/ }],
-			code: 'import * as Workflows from "effect/unstable/workflow"; const job = Workflows.Workflow.make("job", {}); const alias = job; alias["toLayer"](run);',
+			code: 'import * as Workflows from "effect/workflow"; const job = Workflows.Workflow.make("job", {}); const alias = job; alias["toLayer"](run);',
 		},
 	],
 });

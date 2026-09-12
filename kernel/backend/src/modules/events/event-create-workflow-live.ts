@@ -17,8 +17,8 @@ import { AppSchema } from "@ryot-app/contract/schema/property-schema";
 import { sha256Base64Url } from "@ryot-app/ts-utils/crypto";
 import { stableStringify } from "@ryot-app/ts-utils/json";
 import { DateTime, Effect, Ref, Schema } from "effect";
-import { Workflow } from "effect/unstable/workflow";
-import { WorkflowInstance } from "effect/unstable/workflow/WorkflowEngine";
+import { Workflow } from "effect/workflow";
+import { WorkflowInstance } from "effect/workflow/WorkflowEngine";
 
 import {
 	LifecycleDispatchPlan,

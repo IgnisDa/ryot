@@ -12,7 +12,7 @@ import {
 } from "@ryot-app/contract/schema/brands";
 import { IsoUtcString } from "@ryot-app/contract/schema/utils";
 import { Context, Effect, Layer, Ref } from "effect";
-import { WorkflowEngine, WorkflowInstance } from "effect/unstable/workflow/WorkflowEngine";
+import { WorkflowEngine, WorkflowInstance } from "effect/workflow/WorkflowEngine";
 
 import { toLifecycleDispatchPlan, type LifecyclePlan } from "#lib/domain/lifecycle";
 import { rootLifecycleCommand } from "#lib/domain/lifecycle-command";

@@ -26,8 +26,8 @@ import {
 	References,
 	Ref,
 } from "effect";
-import { Workflow } from "effect/unstable/workflow";
-import { WorkflowEngine, WorkflowInstance } from "effect/unstable/workflow/WorkflowEngine";
+import { Workflow } from "effect/workflow";
+import { WorkflowEngine, WorkflowInstance } from "effect/workflow/WorkflowEngine";
 
 import { LifecycleExecution } from "#lib/domain/lifecycle-execution";
 import {

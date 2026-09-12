@@ -1,7 +1,7 @@
 import type { AccountGeneration } from "@ryot-app/contract/schema/account-generation";
 import { Effect, type Schema } from "effect";
-import type { Workflow } from "effect/unstable/workflow";
-import type { WorkflowEngine } from "effect/unstable/workflow/WorkflowEngine";
+import type { Workflow } from "effect/workflow";
+import type { WorkflowEngine } from "effect/workflow/WorkflowEngine";
 
 import type { MutationReceipts } from "./receipts";
 
