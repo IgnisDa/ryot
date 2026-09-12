@@ -151,6 +151,37 @@ const entitySchemaPluginWhere = (pluginId: string | null | undefined) =>
 const providerWhere = (providerId: SandboxProviderId | null | undefined) =>
 	providerId == null ? isNull(schema.entity.providerId) : eq(schema.entity.providerId, providerId);
 
+const findEntityByExternalId = (
+	input: {
+		externalId: string;
+		providerId: SandboxProviderId;
+		entitySchemaSlug: EntitySchemaSlug;
+		entitySchemaPluginId: string | null;
+	} & ({ scope: "global" } | { scope: "user"; userId: UserId }),
+) =>
+	Effect.gen(function* () {
+		const db = yield* Database;
+		const [row] = yield* mapDatabaseErrors(
+			db
+				.select(entitySelection)
+				.from(schema.entity)
+				.where(
+					and(
+						input.scope === "user"
+							? eq(schema.entity.userId, input.userId)
+							: isNull(schema.entity.userId),
+						eq(schema.entity.externalId, input.externalId),
+						eq(schema.entity.entitySchemaSlug, input.entitySchemaSlug),
+						eq(schema.entity.providerId, input.providerId),
+						entitySchemaPluginWhere(input.entitySchemaPluginId),
+					),
+				)
+				.limit(1),
+		);
+
+		return row ? toListedEntity(row) : null;
+	});
+
 export class EntitiesRepository extends Context.Service<EntitiesRepository>()(
 	"EntitiesRepository",
 	{
@@ -553,37 +584,6 @@ export class EntitiesRepository extends Context.Service<EntitiesRepository>()(
 						}
 					: null;
 			});
-
-			const findEntityByExternalId = (
-				input: {
-					externalId: string;
-					providerId: SandboxProviderId;
-					entitySchemaSlug: EntitySchemaSlug;
-					entitySchemaPluginId: string | null;
-				} & ({ scope: "global" } | { scope: "user"; userId: UserId }),
-			) =>
-				Effect.gen(function* () {
-					const db = yield* Database;
-					const [row] = yield* mapDatabaseErrors(
-						db
-							.select(entitySelection)
-							.from(schema.entity)
-							.where(
-								and(
-									input.scope === "user"
-										? eq(schema.entity.userId, input.userId)
-										: isNull(schema.entity.userId),
-									eq(schema.entity.externalId, input.externalId),
-									eq(schema.entity.entitySchemaSlug, input.entitySchemaSlug),
-									eq(schema.entity.providerId, input.providerId),
-									entitySchemaPluginWhere(input.entitySchemaPluginId),
-								),
-							)
-							.limit(1),
-					);
-
-					return row ? toListedEntity(row) : null;
-				});
 
 			const findGlobalEntityForRestore = Effect.fn("EntitiesRepository.findGlobalEntityForRestore")(
 				function* (input: {

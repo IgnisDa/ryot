@@ -27,10 +27,10 @@ export class SystemPlugins extends Context.Service<SystemPlugins>()("SystemPlugi
 	make: Effect.gen(function* () {
 		const config = yield* AppConfig;
 		const sources = yield* discoverSystemPlugins(config.server.pluginsSystemDir);
-		return {
-			sources,
-			slugs: new Set(sources.map(({ manifest }) => manifest.metadata.slug)) as ReadonlySet<string>,
-		};
+		const slugs: ReadonlySet<string> = new Set(
+			sources.map(({ manifest }) => manifest.metadata.slug),
+		);
+		return { slugs, sources };
 	}),
 }) {
 	static readonly layer = Layer.effect(this, this.make);

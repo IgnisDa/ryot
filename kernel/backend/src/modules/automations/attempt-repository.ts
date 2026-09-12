@@ -61,18 +61,19 @@ export type FinalizeAutomationAttempt = Pick<
 		| { status: "failed"; failureKind: NonNullable<AutomationRunAttempt["failureKind"]> }
 	);
 
+const bound = <A>(value: A, wrap: (preview: string, digest: string) => A): A => {
+	const serialized = stableStringify(value);
+	if (utf8ByteLength(serialized) <= AUTOMATION_ATTEMPT_ARTIFACT_BYTES) {
+		return value;
+	}
+	const digest = sha256Base64Url(serialized);
+	return boundedPreview(serialized, (preview) => wrap(preview, digest));
+};
+
 export const boundAutomationAttemptArtifacts = (
 	input: Pick<AutomationRunAttempt, "logs" | "error" | "returnedValue">,
 ) => {
 	const marker = AUTOMATION_ATTEMPT_TRUNCATION_MARKER;
-	const bound = <A>(value: A, wrap: (preview: string, digest: string) => A): A => {
-		const serialized = stableStringify(value);
-		if (utf8ByteLength(serialized) <= AUTOMATION_ATTEMPT_ARTIFACT_BYTES) {
-			return value;
-		}
-		const digest = sha256Base64Url(serialized);
-		return boundedPreview(serialized, (preview) => wrap(preview, digest));
-	};
 	return {
 		returnedValue: bound(input.returnedValue, (preview, digest) => ({ marker, digest, preview })),
 		error: bound(input.error, (preview, digest) => ({
@@ -214,6 +215,46 @@ const lockedRetryEligibility = Effect.fn(function* (runId: AutomationRunId, now:
 	}
 	return row.reason;
 });
+
+const retryEligibility = (runId: AutomationRunId, now: Date) =>
+	atomic(
+		Effect.gen(function* () {
+			yield* validateTime(now);
+			yield* lockRun(runId);
+			return yield* lockedRetryEligibility(runId, now);
+		}),
+	);
+
+const queueRetry = (input: { runId: AutomationRunId; expectedAttemptCount: number; now: Date }) =>
+	atomic(
+		Effect.gen(function* () {
+			yield* validateTime(input.now);
+			const run = yield* lockRun(input.runId);
+			if (run.attemptCount !== input.expectedAttemptCount || run.attemptCount < 1) {
+				return yield* conflict("Manual retry attempt count conflict");
+			}
+			const reason = yield* lockedRetryEligibility(input.runId, input.now);
+			if (reason) {
+				return yield* conflict(`Manual retry unavailable: ${reason}`);
+			}
+			const db = yield* Database;
+			yield* db
+				.update(automationRun)
+				.set({ status: "queued", finishedAt: null, nextAttemptAt: input.now })
+				.where(
+					and(
+						eq(automationRun.id, run.id),
+						eq(automationRun.status, "failed"),
+						eq(automationRun.attemptCount, input.expectedAttemptCount),
+					),
+				);
+			return {
+				runId: input.runId,
+				attemptNumber: run.attemptCount + 1,
+				...automationAttemptIdentity(input.runId, run.attemptCount + 1),
+			};
+		}),
+	);
 
 export class AutomationAttemptRepository extends Context.Service<AutomationAttemptRepository>()(
 	"AutomationAttemptRepository",
@@ -408,14 +449,6 @@ export class AutomationAttemptRepository extends Context.Service<AutomationAttem
 						return validated;
 					}),
 				);
-			const retryEligibility = (runId: AutomationRunId, now: Date) =>
-				atomic(
-					Effect.gen(function* () {
-						yield* validateTime(now);
-						yield* lockRun(runId);
-						return yield* lockedRetryEligibility(runId, now);
-					}),
-				);
 			const pruneArtifacts = Effect.fn(function* (input: {
 				before: Date;
 				prunedAt: Date;
@@ -453,40 +486,6 @@ export class AutomationAttemptRepository extends Context.Service<AutomationAttem
 						.returning({ id: table.id }),
 				);
 			});
-			const queueRetry = (input: {
-				runId: AutomationRunId;
-				expectedAttemptCount: number;
-				now: Date;
-			}) =>
-				atomic(
-					Effect.gen(function* () {
-						yield* validateTime(input.now);
-						const run = yield* lockRun(input.runId);
-						if (run.attemptCount !== input.expectedAttemptCount || run.attemptCount < 1) {
-							return yield* conflict("Manual retry attempt count conflict");
-						}
-						const reason = yield* lockedRetryEligibility(input.runId, input.now);
-						if (reason) {
-							return yield* conflict(`Manual retry unavailable: ${reason}`);
-						}
-						const db = yield* Database;
-						yield* db
-							.update(automationRun)
-							.set({ status: "queued", finishedAt: null, nextAttemptAt: input.now })
-							.where(
-								and(
-									eq(automationRun.id, run.id),
-									eq(automationRun.status, "failed"),
-									eq(automationRun.attemptCount, input.expectedAttemptCount),
-								),
-							);
-						return {
-							runId: input.runId,
-							attemptNumber: run.attemptCount + 1,
-							...automationAttemptIdentity(input.runId, run.attemptCount + 1),
-						};
-					}),
-				);
 			return {
 				queueRetry,
 				findAttempt,

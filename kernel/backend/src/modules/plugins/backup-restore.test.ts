@@ -320,14 +320,15 @@ it.effect("rejects persistence when a system slug appears after backup preparati
 	);
 });
 
+const packageAt = (version: string) => {
+	const base = privateManifest();
+	const manifest = { ...base, metadata: { ...base.metadata, version } };
+	const files = {};
+	return { files, manifest, scripts: [], sourceHash: pluginSourceHash(manifest, files, []) };
+};
+
 describe("private package backup restore in PostgreSQL", () => {
 	it.effect("restores only the current package as a fresh destination revision", () => {
-		const packageAt = (version: string) => {
-			const base = privateManifest();
-			const manifest = { ...base, metadata: { ...base.metadata, version } };
-			const files = {};
-			return { files, manifest, scripts: [], sourceHash: pluginSourceHash(manifest, files, []) };
-		};
 		const layer = PluginBackupRestore.layer.pipe(
 			Layer.provide(
 				Layer.mergeAll(PluginIngestionLock.layer.pipe(Layer.provide(noRevisionActivation))),

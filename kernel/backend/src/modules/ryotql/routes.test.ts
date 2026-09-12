@@ -30,6 +30,18 @@ const user = {
 
 const client = HttpApiTest.groups(AppContract, ["ryotql"]);
 
+const credential = (accessClass: AccessClass, kind: "oauth" | "api-key") => ({
+	user,
+	authorization: {
+		accessClass,
+		userId: user.id,
+		credential:
+			kind === "oauth"
+				? { clientId: "ryot-web", kind: "oauth" as const }
+				: { keyId: "key-1", kind: "api-key" as const },
+	},
+});
+
 const makeRoutes = (credentials: string[] = []) => {
 	const db = Object.assign(Object.create(null), { execute: () => Effect.succeed([]) });
 	const database = Database.of(
@@ -37,17 +49,6 @@ const makeRoutes = (credentials: string[] = []) => {
 			transaction: ((callback) => callback(db)) satisfies Database["Service"]["transaction"],
 		}),
 	);
-	const credential = (accessClass: AccessClass, kind: "oauth" | "api-key") => ({
-		user,
-		authorization: {
-			accessClass,
-			userId: user.id,
-			credential:
-				kind === "oauth"
-					? { clientId: "ryot-web", kind: "oauth" as const }
-					: { keyId: "key-1", kind: "api-key" as const },
-		},
-	});
 	const auth = makeAuthMiddleware(
 		{
 			apiKeyUser: (key) => {

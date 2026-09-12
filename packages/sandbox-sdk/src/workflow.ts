@@ -215,7 +215,7 @@ const makeWorkflowReplay = (
 	): RuntimeEffect.Effect<Output["Type"], unknown> => {
 		const recorded = journal[request.index];
 		if (recorded === undefined) {
-			return RuntimeEffect.fail(pending as unknown);
+			return RuntimeEffect.fail(pending);
 		}
 		const entry = Schema.decodeUnknownResult(workflowReplayJournalEntrySchema)(recorded);
 		if (entry._tag === "Failure") {
