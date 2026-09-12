@@ -8,7 +8,7 @@ import {
 import { EntityId, PluginSlug } from "@ryot-app/contract/schema/brands";
 import { waitFor } from "@testing-library/dom";
 import { Match, Schema } from "effect";
-import { useState, act } from "react";
+import { useEffect, useState, act } from "react";
 import { createRoot, type Root } from "react-dom/client";
 import { afterEach, describe, expect, it } from "vitest";
 
@@ -147,9 +147,11 @@ const LocationProbe = () => {
 	const params = usePluginParams();
 	const search = usePluginSearch();
 	const location = usePluginLocation();
-	observedLocation = location;
-	observedParams = params;
-	observedSearch = search;
+	useEffect(() => {
+		observedLocation = location;
+		observedParams = params;
+		observedSearch = search;
+	});
 	return <p>{`${location.kind}:${search.toString()}`}</p>;
 };
 

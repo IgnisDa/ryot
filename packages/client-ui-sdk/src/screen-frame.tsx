@@ -55,9 +55,12 @@ export function ScreenFrame({
 	const hasTitleBlock = searchRow === undefined && hideTitle !== true;
 	const column = width === "readable" ? "mx-auto w-full max-w-2xl" : undefined;
 
+	if (!compact && isScrolled) {
+		setIsScrolled(false);
+	}
+
 	useEffect(() => {
 		if (!compact) {
-			setIsScrolled(false);
 			return undefined;
 		}
 		if (sentinel === null || typeof IntersectionObserver !== "function") {

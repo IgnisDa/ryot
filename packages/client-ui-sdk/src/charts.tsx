@@ -108,12 +108,14 @@ export function CalendarHeatmap({
 		[cells, weeks],
 	);
 
+	const width = pitch * weeks;
+
 	useLayoutEffect(() => {
 		const scroller = scrollerRef.current;
 		if (scroller) {
-			scroller.scrollLeft = scroller.scrollWidth;
+			scroller.scrollLeft = width;
 		}
-	}, [weeks, pitch]);
+	}, [width]);
 
 	if (cells.length === 0) {
 		return null;
@@ -121,9 +123,9 @@ export function CalendarHeatmap({
 	return (
 		<div ref={scrollerRef} className="overflow-x-auto text-text">
 			<Chart
+				width={width}
 				height={pitch * 7}
 				ariaLabel={ariaLabel}
-				width={pitch * weeks}
 				definition={definition}
 				renderTooltipBody={({ points }) => {
 					const day = points[0]?.datum;

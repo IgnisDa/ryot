@@ -58,6 +58,14 @@ type ReorderableListProps<T> = {
 	}) => ReactNode;
 };
 
+const scrollWithin = (scroller: HTMLElement, delta: number) => {
+	scroller.scrollTop = clamp(
+		scroller.scrollTop + delta * AUTO_SCROLL_SPEED,
+		0,
+		scroller.scrollHeight - scroller.clientHeight,
+	);
+};
+
 export function ReorderableList<T>(props: ReorderableListProps<T>) {
 	const pointerY = useRef(0);
 	const drag = useRef<Drag | null>(null);
@@ -70,14 +78,17 @@ export function ReorderableList<T>(props: ReorderableListProps<T>) {
 	const handles = useRef(new Map<string, HTMLButtonElement | null>());
 	const count = props.items.length;
 
+	const { items, itemKey } = props;
 	useEffect(() => {
 		const key = focusKey.current;
 		if (key === null) {
 			return;
 		}
 		focusKey.current = null;
-		handles.current.get(key)?.focus();
-	}, [props.items]);
+		if (items.some((item) => itemKey(item) === key)) {
+			handles.current.get(key)?.focus();
+		}
+	}, [itemKey, items]);
 
 	useEffect(
 		() => () => {
@@ -119,11 +130,7 @@ export function ReorderableList<T>(props: ReorderableListProps<T>) {
 		}
 		const delta = edgeDelta(pointerY.current, scroller.getBoundingClientRect());
 		if (delta !== 0) {
-			scroller.scrollTop = clamp(
-				scroller.scrollTop + delta * AUTO_SCROLL_SPEED,
-				0,
-				scroller.scrollHeight - scroller.clientHeight,
-			);
+			scrollWithin(scroller, delta);
 			track(pointerY.current);
 		}
 		frame.current = requestAnimationFrame(autoScroll);
