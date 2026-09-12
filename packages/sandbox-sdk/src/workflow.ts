@@ -229,7 +229,7 @@ const makeWorkflowReplay = (
 		}
 		const entry = Schema.decodeUnknownResult(workflowReplayJournalEntrySchema)(recorded);
 		if (entry._tag === "Failure") {
-			return Schema.decodeUnknownEffect(output)(recorded);
+			return Schema.decodeEffect(output)(recorded);
 		}
 		if (stableJson(entry.success.request) !== stableJson(request)) {
 			return RuntimeEffect.fail(
@@ -238,7 +238,7 @@ const makeWorkflowReplay = (
 				),
 			);
 		}
-		return Schema.decodeUnknownEffect(output)(entry.success.value);
+		return Schema.decodeEffect(output)(entry.success.value);
 	};
 	const register = <Output extends Schema.ConstraintDecoder<unknown>>(
 		request: WorkflowDurableCallRequest,

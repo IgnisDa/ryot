@@ -15,7 +15,7 @@ afterEach(() => {
 test("fails closed when filesystem grants are unavailable", () =>
 	Effect.runPromise(
 		Effect.gen(function* () {
-			const read = yield* Effect.flip(readArtifact());
+			const read = yield* Effect.flip(readArtifact);
 			const readNamed = yield* Effect.flip(readNamedArtifact("historyFilePath"));
 			const write = yield* Effect.flip(writeScratchChunks([]));
 
@@ -41,7 +41,7 @@ test("reads the artifact and writes a batch of named chunks through the runner b
 				},
 			});
 
-			const artifact = yield* readArtifact();
+			const artifact = yield* readArtifact;
 			const namedArtifact = yield* readNamedArtifact("historyFilePath");
 			const manifest = yield* writeScratchChunks([
 				{ contents: "[0]", name: "chunk-0.json" },

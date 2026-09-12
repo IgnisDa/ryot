@@ -17,7 +17,7 @@ const scriptManifest = defineManifest({
 });
 const script = defineScript({
 	manifest: scriptManifest,
-	output: Schema.NullOr(Schema.Number),
+	output: Schema.NullOr(Schema.Finite),
 	input: Schema.Struct({ key: Schema.String }),
 	run: (input, host) =>
 		host.getCachedValue(input.key).pipe(
@@ -39,13 +39,13 @@ const operationManifest = defineManifest({
 const operation = defineOperation({
 	output: Schema.String,
 	manifest: operationManifest,
-	input: Schema.Struct({ value: Schema.Number }),
+	input: Schema.Struct({ value: Schema.Finite }),
 	run: (input) => Effect.succeed(String(input.value)),
 });
 const failingOperation = defineOperation({
 	output: Schema.String,
 	manifest: operationManifest,
-	input: Schema.Struct({ value: Schema.Number }),
+	input: Schema.Struct({ value: Schema.Finite }),
 	run: (input) =>
 		input.value < 0
 			? Effect.fail({ _tag: "InvalidOperationInput" as const })
@@ -86,14 +86,14 @@ const workflowManifest = defineManifest({
 const workflow = defineWorkflow({
 	output: Schema.String,
 	manifest: workflowManifest,
-	input: Schema.Struct({ value: Schema.Number }),
+	input: Schema.Struct({ value: Schema.Finite }),
 	run: (input, replay) =>
 		replay.activity(
 			"format",
 			{
 				output: Schema.String,
 				scriptSlug: "format-value",
-				input: Schema.Struct({ value: Schema.Number }),
+				input: Schema.Struct({ value: Schema.Finite }),
 			},
 			input,
 		),
@@ -146,7 +146,7 @@ defineWorkflow({
 			{
 				output: Schema.String,
 				scriptSlug: "typed-activity",
-				input: Schema.Struct({ value: Schema.Number }),
+				input: Schema.Struct({ value: Schema.Finite }),
 			},
 			// @ts-expect-error activity inputs are inferred from the direct script reference.
 			{ value: "wrong" },

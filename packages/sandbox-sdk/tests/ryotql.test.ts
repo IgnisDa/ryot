@@ -87,7 +87,7 @@ describe("RyotQL sandbox SDK", () => {
 		});
 		const definition = defineScript({
 			manifest,
-			output: Schema.Number,
+			output: Schema.Finite,
 			input: Schema.Struct({}),
 			run: (_input, host) =>
 				executeRyotqlRecipe(host.executeRyotql, entityReadRecipe({ entityIds: ["entity-1"] })).pipe(

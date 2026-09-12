@@ -53,7 +53,7 @@ export const runSandboxTestScript = <
 	host: NoInfer<Host>,
 	execution: ExecutionMetadata,
 ) => {
-	return Schema.decodeUnknownEffect(script.input)(input).pipe(
+	return Schema.decodeEffect(script.input)(input).pipe(
 		Effect.flatMap((parsedInput) => script.run(parsedInput, host, execution)),
 		Effect.flatMap(Schema.decodeUnknownEffect(script.output)),
 	);

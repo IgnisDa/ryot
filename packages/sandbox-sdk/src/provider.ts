@@ -19,7 +19,7 @@ const querySchema = Schema.Unknown.pipe(
 const integerWithFallback = (fallback: number, maximum?: number) =>
 	Schema.Unknown.pipe(
 		Schema.decodeTo(
-			Schema.Number,
+			Schema.Finite,
 			SchemaTransformation.transform({
 				decode: (value) => {
 					const coerced = typeof value === "symbol" ? Number.NaN : Number(value);
@@ -43,30 +43,30 @@ export const providerSearchInputSchema = strictStruct({
 			Schema.optional(schema).pipe(
 				Schema.decodeTo(Schema.toType(schema), {
 					encode: SchemaGetter.required(),
-					decode: SchemaGetter.withDefault(Effect.sync(() => "")),
+					decode: SchemaGetter.withDefault(Effect.succeed("")),
 				}),
 			),
-		Schema.withConstructorDefault(Effect.sync(() => "")),
+		Schema.withConstructorDefault(Effect.succeed("")),
 	),
 	page: integerWithFallback(1).pipe(
 		(schema) =>
 			Schema.optional(schema).pipe(
 				Schema.decodeTo(Schema.toType(schema), {
 					encode: SchemaGetter.required(),
-					decode: SchemaGetter.withDefault(Effect.sync(() => 1)),
+					decode: SchemaGetter.withDefault(Effect.succeed(1)),
 				}),
 			),
-		Schema.withConstructorDefault(Effect.sync(() => 1)),
+		Schema.withConstructorDefault(Effect.succeed(1)),
 	),
 	pageSize: integerWithFallback(20, 100).pipe(
 		(schema) =>
 			Schema.optional(schema).pipe(
 				Schema.decodeTo(Schema.toType(schema), {
 					encode: SchemaGetter.required(),
-					decode: SchemaGetter.withDefault(Effect.sync(() => 20)),
+					decode: SchemaGetter.withDefault(Effect.succeed(20)),
 				}),
 			),
-		Schema.withConstructorDefault(Effect.sync(() => 20)),
+		Schema.withConstructorDefault(Effect.succeed(20)),
 	),
 });
 
