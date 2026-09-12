@@ -104,6 +104,7 @@ jobs:
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
+          ref: ${{ github.event.pull_request.head.sha || github.sha }}
           persist-credentials: false
       - name: Set up QEMU
         uses: docker/setup-qemu-action@1f40c72289eff860ee54a304f1438e3cff362e0a # v4.3.0
@@ -125,6 +126,8 @@ jobs:
       - name: Extract metadata for Docker
         id: meta
         uses: docker/metadata-action@dc802804100637a589fabce1cb79ff13a1411302 # v6.2.0
+        env:
+          DOCKER_METADATA_PR_HEAD_SHA: "true"
         with:
           images: ${{ needs.pre-workflow-checks.outputs.image-names }}
           tags: |
@@ -144,6 +147,7 @@ jobs:
           cache-to: type=gha,mode=max
           platforms: linux/amd64,linux/arm64
           tags: ${{ steps.meta.outputs.tags }}
+          labels: ${{ steps.meta.outputs.labels }}
           build-args: UNKEY_ROOT_KEY=${{ secrets.UNKEY_ROOT_KEY }}
 
   upload-kodi-plugin:
