@@ -1,15 +1,14 @@
-import { expect, it } from "@effect/vitest";
+import { assert, describe, expect, layer } from "@effect/vitest";
 import { DEFAULT_AUTOMATION_RETRY_POLICY } from "@ryot-app/contract/modules/automations/lifecycle";
 import { SignalSchemaSlug, UserId } from "@ryot-app/contract/schema/brands";
 import { eq } from "drizzle-orm";
 import { Effect, Result } from "effect";
-import { assert, describe } from "vitest";
 
 import { DatabaseSession } from "#lib/infrastructure/db/session";
 import {
 	installRevisionPackage,
 	revisionPackage,
-	withRevisionDatabase,
+	revisionDatabaseLayer,
 } from "#modules/plugins/revision.test-support";
 
 import * as tables from "./tables/combined";
@@ -58,10 +57,10 @@ const seedRun = Effect.fn(function* () {
 });
 
 describe("automation database constraints", () => {
-	it.effect(
-		"rejects mismatched trigger kinds, unmarked pruning, and incomplete automation causation",
-		() =>
-			withRevisionDatabase(
+	layer(revisionDatabaseLayer)((test) => {
+		test.effect(
+			"rejects mismatched trigger kinds, unmarked pruning, and incomplete automation causation",
+			() =>
 				Effect.gen(function* () {
 					const db = yield* (yield* DatabaseSession).current;
 					const invalid: Array<typeof tables.automationTrigger.$inferInsert> = [
@@ -105,13 +104,13 @@ describe("automation database constraints", () => {
 						});
 					expect((yield* db.select().from(tables.automationTrigger)).length).toBe(1);
 				}),
-			),
-	);
+		);
+	});
 
-	it.effect(
-		"enforces complete package pins, exact ownership, policy restrictions, and null-recipient uniqueness",
-		() =>
-			withRevisionDatabase(
+	layer(revisionDatabaseLayer)((test) => {
+		test.effect(
+			"enforces complete package pins, exact ownership, policy restrictions, and null-recipient uniqueness",
+			() =>
 				Effect.gen(function* () {
 					const db = yield* (yield* DatabaseSession).current;
 					const run = yield* seedRun();
@@ -158,13 +157,13 @@ describe("automation database constraints", () => {
 						.values({ ...run, id: "recipient-run", executionUserId: "owner" });
 					expect((yield* db.select().from(tables.automationRun)).length).toBe(2);
 				}),
-			),
-	);
+		);
+	});
 
-	it.effect(
-		"serializes attempts and cascades recipient-owned history without deleting a shared trigger",
-		() =>
-			withRevisionDatabase(
+	layer(revisionDatabaseLayer)((test) => {
+		test.effect(
+			"serializes attempts and cascades recipient-owned history without deleting a shared trigger",
+			() =>
 				Effect.gen(function* () {
 					const db = yield* (yield* DatabaseSession).current;
 					const run = yield* seedRun();
@@ -240,6 +239,6 @@ describe("automation database constraints", () => {
 						{ userId: "recipient", triggerId: trigger.id },
 					]);
 				}),
-			),
-	);
+		);
+	});
 });

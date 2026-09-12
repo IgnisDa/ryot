@@ -1,5 +1,5 @@
 import { canonicalFileSetHash, sha256Hex } from "@ryot-app/ts-utils/crypto";
-import { Data, Effect, FileSystem, Schema } from "effect";
+import { Data, Effect, FileSystem, Order, Schema } from "effect";
 
 import { sandboxRuntimePayloadMetadataSchema, sandboxRuntimePayloadSchema } from "./payload";
 import { sandboxRuntimePayloadMetadata } from "./runtime-payload-metadata.generated";
@@ -74,8 +74,8 @@ const runtimeDirectoryPrefix = `runtime-v${trustedMetadata.format}-${trustedMeta
 const runtimeFiles = [
 	...trustedMetadata.files.map(({ path }) => path),
 	"runtime-metadata.json",
-].sort();
-const runtimeDirectoryEntries = [...runtimeFiles, runtimeModuleDirectoryName].sort();
+].sort(Order.String);
+const runtimeDirectoryEntries = [...runtimeFiles, runtimeModuleDirectoryName].sort(Order.String);
 
 export type SandboxRuntimePaths = {
 	readonly directory: string;

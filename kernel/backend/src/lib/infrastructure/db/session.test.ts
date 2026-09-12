@@ -1,10 +1,9 @@
 import { PgClient } from "@effect/sql-pg";
-import { expect, it } from "@effect/vitest";
+import { assert, expect, layer } from "@effect/vitest";
 import { DbError } from "@ryot-app/contract/errors";
 import { eq, sql } from "drizzle-orm";
 import { pgTable, text } from "drizzle-orm/pg-core";
 import { Cause, Deferred, Effect, Exit, Fiber, Layer, Redacted } from "effect";
-import { assert } from "vitest";
 
 import { testDatabaseUrl } from "#lib/test-utils/database";
 
@@ -16,29 +15,20 @@ const entry = pgTable("database_session_test", {
 	value: text("value").notNull(),
 });
 
-const withSession = <E>(test: Effect.Effect<void, E, DatabaseSession>) =>
-	Effect.scoped(
-		Effect.gen(function* () {
-			const session = yield* DatabaseSession;
-			const root = yield* session.current;
-			yield* root.execute(
-				sql`create temporary table database_session_test (id text primary key, value text not null)`,
-			);
-			yield* test;
-		}).pipe(
-			// oxlint-disable-next-line effecttsgo/strict-effect-provide -- The fixture is the test entry point and owns the scoped pool.
-			Effect.provide(
-				Layer.effect(DatabaseSession, DatabaseSession.make).pipe(
-					Layer.provideMerge(
-						PgClient.layer({ maxConnections: 1, url: Redacted.make(testDatabaseUrl()) }),
-					),
-				),
-			),
-		),
-	);
+const sessionLayer = Layer.effectDiscard(
+	Effect.gen(function* () {
+		const root = yield* (yield* DatabaseSession).current;
+		yield* root.execute(
+			sql`create temporary table database_session_test (id text primary key, value text not null)`,
+		);
+	}),
+).pipe(
+	Layer.provideMerge(Layer.effect(DatabaseSession, DatabaseSession.make)),
+	Layer.provideMerge(PgClient.layer({ maxConnections: 1, url: Redacted.make(testDatabaseUrl()) })),
+);
 
-it.effect("uses the root executor outside transactions and restores it after commit", () =>
-	withSession(
+layer(sessionLayer)((test) => {
+	test.effect("uses the root executor outside transactions and restores it after commit", () =>
 		Effect.gen(function* () {
 			const session = yield* DatabaseSession;
 			const root = yield* session.current;
@@ -64,11 +54,11 @@ it.effect("uses the root executor outside transactions and restores it after com
 				"root",
 			]);
 		}),
-	),
-);
+	);
+});
 
-it.effect("rolls back typed failures without catching them or leaking transaction state", () =>
-	withSession(
+layer(sessionLayer)((test) => {
+	test.effect("rolls back typed failures without catching them or leaking transaction state", () =>
 		Effect.gen(function* () {
 			const session = yield* DatabaseSession;
 			const failure = { _tag: "FixtureFailure" as const };
@@ -85,11 +75,11 @@ it.effect("rolls back typed failures without catching them or leaking transactio
 			expect(yield* session.isTransactionActive).toBe(false);
 			expect(yield* (yield* session.current).select().from(entry)).toEqual([]);
 		}),
-	),
-);
+	);
+});
 
-it.effect("maps SQL failures to DbError and rolls back earlier writes", () =>
-	withSession(
+layer(sessionLayer)((test) => {
+	test.effect("maps SQL failures to DbError and rolls back earlier writes", () =>
 		Effect.gen(function* () {
 			const session = yield* DatabaseSession;
 			const error = yield* Effect.flip(
@@ -105,11 +95,11 @@ it.effect("maps SQL failures to DbError and rolls back earlier writes", () =>
 			expect(error.code).toBe("23505");
 			expect(yield* (yield* session.current).select().from(entry)).toEqual([]);
 		}),
-	),
-);
+	);
+});
 
-it.effect("restores state and rolls back after a defect", () =>
-	withSession(
+layer(sessionLayer)((test) => {
+	test.effect("restores state and rolls back after a defect", () =>
 		Effect.gen(function* () {
 			const session = yield* DatabaseSession;
 			const root = yield* session.current;
@@ -129,11 +119,11 @@ it.effect("restores state and rolls back after a defect", () =>
 			expect(yield* session.isTransactionActive).toBe(false);
 			expect(yield* root.select().from(entry)).toEqual([]);
 		}),
-	),
-);
+	);
+});
 
-it.effect("enforces root and transaction ownership without nested savepoints", () =>
-	withSession(
+layer(sessionLayer)((test) => {
+	test.effect("enforces root and transaction ownership without nested savepoints", () =>
 		Effect.gen(function* () {
 			const session = yield* DatabaseSession;
 			const missing = yield* Effect.flip(session.requireTransaction);
@@ -152,11 +142,11 @@ it.effect("enforces root and transaction ownership without nested savepoints", (
 			);
 			yield* session.requireRoot;
 		}),
-	),
-);
+	);
+});
 
-it.effect("restores state and rolls back when an active transaction is interrupted", () =>
-	withSession(
+layer(sessionLayer)((test) => {
+	test.effect("restores state and rolls back when an active transaction is interrupted", () =>
 		Effect.gen(function* () {
 			const session = yield* DatabaseSession;
 			const root = yield* session.current;
@@ -188,11 +178,11 @@ it.effect("restores state and rolls back when an active transaction is interrupt
 				"after-interruption",
 			]);
 		}),
-	),
-);
+	);
+});
 
-it.effect("retries the complete transaction attempt after a deadlock failure", () =>
-	withSession(
+layer(sessionLayer)((test) => {
+	test.effect("retries the complete transaction attempt after a deadlock failure", () =>
 		Effect.gen(function* () {
 			const session = yield* DatabaseSession;
 			let attempts = 0;
@@ -214,5 +204,5 @@ it.effect("retries the complete transaction attempt after a deadlock failure", (
 				{ value: "2", id: "retried" },
 			]);
 		}),
-	),
-);
+	);
+});

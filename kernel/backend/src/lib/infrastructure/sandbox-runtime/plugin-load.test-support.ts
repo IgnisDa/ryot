@@ -18,6 +18,8 @@ const encodeRequest = Schema.encodeSync(Schema.fromJsonString(Schema.Unknown));
 const decodeResponse = Schema.decodeUnknownSync(Schema.fromJsonString(Schema.Unknown));
 const decoder = new TextDecoder("utf-8", { fatal: true });
 
+export const pluginLoadLayer = Layer.merge(BunServices.layer, sandboxCompilerPlatformLayer);
+
 export const verifyPluginSandboxScriptsLoad = (
 	packageRoot: string,
 	manifest: AuthoredPluginManifest,
@@ -156,4 +158,4 @@ export const verifyPluginSandboxScriptsLoad = (
 				{ discard: true, concurrency: 5 },
 			);
 		}),
-	).pipe(Effect.provide(Layer.merge(BunServices.layer, sandboxCompilerPlatformLayer)));
+	);
