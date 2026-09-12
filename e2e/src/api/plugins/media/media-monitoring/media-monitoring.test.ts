@@ -69,7 +69,7 @@ let movieSchemaId: string;
 let discoveryEntityId: string;
 let fakeApprise: FakeHttpServer;
 let providerCompilerClient: Client;
-const extraEntityIds: string[] = [];
+const extraGlobalEntityIds: string[] = [];
 let provider: Effect.Success<ReturnType<typeof installTestProvider>>;
 let discoveryProvider: Effect.Success<ReturnType<typeof installTestProvider>>;
 
@@ -137,7 +137,7 @@ afterAll(() =>
 	runPromise(
 		Effect.gen(function* () {
 			yield* Effect.promise(() => fakeApprise.stop());
-			const [firstExtraEntityId, ...remainingExtraEntityIds] = extraEntityIds;
+			const [firstExtraEntityId, ...remainingExtraEntityIds] = extraGlobalEntityIds;
 			if (firstExtraEntityId) {
 				yield* getApiClient().call(
 					(c) =>
@@ -273,7 +273,9 @@ describe("media monitoring endpoints", () => {
 					externalId: `media-monitoring-incomplete-${crypto.randomUUID()}`,
 				}),
 			]);
-			extraEntityIds.push(...unsupported.map((entity) => entity.id));
+			extraGlobalEntityIds.push(
+				...unsupported.filter((entity) => entity.userId === null).map((entity) => entity.id),
+			);
 
 			const unsupportedResults = yield* Effect.all(
 				unsupported.map((entity) => enableMediaMonitoring(owner.client, entity.id)),
