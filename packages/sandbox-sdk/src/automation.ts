@@ -4,7 +4,7 @@ import {
 	AutomationPolicyInput as automationPolicyInputSchema,
 	AutomationPolicyOutput as automationPolicyResultSchema,
 } from "@ryot-app/contract/modules/automations/lifecycle";
-import type { Schema } from "@ryot-app/sandbox-sdk/effect";
+import type { Effect, Schema } from "@ryot-app/sandbox-sdk/effect";
 
 import type { SandboxManifest } from "./core";
 import { type GenericScriptDefinition, SANDBOX_SCRIPT_DEFINITION } from "./driver";
@@ -30,22 +30,35 @@ export type AutomationPolicyManifest = Extract<
 	{ readonly kind: "automation"; readonly automationType: "policy" }
 >;
 
-export type AutomationDefinition<Manifest extends AutomationManifest> = GenericScriptDefinition<
+export type AutomationDefinition<
+	Manifest extends AutomationManifest,
+	Failure,
+> = GenericScriptDefinition<
 	Manifest,
 	typeof automationInputSchema,
-	typeof automationResultSchema
+	typeof automationResultSchema,
+	Failure
 >;
-export type AutomationPolicyDefinition<Manifest extends AutomationPolicyManifest> =
-	GenericScriptDefinition<
-		Manifest,
-		typeof automationPolicyInputSchema,
-		typeof automationPolicyResultSchema
-	>;
+export type AutomationPolicyDefinition<
+	Manifest extends AutomationPolicyManifest,
+	Failure,
+> = GenericScriptDefinition<
+	Manifest,
+	typeof automationPolicyInputSchema,
+	typeof automationPolicyResultSchema,
+	Failure
+>;
 
-export const defineAutomation = <const Manifest extends AutomationManifest>(definition: {
+export const defineAutomation = <
+	const Manifest extends AutomationManifest,
+	Failure,
+	Run extends AutomationDefinition<Manifest, Failure>["run"],
+>(definition: {
 	readonly manifest: Manifest;
-	readonly run: AutomationDefinition<Manifest>["run"];
-}): AutomationDefinition<Manifest> => ({
+	readonly run: Run;
+}): Omit<AutomationDefinition<Manifest, Effect.Error<ReturnType<Run>>>, "run"> & {
+	readonly run: Run;
+} => ({
 	run: definition.run,
 	input: automationInputSchema,
 	manifest: definition.manifest,
@@ -54,10 +67,14 @@ export const defineAutomation = <const Manifest extends AutomationManifest>(defi
 });
 export const defineAutomationPolicy = <
 	const Manifest extends AutomationPolicyManifest,
+	Failure,
+	Run extends AutomationPolicyDefinition<Manifest, Failure>["run"],
 >(definition: {
 	readonly manifest: Manifest;
-	readonly run: AutomationPolicyDefinition<Manifest>["run"];
-}): AutomationPolicyDefinition<Manifest> => ({
+	readonly run: Run;
+}): Omit<AutomationPolicyDefinition<Manifest, Effect.Error<ReturnType<Run>>>, "run"> & {
+	readonly run: Run;
+} => ({
 	run: definition.run,
 	manifest: definition.manifest,
 	input: automationPolicyInputSchema,

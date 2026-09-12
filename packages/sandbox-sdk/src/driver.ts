@@ -6,6 +6,7 @@ type ScriptExecution<
 	Input extends Schema.Codec<unknown, unknown>,
 	Output extends Schema.Codec<unknown, unknown>,
 	Manifest extends SandboxManifest,
+	Failure,
 > = {
 	readonly input: Input;
 	readonly output: Output;
@@ -15,7 +16,7 @@ type ScriptExecution<
 			? Omit<SandboxHost<Manifest["capabilities"]>, "executeWorkflow">
 			: SandboxHost<Manifest["capabilities"]>,
 		execution: ExecutionMetadata,
-	) => Effect.Effect<Output["Type"], unknown>;
+	) => Effect.Effect<Output["Type"], Failure>;
 };
 
 export const defineManifest = <const Manifest extends SandboxManifest>(manifest: Manifest) =>
@@ -26,7 +27,8 @@ export type GenericScriptDefinition<
 	Manifest extends SandboxManifest,
 	Input extends Schema.Codec<unknown, unknown>,
 	Output extends Schema.Codec<unknown, unknown>,
-> = ScriptExecution<Input, Output, Manifest> & {
+	Failure,
+> = ScriptExecution<Input, Output, Manifest, Failure> & {
 	readonly manifest: Manifest;
 	readonly definitionType: typeof SANDBOX_SCRIPT_DEFINITION;
 };
@@ -34,9 +36,13 @@ export const defineScript = <
 	const Manifest extends ScriptManifest,
 	Input extends Schema.Codec<unknown, unknown>,
 	Output extends Schema.Codec<unknown, unknown>,
+	Failure,
+	Run extends ScriptExecution<Input, Output, Manifest, Failure>["run"],
 >(
-	definition: Omit<GenericScriptDefinition<Manifest, Input, Output>, "definitionType">,
-): GenericScriptDefinition<Manifest, Input, Output> => ({
-	...definition,
-	definitionType: SANDBOX_SCRIPT_DEFINITION,
-});
+	definition: Omit<
+		GenericScriptDefinition<Manifest, Input, Output, Failure>,
+		"definitionType" | "run"
+	> & { readonly run: Run },
+): Omit<GenericScriptDefinition<Manifest, Input, Output, Effect.Error<ReturnType<Run>>>, "run"> & {
+	readonly run: Run;
+} => ({ ...definition, definitionType: SANDBOX_SCRIPT_DEFINITION });

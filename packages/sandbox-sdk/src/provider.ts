@@ -190,19 +190,25 @@ export type ProviderOperation = keyof typeof providerOperationContracts;
 export type ProviderDefinition<
 	Manifest extends ProviderManifest,
 	Operation extends ProviderOperation,
+	Failure,
 > = GenericScriptDefinition<
 	Manifest,
 	(typeof providerOperationContracts)[Operation]["input"],
-	(typeof providerOperationContracts)[Operation]["output"]
+	(typeof providerOperationContracts)[Operation]["output"],
+	Failure
 > & { readonly operation: Operation };
 export const defineProvider = <
 	const Manifest extends ProviderManifest,
 	const Operation extends ProviderOperation,
+	Failure,
+	Run extends ProviderDefinition<Manifest, Operation, Failure>["run"],
 >(definition: {
 	readonly manifest: Manifest;
 	readonly operation: Operation;
-	readonly run: ProviderDefinition<Manifest, Operation>["run"];
-}): ProviderDefinition<Manifest, Operation> => ({
+	readonly run: Run;
+}): Omit<ProviderDefinition<Manifest, Operation, Effect.Error<ReturnType<Run>>>, "run"> & {
+	readonly run: Run;
+} => ({
 	...definition,
 	definitionType: SANDBOX_SCRIPT_DEFINITION,
 	input: providerOperationContracts[definition.operation].input,

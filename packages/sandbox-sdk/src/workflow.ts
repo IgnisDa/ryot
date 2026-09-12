@@ -126,6 +126,14 @@ export const workflowDurableResultSchema = Schema.Union([
 ]);
 export type WorkflowDurableResult = Schema.Schema.Type<typeof workflowDurableResultSchema>;
 
+const pending = Symbol("workflow-durable-call-pending");
+
+class WorkflowJournalMismatchError extends Error {
+	readonly _tag = "WorkflowJournalMismatchError";
+}
+
+type WorkflowReplayFailure = Schema.SchemaError | WorkflowJournalMismatchError | typeof pending;
+
 export type WorkflowReplay = {
 	readonly activity: <
 		Input extends Schema.Constraint,
@@ -134,8 +142,11 @@ export type WorkflowReplay = {
 		name: string,
 		reference: WorkflowScriptReference<Input, Output>,
 		input: Input["Type"],
-	) => RuntimeEffect.Effect<Output["Type"], unknown>;
-	readonly sleep: (name: string, durationMs: number) => RuntimeEffect.Effect<null, unknown>;
+	) => RuntimeEffect.Effect<Output["Type"], WorkflowReplayFailure>;
+	readonly sleep: (
+		name: string,
+		durationMs: number,
+	) => RuntimeEffect.Effect<null, WorkflowReplayFailure>;
 	readonly child: <
 		Input extends Schema.Constraint,
 		Output extends Schema.ConstraintDecoder<unknown>,
@@ -143,12 +154,13 @@ export type WorkflowReplay = {
 		name: string,
 		reference: WorkflowReference<Input, Output>,
 		input: Input["Type"],
-	) => RuntimeEffect.Effect<Output["Type"], unknown>;
+	) => RuntimeEffect.Effect<Output["Type"], WorkflowReplayFailure>;
 };
 
 type WorkflowExecution<
 	Input extends Schema.Codec<unknown, unknown>,
 	Output extends Schema.ConstraintDecoder<unknown>,
+	Failure,
 > = {
 	readonly input: Input;
 	readonly output: Output;
@@ -157,14 +169,14 @@ type WorkflowExecution<
 		input: Input["Type"],
 		replay: WorkflowReplay,
 		execution: ExecutionMetadata,
-	) => RuntimeEffect.Effect<Output["Type"], unknown>;
+	) => RuntimeEffect.Effect<Output["Type"], Failure>;
 };
 
 export type WorkflowDefinition<
 	Manifest extends WorkflowManifest,
 	Input extends Schema.Codec<unknown, unknown>,
-	Output extends Schema.ConstraintDecoder<unknown>,
-> = Omit<WorkflowExecution<Input, Output>, "manifest" | "output" | "run"> & {
+> = {
+	readonly input: Input;
 	readonly output: typeof workflowReplayEnvelopeSchema;
 	readonly manifest: Manifest;
 	readonly definitionType: typeof SANDBOX_SCRIPT_DEFINITION;
@@ -174,8 +186,6 @@ export type WorkflowDefinition<
 		execution: ExecutionMetadata,
 	) => RuntimeEffect.Effect<WorkflowReplayEnvelope, SandboxHostError>;
 };
-
-const pending = Symbol("workflow-durable-call-pending");
 
 // A host call that may already have reached an external system reports `external-uncertain` so the
 // kernel refuses to auto-retry it unless the hook declared run-ID idempotency.
@@ -212,25 +222,23 @@ const makeWorkflowReplay = (
 	const resolve = <Output extends Schema.ConstraintDecoder<unknown>>(
 		request: WorkflowDurableCallRequest,
 		output: Output,
-	): RuntimeEffect.Effect<Output["Type"], unknown> => {
+	): RuntimeEffect.Effect<Output["Type"], WorkflowReplayFailure> => {
 		const recorded = journal[request.index];
 		if (recorded === undefined) {
 			return RuntimeEffect.fail(pending);
 		}
 		const entry = Schema.decodeUnknownResult(workflowReplayJournalEntrySchema)(recorded);
 		if (entry._tag === "Failure") {
-			return Schema.decodeUnknownEffect(output)(recorded).pipe(
-				RuntimeEffect.mapError((error) => error),
-			);
+			return Schema.decodeUnknownEffect(output)(recorded);
 		}
 		if (stableJson(entry.success.request) !== stableJson(request)) {
 			return RuntimeEffect.fail(
-				new Error(`Sandbox workflow journal identity mismatch at index ${request.index}`),
+				new WorkflowJournalMismatchError(
+					`Sandbox workflow journal identity mismatch at index ${request.index}`,
+				),
 			);
 		}
-		return Schema.decodeUnknownEffect(output)(entry.success.value).pipe(
-			RuntimeEffect.mapError((error) => error),
-		);
+		return Schema.decodeUnknownEffect(output)(entry.success.value);
 	};
 	const register = <Output extends Schema.ConstraintDecoder<unknown>>(
 		request: WorkflowDurableCallRequest,
@@ -280,9 +288,16 @@ export const defineWorkflow = <
 	const Manifest extends WorkflowManifest,
 	Input extends Schema.Codec<unknown, unknown>,
 	Output extends Schema.ConstraintDecoder<unknown>,
+	Failure,
+	// The body failure is inferred here before conversion to the host-facing replay envelope.
+	// oxlint-disable-next-line typescript/no-unnecessary-type-parameters -- Run captures the author's failure type.
+	Run extends WorkflowExecution<Input, Output, Failure>["run"],
 >(
-	definition: WorkflowExecution<Input, Output> & { readonly manifest: Manifest },
-): WorkflowDefinition<Manifest, Input, Output> => ({
+	definition: Omit<WorkflowExecution<Input, Output, Failure>, "run"> & {
+		readonly manifest: Manifest;
+		readonly run: Run;
+	},
+): WorkflowDefinition<Manifest, Input> => ({
 	...definition,
 	output: workflowReplayEnvelopeSchema,
 	definitionType: SANDBOX_SCRIPT_DEFINITION,
