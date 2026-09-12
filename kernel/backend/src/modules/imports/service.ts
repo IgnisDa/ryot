@@ -14,17 +14,18 @@ import type { ImportRunSource } from "@ryot-app/contract/modules/imports/types";
 import type { IntegrationLot } from "@ryot-app/contract/modules/integrations/types";
 import {
 	AutomationExecutionId,
+	UserId,
 	type ImportRunId,
 	type IntegrationId,
 	type SandboxScriptId,
-	type UserId,
 } from "@ryot-app/contract/schema/brands";
 import { IsoUtcString } from "@ryot-app/contract/schema/utils";
-import { stableStringify } from "@ryot-app/ts-utils/json";
+import { encodeJsonString, stableStringify } from "@ryot-app/ts-utils/json";
 import { Context, DateTime, Effect, Exit, Layer, Result, Schema, Stream } from "effect";
 import { WorkflowEngine } from "effect/unstable/workflow/WorkflowEngine";
 
 import { rootLifecycleCommand } from "#lib/domain/lifecycle-command";
+import { DownloadTickets } from "#lib/infrastructure/download-tickets";
 import type { ImportSourceState } from "#lib/infrastructure/redis";
 import {
 	ImportSourceCatalog,
@@ -80,19 +81,19 @@ type DispatchImportRunInput = {
 const isTerminalStatus = (status: ImportRunStatus): boolean =>
 	status === "completed" || status === "failed" || status === "cancelled";
 
-const encodeJsonString = Schema.encodeSync(Schema.fromJsonString(Schema.String));
 const encodeImportRunFailure = Schema.encodeSync(Schema.fromJsonString(ImportRunFailureSchema));
 
 export class ImportsService extends Context.Service<ImportsService>()("ImportsService", {
 	make: Effect.gen(function* () {
-		const sourceStates = yield* ImportSourceStateStore;
 		const engine = yield* WorkflowEngine;
 		const uploads = yield* UploadIntentsService;
 		const repository = yield* ImportsRepository;
+		const downloadTickets = yield* DownloadTickets;
 		const importSources = yield* ImportSourceCatalog;
+		const dataAdmission = yield* DataImportAdmission;
+		const sourceStates = yield* ImportSourceStateStore;
 		const workflowPinning = yield* ImportWorkflowPinning;
 		const failureService = yield* ImportRunFailuresService;
-		const dataAdmission = yield* DataImportAdmission;
 
 		const createManualRun = Effect.fn("ImportsService.createManualRun")(function* (
 			input: CreateManualImportRunInput,
@@ -378,17 +379,18 @@ export class ImportsService extends Context.Service<ImportsService>()("ImportsSe
 				: yield* startSourcePayloadImportRun(user, body, properties, registered, workflowScript.id);
 		});
 
-		const requireImportRun = Effect.fn("ImportsService.requireImportRun")(function* (
-			user: CurrentUserValue,
-			runId: ImportRunId,
-		) {
-			const run = yield* repository.getRunById({ runId, userId: user.id });
-			if (!run) {
-				return yield* new ImportNotFoundError({ reason: { runId, code: "run-not-found" } });
-			}
+		const requireImportRunByUserId = Effect.fn("ImportsService.requireImportRunByUserId")(
+			function* (userId: UserId, runId: ImportRunId) {
+				const run = yield* repository.getRunById({ runId, userId });
+				if (!run) {
+					return yield* new ImportNotFoundError({ reason: { runId, code: "run-not-found" } });
+				}
 
-			return run;
-		});
+				return run;
+			},
+		);
+		const requireImportRun = (user: CurrentUserValue, runId: ImportRunId) =>
+			requireImportRunByUserId(user.id, runId);
 
 		const removeImportRun = Effect.fn("ImportsService.removeImportRun")(function* (
 			user: CurrentUserValue,
@@ -404,11 +406,7 @@ export class ImportsService extends Context.Service<ImportsService>()("ImportsSe
 			return { id: runId };
 		});
 
-		const downloadFailures = Effect.fn("ImportsService.downloadFailures")(function* (
-			user: CurrentUserValue,
-			runId: ImportRunId,
-		) {
-			const run = yield* requireImportRun(user, runId);
+		const createFailuresStream = (runId: ImportRunId, source: string) => {
 			const encoder = new TextEncoder();
 			const failureStream = (after?: ImportRunFailureCursor): Stream.Stream<Uint8Array, DbError> =>
 				Stream.fromEffect(repository.listRunFailurePage({ runId, after, limit: 100 })).pipe(
@@ -425,14 +423,49 @@ export class ImportsService extends Context.Service<ImportsService>()("ImportsSe
 
 			const stream = Stream.fromIterable([
 				encoder.encode(
-					`{"runId":${encodeJsonString(run.id)},"source":${encodeJsonString(run.source)},"failures":[`,
+					`{"runId":${encodeJsonString(runId)},"source":${encodeJsonString(source)},"failures":[`,
 				),
 			]).pipe(
 				Stream.concat(failureStream()),
 				Stream.concat(Stream.fromIterable([encoder.encode("]}")])),
 			);
-			return { stream, fileName: `ryot-import-failures-${run.id}.json` };
+			return { stream, fileName: `ryot-import-failures-${runId}.json` };
+		};
+
+		const downloadFailuresForUser = Effect.fn("ImportsService.downloadFailuresForUser")(function* (
+			userId: UserId,
+			runId: ImportRunId,
+		) {
+			const run = yield* requireImportRunByUserId(userId, runId);
+			return createFailuresStream(run.id, run.source);
 		});
+
+		const createFailuresDownloadTicket = Effect.fn("ImportsService.createFailuresDownloadTicket")(
+			function* (user: CurrentUserValue, runId: ImportRunId) {
+				yield* requireImportRun(user, runId);
+				return yield* downloadTickets.issue({
+					resource: runId,
+					subject: user.id,
+					purpose: "import-run-failures",
+				});
+			},
+		);
+
+		const downloadFailuresWithTicket = Effect.fn("ImportsService.downloadFailuresWithTicket")(
+			function* (ticket: string, runId: ImportRunId) {
+				const claims = yield* downloadTickets
+					.verify(ticket, { resource: runId, purpose: "import-run-failures" })
+					.pipe(
+						Effect.catchTag("DownloadTicketInvalid", () =>
+							Effect.fail(new ImportNotFoundError({ reason: { runId, code: "run-not-found" } })),
+						),
+					);
+				if (claims.subject === null) {
+					return yield* new ImportNotFoundError({ reason: { runId, code: "run-not-found" } });
+				}
+				return yield* downloadFailuresForUser(UserId.make(claims.subject), runId);
+			},
+		);
 
 		const createIntegrationRun = (input: {
 			userId: UserId;
@@ -497,13 +530,14 @@ export class ImportsService extends Context.Service<ImportsService>()("ImportsSe
 			finishCancelled,
 			createManualRun,
 			removeImportRun,
-			downloadFailures,
 			delete: deleteRun,
 			updateInputSummary,
 			getRunControlForUser,
 			createIntegrationRun,
 			failRunForIntegration,
 			createIntegrationRunIfIdle,
+			downloadFailuresWithTicket,
+			createFailuresDownloadTicket,
 			settleIntegrationDispatchFailure,
 		};
 	}),

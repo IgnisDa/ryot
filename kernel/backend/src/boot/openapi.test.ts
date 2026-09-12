@@ -125,6 +125,8 @@ describe("OpenAPI documentation", () => {
 		expect(paths["/test-support/relationships/global"]?.put).toBeDefined();
 		expect(paths["/plugins/{pluginSlug}/state"]?.patch).toBeDefined();
 		expect(paths["/backups/runs/{id}/download"]?.get).toBeDefined();
+		expect(paths["/backups/runs/{id}/download-url"]?.post).toBeDefined();
+		expect(paths["/imports/runs/{runId}/failures/download-url"]?.post).toBeDefined();
 		expect(paths["/backups/runs/{id}"]?.delete).toBeDefined();
 		expect(paths["/integrations/{integrationId}"]?.patch).toBeDefined();
 		expect(paths["/automations/rules"]?.post).toBeDefined();

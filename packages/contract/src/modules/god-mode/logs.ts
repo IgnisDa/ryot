@@ -2,6 +2,7 @@ import { Schema } from "effect";
 import { HttpApiEndpoint, HttpApiGroup, HttpApiSchema, OpenApi } from "effect/unstable/httpapi";
 
 import { AdminMiddleware } from "../../auth-middleware";
+import { DownloadUrlResponse } from "../../schema/downloads";
 
 const ServerLogFile = Schema.Struct({
 	id: Schema.String,
@@ -50,19 +51,37 @@ export const ServerLogsGroup = HttpApiGroup.make("serverLogs")
 			.annotate(OpenApi.Description, "Lists available server log files"),
 	)
 	.add(
+		HttpApiEndpoint.post("createFileDownloadTicket", "/god-mode/logs/files/:id/download-url", {
+			error: errors,
+			success: DownloadUrlResponse,
+			params: { id: Schema.String },
+		})
+			.middleware(AdminMiddleware)
+			.annotate(OpenApi.Description, "Creates a short-lived URL to download one server log file"),
+	)
+	.add(
+		HttpApiEndpoint.post("createAllDownloadTicket", "/god-mode/logs/download-url", {
+			error: errors,
+			success: DownloadUrlResponse,
+		})
+			.middleware(AdminMiddleware)
+			.annotate(OpenApi.Description, "Creates a short-lived URL to download all server logs"),
+	);
+
+export const ServerLogDownloadsGroup = HttpApiGroup.make("serverLogDownloads")
+	.annotate(OpenApi.Description, "Downloads server logs with a short-lived URL")
+	.add(
 		HttpApiEndpoint.get("downloadFile", "/god-mode/logs/files/:id/download", {
 			error: errors,
 			params: { id: Schema.String },
+			query: { ticket: Schema.NonEmptyString },
 			success: HttpApiSchema.StreamUint8Array(),
-		})
-			.middleware(AdminMiddleware)
-			.annotate(OpenApi.Description, "Downloads one server log file"),
+		}).annotate(OpenApi.Description, "Downloads one server log file with a short-lived URL"),
 	)
 	.add(
 		HttpApiEndpoint.get("downloadAll", "/god-mode/logs/download", {
 			error: errors,
+			query: { ticket: Schema.NonEmptyString },
 			success: HttpApiSchema.StreamUint8Array(),
-		})
-			.middleware(AdminMiddleware)
-			.annotate(OpenApi.Description, "Downloads all server log files"),
+		}).annotate(OpenApi.Description, "Downloads all server log files with a short-lived URL"),
 	);

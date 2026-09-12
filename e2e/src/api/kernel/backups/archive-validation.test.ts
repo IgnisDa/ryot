@@ -60,9 +60,7 @@ describe("V1 backup archive validation", () => {
 			const target = yield* createAuthenticatedClient();
 			const before = yield* inspectAccount(target.client);
 			yield* createIntegration(source.client, { provider: "data-json", providerSpecifics: {} });
-			const entries = unzipSync(
-				(yield* exportAndDownloadBackup(source.client, source.token)).bytes,
-			);
+			const entries = unzipSync((yield* exportAndDownloadBackup(source.client)).bytes);
 			const manifestBytes = requirePresent(entries["manifest.json"], "Expected backup manifest");
 			const integrationBytes = requirePresent(
 				entries["integrations.ndjson"],
@@ -109,9 +107,9 @@ describe("V1 backup archive validation", () => {
 
 	it.live("rejects every non-V1 manifest version without mutating the account", () =>
 		Effect.gen(function* () {
-			const { email, token, client } = yield* createAuthenticatedClient();
+			const { email, client } = yield* createAuthenticatedClient();
 			const before = yield* inspectAccount(client);
-			const entries = unzipSync((yield* exportAndDownloadBackup(client, token)).bytes);
+			const entries = unzipSync((yield* exportAndDownloadBackup(client)).bytes);
 
 			for (const version of [0, 2]) {
 				const manifestBytes = entries["manifest.json"];
@@ -137,9 +135,9 @@ describe("V1 backup archive validation", () => {
 
 	it.live("rejects a stale section checksum without mutating the account", () =>
 		Effect.gen(function* () {
-			const { email, token, client } = yield* createAuthenticatedClient();
+			const { email, client } = yield* createAuthenticatedClient();
 			const before = yield* inspectAccount(client);
-			const entries = unzipSync((yield* exportAndDownloadBackup(client, token)).bytes);
+			const entries = unzipSync((yield* exportAndDownloadBackup(client)).bytes);
 			const profile = entries["profile.json"]?.slice();
 			assert(profile);
 			profile[0] = profile[0] === 123 ? 91 : 123;
@@ -153,9 +151,9 @@ describe("V1 backup archive validation", () => {
 
 	it.live("rejects a traversal entry without mutating or blocking the account", () =>
 		Effect.gen(function* () {
-			const { email, token, client } = yield* createAuthenticatedClient();
+			const { email, client } = yield* createAuthenticatedClient();
 			const before = yield* inspectAccount(client);
-			const entries = unzipSync((yield* exportAndDownloadBackup(client, token)).bytes);
+			const entries = unzipSync((yield* exportAndDownloadBackup(client)).bytes);
 			const archive = zipSync({ ...entries, "../escape": new Uint8Array([1]) });
 
 			const failed = yield* restoreBackup(client, archive);
