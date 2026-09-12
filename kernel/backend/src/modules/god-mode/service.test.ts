@@ -1,4 +1,4 @@
-import { expect, it } from "@effect/vitest";
+import { expect, layer } from "@effect/vitest";
 import { defaultUserPreferences } from "@ryot-app/contract/auth-middleware";
 import { DbError } from "@ryot-app/contract/errors";
 import {
@@ -6,7 +6,7 @@ import {
 	GodModeRequestFailure,
 } from "@ryot-app/contract/modules/god-mode/contract";
 import { UserId } from "@ryot-app/contract/schema/brands";
-import { Effect, Layer } from "effect";
+import { Context, Effect, Layer, Ref } from "effect";
 import { describe, it as vitestIt } from "vitest";
 
 import { DatabaseSession } from "#lib/infrastructure/db/session";
@@ -24,57 +24,17 @@ import { UserLifecycleService } from "#modules/user-lifecycle/service";
 import { GodModeRepository } from "./repository";
 import { checkResetEligibility, GodModeService } from "./service";
 
-const makeAuthMock = (state?: {
-	deleteUserSessionsCalled: boolean;
-	updateAuthUserDisabledError?: Error;
-	updateInput?: { disabledAt: Date | null; updatedAt: Date } | undefined;
-}) =>
-	Object.assign(Object.create(null), {
-		currentUser: () => Effect.die("unused"),
-		createAuthUser: () => Effect.die("unused"),
-		linkAuthAccount: () => Effect.die("unused"),
-		purgeApiKeyCaches: () => Effect.die("unused"),
-		auth: { api: { requestPasswordReset: () => Promise.resolve(undefined) } },
-		deleteUserSessions: () => {
-			if (state) {
-				state.deleteUserSessionsCalled = true;
-			}
-			return Effect.void;
-		},
-		updateAuthUserDisabled: (
-			_userId: UserId,
-			input: { disabledAt: Date | null; updatedAt: Date },
-		) => {
-			if (state) {
-				state.updateInput = input;
-			}
-			return state?.updateAuthUserDisabledError
-				? Effect.fail(new DbError({ message: state.updateAuthUserDisabledError.message }))
-				: Effect.void;
-		},
-	});
+type DisabledUpdate = { disabledAt: Date | null; updatedAt: Date };
 
-const makeProvisionAuthMock = (
-	state: {
-		createdUser: null | Record<string, unknown>;
-		createdAccount: null | Record<string, unknown>;
-	},
-	options?: { createUserError?: Error; createAccountError?: Error },
-) =>
-	Object.assign(Object.create(null), makeAuthMock(), {
-		createAuthUser: (user: Record<string, unknown>) => {
-			state.createdUser = user;
-			return options?.createUserError
-				? Effect.fail(new DbError({ message: options.createUserError.message }))
-				: Effect.succeed(user);
-		},
-		linkAuthAccount: (account: Record<string, unknown>) => {
-			state.createdAccount = account;
-			return options?.createAccountError
-				? Effect.fail(new DbError({ message: options.createAccountError.message }))
-				: Effect.succeed(account);
-		},
-	});
+class FakeGodModeAuth extends Context.Service<
+	FakeGodModeAuth,
+	{
+		readonly sessionsDeleted: Effect.Effect<boolean>;
+		readonly lastDisabledUpdate: Effect.Effect<DisabledUpdate | undefined>;
+		readonly createdUser: Effect.Effect<Record<string, unknown> | null>;
+		readonly createdAccount: Effect.Effect<Record<string, unknown> | null>;
+	}
+>()("test/FakeGodModeAuth") {}
 
 const makeRedisMock = () =>
 	makeRedisService({
@@ -87,108 +47,92 @@ const makeRedisMock = () =>
 		}),
 	});
 
-const makeDatabaseLayer = (db: object) =>
-	Layer.mock(DatabaseSession)({ current: Effect.succeed(Object.assign(Object.create(null), db)) });
+const failWith = (message: string | undefined) =>
+	message === undefined ? Effect.void : Effect.fail(new DbError({ message }));
 
-const bootstrapEntitiesServiceLayer = Layer.mock(EntitiesService)({
-	create: () => Effect.succeed(Object.create(null)),
-});
-const bootstrapNotificationSubscriptionsServiceLayer = Layer.mock(NotificationSubscriptionsService)(
-	{ ensureDefaultRules: () => Effect.void },
-);
-const bootstrapSavedViewsServiceLayer = Layer.mock(SavedViewsService)({});
-const pluginUserBootstrapDispatcherLayer = Layer.mock(PluginUserBootstrapDispatcher)({
-	dispatchAll: () => Effect.void,
-});
+const fakeAuthLayer = (errors: {
+	readonly updateAuthUserDisabled?: string;
+	readonly createUser?: string;
+	readonly createAccount?: string;
+}) =>
+	Layer.effectContext(
+		Effect.gen(function* () {
+			const sessionsDeleted = yield* Ref.make(false);
+			const lastDisabledUpdate = yield* Ref.make<DisabledUpdate | undefined>(undefined);
+			const createdUser = yield* Ref.make<Record<string, unknown> | null>(null);
+			const createdAccount = yield* Ref.make<Record<string, unknown> | null>(null);
+			return Context.make(
+				AuthService,
+				Object.assign(Object.create(null), {
+					currentUser: () => Effect.die("unused"),
+					purgeApiKeyCaches: () => Effect.die("unused"),
+					deleteUserSessions: () => Ref.set(sessionsDeleted, true),
+					auth: { api: { requestPasswordReset: () => Promise.resolve(undefined) } },
+					createAuthUser: (user: Record<string, unknown>) =>
+						Ref.set(createdUser, user).pipe(
+							Effect.andThen(failWith(errors.createUser)),
+							Effect.as(user),
+						),
+					updateAuthUserDisabled: (_userId: UserId, input: DisabledUpdate) =>
+						Ref.set(lastDisabledUpdate, input).pipe(
+							Effect.andThen(failWith(errors.updateAuthUserDisabled)),
+						),
+					linkAuthAccount: (account: Record<string, unknown>) =>
+						Ref.set(createdAccount, account).pipe(
+							Effect.andThen(failWith(errors.createAccount)),
+							Effect.as(account),
+						),
+				}),
+			).pipe(
+				Context.add(FakeGodModeAuth, {
+					createdUser: Ref.get(createdUser),
+					createdAccount: Ref.get(createdAccount),
+					sessionsDeleted: Ref.get(sessionsDeleted),
+					lastDisabledUpdate: Ref.get(lastDisabledUpdate),
+				}),
+			);
+		}),
+	);
+
+const selectingDatabaseLayer = (rows: ReadonlyArray<object>) =>
+	Layer.mock(DatabaseSession)({
+		current: Effect.succeed(
+			Object.assign(Object.create(null), {
+				select: () => ({
+					from: () => ({
+						where: () => Object.assign(Effect.succeed(rows), { limit: () => Effect.succeed(rows) }),
+					}),
+				}),
+			}),
+		),
+	});
+
 const defaultUserLifecycleServiceLayer = Layer.mock(UserLifecycleService)({
 	resetUser: () => Effect.die("unused"),
 	deleteUser: () => Effect.die("unused"),
 });
 
-const makeServiceLayer = (
-	db: object,
-	disableLocalAuth = false,
-	authState?: Parameters<typeof makeAuthMock>[0],
-	auth: ReturnType<typeof makeAuthMock> = makeAuthMock(authState),
-	lifecycleLayer = defaultUserLifecycleServiceLayer,
-) =>
+const godModeLayer = (options: {
+	readonly rows: ReadonlyArray<object>;
+	readonly disableLocalAuth?: boolean;
+	readonly lifecycle?: Layer.Layer<UserLifecycleService>;
+	readonly errors?: Parameters<typeof fakeAuthLayer>[0];
+}) =>
 	GodModeService.layer.pipe(
 		Layer.provideMerge(
 			Layer.mergeAll(
 				GodModeRepository.layer,
-				makeAppConfigLayer({ users: { disableLocalAuth } }),
-				Layer.succeed(AuthService, auth),
+				makeAppConfigLayer({ users: { disableLocalAuth: options.disableLocalAuth ?? false } }),
+				fakeAuthLayer(options.errors ?? {}),
 				Layer.succeed(RedisService, makeRedisMock()),
-				bootstrapEntitiesServiceLayer,
-				bootstrapNotificationSubscriptionsServiceLayer,
-				bootstrapSavedViewsServiceLayer,
-				pluginUserBootstrapDispatcherLayer,
-				lifecycleLayer,
-			).pipe(Layer.provideMerge(makeDatabaseLayer(db))),
+				Layer.mock(EntitiesService)({ create: () => Effect.succeed(Object.create(null)) }),
+				Layer.mock(NotificationSubscriptionsService)({ ensureDefaultRules: () => Effect.void }),
+				Layer.mock(SavedViewsService)({}),
+				Layer.mock(PluginUserBootstrapDispatcher)({ dispatchAll: () => Effect.void }),
+				options.lifecycle ?? defaultUserLifecycleServiceLayer,
+			).pipe(Layer.provideMerge(selectingDatabaseLayer(options.rows))),
 		),
 	);
-
-const makeProvisionLayer = (db: object, auth: ReturnType<typeof makeProvisionAuthMock>) =>
-	GodModeService.layer.pipe(
-		Layer.provideMerge(
-			Layer.mergeAll(
-				GodModeRepository.layer,
-				makeAppConfigLayer(),
-				Layer.succeed(AuthService, auth),
-				Layer.succeed(RedisService, makeRedisMock()),
-				bootstrapEntitiesServiceLayer,
-				bootstrapNotificationSubscriptionsServiceLayer,
-				bootstrapSavedViewsServiceLayer,
-				pluginUserBootstrapDispatcherLayer,
-				defaultUserLifecycleServiceLayer,
-			).pipe(Layer.provideMerge(makeDatabaseLayer(db))),
-		),
-	);
-
-const makeSetUserDisabledDb = (options: {
-	user: { id: string; disabledAt: Date | null } | null;
-}) => {
-	const db = Object.assign(Object.create(null), {
-		select: () => ({
-			from: () => ({
-				where: () =>
-					Object.assign(Effect.succeed(options.user ? [options.user] : []), {
-						limit: () => Effect.succeed(options.user ? [options.user] : []),
-					}),
-			}),
-		}),
-	});
-
-	return { db };
-};
-
-const makeProvisionUserDb = (options?: {
-	existingUserId?: string;
-	createUserError?: Error;
-	createAccountError?: Error;
-}) => {
-	const state = {
-		createdUser: null as null | Record<string, unknown>,
-		createdAccount: null as null | Record<string, unknown>,
-	};
-
-	const db = Object.assign(Object.create(null), {
-		select: () => ({
-			from: () => ({
-				where: () =>
-					Object.assign(
-						Effect.succeed(options?.existingUserId ? [{ id: options.existingUserId }] : []),
-						{
-							limit: () =>
-								Effect.succeed(options?.existingUserId ? [{ id: options.existingUserId }] : []),
-						},
-					),
-			}),
-		}),
-	});
-
-	return { db, state, auth: makeProvisionAuthMock(state, options) };
-};
 
 describe("classifyAuthState", () => {
 	vitestIt("returns none when there are no accounts", () => {
@@ -242,132 +186,125 @@ describe("checkResetEligibility", () => {
 	});
 });
 
-it.effect("blocks password reset when local auth is disabled", () => {
-	const { db } = makeSetUserDisabledDb({ user: null });
-
-	return Effect.gen(function* () {
-		const service = yield* GodModeService;
-		const exit = yield* Effect.exit(service.resetUserPassword(UserId.make("user_1")));
-		assertExitFails(exit, new GodModeRequestFailure({ reason: { code: "local-auth-disabled" } }));
-	}).pipe(Effect.provide(makeServiceLayer(db, true)));
+layer(godModeLayer({ rows: [], disableLocalAuth: true }))((test) => {
+	test.effect("blocks password reset when local auth is disabled", () =>
+		Effect.gen(function* () {
+			const service = yield* GodModeService;
+			const exit = yield* Effect.exit(service.resetUserPassword(UserId.make("user_1")));
+			assertExitFails(exit, new GodModeRequestFailure({ reason: { code: "local-auth-disabled" } }));
+		}),
+	);
 });
 
-it.effect("disables an enabled user and deletes sessions", () => {
-	const { db } = makeSetUserDisabledDb({ user: { id: "user_1", disabledAt: null } });
-	const authState = {
-		deleteUserSessionsCalled: false,
-		updateInput: undefined as { disabledAt: Date | null; updatedAt: Date } | undefined,
-	};
+layer(godModeLayer({ rows: [{ id: "user_1", disabledAt: null }] }))((test) => {
+	test.effect("disables an enabled user and deletes sessions", () =>
+		Effect.gen(function* () {
+			const service = yield* GodModeService;
+			const result = yield* service.setUserDisabled(UserId.make("user_1"), true);
 
-	return Effect.gen(function* () {
-		const service = yield* GodModeService;
-		const result = yield* service.setUserDisabled(UserId.make("user_1"), true);
-
-		expect(result).toEqual({ id: UserId.make("user_1") });
-		expect(authState.deleteUserSessionsCalled).toBe(true);
-		expect(authState.updateInput?.disabledAt).toBeInstanceOf(Date);
-		expect(authState.updateInput?.updatedAt).toEqual(authState.updateInput?.disabledAt);
-	}).pipe(Effect.provide(makeServiceLayer(db, false, authState)));
+			const auth = yield* FakeGodModeAuth;
+			const updateInput = yield* auth.lastDisabledUpdate;
+			expect(result).toEqual({ id: UserId.make("user_1") });
+			expect(yield* auth.sessionsDeleted).toBe(true);
+			expect(updateInput?.disabledAt).toBeInstanceOf(Date);
+			expect(updateInput?.updatedAt).toEqual(updateInput?.disabledAt);
+		}),
+	);
 });
 
-it.effect("preserves an existing disabledAt when disabling an already-disabled user", () => {
-	const existingDisabledAt = new Date("2024-01-02T00:00:00Z");
-	const { db } = makeSetUserDisabledDb({ user: { id: "user_1", disabledAt: existingDisabledAt } });
-	const authState = {
-		deleteUserSessionsCalled: false,
-		updateInput: undefined as { disabledAt: Date | null; updatedAt: Date } | undefined,
-	};
+const existingDisabledAt = new Date("2024-01-02T00:00:00Z");
 
-	return Effect.gen(function* () {
-		const service = yield* GodModeService;
-		const result = yield* service.setUserDisabled(UserId.make("user_1"), true);
+layer(godModeLayer({ rows: [{ id: "user_1", disabledAt: existingDisabledAt }] }))((test) => {
+	test.effect("preserves an existing disabledAt when disabling an already-disabled user", () =>
+		Effect.gen(function* () {
+			const service = yield* GodModeService;
+			const result = yield* service.setUserDisabled(UserId.make("user_1"), true);
 
-		expect(result).toEqual({ id: UserId.make("user_1") });
-		expect(authState.deleteUserSessionsCalled).toBe(true);
-		expect(authState.updateInput?.disabledAt).toBe(existingDisabledAt);
-	}).pipe(Effect.provide(makeServiceLayer(db, false, authState)));
+			const auth = yield* FakeGodModeAuth;
+			expect(result).toEqual({ id: UserId.make("user_1") });
+			expect(yield* auth.sessionsDeleted).toBe(true);
+			expect((yield* auth.lastDisabledUpdate)?.disabledAt).toBe(existingDisabledAt);
+		}),
+	);
 });
 
-it.effect("enables a disabled user without deleting sessions", () => {
-	const { db } = makeSetUserDisabledDb({
-		user: { id: "user_1", disabledAt: new Date("2024-01-02T00:00:00Z") },
-	});
-	const authState = {
-		deleteUserSessionsCalled: false,
-		updateInput: undefined as { disabledAt: Date | null; updatedAt: Date } | undefined,
-	};
+layer(godModeLayer({ rows: [{ id: "user_1", disabledAt: new Date("2024-01-02T00:00:00Z") }] }))(
+	(test) => {
+		test.effect("enables a disabled user without deleting sessions", () =>
+			Effect.gen(function* () {
+				const service = yield* GodModeService;
+				const result = yield* service.setUserDisabled(UserId.make("user_1"), false);
 
-	return Effect.gen(function* () {
-		const service = yield* GodModeService;
-		const result = yield* service.setUserDisabled(UserId.make("user_1"), false);
-
-		expect(result).toEqual({ id: UserId.make("user_1") });
-		expect(authState.deleteUserSessionsCalled).toBe(false);
-		expect(authState.updateInput).toMatchObject({ disabledAt: null });
-	}).pipe(Effect.provide(makeServiceLayer(db, false, authState)));
-});
-
-it.effect("enabling an already-enabled user does not delete sessions", () => {
-	const { db } = makeSetUserDisabledDb({ user: { id: "user_1", disabledAt: null } });
-	const authState = {
-		deleteUserSessionsCalled: false,
-		updateInput: undefined as { disabledAt: Date | null; updatedAt: Date } | undefined,
-	};
-
-	return Effect.gen(function* () {
-		const service = yield* GodModeService;
-		const result = yield* service.setUserDisabled(UserId.make("user_1"), false);
-
-		expect(result).toEqual({ id: UserId.make("user_1") });
-		expect(authState.deleteUserSessionsCalled).toBe(false);
-	}).pipe(Effect.provide(makeServiceLayer(db, false, authState)));
-});
-
-it.effect("returns a bad request when the user is not found while setting disabled state", () => {
-	const { db } = makeSetUserDisabledDb({ user: null });
-
-	return Effect.gen(function* () {
-		const service = yield* GodModeService;
-		const exit = yield* Effect.exit(service.setUserDisabled(UserId.make("missing"), true));
-		assertExitFails(
-			exit,
-			new GodModeNotFound({ reason: { code: "user-not-found", userId: UserId.make("missing") } }),
+				const auth = yield* FakeGodModeAuth;
+				expect(result).toEqual({ id: UserId.make("user_1") });
+				expect(yield* auth.sessionsDeleted).toBe(false);
+				expect(yield* auth.lastDisabledUpdate).toMatchObject({ disabledAt: null });
+			}),
 		);
-	}).pipe(Effect.provide(makeServiceLayer(db)));
+	},
+);
+
+layer(godModeLayer({ rows: [{ id: "user_1", disabledAt: null }] }))((test) => {
+	test.effect("enabling an already-enabled user does not delete sessions", () =>
+		Effect.gen(function* () {
+			const service = yield* GodModeService;
+			const result = yield* service.setUserDisabled(UserId.make("user_1"), false);
+
+			expect(result).toEqual({ id: UserId.make("user_1") });
+			expect(yield* (yield* FakeGodModeAuth).sessionsDeleted).toBe(false);
+		}),
+	);
 });
 
-it.effect("returns a db error when persisting disabled state fails", () => {
-	const { db } = makeSetUserDisabledDb({ user: { id: "user_1", disabledAt: null } });
-	const authState = {
-		deleteUserSessionsCalled: false,
-		updateAuthUserDisabledError: new Error("db down"),
-	};
-
-	return Effect.gen(function* () {
-		const service = yield* GodModeService;
-		const exit = yield* Effect.exit(service.setUserDisabled(UserId.make("user_1"), true));
-		assertExitFails(exit, new DbError({ message: "db down" }));
-	}).pipe(Effect.provide(makeServiceLayer(db, false, authState)));
+layer(godModeLayer({ rows: [] }))((test) => {
+	test.effect("returns a bad request when the user is not found while setting disabled state", () =>
+		Effect.gen(function* () {
+			const service = yield* GodModeService;
+			const exit = yield* Effect.exit(service.setUserDisabled(UserId.make("missing"), true));
+			assertExitFails(
+				exit,
+				new GodModeNotFound({ reason: { code: "user-not-found", userId: UserId.make("missing") } }),
+			);
+		}),
+	);
 });
 
-it.effect("delegates deletion to the durable lifecycle service", () => {
-	const { db } = makeSetUserDisabledDb({ user: null });
-	const operation = { operationId: "operation-1" };
-	const lifecycle = Layer.mock(UserLifecycleService)({
-		resetUser: () => Effect.die("unused"),
-		deleteUser: () => Effect.succeed(operation),
-	});
-
-	return Effect.gen(function* () {
-		const service = yield* GodModeService;
-		expect(yield* service.deleteUser(UserId.make("user_1"))).toEqual(operation);
-	}).pipe(Effect.provide(makeServiceLayer(db, false, undefined, makeAuthMock(), lifecycle)));
+layer(
+	godModeLayer({
+		rows: [{ id: "user_1", disabledAt: null }],
+		errors: { updateAuthUserDisabled: "db down" },
+	}),
+)((test) => {
+	test.effect("returns a db error when persisting disabled state fails", () =>
+		Effect.gen(function* () {
+			const service = yield* GodModeService;
+			const exit = yield* Effect.exit(service.setUserDisabled(UserId.make("user_1"), true));
+			assertExitFails(exit, new DbError({ message: "db down" }));
+		}),
+	);
 });
 
-vitestIt("creates a credential user without an account row", () => {
-	const { db, auth, state } = makeProvisionUserDb();
+const deleteOperation = { operationId: "operation-1" };
 
-	return Effect.runPromise(
+layer(
+	godModeLayer({
+		rows: [],
+		lifecycle: Layer.mock(UserLifecycleService)({
+			resetUser: () => Effect.die("unused"),
+			deleteUser: () => Effect.succeed(deleteOperation),
+		}),
+	}),
+)((test) => {
+	test.effect("delegates deletion to the durable lifecycle service", () =>
+		Effect.gen(function* () {
+			const service = yield* GodModeService;
+			expect(yield* service.deleteUser(UserId.make("user_1"))).toEqual(deleteOperation);
+		}),
+	);
+});
+
+layer(godModeLayer({ rows: [] }))((test) => {
+	test.effect("creates a credential user without an account row", () =>
 		Effect.gen(function* () {
 			const service = yield* GodModeService;
 			const result = yield* service.provisionUser({
@@ -376,22 +313,22 @@ vitestIt("creates a credential user without an account row", () => {
 				email: "new@example.com",
 			});
 
-			expect(result.userId).toBe(state.createdUser?.["id"]);
-			expect(state.createdUser).toMatchObject({
+			const auth = yield* FakeGodModeAuth;
+			const createdUser = yield* auth.createdUser;
+			expect(result.userId).toBe(createdUser?.["id"]);
+			expect(createdUser).toMatchObject({
 				emailVerified: true,
 				name: "new@example.com",
 				email: "new@example.com",
 				preferences: defaultUserPreferences,
 			});
-			expect(state.createdAccount).toBeNull();
-		}).pipe(Effect.provide(makeProvisionLayer(db, auth))),
+			expect(yield* auth.createdAccount).toBeNull();
+		}),
 	);
 });
 
-vitestIt("creates an oidc user with an account stub", () => {
-	const { db, auth, state } = makeProvisionUserDb();
-
-	return Effect.runPromise(
+layer(godModeLayer({ rows: [] }))((test) => {
+	test.effect("creates an oidc user with an account stub", () =>
 		Effect.gen(function* () {
 			const service = yield* GodModeService;
 			const result = yield* service.provisionUser({
@@ -401,20 +338,19 @@ vitestIt("creates an oidc user with an account stub", () => {
 				oidcIssuerId: "google|123",
 			});
 
-			expect(result.userId).toBe(state.createdUser?.["id"]);
-			expect(state.createdAccount).toMatchObject({
+			const auth = yield* FakeGodModeAuth;
+			expect(result.userId).toBe((yield* auth.createdUser)?.["id"]);
+			expect(yield* auth.createdAccount).toMatchObject({
 				providerId: "oidc",
 				userId: result.userId,
 				accountId: "google|123",
 			});
-		}).pipe(Effect.provide(makeProvisionLayer(db, auth))),
+		}),
 	);
 });
 
-vitestIt("returns a bad request when provisioning a user that already exists", () => {
-	const { db, auth } = makeProvisionUserDb({ existingUserId: "existing" });
-
-	return Effect.runPromise(
+layer(godModeLayer({ rows: [{ id: "existing" }] }))((test) => {
+	test.effect("returns a bad request when provisioning a user that already exists", () =>
 		Effect.gen(function* () {
 			const service = yield* GodModeService;
 			const exit = yield* Effect.exit(
@@ -431,14 +367,12 @@ vitestIt("returns a bad request when provisioning a user that already exists", (
 					reason: { code: "user-already-exists", email: "exists@example.com" },
 				}),
 			);
-		}).pipe(Effect.provide(makeProvisionLayer(db, auth))),
+		}),
 	);
 });
 
-vitestIt("returns a db error when user creation fails during provisioning", () => {
-	const { db, auth } = makeProvisionUserDb({ createUserError: new Error("db down") });
-
-	return Effect.runPromise(
+layer(godModeLayer({ rows: [], errors: { createUser: "db down" } }))((test) => {
+	test.effect("returns a db error when user creation fails during provisioning", () =>
 		Effect.gen(function* () {
 			const service = yield* GodModeService;
 			const exit = yield* Effect.exit(
@@ -450,14 +384,12 @@ vitestIt("returns a db error when user creation fails during provisioning", () =
 			);
 
 			assertExitFails(exit, new DbError({ message: "db down" }));
-		}).pipe(Effect.provide(makeProvisionLayer(db, auth))),
+		}),
 	);
 });
 
-vitestIt("returns a db error when oidc account creation fails during provisioning", () => {
-	const { db, auth } = makeProvisionUserDb({ createAccountError: new Error("db down") });
-
-	return Effect.runPromise(
+layer(godModeLayer({ rows: [], errors: { createAccount: "db down" } }))((test) => {
+	test.effect("returns a db error when oidc account creation fails during provisioning", () =>
 		Effect.gen(function* () {
 			const service = yield* GodModeService;
 			const exit = yield* Effect.exit(
@@ -470,6 +402,6 @@ vitestIt("returns a db error when oidc account creation fails during provisionin
 			);
 
 			assertExitFails(exit, new DbError({ message: "db down" }));
-		}).pipe(Effect.provide(makeProvisionLayer(db, auth))),
+		}),
 	);
 });
