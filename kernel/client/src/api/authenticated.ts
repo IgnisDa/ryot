@@ -1,6 +1,7 @@
 import { AuthUnauthorized, DemoOperationProtected } from "@ryot-app/contract/auth-middleware";
-import { runContract, type ContractProgram } from "@ryot-app/contract/client";
+import { makeContractClient, type ContractProgram } from "@ryot-app/contract/client";
 import { Context, Data, Effect, Layer } from "effect";
+import { HttpClient } from "effect/unstable/http";
 
 import { serverApiUrl } from "#/api/origin";
 import type { ApiScope } from "#/api/scope";
@@ -27,6 +28,7 @@ export type AuthenticatedApiService = {
 
 export const makeAuthenticatedApi = (
 	tokens: OAuthTokenService["Service"],
+	http: HttpClient.HttpClient,
 ): AuthenticatedApiService => ({
 	authorization: (scope: ApiScope) =>
 		Effect.gen(function* () {
@@ -41,15 +43,10 @@ export const makeAuthenticatedApi = (
 		const attempt = (forceRefresh: boolean) =>
 			Effect.gen(function* () {
 				const token = yield* tokens.accessToken(scope.serverUrl, forceRefresh);
-				return yield* Effect.tryPromise({
-					catch: (cause) => new AuthenticatedApiError({ cause }),
-					try: (signal) =>
-						runContract(program, {
-							signal,
-							baseUrl: serverApiUrl(scope.serverUrl),
-							...(token ? { headers: { Authorization: `Bearer ${token}` } } : {}),
-						}),
-				});
+				return yield* makeContractClient(
+					serverApiUrl(scope.serverUrl),
+					token ? { Authorization: `Bearer ${token}` } : {},
+				).pipe(Effect.flatMap(program), Effect.provideService(HttpClient.HttpClient, http));
 			}).pipe(
 				Effect.mapError((cause) =>
 					cause instanceof AuthenticatedApiError ? cause : new AuthenticatedApiError({ cause }),
@@ -70,7 +67,7 @@ export class AuthenticatedApi extends Context.Service<AuthenticatedApi, Authenti
 	"AuthenticatedApi",
 	{
 		make: Effect.gen(function* () {
-			return makeAuthenticatedApi(yield* OAuthTokenService);
+			return makeAuthenticatedApi(yield* OAuthTokenService, yield* HttpClient.HttpClient);
 		}),
 	},
 ) {

@@ -1,5 +1,5 @@
-import { Effect } from "effect";
-import { FetchHttpClient, HttpClient, HttpClientRequest } from "effect/unstable/http";
+import type { Effect } from "effect";
+import { HttpClient, HttpClientRequest } from "effect/unstable/http";
 import { HttpApiClient } from "effect/unstable/httpapi";
 
 import { AppContract, type AppGroups } from "./contract";
@@ -19,25 +19,6 @@ export const makeContractClient = (
 
 export type ContractClient = Effect.Success<ReturnType<typeof makeContractClient>>;
 export type ContractProgram<A, E> = (client: ContractClient) => Effect.Effect<A, E>;
-
-export interface RunContractOptions {
-	baseUrl: string;
-	signal?: AbortSignal;
-	headers?: RequestHeaders;
-}
-
-export const runContract = <A, E>(
-	program: ContractProgram<A, E>,
-	{ signal, baseUrl, headers = {} }: RunContractOptions,
-): Promise<A> => {
-	const program$ = makeContractClient(baseUrl, headers).pipe(Effect.flatMap(program));
-	return Effect.runPromise(program$.pipe(Effect.provide(FetchHttpClient.layer)), { signal });
-};
-
-export const runContractError = <A, E>(
-	program: ContractProgram<A, E>,
-	options: RunContractOptions,
-): Promise<E> => runContract((client) => Effect.flip(program(client)), options);
 
 type StripResponseMeta<T> = T extends readonly [infer Data, unknown] ? Data : T;
 type GroupKey = keyof ContractClient;

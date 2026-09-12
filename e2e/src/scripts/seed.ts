@@ -4,7 +4,7 @@ import { faker } from "@faker-js/faker";
 import {
 	ContractPayload,
 	ContractSuccess,
-	runContract,
+	makeContractClient,
 	type ContractProgram,
 	type ContractRequest,
 } from "@ryot-app/contract/client";
@@ -43,7 +43,7 @@ import {
 	savedViewRecipe,
 } from "@ryot-app/ryotql-recipes/saved-views";
 import { createAuthClient } from "better-auth/client";
-import { Effect, Result, Schema } from "effect";
+import { Effect, Result } from "effect";
 
 import { requirePresent } from "~/support/assertions";
 import { runPromise } from "~/support/e2e-runtime";
@@ -60,9 +60,9 @@ import {
 
 type EntitySchemaInputSlug = ContractPayload<"entities", "create">["entitySchemaSlug"];
 
+const ENABLE_2FA = process.argv.includes("--enable-2fa");
 const FRONTEND_URL = process.env.FRONTEND_URL || "http://localhost:3005";
 const API_BASE_URL = process.env.API_BASE_URL ?? "http://localhost:3000/api";
-const ENABLE_2FA = process.argv.includes("--enable-2fa");
 const adminHeaders = adminAccessTokenHeaders(
 	process.env.SERVER_ADMIN_ACCESS_TOKEN ?? "super-secret-token-that-should-be-changed",
 );
@@ -122,8 +122,8 @@ async function createAndSignIn(): Promise<{
 			baseUrl: API_BASE_URL,
 		});
 		finalToken = twoFactor.token;
-		backupCodes = twoFactor.backupCodes;
 		totpCodes = twoFactor.totpCodes;
+		backupCodes = twoFactor.backupCodes;
 	}
 
 	return {
@@ -143,11 +143,11 @@ type SavedViewDefinition = Pick<CreateSavedViewBody, "dataSources" | "settings">
 type SavedViewProjectionInput = Parameters<typeof buildSavedViewLayoutProjections>[0];
 
 type SavedViewSpec = {
-	entitySchemaSlug: EntitySchemaInputSlug | null;
 	name: string;
 	icon: string;
-	layouts: SavedViewDefinition;
 	pluginSlug?: PluginSlug;
+	layouts: SavedViewDefinition;
+	entitySchemaSlug: EntitySchemaInputSlug | null;
 };
 
 class APIClient {
@@ -160,15 +160,16 @@ class APIClient {
 
 	run<A, E>(program: ContractProgram<A, E>): Promise<A> {
 		this.requestCount++;
-		return runContract(program, {
-			baseUrl: API_BASE_URL,
-			headers: { Authorization: `Bearer ${this.token}` },
-		});
+		return runPromise(
+			makeContractClient(API_BASE_URL, { Authorization: `Bearer ${this.token}` }).pipe(
+				Effect.flatMap(program),
+			),
+		);
 	}
 
 	runAdmin<A, E>(program: ContractProgram<A, E>): Promise<A> {
 		this.requestCount++;
-		return runContract(program, { baseUrl: API_BASE_URL, headers: adminHeaders });
+		return runPromise(makeContractClient(API_BASE_URL, adminHeaders).pipe(Effect.flatMap(program)));
 	}
 
 	async collectRecipeItems<Item>(
