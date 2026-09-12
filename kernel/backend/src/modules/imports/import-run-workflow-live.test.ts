@@ -1,5 +1,5 @@
 import { BunServices } from "@effect/platform-bun";
-import { expect, it } from "@effect/vitest";
+import { expect, layer } from "@effect/vitest";
 import { SandboxRunError } from "@ryot-app/contract/errors";
 import {
 	AutomationExecutionId,
@@ -11,7 +11,7 @@ import {
 	UserId,
 } from "@ryot-app/contract/schema/brands";
 import { IsoUtcString } from "@ryot-app/contract/schema/utils";
-import { Effect, Exit, Layer, Option, Schema } from "effect";
+import { Context, Effect, Exit, Layer, Option, Ref, Schema } from "effect";
 import { Workflow } from "effect/unstable/workflow";
 import { WorkflowEngine, WorkflowInstance } from "effect/unstable/workflow/WorkflowEngine";
 import { assert } from "vitest";
@@ -79,30 +79,21 @@ const sourceState = {
 
 type SandboxCall = { method: string; input: unknown };
 
+class FakeImportDispatch extends Context.Service<
+	FakeImportDispatch,
+	{
+		readonly activityNames: Effect.Effect<ReadonlyArray<string>>;
+		readonly sandboxCalls: Effect.Effect<ReadonlyArray<SandboxCall>>;
+		readonly sandboxParents: Effect.Effect<ReadonlyArray<boolean>>;
+	}
+>()("test/FakeImportDispatch") {}
+
 const makeHarness = (
 	suspendWorkflow = false,
 	failWorkflow = false,
 	suspended = suspendWorkflow,
 	storedSourceState: ImportSourceState | string = sourceState,
 ) => {
-	const activityNames: string[] = [];
-	const sandboxCalls: SandboxCall[] = [];
-	const sandboxParents: boolean[] = [];
-	const instance = WorkflowInstance.initial(ProcessImportRunWorkflow, executionId);
-	instance.suspended = suspended;
-	const engine = makeWorkflowEngine({
-		activityExecute: (activity) =>
-			Effect.gen(function* () {
-				activityNames.push(activity.name);
-				if (
-					activity.name === "claim-import-source-state" ||
-					activity.name === "materialize-import-artifacts"
-				) {
-					return new Workflow.Complete({ exit: yield* Effect.exit(activity.execute) });
-				}
-				return new Workflow.Complete({ exit: Exit.void });
-			}),
-	});
 	const workflowResult = suspendWorkflow
 		? Effect.interrupt
 		: Effect.fail(new SandboxRunError({ kind: "script-failure", message: "import failed" })).pipe(
@@ -110,184 +101,233 @@ const makeHarness = (
 				Effect.as(null),
 			);
 
-	return {
-		sandboxCalls,
-		activityNames,
-		sandboxParents,
-		layer: Layer.mergeAll(
-			makeAppConfigLayer(),
-			Layer.succeed(WorkflowEngine, engine),
-			Layer.succeed(WorkflowInstance, instance),
-			Layer.mock(ImportRunArtifacts)({}),
-			Layer.mock(SandboxArtifactStore)({
-				materializeInputs: (ownerExecutionId, _referenceExecutionId, grants) =>
-					Effect.succeed({
-						artifactOwnerExecutionId: ownerExecutionId,
-						...(grants.namedArtifactPaths ? { namedArtifactPaths: grants.namedArtifactPaths } : {}),
+	return Layer.mergeAll(
+		makeAppConfigLayer(),
+		Layer.unwrap(
+			Effect.gen(function* () {
+				const activityNames = yield* Ref.make<ReadonlyArray<string>>([]);
+				const sandboxCalls = yield* Ref.make<ReadonlyArray<SandboxCall>>([]);
+				const sandboxParents = yield* Ref.make<ReadonlyArray<boolean>>([]);
+				const instance = WorkflowInstance.initial(ProcessImportRunWorkflow, executionId);
+				instance.suspended = suspended;
+				const engine = makeWorkflowEngine({
+					activityExecute: (activity) =>
+						Effect.gen(function* () {
+							yield* Ref.update(activityNames, (all) => [...all, activity.name]);
+							if (
+								activity.name === "claim-import-source-state" ||
+								activity.name === "materialize-import-artifacts"
+							) {
+								return new Workflow.Complete({ exit: yield* Effect.exit(activity.execute) });
+							}
+							return new Workflow.Complete({ exit: Exit.void });
+						}),
+				});
+				return Layer.mergeAll(
+					Layer.succeed(FakeImportDispatch, {
+						sandboxCalls: Ref.get(sandboxCalls),
+						activityNames: Ref.get(activityNames),
+						sandboxParents: Ref.get(sandboxParents),
 					}),
+					Layer.succeed(WorkflowEngine, engine),
+					Layer.succeed(WorkflowInstance, instance),
+					Layer.mock(SandboxExecutionService)({
+						executeWorkflow: (input) =>
+							Effect.serviceOption(WorkflowInstance).pipe(
+								Effect.tap((parent) =>
+									Ref.update(sandboxParents, (all) => [...all, Option.isSome(parent)]).pipe(
+										Effect.andThen(
+											Ref.update(sandboxCalls, (all) => [
+												...all,
+												{ input, method: "executeWorkflow" },
+											]),
+										),
+									),
+								),
+								Effect.andThen(workflowResult),
+							),
+					}),
+				);
 			}),
-			Layer.mock(SandboxExecutionService)({
-				executeWorkflow: (input) =>
-					Effect.serviceOption(WorkflowInstance).pipe(
-						Effect.tap((parent) =>
-							Effect.sync(() => {
-								sandboxParents.push(Option.isSome(parent));
-								sandboxCalls.push({ input, method: "executeWorkflow" });
-							}),
-						),
-						Effect.andThen(workflowResult),
+		),
+		Layer.mock(ImportRunArtifacts)({}),
+		Layer.mock(SandboxArtifactStore)({
+			materializeInputs: (ownerExecutionId, _referenceExecutionId, grants) =>
+				Effect.succeed({
+					artifactOwnerExecutionId: ownerExecutionId,
+					...(grants.namedArtifactPaths ? { namedArtifactPaths: grants.namedArtifactPaths } : {}),
+				}),
+		}),
+		databaseLayer,
+		BunServices.layer,
+		Layer.succeed(
+			RedisService,
+			makeRedisService({
+				claim: () =>
+					Effect.succeed(
+						typeof storedSourceState === "string"
+							? storedSourceState
+							: Schema.encodeSync(ImportSourceStateFromJson)(storedSourceState),
 					),
 			}),
-			databaseLayer,
-			BunServices.layer,
-			Layer.succeed(
-				RedisService,
-				makeRedisService({
-					claim: () =>
-						Effect.succeed(
-							typeof storedSourceState === "string"
-								? storedSourceState
-								: Schema.encodeSync(ImportSourceStateFromJson)(storedSourceState),
-						),
-				}),
-			),
-			Layer.mock(ImportsService)({}),
-			Layer.mock(ImportRunFailuresService)({}),
 		),
-	};
+		Layer.mock(ImportsService)({}),
+		Layer.mock(ImportRunFailuresService)({}),
+	);
 };
 
-it.effect("dispatches a registry-declared source to its owning plugin's import workflow", () => {
-	const harness = makeHarness();
+layer(makeHarness())((test) => {
+	test.effect("dispatches a registry-declared source to its owning plugin's import workflow", () =>
+		Effect.gen(function* () {
+			const dispatch = yield* FakeImportDispatch;
+			yield* runProcessImportRunWorkflow(payload, executionId);
 
-	return Effect.gen(function* () {
-		yield* runProcessImportRunWorkflow(payload, executionId);
-
-		const [executed] = harness.sandboxCalls;
-		assert(executed !== undefined);
-		expect(executed).toEqual({
-			method: "executeWorkflow",
-			input: {
-				executionId: `${executionId}-import`,
-				pluginRevision: sourceState.pluginRevision,
-				subject: { type: "user", userId: "user-1" },
-				input: { command, source: "nu", runId: "run-1" },
-				scriptId: SandboxScriptId.make("accepted.nu-import"),
-				grants: {
-					artifactOwnerExecutionId: `${executionId}-import`,
-					namedArtifactPaths: { uploadToken: "/tmp/nu.zip" },
+			const [executed] = yield* dispatch.sandboxCalls;
+			assert(executed !== undefined);
+			expect(executed).toEqual({
+				method: "executeWorkflow",
+				input: {
+					executionId: `${executionId}-import`,
+					pluginRevision: sourceState.pluginRevision,
+					subject: { type: "user", userId: "user-1" },
+					input: { command, source: "nu", runId: "run-1" },
+					scriptId: SandboxScriptId.make("accepted.nu-import"),
+					grants: {
+						artifactOwnerExecutionId: `${executionId}-import`,
+						namedArtifactPaths: { uploadToken: "/tmp/nu.zip" },
+					},
 				},
-			},
-		});
-		expect(harness.activityNames).toEqual([
-			"mark-import-run-started",
-			"claim-import-source-state",
-			"materialize-import-artifacts",
-			"retain-import-dispatch-artifacts",
-			"release-import-dispatch-artifacts",
-			"release-import-artifacts",
-			"cleanup-import-artifacts-on-success",
-			"cleanup-import-uploads-on-success",
-		]);
-		expect(harness.sandboxParents).toEqual([true]);
-	}).pipe(Effect.provide(harness.layer));
+			});
+			expect(yield* dispatch.activityNames).toEqual([
+				"mark-import-run-started",
+				"claim-import-source-state",
+				"materialize-import-artifacts",
+				"retain-import-dispatch-artifacts",
+				"release-import-dispatch-artifacts",
+				"release-import-artifacts",
+				"cleanup-import-artifacts-on-success",
+				"cleanup-import-uploads-on-success",
+			]);
+			expect(yield* dispatch.sandboxParents).toEqual([true]);
+		}),
+	);
 });
 
-it.effect("grants every stored named artifact to a plugin import workflow", () => {
-	const harness = makeHarness(false, false, false, {
+layer(
+	makeHarness(false, false, false, {
 		...sourceState,
 		source: "movary",
 		namedArtifactPaths: {
 			ignoredFilePath: "/tmp/ignored.csv",
 			historyFilePath: "/tmp/history.csv",
 		},
-	});
+	}),
+)((test) => {
+	test.effect("grants every stored named artifact to a plugin import workflow", () =>
+		Effect.gen(function* () {
+			const dispatch = yield* FakeImportDispatch;
+			yield* runProcessImportRunWorkflow(payload, executionId);
 
-	return Effect.gen(function* () {
-		yield* runProcessImportRunWorkflow(payload, executionId);
-
-		const executed = harness.sandboxCalls.find(({ method }) => method === "executeWorkflow");
-		assert(executed !== undefined);
-		expect(executed).toMatchObject({
-			input: {
-				grants: {
-					artifactOwnerExecutionId: `${executionId}-import`,
-					namedArtifactPaths: {
-						ignoredFilePath: "/tmp/ignored.csv",
-						historyFilePath: "/tmp/history.csv",
+			const executed = (yield* dispatch.sandboxCalls).find(
+				({ method }) => method === "executeWorkflow",
+			);
+			assert(executed !== undefined);
+			expect(executed).toMatchObject({
+				input: {
+					grants: {
+						artifactOwnerExecutionId: `${executionId}-import`,
+						namedArtifactPaths: {
+							ignoredFilePath: "/tmp/ignored.csv",
+							historyFilePath: "/tmp/history.csv",
+						},
 					},
 				},
-			},
-		});
-	}).pipe(Effect.provide(harness.layer));
+			});
+		}),
+	);
 });
 
-it.effect("hands a secret-bearing stored source payload to the plugin import workflow", () => {
-	const harness = makeHarness(false, false, false, {
+layer(
+	makeHarness(false, false, false, {
 		...sourceState,
 		source: "eta",
 		sourcePayload: { apiKey: "secret", collection: "Favorites" },
-	});
+	}),
+)((test) => {
+	test.effect("hands a secret-bearing stored source payload to the plugin import workflow", () =>
+		Effect.gen(function* () {
+			const dispatch = yield* FakeImportDispatch;
+			yield* runProcessImportRunWorkflow(payload, executionId);
 
-	return Effect.gen(function* () {
-		yield* runProcessImportRunWorkflow(payload, executionId);
-
-		const executed = harness.sandboxCalls.find(({ method }) => method === "executeWorkflow");
-		expect(executed).toMatchObject({
-			input: {
+			const executed = (yield* dispatch.sandboxCalls).find(
+				({ method }) => method === "executeWorkflow",
+			);
+			expect(executed).toMatchObject({
 				input: {
-					source: "eta",
-					runId: "run-1",
-					sourcePayload: { apiKey: "secret", collection: "Favorites" },
+					input: {
+						source: "eta",
+						runId: "run-1",
+						sourcePayload: { apiKey: "secret", collection: "Favorites" },
+					},
 				},
-			},
-		});
-	}).pipe(Effect.provide(harness.layer));
+			});
+		}),
+	);
 });
 
-it.effect("fails closed before sandbox dispatch when durable source state has no exact pin", () => {
-	const { pluginRevision: _pluginRevision, ...legacySourceState } = sourceState;
-	const harness = makeHarness(false, false, false, JSON.stringify(legacySourceState));
+const { pluginRevision: _pluginRevision, ...legacySourceState } = sourceState;
+layer(makeHarness(false, false, false, JSON.stringify(legacySourceState)))((test) => {
+	test.effect(
+		"fails closed before sandbox dispatch when durable source state has no exact pin",
+		() =>
+			Effect.gen(function* () {
+				const dispatch = yield* FakeImportDispatch;
+				yield* runProcessImportRunWorkflow(payload, executionId);
 
-	return Effect.gen(function* () {
-		yield* runProcessImportRunWorkflow(payload, executionId);
-
-		expect(harness.sandboxCalls).toEqual([]);
-		expect(harness.activityNames).not.toContain("retain-import-dispatch-artifacts");
-		expect(harness.activityNames).toContain("fail-import-run-unexpected");
-	}).pipe(Effect.provide(harness.layer));
+				expect(yield* dispatch.sandboxCalls).toEqual([]);
+				expect(yield* dispatch.activityNames).not.toContain("retain-import-dispatch-artifacts");
+				expect(yield* dispatch.activityNames).toContain("fail-import-run-unexpected");
+			}),
+	);
 });
 
-it.effect("preserves workflow suspension while awaiting the plugin import child", () => {
-	const harness = makeHarness(true);
+layer(makeHarness(true))((test) => {
+	test.effect("preserves workflow suspension while awaiting the plugin import child", () =>
+		Effect.gen(function* () {
+			const dispatch = yield* FakeImportDispatch;
+			const exit = yield* Effect.exit(runProcessImportRunWorkflow(payload, executionId));
 
-	return Effect.gen(function* () {
-		const exit = yield* Effect.exit(runProcessImportRunWorkflow(payload, executionId));
-
-		expect(Exit.hasInterrupts(exit)).toBe(true);
-		expect(harness.activityNames).not.toContain("fail-import-run-unexpected");
-	}).pipe(Effect.provide(harness.layer));
+			expect(Exit.hasInterrupts(exit)).toBe(true);
+			expect(yield* dispatch.activityNames).not.toContain("fail-import-run-unexpected");
+		}),
+	);
 });
 
-it.effect("releases the pre-registered pin when import orchestration fails terminally", () => {
-	const harness = makeHarness(false, true);
+layer(makeHarness(false, true))((test) => {
+	test.effect("releases the pre-registered pin when import orchestration fails terminally", () =>
+		Effect.gen(function* () {
+			const dispatch = yield* FakeImportDispatch;
+			yield* runProcessImportRunWorkflow(payload, executionId);
 
-	return Effect.gen(function* () {
-		yield* runProcessImportRunWorkflow(payload, executionId);
-
-		expect(harness.activityNames).toContain("release-import-workflow-pin");
-		expect(harness.activityNames).toContain("cleanup-import-uploads-on-unexpected-failure");
-	}).pipe(Effect.provide(harness.layer));
+			expect(yield* dispatch.activityNames).toContain("release-import-workflow-pin");
+			expect(yield* dispatch.activityNames).toContain(
+				"cleanup-import-uploads-on-unexpected-failure",
+			);
+		}),
+	);
 });
 
-it.effect("releases input artifacts on terminal import cancellation", () => {
-	const harness = makeHarness(true, false, false);
+layer(makeHarness(true, false, false))((test) => {
+	test.effect("releases input artifacts on terminal import cancellation", () =>
+		Effect.gen(function* () {
+			const dispatch = yield* FakeImportDispatch;
+			yield* runProcessImportRunWorkflow(payload, executionId);
 
-	return Effect.gen(function* () {
-		yield* runProcessImportRunWorkflow(payload, executionId);
-
-		expect(harness.activityNames).toContain("release-import-artifacts");
-		expect(harness.activityNames).toContain("release-import-dispatch-artifacts");
-		expect(harness.activityNames).toContain("cleanup-import-uploads-on-unexpected-failure");
-	}).pipe(Effect.provide(harness.layer));
+			expect(yield* dispatch.activityNames).toContain("release-import-artifacts");
+			expect(yield* dispatch.activityNames).toContain("release-import-dispatch-artifacts");
+			expect(yield* dispatch.activityNames).toContain(
+				"cleanup-import-uploads-on-unexpected-failure",
+			);
+		}),
+	);
 });

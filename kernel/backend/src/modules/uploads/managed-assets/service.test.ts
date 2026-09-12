@@ -1,11 +1,11 @@
-import { expect, it } from "@effect/vitest";
+import { expect, layer } from "@effect/vitest";
 import type { CurrentUserValue } from "@ryot-app/contract/auth-middleware";
 import { BadRequest } from "@ryot-app/contract/errors";
 import { UploadBadRequest } from "@ryot-app/contract/modules/uploads/schemas";
 import { UserId } from "@ryot-app/contract/schema/brands";
 import { CryptoHasher } from "bun";
 import type { FileSystem } from "effect";
-import { ByteSize, Clock, DateTime, Effect, Layer, Option, Stream } from "effect";
+import { ByteSize, Clock, Context, DateTime, Effect, Layer, Option, Ref, Stream } from "effect";
 
 import { mapDatabaseErrors } from "#lib/infrastructure/db/service";
 import { DatabaseSession } from "#lib/infrastructure/db/session";
@@ -51,9 +51,119 @@ const localFileInfo = {
 	birthtime: Option.none(),
 } satisfies FileSystem.File.Info;
 
-const makeLayer = (locators: ReadonlyArray<{ key: string; type: "local" | "s3" }>) => {
-	const serviceLayer = ManagedAssetsService.layer.pipe(
-		Layer.provide(
+type PresignedDownload = {
+	readonly key: string;
+	readonly expiresInSeconds: number;
+	readonly contentDisposition: string | undefined;
+};
+
+class FakeObjectStorage extends Context.Service<
+	FakeObjectStorage,
+	{ readonly deletes: Effect.Effect<number>; readonly stored: Effect.Effect<Uint8Array | null> }
+>()("test/FakeObjectStorage") {}
+
+class FakeLifecycleOperation extends Context.Service<
+	FakeLifecycleOperation,
+	{ readonly activate: Effect.Effect<void> }
+>()("test/FakeLifecycleOperation") {}
+
+class FakeS3Presigner extends Context.Service<
+	FakeS3Presigner,
+	{ readonly presigned: Effect.Effect<ReadonlyArray<PresignedDownload>> }
+>()("test/FakeS3Presigner") {}
+
+const missingObject = () => Effect.fail(new BadRequest({ message: "missing" }));
+
+const inMemoryObjectStorageLayer = Layer.unwrap(
+	Effect.gen(function* () {
+		const stored = yield* Ref.make<Uint8Array | null>(null);
+		const deletes = yield* Ref.make(0);
+		return Layer.merge(
+			Layer.succeed(FakeObjectStorage, { stored: Ref.get(stored), deletes: Ref.get(deletes) }),
+			mockObjectStorage({
+				deleteObject: () =>
+					Ref.update(deletes, (count) => count + 1).pipe(Effect.andThen(Ref.set(stored, null))),
+				openObject: () =>
+					Ref.get(stored).pipe(
+						Effect.flatMap((body) =>
+							body === null ? missingObject() : Effect.succeed(Stream.make(body)),
+						),
+					),
+				statObject: () =>
+					Ref.get(stored).pipe(
+						Effect.flatMap((body) =>
+							body === null
+								? missingObject()
+								: Effect.succeed({
+										size: body.byteLength,
+										contentType: "application/octet-stream",
+									}),
+						),
+					),
+				writeObjectIfAbsent: (_locator, stream) =>
+					Effect.gen(function* () {
+						const chunks = yield* Stream.runCollect(
+							stream.pipe(
+								Stream.mapError(() => new BadRequest({ message: "asset stream failed" })),
+							),
+						);
+						const body = Uint8Array.from(Array.from(chunks).flatMap((chunk) => Array.from(chunk)));
+						return yield* Ref.modify(stored, (current) =>
+							current === null ? [true, body] : [false, current],
+						);
+					}),
+			}),
+		);
+	}),
+);
+
+const makeLifecycleDatabaseLayer = (initiallyActive: boolean) =>
+	Layer.unwrap(
+		Effect.gen(function* () {
+			const active = yield* Ref.make(initiallyActive);
+			const transaction = Object.assign(Object.create(null), {
+				execute: () => Effect.void,
+				select: () => ({
+					from: () => ({
+						where: () => ({
+							limit: () =>
+								Ref.get(active).pipe(
+									Effect.map((isActive) => (isActive ? [{ id: "operation-1" }] : [])),
+								),
+						}),
+					}),
+				}),
+			});
+			return Layer.merge(
+				Layer.succeed(FakeLifecycleOperation, { activate: Ref.set(active, true) }),
+				Layer.mock(DatabaseSession)({
+					current: Effect.succeed(transaction),
+					transaction: (work) => mapDatabaseErrors(work),
+				}),
+			);
+		}),
+	);
+
+const recordingPresignerLayer = Layer.unwrap(
+	Effect.gen(function* () {
+		const presigned = yield* Ref.make<ReadonlyArray<PresignedDownload>>([]);
+		return Layer.merge(
+			Layer.succeed(FakeS3Presigner, { presigned: Ref.get(presigned) }),
+			mockS3({
+				isConfigured: true,
+				presignDownload: (key, expiresInSeconds, contentDisposition) =>
+					Ref.update(presigned, (all) => [
+						...all,
+						{ key, expiresInSeconds, contentDisposition },
+					]).pipe(Effect.as(`https://s3.test/${key}`)),
+			}),
+		);
+	}),
+);
+
+const makeLayer = (locators: ReadonlyArray<{ key: string; type: "local" | "s3" }>) =>
+	ManagedAssetsService.layer.pipe(
+		Layer.provideMerge(
 			Layer.mergeAll(
 				databaseLayer,
 				mockLocalStorage({}),
@@ -77,296 +187,225 @@ const makeLayer = (locators: ReadonlyArray<{ key: string; type: "local" | "s3" }
 			),
 		),
 	);
-	const layer = Layer.merge(serviceLayer, databaseLayer);
-	return layer;
-};
 
-it.effect("verifies ownership for the complete locator set", () => {
-	const locators = [
-		{ type: "s3" as const, key: "permanent/image.png" },
-		{ type: "local" as const, key: "permanent/photo.png" },
-	];
-	return Effect.gen(function* () {
-		const service = yield* ManagedAssetsService;
-		expect(yield* service.verifyManagedAssetOwnership(userId, locators)).toHaveLength(2);
-	}).pipe(Effect.provide(makeLayer(locators)));
-});
+const verifiedLocators = [
+	{ type: "s3" as const, key: "permanent/image.png" },
+	{ type: "local" as const, key: "permanent/photo.png" },
+];
 
-it.effect("rejects a partially owned locator set", () => {
-	const owned = [{ type: "s3" as const, key: "permanent/owned.png" }];
-	return Effect.gen(function* () {
-		const service = yield* ManagedAssetsService;
-		const exit = yield* Effect.exit(
-			service.verifyManagedAssetOwnership(userId, [
-				...owned,
-				{ type: "local", key: "permanent/unowned.png" },
-			]),
-		);
-		assertExitFails(exit, new UploadBadRequest({ reason: { code: "asset-forbidden" } }));
-	}).pipe(Effect.provide(makeLayer(owned)));
-});
-
-it.effect("returns one deterministic expiry for local and S3 download resolutions", () => {
-	const presigned: Array<{
-		readonly key: string;
-		readonly expiresInSeconds: number;
-		readonly contentDisposition: string | undefined;
-	}> = [];
-	const locators = [
-		{ type: "local" as const, key: "permanent/local.png" },
-		{ type: "s3" as const, key: "permanent/remote.svg" },
-	];
-	const layer = ManagedAssetsService.layer.pipe(
-		Layer.provide(
-			Layer.mergeAll(
-				databaseLayer,
-				mockLocalStorage({
-					statObject: () => Effect.succeed(localFileInfo),
-					createDownloadTarget: (key) => Effect.succeed(`uploads/local/download?key=${key}`),
-				}),
-				mockObjectStorage({}),
-				mockS3({
-					isConfigured: true,
-					presignDownload: (key, expiresInSeconds, contentDisposition) =>
-						Effect.sync(() => {
-							presigned.push({ key, expiresInSeconds, contentDisposition });
-							return `https://s3.test/${key}`;
-						}),
-				}),
-				mockUserLifecycleGuard({ isActive: () => Effect.succeed(false) }),
-				mockManagedAssetsRepository({
-					listByOwnerAndLocators: (ownerUserId) =>
-						Effect.succeed(
-							locators.map(({ key, type }) => ({
-								key,
-								size: 1,
-								ownerUserId,
-								provider: type,
-								sha256: "a".repeat(64),
-								createdAt: managedAssetCreatedAt,
-								contentType: type === "s3" ? "image/svg+xml" : "image/png",
-							})),
-						),
-				}),
-			),
-		),
-	);
-	const providedLayer = Layer.merge(layer, databaseLayer);
-
-	return Effect.gen(function* () {
-		const now = Math.floor((yield* Clock.currentTimeMillis) / 1000);
-		const service = yield* ManagedAssetsService;
-		const result = yield* service.resolveDownloads(user, locators);
-		const expiresAt = DateTime.formatIso(DateTime.makeUnsafe((now + 15 * 60) * 1000));
-		expect(result).toEqual([
-			{
-				expiresAt,
-				asset: locators[0],
-				downloadUrl: "uploads/local/download?key=permanent/local.png",
-			},
-			{ expiresAt, asset: locators[1], downloadUrl: "https://s3.test/permanent/remote.svg" },
-		]);
-		expect(presigned).toEqual([
-			{ expiresInSeconds: 15 * 60, key: "permanent/remote.svg", contentDisposition: "attachment" },
-		]);
-	}).pipe(Effect.provide(providedLayer));
-});
-
-it.effect("assigns concurrent staging ownership only to the conditional-create winner", () => {
-	const bytes = new TextEncoder().encode("concurrent asset");
-	const sha256 = new CryptoHasher("sha256").update(bytes).digest("hex");
-	let stored: Uint8Array | null = null;
-	let deletes = 0;
-	const service = ManagedAssetsService.layer.pipe(
-		Layer.provide(
-			Layer.mergeAll(
-				databaseLayer,
-				mockLocalStorage({}),
-				mockS3({ isConfigured: true }),
-				mockUserLifecycleGuard({ isActive: () => Effect.succeed(false) }),
-				mockManagedAssetsRepository({ getByLocator: () => Effect.succeed(null) }),
-				mockObjectStorage({
-					deleteObject: () =>
-						Effect.sync(() => {
-							deletes += 1;
-							stored = null;
-						}),
-					openObject: () =>
-						stored === null
-							? Effect.fail(new BadRequest({ message: "missing" }))
-							: Effect.succeed(Stream.make(stored)),
-					statObject: () =>
-						stored === null
-							? Effect.fail(new BadRequest({ message: "missing" }))
-							: Effect.succeed({
-									size: stored.byteLength,
-									contentType: "application/octet-stream",
-								}),
-					writeObjectIfAbsent: (_locator, stream) =>
-						Effect.gen(function* () {
-							const chunks = yield* Stream.runCollect(
-								stream.pipe(
-									Stream.mapError(() => new BadRequest({ message: "asset stream failed" })),
-								),
-							);
-							const body = Uint8Array.from(
-								Array.from(chunks).flatMap((chunk) => Array.from(chunk)),
-							);
-							return yield* Effect.sync(() => {
-								if (stored !== null) {
-									return false;
-								}
-								stored = body;
-								return true;
-							});
-						}),
-				}),
-			),
-		),
-	);
-	const input = () => ({
-		sha256,
-		ownerUserId: userId,
-		size: bytes.byteLength,
-		stream: Stream.make(bytes),
-		provider: "local" as const,
-		contentType: "application/octet-stream",
-	});
-
-	const layer = Layer.merge(service, databaseLayer);
-
-	return Effect.gen(function* () {
-		const managedAssets = yield* ManagedAssetsService;
-		const staged = yield* Effect.all(
-			[
-				managedAssets.stageContentAddressedPermanentAsset(input()),
-				managedAssets.stageContentAddressedPermanentAsset(input()),
-			],
-			{ concurrency: "unbounded" },
-		);
-		expect(staged.map(({ created }) => created).sort((a, b) => Number(a) - Number(b))).toEqual([
-			false,
-			true,
-		]);
-		const loser = staged.find(({ created }) => !created);
-		expect(loser).toBeDefined();
-		if (loser) {
-			yield* managedAssets.cleanupStagedPermanentAsset(loser);
-		}
-		expect(stored).not.toBeNull();
-		expect(deletes).toBe(0);
-	}).pipe(Effect.provide(layer));
-});
-
-it.effect("blocks managed asset registration while the owner lifecycle is active", () => {
-	const transaction = Object.assign(Object.create(null), {
-		execute: () => Effect.void,
-		select: () => ({
-			from: () => ({ where: () => ({ limit: () => Effect.succeed([{ id: "operation-1" }]) }) }),
-		}),
-	});
-	const database = Layer.mock(DatabaseSession)({
-		current: Effect.succeed(transaction),
-		transaction: (work) => mapDatabaseErrors(work),
-	});
-	const serviceLayer = ManagedAssetsService.layer.pipe(
-		Layer.provide(
-			Layer.mergeAll(
-				database,
-				mockLocalStorage({}),
-				mockObjectStorage({}),
-				mockS3({ isConfigured: true }),
-				mockUserLifecycleGuard({ isActive: () => Effect.succeed(true) }),
-				mockManagedAssetsRepository({
-					registerPermanentOwnedObject: () => Effect.die("registration must be blocked"),
-				}),
-			),
-		),
-	);
-	const layer = Layer.merge(serviceLayer, database);
-
-	return Effect.gen(function* () {
-		const service = yield* ManagedAssetsService;
-		const exit = yield* Effect.exit(
-			service.registerManagedAsset({
-				size: 1,
-				provider: "s3",
-				ownerUserId: userId,
-				sha256: "a".repeat(64),
-				contentType: "image/png",
-				key: "permanent/image.png",
-			}),
-		);
-		assertExitFails(exit, new UploadBadRequest({ reason: { code: "lifecycle-active" } }));
-	}).pipe(Effect.provide(layer));
-});
-
-it.effect(
-	"rejects registration when lifecycle wins after staging and cleans only its own object",
-	() => {
-		const bytes = new TextEncoder().encode("raced asset");
-		const sha256 = new CryptoHasher("sha256").update(bytes).digest("hex");
-		let active = false;
-		let stored = false;
-		let deletes = 0;
-		const transaction = Object.assign(Object.create(null), {
-			execute: () => Effect.void,
-			select: () => ({
-				from: () => ({
-					where: () => ({ limit: () => Effect.succeed(active ? [{ id: "operation-1" }] : []) }),
-				}),
-			}),
-		});
-		const database = Layer.mock(DatabaseSession)({
-			current: Effect.succeed(transaction),
-			transaction: (work) => mapDatabaseErrors(work),
-		});
-		const serviceLayer = ManagedAssetsService.layer.pipe(
-			Layer.provide(
-				Layer.mergeAll(
-					database,
-					mockLocalStorage({}),
-					mockS3({ isConfigured: true }),
-					mockUserLifecycleGuard({ isActive: () => Effect.succeed(false) }),
-					mockManagedAssetsRepository({
-						getByLocator: () => Effect.succeed(null),
-						registerPermanentOwnedObject: () => Effect.die("registration must be blocked"),
-					}),
-					mockObjectStorage({
-						deleteObject: () =>
-							Effect.sync(() => {
-								deletes += 1;
-								stored = false;
-							}),
-						statObject: () =>
-							Effect.succeed({ size: bytes.byteLength, contentType: "application/octet-stream" }),
-						writeObjectIfAbsent: (_locator, stream) =>
-							Stream.runDrain(
-								stream.pipe(Stream.mapError(() => new BadRequest({ message: "stream failed" }))),
-							).pipe(
-								Effect.as(true),
-								Effect.tap(() => Effect.sync(() => void (stored = true))),
-							),
-					}),
-				),
-			),
-		);
-		return Effect.gen(function* () {
+layer(makeLayer(verifiedLocators))((test) => {
+	test.effect("verifies ownership for the complete locator set", () =>
+		Effect.gen(function* () {
 			const service = yield* ManagedAssetsService;
-			const staged = yield* service.stageContentAddressedPermanentAsset({
+			expect(yield* service.verifyManagedAssetOwnership(userId, verifiedLocators)).toHaveLength(2);
+		}),
+	);
+});
+
+const ownedLocators = [{ type: "s3" as const, key: "permanent/owned.png" }];
+
+layer(makeLayer(ownedLocators))((test) => {
+	test.effect("rejects a partially owned locator set", () =>
+		Effect.gen(function* () {
+			const service = yield* ManagedAssetsService;
+			const exit = yield* Effect.exit(
+				service.verifyManagedAssetOwnership(userId, [
+					...ownedLocators,
+					{ type: "local", key: "permanent/unowned.png" },
+				]),
+			);
+			assertExitFails(exit, new UploadBadRequest({ reason: { code: "asset-forbidden" } }));
+		}),
+	);
+});
+
+const downloadLocators = [
+	{ type: "local" as const, key: "permanent/local.png" },
+	{ type: "s3" as const, key: "permanent/remote.svg" },
+];
+
+const downloadLayer = ManagedAssetsService.layer.pipe(
+	Layer.provideMerge(
+		Layer.mergeAll(
+			databaseLayer,
+			mockLocalStorage({
+				statObject: () => Effect.succeed(localFileInfo),
+				createDownloadTarget: (key) => Effect.succeed(`uploads/local/download?key=${key}`),
+			}),
+			mockObjectStorage({}),
+			recordingPresignerLayer,
+			mockUserLifecycleGuard({ isActive: () => Effect.succeed(false) }),
+			mockManagedAssetsRepository({
+				listByOwnerAndLocators: (ownerUserId) =>
+					Effect.succeed(
+						downloadLocators.map(({ key, type }) => ({
+							key,
+							size: 1,
+							ownerUserId,
+							provider: type,
+							sha256: "a".repeat(64),
+							createdAt: managedAssetCreatedAt,
+							contentType: type === "s3" ? "image/svg+xml" : "image/png",
+						})),
+					),
+			}),
+		),
+	),
+);
+
+layer(downloadLayer)((test) => {
+	test.effect("returns one deterministic expiry for local and S3 download resolutions", () =>
+		Effect.gen(function* () {
+			const now = Math.floor((yield* Clock.currentTimeMillis) / 1000);
+			const service = yield* ManagedAssetsService;
+			const result = yield* service.resolveDownloads(user, downloadLocators);
+			const expiresAt = DateTime.formatIso(DateTime.makeUnsafe((now + 15 * 60) * 1000));
+			expect(result).toEqual([
+				{
+					expiresAt,
+					asset: downloadLocators[0],
+					downloadUrl: "uploads/local/download?key=permanent/local.png",
+				},
+				{
+					expiresAt,
+					asset: downloadLocators[1],
+					downloadUrl: "https://s3.test/permanent/remote.svg",
+				},
+			]);
+			expect(yield* (yield* FakeS3Presigner).presigned).toEqual([
+				{
+					expiresInSeconds: 15 * 60,
+					key: "permanent/remote.svg",
+					contentDisposition: "attachment",
+				},
+			]);
+		}),
+	);
+});
+
+const concurrentStagingLayer = ManagedAssetsService.layer.pipe(
+	Layer.provideMerge(
+		Layer.mergeAll(
+			databaseLayer,
+			mockLocalStorage({}),
+			mockS3({ isConfigured: true }),
+			mockUserLifecycleGuard({ isActive: () => Effect.succeed(false) }),
+			mockManagedAssetsRepository({ getByLocator: () => Effect.succeed(null) }),
+			inMemoryObjectStorageLayer,
+		),
+	),
+);
+
+layer(concurrentStagingLayer)((test) => {
+	test.effect("assigns concurrent staging ownership only to the conditional-create winner", () =>
+		Effect.gen(function* () {
+			const bytes = new TextEncoder().encode("concurrent asset");
+			const sha256 = new CryptoHasher("sha256").update(bytes).digest("hex");
+			const input = () => ({
 				sha256,
-				provider: "local",
 				ownerUserId: userId,
 				size: bytes.byteLength,
 				stream: Stream.make(bytes),
+				provider: "local" as const,
 				contentType: "application/octet-stream",
 			});
-			active = true;
-			const error = yield* service.registerManagedAsset(staged.metadata).pipe(Effect.flip);
-			expect(error).toEqual(new UploadBadRequest({ reason: { code: "lifecycle-active" } }));
-			yield* service.cleanupStagedPermanentAsset(staged);
-			expect(stored).toBe(false);
-			expect(deletes).toBe(1);
-		}).pipe(Effect.provide(Layer.merge(serviceLayer, database)));
-	},
+			const managedAssets = yield* ManagedAssetsService;
+			const objectStorage = yield* FakeObjectStorage;
+			const staged = yield* Effect.all(
+				[
+					managedAssets.stageContentAddressedPermanentAsset(input()),
+					managedAssets.stageContentAddressedPermanentAsset(input()),
+				],
+				{ concurrency: "unbounded" },
+			);
+			expect(staged.map(({ created }) => created).sort((a, b) => Number(a) - Number(b))).toEqual([
+				false,
+				true,
+			]);
+			const loser = staged.find(({ created }) => !created);
+			expect(loser).toBeDefined();
+			if (loser) {
+				yield* managedAssets.cleanupStagedPermanentAsset(loser);
+			}
+			expect(yield* objectStorage.stored).not.toBeNull();
+			expect(yield* objectStorage.deletes).toBe(0);
+		}),
+	);
+});
+
+const blockedRegistrationLayer = ManagedAssetsService.layer.pipe(
+	Layer.provideMerge(
+		Layer.mergeAll(
+			makeLifecycleDatabaseLayer(true),
+			mockLocalStorage({}),
+			mockObjectStorage({}),
+			mockS3({ isConfigured: true }),
+			mockUserLifecycleGuard({ isActive: () => Effect.succeed(true) }),
+			mockManagedAssetsRepository({
+				registerPermanentOwnedObject: () => Effect.die("registration must be blocked"),
+			}),
+		),
+	),
 );
+
+layer(blockedRegistrationLayer)((test) => {
+	test.effect("blocks managed asset registration while the owner lifecycle is active", () =>
+		Effect.gen(function* () {
+			const service = yield* ManagedAssetsService;
+			const exit = yield* Effect.exit(
+				service.registerManagedAsset({
+					size: 1,
+					provider: "s3",
+					ownerUserId: userId,
+					sha256: "a".repeat(64),
+					contentType: "image/png",
+					key: "permanent/image.png",
+				}),
+			);
+			assertExitFails(exit, new UploadBadRequest({ reason: { code: "lifecycle-active" } }));
+		}),
+	);
+});
+
+const racedRegistrationLayer = ManagedAssetsService.layer.pipe(
+	Layer.provideMerge(
+		Layer.mergeAll(
+			makeLifecycleDatabaseLayer(false),
+			mockLocalStorage({}),
+			mockS3({ isConfigured: true }),
+			mockUserLifecycleGuard({ isActive: () => Effect.succeed(false) }),
+			mockManagedAssetsRepository({
+				getByLocator: () => Effect.succeed(null),
+				registerPermanentOwnedObject: () => Effect.die("registration must be blocked"),
+			}),
+			inMemoryObjectStorageLayer,
+		),
+	),
+);
+
+layer(racedRegistrationLayer)((test) => {
+	test.effect(
+		"rejects registration when lifecycle wins after staging and cleans only its own object",
+		() =>
+			Effect.gen(function* () {
+				const bytes = new TextEncoder().encode("raced asset");
+				const sha256 = new CryptoHasher("sha256").update(bytes).digest("hex");
+				const service = yield* ManagedAssetsService;
+				const objectStorage = yield* FakeObjectStorage;
+				const staged = yield* service.stageContentAddressedPermanentAsset({
+					sha256,
+					provider: "local",
+					ownerUserId: userId,
+					size: bytes.byteLength,
+					stream: Stream.make(bytes),
+					contentType: "application/octet-stream",
+				});
+				yield* (yield* FakeLifecycleOperation).activate;
+				const error = yield* service.registerManagedAsset(staged.metadata).pipe(Effect.flip);
+				expect(error).toEqual(new UploadBadRequest({ reason: { code: "lifecycle-active" } }));
+				yield* service.cleanupStagedPermanentAsset(staged);
+				expect(yield* objectStorage.stored).toBeNull();
+				expect(yield* objectStorage.deletes).toBe(1);
+			}),
+	);
+});

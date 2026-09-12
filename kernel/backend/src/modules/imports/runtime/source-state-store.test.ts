@@ -1,11 +1,11 @@
-import { expect, it } from "@effect/vitest";
+import { expect, layer } from "@effect/vitest";
 import {
 	PluginConfigRevisionId,
 	PluginId,
 	PluginRevisionId,
 	SandboxScriptId,
 } from "@ryot-app/contract/schema/brands";
-import { Effect, Layer, Schema } from "effect";
+import { Context, Effect, Layer, Ref, Schema } from "effect";
 import { assert } from "vitest";
 
 import {
@@ -46,47 +46,73 @@ const state = {
 	},
 };
 
-it.effect("stores, claims, and deletes import source state with bounded lifecycle keys", () => {
-	const deleted: string[][] = [];
-	let pending: { key: string; value: string; ttlSeconds: number | undefined } | undefined;
-	let claimInput: { key: string; claimKey: string; ttlSeconds: number } | undefined;
-	const redis = makeRedisService({
-		set: (key, value, ttlSeconds) => Effect.sync(() => void (pending = { key, value, ttlSeconds })),
-		del: (...keys) =>
-			Effect.sync(() => {
-				deleted.push([...keys]);
-				return keys.length;
+type PendingWrite = { key: string; value: string; ttlSeconds: number | undefined };
+type ClaimInput = { key: string; claimKey: string; ttlSeconds: number };
+
+class FakeSourceStateRedis extends Context.Service<
+	FakeSourceStateRedis,
+	{
+		readonly pending: Effect.Effect<PendingWrite | undefined>;
+		readonly claimInput: Effect.Effect<ClaimInput | undefined>;
+		readonly deleted: Effect.Effect<ReadonlyArray<ReadonlyArray<string>>>;
+	}
+>()("test/FakeSourceStateRedis") {}
+
+const recordingRedisLayer = Layer.unwrap(
+	Effect.gen(function* () {
+		const pending = yield* Ref.make<PendingWrite | undefined>(undefined);
+		const claimInput = yield* Ref.make<ClaimInput | undefined>(undefined);
+		const deleted = yield* Ref.make<ReadonlyArray<ReadonlyArray<string>>>([]);
+		return Layer.merge(
+			Layer.succeed(FakeSourceStateRedis, {
+				pending: Ref.get(pending),
+				deleted: Ref.get(deleted),
+				claimInput: Ref.get(claimInput),
 			}),
-		claim: (key, claimKey, ttlSeconds) =>
-			Effect.sync(() => {
-				claimInput = { key, claimKey, ttlSeconds };
-				return pending?.value ?? null;
-			}),
-	});
-	const layer = Layer.succeed(RedisService, redis);
+			Layer.succeed(
+				RedisService,
+				makeRedisService({
+					set: (key, value, ttlSeconds) => Ref.set(pending, { key, value, ttlSeconds }),
+					del: (...keys) =>
+						Ref.update(deleted, (all) => [...all, [...keys]]).pipe(Effect.as(keys.length)),
+					claim: (key, claimKey, ttlSeconds) =>
+						Ref.set(claimInput, { key, claimKey, ttlSeconds }).pipe(
+							Effect.andThen(Ref.get(pending)),
+							Effect.map((write) => write?.value ?? null),
+						),
+				}),
+			),
+		);
+	}),
+);
 
-	return Effect.gen(function* () {
-		yield* storeImportSourceState({ state, stateId: "state-1" });
-		expect(pending).toMatchObject({
-			key: redisKeys.importSourceState("state-1"),
-			ttlSeconds: IMPORT_SOURCE_STATE_PENDING_TTL_SECONDS,
-		});
-		assert(pending);
-		expect(yield* Schema.decodeEffect(ImportSourceStateFromJson)(pending.value)).toEqual(state);
+layer(recordingRedisLayer)((test) => {
+	test.effect("stores, claims, and deletes import source state with bounded lifecycle keys", () =>
+		Effect.gen(function* () {
+			const redis = yield* FakeSourceStateRedis;
+			yield* storeImportSourceState({ state, stateId: "state-1" });
+			const pending = yield* redis.pending;
+			expect(pending).toMatchObject({
+				key: redisKeys.importSourceState("state-1"),
+				ttlSeconds: IMPORT_SOURCE_STATE_PENDING_TTL_SECONDS,
+			});
+			assert(pending);
+			expect(yield* Schema.decodeEffect(ImportSourceStateFromJson)(pending.value)).toEqual(state);
 
-		expect(yield* claimImportSourceState("state-1", "execution-1")).toEqual(state);
-		expect(claimInput).toEqual({
-			key: redisKeys.importSourceState("state-1"),
-			ttlSeconds: IMPORT_SOURCE_STATE_CLAIMED_TTL_SECONDS,
-			claimKey: redisKeys.importSourceStateClaim("state-1", "execution-1"),
-		});
+			expect(yield* claimImportSourceState("state-1", "execution-1")).toEqual(state);
+			expect(yield* redis.claimInput).toEqual({
+				key: redisKeys.importSourceState("state-1"),
+				ttlSeconds: IMPORT_SOURCE_STATE_CLAIMED_TTL_SECONDS,
+				claimKey: redisKeys.importSourceStateClaim("state-1", "execution-1"),
+			});
 
-		yield* deleteImportSourceState("state-1", "execution-1");
-		expect(deleted).toEqual([
-			[
-				redisKeys.importSourceState("state-1"),
-				redisKeys.importSourceStateClaim("state-1", "execution-1"),
-			],
-		]);
-	}).pipe(Effect.provide(layer));
+			yield* deleteImportSourceState("state-1", "execution-1");
+			expect(yield* redis.deleted).toEqual([
+				[
+					redisKeys.importSourceState("state-1"),
+					redisKeys.importSourceStateClaim("state-1", "execution-1"),
+				],
+			]);
+		}),
+	);
 });

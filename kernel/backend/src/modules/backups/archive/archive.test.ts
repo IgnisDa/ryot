@@ -1,5 +1,5 @@
 import { BunFileSystem } from "@effect/platform-bun";
-import { assert, expect, it } from "@effect/vitest";
+import { assert, expect, layer } from "@effect/vitest";
 import { ascending, column, document, field, rows, table } from "@ryot-app/ryotql";
 import { stableStringify } from "@ryot-app/ts-utils/json";
 import { Effect, FileSystem, Schema, Stream } from "effect";
@@ -138,11 +138,7 @@ const validationError = Effect.fn(function* (
 	value: Uint8Array,
 	options: Parameters<typeof validateArchive>[1] = {},
 ) {
-	return yield* validateArchive(asChunks(value), options).pipe(
-		Effect.scoped,
-		Effect.provide(BunFileSystem.layer),
-		Effect.flip,
-	);
+	return yield* validateArchive(asChunks(value), options).pipe(Effect.scoped, Effect.flip);
 });
 
 const event = (id = "event-1"): ArchiveEvent => ({
@@ -227,263 +223,270 @@ const excludedAccountArchiveSections = [
 	"plugin-config-encryption-key.json",
 ] as const;
 
-it.effect("creates deterministic V1 archives and validates the round trip", () =>
-	Effect.gen(function* () {
-		const first = yield* archiveBytes();
-		const second = yield* archiveBytes();
-		expect(first).toEqual(second);
-		const validated = yield* validateArchive(asChunks(first));
-		expect(validated.manifest.version).toBe(1);
-		expect(validated.records).toEqual(records);
-	}).pipe(Effect.scoped, Effect.provide(BunFileSystem.layer)),
-);
+layer(BunFileSystem.layer)((test) => {
+	test.effect("creates deterministic V1 archives and validates the round trip", () =>
+		Effect.gen(function* () {
+			const first = yield* archiveBytes();
+			const second = yield* archiveBytes();
+			expect(first).toEqual(second);
+			const validated = yield* validateArchive(asChunks(first));
+			expect(validated.manifest.version).toBe(1);
+			expect(validated.records).toEqual(records);
+		}).pipe(Effect.scoped),
+	);
 
-it.effect("excludes automation history and configuration revision sections", () =>
-	Effect.gen(function* () {
-		const files = unzipSync(yield* archiveBytes());
-		const manifestFile = files["manifest.json"];
-		assert(manifestFile);
-		const sectionPaths = decodeManifest(manifestFile).sections.map(({ path }) => path);
-		for (const path of excludedAccountArchiveSections) {
-			expect(files).not.toHaveProperty(path);
-			expect(sectionPaths).not.toContain(path);
-		}
-	}).pipe(Effect.provide(BunFileSystem.layer)),
-);
-
-it.effect("rejects a non-V1 manifest", () =>
-	Effect.gen(function* () {
-		const files = unzipSync(yield* archiveBytes());
-		const manifest = yield* Schema.decodeEffect(Schema.fromJsonString(ArchiveManifest))(
-			new TextDecoder().decode(files["manifest.json"]),
-		);
-		files["manifest.json"] = new TextEncoder().encode(stableStringify({ ...manifest, version: 2 }));
-		const error = yield* validateArchive(asChunks(zipSync(files))).pipe(Effect.scoped, Effect.flip);
-		expect(error).toBeInstanceOf(BackupArchiveError);
-		expect(error.reason).toBe("unsupported_format");
-	}).pipe(Effect.provide(BunFileSystem.layer)),
-);
-
-it.effect("rejects unsafe ZIP paths", () =>
-	Effect.gen(function* () {
-		const error = yield* validateArchive(
-			asChunks(zipSync({ "../manifest.json": new Uint8Array() })),
-		).pipe(Effect.scoped, Effect.flip);
-		expect(error).toBeInstanceOf(BackupArchiveError);
-		expect(error.reason).toBe("invalid_path");
-	}).pipe(Effect.provide(BunFileSystem.layer)),
-);
-
-it.effect("enforces record, entry, and total archive limits", () =>
-	Effect.gen(function* () {
-		const { asset } = assetInput();
-		const archive = yield* archiveBytes(
-			input({ assets: [asset], records: { ...records, entities: [entity()] } }),
-		);
-		const cases = [
-			{ reason: "count_mismatch", limits: { maxRecordsPerSection: 0 } },
-			{ limits: { maxEntryCount: 1 }, reason: "entry_count_exceeded" },
-			{ reason: "entry_too_large", limits: { maxEntryBytes: 1 } },
-			{ reason: "entry_too_large", limits: { maxMetadataEntryBytes: 1 } },
-			{ reason: "total_size_exceeded", limits: { maxTotalUncompressedBytes: 1 } },
-		] as const;
-		for (const testCase of cases) {
-			const error = yield* validationError(archive, { limits: testCase.limits });
-			expect(error.reason).toBe(testCase.reason);
-		}
-	}),
-);
-
-it.effect("rejects section digest and count mismatches including streamed events", () =>
-	Effect.gen(function* () {
-		const populated = input({
-			events: eventsInput([event()]),
-			records: { ...records, entities: [entity()] },
-		});
-		const boundedDigest = yield* mutateArchive(populated, (files) => {
-			files["entities.ndjson"] = encoder.encode("\n");
-		});
-		expect((yield* validationError(boundedDigest)).reason).toBe("checksum_mismatch");
-
-		const eventDigest = yield* mutateArchive(populated, (files) => {
-			files["events.ndjson"] = encoder.encode("\n");
-		});
-		expect((yield* validationError(eventDigest)).reason).toBe("checksum_mismatch");
-
-		const boundedCount = yield* mutateArchive(populated, (files) => {
+	test.effect("excludes automation history and configuration revision sections", () =>
+		Effect.gen(function* () {
+			const files = unzipSync(yield* archiveBytes());
 			const manifestFile = files["manifest.json"];
-			assert(manifestFile !== undefined);
-			const manifest = decodeManifest(manifestFile);
-			files["manifest.json"] = encodeManifest({
-				...manifest,
-				sections: manifest.sections.map((section) =>
-					section.path === "entities.ndjson" ? Object.assign({}, section, { count: 2 }) : section,
-				),
-			});
-		});
-		expect((yield* validationError(boundedCount)).reason).toBe("count_mismatch");
-
-		const eventCount = yield* mutateArchive(populated, (files) => {
-			const manifestFile = files["manifest.json"];
-			assert(manifestFile !== undefined);
-			const manifest = decodeManifest(manifestFile);
-			files["manifest.json"] = encodeManifest({
-				...manifest,
-				sections: manifest.sections.map((section) =>
-					section.path === "events.ndjson" ? Object.assign({}, section, { count: 2 }) : section,
-				),
-			});
-		});
-		yield* Effect.gen(function* () {
-			const validated = yield* validateArchive(asChunks(eventCount));
-			const error = yield* Stream.runDrain(validated.events.read()).pipe(Effect.flip);
-			expect(error).toMatchObject({ path: "events.ndjson", reason: "count_mismatch" });
-		}).pipe(Effect.scoped, Effect.provide(BunFileSystem.layer));
-	}),
-);
-
-it.effect("rejects duplicate and missing paths and unsupported compression", () =>
-	Effect.gen(function* () {
-		expect((yield* validationError(rawZip(["manifest.json", "manifest.json"]))).reason).toBe(
-			"duplicate_path",
-		);
-		const missing = yield* mutateArchive(input(), (files) => {
-			Reflect.deleteProperty(files, "entities.ndjson");
-		});
-		expect((yield* validationError(missing)).reason).toBe("missing_entry");
-
-		const unsupported = (yield* archiveBytes()).slice();
-		const view = new DataView(unsupported.buffer, unsupported.byteOffset, unsupported.byteLength);
-		for (let offset = 0; offset <= unsupported.byteLength - 12; offset += 1) {
-			const signature = view.getUint32(offset, true);
-			if (signature === 0x04034b50) {
-				view.setUint16(offset + 8, 99, true);
-			} else if (signature === 0x02014b50) {
-				view.setUint16(offset + 10, 99, true);
+			assert(manifestFile);
+			const sectionPaths = decodeManifest(manifestFile).sections.map(({ path }) => path);
+			for (const path of excludedAccountArchiveSections) {
+				expect(files).not.toHaveProperty(path);
+				expect(sectionPaths).not.toContain(path);
 			}
-		}
-		expect((yield* validationError(unsupported)).reason).toBe("unsupported_compression");
-	}),
-);
+		}),
+	);
 
-it.effect("rejects malformed and truncated bounded and streamed NDJSON", () =>
-	Effect.gen(function* () {
-		for (const { reason, payload } of [
-			{ payload: "not-json\n", reason: "invalid_entry" },
-			{ payload: '{"id":', reason: "truncated_ndjson" },
-		] as const) {
-			const bounded = yield* mutateArchive(input(), (files) => {
-				replaceSection(files, "entities.ndjson", encoder.encode(payload));
+	test.effect("rejects a non-V1 manifest", () =>
+		Effect.gen(function* () {
+			const files = unzipSync(yield* archiveBytes());
+			const manifest = yield* Schema.decodeEffect(Schema.fromJsonString(ArchiveManifest))(
+				new TextDecoder().decode(files["manifest.json"]),
+			);
+			files["manifest.json"] = new TextEncoder().encode(
+				stableStringify({ ...manifest, version: 2 }),
+			);
+			const error = yield* validateArchive(asChunks(zipSync(files))).pipe(
+				Effect.scoped,
+				Effect.flip,
+			);
+			expect(error).toBeInstanceOf(BackupArchiveError);
+			expect(error.reason).toBe("unsupported_format");
+		}),
+	);
+
+	test.effect("rejects unsafe ZIP paths", () =>
+		Effect.gen(function* () {
+			const error = yield* validateArchive(
+				asChunks(zipSync({ "../manifest.json": new Uint8Array() })),
+			).pipe(Effect.scoped, Effect.flip);
+			expect(error).toBeInstanceOf(BackupArchiveError);
+			expect(error.reason).toBe("invalid_path");
+		}),
+	);
+
+	test.effect("enforces record, entry, and total archive limits", () =>
+		Effect.gen(function* () {
+			const { asset } = assetInput();
+			const archive = yield* archiveBytes(
+				input({ assets: [asset], records: { ...records, entities: [entity()] } }),
+			);
+			const cases = [
+				{ reason: "count_mismatch", limits: { maxRecordsPerSection: 0 } },
+				{ limits: { maxEntryCount: 1 }, reason: "entry_count_exceeded" },
+				{ reason: "entry_too_large", limits: { maxEntryBytes: 1 } },
+				{ reason: "entry_too_large", limits: { maxMetadataEntryBytes: 1 } },
+				{ reason: "total_size_exceeded", limits: { maxTotalUncompressedBytes: 1 } },
+			] as const;
+			for (const testCase of cases) {
+				const error = yield* validationError(archive, { limits: testCase.limits });
+				expect(error.reason).toBe(testCase.reason);
+			}
+		}),
+	);
+
+	test.effect("rejects section digest and count mismatches including streamed events", () =>
+		Effect.gen(function* () {
+			const populated = input({
+				events: eventsInput([event()]),
+				records: { ...records, entities: [entity()] },
 			});
-			expect((yield* validationError(bounded)).reason).toBe(reason);
+			const boundedDigest = yield* mutateArchive(populated, (files) => {
+				files["entities.ndjson"] = encoder.encode("\n");
+			});
+			expect((yield* validationError(boundedDigest)).reason).toBe("checksum_mismatch");
 
-			const streamed = yield* mutateArchive(input(), (files) => {
-				replaceSection(files, "events.ndjson", encoder.encode(payload));
+			const eventDigest = yield* mutateArchive(populated, (files) => {
+				files["events.ndjson"] = encoder.encode("\n");
+			});
+			expect((yield* validationError(eventDigest)).reason).toBe("checksum_mismatch");
+
+			const boundedCount = yield* mutateArchive(populated, (files) => {
+				const manifestFile = files["manifest.json"];
+				assert(manifestFile !== undefined);
+				const manifest = decodeManifest(manifestFile);
+				files["manifest.json"] = encodeManifest({
+					...manifest,
+					sections: manifest.sections.map((section) =>
+						section.path === "entities.ndjson" ? Object.assign({}, section, { count: 2 }) : section,
+					),
+				});
+			});
+			expect((yield* validationError(boundedCount)).reason).toBe("count_mismatch");
+
+			const eventCount = yield* mutateArchive(populated, (files) => {
+				const manifestFile = files["manifest.json"];
+				assert(manifestFile !== undefined);
+				const manifest = decodeManifest(manifestFile);
+				files["manifest.json"] = encodeManifest({
+					...manifest,
+					sections: manifest.sections.map((section) =>
+						section.path === "events.ndjson" ? Object.assign({}, section, { count: 2 }) : section,
+					),
+				});
 			});
 			yield* Effect.gen(function* () {
-				const validated = yield* validateArchive(asChunks(streamed));
+				const validated = yield* validateArchive(asChunks(eventCount));
 				const error = yield* Stream.runDrain(validated.events.read()).pipe(Effect.flip);
-				expect(error).toMatchObject({ reason, path: "events.ndjson" });
-			}).pipe(Effect.scoped, Effect.provide(BunFileSystem.layer));
-		}
-	}),
-);
+				expect(error).toMatchObject({ path: "events.ndjson", reason: "count_mismatch" });
+			}).pipe(Effect.scoped);
+		}),
+	);
 
-it.effect("rejects undeclared, missing, and mismatched assets", () =>
-	Effect.gen(function* () {
-		const { asset } = assetInput();
-		const archiveInput = input({ assets: [asset] });
-		const undeclared = yield* mutateArchive(archiveInput, (files) => {
-			files[`assets/${"a".repeat(64)}`] = encoder.encode("undeclared");
-		});
-		expect((yield* validationError(undeclared)).reason).toBe("undeclared_asset");
-
-		const missing = yield* mutateArchive(archiveInput, (files) => {
-			Reflect.deleteProperty(files, asset.metadata.path);
-		});
-		expect((yield* validationError(missing)).reason).toBe("missing_entry");
-
-		const digest = yield* mutateArchive(archiveInput, (files) => {
-			files[asset.metadata.path] = encoder.encode("changed asset");
-		});
-		expect((yield* validationError(digest)).reason).toBe("checksum_mismatch");
-
-		const size = yield* mutateArchive(archiveInput, (files) => {
-			const manifestFile = files["manifest.json"];
-			assert(manifestFile !== undefined);
-			const manifest = decodeManifest(manifestFile);
-			files["manifest.json"] = encodeManifest({
-				...manifest,
-				assets: manifest.assets.map((item) => Object.assign({}, item, { size: item.size + 1 })),
-			});
-		});
-		expect((yield* validationError(size)).reason).toBe("checksum_mismatch");
-	}),
-);
-
-it.effect("releases the spool directory on success, failure, and interruption", () =>
-	Effect.gen(function* () {
-		const fs = yield* FileSystem.FileSystem;
-		const root = yield* fs.makeTempDirectory({ prefix: "ryot-backup-spool-test-" });
-		const spooled = yield* archiveBytes(input({ records: { ...records, entities: [entity()] } }));
-		const spoolEntries = () => fs.readDirectory(root).pipe(Effect.map((paths) => paths.length));
-
-		const held = yield* Effect.gen(function* () {
-			const validated = yield* validateArchive(asChunks(spooled), { directory: root });
-			expect(yield* spoolEntries()).toBe(1);
-			return validated.assets.length;
-		}).pipe(Effect.scoped);
-		expect(held).toBe(0);
-		expect(yield* spoolEntries()).toBe(0);
-
-		const truncated = yield* mutateArchive(input(), (files) => {
-			replaceSection(files, "events.ndjson", encoder.encode('{"id":'));
-		});
-		yield* Effect.gen(function* () {
-			const validated = yield* validateArchive(asChunks(truncated), { directory: root });
-			return yield* Stream.runDrain(validated.events.read());
-		}).pipe(Effect.scoped, Effect.flip);
-		expect(yield* spoolEntries()).toBe(0);
-
-		expect(
-			(yield* validationError(rawZip(["manifest.json", "manifest.json"]), { directory: root }))
-				.reason,
-		).toBe("duplicate_path");
-		expect(yield* spoolEntries()).toBe(0);
-
-		const exit = yield* Effect.exit(
-			Effect.gen(function* () {
-				yield* validateArchive(asChunks(spooled), { directory: root });
-				return yield* Effect.interrupt;
-			}).pipe(Effect.scoped),
-		);
-		expect(exit._tag).toBe("Failure");
-		expect(yield* spoolEntries()).toBe(0);
-
-		yield* fs.remove(root, { force: true, recursive: true });
-	}).pipe(Effect.provide(BunFileSystem.layer)),
-);
-
-it.effect("rejects invalid private plugin archive records", () =>
-	Effect.gen(function* () {
-		const archive = yield* mutateArchive(input(), (files) => {
-			replaceSection(
-				files,
-				"private-plugins.ndjson",
-				encoder.encode(
-					`${JSON.stringify({
-						manifest: {},
-						slug: "fixture",
-						version: "1.0.0",
-						compiledScripts: [],
-						sourceHash: "a".repeat(64),
-						files: { "backend/main.ts": "Zg" },
-						key: `user:fixture:${"a".repeat(64)}`,
-					})}\n`,
-				),
+	test.effect("rejects duplicate and missing paths and unsupported compression", () =>
+		Effect.gen(function* () {
+			expect((yield* validationError(rawZip(["manifest.json", "manifest.json"]))).reason).toBe(
+				"duplicate_path",
 			);
-		});
-		const error = yield* validationError(archive);
-		expect(error).toMatchObject({ reason: "invalid_entry", path: "private-plugins.ndjson" });
-	}),
-);
+			const missing = yield* mutateArchive(input(), (files) => {
+				Reflect.deleteProperty(files, "entities.ndjson");
+			});
+			expect((yield* validationError(missing)).reason).toBe("missing_entry");
+
+			const unsupported = (yield* archiveBytes()).slice();
+			const view = new DataView(unsupported.buffer, unsupported.byteOffset, unsupported.byteLength);
+			for (let offset = 0; offset <= unsupported.byteLength - 12; offset += 1) {
+				const signature = view.getUint32(offset, true);
+				if (signature === 0x04034b50) {
+					view.setUint16(offset + 8, 99, true);
+				} else if (signature === 0x02014b50) {
+					view.setUint16(offset + 10, 99, true);
+				}
+			}
+			expect((yield* validationError(unsupported)).reason).toBe("unsupported_compression");
+		}),
+	);
+
+	test.effect("rejects malformed and truncated bounded and streamed NDJSON", () =>
+		Effect.gen(function* () {
+			for (const { reason, payload } of [
+				{ payload: "not-json\n", reason: "invalid_entry" },
+				{ payload: '{"id":', reason: "truncated_ndjson" },
+			] as const) {
+				const bounded = yield* mutateArchive(input(), (files) => {
+					replaceSection(files, "entities.ndjson", encoder.encode(payload));
+				});
+				expect((yield* validationError(bounded)).reason).toBe(reason);
+
+				const streamed = yield* mutateArchive(input(), (files) => {
+					replaceSection(files, "events.ndjson", encoder.encode(payload));
+				});
+				yield* Effect.gen(function* () {
+					const validated = yield* validateArchive(asChunks(streamed));
+					const error = yield* Stream.runDrain(validated.events.read()).pipe(Effect.flip);
+					expect(error).toMatchObject({ reason, path: "events.ndjson" });
+				}).pipe(Effect.scoped);
+			}
+		}),
+	);
+
+	test.effect("rejects undeclared, missing, and mismatched assets", () =>
+		Effect.gen(function* () {
+			const { asset } = assetInput();
+			const archiveInput = input({ assets: [asset] });
+			const undeclared = yield* mutateArchive(archiveInput, (files) => {
+				files[`assets/${"a".repeat(64)}`] = encoder.encode("undeclared");
+			});
+			expect((yield* validationError(undeclared)).reason).toBe("undeclared_asset");
+
+			const missing = yield* mutateArchive(archiveInput, (files) => {
+				Reflect.deleteProperty(files, asset.metadata.path);
+			});
+			expect((yield* validationError(missing)).reason).toBe("missing_entry");
+
+			const digest = yield* mutateArchive(archiveInput, (files) => {
+				files[asset.metadata.path] = encoder.encode("changed asset");
+			});
+			expect((yield* validationError(digest)).reason).toBe("checksum_mismatch");
+
+			const size = yield* mutateArchive(archiveInput, (files) => {
+				const manifestFile = files["manifest.json"];
+				assert(manifestFile !== undefined);
+				const manifest = decodeManifest(manifestFile);
+				files["manifest.json"] = encodeManifest({
+					...manifest,
+					assets: manifest.assets.map((item) => Object.assign({}, item, { size: item.size + 1 })),
+				});
+			});
+			expect((yield* validationError(size)).reason).toBe("checksum_mismatch");
+		}),
+	);
+
+	test.effect("releases the spool directory on success, failure, and interruption", () =>
+		Effect.gen(function* () {
+			const fs = yield* FileSystem.FileSystem;
+			const root = yield* fs.makeTempDirectory({ prefix: "ryot-backup-spool-test-" });
+			const spooled = yield* archiveBytes(input({ records: { ...records, entities: [entity()] } }));
+			const spoolEntries = () => fs.readDirectory(root).pipe(Effect.map((paths) => paths.length));
+
+			const held = yield* Effect.gen(function* () {
+				const validated = yield* validateArchive(asChunks(spooled), { directory: root });
+				expect(yield* spoolEntries()).toBe(1);
+				return validated.assets.length;
+			}).pipe(Effect.scoped);
+			expect(held).toBe(0);
+			expect(yield* spoolEntries()).toBe(0);
+
+			const truncated = yield* mutateArchive(input(), (files) => {
+				replaceSection(files, "events.ndjson", encoder.encode('{"id":'));
+			});
+			yield* Effect.gen(function* () {
+				const validated = yield* validateArchive(asChunks(truncated), { directory: root });
+				return yield* Stream.runDrain(validated.events.read());
+			}).pipe(Effect.scoped, Effect.flip);
+			expect(yield* spoolEntries()).toBe(0);
+
+			expect(
+				(yield* validationError(rawZip(["manifest.json", "manifest.json"]), { directory: root }))
+					.reason,
+			).toBe("duplicate_path");
+			expect(yield* spoolEntries()).toBe(0);
+
+			const exit = yield* Effect.exit(
+				Effect.gen(function* () {
+					yield* validateArchive(asChunks(spooled), { directory: root });
+					return yield* Effect.interrupt;
+				}).pipe(Effect.scoped),
+			);
+			expect(exit._tag).toBe("Failure");
+			expect(yield* spoolEntries()).toBe(0);
+
+			yield* fs.remove(root, { force: true, recursive: true });
+		}),
+	);
+
+	test.effect("rejects invalid private plugin archive records", () =>
+		Effect.gen(function* () {
+			const archive = yield* mutateArchive(input(), (files) => {
+				replaceSection(
+					files,
+					"private-plugins.ndjson",
+					encoder.encode(
+						`${JSON.stringify({
+							manifest: {},
+							slug: "fixture",
+							version: "1.0.0",
+							compiledScripts: [],
+							sourceHash: "a".repeat(64),
+							files: { "backend/main.ts": "Zg" },
+							key: `user:fixture:${"a".repeat(64)}`,
+						})}\n`,
+					),
+				);
+			});
+			const error = yield* validationError(archive);
+			expect(error).toMatchObject({ reason: "invalid_entry", path: "private-plugins.ndjson" });
+		}),
+	);
+});

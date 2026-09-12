@@ -1,6 +1,6 @@
 import { BunServices } from "@effect/platform-bun";
 import { PgClient } from "@effect/sql-pg";
-import { expect, it } from "@effect/vitest";
+import { expect, layer } from "@effect/vitest";
 import { DbError, SandboxRunError } from "@ryot-app/contract/errors";
 import type { AutomationWarning } from "@ryot-app/contract/modules/automations/lifecycle";
 import {
@@ -19,7 +19,7 @@ import {
 } from "@ryot-app/contract/schema/brands";
 import { IsoUtcString } from "@ryot-app/contract/schema/utils";
 import { isObjectRecord } from "@ryot-app/ts-utils/predicates";
-import { Effect, FileSystem, Layer, Logger, References, Schema } from "effect";
+import { Context, Effect, FileSystem, Layer, Logger, MutableRef, References, Schema } from "effect";
 import { WorkflowEngine, WorkflowInstance } from "effect/unstable/workflow/WorkflowEngine";
 import { assert } from "vitest";
 
@@ -95,6 +95,51 @@ const warning = {
 	runId: AutomationRunId.make("import-warning-run"),
 	hookSlug: AutomationHookSlug.make("fixture.after-import"),
 } as const satisfies AutomationWarning;
+
+const makeChannel = <A>() => {
+	const values = MutableRef.make<ReadonlyArray<A>>([]);
+	const appendNow = (...next: ReadonlyArray<A>) => {
+		MutableRef.update(values, (all) => [...all, ...next]);
+	};
+	return {
+		appendNow,
+		read: Effect.sync(() => MutableRef.get(values)),
+		append: (...next: ReadonlyArray<A>) => Effect.sync(() => appendNow(...next)),
+	};
+};
+
+const makeImportRecordings = () => ({
+	entityNames: makeChannel<string>(),
+	eventEntityIds: makeChannel<string>(),
+	commands: makeChannel<LifecycleCommand>(),
+	providerExecutions: makeChannel<string>(),
+	definitionResolutions: makeChannel<true>(),
+	eventCommands: makeChannel<LifecycleCommand>(),
+	entityCommands: makeChannel<LifecycleCommand>(),
+	updates: makeChannel<Record<string, unknown>>(),
+	failures: makeChannel<Record<string, unknown>>(),
+	entities: makeChannel<Record<string, unknown>>(),
+	eventInputs: makeChannel<Record<string, unknown>>(),
+	relationshipCommands: makeChannel<LifecycleCommand>(),
+	relationships: makeChannel<Record<string, unknown>>(),
+	collectionExecutions: makeChannel<Record<string, unknown>>(),
+	warningLogs: makeChannel<Readonly<Record<string, unknown>>>(),
+});
+
+class ImportRecorder extends Context.Service<
+	ImportRecorder,
+	ReturnType<typeof makeImportRecordings>
+>()("test/ImportRecorder") {}
+
+const recordingLayer = <A, E, R>(
+	build: (recordings: ReturnType<typeof makeImportRecordings>) => Layer.Layer<A, E, R>,
+) =>
+	Layer.unwrap(
+		Effect.sync(() => {
+			const recordings = makeImportRecordings();
+			return Layer.merge(build(recordings), Layer.succeed(ImportRecorder, recordings));
+		}),
+	);
 
 const importCommand = (
 	executionId: string,
@@ -175,31 +220,15 @@ const makeProviderImportItem = (
 	],
 });
 
-it.effect("processes generic entity, relationship, event, and collection writes", () => {
+const genericWritesCase = () => {
 	const executionId = "generic-import";
 	const rootExecutionId = "import-root";
-	const updates: Array<Record<string, unknown>> = [];
-	const failures: Array<Record<string, unknown>> = [];
-	const entities: Array<Record<string, unknown>> = [];
-	const relationships: Array<Record<string, unknown>> = [];
-	const entityCommands: LifecycleCommand[] = [];
-	const eventCommands: LifecycleCommand[] = [];
-	const relationshipCommands: LifecycleCommand[] = [];
-	const eventInputs: Array<Record<string, unknown>> = [];
-	const collectionExecutions: Array<Record<string, unknown>> = [];
-	const warningLogs: Array<Readonly<Record<string, unknown>>> = [];
-	const logger = Logger.make<unknown, void>((options) => {
-		if (
-			String(options.message).includes("generic import item completed with automation warnings")
-		) {
-			warningLogs.push(options.fiber.getRef(References.CurrentLogAnnotations));
-		}
-	});
 	const directory = "/tmp/ryot-sandbox-harvest-test/generic-import-activity-0";
 	const path = `${directory}/chunk-0.json`;
 	const instance = WorkflowInstance.initial(ProcessGenericImportChunksWorkflow, executionId);
 
-	return Effect.gen(function* () {
+	const program = Effect.gen(function* () {
+		const recorded = yield* ImportRecorder;
 		const fs = yield* FileSystem.FileSystem;
 		yield* fs.makeDirectory(directory, { recursive: true });
 		yield* fs.writeFileString(
@@ -337,7 +366,7 @@ it.effect("processes generic entity, relationship, event, and collection writes"
 		);
 
 		expect(result).toEqual({ failedItems: 2, importedItems: 1, processedItems: 3 });
-		expect(failures).toEqual([
+		expect(yield* recorded.failures.read).toEqual([
 			expect.objectContaining({
 				itemIndex: 0,
 				stage: "source_fetch",
@@ -349,7 +378,7 @@ it.effect("processes generic entity, relationship, event, and collection writes"
 				reason: { code: "database-commit-failed" },
 			}),
 		]);
-		expect(entities).toEqual([
+		expect(yield* recorded.entities.read).toEqual([
 			expect.objectContaining({
 				userId: "user-1",
 				name: "Created collection",
@@ -362,7 +391,7 @@ it.effect("processes generic entity, relationship, event, and collection writes"
 				entitySchemaSlug: "collection",
 			}),
 		]);
-		expect(relationships).toEqual([
+		expect(yield* recorded.relationships.read).toEqual([
 			expect.objectContaining({
 				properties: { rank: 7 },
 				relationshipSchemaSlug: "member-of",
@@ -375,7 +404,7 @@ it.effect("processes generic entity, relationship, event, and collection writes"
 				targetEntityId: "library-collection",
 			}),
 		]);
-		expect(eventInputs).toEqual([
+		expect(yield* recorded.eventInputs.read).toEqual([
 			{
 				userId: "user-1",
 				payload: [
@@ -389,6 +418,7 @@ it.effect("processes generic entity, relationship, event, and collection writes"
 				],
 			},
 		]);
+		const collectionExecutions = yield* recorded.collectionExecutions.read;
 		expect(collectionExecutions).toEqual([
 			expect.objectContaining({
 				executionId: "generic-import-item-1-collection-0",
@@ -401,9 +431,9 @@ it.effect("processes generic entity, relationship, event, and collection writes"
 		const collectionPayload = collectionExecutions[0]?.["payload"];
 		assert(isObjectRecord(collectionPayload));
 		const commands = [
-			...entityCommands,
-			...relationshipCommands,
-			...eventCommands,
+			...(yield* recorded.entityCommands.read),
+			...(yield* recorded.relationshipCommands.read),
+			...(yield* recorded.eventCommands.read),
 			yield* Schema.decodeUnknownEffect(LifecycleCommand)(collectionPayload["command"]),
 		];
 		expect(commands).toHaveLength(7);
@@ -420,7 +450,7 @@ it.effect("processes generic entity, relationship, event, and collection writes"
 				initiator: { id: "user-1", kind: "user" },
 			});
 		}
-		expect(warningLogs).toEqual([
+		expect(yield* recorded.warningLogs.read).toEqual([
 			expect.objectContaining({
 				itemIndex: 1,
 				runId: "run-1",
@@ -428,7 +458,7 @@ it.effect("processes generic entity, relationship, event, and collection writes"
 			}),
 			expect.objectContaining({ itemIndex: 2, runId: "run-1", warnings: [warning] }),
 		]);
-		expect(updates).toContainEqual(
+		expect(yield* recorded.updates.read).toContainEqual(
 			expect.objectContaining({
 				progress: 100,
 				failedItems: 2,
@@ -436,100 +466,127 @@ it.effect("processes generic entity, relationship, event, and collection writes"
 				processedItems: 3,
 			}),
 		);
-	}).pipe(
-		Effect.provideService(
-			WorkflowEngine,
-			makeWorkflowActivityEngine(instance, {
-				execute: (_workflow, options) =>
-					Effect.sync(() => {
-						collectionExecutions.push(options);
-						return {
-							warnings: [warning],
-							memberOf: {
-								properties: {},
-								createdAt: "2026-01-01T00:00:00.000Z",
-								sourceEntityId: EntityId.make("direct-example"),
-								id: RelationshipId.make("collection-membership"),
-								targetEntityId: EntityId.make("favorites-collection"),
-								relationshipSchemaSlug: RelationshipSchemaSlug.make("member-of"),
-							},
-						};
-					}),
-			}),
-		),
-		Effect.provideService(WorkflowInstance, instance),
-		Effect.provide(
-			Layer.mergeAll(
-				providerOperationsLayer,
-				Logger.layer([logger]),
-				artifactStoreLayer,
-				databaseLayer,
-				transactionDatabaseLayer,
-				lifecycleDependencies,
-				BunServices.layer,
-				makeAppConfigLayer(),
-				makePluginRuntime(),
-				Layer.mock(CollectionsService)({
-					prepareGetOrCreateCollection: () =>
-						Effect.succeed({
-							dispatch: [],
-							_tag: "Committed",
-							result: { id: EntityId.make("favorites-collection") },
-						}),
+	});
+
+	const testLayer = recordingLayer((recordings) =>
+		Layer.mergeAll(
+			Layer.succeed(WorkflowInstance, instance),
+			Logger.layer([
+				Logger.make<unknown, void>((options) => {
+					if (
+						String(options.message).includes(
+							"generic import item completed with automation warnings",
+						)
+					) {
+						recordings.warningLogs.appendNow(
+							options.fiber.getRef(References.CurrentLogAnnotations),
+						);
+					}
 				}),
-				Layer.mock(RelationshipsService)({
-					prepareMergeUserProperties: (input, command) =>
-						Effect.sync(() => relationshipCommands.push(command)).pipe(
-							Effect.andThen(
-								input.targetEntityId === "library-collection" &&
-									input.sourceEntityId !== "direct-example"
-									? Effect.fail(new DbError({ message: "membership write failed" }))
-									: Effect.sync(() => {
-											relationships.push(input);
-											return {
-												_tag: "Committed" as const,
-												result: { relationship: null },
-												dispatch: [dispatchPlan("relationship-merge")],
-											};
-										}),
-							),
-						),
-					prepareCreate: (input, command) =>
+			]),
+			Layer.succeed(
+				WorkflowEngine,
+				makeWorkflowActivityEngine(instance, {
+					execute: (_workflow, options) =>
 						Effect.sync(() => {
-							relationships.push(input);
-							relationshipCommands.push(command);
-							assert(isObjectRecord(input.properties));
+							recordings.collectionExecutions.appendNow(options);
 							return {
-								_tag: "Committed" as const,
-								dispatch: [dispatchPlan("relationship-create")],
-								result: {
-									relationship: {
-										wasInserted: true,
-										properties: input.properties,
-										sourceEntityId: input.sourceEntityId,
-										targetEntityId: input.targetEntityId,
-										createdAt: "2026-01-01T00:00:00.000Z",
-										updatedAt: "2026-01-01T00:00:00.000Z",
-										id: RelationshipId.make("relationship-1"),
-										relationshipSchemaSlug: input.relationshipSchemaSlug,
-									},
+								warnings: [warning],
+								memberOf: {
+									properties: {},
+									createdAt: "2026-01-01T00:00:00.000Z",
+									sourceEntityId: EntityId.make("direct-example"),
+									id: RelationshipId.make("collection-membership"),
+									targetEntityId: EntityId.make("favorites-collection"),
+									relationshipSchemaSlug: RelationshipSchemaSlug.make("member-of"),
 								},
 							};
 						}),
 				}),
-				Layer.mock(EntitiesRepository)({
-					getEntityScopeForUser: ({ entityId }) =>
-						Effect.succeed({
-							entityId,
-							isBuiltin: true,
-							entityName: "Library",
-							entitySchemaPluginId: null,
-							entitySchemaSlug: EntitySchemaSlug.make("collection"),
-							entityUserId: entityId === "global-library" ? null : UserId.make("user-1"),
-						}),
-					getByIdForUser: ({ entityId }) =>
-						Effect.succeed({
-							id: entityId,
+			),
+			providerOperationsLayer,
+			artifactStoreLayer,
+			databaseLayer,
+			transactionDatabaseLayer,
+			lifecycleDependencies,
+			BunServices.layer,
+			makeAppConfigLayer(),
+			makePluginRuntime(),
+			Layer.mock(CollectionsService)({
+				prepareGetOrCreateCollection: () =>
+					Effect.succeed({
+						dispatch: [],
+						_tag: "Committed",
+						result: { id: EntityId.make("favorites-collection") },
+					}),
+			}),
+			Layer.mock(RelationshipsService)({
+				prepareMergeUserProperties: (input, command) =>
+					recordings.relationshipCommands.append(command).pipe(
+						Effect.andThen(
+							input.targetEntityId === "library-collection" &&
+								input.sourceEntityId !== "direct-example"
+								? Effect.fail(new DbError({ message: "membership write failed" }))
+								: Effect.sync(() => {
+										recordings.relationships.appendNow(input);
+										return {
+											_tag: "Committed" as const,
+											result: { relationship: null },
+											dispatch: [dispatchPlan("relationship-merge")],
+										};
+									}),
+						),
+					),
+				prepareCreate: (input, command) =>
+					Effect.sync(() => {
+						recordings.relationships.appendNow(input);
+						recordings.relationshipCommands.appendNow(command);
+						assert(isObjectRecord(input.properties));
+						return {
+							_tag: "Committed" as const,
+							dispatch: [dispatchPlan("relationship-create")],
+							result: {
+								relationship: {
+									wasInserted: true,
+									properties: input.properties,
+									sourceEntityId: input.sourceEntityId,
+									targetEntityId: input.targetEntityId,
+									createdAt: "2026-01-01T00:00:00.000Z",
+									updatedAt: "2026-01-01T00:00:00.000Z",
+									id: RelationshipId.make("relationship-1"),
+									relationshipSchemaSlug: input.relationshipSchemaSlug,
+								},
+							},
+						};
+					}),
+			}),
+			Layer.mock(EntitiesRepository)({
+				getEntityScopeForUser: ({ entityId }) =>
+					Effect.succeed({
+						entityId,
+						isBuiltin: true,
+						entityName: "Library",
+						entitySchemaPluginId: null,
+						entitySchemaSlug: EntitySchemaSlug.make("collection"),
+						entityUserId: entityId === "global-library" ? null : UserId.make("user-1"),
+					}),
+				getByIdForUser: ({ entityId }) =>
+					Effect.succeed({
+						id: entityId,
+						providerId: null,
+						externalId: null,
+						populatedAt: null,
+						name: "My Existing",
+						properties: { kind: "tracked" },
+						createdAt: "2026-01-01T00:00:00.000Z",
+						updatedAt: "2026-01-01T00:00:00.000Z",
+						entitySchemaSlug: EntitySchemaSlug.make(
+							entityId === "failed-example" ? "group" : "collection",
+						),
+					}),
+				listMatchCandidatesBySchema: () =>
+					Effect.succeed([
+						{
 							providerId: null,
 							externalId: null,
 							populatedAt: null,
@@ -537,108 +594,87 @@ it.effect("processes generic entity, relationship, event, and collection writes"
 							properties: { kind: "tracked" },
 							createdAt: "2026-01-01T00:00:00.000Z",
 							updatedAt: "2026-01-01T00:00:00.000Z",
-							entitySchemaSlug: EntitySchemaSlug.make(
-								entityId === "failed-example" ? "group" : "collection",
-							),
-						}),
-					listMatchCandidatesBySchema: () =>
-						Effect.succeed([
-							{
-								providerId: null,
-								externalId: null,
-								populatedAt: null,
-								name: "My Existing",
-								properties: { kind: "tracked" },
-								createdAt: "2026-01-01T00:00:00.000Z",
-								updatedAt: "2026-01-01T00:00:00.000Z",
-								id: EntityId.make("existing-collection"),
-								entitySchemaSlug: EntitySchemaSlug.make("collection"),
-							},
-							{
-								properties: {},
-								name: "Library",
-								providerId: null,
-								externalId: null,
-								populatedAt: null,
-								id: EntityId.make("global-library"),
-								createdAt: "2026-01-01T00:00:00.000Z",
-								updatedAt: "2026-01-01T00:00:00.000Z",
-								entitySchemaSlug: EntitySchemaSlug.make("collection"),
-							},
-							{
-								properties: {},
-								name: "Library",
-								providerId: null,
-								externalId: null,
-								populatedAt: null,
-								createdAt: "2026-01-01T00:00:00.000Z",
-								updatedAt: "2026-01-01T00:00:00.000Z",
-								id: EntityId.make("library-collection"),
-								entitySchemaSlug: EntitySchemaSlug.make("collection"),
-							},
-						]),
-				}),
-				Layer.mock(EntitiesService)({
-					prepareCreateStep: (input) =>
-						Effect.sync(() => {
-							entities.push(input);
-							entityCommands.push(input.lifecycle);
-							assert(isObjectRecord(input.properties));
-							const entity = {
-								name: input.name,
-								externalId: null,
-								providerId: null,
-								populatedAt: null,
-								properties: input.properties,
-								createdAt: "2026-01-01T00:00:00.000Z",
-								updatedAt: "2026-01-01T00:00:00.000Z",
-								id: EntityId.make("created-collection"),
-								entitySchemaSlug: EntitySchemaSlug.make(input.entitySchemaSlug),
-							};
-							return {
-								_tag: "Committed" as const,
-								dispatch: [dispatchPlan("entity-create")],
-								result: {
-									entity,
-									wasInserted: true,
-									outcome: {
-										before: null,
-										operation: "create" as const,
-										after: { ...entity, properties: {} },
-									},
+							id: EntityId.make("existing-collection"),
+							entitySchemaSlug: EntitySchemaSlug.make("collection"),
+						},
+						{
+							properties: {},
+							name: "Library",
+							providerId: null,
+							externalId: null,
+							populatedAt: null,
+							id: EntityId.make("global-library"),
+							createdAt: "2026-01-01T00:00:00.000Z",
+							updatedAt: "2026-01-01T00:00:00.000Z",
+							entitySchemaSlug: EntitySchemaSlug.make("collection"),
+						},
+						{
+							properties: {},
+							name: "Library",
+							providerId: null,
+							externalId: null,
+							populatedAt: null,
+							createdAt: "2026-01-01T00:00:00.000Z",
+							updatedAt: "2026-01-01T00:00:00.000Z",
+							id: EntityId.make("library-collection"),
+							entitySchemaSlug: EntitySchemaSlug.make("collection"),
+						},
+					]),
+			}),
+			Layer.mock(EntitiesService)({
+				prepareCreateStep: (input) =>
+					Effect.sync(() => {
+						recordings.entities.appendNow(input);
+						recordings.entityCommands.appendNow(input.lifecycle);
+						assert(isObjectRecord(input.properties));
+						const entity = {
+							name: input.name,
+							externalId: null,
+							providerId: null,
+							populatedAt: null,
+							properties: input.properties,
+							createdAt: "2026-01-01T00:00:00.000Z",
+							updatedAt: "2026-01-01T00:00:00.000Z",
+							id: EntityId.make("created-collection"),
+							entitySchemaSlug: EntitySchemaSlug.make(input.entitySchemaSlug),
+						};
+						return {
+							_tag: "Committed" as const,
+							dispatch: [dispatchPlan("entity-create")],
+							result: {
+								entity,
+								wasInserted: true,
+								outcome: {
+									before: null,
+									operation: "create" as const,
+									after: { ...entity, properties: {} },
 								},
-							};
-						}),
-				}),
-				Layer.mock(EventsService)({
-					create: (input, command) =>
-						Effect.sync(() => {
-							eventInputs.push(input);
-							eventCommands.push(command);
-							return { count: 1, outcomes: [], failure: null, warnings: [warning] };
-						}),
-				}),
-				Layer.mock(ImportsService)({
-					update: (input) => Effect.sync(() => updates.push(input)).pipe(Effect.asVoid),
-				}),
-				Layer.mock(ImportRunFailuresService)({
-					create: (input) => Effect.sync(() => failures.push(input)).pipe(Effect.asVoid),
-				}),
-			),
+							},
+						};
+					}),
+			}),
+			Layer.mock(EventsService)({
+				create: (input, command) =>
+					Effect.sync(() => {
+						recordings.eventInputs.appendNow(input);
+						recordings.eventCommands.appendNow(command);
+						return { count: 1, outcomes: [], failure: null, warnings: [warning] };
+					}),
+			}),
+			Layer.mock(ImportsService)({ update: (input) => recordings.updates.append(input) }),
+			Layer.mock(ImportRunFailuresService)({
+				create: (input) => recordings.failures.append(input),
+			}),
 		),
 	);
-});
 
-it.effect("imports private event and relationship schemas from one effective snapshot", () => {
+	return { program, layer: testLayer };
+};
+
+const relationshipSchemasCase = () => {
 	const executionId = "generic-import-relationship-schemas";
 	const pluginId = "private-plugin-id";
-	const failures: Array<Record<string, unknown>> = [];
-	const entityWrites: Array<string> = [];
-	const commands: LifecycleCommand[] = [];
-	const eventInputs: Array<Record<string, unknown>> = [];
-	const relationshipWrites: Array<Record<string, unknown>> = [];
 	const integrationId = IntegrationId.make("integration-relationship-schemas");
-	let definitionResolutions = 0;
 	const directory = `/tmp/ryot-sandbox-harvest-test/${executionId}-activity-0`;
 	const path = `${directory}/chunk-0.json`;
 	const instance = WorkflowInstance.initial(ProcessGenericImportChunksWorkflow, executionId);
@@ -687,7 +723,8 @@ it.effect("imports private event and relationship schemas from one effective sna
 	} satisfies DefinitionSource;
 	const definitions = buildDefinitionSnapshot(definitionSource);
 
-	return Effect.gen(function* () {
+	const program = Effect.gen(function* () {
+		const recorded = yield* ImportRecorder;
 		const fs = yield* FileSystem.FileSystem;
 		yield* fs.makeDirectory(directory, { recursive: true });
 		yield* fs.writeFileString(
@@ -734,12 +771,12 @@ it.effect("imports private event and relationship schemas from one effective sna
 		);
 
 		expect(result).toEqual({ failedItems: 2, importedItems: 1, processedItems: 3 });
-		expect(failures).toEqual([
+		expect(yield* recorded.failures.read).toEqual([
 			expect.objectContaining({ itemIndex: 0, reason: { code: "database-commit-failed" } }),
 			expect.objectContaining({ itemIndex: 1, reason: { code: "database-commit-failed" } }),
 		]);
-		expect(entityWrites).toEqual(["source-2", "target-2"]);
-		expect(relationshipWrites).toEqual([
+		expect(yield* recorded.entityNames.read).toEqual(["source-2", "target-2"]);
+		expect(yield* recorded.relationships.read).toEqual([
 			expect.objectContaining({
 				sourceEntityId: "source-2-id",
 				targetEntityId: "target-2-id",
@@ -747,11 +784,12 @@ it.effect("imports private event and relationship schemas from one effective sna
 				relationshipSchemaSlug: "unrestricted",
 			}),
 		]);
-		expect(eventInputs).toEqual([
+		expect(yield* recorded.eventInputs.read).toEqual([
 			expect.objectContaining({
 				payload: [expect.objectContaining({ properties: {}, eventSchemaSlug: "private-event" })],
 			}),
 		]);
+		const commands = yield* recorded.commands.read;
 		expect(commands).toHaveLength(4);
 		for (const command of commands) {
 			expect(command.causation).toMatchObject({
@@ -763,104 +801,100 @@ it.effect("imports private event and relationship schemas from one effective sna
 				initiator: { id: integrationId, kind: "integration" },
 			});
 		}
-		expect(definitionResolutions).toBe(1);
-	}).pipe(
-		Effect.provideService(WorkflowEngine, makeWorkflowActivityEngine(instance)),
-		Effect.provideService(WorkflowInstance, instance),
-		Effect.provide(
-			Layer.mergeAll(
-				providerOperationsLayer,
-				artifactStoreLayer,
-				databaseLayer,
-				transactionDatabaseLayer,
-				lifecycleDependencies,
-				BunServices.layer,
-				makeAppConfigLayer(),
-				collectionsLayer,
-				makePluginRuntime(definitions, () => {
-					definitionResolutions += 1;
-				}),
-				Layer.mock(EntitiesRepository)({}),
-				Layer.mock(EntitiesService)({
-					prepareCreateStep: (input) =>
-						Effect.sync(() => {
-							entityWrites.push(input.name);
-							commands.push(input.lifecycle);
-							assert(isObjectRecord(input.properties));
-							const entity = {
-								name: input.name,
-								providerId: null,
-								externalId: null,
-								populatedAt: null,
-								properties: input.properties,
-								createdAt: "2026-01-01T00:00:00.000Z",
-								updatedAt: "2026-01-01T00:00:00.000Z",
-								id: EntityId.make(`${input.name}-id`),
-								entitySchemaSlug: EntitySchemaSlug.make(input.entitySchemaSlug),
-							};
-							return {
-								dispatch: [],
-								_tag: "Committed" as const,
-								result: {
-									entity,
+		expect(yield* recorded.definitionResolutions.read).toHaveLength(1);
+	});
+
+	const testLayer = recordingLayer((recordings) =>
+		Layer.mergeAll(
+			Layer.succeed(WorkflowInstance, instance),
+			Layer.succeed(WorkflowEngine, makeWorkflowActivityEngine(instance)),
+			providerOperationsLayer,
+			artifactStoreLayer,
+			databaseLayer,
+			transactionDatabaseLayer,
+			lifecycleDependencies,
+			BunServices.layer,
+			makeAppConfigLayer(),
+			collectionsLayer,
+			makePluginRuntime(definitions, () => recordings.definitionResolutions.appendNow(true)),
+			Layer.mock(EntitiesRepository)({}),
+			Layer.mock(EntitiesService)({
+				prepareCreateStep: (input) =>
+					Effect.sync(() => {
+						recordings.entityNames.appendNow(input.name);
+						recordings.commands.appendNow(input.lifecycle);
+						assert(isObjectRecord(input.properties));
+						const entity = {
+							name: input.name,
+							providerId: null,
+							externalId: null,
+							populatedAt: null,
+							properties: input.properties,
+							createdAt: "2026-01-01T00:00:00.000Z",
+							updatedAt: "2026-01-01T00:00:00.000Z",
+							id: EntityId.make(`${input.name}-id`),
+							entitySchemaSlug: EntitySchemaSlug.make(input.entitySchemaSlug),
+						};
+						return {
+							dispatch: [],
+							_tag: "Committed" as const,
+							result: {
+								entity,
+								wasInserted: true,
+								outcome: {
+									before: null,
+									operation: "create" as const,
+									after: { ...entity, properties: {} },
+								},
+							},
+						};
+					}),
+			}),
+			Layer.mock(RelationshipsService)({
+				prepareCreate: (input, command) =>
+					Effect.sync(() => {
+						recordings.relationships.appendNow(input);
+						recordings.commands.appendNow(command);
+						return {
+							dispatch: [],
+							_tag: "Committed" as const,
+							result: {
+								relationship: {
+									properties: {},
 									wasInserted: true,
-									outcome: {
-										before: null,
-										operation: "create" as const,
-										after: { ...entity, properties: {} },
-									},
+									sourceEntityId: input.sourceEntityId,
+									targetEntityId: input.targetEntityId,
+									createdAt: "2026-01-01T00:00:00.000Z",
+									updatedAt: "2026-01-01T00:00:00.000Z",
+									id: RelationshipId.make("relationship-1"),
+									relationshipSchemaSlug: input.relationshipSchemaSlug,
 								},
-							};
-						}),
-				}),
-				Layer.mock(RelationshipsService)({
-					prepareCreate: (input, command) =>
-						Effect.sync(() => {
-							relationshipWrites.push(input);
-							commands.push(command);
-							return {
-								dispatch: [],
-								_tag: "Committed" as const,
-								result: {
-									relationship: {
-										properties: {},
-										wasInserted: true,
-										sourceEntityId: input.sourceEntityId,
-										targetEntityId: input.targetEntityId,
-										createdAt: "2026-01-01T00:00:00.000Z",
-										updatedAt: "2026-01-01T00:00:00.000Z",
-										id: RelationshipId.make("relationship-1"),
-										relationshipSchemaSlug: input.relationshipSchemaSlug,
-									},
-								},
-							};
-						}),
-				}),
-				Layer.mock(EventsService)({
-					create: (input, command) =>
-						Effect.sync(() => {
-							eventInputs.push(input);
-							commands.push(command);
-							return { count: 1, outcomes: [], warnings: [], failure: null };
-						}),
-				}),
-				Layer.mock(ImportsService)({ update: () => Effect.void }),
-				Layer.mock(ImportRunFailuresService)({
-					create: (input) => Effect.sync(() => failures.push(input)).pipe(Effect.asVoid),
-				}),
-			),
+							},
+						};
+					}),
+			}),
+			Layer.mock(EventsService)({
+				create: (input, command) =>
+					Effect.sync(() => {
+						recordings.eventInputs.appendNow(input);
+						recordings.commands.appendNow(command);
+						return { count: 1, outcomes: [], warnings: [], failure: null };
+					}),
+			}),
+			Layer.mock(ImportsService)({ update: () => Effect.void }),
+			Layer.mock(ImportRunFailuresService)({
+				create: (input) => recordings.failures.append(input),
+			}),
 		),
 	);
-});
 
-it.effect("resolves provider entities and preserves generic fallbacks and failure stages", () => {
+	return { program, layer: testLayer };
+};
+
+const providerEntitiesCase = () => {
 	const executionId = "generic-provider-import";
 	const userId = UserId.make("user-1");
 	const providerId = SandboxProviderId.make("provider-1");
-	const failures: Array<Record<string, unknown>> = [];
-	const eventEntityIds: string[] = [];
-	const createdNames: string[] = [];
-	const providerExecutions: string[] = [];
 	const directory = `/tmp/ryot-sandbox-harvest-test/${executionId}-activity-0`;
 	const path = `${directory}/chunk-0.json`;
 	const instance = WorkflowInstance.initial(ProcessGenericImportChunksWorkflow, executionId);
@@ -886,7 +920,9 @@ it.effect("resolves provider entities and preserves generic fallbacks and failur
 			},
 		],
 	} satisfies DefinitionSource);
-	return Effect.gen(function* () {
+
+	const program = Effect.gen(function* () {
+		const recorded = yield* ImportRecorder;
 		const fs = yield* FileSystem.FileSystem;
 		yield* fs.makeDirectory(directory, { recursive: true });
 		yield* fs.writeFileString(
@@ -927,21 +963,25 @@ it.effect("resolves provider entities and preserves generic fallbacks and failur
 		);
 
 		expect(result).toEqual({ failedItems: 2, importedItems: 5, processedItems: 7 });
-		expect(eventEntityIds).toEqual([
+		expect(yield* recorded.eventEntityIds.read).toEqual([
 			"global-provider-entity",
 			"global-provider-entity",
 			"created-Null fallback",
 			"created-Mismatch fallback",
 			"created-Old path",
 		]);
-		expect(createdNames).toEqual(["Null fallback", "Mismatch fallback", "Old path"]);
-		expect(providerExecutions).toEqual([
+		expect(yield* recorded.entityNames.read).toEqual([
+			"Null fallback",
+			"Mismatch fallback",
+			"Old path",
+		]);
+		expect(yield* recorded.providerExecutions.read).toEqual([
 			`${executionId}-item-0-entity-0-provider-import`,
 			`${executionId}-item-1-entity-0-provider-import`,
 			`${executionId}-item-3-entity-0-provider-import`,
 			`${executionId}-item-5-entity-0-provider-import`,
 		]);
-		expect(failures).toEqual([
+		expect(yield* recorded.failures.read).toEqual([
 			expect.objectContaining({
 				itemIndex: 4,
 				stage: "provider_resolution",
@@ -953,132 +993,134 @@ it.effect("resolves provider entities and preserves generic fallbacks and failur
 				reason: { code: "provider-details-failed" },
 			}),
 		]);
-	}).pipe(
-		Effect.provideService(
-			WorkflowEngine,
-			makeWorkflowActivityEngine(instance, {
-				execute: (workflow, options) => {
-					if (workflow._tag !== EntityImportWorkflow._tag) {
-						return Effect.die(`Unexpected workflow: ${workflow._tag}`);
-					}
-					providerExecutions.push(options.executionId);
-					if (options.executionId.includes("item-5-")) {
-						return Effect.fail(
-							new EntityImportError({ stage: "population", message: "details failed" }),
-						);
-					}
-					return Effect.succeed({
-						providerId,
-						name: "Routine",
-						externalId: "provider-external",
-						createdAt: "2026-01-01T00:00:00.000Z",
-						updatedAt: "2026-01-01T00:00:00.000Z",
-						populatedAt: "2026-01-01T00:00:00.000Z",
-						id: EntityId.make("global-provider-entity"),
-						entitySchemaSlug: EntitySchemaSlug.make("routine"),
-						properties: options.executionId.includes("item-3-")
-							? { kind: "workout" }
-							: { kind: "exercise" },
-					});
-				},
-			}),
-		),
-		Effect.provideService(WorkflowInstance, instance),
-		Effect.provide(
-			Layer.mergeAll(
-				artifactStoreLayer,
-				databaseLayer,
-				transactionDatabaseLayer,
-				lifecycleDependencies,
-				BunServices.layer,
-				makeAppConfigLayer(),
-				collectionsLayer,
-				makeDefinitions(definitions),
-				Layer.mock(PluginRuntimeResolver)({
-					findProviderAvailableToUserBySlug: () =>
-						Effect.succeed({
-							id: providerId,
-							name: "Fitness",
-							slug: "fitness",
-							pluginId: "fitness-plugin",
-							pluginScope: "system" as const,
-							rootEntitySchemaSlug: "routine",
-							information: { source: "provider" },
-							createdAt: new Date("2026-01-01T00:00:00.000Z"),
-							updatedAt: new Date("2026-01-01T00:00:00.000Z"),
-						}),
-				}),
-				Layer.mock(EntityImportWorkflowOperations)({
-					processSandbox: () => Effect.die("unexpected provider details"),
-					completeProviderEntityImport: () => Effect.die("unexpected provider completion"),
-					processProviderResolve: ({ value }) =>
-						value === "resolve-error"
-							? Effect.fail(
-									new SandboxRunError({ kind: "infrastructure", message: "resolve failed" }),
-								)
-							: Effect.succeed({
-									logs: [],
-									error: null,
-									status: "completed" as const,
-									value: { externalId: value === "null" ? null : `external-${value}` },
-								}),
-				}),
-				Layer.mock(EntitiesRepository)({ listMatchCandidatesBySchema: () => Effect.succeed([]) }),
-				Layer.mock(EntitiesService)({
-					prepareCreateStep: (input) =>
-						Effect.sync(() => {
-							createdNames.push(input.name);
-							expect(input.scope).toBe("user");
-							const entity = {
-								name: input.name,
-								providerId: null,
-								externalId: null,
-								populatedAt: null,
-								properties: input.properties,
-								createdAt: "2026-01-01T00:00:00.000Z",
-								updatedAt: "2026-01-01T00:00:00.000Z",
-								id: EntityId.make(`created-${input.name}`),
-								entitySchemaSlug: EntitySchemaSlug.make(input.entitySchemaSlug),
-							};
-							return {
-								dispatch: [],
-								_tag: "Committed" as const,
-								result: {
-									entity,
-									wasInserted: true,
-									outcome: {
-										before: null,
-										operation: "create" as const,
-										after: { ...entity, properties: {} },
-									},
-								},
-							};
-						}),
-				}),
-				Layer.mock(RelationshipsService)({}),
-				Layer.mock(EventsService)({
-					create: ({ payload: events }) =>
-						Effect.sync(() => {
-							eventEntityIds.push(...events.map(({ entityId }) => entityId));
-							return { outcomes: [], warnings: [], failure: null, count: events.length };
-						}),
-				}),
-				Layer.mock(ImportsService)({ update: () => Effect.void }),
-				Layer.mock(ImportRunFailuresService)({
-					create: (input) => Effect.sync(() => failures.push(input)).pipe(Effect.asVoid),
+	});
+
+	const testLayer = recordingLayer((recordings) =>
+		Layer.mergeAll(
+			Layer.succeed(WorkflowInstance, instance),
+			Layer.succeed(
+				WorkflowEngine,
+				makeWorkflowActivityEngine(instance, {
+					execute: (workflow, options) => {
+						if (workflow._tag !== EntityImportWorkflow._tag) {
+							return Effect.die(`Unexpected workflow: ${workflow._tag}`);
+						}
+						recordings.providerExecutions.appendNow(options.executionId);
+						if (options.executionId.includes("item-5-")) {
+							return Effect.fail(
+								new EntityImportError({ stage: "population", message: "details failed" }),
+							);
+						}
+						return Effect.succeed({
+							providerId,
+							name: "Routine",
+							externalId: "provider-external",
+							createdAt: "2026-01-01T00:00:00.000Z",
+							updatedAt: "2026-01-01T00:00:00.000Z",
+							populatedAt: "2026-01-01T00:00:00.000Z",
+							id: EntityId.make("global-provider-entity"),
+							entitySchemaSlug: EntitySchemaSlug.make("routine"),
+							properties: options.executionId.includes("item-3-")
+								? { kind: "workout" }
+								: { kind: "exercise" },
+						});
+					},
 				}),
 			),
+			artifactStoreLayer,
+			databaseLayer,
+			transactionDatabaseLayer,
+			lifecycleDependencies,
+			BunServices.layer,
+			makeAppConfigLayer(),
+			collectionsLayer,
+			makeDefinitions(definitions),
+			Layer.mock(PluginRuntimeResolver)({
+				findProviderAvailableToUserBySlug: () =>
+					Effect.succeed({
+						id: providerId,
+						name: "Fitness",
+						slug: "fitness",
+						pluginId: "fitness-plugin",
+						pluginScope: "system" as const,
+						rootEntitySchemaSlug: "routine",
+						information: { source: "provider" },
+						createdAt: new Date("2026-01-01T00:00:00.000Z"),
+						updatedAt: new Date("2026-01-01T00:00:00.000Z"),
+					}),
+			}),
+			Layer.mock(EntityImportWorkflowOperations)({
+				processSandbox: () => Effect.die("unexpected provider details"),
+				completeProviderEntityImport: () => Effect.die("unexpected provider completion"),
+				processProviderResolve: ({ value }) =>
+					value === "resolve-error"
+						? Effect.fail(
+								new SandboxRunError({ kind: "infrastructure", message: "resolve failed" }),
+							)
+						: Effect.succeed({
+								logs: [],
+								error: null,
+								status: "completed" as const,
+								value: { externalId: value === "null" ? null : `external-${value}` },
+							}),
+			}),
+			Layer.mock(EntitiesRepository)({ listMatchCandidatesBySchema: () => Effect.succeed([]) }),
+			Layer.mock(EntitiesService)({
+				prepareCreateStep: (input) =>
+					Effect.sync(() => {
+						recordings.entityNames.appendNow(input.name);
+						expect(input.scope).toBe("user");
+						const entity = {
+							name: input.name,
+							providerId: null,
+							externalId: null,
+							populatedAt: null,
+							properties: input.properties,
+							createdAt: "2026-01-01T00:00:00.000Z",
+							updatedAt: "2026-01-01T00:00:00.000Z",
+							id: EntityId.make(`created-${input.name}`),
+							entitySchemaSlug: EntitySchemaSlug.make(input.entitySchemaSlug),
+						};
+						return {
+							dispatch: [],
+							_tag: "Committed" as const,
+							result: {
+								entity,
+								wasInserted: true,
+								outcome: {
+									before: null,
+									operation: "create" as const,
+									after: { ...entity, properties: {} },
+								},
+							},
+						};
+					}),
+			}),
+			Layer.mock(RelationshipsService)({}),
+			Layer.mock(EventsService)({
+				create: ({ payload: events }) =>
+					Effect.sync(() => {
+						recordings.eventEntityIds.appendNow(...events.map(({ entityId }) => entityId));
+						return { outcomes: [], warnings: [], failure: null, count: events.length };
+					}),
+			}),
+			Layer.mock(ImportsService)({ update: () => Effect.void }),
+			Layer.mock(ImportRunFailuresService)({
+				create: (input) => recordings.failures.append(input),
+			}),
 		),
 	);
-});
 
-it.effect("fails before reading chunks when the initial run update fails", () => {
+	return { program, layer: testLayer };
+};
+
+const initialUpdateFailureCase = () => {
 	const executionId = "generic-import-update-failure";
 	const directory = `/tmp/ryot-sandbox-harvest-test/${executionId}-activity-0`;
 	const path = `${directory}/chunk-0.json`;
 	const instance = WorkflowInstance.initial(ProcessGenericImportChunksWorkflow, executionId);
 
-	return Effect.gen(function* () {
+	const program = Effect.gen(function* () {
 		const fs = yield* FileSystem.FileSystem;
 		yield* fs.makeDirectory(directory, { recursive: true });
 		yield* fs.writeFileString(path, "not read before the update fails");
@@ -1106,28 +1148,64 @@ it.effect("fails before reading chunks when the initial run update fails", () =>
 		);
 
 		expect(exit._tag).toBe("Failure");
-	}).pipe(
-		Effect.provideService(WorkflowEngine, makeWorkflowActivityEngine(instance)),
-		Effect.provideService(WorkflowInstance, instance),
-		Effect.provide(
-			Layer.mergeAll(
-				providerOperationsLayer,
-				artifactStoreLayer,
-				databaseLayer,
-				transactionDatabaseLayer,
-				lifecycleDependencies,
-				BunServices.layer,
-				makePluginRuntime(),
-				collectionsLayer,
-				Layer.mock(RelationshipsService)({}),
-				Layer.mock(EntitiesRepository)({}),
-				Layer.mock(EntitiesService)({}),
-				Layer.mock(EventsService)({}),
-				Layer.mock(ImportRunFailuresService)({}),
-				Layer.mock(ImportsService)({
-					update: () => Effect.fail(new DbError({ message: "initial update failed" })),
-				}),
-			),
-		),
+	});
+
+	const testLayer = Layer.mergeAll(
+		Layer.succeed(WorkflowInstance, instance),
+		Layer.succeed(WorkflowEngine, makeWorkflowActivityEngine(instance)),
+		providerOperationsLayer,
+		artifactStoreLayer,
+		databaseLayer,
+		transactionDatabaseLayer,
+		lifecycleDependencies,
+		BunServices.layer,
+		makePluginRuntime(),
+		collectionsLayer,
+		Layer.mock(RelationshipsService)({}),
+		Layer.mock(EntitiesRepository)({}),
+		Layer.mock(EntitiesService)({}),
+		Layer.mock(EventsService)({}),
+		Layer.mock(ImportRunFailuresService)({}),
+		Layer.mock(ImportsService)({
+			update: () => Effect.fail(new DbError({ message: "initial update failed" })),
+		}),
+	);
+
+	return { program, layer: testLayer };
+};
+
+const genericWrites = genericWritesCase();
+
+layer(genericWrites.layer)((test) => {
+	test.effect(
+		"processes generic entity, relationship, event, and collection writes",
+		() => genericWrites.program,
+	);
+});
+
+const relationshipSchemas = relationshipSchemasCase();
+
+layer(relationshipSchemas.layer)((test) => {
+	test.effect(
+		"imports private event and relationship schemas from one effective snapshot",
+		() => relationshipSchemas.program,
+	);
+});
+
+const providerEntities = providerEntitiesCase();
+
+layer(providerEntities.layer)((test) => {
+	test.effect(
+		"resolves provider entities and preserves generic fallbacks and failure stages",
+		() => providerEntities.program,
+	);
+});
+
+const initialUpdateFailure = initialUpdateFailureCase();
+
+layer(initialUpdateFailure.layer)((test) => {
+	test.effect(
+		"fails before reading chunks when the initial run update fails",
+		() => initialUpdateFailure.program,
 	);
 });

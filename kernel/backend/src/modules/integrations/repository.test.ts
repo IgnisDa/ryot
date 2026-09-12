@@ -1,17 +1,13 @@
-import { expect, it } from "@effect/vitest";
+import { expect, layer } from "@effect/vitest";
 import { IntegrationId, UserId } from "@ryot-app/contract/schema/brands";
 import { sql } from "drizzle-orm";
-import { Deferred, Effect, Fiber, Layer, Redacted } from "effect";
+import { Deferred, Effect, Fiber, Layer } from "effect";
 import { describe } from "vitest";
 
 import * as tables from "#lib/infrastructure/db/schema/tables/combined";
 import { DatabaseSession } from "#lib/infrastructure/db/session";
-import {
-	applyBaselineMigration,
-	baselineMigrationStatements,
-} from "#lib/test-utils/baseline-migration";
-import { testDatabaseUrl, withIsolatedDatabase } from "#lib/test-utils/database";
 import { makeAppConfigLayer, makeConfigProviderLayer } from "#lib/test-utils/effect";
+import { isolatedDatabaseLayer } from "#lib/test-utils/isolated-database";
 import { BackupRestorePersistence } from "#modules/backups/restore/persistence";
 import { DefinitionRepository } from "#modules/definition-registry/repository";
 import { PluginConfigEncryptionKey } from "#modules/plugins/config-encryption-key";
@@ -22,7 +18,7 @@ import { PluginRepository } from "#modules/plugins/repository";
 import {
 	installRevisionPackage,
 	revisionPackage,
-	withRevisionDatabase,
+	revisionDatabaseLayer,
 } from "#modules/plugins/revision.test-support";
 import { SavedViewsRepository } from "#modules/saved-views/repository";
 
@@ -71,57 +67,40 @@ const integration = {
 
 const repositoryLayer = IntegrationsRepository.layer.pipe(Layer.provide(makeAppConfigLayer()));
 
-const withCommittedDatabase = <E>(
-	test: Effect.Effect<
-		void,
-		E,
-		| DatabaseSession
-		| IntegrationsRepository
-		| PluginIngestionLock
-		| PluginRepository
-		| PluginInstallationRepository
-	>,
-) => {
-	const name = `integration_race_${crypto.randomUUID().replaceAll("-", "")}`;
-	const url = testDatabaseUrl();
-	const root = DatabaseSession.layer.pipe(
-		Layer.provide(makeAppConfigLayer({ database: { url: Redacted.make(url) } })),
-	);
-	return Effect.gen(function* () {
-		const statements = yield* baselineMigrationStatements();
-		yield* withIsolatedDatabase(name, url, (scopedUrl) => {
-			const config = makeAppConfigLayer({ database: { url: Redacted.make(scopedUrl) } });
-			const database = DatabaseSession.layer.pipe(Layer.provide(config), Layer.fresh);
-			const repositories = Layer.mergeAll(
-				PluginRepository.layer,
-				PluginInstallationRepository.layer,
-				IntegrationsRepository.layer,
-			).pipe(
-				Layer.provideMerge(
-					Layer.mergeAll(
-						DefinitionRepository.layer,
-						PluginConfigRevisions.layer,
-						PluginConfigEncryptionKey.layer,
-					),
-				),
-				Layer.provide(config),
-			);
-			const services = PluginIngestionLock.layer.pipe(
-				Layer.provide(IntegrationPluginRevisionActivationLive),
-				Layer.provideMerge(repositories),
-				Layer.provideMerge(database),
-			);
-			return Effect.gen(function* () {
-				const db = yield* (yield* DatabaseSession).current;
-				yield* applyBaselineMigration(statements, (statement) => db.execute(sql.raw(statement)));
-				yield* db
-					.insert(tables.user)
-					.values({ id: owner, name: "Owner", preferences: {}, email: "owner@example.test" });
-				yield* test;
-			}).pipe(Effect.provide(services));
-		});
-	}).pipe(Effect.provide(root.pipe(Layer.provideMerge(makeConfigProviderLayer()))));
-};
+const repositories = Layer.mergeAll(
+	PluginRepository.layer,
+	PluginInstallationRepository.layer,
+	IntegrationsRepository.layer,
+).pipe(
+	Layer.provideMerge(
+		Layer.mergeAll(
+			DefinitionRepository.layer,
+			PluginConfigRevisions.layer,
+			PluginConfigEncryptionKey.layer,
+		),
+	),
+	Layer.provide(makeAppConfigLayer()),
+);
+
+const seedOwner = Layer.effectDiscard(
+	Effect.gen(function* () {
+		const db = yield* (yield* DatabaseSession).current;
+		yield* db
+			.insert(tables.user)
+			.values({ id: owner, name: "Owner", preferences: {}, email: "owner@example.test" });
+	}),
+);
+
+const committedDatabaseLayer = seedOwner.pipe(
+	Layer.provideMerge(
+		PluginIngestionLock.layer.pipe(
+			Layer.provide(IntegrationPluginRevisionActivationLive),
+			Layer.provideMerge(repositories),
+		),
+	),
+	Layer.provideMerge(isolatedDatabaseLayer("integration_race")),
+	Layer.provideMerge(makeConfigProviderLayer()),
+);
 
 const waitForLockedTransaction = Effect.fn(function* (attempts = 2_000) {
 	const db = yield* (yield* DatabaseSession).current;
@@ -138,94 +117,95 @@ const waitForLockedTransaction = Effect.fn(function* (attempts = 2_000) {
 });
 
 describe("integration client settings projection", () => {
-	it.effect("strips secrets on create and update and recomputes when the revision changes", () =>
-		withRevisionDatabase(
-			Effect.gen(function* () {
-				const installed = yield* installRevisionPackage(providerPackage("v1", false), owner);
-				const integrations = yield* IntegrationsRepository;
-				const created = yield* integrations.createForUser({
-					...integration,
-					userId: owner,
-					provider: "notes-push",
-					pluginInstallationId: installed.installation.id,
-					providerSpecifics: { kind: "notes", token: "secret-a", endpoint: "https://notes.test" },
-				});
-				expect(
-					(yield* integrations.getForUser({ userId: owner, integrationId: created.id }))
-						?.providerSpecifics,
-				).toMatchObject({ token: "secret-a" });
-				const client = integrations
-					.getClientForUser({ userId: owner, integrationId: created.id })
-					.pipe(Effect.map((row) => row?.providerSpecifics));
-				expect(yield* client).toEqual({ kind: "notes", endpoint: "https://notes.test" });
-				yield* integrations.updateForUser({
-					userId: owner,
-					integrationId: created.id,
-					providerSpecifics: { kind: "notes", token: "secret-b", endpoint: "https://other.test" },
-				});
-				expect(yield* client).toEqual({ kind: "notes", endpoint: "https://other.test" });
-				yield* (yield* PluginIngestionLock).persistUserPlugin(providerPackage("v2", true), {
-					slug: "notes",
-					scope: "user",
-					ownerId: owner,
-				});
-				expect(yield* client).toEqual({ kind: "notes" });
-			}).pipe(
-				Effect.provide(
-					PluginIngestionLock.layer.pipe(
-						Layer.provide(IntegrationPluginRevisionActivationLive),
-						Layer.provideMerge(repositoryLayer),
-					),
-				),
-			),
+	layer(
+		PluginIngestionLock.layer.pipe(
+			Layer.provide(IntegrationPluginRevisionActivationLive),
+			Layer.provideMerge(repositoryLayer),
+			Layer.provideMerge(revisionDatabaseLayer),
 		),
-	);
-
-	it.effect("computes restored settings and keeps only the kind for an undeclared provider", () =>
-		withRevisionDatabase(
-			Effect.gen(function* () {
-				const installed = yield* installRevisionPackage(providerPackage("v1", false), owner);
-				const integrations = yield* IntegrationsRepository;
-				const persistence = yield* BackupRestorePersistence;
-				const restore = (id: string, provider: string) =>
-					persistence.restoreForUser({
+	)((test) => {
+		test.effect(
+			"strips secrets on create and update and recomputes when the revision changes",
+			() =>
+				Effect.gen(function* () {
+					const installed = yield* installRevisionPackage(providerPackage("v1", false), owner);
+					const integrations = yield* IntegrationsRepository;
+					const created = yield* integrations.createForUser({
 						...integration,
-						id,
-						provider,
-						name: null,
 						userId: owner,
-						lastFinishedAt: null,
-						createdAt: timestamp,
-						updatedAt: timestamp,
+						provider: "notes-push",
 						pluginInstallationId: installed.installation.id,
-						providerSpecifics: { kind: "notes", token: "secret", endpoint: "https://notes.test" },
+						providerSpecifics: { kind: "notes", token: "secret-a", endpoint: "https://notes.test" },
 					});
-				const client = (id: string) =>
-					integrations
-						.getClientForUser({ userId: owner, integrationId: IntegrationId.make(id) })
+					expect(
+						(yield* integrations.getForUser({ userId: owner, integrationId: created.id }))
+							?.providerSpecifics,
+					).toMatchObject({ token: "secret-a" });
+					const client = integrations
+						.getClientForUser({ userId: owner, integrationId: created.id })
 						.pipe(Effect.map((row) => row?.providerSpecifics));
-				yield* restore("declared", "notes-push");
-				yield* restore("undeclared", "removed-push");
-				expect(yield* client("declared")).toEqual({
-					kind: "notes",
-					endpoint: "https://notes.test",
-				});
-				expect(yield* client("undeclared")).toEqual({ kind: "notes" });
-			}).pipe(
-				Effect.provide(
-					Layer.merge(
-						repositoryLayer,
-						BackupRestorePersistence.layer.pipe(Layer.provide(SavedViewsRepository.layer)),
-					),
-				),
-			),
-		),
-	);
+					expect(yield* client).toEqual({ kind: "notes", endpoint: "https://notes.test" });
+					yield* integrations.updateForUser({
+						userId: owner,
+						integrationId: created.id,
+						providerSpecifics: { kind: "notes", token: "secret-b", endpoint: "https://other.test" },
+					});
+					expect(yield* client).toEqual({ kind: "notes", endpoint: "https://other.test" });
+					yield* (yield* PluginIngestionLock).persistUserPlugin(providerPackage("v2", true), {
+						slug: "notes",
+						scope: "user",
+						ownerId: owner,
+					});
+					expect(yield* client).toEqual({ kind: "notes" });
+				}),
+		);
+	});
 
-	it.effect(
-		"recomputes settings from the committed revision when a save races a revision change",
-		() =>
-			withCommittedDatabase(
+	layer(
+		Layer.merge(
+			repositoryLayer,
+			BackupRestorePersistence.layer.pipe(Layer.provide(SavedViewsRepository.layer)),
+		).pipe(Layer.provideMerge(revisionDatabaseLayer)),
+	)((test) => {
+		test.effect(
+			"computes restored settings and keeps only the kind for an undeclared provider",
+			() =>
+				Effect.gen(function* () {
+					const installed = yield* installRevisionPackage(providerPackage("v1", false), owner);
+					const integrations = yield* IntegrationsRepository;
+					const persistence = yield* BackupRestorePersistence;
+					const restore = (id: string, provider: string) =>
+						persistence.restoreForUser({
+							...integration,
+							id,
+							provider,
+							name: null,
+							userId: owner,
+							lastFinishedAt: null,
+							createdAt: timestamp,
+							updatedAt: timestamp,
+							pluginInstallationId: installed.installation.id,
+							providerSpecifics: { kind: "notes", token: "secret", endpoint: "https://notes.test" },
+						});
+					const client = (id: string) =>
+						integrations
+							.getClientForUser({ userId: owner, integrationId: IntegrationId.make(id) })
+							.pipe(Effect.map((row) => row?.providerSpecifics));
+					yield* restore("declared", "notes-push");
+					yield* restore("undeclared", "removed-push");
+					expect(yield* client("declared")).toEqual({
+						kind: "notes",
+						endpoint: "https://notes.test",
+					});
+					expect(yield* client("undeclared")).toEqual({ kind: "notes" });
+				}),
+		);
+	});
+
+	layer(committedDatabaseLayer)((test) => {
+		test.effect(
+			"recomputes settings from the committed revision when a save races a revision change",
+			() =>
 				Effect.gen(function* () {
 					const session = yield* DatabaseSession;
 					const integrations = yield* IntegrationsRepository;
@@ -290,6 +270,6 @@ describe("integration client settings projection", () => {
 							?.providerSpecifics,
 					).toMatchObject({ endpoint: "https://other.test" });
 				}),
-			),
-	);
+		);
+	});
 });
