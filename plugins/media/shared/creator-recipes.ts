@@ -142,12 +142,15 @@ export const mediaCreatorRecipes = <
 		// oxlint-disable-next-line typescript/no-unsafe-type-assertion
 		config.creditFields?.(relationship) ?? ({} as CreditFields);
 
+	type CreditIncludes = {
+		readonly [Target in MediaTargetSlug]: ReturnType<typeof mediaCreditInclude<CreditFields>>;
+	} & { readonly [Target in GroupTargetSlug]: ReturnType<typeof groupCreditInclude> };
+
 	const overviewRecipe = defineRecipe(
 		(input: { readonly entityId: string; readonly creditLimit: number }) => {
 			const creator = table("entity", `${config.alias}CreditCreator`);
 			const targets = [...builtinMediaEntitySchemaSlugs, ...creatorGroupTargetSlugs];
-			// oxlint-disable-next-line typescript/no-unsafe-type-assertion
-			const include = Object.fromEntries(
+			const includeEntries = Object.fromEntries(
 				targets.map((target, index) => {
 					const credit = {
 						index,
@@ -164,9 +167,9 @@ export const mediaCreatorRecipes = <
 							: mediaCreditInclude(credit, creditFields),
 					] as const;
 				}),
-			) as {
-				readonly [Target in MediaTargetSlug]: ReturnType<typeof mediaCreditInclude<CreditFields>>;
-			} & { readonly [Target in GroupTargetSlug]: ReturnType<typeof groupCreditInclude> };
+			);
+			// oxlint-disable-next-line typescript/no-unsafe-type-assertion
+			const include = includeEntries as CreditIncludes;
 			const emptyPage = { items: [], pageInfo: { hasMore: false, limit: input.creditLimit } };
 			return {
 				queries: {

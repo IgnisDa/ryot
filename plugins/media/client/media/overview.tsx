@@ -170,7 +170,7 @@ function MediaRegionWatchProvidersSection(props: {
 	readonly divided: boolean;
 	readonly media: MediaWatchProviders;
 }) {
-	const region = useMemo(viewerRegion, []);
+	const region = useMemo(() => viewerRegion(), []);
 	if (region === undefined) {
 		return null;
 	}

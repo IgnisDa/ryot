@@ -74,12 +74,11 @@ function GalleryLightboxFooter(props: {
 }) {
 	const { index, images } = props;
 	const stripRef = useRef<HTMLDivElement>(null);
-	const activeStripRef = useRef<HTMLButtonElement>(null);
 
 	useEffect(() => {
 		const strip = stripRef.current;
-		const active = activeStripRef.current;
-		if (strip === null || active === null) {
+		const active = strip?.firstElementChild?.children[index];
+		if (!strip || !(active instanceof HTMLElement)) {
 			return;
 		}
 		strip.scrollLeft = active.offsetLeft - (strip.clientWidth - active.clientWidth) / 2;
@@ -112,7 +111,6 @@ function GalleryLightboxFooter(props: {
 						key={imageAssetKey(thumb)}
 						onClick={() => props.onSelect(thumbIndex)}
 						aria-label={`Go to image ${thumbIndex + 1}`}
-						ref={thumbIndex === index ? activeStripRef : undefined}
 						className={clsx(
 							"w-16 shrink-0 rounded-sm",
 							thumbIndex === index ? "outline-2 outline-accent" : "opacity-45",
