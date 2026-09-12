@@ -321,18 +321,18 @@ const usableHomeSavedView = (
 	ELSE false
 END`;
 
-const effectiveHomeSavedViewId: CatalogField = {
+const effectiveHomeSavedViewSlug: CatalogField = {
 	kind: "text",
 	nullable: true,
 	resolve: ({ sqlAlias }) =>
 		sql.raw(`COALESCE(
-			(SELECT home_selected.id FROM saved_view home_selected
-				WHERE home_selected.id = ${sqlAlias}.home_saved_view_id
+			(SELECT home_selected.slug FROM user_saved_view_effective home_selected
+				WHERE home_selected.slug = ${sqlAlias}.home_saved_view_slug
 					AND home_selected.user_id = ${sqlAlias}.user_id
 					AND ${usableHomeSavedView("home_selected", `${sqlAlias}.user_id`)}),
-			(SELECT home_fallback.id FROM plugin home_plugin
+			(SELECT home_fallback.slug FROM plugin home_plugin
 				INNER JOIN plugin_revision home_revision ON home_revision.id = home_plugin.active_revision_id
-				INNER JOIN saved_view home_fallback ON home_fallback.slug = home_revision.manifest -> 'client' ->> 'homeView'
+				INNER JOIN user_saved_view_effective home_fallback ON home_fallback.slug = home_revision.manifest -> 'client' ->> 'homeView'
 				WHERE home_plugin.id = ${sqlAlias}.plugin_id
 					AND home_plugin.status = 'active'
 					AND (home_plugin.scope = 'system' OR home_plugin.owner_user_id = ${sqlAlias}.user_id)
@@ -358,7 +358,7 @@ const pluginInstallation: CatalogTable = {
 	},
 	fields: {
 		id: physicalField("id", "text", false),
-		homeSavedViewId: effectiveHomeSavedViewId,
+		homeSavedViewSlug: effectiveHomeSavedViewSlug,
 		health: physicalField("health", "text", false),
 		pluginId: physicalField("plugin_id", "text", false),
 		healthReason: physicalField("health_reason", "text"),
@@ -553,7 +553,7 @@ const sandboxProviderOperation: CatalogTable = {
 
 const savedView: CatalogTable = {
 	primaryKey: ["id"],
-	name: "saved_view",
+	name: "user_saved_view_effective",
 	visibility: {
 		user: { type: "owned", column: "user_id", includeGlobal: false, pluginReadable: true },
 	},
@@ -563,11 +563,11 @@ const savedView: CatalogTable = {
 		slug: physicalField("slug", "text", false),
 		name: physicalField("name", "text", false),
 		icon: physicalField("icon", "text", false),
+		createdAt: physicalField("created_at", "date"),
+		updatedAt: physicalField("updated_at", "date"),
 		renderer: physicalField("renderer", "json", false),
 		settings: physicalField("settings", "json", false),
 		dataSources: physicalField("data_sources", "json"),
-		createdAt: physicalField("created_at", "date", false),
-		updatedAt: physicalField("updated_at", "date", false),
 		sortOrder: physicalField("sort_order", "number", false),
 		isBuiltin: physicalField("is_builtin", "boolean", false),
 		isDisabled: physicalField("is_disabled", "boolean", false),

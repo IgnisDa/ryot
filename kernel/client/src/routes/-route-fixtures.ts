@@ -60,7 +60,7 @@ export const catalog: PluginClientCatalog = [
 		isDisabled: false,
 		clientApiVersion: 1,
 		pluginId: "plugin-1",
-		homeSavedViewId: null,
+		homeSavedViewSlug: null,
 		sourceHash: "source-hash",
 		installationId: "installation-1",
 	},

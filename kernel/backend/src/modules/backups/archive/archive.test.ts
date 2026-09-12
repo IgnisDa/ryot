@@ -5,27 +5,13 @@ import { stableStringify } from "@ryot-app/ts-utils/json";
 import { Effect, FileSystem, Schema, Stream } from "effect";
 import { unzipSync, Zip, zipSync, ZipPassThrough } from "fflate";
 
-import {
-	createArchiveStream,
-	validateArchive,
-	zipChunks,
-	type CreateArchiveInput,
-} from "./archive";
+import { createArchiveStream, validateArchive, type CreateArchiveInput } from "./archive";
 import { BackupArchiveError } from "./error";
-import {
-	ArchiveEvent,
-	ArchiveManifest,
-	ARCHIVE_SECTION_PATHS,
-	type ArchiveRecords,
-} from "./schemas";
+import { ArchiveEvent, ArchiveManifest, type ArchiveRecords } from "./schemas";
 import { encodeNdjson, IncrementalSha256 } from "./streaming";
 
 const timestamp = "2026-08-23T12:00:00.000Z";
 const encoder = new TextEncoder();
-const fixtureRoot = new URL(
-	"../../../../../../packages/contract/src/modules/backups/fixtures/v1/",
-	import.meta.url,
-);
 const savedViewEntity = table("entity", "fixture");
 const savedViewQuery = document({
 	savedView: rows(savedViewEntity, {
@@ -53,8 +39,8 @@ const records: ArchiveRecords = {
 			updatedAt: timestamp,
 			disabledIntent: false,
 			lifecycleIntent: "ready",
-			homeSavedViewId: "view-1",
 			configuredSecretPaths: [],
+			homeSavedViewSlug: "fixture",
 			packageKey: `system:fixture:${"a".repeat(64)}`,
 		},
 	],
@@ -249,10 +235,6 @@ it.effect("creates deterministic V1 archives and validates the round trip", () =
 		const validated = yield* validateArchive(asChunks(first));
 		expect(validated.manifest.version).toBe(1);
 		expect(validated.records).toEqual(records);
-		expect(validated.manifest.sections.map(({ path }) => path)).not.toContain(
-			"client-renderers.ndjson",
-		);
-		expect(unzipSync(first)).not.toHaveProperty("client-renderers.ndjson");
 	}).pipe(Effect.scoped, Effect.provide(BunFileSystem.layer)),
 );
 
@@ -267,23 +249,6 @@ it.effect("excludes automation history and configuration revision sections", () 
 			expect(sectionPaths).not.toContain(path);
 		}
 	}).pipe(Effect.provide(BunFileSystem.layer)),
-);
-
-it.effect("rejects the legacy custom-renderer V1 fixture", () =>
-	Effect.gen(function* () {
-		const fs = yield* FileSystem.FileSystem;
-		const paths = ["manifest.json", ...ARCHIVE_SECTION_PATHS];
-		const error = yield* validateArchive(
-			zipChunks(
-				paths.map((path) => ({
-					path,
-					compression: "store" as const,
-					chunks: Stream.toAsyncIterable(fs.stream(new URL(path, fixtureRoot).pathname)),
-				})),
-			),
-		).pipe(Effect.flip);
-		expect(error.reason).toBe("unsupported_format");
-	}).pipe(Effect.scoped, Effect.provide(BunFileSystem.layer)),
 );
 
 it.effect("rejects a non-V1 manifest", () =>

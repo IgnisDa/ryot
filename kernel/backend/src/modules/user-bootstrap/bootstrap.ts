@@ -9,7 +9,6 @@ import { generateUserAvatar } from "#modules/auth/user-avatar";
 import { NotificationSubscriptionsService } from "#modules/automations/notification-subscriptions-service";
 import { ClientSurfaceMaterializer } from "#modules/plugins/client-surface-materializer";
 import { PluginInstallationService } from "#modules/plugins/installation-service";
-import { SavedViewsService } from "#modules/saved-views/service";
 
 import { PluginUserBootstrapDispatcher } from "./plugin-dispatch";
 
@@ -63,12 +62,10 @@ export const performBootstrap = Effect.fn(function* (userId: string) {
 	if (alreadyComplete) {
 		return;
 	}
-	const savedViews = yield* SavedViewsService;
 	const pluginBootstrap = yield* PluginUserBootstrapDispatcher;
 	const pluginInstallations = yield* PluginInstallationService;
 	yield* pluginInstallations.provisionSystemInstallations(user);
 	yield* pluginBootstrap.dispatchAll(user);
-	yield* savedViews.ensureBuiltinViews(user);
 	yield* (yield* ClientSurfaceMaterializer).materializeUserCompositions(user);
 	yield* mapDatabaseErrors(
 		database.transaction((transaction) =>
@@ -95,7 +92,6 @@ export const AuthUserBootstrapLive = Layer.effect(
 	AuthUserBootstrap,
 	Effect.gen(function* () {
 		const database = yield* Database;
-		const savedViews = yield* SavedViewsService;
 		const pluginBootstrap = yield* PluginUserBootstrapDispatcher;
 		const pluginInstallations = yield* PluginInstallationService;
 		const notificationSubscriptions = yield* NotificationSubscriptionsService;
@@ -108,7 +104,6 @@ export const AuthUserBootstrapLive = Layer.effect(
 					Effect.provideService(PluginInstallationService, pluginInstallations),
 					Effect.provideService(PluginUserBootstrapDispatcher, pluginBootstrap),
 					Effect.provideService(NotificationSubscriptionsService, notificationSubscriptions),
-					Effect.provideService(SavedViewsService, savedViews),
 					Effect.provideService(ClientSurfaceMaterializer, materializer),
 				),
 		};
