@@ -80,7 +80,7 @@ export const getImagesSortedBySize = (images: unknown): string[] => {
 export const getFirstImage = (images: unknown) => getImagesSortedBySize(images)[0] ?? null;
 
 export const getCredentials = (host: SpotifyHost) =>
-	host.getPluginConfig(["spotifyClientId", "spotifyClientSecret"]).pipe(
+	host.getPluginConfig({ required: ["spotifyClientId", "spotifyClientSecret"] }).pipe(
 		Effect.mapError((error) => ({
 			...error,
 			message: error.message || "Failed to retrieve Spotify credentials",

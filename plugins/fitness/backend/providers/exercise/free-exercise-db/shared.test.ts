@@ -86,9 +86,6 @@ describe("exercise.free-exercise-db sandbox script", () => {
 		expect(searchManifest.capabilities).toEqual(["httpCall", "getCachedValue", "setCachedValue"]);
 		expect(detailsManifest.capabilities).toEqual(searchManifest.capabilities);
 		expect(resolveManifest.capabilities).toEqual(searchManifest.capabilities);
-		expect(searchManifest.requiredPluginConfigKeys).toEqual([]);
-		expect(detailsManifest.requiredPluginConfigKeys).toEqual([]);
-		expect(resolveManifest.requiredPluginConfigKeys).toEqual([]);
 	});
 
 	it("fetches, normalizes and writes chunk + metadata cache entries on a cache miss", () => {

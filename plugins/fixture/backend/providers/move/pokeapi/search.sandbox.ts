@@ -8,7 +8,6 @@ export const manifest = defineManifest({
 	capabilities: ["httpCall"],
 	name: "PokeAPI Move Search",
 	slug: "move.pokeapi.search",
-	requiredPluginConfigKeys: [],
 	searchOptionsSchema: {
 		unknownKeys: "strict",
 		fields: {

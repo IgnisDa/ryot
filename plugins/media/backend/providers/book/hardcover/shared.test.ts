@@ -14,7 +14,7 @@ const httpSuccess = (body: unknown) =>
 const makeHost = (httpCall: HardcoverBookHost["httpCall"]) =>
 	defineSandboxTestHost(manifest, {
 		httpCall,
-		getPluginConfig: (keys) =>
+		getPluginConfig: ({ required: keys = [] }) =>
 			Effect.succeed(Object.fromEntries(keys.map((key) => [key, "hardcover-key"]))),
 	});
 const execution = { metadata: {}, sandboxScriptId: "script_test" };

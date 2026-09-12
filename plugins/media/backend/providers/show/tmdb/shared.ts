@@ -22,7 +22,6 @@ export const manifest = defineManifest({
 	kind: "provider",
 	name: "TMDB Show",
 	slug: "show.tmdb",
-	requiredPluginConfigKeys: ["tmdbAccessToken"],
 	capabilities: ["httpCall", "getPluginConfig", "getUserSettings"],
 });
 
@@ -31,7 +30,6 @@ const httpManifest = defineManifest({
 	name: "TMDB Show",
 	slug: "show.tmdb",
 	capabilities: ["httpCall", "getPluginConfig"],
-	requiredPluginConfigKeys: ["tmdbAccessToken"],
 });
 
 export const search = defineProvider({

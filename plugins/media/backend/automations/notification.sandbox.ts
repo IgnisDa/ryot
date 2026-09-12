@@ -12,7 +12,6 @@ type AutomationSignalSnapshot = Extract<
 export const manifest = defineManifest({
 	kind: "automation",
 	automationType: "automation",
-	requiredPluginConfigKeys: [],
 	name: "Media Signal Notification",
 	capabilities: ["sendNotification"],
 	slug: "automation.media-notification",

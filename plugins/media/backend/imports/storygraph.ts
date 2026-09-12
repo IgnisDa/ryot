@@ -21,7 +21,12 @@ import {
 } from "./helpers";
 import type { MediaImportAdapterFailure } from "./schemas";
 
-export const adaptStorygraphCsv = (csvText: string) => {
+export const adaptStorygraphCsv = (
+	csvText: string,
+	importedAt = nowIso(),
+	eventStart = 0,
+	eventLimit = Number.MAX_SAFE_INTEGER,
+) => {
 	const { rows, headers } = parseCsvText(csvText);
 	assertRequiredHeaders(headers, ["Title", "ISBN/UID", "Read Status"], "StoryGraph");
 	const failures: MediaImportAdapterFailure[] = [];
@@ -61,10 +66,13 @@ export const adaptStorygraphCsv = (csvText: string) => {
 		);
 		const lifecycleStatus = normalizeLifecycleStatus(row["Read Status"] ?? "");
 		const completedOn = parseDateWithFormat(row["Last Date Read"] ?? "", "YYYY/MM/DD");
-		const occurredAt = completedOn ?? nowIso();
+		const occurredAt = completedOn ?? importedAt;
 		const readCount = normalizeReadCount(row["Read Count"] ?? "");
-		for (let index = 0; index < readCount; index++) {
+		for (let index = eventStart; index < Math.min(readCount, eventStart + eventLimit); index++) {
 			group.events.push(createCompleteEvent({ occurredAt, completedOn }));
+		}
+		if (eventStart + eventLimit < readCount) {
+			continue;
 		}
 		if (lifecycleStatus === "complete" && readCount === 0) {
 			group.events.push(createCompleteEvent({ occurredAt, completedOn }));

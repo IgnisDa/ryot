@@ -13,7 +13,6 @@ export const manifest = defineManifest({
 	name: "Resolve imported Google Books book",
 	capabilities: ["httpCall", "getPluginConfig"],
 	slug: "media-import-resolve.book.google-books",
-	requiredPluginConfigKeys: ["googleBooksApiKey"],
 });
 
 export default defineScript({

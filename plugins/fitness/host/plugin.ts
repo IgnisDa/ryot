@@ -46,7 +46,6 @@ export const fitnessPlugin = definePlugin({
 	entitySchemas: fitnessEntitySchemas(),
 	signalSchemas: fitnessSignalSchemas(),
 	relationshipSchemas: fitnessRelationshipSchemas(),
-	workflows: [{ slug: "import", scriptSlug: "workflow.import" }],
 	metadata: {
 		name: "Fitness",
 		slug: "fitness",
@@ -61,6 +60,11 @@ export const fitnessPlugin = definePlugin({
 			description: "Initialize the user's fitness workspace",
 		},
 	],
+	workflows: [
+		{ slug: "import", scriptSlug: "workflow.import" },
+		{ slug: "import-application", scriptSlug: "workflow.import-application" },
+		{ slug: "import-merge", scriptSlug: "workflow.import-merge" },
+	],
 	providers: [
 		{
 			name: "Free Exercise DB",
@@ -72,35 +76,6 @@ export const fitnessPlugin = definePlugin({
 				details: "exercise.free-exercise-db.details",
 				resolve: "exercise.free-exercise-db.resolve",
 			},
-		},
-	],
-	importSources: [
-		{
-			slug: "hevy",
-			name: "Hevy",
-			workflowSlug: "import",
-			requiredPluginConfigKeys: [],
-			exportHelp: importDocs("hevy"),
-			description: "Import workouts from a Hevy CSV export",
-			inputSchema: timezoneUploadInputSchema("Hevy export", "Hevy workout export CSV"),
-		},
-		{
-			slug: "strong_app",
-			name: "Strong App",
-			workflowSlug: "import",
-			requiredPluginConfigKeys: [],
-			exportHelp: importDocs("strong-app"),
-			description: "Import workouts from a Strong CSV export",
-			inputSchema: timezoneUploadInputSchema("Strong App export", "Strong App workout export CSV"),
-		},
-		{
-			name: "OpenScale",
-			slug: "open_scale",
-			workflowSlug: "import",
-			requiredPluginConfigKeys: [],
-			exportHelp: importDocs("open-scale"),
-			description: "Import measurements from an OpenScale CSV export",
-			inputSchema: uploadInputSchema("OpenScale export", "OpenScale measurements export CSV"),
 		},
 	],
 	client: {
@@ -172,6 +147,51 @@ export const fitnessPlugin = definePlugin({
 			},
 		},
 	],
+	importSources: (
+		[
+			{
+				slug: "hevy",
+				name: "Hevy",
+				workflowSlug: "import",
+				exportHelp: importDocs("hevy"),
+				description: "Import workouts from a Hevy CSV export",
+				inputSchema: timezoneUploadInputSchema("Hevy export", "Hevy workout export CSV"),
+			},
+			{
+				slug: "strong_app",
+				name: "Strong App",
+				workflowSlug: "import",
+				exportHelp: importDocs("strong-app"),
+				description: "Import workouts from a Strong CSV export",
+				inputSchema: timezoneUploadInputSchema(
+					"Strong App export",
+					"Strong App workout export CSV",
+				),
+			},
+			{
+				name: "OpenScale",
+				slug: "open_scale",
+				workflowSlug: "import",
+				exportHelp: importDocs("open-scale"),
+				description: "Import measurements from an OpenScale CSV export",
+				inputSchema: uploadInputSchema("OpenScale export", "OpenScale measurements export CSV"),
+			},
+		] as const
+	).map((source) =>
+		Object.assign({}, source, {
+			plan: {
+				selections: {
+					"source-parser": {
+						value: {
+							hevy: "import.hevy",
+							strong_app: "import.strong-app",
+							open_scale: "import.open-scale",
+						}[source.slug],
+					},
+				},
+			},
+		}),
+	),
 });
 
 export default fitnessPlugin;

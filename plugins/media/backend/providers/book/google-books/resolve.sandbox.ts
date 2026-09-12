@@ -8,7 +8,6 @@ export const manifest = defineManifest({
 	name: "Google Books Resolve",
 	slug: "book.google-books.resolve",
 	capabilities: ["httpCall", "getPluginConfig"],
-	requiredPluginConfigKeys: ["googleBooksApiKey"],
 });
 
 export default defineProvider({ manifest, run: resolve.run, operation: "resolve" });

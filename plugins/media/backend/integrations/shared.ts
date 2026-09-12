@@ -6,8 +6,12 @@ import type {
 	MediaIntegrationAdapterResult,
 	UnresolvedEpisodeRef,
 } from "../imports/schemas";
+import { IntegrationConfirmationInput } from "./schemas";
 
-export const SinkInput = Schema.Struct({ rawBody: Schema.String, contentType: Schema.String });
+export const SinkInput = Schema.Union([
+	IntegrationConfirmationInput,
+	Schema.Struct({ rawBody: Schema.String, contentType: Schema.String }),
+]);
 
 export const executionStartedAt = (execution: ExecutionMetadata) =>
 	execution.startedAt
@@ -25,6 +29,7 @@ export const failureResult = (
 ): MediaIntegrationAdapterResult => ({
 	entityGroups: [],
 	failures: [{ stage, message, itemIndex: 0 }],
+	sourceFailure: stage === "source_fetch" ? "source-fetch-failed" : "input-transformation-failed",
 });
 
 export const progressResult = (input: {
