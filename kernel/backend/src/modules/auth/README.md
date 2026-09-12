@@ -4,21 +4,31 @@ Ryot is an OAuth 2.1 authorization server built with Better Auth's OAuth Provide
 
 ## First-Party Clients
 
-Startup provisions three public clients:
+Startup provisions five public clients:
 
-| Client          | Redirects                                                                    |
-| --------------- | ---------------------------------------------------------------------------- |
-| `ryot-web`      | `<FRONTEND_URL>/auth/callback` and `<FRONTEND_URL>/auth/logout/callback`     |
-| `ryot-native`   | Callback and logout URIs derived from `io.ryot.app` and `io.ryot.app.dev`    |
-| `ryot-demo-web` | Same callback and logout URIs as `ryot-web`; disabled without a demo account |
+| Client                      | Redirects                                                                    |
+| --------------------------- | ---------------------------------------------------------------------------- |
+| `ryot-web`                  | `<FRONTEND_URL>/auth/callback` and `<FRONTEND_URL>/auth/logout/callback`     |
+| `ryot-native`               | Callback and logout URIs derived from `io.ryot.app` and `io.ryot.app.dev`    |
+| `ryot-demo-web`             | Same callback and logout URIs as `ryot-web`; disabled without a demo account |
+| `ryot-impersonation-web`    | Same callback and logout URIs as `ryot-web`                                  |
+| `ryot-impersonation-native` | Same callback and logout URIs as `ryot-native`                               |
 
-Both require Authorization Code with S256 PKCE, skip consent, use `openid profile email offline_access ryot:api`, and target `<FRONTEND_URL>/api`. Dynamic registration and user-managed clients are disabled. The web client uses its current origin; only the installed native app selects a server.
+All require Authorization Code with S256 PKCE, skip consent, use `openid profile email offline_access ryot:api`, and target `<FRONTEND_URL>/api`. Dynamic registration and user-managed clients are disabled. The web client uses its current origin; only the installed native app selects a server.
 
 ## Tokens
 
 Access tokens expire after 15 minutes and refresh tokens after 30 days. API middleware verifies the JWT signature, issuer `<FRONTEND_URL>/api/auth`, audience `<FRONTEND_URL>/api`, expiry, and `ryot:api` scope, then loads the authoritative user. Disabled or deleted users fail immediately. API keys retain Better Auth expiry, rate limiting, cache, database fallback, and ownership checks.
 
-Disable, deletion, and password reset revoke browser sessions and OAuth token records; disable and deletion also clear API-key caches. Issued access tokens remain valid until expiry because verification does not read token records.
+Disable, deletion, and password reset revoke browser sessions and OAuth token records; disable and deletion also clear API-key caches. Ordinary issued access tokens remain valid until expiry because verification does not read token records.
+
+## Impersonation
+
+God Mode authorizes a one-use, 60-second Redis handoff to a hosted browser. Redemption creates a standard-access Better Auth session with an immutable one-hour deadline and continues the initiating client's OAuth/PKCE request. The PKCE verifier stays in that client's storage. Marked sessions authorize only impersonation clients, and those clients require marked sessions.
+
+Impersonation token issuance, refresh, UserInfo, and application API authentication validate the originating session. Session renewal cannot extend the deadline. Session deletion revokes its OAuth credentials and publishes an invalidation for its entity-interest sockets; sockets also enforce the deadline and periodically recheck the session. Normal user sessions are unaffected.
+
+The client replaces its previous login and shows an impersonation banner. Logout uses the existing end-session ceremony and returns to locked God Mode. Normal password and fresh-login checks still apply. Account changes, issued API keys, and started jobs retain their normal lifetimes.
 
 ## External OIDC
 
