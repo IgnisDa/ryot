@@ -46,6 +46,10 @@ export const IntegrationWebhookToken = Schema.String.pipe(Schema.brand("Integrat
 
 export type IntegrationWebhookToken = typeof IntegrationWebhookToken.Type;
 
+export const OAuthConnectionId = Schema.String.pipe(Schema.brand("OAuthConnectionId"));
+
+export type OAuthConnectionId = typeof OAuthConnectionId.Type;
+
 export const NotificationChannelId = Schema.String.pipe(Schema.brand("NotificationChannelId"));
 
 export type NotificationChannelId = typeof NotificationChannelId.Type;

@@ -353,6 +353,7 @@ CREATE TABLE "integration" (
 	"user_id" text NOT NULL,
 	"id" text PRIMARY KEY,
 	"updated_at" timestamp with time zone DEFAULT now() NOT NULL,
+	CONSTRAINT "integration_oauth_owner_unique" UNIQUE("id","user_id","plugin_installation_id","provider"),
 	CONSTRAINT "integration_webhook_token_lot_check" CHECK (("lot" = 'sink') = ("webhook_token" is not null))
 );
 --> statement-breakpoint
@@ -499,6 +500,35 @@ CREATE TABLE "oauth_client_resource" (
 	"metadata" jsonb,
 	"client_id" text NOT NULL,
 	"resource_id" text NOT NULL
+);
+--> statement-breakpoint
+CREATE TABLE "oauth_connection" (
+	"id" text PRIMARY KEY,
+	"field" text NOT NULL,
+	"integration_id" text,
+	"plugin_slug" text NOT NULL,
+	"state_hash" text NOT NULL CONSTRAINT "oauth_connection_state_hash_unique" UNIQUE,
+	"completion_secret_hash" text,
+	"token_url_origin" text NOT NULL,
+	"oauth_provider_slug" text NOT NULL,
+	"plugin_installation_id" text NOT NULL,
+	"integration_provider_slug" text NOT NULL,
+	"code" jsonb,
+	"expires_at" timestamp with time zone,
+	"token_version" integer DEFAULT 0 NOT NULL,
+	"access_token" jsonb,
+	"code_verifier" jsonb,
+	"refresh_token" jsonb,
+	"client" jsonb NOT NULL,
+	"refresh_lease_until" timestamp with time zone,
+	"status" text NOT NULL,
+	"access_token_expires_at" timestamp with time zone,
+	"created_at" timestamp with time zone DEFAULT now() NOT NULL,
+	"user_id" text NOT NULL,
+	"updated_at" timestamp with time zone DEFAULT now() NOT NULL,
+	CONSTRAINT "oauth_connection_integration_field_unique" UNIQUE("integration_id","field"),
+	CONSTRAINT "oauth_connection_status_check" CHECK ("status" in ('pending', 'authorized', 'connected', 'failed', 'expired')),
+	CONSTRAINT "oauth_connection_integration_status_check" CHECK ("integration_id" is null or "status" in ('connected', 'expired'))
 );
 --> statement-breakpoint
 CREATE TABLE "oauth_consent" (
@@ -868,6 +898,8 @@ CREATE INDEX "oauth_client_userId_idx" ON "oauth_client" ("user_id");--> stateme
 CREATE INDEX "oauth_client_resource_clientId_idx" ON "oauth_client_resource" ("client_id");--> statement-breakpoint
 CREATE INDEX "oauth_client_resource_resourceId_idx" ON "oauth_client_resource" ("resource_id");--> statement-breakpoint
 CREATE UNIQUE INDEX "oauth_client_resource_clientId_resourceId_uidx" ON "oauth_client_resource" ("client_id","resource_id");--> statement-breakpoint
+CREATE INDEX "oauth_connection_user_id_status_idx" ON "oauth_connection" ("user_id","status");--> statement-breakpoint
+CREATE INDEX "oauth_connection_expires_at_idx" ON "oauth_connection" ("expires_at");--> statement-breakpoint
 CREATE INDEX "oauth_consent_clientId_idx" ON "oauth_consent" ("client_id");--> statement-breakpoint
 CREATE INDEX "oauth_consent_userId_idx" ON "oauth_consent" ("user_id");--> statement-breakpoint
 CREATE INDEX "oauth_refresh_token_clientId_idx" ON "oauth_refresh_token" ("client_id");--> statement-breakpoint
@@ -955,6 +987,9 @@ ALTER TABLE "oauth_access_token" ADD CONSTRAINT "oauth_access_token_refresh_id_o
 ALTER TABLE "oauth_client" ADD CONSTRAINT "oauth_client_user_id_user_id_fkey" FOREIGN KEY ("user_id") REFERENCES "user"("id") ON DELETE CASCADE;--> statement-breakpoint
 ALTER TABLE "oauth_client_resource" ADD CONSTRAINT "oauth_client_resource_client_id_oauth_client_client_id_fkey" FOREIGN KEY ("client_id") REFERENCES "oauth_client"("client_id") ON DELETE CASCADE;--> statement-breakpoint
 ALTER TABLE "oauth_client_resource" ADD CONSTRAINT "oauth_client_resource_dn2L1gs9Dolm_fkey" FOREIGN KEY ("resource_id") REFERENCES "oauth_resource"("identifier") ON DELETE CASCADE;--> statement-breakpoint
+ALTER TABLE "oauth_connection" ADD CONSTRAINT "oauth_connection_user_id_user_id_fkey" FOREIGN KEY ("user_id") REFERENCES "user"("id") ON DELETE CASCADE;--> statement-breakpoint
+ALTER TABLE "oauth_connection" ADD CONSTRAINT "oauth_connection_installation_owner_fk" FOREIGN KEY ("plugin_installation_id","user_id") REFERENCES "plugin_installation"("id","user_id") ON DELETE CASCADE;--> statement-breakpoint
+ALTER TABLE "oauth_connection" ADD CONSTRAINT "oauth_connection_integration_owner_fk" FOREIGN KEY ("integration_id","user_id","plugin_installation_id","integration_provider_slug") REFERENCES "integration"("id","user_id","plugin_installation_id","provider") ON DELETE CASCADE;--> statement-breakpoint
 ALTER TABLE "oauth_consent" ADD CONSTRAINT "oauth_consent_user_id_user_id_fkey" FOREIGN KEY ("user_id") REFERENCES "user"("id") ON DELETE CASCADE;--> statement-breakpoint
 ALTER TABLE "oauth_consent" ADD CONSTRAINT "oauth_consent_client_id_oauth_client_client_id_fkey" FOREIGN KEY ("client_id") REFERENCES "oauth_client"("client_id");--> statement-breakpoint
 ALTER TABLE "oauth_refresh_token" ADD CONSTRAINT "oauth_refresh_token_session_id_session_id_fkey" FOREIGN KEY ("session_id") REFERENCES "session"("id") ON DELETE SET NULL;--> statement-breakpoint

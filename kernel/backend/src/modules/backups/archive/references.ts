@@ -319,7 +319,10 @@ const redactFields = (
 	const redacted: JsonObject = { ...value };
 	for (const [key, definition] of Object.entries(fields)) {
 		const childPath = `${path}/${escapePointer(key)}`;
-		if (definition.secret === true) {
+		if (
+			definition.secret === true ||
+			(definition.type === "string" && definition.format?.kind === "oauth-connection")
+		) {
 			if (Object.hasOwn(value, key)) {
 				Reflect.deleteProperty(redacted, key);
 				paths.push(childPath);

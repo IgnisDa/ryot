@@ -41,6 +41,7 @@ const makeImplementations = (
 	sendNotification: () => Effect.fail({ message: "unused" }),
 	getUserPreferences: () => Effect.fail({ message: "unused" }),
 	ensureUserEntities: () => Effect.fail({ message: "unused" }),
+	getOAuthAccessToken: () => Effect.fail({ message: "unused" }),
 	claimPersistentValue: () => Effect.fail({ message: "unused" }),
 	upsertGlobalEntities: () => Effect.fail({ message: "unused" }),
 	getCurrentIntegration: () => Effect.fail({ message: "unused" }),

@@ -25,6 +25,7 @@ import {
 	snakeCase,
 	text,
 	timestamp,
+	unique,
 	uniqueIndex,
 } from "drizzle-orm/pg-core";
 
@@ -67,6 +68,12 @@ export const integration = snakeCase.table(
 		index("integration_lot_is_disabled_idx").on(table.lot, table.isDisabled),
 		index("integration_provider_is_disabled_idx").on(table.provider, table.isDisabled),
 		uniqueIndex("integration_webhook_token_unique").on(table.webhookToken),
+		unique("integration_oauth_owner_unique").on(
+			table.id,
+			table.userId,
+			table.pluginInstallationId,
+			table.provider,
+		),
 		check(
 			"integration_webhook_token_lot_check",
 			sql`(${table.lot} = 'sink') = (${table.webhookToken} is not null)`,
