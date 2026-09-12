@@ -5,13 +5,14 @@ import {
 	type AutomationEventSnapshot,
 	type AutomationRequestPayload,
 	type AutomationWarning,
+	LifecycleCommand,
 } from "@ryot-app/contract/modules/automations/lifecycle";
 import {
 	type CreateEventItem,
 	EventOperationNotFound,
 	type EventCreateOperation,
 } from "@ryot-app/contract/modules/events/schemas";
-import { EventId, type AutomationTriggerId, type UserId } from "@ryot-app/contract/schema/brands";
+import type { EventId, AutomationTriggerId, UserId } from "@ryot-app/contract/schema/brands";
 import {
 	Cause,
 	Clock,
@@ -32,29 +33,32 @@ import {
 	LifecyclePlanner,
 	toLifecycleDispatchPlan,
 } from "#lib/domain/lifecycle";
-import { lifecycleTrigger, LifecycleCommand } from "#lib/domain/lifecycle-command";
+import { lifecycleTrigger } from "#lib/domain/lifecycle-command";
 import { LifecycleExecution } from "#lib/domain/lifecycle-execution";
 import { AppConfig } from "#lib/infrastructure/config/service";
-import { retryOnDeadlock } from "#lib/infrastructure/db/errors";
-import { DatabaseSession, DatabaseSessionStateError } from "#lib/infrastructure/db/session";
+import { DatabaseSession } from "#lib/infrastructure/db/session";
 import {
 	createWorkflowJobId,
 	deriveJobIdSecret,
 	resolveWorkflowExecutionId,
 } from "#lib/shared/job-id";
 import { toWorkflowRunResult } from "#lib/shared/workflow-result";
-import {
-	mutationReceiptIdentity,
-	MutationReceiptIdentityConflict,
-	MutationReceipts,
-} from "#modules/mutations/receipts";
+import { MutationReceipts } from "#modules/mutations/receipts";
+import { dispatchAdmittedWorkflow } from "#modules/mutations/workflow-dispatch";
 
 import { enqueueEventCreate, EventCreateWorkflow } from "./event-create-workflow";
+import {
+	EventMutationReceiptResult,
+	eventMutationReceiptIdentity,
+	eventCreateBatchInput,
+	eventReceiptError,
+} from "./mutation-receipts";
 import {
 	EventsRepository,
 	type EventIdentityInput,
 	type UpdateEventEntityReferencesInput,
 } from "./repository";
+import { eventRootTransaction } from "./transaction";
 
 type EventRequest = Extract<
 	AutomationRequestPayload,
@@ -85,21 +89,6 @@ const eventDraft = ({
 	...draft
 }: AutomationEventSnapshot) => draft;
 
-const receiptFor = (
-	input: EventIdentityInput,
-	command: LifecycleCommand,
-	move?: UpdateEventEntityReferencesInput,
-) =>
-	mutationReceiptIdentity({
-		command,
-		ownerUserId: input.userId,
-		scopeUserId: input.userId,
-		commandKind: move ? "event:update" : "event:delete",
-		input: move
-			? { eventId: input.eventId, mergeFrom: move.mergeFrom, mergeInto: move.mergeInto }
-			: { eventId: input.eventId },
-	});
-
 export class EventsService extends Context.Service<EventsService>()("EventsService", {
 	make: Effect.gen(function* () {
 		const engine = yield* WorkflowEngine;
@@ -118,22 +107,10 @@ export class EventsService extends Context.Service<EventsService>()("EventsServi
 			move?: UpdateEventEntityReferencesInput,
 			lock = true,
 		) =>
-			(lock
-				? receipts.lookup(
-						receiptFor(input, command, move),
-						Schema.Struct({ eventId: Schema.NullOr(EventId) }),
-					)
-				: receipts.peek(
-						receiptFor(input, command, move),
-						Schema.Struct({ eventId: Schema.NullOr(EventId) }),
-					)
-			).pipe(
-				Effect.mapError((error) =>
-					error instanceof MutationReceiptIdentityConflict
-						? new DbError({ message: "Conflicting event command identity" })
-						: error,
-				),
-			);
+			(lock ? receipts.lookup : receipts.peek)(
+				eventMutationReceiptIdentity(input, command, move),
+				EventMutationReceiptResult,
+			).pipe(Effect.mapError(eventReceiptError));
 		const execution = yield* LifecycleExecution;
 		const verifyCreateBatchInput = (
 			input: { userId: UserId; payload: ReadonlyArray<CreateEventItem> },
@@ -142,34 +119,15 @@ export class EventsService extends Context.Service<EventsService>()("EventsServi
 			receipts
 				.peekBatch(
 					receipts.batchIdentity({
-						command,
-						resource: "event",
-						identity: ["events"],
+						...eventCreateBatchInput({ ...input, command }),
 						ownerUserId: input.userId,
-						commandInput: input.payload,
 					}),
 				)
-				.pipe(
-					Effect.mapError((error) =>
-						error instanceof MutationReceiptIdentityConflict
-							? new DbError({ message: "Conflicting event command identity" })
-							: error,
-					),
-				);
-		const transaction = <A, E, R>(work: Effect.Effect<A, E, R>) =>
-			retryOnDeadlock(
-				session
-					.transaction(work)
-					.pipe(
-						Effect.mapError((error) =>
-							error instanceof DatabaseSessionStateError
-								? new DbError({
-										message: "Event lifecycle mutations require a root transaction boundary",
-									})
-								: error,
-						),
-					),
-			);
+				.pipe(Effect.mapError(eventReceiptError));
+		const transaction = eventRootTransaction(
+			session,
+			"Event lifecycle mutations require a root transaction boundary",
+		);
 		const assertRootTransaction = session.requireRoot.pipe(
 			Effect.mapError(
 				() =>
@@ -234,18 +192,15 @@ export class EventsService extends Context.Service<EventsService>()("EventsServi
 			yield* verifyCreateBatchInput(input, command);
 			const started = yield* Clock.currentTimeMillis;
 			const executionId = command.causation.executionId;
-			yield* receipts.registerWorkflow(
+			yield* dispatchAdmittedWorkflow(
+				receipts,
+				engine,
+				EventCreateWorkflow,
 				command.accountGeneration,
-				EventCreateWorkflow._tag,
-				executionId,
+				{ executionId, discard: true, payload: { ...input, command } },
+				(admission) => admission,
+				(dispatch) => dispatch.pipe(Effect.uninterruptible),
 			);
-			yield* engine
-				.execute(EventCreateWorkflow, {
-					executionId,
-					discard: true,
-					payload: { ...input, command },
-				})
-				.pipe(Effect.uninterruptible);
 			const remaining = Math.max(0, 35_000 - ((yield* Clock.currentTimeMillis) - started));
 			const observed = yield* Effect.gen(function* () {
 				for (;;) {
@@ -296,7 +251,7 @@ export class EventsService extends Context.Service<EventsService>()("EventsServi
 				yield* receipts.insert({
 					dispatch: [],
 					result: { eventId: null },
-					identity: receiptFor(input, command, move),
+					identity: eventMutationReceiptIdentity(input, command, move),
 				});
 				return { _tag: "Committed" as const, work: { result: null, dispatch: [] } };
 			});
@@ -365,7 +320,7 @@ export class EventsService extends Context.Service<EventsService>()("EventsServi
 						};
 						return {
 							_tag: "Committed" as const,
-							work: yield* withBatch(command, persist(prepared)),
+							work: yield* withBatch(command, persist(prepared, undefined, true)),
 						};
 					}
 					return { plan, input, before, command, request, _tag: "Planned" as const };
@@ -445,9 +400,10 @@ export class EventsService extends Context.Service<EventsService>()("EventsServi
 		const persist = Effect.fnUntraced(function* (
 			prepared: PreparedEventMutationData,
 			batchInput?: { command: LifecycleCommand; identity: ReadonlyArray<string>; index: number },
+			receiptCheckedInTransaction = false,
 		) {
 			yield* assertActiveTransaction;
-			const identity = receiptFor(
+			const identity = eventMutationReceiptIdentity(
 				prepared.input,
 				prepared.command,
 				prepared.operation === "update" ? prepared.move : undefined,
@@ -458,11 +414,13 @@ export class EventsService extends Context.Service<EventsService>()("EventsServi
 				identity: batchInput?.identity ?? [prepared.command.itemIdentity],
 			};
 			const batch = yield* planner.prepareBatch({ ...batchScope, scopes: [prepared.input.userId] });
-			const replay = yield* lookupReceipt(
-				prepared.input,
-				prepared.command,
-				prepared.operation === "update" ? prepared.move : undefined,
-			);
+			const replay = receiptCheckedInTransaction
+				? null
+				: yield* lookupReceipt(
+						prepared.input,
+						prepared.command,
+						prepared.operation === "update" ? prepared.move : undefined,
+					);
 			if (replay) {
 				if (replay.result.eventId === null) {
 					return yield* new DbError({ message: "Event command was already recorded as a no-op" });

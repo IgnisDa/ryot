@@ -3,6 +3,7 @@ import {
 	AutomationRelationshipSnapshot,
 	type AutomationRelationshipRequestPayload,
 	type AutomationRelationshipChangePayload,
+	LifecycleCommand,
 } from "@ryot-app/contract/modules/automations/lifecycle";
 import {
 	RelationshipBadRequest,
@@ -16,10 +17,9 @@ import { isObjectRecord } from "@ryot-app/ts-utils/predicates";
 import { Effect, Schema } from "effect";
 
 import { LifecyclePersistenceError, type LifecyclePlanner } from "#lib/domain/lifecycle";
-import { LifecycleCommand } from "#lib/domain/lifecycle-command";
 import type { LifecycleExecution } from "#lib/domain/lifecycle-execution";
-import { retryOnDeadlock } from "#lib/infrastructure/db/errors";
 import { type DatabaseSession, DatabaseSessionStateError } from "#lib/infrastructure/db/session";
+import { runRootTransaction } from "#lib/infrastructure/db/transaction";
 import { parseAppSchemaProperties } from "#lib/property-schema/property-schema-runtime";
 import type { DefinitionRepository } from "#modules/definition-registry/repository";
 import type { RelationshipSchemaDefinition } from "#modules/definition-registry/snapshot";
@@ -30,8 +30,10 @@ import {
 	MutationReceiptIdentity,
 	type MutationReceipts,
 } from "#modules/mutations/receipts";
-import type { PluginRuntimeResolver } from "#modules/plugins/runtime-resolver";
-import { CatalogDefinitionFingerprint } from "#modules/plugins/runtime-resolver";
+import {
+	CatalogDefinitionFingerprint,
+	type PluginRuntimeResolver,
+} from "#modules/plugins/runtime-resolver";
 
 import {
 	RelationshipIdentityInput,
@@ -182,18 +184,14 @@ export const mergeProperties = (existing: unknown, incoming: unknown) => {
 export const rootTransaction =
 	(session: DatabaseSession["Service"]) =>
 	<A, E, R>(work: Effect.Effect<A, E, R>) =>
-		retryOnDeadlock(
-			session
-				.transaction(work)
-				.pipe(
-					Effect.mapError((error) =>
-						error instanceof DatabaseSessionStateError
-							? new DbError({
-									message: "Relationship lifecycle mutations require a root transaction boundary",
-								})
-							: error,
-					),
-				),
+		runRootTransaction(session, work).pipe(
+			Effect.mapError((error) =>
+				error instanceof DatabaseSessionStateError
+					? new DbError({
+							message: "Relationship lifecycle mutations require a root transaction boundary",
+						})
+					: error,
+			),
 		);
 
 export const rootTransactionGuard = (session: DatabaseSession["Service"]) =>

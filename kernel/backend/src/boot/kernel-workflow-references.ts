@@ -1,4 +1,5 @@
 import { SandboxRunError, unknownToMessage } from "@ryot-app/contract/errors";
+import { LifecycleCommand } from "@ryot-app/contract/modules/automations/lifecycle";
 import {
 	AutomationExecutionId,
 	ImportRunId,
@@ -13,7 +14,11 @@ import { isObjectRecord } from "@ryot-app/ts-utils/predicates";
 import { DateTime, Effect, Exit, Layer, Schema } from "effect";
 import { WorkflowEngine } from "effect/unstable/workflow/WorkflowEngine";
 
-import { LifecycleCommand, rootLifecycleCommand } from "#lib/domain/lifecycle-command";
+import {
+	rootLifecycleCommand,
+	lifecycleActor,
+	automationLifecycleCausation,
+} from "#lib/domain/lifecycle-command";
 import {
 	EventCreateWorkflow,
 	EventCreateWorkflowPayload,
@@ -25,9 +30,12 @@ import {
 import { ImportsRepository } from "#modules/imports/repository";
 import { IntegrationsRepository } from "#modules/integrations/repository";
 import { MutationReceipts } from "#modules/mutations/receipts";
+import { dispatchAdmittedWorkflow } from "#modules/mutations/workflow-dispatch";
 import { PluginRuntimeResolver } from "#modules/plugins/runtime-resolver";
-import type { EntityImportError } from "#modules/provider-entities/entity-import-workflow";
-import { EntityImportWorkflow } from "#modules/provider-entities/entity-import-workflow";
+import {
+	EntityImportWorkflow,
+	type EntityImportError,
+} from "#modules/provider-entities/entity-import-workflow";
 import {
 	ProviderEntityPopulationWorkflow,
 	type ProviderEntityPopulationPayload,
@@ -71,35 +79,17 @@ const lifecycleCommand = (
 			occurredAt,
 			itemIdentity,
 			accountGeneration: subject.accountGeneration,
-			causation: {
-				...subject.causation,
-				source: "automation",
-				parentRunId: subject.runId,
-				depth: subject.causation.depth + 1,
-				parentTriggerId: subject.triggerId,
-				executionId: AutomationExecutionId.make(executionId),
-			},
+			causation: automationLifecycleCausation(subject, AutomationExecutionId.make(executionId)),
 		});
 	}
 	const integrationId = subject.type === "user" ? subject.integrationId : undefined;
-	let initiator: Parameters<typeof rootLifecycleCommand>[0]["initiator"] = {
-		id: null,
-		kind: "system",
-	};
-	if (subject.type === "user") {
-		initiator =
-			integrationId === undefined
-				? { kind: "user", id: subject.userId }
-				: { id: integrationId, kind: "integration" };
-	}
 	const attributedIntegrationId = integrationId ?? attribution.integrationId;
 	return rootLifecycleCommand({
-		initiator,
+		...lifecycleActor(subject.type === "user" ? subject : null),
 		occurredAt,
 		itemIdentity,
 		executionId: AutomationExecutionId.make(executionId),
 		source: integrationId === undefined ? source : "integration",
-		accountGeneration: subject.type === "user" ? subject.accountGeneration : null,
 		...(attribution.importRunId === undefined ? {} : { importRunId: attribution.importRunId }),
 		...(attributedIntegrationId === undefined ? {} : { integrationId: attributedIntegrationId }),
 		...(source === "provider-refresh"
@@ -125,18 +115,12 @@ export const KernelWorkflowReferencesLive = Layer.effect(
 		const integrations = yield* IntegrationsRepository;
 		const pluginRuntime = yield* PluginRuntimeResolver;
 		const receipts = yield* MutationReceipts.make;
-		const registerWorkflow = (
-			command: LifecycleCommand,
-			workflowName: string,
-			executionId: string,
-		) =>
-			receipts
-				.registerWorkflow(command.accountGeneration, workflowName, executionId)
-				.pipe(
-					Effect.mapError(
-						(error) => new SandboxRunError({ kind: "infrastructure", message: error.message }),
-					),
-				);
+		const admit = (registration: ReturnType<typeof receipts.registerWorkflow>) =>
+			registration.pipe(
+				Effect.mapError(
+					(error) => new SandboxRunError({ kind: "infrastructure", message: error.message }),
+				),
+			);
 
 		const validateAttribution = (input: {
 			userId: UserId;
@@ -250,8 +234,12 @@ export const KernelWorkflowReferencesLive = Layer.effect(
 							ownedItems,
 							({ item, resolved }, index) => {
 								const childExecutionId = `${executionId}-item-${index}`;
-								return engine
-									.execute(ProviderEntityPopulationWorkflow, {
+								return dispatchAdmittedWorkflow(
+									receipts,
+									engine,
+									ProviderEntityPopulationWorkflow,
+									null,
+									{
 										executionId: childExecutionId,
 										payload: {
 											mode: decoded.mode,
@@ -268,17 +256,20 @@ export const KernelWorkflowReferencesLive = Layer.effect(
 												"provider-refresh",
 											),
 										} satisfies ProviderEntityPopulationPayload,
-									})
-									.pipe(
-										Effect.mapError(
-											(error) =>
-												new SandboxRunError({
-													kind: "infrastructure",
-													message: unknownToMessage(error),
-												}),
+									},
+									admit,
+									(dispatch) =>
+										dispatch.pipe(
+											Effect.mapError(
+												(error) =>
+													new SandboxRunError({
+														kind: "infrastructure",
+														message: unknownToMessage(error),
+													}),
+											),
+											Effect.exit,
 										),
-										Effect.exit,
-									);
+								);
 							},
 							{ concurrency: PROVIDER_ENTITY_POPULATION_CONCURRENCY },
 						);
@@ -351,18 +342,24 @@ export const KernelWorkflowReferencesLive = Layer.effect(
 							importRunIds: [ImportRunId.make(payload.runId)],
 							integrationIds: payload.integrationId ? [payload.integrationId] : [],
 						});
-						yield* registerWorkflow(command, ProcessGenericImportChunksWorkflow._tag, executionId);
-						const result = yield* engine
-							.execute(ProcessGenericImportChunksWorkflow, { payload, executionId })
-							.pipe(
-								Effect.mapError(
-									(error) =>
-										new SandboxRunError({
-											kind: "infrastructure",
-											message: unknownToMessage(error),
-										}),
+						const result = yield* dispatchAdmittedWorkflow(
+							receipts,
+							engine,
+							ProcessGenericImportChunksWorkflow,
+							command.accountGeneration,
+							{ payload, executionId },
+							admit,
+							(execution) =>
+								execution.pipe(
+									Effect.mapError(
+										(error) =>
+											new SandboxRunError({
+												kind: "infrastructure",
+												message: unknownToMessage(error),
+											}),
+									),
 								),
-							);
+						);
 						return yield* Schema.decodeEffect(jsonValueSchema)(result).pipe(
 							Effect.mapError(
 								(error) =>
@@ -427,19 +424,25 @@ export const KernelWorkflowReferencesLive = Layer.effect(
 								? [command.causation.integrationId]
 								: [],
 						});
-						yield* registerWorkflow(command, EntityImportWorkflow._tag, executionId);
-						const result = yield* engine
-							.execute(EntityImportWorkflow, { payload, executionId })
-							.pipe(
-								Effect.match({
-									onSuccess: (entity) => ({ entity, status: "completed" as const }),
-									onFailure: (error: EntityImportError) => ({
-										stage: error.stage,
-										message: error.message,
-										status: "failed" as const,
+						const result = yield* dispatchAdmittedWorkflow(
+							receipts,
+							engine,
+							EntityImportWorkflow,
+							command.accountGeneration,
+							{ payload, executionId },
+							admit,
+							(execution) =>
+								execution.pipe(
+									Effect.match({
+										onSuccess: (entity) => ({ entity, status: "completed" as const }),
+										onFailure: (error: EntityImportError) => ({
+											stage: error.stage,
+											message: error.message,
+											status: "failed" as const,
+										}),
 									}),
-								}),
-							);
+								),
+						);
 						return yield* Schema.decodeUnknownEffect(jsonValueSchema)(result).pipe(
 							Effect.mapError(
 								(error) =>
@@ -474,15 +477,24 @@ export const KernelWorkflowReferencesLive = Layer.effect(
 							? [command.causation.integrationId]
 							: [],
 					});
-					yield* registerWorkflow(command, EventCreateWorkflow._tag, executionId);
-					const result = yield* engine
-						.execute(EventCreateWorkflow, { payload, executionId })
-						.pipe(
-							Effect.mapError(
-								(error) =>
-									new SandboxRunError({ kind: "infrastructure", message: unknownToMessage(error) }),
+					const result = yield* dispatchAdmittedWorkflow(
+						receipts,
+						engine,
+						EventCreateWorkflow,
+						command.accountGeneration,
+						{ payload, executionId },
+						admit,
+						(execution) =>
+							execution.pipe(
+								Effect.mapError(
+									(error) =>
+										new SandboxRunError({
+											kind: "infrastructure",
+											message: unknownToMessage(error),
+										}),
+								),
 							),
-						);
+					);
 					return yield* Schema.decodeEffect(jsonValueSchema)(result).pipe(
 						Effect.mapError(
 							(error) =>

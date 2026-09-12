@@ -1,5 +1,8 @@
 import { SandboxRunError, mapDbErrorToSandbox } from "@ryot-app/contract/errors";
-import type { AutomationPopulationContext } from "@ryot-app/contract/modules/automations/lifecycle";
+import type {
+	AutomationPopulationContext,
+	LifecycleCommand,
+} from "@ryot-app/contract/modules/automations/lifecycle";
 import { ListedEntity } from "@ryot-app/contract/modules/entities/schemas";
 import {
 	EntitySchemaSlug,
@@ -13,7 +16,7 @@ import { stableStringify } from "@ryot-app/ts-utils/json";
 import { DateTime, Effect, Schema } from "effect";
 
 import { LifecycleDispatchPlan } from "#lib/domain/lifecycle";
-import type { LifecycleCommand } from "#lib/domain/lifecycle-command";
+import { populationLifecycleCommand } from "#lib/domain/lifecycle-command";
 import { retryOnDeadlock } from "#lib/infrastructure/db/errors";
 import { DatabaseSession } from "#lib/infrastructure/db/session";
 import type { DefinitionSnapshot } from "#modules/definition-registry/snapshot";
@@ -43,22 +46,12 @@ export const ChildEntitySetWriteResult = Schema.Struct({
 
 export type ChildEntitySetWriteResult = typeof ChildEntitySetWriteResult.Type;
 
-const commandFor = (
-	command: LifecycleCommand,
-	itemIdentity: ReadonlyArray<string>,
-	population: AutomationPopulationContext,
-): LifecycleCommand => ({
-	...command,
-	population,
-	itemIdentity: stableStringify([command.itemIdentity, ...itemIdentity]),
-});
-
 const relationshipBatch = (
 	command: LifecycleCommand,
 	itemIdentity: ReadonlyArray<string>,
 	population: AutomationPopulationContext,
 ): LifecycleCommand =>
-	commandFor(command, itemIdentity, {
+	populationLifecycleCommand(command, itemIdentity, {
 		...population,
 		batch: {
 			afterCount: 0,
@@ -153,7 +146,7 @@ export const writeChildEntitySet = Effect.fn("writeChildEntitySet")(function* (
 							updateExisting: input.syncExisting ?? false,
 							entitySchemaSlug: EntitySchemaSlug.make(childEntitySchemaSlug),
 							populatedAt: DateTime.toDateUtc(DateTime.makeUnsafe(input.command.occurredAt)),
-							lifecycle: commandFor(
+							lifecycle: populationLifecycleCommand(
 								input.command,
 								["child", String(input.parentEntityId), childEntity.externalId],
 								input.population,

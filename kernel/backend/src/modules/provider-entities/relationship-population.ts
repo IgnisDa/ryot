@@ -1,5 +1,8 @@
 import { SandboxRunError, mapDbErrorToSandbox } from "@ryot-app/contract/errors";
-import type { AutomationPopulationContext } from "@ryot-app/contract/modules/automations/lifecycle";
+import type {
+	AutomationPopulationContext,
+	LifecycleCommand,
+} from "@ryot-app/contract/modules/automations/lifecycle";
 import {
 	EntitySchemaSlug,
 	RelationshipSchemaSlug,
@@ -14,7 +17,7 @@ import type {
 import { stableStringify } from "@ryot-app/ts-utils/json";
 import { Effect } from "effect";
 
-import type { LifecycleCommand } from "#lib/domain/lifecycle-command";
+import { populationLifecycleCommand } from "#lib/domain/lifecycle-command";
 import { retryOnDeadlock } from "#lib/infrastructure/db/errors";
 import { DatabaseSession } from "#lib/infrastructure/db/session";
 import { parseAppSchemaProperties } from "#lib/property-schema/property-schema-runtime";
@@ -24,16 +27,6 @@ import { EntitiesService } from "#modules/entities/service";
 import { PluginRuntimeResolver } from "#modules/plugins/runtime-resolver";
 
 import { persistPlannedRelationshipSynchronization } from "./relationship-synchronization";
-
-const commandFor = (
-	command: LifecycleCommand,
-	itemIdentity: ReadonlyArray<string>,
-	population: AutomationPopulationContext,
-): LifecycleCommand => ({
-	...command,
-	population,
-	itemIdentity: stableStringify([command.itemIdentity, ...itemIdentity]),
-});
 
 export const syncRelatedEntityGroup = Effect.fn("syncRelatedEntityGroup")(function* (
 	input: {
@@ -193,7 +186,7 @@ export const syncRelatedEntityGroup = Effect.fn("syncRelatedEntityGroup")(functi
 						externalId: relatedEntity.externalId,
 						providerId: schemaProvider.providerId,
 						entitySchemaSlug: schemaProvider.entitySchemaSlug,
-						lifecycle: commandFor(
+						lifecycle: populationLifecycleCommand(
 							input.command,
 							[...itemIdentity, relatedEntity.providerSlug, relatedEntity.externalId],
 							input.population,
@@ -219,7 +212,7 @@ export const syncRelatedEntityGroup = Effect.fn("syncRelatedEntityGroup")(functi
 					relationshipSchemaPluginId: relationshipSchema.pluginId,
 					onConflict:
 						input.group.synchronization === "additive" ? "preserveExisting" : "replaceProperties",
-					command: commandFor(input.command, itemIdentity, {
+					command: populationLifecycleCommand(input.command, itemIdentity, {
 						...input.population,
 						batch: {
 							afterCount: 0,

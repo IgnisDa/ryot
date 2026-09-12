@@ -11,6 +11,7 @@ export const startWorkflowDeadline = (name: string, durationMs: number) =>
 
 export const observeWorkflowDeadline = Effect.fnUntraced(function* <A, E, R>(options: {
 	readonly deadline: number;
+	readonly pollingIntervalMs: number;
 	readonly poll: Effect.Effect<A | null, E, R>;
 	readonly completedAt: (value: A) => number | null;
 }) {
@@ -28,6 +29,6 @@ export const observeWorkflowDeadline = Effect.fnUntraced(function* <A, E, R>(opt
 			return { status: "expired" as const };
 		}
 		// The deadline is journaled; a replay can poll again without persisting each wait.
-		yield* Effect.sleep(Duration.millis(Math.min(1000, remaining)));
+		yield* Effect.sleep(Duration.millis(Math.min(options.pollingIntervalMs, remaining)));
 	}
 });

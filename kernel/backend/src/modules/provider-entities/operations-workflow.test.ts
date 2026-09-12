@@ -2,6 +2,7 @@ import { expect, layer } from "@effect/vitest";
 import {
 	AutomationRun,
 	type AutomationTrigger,
+	type LifecycleCommand,
 } from "@ryot-app/contract/modules/automations/lifecycle";
 import {
 	AutomationExecutionId,
@@ -23,7 +24,7 @@ import { Effect, Layer, Schema } from "effect";
 import { WorkflowEngine, WorkflowInstance } from "effect/unstable/workflow/WorkflowEngine";
 
 import { LifecyclePlanner } from "#lib/domain/lifecycle";
-import { rootLifecycleCommand, type LifecycleCommand } from "#lib/domain/lifecycle-command";
+import { rootLifecycleCommand } from "#lib/domain/lifecycle-command";
 import { LifecycleExecution } from "#lib/domain/lifecycle-execution";
 import { mapDatabaseErrors } from "#lib/infrastructure/db/errors";
 import { DatabaseSession } from "#lib/infrastructure/db/session";

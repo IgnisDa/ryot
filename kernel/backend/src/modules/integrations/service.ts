@@ -29,8 +29,11 @@ import {
 } from "#lib/property-schema/property-schema-runtime";
 import { ImportsService } from "#modules/imports/service";
 import { MutationReceipts } from "#modules/mutations/receipts";
-import { IntegrationProviderCatalog } from "#modules/plugins/integration-provider-catalog";
-import type { RegisteredIntegrationProvider } from "#modules/plugins/integration-provider-catalog";
+import { admitWorkflow, dispatchAdmittedWorkflow } from "#modules/mutations/workflow-dispatch";
+import {
+	IntegrationProviderCatalog,
+	type RegisteredIntegrationProvider,
+} from "#modules/plugins/integration-provider-catalog";
 
 import { ProcessIntegrationRunWorkflow } from "./integration-workflow";
 import type { IntegrationSyncRun } from "./jobs";
@@ -326,13 +329,12 @@ export class IntegrationsService extends Context.Service<IntegrationsService>()(
 				}
 
 				const accountGeneration = yield* receipts.currentAccount(integration.userId);
-				yield* receipts.registerWorkflow(
+				const started = yield* dispatchAdmittedWorkflow(
+					receipts,
+					engine,
+					ProcessIntegrationRunWorkflow,
 					accountGeneration,
-					ProcessIntegrationRunWorkflow._tag,
-					run.id,
-				);
-				const started = yield* engine
-					.execute(ProcessIntegrationRunWorkflow, {
+					{
 						discard: true,
 						executionId: run.id,
 						payload: {
@@ -342,8 +344,10 @@ export class IntegrationsService extends Context.Service<IntegrationsService>()(
 							integrationId: integration.id,
 							webhook: { rawBody: input.rawBody, contentType: input.contentType },
 						},
-					})
-					.pipe(Effect.result);
+					},
+					(admission) => admission,
+					(execution) => execution.pipe(Effect.result),
+				);
 
 				if (Result.isFailure(started)) {
 					yield* Effect.logError("integration workflow enqueue failed", started.failure);
@@ -405,7 +409,7 @@ export class IntegrationsService extends Context.Service<IntegrationsService>()(
 					}
 
 					const account = accountGeneration ?? (yield* receipts.currentAccount(integration.userId));
-					yield* receipts.registerWorkflow(account, ProcessIntegrationRunWorkflow._tag, run.id);
+					yield* admitWorkflow(receipts, ProcessIntegrationRunWorkflow, account, run.id);
 					runs.push({
 						runId: run.id,
 						accountGeneration: account,
@@ -422,18 +426,15 @@ export class IntegrationsService extends Context.Service<IntegrationsService>()(
 			) {
 				const userId = accountGeneration.userId;
 				const executionId = `integration-sync-${generateId()}`;
-				yield* receipts.registerWorkflow(
+				const started = yield* dispatchAdmittedWorkflow(
+					receipts,
+					engine,
+					IntegrationSyncWorkflow,
 					accountGeneration,
-					IntegrationSyncWorkflow._tag,
-					executionId,
+					{ executionId, discard: true, payload: { userId, executionId, accountGeneration } },
+					(admission) => admission,
+					(execution) => execution.pipe(Effect.result),
 				);
-				const started = yield* engine
-					.execute(IntegrationSyncWorkflow, {
-						executionId,
-						discard: true,
-						payload: { userId, executionId, accountGeneration },
-					})
-					.pipe(Effect.result);
 				if (Result.isFailure(started)) {
 					yield* Effect.logError("integration sync enqueue failed", started.failure).pipe(
 						Effect.annotateLogs({ userId, executionId }),

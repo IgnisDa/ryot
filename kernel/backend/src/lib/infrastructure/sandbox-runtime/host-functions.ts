@@ -1,4 +1,5 @@
 import { unknownToMessage } from "@ryot-app/contract/errors";
+import { LifecycleCommand } from "@ryot-app/contract/modules/automations/lifecycle";
 import {
 	CreateEventItem,
 	type CreateEventsResponse,
@@ -13,7 +14,6 @@ import {
 	SandboxProviderId,
 	UserId,
 } from "@ryot-app/contract/schema/brands";
-import { UserPreferences } from "@ryot-app/contract/schema/user-preferences";
 import {
 	changeUserRelationshipBatchSchema,
 	upsertGlobalEntitiesOptionsSchema,
@@ -21,13 +21,9 @@ import {
 	upsertGlobalRelationshipGroupSchema,
 } from "@ryot-app/sandbox-sdk/core";
 import { jsonValueSchema, type SandboxHostError } from "@ryot-app/sandbox-sdk/wire";
-import { eq } from "drizzle-orm";
 import { Effect, Schema } from "effect";
 
-import { LifecycleCommand } from "#lib/domain/lifecycle-command";
 import { LifecycleExecution } from "#lib/domain/lifecycle-execution";
-import * as schema from "#lib/infrastructure/db/schema/tables/combined";
-import { DatabaseSession } from "#lib/infrastructure/db/session";
 import {
 	runLifecycleWriteInline,
 	type LifecyclePreparedStep,
@@ -49,6 +45,7 @@ import {
 	type SandboxRunInput,
 	type UserSandboxRunInput,
 } from "#lib/infrastructure/sandbox-runtime/shared";
+import { AuthRepository } from "#modules/auth/repository";
 import { DefinitionRepository } from "#modules/definition-registry/repository";
 import {
 	EntitiesService,
@@ -69,7 +66,7 @@ import {
 import { RyotQLService } from "#modules/ryotql/service";
 
 type SandboxHostFunctionContext =
-	| DatabaseSession
+	| AuthRepository
 	| RyotQLService
 	| EventsService
 	| EntitiesService
@@ -412,7 +409,7 @@ export const makeAdditionalSandboxApiFunctions: Effect.Effect<
 	never,
 	SandboxHostFunctionContext
 > = Effect.gen(function* () {
-	const session = yield* DatabaseSession;
+	const auth = yield* AuthRepository;
 	const lifecycleExecution = yield* LifecycleExecution;
 	const events = yield* EventsService;
 	const entities = yield* EntitiesService;
@@ -460,20 +457,18 @@ export const makeAdditionalSandboxApiFunctions: Effect.Effect<
 
 	const readUserPreferences = (userId: UserId) =>
 		Effect.gen(function* () {
-			const [row] = yield* session.run((database) =>
-				database
-					.select({ preferences: schema.user.preferences })
-					.from(schema.user)
-					.where(eq(schema.user.id, userId))
-					.limit(1),
-			);
-			if (!row) {
+			const preferences = yield* auth
+				.getUserPreferences(userId)
+				.pipe(
+					Effect.mapError((error) =>
+						error.message.startsWith("Invalid stored user preferences:")
+							? "Invalid stored user preferences"
+							: error,
+					),
+				);
+			if (!preferences) {
 				return yield* Effect.fail("User not found");
 			}
-
-			const preferences = yield* Schema.decodeEffect(UserPreferences)(row.preferences).pipe(
-				Effect.mapError(() => "Invalid stored user preferences"),
-			);
 			return {
 				allowNsfw: preferences.allowNsfw,
 				disableIntegrations: preferences.disableIntegrations,

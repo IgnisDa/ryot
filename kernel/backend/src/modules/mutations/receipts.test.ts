@@ -9,13 +9,17 @@ import {
 } from "@ryot-app/contract/schema/brands";
 import { eq } from "drizzle-orm";
 import { DateTime, Deferred, Effect, Fiber, Layer, Schema } from "effect";
+import { Workflow } from "effect/unstable/workflow";
+import { WorkflowInstance } from "effect/unstable/workflow/WorkflowEngine";
 
 import { rootLifecycleCommand } from "#lib/domain/lifecycle-command";
 import * as tables from "#lib/infrastructure/db/schema/tables/combined";
 import { DatabaseSession } from "#lib/infrastructure/db/session";
+import { makeWorkflowEngine } from "#lib/test-utils/effect";
 import { isolatedDatabaseLayer } from "#lib/test-utils/isolated-database";
 
 import { mutationReceiptIdentity, MutationReceipts } from "./receipts";
+import { dispatchAdmittedWorkflow } from "./workflow-dispatch";
 
 const owner = UserId.make("receipt-owner");
 const entityId = EntityId.make("receipt-entity");
@@ -40,6 +44,97 @@ const Result = Schema.Struct({ entityId: EntityId });
 layer(
 	MutationReceipts.layer.pipe(Layer.provideMerge(isolatedDatabaseLayer("mutation_receipt_test"))),
 )((test) => {
+	test.effect(
+		"owns a workflow suspended before its first write, fences its old generation, and admits the new generation",
+		() =>
+			Effect.gen(function* () {
+				const session = yield* DatabaseSession;
+				const receipts = yield* MutationReceipts;
+				const account = { token: "original", userId: UserId.make("dispatch-generation-owner") };
+				yield* session.run((db) =>
+					db
+						.insert(tables.user)
+						.values({
+							name: "Owner",
+							id: account.userId,
+							accountGeneration: account.token,
+							email: "dispatch-generation@example.test",
+						}),
+				);
+				const workflow = Workflow.make("GenerationDispatchWorkflow", {
+					error: Schema.Never,
+					success: Schema.String,
+					payload: Schema.Struct({}),
+					idempotencyKey: () => "generation",
+				});
+				const dispatched: Array<string> = [];
+				const written: Array<string> = [];
+				const instance = WorkflowInstance.initial(workflow, "old-generation");
+				const engine = makeWorkflowEngine({
+					execute: (_definition, options) =>
+						Effect.gen(function* () {
+							const owners = yield* session.run((db) =>
+								db
+									.select()
+									.from(tables.mutationReceipt)
+									.where(eq(tables.mutationReceipt.executionId, options.executionId)),
+							);
+							expect(owners).toHaveLength(1);
+							expect(owners[0]?.workflowName).toBe(workflow._tag);
+							dispatched.push(options.executionId);
+							if (options.executionId === "old-generation") {
+								return yield* Workflow.suspend(instance);
+							}
+							written.push(options.executionId);
+							return options.executionId;
+						}),
+				});
+				const suspended = yield* Workflow.intoResult(
+					dispatchAdmittedWorkflow(
+						receipts,
+						engine,
+						workflow,
+						account,
+						{ payload: {}, executionId: "old-generation" },
+						(admission) => admission,
+						(execution) => execution,
+					),
+				).pipe(Effect.provideService(WorkflowInstance, instance));
+				expect(suspended._tag).toBe("Suspended");
+				expect(written).toEqual([]);
+				yield* session.run((db) =>
+					db
+						.update(tables.user)
+						.set({ accountGeneration: "replacement" })
+						.where(eq(tables.user.id, account.userId)),
+				);
+				expect(
+					(yield* Effect.flip(
+						dispatchAdmittedWorkflow(
+							receipts,
+							engine,
+							workflow,
+							account,
+							{ payload: {}, executionId: "old-generation" },
+							(admission) => admission,
+							(execution) => execution,
+						),
+					)).message,
+				).toBe("Mutation command belongs to a retired account");
+				yield* dispatchAdmittedWorkflow(
+					receipts,
+					engine,
+					workflow,
+					{ ...account, token: "replacement" },
+					{ payload: {}, executionId: "new-generation" },
+					(admission) => admission,
+					(execution) => execution,
+				);
+				expect(dispatched).toEqual(["old-generation", "new-generation"]);
+				expect(written).toEqual(["new-generation"]);
+			}),
+	);
+
 	test.effect("rechecks admission and ownership when a workflow owner is already recorded", () =>
 		Effect.gen(function* () {
 			const session = yield* DatabaseSession;

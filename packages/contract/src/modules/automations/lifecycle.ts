@@ -203,6 +203,8 @@ export const LifecycleCommand = strictStruct({
 	Schema.check(
 		Schema.makeFilter(
 			(command) =>
+				// Automation ownership comes from its trusted execution subject, not its initiator.
+				command.causation.source === "automation" ||
 				command.causation.initiator.kind !== "user" ||
 				command.accountGeneration?.userId === command.causation.initiator.id ||
 				"User lifecycle commands require their account generation",
@@ -249,47 +251,50 @@ const mutationPayloads = <
 	resource: Resource,
 	draft: Draft,
 	snapshot: Snapshot,
-) =>
-	[
-		strictStruct({
+) => ({
+	request: {
+		create: strictStruct({
 			draft,
 			resource: Schema.Literal(resource),
 			category: Schema.Literal("request"),
 			operation: Schema.Literal("create"),
 		}),
-		strictStruct({
-			draft,
-			before: snapshot,
-			resource: Schema.Literal(resource),
-			category: Schema.Literal("request"),
-			operation: Schema.Literal("update"),
-		}),
-		strictStruct({
+		delete: strictStruct({
 			draft: snapshot,
 			resource: Schema.Literal(resource),
 			category: Schema.Literal("request"),
 			operation: Schema.Literal("delete"),
 		}),
-		strictStruct({
+		update: strictStruct({
+			draft,
+			before: snapshot,
+			resource: Schema.Literal(resource),
+			category: Schema.Literal("request"),
+			operation: Schema.Literal("update"),
+		}),
+	},
+	change: {
+		create: strictStruct({
 			after: snapshot,
 			category: Schema.Literal("change"),
 			resource: Schema.Literal(resource),
 			operation: Schema.Literal("create"),
 		}),
-		strictStruct({
+		delete: strictStruct({
+			before: snapshot,
+			category: Schema.Literal("change"),
+			resource: Schema.Literal(resource),
+			operation: Schema.Literal("delete"),
+		}),
+		update: strictStruct({
 			after: snapshot,
 			before: snapshot,
 			category: Schema.Literal("change"),
 			resource: Schema.Literal(resource),
 			operation: Schema.Literal("update"),
 		}),
-		strictStruct({
-			before: snapshot,
-			category: Schema.Literal("change"),
-			resource: Schema.Literal(resource),
-			operation: Schema.Literal("delete"),
-		}),
-	] as const;
+	},
+});
 const entityPayloads = mutationPayloads("entity", AutomationEntityDraft, AutomationEntitySnapshot);
 const eventPayloads = mutationPayloads("event", AutomationEventDraft, AutomationEventSnapshot);
 const relationshipPayloads = mutationPayloads(
@@ -297,42 +302,38 @@ const relationshipPayloads = mutationPayloads(
 	AutomationRelationshipDraft,
 	AutomationRelationshipSnapshot,
 );
-export const [
-	AutomationEntityCreateRequestPayload,
-	AutomationEntityUpdateRequestPayload,
-	AutomationEntityDeleteRequestPayload,
-] = entityPayloads;
+export const AutomationEntityCreateRequestPayload = entityPayloads.request.create;
+export const AutomationEntityUpdateRequestPayload = entityPayloads.request.update;
+export const AutomationEntityDeleteRequestPayload = entityPayloads.request.delete;
 export const AutomationEntityRequestPayload = Schema.Union([
 	AutomationEntityCreateRequestPayload,
 	AutomationEntityUpdateRequestPayload,
 	AutomationEntityDeleteRequestPayload,
 ]);
 export type AutomationEntityRequestPayload = typeof AutomationEntityRequestPayload.Type;
-export const AutomationRelationshipRequestPayload = Schema.Union([
-	relationshipPayloads[0],
-	relationshipPayloads[1],
-	relationshipPayloads[2],
-]);
+export const AutomationRelationshipRequestPayload = Schema.Union(
+	Object.values(relationshipPayloads.request),
+);
 export type AutomationRelationshipRequestPayload = typeof AutomationRelationshipRequestPayload.Type;
-export const AutomationOmittedHook = strictStruct({
+export const AutomationHookIdentity = strictStruct({
 	hookSlug: AutomationHookSlug,
 	pluginId: Schema.NullOr(PluginId),
 });
-export type AutomationOmittedHook = typeof AutomationOmittedHook.Type;
+export type AutomationHookIdentity = typeof AutomationHookIdentity.Type;
 
 const eventRequestPlanningFields = {
-	excludedOncePerSubjectPolicies: Schema.optional(Schema.Array(AutomationOmittedHook)),
+	excludedOncePerSubjectPolicies: Schema.optional(Schema.Array(AutomationHookIdentity)),
 };
 export const AutomationEventCreateRequestPayload = strictStruct({
-	...eventPayloads[0].fields,
+	...eventPayloads.request.create.fields,
 	...eventRequestPlanningFields,
 });
 export const AutomationEventUpdateRequestPayload = strictStruct({
-	...eventPayloads[1].fields,
+	...eventPayloads.request.update.fields,
 	...eventRequestPlanningFields,
 });
 export const AutomationEventDeleteRequestPayload = strictStruct({
-	...eventPayloads[2].fields,
+	...eventPayloads.request.delete.fields,
 	...eventRequestPlanningFields,
 });
 export const AutomationEventRequestPayload = Schema.Union([
@@ -350,15 +351,15 @@ export type AutomationRequestPayload = typeof AutomationRequestPayload.Type;
 const withPopulation = <Fields extends Schema.Struct.Fields>(member: Schema.Struct<Fields>) =>
 	strictStruct({ ...member.fields, population: Schema.optional(AutomationPopulationContext) });
 const entityChanges = [
-	withPopulation(entityPayloads[3]),
-	withPopulation(entityPayloads[4]),
-	withPopulation(entityPayloads[5]),
+	withPopulation(entityPayloads.change.create),
+	withPopulation(entityPayloads.change.update),
+	withPopulation(entityPayloads.change.delete),
 ] as const;
-const eventChanges = [eventPayloads[3], eventPayloads[4], eventPayloads[5]] as const;
+const eventChanges = Object.values(eventPayloads.change);
 const relationshipChanges = [
-	withPopulation(relationshipPayloads[3]),
-	withPopulation(relationshipPayloads[4]),
-	withPopulation(relationshipPayloads[5]),
+	withPopulation(relationshipPayloads.change.create),
+	withPopulation(relationshipPayloads.change.update),
+	withPopulation(relationshipPayloads.change.delete),
 ] as const;
 export const AutomationEntityChangePayload = Schema.Union(entityChanges);
 export type AutomationEntityChangePayload = typeof AutomationEntityChangePayload.Type;
@@ -420,65 +421,43 @@ export const AutomationAfterPayload = Schema.Union([
 ]);
 export type AutomationAfterPayload = typeof AutomationAfterPayload.Type;
 
+const withChangedProperties = <Fields extends Schema.Struct.Fields>(
+	member: Schema.Struct<Fields>,
+) => strictStruct({ ...member.fields, changedProperties: uniqueProjectionNames });
 const projectedMutationPayloads = <
 	const Resource extends string,
 	Draft extends Schema.Constraint,
 	Snapshot extends Schema.Constraint,
 >(
-	resource: Resource,
-	draft: Draft,
-	snapshot: Snapshot,
-) => {
-	const payloads = mutationPayloads(resource, draft, snapshot);
-	return [
-		payloads[0],
-		strictStruct({ ...payloads[1].fields, changedProperties: uniqueProjectionNames }),
-		payloads[2],
-		payloads[3],
-		strictStruct({ ...payloads[4].fields, changedProperties: uniqueProjectionNames }),
-		payloads[5],
-	] as const;
-};
-const projectedEntityPayloads = projectedMutationPayloads(
-	"entity",
-	AutomationEntityDraft,
-	AutomationEntitySnapshot,
-);
-const projectedEventPayloads = projectedMutationPayloads(
-	"event",
-	AutomationEventDraft,
-	AutomationEventSnapshot,
-);
-const projectedRelationshipPayloads = projectedMutationPayloads(
-	"relationship",
-	AutomationRelationshipDraft,
-	AutomationRelationshipSnapshot,
-);
+	payloads: ReturnType<typeof mutationPayloads<Resource, Draft, Snapshot>>,
+) => ({
+	change: { ...payloads.change, update: withChangedProperties(payloads.change.update) },
+	request: { ...payloads.request, update: withChangedProperties(payloads.request.update) },
+});
+const projectedEntityPayloads = projectedMutationPayloads(entityPayloads);
+const projectedEventPayloads = projectedMutationPayloads(eventPayloads);
+const projectedRelationshipPayloads = projectedMutationPayloads(relationshipPayloads);
 const projectedEventRequests = [
-	strictStruct({ ...projectedEventPayloads[0].fields, ...eventRequestPlanningFields }),
-	strictStruct({ ...projectedEventPayloads[1].fields, ...eventRequestPlanningFields }),
-	strictStruct({ ...projectedEventPayloads[2].fields, ...eventRequestPlanningFields }),
+	strictStruct({ ...projectedEventPayloads.request.create.fields, ...eventRequestPlanningFields }),
+	strictStruct({ ...projectedEventPayloads.request.update.fields, ...eventRequestPlanningFields }),
+	strictStruct({ ...projectedEventPayloads.request.delete.fields, ...eventRequestPlanningFields }),
 ] as const;
 export const AutomationProjectedRequestPayload = Schema.Union([
-	...projectedEntityPayloads.slice(0, 3),
+	...Object.values(projectedEntityPayloads.request),
 	...projectedEventRequests,
-	...projectedRelationshipPayloads.slice(0, 3),
+	...Object.values(projectedRelationshipPayloads.request),
 ]);
 export type AutomationProjectedRequestPayload = typeof AutomationProjectedRequestPayload.Type;
 const projectedEntityChanges = [
-	withPopulation(projectedEntityPayloads[3]),
-	withPopulation(projectedEntityPayloads[4]),
-	withPopulation(projectedEntityPayloads[5]),
+	withPopulation(projectedEntityPayloads.change.create),
+	withPopulation(projectedEntityPayloads.change.update),
+	withPopulation(projectedEntityPayloads.change.delete),
 ] as const;
-const projectedEventChanges = [
-	projectedEventPayloads[3],
-	projectedEventPayloads[4],
-	projectedEventPayloads[5],
-] as const;
+const projectedEventChanges = Object.values(projectedEventPayloads.change);
 const projectedRelationshipChanges = [
-	withPopulation(projectedRelationshipPayloads[3]),
-	withPopulation(projectedRelationshipPayloads[4]),
-	withPopulation(projectedRelationshipPayloads[5]),
+	withPopulation(projectedRelationshipPayloads.change.create),
+	withPopulation(projectedRelationshipPayloads.change.update),
+	withPopulation(projectedRelationshipPayloads.change.delete),
 ] as const;
 const projectedChanges = [
 	...projectedEntityChanges,
@@ -533,7 +512,7 @@ export type AutomationTriggerKind = typeof AutomationTriggerKind.Type;
 export const AutomationBlockedReason = strictStruct({
 	hasRequiredHooks: Schema.Boolean,
 	code: Schema.Literal("automation-limit-reached"),
-	omittedHooks: Schema.Array(AutomationOmittedHook).pipe(Schema.check(Schema.isMaxLength(100))),
+	omittedHooks: Schema.Array(AutomationHookIdentity).pipe(Schema.check(Schema.isMaxLength(100))),
 });
 export type AutomationBlockedReason = typeof AutomationBlockedReason.Type;
 export const AutomationWarning = Schema.Union([

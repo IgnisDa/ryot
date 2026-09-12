@@ -6,6 +6,7 @@ import {
 	entityPopulationExecutionId,
 } from "#modules/entities/population-trigger";
 import { MutationReceipts } from "#modules/mutations/receipts";
+import { dispatchAdmittedWorkflow } from "#modules/mutations/workflow-dispatch";
 import { PluginRuntimeResolver } from "#modules/plugins/runtime-resolver";
 
 import { ProviderEntityPopulationWorkflow } from "./provider-entity-population-workflow";
@@ -30,13 +31,12 @@ export const EntityPopulationTriggerLive = Layer.effect(
 						input.entityId,
 						input.command.accountGeneration,
 					);
-					yield* receipts.registerWorkflow(
+					yield* dispatchAdmittedWorkflow(
+						receipts,
+						engine,
+						ProviderEntityPopulationWorkflow,
 						input.command.accountGeneration,
-						ProviderEntityPopulationWorkflow._tag,
-						executionId,
-					);
-					yield* engine
-						.execute(ProviderEntityPopulationWorkflow, {
+						{
 							executionId,
 							discard: true,
 							payload: {
@@ -51,13 +51,16 @@ export const EntityPopulationTriggerLive = Layer.effect(
 										? { type: "user", userId: input.userId }
 										: { type: "global", userId: input.userId },
 							},
-						})
-						.pipe(
-							Effect.asVoid,
-							Effect.tapCause((cause) =>
-								Effect.logWarning("entity population enqueue failed", cause),
+						},
+						(admission) => admission,
+						(execution) =>
+							execution.pipe(
+								Effect.asVoid,
+								Effect.tapCause((cause) =>
+									Effect.logWarning("entity population enqueue failed", cause),
+								),
 							),
-						);
+					);
 				}).pipe(Effect.orDie),
 		};
 	}),

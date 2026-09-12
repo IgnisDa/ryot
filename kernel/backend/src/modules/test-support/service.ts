@@ -5,14 +5,12 @@ import type {
 	InstallPluginBody,
 	UpdatePrivatePluginBody,
 } from "@ryot-app/contract/modules/plugins/schemas";
-import type {
-	TestSupportInstallSystemPluginBodyBase64,
-	TestSupportEnqueueSandboxBody,
-	TestSupportTriggerPluginCronBody,
-} from "@ryot-app/contract/modules/test-support/schemas";
 import {
 	TestSupportBadRequest,
 	TestSupportOperationFailure,
+	type TestSupportInstallSystemPluginBodyBase64,
+	type TestSupportEnqueueSandboxBody,
+	type TestSupportTriggerPluginCronBody,
 } from "@ryot-app/contract/modules/test-support/schemas";
 import {
 	AutomationExecutionId,
@@ -32,7 +30,7 @@ import { stableStringify } from "@ryot-app/ts-utils/json";
 import { generateId } from "better-auth";
 import { Context, DateTime, Effect, Layer, Schema } from "effect";
 
-import { type LifecycleCommand, rootLifecycleCommand } from "#lib/domain/lifecycle-command";
+import { rootLifecycleCommand, childLifecycleCommand } from "#lib/domain/lifecycle-command";
 import { redisKeys, RedisService } from "#lib/infrastructure/redis";
 import { AuthService } from "#modules/auth/service";
 import { EntitiesService } from "#modules/entities/service";
@@ -68,11 +66,6 @@ const parseDate = (value: string) => {
 				}),
 			);
 };
-
-const childCommand = (command: LifecycleCommand, itemIdentity: string): LifecycleCommand => ({
-	...command,
-	itemIdentity: stableStringify([command.itemIdentity, itemIdentity]),
-});
 
 const systemApiCommand = Effect.fnUntraced(function* (itemIdentity: string) {
 	const executionId = AutomationExecutionId.make(generateId());
@@ -218,7 +211,7 @@ export class TestSupportService extends Context.Service<TestSupportService>()(
 					externalId: input.externalId,
 					providerId: input.providerId,
 					entitySchemaSlug: input.entitySchemaSlug,
-					lifecycle: childCommand(command, "create"),
+					lifecycle: childLifecycleCommand(command, "create"),
 				});
 				if (input.populatedAt === undefined) {
 					yield* reportWarnings("create-global-entity", created.warnings);
@@ -229,7 +222,7 @@ export class TestSupportService extends Context.Service<TestSupportService>()(
 					name: created.entity.name,
 					entityId: created.entity.id,
 					properties: created.entity.properties,
-					lifecycle: childCommand(command, "set-populated-at"),
+					lifecycle: childLifecycleCommand(command, "set-populated-at"),
 					populatedAt: input.populatedAt === null ? null : yield* parseDate(input.populatedAt),
 				});
 				yield* reportWarnings("create-global-entity", [...created.warnings, ...updated.warnings]);

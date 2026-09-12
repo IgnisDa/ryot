@@ -16,8 +16,7 @@ import {
 	workflowReplayJournalEntrySchema,
 	workflowReplayEnvelopeSchema,
 } from "@ryot-app/sandbox-sdk/workflow";
-import type { Exit } from "effect";
-import { Context, Deferred, Effect, Layer, Ref, Schema, Stream } from "effect";
+import { Context, Deferred, Effect, Layer, Ref, Schema, Stream, type Exit } from "effect";
 import { ChildProcess, ChildProcessSpawner } from "effect/unstable/process";
 import { Workflow } from "effect/unstable/workflow";
 import { WorkflowEngine, WorkflowInstance } from "effect/unstable/workflow/WorkflowEngine";
@@ -1330,6 +1329,7 @@ const childWorkflowEngineLayer = recordingLayer(
 layer(
 	Layer.mergeAll(
 		childWorkflowEngineLayer,
+		mutationAdmissionTestLayer,
 		parentInstanceLayer,
 		Layer.mock(SandboxArtifactStore)({ retain: () => Effect.void, release: () => Effect.void }),
 		Layer.succeed(KernelWorkflowReferences, { execute: () => Effect.die("unused") }),
@@ -1443,6 +1443,7 @@ layer(
 				});
 			}),
 		),
+		mutationAdmissionTestLayer,
 	),
 )((test) => {
 	test.effect("dispatches library imports with the parent workflow subject", () =>

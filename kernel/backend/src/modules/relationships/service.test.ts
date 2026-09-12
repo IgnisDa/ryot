@@ -1072,7 +1072,21 @@ describe("Relationships lifecycle owner", () => {
 			"preserves reconciliation counts without retaining no-hook population batches",
 			() =>
 				Effect.gen(function* () {
-					const service = yield* RelationshipsService;
+					const planner = yield* LifecyclePlanner;
+					const planned: Array<Parameters<LifecyclePlanner["Service"]["plan"]>[0]["trigger"]> = [];
+					const service = yield* relationshipsServiceWith({
+						planner: {
+							...planner,
+							plan: (input) =>
+								planner.plan(input).pipe(
+									Effect.tap(() =>
+										Effect.sync(() => {
+											planned.push(input.trigger);
+										}),
+									),
+								),
+						},
+					});
 					const session = yield* DatabaseSession;
 					const population = {
 						rootPreviouslyPopulated: true,
@@ -1106,6 +1120,34 @@ describe("Relationships lifecycle owner", () => {
 						db.select().from(tables.automationTrigger),
 					)).filter(({ category, operation }) => category === "change" && operation !== "batch");
 					expect(changes).toEqual([]);
+					expect(
+						planned.flatMap(({ payload }) =>
+							payload?.category === "change" &&
+							payload.resource === "relationship" &&
+							payload.operation !== "batch"
+								? [payload.population?.batch]
+								: [],
+						),
+					).toEqual([
+						{
+							...population.batch,
+							afterCount: 2,
+							beforeCount: 0,
+							isLeader: true,
+							createdCount: 2,
+							updatedCount: 0,
+							deletedCount: 0,
+						},
+						{
+							...population.batch,
+							afterCount: 2,
+							beforeCount: 0,
+							createdCount: 2,
+							updatedCount: 0,
+							deletedCount: 0,
+							isLeader: false,
+						},
+					]);
 					expect(population.batch.createdCount).toBe(99);
 					expect(
 						yield* service.reconcileGlobal(
@@ -1120,6 +1162,47 @@ describe("Relationships lifecycle owner", () => {
 							command("reconcile"),
 						),
 					).toEqual([{ created: 0, updated: 1, deleted: 1, upserted: 1, warnings: [] }]);
+					planned.length = 0;
+					const activeGroup = {
+						...group,
+						relationships: [
+							{ sourceEntityId, properties: { rank: 3 }, targetEntityId: sourceEntityId },
+							{ targetEntityId, properties: { rank: 4 }, sourceEntityId: targetEntityId },
+						],
+					};
+					const activeCommand = { ...command("active-population"), population };
+					const committed = yield* session.transaction(
+						service.persistPlannedReconciliation([activeGroup], activeCommand, { scope: "global" }),
+					);
+					expect(committed.result).toEqual([{ created: 1, updated: 0, deleted: 0, upserted: 2 }]);
+					expect(
+						planned.flatMap(({ payload }) =>
+							payload?.category === "change" &&
+							payload.resource === "relationship" &&
+							payload.operation !== "batch"
+								? [payload.population?.batch]
+								: [],
+						),
+					).toEqual([
+						{
+							...population.batch,
+							afterCount: 2,
+							beforeCount: 1,
+							isLeader: true,
+							createdCount: 1,
+							updatedCount: 0,
+							deletedCount: 0,
+						},
+					]);
+					planned.length = 0;
+					expect(
+						yield* session.transaction(
+							service.persistPlannedReconciliation([activeGroup], activeCommand, {
+								scope: "global",
+							}),
+						),
+					).toEqual(committed);
+					expect(planned).toEqual([]);
 				}),
 		);
 	});
@@ -1636,6 +1719,62 @@ describe("Relationships lifecycle owner", () => {
 				expect(rejected).toMatchObject({ reason: { code: "policy-rejected" } });
 				expect(yield* repository.findRelationship(rejectedInput)).not.toBeNull();
 			}),
+		);
+	});
+
+	layer(relationshipDatabaseLayer())((test) => {
+		test.effect(
+			"retains prepared updates transformed back to source properties and replays them",
+			() =>
+				Effect.gen(function* () {
+					const session = yield* DatabaseSession;
+					const repository = yield* RelationshipsRepository;
+					const execution = yield* LifecycleExecution;
+					const input = yield* installPolicyFixture();
+					yield* repository.createRelationship(input);
+					let policyCalls = 0;
+					const service = yield* relationshipsServiceWith({
+						execution: withLifecycleDispatch({
+							...execution,
+							executePolicy: () =>
+								Effect.gen(function* () {
+									expect(yield* session.isTransactionActive).toBe(false);
+									policyCalls += 1;
+									return {
+										action: "transform" as const,
+										patch: {
+											resource: "relationship" as const,
+											draft: { properties: { remove: [], set: { rank: 1 } } },
+										},
+									};
+								}),
+						}),
+					});
+					expect(
+						yield* service.prepareUserCreate(input, command("prepared-initial-noop")),
+					).toBeNull();
+					expect(policyCalls).toBe(0);
+					const submitted = { ...input, properties: { rank: 2 } };
+					const lifecycle = command("prepared-policy-noop");
+					const prepared = yield* service.prepareUserCreate(submitted, lifecycle);
+					assert(prepared);
+					expect(policyCalls).toBe(1);
+					const work = yield* session.transaction(service.persistPreparedUserCreate(prepared));
+					expect(work.result.properties).toEqual({ rank: 1 });
+					expect(
+						(yield* session.run((db) => db.select().from(tables.mutationReceipt)))
+							.filter(({ receiptType }) => receiptType === "item")
+							.map(({ result }) => result),
+					).toMatchObject([{ operation: "update", relationship: { properties: { rank: 1 } } }]);
+					yield* repository.deleteRelationship(input);
+					const replayed = yield* service.prepareUserCreate(submitted, lifecycle);
+					assert(replayed);
+					expect(yield* session.transaction(service.persistPreparedUserCreate(replayed))).toEqual(
+						work,
+					);
+					expect(policyCalls).toBe(1);
+					expect(yield* repository.findRelationship(input)).toBeNull();
+				}),
 		);
 	});
 });

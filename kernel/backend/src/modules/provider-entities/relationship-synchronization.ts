@@ -1,7 +1,7 @@
+import type { LifecycleCommand } from "@ryot-app/contract/modules/automations/lifecycle";
 import type { EntityId, RelationshipSchemaSlug, UserId } from "@ryot-app/contract/schema/brands";
 import { Effect } from "effect";
 
-import type { LifecycleCommand } from "#lib/domain/lifecycle-command";
 import { RelationshipsRepository } from "#modules/relationships/repository";
 import { RelationshipsService } from "#modules/relationships/service";
 

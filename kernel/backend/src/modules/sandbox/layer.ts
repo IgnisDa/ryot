@@ -8,6 +8,7 @@ import {
 import { SandboxHostImplementations } from "#lib/infrastructure/sandbox-runtime/host-implementations";
 import { makeRuntimeSandboxApiFunctions } from "#lib/infrastructure/sandbox-runtime/runtime-host-functions";
 import { SandboxService } from "#lib/infrastructure/sandbox-runtime/service";
+import { AuthRepository } from "#modules/auth/repository";
 import { LifecycleServicesLive, SignalEmissionServiceLive } from "#modules/automations/layer";
 import { DefinitionRepository } from "#modules/definition-registry/repository";
 import { EntitiesServiceRuntimeLive } from "#modules/entities/layer";
@@ -70,6 +71,7 @@ export const SandboxHostImplementationsLive = Layer.effect(
 	Layer.provide(PluginRepository.layer),
 	Layer.provide(DefinitionRepository.layer),
 	Layer.provide(IntegrationsRepository.layer),
+	Layer.provide(AuthRepository.layer),
 );
 
 export const RuntimeSandboxServiceLive = SandboxService.layer.pipe(
