@@ -1,7 +1,11 @@
 #!/usr/bin/env bun
 
 import { BunRuntime, BunServices } from "@effect/platform-bun";
-import { buildClientRuntime, compileClientPluginModule } from "@ryot-app/client-plugin-compiler";
+import {
+	buildClientRuntime,
+	clientPluginCompilerPlatformLayer,
+	compileClientPluginModule,
+} from "@ryot-app/client-plugin-compiler";
 import {
 	CLIENT_API_VERSION,
 	clientArtifactMetadata,
@@ -18,7 +22,7 @@ import {
 	kernelResultsTableRenderer,
 } from "@ryot-app/kernel-renderers";
 import { readPluginArchive } from "@ryot-app/plugin-archive";
-import { Effect, FileSystem, Path, Schema } from "effect";
+import { Effect, FileSystem, Layer, Path, Schema } from "effect";
 
 const ShippedPlugins = Schema.fromJsonString(Schema.Array(Schema.String));
 const serverRoot = Bun.fileURLToPath(new URL("..", import.meta.url));
@@ -67,7 +71,7 @@ export const assemble = Effect.gen(function* () {
 		}
 	}
 
-	const clientRuntime = yield* buildClientRuntime();
+	const clientRuntime = yield* buildClientRuntime;
 
 	const kernelRenderers = [
 		kernelEntityBrowserRenderer,
@@ -118,5 +122,9 @@ export const assemble = Effect.gen(function* () {
 });
 
 if (import.meta.main) {
-	BunRuntime.runMain(assemble.pipe(Effect.provide(BunServices.layer)));
+	BunRuntime.runMain(
+		assemble.pipe(
+			Effect.provide(Layer.merge(BunServices.layer, clientPluginCompilerPlatformLayer)),
+		),
+	);
 }

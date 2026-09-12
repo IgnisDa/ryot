@@ -1,8 +1,9 @@
 #!/usr/bin/env bun
 
 import { BunRuntime, BunServices } from "@effect/platform-bun";
+import { clientPluginCompilerPlatformLayer } from "@ryot-app/client-plugin-compiler";
 import dotenv from "dotenv";
-import { Effect, FileSystem, Path, Stream } from "effect";
+import { Effect, FileSystem, Layer, Path, Stream } from "effect";
 import { ChildProcess } from "effect/unstable/process";
 
 import { assemble, readShippedSlugs } from "./assembly/assemble";
@@ -116,4 +117,6 @@ const program = Effect.gen(function* () {
 	yield* failWith(exitCode);
 });
 
-BunRuntime.runMain(program.pipe(Effect.provide(BunServices.layer)));
+BunRuntime.runMain(
+	program.pipe(Effect.provide(Layer.merge(BunServices.layer, clientPluginCompilerPlatformLayer))),
+);
