@@ -34,12 +34,13 @@ rather than exact upstream text.
 ## Harness
 
 `global-setup.ts` builds required artifacts, provisions PostgreSQL, Redis, and object storage, then starts one shared backend serving the SPA and `/api` from one origin. It publishes that backend through `E2E_API_URL`, `E2E_FRONTEND_URL`, and `E2E_ADMIN_ACCESS_TOKEN`, which worker processes inherit.
+Testcontainers' Ryuk reaper removes the containers if the test process exits unexpectedly; normal teardown also stops the backend process.
 
 The PostgreSQL container enables lock-wait and failed-statement logging with PID and transaction ID
 prefixes. Setup prints the retained log path. A deadlock entry contains PostgreSQL's process graph and
 the conflicting statements; inspect that file before the test teardown process exits.
 
-Up to four files share the backend concurrently. Tests and hooks time out after 180 seconds. The hanging-process reporter identifies leaked handles. Each spawned API writes a unique `SERVER_LOG_FILE` under the OS temp directory and prints its path.
+Up to six files share the backend concurrently. Tests and hooks time out after 180 seconds. The hanging-process reporter identifies leaked handles. Each spawned API writes a unique `SERVER_LOG_FILE` under the OS temp directory and prints its path.
 
 Fixtures mirror ownership: generic platform fixtures live under `src/fixtures/kernel`, plugin-owned domain fixtures under `src/fixtures/plugins/<plugin>`, and cross-cutting harness code under `src/support`. There is no aggregate fixture barrel. Kernel suites that need plugin-owned schemas import that plugin fixture explicitly.
 
@@ -55,6 +56,6 @@ Assert the transport tag or category, module-owned kebab-case reason code, and s
 
 ## Capacity
 
-The shared harness uses `maxWorkers=4`, sandbox worker concurrency 5, an API database pool of 100, and PostgreSQL `max_connections=400`. Keep production Effect Cluster expiry behavior so recovery regressions remain visible. Do not raise worker, sandbox, or pool settings without fresh load evidence.
+The shared harness uses `maxWorkers=6`, sandbox worker concurrency 5, an API database pool of 100, and PostgreSQL `max_connections=400`. Keep production Effect Cluster expiry behavior so recovery regressions remain visible. Do not raise worker, sandbox, or pool settings without fresh load evidence.
 
 Watch app-pool waits, random cross-suite timeouts, connection ceilings, lock waits, Redis projection errors, stalled progress, and overlapping sandbox work. Previous full-suite evidence peaked at 120 database connections; the full-size operational gate recorded no app-pool waits.

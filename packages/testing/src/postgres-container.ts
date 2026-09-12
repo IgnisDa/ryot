@@ -17,7 +17,6 @@ export async function startPostgresContainer(input: {
 	label: string;
 	maxConnections?: number;
 }): Promise<StartedPostgresContainer> {
-	process.env["TESTCONTAINERS_RYUK_DISABLED"] = "true";
 	const logPath = join(tmpdir(), `ryot-${input.label}-postgres-${process.pid}.log`);
 	const logStream = createWriteStream(logPath, { flags: "w" });
 	const container = await new PostgreSqlContainer("postgres:18-alpine")
