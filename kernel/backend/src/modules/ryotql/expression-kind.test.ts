@@ -20,6 +20,10 @@ import {
 	floor,
 	integer,
 	isNotNull,
+	jsonArrayCount,
+	jsonArrayExists,
+	jsonArrayFirst,
+	jsonElement,
 	jsonPath,
 	kebabCase,
 	literal,
@@ -104,6 +108,23 @@ it("infers one kind per scalar expression variant", () => {
 		{ kind: "json", expr: firstNested(column(nested, "properties")) },
 		{ kind: "text", expr: firstNested(column(entity, "name")) },
 		{ kind: "number", expr: firstNested(count(nested)) },
+		{ kind: "json", expr: jsonElement() },
+		{ kind: "boolean", expr: jsonArrayExists(jsonPath(column(entity, "properties"), "schedule")) },
+		{ kind: "number", expr: jsonArrayCount(jsonPath(column(entity, "properties"), "schedule")) },
+		{
+			kind: "date",
+			expr: jsonArrayFirst(jsonPath(column(entity, "properties"), "schedule"), {
+				select: castDate(jsonPath(jsonElement(), "airingAt")),
+				orderBy: [ascending(castDate(jsonPath(jsonElement(), "airingAt")))],
+			}),
+		},
+		{
+			kind: "json",
+			expr: jsonArrayFirst(jsonPath(column(entity, "properties"), "schedule"), {
+				select: jsonElement(),
+				orderBy: [ascending(column(entity, "createdAt"))],
+			}),
+		},
 	];
 	for (const { expr, kind } of cases) {
 		expect({ type: expr.type, kind: expressionKind(expr, scope) }).toEqual({
