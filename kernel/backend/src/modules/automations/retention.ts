@@ -3,7 +3,7 @@ import { Context, DateTime, Duration, Effect, Layer } from "effect";
 
 import { AppConfig } from "#lib/infrastructure/config/service";
 import { DatabaseSession } from "#lib/infrastructure/db/session";
-import { ScriptGarbageCollector } from "#modules/plugins/script-garbage-collector";
+import { ScriptGarbageCollector } from "#modules/garbage-collection/scripts";
 
 import { AutomationAttemptRepository } from "./attempt-repository";
 import { AutomationRunRepository } from "./run-repository";
