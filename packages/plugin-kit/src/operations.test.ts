@@ -7,7 +7,7 @@ const recipe = defineOperationRecipe({
 	pluginSlug: "media",
 	operationSlug: "resolve-episodes",
 	input: Schema.Struct({ count: Schema.FiniteFromString }),
-	output: Schema.Struct({ entityId: Schema.String, count: Schema.NumberFromString }),
+	output: Schema.Struct({ entityId: Schema.String, count: Schema.FiniteFromString }),
 });
 
 describe("invokeOperationRecipe", () => {
