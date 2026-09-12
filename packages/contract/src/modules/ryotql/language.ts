@@ -29,7 +29,7 @@ export const LiteralExpression = strictStruct({
 }).annotate({ identifier: "RyotQLLiteralExpression" });
 export type LiteralExpression = typeof LiteralExpression.Type;
 
-const JsonPathSegment = Schema.Union([Schema.String, Schema.Number]);
+const JsonPathSegment = Schema.Union([Schema.String, Schema.Finite]);
 const CastTarget = Schema.Literals(["boolean", "date", "json", "number", "text"]);
 const JsonPath = Schema.NonEmptyArray(JsonPathSegment);
 const TransformName = Schema.Literals(["kebabCase", "titleCase"]);
@@ -491,7 +491,7 @@ export const AggregateResult = strictStruct({
 export type AggregateResult = typeof AggregateResult.Type;
 
 const TimeSeriesBucket = strictStruct({
-	value: Schema.Number,
+	value: Schema.Finite,
 	endAt: Schema.String,
 	startAt: Schema.String,
 }).annotate({ identifier: "RyotQLTimeSeriesBucket" });

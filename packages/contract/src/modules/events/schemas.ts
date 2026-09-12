@@ -65,9 +65,9 @@ export class EventCreateItemError extends Schema.TaggedError<EventCreateItemErro
 ) {}
 
 export const EventCreateItemOutcome = Schema.Union([
-	strictStruct({ eventId: EventId, index: Schema.Number, status: Schema.Literal("written") }),
+	strictStruct({ eventId: EventId, index: Schema.Finite, status: Schema.Literal("written") }),
 	strictStruct({
-		index: Schema.Number,
+		index: Schema.Finite,
 		reason: Schema.String,
 		status: Schema.Literal("skipped_by_policy"),
 	}),
@@ -76,10 +76,10 @@ export const EventCreateItemOutcome = Schema.Union([
 export type EventCreateItemOutcome = typeof EventCreateItemOutcome.Type;
 
 export const CreateEventsResponse = strictStruct({
-	count: Schema.Number,
+	count: Schema.Finite,
 	warnings: Schema.Array(AutomationWarning),
 	outcomes: Schema.Array(EventCreateItemOutcome),
-	failure: Schema.NullOr(strictStruct({ index: Schema.Number, reason: EventCreateFailureReason })),
+	failure: Schema.NullOr(strictStruct({ index: Schema.Finite, reason: EventCreateFailureReason })),
 });
 
 export type CreateEventsResponse = typeof CreateEventsResponse.Type;

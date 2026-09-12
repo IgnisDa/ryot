@@ -17,7 +17,7 @@ export class AuthUnauthorized extends Schema.TaggedError<AuthUnauthorized>()("Au
 
 const AuthRateLimitReason = Schema.Struct({
 	code: Schema.Literal("api-key-rate-limited"),
-	retryAfterMs: Schema.NullOr(Schema.Number.pipe(Schema.check(Schema.isGreaterThanOrEqualTo(0)))),
+	retryAfterMs: Schema.NullOr(Schema.Finite.pipe(Schema.check(Schema.isGreaterThanOrEqualTo(0)))),
 });
 
 export class AuthRateLimited extends Schema.TaggedError<AuthRateLimited>()("AuthRateLimited", {

@@ -138,21 +138,21 @@ export const TestSupportWorkflowLoadGateResult = Schema.Struct({
 });
 
 export const TestSupportOperationalPressure = Schema.Struct({
-	locks: Schema.Struct({ advisoryLocks: Schema.Number, waitingAdvisoryLocks: Schema.Number }),
+	locks: Schema.Struct({ advisoryLocks: Schema.Finite, waitingAdvisoryLocks: Schema.Finite }),
 	redis: Schema.Struct({
-		maxHighWater: Schema.Number,
-		projectionCount: Schema.Number,
-		projectionErrors: Schema.Number,
+		maxHighWater: Schema.Finite,
+		projectionCount: Schema.Finite,
+		projectionErrors: Schema.Finite,
 	}),
 	sandbox: Schema.Struct({
-		totalExecutions: Schema.Number,
-		activeExecutions: Schema.Number,
-		maxActiveExecutions: Schema.Number,
+		totalExecutions: Schema.Finite,
+		activeExecutions: Schema.Finite,
+		maxActiveExecutions: Schema.Finite,
 	}),
 	database: Schema.Struct({
-		deadlocks: Schema.Number,
-		totalConnections: Schema.Number,
-		activeConnections: Schema.Number,
-		lockWaitingConnections: Schema.Number,
+		deadlocks: Schema.Finite,
+		totalConnections: Schema.Finite,
+		activeConnections: Schema.Finite,
+		lockWaitingConnections: Schema.Finite,
 	}),
 });
