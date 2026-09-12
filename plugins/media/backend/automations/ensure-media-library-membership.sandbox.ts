@@ -12,7 +12,6 @@ export const manifest = defineManifest({
 	automationType: "automation",
 	name: "Ensure media library membership",
 	slug: "automation.ensure-media-library-membership",
-	capabilities: ["executeRyotql", "changeUserRelationships"],
 	inputProjection: {
 		providerEntityImport: true,
 		entity: { properties: [], compareProperties: [], parentEntityProperties: [] },

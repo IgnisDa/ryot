@@ -3,7 +3,6 @@ import { Effect, Schema } from "@ryot-app/sandbox-sdk/effect";
 
 export const manifest = defineManifest({
 	kind: "script",
-	capabilities: [],
 	name: "Fixture User Bootstrap",
 	slug: "fixture.user-bootstrap",
 });

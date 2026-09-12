@@ -12,14 +12,6 @@ export const manifest = defineManifest({
 	kind: "script",
 	slug: "import.write-chunks",
 	name: "Write media import chunks",
-	capabilities: [
-		"scratch",
-		"artifact-read",
-		"getPluginConfig",
-		"executeRyotql",
-		"getCurrentIntegration",
-		"log",
-	],
 });
 
 export default defineScript({

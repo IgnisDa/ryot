@@ -15,7 +15,6 @@ import { FitnessApplicationInput, FitnessApplicationOutput } from "../imports/sc
 
 export const manifest = defineManifest({
 	kind: "workflow",
-	capabilities: [],
 	slug: "workflow.import-application",
 	name: "Apply Fitness import captures",
 });

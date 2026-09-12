@@ -13,7 +13,6 @@ export const manifest = defineManifest({
 	kind: "script",
 	name: "Audiobookshelf yank",
 	slug: "integration.audiobookshelf",
-	capabilities: ["httpCall", "getCurrentIntegration", "scratch", "artifact-read"],
 });
 
 const Metadata = Schema.Struct({

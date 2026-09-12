@@ -7,7 +7,6 @@ export const manifest = defineManifest({
 	kind: "script",
 	slug: "import.media_tracker",
 	name: "Collect MediaTracker history",
-	capabilities: ["artifact-read", "scratch", "httpCall"],
 });
 export default defineScript({
 	manifest,

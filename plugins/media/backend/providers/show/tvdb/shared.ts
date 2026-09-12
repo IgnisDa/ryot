@@ -16,12 +16,7 @@ import {
 } from "../../../lib/vendors/tvdb";
 import { getTvdbShowDetails } from "./details";
 
-export const manifest = defineManifest({
-	name: "TVDB",
-	kind: "provider",
-	slug: "show.tvdb",
-	capabilities: ["httpCall", "getCachedValue", "setCachedValue", "getPluginConfig"],
-});
+export const manifest = defineManifest({ name: "TVDB", kind: "provider", slug: "show.tvdb" });
 
 const getTranslationRequest = (input: ProviderTranslateInput, providerLanguage: string) => {
 	if (!/^\d+$/.test(input.externalId)) {

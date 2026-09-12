@@ -7,7 +7,6 @@ import { buildTrackTranslate } from "./shared";
 
 export const manifest = defineManifest({
 	kind: "provider",
-	capabilities: ["httpCall"],
 	name: "YouTube Music translation",
 	slug: "music.youtube-music.translate",
 });

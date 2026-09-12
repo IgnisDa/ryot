@@ -13,7 +13,6 @@ import {
 export const manifest = defineManifest({
 	kind: "provider",
 	name: "MangaUpdates",
-	capabilities: ["httpCall"],
 	slug: "person.manga-updates",
 });
 

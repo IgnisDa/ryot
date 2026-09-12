@@ -221,7 +221,6 @@ describe("auto-complete-episodic-parent sandbox script", () => {
 			automationType: "automation",
 			name: "Auto-Complete Episodic Parent",
 			slug: "automation.media-auto-complete-episodic-parent",
-			capabilities: ["executeRyotql", "createEvents", "claimPersistentValue"],
 			inputProjection: {
 				event: { properties: [], compareProperties: [] },
 				signal: { properties: ["entitySchemaSlug", "oldStatus", "newStatus"] },

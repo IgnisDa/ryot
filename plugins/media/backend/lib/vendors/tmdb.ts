@@ -1,4 +1,4 @@
-import type { SandboxHost } from "@ryot-app/sandbox-sdk/core";
+import type { ScriptHost } from "@ryot-app/sandbox-sdk/core";
 import { Effect } from "@ryot-app/sandbox-sdk/effect";
 import type { ProviderDetailsRelatedEntity } from "@ryot-app/sandbox-sdk/provider";
 
@@ -14,7 +14,7 @@ import {
 } from "../records";
 import type { RoleRelatedEntity } from "../role-accumulator";
 
-export type TmdbHost = SandboxHost<readonly ["httpCall", "getPluginConfig"]>;
+export type TmdbHost = Pick<ScriptHost, "httpCall" | "getPluginConfig">;
 
 type TmdbImagePurpose = "cover" | "backdrop";
 type TmdbRemoteImage = { type: "remote"; url: string; purpose: TmdbImagePurpose };

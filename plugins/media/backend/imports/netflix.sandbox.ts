@@ -18,7 +18,6 @@ export const manifest = defineManifest({
 	kind: "script",
 	slug: "import.netflix",
 	name: "Collect Netflix export",
-	capabilities: ["artifact-read", "scratch"],
 });
 const TitleContext = Schema.Struct({
 	title: Schema.String,
