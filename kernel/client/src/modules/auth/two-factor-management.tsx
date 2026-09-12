@@ -17,24 +17,23 @@ type ManagementView =
 	| { readonly kind: "overview" }
 	| { readonly kind: "turned-off" }
 	| { readonly kind: "enroll"; readonly enrollment: TwoFactorEnrollment }
-	| { readonly kind: "confirm-password"; readonly action: "regenerate" | "disable" }
+	| { readonly kind: "confirm"; readonly action: "regenerate" | "disable" }
 	| { readonly kind: "backup-codes"; readonly message: string; readonly codes: readonly string[] };
 
 const errorVisibility = createErrorVisibility(
 	({ state, fieldState }) => fieldState.meta.isBlurred || state.submissionAttempts > 0,
 );
 
-const passwordActions = {
-	disable: {
-		pending: "Turning off...",
-		submit: "Turn off two-factor authentication",
-		subtitle: "Confirm your password to turn off two-factor authentication.",
-	},
+const confirmActions = {
 	regenerate: {
 		pending: "Generating...",
 		submit: "Generate new codes",
-		subtitle:
-			"Confirm your password to replace your backup codes. Your current codes will stop working.",
+		subtitle: "Replace your backup codes? Your current codes will stop working.",
+	},
+	disable: {
+		pending: "Turning off...",
+		submit: "Turn off two-factor authentication",
+		subtitle: "Turn off two-factor authentication for your account?",
 	},
 } as const;
 
@@ -43,13 +42,15 @@ const BACKUP_CODES_NOTICE =
 
 export function TwoFactorManagement(props: {
 	readonly enabled: boolean;
+	// The password from this page's sign-in, so Better Auth's password checks do not prompt again.
+	readonly password: string;
 	readonly onDone: () => void;
 	readonly actions: TwoFactorActions;
 }) {
 	const [view, setView] = useState<ManagementView>({ kind: "overview" });
 
-	function startEnrollment(password: string) {
-		return props.actions.enableTwoFactor(password).pipe(
+	function startEnrollment() {
+		return props.actions.enableTwoFactor(props.password).pipe(
 			Effect.match({
 				onFailure: (error) => error.message,
 				onSuccess: (enrollment) => {
@@ -76,9 +77,9 @@ export function TwoFactorManagement(props: {
 		);
 	}
 
-	function confirmPassword(action: "regenerate" | "disable", password: string) {
+	function confirmAction(action: "regenerate" | "disable") {
 		if (action === "disable") {
-			return props.actions.disableTwoFactor(password).pipe(
+			return props.actions.disableTwoFactor(props.password).pipe(
 				Effect.match({
 					onFailure: (error) => error.message,
 					onSuccess: () => {
@@ -88,7 +89,7 @@ export function TwoFactorManagement(props: {
 				}),
 			);
 		}
-		return props.actions.regenerateBackupCodes(password).pipe(
+		return props.actions.regenerateBackupCodes(props.password).pipe(
 			Effect.match({
 				onFailure: (error) => error.message,
 				onSuccess: (codes) => {
@@ -113,35 +114,21 @@ export function TwoFactorManagement(props: {
 		return (
 			<ManagementPanel subtitle="Scan this QR code with your authenticator app, then enter the 6-digit code it shows.">
 				<TotpEnrollmentDetails enrollment={view.enrollment} />
-				<SingleFieldForm
-					name="code"
-					inputMode="numeric"
-					pending="Verifying..."
-					label="Authenticator code"
-					autoComplete="one-time-code"
-					submit="Turn on two-factor authentication"
-					required="Enter the code from your authenticator app."
-					onSubmit={(code) => confirmEnrollment(view.enrollment, code)}
-				/>
+				<TotpCodeForm onSubmit={(code) => confirmEnrollment(view.enrollment, code)} />
 				<Button type="button" variant="text" onClick={() => setView({ kind: "overview" })}>
 					Cancel
 				</Button>
 			</ManagementPanel>
 		);
 	}
-	if (view.kind === "confirm-password") {
-		const content = passwordActions[view.action];
+	if (view.kind === "confirm") {
+		const content = confirmActions[view.action];
 		return (
 			<ManagementPanel subtitle={content.subtitle}>
-				<SingleFieldForm
-					type="password"
-					name="password"
-					label="Password"
+				<ActionButton
 					submit={content.submit}
 					pending={content.pending}
-					autoComplete="current-password"
-					required="Enter your password."
-					onSubmit={(password) => confirmPassword(view.action, password)}
+					onSubmit={() => confirmAction(view.action)}
 				/>
 				<Button type="button" variant="text" onClick={() => setView({ kind: "overview" })}>
 					Cancel
@@ -183,14 +170,14 @@ export function TwoFactorManagement(props: {
 				<Button
 					type="button"
 					variant="secondary"
-					onClick={() => setView({ action: "regenerate", kind: "confirm-password" })}
+					onClick={() => setView({ kind: "confirm", action: "regenerate" })}
 				>
 					Regenerate backup codes
 				</Button>
 				<Button
 					type="button"
 					variant="secondary"
-					onClick={() => setView({ action: "disable", kind: "confirm-password" })}
+					onClick={() => setView({ kind: "confirm", action: "disable" })}
 				>
 					Disable two-factor authentication
 				</Button>
@@ -199,15 +186,10 @@ export function TwoFactorManagement(props: {
 		);
 	}
 	return (
-		<ManagementPanel subtitle="Two-factor authentication is off. Confirm your password to set up an authenticator app.">
-			<SingleFieldForm
-				type="password"
-				name="password"
-				label="Password"
+		<ManagementPanel subtitle="Two-factor authentication is off.">
+			<ActionButton
 				onSubmit={startEnrollment}
 				pending="Starting setup..."
-				autoComplete="current-password"
-				required="Enter your password."
 				submit="Set up authenticator app"
 			/>
 			{doneButton}
@@ -254,30 +236,55 @@ function TotpEnrollmentDetails(props: { readonly enrollment: TwoFactorEnrollment
 	);
 }
 
-function SingleFieldForm(props: {
-	readonly name: string;
-	readonly label: string;
+function ActionButton(props: {
 	readonly submit: string;
 	readonly pending: string;
-	readonly required: string;
-	readonly autoComplete: string;
-	readonly type?: "password";
-	readonly inputMode?: "numeric";
-	readonly onSubmit: (value: string) => Effect.Effect<string | undefined>;
+	readonly onSubmit: () => Effect.Effect<string | undefined>;
+}) {
+	const [pending, setPending] = useState(false);
+	const [serverError, setServerError] = useState<string>();
+	const controller = useRef(new AbortController());
+	useEffect(() => () => controller.current.abort(), []);
+
+	function run() {
+		setPending(true);
+		setServerError(undefined);
+		void Effect.runPromiseExit(
+			props.onSubmit().pipe(
+				Effect.map((error) => setServerError(error)),
+				Effect.ensuring(Effect.sync(() => setPending(false))),
+			),
+			{ signal: controller.current.signal },
+		);
+	}
+
+	return (
+		<div className="ui-stack">
+			{serverError && (
+				<p role="alert" className="ui-field-error">
+					{serverError}
+				</p>
+			)}
+			<Button type="button" onClick={run} variant="primary" className="w-full" disabled={pending}>
+				{pending ? props.pending : props.submit}
+			</Button>
+		</div>
+	);
+}
+
+function TotpCodeForm(props: {
+	readonly onSubmit: (code: string) => Effect.Effect<string | undefined>;
 }) {
 	const [serverError, setServerError] = useState<string>();
 	const controller = useRef(new AbortController());
 	useEffect(() => () => controller.current.abort(), []);
-	const errorId = `${props.name}-error`;
 	const form = useForm({
 		errorVisibility,
 		defaultValues: { value: "" },
 		onSubmit: ({ value }) => {
 			setServerError(undefined);
 			return Effect.runPromiseExit(
-				props
-					.onSubmit(props.type === "password" ? value.value : value.value.trim())
-					.pipe(Effect.map((error) => setServerError(error))),
+				props.onSubmit(value.value.trim()).pipe(Effect.map((error) => setServerError(error))),
 				{ signal: controller.current.signal },
 			);
 		},
@@ -298,32 +305,32 @@ function SingleFieldForm(props: {
 					{
 						runOnMount: true,
 						triggers: ["change", "blur"],
-						run: ({ value }) => (value.trim() === "" ? props.required : undefined),
+						run: ({ value }) =>
+							value.trim() === "" ? "Enter the code from your authenticator app." : undefined,
 					},
 				]}
 			>
 				{(field) => (
 					<label className="ui-field-label">
-						<span>{props.label}</span>
+						<span>Authenticator code</span>
 						<input
 							autoFocus
-							name={props.name}
-							type={props.type}
+							name="code"
 							value={field.value}
+							inputMode="numeric"
 							autoCapitalize="none"
 							onBlur={field.handleBlur}
 							className="ui-field-input"
-							inputMode={props.inputMode}
-							autoComplete={props.autoComplete}
+							autoComplete="one-time-code"
 							aria-invalid={field.errors.length > 0}
-							aria-describedby={field.errors.length > 0 ? errorId : undefined}
+							aria-describedby={field.errors.length > 0 ? "code-error" : undefined}
 							onChange={(event) => {
 								field.handleChange(event.currentTarget.value);
 								setServerError(undefined);
 							}}
 						/>
 						{field.errors[0] && (
-							<small role="alert" id={errorId} className="ui-field-error">
+							<small role="alert" id="code-error" className="ui-field-error">
 								{field.errors[0].message}
 							</small>
 						)}
@@ -338,7 +345,7 @@ function SingleFieldForm(props: {
 			<form.Subscribe selector={(state) => [state.canSubmit, state.isSubmitting] as const}>
 				{([canSubmit, isSubmitting]) => (
 					<Button type="submit" variant="primary" className="w-full" disabled={!canSubmit}>
-						{isSubmitting ? props.pending : props.submit}
+						{isSubmitting ? "Verifying..." : "Turn on two-factor authentication"}
 					</Button>
 				)}
 			</form.Subscribe>

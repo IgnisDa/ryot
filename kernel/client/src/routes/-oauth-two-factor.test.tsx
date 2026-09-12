@@ -136,18 +136,33 @@ describe("Hosted two-factor management", () => {
 		}),
 	);
 
-	it.live("requires a fresh sign-in without offering signup before managing", () =>
+	it.live("requires a fresh sign-in and reuses its password for setup", () =>
 		Effect.gen(function* () {
-			const { user, calls } = mountTwoFactor("/oauth/two-factor");
+			const enabled: string[] = [];
+			const { user, calls } = mountTwoFactor("/oauth/two-factor", {
+				enableTwoFactor: (password) =>
+					Effect.sync(() => {
+						enabled.push(password);
+						return {
+							backupCodes: [],
+							secret: "JBSWY3DPEHPK3PXP",
+							totpURI: "otpauth://totp/Ryot?secret=JBSWY3DPEHPK3PXP",
+						};
+					}),
+			});
 
 			yield* Effect.promise(() => screen.findByRole("heading", { name: "Welcome back" }));
 			expect(screen.queryByRole("group", { name: "Authentication mode" })).toBeNull();
 			yield* signIn(user);
 
-			yield* Effect.promise(() =>
+			const setup = yield* Effect.promise(() =>
 				screen.findByRole("button", { name: "Set up authenticator app" }),
 			);
 			expect(calls).toEqual(["sign-in:login:user@ryot.example", "session"]);
+			expect(screen.queryByLabelText("Password")).toBeNull();
+			yield* Effect.promise(() => user.click(setup));
+			yield* Effect.promise(() => screen.findByLabelText("Authenticator code"));
+			expect(enabled).toEqual(["Sup3rSecret"]);
 		}),
 	);
 
