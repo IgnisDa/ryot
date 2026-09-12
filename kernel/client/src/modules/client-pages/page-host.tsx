@@ -40,6 +40,7 @@ import { PluginOperationsService } from "#/modules/plugins/operations";
 import { PluginFrame } from "#/modules/plugins/plugin-host";
 import { toPluginLocation } from "#/modules/plugins/plugin-location";
 import { PluginQueriesService } from "#/modules/plugins/queries";
+import { pluginStorageOutcome } from "#/modules/plugins/storage";
 import type { ThemeStore } from "#/modules/theme/store";
 import type { ClientRuntime } from "#/runtime";
 
@@ -481,6 +482,12 @@ function ClientPageFrame(props: {
 				props.runtime.runPromise(resolveManagedAssetOutcome(props.scope, request.assets), {
 					signal,
 				})
+			}
+			onStorage={(request, signal) =>
+				props.runtime.runPromise(
+					pluginStorageOutcome(props.scope, identity.contributors, request),
+					{ signal },
+				)
 			}
 			documentGrant={{
 				...props.document.prepared.composition.documentGrant,

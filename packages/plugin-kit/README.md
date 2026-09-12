@@ -25,6 +25,8 @@ entity pages, saved-view renderers, and workspace homes. Public cross-plugin imp
 Client code may read `usePageContext().target.kind`, but must derive target paths, route parameters,
 entity IDs, and entity schema slugs from the live routing APIs. The kernel retains and reuses a client
 realm across locations, so the initial page context is not a navigation state source.
+Client code runs in an opaque-origin iframe without `localStorage`; keep per-device preferences with
+the client SDK's `usePluginStorage`.
 
 Backend areas group entrypoints under `automations/`, `bootstrap/`, `imports/`, `integrations/`,
 `operations/`, `workflows/`, and `providers/`; cross-area code belongs in `backend/lib/`.

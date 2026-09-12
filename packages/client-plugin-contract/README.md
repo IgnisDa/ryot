@@ -33,7 +33,15 @@ declaration schema is uncapped; runtimes own aggregation and bounded selection.
 
 The complete public `RyotClientErrorReason` set is `disposed`, `protocol`, `transport`,
 `asset-failed`, `collection-failed`, `query-failed`, `invalid-input`, `operation-failed`,
-`malformed-result`, and `unsupported-capability`.
+`malformed-result`, `unsupported-capability`, `invalid-request`, and `quota`.
+
+Plugin storage is a per-device key/value capability for the opaque-origin iframe, which has no
+`localStorage` of its own. A `storage-request` names a plugin slug, a key of 1 to
+`PLUGIN_STORAGE_KEY_MAX_LENGTH` (128) characters, and a `get`, `set`, or `remove` action; only `set`
+carries a JSON `value`. The `storage-result` succeeds with the stored value or `null` (always `null`
+for `set` and `remove`) or fails with `invalid-request`, `quota`, or `transport`. The serialized value
+limit, `PLUGIN_STORAGE_VALUE_MAX_BYTES` (8192 UTF-8 bytes), is host policy and yields
+`invalid-request`.
 
 Reserved kernel shortcuts are semantic bridge messages, not public `RyotClient` capabilities. Raw
 keyboard events never cross the boundary. Page shortcuts are declarative and two-way: a document

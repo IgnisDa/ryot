@@ -23,6 +23,8 @@ import {
 	type PluginOperationRequest,
 	type PluginRyotQLOutcome,
 	type PluginRyotQLRequest,
+	type PluginStorageOutcome,
+	type PluginStorageRequest,
 	type PluginUploadRequest,
 } from "@ryot-app/client-plugin-contract";
 import { createRyotClient } from "@ryot-app/client-sdk";
@@ -127,6 +129,10 @@ const connect = (
 			request: PluginRyotQLRequest,
 			signal: AbortSignal,
 		) => Promise<PluginRyotQLOutcome>;
+		readonly onStorage?: (
+			request: PluginStorageRequest,
+			signal: AbortSignal,
+		) => Promise<PluginStorageOutcome>;
 	} = {},
 ) => {
 	const backs: null[] = [];
@@ -172,6 +178,7 @@ const connect = (
 		onAssets: options.onAssets ?? (() => new Promise(() => {})),
 		onRyotQL: options.onRyotQL ?? (() => new Promise(() => {})),
 		onUpload: options.onUpload ?? (() => new Promise(() => {})),
+		onStorage: options.onStorage ?? (() => new Promise(() => {})),
 		onProviderSearch: (request) => providerSearches.push(request),
 		onPageShortcuts: (registered) => pageShortcuts.push(registered),
 		onCollection: options.onCollection ?? (() => new Promise(() => {})),
@@ -578,6 +585,7 @@ describe("plugin bridge", () => {
 			onAssets: () => new Promise(() => {}),
 			onRyotQL: () => new Promise(() => {}),
 			onUpload: () => new Promise(() => {}),
+			onStorage: () => new Promise(() => {}),
 			onOperation: () => new Promise(() => {}),
 			onCollection: () => new Promise(() => {}),
 			viewport: { safeAreaTop: 0, safeAreaBottom: 0 },
@@ -1101,6 +1109,61 @@ describe("plugin bridge", () => {
 			requestId: "collection-2",
 			type: "collection-result",
 		});
+		expect(failures).toEqual([]);
+	});
+
+	it("round-trips storage requests and sanitizes invalid outcomes", async () => {
+		const calls: PluginStorageRequest[] = [];
+		const outcomes: PluginStorageOutcome[] = [
+			{ outcome: "success", value: { order: "aired" } },
+			{ reason: "quota", outcome: "failure" },
+			// oxlint-disable-next-line typescript/no-unsafe-type-assertion -- verifies runtime detail redaction
+			{ reason: "private", outcome: "failure" } as unknown as PluginStorageOutcome,
+		];
+		const { init, received, failures, pluginPort } = connect({
+			onStorage: (request) => {
+				calls.push(request);
+				const outcome = outcomes.shift();
+				return outcome === undefined
+					? Promise.reject(new Error("unexpected"))
+					: Promise.resolve(outcome);
+			},
+		});
+		pluginPort.postMessage(readyFor(init));
+		await waitFor(() => expect(received).toHaveLength(1));
+
+		const request = { key: "order", pluginSlug: "media", type: "storage-request" as const };
+		pluginPort.postMessage({ ...request, action: "get", requestId: "storage-1" });
+		await waitFor(() => expect(received).toHaveLength(2));
+		expect(received[1]).toEqual({
+			outcome: "success",
+			requestId: "storage-1",
+			type: "storage-result",
+			value: { order: "aired" },
+		});
+
+		pluginPort.postMessage({ ...request, value: 1, action: "set", requestId: "storage-2" });
+		await waitFor(() => expect(received).toHaveLength(3));
+		expect(received[2]).toEqual({
+			reason: "quota",
+			outcome: "failure",
+			requestId: "storage-2",
+			type: "storage-result",
+		});
+
+		pluginPort.postMessage({ ...request, action: "remove", requestId: "storage-3" });
+		await waitFor(() => expect(received).toHaveLength(4));
+		expect(received[3]).toEqual({
+			outcome: "failure",
+			reason: "transport",
+			requestId: "storage-3",
+			type: "storage-result",
+		});
+		expect(calls).toEqual([
+			{ key: "order", action: "get", pluginSlug: "media" },
+			{ value: 1, key: "order", action: "set", pluginSlug: "media" },
+			{ key: "order", action: "remove", pluginSlug: "media" },
+		]);
 		expect(failures).toEqual([]);
 	});
 

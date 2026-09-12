@@ -95,6 +95,7 @@ function mount(
 		onQuery: () => Promise.resolve({ outcome: "failure" as const, reason: "transport" as const }),
 		onAssets: () => Promise.resolve({ outcome: "failure" as const, reason: "transport" as const }),
 		onUpload: () => Promise.resolve({ outcome: "failure" as const, reason: "transport" as const }),
+		onStorage: () => Promise.resolve({ outcome: "failure" as const, reason: "transport" as const }),
 		onCollection: () =>
 			Promise.resolve({ outcome: "failure" as const, reason: "transport" as const }),
 		navigation: {

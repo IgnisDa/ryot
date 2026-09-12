@@ -8,9 +8,11 @@ import {
 import { OverlayBackProvider } from "@ryot-app/client-ui-sdk";
 import { SETTLE_RING_DURATION_MS } from "@ryot-app/client-ui-sdk/sync";
 import { MANAGED_ASSET_RESOLUTION_MAX_ASSETS } from "@ryot-app/contract/modules/uploads/schemas";
+import type { JsonValue } from "@ryot-app/contract/schema/json";
 import * as Cause from "effect/Cause";
 import * as Effect from "effect/Effect";
 import * as Option from "effect/Option";
+import * as Schema from "effect/Schema";
 import * as AsyncResult from "effect/unstable/reactivity/AsyncResult";
 import * as Atom from "effect/unstable/reactivity/Atom";
 import * as AtomRegistry from "effect/unstable/reactivity/AtomRegistry";
@@ -443,6 +445,59 @@ export const usePluginNavigation = (): PluginRouterNavigation => {
 export const useRyotTheme = () => {
 	const { theme } = useRyot();
 	return useSyncExternalStore(theme.subscribe, theme.getSnapshot, theme.getSnapshot);
+};
+
+export type PluginStorageState<A> =
+	| { readonly status: "loading" }
+	| {
+			readonly value: A | null;
+			readonly status: "ready";
+			readonly remove: () => Promise<void>;
+			readonly set: (value: A) => Promise<void>;
+	  };
+
+export const usePluginStorage = <A,>(options: {
+	readonly key: string;
+	readonly pluginSlug: string;
+	readonly schema: Schema.Codec<A, JsonValue>;
+}): PluginStorageState<A> => {
+	const client = useRyot();
+	const { key, schema, pluginSlug } = options;
+	const identity = JSON.stringify([pluginSlug, key]);
+	const [stored, setStored] = useState<{ readonly identity: string; readonly value: A | null }>();
+	const decode = useEffectEvent((value: JsonValue | null) =>
+		value === null ? null : Option.getOrNull(Schema.decodeUnknownOption(schema)(value)),
+	);
+	useEffect(() => {
+		let active = true;
+		void client.storage
+			.get(pluginSlug, key)
+			.then(decode, () => null)
+			.then((value) => {
+				if (active) {
+					setStored((current) => (current?.identity === identity ? current : { value, identity }));
+				}
+				return undefined;
+			});
+		return () => {
+			active = false;
+		};
+	}, [client, identity, key, pluginSlug]);
+	const set = useCallback(
+		async (value: A) => {
+			const encoded = Schema.encodeSync(schema)(value);
+			setStored({ value, identity });
+			await client.storage.set(pluginSlug, key, encoded);
+		},
+		[client, identity, key, pluginSlug, schema],
+	);
+	const remove = useCallback(async () => {
+		setStored({ identity, value: null });
+		await client.storage.remove(pluginSlug, key);
+	}, [client, identity, key, pluginSlug]);
+	return stored?.identity === identity
+		? { set, remove, status: "ready", value: stored.value }
+		: { status: "loading" };
 };
 
 const interestedQueries = new WeakMap<
