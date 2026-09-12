@@ -165,11 +165,11 @@ if (check === "restart-submit") {
 		(values) => values.filter((status) => status === "running").length === 2,
 		"two admitted imports",
 	);
-	const queued = jobs[current.indexOf("queued")];
-	const running = jobs[current.indexOf("running")];
-	if (!queued || !running) {
+	if (!current.includes("queued")) {
 		fatal(`expected one queued and two running, got ${current.join(",")}`);
 	}
+	const queued = jobs[current.indexOf("queued")];
+	const running = jobs[current.indexOf("running")];
 	await cancel(bulk, queued.jobId);
 	const queuedAfter = await statusOf(bulk, queued.jobId);
 	await cancel(bulk, running.jobId);
