@@ -1,8 +1,8 @@
-import { cn } from "@ryot-app/ts-utils/cn";
 import type { LucideIcon } from "lucide-react";
 import type { ReactNode } from "react";
 
 import { Badge } from "~/lib/components/ui/badge";
+import { cn } from "~/lib/utils";
 
 type SectionHeaderProps = {
 	as?: "h1" | "h2";

@@ -1,11 +1,10 @@
-import { cn } from "@ryot-app/ts-utils/cn";
-import { changeCase } from "@ryot-app/ts-utils/string";
 import { CheckCircle, Cloud, Crown, PlayIcon, Server, Sparkles } from "lucide-react";
 import { useState } from "react";
 import { Link } from "react-router";
 import { $path } from "safe-routes";
 
 import type { TPlanTypes, TProductTypes } from "~/drizzle/schema.server";
+import { changeCase, cn } from "~/lib/utils";
 
 import type { TPrices } from "../config.server";
 import { getIcon, getIconBg, isPopular } from "./pricing-utils";

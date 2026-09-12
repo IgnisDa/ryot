@@ -1,4 +1,3 @@
-import { cn } from "@ryot-app/ts-utils/cn";
 import Autoplay from "embla-carousel-autoplay";
 import {
 	AreaChart,
@@ -38,6 +37,7 @@ import {
 	SECTION_Y_PADDING,
 	SECTION_Y_PADDING_LARGE,
 } from "~/lib/styles";
+import { cn } from "~/lib/utils";
 
 export const meta = () => {
 	return [{ title: "Features | Ryot" }];

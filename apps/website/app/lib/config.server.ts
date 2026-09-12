@@ -1,7 +1,6 @@
 import { Polar } from "@polar-sh/sdk";
 import { sha256Hex } from "@ryot-app/ts-utils/crypto";
 import { memoize } from "@ryot-app/ts-utils/lodash";
-import { zodBoolAsString } from "@ryot-app/ts-utils/zod";
 import { Unkey } from "@unkey/api";
 import { drizzle } from "drizzle-orm/postgres-js";
 import { createCookie } from "react-router";
@@ -15,6 +14,11 @@ import { getActivePaymentCatalog, getPaymentEnvironment } from "./payment-catalo
 export const GRACE_PERIOD = 7;
 export const IS_DEVELOPMENT_ENV = process.env.NODE_ENV === "development";
 export const TEMP_DIRECTORY = IS_DEVELOPMENT_ENV ? "/tmp" : "tmp";
+
+const zodBoolAsString = z
+	.string()
+	.regex(/^(true|false)$/, 'Must be a boolean string ("true" or "false")')
+	.transform((value) => value === "true");
 
 const serverVariablesSchema = z.object({
 	FRONTEND_URL: z.string(),

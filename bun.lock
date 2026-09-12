@@ -611,14 +611,9 @@
     "packages/ts-utils": {
       "name": "@ryot-app/ts-utils",
       "dependencies": {
-        "@conform-to/zod": "1.19.0",
-        "clsx": "2.1.1",
         "dayjs": "1.11.21",
         "lodash": "4.18.1",
         "slugify": "1.6.9",
-        "tailwind-merge": "3.5.0",
-        "tiny-invariant": "1.3.3",
-        "zod": "4.4.3",
       },
       "devDependencies": {
         "@types/lodash": "4.17.24",
@@ -949,9 +944,9 @@
 
     "@capacitor/share": ["@capacitor/share@8.0.1", "", { "peerDependencies": { "@capacitor/core": ">=8.0.0" } }, "sha512-3cSBKBCJVon54rKDROP2rqGyeGks4pBh9TbaEk9S375Kbek/ZHe72N50zIa0Vn9Eac/SuhwgehO/mmA4CsUOiw=="],
 
-    "@conform-to/dom": ["@conform-to/dom@1.19.0", "", {}, "sha512-2qegTdMy3ZT+SzzD8YyUWupAEhLl3X248bhrbhXdRsWjFdGSnTz12YB9j/f1MZ27A1LnmijKYiz2mgMdlblPAA=="],
+    "@conform-to/dom": ["@conform-to/dom@1.19.3", "", {}, "sha512-ugNx4nMiSSEkIepo5rKxUW1I1Iab3ZFuRjNYw2b2zb7BSQJfDq4DwbywaAd55qS/8PVGp1n5G2O6orDHWPWWqA=="],
 
-    "@conform-to/zod": ["@conform-to/zod@1.19.0", "", { "dependencies": { "@conform-to/dom": "1.19.0" }, "peerDependencies": { "zod": "^3.21.0 || ^4.0.0" } }, "sha512-kqwuubmJPcyDlf3gXLWjKsWhTiox4ICL/eXLFZONjnEAOHGP1sUvfhvuYwJpH0PJu82kgz9JZG5iuVOcZGsygw=="],
+    "@conform-to/zod": ["@conform-to/zod@1.19.3", "", { "dependencies": { "@conform-to/dom": "1.19.3" }, "peerDependencies": { "zod": "^3.21.0 || ^4.0.0" } }, "sha512-tlHywfz6W6bYnhmi8ajM1+ZLYjywLJVXteU4wvjc6QM0JT1g61cf4BaQqdDhKaAKl7DzqbZxi/riyMtz9HxyCQ=="],
 
     "@csstools/color-helpers": ["@csstools/color-helpers@6.1.1", "", {}, "sha512-gLNsunvwf3mCi5u5o46/Z/JcJMnhbHSaZ69rkgPzNM3J4s8hWwpPUQB6/tt0EDFyCiWzxANlx+2LJwpYj4zS1w=="],
 
@@ -3599,7 +3594,7 @@
 
     "tagged-tag": ["tagged-tag@1.0.0", "", {}, "sha512-yEFYrVhod+hdNyx7g5Bnkkb0G6si8HJurOoOEgC8B/O0uXLHlaey/65KRv6cuWBNhBgHKAROVpc7QyYqE5gFng=="],
 
-    "tailwind-merge": ["tailwind-merge@3.5.0", "", {}, "sha512-I8K9wewnVDkL1NTGoqWmVEIlUcB9gFriAEkXkfCjX5ib8ezGxtR3xD7iZIxrfArjEsH7F1CHD4RFUtxefdqV/A=="],
+    "tailwind-merge": ["tailwind-merge@3.6.0", "", {}, "sha512-uxL7qAVQriqRQPAyK3pj66VqskWqoZ37PW94jwOTwNfq/z9oyu1V+eqrZqtR2+fCiXdYOZe/Modt8GtvqNzu+w=="],
 
     "tailwindcss": ["tailwindcss@4.1.18", "", {}, "sha512-4+Z+0yiYyEtUVCScyfHCxOYP06L5Ne+JiHhY2IjR2KWMIWhJOYZKLSGZaP5HkZ8+bY0cxfzwDE5uOmzFXyIwxw=="],
 
@@ -4041,8 +4036,6 @@
 
     "@ryot-app/media-plugin/react-dom": ["react-dom@19.2.6", "", { "dependencies": { "scheduler": "^0.27.0" }, "peerDependencies": { "react": "^19.2.6" } }, "sha512-0prMI+hvBbPjsWnxDLxlCGyM8PN6UuWjEUCYmZhO67xIV9Xasa/r/vDnq+Xyq4Lo27g8QSbO5YzARu0D1Sps3g=="],
 
-    "@ryot-app/website/@conform-to/zod": ["@conform-to/zod@1.19.3", "", { "dependencies": { "@conform-to/dom": "1.19.3" }, "peerDependencies": { "zod": "^3.21.0 || ^4.0.0" } }, "sha512-tlHywfz6W6bYnhmi8ajM1+ZLYjywLJVXteU4wvjc6QM0JT1g61cf4BaQqdDhKaAKl7DzqbZxi/riyMtz9HxyCQ=="],
-
     "@ryot-app/website/@react-email/components": ["@react-email/components@1.0.12", "", { "dependencies": { "@react-email/body": "0.3.0", "@react-email/button": "0.2.1", "@react-email/code-block": "0.2.1", "@react-email/code-inline": "0.0.6", "@react-email/column": "0.0.14", "@react-email/container": "0.0.16", "@react-email/font": "0.0.10", "@react-email/head": "0.0.13", "@react-email/heading": "0.0.16", "@react-email/hr": "0.0.12", "@react-email/html": "0.0.12", "@react-email/img": "0.0.12", "@react-email/link": "0.0.13", "@react-email/markdown": "0.0.18", "@react-email/preview": "0.0.14", "@react-email/render": "2.0.6", "@react-email/row": "0.0.13", "@react-email/section": "0.0.17", "@react-email/tailwind": "2.0.7", "@react-email/text": "0.1.6" }, "peerDependencies": { "react": "^18.0 || ^19.0 || ^19.0.0-rc" } }, "sha512-tH18JhPDWgE+3jnYkzyB6ZrZdfNnEsFe4PwmuXmlOw4NGIysP8wPY5aXZg++pTG9qUabXg1nzX/FGHGkObH8xQ=="],
 
     "@ryot-app/website/@tailwindcss/vite": ["@tailwindcss/vite@4.3.0", "", { "dependencies": { "@tailwindcss/node": "4.3.0", "@tailwindcss/oxide": "4.3.0", "tailwindcss": "4.3.0" }, "peerDependencies": { "vite": "^5.2.0 || ^6 || ^7 || ^8" } }, "sha512-t6J3OrB5Fc0ExuhohouH0fWUGMYL6PTLhW+E7zIk/pdbnJARZDCwjBznFnkh5ynRnIRSI4YjtTH0t6USjJISrw=="],
@@ -4058,8 +4051,6 @@
     "@ryot-app/website/react": ["react@19.2.6", "", {}, "sha512-sfWGGfavi0xr8Pg0sVsyHMAOziVYKgPLNrS7ig+ivMNb3wbCBw3KxtflsGBAwD3gYQlE/AEZsTLgToRrSCjb0Q=="],
 
     "@ryot-app/website/react-dom": ["react-dom@19.2.6", "", { "dependencies": { "scheduler": "^0.27.0" }, "peerDependencies": { "react": "^19.2.6" } }, "sha512-0prMI+hvBbPjsWnxDLxlCGyM8PN6UuWjEUCYmZhO67xIV9Xasa/r/vDnq+Xyq4Lo27g8QSbO5YzARu0D1Sps3g=="],
-
-    "@ryot-app/website/tailwind-merge": ["tailwind-merge@3.6.0", "", {}, "sha512-uxL7qAVQriqRQPAyK3pj66VqskWqoZ37PW94jwOTwNfq/z9oyu1V+eqrZqtR2+fCiXdYOZe/Modt8GtvqNzu+w=="],
 
     "@ryot-app/website/tailwindcss": ["tailwindcss@4.3.0", "", {}, "sha512-y6nxMGB1nMW9R6k96e5gdIFzcfL/gTJRNaqGes1YvkLnPVXzWgbqFF2yLC0T8G774n24cx3Pe8XrKoniCOAH+Q=="],
 
@@ -4618,8 +4609,6 @@
     "@ryot-app/kernel-client/@tailwindcss/vite/@tailwindcss/node": ["@tailwindcss/node@4.3.0", "", { "dependencies": { "@jridgewell/remapping": "^2.3.5", "enhanced-resolve": "^5.21.0", "jiti": "^2.6.1", "lightningcss": "1.32.0", "magic-string": "^0.30.21", "source-map-js": "^1.2.1", "tailwindcss": "4.3.0" } }, "sha512-aFb4gUhFOgdh9AXo4IzBEOzBkkAxm9VigwDJnMIYv3lcfXCJVesNfbEaBl4BNgVRyid92AmdviqwBUBRKSeY3g=="],
 
     "@ryot-app/kernel-client/@tailwindcss/vite/@tailwindcss/oxide": ["@tailwindcss/oxide@4.3.0", "", { "optionalDependencies": { "@tailwindcss/oxide-android-arm64": "4.3.0", "@tailwindcss/oxide-darwin-arm64": "4.3.0", "@tailwindcss/oxide-darwin-x64": "4.3.0", "@tailwindcss/oxide-freebsd-x64": "4.3.0", "@tailwindcss/oxide-linux-arm-gnueabihf": "4.3.0", "@tailwindcss/oxide-linux-arm64-gnu": "4.3.0", "@tailwindcss/oxide-linux-arm64-musl": "4.3.0", "@tailwindcss/oxide-linux-x64-gnu": "4.3.0", "@tailwindcss/oxide-linux-x64-musl": "4.3.0", "@tailwindcss/oxide-wasm32-wasi": "4.3.0", "@tailwindcss/oxide-win32-arm64-msvc": "4.3.0", "@tailwindcss/oxide-win32-x64-msvc": "4.3.0" } }, "sha512-F7HZGBeN9I0/AuuJS5PwcD8xayx5ri5GhjYUDBEVYUkexyA/giwbDNjRVrxSezE3T250OU2K/wp/ltWx3UOefg=="],
-
-    "@ryot-app/website/@conform-to/zod/@conform-to/dom": ["@conform-to/dom@1.19.3", "", {}, "sha512-ugNx4nMiSSEkIepo5rKxUW1I1Iab3ZFuRjNYw2b2zb7BSQJfDq4DwbywaAd55qS/8PVGp1n5G2O6orDHWPWWqA=="],
 
     "@ryot-app/website/@react-email/components/@react-email/body": ["@react-email/body@0.3.0", "", { "peerDependencies": { "react": "^18.0 || ^19.0 || ^19.0.0-rc" } }, "sha512-uGo0BOOzjbMUo3lu+BIDWayvn5o6Xyfmnlla5VGf05n8gHMvO1ll7U4FtzWe3hxMLwt53pmc4iE0M+B5slG+Ug=="],
 

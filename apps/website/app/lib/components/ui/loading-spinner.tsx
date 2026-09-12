@@ -1,4 +1,4 @@
-import { cn } from "@ryot-app/ts-utils/cn";
+import { cn } from "~/lib/utils";
 
 type LoadingSpinnerProps = { size?: "sm" | "md" | "lg"; message?: string };
 

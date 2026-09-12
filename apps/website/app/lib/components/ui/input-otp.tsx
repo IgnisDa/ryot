@@ -1,7 +1,8 @@
-import { cn } from "@ryot-app/ts-utils/cn";
 import { OTPInput, OTPInputContext } from "input-otp";
 import { Dot } from "lucide-react";
 import { type ComponentPropsWithoutRef, type ComponentRef, forwardRef, useContext } from "react";
+
+import { cn } from "~/lib/utils";
 
 const InputOTP = forwardRef<
 	ComponentRef<typeof OTPInput>,
