@@ -31,9 +31,9 @@ const Episode = Schema.Struct({
 type Episode = typeof Episode.Type;
 const Progress = Schema.optional(
 	Schema.Struct({
-		progress: Schema.optional(Schema.Number),
+		progress: Schema.optional(Schema.Finite),
 		isFinished: Schema.optional(Schema.Boolean),
-		ebookProgress: Schema.optional(Schema.Number),
+		ebookProgress: Schema.optional(Schema.Finite),
 	}),
 );
 const Item = Schema.Struct({

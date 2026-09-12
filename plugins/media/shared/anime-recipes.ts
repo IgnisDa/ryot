@@ -13,7 +13,7 @@ export const animeRecipes = mediaFlatRecipes({
 	activityEventFields: (event) => ({
 		animeEpisode: selectedField(
 			propertyNumber(event, "animeEpisode"),
-			Schema.NullOr(Schema.Number),
+			Schema.NullOr(Schema.Finite),
 		),
 	}),
 	summaryFields: (entity) => ({

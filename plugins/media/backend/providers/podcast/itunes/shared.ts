@@ -215,13 +215,11 @@ export const details = defineProvider({
 				Effect.gen(function* () {
 					const podcast = asRecord(resultsArray(detailsPayload)[0]);
 					if (!podcast) {
-						return yield* Effect.fail(new MediaSandboxError({ message: "Podcast not found" }));
+						return yield* new MediaSandboxError({ message: "Podcast not found" });
 					}
 					const title = trimmedString(podcast["collectionName"]);
 					if (!title) {
-						return yield* Effect.fail(
-							new MediaSandboxError({ message: "Podcast is missing title" }),
-						);
+						return yield* new MediaSandboxError({ message: "Podcast is missing title" });
 					}
 					const totalEpisodes = positiveInt(podcast["trackCount"]);
 					const episodeLookup: Record<string, string> = {

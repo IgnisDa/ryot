@@ -112,9 +112,9 @@ query {
 			const payload = asRecord(payloadValue);
 			const resultsData = asRecord(asRecord(asRecord(payload?.["data"])?.["search"])?.["results"]);
 			if (!resultsData) {
-				return yield* Effect.fail(
-					new MediaSandboxError({ message: "Hardcover returned invalid response structure" }),
-				);
+				return yield* new MediaSandboxError({
+					message: "Hardcover returned invalid response structure",
+				});
 			}
 			const found = numberValue(resultsData["found"]);
 			const totalItems = found === null ? 0 : Math.max(0, Math.trunc(found));
@@ -239,21 +239,17 @@ query GetHardcoverBookDetails($id: Int!) {
 			const payload = asRecord(payloadValue);
 			const errorMessage = firstGraphqlErrorMessage(payload);
 			if (errorMessage) {
-				return yield* Effect.fail(
-					new MediaSandboxError({ message: `Hardcover details GraphQL error: ${errorMessage}` }),
-				);
+				return yield* new MediaSandboxError({
+					message: `Hardcover details GraphQL error: ${errorMessage}`,
+				});
 			}
 			const bookData = asRecord(asRecord(payload?.["data"])?.["books_by_pk"]);
 			if (!bookData) {
-				return yield* Effect.fail(
-					new MediaSandboxError({ message: "Hardcover returned no book data" }),
-				);
+				return yield* new MediaSandboxError({ message: "Hardcover returned no book data" });
 			}
 			const title = typeof bookData["title"] === "string" ? bookData["title"] : "";
 			if (!title) {
-				return yield* Effect.fail(
-					new MediaSandboxError({ message: "Hardcover book data is missing title" }),
-				);
+				return yield* new MediaSandboxError({ message: "Hardcover book data is missing title" });
 			}
 			const externalId =
 				typeof bookData["id"] === "string" && bookData["id"].trim()

@@ -160,11 +160,11 @@ export const showsAiringSoonRecipe = defineRecipe(
 								),
 								seasonNumber: selectedField(
 									propertyNumber(tile.episode, "seasonNumber"),
-									Schema.Number,
+									Schema.Finite,
 								),
 								episodeNumber: selectedField(
 									propertyNumber(tile.episode, "episodeNumber"),
-									Schema.Number,
+									Schema.Finite,
 								),
 								sameDayCount: selectedField(
 									count(sameDay.episode, {
@@ -174,7 +174,7 @@ export const showsAiringSoonRecipe = defineRecipe(
 											eq(publishDate(sameDay.episode), publishDate(tile.episode)),
 										),
 									}),
-									Schema.Number,
+									Schema.Finite,
 								),
 							},
 						}),
@@ -265,7 +265,7 @@ export const animeAiringSoonRecipe = defineRecipe(
 					selection: {
 						...airingEntitySelection(anime),
 						nextAiringAt: selectedField(nextAiringAt, IsoDateString),
-						nextEpisode: selectedField(next(episodeNumber), Schema.Number),
+						nextEpisode: selectedField(next(episodeNumber), Schema.Finite),
 						publishDate: selectedField(
 							propertyText(anime, "publishDate"),
 							Schema.NullOr(Schema.String),

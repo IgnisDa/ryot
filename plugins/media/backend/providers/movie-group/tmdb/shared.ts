@@ -72,9 +72,9 @@ export const details = defineProvider({
 	run: (input, host) =>
 		Effect.gen(function* () {
 			if (!/^\d+$/.test(input.externalId)) {
-				return yield* Effect.fail(
-					new MediaSandboxError({ message: "externalId must be a numeric TMDB collection ID" }),
-				);
+				return yield* new MediaSandboxError({
+					message: "externalId must be a numeric TMDB collection ID",
+				});
 			}
 			const token = yield* getTmdbAccessToken(host);
 			const [collectionData, imagesData] = yield* Effect.all(
@@ -86,9 +86,9 @@ export const details = defineProvider({
 			);
 			const rawName = stringValue(collectionData["name"]);
 			if (!rawName) {
-				return yield* Effect.fail(
-					new MediaSandboxError({ message: "TMDB returned no name for this collection" }),
-				);
+				return yield* new MediaSandboxError({
+					message: "TMDB returned no name for this collection",
+				});
 			}
 			const name = stripCollectionSuffix(rawName);
 			const parts = recordsValue(collectionData["parts"]);
@@ -137,9 +137,9 @@ export const translate = defineProvider({
 	run: (input, host) =>
 		Effect.gen(function* () {
 			if (!/^\d+$/.test(input.externalId)) {
-				return yield* Effect.fail(
-					new MediaSandboxError({ message: "externalId must be a numeric TMDB collection ID" }),
-				);
+				return yield* new MediaSandboxError({
+					message: "externalId must be a numeric TMDB collection ID",
+				});
 			}
 			const { region, langCode } = parseTranslationLanguage(input.language);
 			const token = yield* getTmdbAccessToken(host);
@@ -151,7 +151,7 @@ export const translate = defineProvider({
 						`/collection/${input.externalId}/images`,
 						{ include_image_language: langCode },
 						token,
-					).pipe(Effect.catch(() => Effect.succeed({}))),
+					).pipe(Effect.orElseSucceed(() => ({}))),
 				],
 				{ concurrency: "unbounded" },
 			);

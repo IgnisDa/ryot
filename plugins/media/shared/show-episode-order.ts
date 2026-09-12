@@ -18,7 +18,7 @@ const ShowEpisodeOrderSchema = Schema.Struct({
 	groups: Schema.Array(
 		Schema.Struct({
 			name: Schema.String,
-			order: Schema.Number,
+			order: Schema.Finite,
 			episodeExternalIds: Schema.Array(Schema.String),
 		}),
 	),

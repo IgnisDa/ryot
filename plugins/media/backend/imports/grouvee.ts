@@ -21,7 +21,7 @@ import type { MediaImportAdapterFailure } from "./schemas";
 const GrouveeDateEntry = Schema.Struct({
 	date_started: Schema.optional(Schema.NullOr(Schema.String)),
 	date_finished: Schema.optional(Schema.NullOr(Schema.String)),
-	seconds_played: Schema.optional(Schema.NullOr(Schema.Number)),
+	seconds_played: Schema.optional(Schema.NullOr(Schema.Finite)),
 });
 type GrouveeDateEntry = typeof GrouveeDateEntry.Type;
 const GrouveeStatusEntry = Schema.Struct({

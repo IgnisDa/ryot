@@ -57,7 +57,7 @@ export type EventOrderTuple = Schema.Schema.Type<typeof EventOrderTupleSchema>;
 export const EpisodeParentResolutionSchema = Schema.Union([
 	Schema.Struct({ parentEntityId: Schema.String, kind: Schema.Literal("podcast") }),
 	Schema.Struct({
-		seasonNumber: Schema.Number,
+		seasonNumber: Schema.Finite,
 		kind: Schema.Literal("show"),
 		parentEntityId: Schema.String,
 	}),
@@ -174,7 +174,7 @@ export function resolveEpisodeParentRecipe(input: {
 					parentEntityId: selectedField(column(parent, "id"), Schema.String),
 					seasonNumber: selectedField(
 						castNumber(jsonPath(column(season, "properties"), "seasonNumber")),
-						Schema.Number,
+						Schema.Finite,
 					),
 				},
 				joins: [

@@ -149,25 +149,22 @@ describe("anime.myanimelist sandbox script", () => {
 				{ page: 1, pageSize: 20, query: "hero" },
 				makeHost((_method, url) => collectUrl(url)),
 				execution,
-			)
-				.pipe(
-					Effect.flatMap(() =>
-						runSandboxTestScript(
-							search,
-							{ page: 1, pageSize: 20, query: "hero" },
-							makeHost((_method, url) => collectUrl(url), true),
-							execution,
-						),
+			).pipe(
+				Effect.flatMap(() =>
+					runSandboxTestScript(
+						search,
+						{ page: 1, pageSize: 20, query: "hero" },
+						makeHost((_method, url) => collectUrl(url), true),
+						execution,
 					),
-				)
-				.pipe(
-					Effect.map(() => {
-						expect(requestUrls[0]).not.toContain("nsfw=true");
-						expect(requestUrls[1]).toContain("nsfw=true");
-						expect(requestUrls[0]).toContain("https://api.myanimelist.net/v2/anime?");
-						return undefined;
-					}),
 				),
+				Effect.map(() => {
+					expect(requestUrls[0]).not.toContain("nsfw=true");
+					expect(requestUrls[1]).toContain("nsfw=true");
+					expect(requestUrls[0]).toContain("https://api.myanimelist.net/v2/anime?");
+					return undefined;
+				}),
+			),
 		);
 	});
 

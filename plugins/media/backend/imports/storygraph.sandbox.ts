@@ -20,7 +20,7 @@ export default defineScript({
 	input: MediaImportParserInput,
 	output: MediaImportAdapterBatch,
 	run: (input) =>
-		readImportArtifactText().pipe(
+		readImportArtifactText.pipe(
 			Effect.map((text) =>
 				batchMediaImportResult(adaptStorygraphCsv(text), input.start, input.limit),
 			),
