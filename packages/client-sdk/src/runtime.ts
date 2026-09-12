@@ -34,7 +34,7 @@ import { MAX_INTEREST_ENTITY_IDS } from "@ryot-app/contract/modules/entity-inter
 import type { ManagedAssetLocator } from "@ryot-app/contract/modules/uploads/schemas";
 import { EntityId, EntitySchemaSlug, PluginSlug } from "@ryot-app/contract/schema/brands";
 import type { PreparedRecipe } from "@ryot-app/ryotql";
-import { Match, Result, Schema } from "effect";
+import { Effect, Match, Result, Schema } from "effect";
 
 import {
 	createRyotClient,
@@ -53,11 +53,7 @@ import type { PluginNavigationController, PluginNavigationSnapshot } from "./nav
 
 type PluginRuntimeState = "ready" | "active" | "closing" | "failed" | "disposed";
 
-type PendingCall = {
-	readonly cleanup?: () => void;
-	readonly reject: (error: unknown) => void;
-	readonly resolve: (value: unknown) => void;
-};
+type PendingCall = { readonly complete: (result: Effect.Effect<unknown, RyotClientError>) => void };
 
 type PluginThemeRoot = { readonly setAttribute: (name: string, value: string) => void };
 
@@ -192,8 +188,7 @@ export const createPluginRuntime = (
 		assets.clear();
 		uploads.clear();
 		for (const pending of pendingCalls) {
-			pending.cleanup?.();
-			pending.reject(new RyotClientError(reason));
+			pending.complete(Effect.fail(new RyotClientError(reason)));
 		}
 	};
 	const resetDocument = () => {
@@ -257,154 +252,122 @@ export const createPluginRuntime = (
 			CLIENT_BRIDGE_MAX_PENDING_REQUESTS
 		) {
 			finish("failed", "protocol", true);
-			call.reject(new RyotClientError("protocol"));
+			call.complete(Effect.fail(new RyotClientError("protocol")));
 			return false;
 		}
 		pending.set(requestId, call);
 		return true;
 	};
 
-	const query = (document: PreparedRecipe<unknown>["document"], signal?: AbortSignal) =>
-		new Promise<unknown>((resolve, reject) => {
+	const sendRequest = (
+		pending: Map<string, PendingCall>,
+		prefix: string,
+		message: (requestId: string) => unknown,
+		cancel?: (requestId: string) => unknown,
+	): Effect.Effect<unknown, RyotClientError> =>
+		Effect.callback<unknown, RyotClientError>((complete) => {
 			if (state !== "active") {
-				reject(new RyotClientError(terminalReason ?? "transport"));
-				return;
+				complete(Effect.fail(new RyotClientError(terminalReason ?? "transport")));
+				return Effect.void;
 			}
-			if (signal?.aborted) {
-				reject(signal.reason);
-				return;
+			const requestId = `${prefix}-${++nextRequestId}`;
+			if (!admit(pending, requestId, { complete })) {
+				return Effect.void;
 			}
-			nextRequestId += 1;
-			const requestId = `ryotql-${nextRequestId}`;
-			const onAbort = () => {
-				if (!queries.delete(requestId)) {
-					return;
+			post(message(requestId));
+			return Effect.sync(() => {
+				if (pending.delete(requestId) && cancel && state === "active") {
+					post(cancel(requestId));
 				}
-				signal?.removeEventListener("abort", onAbort);
-				reject(signal?.reason);
-				post({ requestId, type: "ryotql-cancel" } satisfies PluginBridgeRyotQLCancel);
-			};
-			if (
-				!admit(queries, requestId, {
-					reject,
-					resolve,
-					cleanup: () => signal?.removeEventListener("abort", onAbort),
-				})
-			) {
-				return;
-			}
-			signal?.addEventListener("abort", onAbort, { once: true });
-			post({ document, requestId, type: "ryotql-request" } satisfies PluginBridgeRyotQLRequest);
+			});
 		});
 
-	const resolveAssets = (requested: readonly ManagedAssetLocator[], signal?: AbortSignal) =>
-		new Promise<unknown>((resolve, reject) => {
-			if (state !== "active") {
-				reject(new RyotClientError(terminalReason ?? "transport"));
-				return;
-			}
-			if (signal?.aborted) {
-				reject(signal.reason);
-				return;
-			}
-			nextRequestId += 1;
-			const requestId = `asset-${nextRequestId}`;
-			const onAbort = () => {
-				if (!assets.delete(requestId)) {
-					return;
-				}
-				signal?.removeEventListener("abort", onAbort);
-				reject(signal?.reason);
-				post({ requestId, type: "asset-cancel" } satisfies PluginBridgeAssetCancel);
-			};
-			if (
-				!admit(assets, requestId, {
-					reject,
-					resolve,
-					cleanup: () => signal?.removeEventListener("abort", onAbort),
-				})
-			) {
-				return;
-			}
-			signal?.addEventListener("abort", onAbort, { once: true });
-			post({
-				requestId,
-				type: "asset-request",
-				assets: [...requested],
-			} satisfies PluginBridgeAssetRequest);
-		});
+	const query = (document: PreparedRecipe<unknown>["document"]) =>
+		sendRequest(
+			queries,
+			"ryotql",
+			(requestId) =>
+				({ document, requestId, type: "ryotql-request" }) satisfies PluginBridgeRyotQLRequest,
+			(requestId) => ({ requestId, type: "ryotql-cancel" }) satisfies PluginBridgeRyotQLCancel,
+		);
 
-	const invokeOperation = (request: OperationAdapterRequest) =>
-		new Promise<unknown>((resolve, reject) => {
-			if (state !== "active") {
-				reject(new RyotClientError(terminalReason ?? "transport"));
-				return;
-			}
-			nextRequestId += 1;
-			const requestId = `operation-${nextRequestId}`;
-			if (!admit(operations, requestId, { reject, resolve })) {
-				return;
-			}
-			post({
-				requestId,
-				input: request.input,
-				type: "operation-request",
-				operationSlug: request.slug,
-				pluginSlug: PluginSlug.make(request.pluginSlug),
-			} satisfies PluginBridgeOperationRequest);
-		});
+	const resolveAssets = (requested: readonly ManagedAssetLocator[]) =>
+		sendRequest(
+			assets,
+			"asset",
+			(requestId) =>
+				({
+					requestId,
+					type: "asset-request",
+					assets: [...requested],
+				}) satisfies PluginBridgeAssetRequest,
+			(requestId) => ({ requestId, type: "asset-cancel" }) satisfies PluginBridgeAssetCancel,
+		);
 
-	const mutateCollection = (request: CollectionAdapterRequest) =>
-		new Promise<unknown>((resolve, reject) => {
-			if (state !== "active") {
-				reject(new RyotClientError(terminalReason ?? "transport"));
-				return;
-			}
-			nextRequestId += 1;
-			const requestId = `collection-${nextRequestId}`;
-			if (!admit(collections, requestId, { reject, resolve })) {
-				return;
-			}
-			post({
-				...request,
-				requestId,
-				type: "collection-request",
-			} satisfies PluginBridgeCollectionRequest);
-		});
+	const invokeOperation = (operation: OperationAdapterRequest) =>
+		sendRequest(
+			operations,
+			"operation",
+			(requestId) =>
+				({
+					requestId,
+					input: operation.input,
+					type: "operation-request",
+					operationSlug: operation.slug,
+					pluginSlug: PluginSlug.make(operation.pluginSlug),
+				}) satisfies PluginBridgeOperationRequest,
+		);
 
-	const accessStorage = (request: StorageAdapterRequest) =>
-		new Promise<unknown>((resolve, reject) => {
-			if (state !== "active") {
-				reject(new RyotClientError(terminalReason ?? "transport"));
-				return;
-			}
-			nextRequestId += 1;
-			const requestId = `storage-${nextRequestId}`;
-			if (!admit(storage, requestId, { reject, resolve })) {
-				return;
-			}
-			post({ ...request, requestId, type: "storage-request" } satisfies PluginBridgeStorageRequest);
-		});
+	const mutateCollection = (collection: CollectionAdapterRequest) =>
+		sendRequest(
+			collections,
+			"collection",
+			(requestId) =>
+				({
+					...collection,
+					requestId,
+					type: "collection-request",
+				}) satisfies PluginBridgeCollectionRequest,
+		);
 
-	const uploadTemporary = (request: TemporaryUploadRequest) =>
-		new Promise<unknown>((resolve, reject) => {
-			if (state !== "active") {
-				reject(new RyotClientError(terminalReason ?? "transport"));
-				return;
-			}
-			nextRequestId += 1;
-			const requestId = `upload-${nextRequestId}`;
-			if (!admit(uploads, requestId, { reject, resolve })) {
-				return;
-			}
-			post({
-				requestId,
-				source: request.source,
-				type: "upload-request",
-				fileName: request.fileName,
-				contentType: request.contentType,
-			} satisfies PluginBridgeUploadRequest);
-		});
+	const accessStorage = (entry: StorageAdapterRequest) =>
+		sendRequest(
+			storage,
+			"storage",
+			(requestId) =>
+				({ ...entry, requestId, type: "storage-request" }) satisfies PluginBridgeStorageRequest,
+		);
+
+	const uploadTemporary = (upload: TemporaryUploadRequest) =>
+		sendRequest(
+			uploads,
+			"upload",
+			(requestId) =>
+				({
+					requestId,
+					source: upload.source,
+					type: "upload-request",
+					fileName: upload.fileName,
+					contentType: upload.contentType,
+				}) satisfies PluginBridgeUploadRequest,
+		);
+	const settle = (
+		pending: Map<string, PendingCall>,
+		requestId: string,
+		outcome:
+			| { readonly outcome: "success"; readonly value: unknown }
+			| { readonly outcome: "failure"; readonly reason: RyotClientErrorReason },
+	) => {
+		const call = pending.get(requestId);
+		if (!call || !pending.delete(requestId)) {
+			return;
+		}
+		call.complete(
+			outcome.outcome === "failure"
+				? Effect.fail(new RyotClientError(outcome.reason))
+				: Effect.succeed(outcome.value),
+		);
+	};
 
 	const navigate = (mode: "push" | "replace", to: RyotNavigationTarget) => {
 		if (state !== "active") {
@@ -628,74 +591,44 @@ export const createPluginRuntime = (
 					finish(reason, reason === "disposed" ? "disposed" : "protocol", false),
 				),
 				Match.when({ type: "operation-result" }, (result) => {
-					const pending = operations.get(result.requestId);
-					if (!pending || !operations.delete(result.requestId)) {
-						return;
-					}
-					pending.cleanup?.();
-					if (result.outcome === "failure") {
-						pending.reject(new RyotClientError(result.reason));
-					} else {
-						pending.resolve(result.value);
-					}
+					settle(
+						operations,
+						result.requestId,
+						result.outcome === "failure" ? result : { outcome: "success", value: result.value },
+					);
 				}),
 				Match.when({ type: "storage-result" }, (result) => {
-					const pending = storage.get(result.requestId);
-					if (!pending || !storage.delete(result.requestId)) {
-						return;
-					}
-					if (result.outcome === "failure") {
-						pending.reject(new RyotClientError(result.reason));
-					} else {
-						pending.resolve(result.value);
-					}
+					settle(storage, result.requestId, result);
 				}),
 				Match.when({ type: "collection-result" }, (result) => {
-					const pending = collections.get(result.requestId);
-					if (!pending || !collections.delete(result.requestId)) {
-						return;
-					}
-					if (result.outcome === "failure") {
-						pending.reject(new RyotClientError(result.reason));
-					} else {
-						pending.resolve(result.response);
-					}
+					settle(
+						collections,
+						result.requestId,
+						result.outcome === "failure" ? result : { outcome: "success", value: result.response },
+					);
 				}),
 				Match.when({ type: "upload-result" }, (result) => {
-					const pending = uploads.get(result.requestId);
-					if (!pending || !uploads.delete(result.requestId)) {
-						return;
-					}
-					pending.cleanup?.();
-					if (result.outcome === "failure") {
-						pending.reject(new RyotClientError(result.reason));
-					} else {
-						pending.resolve(result.token);
-					}
+					settle(
+						uploads,
+						result.requestId,
+						result.outcome === "failure" ? result : { outcome: "success", value: result.token },
+					);
 				}),
 				Match.when({ type: "asset-result" }, (result) => {
-					const pending = assets.get(result.requestId);
-					if (!pending || !assets.delete(result.requestId)) {
-						return;
-					}
-					pending.cleanup?.();
-					if (result.outcome === "failure") {
-						pending.reject(new RyotClientError(result.reason));
-					} else {
-						pending.resolve(result.resolutions);
-					}
+					settle(
+						assets,
+						result.requestId,
+						result.outcome === "failure"
+							? result
+							: { outcome: "success", value: result.resolutions },
+					);
 				}),
 				Match.when({ type: "ryotql-result" }, (result) => {
-					const pending = queries.get(result.requestId);
-					if (!pending || !queries.delete(result.requestId)) {
-						return;
-					}
-					pending.cleanup?.();
-					if (result.outcome === "failure") {
-						pending.reject(new RyotClientError(result.reason));
-					} else {
-						pending.resolve(result.response);
-					}
+					settle(
+						queries,
+						result.requestId,
+						result.outcome === "failure" ? result : { outcome: "success", value: result.response },
+					);
 				}),
 				Match.exhaustive,
 			);

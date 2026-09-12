@@ -49,6 +49,8 @@ const assertDefined: <Value>(value: Value | undefined) => asserts value is Value
 	expect(value).toBeDefined();
 };
 
+// Vitest awaits the two independent full runtime builds at the test boundary.
+// oxlint-disable-next-line effecttsgo/async-function
 it("builds deterministic registry entries with shared React and SDK chunks", async () => {
 	const first = await Effect.runPromise(buildClientRuntime());
 	const second = await Effect.runPromise(buildClientRuntime());

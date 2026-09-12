@@ -7,7 +7,7 @@ import {
 } from "@ryot-app/client-plugin-contract";
 import { EntityId, PluginSlug } from "@ryot-app/contract/schema/brands";
 import { waitFor } from "@testing-library/dom";
-import { Match, Schema } from "effect";
+import { Effect, Match, Schema } from "effect";
 import { useEffect, useState, act } from "react";
 import { createRoot, type Root } from "react-dom/client";
 import { afterEach, describe, expect, it } from "vitest";
@@ -296,6 +296,7 @@ const mount = (
 	};
 };
 
+// oxlint-disable-next-line effecttsgo/async-function -- Vitest teardown awaits the clock runtime.
 afterEach(async () => {
 	for (const root of roots) {
 		act(() => root.unmount());
@@ -311,6 +312,7 @@ afterEach(async () => {
 });
 
 describe("PluginRouter", () => {
+	// oxlint-disable-next-line effecttsgo/async-function -- Vitest awaits React routing updates.
 	it("withdraws retained-screen interest and waits for running refresh before pop catch-up", async () => {
 		let hint!: (event: EntityUpdate) => void;
 		let watches = 0;
@@ -326,7 +328,11 @@ describe("PluginRouter", () => {
 			};
 		};
 		const pending: Array<() => void> = [];
-		const onRefresh = () => new Promise<void>((resolve) => pending.push(resolve));
+		const onRefresh = () =>
+			Effect.promise(
+				// oxlint-disable-next-line effecttsgo/new-promise -- Test gate holds a refresh during navigation.
+				() => new Promise<void>((resolve) => pending.push(resolve)),
+			);
 		const InterestedHome = () => {
 			useEntityRefresh({
 				onRefresh,
@@ -356,6 +362,7 @@ describe("PluginRouter", () => {
 		expect(watches).toBe(2);
 		await channel.clock.advance(300);
 		expect(pending).toHaveLength(1);
+		// oxlint-disable-next-line effecttsgo/async-function -- React act flushes asynchronous navigation.
 		await act(async () => {
 			pending[0]?.();
 			await Promise.resolve();
@@ -369,6 +376,7 @@ describe("PluginRouter", () => {
 		expect(container.textContent).toBe("");
 	});
 
+	// oxlint-disable-next-line effecttsgo/async-function -- Vitest awaits React routing updates.
 	it("renders a location that arrived before the router mounted", async () => {
 		const channel = openChannel({
 			home: { component: Home },
@@ -382,12 +390,14 @@ describe("PluginRouter", () => {
 		expect(container.textContent).toContain("Item item-9");
 	});
 
+	// oxlint-disable-next-line effecttsgo/async-function -- Vitest awaits React routing updates.
 	it("matches a route with a parameter, URL-decoding the segment", async () => {
 		const { container, sendLocation } = mount([{ component: ItemRoute, path: "/items/$itemId" }]);
 		sendLocation("/items/hello%20world");
 		await waitFor(() => expect(container.textContent).toContain("Item hello world"));
 	});
 
+	// oxlint-disable-next-line effecttsgo/async-function -- Vitest awaits React routing updates.
 	it("matches a static route before an overlapping dynamic route", async () => {
 		const channel = openChannel({
 			home: { component: Home },
@@ -402,18 +412,21 @@ describe("PluginRouter", () => {
 		expect(container.textContent).not.toContain("Item new");
 	});
 
+	// oxlint-disable-next-line effecttsgo/async-function -- Vitest awaits React routing updates.
 	it("passes through a param segment that is not valid percent-encoding", async () => {
 		const { container, sendLocation } = mount([{ component: ItemRoute, path: "/items/$itemId" }]);
 		sendLocation("/items/%zz");
 		await waitFor(() => expect(container.textContent).toContain("Item %zz"));
 	});
 
+	// oxlint-disable-next-line effecttsgo/async-function -- Vitest awaits React routing updates.
 	it("renders the default not-found state for an unmatched path", async () => {
 		const { container, sendLocation } = mount([{ component: ItemRoute, path: "/items/$itemId" }]);
 		sendLocation("/does-not-exist");
 		await waitFor(() => expect(container.textContent).toContain("Page not found"));
 	});
 
+	// oxlint-disable-next-line effecttsgo/async-function -- Vitest awaits React routing updates.
 	it("renders a plugin not-found component for an unmatched path", async () => {
 		const { container, sendLocation } = mount(
 			[{ component: ItemRoute, path: "/items/$itemId" }],
@@ -423,12 +436,14 @@ describe("PluginRouter", () => {
 		await waitFor(() => expect(container.textContent).toContain("Fixture page not found."));
 	});
 
+	// oxlint-disable-next-line effecttsgo/async-function -- Vitest awaits React routing updates.
 	it("decodes search values through usePluginSearch", async () => {
 		const { container, sendLocation } = mount();
 		sendLocation("/", "tab=stats");
 		await waitFor(() => expect(container.textContent).toContain("Tab stats"));
 	});
 
+	// oxlint-disable-next-line effecttsgo/async-function -- Vitest awaits React routing updates.
 	it("renders one stable unavailable component for unregistered entity locations", async () => {
 		const { store, container, sendEntityLocation } = mount([
 			{ component: ItemRoute, path: "/items/$itemId" },
@@ -444,6 +459,7 @@ describe("PluginRouter", () => {
 		expect(store.getSnapshot().screens[0]?.params).toEqual({});
 	});
 
+	// oxlint-disable-next-line effecttsgo/async-function -- Vitest awaits React routing updates.
 	it("selects a registered entity renderer and passes its location props", async () => {
 		const channel = openChannel({
 			home: { component: Home },
@@ -458,6 +474,7 @@ describe("PluginRouter", () => {
 		expect(channel.store.getSnapshot().screens[0]?.params).toEqual({});
 	});
 
+	// oxlint-disable-next-line effecttsgo/async-function -- Vitest awaits React routing updates.
 	it("uses the unavailable renderer for an unrelated entity schema", async () => {
 		const channel = openChannel({
 			home: { component: Home },
@@ -471,6 +488,7 @@ describe("PluginRouter", () => {
 		expect(channel.store.getSnapshot().screens[0]?.element.type).not.toBe(EntityRenderer);
 	});
 
+	// oxlint-disable-next-line effecttsgo/async-function -- Vitest awaits React routing updates.
 	it("retains the registered renderer state across a pop without a wrapper remount", async () => {
 		const channel = openChannel({
 			home: { component: Home },
@@ -498,6 +516,7 @@ describe("PluginRouter", () => {
 		expect(channel.store.getSnapshot().screens.at(-1)?.element.type).toBe(EntityRenderer);
 	});
 
+	// oxlint-disable-next-line effecttsgo/async-function -- Vitest awaits React routing updates.
 	it("exposes an entity location and its search through routing hooks", async () => {
 		const channel = openChannel(undefined, () => ({ params: {}, element: <LocationProbe /> }));
 		const container = renderRouter(channel);
@@ -515,6 +534,7 @@ describe("PluginRouter", () => {
 		expect(observedSearch?.toString()).toBe("dialog=details");
 	});
 
+	// oxlint-disable-next-line effecttsgo/async-function -- Vitest awaits React routing updates.
 	it("posts an exact PluginBridgeNavigate message on PluginLink click", async () => {
 		const { messages, container, sendLocation } = mount();
 		sendLocation("/");
@@ -643,6 +663,7 @@ describe("PluginRouter", () => {
 		expect(channel.messages).toEqual([]);
 	});
 
+	// oxlint-disable-next-line effecttsgo/async-function -- Vitest awaits React routing updates.
 	it("prevents native navigation on modifier and auxiliary clicks", async () => {
 		const { messages, container, sendLocation } = mount();
 		sendLocation("/");
@@ -662,12 +683,14 @@ describe("PluginRouter", () => {
 		void act(() => link.dispatchEvent(modified));
 		void act(() => link.dispatchEvent(auxiliary));
 
+		// oxlint-disable-next-line effecttsgo/new-promise -- Test waits for browser navigation delivery.
 		await new Promise((resolve) => setTimeout(resolve, 0));
 		expect(modified.defaultPrevented).toBe(true);
 		expect(auxiliary.defaultPrevented).toBe(true);
 		expect(messages).toEqual([]);
 	});
 
+	// oxlint-disable-next-line effecttsgo/async-function -- Vitest awaits React routing updates.
 	it("posts push and replace navigate messages from the client", async () => {
 		const { messages, container, sendLocation } = mount();
 		sendLocation("/");
@@ -707,6 +730,7 @@ describe("PluginRouter", () => {
 		);
 	});
 
+	// oxlint-disable-next-line effecttsgo/async-function -- Vitest awaits React routing updates.
 	it("preserves focus and state when the active entry key is unchanged", async () => {
 		const { container, sendLocation } = mount();
 		sendLocation("/");
@@ -728,6 +752,7 @@ describe("PluginRouter", () => {
 		expect(document.activeElement).toBe(greetButton);
 	});
 
+	// oxlint-disable-next-line effecttsgo/async-function -- Vitest awaits React routing updates.
 	it("remounts the active screen for an ordinary same-index history replacement", async () => {
 		const { container, sendLocation } = mount();
 		sendLocation("/");
@@ -745,6 +770,7 @@ describe("PluginRouter", () => {
 		expect(mountCount).toBe(2);
 	});
 
+	// oxlint-disable-next-line effecttsgo/async-function -- Vitest awaits React routing updates.
 	it("moves focus to the route container only when the active entry changes", async () => {
 		const { container, sendLocation } = mount();
 		sendLocation("/");
@@ -768,6 +794,7 @@ describe("PluginRouter", () => {
 		});
 	});
 
+	// oxlint-disable-next-line effecttsgo/async-function -- Vitest awaits React routing updates.
 	it("retains the previous screen across a pop, without remounting it", async () => {
 		const { container, sendLocation } = mount([{ component: ItemRoute, path: "/items/$itemId" }]);
 		sendLocation("/");
@@ -784,6 +811,7 @@ describe("PluginRouter", () => {
 		expect(mountCount).toBe(1);
 	});
 
+	// oxlint-disable-next-line effecttsgo/async-function -- Vitest awaits React routing updates.
 	it("paints the retained screen instead of hiding it while a compact pop settles", async () => {
 		const { setEdge, container, sendLocation } = mount([
 			{ component: ItemRoute, path: "/items/$itemId" },
@@ -802,6 +830,7 @@ describe("PluginRouter", () => {
 		expect(screens[0]?.style.transform).toBe("");
 	});
 
+	// oxlint-disable-next-line effecttsgo/async-function -- Vitest awaits React routing updates.
 	it("swaps without retaining a leaving screen when the viewport is not compact", async () => {
 		const { container, sendLocation } = mount([{ component: ItemRoute, path: "/items/$itemId" }]);
 		sendLocation("/");
@@ -816,6 +845,7 @@ describe("PluginRouter", () => {
 		expect(mountCount).toBe(1);
 	});
 
+	// oxlint-disable-next-line effecttsgo/async-function -- Vitest awaits React routing updates.
 	it("keeps a retained screen mounted and inert beneath the top screen", async () => {
 		const { container, sendLocation } = mount([{ component: ItemRoute, path: "/items/$itemId" }]);
 		sendLocation("/");
@@ -830,6 +860,7 @@ describe("PluginRouter", () => {
 		expect(screens[1]?.getAttribute("aria-hidden")).toBeNull();
 	});
 
+	// oxlint-disable-next-line effecttsgo/async-function -- Vitest awaits React routing updates.
 	it("renders no back edge until the kernel hands the plugin the edge", async () => {
 		const { container, sendLocation } = mount([{ component: ItemRoute, path: "/items/$itemId" }]);
 		sendLocation("/");
@@ -839,6 +870,7 @@ describe("PluginRouter", () => {
 		expect(container.querySelector('[data-plugin-edge="back"]')).toBeNull();
 	});
 
+	// oxlint-disable-next-line effecttsgo/async-function -- Vitest awaits React routing updates.
 	it("keeps the visible leading intent independent from back-edge ownership", async () => {
 		const channel = openChannel({ home: { component: FramedHome } });
 		channel.setEdge({ compact: true, edgeBack: false, leading: "back" });
@@ -861,6 +893,7 @@ describe("PluginRouter", () => {
 		expect(container.querySelector('[data-plugin-edge="back"]')).not.toBeNull();
 	});
 
+	// oxlint-disable-next-line effecttsgo/async-function -- Vitest awaits React routing updates.
 	it("posts one navigate-back when an edge drag passes the commit threshold", async () => {
 		const { setEdge, messages, container, sendLocation } = mount([
 			{ component: ItemRoute, path: "/items/$itemId" },
@@ -896,6 +929,7 @@ describe("PluginRouter", () => {
 		expect(container.textContent).not.toContain("Item item-1");
 	});
 
+	// oxlint-disable-next-line effecttsgo/async-function -- Vitest awaits React routing updates.
 	it("posts nothing when an edge drag is released below the commit threshold", async () => {
 		const { setEdge, messages, container, sendLocation } = mount([
 			{ component: ItemRoute, path: "/items/$itemId" },
@@ -918,12 +952,15 @@ describe("PluginRouter", () => {
 			edge.dispatchEvent(pointer("pointerup", 30, DRAG_END));
 		});
 
+		// oxlint-disable-next-line effecttsgo/async-function -- React act flushes asynchronous navigation.
 		await act(async () => {
+			// oxlint-disable-next-line effecttsgo/new-promise -- Test waits for browser navigation delivery.
 			await new Promise((resolve) => setTimeout(resolve, 0));
 		});
 		expect(messages).toEqual([]);
 	});
 
+	// oxlint-disable-next-line effecttsgo/async-function -- Vitest awaits React routing updates.
 	it("keeps exactly one screen per history entry across back and forward", async () => {
 		const { container, sendLocation } = mount([{ component: ItemRoute, path: "/items/$itemId" }]);
 		sendLocation("/", "", { index: 0 });

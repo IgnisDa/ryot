@@ -16,6 +16,7 @@ export const browserFileCandidate = (file: File): SchemaFileCandidate => ({
 });
 
 export const pickBrowserUploadFile: SchemaFilePicker = (options) =>
+	// oxlint-disable-next-line effecttsgo/new-promise -- The browser file input reports selection and cancellation only through DOM events.
 	new Promise((resolve) => {
 		const input = document.createElement("input");
 		input.type = "file";

@@ -190,6 +190,7 @@ describe("SchemaForm", () => {
 		expect(screen.getByRole("radio", { name: "us" }).getAttribute("aria-checked")).toBe("true");
 	});
 
+	// oxlint-disable-next-line effecttsgo/async-function -- Vitest awaits React test updates.
 	it("marks required fields and shows validation errors only after a submit attempt", async () => {
 		const submitted: SchemaFormValues[] = [];
 		render(<SchemaFormHarness onSubmit={(values) => submitted.push(values)} />);
@@ -209,6 +210,7 @@ describe("SchemaForm", () => {
 		expect(screen.queryByRole("alert")).toBeNull();
 	});
 
+	// oxlint-disable-next-line effecttsgo/async-function -- Vitest awaits React test updates.
 	it("submits typed values after validation succeeds", async () => {
 		const submitted: SchemaFormValues[] = [];
 		render(<SchemaFormHarness onSubmit={(values) => submitted.push(values)} />);
@@ -219,6 +221,7 @@ describe("SchemaForm", () => {
 		await waitFor(() => expect(submitted).toEqual([{ adult: false, region: "us", title: "Dune" }]));
 	});
 
+	// oxlint-disable-next-line effecttsgo/async-function -- Vitest awaits React test updates.
 	it("routes scalar property validation errors to their own field", async () => {
 		const submitted: SchemaFormValues[] = [];
 		render(
@@ -257,6 +260,7 @@ describe("SchemaForm", () => {
 		expect(screen.queryByText("Some fields are not supported in this app version.")).toBeNull();
 	});
 
+	// oxlint-disable-next-line effecttsgo/async-function -- Vitest awaits React test updates.
 	it("lets a blank required secret stand for the stored value when editing, but not when creating", async () => {
 		const submitted: SchemaFormValues[] = [];
 		render(
@@ -277,6 +281,7 @@ describe("SchemaForm", () => {
 		);
 	});
 
+	// oxlint-disable-next-line effecttsgo/async-function -- Vitest awaits React test updates.
 	it("still demands a required secret when creating", async () => {
 		const submitted: SchemaFormValues[] = [];
 		render(
@@ -295,6 +300,7 @@ describe("SchemaForm", () => {
 		expect(submitted).toEqual([]);
 	});
 
+	// oxlint-disable-next-line effecttsgo/async-function -- Vitest awaits React test updates.
 	it("adds, edits and removes list rows within the declared bounds, and submits an emptied list", async () => {
 		const submitted: SchemaFormValues[] = [];
 		render(<SchemaFormHarness schema={listSchema} onSubmit={(values) => submitted.push(values)} />);
