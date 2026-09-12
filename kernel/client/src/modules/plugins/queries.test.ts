@@ -1,8 +1,8 @@
-import { describe, expect, it } from "@effect/vitest";
+import { describe, expect, layer } from "@effect/vitest";
 import { AuthRateLimited, AuthUnauthorized } from "@ryot-app/contract/auth-middleware";
 import type { ContractPayload, ContractSuccess } from "@ryot-app/contract/client";
 import { RyotQLBadRequest, RyotQLInternalError } from "@ryot-app/contract/modules/ryotql/contract";
-import { Effect, Layer } from "effect";
+import { Context, Effect, Layer, Ref } from "effect";
 
 import { AuthenticatedApiError } from "#/api/authenticated";
 import { decodeServerOrigin } from "#/api/origin";
@@ -26,28 +26,44 @@ type ExecuteResult = Effect.Effect<
 	AuthenticatedApiError
 >;
 
-const makeApi = (execute: (request: ExecuteRequest) => ExecuteResult) =>
-	makeRyotQLApi({ executePlugin: (_scope, request) => execute(request) });
+class FakeRyotQLApi extends Context.Service<
+	FakeRyotQLApi,
+	{ readonly requests: Effect.Effect<ReadonlyArray<ExecuteRequest>> }
+>()("test/FakeRyotQLApi") {}
+
+const queriesLayer = (reply: () => ExecuteResult) =>
+	Layer.unwrap(
+		Effect.gen(function* () {
+			const requests = yield* Ref.make<ReadonlyArray<ExecuteRequest>>([]);
+			return Layer.merge(
+				Layer.provide(
+					PluginQueriesService.layer,
+					makeRyotQLApi({
+						executePlugin: (_scope, request) =>
+							Ref.update(requests, (all) => [...all, request]).pipe(Effect.andThen(reply())),
+					}),
+				),
+				Layer.succeed(FakeRyotQLApi, { requests: Ref.get(requests) }),
+			);
+		}),
+	);
 
 const failing = (cause: unknown) =>
-	makeApi(() => Effect.fail(new AuthenticatedApiError({ cause })));
+	queriesLayer(() => Effect.fail(new AuthenticatedApiError({ cause })));
+
+const response = { data: {} };
 
 describe("plugin queries service", () => {
-	it.effect("executes the plugin-audience RyotQL endpoint without adding identity fields", () => {
-		const calls: ExecuteRequest[] = [];
-		const response = { data: {} };
-		const dependencies = makeApi((request) => {
-			calls.push(request);
-			return Effect.succeed(response);
-		});
+	layer(queriesLayer(() => Effect.succeed(response)))((test) => {
+		test.effect("executes the plugin-audience RyotQL endpoint without adding identity fields", () =>
+			Effect.gen(function* () {
+				const service = yield* PluginQueriesService;
+				const outcome = yield* service.query({ scope, request: { document } });
 
-		return Effect.gen(function* () {
-			const service = yield* PluginQueriesService;
-			const outcome = yield* service.query({ scope, request: { document } });
-
-			expect(calls).toEqual([{ payload: document }]);
-			expect(outcome).toEqual({ response, outcome: "success" });
-		}).pipe(Effect.provide(Layer.provide(PluginQueriesService.layer, dependencies)));
+				expect(yield* (yield* FakeRyotQLApi).requests).toEqual([{ payload: document }]);
+				expect(outcome).toEqual({ response, outcome: "success" });
+			}),
+		);
 	});
 
 	const expectedFailures = [
@@ -58,26 +74,26 @@ describe("plugin queries service", () => {
 	];
 
 	for (const cause of expectedFailures) {
-		it.effect(`classifies ${cause._tag} as query-failed`, () => {
-			const dependencies = failing(cause);
+		layer(failing(cause))((test) => {
+			test.effect(`classifies ${cause._tag} as query-failed`, () =>
+				Effect.gen(function* () {
+					const service = yield* PluginQueriesService;
+					const outcome = yield* service.query({ scope, request: { document } });
 
-			return Effect.gen(function* () {
-				const service = yield* PluginQueriesService;
-				const outcome = yield* service.query({ scope, request: { document } });
-
-				expect(outcome).toEqual({ outcome: "failure", reason: "query-failed" });
-			}).pipe(Effect.provide(Layer.provide(PluginQueriesService.layer, dependencies)));
+					expect(outcome).toEqual({ outcome: "failure", reason: "query-failed" });
+				}),
+			);
 		});
 	}
 
-	it.effect("maps an unexpected failure to transport without leaking its cause", () => {
-		const dependencies = failing(new TypeError("private network detail"));
+	layer(failing(new TypeError("private network detail")))((test) => {
+		test.effect("maps an unexpected failure to transport without leaking its cause", () =>
+			Effect.gen(function* () {
+				const service = yield* PluginQueriesService;
+				const outcome = yield* service.query({ scope, request: { document } });
 
-		return Effect.gen(function* () {
-			const service = yield* PluginQueriesService;
-			const outcome = yield* service.query({ scope, request: { document } });
-
-			expect(outcome).toEqual({ outcome: "failure", reason: "transport" });
-		}).pipe(Effect.provide(Layer.provide(PluginQueriesService.layer, dependencies)));
+				expect(outcome).toEqual({ outcome: "failure", reason: "transport" });
+			}),
+		);
 	});
 });
