@@ -22,6 +22,7 @@ const operationManifest = () => {
 			{
 				auth: "user" as const,
 				slug: "resolve.fixture",
+				demoAccess: "allowed" as const,
 				scriptSlug: "operation.fixture",
 				description: "Resolve fixture references",
 			},

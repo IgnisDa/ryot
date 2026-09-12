@@ -1,6 +1,7 @@
 import { HttpApiEndpoint, HttpApiGroup, HttpApiSchema, OpenApi } from "effect/unstable/httpapi";
 
 import { AuthMiddleware } from "../../auth-middleware";
+import { DemoAccessPolicy } from "../../http-annotations";
 import { BackupRunId } from "../../schema/brands";
 import {
 	BackupBadRequest,
@@ -23,7 +24,9 @@ export const BackupsGroup = HttpApiGroup.make("backups")
 				BackupBadRequest.pipe(HttpApiSchema.status(400)),
 				BackupInternalError.pipe(HttpApiSchema.status(500)),
 			],
-		}).annotate(OpenApi.Description, "Starts a backup export"),
+		})
+			.annotate(DemoAccessPolicy, "protected")
+			.annotate(OpenApi.Description, "Starts a backup export"),
 	)
 	.add(
 		HttpApiEndpoint.get("listRuns", "/backups/runs", {
@@ -32,7 +35,9 @@ export const BackupsGroup = HttpApiGroup.make("backups")
 				BackupBadRequest.pipe(HttpApiSchema.status(400)),
 				BackupInternalError.pipe(HttpApiSchema.status(500)),
 			],
-		}).annotate(OpenApi.Description, "Lists backup runs"),
+		})
+			.annotate(DemoAccessPolicy, "protected")
+			.annotate(OpenApi.Description, "Lists backup runs"),
 	)
 	.add(
 		HttpApiEndpoint.get("getRun", "/backups/runs/:id", {
@@ -43,7 +48,9 @@ export const BackupsGroup = HttpApiGroup.make("backups")
 				BackupNotFound.pipe(HttpApiSchema.status(404)),
 				BackupInternalError.pipe(HttpApiSchema.status(500)),
 			],
-		}).annotate(OpenApi.Description, "Gets a backup run by ID"),
+		})
+			.annotate(DemoAccessPolicy, "protected")
+			.annotate(OpenApi.Description, "Gets a backup run by ID"),
 	)
 	.add(
 		HttpApiEndpoint.get("downloadRun", "/backups/runs/:id/download", {
@@ -55,7 +62,9 @@ export const BackupsGroup = HttpApiGroup.make("backups")
 				BackupNotFound.pipe(HttpApiSchema.status(404)),
 				BackupInternalError.pipe(HttpApiSchema.status(500)),
 			],
-		}).annotate(OpenApi.Description, "Downloads a completed backup run"),
+		})
+			.annotate(DemoAccessPolicy, "protected")
+			.annotate(OpenApi.Description, "Downloads a completed backup run"),
 	)
 	.add(
 		HttpApiEndpoint.delete("deleteRun", "/backups/runs/:id", {
@@ -67,7 +76,9 @@ export const BackupsGroup = HttpApiGroup.make("backups")
 				BackupNotFound.pipe(HttpApiSchema.status(404)),
 				BackupInternalError.pipe(HttpApiSchema.status(500)),
 			],
-		}).annotate(OpenApi.Description, "Deletes a backup run by ID"),
+		})
+			.annotate(DemoAccessPolicy, "protected")
+			.annotate(OpenApi.Description, "Deletes a backup run by ID"),
 	)
 	.add(
 		HttpApiEndpoint.post("createRestore", "/backups/restores", {
@@ -78,6 +89,8 @@ export const BackupsGroup = HttpApiGroup.make("backups")
 				BackupConflict.pipe(HttpApiSchema.status(409)),
 				BackupInternalError.pipe(HttpApiSchema.status(500)),
 			],
-		}).annotate(OpenApi.Description, "Starts a backup restore"),
+		})
+			.annotate(DemoAccessPolicy, "protected")
+			.annotate(OpenApi.Description, "Starts a backup restore"),
 	)
 	.middleware(AuthMiddleware);
