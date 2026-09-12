@@ -35,7 +35,6 @@ const OIDC_CLIENT_SECRET = "test-secret";
 const OIDC_BUTTON_LABEL = "Sign in with TestOIDC";
 const clientDist = fileURLToPath(new URL("../../../../../kernel/client/dist", import.meta.url));
 const existingOidcUsername = `user-${crypto.randomUUID()}`;
-const pluginListQuery = { includeDisabled: false };
 const godModeListQuery = (search: string) => ({ search, limit: 50, offset: 0 });
 const attempt = <A>(run: () => Promise<A>) => Effect.tryPromise(run).pipe(Effect.orDie);
 
@@ -59,10 +58,9 @@ const findUserIdByEmail = (apiUrl: string, email: string) =>
 
 const listPluginCount = (apiUrl: string, token: string) =>
 	Effect.gen(function* () {
-		const plugins = yield* makeSession(apiUrl).call(
-			(c) => c.definitions.listPlugins({ query: pluginListQuery }),
-			{ Authorization: `Bearer ${token}` },
-		);
+		const plugins = yield* makeSession(apiUrl).call((c) => c.plugins.list(), {
+			Authorization: `Bearer ${token}`,
+		});
 		return plugins.length;
 	});
 
@@ -298,9 +296,7 @@ describe("OIDC sign-in happy path (API A)", () => {
 			const username = `user-${crypto.randomUUID()}`;
 			const sessionToken = yield* oidcSignIn(requireMockOidcServer(), username, getApiUrlA());
 			const client = makeSession(getApiUrlA());
-			yield* client.call((c) => c.definitions.listPlugins({ query: pluginListQuery }), {
-				Authorization: `Bearer ${sessionToken}`,
-			});
+			yield* client.call((c) => c.plugins.list(), { Authorization: `Bearer ${sessionToken}` });
 		}),
 	);
 
@@ -355,9 +351,7 @@ describe("OIDC idempotency (API A)", () => {
 			);
 
 			const sessionToken = yield* oidcSignIn(requireMockOidcServer(), username, getApiUrlA());
-			yield* client.call((c) => c.definitions.listPlugins({ query: pluginListQuery }), {
-				Authorization: `Bearer ${sessionToken}`,
-			});
+			yield* client.call((c) => c.plugins.list(), { Authorization: `Bearer ${sessionToken}` });
 
 			expect(yield* findUserIdByEmail(getApiUrlA(), email)).toBe(provisioned.userId);
 			expect(yield* countUsersByEmail(getApiUrlA(), email)).toBe(1);
@@ -375,12 +369,8 @@ describe("OIDC idempotency (API A)", () => {
 
 			const client = makeSession(getApiUrlA());
 			yield* Effect.all([
-				client.call((c) => c.definitions.listPlugins({ query: pluginListQuery }), {
-					Authorization: `Bearer ${token1}`,
-				}),
-				client.call((c) => c.definitions.listPlugins({ query: pluginListQuery }), {
-					Authorization: `Bearer ${token2}`,
-				}),
+				client.call((c) => c.plugins.list(), { Authorization: `Bearer ${token1}` }),
+				client.call((c) => c.plugins.list(), { Authorization: `Bearer ${token2}` }),
 			]);
 		}),
 	);
@@ -447,9 +437,7 @@ describe("Registration gating for OIDC (API C)", () => {
 				getApiUrlC(),
 			);
 			const client = makeSession(getApiUrlC());
-			yield* client.call((c) => c.definitions.listPlugins({ query: pluginListQuery }), {
-				Authorization: `Bearer ${sessionToken}`,
-			});
+			yield* client.call((c) => c.plugins.list(), { Authorization: `Bearer ${sessionToken}` });
 
 			const afterId = yield* findUserIdByEmail(getApiUrlC(), email);
 			expect(afterId).toBe(beforeId);

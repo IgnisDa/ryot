@@ -37,7 +37,6 @@ import { describe, expect, it } from "~/support/effect-test";
 import { getApiUrl } from "~/support/harness-target";
 
 const WRONG_TOKEN = "wrong-token";
-const pluginListQuery = { includeDisabled: false };
 
 describe("Delete user admin token enforcement", () => {
 	it.live("rejects deletion without an admin token", () =>
@@ -101,12 +100,8 @@ describe("Delete user", () => {
 			expect(configuredPlugin).toMatchObject({ sortOrder: 41, isDisabled: true });
 			const apiKey = yield* createApiKey(sessionCookie);
 
-			yield* client.call((c) => c.definitions.listPlugins({ query: pluginListQuery }), {
-				Authorization: `Bearer ${token}`,
-			});
-			yield* client.call((c) => c.definitions.listPlugins({ query: pluginListQuery }), {
-				"X-Api-Key": apiKey,
-			});
+			yield* client.call((c) => c.plugins.list(), { Authorization: `Bearer ${token}` });
+			yield* client.call((c) => c.plugins.list(), { "X-Api-Key": apiKey });
 
 			const acceptedResponse = yield* Effect.promise(() =>
 				fetch(`${getApiUrl()}/god-mode/users/${userId}`, {
@@ -121,16 +116,12 @@ describe("Delete user", () => {
 			expect(accepted).toMatchObject({ userId, kind: "delete" });
 
 			const revokedSession = yield* Effect.flip(
-				client.call((c) => c.definitions.listPlugins({ query: pluginListQuery }), {
-					Authorization: `Bearer ${token}`,
-				}),
+				client.call((c) => c.plugins.list(), { Authorization: `Bearer ${token}` }),
 			);
 			assertTaggedError(revokedSession, "AuthUnauthorized");
 
 			const revokedApiKey = yield* Effect.flip(
-				client.call((c) => c.definitions.listPlugins({ query: pluginListQuery }), {
-					"X-Api-Key": apiKey,
-				}),
+				client.call((c) => c.plugins.list(), { "X-Api-Key": apiKey }),
 			);
 			assertTaggedError(revokedApiKey, "AuthUnauthorized");
 
@@ -143,9 +134,7 @@ describe("Delete user", () => {
 			);
 			expect(listed.users).toHaveLength(0);
 
-			const plugins = yield* observerClient.call((c) =>
-				c.definitions.listPlugins({ query: { includeDisabled: true } }),
-			);
+			const plugins = yield* observerClient.call((c) => c.plugins.list());
 			expect(plugins.some((candidate) => candidate.slug === plugin.slug)).toBe(true);
 		}),
 	);

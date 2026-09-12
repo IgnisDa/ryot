@@ -35,10 +35,7 @@ describe("Email sign-up", () => {
 			Effect.gen(function* () {
 				const { token, email, password } = yield* createTestUser();
 				const headers = { Authorization: `Bearer ${token}` };
-				const plugins = yield* getApiClient().call(
-					(c) => c.definitions.listPlugins({ query: { includeDisabled: true } }),
-					headers,
-				);
+				const plugins = yield* getApiClient().call((c) => c.plugins.list(), headers);
 				expect(plugins.length).toBeGreaterThan(0);
 
 				const client = makeSession(undefined, headers);
