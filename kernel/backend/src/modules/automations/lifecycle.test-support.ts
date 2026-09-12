@@ -34,14 +34,12 @@ export const withLifecycleDispatch = (
 				execution
 					.after({ runs: plan.runs, triggerId: plan.triggerId })
 					.pipe(
-						Effect.map(
-							(warnings): ReadonlyArray<AutomationWarning> => [
-								...(plan.blockedReason?.hasRequiredHooks
-									? [{ ...plan.blockedReason, triggerId: plan.triggerId }]
-									: []),
-								...warnings,
-							],
-						),
+						Effect.map((warnings): ReadonlyArray<AutomationWarning> => [
+							...(plan.blockedReason?.hasRequiredHooks
+								? [{ ...plan.blockedReason, triggerId: plan.triggerId }]
+								: []),
+							...warnings,
+						]),
 					),
 			).pipe(
 				Effect.map((groups) => groups.flat()),
