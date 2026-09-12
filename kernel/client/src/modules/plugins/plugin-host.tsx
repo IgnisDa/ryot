@@ -22,6 +22,7 @@ import type { RyotClient } from "@ryot-app/client-sdk";
 import { Button, ScreenFrame, useShortcut } from "@ryot-app/client-ui-sdk";
 import type { PreparedClientPage } from "@ryot-app/contract/modules/client-pages/schemas";
 import clsx from "clsx";
+import { Effect } from "effect";
 import {
 	useEffect,
 	useEffectEvent,
@@ -94,30 +95,16 @@ export function PluginFrame(props: {
 	readonly onPageSearch: (request: PluginBridgePageSearch) => void;
 	readonly onScreenState: (state: PluginScreenReadiness | null) => void;
 	readonly onProviderSearch: (request: PluginBridgeProviderSearchScreen) => void;
-	readonly onAssets: (
-		request: PluginAssetRequest,
-		signal: AbortSignal,
-	) => Promise<PluginAssetOutcome>;
-	readonly onUpload: (
-		request: PluginUploadRequest,
-		signal: AbortSignal,
-	) => Promise<PluginUploadOutcome>;
+	readonly onAssets: (request: PluginAssetRequest) => Effect.Effect<PluginAssetOutcome>;
+	readonly onUpload: (request: PluginUploadRequest) => Effect.Effect<PluginUploadOutcome>;
 	readonly onCollection: (
 		request: PluginCollectionRequest,
-		signal: AbortSignal,
-	) => Promise<PluginCollectionOutcome>;
-	readonly onQuery: (
-		request: PluginRyotQLRequest,
-		signal: AbortSignal,
-	) => Promise<PluginRyotQLOutcome>;
+	) => Effect.Effect<PluginCollectionOutcome>;
+	readonly onQuery: (request: PluginRyotQLRequest) => Effect.Effect<PluginRyotQLOutcome>;
 	readonly onInvokeOperation: (
 		request: PluginOperationRequest,
-		signal: AbortSignal,
-	) => Promise<PluginOperationDispatchOutcome>;
-	readonly onStorage: (
-		request: PluginStorageRequest,
-		signal: AbortSignal,
-	) => Promise<PluginStorageOutcome>;
+	) => Effect.Effect<PluginOperationDispatchOutcome>;
+	readonly onStorage: (request: PluginStorageRequest) => Effect.Effect<PluginStorageOutcome>;
 }) {
 	const { key, index, compact, leading, edgeBack, location } = props.navigation;
 	const routePath = location.kind === "route" ? location.path : undefined;
@@ -326,14 +313,14 @@ export function PluginFrame(props: {
 			documentKey: latest.current.documentKey,
 			theme: latest.current.theme.getSnapshot(),
 			onOpenDrawer: () => latest.current.onOpenDrawer(),
+			onRyotQL: (request) => latest.current.onQuery(request),
+			onAssets: (request) => latest.current.onAssets(request),
+			onUpload: (request) => latest.current.onUpload(request),
+			onStorage: (request) => latest.current.onStorage(request),
 			onPageSearch: (request) => latest.current.onPageSearch(request),
-			onRyotQL: (request, signal) => latest.current.onQuery(request, signal),
+			onCollection: (request) => latest.current.onCollection(request),
 			onProviderSearch: (request) => latest.current.onProviderSearch(request),
-			onAssets: (request, signal) => latest.current.onAssets(request, signal),
-			onUpload: (request, signal) => latest.current.onUpload(request, signal),
-			onStorage: (request, signal) => latest.current.onStorage(request, signal),
 			onKernelShortcut: (shortcut) => latest.current.onKernelShortcut(shortcut),
-			onCollection: (request, signal) => latest.current.onCollection(request, signal),
 			watchEntities: (interest, onUpdate) => latest.current.watchEntities(interest, onUpdate),
 			onFailure: () => {
 				connection.failed = true;
@@ -380,16 +367,18 @@ export function PluginFrame(props: {
 					});
 				}
 			},
-			onOperation: async (request, signal) => {
-				const outcome = await latest.current.onInvokeOperation(request, signal);
-				if (outcome.outcome !== "stale-session") {
-					return outcome;
-				}
-				if (bridge.current === connection.session) {
-					markCompositionStale.current?.();
-				}
-				return { outcome: "failure", reason: "operation-failed" } satisfies PluginOperationOutcome;
-			},
+			onOperation: (request) =>
+				latest.current.onInvokeOperation(request).pipe(
+					Effect.map((outcome): PluginOperationOutcome => {
+						if (outcome.outcome !== "stale-session") {
+							return outcome;
+						}
+						if (bridge.current === connection.session) {
+							markCompositionStale.current?.();
+						}
+						return { outcome: "failure", reason: "operation-failed" };
+					}),
+				),
 		});
 		if (!connection.failed) {
 			connection.session = nextBridge;

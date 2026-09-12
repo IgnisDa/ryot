@@ -13,10 +13,9 @@ export class EntitiesService extends Context.Service<EntitiesService>()("Entitie
 	make: Effect.sync(() => ({
 		loadRouteProvenance: Effect.fn("EntitiesService.loadRouteProvenance")(
 			(client: EntityRouteClient, entityId: string) =>
-				Effect.tryPromise({
-					catch: (cause) => new EntityRouteLoadError({ cause }),
-					try: (signal) => client.data.query(entityRouteProvenanceRecipe({ entityId }), { signal }),
-				}),
+				client.data
+					.query(entityRouteProvenanceRecipe({ entityId }))
+					.pipe(Effect.mapError((cause) => new EntityRouteLoadError({ cause }))),
 		),
 	})),
 }) {

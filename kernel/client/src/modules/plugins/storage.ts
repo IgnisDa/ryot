@@ -4,12 +4,14 @@ import {
 	type PluginStorageRequest,
 } from "@ryot-app/client-plugin-contract";
 import type { PreparedClientPage } from "@ryot-app/contract/modules/client-pages/schemas";
-import { Effect } from "effect";
+import { JsonValue } from "@ryot-app/contract/schema/json";
+import { Effect, Schema } from "effect";
 
 import type { ApiScope } from "#/api/scope";
 import { ClientStorage } from "#/persistence/storage";
 
 const invalidRequest = { outcome: "failure", reason: "invalid-request" } as const;
+const encodeValue = Schema.encodeSync(Schema.fromJsonString(JsonValue));
 
 // Same-realm plugins in one frame cannot be told apart, so the slug is checked only against the
 // frame's own composition.
@@ -37,7 +39,7 @@ export const pluginStorageOutcome = (
 			return { value: null, outcome: "success" } as const;
 		}
 		if (
-			new TextEncoder().encode(JSON.stringify(request.value)).byteLength >
+			new TextEncoder().encode(encodeValue(request.value)).byteLength >
 			PLUGIN_STORAGE_VALUE_MAX_BYTES
 		) {
 			return invalidRequest;

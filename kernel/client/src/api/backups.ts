@@ -23,6 +23,7 @@ export class BackupsApi extends Context.Service<BackupsApi>()("BackupsApi", {
 					const response = yield* Effect.tryPromise({
 						catch: (cause) => new AuthenticatedApiError({ cause }),
 						try: (signal) =>
+							// oxlint-disable-next-line effecttsgo/global-fetch-in-effect -- Archive bytes require a browser download with the bearer header.
 							fetch(resolveApiUrl(scope.serverUrl, `backups/runs/${runId}/download`), {
 								signal,
 								headers,

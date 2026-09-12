@@ -19,6 +19,7 @@ export const Route = createFileRoute("/_authenticated")({
 	component: AuthenticatedLayout,
 	pendingComponent: RestoringSession,
 	errorComponent: AuthenticatedLoadError,
+	// oxlint-disable-next-line effecttsgo/async-function -- TanStack route guard.
 	beforeLoad: async ({ context, location }) => {
 		const authenticated = await protectedRouteGuard(context, location.href);
 		const session = context.ryotClients.get(authenticated.scope);
@@ -29,6 +30,7 @@ export const Route = createFileRoute("/_authenticated")({
 			hostServices: session.hostServices,
 		};
 	},
+	// oxlint-disable-next-line effecttsgo/async-function -- TanStack loader.
 	loader: async ({ context, location, abortController }) => {
 		const [catalog, navigation, rememberedSlug, isPro] = await context.runtime.runPromise(
 			Effect.gen(function* () {

@@ -249,6 +249,7 @@ const mountView = (
 	auth: Layer.Layer<AuthService> = AuthStub,
 ) => {
 	const events = makePluginCatalogEventsTestLayer();
+	const publicApi = makePublicApiStub();
 	const runtime = ManagedRuntime.make(
 		Layer.mergeAll(
 			ProviderAddRouteStubs,
@@ -258,7 +259,7 @@ const mountView = (
 			ServerStub,
 			SavedViewRouteStubs,
 			EntityRouteStubs,
-			makePublicApiStub(),
+			publicApi,
 			KernelApiTestLayer,
 			ClientPagesApiRouteStubs,
 			ClientPageSessionsRouteStubs,
@@ -269,7 +270,7 @@ const mountView = (
 			CustomizeRouteStubs,
 			makePluginOperations(),
 			makePluginQueries(),
-			IntegrationsService.layer,
+			IntegrationsService.layer.pipe(Layer.provide(publicApi)),
 			queries,
 			integrationsApi,
 			NotificationChannelRouteStubs,
@@ -287,6 +288,7 @@ const mountView = (
 };
 
 describe("integrations list", () => {
+	// oxlint-disable-next-line effecttsgo/async-function -- Vitest awaits this Promise-based test callback and its framework assertions.
 	it("keeps demo summaries visible while disabling protected actions", async () => {
 		mountView(
 			"/settings/integrations",
@@ -307,6 +309,7 @@ describe("integrations list", () => {
 		).toBe(true);
 	});
 
+	// oxlint-disable-next-line effecttsgo/async-function -- Vitest awaits this Promise-based test callback and its framework assertions.
 	it("names each integration and opens the one that was clicked", async () => {
 		const view = mountView(
 			"/settings/integrations",
@@ -333,6 +336,7 @@ describe("integrations list", () => {
 		);
 	});
 
+	// oxlint-disable-next-line effecttsgo/async-function -- Vitest awaits this Promise-based test callback and its framework assertions.
 	it("reports whether a sync could be started", async () => {
 		let attempts = 0;
 		mountView(
@@ -357,6 +361,7 @@ describe("integrations list", () => {
 		expect(attempts).toBe(2);
 	});
 
+	// oxlint-disable-next-line effecttsgo/async-function -- Vitest awaits this Promise-based test callback and its framework assertions.
 	it("connects a service and refreshes the expanded list without resetting pagination", async () => {
 		const created: CreateIntegrationBody[] = [];
 		const limits: number[] = [];
@@ -409,6 +414,7 @@ describe("integrations list", () => {
 		expect(screen.queryByRole("dialog", { name: "Connect a service" })).toBeNull();
 	});
 
+	// oxlint-disable-next-line effecttsgo/async-function -- Vitest awaits this Promise-based test callback and its framework assertions.
 	it("keeps the failure visible when the services cannot be listed", async () => {
 		mountView(
 			"/settings/integrations",
@@ -427,6 +433,7 @@ describe("integrations list", () => {
 });
 
 describe("integration detail", () => {
+	// oxlint-disable-next-line effecttsgo/async-function -- Vitest awaits this Promise-based test callback and its framework assertions.
 	it("does not request or expose protected demo integration detail", async () => {
 		let gets = 0;
 		mountView(
@@ -453,9 +460,11 @@ describe("integration detail", () => {
 		expect(screen.queryByRole("button", { name: "Integration actions" })).toBeNull();
 	});
 
+	// oxlint-disable-next-line effecttsgo/async-function -- Vitest awaits this Promise-based test callback and its framework assertions.
 	it("uses loader data until the ID-keyed detail query succeeds", async () => {
 		let gets = 0;
 		let resolveDetail!: (integration: IntegrationDetailRow) => void;
+		// oxlint-disable-next-line effecttsgo/new-promise -- This controllable test gate stays pending until the host callback or test releases it.
 		const pendingDetail = new Promise<IntegrationDetailRow>((resolve) => {
 			resolveDetail = resolve;
 		});
@@ -478,6 +487,7 @@ describe("integration detail", () => {
 		expect(gets).toBe(2);
 	});
 
+	// oxlint-disable-next-line effecttsgo/async-function -- Vitest awaits this Promise-based test callback and its framework assertions.
 	it("shows the webhook URL and recent runs", async () => {
 		mountView(
 			"/settings/integrations/int_1",
@@ -503,6 +513,7 @@ describe("integration detail", () => {
 		expect(screen.getByText("12 added")).not.toBeNull();
 	});
 
+	// oxlint-disable-next-line effecttsgo/async-function -- Vitest awaits this Promise-based test callback and its framework assertions.
 	it("saves edited settings through the update endpoint", async () => {
 		const saved: UpdateIntegrationBody[] = [];
 		let stored = makeDetail();
@@ -526,6 +537,7 @@ describe("integration detail", () => {
 		await screen.findByRole("heading", { level: 1, name: "Renamed" });
 	});
 
+	// oxlint-disable-next-line effecttsgo/async-function -- Vitest awaits this Promise-based test callback and its framework assertions.
 	it("keeps successful detail content when mutation refresh fails", async () => {
 		let gets = 0;
 		mountView(
@@ -551,6 +563,7 @@ describe("integration detail", () => {
 		expect(screen.getByRole("heading", { level: 1, name: "Current integration" })).not.toBeNull();
 	});
 
+	// oxlint-disable-next-line effecttsgo/async-function -- Vitest awaits this Promise-based test callback and its framework assertions.
 	it("returns to the list after a confirmed delete", async () => {
 		const deleted: string[] = [];
 		const view = mountView(
@@ -573,6 +586,7 @@ describe("integration detail", () => {
 		await waitFor(() => expect(view.router.state.location.pathname).toBe("/settings/integrations"));
 	});
 
+	// oxlint-disable-next-line effecttsgo/async-function -- Vitest awaits this Promise-based test callback and its framework assertions.
 	it("shows a not-found state for an integration that no longer exists", async () => {
 		mountView(
 			"/settings/integrations/int_1",

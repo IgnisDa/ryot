@@ -3,6 +3,7 @@ import { fireEvent, render, screen, waitFor, within } from "@testing-library/rea
 import { Cause, Exit } from "effect";
 import { assert, describe, expect, it } from "vitest";
 
+import { AdminApiError } from "#/api/admin";
 import { MigrationReportView } from "#/modules/god-mode/migration-report-view";
 import type { GodModeMigrationReport } from "#/modules/god-mode/service";
 
@@ -61,6 +62,7 @@ const emptyReport: GodModeMigrationReport = {
 };
 
 describe("MigrationReportView", () => {
+	// oxlint-disable-next-line effecttsgo/async-function -- Vitest awaits this Promise-based test callback and its framework assertions.
 	it("loads on mount and renders the semantic report table", async () => {
 		const requests: Array<{ after: string | undefined; signal: AbortSignal }> = [];
 		render(
@@ -89,6 +91,7 @@ describe("MigrationReportView", () => {
 		expect(within(table).getByText("12.5s")).toBeTruthy();
 	});
 
+	// oxlint-disable-next-line effecttsgo/async-function -- Vitest awaits this Promise-based test callback and its framework assertions.
 	it("expands a coded warning to reveal its per-record detail and total", async () => {
 		render(
 			<MigrationReportView
@@ -109,6 +112,7 @@ describe("MigrationReportView", () => {
 		expect(screen.getByText(/and 1,233 more, queryable in migration_report_detail/)).toBeTruthy();
 	});
 
+	// oxlint-disable-next-line effecttsgo/async-function -- Vitest awaits this Promise-based test callback and its framework assertions.
 	it("gives rows without a code no expand affordance", async () => {
 		render(
 			<MigrationReportView
@@ -121,6 +125,7 @@ describe("MigrationReportView", () => {
 		expect(screen.queryByRole("button", { name: /row\(s\) migrated total/ })).toBeNull();
 	});
 
+	// oxlint-disable-next-line effecttsgo/async-function -- Vitest awaits this Promise-based test callback and its framework assertions.
 	it("loads the next cursor and keeps previous reports visible after a failure and retry", async () => {
 		const nextEntry = report.items.at(-1);
 		assert(nextEntry);
@@ -142,7 +147,7 @@ describe("MigrationReportView", () => {
 					nextAttempts += 1;
 					return Promise.resolve(
 						nextAttempts === 1
-							? Exit.fail(new Error("offline"))
+							? Exit.fail(new AdminApiError({ cause: "offline" }))
 							: Exit.succeed({
 									pageInfo: { limit: 50, hasMore: false, nextCursor: null },
 									items: [{ ...nextEntry, seq: 5, message: "Completed another phase" }],
@@ -161,6 +166,7 @@ describe("MigrationReportView", () => {
 		expect(screen.queryByRole("button", { name: "Load more reports" })).toBeNull();
 	});
 
+	// oxlint-disable-next-line effecttsgo/async-function -- Vitest awaits this Promise-based test callback and its framework assertions.
 	it("retries an initial non-auth failure and shows the empty state", async () => {
 		let calls = 0;
 		render(
@@ -169,7 +175,9 @@ describe("MigrationReportView", () => {
 				load={() => {
 					calls += 1;
 					return Promise.resolve(
-						calls === 1 ? Exit.fail(new Error("offline")) : Exit.succeed(emptyReport),
+						calls === 1
+							? Exit.fail(new AdminApiError({ cause: "offline" }))
+							: Exit.succeed(emptyReport),
 					);
 				}}
 			/>,
@@ -180,6 +188,7 @@ describe("MigrationReportView", () => {
 		expect(calls).toBe(2);
 	});
 
+	// oxlint-disable-next-line effecttsgo/async-function -- Vitest awaits this Promise-based test callback and its framework assertions.
 	it("relocks on unauthorized without showing a retry state", async () => {
 		let relocks = 0;
 		render(
@@ -209,6 +218,7 @@ describe("MigrationReportView", () => {
 				unauthorized={() => undefined}
 				load={(_, value) => {
 					signal = value;
+					// oxlint-disable-next-line effecttsgo/new-promise -- The load must remain pending so unmount can abort its signal.
 					return new Promise(() => undefined);
 				}}
 			/>,

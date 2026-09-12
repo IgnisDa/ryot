@@ -19,6 +19,7 @@ export const Route = createFileRoute("/auth")({
 			message="Restoring your session and contacting the server..."
 		/>
 	),
+	// oxlint-disable-next-line effecttsgo/async-function -- TanStack route guard.
 	beforeLoad: async ({ search, context }) => {
 		const result = await context.runtime.runPromise(
 			Effect.flatMap(OAuthLauncher, (launcher) => launcher.prepare(search.redirect)),
@@ -87,6 +88,7 @@ function OAuthLaunch() {
 		}
 	}, [plan]);
 
+	// oxlint-disable-next-line effecttsgo/async-function -- React server-selection handler.
 	async function changeServer() {
 		await runtime.runPromise(auth.changeServer(decodeServerOrigin(plan.pending.serverOrigin)));
 		await navigate({ replace: true, to: "/onboarding", search: { redirect: search.redirect } });

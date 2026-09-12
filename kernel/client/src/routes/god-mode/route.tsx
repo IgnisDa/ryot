@@ -6,6 +6,7 @@ import { ServerService } from "#/modules/server/service";
 
 export const Route = createFileRoute("/god-mode")({
 	component: GodModeRoute,
+	// oxlint-disable-next-line effecttsgo/async-function -- TanStack route guard.
 	beforeLoad: async ({ context, location }) => {
 		const server = await context.runtime.runPromise(
 			Effect.flatMap(ServerService, (service) => service.selected),

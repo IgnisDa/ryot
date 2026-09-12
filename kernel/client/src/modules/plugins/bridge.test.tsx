@@ -32,7 +32,7 @@ import { createTestRyotAdapter } from "@ryot-app/client-sdk/testing";
 import { MembershipResponse } from "@ryot-app/contract/modules/collections/schemas";
 import { EntityId, EntitySchemaSlug, PluginSlug } from "@ryot-app/contract/schema/brands";
 import { waitFor } from "@testing-library/dom";
-import { Schema } from "effect";
+import { Effect, Schema } from "effect";
 import { afterEach, describe, expect, it } from "vitest";
 
 import {
@@ -98,11 +98,12 @@ afterEach(() => {
 	}
 });
 
-const delay = (ms: number) => new Promise((resolve) => setTimeout(resolve, ms));
+const delay = (ms: number) => Effect.runPromise(Effect.sleep(ms));
 
 function deferred<T>() {
 	let resolve!: (value: T) => void;
 	let reject!: (reason: unknown) => void;
+	// oxlint-disable-next-line effecttsgo/new-promise -- This controllable test gate stays pending until the host callback or test releases it.
 	const promise = new Promise<T>((res, rej) => {
 		resolve = res;
 		reject = rej;
@@ -117,22 +118,10 @@ const connect = (
 		readonly onUpload?: Parameters<typeof openPluginBridge>[0]["onUpload"];
 		readonly scheduleOverlayDismissTimeout?: (onTimeout: () => void) => () => void;
 		readonly watchEntities?: Parameters<typeof openPluginBridge>[0]["watchEntities"];
-		readonly onCollection?: (
-			request: PluginCollectionRequest,
-			signal: AbortSignal,
-		) => Promise<PluginCollectionOutcome>;
-		readonly onOperation?: (
-			request: PluginOperationRequest,
-			signal: AbortSignal,
-		) => Promise<PluginOperationOutcome>;
-		readonly onRyotQL?: (
-			request: PluginRyotQLRequest,
-			signal: AbortSignal,
-		) => Promise<PluginRyotQLOutcome>;
-		readonly onStorage?: (
-			request: PluginStorageRequest,
-			signal: AbortSignal,
-		) => Promise<PluginStorageOutcome>;
+		readonly onCollection?: Parameters<typeof openPluginBridge>[0]["onCollection"];
+		readonly onOperation?: Parameters<typeof openPluginBridge>[0]["onOperation"];
+		readonly onRyotQL?: Parameters<typeof openPluginBridge>[0]["onRyotQL"];
+		readonly onStorage?: Parameters<typeof openPluginBridge>[0]["onStorage"];
 	} = {},
 ) => {
 	const backs: null[] = [];
@@ -153,7 +142,6 @@ const connect = (
 	const pageShortcuts: (readonly PageShortcutKey[])[] = [];
 	const operationCalls: Array<{
 		readonly input: unknown;
-		readonly signal: AbortSignal;
 		readonly pluginSlug: string;
 		readonly operationSlug: string;
 	}> = [];
@@ -172,28 +160,27 @@ const connect = (
 		viewport: { safeAreaTop: 0, safeAreaBottom: 0 },
 		onNavigate: (request) => navigations.push(request),
 		onScreenState: (state) => screenStates.push(state),
+		onAssets: options.onAssets ?? (() => Effect.never),
+		onRyotQL: options.onRyotQL ?? (() => Effect.never),
+		onUpload: options.onUpload ?? (() => Effect.never),
 		onOverlayState: (count) => overlayStates.push(count),
+		onStorage: options.onStorage ?? (() => Effect.never),
 		onPageSearch: (request) => pageSearches.push(request),
 		onKernelShortcut: (shortcut) => shortcuts.push(shortcut),
-		onAssets: options.onAssets ?? (() => new Promise(() => {})),
-		onRyotQL: options.onRyotQL ?? (() => new Promise(() => {})),
-		onUpload: options.onUpload ?? (() => new Promise(() => {})),
-		onStorage: options.onStorage ?? (() => new Promise(() => {})),
+		onCollection: options.onCollection ?? (() => Effect.never),
 		onProviderSearch: (request) => providerSearches.push(request),
 		onPageShortcuts: (registered) => pageShortcuts.push(registered),
-		onCollection: options.onCollection ?? (() => new Promise(() => {})),
 		scheduleOverlayDismissTimeout: options.scheduleOverlayDismissTimeout,
 		watchEntities: options.watchEntities ?? (() => ({ update: () => {}, dispose: () => {} })),
 		onOperation:
 			options.onOperation ??
-			((request, signal) => {
+			((request) => {
 				operationCalls.push({
-					signal,
 					input: request.input,
 					pluginSlug: request.pluginSlug,
 					operationSlug: request.operationSlug,
 				});
-				return new Promise(() => {});
+				return Effect.never;
 			}),
 		target: {
 			postMessage: (message, targetOrigin, transfer) => {
@@ -265,6 +252,7 @@ const readyFor = (init: PluginBridgeInit): PluginBridgeReady => ({
 });
 
 describe("bridge page screens", () => {
+	// oxlint-disable-next-line effecttsgo/async-function -- Vitest awaits this Promise-based test callback and its framework assertions.
 	it("delivers the latest document when navigation changes before handshake completes", async () => {
 		const { init, session, received, pluginPort } = connect();
 		const page = {
@@ -292,15 +280,18 @@ describe("bridge page screens", () => {
 		);
 		expect(received).toHaveLength(1);
 	});
+	// oxlint-disable-next-line effecttsgo/async-function -- Vitest awaits this Promise-based test callback and its framework assertions.
 	it("replaces the document on the same port and cancels old page requests", async () => {
 		let aborted = false;
 		const { init, session, received, pluginPort, overlayStates, pageShortcuts } = connect({
-			onRyotQL: (_request, signal) => {
-				signal.addEventListener("abort", () => {
-					aborted = true;
-				});
-				return new Promise(() => {});
-			},
+			onRyotQL: () =>
+				Effect.promise((signal) => {
+					signal.addEventListener("abort", () => {
+						aborted = true;
+					});
+					// oxlint-disable-next-line effecttsgo/new-promise -- This test keeps the injected host request pending to verify cancellation or admission.
+					return new Promise<never>(() => {});
+				}),
 		});
 		pluginPort.postMessage(readyFor(init));
 		await waitFor(() => expect(received).toEqual([at()]));
@@ -334,6 +325,7 @@ describe("bridge page screens", () => {
 		expect(overlayStates.at(-1)).toBe(0);
 		expect(pageShortcuts.at(-1)).toEqual([]);
 	});
+	// oxlint-disable-next-line effecttsgo/async-function -- Vitest awaits this Promise-based test callback and its framework assertions.
 	it("forwards provider search and sends one page refresh", async () => {
 		const { init, session, received, pluginPort, providerSearches } = connect();
 		pluginPort.postMessage(readyFor(init));
@@ -359,6 +351,7 @@ describe("bridge page screens", () => {
 		]);
 	});
 
+	// oxlint-disable-next-line effecttsgo/async-function -- Vitest awaits this Promise-based test callback and its framework assertions.
 	it("registers only allowlisted page shortcuts and sends presses back down", async () => {
 		const { init, session, received, pluginPort, pageShortcuts } = connect();
 		pluginPort.postMessage(readyFor(init));
@@ -381,6 +374,7 @@ describe("bridge page screens", () => {
 describe("bridge entity interest", () => {
 	it.each(["close", "crash", "invalid"])(
 		"keeps one mutable owner and releases it on %s",
+		// oxlint-disable-next-line effecttsgo/async-function -- Vitest awaits this Promise-based test callback and its framework assertions.
 		async (exit) => {
 			const declarations: unknown[] = [];
 			let disposed = 0;
@@ -389,7 +383,7 @@ describe("bridge entity interest", () => {
 				| undefined;
 			const client = createRyotClient(
 				createTestRyotAdapter({
-					query: () => Promise.resolve({}),
+					query: () => Effect.succeed({}),
 					watchEntities: (interest, onUpdate) => {
 						declarations.push(interest);
 						notify = onUpdate;
@@ -459,6 +453,7 @@ describe("bridge entity interest", () => {
 		},
 	);
 
+	// oxlint-disable-next-line effecttsgo/async-function -- Vitest awaits this Promise-based test callback and its framework assertions.
 	it("does not spend request slots or fail the iframe when interest transport fails", async () => {
 		let declarations = 0;
 		const bridge = connect({
@@ -484,6 +479,7 @@ describe("bridge entity interest", () => {
 });
 
 describe("plugin bridge", () => {
+	// oxlint-disable-next-line effecttsgo/async-function -- Vitest awaits this Promise-based test callback and its framework assertions.
 	it("allows one acknowledged overlay dismissal at a time and preserves aggregate order", async () => {
 		const { init, session, received, pluginPort, overlayStates } = connect();
 		pluginPort.postMessage(readyFor(init));
@@ -511,6 +507,7 @@ describe("plugin bridge", () => {
 		);
 	});
 
+	// oxlint-disable-next-line effecttsgo/async-function -- Vitest awaits this Promise-based test callback and its framework assertions.
 	it("fails a document whose overlay dismissal is not acknowledged within the bound", async () => {
 		let expire: (() => void) | undefined;
 		const { init, session, failures, pluginPort } = connect({
@@ -531,6 +528,7 @@ describe("plugin bridge", () => {
 		expect(session.requestOverlayDismiss()).toBe(false);
 	});
 
+	// oxlint-disable-next-line effecttsgo/async-function -- Vitest awaits this Promise-based test callback and its framework assertions.
 	it("routes explicit plugin Back through an owned overlay before navigation", async () => {
 		const { init, backs, received, pluginPort } = connect();
 		pluginPort.postMessage(readyFor(init));
@@ -562,6 +560,7 @@ describe("plugin bridge", () => {
 		expect(init.sessionId).not.toBe("");
 	});
 
+	// oxlint-disable-next-line effecttsgo/async-function -- Vitest awaits this Promise-based test callback and its framework assertions.
 	it("cleans up immediately when the initial port transfer fails", async () => {
 		const failures: null[] = [];
 		const session = openPluginBridge({
@@ -573,21 +572,21 @@ describe("plugin bridge", () => {
 			documentKey: "page-1",
 			onReady: () => undefined,
 			onNavigate: () => undefined,
+			onAssets: () => Effect.never,
+			onRyotQL: () => Effect.never,
+			onUpload: () => Effect.never,
+			onStorage: () => Effect.never,
 			onPageSearch: () => undefined,
 			onOpenDrawer: () => undefined,
 			onScreenState: () => undefined,
 			onOverlayState: () => undefined,
+			onOperation: () => Effect.never,
 			onNavigateBack: () => undefined,
+			onCollection: () => Effect.never,
 			onPageShortcuts: () => undefined,
 			onKernelShortcut: () => undefined,
 			onProviderSearch: () => undefined,
 			onFailure: () => failures.push(null),
-			onAssets: () => new Promise(() => {}),
-			onRyotQL: () => new Promise(() => {}),
-			onUpload: () => new Promise(() => {}),
-			onStorage: () => new Promise(() => {}),
-			onOperation: () => new Promise(() => {}),
-			onCollection: () => new Promise(() => {}),
 			viewport: { safeAreaTop: 0, safeAreaBottom: 0 },
 			watchEntities: () => ({ update: () => {}, dispose: () => {} }),
 			target: {
@@ -603,6 +602,7 @@ describe("plugin bridge", () => {
 		expect(failures).toHaveLength(1);
 	});
 
+	// oxlint-disable-next-line effecttsgo/async-function -- Vitest awaits this Promise-based test callback and its framework assertions.
 	it("readies with the location as soon as the plugin reports ready", async () => {
 		const { init, readies, failures, messages, pluginPort } = connect();
 
@@ -613,6 +613,7 @@ describe("plugin bridge", () => {
 		expect(failures).toEqual([]);
 	});
 
+	// oxlint-disable-next-line effecttsgo/async-function -- Vitest awaits this Promise-based test callback and its framework assertions.
 	it("forwards matching active screen readiness without protocol policy", async () => {
 		const { init, readies, pluginPort, screenStates } = connect();
 
@@ -625,6 +626,7 @@ describe("plugin bridge", () => {
 		);
 	});
 
+	// oxlint-disable-next-line effecttsgo/async-function -- Vitest awaits this Promise-based test callback and its framework assertions.
 	it("dispatches semantic kernel shortcuts once ready", async () => {
 		const { init, readies, shortcuts, pluginPort } = connect();
 
@@ -636,6 +638,7 @@ describe("plugin bridge", () => {
 		await waitFor(() => expect(shortcuts).toEqual(["command-center", "workspace-switcher"]));
 	});
 
+	// oxlint-disable-next-line effecttsgo/async-function -- Vitest awaits this Promise-based test callback and its framework assertions.
 	it("ignores screen readiness that no longer matches the latest navigation", async () => {
 		const { init, readies, session, pluginPort, screenStates } = connect();
 
@@ -650,6 +653,7 @@ describe("plugin bridge", () => {
 		);
 	});
 
+	// oxlint-disable-next-line effecttsgo/async-function -- Vitest awaits this Promise-based test callback and its framework assertions.
 	it("does not process screen readiness before activation or after close", async () => {
 		const premature = connect();
 		premature.pluginPort.postMessage({
@@ -676,6 +680,7 @@ describe("plugin bridge", () => {
 		expect(closed.screenStates).toEqual([]);
 	});
 
+	// oxlint-disable-next-line effecttsgo/async-function -- Vitest awaits this Promise-based test callback and its framework assertions.
 	it("fails a ready from another session or another artifact", async () => {
 		const other = connect();
 		other.pluginPort.postMessage({ ...readyFor(other.init), sessionId: "other-session" });
@@ -692,6 +697,7 @@ describe("plugin bridge", () => {
 		expect(mismatched.readies).toEqual([]);
 	});
 
+	// oxlint-disable-next-line effecttsgo/async-function -- Vitest awaits this Promise-based test callback and its framework assertions.
 	it("fails a malformed, wrong-version, or out-of-order first message", async () => {
 		const malformed = connect();
 		malformed.pluginPort.postMessage({ sessionId: malformed.init.sessionId });
@@ -708,6 +714,7 @@ describe("plugin bridge", () => {
 		expect(premature.navigations).toEqual([]);
 	});
 
+	// oxlint-disable-next-line effecttsgo/async-function -- Vitest awaits this Promise-based test callback and its framework assertions.
 	it("honors lifecycle closure before activation without replying with a failure", async () => {
 		const disposed = connect();
 		disposed.pluginPort.postMessage({ reason: "disposed", type: "lifecycle-close" });
@@ -721,6 +728,7 @@ describe("plugin bridge", () => {
 		expect(failed.received).toEqual([]);
 	});
 
+	// oxlint-disable-next-line effecttsgo/async-function -- Vitest awaits this Promise-based test callback and its framework assertions.
 	it("fails when the plugin never completes the handshake", async () => {
 		const { readies, failures } = connect({ timeoutMs: 10 });
 
@@ -728,6 +736,7 @@ describe("plugin bridge", () => {
 		expect(readies).toEqual([]);
 	});
 
+	// oxlint-disable-next-line effecttsgo/async-function -- Vitest awaits this Promise-based test callback and its framework assertions.
 	it("stops the handshake timeout once the plugin is ready", async () => {
 		const { init, readies, failures, pluginPort } = connect({ timeoutMs: 10 });
 
@@ -738,6 +747,7 @@ describe("plugin bridge", () => {
 		expect(failures).toEqual([]);
 	});
 
+	// oxlint-disable-next-line effecttsgo/async-function -- Vitest awaits this Promise-based test callback and its framework assertions.
 	it("delivers only the latest pre-ready location, then every later location", async () => {
 		const { init, session, received, pluginPort } = connect();
 
@@ -759,6 +769,7 @@ describe("plugin bridge", () => {
 		);
 	});
 
+	// oxlint-disable-next-line effecttsgo/async-function -- Vitest awaits this Promise-based test callback and its framework assertions.
 	it("sends an entity location from the kernel to the plugin", async () => {
 		const { init, session, received, pluginPort } = connect();
 
@@ -770,6 +781,7 @@ describe("plugin bridge", () => {
 		await waitFor(() => expect(received).toEqual([at(), at(entity, 1)]));
 	});
 
+	// oxlint-disable-next-line effecttsgo/async-function -- Vitest awaits this Promise-based test callback and its framework assertions.
 	it("latches a pre-ready theme change and sends later themes on the active channel", async () => {
 		const { init, readies, session, messages, pluginPort } = connect();
 
@@ -789,6 +801,7 @@ describe("plugin bridge", () => {
 		);
 	});
 
+	// oxlint-disable-next-line effecttsgo/async-function -- Vitest awaits this Promise-based test callback and its framework assertions.
 	it("sends no theme when the pre-ready mode still matches init", async () => {
 		const { init, readies, session, messages, pluginPort } = connect();
 
@@ -800,6 +813,7 @@ describe("plugin bridge", () => {
 		expect(messages).toEqual([at()]);
 	});
 
+	// oxlint-disable-next-line effecttsgo/async-function -- Vitest awaits this Promise-based test callback and its framework assertions.
 	it("forwards decoded navigation requests once ready", async () => {
 		const { init, readies, failures, pluginPort, navigations } = connect();
 		const request = {
@@ -821,6 +835,7 @@ describe("plugin bridge", () => {
 		expect(failures).toEqual([]);
 	});
 
+	// oxlint-disable-next-line effecttsgo/async-function -- Vitest awaits this Promise-based test callback and its framework assertions.
 	it("round-trips a managed asset request and result without identity details", async () => {
 		const assets = [{ type: "local", key: "permanent/cover.png" }] as const;
 		const resolutions = [
@@ -834,7 +849,7 @@ describe("plugin bridge", () => {
 		const { init, received, pluginPort } = connect({
 			onAssets: (request) => {
 				calls.push(request);
-				return Promise.resolve({ resolutions, outcome: "success" });
+				return Effect.succeed({ resolutions, outcome: "success" });
 			},
 		});
 		pluginPort.postMessage(readyFor(init));
@@ -853,9 +868,10 @@ describe("plugin bridge", () => {
 	});
 
 	for (const reason of ["asset-failed", "transport"] satisfies PluginAssetBridgeErrorReason[]) {
+		// oxlint-disable-next-line effecttsgo/async-function -- Vitest awaits this Promise-based test callback and its framework assertions.
 		it(`round-trips an ${reason} asset bridge error without extra details`, async () => {
 			const { init, received, failures, pluginPort } = connect({
-				onAssets: () => Promise.resolve({ reason, outcome: "failure" }),
+				onAssets: () => Effect.succeed({ reason, outcome: "failure" }),
 			});
 			pluginPort.postMessage(readyFor(init));
 			await waitFor(() => expect(received).toHaveLength(1));
@@ -877,12 +893,13 @@ describe("plugin bridge", () => {
 		});
 	}
 
+	// oxlint-disable-next-line effecttsgo/async-function -- Vitest awaits this Promise-based test callback and its framework assertions.
 	it("rejects an asset request carrying installation or authentication identity", async () => {
 		const calls: PluginAssetRequest[] = [];
 		const { init, received, failures, pluginPort } = connect({
 			onAssets: (request) => {
 				calls.push(request);
-				return Promise.resolve({ resolutions: [], outcome: "success" });
+				return Effect.succeed({ resolutions: [], outcome: "success" });
 			},
 		});
 		pluginPort.postMessage(readyFor(init));
@@ -902,16 +919,18 @@ describe("plugin bridge", () => {
 		expect(received).toEqual([at(), { reason: "failed", type: "lifecycle-close" }]);
 	});
 
+	// oxlint-disable-next-line effecttsgo/async-function -- Vitest awaits this Promise-based test callback and its framework assertions.
 	it("cancels only matching asset work, releases admission, and ignores late results", async () => {
 		const signals: AbortSignal[] = [];
 		const calls: Array<ReturnType<typeof deferred<PluginAssetOutcome>>> = [];
 		const { init, received, failures, pluginPort } = connect({
-			onAssets: (_request, signal) => {
-				signals.push(signal);
-				const call = deferred<PluginAssetOutcome>();
-				calls.push(call);
-				return call.promise;
-			},
+			onAssets: () =>
+				Effect.promise((signal) => {
+					signals.push(signal);
+					const call = deferred<PluginAssetOutcome>();
+					calls.push(call);
+					return call.promise;
+				}),
 		});
 		pluginPort.postMessage(readyFor(init));
 		await waitFor(() => expect(received).toHaveLength(1));
@@ -952,14 +971,16 @@ describe("plugin bridge", () => {
 		expect(failures).toEqual([]);
 	});
 
+	// oxlint-disable-next-line effecttsgo/async-function -- Vitest awaits this Promise-based test callback and its framework assertions.
 	it("aborts pending asset work on disposal and suppresses its late result", async () => {
 		let signal: AbortSignal | undefined;
 		const call = deferred<PluginAssetOutcome>();
 		const { init, session, received, pluginPort } = connect({
-			onAssets: (_request, requestSignal) => {
-				signal = requestSignal;
-				return call.promise;
-			},
+			onAssets: () =>
+				Effect.promise((requestSignal) => {
+					signal = requestSignal;
+					return call.promise;
+				}),
 		});
 		pluginPort.postMessage(readyFor(init));
 		await waitFor(() => expect(received).toHaveLength(1));
@@ -978,6 +999,7 @@ describe("plugin bridge", () => {
 		expect(received).toEqual([at(), { reason: "disposed", type: "lifecycle-close" }]);
 	});
 
+	// oxlint-disable-next-line effecttsgo/async-function -- Vitest awaits this Promise-based test callback and its framework assertions.
 	it("sends only lifecycle close after teardown or a failed handshake", async () => {
 		const torndown = connect();
 		torndown.session.close();
@@ -993,6 +1015,7 @@ describe("plugin bridge", () => {
 		expect(failed.received).toEqual([{ reason: "failed", type: "lifecycle-close" }]);
 	});
 
+	// oxlint-disable-next-line effecttsgo/async-function -- Vitest awaits this Promise-based test callback and its framework assertions.
 	it("stops delivering after teardown", async () => {
 		const { init, readies, session, failures, pluginPort } = connect();
 
@@ -1004,14 +1027,16 @@ describe("plugin bridge", () => {
 		expect(failures).toEqual([]);
 	});
 
+	// oxlint-disable-next-line effecttsgo/async-function -- Vitest awaits this Promise-based test callback and its framework assertions.
 	it("honors peer disposal, aborts work, and ignores late admissions", async () => {
 		let signal: AbortSignal | undefined;
 		const call = deferred<PluginOperationOutcome>();
 		const { init, received, pluginPort, navigations } = connect({
-			onOperation: (_request, requestSignal) => {
-				signal = requestSignal;
-				return call.promise;
-			},
+			onOperation: () =>
+				Effect.promise((requestSignal) => {
+					signal = requestSignal;
+					return call.promise;
+				}),
 		});
 		pluginPort.postMessage(readyFor(init));
 		await waitFor(() => expect(received).toHaveLength(1));
@@ -1033,12 +1058,13 @@ describe("plugin bridge", () => {
 		expect(received).toEqual([at()]);
 	});
 
+	// oxlint-disable-next-line effecttsgo/async-function -- Vitest awaits this Promise-based test callback and its framework assertions.
 	it("round-trips a successful operation", async () => {
 		const calls: PluginOperationRequest[] = [];
 		const { init, received, pluginPort } = connect({
 			onOperation: (request) => {
 				calls.push(request);
-				return Promise.resolve({ value: "ok", outcome: "success" });
+				return Effect.succeed({ value: "ok", outcome: "success" });
 			},
 		});
 		pluginPort.postMessage(readyFor(init));
@@ -1064,6 +1090,7 @@ describe("plugin bridge", () => {
 		]);
 	});
 
+	// oxlint-disable-next-line effecttsgo/async-function -- Vitest awaits this Promise-based test callback and its framework assertions.
 	it("round-trips a collection mutation and sanitizes invalid outcomes", async () => {
 		const calls: PluginCollectionRequest[] = [];
 		let count = 0;
@@ -1072,7 +1099,7 @@ describe("plugin bridge", () => {
 			onCollection: (request) => {
 				calls.push(request);
 				count += 1;
-				return Promise.resolve(
+				return Effect.succeed(
 					count === 1
 						? { outcome: "success", response: membership }
 						: // oxlint-disable-next-line typescript/no-unsafe-type-assertion -- verifies runtime detail redaction
@@ -1109,6 +1136,7 @@ describe("plugin bridge", () => {
 		expect(failures).toEqual([]);
 	});
 
+	// oxlint-disable-next-line effecttsgo/async-function -- Vitest awaits this Promise-based test callback and its framework assertions.
 	it("round-trips storage requests and sanitizes invalid outcomes", async () => {
 		const calls: PluginStorageRequest[] = [];
 		const outcomes: PluginStorageOutcome[] = [
@@ -1121,9 +1149,7 @@ describe("plugin bridge", () => {
 			onStorage: (request) => {
 				calls.push(request);
 				const outcome = outcomes.shift();
-				return outcome === undefined
-					? Promise.reject(new Error("unexpected"))
-					: Promise.resolve(outcome);
+				return outcome === undefined ? Effect.die("unexpected") : Effect.succeed(outcome);
 			},
 		});
 		pluginPort.postMessage(readyFor(init));
@@ -1164,13 +1190,14 @@ describe("plugin bridge", () => {
 		expect(failures).toEqual([]);
 	});
 
+	// oxlint-disable-next-line effecttsgo/async-function -- Vitest awaits this Promise-based test callback and its framework assertions.
 	it("round-trips an upload and hands the source to the host untouched", async () => {
 		const calls: PluginUploadRequest[] = [];
 		const token = { token: "upload-token", expiresAt: "2026-01-01T00:15:00.000Z" };
 		const { init, received, pluginPort } = connect({
 			onUpload: (request) => {
 				calls.push(request);
-				return Promise.resolve({ token, outcome: "success" });
+				return Effect.succeed({ token, outcome: "success" });
 			},
 		});
 		pluginPort.postMessage(readyFor(init));
@@ -1199,9 +1226,10 @@ describe("plugin bridge", () => {
 		expect(await uploaded.source.text()).toBe("id,title");
 	});
 
+	// oxlint-disable-next-line effecttsgo/async-function -- Vitest awaits this Promise-based test callback and its framework assertions.
 	it("reports upload failures and rejects a source that is not a Blob", async () => {
 		const { init, received, failures, pluginPort } = connect({
-			onUpload: () => Promise.reject(new Error("upload exploded")),
+			onUpload: () => Effect.die("upload exploded"),
 		});
 		pluginPort.postMessage(readyFor(init));
 		await waitFor(() => expect(received).toHaveLength(1));
@@ -1232,6 +1260,7 @@ describe("plugin bridge", () => {
 		await waitFor(() => expect(failures).toHaveLength(1));
 	});
 
+	// oxlint-disable-next-line effecttsgo/async-function -- Vitest awaits this Promise-based test callback and its framework assertions.
 	it("maps synchronous operation and query failures to transport results", async () => {
 		const { init, received, pluginPort } = connect({
 			onRyotQL: () => {
@@ -1267,12 +1296,13 @@ describe("plugin bridge", () => {
 		});
 	});
 
+	// oxlint-disable-next-line effecttsgo/async-function -- Vitest awaits this Promise-based test callback and its framework assertions.
 	it("maps an invalid operation success to malformed-result and keeps the session alive", async () => {
 		let calls = 0;
 		const { init, received, failures, pluginPort } = connect({
 			onOperation: () => {
 				calls += 1;
-				return Promise.resolve(
+				return Effect.succeed(
 					calls === 1
 						? // oxlint-disable-next-line typescript/no-unsafe-type-assertion -- injects an invalid runtime boundary value
 							({ outcome: "success", value: () => undefined } as unknown as PluginOperationOutcome)
@@ -1320,10 +1350,11 @@ describe("plugin bridge", () => {
 		"operation-failed",
 		"malformed-result",
 	] satisfies PluginOperationBridgeErrorReason[]) {
+		// oxlint-disable-next-line effecttsgo/async-function -- Vitest awaits this Promise-based test callback and its framework assertions.
 		it(`round-trips a ${reason} operation bridge error without extra details`, async () => {
 			const { init, received, failures, pluginPort } = connect({
 				onOperation: () =>
-					Promise.resolve(
+					Effect.succeed(
 						// oxlint-disable-next-line typescript/no-unsafe-type-assertion -- verifies runtime detail redaction
 						{ reason, outcome: "failure", cause: new Error("private") } as PluginOperationOutcome,
 					),
@@ -1349,10 +1380,11 @@ describe("plugin bridge", () => {
 		});
 	}
 
+	// oxlint-disable-next-line effecttsgo/async-function -- Vitest awaits this Promise-based test callback and its framework assertions.
 	it("maps an invalid callback failure reason to transport", async () => {
 		const { init, received, pluginPort } = connect({
 			onOperation: () =>
-				Promise.resolve(
+				Effect.succeed(
 					// oxlint-disable-next-line typescript/no-unsafe-type-assertion -- injects an invalid runtime boundary value
 					{ outcome: "failure", reason: "private-failure" } as unknown as PluginOperationOutcome,
 				),
@@ -1376,10 +1408,9 @@ describe("plugin bridge", () => {
 		});
 	});
 
+	// oxlint-disable-next-line effecttsgo/async-function -- Vitest awaits this Promise-based test callback and its framework assertions.
 	it("reports a transport failure when onOperation rejects", async () => {
-		const { init, received, pluginPort } = connect({
-			onOperation: () => Promise.reject(new Error("boom")),
-		});
+		const { init, received, pluginPort } = connect({ onOperation: () => Effect.die("boom") });
 		pluginPort.postMessage(readyFor(init));
 		await waitFor(() => expect(received).toHaveLength(1));
 
@@ -1401,13 +1432,14 @@ describe("plugin bridge", () => {
 		expect(received).toHaveLength(2);
 	});
 
+	// oxlint-disable-next-line effecttsgo/async-function -- Vitest awaits this Promise-based test callback and its framework assertions.
 	it("settles two concurrent calls out of order, each exactly once", async () => {
 		const calls: Array<ReturnType<typeof deferred<PluginOperationOutcome>>> = [];
 		const { init, received, pluginPort } = connect({
 			onOperation: () => {
 				const call = deferred<PluginOperationOutcome>();
 				calls.push(call);
-				return call.promise;
+				return Effect.promise(() => call.promise);
 			},
 		});
 		pluginPort.postMessage(readyFor(init));
@@ -1450,13 +1482,14 @@ describe("plugin bridge", () => {
 		expect(received).toHaveLength(3);
 	});
 
+	// oxlint-disable-next-line effecttsgo/async-function -- Vitest awaits this Promise-based test callback and its framework assertions.
 	it("ignores a second request that reuses an in-flight request id", async () => {
 		const calls: Array<ReturnType<typeof deferred<PluginOperationOutcome>>> = [];
 		const { init, received, pluginPort } = connect({
 			onOperation: () => {
 				const call = deferred<PluginOperationOutcome>();
 				calls.push(call);
-				return call.promise;
+				return Effect.promise(() => call.promise);
 			},
 		});
 		pluginPort.postMessage(readyFor(init));
@@ -1492,17 +1525,22 @@ describe("plugin bridge", () => {
 		expect(received).toHaveLength(2);
 	});
 
+	// oxlint-disable-next-line effecttsgo/async-function -- Vitest awaits this Promise-based test callback and its framework assertions.
 	it("fails the session when aggregate pending requests exceed the admission limit", async () => {
 		const signals: AbortSignal[] = [];
 		const { init, received, failures, pluginPort } = connect({
-			onRyotQL: (_request, signal) => {
-				signals.push(signal);
-				return new Promise(() => {});
-			},
-			onOperation: (_request, signal) => {
-				signals.push(signal);
-				return new Promise(() => {});
-			},
+			onRyotQL: () =>
+				Effect.promise((signal) => {
+					signals.push(signal);
+					// oxlint-disable-next-line effecttsgo/new-promise -- This test keeps the injected host request pending to verify cancellation or admission.
+					return new Promise<never>(() => {});
+				}),
+			onOperation: () =>
+				Effect.promise((signal) => {
+					signals.push(signal);
+					// oxlint-disable-next-line effecttsgo/new-promise -- This test keeps the injected host request pending to verify cancellation or admission.
+					return new Promise<never>(() => {});
+				}),
 		});
 		pluginPort.postMessage(readyFor(init));
 		await waitFor(() => expect(received).toHaveLength(1));
@@ -1529,14 +1567,16 @@ describe("plugin bridge", () => {
 		expect(received).toEqual([at(), { reason: "failed", type: "lifecycle-close" }]);
 	});
 
+	// oxlint-disable-next-line effecttsgo/async-function -- Vitest awaits this Promise-based test callback and its framework assertions.
 	it("fails the session on a malformed active-port message and suppresses late work", async () => {
 		let signal: AbortSignal | undefined;
 		const call = deferred<PluginOperationOutcome>();
 		const { init, received, failures, pluginPort } = connect({
-			onOperation: (_request, requestSignal) => {
-				signal = requestSignal;
-				return call.promise;
-			},
+			onOperation: () =>
+				Effect.promise((requestSignal) => {
+					signal = requestSignal;
+					return call.promise;
+				}),
 		});
 		pluginPort.postMessage(readyFor(init));
 		await waitFor(() => expect(received).toHaveLength(1));
@@ -1566,6 +1606,7 @@ describe("plugin bridge", () => {
 	it.each([
 		["untagged", { search: "", path: "/details/1" }],
 		["entity-shaped", { kind: "entity", entityId: "entity-1", entitySchemaSlug: "show" }],
+		// oxlint-disable-next-line effecttsgo/async-function -- Vitest awaits this Promise-based test callback and its framework assertions.
 	] as const)("fails an %s plugin navigation message", async (_label, target) => {
 		const { init, received, failures, pluginPort, navigations } = connect();
 		pluginPort.postMessage(readyFor(init));
@@ -1578,20 +1619,23 @@ describe("plugin bridge", () => {
 		expect(received).toEqual([at(), { reason: "failed", type: "lifecycle-close" }]);
 	});
 
+	// oxlint-disable-next-line effecttsgo/async-function -- Vitest awaits this Promise-based test callback and its framework assertions.
 	it("aborts pending operation and RyotQL work on failure and suppresses both late results", async () => {
 		let operationSignal: AbortSignal | undefined;
 		let querySignal: AbortSignal | undefined;
 		const operationCall = deferred<PluginOperationOutcome>();
 		const queryCall = deferred<PluginRyotQLOutcome>();
 		const { init, received, failures, pluginPort } = connect({
-			onRyotQL: (_request, signal) => {
-				querySignal = signal;
-				return queryCall.promise;
-			},
-			onOperation: (_request, signal) => {
-				operationSignal = signal;
-				return operationCall.promise;
-			},
+			onRyotQL: () =>
+				Effect.promise((signal) => {
+					querySignal = signal;
+					return queryCall.promise;
+				}),
+			onOperation: () =>
+				Effect.promise((signal) => {
+					operationSignal = signal;
+					return operationCall.promise;
+				}),
 		});
 		pluginPort.postMessage(readyFor(init));
 		await waitFor(() => expect(received).toHaveLength(1));
@@ -1620,6 +1664,7 @@ describe("plugin bridge", () => {
 		expect(received).toEqual([at(), { reason: "failed", type: "lifecycle-close" }]);
 	});
 
+	// oxlint-disable-next-line effecttsgo/async-function -- Vitest awaits this Promise-based test callback and its framework assertions.
 	it("fails the session before invoking an operation with extra identity fields", async () => {
 		const { init, received, failures, pluginPort, operationCalls } = connect();
 		pluginPort.postMessage(readyFor(init));
@@ -1638,14 +1683,16 @@ describe("plugin bridge", () => {
 		expect(received).toEqual([at(), { reason: "failed", type: "lifecycle-close" }]);
 	});
 
+	// oxlint-disable-next-line effecttsgo/async-function -- Vitest awaits this Promise-based test callback and its framework assertions.
 	it("aborts pending signals on close and posts nothing after a late resolution", async () => {
 		let signal: AbortSignal | undefined;
 		const call = deferred<PluginOperationOutcome>();
 		const { init, session, received, pluginPort } = connect({
-			onOperation: (_request, requestSignal) => {
-				signal = requestSignal;
-				return call.promise;
-			},
+			onOperation: () =>
+				Effect.promise((requestSignal) => {
+					signal = requestSignal;
+					return call.promise;
+				}),
 		});
 		pluginPort.postMessage(readyFor(init));
 		await waitFor(() => expect(received).toHaveLength(1));
@@ -1667,13 +1714,14 @@ describe("plugin bridge", () => {
 		expect(received).toEqual([at(), { reason: "disposed", type: "lifecycle-close" }]);
 	});
 
+	// oxlint-disable-next-line effecttsgo/async-function -- Vitest awaits this Promise-based test callback and its framework assertions.
 	it("correlates concurrent RyotQL requests completed out of order", async () => {
 		const calls: Array<ReturnType<typeof deferred<PluginRyotQLOutcome>>> = [];
 		const { init, received, pluginPort } = connect({
 			onRyotQL: () => {
 				const call = deferred<PluginRyotQLOutcome>();
 				calls.push(call);
-				return call.promise;
+				return Effect.promise(() => call.promise);
 			},
 		});
 		pluginPort.postMessage(readyFor(init));
@@ -1704,14 +1752,15 @@ describe("plugin bridge", () => {
 		expect(received).toHaveLength(3);
 	});
 
+	// oxlint-disable-next-line effecttsgo/async-function -- Vitest awaits this Promise-based test callback and its framework assertions.
 	it("rejects duplicate in-flight IDs across query and operation requests", async () => {
 		const query = deferred<PluginRyotQLOutcome>();
 		const operationCalls: PluginOperationRequest[] = [];
 		const { init, received, pluginPort } = connect({
-			onRyotQL: () => query.promise,
+			onRyotQL: () => Effect.promise(() => query.promise),
 			onOperation: (request) => {
 				operationCalls.push(request);
-				return Promise.resolve({ value: null, outcome: "success" });
+				return Effect.succeed({ value: null, outcome: "success" });
 			},
 		});
 		pluginPort.postMessage(readyFor(init));
@@ -1731,12 +1780,13 @@ describe("plugin bridge", () => {
 		await waitFor(() => expect(received).toHaveLength(2));
 	});
 
+	// oxlint-disable-next-line effecttsgo/async-function -- Vitest awaits this Promise-based test callback and its framework assertions.
 	it("fails the session on a malformed RyotQL request", async () => {
 		const calls: PluginRyotQLRequest[] = [];
 		const { init, received, failures, pluginPort } = connect({
 			onRyotQL: (request) => {
 				calls.push(request);
-				return Promise.resolve({ outcome: "success", response: { data: {} } });
+				return Effect.succeed({ outcome: "success", response: { data: {} } });
 			},
 		});
 		pluginPort.postMessage(readyFor(init));
@@ -1754,14 +1804,16 @@ describe("plugin bridge", () => {
 		expect(received).toEqual([at(), { reason: "failed", type: "lifecycle-close" }]);
 	});
 
+	// oxlint-disable-next-line effecttsgo/async-function -- Vitest awaits this Promise-based test callback and its framework assertions.
 	it("aborts a pending RyotQL request and suppresses its late response", async () => {
 		let signal: AbortSignal | undefined;
 		const call = deferred<PluginRyotQLOutcome>();
 		const { init, session, received, pluginPort } = connect({
-			onRyotQL: (_request, requestSignal) => {
-				signal = requestSignal;
-				return call.promise;
-			},
+			onRyotQL: () =>
+				Effect.promise((requestSignal) => {
+					signal = requestSignal;
+					return call.promise;
+				}),
 		});
 		pluginPort.postMessage(readyFor(init));
 		await waitFor(() => expect(received).toHaveLength(1));
@@ -1776,16 +1828,18 @@ describe("plugin bridge", () => {
 		expect(received).toEqual([at(), { reason: "disposed", type: "lifecycle-close" }]);
 	});
 
+	// oxlint-disable-next-line effecttsgo/async-function -- Vitest awaits this Promise-based test callback and its framework assertions.
 	it("cancels matching RyotQL work, releases admission, and ignores cancellation races", async () => {
 		const signals: AbortSignal[] = [];
 		const calls: Array<ReturnType<typeof deferred<PluginRyotQLOutcome>>> = [];
 		const { init, received, failures, pluginPort } = connect({
-			onRyotQL: (_request, signal) => {
-				signals.push(signal);
-				const call = deferred<PluginRyotQLOutcome>();
-				calls.push(call);
-				return call.promise;
-			},
+			onRyotQL: () =>
+				Effect.promise((signal) => {
+					signals.push(signal);
+					const call = deferred<PluginRyotQLOutcome>();
+					calls.push(call);
+					return call.promise;
+				}),
 		});
 		pluginPort.postMessage(readyFor(init));
 		await waitFor(() => expect(received).toHaveLength(1));
@@ -1817,10 +1871,11 @@ describe("plugin bridge", () => {
 		expect(failures).toEqual([]);
 	});
 
+	// oxlint-disable-next-line effecttsgo/async-function -- Vitest awaits this Promise-based test callback and its framework assertions.
 	it("never posts a Ryot credential, identity, or scope value to the plugin across a full session", async () => {
 		const { init, session, received, pluginPort } = connect({
 			onOperation: (request) =>
-				Promise.resolve(
+				Effect.succeed(
 					request.operationSlug === "fail"
 						? ({ outcome: "failure", reason: "operation-failed" } as const)
 						: ({ outcome: "success", value: { echoed: request.input } } as const),

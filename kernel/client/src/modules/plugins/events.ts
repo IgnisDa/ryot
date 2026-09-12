@@ -33,89 +33,92 @@ const reconnectSchedule = Schedule.exponential("1 second").pipe(
 	Schedule.jittered,
 );
 
-const readCatalogStream = async (
-	body: ReadableStream<Uint8Array>,
-	onEvent: (type: string) => void,
-) => {
-	const reader = body.getReader();
-	const decoder = new TextDecoder();
-	let buffer = "";
-	let data = "";
-	let eventType = "";
+const readCatalogStream = (body: ReadableStream<Uint8Array>, onEvent: (type: string) => void) =>
+	Effect.acquireUseRelease(
+		Effect.sync(() => body.getReader()),
+		(reader) =>
+			Effect.gen(function* () {
+				const decoder = new TextDecoder();
+				let buffer = "";
+				let data = "";
+				let eventType = "";
 
-	const dispatch = () => {
-		if (data !== "") {
-			onEvent(eventType === "" ? "message" : eventType);
-		}
-		data = "";
-		eventType = "";
-	};
+				const dispatch = () => {
+					if (data !== "") {
+						onEvent(eventType === "" ? "message" : eventType);
+					}
+					data = "";
+					eventType = "";
+				};
 
-	const consumeLine = (line: string) => {
-		if (line === "") {
-			dispatch();
-			return;
-		}
-		if (line.startsWith(":")) {
-			return;
-		}
-		const separator = line.indexOf(":");
-		const field = separator === -1 ? line : line.slice(0, separator);
-		const raw = separator === -1 ? "" : line.slice(separator + 1);
-		const value = raw.startsWith(" ") ? raw.slice(1) : raw;
-		Match.value(field).pipe(
-			Match.when("event", () => {
-				eventType = value;
+				const consumeLine = (line: string) => {
+					if (line === "") {
+						dispatch();
+						return;
+					}
+					if (line.startsWith(":")) {
+						return;
+					}
+					const separator = line.indexOf(":");
+					const field = separator === -1 ? line : line.slice(0, separator);
+					const raw = separator === -1 ? "" : line.slice(separator + 1);
+					const value = raw.startsWith(" ") ? raw.slice(1) : raw;
+					Match.value(field).pipe(
+						Match.when("event", () => {
+							eventType = value;
+						}),
+						Match.when("data", () => {
+							data += `${value}\n`;
+						}),
+						Match.orElse(() => undefined),
+					);
+				};
+
+				for (;;) {
+					const chunk = yield* Effect.tryPromise({
+						try: () => reader.read(),
+						catch: (cause) => new CatalogStreamClosed({ cause }),
+					});
+					if (chunk.done) {
+						break;
+					}
+					buffer += decoder.decode(chunk.value, { stream: true });
+					let match = LINE_BREAK.exec(buffer);
+					while (match !== null && !(match[0] === "\r" && match.index === buffer.length - 1)) {
+						consumeLine(buffer.slice(0, match.index));
+						buffer = buffer.slice(match.index + match[0].length);
+						match = LINE_BREAK.exec(buffer);
+					}
+				}
 			}),
-			Match.when("data", () => {
-				data += `${value}\n`;
-			}),
-			Match.orElse(() => undefined),
-		);
-	};
+		(reader) => Effect.promise(() => reader.cancel().catch(() => undefined)),
+	);
 
-	const pump = async (): Promise<void> => {
-		const chunk = await reader.read();
-		if (chunk.done) {
-			return;
-		}
-		buffer += decoder.decode(chunk.value, { stream: true });
-		let match = LINE_BREAK.exec(buffer);
-		while (match !== null && !(match[0] === "\r" && match.index === buffer.length - 1)) {
-			consumeLine(buffer.slice(0, match.index));
-			buffer = buffer.slice(match.index + match[0].length);
-			match = LINE_BREAK.exec(buffer);
-		}
-		return pump();
-	};
-
-	try {
-		await pump();
-	} finally {
-		void reader.cancel().catch(() => undefined);
-	}
-};
-
-const openCatalogStream = async (
+const openCatalogStream = (
 	open: CatalogStreamFactory,
 	url: string,
 	token: string,
 	signal: AbortSignal,
 	onEvent: (type: string) => void,
-) => {
-	const response = await open(url, {
-		signal,
-		headers: { accept: "text/event-stream", authorization: `Bearer ${token}` },
+) =>
+	Effect.gen(function* () {
+		const response = yield* Effect.tryPromise({
+			catch: (cause) => new CatalogStreamClosed({ cause }),
+			try: () =>
+				open(url, {
+					signal,
+					headers: { accept: "text/event-stream", authorization: `Bearer ${token}` },
+				}),
+		});
+		if (response.status === 401) {
+			return true;
+		}
+		if (!response.ok || response.body === null) {
+			return yield* new CatalogStreamClosed({ cause: "plugin catalog stream was rejected" });
+		}
+		yield* readCatalogStream(response.body, onEvent);
+		return false;
 	});
-	if (response.status === 401) {
-		return true;
-	}
-	if (!response.ok || response.body === null) {
-		throw new Error("plugin catalog stream was rejected");
-	}
-	await readCatalogStream(response.body, onEvent);
-	return false;
-};
 
 const makePluginCatalogEventsService = (
 	tokens: OAuthTokenService["Service"],
@@ -136,10 +139,12 @@ const makePluginCatalogEventsService = (
 				if (token === null) {
 					return yield* Effect.never;
 				}
-				const unauthorized = yield* Effect.tryPromise({
-					catch: (cause) => new CatalogStreamClosed({ cause }),
-					try: (signal) => openCatalogStream(open, url, token, signal, onEvent),
-				});
+				// The stream signal must outlive fetch's response Promise until its reader is closed.
+				const unauthorized = yield* Effect.acquireUseRelease(
+					Effect.sync(() => new AbortController()),
+					(controller) => openCatalogStream(open, url, token, controller.signal, onEvent),
+					(controller) => Effect.sync(() => controller.abort()),
+				);
 				if (!unauthorized) {
 					return yield* new CatalogStreamClosed({ cause: "stream ended" });
 				}

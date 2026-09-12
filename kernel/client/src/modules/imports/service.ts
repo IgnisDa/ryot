@@ -13,6 +13,7 @@ import {
 } from "@ryot-app/ryotql-recipes/import-sources";
 import { Context, Data, Effect, Layer } from "effect";
 
+import type { AuthenticatedApiError } from "#/api/authenticated";
 import { ImportsApi } from "#/api/imports";
 import type { KernelRyotClient } from "#/api/ryot-client";
 import type { KernelHostServices } from "#/host-services";
@@ -33,24 +34,17 @@ export class ImportsService extends Context.Service<ImportsService>()("ImportsSe
 			client: ImportsClient,
 			input: { readonly limit: number },
 		) {
-			return yield* Effect.tryPromise({
-				catch: (cause) => new ImportsLoadError({ cause, stage: "runs" }),
-				try: (signal) =>
-					client.data.query(manualImportRunsRecipe({ limit: input.limit }), { signal }),
-			});
+			return yield* client.data
+				.query(manualImportRunsRecipe({ limit: input.limit }))
+				.pipe(Effect.mapError((cause) => new ImportsLoadError({ cause, stage: "runs" })));
 		});
 		const loadRun = Effect.fn("ImportsService.loadRun")(function* (
 			client: ImportsClient,
 			input: { readonly runId: string; readonly failureLimit: number },
 		) {
-			return yield* Effect.tryPromise({
-				catch: (cause) => new ImportsLoadError({ cause, stage: "run" }),
-				try: (signal) =>
-					client.data.query(
-						importRunRecipe({ runId: input.runId, failureLimit: input.failureLimit }),
-						{ signal },
-					),
-			});
+			return yield* client.data
+				.query(importRunRecipe({ runId: input.runId, failureLimit: input.failureLimit }))
+				.pipe(Effect.mapError((cause) => new ImportsLoadError({ cause, stage: "run" })));
 		});
 
 		return { loadRun, loadRuns };
@@ -62,46 +56,44 @@ export class ImportsService extends Context.Service<ImportsService>()("ImportsSe
 export const importRunsQuery = createRyotQuery<
 	{ readonly limit: number },
 	ImportRunList,
-	KernelHostServices
->(({ input, client, signal, hostServices }) =>
-	hostServices.runtime.runPromise(
-		Effect.flatMap(ImportsService, (service) => service.loadRuns(client, input)),
-		{ signal },
-	),
+	KernelHostServices,
+	ImportsLoadError
+>(({ input, client, hostServices }) =>
+	hostServices.runtime.runSync(ImportsService).loadRuns(client, input),
 );
 
 export const importRunQuery = createRyotQuery<
 	{ readonly runId: string; readonly failureLimit: number },
 	ImportRunDetail,
-	KernelHostServices
->(({ input, client, signal, hostServices }) =>
-	hostServices.runtime.runPromise(
-		Effect.flatMap(ImportsService, (service) => service.loadRun(client, input)),
-		{ signal },
-	),
+	KernelHostServices,
+	ImportsLoadError
+>(({ input, client, hostServices }) =>
+	hostServices.runtime.runSync(ImportsService).loadRun(client, input),
 );
 
 export const importSourcesQuery = createRyotQuery<
 	void,
 	readonly ImportSourceItem[],
 	KernelHostServices
->(({ client, signal }) => {
-	const load = async (
-		after?: string,
-		previous: readonly ImportSourceItem[] = [],
-	): Promise<readonly ImportSourceItem[]> => {
-		const page = await client.data.query(importSourcesRecipe({ after, limit: 100 }), { signal });
-		const sources = [
-			...previous,
-			...page.items.map(({ id: _id, exportHelp, ...source }) => ({
-				...source,
-				...(exportHelp === null ? {} : { exportHelp }),
-			})),
-		];
-		return page.pageInfo.nextCursor === null ? sources : load(page.pageInfo.nextCursor, sources);
-	};
-	return load();
-});
+>(({ client }) =>
+	Effect.gen(function* () {
+		const sources: ImportSourceItem[] = [];
+		let after: string | null | undefined;
+		do {
+			const page = yield* client.data.query(
+				importSourcesRecipe({ limit: 100, after: after ?? undefined }),
+			);
+			sources.push(
+				...page.items.map(({ id: _id, exportHelp, ...source }) => ({
+					...source,
+					...(exportHelp === null ? {} : { exportHelp }),
+				})),
+			);
+			after = page.pageInfo.nextCursor;
+		} while (after !== null);
+		return sources;
+	}),
+);
 
 export type ImportSourceItem = Omit<ImportSourcesPage["items"][number], "id" | "exportHelp"> & {
 	readonly exportHelp?: NonNullable<ImportSourcesPage["items"][number]["exportHelp"]>;
@@ -112,25 +104,23 @@ type CreateRunPayload = ContractRequest<"imports", "createRun">["payload"];
 export const createImportRunMutation = createRyotMutation<
 	CreateRunPayload,
 	unknown,
-	KernelHostServices
->(async ({ input, client, signal, hostServices }) => {
-	const created = await hostServices.runtime.runPromise(
-		Effect.flatMap(ImportsApi, (api) => api.createRun(hostServices.scope, { payload: input })),
-		{ signal },
-	);
-	client.mutationCompleted.hint();
-	return created;
-});
+	KernelHostServices,
+	AuthenticatedApiError
+>(({ input, client, hostServices }) =>
+	hostServices.runtime
+		.runSync(ImportsApi)
+		.createRun(hostServices.scope, { payload: input })
+		.pipe(Effect.tap(() => Effect.sync(client.mutationCompleted.hint))),
+);
 
-export const deleteImportRunMutation = createRyotMutation<string, unknown, KernelHostServices>(
-	async ({ input, client, signal, hostServices }) => {
-		const deleted = await hostServices.runtime.runPromise(
-			Effect.flatMap(ImportsApi, (api) =>
-				api.deleteRun(hostServices.scope, { params: { runId: ImportRunId.make(input) } }),
-			),
-			{ signal },
-		);
-		client.mutationCompleted.hint();
-		return deleted;
-	},
+export const deleteImportRunMutation = createRyotMutation<
+	string,
+	unknown,
+	KernelHostServices,
+	AuthenticatedApiError
+>(({ input, client, hostServices }) =>
+	hostServices.runtime
+		.runSync(ImportsApi)
+		.deleteRun(hostServices.scope, { params: { runId: ImportRunId.make(input) } })
+		.pipe(Effect.tap(() => Effect.sync(client.mutationCompleted.hint))),
 );

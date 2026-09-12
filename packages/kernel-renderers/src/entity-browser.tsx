@@ -1,4 +1,4 @@
-import { Result, Schema } from "@ryot-app/client-sdk/effect";
+import { Effect, Result, Schema } from "@ryot-app/client-sdk/effect";
 import { usePageContext } from "@ryot-app/client-sdk/plugin";
 import { createRyotQuery, useRyot, useRyotQuery } from "@ryot-app/client-sdk/react";
 import { PluginScreenFrame } from "@ryot-app/client-sdk/screen";
@@ -7,7 +7,6 @@ import {
 	EntityBrowserPageInput,
 	entityBrowserCountRecipe,
 	entityBrowserRecipe,
-	type EntityBrowserResult,
 } from "@ryot-app/ryotql-recipes/saved-views";
 import { useEffect, useEffectEvent, useState } from "react";
 
@@ -31,7 +30,7 @@ const BrowserCount = ({
 	readonly onTotal: (total: number | undefined) => void;
 }) => {
 	const [query] = useState(() =>
-		createRyotQuery<string, number>(({ client, signal, input: search }) =>
+		createRyotQuery<string, number>(({ client, input: search }) =>
 			client.data.query(
 				Result.getOrThrow(
 					entityBrowserCountRecipe(
@@ -40,7 +39,6 @@ const BrowserCount = ({
 						search === "" ? {} : { searchText: search },
 					),
 				),
-				{ signal },
 			),
 		),
 	);
@@ -68,21 +66,22 @@ const Browser = ({ input }: { readonly input: typeof EntityBrowserPageInput.Type
 	const ryot = useRyot();
 	const [query] = useState(() =>
 		createRyotQuery<string, BrowserQueryPage<null>>(
-			async ({ client, signal, input: serialized }) => {
+			({ client, input: serialized }) => {
 				const [search, sort, after] = decodeQueryInput(serialized);
-				const result: EntityBrowserResult = await client.data.query(
-					Result.getOrThrow(
-						entityBrowserRecipe({
-							settings: input.settings,
-							queryDocument: input.dataSources,
-							...(search === "" ? {} : { searchText: search }),
-							...(sort === "" ? {} : { sortChoice: sort }),
-							...(after === null ? {} : { after }),
-						}),
+				return Effect.map(
+					client.data.query(
+						Result.getOrThrow(
+							entityBrowserRecipe({
+								settings: input.settings,
+								queryDocument: input.dataSources,
+								...(search === "" ? {} : { searchText: search }),
+								...(sort === "" ? {} : { sortChoice: sort }),
+								...(after === null ? {} : { after }),
+							}),
+						),
 					),
-					{ signal },
+					(result) => ({ result, meta: null, input: serialized }),
 				);
-				return { result, meta: null, input: serialized };
 			},
 			{ cancelOnUnmount: true },
 		),

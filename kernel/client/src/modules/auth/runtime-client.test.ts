@@ -7,6 +7,7 @@ import { makeRuntimeOAuthClient } from "#/modules/auth/runtime-client";
 const origin = decodeServerOrigin("https://ryot.example");
 
 describe("runtime OAuth client", () => {
+	// oxlint-disable-next-line effecttsgo/async-function -- Vitest awaits this Promise-based test callback and its framework assertions.
 	it("describes the web client from the server origin", async () => {
 		const client = makeRuntimeOAuthClient({
 			isNative: () => false,
@@ -23,6 +24,7 @@ describe("runtime OAuth client", () => {
 
 	it.each(["io.ryot.app", "io.ryot.app.dev"])(
 		"describes the validated native client for %s",
+		// oxlint-disable-next-line effecttsgo/async-function -- Vitest awaits this Promise-based test callback and its framework assertions.
 		async (applicationId) => {
 			const client = makeRuntimeOAuthClient({
 				isNative: () => true,
@@ -41,6 +43,7 @@ describe("runtime OAuth client", () => {
 	it.each([
 		() => Promise.resolve("io.ryot.unknown"),
 		() => Promise.reject(new Error("unavailable")),
+		// oxlint-disable-next-line effecttsgo/async-function -- Vitest awaits this Promise-based test callback and its framework assertions.
 	])("rejects an unreadable or unknown native application", async (getApplicationId) => {
 		const client = makeRuntimeOAuthClient({ getApplicationId, isNative: () => true });
 
@@ -49,6 +52,7 @@ describe("runtime OAuth client", () => {
 		});
 	});
 
+	// oxlint-disable-next-line effecttsgo/async-function -- Vitest awaits this Promise-based test callback and its framework assertions.
 	it("reads the native application ID once", async () => {
 		let calls = 0;
 		const client = makeRuntimeOAuthClient({

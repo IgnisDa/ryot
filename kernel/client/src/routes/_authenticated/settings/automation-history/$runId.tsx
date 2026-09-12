@@ -33,6 +33,7 @@ function AutomationHistoryDetailRoute() {
 		enabled: displayed?.run.status === "queued" || displayed?.run.status === "running",
 	});
 
+	// oxlint-disable-next-line effecttsgo/async-function -- React automation retry handler.
 	const retryRun = async () => {
 		if (isDemoProtected || displayed === undefined || displayed.retryEligibility.reason !== null) {
 			return;
