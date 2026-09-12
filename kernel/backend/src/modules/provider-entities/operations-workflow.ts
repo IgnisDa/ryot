@@ -15,7 +15,7 @@ import {
 } from "#lib/domain/lifecycle";
 import { lifecycleTrigger } from "#lib/domain/lifecycle-command";
 import { LifecycleExecution } from "#lib/domain/lifecycle-execution";
-import { Database } from "#lib/infrastructure/db/service";
+import { DatabaseSession } from "#lib/infrastructure/db/session";
 import { makeActivity } from "#lib/infrastructure/workflow-scope";
 import { PluginRuntimeResolver } from "#modules/plugins/runtime-resolver";
 import type { SandboxExecutionResult } from "#modules/sandbox/execution-result";
@@ -90,7 +90,7 @@ export const completeProviderEntityImport = (
 	executionId: string,
 ) =>
 	Effect.gen(function* () {
-		const database = yield* Database;
+		const session = yield* DatabaseSession;
 		const planner = yield* LifecyclePlanner;
 		const execution = yield* LifecycleExecution;
 		const completion = {
@@ -107,16 +107,13 @@ export const completeProviderEntityImport = (
 			error: SandboxRunError,
 			success: LifecycleDispatchPlan,
 			name: `plan-provider-import-completion-${executionId}`,
-			execute: database
-				.transaction((transaction) =>
+			execute: session
+				.transaction(
 					planner
 						.plan({
 							trigger: lifecycleTrigger(payload.command, payload.entityScope.userId, completion),
 						})
-						.pipe(
-							Effect.provideService(Database, transaction),
-							Effect.map(toLifecycleDispatchPlan),
-						),
+						.pipe(Effect.map(toLifecycleDispatchPlan)),
 				)
 				.pipe(Effect.mapError((error) => toSandboxRunError(error, "infrastructure"))),
 		});
@@ -155,7 +152,7 @@ export class EntityImportWorkflowOperations extends Context.Service<
 export const EntityImportWorkflowOperationsLive = Layer.effect(
 	EntityImportWorkflowOperations,
 	Effect.gen(function* () {
-		const database = yield* Database;
+		const session = yield* DatabaseSession;
 		const planner = yield* LifecyclePlanner;
 		const execution = yield* LifecycleExecution;
 		const sandbox = yield* SandboxExecutionService;
@@ -163,19 +160,19 @@ export const EntityImportWorkflowOperationsLive = Layer.effect(
 		return {
 			processSandbox: (payload, executionId) =>
 				processSandboxEntityDetails(payload, executionId).pipe(
-					Effect.provideService(Database, database),
+					Effect.provideService(DatabaseSession, session),
 					Effect.provideService(PluginRuntimeResolver, pluginRuntime),
 					Effect.provideService(SandboxExecutionService, sandbox),
 				),
 			processProviderResolve: (input, executionId) =>
 				processSandboxProviderResolve(input, executionId).pipe(
-					Effect.provideService(Database, database),
+					Effect.provideService(DatabaseSession, session),
 					Effect.provideService(PluginRuntimeResolver, pluginRuntime),
 					Effect.provideService(SandboxExecutionService, sandbox),
 				),
 			completeProviderEntityImport: (payload, importedEntity, executionId) =>
 				completeProviderEntityImport(payload, importedEntity, executionId).pipe(
-					Effect.provideService(Database, database),
+					Effect.provideService(DatabaseSession, session),
 					Effect.provideService(LifecyclePlanner, planner),
 					Effect.provideService(LifecycleExecution, execution),
 				),

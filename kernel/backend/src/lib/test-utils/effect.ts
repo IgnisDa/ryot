@@ -1,3 +1,4 @@
+import { PgClient } from "@effect/sql-pg";
 import { ConfigProvider, Effect, Layer, Option, Redacted } from "effect";
 import { Workflow } from "effect/unstable/workflow";
 import {
@@ -7,27 +8,17 @@ import {
 } from "effect/unstable/workflow/WorkflowEngine";
 
 import { AppConfig, type AppConfigValue } from "#lib/infrastructure/config/service";
-import { Database } from "#lib/infrastructure/db/service";
+import { DatabaseSession } from "#lib/infrastructure/db/session";
 import type { RedisService } from "#lib/infrastructure/redis";
+import { testDatabaseUrl } from "#lib/test-utils/database";
 
 export type MockOverrides<T> = T extends (...args: infer TArgs) => unknown
 	? Omit<TArgs[0], "_tag">
 	: never;
 
-type TransactionDatabase = Parameters<Parameters<Database["Service"]["transaction"]>[0]>[0];
-
-const transactionDatabase: TransactionDatabase = Object.assign(Object.create(null), {
-	execute: () => Effect.succeed([]),
-	select: () => ({ from: () => ({ where: () => ({ limit: () => Effect.succeed([]) }) }) }),
-});
-
-export const databaseLayer = Layer.succeed(
-	Database,
-	Database.of(
-		Object.assign(Object.create(null), {
-			transaction: ((callback) =>
-				callback(transactionDatabase)) satisfies Database["Service"]["transaction"],
-		}),
+export const databaseLayer = Layer.effect(DatabaseSession, DatabaseSession.make).pipe(
+	Layer.provideMerge(
+		Layer.unwrap(Effect.sync(() => PgClient.layer({ url: Redacted.make(testDatabaseUrl()) }))),
 	),
 );
 

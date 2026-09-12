@@ -3,7 +3,6 @@ import { sha256Hex } from "@ryot-app/ts-utils/crypto";
 import { stableStringify } from "@ryot-app/ts-utils/json";
 import { Effect, Exit, Layer } from "effect";
 
-import { Database } from "#lib/infrastructure/db/service";
 import { ImageClientArtifacts } from "#modules/client-artifacts/image-artifacts";
 import { ClientArtifactStore } from "#modules/client-artifacts/store";
 
@@ -99,8 +98,5 @@ it.effect("persists only an immutable composition manifest and detects key confl
 		expect(writes).toEqual([graph.compositionKey]);
 		row = { ...stored, compositionHash: "changed" };
 		expect(Exit.isFailure(yield* Effect.exit(compositions.materialize(graph)))).toBe(true);
-	}).pipe(
-		Effect.provide(layers),
-		Effect.provideService(Database, Database.of(Object.create(null))),
-	);
+	}).pipe(Effect.provide(layers));
 });

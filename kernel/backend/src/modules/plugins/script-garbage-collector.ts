@@ -1,7 +1,8 @@
 import { Context, DateTime, Effect, Layer, FileSystem, Path } from "effect";
 
 import { AppConfig } from "#lib/infrastructure/config/service";
-import { Database, mapDatabaseErrors } from "#lib/infrastructure/db/service";
+import { mapDatabaseErrors } from "#lib/infrastructure/db/service";
+import { DatabaseSession } from "#lib/infrastructure/db/session";
 import { garbageCollectSandboxCompiledModules } from "#lib/infrastructure/sandbox-runtime/compiled-modules";
 import { PackageCacheManager } from "#lib/infrastructure/sandbox-runtime/runtime";
 
@@ -13,7 +14,7 @@ export class ScriptGarbageCollector extends Context.Service<ScriptGarbageCollect
 		make: Effect.gen(function* () {
 			const path = yield* Path.Path;
 			const fs = yield* FileSystem.FileSystem;
-			const database = yield* Database;
+			const database = yield* DatabaseSession;
 			const config = yield* AppConfig;
 			const repository = yield* PluginRepository;
 			const runtime = yield* PackageCacheManager;
@@ -25,7 +26,7 @@ export class ScriptGarbageCollector extends Context.Service<ScriptGarbageCollect
 				const limit = input?.limit ?? 500;
 
 				const result = yield* mapDatabaseErrors(
-					database.transaction((transaction) =>
+					database.transaction(
 						Effect.gen(function* () {
 							yield* repository.lockIngestion();
 							yield* repository.pruneRevisionArtifacts({
@@ -53,7 +54,7 @@ export class ScriptGarbageCollector extends Context.Service<ScriptGarbageCollect
 								candidateCount:
 									moduleResult.candidateCount + removedScripts.length + removedPlugins.length,
 							};
-						}).pipe(Effect.provideService(Database, transaction)),
+						}),
 					),
 				);
 				yield* Effect.logInfo("sandbox script garbage collection completed").pipe(

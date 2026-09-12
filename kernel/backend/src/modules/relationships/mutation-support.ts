@@ -1,4 +1,3 @@
-import { PgClient } from "@effect/sql-pg";
 import { DbError } from "@ryot-app/contract/errors";
 import {
 	AutomationRelationshipSnapshot,
@@ -13,12 +12,13 @@ import type { EntityId, RelationshipSchemaSlug, UserId } from "@ryot-app/contrac
 import { AppSchema } from "@ryot-app/contract/schema/property-schema";
 import { stableStringify } from "@ryot-app/ts-utils/json";
 import { isObjectRecord } from "@ryot-app/ts-utils/predicates";
-import { Effect, Option, Schema } from "effect";
+import { Effect, Schema } from "effect";
 
 import { LifecyclePersistenceError, type LifecyclePlanner } from "#lib/domain/lifecycle";
 import { LifecycleCommand } from "#lib/domain/lifecycle-command";
 import type { LifecycleExecution } from "#lib/domain/lifecycle-execution";
-import { Database, mapDatabaseErrors, retryOnDeadlock } from "#lib/infrastructure/db/service";
+import { retryOnDeadlock } from "#lib/infrastructure/db/service";
+import { DatabaseSession, DatabaseSessionStateError } from "#lib/infrastructure/db/session";
 import { parseAppSchemaProperties } from "#lib/property-schema/property-schema-runtime";
 import { DefinitionRepository } from "#modules/definition-registry/repository";
 import type { RelationshipSchemaDefinition } from "#modules/definition-registry/snapshot";
@@ -148,22 +148,32 @@ export const mergeProperties = (existing: unknown, incoming: unknown) => {
 
 export const transaction = <A, E, R>(work: Effect.Effect<A, E, R>) =>
 	Effect.gen(function* () {
-		const database = yield* Database;
+		const session = yield* DatabaseSession;
 		return yield* retryOnDeadlock(
-			mapDatabaseErrors(
-				database.transaction((tx) => work.pipe(Effect.provideService(Database, tx))),
-			),
+			session
+				.transaction(work)
+				.pipe(
+					Effect.mapError((error) =>
+						error instanceof DatabaseSessionStateError
+							? new DbError({
+									message: "Relationship lifecycle mutations require a root transaction boundary",
+								})
+							: error,
+					),
+				),
 		);
 	});
 
 export const assertRootTransaction = Effect.gen(function* () {
-	const client = yield* PgClient.PgClient;
-	if (Option.isSome(yield* Effect.serviceOption(client.transactionService))) {
-		return yield* new DbError({
-			message: "Relationship lifecycle mutations require a root transaction boundary",
-		});
-	}
-	return undefined;
+	const session = yield* DatabaseSession;
+	yield* session.requireRoot.pipe(
+		Effect.mapError(
+			() =>
+				new DbError({
+					message: "Relationship lifecycle mutations require a root transaction boundary",
+				}),
+		),
+	);
 });
 
 export const itemCommand = (
@@ -238,7 +248,7 @@ export const validateUserIdentity = Effect.fnUntraced(function* (
 });
 
 export type RelationshipMutationDependencies = {
-	readonly client: PgClient.PgClient;
+	readonly session: DatabaseSession["Service"];
 	readonly execution: LifecycleExecution["Service"];
 	readonly planner: LifecyclePlanner["Service"];
 	readonly repository: RelationshipsRepository["Service"];
@@ -247,11 +257,7 @@ export type RelationshipMutationDependencies = {
 };
 
 /** Persistence phases run inside the caller's transaction rather than opening their own. */
-export const activeTransactionGuard = (client: PgClient.PgClient) =>
-	Effect.serviceOption(client.transactionService).pipe(
-		Effect.flatMap((active) =>
-			Option.isSome(active)
-				? Effect.void
-				: Effect.fail(new LifecyclePersistenceError({ code: "active-transaction-required" })),
-		),
+export const activeTransactionGuard = (session: DatabaseSession["Service"]) =>
+	session.requireTransaction.pipe(
+		Effect.mapError(() => new LifecyclePersistenceError({ code: "active-transaction-required" })),
 	);

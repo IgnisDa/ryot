@@ -15,8 +15,6 @@ import { sha256Base64Url } from "@ryot-app/ts-utils/crypto";
 import { stableStringify } from "@ryot-app/ts-utils/json";
 import { Context, type Effect, Schema, Struct } from "effect";
 
-import type { Database } from "#lib/infrastructure/db/service";
-
 export const lifecycleTriggerId = (input: {
 	itemIdentity: string;
 	discriminator: string;
@@ -137,9 +135,7 @@ export class LifecyclePlanner extends Context.Service<
 			trigger: AutomationTrigger;
 			recipients?: ReadonlyArray<UserId>;
 			excludedOncePerSubjectPolicies?: ReadonlyArray<Pick<AutomationRun, "pluginId" | "hookSlug">>;
-		}) => Effect.Effect<LifecyclePlan, DbError, Database>;
-		planBatch: (
-			input: LifecycleBatchInput,
-		) => Effect.Effect<ReadonlyArray<LifecyclePlan>, DbError, Database>;
+		}) => Effect.Effect<LifecyclePlan, DbError>;
+		planBatch: (input: LifecycleBatchInput) => Effect.Effect<ReadonlyArray<LifecyclePlan>, DbError>;
 	}
 >()("LifecyclePlanner") {}

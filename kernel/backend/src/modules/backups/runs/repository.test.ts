@@ -6,7 +6,7 @@ import type { SQLWrapper } from "drizzle-orm";
 import { PgDialect } from "drizzle-orm/pg-core";
 import { Effect, Layer } from "effect";
 
-import { Database } from "#lib/infrastructure/db/service";
+import { DatabaseSession } from "#lib/infrastructure/db/session";
 import { assertExitFails } from "#lib/test-utils/assertions";
 
 import { BackupsRepository } from "./repository";
@@ -28,6 +28,15 @@ const row = {
 	kind: "restore" as const,
 	status: "running" as const,
 };
+
+const repositoryLayer = (db: unknown) =>
+	BackupsRepository.layer.pipe(
+		Layer.provide(
+			Layer.mock(DatabaseSession)({
+				current: Effect.succeed(Object.assign(Object.create(null), db)),
+			}),
+		),
+	);
 
 it.effect("scopes every workflow run mutation by run and user IDs", () => {
 	const dialect = new PgDialect();
@@ -61,14 +70,7 @@ it.effect("scopes every workflow run mutation by run and user IDs", () => {
 			expect(predicate.params).toContain(runId);
 			expect(predicate.params).toContain(userId);
 		}
-	}).pipe(
-		Effect.provide(
-			Layer.mergeAll(
-				BackupsRepository.layer,
-				Layer.succeed(Database, Object.assign(Object.create(null), db)),
-			),
-		),
-	);
+	}).pipe(Effect.provide(repositoryLayer(db)));
 });
 
 it.effect("returns an existing running run without resetting its start time", () => {
@@ -93,14 +95,7 @@ it.effect("returns an existing running run without resetting its start time", ()
 		expect(updates).toBe(1);
 		expect(replayed?.startedAt).toBe(startedAt);
 		expect(replayed?.progress).toBe(90);
-	}).pipe(
-		Effect.provide(
-			Layer.mergeAll(
-				BackupsRepository.layer,
-				Layer.succeed(Database, Object.assign(Object.create(null), db)),
-			),
-		),
-	);
+	}).pipe(Effect.provide(repositoryLayer(db)));
 });
 
 it.effect("translates the concurrent active-run insert loser to Conflict", () => {
@@ -151,12 +146,5 @@ it.effect("translates the concurrent active-run insert loser to Conflict", () =>
 		if (failure?._tag === "Failure") {
 			assertExitFails(failure, new BackupConflict({ reason: { code: "active-run-exists" } }));
 		}
-	}).pipe(
-		Effect.provide(
-			Layer.mergeAll(
-				BackupsRepository.layer,
-				Layer.succeed(Database, Object.assign(Object.create(null), db)),
-			),
-		),
-	);
+	}).pipe(Effect.provide(repositoryLayer(db)));
 });

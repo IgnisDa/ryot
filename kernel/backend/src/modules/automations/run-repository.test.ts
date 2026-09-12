@@ -21,7 +21,7 @@ import {
 	automationRunAttempt,
 } from "#lib/infrastructure/db/schema/tables/automations";
 import { sandboxScript } from "#lib/infrastructure/db/schema/tables/core";
-import { Database } from "#lib/infrastructure/db/service";
+import { DatabaseSession } from "#lib/infrastructure/db/session";
 import { PluginConfigRevisions } from "#modules/plugins/config-revisions";
 import {
 	installRevisionPackage,
@@ -196,7 +196,7 @@ describe("AutomationRunRepository", () => {
 					const repo = yield* AutomationRunRepository;
 					const attempts = yield* AutomationAttemptRepository;
 					const triggers = yield* AutomationTriggerRepository;
-					const db = yield* Database;
+					const db = yield* (yield* DatabaseSession).current;
 					const request = yield* Schema.decodeEffect(AutomationTrigger)({
 						...triggerFixture("abandoned"),
 						createdAt: "1970-01-01T00:00:00.000Z",
@@ -368,7 +368,7 @@ describe("AutomationRunRepository", () => {
 				Effect.gen(function* () {
 					const repo = yield* AutomationRunRepository;
 					const triggers = yield* AutomationTriggerRepository;
-					const db = yield* Database;
+					const db = yield* (yield* DatabaseSession).current;
 					const trigger = yield* triggers.insert(triggerFixture());
 					const payload = trigger.payload;
 					assert(payload);

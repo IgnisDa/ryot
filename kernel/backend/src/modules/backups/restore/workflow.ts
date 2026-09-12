@@ -10,7 +10,8 @@ import { Context, Effect, FileSystem, Layer, Result, Schedule, Schema } from "ef
 import { Workflow } from "effect/unstable/workflow";
 
 import { AppConfig } from "#lib/infrastructure/config/service";
-import { Database, mapDatabaseErrors } from "#lib/infrastructure/db/service";
+import { mapDatabaseErrors } from "#lib/infrastructure/db/service";
+import { DatabaseSession } from "#lib/infrastructure/db/session";
 import { acquireUserWriteLock } from "#lib/infrastructure/db/user-write-lock";
 import type { DurableSchema } from "#lib/infrastructure/workflow";
 import { implementWorkflow, makeActivity } from "#lib/infrastructure/workflow-scope";
@@ -155,7 +156,7 @@ export const RestoreBackupWorkflowOperationsLive = Layer.effect(
 	RestoreBackupWorkflowOperations,
 	Effect.gen(function* () {
 		const config = yield* AppConfig;
-		const database = yield* Database;
+		const database = yield* DatabaseSession;
 		const fs = yield* FileSystem.FileSystem;
 		const writer = yield* BackupRestoreWriter;
 		const repository = yield* BackupsRepository;
@@ -178,7 +179,9 @@ export const RestoreBackupWorkflowOperationsLive = Layer.effect(
 					if (run.status === "running") {
 						return true;
 					}
-					yield* cleanliness.assertAccountIsClean(payload.userId);
+					yield* cleanliness
+						.assertAccountIsClean(payload.userId)
+						.pipe(Effect.provideService(DatabaseSession, database));
 					if (!(yield* repository.markRunRunning({ ...payload, progress: 5 }))) {
 						return yield* internalError("Backup restore run could not start");
 					}
@@ -261,41 +264,37 @@ export const RestoreBackupWorkflowOperationsLive = Layer.effect(
 						}
 						yield* mapDatabaseErrors(
 							database.transaction(
-								(transaction) =>
-									Effect.gen(function* () {
-										yield* acquireUserWriteLock(payload.userId);
-										yield* cleanliness.assertAccountIsClean(payload.userId);
-										const pluginIdByKey = new Map(systemPluginIds);
-										const privatePluginIds = yield* pluginRestore.persist(
-											payload.userId,
-											preparedPlugins,
-										);
-										for (const [key, id] of privatePluginIds) {
-											pluginIdByKey.set(key, id);
-										}
-										const definitions = yield* pluginRestore.buildDefinitions(
-											preparedPlugins,
-											pluginIdByKey,
-										);
-										for (const staged of stagedBySha.values()) {
-											yield* managedAssets.registerManagedAssetInLockedTransaction(staged.metadata);
-										}
-										yield* writer.restoreRecords(
-											payload.userId,
-											validated.records,
-											assetLocators,
-											validated.events,
-											pluginIdByKey,
-											definitions,
-										);
-										if (!(yield* repository.updateProgress({ ...payload, progress: 90 }))) {
-											return yield* internalError(
-												"Backup restore checkpoint could not be recorded",
-											);
-										}
-										return yield* Effect.void;
-									}).pipe(Effect.provideService(Database, transaction)),
-								{ accessMode: "read write", isolationLevel: "read committed" },
+								Effect.gen(function* () {
+									yield* acquireUserWriteLock(payload.userId);
+									yield* cleanliness.assertAccountIsClean(payload.userId);
+									const pluginIdByKey = new Map(systemPluginIds);
+									const privatePluginIds = yield* pluginRestore.persist(
+										payload.userId,
+										preparedPlugins,
+									);
+									for (const [key, id] of privatePluginIds) {
+										pluginIdByKey.set(key, id);
+									}
+									const definitions = yield* pluginRestore.buildDefinitions(
+										preparedPlugins,
+										pluginIdByKey,
+									);
+									for (const staged of stagedBySha.values()) {
+										yield* managedAssets.registerManagedAssetInLockedTransaction(staged.metadata);
+									}
+									yield* writer.restoreRecords(
+										payload.userId,
+										validated.records,
+										assetLocators,
+										validated.events,
+										pluginIdByKey,
+										definitions,
+									);
+									if (!(yield* repository.updateProgress({ ...payload, progress: 90 }))) {
+										return yield* internalError("Backup restore checkpoint could not be recorded");
+									}
+									return yield* Effect.void;
+								}),
 							),
 						).pipe(
 							Effect.retry({
@@ -313,7 +312,11 @@ export const RestoreBackupWorkflowOperationsLive = Layer.effect(
 						),
 					);
 					return yield* Effect.void;
-				}).pipe(Effect.scoped, Effect.annotateLogs({ runId: payload.runId })),
+				}).pipe(
+					Effect.scoped,
+					Effect.annotateLogs({ runId: payload.runId }),
+					Effect.provideService(DatabaseSession, database),
+				),
 				{ operation: "restore", code: "unexpected-failure" },
 				restoreFailure,
 			);
@@ -358,15 +361,7 @@ export const RestoreBackupWorkflowOperationsLive = Layer.effect(
 				{ operation: "restore", code: "unexpected-failure" },
 			);
 
-		const provideDatabase = <A, E>(effect: Effect.Effect<A, E, Database>) =>
-			effect.pipe(Effect.provideService(Database, database));
-		return {
-			claim,
-			begin: (payload) => provideDatabase(begin(payload)),
-			restore: (payload, archive) => provideDatabase(restore(payload, archive)),
-			cleanup: (payload, archive) => provideDatabase(cleanup(payload, archive)),
-			fail: (payload, error, archive) => provideDatabase(fail(payload, error, archive)),
-		} satisfies RestoreBackupWorkflowOperationsValue;
+		return { fail, claim, begin, restore, cleanup } satisfies RestoreBackupWorkflowOperationsValue;
 	}),
 );
 

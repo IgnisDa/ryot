@@ -25,7 +25,7 @@ const makeLayer = (repository: Layer.Layer<IntegrationsRepository>) =>
 				databaseLayer,
 				repository,
 				mockProKey,
-				IntegrationProviderCatalog.layer,
+				IntegrationProviderCatalog.layer.pipe(Layer.provide(databaseLayer)),
 				Layer.mock(PluginRuntimeResolver)({}),
 				Layer.mock(ImportsService, {}),
 				Layer.succeed(WorkflowEngine, makeWorkflowEngine()),

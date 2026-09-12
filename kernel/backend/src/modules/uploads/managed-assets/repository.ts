@@ -5,7 +5,8 @@ import { and, eq, or } from "drizzle-orm";
 import { Context, Effect, Layer } from "effect";
 
 import * as schema from "#lib/infrastructure/db/schema/tables/uploads";
-import { Database, mapDatabaseErrors } from "#lib/infrastructure/db/service";
+import { mapDatabaseErrors } from "#lib/infrastructure/db/service";
+import { DatabaseSession } from "#lib/infrastructure/db/session";
 
 type ManagedAssetRecord = Omit<typeof schema.managedAsset.$inferSelect, "ownerUserId"> & {
 	ownerUserId: UserId;
@@ -35,11 +36,12 @@ const isIdenticalRegistration = (existing: ManagedAssetRecord, input: RegisterMa
 export class ManagedAssetsRepository extends Context.Service<ManagedAssetsRepository>()(
 	"ManagedAssetsRepository",
 	{
-		make: Effect.sync(() => {
+		make: Effect.gen(function* () {
+			const session = yield* DatabaseSession;
 			const getByLocator = Effect.fn("ManagedAssetsRepository.getByLocator")(function* (
 				locator: ManagedAssetLocator,
 			) {
-				const db = yield* Database;
+				const db = yield* session.current;
 				const [row] = yield* mapDatabaseErrors(
 					db.select().from(schema.managedAsset).where(locatorWhere(locator)).limit(1),
 				);
@@ -49,7 +51,7 @@ export class ManagedAssetsRepository extends Context.Service<ManagedAssetsReposi
 			const registerPermanentOwnedObject = Effect.fn(
 				"ManagedAssetsRepository.registerPermanentOwnedObject",
 			)(function* (input: RegisterManagedAssetInput) {
-				const db = yield* Database;
+				const db = yield* session.current;
 				const [inserted] = yield* mapDatabaseErrors(
 					db
 						.insert(schema.managedAsset)
@@ -75,7 +77,7 @@ export class ManagedAssetsRepository extends Context.Service<ManagedAssetsReposi
 			const listByOwner = Effect.fn("ManagedAssetsRepository.listByOwner")(function* (
 				ownerUserId: UserId,
 			) {
-				const db = yield* Database;
+				const db = yield* session.current;
 				const rows = yield* mapDatabaseErrors(
 					db
 						.select()
@@ -90,7 +92,7 @@ export class ManagedAssetsRepository extends Context.Service<ManagedAssetsReposi
 					if (locators.length === 0) {
 						return [];
 					}
-					const db = yield* Database;
+					const db = yield* session.current;
 					const rows = yield* mapDatabaseErrors(
 						db
 							.select()

@@ -1,4 +1,3 @@
-import { PgClient } from "@effect/sql-pg";
 import { expect, it } from "@effect/vitest";
 import { DbError } from "@ryot-app/contract/errors";
 import { RelationshipBadRequest } from "@ryot-app/contract/modules/relationships/schemas";
@@ -14,7 +13,7 @@ import {
 	UserId,
 } from "@ryot-app/contract/schema/brands";
 import { eq } from "drizzle-orm";
-import { Cause, DateTime, Effect, Exit, Layer, Option } from "effect";
+import { Cause, DateTime, Effect, Exit, Layer } from "effect";
 import { assert, describe } from "vitest";
 
 import { LifecyclePlanner } from "#lib/domain/lifecycle";
@@ -24,7 +23,7 @@ import {
 } from "#lib/domain/lifecycle-execution";
 import { AppConfig } from "#lib/infrastructure/config/service";
 import * as tables from "#lib/infrastructure/db/schema/tables/combined";
-import { Database } from "#lib/infrastructure/db/service";
+import { DatabaseSession } from "#lib/infrastructure/db/session";
 import { assertExitFails } from "#lib/test-utils/assertions";
 import { AutomationAttemptRepository } from "#modules/automations/attempt-repository";
 import {
@@ -68,7 +67,7 @@ describe("Relationships lifecycle owner", () => {
 				const service = yield* RelationshipsService;
 				const planner = yield* LifecyclePlanner;
 				const execution = yield* LifecycleExecution;
-				const db = yield* Database;
+				const db = yield* (yield* DatabaseSession).current;
 				const fast = yield* service.prepareCreate(baseInput, command("step-fast"));
 				assert(fast._tag === "Committed");
 				expect(fast.result.relationship?.wasInserted).toBe(true);
@@ -149,7 +148,7 @@ describe("Relationships lifecycle owner", () => {
 			() =>
 				Effect.gen(function* () {
 					const service = yield* RelationshipsService;
-					const db = yield* Database;
+					const db = yield* (yield* DatabaseSession).current;
 					expect(
 						yield* service.create(baseInput, command("missing-schema")).pipe(Effect.flip),
 					).toMatchObject({ reason: { code: "relationship-schema-not-found" } });
@@ -164,7 +163,7 @@ describe("Relationships lifecycle owner", () => {
 			() =>
 				Effect.gen(function* () {
 					const service = yield* RelationshipsService;
-					const db = yield* Database;
+					const db = yield* (yield* DatabaseSession).current;
 					expect(
 						yield* service.createUser(userId, baseInput, command("schema-race")).pipe(Effect.flip),
 					).toEqual(
@@ -181,7 +180,7 @@ describe("Relationships lifecycle owner", () => {
 			(_observer, catalog) =>
 				Effect.gen(function* () {
 					const service = yield* RelationshipsService;
-					const db = yield* Database;
+					const db = yield* (yield* DatabaseSession).current;
 					const lifecycle = command("schema-replay");
 					const created = yield* service.create(baseInput, lifecycle);
 					catalog.updateRelationshipSchema();
@@ -201,7 +200,7 @@ describe("Relationships lifecycle owner", () => {
 			withRelationshipDatabase(() =>
 				Effect.gen(function* () {
 					const service = yield* RelationshipsService;
-					const db = yield* Database;
+					const db = yield* (yield* DatabaseSession).current;
 					const execution = yield* LifecycleExecution;
 					const warning = {
 						code: "required-hook-pending" as const,
@@ -281,8 +280,8 @@ describe("Relationships lifecycle owner", () => {
 	it.effect("closes unstarted policies across the batch after rejection or execution failure", () =>
 		withRelationshipDatabase(() =>
 			Effect.gen(function* () {
-				const db = yield* Database;
-				const client = yield* PgClient.PgClient;
+				const db = yield* (yield* DatabaseSession).current;
+				const session = yield* DatabaseSession;
 				const execution = yield* LifecycleExecution;
 				const attempts = yield* AutomationAttemptRepository.make;
 				const fixture = revisionPackage("relationship-policies");
@@ -370,22 +369,18 @@ describe("Relationships lifecycle owner", () => {
 									after: () => Effect.die("A rejected batch cannot dispatch after runs"),
 									skipQueuedPolicies: (input) =>
 										Effect.gen(function* () {
-											expect(
-												Option.isNone(yield* Effect.serviceOption(client.transactionService)),
-											).toBe(true);
+											expect(!(yield* session.isTransactionActive)).toBe(true);
 											cleanup.push(input.triggerId);
 											yield* execution.skipQueuedPolicies(input);
 										}),
 									executePolicy: ({ runId }) =>
 										Effect.gen(function* () {
-											expect(
-												Option.isNone(yield* Effect.serviceOption(client.transactionService)),
-											).toBe(true);
+											expect(!(yield* session.isTransactionActive)).toBe(true);
 											invoked.push(runId);
 											const now = DateTime.toDate(DateTime.makeUnsafe("2026-09-15T00:00:01.000Z"));
 											yield* attempts
 												.claimNextAttempt({ now, runId, attemptNumber: 1 })
-												.pipe(Effect.provideService(Database, db), Effect.orDie);
+												.pipe(Effect.orDie);
 											if (invoked.length === 2 && mode === "failure") {
 												yield* attempts
 													.finalizeAttempt(
@@ -401,7 +396,7 @@ describe("Relationships lifecycle owner", () => {
 														},
 														now,
 													)
-													.pipe(Effect.provideService(Database, db), Effect.orDie);
+													.pipe(Effect.orDie);
 												return yield* new AutomationPolicyExecutionError({
 													runId,
 													code: "policy-execution-failed",
@@ -425,7 +420,7 @@ describe("Relationships lifecycle owner", () => {
 													},
 													now,
 												)
-												.pipe(Effect.provideService(Database, db), Effect.orDie);
+												.pipe(Effect.orDie);
 											return output;
 										}),
 								}),
@@ -477,14 +472,10 @@ describe("Relationships lifecycle owner", () => {
 	it.effect("rejects nested transaction entry before planning or source writes", () =>
 		withRelationshipDatabase(() =>
 			Effect.gen(function* () {
-				const db = yield* Database;
+				const db = yield* (yield* DatabaseSession).current;
 				const service = yield* RelationshipsService;
 				const exit = yield* Effect.exit(
-					db.transaction((tx) =>
-						service
-							.create(baseInput, command("nested-entry"))
-							.pipe(Effect.provideService(Database, tx)),
-					),
+					(yield* DatabaseSession).transaction(service.create(baseInput, command("nested-entry"))),
 				);
 				assertExitFails(
 					exit,
@@ -503,7 +494,7 @@ describe("Relationships lifecycle owner", () => {
 			withRelationshipDatabase((observer) =>
 				Effect.gen(function* () {
 					const service = yield* RelationshipsService;
-					const db = yield* Database;
+					const db = yield* (yield* DatabaseSession).current;
 					const planner = yield* LifecyclePlanner;
 					const fixture = revisionPackage("relationship-hooks", "v1", "fixture");
 					const target = fixture.manifest.relationshipSchemas[0];
@@ -650,7 +641,7 @@ describe("Relationships lifecycle owner", () => {
 			withRelationshipDatabase(() =>
 				Effect.gen(function* () {
 					const service = yield* RelationshipsService;
-					const db = yield* Database;
+					const db = yield* (yield* DatabaseSession).current;
 					const created = yield* service.create(baseInput, command("create"));
 					assert(created.relationship);
 					const [stored] = yield* db.select().from(tables.relationship);
@@ -745,7 +736,7 @@ describe("Relationships lifecycle owner", () => {
 			withRelationshipDatabase(() =>
 				Effect.gen(function* () {
 					const planner = yield* LifecyclePlanner;
-					const db = yield* Database;
+					const db = yield* (yield* DatabaseSession).current;
 					let changes = 0;
 					const exit = yield* Effect.exit(
 						changeUserRelationships(
@@ -795,7 +786,7 @@ describe("Relationships lifecycle owner", () => {
 			withRelationshipDatabase((observer) =>
 				Effect.gen(function* () {
 					const service = yield* RelationshipsService;
-					const client = yield* PgClient.PgClient;
+					const session = yield* DatabaseSession;
 					const calls: string[] = [];
 					const execution = yield* LifecycleExecution;
 					yield* service.create(baseInput, command("commit")).pipe(
@@ -806,9 +797,7 @@ describe("Relationships lifecycle owner", () => {
 								executePolicy: () => Effect.die("Unexpected policy"),
 								after: ({ triggerId }) =>
 									Effect.gen(function* () {
-										expect(
-											Option.isNone(yield* Effect.serviceOption(client.transactionService)),
-										).toBe(true);
+										expect(!(yield* session.isTransactionActive)).toBe(true);
 										const observed = yield* Effect.tryPromise(() =>
 											observer.query(
 												"select (select count(*)::int from relationship) as relationships, (select count(*)::int from automation_trigger where id = $1) as triggers",
@@ -823,13 +812,9 @@ describe("Relationships lifecycle owner", () => {
 						),
 					);
 					expect(calls).toHaveLength(2);
-					const db = yield* Database;
+					const db = yield* (yield* DatabaseSession).current;
 					const nested = yield* Effect.exit(
-						db.transaction((tx) =>
-							service
-								.delete(baseInput, command("nested"))
-								.pipe(Effect.provideService(Database, tx)),
-						),
+						session.transaction(service.delete(baseInput, command("nested"))),
 					);
 					assertExitFails(
 						nested,
@@ -848,7 +833,7 @@ describe("Relationships lifecycle owner", () => {
 			withRelationshipDatabase(() =>
 				Effect.gen(function* () {
 					const planner = yield* LifecyclePlanner;
-					const client = yield* PgClient.PgClient;
+					const session = yield* DatabaseSession;
 					const service = yield* RelationshipsService;
 					const seen: unknown[] = [];
 					const execution = yield* LifecycleExecution;
@@ -879,9 +864,7 @@ describe("Relationships lifecycle owner", () => {
 								after: () => Effect.succeed([]),
 								executePolicy: ({ runId, acceptedPatches }) =>
 									Effect.gen(function* () {
-										expect(
-											Option.isNone(yield* Effect.serviceOption(client.transactionService)),
-										).toBe(true);
+										expect(!(yield* session.isTransactionActive)).toBe(true);
 										seen.push(acceptedPatches);
 										return {
 											action: "transform" as const,
@@ -915,7 +898,6 @@ describe("Relationships lifecycle owner", () => {
 				const service = yield* RelationshipsService;
 				const repository = yield* RelationshipsRepository;
 				const planner = yield* LifecyclePlanner;
-				const database = yield* Database;
 				const execution = yield* LifecycleExecution;
 				yield* service.create(baseInput, command("seed"));
 				const exit = yield* Effect.exit(
@@ -950,11 +932,7 @@ describe("Relationships lifecycle owner", () => {
 									executePolicy: () =>
 										repository
 											.updateRelationship({ ...baseInput, properties: { rank: 9 } })
-											.pipe(
-												Effect.provideService(Database, database),
-												Effect.as({ action: "allow" as const }),
-												Effect.orDie,
-											),
+											.pipe(Effect.as({ action: "allow" as const }), Effect.orDie),
 								}),
 							),
 						),
@@ -972,7 +950,7 @@ describe("Relationships lifecycle owner", () => {
 		withRelationshipDatabase(() =>
 			Effect.gen(function* () {
 				const service = yield* RelationshipsService;
-				const db = yield* Database;
+				const db = yield* (yield* DatabaseSession).current;
 				yield* service.createUser(userId, baseInput, command("api"));
 				const execution = yield* LifecycleExecution;
 				const warning = {
@@ -1091,7 +1069,7 @@ describe("Relationships lifecycle owner", () => {
 				Effect.gen(function* () {
 					const service = yield* RelationshipsService;
 					const planner = yield* LifecyclePlanner;
-					const db = yield* Database;
+					const db = yield* (yield* DatabaseSession).current;
 					for (const mode of ["reject", "invalid", "limit"] as const) {
 						const execution = yield* LifecycleExecution;
 						const exit = yield* Effect.exit(
@@ -1182,7 +1160,7 @@ describe("Relationships lifecycle owner", () => {
 			withRelationshipDatabase(() =>
 				Effect.gen(function* () {
 					const service = yield* RelationshipsService;
-					const db = yield* Database;
+					const db = yield* (yield* DatabaseSession).current;
 					const population = {
 						rootPreviouslyPopulated: true,
 						scopeEntity: {
@@ -1259,7 +1237,7 @@ describe("Relationships lifecycle owner", () => {
 	it.effect("requires an active transaction and rejects unprepared reconciliation policies", () =>
 		withRelationshipDatabase(() =>
 			Effect.gen(function* () {
-				const db = yield* Database;
+				const db = yield* (yield* DatabaseSession).current;
 				const planner = yield* LifecyclePlanner;
 				const service = yield* RelationshipsService;
 				const policyService = yield* RelationshipsService.make.pipe(
@@ -1294,11 +1272,11 @@ describe("Relationships lifecycle owner", () => {
 						.persistPlannedReconciliation(groups, command("outside"), { scope: "global" })
 						.pipe(Effect.flip),
 				).toMatchObject({ code: "active-transaction-required" });
-				const error = yield* db
-					.transaction((tx) =>
-						policyService
-							.persistPlannedReconciliation(groups, command("policy"), { scope: "global" })
-							.pipe(Effect.provideService(Database, tx)),
+				const error = yield* (yield* DatabaseSession)
+					.transaction(
+						policyService.persistPlannedReconciliation(groups, command("policy"), {
+							scope: "global",
+						}),
 					)
 					.pipe(Effect.flip);
 				expect(error).toMatchObject({ code: "before-policy-requires-owner" });
@@ -1313,7 +1291,8 @@ describe("Relationships lifecycle owner", () => {
 		() =>
 			withRelationshipDatabase((observer) =>
 				Effect.gen(function* () {
-					const db = yield* Database;
+					const db = yield* (yield* DatabaseSession).current;
+					const session = yield* DatabaseSession;
 					const entities = yield* EntitiesService;
 					const relationships = yield* RelationshipsService;
 					const providerId = SandboxProviderId.make("group-provider");
@@ -1381,8 +1360,9 @@ describe("Relationships lifecycle owner", () => {
 						});
 
 					const persistGroup = (id: string, rollback: boolean) =>
-						db.transaction((tx) =>
+						session.transaction(
 							Effect.gen(function* () {
+								const tx = yield* (yield* DatabaseSession).current;
 								const entityWork = yield* entities.persistPlannedProviderUpsert({
 									providerId,
 									externalId: id,
@@ -1428,7 +1408,7 @@ describe("Relationships lifecycle owner", () => {
 									return yield* new DbError({ message: "Rollback provider group" });
 								}
 								return { entityPlans: entityWork.plans, relationshipPlans: relationshipWork.plans };
-							}).pipe(Effect.provideService(Database, tx)),
+							}),
 						);
 
 					expect(yield* persistGroup("rollback", true).pipe(Effect.flip)).toMatchObject({
@@ -1456,7 +1436,7 @@ describe("Relationships lifecycle owner", () => {
 	it.effect("reconciles private user relationships atomically without crossing owners", () =>
 		withRelationshipDatabase(() =>
 			Effect.gen(function* () {
-				const db = yield* Database;
+				const db = yield* (yield* DatabaseSession).current;
 				const repository = yield* RelationshipsRepository;
 				const relationships = yield* RelationshipsService;
 				const otherUserId = UserId.make("other-relationship-owner");
@@ -1533,9 +1513,10 @@ describe("Relationships lifecycle owner", () => {
 					relationshipSchemaPluginId: installed.pluginId,
 				});
 
-				const rollback = yield* db
-					.transaction((tx) =>
+				const rollback = yield* (yield* DatabaseSession)
+					.transaction(
 						Effect.gen(function* () {
+							const tx = yield* (yield* DatabaseSession).current;
 							yield* relationships.persistPlannedReconciliation(
 								[group],
 								command("private-rollback"),
@@ -1544,7 +1525,7 @@ describe("Relationships lifecycle owner", () => {
 							expect(yield* tx.select().from(tables.automationTrigger)).toHaveLength(3);
 							expect(yield* tx.select().from(tables.automationRun)).toHaveLength(1);
 							return yield* new DbError({ message: "Rollback private reconciliation" });
-						}).pipe(Effect.provideService(Database, tx)),
+						}),
 					)
 					.pipe(Effect.flip);
 				expect(rollback).toMatchObject({ message: "Rollback private reconciliation" });
@@ -1556,33 +1537,29 @@ describe("Relationships lifecycle owner", () => {
 					),
 				).toEqual([otherUserId]);
 
-				const inaccessible = yield* db
-					.transaction((tx) =>
-						relationships
-							.persistPlannedReconciliation(
-								[
-									{
-										...group,
-										relationships: [
-											{ sourceEntityId, properties: {}, targetEntityId: foreignEntityId },
-										],
-									},
-								],
-								command("private-foreign-entity"),
-								{ userId, scope: "user" },
-							)
-							.pipe(Effect.provideService(Database, tx)),
+				const inaccessible = yield* (yield* DatabaseSession)
+					.transaction(
+						relationships.persistPlannedReconciliation(
+							[
+								{
+									...group,
+									relationships: [
+										{ sourceEntityId, properties: {}, targetEntityId: foreignEntityId },
+									],
+								},
+							],
+							command("private-foreign-entity"),
+							{ userId, scope: "user" },
+						),
 					)
 					.pipe(Effect.flip);
 				expect(inaccessible).toMatchObject({ reason: { code: "entity-not-found" } });
 
-				const work = yield* db.transaction((tx) =>
-					relationships
-						.persistPlannedReconciliation([group], command("private-commit"), {
-							userId,
-							scope: "user",
-						})
-						.pipe(Effect.provideService(Database, tx)),
+				const work = yield* (yield* DatabaseSession).transaction(
+					relationships.persistPlannedReconciliation([group], command("private-commit"), {
+						userId,
+						scope: "user",
+					}),
 				);
 				expect(work.result).toEqual([{ created: 1, updated: 0, deleted: 0, upserted: 1 }]);
 				expect(work.plans.map(({ trigger }) => trigger.kind.operation)).toEqual([
@@ -1597,27 +1574,23 @@ describe("Relationships lifecycle owner", () => {
 						({ executionUserId }) => executionUserId,
 					),
 				).toEqual([userId]);
-				const foreignOwner = yield* db
-					.transaction((tx) =>
-						relationships
-							.persistPlannedReconciliation([group], command("private-other-owner"), {
-								scope: "user",
-								userId: otherUserId,
-							})
-							.pipe(Effect.provideService(Database, tx)),
+				const foreignOwner = yield* (yield* DatabaseSession)
+					.transaction(
+						relationships.persistPlannedReconciliation([group], command("private-other-owner"), {
+							scope: "user",
+							userId: otherUserId,
+						}),
 					)
 					.pipe(Effect.flip);
 				expect(foreignOwner).toMatchObject({ reason: { code: "relationship-schema-not-found" } });
 
 				expect(
-					yield* db.transaction((tx) =>
-						relationships
-							.persistPlannedReconciliation(
-								[{ ...group, relationships: [] }],
-								command("private-delete"),
-								{ userId, scope: "user" },
-							)
-							.pipe(Effect.provideService(Database, tx)),
+					yield* (yield* DatabaseSession).transaction(
+						relationships.persistPlannedReconciliation(
+							[{ ...group, relationships: [] }],
+							command("private-delete"),
+							{ userId, scope: "user" },
+						),
 					),
 				).toMatchObject({ result: [{ created: 0, updated: 0, deleted: 1, upserted: 0 }] });
 				expect(
@@ -1632,8 +1605,8 @@ describe("Relationships lifecycle owner", () => {
 	it.effect("keeps prepared user relationship changes in the caller transaction", () =>
 		withRelationshipDatabase(() =>
 			Effect.gen(function* () {
-				const db = yield* Database;
-				const client = yield* PgClient.PgClient;
+				const db = yield* (yield* DatabaseSession).current;
+				const session = yield* DatabaseSession;
 				const service = yield* RelationshipsService;
 				const repository = yield* RelationshipsRepository;
 				const planner = yield* LifecyclePlanner;
@@ -1644,11 +1617,7 @@ describe("Relationships lifecycle owner", () => {
 				assert(stale);
 				yield* repository.updateRelationship({ ...baseInput, properties: { rank: 9 } });
 				expect(
-					yield* db
-						.transaction((tx) =>
-							service.persistPreparedUserDelete(stale).pipe(Effect.provideService(Database, tx)),
-						)
-						.pipe(Effect.flip),
+					yield* session.transaction(service.persistPreparedUserDelete(stale)).pipe(Effect.flip),
 				).toMatchObject({ reason: { code: "concurrent-relationship-change" } });
 
 				const deletionInput = { ...baseInput, sourceEntityId, targetEntityId: sourceEntityId };
@@ -1669,9 +1638,10 @@ describe("Relationships lifecycle owner", () => {
 					code: "active-transaction-required",
 				});
 				expect(
-					yield* db
-						.transaction((tx) =>
+					yield* session
+						.transaction(
 							Effect.gen(function* () {
+								const tx = yield* session.current;
 								yield* service.persistPreparedUserDelete(deletion);
 								yield* service.persistPreparedUserCreate(creation);
 								const changes = (yield* tx.select().from(tables.automationTrigger)).filter(
@@ -1679,7 +1649,7 @@ describe("Relationships lifecycle owner", () => {
 								);
 								expect(changes).toHaveLength(2);
 								return yield* new DbError({ message: "Rollback prepared relationships" });
-							}).pipe(Effect.provideService(Database, tx)),
+							}),
 						)
 						.pipe(Effect.flip),
 				).toMatchObject({ message: "Rollback prepared relationships" });
@@ -1691,9 +1661,7 @@ describe("Relationships lifecycle owner", () => {
 					),
 				).toEqual([]);
 
-				const work = yield* db.transaction((tx) =>
-					service.persistPreparedUserCreate(creation).pipe(Effect.provideService(Database, tx)),
-				);
+				const work = yield* session.transaction(service.persistPreparedUserCreate(creation));
 				expect(work.plans).toHaveLength(1);
 
 				const rejectedInput = { ...baseInput, targetEntityId, sourceEntityId: targetEntityId };
@@ -1721,9 +1689,7 @@ describe("Relationships lifecycle owner", () => {
 							...execution,
 							executePolicy: () =>
 								Effect.gen(function* () {
-									expect(
-										Option.isNone(yield* Effect.serviceOption(client.transactionService)),
-									).toBe(true);
+									expect(!(yield* session.isTransactionActive)).toBe(true);
 									return { reason: "Rejected", action: "reject" as const };
 								}),
 						}),

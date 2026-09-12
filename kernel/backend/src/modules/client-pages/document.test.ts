@@ -2,7 +2,6 @@ import { assert, expect, it } from "@effect/vitest";
 import { UserId } from "@ryot-app/contract/schema/brands";
 import { Effect, Layer } from "effect";
 
-import { Database } from "#lib/infrastructure/db/service";
 import { ClientArtifactGrantService } from "#modules/client-artifacts/grant-service";
 import { ClientArtifactStore } from "#modules/client-artifacts/store";
 
@@ -165,7 +164,6 @@ it.effect(
 		return layered.pipe(
 			Effect.provide(
 				Layer.mergeAll(
-					Layer.succeed(Database, Database.of(Object.create(null))),
 					Layer.succeed(
 						ClientArtifactStore,
 						ClientArtifactStore.of({

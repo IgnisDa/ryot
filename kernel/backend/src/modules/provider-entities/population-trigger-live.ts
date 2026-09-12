@@ -1,7 +1,7 @@
 import { Effect, Layer } from "effect";
 import { WorkflowEngine } from "effect/unstable/workflow/WorkflowEngine";
 
-import { Database } from "#lib/infrastructure/db/service";
+import { DatabaseSession } from "#lib/infrastructure/db/session";
 import { EntityPopulationTrigger } from "#modules/entities/population-trigger";
 import { PluginRuntimeResolver } from "#modules/plugins/runtime-resolver";
 
@@ -10,7 +10,7 @@ import { ProviderEntityPopulationWorkflow } from "./provider-entity-population-w
 export const EntityPopulationTriggerLive = Layer.effect(
 	EntityPopulationTrigger,
 	Effect.gen(function* () {
-		const database = yield* Database;
+		const session = yield* DatabaseSession;
 		const engine = yield* WorkflowEngine;
 		const pluginRuntime = yield* PluginRuntimeResolver;
 
@@ -47,7 +47,7 @@ export const EntityPopulationTriggerLive = Layer.effect(
 								Effect.logWarning("entity population enqueue failed", cause),
 							),
 						);
-				}).pipe(Effect.provideService(Database, database), Effect.orDie),
+				}).pipe(Effect.provideService(DatabaseSession, session), Effect.orDie),
 		};
 	}),
 );

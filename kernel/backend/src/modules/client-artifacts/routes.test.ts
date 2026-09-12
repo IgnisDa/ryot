@@ -5,8 +5,6 @@ import { Effect, Layer, Result } from "effect";
 import { HttpRouter, HttpServer } from "effect/unstable/http";
 import { HttpApi, HttpApiBuilder } from "effect/unstable/httpapi";
 
-import { Database } from "#lib/infrastructure/db/service";
-
 import { ClientArtifactGrantService } from "./grant-service";
 import { ClientAssetsRoutesLive, serveClientAsset } from "./routes";
 import { ClientArtifactStore } from "./store";
@@ -19,7 +17,6 @@ const otherToken = "y".repeat(43);
 
 const makeServices = (reads: string[]) =>
 	Layer.mergeAll(
-		Layer.succeed(Database, Database.of(Object.create(null))),
 		Layer.succeed(
 			ClientArtifactStore,
 			ClientArtifactStore.of({

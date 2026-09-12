@@ -3,7 +3,6 @@ import { SandboxScriptId } from "@ryot-app/contract/schema/brands";
 import { Context, Effect, Layer } from "effect";
 import type { WorkflowEngine, WorkflowInstance } from "effect/unstable/workflow/WorkflowEngine";
 
-import { Database } from "#lib/infrastructure/db/service";
 import type { DurableSchema } from "#lib/infrastructure/workflow";
 import { makeActivity } from "#lib/infrastructure/workflow-scope";
 import {
@@ -64,13 +63,11 @@ export class TranslateEntityWorkflowOperations extends Context.Service<
 export const TranslateEntityWorkflowOperationsLive = Layer.effect(
 	TranslateEntityWorkflowOperations,
 	Effect.gen(function* () {
-		const database = yield* Database;
 		const sandbox = yield* SandboxExecutionService;
 		const pluginRuntime = yield* PluginRuntimeResolver;
 		return {
 			processSandbox: (payload, executionId) =>
 				processSandboxTranslation(payload, executionId).pipe(
-					Effect.provideService(Database, database),
 					Effect.provideService(PluginRuntimeResolver, pluginRuntime),
 					Effect.provideService(SandboxExecutionService, sandbox),
 				),

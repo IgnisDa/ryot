@@ -3,7 +3,7 @@ import { DbError } from "@ryot-app/contract/errors";
 import { Effect } from "effect";
 import { assert, describe } from "vitest";
 
-import { Database } from "#lib/infrastructure/db/service";
+import { DatabaseSession } from "#lib/infrastructure/db/session";
 
 import { baseInput, withRelationshipDatabase } from "./lifecycle.test-support";
 import { RelationshipsRepository } from "./repository";
@@ -13,7 +13,7 @@ describe("RelationshipsRepository PostgreSQL", () => {
 		withRelationshipDatabase(() =>
 			Effect.gen(function* () {
 				const repository = yield* RelationshipsRepository;
-				const db = yield* Database;
+				const session = yield* DatabaseSession;
 				const created = yield* repository.createRelationship(baseInput);
 				const found = yield* repository.findRelationship(baseInput);
 				assert(found);
@@ -26,8 +26,8 @@ describe("RelationshipsRepository PostgreSQL", () => {
 					targetEntityId: baseInput.targetEntityId,
 					relationshipSchemaSlug: baseInput.relationshipSchemaSlug,
 				});
-				yield* db
-					.transaction((tx) =>
+				yield* session
+					.transaction(
 						Effect.gen(function* () {
 							yield* repository.lockRelationshipMutations([baseInput]);
 							yield* repository.updateRelationship({ ...baseInput, properties: { rank: 5 } });
@@ -35,7 +35,7 @@ describe("RelationshipsRepository PostgreSQL", () => {
 								rank: 5,
 							});
 							return yield* new DbError({ message: "Rollback fixture" });
-						}).pipe(Effect.provideService(Database, tx)),
+						}),
 					)
 					.pipe(Effect.catchTag("DbError", () => Effect.void));
 				expect(yield* repository.findRelationship(baseInput)).toEqual(found);

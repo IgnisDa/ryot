@@ -6,6 +6,7 @@ export const ActivityBody = Context.Reference<boolean>("ryot/ActivityBody", {
 });
 
 export const makeActivity: typeof Activity.make = (options) =>
+	// oxlint-disable-next-line no-restricted-properties -- This wrapper marks activity bodies for lifecycle ownership.
 	Activity.make({
 		...options,
 		execute: options.execute.pipe(Effect.provideService(ActivityBody, true)),
@@ -24,6 +25,7 @@ export const implementWorkflow = <
 		executionId: string,
 	) => Effect.Effect<Success["Type"], Error["Type"], R>,
 ) =>
+	// oxlint-disable-next-line no-restricted-properties -- This wrapper clears activity scope at workflow boundaries.
 	workflow.toLayer((payload, executionId) =>
 		execute(payload, executionId).pipe(Effect.provideService(ActivityBody, false)),
 	);

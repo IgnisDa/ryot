@@ -14,7 +14,8 @@ import {
 	automationTrigger as table,
 	automationTriggerRecipient as recipientTable,
 } from "#lib/infrastructure/db/schema/tables/automations";
-import { Database, mapDatabaseErrors } from "#lib/infrastructure/db/service";
+import { mapDatabaseErrors } from "#lib/infrastructure/db/service";
+import { DatabaseSession } from "#lib/infrastructure/db/session";
 
 const decodeRow = (row: typeof table.$inferSelect) =>
 	decodeStoredSchema(
@@ -46,7 +47,7 @@ const decodeRow = (row: typeof table.$inferSelect) =>
 		`Invalid automation trigger ${row.id}`,
 	);
 
-const hasRuns = (db: Database["Service"]) =>
+const hasRuns = (db: Effect.Success<DatabaseSession["Service"]["current"]>) =>
 	db
 		.select({ id: automationRun.id })
 		.from(automationRun)
@@ -55,9 +56,10 @@ const hasRuns = (db: Database["Service"]) =>
 export class AutomationTriggerRepository extends Context.Service<AutomationTriggerRepository>()(
 	"AutomationTriggerRepository",
 	{
-		make: Effect.sync(() => {
+		make: Effect.gen(function* () {
+			const session = yield* DatabaseSession;
 			const findById = Effect.fn(function* (id: AutomationTriggerId) {
-				const db = yield* Database;
+				const db = yield* session.current;
 				const [row] = yield* mapDatabaseErrors(db.select().from(table).where(eq(table.id, id)));
 				return row ? yield* decodeRow(row) : null;
 			});
@@ -67,7 +69,7 @@ export class AutomationTriggerRepository extends Context.Service<AutomationTrigg
 					AutomationTrigger,
 					"Invalid automation trigger input",
 				);
-				const db = yield* Database;
+				const db = yield* session.current;
 				const { kind, causation, ...snapshot } = value;
 				const { initiator, ...attribution } = causation;
 				yield* mapDatabaseErrors(
@@ -99,7 +101,7 @@ export class AutomationTriggerRepository extends Context.Service<AutomationTrigg
 				return stored;
 			});
 			const listRecipients = Effect.fn(function* (triggerId: AutomationTriggerId) {
-				const db = yield* Database;
+				const db = yield* session.current;
 				const rows = yield* mapDatabaseErrors(
 					db
 						.select()
@@ -115,7 +117,7 @@ export class AutomationTriggerRepository extends Context.Service<AutomationTrigg
 				triggerId: AutomationTriggerId,
 				userIds: ReadonlyArray<UserId>,
 			) {
-				const db = yield* Database;
+				const db = yield* session.current;
 				const rows = yield* Effect.forEach([...new Set(userIds)], (userId) =>
 					decodeStoredSchema(
 						{ userId, triggerId },
@@ -133,7 +135,7 @@ export class AutomationTriggerRepository extends Context.Service<AutomationTrigg
 				prunedAt: Date;
 				limit: number;
 			}) {
-				const db = yield* Database;
+				const db = yield* session.current;
 				const candidates = db
 					.select({ id: table.id })
 					.from(table)
@@ -168,7 +170,7 @@ export class AutomationTriggerRepository extends Context.Service<AutomationTrigg
 				);
 			});
 			const deleteExpired = Effect.fn(function* (input: { before: Date; limit: number }) {
-				const db = yield* Database;
+				const db = yield* session.current;
 				const candidates = db
 					.select({ id: table.id })
 					.from(table)

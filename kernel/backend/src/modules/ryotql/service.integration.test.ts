@@ -45,7 +45,7 @@ import {
 } from "#lib/infrastructure/db/schema/tables/definitions";
 import { migrationReport } from "#lib/infrastructure/db/schema/tables/migration-reports";
 import { savedView, savedViewOverride } from "#lib/infrastructure/db/schema/tables/views";
-import { Database, DatabaseLive } from "#lib/infrastructure/db/service";
+import { DatabaseSession } from "#lib/infrastructure/db/session";
 import { testDatabaseUrl } from "#lib/test-utils/database";
 import { makeAppConfigLayer, makeConfigProviderLayer } from "#lib/test-utils/effect";
 import { fixtureManifest } from "#modules/plugins/test-support";
@@ -112,7 +112,7 @@ const insertPlugin = Effect.fn(function* (input: {
 	readonly ownerId: string | null;
 	readonly homeView: string | null;
 }) {
-	const db = yield* Database;
+	const db = yield* (yield* DatabaseSession).current;
 	const revisionId = `${input.id}-revision`;
 	yield* db
 		.insert(plugin)
@@ -245,7 +245,7 @@ const run = (
 });
 
 const seedCatalog = Effect.gen(function* () {
-	const db = yield* Database;
+	const db = yield* (yield* DatabaseSession).current;
 	yield* db.insert(user).values([
 		{ id: "owner", name: "Owner", preferences: {}, email: "owner@example.test" },
 		{ id: "other", name: "Other", preferences: {}, email: "other@example.test" },
@@ -567,18 +567,18 @@ const seedCatalog = Effect.gen(function* () {
 const withCatalogDatabase = <E>(test: Effect.Effect<void, E, RyotQLService>) => {
 	const name = `ryotql_test_${crypto.randomUUID().replaceAll("-", "")}`;
 	const url = testDatabaseUrl();
-	const root = DatabaseLive.pipe(
+	const root = DatabaseSession.layer.pipe(
 		Layer.provide(makeAppConfigLayer({ database: { url: Redacted.make(url) } })),
 	);
 	return Effect.gen(function* () {
-		const rootDatabase = yield* Database;
+		const rootDatabase = yield* (yield* DatabaseSession).current;
 		const directory = new URL("../../drizzle/", import.meta.url).pathname;
 		const paths = [...new Bun.Glob("*/migration.sql").scanSync({ cwd: directory })];
 		assert(paths.length === 1);
 		const ddl = yield* Effect.promise(() => Bun.file(directory + paths[0]).text());
 		yield* rootDatabase.execute(sql`create database ${sql.identifier(name)}`);
 		yield* Effect.gen(function* () {
-			const db = yield* Database;
+			const db = yield* (yield* DatabaseSession).current;
 			for (const statement of ddl.split("--> statement-breakpoint")) {
 				yield* db.execute(sql.raw(statement));
 			}
@@ -588,7 +588,7 @@ const withCatalogDatabase = <E>(test: Effect.Effect<void, E, RyotQLService>) => 
 			Effect.provide(
 				RyotQLService.layer.pipe(
 					Layer.provideMerge(
-						DatabaseLive.pipe(
+						DatabaseSession.layer.pipe(
 							Layer.provide(
 								makeAppConfigLayer({
 									database: { url: Redacted.make(new URL(`/${name}`, url).toString()) },

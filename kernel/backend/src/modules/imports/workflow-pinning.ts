@@ -2,7 +2,6 @@ import type { DbError, SandboxRunError } from "@ryot-app/contract/errors";
 import type { SandboxScriptId, UserId } from "@ryot-app/contract/schema/brands";
 import { Context, type Effect } from "effect";
 
-import type { Database } from "#lib/infrastructure/db/service";
 import type { SandboxPluginRevision } from "#lib/infrastructure/sandbox-runtime/execution-principal";
 
 export type ImportWorkflowPinningValue = {
@@ -16,10 +15,9 @@ export type ImportWorkflowPinningValue = {
 			readonly pluginRevision: SandboxPluginRevision;
 			readonly registrationStatus: "registered" | "already-registered" | "not-required";
 		},
-		SandboxRunError,
-		Database
+		SandboxRunError
 	>;
-	release: (executionId: string) => Effect.Effect<void, DbError, Database>;
+	release: (executionId: string) => Effect.Effect<void, DbError>;
 };
 
 export class ImportWorkflowPinning extends Context.Service<

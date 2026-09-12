@@ -5,7 +5,7 @@ import { eq } from "drizzle-orm";
 import { Effect, Result } from "effect";
 import { assert, describe } from "vitest";
 
-import { Database } from "#lib/infrastructure/db/service";
+import { DatabaseSession } from "#lib/infrastructure/db/session";
 import {
 	installRevisionPackage,
 	revisionPackage,
@@ -31,7 +31,7 @@ const trigger = {
 } satisfies typeof tables.automationTrigger.$inferInsert;
 
 const seedRun = Effect.fn(function* () {
-	const db = yield* Database;
+	const db = yield* (yield* DatabaseSession).current;
 	const installed = yield* installRevisionPackage(revisionPackage("notes"), UserId.make("owner"));
 	const [script] = yield* db
 		.select()
@@ -63,7 +63,7 @@ describe("automation database constraints", () => {
 		() =>
 			withRevisionDatabase(
 				Effect.gen(function* () {
-					const db = yield* Database;
+					const db = yield* (yield* DatabaseSession).current;
 					const invalid: Array<typeof tables.automationTrigger.$inferInsert> = [
 						{ ...trigger, category: "request" },
 						{ ...trigger, operation: "create" },
@@ -113,7 +113,7 @@ describe("automation database constraints", () => {
 		() =>
 			withRevisionDatabase(
 				Effect.gen(function* () {
-					const db = yield* Database;
+					const db = yield* (yield* DatabaseSession).current;
 					const run = yield* seedRun();
 					const other = yield* installRevisionPackage(
 						revisionPackage("other"),
@@ -166,7 +166,7 @@ describe("automation database constraints", () => {
 		() =>
 			withRevisionDatabase(
 				Effect.gen(function* () {
-					const db = yield* Database;
+					const db = yield* (yield* DatabaseSession).current;
 					const run = yield* seedRun();
 					yield* db.insert(tables.automationRun).values({ ...run, executionUserId: "owner" });
 					yield* db.insert(tables.automationTriggerRecipient).values([
