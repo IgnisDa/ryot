@@ -3,12 +3,7 @@ import { Effect, Schema } from "@ryot-app/sandbox-sdk/effect";
 
 import { value } from "../shared/value";
 
-export const manifest = defineManifest({
-	name: "Zeta",
-	slug: "zeta",
-	kind: "script",
-	capabilities: [],
-});
+export const manifest = defineManifest({ name: "Zeta", slug: "zeta", kind: "script" });
 
 export default defineScript({
 	manifest,
