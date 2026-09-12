@@ -470,7 +470,7 @@ export function openPluginBridge(options: PluginBridgeOptions): PluginBridgeSess
 				} else if (outcome.outcome === "failure") {
 					result = { outcome: "failure", reason: "transport" };
 				} else {
-					const decoded = Schema.decodeUnknownResult(PluginBridgeCollectionResult)({
+					const decoded = Schema.decodeResult(PluginBridgeCollectionResult)({
 						...outcome,
 						type: "collection-result",
 						requestId: request.requestId,

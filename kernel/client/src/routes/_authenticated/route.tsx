@@ -33,22 +33,20 @@ export const Route = createFileRoute("/_authenticated")({
 	// oxlint-disable-next-line effecttsgo/async-function -- TanStack loader.
 	loader: async ({ context, location, abortController }) => {
 		const [catalog, navigation, rememberedSlug, isPro] = await context.runtime.runPromise(
-			Effect.gen(function* () {
-				return yield* Effect.all(
-					[
-						Effect.flatMap(PluginCatalogService, (service) => service.load(context.ryot)),
-						Effect.flatMap(NavigationService, (service) => service.load(context.ryot)),
-						Effect.flatMap(ClientStorage, (service) => service.getLastWorkspace(context.scope)),
-						Effect.flatMap(PublicApi, (api) => api.getSystemConfig(context.server)).pipe(
-							Effect.match({
-								onFailure: () => false,
-								onSuccess: (config) => config.pro.isServerKeyValidated,
-							}),
-						),
-					],
-					{ concurrency: "unbounded" },
-				);
-			}),
+			Effect.all(
+				[
+					Effect.flatMap(PluginCatalogService, (service) => service.load(context.ryot)),
+					Effect.flatMap(NavigationService, (service) => service.load(context.ryot)),
+					Effect.flatMap(ClientStorage, (service) => service.getLastWorkspace(context.scope)),
+					Effect.flatMap(PublicApi, (api) => api.getSystemConfig(context.server)).pipe(
+						Effect.match({
+							onFailure: () => false,
+							onSuccess: (config) => config.pro.isServerKeyValidated,
+						}),
+					),
+				],
+				{ concurrency: "unbounded" },
+			),
 			{ signal: abortController.signal },
 		);
 		if (location.pathname === "/") {

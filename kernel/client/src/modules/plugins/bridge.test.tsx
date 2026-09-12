@@ -66,7 +66,7 @@ const at = (location: PluginLogicalLocation = home, index = 0) => ({
 });
 const lightTheme: PluginThemeSnapshot = { resolvedMode: "light" };
 const darkTheme: PluginThemeSnapshot = { resolvedMode: "dark" };
-const membership = Schema.decodeUnknownSync(MembershipResponse)({
+const membership = Schema.decodeSync(MembershipResponse)({
 	warnings: [],
 	memberOf: {
 		properties: {},
