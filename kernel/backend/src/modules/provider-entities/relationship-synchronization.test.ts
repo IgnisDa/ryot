@@ -1,4 +1,4 @@
-import { expect, it } from "@effect/vitest";
+import { expect, layer } from "@effect/vitest";
 import {
 	AutomationExecutionId,
 	EntityId,
@@ -7,7 +7,7 @@ import {
 	UserId,
 } from "@ryot-app/contract/schema/brands";
 import { IsoUtcString } from "@ryot-app/contract/schema/utils";
-import { Effect, Layer } from "effect";
+import { Context, Effect, Layer, Ref } from "effect";
 
 import { rootLifecycleCommand } from "#lib/domain/lifecycle-command";
 import { databaseLayer } from "#lib/test-utils/effect";
@@ -46,137 +46,156 @@ const row = (targetEntityId: typeof relatedEntityId, properties: Record<string, 
 	id: RelationshipId.make(`relationship-${targetEntityId}`),
 });
 
-it.effect("passes authoritative global synchronization to planned reconciliation", () => {
-	const calls: unknown[] = [];
-	const layer = Layer.mergeAll(
-		support,
-		Layer.mock(RelationshipsRepository)({}),
-		Layer.mock(RelationshipsService)({
-			persistPlannedReconciliation: (groups, receivedCommand, scope) =>
-				Effect.sync(() => {
-					calls.push({ scope, groups, command: receivedCommand });
-					return { plans: [], result: [{ created: 1, updated: 0, deleted: 0, upserted: 1 }] };
+type Reconcile = RelationshipsService["Service"]["persistPlannedReconciliation"];
+type Reconciliation = {
+	readonly groups: Parameters<Reconcile>[0];
+	readonly command: Parameters<Reconcile>[1];
+	readonly scope: Parameters<Reconcile>[2];
+};
+type ListInput = Parameters<
+	RelationshipsRepository["Service"]["listRelationshipsForReconciliation"]
+>[0];
+
+class FakeRelationshipSynchronization extends Context.Service<
+	FakeRelationshipSynchronization,
+	{
+		readonly listings: Effect.Effect<ReadonlyArray<ListInput>>;
+		readonly reconciliations: Effect.Effect<ReadonlyArray<Reconciliation>>;
+	}
+>()("test/FakeRelationshipSynchronization") {}
+
+const synchronizationLayer = (options: {
+	readonly stored?: ReadonlyArray<ReturnType<typeof row>>;
+	readonly result: Effect.Success<ReturnType<Reconcile>>["result"];
+}) =>
+	Layer.unwrap(
+		Effect.gen(function* () {
+			const listings = yield* Ref.make<ReadonlyArray<ListInput>>([]);
+			const reconciliations = yield* Ref.make<ReadonlyArray<Reconciliation>>([]);
+			return Layer.mergeAll(
+				support,
+				Layer.mock(RelationshipsRepository)({
+					listRelationshipsForReconciliation: (input) =>
+						Ref.update(listings, (all) => [...all, input]).pipe(
+							Effect.as([...(options.stored ?? [])]),
+						),
 				}),
+				Layer.mock(RelationshipsService)({
+					persistPlannedReconciliation: (groups, receivedCommand, scope) =>
+						Ref.update(reconciliations, (all) => [
+							...all,
+							{ scope, groups, command: receivedCommand },
+						]).pipe(Effect.as({ plans: [], result: options.result })),
+				}),
+				Layer.succeed(FakeRelationshipSynchronization, {
+					listings: Ref.get(listings),
+					reconciliations: Ref.get(reconciliations),
+				}),
+			);
 		}),
 	);
 
-	return Effect.gen(function* () {
-		const result = yield* persistPlannedRelationshipSynchronization({
-			command,
-			anchorEntityId,
-			scope: "global",
-			direction: "outgoing",
-			relationshipSchemaSlug,
-			onConflict: "replaceProperties",
-			synchronization: "authoritative",
-			entries: [{ entityId: relatedEntityId, properties: { role: "director" } }],
-		});
-		expect(result.result).toEqual([{ created: 1, updated: 0, deleted: 0, upserted: 1 }]);
-		expect(calls).toEqual([
-			{
-				command,
-				scope: { scope: "global" },
-				groups: [
+layer(synchronizationLayer({ result: [{ created: 1, updated: 0, deleted: 0, upserted: 1 }] }))(
+	(test) => {
+		test.effect("passes authoritative global synchronization to planned reconciliation", () =>
+			Effect.gen(function* () {
+				const result = yield* persistPlannedRelationshipSynchronization({
+					command,
+					anchorEntityId,
+					scope: "global",
+					direction: "outgoing",
+					relationshipSchemaSlug,
+					onConflict: "replaceProperties",
+					synchronization: "authoritative",
+					entries: [{ entityId: relatedEntityId, properties: { role: "director" } }],
+				});
+				expect(result.result).toEqual([{ created: 1, updated: 0, deleted: 0, upserted: 1 }]);
+				expect(yield* (yield* FakeRelationshipSynchronization).reconciliations).toEqual([
 					{
-						relationshipSchemaSlug,
-						selector: { anchorEntityId, type: "anchored", direction: "outgoing" },
-						relationships: [
+						command,
+						scope: { scope: "global" },
+						groups: [
 							{
-								sourceEntityId: anchorEntityId,
-								targetEntityId: relatedEntityId,
-								properties: { role: "director" },
+								relationshipSchemaSlug,
+								selector: { anchorEntityId, type: "anchored", direction: "outgoing" },
+								relationships: [
+									{
+										sourceEntityId: anchorEntityId,
+										targetEntityId: relatedEntityId,
+										properties: { role: "director" },
+									},
+								],
 							},
 						],
 					},
+				]);
+			}),
+		);
+	},
+);
+
+layer(
+	synchronizationLayer({
+		result: [{ created: 0, updated: 0, deleted: 0, upserted: 2 }],
+		stored: [row(relatedEntityId, { role: "actor" }), row(staleEntityId, { role: "producer" })],
+	}),
+)((test) => {
+	test.effect("preserves private additive relationships and their stored properties", () =>
+		Effect.gen(function* () {
+			yield* persistPlannedRelationshipSynchronization({
+				userId,
+				command,
+				scope: "user",
+				anchorEntityId,
+				direction: "outgoing",
+				relationshipSchemaSlug,
+				synchronization: "additive",
+				onConflict: "preserveExisting",
+				relationshipSchemaPluginId: "p1",
+				entries: [{ entityId: relatedEntityId, properties: { role: "director" } }],
+			});
+			const fake = yield* FakeRelationshipSynchronization;
+			for (const input of yield* fake.listings) {
+				expect(input).toMatchObject({ userId, scope: "user", relationshipSchemaPluginId: "p1" });
+			}
+			const [received] = yield* fake.reconciliations;
+			expect(received).toMatchObject({
+				scope: { userId, scope: "user" },
+				groups: [
+					{
+						relationships: [
+							{ properties: { role: "actor" }, targetEntityId: relatedEntityId },
+							{ targetEntityId: staleEntityId, properties: { role: "producer" } },
+						],
+					},
 				],
-			},
-		]);
-	}).pipe(Effect.provide(layer));
-});
-
-it.effect("preserves private additive relationships and their stored properties", () => {
-	let received: unknown;
-	const layer = Layer.mergeAll(
-		support,
-		Layer.mock(RelationshipsRepository)({
-			listRelationshipsForReconciliation: (input) =>
-				Effect.sync(() => {
-					expect(input).toMatchObject({ userId, scope: "user", relationshipSchemaPluginId: "p1" });
-					return [
-						row(relatedEntityId, { role: "actor" }),
-						row(staleEntityId, { role: "producer" }),
-					];
-				}),
-		}),
-		Layer.mock(RelationshipsService)({
-			persistPlannedReconciliation: (groups, _command, scope) =>
-				Effect.sync(() => {
-					received = { scope, groups };
-					return { plans: [], result: [{ created: 0, updated: 0, deleted: 0, upserted: 2 }] };
-				}),
+			});
 		}),
 	);
-
-	return Effect.gen(function* () {
-		yield* persistPlannedRelationshipSynchronization({
-			userId,
-			command,
-			scope: "user",
-			anchorEntityId,
-			direction: "outgoing",
-			relationshipSchemaSlug,
-			synchronization: "additive",
-			onConflict: "preserveExisting",
-			relationshipSchemaPluginId: "p1",
-			entries: [{ entityId: relatedEntityId, properties: { role: "director" } }],
-		});
-		expect(received).toMatchObject({
-			scope: { userId, scope: "user" },
-			groups: [
-				{
-					relationships: [
-						{ properties: { role: "actor" }, targetEntityId: relatedEntityId },
-						{ targetEntityId: staleEntityId, properties: { role: "producer" } },
-					],
-				},
-			],
-		});
-	}).pipe(Effect.provide(layer));
 });
 
-it.effect("preserves matching properties but omits stale authoritative relationships", () => {
-	let relationships: ReadonlyArray<unknown> = [];
-	const layer = Layer.mergeAll(
-		support,
-		Layer.mock(RelationshipsRepository)({
-			listRelationshipsForReconciliation: () =>
-				Effect.succeed([
-					row(relatedEntityId, { role: "actor" }),
-					row(staleEntityId, { role: "producer" }),
-				]),
-		}),
-		Layer.mock(RelationshipsService)({
-			persistPlannedReconciliation: (groups) =>
-				Effect.sync(() => {
-					relationships = groups[0]?.relationships ?? [];
-					return { plans: [], result: [{ created: 0, updated: 0, deleted: 1, upserted: 1 }] };
-				}),
+layer(
+	synchronizationLayer({
+		result: [{ created: 0, updated: 0, deleted: 1, upserted: 1 }],
+		stored: [row(relatedEntityId, { role: "actor" }), row(staleEntityId, { role: "producer" })],
+	}),
+)((test) => {
+	test.effect("preserves matching properties but omits stale authoritative relationships", () =>
+		Effect.gen(function* () {
+			yield* persistPlannedRelationshipSynchronization({
+				command,
+				anchorEntityId,
+				scope: "global",
+				direction: "outgoing",
+				relationshipSchemaSlug,
+				onConflict: "preserveExisting",
+				synchronization: "authoritative",
+				entries: [{ entityId: relatedEntityId, properties: { role: "director" } }],
+			});
+			const [received] = yield* (yield* FakeRelationshipSynchronization).reconciliations;
+			expect(received?.groups[0]?.relationships ?? []).toMatchObject([
+				{ properties: { role: "actor" }, targetEntityId: relatedEntityId },
+			]);
 		}),
 	);
-
-	return Effect.gen(function* () {
-		yield* persistPlannedRelationshipSynchronization({
-			command,
-			anchorEntityId,
-			scope: "global",
-			direction: "outgoing",
-			relationshipSchemaSlug,
-			onConflict: "preserveExisting",
-			synchronization: "authoritative",
-			entries: [{ entityId: relatedEntityId, properties: { role: "director" } }],
-		});
-		expect(relationships).toMatchObject([
-			{ properties: { role: "actor" }, targetEntityId: relatedEntityId },
-		]);
-	}).pipe(Effect.provide(layer));
 });
