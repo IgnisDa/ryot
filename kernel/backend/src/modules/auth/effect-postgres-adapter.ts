@@ -217,9 +217,7 @@ export const effectPostgresAuthAdapter = (args: {
 					run(
 						db
 							.update(getTable(model))
-							// Better Auth guarantees update is a model-shaped object, but Drizzle sees a dynamic table.
-							// oxlint-disable-next-line typescript/no-unsafe-type-assertion
-							.set(update as {})
+							.set(update)
 							.where(makeWhere(model, where, getFieldName))
 							.returning(),
 					).then((rows) => rows.length),
