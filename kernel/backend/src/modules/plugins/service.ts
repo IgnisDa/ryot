@@ -3,8 +3,10 @@ import {
 	PluginNotFoundError,
 } from "@ryot-app/contract/modules/plugins/schemas";
 import { PluginId, PluginSlug } from "@ryot-app/contract/schema/brands";
+import { inArray } from "drizzle-orm";
 import { Context, Effect, Layer } from "effect";
 
+import * as schema from "#lib/infrastructure/db/schema/tables/combined";
 import { Database, mapDatabaseErrors } from "#lib/infrastructure/db/service";
 import { kernelDefinitionSource, kernelScripts } from "#modules/definition-registry/kernel-source";
 import { DefinitionRepository } from "#modules/definition-registry/repository";
@@ -87,6 +89,28 @@ export class PluginIngestionService extends Context.Service<PluginIngestionServi
 			)(function* () {
 				yield* validateSystemSet(yield* repository.listActiveSystemPlugins());
 			});
+			const assertNoCustomViewSlugCollisions = Effect.fn(function* (
+				manifest: NormalizedPlugin["manifest"],
+			) {
+				const slugs = manifest.savedViews.map((view) => view.slug);
+				if (slugs.length === 0) {
+					return yield* Effect.void;
+				}
+				const db = yield* Database;
+				const [collision] = yield* mapDatabaseErrors(
+					db
+						.select({ slug: schema.savedView.slug })
+						.from(schema.savedView)
+						.where(inArray(schema.savedView.slug, slugs))
+						.limit(1),
+				);
+				if (collision) {
+					return yield* new PluginValidationError({
+						issues: [`Saved view slug '${collision.slug}' is owned by a custom view`],
+					});
+				}
+				return yield* Effect.void;
+			});
 			const inTransaction = <A, E>(effect: Effect.Effect<A, E, Database>) =>
 				Effect.uninterruptible(
 					mapDatabaseErrors(
@@ -144,6 +168,7 @@ export class PluginIngestionService extends Context.Service<PluginIngestionServi
 				const normalized = yield* normalizePluginPackage(normalizedSource);
 				const stored = yield* inTransaction(
 					Effect.gen(function* () {
+						yield* assertNoCustomViewSlugCollisions(manifest);
 						const previous = yield* repository.findActiveSystemPlugin(slug);
 						if (previous) {
 							yield* validateAdditiveSchemaEvolution(previous.manifest, manifest);

@@ -38,12 +38,7 @@ describe("buildCustomizePlan", () => {
 			views: [item("shows", "media", true), item("movies", "media")],
 		});
 
-		expect(plan.updates).toEqual([
-			{
-				viewSlug: "shows",
-				payload: { icon: "list", name: "SHOWS", isDisabled: true, workspacePluginSlug: "media" },
-			},
-		]);
+		expect(plan.updates).toEqual([{ viewSlug: "shows", payload: { isDisabled: true } }]);
 		expect(plan.reorders).toEqual([]);
 		expect(plan.workspaceUpdates).toEqual([]);
 	});
@@ -71,12 +66,10 @@ describe("buildCustomizePlan", () => {
 		]);
 	});
 
-	it("omits the plugin slug for a global saved view", () => {
+	it("toggles a global saved view without sending definition content", () => {
 		const plan = build({ ...initial, savedViews: [item("recent", null), item("all", null)] });
 
-		expect(plan.updates).toEqual([
-			{ viewSlug: "all", payload: { name: "ALL", icon: "list", isDisabled: false } },
-		]);
+		expect(plan.updates).toEqual([{ viewSlug: "all", payload: { isDisabled: false } }]);
 	});
 
 	it("scopes a workspace reorder to the workspace and a global reorder to no plugin", () => {

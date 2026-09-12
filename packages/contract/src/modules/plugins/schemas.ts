@@ -1,6 +1,6 @@
 import { Schema } from "effect";
 
-import { PluginId, PluginSlug, SavedViewId } from "../../schema/brands";
+import { PluginId, PluginSlug } from "../../schema/brands";
 import { JsonValue } from "../../schema/json";
 import { strictStruct } from "../../schema/utils";
 import { SandboxCompilationDiagnostic, SandboxExecutionError } from "../sandbox/schemas";
@@ -86,8 +86,8 @@ export const reservedPluginSlugs: ReadonlySet<string> = new Set([
 const PluginRequestFailureReason = Schema.Union([
 	Schema.Struct({ code: Schema.Literal("upload-unavailable") }),
 	Schema.Struct({ pluginSlug: PluginSlug, code: Schema.Literal("slug-reserved") }),
-	Schema.Struct({ savedViewId: SavedViewId, code: Schema.Literal("home-view-disabled") }),
-	Schema.Struct({ savedViewId: SavedViewId, code: Schema.Literal("home-view-not-found") }),
+	Schema.Struct({ savedViewSlug: Schema.String, code: Schema.Literal("home-view-disabled") }),
+	Schema.Struct({ savedViewSlug: Schema.String, code: Schema.Literal("home-view-not-found") }),
 	Schema.Struct({
 		issue: PluginPackageArchiveIssue,
 		code: Schema.Literal("package-archive-invalid"),
@@ -118,7 +118,7 @@ const PluginRequestFailureReason = Schema.Union([
 		code: Schema.Literal("invalid-operation-scope"),
 	}),
 	Schema.Struct({
-		savedViewId: SavedViewId,
+		savedViewSlug: Schema.String,
 		code: Schema.Literal("home-view-renderer-unavailable"),
 	}),
 ]);
@@ -212,7 +212,9 @@ export const UpdatePluginInstallationBody = strictStruct({
 
 export type UpdatePluginInstallationBody = typeof UpdatePluginInstallationBody.Type;
 
-export const PluginHomeViewSelection = strictStruct({ savedViewId: Schema.NullOr(SavedViewId) });
+export const PluginHomeViewSelection = strictStruct({
+	savedViewSlug: Schema.NullOr(Schema.String),
+});
 
 export type PluginHomeViewSelection = typeof PluginHomeViewSelection.Type;
 

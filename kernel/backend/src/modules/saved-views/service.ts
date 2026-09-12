@@ -9,17 +9,21 @@ import {
 	SavedViewNotFound,
 } from "@ryot-app/contract/modules/saved-views/schemas";
 import type { PluginSlug, UserId } from "@ryot-app/contract/schema/brands";
+import { eq } from "drizzle-orm";
 import { Context, Effect, Layer } from "effect";
 
+import * as schema from "#lib/infrastructure/db/schema/tables/combined";
 import { Database, mapDatabaseErrors } from "#lib/infrastructure/db/service";
+import { acquireUserWriteLock } from "#lib/infrastructure/db/user-write-lock";
 import { slugify } from "#lib/shared/slug";
 import { trimToNull } from "#lib/shared/validation";
 import { DefinitionRepository } from "#modules/definition-registry/repository";
 import { PluginCatalogInvalidator } from "#modules/plugins/catalog-events";
 import { ClientSurfaceMaterializer } from "#modules/plugins/client-surface-materializer";
-import { PluginDefinitionMaterializer } from "#modules/plugins/definition-materializer";
 import { PluginInstallationRepository } from "#modules/plugins/installation-repository";
+import { PluginRepository } from "#modules/plugins/repository";
 import { PluginRuntimeResolver } from "#modules/plugins/runtime-resolver";
+import { PluginSavedViewReferences } from "#modules/plugins/saved-view-references";
 
 import { validateSavedViewDefinition } from "./definition-validation";
 import { SavedViewsRepository } from "./repository";
@@ -32,6 +36,7 @@ export class SavedViewsService extends Context.Service<SavedViewsService>()("Sav
 		const invalidator = yield* PluginCatalogInvalidator;
 		const surfaces = yield* ClientSurfaceMaterializer;
 		const installations = yield* PluginInstallationRepository;
+		const pluginRepository = yield* PluginRepository;
 		const resolvePluginInstallation = Effect.fn(function* (
 			userId: CurrentUserValue["id"],
 			pluginSlug: PluginSlug,
@@ -46,27 +51,6 @@ export class SavedViewsService extends Context.Service<SavedViewsService>()("Sav
 				: yield* new SavedViewBadRequest({ reason: { pluginSlug, code: "plugin-not-found" } });
 		});
 
-		const ensureBuiltinViews = Effect.fn(function* (userId: CurrentUserValue["id"]) {
-			const views = yield* definitions.listUserSavedViews(userId, { listed: true });
-			const installationByPluginId = new Map(
-				(yield* installations.listForUser(userId)).map((state) => [state.pluginId, state.id]),
-			);
-			yield* repository.ensureBuiltinViews(
-				userId,
-				views.map(({ slug, name, icon, renderer, settings, pluginId, sortOrder, dataSources }) => ({
-					slug,
-					name,
-					icon,
-					renderer,
-					settings,
-					sortOrder,
-					dataSources,
-					pluginInstallationId: pluginId ? (installationByPluginId.get(pluginId) ?? null) : null,
-				})),
-			);
-		});
-		const removeGenerated = (pluginInstallationId: string) =>
-			repository.deleteGeneratedByInstallation(pluginInstallationId);
 		const hasCustomInstallationReferences = (userId: UserId, pluginInstallationId: string) =>
 			repository.hasCustomInstallationReferences(userId, pluginInstallationId);
 
@@ -132,6 +116,17 @@ export class SavedViewsService extends Context.Service<SavedViewsService>()("Sav
 			const created = yield* mapDatabaseErrors(
 				database.transaction((transaction) =>
 					Effect.gen(function* () {
+						yield* pluginRepository.lockIngestionShared();
+						const [builtin] = yield* mapDatabaseErrors(
+							transaction
+								.select({ slug: schema.globalSavedView.slug })
+								.from(schema.globalSavedView)
+								.where(eq(schema.globalSavedView.slug, slug))
+								.limit(1),
+						);
+						if (builtin || (yield* repository.findBySlug(user.id, slug))) {
+							return yield* new SavedViewBadRequest({ reason: { code: "duplicate-name" } });
+						}
 						yield* validateRendererSettings(
 							user.id,
 							payload.renderer,
@@ -168,28 +163,13 @@ export class SavedViewsService extends Context.Service<SavedViewsService>()("Sav
 			const settings = payload.settings ?? current.settings;
 			const dataSources =
 				payload.dataSources === undefined ? current.dataSources : payload.dataSources;
-			if (current.isBuiltin) {
-				if (
-					payload.name !== current.name ||
-					payload.icon !== current.icon ||
-					!Bun.deepEquals(renderer, current.renderer) ||
-					!Bun.deepEquals(settings, current.settings) ||
-					!Bun.deepEquals(dataSources, current.dataSources)
-				) {
-					return yield* new SavedViewBadRequest({
-						reason: { viewSlug, code: "builtin-view-immutable" },
-					});
-				}
-			}
-			const name = trimToNull(payload.name);
+			const name = trimToNull(payload.name ?? current.name);
 			if (!name) {
 				return yield* new SavedViewBadRequest({
 					reason: { field: "name", code: "required-field" },
 				});
 			}
-			if (!current.isBuiltin) {
-				yield* validateRendererSettings(user.id, renderer, settings, dataSources);
-			}
+			yield* validateRendererSettings(user.id, renderer, settings, dataSources);
 			let pluginInstallationId = current.pluginInstallationId;
 			if (payload.workspacePluginSlug === null) {
 				pluginInstallationId = null;
@@ -207,10 +187,10 @@ export class SavedViewsService extends Context.Service<SavedViewsService>()("Sav
 					renderer,
 					settings,
 					dataSources,
-					icon: payload.icon,
 					pluginInstallationId,
 					sortOrder: payload.sortOrder,
 					isDisabled: payload.isDisabled,
+					icon: payload.icon ?? current.icon,
 				},
 				current.pluginInstallationId,
 			);
@@ -226,6 +206,64 @@ export class SavedViewsService extends Context.Service<SavedViewsService>()("Sav
 			payload: UpdateSavedViewBody & { sortOrder?: number | undefined },
 		) {
 			const previous = yield* requireSavedView(user, viewSlug);
+			if (previous.isBuiltin) {
+				if (
+					payload.name !== undefined ||
+					payload.icon !== undefined ||
+					payload.renderer !== undefined ||
+					payload.settings !== undefined ||
+					payload.dataSources !== undefined ||
+					payload.workspacePluginSlug !== undefined
+				) {
+					return yield* new SavedViewBadRequest({
+						reason: { viewSlug, code: "builtin-view-immutable" },
+					});
+				}
+				if (previous.isDisabled && !payload.isDisabled) {
+					yield* surfaces.materializeRenderer(user.id, previous.renderer);
+				}
+				const database = yield* Database;
+				const updated = yield* mapDatabaseErrors(
+					database.transaction((transaction) =>
+						Effect.gen(function* () {
+							yield* acquireUserWriteLock(user.id);
+							const current = yield* repository.findBySlug(user.id, viewSlug);
+							if (!current?.isBuiltin) {
+								return yield* new SavedViewNotFound({
+									reason: { viewSlug, code: "saved-view-not-found" },
+								});
+							}
+							if (
+								current.isDisabled !== previous.isDisabled ||
+								!Bun.deepEquals(current.renderer, previous.renderer)
+							) {
+								return yield* new SavedViewBadRequest({
+									reason: { code: "renderer-kind-unavailable" },
+								});
+							}
+							const result = yield* repository.setBuiltinState(
+								user.id,
+								viewSlug,
+								payload.isDisabled,
+								current.sortOrder,
+							);
+							if (!result) {
+								return yield* new SavedViewNotFound({
+									reason: { viewSlug, code: "saved-view-not-found" },
+								});
+							}
+							if (payload.isDisabled && !current.isDisabled) {
+								yield* installations.clearHomeSavedViewReferences(user.id, viewSlug);
+							}
+							return result;
+						}).pipe(Effect.provideService(Database, transaction)),
+					),
+				);
+				if (previous.isDisabled !== payload.isDisabled) {
+					yield* invalidator.user(user.id);
+				}
+				return { id: updated.id };
+			}
 			const nextRenderer = payload.renderer ?? previous.renderer;
 			if (
 				!payload.isDisabled &&
@@ -243,6 +281,7 @@ export class SavedViewsService extends Context.Service<SavedViewsService>()("Sav
 			const { updated, reenabled, rendererChanged } = yield* mapDatabaseErrors(
 				database.transaction((transaction) =>
 					Effect.gen(function* () {
+						yield* acquireUserWriteLock(user.id);
 						const current = yield* repository.lockBySlug(user.id, viewSlug);
 						if (!current) {
 							return yield* new SavedViewNotFound({
@@ -262,7 +301,7 @@ export class SavedViewsService extends Context.Service<SavedViewsService>()("Sav
 							payload.renderer !== undefined && !Bun.deepEquals(payload.renderer, current.renderer);
 						const becameEnabled = current.isDisabled && !payload.isDisabled;
 						if (payload.isDisabled) {
-							yield* installations.clearHomeSavedViewReferences(user.id, current.id);
+							yield* installations.clearHomeSavedViewReferences(user.id, viewSlug);
 						}
 						return { updated: result, reenabled: becameEnabled, rendererChanged: changedRenderer };
 					}).pipe(Effect.provideService(Database, transaction)),
@@ -279,18 +318,20 @@ export class SavedViewsService extends Context.Service<SavedViewsService>()("Sav
 			const deleted = yield* mapDatabaseErrors(
 				database.transaction((transaction) =>
 					Effect.gen(function* () {
+						yield* acquireUserWriteLock(user.id);
+						const effectiveView = yield* repository.findBySlug(user.id, viewSlug);
+						if (effectiveView?.isBuiltin) {
+							return yield* new SavedViewBadRequest({
+								reason: { viewSlug, code: "builtin-view-immutable" },
+							});
+						}
 						const current = yield* repository.lockBySlug(user.id, viewSlug);
 						if (!current) {
 							return yield* new SavedViewNotFound({
 								reason: { viewSlug, code: "saved-view-not-found" },
 							});
 						}
-						if (current.isBuiltin) {
-							return yield* new SavedViewBadRequest({
-								reason: { viewSlug, code: "builtin-view-immutable" },
-							});
-						}
-						yield* installations.clearHomeSavedViewReferences(user.id, current.id);
+						yield* installations.clearHomeSavedViewReferences(user.id, viewSlug);
 						return (
 							(yield* repository.deleteBySlug(user.id, viewSlug)) ??
 							(yield* new SavedViewNotFound({ reason: { viewSlug, code: "saved-view-not-found" } }))
@@ -315,72 +356,68 @@ export class SavedViewsService extends Context.Service<SavedViewsService>()("Sav
 		});
 
 		const reorder = Effect.fn(function* (user: CurrentUserValue, payload: ReorderSavedViewsBody) {
-			const pluginInstallationId = payload.pluginSlug
-				? yield* resolvePluginInstallation(user.id, payload.pluginSlug)
-				: null;
-			const views = yield* repository.listByUser(user.id, {
-				includeDisabled: true,
-				pluginInstallationId: pluginInstallationId ?? undefined,
-			});
-			const scoped = views.filter(
-				(view) => (view.pluginSlug ?? null) === (payload.pluginSlug ?? null),
+			const database = yield* Database;
+			return yield* mapDatabaseErrors(
+				database.transaction((transaction) =>
+					Effect.gen(function* () {
+						yield* acquireUserWriteLock(user.id);
+						const pluginInstallationId = payload.pluginSlug
+							? yield* resolvePluginInstallation(user.id, payload.pluginSlug)
+							: null;
+						const views = yield* repository.listByUser(user.id, {
+							includeDisabled: true,
+							pluginInstallationId: pluginInstallationId ?? undefined,
+						});
+						const scoped = views.filter(
+							(view) => (view.pluginSlug ?? null) === (payload.pluginSlug ?? null),
+						);
+						const requested = payload.viewSlugs.map((slug) => slug.trim()).filter(Boolean);
+						if (requested.length === 0) {
+							return yield* new SavedViewBadRequest({
+								reason: { issue: "empty", viewSlugs: requested, code: "invalid-reorder" },
+							});
+						}
+						if (new Set(requested).size !== requested.length) {
+							return yield* new SavedViewBadRequest({
+								reason: { issue: "duplicate", viewSlugs: requested, code: "invalid-reorder" },
+							});
+						}
+						if (requested.some((slug) => !scoped.some((view) => view.slug === slug))) {
+							return yield* new SavedViewBadRequest({
+								reason: { viewSlugs: requested, issue: "unknown-view", code: "invalid-reorder" },
+							});
+						}
+						const reordered = [
+							...requested,
+							...scoped.map((view) => view.slug).filter((slug) => !requested.includes(slug)),
+						];
+						const reorderedCount = yield* repository.reorderBySlugs(
+							user.id,
+							pluginInstallationId,
+							reordered,
+						);
+						if (reorderedCount !== reordered.length) {
+							return yield* new SavedViewBadRequest({
+								reason: { viewSlugs: requested, issue: "update-failed", code: "invalid-reorder" },
+							});
+						}
+						return { viewSlugs: reordered };
+					}).pipe(Effect.provideService(Database, transaction)),
+				),
 			);
-			const requested = payload.viewSlugs.map((slug) => slug.trim()).filter(Boolean);
-			if (requested.length === 0) {
-				return yield* new SavedViewBadRequest({
-					reason: { issue: "empty", viewSlugs: requested, code: "invalid-reorder" },
-				});
-			}
-			if (new Set(requested).size !== requested.length) {
-				return yield* new SavedViewBadRequest({
-					reason: { issue: "duplicate", viewSlugs: requested, code: "invalid-reorder" },
-				});
-			}
-			if (requested.some((slug) => !scoped.some((view) => view.slug === slug))) {
-				return yield* new SavedViewBadRequest({
-					reason: { viewSlugs: requested, issue: "unknown-view", code: "invalid-reorder" },
-				});
-			}
-			const reordered = [
-				...requested,
-				...scoped.map((view) => view.slug).filter((slug) => !requested.includes(slug)),
-			];
-			const reorderedCount = yield* repository.reorderBySlugs(
-				user.id,
-				pluginInstallationId,
-				reordered,
-			);
-			if (reorderedCount !== reordered.length) {
-				return yield* new SavedViewBadRequest({
-					reason: { viewSlugs: requested, issue: "update-failed", code: "invalid-reorder" },
-				});
-			}
-			return { viewSlugs: reordered };
 		});
 
-		return {
-			clone,
-			create,
-			update,
-			reorder,
-			removeGenerated,
-			delete: deleteView,
-			ensureBuiltinViews,
-			hasCustomInstallationReferences,
-		};
+		return { clone, create, update, reorder, delete: deleteView, hasCustomInstallationReferences };
 	}),
 }) {
 	static readonly layer = Layer.effect(this, this.make);
 }
 
-export const SavedViewPluginDefinitionMaterializerLive = Layer.effect(
-	PluginDefinitionMaterializer,
+export const SavedViewPluginReferencesLive = Layer.effect(
+	PluginSavedViewReferences,
 	Effect.gen(function* () {
 		const savedViews = yield* SavedViewsService;
 		return {
-			materialize: (userId: CurrentUserValue["id"]) => savedViews.ensureBuiltinViews(userId),
-			removeGenerated: (pluginInstallationId: string) =>
-				savedViews.removeGenerated(pluginInstallationId),
 			hasCustomSavedViewReferences: (
 				userId: CurrentUserValue["id"],
 				pluginInstallationId: string,

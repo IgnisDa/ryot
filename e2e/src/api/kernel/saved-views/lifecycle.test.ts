@@ -80,32 +80,25 @@ describe("Saved views lifecycle E2E", () => {
 		}),
 	);
 
-	it.live("persists built-in view state on the materialized view row", () =>
+	it.live("persists built-in visibility per user without copying definition content", () =>
 		Effect.gen(function* () {
 			const { client } = yield* createAuthenticatedClient();
+			const other = yield* createAuthenticatedClient();
 			const builtinView = yield* findBuiltinSavedView(client);
-			yield* Effect.promise(() => new Promise((resolve) => setTimeout(resolve, 100)));
 			const updatedView = yield* client.call((c) =>
 				c.savedViews.update({
+					payload: { isDisabled: true },
 					params: { viewSlug: builtinView.slug },
-					payload: {
-						isDisabled: true,
-						icon: builtinView.icon,
-						name: builtinView.name,
-						renderer: builtinView.renderer,
-						settings: builtinView.settings,
-						dataSources: builtinView.dataSources,
-						...(builtinView.pluginSlug ? { workspacePluginSlug: builtinView.pluginSlug } : {}),
-					},
 				}),
 			);
 			const fetchedView = yield* getSavedView(client, builtinView.slug);
 
 			expect(updatedView.id).toBe(builtinView.id);
 			expect(fetchedView.renderer).toEqual(builtinView.renderer);
-			expect(fetchedView.createdAt).toBe(builtinView.createdAt);
-			expect(fetchedView.updatedAt).not.toBe(builtinView.updatedAt);
+			expect(fetchedView.createdAt).toBeNull();
+			expect(fetchedView.updatedAt).toBeNull();
 			expect(fetchedView.isDisabled).toBe(true);
+			expect((yield* getSavedView(other.client, builtinView.slug)).isDisabled).toBe(false);
 		}),
 	);
 
@@ -122,8 +115,16 @@ describe("Saved views lifecycle E2E", () => {
 			expect(fetchedView.name).toBe("Lifecycle View");
 			expect(fetchedView.isBuiltin).toBe(false);
 			expect(fetchedView.isDisabled).toBe(false);
-			expect(Number.isNaN(Date.parse(fetchedView.createdAt))).toBe(false);
-			expect(Number.isNaN(Date.parse(fetchedView.updatedAt))).toBe(false);
+			expect(
+				Number.isNaN(
+					Date.parse(requirePresent(fetchedView.createdAt, "Custom view has a creation date")),
+				),
+			).toBe(false);
+			expect(
+				Number.isNaN(
+					Date.parse(requirePresent(fetchedView.updatedAt, "Custom view has an update date")),
+				),
+			).toBe(false);
 
 			const cloned = yield* cloneSavedView(client, createdView.slug);
 			const clonedView = yield* findSavedViewById(client, cloned.id);
@@ -206,16 +207,8 @@ describe("Saved views lifecycle E2E", () => {
 
 			const disableResult = yield* client.call((c) =>
 				c.savedViews.update({
+					payload: { isDisabled: true },
 					params: { viewSlug: builtinView.slug },
-					payload: {
-						isDisabled: true,
-						icon: builtinView.icon,
-						name: builtinView.name,
-						renderer: builtinView.renderer,
-						settings: builtinView.settings,
-						dataSources: builtinView.dataSources,
-						...(builtinView.pluginSlug ? { workspacePluginSlug: builtinView.pluginSlug } : {}),
-					},
 				}),
 			);
 			const refreshedDisabled = yield* getSavedView(client, builtinView.slug);
@@ -225,16 +218,8 @@ describe("Saved views lifecycle E2E", () => {
 
 			yield* client.call((c) =>
 				c.savedViews.update({
+					payload: { isDisabled: false },
 					params: { viewSlug: builtinView.slug },
-					payload: {
-						isDisabled: false,
-						icon: builtinView.icon,
-						name: builtinView.name,
-						renderer: builtinView.renderer,
-						settings: builtinView.settings,
-						dataSources: builtinView.dataSources,
-						...(builtinView.pluginSlug ? { workspacePluginSlug: builtinView.pluginSlug } : {}),
-					},
 				}),
 			);
 			const fetchedReEnabled = yield* getSavedView(client, builtinView.slug);

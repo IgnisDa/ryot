@@ -40,10 +40,11 @@ import {
 	definitionImportSource,
 	definitionIntegrationProvider,
 	definitionRelationshipSchema,
+	definitionSavedView,
 	definitionSignalSchema,
 } from "#lib/infrastructure/db/schema/tables/definitions";
 import { migrationReport } from "#lib/infrastructure/db/schema/tables/migration-reports";
-import { savedView } from "#lib/infrastructure/db/schema/tables/views";
+import { savedView, savedViewOverride } from "#lib/infrastructure/db/schema/tables/views";
 import { Database, DatabaseLive } from "#lib/infrastructure/db/service";
 import { testDatabaseUrl } from "#lib/test-utils/database";
 import { makeAppConfigLayer, makeConfigProviderLayer } from "#lib/test-utils/effect";
@@ -303,7 +304,7 @@ const seedCatalog = Effect.gen(function* () {
 			userId: "owner",
 			id: "owner-system",
 			pluginId: "system-plugin",
-			homeSavedViewId: "view-kernel",
+			homeSavedViewSlug: "kernel-view",
 		},
 		{
 			userId: "owner",
@@ -312,20 +313,20 @@ const seedCatalog = Effect.gen(function* () {
 			healthReason: "configured",
 			configuredSecretPaths: ["token"],
 			clientConfig: { visible: "yes" },
-			homeSavedViewId: "view-component",
+			homeSavedViewSlug: "component-view",
 		},
 		{
 			userId: "owner",
 			isDisabled: true,
 			id: "owner-disabled",
 			pluginId: "disabled-plugin",
-			homeSavedViewId: "view-plugin-component",
+			homeSavedViewSlug: "plugin-component",
 		},
 		{
 			userId: "other",
 			id: "other-system",
 			pluginId: "system-plugin",
-			homeSavedViewId: "view-kernel",
+			homeSavedViewSlug: "kernel-view",
 		},
 		{ userId: "other", id: "other-private", pluginId: "other-plugin" },
 	]);
@@ -438,33 +439,47 @@ const seedCatalog = Effect.gen(function* () {
 				exportName: "widget",
 				pluginId: "system-plugin",
 			}),
-			view(
-				"view-private-home",
-				"owner",
-				"private-home",
-				{ kind: "plugin", exportName: "page", pluginId: "system-plugin" },
-				{ isBuiltin: true, pluginInstallationId: "owner-private" },
-			),
 			view("view-plugin-component", "owner", "plugin-component", {
 				kind: "plugin",
 				exportName: "widget",
 				pluginId: "system-plugin",
 			}),
-			view(
-				"view-disabled-home",
-				"owner",
-				"disabled-home",
-				{ kind: "kernel", name: "entity-browser" },
-				{ isBuiltin: true, isDisabled: true, pluginInstallationId: "owner-disabled" },
-			),
-			view(
-				"view-other-home",
-				"other",
-				"system-home",
-				{ kind: "plugin", exportName: "page", pluginId: "system-plugin" },
-				{ isBuiltin: true, pluginInstallationId: "other-system" },
-			),
 		]);
+	yield* db.insert(definitionSavedView).values([
+		{
+			...definition("private-home", "private-plugin"),
+			icon: "box",
+			sortOrder: 0,
+			settings: {},
+			dataSources: null,
+			renderer: { kind: "plugin", exportName: "page", pluginId: "system-plugin" },
+		},
+		{
+			...definition("disabled-home", "disabled-plugin"),
+			icon: "box",
+			sortOrder: 0,
+			settings: {},
+			dataSources: null,
+			renderer: { kind: "kernel", name: "entity-browser" },
+		},
+		{
+			...definition("system-home", "system-plugin"),
+			icon: "box",
+			sortOrder: 0,
+			settings: {},
+			dataSources: null,
+			renderer: { kind: "plugin", exportName: "page", pluginId: "system-plugin" },
+		},
+	]);
+	yield* db
+		.insert(savedViewOverride)
+		.values({
+			sortOrder: 0,
+			userId: "owner",
+			isDisabled: true,
+			slug: "disabled-home",
+			pluginId: "disabled-plugin",
+		});
 	yield* db.insert(backupRun).values([
 		{
 			kind: "export",
@@ -874,13 +889,16 @@ it.effect("scopes backups and saved views to their owner without artifact keys",
 			expect(Object.values(backup ?? {})).not.toContain("secret-key");
 			expect(yield* readRows(other, "backupRun", ["id"])).toEqual([{ id: "backup-other" }]);
 			expect(yield* readRows(owner, "savedView", ["id"])).toEqual([
+				{ id: "builtin:owner:disabled-home" },
+				{ id: "builtin:owner:private-home" },
+				{ id: "builtin:owner:system-home" },
 				{ id: "view-component" },
-				{ id: "view-disabled-home" },
 				{ id: "view-kernel" },
 				{ id: "view-plugin-component" },
-				{ id: "view-private-home" },
 			]);
-			expect(yield* readRows(other, "savedView", ["id"])).toEqual([{ id: "view-other-home" }]);
+			expect(yield* readRows(other, "savedView", ["id"])).toEqual([
+				{ id: "builtin:other:system-home" },
+			]);
 		}),
 	),
 );
@@ -927,22 +945,22 @@ it.effect("derives the effective home view from usable selections and manifest d
 	withCatalogDatabase(
 		Effect.gen(function* () {
 			const expected = [
-				{ id: "installed", homeSavedViewId: null },
-				{ id: "other-private", homeSavedViewId: null },
-				{ id: "other-system", homeSavedViewId: "view-other-home" },
-				{ id: "owner-disabled", homeSavedViewId: null },
-				{ id: "owner-private", homeSavedViewId: "view-private-home" },
-				{ id: "owner-system", homeSavedViewId: "view-kernel" },
-				{ id: "uninstalled", homeSavedViewId: null },
+				{ id: "installed", homeSavedViewSlug: null },
+				{ id: "other-private", homeSavedViewSlug: null },
+				{ id: "other-system", homeSavedViewSlug: "system-home" },
+				{ id: "owner-disabled", homeSavedViewSlug: null },
+				{ id: "owner-private", homeSavedViewSlug: "private-home" },
+				{ id: "owner-system", homeSavedViewSlug: "kernel-view" },
+				{ id: "uninstalled", homeSavedViewSlug: null },
 			];
 
-			expect(yield* readRows("admin", "pluginInstallation", ["id", "homeSavedViewId"])).toEqual(
+			expect(yield* readRows("admin", "pluginInstallation", ["id", "homeSavedViewSlug"])).toEqual(
 				expected,
 			);
 			expect(
 				yield* readRows({ userId: "owner", audience: "plugin" }, "pluginInstallation", [
 					"id",
-					"homeSavedViewId",
+					"homeSavedViewSlug",
 				]),
 			).toEqual(expected.filter(({ id }) => id === "installed" || id.startsWith("owner-")));
 		}),

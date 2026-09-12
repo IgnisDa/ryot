@@ -4,9 +4,13 @@ import { Effect } from "effect";
 import {
 	createAuthenticatedClient,
 	createPluginSavedView,
+	createSavedView,
+	findSavedViewById,
+	getSavedView,
 	prepareClientPage,
 } from "~/fixtures/kernel";
 import { adminHeaders } from "~/fixtures/kernel/admin";
+import { listAdminSystemPlugins } from "~/fixtures/kernel/admin-system-plugins";
 import { compilePluginPackage } from "~/fixtures/kernel/compiled-package";
 import { getApiClient } from "~/fixtures/kernel/contract-client";
 import { literalSandboxSource } from "~/fixtures/kernel/sandbox-source";
@@ -14,9 +18,33 @@ import {
 	encodePluginSourceFiles,
 	installTestSupportSystemPlugin,
 	testPluginManifest,
+	testPluginSavedView,
 } from "~/fixtures/kernel/test-plugin";
+import { assertTaggedError } from "~/support/assertions";
 import { expect, it } from "~/support/effect-test";
 import { getApiUrl } from "~/support/harness-target";
+
+it.live("rejects a system built-in slug already owned by another user's custom view", () =>
+	Effect.gen(function* () {
+		const owner = yield* createAuthenticatedClient();
+		const view = yield* createSavedView(owner.client, { name: `Collision ${crypto.randomUUID()}` });
+		const custom = yield* findSavedViewById(owner.client, view.id);
+		const pluginSlug = PluginSlug.make(`e2e-collision-${crypto.randomUUID()}`);
+		const error = yield* Effect.flip(
+			installTestSupportSystemPlugin({
+				files: {},
+				manifest: testPluginManifest({
+					pluginSlug,
+					savedViews: [testPluginSavedView({ slug: custom.slug })],
+				}),
+			}),
+		);
+		assertTaggedError(error, "PluginRequestError");
+		expect(error.reason.code).toBe("validation-failed");
+		expect((yield* getSavedView(owner.client, custom.slug)).id).toBe(custom.id);
+		expect((yield* listAdminSystemPlugins).some(({ slug }) => slug === pluginSlug)).toBe(false);
+	}),
+);
 
 it.live(
 	"compiles and installs synthetic backend and client sources without server compilation",

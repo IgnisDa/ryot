@@ -395,7 +395,7 @@ describe("client page routes", () => {
 		const savedViewId = SavedViewId.make("home-view-1");
 		const view = mount({
 			entry: "/fixture",
-			entries: [{ ...catalog[0], homeSavedViewId: savedViewId }],
+			entries: [{ ...catalog[0], homeSavedViewSlug: savedViewId }],
 		});
 		const frame = await screen.findByTitle<HTMLIFrameElement>("fixture plugin");
 		const bridge = connectFrame(frame);
@@ -432,7 +432,7 @@ describe("client page routes", () => {
 		const targets: ClientPageTarget[] = [];
 		mount({
 			entry: "/fixture",
-			entries: [{ ...catalog[0], homeSavedViewId: savedViewId }],
+			entries: [{ ...catalog[0], homeSavedViewSlug: savedViewId }],
 			prepare: (_scope, request) => {
 				targets.push(request.payload.target);
 				return preparationFailure({ code: "plugin-unavailable", pluginId: "renderer-plugin" });
@@ -451,7 +451,7 @@ describe("client page routes", () => {
 		const targets: ClientPageTarget[] = [];
 		mount({
 			entry: "/fixture",
-			entries: [{ ...catalog[0], homeSavedViewId: savedViewId }],
+			entries: [{ ...catalog[0], homeSavedViewSlug: savedViewId }],
 			prepare: (_scope, request) => {
 				targets.push(request.payload.target);
 				return Effect.fail(new AuthenticatedApiError({ cause: new Error("build failed") }));

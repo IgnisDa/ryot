@@ -35,7 +35,7 @@ const workspace = (
 	icon: "plugin",
 	health: "ready",
 	clientApiVersion: 1,
-	homeSavedViewId: null,
+	homeSavedViewSlug: null,
 	name: slug.toUpperCase(),
 	pluginId: `plugin-${slug}`,
 	sourceHash: `source-${slug}`,

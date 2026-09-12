@@ -128,7 +128,8 @@ describe("backup export and restore round trip", () => {
 				{},
 				{ name: "Coexisting backup view", workspacePluginSlug: FIXTURE_CLIENT_PLUGIN_SLUG },
 			);
-			yield* setPluginHomeView(source.client, PluginSlug.make("media"), view.id);
+			const sourceView = yield* findSavedViewById(source.client, view.id);
+			yield* setPluginHomeView(source.client, PluginSlug.make("media"), sourceView.slug);
 
 			const { bytes } = yield* exportAndDownloadBackup(source.client, source.token);
 			const restored = yield* restoreBackup(target.client, bytes);
@@ -140,8 +141,8 @@ describe("backup export and restore round trip", () => {
 			assert(restoredView.renderer.kind === "plugin");
 			expect(restoredView.renderer.pluginId).not.toBe(pluginId);
 			expect(restoredView.renderer.exportName).toBe("fixture-home");
-			expect((yield* findPluginInstallationBySlug(target.client, "media")).homeSavedViewId).toBe(
-				restoredView.id,
+			expect((yield* findPluginInstallationBySlug(target.client, "media")).homeSavedViewSlug).toBe(
+				restoredView.slug,
 			);
 
 			expect((yield* getSavedView(source.client, viewRecord.slug)).id).toBe(view.id);
@@ -319,7 +320,11 @@ describe("backup export and restore round trip", () => {
 			);
 			const clonedPluginView = yield* cloneSavedView(source.client, pluginOwnedView.slug);
 			const clonedPluginViewRecord = yield* findSavedViewById(source.client, clonedPluginView.id);
-			yield* setPluginHomeView(source.client, PluginSlug.make("media"), clonedPluginView.id);
+			yield* setPluginHomeView(
+				source.client,
+				PluginSlug.make("media"),
+				clonedPluginViewRecord.slug,
+			);
 			const sourceMediaLibraryId = yield* getMediaLibraryId(source.client);
 			const targetMediaLibraryId = yield* getMediaLibraryId(target.client);
 			expect(targetMediaLibraryId).not.toBe(sourceMediaLibraryId);
@@ -386,8 +391,8 @@ describe("backup export and restore round trip", () => {
 			expect((yield* getSavedView(target.client, builtinView.slug)).isDisabled).toBe(false);
 			yield* source.client.call((c) =>
 				c.savedViews.update({
+					payload: { isDisabled: true },
 					params: { viewSlug: builtinView.slug },
-					payload: { isDisabled: true, icon: builtinView.icon, name: builtinView.name },
 				}),
 			);
 
@@ -494,8 +499,8 @@ describe("backup export and restore round trip", () => {
 				dataSources: null,
 				renderer: { kind: "plugin", exportName: "backup-page" },
 			});
-			expect((yield* findPluginInstallationBySlug(target.client, "media")).homeSavedViewId).toBe(
-				restoredPluginView.id,
+			expect((yield* findPluginInstallationBySlug(target.client, "media")).homeSavedViewSlug).toBe(
+				restoredPluginView.slug,
 			);
 			const restoredSubscriptions = yield* listNotificationSubscriptions(target.client, {
 				limit: 100,

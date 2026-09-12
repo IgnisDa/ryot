@@ -141,7 +141,7 @@ it("exposes only approved application-table fields", () => {
 			"id",
 			"health",
 			"pluginId",
-			"homeSavedViewId",
+			"homeSavedViewSlug",
 			"sortOrder",
 			"isDisabled",
 			"healthReason",

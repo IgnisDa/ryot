@@ -141,19 +141,31 @@ const ListedSavedViewBase = {
 	name: Schema.String,
 	icon: Schema.String,
 	sortOrder: Schema.Number,
-	createdAt: Schema.String,
-	updatedAt: Schema.String,
-	isBuiltin: Schema.Boolean,
 	isDisabled: Schema.Boolean,
 	pluginSlug: Schema.NullOr(PluginSlug),
 };
 
-export const ListedSavedView = strictStruct({
+const ListedSavedViewFields = {
 	...ListedSavedViewBase,
 	renderer: SavedViewRenderer,
 	dataSources: Schema.NullOr(RyotQLDocument),
 	settings: Schema.Record(Schema.String, JsonValue),
-});
+};
+
+export const ListedSavedView = Schema.Union([
+	strictStruct({
+		...ListedSavedViewFields,
+		createdAt: Schema.String,
+		updatedAt: Schema.String,
+		isBuiltin: Schema.Literal(false),
+	}),
+	strictStruct({
+		...ListedSavedViewFields,
+		createdAt: Schema.Null,
+		updatedAt: Schema.Null,
+		isBuiltin: Schema.Literal(true),
+	}),
+]);
 
 export type ListedSavedView = typeof ListedSavedView.Type;
 
@@ -171,9 +183,9 @@ export const CreateSavedViewBody = strictStruct({
 export type CreateSavedViewBody = typeof CreateSavedViewBody.Type;
 
 export const UpdateSavedViewBody = strictStruct({
-	icon: Schema.String,
-	name: Schema.String,
 	isDisabled: Schema.Boolean,
+	icon: Schema.optional(Schema.String),
+	name: Schema.optional(Schema.String),
 	renderer: Schema.optional(SavedViewRenderer),
 	dataSources: Schema.optional(Schema.NullOr(RyotQLDocument)),
 	workspacePluginSlug: Schema.optional(Schema.NullOr(PluginSlug)),

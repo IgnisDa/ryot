@@ -118,7 +118,7 @@ export const ArchiveInstallation = strictStruct({
 	sortOrder: Schema.Finite,
 	packageKey: Schema.String,
 	disabledIntent: Schema.Boolean,
-	homeSavedViewId: Schema.NullOr(Schema.String),
+	homeSavedViewSlug: Schema.NullOr(Schema.String),
 	configuredSecretPaths: Schema.Array(Schema.String),
 	lifecycleIntent: Schema.Literals(["ready", "needs-configuration", "disabled"]),
 });
@@ -238,8 +238,12 @@ export const ArchiveSavedView = Schema.Union([
 		isBuiltin: Schema.Literal(false),
 	}),
 	strictStruct({
-		...savedViewFields,
+		id: Schema.String,
+		slug: Schema.String,
+		sortOrder: Schema.Finite,
+		isDisabled: Schema.Boolean,
 		isBuiltin: Schema.Literal(true),
+		pluginKey: Schema.NullOr(Schema.String),
 		kind: Schema.Literal("builtin-override"),
 	}),
 ]);

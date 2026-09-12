@@ -10,6 +10,7 @@ import { DefinitionRepository } from "#modules/definition-registry/repository";
 import { PluginCatalogInvalidator } from "#modules/plugins/catalog-events";
 import { ClientSurfaceMaterializer } from "#modules/plugins/client-surface-materializer";
 import { PluginInstallationRepository } from "#modules/plugins/installation-repository";
+import { PluginRepository } from "#modules/plugins/repository";
 import { PluginRuntimeResolver } from "#modules/plugins/runtime-resolver";
 import { fixtureManifest } from "#modules/plugins/test-support";
 
@@ -34,6 +35,7 @@ const baseView = {
 	dataSources,
 	sortOrder: 0,
 	icon: "record",
+	pluginId: null,
 	slug: "my-view",
 	name: "My View",
 	isBuiltin: false,
@@ -51,7 +53,10 @@ const baseView = {
 		entityLink: { entityIdField: "entityId" },
 		columns: [{ label: "Name", field: "name", displayKind: "text" }],
 	},
-} satisfies ListedSavedView & { readonly pluginInstallationId: string | null };
+} satisfies ListedSavedView & {
+	readonly pluginInstallationId: string | null;
+	readonly pluginId: string | null;
+};
 
 const repositoryMock = Layer.mock(SavedViewsRepository);
 const makeRepository = (overrides: MockOverrides<typeof repositoryMock>) =>
@@ -88,6 +93,7 @@ const makeLayer = (
 					materializeRenderer: () => Effect.sync(() => onMaterializeRenderer?.()),
 				}),
 				Layer.mock(DefinitionRepository)({ listUserSavedViews: () => Effect.succeed([]) }),
+				Layer.mock(PluginRepository)({ lockIngestionShared: () => Effect.void }),
 				Layer.mock(PluginRuntimeResolver)({
 					listPluginsAvailableToUser: () => Effect.succeed([...availablePlugins]),
 				}),
@@ -106,8 +112,10 @@ it.effect("clones a validated plugin-rendered builtin with its stable runtime re
 	const pluginView = {
 		...baseView,
 		renderer,
-		isBuiltin: true,
+		createdAt: null,
+		updatedAt: null,
 		dataSources: null,
+		isBuiltin: true as const,
 		settings: { title: "Fixture" },
 	};
 	const manifest = {
@@ -217,7 +225,7 @@ it.effect("clears home references when disabling a saved view", () => {
 			name: baseView.name,
 		});
 		expect(updated).toEqual({ id: baseView.id });
-		expect(events).toEqual(["update", `clear:${baseView.id}`]);
+		expect(events).toEqual(["update", `clear:${baseView.slug}`]);
 	}).pipe(
 		Effect.provide(
 			makeLayer(
@@ -307,57 +315,4 @@ it.effect("updates a disabled view without materializing an unavailable renderer
 			),
 		),
 	);
-});
-
-it.effect("materializes canonical builtin definitions and preserves repository-owned state", () => {
-	const builtin = { ...baseView, slug: "builtin", isBuiltin: true };
-	const builtinView = {
-		sortOrder: 3,
-		pluginId: null,
-		pluginSlug: null,
-		slug: builtin.slug,
-		name: builtin.name,
-		icon: builtin.icon,
-		renderer: builtin.renderer,
-		settings: builtin.settings,
-		dataSources: builtin.dataSources,
-	};
-	let definitions: readonly unknown[] = [];
-	const layer = SavedViewsService.layer.pipe(
-		Layer.provideMerge(
-			Layer.mergeAll(
-				databaseLayer,
-				makeRepository({
-					ensureBuiltinViews: (_userId, views) =>
-						Effect.sync(() => {
-							definitions = views;
-						}),
-				}),
-				PluginCatalogInvalidator.layer,
-				Layer.succeed(ClientSurfaceMaterializer, {
-					materializeRenderer: () => Effect.void,
-					assertUserCompositions: () => Effect.void,
-					materializeSystemCompositions: Effect.void,
-					materializeUserCompositions: () => Effect.void,
-					materializePendingInstallation: () => Effect.void,
-				}),
-				Layer.mock(PluginInstallationRepository)({ listForUser: () => Effect.succeed([]) }),
-				Layer.mock(PluginRuntimeResolver)({}),
-				Layer.mock(DefinitionRepository)({
-					listUserSavedViews: () => Effect.succeed([builtinView]),
-				}),
-			),
-		),
-	);
-	return Effect.gen(function* () {
-		yield* (yield* SavedViewsService).ensureBuiltinViews(user.id);
-		expect(definitions).toMatchObject([
-			{
-				sortOrder: 3,
-				renderer: builtin.renderer,
-				settings: builtin.settings,
-				dataSources: builtin.dataSources,
-			},
-		]);
-	}).pipe(Effect.provide(layer));
 });
