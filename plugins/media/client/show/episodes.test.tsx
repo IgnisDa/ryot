@@ -65,6 +65,7 @@ const showAdapter = (input: {
 							id: "show-1",
 							schemaSlug: "show",
 							name: "Adolescence",
+							episodeOrders: null,
 							populationStatus: "ready",
 							translationStatus: "none",
 							seasons: rows(input.seasons ?? [showSeasonRow]),
