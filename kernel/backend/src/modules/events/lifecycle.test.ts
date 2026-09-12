@@ -1,4 +1,4 @@
-import { assert, describe, expect, it } from "@effect/vitest";
+import { assert, describe, expect, layer } from "@effect/vitest";
 import { DbError } from "@ryot-app/contract/errors";
 import { DEFAULT_AUTOMATION_RETRY_POLICY } from "@ryot-app/contract/modules/automations/lifecycle";
 import {
@@ -10,7 +10,7 @@ import {
 	EventSchemaSlug,
 	UserId,
 } from "@ryot-app/contract/schema/brands";
-import { DateTime, Effect, Layer, Redacted } from "effect";
+import { Context, DateTime, Effect, Layer, Redacted, Ref } from "effect";
 import { Workflow } from "effect/unstable/workflow";
 import { WorkflowEngine, WorkflowInstance } from "effect/unstable/workflow/WorkflowEngine";
 import { Client } from "pg";
@@ -23,15 +23,11 @@ import { mapDatabaseErrors } from "#lib/infrastructure/db/service";
 import { DatabaseSession } from "#lib/infrastructure/db/session";
 import { assertExitFails } from "#lib/test-utils/assertions";
 import {
-	applyBaselineMigration,
-	baselineMigrationStatements,
-} from "#lib/test-utils/baseline-migration";
-import { testDatabaseUrl } from "#lib/test-utils/database";
-import {
 	makeAppConfigLayer,
 	makeConfigProviderLayer,
 	makeWorkflowEngine,
 } from "#lib/test-utils/effect";
+import { IsolatedDatabase, isolatedDatabaseLayer } from "#lib/test-utils/isolated-database";
 import {
 	withLifecycleBatchPlanning,
 	withLifecycleDispatch,
@@ -44,7 +40,6 @@ import { runEventCreateWorkflow } from "./event-create-workflow-live";
 import { EventsRepository } from "./repository";
 import { EventsService } from "./service";
 
-const url = testDatabaseUrl();
 const userId = UserId.make("event-owner");
 const entityId = EntityId.make("event-subject");
 const movedId = EntityId.make("event-moved-subject");
@@ -59,77 +54,46 @@ const command = (id: string) =>
 		executionId: AutomationExecutionId.make(id),
 	});
 
-const withDatabase = <E, R>(
-	test: (
-		observer: Client,
-		plannerLayer: (failChange?: boolean) => ReturnType<typeof planner>,
-	) => Effect.Effect<void, E, R>,
-) =>
-	Effect.scoped(
-		Effect.gen(function* () {
-			assert(url);
-			const name = `event_test_${crypto.randomUUID().replaceAll("-", "")}`;
-			const admin = yield* Effect.acquireRelease(
-				Effect.gen(function* () {
-					const client = new Client({ connectionString: url });
-					yield* Effect.tryPromise(() => client.connect());
-					return client;
-				}),
-				(client) =>
-					Effect.promise(() => client.query(`DROP DATABASE IF EXISTS "${name}" WITH (FORCE)`)).pipe(
-						Effect.andThen(Effect.promise(() => client.end())),
-					),
-			);
-			yield* Effect.tryPromise(() => admin.query(`CREATE DATABASE "${name}"`));
-			const scoped = new URL(url);
-			scoped.pathname = `/${name}`;
-			const observer = yield* Effect.acquireRelease(
-				Effect.gen(function* () {
-					const client = new Client({ connectionString: scoped.toString() });
-					yield* Effect.tryPromise(() => client.connect());
-					return client;
-				}),
-				(client) => Effect.promise(() => client.end()),
-			);
-			yield* applyBaselineMigration(yield* baselineMigrationStatements(), (statement) =>
-				Effect.tryPromise(() => observer.query(statement)),
-			);
-			yield* Effect.tryPromise(() =>
-				observer.query(
-					`INSERT INTO "user" (id,name,email,preferences) VALUES ($1,'Owner','event@example.test','{}');`,
-					[userId],
-				),
-			);
-			yield* Effect.tryPromise(() =>
-				observer.query(
-					`INSERT INTO entity (id,name,entity_schema_slug,properties) VALUES ($1,'Subject','record','{}'),($2,'Moved','record','{}')`,
-					[entityId, movedId],
-				),
-			);
-			yield* Effect.tryPromise(() =>
-				observer.query(
-					`INSERT INTO sandbox_script (id,slug,name,source,content_hash,compiled_code,metadata) VALUES ('script','fixture','Fixture','','hash','','{}')`,
-				),
-			);
-			const config = makeAppConfigLayer({ database: { url: Redacted.make(scoped.toString()) } });
-			const plannerLayer = (failChange = false) => planner(failChange).pipe(Layer.provide(config));
-			const layer = EventsService.layer.pipe(
-				Layer.provideMerge(
-					Layer.mergeAll(
-						EventsRepository.layer.pipe(Layer.provideMerge(DatabaseSession.layer)),
-						plannerLayer().pipe(Layer.provide(DatabaseSession.layer)),
-						execution,
-						Layer.succeed(WorkflowEngine, engine),
-					),
-				),
-				Layer.provideMerge(config),
-				Layer.provideMerge(makeConfigProviderLayer()),
-			);
-			yield* test(observer, plannerLayer).pipe(Effect.provide(layer));
-		}),
-	);
+class LifecycleDatabase extends Context.Service<
+	LifecycleDatabase,
+	{
+		readonly observer: Client;
+		readonly url: string;
+		readonly failChangePlanning: (fail: boolean) => Effect.Effect<void>;
+	}
+>()("test/LifecycleDatabase") {}
 
-const planner = (failChange = false) =>
+const isolatedDatabase = Effect.gen(function* () {
+	const { url } = yield* IsolatedDatabase;
+	const observer = yield* Effect.acquireRelease(
+		Effect.gen(function* () {
+			const client = new Client({ connectionString: url });
+			yield* Effect.tryPromise(() => client.connect());
+			return client;
+		}),
+		(client) => Effect.promise(() => client.end()),
+	);
+	yield* Effect.tryPromise(() =>
+		observer.query(
+			`INSERT INTO "user" (id,name,email,preferences) VALUES ($1,'Owner','event@example.test','{}');`,
+			[userId],
+		),
+	);
+	yield* Effect.tryPromise(() =>
+		observer.query(
+			`INSERT INTO entity (id,name,entity_schema_slug,properties) VALUES ($1,'Subject','record','{}'),($2,'Moved','record','{}')`,
+			[entityId, movedId],
+		),
+	);
+	yield* Effect.tryPromise(() =>
+		observer.query(
+			`INSERT INTO sandbox_script (id,slug,name,source,content_hash,compiled_code,metadata) VALUES ('script','fixture','Fixture','','hash','','{}')`,
+		),
+	);
+	return { url, observer };
+});
+
+const planner = (failChange: Ref.Ref<boolean>) =>
 	Layer.effect(
 		LifecyclePlanner,
 		Effect.map(DatabaseSession, (session) =>
@@ -178,7 +142,7 @@ const planner = (failChange = false) =>
 										artifactsExpireAt: DateTime.toDate(DateTime.makeUnsafe(now)),
 									}),
 							);
-							if (failChange) {
+							if (yield* Ref.get(failChange)) {
 								return yield* new DbError({ message: "planning failed after run insertion" });
 							}
 						}
@@ -227,67 +191,99 @@ const execution = Layer.succeed(
 	}),
 );
 
-describe("Event lifecycle PostgreSQL", () => {
-	it.effect("event, change trigger and queued runs commit together and roll back together", () =>
-		withDatabase((observer, plannerLayer) => {
-			const run = (id: string, fail: boolean) => {
-				let dispatched = 0;
-				return runEventCreateWorkflow(
-					{
-						userId,
-						command: command(id),
-						payload: [{ entityId, properties: {}, eventSchemaSlug }],
-					},
-					id,
-				).pipe(
-					Effect.provide(Layer.mergeAll(workflowLayer, plannerLayer(fail))),
-					Effect.provideService(WorkflowEngine, engine),
-					Effect.provideService(
-						WorkflowInstance,
-						WorkflowInstance.initial(EventCreateWorkflow, id),
-					),
-					Effect.provideService(
-						LifecycleExecution,
-						withLifecycleDispatch({
-							skipQueuedPolicies: () => Effect.void,
-							executePolicy: () => Effect.die("Unexpected policy"),
-							after: () =>
-								Effect.gen(function* () {
-									dispatched += 1;
-									const result = yield* Effect.promise(() =>
-										observer.query(
-											`SELECT (SELECT count(*) FROM event)::int AS events, (SELECT count(*) FROM automation_trigger WHERE category='change')::int AS changes, (SELECT count(*) FROM automation_run)::int AS runs`,
-										),
-									);
-									expect(result.rows).toEqual([
-										{ events: 1, runs: dispatched, changes: dispatched },
-									]);
-									return [];
-								}),
-						}),
-					),
-				);
-			};
-			return Effect.gen(function* () {
-				assertExitFails(
-					yield* Effect.exit(run("failed", true)),
-					new DbError({ message: "planning failed after run insertion" }),
-				);
-				expect(
-					(yield* Effect.promise(() =>
-						observer.query(
-							`SELECT (SELECT count(*) FROM event)::int AS events, (SELECT count(*) FROM automation_trigger)::int AS triggers, (SELECT count(*) FROM automation_run)::int AS runs`,
-						),
-					)).rows,
-				).toEqual([{ runs: 0, events: 0, triggers: 1 }]);
-				expect((yield* run("accepted", false)).count).toBe(1);
-			});
-		}),
-	);
+const lifecycleDatabaseLayer = Layer.unwrap(
+	Effect.gen(function* () {
+		const database = yield* isolatedDatabase;
+		const failChange = yield* Ref.make(false);
+		const config = makeAppConfigLayer({ database: { url: Redacted.make(database.url) } });
+		return EventsService.layer.pipe(
+			Layer.provideMerge(
+				Layer.mergeAll(
+					EventsRepository.layer.pipe(Layer.provideMerge(DatabaseSession.layer)),
+					planner(failChange).pipe(Layer.provide(DatabaseSession.layer)),
+					execution,
+					Layer.succeed(WorkflowEngine, engine),
+				),
+			),
+			Layer.provideMerge(config),
+			Layer.provideMerge(makeConfigProviderLayer()),
+			Layer.provideMerge(
+				Layer.succeed(LifecycleDatabase, {
+					...database,
+					failChangePlanning: (fail) => Ref.set(failChange, fail),
+				}),
+			),
+		);
+	}),
+).pipe(Layer.provide(isolatedDatabaseLayer("event_test")));
 
-	it.effect("reference moves and deletes retain exact snapshots and advance updatedAt", () =>
-		withDatabase((observer) =>
+describe("Event lifecycle PostgreSQL", () => {
+	layer(Layer.merge(lifecycleDatabaseLayer, workflowLayer))((test) => {
+		test.effect(
+			"event, change trigger and queued runs commit together and roll back together",
+			() =>
+				Effect.gen(function* () {
+					const { observer, failChangePlanning } = yield* LifecycleDatabase;
+					const run = (id: string, fail: boolean) => {
+						let dispatched = 0;
+						return failChangePlanning(fail).pipe(
+							Effect.andThen(
+								runEventCreateWorkflow(
+									{
+										userId,
+										command: command(id),
+										payload: [{ entityId, properties: {}, eventSchemaSlug }],
+									},
+									id,
+								),
+							),
+							Effect.provideService(WorkflowEngine, engine),
+							Effect.provideService(
+								WorkflowInstance,
+								WorkflowInstance.initial(EventCreateWorkflow, id),
+							),
+							Effect.provideService(
+								LifecycleExecution,
+								withLifecycleDispatch({
+									skipQueuedPolicies: () => Effect.void,
+									executePolicy: () => Effect.die("Unexpected policy"),
+									after: () =>
+										Effect.gen(function* () {
+											dispatched += 1;
+											const result = yield* Effect.promise(() =>
+												observer.query(
+													`SELECT (SELECT count(*) FROM event)::int AS events, (SELECT count(*) FROM automation_trigger WHERE category='change')::int AS changes, (SELECT count(*) FROM automation_run)::int AS runs`,
+												),
+											);
+											expect(result.rows).toEqual([
+												{ events: 1, runs: dispatched, changes: dispatched },
+											]);
+											return [];
+										}),
+								}),
+							),
+						);
+					};
+					assertExitFails(
+						yield* Effect.exit(run("failed", true)),
+						new DbError({ message: "planning failed after run insertion" }),
+					);
+					expect(
+						(yield* Effect.promise(() =>
+							observer.query(
+								`SELECT (SELECT count(*) FROM event)::int AS events, (SELECT count(*) FROM automation_trigger)::int AS triggers, (SELECT count(*) FROM automation_run)::int AS runs`,
+							),
+						)).rows,
+					).toEqual([{ runs: 0, events: 0, triggers: 1 }]);
+					expect((yield* run("accepted", false)).count).toBe(1);
+				}),
+		);
+	});
+
+	layer(lifecycleDatabaseLayer)((test) => {
+		test.effect("reference moves and deletes retain exact snapshots and advance updatedAt", () =>
 			Effect.gen(function* () {
+				const { observer } = yield* LifecycleDatabase;
 				const repository = yield* EventsRepository;
 				const service = yield* EventsService;
 				const currentPlanner = yield* LifecyclePlanner;
@@ -295,15 +291,12 @@ describe("Event lifecycle PostgreSQL", () => {
 					Effect.provideService(LifecyclePlanner, {
 						...currentPlanner,
 						plan: (input) =>
-							currentPlanner
-								.plan(input)
-								.pipe(
-									Effect.flatMap((planned) =>
-										input.trigger.kind.category === "change"
-											? Effect.fail(new DbError({ message: "planning failed after run insertion" }))
-											: Effect.succeed(planned),
-									),
+							currentPlanner.plan(input).pipe(
+								Effect.filterOrFail(
+									() => input.trigger.kind.category !== "change",
+									() => new DbError({ message: "planning failed after run insertion" }),
 								),
+							),
 					}),
 				);
 				const eventId = EventId.make("event");
@@ -422,12 +415,13 @@ describe("Event lifecycle PostgreSQL", () => {
 					operation: "delete",
 				});
 			}),
-		),
-	);
+		);
+	});
 
-	it.effect("persists prepared event mutations only in the caller transaction", () =>
-		withDatabase((observer) =>
+	layer(lifecycleDatabaseLayer)((test) => {
+		test.effect("persists prepared event mutations only in the caller transaction", () =>
 			Effect.gen(function* () {
+				const { observer } = yield* LifecycleDatabase;
 				const session = yield* DatabaseSession;
 				const service = yield* EventsService;
 				const repository = yield* EventsRepository;
@@ -552,6 +546,6 @@ describe("Event lifecycle PostgreSQL", () => {
 				expect(rejected.message).toContain("Event policy rejected mutation");
 				expect(yield* repository.getEventSnapshot({ userId, eventId: rejectedId })).not.toBeNull();
 			}),
-		),
-	);
+		);
+	});
 });
