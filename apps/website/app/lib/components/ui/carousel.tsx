@@ -10,7 +10,7 @@ import {
 	useContext,
 	useEffect,
 	useMemo,
-	useState,
+	useSyncExternalStore,
 } from "react";
 
 import { Button } from "~/lib/components/ui/button";
@@ -64,17 +64,27 @@ const Carousel = forwardRef<HTMLDivElement, HTMLAttributes<HTMLDivElement> & Car
 			{ ...opts, axis: orientation === "horizontal" ? "x" : "y" },
 			plugins,
 		);
-		const [canScrollPrev, setCanScrollPrev] = useState(false);
-		const [canScrollNext, setCanScrollNext] = useState(false);
-
-		const onSelect = useCallback((carouselApi: CarouselApi) => {
-			if (!carouselApi) {
-				return;
-			}
-
-			setCanScrollPrev(carouselApi.canScrollPrev());
-			setCanScrollNext(carouselApi.canScrollNext());
-		}, []);
+		const subscribe = useCallback(
+			(listener: () => void) => {
+				api?.on("reInit", listener);
+				api?.on("select", listener);
+				return () => {
+					api?.off("reInit", listener);
+					api?.off("select", listener);
+				};
+			},
+			[api],
+		);
+		const canScrollPrev = useSyncExternalStore(
+			subscribe,
+			() => api?.canScrollPrev() ?? false,
+			() => false,
+		);
+		const canScrollNext = useSyncExternalStore(
+			subscribe,
+			() => api?.canScrollNext() ?? false,
+			() => false,
+		);
 
 		const scrollPrev = useCallback(() => {
 			api?.scrollPrev();
@@ -104,15 +114,6 @@ const Carousel = forwardRef<HTMLDivElement, HTMLAttributes<HTMLDivElement> & Car
 
 			setApi(api);
 		}, [api, setApi]);
-
-		useEffect(() => {
-			onSelect(api);
-			api?.on("reInit", onSelect);
-			api?.on("select", onSelect);
-			return () => {
-				api?.off("select", onSelect);
-			};
-		}, [api, onSelect]);
 
 		const contextValue = useMemo(
 			() => ({

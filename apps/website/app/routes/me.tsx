@@ -438,7 +438,7 @@ export default function Index() {
 						paddle?.Checkout.open({
 							items: [{ priceId, quantity: 1 }],
 							settings: paddleCustomerId ? { allowLogout: false } : undefined,
-							customData: { customerId: loaderData.customerDetails.id } as PaddleCustomData,
+							customData: { customerId: loaderData.customerDetails.id } satisfies PaddleCustomData,
 							customer: paddleCustomerId
 								? { id: paddleCustomerId }
 								: { email: loaderData.customerDetails.email },
