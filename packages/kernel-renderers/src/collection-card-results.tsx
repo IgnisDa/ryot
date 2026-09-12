@@ -1,3 +1,4 @@
+import { Schema } from "@ryot-app/client-sdk/effect";
 import { PluginLink, type EntityReference } from "@ryot-app/client-sdk/plugin";
 import { createRyotQuery, useRyotQuery } from "@ryot-app/client-sdk/react";
 import {
@@ -10,7 +11,6 @@ import {
 	collectionMembersCountsRecipe,
 	type CollectionMembersCountsResult,
 } from "@ryot-app/ryotql-recipes/collections";
-import { Schema } from "effect";
 import { useState } from "react";
 
 import type { BrowserLayout } from "./entity-browser-controller";
