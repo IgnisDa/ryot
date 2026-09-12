@@ -326,7 +326,6 @@ describe("isolated deployment-global sandbox HTTP rate limiting", () => {
 	let apiPortA: number;
 	let apiPortB: number;
 	let apiEnvA: NodeJS.ProcessEnv;
-	let apiEnvB: NodeJS.ProcessEnv;
 	let httpServer: FakeHttpServer | undefined;
 	const requestTimestamps: Array<number> = [];
 	let apiProcessA: ReturnType<typeof spawnApiProcess> | undefined;
@@ -364,34 +363,16 @@ describe("isolated deployment-global sandbox HTTP rate limiting", () => {
 						requestTimestamps.push(Date.now());
 						return Response.json({ ok: true });
 					});
-					const [infrastructure, portA, portB] = yield* Effect.all(
-						[
-							startCoreTestInfrastructure({ bucketName: ISOLATED_BUCKET_NAME }),
-							Effect.promise(() => getPort()),
-							Effect.promise(() => getPort()),
-						],
-						{ concurrency: "unbounded" },
-					);
-					apiPortA = portA;
-					apiPortB = portB;
+					const infrastructure = yield* startCoreTestInfrastructure({
+						bucketName: ISOLATED_BUCKET_NAME,
+					});
 					coreInfrastructure = infrastructure;
+					apiPortA = yield* Effect.promise(() => getPort());
 					apiEnvA = buildApiEnv({
 						port: apiPortA,
 						frontendUrl: apiOriginA(),
 						dbUrl: infrastructure.dbUrl,
 						label: "Global Rate Limit API A",
-						redisUrl: infrastructure.redisUrl,
-						s3BucketName: ISOLATED_BUCKET_NAME,
-						s3Endpoint: infrastructure.s3Endpoint,
-						extraEnv: { SCHEDULER_DISABLE_DISPATCHERS: "true" },
-					});
-					// Both processes share a FRONTEND_URL: the internal OAuth client and API resource are
-					// provisioned from it, as they are for replicas of a single deployment.
-					apiEnvB = buildApiEnv({
-						port: apiPortB,
-						frontendUrl: apiOriginA(),
-						dbUrl: infrastructure.dbUrl,
-						label: "Global Rate Limit API B",
 						redisUrl: infrastructure.redisUrl,
 						s3BucketName: ISOLATED_BUCKET_NAME,
 						s3Endpoint: infrastructure.s3Endpoint,
@@ -404,6 +385,19 @@ describe("isolated deployment-global sandbox HTTP rate limiting", () => {
 						apiProcessA,
 						90,
 					);
+					apiPortB = yield* Effect.promise(() => getPort());
+					// Both processes share a FRONTEND_URL: the internal OAuth client and API resource are
+					// provisioned from it, as they are for replicas of a single deployment.
+					const apiEnvB = buildApiEnv({
+						port: apiPortB,
+						frontendUrl: apiOriginA(),
+						dbUrl: infrastructure.dbUrl,
+						label: "Global Rate Limit API B",
+						redisUrl: infrastructure.redisUrl,
+						s3BucketName: ISOLATED_BUCKET_NAME,
+						s3Endpoint: infrastructure.s3Endpoint,
+						extraEnv: { SCHEDULER_DISABLE_DISPATCHERS: "true" },
+					});
 					apiProcessB = spawnApiProcess(apiEnvB);
 					yield* waitForHealthCheck(
 						`${apiOriginB()}/api/system/health`,
