@@ -7,8 +7,67 @@ import {
 	EventId,
 	EventSchemaSlug,
 } from "../../schema/brands";
+import { JsonValue } from "../../schema/json";
 import { strictStruct } from "../../schema/utils";
 import { AutomationWarning } from "../automations/lifecycle";
+
+export const EventPropertiesPatch = strictStruct({
+	remove: Schema.Array(Schema.String),
+	set: Schema.Record(Schema.String, JsonValue),
+}).pipe(
+	Schema.check(
+		Schema.makeFilter(
+			(patch) =>
+				(patch.remove.length > 0 || Object.keys(patch.set).length > 0) &&
+				new Set(patch.remove).size === patch.remove.length &&
+				patch.remove.every((key) => !Object.hasOwn(patch.set, key)),
+		),
+	),
+);
+
+export type EventPropertiesPatch = typeof EventPropertiesPatch.Type;
+
+export const EventUpdatePatch = strictStruct({
+	entityId: Schema.optional(EntityId),
+	occurredAt: Schema.optional(Schema.String),
+	properties: Schema.optional(EventPropertiesPatch),
+	sessionEntityId: Schema.optional(Schema.NullOr(EntityId)),
+}).pipe(Schema.check(Schema.makeFilter((patch) => Object.keys(patch).length > 0)));
+
+export type EventUpdatePatch = typeof EventUpdatePatch.Type;
+
+export const UpdateEventItem = strictStruct({ eventId: EventId, patch: EventUpdatePatch });
+
+export type UpdateEventItem = typeof UpdateEventItem.Type;
+
+export class EventBadRequest extends Schema.TaggedError<EventBadRequest>()("EventBadRequest", {
+	reason: strictStruct({
+		message: Schema.String,
+		code: Schema.Literals([
+			"automation-limit",
+			"invalid-policy-transform",
+			"invalid-properties",
+			"mutation-conflict",
+			"policy-execution-failed",
+			"policy-rejected",
+		]),
+	}),
+}) {}
+
+export class EventNotFound extends Schema.TaggedError<EventNotFound>()("EventNotFound", {
+	reason: strictStruct({ eventId: EventId, code: Schema.Literal("event-not-found") }),
+}) {}
+
+export class EventStale extends Schema.TaggedError<EventStale>()("EventStale", {
+	reason: strictStruct({ eventId: EventId, code: Schema.Literal("event-stale") }),
+}) {}
+
+export const EventMutationResponse = strictStruct({
+	eventId: Schema.NullOr(EventId),
+	warnings: Schema.Array(AutomationWarning),
+});
+
+export type EventMutationResponse = typeof EventMutationResponse.Type;
 
 export const ListedEvent = Schema.Struct({
 	id: EventId,
