@@ -2181,3 +2181,37 @@ The feature is complete only when all of the following are simultaneously true:
 - No demo-specific abuse-limiting subsystem has been added.
 - The architecture check rejects future unclassified authenticated mutations.
 - All project checks, tests, and build complete successfully.
+
+---
+
+# 26. Implementation outcome
+
+Implemented on 2026-09-20.
+
+## 26.1 Delivered behavior
+
+- Added the shared `AccessClass` contract and durable OAuth provenance through `StoredTokenSet.clientId`.
+- Added `ryot-demo-web`, including enabled/disabled provisioning reconciliation and strict web/native callback validation.
+- Added `USERS_DEMO_ACCOUNT_ID`, the Better Auth `session.accessClass` field, and `POST /api/auth/demo/sign-in` with the specified hosted-session state machine.
+- Enforced demo hosted-session account-operation protection and prevented demo sessions from authorizing normal web or native OAuth clients.
+- Preserved full credential provenance through application middleware and plugin operations, including fail-closed demo-user OAuth classification and demo-user API-key classification.
+- Added typed `DemoOperationProtected` responses, endpoint `DemoAccessPolicy` annotations, runtime enforcement, and a TypeScript-parser architecture check for unclassified authenticated mutations.
+- Added explicit plugin-operation demo policy and enforcement for system and private plugins.
+- Added the `/demo` client route, demo-aware OAuth token lifecycle, authenticated session access class, typed protected-operation handling, and deliberate restricted states for currently exposed protected controls.
+- Updated the public website, README, and generated configuration documentation.
+- Added focused backend, client, contract, architecture, plugin, and E2E coverage.
+
+## 26.2 Practical deviations
+
+- The database is greenfield, so the schema baseline was regenerated instead of retaining a second incremental migration. This was done at the maintainer's direction and does not add migration compatibility behavior.
+- No new UI was invented for plugin installation/configuration, client-renderer authoring, media-monitoring mutation, or automation management controls that are not currently exposed by the V2 client. Their backend contracts and operation policies are protected, and existing exposed controls were updated.
+
+## 26.3 Validation
+
+The following completed successfully:
+
+```bash
+bun turbo --filter=@ryot-app/e2e test --only -- 'src/api/kernel/auth/demo-access.test.ts' 'src/api/kernel/auth/auth.test.ts' 'src/api/kernel/auth/oauth-protocol.test.ts' 'src/api/kernel/plugins/operations.test.ts' 'src/api/kernel/plugins/client-operation.test.ts' 'src/api/kernel/automations/lifecycle-triggers.test.ts' 'src/api/kernel/sandbox/durable-tracer.test.ts'
+bun turbo --output-logs=full check
+bun turbo --filter='!@ryot-app/e2e' --output-logs=full test
+```
