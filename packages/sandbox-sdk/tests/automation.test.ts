@@ -18,7 +18,6 @@ const manifest = defineManifest({
 	name: "Test automation",
 	slug: "test-automation",
 	automationType: "automation",
-	requiredPluginConfigKeys: [],
 	inputProjection: {
 		event: {
 			properties: ["progress"],

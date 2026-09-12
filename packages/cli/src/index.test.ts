@@ -56,6 +56,61 @@ const waitFor = Effect.fn("waitFor")(function* <E>(check: Effect.Effect<boolean,
 });
 
 it.layer(BunServices.layer)("ryot plugin build", (test) => {
+	test.effect("preserves generated configuration, OAuth, and executable facts in the archive", () =>
+		Effect.gen(function* () {
+			const path = yield* Path.Path;
+			const fs = yield* FileSystem.FileSystem;
+			const plugin = yield* createPlugin();
+			const manifestPath = path.join(plugin, "manifest.ts");
+			const manifest = yield* fs.readFileString(manifestPath);
+			yield* fs.writeFileString(
+				manifestPath,
+				manifest.replace(
+					'configSchema: { fields: {}, unknownKeys: "strict" }',
+					'configSchema: { fields: { token: { type: "string", label: "Token", description: "API token" }, threshold: { type: "number", label: "Threshold", description: "Optional threshold" } }, unknownKeys: "strict" }',
+				),
+			);
+			yield* fs.writeFileString(
+				path.join(plugin, "backend/main.sandbox.ts"),
+				`
+import { defineManifest, defineScript } from "@ryot-app/sandbox-sdk/driver";
+import { Effect, Schema } from "@ryot-app/sandbox-sdk/effect";
+export const manifest = defineManifest({ kind: "script", slug: "main", name: "Main", capabilities: ["getPluginConfig", "getOAuthAccessToken"] });
+export default defineScript({ manifest, input: Schema.Unknown, output: Schema.String, run: (_input, host) => Effect.gen(function* () {
+  yield* host.getPluginConfig({ required: ["token"], optional: ["threshold"] });
+  yield* host.getOAuthAccessToken({ field: "connection" });
+  return "ready";
+}) });
+`,
+			);
+			yield* fs.writeFileString(
+				path.join(plugin, "backend/root.sandbox.ts"),
+				`
+import { defineManifest, defineWorkflow, defineWorkflowReference, Schema } from "@ryot-app/sandbox-sdk/workflow";
+const target = defineWorkflowReference({ workflowSlug: "kernel:event-create", input: Schema.Unknown, output: Schema.String });
+export const manifest = defineManifest({ kind: "workflow", slug: "root", name: "Root", capabilities: [] });
+export default defineWorkflow({ manifest, input: Schema.Unknown, output: Schema.String, run: (input, replay) => replay.child("write", target, input) });
+`,
+			);
+			const result = yield* run(plugin, ["plugin", "build"]);
+			expect(result.exitCode, result.stdout + result.stderr).toBe(0);
+			const archive = yield* readPluginArchive(
+				yield* fs.readFile(path.join(plugin, "dist", "cli-test.zip")),
+			);
+			expect(archive.manifest.scripts.find(({ slug }) => slug === "main")).toMatchObject({
+				executableDependencies: [],
+				requiredPluginConfigKeys: ["token"],
+				oauthConnectionFields: ["connection"],
+				optionalPluginConfigKeys: ["threshold"],
+			});
+			expect(archive.manifest.scripts.find(({ slug }) => slug === "root")).toMatchObject({
+				oauthConnectionFields: [],
+				requiredPluginConfigKeys: [],
+				optionalPluginConfigKeys: [],
+				executableDependencies: [{ kind: "workflow", slug: "kernel:event-create" }],
+			});
+		}),
+	);
 	test.effect("preserves policy and after automation metadata in the archive", () =>
 		Effect.gen(function* () {
 			const path = yield* Path.Path;
@@ -71,7 +126,7 @@ import { defineManifest } from "@ryot-app/sandbox-sdk/driver";
 import { Effect } from "@ryot-app/sandbox-sdk/effect";
 export const manifest = defineManifest({
   kind: "automation", automationType: "${automationType}", slug: "${automationType}", name: "${automationType}",
-  capabilities: [], requiredPluginConfigKeys: [],
+  capabilities: [],
   inputProjection: ${automationType === "policy" ? "{ event: { properties: [] } }" : "{ signal: { properties: [] } }"},
 });
 export default ${helper}({ manifest, run: () => Effect.succeed(${automationType === "policy" ? '{ action: "allow" as const }' : "null"}) });
@@ -450,14 +505,14 @@ export default ${helper}({ manifest, run: () => Effect.succeed(${automationType 
 			const mainPath = path.join(plugin, "backend", "main.sandbox.ts");
 			yield* fs.writeFileString(
 				path.join(plugin, "backend", "shared.ts"),
-				'export const CONFIG_KEYS = ["alpha"] as const;\n',
+				'export const SCRIPT_SLUG = "main" as const;\n',
 			);
 			const main = yield* fs.readFileString(mainPath);
 			yield* fs.writeFileString(
 				mainPath,
-				`import { CONFIG_KEYS } from "./shared";\n${main.replace(
-					"requiredPluginConfigKeys: []",
-					"requiredPluginConfigKeys: CONFIG_KEYS",
+				`import { SCRIPT_SLUG } from "./shared";\n${main.replace(
+					'slug: "main"',
+					"slug: SCRIPT_SLUG",
 				)}`,
 			);
 
