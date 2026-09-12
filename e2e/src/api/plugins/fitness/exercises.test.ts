@@ -14,8 +14,10 @@ import {
 	listSavedViews,
 	mergeUserState,
 	pollUntil,
+	requireRyotQLText,
 	requireRyotQLValue,
 	requireRows,
+	waitForCreateEvents,
 } from "~/fixtures/kernel";
 import {
 	createExerciseEntityFixture,
@@ -221,6 +223,87 @@ describe("Exercises E2E", () => {
 				);
 				expect(savedViewExercise).toBeDefined();
 			}),
+	);
+
+	it.live("sorts All Exercises by workout sessions and then name", () =>
+		Effect.gen(function* () {
+			const { client } = yield* createAuthenticatedClient();
+			const { exerciseId: alphaExerciseId } = yield* createExerciseEntityFixture(client, {
+				name: "Alpha",
+			});
+			const { exerciseId: betaExerciseId } = yield* createExerciseEntityFixture(client, {
+				name: "Beta",
+			});
+			const { exerciseId: zuluExerciseId } = yield* createExerciseEntityFixture(client, {
+				name: "Zulu",
+			});
+			const { workoutId: alphaWorkoutId } = yield* createWorkoutEntityFixture(client);
+			const { workoutId: betaWorkoutId } = yield* createWorkoutEntityFixture(client);
+			const { workoutId: zuluFirstWorkoutId } = yield* createWorkoutEntityFixture(client);
+			const { workoutId: zuluSecondWorkoutId } = yield* createWorkoutEntityFixture(client);
+			const { workoutSetEventSchema } = yield* findWorkoutSetEventSchema(client);
+			const createResult = yield* client.call((c) =>
+				c.events.create({
+					payload: [
+						{
+							entityId: alphaExerciseId,
+							sessionEntityId: alphaWorkoutId,
+							eventSchemaSlug: workoutSetEventSchema.id,
+							properties: { reps: 10, setOrder: 0, exerciseOrder: 0 },
+						},
+						{
+							entityId: alphaExerciseId,
+							sessionEntityId: alphaWorkoutId,
+							eventSchemaSlug: workoutSetEventSchema.id,
+							properties: { reps: 8, setOrder: 1, exerciseOrder: 0 },
+						},
+						{
+							entityId: alphaExerciseId,
+							sessionEntityId: alphaWorkoutId,
+							eventSchemaSlug: workoutSetEventSchema.id,
+							properties: { reps: 6, setOrder: 2, exerciseOrder: 0 },
+						},
+						{
+							entityId: betaExerciseId,
+							sessionEntityId: betaWorkoutId,
+							eventSchemaSlug: workoutSetEventSchema.id,
+							properties: { reps: 10, setOrder: 0, exerciseOrder: 0 },
+						},
+						{
+							entityId: zuluExerciseId,
+							sessionEntityId: zuluFirstWorkoutId,
+							eventSchemaSlug: workoutSetEventSchema.id,
+							properties: { reps: 10, setOrder: 0, exerciseOrder: 0 },
+						},
+						{
+							entityId: zuluExerciseId,
+							sessionEntityId: zuluSecondWorkoutId,
+							eventSchemaSlug: workoutSetEventSchema.id,
+							properties: { reps: 8, setOrder: 0, exerciseOrder: 0 },
+						},
+					],
+				}),
+			);
+			expect((yield* waitForCreateEvents(client, createResult)).count).toBe(6);
+
+			const savedView = yield* getSavedView(client, "all-exercises");
+			const dataSources = requirePresent(
+				savedView.dataSources,
+				"All Exercises saved view has no data sources",
+			);
+			const sourceName = savedView.settings["sourceName"];
+			assertCondition(typeof sourceName === "string", "Expected a named saved-view source");
+			const result = requireRows(
+				(yield* executeRyotQL(client, dataSources)).data[sourceName],
+				sourceName,
+			);
+
+			expect(result.items.map((item) => requireRyotQLText(item, "entityId"))).toEqual([
+				zuluExerciseId,
+				alphaExerciseId,
+				betaExerciseId,
+			]);
+		}),
 	);
 
 	it.live("merges workout-set events between exercises with the same kind", () =>
