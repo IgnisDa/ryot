@@ -202,7 +202,10 @@ export const validateSavedViewDefinition = Effect.fn("validateSavedViewDefinitio
 	customRenderer: CustomRendererRecord | null,
 	pluginPage: PluginPageRecord | null = null,
 ) {
-	if (renderer.kind === "kernel" && renderer.name === "entity-browser") {
+	if (
+		renderer.kind === "kernel" &&
+		(renderer.name === "entity-browser" || renderer.name === "collection-browser")
+	) {
 		yield* validateEntityBrowserSavedViewDefinition({ settings, dataSources });
 		return null;
 	}
