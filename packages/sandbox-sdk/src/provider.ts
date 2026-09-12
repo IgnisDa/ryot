@@ -94,11 +94,15 @@ const providerSearchOptionsChoiceSchema = strictStruct({
 export const providerSearchOptionsResultSchema = strictStruct({
 	sources: Schema.Record(Schema.String, Schema.Array(providerSearchOptionsChoiceSchema)),
 });
-export const providerDetailsInputSchema = strictStruct({ externalId: trimmedNonEmptyString });
+export const providerDetailsInputSchema = strictStruct({
+	externalId: trimmedNonEmptyString,
+	existingProperties: Schema.optional(jsonValueSchema),
+});
 export const providerDetailsRelatedEntitySchema = strictStruct({
 	name: Schema.String,
 	externalId: Schema.String,
 	providerSlug: Schema.String,
+	properties: Schema.optional(jsonValueSchema),
 	relationshipProperties: Schema.optional(jsonValueSchema),
 });
 export const providerDetailsRelatedEntityGroupSchema = strictStruct({
