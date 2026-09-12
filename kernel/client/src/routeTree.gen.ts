@@ -21,18 +21,24 @@ import { Route as AuthenticatedCustomizeSidebarRouteImport } from './routes/_aut
 import { Route as AuthenticatedSettingsRouteRouteImport } from './routes/_authenticated/settings/route'
 import { Route as AuthCallbackRouteImport } from './routes/auth_.callback'
 import { Route as GodModeIndexRouteImport } from './routes/god-mode/index'
+import { Route as GodModeLogsRouteImport } from './routes/god-mode/logs'
 import { Route as GodModeMigrationReportRouteImport } from './routes/god-mode/migration-report'
 import { Route as GodModeUsersRouteImport } from './routes/god-mode/users'
+import { Route as OauthImpersonateRouteImport } from './routes/oauth.impersonate'
 import { Route as OauthInitializingRouteImport } from './routes/oauth.initializing'
 import { Route as OauthLoginRouteImport } from './routes/oauth.login'
+import { Route as OauthTwoFactorRouteImport } from './routes/oauth.two-factor'
 import { Route as AuthenticatedPluginSlugIndexRouteImport } from './routes/_authenticated/$pluginSlug/index'
 import { Route as AuthenticatedPluginSlugSplatRouteImport } from './routes/_authenticated/$pluginSlug/$'
 import { Route as AuthenticatedEEntityIdRouteImport } from './routes/_authenticated/e/$entityId'
 import { Route as AuthenticatedSettingsIndexRouteImport } from './routes/_authenticated/settings/index'
 import { Route as AuthenticatedSettingsSplatRouteImport } from './routes/_authenticated/settings/$'
+import { Route as AuthenticatedSettingsAboutRouteImport } from './routes/_authenticated/settings/about'
 import { Route as AuthenticatedSettingsAccountRouteImport } from './routes/_authenticated/settings/account'
+import { Route as AuthenticatedSettingsAdministrationRouteImport } from './routes/_authenticated/settings/administration'
 import { Route as AuthenticatedSettingsBackupsRouteImport } from './routes/_authenticated/settings/backups'
 import { Route as AuthenticatedSettingsNotificationChannelsRouteImport } from './routes/_authenticated/settings/notification-channels'
+import { Route as AuthenticatedSettingsOauthReturnRouteImport } from './routes/_authenticated/settings/oauth-return'
 import { Route as AuthenticatedSettingsPreferencesRouteImport } from './routes/_authenticated/settings/preferences'
 import { Route as AuthenticatedVViewSlugRouteImport } from './routes/_authenticated/v/$viewSlug'
 import { Route as AuthLogoutCallbackRouteImport } from './routes/auth_.logout.callback'
@@ -42,6 +48,8 @@ import { Route as AuthenticatedSettingsImportDataIndexRouteImport } from './rout
 import { Route as AuthenticatedSettingsImportDataRunIdRouteImport } from './routes/_authenticated/settings/import-data/$runId'
 import { Route as AuthenticatedSettingsIntegrationsIndexRouteImport } from './routes/_authenticated/settings/integrations/index'
 import { Route as AuthenticatedSettingsIntegrationsIntegrationIdRouteImport } from './routes/_authenticated/settings/integrations/$integrationId'
+import { Route as AuthenticatedSettingsPluginPreferencesIndexRouteImport } from './routes/_authenticated/settings/plugin-preferences/index'
+import { Route as AuthenticatedSettingsPluginPreferencesInstallationIdRouteImport } from './routes/_authenticated/settings/plugin-preferences/$installationId'
 
 const AuthenticatedRouteRoute = AuthenticatedRouteRouteImport.update({
   id: '/_authenticated',
@@ -105,6 +113,11 @@ const GodModeIndexRoute = GodModeIndexRouteImport.update({
   path: '/',
   getParentRoute: () => GodModeRouteRoute,
 } as any)
+const GodModeLogsRoute = GodModeLogsRouteImport.update({
+  id: '/logs',
+  path: '/logs',
+  getParentRoute: () => GodModeRouteRoute,
+} as any)
 const GodModeMigrationReportRoute = GodModeMigrationReportRouteImport.update({
   id: '/migration-report',
   path: '/migration-report',
@@ -115,6 +128,11 @@ const GodModeUsersRoute = GodModeUsersRouteImport.update({
   path: '/users',
   getParentRoute: () => GodModeRouteRoute,
 } as any)
+const OauthImpersonateRoute = OauthImpersonateRouteImport.update({
+  id: '/oauth/impersonate',
+  path: '/oauth/impersonate',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const OauthInitializingRoute = OauthInitializingRouteImport.update({
   id: '/oauth/initializing',
   path: '/oauth/initializing',
@@ -123,6 +141,11 @@ const OauthInitializingRoute = OauthInitializingRouteImport.update({
 const OauthLoginRoute = OauthLoginRouteImport.update({
   id: '/oauth/login',
   path: '/oauth/login',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const OauthTwoFactorRoute = OauthTwoFactorRouteImport.update({
+  id: '/oauth/two-factor',
+  path: '/oauth/two-factor',
   getParentRoute: () => rootRouteImport,
 } as any)
 const AuthenticatedPluginSlugIndexRoute =
@@ -154,10 +177,22 @@ const AuthenticatedSettingsSplatRoute =
     path: '/$',
     getParentRoute: () => AuthenticatedSettingsRouteRoute,
   } as any)
+const AuthenticatedSettingsAboutRoute =
+  AuthenticatedSettingsAboutRouteImport.update({
+    id: '/about',
+    path: '/about',
+    getParentRoute: () => AuthenticatedSettingsRouteRoute,
+  } as any)
 const AuthenticatedSettingsAccountRoute =
   AuthenticatedSettingsAccountRouteImport.update({
     id: '/account',
     path: '/account',
+    getParentRoute: () => AuthenticatedSettingsRouteRoute,
+  } as any)
+const AuthenticatedSettingsAdministrationRoute =
+  AuthenticatedSettingsAdministrationRouteImport.update({
+    id: '/administration',
+    path: '/administration',
     getParentRoute: () => AuthenticatedSettingsRouteRoute,
   } as any)
 const AuthenticatedSettingsBackupsRoute =
@@ -170,6 +205,12 @@ const AuthenticatedSettingsNotificationChannelsRoute =
   AuthenticatedSettingsNotificationChannelsRouteImport.update({
     id: '/notification-channels',
     path: '/notification-channels',
+    getParentRoute: () => AuthenticatedSettingsRouteRoute,
+  } as any)
+const AuthenticatedSettingsOauthReturnRoute =
+  AuthenticatedSettingsOauthReturnRouteImport.update({
+    id: '/oauth-return',
+    path: '/oauth-return',
     getParentRoute: () => AuthenticatedSettingsRouteRoute,
   } as any)
 const AuthenticatedSettingsPreferencesRoute =
@@ -224,6 +265,18 @@ const AuthenticatedSettingsIntegrationsIntegrationIdRoute =
     path: '/integrations/$integrationId',
     getParentRoute: () => AuthenticatedSettingsRouteRoute,
   } as any)
+const AuthenticatedSettingsPluginPreferencesIndexRoute =
+  AuthenticatedSettingsPluginPreferencesIndexRouteImport.update({
+    id: '/plugin-preferences/',
+    path: '/plugin-preferences/',
+    getParentRoute: () => AuthenticatedSettingsRouteRoute,
+  } as any)
+const AuthenticatedSettingsPluginPreferencesInstallationIdRoute =
+  AuthenticatedSettingsPluginPreferencesInstallationIdRouteImport.update({
+    id: '/plugin-preferences/$installationId',
+    path: '/plugin-preferences/$installationId',
+    getParentRoute: () => AuthenticatedSettingsRouteRoute,
+  } as any)
 
 export interface FileRoutesByFullPath {
   '/': typeof AuthenticatedIndexRoute
@@ -236,17 +289,23 @@ export interface FileRoutesByFullPath {
   '/settings': typeof AuthenticatedSettingsRouteRouteWithChildren
   '/customize-sidebar': typeof AuthenticatedCustomizeSidebarRoute
   '/auth/callback': typeof AuthCallbackRoute
+  '/god-mode/logs': typeof GodModeLogsRoute
   '/god-mode/migration-report': typeof GodModeMigrationReportRoute
   '/god-mode/users': typeof GodModeUsersRoute
+  '/oauth/impersonate': typeof OauthImpersonateRoute
   '/oauth/initializing': typeof OauthInitializingRoute
   '/oauth/login': typeof OauthLoginRoute
+  '/oauth/two-factor': typeof OauthTwoFactorRoute
   '/god-mode/': typeof GodModeIndexRoute
   '/$pluginSlug/$': typeof AuthenticatedPluginSlugSplatRoute
   '/e/$entityId': typeof AuthenticatedEEntityIdRoute
   '/settings/$': typeof AuthenticatedSettingsSplatRoute
+  '/settings/about': typeof AuthenticatedSettingsAboutRoute
   '/settings/account': typeof AuthenticatedSettingsAccountRoute
+  '/settings/administration': typeof AuthenticatedSettingsAdministrationRoute
   '/settings/backups': typeof AuthenticatedSettingsBackupsRoute
   '/settings/notification-channels': typeof AuthenticatedSettingsNotificationChannelsRoute
+  '/settings/oauth-return': typeof AuthenticatedSettingsOauthReturnRoute
   '/settings/preferences': typeof AuthenticatedSettingsPreferencesRoute
   '/v/$viewSlug': typeof AuthenticatedVViewSlugRoute
   '/auth/logout/callback': typeof AuthLogoutCallbackRoute
@@ -255,9 +314,11 @@ export interface FileRoutesByFullPath {
   '/settings/automation-history/$runId': typeof AuthenticatedSettingsAutomationHistoryRunIdRoute
   '/settings/import-data/$runId': typeof AuthenticatedSettingsImportDataRunIdRoute
   '/settings/integrations/$integrationId': typeof AuthenticatedSettingsIntegrationsIntegrationIdRoute
+  '/settings/plugin-preferences/$installationId': typeof AuthenticatedSettingsPluginPreferencesInstallationIdRoute
   '/settings/automation-history/': typeof AuthenticatedSettingsAutomationHistoryIndexRoute
   '/settings/import-data/': typeof AuthenticatedSettingsImportDataIndexRoute
   '/settings/integrations/': typeof AuthenticatedSettingsIntegrationsIndexRoute
+  '/settings/plugin-preferences/': typeof AuthenticatedSettingsPluginPreferencesIndexRoute
 }
 export interface FileRoutesByTo {
   '/auth': typeof AuthRoute
@@ -266,18 +327,24 @@ export interface FileRoutesByTo {
   '/reset-password': typeof ResetPasswordRoute
   '/customize-sidebar': typeof AuthenticatedCustomizeSidebarRoute
   '/auth/callback': typeof AuthCallbackRoute
+  '/god-mode/logs': typeof GodModeLogsRoute
   '/god-mode/migration-report': typeof GodModeMigrationReportRoute
   '/god-mode/users': typeof GodModeUsersRoute
+  '/oauth/impersonate': typeof OauthImpersonateRoute
   '/oauth/initializing': typeof OauthInitializingRoute
   '/oauth/login': typeof OauthLoginRoute
+  '/oauth/two-factor': typeof OauthTwoFactorRoute
   '/': typeof AuthenticatedIndexRoute
   '/god-mode': typeof GodModeIndexRoute
   '/$pluginSlug/$': typeof AuthenticatedPluginSlugSplatRoute
   '/e/$entityId': typeof AuthenticatedEEntityIdRoute
   '/settings/$': typeof AuthenticatedSettingsSplatRoute
+  '/settings/about': typeof AuthenticatedSettingsAboutRoute
   '/settings/account': typeof AuthenticatedSettingsAccountRoute
+  '/settings/administration': typeof AuthenticatedSettingsAdministrationRoute
   '/settings/backups': typeof AuthenticatedSettingsBackupsRoute
   '/settings/notification-channels': typeof AuthenticatedSettingsNotificationChannelsRoute
+  '/settings/oauth-return': typeof AuthenticatedSettingsOauthReturnRoute
   '/settings/preferences': typeof AuthenticatedSettingsPreferencesRoute
   '/v/$viewSlug': typeof AuthenticatedVViewSlugRoute
   '/auth/logout/callback': typeof AuthLogoutCallbackRoute
@@ -286,9 +353,11 @@ export interface FileRoutesByTo {
   '/settings/automation-history/$runId': typeof AuthenticatedSettingsAutomationHistoryRunIdRoute
   '/settings/import-data/$runId': typeof AuthenticatedSettingsImportDataRunIdRoute
   '/settings/integrations/$integrationId': typeof AuthenticatedSettingsIntegrationsIntegrationIdRoute
+  '/settings/plugin-preferences/$installationId': typeof AuthenticatedSettingsPluginPreferencesInstallationIdRoute
   '/settings/automation-history': typeof AuthenticatedSettingsAutomationHistoryIndexRoute
   '/settings/import-data': typeof AuthenticatedSettingsImportDataIndexRoute
   '/settings/integrations': typeof AuthenticatedSettingsIntegrationsIndexRoute
+  '/settings/plugin-preferences': typeof AuthenticatedSettingsPluginPreferencesIndexRoute
 }
 export interface FileRoutesById {
   __root__: typeof rootRouteImport
@@ -302,18 +371,24 @@ export interface FileRoutesById {
   '/_authenticated/settings': typeof AuthenticatedSettingsRouteRouteWithChildren
   '/_authenticated/customize-sidebar': typeof AuthenticatedCustomizeSidebarRoute
   '/auth_/callback': typeof AuthCallbackRoute
+  '/god-mode/logs': typeof GodModeLogsRoute
   '/god-mode/migration-report': typeof GodModeMigrationReportRoute
   '/god-mode/users': typeof GodModeUsersRoute
+  '/oauth/impersonate': typeof OauthImpersonateRoute
   '/oauth/initializing': typeof OauthInitializingRoute
   '/oauth/login': typeof OauthLoginRoute
+  '/oauth/two-factor': typeof OauthTwoFactorRoute
   '/_authenticated/': typeof AuthenticatedIndexRoute
   '/god-mode/': typeof GodModeIndexRoute
   '/_authenticated/$pluginSlug/$': typeof AuthenticatedPluginSlugSplatRoute
   '/_authenticated/e/$entityId': typeof AuthenticatedEEntityIdRoute
   '/_authenticated/settings/$': typeof AuthenticatedSettingsSplatRoute
+  '/_authenticated/settings/about': typeof AuthenticatedSettingsAboutRoute
   '/_authenticated/settings/account': typeof AuthenticatedSettingsAccountRoute
+  '/_authenticated/settings/administration': typeof AuthenticatedSettingsAdministrationRoute
   '/_authenticated/settings/backups': typeof AuthenticatedSettingsBackupsRoute
   '/_authenticated/settings/notification-channels': typeof AuthenticatedSettingsNotificationChannelsRoute
+  '/_authenticated/settings/oauth-return': typeof AuthenticatedSettingsOauthReturnRoute
   '/_authenticated/settings/preferences': typeof AuthenticatedSettingsPreferencesRoute
   '/_authenticated/v/$viewSlug': typeof AuthenticatedVViewSlugRoute
   '/auth_/logout/callback': typeof AuthLogoutCallbackRoute
@@ -322,9 +397,11 @@ export interface FileRoutesById {
   '/_authenticated/settings/automation-history/$runId': typeof AuthenticatedSettingsAutomationHistoryRunIdRoute
   '/_authenticated/settings/import-data/$runId': typeof AuthenticatedSettingsImportDataRunIdRoute
   '/_authenticated/settings/integrations/$integrationId': typeof AuthenticatedSettingsIntegrationsIntegrationIdRoute
+  '/_authenticated/settings/plugin-preferences/$installationId': typeof AuthenticatedSettingsPluginPreferencesInstallationIdRoute
   '/_authenticated/settings/automation-history/': typeof AuthenticatedSettingsAutomationHistoryIndexRoute
   '/_authenticated/settings/import-data/': typeof AuthenticatedSettingsImportDataIndexRoute
   '/_authenticated/settings/integrations/': typeof AuthenticatedSettingsIntegrationsIndexRoute
+  '/_authenticated/settings/plugin-preferences/': typeof AuthenticatedSettingsPluginPreferencesIndexRoute
 }
 export interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath
@@ -339,17 +416,23 @@ export interface FileRouteTypes {
     | '/settings'
     | '/customize-sidebar'
     | '/auth/callback'
+    | '/god-mode/logs'
     | '/god-mode/migration-report'
     | '/god-mode/users'
+    | '/oauth/impersonate'
     | '/oauth/initializing'
     | '/oauth/login'
+    | '/oauth/two-factor'
     | '/god-mode/'
     | '/$pluginSlug/$'
     | '/e/$entityId'
     | '/settings/$'
+    | '/settings/about'
     | '/settings/account'
+    | '/settings/administration'
     | '/settings/backups'
     | '/settings/notification-channels'
+    | '/settings/oauth-return'
     | '/settings/preferences'
     | '/v/$viewSlug'
     | '/auth/logout/callback'
@@ -358,9 +441,11 @@ export interface FileRouteTypes {
     | '/settings/automation-history/$runId'
     | '/settings/import-data/$runId'
     | '/settings/integrations/$integrationId'
+    | '/settings/plugin-preferences/$installationId'
     | '/settings/automation-history/'
     | '/settings/import-data/'
     | '/settings/integrations/'
+    | '/settings/plugin-preferences/'
   fileRoutesByTo: FileRoutesByTo
   to:
     | '/auth'
@@ -369,18 +454,24 @@ export interface FileRouteTypes {
     | '/reset-password'
     | '/customize-sidebar'
     | '/auth/callback'
+    | '/god-mode/logs'
     | '/god-mode/migration-report'
     | '/god-mode/users'
+    | '/oauth/impersonate'
     | '/oauth/initializing'
     | '/oauth/login'
+    | '/oauth/two-factor'
     | '/'
     | '/god-mode'
     | '/$pluginSlug/$'
     | '/e/$entityId'
     | '/settings/$'
+    | '/settings/about'
     | '/settings/account'
+    | '/settings/administration'
     | '/settings/backups'
     | '/settings/notification-channels'
+    | '/settings/oauth-return'
     | '/settings/preferences'
     | '/v/$viewSlug'
     | '/auth/logout/callback'
@@ -389,9 +480,11 @@ export interface FileRouteTypes {
     | '/settings/automation-history/$runId'
     | '/settings/import-data/$runId'
     | '/settings/integrations/$integrationId'
+    | '/settings/plugin-preferences/$installationId'
     | '/settings/automation-history'
     | '/settings/import-data'
     | '/settings/integrations'
+    | '/settings/plugin-preferences'
   id:
     | '__root__'
     | '/_authenticated'
@@ -404,18 +497,24 @@ export interface FileRouteTypes {
     | '/_authenticated/settings'
     | '/_authenticated/customize-sidebar'
     | '/auth_/callback'
+    | '/god-mode/logs'
     | '/god-mode/migration-report'
     | '/god-mode/users'
+    | '/oauth/impersonate'
     | '/oauth/initializing'
     | '/oauth/login'
+    | '/oauth/two-factor'
     | '/_authenticated/'
     | '/god-mode/'
     | '/_authenticated/$pluginSlug/$'
     | '/_authenticated/e/$entityId'
     | '/_authenticated/settings/$'
+    | '/_authenticated/settings/about'
     | '/_authenticated/settings/account'
+    | '/_authenticated/settings/administration'
     | '/_authenticated/settings/backups'
     | '/_authenticated/settings/notification-channels'
+    | '/_authenticated/settings/oauth-return'
     | '/_authenticated/settings/preferences'
     | '/_authenticated/v/$viewSlug'
     | '/auth_/logout/callback'
@@ -424,9 +523,11 @@ export interface FileRouteTypes {
     | '/_authenticated/settings/automation-history/$runId'
     | '/_authenticated/settings/import-data/$runId'
     | '/_authenticated/settings/integrations/$integrationId'
+    | '/_authenticated/settings/plugin-preferences/$installationId'
     | '/_authenticated/settings/automation-history/'
     | '/_authenticated/settings/import-data/'
     | '/_authenticated/settings/integrations/'
+    | '/_authenticated/settings/plugin-preferences/'
   fileRoutesById: FileRoutesById
 }
 export interface RootRouteChildren {
@@ -437,8 +538,10 @@ export interface RootRouteChildren {
   OnboardingRoute: typeof OnboardingRoute
   ResetPasswordRoute: typeof ResetPasswordRoute
   AuthCallbackRoute: typeof AuthCallbackRoute
+  OauthImpersonateRoute: typeof OauthImpersonateRoute
   OauthInitializingRoute: typeof OauthInitializingRoute
   OauthLoginRoute: typeof OauthLoginRoute
+  OauthTwoFactorRoute: typeof OauthTwoFactorRoute
   AuthLogoutCallbackRoute: typeof AuthLogoutCallbackRoute
 }
 
@@ -528,6 +631,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof GodModeIndexRouteImport
       parentRoute: typeof GodModeRouteRoute
     }
+    '/god-mode/logs': {
+      id: '/god-mode/logs'
+      path: '/logs'
+      fullPath: '/god-mode/logs'
+      preLoaderRoute: typeof GodModeLogsRouteImport
+      parentRoute: typeof GodModeRouteRoute
+    }
     '/god-mode/migration-report': {
       id: '/god-mode/migration-report'
       path: '/migration-report'
@@ -542,6 +652,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof GodModeUsersRouteImport
       parentRoute: typeof GodModeRouteRoute
     }
+    '/oauth/impersonate': {
+      id: '/oauth/impersonate'
+      path: '/oauth/impersonate'
+      fullPath: '/oauth/impersonate'
+      preLoaderRoute: typeof OauthImpersonateRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/oauth/initializing': {
       id: '/oauth/initializing'
       path: '/oauth/initializing'
@@ -554,6 +671,13 @@ declare module '@tanstack/react-router' {
       path: '/oauth/login'
       fullPath: '/oauth/login'
       preLoaderRoute: typeof OauthLoginRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/oauth/two-factor': {
+      id: '/oauth/two-factor'
+      path: '/oauth/two-factor'
+      fullPath: '/oauth/two-factor'
+      preLoaderRoute: typeof OauthTwoFactorRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/_authenticated/$pluginSlug/': {
@@ -591,11 +715,25 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AuthenticatedSettingsSplatRouteImport
       parentRoute: typeof AuthenticatedSettingsRouteRoute
     }
+    '/_authenticated/settings/about': {
+      id: '/_authenticated/settings/about'
+      path: '/about'
+      fullPath: '/settings/about'
+      preLoaderRoute: typeof AuthenticatedSettingsAboutRouteImport
+      parentRoute: typeof AuthenticatedSettingsRouteRoute
+    }
     '/_authenticated/settings/account': {
       id: '/_authenticated/settings/account'
       path: '/account'
       fullPath: '/settings/account'
       preLoaderRoute: typeof AuthenticatedSettingsAccountRouteImport
+      parentRoute: typeof AuthenticatedSettingsRouteRoute
+    }
+    '/_authenticated/settings/administration': {
+      id: '/_authenticated/settings/administration'
+      path: '/administration'
+      fullPath: '/settings/administration'
+      preLoaderRoute: typeof AuthenticatedSettingsAdministrationRouteImport
       parentRoute: typeof AuthenticatedSettingsRouteRoute
     }
     '/_authenticated/settings/backups': {
@@ -610,6 +748,13 @@ declare module '@tanstack/react-router' {
       path: '/notification-channels'
       fullPath: '/settings/notification-channels'
       preLoaderRoute: typeof AuthenticatedSettingsNotificationChannelsRouteImport
+      parentRoute: typeof AuthenticatedSettingsRouteRoute
+    }
+    '/_authenticated/settings/oauth-return': {
+      id: '/_authenticated/settings/oauth-return'
+      path: '/oauth-return'
+      fullPath: '/settings/oauth-return'
+      preLoaderRoute: typeof AuthenticatedSettingsOauthReturnRouteImport
       parentRoute: typeof AuthenticatedSettingsRouteRoute
     }
     '/_authenticated/settings/preferences': {
@@ -675,6 +820,20 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AuthenticatedSettingsIntegrationsIntegrationIdRouteImport
       parentRoute: typeof AuthenticatedSettingsRouteRoute
     }
+    '/_authenticated/settings/plugin-preferences/': {
+      id: '/_authenticated/settings/plugin-preferences/'
+      path: '/plugin-preferences'
+      fullPath: '/settings/plugin-preferences/'
+      preLoaderRoute: typeof AuthenticatedSettingsPluginPreferencesIndexRouteImport
+      parentRoute: typeof AuthenticatedSettingsRouteRoute
+    }
+    '/_authenticated/settings/plugin-preferences/$installationId': {
+      id: '/_authenticated/settings/plugin-preferences/$installationId'
+      path: '/plugin-preferences/$installationId'
+      fullPath: '/settings/plugin-preferences/$installationId'
+      preLoaderRoute: typeof AuthenticatedSettingsPluginPreferencesInstallationIdRouteImport
+      parentRoute: typeof AuthenticatedSettingsRouteRoute
+    }
   }
 }
 
@@ -696,26 +855,36 @@ const AuthenticatedPluginSlugRouteRouteWithChildren =
 
 interface AuthenticatedSettingsRouteRouteChildren {
   AuthenticatedSettingsSplatRoute: typeof AuthenticatedSettingsSplatRoute
+  AuthenticatedSettingsAboutRoute: typeof AuthenticatedSettingsAboutRoute
   AuthenticatedSettingsAccountRoute: typeof AuthenticatedSettingsAccountRoute
+  AuthenticatedSettingsAdministrationRoute: typeof AuthenticatedSettingsAdministrationRoute
   AuthenticatedSettingsBackupsRoute: typeof AuthenticatedSettingsBackupsRoute
   AuthenticatedSettingsNotificationChannelsRoute: typeof AuthenticatedSettingsNotificationChannelsRoute
+  AuthenticatedSettingsOauthReturnRoute: typeof AuthenticatedSettingsOauthReturnRoute
   AuthenticatedSettingsPreferencesRoute: typeof AuthenticatedSettingsPreferencesRoute
   AuthenticatedSettingsIndexRoute: typeof AuthenticatedSettingsIndexRoute
   AuthenticatedSettingsAutomationHistoryRunIdRoute: typeof AuthenticatedSettingsAutomationHistoryRunIdRoute
   AuthenticatedSettingsImportDataRunIdRoute: typeof AuthenticatedSettingsImportDataRunIdRoute
   AuthenticatedSettingsIntegrationsIntegrationIdRoute: typeof AuthenticatedSettingsIntegrationsIntegrationIdRoute
+  AuthenticatedSettingsPluginPreferencesInstallationIdRoute: typeof AuthenticatedSettingsPluginPreferencesInstallationIdRoute
   AuthenticatedSettingsAutomationHistoryIndexRoute: typeof AuthenticatedSettingsAutomationHistoryIndexRoute
   AuthenticatedSettingsImportDataIndexRoute: typeof AuthenticatedSettingsImportDataIndexRoute
   AuthenticatedSettingsIntegrationsIndexRoute: typeof AuthenticatedSettingsIntegrationsIndexRoute
+  AuthenticatedSettingsPluginPreferencesIndexRoute: typeof AuthenticatedSettingsPluginPreferencesIndexRoute
 }
 
 const AuthenticatedSettingsRouteRouteChildren: AuthenticatedSettingsRouteRouteChildren =
   {
     AuthenticatedSettingsSplatRoute: AuthenticatedSettingsSplatRoute,
+    AuthenticatedSettingsAboutRoute: AuthenticatedSettingsAboutRoute,
     AuthenticatedSettingsAccountRoute: AuthenticatedSettingsAccountRoute,
+    AuthenticatedSettingsAdministrationRoute:
+      AuthenticatedSettingsAdministrationRoute,
     AuthenticatedSettingsBackupsRoute: AuthenticatedSettingsBackupsRoute,
     AuthenticatedSettingsNotificationChannelsRoute:
       AuthenticatedSettingsNotificationChannelsRoute,
+    AuthenticatedSettingsOauthReturnRoute:
+      AuthenticatedSettingsOauthReturnRoute,
     AuthenticatedSettingsPreferencesRoute:
       AuthenticatedSettingsPreferencesRoute,
     AuthenticatedSettingsIndexRoute: AuthenticatedSettingsIndexRoute,
@@ -725,12 +894,16 @@ const AuthenticatedSettingsRouteRouteChildren: AuthenticatedSettingsRouteRouteCh
       AuthenticatedSettingsImportDataRunIdRoute,
     AuthenticatedSettingsIntegrationsIntegrationIdRoute:
       AuthenticatedSettingsIntegrationsIntegrationIdRoute,
+    AuthenticatedSettingsPluginPreferencesInstallationIdRoute:
+      AuthenticatedSettingsPluginPreferencesInstallationIdRoute,
     AuthenticatedSettingsAutomationHistoryIndexRoute:
       AuthenticatedSettingsAutomationHistoryIndexRoute,
     AuthenticatedSettingsImportDataIndexRoute:
       AuthenticatedSettingsImportDataIndexRoute,
     AuthenticatedSettingsIntegrationsIndexRoute:
       AuthenticatedSettingsIntegrationsIndexRoute,
+    AuthenticatedSettingsPluginPreferencesIndexRoute:
+      AuthenticatedSettingsPluginPreferencesIndexRoute,
   }
 
 const AuthenticatedSettingsRouteRouteWithChildren =
@@ -761,12 +934,14 @@ const AuthenticatedRouteRouteWithChildren =
   AuthenticatedRouteRoute._addFileChildren(AuthenticatedRouteRouteChildren)
 
 interface GodModeRouteRouteChildren {
+  GodModeLogsRoute: typeof GodModeLogsRoute
   GodModeMigrationReportRoute: typeof GodModeMigrationReportRoute
   GodModeUsersRoute: typeof GodModeUsersRoute
   GodModeIndexRoute: typeof GodModeIndexRoute
 }
 
 const GodModeRouteRouteChildren: GodModeRouteRouteChildren = {
+  GodModeLogsRoute: GodModeLogsRoute,
   GodModeMigrationReportRoute: GodModeMigrationReportRoute,
   GodModeUsersRoute: GodModeUsersRoute,
   GodModeIndexRoute: GodModeIndexRoute,
@@ -784,8 +959,10 @@ const rootRouteChildren: RootRouteChildren = {
   OnboardingRoute: OnboardingRoute,
   ResetPasswordRoute: ResetPasswordRoute,
   AuthCallbackRoute: AuthCallbackRoute,
+  OauthImpersonateRoute: OauthImpersonateRoute,
   OauthInitializingRoute: OauthInitializingRoute,
   OauthLoginRoute: OauthLoginRoute,
+  OauthTwoFactorRoute: OauthTwoFactorRoute,
   AuthLogoutCallbackRoute: AuthLogoutCallbackRoute,
 }
 export const routeTree = rootRouteImport

@@ -104,8 +104,14 @@ jobs:
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
-          ref: ${{ github.event.pull_request.head.sha || github.sha }}
+          fetch-depth: 0
+          fetch-tags: true
+          filter: blob:none
           persist-credentials: false
+          ref: ${{ github.event.pull_request.head.sha || github.sha }}
+      - name: Describe version
+        id: version
+        run: echo "value=$(git describe --tags --always)" >> "$GITHUB_OUTPUT"
       - name: Set up QEMU
         uses: docker/setup-qemu-action@1f40c72289eff860ee54a304f1438e3cff362e0a # v4.3.0
       - name: Set up Docker Buildx
@@ -148,7 +154,9 @@ jobs:
           platforms: linux/amd64,linux/arm64
           tags: ${{ steps.meta.outputs.tags }}
           labels: ${{ steps.meta.outputs.labels }}
-          build-args: UNKEY_ROOT_KEY=${{ secrets.UNKEY_ROOT_KEY }}
+          build-args: |
+            UNKEY_ROOT_KEY=${{ secrets.UNKEY_ROOT_KEY }}
+            RYOT_VERSION=${{ steps.version.outputs.value }}
 
   upload-kodi-plugin:
     needs:

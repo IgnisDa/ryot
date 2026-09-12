@@ -34,7 +34,6 @@ it.layer(sandboxCompilerPlatformLayer)("plugin sandbox compilation", (test) => {
 					expect(Object.keys(result.compiled).sort()).toEqual(["format", "javascript", "manifest"]);
 				}
 				expect(first[0]?.compiled.manifest.requiredPluginConfigKeys).toEqual(["alpha-key"]);
-				expect(first[0]?.compiled.manifest.requiredSystemConfigKeys).toEqual(["system-key"]);
 			}),
 		10_000,
 	);
@@ -52,7 +51,6 @@ export const manifest = defineManifest({
 	kind: "operation",
 	capabilities: [],
 	requiredPluginConfigKeys: [],
-	requiredSystemConfigKeys: [],
 });
 
 export default defineOperation({
@@ -75,7 +73,6 @@ export const manifest = defineManifest({
 	inputProjection: { event: { compareProperties: [], properties: [] } },
 	capabilities: [],
 	requiredPluginConfigKeys: [],
-	requiredSystemConfigKeys: [],
 });
 
 export default defineAutomation({
@@ -92,7 +89,6 @@ export const manifest = defineManifest({
 	kind: "workflow",
 	capabilities: [],
 	requiredPluginConfigKeys: [],
-	requiredSystemConfigKeys: [],
 });
 
 export default defineWorkflow({
@@ -158,7 +154,6 @@ export const manifest = defineManifest({
 	kind: "workflow",
 	capabilities: [],
 	requiredPluginConfigKeys: [],
-	requiredSystemConfigKeys: [],
 });
 
 export default defineWorkflow({
@@ -209,7 +204,6 @@ export const manifest = defineManifest({
 	kind: "workflow",
 	capabilities: [],
 	requiredPluginConfigKeys: [],
-	requiredSystemConfigKeys: [],
 });
 
 export default defineWorkflow({
@@ -248,7 +242,6 @@ export const manifest = defineManifest({
 	kind: "workflow",
 	capabilities: [],
 	requiredPluginConfigKeys: [],
-	requiredSystemConfigKeys: [],
 });
 
 export default defineWorkflow({
@@ -306,7 +299,6 @@ export const manifest = defineManifest({
 	kind: "workflow",
 	capabilities: [],
 	requiredPluginConfigKeys: [],
-	requiredSystemConfigKeys: [],
 });
 
 export default defineWorkflow({
@@ -343,7 +335,6 @@ export const manifest = defineManifest({
 	kind: "operation",
 	capabilities: [],
 	requiredPluginConfigKeys: [],
-	requiredSystemConfigKeys: [],
 });
 
 export default defineOperation({
@@ -379,7 +370,6 @@ export const manifest = defineManifest({
 	kind: "provider",
 	capabilities: [],
 	requiredPluginConfigKeys: [],
-	requiredSystemConfigKeys: [],
 });
 
 export default defineProvider({
@@ -415,7 +405,6 @@ export const manifest = defineManifest({
 	name: "Provider Search",
 	slug: "provider.search",
 	requiredPluginConfigKeys: [],
-	requiredSystemConfigKeys: [],
 	searchOptionsSchema: {
 		unknownKeys: "strict",
 		fields: {
@@ -466,7 +455,6 @@ export const manifest = defineManifest({
 	name: "Old operation",
 	slug: "old-operation",
 	requiredPluginConfigKeys: [],
-	requiredSystemConfigKeys: [],
 });
 
 const main = defineDriver(manifest, {});
@@ -506,7 +494,6 @@ export const manifest = defineManifest({
 	name: "Move search",
 	slug: "move.search",
 	requiredPluginConfigKeys: [],
-	requiredSystemConfigKeys: [],
 	searchOptionsSchema: {
 		unknownKeys: "strict",
 		fields: {
@@ -555,7 +542,6 @@ export const manifest = defineManifest({
 	slug: "operation",
 	kind: "operation",
 	requiredPluginConfigKeys: [],
-	requiredSystemConfigKeys: [],
 });
 
 export default defineOperation({

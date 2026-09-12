@@ -1,5 +1,10 @@
 import type { SandboxHost } from "@ryot-app/sandbox-sdk/core";
-import { Effect } from "@ryot-app/sandbox-sdk/effect";
+import { Effect, Schema } from "@ryot-app/sandbox-sdk/effect";
 
-export const getUserAllowNsfw = (host: SandboxHost<readonly ["getUserPreferences"]>) =>
-	host.getUserPreferences().pipe(Effect.map((preferences) => preferences.allowNsfw));
+const userSettingsSchema = Schema.Struct({ allowNsfw: Schema.Boolean });
+
+export const getUserAllowNsfw = (host: SandboxHost<readonly ["getUserSettings"]>) =>
+	host.getUserSettings().pipe(
+		Effect.flatMap(Schema.decodeUnknownEffect(userSettingsSchema)),
+		Effect.map(({ allowNsfw }) => allowNsfw),
+	);

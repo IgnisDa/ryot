@@ -1,6 +1,7 @@
 import { describe, expect, layer } from "@effect/vitest";
 import {
 	OAUTH_DEMO_WEB_CLIENT_ID,
+	OAUTH_IMPERSONATION_WEB_CLIENT_ID,
 	OAUTH_WEB_CLIENT_ID,
 	type StoredTokenSet,
 } from "@ryot-app/contract/oauth";
@@ -369,6 +370,28 @@ describe("OAuth token service", () => {
 					expect(yield* persisted.getTokenSet(origin)).toBeNull();
 					expect(yield* persisted.takePending(origin, "state-1")).toBeNull();
 				}),
+		);
+	});
+
+	layer(tokenLayer(emptyResponse))((test) => {
+		test.effect("keeps impersonation tokens until the logout callback and marks its state", () =>
+			Effect.gen(function* () {
+				const persisted = yield* OAuthStorage;
+				const current = tokenSet({
+					accessToken: "impersonation-access",
+					refreshToken: "impersonation-refresh",
+					clientId: OAUTH_IMPERSONATION_WEB_CLIENT_ID,
+				});
+				yield* persisted.setTokenSet(origin, current);
+				yield* persisted.setPending(pending());
+				const tokens = yield* OAuthTokenService;
+				const endSession = yield* tokens.logout(origin, `${origin}/auth/logout/callback`);
+
+				expect(new URL(endSession ?? "").searchParams.get("state")).toBe("impersonation");
+				expect(yield* (yield* FakeOAuthEndpoint).requests).toEqual([]);
+				expect(yield* persisted.getTokenSet(origin)).toEqual(current);
+				expect(yield* persisted.getPending(origin, "state-1")).toEqual(pending());
+			}),
 		);
 	});
 

@@ -8,15 +8,16 @@ import { jsonValueSchema } from "@ryot-app/sandbox-sdk/wire";
 import { stableStringify } from "@ryot-app/ts-utils/json";
 import { Cause, DateTime, Effect, Schema } from "effect";
 import { Workflow } from "effect/unstable/workflow";
-import { WorkflowInstance } from "effect/unstable/workflow/WorkflowEngine";
+import { WorkflowEngine, WorkflowInstance } from "effect/unstable/workflow/WorkflowEngine";
 
 import { rootLifecycleCommand } from "#lib/domain/lifecycle-command";
 import { implementWorkflow, makeActivity } from "#lib/infrastructure/workflow-scope";
 import { SignalEmissionService } from "#modules/automations/signal-service";
+import { ProcessDataImportWorkflow } from "#modules/imports/data-workflow";
 import { markImportRunStarted } from "#modules/imports/runtime/import-run-status";
 import { ImportsService } from "#modules/imports/service";
 import { MutationReceipts } from "#modules/mutations/receipts";
-import { admitWorkflow } from "#modules/mutations/workflow-dispatch";
+import { admitWorkflow, dispatchAdmittedWorkflow } from "#modules/mutations/workflow-dispatch";
 import { IntegrationProviderCatalog } from "#modules/plugins/integration-provider-catalog";
 import { SandboxExecutionService } from "#modules/sandbox/service";
 
@@ -29,7 +30,7 @@ import { finalizeIntegrationRun } from "./worker";
 const IntegrationRecordSchema = Schema.Struct({
 	...IntegrationSnapshot.fields,
 	userId: UserId,
-	pluginInstallationId: Schema.String,
+	pluginInstallationId: Schema.NullOr(Schema.String),
 });
 
 const runIntegrationImport = Effect.fn("runIntegrationImport")(function* (
@@ -38,6 +39,22 @@ const runIntegrationImport = Effect.fn("runIntegrationImport")(function* (
 	executionId: string,
 	command: LifecycleCommand,
 ) {
+	if (integration.pluginInstallationId === null) {
+		const engine = yield* WorkflowEngine;
+		const receipts = yield* MutationReceipts.make;
+		return yield* dispatchAdmittedWorkflow(
+			receipts,
+			engine,
+			ProcessDataImportWorkflow,
+			command.accountGeneration,
+			{
+				executionId: `${payload.runId}-data`,
+				payload: { command, runId: payload.runId, userId: integration.userId },
+			},
+			(admission) => admission,
+			(execution) => execution,
+		).pipe(Effect.mapError(toIntegrationWorkflowError));
+	}
 	const catalog = yield* IntegrationProviderCatalog;
 	const sandbox = yield* SandboxExecutionService;
 	const provider = yield* catalog
@@ -77,6 +94,7 @@ const runIntegrationImport = Effect.fn("runIntegrationImport")(function* (
 				type: "user",
 				userId: integration.userId,
 				integrationId: integration.id,
+				integrationRunId: payload.runId,
 				accountGeneration: payload.accountGeneration,
 			},
 		})

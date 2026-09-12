@@ -12,6 +12,9 @@ export const getUserSettings = (client: Client) =>
 export const refreshUserAvatar = (client: Client) =>
 	client.call((c) => c.userSettings.refreshAvatar());
 
+export const getTwoFactorStatus = (client: Client) =>
+	client.call((c) => c.userSettings.getTwoFactorStatus());
+
 export const updateUserSettingsPreferences = (
 	client: Client,
 	payload: UpdateUserSettingsPreferencesBody,

@@ -197,7 +197,6 @@ describe("sandbox RyotQL reads", () => {
 							slug: providerScriptSlug,
 							providerOperation: "details",
 							requiredPluginConfigKeys: [],
-							requiredSystemConfigKeys: [],
 							name: "RyotQL system provider details",
 						},
 						{
@@ -207,7 +206,6 @@ describe("sandbox RyotQL reads", () => {
 							slug: scriptSlug,
 							name: "RyotQL system probe",
 							requiredPluginConfigKeys: [],
-							requiredSystemConfigKeys: [],
 							capabilities: ["executeRyotql", "upsertGlobalEntities"],
 						},
 					],

@@ -70,3 +70,25 @@ layer(LocalInterestSessions.layer)((test) => {
 		}),
 	);
 });
+
+layer(LocalInterestSessions.layer)((test) => {
+	test.effect("closes only sockets attached to the ended auth session", () =>
+		Effect.gen(function* () {
+			const sessions = yield* LocalInterestSessions;
+			const closed: string[] = [];
+			yield* sessions.add("socket-a", () => undefined, {
+				authSessionId: "auth-session-a",
+				close: () => Effect.sync(() => closed.push("socket-a")).pipe(Effect.asVoid),
+			});
+			yield* sessions.add("socket-b", () => undefined, {
+				authSessionId: "auth-session-b",
+				close: () => Effect.sync(() => closed.push("socket-b")).pipe(Effect.asVoid),
+			});
+			yield* sessions.add("socket-normal", () => undefined);
+
+			yield* sessions.closeAuthSession("auth-session-a");
+
+			expect(closed).toEqual(["socket-a"]);
+		}),
+	);
+});

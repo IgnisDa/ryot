@@ -5,7 +5,6 @@ import { details } from "./shared";
 
 export const manifest = defineManifest({
 	kind: "provider",
-	requiredSystemConfigKeys: [],
 	name: "Metron Person Details",
 	slug: "person.metron.details",
 	capabilities: ["httpCall", "getPluginConfig"],

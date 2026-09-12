@@ -10,7 +10,6 @@ export const manifest = defineManifest({
 	kind: "script",
 	slug: "import.hardcover",
 	requiredPluginConfigKeys: [],
-	requiredSystemConfigKeys: [],
 	name: "Parse Hardcover import",
 	capabilities: ["artifact-read"],
 });

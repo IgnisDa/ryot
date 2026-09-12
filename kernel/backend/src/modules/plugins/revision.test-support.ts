@@ -20,6 +20,7 @@ import { SandboxWorkflowReferenceRepository } from "#modules/sandbox/workflow-re
 import { PluginConfigEncryptionKey } from "./config-encryption-key";
 import { PluginConfigRevisions } from "./config-revisions";
 import { PluginInstallationRepository } from "./installation-repository";
+import { pluginSourceHash } from "./pipeline";
 import { PluginRepository } from "./repository";
 import { PluginRuntimeResolver } from "./runtime-resolver";
 import { fixtureManifest } from "./test-support";
@@ -103,11 +104,7 @@ export const revisionPackage = (
 	const fixture = fixtureManifest();
 	const entity = fixture.entitySchemas[0];
 	assert(entity);
-	const common = {
-		capabilities: [] as const,
-		requiredPluginConfigKeys: [] as const,
-		requiredSystemConfigKeys: [] as const,
-	};
+	const common = { capabilities: [] as const, requiredPluginConfigKeys: [] as const };
 	const manifest: PluginManifest = {
 		...fixture,
 		metadata: { ...fixture.metadata, slug, version },
@@ -257,3 +254,72 @@ export const installRevisionPackage = Effect.fn(function* (
 	}
 	return { pluginId, installation, revisionId: plugin.activeRevisionId };
 });
+
+const oauthConnectionField = (label: string) => ({
+	label,
+	type: "string" as const,
+	description: "Linked account",
+	format: { provider: "account", kind: "oauth-connection" as const },
+});
+
+export const oauthRevisionPackage = (slug: string, integrationProviderSlug: string) => {
+	const plugin = revisionPackage(slug, "v1");
+	const manifest = {
+		...plugin.manifest,
+		configSchema: {
+			unknownKeys: "strict" as const,
+			fields: {
+				clientId: { label: "Client ID", type: "string" as const, description: "Client ID" },
+				clientSecret: {
+					secret: true as const,
+					label: "Client secret",
+					type: "string" as const,
+					description: "Client secret",
+				},
+			},
+		},
+		oauthProviders: [
+			{
+				slug: "account",
+				name: "Account",
+				scopes: ["read", "offline"],
+				clientIdConfigKey: "clientId",
+				clientSecretConfigKey: "clientSecret",
+				tokenUrl: "https://accounts.example.test/token",
+				tokenEndpointAuth: "client_secret_basic" as const,
+				authorizeUrl: "https://accounts.example.test/authorize?prompt=consent",
+			},
+		],
+		integrationProviders: [
+			{
+				name: "OAuth yank",
+				lot: "yank" as const,
+				scriptSlug: `${slug}.task`,
+				slug: integrationProviderSlug,
+				description: "Yank with a linked account",
+				settingsSchema: {
+					fields: {
+						account: oauthConnectionField("Account"),
+						backup: oauthConnectionField("Backup account"),
+						endpoint: { label: "Endpoint", type: "string" as const, description: "Endpoint" },
+					},
+				},
+			},
+		],
+	};
+	return {
+		...plugin,
+		manifest,
+		sourceHash: pluginSourceHash(
+			manifest,
+			plugin.files,
+			plugin.scripts.map(({ entry, source, compiledCode, compiledFormat }) => ({
+				entry,
+				source,
+				format: compiledFormat,
+				javascript: compiledCode,
+			})),
+			plugin.compiledClient,
+		),
+	};
+};

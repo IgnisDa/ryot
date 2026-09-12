@@ -13,7 +13,6 @@ export const manifest = defineManifest({
 	kind: "automation",
 	automationType: "automation",
 	requiredPluginConfigKeys: [],
-	requiredSystemConfigKeys: [],
 	name: "Media Signal Notification",
 	capabilities: ["sendNotification"],
 	slug: "automation.media-notification",

@@ -143,7 +143,43 @@ const uploadSchema = {
 	],
 } satisfies AppSchema;
 
+const oauthSchema = {
+	fields: {
+		account: {
+			...described("Account"),
+			type: "string",
+			validation: { required: true },
+			format: { provider: "spotify", kind: "oauth-connection" },
+		},
+	},
+} satisfies AppSchema;
+
 describe("schema form state", () => {
+	it("describes an OAuth connection property as a connect control for its provider", () => {
+		const { fields, unsupported } = describeSchemaFormFields(oauthSchema);
+
+		expect(unsupported).toEqual([]);
+		expect(fields).toMatchObject([
+			{
+				key: "account",
+				required: true,
+				format: undefined,
+				oauthProvider: "spotify",
+				control: "oauth-connection",
+			},
+		]);
+	});
+
+	it("requires an OAuth connection and sends the connection id in the payload", () => {
+		expect(validateSchemaFormValues(oauthSchema, {}, "edit").get("account")).toBe(
+			"Account is required",
+		);
+		expect(validateSchemaFormValues(oauthSchema, { account: "connection-1" }).size).toBe(0);
+		expect(toSchemaFormPayload(oauthSchema, { account: "connection-1" })).toEqual({
+			account: "connection-1",
+		});
+	});
+
 	it("describes upload properties as required file controls with their extensions", () => {
 		const { fields, unsupported } = describeSchemaFormFields(uploadSchema, { mode: "export" });
 
@@ -771,5 +807,44 @@ describe("schema form state", () => {
 		expect(validateSchemaFormValues(secretSchema, { apiKey: "k" }, "edit").get("baseUrl")).toBe(
 			"Base URL is required",
 		);
+	});
+});
+
+describe("timezone format", () => {
+	const timezoneSchema = {
+		fields: {
+			timezone: {
+				...described("Timezone"),
+				type: "string",
+				format: { kind: "timezone" },
+				validation: { required: true },
+			},
+		},
+	} satisfies AppSchema;
+
+	it("renders a timezone control", () => {
+		expect(describeSchemaFormFields(timezoneSchema).fields).toEqual([
+			expect.objectContaining({ key: "timezone", control: "timezone" }),
+		]);
+	});
+
+	it("defaults to the browser zone unless the schema declares a default", () => {
+		expect(initialSchemaFormValues(timezoneSchema, "Europe/Paris")).toEqual({
+			timezone: "Europe/Paris",
+		});
+		const declared = {
+			fields: { timezone: { ...timezoneSchema.fields.timezone, defaultValue: "UTC" } },
+		} satisfies AppSchema;
+		expect(initialSchemaFormValues(declared, "Europe/Paris")).toEqual({ timezone: "UTC" });
+	});
+
+	it("accepts named zones and rejects other values", () => {
+		expect(validateSchemaFormValues(timezoneSchema, { timezone: "Asia/Calcutta" }).size).toBe(0);
+		expect(validateSchemaFormValues(timezoneSchema, { timezone: "UTC" }).size).toBe(0);
+		for (const timezone of ["Not/AZone", "+05:30"]) {
+			expect(validateSchemaFormValues(timezoneSchema, { timezone }).get("timezone")).toBe(
+				"Timezone has an invalid format",
+			);
+		}
 	});
 });

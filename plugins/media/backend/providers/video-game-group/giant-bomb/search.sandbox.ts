@@ -5,7 +5,6 @@ import { search } from "./shared";
 
 export const manifest = defineManifest({
 	kind: "provider",
-	requiredSystemConfigKeys: [],
 	name: "GiantBomb Video Game Group Search",
 	slug: "video-game-group.giant-bomb.search",
 	capabilities: ["httpCall", "getPluginConfig"],

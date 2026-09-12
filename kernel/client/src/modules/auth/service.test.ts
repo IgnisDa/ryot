@@ -125,6 +125,25 @@ describe("authentication service", () => {
 		);
 	});
 
+	layer(
+		authLayer({
+			accessToken: () => Effect.succeed("access-1"),
+			userInfo: () =>
+				Effect.succeed({ ...userInfoResponse, impersonation: { expiresAt: 1_800_000_100_000 } }),
+		}),
+	)((test) => {
+		test.effect("includes impersonation expiry in the authenticated session snapshot", () =>
+			Effect.gen(function* () {
+				const auth = yield* AuthService;
+
+				expect(yield* auth.settledSession(origin)).toMatchObject({
+					status: "authenticated",
+					impersonation: { expiresAt: 1_800_000_100_000 },
+				});
+			}),
+		);
+	});
+
 	layer(authLayer())((test) => {
 		test.effect("reports a missing session when no OAuth token set exists", () =>
 			Effect.gen(function* () {

@@ -26,6 +26,7 @@ import {
 	executeRyotQL,
 	executeRyotQLRecipe,
 	findBuiltinSchemaBySlug,
+	getTwoFactorStatus,
 	getUserSettings,
 	listEventSchemas,
 	makeSession,
@@ -88,6 +89,7 @@ const authControlPlaneRequests = (accountId: string, apiKeyId: string) =>
 			path: `/api-key/get?id=${encodeURIComponent(apiKeyId)}`,
 		},
 		{ body: {}, method: "POST", path: "/two-factor/get-totp-uri" },
+		{ method: "POST", body: { code: "000000" }, path: "/two-factor/verify-totp" },
 	] as const;
 
 const callHostedAuth = (
@@ -304,6 +306,9 @@ describe("shared demo access acceptance", () => {
 				new DemoOperationProtected({ reason: { code: "demo-operation-protected" } }),
 			);
 			expect((yield* getUserSettings(demoClient)).id).toBe(demoUserId);
+			expect(yield* Effect.flip(getTwoFactorStatus(demoClient))).toEqual(
+				new DemoOperationProtected({ reason: { code: "demo-operation-protected" } }),
+			);
 			yield* expectDemoSession(sessionCookie);
 		}),
 	);

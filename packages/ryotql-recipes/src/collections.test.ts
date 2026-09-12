@@ -8,6 +8,7 @@ import {
 	collectionMemberTableColumns,
 	collectionMembersAggregateRecipe,
 	collectionMembersCountRecipe,
+	collectionMembersCountsRecipe,
 	collectionMembersRecipe,
 	type CollectionMemberSort,
 } from "./collections";
@@ -318,6 +319,47 @@ describe("collections recipes", () => {
 				recipe.decode({ data: { count: { type: "aggregate", items: [{ total: 3 }] } } }),
 			),
 		).toBe(3);
+	});
+
+	it("counts members for a batch of collections", () => {
+		const recipe = collectionMembersCountsRecipe({
+			collectionIds: ["collection-1", "collection-2"],
+		});
+		const query = recipe.document.queries.collectionMembersCounts;
+		assert(query);
+		expect(query.where).toMatchObject({
+			predicates: [
+				{ right: { value: "member-of" }, left: { field: "relationshipSchemaSlug" } },
+				{
+					expr: { field: "targetEntityId" },
+					values: [{ value: "collection-1" }, { value: "collection-2" }],
+				},
+			],
+		});
+		expect(query.output).toMatchObject({
+			groupBy: [{ key: "collectionId" }],
+			measures: [
+				{
+					key: "total",
+					aggregation: { function: "countDistinct", expr: { field: "sourceEntityId" } },
+				},
+			],
+		});
+		expect(
+			Result.getOrThrow(
+				recipe.decode({
+					data: {
+						collectionMembersCounts: {
+							type: "aggregate",
+							items: [
+								{ total: 2, collectionId: "collection-1" },
+								{ total: 1, collectionId: "collection-2" },
+							],
+						},
+					},
+				}),
+			),
+		).toEqual({ "collection-1": 2, "collection-2": 1 });
 	});
 
 	it("aggregates the whole collection by owner and schema with type labels", () => {

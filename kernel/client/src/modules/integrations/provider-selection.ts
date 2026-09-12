@@ -37,8 +37,11 @@ export const integrationProviderEntry = (provider: IntegrationProviderItem): Cat
 	description: provider.description,
 	isAvailable: provider.isCreatable,
 	badge: integrationLotLabel(provider.lot),
-	group: pluginCatalogGroup(provider.pluginSlug),
 	requirement: integrationProviderRequirement(provider),
+	group:
+		provider.pluginSlug === null
+			? { key: "kernel", heading: "Ryot" }
+			: pluginCatalogGroup(provider.pluginSlug),
 });
 
 export const integrationProviderChooseLabel = (entry: CatalogEntry) =>
@@ -52,10 +55,9 @@ export const integrationProviderNames = (providers: readonly IntegrationProvider
 		]),
 	);
 
-/** Provider slugs are only unique within a plugin, so an owned integration matches on both. */
 export const findOwnedIntegrationProvider = (
 	providers: readonly IntegrationProviderItem[],
-	owner: { readonly provider: string; readonly pluginSlug: string } | undefined,
+	owner: { readonly provider: string; readonly pluginSlug: string | null } | undefined,
 ) =>
 	owner === undefined
 		? undefined

@@ -10,7 +10,6 @@ export const manifest = defineManifest({
 	kind: "automation",
 	automationType: "automation",
 	requiredPluginConfigKeys: [],
-	requiredSystemConfigKeys: [],
 	name: "Media Association Detector",
 	slug: "automation.media-association",
 	capabilities: ["executeRyotql", "emitSignal"],

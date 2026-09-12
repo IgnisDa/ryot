@@ -26,7 +26,7 @@ const user = {
 	name: "User",
 	id: UserId.make("user-1"),
 	email: "user@example.com",
-	preferences: { language: null, allowNsfw: false, disableIntegrations: false },
+	preferences: { language: null, disableIntegrations: false },
 	accountGeneration: { userId: UserId.make("user-1"), token: "test-account-generation" },
 };
 

@@ -3,6 +3,7 @@ import { Schema } from "effect";
 import { SandboxFailureKind } from "../../errors";
 import { AccountGeneration } from "../../schema/account-generation";
 import {
+	ImportRunId,
 	IntegrationId,
 	PluginId,
 	PluginRevisionId,
@@ -32,7 +33,6 @@ export const SandboxScriptMetadata = Schema.Struct({
 	capabilities: Schema.optional(Schema.Array(Schema.String)),
 	searchOptionsSchema: Schema.optional(Schema.toType(AppSchema)),
 	requiredPluginConfigKeys: Schema.optional(Schema.Array(Schema.String)),
-	requiredSystemConfigKeys: Schema.optional(Schema.Array(Schema.String)),
 	kind: Schema.optional(
 		Schema.Literals(["script", "operation", "workflow", "provider", "automation"]),
 	),
@@ -44,7 +44,6 @@ const SandboxScriptManifestFields = {
 	name: Schema.String,
 	slug: Schema.String,
 	requiredPluginConfigKeys: Schema.Array(Schema.String),
-	requiredSystemConfigKeys: Schema.Array(Schema.String),
 	capabilities: Schema.Array(Schema.Literals([...SANDBOX_HOST_CAPABILITIES])),
 };
 
@@ -115,13 +114,15 @@ const automationRunSubjectFields = {
 
 export const SandboxExecutionSubject = Schema.Union([
 	strictStruct({ type: Schema.Literal("system") }),
-	// `integrationId` is the integration the execution belongs to. Only trusted kernel dispatch sets
-	// it, so a script can never widen its own credential scope by supplying an id.
+	// `integrationId` is the integration the execution belongs to and `integrationRunId` is the
+	// integration run executing it. Only trusted kernel dispatch sets them, so a script can never
+	// widen its own credential scope by supplying an id.
 	strictStruct({
 		userId: UserId,
 		type: Schema.Literal("user"),
 		accountGeneration: AccountGeneration,
 		integrationId: Schema.optional(IntegrationId),
+		integrationRunId: Schema.optional(ImportRunId),
 	}),
 	strictStruct({
 		...automationRunSubjectFields,

@@ -15,6 +15,7 @@ import { Context, Effect, Layer, Ref, Schema } from "effect";
 import { WorkflowEngine } from "effect/unstable/workflow/WorkflowEngine";
 import { assert } from "vitest";
 
+import { DownloadTickets } from "#lib/infrastructure/download-tickets";
 import {
 	IMPORT_SOURCE_STATE_PENDING_TTL_SECONDS,
 	ImportSourceStateFromJson,
@@ -34,6 +35,7 @@ import {
 } from "#modules/plugins/import-source-catalog";
 import { UploadIntentsService } from "#modules/uploads/intents/service";
 
+import { DataImportAdmission } from "./data-admission";
 import { ImportRunFailuresService } from "./failure-service";
 import { ImportsRepository } from "./repository";
 import { ImportSourceStateStore } from "./runtime/source-state-store";
@@ -120,7 +122,7 @@ const user: CurrentUserValue = {
 	name: "Test User",
 	email: "user@example.com",
 	id: UserId.make("user-1"),
-	preferences: { language: null, allowNsfw: false, disableIntegrations: false },
+	preferences: { language: null, disableIntegrations: false },
 	accountGeneration: { userId: UserId.make("user-1"), token: "test-account-generation" },
 };
 
@@ -206,6 +208,12 @@ const makeServiceLayer = (
 				mutationAdmissionTestLayer,
 				makeAppConfigLayer(),
 				options.withConfigProvider ? makeConfigProviderLayer() : Layer.empty,
+				Layer.mock(DataImportAdmission)({}),
+				Layer.mock(DownloadTickets)({
+					issue: () => Effect.succeed("test-ticket"),
+					verify: (_ticket, expected) =>
+						Effect.succeed({ ...expected, subject: user.id, expiresAt: Number.MAX_SAFE_INTEGER }),
+				}),
 				mockImportRunFailuresService({ create: () => Effect.void }),
 				makeImportSourceCatalog(options.source ?? null),
 				Layer.unwrap(

@@ -4,6 +4,10 @@ import { GodModeInternalFailure } from "@ryot-app/contract/modules/god-mode/cont
 import { Effect } from "effect";
 import { HttpApiBuilder } from "effect/unstable/httpapi";
 
+import { streamDownloadResponse } from "#lib/infrastructure/download-response";
+import { downloadTicketUrl } from "#lib/infrastructure/download-tickets";
+
+import { ServerLogs } from "./logs";
 import { GodModeService } from "./service";
 
 const mapPersistenceFailure = <A, E, R>(effect: Effect.Effect<A, E, R>) =>
@@ -16,6 +20,12 @@ const mapPersistenceFailure = <A, E, R>(effect: Effect.Effect<A, E, R>) =>
 
 export const GodModeRoutesLive = HttpApiBuilder.group(AppContract, "godMode", (handlers) =>
 	handlers
+		.handle("startUserImpersonation", ({ params, payload }) =>
+			Effect.gen(function* () {
+				const service = yield* GodModeService;
+				return yield* mapPersistenceFailure(service.startUserImpersonation(params.userId, payload));
+			}),
+		)
 		.handle("provisionUser", ({ payload }) =>
 			Effect.gen(function* () {
 				const service = yield* GodModeService;
@@ -48,4 +58,60 @@ export const GodModeRoutesLive = HttpApiBuilder.group(AppContract, "godMode", (h
 				return yield* mapPersistenceFailure(service.deleteUser(params.userId));
 			}),
 		),
+);
+
+export const ServerLogsRoutesLive = HttpApiBuilder.group(AppContract, "serverLogs", (handlers) =>
+	handlers
+		.handle("list", ({ query }) =>
+			Effect.flatMap(ServerLogs, (service) => service.list(query.after, query.limit)),
+		)
+		.handle("createFileDownloadTicket", ({ params }) =>
+			Effect.gen(function* () {
+				const service = yield* ServerLogs;
+				const ticket = yield* service.createFileDownloadTicket(params.id);
+				return {
+					url: downloadTicketUrl(
+						`/god-mode/logs/files/${encodeURIComponent(params.id)}/download`,
+						ticket,
+					),
+				};
+			}),
+		)
+		.handle("createAllDownloadTicket", () =>
+			Effect.gen(function* () {
+				const service = yield* ServerLogs;
+				const ticket = yield* service.createAllDownloadTicket();
+				return { url: downloadTicketUrl("/god-mode/logs/download", ticket) };
+			}),
+		),
+);
+
+export const ServerLogDownloadsRoutesLive = HttpApiBuilder.group(
+	AppContract,
+	"serverLogDownloads",
+	(handlers) =>
+		handlers
+			.handleRaw("downloadFile", ({ query, params }) =>
+				Effect.gen(function* () {
+					const service = yield* ServerLogs;
+					const download = yield* service.downloadFileWithTicket(params.id, query.ticket);
+					return streamDownloadResponse(download.stream, {
+						fileName: download.fileName,
+						contentLength: download.size,
+						contentType: download.fileName.endsWith(".gz")
+							? "application/gzip"
+							: "text/plain; charset=utf-8",
+					});
+				}),
+			)
+			.handleRaw("downloadAll", ({ query }) =>
+				Effect.gen(function* () {
+					const service = yield* ServerLogs;
+					const download = yield* service.downloadAllWithTicket(query.ticket);
+					return streamDownloadResponse(download.stream, {
+						fileName: download.fileName,
+						contentType: "application/zip",
+					});
+				}),
+			),
 );

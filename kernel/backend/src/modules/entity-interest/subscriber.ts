@@ -1,7 +1,7 @@
 import { decodeEntityUpdatedMessage } from "@ryot-app/contract/modules/entity-interest/messages";
-import { Cause, Context, Effect, FiberSet, Layer, Result } from "effect";
+import { Cause, Context, Effect, FiberSet, Layer, Option, Result, Schema } from "effect";
 
-import { redisKeys, RedisService } from "#lib/infrastructure/redis";
+import { ImpersonationEndedMessage, redisKeys, RedisService } from "#lib/infrastructure/redis";
 
 import { LocalInterestSessions } from "./connections";
 import { EntityInterestProgression } from "./progression";
@@ -15,7 +15,7 @@ export class EntityInterestSubscriber extends Context.Service<EntityInterestSubs
 			const store = yield* EntityInterestStore;
 			const runFork = yield* FiberSet.makeRuntime();
 			const sessions = yield* LocalInterestSessions;
-			const channel = redisKeys.entityUpdatedChannel;
+			const channels = [redisKeys.entityUpdatedChannel, redisKeys.impersonationEndedChannel];
 			const progression = yield* EntityInterestProgression;
 
 			const dispatch = Effect.fn("EntityInterestSubscriber.dispatch")(function* (raw: string) {
@@ -47,17 +47,27 @@ export class EntityInterestSubscriber extends Context.Service<EntityInterestSubs
 					);
 				}
 			});
+			const dispatchImpersonationEnded = Effect.fn(
+				"EntityInterestSubscriber.dispatchImpersonationEnded",
+			)(function* (raw: string) {
+				const decoded = Schema.decodeOption(ImpersonationEndedMessage)(raw);
+				if (Option.isSome(decoded)) {
+					yield* sessions.closeAuthSession(decoded.value.sessionId);
+				}
+			});
 
 			const subscriber = redis.client.duplicate();
 			subscriber.on("message", (incoming, message) => {
-				if (incoming === channel) {
+				if (incoming === redisKeys.entityUpdatedChannel) {
 					runFork(dispatch(message).pipe(Effect.catchCause(Effect.logWarning)));
+				} else if (incoming === redisKeys.impersonationEndedChannel) {
+					runFork(dispatchImpersonationEnded(message).pipe(Effect.catchCause(Effect.logWarning)));
 				}
 			});
 			subscriber.on("ready", () => {
-				runFork(Effect.tryPromise(() => subscriber.subscribe(channel)).pipe(Effect.ignore));
+				runFork(Effect.tryPromise(() => subscriber.subscribe(...channels)).pipe(Effect.ignore));
 			});
-			yield* Effect.tryPromise(() => subscriber.subscribe(channel)).pipe(Effect.orDie);
+			yield* Effect.tryPromise(() => subscriber.subscribe(...channels)).pipe(Effect.orDie);
 			yield* Effect.addFinalizer(() =>
 				Effect.sync(() => subscriber.removeAllListeners()).pipe(
 					Effect.andThen(Effect.tryPromise(() => subscriber.quit()).pipe(Effect.ignore)),

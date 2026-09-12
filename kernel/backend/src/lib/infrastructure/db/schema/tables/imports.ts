@@ -1,3 +1,4 @@
+import type { DataJsonDocument } from "@ryot-app/contract/modules/imports/data-json";
 import type {
 	ImportRunFailureReason,
 	ImportRunStatus,
@@ -25,6 +26,7 @@ import {
 	snakeCase,
 	text,
 	timestamp,
+	unique,
 	uniqueIndex,
 } from "drizzle-orm/pg-core";
 
@@ -36,7 +38,7 @@ export const integration = snakeCase.table(
 	{
 		name: text(),
 		webhookToken: text(),
-		pluginInstallationId: text().notNull(),
+		pluginInstallationId: text(),
 		lot: text().notNull().$type<IntegrationLot>(),
 		isDisabled: boolean().notNull().default(false),
 		syncOwnership: boolean().notNull().default(false),
@@ -67,6 +69,16 @@ export const integration = snakeCase.table(
 		index("integration_lot_is_disabled_idx").on(table.lot, table.isDisabled),
 		index("integration_provider_is_disabled_idx").on(table.provider, table.isDisabled),
 		uniqueIndex("integration_webhook_token_unique").on(table.webhookToken),
+		unique("integration_oauth_owner_unique").on(
+			table.id,
+			table.userId,
+			table.pluginInstallationId,
+			table.provider,
+		),
+		check(
+			"integration_owner_check",
+			sql`(${table.pluginInstallationId} is null and ${table.provider} = 'data-json' and ${table.lot} = 'sink') or (${table.pluginInstallationId} is not null and ${table.provider} <> 'data-json')`,
+		),
 		check(
 			"integration_webhook_token_lot_check",
 			sql`(${table.lot} = 'sink') = (${table.webhookToken} is not null)`,
@@ -89,6 +101,7 @@ export const importRun = snakeCase.table(
 		finishedAt: timestamp({ withTimezone: true }),
 		integrationLot: text().$type<IntegrationLot>(),
 		processedItems: integer().notNull().default(0),
+		dataDocument: jsonb().$type<DataJsonDocument>(),
 		source: text().notNull().$type<ImportRunSource>(),
 		failureReason: jsonb().$type<ImportRunFailureReason>(),
 		createdAt: timestamp({ withTimezone: true }).defaultNow().notNull(),
@@ -127,6 +140,27 @@ export const importRun = snakeCase.table(
 		check(
 			"import_run_integration_lot_check",
 			sql`(${table.integrationId} is null) = (${table.integrationLot} is null)`,
+		),
+	],
+);
+
+export const dataImportSubmission = snakeCase.table(
+	"data_import_submission",
+	{
+		key: text().notNull(),
+		runId: text().notNull(),
+		digest: text().notNull(),
+		uploadTokenHashes: text().array().notNull().default([]),
+		integrationId: text().references(() => integration.id, { onDelete: "cascade" }),
+		userId: text()
+			.notNull()
+			.references(() => user.id, { onDelete: "cascade" }),
+	},
+	(table) => [
+		uniqueIndex("data_import_submission_identity_unique").on(
+			table.userId,
+			sql`coalesce(${table.integrationId}, '')`,
+			table.key,
 		),
 	],
 );

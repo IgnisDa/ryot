@@ -12,13 +12,16 @@ export const manifest = defineManifest({
 	name: "Fitness import",
 	slug: "workflow.import",
 	requiredPluginConfigKeys: [],
-	requiredSystemConfigKeys: [],
 });
+
+export class FitnessWorkflowError extends Error {
+	readonly _tag = "FitnessWorkflowError";
+}
 
 const scriptReference = (scriptSlug: string) => ({
 	scriptSlug,
-	input: Schema.Struct({}),
 	output: genericImportWorkflowManifestSchema,
+	input: Schema.Struct({ timezone: Schema.optional(Schema.String) }),
 });
 
 const kernelImport = {
@@ -34,16 +37,19 @@ export default defineWorkflow({
 	run: (input, replay) =>
 		Effect.gen(function* () {
 			let scriptSlug = "import.open-scale";
-			if (input.source === "hevy") {
-				scriptSlug = "import.hevy";
-			}
-			if (input.source === "strong_app") {
-				scriptSlug = "import.strong-app";
+			let parserInput: { timezone?: string } = {};
+			if (input.source === "hevy" || input.source === "strong_app") {
+				scriptSlug = input.source === "hevy" ? "import.hevy" : "import.strong-app";
+				const timezone = input.sourcePayload?.["timezone"];
+				if (typeof timezone !== "string" || !timezone.trim()) {
+					return yield* Effect.fail(new FitnessWorkflowError("Import job is missing timezone"));
+				}
+				parserInput = { timezone: timezone.trim() };
 			}
 			const adapterManifest = yield* replay.activity(
 				"parse-artifact",
 				scriptReference(scriptSlug),
-				{},
+				parserInput,
 			);
 			return yield* replay.child("write-import", kernelImport, {
 				runId: input.runId,

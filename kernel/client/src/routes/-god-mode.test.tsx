@@ -9,6 +9,7 @@ import { Effect, Layer, ManagedRuntime } from "effect";
 import { AdminApi, AdminApiError, type AdminApiService } from "#/api/admin";
 import { GodModeApi } from "#/api/god-mode";
 import { KernelApiTestLayer } from "#/api/ports.test-layer";
+import { GodModeImpersonationService } from "#/modules/god-mode/impersonation";
 import { GodModeService } from "#/modules/god-mode/service";
 import { GodModeSessionService, makeGodModeSessionService } from "#/modules/god-mode/session";
 import { createBackInterceptors } from "#/modules/navigation/back-interceptors";
@@ -44,7 +45,10 @@ import {
 const makeView = (
 	path = "/god-mode",
 	selected: typeof server | null = server,
-	adminService: AdminApiService = { run: () => Effect.die("not used") },
+	adminService: AdminApiService = {
+		run: () => Effect.die("not used"),
+		download: () => Effect.die("not used"),
+	},
 ) => {
 	const events = makePluginCatalogEventsTestLayer();
 	const sessions = makeGodModeSessionService(() => "god-session");
@@ -67,6 +71,7 @@ const makeView = (
 			events.layer,
 			godMode,
 			session,
+			Layer.succeed(GodModeImpersonationService, { start: () => Effect.void }),
 			GodModeService.layer.pipe(Layer.provide(godMode), Layer.provide(session)),
 			Layer.succeed(ServerService, {
 				connect: () => Effect.void,
@@ -171,6 +176,7 @@ describe("God Mode route", () => {
 			Effect.gen(function* () {
 				const user = userEvent.setup();
 				const view = makeView("/god-mode/users", server, {
+					download: () => Effect.die("not used"),
 					run: () =>
 						Effect.fail(
 							new AdminApiError({

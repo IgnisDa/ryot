@@ -22,7 +22,7 @@ const buildLegacyImageArraySql = (tableAlias: string) => `(
 	COALESCE(
 		(
 			SELECT jsonb_agg(
-				jsonb_build_object('type', 'remote', 'url', remote_image)
+				jsonb_build_object('type', 'remote', 'url', remote_image, 'purpose', 'cover')
 				ORDER BY ordinality
 			)
 			FROM jsonb_array_elements_text(COALESCE(${tableAlias}.assets -> 'remote_images', '[]'::jsonb))
@@ -34,7 +34,7 @@ const buildLegacyImageArraySql = (tableAlias: string) => `(
 	COALESCE(
 		(
 			SELECT jsonb_agg(
-				jsonb_build_object('type', 's3', 'key', s3_image)
+				jsonb_build_object('type', 's3', 'key', s3_image, 'purpose', 'cover')
 				ORDER BY ordinality
 			)
 			FROM jsonb_array_elements_text(COALESCE(${tableAlias}.assets -> 's3_images', '[]'::jsonb))
@@ -192,6 +192,63 @@ const buildMetadataPropertiesSql = () => `
 )
 `;
 
+// Lot specifics, not V1's `is_partial`, mark fetched rows. See README "Populated gate".
+export const buildPopulatedMetadataIdsSql = () => `
+DO $$
+DECLARE
+	rows_inserted int;
+	started_at timestamptz := clock_timestamp();
+BEGIN
+	IF to_regclass('pg_temp._populated_metadata_ids') IS NOT NULL THEN
+		RETURN;
+	END IF;
+
+	CREATE TEMP TABLE _populated_metadata_ids (id text PRIMARY KEY);
+
+	INSERT INTO _populated_metadata_ids (id)
+	SELECT metadata.id::text
+	FROM "metadata" metadata
+	WHERE metadata.source <> 'custom'
+		AND EXISTS (SELECT 1 FROM _referenced_global_entity_ids r WHERE r.id = metadata.id::text)
+		AND CASE metadata.lot
+			WHEN 'anime' THEN metadata.anime_specifics IS NOT NULL
+			WHEN 'audio_book' THEN metadata.audio_book_specifics IS NOT NULL
+			WHEN 'book' THEN metadata.book_specifics IS NOT NULL
+			WHEN 'comic_book' THEN metadata.comic_book_specifics IS NOT NULL
+			WHEN 'manga' THEN metadata.manga_specifics IS NOT NULL
+			WHEN 'movie' THEN metadata.movie_specifics IS NOT NULL
+			WHEN 'music' THEN metadata.music_specifics IS NOT NULL
+			WHEN 'show' THEN metadata.source = 'tmdb' AND metadata.show_specifics IS NOT NULL
+			WHEN 'video_game' THEN metadata.video_game_specifics IS NOT NULL
+			WHEN 'visual_novel' THEN metadata.visual_novel_specifics IS NOT NULL
+			ELSE FALSE
+		END
+		AND NOT EXISTS (
+			SELECT 1
+			FROM "collection_to_entity" cte
+			INNER JOIN "collection" coll ON coll.id = cte.collection_id AND coll.name = 'Monitoring'
+			WHERE cte.entity_id = metadata.id
+		);
+
+	GET DIAGNOSTICS rows_inserted = ROW_COUNT;
+	ANALYZE _populated_metadata_ids;
+
+	INSERT INTO _referenced_global_entity_ids (id)
+	SELECT m2p.person_id::text
+	FROM "metadata_to_person" m2p
+	INNER JOIN _populated_metadata_ids p ON p.id = m2p.metadata_id::text
+	UNION
+	SELECT m2mg.metadata_group_id::text
+	FROM "metadata_to_metadata_group" m2mg
+	INNER JOIN _populated_metadata_ids p ON p.id = m2mg.metadata_id::text
+	ON CONFLICT DO NOTHING;
+
+	ANALYZE _referenced_global_entity_ids;
+
+	${buildReportSql("populated metadata ids", [{ count: "rows_inserted", message: "provider row(s) migrate populated" }])}
+END $$;
+`;
+
 export const buildMetadataMigrationSql = (targets: ResolvedLotEntityMigrationTarget[]) => `
 DO $$
 DECLARE
@@ -242,10 +299,11 @@ BEGIN
 			metadata.identifier,
 			metadata.title,
 			metadata.created_on,
-			NULL,
+			CASE WHEN populated.id IS NOT NULL THEN metadata.last_updated_on END,
 			metadata.created_by_user_id,
 			CASE
-				WHEN metadata_targets.provider_id IS NULL THEN ${buildMetadataPropertiesSql()}
+				WHEN metadata_targets.provider_id IS NULL OR populated.id IS NOT NULL
+				THEN ${buildMetadataPropertiesSql()}
 				ELSE '{}'::jsonb
 			END,
 			metadata_targets.entity_schema_slug,
@@ -254,6 +312,7 @@ BEGIN
 			metadata.last_updated_on
 		FROM metadata
 		INNER JOIN metadata_targets ON metadata_targets.lot = metadata.lot AND metadata_targets.source = metadata.source
+		LEFT JOIN _populated_metadata_ids populated ON populated.id = metadata.id::text
 		WHERE metadata.id::text > cursor_id AND metadata.id::text <= next_cursor_id
 			AND (
 				metadata_targets.provider_id IS NULL
@@ -264,6 +323,10 @@ BEGIN
 				"properties" = CASE
 					WHEN entity."properties" = '{}'::jsonb THEN EXCLUDED."properties"
 					ELSE entity."properties"
+				END,
+				"populated_at" = CASE
+					WHEN entity."properties" = '{}'::jsonb THEN EXCLUDED."populated_at"
+					ELSE entity."populated_at"
 				END,
 				"user_id" = COALESCE(entity."user_id", EXCLUDED."user_id")
 			WHERE entity."properties" = '{}'::jsonb OR entity."user_id" IS NULL;

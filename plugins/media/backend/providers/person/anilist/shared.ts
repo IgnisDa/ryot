@@ -19,7 +19,6 @@ export const manifest = defineManifest({
 	slug: "person.anilist",
 	capabilities: ["httpCall"],
 	requiredPluginConfigKeys: [],
-	requiredSystemConfigKeys: [],
 });
 
 const STAFF_SEARCH_QUERY = `

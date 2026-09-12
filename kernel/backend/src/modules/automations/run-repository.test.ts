@@ -397,7 +397,6 @@ describe("AutomationRunRepository", () => {
 										kind: "automation",
 										slug: "kernel.notify",
 										requiredPluginConfigKeys: [],
-										requiredSystemConfigKeys: [],
 									},
 								});
 							const now = DateTime.toDate(DateTime.makeUnsafe(trigger.createdAt));

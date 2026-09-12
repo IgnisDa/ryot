@@ -5,7 +5,6 @@ import { details } from "./shared";
 
 export const manifest = defineManifest({
 	kind: "provider",
-	requiredSystemConfigKeys: [],
 	name: "Spotify Music Details",
 	slug: "music.spotify.details",
 	requiredPluginConfigKeys: ["spotifyClientId", "spotifyClientSecret"],

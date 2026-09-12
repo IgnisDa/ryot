@@ -5,7 +5,7 @@ import { Effect } from "effect";
 
 import { makeConfigProviderLayer } from "#lib/test-utils/effect";
 
-import { getPluginConfig, getSystemConfig } from "./app-config";
+import { getPluginConfig } from "./app-config";
 
 const pluginSlug = "test-plugin";
 const pluginConfigSchema = {
@@ -52,11 +52,6 @@ const runInstallationConfig = (
 		metadata: { requiredPluginConfigKeys },
 		context: { config, kind: "installation", configSchema: pluginConfigSchema },
 	}).pipe(Effect.result);
-
-const runSystemConfig = (
-	keys: ReadonlyArray<string>,
-	requiredSystemConfigKeys: ReadonlyArray<string> = keys,
-) => getSystemConfig(keys, { requiredSystemConfigKeys }).pipe(Effect.result);
 
 describe("getPluginConfig", () => {
 	it("derives stable environment keys from the plugin slug and config key", () => {
@@ -142,38 +137,6 @@ describe("getPluginConfig for an installation", () => {
 				});
 				assert(result._tag === "Failure");
 				expect(result.failure).not.toContain("RYOT_PLUGIN");
-			}),
-		);
-	});
-});
-
-describe("getSystemConfig", () => {
-	layer(makeConfigProviderLayer())((test) => {
-		test.effect("returns an allowlisted, declared system config value", () =>
-			Effect.gen(function* () {
-				expect(yield* runSystemConfig(["timezone", "timezone"])).toMatchObject({
-					_tag: "Success",
-					success: { timezone: "Etc/GMT" },
-				});
-			}),
-		);
-
-		test.effect("returns an empty record without loading system config", () =>
-			Effect.gen(function* () {
-				expect(yield* runSystemConfig([])).toMatchObject({ success: {}, _tag: "Success" });
-			}),
-		);
-
-		test.effect("rejects undeclared and non-plugin-readable system config", () =>
-			Effect.gen(function* () {
-				expect(yield* runSystemConfig(["timezone"], [])).toMatchObject({
-					_tag: "Failure",
-					failure: expect.stringContaining("is not declared"),
-				});
-				expect(yield* runSystemConfig(["port"])).toMatchObject({
-					_tag: "Failure",
-					failure: expect.stringContaining("is not available to plugins"),
-				});
 			}),
 		);
 	});

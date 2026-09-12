@@ -75,7 +75,6 @@ const scriptManifest: PluginArchivePackage["manifest"] = {
 			entry: scriptEntry,
 			name: "Fixture script",
 			requiredPluginConfigKeys: [],
-			requiredSystemConfigKeys: [],
 		},
 	],
 };

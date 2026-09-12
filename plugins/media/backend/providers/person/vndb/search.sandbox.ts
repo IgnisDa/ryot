@@ -9,7 +9,6 @@ export const manifest = defineManifest({
 	slug: "person.vndb.search",
 	capabilities: ["httpCall"],
 	requiredPluginConfigKeys: [],
-	requiredSystemConfigKeys: [],
 });
 
 export default defineProvider({ manifest, run: search.run, operation: "search" });

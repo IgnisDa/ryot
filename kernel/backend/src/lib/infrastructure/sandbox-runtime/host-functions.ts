@@ -21,14 +21,17 @@ import {
 	upsertGlobalRelationshipGroupSchema,
 } from "@ryot-app/sandbox-sdk/core";
 import { jsonValueSchema, type SandboxHostError } from "@ryot-app/sandbox-sdk/wire";
+import { and, eq } from "drizzle-orm";
 import { Effect, Schema } from "effect";
 
 import { LifecycleExecution } from "#lib/domain/lifecycle-execution";
+import * as schema from "#lib/infrastructure/db/schema/tables/combined";
+import { DatabaseSession } from "#lib/infrastructure/db/session";
 import {
 	runLifecycleWriteInline,
 	type LifecyclePreparedStep,
 } from "#lib/infrastructure/lifecycle-workflow-step";
-import { getPluginConfig, getSystemConfig } from "#lib/infrastructure/sandbox-runtime/app-config";
+import { getPluginConfig } from "#lib/infrastructure/sandbox-runtime/app-config";
 import { SANDBOX_LIMITS } from "#lib/infrastructure/sandbox-runtime/limits";
 import {
 	type AdditionalSandboxHostImplementationMap,
@@ -54,7 +57,9 @@ import {
 } from "#modules/entities/service";
 import { EventsService } from "#modules/events/service";
 import { IntegrationsRepository, type IntegrationRecord } from "#modules/integrations/repository";
+import { OAuthConnectionsService } from "#modules/oauth-connections/service";
 import { PluginRuntimeResolver } from "#modules/plugins/runtime-resolver";
+import { resolvePluginUserSettings } from "#modules/plugins/user-settings";
 import {
 	reconciliationSummary,
 	RelationshipMutationPipeline,
@@ -66,6 +71,7 @@ import {
 import { RyotQLService } from "#modules/ryotql/service";
 
 type SandboxHostFunctionContext =
+	| DatabaseSession
 	| AuthRepository
 	| RyotQLService
 	| EventsService
@@ -73,6 +79,7 @@ type SandboxHostFunctionContext =
 	| DefinitionRepository
 	| PluginRuntimeResolver
 	| IntegrationsRepository
+	| OAuthConnectionsService
 	| RelationshipMutationPipeline
 	| LifecycleExecution;
 
@@ -163,20 +170,19 @@ const requireUniqueNonEmptyStrings = (values: ReadonlyArray<unknown>, message: s
 	);
 
 const normalizeConfigKeys = (
-	fnName: string,
 	rawKeys: ReadonlyArray<string>,
 ): Effect.Effect<ReadonlyArray<string>, string> => {
 	const keys = rawKeys.map((key) => key.trim());
 	return keys.some((key) => !key)
-		? Effect.fail(`${fnName} expects non-empty key strings`)
+		? Effect.fail("getPluginConfig expects non-empty key strings")
 		: Effect.succeed(keys);
 };
 
-const encodeConfigValues = (label: string, values: Readonly<Record<string, unknown>>) =>
+const encodeConfigValues = (values: Readonly<Record<string, unknown>>) =>
 	Effect.forEach(Object.entries(values), ([key, value]) =>
 		isJsonValue(value)
 			? Effect.succeed([key, value] as const)
-			: Effect.fail(`${label} config key "${key}" is not JSON-compatible`),
+			: Effect.fail(`Plugin config key "${key}" is not JSON-compatible`),
 	).pipe(Effect.map(Object.fromEntries));
 
 export const toSandboxCreateEventsResult = (result: CreateEventsResponse) =>
@@ -409,6 +415,7 @@ export const makeAdditionalSandboxApiFunctions: Effect.Effect<
 	never,
 	SandboxHostFunctionContext
 > = Effect.gen(function* () {
+	const session = yield* DatabaseSession;
 	const auth = yield* AuthRepository;
 	const lifecycleExecution = yield* LifecycleExecution;
 	const events = yield* EventsService;
@@ -417,6 +424,7 @@ export const makeAdditionalSandboxApiFunctions: Effect.Effect<
 	const pluginRuntime = yield* PluginRuntimeResolver;
 	const definitions = yield* DefinitionRepository;
 	const integrationsRepository = yield* IntegrationsRepository;
+	const oauthConnections = yield* OAuthConnectionsService;
 	const lifecycle = yield* makeSandboxLifecycleHostApi;
 	const writeInlineLifecycleItems = Effect.fnUntraced(function* <Item, Result>(options: {
 		readonly items: ReadonlyArray<Item>;
@@ -469,10 +477,7 @@ export const makeAdditionalSandboxApiFunctions: Effect.Effect<
 			if (!preferences) {
 				return yield* Effect.fail("User not found");
 			}
-			return {
-				allowNsfw: preferences.allowNsfw,
-				disableIntegrations: preferences.disableIntegrations,
-			};
+			return { disableIntegrations: preferences.disableIntegrations };
 		});
 
 	const createEvents = (input: UserSandboxRunInput, payload: ReadonlyArray<CreateEventItem>) =>
@@ -504,16 +509,6 @@ export const makeAdditionalSandboxApiFunctions: Effect.Effect<
 					),
 				),
 				sandboxHostEffect,
-			),
-		getSystemConfig: (input, rawKeys) =>
-			sandboxHostEffect(
-				normalizeConfigKeys("getSystemConfig", rawKeys).pipe(
-					Effect.flatMap((keys) =>
-						getSystemConfig(keys, input.principal.metadata).pipe(
-							Effect.flatMap((values) => encodeConfigValues("System", values)),
-						),
-					),
-				),
 			),
 		listIntegrations: (rawInput, rawOptions) =>
 			Effect.gen(function* () {
@@ -601,7 +596,7 @@ export const makeAdditionalSandboxApiFunctions: Effect.Effect<
 			),
 		getPluginConfig: (input, rawKeys) =>
 			sandboxHostEffect(
-				normalizeConfigKeys("getPluginConfig", rawKeys).pipe(
+				normalizeConfigKeys(rawKeys).pipe(
 					Effect.flatMap((keys) => {
 						const revision = input.principal.pluginRevision;
 						if (!revision) {
@@ -621,10 +616,35 @@ export const makeAdditionalSandboxApiFunctions: Effect.Effect<
 										context: { config, kind: "installation", configSchema: revision.configSchema },
 									}),
 								),
-								Effect.flatMap((values) => encodeConfigValues("Plugin", values)),
+								Effect.flatMap(encodeConfigValues),
 							);
 					}),
 				),
+			),
+		getOAuthAccessToken: (rawInput, options) =>
+			sandboxHostEffect(
+				Effect.gen(function* () {
+					const input = yield* requireSandboxCapabilityInput(rawInput, "getOAuthAccessToken");
+					const { subject, pluginRevision } = input.principal;
+					if (
+						subject.integrationId === undefined ||
+						subject.integrationRunId === undefined ||
+						pluginRevision === null
+					) {
+						return yield* Effect.fail(
+							"getOAuthAccessToken is available only to integration run executions",
+						);
+					}
+					return yield* oauthConnections
+						.accessTokenForIntegrationRun({
+							field: options.field,
+							userId: subject.userId,
+							pluginId: pluginRevision.id,
+							integrationId: subject.integrationId,
+							integrationRunId: subject.integrationRunId,
+						})
+						.pipe(Effect.mapError((error) => error.message));
+				}),
 			),
 		executeRyotql: (rawInput, query) =>
 			requireSandboxCapabilityInput(rawInput, "executeRyotql").pipe(
@@ -738,6 +758,53 @@ export const makeAdditionalSandboxApiFunctions: Effect.Effect<
 						results.flatMap((result) => result.warnings),
 					);
 					return results.map(({ entityId, wasInserted }) => ({ entityId, wasInserted }));
+				}),
+			),
+		getUserSettings: (rawInput) =>
+			sandboxHostEffect(
+				Effect.gen(function* () {
+					const input = yield* requireSandboxCapabilityInput(rawInput, "getUserSettings");
+					const plugin = input.principal.pluginRevision;
+					if (!plugin) {
+						return yield* Effect.fail("Plugin user settings require a plugin execution");
+					}
+					const [row] = yield* session.run((db) =>
+						db
+							.select({
+								manifest: schema.pluginRevision.manifest,
+								settings: schema.pluginInstallation.userSettings,
+							})
+							.from(schema.pluginInstallation)
+							.innerJoin(
+								schema.pluginRevision,
+								and(
+									eq(schema.pluginRevision.id, plugin.revisionId),
+									eq(schema.pluginRevision.pluginId, schema.pluginInstallation.pluginId),
+								),
+							)
+							.where(
+								and(
+									eq(schema.pluginInstallation.pluginId, plugin.id),
+									eq(schema.pluginInstallation.userId, userSandboxRunUserId(input)),
+								),
+							)
+							.limit(1),
+					);
+					if (!row) {
+						return yield* Effect.fail("Plugin installation not found");
+					}
+					const settingsSchema = row.manifest.userSettingsSchema;
+					if (!settingsSchema) {
+						return {};
+					}
+					return yield* resolvePluginUserSettings(
+						settingsSchema,
+						Object.fromEntries(
+							Object.entries(row.settings).filter(([key]) =>
+								Object.hasOwn(settingsSchema.fields, key),
+							),
+						),
+					);
 				}),
 			),
 		getEntitySchemas: (rawInput, entitySchemaSlugs) =>
