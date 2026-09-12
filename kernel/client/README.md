@@ -146,6 +146,10 @@ the global router history and exits only when no entry remains.
 only `io.ryot.app` and `io.ryot.app.dev` and fail closed on an unknown application ID. The identifiers
 and callback builders are shared with backend provisioning and deep-link filtering.
 
+Web `/auth` redirects to the hosted login immediately. Native `/auth` waits for the user to continue
+or change server, so dismissing the browser or completing logout returns to that choice instead of
+reopening the hosted login.
+
 ## Assets
 
 `assets/icon-only.png` drives app and web icons, `assets/logo.png` drives adaptive foregrounds and
