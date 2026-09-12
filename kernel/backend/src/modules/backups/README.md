@@ -10,7 +10,7 @@ A backup is a non-Zip64 ZIP with entries in this order:
 2. `profile.json`, then `private-plugins.ndjson`, `installations.ndjson`, `entities.ndjson`, `entity-dependencies.ndjson`, `relationships.ndjson`, `events.ndjson`, `saved-views.ndjson`, `integrations.ndjson`, and `notification-subscriptions.ndjson`.
 3. Uncompressed content-addressed assets at `assets/<sha256>`.
 
-The manifest contains `format: "ryot-backup"`, version 1, archive/application identity, creation time, redaction paths, required plugins, ordered section `{ path, count, sha256 }` records, and asset `{ path, size, sha256, contentType }` records. Other versions are rejected as unsupported. Schemas, paths, digests, ID rewrites, and ordering are compatibility surfaces.
+The manifest contains `format: "ryot-backup"`, version 1, archive/application identity, creation time, redaction paths, required plugins, ordered section `{ path, count, sha256 }` records, and asset `{ path, size, sha256, contentType }` records. Other versions are rejected as unsupported. Export and restore use the same current archive schema and validate paths, digests, references, and ordering.
 
 ## Streaming
 
@@ -41,7 +41,7 @@ All database writes occur in one transaction: restore is atomic. Local event-fil
 
 Private packages and exact installation identities are restored without lifecycle dispatch. Complete installations retain archived disabled intent; missing redacted required secrets produce `needs-configuration`. Integrations missing required secrets are disabled. Integration and saved-view provenance resolve to the exact installation.
 
-Client page compositions are derived from restored compiled artifacts and current runtime state. Installation home saved-view IDs are mapped after built-in overrides and user-created saved views are restored.
+Client page compositions are derived from restored compiled artifacts and current runtime state. The archive contains custom views and only non-default built-in state overrides (or a selected built-in home), not copies of built-in content. Restore resolves built-ins from current definitions, rejects custom slug conflicts and missing definitions, then resolves installation home views by slug. The archive format version remains 1.
 
 Source files are user-authored and may contain credentials, so they are not redacted. Only manifest configuration and integration settings fields may be redacted. Managed assets use content-addressed locators.
 

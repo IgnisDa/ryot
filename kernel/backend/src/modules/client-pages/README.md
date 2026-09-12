@@ -6,6 +6,11 @@ does not compile code or rebuild the composition on navigation. System compositi
 at boot, and affected user compositions are materialized when their inputs change. A separate
 freshness check compares a prepared page with current catalog state.
 
+Saved-view preparation reads `user_saved_view_effective`: custom views are user-owned rows,
+while built-in content comes from current definitions and optional per-user visibility and
+order overrides. The effective definition and override revision participate in freshness
+checks without copying built-in content into every account.
+
 A composition combines compiled client artifacts (shared runtime, kernel renderers, and plugin
 modules) with an immutable, content-addressed manifest. The manifest records the import map's file
 references, bootstrap, selected page or route exports, and automatic presentation registry. Shared
