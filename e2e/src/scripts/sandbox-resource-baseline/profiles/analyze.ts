@@ -1,3 +1,4 @@
+import type { Dirent } from "node:fs";
 import { readdir, readFile } from "node:fs/promises";
 import { basename, join } from "node:path";
 
@@ -194,6 +195,16 @@ const hasProfileData = (analysis: DirectoryAnalysis) =>
 	analysis.cpu !== null || analysis.heaps.length > 0 || analysis.checkpoints.length > 0;
 
 const attemptDirectory = /^attempt-(\d+)$/;
+const executionDirectory = /^execution-(\d+)$/;
+
+/** Attempts sit under one `execution-<n>` level per profiled execution, or directly under the token. */
+const attemptsIn = (directory: string, entries: ReadonlyArray<Dirent>) =>
+	entries.flatMap((entry) => {
+		const match = entry.isDirectory() ? attemptDirectory.exec(entry.name) : null;
+		return match === null
+			? []
+			: [{ attempt: Number(match[1]), directory: join(directory, entry.name) }];
+	});
 
 const analyzeProfile = (rawDirectory: string, profileId: string) =>
 	Effect.gen(function* () {
@@ -206,18 +217,33 @@ const analyzeProfile = (rawDirectory: string, profileId: string) =>
 					Schema.decodeUnknownSync(ProfileMeta)(await readJson(join(directory, "meta.json"))),
 				)
 			: {};
-		const attempts = entries
-			.filter((entry) => entry.isDirectory() && attemptDirectory.test(entry.name))
-			.map((entry) => ({
-				name: entry.name,
-				attempt: Number(attemptDirectory.exec(entry.name)?.[1]),
-			}))
-			.sort((left, right) => left.attempt - right.attempt);
-		const topLevel = yield* analyzeDirectory(directory);
-		const perAttempt = yield* Effect.forEach(attempts, ({ name, attempt }) =>
-			analyzeDirectory(join(directory, name)).pipe(
-				Effect.map((analysis) => ({ attempt, analysis })),
+		const executions = entries
+			.filter((entry) => entry.isDirectory() && executionDirectory.test(entry.name))
+			.map(({ name }) => name)
+			.sort();
+		const nested = yield* Effect.forEach(executions, (execution) =>
+			analyzeFile(join(directory, execution), () =>
+				readdir(join(directory, execution), { withFileTypes: true }),
+			).pipe(
+				Effect.map((nestedEntries) =>
+					attemptsIn(join(directory, execution), nestedEntries).map((entry) => ({
+						...entry,
+						execution: executions.length > 1 ? execution : null,
+					})),
+				),
 			),
+		);
+		const attempts = [
+			...attemptsIn(directory, entries).map((entry) => ({ ...entry, execution: null })),
+			...nested.flat(),
+		].sort((left, right) => left.attempt - right.attempt);
+		const topLevel = yield* analyzeDirectory(directory);
+		const perAttempt = yield* Effect.forEach(
+			attempts,
+			({ directory: attemptDirectoryPath, attempt, execution }) =>
+				analyzeDirectory(attemptDirectoryPath).pipe(
+					Effect.map((analysis) => ({ attempt, analysis, execution })),
+				),
 		);
 		const attemptStacks = perAttempt.flatMap(({ analysis }) =>
 			analysis.cpu?.source === "deno-v8" ? [analysis.cpu.stacks] : [],
@@ -226,7 +252,10 @@ const analyzeProfile = (rawDirectory: string, profileId: string) =>
 			...(hasProfileData(topLevel) || attempts.length === 0
 				? [buildEntry(profileId, meta, meta.attempt ?? null, topLevel)]
 				: []),
-			...perAttempt.map(({ attempt, analysis }) => buildEntry(profileId, meta, attempt, analysis)),
+			...perAttempt.map(({ attempt, analysis, execution }) => {
+				const entry = buildEntry(profileId, meta, attempt, analysis);
+				return execution === null ? entry : { ...entry, notes: [...entry.notes, execution] };
+			}),
 			...(attemptStacks.length > 1
 				? [
 						{
