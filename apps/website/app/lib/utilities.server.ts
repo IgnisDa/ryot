@@ -173,7 +173,7 @@ export const getCustomerFromCookie = async (request: Request) => {
 	}
 	const customerId = z.string().parse(cookie);
 
-	return await getDb().query.customers.findFirst({ where: eq(schema.customers.id, customerId) });
+	return await getDb().query.customer.findFirst({ where: eq(schema.customer.id, customerId) });
 };
 
 export const getCustomerWithActivePurchase = async (request: Request) => {
@@ -182,11 +182,11 @@ export const getCustomerWithActivePurchase = async (request: Request) => {
 		return null;
 	}
 
-	const activePurchase = await getDb().query.customerPurchases.findFirst({
-		orderBy: [desc(schema.customerPurchases.createdOn)],
+	const activePurchase = await getDb().query.customerPurchase.findFirst({
+		orderBy: [desc(schema.customerPurchase.createdOn)],
 		where: and(
-			eq(schema.customerPurchases.customerId, customer.id),
-			isNull(schema.customerPurchases.cancelledOn),
+			eq(schema.customerPurchase.customerId, customer.id),
+			isNull(schema.customerPurchase.cancelledOn),
 		),
 	});
 
@@ -203,7 +203,7 @@ export const getCustomerWithActivePurchase = async (request: Request) => {
 };
 
 export const createUnkeyKey = async (
-	customer: typeof schema.customers.$inferSelect,
+	customer: typeof schema.customer.$inferSelect,
 	renewOn?: Dayjs,
 ) => {
 	const unkey = getUnkeyClient();

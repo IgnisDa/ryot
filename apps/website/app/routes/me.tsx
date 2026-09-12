@@ -9,7 +9,7 @@ import { toast } from "sonner";
 import { match } from "ts-pattern";
 import { withQuery } from "ufo";
 
-import { customers, PlanTypes, ProductTypes } from "~/drizzle/schema.server";
+import * as schema from "~/drizzle/schema.server";
 import { resetUserPassword } from "~/lib/api.server";
 import {
 	getCancellation,
@@ -113,9 +113,9 @@ export const action = async ({ request }: Route.ActionArgs) => {
 				renewOnDayjs ? renewOnDayjs.add(GRACE_PERIOD, "days") : undefined,
 			);
 			await getDb()
-				.update(customers)
+				.update(schema.customer)
 				.set({ unkeyKeyId: created.keyId })
-				.where(eq(customers.id, customer.id));
+				.where(eq(schema.customer.id, customer.id));
 			const emailElement = PurchaseCompleteEmail({
 				planType: customer.planType,
 				renewOn: customer.renewOn ?? undefined,
@@ -199,8 +199,8 @@ export const action = async ({ request }: Route.ActionArgs) => {
 			}
 
 			const formData = await request.formData();
-			const productType = ProductTypes.parse(formData.get("productType"));
-			const planType = PlanTypes.parse(formData.get("planType"));
+			const productType = schema.ProductTypes.parse(formData.get("productType"));
+			const planType = schema.PlanTypes.parse(formData.get("planType"));
 
 			const productId = findPolarProductId(productType, planType);
 

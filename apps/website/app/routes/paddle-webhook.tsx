@@ -6,7 +6,7 @@ import {
 import { desc, eq, type InferSelectModel } from "drizzle-orm";
 import { data } from "react-router";
 
-import { customerPurchases, type customers } from "~/drizzle/schema.server";
+import { customerPurchase, type customer } from "~/drizzle/schema.server";
 import { revokeCancellation, revokePurchaseInProgress } from "~/lib/caches.server";
 import { getDb, getServerVariables } from "~/lib/config.server";
 import {
@@ -18,7 +18,7 @@ import { getPaddleServerClient, getProductAndPlanTypeByPriceId } from "~/lib/uti
 
 import type { Route } from "./+types/paddle-webhook";
 
-type Customer = InferSelectModel<typeof customers> | undefined;
+type Customer = InferSelectModel<typeof customer> | undefined;
 
 interface WebhookResponse {
 	error?: string;
@@ -105,16 +105,16 @@ async function handleSubscriptionResumed(
 		return { message: "No customer found" };
 	}
 
-	const cancelledPurchase = await getDb().query.customerPurchases.findFirst({
-		orderBy: [desc(customerPurchases.createdOn)],
-		where: eq(customerPurchases.customerId, customer.id),
+	const cancelledPurchase = await getDb().query.customerPurchase.findFirst({
+		orderBy: [desc(customerPurchase.createdOn)],
+		where: eq(customerPurchase.customerId, customer.id),
 	});
 
 	if (cancelledPurchase) {
 		await getDb()
-			.update(customerPurchases)
+			.update(customerPurchase)
 			.set({ cancelledOn: null, updatedOn: new Date() })
-			.where(eq(customerPurchases.id, cancelledPurchase.id));
+			.where(eq(customerPurchase.id, cancelledPurchase.id));
 	}
 
 	return { message: "Subscription resumed successfully" };

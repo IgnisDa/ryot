@@ -29,7 +29,7 @@ export const PaymentProviders = z.enum(paymentProviders.enumValues);
 
 export type TPaymentProviders = z.infer<typeof PaymentProviders>;
 
-export const customers = pgTable("customer", {
+export const customer = pgTable("customer", {
 	unkeyKeyId: text("unkey_key_id"),
 	ryotUserId: text("ryot_user_id"),
 	email: text("email").notNull().unique(),
@@ -43,7 +43,7 @@ export const customers = pgTable("customer", {
 
 export const ticketNumberSequence = pgSequence("ticket_number_seq", { startWith: 1, increment: 1 });
 
-export const contactSubmissions = pgTable("contact_submission", {
+export const contactSubmission = pgTable("contact_submission", {
 	isSpam: boolean("is_spam"),
 	email: text("email").notNull(),
 	message: text("message").notNull(),
@@ -55,7 +55,7 @@ export const contactSubmissions = pgTable("contact_submission", {
 	ticketNumber: bigint("ticket_number", { mode: "bigint" }),
 });
 
-export const customerPurchases = pgTable(
+export const customerPurchase = pgTable(
 	"customer_purchase",
 	{
 		planType: planTypes("plan_type").notNull(),
@@ -68,7 +68,7 @@ export const customerPurchases = pgTable(
 		cancelledOn: timestamp("cancelled_on", { withTimezone: true }),
 		customerId: uuid("customer_id")
 			.notNull()
-			.references(() => customers.id),
+			.references(() => customer.id),
 		createdOn: timestamp("created_on", { withTimezone: true }).defaultNow().notNull(),
 		updatedOn: timestamp("updated_on", { withTimezone: true }).defaultNow().notNull(),
 	},
