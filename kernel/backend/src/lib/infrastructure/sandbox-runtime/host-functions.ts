@@ -9,7 +9,7 @@ import type { SandboxHostCapability } from "@ryot-app/contract/modules/sandbox/w
 import {
 	EntityId,
 	EntitySchemaSlug,
-	ImportRunId,
+	type ImportRunId,
 	IntegrationId,
 	RelationshipSchemaSlug,
 	SandboxProviderId,
@@ -164,21 +164,7 @@ const admittedImportRunId = (input: UserSandboxRunInput) => {
 	if (subject.type !== "user") {
 		return null;
 	}
-	if (subject.integrationRunId) {
-		return subject.integrationRunId;
-	}
-	if (
-		!input.executionId.endsWith("-import") ||
-		typeof input.context !== "object" ||
-		input.context === null ||
-		!("runId" in input.context)
-	) {
-		return null;
-	}
-	const runId = input.context.runId;
-	return typeof runId === "string" && `${runId}-import` === input.executionId
-		? ImportRunId.make(runId)
-		: null;
+	return subject.importRunId ?? subject.integrationRunId ?? null;
 };
 
 const requireNonEmptyString = (value: unknown, message: string): Effect.Effect<string, string> => {
