@@ -49,7 +49,10 @@ const automationScript = (
 	entry,
 	capabilities,
 	kind: "automation",
+	oauthConnectionFields: [],
+	executableDependencies: [],
 	automationType: "automation",
+	optionalPluginConfigKeys: [],
 	name: `E2E retry automation ${slug}`,
 	requiredPluginConfigKeys: capabilities.includes("getPluginConfig") ? ["marker"] : [],
 	inputProjection: {
@@ -69,7 +72,6 @@ export const manifest = defineManifest({
   slug: ${JSON.stringify(slug)},
   capabilities: ["claimPersistentValue", "getPluginConfig", "httpCall"],
   inputProjection: { entity: { properties: [], compareProperties: [], parentEntityProperties: [] } },
-  requiredPluginConfigKeys: ["marker"],
 });
 
 export default defineAutomation({
@@ -80,7 +82,7 @@ export default defineAutomation({
       { runId: automation.runId },
       600,
     );
-    const config = yield* host.getPluginConfig(["marker"]);
+    const config = yield* host.getPluginConfig({ required: ["marker"] });
     if (typeof config.marker !== "string") {
       return yield* Effect.die("Missing retry marker");
     }
@@ -104,7 +106,6 @@ export const manifest = defineManifest({
   slug: ${JSON.stringify(slug)},
   capabilities: ["httpCall"],
   inputProjection: { entity: { properties: [], compareProperties: [], parentEntityProperties: [] } },
-  requiredPluginConfigKeys: [],
 });
 
 export default defineAutomation({
@@ -126,7 +127,6 @@ export const manifest = defineManifest({
   slug: ${JSON.stringify(slug)},
   capabilities: ${JSON.stringify(capabilities)},
   inputProjection: { entity: { properties: [], compareProperties: [], parentEntityProperties: [] } },
-  requiredPluginConfigKeys: [],
 });
 
 export default defineAutomation({
@@ -147,7 +147,6 @@ export const manifest = defineManifest({
   slug: ${JSON.stringify(slug)},
   capabilities: ["claimPersistentValue", "getPluginConfig", "httpCall"],
   inputProjection: { entity: { properties: [], compareProperties: [], parentEntityProperties: [] } },
-  requiredPluginConfigKeys: ["marker"],
 });
 
 export default defineAutomation({
