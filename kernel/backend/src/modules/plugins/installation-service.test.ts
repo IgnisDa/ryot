@@ -1,5 +1,5 @@
 import { assert, expect, layer } from "@effect/vitest";
-import { badRequest, internalError } from "@ryot-app/contract/errors";
+import { DbError, badRequest, internalError } from "@ryot-app/contract/errors";
 import type { PluginManifest } from "@ryot-app/contract/modules/plugins/manifest";
 import {
 	PluginConflictError,
@@ -22,6 +22,7 @@ import { ObjectStorageService } from "#modules/uploads/object-storage/service";
 
 import { PluginCatalogInvalidator } from "./catalog-events";
 import { PluginIngestionLock } from "./ingestion-lock";
+import { PluginIngestionRetirement } from "./ingestion-retirement";
 import {
 	PluginInstallationRepository,
 	type PluginInstallationHydratedState,
@@ -108,6 +109,7 @@ type PersistedPlugin = {
 };
 
 type Recordings = {
+	readonly retirementEvents: ReadonlyArray<string>;
 	readonly removed: ReadonlyArray<string>;
 	readonly dispatched: ReadonlyArray<string>;
 	readonly deactivated: ReadonlyArray<string>;
@@ -140,6 +142,7 @@ const emptyRecordings: Recordings = {
 	claimedUploads: [],
 	savedViewFences: [],
 	homeViewUpdates: [],
+	retirementEvents: [],
 	invalidatedUsers: [],
 	integrationFences: [],
 	homeViewTransactionScopes: [],
@@ -171,6 +174,7 @@ class InstallationFakeState extends Context.Service<
 >()("test/InstallationFakeState") {}
 
 type FakeInstallationOptions = {
+	readonly cleanupFailsOnce?: boolean;
 	readonly dispatchFails?: boolean;
 	readonly archiveBytes?: Uint8Array;
 	readonly openUploadFails?: boolean;
@@ -199,6 +203,7 @@ const record = <Key extends keyof Recordings>(
 ) => Ref.update(recordings, (current) => ({ ...current, [key]: [...current[key], value] }));
 
 const makeLayer = (options: FakeInstallationOptions = {}) => {
+	let cleanupInterrupted = false;
 	const installations = options.installations ?? [];
 	const privatePlugins = options.privatePlugins ?? [];
 	const applyStateUpdate = (
@@ -255,6 +260,7 @@ const makeLayer = (options: FakeInstallationOptions = {}) => {
 				claimedUploads: read("claimedUploads"),
 				savedViewFences: read("savedViewFences"),
 				homeViewUpdates: read("homeViewUpdates"),
+				retirementEvents: read("retirementEvents"),
 				invalidatedUsers: read("invalidatedUsers"),
 				integrationFences: read("integrationFences"),
 				homeViewTransactionScopes: read("homeViewTransactionScopes"),
@@ -277,6 +283,23 @@ const makeLayer = (options: FakeInstallationOptions = {}) => {
 				active ? ("transaction" as const) : ("root" as const),
 			);
 			return Layer.mergeAll(
+				Layer.succeed(PluginIngestionRetirement, {
+					retire: (input) =>
+						Effect.gen(function* () {
+							yield* Effect.flatMap(transactionScope, (scope) =>
+								record(
+									recordings,
+									"retirementEvents",
+									`cleanup:${input.pluginInstallationId}:${scope}`,
+								),
+							);
+							if (options.cleanupFailsOnce && !cleanupInterrupted) {
+								cleanupInterrupted = true;
+								return yield* new DbError({ message: "Cleanup interrupted" });
+							}
+							return yield* Effect.void;
+						}),
+				}),
 				Layer.mock(DefinitionRepository)({
 					getGlobalSnapshot: Effect.map(Ref.get(systemPlugins), (plugins) =>
 						validateSystemPluginSet(kernelDefinitionSource(), [...plugins]),
@@ -351,8 +374,8 @@ const makeLayer = (options: FakeInstallationOptions = {}) => {
 						}),
 				}),
 				Layer.mock(PluginInstallationRepository)({
+					assertIngestionActive: () => Effect.void,
 					refreshClientConfigsForPlugin: () => Effect.void,
-					remove: (id) => record(recordings, "removed", id),
 					listForUser: () => Effect.succeed([...installations]),
 					provisionSystemInstallationsForAllUsers: () => Effect.void,
 					updateHealth: (values) => record(recordings, "healthUpdates", values),
@@ -365,6 +388,14 @@ const makeLayer = (options: FakeInstallationOptions = {}) => {
 						record(recordings, "created", values).pipe(
 							Effect.as(installationRow({ ...values, pluginId: values.pluginId })),
 						),
+					beginIngestionRetirement: (_owner, id) =>
+						Effect.flatMap(transactionScope, (scope) =>
+							record(recordings, "retirementEvents", `fence:${id}:${scope}`),
+						),
+					remove: (id) =>
+						Effect.flatMap(transactionScope, (scope) =>
+							record(recordings, "retirementEvents", `remove:${id}:${scope}`),
+						).pipe(Effect.andThen(record(recordings, "removed", id))),
 					listPendingLifecycle: () =>
 						Effect.succeed(
 							(options.pendingLifecycle ?? []).map((installationId) => ({
@@ -457,8 +488,11 @@ const makeLayer = (options: FakeInstallationOptions = {}) => {
 const bootstrapScript = {
 	capabilities: [],
 	kind: "script" as const,
+	oauthConnectionFields: [],
 	name: "Fixture Bootstrap",
+	executableDependencies: [],
 	requiredPluginConfigKeys: [],
+	optionalPluginConfigKeys: [],
 	slug: "script.fixture-bootstrap",
 	entry: "backend/bootstrap/bootstrap.sandbox.ts",
 };
@@ -470,7 +504,6 @@ export const manifest = defineManifest({
 	kind: "script",
 	capabilities: [],
 	name: "Fixture Bootstrap",
-	requiredPluginConfigKeys: [],
 	slug: "script.fixture-bootstrap",
 });
 
@@ -1182,6 +1215,11 @@ layer(makeLayer({ privatePlugins: [privatePlugin], installations: [privateInstal
 				).toEqual(first);
 				expect(yield* fake.removed).toEqual([privateInstallation.id]);
 				expect(yield* fake.deactivated).toEqual([privatePlugin.id]);
+				expect(yield* fake.retirementEvents).toEqual([
+					`fence:${privateInstallation.id}:transaction`,
+					`cleanup:${privateInstallation.id}:root`,
+					`remove:${privateInstallation.id}:transaction`,
+				]);
 			}),
 		);
 	},
@@ -1285,8 +1323,11 @@ const operationScript = {
 	capabilities: [],
 	name: "Fixture Operation",
 	slug: "operation.fixture",
+	oauthConnectionFields: [],
 	kind: "operation" as const,
+	executableDependencies: [],
 	requiredPluginConfigKeys: [],
+	optionalPluginConfigKeys: [],
 	entry: "backend/operations/operation.sandbox.ts",
 };
 
@@ -1299,7 +1340,6 @@ export const manifest = defineManifest({
 	kind: "operation",
 	name: "Fixture Operation",
 	slug: "operation.fixture",
-	requiredPluginConfigKeys: [],
 });
 
 export default defineOperation({
@@ -1447,6 +1487,38 @@ const unconfiguredInstallation = installationRow({
 	config: { region: "us" },
 	pluginId: configuredPlugin.id,
 	health: "needs-configuration",
+});
+
+layer(
+	makeLayer({
+		cleanupFailsOnce: true,
+		privatePlugins: [privatePlugin],
+		installations: [privateInstallation],
+	}),
+)((test) => {
+	test.effect(
+		"retries interrupted installation cleanup before recording uninstall or removing the owner",
+		() =>
+			Effect.gen(function* () {
+				const service = yield* PluginInstallationService;
+				const fake = yield* FakeInstallationDependencies;
+				expect(
+					(yield* Effect.exit(
+						service.uninstallPlugin(userId, privatePlugin.slug, privatePlugin.activationId),
+					))._tag,
+				).toBe("Failure");
+				expect(yield* fake.removed).toEqual([]);
+				expect(yield* fake.deactivated).toEqual([]);
+				yield* service.uninstallPlugin(userId, privatePlugin.slug, privatePlugin.activationId);
+				expect(yield* fake.retirementEvents).toEqual([
+					`fence:${privateInstallation.id}:transaction`,
+					`cleanup:${privateInstallation.id}:root`,
+					`fence:${privateInstallation.id}:transaction`,
+					`cleanup:${privateInstallation.id}:root`,
+					`remove:${privateInstallation.id}:transaction`,
+				]);
+			}),
+	);
 });
 
 layer(makeLayer({ privatePlugins: [configuredPlugin], installations: [unconfiguredInstallation] }))(

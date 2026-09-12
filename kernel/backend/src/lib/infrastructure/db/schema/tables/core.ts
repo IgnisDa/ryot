@@ -140,6 +140,7 @@ export const pluginInstallation = snakeCase.table(
 		sortOrder: integer().notNull().default(0),
 		isHidden: boolean().notNull().default(false),
 		uninstalledAt: timestamp({ withTimezone: true }),
+		ingestionRetiring: boolean().notNull().default(false),
 		configuredSecretPaths: text().array().notNull().default([]),
 		createdAt: timestamp({ withTimezone: true }).defaultNow().notNull(),
 		clientConfig: jsonb().$type<Record<string, JsonValue>>().notNull().default({}),

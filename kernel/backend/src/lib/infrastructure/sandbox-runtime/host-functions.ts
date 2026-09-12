@@ -594,10 +594,13 @@ export const makeAdditionalSandboxApiFunctions: Effect.Effect<
 				}),
 				sandboxHostEffect,
 			),
-		getPluginConfig: (input, rawKeys) =>
+		getPluginConfig: (input, rawAccess) =>
 			sandboxHostEffect(
-				normalizeConfigKeys(rawKeys).pipe(
-					Effect.flatMap((keys) => {
+				Effect.all({
+					required: normalizeConfigKeys(rawAccess.required ?? []),
+					optional: normalizeConfigKeys(rawAccess.optional ?? []),
+				}).pipe(
+					Effect.flatMap((access) => {
 						const revision = input.principal.pluginRevision;
 						if (!revision) {
 							return Effect.fail("Plugin config is available only to active plugin scripts");
@@ -611,7 +614,7 @@ export const makeAdditionalSandboxApiFunctions: Effect.Effect<
 							.pipe(
 								Effect.flatMap((config) =>
 									getPluginConfig({
-										keys,
+										access,
 										metadata: input.principal.metadata,
 										context: { config, kind: "installation", configSchema: revision.configSchema },
 									}),
@@ -633,6 +636,11 @@ export const makeAdditionalSandboxApiFunctions: Effect.Effect<
 					) {
 						return yield* Effect.fail(
 							"getOAuthAccessToken is available only to integration run executions",
+						);
+					}
+					if (!input.principal.metadata.oauthConnectionFields?.includes(options.field)) {
+						return yield* Effect.fail(
+							`OAuth connection field "${options.field}" is not declared by this script`,
 						);
 					}
 					return yield* oauthConnections

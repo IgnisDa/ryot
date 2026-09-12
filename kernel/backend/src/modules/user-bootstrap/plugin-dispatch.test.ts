@@ -120,9 +120,12 @@ const baseLayer = Layer.mergeAll(
 							metadata: {
 								kind: "script",
 								capabilities: [],
+								oauthConnectionFields: [],
 								slug: bootstrap.scriptSlug,
 								name: bootstrap.scriptSlug,
+								executableDependencies: [],
 								requiredPluginConfigKeys: [],
+								optionalPluginConfigKeys: [],
 							},
 						} satisfies NonNullable<
 							Effect.Success<

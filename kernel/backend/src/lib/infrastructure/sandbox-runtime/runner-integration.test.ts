@@ -1,6 +1,7 @@
 import { BunServices, BunHttpServer } from "@effect/platform-bun";
 import { assert, expect, layer } from "@effect/vitest";
 import { SandboxRunError, unknownToMessage } from "@ryot-app/contract/errors";
+import type { SandboxExecutionMetadata } from "@ryot-app/contract/modules/plugins/execution-metadata";
 import { sandboxCompilerPlatformLayer } from "@ryot-app/sandbox-compiler/platform";
 import { compilePluginSandboxSourceEntries } from "@ryot-app/sandbox-compiler/plugins";
 import type { SandboxManifest } from "@ryot-app/sandbox-sdk/core";
@@ -67,7 +68,6 @@ export const manifest = defineManifest({
   capabilities: [],
   name: "Runner validation",
   slug: "runner-validation",
-  requiredPluginConfigKeys: [],
 });
 
 export default defineScript({
@@ -90,7 +90,6 @@ const manifest = {
   capabilities: [],
   name: "Runtime alias identity",
   slug: "runtime-alias-identity",
-  requiredPluginConfigKeys: [],
 };
 
 export default {
@@ -111,7 +110,6 @@ export const manifest = defineManifest({
   capabilities: [],
   name: "Runner failure",
   slug: "runner-failure",
-  requiredPluginConfigKeys: [],
 });
 
 export default defineScript({
@@ -133,7 +131,6 @@ export const manifest = defineManifest({
   capabilities: [],
   name: "Runner limits",
   slug: "runner-limits",
-  requiredPluginConfigKeys: [],
 });
 
 export default defineScript({
@@ -158,22 +155,21 @@ export default defineScript({
 const filesystemSource = `
 import { defineManifest, defineScript } from "@ryot-app/sandbox-sdk/driver";
 import { Effect, Schema } from "@ryot-app/sandbox-sdk/effect";
-import { readArtifact, readNamedArtifact, sandboxScratchManifestSchema, writeScratchChunks } from "@ryot-app/sandbox-sdk/filesystem";
+import { readArtifact, readArtifactRange, readNamedArtifact, sandboxScratchManifestSchema, writeScratchChunks } from "@ryot-app/sandbox-sdk/filesystem";
 
 export const manifest = defineManifest({
   kind: "script",
   name: "Filesystem",
   slug: "filesystem",
-  requiredPluginConfigKeys: [],
   capabilities: ["artifact-read", "scratch"],
 });
 
 export default defineScript({
   manifest,
   output: sandboxScratchManifestSchema,
-  input: Schema.Struct({ chunkName: Schema.String, artifactKey: Schema.optional(Schema.String) }),
+  input: Schema.Struct({ chunkName: Schema.String, artifactKey: Schema.optional(Schema.String), offset: Schema.optional(Schema.Number), length: Schema.optional(Schema.Number) }),
   run: (input) => Effect.gen(function* () {
-    const artifact = yield* input.artifactKey ? readNamedArtifact(input.artifactKey) : readArtifact;
+    const artifact = input.offset === undefined ? yield* input.artifactKey ? readNamedArtifact(input.artifactKey) : readArtifact : (yield* readArtifactRange(input.offset, input.length ?? 1024, input.artifactKey)).bytes;
     return yield* writeScratchChunks([{ name: input.chunkName, contents: artifact }]);
   }),
 });
@@ -193,7 +189,6 @@ export const manifest = defineManifest({
   kind: "script",
   name: "Core host execution",
   slug: "core-host-execution",
-  requiredPluginConfigKeys: [],
   capabilities: [
     "httpCall",
     "getCachedValue",
@@ -228,7 +223,7 @@ export default defineScript({
         body: "payload",
         headers: { Accept: "application/json" },
       });
-    const config = yield* host.getPluginConfig(["timezone"]);
+    const config = yield* host.getPluginConfig({ required: ["timezone"] });
     const preferences = yield* host.getUserPreferences();
     return { after, before, claim, config, http, preferences };
   }),
@@ -244,7 +239,6 @@ export const manifest = defineManifest({
   kind: "script",
   name: "Filtered host",
   slug: "filtered-host",
-  requiredPluginConfigKeys: [],
   capabilities: ["getCachedValue"],
 });
 
@@ -267,7 +261,6 @@ export const manifest = defineManifest({
   kind: "script",
   name: "Host budgets",
   slug: "host-budgets",
-  requiredPluginConfigKeys: [],
   capabilities: ["getCachedValue", "httpCall"],
 });
 
@@ -304,7 +297,6 @@ import { entityReadRecipe, executeRyotqlRecipe } from "@ryot-app/sandbox-sdk/ryo
 
 export const manifest = defineManifest({
   kind: "script",
-  requiredPluginConfigKeys: [],
   name: "Domain host execution",
   slug: "domain-host-execution",
   capabilities: [
@@ -356,7 +348,6 @@ import { Effect, Schema } from "@ryot-app/sandbox-sdk/effect";
 export const manifest = defineManifest({
   kind: "script",
   capabilities: [],
-  requiredPluginConfigKeys: [],
   name: "${name} dependency load",
   slug: "${name}-dependency-load",
 });
@@ -377,7 +368,6 @@ const manifest = {
   capabilities: [],
   name: "Workflow host",
   slug: "workflow-host",
-  requiredPluginConfigKeys: [],
 };
 
 export default {
@@ -407,7 +397,6 @@ const Effect = {
 const manifest = {
   kind: "workflow",
   capabilities: [],
-  requiredPluginConfigKeys: [],
   name: "Workflow nondeterminism",
   slug: "workflow-nondeterminism",
 };
@@ -462,7 +451,6 @@ const manifest = {
   capabilities: [],
   name: "Ambient script",
   slug: "ambient-script",
-  requiredPluginConfigKeys: [],
 };
 
 export default {
@@ -482,7 +470,6 @@ import { createYoutubeMusicClient } from "@ryot-app/sandbox-sdk/youtubei";
 export const manifest = defineManifest({
   kind: "script",
   capabilities: ["httpCall"],
-  requiredPluginConfigKeys: [],
   name: "Approved Youtubei determinism",
   slug: "approved-youtubei-determinism",
 });
@@ -507,7 +494,6 @@ export const manifest = defineManifest({
   capabilities: [],
   name: "Generated npm import",
   slug: "generated-npm-import",
-  requiredPluginConfigKeys: [],
 });
 
 export default defineScript({
@@ -529,7 +515,6 @@ export const manifest = {
   kind: "operation",
   name: "Durable role",
   slug: "durable-role",
-  requiredPluginConfigKeys: [],
   capabilities: ["getCachedValue"],
 };
 
@@ -566,7 +551,7 @@ const decodeRunnerResponse = Schema.decodeUnknownSync(Schema.fromJsonString(Sche
 type RunnerCompiledModule = {
 	readonly format: number;
 	readonly javascript: string;
-	readonly manifest: SandboxManifest;
+	readonly manifest: SandboxManifest & SandboxExecutionMetadata;
 };
 
 type RunnerOptions = {
@@ -820,7 +805,11 @@ const startCoreHostBridge = (
 								},
 							};
 						} else if (fnName === "getPluginConfig") {
-							const keys = Array.isArray(args[0]) ? args[0] : [];
+							const access = args[0];
+							const keys =
+								isObjectRecord(access) && Array.isArray(access["required"])
+									? access["required"]
+									: [];
 							result = {
 								success: true,
 								data: Object.fromEntries(
@@ -857,7 +846,10 @@ const startCoreHostBridge = (
 const durableRoleManifest = {
 	name: "Durable role",
 	slug: "durable-role",
+	oauthConnectionFields: [],
 	kind: "operation" as const,
+	executableDependencies: [],
+	optionalPluginConfigKeys: [],
 	requiredPluginConfigKeys: [] as const,
 	capabilities: ["getCachedValue"] as const,
 };
@@ -984,6 +976,42 @@ const startDomainHostBridge = () =>
 	});
 
 layer(runnerIntegrationLayer, { timeout: 120_000, excludeTestServices: true })((test) => {
+	test.effect("preserves script sleeps and monotonic time with a pinned wall clock", () =>
+		Effect.gen(function* () {
+			const compiler = yield* SandboxCompiler;
+			const compiled = yield* compiler.compile(`
+import { defineManifest, defineScript } from "@ryot-app/sandbox-sdk/driver";
+import { Clock, Effect, Schema } from "@ryot-app/sandbox-sdk/effect";
+
+export const manifest = defineManifest({
+  kind: "script",
+  capabilities: [],
+  name: "Pinned script clock",
+  slug: "pinned-script-clock",
+});
+
+export default defineScript({
+  manifest,
+  input: Schema.Struct({}),
+  output: Schema.Struct({ before: Schema.Number, after: Schema.Number, elapsed: Schema.Boolean }),
+  run: () => Effect.gen(function* () {
+    const clock = yield* Clock.Clock;
+    const before = yield* Clock.currentTimeMillis;
+    const started = clock.monotonicTimeNanosUnsafe();
+    yield* Effect.sleep("1 millis");
+    const finished = yield* Clock.monotonicTimeNanos;
+    return { before, after: yield* Clock.currentTimeMillis, elapsed: finished > started };
+  }),
+});
+`);
+			const result = yield* runInDeno(compiled, {}, { startedAt: "2026-08-06T00:00:00.000Z" });
+			expect(result).toMatchObject({
+				success: true,
+				value: { elapsed: true, after: 1_785_974_400_000, before: 1_785_974_400_000 },
+			});
+		}),
+	);
+
 	test.effect("loads compiled ESM in Deno and validates definition input and output", () =>
 		Effect.gen(function* () {
 			const compiler = yield* SandboxCompiler;
@@ -1004,7 +1032,10 @@ layer(runnerIntegrationLayer, { timeout: 120_000, excludeTestServices: true })((
 			const promiseManifest = {
 				kind: "script",
 				capabilities: [],
+				oauthConnectionFields: [],
+				executableDependencies: [],
 				requiredPluginConfigKeys: [],
+				optionalPluginConfigKeys: [],
 				name: "Promise definition rejection",
 				slug: "promise-definition-rejection",
 			} as const;
@@ -1159,6 +1190,28 @@ layer(runnerIntegrationLayer, { timeout: 120_000, excludeTestServices: true })((
 				);
 				expect(named).toMatchObject({ success: true, value: { chunkFiles: ["named.json"] } });
 				expect(yield* fs.readFileString(`${scratchDirectory}/named.json`)).toBe("[3,4]");
+				yield* fs.writeFile(namedArtifactPath, new Uint8Array(50 * 1024 * 1024).fill(97));
+				const ranged = yield* runInDeno(
+					compiled,
+					{
+						length: 1024,
+						chunkName: "range.txt",
+						offset: 49 * 1024 * 1024,
+						artifactKey: "historyFilePath",
+					},
+					namedOptions,
+				);
+				expect(ranged).toMatchObject({ success: true, value: { chunkFiles: ["range.txt"] } });
+				expect(yield* fs.readFileString(`${scratchDirectory}/range.txt`)).toBe("a".repeat(1024));
+				const unavailableRange = yield* runInDeno(
+					compiled,
+					{ offset: 0, chunkName: "range.txt", artifactKey: "another-capture" },
+					namedOptions,
+				);
+				expect(unavailableRange).toMatchObject({
+					success: false,
+					error: { message: "Sandbox artifact grant is unavailable" },
+				});
 				const missingNamed = yield* runInDeno(
 					compiled,
 					{ chunkName: "missing.json", artifactKey: "ratingsFilePath" },
@@ -1208,7 +1261,10 @@ layer(runnerIntegrationLayer, { timeout: 120_000, excludeTestServices: true })((
 					manifest: {
 						kind: "script",
 						capabilities: [],
+						oauthConnectionFields: [],
+						executableDependencies: [],
 						requiredPluginConfigKeys: [],
+						optionalPluginConfigKeys: [],
 						name: "Runtime alias identity",
 						slug: "runtime-alias-identity",
 					},
@@ -1404,7 +1460,10 @@ layer(runnerIntegrationLayer, { timeout: 120_000, excludeTestServices: true })((
 					const manifest = {
 						name: "Durable role",
 						slug: "durable-role",
+						oauthConnectionFields: [],
 						kind: "operation" as const,
+						executableDependencies: [],
+						optionalPluginConfigKeys: [],
 						requiredPluginConfigKeys: [] as const,
 						capabilities: ["getCachedValue"] as const,
 					};
@@ -1488,7 +1547,10 @@ layer(runnerIntegrationLayer, { timeout: 120_000, excludeTestServices: true })((
 				const manifest = {
 					name: "Durable role",
 					slug: "durable-role",
+					oauthConnectionFields: [],
 					kind: "operation" as const,
+					executableDependencies: [],
+					optionalPluginConfigKeys: [],
 					requiredPluginConfigKeys: [] as const,
 					capabilities: ["getCachedValue"] as const,
 				};
@@ -1679,7 +1741,10 @@ layer(runnerIntegrationLayer, { timeout: 120_000, excludeTestServices: true })((
 				const manifest = {
 					name: "Durable role",
 					slug: "durable-role",
+					oauthConnectionFields: [],
 					kind: "operation" as const,
+					executableDependencies: [],
+					optionalPluginConfigKeys: [],
 					requiredPluginConfigKeys: [] as const,
 					capabilities: ["getCachedValue"] as const,
 				};
@@ -1716,6 +1781,9 @@ layer(runnerIntegrationLayer, { timeout: 120_000, excludeTestServices: true })((
 						slug: "workflow-host",
 						kind: "workflow" as const,
 						capabilities: [] as const,
+						oauthConnectionFields: [],
+						executableDependencies: [],
+						optionalPluginConfigKeys: [],
 						requiredPluginConfigKeys: [] as const,
 					};
 					const result = yield* runInDeno(
@@ -1764,6 +1832,9 @@ layer(runnerIntegrationLayer, { timeout: 120_000, excludeTestServices: true })((
 						slug: "workflow-host",
 						kind: "workflow" as const,
 						capabilities: [] as const,
+						oauthConnectionFields: [],
+						executableDependencies: [],
+						optionalPluginConfigKeys: [],
 						requiredPluginConfigKeys: [] as const,
 						requiredSystemConfigKeys: [] as const,
 					},
@@ -1809,6 +1880,9 @@ layer(runnerIntegrationLayer, { timeout: 120_000, excludeTestServices: true })((
 						const manifest = {
 							kind: "workflow" as const,
 							capabilities: [] as const,
+							oauthConnectionFields: [],
+							executableDependencies: [],
+							optionalPluginConfigKeys: [],
 							name: "Workflow nondeterminism",
 							slug: "workflow-nondeterminism",
 							requiredPluginConfigKeys: [] as const,
@@ -1833,6 +1907,9 @@ layer(runnerIntegrationLayer, { timeout: 120_000, excludeTestServices: true })((
 				const manifest = {
 					kind: "workflow" as const,
 					capabilities: [] as const,
+					oauthConnectionFields: [],
+					executableDependencies: [],
+					optionalPluginConfigKeys: [],
 					name: "Workflow nondeterminism",
 					slug: "workflow-nondeterminism",
 					requiredPluginConfigKeys: [] as const,
@@ -1852,6 +1929,9 @@ layer(runnerIntegrationLayer, { timeout: 120_000, excludeTestServices: true })((
 			const workflowManifest = {
 				kind: "workflow" as const,
 				capabilities: [] as const,
+				oauthConnectionFields: [],
+				executableDependencies: [],
+				optionalPluginConfigKeys: [],
 				name: "Workflow nondeterminism",
 				slug: "workflow-nondeterminism",
 				requiredPluginConfigKeys: [] as const,
@@ -1861,6 +1941,9 @@ layer(runnerIntegrationLayer, { timeout: 120_000, excludeTestServices: true })((
 				slug: "ambient-script",
 				kind: "script" as const,
 				capabilities: [] as const,
+				oauthConnectionFields: [],
+				executableDependencies: [],
+				optionalPluginConfigKeys: [],
 				requiredPluginConfigKeys: [] as const,
 			};
 			const workflowResult = yield* runInDeno(
@@ -1910,6 +1993,9 @@ layer(runnerIntegrationLayer, { timeout: 120_000, excludeTestServices: true })((
 			const manifest = {
 				kind: "workflow" as const,
 				capabilities: [] as const,
+				oauthConnectionFields: [],
+				executableDependencies: [],
+				optionalPluginConfigKeys: [],
 				name: "Workflow nondeterminism",
 				slug: "workflow-nondeterminism",
 				requiredPluginConfigKeys: [] as const,

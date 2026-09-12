@@ -4,6 +4,10 @@ import {
 	type AutomationWarning as AutomationWarningValue,
 } from "@ryot-app/contract/modules/automations/lifecycle";
 import type { CreateEventItem } from "@ryot-app/contract/modules/events/schemas";
+import {
+	IngestionSummary,
+	type IngestionScope,
+} from "@ryot-app/contract/modules/imports/ingestion";
 import type { ImportRunFailureReason } from "@ryot-app/contract/modules/imports/schemas";
 import type { ImportRunFailureStage } from "@ryot-app/contract/modules/imports/types";
 import {
@@ -18,23 +22,22 @@ import {
 } from "@ryot-app/contract/schema/brands";
 import {
 	genericImportChunkSchema,
-	genericImportWorkflowResultSchema,
+	genericImportApplyResultSchema,
 	type GenericImportWriteItem,
 } from "@ryot-app/sandbox-sdk/imports";
 import { providerResolveResultSchema } from "@ryot-app/sandbox-sdk/provider";
 import { stableStringify } from "@ryot-app/ts-utils/json";
 import { isObjectRecord } from "@ryot-app/ts-utils/predicates";
-import { Cause, DateTime, Effect, FileSystem, Schema } from "effect";
+import { Effect, Schema } from "effect";
 import { Workflow } from "effect/unstable/workflow";
-import { WorkflowEngine, WorkflowInstance } from "effect/unstable/workflow/WorkflowEngine";
+import { WorkflowEngine } from "effect/unstable/workflow/WorkflowEngine";
 
+import { DatabaseSession } from "#lib/infrastructure/db/session";
 import {
 	mapCommittedResult,
 	runLifecycleWriteStep,
-	type LifecycleCommittedStep,
 	type LifecyclePreparedStep,
 } from "#lib/infrastructure/lifecycle-workflow-step";
-import { SandboxArtifactStore } from "#lib/infrastructure/sandbox-runtime/artifacts";
 import type { DurableSchema } from "#lib/infrastructure/workflow";
 import { implementWorkflow, makeActivity } from "#lib/infrastructure/workflow-scope";
 import { slugify } from "#lib/shared/slug";
@@ -59,32 +62,29 @@ import {
 } from "#modules/relationships/mutation-pipeline";
 import { RelationshipsService } from "#modules/relationships/service";
 
-import { PROGRESS_UPDATE_INTERVAL, recordImportRunFailure } from "./runtime/import-run-status";
+import {
+	genericIngestionBatchResult,
+	genericIngestionOperations,
+	reconcileGenericIngestionBatch,
+	type IngestionOperation,
+} from "./batch-results";
+import { IngestionCaptures } from "./capture-service";
+import { ingestionOperationCommand } from "./outcomes";
+import { ImportsRepository } from "./repository";
 import { ImportRunError, toWorkflowError } from "./runtime/workflow-errors";
-import { ImportsService, type UpdateImportRunProgressInput } from "./service";
 
 export const ProcessGenericImportChunksPayload = Schema.Struct({
 	userId: UserId,
 	runId: ImportRunId,
+	ordinal: Schema.Finite,
 	command: LifecycleCommand,
 	executionId: Schema.String,
+	batchId: Schema.NonEmptyString,
+	captureId: Schema.NonEmptyString,
 	artifactOwnerExecutionId: Schema.String,
-	failRun: Schema.optional(Schema.Boolean),
-	chunkHandles: Schema.Array(Schema.String),
+	inputFingerprint: Schema.NonEmptyString,
 	artifactReferenceExecutionId: Schema.String,
 	integrationId: Schema.optional(IntegrationId),
-	totalItems: Schema.Finite.pipe(
-		Schema.check(Schema.isInt()),
-		Schema.check(Schema.isGreaterThanOrEqualTo(0)),
-	),
-	failureCount: Schema.Finite.pipe(
-		Schema.check(Schema.isInt()),
-		Schema.check(Schema.isGreaterThanOrEqualTo(0)),
-	),
-	writeItemCount: Schema.Finite.pipe(
-		Schema.check(Schema.isInt()),
-		Schema.check(Schema.isGreaterThanOrEqualTo(0)),
-	),
 }).pipe(
 	Schema.check(
 		Schema.makeFilter(
@@ -114,12 +114,15 @@ export const ProcessGenericImportChunksWorkflow = Workflow.make(
 	{
 		error: ImportRunError satisfies DurableSchema,
 		idempotencyKey: ({ executionId }) => executionId,
-		success: genericImportWorkflowResultSchema satisfies DurableSchema,
+		success: genericImportApplyResultSchema satisfies DurableSchema,
 		payload: ProcessGenericImportChunksPayload satisfies DurableSchema,
 	},
 );
 
-export const GenericImportEntity = Schema.Struct({ entityId: EntityId });
+export const GenericImportEntity = Schema.Struct({
+	entityId: EntityId,
+	result: Schema.Literals(["created", "unchanged"]),
+});
 
 const GenericImportProvider = Schema.Struct({
 	id: SandboxProviderId,
@@ -153,16 +156,6 @@ const matchesImportIntent = (
 	);
 };
 
-const itemCommand = (
-	command: LifecycleCommand,
-	itemIndex: number,
-	phase: "collection" | "entity" | "event" | "relationship",
-	identity: number | string,
-): LifecycleCommand => ({
-	...command,
-	itemIdentity: stableStringify([command.itemIdentity, "item", itemIndex, phase, identity]),
-});
-
 export const prepareGenericImportEntity = Effect.fn("imports.prepareGenericImportEntity")(
 	function* (
 		intent: GenericImportWriteItem["entities"][number],
@@ -171,6 +164,20 @@ export const prepareGenericImportEntity = Effect.fn("imports.prepareGenericImpor
 	) {
 		const entities = yield* EntitiesService;
 		const repository = yield* EntitiesRepository;
+		const replay = yield* entities.replayCreateStep({
+			userId,
+			lifecycle,
+			scope: "user",
+			name: intent.name,
+			properties: intent.properties,
+			entitySchemaSlug: EntitySchemaSlug.make(intent.entitySchemaSlug),
+		});
+		if (replay) {
+			return {
+				...replay,
+				result: { result: "created" as const, entityId: replay.result.entity.id },
+			};
+		}
 		let entityId: EntityId | undefined;
 		if (intent.entityId) {
 			const existing = yield* repository.getByIdForUser({
@@ -222,11 +229,11 @@ export const prepareGenericImportEntity = Effect.fn("imports.prepareGenericImpor
 			});
 		}
 		if (entityId) {
+			const reference = yield* entities.prepareReferenceStep({ userId, entityId, lifecycle });
 			return {
-				dispatch: [],
-				_tag: "Committed",
-				result: { entityId },
-			} satisfies LifecycleCommittedStep<typeof GenericImportEntity.Type>;
+				...reference,
+				result: { result: "unchanged" as const, entityId: reference.result.entity.id },
+			};
 		}
 		const prepared = yield* entities.prepareCreateStep({
 			userId,
@@ -236,7 +243,10 @@ export const prepareGenericImportEntity = Effect.fn("imports.prepareGenericImpor
 			properties: intent.properties,
 			entitySchemaSlug: EntitySchemaSlug.make(intent.entitySchemaSlug),
 		});
-		return mapCommittedResult(prepared, ({ entity }) => ({ entityId: entity.id }));
+		return mapCommittedResult(prepared, ({ entity }) => ({
+			entityId: entity.id,
+			result: "created" as const,
+		}));
 	},
 );
 
@@ -489,7 +499,6 @@ const writeGenericItem = Effect.fn("imports.writeGenericItem")(function* (
 	index: number,
 	definitions: GenericImportDefinitions,
 	command: LifecycleCommand,
-	executionId: string,
 ) {
 	const entities = yield* EntitiesService;
 	const collections = yield* CollectionsService;
@@ -504,14 +513,25 @@ const writeGenericItem = Effect.fn("imports.writeGenericItem")(function* (
 					message: `Duplicate import entity alias '${intent.alias}'`,
 				});
 			}
-			const providerExecutionId = `${executionId}-item-${index}-entity-${intentIndex}-provider-import`;
+			const providerExecutionId = stableStringify([
+				command.causation.importRunId,
+				"provider",
+				intent.operationId,
+			]);
 			const providerEntityId = yield* resolveProviderEntity(
 				intent,
 				userId,
-				itemCommand(command, index, "entity", intentIndex),
+				ingestionOperationCommand(command, intent.operationId),
 				providerExecutionId,
 			);
 			if (providerEntityId) {
+				if (intent.outcome) {
+					yield* entities.prepareReferenceStep({
+						userId,
+						entityId: providerEntityId,
+						lifecycle: ingestionOperationCommand(command, intent.operationId),
+					});
+				}
 				aliases.set(intent.alias, providerEntityId);
 				continue;
 			}
@@ -523,12 +543,17 @@ const writeGenericItem = Effect.fn("imports.writeGenericItem")(function* (
 				prepare: prepareGenericImportEntity(
 					intent,
 					userId,
-					itemCommand(command, index, "entity", intentIndex),
+					ingestionOperationCommand(command, intent.operationId),
 				),
 				commit: (pending) =>
 					entities
 						.commitMutation(pending)
-						.pipe(Effect.map((step) => ({ ...step, result: { entityId: step.result.entity.id } }))),
+						.pipe(
+							Effect.map((step) => ({
+								...step,
+								result: { result: "created" as const, entityId: step.result.entity.id },
+							})),
+						),
 			});
 			warnings.push(...written.warnings);
 			aliases.set(intent.alias, written.result.entityId);
@@ -556,7 +581,7 @@ const writeGenericItem = Effect.fn("imports.writeGenericItem")(function* (
 				relationshipSchemaPluginId: relationshipSchema.pluginId ?? null,
 				relationshipSchemaSlug: RelationshipSchemaSlug.make(intent.relationshipSchemaSlug),
 			} as const;
-			const relationshipCommand = itemCommand(command, index, "relationship", relationshipIndex);
+			const relationshipCommand = ingestionOperationCommand(command, intent.operationId);
 			const written = yield* runImportWriteStep({
 				result: RelationshipSingleResult,
 				commit: relationships.commitSingle,
@@ -571,7 +596,11 @@ const writeGenericItem = Effect.fn("imports.writeGenericItem")(function* (
 			warnings.push(...written.warnings);
 		}
 		const events: CreateEventItem[] = [];
-		const collectionMemberships: Array<{ entityId: EntityId; collectionId: EntityId }> = [];
+		const collectionMemberships: Array<{
+			entityId: EntityId;
+			collectionId: EntityId;
+			operationId: string;
+		}> = [];
 		for (const intent of item.events) {
 			const entityId =
 				intent.subjectEntityId !== undefined
@@ -609,11 +638,15 @@ const writeGenericItem = Effect.fn("imports.writeGenericItem")(function* (
 				prepare: collections.prepareGetOrCreateCollection(
 					userId,
 					membership.collectionName,
-					command,
+					ingestionOperationCommand(command, `${membership.operationId}:collection`),
 				),
 			});
 			warnings.push(...collection.warnings);
-			collectionMemberships.push({ entityId, collectionId: collection.result.id });
+			collectionMemberships.push({
+				entityId,
+				collectionId: collection.result.id,
+				operationId: membership.operationId,
+			});
 		}
 		return { events, warnings, collectionMemberships, _tag: "ready" as const };
 	});
@@ -630,65 +663,6 @@ const writeGenericItem = Effect.fn("imports.writeGenericItem")(function* (
 	);
 });
 
-const readChunk = (ownerExecutionId: string, handle: string, index: number) =>
-	makeActivity({
-		error: ImportRunError,
-		success: genericImportChunkSchema,
-		name: `read-generic-import-chunk-${index}`,
-		execute: Effect.gen(function* () {
-			const fs = yield* FileSystem.FileSystem;
-			const artifacts = yield* SandboxArtifactStore;
-			const [path] = yield* artifacts.resolveOutputs(ownerExecutionId, [handle]);
-			if (!path) {
-				return yield* new ImportRunError({ message: "Import chunk handle was not resolved" });
-			}
-			const text = yield* fs.readFileString(path);
-			return yield* Schema.decodeEffect(Schema.fromJsonString(genericImportChunkSchema))(text);
-		}).pipe(Effect.mapError(toWorkflowError)),
-	});
-
-const artifactReference = (
-	operation: "release" | "retain",
-	ownerExecutionId: string,
-	referenceExecutionId: string,
-) =>
-	makeActivity({
-		error: ImportRunError,
-		name: `${operation}-generic-import-artifacts`,
-		execute: Effect.gen(function* () {
-			const artifacts = yield* SandboxArtifactStore;
-			yield* artifacts[operation](ownerExecutionId, referenceExecutionId);
-		}).pipe(Effect.mapError(toWorkflowError)),
-	});
-
-const updateProgress = (name: string, input: UpdateImportRunProgressInput) =>
-	makeActivity({
-		name,
-		error: ImportRunError,
-		execute: Effect.gen(function* () {
-			const imports = yield* ImportsService;
-			yield* imports.updateProgress(input);
-		}).pipe(Effect.mapError(toWorkflowError)),
-	});
-
-const finalizeRun = (
-	name: string,
-	input: UpdateImportRunProgressInput & {
-		finishedAt: Date;
-		failureReason?: ImportRunFailureReason;
-	},
-) =>
-	makeActivity({
-		name,
-		error: ImportRunError,
-		execute: Effect.gen(function* () {
-			const imports = yield* ImportsService;
-			return input.failureReason
-				? yield* imports.finishFailed({ ...input, failureReason: input.failureReason })
-				: yield* imports.finishCompleted(input);
-		}).pipe(Effect.mapError(toWorkflowError)),
-	});
-
 const resolveGenericImportDefinitions = (userId: UserId) =>
 	makeActivity({
 		name: "resolve-generic-import-definitions",
@@ -701,214 +675,277 @@ const resolveGenericImportDefinitions = (userId: UserId) =>
 
 export const runProcessGenericImportChunksWorkflow = Effect.fn(
 	"ProcessGenericImportChunksWorkflow",
-)(function* (payload: typeof ProcessGenericImportChunksPayload.Type, executionId: string) {
-	const receipts = yield* MutationReceipts.make;
-	yield* admitWorkflow(
-		receipts,
-		ProcessGenericImportChunksWorkflow,
-		payload.command.accountGeneration,
-		executionId,
-	).pipe(Effect.mapError(toWorkflowError));
-	let failedItems = 0;
-	let importedItems = 0;
-	let processedItems = 0;
-	let observedFailureCount = 0;
-	let observedWriteItemCount = 0;
-	let failureReason: ImportRunFailureReason | undefined;
-	const runId = ImportRunId.make(payload.runId);
-	const snapshot = yield* resolveGenericImportDefinitions(payload.userId);
-	const definitions = definitionLookup(snapshot);
-
-	const process = Effect.gen(function* () {
-		yield* updateProgress("record-generic-import-total", { runId, totalItems: payload.totalItems });
-		for (let chunkIndex = 0; chunkIndex < payload.chunkHandles.length; chunkIndex += 1) {
-			const handle = payload.chunkHandles[chunkIndex];
-			if (!handle) {
-				continue;
-			}
-			const chunk = yield* readChunk(payload.artifactOwnerExecutionId, handle, chunkIndex);
-			for (const failure of chunk.failures) {
-				const stage = failure.stage ?? "input_transformation";
-				observedFailureCount += 1;
-				failureReason ??= failureReasonByStage[stage];
-				yield* Effect.logWarning("plugin import item failed", failure.message).pipe(
-					Effect.annotateLogs({ runId, stage, itemIndex: failure.itemIndex }),
-				);
-				yield* makeActivity({
-					error: ImportRunError,
-					name: `record-generic-import-failure-${processedItems}`,
-					execute: recordImportRunFailure({
-						runId,
-						stage,
-						itemIndex: failure.itemIndex,
-						sourceLabel: failure.sourceLabel,
-						reason: failureReasonByStage[stage],
-						sourceIdentifier: failure.sourceIdentifier,
-						entitySchemaSlug: failure.entitySchemaSlug,
-					}).pipe(Effect.mapError(toWorkflowError)),
-				});
-				failedItems += 1;
-				processedItems += 1;
-			}
-			for (const item of chunk.items) {
-				observedWriteItemCount += 1;
-				const outcome = yield* writeGenericItem(
-					item,
-					payload.userId,
-					processedItems,
-					definitions,
-					payload.command,
-					executionId,
-				);
-				let message = outcome._tag === "failed" ? outcome.message : null;
-				const warnings = [...outcome.warnings];
-				if (outcome._tag === "ready") {
-					const engine = yield* WorkflowEngine;
-					for (const [membershipIndex, membership] of outcome.collectionMemberships.entries()) {
-						const collectionExecutionId = `${executionId}-item-${processedItems}-collection-${membershipIndex}`;
-						const collectionResult = yield* dispatchAdmittedWorkflow(
-							receipts,
-							engine,
-							AddEntityToCollectionWorkflow,
-							payload.command.accountGeneration,
-							{
-								executionId: collectionExecutionId,
-								payload: {
-									properties: {},
-									userId: payload.userId,
-									entityId: membership.entityId,
-									executionId: collectionExecutionId,
-									collectionId: membership.collectionId,
-									command: itemCommand(
-										payload.command,
-										processedItems,
-										"collection",
-										membershipIndex,
-									),
-								},
-							},
-							(admission) => admission.pipe(Effect.mapError(toWorkflowError)),
-							(execution) => execution.pipe(Effect.result),
+)(
+	function* (payload: typeof ProcessGenericImportChunksPayload.Type, executionId: string) {
+		const receipts = yield* MutationReceipts.make;
+		yield* admitWorkflow(
+			receipts,
+			ProcessGenericImportChunksWorkflow,
+			payload.command.accountGeneration,
+			executionId,
+		).pipe(Effect.mapError(toWorkflowError));
+		if (!payload.command.accountGeneration) {
+			return yield* new ImportRunError({ message: "Ingestion account generation is missing" });
+		}
+		const scope: IngestionScope = {
+			runId: payload.runId,
+			userId: payload.userId,
+			accountGeneration: payload.command.accountGeneration,
+		};
+		const repository = yield* ImportsRepository;
+		const database = yield* DatabaseSession;
+		const captures = yield* IngestionCaptures;
+		const batches = yield* repository.listBatches(scope);
+		const previous = batches.find(({ data }) => data.id === payload.batchId)?.data;
+		if (
+			previous &&
+			(previous.captureId !== payload.captureId ||
+				previous.ordinal !== payload.ordinal ||
+				previous.inputFingerprint !== payload.inputFingerprint)
+		) {
+			return yield* new ImportRunError({ message: "Ingestion batch identity changed" });
+		}
+		const capture = yield* repository.getCapture(scope, payload.captureId);
+		if (capture?.payload?.checksum !== payload.inputFingerprint) {
+			return yield* new ImportRunError({
+				message: "Ingestion batch fingerprint does not match its capture",
+			});
+		}
+		const chunk = yield* Schema.decodeEffect(Schema.fromJsonString(genericImportChunkSchema))(
+			new TextDecoder().decode(yield* captures.read(scope, payload.captureId, 4 * 1024 * 1024)),
+		).pipe(Effect.mapError(toWorkflowError));
+		if (previous?.state === "applied") {
+			return yield* genericIngestionBatchResult(scope, previous, chunk);
+		}
+		const batch = {
+			summary: [],
+			id: payload.batchId,
+			ordinal: payload.ordinal,
+			state: "pending" as const,
+			captureId: payload.captureId,
+			inputFingerprint: payload.inputFingerprint,
+		};
+		yield* makeActivity({
+			error: ImportRunError,
+			name: "register-ingestion-batch",
+			execute: database
+				.transaction(
+					Effect.gen(function* () {
+						yield* repository.registerBatch(
+							scope,
+							batch,
+							[
+								...chunk.items.flatMap((item) =>
+									[
+										...item.entities,
+										...item.relationships,
+										...item.events,
+										...(item.collectionMemberships ?? []),
+									].map((intent) => intent.operationId),
+								),
+								...chunk.failures.map((failure) =>
+									stableStringify(["source", failure.sourceIdentifier, failure.itemIndex]),
+								),
+							],
+							{ executionId, workflowName: ProcessGenericImportChunksWorkflow._tag },
 						);
-						if (collectionResult._tag === "Failure" && !message) {
-							message = unknownToMessage(collectionResult.failure);
-						} else if (collectionResult._tag === "Success") {
-							warnings.push(...collectionResult.success.warnings);
+						yield* repository.advanceBatch(scope, batch.id, "preparing");
+						yield* repository.advanceBatch(scope, batch.id, "applying");
+					}),
+				)
+				.pipe(Effect.mapError(toWorkflowError)),
+		});
+		const operations = genericIngestionOperations(chunk, scope.runId);
+		const record = Effect.fnUntraced(function* (
+			operation: IngestionOperation,
+			result: "skipped" | "unsuccessful",
+			code: string,
+		) {
+			const outcome = {
+				...operation,
+				result,
+				receiptId: null,
+				reason: { code, key: null },
+				inputFingerprint: payload.inputFingerprint,
+			};
+			const issue = {
+				reason: outcome.reason,
+				id: operation.operationId,
+				severity: "error" as const,
+				recordKind: operation.recordKind,
+				operationId: operation.operationId,
+				attribution: operation.attribution,
+			};
+			yield* makeActivity({
+				error: ImportRunError,
+				name: `record-ingestion-result:${operation.operationId}`,
+				execute: database
+					.transaction(
+						Effect.gen(function* () {
+							yield* repository.recordOutcome(scope, outcome);
+							if (result === "unsuccessful") {
+								yield* repository.recordIssue(scope, issue);
+							}
+						}),
+					)
+					.pipe(Effect.mapError(toWorkflowError)),
+			});
+		});
+		const snapshot = yield* resolveGenericImportDefinitions(payload.userId);
+		const definitions = definitionLookup(snapshot);
+		for (const failure of chunk.failures) {
+			const stage = failure.stage ?? "input_transformation";
+			yield* record(
+				{
+					unit: failure.unit,
+					recordKind: failure.recordKind,
+					operationId: stableStringify(["source", failure.sourceIdentifier, failure.itemIndex]),
+					itemIdentity: stableStringify(["source", failure.sourceIdentifier, failure.itemIndex]),
+					attribution: {
+						sourceLabel: failure.sourceLabel,
+						recordId: String(failure.itemIndex),
+						sourceIdentifier: failure.sourceIdentifier,
+					},
+				},
+				"unsuccessful",
+				failureReasonByStage[stage].code,
+			);
+		}
+		for (const [index, item] of chunk.items.entries()) {
+			const run = yield* repository.getIngestionRun(scope);
+			if (run?.status !== "running") {
+				break;
+			}
+			const outcome = yield* writeGenericItem(
+				item,
+				payload.userId,
+				index,
+				definitions,
+				payload.command,
+			);
+			let message = outcome._tag === "failed" ? outcome.message : null;
+			let failureCode: string | null =
+				outcome._tag === "failed" ? failureReasonByStage[outcome.stage].code : null;
+			const warnings = [...outcome.warnings];
+			if (outcome._tag === "ready") {
+				const engine = yield* WorkflowEngine;
+				for (const membership of outcome.collectionMemberships) {
+					const collectionExecutionId = stableStringify([
+						scope.runId,
+						"membership",
+						membership.operationId,
+					]);
+					const collectionResult = yield* dispatchAdmittedWorkflow(
+						receipts,
+						engine,
+						AddEntityToCollectionWorkflow,
+						payload.command.accountGeneration,
+						{
+							executionId: collectionExecutionId,
+							payload: {
+								properties: {},
+								userId: payload.userId,
+								entityId: membership.entityId,
+								executionId: collectionExecutionId,
+								collectionId: membership.collectionId,
+								command: ingestionOperationCommand(payload.command, membership.operationId),
+							},
+						},
+						(admission) => admission.pipe(Effect.mapError(toWorkflowError)),
+						(execution) => execution.pipe(Effect.result),
+					);
+					if (collectionResult._tag === "Failure" && !message) {
+						message = unknownToMessage(collectionResult.failure);
+						failureCode ??= "membership-event-failed";
+						const operation = operations.find(
+							(value) => value.operationId === membership.operationId,
+						);
+						if (operation) {
+							yield* record(operation, "unsuccessful", "membership-event-failed");
+						}
+					} else if (collectionResult._tag === "Success") {
+						warnings.push(...collectionResult.success.warnings);
+					}
+				}
+				if (outcome.events.length > 0) {
+					const events = yield* EventsService;
+					const eventResult = yield* events
+						.create(
+							{
+								userId: payload.userId,
+								payload: outcome.events,
+								itemIdentities: item.events.map(
+									(intent) =>
+										ingestionOperationCommand(payload.command, intent.operationId).itemIdentity,
+								),
+							},
+							{
+								...payload.command,
+								itemIdentity: stableStringify([
+									"ingestion-event-group",
+									item.events.map((intent) => intent.operationId),
+								]),
+							},
+						)
+						.pipe(Effect.mapError(toWorkflowError));
+					warnings.push(...eventResult.warnings);
+					message ??= eventResult.failure?.reason.code ?? null;
+					if (eventResult.failure) {
+						failureCode = eventResult.failure.reason.code;
+					}
+					for (const event of eventResult.outcomes) {
+						const intent = item.events[event.index];
+						const operation =
+							intent && operations.find((value) => value.operationId === intent.operationId);
+						if (operation && event.status === "skipped_by_policy") {
+							yield* record(operation, "skipped", event.reason);
 						}
 					}
-					if (outcome.events.length > 0) {
-						const events = yield* EventsService;
-						const eventResult = yield* events
-							.create(
-								{ userId: payload.userId, payload: outcome.events },
-								itemCommand(payload.command, processedItems, "event", "batch"),
-							)
-							.pipe(Effect.mapError(toWorkflowError));
-						warnings.push(...eventResult.warnings);
-						message ??= eventResult.failure?.reason.code ?? null;
+				}
+			}
+			if (warnings.length > 0) {
+				yield* Effect.logWarning("generic import item completed with automation warnings").pipe(
+					Effect.annotateLogs({ warnings, runId: scope.runId, itemIndex: item.itemIndex }),
+				);
+			}
+			if (
+				failureCode !== null &&
+				(yield* repository.getIngestionRun(scope))?.status === "running"
+			) {
+				const candidates = operations.filter((operation) =>
+					[
+						...item.entities,
+						...item.events,
+						...item.relationships,
+						...(item.collectionMemberships ?? []),
+					].some((intent) => intent.operationId === operation.operationId),
+				);
+				const committed = yield* receipts.getCommittedItems({
+					userId: scope.userId,
+					rootExecutionId: scope.runId,
+					accountGeneration: scope.accountGeneration,
+					itemIdentities: candidates.map((operation) => operation.itemIdentity),
+				});
+				for (const operation of candidates) {
+					if (
+						!committed.some((receipt) => receipt.itemIdentity === operation.itemIdentity) &&
+						!(yield* repository.getOutcome(scope, operation.operationId))
+					) {
+						yield* record(operation, "unsuccessful", failureCode);
 					}
-				}
-				if (warnings.length > 0) {
-					yield* Effect.logWarning("generic import item completed with automation warnings").pipe(
-						Effect.annotateLogs({ runId, warnings, itemIndex: item.itemIndex }),
-					);
-				}
-				if (message) {
-					const stage = outcome._tag === "failed" ? outcome.stage : "database_commit";
-					failedItems += 1;
-					failureReason ??= failureReasonByStage[stage];
-					yield* Effect.logError("generic import item write failed", message).pipe(
-						Effect.annotateLogs({ runId, itemIndex: item.itemIndex }),
-					);
-					yield* makeActivity({
-						error: ImportRunError,
-						name: `record-generic-write-failure-${processedItems}`,
-						execute: recordImportRunFailure({
-							runId,
-							stage,
-							itemIndex: item.itemIndex,
-							sourceLabel: item.sourceLabel,
-							reason: failureReasonByStage[stage],
-							sourceIdentifier: item.sourceIdentifier,
-							entitySchemaSlug:
-								item.entities.find(({ alias }) => alias === item.subjectEntityAlias)
-									?.entitySchemaSlug ?? null,
-						}).pipe(Effect.mapError(toWorkflowError)),
-					});
-				} else {
-					importedItems += 1;
-				}
-				processedItems += 1;
-				if (
-					processedItems % PROGRESS_UPDATE_INTERVAL === 0 ||
-					processedItems === payload.totalItems
-				) {
-					yield* updateProgress(`report-generic-import-progress-${processedItems}`, {
-						runId,
-						failedItems,
-						importedItems,
-						processedItems,
-						progress:
-							payload.totalItems > 0
-								? Math.round((processedItems / payload.totalItems) * 100)
-								: 100,
-					});
 				}
 			}
 		}
-		if (
-			observedFailureCount !== payload.failureCount ||
-			observedWriteItemCount !== payload.writeItemCount ||
-			processedItems !== payload.totalItems
-		) {
-			return yield* new ImportRunError({ message: "Import chunk manifest counts do not match" });
-		}
-		return undefined;
-	});
-
-	const retain = artifactReference(
-		"retain",
-		payload.artifactOwnerExecutionId,
-		payload.artifactReferenceExecutionId,
-	);
-	const release = artifactReference(
-		"release",
-		payload.artifactOwnerExecutionId,
-		payload.artifactReferenceExecutionId,
-	);
-	return yield* Effect.gen(function* () {
-		yield* retain;
-		yield* process;
-		const finishedAt = yield* DateTime.nowAsDate;
-		yield* finalizeRun("finalize-generic-import", {
-			runId,
-			finishedAt,
-			failedItems,
-			importedItems,
-			progress: 100,
-			processedItems,
-			...(payload.failRun
-				? {
-						failureReason: failureReason ?? {
-							operation: "generic-import",
-							code: "unexpected-failure" as const,
-						},
-					}
-				: {}),
+		const summary = yield* makeActivity({
+			error: ImportRunError,
+			success: IngestionSummary,
+			name: "project-ingestion-batch",
+			execute: reconcileGenericIngestionBatch(scope, batch).pipe(Effect.mapError(toWorkflowError)),
 		});
-		return { failedItems, importedItems, processedItems };
-	}).pipe(
-		Effect.matchCauseEffect({
-			onSuccess: (result) => release.pipe(Effect.as(result)),
-			onFailure: (cause) =>
-				Effect.flatMap(WorkflowInstance, (instance) =>
-					instance.suspended && Cause.hasInterruptsOnly(cause)
-						? Effect.failCause(cause)
-						: release.pipe(Effect.andThen(Effect.failCause(cause))),
-				),
-		}),
-	);
-});
+		return yield* genericIngestionBatchResult(scope, { ...batch, summary }, chunk);
+	},
+	(effect) => effect.pipe(Effect.mapError(toWorkflowError)),
+);
 
 export const ProcessGenericImportChunksWorkflowDefinitionsLive = implementWorkflow(
 	ProcessGenericImportChunksWorkflow,
