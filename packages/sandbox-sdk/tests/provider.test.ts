@@ -19,7 +19,6 @@ const manifest = defineManifest({
 	name: "Test provider",
 	slug: "test.provider",
 	requiredPluginConfigKeys: [],
-	requiredSystemConfigKeys: [],
 	capabilities: ["getCachedValue"],
 });
 

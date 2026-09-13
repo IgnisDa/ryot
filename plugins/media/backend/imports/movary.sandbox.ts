@@ -12,7 +12,6 @@ export const manifest = defineManifest({
 	slug: "import.movary",
 	name: "Parse Movary import",
 	requiredPluginConfigKeys: [],
-	requiredSystemConfigKeys: [],
 	capabilities: ["artifact-read"],
 });
 

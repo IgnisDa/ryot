@@ -46,7 +46,6 @@ export const manifest = defineManifest({
   kind: "operation",
   capabilities: ["getUserSettings"],
   requiredPluginConfigKeys: [],
-  requiredSystemConfigKeys: [],
   name: ${JSON.stringify(input.name)},
   slug: ${JSON.stringify(input.slug)},
 });

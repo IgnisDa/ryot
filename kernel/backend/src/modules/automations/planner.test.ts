@@ -925,7 +925,6 @@ describe("LifecyclePlanner PostgreSQL", () => {
 							capabilities: [],
 							kind: "automation" as const,
 							requiredPluginConfigKeys: [],
-							requiredSystemConfigKeys: [],
 							slug: "automation.notification",
 							automationType: "automation" as const,
 							inputProjection: { signal: { properties: ["providerName"] } },

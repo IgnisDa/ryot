@@ -40,7 +40,6 @@ const installOtherOperationPlugin = (client: Client) => {
 				kind: "operation",
 				name: "E2E Echo Operation",
 				requiredPluginConfigKeys: [],
-				requiredSystemConfigKeys: [],
 			},
 		],
 	});

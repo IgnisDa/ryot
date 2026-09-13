@@ -36,7 +36,6 @@ describe("sandbox capability authorization", () => {
 							kind: "script",
 							slug: scriptSlug,
 							requiredPluginConfigKeys: [],
-							requiredSystemConfigKeys: [],
 							name: "System denied capability",
 							capabilities: ["getUserPreferences"],
 							entry: "backend/scripts/denied.sandbox.ts",

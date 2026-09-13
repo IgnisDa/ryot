@@ -5,7 +5,6 @@ import { details } from "./shared";
 
 export const manifest = defineManifest({
 	kind: "provider",
-	requiredSystemConfigKeys: [],
 	name: "TMDB Movie Group Details",
 	slug: "movie-group.tmdb.details",
 	capabilities: ["httpCall", "getPluginConfig"],

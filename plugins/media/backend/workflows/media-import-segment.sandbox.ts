@@ -13,7 +13,6 @@ export const manifest = defineManifest({
 	capabilities: [],
 	name: "Media import segment",
 	requiredPluginConfigKeys: [],
-	requiredSystemConfigKeys: [],
 	slug: "workflow.media-import-segment",
 });
 

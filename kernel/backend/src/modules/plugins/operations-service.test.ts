@@ -65,7 +65,6 @@ const makeActiveScript = (id: string) => ({
 		capabilities: [],
 		kind: "operation" as const,
 		requiredPluginConfigKeys: [],
-		requiredSystemConfigKeys: [],
 	},
 });
 

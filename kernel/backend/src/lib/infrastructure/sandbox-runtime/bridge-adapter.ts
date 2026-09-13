@@ -148,11 +148,6 @@ export const bindSandboxHostFunctions = (
 		(...args) => implementations.getPluginConfig(input, ...args),
 		defaultFailure("getPluginConfig"),
 	),
-	getSystemConfig: bindHostFunction(
-		coreSandboxHostContracts.getSystemConfig,
-		(...args) => implementations.getSystemConfig(input, ...args),
-		defaultFailure("getSystemConfig"),
-	),
 	getUserSettings: bindHostFunction(
 		coreSandboxHostContracts.getUserSettings,
 		(...args) => implementations.getUserSettings(input, ...args),

@@ -11,7 +11,6 @@ export const manifest = defineManifest({
 	slug: "import.anilist",
 	name: "Parse AniList import",
 	requiredPluginConfigKeys: [],
-	requiredSystemConfigKeys: [],
 	capabilities: ["artifact-read"],
 });
 

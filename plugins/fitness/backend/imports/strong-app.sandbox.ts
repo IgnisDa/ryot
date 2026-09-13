@@ -11,7 +11,6 @@ export const manifest = defineManifest({
 	slug: "import.strong-app",
 	name: "Parse Strong import",
 	requiredPluginConfigKeys: [],
-	requiredSystemConfigKeys: [],
 	capabilities: ["artifact-read", "scratch"],
 });
 

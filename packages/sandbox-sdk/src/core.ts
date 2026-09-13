@@ -35,7 +35,6 @@ export const CORE_SANDBOX_HOST_CAPABILITIES = [
 	"getCachedValue",
 	"setCachedValue",
 	"getPluginConfig",
-	"getSystemConfig",
 	"getUserPreferences",
 	"getUserSettings",
 	"claimPersistentValue",
@@ -98,11 +97,9 @@ export const claimPersistentValueArgsSchema = Schema.Tuple([
 ]);
 export const configKeysSchema = Schema.Array(nonEmptyString);
 export const getPluginConfigArgsSchema = Schema.Tuple([configKeysSchema]);
-export const getSystemConfigArgsSchema = Schema.Tuple([configKeysSchema]);
 export const claimPersistentValueResultSchema = hostResultSchema(cacheClaimSchema);
 export const configValuesSchema = Schema.Record(Schema.String, jsonValueSchema);
 export const getPluginConfigResultSchema = hostResultSchema(configValuesSchema);
-export const getSystemConfigResultSchema = hostResultSchema(configValuesSchema);
 export const userPreferencesSchema = strictStruct({ disableIntegrations: Schema.Boolean });
 export const getUserPreferencesArgsSchema = Schema.Tuple([]);
 export const getUserPreferencesResultSchema = hostResultSchema(userPreferencesSchema);
@@ -138,11 +135,6 @@ export const coreSandboxHostContracts = {
 		success: configValuesSchema,
 		args: getPluginConfigArgsSchema,
 		result: getPluginConfigResultSchema,
-	},
-	getSystemConfig: {
-		success: configValuesSchema,
-		args: getSystemConfigArgsSchema,
-		result: getSystemConfigResultSchema,
 	},
 	getUserSettings: {
 		success: configValuesSchema,
@@ -637,15 +629,9 @@ export const SANDBOX_HOST_CAPABILITIES = [
 ] as const satisfies readonly SandboxHostCapability[];
 export const sandboxHostCapabilitySchema = Schema.Literals([...SANDBOX_HOST_CAPABILITIES]);
 
-export type SandboxHostMethodMap = Omit<
-	CoreSandboxHostMethodMap,
-	"getPluginConfig" | "getSystemConfig"
-> &
+export type SandboxHostMethodMap = Omit<CoreSandboxHostMethodMap, "getPluginConfig"> &
 	DomainSandboxHostMethodMap &
-	AutomationSandboxHostMethodMap & {
-		readonly getPluginConfig: GetConfig;
-		readonly getSystemConfig: GetConfig;
-	};
+	AutomationSandboxHostMethodMap & { readonly getPluginConfig: GetConfig };
 export type SandboxHostImplementationMap<Context> = CoreSandboxHostImplementationMap<Context> &
 	DomainSandboxHostImplementationMap<Context> &
 	AutomationSandboxHostImplementationMap<Context>;
@@ -663,7 +649,6 @@ const sandboxManifestBaseFields = {
 	name: manifestStringSchema,
 	capabilities: Schema.Array(sandboxHostCapabilitySchema),
 	requiredPluginConfigKeys: Schema.Array(manifestStringSchema),
-	requiredSystemConfigKeys: Schema.Array(manifestStringSchema),
 };
 
 export const sandboxManifestSchema = Schema.Union([

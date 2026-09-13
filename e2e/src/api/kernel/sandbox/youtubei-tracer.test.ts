@@ -25,7 +25,6 @@ export const manifest = defineManifest({
   kind: "script",
   capabilities: ["httpCall"],
   requiredPluginConfigKeys: [],
-  requiredSystemConfigKeys: [],
   name: ${JSON.stringify(input.name)},
   slug: ${JSON.stringify(input.slug)},
 });
@@ -90,7 +89,6 @@ describe("Youtubei durable tracer", () => {
 							name: "Youtubei tracer",
 							capabilities: ["httpCall"],
 							requiredPluginConfigKeys: [],
-							requiredSystemConfigKeys: [],
 						},
 					],
 				}),

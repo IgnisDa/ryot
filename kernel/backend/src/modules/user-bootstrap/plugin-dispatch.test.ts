@@ -123,7 +123,6 @@ const baseLayer = Layer.mergeAll(
 								slug: bootstrap.scriptSlug,
 								name: bootstrap.scriptSlug,
 								requiredPluginConfigKeys: [],
-								requiredSystemConfigKeys: [],
 							},
 						} satisfies NonNullable<
 							Effect.Success<

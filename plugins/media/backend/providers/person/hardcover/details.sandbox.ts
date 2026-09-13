@@ -5,7 +5,6 @@ import { details } from "./shared";
 
 export const manifest = defineManifest({
 	kind: "provider",
-	requiredSystemConfigKeys: [],
 	name: "Hardcover Person Details",
 	slug: "person.hardcover.details",
 	capabilities: ["httpCall", "getPluginConfig"],

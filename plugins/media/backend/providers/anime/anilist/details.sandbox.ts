@@ -7,7 +7,6 @@ export const manifest = defineManifest({
 	kind: "provider",
 	name: "Anilist Details",
 	requiredPluginConfigKeys: [],
-	requiredSystemConfigKeys: [],
 	slug: "anime.anilist.details",
 	capabilities: ["httpCall", "getUserSettings"],
 });

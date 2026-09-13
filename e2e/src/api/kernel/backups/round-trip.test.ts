@@ -254,6 +254,16 @@ describe("backup export and restore round trip", () => {
 				installTestPluginBundle({
 					pluginSlug,
 					scope: "system",
+					scripts: [
+						{
+							entry,
+							kind: "script",
+							slug: scriptSlug,
+							capabilities: [],
+							requiredPluginConfigKeys: [],
+							name: "Backup round trip fixture",
+						},
+					],
 					files: {
 						"client/page.tsx": "export default function BackupPage() { return null; }",
 						[entry]: literalSandboxSource({
@@ -262,17 +272,6 @@ describe("backup export and restore round trip", () => {
 							name: "Backup round trip fixture",
 						}),
 					},
-					scripts: [
-						{
-							entry,
-							kind: "script",
-							slug: scriptSlug,
-							capabilities: [],
-							requiredPluginConfigKeys: [],
-							requiredSystemConfigKeys: [],
-							name: "Backup round trip fixture",
-						},
-					],
 					relationshipSchemas: [
 						{
 							slug: relationshipSchemaSlug,
@@ -645,7 +644,6 @@ describe("backup export and restore round trip", () => {
 							slug: detailsScriptSlug,
 							kind: "provider" as const,
 							requiredPluginConfigKeys: [],
-							requiredSystemConfigKeys: [],
 							providerOperation: "details" as const,
 						},
 					],

@@ -12,7 +12,6 @@ type ScriptModuleSourceInput = SandboxSourceIdentity & {
 	readonly sdkImports?: readonly string[];
 	readonly ryotqlImports?: readonly string[];
 	readonly requiredPluginConfigKeys?: readonly string[];
-	readonly requiredSystemConfigKeys?: readonly string[];
 	readonly capabilities: readonly SandboxHostCapability[];
 };
 
@@ -45,7 +44,6 @@ export const manifest = defineManifest({
   slug: ${JSON.stringify(input.slug)},
   capabilities: ${JSON.stringify(input.capabilities)},
   requiredPluginConfigKeys: ${JSON.stringify(input.requiredPluginConfigKeys ?? [])},
-  requiredSystemConfigKeys: ${JSON.stringify(input.requiredSystemConfigKeys ?? [])},
 });
 
 ${input.declarations ?? ""}
@@ -297,23 +295,6 @@ export function pluginConfigSandboxSource(
 	});
 }
 
-export function systemConfigSandboxSource(
-	input: SandboxSourceIdentity & {
-		readonly keys: readonly string[];
-		readonly requiredSystemConfigKeys?: readonly string[];
-	},
-) {
-	return scriptModuleSource({
-		...input,
-		sdkImports: ["jsonValueSchema"],
-		inputSchema: "Schema.Struct({})",
-		capabilities: ["getSystemConfig"],
-		outputSchema: "Schema.Record(Schema.String, jsonValueSchema)",
-		requiredSystemConfigKeys: input.requiredSystemConfigKeys ?? input.keys,
-		run: `(_input, host) => host.getSystemConfig(${JSON.stringify(input.keys)})`,
-	});
-}
-
 export function userPreferencesSandboxSource(input: SandboxSourceIdentity) {
 	return scriptModuleSource({
 		...input,
@@ -485,7 +466,6 @@ export const manifest = defineManifest({
   kind: "operation",
   capabilities: [],
   requiredPluginConfigKeys: [],
-  requiredSystemConfigKeys: [],
   name: ${JSON.stringify(input.name)},
   slug: ${JSON.stringify(input.slug)},
 });
@@ -512,7 +492,6 @@ export const manifest = defineManifest({
   kind: "operation",
   capabilities: ["getCurrentIntegration", "listIntegrations"],
   requiredPluginConfigKeys: [],
-  requiredSystemConfigKeys: [],
   name: ${JSON.stringify(input.name)},
   slug: ${JSON.stringify(input.slug)},
 });
@@ -544,7 +523,6 @@ import { Effect, Schema } from "@ryot-app/sandbox-sdk/effect";
 
 export const manifest = defineManifest({
   kind: "operation",
-  requiredSystemConfigKeys: [],
   capabilities: ["getPluginConfig"],
   requiredPluginConfigKeys: [${configKey}],
   name: ${JSON.stringify(input.name)},

@@ -39,7 +39,6 @@ describe("sandbox integration reads", () => {
 						kind: "operation",
 						name: "Integration read",
 						requiredPluginConfigKeys: [],
-						requiredSystemConfigKeys: [],
 						capabilities: ["getCurrentIntegration", "listIntegrations"],
 					},
 					integrationProviders: [

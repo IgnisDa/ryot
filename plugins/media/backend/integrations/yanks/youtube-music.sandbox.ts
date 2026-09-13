@@ -15,7 +15,6 @@ export const manifest = defineManifest({
 	kind: "script",
 	name: "YouTube Music yank",
 	requiredPluginConfigKeys: [],
-	requiredSystemConfigKeys: [],
 	slug: "integration.youtube-music",
 	capabilities: ["log", "span", "httpCall", "getCurrentIntegration", "claimPersistentValue"],
 });

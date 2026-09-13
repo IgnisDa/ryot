@@ -6,7 +6,6 @@ import { search } from "./shared";
 export const manifest = defineManifest({
 	kind: "provider",
 	name: "MyAnimeList Search",
-	requiredSystemConfigKeys: [],
 	slug: "anime.myanimelist.search",
 	requiredPluginConfigKeys: ["malClientId"],
 	capabilities: ["httpCall", "getPluginConfig", "getUserSettings"],

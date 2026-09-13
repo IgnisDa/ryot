@@ -25,7 +25,6 @@ export const manifest = defineManifest({
 	slug: "move.pokeapi",
 	capabilities: ["httpCall"],
 	requiredPluginConfigKeys: [],
-	requiredSystemConfigKeys: [],
 });
 
 const searchOptionsSchema = strictStruct({

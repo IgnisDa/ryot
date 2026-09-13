@@ -5,7 +5,6 @@ import { details } from "./shared";
 
 export const manifest = defineManifest({
 	kind: "provider",
-	requiredSystemConfigKeys: [],
 	slug: "podcast.listennotes.details",
 	name: "Listen Notes Podcast Details",
 	requiredPluginConfigKeys: ["listennotesApiKey"],

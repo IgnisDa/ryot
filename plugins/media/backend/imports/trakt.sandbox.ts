@@ -16,7 +16,6 @@ export const manifest = defineManifest({
 	kind: "script",
 	slug: "import.trakt",
 	name: "Fetch Trakt import",
-	requiredSystemConfigKeys: [],
 	requiredPluginConfigKeys: ["traktClientId"],
 	capabilities: ["artifact-read", "httpCall", "getPluginConfig"],
 });

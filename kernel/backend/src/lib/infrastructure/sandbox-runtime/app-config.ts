@@ -5,9 +5,6 @@ import { isObjectRecord } from "@ryot-app/ts-utils/predicates";
 import { Effect, Match, Option } from "effect";
 
 import { parseAppSchemaProperties } from "../../property-schema/property-schema-runtime";
-import { appConfigDefinition } from "../config/definition";
-
-const pluginReadableSystemConfigKeys = new Set(["timezone"]);
 
 const requiredKeys = (metadata: unknown, name: string): ReadonlyArray<string> =>
 	isObjectRecord(metadata) && Array.isArray(metadata[name])
@@ -90,42 +87,6 @@ export const getPluginConfig = Effect.fn("getPluginConfig")(function* (input: {
 			return yield* Effect.fail(unconfiguredMessage(input.context, key));
 		}
 		values[key] = value;
-	}
-	return values;
-});
-
-export const getSystemConfig = Effect.fn("getSystemConfig")(function* (
-	keys: ReadonlyArray<string>,
-	metadata: unknown,
-) {
-	const uniqueKeys = [...new Set(keys)];
-	const declaredKeys = new Set(requiredKeys(metadata, "requiredSystemConfigKeys"));
-	for (const key of uniqueKeys) {
-		if (!pluginReadableSystemConfigKeys.has(key)) {
-			return yield* Effect.fail(`System config key "${key}" is not available to plugins`);
-		}
-		if (!declaredKeys.has(key)) {
-			return yield* Effect.fail(`System config key "${key}" is not declared by this script`);
-		}
-	}
-
-	if (uniqueKeys.length === 0) {
-		return {};
-	}
-
-	const definition = appConfigDefinition.fields.timezone;
-	const loaded = yield* configFromAppSchema(
-		{ unknownKeys: "strict", fields: { timezone: definition.schema } },
-		() => definition.envKey ?? "",
-	);
-	const values: Record<string, unknown> = {};
-	for (const key of uniqueKeys) {
-		if (definition.envKey === undefined) {
-			return yield* Effect.fail(`System config key "${key}" is not configured`);
-		}
-		const loadedValue = loaded[key];
-		const value = Option.isOption(loadedValue) ? Option.getOrUndefined(loadedValue) : loadedValue;
-		values[key] = value ?? definition.schema.defaultValue;
 	}
 	return values;
 });

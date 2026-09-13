@@ -9,7 +9,6 @@ export const manifest = defineManifest({
 	name: "PokeAPI Move Details",
 	slug: "move.pokeapi.details",
 	requiredPluginConfigKeys: [],
-	requiredSystemConfigKeys: [],
 });
 
 export default defineProvider({ manifest, run: details.run, operation: "details" });

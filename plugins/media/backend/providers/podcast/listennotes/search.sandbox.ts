@@ -5,7 +5,6 @@ import { search } from "./shared";
 
 export const manifest = defineManifest({
 	kind: "provider",
-	requiredSystemConfigKeys: [],
 	slug: "podcast.listennotes.search",
 	name: "Listen Notes Podcast Search",
 	requiredPluginConfigKeys: ["listennotesApiKey"],
