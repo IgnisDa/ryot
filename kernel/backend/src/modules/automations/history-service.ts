@@ -1,4 +1,4 @@
-import { AdminAccess, type CurrentUserValue } from "@ryot-app/contract/auth-middleware";
+import type { CurrentUserValue } from "@ryot-app/contract/auth-middleware";
 import {
 	AUTOMATION_HISTORY_LIMITS,
 	AutomationHistoryCursor,
@@ -212,13 +212,13 @@ export class AutomationHistoryService extends Context.Service<AutomationHistoryS
 			const database = yield* Database;
 			const persisted = <A, E>(effect: Effect.Effect<A, E, Database>) =>
 				effect.pipe(Effect.provideService(Database, database));
-			const requireRun = Effect.fn(function* (userId: UserId | undefined, runId: AutomationRunId) {
+			const requireRun = Effect.fn(function* (userId: UserId, runId: AutomationRunId) {
 				const [run] = yield* history.summaries({
 					runId,
+					userId,
 					limit: 1,
 					filters: {},
 					cursor: null,
-					...(userId === undefined ? {} : { userId }),
 				});
 				if (!run) {
 					return yield* new AutomationHistoryNotFound({ reason: { runId, code: "run-not-found" } });
@@ -226,7 +226,7 @@ export class AutomationHistoryService extends Context.Service<AutomationHistoryS
 				return run;
 			});
 			const list = Effect.fn(function* (
-				userId: UserId | undefined,
+				userId: UserId,
 				filters: AutomationHistoryFilters,
 			): Effect.fn.Return<
 				AutomationHistoryPage,
@@ -248,12 +248,7 @@ export class AutomationHistoryService extends Context.Service<AutomationHistoryS
 				const cursor = yield* decodeAutomationHistoryCursor(filters.cursor);
 				const limit = filters.limit ?? AUTOMATION_HISTORY_LIMITS.defaultPageSize;
 				const rows = yield* persisted(
-					history.summaries({
-						cursor,
-						filters,
-						limit: limit + 1,
-						...(userId === undefined ? {} : { userId }),
-					}),
+					history.summaries({ cursor, userId, filters, limit: limit + 1 }),
 				).pipe(Effect.mapError(internalError));
 				const items = rows.slice(0, limit);
 				const last = items[items.length - 1];
@@ -267,7 +262,7 @@ export class AutomationHistoryService extends Context.Service<AutomationHistoryS
 							: null,
 				};
 			});
-			const detail = Effect.fn(function* (userId: UserId | undefined, runId: AutomationRunId) {
+			const detail = Effect.fn(function* (userId: UserId, runId: AutomationRunId) {
 				const run = yield* requireRun(userId, runId);
 				const trigger = yield* triggers.findById(run.triggerId);
 				if (!trigger) {
@@ -302,7 +297,7 @@ export class AutomationHistoryService extends Context.Service<AutomationHistoryS
 				} satisfies AutomationHistoryDetail;
 			});
 			const retry = Effect.fn(function* (
-				userId: UserId | undefined,
+				userId: UserId,
 				runId: AutomationRunId,
 				body: AutomationHistoryRetryBody,
 			) {
@@ -341,33 +336,22 @@ export class AutomationHistoryService extends Context.Service<AutomationHistoryS
 					attemptNumber: queued.attemptNumber,
 				} satisfies AutomationHistoryRetryResult;
 			});
-			const get = (userId: UserId | undefined, runId: AutomationRunId) =>
+			const get = (userId: UserId, runId: AutomationRunId) =>
 				persisted(detail(userId, runId)).pipe(
-					Effect.catchTag("DbError", () => Effect.fail(internalError())),
-				);
-			const retryRun = (
-				userId: UserId | undefined,
-				runId: AutomationRunId,
-				body: AutomationHistoryRetryBody,
-			) =>
-				retry(userId, runId, body).pipe(
 					Effect.catchTag("DbError", () => Effect.fail(internalError())),
 				);
 			return {
 				getRun: (user: CurrentUserValue, runId: AutomationRunId) => get(user.id, runId),
 				listRuns: (user: CurrentUserValue, filters: AutomationHistoryFilters) =>
 					list(user.id, filters),
-				getAdminRun: (runId: AutomationRunId) =>
-					Effect.flatMap(AdminAccess, () => get(undefined, runId)),
-				listAdminRuns: (filters: AutomationHistoryFilters, userId?: UserId) =>
-					Effect.flatMap(AdminAccess, () => list(userId, filters)),
 				retryRun: (
 					user: CurrentUserValue,
 					runId: AutomationRunId,
 					body: AutomationHistoryRetryBody,
-				) => retryRun(user.id, runId, body),
-				retryAdminRun: (runId: AutomationRunId, body: AutomationHistoryRetryBody) =>
-					Effect.flatMap(AdminAccess, () => retryRun(undefined, runId, body)),
+				) =>
+					retry(user.id, runId, body).pipe(
+						Effect.catchTag("DbError", () => Effect.fail(internalError())),
+					),
 			};
 		}),
 	},
