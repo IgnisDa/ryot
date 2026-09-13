@@ -1,4 +1,5 @@
 import { integrationWebhookUrl } from "@ryot-app/contract/modules/integrations/schemas";
+import type { PluginManifest } from "@ryot-app/contract/modules/plugins/manifest";
 import {
 	ImportRunId,
 	IntegrationId,
@@ -15,14 +16,18 @@ import {
 	createKodiIntegration,
 	deleteIntegration,
 	getIntegration,
+	getImportRun,
+	installTestIntegrationProvider,
 	listIntegrationImportRuns,
 	listIntegrations,
 	listManualImportRuns,
 	postIntegrationWebhookAndWait,
+	postIntegrationWebhook,
 	pollUntil,
 	pollImportRunUntilTerminal,
 	syncIntegrations,
 	updateUserSettingsPreferences,
+	uninstallTestPluginStrict,
 } from "~/fixtures/kernel";
 import {
 	assertTaggedError,
@@ -34,8 +39,53 @@ import { describe, expect, it } from "~/support/effect-test";
 import { webRequest } from "~/support/web-request";
 
 const kodiPayload = { lot: "movie", progress: 50, identifier: "tt1234567" };
+const testSettingsSchema = {
+	unknownKeys: "strict",
+	fields: {
+		label: { type: "string", label: "Label", description: "Optional test integration label" },
+	},
+} satisfies PluginManifest["integrationProviders"][number]["settingsSchema"];
 
 describe("Integration CRUD", () => {
+	it.live("cancels an integration-owned import without recording integration completion", () =>
+		Effect.gen(function* () {
+			const { providerSlug } = yield* Effect.acquireRelease(
+				installTestIntegrationProvider(testSettingsSchema, { delayMs: 30_000 }),
+				({ plugin: installed }) => uninstallTestPluginStrict(installed).pipe(Effect.orDie),
+			);
+			const { client } = yield* createAuthenticatedClient();
+			const integration = yield* Effect.acquireRelease(
+				createIntegration(client, {
+					providerSpecifics: {},
+					provider: providerSlug,
+					extraSettings: { disableOnContinuousErrors: true },
+				}),
+				({ id }) => deleteIntegration(client, id).pipe(Effect.asVoid, Effect.orDie),
+			);
+			const delivery = yield* postIntegrationWebhook(client, integration, { fixture: true });
+			const runId = requirePresent(delivery.runId, "Expected integration import run");
+			yield* pollUntil(
+				`Integration import '${runId}' to start`,
+				Effect.gen(function* () {
+					const run = (yield* getImportRun(client, runId, undefined, 10)).run;
+					return run?.status === "running" ? true : null;
+				}),
+			);
+
+			yield* client.call((c) => c.imports.cancelRun({ params: { runId } }));
+			const cancelled = yield* pollImportRunUntilTerminal(client, runId);
+			expect(cancelled.status).toBe("cancelled");
+			expect(cancelled.failureReason).toBeNull();
+
+			const current = requirePresent(
+				Option.getOrUndefined(yield* getIntegration(client, integration.id)),
+				"Expected integration after cancellation",
+			);
+			expect(current.lastFinishedAt).toBeNull();
+			expect(current.isDisabled).toBe(false);
+		}),
+	);
+
 	it.live("lists integration providers with server-owned form schemas", () =>
 		Effect.gen(function* () {
 			const { client } = yield* createAuthenticatedClient();
