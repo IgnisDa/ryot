@@ -3,7 +3,7 @@ name: ryot
 description: The only self-hosted tracker you will ever need - track movies, shows, video games, books, and more.
 type: application
 version: 0.1.0
-appVersion: "v10"
+appVersion: "v11"
 home: https://ryot.io
 sources:
   - https://github.com/IgnisDa/ryot
