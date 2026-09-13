@@ -1,5 +1,5 @@
 import { Schema } from "effect";
-import { HttpApiEndpoint, HttpApiGroup, HttpApiSchema } from "effect/unstable/httpapi";
+import { HttpApiEndpoint, HttpApiGroup, HttpApiSchema, OpenApi } from "effect/unstable/httpapi";
 
 import { AdminMiddleware } from "../../auth-middleware";
 
@@ -27,22 +27,29 @@ const errors = [
 ];
 
 export const ServerLogsGroup = HttpApiGroup.make("serverLogs")
+	.annotate(OpenApi.Description, "Provides administrative access to server log files")
 	.add(
 		HttpApiEndpoint.get("list", "/god-mode/logs/files", {
 			error: errors,
 			success: Schema.Struct({ files: Schema.Array(ServerLogFile) }),
-		}).middleware(AdminMiddleware),
+		})
+			.middleware(AdminMiddleware)
+			.annotate(OpenApi.Description, "Lists available server log files"),
 	)
 	.add(
 		HttpApiEndpoint.get("downloadFile", "/god-mode/logs/files/:id/download", {
 			error: errors,
 			params: { id: Schema.String },
 			success: HttpApiSchema.StreamUint8Array(),
-		}).middleware(AdminMiddleware),
+		})
+			.middleware(AdminMiddleware)
+			.annotate(OpenApi.Description, "Downloads one server log file"),
 	)
 	.add(
 		HttpApiEndpoint.get("downloadAll", "/god-mode/logs/download", {
 			error: errors,
 			success: HttpApiSchema.StreamUint8Array(),
-		}).middleware(AdminMiddleware),
+		})
+			.middleware(AdminMiddleware)
+			.annotate(OpenApi.Description, "Downloads all server log files"),
 	);

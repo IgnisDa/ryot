@@ -140,7 +140,7 @@ export const PluginsGroup = HttpApiGroup.make("plugins")
 					PluginNotFoundError.pipe(HttpApiSchema.status(404)),
 				],
 			},
-		),
+		).annotate(OpenApi.Description, "Saves the caller's settings for a plugin installation."),
 	)
 	.add(
 		AuthenticatedMutationEndpoint.delete("protected")(
@@ -154,6 +154,9 @@ export const PluginsGroup = HttpApiGroup.make("plugins")
 					PluginNotFoundError.pipe(HttpApiSchema.status(404)),
 				],
 			},
+		).annotate(
+			OpenApi.Description,
+			"Resets the caller's settings for a plugin installation to defaults.",
 		),
 	)
 	.middleware(AuthMiddleware)
