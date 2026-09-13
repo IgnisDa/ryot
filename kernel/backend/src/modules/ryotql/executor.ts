@@ -24,6 +24,7 @@ import { DateTime, Effect, Option, Schema } from "effect";
 import { Database, mapDatabaseErrors } from "#lib/infrastructure/db/service";
 
 import {
+	canAccessCatalogTable,
 	getCatalogTable,
 	resolveCatalogField,
 	type CatalogTable,
@@ -55,7 +56,10 @@ type CursorValue =
 
 const CURSOR_VERSION = 1;
 
-const identifier = (value: string): SqlFragment => sql.raw(`"${value}"`);
+const identifier = (value: string): SqlFragment => sql`${sql.identifier(value)}`;
+
+const qualifiedIdentifier = (table: string, column: string): SqlFragment =>
+	sql`${sql.identifier(table)}.${sql.identifier(column)}`;
 
 let jsonElementAliasCounter = 0;
 const jsonElementAliasStack: string[] = [];
@@ -123,10 +127,13 @@ const expressionScope = (query: CorrelatedQuerySet, ancestors: CompileScope) => 
 	return scope;
 };
 
+const resolveCompileField = (compileTable: CompileTable, field: string) =>
+	resolveCatalogField(compileTable.table, field, compileTable.executionScope);
+
 const kindResolver: KindResolver<CompileScope> = {
 	correlated: (query, scope) => expressionScope(query, scope),
 	column: (expr, scope) =>
-		resolveCatalogField(requireCompileTable(scope, expr.tableAlias).table, expr.field)?.kind,
+		resolveCompileField(requireCompileTable(scope, expr.tableAlias), expr.field)?.kind,
 };
 
 const expressionKind = (expr: ScalarExpression, scope: CompileScope): ScalarKind => {
@@ -384,7 +391,7 @@ const compileExpression = (expr: ScalarExpression, scope: CompileScope): SqlFrag
 				)})`;
 	}
 	const compileTable = requireCompileTable(scope, expr.tableAlias);
-	const field = resolveCatalogField(compileTable.table, expr.field);
+	const field = resolveCompileField(compileTable, expr.field);
 	if (!field) {
 		throw new Error(`RyotQL compiler received unknown field '${expr.field}'`);
 	}
@@ -405,9 +412,10 @@ const expressionNullable = (expr: ScalarExpression, scope: CompileScope): boolea
 	}
 	if (expr.type === "column") {
 		const table = requireCompileTable(scope, expr.tableAlias);
-		const field = resolveCatalogField(table.table, expr.field);
+		const field = resolveCompileField(table, expr.field);
 		return (
-			table.joinedNullable || (expr.field !== table.table.primaryKey && (field?.nullable ?? true))
+			table.joinedNullable ||
+			(!table.table.primaryKey.includes(expr.field) && (field?.nullable ?? true))
 		);
 	}
 	return true;
@@ -500,78 +508,83 @@ const compilePredicate = (
 		: comparison;
 };
 
-const authorizedTable = (table: CatalogTable, scope: RyotQLExecutionScope): SqlFragment => {
-	if (scope.type === "user") {
-		const policy = table.visibility.user;
-		if (policy.type === "public") {
-			return sql`(SELECT * FROM ${sql.raw(table.name)})`;
-		}
-		if (policy.type === "effectivePlugin") {
-			const pluginColumn = sql.raw(`${table.name}.${policy.pluginColumn}`);
-			return sql`(SELECT * FROM ${sql.raw(table.name)} WHERE EXISTS (
-				SELECT 1 FROM plugin_installation
-				WHERE plugin_installation.plugin_id = ${pluginColumn}
-					AND plugin_installation.user_id = ${scope.userId}
-					AND plugin_installation.health = 'ready'
-					AND plugin_installation.is_disabled = false
-			))`;
-		}
-		if (policy.type === "effectiveProviderPlugin") {
-			const providerColumn = sql.raw(`${table.name}.${policy.providerColumn}`);
-			return sql`(SELECT * FROM ${sql.raw(table.name)} WHERE EXISTS (
-				SELECT 1 FROM sandbox_provider provider
-				INNER JOIN plugin_installation ON plugin_installation.plugin_id = provider.plugin_id
-				WHERE provider.id = ${providerColumn}
-					AND plugin_installation.user_id = ${scope.userId}
-					AND plugin_installation.health = 'ready'
-					AND plugin_installation.is_disabled = false
-			))`;
-		}
-		if (policy.type === "parentOwned") {
-			const column = sql.raw(`${table.name}.${policy.column}`);
-			const parentTable = sql.raw(policy.parentTable);
-			const parentColumn = sql.raw(`${policy.parentTable}.${policy.parentColumn}`);
-			const parentOwnerColumn = sql.raw(`${policy.parentTable}.${policy.parentOwnerColumn}`);
-			return sql`(SELECT * FROM ${sql.raw(table.name)} WHERE EXISTS (SELECT 1 FROM ${parentTable} WHERE ${parentColumn} = ${column} AND ${parentOwnerColumn} = ${scope.userId}))`;
-		}
-		const column = sql.raw(policy.column);
-		return policy.includeGlobal
-			? sql`(SELECT * FROM ${sql.raw(table.name)} WHERE (${column} = ${scope.userId} OR ${column} IS NULL))`
-			: sql`(SELECT * FROM ${sql.raw(table.name)} WHERE ${column} = ${scope.userId})`;
-	}
-	const policy = "plugin" in table.visibility ? table.visibility.plugin : undefined;
+const deniedTable = (table: CatalogTable) =>
+	new Error(`RyotQL compiler received denied table '${table.name}'`);
+
+const userVisibilityCondition = (
+	table: CatalogTable,
+	scope: Extract<RyotQLExecutionScope, { type: "user" }>,
+): SqlFragment | null => {
+	const policy = table.visibility.user;
 	if (!policy) {
-		throw new Error(`RyotQL compiler received plugin-denied table '${table.name}'`);
+		throw deniedTable(table);
+	}
+	if (policy.type === "public") {
+		return null;
+	}
+	if (policy.type === "self") {
+		return sql`${identifier(policy.column)} = ${scope.userId}`;
+	}
+	if (policy.type === "parentOwned") {
+		const column = qualifiedIdentifier(table.name, policy.column);
+		const parentTable = identifier(policy.parentTable);
+		const parentColumn = qualifiedIdentifier(policy.parentTable, policy.parentColumn);
+		const parentOwnerColumn = qualifiedIdentifier(policy.parentTable, policy.parentOwnerColumn);
+		return sql`EXISTS (SELECT 1 FROM ${parentTable} WHERE ${parentColumn} = ${column} AND ${parentOwnerColumn} = ${scope.userId})`;
+	}
+	const column = identifier(policy.column);
+	const owner = policy.includeGlobal
+		? sql`(${column} = ${scope.userId} OR ${column} IS NULL)`
+		: sql`${column} = ${scope.userId}`;
+	return policy.where ? sql`${owner} AND (${sql.raw(policy.where)})` : owner;
+};
+
+const pluginVisibilityCondition = (
+	table: CatalogTable,
+	scope: Extract<RyotQLExecutionScope, { type: "plugin" }>,
+): SqlFragment => {
+	const policy = table.visibility.plugin;
+	if (!policy) {
+		throw deniedTable(table);
 	}
 	if (policy.type === "eventDefinition") {
 		if (scope.eventSchemas.length === 0) {
-			return sql`(SELECT * FROM ${sql.raw(table.name)} WHERE false)`;
+			return sql`false`;
 		}
 		const ownership = scope.eventSchemas.map(
 			(eventSchema) =>
-				sql`(event.event_schema_slug = ${eventSchema.eventSchemaSlug}::text AND event_scope_entity.entity_schema_slug = ${eventSchema.entitySchemaSlug}::text)`,
+				sql`(${qualifiedIdentifier(table.name, "event_schema_slug")} = ${eventSchema.eventSchemaSlug}::text AND event_scope_entity.entity_schema_slug = ${eventSchema.entitySchemaSlug}::text)`,
 		);
-		return sql`(
-			SELECT * FROM event
-			WHERE EXISTS (
-				SELECT 1 FROM entity event_scope_entity
-				WHERE event_scope_entity.id = event.entity_id
-				AND (${sql.join(ownership, sql` OR `)})
-			)
+		return sql`EXISTS (
+			SELECT 1 FROM entity event_scope_entity
+			WHERE event_scope_entity.id = ${qualifiedIdentifier(table.name, "entity_id")}
+			AND (${sql.join(ownership, sql` OR `)})
 		)`;
 	}
 	const ownedSlugs = scope[policy.ownership];
 	if (ownedSlugs.length === 0) {
-		return sql`(SELECT * FROM ${sql.raw(table.name)} WHERE false)`;
+		return sql`false`;
 	}
-	const discriminator = sql.raw(policy.column);
-	const ownership = sql`${discriminator} IN (${sql.join(
+	const ownership = sql`${identifier(policy.column)} IN (${sql.join(
 		ownedSlugs.map((slug) => sql`${slug}::text`),
 		sql`, `,
 	)})`;
-	return policy.globalOnly
-		? sql`(SELECT * FROM ${sql.raw(table.name)} WHERE user_id IS NULL AND ${ownership})`
-		: sql`(SELECT * FROM ${sql.raw(table.name)} WHERE ${ownership})`;
+	return policy.globalOnly ? sql`${identifier("user_id")} IS NULL AND ${ownership}` : ownership;
+};
+
+const authorizedTable = (table: CatalogTable, scope: RyotQLExecutionScope): SqlFragment => {
+	if (!canAccessCatalogTable(table, scope)) {
+		throw deniedTable(table);
+	}
+	let condition: SqlFragment | null = null;
+	if (scope.type === "user") {
+		condition = userVisibilityCondition(table, scope);
+	} else if (scope.type === "plugin") {
+		condition = pluginVisibilityCondition(table, scope);
+	}
+	return condition
+		? sql`(SELECT * FROM ${identifier(table.name)} WHERE ${condition})`
+		: sql`(SELECT * FROM ${identifier(table.name)})`;
 };
 
 const outputKind = (expr: ScalarExpression, scope: CompileScope): SqlFragment => {
@@ -679,8 +692,8 @@ const querySetSql = (
 	`;
 };
 
-const isPrimaryKeyOrder = (expr: ScalarExpression, alias: string, table: CatalogTable) =>
-	expr.type === "column" && expr.tableAlias === alias && expr.field === table.primaryKey;
+const isColumnOrder = (expr: ScalarExpression, alias: string, field: string) =>
+	expr.type === "column" && expr.tableAlias === alias && expr.field === field;
 
 const orderSql = (
 	orders: readonly { readonly direction: "asc" | "desc"; readonly kind: ScalarKind }[],
@@ -708,19 +721,18 @@ const expressionOrderSql = (
 		sql`, `,
 	);
 
-const appendPrimaryKeyOrders = (query: QuerySet, requested: readonly Order[]) => [
+const appendPrimaryKeyOrders = (query: QuerySet, requested: readonly Order[]): Order[] => [
 	...requested,
-	...[...(query.joins ?? []).map((join) => join.table), query.from].flatMap((reference) => {
-		const table = requireTable(reference.table);
-		return requested.some((order) => isPrimaryKeyOrder(order.expr, reference.alias, table))
-			? []
-			: [
-					{
-						direction: "asc" as const,
-						expr: { field: table.primaryKey, type: "column" as const, tableAlias: reference.alias },
-					},
-				];
-	}),
+	...[...(query.joins ?? []).map((join) => join.table), query.from].flatMap((reference) =>
+		requireTable(reference.table)
+			.primaryKey.filter(
+				(field) => !requested.some((order) => isColumnOrder(order.expr, reference.alias, field)),
+			)
+			.map((field) => ({
+				direction: "asc" as const,
+				expr: { field, type: "column" as const, tableAlias: reference.alias },
+			})),
+	),
 ];
 
 const cursorError = () => new RyotQLBadRequest({ reason: { code: "invalid-cursor" } });
@@ -983,12 +995,13 @@ const compileInclude = (
 	path: readonly number[],
 ): SqlFragment => {
 	const scope = buildScope(include, executionScope, `i${path.join("_")}`, ancestors);
-	const orderMetadata = include.orderBy.map((order) => ({
+	const orders = appendPrimaryKeyOrders(include, include.orderBy);
+	const orderMetadata = orders.map((order) => ({
 		direction: order.direction,
 		kind: expressionKind(order.expr, scope),
 	}));
 	const ordering = orderSql(orderMetadata);
-	const queryOrdering = expressionOrderSql(include.orderBy, scope);
+	const queryOrdering = expressionOrderSql(orders, scope);
 	const fieldValues = include.fields.flatMap((field) =>
 		hasRuntimeOutputKind(field.expr, scope)
 			? [compileExpression(field.expr, scope), outputKind(field.expr, scope)]
@@ -999,7 +1012,7 @@ const compileInclude = (
 	);
 	const itemValues = [...fieldValues, ...nestedValues];
 	const item = sql`jsonb_build_array(${sql.join(itemValues, sql`, `)})`;
-	const orderColumns = include.orderBy.map(
+	const orderColumns = orders.map(
 		(order, index) => sql`${compileExpression(order.expr, scope)} AS ${identifier(`o${index}`)}`,
 	);
 	const columns = [sql`${item} AS "item"`, ...orderColumns];
@@ -1025,6 +1038,13 @@ const compileInclude = (
 	)`;
 };
 
+const compileCursorColumn = (expr: ScalarExpression, scope: CompileScope) => {
+	const value = compileExpression(expr, scope);
+	return expressionKind(expr, scope) === "date"
+		? sql`to_char(${value} AT TIME ZONE 'UTC', 'YYYY-MM-DD"T"HH24:MI:SS.US"Z"')`
+		: value;
+};
+
 const compileRowsQuery = (
 	query: RowsQuery,
 	executionScope: RyotQLExecutionScope,
@@ -1036,7 +1056,7 @@ const compileRowsQuery = (
 		compileOutputColumns(field.expr, scope, `f${index}v`, `f${index}k`),
 	);
 	const orderColumns = orders.map(
-		(order, index) => sql`${compileExpression(order.expr, scope)} AS ${identifier(`o${index}`)}`,
+		(order, index) => sql`${compileCursorColumn(order.expr, scope)} AS ${identifier(`o${index}`)}`,
 	);
 	const includeColumns = (query.output.include ?? []).map(
 		(include, index) =>
@@ -1387,7 +1407,10 @@ export const executeNamedQuery = Effect.fn("executeRyotQLNamedQuery")(function* 
 					if (value === null) {
 						return { value: null, kind: "null" };
 					}
-					const cursorValue = makeCursorValue(kind, normalizeValue(value, kind));
+					const cursorValue = makeCursorValue(
+						kind,
+						kind === "date" ? value : normalizeValue(value, kind),
+					);
 					if (!cursorValue) {
 						throw new Error("RyotQL received an invalid order value");
 					}

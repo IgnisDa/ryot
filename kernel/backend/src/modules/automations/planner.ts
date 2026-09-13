@@ -180,6 +180,7 @@ export const LifecyclePlannerLive = Layer.effect(
 					message: "Planning requires a fresh trigger payload and signal-only recipients",
 				});
 			}
+			const payload = trigger.payload;
 			yield* resolver.lockCatalog(signal ? recipients : [trigger.scopeUserId]);
 			const db = yield* Database;
 			yield* mapDatabaseErrors(
@@ -313,7 +314,7 @@ export const LifecyclePlannerLive = Layer.effect(
 				wasCreated: true,
 				trigger: persistedTrigger,
 				policies: ordered.policies,
-				runs: yield* Effect.forEach(ordered.runs, (run) => runs.insertQueued(run)),
+				runs: yield* Effect.forEach(ordered.runs, (run) => runs.insertQueued(run, payload)),
 			};
 		});
 		const planBatch = Effect.fn("LifecyclePlanner.planBatch")(function* (

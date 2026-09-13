@@ -1,3 +1,4 @@
+import type { AutomationHistoryAttempt } from "@ryot-app/contract/modules/automations/history-schemas";
 import type {
 	AutomationTrigger,
 	AutomationRun,
@@ -5,6 +6,7 @@ import type {
 } from "@ryot-app/contract/modules/automations/lifecycle";
 import type { AutomationRuleMetadata } from "@ryot-app/contract/modules/automations/schemas";
 import { NotificationSubscriptionId } from "@ryot-app/contract/schema/brands";
+import type { JsonValue } from "@ryot-app/contract/schema/json";
 import { generateId } from "better-auth";
 import { sql } from "drizzle-orm";
 import {
@@ -107,6 +109,7 @@ export const automationRun = snakeCase.table(
 		hookName: text().notNull(),
 		scriptSlug: text().notNull(),
 		scriptContentHash: text().notNull(),
+		historyPayload: jsonb().$type<JsonValue>(),
 		attemptCount: integer().notNull().default(0),
 		startedAt: timestamp({ withTimezone: true }),
 		finishedAt: timestamp({ withTimezone: true }),
@@ -115,6 +118,7 @@ export const automationRun = snakeCase.table(
 		skipReason: jsonb().$type<AutomationRun["skipReason"]>(),
 		retryPolicy: jsonb().$type<AutomationRun["retryPolicy"]>(),
 		sandboxScriptId: text().references(() => sandboxScript.id),
+		historyPayloadTruncated: boolean().notNull().default(false),
 		delivery: text().$type<AutomationRun["delivery"]>().notNull(),
 		artifactsExpireAt: timestamp({ withTimezone: true }).notNull(),
 		queuedAt: timestamp({ withTimezone: true }).defaultNow().notNull(),
@@ -198,6 +202,9 @@ export const automationRunAttempt = snakeCase.table(
 		error: jsonb().$type<AutomationRunAttempt["error"]>(),
 		startedAt: timestamp({ withTimezone: true }).notNull(),
 		timing: jsonb().$type<AutomationRunAttempt["timing"]>(),
+		historyArtifactsTruncated: boolean().notNull().default(false),
+		historyLogs: jsonb().$type<AutomationHistoryAttempt["logs"]>(),
+		historyError: jsonb().$type<AutomationHistoryAttempt["error"]>(),
 		status: text().$type<AutomationRunAttempt["status"]>().notNull(),
 		failureKind: text().$type<AutomationRunAttempt["failureKind"]>(),
 		returnedValue: jsonb().$type<AutomationRunAttempt["returnedValue"]>(),

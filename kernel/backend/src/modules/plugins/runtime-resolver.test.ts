@@ -1,10 +1,14 @@
 import { expect, it } from "@effect/vitest";
 import { SandboxProviderId, SandboxScriptId, UserId } from "@ryot-app/contract/schema/brands";
+import { eq } from "drizzle-orm";
 import { Effect, Result } from "effect";
 import { assert, describe } from "vitest";
 
+import * as tables from "#lib/infrastructure/db/schema/tables/combined";
+import { Database } from "#lib/infrastructure/db/service";
+import { DefinitionRepository } from "#modules/definition-registry/repository";
+
 import { PluginInstallationRepository } from "./installation-repository";
-import { PluginLoader } from "./loader";
 import { PluginRepository } from "./repository";
 import {
 	installRevisionPackage,
@@ -135,46 +139,42 @@ describe("revision-backed runtime resolution", () => {
 		),
 	);
 
-	it.effect(
-		"uses the exact private installation and never publishes private packages to the loader",
-		() =>
-			withRevisionDatabase(
-				Effect.gen(function* () {
-					const runtime = yield* PluginRuntimeResolver;
-					const loader = yield* PluginLoader;
-					const first = yield* installRevisionPackage(revisionPackage("notes"), owner);
-					const second = yield* installRevisionPackage(revisionPackage("notes"), other);
-					expect(Object.keys(loader.getSnapshot().plugins)).toEqual([]);
-					const ownScript = yield* runtime.findScriptAvailableToUser(
+	it.effect("uses the exact private installation for private package scripts", () =>
+		withRevisionDatabase(
+			Effect.gen(function* () {
+				const runtime = yield* PluginRuntimeResolver;
+				const first = yield* installRevisionPackage(revisionPackage("notes"), owner);
+				const second = yield* installRevisionPackage(revisionPackage("notes"), other);
+				const ownScript = yield* runtime.findScriptAvailableToUser(
+					owner,
+					first.pluginId,
+					"notes.details",
+				);
+				const otherScript = yield* runtime.findScriptAvailableToUser(
+					other,
+					second.pluginId,
+					"notes.details",
+				);
+				assert(ownScript && otherScript);
+				expect(ownScript.id).not.toBe(otherScript.id);
+				expect(ownScript.pluginRevisionId).toBe(first.revisionId);
+				expect(otherScript.pluginRevisionId).toBe(second.revisionId);
+				expect(
+					yield* runtime.findScriptAvailableToUser(other, first.pluginId, "notes.details"),
+				).toBeNull();
+				expect((yield* runtime.listPluginsAvailableToUser(owner)).map(({ id }) => id)).toEqual([
+					first.pluginId,
+				]);
+				expect(
+					yield* runtime.findWorkflowScriptAvailableToUser(
 						owner,
 						first.pluginId,
-						"notes.details",
-					);
-					const otherScript = yield* runtime.findScriptAvailableToUser(
-						other,
-						second.pluginId,
-						"notes.details",
-					);
-					assert(ownScript && otherScript);
-					expect(ownScript.id).not.toBe(otherScript.id);
-					expect(ownScript.pluginRevisionId).toBe(first.revisionId);
-					expect(otherScript.pluginRevisionId).toBe(second.revisionId);
-					expect(
-						yield* runtime.findScriptAvailableToUser(other, first.pluginId, "notes.details"),
-					).toBeNull();
-					expect((yield* runtime.listPluginsAvailableToUser(owner)).map(({ id }) => id)).toEqual([
-						first.pluginId,
-					]);
-					expect(
-						yield* runtime.findWorkflowScriptAvailableToUser(
-							owner,
-							first.pluginId,
-							"notes-flow",
-							second.installation.id,
-						),
-					).toBeNull();
-				}),
-			),
+						"notes-flow",
+						second.installation.id,
+					),
+				).toBeNull();
+			}),
+		),
 	);
 
 	it.effect(
@@ -238,32 +238,28 @@ describe("revision-backed runtime resolution", () => {
 		() =>
 			withRevisionDatabase(
 				Effect.gen(function* () {
-					const runtime = yield* PluginRuntimeResolver;
+					const definitions = yield* DefinitionRepository;
 					const installations = yield* PluginInstallationRepository;
 					const installed = yield* installRevisionPackage(revisionPackage("notes"), owner);
-					expect(
-						(yield* runtime.getEffectiveDefinitions(owner)).entitySchemas["notes-entity"]?.pluginId,
-					).toBe(installed.pluginId);
+					const effective = (listed: boolean) => definitions.getUserSnapshot(owner, { listed });
+					expect((yield* effective(false)).entitySchemas["notes-entity"]?.pluginId).toBe(
+						installed.pluginId,
+					);
 					yield* installations.updateHealth({
 						healthReason: null,
 						health: "installing",
 						id: installed.installation.id,
 					});
-					expect(
-						(yield* runtime.getEffectiveDefinitions(owner)).entitySchemas["notes-entity"],
-					).toBeUndefined();
-					expect(
-						(yield* runtime.getEffectiveDefinitions(owner, true)).entitySchemas["notes-entity"]
-							?.pluginId,
-					).toBe(installed.pluginId);
+					expect((yield* effective(false)).entitySchemas["notes-entity"]).toBeUndefined();
+					expect((yield* effective(true)).entitySchemas["notes-entity"]?.pluginId).toBe(
+						installed.pluginId,
+					);
 					yield* installations.updateHealth({
 						health: "incompatible",
 						healthReason: "conflict",
 						id: installed.installation.id,
 					});
-					expect(
-						(yield* runtime.getEffectiveDefinitions(owner, true)).entitySchemas["notes-entity"],
-					).toBeUndefined();
+					expect((yield* effective(true)).entitySchemas["notes-entity"]).toBeUndefined();
 				}),
 			),
 	);
@@ -273,7 +269,7 @@ describe("revision-backed runtime resolution", () => {
 		() =>
 			withRevisionDatabase(
 				Effect.gen(function* () {
-					const runtime = yield* PluginRuntimeResolver;
+					const repository = yield* DefinitionRepository;
 					const privatePackage = revisionPackage("notes", "v1", "shared-entity");
 					const entity = privatePackage.manifest.entitySchemas[0];
 					assert(entity);
@@ -293,7 +289,7 @@ describe("revision-backed runtime resolution", () => {
 					const system = yield* installRevisionPackage(
 						revisionPackage("shared", "v1", "shared-entity"),
 					);
-					const definitions = yield* runtime.getEffectiveDefinitions(owner);
+					const definitions = yield* repository.getUserSnapshot(owner, { listed: false });
 					expect(definitions.entitySchemas["shared-entity"]?.pluginId).toBe(system.pluginId);
 					expect(definitions.entitySchemas["notes-extra"]?.pluginId).toBe(privatePlugin.pluginId);
 				}),
@@ -399,11 +395,11 @@ describe("catalog reads across revision boundaries", () => {
 				const provider = yield* runtime.findSchemaProviderBySlug("fixture-provider");
 				assert(provider);
 				const firstScript = yield* runtime.resolveDetailsScript(provider.provider.id);
-				expect((yield* plugins.list())[0]?.manifest.metadata.version).toBe("v1");
+				expect((yield* plugins.listActiveSystemPlugins())[0]?.manifest.metadata.version).toBe("v1");
 
 				const second = yield* installRevisionPackage(revisionPackage("fixture", "v2"));
 				expect(second.revisionId).not.toBe(first.revisionId);
-				expect((yield* plugins.list())[0]?.manifest.metadata.version).toBe("v2");
+				expect((yield* plugins.listActiveSystemPlugins())[0]?.manifest.metadata.version).toBe("v2");
 				const secondScript = yield* runtime.resolveDetailsScript(provider.provider.id);
 				expect(secondScript.id).not.toBe(firstScript.id);
 				expect(secondScript.contentHash).toBe("fixture.details-v2");
@@ -416,6 +412,7 @@ describe("catalog reads across revision boundaries", () => {
 		() =>
 			withRevisionDatabase(
 				Effect.gen(function* () {
+					const db = yield* Database;
 					const plugins = yield* PluginRepository;
 					const runtime = yield* PluginRuntimeResolver;
 					const installed = yield* installRevisionPackage(revisionPackage());
@@ -424,9 +421,11 @@ describe("catalog reads across revision boundaries", () => {
 					expect((yield* runtime.listPluginsAvailableToUser(owner)).length).toBe(1);
 
 					yield* plugins.deactivate(installed.pluginId);
-					expect(
-						(yield* plugins.readRevision(installed.revisionId)).manifest.providers,
-					).toHaveLength(1);
+					const [revision] = yield* db
+						.select()
+						.from(tables.pluginRevision)
+						.where(eq(tables.pluginRevision.id, installed.revisionId));
+					expect(revision?.manifest.providers).toHaveLength(1);
 					expect(yield* runtime.findSchemaProviderBySlug("fixture-provider")).toBeNull();
 					expect(yield* runtime.findActiveProviderById(provider.provider.id)).toBeNull();
 					expect(yield* runtime.listPluginsAvailableToUser(owner)).toEqual([]);

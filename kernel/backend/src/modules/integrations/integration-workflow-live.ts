@@ -1,4 +1,4 @@
-import { ListedIntegration } from "@ryot-app/contract/modules/integrations/schemas";
+import { IntegrationSnapshot } from "@ryot-app/contract/modules/integrations/schemas";
 import type { JsonValue } from "@ryot-app/contract/modules/ryotql/language";
 import { AutomationExecutionId, UserId } from "@ryot-app/contract/schema/brands";
 import { IsoUtcString } from "@ryot-app/contract/schema/utils";
@@ -20,7 +20,7 @@ import { IntegrationsRepository, type IntegrationRecord } from "./repository";
 import { finalizeIntegrationRun } from "./worker";
 
 const IntegrationRecordSchema = Schema.Struct({
-	...ListedIntegration.fields,
+	...IntegrationSnapshot.fields,
 	userId: UserId,
 	pluginInstallationId: Schema.String,
 });

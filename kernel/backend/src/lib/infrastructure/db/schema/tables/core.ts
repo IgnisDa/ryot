@@ -6,6 +6,7 @@ import type {
 	ProviderInformation,
 	SandboxScriptMetadata,
 } from "@ryot-app/contract/modules/sandbox/schemas";
+import type { JsonValue } from "@ryot-app/contract/schema/json";
 import type { AppSchema } from "@ryot-app/contract/schema/property-schema";
 import { generateId } from "better-auth";
 import { sql } from "drizzle-orm";
@@ -69,6 +70,7 @@ export const plugin = snakeCase.table(
 	{
 		slug: text().notNull(),
 		status: text().notNull(),
+		environmentConfigRevisionId: text(),
 		scope: text().$type<"system" | "user">().notNull(),
 		createdAt: timestamp({ withTimezone: true }).defaultNow().notNull(),
 		activeRevisionId: text().references((): AnyPgColumn => pluginRevision.id),
@@ -88,6 +90,15 @@ export const plugin = snakeCase.table(
 			columns: [table.activeRevisionId, table.id],
 			foreignColumns: [pluginRevision.id, pluginRevision.pluginId],
 		}),
+		foreignKey({
+			name: "plugin_environment_config_revision_fk",
+			columns: [table.environmentConfigRevisionId, table.activeRevisionId],
+			foreignColumns: [pluginConfigRevision.id, pluginConfigRevision.pluginRevisionId],
+		}),
+		check(
+			"plugin_environment_config_scope_check",
+			sql`${table.scope} = 'system' or ${table.environmentConfigRevisionId} is null`,
+		),
 		index("plugin_owner_id_idx").on(table.ownerId),
 		uniqueIndex("plugin_system_slug_unique")
 			.on(table.slug)
@@ -108,6 +119,7 @@ export const pluginRevision = snakeCase.table(
 		version: text().notNull(),
 		sourceHash: text().notNull(),
 		manifest: jsonb().$type<PluginManifest>().notNull(),
+		clientConfigSchema: jsonb().$type<AppSchema>().notNull(),
 		id: text()
 			.primaryKey()
 			.$defaultFn(() => generateId()),
@@ -142,7 +154,9 @@ export const pluginInstallation = snakeCase.table(
 		sortOrder: integer().notNull().default(0),
 		isDisabled: boolean().notNull().default(false),
 		uninstalledAt: timestamp({ withTimezone: true }),
+		configuredSecretPaths: text().array().notNull().default([]),
 		createdAt: timestamp({ withTimezone: true }).defaultNow().notNull(),
+		clientConfig: jsonb().$type<Record<string, JsonValue>>().notNull().default({}),
 		userId: text()
 			.notNull()
 			.references(() => user.id, { onDelete: "cascade" }),
@@ -178,6 +192,7 @@ export const pluginConfigRevision = snakeCase.table(
 		encryptedPayload: bytea(),
 		encryptionKeyId: text().notNull(),
 		payloadFingerprint: text().notNull(),
+		configuredKeys: text().array().notNull(),
 		payloadPrunedAt: timestamp({ withTimezone: true }),
 		id: text()
 			.primaryKey()
@@ -185,10 +200,12 @@ export const pluginConfigRevision = snakeCase.table(
 		scope: text().$type<"environment" | "installation">().notNull(),
 		createdAt: timestamp({ withTimezone: true }).defaultNow().notNull(),
 		ownerUserId: text().references(() => user.id, { onDelete: "cascade" }),
-		pluginInstallationId: text().references(() => pluginInstallation.id, { onDelete: "set null" }),
 		pluginRevisionId: text()
 			.notNull()
 			.references(() => pluginRevision.id, { onDelete: "cascade" }),
+		pluginInstallationId: text().references((): AnyPgColumn => pluginInstallation.id, {
+			onDelete: "set null",
+		}),
 	},
 	(table) => [
 		index("plugin_config_revision_installation_idx").on(table.pluginInstallationId),
@@ -269,6 +286,14 @@ export const sandboxScript = snakeCase.table(
 			.where(sql`${table.pluginRevisionId} is null`),
 	],
 );
+
+export const kernelScript = snakeCase.table("kernel_script", {
+	slug: text().primaryKey(),
+	scriptId: text()
+		.notNull()
+		.unique()
+		.references(() => sandboxScript.id, { onDelete: "restrict" }),
+});
 
 export const sandboxProviderOperation = snakeCase.table(
 	"sandbox_provider_operation",

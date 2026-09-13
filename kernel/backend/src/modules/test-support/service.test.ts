@@ -3,6 +3,7 @@ import { expect, it } from "@effect/vitest";
 import {
 	EntityId,
 	EntitySchemaSlug,
+	PluginId,
 	PluginSlug,
 	RelationshipId,
 	RelationshipSchemaSlug,
@@ -18,8 +19,6 @@ import { LifecycleExecution } from "#lib/domain/lifecycle-execution";
 import { RedisService } from "#lib/infrastructure/redis";
 import { databaseLayer, makeRedisService, type MockOverrides } from "#lib/test-utils/effect";
 import { AuthService } from "#modules/auth/service";
-import { AutomationsService } from "#modules/automations/service";
-import { DefinitionRegistry, makeDefinitionRegistry } from "#modules/definition-registry/service";
 import { EntitiesRepository } from "#modules/entities/repository";
 import { EntitiesService } from "#modules/entities/service";
 import { InterestService } from "#modules/entity-interest/service";
@@ -39,16 +38,6 @@ const entityId = EntityId.make("entity-id");
 const entitySchemaSlug = EntitySchemaSlug.make("entity-schema-id");
 const scriptId = SandboxScriptId.make("script-id");
 
-const storedSandboxScript = {
-	id: scriptId,
-	name: "Script",
-	slug: "script",
-	compiledFormat: 1,
-	source: "export default {}",
-	compiledCode: "export default {}",
-	metadata: { kind: "script" as const },
-};
-
 const mockAuth = Layer.mock(AuthService);
 const mockEntities = Layer.mock(EntitiesService);
 const mockInterest = Layer.mock(InterestService);
@@ -56,7 +45,6 @@ const mockPluginIngestion = Layer.mock(PluginIngestionService);
 const mockPluginInstallations = Layer.mock(PluginInstallationService);
 const mockPluginRepository = Layer.mock(PluginRepository);
 const mockPluginCrons = Layer.mock(PluginCronService);
-const mockAutomations = Layer.mock(AutomationsService);
 const mockSandbox = Layer.mock(SandboxExecutionService);
 const mockTranslations = Layer.mock(TranslationsService);
 const mockRelationships = Layer.mock(RelationshipsService);
@@ -70,10 +58,10 @@ const makeServiceLayer = (
 		pluginIngestion?: MockOverrides<typeof mockPluginIngestion>;
 		pluginInstallations?: MockOverrides<typeof mockPluginInstallations>;
 		pluginRepository?: MockOverrides<typeof mockPluginRepository>;
+		translations?: MockOverrides<typeof mockTranslations>;
 		relationships?: MockOverrides<typeof mockRelationships>;
 		relationshipSchemas?: MockOverrides<typeof mockRelationshipSchemas>;
 	} = {},
-	definitions = makeDefinitionRegistry(),
 ) => {
 	return TestSupportService.layer.pipe(
 		Layer.provideMerge(
@@ -88,9 +76,7 @@ const makeServiceLayer = (
 				}),
 				Layer.mock(EntitiesRepository)({}),
 				mockAuth({ auth: Object.create(null) }),
-				mockAutomations({}),
 				Layer.succeed(RedisService, makeRedisService()),
-				Layer.succeed(DefinitionRegistry, { ...definitions }),
 				mockEntities({ ...overrides.entities }),
 				mockSandbox({ ...overrides.sandbox }),
 				mockPluginCrons({
@@ -102,7 +88,7 @@ const makeServiceLayer = (
 				mockPluginInstallations({ ...overrides.pluginInstallations }),
 				mockPluginRepository({ ...overrides.pluginRepository }),
 				mockInterest({ ...overrides.interest }),
-				mockTranslations({}),
+				mockTranslations({ ...overrides.translations }),
 				mockRelationships({ ...overrides.relationships }),
 				mockRelationshipSchemas({ ...overrides.relationshipSchemas }),
 			),
@@ -117,35 +103,25 @@ const testPluginManifest = () => {
 
 const persistedPluginResult = (revision: string) => ({
 	id: "plugin-id",
-	slug: "fixture",
-	scope: "user" as const,
-	manifest: testPluginManifest(),
-	sourceHash: `source-${revision}`,
 	installationId: "installation-id",
 	configRevisionId: `config-${revision}`,
 	activeRevisionId: `revision-${revision}`,
-	scripts: [{ slug: "fixture.script", id: `script-${revision}`, contentHash: `hash-${revision}` }],
+	scripts: [{ slug: "fixture.script", id: `script-${revision}` }],
 });
 
-const pluginInstallationItem = {
-	config: {},
-	sortOrder: 0,
-	isDisabled: false,
-	healthReason: null,
-	homeSavedViewId: null,
-	configuredSecrets: [],
-	scope: "user" as const,
-	sourceHash: "source-v1",
-	health: "ready" as const,
-	configSchema: testPluginManifest().configSchema,
-	...testPluginManifest().metadata,
-	slug: PluginSlug.make("fixture"),
-};
+const pluginInstallationResult = { id: "installation-id", pluginId: PluginId.make("plugin-id") };
 
 it.effect("returns persisted system plugin identity after real ingestion completes", () => {
 	const manifest = testPluginManifest();
 	let ingestedFiles: Readonly<Record<string, Uint8Array>> | undefined;
 	const layer = makeServiceLayer({
+		pluginIngestion: {
+			installPlugin: ({ files }) =>
+				Effect.sync(() => {
+					ingestedFiles = files;
+					return { slug: PluginSlug.make("fixture"), pluginId: PluginId.make("plugin-id") };
+				}),
+		},
 		pluginRepository: {
 			findTestSupportOperationResult: () =>
 				Effect.succeed({
@@ -153,17 +129,6 @@ it.effect("returns persisted system plugin identity after real ingestion complet
 					installationId: null,
 					configRevisionId: null,
 					scope: "system" as const,
-				}),
-		},
-		pluginIngestion: {
-			installPlugin: ({ files }) =>
-				Effect.sync(() => {
-					ingestedFiles = files;
-					return {
-						...manifest.metadata,
-						sourceHash: "source-v1",
-						slug: PluginSlug.make("fixture"),
-					};
 				}),
 		},
 	});
@@ -174,13 +139,12 @@ it.effect("returns persisted system plugin identity after real ingestion complet
 			files: { "backend/script.ts": Encoding.encodeBase64(new TextEncoder().encode("source")) },
 		});
 		expect(new TextDecoder().decode(ingestedFiles?.["backend/script.ts"])).toBe("source");
-		expect(result).toMatchObject({
-			scope: "system",
+		expect(result).toEqual({
 			installationId: null,
 			pluginId: "plugin-id",
 			configRevisionId: null,
 			activePluginRevisionId: "revision-v1",
-			scripts: [{ id: "script-v1", slug: "fixture.script", contentHash: "hash-v1" }],
+			scripts: [{ id: "script-v1", slug: "fixture.script" }],
 		});
 	}).pipe(Effect.provide(layer));
 });
@@ -196,13 +160,13 @@ it.effect("returns a fresh persisted private handle after install and update", (
 			installPrivatePlugin: () =>
 				Effect.sync(() => {
 					operations.push("install");
-					return pluginInstallationItem;
+					return pluginInstallationResult;
 				}),
 			updatePrivatePlugin: () =>
 				Effect.sync(() => {
 					operations.push("update");
 					revision = "v2";
-					return { ...pluginInstallationItem, sourceHash: "source-v2" };
+					return pluginInstallationResult;
 				}),
 		},
 	});
@@ -219,18 +183,43 @@ it.effect("returns a fresh persisted private handle after install and update", (
 			{ uploadToken: "update-upload" },
 		);
 		expect(operations).toEqual(["install", "update"]);
-		expect(installed).toMatchObject({
+		expect(installed).toEqual({
 			pluginId: "plugin-id",
 			configRevisionId: "config-v1",
 			installationId: "installation-id",
 			activePluginRevisionId: "revision-v1",
+			scripts: [{ id: "script-v1", slug: "fixture.script" }],
 		});
-		expect(updated).toMatchObject({
+		expect(updated).toEqual({
 			pluginId: installed.pluginId,
 			configRevisionId: "config-v2",
 			activePluginRevisionId: "revision-v2",
 			installationId: installed.installationId,
+			scripts: [{ id: "script-v2", slug: "fixture.script" }],
 		});
+	}).pipe(Effect.provide(layer));
+});
+
+it.effect("returns the persisted translation id from an upsert", () => {
+	let received: unknown;
+	const layer = makeServiceLayer({
+		translations: {
+			upsert: (input) =>
+				Effect.sync(() => {
+					received = input;
+					return "translation-row-id";
+				}),
+		},
+	});
+	return Effect.gen(function* () {
+		const result = yield* (yield* TestSupportService).upsertEntityTranslation({
+			entityId,
+			language: "es",
+			name: "Nombre",
+			properties: null,
+		});
+		expect(result).toEqual({ id: "translation-row-id" });
+		expect(received).toMatchObject({ entityId, language: "es", name: "Nombre" });
 	}).pipe(Effect.provide(layer));
 });
 
@@ -475,31 +464,6 @@ it.effect("delegates sandbox execution with the explicit executing user", () => 
 			executionId: "execution-id",
 		});
 		expect(enqueueInput).toEqual({ payload: { scriptId }, userId: executingUserId });
-	}).pipe(Effect.provide(layer));
-});
-
-it.effect("brands provider IDs in stored sandbox script responses", () => {
-	const providerId = "provider-id";
-	const layer = makeServiceLayer({
-		sandbox: {
-			getStoredScript: () => Effect.succeed({ ...storedSandboxScript, providerId }),
-			listStoredScripts: Effect.succeed([
-				{ ...storedSandboxScript, providerId },
-				{ ...storedSandboxScript, providerId: null, id: SandboxScriptId.make("standalone-id") },
-			]),
-		},
-	});
-
-	return Effect.gen(function* () {
-		const service = yield* TestSupportService;
-		expect(yield* service.getSandboxScript(scriptId)).toEqual({
-			...storedSandboxScript,
-			providerId: SandboxProviderId.make(providerId),
-		});
-		expect(yield* service.listSandboxScripts()).toEqual([
-			{ ...storedSandboxScript, providerId: SandboxProviderId.make(providerId) },
-			{ ...storedSandboxScript, providerId: null, id: SandboxScriptId.make("standalone-id") },
-		]);
 	}).pipe(Effect.provide(layer));
 });
 

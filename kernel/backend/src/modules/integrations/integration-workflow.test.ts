@@ -142,7 +142,6 @@ const makeTestLayer = (options: TestLayerOptions) =>
 		BunFileSystem.layer,
 		makeRedisLayer(),
 		Layer.mock(IntegrationProviderCatalog)({
-			listForUser: () => Effect.succeed([]),
 			resolveOwnedForUser: () => Effect.succeed(null),
 			findForUser: () => Effect.succeed(registeredProvider),
 			findOwnedForUser: (_userId, providerSlug, installationId) => {

@@ -184,6 +184,7 @@ const betaSource = (overrides: Partial<RegisteredImportSource> = {}): Registered
 	workflowSlug: "beta-import",
 	requiredPluginConfigKeys: [],
 	pluginId: "example-plugin-id",
+	configuredPluginConfigKeys: [],
 	installationId: "example-installation",
 	inputSchema: { unknownKeys: "strict", fields: { uploadToken: uploadProperty(["csv"]) } },
 	configContext: {
@@ -508,58 +509,7 @@ it.effect("rejects a source whose declared plugin config keys are unset", () => 
 	}).pipe(Effect.provide(layer));
 });
 
-it.effect("lists manifest sources with workflow and config availability", () => {
-	const source = betaSource({
-		requiredPluginConfigKeys: ["deltaApiKey"],
-		configContext: { ...betaSource().configContext, pluginConfigRevisionId: null },
-	});
-	const layer = makeServiceLayer(
-		makeImportsRepository(),
-		Layer.mergeAll(
-			makeImportSourceCatalog(source, false),
-			mockUploadsService({}),
-			Layer.succeed(WorkflowEngine, makeWorkflowEngine()),
-		),
-	);
-
-	return Effect.gen(function* () {
-		const sources = yield* (yield* ImportsService).listImportSources(user);
-		expect(sources).toEqual([
-			{
-				name: "Beta",
-				slug: "beta",
-				isStartable: false,
-				pluginSlug: "example",
-				description: "Beta export",
-				workflowSlug: "beta-import",
-				inputSchema: source.inputSchema,
-				requiredPluginConfigKeys: ["deltaApiKey"],
-				missingPluginConfigKeys: ["RYOT_PLUGIN_EXAMPLE_DELTA_API_KEY"],
-			},
-		]);
-		expect(sources[0]).not.toHaveProperty("configSchema");
-	}).pipe(Effect.provide(Layer.mergeAll(layer, makeConfigProviderLayer())));
-});
-
-it.effect("lists a configured source with an active workflow as startable", () => {
-	const source = betaSource();
-	const layer = makeServiceLayer(
-		makeImportsRepository(),
-		Layer.mergeAll(
-			makeImportSourceCatalog(source),
-			mockUploadsService({}),
-			Layer.succeed(WorkflowEngine, makeWorkflowEngine()),
-		),
-	);
-
-	return Effect.gen(function* () {
-		expect(yield* (yield* ImportsService).listImportSources(user)).toMatchObject([
-			{ slug: "beta", isStartable: true, missingPluginConfigKeys: [] },
-		]);
-	}).pipe(Effect.provide(Layer.mergeAll(layer, makeConfigProviderLayer())));
-});
-
-it.effect("hides and rejects import sources from an unavailable system installation", () => {
+it.effect("rejects import sources from an unavailable system installation", () => {
 	const source = betaSource();
 	const layer = makeServiceLayer(
 		makeImportsRepository({ createRun: () => Effect.die("run must not be created") }),
@@ -575,7 +525,6 @@ it.effect("hides and rejects import sources from an unavailable system installat
 
 	return Effect.gen(function* () {
 		const service = yield* ImportsService;
-		expect(yield* service.listImportSources(user)).toEqual([]);
 		const error = yield* Effect.flip(service.startImportRun(user, { source: source.slug }));
 		expect(error).toMatchObject({ reason: { source: source.slug, code: "source-not-found" } });
 	}).pipe(Effect.provide(Layer.mergeAll(layer, makeConfigProviderLayer())));

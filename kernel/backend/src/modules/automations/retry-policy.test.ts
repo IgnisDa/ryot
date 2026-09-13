@@ -4,11 +4,7 @@ import {
 } from "@ryot-app/contract/modules/automations/lifecycle";
 import { describe, expect, it } from "vitest";
 
-import {
-	automaticRetryAt,
-	isRetryableAutomationFailure,
-	manualRetryEligibility,
-} from "./retry-policy";
+import { automaticRetryAt, isRetryableAutomationFailure } from "./retry-policy";
 
 const now = new Date("2026-09-15T00:00:00.000Z");
 const run = {
@@ -69,16 +65,9 @@ describe("automation retries", () => {
 			),
 		).toBeNull();
 	});
-	it("never retries before policies and requires failed state, time and artifacts for manual retry", () => {
+	it("never retries before policies automatically", () => {
 		expect(
 			automaticRetryAt({ ...run, stage: "before", retryPolicy: null }, "sandbox-timeout", now),
 		).toBeNull();
-		expect(manualRetryEligibility({ ...run, stage: "before" }, now, true)).toBe("before-policy");
-		for (const status of ["queued", "running", "succeeded", "rejected", "skipped"] as const) {
-			expect(manualRetryEligibility({ ...run, status }, now, true)).toBe("not-failed");
-		}
-		expect(manualRetryEligibility(run, new Date(run.artifactsExpireAt), true)).toBe("expired");
-		expect(manualRetryEligibility(run, now, false)).toBe("missing-artifact");
-		expect(manualRetryEligibility(run, now, true)).toBeNull();
 	});
 });

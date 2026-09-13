@@ -6,7 +6,6 @@ import { DemoAccessPolicy } from "../../http-annotations";
 import { NotificationChannelId } from "../../schema/brands";
 import {
 	CreateNotificationChannelBody,
-	ListedNotificationChannel,
 	NotificationNotFoundError,
 	NotificationRequestError,
 	UpdateNotificationChannelBody,
@@ -25,9 +24,9 @@ export const NotificationsGroup = HttpApiGroup.make("notifications")
 	)
 	.add(
 		HttpApiEndpoint.patch("updateChannel", "/notifications/channels/:channelId", {
-			success: ListedNotificationChannel,
 			payload: UpdateNotificationChannelBody,
 			params: { channelId: NotificationChannelId },
+			success: Schema.Struct({ id: NotificationChannelId }),
 			error: [NotificationNotFoundError.pipe(HttpApiSchema.status(404))],
 		})
 			.annotate(DemoAccessPolicy, "protected")

@@ -16,6 +16,7 @@ import {
 	type LifecycleCommittedStep,
 	type LifecyclePreparedStep,
 } from "#lib/infrastructure/lifecycle-workflow-step";
+import { DefinitionRepository } from "#modules/definition-registry/repository";
 import {
 	catalogDefinitionFingerprint,
 	type CatalogDefinitionFingerprint,
@@ -73,10 +74,11 @@ export class RelationshipsService extends Context.Service<RelationshipsService>(
 		make: Effect.gen(function* () {
 			const repository = yield* RelationshipsRepository;
 			const runtime = yield* PluginRuntimeResolver;
+			const definitions = yield* DefinitionRepository;
 			const client = yield* PgClient.PgClient;
 			const planner = yield* LifecyclePlanner;
 			const execution = yield* LifecycleExecution;
-			const dependencies = { client, planner, runtime, execution, repository };
+			const dependencies = { client, planner, runtime, execution, repository, definitions };
 			const {
 				committedReplay,
 				prepareUserCreate,
@@ -89,6 +91,7 @@ export class RelationshipsService extends Context.Service<RelationshipsService>(
 				effect.pipe(
 					Effect.provideService(RelationshipsRepository, repository),
 					Effect.provideService(PluginRuntimeResolver, runtime),
+					Effect.provideService(DefinitionRepository, definitions),
 				);
 			const prepareSingleWithCatalog = Effect.fnUntraced(function* (
 				input: RelationshipIdentityInput,
@@ -113,11 +116,12 @@ export class RelationshipsService extends Context.Service<RelationshipsService>(
 						dispatch: [replay.plan, ...batch].map(toLifecycleDispatchPlan),
 					} satisfies LifecycleCommittedStep<RelationshipSingleResult>;
 				}
-				const catalog =
+				const definition =
 					input.scope === "user"
-						? yield* runtime.getEffectiveDefinitions(input.userId)
-						: yield* runtime.getGlobalDefinitions();
-				const definition = catalog.relationshipSchemas[input.relationshipSchemaSlug];
+						? (yield* definitions.findUserRelationshipSchemas(input.userId, [
+								input.relationshipSchemaSlug,
+							]))[input.relationshipSchemaSlug]
+						: yield* definitions.findGlobalRelationshipSchema(input.relationshipSchemaSlug);
 				if (!definition) {
 					return yield* new RelationshipNotFound({
 						reason: {
@@ -192,7 +196,6 @@ export class RelationshipsService extends Context.Service<RelationshipsService>(
 				persistPreparedUserDelete,
 				persistPlannedReconciliation,
 				applyPolicies: applyRelationshipPolicies,
-				listGlobal: repository.listGlobalRelationships,
 				delete: (input: RelationshipIdentityInput, command: LifecycleCommand) =>
 					single(prepareSingle(input, command, "delete")),
 				commitBatch: (pending: PendingRelationshipMutations) =>

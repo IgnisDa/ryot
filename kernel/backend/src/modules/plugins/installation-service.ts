@@ -1,15 +1,15 @@
+import { DbError } from "@ryot-app/contract/errors";
 import type { PluginManifest } from "@ryot-app/contract/modules/plugins/manifest";
 import {
 	PluginConflictError,
 	type PluginHomeViewSelection,
 	PluginNotFoundError,
 	PluginRequestError,
-	type PluginInstallationItem,
 	type UpdatePrivatePluginBody,
 	type UpdatePluginInstallationBody,
 } from "@ryot-app/contract/modules/plugins/schemas";
 import { KernelSavedViewRendererName } from "@ryot-app/contract/modules/saved-views/schemas";
-import { PluginSlug, SavedViewId, UserId } from "@ryot-app/contract/schema/brands";
+import { PluginId, PluginSlug, UserId } from "@ryot-app/contract/schema/brands";
 import { readPluginArchiveStream, type PluginArchivePackage } from "@ryot-app/plugin-archive";
 import { sha256Hex } from "@ryot-app/ts-utils/crypto";
 import { Context, Effect, Layer, Result, Schema } from "effect";
@@ -19,17 +19,18 @@ import {
 	formatPropertyIssues,
 	parseAppSchemaProperties,
 } from "#lib/property-schema/property-schema-runtime";
+import { DefinitionRepository } from "#modules/definition-registry/repository";
 import {
 	buildDefinitionSnapshot,
 	definitionSourceFromSnapshot,
 	type DefinitionSnapshot,
-} from "#modules/definition-registry/service";
+} from "#modules/definition-registry/snapshot";
+import { mergeManifestDefinitions } from "#modules/definition-registry/source";
 import { ClientPluginCompiler } from "#modules/plugins/client-plugin-compiler";
 import { UploadIntentsService } from "#modules/uploads/intents/service";
 import { ObjectStorageService } from "#modules/uploads/object-storage/service";
 
 import { PluginCatalogInvalidator } from "./catalog-events";
-import { redactPluginConfig } from "./config-redaction";
 import { PluginDefinitionMaterializer } from "./definition-materializer";
 import { PluginIngestionLock } from "./ingestion-lock";
 import {
@@ -38,7 +39,6 @@ import {
 	type PluginPrivateInstallationRow,
 } from "./installation-repository";
 import { PluginInstallationLifecycleDispatcher } from "./installation-workflow";
-import { mergeManifestDefinitions, PluginLoader } from "./loader";
 import { compilePluginPackage, normalizePluginSource, structurePluginFailure } from "./pipeline";
 import { PluginRepository } from "./repository";
 import { validateAdditiveSchemaEvolution } from "./schema-evolution";
@@ -70,17 +70,8 @@ type UpdatePrivatePluginInput = PrivatePluginPackageInput &
 		readonly pluginSlug: string;
 	};
 
-type InstallationView = {
-	readonly sourceHash: string;
-	readonly manifest: PluginManifest;
-	readonly defaultSortOrder: number;
-	readonly scope: "system" | "user";
-	readonly state: PluginInstallationRow | null;
-	readonly homeSavedViewId?: PluginHomeViewSelection["savedViewId"];
-};
-
 type HomeSavedViewTarget = NonNullable<
-	Effect.Success<ReturnType<PluginInstallationRepository["Service"]["findHomeSavedView"]>>
+	Effect.Success<ReturnType<PluginInstallationRepository["Service"]["lockHomeSavedView"]>>
 >;
 
 const isUsableHomeSavedView = (
@@ -220,29 +211,13 @@ const detectShippedConflict = (
 		}),
 	);
 
-const toInstallationItem = (view: InstallationView): PluginInstallationItem => {
-	const storedConfig = view.scope === "system" ? {} : (view.state?.config ?? {});
-	return {
-		...view.manifest.metadata,
-		...redactPluginConfig(view.manifest.configSchema, storedConfig, view.state?.configSchema),
-		scope: view.scope,
-		sourceHash: view.sourceHash,
-		health: view.state?.health ?? "ready",
-		isDisabled: view.state?.isDisabled ?? false,
-		homeSavedViewId: view.homeSavedViewId ?? null,
-		healthReason: view.state?.healthReason ?? null,
-		slug: PluginSlug.make(view.manifest.metadata.slug),
-		sortOrder: view.state?.sortOrder ?? view.defaultSortOrder,
-	};
-};
-
 export class PluginInstallationService extends Context.Service<PluginInstallationService>()(
 	"PluginInstallationService",
 	{
 		make: Effect.gen(function* () {
 			const database = yield* Database;
-			const loader = yield* PluginLoader;
 			const repository = yield* PluginRepository;
+			const definitions = yield* DefinitionRepository;
 			const ingestionLock = yield* PluginIngestionLock;
 			const uploadIntents = yield* UploadIntentsService;
 			const clientCompiler = yield* ClientPluginCompiler;
@@ -314,9 +289,8 @@ export class PluginInstallationService extends Context.Service<PluginInstallatio
 				"PluginInstallationService.reconcilePrivateConflicts",
 			)(function* () {
 				const rows = yield* installations.listPrivateInstallations();
-				const snapshot = loader.getSnapshot();
-				const systemDefinitions = snapshot.definitions;
-				const systemPlugins = Object.values(snapshot.plugins);
+				const systemDefinitions = yield* definitions.getGlobalSnapshot;
+				const systemPlugins = yield* repository.listActiveSystemPlugins();
 				const systemSlugs = new Set(systemPlugins.map(({ slug }) => slug));
 				const owners = new Map<UserId, Array<PluginPrivateInstallationRow>>();
 				for (const row of rows) {
@@ -432,86 +406,13 @@ export class PluginInstallationService extends Context.Service<PluginInstallatio
 				);
 			});
 
-			const listInstallations = Effect.fn("PluginInstallationService.listInstallations")(function* (
-				userId: UserId,
-			) {
-				const states = yield* installations.listHydratedForUser(userId);
-				const privatePlugins = yield* repository.listPrivateForUser(userId);
-				const systemPlugins = Object.values(loader.getSnapshot().plugins);
-				const pluginById = new Map(
-					[...systemPlugins, ...privatePlugins].map((plugin) => [plugin.id, plugin]),
-				);
-				const usablePluginById = new Map(
-					states
-						.filter((state) => state.health === "ready" && !state.isDisabled)
-						.flatMap((state) => {
-							const plugin = pluginById.get(state.pluginId);
-							return plugin ? [[state.pluginId, plugin] as const] : [];
-						}),
-				);
-				const effectiveHomeViews = new Map(
-					yield* Effect.forEach(states, (state) =>
-						Effect.gen(function* () {
-							const selectedId = state.homeSavedViewId;
-							if (selectedId !== null) {
-								const target = yield* installations.findHomeSavedView(userId, selectedId);
-								if (target && isUsableHomeSavedView(userId, target, usablePluginById)) {
-									return [state.id, SavedViewId.make(selectedId)] as const;
-								}
-							}
-							const homeView = pluginById.get(state.pluginId)?.manifest.client?.homeView;
-							if (homeView == null) {
-								return [state.id, null] as const;
-							}
-							const target = yield* installations.findHomeSavedViewBySlug(
-								userId,
-								state.id,
-								homeView,
-							);
-							return [
-								state.id,
-								target && isUsableHomeSavedView(userId, target, usablePluginById)
-									? SavedViewId.make(target.view.id)
-									: null,
-							] as const;
-						}),
-					),
-				);
-				const stateByPluginId = new Map(states.map((state) => [state.pluginId, state]));
-				const systemItems = systemPlugins.map((plugin, index) =>
-					toInstallationItem({
-						scope: "system",
-						defaultSortOrder: index,
-						manifest: plugin.manifest,
-						sourceHash: plugin.sourceHash,
-						state: stateByPluginId.get(plugin.id) ?? null,
-						homeSavedViewId:
-							effectiveHomeViews.get(stateByPluginId.get(plugin.id)?.id ?? "") ?? null,
-					}),
-				);
-				const privateItems = privatePlugins.map((plugin, index) =>
-					toInstallationItem({
-						scope: "user",
-						manifest: plugin.manifest,
-						sourceHash: plugin.sourceHash,
-						state: stateByPluginId.get(plugin.id) ?? null,
-						defaultSortOrder: systemPlugins.length + index,
-						homeSavedViewId:
-							effectiveHomeViews.get(stateByPluginId.get(plugin.id)?.id ?? "") ?? null,
-					}),
-				);
-				return [...systemItems, ...privateItems].sort(
-					(left, right) => left.sortOrder - right.sortOrder || left.slug.localeCompare(right.slug),
-				);
-			});
-
 			const setHomeView = Effect.fn("PluginInstallationService.setHomeView")(function* (
 				userId: UserId,
 				slug: string,
 				payload: PluginHomeViewSelection,
 			) {
 				const pluginSlug = PluginSlug.make(slug);
-				const systemPlugin = loader.getSnapshot().plugins[slug];
+				const systemPlugin = yield* repository.findActiveSystemPlugin(slug);
 				const privatePlugin = systemPlugin
 					? undefined
 					: (yield* repository.listPrivateForUser(userId)).find(
@@ -534,7 +435,7 @@ export class PluginInstallationService extends Context.Service<PluginInstallatio
 							);
 							const rendererPlugins = new Map(
 								[
-									...Object.values(loader.getSnapshot().plugins),
+									...(yield* repository.listActiveSystemPlugins()),
 									...(yield* repository.listPrivateForUser(userId)),
 								]
 									.filter((candidate) => usablePluginIds.has(candidate.id))
@@ -599,10 +500,10 @@ export class PluginInstallationService extends Context.Service<PluginInstallatio
 					const slug = manifest.metadata.slug;
 					const pluginSlug = PluginSlug.make(slug);
 					yield* validatePluginPackageLimits(files, manifest);
-					const systemManifests = yield* repository.listActiveManifests();
+					const systemSlugs = yield* repository.listActiveSystemSlugs();
 					yield* validatePluginManifestPolicy(manifest, {
 						scope: "user",
-						systemSlugs: new Set(systemManifests.map(({ metadata }) => metadata.slug)),
+						systemSlugs: new Set(systemSlugs),
 					});
 					yield* validatePluginSourcePaths(files, manifest);
 					const owned = yield* repository.listPrivateForUser(input.userId);
@@ -612,11 +513,11 @@ export class PluginInstallationService extends Context.Service<PluginInstallatio
 						});
 					}
 					const effectiveDefinitions = yield* buildEffectiveDefinitions(
-						loader.getSnapshot().definitions,
+						yield* definitions.getGlobalSnapshot,
 						[...owned, { slug, manifest, id: "private-plugin-candidate" }],
 					);
 					yield* validateEffectiveSurfaceSlugs([
-						...Object.values(loader.getSnapshot().plugins),
+						...(yield* repository.listActiveSystemPlugins()),
 						...owned,
 						{ slug, manifest },
 					]);
@@ -651,7 +552,7 @@ export class PluginInstallationService extends Context.Service<PluginInstallatio
 									const sortOrder =
 										existing?.sortOrder ??
 										Math.max(
-											Object.keys(loader.getSnapshot().plugins).length - 1,
+											systemSlugs.length - 1,
 											...current.map(({ sortOrder: order }) => order),
 										) + 1;
 									const existingState = yield* installations.upsertState({
@@ -662,19 +563,19 @@ export class PluginInstallationService extends Context.Service<PluginInstallatio
 										health: "installing",
 										userId: input.userId,
 									});
+									if (!existingState) {
+										return yield* new DbError({
+											message: "Plugin installation upsert returned no row",
+										});
+									}
 									yield* definitionMaterializer.materialize(input.userId);
 									return existingState;
 								}).pipe(Effect.provideService(Database, transaction)),
 							),
 						).pipe(Effect.tap(() => invalidator.user(input.userId))),
 					);
-					return toInstallationItem({
-						manifest,
-						sourceHash,
-						scope: "user",
-						defaultSortOrder: 0,
-						state: state ? yield* dispatchInstallationLifecycle(state) : null,
-					});
+					yield* dispatchInstallationLifecycle(state);
+					return { id: state.id, pluginId: PluginId.make(state.pluginId) };
 				},
 			);
 
@@ -692,7 +593,7 @@ export class PluginInstallationService extends Context.Service<PluginInstallatio
 			const updatePrivateUnlocked = Effect.fn("PluginInstallationService.updatePrivateUnlocked")(
 				function* (input: UpdatePrivatePluginInput) {
 					const pluginSlug = PluginSlug.make(input.pluginSlug);
-					if (loader.getSnapshot().plugins[input.pluginSlug]) {
+					if (yield* repository.findActiveSystemPlugin(input.pluginSlug)) {
 						return yield* new PluginConflictError({
 							reason: { pluginSlug, code: "system-plugin" },
 						});
@@ -724,13 +625,11 @@ export class PluginInstallationService extends Context.Service<PluginInstallatio
 							yield* validatePluginPackageLimits(files, manifest);
 							yield* validatePluginManifestPolicy(manifest, {
 								scope: "user",
-								systemSlugs: new Set(
-									(yield* repository.listActiveManifests()).map(({ metadata }) => metadata.slug),
-								),
+								systemSlugs: new Set(yield* repository.listActiveSystemSlugs()),
 							});
 							yield* validatePluginSourcePaths(files, manifest);
 							const effectiveDefinitions = yield* buildEffectiveDefinitions(
-								loader.getSnapshot().definitions,
+								yield* definitions.getGlobalSnapshot,
 								[
 									...(yield* repository.listPrivateForUser(input.userId)).filter(
 										(candidate) => candidate.id !== plugin.id,
@@ -739,7 +638,7 @@ export class PluginInstallationService extends Context.Service<PluginInstallatio
 								],
 							);
 							yield* validateEffectiveSurfaceSlugs([
-								...Object.values(loader.getSnapshot().plugins),
+								...(yield* repository.listActiveSystemPlugins()),
 								...(yield* repository.listPrivateForUser(input.userId)).filter(
 									(candidate) => candidate.id !== plugin.id,
 								),
@@ -792,11 +691,7 @@ export class PluginInstallationService extends Context.Service<PluginInstallatio
 													id: currentInstallation.id,
 													health: "needs-configuration",
 												});
-												return {
-													...currentInstallation,
-													healthReason,
-													health: "needs-configuration" as const,
-												};
+												return { id: currentInstallation.id };
 											}
 											const state = yield* installations.updateState({
 												id: currentInstallation.id,
@@ -804,10 +699,14 @@ export class PluginInstallationService extends Context.Service<PluginInstallatio
 												sortOrder: currentInstallation.sortOrder,
 												isDisabled: currentInstallation.isDisabled,
 											});
-											const resolved = state ?? currentInstallation;
+											if (!state) {
+												return yield* new PluginNotFoundError({
+													reason: { pluginSlug, code: "plugin-not-found" },
+												});
+											}
 											if (currentInstallation.health !== "incompatible") {
 												yield* definitionMaterializer.materialize(input.userId);
-												return resolved;
+												return { id: state.id };
 											}
 											yield* installations.updateHealth({
 												health: "ready",
@@ -815,18 +714,12 @@ export class PluginInstallationService extends Context.Service<PluginInstallatio
 												id: currentInstallation.id,
 											});
 											yield* definitionMaterializer.materialize(input.userId);
-											return { ...resolved, healthReason: null, health: "ready" as const };
+											return { id: state.id };
 										}).pipe(Effect.provideService(Database, transaction)),
 									),
 								).pipe(Effect.tap(() => invalidator.user(input.userId))),
 							);
-							return toInstallationItem({
-								manifest,
-								sourceHash,
-								scope: "user",
-								state: updated,
-								defaultSortOrder: updated.sortOrder,
-							});
+							return { id: updated.id, pluginId: PluginId.make(plugin.id) };
 						}),
 					);
 				},
@@ -851,7 +744,7 @@ export class PluginInstallationService extends Context.Service<PluginInstallatio
 			)(function* (userId: UserId, slug: string, payload: UpdatePluginInstallationBody) {
 				yield* repository.lockIngestion();
 				const pluginSlug = PluginSlug.make(slug);
-				const systemPlugin = loader.getSnapshot().plugins[slug];
+				const systemPlugin = yield* repository.findActiveSystemPlugin(slug);
 				const privatePlugin = systemPlugin
 					? undefined
 					: (yield* repository.listPrivateForUser(userId)).find(
@@ -889,7 +782,7 @@ export class PluginInstallationService extends Context.Service<PluginInstallatio
 					plugin.scope === "system"
 						? {}
 						: yield* validateConfigPatch(plugin.manifest, state.config, payload);
-				const updated = yield* Effect.uninterruptible(
+				const saved = yield* Effect.uninterruptible(
 					installations
 						.updateState({
 							config,
@@ -898,21 +791,20 @@ export class PluginInstallationService extends Context.Service<PluginInstallatio
 							sortOrder: payload.sortOrder ?? state.sortOrder,
 						})
 						.pipe(
-							Effect.tap((saved) =>
-								state.health === "needs-configuration" && saved?.health === "ready"
+							Effect.tap((result) =>
+								state.health === "needs-configuration" && result?.health === "ready"
 									? definitionMaterializer.materialize(userId)
 									: Effect.void,
 							),
-							Effect.tap(() => invalidator.user(userId)),
+							Effect.tap((result) => (result ? invalidator.user(userId) : Effect.void)),
 						),
 				);
-				return toInstallationItem({
-					scope: plugin.scope,
-					state: updated ?? state,
-					manifest: plugin.manifest,
-					sourceHash: plugin.sourceHash,
-					defaultSortOrder: state.sortOrder,
-				});
+				if (!saved) {
+					return yield* new PluginNotFoundError({
+						reason: { pluginSlug, code: "plugin-not-found" },
+					});
+				}
+				return { id: saved.id, pluginId: PluginId.make(plugin.id) };
 			});
 
 			const updateInstallation = Effect.fn("PluginInstallationService.updateInstallation")(
@@ -991,7 +883,7 @@ export class PluginInstallationService extends Context.Service<PluginInstallatio
 				const owned = yield* repository.listPrivateForUser(userId);
 				const plugin = owned.find((candidate) => candidate.slug === slug);
 				if (!plugin) {
-					if (loader.getSnapshot().plugins[slug]) {
+					if (yield* repository.findActiveSystemPlugin(slug)) {
 						return yield* new PluginConflictError({
 							reason: { pluginSlug, code: "system-plugin" },
 						});
@@ -1030,19 +922,12 @@ export class PluginInstallationService extends Context.Service<PluginInstallatio
 						),
 					).pipe(Effect.andThen(invalidator.user(userId))),
 				);
-				return toInstallationItem({
-					scope: "user",
-					state: installation,
-					manifest: plugin.manifest,
-					sourceHash: plugin.sourceHash,
-					defaultSortOrder: installation.sortOrder,
-				});
+				return { id: installation.id, pluginId: PluginId.make(plugin.id) };
 			});
 
 			return {
 				setHomeView,
 				uninstallPlugin,
-				listInstallations,
 				updateInstallation,
 				updatePrivatePlugin,
 				installPrivatePlugin,

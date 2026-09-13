@@ -59,7 +59,6 @@ it.effect("returns one active operation without repeating completed access revoc
 	});
 	const repository = Layer.mock(UserLifecycleRepository)({
 		markFailed: () => Effect.void,
-		getById: () => Effect.succeed(operation),
 		getInternalById: () => Effect.succeed(prepared),
 		loadPreparationForUpdate: () =>
 			Effect.succeed({ retryable: null, active: prepared, metadata: prepared.metadata }),
@@ -88,7 +87,7 @@ it.effect("returns one active operation without repeating completed access revoc
 		const operations = yield* Effect.all([service.deleteUser(userId), service.deleteUser(userId)], {
 			concurrency: "unbounded",
 		});
-		expect(operations).toEqual([operation, operation]);
+		expect(operations).toEqual([{ operationId: operation.id }, { operationId: operation.id }]);
 		expect(calls).toEqual([]);
 		expect(executionIds).toEqual(["user-lifecycle-operation-1-0", "user-lifecycle-operation-1-0"]);
 	}).pipe(Effect.provide(layer));
@@ -105,7 +104,6 @@ it.effect("revokes access once and clears persisted API-key cache lookup metadat
 	};
 	const repository = Layer.mock(UserLifecycleRepository)({
 		userExists: () => Effect.succeed(true),
-		getById: () => Effect.succeed(operation),
 		releaseAccessRevocation: () => Effect.void,
 		claimAccessRevocation: () => Effect.succeed(unrevoked),
 		getInternalById: () => Effect.succeed(revoked ? revokedOperation : unrevoked),
@@ -207,7 +205,6 @@ it.effect(
 					Layer.mock(UserLifecycleRepository)({
 						getInternalById: () => Effect.succeed(retried),
 						reactivateFailed: () => Effect.succeed(retried),
-						getById: () => Effect.succeed(retried.operation),
 						loadPreparationForUpdate: () =>
 							Effect.succeed({ active: null, retryable: failed, metadata: failed.metadata }),
 					}),
@@ -223,30 +220,8 @@ it.effect(
 		);
 		return Effect.gen(function* () {
 			const service = yield* UserLifecycleService;
-			expect(yield* service.deleteUser(userId)).toEqual(retried.operation);
+			expect(yield* service.deleteUser(userId)).toEqual({ operationId: retried.operation.id });
 			expect(executionIds).toEqual(["user-lifecycle-operation-1-1"]);
 		}).pipe(Effect.provide(Layer.merge(serviceLayer, databaseLayer)));
 	},
 );
-
-it.effect("returns lifecycle operation status without exposing cleanup metadata", () => {
-	const serviceLayer = UserLifecycleService.layer.pipe(
-		Layer.provide(
-			Layer.mergeAll(
-				databaseLayer,
-				makeAppConfigLayer(),
-				Layer.mock(AuthService)({ auth: Object.create(null) }),
-				Layer.succeed(WorkflowEngine, makeWorkflowEngine()),
-				Layer.mock(UserLifecycleRepository)({ getById: () => Effect.succeed(operation) }),
-			),
-		),
-	);
-	const layer = Layer.merge(serviceLayer, databaseLayer);
-
-	return Effect.gen(function* () {
-		const service = yield* UserLifecycleService;
-		const status = yield* service.getOperation("operation-1");
-		expect(status).toEqual(operation);
-		expect(status).not.toHaveProperty("metadata");
-	}).pipe(Effect.provide(layer));
-});

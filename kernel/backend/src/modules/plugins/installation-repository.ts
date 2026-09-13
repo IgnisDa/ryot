@@ -6,9 +6,13 @@ import { Context, Effect, Layer } from "effect";
 import * as schema from "#lib/infrastructure/db/schema/tables/combined";
 import { Database, mapDatabaseErrors } from "#lib/infrastructure/db/service";
 
+import { redactPluginConfig } from "./config-redaction";
 import { PluginConfigRevisions } from "./config-revisions";
 
-type StoredInstallationRow = typeof schema.pluginInstallation.$inferSelect;
+type StoredInstallationRow = Omit<
+	typeof schema.pluginInstallation.$inferSelect,
+	"clientConfig" | "configuredSecretPaths"
+>;
 export type PluginInstallationRow = StoredInstallationRow & {
 	readonly config: Record<string, unknown>;
 	readonly configSchema?: (typeof schema.pluginRevision.$inferSelect)["manifest"]["configSchema"];
@@ -136,6 +140,103 @@ export class PluginInstallationRepository extends Context.Service<PluginInstalla
 					configSchema: packageRevision.manifest.configSchema,
 				};
 			});
+			const lockPluginRevision = Effect.fn(function* (pluginId: string) {
+				const db = yield* Database;
+				yield* mapDatabaseErrors(
+					db
+						.select({ id: schema.plugin.id })
+						.from(schema.plugin)
+						.where(and(eq(schema.plugin.id, pluginId), eq(schema.plugin.scope, "user")))
+						.for("share"),
+				);
+			});
+			const lockProjectionInputs = Effect.fn(function* (pluginId: string) {
+				yield* configs.lock(pluginId);
+				yield* lockPluginRevision(pluginId);
+			});
+			const projectLockedClientConfig = Effect.fn(function* (id: string) {
+				const db = yield* Database;
+				const [row] = yield* mapDatabaseErrors(
+					db
+						.select({
+							scope: schema.plugin.scope,
+							installation: schema.pluginInstallation,
+							manifest: schema.pluginRevision.manifest,
+						})
+						.from(schema.pluginInstallation)
+						.innerJoin(schema.plugin, eq(schema.plugin.id, schema.pluginInstallation.pluginId))
+						.leftJoin(
+							schema.pluginRevision,
+							eq(schema.pluginRevision.id, schema.plugin.activeRevisionId),
+						)
+						.where(eq(schema.pluginInstallation.id, id))
+						.limit(1),
+				);
+				if (!row) {
+					return;
+				}
+				const activeSchema = row.manifest?.configSchema;
+				const projection =
+					row.scope === "system" || row.installation.uninstalledAt !== null || !activeSchema
+						? { config: {}, configuredSecrets: [] }
+						: yield* hydrate(row.installation).pipe(
+								Effect.map((hydrated: PluginInstallationRow) =>
+									redactPluginConfig(activeSchema, hydrated.config, hydrated.configSchema),
+								),
+							);
+				yield* mapDatabaseErrors(
+					db
+						.update(schema.pluginInstallation)
+						.set({
+							clientConfig: projection.config,
+							configuredSecretPaths: projection.configuredSecrets,
+						})
+						.where(eq(schema.pluginInstallation.id, id)),
+				);
+			});
+			const installationPluginId = Effect.fn(function* (id: string) {
+				const db = yield* Database;
+				const [row] = yield* mapDatabaseErrors(
+					db
+						.select({ pluginId: schema.pluginInstallation.pluginId })
+						.from(schema.pluginInstallation)
+						.where(eq(schema.pluginInstallation.id, id))
+						.limit(1),
+				);
+				return row?.pluginId ?? null;
+			});
+			const refreshClientConfig = Effect.fn(function* (row: StoredInstallationRow) {
+				const db = yield* Database;
+				yield* lockProjectionInputs(row.pluginId);
+				yield* mapDatabaseErrors(
+					db
+						.select({ id: schema.pluginInstallation.id })
+						.from(schema.pluginInstallation)
+						.where(eq(schema.pluginInstallation.id, row.id))
+						.for("update"),
+				);
+				yield* projectLockedClientConfig(row.id);
+			});
+			const refreshClientConfigsForPlugin = Effect.fn(
+				"PluginInstallationRepository.refreshClientConfigsForPlugin",
+			)(function* (pluginId: string) {
+				const db = yield* Database;
+				yield* lockPluginRevision(pluginId);
+				const rows = yield* mapDatabaseErrors(
+					db
+						.select({ id: schema.pluginInstallation.id })
+						.from(schema.pluginInstallation)
+						.where(
+							and(
+								eq(schema.pluginInstallation.pluginId, pluginId),
+								isNull(schema.pluginInstallation.uninstalledAt),
+							),
+						)
+						.orderBy(asc(schema.pluginInstallation.id))
+						.for("update"),
+				);
+				yield* Effect.forEach(rows, ({ id }) => projectLockedClientConfig(id), { discard: true });
+			});
 			const saveConfig = Effect.fn(function* (
 				row: StoredInstallationRow,
 				properties: Record<string, unknown>,
@@ -181,6 +282,7 @@ export class PluginInstallationRepository extends Context.Service<PluginInstalla
 						})
 						.where(eq(schema.pluginInstallation.id, row.id)),
 				);
+				yield* refreshClientConfig(row);
 				return {
 					...row,
 					health,
@@ -275,72 +377,6 @@ export class PluginInstallationRepository extends Context.Service<PluginInstalla
 				},
 			);
 
-			const findHomeSavedView = Effect.fn("PluginInstallationRepository.findHomeSavedView")(
-				function* (userId: UserId, savedViewId: string) {
-					const db = yield* Database;
-					const [row] = yield* mapDatabaseErrors(
-						db
-							.select({
-								view: {
-									renderer: schema.savedView.renderer,
-									isDisabled: schema.savedView.isDisabled,
-								},
-								renderer: {
-									userId: schema.clientRenderer.userId,
-									publishedHash: schema.clientRenderer.publishedHash,
-									publishedRevision: schema.clientRenderer.publishedRevision,
-									publishedDefinition: schema.clientRenderer.publishedDefinition,
-								},
-							})
-							.from(schema.savedView)
-							.leftJoin(
-								schema.clientRenderer,
-								eq(schema.savedView.clientRendererId, schema.clientRenderer.id),
-							)
-							.where(and(eq(schema.savedView.id, savedViewId), eq(schema.savedView.userId, userId)))
-							.limit(1),
-					);
-					return row ?? null;
-				},
-			);
-
-			const findHomeSavedViewBySlug = Effect.fn(
-				"PluginInstallationRepository.findHomeSavedViewBySlug",
-			)(function* (userId: UserId, pluginInstallationId: string, slug: string) {
-				const db = yield* Database;
-				const [row] = yield* mapDatabaseErrors(
-					db
-						.select({
-							view: {
-								id: schema.savedView.id,
-								renderer: schema.savedView.renderer,
-								isDisabled: schema.savedView.isDisabled,
-							},
-							renderer: {
-								userId: schema.clientRenderer.userId,
-								publishedHash: schema.clientRenderer.publishedHash,
-								publishedRevision: schema.clientRenderer.publishedRevision,
-								publishedDefinition: schema.clientRenderer.publishedDefinition,
-							},
-						})
-						.from(schema.savedView)
-						.leftJoin(
-							schema.clientRenderer,
-							eq(schema.savedView.clientRendererId, schema.clientRenderer.id),
-						)
-						.where(
-							and(
-								eq(schema.savedView.userId, userId),
-								eq(schema.savedView.slug, slug),
-								eq(schema.savedView.isBuiltin, true),
-								eq(schema.savedView.pluginInstallationId, pluginInstallationId),
-							),
-						)
-						.limit(1),
-				);
-				return row ?? null;
-			});
-
 			const lockHomeSavedView = Effect.fn("PluginInstallationRepository.lockHomeSavedView")(
 				function* (userId: UserId, savedViewId: string) {
 					const db = yield* Database;
@@ -380,6 +416,7 @@ export class PluginInstallationRepository extends Context.Service<PluginInstalla
 				health: PluginInstallationHealth;
 			}) {
 				const db = yield* Database;
+				yield* lockProjectionInputs(input.pluginId);
 				const { config, ...values } = input;
 				const [row] = yield* mapDatabaseErrors(
 					db.insert(schema.pluginInstallation).values(values).returning(),
@@ -448,6 +485,7 @@ export class PluginInstallationRepository extends Context.Service<PluginInstalla
 				health: PluginInstallationHealth;
 			}) {
 				const db = yield* Database;
+				yield* lockProjectionInputs(input.pluginId);
 				const { config, ...values } = input;
 				const [row] = yield* mapDatabaseErrors(
 					db
@@ -475,6 +513,10 @@ export class PluginInstallationRepository extends Context.Service<PluginInstalla
 				config: Record<string, unknown>;
 			}) {
 				const db = yield* Database;
+				const pluginId = yield* installationPluginId(input.id);
+				if (pluginId !== null) {
+					yield* lockProjectionInputs(pluginId);
+				}
 				const [row] = yield* mapDatabaseErrors(
 					db
 						.update(schema.pluginInstallation)
@@ -490,7 +532,12 @@ export class PluginInstallationRepository extends Context.Service<PluginInstalla
 				yield* mapDatabaseErrors(
 					db
 						.update(schema.pluginInstallation)
-						.set({ isDisabled: true, uninstalledAt: sql`now()` })
+						.set({
+							clientConfig: {},
+							isDisabled: true,
+							configuredSecretPaths: [],
+							uninstalledAt: sql`now()`,
+						})
 						.where(eq(schema.pluginInstallation.id, id)),
 				);
 			});
@@ -559,6 +606,7 @@ export class PluginInstallationRepository extends Context.Service<PluginInstalla
 				input: RestoreInstallationInput,
 			) {
 				const db = yield* Database;
+				yield* lockProjectionInputs(input.pluginId);
 				const {
 					config,
 					configuredSecretPaths,
@@ -587,9 +635,11 @@ export class PluginInstallationRepository extends Context.Service<PluginInstalla
 				if (!row) {
 					return undefined;
 				}
-				return preserveExistingConfig && row.activeConfigRevisionId
-					? yield* hydrate(row)
-					: yield* saveConfig(row, config, configuredSecretPaths, allowMissingRequiredSecrets);
+				if (preserveExistingConfig && row.activeConfigRevisionId) {
+					yield* refreshClientConfig(row);
+					return yield* hydrate(row);
+				}
+				return yield* saveConfig(row, config, configuredSecretPaths, allowMissingRequiredSecrets);
 			});
 
 			const activateRestored = Effect.fn("PluginInstallationRepository.activateRestored")(
@@ -634,13 +684,12 @@ export class PluginInstallationRepository extends Context.Service<PluginInstalla
 				activateRestored,
 				listSystemForUser,
 				lockHomeSavedView,
-				findHomeSavedView,
 				listHydratedForUser,
 				findByUserAndPlugin,
 				listPendingLifecycle,
-				findHomeSavedViewBySlug,
 				listPrivateInstallations,
 				clearHomeSavedViewReferences,
+				refreshClientConfigsForPlugin,
 				provisionSystemInstallationsForUser,
 				provisionSystemInstallationsForAllUsers,
 			};

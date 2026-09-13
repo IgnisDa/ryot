@@ -39,6 +39,8 @@ import { getCatalogTable } from "./catalog";
 import type { ScalarKind } from "./expression-kind";
 import { expressionKind } from "./validator";
 
+const userAccess = { type: "user", audience: "kernel", accessClass: "standard" } as const;
+
 const view = table("savedView", "v");
 const entity = table("entity", "e");
 const nested = table("event", "n");
@@ -47,7 +49,7 @@ const catalogScope = (...references: readonly TableReference[]) =>
 	new Map(
 		references.flatMap((reference) => {
 			const catalog = getCatalogTable(reference.table);
-			return catalog ? [[reference.alias, catalog] as const] : [];
+			return catalog ? [[reference.alias, { table: catalog, key: reference.table }] as const] : [];
 		}),
 	);
 
@@ -127,7 +129,7 @@ it("infers one kind per scalar expression variant", () => {
 		},
 	];
 	for (const { expr, kind } of cases) {
-		expect({ type: expr.type, kind: expressionKind(expr, scope) }).toEqual({
+		expect({ type: expr.type, kind: expressionKind(expr, scope, userAccess) }).toEqual({
 			kind,
 			type: expr.type,
 		});
@@ -147,6 +149,6 @@ it("leaves unresolvable column kinds undefined", () => {
 		}),
 	];
 	for (const expr of unresolved) {
-		expect(expressionKind(expr, scope)).toBeUndefined();
+		expect(expressionKind(expr, scope, userAccess)).toBeUndefined();
 	}
 });

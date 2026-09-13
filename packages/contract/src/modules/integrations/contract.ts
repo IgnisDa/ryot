@@ -10,41 +10,25 @@ import {
 	IntegrationRequestError,
 	IntegrationWebhookBody,
 	integrationWebhookContentTypes,
-	ListedIntegration,
-	ListedIntegrationProvider,
 	UpdateIntegrationBody,
 } from "./schemas";
 
 export const IntegrationsGroup = HttpApiGroup.make("integrations")
 	.annotate(OpenApi.Description, "Manage external service integrations and their import runs.")
 	.add(
-		HttpApiEndpoint.get("listProviders", "/integrations/providers", {
-			success: Schema.Array(ListedIntegrationProvider),
-		}).annotate(OpenApi.Description, "List available integration providers."),
-	)
-	.add(
-		HttpApiEndpoint.get("get", "/integrations/:integrationId", {
-			success: ListedIntegration,
-			params: { integrationId: IntegrationId },
-			error: [IntegrationNotFoundError.pipe(HttpApiSchema.status(404))],
-		})
-			.annotate(DemoAccessPolicy, "protected")
-			.annotate(OpenApi.Description, "Get an integration by ID."),
-	)
-	.add(
 		HttpApiEndpoint.post("create", "/integrations", {
 			payload: CreateIntegrationBody,
-			success: ListedIntegration.pipe(HttpApiSchema.status(201)),
 			error: [IntegrationRequestError.pipe(HttpApiSchema.status(400))],
+			success: Schema.Struct({ id: IntegrationId }).pipe(HttpApiSchema.status(201)),
 		})
 			.annotate(DemoAccessPolicy, "protected")
 			.annotate(OpenApi.Description, "Create an external service integration."),
 	)
 	.add(
 		HttpApiEndpoint.patch("update", "/integrations/:integrationId", {
-			success: ListedIntegration,
 			payload: UpdateIntegrationBody,
 			params: { integrationId: IntegrationId },
+			success: Schema.Struct({ id: IntegrationId }),
 			error: [
 				IntegrationRequestError.pipe(HttpApiSchema.status(400)),
 				IntegrationNotFoundError.pipe(HttpApiSchema.status(404)),
