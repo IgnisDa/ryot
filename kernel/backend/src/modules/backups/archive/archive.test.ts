@@ -34,6 +34,7 @@ const records: ArchiveRecords = {
 		{
 			config: {},
 			sortOrder: 0,
+			userSettings: {},
 			hiddenIntent: false,
 			id: "installation-1",
 			createdAt: timestamp,

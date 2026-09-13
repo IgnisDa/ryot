@@ -43,7 +43,7 @@ const currentUser: CurrentUserValue = {
 	image: null,
 	name: "Owner",
 	email: "owner@example.test",
-	preferences: { language: null, allowNsfw: false, disableIntegrations: false },
+	preferences: { language: null, disableIntegrations: false },
 };
 
 const tokenEndpointLayer = Layer.succeed(
