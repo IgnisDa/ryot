@@ -16,7 +16,6 @@ import { and, eq, isNull } from "drizzle-orm";
 import { Context, Effect, Layer } from "effect";
 
 import * as schema from "#lib/infrastructure/db/schema/tables/combined";
-import { mapDatabaseErrors } from "#lib/infrastructure/db/service";
 import { DatabaseSession } from "#lib/infrastructure/db/session";
 import type { PortableUserProfile } from "#modules/auth/repository";
 import { redactIntegrationForClient } from "#modules/integrations/client-redaction";
@@ -94,8 +93,7 @@ export class BackupRestorePersistence extends Context.Service<BackupRestorePersi
 			const restoreEntity = Effect.fn("BackupRestorePersistence.restoreEntity")(function* (
 				input: RestoreEntityInput,
 			) {
-				const db = yield* session.current;
-				const [row] = yield* mapDatabaseErrors(
+				const [row] = yield* session.run((db) =>
 					db.insert(schema.entity).values(input).returning({ id: schema.entity.id }),
 				);
 				return row
@@ -104,8 +102,7 @@ export class BackupRestorePersistence extends Context.Service<BackupRestorePersi
 			});
 			const restoreRelationship = Effect.fn("BackupRestorePersistence.restoreRelationship")(
 				function* (input: RestoreRelationshipInput) {
-					const db = yield* session.current;
-					const [row] = yield* mapDatabaseErrors(
+					const [row] = yield* session.run((db) =>
 						db.insert(schema.relationship).values(input).returning({ id: schema.relationship.id }),
 					);
 					return row
@@ -119,13 +116,11 @@ export class BackupRestorePersistence extends Context.Service<BackupRestorePersi
 				if (inputs.length === 0) {
 					return;
 				}
-				const db = yield* session.current;
-				yield* mapDatabaseErrors(db.insert(schema.event).values([...inputs]));
+				yield* session.run((db) => db.insert(schema.event).values([...inputs]));
 			});
 			const restoreTranslation = Effect.fn("BackupRestorePersistence.restoreTranslation")(
 				function* (input: RestoreTranslationInput) {
-					const db = yield* session.current;
-					const [row] = yield* mapDatabaseErrors(
+					const [row] = yield* session.run((db) =>
 						db
 							.insert(schema.entityTranslation)
 							.values(input)
@@ -138,8 +133,7 @@ export class BackupRestorePersistence extends Context.Service<BackupRestorePersi
 			);
 			const restorePortableProfile = Effect.fn("BackupRestorePersistence.restorePortableProfile")(
 				function* (userId: UserId, profile: PortableUserProfile) {
-					const db = yield* session.current;
-					const [row] = yield* mapDatabaseErrors(
+					const [row] = yield* session.run((db) =>
 						db
 							.update(schema.user)
 							.set(profile)
@@ -152,8 +146,7 @@ export class BackupRestorePersistence extends Context.Service<BackupRestorePersi
 			const restoreCustomView = Effect.fn("BackupRestorePersistence.restoreCustomView")(function* (
 				input: RestoreCustomViewInput,
 			) {
-				const db = yield* session.current;
-				const [row] = yield* mapDatabaseErrors(
+				const [row] = yield* session.run((db) =>
 					db.insert(schema.savedView).values(input).returning({ slug: schema.savedView.slug }),
 				);
 				return row ? yield* savedViews.findBySlug(input.userId, row.slug) : null;
@@ -167,8 +160,7 @@ export class BackupRestorePersistence extends Context.Service<BackupRestorePersi
 				signalSchemaPluginId: string | null;
 				metadata: AutomationRuleMetadata | null;
 			}) {
-				const db = yield* session.current;
-				const [row] = yield* mapDatabaseErrors(
+				const [row] = yield* session.run((db) =>
 					db
 						.update(schema.notificationSubscription)
 						.set({
@@ -210,8 +202,7 @@ export class BackupRestorePersistence extends Context.Service<BackupRestorePersi
 					readonly extraSettings: IntegrationExtraSettings;
 					readonly providerSpecifics: IntegrationProviderSettings;
 				}) {
-					const db = yield* session.current;
-					yield* mapDatabaseErrors(
+					yield* session.run((db) =>
 						db
 							.select({ id: schema.plugin.id })
 							.from(schema.plugin)
@@ -222,7 +213,7 @@ export class BackupRestorePersistence extends Context.Service<BackupRestorePersi
 							.where(eq(schema.pluginInstallation.id, input.pluginInstallationId))
 							.for("share", { of: schema.plugin }),
 					);
-					const [provider] = yield* mapDatabaseErrors(
+					const [provider] = yield* session.run((db) =>
 						db
 							.select({ settingsSchema: schema.definitionIntegrationProvider.settingsSchema })
 							.from(schema.pluginInstallation)
@@ -240,7 +231,7 @@ export class BackupRestorePersistence extends Context.Service<BackupRestorePersi
 							.where(eq(schema.pluginInstallation.id, input.pluginInstallationId))
 							.limit(1),
 					);
-					yield* mapDatabaseErrors(
+					yield* session.run((db) =>
 						db
 							.insert(schema.integration)
 							.values({
@@ -257,9 +248,8 @@ export class BackupRestorePersistence extends Context.Service<BackupRestorePersi
 
 			const restoreInstallation = Effect.fn("BackupRestorePersistence.restoreInstallation")(
 				function* (input: RestoreInstallationInput) {
-					const db = yield* session.current;
 					yield* configs.lock(input.pluginId);
-					yield* mapDatabaseErrors(
+					yield* session.run((db) =>
 						db
 							.select({ id: schema.plugin.id })
 							.from(schema.plugin)
@@ -273,7 +263,7 @@ export class BackupRestorePersistence extends Context.Service<BackupRestorePersi
 						allowMissingRequiredSecrets,
 						...values
 					} = input;
-					const [row] = yield* mapDatabaseErrors(
+					const [row] = yield* session.run((db) =>
 						db
 							.insert(schema.pluginInstallation)
 							.values(values)
@@ -294,15 +284,17 @@ export class BackupRestorePersistence extends Context.Service<BackupRestorePersi
 					if (!row) {
 						return undefined;
 					}
-					const [plugin] = yield* mapDatabaseErrors(
+					const [plugin] = yield* session.run((db) =>
 						db.select().from(schema.plugin).where(eq(schema.plugin.id, row.pluginId)).limit(1),
 					);
-					if (!plugin?.activeRevisionId) {
+					const pluginRevisionId = plugin?.activeRevisionId;
+					if (!plugin || !pluginRevisionId) {
 						return yield* new DbError({ message: "Plugin package revision is unavailable" });
 					}
 					let properties = config;
 					let revisionSchema = null;
-					if (preserveExistingConfig && row.activeConfigRevisionId) {
+					const existingConfigRevisionId = row.activeConfigRevisionId;
+					if (preserveExistingConfig && existingConfigRevisionId) {
 						const hydrated = yield* installations.findByUserAndPlugin(
 							UserId.make(row.userId),
 							row.pluginId,
@@ -313,11 +305,11 @@ export class BackupRestorePersistence extends Context.Service<BackupRestorePersi
 							});
 						}
 						properties = hydrated.config;
-						const [revision] = yield* mapDatabaseErrors(
+						const [revision] = yield* session.run((db) =>
 							db
 								.select()
 								.from(schema.pluginConfigRevision)
-								.where(eq(schema.pluginConfigRevision.id, row.activeConfigRevisionId))
+								.where(eq(schema.pluginConfigRevision.id, existingConfigRevisionId))
 								.limit(1),
 						);
 						if (
@@ -329,7 +321,7 @@ export class BackupRestorePersistence extends Context.Service<BackupRestorePersi
 								message: "Invalid installation configuration ownership",
 							});
 						}
-						const [packageRevision] = yield* mapDatabaseErrors(
+						const [packageRevision] = yield* session.run((db) =>
 							db
 								.select({ manifest: schema.pluginRevision.manifest })
 								.from(schema.pluginRevision)
@@ -342,11 +334,11 @@ export class BackupRestorePersistence extends Context.Service<BackupRestorePersi
 							return yield* new DbError({ message: "Invalid installation owner" });
 						}
 						const revisionInput = {
+							pluginRevisionId,
 							properties: config,
 							ownerUserId: row.userId,
 							pluginInstallationId: row.id,
 							scope: "installation" as const,
-							pluginRevisionId: plugin.activeRevisionId,
 						};
 						const activeConfigRevisionId =
 							configuredSecretPaths === undefined
@@ -356,28 +348,28 @@ export class BackupRestorePersistence extends Context.Service<BackupRestorePersi
 										configuredSecretPaths,
 										allowMissingRequiredSecrets: allowMissingRequiredSecrets ?? false,
 									});
-						yield* mapDatabaseErrors(
+						yield* session.run((db) =>
 							db
 								.update(schema.pluginInstallation)
 								.set({ activeConfigRevisionId })
 								.where(eq(schema.pluginInstallation.id, row.id)),
 						);
-						const [revision] = yield* mapDatabaseErrors(
+						const [revision] = yield* session.run((db) =>
 							db
 								.select({ manifest: schema.pluginRevision.manifest })
 								.from(schema.pluginRevision)
-								.where(eq(schema.pluginRevision.id, plugin.activeRevisionId))
+								.where(eq(schema.pluginRevision.id, pluginRevisionId))
 								.limit(1),
 						);
 						revisionSchema = revision?.manifest.configSchema ?? null;
 					} else {
 						properties = {};
 					}
-					const [active] = yield* mapDatabaseErrors(
+					const [active] = yield* session.run((db) =>
 						db
 							.select({ manifest: schema.pluginRevision.manifest })
 							.from(schema.pluginRevision)
-							.where(eq(schema.pluginRevision.id, plugin.activeRevisionId))
+							.where(eq(schema.pluginRevision.id, pluginRevisionId))
 							.limit(1),
 					);
 					const projection =
@@ -388,7 +380,7 @@ export class BackupRestorePersistence extends Context.Service<BackupRestorePersi
 									properties,
 									revisionSchema ?? undefined,
 								);
-					yield* mapDatabaseErrors(
+					yield* session.run((db) =>
 						db
 							.update(schema.pluginInstallation)
 							.set({
@@ -407,8 +399,7 @@ export class BackupRestorePersistence extends Context.Service<BackupRestorePersi
 					readonly isDisabled: boolean;
 					readonly health: "ready" | "needs-configuration";
 				}) {
-					const db = yield* session.current;
-					const [row] = yield* mapDatabaseErrors(
+					const [row] = yield* session.run((db) =>
 						db
 							.update(schema.pluginInstallation)
 							.set({

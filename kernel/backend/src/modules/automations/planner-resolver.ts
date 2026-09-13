@@ -11,7 +11,6 @@ import { and, asc, eq, inArray, isNull, or, sql } from "drizzle-orm";
 import { Context, Effect, Layer } from "effect";
 
 import * as tables from "#lib/infrastructure/db/schema/tables/combined";
-import { mapDatabaseErrors } from "#lib/infrastructure/db/service";
 import { DatabaseSession } from "#lib/infrastructure/db/session";
 import { DefinitionRepository } from "#modules/definition-registry/repository";
 import { PluginRepository } from "#modules/plugins/repository";
@@ -113,9 +112,8 @@ export class AutomationPlannerResolver extends Context.Service<AutomationPlanner
 			const definitions = yield* DefinitionRepository;
 			const lockCatalogUncached = Effect.fn(function* (users: ReadonlyArray<UserId | null>) {
 				yield* repository.lockIngestionShared();
-				const db = yield* session.current;
 				const userIds = users.filter((id) => id !== null);
-				const rows = yield* mapDatabaseErrors(
+				const rows = yield* session.run((db) =>
 					db
 						.select({ id: tables.plugin.id })
 						.from(tables.plugin)
@@ -140,7 +138,7 @@ export class AutomationPlannerResolver extends Context.Service<AutomationPlanner
 				);
 				for (const { id } of rows) {
 					// Shared: planners coexist; PluginConfigRevisions.lock takes this same key exclusively.
-					yield* mapDatabaseErrors(
+					yield* session.run((db) =>
 						db.execute(
 							sql`select pg_advisory_xact_lock_shared(hashtext(${"plugin-config:" + id}))`,
 						),
@@ -150,7 +148,7 @@ export class AutomationPlannerResolver extends Context.Service<AutomationPlanner
 				if (!ids.length) {
 					return;
 				}
-				yield* mapDatabaseErrors(
+				yield* session.run((db) =>
 					db
 						.select({ id: tables.plugin.id })
 						.from(tables.plugin)
@@ -159,7 +157,7 @@ export class AutomationPlannerResolver extends Context.Service<AutomationPlanner
 						.for("share"),
 				);
 				if (userIds.length) {
-					yield* mapDatabaseErrors(
+					yield* session.run((db) =>
 						db
 							.select({ id: tables.pluginInstallation.id })
 							.from(tables.pluginInstallation)
@@ -177,9 +175,8 @@ export class AutomationPlannerResolver extends Context.Service<AutomationPlanner
 			const catalogUncached = Effect.fn(function* (
 				userId: UserId | null,
 			): Effect.fn.Return<ReadonlyArray<PlannerPlugin>, DbError> {
-				const db = yield* session.current;
 				if (userId === null) {
-					return yield* mapDatabaseErrors(
+					return yield* session.run((db) =>
 						db
 							.select({
 								...plannerPluginFields,
@@ -196,7 +193,7 @@ export class AutomationPlannerResolver extends Context.Service<AutomationPlanner
 							.orderBy(asc(tables.globalPlugin.pluginId)),
 					);
 				}
-				return yield* mapDatabaseErrors(
+				return yield* session.run((db) =>
 					db
 						.select({
 							...plannerPluginFields,
@@ -260,7 +257,6 @@ export class AutomationPlannerResolver extends Context.Service<AutomationPlanner
 				trigger: AutomationTrigger,
 				executionUserId: UserId | null,
 			) {
-				const db = yield* session.current;
 				const available = yield* catalog(executionUserId);
 				const result: Array<{
 					hook: PluginHook;
@@ -271,7 +267,7 @@ export class AutomationPlannerResolver extends Context.Service<AutomationPlanner
 				const signal = trigger.payload?.resource === "signal" ? trigger.payload : null;
 				const preferences =
 					signal && executionUserId !== null
-						? yield* mapDatabaseErrors(
+						? yield* session.run((db) =>
 								db
 									.select()
 									.from(tables.notificationSubscription)
@@ -356,7 +352,7 @@ export class AutomationPlannerResolver extends Context.Service<AutomationPlanner
 								message: `Invalid automation hook script ${plugin.id}/${hook.slug}`,
 							});
 						}
-						const [script] = yield* mapDatabaseErrors(
+						const [script] = yield* session.run((db) =>
 							db
 								.select(plannedScriptFields)
 								.from(tables.sandboxScript)
@@ -381,7 +377,7 @@ export class AutomationPlannerResolver extends Context.Service<AutomationPlanner
 					executionUserId !== null &&
 					preferences.some((p) => p.isActive && p.signalSchemaPluginId === null)
 				) {
-					const [user] = yield* mapDatabaseErrors(
+					const [user] = yield* session.run((db) =>
 						db
 							.select({ id: tables.user.id })
 							.from(tables.user)

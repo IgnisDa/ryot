@@ -3,7 +3,6 @@ import { and, eq, inArray, isNull } from "drizzle-orm";
 import { Context, DateTime, Effect, Layer } from "effect";
 
 import * as schema from "#lib/infrastructure/db/schema/tables/combined";
-import { mapDatabaseErrors } from "#lib/infrastructure/db/service";
 import { DatabaseSession } from "#lib/infrastructure/db/session";
 
 export type PortableUserProfile = Pick<
@@ -55,8 +54,7 @@ export class AuthRepository extends Context.Service<AuthRepository>()("AuthRepos
 		const database = yield* DatabaseSession;
 		const upsertInternalOAuthClient = Effect.fn("AuthRepository.upsertInternalOAuthClient")(
 			function* (client: InternalOAuthClient) {
-				const db = yield* database.current;
-				yield* mapDatabaseErrors(
+				yield* database.run((db) =>
 					db
 						.insert(schema.oauthClient)
 						.values(client)
@@ -85,8 +83,7 @@ export class AuthRepository extends Context.Service<AuthRepository>()("AuthRepos
 
 		const upsertInternalOAuthResource = Effect.fn("AuthRepository.upsertInternalOAuthResource")(
 			function* (resource: InternalOAuthResource) {
-				const db = yield* database.current;
-				yield* mapDatabaseErrors(
+				yield* database.run((db) =>
 					db
 						.insert(schema.oauthResource)
 						.values(resource)
@@ -109,8 +106,7 @@ export class AuthRepository extends Context.Service<AuthRepository>()("AuthRepos
 		const upsertInternalOAuthClientResource = Effect.fn(
 			"AuthRepository.upsertInternalOAuthClientResource",
 		)(function* (link: InternalOAuthClientResource) {
-			const db = yield* database.current;
-			yield* mapDatabaseErrors(
+			yield* database.run((db) =>
 				db
 					.insert(schema.oauthClientResource)
 					.values(link)
@@ -124,8 +120,7 @@ export class AuthRepository extends Context.Service<AuthRepository>()("AuthRepos
 		const deleteInternalOAuthClientResources = Effect.fn(
 			"AuthRepository.deleteInternalOAuthClientResources",
 		)(function* (clientIds: readonly string[]) {
-			const db = yield* database.current;
-			yield* mapDatabaseErrors(
+			yield* database.run((db) =>
 				db
 					.delete(schema.oauthClientResource)
 					.where(inArray(schema.oauthClientResource.clientId, [...clientIds])),
@@ -135,8 +130,7 @@ export class AuthRepository extends Context.Service<AuthRepository>()("AuthRepos
 		const getPortableProfile = Effect.fn("AuthRepository.getPortableProfile")(function* (
 			userId: UserId,
 		) {
-			const db = yield* database.current;
-			const [row] = yield* mapDatabaseErrors(
+			const [row] = yield* database.run((db) =>
 				db
 					.select({
 						name: schema.user.name,
@@ -153,9 +147,8 @@ export class AuthRepository extends Context.Service<AuthRepository>()("AuthRepos
 		const revokeUserOAuthTokens = Effect.fn("AuthRepository.revokeUserOAuthTokens")(function* (
 			userId: UserId,
 		) {
-			const db = yield* database.current;
 			const revoked = yield* DateTime.nowAsDate;
-			yield* mapDatabaseErrors(
+			yield* database.run((db) =>
 				Effect.all(
 					[
 						db

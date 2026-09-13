@@ -11,7 +11,6 @@ import { and, eq } from "drizzle-orm";
 import { Context, Effect, Layer } from "effect";
 
 import * as schema from "#lib/infrastructure/db/schema/tables/combined";
-import { mapDatabaseErrors } from "#lib/infrastructure/db/service";
 import { DatabaseSession } from "#lib/infrastructure/db/session";
 import type {
 	SandboxExecutionPrincipal,
@@ -37,8 +36,7 @@ export class SandboxRepository extends Context.Service<SandboxRepository>()("San
 		const getScript = Effect.fn("SandboxRepository.getScript")(function* (
 			scriptId: SandboxScriptId,
 		) {
-			const db = yield* database.current;
-			const [row] = yield* mapDatabaseErrors(
+			const [row] = yield* database.run((db) =>
 				db
 					.select({
 						id: schema.sandboxScript.id,
@@ -62,8 +60,7 @@ export class SandboxRepository extends Context.Service<SandboxRepository>()("San
 		const isPluginScript = Effect.fn("SandboxRepository.isPluginScript")(function* (
 			scriptId: SandboxScriptId,
 		) {
-			const db = yield* database.current;
-			const [row] = yield* mapDatabaseErrors(
+			const [row] = yield* database.run((db) =>
 				db
 					.select({ pluginId: schema.sandboxScript.pluginRevisionId })
 					.from(schema.sandboxScript)
@@ -77,8 +74,7 @@ export class SandboxRepository extends Context.Service<SandboxRepository>()("San
 			scriptId: SandboxScriptId,
 			expectedRevision?: Pick<SandboxPluginRevision, "id" | "revisionId" | "configRevisionId">,
 		) {
-			const db = yield* database.current;
-			const [row] = yield* mapDatabaseErrors(
+			const [row] = yield* database.run((db) =>
 				db
 					.select({
 						id: schema.sandboxScript.id,
@@ -149,28 +145,29 @@ export class SandboxRepository extends Context.Service<SandboxRepository>()("San
 			) {
 				return null;
 			}
+			const { pluginId, pluginRevisionId } = row;
 			const manifest = row.pluginManifest;
-			const scripts = yield* mapDatabaseErrors(
+			const scripts = yield* database.run((db) =>
 				db
 					.select({
 						slug: schema.sandboxScript.slug,
 						contentHash: schema.sandboxScript.contentHash,
 					})
 					.from(schema.sandboxScript)
-					.where(eq(schema.sandboxScript.pluginRevisionId, row.pluginRevisionId)),
+					.where(eq(schema.sandboxScript.pluginRevisionId, pluginRevisionId)),
 			);
 			let configRevisionId: string | undefined = expectedRevision?.configRevisionId;
 			if (!expectedRevision) {
 				if (row.pluginScope === "system") {
 					configRevisionId = row.environmentConfigRevisionId ?? undefined;
 				} else {
-					const [state] = yield* mapDatabaseErrors(
+					const [state] = yield* database.run((db) =>
 						db
 							.select()
 							.from(schema.pluginInstallation)
 							.where(
 								and(
-									eq(schema.pluginInstallation.pluginId, row.pluginId),
+									eq(schema.pluginInstallation.pluginId, pluginId),
 									eq(schema.pluginInstallation.userId, row.pluginOwnerId ?? ""),
 								),
 							)
@@ -190,7 +187,7 @@ export class SandboxRepository extends Context.Service<SandboxRepository>()("San
 			if (!configRevisionId) {
 				return null;
 			}
-			const [config] = yield* mapDatabaseErrors(
+			const [config] = yield* database.run((db) =>
 				db
 					.select()
 					.from(schema.pluginConfigRevision)
@@ -267,8 +264,7 @@ export class SandboxRepository extends Context.Service<SandboxRepository>()("San
 				if (!contentHash) {
 					return null;
 				}
-				const db = yield* database.current;
-				const [target] = yield* mapDatabaseErrors(
+				const [target] = yield* database.run((db) =>
 					db
 						.select({ id: schema.sandboxScript.id, metadata: schema.sandboxScript.metadata })
 						.from(schema.sandboxScript)

@@ -33,8 +33,8 @@ export type ResolvedRelationshipTarget = {
 };
 
 export const legacyBootstrapGate = Effect.gen(function* () {
-	const database = yield* (yield* DatabaseSession).current;
-	const result = yield* mapDatabaseErrors(
+	const session = yield* DatabaseSession;
+	const result = yield* session.run((database) =>
 		database.execute<{ present: boolean }>(
 			sql`SELECT to_regclass('"seaql_migrations"') IS NOT NULL AS "present"`,
 			"objects",

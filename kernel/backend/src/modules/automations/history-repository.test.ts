@@ -31,7 +31,6 @@ import {
 	pluginConfigRevision,
 	pluginConfigEncryptionKey,
 } from "#lib/infrastructure/db/schema/tables/core";
-import { mapDatabaseErrors } from "#lib/infrastructure/db/service";
 import { DatabaseSession } from "#lib/infrastructure/db/session";
 import { assertExitFails } from "#lib/test-utils/assertions";
 import { isolatedDatabaseLayer } from "#lib/test-utils/isolated-database";
@@ -224,8 +223,8 @@ describe("automation retry persistence", () => {
 	layer(
 		historyDatabaseLayer(() =>
 			Effect.gen(function* () {
-				const db = yield* (yield* DatabaseSession).current;
-				const [row] = yield* mapDatabaseErrors(
+				const session = yield* DatabaseSession;
+				const [row] = yield* session.run((db) =>
 					db
 						.select({ status: automationRun.status })
 						.from(automationRun)

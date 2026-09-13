@@ -16,7 +16,6 @@ import type { PgColumn } from "drizzle-orm/pg-core";
 import { Context, Effect, Layer } from "effect";
 
 import * as schema from "#lib/infrastructure/db/schema/tables/combined";
-import { mapDatabaseErrors } from "#lib/infrastructure/db/service";
 import { DatabaseSession } from "#lib/infrastructure/db/session";
 
 import type {
@@ -208,8 +207,7 @@ export class DefinitionRepository extends Context.Service<DefinitionRepository>(
 					| typeof schema.definitionSavedView,
 				slugs: ReadonlyArray<string>,
 			) {
-				const db = yield* session.current;
-				yield* mapDatabaseErrors(
+				yield* session.run((db) =>
 					db
 						.delete(table)
 						.where(
@@ -226,10 +224,9 @@ export class DefinitionRepository extends Context.Service<DefinitionRepository>(
 					readonly pluginRevisionId: string;
 					readonly definitions: RevisionDefinitions;
 				}) {
-					const db = yield* session.current;
 					const { pluginId, definitions, pluginRevisionId } = input;
 					if (definitions.entitySchemas.length > 0) {
-						const entities = yield* mapDatabaseErrors(
+						const entities = yield* session.run((db) =>
 							db
 								.insert(schema.definitionEntitySchema)
 								.values(
@@ -263,11 +260,11 @@ export class DefinitionRepository extends Context.Service<DefinitionRepository>(
 								: [];
 						});
 						if (events.length > 0) {
-							yield* mapDatabaseErrors(db.insert(schema.definitionEventSchema).values(events));
+							yield* session.run((db) => db.insert(schema.definitionEventSchema).values(events));
 						}
 					}
 					if (definitions.relationshipSchemas.length > 0) {
-						yield* mapDatabaseErrors(
+						yield* session.run((db) =>
 							db
 								.insert(schema.definitionRelationshipSchema)
 								.values(
@@ -285,7 +282,7 @@ export class DefinitionRepository extends Context.Service<DefinitionRepository>(
 						);
 					}
 					if (definitions.signalSchemas.length > 0) {
-						yield* mapDatabaseErrors(
+						yield* session.run((db) =>
 							db
 								.insert(schema.definitionSignalSchema)
 								.values(
@@ -304,7 +301,7 @@ export class DefinitionRepository extends Context.Service<DefinitionRepository>(
 						);
 					}
 					if (definitions.savedViews.length > 0) {
-						yield* mapDatabaseErrors(
+						yield* session.run((db) =>
 							db
 								.insert(schema.definitionSavedView)
 								.values(
@@ -324,7 +321,7 @@ export class DefinitionRepository extends Context.Service<DefinitionRepository>(
 						);
 					}
 					if (definitions.importSources.length > 0) {
-						yield* mapDatabaseErrors(
+						yield* session.run((db) =>
 							db
 								.insert(schema.definitionImportSource)
 								.values(
@@ -345,7 +342,7 @@ export class DefinitionRepository extends Context.Service<DefinitionRepository>(
 						);
 					}
 					if (definitions.integrationProviders.length > 0) {
-						yield* mapDatabaseErrors(
+						yield* session.run((db) =>
 							db
 								.insert(schema.definitionIntegrationProvider)
 								.values(
@@ -369,10 +366,9 @@ export class DefinitionRepository extends Context.Service<DefinitionRepository>(
 
 			const replaceKernelDefinitions = Effect.fn("DefinitionRepository.replaceKernelDefinitions")(
 				function* (source: DefinitionSource) {
-					const db = yield* session.current;
 					const entities =
 						source.entitySchemas.length > 0
-							? yield* mapDatabaseErrors(
+							? yield* session.run((db) =>
 									db
 										.insert(schema.definitionEntitySchema)
 										.values(
@@ -418,7 +414,7 @@ export class DefinitionRepository extends Context.Service<DefinitionRepository>(
 							continue;
 						}
 						if (definition.eventSchemas.length > 0) {
-							yield* mapDatabaseErrors(
+							yield* session.run((db) =>
 								db
 									.insert(schema.definitionEventSchema)
 									.values(
@@ -443,7 +439,7 @@ export class DefinitionRepository extends Context.Service<DefinitionRepository>(
 									}),
 							);
 						}
-						yield* mapDatabaseErrors(
+						yield* session.run((db) =>
 							db.delete(schema.definitionEventSchema).where(
 								and(
 									eq(schema.definitionEventSchema.entitySchemaId, entitySchemaId),
@@ -458,7 +454,7 @@ export class DefinitionRepository extends Context.Service<DefinitionRepository>(
 						);
 					}
 					if (source.relationshipSchemas.length > 0) {
-						yield* mapDatabaseErrors(
+						yield* session.run((db) =>
 							db
 								.insert(schema.definitionRelationshipSchema)
 								.values(
@@ -493,7 +489,7 @@ export class DefinitionRepository extends Context.Service<DefinitionRepository>(
 						source.relationshipSchemas.map(({ slug }) => slug),
 					);
 					if (source.signalSchemas.length > 0) {
-						yield* mapDatabaseErrors(
+						yield* session.run((db) =>
 							db
 								.insert(schema.definitionSignalSchema)
 								.values(
@@ -530,7 +526,7 @@ export class DefinitionRepository extends Context.Service<DefinitionRepository>(
 						source.signalSchemas.map(({ slug }) => slug),
 					);
 					if (source.savedViews.length > 0) {
-						yield* mapDatabaseErrors(
+						yield* session.run((db) =>
 							db
 								.insert(schema.definitionSavedView)
 								.values(
@@ -575,36 +571,35 @@ export class DefinitionRepository extends Context.Service<DefinitionRepository>(
 				userId: UserId,
 				options: ListedOption,
 			) {
-				const db = yield* session.current;
-				const entitySchemas = yield* mapDatabaseErrors(
+				const entitySchemas = yield* session.run((db) =>
 					db
 						.select()
 						.from(schema.userEntitySchema)
 						.where(userWhere(schema.userEntitySchema, userId, options))
 						.orderBy(...userDefinitionOrder(schema.userEntitySchema)),
 				);
-				const eventSchemas = yield* mapDatabaseErrors(
+				const eventSchemas = yield* session.run((db) =>
 					db
 						.select()
 						.from(schema.userEventSchema)
 						.where(userWhere(schema.userEventSchema, userId, options))
 						.orderBy(asc(schema.userEventSchema.position)),
 				);
-				const relationshipSchemas = yield* mapDatabaseErrors(
+				const relationshipSchemas = yield* session.run((db) =>
 					db
 						.select()
 						.from(schema.userRelationshipSchema)
 						.where(userWhere(schema.userRelationshipSchema, userId, options))
 						.orderBy(...userDefinitionOrder(schema.userRelationshipSchema, true)),
 				);
-				const signalSchemas = yield* mapDatabaseErrors(
+				const signalSchemas = yield* session.run((db) =>
 					db
 						.select()
 						.from(schema.userSignalSchema)
 						.where(userWhere(schema.userSignalSchema, userId, options))
 						.orderBy(...userDefinitionOrder(schema.userSignalSchema)),
 				);
-				const savedViews = yield* mapDatabaseErrors(
+				const savedViews = yield* session.run((db) =>
 					db
 						.select()
 						.from(schema.userSavedView)
@@ -615,32 +610,31 @@ export class DefinitionRepository extends Context.Service<DefinitionRepository>(
 			});
 
 			const readGlobalRows = Effect.fn("DefinitionRepository.readGlobalRows")(function* () {
-				const db = yield* session.current;
-				const entitySchemas = yield* mapDatabaseErrors(
+				const entitySchemas = yield* session.run((db) =>
 					db
 						.select()
 						.from(schema.globalEntitySchema)
 						.orderBy(...globalDefinitionOrder(schema.globalEntitySchema)),
 				);
-				const eventSchemas = yield* mapDatabaseErrors(
+				const eventSchemas = yield* session.run((db) =>
 					db
 						.select()
 						.from(schema.globalEventSchema)
 						.orderBy(asc(schema.globalEventSchema.position)),
 				);
-				const relationshipSchemas = yield* mapDatabaseErrors(
+				const relationshipSchemas = yield* session.run((db) =>
 					db
 						.select()
 						.from(schema.globalRelationshipSchema)
 						.orderBy(...globalDefinitionOrder(schema.globalRelationshipSchema, true)),
 				);
-				const signalSchemas = yield* mapDatabaseErrors(
+				const signalSchemas = yield* session.run((db) =>
 					db
 						.select()
 						.from(schema.globalSignalSchema)
 						.orderBy(...globalDefinitionOrder(schema.globalSignalSchema)),
 				);
-				const savedViews = yield* mapDatabaseErrors(
+				const savedViews = yield* session.run((db) =>
 					db
 						.select()
 						.from(schema.globalSavedView)
@@ -650,8 +644,7 @@ export class DefinitionRepository extends Context.Service<DefinitionRepository>(
 			});
 
 			const readKernelRows = Effect.fn("DefinitionRepository.readKernelRows")(function* () {
-				const db = yield* session.current;
-				const entitySchemas = yield* mapDatabaseErrors(
+				const entitySchemas = yield* session.run((db) =>
 					db
 						.select({
 							...getTableColumns(schema.definitionEntitySchema),
@@ -664,7 +657,7 @@ export class DefinitionRepository extends Context.Service<DefinitionRepository>(
 				);
 				const eventSchemas =
 					entitySchemas.length > 0
-						? yield* mapDatabaseErrors(
+						? yield* session.run((db) =>
 								db
 									.select()
 									.from(schema.definitionEventSchema)
@@ -677,21 +670,21 @@ export class DefinitionRepository extends Context.Service<DefinitionRepository>(
 									.orderBy(asc(schema.definitionEventSchema.position)),
 							)
 						: [];
-				const relationshipSchemas = yield* mapDatabaseErrors(
+				const relationshipSchemas = yield* session.run((db) =>
 					db
 						.select()
 						.from(schema.definitionRelationshipSchema)
 						.where(isNull(schema.definitionRelationshipSchema.pluginRevisionId))
 						.orderBy(asc(schema.definitionRelationshipSchema.position)),
 				);
-				const signalSchemas = yield* mapDatabaseErrors(
+				const signalSchemas = yield* session.run((db) =>
 					db
 						.select()
 						.from(schema.definitionSignalSchema)
 						.where(isNull(schema.definitionSignalSchema.pluginRevisionId))
 						.orderBy(asc(schema.definitionSignalSchema.position)),
 				);
-				const savedViews = yield* mapDatabaseErrors(
+				const savedViews = yield* session.run((db) =>
 					db
 						.select({
 							...getTableColumns(schema.definitionSavedView),
@@ -718,8 +711,7 @@ export class DefinitionRepository extends Context.Service<DefinitionRepository>(
 					if (slugs.length === 0) {
 						return {};
 					}
-					const db = yield* session.current;
-					const entitySchemas = yield* mapDatabaseErrors(
+					const entitySchemas = yield* session.run((db) =>
 						db
 							.select()
 							.from(schema.userEntitySchema)
@@ -734,7 +726,7 @@ export class DefinitionRepository extends Context.Service<DefinitionRepository>(
 					);
 					const eventSchemas =
 						entitySchemas.length > 0
-							? yield* mapDatabaseErrors(
+							? yield* session.run((db) =>
 									db
 										.select()
 										.from(schema.definitionEventSchema)
@@ -757,8 +749,7 @@ export class DefinitionRepository extends Context.Service<DefinitionRepository>(
 
 			const listUserEventSchemas = Effect.fn("DefinitionRepository.listUserEventSchemas")(
 				function* (userId: UserId, entitySchemaSlug: string) {
-					const db = yield* session.current;
-					const rows = yield* mapDatabaseErrors(
+					const rows = yield* session.run((db) =>
 						db
 							.select()
 							.from(schema.userEventSchema)
@@ -782,8 +773,7 @@ export class DefinitionRepository extends Context.Service<DefinitionRepository>(
 				if (slugs.length === 0) {
 					return {};
 				}
-				const db = yield* session.current;
-				const rows = yield* mapDatabaseErrors(
+				const rows = yield* session.run((db) =>
 					db
 						.select()
 						.from(schema.userRelationshipSchema)
@@ -801,8 +791,7 @@ export class DefinitionRepository extends Context.Service<DefinitionRepository>(
 
 			const listUserSignalSchemas = Effect.fn("DefinitionRepository.listUserSignalSchemas")(
 				function* (userId: UserId, options: ListedOption = effective) {
-					const db = yield* session.current;
-					const rows = yield* mapDatabaseErrors(
+					const rows = yield* session.run((db) =>
 						db
 							.select()
 							.from(schema.userSignalSchema)
@@ -815,8 +804,7 @@ export class DefinitionRepository extends Context.Service<DefinitionRepository>(
 
 			const findUserSignalSchema = Effect.fn("DefinitionRepository.findUserSignalSchema")(
 				function* (userId: UserId, slug: string, options: ListedOption = effective) {
-					const db = yield* session.current;
-					const rows = yield* mapDatabaseErrors(
+					const rows = yield* session.run((db) =>
 						db
 							.select()
 							.from(schema.userSignalSchema)
@@ -837,8 +825,7 @@ export class DefinitionRepository extends Context.Service<DefinitionRepository>(
 				userId: UserId,
 				options: ListedOption,
 			) {
-				const db = yield* session.current;
-				const rows = yield* mapDatabaseErrors(
+				const rows = yield* session.run((db) =>
 					db
 						.select()
 						.from(schema.userSavedView)
@@ -850,8 +837,7 @@ export class DefinitionRepository extends Context.Service<DefinitionRepository>(
 
 			const findGlobalEntitySchema = Effect.fn("DefinitionRepository.findGlobalEntitySchema")(
 				function* (slug: string) {
-					const db = yield* session.current;
-					const rows = yield* mapDatabaseErrors(
+					const rows = yield* session.run((db) =>
 						db
 							.select()
 							.from(schema.globalEntitySchema)
@@ -861,7 +847,7 @@ export class DefinitionRepository extends Context.Service<DefinitionRepository>(
 					if (!row) {
 						return null;
 					}
-					const events = yield* mapDatabaseErrors(
+					const events = yield* session.run((db) =>
 						db
 							.select()
 							.from(schema.globalEventSchema)
@@ -874,8 +860,7 @@ export class DefinitionRepository extends Context.Service<DefinitionRepository>(
 
 			const findGlobalEventSchema = Effect.fn("DefinitionRepository.findGlobalEventSchema")(
 				function* (entitySchemaSlug: string, slug: string) {
-					const db = yield* session.current;
-					const [row] = yield* mapDatabaseErrors(
+					const [row] = yield* session.run((db) =>
 						db
 							.select()
 							.from(schema.globalEventSchema)
@@ -894,8 +879,7 @@ export class DefinitionRepository extends Context.Service<DefinitionRepository>(
 			const findGlobalRelationshipSchema = Effect.fn(
 				"DefinitionRepository.findGlobalRelationshipSchema",
 			)(function* (slug: string) {
-				const db = yield* session.current;
-				const rows = yield* mapDatabaseErrors(
+				const rows = yield* session.run((db) =>
 					db
 						.select()
 						.from(schema.globalRelationshipSchema)
@@ -908,8 +892,7 @@ export class DefinitionRepository extends Context.Service<DefinitionRepository>(
 
 			const findGlobalSignalSchema = Effect.fn("DefinitionRepository.findGlobalSignalSchema")(
 				function* (slug: string) {
-					const db = yield* session.current;
-					const rows = yield* mapDatabaseErrors(
+					const rows = yield* session.run((db) =>
 						db
 							.select()
 							.from(schema.globalSignalSchema)
@@ -921,8 +904,7 @@ export class DefinitionRepository extends Context.Service<DefinitionRepository>(
 
 			const listGlobalSignalSchemas = Effect.fn("DefinitionRepository.listGlobalSignalSchemas")(
 				function* () {
-					const db = yield* session.current;
-					const rows = yield* mapDatabaseErrors(
+					const rows = yield* session.run((db) =>
 						db
 							.select()
 							.from(schema.globalSignalSchema)
