@@ -26,7 +26,12 @@ import {
 	findWorkoutSetEventSchema,
 	waitForSessionEventCount,
 } from "~/fixtures/plugins/fitness";
-import { assertCondition, assertPresent, requirePresent } from "~/support/assertions";
+import {
+	assertCondition,
+	assertPresent,
+	assertTaggedError,
+	requirePresent,
+} from "~/support/assertions";
 import { describe, expect, it } from "~/support/effect-test";
 
 describe("Workouts E2E", () => {
@@ -73,6 +78,28 @@ describe("Workouts E2E", () => {
 					description: "Estimated calories burned during this workout",
 				},
 			});
+		}),
+	);
+
+	it.live("rejects a workout without a start time", () =>
+		Effect.gen(function* () {
+			const { client } = yield* createAuthenticatedClient();
+			const { schema: workoutSchema } = yield* findBuiltinSchemaBySlug(client, "workout");
+
+			const error = yield* Effect.flip(
+				client.call((c) =>
+					c.entities.create({
+						payload: {
+							properties: {},
+							name: "Workout without start",
+							entitySchemaSlug: workoutSchema.id,
+						},
+					}),
+				),
+			);
+
+			assertTaggedError(error, "EntityBadRequest");
+			expect(error.reason).toMatchObject({ code: "invalid-properties" });
 		}),
 	);
 

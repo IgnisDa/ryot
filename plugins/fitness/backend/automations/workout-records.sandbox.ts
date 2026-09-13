@@ -21,13 +21,18 @@ export const manifest = defineManifest({
 	name: "Recompute workout records",
 	slug: "automation.workout-records",
 	inputProjection: {
-		signal: { properties: [] },
+		entity: {
+			properties: [],
+			parentEntityProperties: [],
+			compareProperties: [{ equality: "json", property: "startedAt" }],
+		},
 		event: {
 			properties: [],
 			compareProperties: [
 				{ equality: "json", property: "confirmedAt" },
 				{ equality: "json", property: "distance" },
 				{ equality: "json", property: "duration" },
+				{ equality: "json", property: "exerciseKind" },
 				{ equality: "json", property: "exerciseOrder" },
 				{ equality: "json", property: "oneRm" },
 				{ property: "pace", equality: "json" },
@@ -57,7 +62,10 @@ class WorkoutRecordAutomationError extends Error {
 	readonly _tag = "WorkoutRecordAutomationError";
 }
 
-type SignalPayload = Extract<AutomationInput["automation"]["payload"], { resource: "signal" }>;
+type EntityUpdate = Extract<
+	AutomationInput["automation"]["payload"],
+	{ operation: "update"; resource: "entity" }
+>;
 type AutomationHost = Pick<
 	ScriptHost,
 	"executeRyotql" | "executeWorkflow" | "requestEventStreamWork"
@@ -91,23 +99,21 @@ const isOwnDerivedOutputUpdate = (item: EventBatchItem, eventStreamWorkId: strin
 	item.before.sessionEntityId === item.after.sessionEntityId &&
 	item.before.occurredAt === item.after.occurredAt;
 
-const runContextChangeSignal = (signal: SignalPayload, host: AutomationHost) =>
+const runWorkoutStartChange = (workout: EntityUpdate, host: AutomationHost) =>
 	Effect.gen(function* () {
 		if (
-			(signal.signalSchemaSlug !== "exercise.context-changed" &&
-				signal.signalSchemaSlug !== "workout.context-changed") ||
-			!signal.subjectEntityId
+			workout.after.entitySchemaSlug !== "workout" ||
+			!workout.changedProperties.includes("startedAt")
 		) {
 			return null;
 		}
-		const role = signal.signalSchemaSlug === "exercise.context-changed" ? "entity" : "session";
 
 		let after: string | undefined;
 		let hasMore: boolean;
 		do {
 			const page = yield* executeRyotqlRecipe(
 				host.executeRyotql,
-				workoutSetExerciseIdsRecipe({ role, after, subjectEntityId: signal.subjectEntityId }),
+				workoutSetExerciseIdsRecipe({ after, workoutId: workout.after.id }),
 			);
 			const exerciseIds = new Set(page.items.map(({ entityId }) => entityId));
 			for (const entityId of exerciseIds) {
@@ -121,7 +127,7 @@ const runContextChangeSignal = (signal: SignalPayload, host: AutomationHost) =>
 					recordStepReference,
 				);
 				const dispatch = host.executeWorkflow?.(
-					`workout-context-records:${signal.signalSchemaSlug}:${signal.subjectEntityId}:${entityId}`,
+					`workout-start-records:${workout.after.id}:${entityId}`,
 					kernelDispatch,
 					{ id: work.workId },
 				);
@@ -148,8 +154,8 @@ export default defineAutomation({
 	run: ({ automation }, host) =>
 		Effect.gen(function* () {
 			const payload = automation.payload;
-			if (payload.resource === "signal") {
-				return yield* runContextChangeSignal(payload, host);
+			if (payload.resource === "entity" && payload.operation === "update") {
+				return yield* runWorkoutStartChange(payload, host);
 			}
 			if (payload.resource !== "event" || payload.operation !== "batch") {
 				return null;

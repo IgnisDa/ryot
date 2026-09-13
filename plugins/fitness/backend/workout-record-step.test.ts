@@ -125,7 +125,7 @@ describe("workout record step", () => {
 			after: null,
 			phase: "records",
 			lastOccurredAt: timestamp,
-			maxima: { reps: 10, weight: 25, volume: 250, one_rm: 33.333333 },
+			maxima: { reps_and_weight: { reps: 10, weight: 25, volume: 250, one_rm: 33.333333 } },
 		};
 		const host = makeHost([page([workoutRecord({ personalBests: ["volume"] })])]);
 
@@ -137,6 +137,51 @@ describe("workout record step", () => {
 					]);
 				}),
 			),
+		);
+	});
+
+	it("tracks personal bests separately for each recorded kind", () => {
+		const host = makeHost([
+			page([
+				workoutRecord({ reps: 10, id: "weighted", personalBests: [] }),
+				workoutRecord({
+					reps: 6,
+					oneRm: null,
+					weight: null,
+					volume: null,
+					id: "bodyweight",
+					personalBests: [],
+					exerciseKind: "reps",
+					occurredAt: "2026-01-02T08:00:00.000Z",
+				}),
+			]),
+		]);
+
+		return Effect.runPromise(
+			definition
+				.run(
+					input({ maxima: {}, after: null, phase: "records", lastOccurredAt: null }, timestamp),
+					host,
+				)
+				.pipe(
+					Effect.map((result) => {
+						expect(result.updates).toEqual([
+							{
+								eventId: "weighted",
+								patch: {
+									properties: {
+										remove: [],
+										set: { personalBests: ["reps", "one_rm", "volume", "weight"] },
+									},
+								},
+							},
+							{
+								eventId: "bodyweight",
+								patch: { properties: { remove: [], set: { personalBests: ["reps"] } } },
+							},
+						]);
+					}),
+				),
 		);
 	});
 

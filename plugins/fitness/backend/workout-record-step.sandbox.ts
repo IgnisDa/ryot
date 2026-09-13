@@ -25,10 +25,10 @@ const checkpointLimit = 16_384;
 const pageLimit = 50;
 
 const WorkoutRecordCheckpointSchema = Schema.Struct({
-	maxima: WorkoutRecordMaximaSchema,
 	after: Schema.NullOr(Schema.String),
 	lastOccurredAt: Schema.NullOr(IsoDateString),
 	phase: Schema.Literals(["normalize", "records", "complete"]),
+	maxima: Schema.Record(Schema.String, WorkoutRecordMaximaSchema),
 });
 
 type WorkoutRecordCheckpoint = Schema.Schema.Type<typeof WorkoutRecordCheckpointSchema>;
@@ -100,14 +100,18 @@ const recordPage = (
 	checkpoint: WorkoutRecordCheckpoint,
 	dirtyFrom: string | null,
 ) => {
-	let maxima = checkpoint.maxima;
+	const maxima = { ...checkpoint.maxima };
 	let lastOccurredAt = checkpoint.lastOccurredAt;
 	const updates: Array<EventStreamStepResult["updates"][number]> = [];
 	for (const row of rows) {
 		const measurements = measurementsOf(row);
 		const statistics = calculateWorkoutSetStatistics(row.exerciseKind, measurements);
-		const awarded = awardWorkoutPersonalBests(row.exerciseKind, measurements, maxima);
-		maxima = awarded.maxima;
+		const awarded = awardWorkoutPersonalBests(
+			row.exerciseKind,
+			measurements,
+			maxima[row.exerciseKind] ?? {},
+		);
+		maxima[row.exerciseKind] = awarded.maxima;
 		lastOccurredAt = row.occurredAt;
 		if (dirtyFrom !== null && row.occurredAt < dirtyFrom) {
 			continue;
