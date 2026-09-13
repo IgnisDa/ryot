@@ -6,10 +6,10 @@ import { DatabaseSession } from "#lib/infrastructure/db/session";
 import { kernelScriptCompiledOutputs } from "#modules/definition-registry/kernel-scripts.compiled.generated";
 import { kernelDefinitionSource, kernelScripts } from "#modules/definition-registry/kernel-source";
 import { DefinitionRepository } from "#modules/definition-registry/repository";
+import { ScriptGarbageCollector } from "#modules/garbage-collection/scripts";
 
 import { PluginInstallationService } from "./installation-service";
 import { PluginRepository } from "./repository";
-import { ScriptGarbageCollector } from "./script-garbage-collector";
 import { PluginIngestionService } from "./service";
 import { SystemPlugins } from "./system";
 

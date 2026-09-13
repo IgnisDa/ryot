@@ -1,7 +1,7 @@
 import { Layer } from "effect";
 
-import { PackageCacheManager } from "#lib/infrastructure/sandbox-runtime/runtime";
 import { DefinitionRepository } from "#modules/definition-registry/repository";
+import { ScriptGarbageCollectorLive } from "#modules/garbage-collection/layer";
 import {
 	IntegrationPluginRevisionActivationLive,
 	IntegrationsRepository,
@@ -26,7 +26,6 @@ import {
 	PluginInstallationLifecycleDispatcherLive,
 } from "./installation-workflow";
 import { PluginRepository } from "./repository";
-import { ScriptGarbageCollector } from "./script-garbage-collector";
 import { PluginIngestionService } from "./service";
 import { SystemPlugins } from "./system";
 
@@ -42,10 +41,6 @@ export const PluginIngestionLockLive = PluginIngestionLock.layer.pipe(
 			PluginRevisionActivationLive,
 		),
 	),
-);
-
-export const ScriptGarbageCollectorLive = ScriptGarbageCollector.layer.pipe(
-	Layer.provide(Layer.merge(PluginRepository.layer, PackageCacheManager.layer)),
 );
 
 export const PluginInvalidationSubscriberLive = PluginInvalidationSubscriber.layer.pipe(
