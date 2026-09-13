@@ -1,10 +1,10 @@
-import { cn } from "@ryot-app/ts-utils/cn";
 import { Star } from "lucide-react";
 import { Link } from "react-router";
 
 import { Badge } from "~/lib/components/ui/badge";
 import { Button } from "~/lib/components/ui/button";
 import { SECTION_CONTAINER, SECTION_Y_PADDING_LARGE } from "~/lib/styles";
+import { cn } from "~/lib/utils";
 
 type ImageProps = { src: string; alt: string; className: string };
 
