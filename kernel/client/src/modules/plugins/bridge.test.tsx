@@ -157,6 +157,7 @@ const connect = (
 		navigation: nav(),
 		theme: lightTheme,
 		onHeader: () => {},
+		documentKey: "page-1",
 		timeoutMs: options.timeoutMs,
 		onReady: () => readies.push(null),
 		onFailure: () => failures.push(null),
@@ -257,6 +258,75 @@ const readyFor = (init: PluginBridgeInit): PluginBridgeReady => ({
 });
 
 describe("bridge page screens", () => {
+	it("delivers the latest document when navigation changes before handshake completes", async () => {
+		const { init, session, received, pluginPort } = connect();
+		const page = {
+			view: null,
+			settings: {},
+			dataSources: null,
+			route: { params: {} },
+			renderer: { name: "fixture", kind: "kernel" as const },
+			target: {
+				search: "",
+				path: "/music",
+				kind: "plugin-route" as const,
+				pluginSlug: PluginSlug.make("fixture"),
+			},
+		};
+		session.sendDocument("music", page, nav(detail, 1));
+		pluginPort.postMessage(readyFor(init));
+		await waitFor(() =>
+			expect(received).toContainEqual({
+				page,
+				type: "document",
+				documentKey: "music",
+				navigation: at(detail, 1),
+			}),
+		);
+		expect(received).toHaveLength(1);
+	});
+	it("replaces the document on the same port and cancels old page requests", async () => {
+		let aborted = false;
+		const { init, session, received, pluginPort, overlayStates, pageShortcuts } = connect({
+			onRyotQL: (_request, signal) => {
+				signal.addEventListener("abort", () => {
+					aborted = true;
+				});
+				return new Promise(() => {});
+			},
+		});
+		pluginPort.postMessage(readyFor(init));
+		await waitFor(() => expect(received).toEqual([at()]));
+		pluginPort.postMessage({ document, type: "ryotql-request", requestId: "old-query" });
+		pluginPort.postMessage({ count: 1, type: "overlay-state" });
+		pluginPort.postMessage({ shortcuts: ["A"], type: "page-shortcuts" });
+		await waitFor(() => expect(pageShortcuts).toContainEqual(["A"]));
+		const page = {
+			view: null,
+			settings: {},
+			dataSources: null,
+			route: { params: {} },
+			renderer: { name: "fixture", kind: "kernel" as const },
+			target: {
+				search: "",
+				path: "/music",
+				kind: "plugin-route" as const,
+				pluginSlug: PluginSlug.make("fixture"),
+			},
+		};
+		session.sendDocument("music", page, nav());
+		await waitFor(() =>
+			expect(received).toContainEqual({
+				page,
+				type: "document",
+				navigation: at(),
+				documentKey: "music",
+			}),
+		);
+		expect(aborted).toBe(true);
+		expect(overlayStates.at(-1)).toBe(0);
+		expect(pageShortcuts.at(-1)).toEqual([]);
+	});
 	it("forwards provider search and sends one page refresh", async () => {
 		const { init, session, received, pluginPort, providerSearches } = connect();
 		pluginPort.postMessage(readyFor(init));
@@ -475,6 +545,7 @@ describe("plugin bridge", () => {
 			mode: "light",
 			safeAreaTop: 0,
 			safeAreaBottom: 0,
+			documentKey: "page-1",
 			sessionId: init.sessionId,
 			format: CLIENT_ARTIFACT_FORMAT,
 			apiVersion: CLIENT_API_VERSION,
@@ -492,6 +563,7 @@ describe("plugin bridge", () => {
 			navigation: nav(),
 			theme: lightTheme,
 			onHeader: () => {},
+			documentKey: "page-1",
 			onReady: () => undefined,
 			onNavigate: () => undefined,
 			onPageSearch: () => undefined,

@@ -10,7 +10,7 @@ import {
 	type PluginRouteLocation,
 } from "@ryot-app/client-plugin-contract";
 import { Modal } from "@ryot-app/client-ui-sdk";
-import { EntityId, EntitySchemaSlug } from "@ryot-app/contract/schema/brands";
+import { EntityId, EntitySchemaSlug, PluginSlug } from "@ryot-app/contract/schema/brands";
 import { fireEvent, waitFor } from "@testing-library/dom";
 import { Schema } from "effect";
 import { useEffect, useState } from "react";
@@ -38,6 +38,7 @@ const init: PluginBridgeInit = {
 	mode: "light",
 	safeAreaTop: 0,
 	safeAreaBottom: 0,
+	documentKey: "page-1",
 	format: metadata.format,
 	sessionId: "session-id",
 	artifactHash: metadata.hash,
@@ -54,6 +55,14 @@ const routeLocation = (path: string, search = ""): PluginRouteLocation => ({
 	path,
 	search,
 	kind: "route",
+});
+const replacementPage = (label: string): ClientPageContext => ({
+	view: null,
+	dataSources: null,
+	settings: { label },
+	route: { params: {} },
+	renderer: { kind: "kernel", name: "fixture" },
+	target: { path: "/", search: "", kind: "plugin-route", pluginSlug: PluginSlug.make("fixture") },
 });
 let channels: MessageChannel[] = [];
 let bootstraps: Array<{ dispose: () => void }> = [];
@@ -74,7 +83,9 @@ const StaticHome = () => <p>Mounted</p>;
 
 const PageContextHome = () => {
 	const { target, renderer } = usePageContext();
-	return <p>{`${target.kind}:${renderer.kind}`}</p>;
+	return (
+		<p>{`${target.kind}:${renderer.kind}:${target.kind === "plugin-route" ? target.pluginSlug : ""}`}</p>
+	);
 };
 
 const SelectedPage = ({ entityId, entitySchemaSlug }: Partial<EntityRendererProps>) => {
@@ -244,7 +255,12 @@ describe("bootstrapClientPlugin", () => {
 						dataSources: null,
 						route: { params: {} },
 						renderer: { kind: "plugin", exportName: "home", pluginId: "plugin-1" },
-						target: { path: "/", search: "tab=stats", pluginId: "plugin-1", kind: "plugin-route" },
+						target: {
+							path: "/",
+							search: "tab=stats",
+							kind: "plugin-route",
+							pluginSlug: PluginSlug.make("plugin-1"),
+						},
 					},
 				},
 			}),
@@ -260,7 +276,7 @@ describe("bootstrapClientPlugin", () => {
 		});
 
 		await waitFor(() =>
-			expect(document.getElementById("app")?.textContent).toBe("plugin-route:plugin"),
+			expect(document.getElementById("app")?.textContent).toBe("plugin-route:plugin:plugin-1"),
 		);
 	});
 
@@ -274,9 +290,9 @@ describe("bootstrapClientPlugin", () => {
 				renderer: { kind: "plugin", pluginId: "plugin-1", exportName: "details" },
 				target: {
 					search: "tab=stats",
-					pluginId: "plugin-1",
 					kind: "plugin-route",
 					path: "/details/item-1",
+					pluginSlug: PluginSlug.make("plugin-1"),
 				},
 			},
 			routeLocation("/details/item-1", "tab=stats"),
@@ -287,6 +303,61 @@ describe("bootstrapClientPlugin", () => {
 		);
 	});
 
+	it("replaces page context and remounts page state while keeping the runtime client", async () => {
+		const clients: unknown[] = [];
+		const Counter = () => {
+			const client = useRyot();
+			const { settings } = usePageContext();
+			const [count, setCount] = useState(0);
+			useEffect(() => {
+				clients.push(client);
+			}, [client]);
+			return (
+				<button
+					type="button"
+					onClick={() => setCount((value) => value + 1)}
+				>{`${typeof settings.label === "string" ? settings.label : ""}:${count}`}</button>
+			);
+		};
+		document.body.innerHTML = '<div id="app"></div>';
+		embedMetadata();
+		bootstraps.push(bootstrapClientPage(Counter));
+		const channel = new MessageChannel();
+		channels.push(channel);
+		channel.port1.start();
+		const navigation = {
+			index: 0,
+			key: "k0",
+			compact: false,
+			edgeBack: false,
+			type: "location" as const,
+			leading: "drawer" as const,
+			location: routeLocation("/"),
+		};
+		window.dispatchEvent(
+			new MessageEvent("message", {
+				source: window.parent,
+				ports: [channel.port2],
+				data: { ...init, page: replacementPage("Movies") },
+			}),
+		);
+		channel.port1.postMessage(navigation);
+		await waitFor(() => expect(document.getElementById("app")?.textContent).toBe("Movies:0"));
+		const button = document.querySelector("button");
+		assert(button);
+		fireEvent.click(button);
+		await waitFor(() => expect(document.getElementById("app")?.textContent).toBe("Movies:1"));
+		channel.port1.postMessage({
+			navigation,
+			type: "document",
+			documentKey: "page-2",
+			page: replacementPage("Music"),
+		});
+		await waitFor(() => expect(document.getElementById("app")?.textContent).toBe("Music:0"));
+		expect(clients).toHaveLength(2);
+		expect(clients[1]).toBe(clients[0]);
+	});
+
 	it("renders an already-selected not-found page at the unmatched logical route", async () => {
 		mountSelectedPage(
 			{
@@ -295,7 +366,12 @@ describe("bootstrapClientPlugin", () => {
 				dataSources: null,
 				route: { params: {} },
 				renderer: { kind: "plugin", pluginId: "plugin-1", exportName: "not-found" },
-				target: { search: "", path: "/missing", pluginId: "plugin-1", kind: "plugin-route" },
+				target: {
+					search: "",
+					path: "/missing",
+					kind: "plugin-route",
+					pluginSlug: PluginSlug.make("plugin-1"),
+				},
 			},
 			routeLocation("/missing"),
 		);
