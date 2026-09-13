@@ -23,8 +23,8 @@ pub fn run(registry: Registry, grace: Duration, escalate: impl Fn(&Entry)) {
                 if let Some(isolate) = &state.isolate {
                     isolate.terminate_execution();
                 }
-                // Only an isolate that keeps running after termination is a culprit; one waiting
-                // for a CPU slot stops as soon as it is polled.
+                // Only an isolate that keeps running or stays blocked in inline settlement after
+                // termination is a culprit; one waiting for a CPU slot stops as soon as it is polled.
                 let active_since = state
                     .polling_since
                     .into_iter()

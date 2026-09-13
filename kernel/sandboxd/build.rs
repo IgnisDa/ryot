@@ -81,11 +81,7 @@ impl ModuleLoader for PayloadLoader {
         _referrer: Option<&ModuleLoadReferrer>,
         _options: ModuleLoadOptions,
     ) -> ModuleLoadResponse {
-        let file = if specifier.as_str() == TRUSTED_RUNNER_SPECIFIER {
-            self.payload.join("runner.mjs")
-        } else {
-            self.payload.join(specifier.path().trim_start_matches('/'))
-        };
+        let file = self.payload.join(specifier.path().trim_start_matches('/'));
         ModuleLoadResponse::Sync(
             std::fs::read_to_string(&file)
                 .map(|code| {
@@ -122,6 +118,20 @@ fn check_op_inventory(runtime: &JsRuntimeForSnapshot) {
     );
 }
 
+fn evaluate(tokio: &tokio::runtime::Runtime, runtime: &mut JsRuntimeForSnapshot, module: &str) {
+    let specifier = ModuleSpecifier::parse(module).expect("runtime specifier");
+    tokio
+        .block_on(async {
+            let id = runtime.load_side_es_module(&specifier).await?;
+            let evaluation = runtime.mod_evaluate(id);
+            runtime
+                .run_event_loop(PollEventLoopOptions::default())
+                .await?;
+            evaluation.await
+        })
+        .unwrap_or_else(|error| panic!("{module}: {error}"));
+}
+
 fn build_snapshot(
     payload: &Path,
     imports: BTreeMap<String, String>,
@@ -150,31 +160,13 @@ fn build_snapshot(
             .execute_script("ryot:full", surface::FULL_JS)
             .expect("full surface");
     }
-    for module in modules {
-        let specifier = ModuleSpecifier::parse(module).expect("runtime specifier");
-        tokio
-            .block_on(async {
-                let id = runtime.load_side_es_module(&specifier).await?;
-                let evaluation = runtime.mod_evaluate(id);
-                runtime
-                    .run_event_loop(PollEventLoopOptions::default())
-                    .await?;
-                evaluation.await
-            })
-            .unwrap_or_else(|error| panic!("{module}: {error}"));
+    for module in modules
+        .iter()
+        .map(String::as_str)
+        .chain([TRUSTED_RUNNER_SPECIFIER])
+    {
+        evaluate(&tokio, &mut runtime, module);
     }
-    let runner =
-        ModuleSpecifier::parse(TRUSTED_RUNNER_SPECIFIER).expect("trusted runner specifier");
-    tokio
-        .block_on(async {
-            let id = runtime.load_side_es_module(&runner).await?;
-            let evaluation = runtime.mod_evaluate(id);
-            runtime
-                .run_event_loop(PollEventLoopOptions::default())
-                .await?;
-            evaluation.await
-        })
-        .unwrap_or_else(|error| panic!("{TRUSTED_RUNNER_SPECIFIER}: {error}"));
     runtime
         .execute_script("ryot:snapshot", "delete Error.stackTraceLimit")
         .expect("stack trace limit");
