@@ -1,7 +1,7 @@
 import { describe, expect, it } from "vitest";
 
 import { SANDBOX_LIMITS } from "./limits";
-import { sandboxDenoRunFlags, sandboxProfilingFlags } from "./runtime";
+import { sandboxDenoRunFlags } from "./runtime";
 
 const artifactPath = "/tmp/ryot-artifacts/export.zip";
 const scratchDirectory = "/tmp/ryot-sandbox-scratch-abc";
@@ -86,19 +86,5 @@ describe("sandbox deno flag assembly", () => {
 			`--allow-read=/tmp/ryot-runner/runner.mjs,/tmp/ryot-runtime,${artifactPath},${scratchDirectory}`,
 			"--allow-net=127.0.0.1:4242",
 		]);
-	});
-
-	it("adds profiler flags only for a profiled process", () => {
-		expect(sandboxProfilingFlags(undefined)).toEqual([]);
-		expect(
-			sandboxProfilingFlags({ inspector: true, cpuProfile: true, directory: "/profiles/a" }),
-		).toEqual([
-			"--cpu-prof-dir=/profiles/a",
-			"--cpu-prof-name=cpu.cpuprofile",
-			"--inspect=127.0.0.1:0",
-		]);
-		expect(
-			sandboxProfilingFlags({ inspector: false, cpuProfile: false, directory: "/profiles/a" }),
-		).toEqual([]);
 	});
 });

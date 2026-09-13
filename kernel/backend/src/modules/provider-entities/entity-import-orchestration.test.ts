@@ -8,15 +8,11 @@ import {
 	UserId,
 } from "@ryot-app/contract/schema/brands";
 import { IsoUtcString } from "@ryot-app/contract/schema/utils";
-import { Cause, Effect, Fiber } from "effect";
+import { Cause, Effect, Fiber, Metric } from "effect";
 import { Workflow } from "effect/unstable/workflow";
 import { WorkflowEngine, WorkflowInstance } from "effect/unstable/workflow/WorkflowEngine";
 
 import { rootLifecycleCommand } from "#lib/domain/lifecycle-command";
-import {
-	getProviderImportExecutingBodies,
-	getProviderImportPhaseSegments,
-} from "#lib/infrastructure/runtime-metrics";
 import { makeWorkflowActivityEngine } from "#lib/test-utils/effect";
 
 import {
@@ -203,27 +199,44 @@ it.effect(
 		};
 
 		return Effect.gen(function* () {
-			const baselineSequence = getProviderImportPhaseSegments(0).at(-1)?.sequence ?? 0;
-			const baselineBodies = getProviderImportExecutingBodies();
+			const activeBodies = Effect.map(
+				Metric.snapshot,
+				(snapshots) =>
+					snapshots.find(({ id }) => id === "ryot.provider_import.executing_bodies")?.state,
+			);
 
 			// The suspension interrupts the body's own fiber, so the attempt runs in a child fiber.
 			const suspended = yield* Fiber.await(yield* Effect.forkChild(runBody()));
 			expect(suspended._tag === "Failure" && Cause.hasInterruptsOnly(suspended.cause)).toBe(true);
-			expect(getProviderImportExecutingBodies()).toBe(baselineBodies);
+			expect(yield* activeBodies).toMatchObject({ value: 0 });
 
 			populationReady = true;
 			expect(yield* runBody()).toEqual(entity);
-			expect(getProviderImportExecutingBodies()).toBe(baselineBodies);
+			expect(yield* activeBodies).toMatchObject({ value: 0 });
 
-			expect(
-				getProviderImportPhaseSegments(baselineSequence)
-					.filter((segment) => segment.executionId === executionId)
-					.map(({ phase, outcome }) => ({ phase, outcome })),
-			).toEqual([
-				{ phase: "population", outcome: "interrupted" },
-				{ outcome: "success", phase: "population" },
-				{ outcome: "success", phase: "provider-import-automation" },
-			]);
-		});
+			const phases = (yield* Metric.snapshot).filter(
+				({ id }) => id === "ryot.provider_import.phase_attempt_duration",
+			);
+			expect(phases).toHaveLength(3);
+			expect(phases).toEqual(
+				expect.arrayContaining([
+					expect.objectContaining({
+						state: expect.objectContaining({ count: 1 }),
+						attributes: expect.objectContaining({ phase: "population", outcome: "interrupted" }),
+					}),
+					expect.objectContaining({
+						state: expect.objectContaining({ count: 1 }),
+						attributes: expect.objectContaining({ outcome: "success", phase: "population" }),
+					}),
+					expect.objectContaining({
+						state: expect.objectContaining({ count: 1 }),
+						attributes: expect.objectContaining({
+							outcome: "success",
+							phase: "provider-import-automation",
+						}),
+					}),
+				]),
+			);
+		}).pipe(Effect.provideService(Metric.MetricRegistry, new Map()));
 	},
 );
