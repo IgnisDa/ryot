@@ -16,7 +16,7 @@ use crate::os::{ResidentMemory, lower_thread_priority};
 use crate::outbox::Outbox;
 use crate::protocol::{
     Assembled, Assembly, ChunkedType, Console, DrainReason, FramingError, Inbound, Lane, Outbound,
-    Outcome, Phase, Run, decode_inbound, inbound_type, read_frame, valid_handle,
+    Outcome, Phase, Run, Usage, decode_inbound, inbound_type, read_frame, valid_handle,
 };
 use crate::registry::{Entry, Registry};
 use crate::snapshots::Snapshot;
@@ -46,13 +46,14 @@ struct Shared {
 }
 
 impl Shared {
-    fn send_done(&self, handle: &str, outcome: Outcome, console: Console) {
+    fn send_done(&self, handle: &str, outcome: Outcome, console: Console, usage: Usage) {
         let message = Outbound::Done {
             generation: self.config.generation,
             handle: handle.to_owned(),
             seq: 0,
             outcome,
             console,
+            usage,
         };
         block_on(self.outbox.send(
             self.config.generation,
@@ -63,9 +64,9 @@ impl Shared {
         ));
     }
 
-    fn finish(&self, handle: &str, outcome: Outcome, console: Console) {
+    fn finish(&self, handle: &str, outcome: Outcome, console: Console, usage: Usage) {
         self.registry.retire(handle);
-        self.send_done(handle, outcome, console);
+        self.send_done(handle, outcome, console, usage);
         self.outbox.release(handle);
         let completed = self.completed.fetch_add(1, Ordering::SeqCst) + 1;
         if completed >= self.config.max_executions {
@@ -140,7 +141,7 @@ fn spawn_workers(
                     let reserve = run.limits.heap_bytes
                         + run.limits.external_bytes
                         + (run.module.source.len() + run.input.get().len()) as u64;
-                    let (outcome, console) = match shared.budget.reserve(reserve) {
+                    let (outcome, console, usage) = match shared.budget.reserve(reserve) {
                         None => (
                             Outcome::Failed(
                                 Phase::Admission,
@@ -149,13 +150,14 @@ fn spawn_workers(
                                 ),
                             ),
                             Console::default(),
+                            Usage::default(),
                         ),
                         Some(_reservation) if entry.state().cancelled => {
-                            (Outcome::Cancelled, Console::default())
+                            (Outcome::Cancelled, Console::default(), Usage::default())
                         }
                         Some(_reservation) => executor.execute(&run, &entry),
                     };
-                    shared.finish(&entry.handle, outcome, console);
+                    shared.finish(&entry.handle, outcome, console, usage);
                     set_running(None);
                 }
             })
@@ -180,6 +182,7 @@ impl Reader {
             handle,
             Outcome::Failed(Phase::Protocol, message),
             Console::default(),
+            Usage::default(),
         );
     }
 
@@ -215,6 +218,7 @@ impl Reader {
                         .to_lowercase(),
                 ),
                 Console::default(),
+                Usage::default(),
             );
             return;
         }
@@ -223,6 +227,7 @@ impl Reader {
                 &run.handle,
                 Outcome::Failed(Phase::Admission, "sidecar is draining".to_owned()),
                 Console::default(),
+                Usage::default(),
             );
             return;
         }
