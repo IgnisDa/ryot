@@ -2,11 +2,14 @@ import {
 	decodeEntityInterestServerMessage,
 	encodeEntityInterestClientMessage,
 } from "@ryot-app/contract/modules/entity-interest/messages";
+import { OAUTH_IMPERSONATION_WEB_CLIENT_ID } from "@ryot-app/contract/oauth";
 import { Duration, Effect, Result } from "effect";
 
 import {
-	createAuthenticatedClient,
 	createApiKey,
+	createAuthenticatedClient,
+	createImpersonationSession,
+	endImpersonationSession,
 	findBuiltinSchemaBySlug,
 	getEntity,
 	makeSession,
@@ -119,6 +122,20 @@ describe("interest authorization", () => {
 				client: makeSession(getApiUrl(), { "X-Api-Key": apiKey }),
 			});
 			expect(socket.ready.sessionId).toEqual(expect.any(String));
+		}),
+	);
+
+	it.live("closes an impersonation WebSocket when its session ends", () =>
+		Effect.gen(function* () {
+			const target = yield* createAuthenticatedClient();
+			const impersonation = yield* createImpersonationSession(
+				target.userId,
+				OAUTH_IMPERSONATION_WEB_CLIENT_ID,
+			);
+			const socket = yield* openInterestWebSocketScoped({ client: impersonation.client });
+			const ended = yield* endImpersonationSession(impersonation);
+			expect(ended.status).toBe(302);
+			expect(yield* socket.waitForClose({ timeoutMs: 10_000 })).toMatchObject({ code: 4001 });
 		}),
 	);
 
