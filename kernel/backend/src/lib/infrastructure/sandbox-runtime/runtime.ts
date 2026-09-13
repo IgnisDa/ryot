@@ -101,7 +101,7 @@ type ExecutionSession = {
 type ActiveExecutionSession = {
 	readonly onProfileCheckpoint?: SandboxProfileCheckpointHandler;
 	readonly token: string;
-	readonly expiresAt: number;
+	expiresAt: number;
 	readonly hostCallLimit: number;
 	readonly parentSpan: Tracer.AnySpan;
 	readonly budget: SandboxHostCallBudget;
@@ -596,6 +596,13 @@ export class BridgeService extends Context.Service<BridgeService>()("BridgeServi
 				}),
 				() => Effect.sync(() => evictSession(executionId, active)),
 			);
+			return {
+				/** Moves expiry past time the runner spent blocked on host-settled durable work. */
+				extend: (durationMs: number) =>
+					Effect.sync(() => {
+						active.expiresAt += Math.max(0, durationMs);
+					}),
+			};
 		});
 
 		const handleRequest = Effect.fn("BridgeService.handleRequest")(

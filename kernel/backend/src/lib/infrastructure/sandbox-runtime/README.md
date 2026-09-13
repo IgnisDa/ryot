@@ -1,6 +1,6 @@
 # Sandbox Runtime
 
-The backend executes plugin and source-zero kernel scripts as untrusted TypeScript modules. `SandboxScriptWorkflow` owns every invocation: it pins code, replays the body from the start, and converts mutable host calls into durable requests. Durable waits retain no Deno process, bridge session, transaction, or worker.
+The backend executes plugin and source-zero kernel scripts as untrusted TypeScript modules. `SandboxScriptWorkflow` owns every invocation: it pins code, replays the body from the start, and converts mutable host calls into durable requests. Plain activity calls settle inside the live replay; durable waits retain no Deno process, bridge session, transaction, or worker.
 
 ## Build And Execution
 
@@ -25,7 +25,17 @@ After-hook projections declare any supported `entity`, `event`, `relationship`, 
 
 The 64 KiB context limit is measured on the complete UTF-8 invocation after projection and trusted automation fields are added. Retained batch chunking is a separate item-count concern and does not guarantee that every hook's projected invocation fits. Missing retained evidence or script artifacts and missing, incompatible, non-JSON, oversized, or schema-invalid projections fail closed before sandbox execution with bounded preparation diagnostics.
 
-An unrecorded mutable `host.*` call ends that replay. The workflow dispatches it through its owning activity, child workflow, artifact operation, or diagnostic path, journals the typed success or failure, then replays. Recorded calls return their journaled results and never repeat the backend dispatch.
+An unrecorded mutable `host.*` call ends that replay unless the host settles it inline. The workflow dispatches ending calls through their owning activity, child workflow, artifact operation, or diagnostic path, journals the typed success or failure, then replays. Recorded calls return their journaled results and never repeat the backend dispatch.
+
+### Inline durable calls
+
+A replay's batch is every unrecorded request registered before its first unrecorded call runs, the same batch a pending replay would end with. When every request in it uses a capability whose dispatch strategy is `activity` (reads and idempotent writes that start no workflow and need no sandbox slot), the runner writes the batch to stdout and blocks on a synchronous stdin read. Blocking freezes every script fiber, so the script observes the results exactly as a later replay observes journal entries.
+
+The queue worker settles the batch with the same `dispatchSandboxHostActivity` path the workflow activity uses, with bridge-call concurrency, and answers with one durable result per request. The results extend the runner's local journal and the script continues in the same process. The host records the entries it produced; the queue result carries them to the workflow, which validates them against the envelope's request identity and argument hashes and journals them before any request that ended the replay. Recovery replays load them like any other entry.
+
+The host defers the whole batch, and the replay ends pending as before, when any request is not activity-dispatched, when an `httpCall` origin matches or cannot be resolved against an HTTP rate-limit policy, when indices do not continue the journal the workflow passed with the replay, when the batch or the inline journal exceeds its byte limit, or when dispatch fails. A deferred batch may already have run some calls; the workflow runs them again. Grant-carrying and profiled executions never settle inline.
+
+The replay timeout covers script time only: it pauses while the host settles a batch, and the bridge session expiry moves by the same amount. A live replay therefore spends no more script time than a recovery replay of the same journal.
 
 ## Durable State
 
@@ -33,7 +43,7 @@ An unrecorded mutable `host.*` call ends that replay. The workflow dispatches it
 - Redis contains only a reconstructible replay projection: request identity, argument hashes, and encoded results. Loss or expiry may rebuild it from workflow persistence.
 - Request identity and argument hashes detect replay nondeterminism.
 - Idempotent service operations run as activities; workflow-owning services compose as deterministic children.
-- Each bounded `httpCall` network attempt is durable. External mutation is at-least-once across the crash window before its result persists.
+- Each bounded `httpCall` network attempt is durable. External mutation is at-least-once across the crash window before its result persists; for inline calls that window spans the replay, whose queue result persists them.
 - Input artifacts are pinned through workflow completion or cancellation. Generated chunks use opaque workflow-scoped handles; TTL is leak cleanup, not normal lifetime.
 - Logs, spans, and console diagnostics are replay-tagged operational data, not journal entries.
 
@@ -41,7 +51,7 @@ Workflow code cannot use ambient time or randomness. Expected workflow failure u
 
 ## Security Boundary
 
-- Every replay uses a separate single-use Deno process. Timeout, failure, cancellation, and success all kill it.
+- Every replay uses a separate single-use Deno process that lives until the replay completes, fails, or ends at a call it cannot settle inline. Timeout, failure, cancellation, and success all kill it.
 - Deno denies subprocesses, environment access, FFI, writes, prompts, npm, remote modules, ambient config, and lock files by default.
 - Format 1 hides `Deno` and disables `eval`, string code generation, and workers before importing plugin code.
 - Read access is limited to the runner, one execution-linked module, approved local dependencies, and explicit per-execution grants. Network access is limited to the authenticated localhost bridge; scripts use `httpCall` for external traffic.

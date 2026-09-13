@@ -17,6 +17,7 @@ import {
 	bindSandboxHostFunctions,
 	decodeSandboxHostArguments,
 } from "#lib/infrastructure/sandbox-runtime/bridge-adapter";
+import { isSandboxCapability } from "#lib/infrastructure/sandbox-runtime/capability-policy";
 import {
 	SandboxExecutionPrincipal,
 	type SandboxExecutionPrincipal as SandboxExecutionPrincipalValue,
@@ -90,6 +91,17 @@ export const sandboxDurableHostDispatchStrategy = (capability: SandboxHostCapabi
 	return SANDBOX_DURABLE_HOST_DISPATCH[capability];
 };
 
+/**
+ * Declared capabilities whose durable calls a live replay may settle inline: plain activities that
+ * neither start workflows nor need another sandbox execution slot.
+ */
+export const sandboxInlineDurableCapabilities = (principal: SandboxExecutionPrincipalValue) =>
+	(principal.metadata.capabilities ?? []).filter(
+		(capability): capability is SandboxHostCapability =>
+			isSandboxCapability(capability) &&
+			sandboxDurableHostDispatchStrategy(capability) === "activity",
+	);
+
 export const sandboxDurableHttpRequestUrl = (request: HostRequest) =>
 	Option.getOrNull(
 		Option.map(
@@ -100,7 +112,7 @@ export const sandboxDurableHttpRequestUrl = (request: HostRequest) =>
 
 const loadDispatchInput = Effect.fn("loadSandboxDurableHostDispatchInput")(function* (
 	request: HostRequest,
-	payload: SandboxScriptWorkflowPayloadValue,
+	context: unknown,
 	principal: SandboxExecutionPrincipalValue,
 	executionId: string,
 	startedAt: string,
@@ -115,11 +127,11 @@ const loadDispatchInput = Effect.fn("loadSandboxDurableHostDispatchInput")(funct
 		});
 	}
 	const input = {
+		context,
 		startedAt,
 		principal,
 		compiledCode: "",
 		compiledFormat: 1,
-		context: payload.input,
 		workflowExecutionId: executionId,
 		hostCallDiscriminator: request.index,
 		executionId: `${executionId}-host-${request.index}`,
@@ -138,12 +150,12 @@ const loadDispatchInput = Effect.fn("loadSandboxDurableHostDispatchInput")(funct
 
 export const dispatchSandboxHostActivity = Effect.fn("dispatchSandboxHostActivity")(function* (
 	request: HostRequest,
-	payload: SandboxScriptWorkflowPayloadValue,
+	context: unknown,
 	principal: SandboxExecutionPrincipalValue,
 	executionId: string,
 	startedAt: string,
 ) {
-	const { input } = yield* loadDispatchInput(request, payload, principal, executionId, startedAt);
+	const { input } = yield* loadDispatchInput(request, context, principal, executionId, startedAt);
 	const implementations = yield* SandboxHostImplementations;
 	const boundFunctions = bindSandboxHostFunctions(
 		{
@@ -182,7 +194,13 @@ export const prepareSandboxCreateEvents = Effect.fn("prepareSandboxCreateEvents"
 	executionId: string,
 	startedAt: string,
 ) {
-	const { input } = yield* loadDispatchInput(request, payload, principal, executionId, startedAt);
+	const { input } = yield* loadDispatchInput(
+		request,
+		payload.input,
+		principal,
+		executionId,
+		startedAt,
+	);
 	const args = yield* Schema.decodeUnknownEffect(sandboxHostContracts.createEvents.args)(
 		request.args.args,
 	).pipe(
@@ -221,7 +239,13 @@ export const prepareSandboxLifecycleHostInput = Effect.fn("prepareSandboxLifecyc
 		executionId: string,
 		startedAt: string,
 	) {
-		const { input } = yield* loadDispatchInput(request, payload, principal, executionId, startedAt);
+		const { input } = yield* loadDispatchInput(
+			request,
+			payload.input,
+			principal,
+			executionId,
+			startedAt,
+		);
 		const { lifecycle } = yield* SandboxHostImplementations;
 		const capability = request.args.capability;
 		const validated = yield* Effect.result(
@@ -271,7 +295,13 @@ export const prepareSandboxSendNotification = Effect.fn("prepareSandboxSendNotif
 		executionId: string,
 		startedAt: string,
 	) {
-		const { input } = yield* loadDispatchInput(request, payload, principal, executionId, startedAt);
+		const { input } = yield* loadDispatchInput(
+			request,
+			payload.input,
+			principal,
+			executionId,
+			startedAt,
+		);
 		const args = yield* Schema.decodeUnknownEffect(sandboxHostContracts.sendNotification.args)(
 			request.args.args,
 		).pipe(
@@ -320,7 +350,7 @@ export const runSandboxDurableHostServiceWorkflow = Effect.fn("SandboxDurableHos
 	function* (payload: typeof SandboxDurableHostServiceWorkflowPayload.Type) {
 		return yield* dispatchSandboxHostActivity(
 			payload.request,
-			payload.sandbox,
+			payload.sandbox.input,
 			payload.principal,
 			payload.parentExecutionId,
 			payload.startedAt,
@@ -337,6 +367,17 @@ export type SandboxDurableHostDispatcherValue = {
 		principal: SandboxExecutionPrincipalValue,
 		executionId: string,
 	) => Effect.Effect<WorkflowDurableResult, SandboxRunError, WorkflowEngine | WorkflowInstance>;
+	/**
+	 * Settles a whole batch of inline-eligible calls outside the workflow body, or returns `null`
+	 * when any call must be dispatched durably instead (for example a rate-limited HTTP origin).
+	 */
+	readonly settleInline: (
+		requests: ReadonlyArray<HostRequest>,
+		context: unknown,
+		principal: SandboxExecutionPrincipalValue,
+		executionId: string,
+		startedAt: string,
+	) => Effect.Effect<ReadonlyArray<WorkflowDurableResult> | null>;
 };
 
 export class SandboxDurableHostDispatcher extends Context.Service<
