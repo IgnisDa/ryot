@@ -236,7 +236,7 @@ describe("AutomationRunRepository", () => {
 									id: "policy-script",
 									contentHash: "hash",
 									compiledCode: "code",
-									metadata: { kind: "automation" },
+									metadata: { kind: "automation", runtimeImports: [] },
 								});
 							const base = yield* Schema.decodeEffect(AutomationRun)({
 								pluginId: null,
@@ -395,6 +395,7 @@ describe("AutomationRunRepository", () => {
 										name: "Notify",
 										capabilities: [],
 										kind: "automation",
+										runtimeImports: [],
 										slug: "kernel.notify",
 										oauthConnectionFields: [],
 										executableDependencies: [],

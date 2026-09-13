@@ -27,8 +27,8 @@ const workflowInput: SandboxRunInput = {
 		scriptSlug: "script",
 		pluginRevision: null,
 		subject: { type: "system" },
-		metadata: { kind: "workflow" },
 		scriptId: SandboxScriptId.make("workflow-script"),
+		metadata: { kind: "workflow", runtimeImports: [] },
 	},
 };
 
@@ -192,24 +192,14 @@ it.effect("serves the loaded journal and rejects request-bearing calls", () =>
 	}),
 );
 
-it("isolates workflow replay bootstrap from script capabilities", () => {
+it("keeps workflow replay journal out of ordinary host-function selection", () => {
 	const bound = { httpCall: unusedHostFunction, replayJournal: unusedHostFunction };
 	expect(
 		Object.keys(
 			selectSandboxHostFunctions(bound, {
 				principal: {
 					...workflowInput.principal,
-					metadata: { kind: "workflow", capabilities: ["httpCall"] },
-				},
-			}),
-		),
-	).toEqual(["replayJournal"]);
-	expect(
-		Object.keys(
-			selectSandboxHostFunctions(bound, {
-				principal: {
-					...workflowInput.principal,
-					metadata: { kind: "script", capabilities: ["replayJournal"] },
+					metadata: { kind: "workflow", runtimeImports: [], capabilities: ["httpCall"] },
 				},
 			}),
 		),
@@ -219,7 +209,21 @@ it("isolates workflow replay bootstrap from script capabilities", () => {
 			selectSandboxHostFunctions(bound, {
 				principal: {
 					...workflowInput.principal,
-					metadata: { kind: "script", capabilities: ["httpCall", "replayJournal"] },
+					metadata: { kind: "script", runtimeImports: [], capabilities: ["replayJournal"] },
+				},
+			}),
+		),
+	).toEqual([]);
+	expect(
+		Object.keys(
+			selectSandboxHostFunctions(bound, {
+				principal: {
+					...workflowInput.principal,
+					metadata: {
+						kind: "script",
+						runtimeImports: [],
+						capabilities: ["httpCall", "replayJournal"],
+					},
 				},
 			}),
 		),

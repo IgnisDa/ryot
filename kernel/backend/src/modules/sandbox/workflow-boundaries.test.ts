@@ -60,7 +60,9 @@ layer(BunServices.layer)((test) => {
 			);
 			expect(durableQueues).toContain("DurableQueue.process(SandboxExecutionQueue, payload)");
 			expect(automationRunWorkflow).toContain("SandboxExecutionService");
-			expect(sandboxScriptWorkflow).toContain("processSandboxExecutionQueue(payload)");
+			expect(sandboxScriptWorkflow).toContain(
+				"processSandboxExecutionQueue({ ...payload, recoveryAttempt: attempt })",
+			);
 			expect(sandboxWorkflow).toContain("SandboxScriptWorkflow");
 			expect(entityImportWorkflow).toMatch(
 				/dispatchAdmittedWorkflow\(\s*receipts,\s*engine,\s*ProviderEntityPopulationWorkflow,/,

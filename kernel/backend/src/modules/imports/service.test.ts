@@ -87,7 +87,7 @@ const script = {
 	id: SandboxScriptId.make("script-1"),
 	createdAt: new Date(ingestionTestNow),
 	updatedAt: new Date(ingestionTestNow),
-	metadata: { kind: "workflow" as const },
+	metadata: { runtimeImports: [], kind: "workflow" as const },
 };
 const serviceCase = (
 	mode: "success" | "dispatch-failed" | "store-failed" | "pin-failed" | "not-ready",

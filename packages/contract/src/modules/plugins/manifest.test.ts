@@ -171,6 +171,7 @@ const authoredManifest = definePlugin({
 const scripts = [
 	{
 		kind: "automation",
+		runtimeImports: [],
 		name: "Test automation",
 		slug: "automation.test",
 		oauthConnectionFields: [],
@@ -191,6 +192,7 @@ const scripts = [
 	{
 		capabilities: [],
 		kind: "operation",
+		runtimeImports: [],
 		name: "Test operation",
 		slug: "operation.test",
 		oauthConnectionFields: [],
@@ -202,6 +204,7 @@ const scripts = [
 	{
 		kind: "provider",
 		capabilities: [],
+		runtimeImports: [],
 		oauthConnectionFields: [],
 		executableDependencies: [],
 		providerOperation: "details",
@@ -215,6 +218,7 @@ const scripts = [
 	{
 		kind: "provider",
 		capabilities: [],
+		runtimeImports: [],
 		oauthConnectionFields: [],
 		executableDependencies: [],
 		providerOperation: "search",
@@ -238,6 +242,7 @@ const scripts = [
 	{
 		kind: "script",
 		capabilities: [],
+		runtimeImports: [],
 		oauthConnectionFields: [],
 		executableDependencies: [],
 		requiredPluginConfigKeys: [],
@@ -250,6 +255,7 @@ const scripts = [
 	{
 		kind: "workflow",
 		capabilities: [],
+		runtimeImports: [],
 		name: "Test workflow",
 		slug: "workflow.test",
 		oauthConnectionFields: [],

@@ -17,6 +17,7 @@ import {
 	pollAutomationRuns,
 	pollTerminalAutomationRuns,
 	pollUntil,
+	type TestPluginScript,
 	uninstallTestPlugin,
 	waitForEventWithSchema,
 } from "~/fixtures/kernel";
@@ -24,13 +25,20 @@ import { requirePresent } from "~/support/assertions";
 import { describe, expect, it } from "~/support/effect-test";
 
 type PluginScript = PluginManifest["scripts"][number];
-type AutomationScript = Extract<PluginScript, { kind: "automation"; automationType: "automation" }>;
+type CompiledAutomationScript = Extract<
+	PluginScript,
+	{ kind: "automation"; automationType: "automation" }
+>;
+type AutomationScript = Extract<
+	TestPluginScript,
+	{ kind: "automation"; automationType: "automation" }
+> & { readonly entry: string };
 
 const automationScript = (
 	slug: string,
 	name: string,
-	capabilities: AutomationScript["capabilities"],
-	inputProjection: AutomationScript["inputProjection"],
+	capabilities: CompiledAutomationScript["capabilities"],
+	inputProjection: CompiledAutomationScript["inputProjection"],
 ): AutomationScript => ({
 	slug,
 	name,

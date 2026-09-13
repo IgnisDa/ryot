@@ -1,7 +1,10 @@
 import { describe, expect, it, layer } from "@effect/vitest";
 import { DbError } from "@ryot-app/contract/errors";
 import type { RyotQLDocument } from "@ryot-app/contract/modules/ryotql/language";
-import type { SandboxExecutionSubject } from "@ryot-app/contract/modules/sandbox/schemas";
+import type {
+	SandboxExecutionSubject,
+	SandboxScriptMetadata,
+} from "@ryot-app/contract/modules/sandbox/schemas";
 import { SANDBOX_HOST_CAPABILITIES } from "@ryot-app/contract/modules/sandbox/wire";
 import {
 	AutomationExecutionId,
@@ -158,47 +161,52 @@ const ownedIntegration = (input: GetForUserInput): IntegrationRecord => ({
 const runInput = (
 	subject: SandboxExecutionSubject,
 	capabilities: readonly string[] = SANDBOX_HOST_CAPABILITIES,
-	principalFacts: Partial<SandboxExecutionPrincipal> = {},
-): SandboxRunInput => ({
-	compiledCode: "",
-	compiledFormat: 1,
-	hostCallDiscriminator: 0,
-	executionId: "execution-1",
-	workflowExecutionId: "workflow-1",
-	startedAt: "2026-01-01T00:00:00.000Z",
-	principal: {
-		subject,
-		contentHash: "",
-		providerId: null,
-		pluginRevision: null,
-		scriptSlug: "script",
-		scriptId: SandboxScriptId.make("script-1"),
-		metadata: { capabilities: [...capabilities] },
-		...principalFacts,
-	},
-	context:
-		subject.type === "automation-run"
-			? {
-					automation: {
-						hookSlug: "script",
-						runId: subject.runId,
-						causation: subject.causation,
-						triggerId: subject.triggerId,
-						occurredAt: "2026-01-01T00:00:00.000Z",
-						executionUserId: subject.executionUserId,
-						payload: {
-							properties: {},
-							operation: "emit",
-							resource: "signal",
-							category: "signal",
-							signalSchemaPluginId: null,
-							signalSchemaSlug: "fixture.signal",
-							actorUserId: subject.executionUserId,
+	principalFacts: Omit<Partial<SandboxExecutionPrincipal>, "metadata"> & {
+		readonly metadata?: Omit<SandboxScriptMetadata, "runtimeImports">;
+	} = {},
+): SandboxRunInput => {
+	const { metadata, ...otherPrincipalFacts } = principalFacts;
+	return {
+		compiledCode: "",
+		compiledFormat: 1,
+		hostCallDiscriminator: 0,
+		executionId: "execution-1",
+		workflowExecutionId: "workflow-1",
+		startedAt: "2026-01-01T00:00:00.000Z",
+		principal: {
+			subject,
+			contentHash: "",
+			providerId: null,
+			pluginRevision: null,
+			scriptSlug: "script",
+			scriptId: SandboxScriptId.make("script-1"),
+			metadata: { runtimeImports: [], capabilities: [...capabilities], ...metadata },
+			...otherPrincipalFacts,
+		},
+		context:
+			subject.type === "automation-run"
+				? {
+						automation: {
+							hookSlug: "script",
+							runId: subject.runId,
+							causation: subject.causation,
+							triggerId: subject.triggerId,
+							occurredAt: "2026-01-01T00:00:00.000Z",
+							executionUserId: subject.executionUserId,
+							payload: {
+								properties: {},
+								operation: "emit",
+								resource: "signal",
+								category: "signal",
+								signalSchemaPluginId: null,
+								signalSchemaSlug: "fixture.signal",
+								actorUserId: subject.executionUserId,
+							},
 						},
-					},
-				}
-			: {},
-});
+					}
+				: {},
+	};
+};
 
 const automationSubject = (
 	origin:
@@ -1482,7 +1490,7 @@ describe("executeRyotql", () => {
 					principal: {
 						...runInput({ type: "system" }).principal,
 						pluginRevision: pinnedRevision,
-						metadata: { kind: "script", capabilities: ["executeRyotql"] },
+						metadata: { kind: "script", runtimeImports: [], capabilities: ["executeRyotql"] },
 					},
 				});
 
@@ -1526,7 +1534,7 @@ describe("executeRyotql", () => {
 					...runInput({ type: "system" }),
 					principal: {
 						...runInput({ type: "system" }).principal,
-						metadata: { kind: "script", capabilities: ["executeRyotql"] },
+						metadata: { kind: "script", runtimeImports: [], capabilities: ["executeRyotql"] },
 					},
 				});
 
@@ -1565,7 +1573,7 @@ describe("executeRyotql", () => {
 			principal: {
 				...runInput({ type: "system" }).principal,
 				pluginRevision: systemPluginRevision,
-				metadata: { kind: "script", capabilities: ["executeRyotql"] },
+				metadata: { kind: "script", runtimeImports: [], capabilities: ["executeRyotql"] },
 			},
 		});
 

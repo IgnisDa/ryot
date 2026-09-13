@@ -10,14 +10,14 @@ import {
 	httpSuccess,
 	integrationRecord,
 } from "../../tests/backend/automations/automation-test-utils";
-import { mediaFilesystem, mediaFilesystemKey } from "../imports/ingestion.test-support";
+import { mediaFilesystem, resetMediaFilesystem } from "../imports/ingestion.test-support";
 import reader from "../imports/read-batch.sandbox";
 import writer, { manifest as writerManifest } from "../imports/write-chunks.sandbox";
 import type { MediaIntegrationConfirmation } from "./schemas";
 import spotify, { manifest as spotifyManifest } from "./yanks/spotify.sandbox";
 import { runYoutubeMusicYank, manifest as youtubeManifest } from "./yanks/youtube-music.sandbox";
 
-afterEach(() => Reflect.deleteProperty(globalThis, mediaFilesystemKey));
+afterEach(resetMediaFilesystem);
 const confirmation = (
 	confirmed: (typeof MediaIntegrationConfirmation.Type)["confirmed"],
 ): typeof MediaIntegrationConfirmation.Type => ({

@@ -63,6 +63,7 @@ export const compilePluginPackage = (input: PluginPackageInput) =>
 					? Schema.decodeUnknownEffect(PluginScript)({
 							...script,
 							capabilities: generated.capabilities,
+							runtimeImports: generated.runtimeImports,
 							oauthConnectionFields: generated.oauthConnectionFields,
 							executableDependencies: generated.executableDependencies,
 							requiredPluginConfigKeys: generated.requiredPluginConfigKeys,

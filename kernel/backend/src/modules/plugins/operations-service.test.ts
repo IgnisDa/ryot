@@ -62,6 +62,7 @@ const makeActiveScript = (id: string) => ({
 		name: DRIVER_REF,
 		slug: DRIVER_REF,
 		capabilities: [],
+		runtimeImports: [],
 		oauthConnectionFields: [],
 		kind: "operation" as const,
 		executableDependencies: [],
