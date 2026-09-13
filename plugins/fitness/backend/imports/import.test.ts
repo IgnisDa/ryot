@@ -26,14 +26,19 @@ it("dispatches every fitness source to its matching parser activity", () =>
 	Effect.runPromise(
 		Effect.forEach(
 			[
-				["hevy", "import.hevy"],
-				["strong_app", "import.strong-app"],
-				["open_scale", "import.open-scale"],
+				["hevy", "import.hevy", { timezone: "Asia/Kolkata" }],
+				["strong_app", "import.strong-app", { timezone: "Asia/Kolkata" }],
+				["open_scale", "import.open-scale", {}],
 			] as const,
-			([source, scriptSlug]) =>
+			([source, scriptSlug, input]) =>
 				workflow
 					.run(
-						{ source, runId: `run-${source}`, command: importCommand(`run-${source}`) },
+						{
+							source,
+							sourcePayload: input,
+							runId: `run-${source}`,
+							command: importCommand(`run-${source}`),
+						},
 						{ replayJournal: () => Effect.succeed([]) } satisfies WorkflowReplayHost,
 						{ metadata: {}, sandboxScriptId: "fitness-import" },
 					)
@@ -41,7 +46,7 @@ it("dispatches every fitness source to its matching parser activity", () =>
 						Effect.map((envelope) => {
 							expect(envelope).toMatchObject({
 								state: "pending",
-								requests: [{ kind: "activity", args: { scriptSlug } }],
+								requests: [{ kind: "activity", args: { input, scriptSlug } }],
 							});
 							return envelope;
 						}),
@@ -49,13 +54,36 @@ it("dispatches every fitness source to its matching parser activity", () =>
 		),
 	));
 
+it.each(["hevy", "strong_app"] as const)("fails %s when the timezone is missing", (source) =>
+	Effect.runPromise(
+		workflow
+			.run(
+				{ source, runId: `run-${source}`, command: importCommand(`run-${source}`) },
+				{ replayJournal: () => Effect.succeed([]) } satisfies WorkflowReplayHost,
+				{ metadata: {}, sandboxScriptId: "fitness-import" },
+			)
+			.pipe(
+				Effect.map((envelope) => {
+					assert(envelope.state === "failed");
+					expect(envelope.error).toContain("Import job is missing timezone");
+					expect(envelope.requests).toEqual([]);
+				}),
+			),
+	),
+);
+
 it("orchestrates the source script and kernel chunk consumer", () => {
 	const journal: JsonValue[] = [];
 	const requests: Array<WorkflowReplayEnvelope["requests"][number]> = [];
 	const replay = Effect.gen(function* () {
 		for (;;) {
 			const envelope = yield* workflow.run(
-				{ runId: "run-1", source: "strong_app", command: importCommand("run-1") },
+				{
+					runId: "run-1",
+					source: "strong_app",
+					command: importCommand("run-1"),
+					sourcePayload: { timezone: "Asia/Kolkata" },
+				},
 				{ replayJournal: () => Effect.succeed(journal) } satisfies WorkflowReplayHost,
 				{ metadata: {}, sandboxScriptId: "fitness-import" },
 			);
