@@ -1,6 +1,6 @@
 import { expect, it } from "@effect/vitest";
 import type { LogEntry } from "@ryot-app/sandbox-sdk/core";
-import { Effect } from "@ryot-app/sandbox-sdk/effect";
+import { DateTime, Effect } from "@ryot-app/sandbox-sdk/effect";
 import { defineSandboxTestHost } from "@ryot-app/sandbox-sdk/testing";
 import type { JsonValue } from "@ryot-app/sandbox-sdk/wire";
 
@@ -10,6 +10,7 @@ import {
 	integrationRecord,
 	ryotqlRows,
 } from "../../tests/backend/automations/automation-test-utils";
+import { ryotqlDocumentNodes } from "../../tests/ryotql-test-utils";
 import { createMediaImportChunk } from "./chunks";
 import { admitIntegrationProgress } from "./integration-progress";
 import type { MediaImportWriteChunkInput } from "./schemas";
@@ -215,18 +216,18 @@ it.live.each([
 	"preserves completion claim/history behavior: $minutes minutes, claimed $claimed, threshold $threshold",
 	({ ttl, minutes, claimed, threshold, suppressed }) =>
 		Effect.gen(function* () {
-			const now = Date.now();
+			const now = yield* DateTime.now;
 			const { host, claims } = createHost({
 				claimed,
 				threshold,
 				events: [
 					eventRecord({
 						properties: { consumedOn: "Plex", progressPercent: 100 },
-						occurredAt: new Date(now - minutes * 60_000).toISOString(),
+						occurredAt: DateTime.formatIso(DateTime.subtract(now, { minutes })),
 					}),
 					eventRecord({
-						occurredAt: new Date(now - 60_000).toISOString(),
 						properties: { consumedOn: "Plex", progressPercent: 50 },
+						occurredAt: DateTime.formatIso(DateTime.subtract(now, { minutes: 1 })),
 					}),
 				],
 			});
@@ -260,9 +261,10 @@ it.live(
 						host,
 					),
 			);
-			expect(JSON.stringify(queries[0])).toContain("episode-1");
-			expect(JSON.stringify(queries[0])).toContain("show-episode");
-			expect(JSON.stringify(queries[0])).not.toContain("movie-1");
+			const queryValues = ryotqlDocumentNodes(queries[0]);
+			expect(queryValues).toContain("episode-1");
+			expect(queryValues).toContain("show-episode");
+			expect(queryValues).not.toContain("movie-1");
 			expect(claims[0]?.key).toBe(
 				'["media.integration-progress.v1","integration-1","episode-1","show-episode","progress","Plex",""]',
 			);
