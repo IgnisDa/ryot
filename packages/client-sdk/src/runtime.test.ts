@@ -590,6 +590,7 @@ describe("plugin runtime", () => {
 		runtime.client.navigation.replace({ path: "/", kind: "plugin-route", pluginSlug: "fixture" });
 		runtime.client.navigation.push({ kind: "entity", entityId: "entity-1" });
 		runtime.client.navigation.push({ slug: "view-1", kind: "saved-view" });
+		runtime.client.navigation.push({ kind: "kernel-page", page: "import-data" });
 		await delay();
 
 		expect(messages).toContainEqual({
@@ -611,6 +612,11 @@ describe("plugin runtime", () => {
 			mode: "push",
 			type: "navigate",
 			target: { slug: "view-1", kind: "saved-view" },
+		});
+		expect(messages).toContainEqual({
+			mode: "push",
+			type: "navigate",
+			target: { kind: "kernel-page", page: "import-data" },
 		});
 	});
 
