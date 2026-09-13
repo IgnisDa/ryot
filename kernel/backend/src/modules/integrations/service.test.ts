@@ -439,7 +439,7 @@ describe("installation availability", () => {
 			dependencies: () => ({
 				catalog: unavailableCatalog,
 				repository: { getByWebhookToken: () => Effect.succeed(sinkIntegration) },
-				imports: { createRunForIntegration: () => Effect.die("run should not be created") },
+				imports: { createIntegrationRun: () => Effect.die("run should not be created") },
 			}),
 		}),
 	)((test) => {
@@ -472,7 +472,7 @@ describe("installation availability", () => {
 		makeServiceLayer({
 			dependencies: () => ({
 				catalog: unavailableCatalog,
-				imports: { createRunForIntegrationIfIdle: () => Effect.die("run should not be created") },
+				imports: { createIntegrationRunIfIdle: () => Effect.die("run should not be created") },
 				repository: {
 					getUserDisableIntegrations: () => Effect.succeed(false),
 					listEnabledYankIntegrations: () => Effect.succeed([unavailableYankIntegration]),
@@ -518,8 +518,8 @@ describe("prepareYankRuns", () => {
 					listEnabledYankIntegrations: () => Effect.succeed([yankIntegration]),
 				},
 				imports: {
-					createRunForIntegrationIfIdle: (input) =>
-						record("createRunForIntegrationIfIdle", input).pipe(
+					createIntegrationRunIfIdle: (input) =>
+						record("createIntegrationRunIfIdle", input).pipe(
 							Effect.as(admitted ? makeRun("completed") : null),
 						),
 				},
@@ -607,9 +607,9 @@ describe("handleWebhook", () => {
 					getByWebhookToken: () => Effect.succeed(kodiIntegration),
 				},
 				imports: {
-					createRunForIntegrationIfIdle: () => Effect.die("sink runs must not be idle-gated"),
-					createRunForIntegration: (input) =>
-						record("createRunForIntegration", input).pipe(Effect.as(makeRun("completed"))),
+					createIntegrationRunIfIdle: () => Effect.die("sink runs must not be idle-gated"),
+					createIntegrationRun: (input) =>
+						record("createIntegrationRun", input).pipe(Effect.as(makeRun("completed"))),
 				},
 			}),
 		}),
@@ -657,7 +657,7 @@ describe("handleWebhook", () => {
 		makeServiceLayer({
 			dependencies: ({ record }) => ({
 				catalog: { findOwnedForUser: () => Effect.succeed(lambdaSink) },
-				imports: { createRunForIntegration: () => Effect.succeed(makeRun("completed")) },
+				imports: { createIntegrationRun: () => Effect.succeed(makeRun("completed")) },
 				engine: {
 					execute: (_workflow, options) =>
 						record("execute", options).pipe(Effect.as(options.executionId)),

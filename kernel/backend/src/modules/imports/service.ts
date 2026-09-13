@@ -1,9 +1,11 @@
 import type { CurrentUserValue } from "@ryot-app/contract/auth-middleware";
 import {
 	ImportNotFoundError,
+	ImportConflictError,
 	ImportRequestError,
 	type CreateImportRunBody,
 	type ImportRunFailureReason,
+	type ImportRunStatus,
 } from "@ryot-app/contract/modules/imports/schemas";
 import type { ImportRunSource } from "@ryot-app/contract/modules/imports/types";
 import type { IntegrationLot } from "@ryot-app/contract/modules/integrations/types";
@@ -14,7 +16,6 @@ import {
 	type SandboxScriptId,
 	type UserId,
 } from "@ryot-app/contract/schema/brands";
-import type { RunStatus } from "@ryot-app/contract/schema/run-status";
 import { IsoUtcString } from "@ryot-app/contract/schema/utils";
 import { stableStringify } from "@ryot-app/ts-utils/json";
 import { Context, DateTime, Effect, Exit, Result, Layer } from "effect";
@@ -43,27 +44,20 @@ import {
 import { ImportSourceStateStore } from "./runtime/source-state-store";
 import { ImportWorkflowPinning } from "./workflow-pinning";
 
-export type CreateImportRunInput = {
+export type CreateManualImportRunInput = {
 	userId: UserId;
 	source: ImportRunSource;
 	pluginInstallationId: string;
-	integrationId?: IntegrationId | null;
 	inputSummary: Record<string, unknown>;
-	integrationLot?: IntegrationLot | null;
 };
 
-export type UpdateImportRunInput = {
-	startedAt?: Date;
-	finishedAt?: Date;
+export type UpdateImportRunProgressInput = {
 	progress?: number;
-	status?: RunStatus;
 	runId: ImportRunId;
 	totalItems?: number;
 	failedItems?: number;
 	importedItems?: number;
 	processedItems?: number;
-	inputSummary?: Record<string, unknown>;
-	failureReason?: ImportRunFailureReason;
 };
 
 export type DeleteImportRunInput = { userId: UserId; runId: ImportRunId };
@@ -79,8 +73,8 @@ type DispatchImportRunInput = {
 	namedArtifactPaths: ImportSourceState["namedArtifactPaths"];
 };
 
-const isTerminalStatus = (status: RunStatus): boolean =>
-	status === "completed" || status === "failed";
+const isTerminalStatus = (status: ImportRunStatus): boolean =>
+	status === "completed" || status === "failed" || status === "cancelled";
 
 export class ImportsService extends Context.Service<ImportsService>()("ImportsService", {
 	make: Effect.gen(function* () {
@@ -92,13 +86,19 @@ export class ImportsService extends Context.Service<ImportsService>()("ImportsSe
 		const workflowPinning = yield* ImportWorkflowPinning;
 		const failureService = yield* ImportRunFailuresService;
 
-		const create = Effect.fn("ImportsService.create")(function* (input: CreateImportRunInput) {
-			return yield* repository.createRun(input);
+		const createManualRun = Effect.fn("ImportsService.createManualRun")(function* (
+			input: CreateManualImportRunInput,
+		) {
+			return yield* repository.createManualRun(input);
 		});
 
-		const update = Effect.fn("ImportsService.update")(function* (input: UpdateImportRunInput) {
-			yield* repository.updateRun(input);
-		});
+		const updateInputSummary = repository.updateInputSummary;
+		const markStarted = repository.markStarted;
+		const updateProgress = repository.updateProgress;
+		const finishCompleted = repository.finishCompleted;
+		const finishFailed = repository.finishFailed;
+		const finishCancelled = repository.finishCancelled;
+		const getRunControlForUser = repository.getRunControlForUser;
 
 		const deleteRun = Effect.fn("ImportsService.delete")(function* (input: DeleteImportRunInput) {
 			yield* repository.deleteRunById(input);
@@ -107,7 +107,7 @@ export class ImportsService extends Context.Service<ImportsService>()("ImportsSe
 		const failRun = (runId: ImportRunId, failureReason: ImportRunFailureReason) =>
 			Effect.gen(function* () {
 				const finishedAt = yield* DateTime.nowAsDate;
-				yield* update({ runId, finishedAt, failureReason, status: "failed" });
+				yield* finishFailed({ runId, finishedAt, failureReason });
 			});
 
 		const cleanupUploads = (intentIds: ReadonlyArray<string>) =>
@@ -194,7 +194,7 @@ export class ImportsService extends Context.Service<ImportsService>()("ImportsSe
 				.execute(ProcessImportRunWorkflow, {
 					discard: true,
 					executionId: runId,
-					payload: { runId, command, userId: user.id, sourceStateId: runId },
+					payload: { runId, command, userId: user.id, uploadIntentIds, sourceStateId: runId },
 				})
 				.pipe(Effect.result);
 			if (Result.isFailure(started)) {
@@ -217,7 +217,7 @@ export class ImportsService extends Context.Service<ImportsService>()("ImportsSe
 			const claimedUploadIntentIds: string[] = [];
 			const namedArtifactPaths: Record<string, string> = {};
 			const sourcePayload = buildImportSourcePayload(properties, registered) ?? {};
-			const created = yield* create({
+			const created = yield* createManualRun({
 				userId: user.id,
 				source: body.source,
 				pluginInstallationId: registered.installationId,
@@ -274,7 +274,7 @@ export class ImportsService extends Context.Service<ImportsService>()("ImportsSe
 				namedArtifactPaths[sourceFileInput.key] = safePath;
 			}
 
-			const summarized = yield* update({
+			const summarized = yield* updateInputSummary({
 				runId: run.id,
 				inputSummary: buildImportInputSummary(body.source, fileNames),
 			}).pipe(Effect.result);
@@ -305,7 +305,7 @@ export class ImportsService extends Context.Service<ImportsService>()("ImportsSe
 			) {
 				const inputSummary = buildImportInputSummary(body.source, {});
 				const sourcePayload = buildImportSourcePayload(properties, registered) ?? {};
-				const run = yield* create({
+				const run = yield* createManualRun({
 					inputSummary,
 					userId: user.id,
 					source: body.source,
@@ -385,7 +385,7 @@ export class ImportsService extends Context.Service<ImportsService>()("ImportsSe
 		) {
 			const run = yield* requireImportRun(user, runId);
 			if (!isTerminalStatus(run.status)) {
-				return yield* new ImportRequestError({
+				return yield* new ImportConflictError({
 					reason: { runId, status: run.status, code: "run-not-terminal" },
 				});
 			}
@@ -393,22 +393,22 @@ export class ImportsService extends Context.Service<ImportsService>()("ImportsSe
 			return { id: runId };
 		});
 
-		const createRunForIntegration = (input: {
+		const createIntegrationRun = (input: {
 			userId: UserId;
 			source: ImportRunSource;
 			integrationId: IntegrationId;
 			pluginInstallationId: string;
 			integrationLot: IntegrationLot;
 			inputSummary: Record<string, unknown>;
-		}) => create(input);
+		}) => repository.createIntegrationRun(input);
 
-		const createRunForIntegrationIfIdle = (input: {
+		const createIntegrationRunIfIdle = (input: {
 			userId: UserId;
 			source: ImportRunSource;
 			integrationId: IntegrationId;
 			pluginInstallationId: string;
 			inputSummary: Record<string, unknown>;
-		}) => repository.createRunForIntegrationIfIdle(input);
+		}) => repository.createIntegrationRunIfIdle(input);
 
 		const failRunForIntegration = Effect.fn("ImportsService.failRunForIntegration")(function* (
 			runId: ImportRunId,
@@ -417,27 +417,52 @@ export class ImportsService extends Context.Service<ImportsService>()("ImportsSe
 			const failure: ImportRunFailureDetails = { reason, itemIndex: 0, stage: "source_fetch" };
 			yield* failureService.create({ ...failure, runId });
 			const finishedAt = yield* DateTime.nowAsDate;
-			yield* update({
+			yield* finishFailed({
 				runId,
 				finishedAt,
 				progress: 100,
 				totalItems: 1,
 				failedItems: 1,
-				status: "failed",
 				processedItems: 1,
 				failureReason: reason,
 			});
 		});
 
+		const settleIntegrationDispatchFailure = Effect.fn(
+			"ImportsService.settleIntegrationDispatchFailure",
+		)(function* (input: { userId: UserId; runId: ImportRunId }) {
+			const run = yield* getRunControlForUser(input);
+			if (!run || isTerminalStatus(run.status)) {
+				return;
+			}
+			const finishedAt = yield* DateTime.nowAsDate;
+			if (run.status === "cancelling") {
+				yield* finishCancelled({ finishedAt, runId: input.runId });
+				return;
+			}
+			yield* finishFailed({
+				finishedAt,
+				runId: input.runId,
+				failureReason: { code: "queue-unavailable", operation: "integration-sync" },
+			});
+		});
+
 		return {
-			create,
-			update,
+			markStarted,
+			finishFailed,
+			updateProgress,
 			startImportRun,
+			finishCompleted,
+			finishCancelled,
+			createManualRun,
 			removeImportRun,
 			delete: deleteRun,
+			updateInputSummary,
+			getRunControlForUser,
+			createIntegrationRun,
 			failRunForIntegration,
-			createRunForIntegration,
-			createRunForIntegrationIfIdle,
+			createIntegrationRunIfIdle,
+			settleIntegrationDispatchFailure,
 		};
 	}),
 }) {

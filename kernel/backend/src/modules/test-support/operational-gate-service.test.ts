@@ -91,8 +91,21 @@ const workflowLoadLayer = () =>
 					Layer.mergeAll(
 						Layer.mock(DatabaseSession)({}),
 						mockImports({
-							create: () => Effect.succeed(importRun),
-							update: (input) => Ref.update(updates, (all) => [...all, input]),
+							createManualRun: () => Effect.succeed(importRun),
+							updateProgress: (input) =>
+								Ref.update(updates, (all) => [...all, input]).pipe(Effect.as(true)),
+							markStarted: (input) =>
+								Ref.update(updates, (all) => [...all, { ...input, status: "running" }]).pipe(
+									Effect.as("started" as const),
+								),
+							finishFailed: (input) =>
+								Ref.update(updates, (all) => [...all, { ...input, status: "failed" }]).pipe(
+									Effect.as("settled" as const),
+								),
+							finishCompleted: (input) =>
+								Ref.update(updates, (all) => [...all, { ...input, status: "completed" }]).pipe(
+									Effect.as("settled" as const),
+								),
 						}),
 						mockSandbox({
 							enqueuePluginWorkflow: (input) =>

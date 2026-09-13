@@ -2,6 +2,9 @@ import { Schema } from "effect";
 
 import { BackupRunId } from "../../schema/brands";
 
+export const BackupRunStatus = Schema.Literals(["pending", "running", "completed", "failed"]);
+export type BackupRunStatus = typeof BackupRunStatus.Type;
+
 export const BackupRunKind = Schema.Literals(["export", "restore"]);
 export type BackupRunKind = typeof BackupRunKind.Type;
 
