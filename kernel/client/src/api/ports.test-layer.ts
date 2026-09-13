@@ -93,6 +93,7 @@ export const makeImportsApi = (overrides: Partial<ImportsApi["Service"]> = {}) =
 		createRun: unused,
 		cancelRun: unused,
 		deleteRun: unused,
+		downloadFailures: unused,
 		...overrides,
 	});
 

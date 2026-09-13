@@ -5,7 +5,6 @@ import clsx from "clsx";
 import { useState } from "react";
 
 import {
-	buildImportFailureClipboardText,
 	groupImportFailuresByStage,
 	importFailureProvenanceEntries,
 	importFailureReasonDetail,
@@ -17,7 +16,6 @@ import {
 	importRunProgress,
 	importRunProgressValue,
 	importRunProvenanceLabel,
-	importSourceName,
 } from "#/modules/imports/run-presentation";
 import { RunProgressBar } from "#/modules/ui/run/run-progress-bar";
 import { formatRunCount } from "#/modules/ui/run/run-status";
@@ -37,8 +35,9 @@ type ImportRunViewProps = {
 	readonly isLoadingMore: boolean;
 	readonly onShowMore: () => void;
 	readonly state: ImportRunDetailState;
-	readonly onCopy: (text: string) => void;
-	readonly sourceNames: ReadonlyMap<string, string>;
+	readonly onDownloadFailures: () => void;
+	readonly isDownloadingFailures: boolean;
+	readonly downloadFailuresFailed: boolean;
 };
 
 function RunCounts(props: { readonly run: ImportRunSummary }) {
@@ -120,27 +119,15 @@ function FailureRow(props: { readonly failure: ImportRunFailure; readonly pill: 
 }
 
 function RunFailures(props: {
-	readonly runId: string;
 	readonly hasMore: boolean;
-	readonly sourceName: string;
 	readonly isLoadingMore: boolean;
 	readonly onShowMore: () => void;
-	readonly onCopy: (text: string) => void;
+	readonly onDownload: () => void;
+	readonly isDownloading: boolean;
+	readonly downloadFailed: boolean;
 	readonly failures: readonly ImportRunFailure[];
 }) {
-	const [isCopied, setIsCopied] = useState(false);
 	const groups = groupImportFailuresByStage(props.failures);
-
-	const copy = () => {
-		props.onCopy(
-			buildImportFailureClipboardText({
-				runId: props.runId,
-				failures: props.failures,
-				sourceName: props.sourceName,
-			}),
-		);
-		setIsCopied(true);
-	};
 
 	return (
 		<div className="flex flex-col gap-5">
@@ -148,15 +135,21 @@ function RunFailures(props: {
 				<h2 className="text-base font-semibold text-text">What could not be brought over</h2>
 				<Button
 					type="button"
-					onClick={copy}
 					variant="secondary"
-					aria-label="Copy details"
+					onClick={props.onDownload}
+					aria-label="Download errors"
+					disabled={props.isDownloading}
 					className="flex min-h-9 items-center gap-1.5 px-3 py-1.5 text-sm"
 				>
-					<AppIcon size={15} name="copy" className="text-text-muted" />
-					{isCopied ? "Copied" : "Copy details"}
+					<AppIcon size={15} name="download" className="text-text-muted" />
+					{props.isDownloading ? "Preparing download..." : "Download errors"}
 				</Button>
 			</div>
+			{props.downloadFailed ? (
+				<p role="alert" className="text-sm text-danger">
+					Could not download these errors. Try again.
+				</p>
+			) : null}
 			{groups.map((group) => (
 				<div key={group.stage} className="flex flex-col gap-1">
 					<span className="text-sm font-medium text-text-muted">{group.heading}</span>
@@ -203,7 +196,6 @@ export function ImportRunView(props: ImportRunViewProps) {
 	}
 	const run = props.state.run;
 	const provenance = importRunProvenanceLabel(run.inputSummary);
-	const sourceName = importSourceName(run.source, props.sourceNames);
 	const notice = run.status === "failed" ? importRunFailureNotice(run.failureReason) : undefined;
 	const wasCancelled = run.status === "cancelled";
 	return (
@@ -237,15 +229,15 @@ export function ImportRunView(props: ImportRunViewProps) {
 					</div>
 				</div>
 			)}
-			{props.state.failures.length === 0 ? null : (
+			{run.failedItems === 0 ? null : (
 				<RunFailures
-					runId={run.id}
-					onCopy={props.onCopy}
-					sourceName={sourceName}
 					onShowMore={props.onShowMore}
 					failures={props.state.failures}
 					isLoadingMore={props.isLoadingMore}
+					onDownload={props.onDownloadFailures}
 					hasMore={props.state.hasMoreFailures}
+					isDownloading={props.isDownloadingFailures}
+					downloadFailed={props.downloadFailuresFailed}
 				/>
 			)}
 		</div>
