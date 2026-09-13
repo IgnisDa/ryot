@@ -178,8 +178,7 @@ const makeLayer = (input: {
 						),
 				}),
 				Layer.mock(AuthService)({
-					// oxlint-disable-next-line no-unsafe-type-assertion -- the better-auth client is never touched by these tests
-					auth: {} as AuthService["Service"]["auth"],
+					handler: () => Effect.die("unused").pipe(Effect.runPromise),
 					resolveRequestCredential: () =>
 						input.currentUserId
 							? Effect.succeed({

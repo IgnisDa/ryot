@@ -1,3 +1,5 @@
+import { AsyncLocalStorage } from "node:async_hooks";
+
 import { apiKey } from "@better-auth/api-key";
 import { createOAuthAccountIssuer } from "@better-auth/core/db";
 import { oauthProvider } from "@better-auth/oauth-provider";
@@ -55,6 +57,16 @@ import { AuthRepository } from "./repository";
 import { SessionCreationGate } from "./session-gate";
 
 const RESET_LINK_TIMEOUT_MS = 10_000;
+
+// Better Auth reads its current adapter from AsyncLocalStorage, and Effect resumes a fiber in the
+// async context that woke it, so a store set during one request's Better Auth transaction reaches
+// fibers of unrelated requests. Captured before any store exists, this starts every call into
+// Better Auth with empty stores.
+// TODO: https://github.com/Effect-TS/effect/issues/8581 — once an Effect release resumes woken
+// fibers in their own async context, upgrade `effect`, delete `withoutAsyncContext` and the
+// `node:async_hooks` import, and call `auth.api.verifyApiKey`, `auth.api.requestPasswordReset`,
+// `operation(context)` in `withInternalAdapter`, and `auth.handler` directly.
+const withoutAsyncContext = AsyncLocalStorage.snapshot();
 
 const lifecycleProtectedAuthPaths = new Set([
 	"/api-key/create",
@@ -530,14 +542,17 @@ export class AuthService extends Context.Service<AuthService>()("AuthService", {
 			resolveCredential(
 				credential,
 				(token) => verifyBearerToken(token, getOAuthVerificationOptions(config.frontendUrl)),
-				(key) => auth.api.verifyApiKey({ body: { key } }),
+				(key) => withoutAsyncContext(() => auth.api.verifyApiKey({ body: { key } })),
 				findUserById,
 				Option.getOrNull(config.users.demoAccountId),
 			);
 		const withInternalAdapter = <A>(operation: (context: AuthContextValue) => Promise<A>) =>
 			Effect.tryPromise({ catch: unknownToDbError, try: () => auth.$context }).pipe(
 				Effect.flatMap((context) =>
-					Effect.tryPromise({ catch: unknownToDbError, try: () => operation(context) }),
+					Effect.tryPromise({
+						catch: unknownToDbError,
+						try: () => withoutAsyncContext(() => operation(context)),
+					}),
 				),
 			);
 		const requestPasswordResetLink = Effect.fn("AuthService.requestPasswordResetLink")(function* (
@@ -581,7 +596,9 @@ export class AuthService extends Context.Service<AuthService>()("AuthService", {
 						Effect.runForkWith(runtime)(
 							Effect.tryPromise(() => subscriber.subscribe(channel)).pipe(
 								Effect.andThen(
-									Effect.tryPromise(() => auth.api.requestPasswordReset({ body: { email } })),
+									Effect.tryPromise(() =>
+										withoutAsyncContext(() => auth.api.requestPasswordReset({ body: { email } })),
+									),
 								),
 								Effect.ignore,
 							),
@@ -619,10 +636,10 @@ export class AuthService extends Context.Service<AuthService>()("AuthService", {
 		});
 
 		return {
-			auth,
 			requestPasswordResetLink,
 			apiKeyUser: (key: string) => authenticate({ key, kind: "api-key" }),
 			oauthUser: (token: string) => authenticate({ token, kind: "oauth" }),
+			handler: (request: Request) => withoutAsyncContext(() => auth.handler(request)),
 			revokeUserOAuthTokens: (userId: UserId) =>
 				repository.revokeUserOAuthTokens(userId).pipe(Effect.orDie),
 			deleteUserSessions: (userId: UserId) =>

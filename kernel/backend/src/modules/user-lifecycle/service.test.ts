@@ -73,10 +73,10 @@ const lifecycleServiceLayer = (options: {
 						makeAppConfigLayer(),
 						mockRepository(repository),
 						Layer.mock(AuthService)({
-							auth: Object.create(null),
 							deleteUserSessions: () => record("sessions"),
 							revokeUserOAuthTokens: () => record("oauth"),
 							updateAuthUserDisabled: () => record("disable"),
+							handler: () => Effect.die("unused").pipe(Effect.runPromise),
 							purgeApiKeyCaches: (_userId, apiKeys) =>
 								record(`keys:${apiKeys.map(({ id }) => id).join(",")}`).pipe(Effect.as(undefined)),
 						}),
