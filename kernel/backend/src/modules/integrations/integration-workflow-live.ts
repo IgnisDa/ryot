@@ -122,6 +122,7 @@ export const runIntegrationRunWorkflow = Effect.fn("ProcessIntegrationRunWorkflo
 			return;
 		}
 		const command = rootLifecycleCommand({
+			lane: "background",
 			source: "integration",
 			importRunId: payload.runId,
 			integrationId: integration.id,
@@ -207,6 +208,7 @@ export const runIntegrationRunWorkflow = Effect.fn("ProcessIntegrationRunWorkflo
 				const result = yield* sandbox
 					.executeWorkflow({
 						input,
+						lane: "background",
 						executionId: owner,
 						scriptId: state.workflowScriptId,
 						pluginRevision: state.pluginRevision,

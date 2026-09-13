@@ -852,6 +852,7 @@ const automationTrigger: CatalogTable = {
 		payloadPrunedAt: physicalField("payload_pruned_at", "date"),
 		resourceKind: physicalField("resource_kind", "text", false),
 		payload: withAccess(physicalField("payload", "json"), "admin"),
+		lane: withAccess(physicalField("lane", "text", false), "admin"),
 		depth: withAccess(physicalField("depth", "number", false), "admin"),
 		source: withAccess(physicalField("source", "text", false), "admin"),
 		initiatorId: withAccess(physicalField("initiator_id", "text"), "admin"),

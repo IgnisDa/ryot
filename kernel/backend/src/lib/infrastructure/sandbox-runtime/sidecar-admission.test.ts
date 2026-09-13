@@ -21,12 +21,12 @@ layer(admissionLayer)((test) => {
 				const admission = yield* SandboxSidecarAdmission;
 				const firstScope = yield* acquireScope;
 				const smallScope = yield* acquireScope;
-				yield* admission.reserveRun("system/core").pipe(Scope.provide(firstScope));
+				yield* admission.reserveRun("system/core", "interactive").pipe(Scope.provide(firstScope));
 				const firstBytes = admission.snapshot().bytes;
 				const largeEntered = yield* Deferred.make<void>();
 				const large = yield* Effect.scoped(
 					admission
-						.reserveRun("user/full")
+						.reserveRun("user/full", "interactive")
 						.pipe(Effect.tap(() => Deferred.succeed(largeEntered, undefined))),
 				).pipe(Effect.forkScoped({ startImmediately: true }));
 				expect(admission.snapshot()).toMatchObject({
@@ -35,7 +35,7 @@ layer(admissionLayer)((test) => {
 					bytes: firstBytes,
 				});
 
-				yield* admission.reserveRun("system/core").pipe(Scope.provide(smallScope));
+				yield* admission.reserveRun("system/core", "interactive").pipe(Scope.provide(smallScope));
 				expect(admission.snapshot()).toMatchObject({ waiting: 1, reservations: 2 });
 				expect(admission.snapshot().bytes).toBeLessThanOrEqual(admission.snapshot().budget);
 				expect(yield* Deferred.isDone(largeEntered)).toBe(false);
@@ -56,12 +56,14 @@ layer(admissionLayer)((test) => {
 					const firstScope = yield* acquireScope;
 					const processScope = yield* acquireScope;
 					const admission = yield* SandboxSidecarAdmission;
-					const first = yield* admission.reserveRun("user/full").pipe(Scope.provide(firstScope));
+					const first = yield* admission
+						.reserveRun("user/full", "interactive")
+						.pipe(Scope.provide(firstScope));
 					const secondEntered = yield* Deferred.make<void>();
 					const releaseSecond = yield* Deferred.make<void>();
 					const second = yield* Effect.scoped(
 						Effect.gen(function* () {
-							const lease = yield* admission.reserveRun("user/full");
+							const lease = yield* admission.reserveRun("user/full", "interactive");
 							yield* lease.enter({ generation: 1, lane: "interactive", instance: "user/full" });
 							yield* Deferred.succeed(secondEntered, undefined);
 							yield* Deferred.await(releaseSecond);
@@ -89,7 +91,9 @@ layer(admissionLayer)((test) => {
 				const admission = yield* SandboxSidecarAdmission;
 				const prefixScope = yield* acquireScope;
 				const processScope = yield* acquireScope;
-				const lease = yield* admission.reserveRun("user/full").pipe(Scope.provide(prefixScope));
+				const lease = yield* admission
+					.reserveRun("user/full", "interactive")
+					.pipe(Scope.provide(prefixScope));
 				const reservedBytes = admission.snapshot().bytes;
 				expect(reservedBytes).toBe(idleBytes + 298 * MiB + 128 * MiB);
 				yield* admission.reserveProcess("user/full", 1, lease).pipe(Scope.provide(processScope));
@@ -114,30 +118,30 @@ layer(admissionLayer)((test) => {
 					const admission = yield* SandboxSidecarAdmission;
 					const first = yield* acquireScope;
 					const second = yield* acquireScope;
-					yield* admission.reserveRun("system/core").pipe(Scope.provide(first));
+					yield* admission.reserveRun("system/core", "interactive").pipe(Scope.provide(first));
 					const singleLeaseBytes = admission.snapshot().bytes;
-					yield* admission.reserveRun("system/core").pipe(Scope.provide(second));
+					yield* admission.reserveRun("system/core", "interactive").pipe(Scope.provide(second));
 					const entered = yield* Deferred.make<void>();
 					const waiter = yield* Effect.scoped(
 						admission
-							.reserveRun("system/core")
+							.reserveRun("system/core", "interactive")
 							.pipe(Effect.tap(() => Deferred.succeed(entered, undefined))),
 					).pipe(Effect.forkScoped);
 					yield* Effect.yieldNow;
 					expect(admission.snapshot().waiting).toBe(1);
 					expect(yield* Deferred.isDone(entered)).toBe(false);
-					const secondWaiter = yield* Effect.scoped(admission.reserveRun("system/core")).pipe(
-						Effect.forkScoped,
-					);
+					const secondWaiter = yield* Effect.scoped(
+						admission.reserveRun("system/core", "interactive"),
+					).pipe(Effect.forkScoped);
 					yield* Effect.yieldNow;
 					expect(admission.snapshot().waiting).toBe(2);
-					const full = yield* Effect.flip(admission.reserveRun("system/core"));
+					const full = yield* Effect.flip(admission.reserveRun("system/core", "interactive"));
 					expect(full.message).toBe("Sandbox ephemeral admission queue is full");
 					yield* Fiber.interrupt(secondWaiter);
 					yield* Fiber.interrupt(waiter);
 					expect(admission.snapshot().waiting).toBe(0);
 					yield* Scope.close(first, Exit.void);
-					yield* Effect.scoped(admission.reserveRun("system/core"));
+					yield* Effect.scoped(admission.reserveRun("system/core", "interactive"));
 					expect(admission.snapshot().bytes).toBe(singleLeaseBytes);
 				}),
 			),
@@ -150,7 +154,9 @@ layer(admissionLayer)((test) => {
 					const admission = yield* SandboxSidecarAdmission;
 					const prefixScope = yield* acquireScope;
 					const processScope = yield* acquireScope;
-					const lease = yield* admission.reserveRun("system/core").pipe(Scope.provide(prefixScope));
+					const lease = yield* admission
+						.reserveRun("system/core", "background")
+						.pipe(Scope.provide(prefixScope));
 					yield* admission.reserveProcess("system/core", 4).pipe(Scope.provide(processScope));
 					const duplicate = yield* Effect.flip(admission.reserveProcess("system/core", 5));
 					expect(duplicate).toBeInstanceOf(SandboxRunError);
@@ -182,7 +188,7 @@ layer(admissionLayer)((test) => {
 				const idle = measured.snapshot().bytes;
 				expect(idle).toBe(idleBytes);
 				const measureScope = yield* acquireScope;
-				yield* measured.reserveRun("system/core").pipe(Scope.provide(measureScope));
+				yield* measured.reserveRun("system/core", "interactive").pipe(Scope.provide(measureScope));
 				const runBytes = measured.snapshot().bytes - idle;
 				expect(runBytes).toBe(298 * MiB);
 				yield* Scope.close(measureScope, Exit.void);
@@ -197,7 +203,9 @@ layer(admissionLayer)((test) => {
 				const tight = yield* SandboxSidecarAdmission.make.pipe(Effect.provideContext(tightConfig));
 				const leaseScope = yield* acquireScope;
 				const processScope = yield* acquireScope;
-				const lazy = yield* tight.reserveRun("user/data").pipe(Scope.provide(leaseScope));
+				const lazy = yield* tight
+					.reserveRun("user/data", "interactive")
+					.pipe(Scope.provide(leaseScope));
 				expect(tight.snapshot().bytes).toBe(idle + 128 * MiB + runBytes);
 				yield* tight.reserveProcess("user/data", 1, lazy).pipe(Scope.provide(processScope));
 				yield* lazy.enter({ generation: 1, lane: "interactive", instance: "user/data" });
@@ -210,7 +218,7 @@ layer(admissionLayer)((test) => {
 				const secondAdmitted = yield* Deferred.make<void>();
 				const second = yield* Effect.scoped(
 					tight
-						.reserveRun("user/full")
+						.reserveRun("user/full", "interactive")
 						.pipe(Effect.andThen(Deferred.succeed(secondAdmitted, undefined))),
 				).pipe(Effect.forkScoped({ startImmediately: true }));
 				yield* Effect.yieldNow;

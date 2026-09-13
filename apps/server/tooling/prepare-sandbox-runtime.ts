@@ -346,6 +346,7 @@ const smoke = Effect.gen(function* () {
 			startedAt,
 			executionId,
 			context: {},
+			lane: "interactive",
 			principal: fixture.principal,
 			compiledCode: fixture.compiledCode,
 			compiledFormat: SANDBOX_COMPILED_FORMAT,

@@ -68,6 +68,7 @@ const slug = EntitySchemaSlug.make("record");
 const command = (id: string) =>
 	rootLifecycleCommand({
 		source: "api",
+		lane: "interactive",
 		itemIdentity: "entity",
 		initiator: { id: owner, kind: "user" },
 		executionId: AutomationExecutionId.make(id),
@@ -77,6 +78,7 @@ const command = (id: string) =>
 const systemCommand = (id: string) =>
 	rootLifecycleCommand({
 		source: "api",
+		lane: "interactive",
 		itemIdentity: "entity",
 		accountGeneration: null,
 		initiator: { id: null, kind: "system" },

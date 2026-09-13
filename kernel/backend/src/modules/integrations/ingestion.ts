@@ -173,6 +173,7 @@ export class IntegrationIngestion extends Context.Service<IntegrationIngestion>(
 					const completed = yield* sandbox
 						.executeWorkflow({
 							input,
+							lane: "background",
 							scriptId: state.workflowScriptId,
 							pluginRevision: state.pluginRevision,
 							executionId: `${scope.runId}-confirmation-${identity}-${attempt}`,

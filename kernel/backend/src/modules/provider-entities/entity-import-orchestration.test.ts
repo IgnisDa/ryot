@@ -26,6 +26,7 @@ import { EntityImportWorkflowOperations } from "./operations-workflow";
 const importCommand = (executionId: string, userId: UserId) =>
 	rootLifecycleCommand({
 		source: "import",
+		lane: "background",
 		initiator: { id: userId, kind: "user" },
 		itemIdentity: `provider-import:${executionId}`,
 		executionId: AutomationExecutionId.make(executionId),

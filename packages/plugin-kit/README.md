@@ -336,7 +336,8 @@ run ID; external exactly-once delivery is not guaranteed.
 
 `causationSources` is an optional non-empty allowlist of `api`, `import`, `integration`, `bootstrap`,
 `provider-refresh`, or `automation`. Causation retains `initiator`, `executionId`, `rootExecutionId`,
-nullable `parentTriggerId`/`parentRunId`, `depth`, and optional `integrationId`, `importRunId`, and
+nullable `parentTriggerId`/`parentRunId`, `depth`, `lane` (`interactive` or `background`, the lane of
+the command that created the trigger), and optional `integrationId`, `importRunId`, and
 `providerExecutionId`. Kernel host writes derive child parents from the trusted run, preserve root
 attribution, set source to `automation`, and increment depth. Plugin input cannot set these parents.
 Depth and shared run budgets are kernel-enforced. Blocked policy planning rejects the write;

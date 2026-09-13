@@ -20,6 +20,7 @@ export const EventsRoutesLive = HttpApiBuilder.group(AppContract, "events", (han
 				const service = yield* EventsService;
 				const command = rootLifecycleCommand({
 					source: "api",
+					lane: "interactive",
 					itemIdentity: "events",
 					initiator: { id: user.id, kind: "user" },
 					accountGeneration: user.accountGeneration,
@@ -64,6 +65,7 @@ export const EventsRoutesLive = HttpApiBuilder.group(AppContract, "events", (han
 				const eventId = EventId.make(params.eventId);
 				const command = rootLifecycleCommand({
 					source: "api",
+					lane: "interactive",
 					itemIdentity: `event:${eventId}:edit`,
 					initiator: { id: user.id, kind: "user" },
 					accountGeneration: user.accountGeneration,
@@ -88,6 +90,7 @@ export const EventsRoutesLive = HttpApiBuilder.group(AppContract, "events", (han
 				const eventId = EventId.make(params.eventId);
 				const command = rootLifecycleCommand({
 					source: "api",
+					lane: "interactive",
 					itemIdentity: `event:${eventId}:delete`,
 					initiator: { id: user.id, kind: "user" },
 					accountGeneration: user.accountGeneration,

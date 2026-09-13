@@ -18,6 +18,7 @@ export const EntitiesRoutesLive = HttpApiBuilder.group(AppContract, "entities", 
 			const service = yield* EntitiesService;
 			const lifecycle = rootLifecycleCommand({
 				source: "api",
+				lane: "interactive",
 				itemIdentity: "entity",
 				initiator: { id: user.id, kind: "user" },
 				accountGeneration: user.accountGeneration,

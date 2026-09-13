@@ -132,6 +132,7 @@ layer(
 									context: {},
 									compiledCode: "",
 									compiledFormat: 1,
+									lane: "interactive",
 									workflowExecutionId: executionId,
 									executionId: `${executionId}-COLLECTOR`,
 									startedAt: (yield* DateTime.nowAsDate).toISOString(),

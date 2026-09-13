@@ -25,6 +25,7 @@ const owner = UserId.make("receipt-owner");
 const entityId = EntityId.make("receipt-entity");
 const command = rootLifecycleCommand({
 	source: "api",
+	lane: "interactive",
 	itemIdentity: "receipt-command",
 	initiator: { id: owner, kind: "user" },
 	occurredAt: "2026-09-15T00:00:00.000Z",

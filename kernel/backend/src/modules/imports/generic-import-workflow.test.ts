@@ -40,6 +40,7 @@ import { ImportsRepository } from "./repository";
 
 const command = rootLifecycleCommand({
 	source: "import",
+	lane: "background",
 	itemIdentity: "root",
 	importRunId: ingestionTestScope.runId,
 	occurredAt: IsoUtcString.make(ingestionTestNow),

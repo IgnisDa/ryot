@@ -106,6 +106,7 @@ const seedHistory = Layer.effectDiscard(
 						occurredAt: now,
 						operation: "emit",
 						category: "signal",
+						lane: "interactive",
 						resourceKind: "signal",
 						executionId: "command",
 						initiatorKind: "system",
