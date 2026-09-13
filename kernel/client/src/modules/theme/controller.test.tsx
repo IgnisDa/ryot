@@ -1,31 +1,17 @@
 import { render } from "@testing-library/react";
-import { Effect, Layer, ManagedRuntime } from "effect";
+import { Effect, ManagedRuntime } from "effect";
 import { describe, expect, it } from "vitest";
 
 import { ThemeController } from "#/modules/theme/controller";
 import type { ThemePreference } from "#/modules/theme/preference";
 import { makeTestThemeStore } from "#/modules/theme/store.test-store";
-import { ClientStorage } from "#/persistence/storage";
+import { makeClientStorage } from "#/persistence/storage.test-layer";
 
 describe("ThemeController", () => {
 	it("renders nothing and persists a preference change made through the ThemeStore", async () => {
 		const persisted: ThemePreference[] = [];
 		const runtime = ManagedRuntime.make(
-			Layer.succeed(ClientStorage, {
-				remove: () => Effect.void,
-				clearServerSelection: Effect.void,
-				setPluginValue: () => Effect.void,
-				setLastWorkspace: () => Effect.void,
-				removePluginValue: () => Effect.void,
-				setSavedViewLayout: () => Effect.void,
-				setServerSelection: () => Effect.void,
-				setRememberedProvider: () => Effect.void,
-				getServerSelection: Effect.succeed(null),
-				getPluginValue: () => Effect.succeed(null),
-				getLastWorkspace: () => Effect.succeed(null),
-				getRememberedProvider: () => Effect.succeed(null),
-				getThemePreference: Effect.succeed("system" as const),
-				getSavedViewLayout: () => Effect.succeed("grid" as const),
+			makeClientStorage({
 				setThemePreference: (preference) =>
 					Effect.sync(() => {
 						persisted.push(preference);
