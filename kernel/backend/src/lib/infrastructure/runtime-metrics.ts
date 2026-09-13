@@ -2,6 +2,7 @@ import { sandboxHostContracts } from "@ryot-app/sandbox-sdk/core";
 import { Effect, Metric } from "effect";
 
 import type { SandboxTrust } from "./sandbox-runtime/execution-principal";
+import type { SandboxMemoryPlan } from "./sandbox-runtime/sidecar-admission";
 import { SIDECAR_INTERNAL_HOST_CALLS, type SidecarTier } from "./sandbox-runtime/sidecar-protocol";
 
 // Effect metrics carry no dedicated unit field; `OtlpMetrics` reads the OTLP unit from a `unit`
@@ -310,12 +311,22 @@ export const recordSandboxAdmission = (input: {
 	readonly waiting: number;
 	readonly bytes: number;
 	readonly budget: number;
+	readonly mode: SandboxMemoryPlan["mode"];
 }) =>
 	Effect.all(
 		[
-			Metric.update(sandboxAdmissionWaiting, input.waiting),
-			Metric.update(sandboxAdmissionBytes, input.bytes),
-			Metric.update(sandboxAdmissionPressure, input.bytes / input.budget),
+			Metric.update(
+				Metric.withAttributes(sandboxAdmissionWaiting, { mode: input.mode }),
+				input.waiting,
+			),
+			Metric.update(
+				Metric.withAttributes(sandboxAdmissionBytes, { mode: input.mode }),
+				input.bytes,
+			),
+			Metric.update(
+				Metric.withAttributes(sandboxAdmissionPressure, { mode: input.mode }),
+				input.bytes / input.budget,
+			),
 		],
 		{ discard: true },
 	);
