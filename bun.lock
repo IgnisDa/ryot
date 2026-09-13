@@ -611,7 +611,6 @@
     "packages/ts-utils": {
       "name": "@ryot-app/ts-utils",
       "dependencies": {
-        "dayjs": "1.11.21",
         "lodash": "4.18.1",
         "slugify": "1.6.9",
       },

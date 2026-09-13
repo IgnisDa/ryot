@@ -42,7 +42,6 @@ import {
 	buildSavedViewLayoutProjections,
 	savedViewRecipe,
 } from "@ryot-app/ryotql-recipes/saved-views";
-import { dayjs } from "@ryot-app/ts-utils/dayjs";
 import { createAuthClient } from "better-auth/client";
 import { Effect, Result, Schema } from "effect";
 
@@ -75,7 +74,7 @@ async function createAndSignIn(): Promise<{
 	backupCodes?: string[];
 	totpCodes?: { past: string; future: string; current: string };
 }> {
-	const email = `seed-${dayjs().valueOf()}@example.com`;
+	const email = `seed-${Date.now()}@example.com`;
 	const password = email;
 	let sessionCookie = "";
 	const authClient = createAuthClient({
@@ -220,7 +219,7 @@ async function installSeedDefinitions(
 }
 
 async function seedSandboxScript(apiClient: APIClient, executingUserId: string) {
-	const value = `seed-script-${dayjs().valueOf()}`;
+	const value = `seed-script-${Date.now()}`;
 	const source = `
 import { defineManifest, defineScript } from "@ryot-app/sandbox-sdk/driver";
 import { Effect, Schema } from "@ryot-app/sandbox-sdk/effect";
@@ -243,7 +242,7 @@ export default defineScript({
 `;
 	const entry = "backend/seed.sandbox.ts";
 	const manifest = testPluginManifest({
-		pluginSlug: `seed-script-${dayjs().valueOf()}`,
+		pluginSlug: `seed-script-${Date.now()}`,
 		scripts: [
 			{
 				entry,
@@ -295,8 +294,8 @@ export default defineScript({
 			payload: { context: {}, scriptId: script.id, executingUserId: UserId.make(executingUserId) },
 		}),
 	);
-	const startedAt = dayjs();
-	while (dayjs().diff(startedAt, "second") < 120) {
+	const startedAt = Date.now();
+	while (Date.now() - startedAt < 120_000) {
 		// oxlint-disable-next-line no-await-in-loop
 		const result = await apiClient.runAdmin((c) =>
 			c.testSupport.getSandboxResult({
@@ -686,7 +685,7 @@ function generatePlaceVisit(): Record<string, unknown> {
 	return {
 		companions: faker.person.fullName(),
 		notes: faker.lorem.sentences(1),
-		date: dayjs(faker.date.past({ years: 2 })).format("YYYY-MM-DD"),
+		date: faker.date.past({ years: 2 }).toISOString().slice(0, 10),
 		duration_hours: faker.number.float({ min: 0.5, max: 8, fractionDigits: 1 }),
 	};
 }
@@ -1308,17 +1307,18 @@ async function seedMedia(client: APIClient) {
 	const allEntities: SeedEntity[] = [];
 	const processingPromises: Promise<void>[] = [];
 
+	const daysAgo = (days: number) => new Date(Date.now() - days * 86_400_000).toISOString();
 	const completionVariants: Array<() => Record<string, unknown>> = [
 		() => ({ completionMode: "just_now" }),
 		() => ({ completionMode: "unknown" }),
 		() => ({
 			completionMode: "custom_timestamps",
-			completedOn: dayjs().subtract(randomInt(1, 365), "day").toISOString(),
+			completedOn: daysAgo(randomInt(1, 365)),
 		}),
 		() => ({
 			completionMode: "custom_timestamps",
-			startedOn: dayjs().subtract(randomInt(400, 730), "day").toISOString(),
-			completedOn: dayjs().subtract(randomInt(1, 365), "day").toISOString(),
+			startedOn: daysAgo(randomInt(400, 730)),
+			completedOn: daysAgo(randomInt(1, 365)),
 		}),
 	];
 
@@ -1639,7 +1639,7 @@ async function seedCollections(
 			collectionId: allStarPicks.id,
 			properties: {
 				lane: randomChoice(["featured", "deep-cut", "starter-pack"]),
-				pickedAt: dayjs(faker.date.recent({ days: 90 })).format("YYYY-MM-DD"),
+				pickedAt: faker.date.recent({ days: 90 }).toISOString().slice(0, 10),
 				priority: index + 1,
 				featuredBecause: faker.lorem.sentence(),
 			},
@@ -2411,7 +2411,7 @@ async function main() {
 	}
 
 	const client = new APIClient(token);
-	const startTime = dayjs();
+	const startTime = Date.now();
 	const mediaStats = await seedMedia(client);
 	await seedSandboxScript(client, userId);
 
@@ -2430,7 +2430,7 @@ async function main() {
 		whiskeys: whiskeyStats.entities,
 	});
 
-	const duration = Math.floor(dayjs().diff(startTime, "second", true));
+	const duration = Math.floor((Date.now() - startTime) / 1000);
 	const minutes = Math.floor(duration / 60);
 	const seconds = duration % 60;
 
