@@ -157,6 +157,7 @@ for (const { label, viewport } of viewports) {
 			expect(yield* page.getByTestId("authenticated-shell").count).toBe(0);
 			expect(yield* page.getByTestId("impersonation-banner").count).toBe(0);
 			yield* siblingPage.getByTestId("authenticated-shell").waitFor({ state: "hidden" });
+			yield* siblingPage.waitForURL((url) => url.pathname === "/oauth/login");
 
 			yield* signInThroughHostedOAuth(siblingPage, target.email, target.password);
 			expect(yield* siblingPage.getByTestId("impersonation-banner").count).toBe(0);
