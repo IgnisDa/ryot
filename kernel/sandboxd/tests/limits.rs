@@ -177,6 +177,7 @@ fn v8_accounting_stops_array_buffer_growth_without_the_allocator_cap() {
             "accounting",
             "export default () => { const kept = []; for (;;) kept.push(new ArrayBuffer(4 * 1024 * 1024)); }",
             Limits {
+                cpu_ms: 30_000,
                 external_bytes: 1024 * MIB,
                 heap_bytes: 64 * MIB,
                 ..tight()

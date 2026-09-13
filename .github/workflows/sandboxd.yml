@@ -34,6 +34,12 @@ jobs:
       - name: Install the pinned Rust toolchain
         working-directory: kernel/sandboxd
         run: rustup toolchain install
+      - name: Cache Rust dependencies and build artifacts
+        uses: Swatinem/rust-cache@63fed3e2fecf6f7b51dc6f043341b79ef82a9ae7 # v2.9.2
+        with:
+          key: ${{ matrix.runner }}
+          workspaces: kernel/sandboxd -> target
+          cache-on-failure: true
       - name: Install dependencies
         run: bun install --frozen-lockfile
       - name: Build the runtime payload and plugin archives
