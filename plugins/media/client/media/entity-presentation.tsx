@@ -23,7 +23,7 @@ import { mediaPosterAsset } from "./summary-state";
 
 export type MediaArtworkAspect = "poster" | "square" | "still";
 
-export type MediaArtworkLayout = "grid" | "list" | "rail";
+type MediaArtworkLayout = "grid" | "list" | "rail";
 
 export type MediaPresentationSubject = EntitySyncState & {
 	readonly id: string;
