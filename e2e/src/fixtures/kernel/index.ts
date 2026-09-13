@@ -33,6 +33,7 @@ export * from "./sandbox-source";
 export * from "./test-plugin";
 export * from "./temporary-archive";
 export * from "./saved-views";
+export * from "./server-logs";
 export * from "./plugins";
 export * from "./plugin-catalog-events";
 export * from "./translations";
