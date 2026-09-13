@@ -14,7 +14,7 @@ const httpSuccess = (body: unknown) =>
 const makeHost = (httpCall: AnilistAnimeHost["httpCall"], allowNsfw = false) =>
 	defineSandboxTestHost(manifest, {
 		httpCall,
-		getUserPreferences: () => Effect.succeed({ allowNsfw, disableIntegrations: false }),
+		getUserSettings: () => Effect.succeed({ allowNsfw }),
 	});
 const execution = { metadata: {}, sandboxScriptId: "script_test" };
 const searchResponse = () =>

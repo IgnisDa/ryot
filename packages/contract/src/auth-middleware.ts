@@ -34,14 +34,12 @@ export class UserInitializing extends Schema.TaggedError<UserInitializing>()("Us
 }) {}
 
 export type CachedUserPreferences = {
-	readonly allowNsfw: boolean;
-	readonly language: string | null;
 	readonly disableIntegrations: boolean;
+	readonly language: string | null;
 };
 
 export const defaultUserPreferences: CachedUserPreferences = {
 	language: null,
-	allowNsfw: false,
 	disableIntegrations: false,
 };
 
@@ -50,7 +48,6 @@ export const defaultUserPreferences: CachedUserPreferences = {
 export const normalizeUserPreferences = (value: unknown): CachedUserPreferences => {
 	const record = isObjectRecord(value) ? value : {};
 	return {
-		allowNsfw: record["allowNsfw"] === true,
 		disableIntegrations: record["disableIntegrations"] === true,
 		language:
 			typeof record["language"] === "string" && record["language"].length > 0

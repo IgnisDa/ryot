@@ -9,7 +9,7 @@ export const manifest = defineManifest({
 	slug: "person.tmdb.details",
 	requiredSystemConfigKeys: [],
 	requiredPluginConfigKeys: ["tmdbAccessToken"],
-	capabilities: ["httpCall", "getPluginConfig", "getUserPreferences"],
+	capabilities: ["httpCall", "getPluginConfig", "getUserSettings"],
 });
 
 export default defineProvider({ manifest, run: details.run, operation: "details" });

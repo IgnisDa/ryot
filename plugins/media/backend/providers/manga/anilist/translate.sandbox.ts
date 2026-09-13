@@ -9,7 +9,7 @@ export const manifest = defineManifest({
 	requiredPluginConfigKeys: [],
 	requiredSystemConfigKeys: [],
 	slug: "manga.anilist.translate",
-	capabilities: ["httpCall", "getUserPreferences"],
+	capabilities: ["httpCall", "getUserSettings"],
 });
 
 export default defineProvider({ manifest, run: translate.run, operation: "translate" });

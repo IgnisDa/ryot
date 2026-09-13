@@ -561,6 +561,18 @@ export const mediaPlugin = definePlugin({
 		description:
 			"Track media across movies, shows, books, comic books, anime, manga, audiobooks, podcasts, video games, and music.",
 	},
+	userSettingsSchema: {
+		unknownKeys: "strict",
+		fields: {
+			allowNsfw: {
+				position: 0,
+				type: "boolean",
+				defaultValue: false,
+				label: "Show NSFW content",
+				description: "Allow providers to include adult metadata and results.",
+			},
+		},
+	},
 	httpRateLimits: [
 		{ requests: 90, key: "anilist", intervalMs: 60_000, origins: ["https://graphql.anilist.co"] },
 		{ requests: 90, key: "spotify", intervalMs: 60_000, origins: ["https://api.spotify.com"] },

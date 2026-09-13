@@ -15,7 +15,7 @@ const user: CurrentUserValue = {
 	name: "Test User",
 	email: "user@example.com",
 	id: UserId.make("user-1"),
-	preferences: { language: null, allowNsfw: false, disableIntegrations: false },
+	preferences: { language: null, disableIntegrations: false },
 };
 
 type RunControl = Effect.Success<ReturnType<ImportsRepository["Service"]["getRunControlForUser"]>>;
