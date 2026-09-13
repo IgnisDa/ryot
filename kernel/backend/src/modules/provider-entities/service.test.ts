@@ -225,7 +225,7 @@ it.effect("returns NotFound for a jobId with an invalid signature", () =>
 	}).pipe(Effect.provide(makeServiceLayer())),
 );
 
-it.effect("returns pending status when the workflow has not completed", () =>
+it.effect("returns running status when the workflow has not completed", () =>
 	Effect.gen(function* () {
 		const secret = deriveJobIdSecret("test-admin-token");
 		const executionId = "exec-abc";
@@ -233,7 +233,7 @@ it.effect("returns pending status when the workflow has not completed", () =>
 		const jobId = createWorkflowJobId(secret, executionId, user.id);
 
 		const result = yield* service.getImportResult(user, jobId);
-		expect(result).toMatchObject({ status: "pending" });
+		expect(result).toMatchObject({ status: "running" });
 	}).pipe(
 		Effect.provide(
 			makeServiceLayer(

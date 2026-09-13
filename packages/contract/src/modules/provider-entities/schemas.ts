@@ -20,10 +20,22 @@ export const ImportEntityBody = strictStruct({
 export type ImportEntityBody = typeof ImportEntityBody.Type;
 
 export const ImportEntityRunResult = Schema.Union([
-	Schema.Struct({ status: Schema.Literal("pending") }).pipe(
+	Schema.Struct({ status: Schema.Literal("queued") }).pipe(
 		Schema.annotate({
-			title: "Pending Import Run Result",
-			identifier: "PendingImportEntityRunResult",
+			title: "Queued Import Run Result",
+			identifier: "QueuedImportEntityRunResult",
+		}),
+	),
+	Schema.Struct({ status: Schema.Literal("running") }).pipe(
+		Schema.annotate({
+			title: "Running Import Run Result",
+			identifier: "RunningImportEntityRunResult",
+		}),
+	),
+	Schema.Struct({ status: Schema.Literal("cancelled") }).pipe(
+		Schema.annotate({
+			title: "Cancelled Import Run Result",
+			identifier: "CancelledImportEntityRunResult",
 		}),
 	),
 	Schema.Struct({
@@ -125,6 +137,17 @@ export class ProviderEntityBadRequest extends Schema.TaggedError<ProviderEntityB
 export class ProviderEntityNotFound extends Schema.TaggedError<ProviderEntityNotFound>()(
 	"ProviderEntityNotFound",
 	{ reason: ProviderEntityNotFoundReason },
+) {}
+
+export class ProviderEntityImportBacklogFull extends Schema.TaggedError<ProviderEntityImportBacklogFull>()(
+	"ProviderEntityImportBacklogFull",
+	{
+		reason: strictStruct({
+			limit: Schema.Int,
+			retryAfterSeconds: Schema.Int,
+			code: Schema.Literal("import-backlog-full"),
+		}),
+	},
 ) {}
 
 export class ProviderEntityInternalError extends Schema.TaggedError<ProviderEntityInternalError>()(
