@@ -13,6 +13,7 @@ import { testExecutionId } from "#lib/test-utils/redis";
 import { makeUserPluginRevision } from "#lib/test-utils/sandbox-runtime";
 import { SandboxCompiler } from "#modules/sandbox/sandbox-compiler";
 
+import { SANDBOX_LIMITS } from "./limits";
 import type { SandboxRunInput } from "./shared";
 import { SandboxSidecarAdmission } from "./sidecar-admission";
 import { SandboxInvocationSchema, type SidecarRunFrame } from "./sidecar-protocol";
@@ -93,7 +94,7 @@ const assertNativeCrash = Effect.fnUntraced(function* (
 	);
 	assert(sent?.frame.type === "run");
 	expect(sent.frame.module.sha256).toBe(input.principal.contentHash);
-	expect(sent.frame.limits.heapBytes).toBe(256 * 1024 * 1024);
+	expect(sent.frame.limits.heapBytes).toBe(SANDBOX_LIMITS.isolate.heapBytes);
 	const connection = evidence.connections.findLast(
 		(candidate) =>
 			candidate.instance === located.instance && candidate.generation === fatal.generation,

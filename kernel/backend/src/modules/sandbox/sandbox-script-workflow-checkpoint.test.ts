@@ -539,20 +539,23 @@ it.effect("keeps the durable step limit before dispatch or completion", () =>
 	}),
 );
 
-it.effect("applies the existing ordered journal byte limit to checkpoint hits", () =>
+it.effect("applies the journal entry byte limit to checkpoint hits", () =>
 	Effect.gen(function* () {
 		const h = makeHarness();
 		h.slots.set(
 			"sandbox-request-0",
 			Exit.succeed({
 				targetScriptId: null,
-				entry: { request: firstRequest, value: "x".repeat(SANDBOX_LIMITS.journalBytes) },
+				entry: {
+					request: firstRequest,
+					value: "x".repeat(SANDBOX_LIMITS.bridge.durableResponseBytes),
+				},
 			}),
 		);
 		h.state.blocked = false;
 		const result = yield* h.fresh().body;
 		assert(result._tag === "Complete");
-		expect((yield* Effect.exit(result.exit)).toString()).toContain("durable journal exceeds");
+		expect((yield* Effect.exit(result.exit)).toString()).toContain("durable journal entry exceeds");
 		expect(h.appends).toEqual([]);
 		expect(h.dispatches).toEqual([1]);
 	}),
