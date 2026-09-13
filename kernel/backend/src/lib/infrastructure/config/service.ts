@@ -152,6 +152,16 @@ export const isS3Configured = (config: AppConfigValue): boolean => {
 	);
 };
 
+const reservedDatabaseConnections = 4;
+
+export const databaseConnectionBudget = (config: {
+	readonly database: { readonly poolMax: number };
+	readonly sandbox: { readonly workerConcurrency: number };
+}) => {
+	const application = reservedDatabaseConnections + config.sandbox.workerConcurrency;
+	return { application, sandboxDispatch: config.database.poolMax - application };
+};
+
 export const validateSystemConfig = (config: AppConfigValue) =>
 	Effect.gen(function* () {
 		const limits = config.automations;
@@ -295,41 +305,25 @@ export const validateSystemConfig = (config: AppConfigValue) =>
 			);
 		}
 
+		const positiveIntegers = [
+			["SANDBOX_WORKER_CONCURRENCY", config.sandbox.workerConcurrency],
+			["SANDBOX_IMPORT_CONCURRENCY", config.sandbox.importConcurrency],
+			...Option.match(config.sandbox.memoryBudgetMiB, {
+				onNone: () => [],
+				onSome: (value) => [["SANDBOX_MEMORY_BUDGET_MIB", value] as const],
+			}),
+		] as const;
+		for (const [key, value] of positiveIntegers) {
+			if (!(Number.isInteger(value) && value >= 1)) {
+				return yield* Effect.fail(configError(`${key} (${value}) must be a positive integer.`));
+			}
+		}
+
 		const workerConcurrency = config.sandbox.workerConcurrency;
-		if (!Number.isInteger(workerConcurrency) || workerConcurrency < 1) {
+		if (databaseConnectionBudget(config).sandboxDispatch < 1) {
 			return yield* Effect.fail(
 				configError(
-					`SANDBOX_WORKER_CONCURRENCY (${workerConcurrency}) must be an integer of at least 1.`,
-				),
-			);
-		}
-
-		const importConcurrency = config.sandbox.importConcurrency;
-		if (!Number.isInteger(importConcurrency) || importConcurrency < 1) {
-			return yield* Effect.fail(
-				configError(
-					`SANDBOX_IMPORT_CONCURRENCY (${importConcurrency}) must be an integer of at least 1.`,
-				),
-			);
-		}
-
-		const memoryBudgetMiB = config.sandbox.memoryBudgetMiB;
-		if (
-			Option.isSome(memoryBudgetMiB) &&
-			!(Number.isInteger(memoryBudgetMiB.value) && memoryBudgetMiB.value >= 1)
-		) {
-			return yield* Effect.fail(
-				configError(
-					`SANDBOX_MEMORY_BUDGET_MIB (${memoryBudgetMiB.value}) must be a positive integer.`,
-				),
-			);
-		}
-
-		const remainingDispatchConnections = config.database.poolMax - workerConcurrency - 4;
-		if (remainingDispatchConnections < 1) {
-			return yield* Effect.fail(
-				configError(
-					`DATABASE_POOL_MAX (${config.database.poolMax}) must leave at least one sandbox host database dispatch connection after reserving one cluster runner connection, two durable queue worker connections, one application connection, and ${workerConcurrency} sandbox worker connections (DATABASE_POOL_MAX - SANDBOX_WORKER_CONCURRENCY - 4 must be at least 1). Raise DATABASE_POOL_MAX or lower SANDBOX_WORKER_CONCURRENCY.`,
+					`DATABASE_POOL_MAX (${config.database.poolMax}) must leave at least one sandbox host database dispatch connection after reserving one cluster runner connection, two durable queue worker connections, one application connection, and ${workerConcurrency} sandbox worker connections (DATABASE_POOL_MAX - SANDBOX_WORKER_CONCURRENCY - ${reservedDatabaseConnections} must be at least 1). Raise DATABASE_POOL_MAX or lower SANDBOX_WORKER_CONCURRENCY.`,
 				),
 			);
 		}
