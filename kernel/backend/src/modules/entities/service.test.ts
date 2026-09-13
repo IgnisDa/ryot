@@ -548,7 +548,7 @@ describe("EntitiesService committed lifecycle", () => {
 			Effect.gen(function* () {
 				yield* db
 					.insert(tables.plugin)
-					.values({ scope: "system", slug: "provider", status: "disabled", id: "provider-plugin" });
+					.values({ slug: "provider", status: "disabled", id: "provider-plugin" });
 				yield* db
 					.insert(tables.sandboxProvider)
 					.values({

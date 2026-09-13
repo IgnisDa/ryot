@@ -37,7 +37,9 @@ const makeServiceLayer = (
 			const repository = Layer.mock(TranslationsRepository)({
 				findUserLanguage: () => Effect.succeed(null),
 				upsertOverlay: (received) =>
-					Ref.update(upserts, (all) => [...all, received]).pipe(Effect.as("translation-id")),
+					Ref.update(upserts, (all) => [...all, received]).pipe(
+						Effect.as({ entityId: received.entityId, language: received.language }),
+					),
 			});
 			const engine = makeWorkflowEngine({
 				execute: (_workflow, options) =>

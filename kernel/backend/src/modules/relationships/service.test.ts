@@ -1344,12 +1344,7 @@ describe("Relationships lifecycle owner", () => {
 					yield* session.run((db) =>
 						db
 							.insert(tables.plugin)
-							.values({
-								slug: "group",
-								scope: "system",
-								status: "disabled",
-								id: "group-provider-plugin",
-							}),
+							.values({ slug: "group", status: "disabled", id: "group-provider-plugin" }),
 					);
 					yield* session.run((db) =>
 						db

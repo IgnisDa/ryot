@@ -120,8 +120,6 @@ describe("user lifecycle persistence cleanup", () => {
 								.insert(tables.sandboxWorkflowReference)
 								.values({
 									scriptId: systemScript.id,
-									pluginId: systemPlugin.pluginId,
-									contentHash: systemScript.contentHash,
 									executionId: "owned-installation-workflow",
 									pluginInstallationId: systemPlugin.installation.id,
 								});
@@ -227,11 +225,7 @@ describe("user lifecycle persistence cleanup", () => {
 								expect.objectContaining({ scopeUserId: null, id: "shared-trigger" }),
 							]);
 							expect(yield* db.select().from(tables.pluginConfigRevision)).toEqual([
-								expect.objectContaining({
-									ownerUserId: null,
-									scope: "environment",
-									pluginInstallationId: null,
-								}),
+								expect.objectContaining({ ownerUserId: null, pluginInstallationId: null }),
 							]);
 							expect(
 								yield* db

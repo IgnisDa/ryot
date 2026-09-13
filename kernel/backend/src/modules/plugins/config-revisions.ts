@@ -22,20 +22,22 @@ type CreateConfigRevisionInput = {
 	pluginRevisionId: string;
 	pluginInstallationId: string | null;
 	ownerUserId: string | null;
-	scope: ConfigRow["scope"];
+	scope: "environment" | "installation";
 	properties: Readonly<Record<string, unknown>>;
 };
 const Properties = Schema.Record(Schema.String, JsonValue);
+const scopeForOwner = (ownerUserId: string | null) =>
+	ownerUserId === null ? ("environment" as const) : ("installation" as const);
 const attribution = (
 	row: Pick<
 		ConfigRow,
-		"id" | "pluginRevisionId" | "ownerUserId" | "scope" | "encryptionKeyId" | "payloadFingerprint"
+		"id" | "pluginRevisionId" | "ownerUserId" | "encryptionKeyId" | "payloadFingerprint"
 	>,
 ) => ({
 	id: row.id,
-	scope: row.scope,
 	ownerUserId: row.ownerUserId,
 	encryptionKeyId: row.encryptionKeyId,
+	scope: scopeForOwner(row.ownerUserId),
 	pluginRevisionId: row.pluginRevisionId,
 	payloadFingerprint: row.payloadFingerprint,
 });
@@ -345,10 +347,10 @@ export class PluginConfigRevisions extends Context.Service<PluginConfigRevisions
 				if (
 					!plugin ||
 					(input.scope === "environment"
-						? plugin.scope !== "system" ||
+						? plugin.ownerId !== null ||
 							input.ownerUserId !== null ||
 							input.pluginInstallationId !== null
-						: plugin.scope !== "user" ||
+						: plugin.ownerId === null ||
 							input.ownerUserId !== plugin.ownerId ||
 							input.pluginInstallationId === null)
 				) {
@@ -415,7 +417,7 @@ export class PluginConfigRevisions extends Context.Service<PluginConfigRevisions
 				);
 				for (const row of rows) {
 					if (
-						row.scope === input.scope &&
+						scopeForOwner(row.ownerUserId) === input.scope &&
 						row.ownerUserId === input.ownerUserId &&
 						row.pluginInstallationId === input.pluginInstallationId &&
 						encryption.hasKey(row.encryptionKeyId) &&
@@ -427,7 +429,6 @@ export class PluginConfigRevisions extends Context.Service<PluginConfigRevisions
 				}
 				const identity = {
 					id: generateId(),
-					scope: input.scope,
 					payloadFingerprint,
 					ownerUserId: input.ownerUserId,
 					encryptionKeyId: encryption.activeKeyId,

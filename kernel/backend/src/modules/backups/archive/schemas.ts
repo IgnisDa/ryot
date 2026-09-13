@@ -143,7 +143,6 @@ export const ArchiveUserEntity = strictStruct({
 export type ArchiveUserEntity = typeof ArchiveUserEntity.Type;
 
 const ArchiveEntityTranslation = strictStruct({
-	id: Schema.String,
 	language: Schema.String,
 	createdAt: isoTimestamp,
 	updatedAt: isoTimestamp,

@@ -96,7 +96,9 @@ const sortedIfNeeded = <A>(values: ReadonlyArray<A>, compare: (left: A, right: A
 const sortDependencies = (values: ArchiveRecords["entityDependencies"]) => {
 	let updated: ArchiveEntityDependency[] | undefined;
 	for (const [index, entity] of values.entries()) {
-		const translations = sortedIfNeeded(entity.translations, compareId);
+		const translations = sortedIfNeeded(entity.translations, (left, right) =>
+			left.language.localeCompare(right.language),
+		);
 		if (translations !== entity.translations) {
 			updated ??= [...values];
 			updated[index] = { ...entity, translations };
@@ -182,7 +184,6 @@ const validateRecordKeys = (records: ArchiveRecords) => {
 	requireUniqueIds("relationships.ndjson", records.relationships);
 	requireUniqueIds("entity-dependencies.ndjson", records.entityDependencies);
 	const entityIds = new Set(records.entities.map(({ id }) => id));
-	const translationIds = new Set<string>();
 	for (const dependency of records.entityDependencies) {
 		if (entityIds.has(dependency.id)) {
 			throw archiveError(
@@ -193,13 +194,6 @@ const validateRecordKeys = (records: ArchiveRecords) => {
 		}
 		const languages = new Set<string>();
 		for (const translation of dependency.translations) {
-			if (translationIds.has(translation.id)) {
-				throw archiveError(
-					"duplicate_record_id",
-					`Duplicate translation id '${translation.id}'`,
-					"entity-dependencies.ndjson",
-				);
-			}
 			if (languages.has(translation.language)) {
 				throw archiveError(
 					"duplicate_record_id",
@@ -207,7 +201,6 @@ const validateRecordKeys = (records: ArchiveRecords) => {
 					"entity-dependencies.ndjson",
 				);
 			}
-			translationIds.add(translation.id);
 			languages.add(translation.language);
 		}
 	}
