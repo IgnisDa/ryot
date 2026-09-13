@@ -15,7 +15,7 @@ import {
 	type ClientRendererDefinition,
 } from "@ryot-app/contract/modules/client-pages/schemas";
 import { comparePluginRoutePaths } from "@ryot-app/contract/modules/plugins/manifest";
-import { PluginSlug, type ClientRendererId, type UserId } from "@ryot-app/contract/schema/brands";
+import { PluginSlug, type ClientRendererId } from "@ryot-app/contract/schema/brands";
 import { sha256Hex } from "@ryot-app/ts-utils/crypto";
 import { stableStringify } from "@ryot-app/ts-utils/json";
 import { sortBy } from "@ryot-app/ts-utils/lodash";
@@ -73,15 +73,52 @@ export type ResolvedClientPageGraph = {
 	readonly artifactKey: string;
 	readonly identity: ClientPageArtifactIdentity;
 	readonly compilerInput: ClientPluginCompilerGraphInput;
-	readonly contributors: readonly ClientPageCodeContributor[];
 };
 export type ResolvedClientPageArtifactGraph = Omit<ResolvedClientPageGraph, "compilerInput">;
 
+export type GraphPlugin = Pick<
+	AvailablePlugin,
+	"id" | "slug" | "sourceHash" | "manifest" | "health" | "isDisabled" | "pluginRevisionId"
+>;
+
+export const clientPageCodeContributors = (
+	identity: ClientPageArtifactIdentity,
+	available: ReadonlyArray<AvailablePlugin>,
+): readonly ClientPageCodeContributor[] => {
+	const bySlug = new Map(available.map((plugin) => [plugin.slug, plugin]));
+	return identity.contributors.map((contributor) => {
+		if (contributor.kind === "kernel-renderer") {
+			return {
+				name: contributor.name,
+				kind: "kernel-renderer",
+				sourceHash: contributor.sourceHash,
+			};
+		}
+		if (contributor.kind === "renderer") {
+			return {
+				kind: "renderer",
+				rendererId: contributor.rendererId,
+				sourceHash: contributor.sourceHash,
+			};
+		}
+		const installed = bySlug.get(contributor.pluginSlug);
+		if (!installed || installed.id !== contributor.pluginId) {
+			throw new Error(`Missing runtime installation for ${contributor.pluginSlug}`);
+		}
+		return {
+			kind: "plugin",
+			pluginId: contributor.pluginId,
+			pluginSlug: contributor.pluginSlug,
+			sourceHash: contributor.sourceHash,
+			installationId: installed.installationId,
+		};
+	});
+};
+
 type ClientPageGraphCommon<E, R> = {
-	readonly userId: UserId;
-	readonly plugins: ReadonlyArray<AvailablePlugin>;
+	readonly plugins: ReadonlyArray<GraphPlugin>;
 	readonly loadPluginFiles?: (
-		plugin: AvailablePlugin,
+		plugin: GraphPlugin,
 	) => Effect.Effect<Readonly<Record<string, Uint8Array>> | null, E, R>;
 };
 
@@ -103,7 +140,7 @@ type KernelRendererClientPageGraphInput<E, R> = ClientPageGraphCommon<E, R> & {
 
 type PluginClientPageGraphInput<E, R> = ClientPageGraphCommon<E, R> & {
 	readonly exportName: string;
-	readonly plugin: AvailablePlugin;
+	readonly plugin: GraphPlugin;
 	readonly application: "page" | "plugin-route";
 };
 
@@ -125,7 +162,7 @@ const resolveGraph = <E, R>(
 				)
 			: null;
 		const catalog = new Map(input.plugins.map((plugin) => [plugin.slug, plugin]));
-		const included = new Map<string, AvailablePlugin>();
+		const included = new Map<string, GraphPlugin>();
 		const files = new Map<string, Readonly<Record<string, Uint8Array>>>();
 		const dependencyOrder: string[] = [];
 		const selectedExports = new Set<string>();
@@ -459,36 +496,8 @@ const resolveGraph = <E, R>(
 				})),
 			],
 		};
-		const contributors: ClientPageCodeContributor[] = identity.contributors.map((contributor) => {
-			if (contributor.kind === "kernel-renderer") {
-				return {
-					name: contributor.name,
-					kind: "kernel-renderer",
-					sourceHash: contributor.sourceHash,
-				};
-			}
-			if (contributor.kind === "renderer") {
-				return {
-					kind: "renderer",
-					rendererId: contributor.rendererId,
-					sourceHash: contributor.sourceHash,
-				};
-			}
-			const installed = included.get(contributor.pluginSlug);
-			if (!installed) {
-				throw new Error(`Missing runtime installation for ${contributor.pluginSlug}`);
-			}
-			return {
-				kind: "plugin",
-				pluginId: contributor.pluginId,
-				pluginSlug: contributor.pluginSlug,
-				sourceHash: contributor.sourceHash,
-				installationId: installed.installationId,
-			};
-		});
 		return {
 			identity,
-			contributors,
 			artifactKey: sha256Hex(stableStringify(identity)),
 			compilerInput: {
 				publicExports,

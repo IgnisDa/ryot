@@ -678,6 +678,24 @@ export class PluginRepository extends Context.Service<PluginRepository>()("Plugi
 			);
 			return Object.fromEntries(rows.map(({ path, contents }) => [path, new Uint8Array(contents)]));
 		});
+		const listRevisionSourceFiles = Effect.fn("PluginRepository.listRevisionSourceFiles")(
+			function* (revisionId: string) {
+				const db = yield* Database;
+				const rows = yield* mapDatabaseErrors(
+					db
+						.select({
+							path: schema.pluginRevisionSourceFile.path,
+							contents: schema.pluginRevisionSourceFile.contents,
+						})
+						.from(schema.pluginRevisionSourceFile)
+						.where(eq(schema.pluginRevisionSourceFile.pluginRevisionId, revisionId))
+						.orderBy(asc(schema.pluginRevisionSourceFile.path)),
+				);
+				return Object.fromEntries(
+					rows.map(({ path, contents }) => [path, new Uint8Array(contents)]),
+				);
+			},
+		);
 
 		const listAuthorizedSourceFiles = Effect.fn("PluginRepository.listAuthorizedSourceFiles")(
 			function* (input: {
@@ -1342,6 +1360,7 @@ export class PluginRepository extends Context.Service<PluginRepository>()("Plugi
 			findPrivateByIdForUser,
 			listActiveSystemPlugins,
 			hasDefinitionReferences,
+			listRevisionSourceFiles,
 			resolveEnvironmentConfig,
 			listActiveHttpRateLimits,
 			hasIntegrationReferences,

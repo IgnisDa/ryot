@@ -53,7 +53,7 @@ Compilation occurs when the inputs capable of changing a client artifact change:
 - system plugin ingestion/update/removal;
 - private plugin install/update/removal;
 - plugin enable/disable/configuration transitions that change the effective client graph;
-- user bootstrap after effective plugins and generated saved views exist;
+- shipped-system boot before serving requests, including an empty database; user bootstrap only checks builds;
 - custom client renderer publication;
 - any saved-view mutation that changes its renderer graph rather than only page settings/data.
 
@@ -118,7 +118,7 @@ Add focused tests proving:
 2. Two users with identical effective system-plugin client code resolve the same artifact graph/build.
 3. Changing only `pluginInstallationId` does not change artifact identity or artifact graph hash.
 4. Changing a source hash, selected export, route registry, automatic-presentation registry, compiler version, API version, or bridge version does change artifact identity where applicable.
-5. User bootstrap materializes every client-page graph needed for the user's initial built-in views/workspaces.
+5. System boot materializes the new-user baseline before requests are accepted; user bootstrap checks its builds without compilation.
 6. Static artifact-file retrieval does not call `ClientPagesService.isIdentityCurrent()` or reconstruct source graphs.
 7. Catalog invalidation occurs after required builds have been materialized.
 
@@ -368,7 +368,7 @@ materializeRenderer(userId, rendererId)
 
 Exact API shape should follow the actual mutation call sites; do not create a generic event bus.
 
-## User bootstrap
+## System boot and user bootstrap
 
 In `user-bootstrap/bootstrap.ts`:
 
@@ -381,18 +381,19 @@ provision installations
 → mark bootstrap complete
 ```
 
-Change it to:
+Build the default shipped-system catalog during boot, even when no user exists. Account setup then
+does only the following:
 
 ```text
 provision installations
 → plugin bootstrap
 → ensure built-in saved views
-→ materialize required client artifacts
+→ assert that required client artifacts were built at boot
 → remaining bootstrap state
 → mark bootstrap complete
 ```
 
-A user must never reach an authenticated client with bootstrap marked complete while required initial client artifacts remain unbuilt.
+A user must never reach an authenticated client with bootstrap marked complete while required initial client artifacts remain unbuilt. Account setup must never invoke the client compiler.
 
 Materialize each unique artifact key once. Do not compile once per saved view.
 
