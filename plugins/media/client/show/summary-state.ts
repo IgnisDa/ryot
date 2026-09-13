@@ -1,13 +1,8 @@
 import type { RyotQueryResult } from "@ryot-app/client-sdk/react";
 
 import type { ShowSummaryResult } from "../../shared/show-recipes";
-import {
-	collectManagedAssetLocators,
-	mediaImageAsset,
-	mediaImageAssets,
-	preferredMediaImageAsset,
-} from "../media-image";
-import { classifyRyotQueryResult, type MappedRyotQueryState } from "./query-state";
+import { classifyRyotQueryResult, type MappedRyotQueryState } from "../media/query-state";
+import { mediaCountFact, mediaCountLabel } from "../media/summary-state";
 
 export type ShowSummary = NonNullable<ShowSummaryResult["show"]>;
 
@@ -54,31 +49,6 @@ export const showSummaryUnavailable = (reason: ShowSummaryUnavailableReason) => 
 			: "This entity is not a show, and only shows can be opened here.",
 });
 
-const SHOW_GALLERY_LIMIT = 10;
-
-export const showPosterAsset = (show: Pick<ShowSummary, "images">) =>
-	preferredMediaImageAsset(show.images, "cover");
-
-export const showBackdropAsset = (show: ShowSummary) => mediaImageAsset(show.images, "backdrop");
-
-export const showGalleryAssets = (show: ShowSummary) =>
-	mediaImageAssets(show.images).slice(0, SHOW_GALLERY_LIMIT);
-
-export const showManagedAssets = (show: ShowSummary) =>
-	collectManagedAssetLocators([
-		showPosterAsset(show),
-		showBackdropAsset(show),
-		...mediaImageAssets(show.images),
-	]);
-
-export const showReleaseLabel = (show: Pick<ShowSummary, "publishDate" | "publishYear">) =>
-	show.publishYear === null ? (show.publishDate ?? undefined) : String(show.publishYear);
-
-export const showRatingLabel = (show: ShowSummary, locales?: Intl.LocalesArgument) =>
-	show.providerRating === null
-		? undefined
-		: new Intl.NumberFormat(locales, { maximumFractionDigits: 2 }).format(show.providerRating);
-
 const LIFECYCLE_LABELS: Record<ShowSummary["state"], string> = {
 	on_hold: "On hold",
 	dropped: "Dropped",
@@ -91,36 +61,12 @@ const LIFECYCLE_LABELS: Record<ShowSummary["state"], string> = {
 
 export const showLifecycleLabel = (state: ShowSummary["state"]) => LIFECYCLE_LABELS[state];
 
-export const showOwnershipLabel = (owned: ShowSummary["owned"]) => {
-	if (owned === null) {
-		return "Not recorded";
-	}
-	return owned ? "Owned" : "Not owned";
-};
-
-export const showCountLabel = (count: number, singular: string) =>
-	`${count} ${count === 1 ? singular : `${singular}s`}`;
-
 export const showSeasonCountLabel = (show: ShowSummary) =>
-	show.totalSeasons === null ? undefined : showCountLabel(show.totalSeasons, "season");
+	show.totalSeasons === null ? undefined : mediaCountLabel(show.totalSeasons, "season");
 
 export const showEpisodeCountLabel = (show: ShowSummary) =>
-	show.totalEpisodes === null ? undefined : showCountLabel(show.totalEpisodes, "episode");
+	show.totalEpisodes === null ? undefined : mediaCountLabel(show.totalEpisodes, "episode");
 
-const countFact = (count: number | null, singular: string) =>
-	count === null
-		? undefined
-		: { value: String(count), label: count === 1 ? singular : `${singular}s` };
+export const showSeasonFact = (show: ShowSummary) => mediaCountFact(show.totalSeasons, "Season");
 
-export const showSeasonFact = (show: ShowSummary) => countFact(show.totalSeasons, "Season");
-
-export const showEpisodeFact = (show: ShowSummary) => countFact(show.totalEpisodes, "Episode");
-
-export const showCollectionsLabel = ({ items, pageInfo }: ShowSummary["collections"]) => {
-	if (items.length === 0) {
-		return "Not in any collection";
-	}
-	return pageInfo.hasMore
-		? `${items.length}+ collections`
-		: showCountLabel(items.length, "collection");
-};
+export const showEpisodeFact = (show: ShowSummary) => mediaCountFact(show.totalEpisodes, "Episode");

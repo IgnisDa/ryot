@@ -3,27 +3,26 @@ import { fieldSyncState } from "@ryot-app/client-ui-sdk/sync";
 import clsx from "clsx";
 import { useMemo, useRef, useState, type ReactNode } from "react";
 
-import { MediaImageGallery } from "../image-gallery";
-import { galleryImages } from "../image-gallery-state";
-import { imageAssetKey, ManagedAssetImage } from "../managed-assets";
-import type { MediaGalleryImage, MediaImageAsset } from "../media-image";
+import type { MediaOverviewRows } from "../../shared/media-recipes";
+import type { MediaGalleryImage, MediaImageAsset } from "./image";
+import { MediaImageGallery } from "./image-gallery";
+import { galleryImages } from "./image-gallery-state";
+import { imageAssetKey, ManagedAssetImage } from "./managed-assets";
 import {
-	showCharacterLabel,
-	showCompanyAsset,
-	showOverviewError,
-	showOverviewIsEmpty,
-	showPersonAsset,
-	showRecommendationAsset,
-	showRolesLabel,
-	type ShowCompany,
-	type ShowOverview as ShowOverviewData,
-	type ShowOverviewState,
-	type ShowPerson,
-	type ShowRecommendation,
+	mediaCharacterLabel,
+	mediaCompanyAsset,
+	mediaOverviewError,
+	mediaPersonAsset,
+	mediaRecommendationAsset,
+	mediaRolesLabel,
+	type MediaCompany,
+	type MediaOverviewState,
+	type MediaPerson,
+	type MediaRecommendation,
 } from "./overview-state";
-import { ShowExternalLink, ShowLinkButton, ShowOverviewSection } from "./primitives";
-import { showGalleryAssets, type ShowSummary } from "./summary-state";
-import { showSyncCounts } from "./sync-counts";
+import { MediaExternalLink, MediaLinkButton, MediaOverviewSection } from "./primitives";
+import { mediaGalleryAssets, type MediaSummaryFields } from "./summary-state";
+import { mediaSyncCounts } from "./sync-counts";
 import {
 	regionLabel,
 	viewerRegion,
@@ -37,7 +36,15 @@ const CREDIT_COLUMN_CLASS = "min-w-0 flex-1 border-t-0 pt-0";
 
 const COMPANY_COLUMN_CLASS = "w-72 shrink-0 border-t-0 pt-0";
 
-function ShowRail(props: { readonly compact: boolean; readonly children: ReactNode }) {
+export type MediaOverviewSubject = Pick<MediaSummaryFields, "name" | "images" | "watchProviders">;
+
+export type MediaOverviewRelationsRender<Overview> = (input: {
+	readonly compact: boolean;
+	readonly divided: boolean;
+	readonly overview: Overview;
+}) => ReactNode;
+
+export function MediaRail(props: { readonly compact: boolean; readonly children: ReactNode }) {
 	return (
 		<div className="overflow-x-auto">
 			<div className={clsx("flex w-max", props.compact ? "gap-3" : "gap-4")}>{props.children}</div>
@@ -45,7 +52,7 @@ function ShowRail(props: { readonly compact: boolean; readonly children: ReactNo
 	);
 }
 
-export function ShowImageGallery(props: {
+export function MediaImageGallerySection(props: {
 	readonly name: string;
 	readonly compact: boolean;
 	readonly divided: boolean;
@@ -58,19 +65,19 @@ export function ShowImageGallery(props: {
 		return null;
 	}
 	return (
-		<ShowOverviewSection
+		<MediaOverviewSection
 			title="Images"
 			divided={props.divided}
 			compact={props.compact}
 			action={
-				<ShowLinkButton
+				<MediaLinkButton
 					ref={triggerRef}
 					label="View all images"
 					onClick={() => setGalleryOpen(true)}
 				/>
 			}
 		>
-			<ShowRail compact={props.compact}>
+			<MediaRail compact={props.compact}>
 				{props.assets.map((asset) => (
 					<ManagedAssetImage
 						state="ready"
@@ -80,7 +87,7 @@ export function ShowImageGallery(props: {
 						className={clsx("aspect-video", props.compact ? "w-64" : "w-96")}
 					/>
 				))}
-			</ShowRail>
+			</MediaRail>
 			{galleryOpen && (
 				<MediaImageGallery
 					name={props.name}
@@ -90,11 +97,11 @@ export function ShowImageGallery(props: {
 					onClose={() => setGalleryOpen(false)}
 				/>
 			)}
-		</ShowOverviewSection>
+		</MediaOverviewSection>
 	);
 }
 
-export function ShowWatchProvidersSection(props: {
+export function MediaWatchProvidersSection(props: {
 	readonly region: string;
 	readonly compact: boolean;
 	readonly divided: boolean;
@@ -105,13 +112,13 @@ export function ShowWatchProvidersSection(props: {
 		return null;
 	}
 	return (
-		<ShowOverviewSection
+		<MediaOverviewSection
 			title="Where to watch"
 			divided={props.divided}
 			compact={props.compact}
 			action={
 				props.link === undefined ? null : (
-					<ShowExternalLink href={props.link} label="View all options" />
+					<MediaExternalLink href={props.link} label="View all options" />
 				)
 			}
 		>
@@ -119,7 +126,7 @@ export function ShowWatchProvidersSection(props: {
 				{props.groups.map((group) => (
 					<div key={group.offer} className="flex flex-col gap-2.5">
 						<p className="font-ui font-medium text-[12px] text-text-subtle">{group.label}</p>
-						<ShowRail compact={props.compact}>
+						<MediaRail compact={props.compact}>
 							{group.providers.map((provider) => (
 								<div
 									key={provider.name}
@@ -136,43 +143,39 @@ export function ShowWatchProvidersSection(props: {
 									</p>
 								</div>
 							))}
-						</ShowRail>
+						</MediaRail>
 					</div>
 				))}
 				<p className="font-ui text-[11px] leading-3.75 text-text-subtle">
 					{`Availability in ${regionLabel(props.region)}, from JustWatch.`}
 				</p>
 			</div>
-		</ShowOverviewSection>
+		</MediaOverviewSection>
 	);
 }
 
-export function ShowPeopleSection(props: {
+export function MediaPeopleSection(props: {
 	readonly compact: boolean;
 	readonly divided: boolean;
-	readonly people: readonly ShowPerson[];
+	readonly onViewAll: () => void;
+	readonly people: readonly MediaPerson[];
 }) {
 	if (props.people.length === 0) {
 		return null;
 	}
 	return (
-		<ShowOverviewSection
+		<MediaOverviewSection
 			title="Cast & crew"
 			divided={props.divided}
 			compact={props.compact}
-			sync={showSyncCounts(props.people, showPersonAsset)}
+			sync={mediaSyncCounts(props.people, mediaPersonAsset)}
 			className={props.compact ? undefined : CREDIT_COLUMN_CLASS}
-			action={
-				<ShowLinkButton
-					label="View all people"
-					onClick={() => console.log("TODO: open all show credits")}
-				/>
-			}
+			action={<MediaLinkButton label="View all people" onClick={props.onViewAll} />}
 		>
-			<ShowRail compact={props.compact}>
+			<MediaRail compact={props.compact}>
 				{props.people.map((person) => {
-					const roles = showRolesLabel(person.roles);
-					const character = showCharacterLabel(person.character);
+					const roles = mediaRolesLabel(person.roles);
+					const character = mediaCharacterLabel(person.character);
 					return (
 						<PluginLink
 							key={person.id}
@@ -186,9 +189,9 @@ export function ShowPeopleSection(props: {
 							<ManagedAssetImage
 								shape="circle"
 								monogram={person.name}
-								asset={showPersonAsset(person)}
+								asset={mediaPersonAsset(person)}
 								className="aspect-square w-full"
-								state={fieldSyncState(showPersonAsset(person), person)}
+								state={fieldSyncState(mediaPersonAsset(person), person)}
 							/>
 							<div className="flex flex-col gap-1">
 								<p className="line-clamp-2 text-center font-ui font-medium text-[13px] leading-4.5 text-text">
@@ -208,30 +211,30 @@ export function ShowPeopleSection(props: {
 						</PluginLink>
 					);
 				})}
-			</ShowRail>
-		</ShowOverviewSection>
+			</MediaRail>
+		</MediaOverviewSection>
 	);
 }
 
-export function ShowCompaniesSection(props: {
+export function MediaCompaniesSection(props: {
 	readonly compact: boolean;
 	readonly divided: boolean;
-	readonly companies: readonly ShowCompany[];
+	readonly companies: readonly MediaCompany[];
 }) {
 	if (props.companies.length === 0) {
 		return null;
 	}
 	return (
-		<ShowOverviewSection
+		<MediaOverviewSection
 			divided={props.divided}
 			compact={props.compact}
 			title="Production companies"
-			sync={showSyncCounts(props.companies, showCompanyAsset)}
+			sync={mediaSyncCounts(props.companies, mediaCompanyAsset)}
 			className={props.compact ? undefined : COMPANY_COLUMN_CLASS}
 		>
 			<div className="flex flex-col gap-3.5">
 				{props.companies.map((company) => {
-					const roles = showRolesLabel(company.roles);
+					const roles = mediaRolesLabel(company.roles);
 					return (
 						<PluginLink
 							key={company.id}
@@ -242,8 +245,8 @@ export function ShowCompaniesSection(props: {
 							<ManagedAssetImage
 								monogram={company.name}
 								className="h-9 w-9 shrink-0"
-								asset={showCompanyAsset(company)}
-								state={fieldSyncState(showCompanyAsset(company), company)}
+								asset={mediaCompanyAsset(company)}
+								state={fieldSyncState(mediaCompanyAsset(company), company)}
 							/>
 							<div className="flex min-w-0 flex-1 flex-col">
 								<p className="line-clamp-1 font-ui font-medium text-[13px] leading-4.5 text-text">
@@ -259,26 +262,26 @@ export function ShowCompaniesSection(props: {
 					);
 				})}
 			</div>
-		</ShowOverviewSection>
+		</MediaOverviewSection>
 	);
 }
 
-export function ShowRecommendationsSection(props: {
+export function MediaRecommendationsSection(props: {
 	readonly compact: boolean;
 	readonly divided: boolean;
-	readonly recommendations: readonly ShowRecommendation[];
+	readonly recommendations: readonly MediaRecommendation[];
 }) {
 	if (props.recommendations.length === 0) {
 		return null;
 	}
 	return (
-		<ShowOverviewSection
+		<MediaOverviewSection
 			title="More like this"
 			divided={props.divided}
 			compact={props.compact}
-			sync={showSyncCounts(props.recommendations, showRecommendationAsset)}
+			sync={mediaSyncCounts(props.recommendations, mediaRecommendationAsset)}
 		>
-			<ShowRail compact={props.compact}>
+			<MediaRail compact={props.compact}>
 				{props.recommendations.map((recommendation) => (
 					<PluginLink
 						key={recommendation.id}
@@ -292,20 +295,20 @@ export function ShowRecommendationsSection(props: {
 						<ManagedAssetImage
 							className="aspect-2/3 w-full"
 							monogram={recommendation.name}
-							asset={showRecommendationAsset(recommendation)}
-							state={fieldSyncState(showRecommendationAsset(recommendation), recommendation)}
+							asset={mediaRecommendationAsset(recommendation)}
+							state={fieldSyncState(mediaRecommendationAsset(recommendation), recommendation)}
 						/>
 						<p className="line-clamp-2 font-ui text-[12px] leading-4.25 text-text">
 							{recommendation.name}
 						</p>
 					</PluginLink>
 				))}
-			</ShowRail>
-		</ShowOverviewSection>
+			</MediaRail>
+		</MediaOverviewSection>
 	);
 }
 
-function ShowOverviewNotice(props: {
+function MediaOverviewNotice(props: {
 	readonly title: string;
 	readonly detail: string;
 	readonly compact: boolean;
@@ -313,7 +316,7 @@ function ShowOverviewNotice(props: {
 	readonly onRetry?: () => void;
 }) {
 	return (
-		<ShowOverviewSection
+		<MediaOverviewSection
 			divided={props.divided}
 			compact={props.compact}
 			title="Cast, companies and recommendations"
@@ -322,21 +325,20 @@ function ShowOverviewNotice(props: {
 				<p className="font-ui text-[13px] text-text-muted">{props.title}</p>
 				<p className="max-w-xl font-ui text-[13px] text-text-subtle">{props.detail}</p>
 				{props.onRetry === undefined ? null : (
-					<ShowLinkButton label="Try again" onClick={props.onRetry} />
+					<MediaLinkButton label="Try again" onClick={props.onRetry} />
 				)}
 			</div>
-		</ShowOverviewSection>
+		</MediaOverviewSection>
 	);
 }
 
-function ShowOverviewRelations(props: {
+export function MediaOverviewRelations(props: {
 	readonly compact: boolean;
 	readonly divided: boolean;
-	readonly overview: ShowOverviewData;
+	readonly trailing?: ReactNode;
+	readonly onViewAllPeople: () => void;
+	readonly overview: MediaOverviewRows;
 }) {
-	if (showOverviewIsEmpty(props.overview)) {
-		return null;
-	}
 	const { people, companies, recommendations } = props.overview;
 	const hasCredits = people.items.length > 0 || companies.items.length > 0;
 	return (
@@ -349,92 +351,102 @@ function ShowOverviewRelations(props: {
 					!props.compact && hasCredits && props.divided && "border-t border-border",
 				)}
 			>
-				<ShowPeopleSection people={people.items} compact={props.compact} divided={props.divided} />
-				<ShowCompaniesSection
+				<MediaPeopleSection
+					people={people.items}
+					compact={props.compact}
+					divided={props.divided}
+					onViewAll={props.onViewAllPeople}
+				/>
+				<MediaCompaniesSection
 					compact={props.compact}
 					companies={companies.items}
 					divided={props.divided || people.items.length > 0}
 				/>
 			</div>
-			<ShowRecommendationsSection
+			<MediaRecommendationsSection
 				compact={props.compact}
 				divided={props.divided || hasCredits}
 				recommendations={recommendations.items}
 			/>
+			{props.trailing}
 		</>
 	);
 }
 
-function ShowOverviewBody(props: {
+function MediaOverviewBody<Overview>(props: {
 	readonly compact: boolean;
 	readonly divided: boolean;
 	readonly refresh: () => void;
-	readonly state: ShowOverviewState;
+	readonly loadingDetail: string;
+	readonly state: MediaOverviewState<Overview>;
+	readonly relations: MediaOverviewRelationsRender<Overview>;
 }) {
 	const { state } = props;
 	if (state.status === "loading") {
 		return (
-			<ShowOverviewNotice
+			<MediaOverviewNotice
 				divided={props.divided}
 				compact={props.compact}
 				title="Loading details..."
-				detail="Fetching the cast, companies and recommendations for this show."
+				detail={props.loadingDetail}
 			/>
 		);
 	}
 	if (state.status === "transport-error" || state.status === "malformed") {
 		return (
-			<ShowOverviewNotice
+			<MediaOverviewNotice
 				divided={props.divided}
 				compact={props.compact}
 				onRetry={props.refresh}
-				{...showOverviewError(state)}
+				{...mediaOverviewError(state)}
 			/>
 		);
 	}
-	return (
-		<ShowOverviewRelations
-			compact={props.compact}
-			divided={props.divided}
-			overview={state.overview}
-		/>
-	);
+	return props.relations({
+		compact: props.compact,
+		divided: props.divided,
+		overview: state.overview,
+	});
 }
 
-export function ShowOverview(props: {
+export function MediaOverview<Overview>(props: {
 	readonly compact: boolean;
-	readonly show: ShowSummary;
+	readonly loadingDetail: string;
 	readonly refreshStatus?: ReactNode;
 	readonly refreshOverview: () => void;
-	readonly overview: ShowOverviewState;
+	readonly media: MediaOverviewSubject;
+	readonly isEmpty: (overview: Overview) => boolean;
+	readonly overview: MediaOverviewState<Overview>;
+	readonly relations: MediaOverviewRelationsRender<Overview>;
 }) {
 	const region = useMemo(viewerRegion, []);
-	const gallery = showGalleryAssets(props.show);
-	const relations =
-		props.overview.status !== "ready" || !showOverviewIsEmpty(props.overview.overview);
+	const gallery = mediaGalleryAssets(props.media);
+	const relations = props.overview.status !== "ready" || !props.isEmpty(props.overview.overview);
 	return (
 		<div className={clsx("flex flex-col", props.compact ? "gap-7 pt-6" : "gap-9 pt-8")}>
 			{props.refreshStatus}
-			<ShowImageGallery
+			<MediaImageGallerySection
 				divided={false}
 				assets={gallery}
-				name={props.show.name}
+				name={props.media.name}
 				compact={props.compact}
-				images={galleryImages(props.show.images)}
+				images={galleryImages(props.media.images)}
 			/>
-			<ShowOverviewBody
+			<MediaOverviewBody
 				state={props.overview}
 				compact={props.compact}
+				relations={props.relations}
 				divided={gallery.length > 0}
 				refresh={props.refreshOverview}
+				loadingDetail={props.loadingDetail}
 			/>
 			{region === undefined ? null : (
-				<ShowWatchProvidersSection
+				<MediaWatchProvidersSection
 					region={region}
 					compact={props.compact}
 					divided={gallery.length > 0 || relations}
-					link={watchProviderLink(props.show, region)}
-					groups={watchProviderGroups(props.show, region)}
+					link={watchProviderLink(props.media, region)}
+					groups={watchProviderGroups(props.media, region)}
 				/>
 			)}
 		</div>

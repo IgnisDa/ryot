@@ -1,7 +1,7 @@
 import { Result } from "@ryot-app/client-sdk/effect";
 
 import { showOverviewRecipe } from "../../../shared/show-recipes";
-import { rowsResult } from "./query-result-fixture";
+import { rowsResult } from "../query-result-fixture";
 
 export const showOverviewFixtureRecipe = showOverviewRecipe({
 	peopleLimit: 12,
