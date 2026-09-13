@@ -63,6 +63,7 @@ beforeAll(() =>
 			yield* waitForHealthCheck(
 				`http://127.0.0.1:${fallbackApiPort}/api/system/health`,
 				"Upload fallback setup",
+				fallbackApiProcess,
 			);
 		}),
 	),

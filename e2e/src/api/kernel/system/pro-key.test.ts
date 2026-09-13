@@ -129,7 +129,12 @@ beforeAll(
 						}),
 					);
 					scenarios.set(name, { fake, process, apiUrl: `${apiOrigin}/api` });
-					yield* waitForHealthCheck(`${apiOrigin}/api/system/health`, `Pro key ${name} setup`, 90);
+					yield* waitForHealthCheck(
+						`${apiOrigin}/api/system/health`,
+						`Pro key ${name} setup`,
+						process,
+						90,
+					);
 				}
 			}),
 		),

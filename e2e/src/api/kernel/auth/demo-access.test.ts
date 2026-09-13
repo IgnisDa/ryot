@@ -124,7 +124,7 @@ const startApi = (extraEnv: Record<string, string | undefined>) =>
 				s3Endpoint: activeInfrastructure.s3Endpoint,
 			}),
 		);
-		yield* waitForHealthCheck(`${apiUrl}/system/health`, "Demo access acceptance", 90);
+		yield* waitForHealthCheck(`${apiUrl}/system/health`, "Demo access acceptance", apiProcess, 90);
 	});
 
 const exchangeTokens = (
