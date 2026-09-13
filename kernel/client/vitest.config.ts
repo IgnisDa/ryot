@@ -1,3 +1,3 @@
 import { defineClientConfig } from "@ryot-app/testing/vitest.client";
 
-export default defineClientConfig({ setupFiles: ["./vitest.setup.ts"] });
+export default defineClientConfig({ maxWorkers: 2, setupFiles: ["./vitest.setup.ts"] });
