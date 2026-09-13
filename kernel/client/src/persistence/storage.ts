@@ -3,11 +3,13 @@ import {
 	type EntityBrowserLayout as SavedViewLayout,
 } from "@ryot-app/contract/modules/saved-views/schemas";
 import {
+	type PluginSlug,
 	SandboxProviderId,
 	Slug,
 	type SandboxProviderId as ProviderId,
 } from "@ryot-app/contract/schema/brands";
-import { Context, Effect, Layer, Schema } from "effect";
+import { JsonValue } from "@ryot-app/contract/schema/json";
+import { Context, Data, Effect, Layer, Option, Schema } from "effect";
 
 import { parseServerOrigin, type ServerOrigin } from "#/api/origin";
 import { apiScopeKey, type ApiScope } from "#/api/scope";
@@ -23,12 +25,18 @@ export const savedViewLayoutKey = (scope: ApiScope, slug: string) =>
 export const rememberedProviderKey = (scope: ApiScope, entitySchemaSlug: string) =>
 	`${RYOT_STORAGE_PREFIX}remembered-provider:${apiScopeKey(scope)}:${entitySchemaSlug}`;
 
+export const pluginStorageKey = (scope: ApiScope, pluginSlug: PluginSlug, key: string) =>
+	`${RYOT_STORAGE_PREFIX}plugin-storage:${apiScopeKey(scope)}:${pluginSlug}:${key}`;
+
+export class PluginStorageQuotaError extends Data.TaggedError("PluginStorageQuotaError") {}
+
 export type BrowserStorage = Pick<Storage, "getItem" | "removeItem" | "setItem">;
 
 const browserStorage = () => (typeof localStorage === "undefined" ? undefined : localStorage);
 const isWorkspaceSlug = Schema.is(Slug);
 const isSavedViewLayout = Schema.is(EntityBrowserLayout);
 const isSandboxProviderId = Schema.is(SandboxProviderId);
+const decodePluginValue = Schema.decodeUnknownOption(Schema.fromJsonString(JsonValue));
 
 const makeStorage = (storage: BrowserStorage | undefined): ClientStorage["Service"] => ({
 	clearServerSelection: Effect.sync(() => storage?.removeItem(SERVER_SELECTION_KEY)),
@@ -38,6 +46,8 @@ const makeStorage = (storage: BrowserStorage | undefined): ClientStorage["Servic
 		Effect.sync(() => storage?.setItem(THEME_PREFERENCE_KEY, preference)),
 	setSavedViewLayout: (scope, slug, layout) =>
 		Effect.sync(() => storage?.setItem(savedViewLayoutKey(scope, slug), layout)),
+	removePluginValue: (scope, pluginSlug, key) =>
+		Effect.sync(() => storage?.removeItem(pluginStorageKey(scope, pluginSlug, key))),
 	setLastWorkspace: (scope, slug) =>
 		Effect.sync(() => {
 			if (isWorkspaceSlug(slug)) {
@@ -65,6 +75,11 @@ const makeStorage = (storage: BrowserStorage | undefined): ClientStorage["Servic
 			const value = storage?.getItem(rememberedProviderKey(scope, entitySchemaSlug));
 			return isSandboxProviderId(value) ? value : null;
 		}),
+	setPluginValue: (scope, pluginSlug, key, value) =>
+		Effect.try({
+			catch: () => new PluginStorageQuotaError(),
+			try: () => storage?.setItem(pluginStorageKey(scope, pluginSlug, key), JSON.stringify(value)),
+		}),
 	getServerSelection: Effect.sync(() => {
 		const value = storage?.getItem(SERVER_SELECTION_KEY);
 		if (value === null || value === undefined) {
@@ -73,6 +88,13 @@ const makeStorage = (storage: BrowserStorage | undefined): ClientStorage["Servic
 		const result = parseServerOrigin(value);
 		return result.ok ? result.origin : null;
 	}),
+	getPluginValue: (scope, pluginSlug, key) =>
+		Effect.sync(() => {
+			const value = storage?.getItem(pluginStorageKey(scope, pluginSlug, key));
+			return value === null || value === undefined
+				? null
+				: Option.getOrNull(decodePluginValue(value));
+		}),
 });
 
 export class ClientStorage extends Context.Service<
@@ -100,6 +122,22 @@ export class ClientStorage extends Context.Service<
 			scope: ApiScope,
 			slug: string,
 			layout: SavedViewLayout,
+		) => Effect.Effect<void>;
+		readonly getPluginValue: (
+			scope: ApiScope,
+			pluginSlug: PluginSlug,
+			key: string,
+		) => Effect.Effect<JsonValue | null>;
+		readonly setPluginValue: (
+			scope: ApiScope,
+			pluginSlug: PluginSlug,
+			key: string,
+			value: JsonValue,
+		) => Effect.Effect<void, PluginStorageQuotaError>;
+		readonly removePluginValue: (
+			scope: ApiScope,
+			pluginSlug: PluginSlug,
+			key: string,
 		) => Effect.Effect<void>;
 	}
 >()("ClientStorage") {
