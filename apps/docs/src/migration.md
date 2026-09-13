@@ -151,7 +151,9 @@ Your integrations and notification settings are carried over, including their pa
 API keys. Webhook URLs for integrations that send data to Ryot (Plex, Jellyfin, Emby, Kodi and
 the browser extension) keep working, so you do not need to change anything in those apps.
 
-The Generic JSON integration has been removed and is not carried over.
+Legacy Generic JSON integrations are not carried over. Recreate them as Data webhook integrations.
+Manual Data import and Data webhooks use the v11 `data-json` format; v10 Generic JSON payloads are
+not compatible. See [Data import and webhook](./data-import.md).
 
 ### What to expect after the upgrade
 
@@ -173,6 +175,5 @@ These are not carried over:
 
 These features have been removed:
 
-- The Generic JSON importer.
 - The old JSON export. Use [account backups](./backups.md) instead. Exports made with `v10`
   cannot be imported into `v11`.
