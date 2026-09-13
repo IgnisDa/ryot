@@ -39,7 +39,7 @@ import { EntitiesService } from "#modules/entities/service";
 import { EventsService } from "#modules/events/service";
 import { IntegrationsRepository, type IntegrationRecord } from "#modules/integrations/repository";
 import { PluginRuntimeResolver } from "#modules/plugins/runtime-resolver";
-import { RelationshipMutations } from "#modules/relationships/mutation-pipeline";
+import { RelationshipMutationPipeline } from "#modules/relationships/mutation-pipeline";
 import { RelationshipsRepository } from "#modules/relationships/repository";
 import { RyotQLService } from "#modules/ryotql/service";
 
@@ -363,7 +363,7 @@ const hostFunctionsLayer = (
 							}),
 				}),
 			);
-			return RelationshipMutations.layer.pipe(Layer.provideMerge(dependencies));
+			return RelationshipMutationPipeline.layer.pipe(Layer.provideMerge(dependencies));
 		}),
 	);
 
