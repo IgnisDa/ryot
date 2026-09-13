@@ -1,10 +1,12 @@
 #!/usr/bin/env bun
 
 import { BunRuntime, BunServices } from "@effect/platform-bun";
+import { compilePluginSandboxSourceEntries } from "@ryot-app/sandbox-compiler/plugins";
 import { canonicalFileSetHash } from "@ryot-app/ts-utils/crypto";
 import { buildDenoEsm, ViteBuildService } from "@ryot-app/vite-compiler";
 import { Data, Effect, FileSystem, Layer, Path, Ref, Schema } from "effect";
 
+import { kernelScripts } from "../src/modules/definition-registry/kernel-source";
 import { sandboxRuntimeInputs } from "./sandbox-runtime-inputs";
 import { buildSandboxRuntimePayload } from "./sandbox-runtime-payload";
 import { walkSourceFiles } from "./walk-source-tree";
@@ -36,6 +38,27 @@ const embedKernelScripts = (kernelDirectory: string) =>
 		yield* fs.writeFileString(
 			path.join(kernelDirectory, "src/modules/definition-registry/kernel-scripts.generated.ts"),
 			`export const kernelScriptSources = {\n${entries}\n} as const;\n`,
+		);
+		const compiled = yield* compilePluginSandboxSourceEntries(scripts, kernelScripts);
+		const outputs = kernelScripts.map((script) => {
+			const output = compiled.find(({ entry }) => entry === script.entry);
+			if (!output) {
+				throw new Error(`Kernel script compiler returned no output for ${script.entry}`);
+			}
+			return {
+				entry: script.entry,
+				source: output.source,
+				format: output.compiled.format,
+				manifest: output.compiled.manifest,
+				javascript: output.compiled.javascript,
+			};
+		});
+		yield* fs.writeFileString(
+			path.join(
+				kernelDirectory,
+				"src/modules/definition-registry/kernel-scripts.compiled.generated.ts",
+			),
+			`// oxlint-disable perfectionist/sort-objects -- generated compiler metadata preserves authored field order.\nexport const kernelScriptCompiledOutputs = ${encodeJson(outputs)} as const;\n`,
 		);
 		yield* Effect.logInfo("Embedded kernel sandbox scripts");
 	});

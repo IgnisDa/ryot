@@ -1,3 +1,4 @@
+import { CLIENT_BRIDGE_BOOTSTRAP_READY } from "@ryot-app/client-plugin-contract";
 import type {
 	ClientPageContext,
 	KernelShortcut,
@@ -345,6 +346,18 @@ export function PluginFrame(props: {
 			bridge.current = nextBridge;
 		}
 	}
+	useEffect(() => {
+		const onBootstrapReady = (event: MessageEvent) => {
+			if (
+				event.source === frame.current?.contentWindow &&
+				event.data?.type === CLIENT_BRIDGE_BOOTSTRAP_READY
+			) {
+				connect();
+			}
+		};
+		window.addEventListener("message", onBootstrapReady);
+		return () => window.removeEventListener("message", onBootstrapReady);
+	});
 
 	const chrome = { compact, leading: props.chromeLeading, safeAreaTop: props.viewport.safeAreaTop };
 	if (frameStatus === "handshake-failure") {
@@ -366,7 +379,6 @@ export function PluginFrame(props: {
 				))}
 			<iframe
 				key={reload}
-				onLoad={connect}
 				sandbox="allow-scripts"
 				src={artifactSrc.current}
 				referrerPolicy="no-referrer"

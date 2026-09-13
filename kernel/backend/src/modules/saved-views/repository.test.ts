@@ -24,7 +24,6 @@ const savedViewRow = (input: {
 	isDisabled: true,
 	dataSources: null,
 	pluginSlug: "private",
-	clientRendererId: null,
 	createdAt: new Date(0),
 	updatedAt: new Date(0),
 	renderer: { kind: "kernel", name: "results-table" } as const,

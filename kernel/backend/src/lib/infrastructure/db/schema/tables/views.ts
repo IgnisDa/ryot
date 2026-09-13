@@ -1,7 +1,4 @@
-import type {
-	ClientPageArtifactIdentity,
-	ClientRendererDefinition,
-} from "@ryot-app/contract/modules/client-pages/schemas";
+import type { ClientPageArtifactIdentity } from "@ryot-app/contract/modules/client-pages/schemas";
 import type { RyotQLDocument } from "@ryot-app/contract/modules/ryotql/language";
 import type { SavedViewRenderer } from "@ryot-app/contract/modules/saved-views/schemas";
 import type { JsonValue } from "@ryot-app/contract/schema/json";
@@ -20,34 +17,6 @@ import {
 
 import { user } from "./auth";
 import { pluginClientArtifact, pluginInstallation } from "./core";
-
-export const clientRenderer = snakeCase.table(
-	"client_renderer",
-	{
-		publishedHash: text(),
-		slug: text().notNull(),
-		name: text().notNull(),
-		publishedRevision: integer(),
-		draftRevision: integer().notNull().default(1),
-		publishedDefinition: jsonb().$type<ClientRendererDefinition>(),
-		createdAt: timestamp({ withTimezone: true }).defaultNow().notNull(),
-		draftDefinition: jsonb().$type<ClientRendererDefinition>().notNull(),
-		id: text()
-			.primaryKey()
-			.$defaultFn(() => /* @__PURE__ */ generateId()),
-		userId: text()
-			.notNull()
-			.references(() => user.id, { onDelete: "cascade" }),
-		updatedAt: timestamp({ withTimezone: true })
-			.defaultNow()
-			.$onUpdate(() => /* @__PURE__ */ new Date())
-			.notNull(),
-	},
-	(table) => [
-		index("client_renderer_user_id_idx").on(table.userId),
-		unique("client_renderer_user_slug_unique").on(table.userId, table.slug),
-	],
-);
 
 export const clientPageBuild = snakeCase.table("client_page_build", {
 	artifactKey: text().primaryKey(),
@@ -80,7 +49,6 @@ export const savedView = snakeCase.table(
 		userId: text()
 			.notNull()
 			.references(() => user.id, { onDelete: "cascade" }),
-		clientRendererId: text().references(() => clientRenderer.id, { onDelete: "restrict" }),
 		updatedAt: timestamp({ withTimezone: true })
 			.defaultNow()
 			.$onUpdate(() => /* @__PURE__ */ new Date())
@@ -89,7 +57,6 @@ export const savedView = snakeCase.table(
 	(table) => [
 		index("saved_view_user_id_idx").on(table.userId),
 		index("saved_view_plugin_installation_id_idx").on(table.pluginInstallationId),
-		index("saved_view_client_renderer_id_idx").on(table.clientRendererId),
 		unique("saved_view_user_slug_unique").on(table.userId, table.slug),
 		foreignKey({
 			name: "saved_view_plugin_installation_owner_fk",
