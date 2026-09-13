@@ -5,6 +5,7 @@ import {
 	usePageShortcut,
 	usePluginLocation,
 	useRyotViewport,
+	type EntityReference,
 } from "@ryot-app/client-sdk/plugin";
 import {
 	ManagedAssetProvider,
@@ -81,6 +82,11 @@ export type BrowserSortChoice = { readonly label: string; readonly value: string
 
 type AddAction = { readonly label: string; readonly open: (initialQuery?: string) => void };
 
+export type BrowserResultsRenderer = (input: {
+	readonly layout: Exclude<BrowserLayout, "table">;
+	readonly references: readonly EntityReference[];
+}) => ReactNode;
+
 type EntityBrowserControllerProps<Meta> = {
 	readonly add?: AddAction | undefined;
 	readonly canSearch?: boolean | undefined;
@@ -97,6 +103,7 @@ type EntityBrowserControllerProps<Meta> = {
 	readonly layouts: readonly BrowserLayout[];
 	readonly name: (meta: Meta | undefined) => string;
 	readonly query: RyotQuery<string, BrowserQueryPage<Meta>>;
+	readonly renderResults?: BrowserResultsRenderer | undefined;
 	readonly renderSummary?: ((meta: Meta, loaded: number) => ReactNode) | undefined;
 	readonly sortChoices: readonly BrowserSortChoice[];
 	readonly tableColumns: BrowserColumns | null | ((meta: Meta | undefined) => BrowserColumns);
@@ -145,6 +152,7 @@ export function EntityBrowserController<Meta>({
 	tableColumns,
 	errorMessage,
 	emptyMessage,
+	renderResults,
 	renderSummary,
 	defaultLayout,
 	canSearch = true,
@@ -449,7 +457,9 @@ export function EntityBrowserController<Meta>({
 	} else if (layout === "table") {
 		content = <BrowserTable settled={settled} columns={columns} items={current.items} />;
 	} else {
-		content = <EntityResults layout={layout} references={references} viewContext={viewContext} />;
+		content = renderResults?.({ layout, references }) ?? (
+			<EntityResults layout={layout} references={references} viewContext={viewContext} />
+		);
 	}
 
 	return (
