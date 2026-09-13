@@ -3,15 +3,7 @@ import { QueryClient, useQuery } from "@tanstack/react-query";
 import { $path } from "safe-routes";
 import { withFragment } from "ufo";
 
-import type { TPrices } from "./config.server";
-
-type ConfigData = {
-	prices: TPrices;
-	isSandbox: boolean;
-	clientToken: string;
-	isLoggedIn: boolean;
-	turnstileSiteKey: string;
-};
+import { configDataSchema } from "./config";
 
 export const contactEmail = "ignisda2001@gmail.com";
 export const startUrl = withFragment($path("/"), "start-here");
@@ -43,7 +35,6 @@ export const useConfigData = () =>
 			if (!response.ok) {
 				throw new Error("Failed to fetch config");
 			}
-			// oxlint-disable-next-line typescript/no-unsafe-type-assertion -- Same-origin response produced by the api.config loader
-			return response.json() as Promise<ConfigData>;
+			return configDataSchema.parse(await response.json());
 		},
 	});
