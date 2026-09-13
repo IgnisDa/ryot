@@ -1,21 +1,14 @@
 import { EntityInterestTicketFailure } from "@ryot-app/contract/modules/entity-interest/contract";
 import type { EntityInterestSocketTicketResponse } from "@ryot-app/contract/modules/entity-interest/messages";
 import { UserId } from "@ryot-app/contract/schema/brands";
-import { sha256Hex } from "@ryot-app/ts-utils/crypto";
 import { Clock, Context, Data, DateTime, Effect, Layer, Schema } from "effect";
 
-import { RedisService } from "#lib/infrastructure/redis";
+import { makeOpaqueTickets } from "#lib/infrastructure/opaque-tickets";
+import { RedisService, redisKeys } from "#lib/infrastructure/redis";
+import { ImpersonationSessions } from "#modules/auth/impersonation-sessions";
 
 export const ENTITY_INTEREST_SOCKET_TICKET_TTL_SECONDS = 30;
 
-const CONSUME_TICKET_SCRIPT = `
-local value = redis.call('GET', KEYS[1])
-if value then
-  redis.call('DEL', KEYS[1])
-end
-return value
-`;
-const TICKET_PATTERN = /^[A-Za-z0-9_-]{43}$/;
 export class EntityInterestInvalidTicket extends Data.TaggedError("EntityInterestInvalidTicket") {}
 
 const invalidTicket = () => new EntityInterestInvalidTicket();
@@ -24,67 +17,60 @@ const storeUnavailable = () =>
 const TicketValue = Schema.Struct({
 	userId: UserId,
 	preferredLanguage: Schema.NullOr(Schema.String),
+	impersonation: Schema.optional(
+		Schema.Struct({ sessionId: Schema.String, expiresAt: Schema.Finite }),
+	),
 });
-
-export const entityInterestTicketKey = (ticketHash: string) =>
-	`ryot:entity-interest:ticket:${ticketHash}`;
-
-const ticketHash = (ticket: string) => sha256Hex(ticket);
-const makeTicket = () =>
-	Buffer.from(crypto.getRandomValues(new Uint8Array(32))).toString("base64url");
 
 export class EntityInterestTicketService extends Context.Service<EntityInterestTicketService>()(
 	"EntityInterestTicketService",
 	{
 		make: Effect.gen(function* () {
 			const redis = yield* RedisService;
+			const impersonationSessions = yield* ImpersonationSessions;
+			const tickets = makeOpaqueTickets({
+				redis,
+				invalid: invalidTicket,
+				unavailable: storeUnavailable,
+				key: redisKeys.entityInterestTicket,
+				codec: Schema.fromJsonString(TicketValue),
+				ttlSeconds: ENTITY_INTEREST_SOCKET_TICKET_TTL_SECONDS,
+			});
 
-			const create = Effect.fn("EntityInterestTicketService.create")(function* (input: {
-				readonly userId: UserId;
-				readonly preferredLanguage: string | null;
-			}) {
-				const ticket = makeTicket();
-				const now = yield* Clock.currentTimeMillis;
-				const value = yield* Schema.encodeUnknownEffect(Schema.fromJsonString(TicketValue))(
-					input,
-				).pipe(Effect.orDie);
-				yield* Effect.tryPromise({
-					catch: storeUnavailable,
-					try: () =>
-						redis.client.set(
-							entityInterestTicketKey(ticketHash(ticket)),
-							value,
-							"EX",
-							ENTITY_INTEREST_SOCKET_TICKET_TTL_SECONDS,
-						),
-				});
+			const create = Effect.fn("EntityInterestTicketService.create")(function* (
+				input: typeof TicketValue.Type,
+			) {
+				const created = yield* tickets.create(input);
 				return {
-					ticket,
-					expiresAt: DateTime.formatIso(
-						DateTime.makeUnsafe(now + ENTITY_INTEREST_SOCKET_TICKET_TTL_SECONDS * 1_000),
-					),
+					ticket: created.ticket,
+					expiresAt: DateTime.formatIso(DateTime.makeUnsafe(created.expiresAt)),
 				} satisfies EntityInterestSocketTicketResponse;
 			});
 
 			const consume = Effect.fn("EntityInterestTicketService.consume")(function* (ticket: string) {
-				if (!TICKET_PATTERN.test(ticket)) {
-					return yield* invalidTicket();
+				const principal = yield* tickets.consume(ticket);
+				if (principal.impersonation === undefined) {
+					return principal;
 				}
-				const raw = yield* Effect.tryPromise({
-					catch: storeUnavailable,
-					try: () =>
-						redis.client.eval(
-							CONSUME_TICKET_SCRIPT,
-							1,
-							entityInterestTicketKey(ticketHash(ticket)),
-						),
-				});
-				if (typeof raw !== "string") {
-					return yield* invalidTicket();
-				}
-				return yield* Schema.decodeEffect(Schema.fromJsonString(TicketValue))(raw).pipe(
-					Effect.mapError(invalidTicket),
+				const activeSession = yield* impersonationSessions.getActive(
+					principal.impersonation.sessionId,
+					principal.userId,
 				);
+				const now = yield* Clock.currentTimeMillis;
+				if (
+					activeSession === null ||
+					activeSession.expiresAt <= now ||
+					principal.impersonation.expiresAt <= now
+				) {
+					return yield* invalidTicket();
+				}
+				return {
+					...principal,
+					impersonation: {
+						...principal.impersonation,
+						expiresAt: Math.min(principal.impersonation.expiresAt, activeSession.expiresAt),
+					},
+				};
 			});
 
 			return { create, consume };

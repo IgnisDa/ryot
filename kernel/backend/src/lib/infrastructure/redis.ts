@@ -28,18 +28,25 @@ export type ImportSourceState = typeof ImportSourceState.Type;
 
 export const ImportSourceStateFromJson = Schema.fromJsonString(ImportSourceState);
 
+export const ImpersonationEndedMessage = Schema.fromJsonString(
+	Schema.Struct({ sessionId: Schema.String }),
+);
+
 export const redisKeys = {
 	entityUpdatedChannel: "ryot:entity:updated",
 	pluginCatalogChannel: "ryot:plugins:catalog",
 	uploadIntentExpiry: "ryot:upload:intents:expiry",
 	pluginCatalogUserChannel: "ryot:plugins:catalog:user",
+	impersonationEndedChannel: "ryot:auth:impersonation-ended",
 	uploadToken: (token: string) => `ryot:upload:token:${token}`,
 	uploadIntent: (intentId: string) => `ryot:upload:intent:${intentId}`,
 	godModePendingReset: (email: string) => `ryot:god-mode:pending:${email}`,
 	uploadIntentLock: (intentId: string) => `ryot:upload:intent-lock:${intentId}`,
 	importAdapterResult: (runId: string) => `ryot:imports:adapter-result:${runId}`,
 	importSourceState: (stateId: string) => `ryot:imports:source-state:${stateId}`,
+	impersonationHandoff: (ticketHash: string) => `ryot:auth:impersonation:${ticketHash}`,
 	godModeResetChannel: (correlationId: string) => `ryot:god-mode:reset:${correlationId}`,
+	entityInterestTicket: (ticketHash: string) => `ryot:entity-interest:ticket:${ticketHash}`,
 	entityInterestSession: (sessionId: string) => `ryot:entity-interest:session:${sessionId}`,
 	sandboxWorkflowJournal: (executionId: string) => `ryot:sandbox:workflow:${executionId}:journal`,
 	entityInterestSessions: (entityId: string) => `ryot:entity-interest:entity:${entityId}:sessions`,
