@@ -50,6 +50,8 @@ syncs skip an integration until its setup is complete.
 With **Sync ownership** enabled, scheduled and manual checks add matching media to `Owned`.
 
 - [Audiobookshelf](./audiobookshelf.md) - Sync media from Audiobookshelf
+- [AniList](./anilist.md) - Sync anime and manga list state from AniList
+  <Badge type="warning" text="PRO" />
 - [Komga](./komga.md) - Sync media from Komga
 - [Plex Yank](./plex-yank.md) - Add all media in your libraries to "Owned" collection
 - [Spotify](./spotify.md) - Sync recently played music from Spotify <Badge type="warning" text="PRO" />
