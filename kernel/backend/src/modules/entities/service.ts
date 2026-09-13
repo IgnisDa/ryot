@@ -293,7 +293,7 @@ export class EntitiesService extends Context.Service<EntitiesService>()("Entitie
 		) {
 			let payload = pending.request;
 			const acceptedPatches: AutomationPolicyPatch[] = [];
-			yield* Effect.gen(function* () {
+			const executePolicies = Effect.fnUntraced(function* () {
 				for (const policy of pending.policies) {
 					const output = yield* execution
 						.executePolicy({ runId: policy.runId, acceptedPatches: [...acceptedPatches] })
@@ -327,7 +327,8 @@ export class EntitiesService extends Context.Service<EntitiesService>()("Entitie
 					}
 				}
 				return undefined;
-			}).pipe(
+			});
+			yield* executePolicies().pipe(
 				Effect.catchCause((cause) =>
 					execution
 						.skipQueuedPolicies({ triggerId: pending.requestId })
