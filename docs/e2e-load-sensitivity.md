@@ -92,6 +92,37 @@ with 560 bootstrapped users (about 180 milliseconds per user). Suites that insta
 in a setup hook, such as `e2e/src/api/plugins/media/crons/media-trending-cron.test.ts`, then
 exceed the 180-second hook timeout. The same cost applies to any deployment with many users.
 
+## Requests beyond the server idle timeout are cut off after commit
+
+Status: measured.
+
+`kernel/backend/src/boot/server.ts` configures Bun with `idleTimeout: 60`. A request that sends no
+bytes for 60 seconds loses its connection, and the handler fiber is interrupted wherever it is. A
+late-run system plugin uninstall committed, then spent more than 57 seconds in the per-user
+materialization above; the connection closed, the server logged status 499, and the interruption
+landed inside `publishAfterCatalogMaterialization`
+(`kernel/backend/src/modules/plugins/catalog-materialization.ts`). The remaining users were not
+re-materialized and the catalog invalidation was not published.
+
+On the client the request failed, so the fixture never marked the plugin inactive and its scope
+finalizer uninstalled it again, receiving `PluginNotFoundError`. This produced the failures in
+`e2e/src/api/kernel/plugins/integration-ownership.test.ts` and
+`e2e/src/api/kernel/integrations/plugin-provider-redaction.test.ts`, and matches the
+`PluginNotFoundError` failures in `imports.test.ts` and `integrations.test.ts` from other runs. Any
+post-commit work that runs inside a request fiber is exposed to the same interruption.
+
+## Unexplained database errors under load
+
+Status: measured; cause unconfirmed.
+
+In one full run, `PATCH /api/user-settings/preferences` returned 500 with `DbError: Connection is
+closed`. That message comes from `@effect/sql-pg` closing a pooled connection while a query was
+using it; PostgreSQL logged no terminated connections. Forty seconds later, four god-mode requests
+(`/api/god-mode/users/provision` and `/disable/set`) returned 500 within 2 to 7 milliseconds as
+`GodModeInternalFailure` with `persistence-failed`. The god-mode routes map every `DbError` to that
+reason without logging it (`kernel/backend/src/modules/god-mode/routes.ts`), so their cause is not
+recorded. Both failures pass when their files run alone.
+
 ## Global media-monitoring sweep grows across the run
 
 Status: measured.
