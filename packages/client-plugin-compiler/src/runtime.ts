@@ -5,6 +5,7 @@ import {
 } from "@ryot-app/client-plugin-contract";
 import { decodeExecutableText } from "@ryot-app/ts-utils/executable-text";
 import { sortBy } from "@ryot-app/ts-utils/lodash";
+import { posixDirname, posixJoin } from "@ryot-app/ts-utils/path";
 import { inspectJavaScriptReferences } from "@ryot-app/typescript-compiler/javascript-references";
 import {
 	acquireCompilerWorkspace,
@@ -147,17 +148,16 @@ if (descriptorValue.application === "page") {
 }
 `;
 
-const localReferencePath = (paths: Path.Path, from: string, reference: string) => {
+const localReferencePath = (from: string, reference: string) => {
 	const target = referencePath(reference);
 	if (target.startsWith("/")) {
 		return undefined;
 	}
-	const path = paths.join(paths.dirname(from), target).split(paths.sep).join("/");
+	const path = posixJoin(posixDirname(from), target);
 	return path === ".." || path.startsWith("../") ? undefined : path;
 };
 
 const validateOutputReferences = (
-	paths: Path.Path,
 	files: readonly {
 		readonly path: string;
 		readonly bytes: Uint8Array;
@@ -186,7 +186,7 @@ const validateOutputReferences = (
 			if (!reference || isExternalReference(reference)) {
 				continue;
 			}
-			const path = localReferencePath(paths, file.path, reference);
+			const path = localReferencePath(file.path, reference);
 			if (path === undefined || !filesByName.has(path)) {
 				return `Emitted file "${file.path}" references missing or escaping path "${reference}"`;
 			}
@@ -309,7 +309,7 @@ export const buildClientRuntime = Effect.gen(function* () {
 		return yield* failure("Vite did not emit the client runtime stylesheet");
 	}
 	const missingReference = yield* Effect.try({
-		try: () => validateOutputReferences(path, bundled.files),
+		try: () => validateOutputReferences(bundled.files),
 		catch: () => failure("Client runtime emitted invalid text or syntax"),
 	});
 	if (missingReference) {
