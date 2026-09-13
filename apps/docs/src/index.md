@@ -28,7 +28,7 @@ services:
       - redis_storage:/data
 
   ryot:
-    image: ignisda/ryot:v10 # or ghcr.io/ignisda/ryot:v10
+    image: ignisda/ryot:v11 # or ghcr.io/ignisda/ryot:v11
     pull_policy: always
     container_name: ryot
     restart: unless-stopped
@@ -39,7 +39,7 @@ services:
       - REDIS_URL=redis://ryot-redis:6379 # REQUIRED
       - FRONTEND_URL=https://ryot.your-domain.com # REQUIRED: public URL of this instance (IP address is fine too)
       - DATABASE_URL=postgres://postgres:postgres@ryot-db:5432/postgres # REQUIRED
-      - SERVER_ADMIN_ACCESS_TOKEN=28ebb3ae554fa9867ba0 # REQUIRED: set to a long random string
+      - SERVER_ADMIN_ACCESS_TOKEN=28ebb3ae554fa9867ba0 # REQUIRED: set to a long random string [min 32 characters]
     volumes:
       - ryot_storage:/home/ryot/storage
 
