@@ -81,8 +81,6 @@ export class PluginUserBootstrapDispatcher extends Context.Service<PluginUserBoo
 	{
 		make: Effect.gen(function* () {
 			const sandbox = yield* SandboxExecutionService;
-			const runtime = yield* PluginRuntimeResolver;
-			const installations = yield* PluginInstallationRepository;
 			return yield* makePluginUserBootstrapDispatcher((payload) =>
 				sandbox.executeScript({
 					input: payload.context,
@@ -90,9 +88,6 @@ export class PluginUserBootstrapDispatcher extends Context.Service<PluginUserBoo
 					scriptId: payload.scriptId,
 					executionId: payload.executionId,
 				}),
-			).pipe(
-				Effect.provideService(PluginRuntimeResolver, runtime),
-				Effect.provideService(PluginInstallationRepository, installations),
 			);
 		}),
 	},
