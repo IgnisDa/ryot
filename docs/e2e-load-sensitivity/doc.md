@@ -13,6 +13,32 @@ Bun's idle timeout; and state shared across files (global entities, monitored en
 growing user count). Increasing `maxWorkers` lengthens the chains and grows the shared state
 faster.
 
+## Reproducing
+
+`setup.sh` provisions a fresh Ubuntu host reachable as `root@$SERVER_IP`: it installs Docker, Bun,
+Deno, and Playwright's Chromium, checks out the local `ultra-rewrite` commit, and copies the local
+`.env` files without their Colima socket settings. `repro.sh start <scenario>` runs one scenario
+detached on the host, and `repro.sh result <scenario>` prints its summary; run one scenario at a
+time. Scenarios that need probes apply `box/debug.patch` and copy the `box/debug-*.test.ts` files
+into the E2E suite for the run, then remove them.
+
+| Scenario            | Section                                                               |
+| ------------------- | --------------------------------------------------------------------- |
+| `serial-chains`     | Serial automation chains (alone; compare with `full`)                 |
+| `workflow-timeouts` | Workflow-body timeouts                                                |
+| `wall-clock`        | Wall-clock budgets                                                    |
+| `composed-views`    | Shared global entities                                                |
+| `idle-timeout`      | Server idle timeout (standalone `Bun.serve`)                          |
+| `signup-deadlock`   | Sign-up transaction                                                   |
+| `full`              | Serial chains, plugin materialization, idle timeout, media monitoring |
+
+```bash
+export SERVER_IP=203.0.113.10
+docs/e2e-load-sensitivity/setup.sh
+docs/e2e-load-sensitivity/repro.sh start composed-views
+docs/e2e-load-sensitivity/repro.sh result composed-views
+```
+
 ## Serial automation chains inside `POST /events`
 
 Status: measured.
@@ -76,10 +102,11 @@ snapshot. Its saved views list `book` entities (`rowsDataSources` in
 `e2e/src/fixtures/kernel/saved-views.ts`), and global books created by other files through
 `/api/test-support/entities/global` are visible to the fresh user. When a book row renders, the
 document lazily loads the owning Media plugin's client artifact (`module.css` and `module.js`).
-The load starts about 200 milliseconds after the entity query returns; the test takes its snapshot
-about 260 milliseconds after the document boots, so under load the load lands after the snapshot.
+The load follows the saved view's `entityBrowser` query. Run alone, that query returns before the
+test takes its snapshot, so the load lands inside the snapshot and the test passes. Under load the
+query returns later, and the load lands after the snapshot.
 
-Run alone with one seeded global book, a 150 millisecond delay on `/ryotql/plugin/execute`, and a
+Run alone with one seeded global book, a 1 second delay on the `entityBrowser` query, and a
 1.5 second pause before the assertions, the test fails with the same two Media requests as the
 loaded run. Without the seeded book it passes and never requests the Media artifact. A fix requires
 either isolating the test from global entities or narrowing the assertion.
