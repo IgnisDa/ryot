@@ -9,7 +9,7 @@ import { match } from "ts-pattern";
 import { withFragment, withQuery } from "ufo";
 import { z } from "zod";
 
-import { contactSubmissions, customers } from "~/drizzle/schema.server";
+import { contactSubmission, customer } from "~/drizzle/schema.server";
 import { getOtpCode, revokeOtpCode, setOtpCode } from "~/lib/caches.server";
 import { CommunitySection } from "~/lib/components/CommunitySection";
 import { ContactSection } from "~/lib/components/ContactSection";
@@ -67,10 +67,10 @@ export const action = async ({ request }: Route.ActionArgs) => {
 			revokeOtpCode(submission.email);
 			const paymentProvider = assignPaymentProvider(submission.email);
 			const dbCustomer = await getDb()
-				.insert(customers)
+				.insert(customer)
 				.values({ paymentProvider, email: submission.email })
-				.returning({ id: customers.id })
-				.onConflictDoUpdate({ target: customers.email, set: { email: submission.email } });
+				.returning({ id: customer.id })
+				.onConflictDoUpdate({ target: customer.email, set: { email: submission.email } });
 			const customerId = dbCustomer.at(0)?.id;
 			if (!customerId) {
 				throw new Error("There was an error registering the user.");
@@ -95,7 +95,7 @@ export const action = async ({ request }: Route.ActionArgs) => {
 			await validateTurnstile(request, submission.turnstileToken);
 
 			const result = await getDb()
-				.insert(contactSubmissions)
+				.insert(contactSubmission)
 				.values({
 					isSpam: false,
 					email: submission.email,
@@ -103,9 +103,9 @@ export const action = async ({ request }: Route.ActionArgs) => {
 					ticketNumber: sql`nextval('ticket_number_seq')`,
 				})
 				.returning({
-					email: contactSubmissions.email,
-					message: contactSubmissions.message,
-					ticketNumber: contactSubmissions.ticketNumber,
+					email: contactSubmission.email,
+					message: contactSubmission.message,
+					ticketNumber: contactSubmission.ticketNumber,
 				});
 
 			if (result[0]?.ticketNumber) {

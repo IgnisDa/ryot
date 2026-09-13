@@ -4,13 +4,8 @@ import PurchaseCompleteEmail, {
 } from "@ryot-app/transactional/emails/purchase-complete";
 import { and, eq, type InferSelectModel, isNull } from "drizzle-orm";
 
-import {
-	customerPurchases,
-	customers,
-	type TPaymentProviders,
-	type TPlanTypes,
-	type TProductTypes,
-} from "~/drizzle/schema.server";
+import * as schema from "~/drizzle/schema.server";
+import type { TPaymentProviders, TPlanTypes, TProductTypes } from "~/drizzle/schema.server";
 
 import { provisionUser, resetUserPassword, setUserDisabled } from "./api.server";
 import { GRACE_PERIOD, getDb, getUnkeyClient } from "./config.server";
@@ -21,7 +16,7 @@ import {
 	sendEmail,
 } from "./utilities.server";
 
-type Customer = InferSelectModel<typeof customers>;
+type Customer = InferSelectModel<typeof schema.customer>;
 
 export type PaymentProviderIdentity = {
 	providerPriceId?: string;
@@ -138,7 +133,7 @@ export async function provisionNewPurchase(
 	});
 
 	await getDb()
-		.insert(customerPurchases)
+		.insert(schema.customerPurchase)
 		.values({
 			planType,
 			productType,
@@ -172,7 +167,10 @@ export async function provisionNewPurchase(
 	}
 
 	if (Object.keys(updateData).length > 0) {
-		await getDb().update(customers).set(updateData).where(eq(customers.id, customer.id));
+		await getDb()
+			.update(schema.customer)
+			.set(updateData)
+			.where(eq(schema.customer.id, customer.id));
 	}
 }
 
@@ -180,12 +178,12 @@ export async function provisionRenewal(
 	customer: Customer,
 	planType: TPlanTypes,
 	productType: TProductTypes,
-	activePurchase: InferSelectModel<typeof customerPurchases>,
+	activePurchase: InferSelectModel<typeof schema.customerPurchase>,
 	providerIdentity: PaymentProviderIdentity,
 ) {
 	const renewalDate = calculateRenewalDate(planType);
 	await getDb()
-		.update(customerPurchases)
+		.update(schema.customerPurchase)
 		.set({
 			planType,
 			productType,
@@ -193,7 +191,7 @@ export async function provisionRenewal(
 			updatedOn: new Date(),
 			renewOn: renewalDate?.toDate(),
 		})
-		.where(eq(customerPurchases.id, activePurchase.id));
+		.where(eq(schema.customerPurchase.id, activePurchase.id));
 
 	if (customer.ryotUserId) {
 		await setUserDisabled(UserId.make(customer.ryotUserId), false);
@@ -214,10 +212,13 @@ export async function provisionRenewal(
 
 export async function revokePurchase(customer: Customer) {
 	await getDb()
-		.update(customerPurchases)
+		.update(schema.customerPurchase)
 		.set({ updatedOn: new Date(), cancelledOn: new Date() })
 		.where(
-			and(eq(customerPurchases.customerId, customer.id), isNull(customerPurchases.cancelledOn)),
+			and(
+				eq(schema.customerPurchase.customerId, customer.id),
+				isNull(schema.customerPurchase.cancelledOn),
+			),
 		);
 
 	if (customer.ryotUserId) {
@@ -231,8 +232,11 @@ export async function revokePurchase(customer: Customer) {
 }
 
 export async function getActivePurchase(customerId: string) {
-	return await getDb().query.customerPurchases.findFirst({
-		where: and(eq(customerPurchases.customerId, customerId), isNull(customerPurchases.cancelledOn)),
+	return await getDb().query.customerPurchase.findFirst({
+		where: and(
+			eq(schema.customerPurchase.customerId, customerId),
+			isNull(schema.customerPurchase.cancelledOn),
+		),
 	});
 }
 
