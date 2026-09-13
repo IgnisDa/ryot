@@ -105,19 +105,18 @@ const database = group(
 const sandbox = group(
 	{ label: "Sandbox", description: "Sandbox execution settings" },
 	{
-		memoryBudgetMiB: integerField({
-			defaultValue: 1536,
-			label: "Memory budget (MiB)",
-			envKey: "SANDBOX_MEMORY_BUDGET_MIB",
-			description:
-				"Aggregate memory reservation budget for sandbox processes and execution buffers",
-		}),
 		workerConcurrency: integerField({
 			defaultValue: 2,
 			label: "Worker concurrency",
 			envKey: "SANDBOX_WORKER_CONCURRENCY",
 			description:
 				"Global sandbox execution concurrency across trust and snapshot tiers; keep it within available database and memory headroom",
+		}),
+		memoryBudgetMiB: integerField({
+			label: "Memory budget (MiB)",
+			envKey: "SANDBOX_MEMORY_BUDGET_MIB",
+			description:
+				"Aggregate memory reservation budget for sandbox processes and execution buffers; derived as the smaller of 1536 MiB and half of effective memory when unset",
 		}),
 		perUserSidecars: booleanField({
 			defaultValue: false,
@@ -141,15 +140,6 @@ const sandbox = group(
 			label: "Development sandbox runtime directory",
 			description:
 				"Directory containing ryot-sandboxd and snapshots for non-Linux development; relative paths resolve from the working directory",
-		}),
-		launcherPath: stringField({
-			hidden: true,
-			validation: { required: true },
-			label: "Linux sandbox launcher",
-			envKey: "SANDBOX_LAUNCHER_PATH",
-			defaultValue: "/usr/local/libexec/ryot-sandbox-launcher",
-			description:
-				"Trusted Linux sandbox launcher executable; its installed executable and snapshot bindings are fixed by privileged provisioning",
 		}),
 	},
 );
