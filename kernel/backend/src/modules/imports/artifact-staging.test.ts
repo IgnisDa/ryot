@@ -80,9 +80,7 @@ layer(
 							},
 						}),
 				);
-				const directory = yield* fs.makeTempDirectoryScoped({
-					directory: "/var/folders/x2/4ldmcvss5wlg5f5sfly3bqwm0000gn/T/opencode",
-				});
+				const directory = yield* fs.makeTempDirectoryScoped();
 				const temporary = `${directory}/temporary`;
 				yield* fs.makeDirectory(temporary);
 				const infrastructure = Layer.mergeAll(
