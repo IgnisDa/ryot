@@ -398,6 +398,7 @@ export const createPluginRuntime = (
 				entityId: EntityId.make(entityId),
 			})),
 			Match.when({ kind: "saved-view" }, ({ slug }) => ({ slug, kind: "saved-view" as const })),
+			Match.when({ kind: "kernel-page" }, ({ page }) => ({ page, kind: "kernel-page" as const })),
 			Match.exhaustive,
 		);
 		if (!post({ mode, target, type: "navigate" } satisfies PluginBridgeNavigate)) {

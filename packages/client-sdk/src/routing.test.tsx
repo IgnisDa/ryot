@@ -217,6 +217,7 @@ const openChannel = (
 				entityId: EntityId.make(entityId),
 			})),
 			Match.when({ kind: "saved-view" }, ({ slug }) => ({ slug, kind: "saved-view" as const })),
+			Match.when({ kind: "kernel-page" }, ({ page }) => ({ page, kind: "kernel-page" as const })),
 			Match.exhaustive,
 		);
 		messages.push({ mode, target, type: "navigate" });
@@ -570,6 +571,38 @@ describe("PluginRouter", () => {
 				mode: "push",
 				type: "navigate",
 				target: { kind: "entity", entityId: EntityId.make("entity/1") },
+			} satisfies PluginBridgeNavigate,
+		]);
+	});
+
+	it("derives a kernel page href and dispatches a kernel page target", () => {
+		const channel = openChannel();
+		const container = document.createElement("div");
+		document.body.append(container);
+		const root = createRoot(container);
+		roots.push(root);
+		act(() => {
+			root.render(
+				<RyotProvider runtime={channel.clock.runtime}>
+					<PluginLink to={{ kind: "kernel-page", page: "import-data" }}>Import</PluginLink>
+				</RyotProvider>,
+			);
+		});
+
+		const link = container.querySelector("a");
+		if (!link) {
+			throw new Error("expected a rendered plugin link");
+		}
+		expect(link.getAttribute("href")).toBe("/settings/import-data");
+		act(() => {
+			link.dispatchEvent(new MouseEvent("click", { button: 0, bubbles: true, cancelable: true }));
+		});
+
+		expect(channel.messages).toEqual([
+			{
+				mode: "push",
+				type: "navigate",
+				target: { kind: "kernel-page", page: "import-data" },
 			} satisfies PluginBridgeNavigate,
 		]);
 	});
