@@ -7,6 +7,7 @@ import {
 import { Effect, Path } from "effect";
 
 import type { SandboxPluginRevision } from "#lib/infrastructure/sandbox-runtime/execution-principal";
+import { SandboxService } from "#lib/infrastructure/sandbox-runtime/service";
 
 export const sandboxRuntimeDirectory = Effect.gen(function* () {
 	const path = yield* Path.Path;
@@ -31,3 +32,14 @@ export const makeUserPluginRevision = (input: {
 	configRevisionId: PluginConfigRevisionId.make(`${input.slug}-config`),
 	schemaScope: { eventSchemas: [], entitySchemaSlugs: [], relationshipSchemaSlugs: [] },
 });
+
+export const stubRuntimeSandboxService = (run: SandboxService["Service"]["run"]) =>
+	SandboxService.of({
+		run,
+		completeRecovery: () => Effect.void,
+		reserve: () =>
+			Effect.succeed({
+				retainJournal: () => Effect.void,
+				enter: () => Effect.as(Effect.void, undefined),
+			}),
+	});

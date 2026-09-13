@@ -6,10 +6,13 @@ import type {
 	ScriptHost,
 } from "./core";
 import { Effect, Schema } from "./effect";
+import { configureSandboxFilesystem, type SandboxFilesystemBinding } from "./filesystem";
 import {
 	workflowReplayJournalEntrySchema,
+	type WorkflowReplayEnvelope,
 	type WorkflowReplayHost,
 	type WorkflowReplayJournal,
+	type WorkflowReplayJournalEntry,
 } from "./workflow";
 
 type HostForManifest<Manifest extends SandboxManifest> = Manifest extends {
@@ -43,6 +46,43 @@ export const makeWorkflowReplayHost = (entries: ReadonlyArray<unknown>): Workflo
 				),
 		}),
 });
+
+let testFilesystem: SandboxFilesystemBinding | undefined;
+let testFilesystemConfigured = false;
+
+export const installSandboxTestFilesystem = (binding: SandboxFilesystemBinding | undefined) => {
+	if (!testFilesystemConfigured) {
+		configureSandboxFilesystem(() => testFilesystem);
+		testFilesystemConfigured = true;
+	}
+	testFilesystem = binding;
+};
+
+export const driveWorkflowReplay = <Input, Failure>(
+	run: (
+		input: Input,
+		host: WorkflowReplayHost,
+		execution: ExecutionMetadata,
+	) => Effect.Effect<WorkflowReplayEnvelope, Failure>,
+	input: Input,
+	resolve: (
+		request: WorkflowReplayEnvelope["requests"][number],
+	) => WorkflowReplayJournalEntry["value"],
+) =>
+	Effect.gen(function* () {
+		const journal: WorkflowReplayJournalEntry[] = [];
+		for (;;) {
+			const envelope = yield* run(input, makeWorkflowReplayHost(journal), {
+				metadata: {},
+				sandboxScriptId: "workflow-test",
+			});
+			const request = envelope.state === "pending" ? envelope.requests[journal.length] : undefined;
+			if (request === undefined) {
+				return envelope;
+			}
+			journal.push({ request, value: resolve(request) });
+		}
+	});
 
 export const runSandboxTestScript = <
 	Input extends Schema.Codec<unknown, unknown>,

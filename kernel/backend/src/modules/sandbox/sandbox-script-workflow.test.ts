@@ -42,6 +42,7 @@ import {
 } from "#lib/test-utils/effect";
 import { mutationAdmissionTestLayer } from "#lib/test-utils/mutation-admission";
 import { testExecutionId, testRedisClient } from "#lib/test-utils/redis";
+import { stubRuntimeSandboxService } from "#lib/test-utils/sandbox-runtime";
 
 import { SandboxDurableHostDispatcher } from "./durable-host-dispatcher";
 import {
@@ -465,49 +466,42 @@ const hotSwapLayer = recordingLayer(
 			}),
 			Layer.succeed(
 				RuntimeSandboxService,
-				RuntimeSandboxService.of({
-					completeRecovery: () => Effect.void,
-					reserve: () =>
-						Effect.succeed({
-							retainJournal: () => Effect.void,
-							enter: () => Effect.as(Effect.void, undefined),
-						}),
-					run: (input) =>
-						Effect.gen(function* () {
-							yield* calls.record("executed-content", input.compiledCode);
-							const replayJournal = makeWorkflowReplayJournalHostFunction(input.replayJournal);
-							const journal = yield* replayJournal([]).pipe(Effect.flatMap(replayJournalResult));
-							const output = yield* Effect.gen(function* () {
-								const process = yield* spawner.spawn(
-									ChildProcess.make("/bin/sh", ["-c", input.compiledCode], {
-										env: {
-											REQUEST: encodeJson(hotSwapRequest),
-											JOURNAL: encodeJson(journal.data.map(({ value }) => value)),
-										},
-									}),
-								);
-								return yield* process.stdout.pipe(
-									Stream.decodeText(),
-									Stream.runFold(
-										() => "",
-										(content, chunk) => content + chunk,
-									),
-								);
-							}).pipe(Effect.scoped);
-							yield* Ref.set(active, replacementScriptId);
-							return {
-								logs: [],
-								inline: [],
-								error: null,
-								success: true,
-								harvest: null,
-								executionId: input.executionId,
-								value: yield* decodeEnvelope(output),
-								timing: { totalMs: 1, executionMs: 1 },
-								recovery: recoveryIdentity(input.executionId),
-							};
-						}).pipe(Effect.orDie),
-				}),
+				stubRuntimeSandboxService((input) =>
+					Effect.gen(function* () {
+						yield* calls.record("executed-content", input.compiledCode);
+						const replayJournal = makeWorkflowReplayJournalHostFunction(input.replayJournal);
+						const journal = yield* replayJournal([]).pipe(Effect.flatMap(replayJournalResult));
+						const output = yield* Effect.gen(function* () {
+							const process = yield* spawner.spawn(
+								ChildProcess.make("/bin/sh", ["-c", input.compiledCode], {
+									env: {
+										REQUEST: encodeJson(hotSwapRequest),
+										JOURNAL: encodeJson(journal.data.map(({ value }) => value)),
+									},
+								}),
+							);
+							return yield* process.stdout.pipe(
+								Stream.decodeText(),
+								Stream.runFold(
+									() => "",
+									(content, chunk) => content + chunk,
+								),
+							);
+						}).pipe(Effect.scoped);
+						yield* Ref.set(active, replacementScriptId);
+						return {
+							logs: [],
+							inline: [],
+							error: null,
+							success: true,
+							harvest: null,
+							executionId: input.executionId,
+							value: yield* decodeEnvelope(output),
+							timing: { totalMs: 1, executionMs: 1 },
+							recovery: recoveryIdentity(input.executionId),
+						};
+					}).pipe(Effect.orDie),
+				),
 			),
 			Layer.mock(KernelWorkflowReferences)({
 				execute: (
