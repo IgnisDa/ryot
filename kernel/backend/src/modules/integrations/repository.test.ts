@@ -84,10 +84,12 @@ const repositories = Layer.mergeAll(
 
 const seedOwner = Layer.effectDiscard(
 	Effect.gen(function* () {
-		const db = yield* (yield* DatabaseSession).current;
-		yield* db
-			.insert(tables.user)
-			.values({ id: owner, name: "Owner", preferences: {}, email: "owner@example.test" });
+		const session = yield* DatabaseSession;
+		yield* session.run((db) =>
+			db
+				.insert(tables.user)
+				.values({ id: owner, name: "Owner", preferences: {}, email: "owner@example.test" }),
+		);
 	}),
 );
 
@@ -103,17 +105,21 @@ const committedDatabaseLayer = seedOwner.pipe(
 );
 
 const waitForLockedTransaction = Effect.fn(function* (attempts = 2_000) {
-	const db = yield* (yield* DatabaseSession).current;
-	for (let attempt = 0; attempt < attempts; attempt += 1) {
-		const [waiting] = yield* db.execute<{ readonly count: number }>(
-			sql`select count(*)::int as count from pg_stat_activity where datname = current_database() and wait_event_type = 'Lock'`,
-			"objects",
-		);
-		if ((waiting?.count ?? 0) > 0) {
-			return true;
-		}
-	}
-	return false;
+	const session = yield* DatabaseSession;
+	return yield* session.run((db) =>
+		Effect.gen(function* () {
+			for (let attempt = 0; attempt < attempts; attempt += 1) {
+				const [waiting] = yield* db.execute<{ readonly count: number }>(
+					sql`select count(*)::int as count from pg_stat_activity where datname = current_database() and wait_event_type = 'Lock'`,
+					"objects",
+				);
+				if ((waiting?.count ?? 0) > 0) {
+					return true;
+				}
+			}
+			return false;
+		}),
+	);
 });
 
 describe("integration client settings projection", () => {

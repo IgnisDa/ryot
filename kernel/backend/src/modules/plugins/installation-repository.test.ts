@@ -45,14 +45,15 @@ const configuredPackage = (version: string, endpointSecret: boolean) => {
 
 const clientProjection = (id: string) =>
 	Effect.gen(function* () {
-		const db = yield* (yield* DatabaseSession).current;
-		const [row] = yield* db
-			.select({
-				clientConfig: tables.pluginInstallation.clientConfig,
-				configuredSecretPaths: tables.pluginInstallation.configuredSecretPaths,
-			})
-			.from(tables.pluginInstallation)
-			.where(eq(tables.pluginInstallation.id, id));
+		const [row] = yield* (yield* DatabaseSession).run((db) =>
+			db
+				.select({
+					clientConfig: tables.pluginInstallation.clientConfig,
+					configuredSecretPaths: tables.pluginInstallation.configuredSecretPaths,
+				})
+				.from(tables.pluginInstallation)
+				.where(eq(tables.pluginInstallation.id, id)),
+		);
 		return row;
 	});
 
@@ -77,24 +78,26 @@ describe("installation revision persistence", () => {
 			() =>
 				Effect.gen(function* () {
 					const repository = yield* PluginInstallationRepository;
-					const db = yield* (yield* DatabaseSession).current;
+					const session = yield* DatabaseSession;
 					const renderers = [
 						{ kind: "kernel", name: "entity-browser" },
 						{ kind: "plugin", exportName: "home", pluginId: "plugin-id" },
 					] as const;
 					for (const [index, renderer] of renderers.entries()) {
 						const id = `saved-view-${index}`;
-						yield* db
-							.insert(tables.savedView)
-							.values({
-								id,
-								slug: id,
-								name: id,
-								renderer,
-								icon: "view",
-								settings: {},
-								userId: owner,
-							});
+						yield* session.run((db) =>
+							db
+								.insert(tables.savedView)
+								.values({
+									id,
+									slug: id,
+									name: id,
+									renderer,
+									icon: "view",
+									settings: {},
+									userId: owner,
+								}),
+						);
 						expect(yield* repository.findHomeSavedView(owner, id)).toEqual({
 							view: { renderer, isDisabled: false },
 						});
@@ -133,7 +136,7 @@ describe("installation revision persistence", () => {
 			() =>
 				Effect.gen(function* () {
 					const repository = yield* PluginInstallationRepository;
-					const db = yield* (yield* DatabaseSession).current;
+					const session = yield* DatabaseSession;
 					const installed = yield* installRevisionPackage(revisionPackage("notes"), owner);
 					const destination = yield* repository.updateState({
 						sortOrder: 0,
@@ -142,6 +145,7 @@ describe("installation revision persistence", () => {
 						config: { token: "destination" },
 					});
 					assert(destination?.activeConfigRevisionId);
+					const destinationConfigRevisionId = destination.activeConfigRevisionId;
 					const input = {
 						sortOrder: 4,
 						userId: owner,
@@ -166,10 +170,12 @@ describe("installation revision persistence", () => {
 					expect(restored.uninstalledAt).toBeNull();
 					expect(restored.config).toEqual({ token: "archived" });
 					expect(restored.activeConfigRevisionId).not.toBe(destination.activeConfigRevisionId);
-					const [retained] = yield* db
-						.select()
-						.from(tables.pluginConfigRevision)
-						.where(eq(tables.pluginConfigRevision.id, destination.activeConfigRevisionId));
+					const [retained] = yield* session.run((db) =>
+						db
+							.select()
+							.from(tables.pluginConfigRevision)
+							.where(eq(tables.pluginConfigRevision.id, destinationConfigRevisionId)),
+					);
 					assert(retained?.encryptedPayload);
 					expect(retained.encryptedPayload.toString()).not.toContain("destination");
 					expect(
@@ -193,15 +199,17 @@ describe("installation revision persistence", () => {
 			"keeps system environment configuration separate from restored installation preferences",
 			() =>
 				Effect.gen(function* () {
-					const db = yield* (yield* DatabaseSession).current;
+					const session = yield* DatabaseSession;
 					const repository = yield* PluginInstallationRepository;
 					const persistence = yield* BackupRestorePersistence;
 					const installed = yield* installRevisionPackage(revisionPackage());
 					const environmentRevisions = () =>
-						db
-							.select()
-							.from(tables.pluginConfigRevision)
-							.where(eq(tables.pluginConfigRevision.scope, "environment"));
+						session.run((db) =>
+							db
+								.select()
+								.from(tables.pluginConfigRevision)
+								.where(eq(tables.pluginConfigRevision.scope, "environment")),
+						);
 					const before = yield* environmentRevisions();
 					yield* persistence.restoreInstallation({
 						sortOrder: 3,
