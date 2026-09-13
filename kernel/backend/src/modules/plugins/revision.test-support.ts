@@ -235,7 +235,7 @@ export const installRevisionPackage = Effect.fn(function* (
 		config: {},
 		sortOrder: 0,
 		health: "ready",
-		isDisabled: false,
+		isHidden: false,
 		userId: owner ?? UserId.make("owner"),
 	});
 	assert(installation);

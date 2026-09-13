@@ -138,7 +138,7 @@ export const pluginInstallation = snakeCase.table(
 		healthReason: text(),
 		homeSavedViewSlug: text(),
 		sortOrder: integer().notNull().default(0),
-		isDisabled: boolean().notNull().default(false),
+		isHidden: boolean().notNull().default(false),
 		uninstalledAt: timestamp({ withTimezone: true }),
 		configuredSecretPaths: text().array().notNull().default([]),
 		createdAt: timestamp({ withTimezone: true }).defaultNow().notNull(),

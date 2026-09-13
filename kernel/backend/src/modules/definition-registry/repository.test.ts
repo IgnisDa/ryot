@@ -84,11 +84,11 @@ describe("definition views", () => {
 					"member-of",
 				]);
 
-				yield* setInstallation(system.installation.id, { isDisabled: true });
-				const disabled = yield* definitions.getUserSnapshot(owner, effective);
-				expect(disabled.entitySchemas["fixture-entity"]).toBeUndefined();
-				expect(disabled.relationshipSchemas["private-link"]).toBeUndefined();
-				expect(disabled.entitySchemas["collection"]).toBeDefined();
+				yield* setInstallation(system.installation.id, { isHidden: true });
+				const hidden = yield* definitions.getUserSnapshot(owner, effective);
+				expect(hidden.entitySchemas["fixture-entity"]).toBeUndefined();
+				expect(hidden.relationshipSchemas["private-link"]).toBeUndefined();
+				expect(hidden.entitySchemas["collection"]).toBeDefined();
 			}),
 		);
 	});
@@ -98,11 +98,11 @@ describe("definition views", () => {
 			Effect.gen(function* () {
 				const system = yield* installRevisionPackage(revisionPackage());
 				const installing = yield* installRevisionPackage(revisionPackage("alpha"), owner);
-				const disabled = yield* installRevisionPackage(revisionPackage("beta"), owner);
+				const hidden = yield* installRevisionPackage(revisionPackage("beta"), owner);
 				const incompatible = yield* installRevisionPackage(revisionPackage("gamma"), owner);
 				yield* setInstallation(system.installation.id, { health: "installing" });
 				yield* setInstallation(installing.installation.id, { health: "installing" });
-				yield* setInstallation(disabled.installation.id, { isDisabled: true });
+				yield* setInstallation(hidden.installation.id, { isHidden: true });
 				yield* setInstallation(incompatible.installation.id, { health: "incompatible" });
 
 				expect(yield* userPlugin(system.pluginId)).toEqual({
@@ -115,7 +115,7 @@ describe("definition views", () => {
 					isExecutable: false,
 					isDefinitionEffective: false,
 				});
-				expect(yield* userPlugin(disabled.pluginId)).toEqual({
+				expect(yield* userPlugin(hidden.pluginId)).toEqual({
 					isListed: true,
 					isExecutable: false,
 					isDefinitionEffective: false,

@@ -57,7 +57,7 @@ export const catalog: PluginClientCatalog = [
 		name: "Fixture",
 		health: "ready",
 		slug: "fixture",
-		isDisabled: false,
+		isHidden: false,
 		clientApiVersion: 1,
 		pluginId: "plugin-1",
 		homeSavedViewSlug: null,
@@ -70,9 +70,9 @@ export const navigationData: NavigationData = {
 	collections: [
 		{
 			sortOrder: 0,
+			isHidden: false,
 			pluginSlug: null,
 			icon: "layers-3",
-			isDisabled: false,
 			slug: "collection-1",
 			name: "Fixture Collection",
 		},
@@ -81,16 +81,16 @@ export const navigationData: NavigationData = {
 		{
 			icon: "list",
 			sortOrder: 1,
-			isDisabled: false,
+			isHidden: false,
 			name: "Fixture View",
 			slug: "fixture-view",
 			pluginSlug: "fixture",
 		},
 		{
 			sortOrder: 0,
+			isHidden: false,
 			icon: "bookmark",
 			pluginSlug: null,
-			isDisabled: false,
 			name: "Global View",
 			slug: "global-view",
 		},

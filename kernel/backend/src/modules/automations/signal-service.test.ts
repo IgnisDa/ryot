@@ -112,8 +112,8 @@ const setup = Effect.gen(function* () {
 				config: {},
 				sortOrder: 0,
 				health: "ready",
+				isHidden: false,
 				userId: recipient,
-				isDisabled: false,
 				pluginId: installed.pluginId,
 			});
 			yield* db

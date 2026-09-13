@@ -115,7 +115,7 @@ const seedCatalog = (statements: readonly string[]) =>
 						pluginId,
 						userId: "owner",
 						health: "ready",
-						isDisabled: false,
+						isHidden: false,
 						id: "fixture-installation",
 						activeConfigRevisionId: null,
 					});

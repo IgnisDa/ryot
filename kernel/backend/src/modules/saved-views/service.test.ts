@@ -39,9 +39,9 @@ const baseView = {
 	pluginId: null,
 	slug: "my-view",
 	name: "My View",
+	isHidden: false,
 	isBuiltin: false,
 	pluginSlug: null,
-	isDisabled: false,
 	pluginInstallationId: null,
 	id: SavedViewId.make("sv-id"),
 	createdAt: "2026-01-01T00:00:00.000Z",
@@ -98,7 +98,7 @@ const pluginManifest = {
 		},
 	},
 };
-const disabledView = { ...baseView, isDisabled: true };
+const hiddenView = { ...baseView, isHidden: true };
 
 class SavedViewsCalls extends Context.Service<
 	SavedViewsCalls,
@@ -180,7 +180,7 @@ layer(
 				slug: "fixture",
 				scope: "system",
 				health: "ready",
-				isDisabled: false,
+				isHidden: false,
 				ownerUserId: null,
 				compiledHashes: {},
 				id: "fixture-plugin-id",
@@ -245,7 +245,7 @@ layer(
 		Effect.gen(function* () {
 			const service = yield* SavedViewsService;
 			const updated = yield* service.update(user, baseView.slug, {
-				isDisabled: true,
+				isHidden: true,
 				icon: baseView.icon,
 				name: baseView.name,
 			});
@@ -259,38 +259,36 @@ layer(
 	);
 });
 
-const disabledViewRepository = {
-	findBySlug: () => Effect.succeed(disabledView),
-	lockBySlug: () => Effect.succeed(disabledView),
+const hiddenViewRepository = {
+	findBySlug: () => Effect.succeed(hiddenView),
+	lockBySlug: () => Effect.succeed(hiddenView),
 	updateBySlug: () => Effect.succeed({ id: baseView.id }),
 };
 
-layer(makeLayer({ repository: disabledViewRepository }))((test) => {
-	test.effect(
-		"materializes a disabled view after its dependency changes, before re-enabling it",
-		() =>
-			Effect.gen(function* () {
-				const service = yield* SavedViewsService;
-				const updated = yield* service.update(user, baseView.slug, {
-					isDisabled: false,
-					icon: baseView.icon,
-					name: baseView.name,
-				});
-				expect(updated).toEqual({ id: baseView.id });
-				expect(yield* (yield* SavedViewsCalls).events).toEqual([
-					"materialize",
-					"update",
-					"invalidate",
-				]);
-			}),
+layer(makeLayer({ repository: hiddenViewRepository }))((test) => {
+	test.effect("materializes a hidden view after its dependency changes, before revealing it", () =>
+		Effect.gen(function* () {
+			const service = yield* SavedViewsService;
+			const updated = yield* service.update(user, baseView.slug, {
+				isHidden: false,
+				icon: baseView.icon,
+				name: baseView.name,
+			});
+			expect(updated).toEqual({ id: baseView.id });
+			expect(yield* (yield* SavedViewsCalls).events).toEqual([
+				"materialize",
+				"update",
+				"invalidate",
+			]);
+		}),
 	);
 });
 
-layer(makeLayer({ repository: disabledViewRepository }))((test) => {
-	test.effect("updates a disabled view without materializing an unavailable renderer", () =>
+layer(makeLayer({ repository: hiddenViewRepository }))((test) => {
+	test.effect("updates a hidden view without materializing an unavailable renderer", () =>
 		Effect.gen(function* () {
 			const updated = yield* (yield* SavedViewsService).update(user, baseView.slug, {
-				isDisabled: true,
+				isHidden: true,
 				icon: baseView.icon,
 				name: "Renamed View",
 			});

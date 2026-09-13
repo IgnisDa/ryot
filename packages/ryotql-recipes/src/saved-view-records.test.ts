@@ -8,12 +8,12 @@ const item = {
 	id: "view-1",
 	sortOrder: 2,
 	settings: {},
+	isHidden: false,
 	slug: "view-one",
 	name: "View One",
 	icon: "bookmark",
 	isBuiltin: false,
 	dataSources: null,
-	isDisabled: false,
 	pluginSlug: "media",
 	createdAt: "2026-01-01T01:00:00+02:00",
 	updatedAt: "2026-01-02T01:00:00+02:00",
@@ -29,7 +29,7 @@ describe("saved-view record recipes", () => {
 				limit: 7,
 				after: "cursor",
 				pluginSlug: "media",
-				includeDisabled: false,
+				includeHidden: false,
 			}).document.queries.savedViews,
 		);
 
@@ -42,7 +42,7 @@ describe("saved-view record recipes", () => {
 			"sortOrder",
 			"isBuiltin",
 			"renderer",
-			"isDisabled",
+			"isHidden",
 			"pluginSlug",
 			"createdAt",
 			"updatedAt",
@@ -51,7 +51,7 @@ describe("saved-view record recipes", () => {
 		]);
 		expect(query.where).toMatchObject({
 			predicates: [
-				{ right: { value: false }, left: { field: "isDisabled" } },
+				{ right: { value: false }, left: { field: "isHidden" } },
 				{ right: { value: "media" }, left: { field: "pluginSlug" } },
 			],
 		});

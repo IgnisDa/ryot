@@ -72,7 +72,7 @@ type RestoreCustomViewInput = Omit<
 > & { readonly userId: UserId; readonly pluginInstallationId?: string | null | undefined };
 type RestoreInstallationInput = Pick<
 	typeof schema.pluginInstallation.$inferInsert,
-	"userId" | "pluginId" | "sortOrder" | "health" | "isDisabled" | "createdAt" | "updatedAt"
+	"userId" | "pluginId" | "sortOrder" | "health" | "isHidden" | "createdAt" | "updatedAt"
 > & {
 	readonly id?: string;
 	readonly config: Record<string, unknown>;
@@ -273,10 +273,10 @@ export class BackupRestorePersistence extends Context.Service<BackupRestorePersi
 									healthReason: null,
 									uninstalledAt: null,
 									health: input.health,
+									isHidden: input.isHidden,
 									sortOrder: input.sortOrder,
 									createdAt: input.createdAt,
 									updatedAt: input.updatedAt,
-									isDisabled: input.isDisabled,
 								},
 							})
 							.returning(),
@@ -396,7 +396,7 @@ export class BackupRestorePersistence extends Context.Service<BackupRestorePersi
 				function* (input: {
 					readonly id: string;
 					readonly updatedAt: Date;
-					readonly isDisabled: boolean;
+					readonly isHidden: boolean;
 					readonly health: "ready" | "needs-configuration";
 				}) {
 					const [row] = yield* session.run((db) =>
@@ -405,8 +405,8 @@ export class BackupRestorePersistence extends Context.Service<BackupRestorePersi
 							.set({
 								healthReason: null,
 								health: input.health,
+								isHidden: input.isHidden,
 								updatedAt: input.updatedAt,
-								isDisabled: input.isDisabled,
 							})
 							.where(
 								and(

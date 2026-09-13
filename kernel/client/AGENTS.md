@@ -15,7 +15,7 @@ Architecture and rationale live in `README.md`.
 - Register document-declared page shortcuts in the kernel realm alongside the iframe's own registrations, and clear them when the bridge closes.
 - Keep `leading` intent separate from `edgeBack`. The kernel grants edge ownership only after readiness matches the active document and history `index` and `key`; never send per-frame gesture data over the bridge.
 - Derive client-page entry `index` and stable `key` only through `historyEntry`. Page-state replacements retain the key; screen navigation creates a new one.
-- Resolve plugin routes, entity provenance, saved views, and workspace homes through client-page preparation. Do not reintroduce route-local artifact selection or block direct plugin or delegated entity URLs because an installation is disabled.
+- Resolve plugin routes, entity provenance, saved views, and workspace homes through client-page preparation. Do not reintroduce route-local artifact selection or block direct plugin or delegated entity URLs because an installation is hidden.
 - Take `compact` and safe-area insets from the shell and bridge them to plugins. Plugin layout must not infer the outer viewport from iframe media queries or `env()`.
 - Render kernel routes through `AppScreen`. It owns `<main>`, scrolling, `<h1>`, title, gutters, and frame rhythm; use `width="readable"` rather than layout classes.
 - Use `ScreenFrame` as the only mobile header. Accept plugin title publication only from the active installation and current history entry.

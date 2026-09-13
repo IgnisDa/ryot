@@ -327,8 +327,8 @@ const seedCatalog = Effect.gen(function* () {
 					homeSavedViewSlug: "component-view",
 				},
 				{
+					isHidden: true,
 					userId: "owner",
-					isDisabled: true,
 					id: "owner-disabled",
 					pluginId: "disabled-plugin",
 					homeSavedViewSlug: "plugin-component",
@@ -486,8 +486,8 @@ const seedCatalog = Effect.gen(function* () {
 				.insert(savedViewOverride)
 				.values({
 					sortOrder: 0,
+					isHidden: true,
 					userId: "owner",
-					isDisabled: true,
 					slug: "disabled-home",
 					pluginId: "disabled-plugin",
 				});
