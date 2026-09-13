@@ -4,6 +4,7 @@ import { encodePluginCatalogInvalidatedMessage } from "@ryot-app/contract/module
 import type { PluginManifest } from "@ryot-app/contract/modules/plugins/manifest";
 import { PluginConflictError } from "@ryot-app/contract/modules/plugins/schemas";
 import { PluginSlug, type UserId } from "@ryot-app/contract/schema/brands";
+import { emptySandboxExecutionMetadata } from "@ryot-app/contract/testing";
 import { sandboxCompilerPlatformLayer } from "@ryot-app/sandbox-compiler/platform";
 import { Cause, Context, Deferred, Effect, Exit, Fiber, Layer, Option, Ref } from "effect";
 
@@ -527,29 +528,21 @@ layer(makeLayer({}))((test) => {
 					...fixture.scripts,
 					{
 						kind: "provider" as const,
-						capabilities: [] as const,
-						oauthConnectionFields: [],
-						executableDependencies: [],
-						optionalPluginConfigKeys: [],
+						...emptySandboxExecutionMetadata,
 						name: "Fixture Provider Details",
 						slug: "fixture.provider.details",
 						providerSlug: "fixture.provider",
 						providerOperation: "details" as const,
-						requiredPluginConfigKeys: [] as const,
 						entry: "backend/providers/fixture/provider/details.sandbox.ts",
 					},
 					{
 						searchOptionsSchema,
 						kind: "provider" as const,
-						capabilities: [] as const,
-						oauthConnectionFields: [],
-						executableDependencies: [],
-						optionalPluginConfigKeys: [],
+						...emptySandboxExecutionMetadata,
 						name: "Fixture Provider Search",
 						slug: "fixture.provider.search",
 						providerSlug: "fixture.provider",
 						providerOperation: "search" as const,
-						requiredPluginConfigKeys: [] as const,
 						entry: "backend/providers/fixture/provider/search.sandbox.ts",
 					},
 				],
@@ -599,13 +592,9 @@ const userBootstrapManifest = () => {
 			...manifest.scripts,
 			{
 				kind: "script" as const,
-				capabilities: [] as const,
-				oauthConnectionFields: [],
-				executableDependencies: [],
-				optionalPluginConfigKeys: [],
+				...emptySandboxExecutionMetadata,
 				name: "Fixture User Bootstrap",
 				slug: "fixture.user-bootstrap",
-				requiredPluginConfigKeys: [] as const,
 				entry: "backend/bootstrap/user-bootstrap.sandbox.ts",
 			},
 		],
@@ -1159,15 +1148,10 @@ layer(
 
 layer(makeLayer())((test) => {
 	test.effect("returns structured validation diagnostics", () => {
-		const cases: ReadonlyArray<{
-			manifest: unknown;
-			packageRoot: string;
-			reasonCode: "validation-failed";
-		}> = [
-			{ manifest: {}, reasonCode: "validation-failed", packageRoot: fixturePackageRoot() },
+		const cases: ReadonlyArray<{ manifest: unknown; reasonCode: "validation-failed" }> = [
+			{ manifest: {}, reasonCode: "validation-failed" },
 			{
 				reasonCode: "validation-failed",
-				packageRoot: fixturePackageRoot(),
 				manifest: {
 					...fixtureManifest(),
 					metadata: { ...fixtureManifest().metadata, slug: "bad/slug" },
@@ -1175,7 +1159,6 @@ layer(makeLayer())((test) => {
 			},
 			{
 				reasonCode: "validation-failed",
-				packageRoot: fixturePackageRoot(),
 				manifest: {
 					...fixtureManifest(),
 					entitySchemas: [{ ...fixtureManifest().entitySchemas[0], slug: "item" }],
@@ -1183,7 +1166,6 @@ layer(makeLayer())((test) => {
 			},
 			{
 				reasonCode: "validation-failed",
-				packageRoot: fixturePackageRoot(),
 				manifest: {
 					...fixtureManifest(),
 					hooks: [
@@ -1206,8 +1188,9 @@ layer(makeLayer())((test) => {
 		return Effect.forEach(cases, (testCase) =>
 			Effect.gen(function* () {
 				const ingestion = yield* PluginIngestionService;
-				const source = yield* loadPluginSource(testCase.packageRoot, testCase.manifest);
-				const exit = yield* Effect.exit(ingestion.ingestSystemPlugin(source));
+				const exit = yield* Effect.exit(
+					ingestion.ingestSystemPlugin({ manifest: testCase.manifest }),
+				);
 				const failure = failureOf(exit);
 				expect(failure).toMatchObject({
 					_tag: "PluginRequestError",
