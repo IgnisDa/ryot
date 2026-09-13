@@ -16,6 +16,7 @@ import {
 	type Client,
 	cloneSavedView,
 	createAuthenticatedClient,
+	createIntegration,
 	createEntity,
 	createPluginScope,
 	createPluginSavedView,
@@ -43,16 +44,20 @@ import {
 	literalSandboxSource,
 	listEventSchemas,
 	listEventsForEntity,
+	listIntegrations,
+	listImportedEntityNames,
 	waitForCreateEvents,
 	listNotificationSubscriptions,
 	listRelationshipSchemas,
 	listSavedViews,
 	pollProviderEntityImportResult,
 	providerSandboxSource,
+	pollImportRunUntilTerminal,
 	requireRows,
 	requireRyotQLText,
 	requireRyotQLValue,
 	restoreBackup,
+	sendDataWebhook,
 	setPluginHomeView,
 	setNotificationRuleActive,
 	updatePluginState,
@@ -715,6 +720,52 @@ describe("backup export and restore round trip", () => {
 				entitySchemaSlug,
 			);
 			expect(requireRows(inMediaLibrary.data.entity, "entity").items).toHaveLength(1);
+		}),
+	);
+
+	it.live("restores a kernel-owned Data webhook and accepts new submissions", () =>
+		Effect.gen(function* () {
+			const source = yield* createAuthenticatedClient();
+			const target = yield* createAuthenticatedClient();
+			const integration = yield* createIntegration(source.client, {
+				provider: "data-json",
+				providerSpecifics: {},
+				name: "Native backup webhook",
+			});
+			const { bytes } = yield* exportAndDownloadBackup(source.client, source.token);
+			yield* deleteUserAndWait(source.userId);
+			const restored = yield* restoreBackup(target.client, bytes);
+			assertCompleted(restored.run, "Data webhook restore");
+			const integrations = yield* listIntegrations(target.client, { provider: "data-json" });
+			expect(integrations).toHaveLength(1);
+			expect(integrations[0]).toMatchObject({
+				pluginSlug: null,
+				isDisabled: false,
+				id: integration.id,
+				name: "Native backup webhook",
+			});
+			const name = `Restored data collection ${crypto.randomUUID()}`;
+			const runId = yield* sendDataWebhook(
+				target.client,
+				integration,
+				{
+					events: [],
+					relationships: [],
+					entities: [
+						{
+							name,
+							kind: "custom",
+							properties: {},
+							key: "collection",
+							entitySchemaSlug: "collection",
+						},
+					],
+				},
+				"after-restore",
+			);
+			const run = yield* pollImportRunUntilTerminal(target.client, runId);
+			expect(run).toMatchObject({ failedItems: 0, importedItems: 1, status: "completed" });
+			expect(yield* listImportedEntityNames(target.client, "collection")).toContain(name);
 		}),
 	);
 });
