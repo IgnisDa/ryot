@@ -64,7 +64,7 @@ function PreferencesRoute() {
 			<PreferencesForm
 				disabled={isDemo}
 				preferences={preferences.data}
-				onSave={(payload) => updatePreferences.mutateAsync(payload)}
+				onSave={(payload) => updatePreferences.mutateEffect(payload)}
 			/>
 		);
 	} else if (preferences.isError) {

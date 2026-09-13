@@ -6,7 +6,7 @@ import {
 	type SchemaFormApi,
 	type SchemaFormValues,
 } from "@ryot-app/client-ui-sdk/schema-form";
-import { Match, Result } from "effect";
+import { Cause, Effect, Match, Result } from "effect";
 import { useReducer, useState } from "react";
 
 import {
@@ -169,30 +169,36 @@ export function NotificationChannelCreateWizard(props: {
 	const definition = findBySlug(notificationChannelList, state.slug);
 
 	const add = (values: SchemaFormValues) => {
-		if (definition === undefined) {
-			return Promise.resolve();
-		}
-		const body = createNotificationChannelBody({ values, kind: definition.slug });
-		if (Result.isFailure(body)) {
-			setFailure({ step: "configure", detail: INVALID_CHANNEL_DETAILS_MESSAGE });
-			dispatch({ step: "configure", type: "recover-at" });
-			return Promise.resolve();
-		}
-		setFailure(undefined);
-		return create.mutateAsync(body.success).then(
-			() => {
-				props.onCreated();
-				props.onClose();
-				return undefined;
-			},
-			(error) => {
-				const saveFailure = notificationChannelSaveFailure(error);
-				setFailure(saveFailure);
-				if (saveFailure.step !== undefined) {
-					dispatch({ type: "recover-at", step: saveFailure.step });
+		return Effect.runPromise(
+			Effect.gen(function* () {
+				if (definition === undefined) {
+					return;
 				}
-				return undefined;
-			},
+				const body = createNotificationChannelBody({ values, kind: definition.slug });
+				if (Result.isFailure(body)) {
+					setFailure({ step: "configure", detail: INVALID_CHANNEL_DETAILS_MESSAGE });
+					dispatch({ step: "configure", type: "recover-at" });
+					return;
+				}
+				setFailure(undefined);
+				yield* create.mutateEffect(body.success).pipe(
+					Effect.tap(() =>
+						Effect.sync(() => {
+							props.onCreated();
+							props.onClose();
+						}),
+					),
+					Effect.catchCause((cause) =>
+						Effect.sync(() => {
+							const saveFailure = notificationChannelSaveFailure(Cause.squash(cause));
+							setFailure(saveFailure);
+							if (saveFailure.step !== undefined) {
+								dispatch({ type: "recover-at", step: saveFailure.step });
+							}
+						}),
+					),
+				);
+			}),
 		);
 	};
 
