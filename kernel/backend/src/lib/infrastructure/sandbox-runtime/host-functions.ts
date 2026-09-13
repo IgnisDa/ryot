@@ -559,12 +559,27 @@ export const makeAdditionalSandboxApiFunctions: Effect.Effect<
 		}
 		return state;
 	});
-	const loadAdmittedOAuthConnectionId = Effect.fn("loadAdmittedOAuthConnectionId")(function* (
-		input: UserSandboxRunInput,
-		integrationId: IntegrationId,
-		integrationRunId: ImportRunId,
+	const loadOAuthIntegrationRun = Effect.fn("loadOAuthIntegrationRun")(function* (
+		rawInput: SandboxRunInput,
+		operation: "getOAuthAccessToken" | "invalidateOAuthAccessToken",
 		field: string,
 	) {
+		const input = yield* requireSandboxCapabilityInput(rawInput, operation);
+		const { subject, pluginRevision } = input.principal;
+		if (
+			subject.integrationId === undefined ||
+			subject.integrationRunId === undefined ||
+			pluginRevision === null
+		) {
+			return yield* sandboxHostFailure(
+				`${operation} is available only to integration run executions`,
+				{ operation, code: "unavailable-operation" },
+			);
+		}
+		if (!input.principal.metadata.oauthConnectionFields?.includes(field)) {
+			return yield* Effect.fail(`OAuth connection field "${field}" is not declared by this script`);
+		}
+		const { integrationId, integrationRunId } = subject;
 		const state = yield* loadExecutionState(input, integrationRunId);
 		const integration = state.executionSettings.integration;
 		const connectionId = integration?.providerSpecifics[field];
@@ -576,7 +591,14 @@ export const makeAdditionalSandboxApiFunctions: Effect.Effect<
 		) {
 			return yield* Effect.fail("Admitted integration settings are unavailable");
 		}
-		return OAuthConnectionId.make(connectionId);
+		return {
+			field,
+			integrationId,
+			integrationRunId,
+			userId: subject.userId,
+			pluginId: pluginRevision.id,
+			connectionId: OAuthConnectionId.make(connectionId),
+		};
 	});
 	const writeInlineLifecycleItems = Effect.fnUntraced(function* <Item, Result>(options: {
 		readonly items: ReadonlyArray<Item>;
@@ -718,6 +740,35 @@ export const makeAdditionalSandboxApiFunctions: Effect.Effect<
 					return yield* lifecycle.deleteEvents.commit(input);
 				}),
 			),
+		getOAuthAccessToken: (rawInput, options) =>
+			sandboxHostEffect(
+				Effect.gen(function* () {
+					const binding = yield* loadOAuthIntegrationRun(
+						rawInput,
+						"getOAuthAccessToken",
+						options.field,
+					);
+					return yield* oauthConnections
+						.accessTokenForIntegrationRun(binding)
+						.pipe(Effect.mapError((error) => error.message));
+				}),
+			),
+		invalidateOAuthAccessToken: (rawInput, options) =>
+			sandboxHostEffect(
+				Effect.gen(function* () {
+					const binding = yield* loadOAuthIntegrationRun(
+						rawInput,
+						"invalidateOAuthAccessToken",
+						options.field,
+					);
+					return yield* oauthConnections
+						.invalidateAccessTokenForIntegrationRun({
+							...binding,
+							accessToken: options.accessToken,
+						})
+						.pipe(Effect.mapError((error) => error.message));
+				}),
+			),
 		listIntegrations: (rawInput, rawOptions) =>
 			Effect.gen(function* () {
 				const input = yield* requireSandboxCapabilityInput(rawInput, "listIntegrations");
@@ -836,44 +887,6 @@ export const makeAdditionalSandboxApiFunctions: Effect.Effect<
 						return {};
 					}
 					return yield* resolveStoredPluginUserSettings(settingsSchema, row.userSettings);
-				}),
-			),
-		getOAuthAccessToken: (rawInput, options) =>
-			sandboxHostEffect(
-				Effect.gen(function* () {
-					const input = yield* requireSandboxCapabilityInput(rawInput, "getOAuthAccessToken");
-					const { subject, pluginRevision } = input.principal;
-					if (
-						subject.integrationId === undefined ||
-						subject.integrationRunId === undefined ||
-						pluginRevision === null
-					) {
-						return yield* sandboxHostFailure(
-							"getOAuthAccessToken is available only to integration run executions",
-							{ code: "unavailable-operation", operation: "getOAuthAccessToken" },
-						);
-					}
-					if (!input.principal.metadata.oauthConnectionFields?.includes(options.field)) {
-						return yield* Effect.fail(
-							`OAuth connection field "${options.field}" is not declared by this script`,
-						);
-					}
-					const connectionId = yield* loadAdmittedOAuthConnectionId(
-						input,
-						subject.integrationId,
-						subject.integrationRunId,
-						options.field,
-					);
-					return yield* oauthConnections
-						.accessTokenForIntegrationRun({
-							connectionId,
-							field: options.field,
-							userId: subject.userId,
-							pluginId: pluginRevision.id,
-							integrationId: subject.integrationId,
-							integrationRunId: subject.integrationRunId,
-						})
-						.pipe(Effect.mapError((error) => error.message));
 				}),
 			),
 		listEventSchemas: (rawInput, entitySchemaSlugs) =>
@@ -1027,48 +1040,6 @@ export const makeAdditionalSandboxApiFunctions: Effect.Effect<
 						return yield* Effect.fail("Admitted integration settings are unavailable");
 					}
 					return toSandboxIntegration({ ...integration, ...state.executionSettings.integration });
-				}),
-			),
-		invalidateOAuthAccessToken: (rawInput, options) =>
-			sandboxHostEffect(
-				Effect.gen(function* () {
-					const input = yield* requireSandboxCapabilityInput(
-						rawInput,
-						"invalidateOAuthAccessToken",
-					);
-					const { subject, pluginRevision } = input.principal;
-					if (
-						subject.integrationId === undefined ||
-						subject.integrationRunId === undefined ||
-						pluginRevision === null
-					) {
-						return yield* sandboxHostFailure(
-							"invalidateOAuthAccessToken is available only to integration run executions",
-							{ code: "unavailable-operation", operation: "invalidateOAuthAccessToken" },
-						);
-					}
-					if (!input.principal.metadata.oauthConnectionFields?.includes(options.field)) {
-						return yield* Effect.fail(
-							`OAuth connection field "${options.field}" is not declared by this script`,
-						);
-					}
-					const connectionId = yield* loadAdmittedOAuthConnectionId(
-						input,
-						subject.integrationId,
-						subject.integrationRunId,
-						options.field,
-					);
-					return yield* oauthConnections
-						.invalidateAccessTokenForIntegrationRun({
-							connectionId,
-							field: options.field,
-							userId: subject.userId,
-							pluginId: pluginRevision.id,
-							accessToken: options.accessToken,
-							integrationId: subject.integrationId,
-							integrationRunId: subject.integrationRunId,
-						})
-						.pipe(Effect.mapError((error) => error.message));
 				}),
 			),
 		getEntitySchemas: (rawInput, entitySchemaSlugs) =>

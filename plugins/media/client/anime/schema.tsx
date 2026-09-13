@@ -4,7 +4,7 @@ import type {
 	MediaPresentationDataOf,
 	MediaSummaryOf,
 } from "../../shared/media-recipes";
-import { mediaFlatActivityCopy, mediaListStateStatusLabel } from "../media/activity-copy";
+import { mediaFlatActivityCopy, mediaListStateDetail } from "../media/activity-copy";
 import { mediaActivityCountFigure } from "../media/activity-timeline";
 import { formatLocalDateLabel } from "../media/date";
 import { defineFlatMediaSchema } from "../media/flat-schema";
@@ -51,15 +51,10 @@ export const animeProgressLabel = (
 };
 
 export const animeListStateDetail = (event: AnimeListStateSnapshot) => {
-	const listState = event.listState;
-	if (listState === null) {
-		return undefined;
-	}
-	return [
-		mediaListStateStatusLabel(listState.state),
-		...(listState.animeEpisode === undefined ? [] : [`Episode ${listState.animeEpisode}`]),
-		`Repeat count ${listState.repeatCount}`,
-	].join(" · ");
+	const episode = event.listState?.animeEpisode;
+	return mediaListStateDetail(event.listState, [
+		episode === undefined ? undefined : `Episode ${episode}`,
+	]);
 };
 
 export const animeSchema = defineFlatMediaSchema({
