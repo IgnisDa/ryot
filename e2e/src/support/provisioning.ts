@@ -28,7 +28,6 @@ export type CoreTestInfrastructure = {
 export async function startCoreTestInfrastructure(input: {
 	bucketName: string;
 }): Promise<CoreTestInfrastructure> {
-	process.env.TESTCONTAINERS_RYUK_DISABLED = "true";
 	const [postgres, redisContainer, s3Container] = await Promise.all([
 		startPostgresContainer({ label: "e2e" }),
 		new GenericContainer("redis:alpine")
