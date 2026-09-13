@@ -72,17 +72,16 @@ CREATE TABLE "backup_run" (
 );
 --> statement-breakpoint
 CREATE TABLE "client_page_build" (
+	"published_hash" text,
 	"kernel_renderer_name" text,
 	"graph_hash" text NOT NULL,
-	"published_hash" text NOT NULL,
 	"graph_identity" jsonb NOT NULL,
 	"created_at" timestamp with time zone DEFAULT now() NOT NULL,
 	"id" text PRIMARY KEY,
 	"renderer_id" text,
 	"user_id" text NOT NULL,
 	"artifact_hash" text NOT NULL,
-	CONSTRAINT "client_page_build_graph_unique" UNIQUE("renderer_id","published_hash","graph_hash"),
-	CONSTRAINT "client_page_build_kernel_graph_unique" UNIQUE("user_id","kernel_renderer_name","published_hash","graph_hash")
+	CONSTRAINT "client_page_build_user_graph_unique" UNIQUE("user_id","graph_hash")
 );
 --> statement-breakpoint
 CREATE TABLE "client_renderer" (

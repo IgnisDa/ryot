@@ -17,7 +17,12 @@ import { Effect, Result, Schema } from "effect";
 import { useEffect, useRef } from "react";
 
 import { ClientPagesApi } from "#/api/client-pages";
-import { ClientPageHost, mergePageSearch } from "#/modules/client-pages/page-host";
+import {
+	useClearClientPageDocument,
+	useClientPageDocument,
+	useHasPublishedClientPageDocument,
+} from "#/modules/client-pages/document";
+import { mergePageSearch } from "#/modules/client-pages/page-host";
 import { usePageTitle } from "#/modules/navigation/page-title";
 import { mainContentProps } from "#/modules/navigation/skip-link";
 import { ProviderAddModal } from "#/modules/provider-add/modal";
@@ -25,6 +30,7 @@ import { SavedViewsService } from "#/modules/saved-views/service";
 import { ClientStorage } from "#/persistence/storage";
 
 export const Route = createFileRoute("/_authenticated/v/$viewSlug")({
+	staleTime: 30_000,
 	component: SavedViewPage,
 	errorComponent: SavedViewError,
 	pendingComponent: SavedViewPending,
@@ -166,42 +172,44 @@ function SavedViewPage() {
 			),
 		);
 	}, [layout, loaded.record, runtime, scope]);
+	useClientPageDocument({
+		inert: addOpen,
+		prepared: loaded.prepared,
+		title: loaded.record.name,
+		onProviderSearch: openAdd,
+	});
 
-	return (
-		<>
-			<ClientPageHost
-				inert={addOpen}
-				prepared={loaded.prepared}
-				title={loaded.record.name}
-				onProviderSearch={openAdd}
-			/>
-			{addOpen ? (
-				<ProviderAddModal
-					initialQuery={q}
-					onClose={closeAdd}
-					ownerPluginId={addAction.ownerPluginId}
-					entitySchemaSlug={addAction.entitySchemaSlug}
-					onImported={() => {
-						imported.current = true;
-					}}
-				/>
-			) : null}
-		</>
-	);
+	return addOpen ? (
+		<ProviderAddModal
+			initialQuery={q}
+			onClose={closeAdd}
+			ownerPluginId={addAction.ownerPluginId}
+			entitySchemaSlug={addAction.entitySchemaSlug}
+			onImported={() => {
+				imported.current = true;
+			}}
+		/>
+	) : null;
 }
 
 function SavedViewPending() {
+	if (useHasPublishedClientPageDocument()) {
+		return null;
+	}
 	return <SavedViewNotice title="Loading saved view" message="Loading saved view..." />;
 }
 
 function SavedViewNotFound() {
-	return <SavedViewNotice title="Saved view not found" message="This saved view does not exist." />;
+	return (
+		<SavedViewNotice clear title="Saved view not found" message="This saved view does not exist." />
+	);
 }
 
 function SavedViewError() {
 	const router = useRouter();
 	return (
 		<SavedViewNotice
+			clear
 			title="Saved view unavailable"
 			message="The saved view could not be loaded."
 			action={<Button onClick={() => void router.invalidate()}>Retry</Button>}
@@ -210,6 +218,23 @@ function SavedViewError() {
 }
 
 function SavedViewNotice(props: {
+	readonly title: string;
+	readonly message: string;
+	readonly action?: React.ReactNode;
+	readonly clear?: boolean;
+}) {
+	if (props.clear) {
+		return <ClearedSavedViewNotice {...props} />;
+	}
+	return <SavedViewNoticeContent {...props} />;
+}
+
+function ClearedSavedViewNotice(props: Parameters<typeof SavedViewNoticeContent>[0]) {
+	useClearClientPageDocument();
+	return <SavedViewNoticeContent {...props} />;
+}
+
+function SavedViewNoticeContent(props: {
 	readonly title: string;
 	readonly message: string;
 	readonly action?: React.ReactNode;
