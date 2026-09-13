@@ -880,6 +880,21 @@ CREATE TABLE "verification" (
 	"updated_at" timestamp with time zone DEFAULT now() NOT NULL
 );
 --> statement-breakpoint
+CREATE TABLE "workflow_execution" (
+	"shard_id" text,
+	"execution_id" text,
+	"workflow_name" text,
+	"root_execution_id" text NOT NULL,
+	"root_workflow_name" text NOT NULL,
+	"cleared_at" timestamp with time zone,
+	"expired_at" timestamp with time zone,
+	"completed_at" timestamp with time zone,
+	"status" text NOT NULL,
+	CONSTRAINT "workflow_execution_pkey" PRIMARY KEY("workflow_name","execution_id"),
+	CONSTRAINT "workflow_execution_status_check" CHECK ("status" in ('active', 'succeeded', 'failed')),
+	CONSTRAINT "workflow_execution_completion_check" CHECK (("status" = 'active') = ("completed_at" is null))
+);
+--> statement-breakpoint
 CREATE INDEX "account_userId_idx" ON "account" ("user_id");--> statement-breakpoint
 CREATE INDEX "apikey_configId_idx" ON "apikey" ("config_id");--> statement-breakpoint
 CREATE INDEX "apikey_referenceId_idx" ON "apikey" ("reference_id");--> statement-breakpoint
@@ -999,6 +1014,8 @@ CREATE INDEX "session_userId_idx" ON "session" ("user_id");--> statement-breakpo
 CREATE INDEX "user_lifecycle_operation_user_id_idx" ON "user_lifecycle_operation" ("user_id");--> statement-breakpoint
 CREATE UNIQUE INDEX "user_lifecycle_operation_user_active_unique" ON "user_lifecycle_operation" ("user_id") WHERE "status" in ('pending', 'running');--> statement-breakpoint
 CREATE INDEX "verification_identifier_idx" ON "verification" ("identifier");--> statement-breakpoint
+CREATE INDEX "workflow_execution_root_idx" ON "workflow_execution" ("root_workflow_name","root_execution_id");--> statement-breakpoint
+CREATE INDEX "workflow_execution_cleanup_idx" ON "workflow_execution" ("expired_at") WHERE "expired_at" is not null and "cleared_at" is null;--> statement-breakpoint
 ALTER TABLE "account" ADD CONSTRAINT "account_user_id_user_id_fkey" FOREIGN KEY ("user_id") REFERENCES "user"("id") ON DELETE CASCADE;--> statement-breakpoint
 ALTER TABLE "apikey" ADD CONSTRAINT "apikey_reference_id_user_id_fkey" FOREIGN KEY ("reference_id") REFERENCES "user"("id") ON DELETE CASCADE;--> statement-breakpoint
 ALTER TABLE "automation_run" ADD CONSTRAINT "automation_run_sandbox_script_id_sandbox_script_id_fkey" FOREIGN KEY ("sandbox_script_id") REFERENCES "sandbox_script"("id");--> statement-breakpoint

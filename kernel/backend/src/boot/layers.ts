@@ -56,6 +56,7 @@ import {
 	EventCreateWorkflowDefinitionsProvidedLive,
 	EventsServiceLive,
 } from "#modules/events/layer";
+import { WorkflowGarbageCollector } from "#modules/garbage-collection/workflows";
 import { GodModeServiceLive } from "#modules/god-mode/layer";
 import { CancelImportRunWorkflowDefinitionsLive } from "#modules/imports/cancel-workflow";
 import { ImportRunCancellationService } from "#modules/imports/cancellation-service";
@@ -218,6 +219,7 @@ const ServicesLive = Layer.mergeAll(
 	ClientArtifactStoreLive,
 	AutomationReconciliationLive,
 	AutomationRetentionLive,
+	WorkflowGarbageCollector.layer,
 	PluginConfigEncryptionKey.layer,
 	PluginCronServiceLive,
 	LifecycleServicesLive,
