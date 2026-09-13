@@ -24,7 +24,6 @@ import {
 import { trimToNull } from "#lib/shared/validation";
 import { toWorkflowRunResult } from "#lib/shared/workflow-result";
 
-import { resolveSandboxExecutionPayload } from "./durable-queues";
 import { SandboxExecutionResult } from "./execution-result";
 import {
 	SandboxPluginScriptResolver,
@@ -33,8 +32,8 @@ import {
 import { SandboxRepository } from "./repository";
 import {
 	executeSandboxScriptWorkflow,
-	establishSandboxWorkflowPin,
 	SandboxScriptWorkflow,
+	SandboxWorkflowPinning,
 } from "./sandbox-script-workflow";
 import { SandboxWorkflowReferenceRepository } from "./workflow-reference-repository";
 
@@ -74,6 +73,7 @@ export class SandboxExecutionService extends Context.Service<SandboxExecutionSer
 			const pluginScriptResolver = yield* SandboxPluginScriptResolver;
 			const jobIdSecret = deriveJobIdSecret(Redacted.value(config.server.adminAccessToken));
 			const workflowReferences = yield* SandboxWorkflowReferenceRepository;
+			const pinning = yield* SandboxWorkflowPinning;
 
 			const enqueue = Effect.fn("SandboxExecutionService.enqueue")(function* (
 				executingUserId: UserId,
@@ -96,19 +96,17 @@ export class SandboxExecutionService extends Context.Service<SandboxExecutionSer
 					return yield* notFound(sandboxScriptNotFoundError);
 				}
 				const executionId = generateId();
-				const resolvedPayload = yield* resolveSandboxExecutionPayload(
-					{
-						context,
-						executionId,
-						scriptId: script.id,
-						subject: { type: "user", userId: executingUserId },
-					},
-					"active",
-				).pipe(
-					Effect.provideService(SandboxRepository, repository),
-					Effect.provideService(SandboxPluginScriptResolver, pluginScriptResolver),
-					Effect.catchTag("SandboxRunError", () => notFound(sandboxScriptNotFoundError)),
-				);
+				const resolvedPayload = yield* pinning
+					.resolvePayload(
+						{
+							context,
+							executionId,
+							scriptId: script.id,
+							subject: { type: "user", userId: executingUserId },
+						},
+						"active",
+					)
+					.pipe(Effect.catchTag("SandboxRunError", () => notFound(sandboxScriptNotFoundError)));
 				yield* engine
 					.execute(SandboxScriptWorkflow, {
 						executionId,
@@ -263,7 +261,7 @@ export class SandboxExecutionService extends Context.Service<SandboxExecutionSer
 				executingUserId: UserId;
 				scriptId: SandboxScriptId;
 			}) {
-				const pin = yield* establishSandboxWorkflowPin(
+				const pin = yield* pinning.establish(
 					{
 						input: {},
 						resolutionMode: "exact",
@@ -273,10 +271,6 @@ export class SandboxExecutionService extends Context.Service<SandboxExecutionSer
 					},
 					input.executionId,
 					input.pluginId,
-				).pipe(
-					Effect.provideService(SandboxRepository, repository),
-					Effect.provideService(SandboxPluginScriptResolver, pluginScriptResolver),
-					Effect.provideService(SandboxWorkflowReferenceRepository, workflowReferences),
 				);
 				if (!pin.principal.pluginRevision) {
 					return yield* new SandboxRunError({
@@ -319,15 +313,7 @@ export class SandboxExecutionService extends Context.Service<SandboxExecutionSer
 						resolutionMode: "active" as const,
 						subject: { type: "user" as const, userId: input.executingUserId },
 					};
-					const pin = yield* establishSandboxWorkflowPin(
-						payload,
-						input.executionId,
-						input.pluginId,
-					).pipe(
-						Effect.provideService(SandboxRepository, repository),
-						Effect.provideService(SandboxPluginScriptResolver, pluginScriptResolver),
-						Effect.provideService(SandboxWorkflowReferenceRepository, workflowReferences),
-					);
+					const pin = yield* pinning.establish(payload, input.executionId, input.pluginId);
 					const releaseRegistration =
 						pin.registrationStatus === "registered"
 							? workflowReferences.release(input.executionId)
