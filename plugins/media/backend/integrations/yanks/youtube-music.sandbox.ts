@@ -1,6 +1,6 @@
 import type { ExecutionMetadata, SandboxHost } from "@ryot-app/sandbox-sdk/core";
 import { defineManifest, defineScript } from "@ryot-app/sandbox-sdk/driver";
-import { DateTime, Effect, Option, Schema } from "@ryot-app/sandbox-sdk/effect";
+import { DateTime, Effect, Schema } from "@ryot-app/sandbox-sdk/effect";
 
 import { MediaIntegrationAdapterResult } from "../../imports/schemas";
 import {
@@ -8,8 +8,8 @@ import {
 	type HistoryClient,
 	type YoutubeMusicHost,
 } from "../../lib/vendors/youtube-music";
-import { buildHistory } from "../../providers/music/youtube-music/shared";
-import { executionStartedAt, specifics } from "../shared";
+import { buildHistory, YoutubeMusicSettings } from "../../providers/music/youtube-music/shared";
+import { executionStartedAt } from "../shared";
 
 export const manifest = defineManifest({
 	kind: "script",
@@ -26,30 +26,21 @@ type HistoryClientFactory = (
 	authCookie: string,
 ) => Effect.Effect<HistoryClient, Effect.Error<ReturnType<typeof createYoutubeHistoryClient>>>;
 
-export const dailyProgressWindow = (timezone: string, startedAt: string) =>
-	Option.match(DateTime.makeZoned(DateTime.makeUnsafe(startedAt), { timeZone: timezone }), {
-		onNone: () => ({
-			ttlSeconds: 86_400,
-			isFinalWindow: false,
-			localDate: DateTime.formatIsoDateUtc(DateTime.makeUnsafe(startedAt)),
-		}),
-		onSome: (zoned) => {
-			const ttlSeconds = Math.max(
-				1,
-				Math.ceil(
-					(DateTime.toEpochMillis(DateTime.endOf(zoned, "day")) +
-						1 -
-						DateTime.toEpochMillis(zoned)) /
-						1_000,
-				),
-			);
-			return {
-				ttlSeconds,
-				isFinalWindow: ttlSeconds <= 10 * 60,
-				localDate: DateTime.formatIsoDate(zoned),
-			};
-		},
-	});
+export const dailyProgressWindow = (timezone: string, startedAt: string) => {
+	const zoned = DateTime.makeZonedUnsafe(startedAt, { timeZone: timezone });
+	const ttlSeconds = Math.max(
+		1,
+		Math.ceil(
+			(DateTime.toEpochMillis(DateTime.endOf(zoned, "day")) + 1 - DateTime.toEpochMillis(zoned)) /
+				1_000,
+		),
+	);
+	return {
+		ttlSeconds,
+		isFinalWindow: ttlSeconds <= 10 * 60,
+		localDate: DateTime.formatIsoDate(zoned),
+	};
+};
 
 export const runYoutubeMusicYank = (
 	_input: Schema.Schema.Type<typeof Input>,
@@ -60,9 +51,9 @@ export const runYoutubeMusicYank = (
 	Effect.gen(function* () {
 		const occurredAt = yield* executionStartedAt(execution);
 		const integration = yield* host.getCurrentIntegration();
-		const settings = specifics(integration.providerSpecifics);
-		const authCookie = typeof settings?.["authCookie"] === "string" ? settings["authCookie"] : "";
-		const timezone = typeof settings?.["timezone"] === "string" ? settings["timezone"] : "UTC";
+		const { timezone, authCookie } = yield* Schema.decodeUnknownEffect(YoutubeMusicSettings)(
+			integration.providerSpecifics,
+		);
 		const history = yield* createClient(host, authCookie).pipe(
 			Effect.flatMap((client) => buildHistory(client, timezone, occurredAt)),
 		);
