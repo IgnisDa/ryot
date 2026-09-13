@@ -17,6 +17,8 @@ export class DatabaseSession extends Context.Service<DatabaseSession>()("Databas
 			{ defaultValue: () => null },
 		);
 		const current = Effect.map(transactionExecutor, (executor) => executor ?? root);
+		const run = <A, E, R>(statement: (db: PgDrizzle.EffectPgDatabase) => Effect.Effect<A, E, R>) =>
+			mapDatabaseErrors(Effect.flatMap(current, statement));
 		const isTransactionActive = Effect.map(transactionExecutor, (executor) => executor !== null);
 		const requireRoot = Effect.flatMap(isTransactionActive, (active) =>
 			active
@@ -37,7 +39,7 @@ export class DatabaseSession extends Context.Service<DatabaseSession>()("Databas
 					),
 				);
 			});
-		return { current, requireRoot, transaction, requireTransaction, isTransactionActive };
+		return { run, current, requireRoot, transaction, requireTransaction, isTransactionActive };
 	}),
 }) {
 	static readonly layer = Layer.effect(this, this.make).pipe(Layer.provide(PgClientLive));
@@ -45,8 +47,8 @@ export class DatabaseSession extends Context.Service<DatabaseSession>()("Databas
 
 export const setLocalStatementTimeout = (timeoutMs: number) =>
 	Effect.gen(function* () {
-		const database = yield* (yield* DatabaseSession).current;
-		yield* mapDatabaseErrors(
-			database.execute(sql`SELECT set_config('statement_timeout', ${timeoutMs.toString()}, true)`),
+		const session = yield* DatabaseSession;
+		yield* session.run((db) =>
+			db.execute(sql`SELECT set_config('statement_timeout', ${timeoutMs.toString()}, true)`),
 		);
 	});
