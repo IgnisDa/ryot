@@ -21,6 +21,7 @@ import { Route as AuthenticatedCustomizeSidebarRouteImport } from './routes/_aut
 import { Route as AuthenticatedSettingsRouteRouteImport } from './routes/_authenticated/settings/route'
 import { Route as AuthCallbackRouteImport } from './routes/auth_.callback'
 import { Route as GodModeIndexRouteImport } from './routes/god-mode/index'
+import { Route as GodModeLogsRouteImport } from './routes/god-mode/logs'
 import { Route as GodModeMigrationReportRouteImport } from './routes/god-mode/migration-report'
 import { Route as GodModeUsersRouteImport } from './routes/god-mode/users'
 import { Route as OauthInitializingRouteImport } from './routes/oauth.initializing'
@@ -107,6 +108,11 @@ const AuthCallbackRoute = AuthCallbackRouteImport.update({
 const GodModeIndexRoute = GodModeIndexRouteImport.update({
   id: '/',
   path: '/',
+  getParentRoute: () => GodModeRouteRoute,
+} as any)
+const GodModeLogsRoute = GodModeLogsRouteImport.update({
+  id: '/logs',
+  path: '/logs',
   getParentRoute: () => GodModeRouteRoute,
 } as any)
 const GodModeMigrationReportRoute = GodModeMigrationReportRouteImport.update({
@@ -263,6 +269,7 @@ export interface FileRoutesByFullPath {
   '/settings': typeof AuthenticatedSettingsRouteRouteWithChildren
   '/customize-sidebar': typeof AuthenticatedCustomizeSidebarRoute
   '/auth/callback': typeof AuthCallbackRoute
+  '/god-mode/logs': typeof GodModeLogsRoute
   '/god-mode/migration-report': typeof GodModeMigrationReportRoute
   '/god-mode/users': typeof GodModeUsersRoute
   '/oauth/initializing': typeof OauthInitializingRoute
@@ -297,6 +304,7 @@ export interface FileRoutesByTo {
   '/reset-password': typeof ResetPasswordRoute
   '/customize-sidebar': typeof AuthenticatedCustomizeSidebarRoute
   '/auth/callback': typeof AuthCallbackRoute
+  '/god-mode/logs': typeof GodModeLogsRoute
   '/god-mode/migration-report': typeof GodModeMigrationReportRoute
   '/god-mode/users': typeof GodModeUsersRoute
   '/oauth/initializing': typeof OauthInitializingRoute
@@ -337,6 +345,7 @@ export interface FileRoutesById {
   '/_authenticated/settings': typeof AuthenticatedSettingsRouteRouteWithChildren
   '/_authenticated/customize-sidebar': typeof AuthenticatedCustomizeSidebarRoute
   '/auth_/callback': typeof AuthCallbackRoute
+  '/god-mode/logs': typeof GodModeLogsRoute
   '/god-mode/migration-report': typeof GodModeMigrationReportRoute
   '/god-mode/users': typeof GodModeUsersRoute
   '/oauth/initializing': typeof OauthInitializingRoute
@@ -378,6 +387,7 @@ export interface FileRouteTypes {
     | '/settings'
     | '/customize-sidebar'
     | '/auth/callback'
+    | '/god-mode/logs'
     | '/god-mode/migration-report'
     | '/god-mode/users'
     | '/oauth/initializing'
@@ -412,6 +422,7 @@ export interface FileRouteTypes {
     | '/reset-password'
     | '/customize-sidebar'
     | '/auth/callback'
+    | '/god-mode/logs'
     | '/god-mode/migration-report'
     | '/god-mode/users'
     | '/oauth/initializing'
@@ -451,6 +462,7 @@ export interface FileRouteTypes {
     | '/_authenticated/settings'
     | '/_authenticated/customize-sidebar'
     | '/auth_/callback'
+    | '/god-mode/logs'
     | '/god-mode/migration-report'
     | '/god-mode/users'
     | '/oauth/initializing'
@@ -578,6 +590,13 @@ declare module '@tanstack/react-router' {
       path: '/'
       fullPath: '/god-mode/'
       preLoaderRoute: typeof GodModeIndexRouteImport
+      parentRoute: typeof GodModeRouteRoute
+    }
+    '/god-mode/logs': {
+      id: '/god-mode/logs'
+      path: '/logs'
+      fullPath: '/god-mode/logs'
+      preLoaderRoute: typeof GodModeLogsRouteImport
       parentRoute: typeof GodModeRouteRoute
     }
     '/god-mode/migration-report': {
@@ -849,12 +868,14 @@ const AuthenticatedRouteRouteWithChildren =
   AuthenticatedRouteRoute._addFileChildren(AuthenticatedRouteRouteChildren)
 
 interface GodModeRouteRouteChildren {
+  GodModeLogsRoute: typeof GodModeLogsRoute
   GodModeMigrationReportRoute: typeof GodModeMigrationReportRoute
   GodModeUsersRoute: typeof GodModeUsersRoute
   GodModeIndexRoute: typeof GodModeIndexRoute
 }
 
 const GodModeRouteRouteChildren: GodModeRouteRouteChildren = {
+  GodModeLogsRoute: GodModeLogsRoute,
   GodModeMigrationReportRoute: GodModeMigrationReportRoute,
   GodModeUsersRoute: GodModeUsersRoute,
   GodModeIndexRoute: GodModeIndexRoute,

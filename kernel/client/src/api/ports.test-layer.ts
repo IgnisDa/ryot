@@ -137,8 +137,10 @@ export const makeUserSettingsApi = (overrides: Partial<UserSettingsApi["Service"
 export const makeGodModeApi = (overrides: Partial<GodModeApi["Service"]> = {}) =>
 	Layer.succeed(GodModeApi, {
 		query: unused,
+		listLogs: unused,
 		resetUser: unused,
 		deleteUser: unused,
+		downloadLogs: unused,
 		setUserDisabled: unused,
 		resetUserPassword: unused,
 		...overrides,
