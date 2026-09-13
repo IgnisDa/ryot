@@ -6,6 +6,8 @@ import { AppConfig } from "#lib/infrastructure/config/service";
 import { MigrationsComplete } from "#lib/infrastructure/db/migrate";
 import { PgClientLive } from "#lib/infrastructure/db/postgres";
 import { DatabaseSession } from "#lib/infrastructure/db/session";
+import { DownloadTickets } from "#lib/infrastructure/download-tickets";
+import { HmacSigner } from "#lib/infrastructure/hmac-signer";
 import { LocalStorageService } from "#lib/infrastructure/local-storage";
 import { ObservabilityLive } from "#lib/infrastructure/observability";
 import { ProKeyService } from "#lib/infrastructure/pro-key";
@@ -140,13 +142,18 @@ export { SystemPluginIngestionLive } from "#modules/plugins/layer";
 
 const ConfigLive = Layer.mergeAll(AppConfig.layer, BunServices.layer);
 
+const SignedUrlInfrastructureLive = Layer.provideMerge(
+	Layer.mergeAll(LocalStorageService.layer, DownloadTickets.layer),
+	HmacSigner.layer,
+);
+
 const BaseInfrastructureServicesLive = Layer.provideMerge(
 	SandboxArtifactStore.layer,
 	Layer.mergeAll(
 		PgClientLive,
 		DatabaseSession.layer,
 		RedisService.layer,
-		LocalStorageService.layer,
+		SignedUrlInfrastructureLive,
 		ServerRun.layer,
 		S3Service.layer,
 		ProKeyService.layer,
@@ -299,7 +306,7 @@ export const MigrationInfrastructureLive = Layer.mergeAll(
 		Layer.mergeAll(ContentLifecycleRepositoriesLive, ManagedAssetsRepository.layer),
 	),
 	Layer.provideMerge(RedisService.layer),
-	Layer.provideMerge(LocalStorageService.layer),
+	Layer.provideMerge(SignedUrlInfrastructureLive),
 	Layer.provideMerge(S3Service.layer),
 	Layer.provideMerge(DatabaseSession.layer),
 	Layer.provideMerge(ConfigLive),

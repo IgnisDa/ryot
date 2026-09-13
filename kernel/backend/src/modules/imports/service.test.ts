@@ -15,6 +15,7 @@ import { Context, Effect, Layer, Ref, Schema } from "effect";
 import { WorkflowEngine } from "effect/unstable/workflow/WorkflowEngine";
 import { assert } from "vitest";
 
+import { DownloadTickets } from "#lib/infrastructure/download-tickets";
 import {
 	IMPORT_SOURCE_STATE_PENDING_TTL_SECONDS,
 	ImportSourceStateFromJson,
@@ -207,6 +208,11 @@ const makeServiceLayer = (
 				makeAppConfigLayer(),
 				options.withConfigProvider ? makeConfigProviderLayer() : Layer.empty,
 				Layer.mock(DataImportAdmission)({}),
+				Layer.mock(DownloadTickets)({
+					issue: () => Effect.succeed("test-ticket"),
+					verify: (_ticket, expected) =>
+						Effect.succeed({ ...expected, subject: user.id, expiresAt: Number.MAX_SAFE_INTEGER }),
+				}),
 				mockImportRunFailuresService({ create: () => Effect.void }),
 				makeImportSourceCatalog(options.source ?? null),
 				Layer.unwrap(

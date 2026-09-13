@@ -10,6 +10,7 @@ import { WorkflowEngine } from "effect/unstable/workflow/WorkflowEngine";
 
 import * as tables from "#lib/infrastructure/db/schema/tables/combined";
 import { DatabaseSession } from "#lib/infrastructure/db/session";
+import { HmacSigner } from "#lib/infrastructure/hmac-signer";
 import { LocalStorageService } from "#lib/infrastructure/local-storage";
 import { ProKeyService } from "#lib/infrastructure/pro-key";
 import { RedisService } from "#lib/infrastructure/redis";
@@ -69,7 +70,7 @@ const configLayer = makeAppConfigLayer({ fileStorage: { localTempDir } });
 const infrastructure = Layer.mergeAll(
 	LifecycleWriteGuard.layer,
 	S3Service.layer,
-	LocalStorageService.layer,
+	LocalStorageService.layer.pipe(Layer.provideMerge(HmacSigner.layer)),
 	Layer.succeed(RedisService, makeRedisService()),
 ).pipe(Layer.provideMerge(Layer.merge(configLayer, BunServices.layer)));
 

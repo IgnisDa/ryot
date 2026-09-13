@@ -7,10 +7,12 @@ import {
 	BackupNotFound,
 	type CreateRestoreBody,
 } from "@ryot-app/contract/modules/backups/schemas";
-import type { BackupRunId, UserId } from "@ryot-app/contract/schema/brands";
+import type { BackupRunId } from "@ryot-app/contract/schema/brands";
+import { UserId } from "@ryot-app/contract/schema/brands";
 import { Cause, Context, DateTime, Effect, Layer, Result } from "effect";
 import { WorkflowEngine } from "effect/unstable/workflow/WorkflowEngine";
 
+import { DownloadTickets } from "#lib/infrastructure/download-tickets";
 import { ObjectStorageService } from "#modules/uploads/object-storage/service";
 
 import { ExportBackupWorkflow } from "./export/workflow";
@@ -52,6 +54,7 @@ export class BackupsService extends Context.Service<BackupsService>()("BackupsSe
 		const uploads = yield* ObjectStorageService;
 		const repository = yield* BackupsRepository;
 		const cleanliness = yield* BackupAccountCleanliness;
+		const downloadTickets = yield* DownloadTickets;
 
 		const assertAccountIsClean = (userId: UserId) => cleanliness.assertAccountIsClean(userId);
 
@@ -117,11 +120,14 @@ export class BackupsService extends Context.Service<BackupsService>()("BackupsSe
 			return run ?? (yield* new BackupNotFound({ reason: { code: "run-not-found" } }));
 		});
 
-		const downloadRun = Effect.fn("BackupsService.downloadRun")(function* (
-			user: CurrentUserValue,
+		const resolveDownloadArtifact = Effect.fn("BackupsService.resolveDownloadArtifact")(function* (
+			userId: UserId,
 			runId: BackupRunId,
 		) {
-			const run = yield* getRun(user, runId);
+			const run = yield* mapDbToInternal(repository.getRunById({ runId, userId }));
+			if (!run) {
+				return yield* new BackupNotFound({ reason: { code: "run-not-found" } });
+			}
 			if (run.kind !== "export") {
 				return yield* new BackupBadRequest({ reason: { code: "restore-has-no-artifact" } });
 			}
@@ -134,13 +140,19 @@ export class BackupsService extends Context.Service<BackupsService>()("BackupsSe
 			if (Date.parse(run.expiresAt) <= (yield* DateTime.nowAsDate).getTime()) {
 				return yield* new BackupNotFound({ reason: { code: "artifact-expired" } });
 			}
-			const artifact = yield* mapDbToInternal(
-				repository.getArtifactById({ runId, userId: user.id }),
-			);
+			const artifact = yield* mapDbToInternal(repository.getArtifactById({ runId, userId }));
 			if (!artifact) {
 				return yield* new BackupNotFound({ reason: { code: "artifact-not-found" } });
 			}
 			const locator = { key: artifact.artifactKey, type: artifact.artifactProvider } as const;
+			return { run, locator };
+		});
+
+		const downloadRunForUser = Effect.fn("BackupsService.downloadRunForUser")(function* (
+			userId: UserId,
+			runId: BackupRunId,
+		) {
+			const { run, locator } = yield* resolveDownloadArtifact(userId, runId);
 			const info = yield* storageFailure(
 				uploads.statObject(locator),
 				"artifact-storage-unavailable",
@@ -150,6 +162,35 @@ export class BackupsService extends Context.Service<BackupsService>()("BackupsSe
 				"artifact-storage-unavailable",
 			);
 			return { stream, size: info.size, fileName: `ryot-backup-${run.id}.zip` };
+		});
+
+		const createDownloadTicket = Effect.fn("BackupsService.createDownloadTicket")(function* (
+			user: CurrentUserValue,
+			runId: BackupRunId,
+		) {
+			yield* resolveDownloadArtifact(user.id, runId);
+			return yield* downloadTickets.issue({
+				resource: runId,
+				subject: user.id,
+				purpose: "backup-run",
+			});
+		});
+
+		const downloadRunWithTicket = Effect.fn("BackupsService.downloadRunWithTicket")(function* (
+			runId: BackupRunId,
+			ticket: string,
+		) {
+			const claims = yield* downloadTickets
+				.verify(ticket, { resource: runId, purpose: "backup-run" })
+				.pipe(
+					Effect.catchTag("DownloadTicketInvalid", () =>
+						Effect.fail(new BackupNotFound({ reason: { code: "artifact-not-found" } })),
+					),
+				);
+			if (claims.subject === null) {
+				return yield* new BackupNotFound({ reason: { code: "artifact-not-found" } });
+			}
+			return yield* downloadRunForUser(UserId.make(claims.subject), runId);
 		});
 
 		const deleteRun = Effect.fn("BackupsService.deleteRun")(function* (
@@ -207,10 +248,11 @@ export class BackupsService extends Context.Service<BackupsService>()("BackupsSe
 
 		return {
 			deleteRun,
-			downloadRun,
 			createExport,
 			createRestore,
 			assertAccountIsClean,
+			createDownloadTicket,
+			downloadRunWithTicket,
 			cleanupExpiredArtifacts,
 		};
 	}),

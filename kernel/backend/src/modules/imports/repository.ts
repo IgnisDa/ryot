@@ -20,7 +20,7 @@ import {
 	type UserId,
 } from "@ryot-app/contract/schema/brands";
 import { generateId } from "better-auth";
-import { and, asc, desc, eq, gt, inArray, isNull, or, sql } from "drizzle-orm";
+import { and, asc, desc, eq, inArray, isNull, sql } from "drizzle-orm";
 import { Context, Effect, Layer } from "effect";
 
 import { isUniqueConstraintError } from "#lib/infrastructure/db/errors";
@@ -33,7 +33,7 @@ export type ImportRunExecutionKind = "source" | "integration";
 export type ImportRunSettlement = "settled" | "cancellation-requested" | "preserved";
 export type ImportRunStart = "started" | "cancellation-requested" | "preserved";
 export type ImportRunCancellation = "requested" | "already-requested" | "not-cancellable";
-export type ImportRunFailureCursor = { readonly createdAt: Date; readonly id: string };
+export type ImportRunFailureCursor = { readonly createdAt: string; readonly id: string };
 
 const normalizeRun = (row: ImportRunRow): ListedImportRun => ({
 	source: row.source,
@@ -289,13 +289,13 @@ export class ImportsRepository extends Context.Service<ImportsRepository>()("Imp
 				const afterCondition =
 					input.after === undefined
 						? undefined
-						: or(
-								gt(schema.importRunFailure.createdAt, input.after.createdAt),
-								and(
-									eq(schema.importRunFailure.createdAt, input.after.createdAt),
-									gt(schema.importRunFailure.id, input.after.id),
-								),
-							);
+						: sql`(
+							${schema.importRunFailure.createdAt} > ${input.after.createdAt}::timestamptz
+							OR (
+								${schema.importRunFailure.createdAt} = ${input.after.createdAt}::timestamptz
+								AND ${schema.importRunFailure.id} > ${input.after.id}
+							)
+						)`;
 				return db
 					.select({
 						id: schema.importRunFailure.id,
@@ -308,6 +308,7 @@ export class ImportsRepository extends Context.Service<ImportsRepository>()("Imp
 						eventSchemaSlug: schema.importRunFailure.eventSchemaSlug,
 						sourceIdentifier: schema.importRunFailure.sourceIdentifier,
 						entitySchemaSlug: schema.importRunFailure.entitySchemaSlug,
+						cursorCreatedAt: sql<string>`to_char(${schema.importRunFailure.createdAt} at time zone 'UTC', 'YYYY-MM-DD"T"HH24:MI:SS.US"Z"')`,
 					})
 					.from(schema.importRunFailure)
 					.where(
@@ -319,7 +320,7 @@ export class ImportsRepository extends Context.Service<ImportsRepository>()("Imp
 			const hasMore = failures.length > input.limit;
 			const items = failures
 				.slice(0, input.limit)
-				.map((failure) =>
+				.map(({ cursorCreatedAt: _cursorCreatedAt, ...failure }) =>
 					Object.assign({}, failure, {
 						runId: ImportRunId.make(failure.runId),
 						createdAt: failure.createdAt.toISOString(),
@@ -337,7 +338,7 @@ export class ImportsRepository extends Context.Service<ImportsRepository>()("Imp
 			return {
 				items,
 				nextCursor:
-					hasMore && last !== undefined ? { id: last.id, createdAt: last.createdAt } : null,
+					hasMore && last !== undefined ? { id: last.id, createdAt: last.cursorCreatedAt } : null,
 			};
 		});
 

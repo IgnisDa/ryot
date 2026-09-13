@@ -20,18 +20,26 @@ const isExcludedLogName = (name: string) =>
 	name.endsWith(".stdout") || name.endsWith(".stderr") || name.endsWith(".txt");
 
 const downloadFileUrl = (id: string) =>
-	`${getApiUrl()}/god-mode/logs/files/${encodeURIComponent(id)}/download`;
+	getApiClient()
+		.call((api) => api.serverLogs.createFileDownloadTicket({ params: { id } }), adminHeaders())
+		.pipe(Effect.map((ticket) => `${getApiUrl()}${ticket.url}`));
 
 describe("Server log API", () => {
-	it.live("requires the admin token for listing and both downloads", () =>
+	it.live("requires the admin token for listing and download ticket creation", () =>
 		Effect.gen(function* () {
 			for (const headers of [{}, adminAccessTokenHeaders(WRONG_TOKEN)]) {
 				const list = yield* webRequest(`${getApiUrl()}/god-mode/logs/files?limit=25`, { headers });
-				const fileDownload = yield* webRequest(downloadFileUrl("missing"), { headers });
-				const allDownload = yield* webRequest(`${getApiUrl()}/god-mode/logs/download`, { headers });
+				const fileTicket = yield* webRequest(
+					`${getApiUrl()}/god-mode/logs/files/missing/download-url`,
+					{ headers, method: "POST" },
+				);
+				const allTicket = yield* webRequest(`${getApiUrl()}/god-mode/logs/download-url`, {
+					headers,
+					method: "POST",
+				});
 				expect(list.status).toBe(401);
-				expect(fileDownload.status).toBe(401);
-				expect(allDownload.status).toBe(401);
+				expect(fileTicket.status).toBe(401);
+				expect(allTicket.status).toBe(401);
 			}
 		}),
 	);
@@ -69,39 +77,37 @@ describe("Server log API", () => {
 			});
 			expect(files.some((file) => isExcludedLogName(file.name))).toBe(false);
 
-			const retainedResponse = yield* webRequest(downloadFileUrl(retained.id), {
-				headers: adminHeaders(),
-			});
+			const retainedResponse = yield* webRequest(yield* downloadFileUrl(retained.id));
 			const retainedBytes = Buffer.from(
 				yield* Effect.promise(() => retainedResponse.arrayBuffer()),
 			);
 			expect(retainedResponse.status).toBe(200);
 			expect(retainedResponse.headers.get("content-type")).toBe("application/gzip");
-			expect(retainedResponse.headers.get("content-disposition")).toBe(
-				`attachment; filename*=UTF-8''${encodeURIComponent(seeded.name)}`,
+			expect(retainedResponse.headers.get("content-disposition")).toContain(
+				`filename="${seeded.name}"`,
 			);
 			expect(retainedResponse.headers.get("cache-control")).toBe("no-store");
 			expect(retainedBytes).toEqual(seeded.bytes);
 
-			const activeResponse = yield* webRequest(downloadFileUrl(active.id), {
-				headers: adminHeaders(),
-			});
+			const activeResponse = yield* webRequest(yield* downloadFileUrl(active.id));
 			const activeBytes = Buffer.from(yield* Effect.promise(() => activeResponse.arrayBuffer()));
 			expect(activeResponse.status).toBe(200);
 			expect(activeResponse.headers.get("content-type")).toBe("text/plain; charset=utf-8");
-			expect(activeResponse.headers.get("content-disposition")).toBe(
-				`attachment; filename*=UTF-8''${encodeURIComponent(seeded.activeName)}`,
+			expect(activeResponse.headers.get("content-disposition")).toContain(
+				`filename="${seeded.activeName}"`,
 			);
 			expect(activeBytes.byteLength).toBeGreaterThan(0);
 
-			const allResponse = yield* webRequest(`${getApiUrl()}/god-mode/logs/download`, {
-				headers: adminHeaders(),
-			});
+			const allTicket = yield* getApiClient().call(
+				(api) => api.serverLogs.createAllDownloadTicket(),
+				adminHeaders(),
+			);
+			const allResponse = yield* webRequest(`${getApiUrl()}${allTicket.url}`);
 			expect(allResponse.status).toBe(200);
 			expect(allResponse.headers.get("content-type")).toBe("application/zip");
 			expect(allResponse.headers.get("cache-control")).toBe("no-store");
 			expect(allResponse.headers.get("content-disposition")).toMatch(
-				/^attachment; filename="ryot-server-logs-.+\.zip"$/,
+				/^attachment; filename="ryot-server-logs-.+\.zip"; filename\*=UTF-8''ryot-server-logs-.+\.zip$/,
 			);
 			const archive = unzipSync(
 				Buffer.from(yield* Effect.promise(() => allResponse.arrayBuffer())),
@@ -121,7 +127,9 @@ describe("Server log API", () => {
 			const error = yield* Effect.flip(
 				getApiClient().call(
 					(api) =>
-						api.serverLogs.downloadFile({ params: { id: `missing-${crypto.randomUUID()}` } }),
+						api.serverLogs.createFileDownloadTicket({
+							params: { id: `missing-${crypto.randomUUID()}` },
+						}),
 					adminHeaders(),
 				),
 			);
