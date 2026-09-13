@@ -1444,11 +1444,13 @@ describe("definePlugin", () => {
 	it("validates OAuth providers and the integration settings that reference them", () => {
 		const [yank, push] = manifest.integrationProviders;
 		const oauthProvider = {
+			pkce: "S256",
 			slug: "account",
 			name: "Account",
 			clientIdConfigKey: "CLIENT_ID",
 			clientSecretConfigKey: "TEST_KEY",
 			scopes: ["user-read-recently-played"],
+			accessTokenLifetimeSeconds: 31_536_000,
 			tokenEndpointAuth: "client_secret_basic",
 			tokenUrl: "https://accounts.example.com/api/token",
 			authorizeUrl: "https://accounts.example.com/authorize?show_dialog=true",
@@ -1486,8 +1488,17 @@ describe("definePlugin", () => {
 		expect(Schema.decodeUnknownSync(PluginManifest)(withOAuth()).oauthProviders).toEqual([
 			oauthProvider,
 		]);
+		expect(
+			Schema.decodeUnknownSync(PluginManifest)(withOAuth({ provider: { pkce: "none" } }))
+				.oauthProviders?.[0]?.pkce,
+		).toBe("none");
 		for (const invalid of [
 			withOAuth({ provider: { tokenUrl: "http://accounts.example.com/api/token" } }),
+			withOAuth({ provider: { pkce: undefined } }),
+			withOAuth({ provider: { pkce: "plain" } }),
+			withOAuth({ provider: { accessTokenLifetimeSeconds: 0 } }),
+			withOAuth({ provider: { accessTokenLifetimeSeconds: 1.5 } }),
+			withOAuth({ provider: { accessTokenLifetimeSeconds: Number.MAX_SAFE_INTEGER + 1 } }),
 			withOAuth({ provider: { authorizeUrl: "https://accounts.example.com/authorize?state=x" } }),
 			withOAuth({ provider: { authorizeUrl: "https://user:pass@accounts.example.com/authorize" } }),
 			withOAuth({ provider: { scopes: ["two scopes"] } }),

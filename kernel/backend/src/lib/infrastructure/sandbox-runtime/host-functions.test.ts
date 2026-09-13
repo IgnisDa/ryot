@@ -78,6 +78,16 @@ const userSettingsSchema = {
 	},
 } as const;
 
+const integrationRunExecutionSettings = (connectionId: string): ImportSourceExecutionSettings => ({
+	userSettings: {},
+	integration: {
+		minimumProgress: 0,
+		maximumProgress: 100,
+		syncOwnership: false,
+		providerSpecifics: { account: connectionId },
+	},
+});
+
 const seededDatabase = Layer.effectDiscard(
 	Effect.gen(function* () {
 		const session = yield* DatabaseSession;
@@ -298,6 +308,7 @@ class HostFunctionCalls extends Context.Service<
 		readonly installationLookups: Effect.Effect<ReadonlyArray<unknown>>;
 		readonly lookupOrder: Effect.Effect<ReadonlyArray<string>>;
 		readonly oauthTokenRequests: Effect.Effect<ReadonlyArray<unknown>>;
+		readonly oauthTokenInvalidations: Effect.Effect<ReadonlyArray<unknown>>;
 		readonly useDefinitions: (source: DefinitionSource) => Effect.Effect<void>;
 	}
 >()("test/HostFunctionCalls") {}
@@ -326,6 +337,7 @@ const hostFunctionsLayer = (
 		readonly integration?: (input: GetForUserInput) => Effect.Effect<IntegrationRecord | null>;
 		readonly pluginConfig?: PluginRuntimeResolver["Service"]["resolvePluginConfigContext"];
 		readonly oauthAccessToken?: OAuthConnectionsService["Service"]["accessTokenForIntegrationRun"];
+		readonly oauthAccessTokenInvalidation?: OAuthConnectionsService["Service"]["invalidateAccessTokenForIntegrationRun"];
 		readonly executionSettings?: (runId: string) => ImportSourceExecutionSettings;
 		readonly liveUserSettings?: Record<string, JsonValue> | (() => Record<string, JsonValue>);
 		readonly sourceStateUnavailable?: boolean;
@@ -349,6 +361,7 @@ const hostFunctionsLayer = (
 			const eventMutations = yield* Ref.make<ReadonlyArray<unknown>>([]);
 			const lookupOrder = yield* Ref.make<ReadonlyArray<string>>([]);
 			const oauthTokenRequests = yield* Ref.make<ReadonlyArray<unknown>>([]);
+			const oauthTokenInvalidations = yield* Ref.make<ReadonlyArray<unknown>>([]);
 			const snapshot = yield* Ref.make(
 				buildDefinitionSnapshot(options.definitions ?? kernelDefinitionSource()),
 			);
@@ -388,6 +401,7 @@ const hostFunctionsLayer = (
 					pluginConfigLookups: Ref.get(pluginConfigLookups),
 					createdRelationships: Ref.get(createdRelationships),
 					deletedRelationships: Ref.get(deletedRelationships),
+					oauthTokenInvalidations: Ref.get(oauthTokenInvalidations),
 					useDefinitions: (source) => Ref.set(snapshot, buildDefinitionSnapshot(source)),
 				}),
 				Layer.mock(DefinitionRepository)({
@@ -463,6 +477,14 @@ const hostFunctionsLayer = (
 								options.oauthAccessToken
 									? options.oauthAccessToken(input)
 									: Effect.die("unused OAuth access token"),
+							),
+						),
+					invalidateAccessTokenForIntegrationRun: (input) =>
+						append(oauthTokenInvalidations, input).pipe(
+							Effect.andThen(
+								options.oauthAccessTokenInvalidation
+									? options.oauthAccessTokenInvalidation(input)
+									: Effect.die("unused OAuth access token invalidation"),
 							),
 						),
 				}),
@@ -773,7 +795,7 @@ describe("getUserPreferences", () => {
 
 const runGetOAuthAccessToken = (
 	subject: SandboxExecutionSubject,
-	principalFacts: Partial<SandboxExecutionPrincipal> = { pluginRevision: systemPluginRevision },
+	principalFacts: Partial<SandboxExecutionPrincipal> = { pluginRevision: ingestionTestRevision },
 ) =>
 	makeAdditionalSandboxApiFunctions.pipe(
 		Effect.flatMap((functions) =>
@@ -793,6 +815,28 @@ const runGetOAuthAccessToken = (
 		),
 	);
 
+const runInvalidateOAuthAccessToken = (
+	subject: SandboxExecutionSubject,
+	principalFacts: Partial<SandboxExecutionPrincipal> = { pluginRevision: ingestionTestRevision },
+) =>
+	makeAdditionalSandboxApiFunctions.pipe(
+		Effect.flatMap((functions) =>
+			Effect.result(
+				functions.invalidateOAuthAccessToken(
+					runInput(subject, SANDBOX_HOST_CAPABILITIES, {
+						...principalFacts,
+						metadata: {
+							oauthConnectionFields: ["account"],
+							capabilities: SANDBOX_HOST_CAPABILITIES,
+							...principalFacts.metadata,
+						},
+					}),
+					{ field: "account", accessToken: "access-1" },
+				),
+			),
+		),
+	);
+
 describe("getOAuthAccessToken", () => {
 	const integrationRunSubject = {
 		type: "user",
@@ -804,6 +848,7 @@ describe("getOAuthAccessToken", () => {
 
 	layer(
 		hostFunctionsLayer({
+			executionSettings: () => integrationRunExecutionSettings("connection-1"),
 			oauthAccessToken: () =>
 				Effect.succeed({ accessToken: "access-1", expiresAt: "2026-01-01T01:00:00.000Z" }),
 		}),
@@ -820,8 +865,9 @@ describe("getOAuthAccessToken", () => {
 					{
 						field: "account",
 						userId: "user-1",
-						pluginId: "plugin-id",
+						pluginId: "plugin-1",
 						integrationId: "int-trusted",
+						connectionId: "connection-1",
 						integrationRunId: "run-trusted",
 					},
 				]);
@@ -865,6 +911,62 @@ describe("getOAuthAccessToken", () => {
 					});
 				}
 				expect(yield* (yield* HostFunctionCalls).oauthTokenRequests).toEqual([]);
+			}),
+		);
+	});
+});
+
+describe("invalidateOAuthAccessToken", () => {
+	const integrationRunSubject = {
+		type: "user",
+		userId: UserId.make("user-1"),
+		integrationId: IntegrationId.make("int-trusted"),
+		integrationRunId: ImportRunId.make("run-trusted"),
+		accountGeneration: { userId: UserId.make("user-1"), token: "test-account-generation" },
+	} satisfies SandboxExecutionSubject;
+
+	layer(
+		hostFunctionsLayer({
+			oauthAccessTokenInvalidation: () => Effect.succeed(null),
+			executionSettings: () => integrationRunExecutionSettings("connection-1"),
+		}),
+	)((test) => {
+		test.effect("forwards the trusted integration run scope and supplied access token", () =>
+			Effect.gen(function* () {
+				const result = yield* runInvalidateOAuthAccessToken(integrationRunSubject);
+
+				expect(Result.getOrThrow(result)).toBeNull();
+				expect(yield* (yield* HostFunctionCalls).oauthTokenInvalidations).toEqual([
+					{
+						field: "account",
+						userId: "user-1",
+						pluginId: "plugin-1",
+						accessToken: "access-1",
+						integrationId: "int-trusted",
+						connectionId: "connection-1",
+						integrationRunId: "run-trusted",
+					},
+				]);
+			}),
+		);
+	});
+
+	layer(hostFunctionsLayer())((test) => {
+		test.effect("rejects invalidation outside an integration's plugin run", () =>
+			Effect.gen(function* () {
+				const result = yield* runInvalidateOAuthAccessToken({
+					type: "user",
+					userId: UserId.make("user-1"),
+					accountGeneration: { userId: UserId.make("user-1"), token: "test-account-generation" },
+				});
+				const failure = Option.getOrThrow(Result.getFailure(result));
+
+				expect(failure.message).toContain("available only");
+				expect(failure.data).toEqual({
+					code: "unavailable-operation",
+					operation: "invalidateOAuthAccessToken",
+				});
+				expect(yield* (yield* HostFunctionCalls).oauthTokenInvalidations).toEqual([]);
 			}),
 		);
 	});

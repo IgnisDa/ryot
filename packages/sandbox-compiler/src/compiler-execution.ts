@@ -133,6 +133,7 @@ export const createSandboxExecutionAnalyzer = (project: TypeScriptProjectAccess)
 			"child",
 			"executeWorkflow",
 			"getOAuthAccessToken",
+			"invalidateOAuthAccessToken",
 			"requestEventStreamWork",
 		]);
 		const fail = (node: ts.Node, message: string) => {
@@ -551,7 +552,10 @@ export const createSandboxExecutionAnalyzer = (project: TypeScriptProjectAccess)
 					if (symbol.name === "child" || symbol.name === "executeWorkflow") {
 						yield* executableAccess(node, "workflow");
 					}
-					if (symbol.name === "getOAuthAccessToken") {
+					if (
+						symbol.name === "getOAuthAccessToken" ||
+						symbol.name === "invalidateOAuthAccessToken"
+					) {
 						const argument = node.arguments[0];
 						const fieldProperty =
 							argument && ts.isObjectLiteralExpression(argument)

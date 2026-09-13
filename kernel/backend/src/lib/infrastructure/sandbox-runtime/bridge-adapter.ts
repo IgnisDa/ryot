@@ -239,6 +239,11 @@ export const bindSandboxHostFunctions = (
 		(...args) => implementations.upsertGlobalRelationships(input, ...args),
 		defaultFailure("upsertGlobalRelationships"),
 	),
+	invalidateOAuthAccessToken: bindHostFunction(
+		domainSandboxHostContracts.invalidateOAuthAccessToken,
+		(...args) => implementations.invalidateOAuthAccessToken(input, ...args),
+		defaultFailure("invalidateOAuthAccessToken"),
+	),
 	httpCall: bindHostFunction(
 		coreSandboxHostContracts.httpCall,
 		(...args) => implementations.httpCall(input, ...args),

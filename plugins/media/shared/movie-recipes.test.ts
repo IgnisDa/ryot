@@ -51,14 +51,16 @@ describe("media movie query recipes", () => {
 
 	it("reports the progress percent only after the entity's own latest completion", () => {
 		const progress = fieldExpr(SUMMARY_RECIPE, "summary", "progressPercent");
-		if (progress.type !== "conditional") {
+		if (progress.type !== "conditional" || progress.whenFalse.type !== "conditional") {
 			throw new Error("Expected a boundary-gated progress percent");
 		}
-		const serialized = JSON.stringify(progress.condition);
+		const nativeProgress = progress.whenFalse;
+		const serialized = JSON.stringify(nativeProgress.condition);
 
 		expect(serialized).toContain("movieSummaryLifecycleBoundary");
 		expect(serialized).toContain("movieSummaryLifecycleProgress");
-		expect(progress.whenFalse).toEqual({ value: null, type: "literal" });
+		expect(progress.whenTrue).toEqual({ value: null, type: "literal" });
+		expect(nativeProgress.whenFalse).toEqual({ value: null, type: "literal" });
 	});
 
 	it("falls back to the movie runtime when a completion recorded no time spent", () => {
