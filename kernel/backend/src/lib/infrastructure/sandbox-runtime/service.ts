@@ -97,9 +97,8 @@ export class SandboxService extends Context.Service<SandboxService>()("SandboxSe
 		const apiFunctions = { ...hosts.runtime, ...hosts.additional, ...hosts.automation };
 		const reserve = Effect.fn("SandboxService.reserve")(function* (
 			principal: SandboxExecutionPrincipal,
-			journalBytes: number,
 		) {
-			return yield* supervisor.reserve(principal, journalBytes);
+			return yield* supervisor.reserve(principal);
 		});
 		const run = Effect.fn("SandboxService.run")(function* (input: SandboxRunInput) {
 			const executionStartedAt = yield* Clock.currentTimeMillis;
@@ -116,10 +115,7 @@ export class SandboxService extends Context.Service<SandboxService>()("SandboxSe
 					const existingLease = yield* Effect.serviceOption(SandboxAdmissionLease);
 					const lease = Option.isSome(existingLease)
 						? existingLease.value
-						: yield* reserve(
-								input.principal,
-								input.replayJournal === undefined ? 2 : SANDBOX_LIMITS.journalBytes,
-							);
+						: yield* reserve(input.principal);
 					const context = input.context ?? {};
 					const contextError = sandboxContextError(context);
 					if (contextError !== null) {
@@ -135,14 +131,6 @@ export class SandboxService extends Context.Service<SandboxService>()("SandboxSe
 							message: "Sandbox compiled module does not match its pinned artifact",
 						});
 					}
-					const journalBytes = jsonByteLength(input.replayJournal ?? []);
-					if (journalBytes === null) {
-						return yield* new SandboxRunError({
-							kind: "invalid-input",
-							message: "Sandbox journal is not JSON",
-						});
-					}
-					yield* lease.retainJournal(journalBytes);
 					const parentSpan = yield* Effect.currentSpan;
 					const collector = makeSandboxObservabilityCollector();
 					const selected = selectSandboxHostFunctions(
@@ -161,7 +149,7 @@ export class SandboxService extends Context.Service<SandboxService>()("SandboxSe
 								context,
 								principal: input.principal,
 								startedAt: input.startedAt,
-								journal: input.replayJournal,
+								journal: input.replayJournal?.entries,
 								workflowExecutionId: input.workflowExecutionId,
 							}),
 						),

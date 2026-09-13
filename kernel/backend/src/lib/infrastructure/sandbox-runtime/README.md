@@ -16,7 +16,7 @@ The Rust sidecar runs each invocation in a fresh isolate. The sidecar and backen
 
 `G` is global sandbox concurrency and defaults to 2. Pool sizing reserves `4 + G` connections for primary database work. Native host-call leases are capped at `poolMax - 4 - G`, which configuration validation requires to be at least 1; nested calls reuse their parent lease.
 
-Without `SANDBOX_MEMORY_BUDGET_MIB`, the sidecar memory budget is the smaller of 1536 MiB and half of effective memory; an explicit budget cannot exceed half of effective memory, and startup fails when effective memory is unknown. Redis inspection pins each replay prefix's byte lengths and fingerprints without returning its values. Admission grants concurrency, process-start capacity, and memory together before fetching or decoding the prefix; memory waiters hold no execution permit or partial reservation. Each isolate has a 64 MiB heap, 16 MiB external-memory limit, and 30-second CPU limit. Each admitted run reserves 298 MiB: the isolate with its near-heap-limit headroom, run start, frames for five outstanding host calls on both sides, Rust result delivery, and the done text Rust holds before disposal. A static 232 MiB transient pool backs host-call permits, and startup fails unless the budget fits both resident core sidecars, the pool, and one run with a lazy process. Two shared core sidecars stay resident; data and full tiers load lazily. With `SANDBOX_PER_USER_SIDECARS`, each owner's user-tier scripts run in that owner's own lazily started sidecars instead of the shared ones. Startup is limited to 10 seconds, idle time to 60 seconds, and an isolate drains and recycles at 10,000 executions or its assigned RSS limit.
+Without `SANDBOX_MEMORY_BUDGET_MIB`, the sidecar memory budget is the smaller of 1536 MiB and half of effective memory; an explicit budget cannot exceed half of effective memory, and startup fails when effective memory is unknown. Admission grants concurrency, process-start capacity, and memory together; memory waiters hold no execution permit or partial reservation. Each isolate has a 64 MiB heap, 16 MiB external-memory limit, and 30-second CPU limit. Each admitted run reserves 298 MiB: the isolate with its near-heap-limit headroom, run start, frames for five outstanding host calls on both sides, Rust result delivery, and the done text Rust holds before disposal. A static 232 MiB transient pool backs host-call permits, and startup fails unless the budget fits both resident core sidecars, the pool, and one run with a lazy process. Two shared core sidecars stay resident; data and full tiers load lazily. With `SANDBOX_PER_USER_SIDECARS`, each owner's user-tier scripts run in that owner's own lazily started sidecars instead of the shared ones. Startup is limited to 10 seconds, idle time to 60 seconds, and an isolate drains and recycles at 10,000 executions or its assigned RSS limit.
 
 On Linux, the launcher path is fixed at `/usr/local/libexec/ryot-sandbox-launcher`. The launcher, executable, and snapshots are fixed and root-owned; runtime UIDs are 1001/1002, with isolates running as UID 1002. Isolates are non-dumpable, have core dumps disabled and no environment, and inherit only the socket. Landlock and seccomp enforce deny-all policies. The launcher verifies pidfd identity and attestation before terminating a child; there is no fallback when a required control fails. On non-Linux systems, `runtimeDirectory` defaults to `./sandboxd` and execution is explicitly unconfined.
 
@@ -34,11 +34,11 @@ Each successfully returned ending request records its validated JSON result and 
 
 ### Journal projection
 
-The workflow's append-only Redis projection is a hash of `index -> encoded entry`. Each activation appends only the new suffix. Appending an identical value is a no-op; a differing value at an existing index fails the run as a non-retryable infrastructure error. Every append refreshes the key's TTL.
+The workflow's append-only Redis projection is a hash holding, per entry, metadata `m:<index>` (byte length, chunk count, SHA-256 of the encoded entry) and chunks `c:<index>:<n>` of 1 MiB, the last shorter. Each activation appends only the new suffix in one atomic script. Appending identical metadata is a no-op; differing metadata at an existing index fails the run as a non-retryable infrastructure error and writes nothing. Every append refreshes the key's TTL.
 
-The backend retains up to 100 MiB of journal data. The isolate reads the enqueued journal lazily in 1 MiB slices, with limits of 2,048 reads and 200 MiB decoded. The replay reserves three copies of its inspected prefix size before decoding Redis data. Redis checks the pinned lengths and fingerprints atomically before returning values; changed entries fail without returning a larger prefix. An in-flight Redis reply retains its reservation through cancellation. There is no fixed journal-entry or cache-entry count ceiling. A replay reads only the journal length enqueued for it; later entries are ignored. An absent entry is a lost projection. An undecodable entry, wrong index, non-JSON value, or oversized entry fails as an infrastructure error. The replay envelope must report the same journal length.
+A journal holds up to 100 MiB and each entry up to 12 MiB. Before admission, the queue worker reads only the metadata of the enqueued length and pins it; later entries are ignored and the backend never loads or decodes the prefix. Each `journalRead` returns at most the rest of one chunk, fetched under a journal-read permit; a Redis script re-checks the entry's pinned metadata and the chunk's length on every read, and an in-flight reply holds its permit through cancellation. Reads are limited to 2,048 per run and 200 MiB fetched, charged by whole chunk. The isolate reassembles each entry in external memory and validates its schema and index. The replay envelope must report the same journal length.
 
-Before starting an isolate, the queue worker checks that every enqueued entry is present. When Redis lost or expired any entry, the replay returns `projectionMissing` instead of running the script. The body re-appends the full journal from persistence and retries under the next step ID, at most twice before failing with `resource-unavailable`. The replay outcome metric records these replays as `missing`.
+When inspection finds an enqueued entry missing, the replay returns `projectionMissing` without starting the script. A chunk read that finds the projection lost or changed fails the read and records a run-level fault that overrides the script's outcome, so a script cannot catch it: a lost projection returns `projectionMissing` and a changed or unreadable one fails as an infrastructure error. The body re-appends the full journal from persistence and retries under the next step ID, at most twice before failing with `resource-unavailable`. The replay outcome metric records these replays as `missing`.
 
 ### Inline durable calls
 
@@ -139,24 +139,24 @@ Completed results include `timing: { totalMs, executionMs }`.
 
 Runtime and compiler limits are set by their owners, not environment settings.
 
-| Boundary                                                           |                                  Limit |
-| ------------------------------------------------------------------ | -------------------------------------: |
-| Source / manifest / compiled JavaScript                            |               256 KiB / 16 KiB / 1 MiB |
-| Compiler concurrency / timeout / sampled Linux process-tree memory |                2 / 5 seconds / 384 MiB |
-| Compiler diagnostics                                               |                  100 entries / 256 KiB |
-| Local replay timeout / context / final result                      |            30 seconds / 64 KiB / 4 MiB |
-| Runner request                                                     |                                  2 MiB |
-| Host calls / HTTP subset / concurrent in-flight calls              |                         1,000 / 50 / 4 |
-| Retained journal / read slice / maximum reads / decoded data       |      100 MiB / 1 MiB / 2,048 / 200 MiB |
-| Host-call request / response / durable response                    |                1 MiB / 10 MiB / 12 MiB |
-| HTTP request / streamed response / attempt timeout                 |             1 MiB / 10 MiB / 8 seconds |
-| Startup diagnostics                                                |                                 64 KiB |
-| Console logs                                                       | 500 entries, 8 KiB each, 256 KiB total |
-| `log` and `span` observability                                     | 500 entries, 8 KiB each, 256 KiB total |
-| Cache key / value / maximum TTL                                    |          256 bytes / 256 KiB / 30 days |
-| Scratch quota / write                                              |                        5 MiB / 256 KiB |
-| Isolate heap / external memory / CPU                               |           64 MiB / 16 MiB / 30 seconds |
-| Sandbox `executeRyotql` result                                     |                                  1 MiB |
+| Boundary                                                           |                                      Limit |
+| ------------------------------------------------------------------ | -----------------------------------------: |
+| Source / manifest / compiled JavaScript                            |                   256 KiB / 16 KiB / 1 MiB |
+| Compiler concurrency / timeout / sampled Linux process-tree memory |                    2 / 5 seconds / 384 MiB |
+| Compiler diagnostics                                               |                      100 entries / 256 KiB |
+| Local replay timeout / context / final result                      |                30 seconds / 64 KiB / 4 MiB |
+| Runner request                                                     |                                      2 MiB |
+| Host calls / HTTP subset / concurrent in-flight calls              |                             1,000 / 50 / 4 |
+| Journal / entry / chunk / maximum reads / fetched data             | 100 MiB / 12 MiB / 1 MiB / 2,048 / 200 MiB |
+| Host-call request / response / durable response                    |                    1 MiB / 10 MiB / 12 MiB |
+| HTTP request / streamed response / attempt timeout                 |                 1 MiB / 10 MiB / 8 seconds |
+| Startup diagnostics                                                |                                     64 KiB |
+| Console logs                                                       |     500 entries, 8 KiB each, 256 KiB total |
+| `log` and `span` observability                                     |     500 entries, 8 KiB each, 256 KiB total |
+| Cache key / value / maximum TTL                                    |              256 bytes / 256 KiB / 30 days |
+| Scratch quota / write                                              |                            5 MiB / 256 KiB |
+| Isolate heap / external memory / CPU                               |               64 MiB / 16 MiB / 30 seconds |
+| Sandbox `executeRyotql` result                                     |                                      1 MiB |
 
 Compiler memory is sampled proportional set size in the Linux production image, not a cgroup hard ceiling. Non-Linux development keeps process, timeout, and concurrency bounds without claiming portable memory enforcement. Calls beyond per-session concurrency wait; cumulative budgets still apply. Each host call takes a FIFO transient-memory permit covering its decoded arguments and its result before decoding arguments, and holds it until the host work ends and the reply is written or purged. Capabilities whose results are unbounded before they materialize never bind live or settle inline; the workflow body dispatches them. Sandbox `executeRyotql` results are measured as JSON by PostgreSQL across the document's named queries and fail with `result-too-large` before any rows leave the database. Session registration and removal are identity-aware so replacement, expiry, interruption, or a late finalizer cannot evict a newer session.
 

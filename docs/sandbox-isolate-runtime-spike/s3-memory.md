@@ -192,9 +192,9 @@ holds because P ≤ I + 60 for every k in 19–40 (§8).
 - Authority: the backend validates entries at append (they are the workflow body's validated journal).
   The isolate bootstrap validates schema and index on read (`isolate-invocation.ts:533-551`). The
   workflow body stays authoritative by checking replay envelopes against its own journal
-  (`sandbox-script-workflow.ts:352-385`). The gate records a run-level `projectionMissing`/`changed`
-  flag that overrides the isolate's outcome, so these cannot be reported as plugin-catchable script
-  failures.
+  (`sandbox-script-workflow.ts:352-385`). The pinned journal source records a run-level
+  `missing`/`changed`/`failed` fault that the queue worker applies over the isolate's outcome, so these
+  cannot be reported as plugin-catchable script failures.
 - The backend never decodes or retains the prefix; `pinHash` uses the pins and inline `firstIndex` uses
   the pinned count. `SandboxRunInput.replayJournal` becomes a pinned journal source.
 - Existing behaviour retained: entries are reassembled in the isolate through 1 MiB reads (2,048

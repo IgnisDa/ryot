@@ -37,9 +37,5 @@ export const stubRuntimeSandboxService = (run: SandboxService["Service"]["run"])
 	SandboxService.of({
 		run,
 		completeRecovery: () => Effect.void,
-		reserve: () =>
-			Effect.succeed({
-				retainJournal: () => Effect.void,
-				enter: () => Effect.as(Effect.void, undefined),
-			}),
+		reserve: () => Effect.succeed({ enter: () => Effect.as(Effect.void, undefined) }),
 	});
