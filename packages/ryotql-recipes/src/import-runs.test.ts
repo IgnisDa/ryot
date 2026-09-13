@@ -98,12 +98,12 @@ describe("import-run recipes", () => {
 			after: "failure-cursor",
 		});
 		expect(fieldKeys(requireRowsQuery(document.queries.failures))).toEqual([
+			"createdAt",
 			"id",
 			"runId",
 			"stage",
-			"createdAt",
-			"itemIndex",
 			"reason",
+			"itemIndex",
 			"sourceLabel",
 			"eventSchemaSlug",
 			"sourceIdentifier",

@@ -12,9 +12,15 @@ import type {
 	ImportRunSource,
 } from "@ryot-app/contract/modules/imports/types";
 import type { IntegrationLot } from "@ryot-app/contract/modules/integrations/types";
-import { ImportRunId, type IntegrationId, type UserId } from "@ryot-app/contract/schema/brands";
+import {
+	EntitySchemaSlug,
+	EventSchemaSlug,
+	ImportRunId,
+	type IntegrationId,
+	type UserId,
+} from "@ryot-app/contract/schema/brands";
 import { generateId } from "better-auth";
-import { and, desc, eq, inArray, isNull, sql } from "drizzle-orm";
+import { and, asc, desc, eq, gt, inArray, isNull, or, sql } from "drizzle-orm";
 import { Context, Effect, Layer } from "effect";
 
 import { isUniqueConstraintError } from "#lib/infrastructure/db/errors";
@@ -27,6 +33,7 @@ export type ImportRunExecutionKind = "source" | "integration";
 export type ImportRunSettlement = "settled" | "cancellation-requested" | "preserved";
 export type ImportRunStart = "started" | "cancellation-requested" | "preserved";
 export type ImportRunCancellation = "requested" | "already-requested" | "not-cancellable";
+export type ImportRunFailureCursor = { readonly createdAt: Date; readonly id: string };
 
 const normalizeRun = (row: ImportRunRow): ListedImportRun => ({
 	source: row.source,
@@ -270,6 +277,68 @@ export class ImportsRepository extends Context.Service<ImportsRepository>()("Imp
 					.limit(1),
 			);
 			return row ? normalizeRun(row) : null;
+		});
+
+		const listRunFailurePage = Effect.fn("ImportsRepository.listRunFailurePage")(function* (input: {
+			limit: number;
+			runId: ImportRunId;
+			after?: ImportRunFailureCursor | undefined;
+		}) {
+			const failures = yield* database.run((db) => {
+				const runIdCondition = eq(schema.importRunFailure.runId, input.runId);
+				const afterCondition =
+					input.after === undefined
+						? undefined
+						: or(
+								gt(schema.importRunFailure.createdAt, input.after.createdAt),
+								and(
+									eq(schema.importRunFailure.createdAt, input.after.createdAt),
+									gt(schema.importRunFailure.id, input.after.id),
+								),
+							);
+				return db
+					.select({
+						id: schema.importRunFailure.id,
+						runId: schema.importRunFailure.runId,
+						stage: schema.importRunFailure.stage,
+						reason: schema.importRunFailure.reason,
+						createdAt: schema.importRunFailure.createdAt,
+						itemIndex: schema.importRunFailure.itemIndex,
+						sourceLabel: schema.importRunFailure.sourceLabel,
+						eventSchemaSlug: schema.importRunFailure.eventSchemaSlug,
+						sourceIdentifier: schema.importRunFailure.sourceIdentifier,
+						entitySchemaSlug: schema.importRunFailure.entitySchemaSlug,
+					})
+					.from(schema.importRunFailure)
+					.where(
+						afterCondition === undefined ? runIdCondition : and(runIdCondition, afterCondition),
+					)
+					.orderBy(asc(schema.importRunFailure.createdAt), asc(schema.importRunFailure.id))
+					.limit(input.limit + 1);
+			});
+			const hasMore = failures.length > input.limit;
+			const items = failures
+				.slice(0, input.limit)
+				.map((failure) =>
+					Object.assign({}, failure, {
+						runId: ImportRunId.make(failure.runId),
+						createdAt: failure.createdAt.toISOString(),
+						eventSchemaSlug:
+							failure.eventSchemaSlug === null
+								? null
+								: EventSchemaSlug.make(failure.eventSchemaSlug),
+						entitySchemaSlug:
+							failure.entitySchemaSlug === null
+								? null
+								: EntitySchemaSlug.make(failure.entitySchemaSlug),
+					}),
+				);
+			const last = failures[input.limit - 1];
+			return {
+				items,
+				nextCursor:
+					hasMore && last !== undefined ? { id: last.id, createdAt: last.createdAt } : null,
+			};
 		});
 
 		const getRunControlForUser = Effect.fn("ImportsRepository.getRunControlForUser")(
@@ -533,6 +602,7 @@ export class ImportsRepository extends Context.Service<ImportsRepository>()("Imp
 			createManualRun,
 			finishCancelled,
 			getDataDocument,
+			listRunFailurePage,
 			updateInputSummary,
 			requestCancellation,
 			admitDataSubmission,
