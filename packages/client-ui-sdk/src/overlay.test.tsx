@@ -1,5 +1,6 @@
+import { describe, expect, it } from "@effect/vitest";
 import { act, renderHook, waitFor } from "@testing-library/react";
-import { describe, expect, it } from "vitest";
+import { Effect } from "effect";
 
 import {
 	focusableElements,
@@ -167,14 +168,16 @@ describe("useDismissOnOutside", () => {
 });
 
 describe("useRestoreFocus", () => {
-	it("returns focus to the trigger on unmount", () => {
-		const { last, first, container } = mountContainer();
-		const view = renderHook(() => useRestoreFocus({ current: first }));
-		last.focus();
+	it.live("returns focus to the trigger on unmount", () =>
+		Effect.gen(function* () {
+			const { last, first, container } = mountContainer();
+			const view = renderHook(() => useRestoreFocus({ current: first }));
+			last.focus();
 
-		view.unmount();
-		return waitFor(() => expect(document.activeElement).toBe(first)).finally(() =>
-			container.remove(),
-		);
-	});
+			view.unmount();
+			yield* Effect.promise(() => waitFor(() => expect(document.activeElement).toBe(first))).pipe(
+				Effect.ensuring(Effect.sync(() => container.remove())),
+			);
+		}),
+	);
 });

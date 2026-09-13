@@ -46,10 +46,17 @@ afterEach(() => {
 	for (const root of roots.splice(0)) {
 		act(() => root.unmount());
 	}
-	return Promise.all(clocks.splice(0).map((clock) => clock.dispose())).then(() => {
-		document.body.innerHTML = "";
-		return undefined;
-	});
+	return Effect.runPromise(
+		Effect.andThen(
+			Effect.forEach(clocks.splice(0), (clock) => Effect.promise(() => clock.dispose()), {
+				discard: true,
+				concurrency: "unbounded",
+			}),
+			Effect.sync(() => {
+				document.body.innerHTML = "";
+			}),
+		),
+	);
 });
 
 describe("Effect-native React definitions", () => {
