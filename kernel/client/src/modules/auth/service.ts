@@ -110,9 +110,9 @@ export class AuthService extends Context.Service<AuthService>()("AuthService", {
 			const session = getSession(origin);
 			const cached = session.store.getSnapshot();
 			const probe = yield* tokens.accessToken(origin).pipe(
-				Effect.map(
-					(token): AuthorizationProbe => ({ kind: token === null ? "unauthorized" : "authorized" }),
-				),
+				Effect.map((token): AuthorizationProbe => ({
+					kind: token === null ? "unauthorized" : "authorized",
+				})),
 				Effect.catchTag("OAuthTokenError", (error) => {
 					if (isLostAuthorization(error)) {
 						return Effect.succeed<AuthorizationProbe>({ kind: "unauthorized" });
