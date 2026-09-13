@@ -213,7 +213,7 @@ one query with its progress percent and the latest progress event's anime or man
 `shared/discovery-recipes.ts` holds `latestCompletionSuggestionsRecipe` - suggestions not yet in the
 library from the latest completion that still has any, so an exhausted completion falls back to an
 earlier one - and `trendingLatestMediaRecipe`, which reads each schema's own latest trending batch
-and orders by rank then schema so the schemas interleave. Both drop NSFW titles but keep entities
+and orders by rank then schema so the schemas interleave; the trending refresh ranks each schema from 1. Both drop NSFW titles but keep entities
 whose `isNsfw` is unknown. `shared/airing-recipes.ts` returns one tile per show with its soonest
 unwatched regular episode in a local date window and how many unwatched episodes share that date,
 and anime whose airing schedule has an entry before an instant bound. Airing candidates are in the
@@ -388,7 +388,8 @@ One episode display state, `episodeDisplayStateExpression`, drives the episode l
 in-progress counts, and next-up. Once a new cycle has begun - a regular-episode progress or
 completion after the parent's latest completion - it is the episode's current-cycle state; until then
 it is the episode's lifetime latest state, so a completed show still lists what was watched and a
-rewatch starts from a clean list.
+rewatch starts from a clean list. Season-zero specials have no parent session and sit outside cycles, so they
+always show their lifetime latest state.
 
 `episodicNextUpInclude` resolves next-up as a limit-1 include over the required episodes, judged by
 display state: the `in_progress` episode wins (lowest position for a show, newest for a podcast).
