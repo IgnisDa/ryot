@@ -501,8 +501,10 @@ pub fn decode_outbound(payload: &[u8]) -> Result<Outbound, PayloadError> {
         FrameType::HostCall => {
             let frame: HostCallFrame = parse(payload)?;
             check_envelope(&frame.handle, frame.seq)?;
-            if frame.name.is_empty() || frame.name.chars().count() > NAME_LENGTH {
-                return Err(invalid("host function name length"));
+            if frame.name.is_empty() || frame.name.encode_utf16().count() > NAME_LENGTH {
+                return Err(invalid(format!(
+                    "host function name must be 1..{NAME_LENGTH} UTF-16 code units"
+                )));
             }
             Ok(Outbound::HostCall {
                 generation: frame.generation,
