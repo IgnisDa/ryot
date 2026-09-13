@@ -553,6 +553,9 @@ fn launcher_identity_probe_child() {
     );
 
     if let Some(key) = key {
+        drop(socket);
+        let status = child.0.wait().expect("sidecar exit after protocol close");
+        assert!(status.success(), "{key} sidecar exit: {status}");
         println!("LAUNCHER_CONFINED {key}");
         return;
     }
