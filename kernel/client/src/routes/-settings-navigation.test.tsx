@@ -3,7 +3,7 @@ import type { UpdateUserPreferencesBody } from "@ryot-app/contract/modules/user-
 import type { PluginClientCatalog } from "@ryot-app/ryotql-recipes/plugin-client-catalog";
 import { RouterProvider, createMemoryHistory } from "@tanstack/react-router";
 import { fireEvent, render, screen, waitFor, within } from "@testing-library/react";
-import { Deferred, Effect, Layer, ManagedRuntime } from "effect";
+import { Clock, DateTime, Deferred, Effect, Layer, ManagedRuntime } from "effect";
 
 import { AuthenticatedApiError } from "#/api/authenticated";
 import {
@@ -139,6 +139,21 @@ const mountView = (
 	return { ...view, router, interestEvents };
 };
 
+const mountImpersonationView = (
+	expiresAt: number,
+	signOut: AuthService["Service"]["signOut"],
+	clears: string[],
+) =>
+	mountView(
+		"/settings/account",
+		"fixture",
+		catalog,
+		makeAuthStub(
+			{ signOut, clearSession: (origin) => Effect.sync(() => clears.push(origin)) },
+			{ ...authenticated, impersonation: { expiresAt } },
+		),
+	);
+
 describe("authenticated route gate", () => {
 	it.live(
 		"owns one interest session across loader revalidation and releases it on unmount without fetching preferences",
@@ -182,6 +197,46 @@ describe("authenticated route gate", () => {
 });
 
 describe("settings navigation", () => {
+	it.live("shows the impersonated identity and stops through OAuth sign-out", () =>
+		Effect.gen(function* () {
+			const signOuts: string[] = [];
+			const clears: string[] = [];
+			const expiresAt = (yield* Clock.currentTimeMillis) + 60 * 60 * 1000;
+			mountImpersonationView(
+				expiresAt,
+				(origin) => Effect.sync(() => signOuts.push(origin)).pipe(Effect.as(true)),
+				clears,
+			);
+			const banner = yield* Effect.promise(() => screen.findByTestId("impersonation-banner"));
+
+			expect(banner.textContent).toContain("Test User");
+			expect(banner.textContent).toContain("user@ryot.example");
+			expect(banner.textContent).toContain(
+				new Intl.DateTimeFormat(undefined, { timeStyle: "short", dateStyle: "medium" }).format(
+					DateTime.toDate(DateTime.makeUnsafe(expiresAt)),
+				),
+			);
+			fireEvent.click(screen.getByRole("button", { name: "Stop impersonating" }));
+			yield* Effect.promise(() => waitFor(() => expect(signOuts).toEqual([server])));
+			expect(clears).toEqual([]);
+		}),
+	);
+
+	it.live("keeps the banner and reports when server logout cannot open", () =>
+		Effect.gen(function* () {
+			const clears: string[] = [];
+			const expiresAt = (yield* Clock.currentTimeMillis) + 60 * 60 * 1000;
+			mountImpersonationView(expiresAt, () => Effect.succeed(false), clears);
+			yield* Effect.promise(() => screen.findByTestId("impersonation-banner"));
+
+			fireEvent.click(screen.getByRole("button", { name: "Stop impersonating" }));
+			const error = yield* Effect.promise(() => screen.findByRole("alert"));
+			expect(error.textContent).toBe("Could not open the server logout page. Please try again.");
+			expect(screen.getByTestId("impersonation-banner")).toBeTruthy();
+			expect(clears).toEqual([]);
+		}),
+	);
+
 	it.live("marks the active section on the desktop settings sidebar", () =>
 		Effect.gen(function* () {
 			const view = mountView("/settings/preferences");

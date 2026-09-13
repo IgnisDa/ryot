@@ -1,5 +1,5 @@
 import { KERNEL_SHORTCUTS, type KernelShortcut } from "@ryot-app/client-plugin-contract";
-import { Modal, useShortcut, useValueChange } from "@ryot-app/client-ui-sdk";
+import { Button, Modal, useShortcut, useValueChange } from "@ryot-app/client-ui-sdk";
 import type { NavigationData } from "@ryot-app/ryotql-recipes/navigation";
 import {
 	Outlet,
@@ -10,9 +10,24 @@ import {
 } from "@tanstack/react-router";
 import { Effect } from "effect";
 import { motion, useMotionValue, useTransform } from "motion/react";
-import { useCallback, useEffect, useId, useMemo, useRef, useState } from "react";
+import {
+	useCallback,
+	useEffect,
+	useId,
+	useMemo,
+	useRef,
+	useState,
+	useSyncExternalStore,
+} from "react";
 
+import {
+	awaitDocumentVisible,
+	waitForImpersonationExpiry,
+} from "#/modules/auth/impersonation-expiry";
+import { oauthTokenKey } from "#/modules/auth/oauth-storage";
+import { RuntimeOAuthClientService } from "#/modules/auth/runtime-client";
 import { AuthService } from "#/modules/auth/service";
+import { subscribeOAuthSessionBoundary } from "#/modules/auth/token-identity";
 import { ClientPageDocumentProvider } from "#/modules/client-pages/document";
 import { ClientPageDocumentHost } from "#/modules/client-pages/page-host";
 import { useIsDemoSession } from "#/modules/demo-protection";
@@ -127,8 +142,60 @@ export function AuthenticatedShell(props: {
 		pluginHeader !== null && pluginHeader.index === entry.index && pluginHeader.key === entry.key
 			? pluginHeader.title
 			: null;
-	const session = runtime.runSync(AuthService).session(server);
+	const auth = runtime.runSync(AuthService);
+	const session = auth.session(server);
+	const authSnapshot = useSyncExternalStore(
+		session.subscribe,
+		session.getSnapshot,
+		session.getSnapshot,
+	);
+	const impersonation =
+		authSnapshot.status === "authenticated" ? authSnapshot.impersonation : undefined;
 	const isDemo = useIsDemoSession(session);
+	const [stopPending, setStopPending] = useState(false);
+	const [stopError, setStopError] = useState<string>();
+	const stopImpersonation = () => {
+		setStopPending(true);
+		setStopError(undefined);
+		runtime.runFork(
+			auth.signOut(server).pipe(
+				Effect.matchCause({
+					onFailure: () => {
+						setStopPending(false);
+						setStopError("Could not stop impersonation. Please try again.");
+					},
+					onSuccess: (launched) => {
+						setStopPending(false);
+						if (!launched) {
+							setStopError("Could not open the server logout page. Please try again.");
+						}
+					},
+				}),
+			),
+		);
+	};
+	useEffect(() => {
+		if (runtime.runSync(RuntimeOAuthClientService).isNative) {
+			return undefined;
+		}
+		return subscribeOAuthSessionBoundary(window, oauthTokenKey(server), () =>
+			window.location.reload(),
+		);
+	}, [runtime, server]);
+	useEffect(() => {
+		if (impersonation === undefined) {
+			return undefined;
+		}
+		const controller = new AbortController();
+		runtime.runFork(
+			waitForImpersonationExpiry(impersonation.expiresAt, awaitDocumentVisible).pipe(
+				Effect.andThen(auth.clearSession(server)),
+				Effect.andThen(Effect.sync(() => window.location.replace("/god-mode/users"))),
+			),
+			{ signal: controller.signal },
+		);
+		return () => controller.abort();
+	}, [auth, impersonation, runtime, server]);
 	const selectWorkspace = (slug: string) => {
 		impactLight();
 		return runtime.runPromise(
@@ -402,12 +469,23 @@ export function AuthenticatedShell(props: {
 												inert={drawerOpen}
 												style={{ x: contentShift }}
 												data-testid="shell-content"
-												className="relative min-h-0 min-w-0 flex-1 overflow-hidden"
+												className="relative flex min-h-0 min-w-0 flex-1 flex-col overflow-hidden"
 											>
-												<ClientPageDocumentProvider>
-													<ClientPageDocumentHost />
-													<Outlet />
-												</ClientPageDocumentProvider>
+												{impersonation && authSnapshot.status === "authenticated" && (
+													<ImpersonationBanner
+														error={stopError}
+														pending={stopPending}
+														user={authSnapshot.user}
+														onStop={stopImpersonation}
+														expiresAt={impersonation.expiresAt}
+													/>
+												)}
+												<div className="relative min-h-0 min-w-0 flex-1 overflow-hidden">
+													<ClientPageDocumentProvider>
+														<ClientPageDocumentHost />
+														<Outlet />
+													</ClientPageDocumentProvider>
+												</div>
 											</motion.div>
 										</ClientPageOverlayContext>
 									</ClientPageScreenContext>
@@ -460,5 +538,33 @@ export function AuthenticatedShell(props: {
 				</Modal>
 			)}
 		</div>
+	);
+}
+
+function ImpersonationBanner(props: {
+	readonly user: { readonly name: string; readonly email: string };
+	readonly expiresAt: number;
+	readonly onStop: () => void;
+	readonly pending: boolean;
+	readonly error: string | undefined;
+}) {
+	const expiration = new Intl.DateTimeFormat(undefined, {
+		timeStyle: "short",
+		dateStyle: "medium",
+	}).format(new Date(props.expiresAt));
+	return (
+		<aside
+			role="status"
+			data-testid="impersonation-banner"
+			className="flex flex-wrap items-center justify-between gap-3 border-b border-border bg-surface-2 px-4 py-2 text-sm text-text"
+		>
+			<p>
+				Impersonating <strong>{props.user.name}</strong> ({props.user.email}) until {expiration}.
+			</p>
+			{props.error && <p role="alert">{props.error}</p>}
+			<Button type="button" variant="secondary" onClick={props.onStop} disabled={props.pending}>
+				{props.pending ? "Stopping..." : "Stop impersonating"}
+			</Button>
+		</aside>
 	);
 }

@@ -22,6 +22,12 @@ describe("runtime OAuth client", () => {
 				callbackUri: "https://ryot.example/auth/callback",
 				logoutUri: "https://ryot.example/auth/logout/callback",
 			});
+			expect(yield* client.forImpersonation(origin)).toEqual({
+				nativeApplicationId: null,
+				clientId: "ryot-impersonation-web",
+				callbackUri: "https://ryot.example/auth/callback",
+				logoutUri: "https://ryot.example/auth/logout/callback",
+			});
 		}),
 	);
 
@@ -37,6 +43,12 @@ describe("runtime OAuth client", () => {
 				expect(yield* client.forServer(origin)).toEqual({
 					clientId: "ryot-native",
 					nativeApplicationId: applicationId,
+					callbackUri: `${applicationId}:/auth/callback`,
+					logoutUri: `${applicationId}:/auth/logout/callback`,
+				});
+				expect(yield* client.forImpersonation(origin)).toEqual({
+					nativeApplicationId: applicationId,
+					clientId: "ryot-impersonation-native",
 					callbackUri: `${applicationId}:/auth/callback`,
 					logoutUri: `${applicationId}:/auth/logout/callback`,
 				});
