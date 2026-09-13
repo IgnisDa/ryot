@@ -96,9 +96,13 @@ it("declares the complete fitness-owned source", () => {
 		apiVersion: CLIENT_API_VERSION,
 		entities: {
 			exercise: { listPresentation: "entity-row", gridPresentation: "entity-card" },
-			workout: { listPresentation: "workout-row", gridPresentation: "workout-card" },
 			measurement: { listPresentation: "entity-row", gridPresentation: "entity-card" },
 			"workout-template": { listPresentation: "entity-row", gridPresentation: "entity-card" },
+			workout: {
+				detailPage: "workout-detail",
+				listPresentation: "workout-row",
+				gridPresentation: "workout-card",
+			},
 		},
 		exports: {
 			"entity-row": {
@@ -119,6 +123,12 @@ it("declares the complete fitness-owned source", () => {
 			"workout-card": {
 				kind: "presentation",
 				entry: "client/workout-card.ts",
+				automaticEntityPresentations: false,
+			},
+			"workout-detail": {
+				kind: "page",
+				settingsSchema: { fields: {} },
+				entry: "client/workout/screen.tsx",
 				automaticEntityPresentations: false,
 			},
 		},
