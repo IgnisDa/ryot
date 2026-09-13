@@ -11,6 +11,11 @@ const ServerLogFile = Schema.Struct({
 	modifiedAt: Schema.String,
 });
 
+const ServerLogsLimit = Schema.Int.pipe(
+	Schema.check(Schema.isGreaterThan(0)),
+	Schema.check(Schema.isLessThanOrEqualTo(100)),
+);
+
 export class ServerLogsNotFound extends Schema.TaggedError<ServerLogsNotFound>()(
 	"ServerLogsNotFound",
 	{ reason: Schema.Struct({ code: Schema.Literal("log-file-unavailable") }) },
@@ -31,7 +36,15 @@ export const ServerLogsGroup = HttpApiGroup.make("serverLogs")
 	.add(
 		HttpApiEndpoint.get("list", "/god-mode/logs/files", {
 			error: errors,
-			success: Schema.Struct({ files: Schema.Array(ServerLogFile) }),
+			query: { limit: ServerLogsLimit, after: Schema.optional(Schema.NonEmptyString) },
+			success: Schema.Struct({
+				files: Schema.Array(ServerLogFile),
+				pageInfo: Schema.Struct({
+					limit: Schema.Int,
+					hasMore: Schema.Boolean,
+					nextCursor: Schema.NullOr(Schema.String),
+				}),
+			}),
 		})
 			.middleware(AdminMiddleware)
 			.annotate(OpenApi.Description, "Lists available server log files"),

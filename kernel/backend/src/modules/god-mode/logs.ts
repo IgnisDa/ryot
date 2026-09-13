@@ -38,7 +38,9 @@ export const makeServerLogs = Effect.fn("makeServerLogs")(function* (logPath: st
 	const activeName = path.basename(logPath);
 	const escapedName = activeName.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
 	const rotatedName = new RegExp(`^\\d{8}-\\d{4}-\\d{2,3}-${escapedName}\\.gz$`);
-	const list = Effect.fn("ServerLogs.list")(function* () {
+	const compareNames = (a: string, b: string) =>
+		Number(b === activeName) - Number(a === activeName) || b.localeCompare(a);
+	const logNames = Effect.fn("ServerLogs.logNames")(function* () {
 		const names = yield* fs.readDirectory(directory).pipe(
 			Effect.catchIf(
 				(error) => error.reason._tag === "NotFound",
@@ -46,38 +48,64 @@ export const makeServerLogs = Effect.fn("makeServerLogs")(function* (logPath: st
 			),
 			Effect.mapError(failed),
 		);
-		const files = yield* Effect.forEach(
-			names.filter((name) => name === activeName || rotatedName.test(name)),
-			(name) =>
-				Effect.gen(function* () {
-					const filePath = path.join(directory, name);
-					const resolved = yield* fs.realPath(filePath);
-					if (resolved !== filePath) {
-						return undefined;
-					}
-					const stat = yield* fs.stat(filePath);
-					if (stat.type !== "File" || Option.isNone(stat.ino) || Option.isNone(stat.mtime)) {
-						return undefined;
-					}
-					return {
-						name,
-						id: fileId(name, stat),
-						size: Number(stat.size),
-						active: name === activeName,
-						modifiedAt: stat.mtime.value.toISOString(),
-					};
-				}).pipe(
-					Effect.catchIf(
-						(error) => error.reason._tag === "NotFound",
-						() => Effect.void,
-					),
-					Effect.mapError(failed),
+		return names.filter((name) => name === activeName || rotatedName.test(name)).sort(compareNames);
+	});
+	const readLogFile = (name: string) =>
+		Effect.gen(function* () {
+			const filePath = path.join(directory, name);
+			const resolved = yield* fs.realPath(filePath).pipe(
+				Effect.catchIf(
+					(error) => error.reason._tag === "NotFound",
+					() => Effect.void,
 				),
-		);
+			);
+			if (resolved === undefined || resolved !== filePath) {
+				return undefined;
+			}
+			const stat = yield* fs.stat(filePath).pipe(
+				Effect.catchIf(
+					(error) => error.reason._tag === "NotFound",
+					() => Effect.void,
+				),
+			);
+			if (stat?.type !== "File" || Option.isNone(stat.ino) || Option.isNone(stat.mtime)) {
+				return undefined;
+			}
+			return {
+				name,
+				id: fileId(name, stat),
+				size: Number(stat.size),
+				active: name === activeName,
+				modifiedAt: stat.mtime.value.toISOString(),
+			};
+		}).pipe(Effect.mapError(failed));
+	const listAllFiles = Effect.fn("ServerLogs.listAllFiles")(function* () {
+		const names = yield* logNames();
+		const files = yield* Effect.forEach(names, readLogFile);
+		return files.filter((file) => file !== undefined);
+	});
+	const list = Effect.fn("ServerLogs.list")(function* (after: string | undefined, limit: number) {
+		const names = yield* logNames();
+		const candidates =
+			after === undefined ? names : names.filter((name) => compareNames(after, name) < 0);
+		const files: LogFile[] = [];
+		let index = 0;
+		while (index < candidates.length && files.length <= limit) {
+			const name = candidates[index];
+			index += 1;
+			if (name === undefined) {
+				continue;
+			}
+			const file = yield* readLogFile(name);
+			if (file !== undefined) {
+				files.push(file);
+			}
+		}
+		const hasMore = files.length > limit;
+		const pageFiles = hasMore ? files.slice(0, limit) : files;
 		return {
-			files: files
-				.filter((file) => file !== undefined)
-				.sort((a, b) => Number(b.active) - Number(a.active) || b.name.localeCompare(a.name)),
+			files: pageFiles,
+			pageInfo: { limit, hasMore, nextCursor: hasMore ? (pageFiles.at(-1)?.name ?? null) : null },
 		};
 	});
 	const snapshot = Effect.fn("ServerLogs.snapshot")(function* (file: LogFile) {
@@ -114,7 +142,7 @@ export const makeServerLogs = Effect.fn("makeServerLogs")(function* (logPath: st
 		return { size, stream, fileName: file.name };
 	});
 	const downloadFile = Effect.fn("ServerLogs.downloadFile")(function* (id: string) {
-		const { files } = yield* list();
+		const files = yield* listAllFiles();
 		const file = files.find((f) => f.id === id);
 		if (file === undefined) {
 			return yield* unavailable();
@@ -123,7 +151,7 @@ export const makeServerLogs = Effect.fn("makeServerLogs")(function* (logPath: st
 	});
 	const downloadAll = Effect.fn("ServerLogs.downloadAll")(function* () {
 		const now = yield* DateTime.now;
-		const { files } = yield* list();
+		const files = yield* listAllFiles();
 		const snapshots = yield* Effect.forEach(files, snapshot);
 		const stream = Stream.unwrap(
 			Effect.gen(function* () {

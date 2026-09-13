@@ -54,7 +54,9 @@ export const GodModeRoutesLive = HttpApiBuilder.group(AppContract, "godMode", (h
 
 export const ServerLogsRoutesLive = HttpApiBuilder.group(AppContract, "serverLogs", (handlers) =>
 	handlers
-		.handle("list", () => Effect.flatMap(ServerLogs, (service) => service.list()))
+		.handle("list", ({ query }) =>
+			Effect.flatMap(ServerLogs, (service) => service.list(query.after, query.limit)),
+		)
 		.handleRaw("downloadFile", ({ params }) =>
 			Effect.gen(function* () {
 				const service = yield* ServerLogs;
