@@ -3,6 +3,7 @@ import { buildSandboxEsm } from "@ryot-app/vite-compiler";
 import { Effect, Schema } from "effect";
 
 import {
+	type ResolvedSandboxRuntimeDependency,
 	SandboxRuntimeBuildError,
 	resolveSandboxRuntimeRegistry,
 	resolveViteVersion,
@@ -13,62 +14,31 @@ const encodeJson = Schema.encodeSync(Schema.fromJsonString(Schema.Unknown));
 export const buildSandboxRuntimePayload = (resolveFrom: string) =>
 	Effect.gen(function* () {
 		const dependencies = yield* resolveSandboxRuntimeRegistry(resolveFrom);
-		const effectDependency = dependencies.find(({ name }) => name === "effect");
-		if (!effectDependency) {
-			return yield* new SandboxRuntimeBuildError({
-				message: "Runtime registry has no Effect entry",
-			});
-		}
-		const filesystemDependency = dependencies.find(({ name }) => name === "filesystem");
-		if (!filesystemDependency) {
-			return yield* new SandboxRuntimeBuildError({
-				message: "Runtime registry has no filesystem entry",
-			});
-		}
-		const dependencyRuntime = dependencies.find(({ name }) => name === "dependency-runtime");
-		if (!dependencyRuntime) {
-			return yield* new SandboxRuntimeBuildError({
-				message: "Runtime registry has no dependency-runtime entry",
-			});
-		}
-		const effectExternalSpecifiers = new Set([
-			effectDependency.sdkImport,
-			...effectDependency.aliases,
-		]);
-		const sharedExternalSpecifiers = new Set([
-			...effectExternalSpecifiers,
-			dependencyRuntime.sdkImport,
-			...dependencyRuntime.aliases,
-			filesystemDependency.sdkImport,
-			...filesystemDependency.aliases,
-		]);
-		const runtimeExternalSpecifiers = (name: string): ReadonlySet<string> => {
-			if (name === "effect" || name === "dependency-runtime") {
-				return new Set<string>();
-			}
-			if (name === "filesystem") {
-				return effectExternalSpecifiers;
-			}
-			return sharedExternalSpecifiers;
-		};
+		const specifiers = new Map(
+			dependencies.map(({ name, aliases, sdkImport }) => [name, [sdkImport, ...aliases]]),
+		);
+		const runtimeExternalSpecifiers = (
+			names: ResolvedSandboxRuntimeDependency["runtimeExternals"],
+		) =>
+			Effect.forEach(names, (name) => {
+				const external = specifiers.get(name);
+				return external === undefined
+					? Effect.fail(
+							new SandboxRuntimeBuildError({ message: `Runtime registry has no ${name} entry` }),
+						)
+					: Effect.succeed(external);
+			}).pipe(Effect.map((externals) => new Set(externals.flat())));
 		const moduleFiles = yield* Effect.forEach(dependencies, (dependency) =>
-			buildSandboxEsm({
-				// Dependency frames are hidden; loading their maps on first Error.stack stalls every process.
-				sourceMap: false,
-				entry: dependency.entrypoint,
-				outputFile: dependency.runtimeFile,
-				approvedExternalSpecifiers: runtimeExternalSpecifiers(dependency.name),
-				aliases:
-					dependency.name === "effect"
-						? [
-								{ find: /^effect$/, replacement: dependency.packageEntrypoint },
-								{
-									find: /^effect\/(.+)$/,
-									replacement: `${dependency.packageEntrypoint.slice(0, dependency.packageEntrypoint.lastIndexOf("/"))}/$1.js`,
-								},
-							]
-						: dependency.buildAliases,
-			}).pipe(
+			Effect.flatMap(runtimeExternalSpecifiers(dependency.runtimeExternals), (externals) =>
+				buildSandboxEsm({
+					// Dependency frames are hidden; loading their maps on first Error.stack stalls every process.
+					sourceMap: false,
+					entry: dependency.entrypoint,
+					aliases: dependency.buildAliases,
+					outputFile: dependency.runtimeFile,
+					approvedExternalSpecifiers: externals,
+				}),
+			).pipe(
 				Effect.map(({ javascript: contents }) => ({ contents, path: dependency.runtimeFile })),
 				Effect.mapError(
 					(error) =>
