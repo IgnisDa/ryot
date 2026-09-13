@@ -78,16 +78,16 @@ const preparedFor = (
 			route: { params: {} },
 			renderer: { pluginId, kind: "plugin", exportName: "page" },
 		},
-		artifact: {
-			hash: `artifact-${pluginId}`,
+		composition: {
 			format: CLIENT_ARTIFACT_FORMAT,
 			apiVersion: CLIENT_API_VERSION,
+			hash: `composition-${pluginId}`,
 			compilerVersion: CLIENT_COMPILER_VERSION,
 			bridgeVersion: CLIENT_BRIDGE_PROTOCOL_VERSION,
-			grant: {
+			documentGrant: {
 				grantId: `grant-${pluginId}`,
 				expiresAt: "2030-01-01T00:00:00.000Z",
-				src: `https://artifacts.example/artifact-${pluginId}/index.html`,
+				src: `https://artifacts.example/api/client-pages/documents/${pluginId}`,
 			},
 		},
 		identity: {
@@ -96,9 +96,9 @@ const preparedFor = (
 			exportName: "page",
 			kind: "plugin-page",
 			sourceHash: `source-${pluginId}`,
-			artifactHash: `artifact-${pluginId}`,
-			artifactKey: `artifact-key-${pluginId}`,
 			installationId: `installation-${pluginId}`,
+			compositionHash: `composition-${pluginId}`,
+			compositionKey: `composition-key-${pluginId}`,
 			contributors: [
 				{
 					pluginId,
@@ -147,10 +147,10 @@ const preparedSavedView = (savedViewId: SavedViewId): PreparedClientPage => {
 			kind: "kernel-saved-view",
 			rendererName: "dashboard",
 			sourceHash: "source-plugin-1",
-			artifactKey: prepared.identity.artifactKey,
-			artifactHash: prepared.identity.artifactHash,
 			contributors: prepared.identity.contributors,
+			compositionKey: prepared.identity.compositionKey,
 			target: { slug: savedViewId, kind: "saved-view" },
+			compositionHash: prepared.identity.compositionHash,
 			operationTargets: prepared.identity.operationTargets,
 		},
 	};
@@ -465,7 +465,7 @@ describe("client page routes", () => {
 		expect(screen.queryByTitle(/plugin$/)).toBeNull();
 	});
 
-	it("prepares an ordinary plugin route with its artifact grant", async () => {
+	it("prepares an ordinary plugin route with its document grant", async () => {
 		const view = mount({ entry: "/fixture/details/one?tab=stats" });
 		const frame = await screen.findByTitle<HTMLIFrameElement>("fixture plugin");
 		const bridge = connectFrame(frame);
@@ -474,7 +474,7 @@ describe("client page routes", () => {
 		expect(view.targets).toEqual([
 			{ search: "tab=stats", path: "/details/one", kind: "plugin-route", pluginSlug: "fixture" },
 		]);
-		expect(frame.getAttribute("src")).toContain("artifact-plugin-1");
+		expect(frame.getAttribute("src")).toContain("/api/client-pages/documents/plugin-1");
 		expect(Schema.decodeUnknownSync(PluginBridgeLocation)(bridge.messages[0])).toMatchObject({
 			location: { kind: "route", search: "tab=stats", path: "/details/one" },
 		});
@@ -518,29 +518,54 @@ describe("client page routes", () => {
 		});
 	});
 
-	it("reuses one artifact runtime for plugin and entity routes", async () => {
+	it("reuses one composition runtime and bridge for plugin and entity documents", async () => {
 		const view = mount({ entry: "/fixture/details/one" });
 		const pluginFrame = await screen.findByTitle<HTMLIFrameElement>("fixture plugin");
+		const bridge = connectFrame(pluginFrame);
+		await waitFor(() => expect(bridge.messages).toHaveLength(1));
+		const initialSrc = pluginFrame.getAttribute("src");
 
 		await view.router.navigate({ href: "/e/entity-1" });
 		await waitFor(() =>
 			expect(view.targets.at(-1)).toEqual({ kind: "entity", entityId: "entity-1" }),
 		);
 		expect(screen.getByTitle<HTMLIFrameElement>("fixture plugin")).toBe(pluginFrame);
+		await waitFor(() =>
+			expect(bridge.messages).toContainEqual(
+				expect.objectContaining({
+					type: "document",
+					page: expect.objectContaining({
+						target: expect.objectContaining({ entityId: "entity-1" }),
+					}),
+				}),
+			),
+		);
+		expect(pluginFrame.getAttribute("src")).toBe(initialSrc);
 
 		await view.router.navigate({ href: "/e/entity-2" });
 		await waitFor(() =>
 			expect(view.targets.at(-1)).toEqual({ kind: "entity", entityId: "entity-2" }),
 		);
 		expect(screen.getByTitle<HTMLIFrameElement>("fixture plugin")).toBe(pluginFrame);
+		await waitFor(() =>
+			expect(bridge.messages).toContainEqual(
+				expect.objectContaining({
+					type: "document",
+					page: expect.objectContaining({
+						target: expect.objectContaining({ entityId: "entity-2" }),
+					}),
+				}),
+			),
+		);
 
 		await view.router.navigate({ href: "/fixture/details/one" });
 		await waitFor(() => expect(view.router.state.location.pathname).toBe("/fixture/details/one"));
 		expect(screen.getByTitle<HTMLIFrameElement>("fixture plugin")).toBe(pluginFrame);
 	});
 
-	it("reuses the artifact runtime when prepared settings change", async () => {
+	it("ignores a newly prepared grant for a retained composition when settings change", async () => {
 		let defaultLayout = "grid";
+		let grants = 0;
 		const view = mount({
 			entry: "/fixture/details/one",
 			prepare: (_scope, request) => {
@@ -554,24 +579,49 @@ describe("client page routes", () => {
 						? "plugin-2"
 						: "plugin-1",
 				);
+				grants++;
 				return Effect.succeed({
 					...prepared,
 					context: { ...prepared.context, settings: { defaultLayout } },
+					composition: {
+						...prepared.composition,
+						documentGrant: {
+							...prepared.composition.documentGrant,
+							src: `/api/client-pages/documents/grant-${grants}`,
+						},
+					},
 				});
 			},
 		});
 		const frame = await screen.findByTitle<HTMLIFrameElement>("fixture plugin");
+		const bridge = connectFrame(frame);
+		await waitFor(() => expect(bridge.messages).toHaveLength(1));
+		const firstSrc = frame.getAttribute("src");
 
 		await view.router.navigate({ href: "/fixture/details/two" });
 		await waitFor(() => expect(view.router.state.location.pathname).toBe("/fixture/details/two"));
 		expect(screen.getByTitle<HTMLIFrameElement>("fixture plugin")).toBe(frame);
+		expect(frame.getAttribute("src")).toBe(firstSrc);
+		await waitFor(() =>
+			expect(bridge.messages).toContainEqual(expect.objectContaining({ type: "document" })),
+		);
 
 		defaultLayout = "list";
-		await view.router.navigate({ href: "/fixture/details/one" });
+		await view.router.navigate({ href: "/fixture/details/three" });
+		await waitFor(() => expect(grants).toBe(3));
 		expect(screen.getByTitle<HTMLIFrameElement>("fixture plugin")).toBe(frame);
+		expect(frame.getAttribute("src")).toBe(firstSrc);
+		await waitFor(() =>
+			expect(bridge.messages).toContainEqual(
+				expect.objectContaining({
+					type: "document",
+					page: expect.objectContaining({ settings: { defaultLayout: "list" } }),
+				}),
+			),
+		);
 	});
 
-	it("drops retained artifact runtimes when the api scope changes", async () => {
+	it("drops retained composition runtimes when the api scope changes", async () => {
 		let userId = "user-1";
 		const entries = Array.from({ length: 2 }, (_, index) => ({
 			...catalog[0],
@@ -592,7 +642,7 @@ describe("client page routes", () => {
 					}),
 			}),
 		});
-		await screen.findByTitle("fixture plugin");
+		const first = await screen.findByTitle<HTMLIFrameElement>("fixture plugin");
 		await view.router.navigate({ href: "/plugin-2" });
 		await waitFor(() => expect(document.querySelectorAll("iframe")).toHaveLength(2));
 
@@ -602,6 +652,76 @@ describe("client page routes", () => {
 		});
 
 		await waitFor(() => expect(document.querySelectorAll("iframe")).toHaveLength(1));
+		expect(document.querySelector("iframe")).not.toBe(first);
+	});
+
+	it("returns to a retained composition without navigating its iframe", async () => {
+		const entries = Array.from({ length: 2 }, (_, index) => ({
+			...catalog[0],
+			slug: `plugin-${index + 1}`,
+			pluginId: `plugin-${index + 1}`,
+			installationId: `installation-${index + 1}`,
+		}));
+		const view = mount({ entries, entry: "/plugin-1" });
+		const first = await screen.findByTitle<HTMLIFrameElement>("fixture plugin");
+		const bridge = connectFrame(first);
+		await waitFor(() => expect(bridge.messages).toHaveLength(1));
+		const src = first.getAttribute("src");
+		await view.router.navigate({ href: "/plugin-2" });
+		await waitFor(() => expect(document.querySelectorAll("iframe")).toHaveLength(2));
+		expect(first.isConnected).toBe(true);
+		await view.router.navigate({ href: "/plugin-1/details" });
+		await waitFor(() => expect(view.router.state.location.pathname).toBe("/plugin-1/details"));
+		expect(first.isConnected).toBe(true);
+		expect(first.getAttribute("src")).toBe(src);
+		await waitFor(() =>
+			expect(bridge.messages).toContainEqual(
+				expect.objectContaining({
+					type: "document",
+					page: expect.objectContaining({ target: expect.objectContaining({ path: "/details" }) }),
+				}),
+			),
+		);
+	});
+
+	it("reprepares and replaces a failed iframe using the new document grant", async () => {
+		let preparations = 0;
+		const view = mount({
+			entry: "/fixture",
+			prepare: (_scope, request) => {
+				const target = request.payload.target;
+				if (target.kind !== "plugin-route") {
+					return Effect.die("not used");
+				}
+				preparations++;
+				const prepared = preparedFor(target);
+				return Effect.succeed({
+					...prepared,
+					composition: {
+						...prepared.composition,
+						documentGrant: {
+							...prepared.composition.documentGrant,
+							src: `/api/client-pages/documents/grant-${preparations}`,
+						},
+					},
+				});
+			},
+		});
+		const first = await screen.findByTitle<HTMLIFrameElement>("fixture plugin");
+		const bridge = connectFrame(first);
+		await waitFor(() => expect(bridge.messages).toHaveLength(1));
+		expect(first.getAttribute("src")).toContain("grant-1");
+		bridge.port.postMessage({ reason: "failed", type: "lifecycle-close" });
+		fireEvent.click(await screen.findByRole("button", { name: "Retry" }));
+		const next = await waitFor(() => {
+			const frame = screen.getByTitle<HTMLIFrameElement>("fixture plugin");
+			expect(frame).not.toBe(first);
+			return frame;
+		});
+		expect(next.getAttribute("src")).toContain("grant-2");
+		expect(first.isConnected).toBe(false);
+		expect(preparations).toBe(2);
+		view.unmount();
 	});
 
 	it("evicts the least recently active frame after retaining three realms", async () => {
@@ -613,23 +733,28 @@ describe("client page routes", () => {
 			installationId: `installation-${index + 1}`,
 		}));
 		const view = mount({ entries, entry: "/plugin-1" });
-		await screen.findByTitle("fixture plugin");
+		const first = await screen.findByTitle<HTMLIFrameElement>("fixture plugin");
 		await view.router.navigate({ href: "/plugin-2" });
 		await waitFor(() => expect(document.querySelectorAll("iframe")).toHaveLength(2));
+		const second = [...document.querySelectorAll("iframe")].find((frame) => frame !== first);
 		await view.router.navigate({ href: "/plugin-3" });
 		await waitFor(() => expect(document.querySelectorAll("iframe")).toHaveLength(3));
 		await view.router.navigate({ href: "/plugin-4" });
 		await waitFor(() => expect(document.querySelectorAll("iframe")).toHaveLength(3));
+		expect(first.isConnected).toBe(false);
+		expect(second?.isConnected).toBe(true);
 
 		await view.router.navigate({ href: "/plugin-2" });
 		await waitFor(() => expect(view.router.state.location.pathname).toBe("/plugin-2"));
 		expect(document.querySelectorAll("iframe")).toHaveLength(3);
+		expect(second?.isConnected).toBe(true);
 
 		await view.router.navigate({ href: "/plugin-1" });
 		await waitFor(() => expect(document.querySelectorAll("iframe")).toHaveLength(3));
+		expect(first.isConnected).toBe(false);
 	});
 
-	it("uses freshly prepared operation targets and reloads a stale artifact on request", async () => {
+	it("uses freshly prepared operation targets and reloads an updated composition on request", async () => {
 		let preparation = 0;
 		const view = mount({
 			entry: "/fixture/details/one",

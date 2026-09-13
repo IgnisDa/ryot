@@ -9,8 +9,8 @@ Architecture and rationale live in `README.md`.
 - Keep native name, identifier, and icon in platform build configurations. `capacitor.config.ts` always uses production identity and has no environment branch.
 - Generate icons through `bun run generate-assets`; edit source art or `scripts/generate-assets.ts`, never generated native asset files.
 - Route native URLs and hardware Back through the router. Treat `/oauth/login`, its signed `oauth_query`, and its independence from `ServerService` as a server contract.
-- Retain at most three client-page iframe runtimes keyed by artifact hash. Replace the document and remount its page tree when a different prepared page uses the same artifact; keep the bridge and SDK runtime alive.
-- Use the artifact grant returned by preparation to load a frame. Check prepared-page freshness on catalog invalidation, not by renewing a grant or checking static artifact files.
+- Retain at most three client-page iframe runtimes keyed by composition hash. Replace the document and remount its page tree when a different prepared page uses the same composition; keep the bridge and SDK runtime alive.
+- Use the document grant returned by preparation to load a frame. Reprepare on failed-frame retry; check prepared-page freshness on catalog invalidation, not by renewing a grant or checking static artifact files.
 - Register document-declared page shortcuts in the kernel realm alongside the iframe's own registrations, and clear them when the bridge closes.
 - Keep `leading` intent separate from `edgeBack`. The kernel grants edge ownership only after readiness matches the active document and history `index` and `key`; never send per-frame gesture data over the bridge.
 - Derive client-page entry `index` and stable `key` only through `historyEntry`. Page-state replacements retain the key; screen navigation creates a new one.
