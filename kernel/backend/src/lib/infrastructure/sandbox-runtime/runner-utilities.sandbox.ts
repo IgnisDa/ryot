@@ -26,7 +26,6 @@ export interface SandboxRunnerPayload {
 	readonly limits: SandboxRunnerLimits;
 	readonly workflowExecutionId?: string;
 	readonly inlineDurableCapabilities?: readonly string[];
-	readonly profiling?: boolean;
 	readonly metadata?: Record<string, unknown>;
 	readonly filesystem?: {
 		readonly artifactPath?: string;

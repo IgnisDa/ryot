@@ -33,7 +33,7 @@ A replay's batch is every unrecorded request registered before its first unrecor
 
 The queue worker settles the batch with the same `dispatchSandboxHostActivity` path the workflow activity uses, with bridge-call concurrency, and answers with one durable result per request. The results extend the runner's local journal and the script continues in the same process. The host records the entries it produced; the queue result carries them to the workflow, which validates them against the envelope's request identity and argument hashes and journals them before any request that ended the replay. Recovery replays load them like any other entry.
 
-The host defers the whole batch, and the replay ends pending as before, when any request is not activity-dispatched, when an `httpCall` origin matches or cannot be resolved against an HTTP rate-limit policy, when indices do not continue the journal the workflow passed with the replay, when the batch or the inline journal exceeds its byte limit, or when dispatch fails. A deferred batch may already have run some calls; the workflow runs them again. Grant-carrying and profiled executions never settle inline.
+The host defers the whole batch, and the replay ends pending as before, when any request is not activity-dispatched, when an `httpCall` origin matches or cannot be resolved against an HTTP rate-limit policy, when indices do not continue the journal the workflow passed with the replay, when the batch or the inline journal exceeds its byte limit, or when dispatch fails. A deferred batch may already have run some calls; the workflow runs them again. Grant-carrying executions never settle inline.
 
 The replay timeout covers script time only: it pauses while the host settles a batch, and the bridge session expiry moves by the same amount. A live replay therefore spends no more script time than a recovery replay of the same journal.
 
@@ -60,22 +60,6 @@ Workflow code cannot use ambient time or randomness. Expected workflow failure u
 - Each Deno process has a 256 MiB V8 old-space limit.
 
 `SANDBOX_PROCESS_MODE=on-demand` is the default. `warm` retains `SANDBOX_WORKER_CONCURRENCY + 2` prepared processes, but each is still checked out once and invalidated. Grant-carrying executions always spawn dedicated processes because permissions are execution-specific.
-
-## Benchmark Profiling
-
-`SANDBOX_BENCHMARK_PROFILE_DIR` is unset in production and every profiling control fails closed
-while it is. When it is set, admin-gated test-support operations arm one opaque correlation token
-against a script slug; the next matching logical execution and each of its replay attempts run in a
-dedicated process with `--cpu-prof-dir` and, when heap snapshots are requested, an inspector bound to
-localhost. The runner reports checkpoints (runner ready, module imported, journal loaded, dependency
-settled, host call settled, result built, response encoded) over the authenticated bridge and exits
-after responding so Deno flushes its CPU profile. The host records `smaps_rollup` and
-`Deno.memoryUsage()` at each checkpoint and streams heap snapshots into mode-0600 files. A profiled
-execution also gets a longer timeout, because snapshots pause the profiled process.
-
-Backend profiling uses `bun:jsc`: a sampling CPU profile between start and stop, V8-format heap
-snapshots, a heap census, and an explicit collection. Unprofiled executions keep their existing
-process, flags, timeout, and session behaviour byte for byte.
 
 ## Filesystem And Dependencies
 
