@@ -54,9 +54,12 @@ describe("Effect-native client capabilities", () => {
 			const output = Schema.Struct({ greeting: Schema.String });
 			expect(
 				yield* Effect.flip(
-					Reflect.apply(client.operations.invoke, client.operations, [
-						{ output, slug: "greet", pluginSlug: "fixture", input: { bad: undefined } },
-					]),
+					client.operations.invoke({
+						output,
+						slug: "greet",
+						input: Number.NaN,
+						pluginSlug: "fixture",
+					}),
 				),
 			).toMatchObject({ reason: "invalid-input" });
 			expect(calls).toBe(0);
@@ -146,7 +149,9 @@ describe("Effect-native client capabilities", () => {
 						),
 				}),
 			);
-			const fiber = Effect.runFork(client.assets.resolve([asset]));
+			const fiber = yield* Effect.forkChild(client.assets.resolve([asset]), {
+				startImmediately: true,
+			});
 			yield* Fiber.interrupt(fiber);
 			expect(interrupted).toBe(1);
 		}),
