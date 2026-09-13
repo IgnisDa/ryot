@@ -29,7 +29,7 @@
 	},
 	"devDependencies": {
 		"@testcontainers/postgresql": "11.14.0",
-		"bun-types": "1.4.0",
+		"bun-types": "1.4.2",
 		"testcontainers": "11.14.0"
 	},
 	"peerDependencies": {
