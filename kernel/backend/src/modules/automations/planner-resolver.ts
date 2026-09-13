@@ -233,25 +233,31 @@ export class AutomationPlannerResolver extends Context.Service<AutomationPlanner
 				return created;
 			};
 			const lockCatalog = Effect.fn(function* (users: ReadonlyArray<UserId | null>) {
-				const db = yield* session.current;
-				const memo = memoFor(db);
-				const key = [...new Set(users.map((id) => id ?? " system"))].sort().join("\u0000");
-				if (memo.lockedSets.has(key)) {
-					return;
-				}
-				yield* lockCatalogUncached(users);
-				memo.lockedSets.add(key);
+				yield* session.run((db) =>
+					Effect.gen(function* () {
+						const memo = memoFor(db);
+						const key = [...new Set(users.map((id) => id ?? " system"))].sort().join("\u0000");
+						if (memo.lockedSets.has(key)) {
+							return;
+						}
+						yield* lockCatalogUncached(users);
+						memo.lockedSets.add(key);
+					}),
+				);
 			});
 			const catalog = Effect.fn(function* (userId: UserId | null) {
-				const db = yield* session.current;
-				const memo = memoFor(db);
-				const cached = memo.catalogs.get(userId);
-				if (cached) {
-					return cached;
-				}
-				const resolved = yield* catalogUncached(userId);
-				memo.catalogs.set(userId, resolved);
-				return resolved;
+				return yield* session.run((db) =>
+					Effect.gen(function* () {
+						const memo = memoFor(db);
+						const cached = memo.catalogs.get(userId);
+						if (cached) {
+							return cached;
+						}
+						const resolved = yield* catalogUncached(userId);
+						memo.catalogs.set(userId, resolved);
+						return resolved;
+					}),
+				);
 			});
 			const resolve = Effect.fn(function* (
 				trigger: AutomationTrigger,

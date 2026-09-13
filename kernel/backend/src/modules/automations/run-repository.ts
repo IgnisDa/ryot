@@ -275,31 +275,32 @@ export class AutomationRunRepository extends Context.Service<AutomationRunReposi
 				);
 				return yield* session
 					.transaction(
-						Effect.gen(function* () {
-							const transaction = yield* session.current;
-							const rows = yield* transaction
-								.select({ id: table.id })
-								.from(table)
-								.where(queuedPolicy)
-								.orderBy(asc(table.id))
-								.for("update");
-							if (rows.length === 0) {
-								return;
-							}
-							const finishedAt = DateTime.toDate(yield* DateTime.now);
-							yield* transaction
-								.update(table)
-								.set({ finishedAt, status: "skipped", skipReason: policyChainStopped })
-								.where(
-									and(
-										queuedPolicy,
-										inArray(
-											table.id,
-											rows.map(({ id }) => id),
+						session.run((transaction) =>
+							Effect.gen(function* () {
+								const rows = yield* transaction
+									.select({ id: table.id })
+									.from(table)
+									.where(queuedPolicy)
+									.orderBy(asc(table.id))
+									.for("update");
+								if (rows.length === 0) {
+									return;
+								}
+								const finishedAt = DateTime.toDate(yield* DateTime.now);
+								yield* transaction
+									.update(table)
+									.set({ finishedAt, status: "skipped", skipReason: policyChainStopped })
+									.where(
+										and(
+											queuedPolicy,
+											inArray(
+												table.id,
+												rows.map(({ id }) => id),
+											),
 										),
-									),
-								);
-						}),
+									);
+							}),
+						),
 					)
 					.pipe(
 						Effect.mapError((error) =>
