@@ -58,11 +58,11 @@ describe("backup lifecycle", () => {
 				expect(Number.isNaN(Date.parse(timestamp ?? ""))).toBe(false);
 			}
 
-			const download = yield* downloadBackupArchive(owner.token, runId);
+			const download = yield* downloadBackupArchive(owner.client, runId);
 			expect(download.bytes.byteLength).toBeGreaterThan(0);
 			expect(download.bytes.slice(0, 2)).toEqual(new Uint8Array([0x50, 0x4b]));
 			expect(download.headers.get("content-disposition")).toMatch(
-				/^attachment; filename="ryot-backup-.+\.zip"$/,
+				/^attachment; filename="ryot-backup-.+\.zip"; filename\*=UTF-8''ryot-backup-.+\.zip$/,
 			);
 
 			expect(
@@ -74,14 +74,16 @@ describe("backup lifecycle", () => {
 			assertTaggedError(deleteError, "BackupNotFound");
 			expect(deleteError.reason).toEqual({ code: "run-not-found" });
 
-			const otherDownload = yield* webRequest(`${getApiUrl()}/backups/runs/${runId}/download`, {
-				headers: { Authorization: `Bearer ${other.token}` },
-			});
-			const unauthenticatedDownload = yield* webRequest(
-				`${getApiUrl()}/backups/runs/${runId}/download`,
+			const foreignTicket = yield* Effect.flip(
+				other.client.call((c) =>
+					c.backups.createDownloadTicket({ params: { id: BackupRunId.make(runId) } }),
+				),
 			);
-			expect(otherDownload.status).toBe(404);
-			expect(unauthenticatedDownload.status).toBe(401);
+			assertTaggedError(foreignTicket, "BackupNotFound");
+			const invalidTicket = yield* webRequest(
+				`${getApiUrl()}/backups/runs/${runId}/download?ticket=invalid`,
+			);
+			expect(invalidTicket.status).toBe(404);
 
 			expect(
 				yield* owner.client.call((c) =>
@@ -143,7 +145,6 @@ describe("backup lifecycle", () => {
 							capabilities: [],
 							name: "Backup asset fixture",
 							requiredPluginConfigKeys: [],
-							requiredSystemConfigKeys: [],
 						},
 					],
 				}),
@@ -191,7 +192,7 @@ describe("backup lifecycle", () => {
 			);
 			assertTaggedError(sourceOwnershipError, "UploadBadRequest");
 
-			const { bytes: archive } = yield* exportAndDownloadBackup(source.client, source.token);
+			const { bytes: archive } = yield* exportAndDownloadBackup(source.client);
 			yield* deleteUserAndWait(source.userId);
 
 			const target = yield* createAuthenticatedClient();

@@ -15,17 +15,20 @@ import { fitnessPlugin } from "./plugin";
 const expectedImportSources = [
 	{
 		slug: "hevy",
+		timezone: true,
 		label: "Hevy export",
 		docsUrl: "https://docs.ryot.io/importing/hevy.html",
 		description: "Import workouts from a Hevy CSV export",
 	},
 	{
+		timezone: true,
 		slug: "strong_app",
 		label: "Strong App export",
 		description: "Import workouts from a Strong CSV export",
 		docsUrl: "https://docs.ryot.io/importing/strong-app.html",
 	},
 	{
+		timezone: false,
 		slug: "open_scale",
 		label: "OpenScale export",
 		docsUrl: "https://docs.ryot.io/importing/open-scale.html",
@@ -132,12 +135,25 @@ it("declares the complete fitness-owned source", () => {
 					validation: { minLength: 1, required: true },
 					format: { kind: "upload", allowedFileExtensions: ["csv"] },
 				},
+				...(expected.timezone
+					? {
+							timezone: {
+								position: 1,
+								type: "string",
+								label: "Timezone",
+								format: { kind: "timezone" },
+								validation: { required: true },
+								description: expect.any(String),
+							},
+						}
+					: {}),
 			},
 		});
 		expect(() =>
-			Schema.decodeSync(FitnessCreateImportRunBody)({
+			Schema.decodeUnknownSync(FitnessCreateImportRunBody)({
 				source: source.slug,
 				uploadToken: "upload-1",
+				...(expected.timezone ? { timezone: "Asia/Kolkata" } : {}),
 			}),
 		).not.toThrow();
 	}
@@ -148,17 +164,9 @@ it("declares the complete fitness-owned source", () => {
 			capabilities,
 		})),
 	).toEqual([
-		{
-			kind: "script",
-			slug: "import.hevy",
-			capabilities: ["artifact-read", "scratch", "getSystemConfig"],
-		},
+		{ kind: "script", slug: "import.hevy", capabilities: ["artifact-read", "scratch"] },
 		{ kind: "script", slug: "import.open-scale", capabilities: ["artifact-read", "scratch"] },
-		{
-			kind: "script",
-			slug: "import.strong-app",
-			capabilities: ["artifact-read", "scratch", "getSystemConfig"],
-		},
+		{ kind: "script", slug: "import.strong-app", capabilities: ["artifact-read", "scratch"] },
 	]);
 	expect(userBootstrapManifest).toMatchObject({
 		kind: "script",

@@ -87,7 +87,6 @@ const populationReferencesLayer = (
 							name: "Catalog refresh",
 							slug: "catalog.refresh",
 							requiredPluginConfigKeys: [],
-							requiredSystemConfigKeys: [],
 						},
 					}),
 			}),

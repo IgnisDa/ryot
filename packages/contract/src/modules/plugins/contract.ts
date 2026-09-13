@@ -10,6 +10,7 @@ import {
 } from "../../auth-middleware";
 import { AuthenticatedMutationEndpoint } from "../../authenticated-mutation-endpoint";
 import { PluginSlug, UserId } from "../../schema/brands";
+import { JsonValue } from "../../schema/json";
 import {
 	InstallPluginBody,
 	PluginInstallResult,
@@ -125,6 +126,38 @@ export const PluginsGroup = HttpApiGroup.make("plugins")
 				],
 			},
 		).annotate(OpenApi.Description, "Sets or clears the caller's plugin home saved view."),
+	)
+	.add(
+		AuthenticatedMutationEndpoint.put("protected")(
+			"saveUserSettings",
+			"/plugins/installations/:installationId/user-settings",
+			{
+				params: { installationId: Schema.String },
+				payload: Schema.Record(Schema.String, JsonValue),
+				success: Schema.Void.pipe(HttpApiSchema.status(204)),
+				error: [
+					PluginRequestError.pipe(HttpApiSchema.status(400)),
+					PluginNotFoundError.pipe(HttpApiSchema.status(404)),
+				],
+			},
+		).annotate(OpenApi.Description, "Saves the caller's settings for a plugin installation."),
+	)
+	.add(
+		AuthenticatedMutationEndpoint.delete("protected")(
+			"resetUserSettings",
+			"/plugins/installations/:installationId/user-settings",
+			{
+				params: { installationId: Schema.String },
+				success: Schema.Void.pipe(HttpApiSchema.status(204)),
+				error: [
+					PluginRequestError.pipe(HttpApiSchema.status(400)),
+					PluginNotFoundError.pipe(HttpApiSchema.status(404)),
+				],
+			},
+		).annotate(
+			OpenApi.Description,
+			"Resets the caller's settings for a plugin installation to defaults.",
+		),
 	)
 	.middleware(AuthMiddleware)
 	.add(

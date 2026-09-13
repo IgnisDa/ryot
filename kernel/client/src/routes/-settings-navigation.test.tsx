@@ -3,7 +3,7 @@ import type { UpdateUserPreferencesBody } from "@ryot-app/contract/modules/user-
 import type { PluginClientCatalog } from "@ryot-app/ryotql-recipes/plugin-client-catalog";
 import { RouterProvider, createMemoryHistory } from "@tanstack/react-router";
 import { fireEvent, render, screen, waitFor, within } from "@testing-library/react";
-import { Deferred, Effect, Layer, ManagedRuntime } from "effect";
+import { Clock, DateTime, Deferred, Effect, Layer, ManagedRuntime } from "effect";
 
 import { AuthenticatedApiError } from "#/api/authenticated";
 import {
@@ -139,6 +139,21 @@ const mountView = (
 	return { ...view, router, interestEvents };
 };
 
+const mountImpersonationView = (
+	expiresAt: number,
+	signOut: AuthService["Service"]["signOut"],
+	clears: string[],
+) =>
+	mountView(
+		"/settings/account",
+		"fixture",
+		catalog,
+		makeAuthStub(
+			{ signOut, clearSession: (origin) => Effect.sync(() => clears.push(origin)) },
+			{ ...authenticated, impersonation: { expiresAt } },
+		),
+	);
+
 describe("authenticated route gate", () => {
 	it.live(
 		"owns one interest session across loader revalidation and releases it on unmount without fetching preferences",
@@ -182,6 +197,46 @@ describe("authenticated route gate", () => {
 });
 
 describe("settings navigation", () => {
+	it.live("shows the impersonated identity and stops through OAuth sign-out", () =>
+		Effect.gen(function* () {
+			const signOuts: string[] = [];
+			const clears: string[] = [];
+			const expiresAt = (yield* Clock.currentTimeMillis) + 60 * 60 * 1000;
+			mountImpersonationView(
+				expiresAt,
+				(origin) => Effect.sync(() => signOuts.push(origin)).pipe(Effect.as(true)),
+				clears,
+			);
+			const banner = yield* Effect.promise(() => screen.findByTestId("impersonation-banner"));
+
+			expect(banner.textContent).toContain("Test User");
+			expect(banner.textContent).toContain("user@ryot.example");
+			expect(banner.textContent).toContain(
+				new Intl.DateTimeFormat(undefined, { timeStyle: "short", dateStyle: "medium" }).format(
+					DateTime.toDate(DateTime.makeUnsafe(expiresAt)),
+				),
+			);
+			fireEvent.click(screen.getByRole("button", { name: "Stop impersonating" }));
+			yield* Effect.promise(() => waitFor(() => expect(signOuts).toEqual([server])));
+			expect(clears).toEqual([]);
+		}),
+	);
+
+	it.live("keeps the banner and reports when server logout cannot open", () =>
+		Effect.gen(function* () {
+			const clears: string[] = [];
+			const expiresAt = (yield* Clock.currentTimeMillis) + 60 * 60 * 1000;
+			mountImpersonationView(expiresAt, () => Effect.succeed(false), clears);
+			yield* Effect.promise(() => screen.findByTestId("impersonation-banner"));
+
+			fireEvent.click(screen.getByRole("button", { name: "Stop impersonating" }));
+			const error = yield* Effect.promise(() => screen.findByRole("alert"));
+			expect(error.textContent).toBe("Could not open the server logout page. Please try again.");
+			expect(screen.getByTestId("impersonation-banner")).toBeTruthy();
+			expect(clears).toEqual([]);
+		}),
+	);
+
 	it.live("marks the active section on the desktop settings sidebar", () =>
 		Effect.gen(function* () {
 			const view = mountView("/settings/preferences");
@@ -203,6 +258,20 @@ describe("settings navigation", () => {
 			);
 			expect(accountAfterNavigate.getAttribute("aria-current")).toBe("page");
 			expect(accountAfterNavigate.getAttribute("class")).toContain("bg-nav-indicator");
+		}),
+	);
+
+	it.live("groups the sections with server-wide sections last", () =>
+		Effect.gen(function* () {
+			mountView("/settings/preferences");
+			const sidebar = yield* Effect.promise(() => screen.findByTestId("settings-sidebar"));
+			const labels = (group: string) =>
+				within(within(sidebar).getByRole("group", { name: group }))
+					.getAllByRole("link")
+					.map((link) => link.textContent);
+
+			expect(labels("You")).toEqual(["Preferences", "Plugin preferences", "Account"]);
+			expect(labels("Server")).toEqual(["Administration", "About"]);
 		}),
 	);
 
@@ -444,8 +513,6 @@ describe("account settings", () => {
 			);
 			expect(avatar.hasAttribute("disabled")).toBe(false);
 			expect(screen.getByRole("button", { name: "Sign out" }).hasAttribute("disabled")).toBe(false);
-			expect(screen.getByRole("heading", { name: "Server" })).not.toBeNull();
-			expect(screen.getByRole("link", { name: /God Mode/ })).not.toBeNull();
 		}),
 	);
 
@@ -490,28 +557,7 @@ describe("account settings", () => {
 		}),
 	);
 
-	it.live("opens standalone God Mode from the server administration card", () =>
-		Effect.gen(function* () {
-			const view = mountView("/settings/account");
-			const administration = yield* Effect.promise(() =>
-				screen.findByRole("heading", { name: "Server administration" }),
-			);
-			const section = administration.closest("section");
-			if (section === null) {
-				throw new Error("Server administration heading must be inside a section");
-			}
-			expect(section.textContent).toContain("Requires an admin access token");
-
-			fireEvent.click(within(section).getByRole("link", { name: /God Mode/ }));
-			yield* Effect.promise(() => screen.findByRole("heading", { name: "God Mode" }));
-			expect(view.router.state.location.pathname).toBe("/god-mode/users");
-			expect(screen.queryByTestId("authenticated-shell")).toBeNull();
-			expect(screen.queryByTestId("mobile-drawer")).toBeNull();
-			expect(screen.queryByTitle("fixture plugin")).toBeNull();
-		}),
-	);
-
-	it.live("names the connected server on native and points at sign out to change it", () =>
+	it.live("keeps server-wide sections off the account page", () =>
 		Effect.gen(function* () {
 			mountView(
 				"/settings/account",
@@ -523,22 +569,99 @@ describe("account settings", () => {
 				undefined,
 				makeOAuthRouteStubs({}, {}, { isNative: true }),
 			);
-			yield* Effect.promise(() => screen.findByRole("heading", { name: "Account" }));
+			yield* Effect.promise(() => screen.findByRole("button", { name: "New avatar" }));
 
-			const section = screen.getByRole("heading", { name: "Server" }).closest("section");
-			expect(section?.textContent).toContain("https://ryot.example");
-			expect(section?.textContent).toContain(
-				"Sign out to connect this device to a different server.",
+			expect(screen.queryByRole("heading", { name: "Server administration" })).toBeNull();
+			expect(screen.queryByRole("heading", { name: "Server" })).toBeNull();
+			expect(screen.queryByRole("heading", { name: "Version" })).toBeNull();
+		}),
+	);
+	it.live("hides two-factor management from accounts without a password", () =>
+		Effect.gen(function* () {
+			mountView("/settings/account");
+			yield* Effect.promise(() => screen.findByRole("button", { name: "New avatar" }));
+
+			expect(screen.queryByRole("heading", { name: "Two-factor authentication" })).toBeNull();
+		}),
+	);
+
+	it.live("hides two-factor management from the shared demo", () =>
+		Effect.gen(function* () {
+			mountView(
+				"/settings/account",
+				undefined,
+				undefined,
+				makeAuthStub({}, { ...authenticated, accessClass: "demo" }),
+				undefined,
+				undefined,
+				makeUserSettingsStub({
+					twoFactorStatus: () => Effect.succeed({ enabled: true, available: true }),
+				}),
+			);
+			yield* Effect.promise(() => screen.findByRole("button", { name: "New avatar" }));
+
+			expect(screen.queryByRole("heading", { name: "Two-factor authentication" })).toBeNull();
+		}),
+	);
+
+	it.live("links web users to the hosted two-factor page with the current status", () =>
+		Effect.gen(function* () {
+			mountView(
+				"/settings/account",
+				undefined,
+				undefined,
+				undefined,
+				undefined,
+				undefined,
+				makeUserSettingsStub({
+					twoFactorStatus: () => Effect.succeed({ enabled: true, available: true }),
+				}),
+			);
+
+			const heading = yield* Effect.promise(() =>
+				screen.findByRole("heading", { name: "Two-factor authentication" }),
+			);
+			const section = heading.closest("section");
+			if (section === null) {
+				throw new Error("Two-factor heading must be inside a section");
+			}
+			yield* Effect.promise(() => within(section).findByText("On"));
+			expect(within(section).getByRole("link", { name: "Manage" }).getAttribute("href")).toBe(
+				"/oauth/two-factor?from=settings",
 			);
 		}),
 	);
 
-	it.live("hides the server section on web, where the origin cannot be changed", () =>
+	it.live("opens the hosted two-factor page natively and refreshes the status when it closes", () =>
 		Effect.gen(function* () {
-			mountView("/settings/account");
-			yield* Effect.promise(() => screen.findByRole("heading", { name: "Account" }));
+			const opened: string[] = [];
+			mountView(
+				"/settings/account",
+				undefined,
+				undefined,
+				undefined,
+				undefined,
+				undefined,
+				makeUserSettingsStub({
+					twoFactorStatus: () => Effect.succeed({ available: true, enabled: opened.length > 0 }),
+				}),
+				makeOAuthRouteStubs(
+					{},
+					{
+						openTwoFactorManagement: (origin) =>
+							Effect.sync(() => {
+								opened.push(origin);
+							}),
+					},
+					{ isNative: true },
+				),
+			);
 
-			expect(screen.queryByRole("heading", { name: "Server" })).toBeNull();
+			yield* Effect.promise(() => screen.findByText("Off"));
+			fireEvent.click(screen.getByRole("button", { name: "Manage" }));
+
+			yield* Effect.promise(() => screen.findByText("On"));
+			expect(opened).toEqual([server]);
 		}),
 	);
 
@@ -735,6 +858,62 @@ describe("account settings", () => {
 	);
 });
 
+describe("administration settings", () => {
+	it.live("opens standalone God Mode from the server administration card", () =>
+		Effect.gen(function* () {
+			const view = mountView("/settings/administration");
+			const administration = yield* Effect.promise(() =>
+				screen.findByRole("heading", { name: "Server administration" }),
+			);
+			const section = administration.closest("section");
+			if (section === null) {
+				throw new Error("Server administration heading must be inside a section");
+			}
+			expect(section.textContent).toContain("Requires an admin access token");
+
+			fireEvent.click(within(section).getByRole("link", { name: /God Mode/ }));
+			yield* Effect.promise(() => screen.findByRole("heading", { name: "God Mode" }));
+			expect(view.router.state.location.pathname).toBe("/god-mode/users");
+			expect(screen.queryByTestId("authenticated-shell")).toBeNull();
+			expect(screen.queryByTestId("mobile-drawer")).toBeNull();
+			expect(screen.queryByTitle("fixture plugin")).toBeNull();
+		}),
+	);
+});
+
+describe("about settings", () => {
+	it.live("names the connected server on native and points at sign out to change it", () =>
+		Effect.gen(function* () {
+			mountView(
+				"/settings/about",
+				undefined,
+				undefined,
+				undefined,
+				undefined,
+				undefined,
+				undefined,
+				makeOAuthRouteStubs({}, {}, { isNative: true }),
+			);
+			yield* Effect.promise(() => screen.findByRole("heading", { name: "About" }));
+
+			const section = screen.getByRole("heading", { name: "Server" }).closest("section");
+			expect(section?.textContent).toContain("https://ryot.example");
+			expect(section?.textContent).toContain(
+				"To connect this device to a different server, sign out from Account.",
+			);
+		}),
+	);
+
+	it.live("hides the server section on web, where the origin cannot be changed", () =>
+		Effect.gen(function* () {
+			mountView("/settings/about");
+			yield* Effect.promise(() => screen.findByRole("heading", { name: "About" }));
+
+			expect(screen.queryByRole("heading", { name: "Server" })).toBeNull();
+		}),
+	);
+});
+
 const mountPreferences = (
 	userSettingsLayer = makeUserSettingsStub(),
 	authLayer: Layer.Layer<AuthService> = AuthStub,
@@ -770,14 +949,8 @@ describe("preferences settings", () => {
 				screen.findByText("This operation is unavailable while using the shared demo account."),
 			);
 			expect(
-				screen.getByRole("switch", { name: "Show NSFW content" }).hasAttribute("disabled"),
-			).toBe(true);
-			expect(
-				screen.getByRole("switch", { name: "Disable integrations" }).hasAttribute("disabled"),
-			).toBe(true);
-			expect(
 				screen
-					.getByRole("button", { name: "Metadata language: Provider default" })
+					.getByRole("button", { name: "Entity language: Provider default" })
 					.hasAttribute("disabled"),
 			).toBe(true);
 			expect(screen.getByRole("button", { name: "Save changes" }).hasAttribute("disabled")).toBe(
@@ -794,13 +967,20 @@ describe("preferences settings", () => {
 	it.live("renders appearance beside the server-backed preferences", () =>
 		Effect.gen(function* () {
 			mountPreferences();
-			yield* Effect.promise(() => screen.findByRole("switch", { name: "Show NSFW content" }));
+			yield* Effect.promise(() =>
+				screen.findByRole("button", { name: "Entity language: Provider default" }),
+			);
 
 			expect(screen.getByRole("radiogroup", { name: "Appearance" })).not.toBeNull();
-			expect(screen.getByRole("switch", { name: "Show NSFW content" })).not.toBeNull();
-			expect(screen.getByRole("switch", { name: "Disable integrations" })).not.toBeNull();
+			expect(screen.getByRole("heading", { name: "Language" })).not.toBeNull();
 			expect(
-				screen.getByRole("button", { name: "Metadata language: Provider default" }),
+				screen.getByText(
+					"Choose the preferred language for translated entity names and details. Availability depends on the provider.",
+				),
+			).not.toBeNull();
+			expect(screen.queryByRole("switch")).toBeNull();
+			expect(
+				screen.getByRole("button", { name: "Entity language: Provider default" }),
 			).not.toBeNull();
 		}),
 	);
@@ -829,21 +1009,22 @@ describe("preferences settings", () => {
 			);
 			expect(submit.hasAttribute("disabled")).toBe(true);
 
-			fireEvent.click(screen.getByRole("switch", { name: "Show NSFW content" }));
+			fireEvent.click(screen.getByRole("button", { name: "Entity language: Provider default" }));
+			fireEvent.click(screen.getByRole("radio", { name: "Spanish" }));
 			expect(submit.hasAttribute("disabled")).toBe(false);
 			fireEvent.click(submit);
 
 			yield* Effect.promise(() => screen.findByText("Preferences saved."));
 			yield* Effect.promise(() => waitFor(() => expect(settingsReads).toBe(2)));
-			expect(saved).toEqual([{ allowNsfw: true }]);
-			expect(view.interestEvents).toEqual(["acquire"]);
+			expect(saved).toEqual([{ language: "es" }]);
+			expect(view.interestEvents).toEqual(["acquire", "reconnect"]);
 			expect(screen.getByRole("button", { name: "Save changes" }).hasAttribute("disabled")).toBe(
 				true,
 			);
 		}),
 	);
 
-	it.live("submits a metadata language picked from the options", () =>
+	it.live("submits a custom entity language code", () =>
 		Effect.gen(function* () {
 			const saved: UpdateUserPreferencesBody[] = [];
 			const view = mountPreferences(
@@ -856,12 +1037,15 @@ describe("preferences settings", () => {
 			);
 			yield* Effect.promise(() => screen.findByRole("button", { name: "Save changes" }));
 
-			fireEvent.click(screen.getByRole("button", { name: "Metadata language: Provider default" }));
-			fireEvent.click(screen.getByRole("radio", { name: "Spanish" }));
+			fireEvent.click(screen.getByRole("button", { name: "Entity language: Provider default" }));
+			fireEvent.click(screen.getByRole("radio", { name: "Other language..." }));
+			fireEvent.change(screen.getByRole("textbox", { name: "Custom entity language code" }), {
+				target: { value: "sv" },
+			});
 			fireEvent.click(screen.getByRole("button", { name: "Save changes" }));
 
 			yield* Effect.promise(() => screen.findByText("Preferences saved."));
-			expect(saved).toEqual([{ language: "es" }]);
+			expect(saved).toEqual([{ language: "sv" }]);
 			expect(view.interestEvents).toEqual(["acquire", "reconnect"]);
 		}),
 	);
@@ -871,7 +1055,8 @@ describe("preferences settings", () => {
 			const gate = Deferred.makeUnsafe<void>();
 			mountPreferences(makeUserSettingsStub({ updatePreferences: () => Deferred.await(gate) }));
 			yield* Effect.promise(() => screen.findByRole("button", { name: "Save changes" }));
-			fireEvent.click(screen.getByRole("switch", { name: "Show NSFW content" }));
+			fireEvent.click(screen.getByRole("button", { name: "Entity language: Provider default" }));
+			fireEvent.click(screen.getByRole("radio", { name: "Spanish" }));
 			fireEvent.click(screen.getByRole("button", { name: "Save changes" }));
 
 			const savingButton = yield* Effect.promise(() =>
@@ -879,15 +1064,7 @@ describe("preferences settings", () => {
 			);
 			expect(savingButton.hasAttribute("disabled")).toBe(true);
 			expect(
-				screen.getByRole("switch", { name: "Show NSFW content" }).hasAttribute("disabled"),
-			).toBe(true);
-			expect(
-				screen.getByRole("switch", { name: "Disable integrations" }).hasAttribute("disabled"),
-			).toBe(true);
-			expect(
-				screen
-					.getByRole("button", { name: "Metadata language: Provider default" })
-					.hasAttribute("disabled"),
+				screen.getByRole("button", { name: "Entity language: Spanish" }).hasAttribute("disabled"),
 			).toBe(true);
 
 			yield* Deferred.succeed(gate, undefined);
@@ -895,13 +1072,13 @@ describe("preferences settings", () => {
 		}),
 	);
 
-	it.live("does not reconnect when a metadata language save fails", () =>
+	it.live("does not reconnect when an entity language save fails", () =>
 		Effect.gen(function* () {
 			const view = mountPreferences(
 				makeUserSettingsStub({ updatePreferences: () => Effect.die("save failed") }),
 			);
 			yield* Effect.promise(() => screen.findByRole("button", { name: "Save changes" }));
-			fireEvent.click(screen.getByRole("button", { name: "Metadata language: Provider default" }));
+			fireEvent.click(screen.getByRole("button", { name: "Entity language: Provider default" }));
 			fireEvent.click(screen.getByRole("radio", { name: "Spanish" }));
 			fireEvent.click(screen.getByRole("button", { name: "Save changes" }));
 			yield* Effect.promise(() => screen.findByText("Could not save preferences. Try again."));
@@ -916,13 +1093,14 @@ describe("preferences settings", () => {
 			);
 			yield* Effect.promise(() => screen.findByRole("button", { name: "Save changes" }));
 
-			fireEvent.click(screen.getByRole("switch", { name: "Disable integrations" }));
+			fireEvent.click(screen.getByRole("button", { name: "Entity language: Provider default" }));
+			fireEvent.click(screen.getByRole("radio", { name: "Spanish" }));
 			fireEvent.click(screen.getByRole("button", { name: "Save changes" }));
 
 			yield* Effect.promise(() => screen.findByText("Could not save preferences. Try again."));
 			expect(
-				screen.getByRole("switch", { name: "Disable integrations" }).getAttribute("aria-checked"),
-			).toBe("true");
+				screen.getByRole("button", { name: "Entity language: Spanish" }).hasAttribute("disabled"),
+			).toBe(false);
 			expect(screen.getByRole("button", { name: "Save changes" }).hasAttribute("disabled")).toBe(
 				false,
 			);
@@ -943,16 +1121,18 @@ describe("preferences settings", () => {
 					return userSettings;
 				}),
 			);
-			const nsfw = yield* Effect.promise(() =>
-				screen.findByRole("switch", { name: "Show NSFW content" }),
+			yield* Effect.promise(() =>
+				screen.findByRole("button", { name: "Entity language: Provider default" }),
 			);
 
-			fireEvent.click(nsfw);
+			fireEvent.click(screen.getByRole("button", { name: "Entity language: Provider default" }));
+			fireEvent.click(screen.getByRole("radio", { name: "Spanish" }));
+			const language = screen.getByRole("button", { name: "Entity language: Spanish" });
 			fireEvent.click(screen.getByRole("button", { name: "Save changes" }));
 
 			yield* Effect.promise(() => screen.findByText("Preferences saved."));
 			yield* Effect.promise(() => waitFor(() => expect(settingsReads).toBe(2)));
-			expect(screen.getByRole("switch", { name: "Show NSFW content" })).toBe(nsfw);
+			expect(screen.getByRole("button", { name: "Entity language: Spanish" })).toBe(language);
 			expect(
 				screen.queryByText("Could not load your settings. Check the server and try again."),
 			).toBeNull();

@@ -60,6 +60,7 @@ export default defineConfig({
 				link: "/importing/overview",
 				items: [
 					{ text: "Overview", link: "/importing/overview" },
+					{ text: "Data import and webhook", link: "/data-import" },
 					...importingSourceFiles,
 					{ text: "Community", link: "/importing/community" },
 				],

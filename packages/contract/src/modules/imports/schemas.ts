@@ -1,7 +1,8 @@
 import { Schema } from "effect";
 
-import { ImportRunId } from "../../schema/brands";
+import { EntitySchemaSlug, EventSchemaSlug, ImportRunId } from "../../schema/brands";
 import { jsonValueSchema } from "../sandbox/wire";
+import { importRunFailureStages } from "./types";
 
 export const ImportRunStatus = Schema.Literals([
 	"pending",
@@ -43,6 +44,7 @@ export class ImportNotFoundError extends Schema.TaggedError<ImportNotFoundError>
 ) {}
 
 export const ImportConflictReason = Schema.Union([
+	Schema.Struct({ runId: ImportRunId, code: Schema.Literal("submission-key-conflict") }),
 	Schema.Struct({
 		runId: ImportRunId,
 		status: ImportRunStatus,
@@ -77,6 +79,27 @@ export const ImportRunFailureReason = Schema.Union([
 ]);
 
 export type ImportRunFailureReason = typeof ImportRunFailureReason.Type;
+
+export const ImportRunFailureSchema = Schema.Struct({
+	id: Schema.String,
+	runId: ImportRunId,
+	createdAt: Schema.String,
+	itemIndex: Schema.Finite,
+	reason: ImportRunFailureReason,
+	sourceLabel: Schema.NullOr(Schema.String),
+	sourceIdentifier: Schema.NullOr(Schema.String),
+	eventSchemaSlug: Schema.NullOr(EventSchemaSlug),
+	entitySchemaSlug: Schema.NullOr(EntitySchemaSlug),
+	stage: Schema.Literals([...importRunFailureStages]),
+});
+
+export const ImportRunFailuresExport = Schema.Struct({
+	runId: ImportRunId,
+	source: Schema.String,
+	failures: Schema.Array(ImportRunFailureSchema),
+});
+
+export type ImportRunFailuresExport = typeof ImportRunFailuresExport.Type;
 
 export const importInternalPropertyNames: ReadonlySet<string> = new Set([
 	"integrationId",

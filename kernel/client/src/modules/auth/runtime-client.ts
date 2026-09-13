@@ -5,6 +5,8 @@ import {
 	getWebOAuthCallbackUri,
 	getWebOAuthLogoutCallbackUri,
 	NativeOAuthApplicationId,
+	OAUTH_IMPERSONATION_NATIVE_CLIENT_ID,
+	OAUTH_IMPERSONATION_WEB_CLIENT_ID,
 	OAUTH_NATIVE_CLIENT_ID,
 	OAUTH_WEB_CLIENT_ID,
 	type PendingAuthorization,
@@ -58,8 +60,18 @@ export const makeRuntimeOAuthClient = Effect.fnUntraced(function* (
 			})),
 		);
 	};
+	const forImpersonation = (origin: ServerOrigin) =>
+		forServer(origin).pipe(
+			Effect.map((client): RuntimeOAuthClientDescriptor => ({
+				...client,
+				clientId:
+					client.nativeApplicationId === null
+						? OAUTH_IMPERSONATION_WEB_CLIENT_ID
+						: OAUTH_IMPERSONATION_NATIVE_CLIENT_ID,
+			})),
+		);
 
-	return { isNative, forServer };
+	return { isNative, forServer, forImpersonation };
 });
 
 export class RuntimeOAuthClientService extends Context.Service<

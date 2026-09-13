@@ -10,8 +10,7 @@ const manifests = [
 		name: "Script",
 		slug: "script",
 		requiredPluginConfigKeys: [],
-		requiredSystemConfigKeys: ["timezone"],
-		capabilities: ["getCachedValue", "getSystemConfig"],
+		capabilities: ["getCachedValue"],
 	},
 	{
 		capabilities: [],
@@ -20,16 +19,14 @@ const manifests = [
 		slug: "automation.test",
 		automationType: "automation",
 		requiredPluginConfigKeys: [],
-		requiredSystemConfigKeys: [],
 		inputProjection: { signal: { properties: [] } },
 	},
 	{
 		kind: "provider",
 		name: "Provider",
 		slug: "provider.test",
+		capabilities: ["httpCall"],
 		requiredPluginConfigKeys: [],
-		capabilities: ["httpCall", "getSystemConfig"],
-		requiredSystemConfigKeys: ["videoGames.testApiKey"],
 		searchOptionsSchema: {
 			unknownKeys: "strict",
 			fields: {

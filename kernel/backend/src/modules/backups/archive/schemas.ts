@@ -1,4 +1,12 @@
 import { PluginClientArtifactFromBase64 } from "@ryot-app/client-plugin-contract";
+import {
+	DataRecordProperties,
+	DataRecordTimestamp,
+	dataJsonSource,
+	entityDataFields,
+	eventDataFields,
+	relationshipDataFields,
+} from "@ryot-app/contract/modules/imports/data-json";
 import { PluginManifest } from "@ryot-app/contract/modules/plugins/manifest";
 import { RyotQLDocument } from "@ryot-app/contract/modules/ryotql/language";
 import { jsonValueSchema, type JsonValue } from "@ryot-app/contract/modules/sandbox/wire";
@@ -6,7 +14,7 @@ import { KernelSavedViewRendererName } from "@ryot-app/contract/modules/saved-vi
 import { CanonicalBase64 } from "@ryot-app/contract/schema/base64";
 import { UserPreferences } from "@ryot-app/contract/schema/user-preferences";
 import { strictStruct } from "@ryot-app/contract/schema/utils";
-import { Result, Schema } from "effect";
+import { Schema } from "effect";
 
 const nonNegativeInteger = Schema.Finite.pipe(
 	Schema.check(Schema.isInt()),
@@ -19,15 +27,7 @@ const positiveInteger = Schema.Finite.pipe(
 const sha256 = Schema.String.pipe(
 	Schema.check(Schema.makeFilter((value) => /^[a-f0-9]{64}$/.test(value))),
 );
-const isoTimestamp = Schema.String.pipe(
-	Schema.check(
-		Schema.makeFilter((value) =>
-			Result.isSuccess(Schema.decodeResult(Schema.DateTimeUtcFromString)(value)),
-		),
-	),
-);
-const jsonObject = Schema.Record(Schema.String, jsonValueSchema);
-export const decodeArchiveJsonObject = Schema.decodeUnknownSync(jsonObject);
+export const decodeArchiveJsonObject = Schema.decodeUnknownSync(DataRecordProperties);
 
 export const isArchiveJsonObject = (value: unknown): value is Record<string, JsonValue> =>
 	typeof value === "object" && value !== null && !Array.isArray(value);
@@ -72,10 +72,10 @@ export const ArchiveRequiredPlugin = strictStruct({
 export type ArchiveRequiredPlugin = typeof ArchiveRequiredPlugin.Type;
 
 export const ArchiveManifest = strictStruct({
-	createdAt: isoTimestamp,
 	archiveId: Schema.String,
 	appVersion: Schema.String,
 	version: Schema.Literal(1),
+	createdAt: DataRecordTimestamp,
 	format: Schema.Literal("ryot-backup"),
 	redactions: Schema.Array(Schema.String),
 	assets: Schema.Array(ArchiveAssetManifest),
@@ -113,12 +113,13 @@ export type ArchivePrivatePlugin = typeof ArchivePrivatePlugin.Type;
 
 export const ArchiveInstallation = strictStruct({
 	id: Schema.String,
-	config: jsonObject,
-	createdAt: isoTimestamp,
-	updatedAt: isoTimestamp,
 	sortOrder: Schema.Finite,
 	packageKey: Schema.String,
+	config: DataRecordProperties,
 	hiddenIntent: Schema.Boolean,
+	createdAt: DataRecordTimestamp,
+	updatedAt: DataRecordTimestamp,
+	userSettings: DataRecordProperties,
 	homeSavedViewSlug: Schema.NullOr(Schema.String),
 	configuredSecretPaths: Schema.Array(Schema.String),
 	lifecycleIntent: Schema.Literals(["ready", "needs-configuration", "hidden"]),
@@ -131,25 +132,23 @@ const providerProvenance = Schema.NullOr(
 
 export const ArchiveUserEntity = strictStruct({
 	id: Schema.String,
-	name: Schema.String,
-	properties: jsonObject,
-	createdAt: isoTimestamp,
-	updatedAt: isoTimestamp,
+	...entityDataFields,
 	provider: providerProvenance,
-	entitySchemaSlug: Schema.String,
+	createdAt: DataRecordTimestamp,
+	updatedAt: DataRecordTimestamp,
 	externalId: Schema.NullOr(Schema.String),
-	populatedAt: Schema.NullOr(isoTimestamp),
+	populatedAt: Schema.NullOr(DataRecordTimestamp),
 	entitySchemaPluginKey: Schema.NullOr(Schema.String),
 });
 export type ArchiveUserEntity = typeof ArchiveUserEntity.Type;
 
 const ArchiveEntityTranslation = strictStruct({
 	language: Schema.String,
-	createdAt: isoTimestamp,
-	updatedAt: isoTimestamp,
+	createdAt: DataRecordTimestamp,
+	updatedAt: DataRecordTimestamp,
 	name: Schema.NullOr(Schema.String),
-	properties: Schema.NullOr(jsonObject),
-	populatedAt: Schema.NullOr(isoTimestamp),
+	properties: Schema.NullOr(DataRecordProperties),
+	populatedAt: Schema.NullOr(DataRecordTimestamp),
 });
 type ArchiveEntityTranslation = typeof ArchiveEntityTranslation.Type;
 
@@ -170,15 +169,13 @@ const dependencyIdentity = Schema.Union([
 
 export const ArchiveEntityDependency = strictStruct({
 	id: Schema.String,
-	name: Schema.String,
-	properties: jsonObject,
-	createdAt: isoTimestamp,
-	updatedAt: isoTimestamp,
+	...entityDataFields,
 	provider: providerProvenance,
 	identity: dependencyIdentity,
-	entitySchemaSlug: Schema.String,
+	createdAt: DataRecordTimestamp,
+	updatedAt: DataRecordTimestamp,
 	externalId: Schema.NullOr(Schema.String),
-	populatedAt: Schema.NullOr(isoTimestamp),
+	populatedAt: Schema.NullOr(DataRecordTimestamp),
 	entitySchemaPluginKey: Schema.NullOr(Schema.String),
 	translations: Schema.Array(ArchiveEntityTranslation),
 });
@@ -186,11 +183,10 @@ export type ArchiveEntityDependency = typeof ArchiveEntityDependency.Type;
 
 export const ArchiveRelationship = strictStruct({
 	id: Schema.String,
-	properties: jsonObject,
-	createdAt: isoTimestamp,
+	...relationshipDataFields,
 	sourceEntityId: Schema.String,
 	targetEntityId: Schema.String,
-	relationshipSchemaSlug: Schema.String,
+	createdAt: DataRecordTimestamp,
 	scope: Schema.Literals(["global", "user"]),
 	relationshipSchemaPluginKey: Schema.NullOr(Schema.String),
 });
@@ -198,12 +194,10 @@ export type ArchiveRelationship = typeof ArchiveRelationship.Type;
 
 export const ArchiveEvent = strictStruct({
 	id: Schema.String,
-	properties: jsonObject,
-	createdAt: isoTimestamp,
-	updatedAt: isoTimestamp,
+	...eventDataFields,
 	entityId: Schema.String,
-	occurredAt: isoTimestamp,
-	eventSchemaSlug: Schema.String,
+	createdAt: DataRecordTimestamp,
+	updatedAt: DataRecordTimestamp,
 	sessionEntityId: Schema.NullOr(Schema.String),
 	eventSchemaPluginKey: Schema.NullOr(Schema.String),
 });
@@ -214,10 +208,10 @@ const savedViewFields = {
 	slug: Schema.String,
 	name: Schema.String,
 	icon: Schema.String,
-	createdAt: isoTimestamp,
-	updatedAt: isoTimestamp,
 	sortOrder: Schema.Finite,
 	isHidden: Schema.Boolean,
+	createdAt: DataRecordTimestamp,
+	updatedAt: DataRecordTimestamp,
 	pluginKey: Schema.NullOr(Schema.String),
 	dataSources: Schema.NullOr(RyotQLDocument),
 	settings: Schema.Record(Schema.String, jsonValueSchema),
@@ -252,20 +246,28 @@ export type ArchiveSavedView = typeof ArchiveSavedView.Type;
 export const ArchiveIntegration = strictStruct({
 	id: Schema.String,
 	provider: Schema.String,
-	createdAt: isoTimestamp,
-	updatedAt: isoTimestamp,
-	packageKey: Schema.String,
 	isDisabled: Schema.Boolean,
 	syncOwnership: Schema.Boolean,
-	providerSpecifics: jsonObject,
+	createdAt: DataRecordTimestamp,
+	updatedAt: DataRecordTimestamp,
 	minimumProgress: Schema.String,
 	maximumProgress: Schema.String,
 	name: Schema.NullOr(Schema.String),
-	lastFinishedAt: Schema.NullOr(isoTimestamp),
+	providerSpecifics: DataRecordProperties,
+	packageKey: Schema.NullOr(Schema.String),
 	lot: Schema.Literals(["yank", "sink", "push"]),
+	lastFinishedAt: Schema.NullOr(DataRecordTimestamp),
 	configuredSecretPaths: Schema.Array(Schema.String),
 	extraSettings: strictStruct({ disableOnContinuousErrors: Schema.Boolean }),
-});
+}).pipe(
+	Schema.check(
+		Schema.makeFilter((record) =>
+			record.packageKey === null
+				? record.provider === dataJsonSource && record.lot === "sink"
+				: record.provider !== dataJsonSource,
+		),
+	),
+);
 export type ArchiveIntegration = typeof ArchiveIntegration.Type;
 
 export const ArchiveNotificationSubscription = strictStruct({

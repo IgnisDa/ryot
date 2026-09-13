@@ -4,6 +4,7 @@ import { BackupRunId, UserId } from "@ryot-app/contract/schema/brands";
 import { Context, Effect, Layer, Ref, Stream } from "effect";
 import { WorkflowEngine } from "effect/unstable/workflow/WorkflowEngine";
 
+import { DownloadTickets } from "#lib/infrastructure/download-tickets";
 import { databaseLayer, makeWorkflowEngine, type MockOverrides } from "#lib/test-utils/effect";
 import { ObjectStorageService } from "#modules/uploads/object-storage/service";
 
@@ -16,7 +17,7 @@ const user: CurrentUserValue = {
 	name: "Backup User",
 	id: UserId.make("user-1"),
 	email: "backup@example.com",
-	preferences: { language: null, allowNsfw: false, disableIntegrations: false },
+	preferences: { language: null, disableIntegrations: false },
 	accountGeneration: { userId: UserId.make("user-1"), token: "test-account-generation" },
 };
 const timestamp = "2026-08-23T12:00:00.000Z";
@@ -74,6 +75,11 @@ const makeLayer = (input: {
 				Layer.mock(BackupAccountCleanliness, {
 					assertAccountIsClean: () => Effect.void.pipe(Effect.as(undefined)),
 				}),
+				Layer.mock(DownloadTickets)({
+					issue: () => Effect.succeed("test-ticket"),
+					verify: (_ticket, expected) =>
+						Effect.succeed({ ...expected, subject: user.id, expiresAt: Number.MAX_SAFE_INTEGER }),
+				}),
 				Layer.unwrap(
 					Effect.gen(function* () {
 						const run = yield* Ref.make(input.run ?? null);
@@ -118,7 +124,7 @@ layer(makeLayer({ run: null }))((test) => {
 	test.effect("enforces run ownership through the repository scope", () =>
 		Effect.gen(function* () {
 			const service = yield* BackupsService;
-			const error = yield* service.downloadRun(user, runId).pipe(Effect.flip);
+			const error = yield* service.createDownloadTicket(user, runId).pipe(Effect.flip);
 			expect(error).toMatchObject({ _tag: "BackupNotFound", reason: { code: "run-not-found" } });
 			expect((yield* (yield* FakeBackupRuns).requestedUserIds).at(-1)).toBe(user.id);
 		}),
@@ -130,7 +136,7 @@ layer(makeLayer({ run: { ...completedRun, progress: 50, expiresAt: null, status:
 		test.effect("rejects download and deletion while a run is pending or running", () =>
 			Effect.gen(function* () {
 				const service = yield* BackupsService;
-				expect(yield* service.downloadRun(user, runId).pipe(Effect.flip)).toMatchObject({
+				expect(yield* service.createDownloadTicket(user, runId).pipe(Effect.flip)).toMatchObject({
 					_tag: "BackupConflict",
 					reason: { code: "export-still-running" },
 				});
@@ -139,7 +145,7 @@ layer(makeLayer({ run: { ...completedRun, progress: 50, expiresAt: null, status:
 					reason: { code: "run-still-active" },
 				});
 				yield* (yield* FakeBackupRuns).setRunStatus("running");
-				expect(yield* service.downloadRun(user, runId).pipe(Effect.flip)).toMatchObject({
+				expect(yield* service.createDownloadTicket(user, runId).pipe(Effect.flip)).toMatchObject({
 					_tag: "BackupConflict",
 					reason: { code: "export-still-running" },
 				});
@@ -167,9 +173,22 @@ layer(
 	test.effect("streams an owned unexpired artifact without buffering", () =>
 		Effect.gen(function* () {
 			const service = yield* BackupsService;
-			const download = yield* service.downloadRun(user, runId);
+			const ticket = yield* service.createDownloadTicket(user, runId);
+			const download = yield* service.downloadRunWithTicket(runId, ticket);
 			expect(download.size).toBe(archiveBytes.length);
 			expect(Array.from(yield* Stream.runCollect(download.stream))).toEqual([archiveBytes]);
+		}),
+	);
+
+	test.effect("revalidates the ticket subject before streaming a backup", () =>
+		Effect.gen(function* () {
+			const service = yield* BackupsService;
+			const ticket = yield* service.createDownloadTicket(user, runId);
+			const download = yield* service.downloadRunWithTicket(runId, ticket);
+
+			expect(download.fileName).toBe(`ryot-backup-${runId}.zip`);
+			expect(Array.from(yield* Stream.runCollect(download.stream))).toEqual([archiveBytes]);
+			expect((yield* (yield* FakeBackupRuns).requestedUserIds).at(-1)).toBe(user.id);
 		}),
 	);
 });

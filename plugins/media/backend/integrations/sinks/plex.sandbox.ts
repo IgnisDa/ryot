@@ -1,8 +1,11 @@
+import type { SandboxHost } from "@ryot-app/sandbox-sdk/core";
 import { defineManifest, defineScript } from "@ryot-app/sandbox-sdk/driver";
 import { Effect } from "@ryot-app/sandbox-sdk/effect";
 
 import { MediaIntegrationAdapterResult } from "../../imports/schemas";
 import { resolvedMediaRef } from "../../imports/source-helpers";
+import { asRecord, numberValue, recordsValue } from "../../lib/records";
+import { getTmdbAccessToken, tmdbGet, type TmdbHost } from "../../lib/vendors/tmdb";
 import {
 	emptyResult,
 	failureResult,
@@ -12,16 +15,22 @@ import {
 	showEpisodeRef,
 	SinkInput,
 	specifics,
+	textValue,
 	executionStartedAt,
 } from "../shared";
 
 export const manifest = defineManifest({
 	kind: "script",
 	name: "Plex sink",
-	requiredPluginConfigKeys: [],
-	requiredSystemConfigKeys: [],
 	slug: "integration.plex-sink",
-	capabilities: ["getCurrentIntegration"],
+	requiredPluginConfigKeys: ["tmdbAccessToken"],
+	capabilities: [
+		"getCurrentIntegration",
+		"httpCall",
+		"getPluginConfig",
+		"getCachedValue",
+		"setCachedValue",
+	],
 });
 
 const multipartPayload = (rawBody: string, contentType: string) => {
@@ -44,15 +53,80 @@ const multipartPayload = (rawBody: string, contentType: string) => {
 	}
 	throw new Error("missing payload");
 };
-const stringValue = (value: unknown) => {
-	if (typeof value === "string") {
-		return value;
-	}
-	if (typeof value === "number") {
-		return String(value);
-	}
-	return undefined;
+type PlexEpisode = {
+	episodeId: string;
+	seriesName: string | undefined;
+	seasonNumber: number;
+	externalIds: ReadonlyArray<readonly [string, "imdb_id" | "tvdb_id"]>;
 };
+
+const showLookupCacheTtlSeconds = 24 * 60 * 60;
+
+const isNotFound = (error: unknown) => asRecord(asRecord(error)?.["data"])?.["status"] === 404;
+
+const tmdbId = (value: unknown) => {
+	const id = numberValue(value);
+	return id === null ? null : String(Math.trunc(id));
+};
+
+const searchTmdbShow = Effect.fnUntraced(function* (
+	host: TmdbHost,
+	token: string,
+	episode: PlexEpisode,
+) {
+	for (const [externalId, source] of episode.externalIds) {
+		const found = yield* tmdbGet(
+			host,
+			`/find/${encodeURIComponent(externalId)}`,
+			{ external_source: source },
+			token,
+		);
+		const showId = tmdbId(recordsValue(found["tv_episode_results"])[0]?.["show_id"]);
+		if (showId) {
+			return showId;
+		}
+	}
+	if (!episode.seriesName) {
+		return null;
+	}
+	const search = yield* tmdbGet(host, "/search/tv", { query: episode.seriesName }, token);
+	for (const show of recordsValue(search["results"]).slice(0, 5)) {
+		const showId = tmdbId(show["id"]);
+		if (!showId) {
+			continue;
+		}
+		const season = yield* Effect.catchIf(
+			tmdbGet(host, `/tv/${showId}/season/${episode.seasonNumber}`, {}, token),
+			isNotFound,
+			() => Effect.succeed(null),
+		);
+		if (
+			recordsValue(season?.["episodes"]).some(
+				(candidate) => tmdbId(candidate["id"]) === episode.episodeId,
+			)
+		) {
+			return showId;
+		}
+	}
+	return null;
+});
+
+const findTmdbShow = Effect.fnUntraced(function* (
+	host: SandboxHost<typeof manifest.capabilities>,
+	episode: PlexEpisode,
+) {
+	const cacheKey = `tmdb-episode-show:${episode.episodeId}`;
+	const cached = asRecord(
+		yield* host.getCachedValue(cacheKey).pipe(Effect.orElseSucceed(() => null)),
+	);
+	if (cached) {
+		return typeof cached["showId"] === "string" ? cached["showId"] : null;
+	}
+	const token = yield* getTmdbAccessToken(host);
+	const showId = yield* searchTmdbShow(host, token, episode);
+	yield* host.setCachedValue(cacheKey, { showId }, showLookupCacheTtlSeconds).pipe(Effect.ignore);
+	return showId;
+});
 
 export default defineScript({
 	manifest,
@@ -62,7 +136,7 @@ export default defineScript({
 		Effect.gen(function* () {
 			const occurredAt = yield* executionStartedAt(execution);
 			const integration = yield* host.getCurrentIntegration();
-			return yield* Effect.try(() => {
+			const parsed = yield* Effect.try(() => {
 				const payload = jsonRecord(multipartPayload(input.rawBody, input.contentType));
 				const metadata = specifics(payload["Metadata"]);
 				if (!metadata) {
@@ -74,7 +148,7 @@ export default defineScript({
 				if (username && specifics(payload["Account"])?.["title"] !== username) {
 					return emptyResult();
 				}
-				const event = (stringValue(payload["event"]) ?? "").toLowerCase().replace(/^media\./, "");
+				const event = (textValue(payload["event"]) ?? "").toLowerCase().replace(/^media\./, "");
 				if (!["play", "pause", "resume", "scrobble", "stop"].includes(event)) {
 					return emptyResult();
 				}
@@ -94,36 +168,81 @@ export default defineScript({
 				if (percent === undefined) {
 					return failureResult("Plex webhook payload is missing playback timing data");
 				}
-				const guid = Array.isArray(metadata["Guid"])
-					? metadata["Guid"]
-							.map((value) => (typeof value === "string" ? value : specifics(value)?.["id"]))
-							.find(
-								(value): value is string =>
-									typeof value === "string" && /^tmdb:\/\/\d+/i.test(value),
-							)
-					: undefined;
-				const id = guid?.match(/^tmdb:\/\/(\d+)/i)?.[1] ?? stringValue(metadata["Provider_tmdb"]);
+				const guids = Array.isArray(metadata["Guid"])
+					? metadata["Guid"].flatMap((value) => {
+							const guid = typeof value === "string" ? value : specifics(value)?.["id"];
+							return typeof guid === "string" ? [guid] : [];
+						})
+					: [];
+				const guidId = (prefix: string) =>
+					guids
+						.map((guid) => guid.match(new RegExp(`^${prefix}://(\\w+)`, "i"))?.[1])
+						.find(Boolean);
+				const id = guidId("tmdb") ?? textValue(metadata["Provider_tmdb"]);
 				if (!id) {
 					return failureResult("Plex webhook payload is missing a TMDB identifier");
 				}
-				const label =
-					(lot === "show" ? stringValue(metadata["grandparentTitle"]) : undefined) ??
-					stringValue(metadata["title"]) ??
-					id;
-				const locator =
-					lot === "show"
-						? showEpisodeRef(Number(metadata["parentIndex"]), Number(metadata["index"]))
-						: undefined;
-				if (lot === "show" && !locator) {
+				const label = textValue(metadata["title"]) ?? id;
+				if (lot === "movie") {
+					return { id, lot, label, percent };
+				}
+				const locator = showEpisodeRef(Number(metadata["parentIndex"]), Number(metadata["index"]));
+				if (!locator) {
 					return failureResult("Plex webhook payload is missing show episode coordinates");
 				}
+				const seriesName = textValue(metadata["grandparentTitle"]);
+				const externalIds = (
+					[
+						["imdb", "imdb_id"],
+						["tvdb", "tvdb_id"],
+					] as const
+				).flatMap(([prefix, source]) => {
+					const externalId = guidId(prefix);
+					return externalId ? [[externalId, source] as const] : [];
+				});
+				return {
+					lot,
+					percent,
+					locator,
+					label: seriesName ?? label,
+					episode: { seriesName, externalIds, episodeId: id, seasonNumber: locator.seasonNumber },
+				};
+			}).pipe(Effect.orElseSucceed(() => failureResult("Could not parse Plex webhook payload")));
+			if ("entityGroups" in parsed) {
+				return parsed;
+			}
+			if (parsed.lot === "movie") {
 				return progressResult({
 					occurredAt,
 					consumedOn: "plex_sink",
-					progressPercent: percent,
-					...(locator ? { unresolvedEpisode: locator } : {}),
-					entityRef: resolvedMediaRef(lot, "tmdb", id, label),
+					progressPercent: parsed.percent,
+					entityRef: resolvedMediaRef("movie", "tmdb", parsed.id, parsed.label),
 				});
-			}).pipe(Effect.orElseSucceed(() => failureResult("Could not parse Plex webhook payload")));
+			}
+			const { label, episode, locator, percent } = parsed;
+			return yield* findTmdbShow(host, episode).pipe(
+				Effect.map((showId) =>
+					showId
+						? progressResult({
+								occurredAt,
+								consumedOn: "plex_sink",
+								progressPercent: percent,
+								unresolvedEpisode: locator,
+								entityRef: resolvedMediaRef("show", "tmdb", showId, label),
+							})
+						: failureResult(
+								`No show found on TMDB for series "${episode.seriesName ?? ""}" and episode ${episode.episodeId}`,
+								"provider_resolution",
+							),
+				),
+				Effect.catch((error) =>
+					Effect.succeed(
+						failureResult(
+							`Could not look up Plex episode ${episode.episodeId} on TMDB: ${error.message}`,
+							"provider_resolution",
+						),
+					),
+				),
+			);
 		}),
 });

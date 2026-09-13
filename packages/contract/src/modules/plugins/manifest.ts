@@ -102,12 +102,77 @@ const unsupportedUploadFileExtension = (property: AppPropertyDefinition): string
 	return undefined;
 };
 
-const PluginAppSchema = Schema.toType(AppSchema).pipe(
+const hasOAuthConnectionFormat = (property: AppPropertyDefinition): boolean => {
+	if (property.type === "string") {
+		return property.format?.kind === "oauth-connection";
+	}
+	if (property.type === "array") {
+		return hasOAuthConnectionFormat(property.items);
+	}
+	if (property.type === "object") {
+		return Object.values(property.properties).some(hasOAuthConnectionFormat);
+	}
+	return false;
+};
+
+const rejectsOAuthConnectionFormats = Schema.makeFilter(
+	(schema: AppSchema) =>
+		Object.values(schema.fields).every((property) => !hasOAuthConnectionFormat(property)) ||
+		"OAuth connection fields are only supported by integration provider settings schemas",
+);
+
+const AppSchemaWithoutUploads = Schema.toType(AppSchema).pipe(
 	Schema.check(
 		Schema.makeFilter(
 			(schema) =>
 				Object.values(schema.fields).every((property) => !hasUploadFormat(property)) ||
 				"Upload fields are only supported by import input schemas",
+		),
+	),
+);
+
+const PluginAppSchema = AppSchemaWithoutUploads.pipe(Schema.check(rejectsOAuthConnectionFormats));
+
+const hasSecretField = (property: AppPropertyDefinition): boolean =>
+	property.secret === true ||
+	(property.type === "array" && hasSecretField(property.items)) ||
+	(property.type === "object" && Object.values(property.properties).some(hasSecretField));
+
+const isUserSettingsProperty = (property: AppPropertyDefinition): boolean => {
+	if (property.type === "object") {
+		return false;
+	}
+	if (property.type === "array") {
+		return ["boolean", "integer", "number", "string"].includes(property.items.type);
+	}
+	if (property.type === "enum" || property.type === "enum-array") {
+		return property.choices.kind === "static";
+	}
+	return true;
+};
+
+export const PluginUserSettingsSchema = PluginAppSchema.pipe(
+	Schema.check(
+		Schema.makeFilter(
+			(schema) =>
+				Object.values(schema.fields).every((property) => !hasSecretField(property)) ||
+				"Plugin user settings cannot contain secret fields",
+		),
+		Schema.makeFilter(
+			(schema) =>
+				Object.values(schema.fields).every(isUserSettingsProperty) ||
+				"Plugin user settings require primitive fields, primitive arrays, or static choices",
+		),
+	),
+);
+
+const IntegrationSettingsSchema = AppSchemaWithoutUploads.pipe(
+	Schema.check(
+		Schema.makeFilter(
+			(schema) =>
+				Object.values(schema.fields).every(
+					(property) => property.type === "string" || !hasOAuthConnectionFormat(property),
+				) || "OAuth connection fields must be top-level string settings",
 		),
 	),
 );
@@ -353,7 +418,6 @@ const PluginScriptFields = {
 	slug: sandboxManifestSlug,
 	name: sandboxManifestString,
 	requiredPluginConfigKeys: Schema.Array(sandboxManifestString),
-	requiredSystemConfigKeys: Schema.Array(sandboxManifestString),
 };
 const PluginScriptCapabilities = Schema.Array(Schema.Literals([...SANDBOX_HOST_CAPABILITIES]));
 
@@ -494,9 +558,10 @@ export type PluginWorkflow = Schema.Schema.Type<typeof PluginWorkflow>;
 const PluginIntegrationProviderFields = {
 	slug: sandboxManifestSlug,
 	name: sandboxManifestString,
-	settingsSchema: PluginAppSchema,
 	description: sandboxManifestString,
+	settingsSchema: IntegrationSettingsSchema,
 	requiresProKey: Schema.optional(Schema.Boolean),
+	supportsOwnershipSync: Schema.optional(Schema.Boolean),
 };
 
 export const PluginIntegrationProvider = Schema.Union([
@@ -506,9 +571,67 @@ export const PluginIntegrationProvider = Schema.Union([
 		lot: Schema.Literals(["yank", "sink"]),
 	}),
 	strictStruct({ ...PluginIntegrationProviderFields, lot: Schema.Literal("push") }),
-]);
+]).pipe(
+	Schema.check(
+		Schema.makeFilter(
+			(provider) =>
+				!provider.supportsOwnershipSync ||
+				provider.lot === "yank" ||
+				"Expected ownership sync support only on yank integrations",
+		),
+	),
+);
 
 export type PluginIntegrationProvider = Schema.Schema.Type<typeof PluginIntegrationProvider>;
+
+const reservedOAuthAuthorizeParameters = [
+	"scope",
+	"state",
+	"client_id",
+	"redirect_uri",
+	"response_type",
+	"code_challenge",
+	"code_challenge_method",
+];
+
+const httpsUrlIssue = (value: string, reservedParameters: ReadonlyArray<string>) => {
+	const parsed = Result.try(() => new URL(value));
+	if (Result.isFailure(parsed)) {
+		return "Expected an HTTPS URL";
+	}
+	const url = parsed.success;
+	if (url.protocol !== "https:" || url.username !== "" || url.password !== "" || url.hash !== "") {
+		return "Expected an HTTPS URL without credentials or fragment";
+	}
+	return reservedParameters.some((parameter) => url.searchParams.has(parameter))
+		? "Expected a URL without reserved OAuth parameters"
+		: true;
+};
+
+const httpsUrl = (reservedParameters: ReadonlyArray<string> = []) =>
+	Schema.String.pipe(
+		Schema.check(Schema.makeFilter((value) => httpsUrlIssue(value, reservedParameters))),
+	);
+
+const oauthScope = Schema.String.pipe(
+	Schema.check(
+		Schema.makeFilter((value) => (/^[!#-[\]-~]+$/.test(value) ? true : "Expected an OAuth scope")),
+	),
+);
+
+export const PluginOAuthProvider = strictStruct({
+	tokenUrl: httpsUrl(),
+	slug: sandboxManifestSlug,
+	name: sandboxManifestString,
+	scopes: Schema.Array(oauthScope),
+	issuer: Schema.optional(httpsUrl()),
+	clientIdConfigKey: sandboxManifestString,
+	clientSecretConfigKey: sandboxManifestString,
+	authorizeUrl: httpsUrl(reservedOAuthAuthorizeParameters),
+	tokenEndpointAuth: Schema.Literals(["client_secret_basic", "client_secret_post"]),
+});
+
+export type PluginOAuthProvider = Schema.Schema.Type<typeof PluginOAuthProvider>;
 
 const PluginImportSourceFields = {
 	slug: sandboxManifestSlug,
@@ -529,6 +652,7 @@ const ImportInputSchema = Schema.toType(AppSchema).pipe(
 				: `Unsupported import upload file extension: ${extension}`;
 		}),
 	),
+	Schema.check(rejectsOAuthConnectionFormats),
 	Schema.check(
 		Schema.makeFilter((schema) =>
 			schema.unknownKeys === "strict" &&
@@ -673,7 +797,9 @@ const PluginManifestAuthoredFields = {
 	importSources: Schema.Array(PluginImportSource),
 	userBootstrap: Schema.Array(PluginUserBootstrap),
 	relationshipSchemas: Schema.Array(PluginRelationshipSchema),
+	userSettingsSchema: Schema.optional(PluginUserSettingsSchema),
 	integrationProviders: Schema.Array(PluginIntegrationProvider),
+	oauthProviders: Schema.optional(Schema.Array(PluginOAuthProvider)),
 };
 
 const AuthoredPluginManifestFields = strictStruct(PluginManifestAuthoredFields);
@@ -814,10 +940,47 @@ const hasValidClientManifestReferences = (
 	return true;
 };
 
+const hasValidOAuthProviderReferences = (
+	manifest: Pick<
+		typeof AuthoredPluginManifestFields.Type,
+		"configSchema" | "integrationProviders" | "oauthProviders"
+	>,
+) => {
+	const oauthProviders = manifest.oauthProviders ?? [];
+	const oauthProviderSlugs = new Set(oauthProviders.map(({ slug }) => slug));
+	if (oauthProviderSlugs.size !== oauthProviders.length) {
+		return false;
+	}
+	for (const provider of oauthProviders) {
+		const clientId = manifest.configSchema.fields[provider.clientIdConfigKey];
+		const clientSecret = manifest.configSchema.fields[provider.clientSecretConfigKey];
+		if (
+			provider.clientIdConfigKey === provider.clientSecretConfigKey ||
+			clientId?.type !== "string" ||
+			clientSecret?.type !== "string" ||
+			clientSecret.secret !== true
+		) {
+			return false;
+		}
+	}
+	return manifest.integrationProviders.every((integrationProvider) =>
+		Object.values(integrationProvider.settingsSchema.fields).every(
+			(field) =>
+				field.type !== "string" ||
+				field.format?.kind !== "oauth-connection" ||
+				oauthProviderSlugs.has(field.format.provider),
+		),
+	);
+};
+
 const hasValidAuthoredPluginManifestReferences = (
 	manifest: typeof AuthoredPluginManifestFields.Type,
 ) => {
-	if (!hasValidClientManifestReferences(manifest) || !hasValidHookTargets(manifest)) {
+	if (
+		!hasValidClientManifestReferences(manifest) ||
+		!hasValidHookTargets(manifest) ||
+		!hasValidOAuthProviderReferences(manifest)
+	) {
 		return false;
 	}
 	const workflowSlugs = new Set(manifest.workflows.map(({ slug }) => slug));
@@ -879,7 +1042,11 @@ export const AuthoredPluginManifest = AuthoredPluginManifestFields.pipe(
 export type AuthoredPluginManifest = Schema.Schema.Type<typeof AuthoredPluginManifest>;
 
 const hasValidPluginManifestReferences = (manifest: typeof PluginManifestFields.Type) => {
-	if (!hasValidClientManifestReferences(manifest) || !hasValidHookTargets(manifest)) {
+	if (
+		!hasValidClientManifestReferences(manifest) ||
+		!hasValidHookTargets(manifest) ||
+		!hasValidOAuthProviderReferences(manifest)
+	) {
 		return false;
 	}
 	const scriptSlugs = new Set(manifest.scripts.map(({ slug }) => slug));

@@ -37,7 +37,10 @@ export const materializeSavedView = (
 			renderer: { pluginId, kind: "plugin" as const, exportName: definition.renderer.exportName },
 		};
 	}
-	if (definition.renderer.name !== "entity-browser") {
+	if (
+		definition.renderer.name !== "entity-browser" &&
+		definition.renderer.name !== "collection-browser"
+	) {
 		return { ...definition, pluginId, pluginSlug, renderer: definition.renderer };
 	}
 	const rawSourceName = definition.settings["sourceName"];

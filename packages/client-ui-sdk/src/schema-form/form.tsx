@@ -8,11 +8,14 @@ import { Button } from "../index";
 import { MultiSelect } from "../multi-select";
 import { RadioGroup } from "../radio-group";
 import { SegmentedControl } from "../segmented-control";
+import { Select } from "../select";
 import { Switch } from "../switch";
 import { FieldMessage, TextField } from "../text-field";
 import { pickBrowserUploadFile } from "./file/browser-file";
 import { SchemaFileField, type SchemaFileIcons } from "./file/field";
 import type { SchemaFileUpload } from "./file/upload";
+import type { SchemaOAuthConnect } from "./oauth/connect";
+import { SchemaOAuthField } from "./oauth/field";
 import {
 	describeSchemaFormFields,
 	isRetainedSecretField,
@@ -32,7 +35,17 @@ export type SchemaFormIcons = SchemaFileIcons & {
 	readonly chevron: ReactNode;
 };
 
+const timeZoneChoices = (current: string) => {
+	const zones = Intl.supportedValuesOf("timeZone");
+	return (current === "" || zones.includes(current) ? zones : [current, ...zones]).map((zone) => ({
+		value: zone,
+		label: zone,
+	}));
+};
+
 const emptySchemaFormValues: SchemaFormValues = {};
+
+const UNSUPPORTED_FIELDS_MESSAGE = "Some fields are not supported in this app version.";
 
 export function useSchemaForm(props: {
 	mode?: SchemaFormMode;
@@ -229,6 +242,8 @@ function SchemaFieldControl(props: {
 	readonly onSubmitEditing: () => void;
 	readonly uploadFile: SchemaFileUpload;
 	readonly inputRef: Ref<HTMLInputElement>;
+	readonly connectOAuth: SchemaOAuthConnect | undefined;
+	readonly oauthDisabledReason: string | undefined;
 	readonly onChange: (value: SchemaFormValue) => void;
 }) {
 	const choices = props.field.choices ?? [];
@@ -294,6 +309,33 @@ function SchemaFieldControl(props: {
 				value={schemaText(props.value) === "" ? undefined : schemaText(props.value)}
 			/>
 		)),
+		Match.when("oauth-connection", () =>
+			props.connectOAuth === undefined || props.field.oauthProvider === undefined ? (
+				<span className="text-xs text-text-subtle">{UNSUPPORTED_FIELDS_MESSAGE}</span>
+			) : (
+				<SchemaOAuthField
+					field={props.field.key}
+					onChange={props.onChange}
+					label={props.field.label}
+					connect={props.connectOAuth}
+					provider={props.field.oauthProvider}
+					disabledReason={props.oauthDisabledReason}
+					value={schemaText(props.value) === "" ? undefined : schemaText(props.value)}
+				/>
+			),
+		),
+		Match.when("timezone", () => (
+			<Select
+				label={props.field.label}
+				onChange={props.onChange}
+				checkIcon={props.icons.check}
+				searchIcon={props.icons.search}
+				placeholder={props.description}
+				value={schemaText(props.value)}
+				chevronIcon={props.icons.chevron}
+				choices={timeZoneChoices(schemaText(props.value))}
+			/>
+		)),
 		Match.when("multi-select", () => (
 			<MultiSelect
 				choices={choices}
@@ -338,6 +380,8 @@ function SchemaFieldRow(props: {
 	readonly onSubmitEditing: () => void;
 	readonly uploadFile: SchemaFileUpload;
 	readonly inputRef: Ref<HTMLInputElement>;
+	readonly connectOAuth: SchemaOAuthConnect | undefined;
+	readonly oauthDisabledReason: string | undefined;
 	readonly onChange: (value: SchemaFormValue) => void;
 }) {
 	const retainsSecret = isRetainedSecretField(props.field, props.mode);
@@ -346,7 +390,8 @@ function SchemaFieldRow(props: {
 		(props.field.control === "chips" ||
 			props.field.control === "file" ||
 			props.field.control === "list" ||
-			props.field.control === "segmented");
+			props.field.control === "segmented" ||
+			props.field.control === "oauth-connection");
 	return (
 		<div className="flex flex-col gap-1.5">
 			<span className="text-xs font-medium text-text-muted">
@@ -360,8 +405,10 @@ function SchemaFieldRow(props: {
 				inputRef={props.inputRef}
 				onChange={props.onChange}
 				uploadFile={props.uploadFile}
+				connectOAuth={props.connectOAuth}
 				description={props.field.description}
 				onSubmitEditing={props.onSubmitEditing}
+				oauthDisabledReason={props.oauthDisabledReason}
 			/>
 			{showsDescriptionBelow ? (
 				<span className="text-xs text-text-subtle">{props.field.description}</span>
@@ -382,6 +429,8 @@ export function SchemaForm(props: {
 	readonly mode?: SchemaFormMode;
 	readonly icons: SchemaFormIcons;
 	readonly uploadFile: SchemaFileUpload;
+	readonly connectOAuth?: SchemaOAuthConnect;
+	readonly oauthDisabledReason?: string;
 }) {
 	const mode = props.mode ?? "create";
 	const inputs = useRef(new Map<string, HTMLInputElement | null>());
@@ -423,8 +472,10 @@ export function SchemaForm(props: {
 											icons={props.icons}
 											value={formField.value}
 											uploadFile={props.uploadFile}
+											connectOAuth={props.connectOAuth}
 											error={formField.errors[0]?.message}
 											onSubmitEditing={() => submitFrom(field.key)}
+											oauthDisabledReason={props.oauthDisabledReason}
 											inputRef={(instance) => {
 												inputs.current.set(field.key, instance);
 											}}
@@ -437,9 +488,7 @@ export function SchemaForm(props: {
 								</props.form.Field>
 							))}
 							{description.unsupported.length === 0 ? null : (
-								<span className="text-xs text-text-subtle">
-									Some fields are not supported in this app version.
-								</span>
+								<span className="text-xs text-text-subtle">{UNSUPPORTED_FIELDS_MESSAGE}</span>
 							)}
 						</div>
 					</div>

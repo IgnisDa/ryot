@@ -5,6 +5,8 @@ import {
 	getWebOAuthRedirectUris,
 	OAUTH_ACCESS_TOKEN_TTL_SECONDS,
 	OAUTH_DEMO_WEB_CLIENT_ID,
+	OAUTH_IMPERSONATION_NATIVE_CLIENT_ID,
+	OAUTH_IMPERSONATION_WEB_CLIENT_ID,
 	OAUTH_NATIVE_CALLBACK_URIS,
 	OAUTH_NATIVE_CLIENT_ID,
 	OAUTH_NATIVE_LOGOUT_CALLBACK_URIS,
@@ -34,7 +36,9 @@ export const internalOAuthRecords = (frontendOrigin: string, now: Date, demoEnab
 		clientId:
 			| typeof OAUTH_WEB_CLIENT_ID
 			| typeof OAUTH_DEMO_WEB_CLIENT_ID
-			| typeof OAUTH_NATIVE_CLIENT_ID,
+			| typeof OAUTH_NATIVE_CLIENT_ID
+			| typeof OAUTH_IMPERSONATION_WEB_CLIENT_ID
+			| typeof OAUTH_IMPERSONATION_NATIVE_CLIENT_ID,
 		applicationType: "web" | "native",
 		redirectUris: readonly string[],
 		postLogoutRedirectUris: readonly string[],
@@ -72,7 +76,25 @@ export const internalOAuthRecords = (frontendOrigin: string, now: Date, demoEnab
 		OAUTH_NATIVE_CALLBACK_URIS,
 		OAUTH_NATIVE_LOGOUT_CALLBACK_URIS,
 	);
-	const clients = [webClient, nativeClient, demoWebClient] as const;
+	const impersonationWebClient = client(
+		OAUTH_IMPERSONATION_WEB_CLIENT_ID,
+		"web",
+		webRedirectUris,
+		webLogoutRedirectUris,
+	);
+	const impersonationNativeClient = client(
+		OAUTH_IMPERSONATION_NATIVE_CLIENT_ID,
+		"native",
+		OAUTH_NATIVE_CALLBACK_URIS,
+		OAUTH_NATIVE_LOGOUT_CALLBACK_URIS,
+	);
+	const clients = [
+		webClient,
+		nativeClient,
+		demoWebClient,
+		impersonationWebClient,
+		impersonationNativeClient,
+	] as const;
 	const resource = {
 		createdAt: now,
 		updatedAt: now,

@@ -102,3 +102,23 @@ it("rejects malformed persisted keys without exposing supplied values", () => {
 		}
 	}
 });
+
+it.effect("binds subkey ciphertext to its derivation context and attribution", () =>
+	Effect.gen(function* () {
+		const keys = createPluginConfigEncryption(oldKey);
+		const attribution = { column: "refreshToken", connectionId: "connection-1" };
+		const encrypted = yield* keys.encryptWithSubkey("ryot/test", "refresh-secret", attribution);
+		expect(encrypted.keyId).toBe("old");
+		expect(Buffer.from(encrypted.ciphertext, "base64").toString()).not.toContain("refresh-secret");
+		expect(yield* keys.decryptWithSubkey("ryot/test", encrypted, attribution)).toBe(
+			"refresh-secret",
+		);
+		for (const attempt of [
+			keys.decryptWithSubkey("ryot/other", encrypted, attribution),
+			keys.decryptWithSubkey("ryot/test", encrypted, { ...attribution, column: "accessToken" }),
+			createPluginConfigEncryption(newKey).decryptWithSubkey("ryot/test", encrypted, attribution),
+		]) {
+			expect(Result.isFailure(yield* Effect.result(attempt))).toBe(true);
+		}
+	}),
+);

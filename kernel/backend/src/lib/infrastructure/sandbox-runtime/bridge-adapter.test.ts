@@ -38,13 +38,14 @@ const makeImplementations = (
 	getCachedValue: () => Effect.fail({ message: "unused" }),
 	setCachedValue: () => Effect.fail({ message: "unused" }),
 	getPluginConfig: () => Effect.fail({ message: "unused" }),
-	getSystemConfig: () => Effect.fail({ message: "unused" }),
+	getUserSettings: () => Effect.fail({ message: "unused" }),
 	getEntitySchemas: () => Effect.fail({ message: "unused" }),
 	listEventSchemas: () => Effect.fail({ message: "unused" }),
 	listIntegrations: () => Effect.fail({ message: "unused" }),
 	sendNotification: () => Effect.fail({ message: "unused" }),
 	getUserPreferences: () => Effect.fail({ message: "unused" }),
 	ensureUserEntities: () => Effect.fail({ message: "unused" }),
+	getOAuthAccessToken: () => Effect.fail({ message: "unused" }),
 	claimPersistentValue: () => Effect.fail({ message: "unused" }),
 	upsertGlobalEntities: () => Effect.fail({ message: "unused" }),
 	getCurrentIntegration: () => Effect.fail({ message: "unused" }),
@@ -109,6 +110,31 @@ describe("bindSandboxHostFunctions", () => {
 				error: "getUserPreferences received an invalid number of arguments",
 			});
 			expect(calls).toBe(0);
+		}),
+	);
+
+	it.effect("binds read-only user settings with no arguments", () =>
+		Effect.gen(function* () {
+			const calls: unknown[] = [];
+			const bound = bindSandboxHostFunctions(
+				makeImplementations({
+					getUserSettings: (runInput) => {
+						calls.push(runInput);
+						return Effect.succeed({ allowNsfw: true });
+					},
+				}),
+				input,
+			);
+
+			expect(yield* bound.getUserSettings([])).toEqual({
+				success: true,
+				data: { allowNsfw: true },
+			});
+			expect(yield* bound.getUserSettings(["extra"])).toEqual({
+				success: false,
+				error: "getUserSettings received an invalid number of arguments",
+			});
+			expect(calls).toEqual([input]);
 		}),
 	);
 
@@ -390,10 +416,6 @@ describe("bindSandboxHostFunctions", () => {
 				success: false,
 				error: "0.0: Expected string",
 			});
-			expect(yield* bound.getSystemConfig([[null]])).toEqual({
-				success: false,
-				error: "0.0: Expected string",
-			});
 			expect(calls).toEqual([
 				{ value: undefined, fnName: "httpCall" },
 				{ value: undefined, fnName: "listIntegrations" },
@@ -423,10 +445,6 @@ describe("bindSandboxHostFunctions", () => {
 		Effect.gen(function* () {
 			const calls: Array<{ fnName: string; value: unknown }> = [];
 			const implementations = makeImplementations({
-				getSystemConfig: (_runInput, keys) => {
-					calls.push({ value: keys, fnName: "getSystemConfig" });
-					return Effect.succeed({ timezone: "UTC" });
-				},
 				getPluginConfig: (_runInput, keys) => {
 					calls.push({ value: keys, fnName: "getPluginConfig" });
 					return Effect.succeed({ apiToken: "token" });
@@ -446,10 +464,6 @@ describe("bindSandboxHostFunctions", () => {
 				success: true,
 				data: { apiToken: "token" },
 			});
-			expect(yield* bound.getSystemConfig([["timezone"]])).toEqual({
-				success: true,
-				data: { timezone: "UTC" },
-			});
 			expect(yield* bound.claimPersistentValue(["lock", { owner: "user-1" }, 1.5])).toEqual({
 				success: false,
 				error: "2: Expected an integer",
@@ -462,17 +476,12 @@ describe("bindSandboxHostFunctions", () => {
 				success: false,
 				error: "getPluginConfig received an invalid number of arguments",
 			});
-			expect(yield* bound.getSystemConfig([["timezone"], "surplus"])).toEqual({
-				success: false,
-				error: "getSystemConfig received an invalid number of arguments",
-			});
 			expect(calls).toEqual([
 				{
 					fnName: "claimPersistentValue",
 					value: { key: "lock", ttlSeconds: 60, value: { owner: "user-1" } },
 				},
 				{ value: ["apiToken"], fnName: "getPluginConfig" },
-				{ value: ["timezone"], fnName: "getSystemConfig" },
 			]);
 		}),
 	);

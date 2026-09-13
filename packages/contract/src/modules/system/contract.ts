@@ -36,6 +36,7 @@ const FileStorageConfig = Schema.Struct({
 export const SystemConfigResponse = Schema.Struct({
 	pro: ProConfig,
 	auth: AuthConfig,
+	version: Schema.String,
 	analytics: AnalyticsConfig,
 	frontendOrigin: Schema.String,
 	fileStorage: FileStorageConfig,

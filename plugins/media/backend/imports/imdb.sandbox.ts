@@ -11,7 +11,6 @@ export const manifest = defineManifest({
 	slug: "import.imdb",
 	name: "Parse IMDb import",
 	requiredPluginConfigKeys: [],
-	requiredSystemConfigKeys: [],
 	capabilities: ["artifact-read"],
 });
 

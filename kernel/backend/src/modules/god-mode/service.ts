@@ -33,6 +33,7 @@ export class GodModeService extends Context.Service<GodModeService>()("GodModeSe
 			linkAuthAccount,
 			deleteUserSessions,
 			updateAuthUserDisabled,
+			startUserImpersonation,
 			requestPasswordResetLink,
 		} = yield* AuthService;
 
@@ -127,6 +128,7 @@ export class GodModeService extends Context.Service<GodModeService>()("GodModeSe
 			provisionUser,
 			setUserDisabled,
 			resetUserPassword,
+			startUserImpersonation,
 			resetUser: lifecycle.resetUser,
 			deleteUser: lifecycle.deleteUser,
 		};

@@ -70,6 +70,7 @@ const systemInstallation = (pluginSlug: string): PluginInstallationState => ({
 	sortOrder: 0,
 	health: "ready",
 	isHidden: false,
+	userSettings: {},
 	healthReason: null,
 	uninstalledAt: null,
 	pluginScope: "system",
@@ -122,7 +123,6 @@ const baseLayer = Layer.mergeAll(
 								slug: bootstrap.scriptSlug,
 								name: bootstrap.scriptSlug,
 								requiredPluginConfigKeys: [],
-								requiredSystemConfigKeys: [],
 							},
 						} satisfies NonNullable<
 							Effect.Success<

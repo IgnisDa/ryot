@@ -1,4 +1,5 @@
 import type { ContractSuccess } from "@ryot-app/contract/client";
+import type { ImpersonationAuthorization } from "@ryot-app/contract/oauth";
 import { UserId } from "@ryot-app/contract/schema/brands";
 import {
 	godModeUsersRecipe,
@@ -21,6 +22,7 @@ export type GodModeUser = GodModeUsers["items"][number];
 export type GodModeSetDisabledResult = ContractSuccess<"godMode", "setUserDisabled">;
 export type GodModeMigrationReport = MigrationReportPage;
 export type GodModePasswordResetResult = ContractSuccess<"godMode", "resetUserPassword">;
+export type GodModeLogs = ContractSuccess<"serverLogs", "list">;
 
 export class GodModeSessionNotFound extends Data.TaggedError("GodModeSessionNotFound")<{
 	readonly sessionId: string;
@@ -40,6 +42,21 @@ export class GodModeService extends Context.Service<GodModeService>()("GodModeSe
 				return yield* new GodModeSessionNotFound({ sessionId });
 			}
 			return session;
+		});
+		const listLogs = Effect.fn("GodModeService.listLogs")(function* (
+			sessionId: string,
+			after: string | undefined,
+			limit: number,
+		) {
+			const { token, origin } = yield* credentials(sessionId);
+			return yield* api.listLogs(origin, token, after, limit);
+		});
+		const downloadLogs = Effect.fn("GodModeService.downloadLogs")(function* (
+			sessionId: string,
+			file?: GodModeLogs["files"][number],
+		) {
+			const { token, origin } = yield* credentials(sessionId);
+			yield* api.downloadLogs(origin, token, file);
 		});
 		const listUsers = Effect.fn("GodModeService.listUsers")(function* (
 			sessionId: string,
@@ -77,6 +94,17 @@ export class GodModeService extends Context.Service<GodModeService>()("GodModeSe
 				params: { userId: UserId.make(userId) },
 			});
 		});
+		const startUserImpersonation = Effect.fn("GodModeService.startUserImpersonation")(function* (
+			sessionId: string,
+			userId: string,
+			authorization: ImpersonationAuthorization,
+		) {
+			const { token, origin } = yield* credentials(sessionId);
+			return yield* api.startUserImpersonation(origin, token, {
+				payload: authorization,
+				params: { userId: UserId.make(userId) },
+			});
+		});
 		const lifecycle = Effect.fn("GodModeService.lifecycle")(function* (
 			sessionId: string,
 			userId: string,
@@ -108,12 +136,15 @@ export class GodModeService extends Context.Service<GodModeService>()("GodModeSe
 		});
 
 		return {
+			listLogs,
 			listUsers,
 			resetUser,
 			deleteUser,
+			downloadLogs,
 			setUserDisabled,
 			resetUserPassword,
 			getMigrationReport,
+			startUserImpersonation,
 		};
 	}),
 }) {

@@ -1,7 +1,8 @@
 import { Browser } from "@capacitor/browser";
 import {
 	OAuthCallbackQuery,
-	OAUTH_NATIVE_CLIENT_ID,
+	OAUTH_IMPERSONATION_CLIENT_IDS,
+	OAUTH_NATIVE_CLIENT_IDS,
 	OAUTH_WEB_CLIENT_IDS,
 } from "@ryot-app/contract/oauth";
 import { createFileRoute, redirect } from "@tanstack/react-router";
@@ -67,17 +68,26 @@ export const Route = createFileRoute("/auth_/callback")({
 				}
 				const pending = yield* tokens.completeAuthorization(
 					origin,
-					client.nativeApplicationId === null ? OAUTH_WEB_CLIENT_IDS : [OAUTH_NATIVE_CLIENT_ID],
+					client.nativeApplicationId === null ? OAUTH_WEB_CLIENT_IDS : OAUTH_NATIVE_CLIENT_IDS,
 					client.callbackUri,
 					search.state,
 					search.code,
 				);
 				yield* Effect.flatMap(AuthService, (auth) => auth.settledSession(origin, true));
-				return sanitizeRedirect(pending.destination) ?? "/";
+				return OAUTH_IMPERSONATION_CLIENT_IDS.some((clientId) => clientId === pending.clientId)
+					? ({ kind: "impersonation" } as const)
+					: ({
+							kind: "redirect",
+							destination: sanitizeRedirect(pending.destination) ?? "/",
+						} as const);
 			}).pipe(
-				Effect.map((destination) => {
+				Effect.map((result) => {
+					if (result.kind === "impersonation") {
+						window.location.replace("/");
+						return;
+					}
 					// oxlint-disable-next-line typescript/only-throw-error
-					throw redirect({ replace: true, to: destination });
+					throw redirect({ replace: true, to: result.destination });
 				}),
 			),
 		),

@@ -1,7 +1,7 @@
 import { HttpApi, OpenApi } from "effect/unstable/httpapi";
 
 import { AutomationHistoryGroup, AutomationsGroup } from "./modules/automations/contract";
-import { BackupsGroup } from "./modules/backups/contract";
+import { BackupDownloadsGroup, BackupsGroup } from "./modules/backups/contract";
 import {
 	ClientAssetsGroup,
 	ClientDocumentsGroup,
@@ -12,9 +12,11 @@ import { EntitiesGroup } from "./modules/entities/contract";
 import { InterestGroup } from "./modules/entity-interest/contract";
 import { EventsGroup } from "./modules/events/contract";
 import { GodModeGroup } from "./modules/god-mode/contract";
-import { ImportsGroup } from "./modules/imports/contract";
+import { ServerLogDownloadsGroup, ServerLogsGroup } from "./modules/god-mode/logs";
+import { ImportDownloadsGroup, ImportsGroup } from "./modules/imports/contract";
 import { IntegrationsGroup } from "./modules/integrations/contract";
 import { NotificationsGroup } from "./modules/notifications/contract";
+import { OAuthConnectionsGroup } from "./modules/oauth-connections/contract";
 import { PluginsGroup } from "./modules/plugins/contract";
 import { ProviderEntitiesGroup } from "./modules/provider-entities/contract";
 import { RelationshipsGroup } from "./modules/relationships/contract";
@@ -31,6 +33,7 @@ export type AppGroups =
 	| typeof AutomationsGroup
 	| typeof AutomationHistoryGroup
 	| typeof BackupsGroup
+	| typeof BackupDownloadsGroup
 	| typeof RelationshipsGroup
 	| typeof EntitiesGroup
 	| typeof ProviderEntitiesGroup
@@ -45,9 +48,13 @@ export type AppGroups =
 	| typeof ClientDocumentsGroup
 	| typeof ClientAssetsGroup
 	| typeof GodModeGroup
+	| typeof ServerLogsGroup
+	| typeof ServerLogDownloadsGroup
 	| typeof TestSupportGroup
 	| typeof ImportsGroup
+	| typeof ImportDownloadsGroup
 	| typeof IntegrationsGroup
+	| typeof OAuthConnectionsGroup
 	| typeof RyotQLGroup
 	| typeof AdminRyotQLGroup
 	| typeof InterestGroup
@@ -59,6 +66,7 @@ export const AppContract: HttpApi.HttpApi<"ryot", AppGroups> = HttpApi.make("ryo
 	.add(AutomationsGroup)
 	.add(AutomationHistoryGroup)
 	.add(BackupsGroup)
+	.add(BackupDownloadsGroup)
 	.add(RelationshipsGroup)
 	.add(EntitiesGroup)
 	.add(ProviderEntitiesGroup)
@@ -73,9 +81,13 @@ export const AppContract: HttpApi.HttpApi<"ryot", AppGroups> = HttpApi.make("ryo
 	.add(ClientDocumentsGroup)
 	.add(ClientAssetsGroup)
 	.add(GodModeGroup)
+	.add(ServerLogsGroup)
+	.add(ServerLogDownloadsGroup)
 	.add(TestSupportGroup)
 	.add(ImportsGroup)
+	.add(ImportDownloadsGroup)
 	.add(IntegrationsGroup)
+	.add(OAuthConnectionsGroup)
 	.add(RyotQLGroup)
 	.add(AdminRyotQLGroup)
 	.add(InterestGroup)

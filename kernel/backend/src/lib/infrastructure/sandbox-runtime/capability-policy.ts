@@ -14,10 +14,12 @@ export type SandboxCapabilityRequirement = {
 export const SANDBOX_CAPABILITY_REQUIREMENTS = {
 	scratch: { subjects: [], bridge: false },
 	"artifact-read": { subjects: [], bridge: false },
+	getOAuthAccessToken: { bridge: true, subjects: ["user"] as const },
 	sendNotification: { bridge: true, subjects: ["automation-run"] as const },
 	createEvents: { bridge: true, subjects: ["user", "automation-run"] as const },
 	log: { bridge: true, subjects: ["user", "automation-run", "system"] as const },
 	span: { bridge: true, subjects: ["user", "automation-run", "system"] as const },
+	getUserSettings: { bridge: true, subjects: ["user", "automation-run"] as const },
 	listIntegrations: { bridge: true, subjects: ["user", "automation-run"] as const },
 	listEventSchemas: { bridge: true, subjects: ["user", "automation-run"] as const },
 	getEntitySchemas: { bridge: true, subjects: ["user", "automation-run"] as const },
@@ -28,7 +30,6 @@ export const SANDBOX_CAPABILITY_REQUIREMENTS = {
 	getCachedValue: { bridge: true, subjects: ["user", "automation-run", "system"] as const },
 	setCachedValue: { bridge: true, subjects: ["user", "automation-run", "system"] as const },
 	getPluginConfig: { bridge: true, subjects: ["user", "automation-run", "system"] as const },
-	getSystemConfig: { bridge: true, subjects: ["user", "automation-run", "system"] as const },
 	claimPersistentValue: { bridge: true, subjects: ["user", "automation-run", "system"] as const },
 	ensureUserEntities: {
 		bridge: true,

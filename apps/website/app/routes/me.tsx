@@ -85,17 +85,10 @@ const getAllSubscriptionsForCustomer = (customerId: string) => {
 };
 
 const getAllPolarSubscriptionsForCustomer = (customerId: string) =>
-	Effect.gen(function* () {
-		const polar = getPolarClient();
-		const subscriptionsIterator = yield* fromPromise(() =>
-			polar.subscriptions.list({ externalCustomerId: customerId }),
-		);
-		const pages = yield* Stream.fromAsyncIterable(
-			subscriptionsIterator,
-			(cause) => new WebsiteFailure({ cause }),
-		).pipe(Stream.runCollect);
-		return pages.flatMap((page) => page.result.items);
-	});
+	Stream.fromAsyncIterable(
+		getPolarClient().subscriptions.iterList({ external_customer_id: customerId }),
+		(cause) => new WebsiteFailure({ cause }),
+	).pipe(Stream.runCollect);
 
 export const action = ({ request }: Route.ActionArgs) =>
 	runPromise(
@@ -169,7 +162,7 @@ export const action = ({ request }: Route.ActionArgs) =>
 							});
 
 							const polar = getPolarClient();
-							yield* fromPromise(() => polar.subscriptions.revoke({ id: activeSubscription.id }));
+							yield* fromPromise(() => polar.subscriptions.revoke(activeSubscription.id));
 							setCancellation(customer.id);
 
 							return data({ success: true, message: "Subscription cancelled successfully" });
@@ -233,9 +226,9 @@ export const action = ({ request }: Route.ActionArgs) =>
 						const checkout = yield* fromPromise(() =>
 							polar.checkouts.create({
 								products: [productId],
-								customerEmail: customer.email,
-								successUrl: `${frontendUrl}/me`,
-								externalCustomerId: customer.id,
+								customer_email: customer.email,
+								success_url: `${frontendUrl}/me`,
+								external_customer_id: customer.id,
 							}),
 						);
 

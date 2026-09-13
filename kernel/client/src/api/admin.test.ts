@@ -1,13 +1,59 @@
 import { describe, expect, it } from "@effect/vitest";
+import { AuthUnauthorized } from "@ryot-app/contract/auth-middleware";
 import { Effect } from "effect";
 import { HttpClient, HttpClientError, HttpClientResponse } from "effect/unstable/http";
 
 import { makeAdminApi } from "#/api/admin";
 import { decodeServerOrigin } from "#/api/origin";
+import { FileDownloadError, type FileDownloadRequest } from "#/modules/downloads/file";
 
 const origin = decodeServerOrigin("https://ryot.example");
 
 describe("admin API", () => {
+	it.live("starts a download from its short-lived URL", () =>
+		Effect.gen(function* () {
+			const downloads: Array<FileDownloadRequest> = [];
+			const api = makeAdminApi(
+				HttpClient.make(() => Effect.die("not used")),
+				{ download: (request) => Effect.sync(() => downloads.push(request)) },
+			);
+			yield* api.download(
+				"https://ryot.example/api/god-mode/logs/download?ticket=short",
+				"logs.zip",
+			);
+
+			expect(downloads).toEqual([
+				{
+					fileName: "logs.zip",
+					url: "https://ryot.example/api/god-mode/logs/download?ticket=short",
+				},
+			]);
+		}),
+	);
+
+	it.live("maps native unauthorized and transport failures", () =>
+		Effect.gen(function* () {
+			const api = makeAdminApi(
+				HttpClient.make(() => Effect.die("not used")),
+				{
+					download: (request) =>
+						Effect.fail(
+							request.fileName === "unauthorized.zip"
+								? new FileDownloadError({ cause: 401, status: 401 })
+								: new FileDownloadError({ cause: "offline" }),
+						),
+				},
+			);
+			const unauthorized = yield* Effect.flip(
+				api.download("https://download.test/a", "unauthorized.zip"),
+			);
+			const transport = yield* Effect.flip(api.download("https://download.test/b", "logs.zip"));
+
+			expect(unauthorized.cause).toBeInstanceOf(AuthUnauthorized);
+			expect(transport.cause).toBeInstanceOf(FileDownloadError);
+		}),
+	);
+
 	it.effect(
 		"runs a typed contract program at the server API with only the admin token header",
 		() =>
@@ -26,6 +72,7 @@ describe("admin API", () => {
 							),
 						);
 					}),
+					{ download: () => Effect.void },
 				);
 
 				expect(yield* api.run(origin, "admin-secret", (client) => client.system.health())).toEqual({
@@ -48,6 +95,7 @@ describe("admin API", () => {
 						}),
 					),
 				),
+				{ download: () => Effect.void },
 			);
 			const error = yield* Effect.flip(
 				api.run(origin, "admin-secret", (client) => client.system.health()),

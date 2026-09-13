@@ -12,6 +12,7 @@ import { GodModeApi } from "#/api/god-mode";
 import { ImportsApi } from "#/api/imports";
 import { IntegrationsApi } from "#/api/integrations";
 import { NotificationsApi } from "#/api/notifications";
+import { OAuthConnectionsApi } from "#/api/oauth-connections";
 import { PluginInstallationsApi } from "#/api/plugin-installations";
 import { PluginsApi } from "#/api/plugins";
 import { ProviderEntitiesApi } from "#/api/provider-entities";
@@ -22,8 +23,13 @@ import { UploadsApi } from "#/api/uploads";
 import { UserSettingsApi } from "#/api/user-settings";
 import { RuntimeOAuthClientService } from "#/modules/auth/runtime-client";
 import { OAuthTokenService } from "#/modules/auth/token-service";
+import { FileDownloads } from "#/modules/downloads/file";
 
-export const TransportLive = Layer.mergeAll(AdminApi.layer, AuthenticatedApi.layer).pipe(
+export const TransportLive = Layer.mergeAll(
+	AdminApi.layer.pipe(Layer.provide(FileDownloads.layer)),
+	AuthenticatedApi.layer,
+	FileDownloads.layer,
+).pipe(
 	Layer.provideMerge(OAuthTokenService.layer),
 	Layer.provideMerge(RuntimeOAuthClientService.layer),
 	Layer.provideMerge(FetchHttpClient.layer),
@@ -45,6 +51,7 @@ export const ApiLive = Layer.mergeAll(
 	UserSettingsApi.layer,
 	IntegrationsApi.layer,
 	NotificationsApi.layer,
+	OAuthConnectionsApi.layer,
 	ProviderEntitiesApi.layer,
 	PluginInstallationsApi.layer,
 ).pipe(Layer.provide(TransportLive));

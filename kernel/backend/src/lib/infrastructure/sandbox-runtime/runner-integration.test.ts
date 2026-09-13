@@ -68,7 +68,6 @@ export const manifest = defineManifest({
   name: "Runner validation",
   slug: "runner-validation",
   requiredPluginConfigKeys: [],
-  requiredSystemConfigKeys: [],
 });
 
 export default defineScript({
@@ -92,7 +91,6 @@ const manifest = {
   name: "Runtime alias identity",
   slug: "runtime-alias-identity",
   requiredPluginConfigKeys: [],
-  requiredSystemConfigKeys: [],
 };
 
 export default {
@@ -114,7 +112,6 @@ export const manifest = defineManifest({
   name: "Runner failure",
   slug: "runner-failure",
   requiredPluginConfigKeys: [],
-  requiredSystemConfigKeys: [],
 });
 
 export default defineScript({
@@ -137,7 +134,6 @@ export const manifest = defineManifest({
   name: "Runner limits",
   slug: "runner-limits",
   requiredPluginConfigKeys: [],
-  requiredSystemConfigKeys: [],
 });
 
 export default defineScript({
@@ -169,7 +165,6 @@ export const manifest = defineManifest({
   name: "Filesystem",
   slug: "filesystem",
   requiredPluginConfigKeys: [],
-  requiredSystemConfigKeys: [],
   capabilities: ["artifact-read", "scratch"],
 });
 
@@ -199,13 +194,12 @@ export const manifest = defineManifest({
   name: "Core host execution",
   slug: "core-host-execution",
   requiredPluginConfigKeys: [],
-  requiredSystemConfigKeys: ["timezone"],
   capabilities: [
     "httpCall",
     "getCachedValue",
     "setCachedValue",
     "claimPersistentValue",
-    "getSystemConfig",
+    "getPluginConfig",
     "getUserPreferences",
   ],
 });
@@ -234,7 +228,7 @@ export default defineScript({
         body: "payload",
         headers: { Accept: "application/json" },
       });
-    const config = yield* host.getSystemConfig(["timezone"]);
+    const config = yield* host.getPluginConfig(["timezone"]);
     const preferences = yield* host.getUserPreferences();
     return { after, before, claim, config, http, preferences };
   }),
@@ -251,7 +245,6 @@ export const manifest = defineManifest({
   name: "Filtered host",
   slug: "filtered-host",
   requiredPluginConfigKeys: [],
-  requiredSystemConfigKeys: [],
   capabilities: ["getCachedValue"],
 });
 
@@ -275,7 +268,6 @@ export const manifest = defineManifest({
   name: "Host budgets",
   slug: "host-budgets",
   requiredPluginConfigKeys: [],
-  requiredSystemConfigKeys: [],
   capabilities: ["getCachedValue", "httpCall"],
 });
 
@@ -313,7 +305,6 @@ import { entityReadRecipe, executeRyotqlRecipe } from "@ryot-app/sandbox-sdk/ryo
 export const manifest = defineManifest({
   kind: "script",
   requiredPluginConfigKeys: [],
-  requiredSystemConfigKeys: [],
   name: "Domain host execution",
   slug: "domain-host-execution",
   capabilities: [
@@ -366,7 +357,6 @@ export const manifest = defineManifest({
   kind: "script",
   capabilities: [],
   requiredPluginConfigKeys: [],
-  requiredSystemConfigKeys: [],
   name: "${name} dependency load",
   slug: "${name}-dependency-load",
 });
@@ -388,7 +378,6 @@ const manifest = {
   name: "Workflow host",
   slug: "workflow-host",
   requiredPluginConfigKeys: [],
-  requiredSystemConfigKeys: [],
 };
 
 export default {
@@ -419,7 +408,6 @@ const manifest = {
   kind: "workflow",
   capabilities: [],
   requiredPluginConfigKeys: [],
-  requiredSystemConfigKeys: [],
   name: "Workflow nondeterminism",
   slug: "workflow-nondeterminism",
 };
@@ -475,7 +463,6 @@ const manifest = {
   name: "Ambient script",
   slug: "ambient-script",
   requiredPluginConfigKeys: [],
-  requiredSystemConfigKeys: [],
 };
 
 export default {
@@ -496,7 +483,6 @@ export const manifest = defineManifest({
   kind: "script",
   capabilities: ["httpCall"],
   requiredPluginConfigKeys: [],
-  requiredSystemConfigKeys: [],
   name: "Approved Youtubei determinism",
   slug: "approved-youtubei-determinism",
 });
@@ -522,7 +508,6 @@ export const manifest = defineManifest({
   name: "Generated npm import",
   slug: "generated-npm-import",
   requiredPluginConfigKeys: [],
-  requiredSystemConfigKeys: [],
 });
 
 export default defineScript({
@@ -545,7 +530,6 @@ export const manifest = {
   name: "Durable role",
   slug: "durable-role",
   requiredPluginConfigKeys: [],
-  requiredSystemConfigKeys: [],
   capabilities: ["getCachedValue"],
 };
 
@@ -775,7 +759,6 @@ const compileHostBridgeFixture = Effect.gen(function* () {
 const startCoreHostBridge = (
 	options: {
 		readonly pluginConfigValue?: unknown;
-		readonly systemConfigValue?: unknown;
 		readonly replayJournalResult?: unknown;
 		readonly getCachedValueResult?: unknown;
 		readonly httpResponse?: (url: string) => unknown;
@@ -847,19 +830,8 @@ const startCoreHostBridge = (
 									]),
 								),
 							};
-						} else if (fnName === "getSystemConfig") {
-							const keys = Array.isArray(args[0]) ? args[0] : [];
-							result = {
-								success: true,
-								data: Object.fromEntries(
-									keys.map((requestedKey) => [
-										requestedKey,
-										options.systemConfigValue ?? "Etc/GMT",
-									]),
-								),
-							};
 						} else if (fnName === "getUserPreferences") {
-							result = { success: true, data: { allowNsfw: false, disableIntegrations: true } };
+							result = { success: true, data: { disableIntegrations: true } };
 						} else if (fnName === "replayJournal") {
 							result = { success: true, data: options.replayJournalResult ?? [] };
 						} else {
@@ -887,7 +859,6 @@ const durableRoleManifest = {
 	slug: "durable-role",
 	kind: "operation" as const,
 	requiredPluginConfigKeys: [] as const,
-	requiredSystemConfigKeys: [] as const,
 	capabilities: ["getCachedValue"] as const,
 };
 
@@ -1034,7 +1005,6 @@ layer(runnerIntegrationLayer, { timeout: 120_000, excludeTestServices: true })((
 				kind: "script",
 				capabilities: [],
 				requiredPluginConfigKeys: [],
-				requiredSystemConfigKeys: [],
 				name: "Promise definition rejection",
 				slug: "promise-definition-rejection",
 			} as const;
@@ -1239,7 +1209,6 @@ layer(runnerIntegrationLayer, { timeout: 120_000, excludeTestServices: true })((
 						kind: "script",
 						capabilities: [],
 						requiredPluginConfigKeys: [],
-						requiredSystemConfigKeys: [],
 						name: "Runtime alias identity",
 						slug: "runtime-alias-identity",
 					},
@@ -1286,8 +1255,8 @@ layer(runnerIntegrationLayer, { timeout: 120_000, excludeTestServices: true })((
 						before: null,
 						after: { value: 42 },
 						claim: { claimed: true },
-						config: { timezone: "Etc/GMT" },
-						preferences: { allowNsfw: false, disableIntegrations: true },
+						config: { timezone: "plugin-value" },
+						preferences: { disableIntegrations: true },
 					});
 
 					bridge.register("execution-b-1", "script-b");
@@ -1320,12 +1289,12 @@ layer(runnerIntegrationLayer, { timeout: 120_000, excludeTestServices: true })((
 					const approvedResult = yield* runInDeno(
 						approved,
 						{},
-						{ apiBase, apiFunctions: ["getCachedValue", "setCachedValue", "getSystemConfig"] },
+						{ apiBase, apiFunctions: ["getCachedValue", "setCachedValue", "getPluginConfig"] },
 					);
 					assert(approvedResult !== null && typeof approvedResult === "object");
 					expect(Reflect.get(approvedResult, "value")).toEqual({
 						value: null,
-						keys: ["getCachedValue", "getSystemConfig", "setCachedValue"],
+						keys: ["getCachedValue", "getPluginConfig", "setCachedValue"],
 					});
 
 					expect(new Set(bridge.calls.map((call) => call.fnName))).toEqual(new Set(apiFunctions));
@@ -1437,7 +1406,6 @@ layer(runnerIntegrationLayer, { timeout: 120_000, excludeTestServices: true })((
 						slug: "durable-role",
 						kind: "operation" as const,
 						requiredPluginConfigKeys: [] as const,
-						requiredSystemConfigKeys: [] as const,
 						capabilities: ["getCachedValue"] as const,
 					};
 					const options = {
@@ -1522,7 +1490,6 @@ layer(runnerIntegrationLayer, { timeout: 120_000, excludeTestServices: true })((
 					slug: "durable-role",
 					kind: "operation" as const,
 					requiredPluginConfigKeys: [] as const,
-					requiredSystemConfigKeys: [] as const,
 					capabilities: ["getCachedValue"] as const,
 				};
 				const result = yield* runInDeno(
@@ -1714,7 +1681,6 @@ layer(runnerIntegrationLayer, { timeout: 120_000, excludeTestServices: true })((
 					slug: "durable-role",
 					kind: "operation" as const,
 					requiredPluginConfigKeys: [] as const,
-					requiredSystemConfigKeys: [] as const,
 					capabilities: ["getCachedValue"] as const,
 				};
 				const result = yield* runInDeno(
@@ -1751,7 +1717,6 @@ layer(runnerIntegrationLayer, { timeout: 120_000, excludeTestServices: true })((
 						kind: "workflow" as const,
 						capabilities: [] as const,
 						requiredPluginConfigKeys: [] as const,
-						requiredSystemConfigKeys: [] as const,
 					};
 					const result = yield* runInDeno(
 						{ manifest, format: 1, javascript: workflowHostSource },
@@ -1847,7 +1812,6 @@ layer(runnerIntegrationLayer, { timeout: 120_000, excludeTestServices: true })((
 							name: "Workflow nondeterminism",
 							slug: "workflow-nondeterminism",
 							requiredPluginConfigKeys: [] as const,
-							requiredSystemConfigKeys: [] as const,
 						};
 						const result = yield* runInDeno(
 							{ manifest, format: 1, javascript: workflowNondeterminismSource },
@@ -1872,7 +1836,6 @@ layer(runnerIntegrationLayer, { timeout: 120_000, excludeTestServices: true })((
 					name: "Workflow nondeterminism",
 					slug: "workflow-nondeterminism",
 					requiredPluginConfigKeys: [] as const,
-					requiredSystemConfigKeys: [] as const,
 				};
 				const result = yield* runInDeno(
 					{ manifest, format: 1, javascript: workflowNondeterminismSource },
@@ -1892,7 +1855,6 @@ layer(runnerIntegrationLayer, { timeout: 120_000, excludeTestServices: true })((
 				name: "Workflow nondeterminism",
 				slug: "workflow-nondeterminism",
 				requiredPluginConfigKeys: [] as const,
-				requiredSystemConfigKeys: [] as const,
 			};
 			const scriptManifest = {
 				name: "Ambient script",
@@ -1900,7 +1862,6 @@ layer(runnerIntegrationLayer, { timeout: 120_000, excludeTestServices: true })((
 				kind: "script" as const,
 				capabilities: [] as const,
 				requiredPluginConfigKeys: [] as const,
-				requiredSystemConfigKeys: [] as const,
 			};
 			const workflowResult = yield* runInDeno(
 				{ format: 1, manifest: workflowManifest, javascript: workflowNondeterminismSource },
@@ -1952,7 +1913,6 @@ layer(runnerIntegrationLayer, { timeout: 120_000, excludeTestServices: true })((
 				name: "Workflow nondeterminism",
 				slug: "workflow-nondeterminism",
 				requiredPluginConfigKeys: [] as const,
-				requiredSystemConfigKeys: [] as const,
 			};
 			const result = yield* runInDeno(
 				{ manifest, format: 1, javascript: workflowNondeterminismSource },

@@ -6,10 +6,9 @@ import { details } from "./shared";
 export const manifest = defineManifest({
 	kind: "provider",
 	name: "MyAnimeList Details",
-	requiredSystemConfigKeys: [],
 	slug: "manga.myanimelist.details",
 	requiredPluginConfigKeys: ["malClientId"],
-	capabilities: ["httpCall", "getPluginConfig", "getUserPreferences"],
+	capabilities: ["httpCall", "getPluginConfig", "getUserSettings"],
 });
 
 export default defineProvider({ manifest, run: details.run, operation: "details" });

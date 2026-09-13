@@ -83,6 +83,7 @@ function OAuthLaunch() {
 	const auth = runtime.runSync(AuthService);
 	const launched = useRef(false);
 	const [failedPlan, setFailedPlan] = useState<OAuthLaunchPlan>();
+	const isNative = plan.client.nativeApplicationId !== null;
 
 	function launch(target: OAuthLaunchPlan) {
 		setFailedPlan(undefined);
@@ -95,11 +96,11 @@ function OAuthLaunch() {
 	const launchAuth = useEffectEvent(launch);
 
 	useEffect(() => {
-		if (!launched.current) {
+		if (!isNative && !launched.current) {
 			launched.current = true;
 			launchAuth(plan);
 		}
-	}, [plan]);
+	}, [isNative, plan]);
 
 	function changeServer() {
 		return runtime.runPromise(
@@ -111,6 +112,8 @@ function OAuthLaunch() {
 			}),
 		);
 	}
+
+	const hostname = new URL(plan.pending.serverOrigin).hostname;
 
 	if (failedPlan) {
 		return (
@@ -127,7 +130,7 @@ function OAuthLaunch() {
 						>
 							Try again
 						</Button>
-						{plan.client.nativeApplicationId !== null && (
+						{isNative && (
 							<Button type="button" variant="text" onClick={() => void changeServer()}>
 								Change server
 							</Button>
@@ -138,10 +141,24 @@ function OAuthLaunch() {
 		);
 	}
 
-	return (
-		<AuthStatus
-			title="Opening sign-in"
-			message={`Continuing with ${new URL(plan.pending.serverOrigin).hostname}...`}
-		/>
-	);
+	if (isNative) {
+		return (
+			<AuthStatus
+				title="Sign in to Ryot"
+				message={`Continue with ${hostname}.`}
+				actions={
+					<>
+						<Button type="button" variant="primary" className="w-full" onClick={() => launch(plan)}>
+							Continue to sign in
+						</Button>
+						<Button type="button" variant="text" onClick={() => void changeServer()}>
+							Change server
+						</Button>
+					</>
+				}
+			/>
+		);
+	}
+
+	return <AuthStatus title="Opening sign-in" message={`Continuing with ${hostname}...`} />;
 }

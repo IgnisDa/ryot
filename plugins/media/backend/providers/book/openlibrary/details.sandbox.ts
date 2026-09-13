@@ -8,7 +8,6 @@ export const manifest = defineManifest({
 	capabilities: ["httpCall"],
 	name: "OpenLibrary Details",
 	requiredPluginConfigKeys: [],
-	requiredSystemConfigKeys: [],
 	slug: "book.openlibrary.details",
 });
 

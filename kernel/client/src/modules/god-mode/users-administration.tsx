@@ -41,7 +41,7 @@ type Page =
 	| { readonly after: string | undefined; readonly state: "loading" | "error" }
 	| { readonly after: string | undefined; readonly state: "loaded"; readonly value: GodModeUsers };
 
-type UserAction = "password" | "disabled" | "reset" | "delete";
+type UserAction = "password" | "disabled" | "reset" | "delete" | "impersonate";
 
 function UserPageStatus(props: {
 	readonly page: Extract<Page, { readonly state: "loading" | "error" }>;
@@ -75,6 +75,7 @@ export type GodModeUserOperations = {
 		after: string | undefined,
 		limit: number,
 	) => OperationResult<GodModeUsers>;
+	readonly impersonateUser: (userId: string) => OperationResult<void>;
 };
 
 type UsersAdministrationProps = {
@@ -291,7 +292,9 @@ function UserRow(props: {
 	const [confirmation, setConfirmation] = useState<"reset" | "delete" | null>(null);
 	const [menuOpen, setMenuOpen] = useState(false);
 	const [activeMenuIndex, setActiveMenuIndex] = useState(0);
-	const [pending, setPending] = useState<"password" | "disabled" | "reset" | "delete" | null>(null);
+	const [pending, setPending] = useState<
+		"password" | "disabled" | "reset" | "delete" | "impersonation" | null
+	>(null);
 	const [result, setResult] = useState<GodModePasswordResetResult | GodModeUserResetResult | null>(
 		null,
 	);
@@ -363,6 +366,14 @@ function UserRow(props: {
 				}
 			}),
 		);
+	const impersonate = () =>
+		run("impersonation", () => props.operations.impersonateUser(props.user.id)).pipe(
+			Effect.map((value) => {
+				if (value === null && pendingRef.current === null) {
+					setError("Could not start impersonation. Try again.");
+				}
+			}),
+		);
 	const confirm = () => {
 		setResult(null);
 		const kind = confirmation;
@@ -426,7 +437,15 @@ function UserRow(props: {
 			setConfirmation(kind);
 			return;
 		}
-		queueMicrotask(() => Effect.runFork(kind === "password" ? resetPassword() : toggleDisabled()));
+		if (kind === "password") {
+			queueMicrotask(() => Effect.runFork(resetPassword()));
+			return;
+		}
+		if (kind === "disabled") {
+			queueMicrotask(() => Effect.runFork(toggleDisabled()));
+			return;
+		}
+		queueMicrotask(() => Effect.runFork(impersonate()));
 	};
 	const actionItems: ReadonlyArray<MenuItem> = [
 		{
@@ -442,6 +461,13 @@ function UserRow(props: {
 			disabled: pending !== null,
 			label: disabledActionLabel,
 			onSelect: () => selectAction("disabled"),
+		},
+		{
+			key: "impersonate",
+			destructive: false,
+			disabled: pending !== null,
+			onSelect: () => selectAction("impersonate"),
+			label: pending === "impersonation" ? "Starting..." : "Impersonate user",
 		},
 		{
 			key: "reset",

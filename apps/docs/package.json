@@ -5,8 +5,8 @@
 	"scripts": {
 		"build": "vitepress build",
 		"dev": "vitepress dev --port 3002",
-		"generate": "bun run scripts/generate-configuration.ts",
-		"check": "tsc && oxfmt . --write && oxlint . --fix"
+		"check": "tsc && oxfmt . --write && oxlint . --fix",
+		"generate": "bun run tooling/generate-configuration.ts"
 	},
 	"devDependencies": {
 		"@ryot-app/config": "workspace:*",

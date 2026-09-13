@@ -1,8 +1,11 @@
 import type { CurrentUserValue } from "@ryot-app/contract/auth-middleware";
+import type { DbError } from "@ryot-app/contract/errors";
+import { dataJsonSource } from "@ryot-app/contract/modules/imports/data-json";
 import {
-	ImportNotFoundError,
 	ImportConflictError,
+	ImportNotFoundError,
 	ImportRequestError,
+	ImportRunFailureSchema,
 	type CreateImportRunBody,
 	type ImportRunFailureReason,
 	type ImportRunStatus,
@@ -11,17 +14,18 @@ import type { ImportRunSource } from "@ryot-app/contract/modules/imports/types";
 import type { IntegrationLot } from "@ryot-app/contract/modules/integrations/types";
 import {
 	AutomationExecutionId,
+	UserId,
 	type ImportRunId,
 	type IntegrationId,
 	type SandboxScriptId,
-	type UserId,
 } from "@ryot-app/contract/schema/brands";
 import { IsoUtcString } from "@ryot-app/contract/schema/utils";
-import { stableStringify } from "@ryot-app/ts-utils/json";
-import { Context, DateTime, Effect, Exit, Result, Layer } from "effect";
+import { encodeJsonString, stableStringify } from "@ryot-app/ts-utils/json";
+import { Context, DateTime, Effect, Exit, Layer, Result, Schema, Stream } from "effect";
 import { WorkflowEngine } from "effect/unstable/workflow/WorkflowEngine";
 
 import { rootLifecycleCommand } from "#lib/domain/lifecycle-command";
+import { DownloadTickets } from "#lib/infrastructure/download-tickets";
 import type { ImportSourceState } from "#lib/infrastructure/redis";
 import { MutationReceipts } from "#modules/mutations/receipts";
 import { dispatchAdmittedWorkflow } from "#modules/mutations/workflow-dispatch";
@@ -31,9 +35,10 @@ import {
 } from "#modules/plugins/import-source-catalog";
 import { UploadIntentsService } from "#modules/uploads/intents/service";
 
+import { DataImportAdmission } from "./data-admission";
 import { ImportRunFailuresService, type ImportRunFailureDetails } from "./failure-service";
 import { ProcessImportRunWorkflow } from "./import-run-workflow";
-import { ImportsRepository } from "./repository";
+import { ImportsRepository, type ImportRunFailureCursor } from "./repository";
 import { validateFileExtension } from "./runtime/import-files";
 import {
 	buildImportInputSummary,
@@ -49,7 +54,7 @@ import { ImportWorkflowPinning } from "./workflow-pinning";
 export type CreateManualImportRunInput = {
 	userId: UserId;
 	source: ImportRunSource;
-	pluginInstallationId: string;
+	pluginInstallationId: string | null;
 	inputSummary: Record<string, unknown>;
 };
 
@@ -78,13 +83,17 @@ type DispatchImportRunInput = {
 const isTerminalStatus = (status: ImportRunStatus): boolean =>
 	status === "completed" || status === "failed" || status === "cancelled";
 
+const encodeImportRunFailure = Schema.encodeSync(Schema.fromJsonString(ImportRunFailureSchema));
+
 export class ImportsService extends Context.Service<ImportsService>()("ImportsService", {
 	make: Effect.gen(function* () {
-		const sourceStates = yield* ImportSourceStateStore;
 		const engine = yield* WorkflowEngine;
 		const uploads = yield* UploadIntentsService;
 		const repository = yield* ImportsRepository;
+		const downloadTickets = yield* DownloadTickets;
 		const importSources = yield* ImportSourceCatalog;
+		const dataAdmission = yield* DataImportAdmission;
+		const sourceStates = yield* ImportSourceStateStore;
 		const workflowPinning = yield* ImportWorkflowPinning;
 		const failureService = yield* ImportRunFailuresService;
 		const receipts = yield* MutationReceipts.make;
@@ -339,6 +348,9 @@ export class ImportsService extends Context.Service<ImportsService>()("ImportsSe
 			user: CurrentUserValue,
 			body: CreateImportRunBody,
 		) {
+			if (body.source === dataJsonSource) {
+				return yield* dataAdmission.startUpload(user, body);
+			}
 			const resolution = yield* importSources.resolveForUser(user.id, body.source);
 			if (!resolution) {
 				return yield* new ImportRequestError({
@@ -378,17 +390,18 @@ export class ImportsService extends Context.Service<ImportsService>()("ImportsSe
 				: yield* startSourcePayloadImportRun(user, body, properties, registered, workflowScript.id);
 		});
 
-		const requireImportRun = Effect.fn("ImportsService.requireImportRun")(function* (
-			user: CurrentUserValue,
-			runId: ImportRunId,
-		) {
-			const run = yield* repository.getRunById({ runId, userId: user.id });
-			if (!run) {
-				return yield* new ImportNotFoundError({ reason: { runId, code: "run-not-found" } });
-			}
+		const requireImportRunByUserId = Effect.fn("ImportsService.requireImportRunByUserId")(
+			function* (userId: UserId, runId: ImportRunId) {
+				const run = yield* repository.getRunById({ runId, userId });
+				if (!run) {
+					return yield* new ImportNotFoundError({ reason: { runId, code: "run-not-found" } });
+				}
 
-			return run;
-		});
+				return run;
+			},
+		);
+		const requireImportRun = (user: CurrentUserValue, runId: ImportRunId) =>
+			requireImportRunByUserId(user.id, runId);
 
 		const removeImportRun = Effect.fn("ImportsService.removeImportRun")(function* (
 			user: CurrentUserValue,
@@ -404,11 +417,72 @@ export class ImportsService extends Context.Service<ImportsService>()("ImportsSe
 			return { id: runId };
 		});
 
+		const createFailuresStream = (runId: ImportRunId, source: string) => {
+			const encoder = new TextEncoder();
+			const failureStream = (after?: ImportRunFailureCursor): Stream.Stream<Uint8Array, DbError> =>
+				Stream.fromEffect(repository.listRunFailurePage({ runId, after, limit: 100 })).pipe(
+					Stream.flatMap(({ items, nextCursor }) =>
+						Stream.fromIterable(
+							items.map((failure, index) =>
+								encoder.encode(
+									`${after === undefined && index === 0 ? "" : ","}${encodeImportRunFailure(failure)}`,
+								),
+							),
+						).pipe(Stream.concat(nextCursor === null ? Stream.empty : failureStream(nextCursor))),
+					),
+				);
+
+			const stream = Stream.fromIterable([
+				encoder.encode(
+					`{"runId":${encodeJsonString(runId)},"source":${encodeJsonString(source)},"failures":[`,
+				),
+			]).pipe(
+				Stream.concat(failureStream()),
+				Stream.concat(Stream.fromIterable([encoder.encode("]}")])),
+			);
+			return { stream, fileName: `ryot-import-failures-${runId}.json` };
+		};
+
+		const downloadFailuresForUser = Effect.fn("ImportsService.downloadFailuresForUser")(function* (
+			userId: UserId,
+			runId: ImportRunId,
+		) {
+			const run = yield* requireImportRunByUserId(userId, runId);
+			return createFailuresStream(run.id, run.source);
+		});
+
+		const createFailuresDownloadTicket = Effect.fn("ImportsService.createFailuresDownloadTicket")(
+			function* (user: CurrentUserValue, runId: ImportRunId) {
+				yield* requireImportRun(user, runId);
+				return yield* downloadTickets.issue({
+					resource: runId,
+					subject: user.id,
+					purpose: "import-run-failures",
+				});
+			},
+		);
+
+		const downloadFailuresWithTicket = Effect.fn("ImportsService.downloadFailuresWithTicket")(
+			function* (ticket: string, runId: ImportRunId) {
+				const claims = yield* downloadTickets
+					.verify(ticket, { resource: runId, purpose: "import-run-failures" })
+					.pipe(
+						Effect.catchTag("DownloadTicketInvalid", () =>
+							Effect.fail(new ImportNotFoundError({ reason: { runId, code: "run-not-found" } })),
+						),
+					);
+				if (claims.subject === null) {
+					return yield* new ImportNotFoundError({ reason: { runId, code: "run-not-found" } });
+				}
+				return yield* downloadFailuresForUser(UserId.make(claims.subject), runId);
+			},
+		);
+
 		const createIntegrationRun = (input: {
 			userId: UserId;
 			source: ImportRunSource;
 			integrationId: IntegrationId;
-			pluginInstallationId: string;
+			pluginInstallationId: string | null;
 			integrationLot: IntegrationLot;
 			inputSummary: Record<string, unknown>;
 		}) => repository.createIntegrationRun(input);
@@ -473,6 +547,8 @@ export class ImportsService extends Context.Service<ImportsService>()("ImportsSe
 			createIntegrationRun,
 			failRunForIntegration,
 			createIntegrationRunIfIdle,
+			downloadFailuresWithTicket,
+			createFailuresDownloadTicket,
 			settleIntegrationDispatchFailure,
 		};
 	}),

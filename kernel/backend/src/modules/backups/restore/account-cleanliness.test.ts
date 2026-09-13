@@ -31,6 +31,7 @@ const systemInstallation = (
 		id: "state-id",
 		health: "ready",
 		isHidden: false,
+		userSettings: {},
 		healthReason: null,
 		uninstalledAt: null,
 		pluginSlug: "example",
@@ -105,7 +106,7 @@ describe("classifyAccountCleanliness", () => {
 				profile: {
 					image: null,
 					name: "User",
-					preferences: { ...defaultUserPreferences, allowNsfw: true },
+					preferences: { ...defaultUserPreferences, disableIntegrations: true },
 				},
 			},
 		],
@@ -178,6 +179,7 @@ describe("classifyAccountCleanliness", () => {
 		["plugin-state", { pluginState: [systemInstallation({ isHidden: true })] }],
 		["plugin-state", { pluginState: [systemInstallation({ sortOrder: 3 })] }],
 		["plugin-state", { pluginState: [systemInstallation({ config: { unit: "minutes" } })] }],
+		["plugin-state", { pluginState: [systemInstallation({ userSettings: { allowNsfw: true } })] }],
 		["plugin-state", { pluginState: [systemInstallation({ health: "needs-configuration" })] }],
 		[
 			"plugin-state",

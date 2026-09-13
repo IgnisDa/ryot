@@ -1,3 +1,7 @@
+import {
+	dataJsonImportInputSchema,
+	dataJsonIntegrationSettingsSchema,
+} from "@ryot-app/contract/modules/imports/data-json";
 import type {
 	PluginEntityUserStatePolicy,
 	PluginImportSource,
@@ -24,6 +28,7 @@ import {
 	unique,
 } from "drizzle-orm/pg-core";
 
+import { user } from "./auth";
 import { plugin, pluginInstallation, pluginRevision } from "./core";
 import { savedView, savedViewOverride } from "./views";
 
@@ -159,6 +164,7 @@ export const definitionIntegrationProvider = snakeCase.table(
 		description: text().notNull(),
 		requiresProKey: boolean().notNull(),
 		settingsSchema: jsonb().$type<AppSchema>().notNull(),
+		supportsOwnershipSync: boolean().notNull().default(false),
 		lot: text().$type<PluginIntegrationProvider["lot"]>().notNull(),
 		pluginRevisionId: text()
 			.notNull()
@@ -451,18 +457,18 @@ export const userSavedViewEffective = snakeCase.view("user_saved_view_effective"
 `);
 
 const executableDefinitionColumns = () => ({
+	pluginId: text(),
+	pluginSlug: text(),
 	id: text().notNull(),
 	slug: text().notNull(),
 	name: text().notNull(),
+	installationId: text(),
+	pluginRevisionId: text(),
 	userId: text().notNull(),
 	configRevisionId: text(),
-	pluginId: text().notNull(),
-	pluginSlug: text().notNull(),
 	position: integer().notNull(),
 	description: text().notNull(),
-	installationId: text().notNull(),
-	pluginRevisionId: text().notNull(),
-	pluginScope: text().$type<PluginScope>().notNull(),
+	pluginScope: text().$type<PluginScope>(),
 });
 
 export const userImportSource = snakeCase
@@ -481,6 +487,9 @@ export const userImportSource = snakeCase
 			join definition_import_source d on d.plugin_revision_id = p.active_revision_id
 			left join sandbox_script s on s.plugin_revision_id = d.plugin_revision_id and s.slug = d.workflow_script_slug
 			where p.is_executable and not exists (select 1 from ${userPlugin} sp join definition_import_source g on g.plugin_revision_id = sp.active_revision_id where sp.user_id = p.user_id and sp.plugin_id <> p.plugin_id and sp.scope = 'system' and sp.is_executable and g.slug = d.slug)
+			union all
+			select u.id, 'kernel:data-json:' || u.id, null::text, null::text, null::text, null::text, null::text, null::text, 'data-json', 'Data import', 'Import generic entities, relationships, and events from JSON.', 0, 'data-json', null::text, ${sql.raw(`'${JSON.stringify(dataJsonImportInputSchema).replaceAll("'", "''")}'::jsonb`)}, '{}'::text[], null::jsonb
+			from ${user} u
 		`,
 	);
 
@@ -490,16 +499,20 @@ export const userIntegrationProvider = snakeCase
 		scriptId: text(),
 		scriptSlug: text(),
 		requiresProKey: boolean().notNull(),
+		supportsOwnershipSync: boolean().notNull(),
 		settingsSchema: jsonb().$type<AppSchema>().notNull(),
 		lot: text().$type<PluginIntegrationProvider["lot"]>().notNull(),
 	})
 	.as(
 		sql`
-			select p.user_id, d.id, p.plugin_id, d.plugin_revision_id, p.slug as plugin_slug, p.scope as plugin_scope, p.installation_id, p.config_revision_id, d.slug, d.name, d.description, d.position, d.lot, d.script_slug, s.id as script_id, d.settings_schema, d.requires_pro_key
+			select p.user_id, d.id, p.plugin_id, d.plugin_revision_id, p.slug as plugin_slug, p.scope as plugin_scope, p.installation_id, p.config_revision_id, d.slug, d.name, d.description, d.position, d.lot, d.script_slug, s.id as script_id, d.settings_schema, d.requires_pro_key, d.supports_ownership_sync
 			from ${userPlugin} p
 			join definition_integration_provider d on d.plugin_revision_id = p.active_revision_id
 			left join sandbox_script s on s.plugin_revision_id = d.plugin_revision_id and s.slug = d.script_slug
 			where p.is_executable and not exists (select 1 from ${userPlugin} sp join definition_integration_provider g on g.plugin_revision_id = sp.active_revision_id where sp.user_id = p.user_id and sp.plugin_id <> p.plugin_id and sp.scope = 'system' and sp.is_executable and g.slug = d.slug)
+			union all
+			select u.id, 'kernel:data-json:' || u.id, null::text, null::text, null::text, null::text, null::text, null::text, 'data-json', 'Data webhook', 'Receive generic entities, relationships, and events as JSON.', 0, 'sink', null::text, null::text, ${sql.raw(`'${JSON.stringify(dataJsonIntegrationSettingsSchema).replaceAll("'", "''")}'::jsonb`)}, false, false
+			from ${user} u
 		`,
 	);
 

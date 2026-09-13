@@ -65,7 +65,6 @@ const makeActiveScript = (id: string) => ({
 		capabilities: [],
 		kind: "operation" as const,
 		requiredPluginConfigKeys: [],
-		requiredSystemConfigKeys: [],
 	},
 });
 
@@ -192,7 +191,7 @@ const makeLayer = (input: {
 										name: "User",
 										id: input.currentUserId,
 										email: "user@example.com",
-										preferences: { language: null, allowNsfw: false, disableIntegrations: false },
+										preferences: { language: null, disableIntegrations: false },
 										accountGeneration: {
 											userId: input.currentUserId,
 											token: "test-account-generation",

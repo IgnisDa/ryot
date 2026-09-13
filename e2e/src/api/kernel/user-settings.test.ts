@@ -2,6 +2,8 @@ import { Effect, Schema } from "effect";
 
 import {
 	createAuthenticatedClient,
+	enableTwoFactorForSessionEffect,
+	getTwoFactorStatus,
 	getUserSettings,
 	refreshUserAvatar,
 	updateUserSettingsPreferences,
@@ -19,18 +21,13 @@ describe("user settings", () => {
 			expect(initial.id).toBe(userId);
 			expect(initial.email).toBe(email);
 			expect(initial.name).toBe("Test User");
-			expect(initial.preferences).toEqual({
-				language: null,
-				allowNsfw: false,
-				disableIntegrations: false,
-			});
+			expect(initial.preferences).toEqual({ language: null, disableIntegrations: false });
 
-			yield* updateUserSettingsPreferences(client, { language: "es", allowNsfw: true });
+			yield* updateUserSettingsPreferences(client, { language: "es", disableIntegrations: true });
 
 			expect((yield* getUserSettings(client)).preferences).toEqual({
 				language: "es",
-				allowNsfw: true,
-				disableIntegrations: false,
+				disableIntegrations: true,
 			});
 		}),
 	);
@@ -58,13 +55,12 @@ describe("user settings", () => {
 			const warmBody: unknown = yield* Effect.promise(() => warm.json());
 			expect(warmBody).not.toHaveProperty("user.preferences");
 
-			yield* updateUserSettingsPreferences(client, { allowNsfw: true, language: "  fr  " });
+			yield* updateUserSettingsPreferences(client, { language: "  fr  " });
 			expect((yield* getUserSettings(client)).preferences.language).toBe("fr");
-			yield* updateUserSettingsPreferences(client, { allowNsfw: false, disableIntegrations: true });
+			yield* updateUserSettingsPreferences(client, { disableIntegrations: true });
 			yield* updateUserSettingsPreferences(client, { language: null });
 			expect((yield* getUserSettings(client)).preferences).toEqual({
 				language: null,
-				allowNsfw: false,
 				disableIntegrations: true,
 			});
 			const refreshed = yield* session();
@@ -75,7 +71,7 @@ describe("user settings", () => {
 			for (const payload of [
 				{ language: ["fr"] },
 				{ language: { value: "fr" } },
-				{ allowNsfw: "true" },
+				{ disableIntegrations: "true" },
 				{ unknownField: true },
 			]) {
 				const response = yield* webRequest(`${apiUrl}/user-settings/preferences`, {
@@ -88,17 +84,34 @@ describe("user settings", () => {
 
 			const rawAuth = yield* webRequest(`${apiUrl}/auth/update-user`, {
 				method: "POST",
-				body: yield* Schema.encodeEffect(Schema.fromJsonString(Schema.Unknown))({
-					preferences: { allowNsfw: true },
-				}),
 				headers: {
 					Cookie: sessionCookie,
 					Origin: new URL(apiUrl).origin,
 					"content-type": "application/json",
 				},
+				body: yield* Schema.encodeEffect(Schema.fromJsonString(Schema.Unknown))({
+					preferences: { disableIntegrations: false },
+				}),
 			});
 			expect(rawAuth.status).toBeLessThan(500);
-			expect((yield* getUserSettings(client)).preferences.allowNsfw).toBe(false);
+			expect((yield* getUserSettings(client)).preferences.disableIntegrations).toBe(true);
+		}),
+	);
+
+	it.live("reports two-factor status for a password account", () =>
+		Effect.gen(function* () {
+			const { token, client, password, sessionCookie } = yield* createAuthenticatedClient();
+
+			expect(yield* getTwoFactorStatus(client)).toEqual({ enabled: false, available: true });
+
+			yield* enableTwoFactorForSessionEffect({
+				token,
+				password,
+				sessionCookie,
+				baseUrl: getApiUrl(),
+			});
+
+			expect(yield* getTwoFactorStatus(client)).toEqual({ enabled: true, available: true });
 		}),
 	);
 });

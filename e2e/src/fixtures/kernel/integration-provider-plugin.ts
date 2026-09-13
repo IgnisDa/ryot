@@ -23,7 +23,6 @@ export const manifest = defineManifest({
   kind: "script",
   capabilities: [],
   requiredPluginConfigKeys: [],
-  requiredSystemConfigKeys: [],
   name: ${JSON.stringify(name)},
   slug: ${JSON.stringify(scriptSlug)},
 });
@@ -47,7 +46,6 @@ export const manifest = defineManifest({
   kind: "workflow",
   capabilities: [],
   requiredPluginConfigKeys: [],
-  requiredSystemConfigKeys: [],
   name: "E2E integration import",
   slug: ${JSON.stringify(workflowScriptSlug)},
 });
@@ -108,7 +106,6 @@ export default defineWorkflow({
 				slug: scriptSlug,
 				capabilities: [],
 				requiredPluginConfigKeys: [],
-				requiredSystemConfigKeys: [],
 			},
 			{
 				kind: "workflow",
@@ -116,7 +113,6 @@ export default defineWorkflow({
 				entry: workflowEntry,
 				slug: workflowScriptSlug,
 				requiredPluginConfigKeys: [],
-				requiredSystemConfigKeys: [],
 				name: "E2E integration import",
 			},
 		],

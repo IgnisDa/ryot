@@ -6,6 +6,8 @@ import { AppConfig } from "#lib/infrastructure/config/service";
 import { MigrationsComplete } from "#lib/infrastructure/db/migrate";
 import { PgClientLive } from "#lib/infrastructure/db/postgres";
 import { DatabaseSession } from "#lib/infrastructure/db/session";
+import { DownloadTickets } from "#lib/infrastructure/download-tickets";
+import { HmacSigner } from "#lib/infrastructure/hmac-signer";
 import { LocalStorageService } from "#lib/infrastructure/local-storage";
 import { ObservabilityLive } from "#lib/infrastructure/observability";
 import { ProKeyService } from "#lib/infrastructure/pro-key";
@@ -61,6 +63,7 @@ import { ImportWorkflowDefinitionsLive } from "#modules/imports/import-run-workf
 import {
 	ImportsServiceLive,
 	ProcessGenericImportChunksWorkflowDefinitionsProvidedLive,
+	DataImportWorkflowDefinitionsProvidedLive,
 } from "#modules/imports/layer";
 import { ImportsRepository } from "#modules/imports/repository";
 import { IntegrationWorkflowDefinitionsLive } from "#modules/integrations/integration-workflow-live";
@@ -74,6 +77,7 @@ import {
 	NotificationDeliveryWorkflowDefinitionsProvidedLive,
 	NotificationsServiceLive,
 } from "#modules/notifications/layer";
+import { OAuthConnectionsServiceLive } from "#modules/oauth-connections/layer";
 import { PluginCatalogHub, PluginCatalogInvalidatorLive } from "#modules/plugins/catalog-events";
 import { PluginConfigEncryptionKey } from "#modules/plugins/config-encryption-key";
 import { PluginInstallationSweepDispatcherLive } from "#modules/plugins/installation-sweep";
@@ -139,13 +143,18 @@ export { SystemPluginIngestionLive } from "#modules/plugins/layer";
 
 const ConfigLive = Layer.mergeAll(AppConfig.layer, BunServices.layer);
 
+const SignedUrlInfrastructureLive = Layer.provideMerge(
+	Layer.mergeAll(LocalStorageService.layer, DownloadTickets.layer),
+	HmacSigner.layer,
+);
+
 const BaseInfrastructureServicesLive = Layer.provideMerge(
 	SandboxArtifactStore.layer,
 	Layer.mergeAll(
 		PgClientLive,
 		DatabaseSession.layer,
 		RedisService.layer,
-		LocalStorageService.layer,
+		SignedUrlInfrastructureLive,
 		ServerRun.layer,
 		S3Service.layer,
 		ProKeyService.layer,
@@ -182,6 +191,7 @@ const ServicesLive = Layer.mergeAll(
 	InterestServicesLive,
 	NotificationDeliveryServiceLive,
 	NotificationsServiceLive,
+	OAuthConnectionsServiceLive,
 	OperationsServiceLive,
 	PluginIngestionServiceLive,
 	PluginCatalogInvalidatorLive,
@@ -234,6 +244,7 @@ const RuntimeWorkflowDefinitionsLive = Layer.mergeAll(
 		Layer.provide(Layer.merge(ImportsRepository.layer, ImportRunExecutionControllerLive)),
 	),
 	ProcessGenericImportChunksWorkflowDefinitionsProvidedLive,
+	DataImportWorkflowDefinitionsProvidedLive,
 	ExportBackupWorkflowDefinitionsLive,
 	RestoreBackupWorkflowDefinitionsLive,
 	UserLifecycleWorkflowDefinitionsLive,
@@ -296,7 +307,7 @@ export const MigrationInfrastructureLive = Layer.mergeAll(
 		Layer.mergeAll(ContentLifecycleRepositoriesLive, ManagedAssetsRepository.layer),
 	),
 	Layer.provideMerge(RedisService.layer),
-	Layer.provideMerge(LocalStorageService.layer),
+	Layer.provideMerge(SignedUrlInfrastructureLive),
 	Layer.provideMerge(S3Service.layer),
 	Layer.provideMerge(DatabaseSession.layer),
 	Layer.provideMerge(ConfigLive),

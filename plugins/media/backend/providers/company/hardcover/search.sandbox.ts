@@ -5,7 +5,6 @@ import { search } from "./shared";
 
 export const manifest = defineManifest({
 	kind: "provider",
-	requiredSystemConfigKeys: [],
 	name: "Hardcover Company Search",
 	slug: "company.hardcover.search",
 	capabilities: ["httpCall", "getPluginConfig"],

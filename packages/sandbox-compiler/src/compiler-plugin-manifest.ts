@@ -42,7 +42,6 @@ export const declaredScriptMetadata = (script: PluginScript): PluginScriptMetada
 			kind: script.kind,
 			capabilities: script.capabilities,
 			requiredPluginConfigKeys: script.requiredPluginConfigKeys,
-			requiredSystemConfigKeys: script.requiredSystemConfigKeys,
 			...(script.providerSlug ? { providerSlug: script.providerSlug } : {}),
 		};
 	}
@@ -56,7 +55,6 @@ export const declaredScriptMetadata = (script: PluginScript): PluginScriptMetada
 				automationType: script.automationType,
 				inputProjection: script.inputProjection,
 				requiredPluginConfigKeys: script.requiredPluginConfigKeys,
-				requiredSystemConfigKeys: script.requiredSystemConfigKeys,
 			};
 		}
 		return {
@@ -67,7 +65,6 @@ export const declaredScriptMetadata = (script: PluginScript): PluginScriptMetada
 			automationType: script.automationType,
 			inputProjection: script.inputProjection,
 			requiredPluginConfigKeys: script.requiredPluginConfigKeys,
-			requiredSystemConfigKeys: script.requiredSystemConfigKeys,
 		};
 	}
 	if (script.kind === "operation") {
@@ -77,7 +74,6 @@ export const declaredScriptMetadata = (script: PluginScript): PluginScriptMetada
 			kind: script.kind,
 			capabilities: script.capabilities,
 			requiredPluginConfigKeys: script.requiredPluginConfigKeys,
-			requiredSystemConfigKeys: script.requiredSystemConfigKeys,
 		};
 	}
 	if (script.kind === "workflow") {
@@ -87,7 +83,6 @@ export const declaredScriptMetadata = (script: PluginScript): PluginScriptMetada
 			name: script.name,
 			capabilities: script.capabilities,
 			requiredPluginConfigKeys: script.requiredPluginConfigKeys,
-			requiredSystemConfigKeys: script.requiredSystemConfigKeys,
 		};
 	}
 	return {
@@ -98,7 +93,6 @@ export const declaredScriptMetadata = (script: PluginScript): PluginScriptMetada
 		providerSlug: script.providerSlug,
 		providerOperation: script.providerOperation,
 		requiredPluginConfigKeys: script.requiredPluginConfigKeys,
-		requiredSystemConfigKeys: script.requiredSystemConfigKeys,
 		...("searchOptionsSchema" in script && script.searchOptionsSchema
 			? { searchOptionsSchema: script.searchOptionsSchema }
 			: {}),

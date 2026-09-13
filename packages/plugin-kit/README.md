@@ -95,6 +95,7 @@ entry can therefore leave otherwise unreachable shared files unchecked.
 | ---------------------- | ----------------------------------------------------------------------- |
 | `metadata`             | Package slug, name, description, version, and icon                      |
 | `configSchema`         | Plugin-owned environment configuration                                  |
+| `userSettingsSchema`   | Optional non-secret per-user preferences rendered by the kernel         |
 | `scripts`              | Build-derived sandbox entries and requirements                          |
 | `providers`            | Logical providers mapped to provider-operation scripts                  |
 | `workflows`            | Public workflow slugs                                                   |
@@ -104,6 +105,7 @@ entry can therefore leave otherwise unreachable shared files unchecked.
 | `importSources`        | Payload, single-file, or named-file workflow inputs                     |
 | `httpRateLimits`       | Deployment-global limits by normalized HTTP(S) origin                   |
 | `integrationProviders` | Push, sink, or yank integrations                                        |
+| `oauthProviders`       | Optional kernel-managed OAuth clients for integration settings (system) |
 | `entitySchemas`        | Entities, events, user-state policy, and merge identity                 |
 | `relationshipSchemas`  | Typed relationship endpoints                                            |
 | `signalSchemas`        | Signal audience, catalog, and formatter definitions                     |
@@ -119,12 +121,29 @@ patterns to page exports; entity declarations map owned schema slugs to detail a
 presentation exports; `homeView` names a plugin-owned saved view or is null. Saved views do not carry
 legacy display mappings or sandbox scripts.
 
+### User Settings
+
+System and private plugins may declare `userSettingsSchema` with primitive fields, primitive arrays,
+and static enum choices. Labels, descriptions, ordering, defaults, validation, and rules use `AppSchema`.
+Secrets, uploads, OAuth connections, objects, and dynamic choices are not supported. The schema must
+validate an empty record after applying defaults, so initial preferences and reset are always valid.
+
+Users edit these preferences under Settings → Plugin preferences. Values belong to the exact user's
+installation, separate from `configSchema`, and are included in account backups. Reset removes stored
+choices. Schema evolution is additive; incompatible changes are rejected.
+
+User-scoped backend scripts declare `getUserSettings` and call `host.getUserSettings()` to read their
+own plugin's current settings with defaults applied. Decode the JSON record with plugin-owned Effect
+schemas. Retained execution reads use the pinned manifest schema; durable activity replay retains the
+recorded read. System execution without a user cannot read user settings. `getUserPreferences` exposes
+the kernel-owned `disableIntegrations`; entity language remains a kernel preference.
+
 ## Subject And Capabilities
 
 Ingestion assigns plugin scope (`system` or `user`); manifests do not. Execution subject identifies
 whose data an invocation uses and does not widen plugin privilege. Kernel dispatch selects it, never
-script input. User plugins cannot declare `userBootstrap` or `httpRateLimits`, or use a system
-plugin slug.
+script input. User plugins cannot declare `userBootstrap`, `httpRateLimits`, or `oauthProviders`,
+or use a system plugin slug.
 
 `capabilities` is an allowlist request, not a grant. The backend intersects it with host functions and
 policy for script kind, subject, plugin scope, provider association, and bootstrap designation. Domain

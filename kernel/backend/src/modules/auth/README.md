@@ -1,18 +1,20 @@
 # Auth
 
-Ryot is an OAuth 2.1 authorization server built with Better Auth's OAuth Provider plugin. Application APIs accept an OAuth token in `Authorization: Bearer <token>` or a user API key in `X-Api-Key`. Better Auth cookies authenticate only the hosted `/oauth/login` ceremony; API middleware never accepts them.
+Ryot is an OAuth 2.1 authorization server built with Better Auth's OAuth Provider plugin. Application APIs accept an OAuth token in `Authorization: Bearer <token>` or a user API key in `X-Api-Key`. Better Auth cookies authenticate only the hosted `/oauth/login` ceremony and the hosted `/oauth/two-factor` page, where a fresh password sign-in precedes TOTP management; API middleware never accepts them.
 
 ## First-Party Clients
 
-Startup provisions three public clients:
+Startup provisions five public clients:
 
-| Client          | Redirects                                                                    |
-| --------------- | ---------------------------------------------------------------------------- |
-| `ryot-web`      | `<FRONTEND_URL>/auth/callback` and `<FRONTEND_URL>/auth/logout/callback`     |
-| `ryot-native`   | Callback and logout URIs derived from `io.ryot.app` and `io.ryot.app.dev`    |
-| `ryot-demo-web` | Same callback and logout URIs as `ryot-web`; disabled without a demo account |
+| Client                      | Redirects                                                                    |
+| --------------------------- | ---------------------------------------------------------------------------- |
+| `ryot-web`                  | `<FRONTEND_URL>/auth/callback` and `<FRONTEND_URL>/auth/logout/callback`     |
+| `ryot-native`               | Callback and logout URIs derived from `io.ryot.app` and `io.ryot.app.dev`    |
+| `ryot-demo-web`             | Same callback and logout URIs as `ryot-web`; disabled without a demo account |
+| `ryot-impersonation-web`    | Same callback and logout URIs as `ryot-web`                                  |
+| `ryot-impersonation-native` | Same callback and logout URIs as `ryot-native`                               |
 
-Both require Authorization Code with S256 PKCE, skip consent, use `openid profile email offline_access ryot:api`, and target `<FRONTEND_URL>/api`. Dynamic registration and user-managed clients are disabled. The web client uses its current origin; only the installed native app selects a server.
+All require Authorization Code with S256 PKCE, skip consent, use `openid profile email offline_access ryot:api`, and target `<FRONTEND_URL>/api`. Dynamic registration and user-managed clients are disabled. The web client uses its current origin; only the installed native app selects a server.
 
 ## Tokens
 
@@ -22,7 +24,15 @@ User preferences are application data on the user row, not Better Auth user fiel
 
 Preference-only consumers capture `AuthRepository` at construction and call `getUserPreferences`, which returns decoded preferences or `null` for a missing user. Its Layer requires only `DatabaseSession`; it does not load the auth runtime. Consumers retain their own missing-user behavior. Reads that already need user columns decode preferences from that same row.
 
-Disable, deletion, and password reset revoke browser sessions and OAuth token records; disable and deletion also clear API-key caches. Issued access tokens remain valid until expiry because verification does not read token records.
+Disable, deletion, and password reset revoke browser sessions and OAuth token records; disable and deletion also clear API-key caches. Ordinary issued access tokens remain valid until expiry because verification does not read token records.
+
+## Impersonation
+
+God Mode authorizes a one-use, 60-second Redis handoff to a hosted browser. Redemption creates a standard-access Better Auth session with an immutable one-hour deadline and continues the initiating client's OAuth/PKCE request. The PKCE verifier stays in that client's storage. Marked sessions authorize only impersonation clients, and those clients require marked sessions.
+
+Impersonation token issuance, refresh, UserInfo, and application API authentication validate the originating session. Session renewal cannot extend the deadline. Session deletion revokes its OAuth credentials and publishes an invalidation for its entity-interest sockets; sockets also enforce the deadline and periodically recheck the session. Normal user sessions are unaffected.
+
+The client replaces its previous login and shows an impersonation banner. Logout uses the existing end-session ceremony and returns to locked God Mode. Normal password and fresh-login checks still apply. Account changes, issued API keys, and started jobs retain their normal lifetimes.
 
 God-mode password reset capture reserves a random ID for each email, subscribes before initiating an internal Better Auth request, and carries that ID in the internal request header. The reset callback delivers only if that request's ID still owns the Redis reservation. The capture scope releases its subscriber and its own reservation on success, failure, timeout, or interruption. A late Better Auth Promise cannot deliver into a later reservation.
 

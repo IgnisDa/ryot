@@ -1,6 +1,7 @@
 import {
 	SchemaForm,
 	type SchemaFileUpload,
+	type SchemaOAuthConnect,
 	type SchemaFormApi,
 	type SchemaFormMode,
 } from "@ryot-app/client-ui-sdk/schema-form";
@@ -14,6 +15,8 @@ export function IntegrationSettingsForm(props: {
 	readonly form: SchemaFormApi;
 	readonly uploadFile: SchemaFileUpload;
 	readonly provider: IntegrationProviderItem;
+	readonly connectOAuth: SchemaOAuthConnect;
+	readonly oauthDisabledReason: string | undefined;
 }) {
 	return (
 		<div className="flex flex-col gap-5">
@@ -24,7 +27,11 @@ export function IntegrationSettingsForm(props: {
 				onChange={() => undefined}
 				title={props.provider.name}
 				uploadFile={props.uploadFile}
+				connectOAuth={props.connectOAuth}
 				schema={props.provider.settingsSchema}
+				{...(props.oauthDisabledReason === undefined
+					? {}
+					: { oauthDisabledReason: props.oauthDisabledReason })}
 			/>
 			<div className="flex flex-col gap-2">
 				<SchemaForm

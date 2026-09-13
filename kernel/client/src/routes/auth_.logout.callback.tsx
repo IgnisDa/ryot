@@ -8,7 +8,10 @@ import { OAuthTokenService } from "#/modules/auth/token-service";
 import { ServerService } from "#/modules/server/service";
 
 export const Route = createFileRoute("/auth_/logout/callback")({
-	beforeLoad: ({ context }) =>
+	validateSearch: (search) => ({
+		state: typeof search.state === "string" ? search.state : undefined,
+	}),
+	beforeLoad: ({ search, context }) =>
 		context.runtime.runPromise(
 			Effect.gen(function* () {
 				const runtimeClient = yield* RuntimeOAuthClientService;
@@ -20,6 +23,10 @@ export const Route = createFileRoute("/auth_/logout/callback")({
 				}
 				if (selected) {
 					yield* Effect.flatMap(OAuthTokenService, (tokens) => tokens.clear(selected));
+				}
+				if (search.state === "impersonation") {
+					yield* Effect.sync(() => window.location.replace("/god-mode/users"));
+					return;
 				}
 				// oxlint-disable-next-line typescript/only-throw-error
 				throw redirect({ to: "/auth", replace: true, search: { redirect: undefined } });

@@ -86,7 +86,6 @@ layer(SandboxCompiler.layer)((test) => {
 	  name: "Large compiled value",
 	  slug: "large-compiled-value",
 	  requiredPluginConfigKeys: [],
-	  requiredSystemConfigKeys: [],
 	});
 	export default defineScript({
 		manifest,

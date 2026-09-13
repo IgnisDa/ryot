@@ -5,14 +5,14 @@ import { Cause, Context, Effect, Exit, Layer, Option, Ref } from "effect";
 import Redis from "ioredis";
 import { describe } from "vitest";
 
-import { RedisService } from "#lib/infrastructure/redis";
+import { RedisService, redisKeys } from "#lib/infrastructure/redis";
 import { makeRedisService } from "#lib/test-utils/effect";
+import { ImpersonationSessions } from "#modules/auth/impersonation-sessions";
 
 import {
 	ENTITY_INTEREST_SOCKET_TICKET_TTL_SECONDS,
 	EntityInterestInvalidTicket,
 	EntityInterestTicketService,
-	entityInterestTicketKey,
 } from "./ticket-service";
 
 class FakeTicketStore extends Context.Service<
@@ -26,7 +26,11 @@ class FakeTicketStore extends Context.Service<
 >()("test/FakeTicketStore") {}
 
 const makeLayer = (
-	options: { readonly consumeUnavailable?: boolean; readonly createUnavailable?: boolean } = {},
+	options: {
+		readonly activeImpersonation?: { readonly expiresAt: number } | null;
+		readonly consumeUnavailable?: boolean;
+		readonly createUnavailable?: boolean;
+	} = {},
 ) =>
 	Layer.unwrap(
 		Effect.gen(function* () {
@@ -61,7 +65,12 @@ const makeLayer = (
 			);
 			return Layer.provideMerge(
 				EntityInterestTicketService.layer,
-				Layer.succeed(RedisService, makeRedisService({ client })),
+				Layer.merge(
+					Layer.succeed(RedisService, makeRedisService({ client })),
+					Layer.mock(ImpersonationSessions)({
+						getActive: () => Effect.succeed(options.activeImpersonation ?? null),
+					}),
+				),
 			).pipe(
 				Layer.merge(
 					Layer.succeed(FakeTicketStore, {
@@ -98,7 +107,7 @@ describe("EntityInterestTicketService", () => {
 				expect(Buffer.from(created.ticket, "base64url")).toHaveLength(32);
 				expect([...(yield* store.values).keys()][0]).not.toContain(created.ticket);
 				expect([...(yield* store.values).keys()][0]).toMatch(
-					new RegExp(`^${entityInterestTicketKey("")}[a-f0-9]{64}$`),
+					new RegExp(`^${redisKeys.entityInterestTicket("")}[a-f0-9]{64}$`),
 				);
 				expect([...(yield* store.values).values()]).toEqual([
 					'{"userId":"user-1","accountGeneration":{"userId":"user-1","token":"test-account-generation"},"preferredLanguage":"es"}',
@@ -148,6 +157,25 @@ describe("EntityInterestTicketService", () => {
 				const reused = yield* Effect.exit(service.consume(created.ticket));
 				expect(failure(reused)).toEqual(new EntityInterestInvalidTicket());
 			}),
+		);
+	});
+
+	layer(makeLayer())((test) => {
+		test.effect(
+			"rejects an impersonation ticket when its auth session ended before consumption",
+			() =>
+				Effect.gen(function* () {
+					const service = yield* EntityInterestTicketService;
+					const created = yield* service.create({
+						preferredLanguage: null,
+						userId: UserId.make("user-1"),
+						impersonation: { sessionId: "auth-session-1", expiresAt: Number.MAX_SAFE_INTEGER },
+						accountGeneration: { userId: UserId.make("user-1"), token: "test-account-generation" },
+					});
+
+					const exit = yield* Effect.exit(service.consume(created.ticket));
+					expect(failure(exit)).toEqual(new EntityInterestInvalidTicket());
+				}),
 		);
 	});
 

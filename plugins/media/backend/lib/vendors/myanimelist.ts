@@ -10,7 +10,7 @@ import { getUserAllowNsfw } from "../host";
 import { asRecord, decodeJsonResponse, numberValue, stringValue } from "../records";
 
 export type MyAnimeListHost = SandboxHost<
-	readonly ["httpCall", "getPluginConfig", "getUserPreferences"]
+	readonly ["httpCall", "getPluginConfig", "getUserSettings"]
 >;
 
 const MAL_API_BASE_URL = "https://api.myanimelist.net/v2";

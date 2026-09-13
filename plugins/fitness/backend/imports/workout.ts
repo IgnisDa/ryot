@@ -13,11 +13,17 @@ export const toWorkoutWriteItem = (workout: WorkoutImportItem): GenericImportWri
 	}
 
 	return {
-		relationships: [],
 		itemIndex: workout.itemIndex,
 		subjectEntityAlias: "workout",
 		sourceLabel: workout.sourceLabel,
 		sourceIdentifier: workout.sourceIdentifier,
+		relationships: workout.exercises.map((_exercise, index) => ({
+			properties: {},
+			targetAlias: "fitness-library",
+			propertiesMode: "merge" as const,
+			sourceAlias: `exercise-${index}`,
+			relationshipSchemaSlug: "in-fitness-library",
+		})),
 		events: workout.exercises.flatMap((exercise, exerciseOrder) =>
 			exercise.sets.map((set, setOrder) => ({
 				occurredAt: workout.startedAt,
@@ -50,6 +56,19 @@ export const toWorkoutWriteItem = (workout: WorkoutImportItem): GenericImportWri
 					providerSlug: "exercise.free-exercise-db",
 				},
 			})),
+			...(workout.exercises.length > 0
+				? [
+						{
+							properties: {},
+							existingOnly: true,
+							scope: "user" as const,
+							name: "Fitness Library",
+							alias: "fitness-library",
+							entitySchemaSlug: "fitness-library",
+							match: { properties: {}, name: "Fitness Library" },
+						},
+					]
+				: []),
 			{
 				alias: "workout",
 				name: workout.name,

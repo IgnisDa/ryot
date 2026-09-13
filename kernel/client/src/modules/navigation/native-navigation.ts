@@ -4,6 +4,7 @@ import { Effect } from "effect";
 
 import {
 	createDeepLinkBridge,
+	type DeepLinkClaims,
 	type DeepLinkNavigator,
 	type NativeAppSource,
 } from "#/modules/navigation/deep-link";
@@ -24,9 +25,12 @@ const capacitorAppSource: NativeAppSource = {
 
 export const isNativePlatform = () => Capacitor.isNativePlatform();
 
-export function startNativeNavigation(navigator: DeepLinkNavigator) {
+export function startNativeNavigation(
+	navigator: DeepLinkNavigator,
+	claims: DeepLinkClaims["Service"],
+) {
 	if (!isNativePlatform()) {
 		return { destroy: () => {} };
 	}
-	return createDeepLinkBridge(capacitorAppSource, navigator);
+	return createDeepLinkBridge(capacitorAppSource, navigator, claims);
 }

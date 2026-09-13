@@ -155,7 +155,7 @@ const emptyRecords = {
 	profile: {
 		image: null,
 		name: "User",
-		preferences: { language: null, allowNsfw: false, disableIntegrations: false },
+		preferences: { language: null, disableIntegrations: false },
 	},
 };
 

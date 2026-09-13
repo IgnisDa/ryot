@@ -11,6 +11,7 @@ import type {
 	TableReference,
 	TimeSeriesOutput,
 } from "@ryot-app/contract/modules/ryotql/language";
+import { isNamedTimeZone } from "@ryot-app/contract/schema/utils";
 import { DateTime, Duration, Option } from "effect";
 
 import {
@@ -50,9 +51,6 @@ const isNumericOperand = (kind: ScalarKind | undefined) =>
 
 const isTextOperand = (kind: ScalarKind | undefined) =>
 	kind === "json" || kind === "null" || kind === "text";
-
-const isNamedTimeZone = (value: string) =>
-	!/^[-+]\d{2}(?::?\d{2})?$/.test(value) && Option.isSome(DateTime.zoneMakeNamed(value));
 
 const kindResolver = (access: RyotQLAccess): KindResolver<AliasScope> => ({
 	correlated: (query, scope) => expressionScope(query, scope),

@@ -15,7 +15,7 @@ const httpSuccess = (body: unknown) =>
 const makeHost = (httpCall: MyAnimeListAnimeHost["httpCall"], allowNsfw = false) =>
 	defineSandboxTestHost(manifest, {
 		httpCall,
-		getUserPreferences: () => Effect.succeed({ allowNsfw, disableIntegrations: false }),
+		getUserSettings: () => Effect.succeed({ allowNsfw }),
 		getPluginConfig: (keys) =>
 			Effect.succeed(Object.fromEntries(keys.map((key) => [key, "client-id"]))),
 	});
@@ -38,7 +38,7 @@ describe("anime.myanimelist sandbox script", () => {
 	it("loads the MAL client ID and sends it in the auth header", () => {
 		const configKeys: string[] = [];
 		const host = defineSandboxTestHost(manifest, {
-			getUserPreferences: () => Effect.succeed({ allowNsfw: false, disableIntegrations: false }),
+			getUserSettings: () => Effect.succeed({ allowNsfw: false }),
 			getPluginConfig: (keys) => {
 				configKeys.push(...keys);
 				return Effect.succeed(Object.fromEntries(keys.map((key) => [key, "client-id"])));

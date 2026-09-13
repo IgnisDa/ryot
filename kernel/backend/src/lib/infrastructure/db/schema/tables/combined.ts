@@ -9,6 +9,7 @@ export * from "./imports";
 export * from "./migration-reports";
 export * from "./mutations";
 export * from "./notifications";
+export * from "./oauth-connections";
 export * from "./translations";
 export * from "./uploads";
 export * from "./views";

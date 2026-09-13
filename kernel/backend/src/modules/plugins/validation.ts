@@ -1,3 +1,4 @@
+import { dataJsonSource } from "@ryot-app/contract/modules/imports/data-json";
 import {
 	importInternalPropertyNames,
 	isImportUploadTokenField,
@@ -16,6 +17,7 @@ import { Cron, Data, Effect, Result, Schema } from "effect";
 import {
 	formatPropertyIssues,
 	parseLabeledPropertySchemaInput,
+	parseAppSchemaPropertiesSafe,
 	validateAppSchemaDefinition,
 } from "#lib/property-schema/property-schema-runtime";
 import type { DefinitionSnapshot } from "#modules/definition-registry/snapshot";
@@ -125,9 +127,12 @@ export const validatePluginPackageLimits = (
 const userRejectedCollections = [
 	"userBootstrap",
 	"httpRateLimits",
+	"oauthProviders",
 ] as const satisfies ReadonlyArray<
 	{
-		[Key in keyof PluginManifestValue]: PluginManifestValue[Key] extends ReadonlyArray<unknown>
+		[Key in keyof PluginManifestValue]-?: NonNullable<
+			PluginManifestValue[Key]
+		> extends ReadonlyArray<unknown>
 			? Key
 			: never;
 	}[keyof PluginManifestValue]
@@ -141,13 +146,30 @@ export const validatePluginManifestPolicy = (
 ) =>
 	Effect.gen(function* () {
 		const pluginSlug = manifest.metadata.slug;
+		if (manifest.userSettingsSchema) {
+			const definitionIssues = validateAppSchemaDefinition(manifest.userSettingsSchema);
+			if (definitionIssues.length > 0) {
+				return yield* fail(
+					`Invalid plugin user settings schema: ${formatPropertyIssues(definitionIssues)}`,
+				);
+			}
+			const defaults = parseAppSchemaPropertiesSafe({
+				properties: {},
+				propertiesSchema: manifest.userSettingsSchema,
+			});
+			if (!defaults.success) {
+				return yield* fail(
+					`Plugin user settings must have valid defaults: ${formatPropertyIssues(defaults.issues)}`,
+				);
+			}
+		}
 		if (reservedPluginSlugs.has(pluginSlug)) {
 			return yield* new PluginSlugReservedError({ pluginSlug });
 		}
 		if (policy.scope === "system") {
 			return yield* Effect.void;
 		}
-		const surfaces = userRejectedCollections.filter((field) => manifest[field].length > 0);
+		const surfaces = userRejectedCollections.filter((field) => (manifest[field] ?? []).length > 0);
 		if (surfaces.length > 0) {
 			return yield* new PluginSurfaceError({ surfaces });
 		}
@@ -250,10 +272,16 @@ export const validatePluginManifestReferences = (
 		}
 
 		for (const source of manifest.importSources) {
+			if (source.slug === dataJsonSource) {
+				return yield* fail("Data import is kernel-owned");
+			}
 			yield* assertSlug("import source", source.slug);
 			yield* assertReference("Import source", source.workflowSlug, workflowSlugs);
 		}
 		for (const provider of manifest.integrationProviders) {
+			if (provider.slug === dataJsonSource) {
+				return yield* fail("Data webhook is kernel-owned");
+			}
 			yield* assertSlug("integration provider", provider.slug);
 			if (provider.lot !== "push") {
 				yield* assertReference("Integration provider", provider.scriptSlug, scriptSlugs);

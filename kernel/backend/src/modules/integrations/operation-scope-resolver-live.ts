@@ -27,7 +27,7 @@ export const IntegrationOperationScopeResolverLive = Layer.effect(
 						: repository.getByIdAnyUser({
 								integrationId: IntegrationId.make(decoded.integrationId),
 							});
-					if (!integration || integration.isDisabled) {
+					if (!integration || integration.isDisabled || integration.pluginInstallationId === null) {
 						return yield* notFound("Integration not found");
 					}
 					if ("integrationId" in decoded && integration.lot === "sink") {
