@@ -50,6 +50,10 @@
 			"types": "./shared/airing-recipes.ts",
 			"default": "./shared/airing-recipes.ts"
 		},
+		"./shared/activity-recipes": {
+			"types": "./shared/activity-recipes.ts",
+			"default": "./shared/activity-recipes.ts"
+		},
 		"./shared/movie-recipes": {
 			"types": "./shared/movie-recipes.ts",
 			"default": "./shared/movie-recipes.ts"
