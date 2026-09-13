@@ -1,5 +1,6 @@
 // oxlint-disable unicorn/require-post-message-target-origin -- MessagePort has no target origin
 import {
+	CLIENT_BRIDGE_BOOTSTRAP_READY,
 	PluginBridgeInit,
 	type PluginLogicalLocation,
 	type PluginOperationRequest,
@@ -169,7 +170,9 @@ function connect(frame: HTMLIFrameElement) {
 			},
 		},
 	});
-	fireEvent.load(frame);
+	const readyEvent = new MessageEvent("message", { data: { type: CLIENT_BRIDGE_BOOTSTRAP_READY } });
+	Object.defineProperty(readyEvent, "source", { value: frame.contentWindow });
+	fireEvent(window, readyEvent);
 	if (init === undefined || port === undefined) {
 		throw new Error("Bridge did not connect");
 	}
