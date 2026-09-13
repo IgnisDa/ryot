@@ -834,7 +834,7 @@ const startCoreHostBridge = (
 								),
 							};
 						} else if (fnName === "getUserPreferences") {
-							result = { success: true, data: { allowNsfw: false, disableIntegrations: true } };
+							result = { success: true, data: { disableIntegrations: true } };
 						} else if (fnName === "replayJournal") {
 							result = { success: true, data: options.replayJournalResult ?? [] };
 						} else {
@@ -1262,7 +1262,7 @@ layer(runnerIntegrationLayer, { timeout: 120_000, excludeTestServices: true })((
 						after: { value: 42 },
 						claim: { claimed: true },
 						config: { timezone: "Etc/GMT" },
-						preferences: { allowNsfw: false, disableIntegrations: true },
+						preferences: { disableIntegrations: true },
 					});
 
 					bridge.register("execution-b-1", "script-b");

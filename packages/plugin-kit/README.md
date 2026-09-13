@@ -95,6 +95,7 @@ entry can therefore leave otherwise unreachable shared files unchecked.
 | ---------------------- | ----------------------------------------------------------------------- |
 | `metadata`             | Package slug, name, description, version, and icon                      |
 | `configSchema`         | Plugin-owned environment configuration                                  |
+| `userSettingsSchema`   | Optional non-secret per-user preferences rendered by the kernel         |
 | `scripts`              | Build-derived sandbox entries and requirements                          |
 | `providers`            | Logical providers mapped to provider-operation scripts                  |
 | `workflows`            | Public workflow slugs                                                   |
@@ -119,6 +120,23 @@ Client exports are stable names with kind `page`, `component`, or `presentation`
 patterns to page exports; entity declarations map owned schema slugs to detail and grid/list
 presentation exports; `homeView` names a plugin-owned saved view or is null. Saved views do not carry
 legacy display mappings or sandbox scripts.
+
+### User Settings
+
+System and private plugins may declare `userSettingsSchema` with primitive fields, primitive arrays,
+and static enum choices. Labels, descriptions, ordering, defaults, validation, and rules use `AppSchema`.
+Secrets, uploads, OAuth connections, objects, and dynamic choices are not supported. The schema must
+validate an empty record after applying defaults, so initial preferences and reset are always valid.
+
+Users edit these preferences under Settings → Plugin preferences. Values belong to the exact user's
+installation, separate from `configSchema`, and are included in account backups. Reset removes stored
+choices. Schema evolution is additive; incompatible changes are rejected.
+
+User-scoped backend scripts declare `getUserSettings` and call `host.getUserSettings()` to read their
+own plugin's current settings with defaults applied. Decode the JSON record with plugin-owned Effect
+schemas. Retained execution reads use the pinned manifest schema; durable activity replay retains the
+recorded read. System execution without a user cannot read user settings. `getUserPreferences` exposes
+the kernel-owned `disableIntegrations`; entity language remains a kernel preference.
 
 ## Subject And Capabilities
 

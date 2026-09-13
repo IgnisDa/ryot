@@ -35,6 +35,7 @@ const makeImplementations = (
 	setCachedValue: () => Effect.fail({ message: "unused" }),
 	getPluginConfig: () => Effect.fail({ message: "unused" }),
 	getSystemConfig: () => Effect.fail({ message: "unused" }),
+	getUserSettings: () => Effect.fail({ message: "unused" }),
 	getEntitySchemas: () => Effect.fail({ message: "unused" }),
 	listEventSchemas: () => Effect.fail({ message: "unused" }),
 	listIntegrations: () => Effect.fail({ message: "unused" }),
@@ -106,6 +107,31 @@ describe("bindSandboxHostFunctions", () => {
 				error: "getUserPreferences received an invalid number of arguments",
 			});
 			expect(calls).toBe(0);
+		}),
+	);
+
+	it.effect("binds read-only user settings with no arguments", () =>
+		Effect.gen(function* () {
+			const calls: unknown[] = [];
+			const bound = bindSandboxHostFunctions(
+				makeImplementations({
+					getUserSettings: (runInput) => {
+						calls.push(runInput);
+						return Effect.succeed({ allowNsfw: true });
+					},
+				}),
+				input,
+			);
+
+			expect(yield* bound.getUserSettings([])).toEqual({
+				success: true,
+				data: { allowNsfw: true },
+			});
+			expect(yield* bound.getUserSettings(["extra"])).toEqual({
+				success: false,
+				error: "getUserSettings received an invalid number of arguments",
+			});
+			expect(calls).toEqual([input]);
 		}),
 	);
 

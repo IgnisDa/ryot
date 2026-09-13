@@ -89,6 +89,7 @@ const installationRow = (
 	sortOrder: 0,
 	health: "ready",
 	isHidden: false,
+	userSettings: {},
 	healthReason: null,
 	uninstalledAt: null,
 	pluginScope: "user",

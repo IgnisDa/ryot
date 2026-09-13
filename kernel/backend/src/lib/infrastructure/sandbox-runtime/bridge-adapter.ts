@@ -153,6 +153,11 @@ export const bindSandboxHostFunctions = (
 		(...args) => implementations.getSystemConfig(input, ...args),
 		defaultFailure("getSystemConfig"),
 	),
+	getUserSettings: bindHostFunction(
+		coreSandboxHostContracts.getUserSettings,
+		(...args) => implementations.getUserSettings(input, ...args),
+		defaultFailure("getUserSettings"),
+	),
 	getEntitySchemas: bindHostFunction(
 		domainSandboxHostContracts.getEntitySchemas,
 		(...args) => implementations.getEntitySchemas(input, ...args),

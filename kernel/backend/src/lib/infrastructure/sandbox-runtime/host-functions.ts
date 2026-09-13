@@ -21,7 +21,7 @@ import {
 } from "@ryot-app/sandbox-sdk/core";
 import { jsonValueSchema, type SandboxHostError } from "@ryot-app/sandbox-sdk/wire";
 import { isObjectRecord } from "@ryot-app/ts-utils/predicates";
-import { eq } from "drizzle-orm";
+import { and, eq } from "drizzle-orm";
 import { Effect, Schema } from "effect";
 
 import { LifecycleCommand } from "#lib/domain/lifecycle-command";
@@ -59,6 +59,7 @@ import { EventsService } from "#modules/events/service";
 import { IntegrationsRepository, type IntegrationRecord } from "#modules/integrations/repository";
 import { OAuthConnectionsService } from "#modules/oauth-connections/service";
 import { PluginRuntimeResolver } from "#modules/plugins/runtime-resolver";
+import { resolvePluginUserSettings } from "#modules/plugins/user-settings";
 import {
 	reconciliationSummary,
 	RelationshipMutationPipeline,
@@ -186,10 +187,7 @@ const encodeConfigValues = (label: string, values: Readonly<Record<string, unkno
 
 export const normalizePreferences = (value: unknown) => {
 	const source = isObjectRecord(value) ? value : {};
-	return {
-		allowNsfw: source["allowNsfw"] === true,
-		disableIntegrations: source["disableIntegrations"] === true,
-	};
+	return { disableIntegrations: source["disableIntegrations"] === true };
 };
 
 export const toSandboxCreateEventsResult = (result: CreateEventsResponse) =>
@@ -768,6 +766,53 @@ export const makeAdditionalSandboxApiFunctions: Effect.Effect<
 						results.flatMap((result) => result.warnings),
 					);
 					return results.map(({ entityId, wasInserted }) => ({ entityId, wasInserted }));
+				}),
+			),
+		getUserSettings: (rawInput) =>
+			sandboxHostEffect(
+				Effect.gen(function* () {
+					const input = yield* requireSandboxCapabilityInput(rawInput, "getUserSettings");
+					const plugin = input.principal.pluginRevision;
+					if (!plugin) {
+						return yield* Effect.fail("Plugin user settings require a plugin execution");
+					}
+					const [row] = yield* session.run((db) =>
+						db
+							.select({
+								manifest: schema.pluginRevision.manifest,
+								settings: schema.pluginInstallation.userSettings,
+							})
+							.from(schema.pluginInstallation)
+							.innerJoin(
+								schema.pluginRevision,
+								and(
+									eq(schema.pluginRevision.id, plugin.revisionId),
+									eq(schema.pluginRevision.pluginId, schema.pluginInstallation.pluginId),
+								),
+							)
+							.where(
+								and(
+									eq(schema.pluginInstallation.pluginId, plugin.id),
+									eq(schema.pluginInstallation.userId, userSandboxRunUserId(input)),
+								),
+							)
+							.limit(1),
+					);
+					if (!row) {
+						return yield* Effect.fail("Plugin installation not found");
+					}
+					const settingsSchema = row.manifest.userSettingsSchema;
+					if (!settingsSchema) {
+						return {};
+					}
+					return yield* resolvePluginUserSettings(
+						settingsSchema,
+						Object.fromEntries(
+							Object.entries(row.settings).filter(([key]) =>
+								Object.hasOwn(settingsSchema.fields, key),
+							),
+						),
+					);
 				}),
 			),
 		getEntitySchemas: (rawInput, entitySchemaSlugs) =>

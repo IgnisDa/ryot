@@ -82,6 +82,7 @@ const implementations: SandboxHostImplementations["Service"] = {
 		executeRyotql: unused,
 		getPluginConfig: unused,
 		getSystemConfig: unused,
+		getUserSettings: unused,
 		getEntitySchemas: unused,
 		listEventSchemas: unused,
 		listIntegrations: unused,

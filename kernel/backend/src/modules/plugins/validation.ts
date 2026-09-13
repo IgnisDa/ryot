@@ -16,6 +16,7 @@ import { Cron, Data, Effect, Result, Schema } from "effect";
 import {
 	formatPropertyIssues,
 	parseLabeledPropertySchemaInput,
+	parseAppSchemaPropertiesSafe,
 	validateAppSchemaDefinition,
 } from "#lib/property-schema/property-schema-runtime";
 import type { DefinitionSnapshot } from "#modules/definition-registry/snapshot";
@@ -144,6 +145,23 @@ export const validatePluginManifestPolicy = (
 ) =>
 	Effect.gen(function* () {
 		const pluginSlug = manifest.metadata.slug;
+		if (manifest.userSettingsSchema) {
+			const definitionIssues = validateAppSchemaDefinition(manifest.userSettingsSchema);
+			if (definitionIssues.length > 0) {
+				return yield* fail(
+					`Invalid plugin user settings schema: ${formatPropertyIssues(definitionIssues)}`,
+				);
+			}
+			const defaults = parseAppSchemaPropertiesSafe({
+				properties: {},
+				propertiesSchema: manifest.userSettingsSchema,
+			});
+			if (!defaults.success) {
+				return yield* fail(
+					`Plugin user settings must have valid defaults: ${formatPropertyIssues(defaults.issues)}`,
+				);
+			}
+		}
 		if (reservedPluginSlugs.has(pluginSlug)) {
 			return yield* new PluginSlugReservedError({ pluginSlug });
 		}
