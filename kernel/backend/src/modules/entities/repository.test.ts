@@ -9,7 +9,7 @@ import {
 import { PgDialect } from "drizzle-orm/pg-core";
 import { Context, Effect, Layer, Ref } from "effect";
 
-import { DatabaseSession } from "#lib/infrastructure/db/session";
+import { fakeDatabaseSession } from "#lib/test-utils/effect";
 import type { MockOverrides } from "#lib/test-utils/effect";
 import { BackupRestorePersistence } from "#modules/backups/restore/persistence";
 import { restorePersistenceWithDatabase } from "#modules/backups/restore/persistence.test-support";
@@ -31,11 +31,11 @@ const repositoryWithDatabase = (db: object, pluginRuntime = makePluginRuntime())
 				Layer.mergeAll(
 					Layer.mock(DefinitionRepository)({}),
 					pluginRuntime,
-					Layer.mock(DatabaseSession)({ current: Effect.succeed(database) }),
+					fakeDatabaseSession(database),
 				),
 			),
 		),
-		Layer.mock(DatabaseSession)({ current: Effect.succeed(database) }),
+		fakeDatabaseSession(database),
 	);
 };
 
