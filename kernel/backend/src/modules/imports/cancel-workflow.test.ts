@@ -1,5 +1,5 @@
 import { expect, layer } from "@effect/vitest";
-import { ImportRunId, UserId } from "@ryot-app/contract/schema/brands";
+import { ImportRunId, IntegrationId, UserId } from "@ryot-app/contract/schema/brands";
 import { Context, Effect, Layer, Ref } from "effect";
 import { Workflow } from "effect/unstable/workflow";
 import { WorkflowEngine, WorkflowInstance } from "effect/unstable/workflow/WorkflowEngine";
@@ -33,8 +33,8 @@ const makeLayer = (executionKind: ImportRunExecutionKind, cancellable = true) =>
 			const appendEvent = (event: string) => Ref.update(events, (all) => [...all, event]);
 			const control = {
 				id: runId,
-				executionKind,
 				status: cancellable ? ("cancelling" as const) : ("completed" as const),
+				integrationId: executionKind === "source" ? null : IntegrationId.make("integration-1"),
 			};
 			const repository = ImportsRepository.layer.pipe(
 				Layer.provide(

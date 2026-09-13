@@ -1007,7 +1007,11 @@ layer(makeLayer({ cached: true }))((test) => {
 
 			expect(plugin.scripts[0]?.contentHash).toBe("cached-hash-fixture.automation");
 			expect(yield* fake.persisted).toHaveLength(0);
-			expect(yield* fake.events).toEqual(["lock", "publish"]);
+			expect(yield* fake.events).toEqual([
+				"lock",
+				"resolve-environment:fixture-plugin-id",
+				"publish",
+			]);
 			expect(yield* fake.published).toEqual([
 				expect.objectContaining({ channel: redisKeys.pluginCatalogChannel }),
 			]);

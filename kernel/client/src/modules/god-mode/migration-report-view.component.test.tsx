@@ -61,6 +61,15 @@ const emptyReport: GodModeMigrationReport = {
 	pageInfo: { limit: 50, hasMore: false, nextCursor: null },
 };
 
+const expectedReportTime = new Intl.DateTimeFormat("en-US", {
+	day: "numeric",
+	month: "short",
+	year: "numeric",
+	hour: "numeric",
+	minute: "2-digit",
+	second: "2-digit",
+}).format(new Date("2025-01-02T03:04:05"));
+
 describe("MigrationReportView", () => {
 	it.live("loads on mount and renders the semantic report table", () =>
 		Effect.gen(function* () {
@@ -83,15 +92,7 @@ describe("MigrationReportView", () => {
 					.getAllByRole("columnheader")
 					.map((cell) => cell.textContent),
 			).toEqual(["Time", "Severity", "Phase", "Message", "Count", "Elapsed"]);
-			const expectedTime = new Intl.DateTimeFormat("en-US", {
-				day: "numeric",
-				month: "short",
-				year: "numeric",
-				hour: "numeric",
-				minute: "2-digit",
-				second: "2-digit",
-			}).format(new Date("2025-01-02T03:04:05"));
-			expect(within(table).getByText(expectedTime)).toBeTruthy();
+			expect(within(table).getByText(expectedReportTime)).toBeTruthy();
 			expect(within(table).getByText("Warning").className).toContain("text-warning");
 			expect(within(table).getByText("metadata")).toBeTruthy();
 			expect(within(table).getByText("Skipped malformed item")).toBeTruthy();

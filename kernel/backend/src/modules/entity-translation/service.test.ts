@@ -116,7 +116,10 @@ layer(makeServiceLayer())((test) => {
 	test.effect("delegates overlay upserts to the repository", () =>
 		Effect.gen(function* () {
 			const service = yield* TranslationsService;
-			expect(yield* service.upsert(input)).toBe("translation-id");
+			expect(yield* service.upsert(input)).toEqual({
+				entityId: input.entityId,
+				language: input.language,
+			});
 			expect(yield* (yield* FakeTranslationDependencies).upserts).toEqual([input]);
 		}),
 	);
