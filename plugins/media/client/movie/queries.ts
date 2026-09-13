@@ -1,5 +1,4 @@
-import { createRyotQuery, useEntitySettle } from "@ryot-app/client-sdk/react";
-import { useMemo } from "react";
+import { createRyotQuery } from "@ryot-app/client-sdk/react";
 
 import {
 	movieActivityRecipe,
@@ -55,7 +54,7 @@ export const movieOverviewQuery = createRyotQuery<
 						...data.people.items,
 						...data.companies.items,
 						...data.recommendations.items,
-						...(data.group?.movies.items ?? []),
+						...(data.group?.members.items ?? []),
 					].map(({ id }) => id)
 				: [],
 		}),
@@ -85,6 +84,3 @@ export const movieActivityQuery = createRyotQuery<
 		}),
 	},
 );
-
-export const useMovieEntitySettle = (entityId: string) =>
-	useEntitySettle(useMemo(() => ({ visible: [], foreground: [entityId] }), [entityId]));

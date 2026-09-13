@@ -85,7 +85,6 @@ describe("media movie query recipes", () => {
 			"providerName",
 			"description",
 			"publishDate",
-			"watchProviders",
 			"publishYear",
 			"genres",
 			"images",
@@ -93,6 +92,7 @@ describe("media movie query recipes", () => {
 			"productionStatus",
 			"isInLibrary",
 			"isMonitored",
+			"watchProviders",
 			"state",
 			"progressPercent",
 			"runtime",
@@ -216,7 +216,7 @@ describe("media movie query recipes", () => {
 			throw new Error("Expected the group members include");
 		}
 
-		expect(movies).toMatchObject({ limit: 20, key: "movies" });
+		expect(movies).toMatchObject({ limit: 20, key: "members" });
 		expect(movies.where).toMatchObject({
 			predicates: [
 				{ right: { value: "movie", type: "literal" } },
@@ -296,9 +296,9 @@ describe("media movie query recipes", () => {
 		}
 
 		expect(totals.output.fields.map((field) => ("key" in field ? field.key : null))).toEqual([
-			"watchCount",
-			"watchedMinutes",
-			"watchedUnknownRuntime",
+			"completionCount",
+			"consumedMinutes",
+			"unknownDurationCount",
 		]);
 		const minutes = totals.output.fields[1];
 		if (minutes === undefined || !("expr" in minutes)) {
@@ -314,7 +314,9 @@ describe("media movie query recipes", () => {
 	it("merges movie and collection events into one descending order", () => {
 		const decoded = ACTIVITY_RECIPE.decode({
 			data: {
-				totals: activityRows([{ watchCount: 1, watchedMinutes: 169, watchedUnknownRuntime: 0 }]),
+				totals: activityRows([
+					{ completionCount: 1, consumedMinutes: 169, unknownDurationCount: 0 },
+				]),
 				collectionEvents: activityRows([
 					{
 						id: "collection-added",
@@ -351,7 +353,7 @@ describe("media movie query recipes", () => {
 				watchedMinutes: 169,
 				watchedUnknownRuntime: 0,
 				events: [
-					{ kind: "movie", progressPercent: 42, id: "movie-progress", consumedOn: "Jellyfin" },
+					{ kind: "media", progressPercent: 42, id: "movie-progress", consumedOn: "Jellyfin" },
 					{ kind: "collection", progressPercent: null, id: "collection-added" },
 				],
 			},
