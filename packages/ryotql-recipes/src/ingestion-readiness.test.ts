@@ -8,7 +8,6 @@ import { rowsResult } from "./test-utils";
 const script = (slug: string, keys: ReadonlyArray<string> = []) => ({
 	slug,
 	capabilities: [],
-	runtimeImports: [],
 	oauthConnectionFields: [],
 	executableDependencies: [],
 	optionalPluginConfigKeys: [],
