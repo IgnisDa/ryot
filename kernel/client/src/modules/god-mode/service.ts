@@ -43,9 +43,13 @@ export class GodModeService extends Context.Service<GodModeService>()("GodModeSe
 			}
 			return session;
 		});
-		const listLogs = Effect.fn("GodModeService.listLogs")(function* (sessionId: string) {
+		const listLogs = Effect.fn("GodModeService.listLogs")(function* (
+			sessionId: string,
+			after: string | undefined,
+			limit: number,
+		) {
 			const { token, origin } = yield* credentials(sessionId);
-			return yield* api.listLogs(origin, token);
+			return yield* api.listLogs(origin, token, after, limit);
 		});
 		const downloadLogs = Effect.fn("GodModeService.downloadLogs")(function* (
 			sessionId: string,

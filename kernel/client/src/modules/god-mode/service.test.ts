@@ -85,6 +85,18 @@ const godModeLayer = () =>
 					email: resetResult.email,
 					resetUrl: resetResult.resetUrl,
 				})),
+				listLogs: (requestedOrigin, token, after, limit) =>
+					recordCall({
+						token,
+						name: "listLogs",
+						origin: requestedOrigin,
+						request: { after, limit },
+					}).pipe(
+						Effect.map(() => ({
+							files: [],
+							pageInfo: { limit, hasMore: false, nextCursor: null },
+						})),
+					),
 				query: (requestedOrigin, token, recipe) =>
 					Effect.gen(function* () {
 						yield* recordCall({
@@ -200,6 +212,26 @@ describe("God Mode service", () => {
 				]);
 			});
 		});
+	});
+
+	layer(godModeLayer())((test) => {
+		test.effect("passes server log cursors and limits through the session API", () =>
+			Effect.gen(function* () {
+				const sessions = yield* GodModeSessionService;
+				const sessionId = yield* sessions.create(origin, "admin-secret");
+				const service = yield* GodModeService;
+				const api = yield* FakeGodModeApi;
+
+				expect((yield* service.listLogs(sessionId, undefined, 25)).files).toEqual([]);
+				expect((yield* service.listLogs(sessionId, "log-cursor", 25)).pageInfo.nextCursor).toBe(
+					null,
+				);
+				expect((yield* api.calls).map(({ name, request }) => ({ name, request }))).toEqual([
+					{ name: "listLogs", request: { limit: 25, after: undefined } },
+					{ name: "listLogs", request: { limit: 25, after: "log-cursor" } },
+				]);
+			}),
+		);
 	});
 
 	layer(godModeLayer())((test) => {
