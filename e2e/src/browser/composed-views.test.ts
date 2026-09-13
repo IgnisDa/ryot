@@ -714,6 +714,12 @@ it.live("keeps one rich mixed entity browser runtime across pagination and layou
 		const workoutGrid = runtime.locator(`[data-entity-id="${workoutId}"][data-layout="grid"]`);
 		const pokemonGrid = runtime.locator(`[data-entity-id="${pokemon.id}"][data-layout="card"]`);
 		yield* expectRichEntities(showGrid, workoutGrid, pokemonGrid);
+		const runtimeUrl = yield* clientImportUrl(frame, "@ryot-app/client-sdk/plugin");
+		const runtimeBase = runtimeUrl.slice(0, runtimeUrl.lastIndexOf("/") + 1);
+		const fontRequests = assetRequests.filter((path) => path.endsWith(".woff2"));
+		expect(assetRequests).toContain(`${runtimeBase}runtime.css`);
+		expect(fontRequests.length).toBeGreaterThan(0);
+		expect(fontRequests.every((path) => path.startsWith(runtimeBase))).toBe(true);
 		expect(yield* pokemonGrid.getAttribute("data-view-context")).toBe(
 			JSON.stringify({ savedViewId: viewRecord.slug }),
 		);

@@ -97,6 +97,17 @@ it("builds deterministic registry entries with shared React and SDK chunks", asy
 	const sdkChunks = reachableChunks(sdkReactEntry, fileContents);
 	expect([...reactChunks].some((name) => sdkChunks.has(name))).toBe(true);
 
+	const stylesheet = fileContents.get("runtime.css");
+	assertDefined(stylesheet);
+	expect([
+		...new Set(
+			[...stylesheet.matchAll(/@layer ([\w,]+)/g)].flatMap((match) => match[1]?.split(",") ?? []),
+		),
+	]).toEqual(["properties", "theme", "base", "components", "utilities"]);
+	expect(stylesheet).toContain("@font-face");
+	expect(stylesheet).toContain("--color-red-500:");
+	expect(stylesheet).toContain("--bg:");
+
 	expect(second.entries).toEqual(first.entries);
 	expect(second.artifact.hash).toBe(first.artifact.hash);
 	expect(artifactSnapshot(second.artifact)).toEqual(artifactSnapshot(first.artifact));
