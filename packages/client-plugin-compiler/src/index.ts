@@ -1,4 +1,6 @@
 export { compileClientPlugin } from "./compile";
+export { compileClientPluginModule } from "./module";
+export { buildClientRuntime } from "./runtime";
 export {
 	ClientPluginAutomaticRegistryEntry,
 	ClientPluginCompilerContributor,

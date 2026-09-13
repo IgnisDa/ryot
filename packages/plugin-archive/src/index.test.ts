@@ -1,3 +1,12 @@
+import { createHash } from "node:crypto";
+
+import {
+	CLIENT_API_VERSION,
+	CLIENT_ARTIFACT_FORMAT,
+	CLIENT_BRIDGE_PROTOCOL_VERSION,
+	CLIENT_COMPILER_VERSION,
+	type PluginClientArtifact,
+} from "@ryot-app/client-plugin-contract";
 import { Effect } from "effect";
 import { unzipSync, Zip, zipSync, ZipDeflate } from "fflate";
 import { describe, expect, it } from "vitest";
@@ -7,7 +16,18 @@ import { PLUGIN_ARCHIVE_LIMITS, readPluginArchive, writePluginArchive } from "./
 
 const encoder = new TextEncoder();
 
+const compareNames = (left: string, right: string) => {
+	if (left < right) {
+		return -1;
+	}
+	if (left > right) {
+		return 1;
+	}
+	return 0;
+};
+
 const fixture = {
+	compiledScripts: [],
 	files: {
 		"client/d.svg": new Uint8Array([0xff, 0x00, 0x7f]),
 		"client/a.ts": encoder.encode("export const a = 'a';\n"),
@@ -43,7 +63,90 @@ const fixture = {
 	},
 } satisfies PluginArchivePackage;
 
+const scriptEntry = "backend/main.sandbox.ts";
+const scriptSource = 'export const manifest = "fixture";\n';
+const scriptJavascript = 'const manifest = "fixture";\n';
+const scriptManifest: PluginArchivePackage["manifest"] = {
+	...fixture.manifest,
+	scripts: [
+		{
+			kind: "script",
+			slug: "fixture",
+			capabilities: [],
+			entry: scriptEntry,
+			name: "Fixture script",
+			requiredPluginConfigKeys: [],
+			requiredSystemConfigKeys: [],
+		},
+	],
+};
+const compiledScriptFixture = {
+	format: 1,
+	entry: scriptEntry,
+	source: scriptSource,
+	javascript: scriptJavascript,
+};
+const scriptFixture: PluginArchivePackage = {
+	...fixture,
+	manifest: scriptManifest,
+	compiledScripts: [compiledScriptFixture],
+	files: { ...fixture.files, [scriptEntry]: encoder.encode(scriptSource) },
+};
+
+const compiledClientFixture: PluginClientArtifact = {
+	hash: "artifact-hash",
+	format: CLIENT_ARTIFACT_FORMAT,
+	apiVersion: CLIENT_API_VERSION,
+	compilerVersion: CLIENT_COMPILER_VERSION,
+	bridgeVersion: CLIENT_BRIDGE_PROTOCOL_VERSION,
+	files: [
+		{
+			name: "plugin.js",
+			contentType: "text/javascript; charset=utf-8",
+			contents: encoder.encode("export const plugin = true;\n"),
+		},
+		{
+			name: "assets/icon.svg",
+			contentType: "image/svg+xml",
+			contents: new Uint8Array([0xff, 0x00, 0x7f]),
+		},
+		{
+			name: "index.html",
+			contentType: "text/html; charset=utf-8",
+			contents: encoder.encode("<html></html>\n"),
+		},
+	],
+};
+
+const compiledClientMetadata = (artifact: PluginClientArtifact) =>
+	encoder.encode(
+		`${JSON.stringify(
+			{
+				hash: artifact.hash,
+				format: artifact.format,
+				apiVersion: artifact.apiVersion,
+				bridgeVersion: artifact.bridgeVersion,
+				compilerVersion: artifact.compilerVersion,
+				files: artifact.files
+					.map(({ name, contentType }) => ({ name, contentType }))
+					.sort((left, right) => compareNames(left.name, right.name)),
+			},
+			null,
+			"\t",
+		)}\n`,
+	);
+
 const rawManifest = encoder.encode(`${JSON.stringify(fixture.manifest, null, "\t")}\n`);
+const scriptRawManifest = encoder.encode(`${JSON.stringify(scriptManifest, null, "\t")}\n`);
+const scriptJavascriptBytes = encoder.encode(scriptJavascript);
+const scriptJavascriptHash = createHash("sha256").update(scriptJavascriptBytes).digest("hex");
+const scriptArchiveMetadata = encoder.encode(
+	`${JSON.stringify(
+		{ scripts: [{ format: 1, entry: scriptEntry, hash: scriptJavascriptHash }] },
+		null,
+		"\t",
+	)}\n`,
+);
 
 const pathAtBytes = (bytes: number) =>
 	`backend/${"a".repeat(bytes - encoder.encode("backend/.ts").byteLength)}.ts`;
@@ -73,15 +176,24 @@ const manifestWithBytes = (bytes: number): PluginArchivePackage["manifest"] => {
 	};
 };
 
+const artifactFile = (artifact: PluginClientArtifact, name: string) => {
+	const file = artifact.files.find((candidate) => candidate.name === name);
+	if (file === undefined) {
+		throw new Error(`Missing test artifact file: ${name}`);
+	}
+	return file;
+};
+
 const writeArchiveInTimezone = (timezone: string) => {
 	const entry = new URL("./index.ts", import.meta.url).href;
 	const serialized = JSON.stringify({
 		manifest: fixture.manifest,
+		compiledScripts: fixture.compiledScripts,
 		files: Object.fromEntries(
 			Object.entries(fixture.files).map(([path, bytes]) => [path, [...bytes]]),
 		),
 	});
-	const script = `import { writePluginArchive } from ${JSON.stringify(entry)}; const value = ${serialized}; process.stdout.write(writePluginArchive({ manifest: value.manifest, files: Object.fromEntries(Object.entries(value.files).map(([path, bytes]) => [path, new Uint8Array(bytes)])) }));`;
+	const script = `import { writePluginArchive } from ${JSON.stringify(entry)}; const value = ${serialized}; process.stdout.write(writePluginArchive({ manifest: value.manifest, files: Object.fromEntries(Object.entries(value.files).map(([path, bytes]) => [path, new Uint8Array(bytes)])), compiledScripts: value.compiledScripts }));`;
 	const result = Bun.spawnSync([process.execPath, "--eval", script], {
 		stderr: "pipe",
 		stdout: "pipe",
@@ -122,7 +234,7 @@ const expectReason = async (bytes: Uint8Array, reason: PluginArchiveErrorReason)
 };
 
 const expectWriteReason = (
-	pluginPackage: PluginArchivePackage,
+	pluginPackage: Parameters<typeof writePluginArchive>[0],
 	reason: PluginArchiveErrorReason,
 ) => {
 	let error: unknown;
@@ -166,15 +278,169 @@ describe("plugin archive", () => {
 			"manifest.json",
 			"backend/a.ts",
 			"backend/z.ts",
+			"shared/a.ts",
 			"client/a.ts",
 			"client/b.tsx",
 			"client/c.css",
 			"client/d.svg",
-			"shared/a.ts",
 		]);
 		expect(new TextDecoder().decode(files["manifest.json"])).toBe(
 			`${JSON.stringify(fixture.manifest, null, "\t")}\n`,
 		);
+	});
+
+	it("round trips deterministic compiled sandbox scripts and canonical metadata", async () => {
+		const first = writePluginArchive(scriptFixture);
+		const second = writePluginArchive({
+			...scriptFixture,
+			compiledScripts: scriptFixture.compiledScripts.toReversed(),
+			files: Object.fromEntries(Object.entries(scriptFixture.files).toReversed()),
+		});
+		expect(first).toEqual(second);
+
+		const entries = unzipSync(first);
+		expect(Object.keys(entries)).toEqual([
+			"manifest.json",
+			"backend/a.ts",
+			"backend/main.sandbox.ts",
+			"backend/z.ts",
+			"shared/a.ts",
+			"client/a.ts",
+			"client/b.tsx",
+			"client/c.css",
+			"client/d.svg",
+			`compiled-backend/files/${scriptJavascriptHash}.js`,
+			"compiled-backend/metadata.json",
+		]);
+		expect(entries[`compiled-backend/files/${scriptJavascriptHash}.js`]).toEqual(
+			scriptJavascriptBytes,
+		);
+		expect(JSON.parse(new TextDecoder().decode(entries["compiled-backend/metadata.json"]))).toEqual(
+			{ scripts: [{ format: 1, entry: scriptEntry, hash: scriptJavascriptHash }] },
+		);
+
+		const result = await Effect.runPromise(readPluginArchive(first));
+		expect(result.compiledScripts).toEqual(scriptFixture.compiledScripts);
+	});
+
+	it("requires every manifest script and rejects duplicate, extra, and missing outputs", async () => {
+		expectWriteReason({ ...scriptFixture, compiledScripts: [] }, "compiled-script-invalid");
+		expectWriteReason(
+			{
+				...scriptFixture,
+				compiledScripts: [...scriptFixture.compiledScripts, ...scriptFixture.compiledScripts],
+			},
+			"compiled-script-invalid",
+		);
+		expectWriteReason(
+			{
+				...scriptFixture,
+				compiledScripts: [{ ...compiledScriptFixture, entry: "backend/extra.sandbox.ts" }],
+			},
+			"compiled-script-invalid",
+		);
+		await expectReason(
+			archive([
+				["manifest.json", scriptRawManifest],
+				[scriptEntry, encoder.encode(scriptSource)],
+			]),
+			"compiled-script-invalid",
+		);
+	});
+
+	it("rejects non-canonical entries, invalid UTF-8 JavaScript, and invalid formats", () => {
+		expectWriteReason(
+			{
+				...scriptFixture,
+				compiledScripts: [{ ...compiledScriptFixture, entry: "backend/../main.sandbox.ts" }],
+			},
+			"path-noncanonical",
+		);
+		expectWriteReason(
+			{ ...scriptFixture, compiledScripts: [{ ...compiledScriptFixture, javascript: "\ud800" }] },
+			"compiled-script-invalid",
+		);
+		expectWriteReason(
+			{ ...scriptFixture, compiledScripts: [{ ...compiledScriptFixture, format: 1.5 }] },
+			"compiled-script-invalid",
+		);
+	});
+
+	it("rejects compiled JavaScript over its per-file bound", () =>
+		expectWriteReason(
+			{
+				...scriptFixture,
+				compiledScripts: [
+					{
+						...compiledScriptFixture,
+						javascript: "a".repeat(PLUGIN_ARCHIVE_LIMITS.maxCompiledBackendJavascriptBytes + 1),
+					},
+				],
+			},
+			"compiled-script-bytes-exceeded",
+		));
+
+	it("rejects compiled script metadata whose JavaScript hash was tampered", () => {
+		const tamperedJavascript = encoder.encode(scriptJavascript.replace("fixture", "tampered"));
+		return expectReason(
+			archive([
+				["manifest.json", scriptRawManifest],
+				[scriptEntry, encoder.encode(scriptSource)],
+				["compiled-backend/metadata.json", scriptArchiveMetadata],
+				[`compiled-backend/files/${scriptJavascriptHash}.js`, tamperedJavascript],
+			]),
+			"compiled-script-invalid",
+		);
+	});
+
+	it("writes and reads deterministic compiled client entries with canonical metadata", async () => {
+		const compiledClient = { ...compiledClientFixture, files: compiledClientFixture.files };
+		const first = writePluginArchive({ ...fixture, compiledClient });
+		const second = writePluginArchive({
+			...fixture,
+			files: Object.fromEntries(Object.entries(fixture.files).toReversed()),
+			compiledClient: { ...compiledClient, files: compiledClient.files.toReversed() },
+		});
+		expect(first).toEqual(second);
+
+		const entries = unzipSync(first);
+		expect(Object.keys(entries)).toEqual([
+			"manifest.json",
+			"backend/a.ts",
+			"backend/z.ts",
+			"shared/a.ts",
+			"client/a.ts",
+			"client/b.tsx",
+			"client/c.css",
+			"client/d.svg",
+			"compiled-client/files/assets/icon.svg",
+			"compiled-client/files/index.html",
+			"compiled-client/files/plugin.js",
+			"compiled-client/metadata.json",
+		]);
+		expect(JSON.parse(new TextDecoder().decode(entries["compiled-client/metadata.json"]))).toEqual({
+			hash: compiledClient.hash,
+			format: compiledClient.format,
+			apiVersion: compiledClient.apiVersion,
+			bridgeVersion: compiledClient.bridgeVersion,
+			compilerVersion: compiledClient.compilerVersion,
+			files: [
+				{ name: "assets/icon.svg", contentType: "image/svg+xml" },
+				{ name: "index.html", contentType: "text/html; charset=utf-8" },
+				{ name: "plugin.js", contentType: "text/javascript; charset=utf-8" },
+			],
+		});
+		expect(entries["compiled-client/files/assets/icon.svg"]).toEqual(
+			new Uint8Array([0xff, 0x00, 0x7f]),
+		);
+
+		const result = await Effect.runPromise(readPluginArchive(first));
+		expect(result.compiledClient).toEqual({
+			...compiledClient,
+			files: compiledClient.files
+				.slice()
+				.sort((left, right) => compareNames(left.name, right.name)),
+		});
 	});
 
 	it("writes byte-identical archives across timezones", () => {
@@ -299,20 +565,94 @@ describe("plugin archive", () => {
 		);
 	});
 
-	it("rejects a final compressed archive over the limit", () => {
-		const files: Record<string, Uint8Array> = {};
-		let state = 0x12345678;
-		for (let fileIndex = 0; fileIndex < 33; fileIndex += 1) {
-			const bytes = new Uint8Array(PLUGIN_ARCHIVE_LIMITS.maxSourceBytes);
-			for (let index = 0; index < bytes.byteLength; index += 1) {
-				state ^= state << 13;
-				state ^= state >>> 17;
-				state ^= state << 5;
-				bytes[index] = state;
-			}
-			files[`client/${fileIndex}.wasm`] = bytes;
-		}
-		expectWriteReason({ files, manifest: fixture.manifest }, "compressed-bytes-exceeded");
+	it("rejects a compiled client with a non-canonical file path", async () => {
+		const file = artifactFile(compiledClientFixture, "plugin.js");
+		const compiledClient = { ...compiledClientFixture, files: [{ ...file, name: "../plugin.js" }] };
+		expectWriteReason({ ...fixture, compiledClient }, "path-noncanonical");
+		await expectReason(
+			archive([
+				["manifest.json", rawManifest],
+				["compiled-client/metadata.json", compiledClientMetadata(compiledClient)],
+				["compiled-client/files/../plugin.js", file.contents],
+			]),
+			"path-noncanonical",
+		);
+	});
+
+	it("rejects compiled client bytes over the artifact limit in the writer and reader", async () => {
+		const contents = new Uint8Array(PLUGIN_ARCHIVE_LIMITS.maxCompiledClientBytes + 1);
+		const file = { contents, name: "index.html", contentType: "text/html; charset=utf-8" };
+		const compiledClient = { ...compiledClientFixture, files: [file] };
+		expectWriteReason({ ...fixture, compiledClient }, "compiled-client-bytes-exceeded");
+		await expectReason(
+			archive([
+				["manifest.json", rawManifest],
+				["compiled-client/metadata.json", compiledClientMetadata(compiledClient)],
+				["compiled-client/files/index.html", contents],
+			]),
+			"compiled-client-bytes-exceeded",
+		);
+	});
+
+	it("rejects compiled client file counts over the artifact limit in the writer and reader", async () => {
+		const files = Array.from(
+			{ length: PLUGIN_ARCHIVE_LIMITS.maxCompiledClientFiles + 1 },
+			(_, index) => ({
+				name: `assets/${index}.js`,
+				contents: new Uint8Array(0),
+				contentType: "text/javascript; charset=utf-8",
+			}),
+		);
+		const compiledClient = { ...compiledClientFixture, files };
+		expectWriteReason({ ...fixture, compiledClient }, "compiled-client-file-count-exceeded");
+		await expectReason(
+			archive([
+				["manifest.json", rawManifest],
+				["compiled-client/metadata.json", compiledClientMetadata(compiledClient)],
+				...files.map(({ name, contents }) => [`compiled-client/files/${name}`, contents] as const),
+			]),
+			"compiled-client-file-count-exceeded",
+		);
+	});
+
+	it("rejects incomplete and malformed compiled client metadata", async () => {
+		await expectReason(
+			archive([
+				["manifest.json", rawManifest],
+				["compiled-client/metadata.json", compiledClientMetadata(compiledClientFixture)],
+				[
+					"compiled-client/files/index.html",
+					artifactFile(compiledClientFixture, "index.html").contents,
+				],
+			]),
+			"compiled-client-invalid",
+		);
+		await expectReason(
+			archive([
+				["manifest.json", rawManifest],
+				["compiled-client/metadata.json", encoder.encode('{"format":"wrong"}')],
+			]),
+			"compiled-client-invalid",
+		);
+	});
+
+	it("rejects unsupported compiled client output content types", async () => {
+		const originalFile = artifactFile(compiledClientFixture, "plugin.js");
+		const file = {
+			name: originalFile.name,
+			contents: originalFile.contents,
+			contentType: "application/json",
+		};
+		const compiledClient = { ...compiledClientFixture, files: [file] };
+		expectWriteReason({ ...fixture, compiledClient }, "compiled-client-invalid");
+		await expectReason(
+			archive([
+				["manifest.json", rawManifest],
+				["compiled-client/metadata.json", compiledClientMetadata(compiledClient)],
+				["compiled-client/files/plugin.js", file.contents],
+			]),
+			"compiled-client-invalid",
+		);
 	});
 
 	it("rejects the compressed byte limit", () =>

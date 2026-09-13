@@ -14,6 +14,7 @@
 	},
 	"dependencies": {
 		"@ryot-app/contract": "workspace:*",
+		"@ryot-app/ts-utils": "workspace:*",
 		"effect": "4.0.0-rc.117"
 	},
 	"devDependencies": {
