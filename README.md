@@ -1,7 +1,7 @@
 <h1 align="center">Ryot</h1>
 
 <h3 align="center">
-  A self-hosted platform for tracking media, fitness, and more.
+  A self-hosted, plugin-powered platform for tracking anything.
 </h3>
 
 <div align="center">
@@ -33,78 +33,80 @@
   <img src="apps/website/public/cta-image.png" alt="Ryot Dashboard" width="700">
 </p>
 
-## Quick Start
-
-Create a `docker-compose.yml` file:
-
-```yaml
-services:
-  ryot-db:
-    restart: unless-stopped
-    image: postgres:18-alpine
-    environment:
-      - POSTGRES_PASSWORD=postgres
-    volumes:
-      - postgres_storage:/var/lib/postgresql
-
-  ryot:
-    image: ignisda/ryot:v10
-    restart: unless-stopped
-    ports:
-      - "8000:8000"
-    environment:
-      - SERVER_ADMIN_ACCESS_TOKEN=CHANGE_ME_TO_A_LONG_RANDOM_STRING
-      - DATABASE_URL=postgres://postgres:postgres@ryot-db:5432/postgres
-
-volumes:
-  postgres_storage:
-```
-
-Then run `docker compose up -d` and visit `http://localhost:8000`. For production setups, see the [installation guide](https://docs.ryot.io).
-
 ## What is Ryot?
 
-Ryot (**R**oll **Y**our **O**wn **T**racker), pronounced "riot", tracks media consumption and fitness activity in one place.
+Ryot (**R**oll **Y**our **O**wn **T**racker), pronounced "riot", is a self-hosted
+platform for building a tracker around your life. Plugins define what Ryot tracks
+and how you interact with it. Ryot includes first-party plugins for media and
+fitness, and new plugins can add entirely different kinds of tracking.
 
-## Demo
+## Included Plugins
 
-Try the [live demo](https://demo.ryot.io/demo). The live demo uses a shared interactive account. Changes to tracked data are visible to other demo visitors.
+### Media
 
-### Media Tracking
+- Track movies, TV shows, anime, manga, books, comic books, audiobooks, podcasts,
+  music, visual novels, and video games
+- Import existing data from services such as Goodreads, Trakt, MyAnimeList, and
+  Audiobookshelf
+- Automate tracking through integrations with services such as Jellyfin, Plex,
+  Kodi, and Emby
+- Organize collections, discover recommendations, write reviews, and monitor
+  upcoming releases
 
-- Track movies, TV shows, anime, manga, books, audiobooks, podcasts, music, and video games
-- Import from Goodreads, Trakt, MyAnimeList, Audiobookshelf [and more](https://docs.ryot.io/importing/overview.html)
-- Automatic tracking via Jellyfin, Plex, Kodi, Emby [integrations](https://docs.ryot.io/integrations/overview.html)
+See the supported [imports](https://docs.ryot.io/importing/overview.html) and
+[integrations](https://docs.ryot.io/integrations/overview.html).
 
 ### Fitness
 
-- Log workouts with a comprehensive exercise database
-- Track body measurements over time
-- Monitor progress with detailed graphs
+- Log workouts with a database of more than 800 exercises
+- Build workout routines with rest timers, supersets, and reusable templates
+- Track exercise progress and body measurements over time
+- Review progress through detailed history and graphs
 
 <p align="center">
-  <img src="apps/website/public/features/measurements-graph.png" alt="Workout tracking" width="250">
-  <img src="apps/website/public/features/exercise-dataset.png" alt="Measurements" width="250">
+  <img src="apps/website/public/features/measurements-graph.png" alt="Measurement progress graph" width="250">
+  <img src="apps/website/public/features/exercise-dataset.png" alt="Exercise database" width="250">
 </p>
 
-### Technical
+## Demo
+
+Try the [live demo](https://demo.ryot.io/demo). It uses a shared interactive
+account, so changes to tracked data are visible to other visitors.
+
+## Installation
+
+Follow the [installation guide](https://docs.ryot.io/) to deploy Ryot. Container
+images are available from [Docker Hub](https://hub.docker.com/r/ignisda/ryot) and
+[GitHub Container Registry](https://ghcr.io/ignisda/ryot).
+
+Upgrading from an earlier major release? Follow the
+[migration guide](https://docs.ryot.io/migration.html).
+
+## Technical Overview
 
 - Self-hosted with full data ownership
-- TypeScript on [Bun](https://bun.sh) — [Hono](https://hono.dev) backend, [React](https://react.dev) + [TanStack Router](https://tanstack.com/router) frontend
-- PostgreSQL with [Drizzle ORM](https://orm.drizzle.team), Redis-backed job queues via [BullMQ](https://docs.bullmq.io)
-- [REST/OpenAPI](https://docs.ryot.io) API with auto-generated type-safe clients
-- OpenID Connect [authentication](https://docs.ryot.io/guides/authentication.html)
-- Notifications via Discord, Ntfy, Apprise
-- Sandboxed user scripting powered by Deno subprocesses
-- React DOM client with PWA and Capacitor mobile support
+- TypeScript on [Bun](https://bun.sh), with an [Effect](https://effect.website)
+  backend and a [React](https://react.dev) client
+- PostgreSQL for persistent data and Redis for background work
+- A plugin-based core that can support new tracking domains
+- Web, iOS, and Android clients, with mobile support through
+  [Capacitor](https://capacitorjs.com)
+- OAuth 2.1 authentication with optional external OpenID Connect login
 
 ## Pro Version
 
-Ryot Pro adds profile sharing, personalized recommendations, enhanced collections, and more. [Learn more](https://ryot.io).
+Ryot Pro adds profile sharing, personalized recommendations, enhanced collections,
+and more. [Explore Pro features](https://ryot.io/features).
+
+## Contributing
+
+See the [contribution guide](CONTRIBUTING.md) to set up the project and validate
+changes.
 
 ## Community
 
-Questions or feedback? Join the [Discord server](https://discord.gg/D9XTg2a7R8) or open a [GitHub issue](https://github.com/ignisda/ryot/issues).
+Questions or feedback? Join the [Discord server](https://discord.gg/D9XTg2a7R8)
+or open a [GitHub issue](https://github.com/ignisda/ryot/issues).
 
 ## License
 
@@ -121,10 +123,3 @@ the licensor.
 - Inspired by [MediaTracker](https://github.com/bonukai/MediaTracker)
 - Exercise data from [Free Exercise DB](https://github.com/yuhonas/free-exercise-db)
 - Thanks to all [contributors](https://github.com/IgnisDa/ryot/graphs/contributors)
-
-<details>
-<summary><strong>Migrating from v9?</strong></summary>
-
-If you were using v9.\* of Ryot, please read the [migration guide](https://docs.ryot.io/migration.html#from-v9-to-v10) for instructions to upgrade to v10.
-
-</details>
