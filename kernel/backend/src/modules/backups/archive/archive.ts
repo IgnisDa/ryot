@@ -1,4 +1,4 @@
-import { Schema, Effect, Stream, FileSystem, type PlatformError } from "effect";
+import { Schema, Effect, Stream, FileSystem, Cause, type PlatformError } from "effect";
 import { Zip, Unzip, ZipDeflate, UnzipInflate, ZipPassThrough, UnzipPassThrough } from "fflate";
 
 import { archiveError, BackupArchiveError } from "./error";
@@ -429,55 +429,69 @@ class ZipChunkIterator implements AsyncIterableIterator<Uint8Array> {
 	}
 
 	next(): Promise<IteratorResult<Uint8Array, void>> {
-		const output = this.#output.shift();
-		if (output !== undefined) {
-			return Promise.resolve({ done: false, value: output });
-		}
-		if (this.#failure !== null) {
-			return Promise.reject(this.#failure);
-		}
-		if (this.#ended) {
-			return Promise.resolve({ done: true, value: undefined });
-		}
-		return this.#advance().catch((error: unknown) => {
-			const failure =
-				error instanceof BackupArchiveError
-					? error
-					: archiveError("invalid_archive", `ZIP encoding failed: ${String(error)}`);
-			this.#zip.terminate();
-			throw failure;
+		return Effect.runPromise(this.#next());
+	}
+
+	#next(): Effect.Effect<IteratorResult<Uint8Array, void>, BackupArchiveError> {
+		return Effect.suspend(() => {
+			const output = this.#output.shift();
+			if (output !== undefined) {
+				return Effect.succeed({ done: false, value: output });
+			}
+			if (this.#failure !== null) {
+				return Effect.fail(this.#failure);
+			}
+			if (this.#ended) {
+				return Effect.succeed({ done: true, value: undefined });
+			}
+			return this.#advance().pipe(
+				Effect.catchCause((cause) => {
+					const error = Cause.squash(cause);
+					const failure =
+						error instanceof BackupArchiveError
+							? error
+							: archiveError("invalid_archive", `ZIP encoding failed: ${String(error)}`);
+					this.#zip.terminate();
+					return Effect.fail(failure);
+				}),
+			);
 		});
 	}
 
-	#advance(): Promise<IteratorResult<Uint8Array, void>> {
-		if (this.#chunks !== null && this.#file !== null) {
-			return this.#chunks.next().then((next) => {
-				if (next.done) {
-					this.#file?.push(new Uint8Array(0), true);
-					this.#chunks = null;
-					this.#file = null;
-				} else {
-					this.#file?.push(next.value);
-				}
-				return this.next();
-			});
+	#advance(): Effect.Effect<IteratorResult<Uint8Array, void>, BackupArchiveError> {
+		const chunks = this.#chunks;
+		if (chunks !== null && this.#file !== null) {
+			return Effect.promise(() => chunks.next()).pipe(
+				Effect.flatMap((next) => {
+					if (next.done) {
+						this.#file?.push(new Uint8Array(0), true);
+						this.#chunks = null;
+						this.#file = null;
+					} else {
+						this.#file?.push(next.value);
+					}
+					return this.#next();
+				}),
+			);
 		}
-		return this.#entries.next().then((next) => {
-			if (next.done) {
-				this.#zip.end();
-				this.#ended = true;
-				return this.next();
-			}
-			this.#file =
-				next.value.compression === "store"
-					? new ZipPassThrough(next.value.path)
-					: new ZipDeflate(next.value.path, { level: 6 });
-			this.#file.mtime = DETERMINISTIC_MTIME;
-			this.#file.os = 0;
-			this.#zip.add(this.#file);
-			this.#chunks = asyncIterator(next.value.chunks);
-			return this.next();
-		});
+		return Effect.promise(() => this.#entries.next()).pipe(
+			Effect.flatMap((next) => {
+				if (next.done) {
+					this.#zip.end();
+					this.#ended = true;
+					return this.#next();
+				}
+				this.#file =
+					next.value.compression === "store"
+						? new ZipPassThrough(next.value.path)
+						: new ZipDeflate(next.value.path, { level: 6 });
+				this.#file.mtime = DETERMINISTIC_MTIME;
+				this.#file.os = 0;
+				this.#zip.add(this.#file);
+				this.#chunks = asyncIterator(next.value.chunks);
+				return this.#next();
+			}),
+		);
 	}
 
 	return(): Promise<IteratorResult<Uint8Array, void>> {
@@ -515,20 +529,30 @@ class VerifiedEntryChunks implements AsyncIterableIterator<Uint8Array> {
 	}
 
 	next(): Promise<IteratorResult<Uint8Array, void>> {
-		return this.#chunks.next().then((next) => {
-			if (!next.done) {
-				this.#hash.update(next.value);
-				if (this.#hash.bytes > this.#limit) {
-					throw archiveError("entry_too_large", "ZIP entry is too large", this.#entry.path);
-				}
-				return next;
-			}
-			const measured = this.#hash.digest();
-			if (measured.bytes !== this.#entry.size || measured.sha256 !== this.#entry.sha256) {
-				throw archiveError("checksum_mismatch", this.#entry.mismatch, this.#entry.path);
-			}
-			return next;
-		});
+		return Effect.runPromise(
+			Effect.promise(() => this.#chunks.next()).pipe(
+				Effect.flatMap(
+					(next): Effect.Effect<IteratorResult<Uint8Array, void>, BackupArchiveError> => {
+						if (!next.done) {
+							this.#hash.update(next.value);
+							if (this.#hash.bytes > this.#limit) {
+								return Effect.fail(
+									archiveError("entry_too_large", "ZIP entry is too large", this.#entry.path),
+								);
+							}
+							return Effect.succeed(next);
+						}
+						const measured = this.#hash.digest();
+						if (measured.bytes !== this.#entry.size || measured.sha256 !== this.#entry.sha256) {
+							return Effect.fail(
+								archiveError("checksum_mismatch", this.#entry.mismatch, this.#entry.path),
+							);
+						}
+						return Effect.succeed(next);
+					},
+				),
+			),
+		);
 	}
 }
 
@@ -749,27 +773,37 @@ class SpooledRecords<A, I> implements AsyncIterableIterator<A> {
 	}
 
 	next(): Promise<IteratorResult<A, void>> {
-		const value = this.#pending[this.#offset];
-		if (value !== undefined) {
-			this.#count += 1;
-			this.#offset += 1;
-			return Promise.resolve({ value, done: false });
-		}
-		if (this.#ended) {
-			return Promise.resolve({ done: true, value: undefined });
-		}
-		return this.#chunks.next().then((next) => {
-			if (next.done) {
-				this.#ended = true;
-				this.#decoder.end();
-				if (this.#count !== this.#declared) {
-					throw archiveError("count_mismatch", "Section count mismatch", this.#path);
-				}
-			} else {
-				this.#offset = 0;
-				this.#pending = [...this.#decoder.push(next.value)];
+		return Effect.runPromise(this.#next());
+	}
+
+	#next(): Effect.Effect<IteratorResult<A, void>, BackupArchiveError> {
+		return Effect.suspend(() => {
+			const value = this.#pending[this.#offset];
+			if (value !== undefined) {
+				this.#count += 1;
+				this.#offset += 1;
+				return Effect.succeed({ value, done: false });
 			}
-			return this.next();
+			if (this.#ended) {
+				return Effect.succeed({ done: true, value: undefined });
+			}
+			return Effect.promise(() => this.#chunks.next()).pipe(
+				Effect.flatMap((next) => {
+					if (next.done) {
+						this.#ended = true;
+						this.#decoder.end();
+						if (this.#count !== this.#declared) {
+							return Effect.fail(
+								archiveError("count_mismatch", "Section count mismatch", this.#path),
+							);
+						}
+					} else {
+						this.#offset = 0;
+						this.#pending = [...this.#decoder.push(next.value)];
+					}
+					return this.#next();
+				}),
+			);
 		});
 	}
 }
@@ -1249,9 +1283,9 @@ const extractArchive = Effect.fn(function* <E>(
 		return writes.length === 0
 			? Effect.void
 			: Effect.tryPromise({
-					try: () => Promise.all(writes).then(() => undefined),
+					try: () => Promise.all(writes),
 					catch: () => archiveError("invalid_archive", "Could not spool backup archive entry"),
-				});
+				}).pipe(Effect.asVoid);
 	};
 	const checkFailure = () => (failure === null ? Effect.void : Effect.fail(failure));
 	yield* Stream.runForEach(chunks, (chunk) =>

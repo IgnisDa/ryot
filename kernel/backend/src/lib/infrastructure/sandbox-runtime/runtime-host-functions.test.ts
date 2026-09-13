@@ -29,19 +29,22 @@ const input = {
 const runtimeHostLayer = Layer.unwrap(
 	Effect.gen(function* () {
 		const values = yield* Ref.make<ReadonlyMap<string, string>>(new Map());
+		const run = Effect.runPromiseWith(yield* Effect.context());
 		const read = (key: string) => MutableRef.get(values.ref).get(key) ?? null;
 		const write = (key: string, value: string) =>
 			MutableRef.update(values.ref, (all) => new Map(all).set(key, value));
 		const client = Object.assign(Object.create(null), {
 			get: (key: string) => Promise.resolve(read(key)),
 			set: (key: string, value: string, ...options: ReadonlyArray<unknown>) =>
-				Promise.resolve().then(() => {
-					if (options.includes("NX") && MutableRef.get(values.ref).has(key)) {
-						return null;
-					}
-					write(key, value);
-					return "OK";
-				}),
+				run(
+					Effect.sync(() => {
+						if (options.includes("NX") && MutableRef.get(values.ref).has(key)) {
+							return null;
+						}
+						write(key, value);
+						return "OK";
+					}),
+				),
 		}) satisfies RedisService["Service"]["client"];
 		const redis = makeRedisService({
 			client,
