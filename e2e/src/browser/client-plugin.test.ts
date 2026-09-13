@@ -159,13 +159,15 @@ const expectCurrentBridgeSession = (observations: BridgeObservation[], expected:
 
 const expectDocumentGrantValid = (page: Playwright.Page, grant: DocumentGrant) =>
 	Effect.gen(function* () {
-		// oxlint-disable-next-line effecttsgo/async-function -- effect-playwright page.use requires a Promise callback for Playwright's native request API.
-		const status = yield* page.use(async (nativePage) => {
-			const response = await nativePage.context().request.get(grant.src);
-			const result = response.status();
-			await response.dispose();
-			return result;
-		});
+		const status = yield* page.use((nativePage) =>
+			nativePage
+				.context()
+				.request.get(grant.src)
+				.then((response) => {
+					const result = response.status();
+					return response.dispose().then(() => result);
+				}),
+		);
 		expect(status, "Retained document grant is no longer valid [credential redacted]").toBe(200);
 	});
 
@@ -256,19 +258,22 @@ it.live("runs the client plugin lifecycle in a real browser", () =>
 		const initialGrant = yield* readDocumentGrant(frame, apiUrl);
 		observedGrants.push(initialGrant);
 		yield* expectVisibleText(home, FIXTURE_CLIENT_REVISION_MARKERS.A);
-		// oxlint-disable-next-line effecttsgo/async-function -- Playwright evaluates this callback inside the browser realm.
-		const typography = yield* home.evaluate(async (element) => {
+		const typography = yield* home.evaluate((element) => {
 			const heading = element.querySelector("h1");
-			const uiFaces = await document.fonts.load('16px "Outfit Variable"', "Fixture");
-			const displayFaces = await document.fonts.load('16px "Lora Variable"', "Fixture");
-			return {
-				hasHeading: heading !== null,
-				uiFamily: getComputedStyle(element).fontFamily,
-				displayFamily: heading ? getComputedStyle(heading).fontFamily : "",
-				uiLoaded: uiFaces.length > 0 && uiFaces.every(({ status }) => status === "loaded"),
-				displayLoaded:
-					displayFaces.length > 0 && displayFaces.every(({ status }) => status === "loaded"),
-			};
+			return document.fonts
+				.load('16px "Outfit Variable"', "Fixture")
+				.then((uiFaces) =>
+					document.fonts
+						.load('16px "Lora Variable"', "Fixture")
+						.then((displayFaces) => ({
+							hasHeading: heading !== null,
+							uiFamily: getComputedStyle(element).fontFamily,
+							displayFamily: heading ? getComputedStyle(heading).fontFamily : "",
+							uiLoaded: uiFaces.length > 0 && uiFaces.every(({ status }) => status === "loaded"),
+							displayLoaded:
+								displayFaces.length > 0 && displayFaces.every(({ status }) => status === "loaded"),
+						})),
+				);
 		});
 		expect(typography.hasHeading).toBe(true);
 		expect(typography.uiFamily).toContain("Outfit Variable");

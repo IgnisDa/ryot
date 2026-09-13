@@ -33,18 +33,17 @@ function AutomationHistoryDetailRoute() {
 		enabled: displayed?.run.status === "queued" || displayed?.run.status === "running",
 	});
 
-	// oxlint-disable-next-line effecttsgo/async-function -- React automation retry handler.
-	const retryRun = async () => {
+	const retryRun = () => {
 		if (isDemoProtected || displayed === undefined || displayed.retryEligibility.reason !== null) {
-			return;
+			return Promise.resolve();
 		}
 		retry.reset();
 		setRetryResult(undefined);
-		await retry
+		return retry
 			.mutateAsync({ runId, expectedAttemptCount: displayed.run.attemptCount })
 			.then(setRetryResult)
-			.catch(() => undefined);
-		detail.refetch();
+			.catch(() => undefined)
+			.then(() => detail.refetch());
 	};
 
 	let body;

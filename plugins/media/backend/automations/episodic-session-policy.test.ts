@@ -1,7 +1,7 @@
+import { describe, expect, it } from "@effect/vitest";
 import type { AutomationPolicyInput } from "@ryot-app/sandbox-sdk/automation";
 import { Effect } from "@ryot-app/sandbox-sdk/effect";
 import { defineSandboxTestHost } from "@ryot-app/sandbox-sdk/testing";
-import { describe, expect, it } from "vitest";
 
 import {
 	hostSuccess,
@@ -22,24 +22,23 @@ const run = (context: AutomationPolicyInput, parents: readonly Record<string, un
 	});
 
 describe("episodic session policy", () => {
-	// oxlint-disable-next-line effecttsgo/async-function -- Vitest awaits this Promise-returning test callback.
-	it("returns only the session patch", async () => {
-		const input = policyAutomationContext({
-			entityId: "episode-1",
-			eventSchemaSlug: "progress",
-			sessionEntityId: "wrong-show",
-			entitySchemaSlug: "show-episode",
-			occurredAt: "2026-02-01T00:00:00.000Z",
-			properties: { consumedOn: "Plex", progressPercent: 42.125 },
-		});
-		const result = await Effect.runPromise(
-			run(input, [{ seasonNumber: 1, parentEntityId: "show-1" }]),
-		);
-		expect(result).toEqual({
-			action: "transform",
-			patch: { resource: "event", draft: { sessionEntityId: "show-1" } },
-		});
-	});
+	it.live("returns only the session patch", () =>
+		Effect.gen(function* () {
+			const input = policyAutomationContext({
+				entityId: "episode-1",
+				eventSchemaSlug: "progress",
+				sessionEntityId: "wrong-show",
+				entitySchemaSlug: "show-episode",
+				occurredAt: "2026-02-01T00:00:00.000Z",
+				properties: { consumedOn: "Plex", progressPercent: 42.125 },
+			});
+			const result = yield* run(input, [{ seasonNumber: 1, parentEntityId: "show-1" }]);
+			expect(result).toEqual({
+				action: "transform",
+				patch: { resource: "event", draft: { sessionEntityId: "show-1" } },
+			});
+		}),
+	);
 	it.each(["show", "podcast"] as const)("assigns a %s parent to itself", (entitySchemaSlug) =>
 		Effect.runPromise(
 			run(

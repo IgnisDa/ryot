@@ -17,6 +17,7 @@
 		"@ryot-app/ts-utils": "workspace:*"
 	},
 	"devDependencies": {
+		"@effect/vitest": "4.0.0-rc.117",
 		"@ryot-app/client-plugin-contract": "workspace:*",
 		"@ryot-app/client-sdk": "workspace:*",
 		"@ryot-app/client-ui-sdk": "workspace:*",

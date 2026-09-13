@@ -1,3 +1,4 @@
+import { describe, expect, it } from "@effect/vitest";
 // oxlint-disable unicorn/require-post-message-target-origin -- MessagePort has no target origin
 import {
 	CLIENT_API_VERSION,
@@ -23,7 +24,6 @@ import type { PluginClientCatalog } from "@ryot-app/ryotql-recipes/plugin-client
 import { createMemoryHistory, RouterProvider } from "@tanstack/react-router";
 import { act, fireEvent, render, screen, waitFor } from "@testing-library/react";
 import { Effect, Layer, ManagedRuntime, Schema } from "effect";
-import { describe, expect, it } from "vitest";
 
 import { AuthenticatedApiError } from "#/api/authenticated";
 import { ClientPagesApi } from "#/api/client-pages";
@@ -277,648 +277,751 @@ const preparationFailure = (reason: ClientPagePreparationError["reason"]) =>
 	Effect.fail(new AuthenticatedApiError({ cause: new ClientPagePreparationError({ reason }) }));
 
 describe("client page routes", () => {
-	// oxlint-disable-next-line effecttsgo/async-function -- Vitest awaits this Promise-based test callback and its framework assertions.
-	it("prepares a saved-view slug without loading a saved-view record", async () => {
-		const view = mount({ entry: "/v/fixture-view" });
-		await waitFor(() =>
-			expect(view.targets).toEqual([{ kind: "saved-view", slug: "fixture-view" }]),
-		);
-	});
+	it.live("prepares a saved-view slug without loading a saved-view record", () =>
+		Effect.gen(function* () {
+			const view = mount({ entry: "/v/fixture-view" });
+			yield* Effect.promise(() =>
+				waitFor(() => expect(view.targets).toEqual([{ kind: "saved-view", slug: "fixture-view" }])),
+			);
+		}),
+	);
 
-	// oxlint-disable-next-line effecttsgo/async-function -- Vitest awaits this Promise-based test callback and its framework assertions.
-	it("uses prepared saved-view metadata and the route slug for local layout", async () => {
-		const layoutKeys: string[] = [];
-		const storage = makeStorageStub("fixture");
-		const view = mount({
-			entry: "/v/fixture-view",
-			loadProviders: () =>
-				Effect.succeed({ items: [], pageInfo: { limit: 100, hasMore: false, nextCursor: null } }),
-			storage: {
-				...storage,
-				getSavedViewLayout: (_scope, slug) =>
-					Effect.sync(() => {
-						layoutKeys.push(slug);
-						return "grid" as const;
-					}),
-			},
-			prepare: (_scope, request) => {
-				const target = request.payload.target;
-				if (target.kind !== "saved-view") {
-					return Effect.die("not used");
-				}
-				const prepared = preparedSavedView(SavedViewId.make("internal-id"));
-				return Effect.succeed({
-					...prepared,
-					context: {
-						...prepared.context,
-						target,
-						renderer: { kind: "kernel", name: "Entity browser" },
-						settings: {
-							pageSize: 20,
-							sortChoices: [],
-							searchFields: [],
-							tableColumns: null,
-							entityIdField: "id",
-							sourceName: "items",
-							defaultLayout: "list",
-							layouts: ["grid", "list"],
-							ownerPluginIdField: "owner",
-							entitySchemaSlugField: "schema",
-							addAction: {
-								type: "provider-search",
-								entitySchemaSlug: "book",
-								ownerPluginId: "plugin-1",
+	it.live("uses prepared saved-view metadata and the route slug for local layout", () =>
+		Effect.gen(function* () {
+			const layoutKeys: string[] = [];
+			const storage = makeStorageStub("fixture");
+			const view = mount({
+				entry: "/v/fixture-view",
+				loadProviders: () =>
+					Effect.succeed({ items: [], pageInfo: { limit: 100, hasMore: false, nextCursor: null } }),
+				storage: {
+					...storage,
+					getSavedViewLayout: (_scope, slug) =>
+						Effect.sync(() => {
+							layoutKeys.push(slug);
+							return "grid" as const;
+						}),
+				},
+				prepare: (_scope, request) => {
+					const target = request.payload.target;
+					if (target.kind !== "saved-view") {
+						return Effect.die("not used");
+					}
+					const prepared = preparedSavedView(SavedViewId.make("internal-id"));
+					return Effect.succeed({
+						...prepared,
+						context: {
+							...prepared.context,
+							target,
+							renderer: { kind: "kernel", name: "Entity browser" },
+							settings: {
+								pageSize: 20,
+								sortChoices: [],
+								searchFields: [],
+								tableColumns: null,
+								entityIdField: "id",
+								sourceName: "items",
+								defaultLayout: "list",
+								layouts: ["grid", "list"],
+								ownerPluginIdField: "owner",
+								entitySchemaSlugField: "schema",
+								addAction: {
+									type: "provider-search",
+									entitySchemaSlug: "book",
+									ownerPluginId: "plugin-1",
+								},
 							},
 						},
-					},
-				});
-			},
-		});
-		const frame = await screen.findByTitle<HTMLIFrameElement>("Fixture View plugin");
-		const bridge = connectFrame(frame);
-		expect(layoutKeys).toEqual(["fixture-view"]);
-		expect(bridge.init.page?.settings).toMatchObject({ defaultLayout: "grid" });
-		expect(view.router.state.location.pathname).toBe("/v/fixture-view");
-		bridge.port.postMessage({
-			entitySchemaSlug: "book",
-			ownerPluginId: "plugin-1",
-			type: "provider-search-screen",
-		});
-		await waitFor(() => expect(view.router.state.location.searchStr).toBe("?add=true"));
-		await screen.findByRole("dialog", { name: "Add from a provider" });
-	});
-
-	// oxlint-disable-next-line effecttsgo/async-function -- Vitest awaits this Promise-based test callback and its framework assertions.
-	it("opens provider search from a plugin route without changing the page location", async () => {
-		const view = mount({
-			entry: "/fixture?tab=home",
-			loadProviders: () =>
-				Effect.succeed({ items: [], pageInfo: { limit: 100, hasMore: false, nextCursor: null } }),
-		});
-		const bridge = connectFrame(await screen.findByTitle<HTMLIFrameElement>("fixture plugin"));
-		await waitFor(() => expect(bridge.messages).toHaveLength(1));
-		bridge.port.postMessage({
-			initialQuery: "dune",
-			entitySchemaSlug: "book",
-			ownerPluginId: "plugin-1",
-			type: "provider-search-screen",
-		});
-
-		await screen.findByRole("dialog", { name: "Add from a provider" });
-		expect(screen.getByRole<HTMLInputElement>("textbox", { name: "Search providers" }).value).toBe(
-			"dune",
-		);
-		expect(view.router.state.location.searchStr).toBe("?tab=home");
-		expect(view.targets).toHaveLength(1);
-
-		fireEvent.click(screen.getAllByRole("button", { name: "Close" })[0]);
-		await waitFor(() =>
-			expect(screen.queryByRole("dialog", { name: "Add from a provider" })).toBeNull(),
-		);
-		expect(view.router.state.location.searchStr).toBe("?tab=home");
-	});
-
-	// oxlint-disable-next-line effecttsgo/async-function -- Vitest awaits this Promise-based test callback and its framework assertions.
-	it("uses the hydrated parent catalog on plugin navigation", async () => {
-		const view = mount({ entry: "/fixture" });
-		await screen.findByTitle("fixture plugin");
-		expect(view.getCatalogLoads()).toBe(1);
-		await view.router.navigate({ href: "/fixture/details/one" });
-		await waitFor(() =>
-			expect(view.targets.at(-1)).toEqual({
-				search: "",
-				path: "/details/one",
-				kind: "plugin-route",
-				pluginSlug: "fixture",
-			}),
-		);
-		expect(view.getCatalogLoads()).toBe(1);
-	});
-
-	// oxlint-disable-next-line effecttsgo/async-function -- Vitest awaits this Promise-based test callback and its framework assertions.
-	it("renders the selected home view at the active workspace URL through one page host", async () => {
-		const savedViewId = SavedViewId.make("home-view-1");
-		const view = mount({
-			entry: "/fixture",
-			entries: [{ ...catalog[0], homeSavedViewSlug: savedViewId }],
-		});
-		const frame = await screen.findByTitle<HTMLIFrameElement>("fixture plugin");
-		const bridge = connectFrame(frame);
-		await waitFor(() => expect(bridge.messages).toHaveLength(1));
-
-		expect(view.targets).toEqual([
-			{ path: "/", search: "", kind: "plugin-route", pluginSlug: "fixture" },
-		]);
-		expect(view.router.state.location.pathname).toBe("/fixture");
-		expect(screen.getByRole("button", { name: "Fixture workspace, fixture" })).toBeTruthy();
-		expect(screen.getByRole("link", { name: "Home" }).getAttribute("aria-current")).toBe("page");
-		expect(globalThis.document.querySelectorAll("iframe")).toHaveLength(1);
-		expect(globalThis.document.querySelectorAll("main")).toHaveLength(1);
-		expect(
-			globalThis.document.querySelectorAll('[data-testid="authenticated-shell"]'),
-		).toHaveLength(1);
-		expect(Schema.decodeUnknownSync(PluginBridgeLocation)(bridge.messages[0])).toMatchObject({
-			location: { path: "/", search: "", kind: "route" },
-		});
-	});
-
-	// oxlint-disable-next-line effecttsgo/async-function -- Vitest awaits this Promise-based test callback and its framework assertions.
-	it("uses the normal plugin home route when no override is selected", async () => {
-		const view = mount({ entry: "/fixture" });
-		await screen.findByTitle("fixture plugin");
-
-		expect(view.targets).toEqual([
-			{ path: "/", search: "", kind: "plugin-route", pluginSlug: "fixture" },
-		]);
-		expect(view.router.state.location.pathname).toBe("/fixture");
-	});
-
-	// oxlint-disable-next-line effecttsgo/async-function -- Vitest awaits this Promise-based test callback and its framework assertions.
-	it("shows a selected home-view preparation error without falling back", async () => {
-		const savedViewId = SavedViewId.make("broken-home-view");
-		const targets: ClientPageTarget[] = [];
-		mount({
-			entry: "/fixture",
-			entries: [{ ...catalog[0], homeSavedViewSlug: savedViewId }],
-			prepare: (_scope, request) => {
-				targets.push(request.payload.target);
-				return preparationFailure({ code: "plugin-unavailable", pluginId: "renderer-plugin" });
-			},
-		});
-
-		await screen.findByRole("heading", { name: "Plugin page not found" });
-		expect(targets).toEqual([
-			{ path: "/", search: "", kind: "plugin-route", pluginSlug: "fixture" },
-		]);
-		expect(screen.queryByTitle(/plugin$/)).toBeNull();
-	});
-
-	// oxlint-disable-next-line effecttsgo/async-function -- Vitest awaits this Promise-based test callback and its framework assertions.
-	it("shows a selected home-view build failure without falling back", async () => {
-		const savedViewId = SavedViewId.make("failed-home-view");
-		const targets: ClientPageTarget[] = [];
-		mount({
-			entry: "/fixture",
-			entries: [{ ...catalog[0], homeSavedViewSlug: savedViewId }],
-			prepare: (_scope, request) => {
-				targets.push(request.payload.target);
-				return Effect.fail(new AuthenticatedApiError({ cause: new Error("build failed") }));
-			},
-		});
-
-		await screen.findByRole("heading", { name: "Plugin page unavailable" });
-		expect(targets).toEqual([
-			{ path: "/", search: "", kind: "plugin-route", pluginSlug: "fixture" },
-		]);
-		expect(screen.queryByTitle(/plugin$/)).toBeNull();
-	});
-
-	// oxlint-disable-next-line effecttsgo/async-function -- Vitest awaits this Promise-based test callback and its framework assertions.
-	it("prepares an ordinary plugin route with its document grant", async () => {
-		const view = mount({ entry: "/fixture/details/one?tab=stats" });
-		const frame = await screen.findByTitle<HTMLIFrameElement>("fixture plugin");
-		const bridge = connectFrame(frame);
-		await waitFor(() => expect(bridge.messages).toHaveLength(1));
-
-		expect(view.targets).toEqual([
-			{ search: "tab=stats", path: "/details/one", kind: "plugin-route", pluginSlug: "fixture" },
-		]);
-		expect(frame.getAttribute("src")).toContain("/api/client-pages/documents/plugin-1");
-		expect(Schema.decodeUnknownSync(PluginBridgeLocation)(bridge.messages[0])).toMatchObject({
-			location: { kind: "route", search: "tab=stats", path: "/details/one" },
-		});
-		bridge.port.postMessage({
-			input: null,
-			pluginSlug: "fixture",
-			operationSlug: "greet",
-			requestId: "operation-1",
-			type: "operation-request",
-		});
-		bridge.port.postMessage({
-			input: null,
-			operationSlug: "mutate",
-			requestId: "operation-2",
-			type: "operation-request",
-			pluginSlug: "operations-only",
-		});
-		bridge.port.postMessage({
-			input: null,
-			operationSlug: "mutate",
-			requestId: "operation-3",
-			type: "operation-request",
-			pluginSlug: "newly-installed",
-		});
-		await waitFor(() => expect(view.operations).toHaveLength(2));
-		await waitFor(() =>
-			expect(bridge.messages).toContainEqual({
-				outcome: "failure",
-				type: "operation-result",
-				requestId: "operation-3",
-				reason: "operation-failed",
-			}),
-		);
-		expect(view.operations[0]).toMatchObject({
-			sourceHash: "source-plugin-1",
-			request: { input: null, pluginSlug: "fixture", operationSlug: "greet" },
-		});
-		expect(view.operations[1]).toMatchObject({
-			sourceHash: "operations-only-source",
-			request: { input: null, operationSlug: "mutate", pluginSlug: "operations-only" },
-		});
-	});
-
-	// oxlint-disable-next-line effecttsgo/async-function -- Vitest awaits this Promise-based test callback and its framework assertions.
-	it("reuses one composition runtime and bridge for plugin and entity documents", async () => {
-		const view = mount({ entry: "/fixture/details/one" });
-		const pluginFrame = await screen.findByTitle<HTMLIFrameElement>("fixture plugin");
-		const bridge = connectFrame(pluginFrame);
-		await waitFor(() => expect(bridge.messages).toHaveLength(1));
-		const initialSrc = pluginFrame.getAttribute("src");
-
-		await view.router.navigate({ href: "/e/entity-1" });
-		await waitFor(() =>
-			expect(view.targets.at(-1)).toEqual({ kind: "entity", entityId: "entity-1" }),
-		);
-		expect(screen.getByTitle<HTMLIFrameElement>("fixture plugin")).toBe(pluginFrame);
-		await waitFor(() =>
-			expect(bridge.messages).toContainEqual(
-				expect.objectContaining({
-					type: "document",
-					page: expect.objectContaining({
-						target: expect.objectContaining({ entityId: "entity-1" }),
-					}),
-				}),
-			),
-		);
-		expect(pluginFrame.getAttribute("src")).toBe(initialSrc);
-
-		await view.router.navigate({ href: "/e/entity-2" });
-		await waitFor(() =>
-			expect(view.targets.at(-1)).toEqual({ kind: "entity", entityId: "entity-2" }),
-		);
-		expect(screen.getByTitle<HTMLIFrameElement>("fixture plugin")).toBe(pluginFrame);
-		await waitFor(() =>
-			expect(bridge.messages).toContainEqual(
-				expect.objectContaining({
-					type: "document",
-					page: expect.objectContaining({
-						target: expect.objectContaining({ entityId: "entity-2" }),
-					}),
-				}),
-			),
-		);
-
-		await view.router.navigate({ href: "/fixture/details/one" });
-		await waitFor(() => expect(view.router.state.location.pathname).toBe("/fixture/details/one"));
-		expect(screen.getByTitle<HTMLIFrameElement>("fixture plugin")).toBe(pluginFrame);
-	});
-
-	// oxlint-disable-next-line effecttsgo/async-function -- Vitest awaits this Promise-based test callback and its framework assertions.
-	it("ignores a newly prepared grant for a retained composition when settings change", async () => {
-		let defaultLayout = "grid";
-		let grants = 0;
-		const view = mount({
-			entry: "/fixture/details/one",
-			prepare: (_scope, request) => {
-				const target = request.payload.target;
-				if (target.kind === "saved-view") {
-					return Effect.succeed(preparedSavedView(SavedViewId.make(target.slug)));
-				}
-				const prepared = preparedFor(
-					target,
-					target.kind === "plugin-route" && target.pluginSlug === "journal"
-						? "plugin-2"
-						: "plugin-1",
-				);
-				grants++;
-				return Effect.succeed({
-					...prepared,
-					context: { ...prepared.context, settings: { defaultLayout } },
-					composition: {
-						...prepared.composition,
-						documentGrant: {
-							...prepared.composition.documentGrant,
-							src: `/api/client-pages/documents/grant-${grants}`,
-						},
-					},
-				});
-			},
-		});
-		const frame = await screen.findByTitle<HTMLIFrameElement>("fixture plugin");
-		const bridge = connectFrame(frame);
-		await waitFor(() => expect(bridge.messages).toHaveLength(1));
-		const firstSrc = frame.getAttribute("src");
-
-		await view.router.navigate({ href: "/fixture/details/two" });
-		await waitFor(() => expect(view.router.state.location.pathname).toBe("/fixture/details/two"));
-		expect(screen.getByTitle<HTMLIFrameElement>("fixture plugin")).toBe(frame);
-		expect(frame.getAttribute("src")).toBe(firstSrc);
-		await waitFor(() =>
-			expect(bridge.messages).toContainEqual(expect.objectContaining({ type: "document" })),
-		);
-
-		defaultLayout = "list";
-		await view.router.navigate({ href: "/fixture/details/three" });
-		await waitFor(() => expect(grants).toBe(3));
-		expect(screen.getByTitle<HTMLIFrameElement>("fixture plugin")).toBe(frame);
-		expect(frame.getAttribute("src")).toBe(firstSrc);
-		await waitFor(() =>
-			expect(bridge.messages).toContainEqual(
-				expect.objectContaining({
-					type: "document",
-					page: expect.objectContaining({ settings: { defaultLayout: "list" } }),
-				}),
-			),
-		);
-	});
-
-	// oxlint-disable-next-line effecttsgo/async-function -- Vitest awaits this Promise-based test callback and its framework assertions.
-	it("drops retained composition runtimes when the api scope changes", async () => {
-		let userId = "user-1";
-		const entries = Array.from({ length: 2 }, (_, index) => ({
-			...catalog[0],
-			name: `Plugin ${index + 1}`,
-			slug: `plugin-${index + 1}`,
-			pluginId: `plugin-${index + 1}`,
-			installationId: `installation-${index + 1}`,
-		}));
-		const view = mount({
-			entries,
-			entry: "/plugin-1",
-			auth: makeAuthStub({
-				settledSession: () =>
-					Effect.succeed({
-						status: "authenticated",
-						accessClass: "standard",
-						user: { id: userId, image: null, name: "Test User", email: "user@ryot.example" },
-					}),
-			}),
-		});
-		const first = await screen.findByTitle<HTMLIFrameElement>("fixture plugin");
-		await view.router.navigate({ href: "/plugin-2" });
-		await waitFor(() => expect(document.querySelectorAll("iframe")).toHaveLength(2));
-
-		userId = "user-2";
-		// oxlint-disable-next-line effecttsgo/async-function -- React Testing Library awaits this Promise-based act callback.
-		await act(async () => {
-			await view.router.invalidate();
-		});
-
-		await waitFor(() => expect(document.querySelectorAll("iframe")).toHaveLength(1));
-		expect(document.querySelector("iframe")).not.toBe(first);
-	});
-
-	// oxlint-disable-next-line effecttsgo/async-function -- Vitest awaits this Promise-based test callback and its framework assertions.
-	it("returns to a retained composition without navigating its iframe", async () => {
-		const entries = Array.from({ length: 2 }, (_, index) => ({
-			...catalog[0],
-			slug: `plugin-${index + 1}`,
-			pluginId: `plugin-${index + 1}`,
-			installationId: `installation-${index + 1}`,
-		}));
-		const view = mount({ entries, entry: "/plugin-1" });
-		const first = await screen.findByTitle<HTMLIFrameElement>("fixture plugin");
-		const bridge = connectFrame(first);
-		await waitFor(() => expect(bridge.messages).toHaveLength(1));
-		const src = first.getAttribute("src");
-		await view.router.navigate({ href: "/plugin-2" });
-		await waitFor(() => expect(document.querySelectorAll("iframe")).toHaveLength(2));
-		expect(first.isConnected).toBe(true);
-		await view.router.navigate({ href: "/plugin-1/details" });
-		await waitFor(() => expect(view.router.state.location.pathname).toBe("/plugin-1/details"));
-		expect(first.isConnected).toBe(true);
-		expect(first.getAttribute("src")).toBe(src);
-		await waitFor(() =>
-			expect(bridge.messages).toContainEqual(
-				expect.objectContaining({
-					type: "document",
-					page: expect.objectContaining({ target: expect.objectContaining({ path: "/details" }) }),
-				}),
-			),
-		);
-	});
-
-	// oxlint-disable-next-line effecttsgo/async-function -- Vitest awaits this Promise-based test callback and its framework assertions.
-	it("reprepares and replaces a failed iframe using the new document grant", async () => {
-		let preparations = 0;
-		const view = mount({
-			entry: "/fixture",
-			prepare: (_scope, request) => {
-				const target = request.payload.target;
-				if (target.kind !== "plugin-route") {
-					return Effect.die("not used");
-				}
-				preparations++;
-				const prepared = preparedFor(target);
-				return Effect.succeed({
-					...prepared,
-					composition: {
-						...prepared.composition,
-						documentGrant: {
-							...prepared.composition.documentGrant,
-							src: `/api/client-pages/documents/grant-${preparations}`,
-						},
-					},
-				});
-			},
-		});
-		const first = await screen.findByTitle<HTMLIFrameElement>("fixture plugin");
-		const bridge = connectFrame(first);
-		await waitFor(() => expect(bridge.messages).toHaveLength(1));
-		expect(first.getAttribute("src")).toContain("grant-1");
-		bridge.port.postMessage({ reason: "failed", type: "lifecycle-close" });
-		fireEvent.click(await screen.findByRole("button", { name: "Retry" }));
-		const next = await waitFor(() => {
-			const frame = screen.getByTitle<HTMLIFrameElement>("fixture plugin");
-			expect(frame).not.toBe(first);
-			return frame;
-		});
-		expect(next.getAttribute("src")).toContain("grant-2");
-		expect(first.isConnected).toBe(false);
-		expect(preparations).toBe(2);
-		view.unmount();
-	});
-
-	// oxlint-disable-next-line effecttsgo/async-function -- Vitest awaits this Promise-based test callback and its framework assertions.
-	it("evicts the least recently active frame after retaining three realms", async () => {
-		const entries = Array.from({ length: 4 }, (_, index) => ({
-			...catalog[0],
-			name: `Plugin ${index + 1}`,
-			slug: `plugin-${index + 1}`,
-			pluginId: `plugin-${index + 1}`,
-			installationId: `installation-${index + 1}`,
-		}));
-		const view = mount({ entries, entry: "/plugin-1" });
-		const first = await screen.findByTitle<HTMLIFrameElement>("fixture plugin");
-		await view.router.navigate({ href: "/plugin-2" });
-		await waitFor(() => expect(document.querySelectorAll("iframe")).toHaveLength(2));
-		const second = [...document.querySelectorAll("iframe")].find((frame) => frame !== first);
-		await view.router.navigate({ href: "/plugin-3" });
-		await waitFor(() => expect(document.querySelectorAll("iframe")).toHaveLength(3));
-		const third = [...document.querySelectorAll("iframe")].find(
-			(frame) => frame !== first && frame !== second,
-		);
-		await view.router.navigate({ href: "/plugin-4" });
-		await waitFor(() => expect(document.querySelectorAll("iframe")).toHaveLength(3));
-		expect(first.isConnected).toBe(false);
-		expect(second?.isConnected).toBe(true);
-
-		await view.router.navigate({ href: "/plugin-2" });
-		await waitFor(() => expect(view.router.state.location.pathname).toBe("/plugin-2"));
-		expect(document.querySelectorAll("iframe")).toHaveLength(3);
-		expect(second?.isConnected).toBe(true);
-
-		await view.router.navigate({ href: "/plugin-1" });
-		await waitFor(() => expect(third?.isConnected).toBe(false));
-		expect(document.querySelectorAll("iframe")).toHaveLength(3);
-		expect(first.isConnected).toBe(false);
-		expect(second?.isConnected).toBe(true);
-	});
-
-	// oxlint-disable-next-line effecttsgo/async-function -- Vitest awaits this Promise-based test callback and its framework assertions.
-	it("uses freshly prepared operation targets and reloads an updated composition on request", async () => {
-		let preparation = 0;
-		const view = mount({
-			entry: "/fixture/details/one",
-			check: () => Effect.succeed(false),
-			prepare: (_scope, request) => {
-				const target = request.payload.target;
-				if (target.kind !== "plugin-route") {
-					return Effect.die("not used");
-				}
-				preparation += 1;
-				const prepared = preparedFor(target);
-				if (preparation === 1) {
-					return Effect.succeed(prepared);
-				}
-				const operationTargets = [
-					...prepared.identity.operationTargets.map((operationTarget) =>
-						operationTarget.pluginSlug === "operations-only"
-							? { ...operationTarget, sourceHash: "operations-only-updated" }
-							: operationTarget,
-					),
-					{
-						pluginId: "newly-installed-id",
-						sourceHash: "newly-installed-source",
-						pluginSlug: PluginSlug.make("newly-installed"),
-						installationId: "newly-installed-installation",
-					},
-				];
-				return Effect.succeed({
-					...prepared,
-					identity: { ...prepared.identity, operationTargets },
-				});
-			},
-		});
-		const firstFrame = await screen.findByTitle<HTMLIFrameElement>("fixture plugin");
-		const firstBridge = connectFrame(firstFrame);
-		await waitFor(() => expect(firstBridge.messages).toHaveLength(1));
-
-		await view.router.navigate({ href: "/fixture/details/two" });
-		await waitFor(() => expect(preparation).toBe(2));
-		const nextFrame = screen.getByTitle<HTMLIFrameElement>("fixture plugin");
-		expect(nextFrame).toBe(firstFrame);
-		firstBridge.port.postMessage({
-			input: null,
-			operationSlug: "mutate",
-			type: "operation-request",
-			requestId: "retained-target",
-			pluginSlug: "operations-only",
-		});
-		firstBridge.port.postMessage({
-			input: null,
-			requestId: "new-target",
-			operationSlug: "mutate",
-			type: "operation-request",
-			pluginSlug: "newly-installed",
-		});
-		await waitFor(() => expect(view.operations).toHaveLength(2));
-		expect(view.operations[0]).toMatchObject({ sourceHash: "operations-only-updated" });
-		expect(view.operations[1]).toMatchObject({ sourceHash: "newly-installed-source" });
-
-		act(() => view.events.send());
-		await screen.findByText("An update is available. Reloading will discard unsaved local state.");
-		fireEvent.click(screen.getByRole("button", { name: "Reload updated page" }));
-		await waitFor(() => expect(preparation).toBe(3));
-		const reloadedFrame = await waitFor(() => {
-			const frame = screen.getByTitle<HTMLIFrameElement>("fixture plugin");
-			expect(frame).not.toBe(firstFrame);
-			return frame;
-		});
-		expect(reloadedFrame).not.toBe(firstFrame);
-		const reloadedBridge = connectFrame(reloadedFrame);
-		reloadedBridge.port.postMessage({
-			input: null,
-			operationSlug: "mutate",
-			type: "operation-request",
-			requestId: "updated-target",
-			pluginSlug: "operations-only",
-		});
-		reloadedBridge.port.postMessage({
-			input: null,
-			operationSlug: "mutate",
-			type: "operation-request",
-			requestId: "adopted-target",
-			pluginSlug: "newly-installed",
-		});
-		await waitFor(() => expect(view.operations).toHaveLength(4));
-		expect(view.operations[2]).toMatchObject({ sourceHash: "operations-only-updated" });
-		expect(view.operations[3]).toMatchObject({ sourceHash: "newly-installed-source" });
-	});
-
-	// oxlint-disable-next-line effecttsgo/async-function -- Vitest awaits this Promise-based test callback and its framework assertions.
-	it("uses explicit plugin navigation and merges page search with null deletion", async () => {
-		const view = mount({ entry: "/fixture?keep=1&dialog=open" });
-		const bridge = connectFrame(await screen.findByTitle("fixture plugin"));
-		await waitFor(() => expect(bridge.messages).toHaveLength(1));
-		const initialNavigation = Schema.decodeUnknownSync(PluginBridgeLocation)(bridge.messages[0]);
-		bridge.port.postMessage({
-			mode: "push",
-			type: "navigate",
-			target: { search: "q=x", path: "/entries", kind: "plugin-route", pluginSlug: "journal" },
-		});
-		await waitFor(() => expect(view.router.state.location.pathname).toBe("/journal/entries"));
-		expect(view.router.state.location.state.ryotEntryKey).toEqual(expect.any(String));
-		expect(view.router.state.location.state.ryotEntryKey).not.toBe(initialNavigation.key);
-
-		view.unmount();
-		const searchView = mount({ entry: "/fixture?keep=1&dialog=open" });
-		const searchBridge = connectFrame(
-			await screen.findByTitle<HTMLIFrameElement>("fixture plugin"),
-		);
-		await waitFor(() => expect(searchBridge.messages).toHaveLength(1));
-		const initialSearch = Schema.decodeUnknownSync(PluginBridgeLocation)(searchBridge.messages[0]);
-		searchBridge.port.postMessage({
-			mode: "replace",
-			type: "page-search",
-			update: { q: "dune", dialog: null },
-		});
-		await waitFor(() => expect(searchView.router.state.location.searchStr).toBe("?keep=1&q=dune"));
-		await waitFor(() => expect(searchBridge.messages).toHaveLength(2));
-		const replacedSearch = Schema.decodeUnknownSync(PluginBridgeLocation)(searchBridge.messages[1]);
-		expect(replacedSearch).toMatchObject({ key: initialSearch.key, index: initialSearch.index });
-	});
-
-	// oxlint-disable-next-line effecttsgo/async-function -- Vitest awaits this Promise-based test callback and its framework assertions.
-	it("prepares entities directly and allows a disabled ready installation", async () => {
-		const entries = [{ ...catalog[0], isDisabled: true }];
-		const view = mount({ entries, entry: "/e/entity-1?tab=activity" });
-		const frame = await screen.findByTitle<HTMLIFrameElement>("fixture plugin");
-		const bridge = connectFrame(frame);
-		await waitFor(() => expect(bridge.messages).toHaveLength(1));
-
-		expect(view.targets).toEqual([{ kind: "entity", entityId: EntityId.make("entity-1") }]);
-		expect(Schema.decodeUnknownSync(PluginBridgeLocation)(bridge.messages[0])).toMatchObject({
-			location: {
-				kind: "entity",
-				entityId: "entity-1",
-				search: "tab=activity",
+					});
+				},
+			});
+			const frame = yield* Effect.promise(() =>
+				screen.findByTitle<HTMLIFrameElement>("Fixture View plugin"),
+			);
+			const bridge = connectFrame(frame);
+			expect(layoutKeys).toEqual(["fixture-view"]);
+			expect(bridge.init.page?.settings).toMatchObject({ defaultLayout: "grid" });
+			expect(view.router.state.location.pathname).toBe("/v/fixture-view");
+			bridge.port.postMessage({
 				entitySchemaSlug: "book",
-			},
-		});
-	});
+				ownerPluginId: "plugin-1",
+				type: "provider-search-screen",
+			});
+			yield* Effect.promise(() =>
+				waitFor(() => expect(view.router.state.location.searchStr).toBe("?add=true")),
+			);
+			yield* Effect.promise(() => screen.findByRole("dialog", { name: "Add from a provider" }));
+		}),
+	);
 
-	it.each([
+	it.live("opens provider search from a plugin route without changing the page location", () =>
+		Effect.gen(function* () {
+			const view = mount({
+				entry: "/fixture?tab=home",
+				loadProviders: () =>
+					Effect.succeed({ items: [], pageInfo: { limit: 100, hasMore: false, nextCursor: null } }),
+			});
+			const bridge = connectFrame(
+				yield* Effect.promise(() => screen.findByTitle<HTMLIFrameElement>("fixture plugin")),
+			);
+			yield* Effect.promise(() => waitFor(() => expect(bridge.messages).toHaveLength(1)));
+			bridge.port.postMessage({
+				initialQuery: "dune",
+				entitySchemaSlug: "book",
+				ownerPluginId: "plugin-1",
+				type: "provider-search-screen",
+			});
+
+			yield* Effect.promise(() => screen.findByRole("dialog", { name: "Add from a provider" }));
+			expect(
+				screen.getByRole<HTMLInputElement>("textbox", { name: "Search providers" }).value,
+			).toBe("dune");
+			expect(view.router.state.location.searchStr).toBe("?tab=home");
+			expect(view.targets).toHaveLength(1);
+
+			fireEvent.click(screen.getAllByRole("button", { name: "Close" })[0]);
+			yield* Effect.promise(() =>
+				waitFor(() =>
+					expect(screen.queryByRole("dialog", { name: "Add from a provider" })).toBeNull(),
+				),
+			);
+			expect(view.router.state.location.searchStr).toBe("?tab=home");
+		}),
+	);
+
+	it.live("uses the hydrated parent catalog on plugin navigation", () =>
+		Effect.gen(function* () {
+			const view = mount({ entry: "/fixture" });
+			yield* Effect.promise(() => screen.findByTitle("fixture plugin"));
+			expect(view.getCatalogLoads()).toBe(1);
+			yield* Effect.promise(() => view.router.navigate({ href: "/fixture/details/one" }));
+			yield* Effect.promise(() =>
+				waitFor(() =>
+					expect(view.targets.at(-1)).toEqual({
+						search: "",
+						path: "/details/one",
+						kind: "plugin-route",
+						pluginSlug: "fixture",
+					}),
+				),
+			);
+			expect(view.getCatalogLoads()).toBe(1);
+		}),
+	);
+
+	it.live("renders the selected home view at the active workspace URL through one page host", () =>
+		Effect.gen(function* () {
+			const savedViewId = SavedViewId.make("home-view-1");
+			const view = mount({
+				entry: "/fixture",
+				entries: [{ ...catalog[0], homeSavedViewSlug: savedViewId }],
+			});
+			const frame = yield* Effect.promise(() =>
+				screen.findByTitle<HTMLIFrameElement>("fixture plugin"),
+			);
+			const bridge = connectFrame(frame);
+			yield* Effect.promise(() => waitFor(() => expect(bridge.messages).toHaveLength(1)));
+
+			expect(view.targets).toEqual([
+				{ path: "/", search: "", kind: "plugin-route", pluginSlug: "fixture" },
+			]);
+			expect(view.router.state.location.pathname).toBe("/fixture");
+			expect(screen.getByRole("button", { name: "Fixture workspace, fixture" })).toBeTruthy();
+			expect(screen.getByRole("link", { name: "Home" }).getAttribute("aria-current")).toBe("page");
+			expect(globalThis.document.querySelectorAll("iframe")).toHaveLength(1);
+			expect(globalThis.document.querySelectorAll("main")).toHaveLength(1);
+			expect(
+				globalThis.document.querySelectorAll('[data-testid="authenticated-shell"]'),
+			).toHaveLength(1);
+			expect(Schema.decodeUnknownSync(PluginBridgeLocation)(bridge.messages[0])).toMatchObject({
+				location: { path: "/", search: "", kind: "route" },
+			});
+		}),
+	);
+
+	it.live("uses the normal plugin home route when no override is selected", () =>
+		Effect.gen(function* () {
+			const view = mount({ entry: "/fixture" });
+			yield* Effect.promise(() => screen.findByTitle("fixture plugin"));
+
+			expect(view.targets).toEqual([
+				{ path: "/", search: "", kind: "plugin-route", pluginSlug: "fixture" },
+			]);
+			expect(view.router.state.location.pathname).toBe("/fixture");
+		}),
+	);
+
+	it.live("shows a selected home-view preparation error without falling back", () =>
+		Effect.gen(function* () {
+			const savedViewId = SavedViewId.make("broken-home-view");
+			const targets: ClientPageTarget[] = [];
+			mount({
+				entry: "/fixture",
+				entries: [{ ...catalog[0], homeSavedViewSlug: savedViewId }],
+				prepare: (_scope, request) => {
+					targets.push(request.payload.target);
+					return preparationFailure({ code: "plugin-unavailable", pluginId: "renderer-plugin" });
+				},
+			});
+
+			yield* Effect.promise(() => screen.findByRole("heading", { name: "Plugin page not found" }));
+			expect(targets).toEqual([
+				{ path: "/", search: "", kind: "plugin-route", pluginSlug: "fixture" },
+			]);
+			expect(screen.queryByTitle(/plugin$/)).toBeNull();
+		}),
+	);
+
+	it.live("shows a selected home-view build failure without falling back", () =>
+		Effect.gen(function* () {
+			const savedViewId = SavedViewId.make("failed-home-view");
+			const targets: ClientPageTarget[] = [];
+			mount({
+				entry: "/fixture",
+				entries: [{ ...catalog[0], homeSavedViewSlug: savedViewId }],
+				prepare: (_scope, request) => {
+					targets.push(request.payload.target);
+					return Effect.fail(new AuthenticatedApiError({ cause: new Error("build failed") }));
+				},
+			});
+
+			yield* Effect.promise(() =>
+				screen.findByRole("heading", { name: "Plugin page unavailable" }),
+			);
+			expect(targets).toEqual([
+				{ path: "/", search: "", kind: "plugin-route", pluginSlug: "fixture" },
+			]);
+			expect(screen.queryByTitle(/plugin$/)).toBeNull();
+		}),
+	);
+
+	it.live("prepares an ordinary plugin route with its document grant", () =>
+		Effect.gen(function* () {
+			const view = mount({ entry: "/fixture/details/one?tab=stats" });
+			const frame = yield* Effect.promise(() =>
+				screen.findByTitle<HTMLIFrameElement>("fixture plugin"),
+			);
+			const bridge = connectFrame(frame);
+			yield* Effect.promise(() => waitFor(() => expect(bridge.messages).toHaveLength(1)));
+
+			expect(view.targets).toEqual([
+				{ search: "tab=stats", path: "/details/one", kind: "plugin-route", pluginSlug: "fixture" },
+			]);
+			expect(frame.getAttribute("src")).toContain("/api/client-pages/documents/plugin-1");
+			expect(Schema.decodeUnknownSync(PluginBridgeLocation)(bridge.messages[0])).toMatchObject({
+				location: { kind: "route", search: "tab=stats", path: "/details/one" },
+			});
+			bridge.port.postMessage({
+				input: null,
+				pluginSlug: "fixture",
+				operationSlug: "greet",
+				requestId: "operation-1",
+				type: "operation-request",
+			});
+			bridge.port.postMessage({
+				input: null,
+				operationSlug: "mutate",
+				requestId: "operation-2",
+				type: "operation-request",
+				pluginSlug: "operations-only",
+			});
+			bridge.port.postMessage({
+				input: null,
+				operationSlug: "mutate",
+				requestId: "operation-3",
+				type: "operation-request",
+				pluginSlug: "newly-installed",
+			});
+			yield* Effect.promise(() => waitFor(() => expect(view.operations).toHaveLength(2)));
+			yield* Effect.promise(() =>
+				waitFor(() =>
+					expect(bridge.messages).toContainEqual({
+						outcome: "failure",
+						type: "operation-result",
+						requestId: "operation-3",
+						reason: "operation-failed",
+					}),
+				),
+			);
+			expect(view.operations[0]).toMatchObject({
+				sourceHash: "source-plugin-1",
+				request: { input: null, pluginSlug: "fixture", operationSlug: "greet" },
+			});
+			expect(view.operations[1]).toMatchObject({
+				sourceHash: "operations-only-source",
+				request: { input: null, operationSlug: "mutate", pluginSlug: "operations-only" },
+			});
+		}),
+	);
+
+	it.live("reuses one composition runtime and bridge for plugin and entity documents", () =>
+		Effect.gen(function* () {
+			const view = mount({ entry: "/fixture/details/one" });
+			const pluginFrame = yield* Effect.promise(() =>
+				screen.findByTitle<HTMLIFrameElement>("fixture plugin"),
+			);
+			const bridge = connectFrame(pluginFrame);
+			yield* Effect.promise(() => waitFor(() => expect(bridge.messages).toHaveLength(1)));
+			const initialSrc = pluginFrame.getAttribute("src");
+
+			yield* Effect.promise(() => view.router.navigate({ href: "/e/entity-1" }));
+			yield* Effect.promise(() =>
+				waitFor(() =>
+					expect(view.targets.at(-1)).toEqual({ kind: "entity", entityId: "entity-1" }),
+				),
+			);
+			expect(screen.getByTitle<HTMLIFrameElement>("fixture plugin")).toBe(pluginFrame);
+			yield* Effect.promise(() =>
+				waitFor(() =>
+					expect(bridge.messages).toContainEqual(
+						expect.objectContaining({
+							type: "document",
+							page: expect.objectContaining({
+								target: expect.objectContaining({ entityId: "entity-1" }),
+							}),
+						}),
+					),
+				),
+			);
+			expect(pluginFrame.getAttribute("src")).toBe(initialSrc);
+
+			yield* Effect.promise(() => view.router.navigate({ href: "/e/entity-2" }));
+			yield* Effect.promise(() =>
+				waitFor(() =>
+					expect(view.targets.at(-1)).toEqual({ kind: "entity", entityId: "entity-2" }),
+				),
+			);
+			expect(screen.getByTitle<HTMLIFrameElement>("fixture plugin")).toBe(pluginFrame);
+			yield* Effect.promise(() =>
+				waitFor(() =>
+					expect(bridge.messages).toContainEqual(
+						expect.objectContaining({
+							type: "document",
+							page: expect.objectContaining({
+								target: expect.objectContaining({ entityId: "entity-2" }),
+							}),
+						}),
+					),
+				),
+			);
+
+			yield* Effect.promise(() => view.router.navigate({ href: "/fixture/details/one" }));
+			yield* Effect.promise(() =>
+				waitFor(() => expect(view.router.state.location.pathname).toBe("/fixture/details/one")),
+			);
+			expect(screen.getByTitle<HTMLIFrameElement>("fixture plugin")).toBe(pluginFrame);
+		}),
+	);
+
+	it.live("ignores a newly prepared grant for a retained composition when settings change", () =>
+		Effect.gen(function* () {
+			let defaultLayout = "grid";
+			let grants = 0;
+			const view = mount({
+				entry: "/fixture/details/one",
+				prepare: (_scope, request) => {
+					const target = request.payload.target;
+					if (target.kind === "saved-view") {
+						return Effect.succeed(preparedSavedView(SavedViewId.make(target.slug)));
+					}
+					const prepared = preparedFor(
+						target,
+						target.kind === "plugin-route" && target.pluginSlug === "journal"
+							? "plugin-2"
+							: "plugin-1",
+					);
+					grants++;
+					return Effect.succeed({
+						...prepared,
+						context: { ...prepared.context, settings: { defaultLayout } },
+						composition: {
+							...prepared.composition,
+							documentGrant: {
+								...prepared.composition.documentGrant,
+								src: `/api/client-pages/documents/grant-${grants}`,
+							},
+						},
+					});
+				},
+			});
+			const frame = yield* Effect.promise(() =>
+				screen.findByTitle<HTMLIFrameElement>("fixture plugin"),
+			);
+			const bridge = connectFrame(frame);
+			yield* Effect.promise(() => waitFor(() => expect(bridge.messages).toHaveLength(1)));
+			const firstSrc = frame.getAttribute("src");
+
+			yield* Effect.promise(() => view.router.navigate({ href: "/fixture/details/two" }));
+			yield* Effect.promise(() =>
+				waitFor(() => expect(view.router.state.location.pathname).toBe("/fixture/details/two")),
+			);
+			expect(screen.getByTitle<HTMLIFrameElement>("fixture plugin")).toBe(frame);
+			expect(frame.getAttribute("src")).toBe(firstSrc);
+			yield* Effect.promise(() =>
+				waitFor(() =>
+					expect(bridge.messages).toContainEqual(expect.objectContaining({ type: "document" })),
+				),
+			);
+
+			defaultLayout = "list";
+			yield* Effect.promise(() => view.router.navigate({ href: "/fixture/details/three" }));
+			yield* Effect.promise(() => waitFor(() => expect(grants).toBe(3)));
+			expect(screen.getByTitle<HTMLIFrameElement>("fixture plugin")).toBe(frame);
+			expect(frame.getAttribute("src")).toBe(firstSrc);
+			yield* Effect.promise(() =>
+				waitFor(() =>
+					expect(bridge.messages).toContainEqual(
+						expect.objectContaining({
+							type: "document",
+							page: expect.objectContaining({ settings: { defaultLayout: "list" } }),
+						}),
+					),
+				),
+			);
+		}),
+	);
+
+	it.live("drops retained composition runtimes when the api scope changes", () =>
+		Effect.gen(function* () {
+			let userId = "user-1";
+			const entries = Array.from({ length: 2 }, (_, index) => ({
+				...catalog[0],
+				name: `Plugin ${index + 1}`,
+				slug: `plugin-${index + 1}`,
+				pluginId: `plugin-${index + 1}`,
+				installationId: `installation-${index + 1}`,
+			}));
+			const view = mount({
+				entries,
+				entry: "/plugin-1",
+				auth: makeAuthStub({
+					settledSession: () =>
+						Effect.succeed({
+							status: "authenticated",
+							accessClass: "standard",
+							user: { id: userId, image: null, name: "Test User", email: "user@ryot.example" },
+						}),
+				}),
+			});
+			const first = yield* Effect.promise(() =>
+				screen.findByTitle<HTMLIFrameElement>("fixture plugin"),
+			);
+			yield* Effect.promise(() => view.router.navigate({ href: "/plugin-2" }));
+			yield* Effect.promise(() =>
+				waitFor(() => expect(document.querySelectorAll("iframe")).toHaveLength(2)),
+			);
+
+			userId = "user-2";
+			yield* Effect.promise(() => act(() => view.router.invalidate()));
+
+			yield* Effect.promise(() =>
+				waitFor(() => expect(document.querySelectorAll("iframe")).toHaveLength(1)),
+			);
+			expect(document.querySelector("iframe")).not.toBe(first);
+		}),
+	);
+
+	it.live("returns to a retained composition without navigating its iframe", () =>
+		Effect.gen(function* () {
+			const entries = Array.from({ length: 2 }, (_, index) => ({
+				...catalog[0],
+				slug: `plugin-${index + 1}`,
+				pluginId: `plugin-${index + 1}`,
+				installationId: `installation-${index + 1}`,
+			}));
+			const view = mount({ entries, entry: "/plugin-1" });
+			const first = yield* Effect.promise(() =>
+				screen.findByTitle<HTMLIFrameElement>("fixture plugin"),
+			);
+			const bridge = connectFrame(first);
+			yield* Effect.promise(() => waitFor(() => expect(bridge.messages).toHaveLength(1)));
+			const src = first.getAttribute("src");
+			yield* Effect.promise(() => view.router.navigate({ href: "/plugin-2" }));
+			yield* Effect.promise(() =>
+				waitFor(() => expect(document.querySelectorAll("iframe")).toHaveLength(2)),
+			);
+			expect(first.isConnected).toBe(true);
+			yield* Effect.promise(() => view.router.navigate({ href: "/plugin-1/details" }));
+			yield* Effect.promise(() =>
+				waitFor(() => expect(view.router.state.location.pathname).toBe("/plugin-1/details")),
+			);
+			expect(first.isConnected).toBe(true);
+			expect(first.getAttribute("src")).toBe(src);
+			yield* Effect.promise(() =>
+				waitFor(() =>
+					expect(bridge.messages).toContainEqual(
+						expect.objectContaining({
+							type: "document",
+							page: expect.objectContaining({
+								target: expect.objectContaining({ path: "/details" }),
+							}),
+						}),
+					),
+				),
+			);
+		}),
+	);
+
+	it.live("reprepares and replaces a failed iframe using the new document grant", () =>
+		Effect.gen(function* () {
+			let preparations = 0;
+			const view = mount({
+				entry: "/fixture",
+				prepare: (_scope, request) => {
+					const target = request.payload.target;
+					if (target.kind !== "plugin-route") {
+						return Effect.die("not used");
+					}
+					preparations++;
+					const prepared = preparedFor(target);
+					return Effect.succeed({
+						...prepared,
+						composition: {
+							...prepared.composition,
+							documentGrant: {
+								...prepared.composition.documentGrant,
+								src: `/api/client-pages/documents/grant-${preparations}`,
+							},
+						},
+					});
+				},
+			});
+			const first = yield* Effect.promise(() =>
+				screen.findByTitle<HTMLIFrameElement>("fixture plugin"),
+			);
+			const bridge = connectFrame(first);
+			yield* Effect.promise(() => waitFor(() => expect(bridge.messages).toHaveLength(1)));
+			expect(first.getAttribute("src")).toContain("grant-1");
+			bridge.port.postMessage({ reason: "failed", type: "lifecycle-close" });
+			fireEvent.click(yield* Effect.promise(() => screen.findByRole("button", { name: "Retry" })));
+			const next = yield* Effect.promise(() =>
+				waitFor(() => {
+					const frame = screen.getByTitle<HTMLIFrameElement>("fixture plugin");
+					expect(frame).not.toBe(first);
+					return frame;
+				}),
+			);
+			expect(next.getAttribute("src")).toContain("grant-2");
+			expect(first.isConnected).toBe(false);
+			expect(preparations).toBe(2);
+			view.unmount();
+		}),
+	);
+
+	it.live("evicts the least recently active frame after retaining three realms", () =>
+		Effect.gen(function* () {
+			const entries = Array.from({ length: 4 }, (_, index) => ({
+				...catalog[0],
+				name: `Plugin ${index + 1}`,
+				slug: `plugin-${index + 1}`,
+				pluginId: `plugin-${index + 1}`,
+				installationId: `installation-${index + 1}`,
+			}));
+			const view = mount({ entries, entry: "/plugin-1" });
+			const first = yield* Effect.promise(() =>
+				screen.findByTitle<HTMLIFrameElement>("fixture plugin"),
+			);
+			yield* Effect.promise(() => view.router.navigate({ href: "/plugin-2" }));
+			yield* Effect.promise(() =>
+				waitFor(() => expect(document.querySelectorAll("iframe")).toHaveLength(2)),
+			);
+			const second = [...document.querySelectorAll("iframe")].find((frame) => frame !== first);
+			yield* Effect.promise(() => view.router.navigate({ href: "/plugin-3" }));
+			yield* Effect.promise(() =>
+				waitFor(() => expect(document.querySelectorAll("iframe")).toHaveLength(3)),
+			);
+			const third = [...document.querySelectorAll("iframe")].find(
+				(frame) => frame !== first && frame !== second,
+			);
+			yield* Effect.promise(() => view.router.navigate({ href: "/plugin-4" }));
+			yield* Effect.promise(() =>
+				waitFor(() => expect(document.querySelectorAll("iframe")).toHaveLength(3)),
+			);
+			expect(first.isConnected).toBe(false);
+			expect(second?.isConnected).toBe(true);
+
+			yield* Effect.promise(() => view.router.navigate({ href: "/plugin-2" }));
+			yield* Effect.promise(() =>
+				waitFor(() => expect(view.router.state.location.pathname).toBe("/plugin-2")),
+			);
+			expect(document.querySelectorAll("iframe")).toHaveLength(3);
+			expect(second?.isConnected).toBe(true);
+
+			yield* Effect.promise(() => view.router.navigate({ href: "/plugin-1" }));
+			yield* Effect.promise(() => waitFor(() => expect(third?.isConnected).toBe(false)));
+			expect(document.querySelectorAll("iframe")).toHaveLength(3);
+			expect(first.isConnected).toBe(false);
+			expect(second?.isConnected).toBe(true);
+		}),
+	);
+
+	it.live(
+		"uses freshly prepared operation targets and reloads an updated composition on request",
+		() =>
+			Effect.gen(function* () {
+				let preparation = 0;
+				const view = mount({
+					entry: "/fixture/details/one",
+					check: () => Effect.succeed(false),
+					prepare: (_scope, request) => {
+						const target = request.payload.target;
+						if (target.kind !== "plugin-route") {
+							return Effect.die("not used");
+						}
+						preparation += 1;
+						const prepared = preparedFor(target);
+						if (preparation === 1) {
+							return Effect.succeed(prepared);
+						}
+						const operationTargets = [
+							...prepared.identity.operationTargets.map((operationTarget) =>
+								operationTarget.pluginSlug === "operations-only"
+									? { ...operationTarget, sourceHash: "operations-only-updated" }
+									: operationTarget,
+							),
+							{
+								pluginId: "newly-installed-id",
+								sourceHash: "newly-installed-source",
+								pluginSlug: PluginSlug.make("newly-installed"),
+								installationId: "newly-installed-installation",
+							},
+						];
+						return Effect.succeed({
+							...prepared,
+							identity: { ...prepared.identity, operationTargets },
+						});
+					},
+				});
+				const firstFrame = yield* Effect.promise(() =>
+					screen.findByTitle<HTMLIFrameElement>("fixture plugin"),
+				);
+				const firstBridge = connectFrame(firstFrame);
+				yield* Effect.promise(() => waitFor(() => expect(firstBridge.messages).toHaveLength(1)));
+
+				yield* Effect.promise(() => view.router.navigate({ href: "/fixture/details/two" }));
+				yield* Effect.promise(() => waitFor(() => expect(preparation).toBe(2)));
+				const nextFrame = screen.getByTitle<HTMLIFrameElement>("fixture plugin");
+				expect(nextFrame).toBe(firstFrame);
+				firstBridge.port.postMessage({
+					input: null,
+					operationSlug: "mutate",
+					type: "operation-request",
+					requestId: "retained-target",
+					pluginSlug: "operations-only",
+				});
+				firstBridge.port.postMessage({
+					input: null,
+					requestId: "new-target",
+					operationSlug: "mutate",
+					type: "operation-request",
+					pluginSlug: "newly-installed",
+				});
+				yield* Effect.promise(() => waitFor(() => expect(view.operations).toHaveLength(2)));
+				expect(view.operations[0]).toMatchObject({ sourceHash: "operations-only-updated" });
+				expect(view.operations[1]).toMatchObject({ sourceHash: "newly-installed-source" });
+
+				act(() => view.events.send());
+				yield* Effect.promise(() =>
+					screen.findByText("An update is available. Reloading will discard unsaved local state."),
+				);
+				fireEvent.click(screen.getByRole("button", { name: "Reload updated page" }));
+				yield* Effect.promise(() => waitFor(() => expect(preparation).toBe(3)));
+				const reloadedFrame = yield* Effect.promise(() =>
+					waitFor(() => {
+						const frame = screen.getByTitle<HTMLIFrameElement>("fixture plugin");
+						expect(frame).not.toBe(firstFrame);
+						return frame;
+					}),
+				);
+				expect(reloadedFrame).not.toBe(firstFrame);
+				const reloadedBridge = connectFrame(reloadedFrame);
+				reloadedBridge.port.postMessage({
+					input: null,
+					operationSlug: "mutate",
+					type: "operation-request",
+					requestId: "updated-target",
+					pluginSlug: "operations-only",
+				});
+				reloadedBridge.port.postMessage({
+					input: null,
+					operationSlug: "mutate",
+					type: "operation-request",
+					requestId: "adopted-target",
+					pluginSlug: "newly-installed",
+				});
+				yield* Effect.promise(() => waitFor(() => expect(view.operations).toHaveLength(4)));
+				expect(view.operations[2]).toMatchObject({ sourceHash: "operations-only-updated" });
+				expect(view.operations[3]).toMatchObject({ sourceHash: "newly-installed-source" });
+			}),
+	);
+
+	it.live("uses explicit plugin navigation and merges page search with null deletion", () =>
+		Effect.gen(function* () {
+			const view = mount({ entry: "/fixture?keep=1&dialog=open" });
+			const bridge = connectFrame(
+				yield* Effect.promise(() => screen.findByTitle("fixture plugin")),
+			);
+			yield* Effect.promise(() => waitFor(() => expect(bridge.messages).toHaveLength(1)));
+			const initialNavigation = Schema.decodeUnknownSync(PluginBridgeLocation)(bridge.messages[0]);
+			bridge.port.postMessage({
+				mode: "push",
+				type: "navigate",
+				target: { search: "q=x", path: "/entries", kind: "plugin-route", pluginSlug: "journal" },
+			});
+			yield* Effect.promise(() =>
+				waitFor(() => expect(view.router.state.location.pathname).toBe("/journal/entries")),
+			);
+			expect(view.router.state.location.state.ryotEntryKey).toEqual(expect.any(String));
+			expect(view.router.state.location.state.ryotEntryKey).not.toBe(initialNavigation.key);
+
+			view.unmount();
+			const searchView = mount({ entry: "/fixture?keep=1&dialog=open" });
+			const searchBridge = connectFrame(
+				yield* Effect.promise(() => screen.findByTitle<HTMLIFrameElement>("fixture plugin")),
+			);
+			yield* Effect.promise(() => waitFor(() => expect(searchBridge.messages).toHaveLength(1)));
+			const initialSearch = Schema.decodeUnknownSync(PluginBridgeLocation)(
+				searchBridge.messages[0],
+			);
+			searchBridge.port.postMessage({
+				mode: "replace",
+				type: "page-search",
+				update: { q: "dune", dialog: null },
+			});
+			yield* Effect.promise(() =>
+				waitFor(() => expect(searchView.router.state.location.searchStr).toBe("?keep=1&q=dune")),
+			);
+			yield* Effect.promise(() => waitFor(() => expect(searchBridge.messages).toHaveLength(2)));
+			const replacedSearch = Schema.decodeUnknownSync(PluginBridgeLocation)(
+				searchBridge.messages[1],
+			);
+			expect(replacedSearch).toMatchObject({ key: initialSearch.key, index: initialSearch.index });
+		}),
+	);
+
+	it.live("prepares entities directly and allows a disabled ready installation", () =>
+		Effect.gen(function* () {
+			const entries = [{ ...catalog[0], isDisabled: true }];
+			const view = mount({ entries, entry: "/e/entity-1?tab=activity" });
+			const frame = yield* Effect.promise(() =>
+				screen.findByTitle<HTMLIFrameElement>("fixture plugin"),
+			);
+			const bridge = connectFrame(frame);
+			yield* Effect.promise(() => waitFor(() => expect(bridge.messages).toHaveLength(1)));
+
+			expect(view.targets).toEqual([{ kind: "entity", entityId: EntityId.make("entity-1") }]);
+			expect(Schema.decodeUnknownSync(PluginBridgeLocation)(bridge.messages[0])).toMatchObject({
+				location: {
+					kind: "entity",
+					entityId: "entity-1",
+					search: "tab=activity",
+					entitySchemaSlug: "book",
+				},
+			});
+		}),
+	);
+
+	it.live.each([
 		[{ code: "entity-not-found", entityId: EntityId.make("missing") }, "Entity not found"],
 		[
 			{
@@ -937,25 +1040,27 @@ describe("client page routes", () => {
 			},
 			"Entity page not registered",
 		],
-		// oxlint-disable-next-line effecttsgo/async-function -- Vitest awaits this Promise-based test callback and its framework assertions.
-	] as const)("renders the explicit entity preparation branch %#", async (reason, title) => {
-		mount({ entry: "/e/missing", prepare: () => preparationFailure(reason) });
-		await screen.findByRole("heading", { name: title });
-		expect(screen.queryByTitle(/plugin$/)).toBeNull();
-	});
+	] as const)("renders the explicit entity preparation branch %#", ([reason, title]) =>
+		Effect.gen(function* () {
+			mount({ entry: "/e/missing", prepare: () => preparationFailure(reason) });
+			yield* Effect.promise(() => screen.findByRole("heading", { name: title }));
+			expect(screen.queryByTitle(/plugin$/)).toBeNull();
+		}),
+	);
 
-	// oxlint-disable-next-line effecttsgo/async-function -- Vitest awaits this Promise-based test callback and its framework assertions.
-	it("renders an unregistered plugin page without mounting an artifact", async () => {
-		mount({
-			entry: "/fixture/missing",
-			prepare: () =>
-				preparationFailure({
-					path: "/missing",
-					pluginId: "plugin-1",
-					code: "plugin-route-not-registered",
-				}),
-		});
-		await screen.findByRole("heading", { name: "Plugin page not found" });
-		expect(document.querySelectorAll("iframe")).toHaveLength(0);
-	});
+	it.live("renders an unregistered plugin page without mounting an artifact", () =>
+		Effect.gen(function* () {
+			mount({
+				entry: "/fixture/missing",
+				prepare: () =>
+					preparationFailure({
+						path: "/missing",
+						pluginId: "plugin-1",
+						code: "plugin-route-not-registered",
+					}),
+			});
+			yield* Effect.promise(() => screen.findByRole("heading", { name: "Plugin page not found" }));
+			expect(document.querySelectorAll("iframe")).toHaveLength(0);
+		}),
+	);
 });

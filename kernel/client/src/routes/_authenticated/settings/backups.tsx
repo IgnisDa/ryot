@@ -154,84 +154,94 @@ function BackupsStandard() {
 		close: () => void navigate({ replace: true, search: { restore: undefined } }),
 	});
 
-	// oxlint-disable-next-line effecttsgo/async-function -- React backup export handler.
-	const startExport = async () => {
+	const startExport = () => {
 		if (live !== undefined) {
-			return;
+			return Promise.resolve();
 		}
-		try {
-			await createMutation.mutateAsync();
-			setOlderRuns([]);
-			setNextCursor(undefined);
-		} catch {
-			return;
-		}
+		return createMutation.mutateAsync().then(
+			() => {
+				setOlderRuns([]);
+				setNextCursor(undefined);
+				return undefined;
+			},
+			() => undefined,
+		);
 	};
 
-	// oxlint-disable-next-line effecttsgo/async-function -- React backup deletion handler.
-	const confirmDelete = async (run: BackupRunItem) => {
+	const confirmDelete = (run: BackupRunItem) => {
 		if (!canDeleteBackupRun(run.status)) {
 			setPendingDelete(undefined);
-			return;
+			return Promise.resolve();
 		}
-		const deleted = await deleteMutation
+		return deleteMutation
 			.mutateAsync(run)
 			.then(() => true)
-			.catch(() => false);
-		if (!deleted) {
-			return;
-		}
-		setPendingDelete(undefined);
-		setOlderRuns([]);
-		setNextCursor(undefined);
+			.catch(() => false)
+			.then((deleted) => {
+				if (!deleted) {
+					return undefined;
+				}
+				setPendingDelete(undefined);
+				setOlderRuns([]);
+				setNextCursor(undefined);
+				return undefined;
+			});
 	};
 
-	// oxlint-disable-next-line effecttsgo/async-function -- React browser download handler.
-	const startDownload = async (run: BackupRunItem) => {
+	const startDownload = (run: BackupRunItem) => {
 		if (downloading.current !== undefined) {
-			return;
+			return Promise.resolve();
 		}
 		downloading.current = run.id;
 		setDownloadFailed(false);
 		setDownloadingRunId(run.id);
-		const blob = await runtime.runPromise(
-			Effect.flatMap(BackupsApi, (api) => api.downloadArchive(scope, run.id)).pipe(
-				Effect.match({ onFailure: () => undefined, onSuccess: (archive) => archive }),
-			),
-			{ signal: controller.current.signal },
-		);
-		downloading.current = undefined;
-		setDownloadingRunId(undefined);
-		if (blob === undefined) {
-			setDownloadFailed(true);
-			return;
-		}
-		saveBackupArchive(blob, backupArchiveFileName(run.id));
+		return runtime
+			.runPromise(
+				Effect.flatMap(BackupsApi, (api) => api.downloadArchive(scope, run.id)).pipe(
+					Effect.match({ onFailure: () => undefined, onSuccess: (archive) => archive }),
+				),
+				{ signal: controller.current.signal },
+			)
+			.then((blob) => {
+				downloading.current = undefined;
+				setDownloadingRunId(undefined);
+				if (blob === undefined) {
+					setDownloadFailed(true);
+					return undefined;
+				}
+				saveBackupArchive(blob, backupArchiveFileName(run.id));
+				return undefined;
+			});
 	};
 
-	// oxlint-disable-next-line effecttsgo/async-function -- React backup pagination handler.
-	const loadMore = async () => {
+	const loadMore = () => {
 		if (cursor === null || cursor === undefined || loadingMore) {
-			return;
+			return Promise.resolve();
 		}
 		setLoadingMore(true);
 		setLoadMoreFailed(false);
-		try {
-			const page = await Effect.runPromise(
-				client.data.query(backupRunsRecipe({ after: cursor, limit: PAGE_SIZE })),
-				{ signal: controller.current.signal },
-			);
-			setOlderRuns((current) => [...current, ...page.items]);
-			setNextCursor(page.pageInfo.nextCursor);
-		} catch {
-			if (!controller.current.signal.aborted) {
-				setLoadMoreFailed(true);
-			}
-		} finally {
-			if (!controller.current.signal.aborted) {
-				setLoadingMore(false);
-			}
-		}
+		return Effect.runPromise(
+			client.data.query(backupRunsRecipe({ after: cursor, limit: PAGE_SIZE })),
+			{ signal: controller.current.signal },
+		)
+			.then(
+				(page) => {
+					setOlderRuns((current) => [...current, ...page.items]);
+					setNextCursor(page.pageInfo.nextCursor);
+					return undefined;
+				},
+				() => {
+					if (!controller.current.signal.aborted) {
+						setLoadMoreFailed(true);
+					}
+					return undefined;
+				},
+			)
+			.finally(() => {
+				if (!controller.current.signal.aborted) {
+					setLoadingMore(false);
+				}
+			});
 	};
 
 	useRunPolling({

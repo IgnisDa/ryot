@@ -62,27 +62,28 @@ export function ImportStartWizard(props: {
 	const source = findBySlug(listed, state.slug);
 	const schema = source?.inputSchema;
 
-	// oxlint-disable-next-line effecttsgo/async-function -- React import form handler.
-	const startRun = async (values: SchemaFormValues) => {
+	const startRun = (values: SchemaFormValues) => {
 		if (source === undefined) {
-			return;
+			return Promise.resolve();
 		}
 		setFailure(undefined);
-		try {
-			await startMutation.mutateAsync({
-				source: source.slug,
-				...toSchemaFormPayload(source.inputSchema, values),
-			});
-		} catch (error) {
-			const nextFailure = importStartFailure(error);
-			setFailure(nextFailure);
-			if (nextFailure.step !== undefined) {
-				dispatch({ type: "recover-at", step: nextFailure.step });
-			}
-			return;
-		}
-		props.onStarted();
-		props.onClose();
+		return startMutation
+			.mutateAsync({ source: source.slug, ...toSchemaFormPayload(source.inputSchema, values) })
+			.then(
+				() => {
+					props.onStarted();
+					props.onClose();
+					return undefined;
+				},
+				(error) => {
+					const nextFailure = importStartFailure(error);
+					setFailure(nextFailure);
+					if (nextFailure.step !== undefined) {
+						dispatch({ type: "recover-at", step: nextFailure.step });
+					}
+					return undefined;
+				},
+			);
 	};
 
 	const requestReview = () => {

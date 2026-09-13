@@ -6,17 +6,16 @@ import { ServerService } from "#/modules/server/service";
 
 export const Route = createFileRoute("/god-mode")({
 	component: GodModeRoute,
-	// oxlint-disable-next-line effecttsgo/async-function -- TanStack route guard.
-	beforeLoad: async ({ context, location }) => {
-		const server = await context.runtime.runPromise(
-			Effect.flatMap(ServerService, (service) => service.selected),
-		);
-		if (server === null) {
-			// oxlint-disable-next-line typescript/only-throw-error
-			throw redirect({ replace: true, to: "/onboarding", search: { redirect: location.href } });
-		}
-		return { server };
-	},
+	beforeLoad: ({ context, location }) =>
+		context.runtime
+			.runPromise(Effect.flatMap(ServerService, (service) => service.selected))
+			.then((server) => {
+				if (server === null) {
+					// oxlint-disable-next-line typescript/only-throw-error
+					throw redirect({ replace: true, to: "/onboarding", search: { redirect: location.href } });
+				}
+				return { server };
+			}),
 });
 
 function GodModeRoute() {

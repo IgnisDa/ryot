@@ -1,7 +1,7 @@
+import { describe, expect, it } from "@effect/vitest";
 import { RouterProvider, createMemoryHistory } from "@tanstack/react-router";
 import { render, screen, waitFor } from "@testing-library/react";
 import { Effect, Layer, ManagedRuntime } from "effect";
-import { describe, expect, it } from "vitest";
 
 import { KernelApiTestLayer } from "#/api/ports.test-layer";
 import { OAuthTokenError } from "#/modules/auth/token-service";
@@ -136,60 +136,65 @@ const settledPath = (router: ReturnType<typeof mountCallback>["router"]) =>
 	);
 
 describe("OAuth callback", () => {
-	// oxlint-disable-next-line effecttsgo/async-function -- Vitest awaits this Promise-based test callback and its framework assertions.
-	it("exchanges the code against the expected web client and drops callback parameters", async () => {
-		const { router, exchanges } = mountCallback("/auth/callback?code=code-1&state=state", {
-			destination: "/settings",
-		});
-		const location = await settledPath(router);
-		expect(exchanges).toEqual([
-			{
-				code: "code-1",
-				state: "state",
-				origin: window.location.origin,
-				clientIds: ["ryot-web", "ryot-demo-web"],
-				redirectUri: `${window.location.origin}/auth/callback`,
-			},
-		]);
-		expect(location.pathname).toBe("/settings");
-		expect(location.searchStr).toBe("");
-	});
+	it.live("exchanges the code against the expected web client and drops callback parameters", () =>
+		Effect.gen(function* () {
+			const { router, exchanges } = mountCallback("/auth/callback?code=code-1&state=state", {
+				destination: "/settings",
+			});
+			const location = yield* Effect.promise(() => settledPath(router));
+			expect(exchanges).toEqual([
+				{
+					code: "code-1",
+					state: "state",
+					origin: window.location.origin,
+					clientIds: ["ryot-web", "ryot-demo-web"],
+					redirectUri: `${window.location.origin}/auth/callback`,
+				},
+			]);
+			expect(location.pathname).toBe("/settings");
+			expect(location.searchStr).toBe("");
+		}),
+	);
 
-	// oxlint-disable-next-line effecttsgo/async-function -- Vitest awaits this Promise-based test callback and its framework assertions.
-	it("rejects replayed or unknown state", async () => {
-		const { router } = mountCallback("/auth/callback?code=code-1&state=spent", { fail: true });
-		await screen.findByText("Could not complete sign-in");
-		expect(router.state.location.pathname).toBe("/auth/callback");
-	});
+	it.live("rejects replayed or unknown state", () =>
+		Effect.gen(function* () {
+			const { router } = mountCallback("/auth/callback?code=code-1&state=spent", { fail: true });
+			yield* Effect.promise(() => screen.findByText("Could not complete sign-in"));
+			expect(router.state.location.pathname).toBe("/auth/callback");
+		}),
+	);
 
-	// oxlint-disable-next-line effecttsgo/async-function -- Vitest awaits this Promise-based test callback and its framework assertions.
-	it("permits only the native client and registered redirect on native", async () => {
-		const { router, exchanges } = mountCallback("/auth/callback?code=code-1&state=state", {
-			native: true,
-		});
-		await settledPath(router);
-		expect(exchanges).toEqual([
-			{
-				code: "code-1",
-				state: "state",
-				origin: server,
-				clientIds: ["ryot-native"],
-				redirectUri: "io.ryot.app:/auth/callback",
-			},
-		]);
-	});
+	it.live("permits only the native client and registered redirect on native", () =>
+		Effect.gen(function* () {
+			const { router, exchanges } = mountCallback("/auth/callback?code=code-1&state=state", {
+				native: true,
+			});
+			yield* Effect.promise(() => settledPath(router));
+			expect(exchanges).toEqual([
+				{
+					code: "code-1",
+					state: "state",
+					origin: server,
+					clientIds: ["ryot-native"],
+					redirectUri: "io.ryot.app:/auth/callback",
+				},
+			]);
+		}),
+	);
 
-	// oxlint-disable-next-line effecttsgo/async-function -- Vitest awaits this Promise-based test callback and its framework assertions.
-	it("consumes an authorization error by state", async () => {
-		const { rejected } = mountCallback("/auth/callback?error=access_denied&state=state");
-		await screen.findByText("Could not complete sign-in");
-		expect(rejected).toEqual(["state"]);
-	});
+	it.live("consumes an authorization error by state", () =>
+		Effect.gen(function* () {
+			const { rejected } = mountCallback("/auth/callback?error=access_denied&state=state");
+			yield* Effect.promise(() => screen.findByText("Could not complete sign-in"));
+			expect(rejected).toEqual(["state"]);
+		}),
+	);
 
-	// oxlint-disable-next-line effecttsgo/async-function -- Vitest awaits this Promise-based test callback and its framework assertions.
-	it("replaces the callback history entry", async () => {
-		const { router } = mountCallback(["/settings", "/auth/callback?code=code-1&state=state"]);
-		await settledPath(router);
-		expect(router.history.length).toBe(2);
-	});
+	it.live("replaces the callback history entry", () =>
+		Effect.gen(function* () {
+			const { router } = mountCallback(["/settings", "/auth/callback?code=code-1&state=state"]);
+			yield* Effect.promise(() => settledPath(router));
+			expect(router.history.length).toBe(2);
+		}),
+	);
 });

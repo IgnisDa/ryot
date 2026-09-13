@@ -1,3 +1,4 @@
+import { describe, expect, it } from "@effect/vitest";
 import type { NavigationData } from "@ryot-app/ryotql-recipes/navigation";
 import type {
 	PluginClientCatalog,
@@ -7,7 +8,6 @@ import { act, fireEvent, render, screen, waitFor } from "@testing-library/react"
 import { Effect } from "effect";
 import { type MotionValue, motionValue, useMotionValue } from "motion/react";
 import { useRef, useState } from "react";
-import { describe, expect, it } from "vitest";
 import { axe } from "vitest-axe";
 
 import type { AuthSessionStore } from "#/modules/auth/service";
@@ -124,44 +124,49 @@ const openDrawer = () => {
 };
 
 describe("mobile drawer", () => {
-	// oxlint-disable-next-line effecttsgo/async-function -- Vitest awaits this Promise-based test callback and its framework assertions.
-	it("closes on Escape, restores focus, and releases body scrolling", async () => {
-		render(<Harness />);
-		const { dialog, trigger } = await openDrawer();
+	it.live("closes on Escape, restores focus, and releases body scrolling", () =>
+		Effect.gen(function* () {
+			render(<Harness />);
+			const { dialog, trigger } = yield* Effect.promise(() => openDrawer());
 
-		expect(document.body.style.overflow).toBe("hidden");
-		fireEvent.keyDown(dialog, { key: "Escape" });
+			expect(document.body.style.overflow).toBe("hidden");
+			fireEvent.keyDown(dialog, { key: "Escape" });
 
-		await waitFor(() => expect(document.activeElement).toBe(trigger));
-		expect(screen.queryByRole("dialog", { name: "Navigation" })).toBeNull();
-		expect(document.body.style.overflow).toBe("");
-	});
+			yield* Effect.promise(() => waitFor(() => expect(document.activeElement).toBe(trigger)));
+			expect(screen.queryByRole("dialog", { name: "Navigation" })).toBeNull();
+			expect(document.body.style.overflow).toBe("");
+		}),
+	);
 
-	// oxlint-disable-next-line effecttsgo/async-function -- Vitest awaits this Promise-based test callback and its framework assertions.
-	it("passes an axe pass while open", async () => {
-		render(<Harness />);
-		await openDrawer();
+	it.live("passes an axe pass while open", () =>
+		Effect.gen(function* () {
+			render(<Harness />);
+			yield* Effect.promise(() => openDrawer());
 
-		const results = await axe(document.body, { rules: { "color-contrast": { enabled: false } } });
+			const results = yield* Effect.promise(() =>
+				axe(document.body, { rules: { "color-contrast": { enabled: false } } }),
+			);
 
-		expect(results.violations.map((violation) => violation.id)).toEqual([]);
-	});
+			expect(results.violations.map((violation) => violation.id)).toEqual([]);
+		}),
+	);
 
-	// oxlint-disable-next-line effecttsgo/async-function -- Vitest awaits this Promise-based test callback and its framework assertions.
-	it("contains forward and reverse Tab focus", async () => {
-		render(<Harness />);
-		const { dialog } = await openDrawer();
-		const first = screen.getByRole("button", { name: "Media workspace, media" });
-		const last = screen.getByRole("link", { name: "Open settings" });
+	it.live("contains forward and reverse Tab focus", () =>
+		Effect.gen(function* () {
+			render(<Harness />);
+			const { dialog } = yield* Effect.promise(() => openDrawer());
+			const first = screen.getByRole("button", { name: "Media workspace, media" });
+			const last = screen.getByRole("link", { name: "Open settings" });
 
-		first.focus();
-		fireEvent.keyDown(dialog, { key: "Tab", shiftKey: true });
-		expect(document.activeElement).toBe(last);
+			first.focus();
+			fireEvent.keyDown(dialog, { key: "Tab", shiftKey: true });
+			expect(document.activeElement).toBe(last);
 
-		last.focus();
-		fireEvent.keyDown(dialog, { key: "Tab" });
-		expect(document.activeElement).toBe(first);
-	});
+			last.focus();
+			fireEvent.keyDown(dialog, { key: "Tab" });
+			expect(document.activeElement).toBe(first);
+		}),
+	);
 
 	it("stays mounted off its route until the closing panel settles off screen", () => {
 		const progress = motionValue(0);
@@ -176,81 +181,87 @@ describe("mobile drawer", () => {
 		expect(screen.queryByTestId("mobile-drawer")).toBeNull();
 	});
 
-	// oxlint-disable-next-line effecttsgo/async-function -- Vitest awaits this Promise-based test callback and its framework assertions.
-	it("closes on scrim click", async () => {
-		render(<Harness />);
-		const { trigger } = await openDrawer();
+	it.live("closes on scrim click", () =>
+		Effect.gen(function* () {
+			render(<Harness />);
+			const { trigger } = yield* Effect.promise(() => openDrawer());
 
-		fireEvent.click(screen.getByTestId("drawer-scrim"));
+			fireEvent.click(screen.getByTestId("drawer-scrim"));
 
-		await waitFor(() => expect(document.activeElement).toBe(trigger));
-		expect(screen.queryByRole("dialog", { name: "Navigation" })).toBeNull();
-	});
+			yield* Effect.promise(() => waitFor(() => expect(document.activeElement).toBe(trigger)));
+			expect(screen.queryByRole("dialog", { name: "Navigation" })).toBeNull();
+		}),
+	);
 
-	// oxlint-disable-next-line effecttsgo/async-function -- Vitest awaits this Promise-based test callback and its framework assertions.
-	it("resets its workspace menu when the drawer closes", async () => {
-		render(<Harness />);
-		await openDrawer();
-		fireEvent.click(screen.getByRole("button", { name: "Media workspace, media" }));
-		expect(screen.getByRole("menu", { name: "Workspaces" })).toBeTruthy();
+	it.live("resets its workspace menu when the drawer closes", () =>
+		Effect.gen(function* () {
+			render(<Harness />);
+			yield* Effect.promise(() => openDrawer());
+			fireEvent.click(screen.getByRole("button", { name: "Media workspace, media" }));
+			expect(screen.getByRole("menu", { name: "Workspaces" })).toBeTruthy();
 
-		fireEvent.click(screen.getByTestId("drawer-scrim"));
-		await openDrawer();
+			fireEvent.click(screen.getByTestId("drawer-scrim"));
+			yield* Effect.promise(() => openDrawer());
 
-		expect(screen.queryByRole("menu", { name: "Workspaces" })).toBeNull();
-	});
+			expect(screen.queryByRole("menu", { name: "Workspaces" })).toBeNull();
+		}),
+	);
 
-	// oxlint-disable-next-line effecttsgo/async-function -- Vitest awaits this Promise-based test callback and its framework assertions.
-	it("releases body scrolling before it reports the close", async () => {
-		const overflow: Array<string> = [];
-		render(<Harness onClose={() => overflow.push(document.body.style.overflow)} />);
-		await openDrawer();
+	it.live("releases body scrolling before it reports the close", () =>
+		Effect.gen(function* () {
+			const overflow: Array<string> = [];
+			render(<Harness onClose={() => overflow.push(document.body.style.overflow)} />);
+			yield* Effect.promise(() => openDrawer());
 
-		expect(document.body.style.overflow).toBe("hidden");
-		fireEvent.click(screen.getByRole("link", { name: "Home" }));
+			expect(document.body.style.overflow).toBe("hidden");
+			fireEvent.click(screen.getByRole("link", { name: "Home" }));
 
-		expect(overflow).toEqual([""]);
-	});
+			expect(overflow).toEqual([""]);
+		}),
+	);
 
-	// oxlint-disable-next-line effecttsgo/async-function -- Vitest awaits this Promise-based test callback and its framework assertions.
-	it("closes before Home and workspace navigation", async () => {
-		let homeOpen: boolean | null = null;
-		let selected: { readonly open: boolean; readonly slug: string } | null = null;
-		const journal = workspace({
-			sortOrder: 1,
-			name: "Journal",
-			slug: "journal",
-			pluginId: "plugin-journal",
-			sourceHash: "source-journal",
-			installationId: "installation-journal",
-		});
-		render(
-			<Harness
-				catalog={[workspace(), journal]}
-				onNavigateHome={() => {
-					homeOpen =
-						screen.queryByRole("dialog", { name: "Navigation" }) !== null ||
-						document.body.style.overflow === "hidden";
-				}}
-				onSelectWorkspace={(slug) => {
-					selected = {
-						slug,
-						open:
+	it.live("closes before Home and workspace navigation", () =>
+		Effect.gen(function* () {
+			let homeOpen: boolean | null = null;
+			let selected: { readonly open: boolean; readonly slug: string } | null = null;
+			const journal = workspace({
+				sortOrder: 1,
+				name: "Journal",
+				slug: "journal",
+				pluginId: "plugin-journal",
+				sourceHash: "source-journal",
+				installationId: "installation-journal",
+			});
+			render(
+				<Harness
+					catalog={[workspace(), journal]}
+					onNavigateHome={() => {
+						homeOpen =
 							screen.queryByRole("dialog", { name: "Navigation" }) !== null ||
-							document.body.style.overflow === "hidden",
-					};
-				}}
-			/>,
-		);
-		await openDrawer();
+							document.body.style.overflow === "hidden";
+					}}
+					onSelectWorkspace={(slug) => {
+						selected = {
+							slug,
+							open:
+								screen.queryByRole("dialog", { name: "Navigation" }) !== null ||
+								document.body.style.overflow === "hidden",
+						};
+					}}
+				/>,
+			);
+			yield* Effect.promise(() => openDrawer());
 
-		fireEvent.click(screen.getByRole("link", { name: "Home" }));
-		await waitFor(() => expect(homeOpen).toBe(false));
+			fireEvent.click(screen.getByRole("link", { name: "Home" }));
+			yield* Effect.promise(() => waitFor(() => expect(homeOpen).toBe(false)));
 
-		await openDrawer();
-		fireEvent.click(screen.getByRole("button", { name: "Media workspace, media" }));
-		fireEvent.click(screen.getByRole("menuitemradio", { name: "Switch to Journal workspace" }));
+			yield* Effect.promise(() => openDrawer());
+			fireEvent.click(screen.getByRole("button", { name: "Media workspace, media" }));
+			fireEvent.click(screen.getByRole("menuitemradio", { name: "Switch to Journal workspace" }));
 
-		await waitFor(() => expect(selected).toEqual({ open: false, slug: "journal" }));
-	});
+			yield* Effect.promise(() =>
+				waitFor(() => expect(selected).toEqual({ open: false, slug: "journal" })),
+			);
+		}),
+	);
 });

@@ -68,28 +68,33 @@ export function decideProtectedRoute(
 	return { action: "allow", scope: { serverUrl: server, userId: session.userId } };
 }
 
-// oxlint-disable-next-line effecttsgo/async-function -- TanStack route guards must throw redirect responses through their Promise boundary.
-export async function protectedRouteGuard(
+export function protectedRouteGuard(
 	context: { readonly runtime: ClientRuntime },
 	destination: string,
 ) {
-	const server = context.runtime.runSync(
-		Effect.flatMap(ServerService, (service) => service.selected),
+	return context.runtime.runPromise(
+		Effect.gen(function* () {
+			const server = yield* Effect.flatMap(ServerService, (service) => service.selected);
+			if (server === null) {
+				// oxlint-disable-next-line typescript/only-throw-error
+				throw redirect({ replace: true, to: "/onboarding", search: { redirect: destination } });
+			}
+			const session = yield* Effect.flatMap(AuthService, (service) =>
+				service.settledSession(server),
+			);
+			const decision = decideProtectedRoute(server, toAuthSessionState(session), destination);
+			if (decision.action === "redirect") {
+				// oxlint-disable-next-line typescript/only-throw-error
+				throw redirect({
+					replace: true,
+					to: decision.to,
+					search: { redirect: decision.redirectTo },
+				});
+			}
+			if (decision.action === "wait") {
+				throw new Error("Unreachable: settledSession never resolves a pending session.");
+			}
+			return { server, scope: decision.scope };
+		}),
 	);
-	if (server === null) {
-		// oxlint-disable-next-line typescript/only-throw-error
-		throw redirect({ replace: true, to: "/onboarding", search: { redirect: destination } });
-	}
-	const session = await context.runtime.runPromise(
-		Effect.flatMap(AuthService, (service) => service.settledSession(server)),
-	);
-	const decision = decideProtectedRoute(server, toAuthSessionState(session), destination);
-	if (decision.action === "redirect") {
-		// oxlint-disable-next-line typescript/only-throw-error
-		throw redirect({ replace: true, to: decision.to, search: { redirect: decision.redirectTo } });
-	}
-	if (decision.action === "wait") {
-		throw new Error("Unreachable: settledSession never resolves a pending session.");
-	}
-	return { server, scope: decision.scope };
 }

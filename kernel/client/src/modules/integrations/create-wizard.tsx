@@ -179,24 +179,26 @@ export function IntegrationCreateWizard(props: CreateWizardProps) {
 	const listed = props.providers.status === "ready" ? props.providers.sources : [];
 	const provider = findBySlug(listed, state.slug);
 
-	// oxlint-disable-next-line effecttsgo/async-function -- React integration form handler.
-	const connect = async (values: SchemaFormValues) => {
+	const connect = (values: SchemaFormValues) => {
 		if (provider === undefined) {
-			return;
+			return Promise.resolve();
 		}
 		setFailure(undefined);
-		try {
-			await create.mutateAsync(createIntegrationBody({ values, provider }));
-		} catch (error) {
-			const saveFailure = integrationSaveFailure(error);
-			setFailure(saveFailure);
-			if (saveFailure.step !== undefined) {
-				dispatch({ type: "recover-at", step: saveFailure.step });
-			}
-			return;
-		}
-		props.onCreated();
-		props.onClose();
+		return create.mutateAsync(createIntegrationBody({ values, provider })).then(
+			() => {
+				props.onCreated();
+				props.onClose();
+				return undefined;
+			},
+			(error) => {
+				const saveFailure = integrationSaveFailure(error);
+				setFailure(saveFailure);
+				if (saveFailure.step !== undefined) {
+					dispatch({ type: "recover-at", step: saveFailure.step });
+				}
+				return undefined;
+			},
+		);
 	};
 
 	const requestReview = () => {

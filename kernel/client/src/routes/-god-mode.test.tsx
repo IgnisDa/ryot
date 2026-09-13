@@ -1,10 +1,10 @@
 import { Capacitor } from "@capacitor/core";
+import { describe, expect, it } from "@effect/vitest";
 import { AuthUnauthorized } from "@ryot-app/contract/auth-middleware";
 import { RouterProvider, createMemoryHistory } from "@tanstack/react-router";
 import { fireEvent, render, screen, waitFor, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { Effect, Layer, ManagedRuntime } from "effect";
-import { describe, expect, it } from "vitest";
 
 import { AdminApi, AdminApiError, type AdminApiService } from "#/api/admin";
 import { GodModeApi } from "#/api/god-mode";
@@ -87,110 +87,135 @@ const makeView = (
 };
 
 describe("God Mode route", () => {
-	// oxlint-disable-next-line effecttsgo/async-function -- Vitest awaits this Promise-based test callback and its framework assertions.
-	it("is outside the OAuth gate and redirects the index to users", async () => {
-		const view = makeView();
+	it.live("is outside the OAuth gate and redirects the index to users", () =>
+		Effect.gen(function* () {
+			const view = makeView();
 
-		await screen.findByRole("heading", { name: "God Mode" });
-		expect(view.router.state.location.pathname).toBe("/god-mode/users");
-		expect(screen.queryByTestId("authenticated-shell")).toBeNull();
-		expect(screen.queryByTestId("mobile-drawer")).toBeNull();
-		expect(screen.queryByTitle("fixture plugin")).toBeNull();
-	});
+			yield* Effect.promise(() => screen.findByRole("heading", { name: "God Mode" }));
+			expect(view.router.state.location.pathname).toBe("/god-mode/users");
+			expect(screen.queryByTestId("authenticated-shell")).toBeNull();
+			expect(screen.queryByTestId("mobile-drawer")).toBeNull();
+			expect(screen.queryByTitle("fixture plugin")).toBeNull();
+		}),
+	);
 
-	// oxlint-disable-next-line effecttsgo/async-function -- Vitest awaits this Promise-based test callback and its framework assertions.
-	it("redirects a native client without a selected server to onboarding with a return path", async () => {
-		const native = Capacitor.isNativePlatform;
-		Capacitor.isNativePlatform = () => true;
-		try {
-			const view = makeView("/god-mode/migration-report", null);
-			await waitFor(() => expect(view.router.state.location.pathname).toBe("/onboarding"));
-			expect(view.router.state.location.search.redirect).toBe("/god-mode/migration-report");
-		} finally {
-			Capacitor.isNativePlatform = native;
-		}
-	});
+	it.live(
+		"redirects a native client without a selected server to onboarding with a return path",
+		() => {
+			const native = Capacitor.isNativePlatform;
+			Capacitor.isNativePlatform = () => true;
+			return Effect.gen(function* () {
+				const view = makeView("/god-mode/migration-report", null);
+				yield* Effect.promise(() =>
+					waitFor(() => expect(view.router.state.location.pathname).toBe("/onboarding")),
+				);
+				expect(view.router.state.location.search.redirect).toBe("/god-mode/migration-report");
+			}).pipe(Effect.ensuring(Effect.sync(() => (Capacitor.isNativePlatform = native))));
+		},
+	);
 
-	// oxlint-disable-next-line effecttsgo/async-function -- Vitest awaits this Promise-based test callback and its framework assertions.
-	it("requires a trimmed token, clears errors on edit, and submits with Enter", async () => {
-		const user = userEvent.setup();
-		const view = makeView("/god-mode/users");
-		const token = await screen.findByLabelText("Admin access token");
+	it.live("requires a trimmed token, clears errors on edit, and submits with Enter", () =>
+		Effect.gen(function* () {
+			const user = userEvent.setup();
+			const view = makeView("/god-mode/users");
+			const token = yield* Effect.promise(() => screen.findByLabelText("Admin access token"));
 
-		await user.type(token, "   ");
-		const form = token.closest("form");
-		if (form === null) {
-			throw new Error("Token input must be inside a form");
-		}
-		fireEvent.submit(form);
-		const alert = await screen.findByRole("alert");
-		expect(alert.textContent).toBe("Enter an admin access token.");
+			yield* Effect.promise(() => user.type(token, "   "));
+			const form = token.closest("form");
+			if (form === null) {
+				throw new Error("Token input must be inside a form");
+			}
+			fireEvent.submit(form);
+			const alert = yield* Effect.promise(() => screen.findByRole("alert"));
+			expect(alert.textContent).toBe("Enter an admin access token.");
 
-		await user.type(token, " admin-token ");
-		expect(screen.queryByRole("alert")).toBeNull();
-		await user.type(token, "{Enter}");
+			yield* Effect.promise(() => user.type(token, " admin-token "));
+			expect(screen.queryByRole("alert")).toBeNull();
+			yield* Effect.promise(() => user.type(token, "{Enter}"));
 
-		await screen.findByRole("heading", { name: "Users" });
-		expect(await view.runtime.runPromise(view.sessions.get("god-session"))).toEqual({
-			origin: server,
-			token: "admin-token",
-		});
-	});
+			yield* Effect.promise(() => screen.findByRole("heading", { name: "Users" }));
+			expect(
+				yield* Effect.promise(() => view.runtime.runPromise(view.sessions.get("god-session"))),
+			).toEqual({ origin: server, token: "admin-token" });
+		}),
+	);
 
-	// oxlint-disable-next-line effecttsgo/async-function -- Vitest awaits this Promise-based test callback and its framework assertions.
-	it("locks, clears the memory session, and shows the token gate again", async () => {
-		const user = userEvent.setup();
-		const view = makeView("/god-mode/users");
-		await user.type(await screen.findByLabelText("Admin access token"), "token{Enter}");
-		await screen.findByRole("heading", { name: "Users" });
+	it.live("locks, clears the memory session, and shows the token gate again", () =>
+		Effect.gen(function* () {
+			const user = userEvent.setup();
+			const view = makeView("/god-mode/users");
+			const token = yield* Effect.promise(() => screen.findByLabelText("Admin access token"));
+			yield* Effect.promise(() => user.type(token, "token{Enter}"));
+			yield* Effect.promise(() => screen.findByRole("heading", { name: "Users" }));
 
-		await user.click(screen.getByRole("button", { name: "Lock" }));
-		await screen.findByLabelText("Admin access token");
-		expect(screen.queryByRole("alert")).toBeNull();
-		// oxlint-disable-next-line effecttsgo/async-function -- Testing Library awaits this Promise-based assertion callback.
-		await waitFor(async () =>
-			expect(await view.runtime.runPromise(view.sessions.get("god-session"))).toBeNull(),
-		);
-	});
-
-	// oxlint-disable-next-line effecttsgo/async-function -- Vitest awaits this Promise-based test callback and its framework assertions.
-	it("relocks on an unauthorized request with an invalid-token message that editing clears", async () => {
-		const user = userEvent.setup();
-		const view = makeView("/god-mode/users", server, {
-			run: () =>
-				Effect.fail(
-					new AdminApiError({
-						cause: new AuthUnauthorized({ reason: { code: "admin-access-required" } }),
-					}),
+			yield* Effect.promise(() => user.click(screen.getByRole("button", { name: "Lock" })));
+			yield* Effect.promise(() => screen.findByLabelText("Admin access token"));
+			expect(screen.queryByRole("alert")).toBeNull();
+			yield* Effect.promise(() =>
+				waitFor(() =>
+					view.runtime
+						.runPromise(view.sessions.get("god-session"))
+						.then((session) => expect(session).toBeNull()),
 				),
-		});
+			);
+		}),
+	);
 
-		await user.type(await screen.findByLabelText("Admin access token"), "token{Enter}");
-		const alert = await screen.findByRole("alert");
-		expect(alert.textContent).toBe("The admin access token is invalid or expired.");
-		// oxlint-disable-next-line effecttsgo/async-function -- Testing Library awaits this Promise-based assertion callback.
-		await waitFor(async () =>
-			expect(await view.runtime.runPromise(view.sessions.get("god-session"))).toBeNull(),
-		);
+	it.live(
+		"relocks on an unauthorized request with an invalid-token message that editing clears",
+		() =>
+			Effect.gen(function* () {
+				const user = userEvent.setup();
+				const view = makeView("/god-mode/users", server, {
+					run: () =>
+						Effect.fail(
+							new AdminApiError({
+								cause: new AuthUnauthorized({ reason: { code: "admin-access-required" } }),
+							}),
+						),
+				});
 
-		await user.type(await screen.findByLabelText("Admin access token"), "replacement");
-		expect(screen.queryByRole("alert")).toBeNull();
-	});
+				const token = yield* Effect.promise(() => screen.findByLabelText("Admin access token"));
+				yield* Effect.promise(() => user.type(token, "token{Enter}"));
+				const alert = yield* Effect.promise(() => screen.findByRole("alert"));
+				expect(alert.textContent).toBe("The admin access token is invalid or expired.");
+				yield* Effect.promise(() =>
+					waitFor(() =>
+						view.runtime
+							.runPromise(view.sessions.get("god-session"))
+							.then((session) => expect(session).toBeNull()),
+					),
+				);
 
-	// oxlint-disable-next-line effecttsgo/async-function -- Vitest awaits this Promise-based test callback and its framework assertions.
-	it("navigates between sections from the standalone shell", async () => {
-		const user = userEvent.setup();
-		const view = makeView("/god-mode/users");
-		await user.type(await screen.findByLabelText("Admin access token"), "token{Enter}");
-		const sidebar = await screen.findByTestId("god-mode-sidebar");
+				yield* Effect.promise(() =>
+					user.type(screen.getByLabelText("Admin access token"), "replacement"),
+				);
+				expect(screen.queryByRole("alert")).toBeNull();
+			}),
+	);
 
-		await user.click(within(sidebar).getByRole("link", { name: "Migration report" }));
-		await waitFor(() =>
-			expect(view.router.state.location.pathname).toBe("/god-mode/migration-report"),
-		);
-		expect(screen.getByRole("heading", { name: "Migration report" })).toBeTruthy();
-		expect(
-			within(sidebar).getByRole("link", { name: "Migration report" }).getAttribute("aria-current"),
-		).toBe("page");
-	});
+	it.live("navigates between sections from the standalone shell", () =>
+		Effect.gen(function* () {
+			const user = userEvent.setup();
+			const view = makeView("/god-mode/users");
+			const token = yield* Effect.promise(() => screen.findByLabelText("Admin access token"));
+			yield* Effect.promise(() => user.type(token, "token{Enter}"));
+			const sidebar = yield* Effect.promise(() => screen.findByTestId("god-mode-sidebar"));
+
+			yield* Effect.promise(() =>
+				user.click(within(sidebar).getByRole("link", { name: "Migration report" })),
+			);
+			yield* Effect.promise(() =>
+				waitFor(() =>
+					expect(view.router.state.location.pathname).toBe("/god-mode/migration-report"),
+				),
+			);
+			expect(screen.getByRole("heading", { name: "Migration report" })).toBeTruthy();
+			expect(
+				within(sidebar)
+					.getByRole("link", { name: "Migration report" })
+					.getAttribute("aria-current"),
+			).toBe("page");
+		}),
+	);
 });

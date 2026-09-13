@@ -129,14 +129,17 @@ export function AuthenticatedShell(props: {
 			: null;
 	const session = runtime.runSync(AuthService).session(server);
 	const isDemo = useIsDemoSession(session);
-	// oxlint-disable-next-line effecttsgo/async-function -- React workspace selection handler.
-	const selectWorkspace = async (slug: string) => {
+	const selectWorkspace = (slug: string) => {
 		impactLight();
-		await runtime.runPromise(
-			Effect.flatMap(ClientStorage, (storage) => storage.setLastWorkspace(scope, slug)),
+		return runtime.runPromise(
+			Effect.gen(function* () {
+				yield* Effect.flatMap(ClientStorage, (storage) => storage.setLastWorkspace(scope, slug));
+				setRememberedSlug(slug);
+				yield* Effect.promise(() =>
+					navigate({ replace: true, to: "/$pluginSlug", params: { pluginSlug: slug } }),
+				);
+			}),
 		);
-		setRememberedSlug(slug);
-		await navigate({ replace: true, to: "/$pluginSlug", params: { pluginSlug: slug } });
 	};
 	const navigateHome = () =>
 		current === null
@@ -212,38 +215,40 @@ export function AuthenticatedShell(props: {
 	// settles through the history listener, so invalidating on either side of the call still races
 	// the navigation, which aborts whatever is in flight and leaves the sidebar rendering the order
 	// the user just changed. Waiting for the router to resolve is the only ordering that holds.
-	// oxlint-disable-next-line effecttsgo/async-function -- React sidebar customization handler.
-	const commitCustomize = async () => {
-		if (!(await customize.save())) {
-			return;
-		}
-		const currentDraft = customize.draft.workspaces.find(({ slug }) => slug === current?.slug);
-		const nextWorkspace = customize.draft.workspaces.find(({ isDisabled }) => !isDisabled);
-		const unsubscribe = router.subscribe("onResolved", () => {
-			unsubscribe();
-			void router.invalidate();
-		});
-		if (currentDraft?.isDisabled !== false) {
-			setDiscarding(false);
-			if (nextWorkspace === undefined) {
-				await navigate({ to: "/", replace: true });
-				return;
-			}
-			await runtime.runPromise(
-				Effect.flatMap(ClientStorage, (storage) =>
-					storage.setLastWorkspace(scope, nextWorkspace.slug),
-				),
-			);
-			setRememberedSlug(nextWorkspace.slug);
-			await navigate({
-				replace: true,
-				to: "/$pluginSlug",
-				params: { pluginSlug: nextWorkspace.slug },
-			});
-			return;
-		}
-		leaveCustomize();
-	};
+	const commitCustomize = () =>
+		runtime.runPromise(
+			Effect.gen(function* () {
+				if (!(yield* Effect.promise(() => customize.save()))) {
+					return;
+				}
+				const currentDraft = customize.draft.workspaces.find(({ slug }) => slug === current?.slug);
+				const nextWorkspace = customize.draft.workspaces.find(({ isDisabled }) => !isDisabled);
+				const unsubscribe = router.subscribe("onResolved", () => {
+					unsubscribe();
+					void router.invalidate();
+				});
+				if (currentDraft?.isDisabled !== false) {
+					setDiscarding(false);
+					if (nextWorkspace === undefined) {
+						yield* Effect.promise(() => navigate({ to: "/", replace: true }));
+						return;
+					}
+					yield* Effect.flatMap(ClientStorage, (storage) =>
+						storage.setLastWorkspace(scope, nextWorkspace.slug),
+					);
+					setRememberedSlug(nextWorkspace.slug);
+					yield* Effect.promise(() =>
+						navigate({
+							replace: true,
+							to: "/$pluginSlug",
+							params: { pluginSlug: nextWorkspace.slug },
+						}),
+					);
+					return;
+				}
+				leaveCustomize();
+			}),
+		);
 	const saveCustomize = useStableHandler(() => void commitCustomize());
 	// The edge gesture performs a kernel-owned back directly, so it has to consult the same guard
 	// that `BackInterceptors` gives Android's hardware Back; otherwise one of them loses the draft.

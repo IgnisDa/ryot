@@ -1,7 +1,7 @@
+import { afterEach, describe, expect, it } from "@effect/vitest";
 import { Effect } from "@ryot-app/client-sdk/effect";
 import { fireEvent, waitFor } from "@testing-library/dom";
 import type { ReactNode } from "react";
-import { afterEach, describe, expect, it } from "vitest";
 
 import {
 	decodeShowOverview,
@@ -165,28 +165,29 @@ describe("MediaOverview", () => {
 		unmount();
 	});
 
-	// oxlint-disable-next-line effecttsgo/async-function -- Vitest awaits the client test harness's Promise callbacks.
-	it("retries a failed overview load through the refresh callback", async () => {
-		let refreshCount = 0;
-		const { unmount, container } = mountRyotClient(
-			noopAdapter,
-			overviewScreen({
-				overview: { status: "transport-error" },
-				refreshOverview: () => {
-					refreshCount += 1;
-				},
-			}),
-		);
+	it.live("retries a failed overview load through the refresh callback", () =>
+		Effect.gen(function* () {
+			let refreshCount = 0;
+			const { unmount, container } = mountRyotClient(
+				noopAdapter,
+				overviewScreen({
+					overview: { status: "transport-error" },
+					refreshOverview: () => {
+						refreshCount += 1;
+					},
+				}),
+			);
 
-		expect(container.textContent).toContain("Unable to load these details");
-		const retry = Array.from(container.querySelectorAll("button")).find(
-			(button) => button.textContent === "Try again",
-		);
-		if (retry === undefined) {
-			throw new Error("Expected the overview retry button");
-		}
-		fireEvent.click(retry);
-		await waitFor(() => expect(refreshCount).toBe(1));
-		unmount();
-	});
+			expect(container.textContent).toContain("Unable to load these details");
+			const retry = Array.from(container.querySelectorAll("button")).find(
+				(button) => button.textContent === "Try again",
+			);
+			if (retry === undefined) {
+				throw new Error("Expected the overview retry button");
+			}
+			fireEvent.click(retry);
+			yield* Effect.promise(() => waitFor(() => expect(refreshCount).toBe(1)));
+			unmount();
+		}),
+	);
 });

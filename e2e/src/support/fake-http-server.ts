@@ -25,15 +25,19 @@ export const startFakeHttpServerScoped = (
 				const recorded: ScopedFakeHttpServer["requests"] = [];
 				const server = yield* BunHttpServer.make({ port: 0, hostname: "127.0.0.1" });
 				yield* HttpServer.serveEffect(
-					// oxlint-disable-next-line effecttsgo/async-function -- HttpEffect.fromWebHandler requires a Promise-returning Web Request callback.
-					HttpEffect.fromWebHandler(async (request) => {
+					HttpEffect.fromWebHandler((request) => {
 						const reqUrl = new URL(request.url);
-						recorded.push({
-							path: reqUrl.pathname,
-							headers: Object.fromEntries(request.headers),
-							body: await request.json().catch(() => null),
-						});
-						return respond(reqUrl, request);
+						return request
+							.json()
+							.catch(() => null)
+							.then((body) => {
+								recorded.push({
+									path: reqUrl.pathname,
+									headers: Object.fromEntries(request.headers),
+									body,
+								});
+								return respond(reqUrl, request);
+							});
 					}),
 				).pipe(Effect.provideService(HttpServer.HttpServer, server));
 

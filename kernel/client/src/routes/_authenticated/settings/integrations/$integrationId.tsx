@@ -3,7 +3,7 @@ import { Button, Menu, type MenuItem } from "@ryot-app/client-ui-sdk";
 import { AppIcon } from "@ryot-app/client-ui-sdk/icon";
 import { useSchemaForm, type SchemaFormValues } from "@ryot-app/client-ui-sdk/schema-form";
 import { createFileRoute, notFound, useRouter } from "@tanstack/react-router";
-import { Option } from "effect";
+import { Effect, Option } from "effect";
 import { useEffect, useEffectEvent, useRef, useState, type ReactNode } from "react";
 
 import { AuthService } from "#/modules/auth/service";
@@ -44,27 +44,28 @@ export const Route = createFileRoute("/_authenticated/settings/integrations/$int
 	errorComponent: IntegrationLoadError,
 	pendingComponent: IntegrationPending,
 	notFoundComponent: IntegrationNotFound,
-	// oxlint-disable-next-line effecttsgo/async-function -- TanStack integration route loader.
-	loader: async ({ params, context, abortController }) => {
-		const trimmed = params.integrationId.trim();
-		if (trimmed.length === 0) {
-			// oxlint-disable-next-line typescript/only-throw-error
-			throw notFound();
-		}
-		const session = context.runtime.runSync(AuthService).session(context.server).getSnapshot();
-		if (session.status === "authenticated" && session.accessClass === "demo") {
-			return { access: "demo" as const };
-		}
-		const outcome = await context.runtime.runPromise(
-			getIntegration(context.ryot, context.server, trimmed),
+	loader: ({ params, context, abortController }) =>
+		context.runtime.runPromise(
+			Effect.gen(function* () {
+				const trimmed = params.integrationId.trim();
+				if (trimmed.length === 0) {
+					// oxlint-disable-next-line typescript/only-throw-error
+					throw notFound();
+				}
+				const auth = yield* AuthService;
+				const session = auth.session(context.server).getSnapshot();
+				if (session.status === "authenticated" && session.accessClass === "demo") {
+					return { access: "demo" as const };
+				}
+				const outcome = yield* getIntegration(context.ryot, context.server, trimmed);
+				if (Option.isNone(outcome)) {
+					// oxlint-disable-next-line typescript/only-throw-error
+					throw notFound();
+				}
+				return { integration: outcome.value, access: "standard" as const };
+			}),
 			{ signal: abortController.signal },
-		);
-		if (Option.isNone(outcome)) {
-			// oxlint-disable-next-line typescript/only-throw-error
-			throw notFound();
-		}
-		return { integration: outcome.value, access: "standard" as const };
-	},
+		),
 });
 
 function IntegrationFrame(props: {
@@ -126,20 +127,14 @@ function StandardIntegrationDetail(props: { readonly integration: IntegrationCli
 	const { backInterceptors } = Route.useRouteContext();
 	const provider = findOwnedIntegrationProvider(providers.data ?? [], integration);
 
-	// oxlint-disable-next-line effecttsgo/async-function -- React integration form handler.
-	const save = async (values: SchemaFormValues) => {
+	const save = (values: SchemaFormValues) => {
 		if (provider === undefined) {
-			return;
+			return Promise.resolve();
 		}
 		setSaveDetail(undefined);
-		try {
-			await update.mutateAsync({
-				id: integration.id,
-				payload: updateIntegrationBody({ values, provider }),
-			});
-		} catch (error) {
-			setSaveDetail(integrationSaveFailure(error).detail);
-		}
+		return update
+			.mutateAsync({ id: integration.id, payload: updateIntegrationBody({ values, provider }) })
+			.catch((error: unknown) => setSaveDetail(integrationSaveFailure(error).detail));
 	};
 
 	const form = useSchemaForm({
@@ -182,21 +177,24 @@ function StandardIntegrationDetail(props: { readonly integration: IntegrationCli
 		});
 	}, [backInterceptors, remove.isPending, isConfirming, menuOpen]);
 
-	// oxlint-disable-next-line effecttsgo/async-function -- React confirmation handler.
-	const confirmDelete = async () => {
+	const confirmDelete = () => {
 		setDeleteFailed(false);
-		try {
-			await remove.mutateAsync(integration.id);
-		} catch {
-			setDeleteFailed(true);
-			return;
-		}
-		setIsConfirming(false);
-		if (router.history.canGoBack()) {
-			router.history.back();
-			return;
-		}
-		void navigate({ replace: true, to: "/settings/integrations", search: { create: undefined } });
+		return remove.mutateAsync(integration.id).then(
+			() => {
+				setIsConfirming(false);
+				if (router.history.canGoBack()) {
+					router.history.back();
+					return undefined;
+				}
+				void navigate({
+					replace: true,
+					to: "/settings/integrations",
+					search: { create: undefined },
+				});
+				return undefined;
+			},
+			() => setDeleteFailed(true),
+		);
 	};
 
 	const menuItems: readonly MenuItem[] = [
