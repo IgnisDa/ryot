@@ -10,21 +10,21 @@ import {
 	requireEventSchemaBySlug,
 	type Client,
 } from "~/fixtures/kernel";
-import { insertLibraryMembership, seedGlobalMusicWithAlbum } from "~/fixtures/plugins/media";
+import { insertLibraryMembership, seedGlobalBookWithSeries } from "~/fixtures/plugins/media";
 import { requirePresent } from "~/support/assertions";
 import { browserLayer, signInThroughHostedOAuth } from "~/support/browser";
 import { expect, it } from "~/support/effect-test";
 import { getApiUrl, getFrontendUrl } from "~/support/harness-target";
 
-const TRACK_COVER = `<svg xmlns="http://www.w3.org/2000/svg" width="60" height="60"><rect width="60" height="60" fill="#7c3aed"/></svg>`;
+const BOOK_COVER = `<svg xmlns="http://www.w3.org/2000/svg" width="40" height="60"><rect width="40" height="60" fill="#0f766e"/></svg>`;
 
-const SIBLING_COVER = `<svg xmlns="http://www.w3.org/2000/svg" width="40" height="40"><rect width="40" height="40" fill="#ea580c"/></svg>`;
+const SIBLING_COVER = `<svg xmlns="http://www.w3.org/2000/svg" width="40" height="60"><rect width="40" height="60" fill="#be123c"/></svg>`;
 
 const uploadPermanentAsset = (apiUrl: string, client: Client, body: string) =>
 	Effect.gen(function* () {
 		const intent = yield* client.call((c) =>
 			c.uploads.createIntent({
-				payload: { kind: "permanent", fileName: "music-art.svg", contentType: "image/svg+xml" },
+				payload: { kind: "permanent", fileName: "book-art.svg", contentType: "image/svg+xml" },
 			}),
 		);
 		const upload = yield* Effect.promise(() =>
@@ -44,9 +44,9 @@ const uploadPermanentAsset = (apiUrl: string, client: Client, body: string) =>
 		return asset;
 	});
 
-const musicEventSchemas = (client: Client) =>
+const bookEventSchemas = (client: Client) =>
 	Effect.gen(function* () {
-		const { schema } = yield* findBuiltinSchemaBySlug(client, "music");
+		const { schema } = yield* findBuiltinSchemaBySlug(client, "book");
 		const eventSchemas = yield* listEventSchemas(client, schema.id);
 		return {
 			progress: requireEventSchemaBySlug(eventSchemas, "progress").id,
@@ -57,45 +57,51 @@ const musicEventSchemas = (client: Client) =>
 const sectionTitles = (media: Playwright.FrameLocator) =>
 	media.locator("section > div > div > h2").allTextContents();
 
-it.live("renders a populated Music detail with its album rail and no watch providers", () =>
+it.live("renders a populated Book detail with its series rail and unlinked creators", () =>
 	Effect.gen(function* () {
 		const apiUrl = getApiUrl();
 		const frontendUrl = getFrontendUrl();
 		const suffix = crypto.randomUUID();
-		const trackName = `Browser Tracer Track ${suffix}`;
-		const siblingName = `Browser Tracer B Side ${suffix}`;
-		const albumName = `Browser Tracer Album ${suffix}`;
+		const bookName = `Browser Tracer Book ${suffix}`;
+		const siblingName = `Browser Tracer Sequel ${suffix}`;
+		const seriesName = `Browser Tracer Series ${suffix}`;
+		const unlinkedAuthor = `Unlinked Author ${suffix}`;
+		const unlinkedPublisher = `Unlinked Press ${suffix}`;
 		const { token, email, password } = yield* createTestUser(apiUrl);
 		const client = makeSession(apiUrl, { Authorization: `Bearer ${token}` });
-		const cover = yield* uploadPermanentAsset(apiUrl, client, TRACK_COVER);
+		const cover = yield* uploadPermanentAsset(apiUrl, client, BOOK_COVER);
 		const siblingCover = yield* uploadPermanentAsset(apiUrl, client, SIBLING_COVER);
-		const seeded = yield* seedGlobalMusicWithAlbum(client, {
-			albumName,
-			trackName,
+		const seeded = yield* seedGlobalBookWithSeries(client, {
+			bookName,
+			seriesName,
 			siblingName,
 			withCredits: true,
 			siblingProperties: { images: [{ ...siblingCover, purpose: "cover" }] },
-			trackProperties: {
-				duration: 222,
+			bookProperties: {
+				pages: 320,
 				publishYear: 1997,
 				providerRating: 92.5,
-				byVariousArtists: false,
+				isCompilation: false,
+				genres: ["Science Fiction"],
 				productionStatus: "Released",
-				genres: ["Alternative Rock"],
 				images: [{ ...cover, purpose: "cover" }],
-				description: "A deterministic browser tracer track.",
+				description: "A deterministic browser tracer book.",
+				unlinkedCreators: [
+					{ role: "Author", name: unlinkedAuthor },
+					{ role: "Publisher", name: unlinkedPublisher },
+				],
 			},
 		});
-		yield* insertLibraryMembership(client, { mediaEntityId: seeded.track.id });
-		const events = yield* musicEventSchemas(client);
+		yield* insertLibraryMembership(client, { mediaEntityId: seeded.book.id });
+		const events = yield* bookEventSchemas(client);
 		yield* createEventFixture(client, {
-			entityId: seeded.track.id,
+			entityId: seeded.book.id,
 			eventSchemaSlug: events.complete,
 			occurredAt: "2026-07-01T10:00:00.000Z",
 			properties: { completionMode: "unknown" },
 		});
 		yield* createEventFixture(client, {
-			entityId: seeded.track.id,
+			entityId: seeded.book.id,
 			eventSchemaSlug: events.complete,
 			occurredAt: "2026-07-08T10:00:00.000Z",
 			properties: { completionMode: "unknown" },
@@ -107,27 +113,27 @@ it.live("renders a populated Music detail with its album rail and no watch provi
 			viewport: { width: 1280, height: 900 },
 		});
 		yield* signInThroughHostedOAuth(page, email, password);
-		yield* page.goto(`${frontendUrl}/e/${seeded.track.id}`);
+		yield* page.goto(`${frontendUrl}/e/${seeded.book.id}`);
 		const frame = page.locator('iframe[title="media plugin"]');
 		yield* frame.waitFor({ state: "visible" });
 		const media = frame.contentFrame();
 		yield* media
-			.getByRole("heading", { level: 1, exact: true, name: trackName })
+			.getByRole("heading", { level: 1, exact: true, name: bookName })
 			.waitFor({ state: "visible", timeout: 150_000 });
 
 		const body = media.locator("body");
-		yield* body
-			.getByText("Music • MusicBrainz • 1997", { exact: true })
-			.waitFor({ state: "visible" });
-		yield* body.getByText("Alternative Rock", { exact: true }).waitFor({ state: "visible" });
-		yield* body.getByText("3:42", { exact: true }).waitFor({ state: "visible" });
-		yield* body.getByText("Length", { exact: true }).waitFor({ state: "visible" });
-		yield* body.getByText("Various artists", { exact: true }).waitFor({ state: "visible" });
+		yield* body.getByText("Book • Hardcover • 1997", { exact: true }).waitFor({ state: "visible" });
+		yield* body.getByText("Science Fiction", { exact: true }).waitFor({ state: "visible" });
+		yield* body.getByText("Pages", { exact: true }).waitFor({ state: "visible" });
+		yield* body.getByText("320", { exact: true }).waitFor({ state: "visible" });
+		yield* body.getByText("Compilation", { exact: true }).waitFor({ state: "visible" });
+		yield* body.getByText("No", { exact: true }).waitFor({ state: "visible" });
+		yield* body.getByText("Production status", { exact: true }).waitFor({ state: "visible" });
 		yield* body.getByText("Released", { exact: true }).waitFor({ state: "visible" });
-		yield* body.getByText("MusicBrainz rating", { exact: true }).waitFor({ state: "visible" });
+		yield* body.getByText("Hardcover rating", { exact: true }).waitFor({ state: "visible" });
 		expect(yield* body.getByText("Runtime", { exact: true }).count).toBe(0);
+		expect(yield* body.getByText("Length", { exact: true }).count).toBe(0);
 		expect(yield* body.getByText("Seasons", { exact: true }).count).toBe(0);
-		expect(yield* body.getByText("Episodes", { exact: true }).count).toBe(0);
 
 		yield* body.getByText("Your status", { exact: true }).waitFor({ state: "visible" });
 		yield* body.getByText("Complete", { exact: true }).waitFor({ state: "visible" });
@@ -136,17 +142,21 @@ it.live("renders a populated Music detail with its album rail and no watch provi
 		expect(yield* media.getByRole("tab").allTextContents()).toEqual(["Overview", "Activity"]);
 
 		yield* media
-			.getByRole("heading", { level: 2, name: `Part of ${albumName}` })
+			.getByRole("heading", { level: 2, name: `Part of ${seriesName}` })
 			.waitFor({ state: "visible" });
 		expect(yield* sectionTitles(media)).toEqual([
 			"Images",
-			"Artists & credits",
-			"Labels",
+			"Authors & contributors",
+			"Publishers",
 			"More like this",
-			`Part of ${albumName}`,
+			`Part of ${seriesName}`,
 		]);
 		expect(yield* body.getByText("Where to watch", { exact: true }).count).toBe(0);
-		expect(yield* body.getByText("JustWatch", { exact: false }).count).toBe(0);
+
+		yield* body.getByText(unlinkedAuthor, { exact: true }).waitFor({ state: "visible" });
+		expect(yield* media.getByRole("link", { name: `Open ${unlinkedAuthor}` }).count).toBe(0);
+		yield* body.getByText(unlinkedPublisher, { exact: true }).waitFor({ state: "visible" });
+		expect(yield* media.getByRole("link", { name: `Open ${unlinkedPublisher}` }).count).toBe(0);
 
 		const siblingLink = media.getByRole("link", { name: `Open ${siblingName}` });
 		yield* siblingLink.waitFor({ state: "visible" });
@@ -154,38 +164,42 @@ it.live("renders a populated Music detail with its album rail and no watch provi
 		yield* siblingArt.waitFor({ state: "visible" });
 		const siblingSrc = requirePresent(
 			yield* siblingArt.getAttribute("src"),
-			"Missing album sibling artwork",
+			"Missing series sibling artwork",
 		);
 		expect(siblingSrc).toContain(siblingCover.key);
-		expect(yield* media.getByRole("link", { name: `Open ${trackName}` }).count).toBe(0);
+		expect(yield* media.getByRole("link", { name: `Open ${bookName}` }).count).toBe(0);
+		yield* media
+			.getByRole("link", { exact: true, name: "View series" })
+			.waitFor({ state: "visible" });
 
 		yield* media.getByRole("tab", { name: "Activity" }).click();
-		const record = media.getByRole("list", { name: "Listen record" });
+		const record = media.getByRole("list", { name: "Reading record" });
 		yield* record.waitFor({ state: "visible" });
-		expect(yield* record.getByText("Finished the track", { exact: true }).count).toBe(2);
-		expect(yield* body.getByText("Coverage", { exact: true }).count).toBe(0);
-		expect(yield* body.getByText("Listens", { exact: true }).count).toBe(1);
+		expect(yield* record.getByText("Finished the book", { exact: true }).count).toBe(2);
+		expect(yield* body.getByText("Reads", { exact: true }).count).toBe(1);
+		yield* body.getByText("640", { exact: true }).waitFor({ state: "visible" });
 		expect(yield* body.getByText("Watches", { exact: true }).count).toBe(0);
+		expect(yield* body.getByText("Listens", { exact: true }).count).toBe(0);
 	}).pipe(PlaywrightSpawner.withBrowser, Effect.provide(browserLayer)),
 );
 
-it.live("renders the Music presentation facts in the canonical saved view", () =>
+it.live("renders the Book presentation facts in the canonical saved view", () =>
 	Effect.gen(function* () {
 		const apiUrl = getApiUrl();
 		const frontendUrl = getFrontendUrl();
 		const suffix = crypto.randomUUID();
-		const trackName = `Row Tracer Track ${suffix}`;
+		const bookName = `Row Tracer Book ${suffix}`;
 		const { token, email, password } = yield* createTestUser(apiUrl);
 		const client = makeSession(apiUrl, { Authorization: `Bearer ${token}` });
-		const seeded = yield* seedGlobalMusicWithAlbum(client, {
-			trackName,
-			albumName: `Row Tracer Album ${suffix}`,
-			siblingName: `Row Tracer B Side ${suffix}`,
-			trackProperties: { duration: 3735, publishYear: 2014 },
+		const seeded = yield* seedGlobalBookWithSeries(client, {
+			bookName,
+			seriesName: `Row Tracer Series ${suffix}`,
+			siblingName: `Row Tracer Sequel ${suffix}`,
+			bookProperties: { pages: 320, publishYear: 2014 },
 		});
-		const events = yield* musicEventSchemas(client);
+		const events = yield* bookEventSchemas(client);
 		yield* createEventFixture(client, {
-			entityId: seeded.track.id,
+			entityId: seeded.book.id,
 			eventSchemaSlug: events.progress,
 			properties: { progressPercent: 60 },
 			occurredAt: "2026-07-03T10:00:00.000Z",
@@ -194,22 +208,22 @@ it.live("renders the Music presentation facts in the canonical saved view", () =
 		const browser = yield* Playwright.Browser;
 		const page = yield* browser.newPage({ viewport: { width: 1280, height: 900 } });
 		yield* signInThroughHostedOAuth(page, email, password);
-		yield* page.goto(`${frontendUrl}/v/all-music`);
+		yield* page.goto(`${frontendUrl}/v/all-books`);
 		const view = page.locator("iframe").contentFrame();
-		const row = view.locator(`article[data-entity-id="${seeded.track.id}"]`);
+		const row = view.locator(`article[data-entity-id="${seeded.book.id}"]`);
 		yield* row.waitFor({ state: "visible" });
 
 		yield* row.getByText("2014", { exact: true }).waitFor({ state: "visible" });
-		yield* row.getByText("1:02:15", { exact: true }).waitFor({ state: "visible" });
+		yield* row.getByText("320 pages", { exact: true }).waitFor({ state: "visible" });
 		yield* row.getByText("In progress", { exact: true }).waitFor({ state: "visible" });
-		yield* row.getByText("60% played", { exact: true }).waitFor({ state: "visible" });
+		yield* row.getByText("60% read", { exact: true }).waitFor({ state: "visible" });
 
-		yield* view.getByRole("link", { exact: true, name: trackName }).click();
-		yield* page.waitForURL(`${frontendUrl}/e/${seeded.track.id}`);
+		yield* view.getByRole("link", { exact: true, name: bookName }).click();
+		yield* page.waitForURL(`${frontendUrl}/e/${seeded.book.id}`);
 		yield* page
 			.locator('iframe[title="media plugin"]')
 			.contentFrame()
-			.getByRole("heading", { level: 1, exact: true, name: trackName })
+			.getByRole("heading", { level: 1, exact: true, name: bookName })
 			.waitFor({ state: "visible", timeout: 150_000 });
 	}).pipe(PlaywrightSpawner.withBrowser, Effect.provide(browserLayer)),
 );

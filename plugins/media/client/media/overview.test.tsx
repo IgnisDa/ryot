@@ -27,6 +27,7 @@ const relationsRender: MediaOverviewRelationsRender<Overview> = ({ divided, over
 		divided={divided}
 		overview={overview}
 		onViewAllPeople={() => undefined}
+		copy={{ notice: "Cast", people: "Cast & crew", companies: "Production companies" }}
 	/>
 );
 
@@ -45,6 +46,7 @@ const overviewScreen = (input: {
 			compact
 			media={media}
 			safeAreaTop={0}
+			noticeTitle="Cast"
 			watchProviders={media}
 			overview={input.overview}
 			relations={relationsRender}

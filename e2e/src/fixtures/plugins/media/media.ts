@@ -657,6 +657,132 @@ export const seedGlobalMusicWithAlbum = (
 		return { track, album, sibling, credits: { person, company, suggested } };
 	});
 
+export const seedGlobalBookWithSeries = (
+	client: Client,
+	options: {
+		readonly bookName: string;
+		readonly seriesName: string;
+		readonly siblingName: string;
+		readonly withCredits?: boolean;
+		readonly bookProperties?: Record<string, unknown>;
+		readonly siblingProperties?: Record<string, unknown>;
+	},
+) =>
+	Effect.gen(function* () {
+		const { schema: bookSchema } = yield* findBuiltinSchemaBySlug(client, "book");
+		const hardcover = bookSchema.providers.find((provider) => provider.name === "Hardcover");
+		assertPresent(hardcover, "Missing Hardcover provider for built-in book schema");
+
+		const [seriesSchemaId, personSchemaId, companySchemaId, relationshipSchemas] =
+			yield* Effect.all([
+				getBuiltinEntitySchemaSlug("book-group"),
+				getBuiltinEntitySchemaSlug("person"),
+				getBuiltinEntitySchemaSlug("company"),
+				listRelationshipSchemas(client, {
+					slugs: ["book-group-to-book", "person-to-book", "company-to-book", "media-suggestion"],
+				}),
+			]);
+		const seriesToBook = requireRelationshipSchemaBySlug(relationshipSchemas, "book-group-to-book");
+		const personToBook = requireRelationshipSchemaBySlug(relationshipSchemas, "person-to-book");
+		const companyToBook = requireRelationshipSchemaBySlug(relationshipSchemas, "company-to-book");
+		const suggestion = requireRelationshipSchemaBySlug(relationshipSchemas, "media-suggestion");
+
+		const externalId = String(Math.floor(Math.random() * 1_000_000_000));
+		const populatedAt = DateTime.formatIso(DateTime.nowUnsafe());
+		const api = getApiClient();
+		const createGlobalEntity = (input: {
+			name: string;
+			externalId: string;
+			entitySchemaSlug: string;
+			properties: Record<string, unknown>;
+		}) =>
+			api.call(
+				(c) =>
+					c.testSupport.createGlobalEntity({
+						payload: {
+							...input,
+							populatedAt,
+							providerId: SandboxProviderId.make(hardcover.providerId),
+							entitySchemaSlug: EntitySchemaSlug.make(input.entitySchemaSlug),
+						},
+					}),
+				adminHeaders(),
+			);
+
+		const book = yield* createGlobalEntity({
+			externalId,
+			name: options.bookName,
+			entitySchemaSlug: bookSchema.id,
+			properties: options.bookProperties ?? {},
+		});
+		const series = yield* createGlobalEntity({
+			properties: {},
+			name: options.seriesName,
+			entitySchemaSlug: seriesSchemaId,
+			externalId: `book-group-${externalId}`,
+		});
+		const sibling = yield* createGlobalEntity({
+			name: options.siblingName,
+			entitySchemaSlug: bookSchema.id,
+			externalId: `book-sibling-${externalId}`,
+			properties: options.siblingProperties ?? {},
+		});
+		yield* insertGlobalRelationship({
+			targetEntityId: book.id,
+			properties: { order: 1 },
+			sourceEntityId: series.id,
+			relationshipSchemaSlug: seriesToBook.id,
+		});
+		yield* insertGlobalRelationship({
+			properties: { order: 2 },
+			sourceEntityId: series.id,
+			targetEntityId: sibling.id,
+			relationshipSchemaSlug: seriesToBook.id,
+		});
+
+		if (options.withCredits !== true) {
+			return { book, series, sibling, credits: null };
+		}
+
+		const person = yield* createGlobalEntity({
+			properties: {},
+			entitySchemaSlug: personSchemaId,
+			name: `Credited Author ${externalId}`,
+			externalId: `book-person-${externalId}`,
+		});
+		const company = yield* createGlobalEntity({
+			properties: {},
+			entitySchemaSlug: companySchemaId,
+			name: `Credited Publisher ${externalId}`,
+			externalId: `book-company-${externalId}`,
+		});
+		const suggested = yield* createGlobalEntity({
+			properties: {},
+			entitySchemaSlug: bookSchema.id,
+			name: `Suggested Book ${externalId}`,
+			externalId: `book-suggested-${externalId}`,
+		});
+		yield* insertGlobalRelationship({
+			targetEntityId: book.id,
+			sourceEntityId: person.id,
+			relationshipSchemaSlug: personToBook.id,
+			properties: { order: 1, roles: ["Author"] },
+		});
+		yield* insertGlobalRelationship({
+			targetEntityId: book.id,
+			sourceEntityId: company.id,
+			relationshipSchemaSlug: companyToBook.id,
+			properties: { order: 1, roles: ["Publisher"] },
+		});
+		yield* insertGlobalRelationship({
+			properties: {},
+			sourceEntityId: book.id,
+			targetEntityId: suggested.id,
+			relationshipSchemaSlug: suggestion.id,
+		});
+		return { book, series, sibling, credits: { person, company, suggested } };
+	});
+
 export const insertLibraryMembership = (
 	client: Client,
 	input: { mediaEntityId: string; properties?: Record<string, unknown> },

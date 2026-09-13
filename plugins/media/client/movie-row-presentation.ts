@@ -1,1 +1,3 @@
-export { movieRowPresentation as default } from "./movie/presentation";
+import { movieSchema } from "./movie/schema";
+
+export default movieSchema.rowPresentation;

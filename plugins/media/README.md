@@ -7,40 +7,37 @@ schema; saved views do not declare sandbox scripts.
 
 ## Client
 
-The plugin client supplies a workspace home and `show`, `movie`, and `music` entity renderers. The
-Show screen uses five client-owned RyotQL recipes for summary, overview, seasons, episodes, and
-activity; the Movie and Music screens use three each, for summary, overview, and activity. Entity
-links use `PluginLink` so the kernel resolves canonical entity routes.
+The plugin client supplies a workspace home and `show`, `movie`, `music`, and `book` entity
+renderers. Entity links use `PluginLink` so the kernel resolves canonical entity routes.
 
-`client/media/` owns everything the screens share: the primitives, hero, tab bar, summary header,
-overview sections, image gallery, managed-asset wrappers, and the activity timeline engine. It is
-schema-agnostic, so screen-specific copy - lifecycle labels, beat wording, row labels - stays in
-`client/show/`, `client/movie/`, and `client/music/` and is passed in. `shared/media-recipes.ts` is
-the query-side counterpart: `shared/show-recipes.ts`, `shared/movie-recipes.ts`, and
-`shared/music-recipes.ts` compose their own recipes over its selections rather than parameterizing
-one recipe, so each result type keeps its exact field set.
+`client/media/` owns everything the screens share and carries no schema copy. Show composes it
+directly over its own recipes in `shared/show-recipes.ts`.
 
-Movie and Music are flat, non-episodic schemas, so they compose one flat-media engine -
-`detail-screen.tsx`, `entity-presentation.tsx`, `activity-tab.tsx`, `flat-activity-state.ts`, and
-`group-section.tsx` - instead of each restating a screen. A schema supplies a descriptor of its
-recipes, copy, facts, lifecycle labels, tabs, hero height, artwork aspect, and optional
-watch-provider selector, and keeps a thin named seam over the generic so its own tests mount its
-behaviour rather than the engine's.
+Movie, Music, and Book are flat, non-episodic schemas. Each is one `mediaFlatRecipes` config in
+`shared/<slug>-recipes.ts` - the fields its entity schema declares and a measure for activity totals -
+and one `defineFlatMediaSchema` descriptor in `client/<slug>/schema.tsx` holding its copy, facts,
+artwork aspect, and hero height. The factories build the summary, overview, activity, and
+presentation recipes, queries, screen, and row and card presentations. Every flat summary recipe
+returns `{ summary, entitySchemaSlug }`, and every activity recipe returns
+`{ completionCount, consumedAmount, unknownAmountCount, truncated, events }`.
 
 A schema selects only fields its own entity schema declares. `watchProviders` exists on `movie` and
-`show` alone, so it lives in `mediaWatchProviderSelection`, and `MediaOverview` renders "Where to
-watch" only for a screen that passes that field; Music passes none.
+`show` alone, so it lives in `mediaWatchProviderSelection`, and "Where to watch" renders only for a
+schema that passes that field.
 
-Movie and Music overviews add a "Part of" section listing the entity's group - a `movie-group`
-collection or a `music-group` album - and the other members of it. The relationship is authoritative
-from the group side, so the subject entity is excluded from its own rail, the section is hidden when
-the group is absent or has no other members, and the siblings' cover locators join the overview's
-managed-asset set so their tiles resolve real artwork.
+Flat overviews add a "Part of" section listing the entity's group and its other members. The
+relationship is authoritative from the group side, so the subject is excluded from its own rail, the
+section is hidden when the group is absent or has no other members, and member covers join the
+overview's managed-asset set.
 
-Album covers are square and posters are 2:3, so artwork aspect is a descriptor input. Track length
-renders as `m:ss` from `duration`, which music stores in seconds; activity totals stay in minutes, so
-the Music activity recipe divides by 60 when summing and the total rounds once. Music providers ship
-only cover art, so the Music hero uses art height at both widths.
+Movie and Music measure activity in minutes, falling back to runtime or `duration / 60` when a
+completion records no time spent; Music renders `duration` (seconds) as `m:ss`. Music and Book
+providers ship only cover art, so their heroes use art height at both widths.
+
+Book measures pages: its total sums the book's `pages` over completions and renders as `640+` when a
+completed book has no page count. Book overviews add the entity's `unlinkedCreators` to the credit
+rails as non-clickable tiles - `Publisher` with the companies, every other role with the people - and
+they do not count toward sync marks. The group section names the book series.
 
 Layout uses only the `compact` value from `useRyotViewport()`, not responsive Tailwind variants,
 because iframe media queries measure the content frame rather than the kernel viewport. Hero art fills

@@ -59,6 +59,7 @@ export function MediaDetailBody<
 	readonly refresh: () => void;
 	readonly loading: MediaStatusCopy;
 	readonly refreshOverview: () => void;
+	readonly overviewNoticeTitle: string;
 	readonly overviewLoadingDetail: string;
 	readonly summaryRefreshStatus: ReactNode;
 	readonly overviewRefreshStatus: ReactNode;
@@ -74,7 +75,7 @@ export function MediaDetailBody<
 	readonly overviewRelations: MediaOverviewRelationsRender<Overview>;
 	readonly summaryUnavailable: (reason: MediaSummaryUnavailableReason) => MediaStatusCopy;
 	readonly progress?: (summary: Summary) => { readonly percent: number } | undefined;
-	readonly watchProviders?: (summary: Summary) => MediaWatchProviders | undefined;
+	readonly watchProviders?: ((summary: Summary) => MediaWatchProviders | undefined) | undefined;
 }) {
 	const { state } = props;
 	const [activeTab, setActiveTab] = useState<TabKey>(props.overviewTab);
@@ -120,6 +121,7 @@ export function MediaDetailBody<
 					safeAreaTop={props.safeAreaTop}
 					relations={props.overviewRelations}
 					refreshOverview={props.refreshOverview}
+					noticeTitle={props.overviewNoticeTitle}
 					refreshStatus={props.overviewRefreshStatus}
 					loadingDetail={props.overviewLoadingDetail}
 					watchProviders={props.watchProviders?.(summary)}
