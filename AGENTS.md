@@ -24,6 +24,7 @@
 - Build application-owned query documents with `@ryot-app/ryotql` and use named recipes when available.
 - Colocate app-owned RyotQL result schemas, decoders, and decoded types with their recipes. Consumers must not parse generic `RowItem` values directly; reusable wire codecs belong in `@ryot-app/contract`, while presentation-only transformations remain consumer-owned.
 - Application-owned asynchronous work uses Effect; native Promises belong at platform and framework boundaries.
+- At APIs that natively require Promise-returning callbacks, prefer readable async/await with a narrow documented `effecttsgo/async-function` exemption; do not rewrite Promise boundaries as `.then` chains. Application-owned asynchronous orchestration remains Effect.
 - Resolve implementation dependencies in service constructors and Layers; service methods must not require their repositories or database session from callers.
 - Use `Effect.fn` or `Effect.fnUntraced` for reusable effectful operations, `Effect.gen` for local control flow, and `pipe` for short transformations.
 - Feature modules own their canonical Layers; boot modules compose feature Layers.
