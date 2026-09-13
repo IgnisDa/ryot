@@ -57,7 +57,7 @@ const staleTime = 30 * 1_000;
 const idleTTL = 5 * 60 * 1_000;
 const queryTypeId = Symbol("@ryot-app/client-sdk/react/query");
 const mutationTypeId = Symbol("@ryot-app/client-sdk/react/mutation");
-type PageRefreshHandle = () => void | Promise<void> | Effect.Effect<void>;
+type PageRefreshHandle = () => Effect.Effect<void>;
 type PageRefreshRegistry = {
 	readonly generation: () => number;
 	readonly hint: () => void;
@@ -318,18 +318,10 @@ const createPageRefreshRegistry = (schedule: RyotSchedule): ManagedPageRefreshRe
 			: [...catchUps].filter((handle) => handles.has(handle));
 		refreshAll = false;
 		catchUps.clear();
-		return Effect.forEach(
-			selected,
-			(handle) =>
-				Effect.suspend(() => {
-					const work = handle();
-					if (Effect.isEffect(work)) {
-						return work;
-					}
-					return Effect.promise(() => Promise.resolve(work));
-				}),
-			{ discard: true, concurrency: "unbounded" },
-		);
+		return Effect.forEach(selected, (handle) => Effect.suspend(handle), {
+			discard: true,
+			concurrency: "unbounded",
+		});
 	};
 	let refresh = createEntityRefresh(schedule, run);
 	let disposed = false;
@@ -629,10 +621,11 @@ const useQueryPageRefresh = <Data, Failure extends Error>(
 					registry.refresh(atom);
 				}
 			});
-			const invoke = () => {
-				consumed.generation = pageRegistry.generation();
-				current.hint();
-			};
+			const invoke = () =>
+				Effect.sync(() => {
+					consumed.generation = pageRegistry.generation();
+					current.hint();
+				});
 			const unregister = pageRegistry.register(invoke, consumed.generation);
 			current.dispose = () => {
 				unregister();
