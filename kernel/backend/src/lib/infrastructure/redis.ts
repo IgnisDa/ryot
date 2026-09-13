@@ -1,14 +1,11 @@
 import { jsonValueSchema } from "@ryot-app/contract/modules/sandbox/wire";
-import { SandboxScriptId, UserId } from "@ryot-app/contract/schema/brands";
-import { strictStruct } from "@ryot-app/contract/schema/utils";
-import { sha256Hex } from "@ryot-app/ts-utils/crypto";
+import { SandboxScriptId } from "@ryot-app/contract/schema/brands";
 import { Context, Effect, Layer, Redacted, Schema } from "effect";
 import Redis from "ioredis";
 
 import { AppConfig } from "./config/service";
 import { SandboxPluginRevision } from "./sandbox-runtime/execution-principal";
 
-export const CLIENT_PAGE_ARTIFACT_GRANT_TTL_SECONDS = 900;
 export const ENTITY_INTEREST_SESSION_TTL_SECONDS = 15 * 60;
 export const ENTITY_INTEREST_PROGRESSION_LEASE_SECONDS = 30;
 export const IMPORT_SOURCE_STATE_PENDING_TTL_SECONDS = 24 * 60 * 60;
@@ -31,17 +28,6 @@ export type ImportSourceState = typeof ImportSourceState.Type;
 
 export const ImportSourceStateFromJson = Schema.fromJsonString(ImportSourceState);
 
-const ClientPageArtifactGrantPayload = strictStruct({
-	userId: UserId,
-	artifactHash: Schema.String,
-});
-
-export const ClientPageArtifactGrantPayloadFromJson = Schema.fromJsonString(
-	ClientPageArtifactGrantPayload,
-);
-
-export const hashClientPageArtifactGrantToken = sha256Hex;
-
 export const redisKeys = {
 	entityUpdatedChannel: "ryot:entity:updated",
 	pluginCatalogChannel: "ryot:plugins:catalog",
@@ -53,7 +39,6 @@ export const redisKeys = {
 	uploadIntentLock: (intentId: string) => `ryot:upload:intent-lock:${intentId}`,
 	importAdapterResult: (runId: string) => `ryot:imports:adapter-result:${runId}`,
 	importSourceState: (stateId: string) => `ryot:imports:source-state:${stateId}`,
-	clientPageArtifactGrant: (grantId: string) => `ryot:client-pages:grant:${grantId}`,
 	godModeResetChannel: (correlationId: string) => `ryot:god-mode:reset:${correlationId}`,
 	entityInterestSession: (sessionId: string) => `ryot:entity-interest:session:${sessionId}`,
 	sandboxWorkflowJournal: (executionId: string) => `ryot:sandbox:workflow:${executionId}:journal`,
@@ -69,8 +54,6 @@ export const redisKeys = {
 		`ryot:imports:source-state:${stateId}:claim:${claimId}`,
 	providerSearchOptions: (providerId: string, scriptId: string) =>
 		`ryot:provider:search-options:${providerId}:${scriptId}`,
-	clientPageArtifactGrantForUser: (userId: string, artifactHash: string) =>
-		`ryot:client-pages:grant-user:${userId}:${artifactHash}`,
 	sandboxCache: (userId: string | null, scriptId: string, key: string) =>
 		`ryot:sandbox:cache:${userId === null ? "kernel" : `user:${userId}`}:${scriptId}:${key}`,
 	sandboxRunCache: (serverRunId: string, userId: string | null, scriptId: string, key: string) =>

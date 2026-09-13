@@ -38,6 +38,7 @@ export type AvailablePlugin = {
 	readonly id: string;
 	readonly slug: string;
 	readonly sourceHash: string;
+	readonly clientArtifactHash?: string | null;
 	readonly pluginRevisionId: string;
 	readonly pluginConfigRevisionId: string | null;
 	readonly isDisabled: boolean;
@@ -175,6 +176,7 @@ export class PluginRuntimeResolver extends Context.Service<PluginRuntimeResolver
 							installationId: schema.userPlugin.installationId,
 							pluginRevisionId: schema.userPlugin.activeRevisionId,
 							pluginConfigRevisionId: schema.userPlugin.configRevisionId,
+							clientArtifactHash: schema.pluginRevision.clientArtifactHash,
 							compiledHashes: sql<
 								Record<string, string>
 							>`coalesce((select jsonb_object_agg(s.slug, s.content_hash) from ${schema.sandboxScript} s where s.plugin_revision_id = ${schema.userPlugin.activeRevisionId}), '{}'::jsonb)`,

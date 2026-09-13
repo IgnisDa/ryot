@@ -680,7 +680,7 @@ export const createPluginRuntime = (
 		post({
 			format: metadata.format,
 			sessionId: init.sessionId,
-			artifactHash: metadata.hash,
+			compositionHash: metadata.hash,
 			apiVersion: metadata.apiVersion,
 			bridgeVersion: metadata.bridgeVersion,
 			compilerVersion: metadata.compilerVersion,

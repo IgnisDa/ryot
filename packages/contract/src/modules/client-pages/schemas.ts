@@ -113,15 +113,41 @@ export const ClientPageAutomaticRegistryIdentity = strictStruct({
 	exportSpecifier: Schema.String,
 	entitySchemaSlug: Schema.String,
 	layout: Schema.Literals(["grid", "list"]),
+	artifactClosure: Schema.Array(Schema.String),
 });
 
-export const ClientPageArtifactIdentity = strictStruct({
+export const ClientArtifactFileReference = strictStruct({
+	file: Schema.String,
+	artifactHash: Schema.String,
+});
+export type ClientArtifactFileReference = typeof ClientArtifactFileReference.Type;
+
+export const ClientCompositionModuleReference = strictStruct({
+	binding: Schema.String,
+	specifier: Schema.String,
+});
+export type ClientCompositionModuleReference = typeof ClientCompositionModuleReference.Type;
+
+export const ClientCompositionPresentationRegistration = strictStruct({
+	ownerPluginId: Schema.String,
+	entitySchemaSlug: Schema.String,
+	module: ClientCompositionModuleReference,
+	layout: Schema.Literals(["grid", "list"]),
+	artifactClosure: Schema.Array(Schema.String),
+	stylesheets: Schema.Array(ClientArtifactFileReference),
+});
+export type ClientCompositionPresentationRegistration =
+	typeof ClientCompositionPresentationRegistration.Type;
+
+export const ClientPageCompositionIdentity = strictStruct({
 	format: Schema.Int,
 	name: Schema.String,
 	apiVersion: Schema.Int,
 	bridgeVersion: Schema.Int,
 	compilerVersion: Schema.Int,
+	runtimeArtifactHash: Schema.String,
 	selectedExports: Schema.Array(Schema.String),
+	eagerArtifactHashes: Schema.Array(Schema.String),
 	application: Schema.Literals(["page", "plugin-route"]),
 	automaticRegistry: Schema.Array(ClientPageAutomaticRegistryIdentity),
 	entry: strictStruct({ path: Schema.String, contributor: Schema.String }),
@@ -146,6 +172,7 @@ export const ClientPageArtifactIdentity = strictStruct({
 				entry: Schema.String,
 				namespace: Schema.String,
 				sourceHash: Schema.String,
+				artifactHash: Schema.String,
 				kind: Schema.Literal("kernel-renderer"),
 				automaticEntityPresentations: Schema.Boolean,
 				pluginDependencies: Schema.Array(PluginSlug),
@@ -156,17 +183,39 @@ export const ClientPageArtifactIdentity = strictStruct({
 				namespace: Schema.String,
 				sourceHash: Schema.String,
 				kind: Schema.Literal("plugin"),
+				clientArtifactHash: Schema.String,
 				pluginDependencies: Schema.Array(PluginSlug),
 				exports: Schema.Array(ClientPagePublicExportIdentity),
 			}),
 		]),
 	),
 });
-export type ClientPageArtifactIdentity = typeof ClientPageArtifactIdentity.Type;
+export type ClientPageCompositionIdentity = typeof ClientPageCompositionIdentity.Type;
+
+export const ClientPageCompositionManifest = strictStruct({
+	bootstrap: ClientArtifactFileReference,
+	identity: ClientPageCompositionIdentity,
+	imports: Schema.Record(Schema.String, ClientArtifactFileReference),
+	descriptor: strictStruct({
+		application: Schema.Literals(["page", "plugin-route"]),
+		entry: Schema.optional(ClientCompositionModuleReference),
+		automaticRegistry: Schema.Array(ClientCompositionPresentationRegistration),
+		routes: Schema.optional(
+			strictStruct({
+				home: ClientCompositionModuleReference,
+				notFound: Schema.optional(ClientCompositionModuleReference),
+				routes: Schema.Array(
+					strictStruct({ path: Schema.String, module: ClientCompositionModuleReference }),
+				),
+			}),
+		),
+	}),
+});
+export type ClientPageCompositionManifest = typeof ClientPageCompositionManifest.Type;
 
 const PreparedClientPageIdentityBase = {
-	artifactKey: Schema.String,
-	artifactHash: Schema.String,
+	compositionKey: Schema.String,
+	compositionHash: Schema.String,
 	contributors: Schema.Array(ClientPageCodeContributor),
 	operationTargets: Schema.Array(ClientPageOperationTarget),
 } as const;
@@ -235,13 +284,17 @@ export const PreparedClientPageContext = strictStruct({
 export const PreparedClientPage = strictStruct({
 	context: PreparedClientPageContext,
 	identity: PreparedClientPageIdentity,
-	artifact: strictStruct({
+	composition: strictStruct({
 		format: Schema.Int,
 		hash: Schema.String,
 		apiVersion: Schema.Int,
 		bridgeVersion: Schema.Int,
 		compilerVersion: Schema.Int,
-		grant: strictStruct({ src: Schema.String, grantId: Schema.String, expiresAt: Schema.String }),
+		documentGrant: strictStruct({
+			src: Schema.String,
+			grantId: Schema.String,
+			expiresAt: Schema.String,
+		}),
 	}),
 });
 export type PreparedClientPage = typeof PreparedClientPage.Type;
@@ -249,7 +302,12 @@ export type PreparedClientPage = typeof PreparedClientPage.Type;
 export const CheckClientPageFreshnessBody = strictStruct({ identity: PreparedClientPageIdentity });
 export const CheckClientPageFreshnessResponse = strictStruct({ current: Schema.Boolean });
 
-export class ClientPageArtifactGrantNotFound extends Schema.TaggedError<ClientPageArtifactGrantNotFound>()(
-	"ClientPageArtifactGrantNotFound",
-	{ reason: strictStruct({ code: Schema.Literal("artifact-grant-not-found") }) },
+export class ClientDocumentGrantNotFound extends Schema.TaggedError<ClientDocumentGrantNotFound>()(
+	"ClientDocumentGrantNotFound",
+	{ reason: strictStruct({ code: Schema.Literal("document-grant-not-found") }) },
+) {}
+
+export class ClientAssetNotFound extends Schema.TaggedError<ClientAssetNotFound>()(
+	"ClientAssetNotFound",
+	{ reason: strictStruct({ code: Schema.Literal("client-asset-not-found") }) },
 ) {}
