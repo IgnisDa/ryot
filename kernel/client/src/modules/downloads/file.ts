@@ -2,13 +2,9 @@ import { Capacitor } from "@capacitor/core";
 import { FileTransfer, type DownloadFileOptions } from "@capacitor/file-transfer";
 import { Directory, Filesystem } from "@capacitor/filesystem";
 import { Share } from "@capacitor/share";
-import { Data, Effect, Option, Schema } from "effect";
-import type { HttpClient } from "effect/unstable/http";
-import { Headers, HttpClientRequest } from "effect/unstable/http";
+import { Context, Data, Effect, Layer, Option, Schema } from "effect";
 
-export type FileDownloadRequest = Pick<DownloadFileOptions, "url" | "headers"> & {
-	readonly fileName: string;
-};
+export type FileDownloadRequest = Pick<DownloadFileOptions, "url"> & { readonly fileName: string };
 
 export class FileDownloadError extends Data.TaggedError("FileDownloadError")<{
 	readonly cause: unknown;
@@ -38,12 +34,7 @@ export const makeNativeFileDownload = (ports: {
 		const uri = yield* ports.uri(`${directory}/${fileName}`);
 		// Native plugins cannot abort transfers or share sheets; cleanup must wait for their completion.
 		yield* ports
-			.transfer({
-				url: request.url,
-				...(request.headers === undefined ? {} : { headers: request.headers }),
-				path: uri,
-				disableRedirects: true,
-			})
+			.transfer({ path: uri, url: request.url, disableRedirects: true })
 			.pipe(Effect.uninterruptible);
 		yield* ports.share(uri).pipe(
 			Effect.catchIf(
@@ -83,39 +74,28 @@ const downloadNativeFile = makeNativeFileDownload({
 		}).pipe(Effect.map((result) => result.uri)),
 });
 
-export const downloadFile = Effect.fn("downloadFile")(function* (
-	http: HttpClient.HttpClient,
-	request: FileDownloadRequest,
-) {
+export const downloadFile = Effect.fn("downloadFile")(function* (request: FileDownloadRequest) {
 	if (Capacitor.isNativePlatform()) {
 		yield* downloadNativeFile(request);
-		return undefined;
+		return;
 	}
-	const response = yield* http
-		.execute(
-			HttpClientRequest.get(request.url).pipe(HttpClientRequest.setHeaders(request.headers ?? {})),
-		)
-		.pipe(Effect.mapError((cause) => new FileDownloadError({ cause })));
-	if (response.status < 200 || response.status >= 300) {
-		return yield* new FileDownloadError({ cause: response.status, status: response.status });
-	}
-	const buffer = yield* response.arrayBuffer.pipe(
-		Effect.mapError((cause) => new FileDownloadError({ cause })),
-	);
-	const contentType = Option.getOrElse(
-		Headers.get(response.headers, "content-type"),
-		() => "application/octet-stream",
-	);
-	return new Blob([buffer], { type: contentType });
+	yield* Effect.try({
+		catch: (cause) => new FileDownloadError({ cause }),
+		try: () => {
+			const anchor = document.createElement("a");
+			anchor.href = request.url;
+			anchor.rel = "noreferrer";
+			anchor.referrerPolicy = "no-referrer";
+			document.body.append(anchor);
+			anchor.click();
+			anchor.remove();
+		},
+	});
 });
 
-export const saveDownloadedFile = (blob: Blob, fileName: string) => {
-	const url = URL.createObjectURL(blob);
-	const anchor = document.createElement("a");
-	anchor.href = url;
-	anchor.download = fileName;
-	document.body.append(anchor);
-	anchor.click();
-	anchor.remove();
-	URL.revokeObjectURL(url);
-};
+export class FileDownloads extends Context.Service<
+	FileDownloads,
+	{ readonly download: typeof downloadFile }
+>()("FileDownloads", { make: Effect.succeed({ download: downloadFile }) }) {
+	static readonly layer = Layer.effect(this, this.make);
+}

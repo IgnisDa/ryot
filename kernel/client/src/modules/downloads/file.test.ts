@@ -60,7 +60,6 @@ const makePorts = (
 const request = {
 	fileName: "server.log",
 	url: "https://logs.example/server.log",
-	headers: { Authorization: "Bearer test-token" },
 } satisfies FileDownloadRequest;
 
 describe("native file downloads", () => {
@@ -75,12 +74,7 @@ describe("native file downloads", () => {
 			expect(directory).toMatch(/^ryot-download-/);
 			expect(calls.uriPaths).toEqual([`${directory}/server.log`]);
 			expect(calls.transfers).toEqual([
-				{
-					url: request.url,
-					disableRedirects: true,
-					headers: request.headers,
-					path: `native://${directory}/server.log`,
-				},
+				{ url: request.url, disableRedirects: true, path: `native://${directory}/server.log` },
 			]);
 			expect(calls.shared).toEqual([`native://${directory}/server.log`]);
 			expect(calls.removed).toEqual([directory]);

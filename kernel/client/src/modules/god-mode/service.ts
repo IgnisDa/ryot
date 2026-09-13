@@ -10,7 +10,6 @@ import {
 import { Context, Data, Effect, Layer } from "effect";
 
 import { GodModeApi } from "#/api/god-mode";
-import { saveDownloadedFile } from "#/modules/downloads/file";
 import { GodModeSessionService } from "#/modules/god-mode/session";
 import {
 	type GodModeUserResetResult,
@@ -56,10 +55,7 @@ export class GodModeService extends Context.Service<GodModeService>()("GodModeSe
 			file?: GodModeLogs["files"][number],
 		) {
 			const { token, origin } = yield* credentials(sessionId);
-			const { blob, fileName } = yield* api.downloadLogs(origin, token, file);
-			if (blob !== undefined) {
-				yield* Effect.sync(() => saveDownloadedFile(blob, fileName));
-			}
+			yield* api.downloadLogs(origin, token, file);
 		});
 		const listUsers = Effect.fn("GodModeService.listUsers")(function* (
 			sessionId: string,

@@ -23,8 +23,13 @@ import { UploadsApi } from "#/api/uploads";
 import { UserSettingsApi } from "#/api/user-settings";
 import { RuntimeOAuthClientService } from "#/modules/auth/runtime-client";
 import { OAuthTokenService } from "#/modules/auth/token-service";
+import { FileDownloads } from "#/modules/downloads/file";
 
-export const TransportLive = Layer.mergeAll(AdminApi.layer, AuthenticatedApi.layer).pipe(
+export const TransportLive = Layer.mergeAll(
+	AdminApi.layer.pipe(Layer.provide(FileDownloads.layer)),
+	AuthenticatedApi.layer,
+	FileDownloads.layer,
+).pipe(
 	Layer.provideMerge(OAuthTokenService.layer),
 	Layer.provideMerge(RuntimeOAuthClientService.layer),
 	Layer.provideMerge(FetchHttpClient.layer),

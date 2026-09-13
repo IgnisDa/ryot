@@ -6,8 +6,7 @@ import { createFileRoute, notFound, useRouter } from "@tanstack/react-router";
 import { Effect } from "effect";
 import { useEffect, useRef, useState, type ReactNode } from "react";
 
-import { importRunFailuresFileName, ImportsApi } from "#/api/imports";
-import { saveDownloadedFile } from "#/modules/downloads/file";
+import { ImportsApi } from "#/api/imports";
 import { ImportRunView, type ImportRunDetailState } from "#/modules/imports/import-run-view";
 import {
 	canDeleteImportRun,
@@ -194,13 +193,6 @@ function ImportRunRoute() {
 		setFailureDownload({ runId, status: "downloading" });
 		runtime.runFork(
 			Effect.flatMap(ImportsApi, (api) => api.downloadFailures(scope, runId)).pipe(
-				Effect.tap((blob) =>
-					Effect.sync(() => {
-						if (blob !== undefined) {
-							saveDownloadedFile(blob, importRunFailuresFileName(runId));
-						}
-					}),
-				),
 				Effect.match({
 					onSuccess: () => setFailureDownload(undefined),
 					onFailure: () => setFailureDownload({ runId, status: "failed" }),
