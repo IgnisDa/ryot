@@ -94,7 +94,7 @@ export const ProcessGenericImportChunksPayload = Schema.Struct({
 	),
 );
 
-const failureReasonByStage = {
+export const failureReasonByStage = {
 	event_policy: { code: "event-policy-failed" },
 	source_fetch: { code: "source-fetch-failed" },
 	database_commit: { code: "database-commit-failed" },
@@ -113,14 +113,14 @@ export const ProcessGenericImportChunksWorkflow = Workflow.make(
 	},
 );
 
-const GenericImportEntity = Schema.Struct({ entityId: EntityId });
+export const GenericImportEntity = Schema.Struct({ entityId: EntityId });
 
 const GenericImportProvider = Schema.Struct({
 	id: SandboxProviderId,
 	pluginScope: Schema.Literals(["system", "user"]),
 });
 
-class GenericImportProviderError extends Schema.TaggedError<GenericImportProviderError>()(
+export class GenericImportProviderError extends Schema.TaggedError<GenericImportProviderError>()(
 	"GenericImportProviderError",
 	{ message: Schema.String, stage: Schema.Literals(["provider_resolution", "provider_details"]) },
 ) {}
@@ -157,80 +157,82 @@ const itemCommand = (
 	itemIdentity: stableStringify([command.itemIdentity, "item", itemIndex, phase, identity]),
 });
 
-const prepareGenericImportEntity = Effect.fn("imports.prepareGenericImportEntity")(function* (
-	intent: GenericImportWriteItem["entities"][number],
-	userId: UserId,
-	lifecycle: LifecycleCommand,
-) {
-	const entities = yield* EntitiesService;
-	const repository = yield* EntitiesRepository;
-	let entityId: EntityId | undefined;
-	if (intent.entityId) {
-		const existing = yield* repository.getByIdForUser({
-			userId,
-			entityId: EntityId.make(intent.entityId),
-		});
-		if (!existing || existing.entitySchemaSlug !== intent.entitySchemaSlug) {
+export const prepareGenericImportEntity = Effect.fn("imports.prepareGenericImportEntity")(
+	function* (
+		intent: GenericImportWriteItem["entities"][number],
+		userId: UserId,
+		lifecycle: LifecycleCommand,
+	) {
+		const entities = yield* EntitiesService;
+		const repository = yield* EntitiesRepository;
+		let entityId: EntityId | undefined;
+		if (intent.entityId) {
+			const existing = yield* repository.getByIdForUser({
+				userId,
+				entityId: EntityId.make(intent.entityId),
+			});
+			if (!existing || existing.entitySchemaSlug !== intent.entitySchemaSlug) {
+				return yield* new ImportRunError({
+					message: "Import entity id is unavailable or has the wrong schema",
+				});
+			}
+			entityId = existing.id;
+		} else if (intent.match) {
+			const candidates = yield* repository.listMatchCandidatesBySchema({
+				userId,
+				entitySchemaSlug: EntitySchemaSlug.make(intent.entitySchemaSlug),
+			});
+			const scopedCandidates = intent.scope
+				? yield* Effect.forEach(candidates, (candidate) =>
+						repository
+							.getEntityScopeForUser({ userId, entityId: candidate.id })
+							.pipe(
+								Effect.map((scope) =>
+									(
+										intent.scope === "user"
+											? scope?.entityUserId === userId
+											: scope?.entityUserId === null
+									)
+										? [candidate]
+										: [],
+								),
+							),
+					).pipe(Effect.map((groups) => groups.flat()))
+				: candidates;
+			const existing = scopedCandidates.find((candidate) => matchesImportIntent(candidate, intent));
+			entityId = existing?.id;
+		}
+		if (entityId && intent.scope && intent.entityId) {
+			const scope = yield* repository.getEntityScopeForUser({ userId, entityId });
+			const matchesScope =
+				intent.scope === "user" ? scope?.entityUserId === userId : scope?.entityUserId === null;
+			if (!matchesScope) {
+				entityId = undefined;
+			}
+		}
+		if (!entityId && intent.existingOnly) {
 			return yield* new ImportRunError({
-				message: "Import entity id is unavailable or has the wrong schema",
+				message: `Required import entity '${intent.alias}' was not found`,
 			});
 		}
-		entityId = existing.id;
-	} else if (intent.match) {
-		const candidates = yield* repository.listMatchCandidatesBySchema({
+		if (entityId) {
+			return {
+				dispatch: [],
+				_tag: "Committed",
+				result: { entityId },
+			} satisfies LifecycleCommittedStep<typeof GenericImportEntity.Type>;
+		}
+		const prepared = yield* entities.prepareCreateStep({
 			userId,
+			lifecycle,
+			scope: "user",
+			name: intent.name,
+			properties: intent.properties,
 			entitySchemaSlug: EntitySchemaSlug.make(intent.entitySchemaSlug),
 		});
-		const scopedCandidates = intent.scope
-			? yield* Effect.forEach(candidates, (candidate) =>
-					repository
-						.getEntityScopeForUser({ userId, entityId: candidate.id })
-						.pipe(
-							Effect.map((scope) =>
-								(
-									intent.scope === "user"
-										? scope?.entityUserId === userId
-										: scope?.entityUserId === null
-								)
-									? [candidate]
-									: [],
-							),
-						),
-				).pipe(Effect.map((groups) => groups.flat()))
-			: candidates;
-		const existing = scopedCandidates.find((candidate) => matchesImportIntent(candidate, intent));
-		entityId = existing?.id;
-	}
-	if (entityId && intent.scope && intent.entityId) {
-		const scope = yield* repository.getEntityScopeForUser({ userId, entityId });
-		const matchesScope =
-			intent.scope === "user" ? scope?.entityUserId === userId : scope?.entityUserId === null;
-		if (!matchesScope) {
-			entityId = undefined;
-		}
-	}
-	if (!entityId && intent.existingOnly) {
-		return yield* new ImportRunError({
-			message: `Required import entity '${intent.alias}' was not found`,
-		});
-	}
-	if (entityId) {
-		return {
-			dispatch: [],
-			_tag: "Committed",
-			result: { entityId },
-		} satisfies LifecycleCommittedStep<typeof GenericImportEntity.Type>;
-	}
-	const prepared = yield* entities.prepareCreateStep({
-		userId,
-		lifecycle,
-		scope: "user",
-		name: intent.name,
-		properties: intent.properties,
-		entitySchemaSlug: EntitySchemaSlug.make(intent.entitySchemaSlug),
-	});
-	return mapCommittedResult(prepared, ({ entity }) => ({ entityId: entity.id }));
-});
+		return mapCommittedResult(prepared, ({ entity }) => ({ entityId: entity.id }));
+	},
+);
 
 const resolveGenericImportProvider = (
 	intent: GenericImportWriteItem["entities"][number],
@@ -265,7 +267,7 @@ const resolveGenericImportProvider = (
 		}).pipe(Effect.mapError(toWorkflowError)),
 	});
 
-const resolveProviderEntity = Effect.fn("imports.resolveProviderEntity")(function* (
+export const resolveProviderEntity = Effect.fn("imports.resolveProviderEntity")(function* (
 	intent: GenericImportWriteItem["entities"][number],
 	userId: UserId,
 	command: LifecycleCommand,
@@ -439,7 +441,7 @@ const validateGenericItem = (
 		}).pipe(Effect.mapError(toWorkflowError)),
 	});
 
-const runImportWriteStep = <Result, Pending, E1, E2, E3, R1, R2, R3>(options: {
+export const runImportWriteStep = <Result, Pending, E1, E2, E3, R1, R2, R3>(options: {
 	readonly name: string;
 	readonly result: Schema.Codec<Result, unknown>;
 	readonly pending: Schema.Codec<Pending, unknown>;

@@ -169,6 +169,15 @@ CREATE TABLE "client_page_composition" (
 	"created_at" timestamp with time zone DEFAULT now() NOT NULL
 );
 --> statement-breakpoint
+CREATE TABLE "data_import_submission" (
+	"key" text NOT NULL,
+	"run_id" text NOT NULL,
+	"digest" text NOT NULL,
+	"upload_token_hashes" text[] DEFAULT '{}'::text[] NOT NULL,
+	"integration_id" text,
+	"user_id" text NOT NULL
+);
+--> statement-breakpoint
 CREATE TABLE "definition_entity_schema" (
 	"slug" text NOT NULL,
 	"name" text NOT NULL,
@@ -309,6 +318,7 @@ CREATE TABLE "import_run" (
 	"finished_at" timestamp with time zone,
 	"integration_lot" text,
 	"processed_items" integer DEFAULT 0 NOT NULL,
+	"data_document" jsonb,
 	"source" text NOT NULL,
 	"failure_reason" jsonb,
 	"created_at" timestamp with time zone DEFAULT now() NOT NULL,
@@ -339,7 +349,7 @@ CREATE TABLE "import_run_failure" (
 CREATE TABLE "integration" (
 	"name" text,
 	"webhook_token" text,
-	"plugin_installation_id" text NOT NULL,
+	"plugin_installation_id" text,
 	"lot" text NOT NULL,
 	"is_disabled" boolean DEFAULT false NOT NULL,
 	"sync_ownership" boolean DEFAULT false NOT NULL,
@@ -355,6 +365,7 @@ CREATE TABLE "integration" (
 	"id" text PRIMARY KEY,
 	"updated_at" timestamp with time zone DEFAULT now() NOT NULL,
 	CONSTRAINT "integration_oauth_owner_unique" UNIQUE("id","user_id","plugin_installation_id","provider"),
+	CONSTRAINT "integration_owner_check" CHECK (("plugin_installation_id" is null and "provider" = 'data-json' and "lot" = 'sink') or ("plugin_installation_id" is not null and "provider" <> 'data-json')),
 	CONSTRAINT "integration_webhook_token_lot_check" CHECK (("lot" = 'sink') = ("webhook_token" is not null))
 );
 --> statement-breakpoint
@@ -851,6 +862,7 @@ CREATE INDEX "backup_run_user_id_idx" ON "backup_run" ("user_id");--> statement-
 CREATE INDEX "backup_run_status_idx" ON "backup_run" ("status");--> statement-breakpoint
 CREATE INDEX "backup_run_expires_at_idx" ON "backup_run" ("expires_at");--> statement-breakpoint
 CREATE UNIQUE INDEX "backup_run_user_active_unique" ON "backup_run" ("user_id") WHERE "status" in ('pending', 'running');--> statement-breakpoint
+CREATE UNIQUE INDEX "data_import_submission_identity_unique" ON "data_import_submission" ("user_id",coalesce("integration_id", ''),"key");--> statement-breakpoint
 CREATE INDEX "definition_entity_schema_slug_idx" ON "definition_entity_schema" ("slug");--> statement-breakpoint
 CREATE INDEX "definition_import_source_slug_idx" ON "definition_import_source" ("slug");--> statement-breakpoint
 CREATE INDEX "definition_integration_provider_slug_idx" ON "definition_integration_provider" ("slug");--> statement-breakpoint
@@ -954,6 +966,8 @@ ALTER TABLE "automation_trigger_recipient" ADD CONSTRAINT "automation_trigger_re
 ALTER TABLE "automation_trigger_recipient" ADD CONSTRAINT "automation_trigger_recipient_79FlgkqvTsH0_fkey" FOREIGN KEY ("trigger_id") REFERENCES "automation_trigger"("id") ON DELETE CASCADE;--> statement-breakpoint
 ALTER TABLE "backup_run" ADD CONSTRAINT "backup_run_user_id_user_id_fkey" FOREIGN KEY ("user_id") REFERENCES "user"("id") ON DELETE CASCADE;--> statement-breakpoint
 ALTER TABLE "client_artifact_file" ADD CONSTRAINT "client_artifact_file_artifact_hash_client_artifact_hash_fkey" FOREIGN KEY ("artifact_hash") REFERENCES "client_artifact"("hash");--> statement-breakpoint
+ALTER TABLE "data_import_submission" ADD CONSTRAINT "data_import_submission_integration_id_integration_id_fkey" FOREIGN KEY ("integration_id") REFERENCES "integration"("id") ON DELETE CASCADE;--> statement-breakpoint
+ALTER TABLE "data_import_submission" ADD CONSTRAINT "data_import_submission_user_id_user_id_fkey" FOREIGN KEY ("user_id") REFERENCES "user"("id") ON DELETE CASCADE;--> statement-breakpoint
 ALTER TABLE "definition_entity_schema" ADD CONSTRAINT "definition_entity_schema_cgKz3LGPs2D1_fkey" FOREIGN KEY ("plugin_revision_id") REFERENCES "plugin_revision"("id") ON DELETE CASCADE;--> statement-breakpoint
 ALTER TABLE "definition_event_schema" ADD CONSTRAINT "definition_event_schema_teyj1WWBsLDW_fkey" FOREIGN KEY ("entity_schema_id") REFERENCES "definition_entity_schema"("id") ON DELETE CASCADE;--> statement-breakpoint
 ALTER TABLE "definition_import_source" ADD CONSTRAINT "definition_import_source_9QXqIT7s6wRv_fkey" FOREIGN KEY ("plugin_revision_id") REFERENCES "plugin_revision"("id") ON DELETE CASCADE;--> statement-breakpoint
@@ -1105,6 +1119,9 @@ CREATE VIEW "user_import_source" AS (
 			join definition_import_source d on d.plugin_revision_id = p.active_revision_id
 			left join sandbox_script s on s.plugin_revision_id = d.plugin_revision_id and s.slug = d.workflow_script_slug
 			where p.is_executable and not exists (select 1 from "user_plugin" sp join definition_import_source g on g.plugin_revision_id = sp.active_revision_id where sp.user_id = p.user_id and sp.plugin_id <> p.plugin_id and sp.scope = 'system' and sp.is_executable and g.slug = d.slug)
+			union all
+			select u.id, 'kernel:data-json:' || u.id, null::text, null::text, null::text, null::text, null::text, null::text, 'data-json', 'Data import', 'Import generic entities, relationships, and events from JSON.', 0, 'data-json', null::text, '{"unknownKeys":"strict","fields":{"submissionKey":{"type":"string","label":"Submission key","description":"Optional key to reuse the same run when retrying this submission."},"uploadToken":{"type":"string","label":"JSON file","validation":{"required":true},"description":"A Ryot data document using existing schemas.","format":{"kind":"upload","allowedFileExtensions":["json"]}}}}'::jsonb, '{}'::text[], null::jsonb
+			from "user" u
 		);--> statement-breakpoint
 CREATE VIEW "user_integration_provider" AS (
 			select p.user_id, d.id, p.plugin_id, d.plugin_revision_id, p.slug as plugin_slug, p.scope as plugin_scope, p.installation_id, p.config_revision_id, d.slug, d.name, d.description, d.position, d.lot, d.script_slug, s.id as script_id, d.settings_schema, d.requires_pro_key, d.supports_ownership_sync
@@ -1112,6 +1129,9 @@ CREATE VIEW "user_integration_provider" AS (
 			join definition_integration_provider d on d.plugin_revision_id = p.active_revision_id
 			left join sandbox_script s on s.plugin_revision_id = d.plugin_revision_id and s.slug = d.script_slug
 			where p.is_executable and not exists (select 1 from "user_plugin" sp join definition_integration_provider g on g.plugin_revision_id = sp.active_revision_id where sp.user_id = p.user_id and sp.plugin_id <> p.plugin_id and sp.scope = 'system' and sp.is_executable and g.slug = d.slug)
+			union all
+			select u.id, 'kernel:data-json:' || u.id, null::text, null::text, null::text, null::text, null::text, null::text, 'data-json', 'Data webhook', 'Receive generic entities, relationships, and events as JSON.', 0, 'sink', null::text, null::text, '{"fields":{},"unknownKeys":"strict"}'::jsonb, false, false
+			from "user" u
 		);--> statement-breakpoint
 CREATE VIEW "user_relationship_schema" AS (
 			select u.id as user_id, d.id, null::text as plugin_id, d.plugin_revision_id, null::text as plugin_slug, null::text as plugin_scope, d.slug, d.name, d.position, d.source_entity_schema_slug, d.target_entity_schema_slug, d.properties_schema, true as is_effective

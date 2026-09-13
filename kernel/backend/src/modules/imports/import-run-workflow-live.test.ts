@@ -29,12 +29,14 @@ import {
 	makeRedisService,
 	makeWorkflowEngine,
 } from "#lib/test-utils/effect";
+import { DefinitionRepository } from "#modules/definition-registry/repository";
 import { SandboxExecutionService } from "#modules/sandbox/service";
 
 import { ImportRunFailuresService } from "./failure-service";
 import { ProcessImportRunWorkflow } from "./import-run-workflow";
 import { runProcessImportRunWorkflow } from "./import-run-workflow-live";
 import type { ImportRunJobData } from "./jobs";
+import { ImportsRepository } from "./repository";
 import { ImportSourceStateStore } from "./runtime/source-state-store";
 import { ImportRunArtifacts } from "./runtime/workflow-helpers";
 import { ImportsService } from "./service";
@@ -179,6 +181,8 @@ const makeHarness = (
 		),
 		Layer.mock(ImportsService)({}),
 		Layer.mock(ImportRunFailuresService)({}),
+		Layer.mock(DefinitionRepository)({}),
+		Layer.mock(ImportsRepository)({}),
 	);
 };
 

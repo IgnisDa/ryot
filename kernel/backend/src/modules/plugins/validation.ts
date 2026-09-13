@@ -1,3 +1,4 @@
+import { dataJsonSource } from "@ryot-app/contract/modules/imports/data-json";
 import {
 	importInternalPropertyNames,
 	isImportUploadTokenField,
@@ -271,10 +272,16 @@ export const validatePluginManifestReferences = (
 		}
 
 		for (const source of manifest.importSources) {
+			if (source.slug === dataJsonSource) {
+				return yield* fail("Data import is kernel-owned");
+			}
 			yield* assertSlug("import source", source.slug);
 			yield* assertReference("Import source", source.workflowSlug, workflowSlugs);
 		}
 		for (const provider of manifest.integrationProviders) {
+			if (provider.slug === dataJsonSource) {
+				return yield* fail("Data webhook is kernel-owned");
+			}
 			yield* assertSlug("integration provider", provider.slug);
 			if (provider.lot !== "push") {
 				yield* assertReference("Integration provider", provider.scriptSlug, scriptSlugs);

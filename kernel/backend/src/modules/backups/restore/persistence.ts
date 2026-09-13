@@ -200,11 +200,24 @@ export class BackupRestorePersistence extends Context.Service<BackupRestorePersi
 					readonly minimumProgress: string;
 					readonly maximumProgress: string;
 					readonly lastFinishedAt: Date | null;
-					readonly pluginInstallationId: string;
 					readonly provider: IntegrationProvider;
+					readonly pluginInstallationId: string | null;
 					readonly extraSettings: IntegrationExtraSettings;
 					readonly providerSpecifics: IntegrationProviderSettings;
 				}) {
+					if (input.pluginInstallationId === null) {
+						yield* session.run((db) =>
+							db
+								.insert(schema.integration)
+								.values({
+									...input,
+									webhookToken: crypto.randomUUID(),
+									clientProviderSpecifics: input.providerSpecifics,
+								}),
+						);
+						return;
+					}
+					const installationId = input.pluginInstallationId;
 					yield* session.run((db) =>
 						db
 							.select({ id: schema.plugin.id })
@@ -213,7 +226,7 @@ export class BackupRestorePersistence extends Context.Service<BackupRestorePersi
 								schema.pluginInstallation,
 								eq(schema.pluginInstallation.pluginId, schema.plugin.id),
 							)
-							.where(eq(schema.pluginInstallation.id, input.pluginInstallationId))
+							.where(eq(schema.pluginInstallation.id, installationId))
 							.for("share", { of: schema.plugin }),
 					);
 					const [provider] = yield* session.run((db) =>
@@ -231,7 +244,7 @@ export class BackupRestorePersistence extends Context.Service<BackupRestorePersi
 									eq(schema.definitionIntegrationProvider.slug, input.provider),
 								),
 							)
-							.where(eq(schema.pluginInstallation.id, input.pluginInstallationId))
+							.where(eq(schema.pluginInstallation.id, installationId))
 							.limit(1),
 					);
 					yield* session.run((db) =>

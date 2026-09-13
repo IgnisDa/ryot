@@ -17,6 +17,7 @@ import {
 	type MockOverrides,
 	type WorkflowEngineOverrides,
 } from "#lib/test-utils/effect";
+import { DataImportAdmission } from "#modules/imports/data-admission";
 import { ImportsService } from "#modules/imports/service";
 import { OAuthConnectionsService } from "#modules/oauth-connections/service";
 import {
@@ -130,6 +131,7 @@ const makeServiceLayer = (options: {
 		Layer.provideMerge(
 			Layer.mergeAll(
 				databaseLayer,
+				Layer.mock(DataImportAdmission)({}),
 				mockProKey(options.proKey ?? true),
 				Layer.unwrap(
 					Effect.gen(function* () {
