@@ -5,6 +5,7 @@ import type {
 	ProviderDetailsResult,
 } from "@ryot-app/sandbox-sdk/provider";
 
+import type { ShowEpisodeOrder } from "../../../../shared/show-episode-order";
 import { parsePublishYear } from "../../../lib/parse-publish-year";
 import { type UnknownRecord, numberValue, recordsValue, stringValue } from "../../../lib/records";
 import {
@@ -18,6 +19,61 @@ import {
 	tmdbGet,
 	type TmdbHost,
 } from "../../../lib/vendors/tmdb";
+
+/** TMDB episode group types 1 through 7, in TMDB's numbering. */
+const tmdbEpisodeOrderTypes: readonly ShowEpisodeOrder["type"][] = [
+	"original-air-date",
+	"absolute",
+	"dvd",
+	"digital",
+	"story-arc",
+	"production",
+	"tv",
+];
+
+const byOrder = <A>(items: readonly A[], order: (item: A) => unknown) =>
+	items
+		.map((item, index) => ({ item, position: numberValue(order(item)) ?? index }))
+		.sort((left, right) => left.position - right.position);
+
+/** An order's identity from TMDB's episode group list; its groups come from the group itself. */
+const episodeOrderHeader = (listEntry: UnknownRecord) => {
+	const externalId = stringValue(listEntry["id"]);
+	const name = stringValue(listEntry["name"]);
+	const typeValue = numberValue(listEntry["type"]);
+	const type = typeValue === null ? undefined : tmdbEpisodeOrderTypes[typeValue - 1];
+	if (!externalId || !name || type === undefined) {
+		return null;
+	}
+	return { name, type, externalId, description: stringValue(listEntry["description"]) };
+};
+
+const episodeOrderGroups = (orderData: UnknownRecord): ShowEpisodeOrder["groups"] =>
+	byOrder(recordsValue(orderData["groups"]), (group) => group["order"]).map(
+		({ position, item: group }) => ({
+			order: Math.trunc(position),
+			name: stringValue(group["name"]) ?? `Group ${Math.trunc(position)}`,
+			episodeExternalIds: byOrder(
+				recordsValue(group["episodes"]),
+				(episode) => episode["order"],
+			).flatMap(({ item: episode }) => {
+				const episodeId = numberValue(episode["id"]);
+				return episodeId === null || episodeId <= 0 ? [] : [String(Math.trunc(episodeId))];
+			}),
+		}),
+	);
+
+/** Loads every item five requests at a time, keeping the input order. */
+const loadInBatches = <A, B>(items: readonly A[], load: (item: A) => Effect.Effect<B, unknown>) =>
+	Array.from({ length: Math.ceil(items.length / 5) }, (_, index) =>
+		items.slice(index * 5, index * 5 + 5),
+	).reduce<Effect.Effect<B[], unknown>>(
+		(loaded, batch) =>
+			Effect.flatMap(loaded, (results) =>
+				Effect.map(Effect.all(batch.map(load)), (batchResults) => [...results, ...batchResults]),
+			),
+		Effect.succeed([]),
+	);
 
 const buildSeason = (
 	parentShowExternalId: string,
@@ -85,6 +141,7 @@ const buildDetailsResult = (
 	recommendationsData: UnknownRecord,
 	watchProvidersData: UnknownRecord,
 	seasonDataList: readonly UnknownRecord[],
+	episodeOrders: readonly ShowEpisodeOrder[],
 ): ProviderDetailsResult => {
 	const title = stringValue(showData["name"]);
 	if (!title) {
@@ -111,6 +168,7 @@ const buildDetailsResult = (
 		expectedChildEntitySchemaSlug: "show-season",
 		properties: {
 			totalEpisodes,
+			episodeOrders,
 			providerRating,
 			unlinkedCreators,
 			totalSeasons: childEntities.length,
@@ -167,34 +225,39 @@ export const getTmdbShowDetails = (
 		return Effect.fail(new Error("externalId must be a numeric TMDB show ID"));
 	}
 	return Effect.gen(function* () {
-		const [showData, imagesData, creditsData, recommendationsData, watchProvidersData] =
-			yield* Effect.all([
-				tmdbGet(host, `/tv/${input.externalId}`, { language }, token),
-				tmdbGet(host, `/tv/${input.externalId}/images`, {}, token),
-				tmdbGet(host, `/tv/${input.externalId}/credits`, { language }, token),
-				tmdbGet(host, `/tv/${input.externalId}/recommendations`, { language }, token),
-				tmdbGet(host, `/tv/${input.externalId}/watch/providers`, {}, token),
-			]);
+		const [
+			showData,
+			imagesData,
+			creditsData,
+			recommendationsData,
+			watchProvidersData,
+			episodeOrderListData,
+		] = yield* Effect.all([
+			tmdbGet(host, `/tv/${input.externalId}`, { language }, token),
+			tmdbGet(host, `/tv/${input.externalId}/images`, {}, token),
+			tmdbGet(host, `/tv/${input.externalId}/credits`, { language }, token),
+			tmdbGet(host, `/tv/${input.externalId}/recommendations`, { language }, token),
+			tmdbGet(host, `/tv/${input.externalId}/watch/providers`, {}, token),
+			tmdbGet(host, `/tv/${input.externalId}/episode_groups`, { language }, token),
+		]);
 		const seasonNumbers = recordsValue(showData["seasons"]).flatMap((season) => {
 			const value = numberValue(season["season_number"]);
 			return value === null ? [] : [Math.trunc(value)];
 		});
-		const batches = Array.from({ length: Math.ceil(seasonNumbers.length / 5) }, (_, index) =>
-			seasonNumbers.slice(index * 5, index * 5 + 5),
+		const seasonDataList = yield* loadInBatches(seasonNumbers, (number) =>
+			tmdbGet(host, `/tv/${input.externalId}/season/${number}`, { language }, token),
 		);
-		const seasonDataList = yield* batches.reduce<Effect.Effect<UnknownRecord[], unknown>>(
-			(seasons, batch) =>
-				Effect.flatMap(seasons, (loaded) =>
-					Effect.map(
-						Effect.all(
-							batch.map((number) =>
-								tmdbGet(host, `/tv/${input.externalId}/season/${number}`, { language }, token),
-							),
-						),
-						(results) => [...loaded, ...results],
-					),
-				),
-			Effect.succeed([]),
+		const episodeOrderHeaders = recordsValue(episodeOrderListData["results"]).flatMap((entry) => {
+			const header = episodeOrderHeader(entry);
+			return header ? [header] : [];
+		});
+		const episodeOrders = yield* loadInBatches(episodeOrderHeaders, (header) =>
+			tmdbGet(
+				host,
+				`/tv/episode_group/${encodeURIComponent(header.externalId)}`,
+				{ language },
+				token,
+			).pipe(Effect.map((orderData) => ({ ...header, groups: episodeOrderGroups(orderData) }))),
 		);
 		return yield* Effect.try({
 			catch: (error) => (error instanceof Error ? error : new Error(String(error))),
@@ -207,6 +270,7 @@ export const getTmdbShowDetails = (
 					recommendationsData,
 					watchProvidersData,
 					seasonDataList,
+					episodeOrders,
 				),
 		});
 	});
