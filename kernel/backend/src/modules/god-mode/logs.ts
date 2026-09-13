@@ -1,0 +1,215 @@
+import type { ContractSuccess } from "@ryot-app/contract/client";
+import { ServerLogsFailure, ServerLogsNotFound } from "@ryot-app/contract/modules/god-mode/logs";
+import {
+	Context,
+	DateTime,
+	Effect,
+	Encoding,
+	FileSystem,
+	Layer,
+	Option,
+	Path,
+	Stream,
+} from "effect";
+import { Zip, ZipDeflate, ZipPassThrough } from "fflate";
+
+import { AppConfig } from "#lib/infrastructure/config/service";
+
+type LogFile = ContractSuccess<"serverLogs", "list">["files"][number];
+
+const unavailable = () => new ServerLogsNotFound({ reason: { code: "log-file-unavailable" } });
+const failed = () => new ServerLogsFailure({ reason: { code: "log-read-failed" } });
+const fileId = (name: string, stat: FileSystem.File.Info) =>
+	Encoding.encodeBase64Url(
+		new TextEncoder().encode(`${name}\0${stat.dev}\0${Option.getOrNull(stat.ino)}`),
+	);
+
+export const makeServerLogs = Effect.fn("makeServerLogs")(function* (logPath: string) {
+	const fs = yield* FileSystem.FileSystem;
+	const path = yield* Path.Path;
+	const configuredDirectory = path.dirname(path.resolve(logPath));
+	const directory = yield* fs.realPath(configuredDirectory).pipe(
+		Effect.catchIf(
+			(error) => error.reason._tag === "NotFound",
+			() => Effect.succeed(configuredDirectory),
+		),
+		Effect.mapError(failed),
+	);
+	const activeName = path.basename(logPath);
+	const escapedName = activeName.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+	const rotatedName = new RegExp(`^\\d{8}-\\d{4}-\\d{2,3}-${escapedName}\\.gz$`);
+	const list = Effect.fn("ServerLogs.list")(function* () {
+		const names = yield* fs.readDirectory(directory).pipe(
+			Effect.catchIf(
+				(error) => error.reason._tag === "NotFound",
+				() => Effect.succeed([]),
+			),
+			Effect.mapError(failed),
+		);
+		const files = yield* Effect.forEach(
+			names.filter((name) => name === activeName || rotatedName.test(name)),
+			(name) =>
+				Effect.gen(function* () {
+					const filePath = path.join(directory, name);
+					const resolved = yield* fs.realPath(filePath);
+					if (resolved !== filePath) {
+						return undefined;
+					}
+					const stat = yield* fs.stat(filePath);
+					if (stat.type !== "File" || Option.isNone(stat.ino) || Option.isNone(stat.mtime)) {
+						return undefined;
+					}
+					return {
+						name,
+						id: fileId(name, stat),
+						size: Number(stat.size),
+						active: name === activeName,
+						modifiedAt: stat.mtime.value.toISOString(),
+					};
+				}).pipe(
+					Effect.catchIf(
+						(error) => error.reason._tag === "NotFound",
+						() => Effect.void,
+					),
+					Effect.mapError(failed),
+				),
+		);
+		return {
+			files: files
+				.filter((file) => file !== undefined)
+				.sort((a, b) => Number(b.active) - Number(a.active) || b.name.localeCompare(a.name)),
+		};
+	});
+	const snapshot = Effect.fn("ServerLogs.snapshot")(function* (file: LogFile) {
+		const filePath = path.join(directory, file.name);
+		const resolved = yield* fs.realPath(filePath).pipe(Effect.mapError(unavailable));
+		if (resolved !== filePath) {
+			return yield* unavailable();
+		}
+		const handle = yield* fs
+			.open(filePath)
+			.pipe(
+				Effect.mapError((error) => (error.reason._tag === "NotFound" ? unavailable() : failed())),
+			);
+		const stat = yield* handle.stat.pipe(Effect.mapError(failed));
+		if (stat.type !== "File" || Option.isNone(stat.ino) || fileId(file.name, stat) !== file.id) {
+			return yield* unavailable();
+		}
+		const size = Number(stat.size);
+		const stream = Stream.unfold(0, (position) =>
+			Effect.gen(function* () {
+				if (position === size) {
+					return undefined;
+				}
+				yield* handle.seek(BigInt(position), "start").pipe(Effect.mapError(failed));
+				const chunk = yield* handle
+					.readAlloc(Math.min(64 * 1024, size - position))
+					.pipe(Effect.mapError(failed));
+				if (Option.isNone(chunk) || chunk.value.byteLength === 0) {
+					return yield* unavailable();
+				}
+				return [chunk.value, position + chunk.value.byteLength] as const;
+			}),
+		);
+		return { size, stream, fileName: file.name };
+	});
+	const downloadFile = Effect.fn("ServerLogs.downloadFile")(function* (id: string) {
+		const { files } = yield* list();
+		const file = files.find((f) => f.id === id);
+		if (file === undefined) {
+			return yield* unavailable();
+		}
+		return yield* snapshot(file);
+	});
+	const downloadAll = Effect.fn("ServerLogs.downloadAll")(function* () {
+		const now = yield* DateTime.now;
+		const { files } = yield* list();
+		const snapshots = yield* Effect.forEach(files, snapshot);
+		const stream = Stream.unwrap(
+			Effect.gen(function* () {
+				const output: Uint8Array[] = [];
+				let failure: Error | null = null;
+				const zip = yield* Effect.acquireRelease(
+					Effect.sync(
+						() =>
+							new Zip((error, chunk) => {
+								if (error !== null) {
+									failure = error;
+								} else {
+									output.push(chunk);
+								}
+							}),
+					),
+					(writer) => Effect.sync(() => writer.terminate()),
+				);
+				const drain = () => {
+					if (failure !== null) {
+						throw failed();
+					}
+					return output.splice(0);
+				};
+				const entries = snapshots.map((entry) =>
+					Stream.unwrap(
+						Effect.sync(() => {
+							const file = entry.fileName.endsWith(".gz")
+								? new ZipPassThrough(entry.fileName)
+								: new ZipDeflate(entry.fileName);
+							zip.add(file);
+							return entry.stream.pipe(
+								Stream.mapEffect((chunk) =>
+									Effect.try({
+										catch: failed,
+										try: () => {
+											file.push(chunk);
+											return drain();
+										},
+									}),
+								),
+								Stream.flatMap(Stream.fromIterable),
+								Stream.concat(
+									Stream.fromEffect(
+										Effect.try({
+											catch: failed,
+											try: () => {
+												file.push(new Uint8Array(), true);
+												return drain();
+											},
+										}),
+									).pipe(Stream.flatMap(Stream.fromIterable)),
+								),
+							);
+						}),
+					),
+				);
+				return Stream.fromIterable(entries).pipe(
+					Stream.flatMap((entry) => entry),
+					Stream.concat(
+						Stream.fromEffect(
+							Effect.try({
+								catch: failed,
+								try: () => {
+									zip.end();
+									return drain();
+								},
+							}),
+						).pipe(Stream.flatMap(Stream.fromIterable)),
+					),
+				);
+			}),
+		);
+		return {
+			stream,
+			fileName: `ryot-server-logs-${DateTime.formatIso(now).replaceAll(":", "-")}.zip`,
+		};
+	});
+	return { list, downloadAll, downloadFile };
+});
+
+export class ServerLogs extends Context.Service<ServerLogs>()("ServerLogs", {
+	make: Effect.gen(function* () {
+		const config = yield* AppConfig;
+		return yield* makeServerLogs(config.observability.logging.file.path);
+	}),
+}) {
+	static readonly layer = Layer.effect(this, this.make);
+}
