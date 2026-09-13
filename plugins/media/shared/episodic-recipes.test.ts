@@ -83,6 +83,7 @@ const COVERAGE_ROW = {
 	id: "parent-1",
 	episodeTotal: 6,
 	watchedTotal: 2,
+	upcomingTotal: 0,
 	watchedMinutes: 66,
 	watchedUnknownRuntime: 0,
 };
@@ -173,6 +174,19 @@ const decodeActivity = (
 		},
 	});
 
+const nextUpOf = (recipes: typeof fixtureRecipes | typeof nestedRecipes) => {
+	const summary = recipes.summaryRecipe({ collectionLimit: 6, entityId: "parent-1" }).document
+		.queries["summary"];
+	if (summary?.output.type !== "rows") {
+		throw new Error("Expected a summary rows query");
+	}
+	const nextUp = summary.output.include?.find((include) => include.key === "nextUp");
+	if (nextUp === undefined) {
+		throw new Error("Expected a next-up include");
+	}
+	return nextUp;
+};
+
 describe("episodic media recipes", () => {
 	it("selects the parent summary with its episodic state and episode aggregates", () => {
 		const recipe = fixtureRecipes.summaryRecipe({ collectionLimit: 6, entityId: "parent-1" });
@@ -200,11 +214,36 @@ describe("episodic media recipes", () => {
 			"productionStatus",
 			"state",
 			"totalEpisodes",
-			"storedEpisodes",
+			"airedEpisodes",
 			"watchedEpisodes",
+			"upcomingEpisodes",
 			"inProgressEpisodes",
 		]);
 		expect(summary.output.include?.[0]).toMatchObject({ limit: 6, key: "collections" });
+	});
+
+	it("resolves next up forward past an anchor for a show and newest first for a podcast", () => {
+		const show = nextUpOf(nestedRecipes);
+		const podcast = nextUpOf(fixtureRecipes);
+
+		expect(show.limit).toBe(1);
+		expect(podcast.limit).toBe(1);
+		expect(show.orderBy.map((order) => order.direction)).toEqual(["asc", "asc", "asc", "asc"]);
+		expect(podcast.orderBy.map((order) => order.direction)).toEqual(["asc", "desc", "desc"]);
+		expect(JSON.stringify(show.where)).toContain('"alias":"nextUpAnchor"');
+		expect(JSON.stringify(podcast.where)).not.toContain('"alias":"nextUpAnchor"');
+	});
+
+	it("counts only aired regular episodes and reports the unaired ones as upcoming", () => {
+		const nested = JSON.stringify(nestedRecipes.presentationRecipe(["parent-1"]).document);
+		const flat = JSON.stringify(fixtureRecipes.presentationRecipe(["parent-1"]).document);
+
+		for (const document of [nested, flat]) {
+			expect(document).toContain('"type":"currentDate"');
+			expect(document).toContain('"publishDate"');
+		}
+		expect(nested).toContain('"seasonNumber"');
+		expect(flat).not.toContain('"seasonNumber"');
 	});
 
 	it("counts a flat parent's episodes through its own relationship", () => {

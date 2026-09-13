@@ -6,6 +6,7 @@ import { optionalText } from "../media/activity-timeline";
 import { mediaDateLabel } from "../media/episodes-state";
 import { collectManagedAssetLocators, preferredMediaImageAsset } from "../media/image";
 import { classifyRyotQueryResult, type MappedRyotQueryState } from "../media/query-state";
+import { mediaEpisodicAiredLabel } from "../media/summary-state";
 
 export type ShowSeasonsResult = Recipe.Success<typeof showSeasonsRecipe>;
 
@@ -78,13 +79,12 @@ export const showSeasonCompletionPercent = (season: ShowSeason) =>
 		? undefined
 		: Math.min(Math.round((season.watchedTotal / season.episodeTotal) * 100), 100);
 
-export const showSeasonEpisodeCountLabel = (season: ShowSeason) =>
-	season.episodeTotal === 0
-		? undefined
-		: `${season.episodeTotal} ${season.episodeTotal === 1 ? "episode" : "episodes"}`;
-
-export const showSeasonCompletedLabel = (season: ShowSeason) =>
-	season.watchedTotal === 0 ? undefined : `${season.watchedTotal} watched`;
+export const showSeasonAiredLabel = (season: ShowSeason) =>
+	mediaEpisodicAiredLabel({
+		aired: season.episodeTotal,
+		watched: season.watchedTotal,
+		upcoming: season.upcomingTotal,
+	});
 
 export const showSeasonDescription = (season: ShowSeason) => optionalText(season.description);
 

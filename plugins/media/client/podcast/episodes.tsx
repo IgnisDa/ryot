@@ -63,7 +63,7 @@ export const podcastEpisodeCountLine = (summary: PodcastSummary | undefined) => 
 	if (summary === undefined) {
 		return undefined;
 	}
-	const total = summary.totalEpisodes ?? summary.storedEpisodes;
+	const total = summary.totalEpisodes ?? summary.airedEpisodes;
 	if (total === 0) {
 		return undefined;
 	}
@@ -85,13 +85,13 @@ export function PodcastEpisodesTab(props: {
 				<p className="font-ui text-[12px] text-text-subtle">{counts}</p>
 			)}
 			<MediaEpisodePages
-				nextUp="latest"
 				compact={props.compact}
 				entityId={props.entityId}
 				containerId={props.entityId}
 				query={podcastEpisodesQuery}
 				render={PODCAST_EPISODE_RENDER}
 				copy={PODCAST_EPISODE_PAGES_COPY}
+				nextUp={props.summary?.nextUp ?? null}
 			/>
 		</div>
 	);

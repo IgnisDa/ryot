@@ -25,7 +25,8 @@ const presentationRow = {
 	name: "Reply All",
 	publishDate: null,
 	publishYear: 2014,
-	storedEpisodes: 400,
+	airedEpisodes: 400,
+	upcomingEpisodes: 0,
 	watchedEpisodes: 183,
 	state: "in_progress",
 	schemaSlug: "podcast",
@@ -82,6 +83,26 @@ describe("podcast schema", () => {
 		expect(podcastSummaryFacts(decodePodcastSummary({ totalEpisodes: null }))).toEqual([]);
 	});
 
+	it("heads the summary with progress over aired episodes and the upcoming count", () => {
+		const { unmount, container } = mountRyotClient(
+			noopAdapter,
+			<podcastSchema.ScreenBody
+				compact
+				episodes={null}
+				activity={null}
+				safeAreaTop={0}
+				settled={undefined}
+				refresh={() => undefined}
+				refreshOverview={() => undefined}
+				overview={mapMediaOverview(readyQueryResult(decodePodcastOverview()))}
+				state={{ status: "ready", summary: decodePodcastSummary({ upcomingEpisodes: 3 }) }}
+			/>,
+		);
+
+		expect(container.textContent).toContain("183/400 aired · 3 upcoming");
+		unmount();
+	});
+
 	it("titles the credits as hosts and networks and offers no where to watch", () => {
 		const { unmount, container } = renderOverview();
 
@@ -118,9 +139,9 @@ describe("podcast schema", () => {
 
 		expect(podcastPresentationFacts(data)).toEqual(["Ended"]);
 		expect(podcastPresentationDetail(data)).toBe(
-			"400 stored episodes · 183 played · 1 episode in progress",
+			"400 aired episodes · 183 played · 1 episode in progress",
 		);
-		expect(podcastPresentationDetail(presentationData({ storedEpisodes: 0 }))).toBeUndefined();
+		expect(podcastPresentationDetail(presentationData({ airedEpisodes: 0 }))).toBeUndefined();
 	});
 
 	it("counts the feed from the summary aggregates", () => {
@@ -129,7 +150,7 @@ describe("podcast schema", () => {
 			"412 episodes",
 		);
 		expect(
-			podcastEpisodeCountLine(decodePodcastSummary({ storedEpisodes: 0, totalEpisodes: null })),
+			podcastEpisodeCountLine(decodePodcastSummary({ airedEpisodes: 0, totalEpisodes: null })),
 		).toBeUndefined();
 		expect(podcastEpisodeCountLine(undefined)).toBeUndefined();
 	});

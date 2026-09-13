@@ -43,6 +43,14 @@ describe("media lifecycle recipes", () => {
 		expect(document).toContain('"function":"countDistinct"');
 	});
 
+	it("judges coverage and consumedOn agreement over the same aired regular episodes", () => {
+		const document = JSON.stringify(episodicLifecycleSnapshotRecipe(input).document);
+
+		expect(document).toContain('"alias":"lifecycleSnapshotCoverageRequiredSeason"');
+		expect(document).toContain('"alias":"lifecycleSnapshotCompletionSeason"');
+		expect(document.match(/"type":"currentDate"/g)?.length).toBeGreaterThanOrEqual(2);
+	});
+
 	it("executes and decodes one query per snapshot read", async () => {
 		let calls = 0;
 		const snapshot = await Effect.runPromise(
