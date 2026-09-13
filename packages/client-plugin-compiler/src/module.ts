@@ -1,7 +1,3 @@
-// Vite consumes native absolute paths for the staged entry and workspace regions.
-// oxlint-disable-next-line effecttsgo/node-builtin-import
-import { resolve } from "node:path";
-
 import {
 	clientArtifactFile,
 	clientArtifactMetadata,
@@ -20,7 +16,7 @@ import {
 	validateRelativePath,
 } from "@ryot-app/vite-compiler";
 import tailwindcss from "@tailwindcss/vite";
-import { Effect, type FileSystem, Result } from "effect";
+import { Effect, type FileSystem, Path, Result } from "effect";
 
 import { validateClientPluginPackage } from "./compile";
 import { isNeutralPluginModule, isTrustedClientModule } from "./dependencies";
@@ -112,7 +108,7 @@ export const compileClientPluginModule = (
 ): Effect.Effect<
 	{ readonly artifact: PluginClientArtifact },
 	ClientPluginCompilerFailure,
-	FileSystem.FileSystem | ViteBuildService
+	FileSystem.FileSystem | Path.Path | ViteBuildService
 > =>
 	Effect.gen(function* () {
 		const { dependencies, compiledFiles: sourceEntries } =
@@ -120,6 +116,7 @@ export const compileClientPluginModule = (
 		const reachableSources = sourceEntries
 			.filter(([path]) => isCompiledTextSource(path))
 			.map(([path]) => path);
+		const paths = yield* Path.Path;
 		const workspace = yield* acquireCompilerWorkspace({
 			parentPath: dependencies.compilerRoot,
 		}).pipe(Effect.mapError((error) => failure("client", "RYOT_CLIENT_COMPILER", error.message)));
@@ -132,6 +129,7 @@ export const compileClientPluginModule = (
 			{
 				path: "styles.css",
 				contents: compilerStylesheet(
+					paths,
 					reachableSources,
 					workspace.sourcePath,
 					workspace.generatedPath,
@@ -168,7 +166,7 @@ export const compileClientPluginModule = (
 					modulePreload: false,
 					rolldownOptions: {
 						preserveEntrySignatures: "strict",
-						input: resolve(workspace.generatedPath, "module.ts"),
+						input: paths.resolve(workspace.generatedPath, "module.ts"),
 						external: (specifier: string) => {
 							const pluginSlug = PLUGIN_IMPORT.exec(specifier)?.[1];
 							return (

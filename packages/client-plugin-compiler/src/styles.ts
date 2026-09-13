@@ -1,9 +1,6 @@
-// CSS import paths are POSIX strings interpreted by the external stylesheet parser.
-// oxlint-disable-next-line effecttsgo/node-builtin-import
-import { posix } from "node:path";
-
 import { pluginClientAssetMimeType } from "@ryot-app/client-plugin-contract";
 import { canonicalRelativePosixPathIssue } from "@ryot-app/ts-utils/path";
+import type { Path } from "effect";
 import { parse } from "postcss";
 import valueParser from "postcss-value-parser";
 
@@ -25,8 +22,8 @@ const sourceRoot = (path: string) => {
 
 const isSharedSource = (path: string) => path.startsWith("shared/") || path.includes("/shared/");
 
-const resolveRelative = (importer: string, specifier: string) =>
-	posix.normalize(posix.join(posix.dirname(importer), specifier));
+const resolveRelative = (paths: Path.Path, importer: string, specifier: string) =>
+	paths.join(paths.dirname(importer), specifier).split(paths.sep).join("/");
 
 const allowedRelativeRoot = (importer: string, resolved: string) => {
 	const root = sourceRoot(importer);
@@ -35,11 +32,11 @@ const allowedRelativeRoot = (importer: string, resolved: string) => {
 		: resolved.startsWith(`${root}client/`) || resolved.startsWith(`${root}shared/`);
 };
 
-const traversesSourceRoot = (importer: string, specifier: string) => {
+const traversesSourceRoot = (paths: Path.Path, importer: string, specifier: string) => {
 	const rootDepth =
 		sourceRoot(importer).split("/").filter(Boolean).length +
 		(isSharedSource(importer) || importer.endsWith(".css") ? 1 : 0);
-	let depth = posix.dirname(importer).split("/").filter(Boolean).length;
+	let depth = paths.dirname(importer).split(paths.sep).join("/").split("/").filter(Boolean).length;
 	for (const part of specifier.split("/")) {
 		if (part === "..") {
 			depth -= 1;
@@ -57,6 +54,7 @@ const importFailure = (path: string, message: string) =>
 	clientPluginCompilerDiagnostic("RYOT_CLIENT_IMPORT", path, message);
 
 const validateScript = (
+	paths: Path.Path,
 	path: string,
 	contents: string,
 	files: Readonly<Record<string, Uint8Array>>,
@@ -81,9 +79,9 @@ const validateScript = (
 			continue;
 		}
 		if (specifier.startsWith(".")) {
-			const resolved = resolveRelative(path, specifier.replace(/\.js$/, ".ts"));
+			const resolved = resolveRelative(paths, path, specifier.replace(/\.js$/, ".ts"));
 			if (
-				traversesSourceRoot(path, specifier) ||
+				traversesSourceRoot(paths, path, specifier) ||
 				!allowedRelativeRoot(path, resolved) ||
 				canonicalRelativePosixPathIssue(resolved) !== null
 			) {
@@ -131,10 +129,10 @@ const validateScript = (
 	for (const match of contents.matchAll(NEW_URL)) {
 		const specifier = match[1];
 		const source = specifier?.split(/[?#]/, 1)[0] ?? "";
-		const resolved = resolveRelative(path, source);
+		const resolved = resolveRelative(paths, path, source);
 		if (
 			!specifier?.startsWith(".") ||
-			traversesSourceRoot(path, source) ||
+			traversesSourceRoot(paths, path, source) ||
 			!allowedRelativeRoot(path, resolved) ||
 			pluginClientAssetMimeType(resolved) === undefined ||
 			files[resolved] === undefined
@@ -148,6 +146,7 @@ const validateScript = (
 class StylePolicyError extends Error {}
 
 const validateStylesheet = (
+	paths: Path.Path,
 	path: string,
 	contents: string,
 	files: Readonly<Record<string, Uint8Array>>,
@@ -170,7 +169,7 @@ const validateStylesheet = (
 						`Stylesheet import "${specifier ?? rule.params}" is not allowed; client plugins may only import relative CSS files from client sources`,
 					);
 				}
-				const resolved = resolveRelative(path, specifier);
+				const resolved = resolveRelative(paths, path, specifier);
 				if (
 					!allowedRelativeRoot(path, resolved) ||
 					!resolved.endsWith(".css") ||
@@ -200,8 +199,8 @@ const validateStylesheet = (
 					throw new StylePolicyError(`CSS asset URL "${specifier}" must not be root-relative`);
 				}
 				const source = specifier.split(/[?#]/, 1)[0] ?? "";
-				const resolved = resolveRelative(path, source);
-				if (traversesSourceRoot(path, source) || !allowedRelativeRoot(path, resolved)) {
+				const resolved = resolveRelative(paths, path, source);
+				if (traversesSourceRoot(paths, path, source) || !allowedRelativeRoot(path, resolved)) {
 					throw new StylePolicyError(
 						`CSS asset URL "${specifier}" traverses outside the plugin client sources`,
 					);
@@ -228,24 +227,27 @@ const validateStylesheet = (
 	return diagnostics;
 };
 
-export const validateClientSourcePolicy = ({
-	files,
-	sourceFiles,
-	publicExports,
-	unresolvedPluginDependencies = [],
-}: {
-	readonly files: Readonly<Record<string, Uint8Array>>;
-	readonly sourceFiles: Readonly<Record<string, string>>;
-	readonly publicExports: Readonly<Record<string, string>>;
-	readonly unresolvedPluginDependencies?: readonly string[];
-}) => {
+export const validateClientSourcePolicy = (
+	paths: Path.Path,
+	{
+		files,
+		sourceFiles,
+		publicExports,
+		unresolvedPluginDependencies = [],
+	}: {
+		readonly files: Readonly<Record<string, Uint8Array>>;
+		readonly sourceFiles: Readonly<Record<string, string>>;
+		readonly publicExports: Readonly<Record<string, string>>;
+		readonly unresolvedPluginDependencies?: readonly string[];
+	},
+) => {
 	const unresolved = new Set(unresolvedPluginDependencies);
 	return Object.entries(sourceFiles).flatMap(([path, contents]) => {
 		if (/\.(?:test|spec)\.tsx?$/.test(path)) {
 			return [];
 		}
 		return path.endsWith(".css")
-			? validateStylesheet(path, contents, files)
-			: validateScript(path, contents, files, publicExports, unresolved);
+			? validateStylesheet(paths, path, contents, files)
+			: validateScript(paths, path, contents, files, publicExports, unresolved);
 	});
 };
