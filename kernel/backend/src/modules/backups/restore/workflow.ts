@@ -11,7 +11,6 @@ import { Workflow } from "effect/unstable/workflow";
 
 import { AppConfig } from "#lib/infrastructure/config/service";
 import { DatabaseSession } from "#lib/infrastructure/db/session";
-import { acquireUserWriteLock } from "#lib/infrastructure/db/user-write-lock";
 import type { DurableSchema } from "#lib/infrastructure/workflow";
 import { implementWorkflow, makeActivity } from "#lib/infrastructure/workflow-scope";
 import { PluginBackupRestore } from "#modules/plugins/backup-restore";
@@ -178,9 +177,7 @@ export const RestoreBackupWorkflowOperationsLive = Layer.effect(
 					if (run.status === "running") {
 						return true;
 					}
-					yield* cleanliness
-						.assertAccountIsClean(payload.userId)
-						.pipe(Effect.provideService(DatabaseSession, database));
+					yield* cleanliness.assertAccountIsClean(payload.userId);
 					if (!(yield* repository.markRunRunning({ ...payload, progress: 5 }))) {
 						return yield* internalError("Backup restore run could not start");
 					}
@@ -264,7 +261,7 @@ export const RestoreBackupWorkflowOperationsLive = Layer.effect(
 						yield* database
 							.transaction(
 								Effect.gen(function* () {
-									yield* acquireUserWriteLock(payload.userId);
+									yield* database.acquireUserWriteLock(payload.userId);
 									yield* cleanliness.assertAccountIsClean(payload.userId);
 									const pluginIdByKey = new Map(systemPluginIds);
 									const privatePluginIds = yield* pluginRestore.persist(
@@ -311,11 +308,7 @@ export const RestoreBackupWorkflowOperationsLive = Layer.effect(
 						),
 					);
 					return yield* Effect.void;
-				}).pipe(
-					Effect.scoped,
-					Effect.annotateLogs({ runId: payload.runId }),
-					Effect.provideService(DatabaseSession, database),
-				),
+				}).pipe(Effect.scoped, Effect.annotateLogs({ runId: payload.runId })),
 				{ operation: "restore", code: "unexpected-failure" },
 				restoreFailure,
 			);
