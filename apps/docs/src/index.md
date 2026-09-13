@@ -32,6 +32,8 @@ services:
     pull_policy: always
     container_name: ryot
     restart: unless-stopped
+    mem_limit: 2g
+    memswap_limit: 2g
     ports:
       - "8000:8000"
     environment:
