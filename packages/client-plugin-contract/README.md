@@ -6,17 +6,25 @@ and shared capability payloads. Runtime-only policy stays with its runtime. Brid
 structured-clone values rather than JSON, so the upload source crosses the port as a `Blob`.
 
 Artifact metadata includes content hash, artifact format, client API version, compiler version, and
-bridge version. Bridge init establishes a runtime identity from a random bridge session ID and that
-artifact identity. Ready repeats it, and the kernel accepts only an exact match. The plugin reports
-metadata embedded in the artifact rather than treating echoed kernel input as proof. Later document
-messages replace the page context and remount its page tree without closing the bridge.
+bridge version. Bridge init establishes a runtime identity from a random bridge session ID and the
+composition hash and version metadata. Ready repeats it, and the kernel accepts only an exact match.
+The iframe reports metadata embedded in the composition document rather than treating echoed kernel
+input as proof. Later document messages replace the page context and remount its page tree without
+closing the bridge. The kernel retains up to three iframe runtimes by composition hash.
 
-The client artifact format, client API, and Vite-based client compiler identity are version 1; the
-bridge protocol is version 2.
+The client artifact format and client API are version 1; the Vite-based client compiler identity is
+version 2 and the bridge protocol is version 3.
 
 `ClientPageTarget` covers saved-view slugs, explicit plugin routes, and entities. Its page context
-carries renderer identity, settings, optional named data sources, and route parameters. Artifact grants
-belong to authenticated HTTP preparation; the bridge carries page context without the grant.
+carries renderer identity, settings, optional named data sources, and route parameters. Authenticated
+HTTP preparation returns a document grant; document rendering issues private artifact grants. Neither
+grant crosses the bridge in page context.
+
+Installed plugin archive client executables are trusted. Archive validation checks integrity and
+compatibility, not provenance. Image-owned artifact hashes are public; all other hashes require a
+capability regardless of plugin scope. Compiled code uses one static URL form,
+`/api/client-assets/:artifactHash/:accessKey/*`. Compositions reference immutable artifacts; the
+capability-bound HTML document is generated separately and is not cached.
 
 Entity interest uses strict state messages with at most 500 selected IDs: plugins send foreground and
 visible IDs, and the kernel sends entity ID plus `populated` or `translated`. These messages have no
