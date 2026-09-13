@@ -26,10 +26,6 @@ export function HomeTileBadge(props: { readonly label: string }) {
 
 const tileArt = (tile: HomeTile) => tile.art ?? mediaPosterAsset(tile.item);
 
-/**
- * One home rail over its section query: a placeholder while the first load is pending, a retry
- * when it failed with nothing to show, and nothing at all when it loaded no tiles.
- */
 export function HomeRail<Data>(props: {
 	readonly title: string;
 	readonly compact: boolean;
