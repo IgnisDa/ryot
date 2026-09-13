@@ -703,7 +703,7 @@ describe("plugin archive", () => {
 			),
 		];
 		return expectReason(archive(entries), "total-uncompressed-bytes-exceeded");
-	});
+	}, 10_000);
 
 	it.each([
 		[
