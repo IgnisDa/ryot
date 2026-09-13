@@ -1,7 +1,6 @@
 # ryot-sandboxd
 
 `ryot-sandboxd` runs sandbox scripts in V8 isolates restored from a kernel-built startup snapshot.
-Design, limits, and acceptance live in [`docs/sandbox-isolate-runtime.md`](../../docs/sandbox-isolate-runtime.md).
 
 ## Process
 
