@@ -1,0 +1,10 @@
+[package]
+name = "env-utils"
+version = "0.1.0"
+edition = "2024"
+
+[build-dependencies]
+dotenv-build = { workspace = true }
+
+[package.metadata.cargo-machete]
+ignored = ["dotenv-build"]

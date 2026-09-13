@@ -1,0 +1,15 @@
+[package]
+name = "collection-resolver"
+version = "0.1.0"
+edition = "2024"
+
+[dependencies]
+async-graphql = { workspace = true }
+
+collection-service = { workspace = true }
+common-models = { workspace = true }
+dependent-collection-utils = { workspace = true }
+dependent-entity-list-utils = { workspace = true }
+dependent-models = { workspace = true }
+media-models = { workspace = true }
+traits = { workspace = true }

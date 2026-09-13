@@ -1,0 +1,28 @@
+[package]
+name = "database-models"
+version = "0.1.0"
+edition = "2024"
+
+[dependencies]
+anyhow = { workspace = true }
+argon2 = { workspace = true }
+async-graphql = { workspace = true }
+async-trait = { workspace = true }
+boilermates = { workspace = true }
+chrono = { workspace = true }
+educe = { workspace = true }
+nanoid = { workspace = true }
+rust_decimal = { workspace = true }
+schematic = { workspace = true }
+sea-orm = { workspace = true }
+serde = { workspace = true }
+serde_json = { workspace = true }
+serde_with = { workspace = true }
+uuid = { workspace = true }
+
+common-models = { workspace = true }
+enum-models = { workspace = true }
+fitness-models = { workspace = true }
+importer-models = { workspace = true }
+media-models = { workspace = true }
+user-models = { workspace = true }

@@ -1,0 +1,18 @@
+query UserMeasurementsList($input: UserMeasurementsListInput!) {
+	userMeasurementsList(input: $input) {
+		response {
+			name
+			comment
+			timestamp
+			information {
+				assets {
+					...EntityAssetsPart
+				}
+				statistics {
+					name
+					value
+				}
+			}
+		}
+	}
+}
