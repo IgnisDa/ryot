@@ -1,14 +1,17 @@
 import type { ChildProcess } from "node:child_process";
 
-import type { ListedIntegration } from "@ryot-app/contract/modules/integrations/schemas";
+import type { ContractSuccess } from "@ryot-app/contract/client";
 import type { PluginManifest } from "@ryot-app/contract/modules/plugins/manifest";
-import { Effect } from "effect";
+import { integrationProvidersRecipe } from "@ryot-app/ryotql-recipes/integration-providers";
+import { Effect, Option } from "effect";
 import getPort from "get-port";
 
 import {
 	type Client,
+	collectRyotQLRecipeItems,
 	createAuthenticatedClient,
 	createIntegration,
+	getIntegration,
 	installTestIntegrationProvider,
 	makeSession,
 	pollImportRunUntilTerminal,
@@ -37,12 +40,15 @@ const settingsSchema = {
 
 const providerSpecifics = { endpoint: "https://pro-gated.example.com" };
 
+const listProviders = (client: Client) =>
+	collectRyotQLRecipeItems(client, (after) => integrationProvidersRecipe({ after, limit: 100 }));
+
 const unkeyEnvelope = (data: { valid: boolean; code: string; meta?: Record<string, unknown> }) =>
 	Response.json({ data, meta: { requestId: crypto.randomUUID() } });
 
 let keyedClient: Client;
 let providerSlug: string;
-let existingIntegration: ListedIntegration;
+let existingIntegration: ContractSuccess<"integrations", "create">;
 
 let keyedApiUrl: string;
 let lapsedApiUrl: string;
@@ -141,13 +147,14 @@ describe("Without a valid Pro Key", () => {
 	it.live("lists the pro-gated provider as not creatable", () =>
 		Effect.gen(function* () {
 			const { client } = yield* createAuthenticatedClient(keylessApiUrl);
-			const providers = yield* client.call((c) => c.integrations.listProviders());
+			const providers = yield* listProviders(client);
 			const provider = requirePresent(
 				providers.find(({ slug }) => slug === providerSlug),
 				"Expected the pro-gated test provider in the listing",
 			);
 			expect(provider.requiresProKey).toBe(true);
-			expect(provider.isCreatable).toBe(false);
+			expect(provider.hasScript).toBe(true);
+			expect((yield* client.call((c) => c.system.config())).pro.isServerKeyValidated).toBe(false);
 		}),
 	);
 
@@ -167,7 +174,12 @@ describe("Without a valid Pro Key", () => {
 		() =>
 			Effect.gen(function* () {
 				const lapsedSession = makeSession(lapsedApiUrl);
-				const { runId } = yield* postIntegrationWebhook(lapsedSession, existingIntegration, {});
+				const { runId } = yield* postIntegrationWebhook(
+					lapsedSession,
+					existingIntegration,
+					{},
+					keyedClient,
+				);
 				const run = yield* pollImportRunUntilTerminal(keyedClient, runId);
 				expect(run).toMatchObject({
 					status: "failed",
@@ -180,13 +192,16 @@ describe("Without a valid Pro Key", () => {
 describe("With a valid Pro Key", () => {
 	it.live("lists the pro-gated provider as creatable", () =>
 		Effect.gen(function* () {
-			const providers = yield* keyedClient.call((c) => c.integrations.listProviders());
+			const providers = yield* listProviders(keyedClient);
 			const provider = requirePresent(
 				providers.find(({ slug }) => slug === providerSlug),
 				"Expected the pro-gated test provider in the listing",
 			);
 			expect(provider.requiresProKey).toBe(true);
-			expect(provider.isCreatable).toBe(true);
+			expect(provider.hasScript).toBe(true);
+			expect((yield* keyedClient.call((c) => c.system.config())).pro.isServerKeyValidated).toBe(
+				true,
+			);
 		}),
 	);
 
@@ -196,7 +211,11 @@ describe("With a valid Pro Key", () => {
 				providerSpecifics,
 				provider: providerSlug,
 			});
-			expect(integration.provider).toBe(providerSlug);
+			const detail = requirePresent(
+				Option.getOrUndefined(yield* getIntegration(keyedClient, integration.id)),
+				"Expected pro-gated integration",
+			);
+			expect(detail.provider).toBe(providerSlug);
 		}),
 	);
 

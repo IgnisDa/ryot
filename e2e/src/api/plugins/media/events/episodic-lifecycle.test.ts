@@ -26,7 +26,7 @@ describe("Episodic lifecycle sessions", () => {
 			const { showId, episodeId } = yield* seedGlobalShowEpisodeTree(client, {
 				showName: "Regular Episode Session Show",
 			});
-			const showEpisodeSchemaId = yield* getBuiltinEntitySchemaSlug("show-episode");
+			const showEpisodeSchemaId = yield* getBuiltinEntitySchemaSlug(client, "show-episode");
 			const eventSchemas = yield* listEventSchemas(client, showEpisodeSchemaId);
 			const progressEventSchema = requireEventSchemaBySlug(eventSchemas, "progress");
 
@@ -59,9 +59,9 @@ describe("Episodic lifecycle sessions", () => {
 			const suffix = crypto.randomUUID();
 			const [showSchemaId, seasonSchemaId, episodeSchemaId, relationshipSchemas] =
 				yield* Effect.all([
-					getBuiltinEntitySchemaSlug("show"),
-					getBuiltinEntitySchemaSlug("show-season"),
-					getBuiltinEntitySchemaSlug("show-episode"),
+					getBuiltinEntitySchemaSlug(client, "show"),
+					getBuiltinEntitySchemaSlug(client, "show-season"),
+					getBuiltinEntitySchemaSlug(client, "show-episode"),
 					listRelationshipSchemas(client, {
 						slugs: ["show-to-show-season", "show-season-to-show-episode"],
 					}),
@@ -132,7 +132,7 @@ describe("Episodic lifecycle sessions", () => {
 			const { client } = yield* createAuthenticatedClient();
 
 			for (const entitySchemaSlug of ["show", "podcast"] as const) {
-				const schemaId = yield* getBuiltinEntitySchemaSlug(entitySchemaSlug);
+				const schemaId = yield* getBuiltinEntitySchemaSlug(client, entitySchemaSlug);
 				const eventSchemas = yield* listEventSchemas(client, schemaId);
 				const entity = yield* seedMediaEntity({
 					properties: {},

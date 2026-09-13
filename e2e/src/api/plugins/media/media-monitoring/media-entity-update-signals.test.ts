@@ -54,7 +54,7 @@ describe("hierarchical media entity-update signals", () => {
 				});
 
 			const { client } = yield* createAuthenticatedClient();
-			const animeSchemaId = yield* getBuiltinEntitySchemaSlug("anime");
+			const animeSchemaId = yield* getBuiltinEntitySchemaSlug(client, "anime");
 			const animeProvider = yield* installTestProvider({
 				client,
 				scope: "system",
@@ -174,7 +174,7 @@ describe("hierarchical media entity-update signals", () => {
 					});
 
 				const { client } = yield* createAuthenticatedClient();
-				const showSchemaId = yield* getBuiltinEntitySchemaSlug("show");
+				const showSchemaId = yield* getBuiltinEntitySchemaSlug(client, "show");
 				const showProvider = yield* installTestProvider({
 					client,
 					slug: showSlug,

@@ -5,7 +5,7 @@ import { createInterface } from "node:readline/promises";
 import { fileURLToPath } from "node:url";
 
 import dotenv from "dotenv";
-import { Effect } from "effect";
+import { Effect, Option } from "effect";
 
 import { getFrontendUrl } from "~/support/harness-target";
 
@@ -14,6 +14,7 @@ import {
 	buildCollectionWorkflowRendererDefinition,
 	createClientRenderer,
 	createRendererSavedView,
+	getClientRenderer,
 	publishClientRenderer,
 } from "../fixtures/kernel/client-pages";
 import {
@@ -21,7 +22,12 @@ import {
 	updateFixtureClientPlugin,
 } from "../fixtures/kernel/client-plugin";
 import { createCollection } from "../fixtures/kernel/collections";
-import { findBuiltinPluginBySlug, setPluginHomeView } from "../fixtures/kernel/plugins";
+import {
+	findBuiltinPluginBySlug,
+	findPluginInstallationBySlug,
+	setPluginHomeView,
+} from "../fixtures/kernel/plugins";
+import { findSavedViewById } from "../fixtures/kernel/saved-views";
 import { createWorkoutEntityFixture } from "../fixtures/plugins/fitness";
 import { createPokemonEntityFixture } from "../fixtures/plugins/fixture";
 import { seedGlobalShowEpisodeTree } from "../fixtures/plugins/media";
@@ -83,7 +89,10 @@ async function main() {
 	const renderer = await Effect.runPromise(
 		createClientRenderer(client, { draftDefinition: buildCollectionWorkflowRendererDefinition() }),
 	);
-	await Effect.runPromise(publishClientRenderer(client, renderer.id, renderer.draftRevision));
+	const rendererRecord = Option.getOrThrow(
+		await Effect.runPromise(getClientRenderer(client, renderer.id)),
+	);
+	await Effect.runPromise(publishClientRenderer(client, renderer.id, rendererRecord.draftRevision));
 	const primaryView = await Effect.runPromise(
 		createRendererSavedView(
 			client,
@@ -109,8 +118,10 @@ async function main() {
 	console.log(`Password: ${password}`);
 	console.log(`Plugin URL: ${appBaseUrl}/fixture`);
 	console.log(`Home URL: ${appBaseUrl}/media`);
-	console.log(`Primary URL: ${appBaseUrl}/v/${primaryView.slug}`);
-	console.log(`Secondary URL: ${appBaseUrl}/v/${secondaryView.slug}`);
+	const primaryRecord = await Effect.runPromise(findSavedViewById(client, primaryView.id));
+	const secondaryRecord = await Effect.runPromise(findSavedViewById(client, secondaryView.id));
+	console.log(`Primary URL: ${appBaseUrl}/v/${primaryRecord.slug}`);
+	console.log(`Secondary URL: ${appBaseUrl}/v/${secondaryRecord.slug}`);
 	console.log(`Outside Pokemon: ${pokemonB.name}`);
 
 	const input = createInterface({ input: process.stdin, output: process.stdout });
@@ -120,7 +131,10 @@ async function main() {
 		input.close();
 	}
 
-	const updatedInstallation = await Effect.runPromise(updateFixtureClientPlugin(client, "B"));
+	await Effect.runPromise(updateFixtureClientPlugin(client, "B"));
+	const updatedInstallation = await Effect.runPromise(
+		findPluginInstallationBySlug(client, "fixture"),
+	);
 	if (updatedInstallation.health !== "ready") {
 		throw new Error(
 			`Fixture client plugin update finished with health '${updatedInstallation.health}'`,

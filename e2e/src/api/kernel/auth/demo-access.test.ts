@@ -1,6 +1,7 @@
 import type { ChildProcess } from "node:child_process";
 
 import { DemoOperationProtected } from "@ryot-app/contract/auth-middleware";
+import { integrationWebhookUrl as buildIntegrationWebhookUrl } from "@ryot-app/contract/modules/integrations/schemas";
 import {
 	OAuthTokenResponse,
 	getOAuthEndpoint,
@@ -12,9 +13,10 @@ import {
 	OAUTH_WEB_CLIENT_ID,
 	type OAuthClientId,
 } from "@ryot-app/contract/oauth";
-import { IntegrationId, SandboxProviderId } from "@ryot-app/contract/schema/brands";
+import { SandboxProviderId } from "@ryot-app/contract/schema/brands";
 import { column, document, eq, field, literal, rows, table } from "@ryot-app/ryotql";
-import { Effect, Schema } from "effect";
+import { integrationRecipe } from "@ryot-app/ryotql-recipes/integrations";
+import { Effect, Option, Result, Schema } from "effect";
 import getPort from "get-port";
 
 import {
@@ -24,6 +26,7 @@ import {
 	createKodiIntegration,
 	createTestUser,
 	executeRyotQL,
+	executeRyotQLRecipe,
 	findBuiltinSchemaBySlug,
 	getUserSettings,
 	listEventSchemas,
@@ -212,9 +215,16 @@ beforeAll(async () => {
 	const owner = makeSession(apiUrl, { Authorization: `Bearer ${seeded.token}` });
 	const integration = await Effect.runPromise(createKodiIntegration(owner));
 	integrationId = integration.id;
-	integrationWebhookUrl = requirePresent(
-		integration.webhookUrl,
-		"Seeded integration did not expose its webhook URL",
+	const detail = requirePresent(
+		Option.getOrUndefined(
+			await Effect.runPromise(executeRyotQLRecipe(owner, integrationRecipe({ id: integrationId }))),
+		),
+		"Seeded integration detail is missing",
+	);
+	const { frontendOrigin } = await Effect.runPromise(owner.call((c) => c.system.config()));
+	integrationWebhookUrl = buildIntegrationWebhookUrl(
+		frontendOrigin,
+		requirePresent(detail.webhookToken, "Seeded integration did not expose its webhook token"),
 	);
 
 	await stopApiProcess(apiProcess);
@@ -255,6 +265,18 @@ describe("shared demo access acceptance", () => {
 				_tag: "DemoOperationProtected",
 				reason: { code: "demo-operation-protected" },
 			});
+			const pluginStateResponse = yield* Effect.promise(() =>
+				fetch(`${apiUrl}/plugins/media/state`, {
+					method: "PATCH",
+					body: JSON.stringify({ isDisabled: true }),
+					headers: { Authorization: `Bearer ${token}`, "content-type": "application/json" },
+				}),
+			);
+			expect(pluginStateResponse.status).toBe(403);
+			expect(yield* Effect.promise(() => pluginStateResponse.json())).toEqual({
+				_tag: "DemoOperationProtected",
+				reason: { code: "demo-operation-protected" },
+			});
 
 			const protectedError = yield* Effect.flip(
 				updateUserSettingsPreferences(demoClient, { language: "de" }),
@@ -286,9 +308,8 @@ describe("shared demo access acceptance", () => {
 			const ownerClient = makeSession(apiUrl, {
 				Authorization: `Bearer ${requirePresent(ownerSignIn.token, "Owner sign-in returned no token")}`,
 			});
-			expect((yield* updateUserSettingsPreferences(ownerClient, { language: "en" })).language).toBe(
-				"en",
-			);
+			yield* updateUserSettingsPreferences(ownerClient, { language: "en" });
+			expect((yield* getUserSettings(ownerClient)).preferences.language).toBe("en");
 		}),
 	);
 
@@ -433,22 +454,29 @@ describe("shared demo access acceptance", () => {
 	);
 
 	it.live(
-		"rejects sensitive integration detail and preserves domain changes in a new session",
+		"denies sensitive kernel RyotQL integration detail to demo users while preserving domain changes",
 		() =>
 			Effect.gen(function* () {
 				const sessionCookie = yield* Effect.promise(signInDemo);
 				const token = yield* Effect.promise(() => getDemoToken(sessionCookie));
 				const demoClient = makeSession(apiUrl, { Authorization: `Bearer ${token}` });
 
-				const integrationError = yield* Effect.flip(
-					demoClient.call((c) =>
-						c.integrations.get({ params: { integrationId: IntegrationId.make(integrationId) } }),
-					),
+				const detailRecipe = integrationRecipe({ id: integrationId });
+				const restricted = yield* Effect.flip(
+					demoClient.call((c) => c.ryotql.executePlugin({ payload: detailRecipe.document })),
 				);
-				expect(integrationError).toEqual(
-					new DemoOperationProtected({ reason: { code: "demo-operation-protected" } }),
-				);
-				expect(JSON.stringify(integrationError)).not.toContain(integrationWebhookUrl);
+				assertTaggedError(restricted, "RyotQLBadRequest");
+				expect(restricted.reason.code).toBe("invalid-query");
+				expect(JSON.stringify(restricted).includes(integrationWebhookUrl)).toBe(false);
+
+				const outcome = yield* Effect.result(executeRyotQLRecipe(demoClient, detailRecipe));
+				if (Result.isSuccess(outcome)) {
+					throw new Error("Demo credentials read protected kernel integration detail");
+				}
+				const integrationError = outcome.failure;
+				assertTaggedError(integrationError, "DemoOperationProtected");
+				expect(integrationError.reason.code).toBe("demo-operation-protected");
+				expect(JSON.stringify(integrationError).includes(integrationWebhookUrl)).toBe(false);
 
 				const collectionEntity = table("entity", "demoCollection");
 				const result = yield* executeRyotQL(
