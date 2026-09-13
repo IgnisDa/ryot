@@ -91,7 +91,6 @@ describe("sandbox execution authority", () => {
 						{ ...principal, providerId: SandboxProviderId.make("foreign-provider") },
 						{ ...principal, contentHash: "foreign-content" },
 						{ ...principal, scriptSlug: "foreign-slug" },
-						{ ...principal, standaloneUploaderId: owner },
 						{ ...principal, kernelScript: true as const },
 						{
 							...principal,
@@ -129,39 +128,6 @@ describe("sandbox execution authority", () => {
 					assertExitFails(yield* Effect.exit(authority.resolve(principal)), missingArtifact());
 				}),
 		);
-		test.effect("resolves uploaded scripts as user-owned, not as forged kernel scripts", () =>
-			Effect.scoped(
-				Effect.gen(function* () {
-					const authority = yield* SandboxExecutionAuthority;
-					const plugins = yield* PluginRepository;
-					const sandbox = yield* SandboxRepository;
-					const session = yield* DatabaseSession;
-					const script = persistedScript(`runtime-authority-upload-${crypto.randomUUID()}`);
-					yield* addScriptCleanup(session, script.slug);
-
-					const scriptId = yield* plugins.persistStandaloneScript(script, UserId.make("owner"));
-					const pin = yield* sandbox.getScriptPin(scriptId);
-					assert(pin);
-
-					const principal = {
-						...pin,
-						subject: { type: "system" },
-					} satisfies SandboxExecutionPrincipal;
-					expect(yield* authority.resolve(principal)).toBe("user");
-
-					const forgedPrincipal = {
-						...pin,
-						kernelScript: true,
-						subject: { type: "system" },
-					} satisfies SandboxExecutionPrincipal;
-					assertExitFails(
-						yield* Effect.exit(authority.resolve(forgedPrincipal)),
-						missingArtifact(),
-					);
-				}),
-			),
-		);
-
 		test.effect("resolves stored kernel scripts as system-owned", () =>
 			Effect.scoped(
 				Effect.gen(function* () {
@@ -189,7 +155,7 @@ describe("sandbox execution authority", () => {
 			),
 		);
 
-		test.effect("rejects unpinned standalone source rows as system-owned", () =>
+		test.effect("authority_rejects_scripts_that_are_neither_plugin_nor_kernel", () =>
 			Effect.scoped(
 				Effect.gen(function* () {
 					const authority = yield* SandboxExecutionAuthority;
@@ -201,20 +167,28 @@ describe("sandbox execution authority", () => {
 					const [stored] = yield* session.run((db) =>
 						db
 							.insert(tables.sandboxScript)
-							.values({ ...script, uploaderId: null, pluginRevisionId: null })
+							.values({ ...script, pluginRevisionId: null })
 							.returning({ id: tables.sandboxScript.id }),
 					);
 					assert(stored);
 					const pin = yield* sandbox.getScriptPin(SandboxScriptId.make(stored.id));
 					assert(pin);
 					expect(pin).not.toHaveProperty("kernelScript");
-					expect(pin).not.toHaveProperty("standaloneUploaderId");
 
-					const principal = {
-						...pin,
-						subject: { type: "system" },
-					} satisfies SandboxExecutionPrincipal;
-					assertExitFails(yield* Effect.exit(authority.resolve(principal)), missingArtifact());
+					const owner = UserId.make("owner");
+					for (const principal of [
+						{ ...pin, subject: { type: "system" } },
+						{
+							...pin,
+							subject: {
+								type: "user",
+								userId: owner,
+								accountGeneration: { userId: owner, token: "test-account-generation" },
+							},
+						},
+					] satisfies ReadonlyArray<SandboxExecutionPrincipal>) {
+						assertExitFails(yield* Effect.exit(authority.resolve(principal)), missingArtifact());
+					}
 				}),
 			),
 		);
@@ -236,7 +210,6 @@ describe("sandbox execution authority", () => {
 					const session = yield* DatabaseSession;
 					const supervisor = yield* SandboxSidecarSupervisor.make;
 					const owner = UserId.make("owner");
-					const admin = UserId.make("recipient");
 					const ownerSubject = {
 						type: "user",
 						userId: owner,
@@ -277,27 +250,12 @@ describe("sandbox execution authority", () => {
 					});
 					yield* rejected({ ...userRevision, kernelScript: true });
 
-					const upload = persistedScript(`runtime-authority-admin-upload-${crypto.randomUUID()}`);
-					yield* addScriptCleanup(session, upload.slug);
-					const uploadPin = yield* sandbox.getScriptPin(
-						yield* plugins.persistStandaloneScript(upload, admin),
-					);
-					assert(uploadPin);
-					expect(uploadPin).toMatchObject({ standaloneUploaderId: admin });
-					yield* locatesTo({ ...uploadPin, subject: { type: "system" } }, "user/core");
-					yield* rejected({ ...uploadPin, kernelScript: true, subject: { type: "system" } });
-					yield* rejected({
-						...uploadPin,
-						subject: { type: "system" },
-						standaloneUploaderId: undefined,
-					});
-
 					const unpinned = persistedScript(`runtime-authority-null-${crypto.randomUUID()}`);
 					yield* addScriptCleanup(session, unpinned.slug);
 					const [stored] = yield* session.run((db) =>
 						db
 							.insert(tables.sandboxScript)
-							.values({ ...unpinned, uploaderId: null, pluginRevisionId: null })
+							.values({ ...unpinned, pluginRevisionId: null })
 							.returning({ id: tables.sandboxScript.id }),
 					);
 					assert(stored);

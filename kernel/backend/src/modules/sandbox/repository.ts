@@ -86,7 +86,6 @@ export class SandboxRepository extends Context.Service<SandboxRepository>()("San
 						metadata: schema.sandboxScript.metadata,
 						pluginId: schema.pluginRevision.pluginId,
 						providerId: schema.sandboxScript.providerId,
-						uploaderId: schema.sandboxScript.uploaderId,
 						contentHash: schema.sandboxScript.contentHash,
 						pluginManifest: schema.pluginRevision.manifest,
 						activeRevisionId: schema.plugin.activeRevisionId,
@@ -118,11 +117,8 @@ export class SandboxRepository extends Context.Service<SandboxRepository>()("San
 				}
 				return row.providerId === null
 					? sandboxScriptPin({
-							...(row.kernelSlug === row.slug && row.sourcePresent && row.uploaderId === null
+							...(row.kernelSlug === row.slug && row.sourcePresent
 								? { kernelScript: true as const }
-								: {}),
-							...(row.uploaderId !== null
-								? { standaloneUploaderId: UserId.make(row.uploaderId) }
 								: {}),
 							providerId: null,
 							scriptSlug: row.slug,

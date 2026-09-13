@@ -171,8 +171,8 @@ export class SandboxSidecarSupervisor extends Context.Service<SandboxSidecarSupe
 				if (trust === "system" || !config.sandbox.perUserSidecars) {
 					return { trust, instance: shared, tier: tier.success } satisfies ProcessKey;
 				}
-				const owner = principal.pluginRevision?.ownerId ?? principal.standaloneUploaderId;
-				if (owner === undefined) {
+				const owner = principal.pluginRevision?.ownerId;
+				if (owner == null) {
 					return yield* new SandboxRunError({
 						kind: "missing-artifact",
 						message: "Sandbox user-tier execution has no pinned owner",
