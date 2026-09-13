@@ -133,7 +133,7 @@ const installationRow = (input: {
 	isDisabled: false,
 	healthReason: null,
 	uninstalledAt: null,
-	homeSavedViewId: null,
+	homeSavedViewSlug: null,
 	health: "ready" as const,
 	activeConfigRevisionId: null,
 	createdAt: new Date("2026-08-24T12:00:00.000Z"),

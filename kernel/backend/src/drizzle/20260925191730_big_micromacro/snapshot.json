@@ -1,7 +1,7 @@
 {
 	"version": "8",
 	"dialect": "postgres",
-	"id": "47b1dc0b-679e-48f3-84ab-ea9b32ad995a",
+	"id": "2e6a9940-cc4e-4a6f-8e2c-2a6afadae2b0",
 	"prevIds": ["00000000-0000-0000-0000-000000000000"],
 	"ddl": [
 		{ "isRlsEnabled": false, "name": "account", "entityType": "tables", "schema": "public" },
@@ -220,6 +220,12 @@
 			"schema": "public"
 		},
 		{ "isRlsEnabled": false, "name": "saved_view", "entityType": "tables", "schema": "public" },
+		{
+			"isRlsEnabled": false,
+			"name": "saved_view_override",
+			"entityType": "tables",
+			"schema": "public"
+		},
 		{ "isRlsEnabled": false, "name": "session", "entityType": "tables", "schema": "public" },
 		{ "isRlsEnabled": false, "name": "two_factor", "entityType": "tables", "schema": "public" },
 		{ "isRlsEnabled": false, "name": "user", "entityType": "tables", "schema": "public" },
@@ -5971,7 +5977,7 @@
 			"default": null,
 			"generated": null,
 			"identity": null,
-			"name": "home_saved_view_id",
+			"name": "home_saved_view_slug",
 			"entityType": "columns",
 			"schema": "public",
 			"table": "plugin_installation"
@@ -7011,19 +7017,6 @@
 			"default": "false",
 			"generated": null,
 			"identity": null,
-			"name": "is_builtin",
-			"entityType": "columns",
-			"schema": "public",
-			"table": "saved_view"
-		},
-		{
-			"type": "boolean",
-			"typeSchema": null,
-			"notNull": true,
-			"dimensions": 0,
-			"default": "false",
-			"generated": null,
-			"identity": null,
 			"name": "is_disabled",
 			"entityType": "columns",
 			"schema": "public",
@@ -7106,6 +7099,84 @@
 			"entityType": "columns",
 			"schema": "public",
 			"table": "saved_view"
+		},
+		{
+			"type": "text",
+			"typeSchema": null,
+			"notNull": false,
+			"dimensions": 0,
+			"default": null,
+			"generated": null,
+			"identity": null,
+			"name": "plugin_id",
+			"entityType": "columns",
+			"schema": "public",
+			"table": "saved_view_override"
+		},
+		{
+			"type": "text",
+			"typeSchema": null,
+			"notNull": true,
+			"dimensions": 0,
+			"default": null,
+			"generated": null,
+			"identity": null,
+			"name": "slug",
+			"entityType": "columns",
+			"schema": "public",
+			"table": "saved_view_override"
+		},
+		{
+			"type": "integer",
+			"typeSchema": null,
+			"notNull": true,
+			"dimensions": 0,
+			"default": null,
+			"generated": null,
+			"identity": null,
+			"name": "sort_order",
+			"entityType": "columns",
+			"schema": "public",
+			"table": "saved_view_override"
+		},
+		{
+			"type": "integer",
+			"typeSchema": null,
+			"notNull": true,
+			"dimensions": 0,
+			"default": "1",
+			"generated": null,
+			"identity": null,
+			"name": "revision",
+			"entityType": "columns",
+			"schema": "public",
+			"table": "saved_view_override"
+		},
+		{
+			"type": "boolean",
+			"typeSchema": null,
+			"notNull": true,
+			"dimensions": 0,
+			"default": "false",
+			"generated": null,
+			"identity": null,
+			"name": "is_disabled",
+			"entityType": "columns",
+			"schema": "public",
+			"table": "saved_view_override"
+		},
+		{
+			"type": "text",
+			"typeSchema": null,
+			"notNull": true,
+			"dimensions": 0,
+			"default": null,
+			"generated": null,
+			"identity": null,
+			"name": "user_id",
+			"entityType": "columns",
+			"schema": "public",
+			"table": "saved_view_override"
 		},
 		{
 			"type": "text",
@@ -10350,6 +10421,27 @@
 			"nameExplicit": true,
 			"columns": [
 				{
+					"value": "slug",
+					"isExpression": false,
+					"asc": true,
+					"nullsFirst": false,
+					"opclass": null
+				}
+			],
+			"isUnique": false,
+			"where": null,
+			"with": "",
+			"method": "btree",
+			"concurrently": false,
+			"name": "saved_view_slug_idx",
+			"entityType": "indexes",
+			"schema": "public",
+			"table": "saved_view"
+		},
+		{
+			"nameExplicit": true,
+			"columns": [
+				{
 					"value": "plugin_installation_id",
 					"isExpression": false,
 					"asc": true,
@@ -11564,6 +11656,19 @@
 			"columnsTo": ["id"],
 			"onUpdate": "NO ACTION",
 			"onDelete": "CASCADE",
+			"name": "saved_view_override_user_id_user_id_fkey",
+			"entityType": "fks",
+			"schema": "public",
+			"table": "saved_view_override"
+		},
+		{
+			"nameExplicit": false,
+			"columns": ["user_id"],
+			"schemaTo": "public",
+			"tableTo": "user",
+			"columnsTo": ["id"],
+			"onUpdate": "NO ACTION",
+			"onDelete": "CASCADE",
 			"name": "session_user_id_user_id_fkey",
 			"entityType": "fks",
 			"schema": "public",
@@ -11613,6 +11718,14 @@
 			"entityType": "pks",
 			"schema": "public",
 			"table": "plugin_revision_source_file"
+		},
+		{
+			"columns": ["user_id", "slug"],
+			"nameExplicit": false,
+			"name": "saved_view_override_pkey",
+			"entityType": "pks",
+			"schema": "public",
+			"table": "saved_view_override"
 		},
 		{
 			"columns": ["id"],
@@ -12664,6 +12777,17 @@
 			"tablespace": null,
 			"materialized": false,
 			"name": "user_saved_view",
+			"entityType": "views",
+			"schema": "public"
+		},
+		{
+			"definition": "\n\tselect s.id, null::text as plugin_id, custom_plugin.slug as plugin_slug,\n\t\ts.user_id, s.slug, s.name, s.icon, s.plugin_installation_id,\n\t\ts.revision, s.sort_order, s.data_sources, false as is_builtin,\n\t\ts.is_disabled, s.renderer, s.created_at, s.settings, s.updated_at\n\tfrom \"saved_view\" s\n\tleft join \"plugin_installation\" custom_installation on custom_installation.id = s.plugin_installation_id\n\tleft join \"plugin\" custom_plugin on custom_plugin.id = custom_installation.plugin_id\n\tunion all\n\tselect 'builtin:' || d.user_id || ':' || d.slug as id, d.plugin_id, d.plugin_slug,\n\t\td.user_id, d.slug, d.name, d.icon, p.installation_id as plugin_installation_id,\n\t\thashtext(d.id || ':' || coalesce(o.revision, 0)::text) as revision,\n\t\tcoalesce(o.sort_order, d.sort_order) as sort_order, d.data_sources, true as is_builtin,\n\t\tcoalesce(o.is_disabled, false) as is_disabled, d.renderer,\n\t\tnull::timestamptz as created_at, d.settings, null::timestamptz as updated_at\n\tfrom \"user_saved_view\" d\n\tleft join \"user_plugin\" p on p.user_id = d.user_id and p.plugin_id = d.plugin_id\n\tleft join \"saved_view_override\" o on o.user_id = d.user_id and o.slug = d.slug\n\t\tand o.plugin_id is not distinct from d.plugin_id\n",
+			"with": null,
+			"withNoData": null,
+			"using": null,
+			"tablespace": null,
+			"materialized": false,
+			"name": "user_saved_view_effective",
 			"entityType": "views",
 			"schema": "public"
 		},

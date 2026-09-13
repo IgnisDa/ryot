@@ -25,7 +25,8 @@ import {
 	unique,
 } from "drizzle-orm/pg-core";
 
-import { pluginRevision } from "./core";
+import { plugin, pluginInstallation, pluginRevision } from "./core";
+import { savedView, savedViewOverride } from "./views";
 
 type PluginScope = "system" | "user";
 type InstallationHealth =
@@ -454,6 +455,45 @@ export const userSavedView = snakeCase
 			where p.is_listed and (p.scope = 'system' or not exists (select 1 from ${globalSavedView} g where g.slug = d.slug))
 		`,
 	);
+
+export const userSavedViewEffective = snakeCase.view("user_saved_view_effective", {
+	pluginId: text(),
+	pluginSlug: text(),
+	id: text().notNull(),
+	slug: text().notNull(),
+	name: text().notNull(),
+	icon: text().notNull(),
+	userId: text().notNull(),
+	pluginInstallationId: text(),
+	revision: integer().notNull(),
+	sortOrder: integer().notNull(),
+	isBuiltin: boolean().notNull(),
+	isDisabled: boolean().notNull(),
+	dataSources: jsonb().$type<RyotQLDocument>(),
+	createdAt: timestamp({ withTimezone: true }),
+	updatedAt: timestamp({ withTimezone: true }),
+	renderer: jsonb().$type<SavedViewRenderer>().notNull(),
+	settings: jsonb().$type<Readonly<Record<string, JsonValue>>>().notNull(),
+}).as(sql`
+	select s.id, null::text as plugin_id, custom_plugin.slug as plugin_slug,
+		s.user_id, s.slug, s.name, s.icon, s.plugin_installation_id,
+		s.revision, s.sort_order, s.data_sources, false as is_builtin,
+		s.is_disabled, s.renderer, s.created_at, s.settings, s.updated_at
+	from ${savedView} s
+	left join ${pluginInstallation} custom_installation on custom_installation.id = s.plugin_installation_id
+	left join ${plugin} custom_plugin on custom_plugin.id = custom_installation.plugin_id
+	union all
+	select 'builtin:' || d.user_id || ':' || d.slug as id, d.plugin_id, d.plugin_slug,
+		d.user_id, d.slug, d.name, d.icon, p.installation_id as plugin_installation_id,
+		hashtext(d.id || ':' || coalesce(o.revision, 0)::text) as revision,
+		coalesce(o.sort_order, d.sort_order) as sort_order, d.data_sources, true as is_builtin,
+		coalesce(o.is_disabled, false) as is_disabled, d.renderer,
+		null::timestamptz as created_at, d.settings, null::timestamptz as updated_at
+	from ${userSavedView} d
+	left join ${userPlugin} p on p.user_id = d.user_id and p.plugin_id = d.plugin_id
+	left join ${savedViewOverride} o on o.user_id = d.user_id and o.slug = d.slug
+		and o.plugin_id is not distinct from d.plugin_id
+`);
 
 const executableDefinitionColumns = () => ({
 	id: text().notNull(),

@@ -12,6 +12,7 @@ import {
 	index,
 	integer,
 	jsonb,
+	primaryKey,
 	snakeCase,
 	text,
 	timestamp,
@@ -40,7 +41,6 @@ export const savedView = snakeCase.table(
 		revision: integer().notNull().default(1),
 		sortOrder: integer().notNull().default(0),
 		dataSources: jsonb().$type<RyotQLDocument>(),
-		isBuiltin: boolean().notNull().default(false),
 		isDisabled: boolean().notNull().default(false),
 		renderer: jsonb().$type<SavedViewRenderer>().notNull(),
 		createdAt: timestamp({ withTimezone: true }).defaultNow().notNull(),
@@ -58,6 +58,7 @@ export const savedView = snakeCase.table(
 	},
 	(table) => [
 		index("saved_view_user_id_idx").on(table.userId),
+		index("saved_view_slug_idx").on(table.slug),
 		index("saved_view_plugin_installation_id_idx").on(table.pluginInstallationId),
 		unique("saved_view_user_slug_unique").on(table.userId, table.slug),
 		foreignKey({
@@ -66,4 +67,19 @@ export const savedView = snakeCase.table(
 			foreignColumns: [pluginInstallation.id, pluginInstallation.userId],
 		}).onDelete("restrict"),
 	],
+);
+
+export const savedViewOverride = snakeCase.table(
+	"saved_view_override",
+	{
+		pluginId: text(),
+		slug: text().notNull(),
+		sortOrder: integer().notNull(),
+		revision: integer().notNull().default(1),
+		isDisabled: boolean().notNull().default(false),
+		userId: text()
+			.notNull()
+			.references(() => user.id, { onDelete: "cascade" }),
+	},
+	(table) => [primaryKey({ columns: [table.userId, table.slug] })],
 );

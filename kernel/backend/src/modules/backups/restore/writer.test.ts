@@ -240,23 +240,32 @@ const provenanceRecords = (
 		},
 	],
 	savedViews: [
-		{
-			settings: {},
-			icon: "list",
-			dataSources: provenanceQuery,
-			renderer: { kind: "kernel", name: "entity-browser" },
-			...(input.builtinView
-				? { isBuiltin: true as const, kind: "builtin-override" as const }
-				: { kind: "custom" as const, isBuiltin: false as const }),
-			sortOrder: 0,
-			isDisabled: false,
-			slug: "owner-view",
-			name: "Owner view",
-			id: "saved-view-id",
-			createdAt: "2026-08-23T12:00:00.000Z",
-			updatedAt: "2026-08-23T12:00:00.000Z",
-			pluginKey: input.viewKey === undefined ? "owner-key" : input.viewKey,
-		},
+		input.builtinView
+			? {
+					sortOrder: 0,
+					isBuiltin: true,
+					isDisabled: false,
+					slug: "owner-view",
+					id: "saved-view-id",
+					kind: "builtin-override",
+					pluginKey: input.viewKey === undefined ? "owner-key" : input.viewKey,
+				}
+			: {
+					sortOrder: 0,
+					settings: {},
+					icon: "list",
+					kind: "custom",
+					isBuiltin: false,
+					isDisabled: false,
+					slug: "owner-view",
+					name: "Owner view",
+					id: "saved-view-id",
+					dataSources: provenanceQuery,
+					createdAt: "2026-08-23T12:00:00.000Z",
+					updatedAt: "2026-08-23T12:00:00.000Z",
+					renderer: { kind: "kernel", name: "entity-browser" },
+					pluginKey: input.viewKey === undefined ? "owner-key" : input.viewKey,
+				},
 	],
 });
 
@@ -562,7 +571,7 @@ const restoreArchivedEvents = (
 							restoreEntity,
 							listUserEntitiesForBackup: () => Effect.succeed([]),
 						}),
-						Layer.mock(SavedViewsRepository, { restoreBuiltinViews: () => Effect.void }),
+						Layer.mock(SavedViewsRepository, {}),
 						Layer.mock(IntegrationsRepository, {}),
 						Layer.mock(AutomationsRepository, {}),
 						Layer.mock(PluginInstallationRepository, {}),
@@ -844,8 +853,8 @@ describe("account backup restore in PostgreSQL", () => {
 								createdAt: timestamp,
 								updatedAt: timestamp,
 								disabledIntent: false,
-								homeSavedViewId: null,
 								packageKey: pluginKey,
+								homeSavedViewSlug: null,
 								lifecycleIntent: "ready",
 								config: { unit: "metric" },
 								id: "restored-installation",
