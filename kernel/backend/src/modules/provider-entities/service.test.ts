@@ -2,6 +2,7 @@ import { assert, expect, it } from "@effect/vitest";
 import type { CurrentUserValue } from "@ryot-app/contract/auth-middleware";
 import {
 	ProviderEntityBadRequest,
+	ProviderEntityImportBacklogFull,
 	ProviderEntityNotFound,
 } from "@ryot-app/contract/modules/provider-entities/schemas";
 import { EntitySchemaSlug, SandboxProviderId, UserId } from "@ryot-app/contract/schema/brands";
@@ -18,6 +19,7 @@ import {
 import { EntitiesRepository } from "#modules/entities/repository";
 import { PluginRuntimeResolver } from "#modules/plugins/runtime-resolver";
 
+import { ProviderImportAdmission } from "./admission";
 import { EntityImportService } from "./service";
 
 const user: CurrentUserValue = {
@@ -56,10 +58,13 @@ const fakeEntitySchemaScope = {
 	propertiesSchema: { fields: {} },
 };
 
+const mockAdmission = Layer.mock(ProviderImportAdmission);
+
 const makeServiceLayer = (
 	entitiesRepo = makeEntitiesRepository(),
 	engine = makeWorkflowEngine(),
 	activeProvider: typeof provider | null = provider,
+	admission = mockAdmission({}),
 ) =>
 	EntityImportService.layer.pipe(
 		Layer.provideMerge(
@@ -68,6 +73,7 @@ const makeServiceLayer = (
 				makeAppConfigLayer(),
 				Layer.succeed(WorkflowEngine, engine),
 				entitiesRepo,
+				admission,
 				Layer.mock(PluginRuntimeResolver)({
 					findProviderAvailableToUser: () => Effect.succeed(activeProvider),
 				}),
@@ -146,15 +152,19 @@ it.effect("returns NotFound when the derived entity schema is not found", () =>
 	),
 );
 
-it.effect("derives the root entity schema before dispatching the import workflow", () => {
-	const executeCalls: unknown[] = [];
+const withSchema = makeEntitiesRepository({
+	findEntitySchemaForUser: () => Effect.succeed(fakeEntitySchemaScope),
+});
 
+it.effect("derives the root entity schema before submitting the import for admission", () => {
+	const submitted: unknown[] = [];
 	return Effect.gen(function* () {
 		const service = yield* EntityImportService;
 		const result = yield* service.import(user, { providerId, externalId });
 		expect(typeof result.jobId).toBe("string");
-		expect(executeCalls).toHaveLength(1);
-		expect(executeCalls[0]).toMatchObject({
+		expect(submitted).toHaveLength(1);
+		expect(submitted[0]).toMatchObject({
+			userId: user.id,
 			payload: {
 				providerId,
 				externalId,
@@ -166,42 +176,88 @@ it.effect("derives the root entity schema before dispatching the import workflow
 	}).pipe(
 		Effect.provide(
 			makeServiceLayer(
-				makeEntitiesRepository({
-					findEntitySchemaForUser: () => Effect.succeed(fakeEntitySchemaScope),
-				}),
-				makeWorkflowEngine({
-					execute: (_workflow, options) => {
-						executeCalls.push(options);
-						return Effect.void;
-					},
+				withSchema,
+				makeWorkflowEngine(),
+				provider,
+				mockAdmission({
+					submit: (input) =>
+						Effect.sync(() => {
+							submitted.push(input);
+							return { status: "queued" as const, id: input.payload.executionId };
+						}),
 				}),
 			),
 		),
 	);
 });
 
-it.effect("dispatches private provider imports with user-owned entity scope", () => {
-	const executeCalls: unknown[] = [];
+it.effect("submits private provider imports with user-owned entity scope", () => {
+	const submitted: unknown[] = [];
 	return Effect.gen(function* () {
 		const service = yield* EntityImportService;
 		yield* service.import(user, { providerId, externalId });
-		expect(executeCalls[0]).toMatchObject({
+		expect(submitted[0]).toMatchObject({
 			payload: { entityScope: { type: "user", userId: user.id } },
 		});
 	}).pipe(
 		Effect.provide(
 			makeServiceLayer(
-				makeEntitiesRepository({
-					findEntitySchemaForUser: () => Effect.succeed(fakeEntitySchemaScope),
-				}),
-				makeWorkflowEngine({
-					execute: (_workflow, options) => Effect.sync(() => void executeCalls.push(options)),
-				}),
+				withSchema,
+				makeWorkflowEngine(),
 				{ ...provider, pluginScope: "user" },
+				mockAdmission({
+					submit: (input) =>
+						Effect.sync(() => {
+							submitted.push(input);
+							return { status: "queued" as const, id: input.payload.executionId };
+						}),
+				}),
 			),
 		),
 	);
 });
+
+it.effect("returns the pending job for a duplicate import", () =>
+	Effect.gen(function* () {
+		const service = yield* EntityImportService;
+		const result = yield* service.import(user, { providerId, externalId });
+		expect(result.jobId).toBe(
+			createWorkflowJobId(deriveJobIdSecret("test-admin-token"), "exec-pending", user.id),
+		);
+	}).pipe(
+		Effect.provide(
+			makeServiceLayer(
+				withSchema,
+				makeWorkflowEngine(),
+				provider,
+				mockAdmission({
+					submit: () => Effect.succeed({ id: "exec-pending", status: "duplicate" as const }),
+				}),
+			),
+		),
+	),
+);
+
+it.effect("rejects an import with a retryable error when the user's backlog is full", () =>
+	Effect.gen(function* () {
+		const service = yield* EntityImportService;
+		const result = yield* Effect.exit(service.import(user, { providerId, externalId }));
+		expect(getFailure(result)).toEqual(
+			new ProviderEntityImportBacklogFull({
+				reason: { limit: 50, retryAfterSeconds: 30, code: "import-backlog-full" },
+			}),
+		);
+	}).pipe(
+		Effect.provide(
+			makeServiceLayer(
+				withSchema,
+				makeWorkflowEngine(),
+				provider,
+				mockAdmission({ submit: () => Effect.succeed({ status: "backlog-full" as const }) }),
+			),
+		),
+	),
+);
 
 it.effect("returns NotFound for a blank getImportResult jobId", () =>
 	Effect.gen(function* () {
@@ -225,21 +281,41 @@ it.effect("returns NotFound for a jobId with an invalid signature", () =>
 	}).pipe(Effect.provide(makeServiceLayer())),
 );
 
-it.effect("returns running status when the workflow has not completed", () =>
+const importResult = (
+	admitted: "queued" | "running" | null,
+	poll: ReturnType<typeof makeWorkflowEngine>["poll"],
+) =>
 	Effect.gen(function* () {
-		const secret = deriveJobIdSecret("test-admin-token");
-		const executionId = "exec-abc";
 		const service = yield* EntityImportService;
-		const jobId = createWorkflowJobId(secret, executionId, user.id);
-
-		const result = yield* service.getImportResult(user, jobId);
-		expect(result).toMatchObject({ status: "running" });
+		const jobId = createWorkflowJobId(deriveJobIdSecret("test-admin-token"), "exec-abc", user.id);
+		return yield* service.getImportResult(user, jobId);
 	}).pipe(
 		Effect.provide(
 			makeServiceLayer(
 				makeEntitiesRepository(),
-				makeWorkflowEngine({ poll: () => Effect.succeedNone }),
+				makeWorkflowEngine({ poll }),
+				provider,
+				mockAdmission({ status: () => Effect.succeed(admitted) }),
 			),
 		),
-	),
+	);
+
+it.effect("reports a queued import from the admission ledger", () =>
+	Effect.gen(function* () {
+		expect(yield* importResult("queued", () => Effect.die("unreachable"))).toEqual({
+			status: "queued",
+		});
+	}),
+);
+
+it.effect("returns running status when an admitted workflow has not completed", () =>
+	Effect.gen(function* () {
+		expect(yield* importResult("running", () => Effect.succeedNone)).toEqual({ status: "running" });
+	}),
+);
+
+it.effect("reports an import cancelled before admission as cancelled", () =>
+	Effect.gen(function* () {
+		expect(yield* importResult(null, () => Effect.succeedNone)).toEqual({ status: "cancelled" });
+	}),
 );

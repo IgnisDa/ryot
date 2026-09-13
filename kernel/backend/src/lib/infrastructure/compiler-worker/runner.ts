@@ -2,6 +2,8 @@ import { sanitizeEnvironment } from "@ryot-app/vite-compiler";
 import { Duration, Effect, Fiber, FileSystem, Ref, Result, Stream, type Semaphore } from "effect";
 import { ChildProcess, ChildProcessSpawner } from "effect/unstable/process";
 
+import { preferAsOomVictim } from "../oom-victim";
+
 const encoder = new TextEncoder();
 const PROCESS_EXIT_GRACE_MS = 50;
 
@@ -81,6 +83,7 @@ export const makeCompilerWorkerRunner = <E>(options: {
 					yield* Effect.addFinalizer(() =>
 						worker.kill({ killSignal: "SIGKILL" }).pipe(Effect.ignore),
 					);
+					yield* preferAsOomVictim(Number(worker.pid));
 
 					const stdoutExceeded = yield* Ref.make(false);
 					let stdoutByteLength = 0;

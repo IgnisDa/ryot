@@ -224,8 +224,6 @@ export class SandboxExecutionService extends Context.Service<SandboxExecutionSer
 				scriptId: SandboxScriptId;
 				grants?: SandboxExecutionGrants;
 				subject: SandboxExecutionSubject;
-				/** An HTTP request awaits the result. */
-				interactive?: boolean;
 			}) {
 				return yield* Effect.gen(function* () {
 					const contextError = sandboxContextError(input.input);
@@ -249,9 +247,6 @@ export class SandboxExecutionService extends Context.Service<SandboxExecutionSer
 						scriptId: input.scriptId,
 						executionId: input.executionId,
 						...(input.grants ? { grants: input.grants } : {}),
-						...(input.interactive && config.sandbox.experimentInteractiveLane
-							? { lane: "interactive" as const }
-							: {}),
 					}).pipe(Effect.provideService(WorkflowEngine, engine));
 				}).pipe(
 					Effect.catchTag("SandboxRunError", (error) =>
