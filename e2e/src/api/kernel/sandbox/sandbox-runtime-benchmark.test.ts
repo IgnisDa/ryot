@@ -1,20 +1,23 @@
 import os from "node:os";
 
-import type { ContractSuccess } from "@ryot-app/contract/client";
 import type { PluginManifest } from "@ryot-app/contract/modules/plugins/manifest";
-import { UserId } from "@ryot-app/contract/schema/brands";
-import { Clock, Effect } from "effect";
+import { Effect } from "effect";
 
 import {
-	adminHeaders,
 	createAuthenticatedClient,
-	enqueueSandboxScript,
-	getApiClient,
 	installTestPluginBundle,
 	sampleSandboxRuntime,
 	uninstallTestPlugin,
 } from "~/fixtures/kernel";
 import { assertCompleted, assertPresent } from "~/support/assertions";
+import {
+	average,
+	percentile,
+	runDirectSandboxSample,
+	type RuntimeSample,
+	summarizeRuntimeSamples,
+	waitForSandboxIdle,
+} from "~/support/benchmark-workload";
 import { describe, expect, it } from "~/support/effect-test";
 import { startFakeHttpServerScoped } from "~/support/fake-http-server";
 
@@ -24,7 +27,6 @@ const positiveIntegerEnv = (name: string, fallback: number, allowZero = false) =
 };
 
 const UPSTREAM_DELAY_MS = 25;
-const POLL_INTERVAL = "10 millis";
 const SAMPLE_COUNT = positiveIntegerEnv("SANDBOX_BENCHMARK_SAMPLES", 15);
 const PROCESS_MODE = process.env.SANDBOX_PROCESS_MODE === "warm" ? "warm" : "on-demand";
 const IDLE_SAMPLE_COUNT = positiveIntegerEnv("SANDBOX_BENCHMARK_IDLE_SAMPLES", 5);
@@ -46,16 +48,6 @@ type BenchmarkSample = {
 	activeProcessCount: number;
 	sandboxExecutionMs?: number;
 };
-
-type RuntimeSample = ContractSuccess<"testSupport", "sampleSandboxRuntime">;
-
-const percentile = (values: ReadonlyArray<number>, ratio: number) => {
-	const sorted = [...values].sort((left, right) => left - right);
-	return sorted[Math.max(0, Math.ceil(sorted.length * ratio) - 1)] ?? 0;
-};
-
-const average = (values: ReadonlyArray<number>) =>
-	values.reduce((total, value) => total + value, 0) / values.length;
 
 const summarize = (samples: ReadonlyArray<BenchmarkSample>) => ({
 	sampleCount: samples.length,
@@ -91,41 +83,6 @@ const summarize = (samples: ReadonlyArray<BenchmarkSample>) => ({
 	},
 });
 
-const summarizeRuntimeSamples = (samples: ReadonlyArray<RuntimeSample>) => ({
-	sampleCount: samples.length,
-	totalSpawned: samples.at(-1)?.totalSpawned ?? 0,
-	processCount: {
-		p50: percentile(
-			samples.map(({ workers }) => workers.length),
-			0.5,
-		),
-		p95: percentile(
-			samples.map(({ workers }) => workers.length),
-			0.95,
-		),
-	},
-	workerRssBytes: {
-		p50: percentile(
-			samples.map(({ workerRssBytes }) => workerRssBytes),
-			0.5,
-		),
-		p95: percentile(
-			samples.map(({ workerRssBytes }) => workerRssBytes),
-			0.95,
-		),
-	},
-	backendRssBytes: {
-		p50: percentile(
-			samples.map(({ backendRssBytes }) => backendRssBytes),
-			0.5,
-		),
-		p95: percentile(
-			samples.map(({ backendRssBytes }) => backendRssBytes),
-			0.95,
-		),
-	},
-});
-
 const noHostAutomationSource = `
 import { defineAutomation } from "@ryot-app/sandbox-sdk/automation";
 import { defineManifest } from "@ryot-app/sandbox-sdk/driver";
@@ -142,10 +99,8 @@ export const manifest = defineManifest({
 
 export default defineAutomation({
   manifest,
-  run: ({ automation }) => automation.source.kind !== "event" ||
-    automation.source.after?.properties["progressPercent"] !== 100
-      ? Effect.succeed(null)
-      : Effect.succeed("unexpected-full-branch"),
+  run: ({ automation }) =>
+    Effect.succeed(automation.source.kind === "event" ? null : "unexpected-source"),
 });
 `;
 
@@ -166,8 +121,7 @@ export const manifest = defineManifest({
 export default defineAutomation({
   manifest,
   run: ({ automation }, host) => {
-    if (automation.source.kind !== "event" ||
-      automation.source.after?.properties["progressPercent"] !== 100) {
+    if (automation.source.kind !== "event") {
       return Effect.succeed(null);
     }
     return Effect.gen(function* () {
@@ -253,62 +207,21 @@ export default defineProvider({
 });
 `;
 
-const automationContext = (progressPercent: number) => ({
+const automationContext = () => ({
 	automation: {
 		operation: "create",
 		origin: { kind: "api" },
 		ruleId: "benchmark-rule",
 		occurrenceId: crypto.randomUUID(),
 		occurredAt: "2026-08-06T00:00:00.000Z",
-		source: {
-			kind: "event",
-			after: {
-				id: crypto.randomUUID(),
-				eventSchemaSlug: "progress",
-				properties: { progressPercent },
-				occurredAt: "2026-08-06T00:00:00.000Z",
-				subject: {
-					id: crypto.randomUUID(),
-					name: "Benchmark entity",
-					entitySchemaSlug: "benchmark",
-				},
-			},
-		},
+		source: { kind: "event", eventId: crypto.randomUUID() },
 	},
 });
-
-const pollSandboxResult = (executingUserId: string, jobId: string) =>
-	Effect.gen(function* () {
-		for (;;) {
-			const result = yield* getApiClient().call(
-				(client) =>
-					client.testSupport.getSandboxResult({
-						params: { jobId },
-						query: { executingUserId: UserId.make(executingUserId) },
-					}),
-				adminHeaders(),
-			);
-			if (result.status !== "pending") {
-				return result;
-			}
-			yield* Effect.sleep(POLL_INTERVAL);
-		}
-	});
 
 const collectIdleRuntimeSamples = () =>
 	Effect.gen(function* () {
 		const samples: RuntimeSample[] = [];
-		let settled = false;
-		for (let attempt = 0; attempt < 200 && !settled; attempt += 1) {
-			const metrics = yield* sampleSandboxRuntime;
-			settled =
-				PROCESS_MODE === "warm"
-					? metrics.activeProcessCount > 0
-					: metrics.activeProcessCount === 0 && metrics.workers.length === 0;
-			if (!settled) {
-				yield* Effect.sleep("100 millis");
-			}
-		}
+		yield* waitForSandboxIdle(PROCESS_MODE);
 		for (let index = 0; index < IDLE_SAMPLE_COUNT; index += 1) {
 			samples.push(yield* sampleSandboxRuntime);
 			if (index + 1 < IDLE_SAMPLE_COUNT) {
@@ -318,33 +231,20 @@ const collectIdleRuntimeSamples = () =>
 		return samples;
 	});
 
-const runDirectSample = (input: {
-	userId: string;
-	context: unknown;
-	scriptId: Parameters<typeof enqueueSandboxScript>[1]["scriptId"];
-}) =>
+const runDirectSample = (input: Parameters<typeof runDirectSandboxSample>[0]) =>
 	Effect.gen(function* () {
-		const before = yield* sampleSandboxRuntime;
-		const startedAt = yield* Clock.currentTimeMillis;
-		const { jobId } = yield* enqueueSandboxScript(input.userId, {
-			context: input.context,
-			scriptId: input.scriptId,
-		});
-		const result = yield* pollSandboxResult(input.userId, jobId);
-		const latencyMs = (yield* Clock.currentTimeMillis) - startedAt;
-		const after = yield* sampleSandboxRuntime;
+		const { after, before, result, latencyMs } = yield* runDirectSandboxSample(input);
 		assertCompleted(result, "sandbox benchmark sample");
 		expect(result.error).toBeNull();
 		const timing = result.timing;
 		assertPresent(timing, "Sandbox benchmark result did not include timing");
-		const sandboxExecutions = after.totalSpawned - before.totalSpawned;
 		return {
 			latencyMs,
-			sandboxExecutions,
 			sandboxExecutionMs: timing.totalMs,
 			workerRssBytes: after.workerRssBytes,
 			activeProcessCount: after.activeProcessCount,
 			totalSpawned: after.totalSpawned - before.totalSpawned,
+			sandboxExecutions: after.totalSpawned - before.totalSpawned,
 		} satisfies BenchmarkSample;
 	});
 
@@ -380,7 +280,7 @@ describe.skipIf(!RUN_SANDBOX_BENCHMARKS)("sandbox runtime benchmark", () => {
 						requiredSystemConfigKeys: [],
 						slug: AUTOMATION_NO_HOST_SLUG,
 						name: "Benchmark no-host automation",
-						entry: "scripts/automation-no-host.sandbox.ts",
+						entry: "backend/scripts/automation-no-host.sandbox.ts",
 					},
 					{
 						slug: AUTOMATION_FULL_SLUG,
@@ -388,7 +288,7 @@ describe.skipIf(!RUN_SANDBOX_BENCHMARKS)("sandbox runtime benchmark", () => {
 						requiredPluginConfigKeys: [],
 						requiredSystemConfigKeys: [],
 						name: "Benchmark full automation",
-						entry: "scripts/automation-full.sandbox.ts",
+						entry: "backend/scripts/automation-full.sandbox.ts",
 						capabilities: ["getUserPreferences", "setCachedValue"],
 					},
 					{
@@ -430,8 +330,8 @@ describe.skipIf(!RUN_SANDBOX_BENCHMARKS)("sandbox runtime benchmark", () => {
 							},
 						],
 						files: {
-							"scripts/automation-full.sandbox.ts": fullAutomationSource,
-							"scripts/automation-no-host.sandbox.ts": noHostAutomationSource,
+							"backend/scripts/automation-full.sandbox.ts": fullAutomationSource,
+							"backend/scripts/automation-no-host.sandbox.ts": noHostAutomationSource,
 							"backend/providers/benchmark-provider/search.sandbox.ts": providerSearchSource(
 								unmatchedHttpServer.url,
 							),
@@ -459,7 +359,7 @@ describe.skipIf(!RUN_SANDBOX_BENCHMARKS)("sandbox runtime benchmark", () => {
 					SAMPLE_COUNT,
 					runDirectSample({
 						userId,
-						context: automationContext(50),
+						context: automationContext(),
 						scriptId: scriptId(AUTOMATION_NO_HOST_SLUG),
 					}),
 				);
@@ -468,7 +368,7 @@ describe.skipIf(!RUN_SANDBOX_BENCHMARKS)("sandbox runtime benchmark", () => {
 					SAMPLE_COUNT,
 					runDirectSample({
 						userId,
-						context: automationContext(100),
+						context: automationContext(),
 						scriptId: scriptId(AUTOMATION_FULL_SLUG),
 					}),
 				);

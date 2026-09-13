@@ -18,6 +18,7 @@ import {
 	ProviderHttpAdmissionService,
 	ProviderHttpAdmissionToken,
 } from "#lib/infrastructure/provider-http-admission";
+import { recordSandboxHostCall } from "#lib/infrastructure/runtime-metrics";
 import { SandboxHostImplementations } from "#lib/infrastructure/sandbox-runtime/host-implementations";
 import {
 	EventCreateWorkflow,
@@ -494,8 +495,13 @@ export const SandboxDurableHostDispatcherLive = Layer.effect(
 				}
 			});
 
-		return {
-			dispatch: (request, payload, principal, executionId) => {
+		const dispatchDurableHostCall: SandboxDurableHostDispatcher["Service"]["dispatch"] = (
+			request,
+			payload,
+			principal,
+			executionId,
+		) => {
+			{
 				const startedAt = payload.startedAt ?? "";
 				const strategy = sandboxDurableHostDispatchStrategy(request.args.capability);
 				if (!strategy) {
@@ -645,7 +651,20 @@ export const SandboxDurableHostDispatcherLive = Layer.effect(
 					}
 					return { value: null, state: "success" } satisfies WorkflowDurableResult;
 				});
-			},
+			}
+		};
+
+		return {
+			dispatch: (request, payload, principal, executionId) =>
+				dispatchDurableHostCall(request, payload, principal, executionId).pipe(
+					Effect.onExit((exit) =>
+						recordSandboxHostCall({
+							function: request.args.capability,
+							outcome:
+								exit._tag === "Success" && exit.value.state === "success" ? "success" : "failure",
+						}),
+					),
+				),
 		};
 	}),
 );
