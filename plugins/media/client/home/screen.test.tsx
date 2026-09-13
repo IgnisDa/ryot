@@ -189,6 +189,7 @@ describe("home sections", () => {
 		expect(documents().slice(4)).toEqual([
 			["suggestions.items", "suggestions.source"],
 			["trending.trending"],
+			["days", "figures", "mediaTypes"],
 		]);
 		view.unmount();
 	});
