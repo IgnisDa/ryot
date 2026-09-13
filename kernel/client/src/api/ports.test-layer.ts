@@ -72,7 +72,12 @@ export const makeUploadsApi = (overrides: Partial<UploadsApi["Service"]> = {}) =
 	);
 
 export const makePluginsApi = (overrides: Partial<PluginsApi["Service"]> = {}) =>
-	Layer.succeed(PluginsApi, { invoke: unused, ...overrides });
+	Layer.succeed(PluginsApi, {
+		invoke: unused,
+		saveUserSettings: unused,
+		resetUserSettings: unused,
+		...overrides,
+	});
 
 export const makeProviderEntitiesApi = (overrides: Partial<ProviderEntitiesApi["Service"]> = {}) =>
 	Layer.succeed(ProviderEntitiesApi, {
