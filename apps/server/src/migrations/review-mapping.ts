@@ -72,9 +72,17 @@ BEGIN
 				e.entity_schema_plugin_id,
 				show_episode.entity_id AS show_episode_entity_id,
 				podcast_episode.entity_id AS podcast_episode_entity_id,
-				(r.show_extra_information ->> 'season') ~ '^[0-9]+$'
-					AND (r.show_extra_information ->> 'episode') ~ '^[0-9]+$' AS has_show_episode_locator,
-				(r.podcast_extra_information ->> 'episode') ~ '^[0-9]+$' AS has_podcast_episode_locator
+				-- A missing locator regex-matches to NULL, which would make the
+				-- WHERE NOT below evaluate to NULL and silently drop the review.
+				COALESCE(
+					(r.show_extra_information ->> 'season') ~ '^[0-9]+$'
+					AND (r.show_extra_information ->> 'episode') ~ '^[0-9]+$',
+					false
+				) AS has_show_episode_locator,
+				COALESCE(
+					(r.podcast_extra_information ->> 'episode') ~ '^[0-9]+$',
+					false
+				) AS has_podcast_episode_locator
 			FROM "review" r
 			INNER JOIN "entity" e ON e.id = r.entity_id
 			LEFT JOIN _legacy_show_episode_resolution show_episode
