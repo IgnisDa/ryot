@@ -1,4 +1,3 @@
-import { PgClient } from "@effect/sql-pg";
 import { unknownToMessage } from "@ryot-app/contract/errors";
 import {
 	CreateEventItem,
@@ -25,7 +24,6 @@ import { isObjectRecord } from "@ryot-app/ts-utils/predicates";
 import { eq } from "drizzle-orm";
 import { Effect, Schema } from "effect";
 
-import { LifecyclePlanner } from "#lib/domain/lifecycle";
 import { LifecycleCommand } from "#lib/domain/lifecycle-command";
 import { LifecycleExecution } from "#lib/domain/lifecycle-execution";
 import * as schema from "#lib/infrastructure/db/schema/tables/combined";
@@ -52,7 +50,6 @@ import {
 	type UserSandboxRunInput,
 } from "#lib/infrastructure/sandbox-runtime/shared";
 import { DefinitionRepository } from "#modules/definition-registry/repository";
-import { EntitiesRepository } from "#modules/entities/repository";
 import {
 	EntitiesService,
 	type GlobalEntityUpsertResults,
@@ -62,17 +59,13 @@ import { EventsService } from "#modules/events/service";
 import { IntegrationsRepository, type IntegrationRecord } from "#modules/integrations/repository";
 import { PluginRuntimeResolver } from "#modules/plugins/runtime-resolver";
 import {
-	applyRelationshipPolicies,
-	commitProjectedRelationshipMutations,
-	prepareChangeUserBatch,
-	prepareReconcileGlobalGroup,
 	reconciliationSummary,
+	RelationshipMutations,
 	summarizeRelationshipMutations,
 	type PendingRelationshipMutations,
 	type RelationshipBatchSummary,
 	type RelationshipReconciliationSummary,
 } from "#modules/relationships/mutation-pipeline";
-import { RelationshipsRepository } from "#modules/relationships/repository";
 import { RyotQLService } from "#modules/ryotql/service";
 
 type SandboxHostFunctionContext =
@@ -80,13 +73,10 @@ type SandboxHostFunctionContext =
 	| RyotQLService
 	| EventsService
 	| EntitiesService
-	| EntitiesRepository
 	| DefinitionRepository
 	| PluginRuntimeResolver
 	| IntegrationsRepository
-	| RelationshipsRepository
-	| PgClient.PgClient
-	| LifecyclePlanner
+	| RelationshipMutations
 	| LifecycleExecution;
 
 const CreateEventsPayload = Schema.Array(CreateEventItem);
@@ -217,63 +207,37 @@ const hasInvalidPopulatedAt = (item: LifecycleHostInput<"UpsertGlobalEntities">[
 
 const makeSandboxLifecycleHostSteps = (dependencies: {
 	readonly entities: EntitiesService["Service"];
-	readonly provideEntityServices: <A, E>(
-		effect: Effect.Effect<
-			A,
-			E,
-			DatabaseSession | PgClient.PgClient | LifecyclePlanner | LifecycleExecution
-		>,
-	) => Effect.Effect<A, E>;
-	readonly provideRelationshipServices: <A, E>(
-		effect: Effect.Effect<
-			A,
-			E,
-			| DatabaseSession
-			| DefinitionRepository
-			| EntitiesRepository
-			| PluginRuntimeResolver
-			| RelationshipsRepository
-			| PgClient.PgClient
-			| LifecyclePlanner
-			| LifecycleExecution
-		>,
-	) => Effect.Effect<A, E>;
+	readonly relationships: RelationshipMutations["Service"];
 }) => {
-	const { entities, provideEntityServices, provideRelationshipServices } = dependencies;
+	const { entities, relationships } = dependencies;
 	const applyRelationshipHostPolicies = (pending: PendingRelationshipMutations) =>
-		provideRelationshipServices(
-			applyRelationshipPolicies(pending).pipe(Effect.mapError(lifecycleHostFailure)),
-		);
+		relationships.applyPolicies(pending).pipe(Effect.mapError(lifecycleHostFailure));
 	const upsertGlobalEntitiesStep = (
 		input: LifecycleHostInput<"UpsertGlobalEntities">,
 		cursor: Parameters<EntitiesService["Service"]["prepareUpsertGlobalEntitiesStep"]>[4],
 	) =>
-		provideEntityServices(
-			entities
-				.prepareUpsertGlobalEntitiesStep(
-					input.items.map((item) => ({
-						name: item.name,
-						externalId: item.externalId,
-						properties: item.properties,
-						entitySchemaSlug: EntitySchemaSlug.make(item.entitySchemaSlug),
-						populatedAt: item.populatedAt === null ? null : new Date(item.populatedAt),
-					})),
-					input.providerId,
-					input.command,
-					input.options?.maximumTotal === undefined
-						? undefined
-						: { maximumTotal: input.options.maximumTotal },
-					cursor,
-				)
-				.pipe(Effect.mapError(lifecycleHostFailure)),
-		);
+		entities
+			.prepareUpsertGlobalEntitiesStep(
+				input.items.map((item) => ({
+					name: item.name,
+					externalId: item.externalId,
+					properties: item.properties,
+					entitySchemaSlug: EntitySchemaSlug.make(item.entitySchemaSlug),
+					populatedAt: item.populatedAt === null ? null : new Date(item.populatedAt),
+				})),
+				input.providerId,
+				input.command,
+				input.options?.maximumTotal === undefined
+					? undefined
+					: { maximumTotal: input.options.maximumTotal },
+				cursor,
+			)
+			.pipe(Effect.mapError(lifecycleHostFailure));
 	return {
 		upsertGlobalEntities: {
 			prepare: upsertGlobalEntitiesStep,
 			applyPolicies: (pending: PendingGlobalEntityUpsert) =>
-				provideEntityServices(
-					entities.applyGlobalEntityPolicies(pending).pipe(Effect.mapError(lifecycleHostFailure)),
-				),
+				entities.applyGlobalEntityPolicies(pending).pipe(Effect.mapError(lifecycleHostFailure)),
 			commit: (
 				input: LifecycleHostInput<"UpsertGlobalEntities">,
 				pending: PendingGlobalEntityUpsert,
@@ -322,18 +286,16 @@ const makeSandboxLifecycleHostSteps = (dependencies: {
 			value: (results: ReadonlyArray<RelationshipBatchSummary>) =>
 				results.map(({ created, deleted }) => ({ created, deleted })),
 			commit: (pending: PendingRelationshipMutations) =>
-				provideRelationshipServices(
-					commitProjectedRelationshipMutations(pending, summarizeRelationshipMutations).pipe(
-						Effect.mapError(lifecycleHostFailure),
-					),
-				),
+				relationships
+					.commitProjected(pending, summarizeRelationshipMutations)
+					.pipe(Effect.mapError(lifecycleHostFailure)),
 			prepare: (
 				input: LifecycleHostInput<"ChangeUserRelationships">,
 				batch: LifecycleHostInput<"ChangeUserRelationships">["batches"][number],
 				index: number,
 			) =>
-				provideRelationshipServices(
-					prepareChangeUserBatch(
+				relationships
+					.prepareChangeUserBatch(
 						input.userId,
 						{
 							creates: batch.creates.map(toSandboxRelationshipIdentity),
@@ -341,8 +303,8 @@ const makeSandboxLifecycleHostSteps = (dependencies: {
 						},
 						index,
 						input.command,
-					).pipe(Effect.mapError(lifecycleHostFailure)),
-				),
+					)
+					.pipe(Effect.mapError(lifecycleHostFailure)),
 			validate: (
 				rawInput: SandboxRunInput,
 				batches: LifecycleHostInput<"ChangeUserRelationships">["batches"],
@@ -381,22 +343,17 @@ const makeSandboxLifecycleHostSteps = (dependencies: {
 				group: LifecycleHostInput<"UpsertGlobalRelationships">["groups"][number],
 				pending: PendingRelationshipMutations,
 			) =>
-				provideRelationshipServices(
-					commitProjectedRelationshipMutations(
-						pending,
-						reconciliationSummary(group.relationships.length),
-					).pipe(Effect.mapError(lifecycleHostFailure)),
-				),
+				relationships
+					.commitProjected(pending, reconciliationSummary(group.relationships.length))
+					.pipe(Effect.mapError(lifecycleHostFailure)),
 			prepare: (
 				input: LifecycleHostInput<"UpsertGlobalRelationships">,
 				group: LifecycleHostInput<"UpsertGlobalRelationships">["groups"][number],
 				index: number,
 			) =>
-				provideRelationshipServices(
-					prepareReconcileGlobalGroup(toReconcileGroup(group), index, input.command).pipe(
-						Effect.mapError(lifecycleHostFailure),
-					),
-				),
+				relationships
+					.prepareReconcileGlobalGroup(toReconcileGroup(group), index, input.command)
+					.pipe(Effect.mapError(lifecycleHostFailure)),
 			validate: (
 				rawInput: SandboxRunInput,
 				groups: LifecycleHostInput<"UpsertGlobalRelationships">["groups"],
@@ -436,33 +393,9 @@ const makeSandboxLifecycleHostSteps = (dependencies: {
 export type SandboxLifecycleHostSteps = ReturnType<typeof makeSandboxLifecycleHostSteps>;
 
 export const makeSandboxLifecycleHostApi = Effect.gen(function* () {
-	const session = yield* DatabaseSession;
-	const pgClient = yield* PgClient.PgClient;
-	const lifecyclePlanner = yield* LifecyclePlanner;
-	const lifecycleExecution = yield* LifecycleExecution;
-	const entities = yield* EntitiesService;
-	const definitions = yield* DefinitionRepository;
-	const pluginRuntime = yield* PluginRuntimeResolver;
-	const entitiesRepository = yield* EntitiesRepository;
-	const relationshipsRepository = yield* RelationshipsRepository;
-	const provideLifecycleServices = <A, E, R>(effect: Effect.Effect<A, E, R>) =>
-		effect.pipe(
-			Effect.provideService(DatabaseSession, session),
-			Effect.provideService(PgClient.PgClient, pgClient),
-			Effect.provideService(LifecyclePlanner, lifecyclePlanner),
-			Effect.provideService(LifecycleExecution, lifecycleExecution),
-		);
 	return makeSandboxLifecycleHostSteps({
-		entities,
-		provideEntityServices: provideLifecycleServices,
-		provideRelationshipServices: (effect) =>
-			effect.pipe(
-				Effect.provideService(DefinitionRepository, definitions),
-				Effect.provideService(EntitiesRepository, entitiesRepository),
-				Effect.provideService(PluginRuntimeResolver, pluginRuntime),
-				Effect.provideService(RelationshipsRepository, relationshipsRepository),
-				provideLifecycleServices,
-			),
+		entities: yield* EntitiesService,
+		relationships: yield* RelationshipMutations,
 	});
 });
 
@@ -483,8 +416,6 @@ export const makeAdditionalSandboxApiFunctions: Effect.Effect<
 	SandboxHostFunctionContext
 > = Effect.gen(function* () {
 	const session = yield* DatabaseSession;
-	const pgClient = yield* PgClient.PgClient;
-	const lifecyclePlanner = yield* LifecyclePlanner;
 	const lifecycleExecution = yield* LifecycleExecution;
 	const events = yield* EventsService;
 	const entities = yield* EntitiesService;
@@ -492,13 +423,6 @@ export const makeAdditionalSandboxApiFunctions: Effect.Effect<
 	const pluginRuntime = yield* PluginRuntimeResolver;
 	const definitions = yield* DefinitionRepository;
 	const integrationsRepository = yield* IntegrationsRepository;
-	const provideLifecycleServices = <A, E, R>(effect: Effect.Effect<A, E, R>) =>
-		effect.pipe(
-			Effect.provideService(PgClient.PgClient, pgClient),
-			Effect.provideService(LifecyclePlanner, lifecyclePlanner),
-			Effect.provideService(LifecycleExecution, lifecycleExecution),
-		);
-
 	const lifecycle = yield* makeSandboxLifecycleHostApi;
 	const writeInlineLifecycleItems = Effect.fnUntraced(function* <Item, Result>(options: {
 		readonly items: ReadonlyArray<Item>;
@@ -565,7 +489,7 @@ export const makeAdditionalSandboxApiFunctions: Effect.Effect<
 			);
 			return yield* events
 				.create({ payload, userId: UserId.make(userSandboxRunUserId(input)) }, command)
-				.pipe(provideLifecycleServices, Effect.flatMap(toSandboxCreateEventsResult));
+				.pipe(Effect.flatMap(toSandboxCreateEventsResult));
 		});
 
 	return {
@@ -593,6 +517,21 @@ export const makeAdditionalSandboxApiFunctions: Effect.Effect<
 					),
 				),
 			),
+		listIntegrations: (rawInput, rawOptions) =>
+			Effect.gen(function* () {
+				const input = yield* requireSandboxCapabilityInput(rawInput, "listIntegrations");
+				const options = rawOptions ?? {};
+
+				return yield* sandboxHostEffect(
+					integrationsRepository
+						.listForUser({
+							userId: UserId.make(userSandboxRunUserId(input)),
+							...(options.provider !== undefined ? { provider: options.provider } : {}),
+							...(options.isDisabled !== undefined ? { isDisabled: options.isDisabled } : {}),
+						})
+						.pipe(Effect.map((rows) => rows.map(toSandboxIntegration))),
+				);
+			}),
 		changeUserRelationships: (rawInput, batches) =>
 			sandboxHostEffect(
 				Effect.gen(function* () {
@@ -608,24 +547,6 @@ export const makeAdditionalSandboxApiFunctions: Effect.Effect<
 					return lifecycle.changeUserRelationships.value(results);
 				}),
 			),
-		listIntegrations: (rawInput, rawOptions) =>
-			Effect.gen(function* () {
-				const input = yield* requireSandboxCapabilityInput(rawInput, "listIntegrations");
-				const options = rawOptions ?? {};
-
-				return yield* sandboxHostEffect(
-					integrationsRepository
-						.listForUser({
-							userId: UserId.make(userSandboxRunUserId(input)),
-							...(options.provider !== undefined ? { provider: options.provider } : {}),
-							...(options.isDisabled !== undefined ? { isDisabled: options.isDisabled } : {}),
-						})
-						.pipe(
-							Effect.map((rows) => rows.map(toSandboxIntegration)),
-							Effect.provideService(DatabaseSession, session),
-						),
-				);
-			}),
 		upsertGlobalEntities: (rawInput, items, options) =>
 			sandboxHostEffect(
 				Effect.gen(function* () {
@@ -678,7 +599,6 @@ export const makeAdditionalSandboxApiFunctions: Effect.Effect<
 							),
 						);
 				}),
-				Effect.provideService(DatabaseSession, session),
 				sandboxHostEffect,
 			),
 		getPluginConfig: (input, rawKeys) =>
@@ -706,7 +626,6 @@ export const makeAdditionalSandboxApiFunctions: Effect.Effect<
 								Effect.flatMap((values) => encodeConfigValues("Plugin", values)),
 							);
 					}),
-					Effect.provideService(DatabaseSession, session),
 				),
 			),
 		executeRyotql: (rawInput, query) =>
@@ -783,7 +702,6 @@ export const makeAdditionalSandboxApiFunctions: Effect.Effect<
 						}),
 					),
 				),
-				Effect.provideService(DatabaseSession, session),
 				sandboxHostEffect,
 			),
 		ensureUserEntities: (rawInput, items) =>
@@ -809,22 +727,20 @@ export const makeAdditionalSandboxApiFunctions: Effect.Effect<
 						}
 					}
 					const command = yield* sandboxLifecycleCommand(input, "bootstrap", "ensureUserEntities");
-					const results = yield* entities
-						.ensureUserEntities(
-							userId,
-							items.map((item) => ({
-								...item,
-								entitySchemaSlug: EntitySchemaSlug.make(item.entitySchemaSlug),
-							})),
-							command,
-						)
-						.pipe(Effect.provideService(DatabaseSession, session), provideLifecycleServices);
+					const results = yield* entities.ensureUserEntities(
+						userId,
+						items.map((item) => ({
+							...item,
+							entitySchemaSlug: EntitySchemaSlug.make(item.entitySchemaSlug),
+						})),
+						command,
+					);
 					yield* reportSandboxLifecycleWarnings(
 						"ensureUserEntities",
 						results.flatMap((result) => result.warnings),
 					);
 					return results.map(({ entityId, wasInserted }) => ({ entityId, wasInserted }));
-				}).pipe(Effect.provideService(DatabaseSession, session)),
+				}),
 			),
 		getEntitySchemas: (rawInput, entitySchemaSlugs) =>
 			requireSandboxCapabilityInput(rawInput, "getEntitySchemas").pipe(
@@ -892,7 +808,6 @@ export const makeAdditionalSandboxApiFunctions: Effect.Effect<
 						}),
 					),
 				),
-				Effect.provideService(DatabaseSession, session),
 				sandboxHostEffect,
 			),
 	} satisfies AdditionalSandboxHostImplementationMap;

@@ -149,6 +149,7 @@ const loadDispatchInput = Effect.fn("loadSandboxDurableHostDispatchInput")(funct
 });
 
 export const dispatchSandboxHostActivity = Effect.fn("dispatchSandboxHostActivity")(function* (
+	implementations: SandboxHostImplementations["Service"],
 	request: HostRequest,
 	context: unknown,
 	principal: SandboxExecutionPrincipalValue,
@@ -156,7 +157,6 @@ export const dispatchSandboxHostActivity = Effect.fn("dispatchSandboxHostActivit
 	startedAt: string,
 ) {
 	const { input } = yield* loadDispatchInput(request, context, principal, executionId, startedAt);
-	const implementations = yield* SandboxHostImplementations;
 	const boundFunctions = bindSandboxHostFunctions(
 		{
 			...implementations.runtime,
@@ -233,6 +233,7 @@ export const prepareSandboxCreateEvents = Effect.fn("prepareSandboxCreateEvents"
 
 export const prepareSandboxLifecycleHostInput = Effect.fn("prepareSandboxLifecycleHostInput")(
 	function* (
+		{ lifecycle }: SandboxHostImplementations["Service"],
 		request: HostRequest,
 		payload: SandboxScriptWorkflowPayloadValue,
 		principal: SandboxExecutionPrincipalValue,
@@ -246,7 +247,6 @@ export const prepareSandboxLifecycleHostInput = Effect.fn("prepareSandboxLifecyc
 			executionId,
 			startedAt,
 		);
-		const { lifecycle } = yield* SandboxHostImplementations;
 		const capability = request.args.capability;
 		const validated = yield* Effect.result(
 			Effect.gen(function* () {
@@ -349,6 +349,7 @@ export const SandboxDurableHostServiceWorkflow = Workflow.make(
 export const runSandboxDurableHostServiceWorkflow = Effect.fn("SandboxDurableHostServiceWorkflow")(
 	function* (payload: typeof SandboxDurableHostServiceWorkflowPayload.Type) {
 		return yield* dispatchSandboxHostActivity(
+			yield* SandboxHostImplementations,
 			payload.request,
 			payload.sandbox.input,
 			payload.principal,
