@@ -2,6 +2,7 @@ import { Effect, Schema } from "effect";
 import { describe, expect, it } from "vitest";
 
 import { hostCallArgs } from "./host-call-args.test-support";
+import { SANDBOX_LIMITS } from "./limits";
 import { makeSidecarFrameReader, makeSidecarFrameWriter } from "./sidecar-framing";
 import {
 	sidecarInboundFrames,
@@ -141,6 +142,9 @@ const outboundParts = (
 	});
 };
 
+const firstPart = (handle: string, seq: number) =>
+	outboundParts(hostCallFrame(handle, seq, "🛎️".repeat(18_000))).slice(0, 1);
+
 const concatBytes = (chunks: readonly Uint8Array[]) => {
 	const bytes = new Uint8Array(chunks.reduce((total, chunk) => total + chunk.byteLength, 0));
 	let offset = 0;
@@ -177,6 +181,56 @@ const decodeInboundBytes = (bytes: Uint8Array) => {
 };
 
 describe("sidecar framing", () => {
+	it("reader_bounds_pending_messages_per_execution", () => {
+		const invalid: Array<{ readonly handle: string; readonly message: string }> = [];
+		const reader = makeSidecarFrameReader({
+			generation: 7,
+			isActive: () => true,
+			maximumAssemblies: 16,
+			onFrame: () => undefined,
+			maximumBufferedBytes: 4 * 1024 * 1024,
+			onInvalid: (handle, message) => invalid.push({ handle, message }),
+		});
+		for (let seq = 1; seq <= SANDBOX_LIMITS.bridge.concurrentHostCalls + 1; seq++) {
+			feedOutboundFrames(reader, firstPart("bounded", seq));
+		}
+		feedOutboundFrames(reader, firstPart("neighbour", 1));
+		expect(invalid).toEqual([]);
+		feedOutboundFrames(reader, firstPart("bounded", 6));
+		expect(invalid).toEqual([{ handle: "bounded", message: "too many pending hostCall messages" }]);
+	});
+
+	it("writer_retire_purges_unstarted_results", () => {
+		const output: Uint8Array[] = [];
+		let blockNext = true;
+		const writer = makeSidecarFrameWriter({
+			maximumRunMessages: 1,
+			maximumControlMessages: 4,
+			maximumQueuedBytes: 4 * 1024 * 1024,
+			write: (bytes) => {
+				output.push(bytes.slice());
+				const blocked = blockNext;
+				blockNext = false;
+				return { blocked, written: bytes.byteLength };
+			},
+		});
+		writer.enqueue(hostResultFrame("first", 1, "a".repeat(300_000)));
+		writer.flush();
+		writer.enqueue(hostResultFrame("first", 2, "unstarted"));
+		writer.enqueue(hostResultFrame("second", 3, "kept"));
+		writer.retire("first");
+		writer.flush();
+		const frames = decodeInboundBytes(concatBytes(output));
+		expect(frames.map((frame) => [frame.handle, frame.type, frame.seq])).toEqual([
+			["first", "part", 1],
+			["first", "part", 1],
+			["second", "hostResult", 3],
+			["first", "part", 1],
+			["first", "part", 1],
+			["first", "part", 1],
+		]);
+	});
+
 	it("client_handles_partial_writes_chunk_interleaving_and_desync", () => {
 		const received: OutboundFrame[] = [];
 		const invalid: { readonly handle: string; readonly message: string }[] = [];
