@@ -209,7 +209,7 @@ export const runNative = Effect.fnUntraced(function* (
 				maxActive: 1,
 				trust: "user",
 				maxRss: 450 * 1024 * 1024,
-				memoryBudget: 324 * 1024 * 1024,
+				memoryBudget: 388 * 1024 * 1024,
 			});
 			const ready = yield* connection.next;
 			assert(ready.type === "ready");

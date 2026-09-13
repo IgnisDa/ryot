@@ -16,6 +16,7 @@ import type { Logger as LoggerType } from "effect/Logger";
 
 import { makeRecordingTracer } from "#lib/test-utils/tracer";
 
+import { hostCallArgs } from "./host-call-args.test-support";
 import { SandboxHostCallGate } from "./host-call-gate";
 import { SANDBOX_LIMITS } from "./limits";
 import {
@@ -244,10 +245,10 @@ describe("sandbox observability host functions", () => {
 										const result = yield* registration.dispatch({
 											seq,
 											name,
-											args: [],
 											generation: 1,
 											type: "hostCall",
 											handle: "telemetry",
+											args: hostCallArgs([]),
 										});
 										expect(result.result).toMatchObject({
 											status: "success",

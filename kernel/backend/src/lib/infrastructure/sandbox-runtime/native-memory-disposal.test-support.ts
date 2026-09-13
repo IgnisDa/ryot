@@ -9,6 +9,7 @@ import { SandboxCompiler } from "#modules/sandbox/sandbox-compiler";
 
 import { SandboxExecutionAuthority } from "./execution-principal";
 import { SandboxFileService } from "./file-service";
+import { decodedHostCallArgs } from "./host-call-args.test-support";
 import { SandboxHostCallGate, type SandboxHostCallGateRegistration } from "./host-call-gate";
 import { SandboxHostImplementations } from "./host-implementations";
 import {
@@ -38,7 +39,7 @@ export class NativeMemoryEvidence extends Context.Service<NativeMemoryEvidence>(
 		make: Effect.gen(function* () {
 			const fs = yield* FileSystem.FileSystem;
 			const root = yield* fs.makeTempDirectoryScoped({ prefix: "ryot-native-memory-" });
-			const calls: Array<Pick<CallFrame, "args" | "handle" | "name">> = [];
+			const calls: Array<Pick<CallFrame, "handle" | "name"> & { readonly args: unknown }> = [];
 			const ranges: Array<{
 				readonly handle: string;
 				readonly offset: number;
@@ -111,10 +112,11 @@ const recordingClient = recordingSidecarClient(
 			},
 			received: (frame) => {
 				if (frame.type === "hostCall") {
+					const decoded = decodedHostCallArgs(frame.args);
 					const args =
-						frame.name === "scratchWrite" && isObjectRecord(frame.args)
-							? { final: frame.args["final"] ?? null, offset: frame.args["offset"] ?? null }
-							: frame.args;
+						frame.name === "scratchWrite" && isObjectRecord(decoded)
+							? { final: decoded["final"] ?? null, offset: decoded["offset"] ?? null }
+							: decoded;
 					evidence.calls.push({ args, name: frame.name, handle: frame.handle });
 					evidence.reservations.push(admission.snapshot());
 					Queue.offerUnsafe(evidence.events, { name: frame.name, handle: frame.handle });
