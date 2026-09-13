@@ -34,7 +34,7 @@ import { createBackInterceptors } from "#/modules/navigation/back-interceptors";
 import { PluginCatalogService } from "#/modules/plugins/catalog";
 import { makePluginCatalogEventsTestLayer } from "#/modules/plugins/events.test-layer";
 import { PluginOperationsService } from "#/modules/plugins/operations";
-import { makePluginQueries } from "#/modules/plugins/services.test-layer";
+import { makePluginQueries, makePluginStorage } from "#/modules/plugins/services.test-layer";
 import type { ProviderAddService } from "#/modules/provider-add/service";
 import { ClientStorage } from "#/persistence/storage";
 import { getRouter } from "#/router";
@@ -221,6 +221,7 @@ function mount(options: {
 				},
 			}),
 			makePluginQueries(),
+			makePluginStorage(),
 		).pipe(
 			Layer.provideMerge(OAuthRouteStubs),
 			Layer.provideMerge(

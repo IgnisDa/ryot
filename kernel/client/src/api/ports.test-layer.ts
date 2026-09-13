@@ -15,6 +15,7 @@ import { RyotQLApi } from "#/api/ryotql";
 import { SavedViewsApi } from "#/api/saved-views";
 import { UploadsApi } from "#/api/uploads";
 import { UserSettingsApi } from "#/api/user-settings";
+import { TemporaryUploads } from "#/modules/assets/temporary-uploads";
 import { EntityInterestService } from "#/modules/entity-interest/service";
 
 // oxlint-disable-next-line effecttsgo/lazy-effect -- Fills service method slots of any arity
@@ -57,13 +58,17 @@ export const makePluginInstallationsApi = (
 ) => Layer.succeed(PluginInstallationsApi, { update: unused, ...overrides });
 
 export const makeUploadsApi = (overrides: Partial<UploadsApi["Service"]> = {}) =>
-	Layer.succeed(UploadsApi, {
-		putBytes: unused,
-		createIntent: unused,
-		completeIntent: unused,
-		resolveDownloads: unused,
-		...overrides,
-	});
+	Layer.fresh(TemporaryUploads.layer).pipe(
+		Layer.provideMerge(
+			Layer.succeed(UploadsApi, {
+				putBytes: unused,
+				createIntent: unused,
+				completeIntent: unused,
+				resolveDownloads: unused,
+				...overrides,
+			}),
+		),
+	);
 
 export const makePluginsApi = (overrides: Partial<PluginsApi["Service"]> = {}) =>
 	Layer.succeed(PluginsApi, { invoke: unused, ...overrides });

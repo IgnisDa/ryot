@@ -2,11 +2,11 @@ import { describe, expect, layer } from "@effect/vitest";
 import { PLUGIN_STORAGE_VALUE_MAX_BYTES } from "@ryot-app/client-plugin-contract";
 import type { PreparedClientPage } from "@ryot-app/contract/modules/client-pages/schemas";
 import { PluginSlug } from "@ryot-app/contract/schema/brands";
-import { Effect } from "effect";
+import { Effect, Layer } from "effect";
 
 import { decodeServerOrigin } from "#/api/origin";
 import type { ApiScope } from "#/api/scope";
-import { pluginStorageOutcome } from "#/modules/plugins/storage";
+import { PluginStorage } from "#/modules/plugins/storage";
 import { pluginStorageKey } from "#/persistence/storage";
 import { FakeBrowserStorage, fakeClientStorageLayer } from "#/persistence/storage.test-layer";
 
@@ -25,6 +25,12 @@ const contributors: PreparedClientPage["identity"]["contributors"] = [
 	{ name: "table", kind: "kernel-renderer", sourceHash: "source-hash" },
 ];
 
+const pluginStorageOutcome = (...args: Parameters<PluginStorage["Service"]["outcome"]>) =>
+	Effect.flatMap(PluginStorage, (storage) => storage.outcome(...args));
+
+const pluginStorageLayer = (...args: Parameters<typeof fakeClientStorageLayer>) =>
+	PluginStorage.layer.pipe(Layer.provideMerge(fakeClientStorageLayer(...args)));
+
 const setOrder = (value: string) =>
 	pluginStorageOutcome(scope, contributors, {
 		value,
@@ -34,7 +40,7 @@ const setOrder = (value: string) =>
 	});
 
 describe("plugin storage outcome", () => {
-	layer(fakeClientStorageLayer())((test) => {
+	layer(pluginStorageLayer())((test) => {
 		test.effect("stores, reads, and removes a value for a plugin contributing to the frame", () => {
 			return Effect.gen(function* () {
 				const storage = yield* FakeBrowserStorage;
@@ -66,7 +72,7 @@ describe("plugin storage outcome", () => {
 		});
 	});
 
-	layer(fakeClientStorageLayer())((test) => {
+	layer(pluginStorageLayer())((test) => {
 		test.effect("rejects a slug that is not a plugin contributor of the frame", () => {
 			return Effect.gen(function* () {
 				const storage = yield* FakeBrowserStorage;
@@ -83,7 +89,7 @@ describe("plugin storage outcome", () => {
 		});
 	});
 
-	layer(fakeClientStorageLayer())((test) => {
+	layer(pluginStorageLayer())((test) => {
 		test.effect("rejects a value whose serialized JSON exceeds the byte limit", () => {
 			return Effect.gen(function* () {
 				const storage = yield* FakeBrowserStorage;
@@ -102,7 +108,7 @@ describe("plugin storage outcome", () => {
 	});
 
 	layer(
-		fakeClientStorageLayer({
+		pluginStorageLayer({
 			setItem: () => {
 				throw new DOMException("full", "QuotaExceededError");
 			},
