@@ -77,6 +77,7 @@ const showSummaryFacts = (show: ShowSummary) => {
 
 export function ShowScreenBody(props: {
 	readonly compact: boolean;
+	readonly safeAreaTop: number;
 	readonly refresh: () => void;
 	readonly episodes: ReactNode;
 	readonly activity: ReactNode;
@@ -116,6 +117,7 @@ export function ShowScreenBody(props: {
 				media={state.show}
 				compact={props.compact}
 				overview={props.overview}
+				safeAreaTop={props.safeAreaTop}
 				isEmpty={mediaRelationsAreEmpty}
 				relations={showOverviewRelations}
 				refreshOverview={props.refreshOverview}
@@ -147,7 +149,7 @@ export function ShowScreenBody(props: {
 }
 
 export function ShowScreen(props: EntityRendererProps) {
-	const { compact } = useRyotViewport();
+	const { compact, safeAreaTop } = useRyotViewport();
 	const summaryResult = useRyotQuery(showSummaryQuery, { entityId: props.entityId });
 	const overviewResult = useRyotQuery(showOverviewQuery, { entityId: props.entityId });
 	const { commit, settled } = useShowEntitySettle(props.entityId);
@@ -178,6 +180,7 @@ export function ShowScreen(props: EntityRendererProps) {
 						state={state}
 						compact={compact}
 						overview={overview}
+						safeAreaTop={safeAreaTop}
 						refresh={summaryResult.refetch}
 						settled={settled.get(props.entityId)}
 						refreshOverview={overviewResult.refetch}

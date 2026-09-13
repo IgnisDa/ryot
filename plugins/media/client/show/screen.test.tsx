@@ -97,6 +97,7 @@ const renderContent = (
 		noopAdapter,
 		<ShowScreenBody
 			state={state}
+			safeAreaTop={0}
 			settled={undefined}
 			compact={options.compact ?? true}
 			refresh={options.refresh ?? (() => undefined)}
