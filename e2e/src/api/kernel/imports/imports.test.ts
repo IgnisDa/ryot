@@ -1,7 +1,8 @@
+import { ImportRunFailuresExport } from "@ryot-app/contract/modules/imports/schemas";
 import { pluginConfigEnvironmentKey } from "@ryot-app/contract/modules/plugins/plugin-config";
 import { ImportRunId } from "@ryot-app/contract/schema/brands";
 import { importSourcesRecipe } from "@ryot-app/ryotql-recipes/import-sources";
-import { Effect } from "effect";
+import { Effect, Schema } from "effect";
 
 import {
 	collectRyotQLRecipeItems,
@@ -26,6 +27,8 @@ import {
 } from "~/fixtures/kernel";
 import { assertPresent, assertTaggedError } from "~/support/assertions";
 import { afterAll, beforeAll, describe, expect, it, runPromise } from "~/support/effect-test";
+import { getApiUrl } from "~/support/harness-target";
+import { webRequest } from "~/support/web-request";
 
 let fixtureImportPlugin: InstalledTestPlugin | undefined;
 
@@ -247,12 +250,12 @@ describe("Plugin Import Public Boundary", () => {
 		}),
 	);
 
-	it.live("resolves workflow-lifetime opaque harvest handles", () =>
+	it.live("downloads every stored import failure for the owning user", () =>
 		Effect.gen(function* () {
-			yield* Effect.acquireRelease(installTestHarvestHandleImportPlugin, (installed) =>
+			yield* Effect.acquireRelease(installTestHarvestHandleImportPlugin(101), (installed) =>
 				uninstallWhenReleased(installed).pipe(Effect.asVoid, Effect.orDie),
 			);
-			const { client } = yield* createAuthenticatedClient();
+			const { token, client } = yield* createAuthenticatedClient();
 
 			const created = yield* client.call((c) =>
 				c.imports.createRun({ payload: { source: FIXTURE_HANDLE_IMPORT_SOURCE } }),
@@ -261,11 +264,33 @@ describe("Plugin Import Public Boundary", () => {
 
 			expect(completed.failureReason).toEqual({ code: "input-transformation-failed" });
 			expect(completed).toMatchObject({
-				failedItems: 1,
+				failedItems: 101,
 				status: "failed",
-				processedItems: 1,
+				processedItems: 101,
 				source: FIXTURE_HANDLE_IMPORT_SOURCE,
 			});
+
+			const downloadUrl = `${getApiUrl()}/imports/runs/${encodeURIComponent(created.id)}/failures/download`;
+			const response = yield* webRequest(downloadUrl, {
+				headers: { Authorization: `Bearer ${token}` },
+			});
+			expect(response.status).toBe(200);
+			expect(response.headers.get("content-type")).toBe("application/json; charset=utf-8");
+			expect(response.headers.get("content-disposition")).toContain(
+				`ryot-import-failures-${created.id}.json`,
+			);
+			const report = yield* Schema.decodeUnknownEffect(ImportRunFailuresExport)(
+				yield* Effect.promise(() => response.json()),
+			);
+			expect(report.runId).toBe(created.id);
+			expect(report.failures).toHaveLength(101);
+			expect(report.failures[100]?.sourceLabel).toBe("Harvest fixture 101");
+
+			const other = yield* createAuthenticatedClient();
+			const foreignResponse = yield* webRequest(downloadUrl, {
+				headers: { Authorization: `Bearer ${other.token}` },
+			});
+			expect(foreignResponse.status).toBe(404);
 		}),
 	);
 
