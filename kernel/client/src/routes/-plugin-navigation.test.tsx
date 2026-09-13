@@ -433,9 +433,9 @@ describe("client page routes", () => {
 			expect(
 				globalThis.document.querySelectorAll('[data-testid="authenticated-shell"]'),
 			).toHaveLength(1);
-			expect(Schema.decodeUnknownSync(PluginBridgeLocation)(bridge.messages[0])).toMatchObject({
-				location: { path: "/", search: "", kind: "route" },
-			});
+			expect(
+				yield* Schema.decodeUnknownEffect(PluginBridgeLocation)(bridge.messages[0]),
+			).toMatchObject({ location: { path: "/", search: "", kind: "route" } });
 		}),
 	);
 
@@ -508,9 +508,9 @@ describe("client page routes", () => {
 				{ search: "tab=stats", path: "/details/one", kind: "plugin-route", pluginSlug: "fixture" },
 			]);
 			expect(frame.getAttribute("src")).toContain("/api/client-pages/documents/plugin-1");
-			expect(Schema.decodeUnknownSync(PluginBridgeLocation)(bridge.messages[0])).toMatchObject({
-				location: { kind: "route", search: "tab=stats", path: "/details/one" },
-			});
+			expect(
+				yield* Schema.decodeUnknownEffect(PluginBridgeLocation)(bridge.messages[0]),
+			).toMatchObject({ location: { kind: "route", search: "tab=stats", path: "/details/one" } });
 			bridge.port.postMessage({
 				input: null,
 				pluginSlug: "fixture",
@@ -962,7 +962,9 @@ describe("client page routes", () => {
 				yield* Effect.promise(() => screen.findByTitle<HTMLIFrameElement>("fixture plugin")),
 			);
 			yield* Effect.promise(() => waitFor(() => expect(bridge.messages).toHaveLength(1)));
-			const initialNavigation = Schema.decodeUnknownSync(PluginBridgeLocation)(bridge.messages[0]);
+			const initialNavigation = yield* Schema.decodeUnknownEffect(PluginBridgeLocation)(
+				bridge.messages[0],
+			);
 			bridge.port.postMessage({
 				mode: "push",
 				type: "navigate",
@@ -980,7 +982,7 @@ describe("client page routes", () => {
 				yield* Effect.promise(() => screen.findByTitle<HTMLIFrameElement>("fixture plugin")),
 			);
 			yield* Effect.promise(() => waitFor(() => expect(searchBridge.messages).toHaveLength(1)));
-			const initialSearch = Schema.decodeUnknownSync(PluginBridgeLocation)(
+			const initialSearch = yield* Schema.decodeUnknownEffect(PluginBridgeLocation)(
 				searchBridge.messages[0],
 			);
 			searchBridge.port.postMessage({
@@ -992,7 +994,7 @@ describe("client page routes", () => {
 				waitFor(() => expect(searchView.router.state.location.searchStr).toBe("?keep=1&q=dune")),
 			);
 			yield* Effect.promise(() => waitFor(() => expect(searchBridge.messages).toHaveLength(2)));
-			const replacedSearch = Schema.decodeUnknownSync(PluginBridgeLocation)(
+			const replacedSearch = yield* Schema.decodeUnknownEffect(PluginBridgeLocation)(
 				searchBridge.messages[1],
 			);
 			expect(replacedSearch).toMatchObject({ key: initialSearch.key, index: initialSearch.index });
@@ -1010,7 +1012,9 @@ describe("client page routes", () => {
 			yield* Effect.promise(() => waitFor(() => expect(bridge.messages).toHaveLength(1)));
 
 			expect(view.targets).toEqual([{ kind: "entity", entityId: EntityId.make("entity-1") }]);
-			expect(Schema.decodeUnknownSync(PluginBridgeLocation)(bridge.messages[0])).toMatchObject({
+			expect(
+				yield* Schema.decodeUnknownEffect(PluginBridgeLocation)(bridge.messages[0]),
+			).toMatchObject({
 				location: {
 					kind: "entity",
 					entityId: "entity-1",
