@@ -1,12 +1,4 @@
-import {
-	booleanField,
-	defineConfig,
-	enumField,
-	group,
-	integerField,
-	stringField,
-} from "@ryot-app/config";
-import { Config } from "effect";
+import { booleanField, defineConfig, group, integerField, stringField } from "@ryot-app/config";
 
 const scheduler = group(
 	{ label: "Scheduler", description: "Scheduler settings" },
@@ -113,19 +105,19 @@ const database = group(
 const sandbox = group(
 	{ label: "Sandbox", description: "Sandbox execution settings" },
 	{
-		denoDir: stringField({
-			hidden: true,
-			defaultValue: "./tmp",
-			label: "Deno directory",
-			envKey: "SANDBOX_DENO_DIR",
-			description: "Directory used for the local sandbox dependency runtime and Deno cache",
+		memoryBudgetMiB: integerField({
+			defaultValue: 1536,
+			label: "Memory budget (MiB)",
+			envKey: "SANDBOX_MEMORY_BUDGET_MIB",
+			description:
+				"Aggregate memory reservation budget for sandbox processes and execution buffers",
 		}),
-		processMode: enumField({
-			label: "Process mode",
-			defaultValue: "on-demand",
-			envKey: "SANDBOX_PROCESS_MODE",
-			choices: { kind: "static", values: [{ value: "on-demand" }, { value: "warm" }] },
-			description: "Spawn processes on demand or keep a warm pool ready for executions",
+		workerConcurrency: integerField({
+			defaultValue: 2,
+			label: "Worker concurrency",
+			envKey: "SANDBOX_WORKER_CONCURRENCY",
+			description:
+				"Global sandbox execution concurrency across trust and snapshot tiers; keep it within available database and memory headroom",
 		}),
 		importConcurrency: integerField({
 			defaultValue: 2,
@@ -134,12 +126,23 @@ const sandbox = group(
 			description:
 				"Maximum provider imports running at once across all instances; the rest wait in a queue. Keep it equal to the total SANDBOX_WORKER_CONCURRENCY of all instances",
 		}),
-		workerConcurrency: integerField({
-			defaultValue: 2,
-			label: "Worker concurrency",
-			envKey: "SANDBOX_WORKER_CONCURRENCY",
+		runtimeDirectory: stringField({
+			hidden: true,
+			defaultValue: "./sandboxd",
+			validation: { required: true },
+			envKey: "SANDBOX_RUNTIME_DIRECTORY",
+			label: "Development sandbox runtime directory",
 			description:
-				"Maximum sandbox executions the durable queue runs at once. The default suits the 2 vCPU / 4 GB baseline, where each live execution costs one Deno process and one shared pool connection; raise it only on hosts with spare CPU, memory, and DATABASE_POOL_MAX headroom",
+				"Directory containing ryot-sandboxd and snapshots for non-Linux development; relative paths resolve from the working directory",
+		}),
+		launcherPath: stringField({
+			hidden: true,
+			validation: { required: true },
+			label: "Linux sandbox launcher",
+			envKey: "SANDBOX_LAUNCHER_PATH",
+			defaultValue: "/usr/local/libexec/ryot-sandbox-launcher",
+			description:
+				"Trusted Linux sandbox launcher executable; its installed executable and snapshot bindings are fixed by privileged provisioning",
 		}),
 	},
 );
@@ -435,8 +438,4 @@ export const appConfigDefinition = defineConfig(
 		),
 	},
 	{ description: "Application configuration" },
-);
-
-export const sandboxDenoDirConfig = Config.String("SANDBOX_DENO_DIR").pipe(
-	Config.withDefault("./tmp"),
 );

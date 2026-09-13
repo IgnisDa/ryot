@@ -7,8 +7,8 @@ export const PgClientLive = Layer.unwrap(
 	Effect.map(AppConfig, (config) =>
 		PgClient.layer({
 			url: config.database.url,
-			maxConnections: config.database.poolMax,
 			connectTimeout: Duration.millis(config.database.connectionTimeoutMs),
+			maxConnections: Math.min(config.database.poolMax, 4 + config.sandbox.workerConcurrency),
 		}),
 	),
 );

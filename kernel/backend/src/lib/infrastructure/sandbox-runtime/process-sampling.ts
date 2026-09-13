@@ -17,11 +17,6 @@ export const parseCgroupMemoryMax = (contents: string) => {
 const readTextFile = (path: string) =>
 	Effect.tryPromise(() => Bun.file(path).text()).pipe(Effect.orElseSucceed(() => null));
 
-export const readProcessRssBytes = (pid: number) =>
-	Effect.map(readTextFile(`/proc/${pid}/status`), (status) =>
-		status === null ? null : parseProcStatusRssBytes(status),
-	);
-
 // An absent cgroup returns undefined; an unlimited cgroup returns null.
 export const readCgroupMemoryLimit = Effect.gen(function* () {
 	const current = yield* readTextFile("/sys/fs/cgroup/memory.current");
