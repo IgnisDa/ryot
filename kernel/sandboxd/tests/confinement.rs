@@ -74,6 +74,33 @@ fn confinement_probe_child() {
         report.insert("mount", errno(result, result < 0));
         let result = libc::unshare(libc::CLONE_NEWUSER);
         report.insert("unshare", errno(result, result < 0));
+        for (name, flags) in [
+            ("clone_newcgroup", libc::CLONE_NEWCGROUP),
+            ("clone_newipc", libc::CLONE_NEWIPC),
+            ("clone_newnet", libc::CLONE_NEWNET),
+            ("clone_newns", libc::CLONE_NEWNS),
+            ("clone_newpid", libc::CLONE_NEWPID),
+            ("clone_newtime", libc::CLONE_NEWTIME),
+            ("clone_newuser", libc::CLONE_NEWUSER),
+            ("clone_newuts", libc::CLONE_NEWUTS),
+        ] {
+            let result = libc::syscall(libc::SYS_clone, flags, 0, 0, 0, 0);
+            if result == 0 {
+                libc::_exit(99);
+            }
+            report.insert(name, errno(result, result < 0));
+        }
+        let result = libc::syscall(libc::SYS_clone3, std::ptr::null::<u8>(), 0);
+        report.insert("clone3", errno(result, result < 0));
+        #[cfg(target_arch = "x86_64")]
+        for (name, syscall) in [
+            ("x32_getpid", libc::SYS_getpid),
+            ("x32_ptrace", 521),
+            ("x32_unknown", 0x12345),
+        ] {
+            let result = libc::syscall(syscall | 0x40000000, 0, 0, 0, 0, 0);
+            report.insert(name, errno(result, result < 0));
+        }
         report.insert(
             "no_new_privs",
             json!(libc::prctl(libc::PR_GET_NO_NEW_PRIVS, 0, 0, 0, 0)),
@@ -132,7 +159,20 @@ fn confinement_denies_files_sockets_and_dangerous_syscalls() {
         "perf_event_open",
         "mount",
         "unshare",
+        "clone_newcgroup",
+        "clone_newipc",
+        "clone_newnet",
+        "clone_newns",
+        "clone_newpid",
+        "clone_newtime",
+        "clone_newuser",
+        "clone_newuts",
     ] {
+        assert_eq!(report[denied], json!(libc::EPERM), "{denied}: {report}");
+    }
+    assert_eq!(report["clone3"], json!(libc::ENOSYS));
+    #[cfg(target_arch = "x86_64")]
+    for denied in ["x32_getpid", "x32_ptrace", "x32_unknown"] {
         assert_eq!(report[denied], json!(libc::EPERM), "{denied}: {report}");
     }
     assert_eq!(report["no_new_privs"], json!(1));
@@ -213,4 +253,42 @@ fn startup_fails_when_confinement_cannot_be_applied() {
         String::from_utf8_lossy(&output.stderr)
     );
     assert!(String::from_utf8_lossy(&output.stderr).contains("Landlock"));
+}
+
+#[test]
+fn landlock_is_verified_inside_the_running_sidecar() {
+    let mut sidecar = support::spawn(Tier::Core, &[]);
+    assert_eq!(
+        sidecar
+            .execute(Tier::Core, "export default () => 'landlocked'", Value::Null)
+            .value(),
+        json!("landlocked")
+    );
+    let filter: seccompiler::BpfProgram = seccompiler::SeccompFilter::new(
+        BTreeMap::from([(libc::SYS_landlock_restrict_self, Vec::new())]),
+        seccompiler::SeccompAction::Allow,
+        seccompiler::SeccompAction::Errno(0),
+        if cfg!(target_arch = "x86_64") {
+            seccompiler::TargetArch::x86_64
+        } else {
+            seccompiler::TargetArch::aarch64
+        },
+    )
+    .and_then(TryInto::try_into)
+    .expect("filter");
+    let mut command = support::command(Tier::Core, &[]);
+    let (_ours, theirs) = std::os::unix::net::UnixStream::pair().expect("socketpair");
+    let fd = std::os::fd::AsRawFd::as_raw_fd(&theirs);
+    // SAFETY: only descriptor rewiring and seccomp installation run in the child before exec.
+    unsafe {
+        command.pre_exec(move || {
+            if libc::dup2(fd, 3) < 0 || libc::prctl(libc::PR_SET_NO_NEW_PRIVS, 1, 0, 0, 0) != 0 {
+                return Err(std::io::Error::last_os_error());
+            }
+            seccompiler::apply_filter(&filter).map_err(std::io::Error::other)
+        });
+    }
+    let output = command.output().expect("sidecar");
+    assert_eq!(output.status.code(), Some(71));
+    assert!(String::from_utf8_lossy(&output.stderr).contains("Landlock did not deny a file open"));
 }
