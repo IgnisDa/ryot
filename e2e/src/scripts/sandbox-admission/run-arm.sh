@@ -42,7 +42,7 @@ validate() {
 }
 
 wait_healthy() {
-	for _ in $(seq 1 60); do
+	for _ in $(seq 1 180); do
 		if docker exec "$APP" bun -e "process.exit((await fetch('http://127.0.0.1:8000/api/system/health').catch(() => null))?.ok ? 0 : 1)" 2>/dev/null; then
 			return 0
 		fi
