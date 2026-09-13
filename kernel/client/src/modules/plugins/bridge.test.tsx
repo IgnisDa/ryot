@@ -1468,10 +1468,11 @@ describe("plugin bridge", () => {
 			Effect.gen(function* () {
 				const { init, received, failures, pluginPort } = connect({
 					onOperation: () =>
-						Effect.succeed(
-							// oxlint-disable-next-line typescript/no-unsafe-type-assertion -- verifies runtime detail redaction
-							{ reason, outcome: "failure", cause: new Error("private") } as PluginOperationOutcome,
-						),
+						Effect.succeed({
+							reason,
+							outcome: "failure",
+							cause: new Error("private"),
+						} as PluginOperationOutcome),
 				});
 				pluginPort.postMessage(readyFor(init));
 				yield* Effect.promise(() => waitFor(() => expect(received).toHaveLength(1)));
