@@ -1,29 +1,26 @@
 import type { ImportRunFailureReason } from "@ryot-app/contract/modules/imports/schemas";
 import { Context, Effect, Layer } from "effect";
 
-import { RedisService } from "#lib/infrastructure/redis";
 import { makeActivity } from "#lib/infrastructure/workflow-scope";
 import { UploadIntentsService } from "#modules/uploads/intents/service";
 
 import type { ImportRunJobData } from "../jobs";
 import { failImportRun } from "./import-run-status";
-import { deleteImportSourceState } from "./source-state-store";
+import { ImportSourceStateStore } from "./source-state-store";
 import { ImportRunError, toWorkflowError } from "./workflow-errors";
 
 export class ImportRunArtifacts extends Context.Service<ImportRunArtifacts>()(
 	"ImportRunArtifacts",
 	{
 		make: Effect.gen(function* () {
-			const redis = yield* RedisService;
+			const sourceStates = yield* ImportSourceStateStore;
 			const uploads = yield* UploadIntentsService;
 
 			const cleanupArtifacts = Effect.fn("imports.cleanupArtifacts")(function* (input: {
 				claimId: string;
 				sourceStateId: string;
 			}) {
-				yield* deleteImportSourceState(input.sourceStateId, input.claimId).pipe(
-					Effect.provideService(RedisService, redis),
-				);
+				yield* sourceStates.remove(input.sourceStateId, input.claimId);
 			});
 
 			const cleanupUploads = Effect.fn("imports.cleanupUploads")(function* (
