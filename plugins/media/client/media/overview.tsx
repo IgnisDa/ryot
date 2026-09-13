@@ -361,10 +361,10 @@ export function MediaRecommendationsSection(props: {
 }) {
 	return (
 		<MediaEntityRailSection
-			aspect={props.aspect}
 			title="More like this"
 			divided={props.divided}
 			compact={props.compact}
+			aspect={() => props.aspect}
 			items={props.recommendations}
 		/>
 	);
