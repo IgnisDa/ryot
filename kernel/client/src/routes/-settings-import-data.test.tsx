@@ -250,7 +250,7 @@ URL.revokeObjectURL = () => undefined;
 document.addEventListener(
 	"click",
 	(event) => {
-		if (event.target instanceof HTMLAnchorElement) {
+		if (event.target instanceof HTMLAnchorElement && event.target.download !== "") {
 			savedFailureDownloads.push(event.target.download);
 			event.preventDefault();
 		}
