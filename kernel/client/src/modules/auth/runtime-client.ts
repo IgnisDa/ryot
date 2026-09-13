@@ -27,13 +27,14 @@ export class RuntimeOAuthClientError extends Data.TaggedError("RuntimeOAuthClien
 
 type RuntimeOAuthClientSource = {
 	readonly isNative: () => boolean;
-	readonly getApplicationId: () => Promise<string>;
+	readonly getApplicationId: Effect.Effect<string, RuntimeOAuthClientError>;
 };
 
-export const makeRuntimeOAuthClient = (source: RuntimeOAuthClientSource) => {
+export const makeRuntimeOAuthClient = Effect.fnUntraced(function* (
+	source: RuntimeOAuthClientSource,
+) {
 	const isNative = source.isNative();
-	let applicationId: Promise<string> | undefined;
-	const getApplicationId = () => (applicationId ??= source.getApplicationId());
+	const getApplicationId = yield* Effect.cached(source.getApplicationId);
 	const forServer = (origin: ServerOrigin) => {
 		if (!isNative) {
 			return Effect.succeed({
@@ -43,30 +44,36 @@ export const makeRuntimeOAuthClient = (source: RuntimeOAuthClientSource) => {
 				logoutUri: getWebOAuthLogoutCallbackUri(origin),
 			} satisfies RuntimeOAuthClientDescriptor);
 		}
-		return Effect.tryPromise(getApplicationId).pipe(
-			Effect.flatMap(Schema.decodeUnknownEffect(NativeOAuthApplicationId)),
+		return getApplicationId.pipe(
+			Effect.flatMap((applicationId) =>
+				Schema.decodeUnknownEffect(NativeOAuthApplicationId)(applicationId).pipe(
+					Effect.mapError((cause) => new RuntimeOAuthClientError({ cause })),
+				),
+			),
 			Effect.map((nativeApplicationId): RuntimeOAuthClientDescriptor => ({
 				nativeApplicationId,
 				clientId: OAUTH_NATIVE_CLIENT_ID,
 				callbackUri: getNativeOAuthCallbackUri(nativeApplicationId),
 				logoutUri: getNativeOAuthLogoutCallbackUri(nativeApplicationId),
 			})),
-			Effect.mapError((cause) => new RuntimeOAuthClientError({ cause })),
 		);
 	};
 
 	return { isNative, forServer };
-};
+});
 
 export class RuntimeOAuthClientService extends Context.Service<
 	RuntimeOAuthClientService,
-	ReturnType<typeof makeRuntimeOAuthClient>
+	Effect.Success<ReturnType<typeof makeRuntimeOAuthClient>>
 >()("RuntimeOAuthClientService") {
-	static readonly layer = Layer.succeed(
+	static readonly layer = Layer.effect(
 		this,
 		makeRuntimeOAuthClient({
 			isNative: isNativePlatform,
-			getApplicationId: () => App.getInfo().then((info) => info.id),
+			getApplicationId: Effect.tryPromise({
+				try: () => App.getInfo(),
+				catch: (cause) => new RuntimeOAuthClientError({ cause }),
+			}).pipe(Effect.map((info) => info.id)),
 		}),
 	);
 }

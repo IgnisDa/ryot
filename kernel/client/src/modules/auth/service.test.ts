@@ -42,11 +42,11 @@ class FakeAuthDependencies extends Context.Service<
 >()("test/FakeAuthDependencies") {}
 
 const runtimeClient = (isNative = false) =>
-	Layer.succeed(
+	Layer.effect(
 		RuntimeOAuthClientService,
 		makeRuntimeOAuthClient({
 			isNative: () => isNative,
-			getApplicationId: () => Promise.resolve("io.ryot.app"),
+			getApplicationId: Effect.succeed("io.ryot.app"),
 		}),
 	);
 
@@ -329,11 +329,11 @@ describe("authentication service", () => {
 	layer(
 		authLayer(
 			{ logout: () => Effect.die("not used") },
-			Layer.succeed(
+			Layer.effect(
 				RuntimeOAuthClientService,
 				makeRuntimeOAuthClient({
 					isNative: () => true,
-					getApplicationId: () => Promise.resolve("io.ryot.unknown"),
+					getApplicationId: Effect.succeed("io.ryot.unknown"),
 				}),
 			),
 		),

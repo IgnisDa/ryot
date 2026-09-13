@@ -1,5 +1,6 @@
 import { App } from "@capacitor/app";
 import { Capacitor } from "@capacitor/core";
+import { Effect } from "effect";
 
 import {
 	createDeepLinkBridge,
@@ -9,12 +10,15 @@ import {
 
 const capacitorAppSource: NativeAppSource = {
 	exitApp: () => void App.exitApp(),
-	getLaunchUrl: () => App.getLaunchUrl().then((launch) => launch?.url ?? null),
+	getLaunchUrl: () =>
+		Effect.tryPromise(() => App.getLaunchUrl()).pipe(Effect.map((launch) => launch?.url ?? null)),
 	onBackButton: (handler) =>
-		App.addListener("backButton", () => handler()).then((listener) => () => void listener.remove()),
+		Effect.tryPromise(() => App.addListener("backButton", () => handler())).pipe(
+			Effect.map((listener) => () => void listener.remove()),
+		),
 	onUrlOpen: (handler) =>
-		App.addListener("appUrlOpen", (event) => handler(event.url)).then(
-			(listener) => () => void listener.remove(),
+		Effect.tryPromise(() => App.addListener("appUrlOpen", (event) => handler(event.url))).pipe(
+			Effect.map((listener) => () => void listener.remove()),
 		),
 };
 

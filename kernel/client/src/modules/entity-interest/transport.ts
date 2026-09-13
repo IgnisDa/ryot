@@ -1,18 +1,24 @@
 import { App } from "@capacitor/app";
 import { Capacitor, type PluginListenerHandle } from "@capacitor/core";
-import { Context, Layer } from "effect";
+import { type Cause, Context, Effect, Fiber, Layer } from "effect";
 
 export type InterestSocket = Pick<EventTarget, "addEventListener"> & {
 	close(): void;
 	send(frame: string): void;
 };
 
-type ListenNativeResume = (notify: () => void) => Promise<PluginListenerHandle> | undefined;
+type ListenNativeResume = (
+	notify: () => void,
+) => Effect.Effect<PluginListenerHandle | undefined, Cause.UnknownError>;
+
+const listenNativeResume: ListenNativeResume = (notify) =>
+	Capacitor.isNativePlatform()
+		? Effect.tryPromise(() => App.addListener("resume", notify))
+		: Effect.undefined;
 
 export const subscribeNativeResume = (
 	resumed: () => void,
-	listenResume: ListenNativeResume = (notify) =>
-		Capacitor.isNativePlatform() ? App.addListener("resume", notify) : undefined,
+	listenResume: ListenNativeResume = listenNativeResume,
 ) => {
 	let disposed = false;
 	const notify = () => {
@@ -20,14 +26,20 @@ export const subscribeNativeResume = (
 			resumed();
 		}
 	};
-	const native = listenResume(notify);
-	void native?.catch(() => undefined);
+	const native = Effect.runFork(listenResume(notify).pipe(Effect.orElseSucceed(() => undefined)));
 	return () => {
 		if (disposed) {
 			return;
 		}
 		disposed = true;
-		void native?.then((listener) => listener.remove()).catch(() => undefined);
+		Effect.runFork(
+			Fiber.join(native).pipe(
+				Effect.flatMap((listener) =>
+					listener === undefined ? Effect.void : Effect.tryPromise(() => listener.remove()),
+				),
+				Effect.ignore,
+			),
+		);
 	};
 };
 
@@ -36,7 +48,7 @@ export const subscribeEntityInterestLifecycle = (
 	platform: {
 		readonly window: EventTarget;
 		readonly document: EventTarget;
-		readonly listenResume: (notify: () => void) => Promise<PluginListenerHandle> | undefined;
+		readonly listenResume: ListenNativeResume;
 	},
 ) => {
 	let disposed = false;
@@ -84,8 +96,7 @@ export class EntityInterestTransport extends Context.Service<
 			subscribeEntityInterestLifecycle(changed, {
 				window,
 				document,
-				listenResume: (notify) =>
-					Capacitor.isNativePlatform() ? App.addListener("resume", notify) : undefined,
+				listenResume: listenNativeResume,
 			}),
 	});
 }
