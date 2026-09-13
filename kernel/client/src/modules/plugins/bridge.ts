@@ -25,6 +25,7 @@ import {
 	PluginBridgeCollectionResult,
 	type PluginBridgeInit,
 	type PluginBridgeLocation,
+	type PluginBridgeDocument,
 	type PluginBridgeHeader,
 	type PluginBridgeNavigate,
 	type PluginBridgePageSearch,
@@ -77,6 +78,11 @@ export type PluginBridgeSession = {
 	readonly sendShortcut: (shortcut: PageShortcutKey) => void;
 	readonly sendViewport: (insets: PluginBridgeViewportInsets) => void;
 	readonly sendLocation: (navigation: PluginBridgeNavigationState) => void;
+	readonly sendDocument: (
+		documentKey: string,
+		page: ClientPageContext,
+		navigation: PluginBridgeNavigationState,
+	) => void;
 };
 
 type PluginBridgeState = "ready" | "active" | "closing" | "failed" | "disposed";
@@ -92,6 +98,7 @@ type PluginBridgeOptions = {
 	readonly artifactHash: string;
 	readonly onFailure: () => void;
 	readonly page?: ClientPageContext;
+	readonly documentKey: string;
 	readonly onOpenDrawer: () => void;
 	readonly theme: PluginThemeSnapshot;
 	readonly target: PluginBridgeTarget;
@@ -152,10 +159,12 @@ export function openPluginBridge(options: PluginBridgeOptions): PluginBridgeSess
 		bridgeVersion: CLIENT_BRIDGE_PROTOCOL_VERSION,
 		safeAreaBottom: options.viewport.safeAreaBottom,
 		...(options.page === undefined ? {} : { page: options.page }),
+		documentKey: options.documentKey,
 	};
 
 	let viewport = options.viewport;
 	let navigation = options.navigation;
+	let pendingDocument: { readonly key: string; readonly page: ClientPageContext } | undefined;
 	let mode = options.theme.resolvedMode;
 	let interestIds = new Set<string>();
 	const channel = new MessageChannel();
@@ -253,6 +262,37 @@ export function openPluginBridge(options: PluginBridgeOptions): PluginBridgeSess
 			return;
 		}
 		post({ ...navigation, type: "location" } satisfies PluginBridgeLocation);
+	}
+
+	function sendDocument(
+		documentKey: string,
+		page: ClientPageContext,
+		next: PluginBridgeNavigationState,
+	) {
+		navigation = next;
+		pendingDocument = { page, key: documentKey };
+		if (state !== "active") {
+			return;
+		}
+		interest?.dispose();
+		interest = undefined;
+		interestIds.clear();
+		for (const { controller } of pending.values()) {
+			controller.abort();
+		}
+		pending.clear();
+		overlayDismiss?.cancelTimeout();
+		overlayDismiss = undefined;
+		overlayCount = 0;
+		options.onOverlayState(0);
+		options.onPageShortcuts([]);
+		post({
+			page,
+			documentKey,
+			type: "document",
+			navigation: { ...next, type: "location" },
+		} satisfies PluginBridgeDocument);
+		pendingDocument = undefined;
 	}
 
 	function sendPageRefresh() {
@@ -630,7 +670,18 @@ export function openPluginBridge(options: PluginBridgeOptions): PluginBridgeSess
 			}
 			state = "active";
 			clearTimeout(timer);
-			post({ ...navigation, type: "location" } satisfies PluginBridgeLocation);
+			if (pendingDocument) {
+				const { key, page } = pendingDocument;
+				pendingDocument = undefined;
+				post({
+					page,
+					documentKey: key,
+					type: "document",
+					navigation: { ...navigation, type: "location" },
+				} satisfies PluginBridgeDocument);
+			} else {
+				post({ ...navigation, type: "location" } satisfies PluginBridgeLocation);
+			}
 			if (mode !== init.mode) {
 				post({ mode, type: "theme" } satisfies PluginBridgeTheme);
 			}
@@ -658,6 +709,7 @@ export function openPluginBridge(options: PluginBridgeOptions): PluginBridgeSess
 		sendTheme,
 		sendShortcut,
 		sendLocation,
+		sendDocument,
 		sendViewport,
 		sendPageRefresh,
 		requestOverlayDismiss,

@@ -158,30 +158,15 @@ const expectCurrentBridgeSession = (observations: BridgeObservation[], expected:
 	expect(current, "Plugin bridge session changed unexpectedly").toBe(expected);
 };
 
-const waitForArtifactSessionRevoked = (page: Playwright.Page, artifact: ArtifactSession) =>
+const expectArtifactGrantValid = (page: Playwright.Page, artifact: ArtifactSession) =>
 	Effect.gen(function* () {
-		let revoked = false;
-		for (let attempt = 0; attempt < 100; attempt += 1) {
-			const status = yield* page
-				.use(async (nativePage) => {
-					const response = await nativePage.context().request.get(artifact.src);
-					const stat = response.status();
-					await response.dispose();
-					return stat;
-				})
-				.pipe(Effect.option);
-			if (Option.getOrUndefined(status) === 404) {
-				revoked = true;
-				break;
-			}
-			yield* Effect.sleep("25 millis");
-		}
-		if (!revoked) {
-			return yield* Effect.die(
-				new Error("Replaced plugin artifact session did not return 404 [credential redacted]"),
-			);
-		}
-		return undefined;
+		const status = yield* page.use(async (nativePage) => {
+			const response = await nativePage.context().request.get(artifact.src);
+			const result = response.status();
+			await response.dispose();
+			return result;
+		});
+		expect(status, "Retained artifact grant is no longer valid [credential redacted]").toBe(200);
 	});
 
 const expectNoCredentialsInBridgeMessages = (
@@ -406,10 +391,10 @@ it.live("runs the client plugin lifecycle in a real browser", () =>
 			false,
 		);
 		const crashRecoveryArtifact = yield* readArtifactSession(frame, apiUrl);
-		expectFreshArtifactSession(crashRecoveryArtifact, navigationArtifact);
+		expectSameArtifactSession(crashRecoveryArtifact, navigationArtifact);
 		observedArtifacts.push(crashRecoveryArtifact);
 		yield* waitForFreshBridgeSession(bridgeObservations, navigationBridgeSession);
-		yield* waitForArtifactSessionRevoked(page, navigationArtifact);
+		yield* expectArtifactGrantValid(page, navigationArtifact);
 
 		yield* fixture.getByRole("button", { exact: true, name: "Greet" }).click();
 		yield* expectVisibleText(home, "Greeted 1 times.");
@@ -450,7 +435,7 @@ it.live("runs the client plugin lifecycle in a real browser", () =>
 		expectFreshArtifactSession(revisionBArtifact, revisionAArtifact);
 		observedArtifacts.push(revisionBArtifact);
 		yield* waitForFreshBridgeSession(bridgeObservations, revisionABridgeSession);
-		yield* waitForArtifactSessionRevoked(page, revisionAArtifact);
+		yield* expectArtifactGrantValid(page, revisionAArtifact);
 		expect(yield* frame.getAttribute("data-e2e-revision")).toBeNull();
 		expect(page.url()).toBe(outerUrl);
 		yield* expectVisibleText(home, "Greeted 0 times.");
