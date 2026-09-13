@@ -1,7 +1,6 @@
 import { Schema } from "effect";
 
 import {
-	EventSchemaSlug,
 	NotificationSubscriptionId,
 	RelationshipSchemaSlug,
 	SignalSchemaSlug,
@@ -23,11 +22,6 @@ export const SignalAudiencePolicy = Schema.Union([
 		kind: Schema.Literal("related_users"),
 		relationshipSchemaSlug: RelationshipSchemaSlug,
 		subjectSide: Schema.Literals(["source", "target"]),
-	}),
-	strictStruct({
-		eventSchemaSlug: EventSchemaSlug,
-		role: Schema.Literals(["entity", "session"]),
-		kind: Schema.Literal("dependent_event_owners"),
 	}),
 ]);
 

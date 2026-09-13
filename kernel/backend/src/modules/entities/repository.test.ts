@@ -8,7 +8,6 @@ import {
 	SandboxScriptId,
 	UserId,
 } from "@ryot-app/contract/schema/brands";
-import { sql } from "drizzle-orm";
 import { PgDialect } from "drizzle-orm/pg-core";
 import { Context, DateTime, Effect, Layer, Ref } from "effect";
 
@@ -377,54 +376,6 @@ const eventStreamRepositoriesLayer = Layer.mergeAll(
 ).pipe(Layer.provideMerge(isolatedDatabaseLayer("entities_repository_stream_invalidation")));
 
 layer(eventStreamRepositoriesLayer)((test) => {
-	test.effect("lists distinct event schema and reference-role dependencies", () =>
-		Effect.gen(function* () {
-			const session = yield* DatabaseSession;
-			const repository = yield* EntitiesRepository;
-			const userId = UserId.make("dependency-owner");
-			const entityId = EntityId.make("dependency-entity");
-			const occurredAt = DateTime.toDateUtc(DateTime.makeUnsafe("2026-10-01T00:00:00.000Z"));
-			yield* session.run((db) =>
-				db
-					.insert(tables.user)
-					.values({ id: userId, name: "Dependency owner", email: "dependency@example.test" }),
-			);
-			yield* session.run((db) =>
-				db
-					.insert(tables.entity)
-					.values({ id: entityId, name: "Entity", entitySchemaSlug: "record" }),
-			);
-			yield* session.run((db) =>
-				db.execute(sql`
-					insert into event (
-						id,
-						user_id,
-						entity_id,
-						session_entity_id,
-						event_schema_slug,
-						event_schema_plugin_id,
-						occurred_at
-					) values
-						('dependency-entity-1', ${userId}, ${entityId}, ${entityId}, 'workout-set', null, ${occurredAt}),
-						('dependency-entity-2', ${userId}, ${entityId}, null, 'workout-set', null, ${occurredAt})
-				`),
-			);
-
-			expect(yield* repository.listEventDependencies(entityId)).toEqual([
-				{
-					role: "entity",
-					eventSchemaPluginId: null,
-					eventSchemaSlug: EventSchemaSlug.make("workout-set"),
-				},
-				{
-					role: "session",
-					eventSchemaPluginId: null,
-					eventSchemaSlug: EventSchemaSlug.make("workout-set"),
-				},
-			]);
-		}),
-	);
-
 	test.effect("invalidates event streams only after entity stream data changes", () =>
 		Effect.gen(function* () {
 			const session = yield* DatabaseSession;
