@@ -6,7 +6,10 @@ import { stableStringify } from "@ryot-app/ts-utils/json";
 import { isObjectRecord } from "@ryot-app/ts-utils/predicates";
 import { Cause, Clock, Context, Effect, Layer, Option, Schema } from "effect";
 
-import { sandboxDurableHostDispatchStrategy } from "#modules/sandbox/durable-host-dispatcher";
+import {
+	sandboxDurableHostDispatchStrategy,
+	sandboxHostResultBytes,
+} from "#modules/sandbox/durable-host-dispatcher";
 
 import {
 	recordSandboxExecution,
@@ -51,8 +54,8 @@ const decodeResponse = Schema.decodeUnknownEffect(SandboxInvocationResponseSchem
 	onExcessProperty: "error",
 });
 
-// Workflow-dispatched capabilities may wait for nested sandbox runs, so live executions never
-// bind them while holding an execution slot and memory.
+// Workflow-dispatched capabilities may wait for nested sandbox runs, and unbounded results cannot be
+// charged to transient memory, so live executions never bind them while holding a slot and memory.
 const resourceFreeStrategies = new Set<ReturnType<typeof sandboxDurableHostDispatchStrategy>>([
 	"activity",
 	"diagnostic",
@@ -72,6 +75,7 @@ export const selectSandboxHostFunctions = (
 			isSandboxFilesystemGrantCapability(name) ||
 			(workflow && name !== "log" && name !== "span") ||
 			!resourceFreeStrategies.has(sandboxDurableHostDispatchStrategy(name)) ||
+			sandboxHostResultBytes(name) === null ||
 			!isSandboxCapabilityAllowed(input, name)
 		) {
 			continue;
