@@ -1,9 +1,6 @@
-import type {
-	BackupRun,
-	BackupRunFailure,
-	BackupRunKind,
-} from "@ryot-app/contract/modules/backups/schemas";
+import type { BackupRunFailure, BackupRunKind } from "@ryot-app/contract/modules/backups/schemas";
 import type { RunStatus } from "@ryot-app/contract/schema/run-status";
+import type { BackupRunItem } from "@ryot-app/ryotql-recipes/backups";
 import { DateTime, Match } from "effect";
 
 import {
@@ -12,9 +9,9 @@ import {
 	type RunProgressValue,
 } from "#/modules/ui/run/run-status";
 
-type BackupRunProgress = Pick<BackupRun, "status" | "progress">;
+type BackupRunProgress = Pick<BackupRunItem, "status" | "progress">;
 
-type BackupRunExpiry = Pick<BackupRun, "kind" | "status" | "expiresAt">;
+type BackupRunExpiry = Pick<BackupRunItem, "kind" | "status" | "expiresAt">;
 
 type BackupRunFailureNotice = { readonly label: string; readonly detail: string };
 
@@ -26,7 +23,7 @@ const instant = (value: string) => DateTime.toEpochMillis(DateTime.makeUnsafe(va
 
 export const canDeleteBackupRun = (status: RunStatus) => isTerminalRunStatus(status);
 
-export const liveBackupRun = <Run extends Pick<BackupRun, "status">>(runs: readonly Run[]) =>
+export const liveBackupRun = <Run extends Pick<BackupRunItem, "status">>(runs: readonly Run[]) =>
 	runs.find((run) => !isTerminalRunStatus(run.status));
 
 export const backupRunKindLabel = (kind: BackupRunKind) =>
@@ -57,7 +54,7 @@ export const backupRunProgressValue = (run: BackupRunProgress): RunProgressValue
 		: { min: 0, max: 100, now: progress.percent, text: `${progress.percent}% done` };
 };
 
-export const backupExpiryLabel = (run: Pick<BackupRun, "expiresAt">, nowMs: number) => {
+export const backupExpiryLabel = (run: Pick<BackupRunItem, "expiresAt">, nowMs: number) => {
 	if (run.expiresAt === null) {
 		return undefined;
 	}
@@ -118,7 +115,7 @@ export const backupRunFailureNotice = (failure: BackupRunFailure | null): Backup
 				Match.exhaustive,
 			);
 
-export const backupRunOutcomeLabel = (run: BackupRun, nowMs: number) => {
+export const backupRunOutcomeLabel = (run: BackupRunItem, nowMs: number) => {
 	if (run.status === "failed") {
 		return backupRunFailureNotice(run.failure).label;
 	}
@@ -131,7 +128,7 @@ export const backupRunOutcomeLabel = (run: BackupRun, nowMs: number) => {
 	return canDownloadBackupRun(run, nowMs) ? "Ready to download" : "No longer available";
 };
 
-export const backupRunDeleteConfirmation = (run: Pick<BackupRun, "kind">) =>
+export const backupRunDeleteConfirmation = (run: Pick<BackupRunItem, "kind">) =>
 	run.kind === "export"
 		? "This removes this record and the stored archive from your server. Nothing in your account is deleted, and any copy you already downloaded is untouched."
 		: "This removes this record only. Nothing that was restored into your account is deleted.";

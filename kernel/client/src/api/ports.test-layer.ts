@@ -21,13 +21,7 @@ export const unused = () => Effect.die("not used");
 
 export const makeAutomationHistoryApi = (
 	overrides: Partial<AutomationHistoryApi["Service"]> = {},
-) =>
-	Layer.succeed(AutomationHistoryApi, {
-		getRun: unused,
-		listRuns: unused,
-		retryRun: unused,
-		...overrides,
-	});
+) => Layer.succeed(AutomationHistoryApi, { retryRun: unused, ...overrides });
 
 export const makeEntityInterestApi = (overrides: Partial<EntityInterestApi["Service"]> = {}) =>
 	Layer.succeed(EntityInterestApi, { createSocketTicket: unused, ...overrides });
@@ -44,7 +38,7 @@ export const makeEntityInterestService = (
 	});
 
 export const makeRyotQLApi = (overrides: Partial<RyotQLApi["Service"]> = {}) =>
-	Layer.succeed(RyotQLApi, { execute: unused, ...overrides });
+	Layer.succeed(RyotQLApi, { execute: unused, executePlugin: unused, ...overrides });
 
 export const makeCollectionsApi = (overrides: Partial<CollectionsApi["Service"]> = {}) =>
 	Layer.succeed(CollectionsApi, {
@@ -82,16 +76,10 @@ export const makeProviderEntitiesApi = (overrides: Partial<ProviderEntitiesApi["
 	});
 
 export const makeImportsApi = (overrides: Partial<ImportsApi["Service"]> = {}) =>
-	Layer.succeed(ImportsApi, {
-		createRun: unused,
-		deleteRun: unused,
-		listSources: unused,
-		...overrides,
-	});
+	Layer.succeed(ImportsApi, { createRun: unused, deleteRun: unused, ...overrides });
 
 export const makeBackupsApi = (overrides: Partial<BackupsApi["Service"]> = {}) =>
 	Layer.succeed(BackupsApi, {
-		listRuns: unused,
 		deleteRun: unused,
 		createExport: unused,
 		createRestore: unused,
@@ -101,12 +89,10 @@ export const makeBackupsApi = (overrides: Partial<BackupsApi["Service"]> = {}) =
 
 export const makeIntegrationsApi = (overrides: Partial<IntegrationsApi["Service"]> = {}) =>
 	Layer.succeed(IntegrationsApi, {
-		get: unused,
 		sync: unused,
 		create: unused,
 		delete: unused,
 		update: unused,
-		listProviders: unused,
 		...overrides,
 	});
 
@@ -121,7 +107,6 @@ export const makeNotificationsApi = (overrides: Partial<NotificationsApi["Servic
 
 export const makeUserSettingsApi = (overrides: Partial<UserSettingsApi["Service"]> = {}) =>
 	Layer.succeed(UserSettingsApi, {
-		get: unused,
 		refreshAvatar: unused,
 		updatePreferences: unused,
 		...overrides,
@@ -129,13 +114,11 @@ export const makeUserSettingsApi = (overrides: Partial<UserSettingsApi["Service"
 
 export const makeGodModeApi = (overrides: Partial<GodModeApi["Service"]> = {}) =>
 	Layer.succeed(GodModeApi, {
-		listUsers: unused,
+		query: unused,
 		resetUser: unused,
 		deleteUser: unused,
 		setUserDisabled: unused,
 		resetUserPassword: unused,
-		getMigrationReport: unused,
-		getUserLifecycleOperation: unused,
 		...overrides,
 	});
 

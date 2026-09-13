@@ -9,10 +9,6 @@ export class IntegrationsApi extends Context.Service<IntegrationsApi>()("Integra
 		const api = yield* AuthenticatedApi;
 		return {
 			sync: (scope: ApiScope) => api.run(scope, (client) => client.integrations.sync()),
-			listProviders: (scope: ApiScope) =>
-				api.run(scope, (client) => client.integrations.listProviders()),
-			get: (scope: ApiScope, request: ContractRequest<"integrations", "get">) =>
-				api.run(scope, (client) => client.integrations.get(request)),
 			create: (scope: ApiScope, request: ContractRequest<"integrations", "create">) =>
 				api.run(scope, (client) => client.integrations.create(request)),
 			update: (scope: ApiScope, request: ContractRequest<"integrations", "update">) =>

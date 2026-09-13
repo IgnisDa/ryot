@@ -1,5 +1,6 @@
 import type { ContractRequest } from "@ryot-app/contract/client";
-import { Context, Effect, Layer } from "effect";
+import type { PreparedRecipe } from "@ryot-app/ryotql";
+import { Context, Effect, Layer, Result } from "effect";
 
 import { AdminApi } from "#/api/admin";
 import type { ServerOrigin } from "#/api/origin";
@@ -8,13 +9,6 @@ export class GodModeApi extends Context.Service<GodModeApi>()("GodModeApi", {
 	make: Effect.gen(function* () {
 		const api = yield* AdminApi;
 		return {
-			getMigrationReport: (origin: ServerOrigin, token: string) =>
-				api.run(origin, token, (client) => client.godMode.getMigrationReport()),
-			listUsers: (
-				origin: ServerOrigin,
-				token: string,
-				request: ContractRequest<"godMode", "listUsers">,
-			) => api.run(origin, token, (client) => client.godMode.listUsers(request)),
 			resetUser: (
 				origin: ServerOrigin,
 				token: string,
@@ -35,11 +29,17 @@ export class GodModeApi extends Context.Service<GodModeApi>()("GodModeApi", {
 				token: string,
 				request: ContractRequest<"godMode", "resetUserPassword">,
 			) => api.run(origin, token, (client) => client.godMode.resetUserPassword(request)),
-			getUserLifecycleOperation: (
-				origin: ServerOrigin,
-				token: string,
-				request: ContractRequest<"godMode", "getUserLifecycleOperation">,
-			) => api.run(origin, token, (client) => client.godMode.getUserLifecycleOperation(request)),
+			query: <A>(origin: ServerOrigin, token: string, recipe: PreparedRecipe<A>) =>
+				api
+					.run(origin, token, (client) => client.adminRyotql.execute({ payload: recipe.document }))
+					.pipe(
+						Effect.flatMap((response) => {
+							const decoded = recipe.decode(response);
+							return Result.isSuccess(decoded)
+								? Effect.succeed(decoded.success)
+								: Effect.fail(decoded.failure);
+						}),
+					),
 		};
 	}),
 }) {

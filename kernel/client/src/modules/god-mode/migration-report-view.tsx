@@ -2,7 +2,7 @@ import { Button } from "@ryot-app/client-ui-sdk";
 import { AppIcon } from "@ryot-app/client-ui-sdk/icon";
 import clsx from "clsx";
 import { Exit } from "effect";
-import { useEffect, useEffectEvent, useState } from "react";
+import { useEffect, useEffectEvent, useRef, useState } from "react";
 
 import { isUnauthorizedCause } from "#/modules/god-mode/errors";
 import {
@@ -17,13 +17,15 @@ import {
 import { transferMigrationReportDetails } from "#/modules/god-mode/reset-link-transfer";
 import type { GodModeMigrationReport } from "#/modules/god-mode/service";
 
-type MigrationReportEntry = GodModeMigrationReport["entries"][number];
+type MigrationReportEntry = GodModeMigrationReport["items"][number];
 
-type MigrationReportState =
-	| { readonly kind: "loading" }
-	| { readonly kind: "failure" }
-	| { readonly kind: "unauthorized" }
-	| { readonly kind: "success"; readonly entries: ReadonlyArray<MigrationReportEntry> };
+type ReportPage =
+	| { readonly after: string | undefined; readonly state: "loading" | "failure" }
+	| {
+			readonly after: string | undefined;
+			readonly state: "success";
+			readonly value: GodModeMigrationReport;
+	  };
 
 const dateTimeFormatter = new Intl.DateTimeFormat("en-US", {
 	day: "numeric",
@@ -42,10 +44,11 @@ function DetailList(props: { readonly entry: MigrationReportEntry }) {
 	if (code === null) {
 		return null;
 	}
-	const remaining = (entry.totalDetails ?? entry.details.length) - entry.details.length;
+	const details = entry.details.items.map(({ detail }) => detail);
+	const remaining = (entry.totalDetails ?? details.length) - details.length;
 	return (
 		<div className="flex flex-col gap-3 px-2 pb-3">
-			{entry.details.map((detail) => (
+			{details.map((detail) => (
 				<div
 					className="flex flex-col gap-1"
 					key={
@@ -89,9 +92,9 @@ function DetailList(props: { readonly entry: MigrationReportEntry }) {
 						void transferMigrationReportDetails(
 							buildMigrationReportClipboardText({
 								code,
+								details,
 								phase: entry.phase,
 								message: entry.message,
-								details: entry.details,
 								totalDetails: entry.totalDetails,
 							}),
 						)
@@ -198,65 +201,69 @@ function MigrationReportTable(props: { readonly entries: ReadonlyArray<Migration
 
 export function MigrationReportView(props: {
 	readonly unauthorized: () => void;
-	readonly load: (signal: AbortSignal) => Promise<Exit.Exit<GodModeMigrationReport, unknown>>;
+	readonly load: (
+		after: string | undefined,
+		signal: AbortSignal,
+	) => Promise<Exit.Exit<GodModeMigrationReport, unknown>>;
 }) {
-	const [attempt, setAttempt] = useState(0);
-	const [state, setState] = useState<MigrationReportState>({ kind: "loading" });
-	const load = useEffectEvent(async (signal: AbortSignal) => {
-		const result = await props.load(signal);
+	const controller = useRef<AbortController>(null);
+	const [unauthorized, setUnauthorized] = useState(false);
+	const [pages, setPages] = useState<ReadonlyArray<ReportPage>>([
+		{ after: undefined, state: "loading" },
+	]);
+	const load = useEffectEvent(async (after: string | undefined, signal: AbortSignal) => {
+		const result = await props.load(after, signal);
 		if (signal.aborted) {
 			return;
 		}
-		if (Exit.isSuccess(result)) {
-			setState({ kind: "success", entries: result.value.entries });
-			return;
-		}
-		if (isUnauthorizedCause(result.cause)) {
-			setState({ kind: "unauthorized" });
+		if (Exit.isFailure(result) && isUnauthorizedCause(result.cause)) {
+			setUnauthorized(true);
 			props.unauthorized();
 			return;
 		}
-		setState({ kind: "failure" });
+		setPages((current) =>
+			current.map((page) => {
+				if (page.after !== after) {
+					return page;
+				}
+				return Exit.isSuccess(result)
+					? { after, state: "success", value: result.value }
+					: { after, state: "failure" };
+			}),
+		);
 	});
 
 	useEffect(() => {
-		const controller = new AbortController();
-		setState({ kind: "loading" });
-		void load(controller.signal);
-		return () => controller.abort();
-	}, [attempt]);
+		const initial = new AbortController();
+		controller.current = initial;
+		void load(undefined, initial.signal);
+		return () => controller.current?.abort();
+	}, []);
 
-	let content;
-	if (state.kind === "unauthorized") {
+	const request = (after: string | undefined) => {
+		const next = new AbortController();
+		controller.current = next;
+		void load(after, next.signal);
+	};
+	const retry = (after: string | undefined) => {
+		setPages((current) =>
+			current.map((page) => (page.after === after ? { after, state: "loading" } : page)),
+		);
+		request(after);
+	};
+	const last = pages.at(-1);
+	const loadMore = () => {
+		if (last?.state !== "success" || last.value.pageInfo.nextCursor === null) {
+			return;
+		}
+		const after = last.value.pageInfo.nextCursor;
+		setPages((current) => [...current, { after, state: "loading" }]);
+		request(after);
+	};
+	const entries = pages.flatMap((page) => (page.state === "success" ? page.value.items : []));
+
+	if (unauthorized) {
 		return null;
-	}
-	if (state.kind === "loading") {
-		content = (
-			<p role="status" className="py-12 text-center text-sm text-text-muted">
-				Loading migration report...
-			</p>
-		);
-	} else if (state.kind === "failure") {
-		content = (
-			<div className="grid justify-items-center gap-4 py-10 text-center">
-				<p role="alert" className="text-sm text-danger">
-					Could not load the migration report. Check the server and try again.
-				</p>
-				<Button type="button" variant="secondary" onClick={() => setAttempt((value) => value + 1)}>
-					Retry
-				</Button>
-			</div>
-		);
-	} else if (state.entries.length === 0) {
-		content = (
-			<div className="grid justify-items-center gap-2 py-12 text-center">
-				<AppIcon size={36} name="clipboard-list" className="text-text-subtle" />
-				<h2 className="font-display text-lg font-semibold">No migration report</h2>
-				<p className="text-sm text-text-muted">This server has no legacy migration activity.</p>
-			</div>
-		);
-	} else {
-		content = <MigrationReportTable entries={state.entries} />;
 	}
 
 	return (
@@ -266,7 +273,36 @@ export function MigrationReportView(props: {
 				Migration report
 			</h1>
 			<p className="ui-subtitle mb-5">Legacy migration activity reported by this server.</p>
-			{content}
+			{entries.length > 0 && <MigrationReportTable entries={entries} />}
+			{entries.length === 0 && pages[0]?.state === "success" && (
+				<div className="grid justify-items-center gap-2 py-12 text-center">
+					<AppIcon size={36} name="clipboard-list" className="text-text-subtle" />
+					<h2 className="font-display text-lg font-semibold">No migration report</h2>
+					<p className="text-sm text-text-muted">This server has no legacy migration activity.</p>
+				</div>
+			)}
+			{last?.state === "loading" && (
+				<p role="status" className="py-12 text-center text-sm text-text-muted">
+					Loading migration report...
+				</p>
+			)}
+			{last?.state === "failure" && (
+				<div className="grid justify-items-center gap-4 py-10 text-center">
+					<p role="alert" className="text-sm text-danger">
+						Could not load the migration report. Check the server and try again.
+					</p>
+					<Button type="button" variant="secondary" onClick={() => retry(last.after)}>
+						Retry
+					</Button>
+				</div>
+			)}
+			{last?.state === "success" && last.value.pageInfo.nextCursor !== null && (
+				<div className="mt-5 flex justify-center">
+					<Button type="button" onClick={loadMore} variant="secondary">
+						Load more reports
+					</Button>
+				</div>
+			)}
 		</section>
 	);
 }

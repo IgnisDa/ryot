@@ -1,4 +1,4 @@
-import type { UpdatePluginStateBody } from "@ryot-app/contract/modules/definitions/schemas";
+import type { UpdatePluginInstallationBody } from "@ryot-app/contract/modules/plugins/schemas";
 import type {
 	ReorderSavedViewsBody,
 	UpdateSavedViewBody,
@@ -22,7 +22,7 @@ export type CustomizePlan = {
 
 export type CustomizeWorkspaceUpdate = {
 	readonly pluginSlug: PluginSlug;
-	readonly payload: UpdatePluginStateBody;
+	readonly payload: UpdatePluginInstallationBody;
 };
 
 const sections = ["views", "savedViews"] as const satisfies readonly CustomizeSection[];
