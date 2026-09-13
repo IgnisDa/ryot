@@ -1,5 +1,5 @@
 import { sha256Hex } from "@ryot-app/ts-utils/crypto";
-import { Effect, FileSystem, Option, Path } from "effect";
+import { Data, Effect, FileSystem, Option, Path } from "effect";
 
 const artifacts = [
 	"ryot-sandboxd",
@@ -7,8 +7,12 @@ const artifacts = [
 	"snapshots/core.snap",
 	"snapshots/data.snap",
 	"snapshots/full.snap",
-	"snapshots/snapshots.json",
 ];
+
+class NativeSandboxSetupError extends Data.TaggedError("NativeSandboxSetupError")<{
+	readonly message: string;
+	readonly cause?: unknown;
+}> {}
 
 const isSymlink = (fs: FileSystem.FileSystem, paths: Path.Path, filePath: string) =>
 	Effect.gen(function* () {
@@ -27,19 +31,19 @@ const verifyPath = (
 	Effect.gen(function* () {
 		const symlink = yield* isSymlink(fs, paths, filePath);
 		const stat = yield* fs.stat(filePath);
-		yield* Effect.try(() => {
-			if (
-				symlink ||
-				!Option.isSome(stat.uid) ||
-				stat.uid.value !== 0 ||
-				!Option.isSome(stat.gid) ||
-				stat.gid.value !== 0 ||
-				(stat.mode & 0o7777) !== mode ||
-				(directory ? stat.type !== "Directory" : stat.type !== "File")
-			) {
-				throw new Error(`Native sandbox setup failure: untrusted installation at ${filePath}`);
-			}
-		});
+		if (
+			symlink ||
+			!Option.isSome(stat.uid) ||
+			stat.uid.value !== 0 ||
+			!Option.isSome(stat.gid) ||
+			stat.gid.value !== 0 ||
+			(stat.mode & 0o7777) !== mode ||
+			(directory ? stat.type !== "Directory" : stat.type !== "File")
+		) {
+			return yield* new NativeSandboxSetupError({
+				message: `Native sandbox setup failure: untrusted installation at ${filePath}`,
+			});
+		}
 		return undefined;
 	});
 
@@ -64,26 +68,21 @@ export const verifyNativeSandboxProvisioning = Effect.fnUntraced(function* (root
 		const artifactPath = path.join(dist, artifact);
 		const symlink = yield* isSymlink(fs, path, artifactPath);
 		const stat = yield* fs.stat(artifactPath);
-		yield* Effect.try(() => {
-			if (symlink || stat.type !== "File") {
-				throw new Error(`Native sandbox setup failure: missing release artifact ${artifact}`);
-			}
-		});
+		if (symlink || stat.type !== "File") {
+			return yield* new NativeSandboxSetupError({
+				message: `Native sandbox setup failure: missing release artifact ${artifact}`,
+			});
+		}
 	}
 	if (process.platform === "darwin") {
-		yield* Effect.logInfo("Native sandbox: unconfined macOS development");
-		return;
+		return yield* Effect.logInfo("Native sandbox: unconfined macOS development");
 	}
-	yield* Effect.try(() => {
-		if (
-			process.platform !== "linux" ||
-			process.getuid?.() !== 1001 ||
-			process.getgid?.() !== 1001
-		) {
-			throw new Error("Native sandbox setup failure: Linux e2e must run as UID/GID 1001");
-		}
-	});
-	const setupCommand = `sudo bash kernel/sandboxd/tests/launcher/provision.sh ${dist}/ryot-sandbox-launcher ${dist}/ryot-sandboxd ${dist}/snapshots`;
+	if (process.platform !== "linux" || process.getuid?.() !== 1001 || process.getgid?.() !== 1001) {
+		return yield* new NativeSandboxSetupError({
+			message: "Native sandbox setup failure: Linux e2e must run as UID/GID 1001",
+		});
+	}
+	const setupCommand = `sudo bash kernel/sandboxd/provision.sh ${dist}/ryot-sandbox-launcher ${dist}/ryot-sandboxd ${dist}/snapshots`;
 	const verifyInstalled = Effect.gen(function* () {
 		for (const installedPath of [
 			"/home/ryot",
@@ -104,22 +103,21 @@ export const verifyNativeSandboxProvisioning = Effect.fnUntraced(function* (root
 				digest(fs, installed),
 				digest(fs, path.join(dist, artifact)),
 			]);
-			yield* Effect.try(() => {
-				if (installedDigest !== releaseDigest) {
-					throw new Error(`Native sandbox setup failure: stale installed artifact ${installed}`);
-				}
-			});
+			if (installedDigest !== releaseDigest) {
+				return yield* new NativeSandboxSetupError({
+					message: `Native sandbox setup failure: stale installed artifact ${installed}`,
+				});
+			}
 		}
 		return undefined;
 	});
-	yield* verifyInstalled.pipe(
-		Effect.catch((cause) =>
-			Effect.try(() => {
-				throw new Error(
-					`Native sandbox setup failure: run the explicit root provisioning step: ${setupCommand}`,
-					{ cause },
-				);
-			}),
+	return yield* verifyInstalled.pipe(
+		Effect.mapError(
+			(cause) =>
+				new NativeSandboxSetupError({
+					cause,
+					message: `Native sandbox setup failure: run the explicit root provisioning step: ${setupCommand}`,
+				}),
 		),
 	);
 });
