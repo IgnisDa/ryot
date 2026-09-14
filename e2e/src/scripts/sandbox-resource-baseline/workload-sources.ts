@@ -26,26 +26,9 @@ export const TIMEOUT_FIXTURE_SLEEP_MS = 45_000;
 
 const PAYLOAD_ALPHABET = "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789+/";
 
-/**
- * Seeded so a scenario replays byte-identically, and spread over a printable alphabet so the
- * measured serialization cost is not hidden by compression of a repeated character.
- */
-export function deterministicPayload(seed: number, byteLength: number) {
-	const alphabet = PAYLOAD_ALPHABET;
-	let state = (seed ^ 0x9e3779b9) >>> 0;
-	let payload = "";
-	for (let index = 0; index < byteLength; index += 1) {
-		state = (state + 0x6d2b79f5) >>> 0;
-		let mixed = Math.imul(state ^ (state >>> 15), state | 1);
-		mixed ^= mixed + Math.imul(mixed ^ (mixed >>> 7), mixed | 61);
-		payload += alphabet.charAt(((mixed ^ (mixed >>> 14)) >>> 0) % 64);
-	}
-	return payload;
-}
-
-// The sandbox compiler type-checks generated sources under `noImplicitAny`, and transpiling this
-// module strips annotations, so the embedded copies are annotated sources kept honest by the
-// equivalence tests rather than `Function.prototype.toString()`.
+// The sandbox compiler type-checks generated sources under `noImplicitAny`, so the embedded
+// helpers are written as annotated source text; the payload generator has no host-side counterpart
+// because only the sandbox ever produces a payload.
 export const DETERMINISTIC_PAYLOAD_SOURCE = `function deterministicPayload(seed: number, byteLength: number): string {
   const alphabet = ${JSON.stringify(PAYLOAD_ALPHABET)};
   let state = (seed ^ 0x9e3779b9) >>> 0;
