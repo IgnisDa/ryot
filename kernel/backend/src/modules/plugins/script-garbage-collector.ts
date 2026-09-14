@@ -1,0 +1,82 @@
+import { Context, Effect, Layer, Option, Ref, FileSystem, Path } from "effect";
+
+import { Database, mapDatabaseErrors } from "#lib/infrastructure/db/service";
+import { garbageCollectSandboxCompiledModules } from "#lib/infrastructure/sandbox-runtime/compiled-modules";
+import { PackageCacheManager } from "#lib/infrastructure/sandbox-runtime/runtime";
+
+import { PluginLoader } from "./loader";
+import { PluginRepository } from "./repository";
+
+export class ScriptGarbageCollector extends Context.Service<ScriptGarbageCollector>()(
+	"ScriptGarbageCollector",
+	{
+		make: Effect.gen(function* () {
+			const path = yield* Path.Path;
+			const loader = yield* PluginLoader;
+			const fs = yield* FileSystem.FileSystem;
+			const database = yield* Database;
+			const repository = yield* PluginRepository;
+			const runtime = yield* PackageCacheManager;
+			const kernelContentHashes = yield* Ref.make<Option.Option<ReadonlySet<string>>>(
+				Option.none(),
+			);
+
+			const liveContentHashes = Effect.fn("ScriptGarbageCollector.liveContentHashes")(function* (
+				kernelHashes: ReadonlySet<string>,
+			) {
+				const localPlugins = Object.values(loader.getSnapshot().plugins);
+				const persistedHashes = yield* repository.listPersistedLivenessContentHashes();
+				return new Set([
+					...kernelHashes,
+					...persistedHashes,
+					...localPlugins.flatMap(({ scripts }) => scripts.map(({ contentHash }) => contentHash)),
+				]);
+			});
+
+			const recordKernelContentHashes = Effect.fn(
+				"ScriptGarbageCollector.recordKernelContentHashes",
+			)((hashes: ReadonlySet<string>) =>
+				Ref.set(kernelContentHashes, Option.some(new Set(hashes))),
+			);
+
+			const collect = Effect.fn("ScriptGarbageCollector.collect")(function* () {
+				const kernelHashes = yield* Ref.get(kernelContentHashes);
+				if (Option.isNone(kernelHashes)) {
+					return undefined;
+				}
+
+				const result = yield* mapDatabaseErrors(
+					database.transaction((transaction) =>
+						Effect.gen(function* () {
+							yield* repository.lockIngestion();
+							const liveHashes = yield* liveContentHashes(kernelHashes.value);
+							const moduleResult = yield* garbageCollectSandboxCompiledModules(
+								runtime,
+								liveHashes,
+							).pipe(
+								Effect.provideService(FileSystem.FileSystem, fs),
+								Effect.provideService(Path.Path, path),
+							);
+							const removedScripts = yield* repository.deleteUnreferencedScripts(liveHashes);
+							const removedPlugins = yield* repository.deleteInactiveUnreferencedPlugins();
+							return {
+								removedCount:
+									moduleResult.removedCount + removedScripts.length + removedPlugins.length,
+								candidateCount:
+									moduleResult.candidateCount + removedScripts.length + removedPlugins.length,
+							};
+						}).pipe(Effect.provideService(Database, transaction)),
+					),
+				);
+				yield* Effect.logInfo("sandbox script garbage collection completed").pipe(
+					Effect.annotateLogs(result),
+				);
+				return result;
+			});
+
+			return { collect, recordKernelContentHashes };
+		}),
+	},
+) {
+	static readonly layer = Layer.effect(this, this.make);
+}

@@ -9,18 +9,18 @@ major release, please follow each major version's migration steps in order.
 :::warning Environment Variables Change
 
 - If you had `SCHEDULER_FREQUENT_CRON_JOBS_EVERY_MINUTES=2` in your environment, then change
-   it to `SCHEDULER_FREQUENT_CRON_JOBS_SCHEDULE="every 2 minutes"`. Read more about
-   [yank integrations](./integrations/overview.md#yank-integrations).
+  it to `SCHEDULER_FREQUENT_CRON_JOBS_SCHEDULE="every 2 minutes"`. Read more about
+  [yank integrations](./integrations/overview.md#yank-integrations).
 - Localization-specific environment variables (eg: `MOVIES_AND_SHOWS_TMDB_LOCALE`,
-   `ANIME_AND_MANGA_ANILIST_PREFERRED_LANGUAGE` etc.) have been removed and are now
-   user level settings. Find them in language preference settings.
-:::
+  `ANIME_AND_MANGA_ANILIST_PREFERRED_LANGUAGE` etc.) have been removed and are now
+  user level settings. Find them in language preference settings.
+  :::
 
 1. Upgrade the server to `v9.6.0` to make sure all `v9` migrations are applied. For
    example, you can make this change: `image: "ignisda/ryot:v9.6.0"` in your docker-compose
    file.
 2. Create a backup of your database. Follow this
-   [guide](./exporting.md#exporting-the-entire-database).
+   [guide](./backups.md#whole-server-backups).
 3. Now you can upgrade to the latest version (`v10.*`). For example you can make this
    change: `image: "ignisda/ryot:v10"` in your docker-compose file. This will
    automatically apply all migrations required for the new version.
@@ -45,7 +45,7 @@ causing errors for all users.
    example, you can make this change: `image: "ignisda/ryot:v8.10.0"` in your docker-compose
    file.
 
-3. Create a backup of your database. [Here](./exporting.md#exporting-the-entire-database)
+3. Create a backup of your database. [Here](./backups.md#whole-server-backups)
    is a guide on how to do this.
 
 4. Now you can upgrade to the latest version (`v9.*`). For example you can make this
@@ -58,7 +58,7 @@ causing errors for all users.
    example, you can make this change: `image: "ignisda/ryot:v7.16.0"` in your docker-compose
    file.
 
-2. Create a backup of your database. [Here](./exporting.md#exporting-the-entire-database)
+2. Create a backup of your database. [Here](./backups.md#whole-server-backups)
    is a guide on how to do this.
 
 3. Now you can upgrade to the latest version (`v8.*`). For example you can make this
@@ -74,7 +74,7 @@ causing errors for all users.
    example, you can make this change: `image: "ignisda/ryot:v6.11.0"` in your docker-compose
    file.
 
-2. Create a backup of your database. [Here](./exporting.md#exporting-the-entire-database)
+2. Create a backup of your database. [Here](./backups.md#whole-server-backups)
    is a guide on how to do this.
 
 3. Now you can upgrade to the latest version (`v7.*`). For example you can make this
@@ -95,7 +95,7 @@ for the new webhook format.
    example, you can make this change: `image: "ignisda/ryot:v5.5.6"` in your docker-compose
    file.
 
-2. Create a backup of your database. [Here](./exporting.md#exporting-the-entire-database)
+2. Create a backup of your database. [Here](./backups.md#whole-server-backups)
    is a guide on how to do this.
 
 3. Now you can upgrade to the latest version (`v6.*`). For example you can make this
@@ -108,7 +108,7 @@ for the new webhook format.
    example, you can make this change: `image: "ignisda/ryot:v4.4.3"` in your docker-compose
    file.
 
-2. Create a backup of your database. [Here](./exporting.md#exporting-the-entire-database)
+2. Create a backup of your database. [Here](./backups.md#whole-server-backups)
    is a guide on how to do this.
 
 3. Now you can upgrade to the latest version (`v5.*`). For example you can make this
@@ -144,6 +144,7 @@ new format.
 
 7. Connect to the database (`docker exec -u postgres -it ryot-db psql`) and run these SQL
    queries:
+
    ```sql
    DELETE FROM seaql_migrations;
 
@@ -183,6 +184,7 @@ new format.
 4. Stop the running server and create a backup of your database.
 
 5. Connect to the database and run these SQL queries:
+
    ```sql
    DELETE FROM seaql_migrations;
 
@@ -212,6 +214,7 @@ new format.
 1. Stop the running server and create a backup of your database.
 
 2. Run the last release of the server to perform all migrations (make sure to connect it to the correct database).
+
    ```bash
    $ docker run --volume ./ryot/data:/data ignisda/ryot:v1.22.1
    ```
@@ -219,6 +222,7 @@ new format.
 3. Once the migrations from the above step are done, stop the server.
 
 4. Before upgrading to the public release, connect to the database again and run these migrations:
+
    ```sql
    DELETE FROM seaql_migrations;
 

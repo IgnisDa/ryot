@@ -1,0 +1,38 @@
+@layer base {
+	html,
+	body,
+	#app {
+		min-height: 100%;
+	}
+
+	/* Vertical only: suppressing the x axis would disable the browser's own back-swipe. */
+	html {
+		overscroll-behavior-y: none;
+		-webkit-tap-highlight-color: transparent;
+	}
+
+	body {
+		background: var(--bg);
+		color: var(--text);
+		font-family: var(--font-family-ui);
+		font-size: 16px;
+		line-height: 1.5;
+		overscroll-behavior-y: none;
+	}
+
+	button:disabled,
+	fieldset:disabled {
+		opacity: 0.55;
+	}
+
+	@media (prefers-reduced-motion: reduce) {
+		*,
+		*::before,
+		*::after {
+			scroll-behavior: auto !important;
+			transition-duration: 0.01ms !important;
+			animation-duration: 0.01ms !important;
+			animation-iteration-count: 1 !important;
+		}
+	}
+}

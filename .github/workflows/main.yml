@@ -24,13 +24,13 @@ jobs:
       image-names: ${{ steps.set_outputs.outputs.image-names }}
       should-release: ${{ steps.set_outputs.outputs.should-release }}
     steps:
-      - uses: actions/checkout@8e8c483db84b4bee98b60c0593521ed34d9990e8
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           fetch-depth: 2
           persist-credentials: false
       - name: Set outputs
         id: set_outputs
-        uses: actions/github-script@ed597411d8f924073f98dfc5c65a23a2325f34cd
+        uses: actions/github-script@3a2844b7e9c422d3c10d287c895573f7108da1b3 # v9.0.0
         with:
           script: |
             const repositoryName = context.payload.repository.name;
@@ -74,17 +74,17 @@ jobs:
     permissions:
       contents: write
     steps:
-      - uses: actions/checkout@8e8c483db84b4bee98b60c0593521ed34d9990e8
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           fetch-depth: 0
           persist-credentials: false
       - name: Generate changelog
         id: changelog
-        uses: metcalfc/changelog-generator@e5a31a2994bada7f5892d75974bd70e10ef983a7
+        uses: metcalfc/changelog-generator@031a6408a9ad7fa6dcda49b7222ab2b54110a680 # v5.0.1
         with:
           myToken: ${{ secrets.GITHUB_TOKEN }}
       - name: Create Release
-        uses: softprops/action-gh-release@a06a81a03ee405af7f2048a818ed3f03bbf83c7b
+        uses: softprops/action-gh-release@efb35369e0ad2afab669f228072c1b0d510eae64 # v3.0.3
         with:
           body: |
             ## What's Changed
@@ -94,134 +94,37 @@ jobs:
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
-  build-transactional:
-    needs: pre-workflow-checks
-    if: needs.pre-workflow-checks.outputs.should-run == 'true'
-    runs-on: ubuntu-latest
-    steps:
-      - uses: actions/checkout@8e8c483db84b4bee98b60c0593521ed34d9990e8
-        with:
-          persist-credentials: false
-      - name: Set up Node.js and caching
-        uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020
-        with:
-          node-version: "24"
-          cache: "yarn"
-      - name: Install dependencies
-        run: yarn install --immutable
-      - name: Build emails
-        run: yarn turbo run build --filter=@ryot/transactional
-      - name: Copy templates to crates
-        run: yarn workspace @ryot/transactional copy-templates
-      - name: Upload templates artifact
-        uses: actions/upload-artifact@330a01c490aca151604b8cf639adc76d48f6c5d4
-        with:
-          name: templates
-          retention-days: 1
-          path: |
-            crates/services/notification/templates/
-
-  build-backend:
-    needs:
-      - pre-workflow-checks
-      - build-transactional
-    if: needs.pre-workflow-checks.outputs.should-run == 'true'
-    runs-on: ubuntu-latest
-    strategy:
-      fail-fast: false
-      matrix:
-        platform:
-          - target: x86_64-unknown-linux-gnu
-          - target: aarch64-unknown-linux-gnu
-    steps:
-      - uses: actions/checkout@8e8c483db84b4bee98b60c0593521ed34d9990e8
-        with:
-          persist-credentials: false
-      - uses: actions/download-artifact@37930b1c2abaa49bbe596cd826c3c89aef350131
-        with:
-          name: templates
-          path: crates/services/notification/templates/
-      - name: Extract build information
-        id: build
-        env:
-          TARGET: ${{ matrix.platform.target }}
-        run: |
-          echo "version=${GITHUB_REF##*/}" >> "$GITHUB_OUTPUT"
-          echo "docker-arch=${{ startsWith(matrix.platform.target, 'x86_64') && 'amd64' || 'arm64' }}" >> "$GITHUB_OUTPUT"
-      - name: Extract rust toolchain
-        id: toolchain
-        run: |
-          echo "channel=$(grep channel rust-toolchain.toml | awk -F' = ' '{printf $2}' | tr -d '"')" >> "$GITHUB_OUTPUT"
-      - uses: dtolnay/rust-toolchain@0b1efabc08b657293548b77fb76cc02d26091c7e
-        with:
-          toolchain: ${{ steps.toolchain.outputs.channel }}
-          targets: ${{ matrix.platform.target }}
-      - uses: Swatinem/rust-cache@42c55942cfd355e94e6864616f4dbb3392bd2789
-        with:
-          key: ${{ matrix.platform.target }}-release-${{ hashFiles('Cross.toml', 'ci/cross-pre-build.sh') }}
-          save-if: ${{ github.event_name != 'pull_request' }}
-      - uses: actions/cache@0057852bfaa89a56745cba8c7296529d2fc39830
-        with:
-          path: target
-          key: cargo-build-${{ runner.os }}-${{ matrix.platform.target }}-${{ hashFiles('rust-toolchain.toml', 'Cross.toml', 'ci/cross-pre-build.sh') }}-${{ hashFiles('Cargo.lock') }}
-          restore-keys: |
-            cargo-build-${{ runner.os }}-${{ matrix.platform.target }}-${{ hashFiles('rust-toolchain.toml', 'Cross.toml', 'ci/cross-pre-build.sh') }}-
-      - name: Install cross
-        uses: taiki-e/cache-cargo-install-action@b8c5be6c3fb064f797977463ac00b01844751632
-        with:
-          tool: cross
-          git: https://github.com/cross-rs/cross
-          rev: 51f46f296253d8122c927c5bb933e3c4f27cc317
-          locked: false
-      - name: Build
-        env:
-          UNKEY_ROOT_KEY: ${{ secrets.UNKEY_ROOT_KEY }}
-          APP_VERSION: ${{ steps.build.outputs.version }}
-        run: |
-          cross build --locked --target ${{ matrix.platform.target }} --release
-      - name: Upload build artifact
-        uses: actions/upload-artifact@330a01c490aca151604b8cf639adc76d48f6c5d4
-        with:
-          name: backend-${{ steps.build.outputs.docker-arch }}
-          path: ${{ github.workspace }}/target/${{ matrix.platform.target }}/release/backend
-          retention-days: 1
-
   build-docker:
     needs:
       - pre-workflow-checks
-      - build-backend
     if: needs.pre-workflow-checks.outputs.should-run == 'true'
     runs-on: ubuntu-latest
     permissions:
       packages: write
     steps:
-      - uses: actions/checkout@8e8c483db84b4bee98b60c0593521ed34d9990e8
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           persist-credentials: false
-      - name: Download build artifact for docker
-        uses: actions/download-artifact@37930b1c2abaa49bbe596cd826c3c89aef350131
-        with:
-          path: ${{ github.workspace }}/artifact/
       - name: Set up QEMU
-        uses: docker/setup-qemu-action@c7c53464625b32c7a7e944ae62b3e17d2b600130
+        uses: docker/setup-qemu-action@1f40c72289eff860ee54a304f1438e3cff362e0a # v4.3.0
       - name: Set up Docker Buildx
-        uses: docker/setup-buildx-action@65d18f8f8a05aab1b2d761032bec9cd5578caadb
+        uses: docker/setup-buildx-action@37fe631027851001ddb9b187196cc803df7f5f0e # v4.3.0
       - name: Log in to the ghcr container registry
-        uses: docker/login-action@28fdb31ff34708d19615a74d67103ddc2ea9725c
+        uses: docker/login-action@dbcb813823bdd20940b903addbd779551569679f # v4.6.0
         continue-on-error: true
         with:
           registry: ${{ env.GHCR_REGISTRY }}
           username: ${{ github.repository_owner }}
           password: ${{ secrets.GITHUB_TOKEN }}
       - name: Log in to the docker hub container registry
-        uses: docker/login-action@28fdb31ff34708d19615a74d67103ddc2ea9725c
+        uses: docker/login-action@dbcb813823bdd20940b903addbd779551569679f # v4.6.0
         continue-on-error: true
         with:
           username: ${{ env.DOCKER_USERNAME }}
           password: ${{ secrets.DOCKER_TOKEN }}
       - name: Extract metadata for Docker
         id: meta
-        uses: docker/metadata-action@c299e40c65443455700f0fdfc63efafe5b349051
+        uses: docker/metadata-action@dc802804100637a589fabce1cb79ff13a1411302 # v6.2.0
         with:
           images: ${{ needs.pre-workflow-checks.outputs.image-names }}
           tags: |
@@ -233,7 +136,7 @@ jobs:
             type=raw,value=latest,enable=${{ needs.pre-workflow-checks.outputs.should-release == 'true' }}
             type=sha
       - name: Build and push
-        uses: docker/build-push-action@9e436ba9f2d7bcd1d038c8e55d039d37896ddc5d
+        uses: docker/build-push-action@53b7df96c91f9c12dcc8a07bcb9ccacbed38856a # v7.3.0
         with:
           context: .
           push: true
@@ -241,6 +144,7 @@ jobs:
           cache-to: type=gha,mode=max
           platforms: linux/amd64,linux/arm64
           tags: ${{ steps.meta.outputs.tags }}
+          build-args: UNKEY_ROOT_KEY=${{ secrets.UNKEY_ROOT_KEY }}
 
   upload-kodi-plugin:
     needs:
@@ -253,7 +157,7 @@ jobs:
     env:
       GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
     steps:
-      - uses: actions/checkout@8e8c483db84b4bee98b60c0593521ed34d9990e8
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           persist-credentials: false
       - name: Build plugin
@@ -274,18 +178,17 @@ jobs:
     env:
       GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
     steps:
-      - uses: actions/checkout@8e8c483db84b4bee98b60c0593521ed34d9990e8
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           persist-credentials: false
-      - name: Set up Node.js and caching
-        uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020
+      - name: Set up Bun
+        uses: oven-sh/setup-bun@0c5077e51419868618aeaa5fe8019c62421857d6 # v2.2.0
         with:
-          node-version: "24"
-          cache: "yarn"
+          bun-version: "1.4.0"
       - name: Install dependencies
-        run: yarn install --immutable
+        run: bun install --frozen-lockfile
       - name: Build browser extensions
-        run: yarn turbo run build --filter=@ryot/browser-extension
+        run: bun run turbo build --filter=@ryot-app/browser-extension
       - name: Upload browser extensions to releases
         env:
           REF_NAME: ${{ github.ref_name }}
@@ -301,20 +204,19 @@ jobs:
     permissions:
       contents: write
     steps:
-      - uses: actions/checkout@8e8c483db84b4bee98b60c0593521ed34d9990e8
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           persist-credentials: false
-      - name: Set up Node.js and caching
-        uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020
+      - name: Set up Bun
+        uses: oven-sh/setup-bun@0c5077e51419868618aeaa5fe8019c62421857d6 # v2.2.0
         with:
-          node-version: "24"
-          cache: "yarn"
+          bun-version: "1.4.0"
       - name: Install dependencies
-        run: yarn install --immutable
+        run: bun install --frozen-lockfile
       - name: Build documentation
-        run: yarn turbo run build --filter=@ryot/docs
+        run: bun run turbo build --filter=@ryot-app/docs
       - name: Push to deployment branch
-        uses: peaceiris/actions-gh-pages@4f9cc6602d3f66b9c108549d475ec49e8ef4d45e
+        uses: peaceiris/actions-gh-pages@84c30a85c19949d7eee79c4ff27748b70285e453 # v4.1.0
         with:
           github_token: ${{ secrets.GITHUB_TOKEN }}
           publish_dir: apps/docs/.vitepress/dist

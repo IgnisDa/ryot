@@ -1,0 +1,44 @@
+{
+	"$schema": "https://raw.githubusercontent.com/Effect-TS/tsgo/refs/heads/main/schema.json",
+	"exclude": ["node_modules", "plugins", "src/drizzle"],
+	"compilerOptions": {
+		"noEmit": true,
+		"strict": true,
+		"lib": ["ESNext"],
+		"target": "ES2022",
+		"module": "ESNext",
+		"jsx": "react-jsx",
+		"skipLibCheck": true,
+		"types": ["bun-types"],
+		"noUnusedLocals": true,
+		"isolatedModules": true,
+		"noImplicitReturns": true,
+		"noImplicitOverride": true,
+		"noUnusedParameters": true,
+		"allowUnusedLabels": false,
+		"verbatimModuleSyntax": true,
+		"moduleResolution": "bundler",
+		"allowUnreachableCode": false,
+		"noUncheckedIndexedAccess": true,
+		"exactOptionalPropertyTypes": true,
+		"noFallthroughCasesInSwitch": true,
+		"noPropertyAccessFromIndexSignature": true,
+		"plugins": [
+			{
+				"name": "@effect/language-service",
+				"diagnosticSeverity": {
+					"newPromise": "error",
+					"asyncFunction": "error",
+					"nodeBuiltinImport": "error",
+					"globalDateInEffect": "error",
+					"processEnvInEffect": "error",
+					"globalFetchInEffect": "error",
+					"globalTimersInEffect": "error",
+					"preferSchemaOverJson": "error",
+					"globalConsoleInEffect": "error",
+					"globalErrorInEffectFailure": "error"
+				}
+			}
+		]
+	}
+}

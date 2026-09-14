@@ -1,0 +1,379 @@
+import { expect, it } from "@effect/vitest";
+import {
+	EntityId,
+	RelationshipId,
+	RelationshipSchemaSlug,
+	UserId,
+} from "@ryot-app/contract/schema/brands";
+import { PgDialect } from "drizzle-orm/pg-core";
+import { Effect, Layer } from "effect";
+
+import { Database } from "#lib/infrastructure/db/service";
+
+import { RelationshipsRepository } from "./repository";
+
+type StoredRelationship = {
+	id: string;
+	createdAt: Date;
+	userId: string | null;
+	sourceEntityId: string;
+	targetEntityId: string;
+	relationshipSchemaSlug: string;
+	relationshipSchemaPluginId?: string | null;
+	properties: Record<string, unknown>;
+};
+
+const dialect = new PgDialect();
+type RenderableSql = Parameters<typeof dialect.sqlToQuery>[0];
+
+const makeDb = (initialRows: ReadonlyArray<StoredRelationship> = []) => {
+	const state = { executeCalls: 0, forUpdateCalls: 0, rows: [...initialRows] };
+
+	const paramsFor = (condition: RenderableSql) => {
+		const rendered = dialect.sqlToQuery(condition);
+		return rendered.params.flatMap((param) =>
+			Array.isArray(param) ? param.map(String) : [String(param)],
+		);
+	};
+
+	const matches = (condition: RenderableSql, row: StoredRelationship) => {
+		const rendered = dialect.sqlToQuery(condition);
+		const text = rendered.sql;
+		const params = paramsFor(condition);
+		if (text.includes('"relationship"."id"')) {
+			return row.id === params[0] && row.userId === params[1];
+		}
+
+		if (text.includes('"relationship"."user_id" is null')) {
+			if (row.userId !== null) {
+				return false;
+			}
+			if (
+				text.includes('"relationship"."source_entity_id" =') &&
+				text.includes('"relationship"."target_entity_id" =') &&
+				!text.includes('"relationship"."source_entity_id" = "relationship"."target_entity_id"')
+			) {
+				return (
+					row.sourceEntityId === params[0] &&
+					row.targetEntityId === params[1] &&
+					row.relationshipSchemaSlug === params[2] &&
+					(row.relationshipSchemaPluginId ?? null) === (params[3] ?? null)
+				);
+			}
+			if (text.includes('"relationship"."source_entity_id" = "relationship"."target_entity_id"')) {
+				return (
+					row.sourceEntityId === row.targetEntityId && row.relationshipSchemaSlug === params[0]
+				);
+			}
+			const incoming = text.includes('"relationship"."target_entity_id" =');
+			return (
+				(incoming ? row.targetEntityId : row.sourceEntityId) === params[0] &&
+				row.relationshipSchemaSlug === params[1]
+			);
+		}
+
+		if (
+			text.includes('"relationship"."source_entity_id" =') &&
+			text.includes('"relationship"."relationship_schema_slug" =')
+		) {
+			return (
+				row.userId === params[0] &&
+				row.sourceEntityId === params[1] &&
+				row.targetEntityId === params[2] &&
+				row.relationshipSchemaSlug === params[3] &&
+				(row.relationshipSchemaPluginId ?? null) === (params[4] ?? null)
+			);
+		}
+
+		return (
+			row.userId === params[0] &&
+			(params.slice(1).includes(row.sourceEntityId) || params.slice(1).includes(row.targetEntityId))
+		);
+	};
+
+	const select = () => ({
+		from: () => ({
+			where: (condition: RenderableSql) => {
+				const rows = () => state.rows.filter((row) => matches(condition, row));
+				const limited = Object.assign(Effect.succeed(rows().slice(0, 1)), {
+					for: () => {
+						state.forUpdateCalls += 1;
+						return Effect.succeed(rows().slice(0, 1));
+					},
+				});
+				return {
+					limit: () => limited,
+					for: () => {
+						state.forUpdateCalls += 1;
+						return Effect.succeed(rows());
+					},
+				};
+			},
+		}),
+	});
+
+	const insert = () => ({
+		values: (values: StoredRelationship | ReadonlyArray<StoredRelationship>) => {
+			const inputs = Array.isArray(values) ? values : [values];
+			const inserted: StoredRelationship[] = [];
+			const onConflictDoNothing = () => {
+				for (const input of inputs) {
+					const existing = state.rows.some(
+						(row) =>
+							row.userId === input.userId &&
+							row.sourceEntityId === input.sourceEntityId &&
+							row.targetEntityId === input.targetEntityId &&
+							row.relationshipSchemaSlug === input.relationshipSchemaSlug &&
+							(row.relationshipSchemaPluginId ?? null) ===
+								(input.relationshipSchemaPluginId ?? null),
+					);
+					if (existing) {
+						continue;
+					}
+
+					const row = {
+						...input,
+						id: `relationship-${state.rows.length + 1}`,
+						createdAt: new Date("2026-06-14T00:00:00.000Z"),
+					};
+					state.rows.push(row);
+					inserted.push(row);
+				}
+				return {
+					returning: () =>
+						Effect.succeed(inserted.map((row) => Object.assign({}, row, { wasInserted: true }))),
+				};
+			};
+
+			return { onConflictDoNothing };
+		},
+	});
+
+	const update = () => ({
+		set: (values: Partial<StoredRelationship>) => ({
+			where: (condition: RenderableSql) => ({
+				returning: () => {
+					const updated = state.rows.filter((row) => matches(condition, row));
+					for (const row of updated) {
+						Object.assign(row, values);
+					}
+					return Effect.succeed(updated);
+				},
+			}),
+		}),
+	});
+
+	const remove = () => ({
+		where: (condition: RenderableSql) => ({
+			returning: () => {
+				const deleted = state.rows.filter((row) => matches(condition, row));
+				state.rows = state.rows.filter((row) => !matches(condition, row));
+				return Effect.succeed(deleted);
+			},
+		}),
+	});
+
+	const db = {
+		insert,
+		select,
+		update,
+		delete: remove,
+		execute: () => {
+			state.executeCalls += 1;
+			return Effect.void;
+		},
+	};
+	return { db, state };
+};
+
+const makeLayer = (db: object) =>
+	Layer.mergeAll(
+		RelationshipsRepository.layer,
+		Layer.succeed(Database, Object.assign(Object.create(null), db)),
+	);
+
+const globalInput = {
+	scope: "global" as const,
+	relationshipSchemaPluginId: null,
+	sourceEntityId: EntityId.make("source"),
+	targetEntityId: EntityId.make("target"),
+	relationshipSchemaSlug: RelationshipSchemaSlug.make("schema"),
+};
+
+it.effect("creates once and preserves an existing relationship on conflict", () => {
+	const { db, state } = makeDb();
+
+	return Effect.gen(function* () {
+		const repository = yield* RelationshipsRepository;
+		const created = yield* repository.createRelationship({
+			...globalInput,
+			properties: { rank: 1 },
+		});
+		const existing = yield* repository.createRelationship({
+			...globalInput,
+			properties: { rank: 2 },
+		});
+
+		expect(created.wasInserted).toBe(true);
+		expect(existing.wasInserted).toBe(false);
+		expect(existing.properties).toEqual({ rank: 1 });
+		expect(state.forUpdateCalls).toBe(1);
+		expect(state.rows).toHaveLength(1);
+	}).pipe(Effect.provide(makeLayer(db)));
+});
+
+it.effect("keeps kernel and plugin relationships with the same slug separate", () => {
+	const { db, state } = makeDb();
+
+	return Effect.gen(function* () {
+		const repository = yield* RelationshipsRepository;
+		yield* repository.createRelationship({ ...globalInput, properties: { source: "kernel" } });
+		yield* repository.createRelationship({
+			...globalInput,
+			properties: { source: "plugin" },
+			relationshipSchemaPluginId: "plugin-1",
+		});
+
+		expect(state.rows.map(({ relationshipSchemaPluginId }) => relationshipSchemaPluginId)).toEqual([
+			null,
+			"plugin-1",
+		]);
+	}).pipe(Effect.provide(makeLayer(db)));
+});
+
+it.effect("updates only an existing relationship", () => {
+	const { db } = makeDb();
+
+	return Effect.gen(function* () {
+		const repository = yield* RelationshipsRepository;
+		yield* repository.createRelationship({ ...globalInput, properties: { rank: 1 } });
+
+		const updated = yield* repository.updateRelationship({
+			...globalInput,
+			properties: { rank: 2 },
+		});
+		const missing = yield* repository.updateRelationship({
+			...globalInput,
+			properties: { rank: 3 },
+			targetEntityId: EntityId.make("missing"),
+		});
+
+		expect(updated?.properties).toEqual({ rank: 2 });
+		expect(updated?.wasInserted).toBe(false);
+		expect(missing).toBeNull();
+	}).pipe(Effect.provide(makeLayer(db)));
+});
+
+it.effect("lists and deletes user relationships without touching global rows", () => {
+	const { db, state } = makeDb([
+		{
+			id: "user-row",
+			properties: {},
+			userId: "user-1",
+			sourceEntityId: "entity-1",
+			targetEntityId: "entity-2",
+			relationshipSchemaSlug: "schema",
+			createdAt: new Date("2026-06-14T00:00:00.000Z"),
+		},
+		{
+			userId: null,
+			properties: {},
+			id: "global-row",
+			sourceEntityId: "entity-1",
+			targetEntityId: "entity-2",
+			relationshipSchemaSlug: "schema",
+			createdAt: new Date("2026-06-14T00:00:00.000Z"),
+		},
+	]);
+
+	return Effect.gen(function* () {
+		const repository = yield* RelationshipsRepository;
+		const rows = yield* repository.listUserRelationshipsForEntity({
+			userId: UserId.make("user-1"),
+			entityId: EntityId.make("entity-1"),
+		});
+		const globalRows = yield* repository.listGlobalRelationships({
+			type: "anchored",
+			direction: "outgoing",
+			anchorEntityId: EntityId.make("entity-1"),
+			relationshipSchemaSlug: RelationshipSchemaSlug.make("schema"),
+		});
+		const deleted = yield* repository.deleteRelationship({
+			scope: "user",
+			userId: UserId.make("user-1"),
+			sourceEntityId: EntityId.make("entity-1"),
+			targetEntityId: EntityId.make("entity-2"),
+			relationshipSchemaSlug: RelationshipSchemaSlug.make("schema"),
+		});
+
+		expect(rows).toHaveLength(1);
+		expect(globalRows).toHaveLength(1);
+		expect(state.executeCalls).toBe(1);
+		expect(deleted?.id).toBe("user-row");
+		expect(state.rows.map((row) => row.id)).toEqual(["global-row"]);
+	}).pipe(Effect.provide(makeLayer(db)));
+});
+
+it.effect("deletes by exact relationship and user ids", () => {
+	const { db, state } = makeDb([
+		{
+			properties: {},
+			userId: "user-1",
+			id: "relationship-1",
+			sourceEntityId: "entity-1",
+			targetEntityId: "entity-2",
+			relationshipSchemaSlug: "schema",
+			createdAt: new Date("2026-06-14T00:00:00.000Z"),
+		},
+		{
+			properties: {},
+			userId: "user-2",
+			id: "relationship-2",
+			sourceEntityId: "entity-1",
+			targetEntityId: "entity-2",
+			relationshipSchemaSlug: "schema",
+			createdAt: new Date("2026-06-14T00:00:00.000Z"),
+		},
+	]);
+
+	return Effect.gen(function* () {
+		const repository = yield* RelationshipsRepository;
+		const wrongUser = yield* repository.deleteUserRelationshipById(
+			UserId.make("user-2"),
+			RelationshipId.make("relationship-1"),
+		);
+		const removed = yield* repository.deleteUserRelationshipById(
+			UserId.make("user-1"),
+			RelationshipId.make("relationship-1"),
+		);
+
+		expect(wrongUser).toBe(false);
+		expect(removed).toBe(true);
+		expect(state.rows.map(({ id }) => id)).toEqual(["relationship-2"]);
+	}).pipe(Effect.provide(makeLayer(db)));
+});
+
+it.effect("does not delete a concurrent replacement with a different id", () => {
+	const { db, state } = makeDb([
+		{
+			properties: {},
+			userId: "user-1",
+			sourceEntityId: "entity-1",
+			targetEntityId: "entity-2",
+			id: "replacement-relationship",
+			relationshipSchemaSlug: "schema",
+			createdAt: new Date("2026-06-14T00:00:00.000Z"),
+		},
+	]);
+
+	return Effect.gen(function* () {
+		const repository = yield* RelationshipsRepository;
+		const removed = yield* repository.deleteUserRelationshipById(
+			UserId.make("user-1"),
+			RelationshipId.make("original-relationship"),
+		);
+
+		expect(removed).toBe(false);
+		expect(state.rows.map(({ id }) => id)).toEqual(["replacement-relationship"]);
+	}).pipe(Effect.provide(makeLayer(db)));
+});

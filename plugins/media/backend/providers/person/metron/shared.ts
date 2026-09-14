@@ -1,0 +1,109 @@
+import { defineManifest } from "@ryot-app/sandbox-sdk/driver";
+import { DateTime, Effect, Option } from "@ryot-app/sandbox-sdk/effect";
+import { defineProvider } from "@ryot-app/sandbox-sdk/provider";
+
+import { asRecord, numberValue, stringValue } from "../../../lib/records";
+import { getIdentifier, loadMetronJson } from "../../../lib/vendors/metron";
+
+export const manifest = defineManifest({
+	name: "Metron",
+	kind: "provider",
+	slug: "person.metron",
+	requiredSystemConfigKeys: [],
+	capabilities: ["httpCall", "getPluginConfig"],
+	requiredPluginConfigKeys: ["metronUsername", "metronPassword"],
+});
+
+const parseYear = (value: unknown) => {
+	const date = stringValue(value);
+	if (!date) {
+		return null;
+	}
+	const parsed = DateTime.make(date);
+	if (Option.isNone(parsed)) {
+		return null;
+	}
+	return DateTime.toDateUtc(parsed.value).getFullYear();
+};
+
+export const search = defineProvider({
+	manifest,
+	operation: "search",
+	run: (input, host) => {
+		const params = new URLSearchParams({
+			name: input.query,
+			page: String(input.page),
+			page_size: String(input.pageSize),
+		});
+		return loadMetronJson(
+			host,
+			`https://metron.cloud/api/creator/?${params.toString()}`,
+			"Metron creator search request failed",
+		).pipe(
+			Effect.map((payloadValue) => {
+				const payload = asRecord(payloadValue);
+				const count = numberValue(payload?.["count"]);
+				const totalItems = count === null ? 0 : Math.max(0, Math.trunc(count));
+				const results = payload?.["results"];
+				const items = (Array.isArray(results) ? results : []).flatMap((creator) => {
+					const record = asRecord(creator);
+					const externalId = getIdentifier(record?.["id"]);
+					const name = stringValue(record?.["name"]);
+					if (!externalId || !name) {
+						return [];
+					}
+					const image = stringValue(record?.["image"]);
+					const birthYear = parseYear(record?.["birth"]);
+					return [
+						{
+							externalId,
+							title: name,
+							...(image === null ? {} : { imageUrl: image }),
+							...(birthYear === null ? {} : { metadata: [birthYear] as const }),
+						},
+					];
+				});
+				return {
+					items,
+					details: {
+						totalItems,
+						nextPage: input.page * input.pageSize < totalItems ? input.page + 1 : null,
+					},
+				};
+			}),
+		);
+	},
+});
+
+export const details = defineProvider({
+	manifest,
+	operation: "details",
+	run: (input, host) =>
+		loadMetronJson(
+			host,
+			`https://metron.cloud/api/creator/${encodeURIComponent(input.externalId)}/`,
+			"Metron creator details request failed",
+		).pipe(
+			Effect.map((payloadValue) => {
+				const payload = asRecord(payloadValue);
+				const name = stringValue(payload?.["name"]);
+				if (!name) {
+					throw new Error("Metron creator payload is missing name");
+				}
+				const image = stringValue(payload?.["image"]);
+				return {
+					name,
+					properties: {
+						alternateNames: [],
+						birthDate: stringValue(payload?.["birth"]),
+						deathDate: stringValue(payload?.["death"]),
+						description: stringValue(payload?.["desc"]),
+						sourceUrl: `https://metron.cloud/creator/${input.externalId}`,
+						images: image
+							? [{ url: image, type: "remote" as const, purpose: "profile" as const }]
+							: [],
+					},
+				};
+			}),
+		),
+});

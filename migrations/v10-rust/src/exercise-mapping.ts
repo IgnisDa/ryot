@@ -1,0 +1,186 @@
+import {
+	Database,
+	mapDatabaseErrors,
+} from "@ryot-app/kernel-backend/lib/infrastructure/db/service";
+import { sql } from "drizzle-orm";
+import { Effect } from "effect";
+
+import { buildLegacyImagesSql, buildLegacyVideosSql } from "./asset-mapping";
+import {
+	type EntityMigrationTarget,
+	type ResolvedEntityMigrationTarget,
+	buildEntityTargetValuesSql,
+	buildRequireLegacyTableSql,
+	buildReportSql,
+} from "./shared";
+
+export const exerciseEntityTargets = [
+	{ source: "custom", providerSlug: null, entitySchemaSlug: "exercise" },
+	{ source: "github", entitySchemaSlug: "exercise", providerSlug: "exercise.free-exercise-db" },
+] as const satisfies readonly EntityMigrationTarget[];
+
+const exerciseEntityTargetValuesSql = sql.join(
+	exerciseEntityTargets.map(
+		(target) => sql`(${target.source}, ${target.entitySchemaSlug}, ${target.providerSlug})`,
+	),
+	sql`, `,
+);
+
+const supportedExerciseLots = [
+	"reps",
+	"duration",
+	"reps_and_weight",
+	"reps_and_duration",
+	"distance_and_duration",
+	"reps_and_duration_and_distance",
+] as const;
+
+const supportedExerciseLotValuesSql = sql.join(
+	supportedExerciseLots.map((lot) => sql`(${lot})`),
+	sql`, `,
+);
+
+export const getUnsupportedExerciseSources = Effect.gen(function* () {
+	const database = yield* Database;
+	const result = yield* mapDatabaseErrors(
+		database.execute<{ source: string }>(
+			sql`
+			WITH exercise_targets (source, entity_schema_slug, provider_slug) AS (
+				VALUES ${exerciseEntityTargetValuesSql}
+			)
+			SELECT DISTINCT
+				exercise.source AS source
+			FROM "exercise" exercise
+			LEFT JOIN exercise_targets ON exercise_targets.source = exercise.source
+			WHERE exercise_targets.source IS NULL
+			ORDER BY exercise.source
+		`,
+			"objects",
+		),
+	);
+
+	return result;
+});
+
+export const getUnsupportedExerciseLots = Effect.gen(function* () {
+	const database = yield* Database;
+	const result = yield* mapDatabaseErrors(
+		database.execute<{ lot: string }>(
+			sql`
+			WITH supported_lots (lot) AS (
+				VALUES ${supportedExerciseLotValuesSql}
+			)
+			SELECT DISTINCT
+				exercise.lot AS lot
+			FROM "exercise" exercise
+			LEFT JOIN supported_lots ON supported_lots.lot = exercise.lot
+			WHERE supported_lots.lot IS NULL
+			ORDER BY exercise.lot
+		`,
+			"objects",
+		),
+	);
+
+	return result;
+});
+
+export const getInvalidExerciseGithubOwnership = Effect.gen(function* () {
+	const database = yield* Database;
+	const result = yield* mapDatabaseErrors(
+		database.execute<{ id: string }>(
+			sql`
+			SELECT DISTINCT
+				exercise.id AS id
+			FROM "exercise" exercise
+			WHERE exercise.source = 'github'
+				AND exercise.created_by_user_id IS NOT NULL
+			ORDER BY exercise.id
+		`,
+			"objects",
+		),
+	);
+
+	return result;
+});
+
+export const buildExerciseMigrationSql = (targets: ResolvedEntityMigrationTarget[]) => `
+DO $$
+DECLARE
+	batch_size constant int := 10000;
+	batch_rows_inserted int;
+	cursor_id text := '';
+	next_cursor_id text;
+	rows_inserted int := 0;
+	started_at timestamptz := clock_timestamp();
+BEGIN
+	${buildRequireLegacyTableSql("exercise -> entity", "exercise")}
+
+	LOOP
+		WITH exercise_targets (source, entity_schema_slug, entity_schema_plugin_id, provider_id) AS (
+			VALUES ${buildEntityTargetValuesSql(targets)}
+		), batch AS (
+			SELECT exercise.id::text AS id
+			FROM "exercise" exercise
+			INNER JOIN exercise_targets ON exercise_targets.source = exercise.source
+			WHERE exercise.id::text > cursor_id
+			ORDER BY exercise.id::text
+			LIMIT batch_size
+		)
+		SELECT MAX(batch.id) INTO next_cursor_id FROM batch;
+
+		EXIT WHEN next_cursor_id IS NULL;
+
+		WITH exercise_targets (source, entity_schema_slug, entity_schema_plugin_id, provider_id) AS (
+			VALUES ${buildEntityTargetValuesSql(targets)}
+		)
+		INSERT INTO "entity" (
+			"id",
+			"external_id",
+			"name",
+			"created_at",
+			"populated_at",
+			"user_id",
+			"properties",
+			"entity_schema_slug",
+			"entity_schema_plugin_id",
+			"provider_id",
+			"updated_at"
+		)
+		SELECT
+			exercise.id,
+			exercise.id,
+			exercise.name,
+			NOW(),
+			NOW(),
+			CASE WHEN exercise.source = 'github' THEN NULL ELSE exercise.created_by_user_id END,
+			jsonb_strip_nulls(
+				jsonb_build_object(
+					'kind', exercise.lot,
+					'images', ${buildLegacyImagesSql("exercise.assets")},
+					'videos', ${buildLegacyVideosSql("exercise.assets")},
+					'muscles', COALESCE(to_jsonb(exercise.muscles), '[]'::jsonb),
+					'instructions', COALESCE(to_jsonb(exercise.instructions), '[]'::jsonb),
+					'force', exercise.force,
+					'level', exercise.level,
+					'mechanic', exercise.mechanic,
+					'equipment', exercise.equipment
+				)
+			),
+			exercise_targets.entity_schema_slug,
+			exercise_targets.entity_schema_plugin_id,
+			exercise_targets.provider_id,
+			NOW()
+		FROM "exercise" exercise
+		INNER JOIN exercise_targets ON exercise_targets.source = exercise.source
+		WHERE exercise.id::text > cursor_id
+			AND exercise.id::text <= next_cursor_id
+		ON CONFLICT DO NOTHING;
+		GET DIAGNOSTICS batch_rows_inserted = ROW_COUNT;
+
+		rows_inserted := rows_inserted + batch_rows_inserted;
+		cursor_id := next_cursor_id;
+	END LOOP;
+
+	${buildReportSql("exercise -> entity", [{ count: "rows_inserted", message: "row(s) migrated total" }])}
+END $$;
+`;

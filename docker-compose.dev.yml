@@ -1,0 +1,42 @@
+services:
+  ryot-db:
+    restart: unless-stopped
+    image: postgres:18-alpine
+    ports:
+      - "5432:5432"
+    volumes:
+      - postgres_storage:/var/lib/postgresql
+    environment:
+      POSTGRES_DB: postgres
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: postgres
+
+  ryot-redis:
+    image: redis:alpine
+    restart: unless-stopped
+    ports:
+      - "6379:6379"
+    healthcheck:
+      retries: 5
+      timeout: 5s
+      interval: 2s
+      test: ["CMD", "redis-cli", "ping"]
+
+  ryot-s3:
+    image: rustfs/rustfs
+    volumes:
+      - s3_storage:/data
+    ports:
+      - "9000:9000"
+      - "9001:9001"
+
+  ryot-otel:
+    restart: unless-stopped
+    image: cr.jaegertracing.io/jaegertracing/jaeger
+    ports:
+      - "4318:4318"
+      - "16686:16686"
+
+volumes:
+  s3_storage:
+  postgres_storage:

@@ -1,0 +1,59 @@
+{
+	"name": "@ryot-app/client-ui-sdk",
+	"private": true,
+	"type": "module",
+	"exports": {
+		"./theme.css": "./src/theme.css",
+		"./palette.css": "./src/palette.css",
+		"./schema-form": {
+			"types": "./src/schema-form/index.tsx",
+			"default": "./src/schema-form/index.tsx"
+		},
+		"./table": {
+			"types": "./src/table.tsx",
+			"default": "./src/table.tsx"
+		},
+		"./icon": {
+			"types": "./src/icon.tsx",
+			"default": "./src/icon.tsx"
+		},
+		"./sync": {
+			"types": "./src/sync.tsx",
+			"default": "./src/sync.tsx"
+		},
+		"./tint": {
+			"types": "./src/tint.tsx",
+			"default": "./src/tint.tsx"
+		},
+		".": {
+			"types": "./src/index.tsx",
+			"default": "./src/index.tsx"
+		}
+	},
+	"scripts": {
+		"test": "bun --bun run vitest run",
+		"check": "tsc && oxfmt . --write && oxlint . --type-aware --fix"
+	},
+	"dependencies": {
+		"@ryot-app/contract": "workspace:*",
+		"@tanstack/react-form": "2.0.0-alpha.1",
+		"@tanstack/react-hotkeys": "0.10.0",
+		"@tanstack/react-table": "9.1.2",
+		"clsx": "2.1.1",
+		"effect": "4.0.0-rc.115",
+		"lucide-react": "^1.37.0",
+		"react": "^19.2.0",
+		"react-dom": "^19.2.0"
+	},
+	"devDependencies": {
+		"@ryot-app/testing": "workspace:*",
+		"@testing-library/react": "^16.3.3",
+		"@types/react": "^19.2.0",
+		"@types/react-dom": "^19.2.0",
+		"jsdom": "^30.0.1",
+		"typescript": "7.0.2",
+		"vite": "^8.0.0",
+		"vitest": "4.1.9",
+		"vitest-axe": "^0.1.0"
+	}
+}

@@ -1,8 +1,7 @@
 # IMDb
 
-You can import your watchlist from [IMDb](https://www.imdb.com). They will be added to
-the "Watchlist" collection.
+IMDb watchlist entries are added to the `Watchlist` collection.
 
-1. Go to your account and select your watchlist.
-2. Go the bottom and click on the "Export this list" button.
-3. Upload the csv file in the input.
+1. Open your [IMDb](https://www.imdb.com) watchlist.
+2. Select **Export this list** at the bottom.
+3. Upload the CSV file under **Settings > Import data**.

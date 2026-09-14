@@ -1,0 +1,138 @@
+import type { ContractPayload } from "@ryot-app/contract/client";
+import {
+	AutomationRuleId,
+	EntityId,
+	SignalId,
+	SignalSchemaSlug,
+	UserId,
+} from "@ryot-app/contract/schema/brands";
+import {
+	notificationSubscriptionStateRecipe,
+	notificationSubscriptionStatesRecipe,
+} from "@ryot-app/ryotql-recipes/notification-subscription-states";
+import { Effect } from "effect";
+
+import { adminHeaders } from "./admin";
+import type { Client } from "./auth";
+import { getApiClient } from "./contract-client";
+import { pollUntil } from "./polling";
+import { executeRyotQLRecipe } from "./ryotql";
+
+export const listAutomationCatalog = (client: Client) =>
+	client.call((c) => c.automations.listCatalog());
+
+export const getAutomationCatalogSchema = (client: Client, signalSchemaSlug: string) =>
+	client.call((c) =>
+		c.automations.getCatalog({
+			params: { signalSchemaSlug: SignalSchemaSlug.make(signalSchemaSlug) },
+		}),
+	);
+
+export const listNotificationSubscriptionStates = (
+	client: Client,
+	input: Parameters<typeof notificationSubscriptionStatesRecipe>[0],
+) =>
+	executeRyotQLRecipe(client, notificationSubscriptionStatesRecipe(input)).pipe(
+		Effect.map((result) => result.items),
+	);
+
+export const getNotificationSubscriptionState = (client: Client, ruleId: string) =>
+	executeRyotQLRecipe(client, notificationSubscriptionStateRecipe({ id: ruleId }));
+
+export const installNotificationRule = (client: Client, signalSchemaSlug: string) =>
+	client.call((c) =>
+		c.automations.installRule({
+			payload: { signalSchemaSlug: SignalSchemaSlug.make(signalSchemaSlug) },
+		}),
+	);
+
+export const setNotificationRuleActive = (client: Client, ruleId: string, isActive: boolean) => {
+	const params = { ruleId: AutomationRuleId.make(ruleId) };
+	return client.call((c) =>
+		isActive ? c.automations.activateRule({ params }) : c.automations.deactivateRule({ params }),
+	);
+};
+
+export const deleteNotificationRule = (client: Client, ruleId: string) =>
+	client.call((c) =>
+		c.automations.deleteRule({ params: { ruleId: AutomationRuleId.make(ruleId) } }),
+	);
+
+export type SignalFilter = {
+	[Key in keyof ContractPayload<"testSupport", "listSignals">]: string;
+};
+
+type SubscriptionRunFilter = {
+	[Key in keyof ContractPayload<"testSupport", "listSubscriptionRuns">]: string;
+};
+
+/**
+ * Inspects signals and their recipients through the admin `testSupport.listSignals` endpoint.
+ * Rows come back newest-first, so `[0]` is the most recently created matching signal.
+ */
+export const listSignals = (filter: SignalFilter) =>
+	getApiClient().call(
+		(c) =>
+			c.testSupport.listSignals({
+				payload: {
+					schemaSlug: filter.schemaSlug,
+					actorUserId: filter.actorUserId ? UserId.make(filter.actorUserId) : undefined,
+					subjectEntityId: filter.subjectEntityId
+						? EntityId.make(filter.subjectEntityId)
+						: undefined,
+				},
+			}),
+		adminHeaders(),
+	);
+
+export const pollSignal = (filter: SignalFilter) =>
+	pollUntil(
+		`signal for '${filter.schemaSlug}'`,
+		Effect.gen(function* () {
+			const [signal] = yield* listSignals(filter);
+			return signal ?? null;
+		}),
+	);
+
+export const pollSignalWithRecipientCount = (filter: SignalFilter, count: number) =>
+	pollUntil(
+		`${count} recipient(s) for signal '${filter.schemaSlug}'`,
+		Effect.gen(function* () {
+			const [signal] = yield* listSignals(filter);
+			return signal?.recipientUserIds.length === count ? signal : null;
+		}),
+	);
+
+export const listSubscriptionRuns = (input: SubscriptionRunFilter) =>
+	getApiClient().call(
+		(c) =>
+			c.testSupport.listSubscriptionRuns({
+				payload: {
+					executionUserId: UserId.make(input.executionUserId),
+					signalId: input.signalId ? SignalId.make(input.signalId) : undefined,
+				},
+			}),
+		adminHeaders(),
+	);
+
+const terminalRunStatuses = new Set(["succeeded", "failed", "skipped"]);
+
+export const pollTerminalSubscriptionRuns = (input: SubscriptionRunFilter) =>
+	pollUntil(
+		`terminal subscription run(s) for user '${input.executionUserId}'`,
+		Effect.gen(function* () {
+			const runs = yield* listSubscriptionRuns(input);
+			return runs.length > 0 && runs.every((run) => terminalRunStatuses.has(run.status))
+				? runs
+				: null;
+		}),
+	);
+
+export const getAutomationRuleCount = (userId: string) =>
+	Effect.gen(function* () {
+		const { count } = yield* getApiClient().call(
+			(c) => c.testSupport.countAutomationRules({ params: { userId: UserId.make(userId) } }),
+			adminHeaders(),
+		);
+		return count;
+	});

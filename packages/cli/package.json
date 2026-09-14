@@ -1,0 +1,27 @@
+{
+	"name": "@ryot-app/cli",
+	"bin": {
+		"ryot": "./src/index.ts"
+	},
+	"type": "module",
+	"scripts": {
+		"test": "bun --bun run vitest run",
+		"check": "tsc && oxfmt . --write && oxlint . --type-aware --fix"
+	},
+	"dependencies": {
+		"@effect/platform-bun": "4.0.0-rc.115",
+		"@ryot-app/client-plugin-compiler": "workspace:*",
+		"@ryot-app/client-plugin-contract": "workspace:*",
+		"@ryot-app/contract": "workspace:*",
+		"@ryot-app/plugin-archive": "workspace:*",
+		"@ryot-app/sandbox-compiler": "workspace:*",
+		"effect": "4.0.0-rc.115"
+	},
+	"devDependencies": {
+		"@effect/vitest": "4.0.0-rc.115",
+		"@ryot-app/sandbox-sdk": "workspace:*",
+		"@ryot-app/testing": "workspace:*",
+		"bun-types": "1.4.0",
+		"vitest": "4.1.9"
+	}
+}

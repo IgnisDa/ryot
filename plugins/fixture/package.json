@@ -1,0 +1,36 @@
+{
+	"name": "@ryot-app/fixture-plugin",
+	"private": true,
+	"type": "module",
+	"exports": {
+		".": {
+			"types": "./host/plugin.ts",
+			"default": "./host/plugin.ts"
+		}
+	},
+	"scripts": {
+		"build": "ryot plugin build",
+		"test": "bun --bun run vitest run",
+		"check": "tsc && oxfmt . --write && oxlint . --type-aware --fix"
+	},
+	"dependencies": {
+		"@ryot-app/contract": "workspace:*",
+		"@ryot-app/ryotql": "workspace:*",
+		"@ryot-app/ryotql-recipes": "workspace:*",
+		"@ryot-app/sandbox-sdk": "workspace:*"
+	},
+	"devDependencies": {
+		"@ryot-app/cli": "workspace:*",
+		"@ryot-app/client-sdk": "workspace:*",
+		"@ryot-app/client-ui-sdk": "workspace:*",
+		"@ryot-app/testing": "workspace:*",
+		"@testing-library/dom": "^10.4.1",
+		"@types/react": "^19.2.0",
+		"@types/react-dom": "^19.2.0",
+		"clsx": "2.1.1",
+		"jsdom": "^30.0.1",
+		"react": "^19.2.0",
+		"react-dom": "^19.2.0",
+		"vitest": "4.1.9"
+	}
+}

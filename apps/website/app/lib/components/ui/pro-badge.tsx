@@ -1,5 +1,6 @@
-import { cn } from "@ryot/ts-utils";
+import { cn } from "@ryot-app/ts-utils/cn";
 import { Crown } from "lucide-react";
+
 import { Badge } from "./badge";
 
 export function ProBadge(props: { className?: string }) {

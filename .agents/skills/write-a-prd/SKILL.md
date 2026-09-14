@@ -1,0 +1,82 @@
+---
+name: write-a-prd
+description: Create a PRD through user interview, codebase exploration, and module design, then write as a markdown file in docs/tasks/. Use when user wants to write a PRD, create a product requirements document, or plan a new feature. Do not use subagents for this.
+---
+
+This skill will be invoked when the user wants to create a PRD. You may skip steps if you don't consider them necessary.
+
+**Core principle:** The finished PRD must be entirely self-contained. A fresh agent with no prior context must be able to read it and have everything needed to understand the problem, the technical decisions, and what to implement — without exploring the codebase or asking follow-up questions.
+
+1. Sketch out the major modules you will need to build or modify to complete the implementation. Actively look for opportunities to extract deep modules that can be tested in isolation.
+
+A deep module (as opposed to a shallow module) is one which encapsulates a lot of functionality in a simple, testable interface which rarely changes.
+
+Check with the user that these modules match their expectations. Check with the user which modules they want tests written for.
+
+2. Once you have a complete understanding of the problem and solution, use the template below to write the PRD. Note that when the PRD is later broken into tasks via the `prd-to-issues` skill, a **mandatory final cleanup task** will always be appended. That task must follow the `codebase-cleanup` skill and should be described as a final pass over the touched files and directly affected modules. The PRD should be written to `docs/tasks/{plan-name}/README.md` where `{plan-name}` is a single lowercase word with no spaces, hyphens, or underscores. Choose it as the concise name for the plan, such as `ryotql`.
+
+<prd-template>
+
+## Tasks
+
+**Overall Progress:** 0 of 0 tasks completed
+
+**Current Task:** None
+
+### Task List
+
+Tasks will be added here when you run the prd-to-issues skill.
+
+## Problem Statement
+
+The problem that the user is facing, from the user's perspective.
+
+## Solution
+
+The solution to the problem, from the user's perspective.
+
+## User Stories
+
+A LONG, numbered list of user stories. Each user story should be in the format of:
+
+1. As an <actor>, I want a <feature>, so that <benefit>
+
+<user-story-example>
+1. As a mobile bank customer, I want to see balance on my accounts, so that I can make better informed decisions about my spending
+</user-story-example>
+
+This list of user stories should be extremely extensive and cover all aspects of the feature.
+
+## Implementation Decisions
+
+A list of implementation decisions that were made. This section must be thorough enough that a fresh agent can implement the feature without needing to ask follow-up questions or explore the codebase. Include:
+
+- The modules that will be built/modified
+- The interfaces of those modules that will be modified
+- Technical clarifications from the developer
+- Architectural decisions
+- Schema changes
+- API contracts
+- Specific interactions
+
+Do NOT include specific file paths or code snippets. They may end up being outdated very quickly.
+
+## Testing Decisions
+
+A list of testing decisions that were made. Include:
+
+- A description of what makes a good test (only test external behavior, not implementation details)
+- Which modules will be tested
+- Prior art for the tests (i.e. similar types of tests in the codebase)
+
+## Out of Scope
+
+A description of the things that are out of scope for this PRD.
+
+## Further Notes
+
+Any further notes about the feature.
+
+</prd-template>
+
+After writing the PRD file, return the file path to the user.

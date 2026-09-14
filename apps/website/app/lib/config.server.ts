@@ -1,16 +1,15 @@
-import { createHash } from "node:crypto";
 import { Polar } from "@polar-sh/sdk";
-import { memoize, zodBoolAsString } from "@ryot/ts-utils";
+import { sha256Hex } from "@ryot-app/ts-utils/crypto";
+import { memoize } from "@ryot-app/ts-utils/lodash";
+import { zodBoolAsString } from "@ryot-app/ts-utils/zod";
 import { Unkey } from "@unkey/api";
 import { drizzle } from "drizzle-orm/postgres-js";
-import { GraphQLClient } from "graphql-request";
 import { createCookie } from "react-router";
 import { z } from "zod";
+
 import * as schema from "~/drizzle/schema.server";
-import {
-	getActivePaymentCatalog,
-	getPaymentEnvironment,
-} from "./payment-catalog";
+
+import { getActivePaymentCatalog, getPaymentEnvironment } from "./payment-catalog";
 
 // The number of days after a subscription expires that we allow access
 export const GRACE_PERIOD = 7;
@@ -45,20 +44,13 @@ const serverVariablesSchema = z.object({
 	SERVER_SMTP_SECURE: zodBoolAsString.optional(),
 });
 
-export const getServerVariables = memoize(() =>
-	serverVariablesSchema.parse(process.env),
-);
+export const getServerVariables = memoize(() => serverVariablesSchema.parse(process.env));
 
-export const getOauthCallbackUrl = memoize(
-	() => `${getServerVariables().FRONTEND_URL}/callback`,
-);
+export const getOauthCallbackUrl = memoize(() => `${getServerVariables().FRONTEND_URL}/callback`);
 
 export const getPrices = memoize(() => {
 	const { PADDLE_SANDBOX } = getServerVariables();
-	return getActivePaymentCatalog(
-		"paddle",
-		getPaymentEnvironment(PADDLE_SANDBOX),
-	);
+	return getActivePaymentCatalog("paddle", getPaymentEnvironment(PADDLE_SANDBOX));
 });
 
 export type TPrices = ReturnType<typeof getPrices>;
@@ -91,17 +83,7 @@ export const websiteAuthCookie = createCookie("WebsiteAuth", {
 });
 
 export const getDb = memoize(() =>
-	drizzle(getServerVariables().DATABASE_URL, {
-		schema,
-		logger: IS_DEVELOPMENT_ENV,
-	}),
-);
-
-export const getServerGqlService = memoize(
-	() =>
-		new GraphQLClient(`${getServerVariables().RYOT_BASE_URL}/graphql`, {
-			headers: { Connection: "keep-alive" },
-		}),
+	drizzle(getServerVariables().DATABASE_URL, { schema, logger: IS_DEVELOPMENT_ENV }),
 );
 
 export const getUnkeyClient = memoize(() => {
@@ -110,15 +92,10 @@ export const getUnkeyClient = memoize(() => {
 
 export const getPolarClient = memoize(() => {
 	const accessToken = getPolarAccessToken();
-	return new Polar({
-		accessToken,
-		server: isPolarSandbox() ? "sandbox" : "production",
-	});
+	return new Polar({ accessToken, server: isPolarSandbox() ? "sandbox" : "production" });
 });
 
-export const paddleCustomDataSchema = z.object({
-	customerId: z.string(),
-});
+export const paddleCustomDataSchema = z.object({ customerId: z.string() });
 
 export type PaddleCustomData = z.infer<typeof paddleCustomDataSchema>;
 
@@ -129,19 +106,21 @@ export const findPolarProductId = (
 	const products = getPolarProducts();
 
 	const product = products.find((p) => p.type === productType);
-	if (!product) return null;
+	if (!product) {
+		return null;
+	}
 
 	const price = product.prices.find((p) => p.name === planType);
-	return price?.productId || null;
+	return price?.productId ?? null;
 };
 
-export const assignPaymentProvider = (
-	email: string,
-): schema.TPaymentProviders => {
+export const assignPaymentProvider = (email: string): schema.TPaymentProviders => {
 	const abPercent = getPolarAbPercent();
-	if (abPercent === 0) return "paddle";
+	if (abPercent === 0) {
+		return "paddle";
+	}
 
-	const hash = createHash("sha256").update(email).digest("hex");
+	const hash = sha256Hex(email);
 	const hashInt = Number.parseInt(hash.substring(0, 8), 16);
 	const bucket = hashInt % 100;
 

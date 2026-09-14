@@ -1,0 +1,10 @@
+{
+	"lock": false,
+	"imports": { "@ryot-app/sandbox-sdk/effect": "npm:effect@4.0.0-rc.115" },
+	"compilerOptions": {
+		"strict": true,
+		"noImplicitReturns": true,
+		"lib": ["deno.window", "esnext"],
+		"noUncheckedIndexedAccess": true
+	}
+}

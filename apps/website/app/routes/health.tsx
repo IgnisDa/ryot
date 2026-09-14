@@ -1,5 +1,7 @@
 import { writeFileSync } from "node:fs";
+
 import { sql } from "drizzle-orm";
+
 import { getDb, getServerVariables, TEMP_DIRECTORY } from "~/lib/config.server";
 import { runMigrations } from "~/lib/migrations.server";
 

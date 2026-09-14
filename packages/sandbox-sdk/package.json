@@ -1,0 +1,100 @@
+{
+	"name": "@ryot-app/sandbox-sdk",
+	"type": "module",
+	"sideEffects": false,
+	"exports": {
+		"./core": {
+			"types": "./src/core.ts",
+			"default": "./src/core.ts"
+		},
+		"./automation": {
+			"types": "./src/automation.ts",
+			"default": "./src/automation.ts"
+		},
+		"./cheerio": {
+			"types": "./src/cheerio.ts",
+			"default": "./src/cheerio.ts"
+		},
+		"./driver": {
+			"types": "./src/driver.ts",
+			"default": "./src/driver.ts"
+		},
+		"./effect": {
+			"types": "./src/effect.ts",
+			"default": "./src/effect.ts"
+		},
+		"./fast-xml-parser": {
+			"types": "./src/fast-xml-parser.ts",
+			"default": "./src/fast-xml-parser.ts"
+		},
+		"./fflate": {
+			"types": "./src/fflate.ts",
+			"default": "./src/fflate.ts"
+		},
+		"./filesystem": {
+			"types": "./src/filesystem.ts",
+			"default": "./src/filesystem.ts"
+		},
+		"./testing": {
+			"types": "./src/testing.ts",
+			"default": "./src/testing.ts"
+		},
+		"./imports": {
+			"types": "./src/imports.ts",
+			"default": "./src/imports.ts"
+		},
+		"./operation": {
+			"types": "./src/operation.ts",
+			"default": "./src/operation.ts"
+		},
+		"./papaparse": {
+			"types": "./src/papaparse.ts",
+			"default": "./src/papaparse.ts"
+		},
+		"./provider": {
+			"types": "./src/provider.ts",
+			"default": "./src/provider.ts"
+		},
+		"./ryotql": {
+			"types": "./src/ryotql.ts",
+			"default": "./src/ryotql.ts"
+		},
+		"./runtime-registry": {
+			"types": "./src/runtime-registry.ts",
+			"default": "./src/runtime-registry.ts"
+		},
+		"./wire": {
+			"types": "./src/wire.ts",
+			"default": "./src/wire.ts"
+		},
+		"./workflow": {
+			"types": "./src/workflow.ts",
+			"default": "./src/workflow.ts"
+		},
+		"./youtubei": {
+			"types": "./src/youtubei.ts",
+			"default": "./src/youtubei.ts"
+		}
+	},
+	"scripts": {
+		"test": "bun --bun run vitest run",
+		"check": "tsc && tsc --project tests/tsconfig.json && oxfmt . --write && oxlint . --type-aware --fix"
+	},
+	"dependencies": {
+		"@ryot-app/contract": "workspace:*",
+		"@ryot-app/ryotql": "workspace:*",
+		"@ryot-app/ryotql-recipes": "workspace:*",
+		"@types/papaparse": "5.5.2",
+		"cheerio": "1.2.0",
+		"effect": "4.0.0-rc.115",
+		"fast-xml-parser": "5.8.0",
+		"fflate": "0.8.3",
+		"papaparse": "5.5.3",
+		"youtubei.js": "17.2.0"
+	},
+	"devDependencies": {
+		"@effect/vitest": "4.0.0-rc.115",
+		"@ryot-app/testing": "workspace:*",
+		"vitest": "4.1.9"
+	}
+}

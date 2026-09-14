@@ -2,12 +2,22 @@ import { initializePaddle } from "@paddle/paddle-js";
 import { QueryClient, useQuery } from "@tanstack/react-query";
 import { $path } from "safe-routes";
 import { withFragment } from "ufo";
+
 import type { TPrices } from "./config.server";
+
+type ConfigData = {
+	prices: TPrices;
+	isSandbox: boolean;
+	clientToken: string;
+	isLoggedIn: boolean;
+	turnstileSiteKey: string;
+};
 
 export const contactEmail = "ignisda2001@gmail.com";
 export const startUrl = withFragment($path("/"), "start-here");
+// TODO: Use a URL like https://ryot.op/icon.png and update upstream including paddle and polar
 export const logoUrl =
-	"https://raw.githubusercontent.com/IgnisDa/ryot/main/libs/assets/icon-512x512.png";
+	"https://raw.githubusercontent.com/IgnisDa/ryot/main/packages/assets/icon-512x512.png";
 
 export const initializePaddleForApplication = (
 	clientToken: string,
@@ -17,7 +27,7 @@ export const initializePaddleForApplication = (
 	initializePaddle({
 		token: clientToken,
 		environment: isSandbox ? "sandbox" : undefined,
-		pwCustomer: { id: paddleCustomerId || undefined },
+		pwCustomer: { id: paddleCustomerId ?? undefined },
 	});
 
 export const queryClient = new QueryClient({
@@ -29,13 +39,10 @@ export const useConfigData = () =>
 		queryKey: ["websiteConfig"],
 		queryFn: async () => {
 			const response = await fetch("/api/config");
-			if (!response.ok) throw new Error("Failed to fetch config");
-			return response.json() as Promise<{
-				prices: TPrices;
-				isSandbox: boolean;
-				clientToken: string;
-				isLoggedIn: boolean;
-				turnstileSiteKey: string;
-			}>;
+			if (!response.ok) {
+				throw new Error("Failed to fetch config");
+			}
+			const data: ConfigData = await response.json();
+			return data;
 		},
 	});

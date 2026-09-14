@@ -1,14 +1,15 @@
-import ContactSubmissionEmail from "@ryot/transactional/emails/contact-submission";
-import LoginCodeEmail from "@ryot/transactional/emails/login-code";
-import { getActionIntent, processSubmission } from "@ryot/ts-utils";
+import ContactSubmissionEmail from "@ryot-app/transactional/emails/contact-submission";
+import LoginCodeEmail from "@ryot-app/transactional/emails/login-code";
+import { getActionIntent, processSubmission } from "@ryot-app/ts-utils/request";
 import { sql } from "drizzle-orm";
 import * as openidClient from "openid-client";
 import { useState } from "react";
-import { data, redirect, useSearchParams } from "react-router";
+import { redirect, useSearchParams } from "react-router";
 import { $path } from "safe-routes";
 import { match } from "ts-pattern";
 import { withFragment, withQuery } from "ufo";
 import { z } from "zod";
+
 import { contactSubmissions, customers } from "~/drizzle/schema.server";
 import { getOtpCode, revokeOtpCode, setOtpCode } from "~/lib/caches.server";
 import { CommunitySection } from "~/lib/components/CommunitySection";
@@ -23,15 +24,13 @@ import {
 	assignPaymentProvider,
 	getDb,
 	getOauthCallbackUrl,
+	IS_DEVELOPMENT_ENV,
 	websiteAuthCookie,
 } from "~/lib/config.server";
 import { contactEmail, startUrl } from "~/lib/general";
 import { usePaddleInitialization } from "~/lib/hooks/usePaddleInitialization";
-import {
-	oauthConfig,
-	sendEmail,
-	validateTurnstile,
-} from "~/lib/utilities.server";
+import { oauthConfig, sendEmail, validateTurnstile } from "~/lib/utilities.server";
+
 import type { Route } from "./+types/_index";
 
 export const action = async ({ request }: Route.ActionArgs) => {
@@ -43,6 +42,9 @@ export const action = async ({ request }: Route.ActionArgs) => {
 			await validateTurnstile(request, submission.turnstileToken);
 
 			const otpCode = setOtpCode(submission.email);
+			if (IS_DEVELOPMENT_ENV) {
+				console.log("Generated OTP code for login:", { otpCode, email: submission.email });
+			}
 			await sendEmail({
 				recipient: submission.email,
 				subject: LoginCodeEmail.subject,
@@ -53,8 +55,9 @@ export const action = async ({ request }: Route.ActionArgs) => {
 		.with("registerWithEmail", async () => {
 			const submission = processSubmission(formData, registerSchema);
 			const otpCode = getOtpCode(submission.email);
-			if (otpCode !== submission.otpCode)
-				throw data({ message: "Invalid OTP code." }, { status: 400 });
+			if (otpCode !== submission.otpCode) {
+				throw new Error("Invalid OTP code.");
+			}
 
 			revokeOtpCode(submission.email);
 			const paymentProvider = assignPaymentProvider(submission.email);
@@ -62,18 +65,14 @@ export const action = async ({ request }: Route.ActionArgs) => {
 				.insert(customers)
 				.values({ paymentProvider, email: submission.email })
 				.returning({ id: customers.id })
-				.onConflictDoUpdate({
-					target: customers.email,
-					set: { email: submission.email },
-				});
+				.onConflictDoUpdate({ target: customers.email, set: { email: submission.email } });
 			const customerId = dbCustomer.at(0)?.id;
-			if (!customerId)
+			if (!customerId) {
 				throw new Error("There was an error registering the user.");
+			}
 			console.log("Customer login successful:", { customerId });
 			return redirect($path("/me"), {
-				headers: {
-					"set-cookie": await websiteAuthCookie.serialize(customerId),
-				},
+				headers: { "set-cookie": await websiteAuthCookie.serialize(customerId) },
 			});
 		})
 		.with("registerWithOidc", async () => {
@@ -86,9 +85,7 @@ export const action = async ({ request }: Route.ActionArgs) => {
 		})
 		.with("contactSubmission", async () => {
 			// DEV: https://github.com/edmundhung/conform/issues/854
-			const submission = contactSubmissionSchema.parse(
-				Object.fromEntries(formData.entries()),
-			);
+			const submission = contactSubmissionSchema.parse(Object.fromEntries(formData.entries()));
 
 			await validateTurnstile(request, submission.turnstileToken);
 
@@ -118,24 +115,18 @@ export const action = async ({ request }: Route.ActionArgs) => {
 					}),
 				});
 			}
-			return redirect(
-				withQuery(withFragment(".", "contact"), { contactSubmission: true }),
-			);
+			return redirect(withQuery(withFragment(".", "contact"), { contactSubmission: true }));
 		})
 		.run();
 };
 
-const turnstileTokenSchema = z.object({
-	turnstileToken: z.string(),
-});
+const turnstileTokenSchema = z.object({ turnstileToken: z.string() });
 
 const emailSchema = z.object({ email: z.email() });
 
 const sendLoginCodeSchema = emailSchema.extend(turnstileTokenSchema.shape);
 
-const registerSchema = z
-	.object({ otpCode: z.string().length(6) })
-	.extend(emailSchema.shape);
+const registerSchema = z.object({ otpCode: z.string().length(6) }).extend(emailSchema.shape);
 
 const contactSubmissionSchema = z
 	.object({ message: z.string() })
@@ -144,15 +135,14 @@ const contactSubmissionSchema = z
 
 export default function Page() {
 	const [searchParams] = useSearchParams();
-	const { configData, isLoading } = usePaddleInitialization();
+	const { isLoading, configData } = usePaddleInitialization();
 
 	const query = {
 		email: searchParams.get("email") ?? undefined,
 		contactSubmission: searchParams.get("contactSubmission") === "true",
 	};
 
-	const [loginOtpTurnstileToken, setLoginOtpTurnstileToken] =
-		useState<string>("");
+	const [loginOtpTurnstileToken, setLoginOtpTurnstileToken] = useState<string>("");
 	const [contactSubmissionTurnstileToken, setContactSubmissionTurnstileToken] =
 		useState<string>("");
 
@@ -175,10 +165,7 @@ export default function Page() {
 					</div>
 				</section>
 			) : (
-				<Pricing
-					prices={configData.prices}
-					isLoggedIn={configData.isLoggedIn}
-				/>
+				<Pricing prices={configData.prices} isLoggedIn={configData.isLoggedIn} />
 			)}
 			<ContactSection
 				query={query}

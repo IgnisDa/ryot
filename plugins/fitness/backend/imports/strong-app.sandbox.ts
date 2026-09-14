@@ -1,0 +1,32 @@
+import { defineManifest, defineScript } from "@ryot-app/sandbox-sdk/driver";
+import { Effect, Schema } from "@ryot-app/sandbox-sdk/effect";
+import { genericImportAdapterManifestSchema } from "@ryot-app/sandbox-sdk/imports";
+
+import { readImportArtifactText, writeImportChunks } from "./shared";
+import { adaptStrongAppCsv } from "./strong-app";
+import { toWorkoutWriteItem } from "./workout";
+
+export const manifest = defineManifest({
+	kind: "script",
+	slug: "import.strong-app",
+	name: "Parse Strong import",
+	requiredPluginConfigKeys: [],
+	requiredSystemConfigKeys: ["timezone"],
+	capabilities: ["artifact-read", "scratch", "getSystemConfig"],
+});
+
+export default defineScript({
+	manifest,
+	input: Schema.Struct({}),
+	output: genericImportAdapterManifestSchema,
+	run: (_input, host) =>
+		Effect.gen(function* () {
+			const text = yield* readImportArtifactText();
+			const timezone = yield* host
+				.getSystemConfig(["timezone"])
+				.pipe(Effect.map(({ timezone: timezoneValue }) => timezoneValue))
+				.pipe(Effect.catch(() => Effect.succeed("Etc/GMT")));
+			const result = adaptStrongAppCsv(text, typeof timezone === "string" ? timezone : "UTC");
+			return yield* writeImportChunks(result.failures, result.items.map(toWorkoutWriteItem));
+		}),
+});

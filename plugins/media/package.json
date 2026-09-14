@@ -1,0 +1,85 @@
+{
+	"name": "@ryot-app/media-plugin",
+	"private": true,
+	"exports": {
+		".": {
+			"types": "./host/plugin.ts",
+			"default": "./host/plugin.ts"
+		},
+		"./query-recipes": {
+			"types": "./host/query-recipes.ts",
+			"default": "./host/query-recipes.ts"
+		},
+		"./shared/show-recipes": {
+			"types": "./shared/show-recipes.ts",
+			"default": "./shared/show-recipes.ts"
+		},
+		"./shared/movie-recipes": {
+			"types": "./shared/movie-recipes.ts",
+			"default": "./shared/movie-recipes.ts"
+		},
+		"./shared/music-recipes": {
+			"types": "./shared/music-recipes.ts",
+			"default": "./shared/music-recipes.ts"
+		},
+		"./shared/book-recipes": {
+			"types": "./shared/book-recipes.ts",
+			"default": "./shared/book-recipes.ts"
+		},
+		"./import-sources": {
+			"types": "./host/import-sources.ts",
+			"default": "./host/import-sources.ts"
+		},
+		"./contracts/workflows": {
+			"types": "./backend/contracts/workflows.ts",
+			"default": "./backend/contracts/workflows.ts"
+		},
+		"./contracts/operations": {
+			"types": "./backend/contracts/operations.ts",
+			"default": "./backend/contracts/operations.ts"
+		},
+		"./contracts/schema-slugs": {
+			"types": "./backend/contracts/schema-slugs.ts",
+			"default": "./backend/contracts/schema-slugs.ts"
+		},
+		"./contracts/operation-recipes": {
+			"types": "./backend/contracts/operation-recipes.ts",
+			"default": "./backend/contracts/operation-recipes.ts"
+		}
+	},
+	"scripts": {
+		"build": "ryot plugin build",
+		"test": "bun --bun run vitest run",
+		"check": "tsc && oxfmt . --write && oxlint . --type-aware --fix"
+	},
+	"dependencies": {
+		"@ryot-app/config": "workspace:*",
+		"@ryot-app/contract": "workspace:*",
+		"@ryot-app/plugin-kit": "workspace:*",
+		"@ryot-app/ryotql": "workspace:*",
+		"@ryot-app/ryotql-recipes": "workspace:*",
+		"@ryot-app/sandbox-sdk": "workspace:*",
+		"@ryot-app/ts-utils": "workspace:*",
+		"effect": "4.0.0-rc.115"
+	},
+	"devDependencies": {
+		"@effect/platform-bun": "4.0.0-rc.115",
+		"@effect/vitest": "4.0.0-rc.115",
+		"@ryot-app/cli": "workspace:*",
+		"@ryot-app/client-plugin-contract": "workspace:*",
+		"@ryot-app/client-sdk": "workspace:*",
+		"@ryot-app/client-ui-sdk": "workspace:*",
+		"@ryot-app/kernel-backend": "workspace:*",
+		"@ryot-app/sandbox-compiler": "workspace:*",
+		"@ryot-app/testing": "workspace:*",
+		"@testing-library/dom": "^10.4.1",
+		"@types/react": "^19.2.0",
+		"@types/react-dom": "^19.2.0",
+		"bun-types": "1.4.0",
+		"clsx": "2.1.1",
+		"jsdom": "^30.0.1",
+		"react": "^19.2.0",
+		"react-dom": "^19.2.0",
+		"vitest": "4.1.9"
+	}
+}

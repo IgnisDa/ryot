@@ -1,0 +1,34 @@
+{
+	"$schema": "https://raw.githubusercontent.com/Effect-TS/tsgo/refs/heads/main/schema.json",
+	"compilerOptions": {
+		"strict": true,
+		"noEmit": true,
+		"outDir": "dist",
+		"target": "ES2022",
+		"module": "ESNext",
+		"skipLibCheck": true,
+		"types": ["bun-types"],
+		"esModuleInterop": true,
+		"lib": ["ESNext", "DOM"],
+		"paths": { "~/*": ["./src/*"] },
+		"noUncheckedIndexedAccess": true,
+		"forceConsistentCasingInFileNames": true,
+		"plugins": [
+			{
+				"name": "@effect/language-service",
+				"diagnosticSeverity": {
+					"newPromise": "off",
+					"asyncFunction": "off",
+					"nodeBuiltinImport": "off",
+					"globalFetchInEffect": "off",
+					"preferSchemaOverJson": "off",
+					"globalDateInEffect": "error",
+					"processEnvInEffect": "error",
+					"globalTimersInEffect": "error",
+					"globalConsoleInEffect": "error",
+					"globalErrorInEffectFailure": "error"
+				}
+			}
+		]
+	}
+}

@@ -1,0 +1,108 @@
+import { defineManifest } from "@ryot-app/sandbox-sdk/driver";
+import { Effect } from "@ryot-app/sandbox-sdk/effect";
+import { defineOperation } from "@ryot-app/sandbox-sdk/operation";
+
+import {
+	MetadataLookupInput,
+	MetadataLookupOutput,
+	type MetadataLookupResult,
+} from "../contracts/operations";
+import {
+	chooseBestMetadataLookupTitleMatch,
+	type MetadataLookupTitleMatchCandidate,
+} from "../lib/title-matching";
+import {
+	extractMetadataLookupBaseTitle,
+	extractMetadataLookupSeasonEpisode,
+} from "../lib/title-parsing";
+import {
+	manifest as movieTmdbManifest,
+	search as movieTmdbSearch,
+} from "../providers/movie/tmdb/shared";
+import {
+	manifest as showTmdbManifest,
+	search as showTmdbSearch,
+} from "../providers/show/tmdb/shared";
+
+export const manifest = defineManifest({
+	kind: "operation",
+	name: "Metadata Lookup",
+	requiredSystemConfigKeys: [],
+	slug: "operation.metadata-lookup",
+	requiredPluginConfigKeys: ["tmdbAccessToken"],
+	capabilities: ["httpCall", "getCurrentIntegration", "getPluginConfig", "getUserPreferences"],
+});
+
+const searchProviders = [
+	{ script: movieTmdbSearch, entitySchemaSlug: "movie", providerSlug: movieTmdbManifest.slug },
+	{ script: showTmdbSearch, entitySchemaSlug: "show", providerSlug: showTmdbManifest.slug },
+] as const;
+
+const notFound = { notFound: true, status: "notFound" } as const satisfies MetadataLookupResult;
+
+export default defineOperation({
+	manifest,
+	input: MetadataLookupInput,
+	output: MetadataLookupOutput,
+	run: (input, host, execution) =>
+		Effect.gen(function* () {
+			const titles = input.titles.map((title) => title.trim());
+			if (titles.some((title) => title === "")) {
+				return yield* Effect.fail(new Error("title is required"));
+			}
+
+			const integration = yield* host.getCurrentIntegration();
+			if (integration.provider !== "ryot_browser_extension") {
+				return yield* Effect.fail(new Error("Integration is not a browser extension integration"));
+			}
+
+			const results: MetadataLookupResult[] = [];
+			for (const title of titles) {
+				const query = extractMetadataLookupBaseTitle(title).trim();
+				if (!query) {
+					return yield* Effect.fail(new Error("title is required"));
+				}
+
+				const searched = yield* Effect.forEach(
+					searchProviders,
+					(provider) =>
+						provider.script
+							.run({ query, page: 1, pageSize: 20 }, host, execution)
+							.pipe(
+								Effect.map(({ items }) =>
+									items.map(
+										(item): MetadataLookupTitleMatchCandidate => ({
+											title: item.title,
+											externalId: item.externalId,
+											providerSlug: provider.providerSlug,
+											entitySchemaSlug: provider.entitySchemaSlug,
+											publishYear:
+												item.metadata?.find(
+													(value): value is number => typeof value === "number",
+												) ?? null,
+										}),
+									),
+								),
+							),
+					{ concurrency: 2 },
+				);
+
+				const match = chooseBestMetadataLookupTitleMatch({ title, results: searched.flat() });
+				if (!match) {
+					results.push(notFound);
+					continue;
+				}
+
+				const showInformation =
+					match.entitySchemaSlug === "show" ? extractMetadataLookupSeasonEpisode(title) : undefined;
+				results.push({
+					status: "found",
+					title: match.title,
+					...(showInformation ? { showInformation } : {}),
+					data: { source: "tmdb", lot: match.entitySchemaSlug, identifier: match.externalId },
+				});
+			}
+
+			return { results };
+		}),
+});

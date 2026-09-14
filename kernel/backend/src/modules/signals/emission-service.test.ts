@@ -1,0 +1,455 @@
+import { assert, expect, it } from "@effect/vitest";
+import { BadRequest, NotFound } from "@ryot-app/contract/errors";
+import {
+	EntityId,
+	EntitySchemaSlug,
+	RelationshipSchemaSlug,
+	SignalId,
+	SignalSchemaSlug,
+	UserId,
+} from "@ryot-app/contract/schema/brands";
+import { Cause, Effect, Exit, Layer, Option } from "effect";
+
+import { assertExitFails } from "#lib/test-utils/assertions";
+import type { MockOverrides } from "#lib/test-utils/effect";
+import { databaseLayer } from "#lib/test-utils/effect";
+import { makeDefinitionRegistry } from "#modules/definition-registry/service";
+import { EntitiesRepository } from "#modules/entities/repository";
+import { PluginRuntimeResolver } from "#modules/plugins/runtime-resolver";
+import { RelationshipSchemasRepository } from "#modules/relationship-schemas/repository";
+import { RelationshipsRepository } from "#modules/relationships/repository";
+
+import { SignalDispatch } from "./dispatch";
+import { SignalsRepository, type InsertSignalInput, type StoredSignal } from "./repository";
+import { SignalEmissionService, type EmitSignalInput } from "./service";
+import { SignalSchemasRepository, type SignalSchemaScope } from "./signal-schemas-repository";
+
+const userId = UserId.make("user-1");
+const recipientId = UserId.make("user-2");
+const subjectEntityId = EntityId.make("entity-1");
+const occurredAt = new Date("2026-07-20T10:00:00.000Z");
+const relationshipSchemaSlug = RelationshipSchemaSlug.make("example-monitoring");
+
+const propertiesSchema = {
+	unknownKeys: "strict",
+	fields: {
+		entityName: {
+			type: "string",
+			label: "Entity name",
+			description: "Entity name",
+			validation: { required: true },
+		},
+	},
+} as const;
+
+const actorSchema = {
+	userId: null,
+	propertiesSchema,
+	slug: "review.created",
+	name: "Review created",
+	catalogState: "active",
+	audiencePolicy: { kind: "actor" },
+	id: SignalSchemaSlug.make("review.created"),
+} satisfies SignalSchemaScope;
+
+const relatedSchema = {
+	...actorSchema,
+	slug: "example.status.changed",
+	id: SignalSchemaSlug.make("example.status.changed"),
+	audiencePolicy: { kind: "related_users", subjectSide: "source", relationshipSchemaSlug },
+} satisfies SignalSchemaScope;
+
+const relationshipScope = {
+	isBuiltin: true,
+	id: relationshipSchemaSlug,
+	slug: "example-monitoring",
+	name: "Example monitoring",
+	sourceEntitySchemaSlug: null,
+	targetEntitySchemaSlug: null,
+	propertiesSchema: { fields: {} },
+};
+const definitions = makeDefinitionRegistry({
+	savedViews: [],
+	entitySchemas: [],
+	signalSchemas: [],
+	relationshipSchemas: [relationshipScope],
+});
+
+const subjectScope = {
+	isBuiltin: true,
+	entityUserId: null,
+	entityName: "The Matrix",
+	entityId: subjectEntityId,
+	propertiesSchema: { fields: {} },
+	entitySchemaSlug: EntitySchemaSlug.make("item"),
+};
+
+const baseInput = {
+	occurredAt,
+	origin: { kind: "api" },
+	discriminator: "review-1",
+	executionId: "execution-1",
+	schemaSlug: actorSchema.slug,
+	principal: { userId, kind: "user" },
+	properties: { entityName: "Arrival" },
+} as const satisfies EmitSignalInput;
+
+const storedSignal = (input: InsertSignalInput): StoredSignal => ({
+	id: input.id,
+	origin: input.origin,
+	properties: input.properties,
+	actorUserId: input.actorUserId,
+	createdAt: "2026-07-20T10:00:01.000Z",
+	subjectEntityId: input.subjectEntityId,
+	signalSchemaSlug: input.signalSchemaSlug,
+	occurredAt: input.occurredAt.toISOString(),
+});
+
+const mockSignalsRepository = Layer.mock(SignalsRepository);
+const mockEntitiesRepository = Layer.mock(EntitiesRepository);
+const mockSignalSchemasRepository = Layer.mock(SignalSchemasRepository);
+const mockRelationshipsRepository = Layer.mock(RelationshipsRepository);
+const mockRelationshipSchemasRepository = Layer.mock(RelationshipSchemasRepository);
+const signalDispatchLayer = Layer.mock(SignalDispatch, { dispatch: () => Effect.void });
+
+const makeSignalsRepository = (overrides: MockOverrides<typeof mockSignalsRepository> = {}) =>
+	mockSignalsRepository({ findById: () => Effect.succeed(null), ...overrides });
+const makeSignalSchemasRepository = (
+	overrides: MockOverrides<typeof mockSignalSchemasRepository> = {},
+) => mockSignalSchemasRepository({ ...overrides });
+const makeEntitiesRepository = (overrides: MockOverrides<typeof mockEntitiesRepository> = {}) =>
+	mockEntitiesRepository({ ...overrides });
+const makeRelationshipsRepository = (
+	overrides: MockOverrides<typeof mockRelationshipsRepository> = {},
+) => mockRelationshipsRepository({ ...overrides });
+const makeRelationshipSchemasRepository = (
+	overrides: MockOverrides<typeof mockRelationshipSchemasRepository> = {},
+) => mockRelationshipSchemasRepository({ ...overrides });
+
+const makeLayer = (input: {
+	dispatch?: typeof signalDispatchLayer;
+	signals: ReturnType<typeof makeSignalsRepository>;
+	entities?: ReturnType<typeof makeEntitiesRepository>;
+	signalSchemas?: ReturnType<typeof makeSignalSchemasRepository>;
+	relationships?: ReturnType<typeof makeRelationshipsRepository>;
+	relationshipSchemas?: ReturnType<typeof makeRelationshipSchemasRepository>;
+}) =>
+	SignalEmissionService.layer.pipe(
+		Layer.provideMerge(
+			Layer.mergeAll(
+				input.signals,
+				input.dispatch ?? signalDispatchLayer,
+				databaseLayer,
+				Layer.mock(PluginRuntimeResolver)({
+					getEffectiveDefinitions: () => Effect.succeed(definitions.getSnapshot()),
+				}),
+				input.entities ?? makeEntitiesRepository(),
+				input.relationships ?? makeRelationshipsRepository(),
+				input.signalSchemas ??
+					makeSignalSchemasRepository({ findVisibleBySlug: () => Effect.succeed(actorSchema) }),
+				input.relationshipSchemas ?? makeRelationshipSchemasRepository(),
+			),
+		),
+	);
+
+it.effect("derives the actor and atomically snapshots an enabled actor recipient", () => {
+	let inserted: InsertSignalInput | undefined;
+	let recipients: { signalId: SignalId; userIds: ReadonlyArray<UserId> } | undefined;
+	const layer = makeLayer({
+		signals: makeSignalsRepository({
+			isUserEnabled: () => Effect.succeed(true),
+			insertRecipients: (input) => {
+				recipients = input;
+				return Effect.void;
+			},
+			insert: (input) => {
+				inserted = input;
+				return Effect.succeed(storedSignal(input));
+			},
+		}),
+	});
+
+	return Effect.gen(function* () {
+		const service = yield* SignalEmissionService;
+		const result = yield* service.emit(baseInput);
+		expect(inserted?.actorUserId).toBe(userId);
+		expect(inserted?.subjectEntityId).toBeNull();
+		expect(recipients).toEqual({ userIds: [userId], signalId: inserted?.id });
+		expect(result.wasCreated).toBe(true);
+		expect(result.recipientUserIds).toEqual([userId]);
+	}).pipe(Effect.provide(layer));
+});
+
+it.effect("persists actor signals with an empty audience for disabled users", () => {
+	let recipients: ReadonlyArray<UserId> | undefined;
+	const layer = makeLayer({
+		signals: makeSignalsRepository({
+			isUserEnabled: () => Effect.succeed(false),
+			insert: (input) => Effect.succeed(storedSignal(input)),
+			insertRecipients: (input) => {
+				recipients = input.userIds;
+				return Effect.void;
+			},
+		}),
+	});
+
+	return Effect.gen(function* () {
+		const service = yield* SignalEmissionService;
+		const result = yield* service.emit(baseInput);
+		expect(recipients).toEqual([]);
+		expect(result.recipientUserIds).toEqual([]);
+	}).pipe(Effect.provide(layer));
+});
+
+it.effect("validates signal properties before insertion", () => {
+	const layer = makeLayer({
+		signals: makeSignalsRepository({ insert: () => Effect.die("unexpected insert") }),
+	});
+
+	return Effect.gen(function* () {
+		const service = yield* SignalEmissionService;
+		const exit = yield* Effect.exit(service.emit({ ...baseInput, properties: {} }));
+		assert(Exit.isFailure(exit));
+		const failure = Cause.findErrorOption(exit.cause);
+		assert(Option.isSome(failure));
+		expect(failure.value).toBeInstanceOf(BadRequest);
+	}).pipe(Effect.provide(layer));
+});
+
+it.effect("rejects a system principal for an actor audience", () => {
+	const layer = makeLayer({ signals: makeSignalsRepository() });
+
+	return Effect.gen(function* () {
+		const service = yield* SignalEmissionService;
+		const exit = yield* Effect.exit(service.emit({ ...baseInput, principal: { kind: "system" } }));
+		assertExitFails(exit, new BadRequest({ message: "Actor audience requires a user principal" }));
+	}).pipe(Effect.provide(layer));
+});
+
+it.effect("rejects an unregistered signal schema", () => {
+	const layer = makeLayer({
+		signals: makeSignalsRepository(),
+		signalSchemas: makeSignalSchemasRepository({ findVisibleBySlug: () => Effect.succeed(null) }),
+	});
+
+	return Effect.gen(function* () {
+		const service = yield* SignalEmissionService;
+		const exit = yield* Effect.exit(
+			service.emit({ ...baseInput, subjectEntityId, schemaSlug: relatedSchema.slug }),
+		);
+		assertExitFails(exit, new NotFound({ message: "Signal schema not found" }));
+	}).pipe(Effect.provide(layer));
+});
+
+it.effect("resolves and snapshots related users after inserting the signal", () => {
+	const order: string[] = [];
+	let inserted: InsertSignalInput | undefined;
+	const layer = makeLayer({
+		entities: makeEntitiesRepository({ getEntityScopeForUser: () => Effect.succeed(subjectScope) }),
+		signalSchemas: makeSignalSchemasRepository({
+			findVisibleBySlug: () => Effect.succeed(relatedSchema),
+		}),
+		relationshipSchemas: makeRelationshipSchemasRepository({
+			findById: () => Effect.succeed(relationshipScope),
+		}),
+		relationships: makeRelationshipsRepository({
+			listEnabledOwnersForSubject: () => {
+				order.push("resolve");
+				return Effect.succeed([recipientId]);
+			},
+		}),
+		signals: makeSignalsRepository({
+			insertRecipients: () => {
+				order.push("recipients");
+				return Effect.void;
+			},
+			insert: (input) => {
+				order.push("insert");
+				inserted = input;
+				return Effect.succeed(storedSignal(input));
+			},
+		}),
+	});
+
+	return Effect.gen(function* () {
+		const service = yield* SignalEmissionService;
+		const result = yield* service.emit({
+			...baseInput,
+			subjectEntityId,
+			schemaSlug: relatedSchema.slug,
+		});
+		expect(order).toEqual(["insert", "resolve", "recipients"]);
+		expect(inserted?.actorUserId).toBeNull();
+		expect(inserted?.subjectEntityId).toBe(subjectEntityId);
+		expect(result.recipientUserIds).toEqual([recipientId]);
+	}).pipe(Effect.provide(layer));
+});
+
+it.effect("persists a valid related-users signal with an empty audience", () => {
+	const layer = makeLayer({
+		entities: makeEntitiesRepository({ getEntityScopeForUser: () => Effect.succeed(subjectScope) }),
+		relationships: makeRelationshipsRepository({
+			listEnabledOwnersForSubject: () => Effect.succeed([]),
+		}),
+		signalSchemas: makeSignalSchemasRepository({
+			findVisibleBySlug: () => Effect.succeed(relatedSchema),
+		}),
+		relationshipSchemas: makeRelationshipSchemasRepository({
+			findById: () => Effect.succeed(relationshipScope),
+		}),
+		signals: makeSignalsRepository({
+			insertRecipients: () => Effect.void,
+			insert: (input) => Effect.succeed(storedSignal(input)),
+		}),
+	});
+
+	return Effect.gen(function* () {
+		const service = yield* SignalEmissionService;
+		const result = yield* service.emit({
+			...baseInput,
+			subjectEntityId,
+			schemaSlug: relatedSchema.slug,
+		});
+		expect(result.wasCreated).toBe(true);
+		expect(result.recipientUserIds).toEqual([]);
+	}).pipe(Effect.provide(layer));
+});
+
+it.effect("rejects a missing or unreadable related-users subject", () => {
+	const missingLayer = makeLayer({
+		signals: makeSignalsRepository(),
+		signalSchemas: makeSignalSchemasRepository({
+			findVisibleBySlug: () => Effect.succeed(relatedSchema),
+		}),
+	});
+	const unreadableLayer = makeLayer({
+		entities: makeEntitiesRepository({ getEntityScopeForUser: () => Effect.succeed(null) }),
+		signals: makeSignalsRepository({ insert: () => Effect.die("unreadable subject was inserted") }),
+		signalSchemas: makeSignalSchemasRepository({
+			findVisibleBySlug: () => Effect.succeed(relatedSchema),
+		}),
+	});
+
+	const missingEffect = Effect.gen(function* () {
+		const service = yield* SignalEmissionService;
+		return yield* Effect.exit(service.emit({ ...baseInput, schemaSlug: relatedSchema.slug }));
+	}).pipe(Effect.provide(missingLayer));
+	const unreadableEffect = Effect.gen(function* () {
+		const service = yield* SignalEmissionService;
+		return yield* Effect.exit(
+			service.emit({ ...baseInput, subjectEntityId, schemaSlug: relatedSchema.slug }),
+		);
+	}).pipe(Effect.provide(unreadableLayer));
+
+	return Effect.gen(function* () {
+		const missing = yield* missingEffect;
+		assertExitFails(
+			missing,
+			new BadRequest({ message: "Related-users audience requires a subject entity" }),
+		);
+
+		const unreadable = yield* unreadableEffect;
+		assertExitFails(unreadable, new NotFound({ message: "Entity not found" }));
+	});
+});
+
+it.effect("returns a duplicate with its stored recipients without resolving again", () => {
+	const existing = storedSignal({
+		occurredAt,
+		subjectEntityId,
+		actorUserId: null,
+		origin: baseInput.origin,
+		properties: baseInput.properties,
+		signalSchemaSlug: relatedSchema.id,
+		id: SignalId.make("existing-signal"),
+	});
+	const layer = makeLayer({
+		signalSchemas: makeSignalSchemasRepository({
+			findVisibleBySlug: () => Effect.succeed(relatedSchema),
+		}),
+		entities: makeEntitiesRepository({
+			getEntityScopeForUser: () => Effect.die("duplicate subject was reauthorized"),
+		}),
+		relationships: makeRelationshipsRepository({
+			listEnabledOwnersForSubject: () => Effect.die("audience was re-resolved"),
+		}),
+		relationshipSchemas: makeRelationshipSchemasRepository({
+			findById: () => Effect.die("audience schema was re-resolved"),
+		}),
+		signals: makeSignalsRepository({
+			findById: () => Effect.succeed(existing),
+			listRecipientUserIds: () => Effect.succeed([recipientId]),
+			insert: () => Effect.die("duplicate signal was reinserted"),
+		}),
+	});
+
+	return Effect.gen(function* () {
+		const service = yield* SignalEmissionService;
+		const result = yield* service.emit({
+			...baseInput,
+			subjectEntityId,
+			schemaSlug: relatedSchema.slug,
+		});
+		expect(result.wasCreated).toBe(false);
+		expect(result.recipientUserIds).toEqual([recipientId]);
+	}).pipe(Effect.provide(layer));
+});
+
+it.effect("uses the discriminator to distinguish sibling signal ids", () => {
+	const ids: SignalId[] = [];
+	const layer = makeLayer({
+		signals: makeSignalsRepository({
+			insertRecipients: () => Effect.void,
+			isUserEnabled: () => Effect.succeed(true),
+			insert: (input) => {
+				ids.push(input.id);
+				return Effect.succeed(storedSignal(input));
+			},
+		}),
+	});
+
+	return Effect.gen(function* () {
+		const service = yield* SignalEmissionService;
+		yield* service.emit({ ...baseInput, discriminator: "role-1" });
+		yield* service.emit({ ...baseInput, discriminator: "role-2" });
+		expect(ids).toHaveLength(2);
+		expect(ids[0]).not.toBe(ids[1]);
+	}).pipe(Effect.provide(layer));
+});
+
+it.effect("dispatches the committed signal snapshot", () => {
+	const order: string[] = [];
+	let dispatched: unknown;
+	const layer = makeLayer({
+		dispatch: Layer.mock(SignalDispatch, {
+			dispatch: (input) => {
+				order.push("dispatch");
+				dispatched = input;
+				return Effect.void;
+			},
+		}),
+		signals: makeSignalsRepository({
+			isUserEnabled: () => Effect.succeed(true),
+			insertRecipients: () => {
+				order.push("recipients");
+				return Effect.void;
+			},
+			insert: (input) => {
+				order.push("insert");
+				return Effect.succeed(storedSignal(input));
+			},
+		}),
+	});
+
+	return Effect.gen(function* () {
+		const service = yield* SignalEmissionService;
+		const result = yield* service.emit(baseInput);
+		expect(order).toEqual(["insert", "recipients", "dispatch"]);
+		expect(dispatched).toMatchObject({
+			actorUserId: userId,
+			id: result.signal.id,
+			recipientUserIds: [userId],
+			signalSchemaSlug: actorSchema.slug,
+		});
+	}).pipe(Effect.provide(layer));
+});

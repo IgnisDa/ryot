@@ -4,107 +4,90 @@ import variables from "./variables";
 
 # Deployment
 
-The easiest way to deploy Ryot is using [docker compose](./index.md#installation). Here
-is a non-exhaustive set of guides to deploy Ryot to alternative platforms.
+Use [Docker Compose](./index.md#installation) unless your platform needs another method.
+
+## File storage
+
+Keep `SERVER_ADMIN_ACCESS_TOKEN` stable because it signs local file URLs. Mount
+`/home/ryot/storage` if you do not configure S3. Never persist `/home/ryot/work`. See
+[File Storage](guides/file-storage.md).
 
 ## Railway
 
-1. Click on "+ New Project" on your dashboard and select "Empty project".
-2. Once the project is created click on "+ New" and select "Database" and then
-  "Add PostgreSQL".
-3. Click on "+ New" again and select "Docker Image". Type `ignisda/ryot` and hit Enter.
-4. Click on the newly created service and go to the "Variables" section. Click on
-  "New Variable" and then "Add Reference". Click on "Add".
-5. Go to the "Settings" tab and then click on "Generate Domain".
-6. Optionally, you can set the [health-check](https://docs.railway.app/deploy/healthchecks)
-  path to `/health`.
+1. Create an empty Railway project.
+2. Add PostgreSQL and Redis services.
+3. Add a Docker image service for `ignisda/ryot`.
+4. Reference `DATABASE_URL` and `REDIS_URL` from the database services.
+5. Set `SERVER_ADMIN_ACCESS_TOKEN` to a long random value.
+6. Generate a domain and set `FRONTEND_URL` to its public origin.
+7. Optional: set the [health-check](https://docs.railway.app/deploy/healthchecks) path to
+   `/api/system/health`.
 
 ## Dokku
 
-This is a script that automatically sets up a Ryot server using the docker image uploaded
-to Ghcr and creates a [Dokku](https://dokku.com) app. The script assumes you have a global
-domain set-up (i.e. the file `/home/dokku/VHOST` exists). It needs to be run with `sudo`
-privileges.
-
-Re-running it updates the running server to the latest version.
+This example requires a Dokku global domain, PostgreSQL, Redis, and Let's Encrypt plugins.
+Replace `ryot` if you need a different app name.
 
 ```bash
-#!/usr/bin/env bash
-
-set -euo pipefail
-
-if [ "$EUID" -ne 0 ]
-  then echo "Please run as root"
-  exit
-fi
-
-IMAGE_NAME="ignisda/ryot"
-APPNAME=""
-
-read -rp "Enter the name of the app: " APPNAME
-
-# check if app name is empty
-if [ -z "$APPNAME" ]; then
-    echo "App name empty. Using default name: ryot"
-    APPNAME="ryot"
-fi
-
-# pull the latest image
-docker rmi -f "$IMAGE_NAME" || true
-docker pull "$IMAGE_NAME:latest"
-image_sha="$(docker inspect --format={{ '"{{index .RepoDigests 0}}"' }} $IMAGE_NAME)"
-echo "Calculated image sha: $image_sha"
-
-if dokku apps:exists $APPNAME; then
-    dokku git:from-image $APPNAME $image_sha || echo "Already on latest"
-    exit 0
-fi
-
-dokku apps:create "$APPNAME"
-dokku postgres:create "$APPNAME-service"
-dokku postgres:link "$APPNAME-service" "$APPNAME"
-
-# check if required dokku plugin exists
-if ! dokku plugin:list | grep letsencrypt; then
-    dokku plugin:install https://github.com/dokku/dokku-letsencrypt.git
-fi
-
-dokku domains:add $APPNAME $APPNAME."$(cat /home/dokku/VHOST)"
-dokku letsencrypt:enable "$APPNAME"
-dokku git:from-image "$APPNAME" "$image_sha"
+dokku apps:create ryot
+dokku postgres:create ryot-service
+dokku postgres:link ryot-service ryot
+dokku redis:create ryot-cache
+dokku redis:link ryot-cache ryot
+dokku ports:set ryot http:80:8000
+dokku config:set --no-restart ryot SERVER_ADMIN_ACCESS_TOKEN="$(openssl rand -hex 16)"
+dokku domains:add ryot "ryot.$(cat /home/dokku/VHOST)"
+dokku config:set --no-restart ryot FRONTEND_URL="https://ryot.$(cat /home/dokku/VHOST)"
+dokku letsencrypt:enable ryot
+dokku git:from-image ryot ignisda/ryot:latest
 ```
 
 ## Fly
 
-The demo Ryot instance is deployed to [Fly](https://fly.io). The following steps
-are required to deploy to Fly.
+1. Create a PostgreSQL database.
 
-1. Create a new postgres database for Ryot.
    ```bash
    flyctl postgres create ryot-db
    ```
 
-2. Copy the <a :href="`${variables.filePath}/ci/fly.toml`" target="_blank">fly.toml</a>
-   file from this repository to your own repository. You **WILL** have to change the `app` key
-   to a unique name. Deploy it using the below command.
+2. Copy the repository's <a :href="`${variables.filePath}/ci/fly.toml`" target="_blank">fly.toml</a>.
+   Set its `app` key to a unique name, then launch it.
    ```bash
    flyctl launch
    ```
 3. Connect the database.
+
    ```bash
    fly postgres attach --app ryot ryot-db
    ```
 
-4. Optionally you can configure the instance using `fly secrets set`.
+4. Create Redis and set its connection string.
+
    ```bash
-   fly secrets set FILE_STORAGE_S3_URL='https://play.min.io:9000'
+   flyctl redis create
+   fly secrets set REDIS_URL='<the connection string printed above>'
+   ```
+
+5. Set the required admin token and public frontend URL.
+
+   ```bash
+   fly secrets set SERVER_ADMIN_ACCESS_TOKEN="$(openssl rand -hex 16)" FRONTEND_URL='https://<app>.fly.dev'
+   ```
+
+6. Optional: configure S3-compatible permanent storage.
+   ```bash
+   fly secrets set \
+     FILE_STORAGE_S3_URL='https://s3.example.com' \
+     FILE_STORAGE_S3_REGION='us-east-1' \
+     FILE_STORAGE_S3_BUCKET_NAME='ryot' \
+     FILE_STORAGE_S3_ACCESS_KEY_ID='your-access-key-id' \
+     FILE_STORAGE_S3_SECRET_ACCESS_KEY='your-secret-access-key'
    ```
 
 ## Kubernetes (Helm)
 
-A Helm chart is published to GitHub Container Registry as an OCI artifact
-(requires Helm 3.8+). It deploys the Ryot container with an optional bundled
-PostgreSQL database, and supports bringing your own database instead.
+The OCI Helm chart requires Helm 3.8 or later. It includes PostgreSQL and Redis by default, but
+can use external services.
 
 ```bash
 helm install ryot oci://ghcr.io/ignisda/charts/ryot \
@@ -115,7 +98,7 @@ helm install ryot oci://ghcr.io/ignisda/charts/ryot \
 
 See the chart's
 <a :href="`${variables.filePath}/ci/helm/ryot/README.md`" target="_blank">README</a>
-for details on database modes, ingress and secrets, and
+for details on database and Redis modes, ingress and secrets, and
 <a :href="`${variables.filePath}/ci/helm/ryot/VALUES.md`" target="_blank">VALUES.md</a>
 for the full list of configurable values.
 
@@ -123,14 +106,5 @@ for the full list of configurable values.
 
 [![Static Badge](https://img.shields.io/badge/Cosmos-Install%20Server-violet)](https://cosmos-cloud.io/proxy#cosmos-ui/market-listing/cosmos-cloud/Ryot)
 
-You can install `ryot` from the Cosmos marketplace using this link: [Install
-Ryot](https://cosmos-cloud.io/proxy#cosmos-ui/market-listing/cosmos-cloud/Ryot)
-or by searching for `Ryot` in the marketplace.
-
-Review the installation summary and click install to proceed. The database and
-credentials will be automatically created for you, but make sure you are happy
-with the URL chosen.
-
-The instance will be available under your newly created URL via HTTPS if it
-is enabled. You can then proceed with creating your first user via the web
-interface's registration page.
+Install Ryot from the [Cosmos marketplace](https://cosmos-cloud.io/proxy#cosmos-ui/market-listing/cosmos-cloud/Ryot).
+Review the generated URL before installation. Cosmos creates the database and credentials.

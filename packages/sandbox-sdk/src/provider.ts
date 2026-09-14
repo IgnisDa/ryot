@@ -1,0 +1,211 @@
+import type { JsonValue } from "@ryot-app/contract/modules/ryotql/language";
+import type { AppChoice } from "@ryot-app/contract/schema/property-schema";
+import { Schema, Effect, SchemaGetter, SchemaTransformation } from "@ryot-app/sandbox-sdk/effect";
+
+import type { SandboxManifest } from "./core";
+import { type GenericScriptDefinition, SANDBOX_SCRIPT_DEFINITION } from "./driver";
+import { jsonValueSchema, strictStruct } from "./wire";
+
+const trimmedNonEmptyString = Schema.Trim.pipe(Schema.check(Schema.isMinLength(1)));
+const querySchema = Schema.Unknown.pipe(
+	Schema.decodeTo(
+		Schema.String,
+		SchemaTransformation.transform<string, unknown>({
+			encode: (value) => value,
+			decode: (value) => (typeof value === "string" ? value.trim() : ""),
+		}),
+	),
+);
+const integerWithFallback = (fallback: number, maximum?: number) =>
+	Schema.Unknown.pipe(
+		Schema.decodeTo(
+			Schema.Number,
+			SchemaTransformation.transform({
+				decode: (value) => {
+					const coerced = typeof value === "symbol" ? Number.NaN : Number(value);
+					return Number.isFinite(coerced) &&
+						coerced >= 1 &&
+						(maximum === undefined || coerced <= maximum)
+						? Math.floor(coerced)
+						: fallback;
+				},
+
+				encode: (value) => value,
+			}),
+		),
+	);
+
+export type ProviderManifest = Extract<SandboxManifest, { readonly kind: "provider" }>;
+export const providerSearchInputSchema = strictStruct({
+	options: Schema.optional(Schema.Record(Schema.String, jsonValueSchema)),
+	query: querySchema.pipe(
+		(schema) =>
+			Schema.optional(schema).pipe(
+				Schema.decodeTo(Schema.toType(schema), {
+					encode: SchemaGetter.required(),
+					decode: SchemaGetter.withDefault(Effect.sync(() => "")),
+				}),
+			),
+		Schema.withConstructorDefault(Effect.sync(() => "")),
+	),
+	page: integerWithFallback(1).pipe(
+		(schema) =>
+			Schema.optional(schema).pipe(
+				Schema.decodeTo(Schema.toType(schema), {
+					encode: SchemaGetter.required(),
+					decode: SchemaGetter.withDefault(Effect.sync(() => 1)),
+				}),
+			),
+		Schema.withConstructorDefault(Effect.sync(() => 1)),
+	),
+	pageSize: integerWithFallback(20, 100).pipe(
+		(schema) =>
+			Schema.optional(schema).pipe(
+				Schema.decodeTo(Schema.toType(schema), {
+					encode: SchemaGetter.required(),
+					decode: SchemaGetter.withDefault(Effect.sync(() => 20)),
+				}),
+			),
+		Schema.withConstructorDefault(Effect.sync(() => 20)),
+	),
+});
+
+const providerSearchResultMetadataValueSchema = Schema.Union([
+	Schema.Finite,
+	trimmedNonEmptyString,
+]);
+export const providerSearchResultItemSchema = strictStruct({
+	title: trimmedNonEmptyString,
+	externalId: trimmedNonEmptyString,
+	imageUrl: Schema.optional(trimmedNonEmptyString),
+	metadata: Schema.optional(Schema.NonEmptyArray(providerSearchResultMetadataValueSchema)),
+});
+export const providerSearchResultSchema = strictStruct({
+	items: Schema.Array(providerSearchResultItemSchema),
+	details: Schema.optional(
+		strictStruct({ totalItems: Schema.Finite, nextPage: Schema.NullOr(Schema.Finite) }),
+	),
+});
+export const providerSearchOptionsInputSchema = strictStruct({});
+const providerSearchOptionsChoiceSchema = strictStruct({
+	value: trimmedNonEmptyString,
+	label: Schema.optional(trimmedNonEmptyString),
+}) satisfies Schema.Codec<AppChoice>;
+export const providerSearchOptionsResultSchema = strictStruct({
+	sources: Schema.Record(Schema.String, Schema.Array(providerSearchOptionsChoiceSchema)),
+});
+export const providerDetailsInputSchema = strictStruct({ externalId: trimmedNonEmptyString });
+export const providerDetailsRelatedEntitySchema = strictStruct({
+	name: Schema.String,
+	externalId: Schema.String,
+	providerSlug: Schema.String,
+	relationshipProperties: Schema.optional(jsonValueSchema),
+});
+export const providerDetailsRelatedEntityGroupSchema = strictStruct({
+	relationshipSchemaSlug: Schema.String,
+	direction: Schema.Literals(["incoming", "outgoing"]),
+	entities: Schema.Array(providerDetailsRelatedEntitySchema),
+	synchronization: Schema.Literals(["authoritative", "additive"]),
+});
+
+export type ProviderDetailsChildEntity = {
+	readonly name: string;
+	readonly externalId: string;
+	readonly properties: JsonValue;
+	readonly entitySchemaSlug: string;
+	readonly expectedChildEntitySchemaSlug?: string | undefined;
+	readonly childEntities?: readonly ProviderDetailsChildEntity[] | undefined;
+};
+export const providerDetailsChildEntitySchema: Schema.Codec<
+	ProviderDetailsChildEntity,
+	ProviderDetailsChildEntity
+> = Schema.suspend(() =>
+	strictStruct({
+		name: Schema.String,
+		externalId: Schema.String,
+		properties: jsonValueSchema,
+		entitySchemaSlug: Schema.String,
+		expectedChildEntitySchemaSlug: Schema.optional(Schema.String),
+		childEntities: Schema.optional(Schema.Array(providerDetailsChildEntitySchema)),
+	}),
+).pipe(Schema.annotate({ identifier: "ProviderDetailsChildEntity" }));
+export const providerDetailsResultSchema = strictStruct({
+	name: Schema.String,
+	properties: jsonValueSchema,
+	expectedChildEntitySchemaSlug: Schema.optional(Schema.String),
+	childEntities: Schema.optional(Schema.Array(providerDetailsChildEntitySchema)),
+	relatedEntityGroups: Schema.optional(Schema.Array(providerDetailsRelatedEntityGroupSchema)),
+});
+export const providerResolveInputSchema = strictStruct({
+	value: trimmedNonEmptyString,
+	identifierType: trimmedNonEmptyString,
+});
+export const providerResolveResultSchema = strictStruct({
+	externalId: Schema.NullOr(Schema.String),
+});
+export const providerTranslateInputSchema = strictStruct({
+	language: trimmedNonEmptyString,
+	externalId: trimmedNonEmptyString,
+	entitySchemaSlug: trimmedNonEmptyString,
+	properties: Schema.optional(jsonValueSchema),
+});
+export const providerTranslateResultSchema = strictStruct({
+	name: Schema.optional(Schema.NullOr(Schema.String)),
+	properties: Schema.optional(Schema.NullOr(Schema.Record(Schema.String, jsonValueSchema))),
+});
+
+export const providerOperationContracts = {
+	search: { input: providerSearchInputSchema, output: providerSearchResultSchema },
+	details: { input: providerDetailsInputSchema, output: providerDetailsResultSchema },
+	resolve: { input: providerResolveInputSchema, output: providerResolveResultSchema },
+	translate: { input: providerTranslateInputSchema, output: providerTranslateResultSchema },
+	"search-options": {
+		input: providerSearchOptionsInputSchema,
+		output: providerSearchOptionsResultSchema,
+	},
+} as const;
+
+export type ProviderSearchResultItem = Schema.Schema.Type<typeof providerSearchResultItemSchema>;
+export type ProviderSearchInput = Schema.Schema.Type<typeof providerSearchInputSchema>;
+export type ProviderSearchResult = Schema.Schema.Type<typeof providerSearchResultSchema>;
+export type ProviderSearchOptionsInput = Schema.Schema.Type<
+	typeof providerSearchOptionsInputSchema
+>;
+export type ProviderSearchOptionsResult = Schema.Schema.Type<
+	typeof providerSearchOptionsResultSchema
+>;
+export type ProviderDetailsInput = Schema.Schema.Type<typeof providerDetailsInputSchema>;
+export type ProviderDetailsResult = Schema.Schema.Type<typeof providerDetailsResultSchema>;
+export type ProviderResolveInput = Schema.Schema.Type<typeof providerResolveInputSchema>;
+export type ProviderResolveResult = Schema.Schema.Type<typeof providerResolveResultSchema>;
+export type ProviderTranslateInput = Schema.Schema.Type<typeof providerTranslateInputSchema>;
+export type ProviderTranslateResult = Schema.Schema.Type<typeof providerTranslateResultSchema>;
+export type ProviderDetailsRelatedEntity = Schema.Schema.Type<
+	typeof providerDetailsRelatedEntitySchema
+>;
+export type ProviderDetailsRelatedEntityGroup = Schema.Schema.Type<
+	typeof providerDetailsRelatedEntityGroupSchema
+>;
+export type ProviderOperation = keyof typeof providerOperationContracts;
+export type ProviderDefinition<
+	Manifest extends ProviderManifest,
+	Operation extends ProviderOperation,
+> = GenericScriptDefinition<
+	Manifest,
+	(typeof providerOperationContracts)[Operation]["input"],
+	(typeof providerOperationContracts)[Operation]["output"]
+> & { readonly operation: Operation };
+export const defineProvider = <
+	const Manifest extends ProviderManifest,
+	const Operation extends ProviderOperation,
+>(definition: {
+	readonly manifest: Manifest;
+	readonly operation: Operation;
+	readonly run: ProviderDefinition<Manifest, Operation>["run"];
+}): ProviderDefinition<Manifest, Operation> =>
+	({
+		...definition,
+		definitionType: SANDBOX_SCRIPT_DEFINITION,
+		input: providerOperationContracts[definition.operation].input,
+		output: providerOperationContracts[definition.operation].output,
+	}) as ProviderDefinition<Manifest, Operation>;

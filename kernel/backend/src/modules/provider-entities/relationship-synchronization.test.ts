@@ -1,0 +1,349 @@
+import { assert, expect, it } from "@effect/vitest";
+import {
+	EntityId,
+	RelationshipId,
+	RelationshipSchemaSlug,
+	UserId,
+} from "@ryot-app/contract/schema/brands";
+import { Effect, Layer } from "effect";
+
+import { databaseLayer } from "#lib/test-utils/effect";
+import { EntitiesRepository } from "#modules/entities/repository";
+import { RelationshipsRepository } from "#modules/relationships/repository";
+import { RelationshipsService } from "#modules/relationships/service";
+
+import { synchronizeGlobalRelationships } from "./relationship-synchronization";
+
+const anchorEntityId = EntityId.make("anchor");
+const relationshipSchemaSlug = RelationshipSchemaSlug.make("credits");
+const entityId = (value: string) => EntityId.make(value);
+const assertRecord: (value: unknown) => asserts value is Record<string, unknown> = (value) => {
+	assert(typeof value === "object" && value !== null && !Array.isArray(value));
+};
+
+it.effect("creates user-owned relationships with exact plugin provenance", () => {
+	const userId = UserId.make("user-1");
+	const created: unknown[] = [];
+	const layer = Layer.mergeAll(
+		databaseLayer,
+		Layer.mock(EntitiesRepository)({
+			listEntityReferencesByIds: (ids) =>
+				Effect.succeed(ids.map((id) => ({ id, name: String(id), entitySchemaSlug: "entity" }))),
+		}),
+		Layer.mock(RelationshipsRepository)({
+			listUserRelationshipsForEntityWithProvenance: () => Effect.succeed([]),
+		}),
+		Layer.mock(RelationshipsService)({
+			create: (input) => {
+				created.push(input);
+				return Effect.succeed(
+					relationship({
+						id: "created",
+						properties: {},
+						target: "related",
+						wasInserted: true,
+						createdAt: "2026-01-01T00:00:00.000Z",
+					}),
+				);
+			},
+		}),
+	);
+
+	return Effect.gen(function* () {
+		yield* synchronizeGlobalRelationships({
+			userId,
+			scope: "user",
+			anchorEntityId,
+			direction: "outgoing",
+			relationshipSchemaSlug,
+			synchronization: "additive",
+			onConflict: "preserveExisting",
+			propertiesSchema: { fields: {} },
+			relationshipSchemaPluginId: "private-plugin-id",
+			entries: [{ properties: {}, entityId: entityId("related") }],
+		});
+		expect(created).toMatchObject([
+			{ userId, scope: "user", relationshipSchemaPluginId: "private-plugin-id" },
+		]);
+	}).pipe(Effect.provide(layer));
+});
+
+const relationship = (input: {
+	id: string;
+	target: string;
+	createdAt: string;
+	wasInserted?: boolean;
+	properties: Record<string, unknown>;
+}) => ({
+	relationshipSchemaSlug,
+	createdAt: input.createdAt,
+	properties: input.properties,
+	sourceEntityId: anchorEntityId,
+	id: RelationshipId.make(input.id),
+	targetEntityId: entityId(input.target),
+	wasInserted: input.wasInserted ?? false,
+});
+
+it.effect(
+	"returns ordered create, update, delete, and noop outcomes with endpoint snapshots",
+	() => {
+		const updates: string[] = [];
+		const existing = [
+			relationship({
+				id: "stale",
+				target: "stale",
+				properties: { roles: ["producer"] },
+				createdAt: "2026-01-01T00:00:00.000Z",
+			}),
+			relationship({
+				id: "same",
+				target: "same",
+				properties: { roles: ["actor"] },
+				createdAt: "2026-01-03T00:00:00.000Z",
+			}),
+			relationship({
+				id: "changed",
+				target: "changed",
+				properties: { roles: ["actor"] },
+				createdAt: "2026-01-02T00:00:00.000Z",
+			}),
+		];
+		const stale = existing[0];
+		assert(stale);
+		const entitiesRepository = Layer.mock(EntitiesRepository)({
+			listEntityReferencesByIds: (ids) =>
+				Effect.succeed(
+					ids.map((id) => ({
+						id,
+						name: id === anchorEntityId ? "Item" : `Person ${id}`,
+						entitySchemaSlug: id === anchorEntityId ? "item" : "person",
+					})),
+				),
+		});
+		const relationshipsRepository = Layer.mock(RelationshipsRepository)({
+			listGlobalRelationships: () => Effect.succeed(existing),
+		});
+		const relationshipsService = Layer.mock(RelationshipsService)({
+			delete: () => Effect.succeed(stale),
+			update: (input) => {
+				assertRecord(input.properties);
+				updates.push(input.targetEntityId);
+				return Effect.succeed(
+					relationship({
+						wasInserted: false,
+						target: input.targetEntityId,
+						properties: input.properties,
+						id: `updated-${input.targetEntityId}`,
+						createdAt: "2026-01-06T00:00:00.000Z",
+					}),
+				);
+			},
+			create: (input) => {
+				assertRecord(input.properties);
+				if (input.targetEntityId === "created") {
+					return Effect.succeed(
+						relationship({
+							id: "created",
+							target: "created",
+							wasInserted: true,
+							properties: input.properties,
+							createdAt: "2026-01-04T00:00:00.000Z",
+						}),
+					);
+				}
+				const properties =
+					input.targetEntityId === "conflict-update" ? { roles: ["actor"] } : input.properties;
+				return Effect.succeed(
+					relationship({
+						properties,
+						wasInserted: false,
+						target: input.targetEntityId,
+						createdAt: "2026-01-05T00:00:00.000Z",
+						id: `relationship-${input.targetEntityId}`,
+					}),
+				);
+			},
+		});
+		const layer = Layer.mergeAll(
+			databaseLayer,
+			entitiesRepository,
+			relationshipsRepository,
+			relationshipsService,
+		);
+
+		return Effect.gen(function* () {
+			const outcomes = yield* synchronizeGlobalRelationships({
+				anchorEntityId,
+				scope: "global",
+				direction: "outgoing",
+				onConflict: "replaceProperties",
+				synchronization: "authoritative",
+				propertiesSchema: { fields: {} },
+				relationshipSchemaSlug: RelationshipSchemaSlug.make("credits"),
+				entries: [
+					{ entityId: entityId("created"), properties: { roles: ["actor"] } },
+					{ entityId: entityId("same"), properties: { roles: ["actor"] } },
+					{ entityId: entityId("changed"), properties: { roles: ["actor", "director"] } },
+					{ entityId: entityId("conflict-update"), properties: { roles: ["actor", "director"] } },
+					{ properties: { roles: ["actor"] }, entityId: entityId("conflict-noop") },
+				],
+			});
+
+			expect(outcomes.map((outcome) => outcome.operation)).toEqual([
+				"create",
+				"noop",
+				"update",
+				"update",
+				"noop",
+				"delete",
+			]);
+			expect(updates).toEqual(["changed", "conflict-update"]);
+			expect(outcomes[0]?.after).toMatchObject({
+				relationshipSchemaSlug: "credits",
+				sourceEntity: { name: "Item", id: anchorEntityId, entitySchemaSlug: "item" },
+				targetEntity: {
+					name: "Person created",
+					id: entityId("created"),
+					entitySchemaSlug: "person",
+				},
+			});
+			expect(outcomes[3]?.before?.properties).toEqual({ roles: ["actor"] });
+			expect(outcomes[3]?.after?.properties).toEqual({ roles: ["actor", "director"] });
+			const deleted = outcomes[5];
+			assert(deleted?.operation === "delete");
+			expect(deleted.before.id).toBe("stale");
+			expect(deleted.after).toBeNull();
+		}).pipe(Effect.provide(layer));
+	},
+);
+
+it.effect("preserves different existing properties as a noop", () => {
+	let updated = false;
+	const current = relationship({
+		id: "existing",
+		target: "person",
+		properties: { roles: ["actor"] },
+		createdAt: "2026-01-01T00:00:00.000Z",
+	});
+	const layer = Layer.mergeAll(
+		databaseLayer,
+		Layer.mock(EntitiesRepository)({
+			listEntityReferencesByIds: (ids) =>
+				Effect.succeed(ids.map((id) => ({ id, name: `Entity ${id}`, entitySchemaSlug: "person" }))),
+		}),
+		Layer.mock(RelationshipsRepository)({
+			listGlobalRelationships: () => Effect.succeed([current]),
+		}),
+		Layer.mock(RelationshipsService)({
+			update: () =>
+				Effect.sync(() => {
+					updated = true;
+					return current;
+				}),
+		}),
+	);
+
+	return Effect.gen(function* () {
+		const outcomes = yield* synchronizeGlobalRelationships({
+			anchorEntityId,
+			scope: "global",
+			direction: "outgoing",
+			synchronization: "additive",
+			onConflict: "preserveExisting",
+			propertiesSchema: { fields: {} },
+			relationshipSchemaSlug: RelationshipSchemaSlug.make("credits"),
+			entries: [{ entityId: entityId("person"), properties: { roles: ["director"] } }],
+		});
+
+		expect(outcomes).toHaveLength(1);
+		expect(outcomes[0]?.operation).toBe("noop");
+		expect(outcomes[0]?.before).toEqual(outcomes[0]?.after);
+		expect(updated).toBe(false);
+	}).pipe(Effect.provide(layer));
+});
+
+it.effect(
+	"converges example-first, subject-first, and concurrent credit writes on one create",
+	() => {
+		const personId = entityId("person");
+		const itemId = entityId("item");
+		const runScenario = (mode: "example-first" | "subject-first" | "concurrent") => {
+			let stored: ReturnType<typeof relationship> | null = null;
+			const credit = (wasInserted: boolean) => ({
+				wasInserted,
+				relationshipSchemaSlug,
+				targetEntityId: itemId,
+				sourceEntityId: personId,
+				properties: { roles: ["Director"] },
+				createdAt: "2026-01-01T00:00:00.000Z",
+				id: RelationshipId.make("person-item"),
+			});
+			const layer = Layer.mergeAll(
+				databaseLayer,
+				Layer.mock(EntitiesRepository)({
+					listEntityReferencesByIds: (ids) =>
+						Effect.succeed(
+							ids.map((id) => ({
+								id,
+								name: id === personId ? "Greta Gerwig" : "Barbie",
+								entitySchemaSlug: id === personId ? "person" : "item",
+							})),
+						),
+				}),
+				Layer.mock(RelationshipsRepository)({
+					listGlobalRelationships: () => Effect.succeed(stored ? [stored] : []),
+				}),
+				Layer.mock(RelationshipsService)({
+					create: () =>
+						Effect.sync(() => {
+							if (stored) {
+								return { ...stored, wasInserted: false };
+							}
+							stored = credit(true);
+							return stored;
+						}),
+				}),
+			);
+			const synchronize = (direction: "incoming" | "outgoing") =>
+				synchronizeGlobalRelationships({
+					direction,
+					scope: "global",
+					synchronization: "additive",
+					onConflict: "preserveExisting",
+					propertiesSchema: { fields: {} },
+					anchorEntityId: direction === "incoming" ? itemId : personId,
+					relationshipSchemaSlug: RelationshipSchemaSlug.make("person-to-item"),
+					entries: [
+						{
+							properties: { roles: ["Director"] },
+							entityId: direction === "incoming" ? personId : itemId,
+						},
+					],
+				}).pipe(Effect.provide(layer));
+			let writes;
+			if (mode === "example-first") {
+				writes = Effect.all([synchronize("incoming"), synchronize("outgoing")]);
+			} else if (mode === "subject-first") {
+				writes = Effect.all([synchronize("outgoing"), synchronize("incoming")]);
+			} else {
+				writes = Effect.all([synchronize("incoming"), synchronize("outgoing")], {
+					concurrency: "unbounded",
+				});
+			}
+			return Effect.gen(function* () {
+				const outcomes = (yield* writes).flat();
+				const repeated = yield* synchronize("incoming");
+				expect(outcomes.map(({ operation }) => operation).sort()).toEqual(["create", "noop"]);
+				expect(repeated.map(({ operation }) => operation)).toEqual(["noop"]);
+				expect(outcomes[0]?.after).toMatchObject({
+					targetEntity: { id: itemId, entitySchemaSlug: "item" },
+					sourceEntity: { id: personId, entitySchemaSlug: "person" },
+				});
+			});
+		};
+
+		return Effect.forEach(["example-first", "subject-first", "concurrent"] as const, runScenario, {
+			discard: true,
+		});
+	},
+);

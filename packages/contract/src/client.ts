@@ -1,0 +1,63 @@
+import { Effect } from "effect";
+import { FetchHttpClient, HttpClient, HttpClientRequest } from "effect/unstable/http";
+import { HttpApiClient } from "effect/unstable/httpapi";
+
+import { AppContract, type AppGroups } from "./contract";
+
+export type RequestHeaders = Record<string, string>;
+
+export const makeContractClient = (
+	baseUrl: string,
+	headers: RequestHeaders = {},
+): ReturnType<typeof HttpApiClient.make<"ryot", AppGroups>> =>
+	HttpApiClient.make(AppContract, {
+		baseUrl,
+		...(Object.keys(headers).length
+			? { transformClient: HttpClient.mapRequest(HttpClientRequest.setHeaders(headers)) }
+			: {}),
+	});
+
+export type ContractClient = Effect.Success<ReturnType<typeof makeContractClient>>;
+export type ContractProgram<A, E> = (client: ContractClient) => Effect.Effect<A, E>;
+
+export interface RunContractOptions {
+	baseUrl: string;
+	signal?: AbortSignal;
+	headers?: RequestHeaders;
+}
+
+export const runContract = <A, E>(
+	program: ContractProgram<A, E>,
+	{ signal, baseUrl, headers = {} }: RunContractOptions,
+): Promise<A> => {
+	const program$ = makeContractClient(baseUrl, headers).pipe(Effect.flatMap(program));
+	return Effect.runPromise(program$.pipe(Effect.provide(FetchHttpClient.layer)), { signal });
+};
+
+export const runContractError = <A, E>(
+	program: ContractProgram<A, E>,
+	options: RunContractOptions,
+): Promise<E> => runContract((client) => Effect.flip(program(client)), options);
+
+type StripResponseMeta<T> = T extends readonly [infer Data, unknown] ? Data : T;
+type GroupKey = keyof ContractClient;
+type MethodKey<G extends GroupKey> = keyof ContractClient[G];
+export type ContractRequest<
+	G extends GroupKey,
+	M extends MethodKey<G>,
+> = ContractClient[G][M] extends (request: infer Req, ...rest: never[]) => unknown ? Req : never;
+type ClientSuccessValue<G extends GroupKey, M extends MethodKey<G>> = ContractClient[G][M] extends (
+	...args: never[]
+) => Effect.Effect<infer A, infer _E, infer _R>
+	? A
+	: never;
+
+export type ContractPayload<G extends GroupKey, M extends MethodKey<G>> =
+	ContractRequest<G, M> extends { payload: infer P } ? P : never;
+export type ContractUrlParams<G extends GroupKey, M extends MethodKey<G>> =
+	ContractRequest<G, M> extends { query: infer U } ? U : never;
+export type ContractPathParams<G extends GroupKey, M extends MethodKey<G>> =
+	ContractRequest<G, M> extends { params: infer P } ? P : never;
+export type ContractSuccess<G extends GroupKey, M extends MethodKey<G>> = StripResponseMeta<
+	ClientSuccessValue<G, M>
+>;

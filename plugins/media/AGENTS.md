@@ -1,0 +1,20 @@
+# Media Plugin
+
+- Read `README.md` before changing operation contracts, monitoring, or lifecycle behavior.
+- Keep operation input/output schemas in `backend/contracts/operations.ts`, outside sandbox entrypoints. Workflow consumers import `Schema` from `@ryot-app/sandbox-sdk/workflow`.
+- Media signal definitions own notification message vocabulary and select `automation.media-notification`; do not move either into kernel.
+- Keep `backend/lib/title-parsing.ts` and `backend/lib/title-matching.ts` within sandbox compiler ES2022 support; do not use `toReversed`.
+- Contract or lifecycle changes must update `README.md`, manifest bindings, scripts, and focused tests together.
+- Sandbox scripts report non-fatal failures through the `log` host capability, never `console.warn`.
+- Entity-presentation recipes and RyotQL lifecycle expression builders live in `shared/`. `shared/media-recipes.ts` owns the schema-agnostic selections, query shapes, and `mediaFlatRecipes`; `shared/show-recipes.ts` composes its own recipes over them.
+- Flat schemas are a `mediaFlatRecipes` config in `shared/<slug>-recipes.ts` and a `defineFlatMediaSchema` descriptor in `client/<slug>/schema.tsx`. Engine behaviour is tested in `client/media/` and `shared/media-recipes.test.ts`; schema tests cover only descriptor output.
+- A schema selects only fields its own entity schema declares. `watchProviders` belongs to `movie` and `show` alone, so it lives in `mediaWatchProviderSelection` rather than `mediaSummarySelection`, and `MediaOverview` renders "Where to watch" only for a schema that passes that field.
+- One shared card and row presentation covers every media schema except `show`, `movie`, `music`, and `book`; its loader takes the schema slug from the batch's references.
+- Import media and schema recipes straight from `shared/media-recipes` and `shared/<slug>-recipes`; never re-export them through `host/query-recipes.ts`, which owns only the podcast, suggestion, trending, and saved-view recipes.
+- `client/` must not restate schemas that `shared/` owns.
+- `client/media/` holds the schema-agnostic client layer every detail screen composes; it carries no schema symbol and no schema copy. Nouns, row and beat labels, credit-section titles, group copy, and artwork aspect are descriptor or caller input; never hardcode poster geometry there.
+- Track length uses `mediaTrackLengthLabel` (`m:ss`) for the seconds-valued `duration` field. Time totals stay in minutes, so a seconds-based schema divides by 60 in its measure.
+- Take every sync mark - art wells, pips, the settle ring, the translation chip, the count line - from `@ryot-app/client-ui-sdk/sync`. Use `ManagedAssetProvider`, `managedAssetKey`, and `useManagedAssetUrl` from `@ryot-app/client-sdk/react`; media code only adapts domain image values and forwards display state to `EntityArtWell`.
+- Select sync state through `entitySyncSelection` in `shared/entity-selections.ts`, which `entityIdentitySelection` already spreads. A selection that builds its own identity fields, such as the credit and recommendation selections, spreads it too; no recipe writes those two columns by hand.
+- Fill the hero box the frame sizes: declare the art height below the bar and draw with `absolute inset-0`, never a safe-area inset or bar height of the plugin's own.
+- Take every layout decision in `client/` from the `compact` boolean `useRyotViewport()` reports, threaded down as a prop from the screen. Never write a `md:`, `sm:`, or `lg:` utility here: a media query inside the plugin document measures the iframe, not the viewport the kernel resolved `compact` from.

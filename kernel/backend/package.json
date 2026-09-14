@@ -1,0 +1,63 @@
+{
+	"name": "@ryot-app/kernel-backend",
+	"imports": {
+		"#*": "./src/*.ts"
+	},
+	"exports": {
+		"./*": "./src/*.ts"
+	},
+	"scripts": {
+		"test": "bun --bun run vitest run",
+		"db:generate": "bun --bun drizzle-kit generate",
+		"build": "bun run scripts/generate-sandbox-runtime.ts",
+		"architecture:check": "bun run scripts/check-architecture.ts",
+		"check": "bun run architecture:check && bun run sandbox:check-runner && tsc && oxfmt . --write && oxlint . --type-aware --fix",
+		"sandbox:check-runner": "deno check --config src/lib/infrastructure/sandbox-runtime/deno.json src/lib/infrastructure/sandbox-runtime/runner-source.sandbox.ts"
+	},
+	"dependencies": {
+		"@better-auth/api-key": "1.7.2",
+		"@better-auth/core": "1.7.2",
+		"@better-auth/oauth-provider": "1.7.2",
+		"@better-auth/redis-storage": "1.7.2",
+		"@dicebear/core": "10.6.0",
+		"@dicebear/styles": "10.5.0",
+		"@effect/platform-bun": "4.0.0-rc.115",
+		"@effect/sql-pg": "4.0.0-rc.115",
+		"@react-email/components": "1.0.7",
+		"@ryot-app/client-plugin-compiler": "workspace:*",
+		"@ryot-app/client-plugin-contract": "workspace:*",
+		"@ryot-app/config": "workspace:*",
+		"@ryot-app/contract": "workspace:*",
+		"@ryot-app/kernel-renderers": "workspace:*",
+		"@ryot-app/plugin-archive": "workspace:*",
+		"@ryot-app/plugin-kit": "workspace:*",
+		"@ryot-app/ryotql-recipes": "workspace:*",
+		"@ryot-app/sandbox-compiler": "workspace:*",
+		"@ryot-app/sandbox-sdk": "workspace:*",
+		"@ryot-app/transactional": "workspace:*",
+		"@ryot-app/ts-utils": "workspace:*",
+		"@ryot-app/vite-compiler": "workspace:*",
+		"@unkey/api": "2.3.5",
+		"better-auth": "1.7.2",
+		"drizzle-orm": "1.0.0-rc.5-169397b",
+		"effect": "4.0.0-rc.115",
+		"fflate": "0.8.3",
+		"ioredis": "5.11.1",
+		"nodemailer": "8.0.10",
+		"pg": "8.21.0",
+		"react": "19.2.4",
+		"react-dom": "19.2.4"
+	},
+	"devDependencies": {
+		"@effect/vitest": "4.0.0-rc.115",
+		"@ryot-app/ryotql": "workspace:*",
+		"@ryot-app/testing": "workspace:*",
+		"@types/ioredis": "5.0.0",
+		"@types/nodemailer": "8.0.0",
+		"@types/pg": "8.20.0",
+		"bun-types": "1.4.0",
+		"dotenv": "17.3.1",
+		"drizzle-kit": "1.0.0-rc.5-ab785fc",
+		"vitest": "4.1.9"
+	}
+}

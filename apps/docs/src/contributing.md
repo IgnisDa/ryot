@@ -1,32 +1,30 @@
 # Contributing
 
 :::info
-`AGENTS.md` is an excellent place to start reading on coding conventions followed in this project.
+Read the applicable `AGENTS.md` files before you change code.
 :::
 
-- Install [Rust](https://www.rust-lang.org) and [Caddy](https://caddyserver.com/) (>= 2.7).
-- Make sure you have PostgreSQL installed and running. I prefer using Docker e.g.
-`docker run -e POSTGRES_PASSWORD=postgres -e POSTGRES_USER=postgres -e POSTGRES_DB=postgres -p 5432:5432 postgres:18-alpine`
-- Create the following environment file in the root of the repository:
+Prerequisites: [Bun](https://bun.sh) and [Docker](https://www.docker.com).
 
-  ```bash title=".env"
-  APP_VERSION=v10.0.2
-  UNKEY_ROOT_KEY=dummy-root-key
-  DATABASE_URL=postgres://postgres:postgres@localhost:5432/postgres
-  ```
+1. Install dependencies with `bun install`.
+2. Start required services:
 
-- Run the following commands in separate terminals:
+   ```bash
+   docker compose up -f docker-compose.dev.yml -d
+   ```
 
-  ```bash
-  cargo run
-  caddy run --config 'ci/Caddyfile'
-  yarn turbo run dev --filter=@ryot/frontend
-  ```
+3. Set `DATABASE_URL`, `REDIS_URL`, `FRONTEND_URL`and `SERVER_ADMIN_ACCESS_TOKEN` in `apps/server/.env`.
+4. Start development services with `bun turbo --filter=@ryot-app/server dev` and `bun turbo --filter=@ryot-app/kernel-client dev`.
 
-- The frontend will be available at `http://localhost:8000`.
+The server task builds and watches the shipped plugin bundles. Use `bun run build`,
+`bun run test`, and `bun run check` before you submit changes.
 
-In development, both servers are started independently running on `:3000` and `:5000`
-respectively and reverse proxied at `:8000`.
+## Contributor License Agreement
 
-If you want to work on exporting, then you need to also have [Minio](https://min.io/)
-installed and running on `localhost:9000`.
+External contributors must sign the
+[Ryot Individual Contributor License Agreement](https://github.com/IgnisDa/ryot/blob/main/CLA.md)
+before a pull request can be merged. CLA Assistant will request an electronic signature
+on the pull request.
+
+Only submit work that you have the right to contribute. Obtain any permission required
+from your employer, and identify third-party material and its license in the pull request.

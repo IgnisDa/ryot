@@ -5,24 +5,17 @@ import {
 } from "@paddle/paddle-node-sdk";
 import { desc, eq, type InferSelectModel } from "drizzle-orm";
 import { data } from "react-router";
+
 import { customerPurchases, type customers } from "~/drizzle/schema.server";
-import {
-	revokeCancellation,
-	revokePurchaseInProgress,
-} from "~/lib/caches.server";
+import { revokeCancellation, revokePurchaseInProgress } from "~/lib/caches.server";
 import { getDb, getServerVariables } from "~/lib/config.server";
 import {
 	findCustomerByPaddleCustomData,
 	findCustomerByPaddleId,
 } from "~/lib/customer-lookup.server";
-import {
-	handlePurchaseOrRenewal,
-	revokePurchase,
-} from "~/lib/provisioning.server";
-import {
-	getPaddleServerClient,
-	getProductAndPlanTypeByPriceId,
-} from "~/lib/utilities.server";
+import { handlePurchaseOrRenewal, revokePurchase } from "~/lib/provisioning.server";
+import { getPaddleServerClient, getProductAndPlanTypeByPriceId } from "~/lib/utilities.server";
+
 import type { Route } from "./+types/paddle-webhook";
 
 type Customer = InferSelectModel<typeof customers> | undefined;
@@ -38,8 +31,9 @@ async function findOrCreateCustomer(
 ): Promise<Customer | null> {
 	let customer = await findCustomerByPaddleId(paddleCustomerId);
 
-	if (!customer && customData)
+	if (!customer && customData) {
 		customer = await findCustomerByPaddleCustomData(customData);
+	}
 
 	return customer ?? null;
 }
@@ -48,33 +42,32 @@ async function handleTransactionCompleted(
 	paddleData: TransactionNotification,
 ): Promise<WebhookResponse> {
 	const paddleCustomerId = paddleData.customerId;
-	if (!paddleCustomerId)
+	if (!paddleCustomerId) {
 		return { error: "No customer ID found in transaction completed event" };
+	}
 
 	console.log("Received transaction completed event", { paddleCustomerId });
 
-	const customer = await findOrCreateCustomer(
-		paddleCustomerId,
-		paddleData.customData,
-	);
-	if (!customer)
+	const customer = await findOrCreateCustomer(paddleCustomerId, paddleData.customData);
+	if (!customer) {
 		return { error: `No customer found for customer ID: ${paddleCustomerId}` };
+	}
 
-	const priceId = paddleData.details?.lineItems?.at(0)?.priceId;
-	if (!priceId) return { error: "Price ID not found" };
+	if (!paddleData.details) {
+		return { error: "No transaction details found" };
+	}
+
+	const priceId = paddleData.details.lineItems.at(0)?.priceId;
+	if (!priceId) {
+		return { error: "Price ID not found" };
+	}
 
 	const { planType, productType } = getProductAndPlanTypeByPriceId(priceId);
 
-	await handlePurchaseOrRenewal(
-		customer,
-		planType,
-		productType,
-		paddleCustomerId,
-		{
-			providerPriceId: priceId,
-			paymentProvider: "paddle",
-		},
-	);
+	await handlePurchaseOrRenewal(customer, planType, productType, paddleCustomerId, {
+		providerPriceId: priceId,
+		paymentProvider: "paddle",
+	});
 	revokePurchaseInProgress(customer.id);
 
 	return { message: "Transaction completed successfully" };
@@ -84,10 +77,14 @@ async function handleSubscriptionCancelled(
 	paddleData: SubscriptionNotification,
 ): Promise<WebhookResponse> {
 	const customerId = paddleData.customerId;
-	if (!customerId) return { message: "No customer ID found" };
+	if (!customerId) {
+		return { message: "No customer ID found" };
+	}
 
 	const customer = await findCustomerByPaddleId(customerId);
-	if (!customer) return { message: "No customer found" };
+	if (!customer) {
+		return { message: "No customer found" };
+	}
 
 	await revokePurchase(customer);
 	revokeCancellation(customer.id);
@@ -99,39 +96,40 @@ async function handleSubscriptionResumed(
 	paddleData: SubscriptionNotification,
 ): Promise<WebhookResponse> {
 	const customerId = paddleData.customerId;
-	if (!customerId) return { message: "No customer ID found" };
+	if (!customerId) {
+		return { message: "No customer ID found" };
+	}
 
 	const customer = await findCustomerByPaddleId(customerId);
-	if (!customer) return { message: "No customer found" };
+	if (!customer) {
+		return { message: "No customer found" };
+	}
 
 	const cancelledPurchase = await getDb().query.customerPurchases.findFirst({
 		orderBy: [desc(customerPurchases.createdOn)],
 		where: eq(customerPurchases.customerId, customer.id),
 	});
 
-	if (cancelledPurchase)
+	if (cancelledPurchase) {
 		await getDb()
 			.update(customerPurchases)
-			.set({
-				cancelledOn: null,
-				updatedOn: new Date(),
-			})
+			.set({ cancelledOn: null, updatedOn: new Date() })
 			.where(eq(customerPurchases.id, cancelledPurchase.id));
+	}
 
 	return { message: "Subscription resumed successfully" };
 }
 
 export const action = async ({ request }: Route.ActionArgs) => {
 	const paddleSignature = request.headers.get("paddle-signature");
-	if (!paddleSignature)
+	if (!paddleSignature) {
 		return data({ error: "No paddle signature" }, { status: 401 });
+	}
 
 	const serverVariables = getServerVariables();
 	const paddleClient = getPaddleServerClient();
 	const requestBody = await request.text();
-	let eventData: Awaited<
-		ReturnType<typeof paddleClient.webhooks.unmarshal>
-	>;
+	let eventData: Awaited<ReturnType<typeof paddleClient.webhooks.unmarshal>>;
 	try {
 		eventData = await paddleClient.webhooks.unmarshal(
 			requestBody,
@@ -144,47 +142,34 @@ export const action = async ({ request }: Route.ActionArgs) => {
 			error instanceof Error &&
 			error.message.toLowerCase().includes("signature verification failed");
 		return data(
-			{
-				error: isInvalidSignature
-					? "Invalid paddle signature"
-					: "Invalid webhook payload",
-			},
+			{ error: isInvalidSignature ? "Invalid paddle signature" : "Invalid webhook payload" },
 			{ status: isInvalidSignature ? 401 : 400 },
 		);
 	}
-	if (!eventData)
-		return data(
-			{ error: "No event data found in request body" },
-			{ status: 400 },
-		);
-
 	const { eventType, data: paddleData } = eventData;
 	console.log("Received event:", { eventType });
 
 	let result: WebhookResponse;
 	try {
-		if (eventType === EventName.TransactionCompleted)
+		if (eventType === EventName.TransactionCompleted) {
 			result = await handleTransactionCompleted(paddleData);
-		else if (
+		} else if (
 			eventType === EventName.SubscriptionCanceled ||
 			eventType === EventName.SubscriptionPaused ||
 			eventType === EventName.SubscriptionPastDue
-		)
+		) {
 			result = await handleSubscriptionCancelled(paddleData);
-		else if (eventType === EventName.SubscriptionResumed)
+		} else if (eventType === EventName.SubscriptionResumed) {
 			result = await handleSubscriptionResumed(paddleData);
-		else result = { message: "Webhook event not handled" };
+		} else {
+			result = { message: "Webhook event not handled" };
+		}
 	} catch (error) {
 		console.error("Paddle webhook handling failed:", error);
-		return data(
-			{ error: "Paddle webhook could not be processed" },
-			{ status: 503 },
-		);
+		return data({ error: "Paddle webhook could not be processed" }, { status: 503 });
 	}
 
 	console.log("Webhook handling result:", result);
 
-	return data(result, {
-		status: result.error === "Price ID not found" ? 400 : 200,
-	});
+	return data(result, { status: result.error === "Price ID not found" ? 400 : 200 });
 };

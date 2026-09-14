@@ -1,0 +1,65 @@
+{
+	"name": "@ryot-app/client-sdk",
+	"private": true,
+	"type": "module",
+	"exports": {
+		".": {
+			"types": "./src/index.ts",
+			"default": "./src/index.ts"
+		},
+		"./effect": {
+			"types": "./src/effect.ts",
+			"default": "./src/effect.ts"
+		},
+		"./plugin": {
+			"types": "./src/plugin.tsx",
+			"default": "./src/plugin.tsx"
+		},
+		"./react": {
+			"types": "./src/react.tsx",
+			"default": "./src/react.tsx"
+		},
+		"./schedule": {
+			"types": "./src/schedule.ts",
+			"default": "./src/schedule.ts"
+		},
+		"./ryotql": {
+			"types": "./src/ryotql.ts",
+			"default": "./src/ryotql.ts"
+		},
+		"./screen": {
+			"types": "./src/plugin-screen.tsx",
+			"default": "./src/plugin-screen.tsx"
+		},
+		"./testing": {
+			"types": "./src/testing.ts",
+			"default": "./src/testing.ts"
+		}
+	},
+	"scripts": {
+		"test": "bun --bun run vitest run",
+		"check": "tsc && oxfmt . --write && oxlint . --type-aware --fix"
+	},
+	"dependencies": {
+		"@effect/atom-react": "4.0.0-rc.115",
+		"@ryot-app/client-plugin-contract": "workspace:*",
+		"@ryot-app/client-ui-sdk": "workspace:*",
+		"@ryot-app/contract": "workspace:*",
+		"@ryot-app/ryotql": "workspace:*",
+		"effect": "4.0.0-rc.115",
+		"react": "^19.2.0",
+		"react-dom": "^19.2.0"
+	},
+	"devDependencies": {
+		"@effect/vitest": "4.0.0-rc.115",
+		"@ryot-app/testing": "workspace:*",
+		"@testing-library/dom": "^10.4.1",
+		"@types/react": "^19.2.0",
+		"@types/react-dom": "^19.2.0",
+		"bun-types": "1.4.0",
+		"jsdom": "^30.0.1",
+		"typescript": "7.0.2",
+		"vite": "^8.0.0",
+		"vitest": "4.1.9"
+	}
+}

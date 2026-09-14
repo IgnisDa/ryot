@@ -1,4 +1,4 @@
-import { cn } from "@ryot/ts-utils";
+import { cn } from "@ryot-app/ts-utils/cn";
 import Autoplay from "embla-carousel-autoplay";
 import {
 	AreaChart,
@@ -23,15 +23,12 @@ import type { ReactNode } from "react";
 import { Link } from "react-router";
 import { $path } from "safe-routes";
 import { withFragment } from "ufo";
+
 import { SectionHeader } from "~/lib/components/SectionHeader";
 import { Badge } from "~/lib/components/ui/badge";
 import { Button } from "~/lib/components/ui/button";
 import { Card, CardContent } from "~/lib/components/ui/card";
-import {
-	Carousel,
-	CarouselContent,
-	CarouselItem,
-} from "~/lib/components/ui/carousel";
+import { Carousel, CarouselContent, CarouselItem } from "~/lib/components/ui/carousel";
 import { ProBadge } from "~/lib/components/ui/pro-badge";
 import { usePaddleInitialization } from "~/lib/hooks/usePaddleInitialization";
 import {
@@ -58,14 +55,13 @@ export default function Page() {
 						icon={Brain}
 						badgeVariant="secondary"
 						subtitle="Comprehensive Tracking"
+						description="What all can Ryot do for you?"
 						title={
 							<>
-								Think of Ryot as your{" "}
-								<span className="text-primary">second brain</span> with
+								Think of Ryot as your <span className="text-primary">second brain</span> with
 								superpowers ✨
 							</>
 						}
-						description="What all can Ryot do for you?"
 					/>
 				</div>
 			</section>
@@ -73,8 +69,8 @@ export default function Page() {
 			<section className={SECTION_Y_PADDING}>
 				<div className={SECTION_CONTAINER}>
 					<SectionHeader
-						title="Everything You Need in One Place"
 						maxWidth="max-w-2xl"
+						title="Everything You Need in One Place"
 						description="Discover all the powerful features that make Ryot your ultimate personal tracking companion."
 					/>
 
@@ -85,17 +81,11 @@ export default function Page() {
 									<div
 										className={`w-12 h-12 ${colorMap[card.color].bg} rounded-lg flex items-center justify-center mb-4`}
 									>
-										<card.icon
-											className={`w-6 h-6 ${colorMap[card.color].text}`}
-										/>
+										<card.icon className={`w-6 h-6 ${colorMap[card.color].text}`} />
 									</div>
 									<h3 className="text-xl font-semibold mb-3">{card.title}</h3>
-									<p className="text-muted-foreground mb-4">
-										{card.description}
-									</p>
-									<div
-										className={`flex items-center text-sm ${colorMap[card.color].text}`}
-									>
+									<p className="text-muted-foreground mb-4">{card.description}</p>
+									<div className={`flex items-center text-sm ${colorMap[card.color].text}`}>
 										<card.featureIcon className="w-4 h-4 mr-1" />
 										{card.feature}
 									</div>
@@ -116,22 +106,17 @@ export default function Page() {
 				/>
 			))}
 
-			<section
-				className={`${SECTION_Y_PADDING} bg-linear-to-r from-orange-50 to-pink-50`}
-			>
+			<section className={`${SECTION_Y_PADDING} bg-linear-to-r from-orange-50 to-pink-50`}>
 				<div className={`${SECTION_CONTAINER_NARROW} text-center`}>
 					<div className="flex items-center justify-center gap-3 mb-6">
 						<div className="w-12 h-12 bg-linear-to-r from-orange-500 to-pink-500 rounded-full flex items-center justify-center">
 							<Crown className="w-6 h-6 text-white" />
 						</div>
-						<span className="text-2xl font-bold text-foreground">
-							Unlock Pro Features
-						</span>
+						<span className="text-2xl font-bold text-foreground">Unlock Pro Features</span>
 					</div>
 					<p className="text-lg text-muted-foreground mb-8 max-w-2xl mx-auto leading-relaxed">
-						Get access to advanced analytics, custom collections, sharing
-						features, and much more with Ryot Pro. Upgrade your tracking
-						experience today.
+						Get access to advanced analytics, custom collections, sharing features, and much more
+						with Ryot Pro. Upgrade your tracking experience today.
 					</p>
 					<div className="flex flex-col sm:flex-row gap-4 justify-center">
 						<Link to={withFragment($path("/"), "pricing")}>
@@ -159,10 +144,7 @@ const FeatureItem = (props: { children: ReactNode; isPro?: boolean }) => (
 
 const FeatureCarousel = (props: { images: string[]; altPrefix: string }) => (
 	<div className="mb-16">
-		<Carousel
-			plugins={[Autoplay({ delay: 5000 })]}
-			className="w-full max-w-5xl mx-auto"
-		>
+		<Carousel className="w-full max-w-5xl mx-auto" plugins={[Autoplay({ delay: 5000 })]}>
 			<CarouselContent>
 				{props.images.map((image, index) => (
 					<CarouselItem key={image} className="flex flex-col space-y-4">
@@ -184,47 +166,33 @@ const FeatureSection = (props: {
 	showDescription?: boolean;
 	data: (typeof FEATURE_DATA)[0];
 }) => {
-	const {
-		data,
-		isEven,
-		showDescription,
-		customGrid = "lg:grid-cols-2",
-	} = props;
+	const { data, isEven, showDescription, customGrid = "lg:grid-cols-2" } = props;
 	return (
 		<section className={cn(SECTION_Y_PADDING, !isEven && "bg-muted/30")}>
 			<div className={SECTION_CONTAINER}>
 				<div className="text-center mb-16">
-					<Badge variant="outline" className="mb-6">
+					<Badge className="mb-6" variant="outline">
 						<data.icon className="w-4 h-4 mr-2" />
 						{data.heading}
 					</Badge>
-					<h2 className="text-3xl lg:text-4xl font-bold text-foreground mb-8">
-						{data.title}
-					</h2>
+					<h2 className="text-3xl lg:text-4xl font-bold text-foreground mb-8">{data.title}</h2>
 					{showDescription && (
 						<div className="mb-8">
 							<h3 className="text-2xl font-semibold text-foreground mb-4">
 								{data.description?.title}
 							</h3>
-							<p className="text-muted-foreground max-w-2xl mx-auto">
-								{data.description?.text}
-							</p>
+							<p className="text-muted-foreground max-w-2xl mx-auto">{data.description?.text}</p>
 						</div>
 					)}
 				</div>
 
 				{data.images.length > 0 && (
-					<FeatureCarousel
-						images={data.images}
-						altPrefix={`${data.heading} interface`}
-					/>
+					<FeatureCarousel images={data.images} altPrefix={`${data.heading} interface`} />
 				)}
 
 				<div
 					className={cn(
-						customGrid === "single"
-							? "max-w-4xl mx-auto"
-							: cn("grid", customGrid, "gap-2"),
+						customGrid === "single" ? "max-w-4xl mx-auto" : cn("grid", customGrid, "gap-2"),
 						!isEven && "mb-16",
 					)}
 				>
@@ -251,112 +219,76 @@ const FeatureSection = (props: {
 
 const FEATURE_DATA = [
 	{
+		icon: Film,
 		heading: "Media Tracking",
 		title: "Your Complete Media Universe",
-		icon: Film,
 		images: ["desktop.png", "genres.png", "group.png"],
 		features: [
 			{
 				text: "Track everything you want: movies, shows, books, podcasts, games, anime, manga, music, visual novels",
 			},
+			{ isPro: true, text: "Add media to your watchlist, favorite or any other custom collection" },
+			{ isPro: true, text: "Get recommendations based on your favorites and watch history" },
+			{ text: "Track media you've watched and mark them as seen as many times as you want" },
+			{ text: "Import your data from 16 different sources (with more to come)" },
+			{ text: "Integrations with 13 different services (with more on the way)" },
+			{ text: "Consolidated activity and statistics graphs and views across all your media" },
 			{
-				text: "Add media to your watchlist, favorite or any other custom collection",
 				isPro: true,
-			},
-			{
-				text: "Get recommendations based on your favorites and watch history",
-				isPro: true,
-			},
-			{
-				text: "Track media you've watched and mark them as seen as many times as you want",
-			},
-			{
-				text: "Import your data from 16 different sources (with more to come)",
-			},
-			{
-				text: "Integrations with 13 different services (with more on the way)",
-			},
-			{
-				text: "Consolidated activity and statistics graphs and views across all your media",
-			},
-			{
 				text: "Set time spent manually on seen entries for more accurate tracking of media consumption",
-				isPro: true,
 			},
 			{
 				text: "Get notifications when a new episode is released or your favorite actor is back on screen",
 			},
-			{
-				text: "Support for 9 different notification platforms (more being released soon)",
-			},
-			{
-				text: "Save your most commonly used filters as presets for easy access",
-				isPro: true,
-			},
-			{
-				text: "Get information on where you can watch a movie/show legally in your country",
-			},
-			{
-				text: "Set reminders for when you want to watch something and get notified",
-			},
+			{ text: "Support for 9 different notification platforms (more being released soon)" },
+			{ isPro: true, text: "Save your most commonly used filters as presets for easy access" },
+			{ text: "Get information on where you can watch a movie/show legally in your country" },
+			{ text: "Set reminders for when you want to watch something and get notified" },
 			{ text: "Review media privately or publicly and see what others think" },
 			{ text: "Browse media by genre or groups (eg: Star Wars collection)" },
+			{ text: "Calendar view to get an overview on when a media is being released" },
+			{ isPro: true, text: "Suggestions that cater to your tastes based on your watch history" },
 			{
-				text: "Calendar view to get an overview on when a media is being released",
-			},
-			{
-				text: "Suggestions that cater to your tastes based on your watch history",
 				isPro: true,
-			},
-			{
 				text: "Integrations with YouTube Music and Jellyfin for your music collection",
-				isPro: true,
 			},
 		],
 	},
 	{
+		icon: Dumbbell,
 		heading: "Fitness Tracking",
 		title: "Transform Your Fitness Journey",
-		icon: Dumbbell,
-		description: {
-			title: "Comprehensive Exercise Database",
-			text: "Access over 800 exercises with detailed instructions, search functionality, and the ability to add your own custom exercises.",
-		},
 		images: [
 			"current-workout.png",
 			"measurements-graph.png",
 			"logged-workout.png",
 			"exercise-dataset.png",
 		],
+		description: {
+			title: "Comprehensive Exercise Database",
+			text: "Access over 800 exercises with detailed instructions, search functionality, and the ability to add your own custom exercises.",
+		},
 		features: [
 			{ text: "Hit the gym and track workouts in realtime" },
-			{
-				text: "Dataset of over 800 exercises with instructions (and the ability to add your own)",
-			},
+			{ text: "Dataset of over 800 exercises with instructions (and the ability to add your own)" },
 			{ text: "Add rest timers to each set you complete" },
+			{ text: "Create supersets and upload images for each exercise to track progression" },
 			{
-				text: "Create supersets and upload images for each exercise to track progression",
-			},
-			{
-				text: "Inline history and images of exercises while logging an active workout",
 				isPro: true,
+				text: "Inline history and images of exercises while logging an active workout",
 			},
-			{ text: "Create templates to pre-plan workouts", isPro: true },
-			{
-				text: "Graphs of progress for exercises to visualize your progress over time",
-			},
-			{
-				text: "Keep track of your measurements like body weight, sugar level etc.",
-			},
+			{ isPro: true, text: "Create templates to pre-plan workouts" },
+			{ text: "Graphs of progress for exercises to visualize your progress over time" },
+			{ text: "Keep track of your measurements like body weight, sugar level etc." },
 			{
 				text: "Visualizations of how your measurements fluctuate over time. Use them to identify trends and patterns.",
 			},
 		],
 	},
 	{
+		icon: Sparkles,
 		heading: "Other Goodies",
 		title: "Even More Amazing Features",
-		icon: Sparkles,
 		images: [
 			"sharing.png",
 			"recommendations.png",
@@ -364,53 +296,25 @@ const FEATURE_DATA = [
 			"supercharged-collections.png",
 		],
 		features: [
+			{ isPro: true, text: "Share access links to your data with your friends and family" },
+			{ text: "Fine grained preferences to customize exactly what you want to track" },
+			{ isPro: true, text: "Add collaborators to your collections to allow them to add to them" },
+			{ text: "Dark and light mode, because Ryot is at your fingertips the whole time" },
 			{
-				text: "Share access links to your data with your friends and family",
 				isPro: true,
-			},
-			{
-				text: "Fine grained preferences to customize exactly what you want to track",
-			},
-			{
-				text: "Add collaborators to your collections to allow them to add to them",
-				isPro: true,
-			},
-			{
-				text: "Dark and light mode, because Ryot is at your fingertips the whole time",
-			},
-			{
 				text: "Add custom information to your collections to make them more personalized",
-				isPro: true,
 			},
 		],
 	},
 ];
 
 const colorMap = {
-	blue: {
-		bg: "bg-blue-100",
-		text: "text-blue-600",
-	},
-	green: {
-		bg: "bg-green-100",
-		text: "text-green-600",
-	},
-	purple: {
-		bg: "bg-purple-100",
-		text: "text-purple-600",
-	},
-	orange: {
-		bg: "bg-orange-100",
-		text: "text-orange-600",
-	},
-	red: {
-		bg: "bg-red-100",
-		text: "text-red-600",
-	},
-	gray: {
-		bg: "bg-gray-100",
-		text: "text-gray-600",
-	},
+	red: { bg: "bg-red-100", text: "text-red-600" },
+	blue: { bg: "bg-blue-100", text: "text-blue-600" },
+	gray: { bg: "bg-gray-100", text: "text-gray-600" },
+	green: { bg: "bg-green-100", text: "text-green-600" },
+	purple: { bg: "bg-purple-100", text: "text-purple-600" },
+	orange: { bg: "bg-orange-100", text: "text-orange-600" },
 };
 
 const FEATURE_CARDS = [
@@ -418,54 +322,51 @@ const FEATURE_CARDS = [
 		icon: Play,
 		color: "blue" as const,
 		title: "Smart Tracking",
+		featureIcon: CheckCircle,
+		feature: "Auto-classification",
 		description:
 			"Automatically organize and categorize your media with intelligent detection and classification.",
-		feature: "Auto-classification",
-		featureIcon: CheckCircle,
 	},
 	{
 		icon: BarChart3,
+		featureIcon: AreaChart,
 		color: "green" as const,
 		title: "Advanced Analytics",
+		feature: "Beautiful charts",
 		description:
 			"Get deep insights into your habits with beautiful charts and comprehensive statistics.",
-		feature: "Beautiful charts",
-		featureIcon: AreaChart,
 	},
 	{
 		icon: Bell,
+		featureIcon: Target,
+		feature: "9 Platforms",
 		color: "purple" as const,
 		title: "Smart Notifications",
 		description:
 			"Never miss new releases or important updates with intelligent notification system.",
-		feature: "9 Platforms",
-		featureIcon: Target,
 	},
 	{
 		icon: Share2,
+		featureIcon: Users,
 		color: "orange" as const,
 		title: "Social Features",
-		description:
-			"Share your progress and collections with friends and family members.",
 		feature: "Share with friends",
-		featureIcon: Users,
+		description: "Share your progress and collections with friends and family members.",
 	},
 	{
 		icon: Heart,
 		color: "red" as const,
-		title: "Personal Collections",
-		description:
-			"Create custom collections and add personal touches to make them uniquely yours.",
-		feature: "Custom collections",
 		featureIcon: FolderHeart,
+		title: "Personal Collections",
+		feature: "Custom collections",
+		description: "Create custom collections and add personal touches to make them uniquely yours.",
 	},
 	{
 		icon: Lock,
 		color: "gray" as const,
 		title: "Privacy First",
-		description:
-			"Your data stays secure with self-hosting options and complete privacy control.",
 		feature: "Self-hosted",
 		featureIcon: CheckCircle,
+		description: "Your data stays secure with self-hosting options and complete privacy control.",
 	},
 ];

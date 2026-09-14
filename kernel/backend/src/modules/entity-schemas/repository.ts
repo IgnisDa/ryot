@@ -1,0 +1,50 @@
+import { EntitySchemaSlug, type UserId } from "@ryot-app/contract/schema/brands";
+import { Context, Effect, Layer } from "effect";
+
+import { DefinitionRegistry } from "#modules/definition-registry/service";
+
+const listed = (
+	definition: NonNullable<ReturnType<DefinitionRegistry["Service"]["getEntitySchema"]>>,
+) => ({
+	isBuiltin: true,
+	name: definition.name,
+	icon: definition.icon,
+	slug: definition.slug,
+	id: EntitySchemaSlug.make(definition.slug),
+	propertiesSchema: definition.propertiesSchema,
+});
+
+export class EntitySchemasRepository extends Context.Service<EntitySchemasRepository>()(
+	"EntitySchemasRepository",
+	{
+		make: Effect.gen(function* () {
+			const definitions = yield* DefinitionRegistry;
+			const getBuiltinBySlug = (slug: string) =>
+				Effect.succeed(definitions.getEntitySchema(slug)).pipe(
+					Effect.map((definition) =>
+						definition
+							? {
+									id: EntitySchemaSlug.make(definition.slug),
+									propertiesSchema: definition.propertiesSchema,
+								}
+							: null,
+					),
+				);
+			const listVisibleBySlugs = (_userId: UserId, slugs: ReadonlyArray<string>) =>
+				Effect.succeed(
+					slugs.flatMap((slug) => {
+						const definition = definitions.getEntitySchema(slug);
+						return definition ? [listed(definition)] : [];
+					}),
+				);
+			const getBuiltinDetailsBySlug = (slug: string) =>
+				Effect.succeed(definitions.getEntitySchema(slug)).pipe(
+					Effect.map((definition) => (definition ? listed(definition) : null)),
+				);
+
+			return { getBuiltinBySlug, listVisibleBySlugs, getBuiltinDetailsBySlug };
+		}),
+	},
+) {
+	static readonly layer = Layer.effect(this, this.make);
+}

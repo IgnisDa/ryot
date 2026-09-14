@@ -1,0 +1,196 @@
+import { expect, it } from "@effect/vitest";
+import {
+	EntityId,
+	EntitySchemaSlug,
+	SandboxProviderId,
+	UserId,
+} from "@ryot-app/contract/schema/brands";
+import { Clock, Duration, Effect, Layer } from "effect";
+
+import { RedisService } from "#lib/infrastructure/redis";
+import { databaseLayer, makeRedisService } from "#lib/test-utils/effect";
+import { EntitiesService } from "#modules/entities/service";
+import { TranslationsService, type RequestFillInput } from "#modules/entity-translation/service";
+import { PluginRuntimeResolver } from "#modules/plugins/runtime-resolver";
+
+import { EntityInterestProgression } from "./progression";
+import { EntityInterestStore } from "./store";
+
+const entityId = EntityId.make("entity-1");
+const entity = {
+	id: entityId,
+	name: "Record",
+	externalId: "record-1",
+	properties: { title: "Record" },
+	createdAt: "2026-08-14T00:00:00.000Z",
+	updatedAt: "2026-08-14T00:00:00.000Z",
+	populatedAt: "2026-08-14T00:00:00.000Z",
+	providerId: SandboxProviderId.make("provider-1"),
+	entitySchemaSlug: EntitySchemaSlug.make("record"),
+};
+
+const makeLayer = (input: {
+	readonly requests: RequestFillInput[];
+	readonly redis: RedisService["Service"];
+	readonly store: Layer.Layer<EntityInterestStore>;
+}) =>
+	EntityInterestProgression.layer.pipe(
+		Layer.provideMerge(
+			Layer.mergeAll(
+				databaseLayer,
+				input.store,
+				Layer.succeed(RedisService, input.redis),
+				Layer.mock(EntitiesService)({ getByIdAnyScope: () => Effect.succeed(entity) }),
+				Layer.mock(TranslationsService)({
+					requestFill: (request) =>
+						Effect.sync(() => {
+							input.requests.push(request);
+						}),
+				}),
+				Layer.mock(PluginRuntimeResolver)({
+					findProviderAvailableToUser: () =>
+						Effect.succeed({
+							slug: "provider",
+							name: "Provider",
+							pluginId: "plugin",
+							pluginScope: "user",
+							rootEntitySchemaSlug: "entity",
+							id: SandboxProviderId.make("provider-1"),
+							createdAt: new Date("2026-08-14T00:00:00.000Z"),
+							updatedAt: new Date("2026-08-14T00:00:00.000Z"),
+							information: { source: "fixture", canonicalLanguage: "en" },
+						}),
+				}),
+			),
+		),
+	);
+
+it.effect("uses one entity lease and requests each distinct noncanonical language", () => {
+	const requests: RequestFillInput[] = [];
+	const acquired: Array<readonly [string, number]> = [];
+	const events: string[] = [];
+	const released: string[] = [];
+	const store = Layer.mock(EntityInterestStore)({
+		listInterestedSessions: () =>
+			Effect.sync(() => {
+				events.push("list");
+				return ["session-1", "session-2", "session-3", "session-4", "session-5"];
+			}),
+		getSessionMetadata: (sessionIds) =>
+			Effect.sync(() => {
+				events.push(`metadata:${sessionIds.join(",")}`);
+				return [
+					{
+						revision: 1,
+						preferredLanguage: "es",
+						userId: UserId.make("user-1"),
+						sessionId: sessionIds[0] ?? "",
+					},
+					{
+						revision: 1,
+						preferredLanguage: "es",
+						userId: UserId.make("user-2"),
+						sessionId: sessionIds[1] ?? "",
+					},
+					{
+						revision: 1,
+						preferredLanguage: "fr",
+						userId: UserId.make("user-3"),
+						sessionId: sessionIds[2] ?? "",
+					},
+					{
+						revision: 1,
+						preferredLanguage: "en",
+						userId: UserId.make("user-4"),
+						sessionId: sessionIds[3] ?? "",
+					},
+					{
+						revision: 1,
+						preferredLanguage: null,
+						userId: UserId.make("user-5"),
+						sessionId: sessionIds[4] ?? "",
+					},
+				];
+			}),
+	});
+	const redis = makeRedisService({
+		releaseLease: (key) =>
+			Effect.sync(() => {
+				events.push("release");
+				released.push(key);
+			}),
+		acquireLease: (key, ttl) =>
+			Effect.sync(() => {
+				events.push("acquire");
+				acquired.push([key, ttl]);
+				return crypto.randomUUID();
+			}),
+	});
+
+	return Effect.gen(function* () {
+		const progression = yield* EntityInterestProgression;
+		yield* progression.populated(entityId);
+
+		expect(acquired).toEqual([["ryot:entity-interest:progress:entity-1", 30]]);
+		expect(events).toEqual([
+			"acquire",
+			"list",
+			"metadata:session-1,session-2,session-3,session-4,session-5",
+			"release",
+		]);
+		expect(requests.map(({ language }) => language)).toEqual(["es", "fr"]);
+		expect(released).toEqual(["ryot:entity-interest:progress:entity-1"]);
+	}).pipe(Effect.provide(makeLayer({ redis, store, requests })));
+});
+
+it.effect("retries a contended lease once near expiry", () => {
+	let attempts = 0;
+	const sleeps: number[] = [];
+	const acquired: string[] = [];
+	const released: string[] = [];
+	const requests: RequestFillInput[] = [];
+	const store = Layer.mock(EntityInterestStore)({
+		getSessionMetadata: () => Effect.succeed([]),
+		listInterestedSessions: () => Effect.succeed(["session-1"]),
+	});
+	const redis = makeRedisService({
+		releaseLease: (key) =>
+			Effect.sync(() => {
+				released.push(key);
+			}),
+		acquireLease: (key) =>
+			Effect.sync(() => {
+				acquired.push(key);
+				attempts += 1;
+				return attempts === 1 ? null : crypto.randomUUID();
+			}),
+	});
+	const clock: Clock.Clock = {
+		currentTimeMillisUnsafe: () => 0,
+		currentTimeNanosUnsafe: () => 0n,
+		monotonicTimeNanosUnsafe: () => 0n,
+		currentTimeMillis: Effect.succeed(0),
+		currentTimeNanos: Effect.succeed(0n),
+		monotonicTimeNanos: Effect.succeed(0n),
+		sleep: (duration) =>
+			Effect.sync(() => {
+				sleeps.push(Duration.toMillis(duration));
+			}),
+	};
+
+	return Effect.gen(function* () {
+		const progression = yield* EntityInterestProgression;
+		yield* progression.populated(entityId);
+
+		expect(attempts).toBe(2);
+		expect(acquired).toEqual([
+			"ryot:entity-interest:progress:entity-1",
+			"ryot:entity-interest:progress:entity-1",
+		]);
+		expect(sleeps).toEqual([29_000]);
+		expect(released).toEqual(["ryot:entity-interest:progress:entity-1"]);
+	}).pipe(
+		Effect.provide(makeLayer({ redis, store, requests })),
+		Effect.provideService(Clock.Clock, clock),
+	);
+});

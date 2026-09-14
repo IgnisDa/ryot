@@ -1,0 +1,67 @@
+import { Effect, Schema } from "@ryot-app/sandbox-sdk/effect";
+
+const encoder = new TextEncoder();
+const SANDBOX_FILESYSTEM_KEY = Symbol.for("@ryot-app/sandbox-sdk/filesystem");
+
+type SandboxFilesystemBinding = {
+	readonly readArtifact: () => Promise<Uint8Array>;
+	readonly readNamedArtifact: (key: string) => Promise<Uint8Array>;
+	readonly writeScratchChunks: (
+		chunks: ReadonlyArray<{ readonly name: string; readonly contents: Uint8Array }>,
+	) => Promise<void>;
+};
+
+export type SandboxFilesystemError = {
+	readonly message: string;
+	readonly _tag: "SandboxFilesystemError";
+};
+
+export type SandboxScratchChunk = { readonly name: string; readonly contents: string | Uint8Array };
+
+export const sandboxScratchManifestSchema = Schema.Struct({
+	chunkFiles: Schema.Array(Schema.String),
+});
+
+export type SandboxScratchManifest = Schema.Schema.Type<typeof sandboxScratchManifestSchema>;
+
+const filesystemError = (error: unknown): SandboxFilesystemError => ({
+	_tag: "SandboxFilesystemError",
+	message: error instanceof Error ? error.message : String(error),
+});
+
+const binding = () =>
+	(globalThis as typeof globalThis & { [SANDBOX_FILESYSTEM_KEY]?: SandboxFilesystemBinding })[
+		SANDBOX_FILESYSTEM_KEY
+	];
+
+export const readArtifact = () =>
+	Effect.suspend(() => {
+		const filesystem = binding();
+		return filesystem
+			? Effect.tryPromise({ catch: filesystemError, try: () => filesystem.readArtifact() })
+			: Effect.fail(filesystemError("Sandbox artifact grant is unavailable"));
+	});
+
+export const readNamedArtifact = (key: string) =>
+	Effect.suspend(() => {
+		const filesystem = binding();
+		return filesystem
+			? Effect.tryPromise({ catch: filesystemError, try: () => filesystem.readNamedArtifact(key) })
+			: Effect.fail(filesystemError("Sandbox artifact grant is unavailable"));
+	});
+
+export const writeScratchChunks = (chunks: ReadonlyArray<SandboxScratchChunk>) =>
+	Effect.suspend(() => {
+		const filesystem = binding();
+		if (!filesystem) {
+			return Effect.fail(filesystemError("Sandbox scratch grant is unavailable"));
+		}
+		const encoded = chunks.map(({ name, contents }) => ({
+			name,
+			contents: typeof contents === "string" ? encoder.encode(contents) : contents,
+		}));
+		return Effect.tryPromise({
+			catch: filesystemError,
+			try: () => filesystem.writeScratchChunks(encoded),
+		}).pipe(Effect.as({ chunkFiles: encoded.map(({ name }) => name) }));
+	});

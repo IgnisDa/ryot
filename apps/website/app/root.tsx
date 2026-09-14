@@ -1,4 +1,4 @@
-import { cn } from "@ryot/ts-utils";
+import { cn } from "@ryot-app/ts-utils/cn";
 import { QueryClientProvider } from "@tanstack/react-query";
 import { ReactQueryDevtools } from "@tanstack/react-query-devtools";
 import {
@@ -15,10 +15,13 @@ import {
 } from "react-router";
 import { $path } from "safe-routes";
 import { withFragment } from "ufo";
+
 import type { Route } from "./+types/root";
 import { Button } from "./lib/components/ui/button";
 import { Toaster } from "./lib/components/ui/sonner";
 import { logoUrl, queryClient, startUrl, useConfigData } from "./lib/general";
+
+// oxlint-disable-next-line import/no-unassigned-import
 import "./tailwind.css";
 
 function HeaderActions() {
@@ -28,7 +31,7 @@ function HeaderActions() {
 		<div className="flex items-center space-x-4">
 			{configData?.isLoggedIn ? (
 				<Link to={$path("/me")}>
-					<Button variant="ghost" size="sm">
+					<Button size="sm" variant="ghost">
 						Dashboard
 					</Button>
 				</Link>
@@ -62,13 +65,13 @@ export const links: LinksFunction = () => {
 			rel: "icon",
 			sizes: "16x16",
 			type: "image/png",
-			href: "https://raw.githubusercontent.com/IgnisDa/ryot/main/libs/assets/favicon-16x16.png",
+			href: "https://raw.githubusercontent.com/IgnisDa/ryot/main/packages/assets/favicon-16x16.png",
 		},
 		{
 			rel: "icon",
 			sizes: "32x32",
 			type: "image/png",
-			href: "https://raw.githubusercontent.com/IgnisDa/ryot/main/libs/assets/favicon-32x32.png",
+			href: "https://raw.githubusercontent.com/IgnisDa/ryot/main/packages/assets/favicon-32x32.png",
 		},
 	];
 };
@@ -77,12 +80,16 @@ export default function App() {
 	const location = useLocation();
 
 	const isActivePage = (path: string) => {
-		if (path === "/") return location.pathname === "/" && location.hash === "";
+		if (path === "/") {
+			return location.pathname === "/" && location.hash === "";
+		}
 		return location.pathname.startsWith(path);
 	};
 
 	const isActiveFragment = (fragment: string) => {
-		if (location.pathname !== "/") return false;
+		if (location.pathname !== "/") {
+			return false;
+		}
 		return location.hash === `#${fragment}`;
 	};
 
@@ -108,18 +115,9 @@ export default function App() {
 							<div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
 								<div className="flex items-center justify-between h-16">
 									<div className="flex items-center space-x-3">
-										<Link
-											to={$path("/")}
-											className="flex items-center space-x-3"
-										>
-											<img
-												alt="Ryot"
-												src={logoUrl}
-												className="w-8 h-8 object-contain"
-											/>
-											<span className="text-xl font-semibold text-foreground">
-												Ryot
-											</span>
+										<Link to={$path("/")} className="flex items-center space-x-3">
+											<img alt="Ryot" src={logoUrl} className="w-8 h-8 object-contain" />
+											<span className="text-xl font-semibold text-foreground">Ryot</span>
 										</Link>
 									</div>
 
@@ -190,14 +188,8 @@ export default function App() {
 							<div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
 								<div className="flex flex-col md:flex-row justify-between items-center">
 									<div className="flex items-center space-x-3 mb-4 md:mb-0">
-										<img
-											src={logoUrl}
-											alt="Ryot Logo"
-											className="w-8 h-8 object-contain"
-										/>
-										<span className="text-xl font-semibold text-foreground">
-											Ryot
-										</span>
+										<img src={logoUrl} alt="Ryot Logo" className="w-8 h-8 object-contain" />
+										<span className="text-xl font-semibold text-foreground">Ryot</span>
 									</div>
 									<div className="flex flex-wrap items-center justify-center gap-x-6 gap-y-2 text-muted-foreground">
 										<Link
@@ -218,10 +210,7 @@ export default function App() {
 										>
 											Pricing Promise
 										</Link>
-										<Link
-											to={$path("/terms")}
-											className="hover:text-foreground transition-colors"
-										>
+										<Link to={$path("/terms")} className="hover:text-foreground transition-colors">
 											Terms
 										</Link>
 										<a
@@ -243,9 +232,7 @@ export default function App() {
 									</div>
 								</div>
 								<div className="border-t border-border/50 mt-8 pt-8 text-center text-muted-foreground">
-									<p>
-										&copy; {new Date().getFullYear()} Ryot. All Rights Reserved.
-									</p>
+									<p>&copy; {new Date().getFullYear()} Ryot. All Rights Reserved.</p>
 								</div>
 							</div>
 						</footer>
@@ -263,12 +250,8 @@ export function ErrorBoundary(props: Route.ErrorBoundaryProps) {
 		return (
 			<div className="flex min-h-dvh items-center justify-center px-4">
 				<div className="max-w-lg text-center">
-					<p className="mb-4 text-sm font-semibold uppercase tracking-[0.2em] text-primary">
-						404
-					</p>
-					<h1 className="mb-4 text-4xl font-bold text-foreground sm:text-5xl">
-						Page not found
-					</h1>
+					<p className="mb-4 text-sm font-semibold uppercase tracking-[0.2em] text-primary">404</p>
+					<h1 className="mb-4 text-4xl font-bold text-foreground sm:text-5xl">Page not found</h1>
 					<p className="mb-8 text-muted-foreground">
 						The page you are looking for does not exist or has moved.
 					</p>
@@ -281,15 +264,11 @@ export function ErrorBoundary(props: Route.ErrorBoundaryProps) {
 	}
 
 	const message =
-		props.error instanceof Error
-			? props.error.message
-			: "An unexpected error occurred.";
+		props.error instanceof Error ? props.error.message : "An unexpected error occurred.";
 
 	return (
 		<div className="flex min-h-dvh items-center justify-center px-4">
-			<p className="text-center text-muted-foreground">
-				We encountered an error: {message}
-			</p>
+			<p className="text-center text-muted-foreground">We encountered an error: {message}</p>
 		</div>
 	);
 }
