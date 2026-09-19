@@ -90,7 +90,7 @@ export class SystemPluginBootstrap extends Context.Service<SystemPluginBootstrap
 				}
 				yield* inTransaction(repository.resolveEnvironmentConfigs());
 				yield* installations.reconcileSystemInstallations();
-				yield* surfaces.materializeSystemBaseline;
+				yield* surfaces.materializeSystemCompositions;
 				yield* scriptGarbageCollector.collect();
 			});
 
