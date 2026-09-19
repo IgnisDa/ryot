@@ -36,7 +36,7 @@ type ScenarioName =
 type ScenarioConfig = {
 	unreachable?: boolean;
 	extraEnv?: Record<string, string>;
-	respond?: (url: URL, request: Request) => Response | Promise<Response>;
+	respond?: (url: URL, request: Request) => Response | Effect.Effect<Response>;
 };
 
 const scenarioConfigs: Record<ScenarioName, ScenarioConfig> = {
