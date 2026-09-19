@@ -145,7 +145,9 @@ export function spawnApiProcess(env: NodeJS.ProcessEnv, cwd = "../apps/server") 
 export const runMigrationProcess = (env: NodeJS.ProcessEnv, cwd = "../apps/server") =>
 	Effect.gen(function* () {
 		const migrationEnv = Object.fromEntries(
-			Object.entries(env).filter(([key]) => key !== "SERVER_RUNNER_SOCKET_DIR"),
+			Object.entries(env).filter(
+				([key]) => key !== "RYOT_SERVER_ROLE" && key !== "RYOT_RUNNER_SOCKET_DIR",
+			),
 		);
 		const migration = spawnApiProcess(
 			{ ...migrationEnv, SERVER_LANES: "all", RUN_MIGRATION_ONLY: "true" },

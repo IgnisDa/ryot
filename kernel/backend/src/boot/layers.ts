@@ -320,7 +320,8 @@ const RuntimeWorkLive = Layer.merge(
 
 const RuntimeLive = Layer.unwrap(
 	Effect.gen(function* () {
-		const role = yield* serverRole((yield* AppConfig).server.lanes);
+		const config = yield* AppConfig;
+		const role = yield* serverRole(config.server);
 		if (role === "interactive") {
 			return Layer.merge(RuntimeWorkLive, ServerLive);
 		}

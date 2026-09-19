@@ -20,45 +20,40 @@ const MigrationSequenceLive = LegacyTableRenameLive.pipe(
 	Layer.flatMap(() => LegacyDataMigrationLive),
 );
 
-const MigrationOnlyLive = MigrationSequenceLive.pipe(
-	Layer.provide(MigrationInfrastructureLive),
-	Layer.provide(ObservabilityProvidedLive),
-);
-
 const AppLive = MigrationSequenceLive.pipe(
 	Layer.flatMap(() => RuntimeServerLive),
-	Layer.provide(MigrationInfrastructureLive),
-	Layer.provide(ObservabilityProvidedLive),
 );
 
-const RoleLive = RuntimeServerLive.pipe(
-	Layer.provide(MigrationInfrastructureLive),
-	Layer.provide(ObservabilityProvidedLive),
+BunRuntime.runMain(
+	Effect.scoped(
+		Effect.gen(function* () {
+			const config = yield* AppConfig.make;
+			const migrationOnly = yield* Config.Boolean("RUN_MIGRATION_ONLY").pipe(
+				Config.withDefault(false),
+			);
+			if (!migrationOnly && config.server.lanes === "split") {
+				return yield* runSplitSupervisor({
+					effectiveMemory: process.constrainedMemory(),
+					entry: { args: process.argv.slice(1), executable: process.execPath },
+				}).pipe(Effect.provideService(AppConfig, config));
+			}
+			const startup = migrationOnly
+				? MigrationSequenceLive
+				: config.server.processRole === "all"
+					? AppLive
+					: RuntimeServerLive;
+			const layer = startup.pipe(
+				Layer.provide(MigrationInfrastructureLive),
+				Layer.provide(ObservabilityProvidedLive),
+			);
+			if (migrationOnly) {
+				yield* Layer.build(layer);
+			} else {
+				yield* Layer.launch(layer);
+			}
+		}),
+	).pipe(
+		Effect.provide(BunServices.layer),
+		Effect.provideService(ConfigProvider.ConfigProvider, ConfigProvider.fromEnv()),
+	),
 );
-
-const environment = Effect.provideService(ConfigProvider.ConfigProvider, ConfigProvider.fromEnv());
-
-const runMigrationOnly = await Effect.runPromise(
-	Config.Boolean("RUN_MIGRATION_ONLY").pipe(Config.withDefault(false), environment),
-);
-
-if (runMigrationOnly) {
-	await Effect.runPromise(Effect.scoped(Layer.build(MigrationOnlyLive)));
-	process.exit(0);
-}
-
-const config = await Effect.runPromise(AppConfig.make.pipe(environment));
-
-if (config.server.lanes === "split") {
-	const SupervisorLive = Layer.effectDiscard(
-		runSplitSupervisor({
-			effectiveMemory: process.constrainedMemory(),
-			entry: { args: process.argv.slice(1), executable: process.execPath },
-		}).pipe(Effect.provideService(AppConfig, config)),
-	).pipe(Layer.provide(BunServices.layer));
-	BunRuntime.runMain(Effect.scoped(Layer.build(SupervisorLive)));
-} else {
-	BunRuntime.runMain(
-		Effect.scoped(Layer.launch(config.server.lanes === "all" ? AppLive : RoleLive)),
-	);
-}

@@ -249,19 +249,26 @@ export const validateSystemConfig = (config: AppConfigValue) =>
 			}
 		}
 
-		const socketDir = config.server.runnerSocketDir;
-		if (config.server.lanes === "all" && Option.isSome(socketDir)) {
+		const { lanes, processRole, runnerSocketDir } = config.server;
+		if (processRole !== "all" && lanes !== "all") {
 			return yield* Effect.fail(
-				configError("SERVER_RUNNER_SOCKET_DIR is only valid when SERVER_LANES is a role or split."),
+				configError(`RYOT_SERVER_ROLE=${processRole} requires SERVER_LANES=all.`),
+			);
+		}
+		if (processRole === "all" && Option.isSome(runnerSocketDir)) {
+			return yield* Effect.fail(
+				configError(
+					"RYOT_RUNNER_SOCKET_DIR is only valid when RYOT_SERVER_ROLE is interactive or background.",
+				),
 			);
 		}
 		if (
-			config.server.lanes !== "all" &&
-			(Option.isNone(socketDir) || !socketDir.value.startsWith("/"))
+			processRole !== "all" &&
+			(Option.isNone(runnerSocketDir) || !runnerSocketDir.value.startsWith("/"))
 		) {
 			return yield* Effect.fail(
 				configError(
-					`SERVER_LANES=${config.server.lanes} requires SERVER_RUNNER_SOCKET_DIR to be an absolute path.`,
+					`RYOT_SERVER_ROLE=${processRole} requires RYOT_RUNNER_SOCKET_DIR to be an absolute path.`,
 				),
 			);
 		}

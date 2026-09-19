@@ -15,16 +15,6 @@ export class RunnerSocketError extends Schema.TaggedError<RunnerSocketError>()(
 const socketPath = (path: Path.Path, directory: string, role: ExecutionLane) =>
 	path.join(directory, `${role}.sock`);
 
-const statIfPresent = (fs: FileSystem.FileSystem, target: string) =>
-	fs.stat(target).pipe(
-		Effect.asSome,
-		Effect.catchIf(
-			(error) => error.reason._tag === "NotFound",
-			() => Effect.succeedNone,
-		),
-	);
-
-/** Fails unless the directory is a real, owner-only directory of this process's user. */
 export const prepareRunnerSocketDirectory = Effect.fn("prepareRunnerSocketDirectory")(function* (
 	directory: string,
 	role: ExecutionLane,
@@ -33,10 +23,7 @@ export const prepareRunnerSocketDirectory = Effect.fn("prepareRunnerSocketDirect
 	const path = yield* Path.Path;
 	const resolved = path.resolve(directory);
 	const fail = (message: string) =>
-		new RunnerSocketError({ message: `SERVER_RUNNER_SOCKET_DIR '${resolved}' ${message}` });
-	if (!(yield* fs.exists(resolved))) {
-		yield* fs.makeDirectory(resolved, { mode: 0o700, recursive: true });
-	}
+		new RunnerSocketError({ message: `RYOT_RUNNER_SOCKET_DIR '${resolved}' ${message}` });
 	const parent = yield* fs.realPath(path.dirname(resolved));
 	if ((yield* fs.realPath(resolved)) !== path.join(parent, path.basename(resolved))) {
 		return yield* fail("must not be a symbolic link");
@@ -53,14 +40,10 @@ export const prepareRunnerSocketDirectory = Effect.fn("prepareRunnerSocketDirect
 		return yield* fail("must not grant group or other permissions");
 	}
 	const socket = socketPath(path, resolved, role);
-	const existing = yield* statIfPresent(fs, socket);
-	if (Option.isSome(existing)) {
-		if (existing.value.type !== "Socket") {
-			return yield* new RunnerSocketError({
-				message: `Runner socket path '${socket}' exists and is not a socket`,
-			});
-		}
-		yield* fs.remove(socket);
+	if (yield* fs.exists(socket)) {
+		return yield* new RunnerSocketError({
+			message: `Runner socket path '${socket}' already exists`,
+		});
 	}
 	return socket;
 });
@@ -77,7 +60,6 @@ export const runnerSocketServerLayer = (directory: string, role: ExecutionLane) 
 		}),
 	);
 
-/** Only the two role sockets are reachable; any other runner address is a defect. */
 export const runnerSocketClientProtocolLayer = (directory: string) =>
 	Layer.effect(
 		Runners.RpcClientProtocol,

@@ -23,12 +23,23 @@ const socketDirectory = Effect.gen(function* () {
 const PingRpcs = RpcGroup.make(Rpc.make("Ping", { success: Schema.String }));
 
 const directoryError = (directory: string, message: string) =>
-	new RunnerSocketError({ message: `SERVER_RUNNER_SOCKET_DIR '${directory}' ${message}` });
+	new RunnerSocketError({ message: `RYOT_RUNNER_SOCKET_DIR '${directory}' ${message}` });
 
 layer(BunServices.layer)((test) => {
-	test.effect("creates a missing directory as owner-only and names the role socket", () =>
+	test.effect("does not create a missing socket directory", () =>
+		Effect.gen(function* () {
+			const { fs, directory } = yield* socketDirectory;
+			const exit = yield* Effect.exit(prepareRunnerSocketDirectory(directory, "interactive"));
+
+			assert(Exit.isFailure(exit));
+			expect(yield* fs.exists(directory)).toBe(false);
+		}),
+	);
+
+	test.effect("uses an existing owner-only directory and names the role socket", () =>
 		Effect.gen(function* () {
 			const { fs, path, directory } = yield* socketDirectory;
+			yield* fs.makeDirectory(directory, { mode: 0o700 });
 			const socket = yield* prepareRunnerSocketDirectory(directory, "interactive");
 			const info = yield* fs.stat(directory);
 
@@ -77,7 +88,7 @@ layer(BunServices.layer)((test) => {
 		}),
 	);
 
-	test.effect("refuses to replace a role path that is not a socket", () =>
+	test.effect("refuses any existing role path", () =>
 		Effect.gen(function* () {
 			const { fs, path, directory } = yield* socketDirectory;
 			yield* fs.makeDirectory(directory, { mode: 0o700 });
@@ -86,25 +97,26 @@ layer(BunServices.layer)((test) => {
 
 			assertExitFails(
 				yield* Effect.exit(prepareRunnerSocketDirectory(directory, "background")),
-				new RunnerSocketError({
-					message: `Runner socket path '${socket}' exists and is not a socket`,
-				}),
+				new RunnerSocketError({ message: `Runner socket path '${socket}' already exists` }),
 			);
 			expect(yield* fs.exists(socket)).toBe(true);
 		}),
 	);
 
-	test.effect("listens on an owner-only socket and removes a leftover socket at boot", () =>
+	test.effect("listens on an owner-only socket and refuses to unlink the live listener", () =>
 		Effect.gen(function* () {
-			const { fs, directory } = yield* socketDirectory;
+			const { fs, path, directory } = yield* socketDirectory;
+			yield* fs.makeDirectory(directory, { mode: 0o700 });
 			yield* Layer.build(runnerSocketServerLayer(directory, "interactive"));
-			const socket = yield* prepareRunnerSocketDirectory(directory, "interactive");
-			expect(yield* fs.exists(socket)).toBe(false);
-
-			yield* Layer.build(runnerSocketServerLayer(directory, "interactive"));
+			const socket = path.join(directory, "interactive.sock");
 			const info = yield* fs.stat(socket);
 			expect(info.type).toBe("Socket");
 			expect(info.mode & 0o777).toBe(0o600);
+			assertExitFails(
+				yield* Effect.exit(prepareRunnerSocketDirectory(directory, "interactive")),
+				new RunnerSocketError({ message: `Runner socket path '${socket}' already exists` }),
+			);
+			expect(yield* fs.exists(socket)).toBe(true);
 		}),
 	);
 
@@ -130,7 +142,8 @@ layer(BunServices.layer)((test) => {
 
 	test.effect("closes a connection whose frame exceeds the bound and keeps serving new ones", () =>
 		Effect.gen(function* () {
-			const { path, directory } = yield* socketDirectory;
+			const { fs, path, directory } = yield* socketDirectory;
+			yield* fs.makeDirectory(directory, { mode: 0o700 });
 			yield* Layer.build(
 				RpcServer.layer(PingRpcs).pipe(
 					Layer.provide(PingRpcs.toLayer({ Ping: () => Effect.succeed("pong") })),
