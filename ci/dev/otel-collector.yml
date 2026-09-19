@@ -6,6 +6,12 @@ receivers:
 
 processors:
   batch: {}
+  transform/truncate:
+    error_mode: ignore
+    trace_statements:
+      - context: span
+        statements:
+          - truncate_all(attributes, 4096)
 
 exporters:
   debug:
@@ -23,7 +29,7 @@ service:
       exporters: [debug]
     traces:
       receivers: [otlp]
-      processors: [batch]
+      processors: [transform/truncate, batch]
       exporters: [otlp_http/jaeger]
     metrics:
       receivers: [otlp]
