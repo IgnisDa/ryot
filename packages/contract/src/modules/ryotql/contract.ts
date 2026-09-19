@@ -2,7 +2,7 @@ import { Schema } from "effect";
 import { HttpApiEndpoint, HttpApiGroup, HttpApiSchema, OpenApi } from "effect/unstable/httpapi";
 
 import { AdminMiddleware, AuthMiddleware } from "../../auth-middleware";
-import { DemoAccessPolicy } from "../../http-annotations";
+import { AuthenticatedMutationEndpoint } from "../../authenticated-mutation-endpoint";
 import { RyotQLDocument, RyotQLResponse } from "./language";
 
 const RyotQLBadRequestReason = Schema.Union([
@@ -32,17 +32,20 @@ const execution = {
 export const RyotQLGroup = HttpApiGroup.make("ryotql")
 	.annotate(OpenApi.Description, "Execute focused relational reads against application data.")
 	.add(
-		HttpApiEndpoint.post("execute", "/ryotql/execute", execution)
-			.annotate(DemoAccessPolicy, "allowed")
-			.annotate(OpenApi.Description, "Execute a RyotQL document and return its named results."),
+		AuthenticatedMutationEndpoint.post("allowed")("execute", "/ryotql/execute", execution).annotate(
+			OpenApi.Description,
+			"Execute a RyotQL document and return its named results.",
+		),
 	)
 	.add(
-		HttpApiEndpoint.post("executePlugin", "/ryotql/plugin/execute", execution)
-			.annotate(DemoAccessPolicy, "allowed")
-			.annotate(
-				OpenApi.Description,
-				"Execute a RyotQL document on behalf of a client plugin, limited to plugin-readable tables and fields.",
-			),
+		AuthenticatedMutationEndpoint.post("allowed")(
+			"executePlugin",
+			"/ryotql/plugin/execute",
+			execution,
+		).annotate(
+			OpenApi.Description,
+			"Execute a RyotQL document on behalf of a client plugin, limited to plugin-readable tables and fields.",
+		),
 	)
 	.middleware(AuthMiddleware);
 
