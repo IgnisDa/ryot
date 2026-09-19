@@ -7,6 +7,7 @@ import {
 	findBuiltinSchemaBySlug,
 	listEventSchemas,
 	requireEventSchemaBySlug,
+	waitForCreateEvents,
 	waitForEventCount,
 } from "~/fixtures/kernel";
 import {
@@ -33,7 +34,7 @@ describe("POST /events with global entities", () => {
 			);
 			const membership = yield* queryInMediaLibraryRelationship(client, entity.id, schema.slug);
 
-			expect(createResult.count).toBe(1);
+			expect((yield* waitForCreateEvents(client, createResult)).count).toBe(1);
 			expect(
 				membership.data.entity?.type === "rows" ? membership.data.entity.items : [],
 			).toHaveLength(1);
@@ -72,7 +73,7 @@ describe("media membership event exclusions", () => {
 					],
 				}),
 			);
-			expect(result.count).toBe(1);
+			expect((yield* waitForCreateEvents(client, result)).count).toBe(1);
 			yield* waitForEventCount(client, entity.id, 1);
 
 			const membership = yield* queryInMediaLibraryRelationship(client, entity.id, schema.slug);
@@ -90,7 +91,7 @@ describe("media membership event exclusions", () => {
 			const result = yield* client.call((c) =>
 				c.events.create({ payload: [{ entityId, eventSchemaSlug, properties: { rating: 4 } }] }),
 			);
-			expect(result.count).toBe(1);
+			expect((yield* waitForCreateEvents(client, result)).count).toBe(1);
 			yield* waitForEventCount(client, entityId, 1);
 
 			const membership = yield* queryInMediaLibraryRelationship(client, entityId, entitySchemaSlug);

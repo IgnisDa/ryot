@@ -8,10 +8,13 @@ import {
 	installTestPluginBundle,
 	listAutomationRunAttempts,
 	listAutomationRuns,
+	listEventsForEntity,
+	pollUntil,
+	waitForCreateEvents,
 	type InstalledTestPlugin,
 	uninstallTestPlugin,
 } from "~/fixtures/kernel";
-import { afterAll, beforeAll, describe, it, runPromise } from "~/support/effect-test";
+import { afterAll, beforeAll, describe, expect, it, runPromise } from "~/support/effect-test";
 
 const SLEEP_MS = Number(process.env.DEBUG_SLEEP_MS ?? 20000);
 const CONCURRENT = Number(process.env.DEBUG_CONCURRENT ?? 6);
@@ -22,10 +25,14 @@ const slugs = {
 	plugin: `e2e-debug-deadline-${suffix}`,
 	entity: `debug-entity-${suffix}`,
 	event: `debug-event-${suffix}`,
+	policyEvent: `debug-policy-event-${suffix}`,
+	policyScript: `debug-policy-script-${suffix}`,
+	policyHook: `debug-policy-hook-${suffix}`,
 	script: `debug-slow-${suffix}`,
 	hook: `debug-required-${suffix}`,
 };
 const entry = "backend/automations/debug-slow.sandbox.ts";
+const policyEntry = "backend/automations/debug-policy.sandbox.ts";
 const projection = {
 	event: { properties: [], compareProperties: [] },
 	entity: { properties: [], compareProperties: [], parentEntityProperties: [] },
@@ -42,6 +49,17 @@ export const manifest = defineManifest({
 });
 export default defineAutomation({ manifest, run: () => Effect.sleep(${SLEEP_MS}).pipe(Effect.as(null)) });
 `;
+const policySource = `
+import { defineAutomationPolicy } from "@ryot-app/sandbox-sdk/automation";
+import { defineManifest } from "@ryot-app/sandbox-sdk/driver";
+import { Effect } from "@ryot-app/sandbox-sdk/effect";
+export const manifest = defineManifest({
+  kind: "automation", automationType: "policy", slug: ${JSON.stringify(slugs.policyScript)},
+  name: "debug policy", capabilities: [], requiredPluginConfigKeys: [], requiredSystemConfigKeys: [],
+  inputProjection: { event: { properties: ["marker"] } },
+});
+export default defineAutomationPolicy({ manifest, run: () => Effect.sleep(${SLEEP_MS}).pipe(Effect.as({ action: "allow" })) });
+`;
 const markerSchema = {
 	unknownKeys: "strict" as const,
 	fields: { marker: { label: "Marker", type: "string" as const, description: "m", validation: { required: true as const } } },
@@ -54,6 +72,17 @@ const scripts = [
 		kind: "automation",
 		automationType: "automation",
 		inputProjection: projection,
+		capabilities: [],
+		requiredPluginConfigKeys: [],
+		requiredSystemConfigKeys: [],
+	},
+	{
+		slug: slugs.policyScript,
+		name: "debug policy",
+		entry: policyEntry,
+		kind: "automation",
+		automationType: "policy",
+		inputProjection: { event: { properties: ["marker"] } },
 		capabilities: [],
 		requiredPluginConfigKeys: [],
 		requiredSystemConfigKeys: [],
@@ -78,11 +107,22 @@ describe("debug hook deadline", () => {
 							slug: slugs.entity,
 							name: "Debug entity",
 							propertiesSchema: markerSchema,
-							eventSchemas: [{ slug: slugs.event, name: "Debug event", propertiesSchema: markerSchema }],
+							eventSchemas: [
+								{ slug: slugs.event, name: "Debug event", propertiesSchema: markerSchema },
+								{ slug: slugs.policyEvent, name: "Debug policy event", propertiesSchema: markerSchema },
+							],
 						},
 					],
-					files: { [entry]: source },
+					files: { [entry]: source, [policyEntry]: policySource },
 					hooks: [
+						{
+							stage: "before",
+							position: 10,
+							slug: slugs.policyHook,
+							scriptSlug: slugs.policyScript,
+							name: "debug policy",
+							targets: [{ resource: "event", operation: "create", entitySchemaSlug: slugs.entity, eventSchemaSlug: slugs.policyEvent }],
+						},
 						{
 							stage: "after",
 							delivery: "required",
@@ -112,13 +152,12 @@ describe("debug hook deadline", () => {
 					}),
 				);
 				log(`sending ${CONCURRENT} concurrent event requests, sleep=${SLEEP_MS}`);
-				yield* Effect.forEach(
+				const responses = yield* Effect.forEach(
 					entities,
 					(entity, i) =>
 						Effect.gen(function* () {
 							const started = Date.now();
-							const result = yield* client
-								.call((c) =>
+							const result = yield* client.call((c) =>
 									c.events.create({
 										payload: [
 											{
@@ -129,12 +168,21 @@ describe("debug hook deadline", () => {
 											},
 										],
 									}),
-								)
-								.pipe(Effect.result);
+								);
 							log(`request ${i} done in ${Date.now() - started}ms: ${JSON.stringify(result).slice(0, 400)}`);
+							expect(Date.now() - started).toBeLessThan(45_000);
+							return result;
 						}),
 					{ concurrency: "unbounded" },
 				);
+				expect(responses.some((response) => "status" in response)).toBe(true);
+				const pending = responses.find((response) => "status" in response);
+				if (pending && "status" in pending) {
+					expect(pending).toMatchObject({ status: "committed-follow-up-pending", writtenCount: 1, writesPending: false });
+					const { client: otherClient } = yield* createAuthenticatedClient();
+					const denied = yield* Effect.flip(otherClient.call((c) => c.events.getCreateOperation({ params: { operationId: pending.operationId } })));
+					expect(denied._tag).toBe("EventOperationNotFound");
+				}
 				const deadline = Date.now() + OBSERVE_MS;
 				let last = "";
 				while (Date.now() < deadline) {
@@ -156,7 +204,70 @@ describe("debug hook deadline", () => {
 					yield* Effect.sleep("5 seconds");
 				}
 				log("observation finished");
+				for (const response of responses) {
+					if (!("status" in response)) continue;
+					const operation = yield* pollUntil(`event operation ${response.operationId}`, client.call((c) =>
+						c.events.getCreateOperation({ params: { operationId: response.operationId } }),
+					).pipe(Effect.map((current) => current.status === "completed" ? current : null)));
+					expect(operation.result.count).toBe(1);
+				}
 			}),
 		OBSERVE_MS + 300000,
+	);
+
+	it.live("rejects writes when before-policies expire while queued", () =>
+		Effect.gen(function* () {
+			const { client } = yield* createAuthenticatedClient();
+			const entities = yield* Effect.forEach([0, 1, 2], (index) =>
+				createEntity(client, {
+					properties: { marker: `policy-${index}` },
+					name: `Policy ${index}`,
+					entitySchemaSlug: EntitySchemaSlug.make(slugs.entity),
+				}),
+			);
+			const responses = yield* Effect.forEach(
+				entities,
+				(entity, index) => client.call((c) => c.events.create({ payload: [
+					{ entityId: entity.id, eventSchemaSlug: EventSchemaSlug.make(slugs.policyEvent), properties: { marker: `policy-${index}` } },
+				] })),
+				{ concurrency: "unbounded" },
+			);
+			const completed = yield* Effect.forEach(responses, (response) => waitForCreateEvents(client, response));
+			expect(completed.filter((result) => result.count === 1)).toHaveLength(1);
+			expect(completed.filter((result) => result.failure?.reason.code === "policy-execution-failed")).toHaveLength(2);
+			const policies = yield* pollUntil("late policy attempts", listAutomationRuns({ hookSlug: AutomationHookSlug.make(slugs.policyHook) }).pipe(
+				Effect.map((runs) => runs.length === 3 && runs.every((run) => run.status === "succeeded" || run.status === "failed") ? runs : null),
+			));
+			expect(policies).toHaveLength(3);
+			expect(policies.every((run) => run.status === "succeeded")).toBe(true);
+			for (const [index, entity] of entities.entries()) {
+				const events = yield* listEventsForEntity(client, entity.id, undefined, 100);
+				expect(events.filter((event) => event.eventSchemaSlug === slugs.policyEvent)).toHaveLength(completed[index]?.count ?? 0);
+			}
+		}),
+		300_000,
+	);
+
+	it.live("reports committed items and remaining writes for one serial batch", () =>
+		Effect.gen(function* () {
+			const { client } = yield* createAuthenticatedClient();
+			const entity = yield* createEntity(client, {
+				properties: { marker: "batch" },
+				name: "Batch",
+				entitySchemaSlug: EntitySchemaSlug.make(slugs.entity),
+			});
+			const response = yield* client.call((c) => c.events.create({ payload: [0, 1, 2].map((index) => ({
+				entityId: entity.id,
+				eventSchemaSlug: EventSchemaSlug.make(slugs.event),
+				properties: { marker: `batch-${index}` },
+			})) }));
+			expect(response).toMatchObject({ status: "committed-follow-up-pending", writesPending: true });
+			if (!("status" in response)) return yield* Effect.die("Expected a pending batch operation");
+			expect(response.writtenCount).toBeGreaterThan(0);
+			expect(response.writtenCount).toBeLessThan(3);
+			const completed = yield* waitForCreateEvents(client, response);
+			expect(completed).toMatchObject({ count: 3, failure: null });
+		}),
+		300_000,
 	);
 });

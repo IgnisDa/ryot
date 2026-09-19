@@ -11,6 +11,7 @@ import {
 	insertRelationshipRow,
 	listEntitySchemas,
 	listSavedViews,
+	waitForCreateEvents,
 	waitForEventCount,
 } from "~/fixtures/kernel";
 import {
@@ -238,7 +239,7 @@ describe("Workouts E2E", () => {
 				}),
 			);
 
-			expect(createResult.count).toBe(1);
+			expect((yield* waitForCreateEvents(client, createResult)).count).toBe(1);
 
 			const events = yield* waitForSessionEventCount(client, workoutId, 1);
 			expect(events[0]?.sessionEntityId).toBe(workoutId);

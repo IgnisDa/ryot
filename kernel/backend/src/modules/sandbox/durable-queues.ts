@@ -1,7 +1,7 @@
 import { SandboxRunError, unknownToMessage } from "@ryot-app/contract/errors";
 import { SandboxExecutionGrants } from "@ryot-app/contract/modules/sandbox/schemas";
 import { workflowReplayJournalEntrySchema } from "@ryot-app/sandbox-sdk/workflow";
-import { Effect, Layer, Schedule, Schema } from "effect";
+import { Effect, Layer, Schema } from "effect";
 import { DurableQueue } from "effect/unstable/workflow";
 
 import { AppConfig } from "#lib/infrastructure/config/service";
@@ -42,12 +42,8 @@ export const SandboxExecutionQueue = DurableQueue.make({
 	idempotencyKey: ({ executionId }) => executionId,
 });
 
-const sandboxRetrySchedule = Schedule.max([Schedule.exponential("1 second"), Schedule.recurs(2)]);
-
 export const processSandboxExecutionQueue = (payload: SandboxExecutionQueuePayload) =>
 	DurableQueue.process(SandboxExecutionQueue, payload).pipe(
-		Effect.timeout("1 minute"),
-		Effect.retry(sandboxRetrySchedule),
 		Effect.mapError(
 			(error) => new SandboxRunError({ kind: "infrastructure", message: unknownToMessage(error) }),
 		),

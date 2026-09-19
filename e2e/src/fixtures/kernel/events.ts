@@ -1,3 +1,7 @@
+import type {
+	CreateEventsResponse,
+	EventCreatePending,
+} from "@ryot-app/contract/modules/events/schemas";
 import { EntityId, EventId, EventSchemaSlug } from "@ryot-app/contract/schema/brands";
 import {
 	and,
@@ -35,6 +39,28 @@ export const waitForEventCount = (client: Client, entityId: string, expectedCoun
 			return events.length >= expectedCount ? events : null;
 		}),
 	);
+
+export const waitForCreateEvents = (
+	client: Client,
+	response: CreateEventsResponse | typeof EventCreatePending.Type,
+) =>
+	"count" in response
+		? Effect.succeed(response)
+		: pollUntil(
+				`event operation ${response.operationId}`,
+				client
+					.call((c) =>
+						c.events.getCreateOperation({ params: { operationId: response.operationId } }),
+					)
+					.pipe(
+						Effect.map((result) => {
+							if (result.status === "failed") {
+								throw new Error("Event operation failed");
+							}
+							return result.status === "completed" ? result.result : null;
+						}),
+					),
+			);
 
 export const createEventTestFixture = (client: Client) =>
 	Effect.gen(function* () {
