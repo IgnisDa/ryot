@@ -4,6 +4,7 @@ import clsx from "clsx";
 
 import type { MediaCursorPage } from "./cursor-page-state";
 import { MediaCursorPages, type MediaCursorPagesCopy } from "./cursor-pages";
+import { mediaAspectClass, type MediaArtworkAspect } from "./entity-presentation";
 import {
 	mediaEpisodeAirDateLabel,
 	mediaEpisodeAsset,
@@ -19,7 +20,7 @@ import {
 } from "./episodes-state";
 import { ManagedAssetImage } from "./managed-assets";
 
-export type MediaEpisodeArtworkAspect = "video" | "square";
+export type MediaEpisodeArtworkAspect = Extract<MediaArtworkAspect, "still" | "square">;
 
 export type MediaEpisodeRender<Episode extends MediaEpisode> = {
 	readonly aspect: MediaEpisodeArtworkAspect;
@@ -42,12 +43,11 @@ type MediaEpisodePageQuery<Episode> = RyotQuery<MediaEpisodePageInput, MediaCurs
 const metaLabel = (parts: readonly (string | undefined)[]) =>
 	parts.filter((part) => part !== undefined).join(" • ");
 
-const artworkClass = (aspect: MediaEpisodeArtworkAspect, compact: boolean) => {
-	if (aspect === "square") {
-		return compact ? "aspect-square w-20" : "aspect-square w-24";
-	}
-	return compact ? "aspect-video w-28" : "aspect-video w-44";
-};
+const ARTWORK_WIDTH_CLASS: Record<MediaEpisodeArtworkAspect, { compact: string; regular: string }> =
+	{ still: { compact: "w-28", regular: "w-44" }, square: { compact: "w-20", regular: "w-24" } };
+
+const artworkClass = (aspect: MediaEpisodeArtworkAspect, compact: boolean) =>
+	clsx(mediaAspectClass(aspect), ARTWORK_WIDTH_CLASS[aspect][compact ? "compact" : "regular"]);
 
 function MediaEpisodeRow<Episode extends MediaEpisode>(props: {
 	readonly compact: boolean;
