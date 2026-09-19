@@ -1,16 +1,18 @@
 # E2E Load Sensitivity
 
-Open design issues that make the E2E suite fail under concurrent load. Each entry states whether it
-was measured or inferred from code. Measurements come from an 8 vCPU / 16 GB Linux host running
-batches of the suite with `maxWorkers=6` against the shared backend.
+Open design issues that make the E2E suite fail under concurrent load. Measurements come from an
+8 vCPU / 16 GB Linux host running the suite with `maxWorkers=6` against the shared backend, and from
+targeted experiments on the same host.
 
 ## Summary
 
 PostgreSQL is not the bottleneck: during loaded batches it showed at most one active query and no
-lock waits, and individual spans stayed in the low milliseconds. Failures come from long serial
-chains of fast steps, and from fixed wall-clock budgets that a slowed chain crosses. Increasing
-`maxWorkers` raises per-step latency, which each mechanism below multiplies or converts into a
-failure.
+lock waits, and individual spans stayed in the low milliseconds. Failures come from three sources:
+long serial chains of fast steps that no server timeout bounds, until they cross a test timeout or
+Bun's idle timeout; state shared across files (global entities, monitored entities, and the growing
+user count); and a Better Auth transaction adapter leaking into unrelated requests. Increasing
+`maxWorkers` lengthens the chains, grows the shared state faster, and creates more of the pool waits
+the leak needs.
 
 ## Serial automation chains inside `POST /events`
 
@@ -31,53 +33,57 @@ Impact: `logging more than 100 anime episodes creates a completion event`
 running and 293 seconds of its 300-second budget with 22 files running. Other media lifecycle
 suites follow the same path.
 
-## Required-hook deadline and the frequent-cron fallback
+## Workflow-body timeouts do not bound waiting
 
-Status: inferred from code; not observed in a loaded run.
+Status: measured.
 
-A `required` after-hook gets `AUTOMATION_IMMEDIATE_TIMEOUT_MS` (sandbox execution timeout plus
-5 seconds, 35 seconds total) inside the request. On expiry the request returns a
-`required-hook-pending` warning. `AutomationReconciliation` resubmits runs that remain queued, and
-it runs only from the frequent cron, whose default interval is 5 minutes
-(`kernel/backend/src/modules/scheduler/cron.ts`).
+The required-hook deadline (`AUTOMATION_IMMEDIATE_TIMEOUT_MS`, 35 seconds, in `after` in
+`kernel/backend/src/modules/automations/execution.ts`) and the sandbox queue timeout (1 minute in
+`processSandboxExecutionQueue`, `kernel/backend/src/modules/sandbox/durable-queues.ts`) both wrap
+waits inside workflow bodies. When a child workflow or a `DurableQueue.process` result is not ready,
+the Effect workflow engine suspends the calling workflow instead of blocking it
+(`WorkflowEngine.execute` and `DurableDeferred.await` call `Workflow.suspend`). The timeout fiber
+ends with the suspension; on resume the body replays, computes a fresh deadline, and finds the child
+already complete. Neither timeout therefore sees queue wait.
 
-If an expired run remains queued rather than continuing in its durable workflow, its effect appears
-only at the next 5-minute boundary, which exceeds the 180-second test timeout. Whether the workflow
-continues after the request stops waiting is unverified. A loaded full-suite run recorded no
-deadline expiries.
+The HTTP caller of `EventCreateWorkflow` is not a workflow, so it polls a suspended execution with
+the engine's default `suspendedRetrySchedule` (exponential from 200 milliseconds, capped at
+30 seconds, unbounded). The request returns only after every required hook finishes, up to
+30 seconds late.
 
-## Sandbox queue timeout includes queue wait
-
-Status: inferred from code; not observed in a loaded run.
-
-`processSandboxExecutionQueue` (`kernel/backend/src/modules/sandbox/durable-queues.ts`) wraps
-`DurableQueue.process` in a 1-minute timeout with two retries. `DurableQueue.process` offers the
-item and awaits its deferred result, so time spent waiting behind other work in the
-`SANDBOX_WORKER_CONCURRENCY` slots counts against that timeout. All E2E workers share one backend
-with 5 slots, so queue wait grows with the number of concurrent files. A loaded full-suite run
-recorded no queue timeouts.
+With `SANDBOX_WORKER_CONCURRENCY=1`, six concurrent single-event requests whose required hook sleeps
+20 seconds returned after 23, 52, 78, 108, 108, and 138 seconds, all with no warnings, and every run
+succeeded on its first attempt without reconciliation. Queue wait under load therefore lengthens
+requests without limit instead of producing `required-hook-pending` or a queue timeout, and the
+frequent-cron fallback is not involved.
 
 ## Wall-clock budgets on CPU-bound work
 
-Status: inferred from code.
+Status: measured; no failures found.
 
-The sandbox compiler budget (`SANDBOX_LIMITS.compiler.timeoutMs`, 5 seconds) covers spawning a
-fresh Bun process and loading the TypeScript compiler, not only compilation. Replay timeout
-(30 seconds), bridge session expiry, and HTTP attempt timeout (8 seconds) are also wall-clock.
-CPU contention stretches each of them. No compiler timeout was observed on the 8 vCPU host.
+The sandbox compiler budget (`SANDBOX_LIMITS.compiler.timeoutMs`, 5 seconds) is not on the E2E
+path: fixtures compile plugin packages in the test process (`e2e/src/fixtures/kernel/compiled-package.ts`)
+and the server ingests precompiled archives. With 0, 16, and 32 busy-loop processes on the 8 vCPU
+host, `e2e/src/api/kernel/automations/lifecycle-triggers.test.ts` passed each time while its test
+time grew from 45 to 60 to 83 seconds; no sandbox execution, replay, or HTTP timeout fired.
 
-## Retained composition loads the Media client module mid-test
+## Shared global entities leak into a fresh user's saved view
 
-Status: measured; trigger unconfirmed.
+Status: measured and reproduced.
 
 `retains the document and bridge across same-composition saved views`
-(`e2e/src/browser/composed-views.test.ts`) fails under load because the retained document requests
-the Media plugin's lazy client artifact (`module.css` and `module.js`) around the request-count
-snapshot. The iframe, its `src`, and its runtime state are retained, so the navigation itself does
-not reload anything. When run alone the artifact is never requested during the test. The likely
-trigger is the new user's asynchronous Media workspace bootstrap completing during the test and a
-live update rendering Media content, but this is not confirmed. A fix requires either a fixture
-that waits for user bootstrap or a narrower assertion.
+(`e2e/src/browser/composed-views.test.ts`) asserts that no client asset is requested after its
+snapshot. Its saved views list `book` entities (`rowsDataSources` in
+`e2e/src/fixtures/kernel/saved-views.ts`), and global books created by other files through
+`/api/test-support/entities/global` are visible to the fresh user. When a book row renders, the
+document lazily loads the owning Media plugin's client artifact (`module.css` and `module.js`).
+The load starts about 200 milliseconds after the entity query returns; the test takes its snapshot
+about 260 milliseconds after the document boots, so under load the load lands after the snapshot.
+
+Run alone with one seeded global book, a 150 millisecond delay on `/ryotql/plugin/execute`, and a
+1.5 second pause before the assertions, the test fails with the same two Media requests as the
+loaded run. Without the seeded book it passes and never requests the Media artifact. A fix requires
+either isolating the test from global entities or narrowing the assertion.
 
 ## System plugin changes materialize every user in the request
 
@@ -96,11 +102,14 @@ exceed the 180-second hook timeout. The same cost applies to any deployment with
 
 Status: measured.
 
-`kernel/backend/src/boot/server.ts` configures Bun with `idleTimeout: 60`. A request that sends no
-bytes for 60 seconds loses its connection, and the handler fiber is interrupted wherever it is. A
-late-run system plugin uninstall committed, then spent more than 57 seconds in the per-user
-materialization above; the connection closed, the server logged status 499, and the interruption
-landed inside `publishAfterCatalogMaterialization`
+`kernel/backend/src/boot/server.ts` configures Bun with `idleTimeout: 60`. Bun 1.4.2 applies it to
+pending requests that carry no body, such as `GET` and `DELETE`: a standalone `Bun.serve` with
+`idleTimeout: 8` closed bodiless requests after 8 seconds with "The socket connection was closed
+unexpectedly", while a `POST` with a JSON body completed after 20 seconds. The handler fiber is
+interrupted wherever it is. Both plugin uninstall endpoints are `DELETE`. Late-run system plugin
+uninstalls committed, then spent 57.8 to 59.5 seconds in the per-user materialization above; the
+connection closed, the server logged status 499, and the interruption landed inside
+`publishAfterCatalogMaterialization`
 (`kernel/backend/src/modules/plugins/catalog-materialization.ts`). The remaining users were not
 re-materialized and the catalog invalidation was not published.
 
@@ -111,17 +120,46 @@ finalizer uninstalled it again, receiving `PluginNotFoundError`. This produced t
 `PluginNotFoundError` failures in `imports.test.ts` and `integrations.test.ts` from other runs. Any
 post-commit work that runs inside a request fiber is exposed to the same interruption.
 
-## Unexplained database errors under load
+## Better Auth transaction adapters leak across requests
 
-Status: measured; cause unconfirmed.
+Status: measured; mechanism reproduced.
 
-In one full run, `PATCH /api/user-settings/preferences` returned 500 with `DbError: Connection is
-closed`. That message comes from `@effect/sql-pg` closing a pooled connection while a query was
-using it; PostgreSQL logged no terminated connections. Forty seconds later, four god-mode requests
-(`/api/god-mode/users/provision` and `/disable/set`) returned 500 within 2 to 7 milliseconds as
-`GodModeInternalFailure` with `persistence-failed`. The god-mode routes map every `DbError` to that
-reason without logging it (`kernel/backend/src/modules/god-mode/routes.ts`), so their cause is not
-recorded. Both failures pass when their files run alone.
+Better Auth resolves its database adapter through an `AsyncLocalStorage` store
+(`getCurrentAdapter` in `@better-auth/core/context`): inside `runWithTransaction` the store holds
+the transaction adapter. Ryot's adapter (`kernel/backend/src/modules/auth/effect-postgres-adapter.ts`)
+runs that transaction as an Effect fiber, and Effect resumes waiting fibers from whichever
+asynchronous context wakes them. A fiber of an unrelated request that is woken while the store is
+set, for example by a pool connection released inside the transaction, keeps the store, including
+through its later promises. Its later Better Auth calls, such as `internalAdapter.updateUser`, then
+run through the other request's transaction adapter and its captured Effect context.
+
+In one full run a single Better Auth transaction committed at 11:08:47. Five later statements
+executed under that transaction's trace, each failing within 0.05 milliseconds on its closed
+connection, and each coincided with one 500: `PATCH /api/user-settings/preferences`
+(`DbError: Connection is closed`) and four god-mode requests (`/api/god-mode/users/provision` and
+`/disable/set`, mapped to `persistence-failed`). A standalone script shows a pool waiter woken
+inside `AsyncLocalStorage.run` keeps the store, and an instrumented server under concurrent sign-ups
+caught `updateUser` executing through a transaction adapter 433 milliseconds after that transaction
+ended. When the connection is still open, such a statement runs on a connection already returned to
+the pool, possibly inside another request's transaction, and succeeds silently.
+
+The god-mode routes map every `DbError` to `persistence-failed` without logging it
+(`kernel/backend/src/modules/god-mode/routes.ts`), which hid this cause.
+
+## Sign-up holds a transaction while its hooks take more connections
+
+Status: measured.
+
+Better Auth runs email sign-up (user, account, and session creation) in one transaction. The
+`session.create.before` and `user.create.after` database hooks
+(`kernel/backend/src/modules/auth/service.ts`) run Effect programs against the root runtime, so the
+session gate and user bootstrap acquire other pool connections while the sign-up transaction holds
+its own, and they run outside that transaction. With `DATABASE_POOL_MAX=4` and 16 concurrent
+sign-ups, every usable connection was held by a sign-up transaction `idle in transaction` after
+inserting its `account` row. No sign-up completed; the 16 request spans ended after 240 seconds and
+the transactions were still open after five minutes. With
+the default pool of 100 the E2E suite does not reach this, but any burst of concurrent sign-ups
+larger than the pool deadlocks.
 
 ## Global media-monitoring sweep grows across the run
 
