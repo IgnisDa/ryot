@@ -7,6 +7,12 @@ export type ResetCaptureTransport = {
 	readonly reserve: (email: string, id: string) => Effect.Effect<boolean, DbError>;
 	readonly release: (email: string, id: string) => Effect.Effect<unknown, DbError>;
 	readonly deliver: (email: string, id: string, message: string) => Effect.Effect<unknown, DbError>;
+	readonly track: (
+		email: string,
+		id: string,
+		userId: string,
+		token: string,
+	) => Effect.Effect<{ readonly tracked: boolean; readonly previous: string | null }, DbError>;
 	readonly subscriber: () => {
 		readonly quit: () => Effect.Effect<unknown, DbError>;
 		readonly subscribe: (id: string) => Effect.Effect<unknown, DbError>;
@@ -23,14 +29,28 @@ const ResetLinkMessage = Schema.fromJsonString(
 export const deliverResetLink = (args: {
 	readonly email: string;
 	readonly token: string;
+	readonly userId: string;
 	readonly frontendUrl: string;
 	readonly request: Request | undefined;
 	readonly transport: ResetCaptureTransport;
+	readonly revokeToken: (token: string) => Effect.Effect<unknown, DbError>;
 }) =>
 	Effect.gen(function* () {
 		const id = args.request?.headers.get(captureHeader);
 		if (!id) {
 			return;
+		}
+		const { tracked, previous } = yield* args.transport.track(
+			args.email,
+			id,
+			args.userId,
+			args.token,
+		);
+		if (!tracked) {
+			return;
+		}
+		if (previous !== null) {
+			yield* args.revokeToken(previous);
 		}
 		const resetUrl = `${args.frontendUrl}/reset-password?token=${args.token}`;
 		const message = yield* Schema.encodeEffect(ResetLinkMessage)({

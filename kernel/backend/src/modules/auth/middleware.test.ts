@@ -16,6 +16,7 @@ import {
 } from "@ryot-app/contract/oauth";
 import { UserId } from "@ryot-app/contract/schema/brands";
 import { Effect, Redacted } from "effect";
+import type { unhandled } from "effect/Types";
 import { HttpRouter, HttpServerRequest, HttpServerResponse } from "effect/unstable/http";
 
 import {
@@ -23,6 +24,7 @@ import {
 	getOAuthVerificationOptions,
 	isDemoProtectedAuthRequest,
 	isLifecycleProtectedAuthPath,
+	makeAdminMiddleware,
 	makeAuthMiddleware,
 	resolveCredential,
 } from "./service";
@@ -469,3 +471,21 @@ it.effect("enforces representative demo endpoint policies with a typed 403", () 
 		expect(stateUpdate.handlerCalled()).toBe(false);
 	});
 });
+
+it.effect("accepts only the configured admin token", () =>
+	Effect.gen(function* () {
+		const admin = makeAdminMiddleware(Redacted.make("test-admin-token"));
+		const authorize = (
+			token: string,
+		): Effect.Effect<HttpServerResponse.HttpServerResponse, AuthUnauthorized | unhandled> =>
+			admin.adminToken(Effect.succeed(HttpServerResponse.empty()), {
+				credential: Redacted.make(token),
+			});
+		expect((yield* authorize("test-admin-token")).status).toBe(204);
+		for (const token of ["test-admin-tokem", "", "wrong"]) {
+			expect(yield* Effect.flip(authorize(token))).toEqual(
+				new AuthUnauthorized({ reason: { code: "admin-access-required" } }),
+			);
+		}
+	}),
+);
