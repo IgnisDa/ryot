@@ -24,6 +24,7 @@ const user = {
 	email: "user@example.com",
 	id: UserId.make("user-1"),
 	preferences: { language: null, allowNsfw: false, disableIntegrations: false },
+	accountGeneration: { userId: UserId.make("user-1"), token: "test-account-generation" },
 } satisfies CurrentUserValue;
 
 const providerId = SandboxProviderId.make("provider-1");
@@ -269,8 +270,8 @@ layer(
 			expect(executions).toHaveLength(1);
 			expect(executions[0]).toMatchObject({
 				scriptId: "search-script-id",
-				subject: { type: "user", userId: user.id },
 				input: { page: 2, pageSize: 10, query: "record", options: { passRawQuery: true } },
+				subject: { type: "user", userId: user.id, accountGeneration: user.accountGeneration },
 			});
 		}),
 	);
@@ -351,7 +352,7 @@ layer(
 			expect(executions[0]).toMatchObject({
 				input: {},
 				scriptId: searchOptionsScript.id,
-				subject: { type: "user", userId: user.id },
+				subject: { type: "user", userId: user.id, accountGeneration: user.accountGeneration },
 			});
 		}),
 	);

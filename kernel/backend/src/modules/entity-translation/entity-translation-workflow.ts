@@ -1,4 +1,5 @@
 import { SandboxRunError } from "@ryot-app/contract/errors";
+import { AccountGeneration } from "@ryot-app/contract/schema/account-generation";
 import { EntityId, SandboxProviderId, UserId } from "@ryot-app/contract/schema/brands";
 import { Schema } from "effect";
 import { Workflow } from "effect/unstable/workflow";
@@ -14,6 +15,7 @@ export const TranslateEntityWorkflowPayload = Schema.Struct({
 	executionId: Schema.String,
 	providerId: SandboxProviderId,
 	entitySchemaSlug: Schema.String,
+	accountGeneration: AccountGeneration,
 });
 
 export type TranslateEntityWorkflowPayload = typeof TranslateEntityWorkflowPayload.Type;

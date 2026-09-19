@@ -53,6 +53,7 @@ describe("lifecycle commands", () => {
 			importRunId: ImportRunId.make("import-1"),
 			initiator: { id: integrationId, kind: "integration" },
 			providerExecutionId: AutomationExecutionId.make("provider-1"),
+			accountGeneration: { userId: UserId.make("user-1"), token: "test-account-generation" },
 		});
 
 		const trigger = lifecycleTrigger(command, scopeUserId, entityPayload);

@@ -17,7 +17,7 @@ export const integrationsFrequentTask: FrequentCronTask = {
 				.execute(IntegrationSyncWorkflow, {
 					discard: true,
 					executionId: syncExecutionId,
-					payload: { userId: null, executionId: syncExecutionId },
+					payload: { userId: null, accountGeneration: null, executionId: syncExecutionId },
 				})
 				.pipe(
 					Effect.catchCause((cause) => Effect.logError("integrations sync enqueue failed", cause)),

@@ -7,10 +7,8 @@ import {
 	type SelectChoice,
 } from "@ryot-app/client-ui-sdk";
 import { AppIcon } from "@ryot-app/client-ui-sdk/icon";
-import type {
-	UpdateUserPreferencesBody,
-	UserPreferences,
-} from "@ryot-app/contract/modules/user-settings/schemas";
+import type { UpdateUserPreferencesBody } from "@ryot-app/contract/modules/user-settings/schemas";
+import type { UserPreferences } from "@ryot-app/contract/schema/user-preferences";
 import { useForm } from "@tanstack/react-form";
 import { Effect } from "effect";
 import { useState } from "react";

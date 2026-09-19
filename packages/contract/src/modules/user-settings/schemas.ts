@@ -1,17 +1,5 @@
-import { Schema } from "effect";
+import { UserPreferencesPatch } from "../../schema/user-preferences";
 
-export const UserPreferences = Schema.Struct({
-	allowNsfw: Schema.Boolean,
-	disableIntegrations: Schema.Boolean,
-	language: Schema.NullOr(Schema.String),
-});
-
-export type UserPreferences = typeof UserPreferences.Type;
-
-export const UpdateUserPreferencesBody = Schema.Struct({
-	allowNsfw: Schema.optional(Schema.Boolean),
-	disableIntegrations: Schema.optional(Schema.Boolean),
-	language: Schema.optional(Schema.NullOr(Schema.String)),
-});
+export const UpdateUserPreferencesBody = UserPreferencesPatch;
 
 export type UpdateUserPreferencesBody = typeof UpdateUserPreferencesBody.Type;

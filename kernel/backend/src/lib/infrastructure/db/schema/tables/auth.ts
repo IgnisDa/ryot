@@ -1,5 +1,11 @@
 import {
+	defaultUserPreferences,
+	type UserPreferences,
+} from "@ryot-app/contract/schema/user-preferences";
+import { sql } from "drizzle-orm";
+import {
 	boolean,
+	check,
 	index,
 	integer,
 	jsonb,
@@ -9,22 +15,46 @@ import {
 	uniqueIndex,
 } from "drizzle-orm/pg-core";
 
-export const user = snakeCase.table("user", {
-	image: text(),
-	name: text().notNull(),
-	id: text().primaryKey(),
-	twoFactorEnabled: boolean(),
-	email: text().notNull().unique(),
-	disabledAt: timestamp({ withTimezone: true }),
-	emailVerified: boolean().default(false).notNull(),
-	bootstrapCompletedAt: timestamp({ withTimezone: true }),
-	preferences: jsonb().$type<Record<string, unknown>>().notNull(),
-	createdAt: timestamp({ withTimezone: true }).defaultNow().notNull(),
-	updatedAt: timestamp({ withTimezone: true })
-		.defaultNow()
-		.$onUpdate(() => /* @__PURE__ */ new Date())
-		.notNull(),
-});
+export const user = snakeCase.table(
+	"user",
+	{
+		image: text(),
+		name: text().notNull(),
+		id: text().primaryKey(),
+		twoFactorEnabled: boolean(),
+		email: text().notNull().unique(),
+		disabledAt: timestamp({ withTimezone: true }),
+		emailVerified: boolean().default(false).notNull(),
+		bootstrapCompletedAt: timestamp({ withTimezone: true }),
+		createdAt: timestamp({ withTimezone: true }).defaultNow().notNull(),
+		accountGeneration: text()
+			.default(sql`gen_random_uuid()::text`)
+			.notNull(),
+		preferences: jsonb().$type<UserPreferences>().default(defaultUserPreferences).notNull(),
+		updatedAt: timestamp({ withTimezone: true })
+			.defaultNow()
+			.$onUpdate(() => /* @__PURE__ */ new Date())
+			.notNull(),
+	},
+	(table) => [
+		check(
+			"user_preferences_check",
+			sql`
+		jsonb_typeof(${table.preferences}) = 'object'
+		and ${table.preferences} ?& array['allowNsfw', 'disableIntegrations', 'language']
+		and ${table.preferences} - 'allowNsfw' - 'disableIntegrations' - 'language' = '{}'::jsonb
+		and jsonb_typeof(${table.preferences}->'allowNsfw') = 'boolean'
+		and jsonb_typeof(${table.preferences}->'disableIntegrations') = 'boolean'
+		and (
+			jsonb_typeof(${table.preferences}->'language') = 'null'
+			or (jsonb_typeof(${table.preferences}->'language') = 'string'
+				and ${table.preferences}->>'language' <> ''
+				and btrim(${table.preferences}->>'language', E' \t\n\r') = ${table.preferences}->>'language')
+		)
+	`,
+		),
+	],
+);
 export const session = snakeCase.table(
 	"session",
 	{

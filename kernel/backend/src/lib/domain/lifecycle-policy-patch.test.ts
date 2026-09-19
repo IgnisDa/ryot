@@ -1,5 +1,8 @@
 import { assert, expect, it } from "@effect/vitest";
-import { AutomationRequestPayload } from "@ryot-app/contract/modules/automations/lifecycle";
+import {
+	AutomationEntityCreateRequestPayload,
+	AutomationEntityDeleteRequestPayload,
+} from "@ryot-app/contract/modules/automations/lifecycle";
 import { Schema } from "effect";
 
 import {
@@ -8,7 +11,7 @@ import {
 	canonicalLifecyclePolicyPatch,
 } from "./lifecycle-policy-patch";
 
-const request = Schema.decodeSync(AutomationRequestPayload.members[0])({
+const request = Schema.decodeSync(AutomationEntityCreateRequestPayload)({
 	resource: "entity",
 	category: "request",
 	operation: "create",
@@ -58,7 +61,7 @@ it("applies ordered patches and rejects prohibited operations and mismatched res
 			draft: { properties: { remove: [], set: { role: "owner" } } },
 		}),
 	).toMatchObject({ ok: false });
-	const deletion = Schema.decodeSync(AutomationRequestPayload.members[2])({
+	const deletion = Schema.decodeSync(AutomationEntityDeleteRequestPayload)({
 		resource: "entity",
 		category: "request",
 		operation: "delete",
@@ -106,11 +109,11 @@ it("reconstructs validated normalized successors from canonical accepted patches
 });
 
 it("omits canonical no-op patches for canonically equal properties", () => {
-	const previous = Schema.decodeSync(AutomationRequestPayload.members[0])({
+	const previous = Schema.decodeSync(AutomationEntityCreateRequestPayload)({
 		...request,
 		draft: { ...request.draft, properties: { object: { a: 1, b: 2 } } },
 	});
-	const successor = Schema.decodeSync(AutomationRequestPayload.members[0])({
+	const successor = Schema.decodeSync(AutomationEntityCreateRequestPayload)({
 		...previous,
 		draft: { ...previous.draft, properties: { object: { b: 2, a: 1 } } },
 	});

@@ -91,6 +91,7 @@ describe("EntityInterestTicketService", () => {
 				const created = yield* service.create({
 					preferredLanguage: "es",
 					userId: UserId.make("user-1"),
+					accountGeneration: { userId: UserId.make("user-1"), token: "test-account-generation" },
 				});
 
 				expect(created.ticket).toMatch(/^[A-Za-z0-9_-]{43}$/);
@@ -100,7 +101,7 @@ describe("EntityInterestTicketService", () => {
 					new RegExp(`^${entityInterestTicketKey("")}[a-f0-9]{64}$`),
 				);
 				expect([...(yield* store.values).values()]).toEqual([
-					'{"userId":"user-1","preferredLanguage":"es"}',
+					'{"userId":"user-1","accountGeneration":{"userId":"user-1","token":"test-account-generation"},"preferredLanguage":"es"}',
 				]);
 				expect([...(yield* store.expiries).values()]).toEqual([
 					ENTITY_INTEREST_SOCKET_TICKET_TTL_SECONDS,
@@ -115,7 +116,11 @@ describe("EntityInterestTicketService", () => {
 			Effect.gen(function* () {
 				const service = yield* EntityInterestTicketService;
 				const exit = yield* Effect.exit(
-					service.create({ preferredLanguage: null, userId: UserId.make("user-1") }),
+					service.create({
+						preferredLanguage: null,
+						userId: UserId.make("user-1"),
+						accountGeneration: { userId: UserId.make("user-1"), token: "test-account-generation" },
+					}),
 				);
 
 				expect(failure(exit)).toEqual(
@@ -132,11 +137,13 @@ describe("EntityInterestTicketService", () => {
 				const created = yield* service.create({
 					preferredLanguage: null,
 					userId: UserId.make("user-1"),
+					accountGeneration: { userId: UserId.make("user-1"), token: "test-account-generation" },
 				});
 
 				expect(yield* service.consume(created.ticket)).toEqual({
 					userId: "user-1",
 					preferredLanguage: null,
+					accountGeneration: { userId: UserId.make("user-1"), token: "test-account-generation" },
 				});
 				const reused = yield* Effect.exit(service.consume(created.ticket));
 				expect(failure(reused)).toEqual(new EntityInterestInvalidTicket());
@@ -151,6 +158,7 @@ describe("EntityInterestTicketService", () => {
 				const created = yield* service.create({
 					preferredLanguage: "fr",
 					userId: UserId.make("user-1"),
+					accountGeneration: { userId: UserId.make("user-1"), token: "test-account-generation" },
 				});
 				const exits = yield* Effect.forEach(
 					[service.consume(created.ticket), service.consume(created.ticket)],
@@ -187,6 +195,7 @@ describe("EntityInterestTicketService", () => {
 					const created = yield* service.create({
 						preferredLanguage: null,
 						userId: UserId.make("user-1"),
+						accountGeneration: { userId: UserId.make("user-1"), token: "test-account-generation" },
 					});
 					yield* store.clear;
 
@@ -206,6 +215,7 @@ describe("EntityInterestTicketService", () => {
 				const created = yield* service.create({
 					preferredLanguage: null,
 					userId: UserId.make("user-1"),
+					accountGeneration: { userId: UserId.make("user-1"), token: "test-account-generation" },
 				});
 				const [key] = (yield* store.values).keys();
 				assert(key !== undefined);

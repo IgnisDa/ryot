@@ -1,7 +1,11 @@
 import { Effect, Layer } from "effect";
 import { WorkflowEngine } from "effect/unstable/workflow/WorkflowEngine";
 
-import { EntityPopulationTrigger } from "#modules/entities/population-trigger";
+import {
+	EntityPopulationTrigger,
+	entityPopulationExecutionId,
+} from "#modules/entities/population-trigger";
+import { MutationReceipts } from "#modules/mutations/receipts";
 import { PluginRuntimeResolver } from "#modules/plugins/runtime-resolver";
 
 import { ProviderEntityPopulationWorkflow } from "./provider-entity-population-workflow";
@@ -11,6 +15,7 @@ export const EntityPopulationTriggerLive = Layer.effect(
 	Effect.gen(function* () {
 		const engine = yield* WorkflowEngine;
 		const pluginRuntime = yield* PluginRuntimeResolver;
+		const receipts = yield* MutationReceipts.make;
 
 		return {
 			request: (input) =>
@@ -21,7 +26,15 @@ export const EntityPopulationTriggerLive = Layer.effect(
 					if (input.userId && !provider) {
 						return;
 					}
-					const executionId = `populate-${input.entityId}`;
+					const executionId = entityPopulationExecutionId(
+						input.entityId,
+						input.command.accountGeneration,
+					);
+					yield* receipts.registerWorkflow(
+						input.command.accountGeneration,
+						ProviderEntityPopulationWorkflow._tag,
+						executionId,
+					);
 					yield* engine
 						.execute(ProviderEntityPopulationWorkflow, {
 							executionId,

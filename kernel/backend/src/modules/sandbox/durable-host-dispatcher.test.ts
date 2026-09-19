@@ -41,7 +41,11 @@ it.effect("applies centralized capability authorization before durable host disp
 				resolutionMode: "exact",
 				executionId: "sandbox-parent",
 				scriptId: SandboxScriptId.make("script-1"),
-				subject: { type: "user", userId: UserId.make("user-1") },
+				subject: {
+					type: "user",
+					userId: UserId.make("user-1"),
+					accountGeneration: { userId: UserId.make("user-1"), token: "test-account-generation" },
+				},
 			},
 			{
 				providerId: null,
@@ -50,7 +54,11 @@ it.effect("applies centralized capability authorization before durable host disp
 				scriptSlug: "script",
 				scriptId: SandboxScriptId.make("script-1"),
 				metadata: { capabilities: ["sendNotification"] },
-				subject: { type: "user", userId: UserId.make("user-1") },
+				subject: {
+					type: "user",
+					userId: UserId.make("user-1"),
+					accountGeneration: { userId: UserId.make("user-1"), token: "test-account-generation" },
+				},
 			},
 			"sandbox-parent",
 			"2026-08-06T00:00:00.000Z",
@@ -75,7 +83,11 @@ it.effect("derives event root identity from the trusted workflow and host index"
 				resolutionMode: "exact",
 				executionId: "sandbox-parent",
 				scriptId: SandboxScriptId.make("script-1"),
-				subject: { type: "user", userId: UserId.make("user-1") },
+				subject: {
+					type: "user",
+					userId: UserId.make("user-1"),
+					accountGeneration: { userId: UserId.make("user-1"), token: "test-account-generation" },
+				},
 			},
 			{
 				providerId: null,
@@ -84,7 +96,11 @@ it.effect("derives event root identity from the trusted workflow and host index"
 				scriptSlug: "script",
 				scriptId: SandboxScriptId.make("script-1"),
 				metadata: { capabilities: ["createEvents"] },
-				subject: { type: "user", userId: UserId.make("user-1") },
+				subject: {
+					type: "user",
+					userId: UserId.make("user-1"),
+					accountGeneration: { userId: UserId.make("user-1"), token: "test-account-generation" },
+				},
 			},
 			"sandbox-parent",
 			"2026-08-06T00:00:00.000Z",

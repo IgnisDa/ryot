@@ -6,6 +6,7 @@ import {
 	PluginNotFoundError,
 	PluginRequestError,
 } from "@ryot-app/contract/modules/plugins/schemas";
+import type { AccountGeneration } from "@ryot-app/contract/schema/account-generation";
 import {
 	type IntegrationId,
 	PluginSlug,
@@ -20,6 +21,7 @@ import type { Headers as PlatformHeaders } from "effect/unstable/http";
 import { mapDatabaseErrors } from "#lib/infrastructure/db/errors";
 import { DatabaseSession } from "#lib/infrastructure/db/session";
 import { AuthService } from "#modules/auth/service";
+import { MutationReceipts } from "#modules/mutations/receipts";
 import { SandboxExecutionService } from "#modules/sandbox/service";
 
 import { PluginRepository } from "./repository";
@@ -41,6 +43,7 @@ export class IntegrationOperationScopeResolver extends Context.Service<
 >()("IntegrationOperationScopeResolver") {}
 
 type DispatchInput = {
+	readonly accountGeneration: AccountGeneration;
 	readonly userId: UserId;
 	readonly payload: JsonValue;
 	readonly pluginSlug: string;
@@ -57,6 +60,7 @@ export class OperationsService extends Context.Service<OperationsService>()("Ope
 		const runtime = yield* PluginRuntimeResolver;
 		const sandbox = yield* SandboxExecutionService;
 		const integrationScopeResolver = yield* IntegrationOperationScopeResolver;
+		const receipts = yield* MutationReceipts.make;
 
 		const dispatch = Effect.fn("OperationsService.dispatch")(function* (input: DispatchInput) {
 			const executionId = `plugin-operation-${input.pluginSlug}-${input.operationSlug}-${generateId()}`;
@@ -67,6 +71,7 @@ export class OperationsService extends Context.Service<OperationsService>()("Ope
 				subject: {
 					type: "user",
 					userId: input.userId,
+					accountGeneration: input.accountGeneration,
 					...(input.integrationId ? { integrationId: input.integrationId } : {}),
 				},
 			});
@@ -178,6 +183,7 @@ export class OperationsService extends Context.Service<OperationsService>()("Ope
 								scriptId: resolved.script.id,
 								pluginSlug: input.pluginSlug,
 								operationSlug: input.operationSlug,
+								accountGeneration: user.accountGeneration,
 							} satisfies DispatchInput;
 						}
 						if (resolved) {
@@ -200,6 +206,10 @@ export class OperationsService extends Context.Service<OperationsService>()("Ope
 								pluginSlug: input.pluginSlug,
 								integrationId: scope.integrationId,
 								operationSlug: input.operationSlug,
+								accountGeneration:
+									user.id === scope.userId
+										? user.accountGeneration
+										: yield* receipts.currentAccount(scope.userId),
 							} satisfies DispatchInput;
 						}
 					}
@@ -228,6 +238,7 @@ export class OperationsService extends Context.Service<OperationsService>()("Ope
 						pluginSlug: input.pluginSlug,
 						integrationId: owner.integrationId,
 						operationSlug: input.operationSlug,
+						accountGeneration: yield* receipts.currentAccount(owner.userId),
 					} satisfies DispatchInput;
 				});
 			const authorized =

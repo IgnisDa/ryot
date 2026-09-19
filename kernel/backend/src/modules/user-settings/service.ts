@@ -1,8 +1,5 @@
 import type { CurrentUserValue } from "@ryot-app/contract/auth-middleware";
-import type {
-	UpdateUserPreferencesBody,
-	UserPreferences,
-} from "@ryot-app/contract/modules/user-settings/schemas";
+import type { UpdateUserPreferencesBody } from "@ryot-app/contract/modules/user-settings/schemas";
 import { Context, Effect, Layer } from "effect";
 
 import { AuthService } from "#modules/auth/service";
@@ -18,13 +15,15 @@ export class UserSettingsService extends Context.Service<UserSettingsService>()(
 				user: CurrentUserValue,
 				body: UpdateUserPreferencesBody,
 			) {
-				const next: UserPreferences = {
-					allowNsfw: body.allowNsfw ?? user.preferences.allowNsfw,
-					language: body.language !== undefined ? body.language : user.preferences.language,
-					disableIntegrations: body.disableIntegrations ?? user.preferences.disableIntegrations,
-				};
-
-				yield* auth.updateUserPreferences(user.id, next);
+				if (Object.keys(body).length === 0) {
+					return;
+				}
+				yield* auth.updateUserPreferences(user.id, {
+					...body,
+					...(body.language === undefined
+						? {}
+						: { language: body.language === null ? null : body.language.trim() || null }),
+				});
 			});
 			const refreshAvatar = Effect.fn("UserSettingsService.refreshAvatar")(function* (
 				user: CurrentUserValue,

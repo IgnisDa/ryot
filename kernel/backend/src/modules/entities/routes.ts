@@ -20,6 +20,7 @@ export const EntitiesRoutesLive = HttpApiBuilder.group(AppContract, "entities", 
 				source: "api",
 				itemIdentity: "entity",
 				initiator: { id: user.id, kind: "user" },
+				accountGeneration: user.accountGeneration,
 				executionId: AutomationExecutionId.make(generateId()),
 				occurredAt: IsoUtcString.make((yield* DateTime.nowAsDate).toISOString()),
 			});

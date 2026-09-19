@@ -12,11 +12,11 @@ import { WorkflowEngine } from "effect/unstable/workflow/WorkflowEngine";
 import { ProKeyService } from "#lib/infrastructure/pro-key";
 import { assertExitFails } from "#lib/test-utils/assertions";
 import {
-	databaseLayer,
 	makeWorkflowEngine,
 	type MockOverrides,
 	type WorkflowEngineOverrides,
 } from "#lib/test-utils/effect";
+import { mutationAdmissionTestLayer } from "#lib/test-utils/mutation-admission";
 import { ImportsService } from "#modules/imports/service";
 import {
 	IntegrationProviderCatalog,
@@ -33,6 +33,7 @@ const user: CurrentUserValue = {
 	email: "user@example.com",
 	id: UserId.make("user-id"),
 	preferences: { language: null, allowNsfw: false, disableIntegrations: false },
+	accountGeneration: { userId: UserId.make("user-id"), token: "test-account-generation" },
 };
 
 const mockProKey = (isValidated: boolean) =>
@@ -127,7 +128,7 @@ const makeServiceLayer = (options: {
 	integrationsServiceLayer.pipe(
 		Layer.provideMerge(
 			Layer.mergeAll(
-				databaseLayer,
+				mutationAdmissionTestLayer,
 				mockProKey(options.proKey ?? true),
 				Layer.unwrap(
 					Effect.gen(function* () {
@@ -483,7 +484,7 @@ describe("installation availability", () => {
 		test.effect("skips scheduled yank runs for an unavailable system installation", () =>
 			Effect.gen(function* () {
 				const service = yield* IntegrationsService;
-				expect(yield* service.prepareYankRuns(null)).toEqual([]);
+				expect(yield* service.prepareYankRuns(null, null)).toEqual([]);
 			}),
 		);
 	});
@@ -530,11 +531,12 @@ describe("prepareYankRuns", () => {
 		test.effect("admits an idle yank integration as a yank-owned run", () =>
 			Effect.gen(function* () {
 				const service = yield* IntegrationsService;
-				expect(yield* service.prepareYankRuns(null)).toEqual([
+				expect(yield* service.prepareYankRuns(null, null)).toEqual([
 					{
 						userId: yankIntegration.userId,
 						runId: makeRun("completed").id,
 						integrationId: yankIntegration.id,
+						accountGeneration: { userId: yankIntegration.userId, token: "test-account-generation" },
 					},
 				]);
 				expect((yield* (yield* FakeIntegrationDependencies).calls).at(-1)?.input).toMatchObject({
@@ -550,7 +552,7 @@ describe("prepareYankRuns", () => {
 		test.effect("skips a yank integration the database refused to admit", () =>
 			Effect.gen(function* () {
 				const service = yield* IntegrationsService;
-				expect(yield* service.prepareYankRuns(null)).toEqual([]);
+				expect(yield* service.prepareYankRuns(null, null)).toEqual([]);
 			}),
 		);
 	});
@@ -711,7 +713,10 @@ describe("syncAll", () => {
 		test.effect("dispatches a user-scoped integration sync", () =>
 			Effect.gen(function* () {
 				const userId = UserId.make("sync-user");
-				const result = yield* (yield* IntegrationsService).syncAll(userId);
+				const result = yield* (yield* IntegrationsService).syncAll({
+					userId,
+					token: "test-account-generation",
+				});
 
 				expect(result.executionId).toMatch(/^integration-sync-/);
 				expect((yield* (yield* FakeIntegrationDependencies).calls).at(-1)?.input).toMatchObject({

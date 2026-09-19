@@ -1,4 +1,5 @@
 import { InternalError, internalError, unknownToMessage } from "@ryot-app/contract/errors";
+import { AccountGeneration } from "@ryot-app/contract/schema/account-generation";
 import { UserId } from "@ryot-app/contract/schema/brands";
 import { Cause, Context, Duration, Effect, Layer, Result, Schema } from "effect";
 import { DurableClock, Workflow } from "effect/unstable/workflow";
@@ -10,20 +11,27 @@ import { UserBootstrap } from "./bootstrap";
 
 const UserBootstrapWorkflowPayload = Schema.Struct({
 	userId: UserId,
+	accountGeneration: AccountGeneration,
 	generation: Schema.optional(Schema.String),
 });
 type UserBootstrapWorkflowPayload = typeof UserBootstrapWorkflowPayload.Type;
 
 export const UserBootstrapWorkflow = Workflow.make("UserBootstrapWorkflow", {
-	idempotencyKey: ({ userId }) => userId,
 	error: Schema.Never satisfies DurableSchema,
 	success: Schema.Void satisfies DurableSchema,
 	payload: UserBootstrapWorkflowPayload satisfies DurableSchema,
+	idempotencyKey: ({ accountGeneration }) => accountGeneration.token,
 });
 
 export class UserBootstrapWorkflowOperations extends Context.Service<
 	UserBootstrapWorkflowOperations,
-	{ perform: (userId: UserId, generation?: string) => Effect.Effect<void, InternalError> }
+	{
+		perform: (
+			userId: UserId,
+			accountGeneration: AccountGeneration,
+			generation?: string,
+		) => Effect.Effect<void, InternalError>;
+	}
 >()("UserBootstrapWorkflowOperations") {}
 
 export const UserBootstrapWorkflowOperationsLive = Layer.effect(
@@ -31,8 +39,8 @@ export const UserBootstrapWorkflowOperationsLive = Layer.effect(
 	Effect.gen(function* () {
 		const bootstrap = yield* UserBootstrap;
 		return {
-			perform: (userId: UserId, generation?: string) =>
-				bootstrap.perform(userId, generation).pipe(
+			perform: (userId: UserId, accountGeneration: AccountGeneration, generation?: string) =>
+				bootstrap.perform(userId, accountGeneration, generation).pipe(
 					Effect.catchCauseIf(
 						(cause) => !Cause.hasInterruptsOnly(cause),
 						(cause) =>
@@ -59,7 +67,7 @@ export const runUserBootstrapWorkflow = Effect.fn("UserBootstrapWorkflow")(funct
 			name: `bootstrap-user-${attemptNumber}`,
 			error: InternalError satisfies DurableSchema,
 			success: Schema.Void satisfies DurableSchema,
-			execute: operations.perform(payload.userId, payload.generation),
+			execute: operations.perform(payload.userId, payload.accountGeneration, payload.generation),
 		}).pipe(Effect.result);
 	let result = yield* performAttempt(attempt);
 	while (Result.isFailure(result)) {

@@ -4,6 +4,7 @@ import { EntityId } from "../../schema/brands";
 import { AutomationWarning } from "../automations/lifecycle";
 
 const UserStateBadRequestReason = Schema.Union([
+	Schema.Struct({ code: Schema.Literal("command-identity-conflict") }),
 	Schema.Struct({ code: Schema.Literal("same-entity-merge") }),
 	Schema.Struct({ code: Schema.Literal("entity-schema-mismatch") }),
 	Schema.Struct({ code: Schema.Literal("relationship-merge-failed") }),

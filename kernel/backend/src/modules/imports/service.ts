@@ -23,6 +23,7 @@ import { WorkflowEngine } from "effect/unstable/workflow/WorkflowEngine";
 
 import { rootLifecycleCommand } from "#lib/domain/lifecycle-command";
 import type { ImportSourceState } from "#lib/infrastructure/redis";
+import { MutationReceipts } from "#modules/mutations/receipts";
 import {
 	ImportSourceCatalog,
 	type RegisteredImportSource,
@@ -85,6 +86,7 @@ export class ImportsService extends Context.Service<ImportsService>()("ImportsSe
 		const importSources = yield* ImportSourceCatalog;
 		const workflowPinning = yield* ImportWorkflowPinning;
 		const failureService = yield* ImportRunFailuresService;
+		const receipts = yield* MutationReceipts.make;
 
 		const createManualRun = Effect.fn("ImportsService.createManualRun")(function* (
 			input: CreateManualImportRunInput,
@@ -134,6 +136,7 @@ export class ImportsService extends Context.Service<ImportsService>()("ImportsSe
 				source: "import",
 				importRunId: runId,
 				initiator: { id: user.id, kind: "user" },
+				accountGeneration: user.accountGeneration,
 				executionId: AutomationExecutionId.make(runId),
 				itemIdentity: stableStringify(["import-run", runId]),
 				occurredAt: IsoUtcString.make((yield* DateTime.nowAsDate).toISOString()),
@@ -155,6 +158,7 @@ export class ImportsService extends Context.Service<ImportsService>()("ImportsSe
 					executionId: sandboxExecutionId,
 					scriptId: input.workflowScriptId,
 					pluginId: input.registered.pluginId,
+					accountGeneration: user.accountGeneration,
 				})
 				.pipe(Effect.result);
 			if (Result.isFailure(pin)) {
@@ -190,13 +194,18 @@ export class ImportsService extends Context.Service<ImportsService>()("ImportsSe
 				return yield* failDispatch("source-state", stored.cause);
 			}
 
-			const started = yield* engine
-				.execute(ProcessImportRunWorkflow, {
-					discard: true,
-					executionId: runId,
-					payload: { runId, command, userId: user.id, uploadIntentIds, sourceStateId: runId },
-				})
-				.pipe(Effect.result);
+			const started = yield* receipts
+				.registerWorkflow(command.accountGeneration, ProcessImportRunWorkflow._tag, runId)
+				.pipe(
+					Effect.andThen(
+						engine.execute(ProcessImportRunWorkflow, {
+							discard: true,
+							executionId: runId,
+							payload: { runId, command, userId: user.id, uploadIntentIds, sourceStateId: runId },
+						}),
+					),
+					Effect.result,
+				);
 			if (Result.isFailure(started)) {
 				yield* rollback;
 				return yield* failDispatch("workflow", started.failure);

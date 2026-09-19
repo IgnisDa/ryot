@@ -1,10 +1,10 @@
-import { defaultUserPreferences } from "@ryot-app/contract/auth-middleware";
 import {
 	BackupBadRequest,
 	BackupConflict,
 	type BackupAccountDataCategory,
 } from "@ryot-app/contract/modules/backups/schemas";
 import type { UserId } from "@ryot-app/contract/schema/brands";
+import { defaultUserPreferences } from "@ryot-app/contract/schema/user-preferences";
 import { isEqual } from "@ryot-app/ts-utils/lodash";
 import { Context, Effect, Layer } from "effect";
 

@@ -1,5 +1,5 @@
 import { PgClient } from "@effect/sql-pg";
-import { ConfigProvider, Effect, Layer, Option, Redacted } from "effect";
+import { ConfigProvider, Context, Effect, Layer, Option, Redacted } from "effect";
 import { Workflow } from "effect/unstable/workflow";
 import {
 	layerMemory as workflowEngineMemoryLayer,
@@ -9,7 +9,11 @@ import {
 
 import { AppConfig, type AppConfigValue } from "#lib/infrastructure/config/service";
 import { mapDatabaseErrors } from "#lib/infrastructure/db/errors";
-import { DatabaseSession, userWriteLockStatement } from "#lib/infrastructure/db/session";
+import {
+	DatabaseSession,
+	DatabaseSessionStateError,
+	userWriteLockStatement,
+} from "#lib/infrastructure/db/session";
 import type { RedisService } from "#lib/infrastructure/redis";
 import { testDatabaseUrl } from "#lib/test-utils/database";
 
@@ -28,11 +32,31 @@ export const fakeDatabaseSession = (
 	overrides: Partial<DatabaseSession["Service"]> = {},
 ) => {
 	const executor = Object.assign(Object.create(null), database);
+	const active = Context.Reference<boolean>("test/FakeDatabaseSessionTransaction", {
+		defaultValue: () => false,
+	});
+	const requireRoot = Effect.flatMap(active, (inTransaction) =>
+		inTransaction
+			? Effect.fail(new DatabaseSessionStateError({ reason: "transaction-already-active" }))
+			: Effect.void,
+	);
+	const requireTransaction = Effect.flatMap(active, (inTransaction) =>
+		inTransaction
+			? Effect.void
+			: Effect.fail(new DatabaseSessionStateError({ reason: "transaction-required" })),
+	);
 	const run: DatabaseSession["Service"]["run"] = (statement) =>
 		mapDatabaseErrors(statement(executor));
 	return Layer.mock(DatabaseSession)({
 		run,
+		requireRoot,
+		requireTransaction,
+		isTransactionActive: active,
 		acquireUserWriteLock: (userId) => Effect.asVoid(run(userWriteLockStatement(userId))),
+		transaction: (work) =>
+			requireRoot.pipe(
+				Effect.andThen(mapDatabaseErrors(work.pipe(Effect.provideService(active, true)))),
+			),
 		...overrides,
 	});
 };

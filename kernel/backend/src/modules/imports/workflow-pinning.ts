@@ -1,4 +1,5 @@
 import type { DbError, SandboxRunError } from "@ryot-app/contract/errors";
+import type { AccountGeneration } from "@ryot-app/contract/schema/account-generation";
 import type { SandboxScriptId, UserId } from "@ryot-app/contract/schema/brands";
 import { Context, type Effect } from "effect";
 
@@ -9,6 +10,7 @@ export type ImportWorkflowPinningValue = {
 		readonly pluginId: string;
 		readonly executionId: string;
 		readonly executingUserId: UserId;
+		readonly accountGeneration: AccountGeneration;
 		readonly scriptId: SandboxScriptId;
 	}) => Effect.Effect<
 		{

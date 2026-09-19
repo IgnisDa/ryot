@@ -16,12 +16,13 @@ import { IsoUtcString } from "@ryot-app/contract/schema/utils";
 import { Context, Effect, Exit, Layer, Ref } from "effect";
 import { WorkflowEngine, WorkflowInstance } from "effect/unstable/workflow/WorkflowEngine";
 
+import { toLifecycleDispatchPlan } from "#lib/domain/lifecycle";
 import { rootLifecycleCommand, type LifecycleCommand } from "#lib/domain/lifecycle-command";
 import { LifecycleExecution } from "#lib/domain/lifecycle-execution";
-import { mapDatabaseErrors } from "#lib/infrastructure/db/errors";
 import { DatabaseSession } from "#lib/infrastructure/db/session";
 import { RedisService } from "#lib/infrastructure/redis";
 import { makeRedisService, makeWorkflowActivityEngine } from "#lib/test-utils/effect";
+import { mutationAdmissionTestLayer } from "#lib/test-utils/mutation-admission";
 import { planFixture } from "#modules/automations/lifecycle.test-support";
 import { DefinitionRepository } from "#modules/definition-registry/repository";
 import type { DefinitionSnapshot } from "#modules/definition-registry/snapshot";
@@ -54,6 +55,7 @@ const command = rootLifecycleCommand({
 	itemIdentity: "provider-population",
 	initiator: { id: userId, kind: "user" },
 	executionId: AutomationExecutionId.make("provider-population"),
+	accountGeneration: { userId, token: "test-account-generation" },
 	providerExecutionId: AutomationExecutionId.make("provider-workflow"),
 });
 
@@ -155,7 +157,7 @@ const childEntityWork = (
 		properties: input.properties as Record<string, JsonValue>,
 	});
 	return {
-		plans: [planFixture(`entity-${input.externalId}`)],
+		dispatch: [toLifecycleDispatchPlan(planFixture(`entity-${input.externalId}`))],
 		result: {
 			entity,
 			wasInserted: true,
@@ -178,12 +180,14 @@ type Reconciliation = {
 /** A failed transaction discards the rows persisted so far, like a rollback. */
 const makeTransaction = <Row>() =>
 	Effect.gen(function* () {
+		const session = Context.get(yield* Layer.build(mutationAdmissionTestLayer), DatabaseSession);
 		const inTransaction = yield* Ref.make(false);
 		const persisted = yield* Ref.make<ReadonlyArray<Row>>([]);
-		const database = Layer.mock(DatabaseSession)({
+		const database = Layer.succeed(DatabaseSession, {
+			...session,
 			transaction: (work) =>
 				Ref.set(inTransaction, true).pipe(
-					Effect.andThen(mapDatabaseErrors(work)),
+					Effect.andThen(session.transaction(work)),
 					Effect.onExit((exit) => (Exit.isFailure(exit) ? Ref.set(persisted, []) : Effect.void)),
 					Effect.ensuring(Ref.set(inTransaction, false)),
 				),
@@ -250,7 +254,10 @@ const providerWritesLayer = (options: {
 						).pipe(
 							Effect.map((works) => ({
 								results: works.map(({ result }) => result),
-								plans: [...works.flatMap(({ plans }) => plans), planFixture("entities-batch")],
+								dispatch: [
+									...works.flatMap(({ dispatch }) => dispatch),
+									toLifecycleDispatchPlan(planFixture("entities-batch")),
+								],
 							})),
 						),
 				}),
@@ -293,8 +300,8 @@ const persistedExternalIds = Effect.flatMap(FakeProviderWrites, (fake) =>
 layer(
 	providerWritesLayer({
 		reconciled: {
-			plans: [planFixture("relationships")],
 			result: [{ created: 2, updated: 0, deleted: 0, upserted: 2 }],
+			dispatch: [toLifecycleDispatchPlan(planFixture("relationships"))],
 		},
 	}),
 )((it) => {
@@ -375,7 +382,7 @@ layer(providerWritesLayer({ reconciled: "fail" }))((it) => {
 layer(
 	providerWritesLayer({
 		privateProvider: SandboxProviderId.make("private-provider"),
-		reconciled: { plans: [], result: [{ created: 1, updated: 0, deleted: 0, upserted: 1 }] },
+		reconciled: { dispatch: [], result: [{ created: 1, updated: 0, deleted: 0, upserted: 1 }] },
 	}),
 )((it) => {
 	it.effect("keeps private related entities and reconciliation in one user transaction", () =>
@@ -522,7 +529,7 @@ const rootPopulationLayer = Layer.unwrap(
 							id: input.lifecycle.population?.scopeEntity.id ?? rootEntityId,
 						});
 						return {
-							plans: [],
+							dispatch: [],
 							result: {
 								entity,
 								wasInserted: commands.length === 1,

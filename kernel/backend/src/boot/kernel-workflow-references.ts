@@ -24,6 +24,7 @@ import {
 } from "#modules/imports/generic-import-workflow";
 import { ImportsRepository } from "#modules/imports/repository";
 import { IntegrationsRepository } from "#modules/integrations/repository";
+import { MutationReceipts } from "#modules/mutations/receipts";
 import { PluginRuntimeResolver } from "#modules/plugins/runtime-resolver";
 import type { EntityImportError } from "#modules/provider-entities/entity-import-workflow";
 import { EntityImportWorkflow } from "#modules/provider-entities/entity-import-workflow";
@@ -69,6 +70,7 @@ const lifecycleCommand = (
 		return Schema.decodeSync(LifecycleCommand)({
 			occurredAt,
 			itemIdentity,
+			accountGeneration: subject.accountGeneration,
 			causation: {
 				...subject.causation,
 				source: "automation",
@@ -97,6 +99,7 @@ const lifecycleCommand = (
 		itemIdentity,
 		executionId: AutomationExecutionId.make(executionId),
 		source: integrationId === undefined ? source : "integration",
+		accountGeneration: subject.type === "user" ? subject.accountGeneration : null,
 		...(attribution.importRunId === undefined ? {} : { importRunId: attribution.importRunId }),
 		...(attributedIntegrationId === undefined ? {} : { integrationId: attributedIntegrationId }),
 		...(source === "provider-refresh"
@@ -121,6 +124,19 @@ export const KernelWorkflowReferencesLive = Layer.effect(
 		const imports = yield* ImportsRepository;
 		const integrations = yield* IntegrationsRepository;
 		const pluginRuntime = yield* PluginRuntimeResolver;
+		const receipts = yield* MutationReceipts.make;
+		const registerWorkflow = (
+			command: LifecycleCommand,
+			workflowName: string,
+			executionId: string,
+		) =>
+			receipts
+				.registerWorkflow(command.accountGeneration, workflowName, executionId)
+				.pipe(
+					Effect.mapError(
+						(error) => new SandboxRunError({ kind: "infrastructure", message: error.message }),
+					),
+				);
 
 		const validateAttribution = (input: {
 			userId: UserId;
@@ -335,6 +351,7 @@ export const KernelWorkflowReferencesLive = Layer.effect(
 							importRunIds: [ImportRunId.make(payload.runId)],
 							integrationIds: payload.integrationId ? [payload.integrationId] : [],
 						});
+						yield* registerWorkflow(command, ProcessGenericImportChunksWorkflow._tag, executionId);
 						const result = yield* engine
 							.execute(ProcessGenericImportChunksWorkflow, { payload, executionId })
 							.pipe(
@@ -410,6 +427,7 @@ export const KernelWorkflowReferencesLive = Layer.effect(
 								? [command.causation.integrationId]
 								: [],
 						});
+						yield* registerWorkflow(command, EntityImportWorkflow._tag, executionId);
 						const result = yield* engine
 							.execute(EntityImportWorkflow, { payload, executionId })
 							.pipe(
@@ -456,6 +474,7 @@ export const KernelWorkflowReferencesLive = Layer.effect(
 							? [command.causation.integrationId]
 							: [],
 					});
+					yield* registerWorkflow(command, EventCreateWorkflow._tag, executionId);
 					const result = yield* engine
 						.execute(EventCreateWorkflow, { payload, executionId })
 						.pipe(

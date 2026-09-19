@@ -42,6 +42,7 @@ import {
 	EventCreateWorkflow,
 	EventCreateWorkflowPayload,
 } from "#modules/events/event-create-workflow";
+import { MutationReceipts } from "#modules/mutations/receipts";
 import {
 	NotificationDeliveryWorkflow,
 	NotificationDeliveryWorkflowPayload,
@@ -234,6 +235,7 @@ export const SandboxDurableHostDispatcherLive = Layer.effect(
 	SandboxDurableHostDispatcher,
 	Effect.gen(function* () {
 		const engine = yield* WorkflowEngine;
+		const receipts = yield* MutationReceipts.make;
 		const admission = yield* ProviderHttpAdmissionService;
 		const implementations = yield* SandboxHostImplementations;
 		const lifecycleExecution = yield* LifecycleExecution;
@@ -715,16 +717,29 @@ export const SandboxDurableHostDispatcherLive = Layer.effect(
 					});
 				}
 				if (strategy === "service-workflow") {
-					return engine.execute(SandboxDurableHostServiceWorkflow, {
-						executionId: `${executionId}-host-service-${request.index}`,
-						payload: {
-							request,
-							startedAt,
-							principal,
-							sandbox: payload,
-							parentExecutionId: executionId,
-						},
-					});
+					return receipts
+						.registerWorkflow(
+							principal.subject.type === "system" ? null : principal.subject.accountGeneration,
+							SandboxDurableHostServiceWorkflow._tag,
+							`${executionId}-host-service-${request.index}`,
+						)
+						.pipe(
+							Effect.mapError(
+								(error) => new SandboxRunError({ kind: "infrastructure", message: error.message }),
+							),
+							Effect.andThen(
+								engine.execute(SandboxDurableHostServiceWorkflow, {
+									executionId: `${executionId}-host-service-${request.index}`,
+									payload: {
+										request,
+										startedAt,
+										principal,
+										sandbox: payload,
+										parentExecutionId: executionId,
+									},
+								}),
+							),
+						);
 				}
 
 				if (strategy === "event-workflow") {
@@ -752,6 +767,18 @@ export const SandboxDurableHostDispatcherLive = Layer.effect(
 									}),
 							),
 						);
+						yield* receipts
+							.registerWorkflow(
+								eventPayload.command.accountGeneration,
+								EventCreateWorkflow._tag,
+								EventCreateWorkflow.idempotencyKey(eventPayload),
+							)
+							.pipe(
+								Effect.mapError(
+									(error) =>
+										new SandboxRunError({ kind: "infrastructure", message: error.message }),
+								),
+							);
 						const result = yield* Effect.exit(
 							engine.execute(EventCreateWorkflow, {
 								payload: eventPayload,

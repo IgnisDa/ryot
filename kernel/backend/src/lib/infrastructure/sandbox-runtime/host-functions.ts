@@ -13,6 +13,7 @@ import {
 	SandboxProviderId,
 	UserId,
 } from "@ryot-app/contract/schema/brands";
+import { UserPreferences } from "@ryot-app/contract/schema/user-preferences";
 import {
 	changeUserRelationshipBatchSchema,
 	upsertGlobalEntitiesOptionsSchema,
@@ -20,7 +21,6 @@ import {
 	upsertGlobalRelationshipGroupSchema,
 } from "@ryot-app/sandbox-sdk/core";
 import { jsonValueSchema, type SandboxHostError } from "@ryot-app/sandbox-sdk/wire";
-import { isObjectRecord } from "@ryot-app/ts-utils/predicates";
 import { eq } from "drizzle-orm";
 import { Effect, Schema } from "effect";
 
@@ -182,14 +182,6 @@ const encodeConfigValues = (label: string, values: Readonly<Record<string, unkno
 			: Effect.fail(`${label} config key "${key}" is not JSON-compatible`),
 	).pipe(Effect.map(Object.fromEntries));
 
-export const normalizePreferences = (value: unknown) => {
-	const source = isObjectRecord(value) ? value : {};
-	return {
-		allowNsfw: source["allowNsfw"] === true,
-		disableIntegrations: source["disableIntegrations"] === true,
-	};
-};
-
 export const toSandboxCreateEventsResult = (result: CreateEventsResponse) =>
 	result.failure
 		? Effect.fail(`Event creation failed: ${result.failure.reason.code}`)
@@ -291,20 +283,20 @@ const makeSandboxLifecycleHostSteps = (dependencies: {
 					.pipe(Effect.mapError(lifecycleHostFailure)),
 			prepare: (
 				input: LifecycleHostInput<"ChangeUserRelationships">,
-				batch: LifecycleHostInput<"ChangeUserRelationships">["batches"][number],
+				_batch: LifecycleHostInput<"ChangeUserRelationships">["batches"][number],
 				index: number,
-			) =>
-				relationships
-					.prepareChangeUserBatch(
-						input.userId,
-						{
-							creates: batch.creates.map(toSandboxRelationshipIdentity),
-							deletes: batch.deletes.map(toSandboxRelationshipIdentity),
-						},
-						index,
-						input.command,
-					)
-					.pipe(Effect.mapError(lifecycleHostFailure)),
+			) => {
+				const batches = input.batches.map((entry) => ({
+					creates: entry.creates.map(toSandboxRelationshipIdentity),
+					deletes: entry.deletes.map(toSandboxRelationshipIdentity),
+				}));
+				const current = batches[index];
+				return current
+					? relationships
+							.prepareChangeUserBatch(input.userId, current, index, input.command, batches)
+							.pipe(Effect.mapError(lifecycleHostFailure))
+					: Effect.die("Missing user relationship batch");
+			},
 			validate: (
 				rawInput: SandboxRunInput,
 				batches: LifecycleHostInput<"ChangeUserRelationships">["batches"],
@@ -352,7 +344,12 @@ const makeSandboxLifecycleHostSteps = (dependencies: {
 				index: number,
 			) =>
 				relationships
-					.prepareReconcileGlobalGroup(toReconcileGroup(group), index, input.command)
+					.prepareReconcileGlobalGroup(
+						toReconcileGroup(group),
+						index,
+						input.command,
+						input.groups.map(toReconcileGroup),
+					)
 					.pipe(Effect.mapError(lifecycleHostFailure)),
 			validate: (
 				rawInput: SandboxRunInput,
@@ -474,7 +471,13 @@ export const makeAdditionalSandboxApiFunctions: Effect.Effect<
 				return yield* Effect.fail("User not found");
 			}
 
-			return normalizePreferences(row.preferences);
+			const preferences = yield* Schema.decodeEffect(UserPreferences)(row.preferences).pipe(
+				Effect.mapError(() => "Invalid stored user preferences"),
+			);
+			return {
+				allowNsfw: preferences.allowNsfw,
+				disableIntegrations: preferences.disableIntegrations,
+			};
 		});
 
 	const createEvents = (input: UserSandboxRunInput, payload: ReadonlyArray<CreateEventItem>) =>
