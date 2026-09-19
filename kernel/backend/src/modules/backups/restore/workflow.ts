@@ -10,7 +10,6 @@ import { Context, Effect, FileSystem, Layer, Result, Schedule, Schema } from "ef
 import { Workflow } from "effect/unstable/workflow";
 
 import { AppConfig } from "#lib/infrastructure/config/service";
-import { mapDatabaseErrors } from "#lib/infrastructure/db/service";
 import { DatabaseSession } from "#lib/infrastructure/db/session";
 import { acquireUserWriteLock } from "#lib/infrastructure/db/user-write-lock";
 import type { DurableSchema } from "#lib/infrastructure/workflow";
@@ -262,8 +261,8 @@ export const RestoreBackupWorkflowOperationsLive = Layer.effect(
 							assetLocators.set(`local:${sha256}`, staged.locator);
 							assetLocators.set(`s3:${sha256}`, staged.locator);
 						}
-						yield* mapDatabaseErrors(
-							database.transaction(
+						yield* database
+							.transaction(
 								Effect.gen(function* () {
 									yield* acquireUserWriteLock(payload.userId);
 									yield* cleanliness.assertAccountIsClean(payload.userId);
@@ -295,13 +294,13 @@ export const RestoreBackupWorkflowOperationsLive = Layer.effect(
 									}
 									return yield* Effect.void;
 								}),
-							),
-						).pipe(
-							Effect.retry({
-								times: 2,
-								while: (error) => error instanceof DbError && error.code === "40001",
-							}),
-						);
+							)
+							.pipe(
+								Effect.retry({
+									times: 2,
+									while: (error) => error instanceof DbError && error.code === "40001",
+								}),
+							);
 					}).pipe(
 						Effect.catchCause((cause) =>
 							Effect.forEach(

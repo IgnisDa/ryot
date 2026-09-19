@@ -12,7 +12,6 @@ import type { UserId } from "@ryot-app/contract/schema/brands";
 import { CryptoHasher } from "bun";
 import { Clock, Context, DateTime, Effect, Layer, Stream } from "effect";
 
-import { mapDatabaseErrors } from "#lib/infrastructure/db/service";
 import { DatabaseSession } from "#lib/infrastructure/db/session";
 import { acquireUserWriteLock } from "#lib/infrastructure/db/user-write-lock";
 import { LocalStorageService } from "#lib/infrastructure/local-storage";
@@ -91,16 +90,14 @@ export class ManagedAssetsService extends Context.Service<ManagedAssetsService>(
 				function* (input: RegisterManagedAssetInput) {
 					yield* validateManagedAsset(input);
 					const session = yield* DatabaseSession;
-					return yield* mapDatabaseErrors(
-						session.transaction(
-							Effect.gen(function* () {
-								yield* acquireUserWriteLock(input.ownerUserId);
-								if (yield* isUserLifecycleActive(input.ownerUserId)) {
-									return yield* new UploadBadRequest({ reason: { code: "lifecycle-active" } });
-								}
-								return yield* repository.registerPermanentOwnedObject(input);
-							}),
-						),
+					return yield* session.transaction(
+						Effect.gen(function* () {
+							yield* acquireUserWriteLock(input.ownerUserId);
+							if (yield* isUserLifecycleActive(input.ownerUserId)) {
+								return yield* new UploadBadRequest({ reason: { code: "lifecycle-active" } });
+							}
+							return yield* repository.registerPermanentOwnedObject(input);
+						}),
 					);
 				},
 			);
