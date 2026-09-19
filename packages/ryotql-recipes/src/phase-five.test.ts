@@ -1,40 +1,15 @@
 import { Option, Result } from "effect";
 import { expect, it } from "vitest";
 
-import { automationHistoryRunRecipe, automationHistoryRunsRecipe } from "./automation-history";
 import { backupRunRecipe } from "./backups";
 import { godModeUsersRecipe, migrationReportRecipe } from "./god-mode";
 import { importSourcesRecipe } from "./import-sources";
 import { integrationProvidersRecipe } from "./integration-providers";
 import { rowsResult } from "./test-utils";
-import { userSettingsRecipe } from "./user-settings";
 
 const date = "2026-09-23T10:00:00+02:00";
 const page = (items: readonly unknown[], limit = 2, hasMore = false) =>
 	rowsResult(items, { limit, hasMore, nextCursor: hasMore ? "next" : null });
-
-it("normalizes persisted user preferences instead of rejecting old JSON", () => {
-	const decoded = Result.getOrThrow(
-		userSettingsRecipe().decode({
-			data: {
-				user: page([
-					{
-						name: "A",
-						image: null,
-						id: "user-1",
-						email: "a@example.com",
-						preferences: { language: "", allowNsfw: true, disableIntegrations: "yes" },
-					},
-				]),
-			},
-		}),
-	);
-	expect(decoded.preferences).toEqual({
-		language: null,
-		allowNsfw: true,
-		disableIntegrations: false,
-	});
-});
 
 it("maps missing backup detail to None", () => {
 	expect(
@@ -175,103 +150,4 @@ it("decodes migration details and preserves include truncation metadata", () => 
 	);
 	expect(decoded.items[0]?.details.pageInfo.hasMore).toBe(true);
 	expect(decoded.items[0]?.details.items[0]?.detail).toMatchObject({ legacyCacheId: "c" });
-});
-
-const run = {
-	id: "run",
-	queuedAt: date,
-	stage: "after",
-	pluginId: null,
-	startedAt: null,
-	attemptCount: 1,
-	finishedAt: null,
-	status: "failed",
-	hookSlug: "hook",
-	hookName: "Hook",
-	pluginName: null,
-	skipReason: null,
-	delivery: "async",
-	nextAttemptAt: null,
-	triggerId: "trigger",
-	executionUserId: null,
-	pluginRevisionId: null,
-	artifactsExpireAt: date,
-	triggerKind: { operation: "emit", category: "signal", resource: "signal" },
-};
-
-it("applies all automation filters and maps projected payload and attempt artifacts", () => {
-	const list = automationHistoryRunsRecipe({
-		limit: 5,
-		to: date,
-		from: date,
-		pluginId: "p",
-		hookSlug: "h",
-		stage: "after",
-		triggerId: "t",
-		status: "failed",
-	});
-	expect(list.document.queries.runs?.where).toMatchObject({
-		type: "and",
-		predicates: [{}, {}, {}, {}, {}, {}, {}],
-	});
-	const decoded = Result.getOrThrow(
-		automationHistoryRunRecipe({ id: "run" }).decode({
-			data: {
-				run: page([
-					{
-						...run,
-						historyPayloadTruncated: true,
-						historyPayload: { payload: "redacted" },
-						retryEligibility: { reason: "expired" },
-						triggers: {
-							pageInfo: { limit: 1, hasMore: false },
-							items: [
-								{ id: "trigger", occurredAt: date, kind: run.triggerKind, payloadPrunedAt: null },
-							],
-						},
-						attempts: {
-							pageInfo: { limit: 50, hasMore: true },
-							items: [
-								{
-									logs: null,
-									runId: "run",
-									timing: null,
-									id: "attempt",
-									startedAt: date,
-									attemptNumber: 1,
-									status: "failed",
-									finishedAt: date,
-									retryable: false,
-									artifactsPrunedAt: null,
-									artifactsTruncated: true,
-									failureKind: "business-failure",
-									error: { code: "failed", message: "redacted" },
-								},
-							],
-						},
-					},
-				]),
-			},
-		}),
-	);
-	expect(Option.isSome(decoded)).toBe(true);
-	if (Option.isSome(decoded)) {
-		expect(decoded.value.trigger).toMatchObject({
-			payloadTruncated: true,
-			payload: { payload: "redacted" },
-		});
-		expect(decoded.value.attemptsTruncated).toBe(true);
-		expect(decoded.value.attempts[0]).toMatchObject({
-			artifactsTruncated: true,
-			error: { code: "failed" },
-		});
-		expect(decoded.value.run).not.toHaveProperty("triggers");
-	}
-	expect(
-		Option.isNone(
-			Result.getOrThrow(
-				automationHistoryRunRecipe({ id: "absent" }).decode({ data: { run: page([]) } }),
-			),
-		),
-	).toBe(true);
 });

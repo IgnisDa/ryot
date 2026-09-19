@@ -5,7 +5,7 @@ import {
 	savedViewRecipe,
 } from "@ryot-app/ryotql-recipes/saved-views";
 
-import { fitnessLibraryLinkExists } from "../shared/fitness-recipes";
+import { fitnessLibraryLinkExists } from "../shared/library-recipes";
 import { fitnessEntitySchemas } from "./schemas/entity";
 import { buildViewExpressions } from "./view-helpers";
 
