@@ -159,6 +159,7 @@ export const regularSeasonRow = {
 	seasonNumber: 1,
 	episodeTotal: 4,
 	watchedTotal: 2,
+	upcomingTotal: 0,
 	watchedMinutes: 116,
 	watchedUnknownRuntime: 0,
 };
@@ -168,6 +169,7 @@ export const specialsSeasonRow = {
 	seasonNumber: 0,
 	episodeTotal: 2,
 	watchedTotal: 0,
+	upcomingTotal: 0,
 	watchedMinutes: null,
 	watchedUnknownRuntime: 0,
 };
