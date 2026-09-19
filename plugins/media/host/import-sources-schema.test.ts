@@ -11,7 +11,7 @@ const uploadToken = "upload-1";
 it("builds a typed media request accepted by the open import envelope", () => {
 	const body = createMediaImportRunBody({ uploadToken, source: "igdb", collection: "Favorites" });
 
-	expect(Schema.decodeUnknownSync(CreateImportRunBody)(body)).toEqual(body);
+	expect(Schema.decodeSync(CreateImportRunBody)(body)).toEqual(body);
 	expect(body.collection).toBe("Favorites");
 });
 
@@ -61,7 +61,7 @@ it("keeps Jellyfin password optional but rejects it when supplied empty", () => 
 
 	expect(password?.validation).toEqual({ minLength: 1 });
 	expect(() =>
-		Schema.decodeUnknownSync(MediaCreateImportRunBody)({
+		Schema.decodeSync(MediaCreateImportRunBody)({
 			password: "",
 			username: "alice",
 			source: "jellyfin",
@@ -123,9 +123,9 @@ it("accepts explicit Trakt export, user, and list requests", () => {
 		url: "https://trakt.tv/users/alice/lists/favorites",
 	});
 
-	expect(Schema.decodeUnknownSync(MediaCreateImportRunBody)(exportFile)).toEqual(exportFile);
-	expect(Schema.decodeUnknownSync(MediaCreateImportRunBody)(user)).toEqual(user);
-	expect(Schema.decodeUnknownSync(MediaCreateImportRunBody)(list)).toEqual(list);
+	expect(Schema.decodeSync(MediaCreateImportRunBody)(exportFile)).toEqual(exportFile);
+	expect(Schema.decodeSync(MediaCreateImportRunBody)(user)).toEqual(user);
+	expect(Schema.decodeSync(MediaCreateImportRunBody)(list)).toEqual(list);
 });
 
 it.each([
@@ -176,9 +176,7 @@ it("accepts either MyAnimeList export and rejects an empty pair", () => {
 	]) {
 		expect(Schema.decodeUnknownSync(MediaCreateImportRunBody)(body)).toEqual(body);
 	}
-	expect(() =>
-		Schema.decodeUnknownSync(MediaCreateImportRunBody)({ source: "myanimelist" }),
-	).toThrow();
+	expect(() => Schema.decodeSync(MediaCreateImportRunBody)({ source: "myanimelist" })).toThrow();
 	expect(() =>
 		Schema.decodeUnknownSync(MediaCreateImportRunBody)({
 			source: "myanimelist",
@@ -225,7 +223,7 @@ it("keeps every manifest source aligned with a strict plugin-owned guard", () =>
 		Object.keys(validBodies).sort(),
 	);
 	for (const body of Object.values(validBodies)) {
-		expect(Schema.decodeUnknownSync(MediaCreateImportRunBody)(body)).toEqual(body);
+		expect(Schema.decodeSync(MediaCreateImportRunBody)(body)).toEqual(body);
 		expect(() =>
 			Schema.decodeUnknownSync(MediaCreateImportRunBody)({ ...body, undeclared: true }),
 		).toThrow();
@@ -242,8 +240,8 @@ it("keeps Trakt parser input aligned with the explicit modes", () => {
 		url: "https://trakt.tv/users/alice/lists/favorites",
 	} as const;
 
-	expect(Schema.decodeUnknownSync(TraktImportParserInput)(user)).toEqual(user);
-	expect(Schema.decodeUnknownSync(TraktImportParserInput)(list)).toEqual(list);
+	expect(Schema.decodeSync(TraktImportParserInput)(user)).toEqual(user);
+	expect(Schema.decodeSync(TraktImportParserInput)(list)).toEqual(list);
 	expect(() =>
 		Schema.decodeUnknownSync(TraktImportParserInput)({ start: 0, limit: 25, username: "alice" }),
 	).toThrow();
@@ -251,15 +249,13 @@ it("keeps Trakt parser input aligned with the explicit modes", () => {
 
 it("accepts unknown JSON-compatible sources only through the generic envelope", () => {
 	expect(
-		Schema.decodeUnknownSync(CreateImportRunBody)({
+		Schema.decodeSync(CreateImportRunBody)({
 			source: "fixture_source",
 			options: { limit: 10, dryRun: true },
 		}),
 	).toEqual({ source: "fixture_source", options: { limit: 10, dryRun: true } });
+	expect(() => Schema.decodeSync(CreateImportRunBody)({ source: "", value: "invalid" })).toThrow();
 	expect(() =>
-		Schema.decodeUnknownSync(CreateImportRunBody)({ source: "", value: "invalid" }),
-	).toThrow();
-	expect(() =>
-		Schema.decodeUnknownSync(CreateImportRunBody)({ value: Number.NaN, source: "fixture_source" }),
+		Schema.decodeSync(CreateImportRunBody)({ value: Number.NaN, source: "fixture_source" }),
 	).toThrow();
 });

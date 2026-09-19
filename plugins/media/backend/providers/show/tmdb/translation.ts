@@ -84,7 +84,7 @@ export const translateTmdbShow = (input: ProviderTranslateInput, host: TmdbHost,
 		const [translationsData, imagesData] = yield* Effect.all([
 			tmdbGet(host, request.translationsPath, {}, token),
 			tmdbGet(host, request.imagesPath, { include_image_language: langCode }, token).pipe(
-				Effect.catch(() => Effect.succeed({})),
+				Effect.orElseSucceed(() => ({})),
 			),
 		]);
 		const candidates = orderedTranslationCandidates(translationsData, langCode, region);

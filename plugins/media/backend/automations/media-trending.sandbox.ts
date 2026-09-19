@@ -36,8 +36,8 @@ export default defineScript({
 	input: Schema.Struct({}),
 	output: Schema.Struct({
 		synced: Schema.Boolean,
-		itemCount: Schema.Number,
-		providerCount: Schema.Number,
+		itemCount: Schema.Finite,
+		providerCount: Schema.Finite,
 	}),
 	run: (_input, host) =>
 		Effect.gen(function* () {
@@ -71,7 +71,7 @@ export default defineScript({
 								},
 							])
 							.pipe(
-								Effect.catch(() => Effect.succeed(null)),
+								Effect.orElseSucceed(() => null),
 								Effect.map(() => ({ success: false as const })),
 							),
 					),

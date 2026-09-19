@@ -175,17 +175,15 @@ export const details = defineProvider({
 			});
 			const releaseGroup = asRecord(releaseGroupValue);
 			if (!releaseGroup) {
-				return yield* Effect.fail(
-					new MediaSandboxError({
-						message: `MusicBrainz release-group not found: ${input.externalId}`,
-					}),
-				);
+				return yield* new MediaSandboxError({
+					message: `MusicBrainz release-group not found: ${input.externalId}`,
+				});
 			}
 			const title = stringValue(releaseGroup["title"]);
 			if (!title) {
-				return yield* Effect.fail(
-					new MediaSandboxError({ message: "MusicBrainz release-group is missing title" }),
-				);
+				return yield* new MediaSandboxError({
+					message: "MusicBrainz release-group is missing title",
+				});
 			}
 			const description = releaseGroupDescription(releaseGroup);
 

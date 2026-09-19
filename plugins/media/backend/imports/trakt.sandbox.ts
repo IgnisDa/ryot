@@ -58,30 +58,24 @@ export default defineScript({
 				});
 				const actualEntries = Object.entries(archive);
 				if (actualEntries.some(([, bytes]) => bytes.byteLength > MAX_ENTRY_BYTES)) {
-					return yield* Effect.fail(
-						new MediaSandboxError({
-							message: "Trakt export entry exceeds decompressed size limit",
-						}),
-					);
+					return yield* new MediaSandboxError({
+						message: "Trakt export entry exceeds decompressed size limit",
+					});
 				}
 				if (
 					actualEntries.reduce((total, [, bytes]) => total + bytes.byteLength, 0) > MAX_TOTAL_BYTES
 				) {
-					return yield* Effect.fail(
-						new MediaSandboxError({
-							message: "Trakt export exceeds total decompressed size limit",
-						}),
-					);
+					return yield* new MediaSandboxError({
+						message: "Trakt export exceeds total decompressed size limit",
+					});
 				}
 				return batchMediaImportResult(adaptTraktExport(archive), input.start, input.limit);
 			}
 			const { traktClientId: clientId } = yield* host.getPluginConfig(["traktClientId"]);
 			if (typeof clientId !== "string" || !clientId) {
-				return yield* Effect.fail(
-					new MediaSandboxError({
-						message: "Trakt importer is not configured. Set RYOT_PLUGIN_MEDIA_TRAKT_CLIENT_ID.",
-					}),
-				);
+				return yield* new MediaSandboxError({
+					message: "Trakt importer is not configured. Set RYOT_PLUGIN_MEDIA_TRAKT_CLIENT_ID.",
+				});
 			}
 			const result = yield* adaptTraktData(input, clientId, host);
 			return batchMediaImportResult(result, input.start, input.limit);

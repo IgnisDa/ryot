@@ -100,9 +100,9 @@ export const resolve = defineProvider({
 	run: (input, host) =>
 		Effect.gen(function* () {
 			if (input.identifierType !== "imdb") {
-				return yield* Effect.fail(
-					new MediaSandboxError({ message: "TMDB movie resolve supports only imdb identifiers" }),
-				);
+				return yield* new MediaSandboxError({
+					message: "TMDB movie resolve supports only imdb identifiers",
+				});
 			}
 			const token = yield* getTmdbAccessToken(host);
 			const payload = yield* tmdbGet(
@@ -123,9 +123,9 @@ export const translate = defineProvider({
 	run: (input, host) =>
 		Effect.gen(function* () {
 			if (!/^\d+$/.test(input.externalId)) {
-				return yield* Effect.fail(
-					new MediaSandboxError({ message: "externalId must be a numeric TMDB movie ID" }),
-				);
+				return yield* new MediaSandboxError({
+					message: "externalId must be a numeric TMDB movie ID",
+				});
 			}
 			const { region, langCode } = parseTranslationLanguage(input.language);
 			const token = yield* getTmdbAccessToken(host);

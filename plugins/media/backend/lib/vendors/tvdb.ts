@@ -51,48 +51,43 @@ const getTvdbApiKey = (host: TvdbHost) =>
 
 export const getTvdbAccessToken = (host: TvdbHost) =>
 	host.getCachedValue(TOKEN_CACHE_KEY).pipe(
-		Effect.catch(() => Effect.succeed(null)),
+		Effect.orElseSucceed(() => null),
 		Effect.flatMap((cached) => {
 			const cachedToken = stringValue(cached);
 			if (cachedToken) {
 				return Effect.succeed(cachedToken);
 			}
-			return getTvdbApiKey(host)
-				.pipe(
-					Effect.flatMap((apiKey) =>
-						host
-							.httpCall("POST", `${TVDB_BASE_URL}/login`, {
-								body: JSON.stringify({ apikey: apiKey }),
-								headers: { "Content-Type": "application/json" },
-							})
-							.pipe(
-								Effect.mapError((error) => ({
-									...error,
-									message: error.message || "TVDB login request failed",
-								})),
-							),
-					),
-				)
-				.pipe(
-					Effect.flatMap((response) => decodeJsonResponse(response.body, "TVDB")),
-					Effect.flatMap((response) => {
-						const payload = asRecord(response);
-						const token = stringValue(asRecord(payload?.["data"])?.["token"]);
-						if (payload?.["status"] !== "success" || !token) {
-							return Effect.fail(
-								new MediaSandboxError({ message: "TVDB login returned no token" }),
-							);
-						}
-						const accessToken = `Bearer ${token}`;
-						return host.setCachedValue(TOKEN_CACHE_KEY, accessToken, TOKEN_CACHE_TTL_SECONDS).pipe(
-							Effect.as(accessToken),
-							Effect.catch((error) => {
-								console.warn(`TVDB token cache write failed: ${error.message}`);
-								return Effect.succeed(accessToken);
-							}),
-						);
-					}),
-				);
+			return getTvdbApiKey(host).pipe(
+				Effect.flatMap((apiKey) =>
+					host
+						.httpCall("POST", `${TVDB_BASE_URL}/login`, {
+							body: JSON.stringify({ apikey: apiKey }),
+							headers: { "Content-Type": "application/json" },
+						})
+						.pipe(
+							Effect.mapError((error) => ({
+								...error,
+								message: error.message || "TVDB login request failed",
+							})),
+						),
+				),
+				Effect.flatMap((response) => decodeJsonResponse(response.body, "TVDB")),
+				Effect.flatMap((response) => {
+					const payload = asRecord(response);
+					const token = stringValue(asRecord(payload?.["data"])?.["token"]);
+					if (payload?.["status"] !== "success" || !token) {
+						return Effect.fail(new MediaSandboxError({ message: "TVDB login returned no token" }));
+					}
+					const accessToken = `Bearer ${token}`;
+					return host.setCachedValue(TOKEN_CACHE_KEY, accessToken, TOKEN_CACHE_TTL_SECONDS).pipe(
+						Effect.as(accessToken),
+						Effect.catch((error) => {
+							console.warn(`TVDB token cache write failed: ${error.message}`);
+							return Effect.succeed(accessToken);
+						}),
+					);
+				}),
+			);
 		}),
 	);
 
@@ -149,12 +144,10 @@ const tvdbRequest = (
 
 export const tvdbGet = (host: TvdbHost, path: string, params?: Readonly<Record<string, string>>) =>
 	tvdbRequest(host, path, params, { allowMissing: false }).pipe(
-		Effect.flatMap((payload) => {
-			if (!payload) {
-				return Effect.fail(new MediaSandboxError({ message: `TVDB request failed: ${path}` }));
-			}
-			return Effect.succeed(payload);
-		}),
+		Effect.filterOrFail(
+			(payload) => payload !== null,
+			() => new MediaSandboxError({ message: `TVDB request failed: ${path}` }),
+		),
 	);
 
 export const tvdbGetOptional = (

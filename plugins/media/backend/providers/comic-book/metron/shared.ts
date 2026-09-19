@@ -106,13 +106,11 @@ const collectSuggestions = (host: MetronHost, sourceExternalId: string, arcs: un
 		const arcId = getIdentifier(asRecord(arc)?.["id"]);
 		return arcId ? [arcId] : [];
 	});
-	return Effect.all(
-		arcIds.map((arcId) =>
-			loadMetronJson(
-				host,
-				`https://metron.cloud/api/arc/${encodeURIComponent(arcId)}/issue_list/?page_size=20`,
-				"Metron arc issue list request failed",
-			),
+	return Effect.forEach(arcIds, (arcId) =>
+		loadMetronJson(
+			host,
+			`https://metron.cloud/api/arc/${encodeURIComponent(arcId)}/issue_list/?page_size=20`,
+			"Metron arc issue list request failed",
 		),
 	).pipe(
 		Effect.map((payloads) => {

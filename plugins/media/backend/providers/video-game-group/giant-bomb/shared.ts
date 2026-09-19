@@ -72,11 +72,9 @@ export const details = defineProvider({
 	run: (input, host) =>
 		Effect.gen(function* () {
 			if (!GUID_PATTERN.test(input.externalId)) {
-				return yield* Effect.fail(
-					new MediaSandboxError({
-						message: "externalId must be a GiantBomb GUID (e.g., '3030-1')",
-					}),
-				);
+				return yield* new MediaSandboxError({
+					message: "externalId must be a GiantBomb GUID (e.g., '3030-1')",
+				});
 			}
 			const payload = yield* giantBombRequest(
 				host,
@@ -86,15 +84,13 @@ export const details = defineProvider({
 			);
 			const franchise = asRecord(payload?.["results"]);
 			if (!franchise) {
-				return yield* Effect.fail(
-					new MediaSandboxError({ message: "GiantBomb returned no franchise data" }),
-				);
+				return yield* new MediaSandboxError({ message: "GiantBomb returned no franchise data" });
 			}
 			const name = stringValue(franchise["name"]);
 			if (!name) {
-				return yield* Effect.fail(
-					new MediaSandboxError({ message: "GiantBomb franchise payload is missing name" }),
-				);
+				return yield* new MediaSandboxError({
+					message: "GiantBomb franchise payload is missing name",
+				});
 			}
 
 			const primaryImage = getPrioritizedImage(franchise["image"]);

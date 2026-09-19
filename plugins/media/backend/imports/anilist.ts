@@ -17,7 +17,7 @@ import type { MediaImportAdapterFailure } from "./schemas";
 
 const AnilistList = Schema.Struct({
 	id: Schema.Int,
-	score: Schema.Number,
+	score: Schema.Finite,
 	progress: Schema.Int,
 	series_id: Schema.Int,
 	series_type: Schema.Int,
@@ -30,7 +30,7 @@ const AnilistList = Schema.Struct({
 const AnilistReview = Schema.Struct({
 	id: Schema.Int,
 	text: Schema.String,
-	score: Schema.Number,
+	score: Schema.Finite,
 	series_id: Schema.Int,
 	summary: Schema.String,
 	series_type: Schema.Int,

@@ -1,6 +1,6 @@
 import { Schema } from "@ryot-app/plugin-kit/effect";
 
-const optionalNumber = Schema.optional(Schema.NullOr(Schema.Number));
+const optionalNumber = Schema.optional(Schema.NullOr(Schema.Finite));
 
 const optionalString = Schema.optional(Schema.NullOr(Schema.String));
 
