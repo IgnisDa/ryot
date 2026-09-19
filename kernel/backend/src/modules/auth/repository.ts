@@ -3,7 +3,8 @@ import { and, eq, inArray, isNull } from "drizzle-orm";
 import { Context, DateTime, Effect, Layer } from "effect";
 
 import * as schema from "#lib/infrastructure/db/schema/tables/combined";
-import { Database, mapDatabaseErrors } from "#lib/infrastructure/db/service";
+import { mapDatabaseErrors } from "#lib/infrastructure/db/service";
+import { DatabaseSession } from "#lib/infrastructure/db/session";
 
 export type PortableUserProfile = Pick<
 	typeof schema.user.$inferSelect,
@@ -50,10 +51,11 @@ export type InternalOAuthClientResource = Pick<
 >;
 
 export class AuthRepository extends Context.Service<AuthRepository>()("AuthRepository", {
-	make: Effect.sync(() => {
+	make: Effect.gen(function* () {
+		const database = yield* DatabaseSession;
 		const upsertInternalOAuthClient = Effect.fn("AuthRepository.upsertInternalOAuthClient")(
 			function* (client: InternalOAuthClient) {
-				const db = yield* Database;
+				const db = yield* database.current;
 				yield* mapDatabaseErrors(
 					db
 						.insert(schema.oauthClient)
@@ -83,7 +85,7 @@ export class AuthRepository extends Context.Service<AuthRepository>()("AuthRepos
 
 		const upsertInternalOAuthResource = Effect.fn("AuthRepository.upsertInternalOAuthResource")(
 			function* (resource: InternalOAuthResource) {
-				const db = yield* Database;
+				const db = yield* database.current;
 				yield* mapDatabaseErrors(
 					db
 						.insert(schema.oauthResource)
@@ -107,7 +109,7 @@ export class AuthRepository extends Context.Service<AuthRepository>()("AuthRepos
 		const upsertInternalOAuthClientResource = Effect.fn(
 			"AuthRepository.upsertInternalOAuthClientResource",
 		)(function* (link: InternalOAuthClientResource) {
-			const db = yield* Database;
+			const db = yield* database.current;
 			yield* mapDatabaseErrors(
 				db
 					.insert(schema.oauthClientResource)
@@ -122,7 +124,7 @@ export class AuthRepository extends Context.Service<AuthRepository>()("AuthRepos
 		const deleteInternalOAuthClientResources = Effect.fn(
 			"AuthRepository.deleteInternalOAuthClientResources",
 		)(function* (clientIds: readonly string[]) {
-			const db = yield* Database;
+			const db = yield* database.current;
 			yield* mapDatabaseErrors(
 				db
 					.delete(schema.oauthClientResource)
@@ -133,7 +135,7 @@ export class AuthRepository extends Context.Service<AuthRepository>()("AuthRepos
 		const getPortableProfile = Effect.fn("AuthRepository.getPortableProfile")(function* (
 			userId: UserId,
 		) {
-			const db = yield* Database;
+			const db = yield* database.current;
 			const [row] = yield* mapDatabaseErrors(
 				db
 					.select({
@@ -148,24 +150,10 @@ export class AuthRepository extends Context.Service<AuthRepository>()("AuthRepos
 			return row ?? null;
 		});
 
-		const restorePortableProfile = Effect.fn("AuthRepository.restorePortableProfile")(function* (
-			userId: UserId,
-			profile: PortableUserProfile,
-		) {
-			const db = yield* Database;
-			const [row] = yield* mapDatabaseErrors(
-				db
-					.update(schema.user)
-					.set(profile)
-					.where(eq(schema.user.id, userId))
-					.returning({ id: schema.user.id }),
-			);
-			return row !== undefined;
-		});
 		const revokeUserOAuthTokens = Effect.fn("AuthRepository.revokeUserOAuthTokens")(function* (
 			userId: UserId,
 		) {
-			const db = yield* Database;
+			const db = yield* database.current;
 			const revoked = yield* DateTime.nowAsDate;
 			yield* mapDatabaseErrors(
 				Effect.all(
@@ -197,7 +185,6 @@ export class AuthRepository extends Context.Service<AuthRepository>()("AuthRepos
 		return {
 			getPortableProfile,
 			revokeUserOAuthTokens,
-			restorePortableProfile,
 			upsertInternalOAuthClient,
 			upsertInternalOAuthResource,
 			upsertInternalOAuthClientResource,

@@ -5,7 +5,7 @@ import { BackupRunId, UserId } from "@ryot-app/contract/schema/brands";
 import { Effect, Layer } from "effect";
 import { WorkflowEngine, WorkflowInstance } from "effect/unstable/workflow/WorkflowEngine";
 
-import { Database } from "#lib/infrastructure/db/service";
+import { DatabaseSession } from "#lib/infrastructure/db/session";
 import { makeAppConfigLayer, makeWorkflowActivityEngine } from "#lib/test-utils/effect";
 import { ObjectStorageService } from "#modules/uploads/object-storage/service";
 
@@ -76,7 +76,7 @@ it.effect("preserves an artifact after an ambiguous export completion", () => {
 			Layer.mergeAll(
 				makeAppConfigLayer(),
 				BunFileSystem.layer,
-				Layer.succeed(Database, Object.create(null)),
+				Layer.mock(DatabaseSession)({}),
 				Layer.mock(BackupExportSnapshot, {}),
 				Layer.mock(ObjectStorageService, {
 					deleteObject: () => Effect.sync(() => void (deletes += 1)),

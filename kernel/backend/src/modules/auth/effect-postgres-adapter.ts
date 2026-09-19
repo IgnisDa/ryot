@@ -34,14 +34,13 @@ import type { Context } from "effect";
 import { Effect, Exit } from "effect";
 
 import * as authSchema from "#lib/infrastructure/db/schema/tables/auth";
-import { mapDatabaseErrors, type Database } from "#lib/infrastructure/db/service";
+import { mapDatabaseErrors } from "#lib/infrastructure/db/service";
+import type { DatabaseSession } from "#lib/infrastructure/db/session";
 import type { RedisService } from "#lib/infrastructure/redis";
 
 type AuthRow = Record<string, unknown>;
 type AuthTable = PgTable;
-type DatabaseExecutor =
-	| Database["Service"]
-	| Parameters<Parameters<Database["Service"]["transaction"]>[0]>[0];
+type DatabaseExecutor = Effect.Success<DatabaseSession["Service"]["current"]>;
 type AuthAdapterFactory = ReturnType<typeof createAdapterFactory>;
 
 const tables: Record<string, AuthTable> = {
@@ -165,10 +164,10 @@ const makeSelection = (
 };
 
 export const effectPostgresAuthAdapter = (args: {
-	readonly db: Database["Service"];
-	readonly context: Context.Context<Database | RedisService>;
+	readonly session: DatabaseSession["Service"];
+	readonly context: Context.Context<DatabaseSession | RedisService>;
 }) => {
-	const root = args.db;
+	const session = args.session;
 	const run = <A, E>(effect: Effect.Effect<A, E>) => Effect.runPromiseWith(args.context)(effect);
 
 	const createCustomAdapter = (db: DatabaseExecutor) => {
@@ -352,15 +351,22 @@ export const effectPostgresAuthAdapter = (args: {
 				transaction: transaction
 					? <A>(callback: (adapter: DBTransactionAdapter) => Promise<A>) =>
 							run(
-								root.transaction((tx) =>
-									Effect.tryPromise(() => callback(makeFactory(tx, false)(options))),
+								session.transaction(
+									Effect.gen(function* () {
+										const tx = yield* session.current;
+										return yield* Effect.tryPromise(() =>
+											callback(makeFactory(tx, false)(options)),
+										);
+									}),
 								),
 							)
 					: false,
 			},
 		});
 
-	const factory = makeFactory(root, true);
+	const factory = Effect.runSyncWith(args.context)(
+		Effect.map(session.current, (db) => makeFactory(db, true)),
+	);
 	const database = (authOptions: typeof options) => {
 		options = authOptions;
 		return factory(authOptions);
@@ -369,18 +375,22 @@ export const effectPostgresAuthAdapter = (args: {
 		callback: (adapter: DBTransactionAdapter, db: DatabaseExecutor) => Effect.Effect<A, E>,
 	) =>
 		mapDatabaseErrors(
-			root.transaction((tx) =>
-				Effect.callback<A, E>((resume) => {
-					const adapter = makeFactory(tx, false)(options);
-					void Promise.resolve(
-						runWithAdapter(adapter, () =>
-							Effect.runPromiseExitWith(args.context)(callback(adapter, tx)),
-						),
-					).then((exit) =>
-						resume(
-							Exit.isSuccess(exit) ? Effect.succeed(exit.value) : Effect.failCause(exit.cause),
-						),
-					);
+			session.transaction(
+				Effect.gen(function* () {
+					const tx = yield* session.current;
+					const transactionContext = yield* Effect.context<DatabaseSession | RedisService>();
+					return yield* Effect.callback<A, E>((resume) => {
+						const adapter = makeFactory(tx, false)(options);
+						void Promise.resolve(
+							runWithAdapter(adapter, () =>
+								Effect.runPromiseExitWith(transactionContext)(callback(adapter, tx)),
+							),
+						).then((exit) =>
+							resume(
+								Exit.isSuccess(exit) ? Effect.succeed(exit.value) : Effect.failCause(exit.cause),
+							),
+						);
+					});
 				}),
 			),
 		);

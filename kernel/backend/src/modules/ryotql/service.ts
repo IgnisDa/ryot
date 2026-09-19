@@ -7,7 +7,8 @@ import type { AccessClass } from "@ryot-app/contract/oauth";
 import { sql } from "drizzle-orm";
 import { Context, Effect, Layer, Match } from "effect";
 
-import { Database, mapDatabaseErrors } from "#lib/infrastructure/db/service";
+import { mapDatabaseErrors } from "#lib/infrastructure/db/service";
+import { DatabaseSession } from "#lib/infrastructure/db/session";
 
 import type { RyotQLAudience, RyotQLExecutionScope } from "./catalog";
 import { executeNamedQuery } from "./executor";
@@ -18,7 +19,7 @@ const RYOTQL_STATEMENT_TIMEOUT_MS = 30_000;
 
 export class RyotQLService extends Context.Service<RyotQLService>()("RyotQLService", {
 	make: Effect.gen(function* () {
-		const database = yield* Database;
+		const session = yield* DatabaseSession;
 
 		const executeWithScope = Effect.fn("RyotQLService.executeWithScope")(function* (
 			scope: RyotQLExecutionScope,
@@ -32,8 +33,9 @@ export class RyotQLService extends Context.Service<RyotQLService>()("RyotQLServi
 			const normalizedDocument = normalizeRyotQLDocument(document, scope);
 
 			return yield* mapDatabaseErrors(
-				database.transaction((transaction) =>
+				session.transaction(
 					Effect.gen(function* () {
+						const transaction = yield* session.current;
 						yield* transaction.execute(
 							sql`SET TRANSACTION ISOLATION LEVEL REPEATABLE READ READ ONLY`,
 						);
@@ -42,12 +44,16 @@ export class RyotQLService extends Context.Service<RyotQLService>()("RyotQLServi
 						);
 						const results: Array<readonly [string, RyotQLResult]> = [];
 						for (const [name, query] of Object.entries(normalizedDocument.queries)) {
-							results.push([name, yield* executeNamedQuery(scope, query, name)]);
+							results.push([name, yield* executeNamedQuery(scope, query, name, transaction)]);
 						}
 						return { data: Object.fromEntries(results) };
-					}).pipe(Effect.provideService(Database, transaction)),
+					}),
 				),
 			).pipe(
+				Effect.catchTag(
+					"DatabaseSessionStateError",
+					() => new RyotQLInternalError({ reason: { code: "execution-failed" } }),
+				),
 				Effect.catchIf(
 					(error): error is DbError => error instanceof DbError,
 					(error) =>

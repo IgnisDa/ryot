@@ -15,7 +15,8 @@ import { and, asc, eq, exists, inArray, sql, type SQL } from "drizzle-orm";
 import { Context, Data, Effect, Layer, Schema } from "effect";
 
 import * as schema from "#lib/infrastructure/db/schema/tables/combined";
-import { Database, mapDatabaseErrors } from "#lib/infrastructure/db/service";
+import { mapDatabaseErrors } from "#lib/infrastructure/db/service";
+import { DatabaseSession } from "#lib/infrastructure/db/session";
 
 import { PluginConfigRevisions } from "./config-revisions";
 import {
@@ -84,67 +85,59 @@ const declaresProvider = exists(
 	sql`(select 1 from jsonb_array_elements(${schema.pluginRevision.manifest} -> 'providers') m where m ->> 'slug' = ${schema.sandboxProvider.slug})`,
 );
 
-const findRevisionScript = Effect.fn(function* (pluginRevisionId: string, scriptSlug: string) {
-	const db = yield* Database;
-	const [row] = yield* mapDatabaseErrors(
-		db
-			.select(storedScriptFields)
-			.from(schema.sandboxScript)
-			.where(
-				and(
-					eq(schema.sandboxScript.pluginRevisionId, pluginRevisionId),
-					eq(schema.sandboxScript.slug, scriptSlug),
-				),
-			)
-			.limit(1),
-	);
-	return row ? { ...row, id: SandboxScriptId.make(row.id) } : null;
-});
+const findRevisionScriptForSession = (database: DatabaseSession["Service"]) =>
+	Effect.fn(function* (pluginRevisionId: string, scriptSlug: string) {
+		const db = yield* database.current;
+		const [row] = yield* mapDatabaseErrors(
+			db
+				.select(storedScriptFields)
+				.from(schema.sandboxScript)
+				.where(
+					and(
+						eq(schema.sandboxScript.pluginRevisionId, pluginRevisionId),
+						eq(schema.sandboxScript.slug, scriptSlug),
+					),
+				)
+				.limit(1),
+		);
+		return row ? { ...row, id: SandboxScriptId.make(row.id) } : null;
+	});
 
-const findScriptInAvailablePlugin = (plugin: AvailablePlugin, slug: string) =>
-	findRevisionScript(plugin.pluginRevisionId, slug);
+const findSystemManifestFieldForSession = (database: DatabaseSession["Service"]) =>
+	Effect.fn(function* <Key extends keyof PluginManifest>(pluginSlug: string, key: Key) {
+		const db = yield* database.current;
+		const [row] = yield* mapDatabaseErrors(
+			db
+				.select({ value: manifestField(key), revisionId: schema.pluginRevision.id })
+				.from(schema.plugin)
+				.innerJoin(
+					schema.pluginRevision,
+					eq(schema.pluginRevision.id, schema.plugin.activeRevisionId),
+				)
+				.where(and(activeSystemPlugin, eq(schema.plugin.slug, pluginSlug)))
+				.limit(1),
+		);
+		return row ?? null;
+	});
 
-const findWorkflowScriptInAvailablePlugin = (plugin: AvailablePlugin, workflowSlug: string) => {
-	const slug = plugin.manifest.workflows.find((entry) => entry.slug === workflowSlug)?.scriptSlug;
-	return slug ? findRevisionScript(plugin.pluginRevisionId, slug) : Effect.succeed(null);
-};
-
-const findSystemManifestField = Effect.fn(function* <Key extends keyof PluginManifest>(
-	pluginSlug: string,
-	key: Key,
-) {
-	const db = yield* Database;
-	const [row] = yield* mapDatabaseErrors(
-		db
-			.select({ value: manifestField(key), revisionId: schema.pluginRevision.id })
-			.from(schema.plugin)
-			.innerJoin(
-				schema.pluginRevision,
-				eq(schema.pluginRevision.id, schema.plugin.activeRevisionId),
-			)
-			.where(and(activeSystemPlugin, eq(schema.plugin.slug, pluginSlug)))
-			.limit(1),
-	);
-	return row ?? null;
-});
-
-const listSystemManifestField = Effect.fn(function* <Key extends keyof PluginManifest>(key: Key) {
-	const db = yield* Database;
-	return yield* mapDatabaseErrors(
-		db
-			.select({
-				value: manifestField(key),
-				pluginId: schema.plugin.id,
-				pluginSlug: schema.plugin.slug,
-			})
-			.from(schema.plugin)
-			.innerJoin(
-				schema.pluginRevision,
-				eq(schema.pluginRevision.id, schema.plugin.activeRevisionId),
-			)
-			.where(activeSystemPlugin),
-	);
-});
+const listSystemManifestFieldForSession = (database: DatabaseSession["Service"]) =>
+	Effect.fn(function* <Key extends keyof PluginManifest>(key: Key) {
+		const db = yield* database.current;
+		return yield* mapDatabaseErrors(
+			db
+				.select({
+					value: manifestField(key),
+					pluginId: schema.plugin.id,
+					pluginSlug: schema.plugin.slug,
+				})
+				.from(schema.plugin)
+				.innerJoin(
+					schema.pluginRevision,
+					eq(schema.pluginRevision.id, schema.plugin.activeRevisionId),
+				)
+				.where(activeSystemPlugin),
+		);
+	});
 
 const bySlugs = <Entry extends { readonly pluginSlug: string }>(
 	entries: Array<Entry>,
@@ -159,6 +152,21 @@ export class PluginRuntimeResolver extends Context.Service<PluginRuntimeResolver
 	"PluginRuntimeResolver",
 	{
 		make: Effect.gen(function* () {
+			const database = yield* DatabaseSession;
+			const findRevisionScript = findRevisionScriptForSession(database);
+			const findSystemManifestField = findSystemManifestFieldForSession(database);
+			const listSystemManifestField = listSystemManifestFieldForSession(database);
+			const findScriptInAvailablePlugin = (plugin: AvailablePlugin, slug: string) =>
+				findRevisionScript(plugin.pluginRevisionId, slug);
+			const findWorkflowScriptInAvailablePlugin = (
+				plugin: AvailablePlugin,
+				workflowSlug: string,
+			) => {
+				const slug = plugin.manifest.workflows.find(
+					(entry) => entry.slug === workflowSlug,
+				)?.scriptSlug;
+				return slug ? findRevisionScript(plugin.pluginRevisionId, slug) : Effect.succeed(null);
+			};
 			const installations = yield* PluginInstallationRepository;
 			const repository = yield* PluginRepository;
 			const configs = yield* PluginConfigRevisions;
@@ -169,7 +177,7 @@ export class PluginRuntimeResolver extends Context.Service<PluginRuntimeResolver
 				listed: boolean,
 				predicate?: SQL,
 			) {
-				const db = yield* Database;
+				const db = yield* database.current;
 				const rows = yield* mapDatabaseErrors(
 					db
 						.select({
@@ -265,7 +273,7 @@ export class PluginRuntimeResolver extends Context.Service<PluginRuntimeResolver
 				return plugin && operation && script ? { plugin, script, operation } : null;
 			});
 			const findActiveScriptById = Effect.fn(function* (scriptId: SandboxScriptId) {
-				const db = yield* Database;
+				const db = yield* database.current;
 				const [row] = yield* mapDatabaseErrors(
 					db
 						.select({ ...storedScriptFields, pluginSlug: schema.plugin.slug })
@@ -316,7 +324,7 @@ export class PluginRuntimeResolver extends Context.Service<PluginRuntimeResolver
 				);
 			});
 			const listPrivateCronSchedules = Effect.fn(function* () {
-				const db = yield* Database;
+				const db = yield* database.current;
 				const rows = yield* mapDatabaseErrors(
 					db
 						.select({
@@ -344,7 +352,7 @@ export class PluginRuntimeResolver extends Context.Service<PluginRuntimeResolver
 				installationId: string;
 				cronSlug: string;
 			}) {
-				const db = yield* Database;
+				const db = yield* database.current;
 				const [row] = yield* mapDatabaseErrors(
 					db
 						.select({
@@ -378,7 +386,7 @@ export class PluginRuntimeResolver extends Context.Service<PluginRuntimeResolver
 				if (!state) {
 					return null;
 				}
-				const db = yield* Database;
+				const db = yield* database.current;
 				const [active] = yield* mapDatabaseErrors(
 					db
 						.select({
@@ -411,7 +419,7 @@ export class PluginRuntimeResolver extends Context.Service<PluginRuntimeResolver
 				};
 			});
 			const querySchemaProviders = Effect.fn(function* (userId: UserId, predicate?: SQL) {
-				const db = yield* Database;
+				const db = yield* database.current;
 				const rows = yield* mapDatabaseErrors(
 					db
 						.select({
@@ -468,7 +476,7 @@ export class PluginRuntimeResolver extends Context.Service<PluginRuntimeResolver
 				return row?.provider ?? null;
 			});
 			const findActiveProvider = Effect.fn(function* (predicate: SQL) {
-				const db = yield* Database;
+				const db = yield* database.current;
 				const [row] = yield* mapDatabaseErrors(
 					db
 						.select({
@@ -510,7 +518,7 @@ export class PluginRuntimeResolver extends Context.Service<PluginRuntimeResolver
 				if (!provider || provider.rootEntitySchemaSlug !== input.entitySchemaSlug) {
 					return null;
 				}
-				const db = yield* Database;
+				const db = yield* database.current;
 				const [owner] = yield* mapDatabaseErrors(
 					db
 						.select({ id: schema.globalEntitySchema.id })
@@ -544,7 +552,7 @@ export class PluginRuntimeResolver extends Context.Service<PluginRuntimeResolver
 							reason: "inactive_provider",
 						});
 					}
-					const db = yield* Database;
+					const db = yield* database.current;
 					const [revision] = yield* mapDatabaseErrors(
 						db
 							.select({ id: schema.pluginRevision.id, providers: manifestField("providers") })

@@ -25,7 +25,8 @@ import {
 } from "#lib/domain/lifecycle";
 import { lifecycleTrigger, type LifecycleCommand } from "#lib/domain/lifecycle-command";
 import { LifecycleExecution } from "#lib/domain/lifecycle-execution";
-import { Database, mapDatabaseErrors, retryOnDeadlock } from "#lib/infrastructure/db/service";
+import { retryOnDeadlock } from "#lib/infrastructure/db/service";
+import { DatabaseSession, DatabaseSessionStateError } from "#lib/infrastructure/db/session";
 import type { DurableSchema } from "#lib/infrastructure/workflow";
 import { implementWorkflow, makeActivity } from "#lib/infrastructure/workflow-scope";
 import { EntitiesRepository } from "#modules/entities/repository";
@@ -64,15 +65,21 @@ const PreparedItem = Schema.Struct({
 	eventSchemaFingerprint: CatalogDefinitionFingerprint,
 });
 
-const transaction = <A, E, R>(effect: Effect.Effect<A, E, R>) =>
-	Effect.gen(function* () {
-		const database = yield* Database;
-		return yield* retryOnDeadlock(
-			mapDatabaseErrors(
-				database.transaction((tx) => effect.pipe(Effect.provideService(Database, tx))),
+const transaction = <A, E, R>(
+	session: DatabaseSession["Service"],
+	effect: Effect.Effect<A, E, R>,
+) =>
+	retryOnDeadlock(
+		session
+			.transaction(effect)
+			.pipe(
+				Effect.mapError((error) =>
+					error instanceof DatabaseSessionStateError
+						? new DbError({ message: "Event workflow transaction already active" })
+						: error,
+				),
 			),
-		);
-	});
+	);
 
 const itemCommand = (payload: EventCreateWorkflowPayload, index: number): LifecycleCommand => ({
 	...payload.command,
@@ -85,6 +92,7 @@ const prepareItem = Effect.fn("prepareEventCreateItem")(function* (
 	excluded: ReadonlyArray<PolicyIdentity>,
 ) {
 	const planner = yield* LifecyclePlanner;
+	const session = yield* DatabaseSession;
 	const item = payload.payload[index];
 	if (!item) {
 		return yield* Effect.die("Missing event batch item");
@@ -115,6 +123,7 @@ const prepareItem = Effect.fn("prepareEventCreateItem")(function* (
 				Effect.mapError(() => new EventCreateItemError({ reason: { code: "invalid-properties" } })),
 			);
 			const plan = yield* transaction(
+				session,
 				planner.plan({
 					excludedOncePerSubjectPolicies: excluded,
 					trigger: lifecycleTrigger(itemCommand(payload, index), payload.userId, {
@@ -153,12 +162,14 @@ const writeEvent = Effect.fn("writeEventCreateItem")(function* (
 	const entities = yield* EntitiesRepository;
 	const eventSchemas = yield* EventSchemasRepository;
 	const planner = yield* LifecyclePlanner;
+	const session = yield* DatabaseSession;
 	const command = itemCommand(payload, index);
 	return yield* makeActivity({
 		name: `write-event-${index}`,
 		error: EventCreateWorkflowError satisfies DurableSchema,
 		success: Schema.Struct({ plan: Plan, eventId: EventId }) satisfies DurableSchema,
 		execute: transaction(
+			session,
 			Effect.gen(function* () {
 				const eventId = EventId.make(
 					`event_${sha256Base64Url(stableStringify([command.causation.executionId, command.itemIdentity]))}`,
@@ -253,11 +264,13 @@ const planEventBatch = Effect.fn("planEventCreateBatch")(function* (
 	plans: ReadonlyArray<LifecyclePlan>,
 ) {
 	const planner = yield* LifecyclePlanner;
+	const session = yield* DatabaseSession;
 	return yield* makeActivity({
 		name: "plan-event-batch",
 		error: EventCreateWorkflowError satisfies DurableSchema,
 		success: Schema.Array(LifecycleDispatchPlan) satisfies DurableSchema,
 		execute: transaction(
+			session,
 			planner
 				.planBatch({ plans, resource: "event", identity: ["events"], command: payload.command })
 				.pipe(Effect.map((batch) => batch.map(toLifecycleDispatchPlan))),

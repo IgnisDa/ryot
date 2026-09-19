@@ -4,7 +4,7 @@ import { sql } from "drizzle-orm";
 import { Effect } from "effect";
 import { describe } from "vitest";
 
-import { Database } from "#lib/infrastructure/db/service";
+import { DatabaseSession } from "#lib/infrastructure/db/session";
 
 import { ProviderImportAdmissionRepository } from "./admission-repository";
 import { alice, bob, withAdmissionDatabase } from "./admission.test-support";
@@ -32,9 +32,11 @@ const enqueueInOrder = (requests: ReadonlyArray<readonly [string, UserId]>) =>
 	Effect.forEach(requests, ([id, userId], index) =>
 		request(id, userId).pipe(
 			Effect.andThen(
-				Effect.flatMap(Database, (db) =>
-					db.execute(
-						sql`update provider_import_admission set created_at = to_timestamp(${index}) where id = ${id}`,
+				Effect.flatMap(DatabaseSession, (session) =>
+					Effect.flatMap(session.current, (db) =>
+						db.execute(
+							sql`update provider_import_admission set created_at = to_timestamp(${index}) where id = ${id}`,
+						),
 					),
 				),
 			),

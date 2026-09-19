@@ -10,11 +10,8 @@ import { and, asc, eq, inArray, isNotNull, lte, notInArray } from "drizzle-orm";
 import { Context, DateTime, Effect, Layer } from "effect";
 
 import * as schema from "#lib/infrastructure/db/schema/tables/backups";
-import {
-	Database,
-	isUniqueConstraintError,
-	mapDatabaseErrors,
-} from "#lib/infrastructure/db/service";
+import { isUniqueConstraintError, mapDatabaseErrors } from "#lib/infrastructure/db/service";
+import { DatabaseSession } from "#lib/infrastructure/db/session";
 
 type BackupRunRow = typeof schema.backupRun.$inferSelect;
 
@@ -54,12 +51,13 @@ const boundedProgress = (progress: number) =>
 	Number.isFinite(progress) ? Math.max(0, Math.min(100, Math.trunc(progress))) : 0;
 
 export class BackupsRepository extends Context.Service<BackupsRepository>()("BackupsRepository", {
-	make: Effect.sync(() => {
+	make: Effect.gen(function* () {
+		const database = yield* DatabaseSession;
 		const createRun = Effect.fn("BackupsRepository.createRun")(function* (input: {
 			userId: UserId;
 			kind: BackupRunKind;
 		}) {
-			const db = yield* Database;
+			const db = yield* database.current;
 			const [row] = yield* mapDatabaseErrors(
 				db
 					.insert(schema.backupRun)
@@ -80,7 +78,7 @@ export class BackupsRepository extends Context.Service<BackupsRepository>()("Bac
 			userId: UserId;
 			runId: BackupRunId;
 		}) {
-			const db = yield* Database;
+			const db = yield* database.current;
 			const [row] = yield* mapDatabaseErrors(
 				db
 					.select()
@@ -97,7 +95,7 @@ export class BackupsRepository extends Context.Service<BackupsRepository>()("Bac
 			runId: BackupRunId;
 			userId: UserId;
 		}) {
-			const db = yield* Database;
+			const db = yield* database.current;
 			const [row] = yield* mapDatabaseErrors(
 				db
 					.select()
@@ -121,7 +119,7 @@ export class BackupsRepository extends Context.Service<BackupsRepository>()("Bac
 			progress?: number;
 			runId: BackupRunId;
 		}) {
-			const db = yield* Database;
+			const db = yield* database.current;
 			const startedAt = yield* DateTime.nowAsDate;
 			const [row] = yield* mapDatabaseErrors(
 				db
@@ -148,7 +146,7 @@ export class BackupsRepository extends Context.Service<BackupsRepository>()("Bac
 			userId: UserId;
 			progress: number;
 		}) {
-			const db = yield* Database;
+			const db = yield* database.current;
 			const [row] = yield* mapDatabaseErrors(
 				db
 					.update(schema.backupRun)
@@ -176,7 +174,7 @@ export class BackupsRepository extends Context.Service<BackupsRepository>()("Bac
 						artifactProvider: BackupRunArtifactProvider;
 				  },
 		) {
-			const db = yield* Database;
+			const db = yield* database.current;
 			const finishedAt = yield* DateTime.nowAsDate;
 			const artifact =
 				"artifactKey" in input
@@ -207,7 +205,7 @@ export class BackupsRepository extends Context.Service<BackupsRepository>()("Bac
 			userId: UserId;
 			runId: BackupRunId;
 		}) {
-			const db = yield* Database;
+			const db = yield* database.current;
 			const finishedAt = yield* DateTime.nowAsDate;
 			const [row] = yield* mapDatabaseErrors(
 				db
@@ -231,7 +229,7 @@ export class BackupsRepository extends Context.Service<BackupsRepository>()("Bac
 				if (limit === 0) {
 					return [];
 				}
-				const db = yield* Database;
+				const db = yield* database.current;
 				const now = yield* DateTime.nowAsDate;
 				const rows = yield* mapDatabaseErrors(
 					db
@@ -259,7 +257,7 @@ export class BackupsRepository extends Context.Service<BackupsRepository>()("Bac
 			userId: UserId;
 			runId: BackupRunId;
 		}) {
-			const db = yield* Database;
+			const db = yield* database.current;
 			const [row] = yield* mapDatabaseErrors(
 				db
 					.delete(schema.backupRun)
@@ -277,7 +275,7 @@ export class BackupsRepository extends Context.Service<BackupsRepository>()("Bac
 
 		const deleteExpiredRunById = Effect.fn("BackupsRepository.deleteExpiredRunById")(
 			function* (input: { runId: BackupRunId }) {
-				const db = yield* Database;
+				const db = yield* database.current;
 				const now = yield* DateTime.nowAsDate;
 				const [row] = yield* mapDatabaseErrors(
 					db

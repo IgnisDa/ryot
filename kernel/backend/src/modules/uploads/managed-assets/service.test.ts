@@ -7,7 +7,8 @@ import { CryptoHasher } from "bun";
 import type { FileSystem } from "effect";
 import { ByteSize, Clock, DateTime, Effect, Layer, Option, Stream } from "effect";
 
-import { Database } from "#lib/infrastructure/db/service";
+import { mapDatabaseErrors } from "#lib/infrastructure/db/service";
+import { DatabaseSession } from "#lib/infrastructure/db/session";
 import { LocalStorageService } from "#lib/infrastructure/local-storage";
 import { S3Service } from "#lib/infrastructure/s3";
 import { assertExitFails } from "#lib/test-utils/assertions";
@@ -203,8 +204,10 @@ it.effect("assigns concurrent staging ownership only to the conditional-create w
 								}),
 					writeObjectIfAbsent: (_locator, stream) =>
 						Effect.gen(function* () {
-							const chunks = yield* Stream.runCollect(stream).pipe(
-								Effect.mapError(() => new BadRequest({ message: "asset stream failed" })),
+							const chunks = yield* Stream.runCollect(
+								stream.pipe(
+									Stream.mapError(() => new BadRequest({ message: "asset stream failed" })),
+								),
 							);
 							const body = Uint8Array.from(
 								Array.from(chunks).flatMap((chunk) => Array.from(chunk)),
@@ -262,16 +265,14 @@ it.effect("blocks managed asset registration while the owner lifecycle is active
 			from: () => ({ where: () => ({ limit: () => Effect.succeed([{ id: "operation-1" }]) }) }),
 		}),
 	});
-	const database = Database.of(
-		Object.assign(Object.create(null), {
-			transaction: (run: (tx: typeof transaction) => Effect.Effect<unknown, unknown, unknown>) =>
-				run(transaction),
-		}),
-	);
+	const database = Layer.mock(DatabaseSession)({
+		current: Effect.succeed(transaction),
+		transaction: (work) => mapDatabaseErrors(work),
+	});
 	const serviceLayer = ManagedAssetsService.layer.pipe(
 		Layer.provide(
 			Layer.mergeAll(
-				Layer.succeed(Database, database),
+				database,
 				mockLocalStorage({}),
 				mockObjectStorage({}),
 				mockS3({ isConfigured: true }),
@@ -282,7 +283,7 @@ it.effect("blocks managed asset registration while the owner lifecycle is active
 			),
 		),
 	);
-	const layer = Layer.merge(serviceLayer, Layer.succeed(Database, database));
+	const layer = Layer.merge(serviceLayer, database);
 
 	return Effect.gen(function* () {
 		const service = yield* ManagedAssetsService;
@@ -316,16 +317,14 @@ it.effect(
 				}),
 			}),
 		});
-		const database = Database.of(
-			Object.assign(Object.create(null), {
-				transaction: (run: (tx: typeof transaction) => Effect.Effect<unknown, unknown, unknown>) =>
-					run(transaction),
-			}),
-		);
+		const database = Layer.mock(DatabaseSession)({
+			current: Effect.succeed(transaction),
+			transaction: (work) => mapDatabaseErrors(work),
+		});
 		const serviceLayer = ManagedAssetsService.layer.pipe(
 			Layer.provide(
 				Layer.mergeAll(
-					Layer.succeed(Database, database),
+					database,
 					mockLocalStorage({}),
 					mockS3({ isConfigured: true }),
 					mockUserLifecycleGuard({ isActive: () => Effect.succeed(false) }),
@@ -342,8 +341,9 @@ it.effect(
 						statObject: () =>
 							Effect.succeed({ size: bytes.byteLength, contentType: "application/octet-stream" }),
 						writeObjectIfAbsent: (_locator, stream) =>
-							Stream.runDrain(stream).pipe(
-								Effect.mapError(() => new BadRequest({ message: "stream failed" })),
+							Stream.runDrain(
+								stream.pipe(Stream.mapError(() => new BadRequest({ message: "stream failed" }))),
+							).pipe(
 								Effect.as(true),
 								Effect.tap(() => Effect.sync(() => void (stored = true))),
 							),
@@ -367,6 +367,6 @@ it.effect(
 			yield* service.cleanupStagedPermanentAsset(staged);
 			expect(stored).toBe(false);
 			expect(deletes).toBe(1);
-		}).pipe(Effect.provide(Layer.merge(serviceLayer, Layer.succeed(Database, database))));
+		}).pipe(Effect.provide(Layer.merge(serviceLayer, database)));
 	},
 );

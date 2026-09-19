@@ -2,7 +2,8 @@ import type { PluginArchiveCompiledScript } from "@ryot-app/plugin-archive";
 import { sha256Hex } from "@ryot-app/ts-utils/crypto";
 import { Context, Effect, Layer } from "effect";
 
-import { Database, mapDatabaseErrors } from "#lib/infrastructure/db/service";
+import { mapDatabaseErrors } from "#lib/infrastructure/db/service";
+import { DatabaseSession } from "#lib/infrastructure/db/session";
 import { kernelScriptCompiledOutputs } from "#modules/definition-registry/kernel-scripts.compiled.generated";
 import { kernelDefinitionSource, kernelScripts } from "#modules/definition-registry/kernel-source";
 import { DefinitionRepository } from "#modules/definition-registry/repository";
@@ -20,7 +21,7 @@ export class SystemPluginBootstrap extends Context.Service<SystemPluginBootstrap
 	"SystemPluginBootstrap",
 	{
 		make: Effect.gen(function* () {
-			const database = yield* Database;
+			const database = yield* DatabaseSession;
 			const repository = yield* PluginRepository;
 			const definitions = yield* DefinitionRepository;
 			const systemPlugins = yield* SystemPlugins;
@@ -62,13 +63,9 @@ export class SystemPluginBootstrap extends Context.Service<SystemPluginBootstrap
 					});
 				});
 			});
-			const inTransaction = <A, E>(effect: Effect.Effect<A, E, Database>) =>
+			const inTransaction = <A, E, R>(effect: Effect.Effect<A, E, R>) =>
 				mapDatabaseErrors(
-					database.transaction((transaction) =>
-						repository
-							.lockIngestion()
-							.pipe(Effect.andThen(effect), Effect.provideService(Database, transaction)),
-					),
+					database.transaction(repository.lockIngestion().pipe(Effect.andThen(effect))),
 				);
 
 			const ingest = Effect.fn("SystemPluginBootstrap.ingest")(function* () {

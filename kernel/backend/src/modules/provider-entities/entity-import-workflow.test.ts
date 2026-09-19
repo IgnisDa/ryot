@@ -18,7 +18,8 @@ import { WorkflowEngine, WorkflowInstance } from "effect/unstable/workflow/Workf
 
 import { rootLifecycleCommand, type LifecycleCommand } from "#lib/domain/lifecycle-command";
 import { LifecycleExecution } from "#lib/domain/lifecycle-execution";
-import { Database } from "#lib/infrastructure/db/service";
+import { mapDatabaseErrors } from "#lib/infrastructure/db/service";
+import { DatabaseSession } from "#lib/infrastructure/db/session";
 import { RedisService } from "#lib/infrastructure/redis";
 import { makeRedisService, makeWorkflowActivityEngine } from "#lib/test-utils/effect";
 import { planFixture } from "#modules/automations/lifecycle.test-support";
@@ -142,26 +143,22 @@ const snapshot = (entity: TestEntity) => ({
 
 const makeTransaction = (rollback: () => void = () => {}) => {
 	let inTransaction = false;
-	const transaction: Parameters<Parameters<Database["Service"]["transaction"]>[0]>[0] =
-		Object.create(null);
-	const database = Database.of(
-		Object.assign(Object.create(null), {
-			transaction: ((body) =>
-				Effect.suspend(() => {
-					inTransaction = true;
-					return body(transaction).pipe(
-						Effect.onExit((exit) =>
-							Effect.sync(() => {
-								if (Exit.isFailure(exit)) {
-									rollback();
-								}
-							}),
-						),
-						Effect.ensuring(Effect.sync(() => (inTransaction = false))),
-					);
-				})) satisfies Database["Service"]["transaction"],
-		}),
-	);
+	const database = Layer.mock(DatabaseSession)({
+		transaction: (work) =>
+			Effect.suspend(() => {
+				inTransaction = true;
+				return mapDatabaseErrors(work).pipe(
+					Effect.onExit((exit) =>
+						Effect.sync(() => {
+							if (Exit.isFailure(exit)) {
+								rollback();
+							}
+						}),
+					),
+					Effect.ensuring(Effect.sync(() => (inTransaction = false))),
+				);
+			}),
+	});
 	return { database, inTransaction: () => inTransaction };
 };
 
@@ -216,7 +213,7 @@ it.effect("commits a child set atomically and returns entity then relationship p
 		groups: ReadonlyArray<unknown>;
 	}> = [];
 	const layer = Layer.mergeAll(
-		Layer.succeed(Database, transaction.database),
+		transaction.database,
 		definitionsLayer,
 		Layer.mock(EntitiesRepository)({}),
 		Layer.mock(EntitiesService)({
@@ -291,7 +288,7 @@ it.effect("rolls back every child entity when relationship planning fails", () =
 	const persisted: string[] = [];
 	const transaction = makeTransaction(() => persisted.splice(0));
 	const layer = Layer.mergeAll(
-		Layer.succeed(Database, transaction.database),
+		transaction.database,
 		definitionsLayer,
 		Layer.mock(EntitiesRepository)({}),
 		Layer.mock(EntitiesService)({
@@ -339,7 +336,7 @@ it.effect("keeps private related entities and reconciliation in one user transac
 	let reconciliationCommand: LifecycleCommand | undefined;
 	const privateProviderId = SandboxProviderId.make("private-provider");
 	const layer = Layer.mergeAll(
-		Layer.succeed(Database, transaction.database),
+		transaction.database,
 		definitionsLayer,
 		Layer.mock(PluginRuntimeResolver)({
 			findProviderAvailableToUserBySlug: () =>
@@ -421,7 +418,7 @@ it.effect("rolls back a complete related group when reconciliation fails", () =>
 	const transaction = makeTransaction(() => persisted.splice(0));
 	const relatedProviderId = SandboxProviderId.make("person-provider");
 	const layer = Layer.mergeAll(
-		Layer.succeed(Database, transaction.database),
+		transaction.database,
 		definitionsLayer,
 		Layer.mock(PluginRuntimeResolver)({}),
 		Layer.mock(EntitiesRepository)({
@@ -506,7 +503,7 @@ it.effect("uses command causation for deterministic root and final lifecycle wri
 	});
 	const instance = WorkflowInstance.initial(ProviderEntityPopulationWorkflow, "population-root");
 	const layer = Layer.mergeAll(
-		Layer.succeed(Database, transaction.database),
+		transaction.database,
 		definitionsLayer,
 		Layer.succeed(RedisService, makeRedisService({ publish: () => Effect.succeed(1) })),
 		Layer.mock(PluginRuntimeResolver)({}),

@@ -7,7 +7,7 @@ import {
 } from "@ryot-app/contract/schema/brands";
 import { Effect, Layer } from "effect";
 
-import { Database } from "#lib/infrastructure/db/service";
+import { DatabaseSession } from "#lib/infrastructure/db/session";
 import { DefinitionRepository } from "#modules/definition-registry/repository";
 import { buildDefinitionSnapshot } from "#modules/definition-registry/snapshot";
 import { PluginRuntimeResolver } from "#modules/plugins/runtime-resolver";
@@ -45,7 +45,7 @@ it.effect(
 			],
 		});
 		const layer = EventSchemasRepository.layer.pipe(
-			Layer.provideMerge(Layer.succeed(Database, Database.of(Object.create(null)))),
+			Layer.provideMerge(Layer.mock(DatabaseSession)({})),
 			Layer.provideMerge(
 				Layer.mock(DefinitionRepository)({
 					findUserEntitySchemas: () => Effect.succeed(snapshot.entitySchemas),

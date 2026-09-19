@@ -6,7 +6,7 @@ import { Effect, Layer } from "effect";
 import { assert, describe } from "vitest";
 
 import * as tables from "#lib/infrastructure/db/schema/tables/combined";
-import { Database } from "#lib/infrastructure/db/service";
+import { DatabaseSession } from "#lib/infrastructure/db/session";
 import {
 	installRevisionPackage,
 	revisionPackage,
@@ -48,31 +48,28 @@ it.effect("acquires the per-user lock before reading an active operation", () =>
 			},
 		},
 	};
-	const database = Database.of(
-		Object.assign(Object.create(null), {
-			execute: () => Effect.sync(() => void events.push("lock")),
-			select: () => {
-				events.push("active");
-				return { from: () => ({ where: () => ({ limit: () => Effect.succeed([active]) }) }) };
-			},
-		}),
-	);
-	const repositoryLayer = UserLifecycleRepository.layer.pipe(
-		Layer.provide(Layer.succeed(Database, database)),
-	);
+	const database = Object.assign(Object.create(null), {
+		execute: () => Effect.sync(() => void events.push("lock")),
+		select: () => {
+			events.push("active");
+			return { from: () => ({ where: () => ({ limit: () => Effect.succeed([active]) }) }) };
+		},
+	});
+	const session = Layer.mock(DatabaseSession)({ current: Effect.succeed(database) });
+	const repositoryLayer = UserLifecycleRepository.layer.pipe(Layer.provide(session));
 	return Effect.gen(function* () {
 		const repository = yield* UserLifecycleRepository;
 		const prepared = yield* repository.loadPreparationForUpdate(UserId.make("user-1"), "reset");
 		expect(prepared?.active?.operation.id).toBe("operation-1");
 		expect(events).toEqual(["lock", "active"]);
-	}).pipe(Effect.provide(Layer.merge(repositoryLayer, Layer.succeed(Database, database))));
+	}).pipe(Effect.provide(Layer.merge(repositoryLayer, session)));
 });
 
 describe("user lifecycle persistence cleanup", () => {
 	it.effect("deletes private history while preserving a shared recipient and encryption key", () =>
 		withRevisionDatabase(
 			Effect.gen(function* () {
-				const db = yield* Database;
+				const db = yield* (yield* DatabaseSession).current;
 				const repository = yield* UserLifecycleRepository;
 				const owner = UserId.make("owner");
 				const now = lifecycleCleanupNow;

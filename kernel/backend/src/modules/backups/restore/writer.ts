@@ -11,17 +11,13 @@ import type { AppPropertyDefinition, AppSchema } from "@ryot-app/contract/schema
 import { Context, Data, Effect, Layer, Stream } from "effect";
 
 import { parseAppSchemaProperties } from "#lib/property-schema/property-schema-runtime";
-import { AuthRepository } from "#modules/auth/repository";
 import { AutomationsRepository } from "#modules/automations/repository";
 import type { DefinitionSnapshot } from "#modules/definition-registry/snapshot";
 import { EntitiesRepository, type PortableEntityRecord } from "#modules/entities/repository";
-import { TranslationsRepository } from "#modules/entity-translation/repository";
-import { EventsRepository, RESTORE_EVENT_BATCH_SIZE } from "#modules/events/repository";
-import { IntegrationsRepository } from "#modules/integrations/repository";
+import { RESTORE_EVENT_BATCH_SIZE } from "#modules/events/repository";
 import { validateRestoredProperties } from "#modules/plugins/config-revisions";
 import { PluginInstallationRepository } from "#modules/plugins/installation-repository";
 import { PluginRepository } from "#modules/plugins/repository";
-import { RelationshipsRepository } from "#modules/relationships/repository";
 import { validateSavedViewDefinition } from "#modules/saved-views/definition-validation";
 import { SavedViewsRepository } from "#modules/saved-views/repository";
 
@@ -40,6 +36,7 @@ import {
 	type ArchiveEntityDependency,
 	type ArchiveInstallation,
 } from "../archive/schemas";
+import { BackupRestorePersistence } from "./persistence";
 
 export class RequiredBackupPluginUnavailable extends Data.TaggedError(
 	"RequiredBackupPluginUnavailable",
@@ -330,15 +327,11 @@ export class BackupRestoreWriter extends Context.Service<BackupRestoreWriter>()(
 	"BackupRestoreWriter",
 	{
 		make: Effect.gen(function* () {
-			const auth = yield* AuthRepository;
-			const events = yield* EventsRepository;
+			const persistence = yield* BackupRestorePersistence;
 			const plugins = yield* PluginRepository;
 			const entities = yield* EntitiesRepository;
 			const savedViews = yield* SavedViewsRepository;
 			const automations = yield* AutomationsRepository;
-			const integrations = yield* IntegrationsRepository;
-			const translations = yield* TranslationsRepository;
-			const relationships = yield* RelationshipsRepository;
 			const installations = yield* PluginInstallationRepository;
 
 			const assertRequiredPlugins = Effect.fn("BackupRestoreWriter.assertRequiredPlugins")(
@@ -371,9 +364,9 @@ export class BackupRestoreWriter extends Context.Service<BackupRestoreWriter>()(
 			});
 
 			const restoreEventBatch = (
-				batch: ReadonlyArray<Parameters<typeof events.restoreEvents>[0][number]>,
+				batch: ReadonlyArray<Parameters<typeof persistence.restoreEvents>[0][number]>,
 			) =>
-				events
+				persistence
 					.restoreEvents(batch)
 					.pipe(
 						Effect.mapError((error) =>
@@ -441,7 +434,7 @@ export class BackupRestoreWriter extends Context.Service<BackupRestoreWriter>()(
 						installedPlugin.configSchema,
 						redactedConfigNeedsConfiguration,
 					);
-					const restored = yield* installations.restore({
+					const restored = yield* persistence.restoreInstallation({
 						userId,
 						config,
 						pluginId,
@@ -483,7 +476,7 @@ export class BackupRestoreWriter extends Context.Service<BackupRestoreWriter>()(
 						provider.settingsSchema,
 						assetLocators,
 					);
-					yield* integrations.restoreForUser({
+					yield* persistence.restoreForUser({
 						userId,
 						providerSpecifics,
 						id: integration.id,
@@ -609,7 +602,7 @@ export class BackupRestoreWriter extends Context.Service<BackupRestoreWriter>()(
 							schemaDefinition.propertiesSchema,
 							"Entity properties",
 						);
-						const id = yield* entities.restoreEntity({
+						const id = yield* persistence.restoreEntity({
 							properties,
 							userId: null,
 							id: dependency.id,
@@ -633,7 +626,7 @@ export class BackupRestoreWriter extends Context.Service<BackupRestoreWriter>()(
 						inserted,
 						dependency.translations,
 					)) {
-						yield* translations.restoreTranslation({
+						yield* persistence.restoreTranslation({
 							id: translation.id,
 							entityId: target.id,
 							name: translation.name,
@@ -676,7 +669,7 @@ export class BackupRestoreWriter extends Context.Service<BackupRestoreWriter>()(
 					}
 					const properties = yield* rewriteProperties(entity.properties, propertiesSchema);
 					yield* validateProperties(properties, propertiesSchema, "Entity properties");
-					const id = yield* entities.restoreEntity({
+					const id = yield* persistence.restoreEntity({
 						userId,
 						properties,
 						id: entity.id,
@@ -710,7 +703,7 @@ export class BackupRestoreWriter extends Context.Service<BackupRestoreWriter>()(
 					}
 					const properties = yield* rewriteProperties(relationship.properties, propertiesSchema);
 					yield* validateProperties(properties, propertiesSchema, "Relationship properties");
-					const restoredId = yield* relationships.restoreRelationship({
+					const restoredId = yield* persistence.restoreRelationship({
 						userId,
 						properties,
 						sourceEntityId,
@@ -778,7 +771,7 @@ export class BackupRestoreWriter extends Context.Service<BackupRestoreWriter>()(
 				);
 				yield* restoreEventBatch(eventBatch.splice(0));
 
-				if (!(yield* auth.restorePortableProfile(userId, records.profile))) {
+				if (!(yield* persistence.restorePortableProfile(userId, records.profile))) {
 					return yield* badRequest("Backup user does not exist");
 				}
 				for (const view of records.savedViews) {
@@ -824,7 +817,7 @@ export class BackupRestoreWriter extends Context.Service<BackupRestoreWriter>()(
 						null,
 						pluginPage?.kind === "page" ? pluginPage : null,
 					).pipe(Effect.mapError(() => badRequest("Backup saved view definition is invalid")));
-					const restored = yield* savedViews.restoreCustomView({
+					const restored = yield* persistence.restoreCustomView({
 						userId,
 						renderer,
 						slug: view.slug,
@@ -881,7 +874,7 @@ export class BackupRestoreWriter extends Context.Service<BackupRestoreWriter>()(
 					if (definition?.catalogState !== "active") {
 						return yield* badRequest("Backup references an unavailable notification subscription");
 					}
-					const restored = yield* automations.restoreNotificationSubscription({
+					const restored = yield* persistence.restoreNotificationSubscription({
 						userId,
 						isActive: subscription.isActive,
 						signalSchemaSlug: SignalSchemaSlug.make(subscription.signalSchemaSlug),
@@ -898,7 +891,7 @@ export class BackupRestoreWriter extends Context.Service<BackupRestoreWriter>()(
 					}
 				}
 				for (const activation of installationActivations) {
-					if (!(yield* installations.activateRestored(activation))) {
+					if (!(yield* persistence.activateRestored(activation))) {
 						return yield* badRequest("Backup plugin installation could not be activated");
 					}
 				}
@@ -909,5 +902,7 @@ export class BackupRestoreWriter extends Context.Service<BackupRestoreWriter>()(
 		}),
 	},
 ) {
-	static readonly layer = Layer.effect(this, this.make);
+	static readonly layer = Layer.effect(this, this.make).pipe(
+		Layer.provide(BackupRestorePersistence.layer),
+	);
 }

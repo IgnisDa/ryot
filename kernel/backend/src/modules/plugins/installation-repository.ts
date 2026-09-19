@@ -4,7 +4,8 @@ import { and, asc, eq, isNull, sql } from "drizzle-orm";
 import { Context, Effect, Layer } from "effect";
 
 import * as schema from "#lib/infrastructure/db/schema/tables/combined";
-import { Database, mapDatabaseErrors } from "#lib/infrastructure/db/service";
+import { mapDatabaseErrors } from "#lib/infrastructure/db/service";
+import { DatabaseSession } from "#lib/infrastructure/db/session";
 
 import { redactPluginConfig } from "./config-redaction";
 import { PluginConfigRevisions } from "./config-revisions";
@@ -39,22 +40,6 @@ export type PluginInstallationState = StoredInstallationRow & {
 
 export type PluginInstallationHydratedState = PluginInstallationState &
 	Pick<PluginInstallationRow, "config" | "configSchema">;
-
-type RestoreInstallationInput = Omit<
-	PluginInstallationRow,
-	| "id"
-	| "userId"
-	| "healthReason"
-	| "homeSavedViewSlug"
-	| "activeConfigRevisionId"
-	| "uninstalledAt"
-	| "configSchema"
-> & {
-	readonly userId: UserId;
-	readonly preserveExistingConfig: boolean;
-	readonly configuredSecretPaths?: ReadonlyArray<string>;
-	readonly allowMissingRequiredSecrets?: boolean;
-};
 
 const provisionSystemInstallations = (
 	userId: UserId | null,
@@ -105,12 +90,13 @@ export class PluginInstallationRepository extends Context.Service<PluginInstalla
 	"PluginInstallationRepository",
 	{
 		make: Effect.gen(function* () {
+			const database = yield* DatabaseSession;
 			const configs = yield* PluginConfigRevisions;
 			const hydrate = Effect.fn(function* <T extends StoredInstallationRow>(row: T) {
 				if (!row.activeConfigRevisionId) {
 					return { ...row, config: {} };
 				}
-				const db = yield* Database;
+				const db = yield* database.current;
 				const [revision] = yield* mapDatabaseErrors(
 					db
 						.select()
@@ -142,7 +128,7 @@ export class PluginInstallationRepository extends Context.Service<PluginInstalla
 				};
 			});
 			const lockPluginRevision = Effect.fn(function* (pluginId: string) {
-				const db = yield* Database;
+				const db = yield* database.current;
 				yield* mapDatabaseErrors(
 					db
 						.select({ id: schema.plugin.id })
@@ -156,7 +142,7 @@ export class PluginInstallationRepository extends Context.Service<PluginInstalla
 				yield* lockPluginRevision(pluginId);
 			});
 			const projectLockedClientConfig = Effect.fn(function* (id: string) {
-				const db = yield* Database;
+				const db = yield* database.current;
 				const [row] = yield* mapDatabaseErrors(
 					db
 						.select({
@@ -196,7 +182,7 @@ export class PluginInstallationRepository extends Context.Service<PluginInstalla
 				);
 			});
 			const installationPluginId = Effect.fn(function* (id: string) {
-				const db = yield* Database;
+				const db = yield* database.current;
 				const [row] = yield* mapDatabaseErrors(
 					db
 						.select({ pluginId: schema.pluginInstallation.pluginId })
@@ -207,7 +193,7 @@ export class PluginInstallationRepository extends Context.Service<PluginInstalla
 				return row?.pluginId ?? null;
 			});
 			const refreshClientConfig = Effect.fn(function* (row: StoredInstallationRow) {
-				const db = yield* Database;
+				const db = yield* database.current;
 				yield* lockProjectionInputs(row.pluginId);
 				yield* mapDatabaseErrors(
 					db
@@ -221,7 +207,7 @@ export class PluginInstallationRepository extends Context.Service<PluginInstalla
 			const refreshClientConfigsForPlugin = Effect.fn(
 				"PluginInstallationRepository.refreshClientConfigsForPlugin",
 			)(function* (pluginId: string) {
-				const db = yield* Database;
+				const db = yield* database.current;
 				yield* lockPluginRevision(pluginId);
 				const rows = yield* mapDatabaseErrors(
 					db
@@ -244,7 +230,7 @@ export class PluginInstallationRepository extends Context.Service<PluginInstalla
 				configuredSecretPaths?: ReadonlyArray<string>,
 				allowMissingRequiredSecrets = false,
 			) {
-				const db = yield* Database;
+				const db = yield* database.current;
 				yield* configs.lock(row.pluginId);
 				const [plugin] = yield* mapDatabaseErrors(
 					db.select().from(schema.plugin).where(eq(schema.plugin.id, row.pluginId)).limit(1),
@@ -293,7 +279,7 @@ export class PluginInstallationRepository extends Context.Service<PluginInstalla
 				};
 			});
 			const findById = Effect.fn("PluginInstallationRepository.findById")(function* (id: string) {
-				const db = yield* Database;
+				const db = yield* database.current;
 				const [row] = yield* mapDatabaseErrors(
 					db
 						.select(installationState)
@@ -312,7 +298,7 @@ export class PluginInstallationRepository extends Context.Service<PluginInstalla
 			const listForUser = Effect.fn("PluginInstallationRepository.listForUser")(function* (
 				userId: UserId,
 			) {
-				const db = yield* Database;
+				const db = yield* database.current;
 				const rows = yield* mapDatabaseErrors(
 					db
 						.select(installationState)
@@ -337,7 +323,7 @@ export class PluginInstallationRepository extends Context.Service<PluginInstalla
 
 			const listSystemForUser = Effect.fn("PluginInstallationRepository.listSystemForUser")(
 				function* (userId: UserId) {
-					const db = yield* Database;
+					const db = yield* database.current;
 					const rows = yield* mapDatabaseErrors(
 						db
 							.select(installationState)
@@ -359,7 +345,7 @@ export class PluginInstallationRepository extends Context.Service<PluginInstalla
 
 			const findByUserAndPlugin = Effect.fn("PluginInstallationRepository.findByUserAndPlugin")(
 				function* (userId: UserId, pluginId: string) {
-					const db = yield* Database;
+					const db = yield* database.current;
 					const [row] = yield* mapDatabaseErrors(
 						db
 							.select(installationState)
@@ -380,7 +366,7 @@ export class PluginInstallationRepository extends Context.Service<PluginInstalla
 
 			const findHomeSavedView = Effect.fn("PluginInstallationRepository.findHomeSavedView")(
 				function* (userId: UserId, savedViewSlug: string) {
-					const db = yield* Database;
+					const db = yield* database.current;
 					const [row] = yield* mapDatabaseErrors(
 						db
 							.select({
@@ -410,7 +396,7 @@ export class PluginInstallationRepository extends Context.Service<PluginInstalla
 				config: Record<string, unknown>;
 				health: PluginInstallationHealth;
 			}) {
-				const db = yield* Database;
+				const db = yield* database.current;
 				yield* lockProjectionInputs(input.pluginId);
 				const { config, ...values } = input;
 				const [row] = yield* mapDatabaseErrors(
@@ -425,7 +411,7 @@ export class PluginInstallationRepository extends Context.Service<PluginInstalla
 					healthReason: string | null;
 					health: PluginInstallationHealth;
 				}) {
-					const db = yield* Database;
+					const db = yield* database.current;
 					yield* mapDatabaseErrors(
 						db
 							.update(schema.pluginInstallation)
@@ -437,7 +423,7 @@ export class PluginInstallationRepository extends Context.Service<PluginInstalla
 
 			const setHomeSavedView = Effect.fn("PluginInstallationRepository.setHomeSavedView")(
 				function* (userId: UserId, id: string, homeSavedViewSlug: string | null) {
-					const db = yield* Database;
+					const db = yield* database.current;
 					const [row] = yield* mapDatabaseErrors(
 						db
 							.update(schema.pluginInstallation)
@@ -457,7 +443,7 @@ export class PluginInstallationRepository extends Context.Service<PluginInstalla
 			const clearHomeSavedViewReferences = Effect.fn(
 				"PluginInstallationRepository.clearHomeSavedViewReferences",
 			)(function* (userId: UserId, savedViewSlug: string) {
-				const db = yield* Database;
+				const db = yield* database.current;
 				yield* mapDatabaseErrors(
 					db
 						.update(schema.pluginInstallation)
@@ -479,7 +465,7 @@ export class PluginInstallationRepository extends Context.Service<PluginInstalla
 				config: Record<string, unknown>;
 				health: PluginInstallationHealth;
 			}) {
-				const db = yield* Database;
+				const db = yield* database.current;
 				yield* lockProjectionInputs(input.pluginId);
 				const { config, ...values } = input;
 				const [row] = yield* mapDatabaseErrors(
@@ -507,7 +493,7 @@ export class PluginInstallationRepository extends Context.Service<PluginInstalla
 				isDisabled: boolean;
 				config: Record<string, unknown>;
 			}) {
-				const db = yield* Database;
+				const db = yield* database.current;
 				const pluginId = yield* installationPluginId(input.id);
 				if (pluginId !== null) {
 					yield* lockProjectionInputs(pluginId);
@@ -523,7 +509,7 @@ export class PluginInstallationRepository extends Context.Service<PluginInstalla
 			});
 
 			const remove = Effect.fn("PluginInstallationRepository.remove")(function* (id: string) {
-				const db = yield* Database;
+				const db = yield* database.current;
 				yield* mapDatabaseErrors(
 					db
 						.update(schema.pluginInstallation)
@@ -540,20 +526,20 @@ export class PluginInstallationRepository extends Context.Service<PluginInstalla
 			const provisionSystemInstallationsForUser = Effect.fn(
 				"PluginInstallationRepository.provisionSystemInstallationsForUser",
 			)(function* (userId: UserId) {
-				const db = yield* Database;
+				const db = yield* database.current;
 				yield* mapDatabaseErrors(db.execute(provisionSystemInstallations(userId, "ready")));
 			});
 
 			const provisionSystemInstallationsForAllUsers = Effect.fn(
 				"PluginInstallationRepository.provisionSystemInstallationsForAllUsers",
 			)(function* () {
-				const db = yield* Database;
+				const db = yield* database.current;
 				yield* mapDatabaseErrors(db.execute(provisionSystemInstallations(null, "installing")));
 			});
 
 			const listPendingLifecycle = Effect.fn("PluginInstallationRepository.listPendingLifecycle")(
 				function* () {
-					const db = yield* Database;
+					const db = yield* database.current;
 					const rows = yield* mapDatabaseErrors(
 						db
 							.select({ id: schema.pluginInstallation.id })
@@ -575,7 +561,7 @@ export class PluginInstallationRepository extends Context.Service<PluginInstalla
 			const listPrivateInstallations = Effect.fn(
 				"PluginInstallationRepository.listPrivateInstallations",
 			)(function* () {
-				const db = yield* Database;
+				const db = yield* database.current;
 				const rows = yield* mapDatabaseErrors(
 					db
 						.select(privateInstallation)
@@ -597,86 +583,15 @@ export class PluginInstallationRepository extends Context.Service<PluginInstalla
 				return rows satisfies ReadonlyArray<PluginPrivateInstallationRow>;
 			});
 
-			const restore = Effect.fn("PluginInstallationRepository.restore")(function* (
-				input: RestoreInstallationInput,
-			) {
-				const db = yield* Database;
-				yield* lockProjectionInputs(input.pluginId);
-				const {
-					config,
-					configuredSecretPaths,
-					preserveExistingConfig,
-					allowMissingRequiredSecrets,
-					...values
-				} = input;
-				const [row] = yield* mapDatabaseErrors(
-					db
-						.insert(schema.pluginInstallation)
-						.values(values)
-						.onConflictDoUpdate({
-							target: [schema.pluginInstallation.userId, schema.pluginInstallation.pluginId],
-							set: {
-								healthReason: null,
-								uninstalledAt: null,
-								health: input.health,
-								sortOrder: input.sortOrder,
-								createdAt: input.createdAt,
-								updatedAt: input.updatedAt,
-								isDisabled: input.isDisabled,
-							},
-						})
-						.returning(),
-				);
-				if (!row) {
-					return undefined;
-				}
-				if (preserveExistingConfig && row.activeConfigRevisionId) {
-					yield* refreshClientConfig(row);
-					return yield* hydrate(row);
-				}
-				return yield* saveConfig(row, config, configuredSecretPaths, allowMissingRequiredSecrets);
-			});
-
-			const activateRestored = Effect.fn("PluginInstallationRepository.activateRestored")(
-				function* (input: {
-					readonly id: string;
-					readonly updatedAt: Date;
-					readonly isDisabled: boolean;
-					readonly health: "ready" | "needs-configuration";
-				}) {
-					const db = yield* Database;
-					const [row] = yield* mapDatabaseErrors(
-						db
-							.update(schema.pluginInstallation)
-							.set({
-								healthReason: null,
-								health: input.health,
-								updatedAt: input.updatedAt,
-								isDisabled: input.isDisabled,
-							})
-							.where(
-								and(
-									eq(schema.pluginInstallation.id, input.id),
-									eq(schema.pluginInstallation.health, "installing"),
-								),
-							)
-							.returning({ id: schema.pluginInstallation.id }),
-					);
-					return row !== undefined;
-				},
-			);
-
 			return {
 				create,
 				remove,
-				restore,
 				findById,
 				listForUser,
 				updateState,
 				upsertState,
 				updateHealth,
 				setHomeSavedView,
-				activateRestored,
 				listSystemForUser,
 				findHomeSavedView,
 				listHydratedForUser,

@@ -9,7 +9,10 @@ import { IsoUtcString } from "@ryot-app/contract/schema/utils";
 import { Effect, Layer } from "effect";
 import { WorkflowEngine } from "effect/unstable/workflow/WorkflowEngine";
 
+import { LifecyclePlanner } from "#lib/domain/lifecycle";
 import { rootLifecycleCommand } from "#lib/domain/lifecycle-command";
+import { LifecycleExecution } from "#lib/domain/lifecycle-execution";
+import { DatabaseSession } from "#lib/infrastructure/db/session";
 import { makeWorkflowEngine } from "#lib/test-utils/effect";
 
 import { EventsRepository } from "./repository";
@@ -40,6 +43,9 @@ it.effect("awaits the owning workflow and preserves command causation and identi
 		Layer.provide(
 			Layer.mergeAll(
 				Layer.mock(EventsRepository)({}),
+				Layer.mock(DatabaseSession)({ requireRoot: Effect.void }),
+				Layer.mock(LifecyclePlanner)({}),
+				Layer.mock(LifecycleExecution)({}),
 				Layer.succeed(
 					WorkflowEngine,
 					makeWorkflowEngine({

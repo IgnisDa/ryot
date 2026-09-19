@@ -1,13 +1,15 @@
 import { expect, it } from "@effect/vitest";
 import { SignalSchemaSlug, UserId } from "@ryot-app/contract/schema/brands";
-import { Effect } from "effect";
+import { Effect, Layer } from "effect";
 import { assert, describe } from "vitest";
 
+import { BackupRestorePersistence } from "#modules/backups/restore/persistence";
 import {
 	installRevisionPackage,
 	revisionPackage,
 	withRevisionDatabase,
 } from "#modules/plugins/revision.test-support";
+import { SavedViewsRepository } from "#modules/saved-views/repository";
 
 import { AutomationsRepository } from "./repository";
 
@@ -18,6 +20,7 @@ describe("Notification configuration PostgreSQL", () => {
 			withRevisionDatabase(
 				Effect.gen(function* () {
 					const repository = yield* AutomationsRepository;
+					const persistence = yield* BackupRestorePersistence;
 					const installed = yield* installRevisionPackage(revisionPackage());
 					const userId = UserId.make("owner");
 					const other = UserId.make("recipient");
@@ -60,15 +63,14 @@ describe("Notification configuration PostgreSQL", () => {
 						yield* repository.deleteNotificationSubscription({ userId: other, ruleId: state.id }),
 					).toBeNull();
 					expect(
-						yield* repository.restoreNotificationSubscription({
+						yield* persistence.restoreNotificationSubscription({
 							...preference,
 							isActive: true,
 							signalSchemaPluginId: null,
 						}),
-					).toBeNull();
+					).toBe(false);
 					expect(
-						(yield* repository.restoreNotificationSubscription({ ...preference, isActive: true }))
-							?.isActive,
+						yield* persistence.restoreNotificationSubscription({ ...preference, isActive: true }),
 					).toBe(true);
 					expect(
 						yield* repository.listActiveNotificationSubscriptions({
@@ -81,7 +83,14 @@ describe("Notification configuration PostgreSQL", () => {
 						(yield* repository.listActiveNotificationSubscriptions(preference)).map(({ id }) => id),
 					).toEqual([state.id]);
 					expect(yield* repository.listNotificationSubscriptionsForBackup(other)).toEqual([]);
-				}).pipe(Effect.provide(AutomationsRepository.layer)),
+				}).pipe(
+					Effect.provide(
+						Layer.merge(
+							AutomationsRepository.layer,
+							BackupRestorePersistence.layer.pipe(Layer.provide(SavedViewsRepository.layer)),
+						),
+					),
+				),
 			),
 	);
 });

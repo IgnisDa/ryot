@@ -20,7 +20,8 @@ import { generateId } from "better-auth";
 import { Context, Effect, Result, Layer } from "effect";
 import { WorkflowEngine } from "effect/unstable/workflow/WorkflowEngine";
 
-import { Database, mapDatabaseErrors } from "#lib/infrastructure/db/service";
+import { mapDatabaseErrors } from "#lib/infrastructure/db/service";
+import { DatabaseSession } from "#lib/infrastructure/db/session";
 import { ProKeyService } from "#lib/infrastructure/pro-key";
 import {
 	formatPropertyIssues,
@@ -99,7 +100,9 @@ export class IntegrationsService extends Context.Service<IntegrationsService>()(
 	"IntegrationsService",
 	{
 		make: Effect.gen(function* () {
-			const database = yield* Database;
+			const database = yield* DatabaseSession;
+			const transaction = <A, E, R>(work: Effect.Effect<A, E, R>) =>
+				database.transaction(work).pipe(Effect.catchTag("DatabaseSessionStateError", Effect.die));
 			const proKey = yield* ProKeyService;
 			const engine = yield* WorkflowEngine;
 			const importsService = yield* ImportsService;
@@ -156,22 +159,20 @@ export class IntegrationsService extends Context.Service<IntegrationsService>()(
 				}
 
 				const created = yield* mapDatabaseErrors(
-					database.transaction((transaction) =>
-						repository
-							.createForUser({
-								lot,
-								userId: user.id,
-								name: body.name ?? null,
-								provider: body.provider,
-								isDisabled: body.isDisabled ?? false,
-								minimumProgress: String(minimumProgress),
-								maximumProgress: String(maximumProgress),
-								providerSpecifics: body.providerSpecifics,
-								syncOwnership: body.syncOwnership ?? false,
-								pluginInstallationId: registered.installationId,
-								extraSettings: body.extraSettings ?? defaultExtraSettings,
-							})
-							.pipe(Effect.provideService(Database, transaction)),
+					transaction(
+						repository.createForUser({
+							lot,
+							userId: user.id,
+							name: body.name ?? null,
+							provider: body.provider,
+							isDisabled: body.isDisabled ?? false,
+							minimumProgress: String(minimumProgress),
+							maximumProgress: String(maximumProgress),
+							providerSpecifics: body.providerSpecifics,
+							syncOwnership: body.syncOwnership ?? false,
+							pluginInstallationId: registered.installationId,
+							extraSettings: body.extraSettings ?? defaultExtraSettings,
+						}),
 					),
 				);
 
@@ -210,23 +211,21 @@ export class IntegrationsService extends Context.Service<IntegrationsService>()(
 				}
 
 				const updated = yield* mapDatabaseErrors(
-					database.transaction((transaction) =>
-						repository
-							.updateForUser({
-								userId,
-								integrationId,
-								name: body.name,
-								providerSpecifics,
-								isDisabled: body.isDisabled,
-								extraSettings: body.extraSettings,
-								syncOwnership: body.syncOwnership,
-								lastFinishedAt: body.lastFinishedAt,
-								minimumProgress:
-									body.minimumProgress !== undefined ? String(body.minimumProgress) : undefined,
-								maximumProgress:
-									body.maximumProgress !== undefined ? String(body.maximumProgress) : undefined,
-							})
-							.pipe(Effect.provideService(Database, transaction)),
+					transaction(
+						repository.updateForUser({
+							userId,
+							integrationId,
+							name: body.name,
+							providerSpecifics,
+							isDisabled: body.isDisabled,
+							extraSettings: body.extraSettings,
+							syncOwnership: body.syncOwnership,
+							lastFinishedAt: body.lastFinishedAt,
+							minimumProgress:
+								body.minimumProgress !== undefined ? String(body.minimumProgress) : undefined,
+							maximumProgress:
+								body.maximumProgress !== undefined ? String(body.maximumProgress) : undefined,
+						}),
 					),
 				);
 
@@ -245,7 +244,7 @@ export class IntegrationsService extends Context.Service<IntegrationsService>()(
 				importRunId: ImportRunId,
 			) {
 				return yield* mapDatabaseErrors(
-					database.transaction((transaction) =>
+					transaction(
 						Effect.gen(function* () {
 							if (yield* repository.hasAutoDisableClaim(importRunId)) {
 								return true;
@@ -256,7 +255,7 @@ export class IntegrationsService extends Context.Service<IntegrationsService>()(
 							}
 							yield* repository.insertAutoDisableClaim({ importRunId, integrationId });
 							return true;
-						}).pipe(Effect.provideService(Database, transaction)),
+						}),
 					),
 				);
 			});

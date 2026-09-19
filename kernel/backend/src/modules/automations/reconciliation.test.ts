@@ -78,8 +78,7 @@ it.effect(
 						Layer.provide(
 							Layer.mergeAll(
 								Layer.succeed(WorkflowEngine, engine),
-								AutomationRunRepository.layer,
-								databaseLayer,
+								AutomationRunRepository.layer.pipe(Layer.provide(databaseLayer)),
 							),
 						),
 					),

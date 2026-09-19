@@ -14,7 +14,7 @@ import {
 	isS3Configured,
 	isSmtpEnabled,
 } from "#lib/infrastructure/config/service";
-import { Database } from "#lib/infrastructure/db/service";
+import { DatabaseSession } from "#lib/infrastructure/db/session";
 import { ProKeyService } from "#lib/infrastructure/pro-key";
 import { RedisService } from "#lib/infrastructure/redis";
 
@@ -55,7 +55,7 @@ export const SystemRoutesLive = HttpApiBuilder.group(AppContract, "system", (han
 	handlers
 		.handle("health", () =>
 			Effect.gen(function* () {
-				const database = yield* Database;
+				const database = yield* (yield* DatabaseSession).current;
 				const redis = yield* RedisService;
 
 				yield* database.execute(sql`select 1`).pipe(

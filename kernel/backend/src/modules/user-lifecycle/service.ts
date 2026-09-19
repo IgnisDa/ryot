@@ -9,7 +9,8 @@ import { Cause, Context, DateTime, Effect, Layer, Result } from "effect";
 import { WorkflowEngine } from "effect/unstable/workflow/WorkflowEngine";
 
 import { AppConfig } from "#lib/infrastructure/config/service";
-import { Database, mapDatabaseErrors } from "#lib/infrastructure/db/service";
+import { mapDatabaseErrors } from "#lib/infrastructure/db/service";
+import { DatabaseSession } from "#lib/infrastructure/db/session";
 import { AuthService } from "#modules/auth/service";
 
 import { classifyAuthState } from "./auth-state";
@@ -30,7 +31,7 @@ export class UserLifecycleService extends Context.Service<UserLifecycleService>(
 		make: Effect.gen(function* () {
 			const auth = yield* AuthService;
 			const config = yield* AppConfig;
-			const database = yield* Database;
+			const database = yield* DatabaseSession;
 			const engine = yield* WorkflowEngine;
 			const repository = yield* UserLifecycleRepository;
 			const revokeClaimedAccess = Effect.fnUntraced(function* (
@@ -136,8 +137,8 @@ export class UserLifecycleService extends Context.Service<UserLifecycleService>(
 				kind: UserLifecycleOperationKind,
 			) {
 				const prepared = yield* mapDatabaseErrors(
-					database.transaction(
-						(transaction) =>
+					database
+						.transaction(
 							Effect.gen(function* () {
 								const preparation = yield* repository.loadPreparationForUpdate(userId, kind);
 								if (!preparation) {
@@ -178,9 +179,14 @@ export class UserLifecycleService extends Context.Service<UserLifecycleService>(
 										recreatedAccountId: crypto.randomUUID(),
 									},
 								});
-							}).pipe(Effect.provideService(Database, transaction)),
-						{ isolationLevel: "read committed" },
-					),
+							}),
+						)
+						.pipe(
+							Effect.catchTag(
+								"DatabaseSessionStateError",
+								() => new GodModeInternalFailure({ reason: { code: "lifecycle-state-conflict" } }),
+							),
+						),
 				);
 
 				const ready = yield* ensureAccessRevoked(prepared.operation.id);

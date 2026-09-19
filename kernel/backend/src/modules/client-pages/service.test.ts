@@ -2,7 +2,7 @@ import { expect, it } from "@effect/vitest";
 import { PluginSlug, UserId } from "@ryot-app/contract/schema/brands";
 import { Effect, Layer } from "effect";
 
-import { Database } from "#lib/infrastructure/db/service";
+import { DatabaseSession } from "#lib/infrastructure/db/session";
 import { ImageClientArtifacts } from "#modules/client-artifacts/image-artifacts";
 import { EntitiesRepository } from "#modules/entities/repository";
 import { PluginRuntimeResolver } from "#modules/plugins/runtime-resolver";
@@ -62,6 +62,7 @@ it.effect(
 		const layer = ClientPagesService.layer.pipe(
 			Layer.provide(
 				Layer.mergeAll(
+					Layer.mock(DatabaseSession)({}),
 					Layer.succeed(EntitiesRepository, EntitiesRepository.of(Object.create(null))),
 					Layer.succeed(ClientPagesRepository, ClientPagesRepository.of(Object.create(null))),
 					Layer.succeed(
@@ -129,7 +130,6 @@ it.effect(
 								}),
 						}),
 					),
-					Layer.succeed(Database, Database.of(Object.create(null))),
 				),
 			),
 		);
@@ -147,9 +147,6 @@ it.effect(
 			expect(page.composition.hash).toBe("composition-hash");
 			expect(page.composition.documentGrant.src).toBe("/api/client-pages/documents/token");
 			expect(calls).toEqual([`find:${expected.compositionKey}`, "grant:composition-hash"]);
-		}).pipe(
-			Effect.provide(layer),
-			Effect.provideService(Database, Database.of(Object.create(null))),
-		);
+		}).pipe(Effect.provide(layer));
 	},
 );

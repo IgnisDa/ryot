@@ -53,7 +53,9 @@ export type SandboxRunInput = {
 	readonly inlineDurableHost?: SandboxInlineDurableHost;
 };
 
-export type BoundHostFunction = (args: ReadonlyArray<unknown>) => Effect.Effect<unknown, unknown>;
+export type BoundHostFunction = (
+	args: ReadonlyArray<unknown>,
+) => Effect.Effect<unknown, Schema.SchemaError | SandboxHostError>;
 
 export type UserSandboxRunInput<Input extends SandboxRunInput = SandboxRunInput> = Input & {
 	readonly principal: Input["principal"] & {

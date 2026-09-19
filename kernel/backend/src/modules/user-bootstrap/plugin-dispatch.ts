@@ -17,7 +17,7 @@ export const userBootstrapExecutionId = (
 export const makePluginUserBootstrapDispatcher = (
 	execute: (
 		payload: SandboxExecutionPayload,
-	) => Effect.Effect<{ readonly error: null | { readonly message: string } }, unknown>,
+	) => Effect.Effect<{ readonly error: null | { readonly message: string } }, SandboxRunError>,
 ) =>
 	Effect.gen(function* () {
 		const runtime = yield* PluginRuntimeResolver;
@@ -59,7 +59,7 @@ export const makePluginUserBootstrapDispatcher = (
 						(error) =>
 							new SandboxRunError({
 								kind: "script-failure",
-								message: `Plugin user bootstrap failed: ${entry.pluginSlug}/${entry.bootstrap.slug}: ${String(error)}`,
+								message: `Plugin user bootstrap failed: ${entry.pluginSlug}/${entry.bootstrap.slug}: ${error.message}`,
 							}),
 					),
 				);

@@ -5,7 +5,9 @@ import { Effect, Layer } from "effect";
 import { assert, describe } from "vitest";
 
 import * as tables from "#lib/infrastructure/db/schema/tables/combined";
-import { Database } from "#lib/infrastructure/db/service";
+import { DatabaseSession } from "#lib/infrastructure/db/session";
+import { BackupRestorePersistence } from "#modules/backups/restore/persistence";
+import { SavedViewsRepository } from "#modules/saved-views/repository";
 
 import { PluginIngestionLock } from "./ingestion-lock";
 import { PluginInstallationRepository } from "./installation-repository";
@@ -43,7 +45,7 @@ const configuredPackage = (version: string, endpointSecret: boolean) => {
 
 const clientProjection = (id: string) =>
 	Effect.gen(function* () {
-		const db = yield* Database;
+		const db = yield* (yield* DatabaseSession).current;
 		const [row] = yield* db
 			.select({
 				clientConfig: tables.pluginInstallation.clientConfig,
@@ -59,7 +61,7 @@ describe("installation revision persistence", () => {
 		withRevisionDatabase(
 			Effect.gen(function* () {
 				const repository = yield* PluginInstallationRepository;
-				const db = yield* Database;
+				const db = yield* (yield* DatabaseSession).current;
 				const renderers = [
 					{ kind: "kernel", name: "entity-browser" },
 					{ kind: "plugin", exportName: "home", pluginId: "plugin-id" },
@@ -110,7 +112,7 @@ describe("installation revision persistence", () => {
 			withRevisionDatabase(
 				Effect.gen(function* () {
 					const repository = yield* PluginInstallationRepository;
-					const db = yield* Database;
+					const db = yield* (yield* DatabaseSession).current;
 					const installed = yield* installRevisionPackage(revisionPackage("notes"), owner);
 					const destination = yield* repository.updateState({
 						sortOrder: 0,
@@ -130,11 +132,14 @@ describe("installation revision persistence", () => {
 						health: "installing" as const,
 						config: { token: "archived" },
 					};
-					const preserved = yield* repository.restore({ ...input, preserveExistingConfig: true });
+					const persistence = yield* BackupRestorePersistence;
+					yield* persistence.restoreInstallation({ ...input, preserveExistingConfig: true });
+					const preserved = yield* repository.findByUserAndPlugin(owner, installed.pluginId);
 					expect(preserved?.activeConfigRevisionId).toBe(destination.activeConfigRevisionId);
 					expect(preserved?.config).toEqual({ token: "destination" });
 					yield* repository.remove(installed.installation.id);
-					const restored = yield* repository.restore({ ...input, preserveExistingConfig: false });
+					yield* persistence.restoreInstallation({ ...input, preserveExistingConfig: false });
+					const restored = yield* repository.findByUserAndPlugin(owner, installed.pluginId);
 					assert(restored?.activeConfigRevisionId);
 					expect(restored.id).toBe(installed.installation.id);
 					expect(restored.uninstalledAt).toBeNull();
@@ -153,7 +158,11 @@ describe("installation revision persistence", () => {
 						clientConfig: {},
 						configuredSecretPaths: ["token"],
 					});
-				}),
+				}).pipe(
+					Effect.provide(
+						BackupRestorePersistence.layer.pipe(Layer.provide(SavedViewsRepository.layer)),
+					),
+				),
 			),
 	);
 
@@ -162,8 +171,9 @@ describe("installation revision persistence", () => {
 		() =>
 			withRevisionDatabase(
 				Effect.gen(function* () {
-					const db = yield* Database;
+					const db = yield* (yield* DatabaseSession).current;
 					const repository = yield* PluginInstallationRepository;
+					const persistence = yield* BackupRestorePersistence;
 					const installed = yield* installRevisionPackage(revisionPackage());
 					const environmentRevisions = () =>
 						db
@@ -171,7 +181,7 @@ describe("installation revision persistence", () => {
 							.from(tables.pluginConfigRevision)
 							.where(eq(tables.pluginConfigRevision.scope, "environment"));
 					const before = yield* environmentRevisions();
-					const restored = yield* repository.restore({
+					yield* persistence.restoreInstallation({
 						sortOrder: 3,
 						userId: owner,
 						isDisabled: true,
@@ -182,10 +192,15 @@ describe("installation revision persistence", () => {
 						preserveExistingConfig: true,
 						config: { token: "archive-secret" },
 					});
-					expect(restored?.config).toEqual({});
-					expect(restored?.activeConfigRevisionId).toBeNull();
+					const state = yield* repository.findByUserAndPlugin(owner, installed.pluginId);
+					expect(state?.config).toEqual({});
+					expect(state?.activeConfigRevisionId).toBeNull();
 					expect(yield* environmentRevisions()).toEqual(before);
-				}),
+				}).pipe(
+					Effect.provide(
+						BackupRestorePersistence.layer.pipe(Layer.provide(SavedViewsRepository.layer)),
+					),
+				),
 			),
 	);
 
