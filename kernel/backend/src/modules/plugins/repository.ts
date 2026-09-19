@@ -165,8 +165,20 @@ const lookupRevisionForSession = (loadRevisions: ReturnType<typeof loadRevisions
 const toStoredPlugin = (pointer: PluginPointerRow, revision: LoadedPluginRevision) => {
 	const identity: StoredPluginIdentity =
 		pointer.ownerId === null
-			? { ownerId: null, id: pointer.id, scope: "system", slug: pointer.slug }
-			: { scope: "user", id: pointer.id, slug: pointer.slug, ownerId: pointer.ownerId };
+			? {
+					ownerId: null,
+					id: pointer.id,
+					scope: "system",
+					slug: pointer.slug,
+					activationId: pointer.activationId,
+				}
+			: {
+					scope: "user",
+					id: pointer.id,
+					slug: pointer.slug,
+					ownerId: pointer.ownerId,
+					activationId: pointer.activationId,
+				};
 	return {
 		...identity,
 		status: pointer.status,
@@ -241,6 +253,27 @@ export class PluginRepository extends Context.Service<PluginRepository>()("Plugi
 			const [plugin] = yield* toStoredPlugins(rows);
 			return plugin ?? null;
 		});
+		const findUninstallReceipt = Effect.fn("PluginRepository.findUninstallReceipt")(function* (
+			activationId: string,
+		) {
+			const [receipt] = yield* database.run((db) =>
+				db
+					.select()
+					.from(schema.pluginUninstallReceipt)
+					.where(eq(schema.pluginUninstallReceipt.activationId, activationId))
+					.limit(1),
+			);
+			return receipt ?? null;
+		});
+		const recordUninstallReceipt = Effect.fn("PluginRepository.recordUninstallReceipt")(
+			(input: typeof schema.pluginUninstallReceipt.$inferInsert) =>
+				database.requireTransaction.pipe(
+					Effect.andThen(
+						database.run((db) => db.insert(schema.pluginUninstallReceipt).values(input)),
+					),
+					Effect.asVoid,
+				),
+		);
 
 		const listActiveSystemSlugs = Effect.fn("PluginRepository.listActiveSystemSlugs")(function* () {
 			const rows = yield* database.run((db) =>
@@ -513,7 +546,11 @@ export class PluginRepository extends Context.Service<PluginRepository>()("Plugi
 		) {
 			const [plugin] = yield* database.run((db) =>
 				db
-					.select({ id: schema.plugin.id, activeRevisionId: schema.plugin.activeRevisionId })
+					.select({
+						id: schema.plugin.id,
+						activationId: schema.plugin.activationId,
+						activeRevisionId: schema.plugin.activeRevisionId,
+					})
 					.from(schema.plugin)
 					.where(
 						and(
@@ -901,7 +938,10 @@ export class PluginRepository extends Context.Service<PluginRepository>()("Plugi
 				: yield* database.run((db) =>
 						db
 							.update(schema.plugin)
-							.set(mutation)
+							.set({
+								...mutation,
+								activationId: sql`case when ${schema.plugin.status} = 'inactive' then gen_random_uuid()::text else ${schema.plugin.activationId} end`,
+							})
 							.where(
 								and(
 									eq(schema.plugin.slug, slug),
@@ -1332,8 +1372,10 @@ export class PluginRepository extends Context.Service<PluginRepository>()("Plugi
 			lockIngestionShared,
 			persistKernelScript,
 			hasEntityReferences,
+			findUninstallReceipt,
 			listActiveSystemSlugs,
 			findActiveSystemPlugin,
+			recordUninstallReceipt,
 			resolveProviderBySlugs,
 			findPrivateByIdForUser,
 			listActiveSystemPlugins,

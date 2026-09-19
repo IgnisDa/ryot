@@ -13,7 +13,10 @@ import { PluginCatalogInvalidator } from "./catalog-events";
 import { PluginInstallationRepository } from "./installation-repository";
 import { PluginRuntimeResolver } from "./runtime-resolver";
 
-const PluginInstallationWorkflowPayload = Schema.Struct({ installationId: Schema.String });
+const PluginInstallationWorkflowPayload = Schema.Struct({
+	activationId: Schema.String,
+	installationId: Schema.String,
+});
 type PluginInstallationWorkflowPayload = typeof PluginInstallationWorkflowPayload.Type;
 
 const PluginInstallationBootstrap = Schema.Struct({
@@ -25,26 +28,41 @@ type PluginInstallationBootstrap = typeof PluginInstallationBootstrap.Type;
 export const PluginInstallationWorkflow = Workflow.make("PluginInstallationWorkflow", {
 	success: Schema.Void satisfies DurableSchema,
 	error: InternalError satisfies DurableSchema,
-	idempotencyKey: ({ installationId }) => installationId,
 	payload: PluginInstallationWorkflowPayload satisfies DurableSchema,
+	idempotencyKey: ({ activationId, installationId }) =>
+		pluginInstallationExecutionId(installationId, activationId),
 });
 
-export const pluginInstallationExecutionId = (installationId: string) =>
-	`plugin-installation-${installationId}`;
+export const pluginInstallationExecutionId = (installationId: string, activationId: string) =>
+	`plugin-installation-${installationId.length}-${installationId}-${activationId.length}-${activationId}`;
 
-export const pluginInstallationBootstrapExecutionId = (installationId: string, entrySlug: string) =>
-	`plugin-installation-bootstrap-${installationId.length}-${installationId}-${entrySlug.length}-${entrySlug}`;
+export const pluginInstallationBootstrapExecutionId = (
+	installationId: string,
+	activationId: string,
+	entrySlug: string,
+) =>
+	`plugin-installation-bootstrap-${installationId.length}-${installationId}-${activationId.length}-${activationId}-${entrySlug.length}-${entrySlug}`;
 
 type PluginInstallationWorkflowOperationsValue = {
-	complete: (installationId: string, userId: UserId) => Effect.Effect<void, InternalError>;
-	fail: (installationId: string, healthReason: string) => Effect.Effect<void, InternalError>;
+	complete: (
+		installationId: string,
+		activationId: string,
+		userId: UserId,
+	) => Effect.Effect<void, InternalError>;
+	fail: (
+		installationId: string,
+		activationId: string,
+		healthReason: string,
+	) => Effect.Effect<void, InternalError>;
 	begin: (
 		installationId: string,
+		activationId: string,
 	) => Effect.Effect<PluginInstallationBootstrap | null, InternalError>;
 	runBootstrapEntry: (input: {
 		readonly userId: UserId;
 		readonly entrySlug: string;
 		readonly installationId: string;
+		readonly activationId: string;
 		readonly scriptId: SandboxScriptId;
 	}) => Effect.Effect<void, InternalError, WorkflowEngine | WorkflowInstance>;
 };
@@ -73,11 +91,11 @@ export const PluginInstallationWorkflowOperationsLive = Layer.effect(
 		const database = yield* DatabaseSession;
 		const installations = yield* PluginInstallationRepository;
 
-		const begin = (installationId: string) =>
+		const begin = (installationId: string, activationId: string) =>
 			asInternal(
 				Effect.gen(function* () {
 					const resolved = yield* runtime.resolveInstallationBootstrap(installationId);
-					if (resolved?.health !== "installing") {
+					if (resolved?.health !== "installing" || resolved.activationId !== activationId) {
 						return null;
 					}
 					const entries: Array<PluginInstallationBootstrap["entries"][number]> = [];
@@ -94,31 +112,53 @@ export const PluginInstallationWorkflowOperationsLive = Layer.effect(
 				"Plugin installation could not be inspected",
 			);
 
-		const fail = (installationId: string, healthReason: string) =>
+		const fail = (installationId: string, activationId: string, healthReason: string) =>
 			asInternal(
 				Effect.gen(function* () {
 					const installation = yield* installations.findById(installationId);
 					if (installation) {
-						yield* database.transaction(
+						const changed = yield* database.transaction(
 							installations
-								.updateHealth({ healthReason, health: "failed", id: installationId })
-								.pipe(Effect.andThen(invalidator.recordUser(UserId.make(installation.userId)))),
+								.updateHealthForActivation({
+									healthReason,
+									activationId,
+									health: "failed",
+									id: installationId,
+								})
+								.pipe(
+									Effect.tap((updated) =>
+										updated
+											? invalidator.recordUser(UserId.make(installation.userId))
+											: Effect.void,
+									),
+								),
 						);
-						yield* invalidator.user(UserId.make(installation.userId));
+						if (changed) {
+							yield* invalidator.user(UserId.make(installation.userId));
+						}
 					}
 				}),
 				"Plugin installation failure could not be recorded",
 			);
 
-		const complete = (installationId: string, userId: UserId) =>
+		const complete = (installationId: string, activationId: string, userId: UserId) =>
 			asInternal(
 				Effect.gen(function* () {
-					yield* database.transaction(
+					const changed = yield* database.transaction(
 						installations
-							.updateHealth({ health: "ready", id: installationId, healthReason: null })
-							.pipe(Effect.andThen(invalidator.recordUser(userId))),
+							.updateHealthForActivation({
+								activationId,
+								health: "ready",
+								id: installationId,
+								healthReason: null,
+							})
+							.pipe(
+								Effect.tap((updated) => (updated ? invalidator.recordUser(userId) : Effect.void)),
+							),
 					);
-					yield* invalidator.user(userId);
+					if (changed) {
+						yield* invalidator.user(userId);
+					}
 				}),
 				"Plugin installation completion could not be recorded",
 			);
@@ -134,6 +174,7 @@ export const PluginInstallationWorkflowOperationsLive = Layer.effect(
 						subject: { type: "user", userId: input.userId },
 						executionId: pluginInstallationBootstrapExecutionId(
 							input.installationId,
+							input.activationId,
 							input.entrySlug,
 						),
 					});
@@ -160,13 +201,13 @@ export const runPluginInstallationWorkflow = Effect.fn("PluginInstallationWorkfl
 				name: "fail-plugin-installation",
 				error: InternalError satisfies DurableSchema,
 				success: Schema.Void satisfies DurableSchema,
-				execute: operations.fail(payload.installationId, healthReason),
+				execute: operations.fail(payload.installationId, payload.activationId, healthReason),
 			}).pipe(Activity.retry({ times: 3 }));
 
 		const started = yield* makeActivity({
 			name: "begin-plugin-installation",
 			error: InternalError satisfies DurableSchema,
-			execute: operations.begin(payload.installationId),
+			execute: operations.begin(payload.installationId, payload.activationId),
 			success: Schema.NullOr(PluginInstallationBootstrap) satisfies DurableSchema,
 		}).pipe(Activity.retry({ times: 3 }), Effect.result);
 		if (Result.isFailure(started)) {
@@ -184,6 +225,7 @@ export const runPluginInstallationWorkflow = Effect.fn("PluginInstallationWorkfl
 					userId,
 					entrySlug: entry.slug,
 					scriptId: entry.scriptId,
+					activationId: payload.activationId,
 					installationId: payload.installationId,
 				})
 				.pipe(Effect.result);
@@ -197,7 +239,7 @@ export const runPluginInstallationWorkflow = Effect.fn("PluginInstallationWorkfl
 			name: "complete-plugin-installation",
 			error: InternalError satisfies DurableSchema,
 			success: Schema.Void satisfies DurableSchema,
-			execute: operations.complete(payload.installationId, userId),
+			execute: operations.complete(payload.installationId, payload.activationId, userId),
 		}).pipe(Activity.retry({ times: 5 }), Effect.result);
 		if (Result.isFailure(completed)) {
 			yield* markFailed("Plugin installation could not be completed");
@@ -218,7 +260,8 @@ export class PluginInstallationLifecycleDispatcher extends Context.Service<Plugi
 		// Migration, legacy bootstrap and shipped-system ingestion never install a private plugin, so
 		// their default dispatcher does nothing and those paths need no `WorkflowEngine`.
 		make: Effect.succeed({
-			dispatch: (_installationId: string): Effect.Effect<void, InternalError> => Effect.void,
+			dispatch: (_input: PluginInstallationWorkflowPayload): Effect.Effect<void, InternalError> =>
+				Effect.void,
 		}),
 	},
 ) {
@@ -230,12 +273,15 @@ export const PluginInstallationLifecycleDispatcherLive = Layer.effect(
 	Effect.gen(function* () {
 		const engine = yield* WorkflowEngine;
 		return {
-			dispatch: (installationId: string) =>
+			dispatch: (payload: PluginInstallationWorkflowPayload) =>
 				engine
 					.execute(PluginInstallationWorkflow, {
+						payload,
 						discard: true,
-						payload: { installationId },
-						executionId: pluginInstallationExecutionId(installationId),
+						executionId: pluginInstallationExecutionId(
+							payload.installationId,
+							payload.activationId,
+						),
 					})
 					.pipe(
 						Effect.mapError(() =>

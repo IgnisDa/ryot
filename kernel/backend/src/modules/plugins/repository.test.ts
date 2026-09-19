@@ -76,6 +76,70 @@ it("matches immutable client artifacts by exact bytes", () => {
 
 describe("plugin repository revisions", () => {
 	layer(revisionDatabaseLayer)((test) => {
+		test.effect("rotates activation on reinstall and retains the committed uninstall receipt", () =>
+			Effect.gen(function* () {
+				const session = yield* DatabaseSession;
+				const repository = yield* PluginRepository;
+				const installations = yield* PluginInstallationRepository;
+				const pluginPackage = revisionPackage("retry-identity", "v1");
+				const identity = {
+					ownerId: null,
+					scope: "system",
+					slug: pluginPackage.manifest.metadata.slug,
+				} satisfies Parameters<PluginRepository["Service"]["persist"]>[1];
+				const id = yield* repository.persist(pluginPackage, identity);
+				const first = yield* repository.findActiveSystemPlugin(identity.slug);
+				assert(first);
+				yield* session.transaction(
+					Effect.gen(function* () {
+						yield* repository.deactivate(id);
+						yield* repository.recordUninstallReceipt({
+							pluginId: id,
+							ownerId: null,
+							slug: identity.slug,
+							installationId: null,
+							activationId: first.activationId,
+						});
+					}),
+				);
+				expect(yield* repository.findUninstallReceipt(first.activationId)).toMatchObject({
+					pluginId: id,
+				});
+				expect(yield* repository.persist(pluginPackage, identity)).toBe(id);
+				const replacement = yield* repository.findActiveSystemPlugin(identity.slug);
+				assert(replacement);
+				expect(replacement.activationId).not.toBe(first.activationId);
+				expect(yield* repository.findUninstallReceipt(first.activationId)).toMatchObject({
+					pluginId: id,
+				});
+				const installation = yield* installations.upsertState({
+					config: {},
+					pluginId: id,
+					sortOrder: 0,
+					userId: owner,
+					isHidden: false,
+					health: "installing",
+				});
+				assert(installation);
+				expect(
+					yield* installations.updateHealthForActivation({
+						health: "failed",
+						id: installation.id,
+						healthReason: "stale",
+						activationId: first.activationId,
+					}),
+				).toBe(false);
+				expect((yield* installations.findById(installation.id))?.health).toBe("installing");
+				expect(
+					yield* installations.updateHealthForActivation({
+						health: "ready",
+						healthReason: null,
+						id: installation.id,
+						activationId: replacement.activationId,
+					}),
+				).toBe(true);
+			}),
+		);
 		test.effect("retains and exports a precompiled client artifact for the active package", () =>
 			Effect.gen(function* () {
 				const session = yield* DatabaseSession;

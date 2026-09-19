@@ -511,6 +511,7 @@ const privateRecordsExportLayer = withExportReads((reads) =>
 								status: "active" as const,
 								manifest: privateManifest,
 								sourceHash: privateSourceHash,
+								activationId: "private-activation",
 							},
 						]),
 					listPortablePluginMetadata: () =>
@@ -836,6 +837,7 @@ const eventPagesExportLayer = withExportReads((reads) =>
 									status: "active" as const,
 									manifest: eventPagesManifest,
 									sourceHash: eventPagesSourceHash,
+									activationId: "private-activation",
 								},
 							]),
 						),

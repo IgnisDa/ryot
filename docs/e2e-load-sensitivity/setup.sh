@@ -22,7 +22,7 @@ ssh_ bash -s -- "$BUN_VERSION" "$DENO_VERSION" <<'EOF'
 set -euo pipefail
 export DEBIAN_FRONTEND=noninteractive
 apt-get update -qq
-apt-get install -y -qq curl git unzip ca-certificates python3 >/dev/null
+apt-get install -y -qq curl git unzip ca-certificates python3 nodejs >/dev/null
 command -v docker >/dev/null || curl -fsSL https://get.docker.com | sh >/dev/null
 systemctl enable --now docker >/dev/null
 [ "$(~/.bun/bin/bun --version 2>/dev/null)" = "$1" ] || curl -fsSL https://bun.sh/install | bash -s "bun-v$1" >/dev/null
@@ -39,7 +39,7 @@ if [ "$(git -C "$root" rev-list --count "origin/$BRANCH..$BRANCH")" -gt 0 ]; the
 	git -C "$root" bundle create -q "$bundle" "$BRANCH" "^origin/$BRANCH"
 	scp -q "$bundle" "$remote:/root/ryot.bundle"
 	rm -f "$bundle"
-	ssh_ "git -C /root/ryot fetch -q /root/ryot.bundle $BRANCH:refs/remotes/local/$BRANCH && rm /root/ryot.bundle"
+	ssh_ "git -C /root/ryot fetch -q /root/ryot.bundle $BRANCH && rm /root/ryot.bundle"
 fi
 ssh_ "git -C /root/ryot checkout -q -B $BRANCH $commit"
 

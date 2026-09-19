@@ -50,6 +50,7 @@ const makeStoredPlugin = (manifest: PluginManifest, sourceHash: string): StoredP
 		status: "active",
 		slug: manifest.metadata.slug,
 		id: `${manifest.metadata.slug}-plugin-id`,
+		activationId: `${manifest.metadata.slug}-activation`,
 		scripts: manifest.scripts.map((script) => {
 			const { entry, ...metadata } = script;
 			return {
@@ -163,6 +164,7 @@ class FakeIngestionDependencies extends Context.Service<
 		readonly published: Effect.Effect<ReadonlyArray<PublishedMessage>>;
 		readonly integrationFences: Effect.Effect<ReadonlyArray<unknown>>;
 		readonly setEntityReferences: (hasReferences: boolean) => Effect.Effect<void>;
+		readonly replaceInstalled: (plugin: StoredPlugin) => Effect.Effect<void>;
 		readonly contention: {
 			readonly beginRound: Effect.Effect<void>;
 			readonly exclusiveAcquired: Effect.Effect<void>;
@@ -187,6 +189,15 @@ class IngestionFakeState extends Context.Service<
 		readonly deactivated: Ref.Ref<ReadonlyArray<string>>;
 		readonly installed: Ref.Ref<ReadonlyArray<StoredPlugin>>;
 		readonly persisted: Ref.Ref<ReadonlyArray<NormalizedPlugin>>;
+		readonly receipts: Ref.Ref<
+			ReadonlyArray<{
+				activationId: string;
+				ownerId: string | null;
+				slug: string;
+				pluginId: string;
+				installationId: string | null;
+			}>
+		>;
 		readonly published: Ref.Ref<ReadonlyArray<PublishedMessage>>;
 		readonly integrationFences: Ref.Ref<ReadonlyArray<unknown>>;
 		readonly hasEntityReferences: Ref.Ref<boolean>;
@@ -242,6 +253,15 @@ const makeLayer = (input?: {
 				published: yield* Ref.make<ReadonlyArray<PublishedMessage>>([]),
 				hasEntityReferences: yield* Ref.make(input?.hasEntityReferences ?? false),
 				installed: yield* Ref.make<ReadonlyArray<StoredPlugin>>(input?.initialInstalled ?? []),
+				receipts: yield* Ref.make<
+					ReadonlyArray<{
+						activationId: string;
+						ownerId: string | null;
+						slug: string;
+						pluginId: string;
+						installationId: string | null;
+					}>
+				>([]),
 			};
 		}),
 	);
@@ -273,6 +293,19 @@ const makeLayer = (input?: {
 						Ref.get(state.installed),
 						(all) => all.find((plugin) => plugin.slug === slug) ?? null,
 					),
+				findUninstallReceipt: (activationId) =>
+					Effect.map(
+						Ref.get(state.receipts),
+						(all) => all.find((receipt) => receipt.activationId === activationId) ?? null,
+					),
+				recordUninstallReceipt: (receipt) =>
+					append(state.receipts, {
+						slug: receipt.slug,
+						pluginId: receipt.pluginId,
+						ownerId: receipt.ownerId ?? null,
+						activationId: receipt.activationId,
+						installationId: receipt.installationId ?? null,
+					}),
 				deactivate: (pluginId) =>
 					input?.contendedLock
 						? Ref.set(state.active, false).pipe(Effect.andThen(recordEvent("deactivated")))
@@ -302,6 +335,7 @@ const makeLayer = (input?: {
 						...identity,
 						id: pluginId,
 						status: "active",
+						activationId: `${identity.slug}-activation`,
 						scripts: scripts.map(toPluginScriptDescriptor),
 					};
 					return append(state.persisted, plugin).pipe(
@@ -372,6 +406,7 @@ const makeLayer = (input?: {
 					published: Ref.get(state.published),
 					deactivated: Ref.get(state.deactivated),
 					integrationFences: Ref.get(state.integrationFences),
+					replaceInstalled: (plugin) => Ref.set(state.installed, [plugin]),
 					setEntityReferences: (hasReferences) => Ref.set(state.hasEntityReferences, hasReferences),
 					contention: {
 						beginRound: Effect.flatMap(makeContentionRound, (round) => Ref.set(state.round, round)),
@@ -772,7 +807,7 @@ layer(makeLayer({ initialInstalled: [storedFixture] }))((test) => {
 				expect.objectContaining({ slug: "fixture" }),
 			]);
 
-			const removed = yield* ingestion.uninstallPlugin("fixture");
+			const removed = yield* ingestion.uninstallPlugin("fixture", storedFixture.activationId);
 			expect(removed).toEqual({ pluginId: storedFixture.id });
 			expect(yield* fake.deactivated).toEqual(["fixture-plugin-id"]);
 			expect(yield* ingestion.listPlugins()).toEqual([]);
@@ -781,6 +816,25 @@ layer(makeLayer({ initialInstalled: [storedFixture] }))((test) => {
 			]);
 		});
 	});
+
+	test.effect("returns the committed uninstall for a retry without removing a replacement", () =>
+		Effect.gen(function* () {
+			const fake = yield* FakeIngestionDependencies;
+			const ingestion = yield* PluginIngestionService;
+			const first = yield* ingestion.uninstallPlugin("fixture", storedFixture.activationId);
+			const replacement = { ...storedFixture, activationId: "replacement-activation" };
+			yield* fake.replaceInstalled(replacement);
+
+			expect(yield* ingestion.uninstallPlugin("fixture", storedFixture.activationId)).toEqual(
+				first,
+			);
+			expect(yield* ingestion.listPlugins()).toHaveLength(1);
+			expect(yield* fake.deactivated).toEqual([storedFixture.id]);
+			const wrong = yield* Effect.exit(ingestion.uninstallPlugin("fixture", "unknown-activation"));
+			expect(failureOf(wrong)).toMatchObject({ _tag: "PluginNotFoundError" });
+			expect(yield* ingestion.listPlugins()).toHaveLength(1);
+		}),
+	);
 });
 
 layer(
@@ -791,7 +845,7 @@ layer(
 			const fake = yield* FakeIngestionDependencies;
 			const ingestion = yield* PluginIngestionService;
 
-			const removed = yield* ingestion.uninstallPlugin("fixture");
+			const removed = yield* ingestion.uninstallPlugin("fixture", storedFixture.activationId);
 			expect(removed).toEqual({ pluginId: storedFixture.id });
 			expect(yield* fake.deactivated).toEqual(["fixture-plugin-id"]);
 			expect(yield* ingestion.listPlugins()).toEqual([]);
@@ -804,7 +858,7 @@ layer(makeLayer({ hasWorkflowReferences: true, initialInstalled: [storedFixture]
 		return Effect.gen(function* () {
 			const fake = yield* FakeIngestionDependencies;
 			const ingestion = yield* PluginIngestionService;
-			const removed = yield* ingestion.uninstallPlugin("fixture");
+			const removed = yield* ingestion.uninstallPlugin("fixture", storedFixture.activationId);
 
 			expect(removed).toEqual({ pluginId: storedFixture.id });
 			expect(yield* fake.events).toEqual(["lock", "deactivate", "publish"]);
@@ -830,7 +884,7 @@ layer(makeLayer({ contendedLock: true, initialInstalled: [storedFixture] }))((te
 					const events = Effect.map(fake.events, (all) => all.slice(eventsBefore));
 
 					const uninstall = yield* Effect.forkChild(
-						Effect.exit(ingestion.uninstallPlugin("fixture")).pipe(
+						Effect.exit(ingestion.uninstallPlugin("fixture", storedFixture.activationId)).pipe(
 							Effect.tap(contention.releaseExclusive),
 						),
 					);
@@ -891,7 +945,9 @@ layer(makeLayer({ hasEntityReferences: true, initialInstalled: [storedFixture] }
 		return Effect.gen(function* () {
 			const fake = yield* FakeIngestionDependencies;
 			const ingestion = yield* PluginIngestionService;
-			const exit = yield* Effect.exit(ingestion.uninstallPlugin("fixture"));
+			const exit = yield* Effect.exit(
+				ingestion.uninstallPlugin("fixture", storedFixture.activationId),
+			);
 
 			expect(failureOf(exit)).toMatchObject({
 				_tag: "PluginConflictError",
@@ -907,7 +963,9 @@ layer(makeLayer({ hasIntegrationReferences: true, initialInstalled: [storedFixtu
 		return Effect.gen(function* () {
 			const fake = yield* FakeIngestionDependencies;
 			const ingestion = yield* PluginIngestionService;
-			const exit = yield* Effect.exit(ingestion.uninstallPlugin("fixture"));
+			const exit = yield* Effect.exit(
+				ingestion.uninstallPlugin("fixture", storedFixture.activationId),
+			);
 
 			assertExitFails(
 				exit,
@@ -932,7 +990,9 @@ layer(makeLayer({ initialInstalled: [definitionOwner, hookDependent] }))((test) 
 		return Effect.gen(function* () {
 			const fake = yield* FakeIngestionDependencies;
 			const ingestion = yield* PluginIngestionService;
-			const exit = yield* Effect.exit(ingestion.uninstallPlugin("fixture"));
+			const exit = yield* Effect.exit(
+				ingestion.uninstallPlugin("fixture", storedFixture.activationId),
+			);
 
 			expect(failureOf(exit)).toMatchObject({
 				_tag: "PluginConflictError",
@@ -957,9 +1017,9 @@ layer(makeLayer({ initialInstalled: [formatterOwner, notificationDependent] }))(
 			Effect.gen(function* () {
 				const fake = yield* FakeIngestionDependencies;
 				const ingestion = yield* PluginIngestionService;
-				expect(yield* ingestion.uninstallPlugin("formatter-owner")).toEqual({
-					pluginId: formatterOwner.id,
-				});
+				expect(
+					yield* ingestion.uninstallPlugin("formatter-owner", "formatter-owner-activation"),
+				).toEqual({ pluginId: formatterOwner.id });
 				expect(yield* fake.deactivated).toEqual([formatterOwner.id]);
 				expect((yield* ingestion.listPlugins()).map(({ slug }) => slug)).toEqual([
 					fixtureManifest().metadata.slug,
@@ -982,7 +1042,9 @@ layer(makeLayer({ initialInstalled: [definitionOwner, relationshipDependent] }))
 				const ingestion = yield* PluginIngestionService;
 				const plugins = yield* ingestion.listPlugins();
 
-				const exit = yield* Effect.exit(ingestion.uninstallPlugin("fixture"));
+				const exit = yield* Effect.exit(
+					ingestion.uninstallPlugin("fixture", storedFixture.activationId),
+				);
 
 				expect(Exit.isFailure(exit)).toBe(true);
 				if (Exit.isFailure(exit)) {
@@ -1010,7 +1072,10 @@ layer(
 		return Effect.gen(function* () {
 			const ingestion = yield* PluginIngestionService;
 			const exit = yield* Effect.exit(
-				ingestion.uninstallPlugin(installedExample.manifest.metadata.slug),
+				ingestion.uninstallPlugin(
+					installedExample.manifest.metadata.slug,
+					installedExample.activationId,
+				),
 			);
 
 			expect(failureOf(exit)).toMatchObject({

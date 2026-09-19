@@ -1,7 +1,7 @@
 {
 	"version": "8",
 	"dialect": "postgres",
-	"id": "43658bc0-aa43-4af6-a422-8b7d7e86debe",
+	"id": "58754473-41b9-4a87-9e11-0c4597e884d6",
 	"prevIds": ["00000000-0000-0000-0000-000000000000"],
 	"ddl": [
 		{ "isRlsEnabled": false, "name": "account", "entityType": "tables", "schema": "public" },
@@ -196,6 +196,12 @@
 		{
 			"isRlsEnabled": false,
 			"name": "plugin_revision_source_file",
+			"entityType": "tables",
+			"schema": "public"
+		},
+		{
+			"isRlsEnabled": false,
+			"name": "plugin_uninstall_receipt",
 			"entityType": "tables",
 			"schema": "public"
 		},
@@ -5639,6 +5645,19 @@
 			"default": null,
 			"generated": null,
 			"identity": null,
+			"name": "activation_id",
+			"entityType": "columns",
+			"schema": "public",
+			"table": "plugin"
+		},
+		{
+			"type": "text",
+			"typeSchema": null,
+			"notNull": true,
+			"dimensions": 0,
+			"default": null,
+			"generated": null,
+			"identity": null,
 			"name": "id",
 			"entityType": "columns",
 			"schema": "public",
@@ -6189,6 +6208,71 @@
 			"entityType": "columns",
 			"schema": "public",
 			"table": "plugin_revision_source_file"
+		},
+		{
+			"type": "text",
+			"typeSchema": null,
+			"notNull": false,
+			"dimensions": 0,
+			"default": null,
+			"generated": null,
+			"identity": null,
+			"name": "installation_id",
+			"entityType": "columns",
+			"schema": "public",
+			"table": "plugin_uninstall_receipt"
+		},
+		{
+			"type": "text",
+			"typeSchema": null,
+			"notNull": true,
+			"dimensions": 0,
+			"default": null,
+			"generated": null,
+			"identity": null,
+			"name": "slug",
+			"entityType": "columns",
+			"schema": "public",
+			"table": "plugin_uninstall_receipt"
+		},
+		{
+			"type": "text",
+			"typeSchema": null,
+			"notNull": true,
+			"dimensions": 0,
+			"default": null,
+			"generated": null,
+			"identity": null,
+			"name": "plugin_id",
+			"entityType": "columns",
+			"schema": "public",
+			"table": "plugin_uninstall_receipt"
+		},
+		{
+			"type": "text",
+			"typeSchema": null,
+			"notNull": true,
+			"dimensions": 0,
+			"default": null,
+			"generated": null,
+			"identity": null,
+			"name": "activation_id",
+			"entityType": "columns",
+			"schema": "public",
+			"table": "plugin_uninstall_receipt"
+		},
+		{
+			"type": "text",
+			"typeSchema": null,
+			"notNull": false,
+			"dimensions": 0,
+			"default": null,
+			"generated": null,
+			"identity": null,
+			"name": "owner_user_id",
+			"entityType": "columns",
+			"schema": "public",
+			"table": "plugin_uninstall_receipt"
 		},
 		{
 			"type": "jsonb",
@@ -11002,6 +11086,19 @@
 		},
 		{
 			"nameExplicit": false,
+			"columns": ["owner_user_id"],
+			"schemaTo": "public",
+			"tableTo": "user",
+			"columnsTo": ["id"],
+			"onUpdate": "NO ACTION",
+			"onDelete": "CASCADE",
+			"name": "plugin_uninstall_receipt_owner_user_id_user_id_fkey",
+			"entityType": "fks",
+			"schema": "public",
+			"table": "plugin_uninstall_receipt"
+		},
+		{
+			"nameExplicit": false,
 			"columns": ["user_id"],
 			"schemaTo": "public",
 			"tableTo": "user",
@@ -11561,6 +11658,14 @@
 			"name": "plugin_revision_pkey",
 			"schema": "public",
 			"table": "plugin_revision",
+			"entityType": "pks"
+		},
+		{
+			"columns": ["activation_id"],
+			"nameExplicit": false,
+			"name": "plugin_uninstall_receipt_pkey",
+			"schema": "public",
+			"table": "plugin_uninstall_receipt",
 			"entityType": "pks"
 		},
 		{
