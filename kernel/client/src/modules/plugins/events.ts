@@ -1,4 +1,7 @@
-import { PLUGIN_CATALOG_INVALIDATED_EVENT } from "@ryot-app/contract/modules/plugins/contract";
+import {
+	PLUGIN_CATALOG_CONNECTED_EVENT,
+	PLUGIN_CATALOG_INVALIDATED_EVENT,
+} from "@ryot-app/contract/modules/plugins/contract";
 import { Context, Data, Duration, Effect, Layer, Match, Schedule } from "effect";
 
 import { serverApiUrl } from "#/api/origin";
@@ -57,6 +60,9 @@ const readCatalogStream = (body: ReadableStream<Uint8Array>, onEvent: (type: str
 						return;
 					}
 					if (line.startsWith(":")) {
+						if (line === ": ping") {
+							onEvent(PLUGIN_CATALOG_CONNECTED_EVENT);
+						}
 						return;
 					}
 					const separator = line.indexOf(":");
@@ -128,7 +134,7 @@ const makePluginCatalogEventsService = (
 	subscribe: (scope: ApiScope, onCatalogChanged: () => void) => {
 		const url = `${serverApiUrl(scope.serverUrl)}/plugins/events`;
 		const onEvent = (type: string) => {
-			if (type === PLUGIN_CATALOG_INVALIDATED_EVENT) {
+			if (type === PLUGIN_CATALOG_INVALIDATED_EVENT || type === PLUGIN_CATALOG_CONNECTED_EVENT) {
 				onCatalogChanged();
 			}
 		};

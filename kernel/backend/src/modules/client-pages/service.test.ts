@@ -1,8 +1,10 @@
 import { expect, layer } from "@effect/vitest";
+import { ClientPagePreparationError } from "@ryot-app/contract/modules/client-pages/schemas";
 import { PluginSlug, UserId } from "@ryot-app/contract/schema/brands";
 import { Context, Effect, Layer, Ref } from "effect";
 
 import { DatabaseSession } from "#lib/infrastructure/db/session";
+import { assertExitFails } from "#lib/test-utils/assertions";
 import { ImageClientArtifacts } from "#modules/client-artifacts/image-artifacts";
 import { EntitiesRepository } from "#modules/entities/repository";
 import { PluginRuntimeResolver } from "#modules/plugins/runtime-resolver";
@@ -55,6 +57,11 @@ class RecordedPrepareCalls extends Context.Service<
 	{ readonly calls: Effect.Effect<ReadonlyArray<string>> }
 >()("test/RecordedPrepareCalls") {}
 
+class AvailablePlugins extends Context.Service<
+	AvailablePlugins,
+	{ readonly revoke: Effect.Effect<void> }
+>()("test/AvailablePlugins") {}
+
 const recordingDependenciesLayer = Layer.effectContext(
 	Effect.gen(function* () {
 		const calls = yield* Ref.make<ReadonlyArray<string>>([]);
@@ -76,8 +83,8 @@ const recordingDependenciesLayer = Layer.effectContext(
 			Context.add(
 				ClientPageCompositionService,
 				ClientPageCompositionService.of({
-					materialize: () => Effect.die("prepare must not materialize"),
-					find: (graph) =>
+					find: () => Effect.die("unused"),
+					getOrMaterialize: (graph) =>
 						record(`find:${graph.compositionKey}`).pipe(
 							Effect.as({
 								createdAt,
@@ -113,13 +120,18 @@ const pagesLayer = ClientPagesService.layer.pipe(
 			Layer.mock(DatabaseSession)({}),
 			Layer.succeed(EntitiesRepository, EntitiesRepository.of(Object.create(null))),
 			Layer.succeed(ClientPagesRepository, ClientPagesRepository.of(Object.create(null))),
-			Layer.succeed(
-				PluginRuntimeResolver,
-				PluginRuntimeResolver.of(
-					Object.assign(Object.create(null), {
-						listPluginsAvailableToUser: () => Effect.succeed([plugin]),
-					}),
-				),
+			Layer.effectContext(
+				Effect.gen(function* () {
+					const available = yield* Ref.make<ReadonlyArray<typeof plugin>>([plugin]);
+					return Context.make(
+						PluginRuntimeResolver,
+						PluginRuntimeResolver.of(
+							Object.assign(Object.create(null), {
+								listPluginsAvailableToUser: () => Ref.get(available),
+							}),
+						),
+					).pipe(Context.add(AvailablePlugins, { revoke: Ref.set(available, []) }));
+				}),
 			),
 			Layer.succeed(
 				ImageClientArtifacts,
@@ -136,33 +148,54 @@ const pagesLayer = ClientPagesService.layer.pipe(
 );
 
 layer(pagesLayer)((test) => {
-	test.effect(
-		"prepares a materialized composition without building or re-checking document assets",
-		() => {
+	test.effect("prepares a composition and issues a document grant", () => {
+		const target = {
+			path: "/",
+			search: "",
+			kind: "plugin-route" as const,
+			pluginSlug: PluginSlug.make("fixture"),
+		};
+		return Effect.gen(function* () {
+			const expected = yield* resolveClientPageGraph({
+				plugin,
+				plugins: [plugin],
+				exportName: "main",
+				application: "plugin-route",
+				runtimeArtifactHash: "runtime-hash",
+			});
+			const service = yield* ClientPagesService;
+			const page = yield* service.prepare({ id: UserId.make("user-1") }, target);
+			expect(page.identity.compositionKey).toBe(expected.compositionKey);
+			expect(page.composition.hash).toBe("composition-hash");
+			expect(page.composition.documentGrant.src).toBe("/api/client-pages/documents/token");
+			expect(yield* (yield* RecordedPrepareCalls).calls).toEqual([
+				`find:${expected.compositionKey}`,
+				"grant:composition-hash",
+			]);
+		});
+	});
+
+	test.effect("rejects a formerly prepared plugin after catalog revocation", () =>
+		Effect.gen(function* () {
+			const service = yield* ClientPagesService;
 			const target = {
 				path: "/",
 				search: "",
 				kind: "plugin-route" as const,
 				pluginSlug: PluginSlug.make("fixture"),
 			};
-			return Effect.gen(function* () {
-				const expected = yield* resolveClientPageGraph({
-					plugin,
-					plugins: [plugin],
-					exportName: "main",
-					application: "plugin-route",
-					runtimeArtifactHash: "runtime-hash",
-				});
-				const service = yield* ClientPagesService;
-				const page = yield* service.prepare({ id: UserId.make("user-1") }, target);
-				expect(page.identity.compositionKey).toBe(expected.compositionKey);
-				expect(page.composition.hash).toBe("composition-hash");
-				expect(page.composition.documentGrant.src).toBe("/api/client-pages/documents/token");
-				expect(yield* (yield* RecordedPrepareCalls).calls).toEqual([
-					`find:${expected.compositionKey}`,
-					"grant:composition-hash",
-				]);
-			});
-		},
+			yield* service.prepare({ id: UserId.make("user-1") }, target);
+			const recorded = yield* RecordedPrepareCalls;
+			const before = yield* recorded.calls;
+			yield* (yield* AvailablePlugins).revoke;
+			const exit = yield* Effect.exit(service.prepare({ id: UserId.make("user-1") }, target));
+			assertExitFails(
+				exit,
+				new ClientPagePreparationError({
+					reason: { code: "plugin-unavailable", pluginId: PluginSlug.make("fixture") },
+				}),
+			);
+			expect(yield* recorded.calls).toEqual(before);
+		}),
 	);
 });

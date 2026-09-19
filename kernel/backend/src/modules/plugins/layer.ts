@@ -1,14 +1,6 @@
-import { encodePluginCatalogInvalidatedMessage } from "@ryot-app/contract/modules/plugins/contract";
-import { UserId } from "@ryot-app/contract/schema/brands";
-import { isNotNull } from "drizzle-orm";
-import { Effect, Layer } from "effect";
+import { Layer } from "effect";
 
-import * as schema from "#lib/infrastructure/db/schema/tables/combined";
-import { DatabaseSession } from "#lib/infrastructure/db/session";
-import { RedisService, redisKeys } from "#lib/infrastructure/redis";
 import { PackageCacheManager } from "#lib/infrastructure/sandbox-runtime/runtime";
-import { ClientSurfaceMaterializerLive, ClientPagesServiceLive } from "#modules/client-pages/layer";
-import { ClientPagesService } from "#modules/client-pages/service";
 import { DefinitionRepository } from "#modules/definition-registry/repository";
 import {
 	IntegrationPluginRevisionActivationLive,
@@ -22,10 +14,10 @@ import { PluginBackupRestore } from "./backup-restore";
 import { SystemPluginBootstrap } from "./boot";
 import {
 	PluginCatalogInvalidator,
+	PluginCatalogInvalidatorLive,
 	PluginCatalogHub,
 	PluginInvalidationSubscriber,
 } from "./catalog-events";
-import { publishAfterCatalogMaterialization } from "./catalog-materialization";
 import { PluginIngestionLock } from "./ingestion-lock";
 import { PluginInstallationRepository } from "./installation-repository";
 import { PluginInstallationService } from "./installation-service";
@@ -60,41 +52,6 @@ export const PluginInvalidationSubscriberLive = PluginInvalidationSubscriber.lay
 	Layer.provide(PluginCatalogHub.layer),
 );
 
-export const MaterializingPluginCatalogInvalidatorLive = Layer.effect(
-	PluginCatalogInvalidator,
-	Effect.gen(function* () {
-		const redis = yield* RedisService;
-		const session = yield* DatabaseSession;
-		const pages = yield* ClientPagesService;
-		const materialize = (userId: UserId) => pages.materializeUserCompositions(userId);
-		return {
-			user: (userId: UserId) =>
-				publishAfterCatalogMaterialization(
-					Effect.succeed([userId]),
-					materialize,
-					redis.publish(
-						redisKeys.pluginCatalogUserChannel,
-						encodePluginCatalogInvalidatedMessage({ userId }),
-					),
-				).pipe(Effect.asVoid, Effect.orDie),
-			all: publishAfterCatalogMaterialization(
-				session
-					.run((db) =>
-						db
-							.select({ id: schema.user.id })
-							.from(schema.user)
-							.where(isNotNull(schema.user.bootstrapCompletedAt)),
-					)
-					.pipe(Effect.map((users) => users.map((user) => UserId.make(user.id)))),
-				materialize,
-				redis
-					.publish(redisKeys.pluginCatalogChannel, "plugin-catalog-invalidated")
-					.pipe(Effect.asVoid),
-			).pipe(Effect.orDie),
-		};
-	}),
-).pipe(Layer.provide(ClientPagesServiceLive), Layer.provide(RedisService.layer));
-
 export const PluginIngestionServiceLive = PluginIngestionService.layer.pipe(
 	Layer.provide(
 		Layer.mergeAll(
@@ -102,7 +59,7 @@ export const PluginIngestionServiceLive = PluginIngestionService.layer.pipe(
 			PluginRepository.layer,
 			DefinitionRepository.layer,
 			SystemPlugins.layer,
-			MaterializingPluginCatalogInvalidatorLive,
+			PluginCatalogInvalidatorLive,
 		),
 	),
 );
@@ -137,7 +94,7 @@ export const PluginInstallationRuntimeLive = PluginInstallationService.layerRunt
 			ObjectStorageServiceLive,
 			PluginIngestionLockLive,
 			SavedViewPluginReferencesProvidedLive,
-			MaterializingPluginCatalogInvalidatorLive,
+			PluginCatalogInvalidatorLive,
 		),
 	),
 );
@@ -151,7 +108,6 @@ export const PluginBackupRestoreLive = PluginBackupRestore.layer.pipe(
 export const SystemPluginIngestionLive = SystemPluginBootstrap.layer.pipe(
 	Layer.provide(
 		Layer.mergeAll(
-			ClientSurfaceMaterializerLive,
 			PluginIngestionServiceLive,
 			PluginRepository.layer,
 			DefinitionRepository.layer,

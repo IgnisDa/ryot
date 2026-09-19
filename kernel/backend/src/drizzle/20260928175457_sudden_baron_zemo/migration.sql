@@ -175,10 +175,10 @@ CREATE TABLE "definition_entity_schema" (
 	"position" integer NOT NULL,
 	"id" text PRIMARY KEY,
 	"icon" text NOT NULL,
-	"plugin_revision_id" text,
 	"merge_identity_properties" text[] NOT NULL,
 	"properties_schema" jsonb NOT NULL,
 	"user_state" jsonb,
+	"plugin_revision_id" text,
 	CONSTRAINT "definition_entity_schema_revision_slug_unique" UNIQUE NULLS NOT DISTINCT("plugin_revision_id","slug")
 );
 --> statement-breakpoint
@@ -200,10 +200,10 @@ CREATE TABLE "definition_import_source" (
 	"workflow_script_slug" text,
 	"description" text NOT NULL,
 	"workflow_slug" text NOT NULL,
-	"plugin_revision_id" text NOT NULL,
 	"input_schema" jsonb NOT NULL,
 	"required_plugin_config_keys" text[] NOT NULL,
 	"export_help" jsonb,
+	"plugin_revision_id" text NOT NULL,
 	CONSTRAINT "definition_import_source_revision_slug_unique" UNIQUE("plugin_revision_id","slug")
 );
 --> statement-breakpoint
@@ -214,10 +214,10 @@ CREATE TABLE "definition_integration_provider" (
 	"id" text PRIMARY KEY,
 	"script_slug" text,
 	"description" text NOT NULL,
-	"plugin_revision_id" text NOT NULL,
 	"requires_pro_key" boolean NOT NULL,
 	"settings_schema" jsonb NOT NULL,
 	"lot" text NOT NULL,
+	"plugin_revision_id" text NOT NULL,
 	CONSTRAINT "definition_integration_provider_revision_slug_unique" UNIQUE("plugin_revision_id","slug"),
 	CONSTRAINT "definition_integration_provider_script_check" CHECK (("lot" = 'push') = ("script_slug" is null))
 );
@@ -227,10 +227,10 @@ CREATE TABLE "definition_relationship_schema" (
 	"name" text NOT NULL,
 	"position" integer NOT NULL,
 	"id" text PRIMARY KEY,
-	"plugin_revision_id" text,
 	"source_entity_schema_slug" text,
 	"target_entity_schema_slug" text,
 	"properties_schema" jsonb NOT NULL,
+	"plugin_revision_id" text,
 	CONSTRAINT "definition_relationship_schema_revision_slug_unique" UNIQUE NULLS NOT DISTINCT("plugin_revision_id","slug")
 );
 --> statement-breakpoint
@@ -240,11 +240,11 @@ CREATE TABLE "definition_saved_view" (
 	"position" integer NOT NULL,
 	"id" text PRIMARY KEY,
 	"icon" text NOT NULL,
-	"plugin_revision_id" text,
 	"sort_order" integer NOT NULL,
 	"data_sources" jsonb,
 	"settings" jsonb NOT NULL,
 	"renderer" jsonb NOT NULL,
+	"plugin_revision_id" text,
 	CONSTRAINT "definition_saved_view_revision_slug_unique" UNIQUE NULLS NOT DISTINCT("plugin_revision_id","slug")
 );
 --> statement-breakpoint
@@ -253,11 +253,11 @@ CREATE TABLE "definition_signal_schema" (
 	"name" text NOT NULL,
 	"position" integer NOT NULL,
 	"id" text PRIMARY KEY,
-	"plugin_revision_id" text,
 	"notification_hook_slug" text NOT NULL,
 	"properties_schema" jsonb NOT NULL,
 	"audience_policy" jsonb NOT NULL,
 	"catalog_state" text NOT NULL,
+	"plugin_revision_id" text,
 	CONSTRAINT "definition_signal_schema_revision_slug_unique" UNIQUE NULLS NOT DISTINCT("plugin_revision_id","slug")
 );
 --> statement-breakpoint
@@ -555,13 +555,19 @@ CREATE TABLE "oauth_resource" (
 CREATE TABLE "plugin" (
 	"slug" text NOT NULL,
 	"status" text NOT NULL,
+	"active_revision_id" text,
 	"environment_config_revision_id" text,
 	"created_at" timestamp with time zone DEFAULT now() NOT NULL,
-	"active_revision_id" text,
 	"owner_user_id" text,
 	"id" text PRIMARY KEY,
 	CONSTRAINT "plugin_active_revision_check" CHECK ("status" <> 'active' or "active_revision_id" is not null),
 	CONSTRAINT "plugin_environment_config_scope_check" CHECK ("owner_user_id" is null or "environment_config_revision_id" is null)
+);
+--> statement-breakpoint
+CREATE TABLE "plugin_catalog_change" (
+	"user_id" text,
+	"created_at" timestamp with time zone DEFAULT now() NOT NULL,
+	"id" text PRIMARY KEY
 );
 --> statement-breakpoint
 CREATE TABLE "plugin_config_encryption_key" (
@@ -667,9 +673,9 @@ CREATE TABLE "sandbox_provider" (
 );
 --> statement-breakpoint
 CREATE TABLE "sandbox_script" (
+	"source" text,
 	"slug" text NOT NULL,
 	"name" text NOT NULL,
-	"source" text,
 	"content_hash" text NOT NULL,
 	"compiled_code" text NOT NULL,
 	"compiled_format" smallint DEFAULT 1 NOT NULL,
@@ -861,6 +867,7 @@ CREATE INDEX "oauth_refresh_token_userId_idx" ON "oauth_refresh_token" ("user_id
 CREATE INDEX "oauth_refresh_token_authorizationCodeId_idx" ON "oauth_refresh_token" ("authorization_code_id");--> statement-breakpoint
 CREATE INDEX "plugin_owner_id_idx" ON "plugin" ("owner_user_id");--> statement-breakpoint
 CREATE UNIQUE INDEX "plugin_owner_slug_unique" ON "plugin" ("slug",(case when "owner_user_id" is null then '0' else '1' || "owner_user_id" end));--> statement-breakpoint
+CREATE INDEX "plugin_catalog_change_user_id_idx" ON "plugin_catalog_change" ("user_id");--> statement-breakpoint
 CREATE INDEX "plugin_config_revision_installation_idx" ON "plugin_config_revision" ("plugin_installation_id");--> statement-breakpoint
 CREATE INDEX "plugin_config_revision_owner_idx" ON "plugin_config_revision" ("owner_user_id");--> statement-breakpoint
 CREATE INDEX "plugin_config_revision_package_idx" ON "plugin_config_revision" ("plugin_revision_id");--> statement-breakpoint
@@ -947,6 +954,7 @@ ALTER TABLE "oauth_refresh_token" ADD CONSTRAINT "oauth_refresh_token_user_id_us
 ALTER TABLE "plugin" ADD CONSTRAINT "plugin_owner_user_id_user_id_fkey" FOREIGN KEY ("owner_user_id") REFERENCES "user"("id") ON DELETE CASCADE;--> statement-breakpoint
 ALTER TABLE "plugin" ADD CONSTRAINT "plugin_active_revision_owner_fk" FOREIGN KEY ("active_revision_id","id") REFERENCES "plugin_revision"("id","plugin_id");--> statement-breakpoint
 ALTER TABLE "plugin" ADD CONSTRAINT "plugin_environment_config_revision_fk" FOREIGN KEY ("environment_config_revision_id","active_revision_id") REFERENCES "plugin_config_revision"("id","plugin_revision_id");--> statement-breakpoint
+ALTER TABLE "plugin_catalog_change" ADD CONSTRAINT "plugin_catalog_change_user_id_user_id_fkey" FOREIGN KEY ("user_id") REFERENCES "user"("id") ON DELETE CASCADE;--> statement-breakpoint
 ALTER TABLE "plugin_config_revision" ADD CONSTRAINT "plugin_config_revision_owner_user_id_user_id_fkey" FOREIGN KEY ("owner_user_id") REFERENCES "user"("id") ON DELETE CASCADE;--> statement-breakpoint
 ALTER TABLE "plugin_config_revision" ADD CONSTRAINT "plugin_config_revision_MfinRSKKKQP6_fkey" FOREIGN KEY ("plugin_revision_id") REFERENCES "plugin_revision"("id") ON DELETE CASCADE;--> statement-breakpoint
 ALTER TABLE "plugin_config_revision" ADD CONSTRAINT "plugin_config_revision_bpJawOzD6ygG_fkey" FOREIGN KEY ("plugin_installation_id") REFERENCES "plugin_installation"("id") ON DELETE SET NULL;--> statement-breakpoint

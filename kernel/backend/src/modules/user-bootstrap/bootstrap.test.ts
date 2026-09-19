@@ -7,7 +7,6 @@ import { mapDatabaseErrors } from "#lib/infrastructure/db/errors";
 import * as schema from "#lib/infrastructure/db/schema/tables/combined";
 import { fakeDatabaseSession } from "#lib/test-utils/effect";
 import { NotificationSubscriptionsService } from "#modules/automations/notification-subscriptions-service";
-import { ClientSurfaceMaterializer } from "#modules/plugins/client-surface-materializer";
 import { PluginInstallationService } from "#modules/plugins/installation-service";
 
 import { UserBootstrap } from "./bootstrap";
@@ -20,7 +19,7 @@ const append =
 	(value: A) =>
 		Ref.update(ref, (all) => [...all, value]);
 
-type BootstrapStep = "provision" | "dispatch" | "materialize-builds" | "complete";
+type BootstrapStep = "provision" | "dispatch" | "complete";
 
 class FakeBootstrapDependencies extends Context.Service<
 	FakeBootstrapDependencies,
@@ -38,7 +37,6 @@ const performBootstrap = (inputUserId: UserId) =>
 
 const bootstrapLayer = (options?: {
 	bootstrapCompletedAt?: Date;
-	materializeBuilds?: Effect.Effect<void>;
 	dispatch?: (attempt: number) => Effect.Effect<void, SandboxRunError>;
 }) =>
 	UserBootstrap.layer.pipe(
@@ -90,16 +88,6 @@ const bootstrapLayer = (options?: {
 						Layer.mock(NotificationSubscriptionsService)({
 							ensureDefaultRules: append(defaultRules),
 						}),
-						Layer.succeed(ClientSurfaceMaterializer, {
-							materializeRenderer: () => Effect.void,
-							assertUserCompositions: () => Effect.void,
-							materializeSystemCompositions: Effect.void,
-							materializePendingInstallation: () => Effect.void,
-							materializeUserCompositions: () =>
-								append(order)("materialize-builds").pipe(
-									Effect.andThen(options?.materializeBuilds ?? Effect.void),
-								),
-						}),
 						Layer.succeed(FakeBootstrapDependencies, {
 							order: Ref.get(order),
 							dispatchedUserIds: Ref.get(dispatched),
@@ -121,12 +109,7 @@ layer(bootstrapLayer())((test) => {
 				yield* performBootstrap(userId);
 
 				const fake = yield* FakeBootstrapDependencies;
-				expect(yield* fake.order).toEqual([
-					"provision",
-					"dispatch",
-					"materialize-builds",
-					"complete",
-				]);
+				expect(yield* fake.order).toEqual(["provision", "dispatch", "complete"]);
 				expect(yield* fake.dispatchedUserIds).toEqual([userId]);
 				expect(yield* fake.provisionedUserIds).toEqual([userId]);
 				expect(yield* fake.defaultRuleUserIds).toEqual([userId]);
@@ -168,15 +151,3 @@ layer(
 		}),
 	);
 });
-
-layer(bootstrapLayer({ materializeBuilds: Effect.die(new Error("Missing baseline build")) }))(
-	(test) => {
-		test.effect("does not complete account setup when a required boot-time build is absent", () =>
-			Effect.gen(function* () {
-				const exit = yield* Effect.exit(performBootstrap(userId));
-				expect(exit._tag).toBe("Failure");
-				expect(yield* (yield* FakeBootstrapDependencies).completed).toBe(false);
-			}),
-		);
-	},
-);

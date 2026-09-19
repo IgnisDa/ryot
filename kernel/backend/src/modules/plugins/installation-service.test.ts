@@ -262,6 +262,9 @@ const makeLayer = (options: FakeInstallationOptions = {}) => {
 					),
 				}),
 				Layer.succeed(PluginCatalogInvalidator, {
+					recordAll: Effect.void,
+					recordUser: () => Effect.void,
+					deliverPending: () => Effect.void,
 					all: record(recordings, "invalidatedAll", undefined),
 					user: (ownerId) => record(recordings, "invalidatedUsers", ownerId),
 				}),

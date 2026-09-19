@@ -1,7 +1,6 @@
 import { Layer } from "effect";
 
 import { ClientArtifactsRepository } from "#modules/client-artifacts/repository";
-import { ClientSurfaceMaterializerLive } from "#modules/client-pages/layer";
 import { DefinitionRepository } from "#modules/definition-registry/repository";
 import { PluginCatalogInvalidatorLive } from "#modules/plugins/catalog-events";
 import { PluginInstallationRepository } from "#modules/plugins/installation-repository";
@@ -19,7 +18,6 @@ export const SavedViewsServiceLive = SavedViewsService.layer.pipe(
 			PluginInstallationRepository.layer,
 			PluginRepository.layer.pipe(Layer.provide(ClientArtifactsRepository.layer)),
 			PluginCatalogInvalidatorLive,
-			ClientSurfaceMaterializerLive,
 		),
 	),
 	Layer.provide(DefinitionRepository.layer),

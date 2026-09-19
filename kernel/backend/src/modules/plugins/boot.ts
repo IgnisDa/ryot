@@ -7,7 +7,6 @@ import { kernelScriptCompiledOutputs } from "#modules/definition-registry/kernel
 import { kernelDefinitionSource, kernelScripts } from "#modules/definition-registry/kernel-source";
 import { DefinitionRepository } from "#modules/definition-registry/repository";
 
-import { ClientSurfaceMaterializer } from "./client-surface-materializer";
 import { PluginInstallationService } from "./installation-service";
 import { PluginRepository } from "./repository";
 import { ScriptGarbageCollector } from "./script-garbage-collector";
@@ -27,7 +26,6 @@ export class SystemPluginBootstrap extends Context.Service<SystemPluginBootstrap
 			const ingestion = yield* PluginIngestionService;
 			const installations = yield* PluginInstallationService;
 			const scriptGarbageCollector = yield* ScriptGarbageCollector;
-			const surfaces = yield* ClientSurfaceMaterializer;
 			const loadKernelScripts = Effect.fn("SystemPluginBootstrap.loadKernelScripts")(function* () {
 				const declaredScripts: ReadonlyArray<(typeof kernelScripts)[number]> = kernelScripts;
 				const outputs = new Map<string, PluginArchiveCompiledScript>(
@@ -81,7 +79,6 @@ export class SystemPluginBootstrap extends Context.Service<SystemPluginBootstrap
 				);
 				yield* ingestion.synchronizeSystemPlugins(systemPlugins.sources);
 				yield* installations.reconcileSystemInstallations();
-				yield* surfaces.materializeSystemCompositions;
 				yield* scriptGarbageCollector.collect();
 			});
 
