@@ -4036,6 +4036,7 @@ name = "imdb-importer-service"
 version = "0.1.0"
 dependencies = [
  "anyhow",
+ "chrono",
  "common-models",
  "common-utils",
  "csv",
@@ -4044,6 +4045,7 @@ dependencies = [
  "importer-models",
  "itertools 0.14.0",
  "media-models",
+ "rust_decimal",
  "serde",
  "tmdb-provider",
  "tracing",

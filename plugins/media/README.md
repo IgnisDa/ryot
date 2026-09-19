@@ -349,6 +349,11 @@ deterministic and provider calls use concurrency four.
 
 ## Imports
 
+The IMDb importer reads watchlist and ratings CSV exports. A rating or rated date creates a
+completion event with `consumedOn: "imdb"`; ratings from 1 to 10 become review ratings from 10 to 100.
+Rated dates accept `YYYY-MM-DD` and `YYYY/MM/DD`. Without a rated date, the completion time is unknown.
+Rows without either value create backlog events. Invalid ratings or dates produce row-level failures.
+
 The Trakt importer has three tagged modes:
 
 - `user` imports a user's history, ratings, watchlist, lists, and collection.
