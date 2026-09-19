@@ -18,6 +18,7 @@ export const FIXTURE_CLIENT_REVISION_MARKERS = {
 
 const archiveUrl = new URL("../../../../plugins/fixture/dist/fixture.zip", import.meta.url);
 const homeEntry = "client/home.tsx";
+const pokemonPresentationEntry = "client/pokemon-presentation.tsx";
 const decoder = new TextDecoder("utf-8", { fatal: true });
 
 type FixtureClientPluginRevision = keyof typeof FIXTURE_CLIENT_REVISION_MARKERS;
@@ -25,6 +26,7 @@ export const fixtureClientPluginPackage = (
 	revision: FixtureClientPluginRevision,
 	variant = "",
 	pluginSlug = FIXTURE_CLIENT_PLUGIN_SLUG,
+	presentationEvaluationSignal = false,
 ) =>
 	Effect.gen(function* () {
 		const archive = yield* Effect.promise(async () => {
@@ -53,9 +55,12 @@ export const fixtureClientPluginPackage = (
 							'<StatusMessage tone="success">Revision B is active.</StatusMessage>\n\t\t\t<img alt="" src={logo} className="plugin-logo" />',
 						)
 				: revisedHome;
+		const presentationBytes = pluginPackage.files[pokemonPresentationEntry];
+		if (presentationEvaluationSignal && !presentationBytes) {
+			throw new Error(`Fixture client source '${pokemonPresentationEntry}' is missing`);
+		}
 		return yield* compilePluginPackage({
 			compiledScripts: pluginPackage.compiledScripts,
-			files: { ...pluginPackage.files, [homeEntry]: new TextEncoder().encode(revisionHome) },
 			manifest: {
 				...pluginPackage.manifest,
 				metadata: {
@@ -63,6 +68,17 @@ export const fixtureClientPluginPackage = (
 					slug: pluginSlug,
 					version: revision === "A" ? "1.0.0" : "2.0.0",
 				},
+			},
+			files: {
+				...pluginPackage.files,
+				[homeEntry]: new TextEncoder().encode(revisionHome),
+				...(presentationEvaluationSignal && presentationBytes
+					? {
+							[pokemonPresentationEntry]: new TextEncoder().encode(
+								`${decoder.decode(presentationBytes)}\ndocument.documentElement.dataset.e2ePokemonPresentationEvaluated = "true";\n`,
+							),
+						}
+					: {}),
 			},
 		});
 	});
@@ -72,9 +88,15 @@ export const installFixtureClientPlugin = (
 	revision: FixtureClientPluginRevision = "A",
 	variant = "",
 	baseUrl?: string,
+	presentationEvaluationSignal = false,
 ) =>
 	Effect.gen(function* () {
-		const pluginPackage = yield* fixtureClientPluginPackage(revision, variant);
+		const pluginPackage = yield* fixtureClientPluginPackage(
+			revision,
+			variant,
+			FIXTURE_CLIENT_PLUGIN_SLUG,
+			presentationEvaluationSignal,
+		);
 		yield* installPrivatePluginPackage({ client, baseUrl, config: {}, pluginPackage });
 		return yield* settledPrivateInstallation(client, FIXTURE_CLIENT_PLUGIN_SLUG);
 	});
