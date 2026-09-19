@@ -273,8 +273,11 @@ export const LifecycleExecutionLive = Layer.effect(
 						}),
 					],
 				});
-				// The engine cannot cancel a losing clock; once the race is settled the run stops awaiting it,
-				// so its later firing does not preempt the running workflow.
+				// TODO: After https://github.com/Effect-TS/effect/issues/8995 is fixed, upgrade effect and
+				// @effect/* together to a release containing the fix. Remove this deletion and the
+				// WorkflowInstance lookup above. Add a SQL-backed cluster-engine regression proving that
+				// a losing clock cannot interrupt/restart later work after hooks win; cover deadline-first too.
+				// Run the hook regressions and rerun the S3 latency and tenant-fairness benchmarks.
 				instance.awaitedDeferreds.delete(deadlineClock.deferred.name);
 				return yield* makeActivity({
 					error: DbError,
