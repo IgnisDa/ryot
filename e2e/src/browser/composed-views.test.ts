@@ -385,13 +385,7 @@ it.live("warms private Pokemon presentation files without evaluating them until 
 			yield* runtime.locator("html").getAttribute("data-e2e-pokemon-presentation-evaluated"),
 		).toBeNull();
 
-		const blocked: string[] = [];
-		yield* page.use((nativePage) =>
-			nativePage.route(`**${privateBase}*`, (route) => {
-				blocked.push(new URL(route.request().url()).pathname);
-				return route.abort();
-			}),
-		);
+		const requestsBeforePagination = requested.length;
 		yield* runtime.getByRole("button", { name: "Load more" }).click();
 		const pokemonCard = runtime.locator(`[data-entity-id="${pokemon.id}"][data-layout="card"]`);
 		yield* expectVisibleText(pokemonCard, pokemon.name);
@@ -399,7 +393,9 @@ it.live("warms private Pokemon presentation files without evaluating them until 
 		expect(
 			yield* runtime.locator("html").getAttribute("data-e2e-pokemon-presentation-evaluated"),
 		).toBe("true");
-		expect(blocked).toEqual([]);
+		expect(
+			requested.slice(requestsBeforePagination).filter((path) => path.startsWith(privateBase)),
+		).toEqual([]);
 	}).pipe(PlaywrightSpawner.withBrowser),
 );
 

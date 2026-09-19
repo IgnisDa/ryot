@@ -1,6 +1,6 @@
 import { BunFileSystem } from "@effect/platform-bun";
 import { expect, layer } from "@effect/vitest";
-import { BadRequest } from "@ryot-app/contract/errors";
+import { BadRequest, DbError } from "@ryot-app/contract/errors";
 import { BackupRunId, UserId } from "@ryot-app/contract/schema/brands";
 import { CryptoHasher } from "bun";
 import { sql } from "drizzle-orm";
@@ -313,6 +313,52 @@ layer(
 		Effect.gen(function* () {
 			const operations = yield* RestoreBackupWorkflowOperations;
 			yield* operations.restore(payload, archiveLocator);
+		}),
+	);
+});
+
+layer(
+	makeLayer(({ record }) => {
+		let attempts = 0;
+		return {
+			cleanliness: { assertAccountIsClean: () => Effect.void.pipe(Effect.as(undefined)) },
+			repository: {
+				getRunById: () => Effect.succeed(runningRun),
+				updateProgress: () => Effect.succeed({ ...runningRun, progress: 90 }),
+			},
+			writer: {
+				assertRequiredPlugins: () => Effect.succeed(new Map()),
+				restoreRecords: () =>
+					Effect.gen(function* () {
+						yield* record("restore");
+						if (++attempts === 1) {
+							return yield* new DbError({ code: "40P01", message: "deadlock detected" });
+						}
+						return undefined;
+					}),
+			},
+			objectStorage: {
+				selectStorageProvider: () => Effect.succeed("local" as const),
+				openObject: openArchive(
+					createArchiveStream({
+						assets: [],
+						redactions: [],
+						requiredPlugins: [],
+						records: emptyRecords,
+						archiveId: "archive-id",
+						appVersion: "backend-v1",
+						createdAt: "2026-08-23T12:00:00.000Z",
+						events: { count: 0, bytes: 0, chunks: [], sha256: EMPTY_SHA256 },
+					}),
+				),
+			},
+		};
+	}),
+)((test) => {
+	test.effect("retries a deadlocked restore transaction", () =>
+		Effect.gen(function* () {
+			yield* (yield* RestoreBackupWorkflowOperations).restore(payload, archiveLocator);
+			expect(yield* (yield* FakeRestoreDependencies).calls).toEqual(["restore", "restore"]);
 		}),
 	);
 });
