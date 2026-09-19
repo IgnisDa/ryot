@@ -43,7 +43,16 @@ export const packageDependencyDeclarations = (pluginDependencies: readonly strin
 		)
 		.join("\n");
 
-const baseStylesheet = `@layer base {
+const layerOrder = "@layer properties, theme, base, components, utilities;";
+
+export const runtimeStylesheet = `${layerOrder}
+@import "@fontsource-variable/outfit";
+@import "@fontsource-variable/lora";
+@import "tailwindcss/theme.css" layer(theme) theme(static);
+@import "tailwindcss/preflight.css" layer(base);
+@import "@ryot-app/client-ui-sdk/theme.css";
+@import "@ryot-app/client-ui-sdk/palette.css";
+@layer base {
 	html, body { height: 100%; margin: 0; overflow: hidden; overscroll-behavior-y: none; -webkit-tap-highlight-color: transparent; }
 	body { background: var(--bg); font-family: var(--font-family-ui); }
 	#app { height: 100%; isolation: isolate; overflow: hidden; position: relative; }
@@ -59,16 +68,14 @@ export const compilerStylesheet = (
 	const source = (path: string) =>
 		`@source ${JSON.stringify(relativePath(generatedPath, path).replaceAll("\\", "/"))};`;
 	return [
-		'@import "@fontsource-variable/outfit";',
-		'@import "@fontsource-variable/lora";',
-		'@import "tailwindcss" source(none);',
-		'@import "@ryot-app/client-ui-sdk/theme.css";',
-		'@import "@ryot-app/client-ui-sdk/palette.css";',
+		layerOrder,
+		'@import "tailwindcss/theme.css" layer(theme) theme(reference);',
+		'@import "tailwindcss/utilities.css" layer(utilities) source(none);',
+		'@import "@ryot-app/client-ui-sdk/theme.css" reference;',
 		...reachableSources
 			.filter((path) => /\.tsx?$/.test(path))
 			.map((path) => source(resolvePath(sourcePath, path))),
 		source(clientSdkRoot),
 		source(uiSdkRoot),
-		baseStylesheet,
 	].join("\n");
 };
