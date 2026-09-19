@@ -47,6 +47,40 @@ describe("POST /events with global entities", () => {
 			]);
 		}),
 	);
+
+	it.live("adds membership for the written prefix when a later event fails", () =>
+		Effect.gen(function* () {
+			const { client } = yield* createAuthenticatedClient();
+			const { entity, schema } = yield* createGlobalBookEntityFixture(client);
+			const eventSchemas = yield* listEventSchemas(client, schema.id);
+			const backlog = requireEventSchemaBySlug(eventSchemas, "backlog");
+			const complete = requireEventSchemaBySlug(eventSchemas, "complete");
+
+			const result = yield* client.call((c) =>
+				c.events.create({
+					payload: [
+						{ properties: {}, entityId: entity.id, eventSchemaSlug: backlog.id },
+						{ properties: {}, entityId: entity.id, eventSchemaSlug: complete.id },
+						{ properties: {}, entityId: entity.id, eventSchemaSlug: backlog.id },
+					],
+				}),
+			);
+			expect(yield* waitForCreateEvents(client, result)).toMatchObject({
+				count: 1,
+				outcomes: [{ index: 0, status: "written" }],
+				failure: { index: 1, reason: { code: "invalid-properties" } },
+			});
+			const membership = yield* queryInMediaLibraryRelationship(client, entity.id, schema.slug);
+			expect(
+				membership.data.entity?.type === "rows" ? membership.data.entity.items : [],
+			).toHaveLength(1);
+			const events = yield* waitForEventCount(client, entity.id, 2);
+			expect(events.map(({ eventSchemaSlug }) => eventSchemaSlug)).toEqual([
+				"add-to-media-library",
+				"backlog",
+			]);
+		}),
+	);
 });
 
 describe("media membership event exclusions", () => {
