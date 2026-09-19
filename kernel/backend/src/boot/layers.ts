@@ -74,6 +74,7 @@ import {
 	NotificationDeliveryWorkflowDefinitionsProvidedLive,
 	NotificationsServiceLive,
 } from "#modules/notifications/layer";
+import { OAuthConnectionsServiceLive } from "#modules/oauth-connections/layer";
 import { PluginCatalogHub, PluginCatalogInvalidatorLive } from "#modules/plugins/catalog-events";
 import { PluginConfigEncryptionKey } from "#modules/plugins/config-encryption-key";
 import { PluginInstallationSweepDispatcherLive } from "#modules/plugins/installation-sweep";
@@ -181,6 +182,7 @@ const ServicesLive = Layer.mergeAll(
 	InterestServicesLive,
 	NotificationDeliveryServiceLive,
 	NotificationsServiceLive,
+	OAuthConnectionsServiceLive,
 	OperationsServiceLive,
 	PluginIngestionServiceLive,
 	PluginCatalogInvalidatorLive,

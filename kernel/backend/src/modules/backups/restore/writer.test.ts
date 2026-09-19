@@ -141,6 +141,32 @@ it("detects nested required installation secrets in objects and arrays", () => {
 	}
 });
 
+it("restores integrations with OAuth connection settings disabled", () => {
+	const schema = {
+		fields: {
+			endpoint: { type: "string", label: "Endpoint", description: "Endpoint" },
+			account: {
+				type: "string",
+				label: "Account",
+				description: "Linked account",
+				format: { provider: "account", kind: "oauth-connection" },
+			},
+		},
+	} satisfies AppSchema;
+	expect(
+		resolveRestoredIntegrationDisabled(
+			{ isDisabled: false, configuredSecretPaths: ["/account"] },
+			schema,
+		),
+	).toBe(true);
+	expect(
+		resolveRestoredIntegrationDisabled(
+			{ isDisabled: false, configuredSecretPaths: [] },
+			{ fields: { endpoint: schema.fields.endpoint } },
+		),
+	).toBe(false);
+});
+
 it.effect("rejects a crafted provider dependency whose schema belongs to another plugin", () =>
 	assertDependencySchemaOwnership(
 		{

@@ -104,6 +104,7 @@ entry can therefore leave otherwise unreachable shared files unchecked.
 | `importSources`        | Payload, single-file, or named-file workflow inputs                     |
 | `httpRateLimits`       | Deployment-global limits by normalized HTTP(S) origin                   |
 | `integrationProviders` | Push, sink, or yank integrations                                        |
+| `oauthProviders`       | Optional kernel-managed OAuth clients for integration settings (system) |
 | `entitySchemas`        | Entities, events, user-state policy, and merge identity                 |
 | `relationshipSchemas`  | Typed relationship endpoints                                            |
 | `signalSchemas`        | Signal audience, catalog, and formatter definitions                     |
@@ -123,8 +124,8 @@ legacy display mappings or sandbox scripts.
 
 Ingestion assigns plugin scope (`system` or `user`); manifests do not. Execution subject identifies
 whose data an invocation uses and does not widen plugin privilege. Kernel dispatch selects it, never
-script input. User plugins cannot declare `userBootstrap` or `httpRateLimits`, or use a system
-plugin slug.
+script input. User plugins cannot declare `userBootstrap`, `httpRateLimits`, or `oauthProviders`,
+or use a system plugin slug.
 
 `capabilities` is an allowlist request, not a grant. The backend intersects it with host functions and
 policy for script kind, subject, plugin scope, provider association, and bootstrap designation. Domain
