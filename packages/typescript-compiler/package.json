@@ -6,6 +6,10 @@
 		".": {
 			"types": "./src/index.ts",
 			"default": "./src/index.ts"
+		},
+		"./javascript-references": {
+			"types": "./src/javascript-references.ts",
+			"default": "./src/javascript-references.ts"
 		}
 	},
 	"scripts": {
@@ -13,7 +17,9 @@
 		"check": "tsc && oxfmt . --write && oxlint . --fix"
 	},
 	"dependencies": {
+		"@oxc-project/types": "0.132.0",
 		"effect": "4.0.0-rc.117",
+		"rolldown": "1.0.2",
 		"typescript": "7.0.2"
 	},
 	"devDependencies": {

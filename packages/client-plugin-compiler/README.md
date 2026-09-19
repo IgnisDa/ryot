@@ -44,6 +44,10 @@ disabled with `source(none)`, and explicit `@source` entries cover plugin TypeSc
 both client SDK source roots. The Tailwind and SDK themes are imported by reference, so `module.css`
 holds only utilities and authored CSS. Vite owns nested and multiple authored CSS imports, ordering,
 URL rewriting, deduplication, and assets.
+Emitted JavaScript references are inspected with the shared Rolldown parser. Emitted CSS imports
+and declaration URLs are inspected with PostCSS and its value parser; comments and string content
+are not treated as references. The client compiler rejects nonliteral dynamic imports in plugin
+modules. The runtime keeps its generated bootstrap's dynamic imports.
 
 The shared runtime emits `runtime.css` with the fonts, the full Tailwind theme variables, preflight,
 the SDK theme and palette, and document base rules. Every composition links it from the same public
@@ -63,8 +67,11 @@ CSS imports are resolved into `module.css`; Vite owns asset URLs. Every emitted 
 local reference, file count, per-asset size, and total size is validated. The hash covers every
 output byte and content type plus the plugin name and compiler/protocol identity. Final files are
 sorted by name. Compiler version 1 identifies minified module artifacts.
+Valid emitted JavaScript UTF-8 bytes, including a leading BOM, are retained exactly. Artifact
+hashing uses those bytes. The artifact identity implementation is owned by
+`@ryot-app/client-plugin-contract`.
 
 Installing an archive trusts its compiled client executable bytes. The server checks archive
-structure, hashes, limits, MIME types, and manifest consistency; it does not prove compilation
+structure, executable UTF-8, hashes, limits, MIME types, and manifest consistency; it does not prove compilation
 provenance. Image-owned artifact hashes are public, and other artifacts require capabilities.
 Compositions reference these immutable modules; their HTML documents are dynamic and no-store.

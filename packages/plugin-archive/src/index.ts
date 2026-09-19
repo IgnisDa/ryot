@@ -284,6 +284,17 @@ const validateCompiledClientFile = (name: string, contentType: string) => {
 	return archivePath;
 };
 
+const validateCompiledClientJavascript = (contentType: string, contents: Uint8Array) => {
+	if (!contentType.startsWith("text/javascript")) {
+		return;
+	}
+	try {
+		compiledScriptDecoder.decode(contents);
+	} catch {
+		throw failure("compiled-client-invalid");
+	}
+};
+
 const validateCompiledClientArtifact = (value: PluginClientArtifactType) => {
 	let artifact: PluginClientArtifactType;
 	try {
@@ -297,6 +308,7 @@ const validateCompiledClientArtifact = (value: PluginClientArtifactType) => {
 	let artifactBytes = 0;
 	for (const file of artifact.files) {
 		validateCompiledClientFile(file.name, file.contentType);
+		validateCompiledClientJavascript(file.contentType, file.contents);
 		artifactBytes += file.contents.byteLength;
 		if (artifactBytes > PLUGIN_ARCHIVE_LIMITS.maxCompiledClientBytes) {
 			throw failure("compiled-client-bytes-exceeded");
@@ -826,6 +838,7 @@ class PluginArchiveReader {
 			if (contents === undefined) {
 				throw failure("compiled-client-invalid");
 			}
+			validateCompiledClientJavascript(contentType, contents);
 			return { name, contents, contentType };
 		});
 		try {
