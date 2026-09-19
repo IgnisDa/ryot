@@ -4,7 +4,7 @@ import {
 	type RyotClientAdapter,
 	type RyotNavigationTarget,
 } from "@ryot-app/client-sdk";
-import { Effect } from "@ryot-app/client-sdk/effect";
+import { DateTime, Effect } from "@ryot-app/client-sdk/effect";
 import { getByRole, waitFor } from "@testing-library/dom";
 import { act } from "react";
 
@@ -12,6 +12,7 @@ import { flatRow, rows } from "../../tests/client/home/fixtures";
 import {
 	clickRyotElement,
 	flushRyotClient,
+	localDateTime,
 	mountRyotClient,
 } from "../../tests/client/test-support";
 import { HomeBody } from "./screen";
@@ -227,7 +228,13 @@ describe("home sections", () => {
 		Effect.gen(function* () {
 			const home = homeAdapter({ gate: 1 });
 			const view = mountRyotClient(home.adapter, null);
-			yield* Effect.promise(() => view.setTime(new Date(2026, 8, 25, 23, 30).getTime()));
+			yield* Effect.promise(() =>
+				view.setTime(
+					DateTime.toEpochMillis(
+						localDateTime({ day: 25, hour: 23, month: 9, minute: 30, year: 2026 }),
+					),
+				),
+			);
 			view.rerender(
 				<HomeBody compact pluginId="media-installation" scrollRootRef={{ current: null }} />,
 			);

@@ -8,7 +8,6 @@ import { adaptMediaTrackerData } from "./media-tracker";
 import { adaptPlexData } from "./plex";
 import { adaptTraktData } from "./trakt";
 
-const run = Effect.runPromise;
 const metadata = (Metadata: unknown[]) => ({ MediaContainer: { Metadata } });
 
 describe("credentialed media import adapters", () => {
@@ -38,9 +37,7 @@ describe("credentialed media import adapters", () => {
 									: [],
 						},
 			);
-			const result = yield* Effect.promise(() =>
-				run(adaptTraktData({ mode: "user", username: "alice" }, "client-id", host)),
-			);
+			const result = yield* adaptTraktData({ mode: "user", username: "alice" }, "client-id", host);
 			expect(result.failures).toEqual([]);
 			expect(result.totalItems).toBe(2);
 			expect(result.entityGroups).toHaveLength(2);
@@ -81,9 +78,7 @@ describe("credentialed media import adapters", () => {
 									: [],
 						},
 			);
-			const result = yield* Effect.promise(() =>
-				run(adaptTraktData({ mode: "user", username: "alice" }, "client-id", host)),
-			);
+			const result = yield* adaptTraktData({ mode: "user", username: "alice" }, "client-id", host);
 			expect(result.entityGroups).toEqual([]);
 			expect(result.totalItems).toBe(1);
 			expect(result.failures).toHaveLength(1);
@@ -111,18 +106,14 @@ describe("credentialed media import adapters", () => {
 							: [{ type: "show", show: { title: "Game of Thrones", ids: { imdb: "tt0944947" } } }],
 				};
 			});
-			const result = yield* Effect.promise(() =>
-				run(
-					adaptTraktData(
-						{
-							mode: "list",
-							collection: "Favorites",
-							url: "https://www.trakt.tv/users/alice%20smith/lists/my%20list/?source=test#items",
-						},
-						"client-id",
-						host,
-					),
-				),
+			const result = yield* adaptTraktData(
+				{
+					mode: "list",
+					collection: "Favorites",
+					url: "https://www.trakt.tv/users/alice%20smith/lists/my%20list/?source=test#items",
+				},
+				"client-id",
+				host,
 			);
 
 			expect(result.failures).toEqual([]);
@@ -167,11 +158,10 @@ describe("credentialed media import adapters", () => {
 				return { body: [] };
 			});
 
-			yield* Effect.promise(() =>
-				expect(
-					run(adaptTraktData({ url, mode: "list", collection: "Favorites" }, "client-id", host)),
-				).rejects.toThrow("Invalid Trakt list URL"),
+			const error = yield* Effect.flip(
+				adaptTraktData({ url, mode: "list", collection: "Favorites" }, "client-id", host),
 			);
+			expect(error).toMatchObject({ message: expect.stringContaining("Invalid Trakt list URL") });
 			expect(calls).toBe(0);
 		}),
 	);
@@ -181,18 +171,10 @@ describe("credentialed media import adapters", () => {
 			const host = stubHttpHost(({ method }) =>
 				method === "HEAD" ? { headers: { "x-pagination-page-count": "1" } } : { body: [] },
 			);
-			const result = yield* Effect.promise(() =>
-				run(
-					adaptTraktData(
-						{
-							mode: "list",
-							collection: "Favorites",
-							url: "http://trakt.tv/users/alice/lists/empty/",
-						},
-						"client-id",
-						host,
-					),
-				),
+			const result = yield* adaptTraktData(
+				{ mode: "list", collection: "Favorites", url: "http://trakt.tv/users/alice/lists/empty/" },
+				"client-id",
+				host,
 			);
 
 			expect(result).toEqual({ failures: [], totalItems: 0, entityGroups: [] });
@@ -206,18 +188,14 @@ describe("credentialed media import adapters", () => {
 					? { headers: { "x-pagination-page-count": "1" } }
 					: { body: [{ type: "movie", movie: { title: "Mystery", ids: { trakt: 77 } } }] },
 			);
-			const result = yield* Effect.promise(() =>
-				run(
-					adaptTraktData(
-						{
-							mode: "list",
-							collection: "Favorites",
-							url: "https://trakt.tv/users/alice/lists/mystery",
-						},
-						"client-id",
-						host,
-					),
-				),
+			const result = yield* adaptTraktData(
+				{
+					mode: "list",
+					collection: "Favorites",
+					url: "https://trakt.tv/users/alice/lists/mystery",
+				},
+				"client-id",
+				host,
 			);
 
 			expect(result.totalItems).toBe(1);
@@ -245,18 +223,10 @@ describe("credentialed media import adapters", () => {
 							],
 						},
 			);
-			const result = yield* Effect.promise(() =>
-				run(
-					adaptTraktData(
-						{
-							mode: "list",
-							collection: "Favorites",
-							url: "https://trakt.tv/users/alice/lists/mixed",
-						},
-						"client-id",
-						host,
-					),
-				),
+			const result = yield* adaptTraktData(
+				{ mode: "list", collection: "Favorites", url: "https://trakt.tv/users/alice/lists/mixed" },
+				"client-id",
+				host,
 			);
 
 			expect(result.failures).toEqual([]);
@@ -294,13 +264,9 @@ describe("credentialed media import adapters", () => {
 					},
 				},
 			};
-			const result = yield* Effect.promise(() =>
-				run(
-					adaptJellyfinData(
-						{ username: "alice", password: "secret", apiUrl: "http://jellyfin.test" },
-						stubHttpHost(({ path }) => routes[path] ?? {}),
-					),
-				),
+			const result = yield* adaptJellyfinData(
+				{ username: "alice", password: "secret", apiUrl: "http://jellyfin.test" },
+				stubHttpHost(({ path }) => routes[path] ?? {}),
 			);
 			expect(result.failures).toEqual([]);
 			expect(result.entityGroups).toHaveLength(2);
@@ -331,13 +297,9 @@ describe("credentialed media import adapters", () => {
 					},
 				},
 			};
-			const result = yield* Effect.promise(() =>
-				run(
-					adaptJellyfinData(
-						{ username: "alice", apiUrl: "http://jellyfin.test" },
-						stubHttpHost(({ path }) => routes[path] ?? {}),
-					),
-				),
+			const result = yield* adaptJellyfinData(
+				{ username: "alice", apiUrl: "http://jellyfin.test" },
+				stubHttpHost(({ path }) => routes[path] ?? {}),
 			);
 			expect(result.entityGroups).toEqual([]);
 			expect(result.failures).toHaveLength(1);
@@ -400,13 +362,9 @@ describe("credentialed media import adapters", () => {
 					]),
 				},
 			};
-			const result = yield* Effect.promise(() =>
-				run(
-					adaptPlexData(
-						{ apiKey: "token", apiUrl: "http://plex.test:32400" },
-						stubHttpHost(({ path }) => routes[path] ?? {}),
-					),
-				),
+			const result = yield* adaptPlexData(
+				{ apiKey: "token", apiUrl: "http://plex.test:32400" },
+				stubHttpHost(({ path }) => routes[path] ?? {}),
 			);
 			expect(result.failures).toEqual([]);
 			expect(result.entityGroups).toHaveLength(2);
@@ -440,13 +398,9 @@ describe("credentialed media import adapters", () => {
 					},
 				},
 			};
-			const result = yield* Effect.promise(() =>
-				run(
-					adaptPlexData(
-						{ apiKey: "token", apiUrl: "http://plex.test:32400" },
-						stubHttpHost(({ path }) => routes[path] ?? {}),
-					),
-				),
+			const result = yield* adaptPlexData(
+				{ apiKey: "token", apiUrl: "http://plex.test:32400" },
+				stubHttpHost(({ path }) => routes[path] ?? {}),
 			);
 			expect(result.entityGroups).toEqual([]);
 			expect(result.failures).toHaveLength(1);
@@ -483,13 +437,9 @@ describe("credentialed media import adapters", () => {
 					},
 				},
 			};
-			const result = yield* Effect.promise(() =>
-				run(
-					adaptAudiobookshelfData(
-						{ apiKey: "key", apiUrl: "http://abs.test" },
-						stubHttpHost(({ path }) => routes[path] ?? {}),
-					),
-				),
+			const result = yield* adaptAudiobookshelfData(
+				{ apiKey: "key", apiUrl: "http://abs.test" },
+				stubHttpHost(({ path }) => routes[path] ?? {}),
 			);
 			expect(result.failures).toEqual([]);
 			expect(result.entityGroups).toHaveLength(2);
@@ -513,13 +463,9 @@ describe("credentialed media import adapters", () => {
 					body: { libraries: [{ id: "lib1", name: "Books", mediaType: "book" }] },
 				},
 			};
-			const result = yield* Effect.promise(() =>
-				run(
-					adaptAudiobookshelfData(
-						{ apiKey: "key", apiUrl: "http://abs.test" },
-						stubHttpHost(({ path }) => routes[path] ?? {}),
-					),
-				),
+			const result = yield* adaptAudiobookshelfData(
+				{ apiKey: "key", apiUrl: "http://abs.test" },
+				stubHttpHost(({ path }) => routes[path] ?? {}),
 			);
 			expect(result.entityGroups).toEqual([]);
 			expect(result.failures).toHaveLength(1);
@@ -560,13 +506,9 @@ describe("credentialed media import adapters", () => {
 					},
 				},
 			};
-			const result = yield* Effect.promise(() =>
-				run(
-					adaptMediaTrackerData(
-						{ apiKey: "key", apiUrl: "http://mt.test" },
-						stubHttpHost(({ path }) => routes[path] ?? { body: [] }),
-					),
-				),
+			const result = yield* adaptMediaTrackerData(
+				{ apiKey: "key", apiUrl: "http://mt.test" },
+				stubHttpHost(({ path }) => routes[path] ?? { body: [] }),
 			);
 			expect(result.failures).toEqual([]);
 			expect(result.entityGroups).toHaveLength(2);
@@ -589,13 +531,9 @@ describe("credentialed media import adapters", () => {
 				"/api/items": { body: [{ id: 20, mediaType: "movie" }] },
 				"/api/details/20": { body: { id: 20, title: "No Tmdb" } },
 			};
-			const result = yield* Effect.promise(() =>
-				run(
-					adaptMediaTrackerData(
-						{ apiKey: "key", apiUrl: "http://mt.test" },
-						stubHttpHost(({ path }) => routes[path] ?? { body: [] }),
-					),
-				),
+			const result = yield* adaptMediaTrackerData(
+				{ apiKey: "key", apiUrl: "http://mt.test" },
+				stubHttpHost(({ path }) => routes[path] ?? { body: [] }),
 			);
 			expect(result.entityGroups).toEqual([]);
 			expect(result.failures).toHaveLength(1);

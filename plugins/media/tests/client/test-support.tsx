@@ -1,9 +1,23 @@
 import type { RyotClientAdapter } from "@ryot-app/client-sdk";
+import { DateTime } from "@ryot-app/client-sdk/effect";
 import { RyotProvider } from "@ryot-app/client-sdk/react";
 import { createTestRyotClock } from "@ryot-app/client-sdk/testing";
 import { fireEvent } from "@testing-library/dom";
 import { act, type ReactNode } from "react";
 import { createRoot, type Root } from "react-dom/client";
+
+type LocalDateTimeParts = {
+	readonly day: number;
+	readonly month: number;
+	readonly year: number;
+	readonly hour?: number;
+	readonly minute?: number;
+	readonly second?: number;
+	readonly millisecond?: number;
+};
+
+export const localDateTime = (parts: LocalDateTimeParts) =>
+	DateTime.makeZonedUnsafe(parts, { adjustForTimeZone: true, timeZone: DateTime.zoneMakeLocal() });
 
 declare global {
 	var IS_REACT_ACT_ENVIRONMENT: boolean;
