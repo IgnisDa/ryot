@@ -171,9 +171,13 @@ export const fitnessPlugin = definePlugin({
 		homeView: null,
 		apiVersion: CLIENT_API_VERSION,
 		entities: {
-			exercise: { listPresentation: "entity-row", gridPresentation: "entity-card" },
 			measurement: { listPresentation: "entity-row", gridPresentation: "entity-card" },
 			"workout-template": { listPresentation: "entity-row", gridPresentation: "entity-card" },
+			exercise: {
+				detailPage: "exercise-detail",
+				listPresentation: "entity-row",
+				gridPresentation: "entity-card",
+			},
 			workout: {
 				detailPage: "workout-detail",
 				listPresentation: "workout-row",
@@ -205,6 +209,12 @@ export const fitnessPlugin = definePlugin({
 				kind: "page",
 				settingsSchema: { fields: {} },
 				entry: "client/workout/screen.tsx",
+				automaticEntityPresentations: false,
+			},
+			"exercise-detail": {
+				kind: "page",
+				settingsSchema: { fields: {} },
+				entry: "client/exercise/screen.tsx",
 				automaticEntityPresentations: false,
 			},
 		},

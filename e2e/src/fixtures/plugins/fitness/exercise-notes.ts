@@ -9,7 +9,7 @@ import type {
 	ExerciseNoteCreateInput,
 	ExerciseNoteDeleteInput,
 	ExerciseNoteUpdateInput,
-} from "@ryot-app/fitness-plugin/contracts/operations";
+} from "@ryot-app/fitness-plugin/exercise-note-operations";
 import { invokeOperationRecipe } from "@ryot-app/plugin-kit/operations";
 import { Effect } from "effect";
 

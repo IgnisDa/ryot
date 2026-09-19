@@ -4,7 +4,7 @@ import { Effect, Schema } from "@ryot-app/sandbox-sdk/effect";
 import type { RyotQLDocument } from "@ryot-app/sandbox-sdk/ryotql";
 import { defineSandboxTestHost, runSandboxTestScript } from "@ryot-app/sandbox-sdk/testing";
 
-import { ExerciseNoteCreateInput } from "../contracts/operations";
+import { ExerciseNoteCreateInput } from "../../shared/exercise-note-operations";
 import createDefinition, { manifest as createManifest } from "./exercise-note-create.sandbox";
 import deleteDefinition, { manifest as deleteManifest } from "./exercise-note-delete.sandbox";
 import updateDefinition, { manifest as updateManifest } from "./exercise-note-update.sandbox";

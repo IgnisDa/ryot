@@ -23,6 +23,12 @@ the exercise's `review` notes. Personal-best rows and notes are bounded to the n
 workout notes to 20); personal-best rows come newest first and the client keeps the newest set per badge
 type.
 
+The exercise detail page (`client/exercise/screen.tsx`) renders that document for an `exercise` entity:
+overview, kind-aware history with a monthly chart and personal bests, recent sessions, instructions,
+private notes, and the read-only set and workout notes. Notes are written through the note operations
+using the schemas in `shared/exercise-note-operations.ts`, which client sources can import. Edit shows
+only for exercises with an owner.
+
 Exercise targets and equipment are separate entity taxonomies in `shared/taxonomy-recipes.ts`.
 Exercise targets use `exercise-targets` relationships with an optional role; equipment uses
 `exercise-uses-equipment`. Shared standard entities and private user-owned entities are visible
