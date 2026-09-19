@@ -1,4 +1,4 @@
-import { RyotClientError, type RyotClient } from "@ryot-app/client-sdk";
+import { RyotClientError } from "@ryot-app/client-sdk";
 import { Effect, Schema } from "@ryot-app/client-sdk/effect";
 import { createRyotMutation, useRyotMutation } from "@ryot-app/client-sdk/react";
 import {
@@ -17,55 +17,38 @@ import {
 	ExerciseNoteDeleteInput,
 	ExerciseNoteOutput,
 	ExerciseNoteUpdateInput,
+	exerciseNoteOperationSlugs,
 } from "../../shared/exercise-note-operations";
 import { formatShortDate } from "../workout/format";
 import { ratingSteps, ratingToStars, starsToRating, type WorkoutNote } from "./details-model";
+import { cardHeadingClass, sectionHeadingClass } from "./styles";
 
 type Note = ExerciseDetails["notes"][number];
 
 const maxNoteLength = 2000;
 
-const invokeNote = <A, I>(slug: string, schema: Schema.Codec<A, I>, input: A, client: RyotClient) =>
-	Schema.encodeEffect(Schema.toCodecJson(schema))(input).pipe(
-		Effect.mapError(() => new RyotClientError("invalid-input")),
-		Effect.flatMap((payload) =>
-			client.operations.invoke({
-				slug,
-				input: payload,
-				pluginSlug: "fitness",
-				output: ExerciseNoteOutput,
-			}),
-		),
+const noteMutation = <A, I>(slug: string, schema: Schema.Codec<A, I>) =>
+	createRyotMutation<{ readonly note: A; readonly onSuccess: () => void }, ExerciseNoteOutput>(
+		({ client, input: { note, onSuccess } }) =>
+			Schema.encodeEffect(Schema.toCodecJson(schema))(note).pipe(
+				Effect.mapError(() => new RyotClientError("invalid-input")),
+				Effect.flatMap((payload) =>
+					client.operations.invoke({
+						slug,
+						input: payload,
+						pluginSlug: "fitness",
+						output: ExerciseNoteOutput,
+					}),
+				),
+				Effect.tap(() => Effect.sync(onSuccess)),
+			),
 	);
 
-type Completion = { readonly onSuccess: () => void };
+const createNoteMutation = noteMutation(exerciseNoteOperationSlugs.create, ExerciseNoteCreateInput);
 
-const createNoteMutation = createRyotMutation<
-	Completion & ExerciseNoteCreateInput,
-	ExerciseNoteOutput
->(({ client, input: { onSuccess, ...note } }) =>
-	invokeNote("exercise-note-create", ExerciseNoteCreateInput, note, client).pipe(
-		Effect.tap(() => Effect.sync(onSuccess)),
-	),
-);
+const updateNoteMutation = noteMutation(exerciseNoteOperationSlugs.update, ExerciseNoteUpdateInput);
 
-const updateNoteMutation = createRyotMutation<
-	Completion & ExerciseNoteUpdateInput,
-	ExerciseNoteOutput
->(({ client, input: { onSuccess, ...note } }) =>
-	invokeNote("exercise-note-update", ExerciseNoteUpdateInput, note, client).pipe(
-		Effect.tap(() => Effect.sync(onSuccess)),
-	),
-);
-
-const deleteNoteMutation = createRyotMutation<
-	Completion & ExerciseNoteDeleteInput,
-	ExerciseNoteOutput
->(({ client, input: { onSuccess, ...note } }) =>
-	invokeNote("exercise-note-delete", ExerciseNoteDeleteInput, note, client).pipe(
-		Effect.tap(() => Effect.sync(onSuccess)),
-	),
-);
+const deleteNoteMutation = noteMutation(exerciseNoteOperationSlugs.delete, ExerciseNoteDeleteInput);
 
 const failureMessage = (error: Error | null) => {
 	if (error === null) {
@@ -127,13 +110,15 @@ function NoteComposer(props: { readonly exerciseId: string; readonly onChanged: 
 	const trimmed = text.trim();
 	const save = () =>
 		create.mutate({
-			text: trimmed,
-			exerciseId: props.exerciseId,
-			...(stars === undefined ? {} : { rating: starsToRating(stars) }),
 			onSuccess: () => {
 				setText("");
 				setStars(undefined);
 				props.onChanged();
+			},
+			note: {
+				text: trimmed,
+				exerciseId: props.exerciseId,
+				...(stars === undefined ? {} : { rating: starsToRating(stars) }),
 			},
 		});
 	const message = failureMessage(create.error);
@@ -173,10 +158,12 @@ function NoteEditor(props: {
 	const trimmed = text.trim();
 	const save = () =>
 		update.mutate({
-			text: trimmed,
-			noteId: props.note.id,
 			onSuccess: props.onChanged,
-			rating: stars === undefined ? null : starsToRating(stars),
+			note: {
+				text: trimmed,
+				noteId: props.note.id,
+				rating: stars === undefined ? null : starsToRating(stars),
+			},
 		});
 	const message = failureMessage(update.error);
 	return (
@@ -265,7 +252,7 @@ function NoteRow(props: { readonly note: Note; readonly onChanged: () => void })
 					detail="This private note will be removed permanently."
 					onConfirm={() =>
 						remove.mutate({
-							noteId: note.id,
+							note: { noteId: note.id },
 							onSuccess: () => {
 								setConfirming(false);
 								onChanged();
@@ -285,7 +272,7 @@ export function WorkoutNotes(props: { readonly notes: readonly WorkoutNote[] }) 
 	return (
 		<div className="flex flex-col gap-3 border-t border-border pt-4">
 			<div className="flex items-baseline justify-between">
-				<h3 className="font-semibold text-[16px] text-text">From your workouts</h3>
+				<h3 className={cardHeadingClass}>From your workouts</h3>
 				<span className="text-[13px] text-text-muted">Read-only</span>
 			</div>
 			<ul className="flex flex-col gap-3">
@@ -322,7 +309,7 @@ export function NotesSection(props: {
 			className="flex min-w-0 flex-col gap-4 rounded-xl border border-border bg-surface p-5 font-ui"
 		>
 			<div className="flex items-baseline justify-between">
-				<h2 className="font-display font-semibold text-[22px] text-text">Your notes</h2>
+				<h2 className={sectionHeadingClass}>Your notes</h2>
 				<span className="text-[13px] text-text-muted">Private to you</span>
 			</div>
 			<NoteComposer onChanged={props.onChanged} exerciseId={props.exerciseId} />

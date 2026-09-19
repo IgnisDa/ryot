@@ -1,5 +1,11 @@
 import { Schema } from "@ryot-app/plugin-kit/effect";
 
+export const exerciseNoteOperationSlugs = {
+	create: "exercise-note-create",
+	update: "exercise-note-update",
+	delete: "exercise-note-delete",
+} as const;
+
 const ExerciseNoteId = Schema.String.pipe(Schema.check(Schema.isMinLength(1)));
 
 const ExerciseNoteText = Schema.Trim.pipe(

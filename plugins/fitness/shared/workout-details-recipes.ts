@@ -50,7 +50,7 @@ const SupersetsSchema = Schema.Array(
 	Schema.Struct({ color: Schema.String, exercises: Schema.Array(order) }),
 );
 
-const ImageLocatorsSchema = Schema.Array(
+export const ImageLocatorsSchema = Schema.Array(
 	Schema.Union([LocalAssetLocator, RemoteAssetLocator, S3AssetLocator]),
 );
 

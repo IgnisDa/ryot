@@ -16,13 +16,11 @@ import {
 	mechanicLabels,
 	type ExerciseRecord,
 } from "./details-model";
+import { cardClass, cardHeadingClass, sectionHeadingClass } from "./styles";
 
 const assetKey = (asset: AssetLocator) => (asset.type === "remote" ? asset.url : asset.key);
 
 const later = (action: string) => () => console.log(`TODO: ${action}`);
-
-const cardClass =
-	"flex min-w-0 flex-col gap-3 rounded-xl border border-border bg-surface p-5 font-ui";
 
 function Pill(props: { readonly label: string; readonly tone?: "accent" | "plain" }) {
 	return (
@@ -170,9 +168,7 @@ function MusclesCard(props: { readonly exercise: ExerciseRecord }) {
 	}
 	return (
 		<aside aria-label="Details" className={cardClass}>
-			{groups.length === 0 && !custom ? null : (
-				<h2 className="font-semibold text-[16px] text-text">Muscles worked</h2>
-			)}
+			{groups.length === 0 && !custom ? null : <h2 className={cardHeadingClass}>Muscles worked</h2>}
 			{groups.length === 0 && custom ? (
 				<p className="text-[14px] text-text-muted">No muscles tagged yet.</p>
 			) : null}
@@ -231,7 +227,7 @@ export function Instructions(props: { readonly exercise: ExerciseRecord }) {
 	}
 	return (
 		<section className={cardClass} aria-label="How to perform">
-			<h2 className="font-display font-semibold text-[22px] text-text">How to perform</h2>
+			<h2 className={sectionHeadingClass}>How to perform</h2>
 			{steps.length === 0 ? (
 				<p className="text-[14px] text-text-muted">
 					You haven't written instructions for this exercise.

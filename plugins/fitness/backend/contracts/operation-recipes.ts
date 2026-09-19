@@ -5,25 +5,26 @@ import {
 	ExerciseNoteDeleteInput,
 	ExerciseNoteOutput,
 	ExerciseNoteUpdateInput,
+	exerciseNoteOperationSlugs,
 } from "../../shared/exercise-note-operations";
 
 export const exerciseNoteCreateRecipe = defineOperationRecipe({
 	pluginSlug: "fitness",
 	output: ExerciseNoteOutput,
 	input: ExerciseNoteCreateInput,
-	operationSlug: "exercise-note-create",
+	operationSlug: exerciseNoteOperationSlugs.create,
 });
 
 export const exerciseNoteUpdateRecipe = defineOperationRecipe({
 	pluginSlug: "fitness",
 	output: ExerciseNoteOutput,
 	input: ExerciseNoteUpdateInput,
-	operationSlug: "exercise-note-update",
+	operationSlug: exerciseNoteOperationSlugs.update,
 });
 
 export const exerciseNoteDeleteRecipe = defineOperationRecipe({
 	pluginSlug: "fitness",
 	output: ExerciseNoteOutput,
 	input: ExerciseNoteDeleteInput,
-	operationSlug: "exercise-note-delete",
+	operationSlug: exerciseNoteOperationSlugs.delete,
 });
