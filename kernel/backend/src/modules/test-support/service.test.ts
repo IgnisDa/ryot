@@ -78,7 +78,7 @@ const makeServiceLayer = (
 					skipQueuedPolicies: () => Effect.die("unused"),
 				}),
 				Layer.mock(EntitiesRepository)({}),
-				mockAuth({ auth: Object.create(null) }),
+				mockAuth({ handler: () => Effect.die("unused").pipe(Effect.runPromise) }),
 				Layer.succeed(RedisService, makeRedisService()),
 				mockEntities({ ...overrides.entities }),
 				mockSandbox({ ...overrides.sandbox }),
