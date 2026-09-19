@@ -16,6 +16,7 @@ import {
 	type Recipe,
 	type RyotQLDocument,
 } from "@ryot-app/sandbox-sdk/ryotql";
+import type { SandboxHostError } from "@ryot-app/sandbox-sdk/wire";
 
 import type { ResolveEpisodesRef } from "../contracts/operations";
 
@@ -148,7 +149,7 @@ export type ResolveEpisodeResult = Recipe.Success<typeof resolveEpisodeRecipe>;
 
 export const resolveEpisodes = (
 	refs: ReadonlyArray<ResolveEpisodesRef>,
-	executeRyotql: (document: RyotQLDocument) => Effect.Effect<unknown, unknown>,
+	executeRyotql: (document: RyotQLDocument) => Effect.Effect<unknown, SandboxHostError>,
 ) =>
 	Effect.forEach(refs, (ref) =>
 		executeRyotqlRecipe(executeRyotql, resolveEpisodeRecipe(ref)).pipe(

@@ -1,4 +1,7 @@
-import { AuthoredPluginManifest } from "@ryot-app/contract/modules/plugins/manifest";
+import {
+	AuthoredPluginManifest,
+	CLIENT_API_VERSION,
+} from "@ryot-app/contract/modules/plugins/manifest";
 import { Schema } from "effect";
 import { assert, expect, it } from "vitest";
 
@@ -45,8 +48,8 @@ it("declares the complete fitness-owned source", () => {
 		"workout-to-workout-template",
 	]);
 	expect(fitnessPlugin.client).toEqual({
-		apiVersion: 1,
 		homeView: null,
+		apiVersion: CLIENT_API_VERSION,
 		entities: {
 			exercise: { listPresentation: "entity-row", gridPresentation: "entity-card" },
 			workout: { listPresentation: "workout-row", gridPresentation: "workout-card" },

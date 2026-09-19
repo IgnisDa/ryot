@@ -2,6 +2,7 @@ import { defineManifest } from "@ryot-app/sandbox-sdk/driver";
 import { Effect } from "@ryot-app/sandbox-sdk/effect";
 import { defineProvider } from "@ryot-app/sandbox-sdk/provider";
 
+import { MediaSandboxError } from "../../../lib/failures";
 import { type UnknownRecord, asRecord, numberValue, stringValue } from "../../../lib/records";
 import { createRoleAccumulator, type RoleRelatedEntity } from "../../../lib/role-accumulator";
 import { toTitleCase } from "../../../lib/title-case";
@@ -111,7 +112,9 @@ query {
 			const payload = asRecord(payloadValue);
 			const resultsData = asRecord(asRecord(asRecord(payload?.["data"])?.["search"])?.["results"]);
 			if (!resultsData) {
-				return yield* Effect.fail(new Error("Hardcover returned invalid response structure"));
+				return yield* Effect.fail(
+					new MediaSandboxError({ message: "Hardcover returned invalid response structure" }),
+				);
 			}
 			const found = numberValue(resultsData["found"]);
 			const totalItems = found === null ? 0 : Math.max(0, Math.trunc(found));
@@ -184,11 +187,15 @@ export const details = defineProvider({
 	operation: "details",
 	run: (input, host) => {
 		if (!/^\d+$/.test(input.externalId)) {
-			return Effect.fail(new Error("externalId must be a numeric Hardcover book id"));
+			return Effect.fail(
+				new MediaSandboxError({ message: "externalId must be a numeric Hardcover book id" }),
+			);
 		}
 		const bookId = Number(input.externalId);
 		if (!Number.isSafeInteger(bookId)) {
-			return Effect.fail(new Error("externalId must be a safe integer Hardcover book id"));
+			return Effect.fail(
+				new MediaSandboxError({ message: "externalId must be a safe integer Hardcover book id" }),
+			);
 		}
 		const graphqlQuery = `
 query GetHardcoverBookDetails($id: Int!) {
@@ -232,15 +239,21 @@ query GetHardcoverBookDetails($id: Int!) {
 			const payload = asRecord(payloadValue);
 			const errorMessage = firstGraphqlErrorMessage(payload);
 			if (errorMessage) {
-				return yield* Effect.fail(new Error(`Hardcover details GraphQL error: ${errorMessage}`));
+				return yield* Effect.fail(
+					new MediaSandboxError({ message: `Hardcover details GraphQL error: ${errorMessage}` }),
+				);
 			}
 			const bookData = asRecord(asRecord(payload?.["data"])?.["books_by_pk"]);
 			if (!bookData) {
-				return yield* Effect.fail(new Error("Hardcover returned no book data"));
+				return yield* Effect.fail(
+					new MediaSandboxError({ message: "Hardcover returned no book data" }),
+				);
 			}
 			const title = typeof bookData["title"] === "string" ? bookData["title"] : "";
 			if (!title) {
-				return yield* Effect.fail(new Error("Hardcover book data is missing title"));
+				return yield* Effect.fail(
+					new MediaSandboxError({ message: "Hardcover book data is missing title" }),
+				);
 			}
 			const externalId =
 				typeof bookData["id"] === "string" && bookData["id"].trim()
@@ -314,7 +327,9 @@ export const resolve = defineProvider({
 	operation: "resolve",
 	run: (input, host) => {
 		if (input.identifierType !== "isbn") {
-			return Effect.fail(new Error("Hardcover resolve supports only isbn identifiers"));
+			return Effect.fail(
+				new MediaSandboxError({ message: "Hardcover resolve supports only isbn identifiers" }),
+			);
 		}
 		const isbnQueries = [
 			"query ResolveHardcoverBookByIsbn10($isbn: String!) { editions(where: { isbn_10: { _eq: $isbn } }) { book_id } }",
@@ -323,7 +338,10 @@ export const resolve = defineProvider({
 		const lookup = (
 			apiKey: string,
 			index: number,
-		): Effect.Effect<{ externalId: string | null }, unknown> => {
+		): Effect.Effect<
+			{ externalId: string | null },
+			Effect.Error<ReturnType<typeof hardcoverGql>>
+		> => {
 			const query = isbnQueries[index];
 			if (query === undefined) {
 				return Effect.succeed({ externalId: null });

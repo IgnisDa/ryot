@@ -3,6 +3,7 @@ import { Effect } from "@ryot-app/sandbox-sdk/effect";
 import { strFromU8, unzipSync } from "@ryot-app/sandbox-sdk/fflate";
 import { readNamedArtifact } from "@ryot-app/sandbox-sdk/filesystem";
 
+import { mediaFailureMessage } from "../lib/error-message";
 import {
 	chooseBestMetadataLookupTitleMatch,
 	type MetadataLookupTitleMatchCandidate,
@@ -37,7 +38,7 @@ export default defineScript({
 	manifest,
 	input: NetflixImportParserInput,
 	output: MediaImportAdapterBatch,
-	run: (input, host, execution) =>
+	run: (input, host) =>
 		Effect.gen(function* () {
 			const archive = unzipSync(yield* readNamedArtifact("uploadToken"));
 			const myListCsv = csvEntry(archive, "MyList.csv");
@@ -63,7 +64,7 @@ export default defineScript({
 						preferredEntitySchemaSlug === "show"
 							? Effect.succeed<MetadataLookupTitleMatchCandidate[]>([])
 							: movieSearch
-									.run({ query, page: 1, pageSize: 20 }, host, execution)
+									.run({ query, page: 1, pageSize: 20 }, host)
 									.pipe(
 										Effect.map(({ items }) =>
 											items.map((item): MetadataLookupTitleMatchCandidate => ({
@@ -82,7 +83,7 @@ export default defineScript({
 						preferredEntitySchemaSlug === "movie"
 							? Effect.succeed<MetadataLookupTitleMatchCandidate[]>([])
 							: showSearch
-									.run({ query, page: 1, pageSize: 20 }, host, execution)
+									.run({ query, page: 1, pageSize: 20 }, host)
 									.pipe(
 										Effect.map(({ items }) =>
 											items.map((item): MetadataLookupTitleMatchCandidate => ({
@@ -127,7 +128,7 @@ export default defineScript({
 								},
 							});
 						}),
-						Effect.mapError((error) => (error instanceof Error ? error.message : String(error))),
+						Effect.mapError(mediaFailureMessage),
 					);
 				},
 			);

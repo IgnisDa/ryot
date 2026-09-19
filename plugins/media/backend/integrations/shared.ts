@@ -135,14 +135,13 @@ export const requestJson = (
 	url: string,
 	options?: { body?: string; headers?: Record<string, string> },
 ) =>
-	host.httpCall(method, url, options).pipe(
-		Effect.flatMap((response) =>
-			Effect.try(() => {
-				const parsed: unknown = JSON.parse(response.body);
-				return parsed;
-			}),
-		),
-	);
+	host
+		.httpCall(method, url, options)
+		.pipe(
+			Effect.flatMap((response) =>
+				Schema.decodeEffect(Schema.fromJsonString(Schema.Unknown))(response.body),
+			),
+		);
 
 export const baseUrl = (value: unknown) =>
 	typeof value === "string" ? value.trim().replace(/\/$/, "") : "";

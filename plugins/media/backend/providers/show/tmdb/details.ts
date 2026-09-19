@@ -6,6 +6,8 @@ import type {
 } from "@ryot-app/sandbox-sdk/provider";
 
 import type { ShowEpisodeOrder } from "../../../../shared/show-episode-order";
+import { mediaFailureMessage } from "../../../lib/error-message";
+import { MediaSandboxError } from "../../../lib/failures";
 import { parsePublishYear } from "../../../lib/parse-publish-year";
 import { type UnknownRecord, numberValue, recordsValue, stringValue } from "../../../lib/records";
 import {
@@ -65,10 +67,13 @@ const episodeOrderGroups = (orderData: UnknownRecord): ShowEpisodeOrder["groups"
 
 const HTTP_CALL_LIMIT = 50;
 
-const loadInBatches = <A, B>(items: readonly A[], load: (item: A) => Effect.Effect<B, unknown>) =>
+const loadInBatches = <A, B, Failure>(
+	items: readonly A[],
+	load: (item: A) => Effect.Effect<B, Failure>,
+) =>
 	Array.from({ length: Math.ceil(items.length / 5) }, (_, index) =>
 		items.slice(index * 5, index * 5 + 5),
-	).reduce<Effect.Effect<B[], unknown>>(
+	).reduce<Effect.Effect<B[], Failure>>(
 		(loaded, batch) =>
 			Effect.flatMap(loaded, (results) =>
 				Effect.map(Effect.all(batch.map(load)), (batchResults) => [...results, ...batchResults]),
@@ -223,7 +228,9 @@ export const getTmdbShowDetails = (
 	token: string,
 ) => {
 	if (!/^\d+$/.test(input.externalId)) {
-		return Effect.fail(new Error("externalId must be a numeric TMDB show ID"));
+		return Effect.fail(
+			new MediaSandboxError({ message: "externalId must be a numeric TMDB show ID" }),
+		);
 	}
 	return Effect.gen(function* () {
 		const [
@@ -264,7 +271,7 @@ export const getTmdbShowDetails = (
 				).pipe(Effect.map((orderData) => ({ ...header, groups: episodeOrderGroups(orderData) }))),
 		);
 		return yield* Effect.try({
-			catch: (error) => (error instanceof Error ? error : new Error(String(error))),
+			catch: (error) => new MediaSandboxError({ message: mediaFailureMessage(error) }),
 			try: () =>
 				buildDetailsResult(
 					input,

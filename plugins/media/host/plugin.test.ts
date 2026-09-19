@@ -1,6 +1,9 @@
 import { BunFileSystem } from "@effect/platform-bun";
 import { assert, expect, it } from "@effect/vitest";
-import { AuthoredPluginManifest } from "@ryot-app/contract/modules/plugins/manifest";
+import {
+	AuthoredPluginManifest,
+	CLIENT_API_VERSION,
+} from "@ryot-app/contract/modules/plugins/manifest";
 import { sortBy } from "@ryot-app/ts-utils/lodash";
 import { Effect, FileSystem, Schema } from "effect";
 
@@ -68,10 +71,10 @@ it.effect("backs every declared provider operation with its entry file", () =>
 it("declares the complete media-owned source", () => {
 	expect(() => Schema.decodeUnknownSync(AuthoredPluginManifest)(mediaPlugin)).not.toThrow();
 	expect(mediaPlugin.client).toEqual({
-		apiVersion: 1,
 		homeView: null,
 		entities: expect.any(Object),
 		routes: { "/": "media-home" },
+		apiVersion: CLIENT_API_VERSION,
 		exports: {
 			"show-progress": {
 				kind: "component",

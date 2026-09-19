@@ -257,13 +257,14 @@ const managedCoverImage = (container: HTMLElement | null) =>
 		(image.getAttribute("src") ?? "").includes("assets.test"),
 	);
 
-const flush = async () => {
-	await act(async () => {
+const flush = () =>
+	// oxlint-disable-next-line effecttsgo/async-function -- React act requires a Promise callback to flush microtasks.
+	act(async () => {
 		await Promise.resolve();
 		await Promise.resolve();
 	});
-};
 
+// oxlint-disable-next-line effecttsgo/async-function -- Vitest awaits disposal of the Promise-based client bootstrap.
 afterEach(async () => {
 	for (const bootstrap of bootstraps) {
 		bootstrap.dispose();
@@ -281,6 +282,7 @@ afterEach(async () => {
 });
 
 describe("ShowScreen", () => {
+	// oxlint-disable-next-line effecttsgo/async-function -- Vitest awaits the client test harness's Promise callbacks.
 	it("queries the live entity after same-document entity navigation", async () => {
 		const { channel, messages } = openShow();
 		await waitFor(() => expect(queryRequestsFor(messages, "summary")).toHaveLength(1));
@@ -297,6 +299,7 @@ describe("ShowScreen", () => {
 		expect(JSON.stringify(queryRequestsFor(messages, "summary")[1]?.document)).toContain("show-2");
 	});
 
+	// oxlint-disable-next-line effecttsgo/async-function -- Vitest awaits the client test harness's Promise callbacks.
 	it("renders pending status while the summary and overview queries are in flight", async () => {
 		const { messages, container } = openShow();
 
@@ -305,6 +308,7 @@ describe("ShowScreen", () => {
 		expect(container?.textContent).toContain("Loading show...");
 	});
 
+	// oxlint-disable-next-line effecttsgo/async-function -- Vitest awaits the client test harness's Promise callbacks.
 	it("renders an error and retries through the query result", async () => {
 		const { channel, messages, container } = openShow();
 		await waitFor(() => expect(queryRequestsFor(messages, "summary")).toHaveLength(1));
@@ -330,6 +334,7 @@ describe("ShowScreen", () => {
 		await waitFor(() => expect(container?.textContent).toContain("Tracer Show"));
 	});
 
+	// oxlint-disable-next-line effecttsgo/async-function -- Vitest awaits the client test harness's Promise callbacks.
 	it("renders the missing state", async () => {
 		const missing = openShow();
 		await waitFor(() => expect(queryRequestsFor(missing.messages, "summary")).toHaveLength(1));
@@ -342,6 +347,7 @@ describe("ShowScreen", () => {
 		);
 	});
 
+	// oxlint-disable-next-line effecttsgo/async-function -- Vitest awaits the client test harness's Promise callbacks.
 	it("renders the wrong-schema state", async () => {
 		const wrongSchema = openShow();
 		await waitFor(() => expect(queryRequestsFor(wrongSchema.messages, "summary")).toHaveLength(1));
@@ -356,6 +362,7 @@ describe("ShowScreen", () => {
 		);
 	});
 
+	// oxlint-disable-next-line effecttsgo/async-function -- Vitest awaits the client test harness's Promise callbacks.
 	it("renders seeded summary fields and publishes the Show title", async () => {
 		const { channel, messages, container } = openShow();
 		await waitFor(() => expect(queryRequestsFor(messages, "summary")).toHaveLength(1));
@@ -393,6 +400,7 @@ describe("ShowScreen", () => {
 		);
 	});
 
+	// oxlint-disable-next-line effecttsgo/async-function -- Vitest awaits the client test harness's Promise callbacks.
 	it("renders a managed cover placeholder before resolving its signed URL", async () => {
 		const { channel, messages, container } = openShow();
 		await waitFor(() => expect(queryRequestsFor(messages, "summary")).toHaveLength(1));
@@ -423,6 +431,7 @@ describe("ShowScreen", () => {
 		await waitFor(() => expect(managedCoverImage(container)?.getAttribute("src")).toBe(signedUrl));
 	});
 
+	// oxlint-disable-next-line effecttsgo/async-function -- Vitest awaits the client test harness's Promise callbacks.
 	it("shows an unavailable managed cover after the initial asset request fails", async () => {
 		const { channel, messages, container } = openShow();
 		await waitFor(() => expect(queryRequestsFor(messages, "summary")).toHaveLength(1));
@@ -441,6 +450,7 @@ describe("ShowScreen", () => {
 		expect(managedCoverImage(container)).toBeUndefined();
 	});
 
+	// oxlint-disable-next-line effecttsgo/async-function -- Vitest awaits the client test harness's Promise callbacks.
 	it("refreshes one minute before expiry and keeps the stale URL after failure", async () => {
 		const clock = openTestClock();
 		const { channel, messages, container } = openShow();
@@ -475,6 +485,7 @@ describe("ShowScreen", () => {
 		expect(managedCoverImage(container)?.getAttribute("src")).toBe(staleUrl);
 	});
 
+	// oxlint-disable-next-line effecttsgo/async-function -- Vitest awaits the client test harness's Promise callbacks.
 	it("cancels a managed cover request when its screen unmounts", async () => {
 		const { channel, messages } = openShow();
 		await waitFor(() => expect(queryRequestsFor(messages, "summary")).toHaveLength(1));
@@ -501,6 +512,7 @@ describe("ShowScreen", () => {
 		});
 	});
 
+	// oxlint-disable-next-line effecttsgo/async-function -- Vitest awaits the client test harness's Promise callbacks.
 	it("omits absent optional fields", async () => {
 		const { channel, messages, container } = openShow();
 		await waitFor(() => expect(queryRequestsFor(messages, "summary")).toHaveLength(1));

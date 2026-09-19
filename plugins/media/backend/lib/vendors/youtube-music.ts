@@ -1,10 +1,19 @@
+import { Effect } from "@ryot-app/sandbox-sdk/effect";
 import type { YoutubeiHost } from "@ryot-app/sandbox-sdk/youtubei";
 import {
 	createYoutubeHistoryClient as createSdkYoutubeHistoryClient,
 	createYoutubeMusicClient as createSdkYoutubeMusicClient,
 } from "@ryot-app/sandbox-sdk/youtubei";
 
+import { mediaFailureMessage } from "../error-message";
+import { MediaSandboxError } from "../failures";
 import { asRecord, numberValue, stringValue } from "../records";
+
+export const tryYoutubeMusic = <A>(tryCall: () => Promise<A>) =>
+	Effect.tryPromise({
+		try: tryCall,
+		catch: (error) => new MediaSandboxError({ message: mediaFailureMessage(error) }),
+	});
 
 export type YoutubeMusicHost = YoutubeiHost;
 
@@ -54,7 +63,11 @@ export const createYoutubeMusicClient = (host: YoutubeMusicHost, language?: stri
 	createSdkYoutubeMusicClient(host, language, {
 		retrievePlayer: false,
 		retrieveInnertubeConfig: false,
-	});
+	}).pipe(
+		Effect.mapError((error) => new MediaSandboxError({ message: mediaFailureMessage(error) })),
+	);
 
 export const createYoutubeHistoryClient = (host: YoutubeMusicHost, authCookie: string) =>
-	createSdkYoutubeHistoryClient(host, authCookie);
+	createSdkYoutubeHistoryClient(host, authCookie).pipe(
+		Effect.mapError((error) => new MediaSandboxError({ message: mediaFailureMessage(error) })),
+	);

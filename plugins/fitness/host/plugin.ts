@@ -1,4 +1,4 @@
-import { definePlugin } from "@ryot-app/contract/modules/plugins/manifest";
+import { CLIENT_API_VERSION, definePlugin } from "@ryot-app/contract/modules/plugins/manifest";
 
 import { fitnessConfigSchema } from "./config";
 import { fitnessSavedViews } from "./saved-views";
@@ -115,8 +115,8 @@ export const fitnessPlugin = definePlugin({
 		},
 	],
 	client: {
-		apiVersion: 1,
 		homeView: null,
+		apiVersion: CLIENT_API_VERSION,
 		entities: {
 			exercise: { listPresentation: "entity-row", gridPresentation: "entity-card" },
 			workout: { listPresentation: "workout-row", gridPresentation: "workout-card" },

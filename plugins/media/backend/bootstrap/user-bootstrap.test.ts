@@ -4,6 +4,7 @@ import { describe, expect, it } from "vitest";
 import script from "./user-bootstrap.sandbox";
 
 describe("media user bootstrap", () => {
+	// oxlint-disable-next-line effecttsgo/async-function -- Vitest awaits this Promise-returning test callback.
 	it("ensures the empty Media Library entity through one batch call", async () => {
 		const calls: Array<unknown> = [];
 		const result = await Effect.runPromise(
@@ -15,7 +16,6 @@ describe("media user bootstrap", () => {
 						return Effect.succeed([{ wasInserted: true, entityId: "library-id" }]);
 					},
 				},
-				{ metadata: {}, sandboxScriptId: "script-id" },
 			),
 		);
 

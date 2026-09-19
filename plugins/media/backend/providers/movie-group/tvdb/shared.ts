@@ -2,6 +2,7 @@ import { defineManifest } from "@ryot-app/sandbox-sdk/driver";
 import { Effect } from "@ryot-app/sandbox-sdk/effect";
 import { defineProvider } from "@ryot-app/sandbox-sdk/provider";
 
+import { MediaSandboxError } from "../../../lib/failures";
 import { asRecord, numberValue, recordsValue, stringValue } from "../../../lib/records";
 import {
 	bcp47ToTvdb,
@@ -23,7 +24,8 @@ export const manifest = defineManifest({
 export const search = defineProvider({
 	manifest,
 	operation: "search",
-	run: () => Effect.fail(new Error("TVDB does not support movie group search")),
+	run: () =>
+		Effect.fail(new MediaSandboxError({ message: "TVDB does not support movie group search" })),
 });
 
 export const details = defineProvider({
@@ -32,7 +34,9 @@ export const details = defineProvider({
 	run: (input, host) =>
 		Effect.gen(function* () {
 			if (!/^\d+$/.test(input.externalId)) {
-				return yield* Effect.fail(new Error("externalId must be a numeric TVDB list ID"));
+				return yield* Effect.fail(
+					new MediaSandboxError({ message: "externalId must be a numeric TVDB list ID" }),
+				);
 			}
 			const language = bcp47ToTvdb("en");
 			const [payload, translationData] = yield* Effect.all(
@@ -94,7 +98,9 @@ export const translate = defineProvider({
 	run: (input, host) =>
 		Effect.gen(function* () {
 			if (!/^\d+$/.test(input.externalId)) {
-				return yield* Effect.fail(new Error("externalId must be a numeric TVDB list ID"));
+				return yield* Effect.fail(
+					new MediaSandboxError({ message: "externalId must be a numeric TVDB list ID" }),
+				);
 			}
 			const providerLanguage = bcp47ToTvdb(input.language);
 			return yield* tvdbGetOptional(

@@ -7,6 +7,7 @@ import {
 	MetadataLookupOutput,
 	type MetadataLookupResult,
 } from "../contracts/operations";
+import { MediaSandboxError } from "../lib/failures";
 import {
 	chooseBestMetadataLookupTitleMatch,
 	type MetadataLookupTitleMatchCandidate,
@@ -44,30 +45,32 @@ export default defineOperation({
 	manifest,
 	input: MetadataLookupInput,
 	output: MetadataLookupOutput,
-	run: (input, host, execution) =>
+	run: (input, host) =>
 		Effect.gen(function* () {
 			const titles = input.titles.map((title) => title.trim());
 			if (titles.some((title) => title === "")) {
-				return yield* Effect.fail(new Error("title is required"));
+				return yield* Effect.fail(new MediaSandboxError({ message: "title is required" }));
 			}
 
 			const integration = yield* host.getCurrentIntegration();
 			if (integration.provider !== "ryot_browser_extension") {
-				return yield* Effect.fail(new Error("Integration is not a browser extension integration"));
+				return yield* Effect.fail(
+					new MediaSandboxError({ message: "Integration is not a browser extension integration" }),
+				);
 			}
 
 			const results: MetadataLookupResult[] = [];
 			for (const title of titles) {
 				const query = extractMetadataLookupBaseTitle(title).trim();
 				if (!query) {
-					return yield* Effect.fail(new Error("title is required"));
+					return yield* Effect.fail(new MediaSandboxError({ message: "title is required" }));
 				}
 
 				const searched = yield* Effect.forEach(
 					searchProviders,
 					(provider) =>
 						provider.script
-							.run({ query, page: 1, pageSize: 20 }, host, execution)
+							.run({ query, page: 1, pageSize: 20 }, host)
 							.pipe(
 								Effect.map(({ items }) =>
 									items.map((item): MetadataLookupTitleMatchCandidate => ({

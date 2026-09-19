@@ -1,4 +1,4 @@
-import { Result } from "@ryot-app/client-sdk/effect";
+import { Effect, Result } from "@ryot-app/client-sdk/effect";
 import { afterEach, describe, expect, it } from "vitest";
 
 import { animeRecipes } from "../../shared/anime-recipes";
@@ -23,7 +23,7 @@ import {
 } from "./schema";
 import { animeUpcomingEpisodes, AnimeAiringScheduleSection } from "./sections";
 
-const noopAdapter = { query: () => Promise.resolve({}) };
+const noopAdapter = { query: () => Effect.succeed({}) };
 
 const AIRED_EPISODE = { episode: 1, airingAt: "2000-04-08T16:30:00.000Z" };
 

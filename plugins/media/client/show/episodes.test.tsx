@@ -1,4 +1,5 @@
-import type { RyotClientAdapter } from "@ryot-app/client-sdk";
+import { RyotClientError, type RyotClientAdapter } from "@ryot-app/client-sdk";
+import { Effect } from "@ryot-app/client-sdk/effect";
 import { createTestPluginStorage } from "@ryot-app/client-sdk/testing";
 import { fireEvent, waitFor } from "@testing-library/dom";
 import { afterEach, describe, expect, it } from "vitest";
@@ -92,7 +93,7 @@ const showAdapter = (input: {
 			const serialized = JSON.stringify(document);
 			input.queries?.push(serialized);
 			if (serialized.includes('"orderGroupShow"')) {
-				return Promise.resolve({
+				return Effect.succeed({
 					data: {
 						coverage: rows([
 							{
@@ -107,7 +108,7 @@ const showAdapter = (input: {
 				});
 			}
 			if (serialized.includes('"orderEpisode"')) {
-				return Promise.resolve({
+				return Effect.succeed({
 					data: {
 						episodes: rows(
 							orderEpisodeRows.filter(({ externalId }) => serialized.includes(`"${externalId}"`)),
@@ -118,11 +119,11 @@ const showAdapter = (input: {
 			if (serialized.includes('"episodes"')) {
 				const seasonId =
 					["season-0", "season-2"].find((id) => serialized.includes(id)) ?? "season-1";
-				return Promise.resolve({
+				return Effect.succeed({
 					data: { episodes: rows(input.episodes?.(seasonId) ?? [showEpisodeRow]) },
 				});
 			}
-			return Promise.resolve({
+			return Effect.succeed({
 				data: {
 					show: rows([
 						{
@@ -162,12 +163,12 @@ const radioLabels = (container: HTMLElement, group: string) =>
 		container.querySelectorAll(`[role="radiogroup"][aria-label="${group}"] [role="radio"]`),
 	).map((element) => element.textContent);
 
-const click = async (element: Element | undefined) => {
+const click = (element: Element | undefined) => {
 	if (element === undefined) {
 		throw new Error("Expected an element to click");
 	}
 	fireEvent.click(element);
-	await flushRyotClient();
+	return flushRyotClient();
 };
 
 const episodeNames = (container: HTMLElement) =>
@@ -180,6 +181,7 @@ afterEach(() => {
 });
 
 describe("show season browser", () => {
+	// oxlint-disable-next-line effecttsgo/async-function -- Vitest awaits the client test harness's Promise callbacks.
 	it("heads the season with the counts the season query reports, not the loaded page", async () => {
 		const view = renderTab(
 			showAdapter({
@@ -197,6 +199,7 @@ describe("show season browser", () => {
 		view.unmount();
 	});
 
+	// oxlint-disable-next-line effecttsgo/async-function -- Vitest awaits the client test harness's Promise callbacks.
 	it("selects seasons from the season list and keeps specials last", async () => {
 		const view = renderTab(
 			showAdapter({
@@ -230,6 +233,7 @@ describe("show season browser", () => {
 		view.unmount();
 	});
 
+	// oxlint-disable-next-line effecttsgo/async-function -- Vitest awaits the client test harness's Promise callbacks.
 	it("leads only the season that holds the summary's next up with it", async () => {
 		const view = renderTab(
 			showAdapter({
@@ -258,6 +262,7 @@ describe("show season browser", () => {
 		view.unmount();
 	});
 
+	// oxlint-disable-next-line effecttsgo/async-function -- Vitest awaits the client test harness's Promise callbacks.
 	it("keeps a show with only specials readable and without a selector", async () => {
 		const view = renderTab(
 			showAdapter({
@@ -272,6 +277,7 @@ describe("show season browser", () => {
 		view.unmount();
 	});
 
+	// oxlint-disable-next-line effecttsgo/async-function -- Vitest awaits the client test harness's Promise callbacks.
 	it("explains a show that has no seasons at all", async () => {
 		const view = renderTab(showAdapter({ seasons: [] }));
 		await flushRyotClient();
@@ -280,10 +286,11 @@ describe("show season browser", () => {
 		view.unmount();
 	});
 
+	// oxlint-disable-next-line effecttsgo/async-function -- Vitest awaits the client test harness's Promise callbacks.
 	it("offers a retry when the seasons query fails", async () => {
 		const view = mountRyotClient(
 			{
-				query: () => Promise.reject(new Error("offline")),
+				query: () => Effect.fail(new RyotClientError("transport")),
 				watchEntities: () => ({ update: () => undefined, dispose: () => undefined }),
 			},
 			<ShowEpisodesTab compact entityId="show-1" summary={undefined} />,
@@ -301,6 +308,7 @@ describe("show season browser", () => {
 });
 
 describe("show episode orders", () => {
+	// oxlint-disable-next-line effecttsgo/async-function -- Vitest awaits the client test harness's Promise callbacks.
 	it("hides the order picker when the show has no episode orders", async () => {
 		const view = renderTab(showAdapter({}));
 		await flushRyotClient();
@@ -310,6 +318,7 @@ describe("show episode orders", () => {
 		view.unmount();
 	});
 
+	// oxlint-disable-next-line effecttsgo/async-function -- Vitest awaits the client test harness's Promise callbacks.
 	it("restores the stored order before querying the seasons", async () => {
 		const storage = createTestPluginStorage([[STORAGE_ENTRY, "order-dvd"]]);
 		const pending: (() => void)[] = [];
@@ -317,8 +326,8 @@ describe("show episode orders", () => {
 		const view = renderTab({
 			...showAdapter({ queries, episodeOrders: [dvdOrder] }),
 			accessStorage: (request) =>
-				new Promise((resolve) => {
-					pending.push(() => resolve(storage.accessStorage(request)));
+				Effect.callback<unknown, RyotClientError>((resume) => {
+					pending.push(() => resume(storage.accessStorage(request)));
 				}),
 		});
 		await flushRyotClient();
@@ -335,6 +344,7 @@ describe("show episode orders", () => {
 		view.unmount();
 	});
 
+	// oxlint-disable-next-line effecttsgo/async-function -- Vitest awaits the client test harness's Promise callbacks.
 	it("shows the picked order's groups with episodes in the group's order", async () => {
 		const storage = createTestPluginStorage();
 		const view = renderTab({
@@ -368,6 +378,7 @@ describe("show episode orders", () => {
 		view.unmount();
 	});
 
+	// oxlint-disable-next-line effecttsgo/async-function -- Vitest awaits the client test harness's Promise callbacks.
 	it("leaves next up to aired order and forgets the order when aired order is picked", async () => {
 		const storage = createTestPluginStorage([[STORAGE_ENTRY, "order-dvd"]]);
 		const view = renderTab(
@@ -386,6 +397,7 @@ describe("show episode orders", () => {
 		view.unmount();
 	});
 
+	// oxlint-disable-next-line effecttsgo/async-function -- Vitest awaits the client test harness's Promise callbacks.
 	it("falls back to aired order and forgets a stored order the show no longer offers", async () => {
 		const storage = createTestPluginStorage([[STORAGE_ENTRY, "order-gone"]]);
 		const view = renderTab({
@@ -400,6 +412,7 @@ describe("show episode orders", () => {
 		view.unmount();
 	});
 
+	// oxlint-disable-next-line effecttsgo/async-function -- Vitest awaits the client test harness's Promise callbacks.
 	it("loads more of a group past one page of episode ids", async () => {
 		const storage = createTestPluginStorage([[STORAGE_ENTRY, "order-absolute"]]);
 		const view = renderTab({
