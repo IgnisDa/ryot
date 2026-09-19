@@ -8,9 +8,11 @@ import { WorkflowEngine } from "effect/workflow/WorkflowEngine";
 import { workflowExecution } from "#lib/infrastructure/db/schema/tables/workflow-executions";
 import { DatabaseSession } from "#lib/infrastructure/db/session";
 import { WorkflowEngineLive } from "#lib/infrastructure/workflow";
+import { WorkflowExecutionNotifications } from "#lib/infrastructure/workflow-execution-notifications";
 import { implementWorkflow } from "#lib/infrastructure/workflow-scope";
 import { makeAppConfigLayer } from "#lib/test-utils/effect";
 import { IsolatedDatabase, isolatedDatabaseLayer } from "#lib/test-utils/isolated-database";
+import { testRedisUrl } from "#lib/test-utils/redis";
 
 import { WorkflowGarbageCollector } from "./workflows";
 
@@ -23,6 +25,13 @@ const Child = Workflow.make("GarbageCollectionChildWorkflow", {
 
 const Parent = Workflow.make("GarbageCollectionParentWorkflow", {
 	error: Schema.Never,
+	success: Schema.String,
+	payload: { id: Schema.String },
+	idempotencyKey: ({ id }) => id,
+});
+
+const Failing = Workflow.make("GarbageCollectionFailingWorkflow", {
+	error: Schema.String,
 	success: Schema.String,
 	payload: { id: Schema.String },
 	idempotencyKey: ({ id }) => id,
@@ -68,7 +77,12 @@ layer(
 						WorkflowGarbageCollector.layer.pipe(
 							Layer.provideMerge(WorkflowEngineLive),
 							Layer.provideMerge(DatabaseSession.layer),
-							Layer.provide(makeAppConfigLayer({ database: { url: Redacted.make(database.url) } })),
+							Layer.provide(
+								makeAppConfigLayer({
+									redisUrl: Redacted.make(testRedisUrl()),
+									database: { url: Redacted.make(database.url) },
+								}),
+							),
 							Layer.provide(BunServices.layer),
 						),
 					).pipe(Effect.provideService(Clock.Clock, liveClock)),
@@ -155,5 +169,92 @@ layer(
 				expect(yield* Ref.get(parentRuns)).toBe(runsBeforeGc);
 				expect(yield* Ref.get(childRuns)).toBe(1);
 			}).pipe(TestClock.withLive),
+	);
+
+	test.effect("publishes a committed terminal reply but not a suspended reply", () =>
+		Effect.gen(function* () {
+			const database = yield* IsolatedDatabase;
+			const infrastructure = Layer.effectContext(
+				Layer.build(
+					WorkflowEngineLive.pipe(
+						Layer.provideMerge(DatabaseSession.layer),
+						Layer.provide(
+							makeAppConfigLayer({
+								redisUrl: Redacted.make(testRedisUrl()),
+								database: { url: Redacted.make(database.url) },
+							}),
+						),
+						Layer.provide(BunServices.layer),
+					),
+				),
+			);
+			const definitions = Layer.mergeAll(
+				implementWorkflow(Child, () => Effect.succeed("child")),
+				implementWorkflow(Failing, () => Effect.fail("failed")),
+				implementWorkflow(Parent, () =>
+					Effect.flatMap(WorkflowEngine, (engine) =>
+						Effect.gen(function* () {
+							yield* engine.execute(Child, {
+								payload: { id: "child" },
+								executionId: "notification-child",
+							});
+							return yield* DurableDeferred.await(finish);
+						}),
+					),
+				),
+			).pipe(Layer.provideMerge(infrastructure));
+			const executionId = "notification-parent";
+			yield* withRuntime(
+				definitions,
+				Effect.gen(function* () {
+					const notifications = yield* WorkflowExecutionNotifications;
+					const engine = yield* WorkflowEngine;
+					const failureExecutionId = "notification-failure";
+					const awaitFailureNotification = yield* notifications.listen({
+						workflowName: Failing._tag,
+						executionId: failureExecutionId,
+					});
+					yield* engine.execute(Failing, {
+						discard: true,
+						payload: { id: "failed" },
+						executionId: failureExecutionId,
+					});
+					expect(
+						Option.isSome(yield* Effect.timeoutOption(awaitFailureNotification, "5 seconds")),
+					).toBe(true);
+					const failedRows = yield* (yield* DatabaseSession).run((db) =>
+						db.select().from(workflowExecution),
+					);
+					expect(failedRows.filter((row) => row.executionId === failureExecutionId)).toMatchObject([
+						{ status: "failed", workflowName: Failing._tag, executionId: failureExecutionId },
+					]);
+
+					const awaitNotification = yield* notifications.listen({
+						executionId,
+						workflowName: Parent._tag,
+					});
+					yield* engine.execute(Parent, { executionId, discard: true, payload: { id: "parent" } });
+					yield* waitForSuspension(executionId);
+					expect(Option.isNone(yield* Effect.timeoutOption(awaitNotification, "0 millis"))).toBe(
+						true,
+					);
+					yield* engine.deferredDone(finish, {
+						executionId,
+						workflowName: Parent._tag,
+						deferredName: finish.name,
+						exit: Exit.succeed("finished"),
+					});
+					expect(Option.isSome(yield* Effect.timeoutOption(awaitNotification, "5 seconds"))).toBe(
+						true,
+					);
+					const rows = yield* (yield* DatabaseSession).run((db) =>
+						db.select().from(workflowExecution),
+					);
+					expect(rows.filter((row) => row.executionId === executionId)).toMatchObject([
+						{ executionId, status: "succeeded", workflowName: Parent._tag },
+					]);
+				}),
+			);
+		}).pipe(TestClock.withLive),
 	);
 });

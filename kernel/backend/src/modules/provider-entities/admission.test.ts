@@ -7,16 +7,18 @@ import {
 	type UserId,
 } from "@ryot-app/contract/schema/brands";
 import { IsoUtcString } from "@ryot-app/contract/schema/utils";
-import { Context, Effect, Exit, Layer, Option, Ref } from "effect";
+import { Context, Effect, Exit, Layer, Option, Queue, Ref } from "effect";
 import { Workflow } from "effect/workflow";
 import { WorkflowEngine } from "effect/workflow/WorkflowEngine";
 import { describe } from "vitest";
 
 import { rootLifecycleCommand } from "#lib/domain/lifecycle-command";
+import { WorkflowExecutionNotifications } from "#lib/infrastructure/workflow-execution-notifications";
 import { makeAppConfigLayer, makeWorkflowEngine } from "#lib/test-utils/effect";
 
 import { ProviderImportAdmission } from "./admission";
 import { admissionDatabaseLayer, alice, bob } from "./admission.test-support";
+import { EntityImportWorkflow } from "./entity-import-workflow";
 
 const listedEntity = {
 	name: "Dune",
@@ -36,6 +38,7 @@ class FakeImportWorkflows extends Context.Service<
 	{
 		readonly started: Effect.Effect<ReadonlyArray<string>>;
 		readonly interrupted: Effect.Effect<ReadonlyArray<string>>;
+		readonly nextStarted: Effect.Effect<string>;
 		readonly settle: (
 			executionId: string,
 			result: Workflow.Result<unknown, unknown>,
@@ -48,6 +51,7 @@ const recordingEngineLayer = Layer.effectContext(
 	Effect.gen(function* () {
 		const started = yield* Ref.make<ReadonlyArray<string>>([]);
 		const interrupted = yield* Ref.make<ReadonlyArray<string>>([]);
+		const startEvents = yield* Queue.unbounded<string>();
 		const results = yield* Ref.make<ReadonlyMap<string, Workflow.Result<unknown, unknown>>>(
 			new Map(),
 		);
@@ -65,6 +69,7 @@ const recordingEngineLayer = Layer.effectContext(
 				execute: (_workflow, options) =>
 					Ref.update(started, (all) => [...all, options.executionId]).pipe(
 						Effect.andThen(setResult(options.executionId, new Workflow.Suspended())),
+						Effect.andThen(Queue.offer(startEvents, options.executionId)),
 					),
 			}),
 		).pipe(
@@ -72,6 +77,7 @@ const recordingEngineLayer = Layer.effectContext(
 				settle: setResult,
 				started: Ref.get(started),
 				interrupted: Ref.get(interrupted),
+				nextStarted: Queue.take(startEvents),
 				forget: (executionId) =>
 					Ref.update(results, (current) => {
 						const next = new Map(current);
@@ -86,6 +92,7 @@ const recordingEngineLayer = Layer.effectContext(
 const admissionLayer = ProviderImportAdmission.layer.pipe(
 	Layer.provide(makeAppConfigLayer()),
 	Layer.provideMerge(recordingEngineLayer),
+	Layer.provideMerge(WorkflowExecutionNotifications.layer),
 	Layer.provideMerge(admissionDatabaseLayer),
 );
 
@@ -118,6 +125,48 @@ const status = (id: string, userId: UserId) =>
 	Effect.flatMap(ProviderImportAdmission, (admission) => admission.status({ id, userId }));
 
 describe("provider import admission", () => {
+	layer(admissionLayer)((test) => {
+		test.effect("completion wakes admission before the recovery interval advances", () =>
+			Effect.gen(function* () {
+				const admission = yield* ProviderImportAdmission;
+				const workflows = yield* FakeImportWorkflows;
+				const notifications = yield* WorkflowExecutionNotifications;
+				yield* submit("wake-a1", alice);
+				yield* submit("wake-a2", alice);
+				yield* submit("wake-a3", alice);
+				yield* Effect.forkChild(admission.run);
+				expect(yield* workflows.nextStarted).toBe("wake-a1");
+				expect(yield* workflows.nextStarted).toBe("wake-a2");
+				yield* workflows.settle(
+					"wake-a1",
+					new Workflow.Complete({ exit: Exit.succeed(listedEntity) }),
+				);
+				yield* notifications.publish({
+					executionId: "wake-a1",
+					workflowName: EntityImportWorkflow.interactive._tag,
+				});
+				expect(yield* workflows.nextStarted).toBe("wake-a3");
+				expect(yield* status("wake-a1", alice)).toBeNull();
+				expect(yield* status("wake-a3", alice)).toBe("running");
+			}),
+		);
+	});
+
+	layer(admissionLayer)((test) => {
+		test.effect("publishes admission only after its running state commits", () =>
+			Effect.gen(function* () {
+				const notifications = yield* WorkflowExecutionNotifications;
+				const hint = yield* notifications.listen({
+					executionId: "admission-hint",
+					workflowName: EntityImportWorkflow.interactive._tag,
+				});
+				yield* submit("admission-hint", alice);
+				yield* reconcile;
+				yield* hint;
+				expect(yield* status("admission-hint", alice)).toBe("running");
+			}),
+		);
+	});
 	layer(admissionLayer)((test) => {
 		test.effect("starts admitted imports and admits the next one when a slot frees", () =>
 			Effect.gen(function* () {

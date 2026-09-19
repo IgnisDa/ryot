@@ -22,7 +22,8 @@ deadlock once every slot holds a parent.
 - `DELETE /provider-entities/imports/:jobId` removes a queued row, or interrupts the workflow of a
   running one; the result then reads `cancelled`.
 - The result endpoint reads `queued` from the ledger and `running`, `completed`, `failed`, or
-  `cancelled` from the workflow.
+  `cancelled` from the workflow. Queued and running results wait for a workflow notification or up
+  to 20 seconds, then read the ledger and workflow again.
 
 ## Population
 

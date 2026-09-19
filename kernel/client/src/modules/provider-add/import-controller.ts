@@ -3,13 +3,11 @@ import {
 	ProviderEntityImportBacklogFull,
 } from "@ryot-app/contract/modules/provider-entities/schemas";
 import type { EntityId } from "@ryot-app/contract/schema/brands";
-import { Effect, Match, Result, Schema } from "effect";
+import { Clock, Duration, Effect, Match, Option, Result, Schema } from "effect";
 
 import { ProviderAddLoadError } from "#/modules/provider-add/service";
 
-const PROVIDER_IMPORT_POLL_ATTEMPTS = 60;
-
-const PROVIDER_IMPORT_POLL_INTERVAL = "2 seconds";
+const PROVIDER_IMPORT_TIMEOUT_MILLIS = 120_000;
 
 export const PROVIDER_IMPORT_FAILED_MESSAGE =
 	"The provider could not import this item. Try again later.";
@@ -67,30 +65,53 @@ const isBacklogFull = (error: unknown) =>
 		error instanceof ProviderAddLoadError ? error.cause : error,
 	);
 
-/** Only running polls count toward the timeout, because a queued import waits for other imports. */
 const pollProviderEntityImport = Effect.fnUntraced(function* (
 	poll: (jobId: string) => Effect.Effect<ImportEntityRunResult, ProviderAddLoadError>,
 	jobId: string,
 	onProgress: (entry: ProviderEntityImportEntry) => void,
 ) {
-	let runningPolls = 0;
+	let runningElapsedMillis = 0;
+	let runningSinceNanos: bigint | undefined;
 	for (;;) {
-		const result = yield* Effect.result(poll(jobId));
+		const now = yield* Clock.monotonicTimeNanos;
+		const elapsedMillis =
+			runningElapsedMillis +
+			(runningSinceNanos === undefined ? 0 : Number(now - runningSinceNanos) / 1_000_000);
+		if (runningSinceNanos !== undefined && elapsedMillis >= PROVIDER_IMPORT_TIMEOUT_MILLIS) {
+			return failedEntry(PROVIDER_IMPORT_TIMEOUT_MESSAGE);
+		}
+		const polling =
+			runningSinceNanos === undefined
+				? poll(jobId).pipe(Effect.asSome)
+				: poll(jobId).pipe(
+						Effect.timeoutOption(Duration.millis(PROVIDER_IMPORT_TIMEOUT_MILLIS - elapsedMillis)),
+					);
+		const result = yield* Effect.result(polling);
+		const observedAtNanos = yield* Clock.monotonicTimeNanos;
+		if (
+			runningSinceNanos !== undefined &&
+			runningElapsedMillis + Number(observedAtNanos - runningSinceNanos) / 1_000_000 >=
+				PROVIDER_IMPORT_TIMEOUT_MILLIS
+		) {
+			return failedEntry(PROVIDER_IMPORT_TIMEOUT_MESSAGE);
+		}
 		if (Result.isFailure(result)) {
 			return failedEntry(PROVIDER_IMPORT_UNAVAILABLE_MESSAGE);
 		}
-		const entry = providerEntityImportOutcome(result.success);
+		if (Option.isNone(result.success)) {
+			return failedEntry(PROVIDER_IMPORT_TIMEOUT_MESSAGE);
+		}
+		const entry = providerEntityImportOutcome(result.success.value);
 		if (entry.status !== "queued" && entry.status !== "importing") {
 			return entry;
 		}
 		if (entry.status === "importing") {
-			runningPolls += 1;
-			if (runningPolls > PROVIDER_IMPORT_POLL_ATTEMPTS) {
-				return failedEntry(PROVIDER_IMPORT_TIMEOUT_MESSAGE);
-			}
+			runningSinceNanos ??= observedAtNanos;
+		} else if (runningSinceNanos !== undefined) {
+			runningElapsedMillis += Number(observedAtNanos - runningSinceNanos) / 1_000_000;
+			runningSinceNanos = undefined;
 		}
 		onProgress(entry);
-		yield* Effect.sleep(PROVIDER_IMPORT_POLL_INTERVAL);
 	}
 });
 

@@ -15,8 +15,10 @@ import { WorkflowGarbageCollectionStorageLive } from "#modules/garbage-collectio
 
 import { AppConfig } from "./config/service";
 import { PgClientLive } from "./db/postgres";
+import { RedisService } from "./redis";
 import { runnerSocketClientProtocolLayer, runnerSocketServerLayer } from "./runner-socket";
 import { type ServerRole, serverRole } from "./server-role";
+import { WorkflowExecutionNotifications } from "./workflow-execution-notifications";
 import { interactiveShardGroup } from "./workflow-lane";
 
 export type DurableSchema = Schema.ConstraintCodec<unknown, unknown>;
@@ -61,8 +63,13 @@ export const WorkflowEngineLive = ClusterWorkflowEngine.layer.pipe(
 			Effect.gen(function* () {
 				const { server } = yield* AppConfig;
 				const role = yield* serverRole(server);
+				const storage = WorkflowGarbageCollectionStorageLive.pipe(
+					Layer.provideMerge(
+						WorkflowExecutionNotifications.liveLayer.pipe(Layer.provide(RedisService.layer)),
+					),
+				);
 				return runnerLayer(role, server.runnerSocketDir).pipe(
-					Layer.provideMerge(WorkflowGarbageCollectionStorageLive),
+					Layer.provideMerge(storage),
 					Layer.provide(Layer.orDie(SqlRunnerStorage.layer)),
 					Layer.provide(ShardingConfig.layer(shardingConfigFor(role))),
 				);
