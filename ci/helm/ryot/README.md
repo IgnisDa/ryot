@@ -29,6 +29,12 @@ helm install ryot ./ci/helm/ryot \
 
 The chart creates one Ryot `Deployment`, a `Service`, optional `Ingress`, `ConfigMap`, and `Secret`. Bundled PostgreSQL and Redis each use a single-node `StatefulSet` and headless `Service`. No `ServiceAccount` is created.
 
+## Runtime requirements
+
+Ryot needs a recent Linux kernel with working Landlock and seccomp. The backend runs as UID/GID `1001`; its root-owned setuid launcher drops sidecars to UID/GID `1002`. Setuid must be permitted: `no-new-privileges` or a `nosuid` mount blocks the launcher, and the deployment fails closed rather than running without it. Kubernetes Restricted Pod Security is incompatible because the launcher needs `allowPrivilegeEscalation`. `RuntimeDefault` seccomp does not require privileged pods. The application and `/run/ryot-sandboxd` paths must be writable.
+
+The Ryot container requests `500m` CPU and `1Gi` memory for scheduling; these are not ceilings. The chart sets no CPU, memory, or PID limits. Sandbox memory admission sizes from visible host/platform memory.
+
 ## PostgreSQL
 
 ### Bundled

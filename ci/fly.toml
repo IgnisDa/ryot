@@ -15,8 +15,3 @@ interval = "5s"
 method = "GET"
 timeout = "5s"
 path = "/api/system/health"
-
-[[vm]]
-cpus = 2
-memory = "2gb"
-cpu_kind = "shared"

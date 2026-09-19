@@ -1,7 +1,7 @@
 # Sandbox Isolate Runtime Plan
 
-**Status:** S1 and S2 are implemented (see [S1](s1.md) and [S2](s2.md)); S3 is in progress
-([s3.md](s3.md)); S4–S6 are reviewed and approved one at a time before they start.
+**Status:** S1, S2, and S4 are implemented (see [S1](s1.md), [S2](s2.md), and [S4](s4.md));
+S3 is in progress ([s3.md](s3.md)); S5 and S6 need separate review and approval before they start.
 Replaces the single-use Deno process per replay with V8 isolates hosted by long-lived, OS-confined
 native sidecars.
 
@@ -134,8 +134,10 @@ per isolate, holds no shared resource, and either lives on the V8 heap or is met
 sockets, `execve` after startup, `ptrace`, `process_vm_*`, `userfaultfd`, `io_uring`, `bpf`,
 `perf_event_open`, `mount`, `unshare`, namespace-creating `clone`, all `clone3`, and every x32-ABI
 syscall on x86_64, plus a deny-all Landlock policy verified inside the sidecar after loading the snapshot.
-Deployments add cgroup `memory.max`, `pids.max`, and CPU weight, and a high `oom_score_adj`. Linux
-production fails closed when confinement cannot be applied; macOS development runs unconfined.
+The backend and sidecars share one container. Shipped deployment defaults do not set CPU, memory,
+or PID ceilings or require separate sidecar cgroups. The launcher sets a high `oom_score_adj`;
+isolate limits and backend memory admission remain. Linux production fails closed when confinement
+cannot be applied; macOS development runs unconfined.
 
 ### Protocol
 
@@ -192,8 +194,8 @@ A pre-approval security review's findings, with the slice that owns each one, ar
 
 ## Implementation Brief
 
-This section is for the agent implementing a slice. Implement **only the slice you were assigned**,
-starting with S1; later slices are outlines and need their own review.
+This section is for the agent implementing a slice. Implement **only the slice you were assigned**;
+outlined slices need their own review.
 
 ### Read first
 
@@ -227,7 +229,8 @@ result, any acceptance item you could not prove, and every deviation from this d
 
 ## Slices
 
-Each slice is approved separately. S3–S6 are outlines until their predecessor lands.
+Each slice is approved separately. S4 is independent of S3's remaining E2 measurement; S5 and S6
+are outlines requiring review before implementation.
 
 ### S1 — Sidecar runtime
 
@@ -254,8 +257,10 @@ Each slice is approved separately. S3–S6 are outlines until their predecessor 
 
 ### S4 — Image and deployment
 
-- **Outcome:** multi-arch images, cgroup limits, and Compose, Helm, and Fly sizing from S2 and S3
-  measurements.
+- **Status:** implemented for the reviewed deployment-only scope. Contract and verification status:
+  [s4.md](s4.md).
+- **Outcome:** native multi-arch image verification and Compose, Helm, and Fly runtime requirements.
+  Deployment CPU, memory, and PID ceilings and fixed resource sizing are excluded.
 
 ### S5 — Replay tuning
 

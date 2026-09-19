@@ -59,7 +59,7 @@ or encoded retention.
 - Escaped length is computed by a non-allocating walk before any serialization, aborting at the cap.
   The existing caps keep their meaning (they are already measured on serialized UTF-8).
 - Unreachable memory counts as released (GC timing not modelled). Reservations are admission bounds;
-  S4 adds cgroups.
+  shipped deployment defaults do not add an OS memory ceiling ([S4](s4.md)).
 - A1 charged: isolate term 64 + 16 + 64 = 144. Rust reports its heap headroom in `ready`; the backend
   rejects a generation whose heap + external + headroom exceeds the reserved term. Rust `MemoryBudget`
   per isolate and `maxRss` include the headroom.
@@ -266,7 +266,7 @@ then occupies background capacity until fair scheduling bounds it.
 | Sidecar crash or backstop                    | Generation close waits exit confirmation (existing); runs' E and the process reservation are released only after that; reader/writer cleared.                                                  |
 | Per-handle bound exceeded                    | That run marked invalid and cancelled; framing desync restarts the generation (existing).                                                                                                      |
 | Backend restart                              | In-memory reservations vanish with the process; Redis projection and durable queue unaffected.                                                                                                 |
-| Compromised sidecar                          | Sidecar-process memory is unbounded until S4 cgroups. Backend-side memory per run stays within E + permits; an early done adds at most one done decode (≈110) while the run's E is still held. |
+| Compromised sidecar                          | Sidecar-process memory has no deployment OS ceiling. Backend-side memory per run stays within E + permits; an early done adds at most one done decode (≈110) while the run's E is still held. |
 
 ## 10. Deadlock prevention
 
