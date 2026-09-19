@@ -6,7 +6,8 @@ import { makeAppConfigLayer } from "#lib/test-utils/effect";
 
 import { makeSandboxAdmission } from "./host-call-gate.test-support";
 import { MiB } from "./limits";
-import { SandboxSidecarAdmission, sandboxMemoryPlan } from "./sidecar-admission";
+import { sandboxMemoryPlan } from "./memory-plan";
+import { SandboxSidecarAdmission } from "./sidecar-admission";
 
 const admissionLayer = Layer.effect(SandboxSidecarAdmission, SandboxSidecarAdmission.make).pipe(
 	Layer.provide(makeAppConfigLayer({ sandbox: { memoryBudgetMiB: Option.some(1100) } })),
