@@ -9,7 +9,9 @@ import {
 	IsoDateString,
 	latestEventField,
 	literal,
+	selectedAggregate,
 	selectedField,
+	selectedMeasure,
 	selectedRows,
 	table,
 	type Recipe,
@@ -163,3 +165,20 @@ export const flatByLifecycleStateRecipe = defineRecipe(
 );
 
 export type FlatByLifecycleStateResult = Recipe.Success<typeof flatByLifecycleStateRecipe>;
+
+/** How many builtin media entities are in the library; the `media-library` entity is not one. */
+export const libraryMediaCountRecipe = defineRecipe(() => {
+	const entity = table("entity", "entity");
+	return {
+		map: ({ library }) => Result.succeed(library.count),
+		queries: {
+			library: selectedAggregate(entity, {
+				measures: { count: selectedMeasure({ function: "count" }, Schema.Number) },
+				where: and(
+					isOneOf(column(entity, "entitySchemaSlug"), builtinMediaEntitySchemaSlugs),
+					libraryLinkExists(entity, "countLibrary", "in-media-library"),
+				),
+			}),
+		},
+	};
+});
