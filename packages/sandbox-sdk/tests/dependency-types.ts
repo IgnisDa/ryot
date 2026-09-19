@@ -7,7 +7,7 @@ import type { Innertube } from "@ryot-app/sandbox-sdk/youtubei";
 import { YTNodes } from "@ryot-app/sandbox-sdk/youtubei";
 
 const schema = Schema.Struct({ value: Schema.String });
-const parsed: string = Schema.decodeUnknownSync(schema)({ value: "typed" }).value;
+const parsed: string = Schema.decodeSync(schema)({ value: "typed" }).value;
 const effectValue: Effect.Effect<string> = Effect.succeed(parsed);
 
 const document: CheerioAPI = load("<main>typed</main>");
