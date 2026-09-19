@@ -15,6 +15,12 @@ summary="$out/$scenario.summary"
 
 note() { echo "$*" | tee -a "$summary"; }
 
+if ! (cd "$repo" && bun install --frozen-lockfile) >> "$log" 2>&1; then
+	note "dependency installation failed"
+	echo "DONE" >> "$summary"
+	exit 1
+fi
+
 apply_debug() {
 	git -C "$repo" apply --check "$here/debug.patch" 2>/dev/null && git -C "$repo" apply "$here/debug.patch"
 	mkdir -p "$repo/e2e/src/api/kernel/debug"
