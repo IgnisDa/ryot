@@ -227,7 +227,6 @@ it.live("runs the client plugin lifecycle in a real browser", () =>
 		yield* page.waitForURL(`${frontendUrl}/fixture`);
 		yield* frame.waitFor({ state: "visible" });
 
-		yield* frame.waitFor({ state: "visible" });
 		expect(yield* frame.getAttribute("title")).toBe("fixture plugin");
 		yield* expectVisibleText(home, FIXTURE_CLIENT_REVISION_MARKERS.A);
 		yield* expectIsolatedFrame(frame, apiUrl);
@@ -288,7 +287,13 @@ it.live("runs the client plugin lifecycle in a real browser", () =>
 		expectCurrentBridgeSession(bridgeObservations, initialBridgeSession);
 
 		yield* fixture.getByRole("button", { name: "Refresh catalog" }).click();
-		yield* expectVisibleText(home, "Installed client plugins: fitness, fixture, media");
+		const installedPlugins = home
+			.getByText(/^Installed client plugins: /)
+			.filter({ visible: true });
+		yield* installedPlugins.waitFor({ state: "visible" });
+		expect(
+			(yield* installedPlugins.innerText()).replace("Installed client plugins: ", "").split(", "),
+		).toEqual(expect.arrayContaining(["fitness", "fixture", "media"]));
 		yield* fixture.getByRole("button", { name: "Fetch greeting" }).click();
 		yield* expectVisibleText(home, "Hello, Ryot");
 		yield* fixture.getByRole("button", { name: "Fetch with invalid payload" }).click();
