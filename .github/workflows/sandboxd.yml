@@ -5,7 +5,9 @@ on:
     paths: &paths
       - "kernel/sandboxd/**"
       - "kernel/backend/src/lib/infrastructure/sandbox-runtime/**"
+      - "kernel/backend/src/modules/sandbox/**"
       - "kernel/backend/tooling/**"
+      - "ci/sandbox-backend.Dockerfile"
       - "packages/contract/**"
       - "packages/plugin-kit/**"
       - "packages/ryotql/**"
@@ -65,6 +67,50 @@ jobs:
       - name: Test explicit provisioning and launcher confinement under Docker defaults
         if: runner.os == 'Linux'
         run: bash kernel/sandboxd/tests/launcher/test-default-docker.sh
+
+  backend:
+    runs-on: ubuntu-24.04
+    services:
+      postgres:
+        image: postgres:18-alpine
+        env:
+          POSTGRES_USER: test_user
+          POSTGRES_PASSWORD: test_password
+          POSTGRES_DB: test_db
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U test_user -d test_db"
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
+      redis:
+        image: redis:alpine
+        ports:
+          - 6379:6379
+        options: >-
+          --health-cmd "redis-cli ping"
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - name: Build the backend dependency image from source
+        run: docker build --target builder-base --tag ryot-sandbox-backend-builder-base .
+      - name: Build the confined backend test image
+        run: docker build --file ci/sandbox-backend.Dockerfile --tag ryot-sandbox-backend-tests .
+      - name: Test the sandbox backend under Docker confinement
+        run: |
+          docker run --rm --network host \
+            --env TEST_DATABASE_URL=postgres://test_user:test_password@127.0.0.1:5432/test_db \
+            --env TEST_REDIS_URL=redis://127.0.0.1:6379 \
+            ryot-sandbox-backend-tests
+      - name: Test the sandbox SDK workflow
+        run: >-
+          docker run --rm --network host --workdir /app/packages/sandbox-sdk
+          ryot-sandbox-backend-tests bun --bun run vitest run tests/workflow.test.ts
 
   image:
     strategy:
