@@ -16,19 +16,32 @@ Touch-layout text inputs stay at least 16px to prevent persistent iOS page zoom.
 
 Heavy or optional surfaces remain on subpaths:
 
-| Subpath         | Contents                                            |
-| --------------- | --------------------------------------------------- |
-| `./schema-form` | `AppSchema` form and its contract/form dependencies |
-| `./table`       | Generic data table and column contract              |
-| `./charts`      | Calendar heatmap and ranked bar list                |
-| `./icon`        | The complete registered product icon set            |
-| `./sync`        | Entity population and translation marks             |
-| `./tint`        | Best-effort image tint extraction                   |
+| Subpath         | Contents                                             |
+| --------------- | ---------------------------------------------------- |
+| `./schema-form` | `AppSchema` form and its contract/form dependencies  |
+| `./table`       | Generic data table and column contract               |
+| `./charts`      | Calendar heatmap and ranked bar list                 |
+| `./icon`        | The complete registered product icon set             |
+| `./sync`        | Entity population and translation marks              |
+| `./tint`        | Best-effort image tint extraction                    |
+| `./markdown`    | Safe Markdown content and spoiler-free plain preview |
 
 Do not re-export these from the root barrel. Components accept icons as `ReactNode` and schema forms
 accept upload transport as a prop, keeping this package independent of auth, servers, and client
 capabilities. Tint extraction requires CORS-readable images and silently returns no tint when image,
 canvas, or CORS access fails.
+
+## Markdown
+
+`MarkdownContent` takes `text` and an `onOpenLink(url)` callback. It renders paragraphs, emphasis,
+lists, blockquotes, breaks, and absolute HTTP/S links checked with the contract's `HttpUrl` schema.
+Producers resolve relative URLs. Link activation prevents document navigation and delegates to the
+caller, which owns capability execution and error reporting. Anchors retain real hrefs for copying.
+Raw HTML is skipped. Unknown directives retain their content without applying attributes.
+`:spoiler[text]` uses an independent reveal button; `:::spoiler` uses initially closed native details.
+Directive attributes are ignored. `markdownPlainText` parses the same directive syntax, removes
+spoiler bodies and raw HTML, and produces readable text for clamped previews. Typography is inherited
+from the caller; all component styles use scannable Tailwind utilities and theme tokens.
 
 ## Charts
 

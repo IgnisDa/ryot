@@ -30,6 +30,7 @@ const TIERS: [(&str, &[&str]); 3] = [
             "papaparse",
             "fast-xml-parser",
             "cheerio",
+            "markdown",
         ],
     ),
     (
@@ -43,6 +44,7 @@ const TIERS: [(&str, &[&str]); 3] = [
             "papaparse",
             "fast-xml-parser",
             "cheerio",
+            "markdown",
             "youtubei",
         ],
     ),

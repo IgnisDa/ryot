@@ -48,6 +48,14 @@ export const SANDBOX_RUNTIME_REGISTRY = [
 	{
 		aliases: [],
 		runner: false,
+		name: "markdown",
+		packageName: "@ryot-app/sandbox-sdk",
+		runtimeExternals: sharedRuntimeExternals,
+		sdkImport: "@ryot-app/sandbox-sdk/markdown",
+	},
+	{
+		aliases: [],
+		runner: false,
 		name: "youtubei",
 		packageName: "youtubei.js",
 		runtimeExternals: sharedRuntimeExternals,
