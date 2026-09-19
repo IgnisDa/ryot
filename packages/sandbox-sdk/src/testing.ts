@@ -38,6 +38,7 @@ export const runSandboxTestScript = <
 	Input extends Schema.Codec<unknown, unknown>,
 	Output extends Schema.ConstraintDecoder<unknown>,
 	Host,
+	Failure,
 >(
 	script: {
 		readonly input: Input;
@@ -46,7 +47,7 @@ export const runSandboxTestScript = <
 			input: Input["Type"],
 			host: Host,
 			execution: ExecutionMetadata,
-		) => Effect.Effect<Output["Type"], unknown>;
+		) => Effect.Effect<Output["Type"], Failure>;
 	},
 	input: Schema.Codec.Encoded<Input>,
 	host: NoInfer<Host>,
