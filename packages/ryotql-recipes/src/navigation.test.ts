@@ -30,7 +30,7 @@ describe("navigation recipe", () => {
 		expect(requireRowsQuery(document.queries.savedViews).output.orderBy).toEqual([
 			{ direction: "asc", expr: { type: "column", field: "pluginSlug", tableAlias: "savedView" } },
 			{ direction: "asc", expr: { type: "column", field: "sortOrder", tableAlias: "savedView" } },
-			{ direction: "asc", expr: { type: "column", field: "createdAt", tableAlias: "savedView" } },
+			{ direction: "asc", expr: { field: "slug", type: "column", tableAlias: "savedView" } },
 		]);
 		expect(document.queries.collections).toMatchObject({
 			output: { pagination: { limit: 100 } },

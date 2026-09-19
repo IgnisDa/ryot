@@ -605,7 +605,7 @@ CREATE TABLE "plugin_config_revision" (
 --> statement-breakpoint
 CREATE TABLE "plugin_installation" (
 	"health_reason" text,
-	"home_saved_view_id" text,
+	"home_saved_view_slug" text,
 	"sort_order" integer DEFAULT 0 NOT NULL,
 	"is_disabled" boolean DEFAULT false NOT NULL,
 	"uninstalled_at" timestamp with time zone,
@@ -722,7 +722,6 @@ CREATE TABLE "saved_view" (
 	"revision" integer DEFAULT 1 NOT NULL,
 	"sort_order" integer DEFAULT 0 NOT NULL,
 	"data_sources" jsonb,
-	"is_builtin" boolean DEFAULT false NOT NULL,
 	"is_disabled" boolean DEFAULT false NOT NULL,
 	"renderer" jsonb NOT NULL,
 	"created_at" timestamp with time zone DEFAULT now() NOT NULL,
@@ -731,6 +730,16 @@ CREATE TABLE "saved_view" (
 	"user_id" text NOT NULL,
 	"updated_at" timestamp with time zone DEFAULT now() NOT NULL,
 	CONSTRAINT "saved_view_user_slug_unique" UNIQUE("user_id","slug")
+);
+--> statement-breakpoint
+CREATE TABLE "saved_view_override" (
+	"plugin_id" text,
+	"slug" text,
+	"sort_order" integer NOT NULL,
+	"revision" integer DEFAULT 1 NOT NULL,
+	"is_disabled" boolean DEFAULT false NOT NULL,
+	"user_id" text,
+	CONSTRAINT "saved_view_override_pkey" PRIMARY KEY("user_id","slug")
 );
 --> statement-breakpoint
 CREATE TABLE "session" (
@@ -906,6 +915,7 @@ CREATE INDEX "sandbox_workflow_reference_plugin_id_idx" ON "sandbox_workflow_ref
 CREATE INDEX "sandbox_workflow_reference_script_id_idx" ON "sandbox_workflow_reference" ("script_id");--> statement-breakpoint
 CREATE INDEX "sandbox_workflow_reference_plugin_installation_id_idx" ON "sandbox_workflow_reference" ("plugin_installation_id");--> statement-breakpoint
 CREATE INDEX "saved_view_user_id_idx" ON "saved_view" ("user_id");--> statement-breakpoint
+CREATE INDEX "saved_view_slug_idx" ON "saved_view" ("slug");--> statement-breakpoint
 CREATE INDEX "saved_view_plugin_installation_id_idx" ON "saved_view" ("plugin_installation_id");--> statement-breakpoint
 CREATE INDEX "session_userId_idx" ON "session" ("user_id");--> statement-breakpoint
 CREATE INDEX "user_lifecycle_operation_user_id_idx" ON "user_lifecycle_operation" ("user_id");--> statement-breakpoint
@@ -996,6 +1006,7 @@ ALTER TABLE "sandbox_workflow_reference" ADD CONSTRAINT "sandbox_workflow_refere
 ALTER TABLE "sandbox_workflow_reference" ADD CONSTRAINT "sandbox_workflow_reference_script_id_sandbox_script_id_fkey" FOREIGN KEY ("script_id") REFERENCES "sandbox_script"("id") ON DELETE CASCADE;--> statement-breakpoint
 ALTER TABLE "saved_view" ADD CONSTRAINT "saved_view_user_id_user_id_fkey" FOREIGN KEY ("user_id") REFERENCES "user"("id") ON DELETE CASCADE;--> statement-breakpoint
 ALTER TABLE "saved_view" ADD CONSTRAINT "saved_view_plugin_installation_owner_fk" FOREIGN KEY ("plugin_installation_id","user_id") REFERENCES "plugin_installation"("id","user_id") ON DELETE RESTRICT;--> statement-breakpoint
+ALTER TABLE "saved_view_override" ADD CONSTRAINT "saved_view_override_user_id_user_id_fkey" FOREIGN KEY ("user_id") REFERENCES "user"("id") ON DELETE CASCADE;--> statement-breakpoint
 ALTER TABLE "session" ADD CONSTRAINT "session_user_id_user_id_fkey" FOREIGN KEY ("user_id") REFERENCES "user"("id") ON DELETE CASCADE;--> statement-breakpoint
 ALTER TABLE "two_factor" ADD CONSTRAINT "two_factor_user_id_user_id_fkey" FOREIGN KEY ("user_id") REFERENCES "user"("id") ON DELETE CASCADE;--> statement-breakpoint
 CREATE VIEW "global_entity_schema" AS (
@@ -1110,6 +1121,26 @@ CREATE VIEW "user_saved_view" AS (
 			join definition_saved_view d on d.plugin_revision_id = p.active_revision_id
 			where p.is_listed and (p.scope = 'system' or not exists (select 1 from "global_saved_view" g where g.slug = d.slug))
 		);--> statement-breakpoint
+CREATE VIEW "user_saved_view_effective" AS (
+	select s.id, null::text as plugin_id, custom_plugin.slug as plugin_slug,
+		s.user_id, s.slug, s.name, s.icon, s.plugin_installation_id,
+		s.revision, s.sort_order, s.data_sources, false as is_builtin,
+		s.is_disabled, s.renderer, s.created_at, s.settings, s.updated_at
+	from "saved_view" s
+	left join "plugin_installation" custom_installation on custom_installation.id = s.plugin_installation_id
+	left join "plugin" custom_plugin on custom_plugin.id = custom_installation.plugin_id
+	union all
+	select 'builtin:' || d.user_id || ':' || d.slug as id, d.plugin_id, d.plugin_slug,
+		d.user_id, d.slug, d.name, d.icon, p.installation_id as plugin_installation_id,
+		hashtext(d.id || ':' || coalesce(o.revision, 0)::text) as revision,
+		coalesce(o.sort_order, d.sort_order) as sort_order, d.data_sources, true as is_builtin,
+		coalesce(o.is_disabled, false) as is_disabled, d.renderer,
+		null::timestamptz as created_at, d.settings, null::timestamptz as updated_at
+	from "user_saved_view" d
+	left join "user_plugin" p on p.user_id = d.user_id and p.plugin_id = d.plugin_id
+	left join "saved_view_override" o on o.user_id = d.user_id and o.slug = d.slug
+		and o.plugin_id is not distinct from d.plugin_id
+);--> statement-breakpoint
 CREATE VIEW "user_signal_schema" AS (
 			select u.id as user_id, d.id, d.plugin_id, d.plugin_revision_id, null::text as plugin_slug, null::text as plugin_scope, d.slug, d.name, d.position, d.notification_hook_slug, d.properties_schema, d.audience_policy, d.catalog_state, true as is_effective
 			from definition_signal_schema d

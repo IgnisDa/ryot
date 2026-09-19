@@ -174,10 +174,7 @@ import { SandboxWorkflowDefinitionsLive } from "#modules/sandbox/sandbox-workflo
 import { SandboxExecutionService } from "#modules/sandbox/service";
 import { SandboxWorkflowReferenceRepository } from "#modules/sandbox/workflow-reference-repository";
 import { SavedViewsRepository } from "#modules/saved-views/repository";
-import {
-	SavedViewPluginDefinitionMaterializerLive,
-	SavedViewsService,
-} from "#modules/saved-views/service";
+import { SavedViewPluginReferencesLive, SavedViewsService } from "#modules/saved-views/service";
 import { FrequentCronSchedulerLive } from "#modules/scheduler/frequent-cron";
 import { PluginCronSchedulerLive, PluginCronService } from "#modules/scheduler/plugin-cron";
 import { SignalSchemasService } from "#modules/signals/service";
@@ -416,6 +413,7 @@ const SavedViewsServiceLive = SavedViewsService.layer.pipe(
 			DefinitionRepository.layer,
 			PluginRuntimeResolverLive,
 			PluginInstallationRepository.layer,
+			PluginRepository.layer,
 			PluginCatalogInvalidatorLive,
 			ClientSurfaceMaterializerLive,
 		),
@@ -425,18 +423,14 @@ const MaterializingPluginCatalogInvalidatorLive = Layer.effect(
 	PluginCatalogInvalidator,
 	Effect.gen(function* () {
 		const pages = yield* ClientPagesService;
-		const savedViews = yield* SavedViewsService;
 		const redis = yield* RedisService;
 		const db = yield* Database;
-		const refreshViews = (userId: UserId) =>
-			savedViews.ensureBuiltinViews(userId).pipe(Effect.provideService(Database, db));
 		const materialize = (userId: UserId) =>
 			pages.materializeUserCompositions(userId).pipe(Effect.provideService(Database, db));
 		return {
 			user: (userId: UserId) =>
 				publishAfterCatalogMaterialization(
 					Effect.succeed([userId]),
-					refreshViews,
 					materialize,
 					redis.publish(
 						redisKeys.pluginCatalogUserChannel,
@@ -449,7 +443,6 @@ const MaterializingPluginCatalogInvalidatorLive = Layer.effect(
 					.from(schema.user)
 					.where(isNotNull(schema.user.bootstrapCompletedAt))
 					.pipe(Effect.map((users) => users.map((user) => UserId.make(user.id)))),
-				refreshViews,
 				materialize,
 				redis
 					.publish(redisKeys.pluginCatalogChannel, "plugin-catalog-invalidated")
@@ -457,10 +450,7 @@ const MaterializingPluginCatalogInvalidatorLive = Layer.effect(
 			).pipe(Effect.provideService(Database, db), Effect.orDie),
 		};
 	}),
-).pipe(
-	Layer.provide(Layer.mergeAll(ClientPagesServiceLive, SavedViewsServiceLive)),
-	Layer.provide(RedisService.layer),
-);
+).pipe(Layer.provide(ClientPagesServiceLive), Layer.provide(RedisService.layer));
 const PluginIngestionServiceLive = Layer.provide(
 	PluginIngestionService.layer,
 	Layer.mergeAll(
@@ -472,7 +462,7 @@ const PluginIngestionServiceLive = Layer.provide(
 	),
 );
 const PluginCatalogStateLive = Layer.mergeAll(PluginCatalogHub.layer, PluginIngestionServiceLive);
-const PluginDefinitionMaterializerLive = SavedViewPluginDefinitionMaterializerLive.pipe(
+const PluginSavedViewReferencesLive = SavedViewPluginReferencesLive.pipe(
 	Layer.provide(SavedViewsServiceLive),
 );
 const PluginIngestionLockLive = PluginIngestionLock.layer.pipe(
@@ -503,7 +493,7 @@ const pluginInstallationServiceDependencies = Layer.mergeAll(
 	ObjectStorageServiceLive,
 	PluginRepository.layer,
 	PluginIngestionLockLive,
-	PluginDefinitionMaterializerLive,
+	PluginSavedViewReferencesLive,
 	PluginInstallationRepository.layer,
 	SandboxWorkflowReferenceRepository.layer,
 );
@@ -902,7 +892,7 @@ export const RuntimeDependenciesLive = Layer.provideMerge(
 						SandboxExecutionServiceLive,
 						MaterializingPluginCatalogInvalidatorLive,
 						ClientSurfaceMaterializerLive,
-						PluginDefinitionMaterializerLive,
+						PluginSavedViewReferencesLive,
 						PluginInstallationRepository.layer,
 					),
 				),
