@@ -96,6 +96,7 @@ describe("credentials form", () => {
 		);
 	});
 
+	// oxlint-disable-next-line effecttsgo/async-function -- Vitest awaits this Promise-based test callback and its framework assertions.
 	it("keeps the email and clears the password when switching to signup", async () => {
 		const { user, modeChanges } = renderCredentialsForm();
 		const email = screen.getByLabelText<HTMLInputElement>("Email address");
@@ -110,6 +111,7 @@ describe("credentials form", () => {
 		expect(password.value).toBe("");
 	});
 
+	// oxlint-disable-next-line effecttsgo/async-function -- Vitest awaits this Promise-based test callback and its framework assertions.
 	it("moves focus to the password field when Enter is pressed in the email field", async () => {
 		const { user, submissions } = renderCredentialsForm();
 
@@ -119,6 +121,7 @@ describe("credentials form", () => {
 		expect(submissions).toEqual([]);
 	});
 
+	// oxlint-disable-next-line effecttsgo/async-function -- Vitest awaits this Promise-based test callback and its framework assertions.
 	it("submits normalized credentials once", async () => {
 		const { user, submissions } = renderCredentialsForm();
 
@@ -129,6 +132,7 @@ describe("credentials form", () => {
 		expect(submissions).toEqual([{ password: "Sup3rSecret", email: "user@example.com" }]);
 	});
 
+	// oxlint-disable-next-line effecttsgo/async-function -- Vitest awaits this Promise-based test callback and its framework assertions.
 	it("shows a submission error until the password changes", async () => {
 		const { user } = renderCredentialsForm({ submitError: "Invalid credentials." });
 
@@ -143,6 +147,7 @@ describe("credentials form", () => {
 		expect(screen.queryByRole("alert")).toBeNull();
 	});
 
+	// oxlint-disable-next-line effecttsgo/async-function -- Vitest awaits this Promise-based test callback and its framework assertions.
 	it("blocks submission while a blurred field is invalid", async () => {
 		const { user } = renderCredentialsForm();
 
@@ -199,6 +204,7 @@ describe("two-factor form", () => {
 		expect(backupCode.getAttribute("inputmode")).toBe("text");
 	});
 
+	// oxlint-disable-next-line effecttsgo/async-function -- Vitest awaits this Promise-based test callback and its framework assertions.
 	it("offers a method switch only when more than one method exists", async () => {
 		const single = renderTwoFactorForm({ methods: ["totp"] });
 
@@ -211,6 +217,7 @@ describe("two-factor form", () => {
 		expect(methodChanges).toEqual(["backupCode"]);
 	});
 
+	// oxlint-disable-next-line effecttsgo/async-function -- Vitest awaits this Promise-based test callback and its framework assertions.
 	it("submits the trimmed code", async () => {
 		const { user, submissions } = renderTwoFactorForm({ method: "backupCode" });
 
@@ -220,6 +227,7 @@ describe("two-factor form", () => {
 		expect(submissions).toEqual(["123456"]);
 	});
 
+	// oxlint-disable-next-line effecttsgo/async-function -- Vitest awaits this Promise-based test callback and its framework assertions.
 	it("shows a submission error and clears the code", async () => {
 		const { user } = renderTwoFactorForm({ submitError: "That code did not work." });
 
@@ -230,6 +238,7 @@ describe("two-factor form", () => {
 		expect(screen.getByLabelText<HTMLInputElement>("Authenticator code").value).toBe("");
 	});
 
+	// oxlint-disable-next-line effecttsgo/async-function -- Vitest awaits this Promise-based test callback and its framework assertions.
 	it("returns to sign in", async () => {
 		const { user, backRequests } = renderTwoFactorForm();
 

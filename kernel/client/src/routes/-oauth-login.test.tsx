@@ -100,6 +100,7 @@ const mountLogin = (config: ReturnType<typeof systemConfig>) => {
 };
 
 describe("Hosted OAuth login", () => {
+	// oxlint-disable-next-line effecttsgo/async-function -- Vitest awaits this Promise-based test callback and its framework assertions.
 	it("shows a configured frontend mismatch without starting authentication", async () => {
 		const mounted = mountLogin(
 			systemConfig("https://configured.example", { oidcEnabled: true, localAuthDisabled: true }),
@@ -114,6 +115,7 @@ describe("Hosted OAuth login", () => {
 		expect(mounted.authCallCount()).toBe(0);
 	});
 
+	// oxlint-disable-next-line effecttsgo/async-function -- Vitest awaits this Promise-based test callback and its framework assertions.
 	it("uses the browser origin as a fixed server", async () => {
 		const mounted = mountLogin(
 			systemConfig(window.location.origin, { oidcEnabled: false, localAuthDisabled: false }),
@@ -124,6 +126,7 @@ describe("Hosted OAuth login", () => {
 		expect(screen.queryByRole("button", { name: "Change server" })).toBeNull();
 	});
 
+	// oxlint-disable-next-line effecttsgo/async-function -- Vitest awaits this Promise-based test callback and its framework assertions.
 	it("shows an unavailable state when no authentication method is configured", async () => {
 		mountLogin(
 			systemConfig(window.location.origin, { oidcEnabled: false, localAuthDisabled: true }),

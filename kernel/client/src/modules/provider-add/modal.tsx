@@ -1,6 +1,5 @@
 import { useRyot } from "@ryot-app/client-sdk/react";
 import { Modal } from "@ryot-app/client-ui-sdk";
-import type { SchemaFileUpload } from "@ryot-app/client-ui-sdk/schema-form";
 import type { EntitySchemaSlug, SandboxProviderId } from "@ryot-app/contract/schema/brands";
 import { useRouteContext } from "@tanstack/react-router";
 import { Effect } from "effect";
@@ -14,12 +13,15 @@ import {
 	type ProviderSummariesState,
 	resolveLibraryMembership,
 } from "#/modules/provider-add/panel";
-import { ProviderAddService, type ProviderSearchSummary } from "#/modules/provider-add/service";
+import {
+	type ProviderAddLoadError,
+	ProviderAddService,
+	type ProviderSearchSummary,
+} from "#/modules/provider-add/service";
+import { useSchemaFileUpload } from "#/modules/ui/schema-form-upload";
 import { ClientStorage } from "#/persistence/storage";
 
 export const PROVIDER_ADD_TITLE = "Add from a provider";
-
-const UPLOAD_FAILURE_MESSAGE = "Could not upload this file. Try again.";
 
 type ProviderAddModalProps = {
 	readonly onClose: () => void;
@@ -44,6 +46,7 @@ const loadedProviderState = (
 
 export function ProviderAddModal(props: ProviderAddModalProps) {
 	const ryot = useRyot();
+	const uploadFile = useSchemaFileUpload();
 	const { scope, runtime } = useRouteContext({ from: "/_authenticated" });
 	const { entitySchemaSlug } = props;
 	const libraryMembership = resolveLibraryMembership(props.ownerPluginId, entitySchemaSlug);
@@ -53,7 +56,7 @@ export function ProviderAddModal(props: ProviderAddModalProps) {
 		providers: { status: "loading" },
 	});
 
-	const runOutcome = <A,>(effect: Effect.Effect<A, unknown, ProviderAddService>) =>
+	const runOutcome = <A,>(effect: Effect.Effect<A, ProviderAddLoadError, ProviderAddService>) =>
 		runtime.runPromise(
 			effect.pipe(
 				Effect.match({
@@ -110,14 +113,6 @@ export function ProviderAddModal(props: ProviderAddModalProps) {
 		);
 	};
 
-	const uploadFile: SchemaFileUpload = async (request) => {
-		try {
-			const uploaded = await ryot.uploads.uploadTemporary(request);
-			return { kind: "uploaded", token: uploaded.token };
-		} catch {
-			return { kind: "failed", message: UPLOAD_FAILURE_MESSAGE };
-		}
-	};
 	const search: ComponentProps<typeof ProviderSearchPanel>["search"] = (payload) =>
 		runOutcome(Effect.flatMap(ProviderAddService, (service) => service.search(scope, payload)));
 	const loadSearchOptions: ComponentProps<typeof ProviderSearchPanel>["loadSearchOptions"] = (

@@ -137,6 +137,7 @@ describe("sidebar navigation", () => {
 		expect(screen.getByRole("link", { name: "Home" }).getAttribute("aria-current")).toBe("page");
 	});
 
+	// oxlint-disable-next-line effecttsgo/async-function -- Vitest awaits this Promise-based test callback and its framework assertions.
 	it("has no accessibility violations", async () => {
 		const view = renderSidebar(true);
 		const results = await axe(view.container, { rules: { "color-contrast": { enabled: false } } });

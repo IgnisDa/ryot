@@ -7,7 +7,7 @@ import {
 	OAUTH_SCOPE,
 	type PendingAuthorization,
 } from "@ryot-app/contract/oauth";
-import { Context, Data, Effect, Layer } from "effect";
+import { Clock, Context, Data, Effect, Layer } from "effect";
 
 import { decodeServerOrigin, type ServerOrigin } from "#/api/origin";
 import { PublicApi } from "#/api/public";
@@ -107,15 +107,15 @@ export class OAuthLauncher extends Context.Service<OAuthLauncher>()("OAuthLaunch
 			const pending: PendingAuthorization = {
 				codeVerifier,
 				serverOrigin,
-				createdAt: Date.now(),
 				clientId: client.clientId,
 				redirectUri: client.callbackUri,
 				nonce: generateOAuthRandomValue(),
 				state: generateOAuthRandomValue(),
+				createdAt: yield* Clock.currentTimeMillis,
 				destination: authDestination(redirectIntent),
 			};
 
-			const codeChallenge = yield* Effect.tryPromise(() => deriveCodeChallenge(codeVerifier));
+			const codeChallenge = yield* deriveCodeChallenge(codeVerifier);
 			yield* storage
 				.setPending(pending)
 				.pipe(

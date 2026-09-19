@@ -1,4 +1,4 @@
-import { Schema } from "@ryot-app/client-sdk/effect";
+import { Effect, Schema } from "@ryot-app/client-sdk/effect";
 import { usePluginLocation } from "@ryot-app/client-sdk/plugin";
 import { createRyotQuery, useRyotQuery } from "@ryot-app/client-sdk/react";
 import { PluginScreenFrame } from "@ryot-app/client-sdk/screen";
@@ -43,13 +43,12 @@ const CollectionCount = ({
 	readonly onTotal: (total: number | undefined) => void;
 }) => {
 	const [query] = useState(() =>
-		createRyotQuery<string, number>(({ client, signal, input: search }) =>
+		createRyotQuery<string, number>(({ client, input: search }) =>
 			client.data.query(
 				collectionMembersCountRecipe({
 					collectionId,
 					...(search === "" ? {} : { searchText: search }),
 				}),
-				{ signal },
 			),
 		),
 	);
@@ -76,30 +75,31 @@ const CollectionCount = ({
 const CollectionDetail = ({ collectionId }: { readonly collectionId: string }) => {
 	const [query] = useState(() =>
 		createRyotQuery<string, BrowserQueryPage<CollectionMeta>>(
-			async ({ input, client, signal }) => {
-				const [searchText, sortChoice, after] = decodeQueryInput(input);
-				const header = await client.data.query(collectionHeaderRecipe({ collectionId }), {
-					signal,
-				});
-				const [groups, total, members] = await Promise.all([
-					client.data.query(collectionMembersAggregateRecipe({ collectionId }), { signal }),
-					client.data.query(collectionMembersCountRecipe({ collectionId }), { signal }),
-					client.data.query(
-						collectionMembersRecipe({
-							collectionId,
-							membershipPropertiesSchema: header?.membershipPropertiesSchema ?? null,
-							...(searchText === "" ? {} : { searchText }),
-							...(sortChoice === "" ? {} : { sort: sortChoice }),
-							...(after === null ? {} : { after }),
-						}),
-						{ signal },
-					),
-				]);
-				const tableColumns = collectionMemberTableColumns(
-					header?.membershipPropertiesSchema ?? null,
-				);
-				return { input, result: members, meta: { total, groups, header, tableColumns } };
-			},
+			({ input, client }) =>
+				Effect.gen(function* () {
+					const [searchText, sortChoice, after] = decodeQueryInput(input);
+					const header = yield* client.data.query(collectionHeaderRecipe({ collectionId }));
+					const [groups, total, members] = yield* Effect.all(
+						[
+							client.data.query(collectionMembersAggregateRecipe({ collectionId })),
+							client.data.query(collectionMembersCountRecipe({ collectionId })),
+							client.data.query(
+								collectionMembersRecipe({
+									collectionId,
+									membershipPropertiesSchema: header?.membershipPropertiesSchema ?? null,
+									...(searchText === "" ? {} : { searchText }),
+									...(sortChoice === "" ? {} : { sort: sortChoice }),
+									...(after === null ? {} : { after }),
+								}),
+							),
+						],
+						{ concurrency: "unbounded" },
+					);
+					const tableColumns = collectionMemberTableColumns(
+						header?.membershipPropertiesSchema ?? null,
+					);
+					return { input, result: members, meta: { total, groups, header, tableColumns } };
+				}),
 			{ cancelOnUnmount: true },
 		),
 	);

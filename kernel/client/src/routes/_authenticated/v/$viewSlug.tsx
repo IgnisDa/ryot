@@ -53,6 +53,7 @@ export const Route = createFileRoute("/_authenticated/v/$viewSlug")({
 		entityId:
 			typeof search.entityId === "string" && search.entityId !== "" ? search.entityId : undefined,
 	}),
+	// oxlint-disable-next-line effecttsgo/async-function -- TanStack saved-view route loader.
 	loader: async ({ params, context, abortController }) => {
 		const slug = params.viewSlug.trim();
 		if (slug.length === 0) {

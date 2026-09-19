@@ -1,6 +1,6 @@
 #!/usr/bin/env bun
 
-import { Schema } from "effect";
+import { Effect, Schema } from "effect";
 
 const encodeGeneratedString = Schema.encodeSync(Schema.fromJsonString(Schema.String));
 
@@ -14,11 +14,13 @@ const tsPaths = await Array.fromAsync(
 );
 const paths = tsPaths.filter(isRendererSource).sort();
 
-const entries = await Promise.all(
-	paths.map(async (path) => {
-		const source = await Bun.file(new URL(path, sourceRoot)).text();
-		return `\t${encodeGeneratedString(`client/${path}`)}: ${encodeGeneratedString(source)},`;
-	}),
+const entries = await Effect.runPromise(
+	Effect.forEach(paths, (path) =>
+		Effect.map(
+			Effect.promise(() => Bun.file(new URL(path, sourceRoot)).text()),
+			(source) => `\t${encodeGeneratedString(`client/${path}`)}: ${encodeGeneratedString(source)},`,
+		),
+	),
 );
 
 await Bun.write(

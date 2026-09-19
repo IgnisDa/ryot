@@ -60,7 +60,7 @@ import {
 } from "@ryot-app/client-plugin-contract";
 import type { EntityInterestSubscription } from "@ryot-app/client-sdk";
 import { isJsonValue } from "@ryot-app/contract/schema/json";
-import { Match, Result, Schema } from "effect";
+import { Effect, Fiber, Match, Result, Schema } from "effect";
 
 import type { WatchEntities } from "#/modules/entity-interest/service";
 
@@ -93,7 +93,7 @@ export type PluginBridgeSession = {
 type PluginBridgeState = "ready" | "active" | "closing" | "failed" | "disposed";
 
 type PendingRequest = {
-	readonly controller: AbortController;
+	readonly fiber: Fiber.Fiber<unknown, unknown>;
 	readonly type: "asset" | "collection" | "operation" | "ryotql" | "storage" | "upload";
 };
 
@@ -120,30 +120,14 @@ type PluginBridgeOptions = {
 	readonly onPageShortcuts: (shortcuts: readonly PageShortcutKey[]) => void;
 	readonly scheduleOverlayDismissTimeout?: (onTimeout: () => void) => () => void;
 	readonly onProviderSearch: (request: PluginBridgeProviderSearchScreen) => void;
-	readonly onAssets: (
-		request: PluginAssetRequest,
-		signal: AbortSignal,
-	) => Promise<PluginAssetOutcome>;
-	readonly onRyotQL: (
-		request: PluginRyotQLRequest,
-		signal: AbortSignal,
-	) => Promise<PluginRyotQLOutcome>;
-	readonly onOperation: (
-		request: PluginOperationRequest,
-		signal: AbortSignal,
-	) => Promise<PluginOperationOutcome>;
+	readonly onAssets: (request: PluginAssetRequest) => Effect.Effect<PluginAssetOutcome>;
+	readonly onRyotQL: (request: PluginRyotQLRequest) => Effect.Effect<PluginRyotQLOutcome>;
+	readonly onOperation: (request: PluginOperationRequest) => Effect.Effect<PluginOperationOutcome>;
 	readonly onCollection: (
 		request: PluginCollectionRequest,
-		signal: AbortSignal,
-	) => Promise<PluginCollectionOutcome>;
-	readonly onUpload: (
-		request: PluginUploadRequest,
-		signal: AbortSignal,
-	) => Promise<PluginUploadOutcome>;
-	readonly onStorage: (
-		request: PluginStorageRequest,
-		signal: AbortSignal,
-	) => Promise<PluginStorageOutcome>;
+	) => Effect.Effect<PluginCollectionOutcome>;
+	readonly onUpload: (request: PluginUploadRequest) => Effect.Effect<PluginUploadOutcome>;
+	readonly onStorage: (request: PluginStorageRequest) => Effect.Effect<PluginStorageOutcome>;
 };
 
 const decodeReady = Schema.decodeUnknownResult(PluginBridgeReady);
@@ -216,8 +200,8 @@ export function openPluginBridge(options: PluginBridgeOptions): PluginBridgeSess
 			}
 		}
 		listeners.abort();
-		for (const { controller } of pending.values()) {
-			controller.abort();
+		for (const { fiber } of pending.values()) {
+			Effect.runFork(Fiber.interrupt(fiber));
 		}
 		pending.clear();
 		channel.port1.close();
@@ -287,8 +271,8 @@ export function openPluginBridge(options: PluginBridgeOptions): PluginBridgeSess
 		interest?.dispose();
 		interest = undefined;
 		interestIds.clear();
-		for (const { controller } of pending.values()) {
-			controller.abort();
+		for (const { fiber } of pending.values()) {
+			Effect.runFork(Fiber.interrupt(fiber));
 		}
 		pending.clear();
 		overlayDismiss?.cancelTimeout();
@@ -363,32 +347,54 @@ export function openPluginBridge(options: PluginBridgeOptions): PluginBridgeSess
 		}
 	}
 
-	function handleOperation(request: PluginBridgeOperationRequest) {
-		if (pending.has(request.requestId)) {
+	function runRequest<Outcome>(
+		requestId: string,
+		type: PendingRequest["type"],
+		operation: () => Effect.Effect<Outcome>,
+		failure: Outcome,
+		result: (outcome: Outcome) => unknown,
+	) {
+		if (pending.has(requestId)) {
 			return;
 		}
 		if (pending.size >= CLIENT_BRIDGE_MAX_PENDING_REQUESTS) {
 			fail();
 			return;
 		}
-		const controller = new AbortController();
-		pending.set(request.requestId, { controller, type: "operation" });
-		void Promise.resolve()
-			.then(() =>
-				options.onOperation(
-					{
-						input: request.input,
-						pluginSlug: request.pluginSlug,
-						operationSlug: request.operationSlug,
-					},
-					controller.signal,
+		const fiber = Effect.runFork(
+			Effect.yieldNow.pipe(
+				Effect.flatMap(() => operation()),
+				Effect.catchCause(() => Effect.succeed(failure)),
+				Effect.tap((outcome) =>
+					Effect.sync(() => {
+						if (state !== "active" || pending.get(requestId)?.fiber !== fiber) {
+							return;
+						}
+						try {
+							channel.port1.postMessage(result(outcome));
+							pending.delete(requestId);
+						} catch {
+							fail();
+						}
+					}),
 				),
-			)
-			.catch(() => ({ outcome: "failure", reason: "transport" }) satisfies PluginOperationOutcome)
-			.then((outcome) => {
-				if (state !== "active" || pending.get(request.requestId)?.controller !== controller) {
-					return undefined;
-				}
+			),
+		);
+		pending.set(requestId, { type, fiber });
+	}
+
+	function handleOperation(request: PluginBridgeOperationRequest) {
+		runRequest(
+			request.requestId,
+			"operation",
+			() =>
+				options.onOperation({
+					input: request.input,
+					pluginSlug: request.pluginSlug,
+					operationSlug: request.operationSlug,
+				}),
+			{ outcome: "failure", reason: "transport" } satisfies PluginOperationOutcome,
+			(outcome) => {
 				let result: PluginOperationOutcome;
 				if (outcome.outcome === "failure" && isOperationBridgeErrorReason(outcome.reason)) {
 					result = { outcome: "failure", reason: outcome.reason };
@@ -399,32 +405,16 @@ export function openPluginBridge(options: PluginBridgeOptions): PluginBridgeSess
 				} else {
 					result = { outcome: "failure", reason: "malformed-result" };
 				}
-				try {
-					channel.port1.postMessage({
-						...result,
-						type: "operation-result",
-						requestId: request.requestId,
-					} satisfies PluginBridgeOperationResult);
-					if (pending.get(request.requestId)?.controller === controller) {
-						pending.delete(request.requestId);
-					}
-				} catch {
-					fail();
-				}
-				return undefined;
-			});
+				return {
+					...result,
+					type: "operation-result",
+					requestId: request.requestId,
+				} satisfies PluginBridgeOperationResult;
+			},
+		);
 	}
 
 	function handleStorage(request: PluginBridgeStorageRequest) {
-		if (pending.has(request.requestId)) {
-			return;
-		}
-		if (pending.size >= CLIENT_BRIDGE_MAX_PENDING_REQUESTS) {
-			fail();
-			return;
-		}
-		const controller = new AbortController();
-		pending.set(request.requestId, { controller, type: "storage" });
 		const capabilityRequest: PluginStorageRequest =
 			request.action === "set"
 				? {
@@ -434,13 +424,12 @@ export function openPluginBridge(options: PluginBridgeOptions): PluginBridgeSess
 						pluginSlug: request.pluginSlug,
 					}
 				: { key: request.key, action: request.action, pluginSlug: request.pluginSlug };
-		void Promise.resolve()
-			.then(() => options.onStorage(capabilityRequest, controller.signal))
-			.catch(() => ({ outcome: "failure", reason: "transport" }) satisfies PluginStorageOutcome)
-			.then((outcome) => {
-				if (state !== "active" || pending.get(request.requestId)?.controller !== controller) {
-					return undefined;
-				}
+		runRequest(
+			request.requestId,
+			"storage",
+			() => options.onStorage(capabilityRequest),
+			{ outcome: "failure", reason: "transport" } satisfies PluginStorageOutcome,
+			(outcome) => {
 				let result: PluginStorageOutcome;
 				if (outcome.outcome === "failure" && isStorageBridgeErrorReason(outcome.reason)) {
 					result = { outcome: "failure", reason: outcome.reason };
@@ -451,47 +440,30 @@ export function openPluginBridge(options: PluginBridgeOptions): PluginBridgeSess
 				} else {
 					result = { outcome: "failure", reason: "transport" };
 				}
-				try {
-					channel.port1.postMessage({
-						...result,
-						type: "storage-result",
-						requestId: request.requestId,
-					} satisfies PluginBridgeStorageResult);
-					if (pending.get(request.requestId)?.controller === controller) {
-						pending.delete(request.requestId);
-					}
-				} catch {
-					fail();
-				}
-				return undefined;
-			});
+				return {
+					...result,
+					type: "storage-result",
+					requestId: request.requestId,
+				} satisfies PluginBridgeStorageResult;
+			},
+		);
 	}
 
 	function handleCollection(request: PluginBridgeCollectionRequest) {
-		if (pending.has(request.requestId)) {
-			return;
-		}
-		if (pending.size >= CLIENT_BRIDGE_MAX_PENDING_REQUESTS) {
-			fail();
-			return;
-		}
-		const controller = new AbortController();
-		pending.set(request.requestId, { controller, type: "collection" });
 		let capabilityRequest: PluginCollectionRequest;
 		if (request.action === "create") {
-			capabilityRequest = { input: request.input, action: request.action };
+			capabilityRequest = { action: "create", input: request.input };
 		} else if (request.action === "upsert-membership") {
-			capabilityRequest = { input: request.input, action: request.action };
+			capabilityRequest = { input: request.input, action: "upsert-membership" };
 		} else {
-			capabilityRequest = { input: request.input, action: request.action };
+			capabilityRequest = { input: request.input, action: "remove-membership" };
 		}
-		void Promise.resolve()
-			.then(() => options.onCollection(capabilityRequest, controller.signal))
-			.catch(() => ({ outcome: "failure", reason: "transport" }) satisfies PluginCollectionOutcome)
-			.then((outcome) => {
-				if (state !== "active" || pending.get(request.requestId)?.controller !== controller) {
-					return undefined;
-				}
+		runRequest(
+			request.requestId,
+			"collection",
+			() => options.onCollection(capabilityRequest),
+			{ outcome: "failure", reason: "transport" } satisfies PluginCollectionOutcome,
+			(outcome) => {
 				let result: PluginCollectionOutcome;
 				if (outcome.outcome === "failure" && isCollectionBridgeErrorReason(outcome.reason)) {
 					result = { outcome: "failure", reason: outcome.reason };
@@ -507,77 +479,42 @@ export function openPluginBridge(options: PluginBridgeOptions): PluginBridgeSess
 						? outcome
 						: { outcome: "failure", reason: "malformed-result" };
 				}
-				try {
-					channel.port1.postMessage({
-						...result,
-						type: "collection-result",
-						requestId: request.requestId,
-					} satisfies PluginBridgeCollectionResult);
-					if (pending.get(request.requestId)?.controller === controller) {
-						pending.delete(request.requestId);
-					}
-				} catch {
-					fail();
-				}
-				return undefined;
-			});
+				return {
+					...result,
+					type: "collection-result",
+					requestId: request.requestId,
+				} satisfies PluginBridgeCollectionResult;
+			},
+		);
 	}
 
 	function handleUpload(request: PluginBridgeUploadRequest) {
-		if (pending.has(request.requestId)) {
-			return;
-		}
-		if (pending.size >= CLIENT_BRIDGE_MAX_PENDING_REQUESTS) {
-			fail();
-			return;
-		}
-		const controller = new AbortController();
-		pending.set(request.requestId, { controller, type: "upload" });
-		void Promise.resolve()
-			.then(() =>
-				options.onUpload(
-					{ source: request.source, fileName: request.fileName, contentType: request.contentType },
-					controller.signal,
-				),
-			)
-			.catch(() => ({ outcome: "failure", reason: "transport" }) satisfies PluginUploadOutcome)
-			.then((outcome) => {
-				if (state !== "active" || pending.get(request.requestId)?.controller !== controller) {
-					return undefined;
-				}
-				try {
-					channel.port1.postMessage({
-						...outcome,
-						type: "upload-result",
-						requestId: request.requestId,
-					} satisfies PluginBridgeUploadResult);
-					if (pending.get(request.requestId)?.controller === controller) {
-						pending.delete(request.requestId);
-					}
-				} catch {
-					fail();
-				}
-				return undefined;
-			});
+		runRequest(
+			request.requestId,
+			"upload",
+			() =>
+				options.onUpload({
+					source: request.source,
+					fileName: request.fileName,
+					contentType: request.contentType,
+				}),
+			{ outcome: "failure", reason: "transport" } satisfies PluginUploadOutcome,
+			(outcome) =>
+				({
+					...outcome,
+					type: "upload-result",
+					requestId: request.requestId,
+				}) satisfies PluginBridgeUploadResult,
+		);
 	}
 
 	function handleAssets(request: PluginBridgeAssetRequest) {
-		if (pending.has(request.requestId)) {
-			return;
-		}
-		if (pending.size >= CLIENT_BRIDGE_MAX_PENDING_REQUESTS) {
-			fail();
-			return;
-		}
-		const controller = new AbortController();
-		pending.set(request.requestId, { controller, type: "asset" });
-		void Promise.resolve()
-			.then(() => options.onAssets({ assets: request.assets }, controller.signal))
-			.catch(() => ({ outcome: "failure", reason: "transport" }) satisfies PluginAssetOutcome)
-			.then((outcome) => {
-				if (state !== "active" || pending.get(request.requestId)?.controller !== controller) {
-					return undefined;
-				}
+		runRequest(
+			request.requestId,
+			"asset",
+			() => options.onAssets({ assets: request.assets }),
+			{ outcome: "failure", reason: "transport" } satisfies PluginAssetOutcome,
+			(outcome) => {
 				let result: PluginAssetOutcome;
 				if (outcome.outcome === "failure" && isAssetBridgeErrorReason(outcome.reason)) {
 					result = { outcome: "failure", reason: outcome.reason };
@@ -586,53 +523,28 @@ export function openPluginBridge(options: PluginBridgeOptions): PluginBridgeSess
 				} else {
 					result = { outcome: "success", resolutions: outcome.resolutions };
 				}
-				try {
-					channel.port1.postMessage({
-						...result,
-						type: "asset-result",
-						requestId: request.requestId,
-					} satisfies PluginBridgeAssetResult);
-					if (pending.get(request.requestId)?.controller === controller) {
-						pending.delete(request.requestId);
-					}
-				} catch {
-					fail();
-				}
-				return undefined;
-			});
+				return {
+					...result,
+					type: "asset-result",
+					requestId: request.requestId,
+				} satisfies PluginBridgeAssetResult;
+			},
+		);
 	}
 
 	function handleRyotQL(request: PluginBridgeRyotQLRequest) {
-		if (pending.has(request.requestId)) {
-			return;
-		}
-		if (pending.size >= CLIENT_BRIDGE_MAX_PENDING_REQUESTS) {
-			fail();
-			return;
-		}
-		const controller = new AbortController();
-		pending.set(request.requestId, { controller, type: "ryotql" });
-		void Promise.resolve()
-			.then(() => options.onRyotQL({ document: request.document }, controller.signal))
-			.catch(() => ({ outcome: "failure", reason: "transport" }) satisfies PluginRyotQLOutcome)
-			.then((outcome) => {
-				if (state !== "active" || pending.get(request.requestId)?.controller !== controller) {
-					return undefined;
-				}
-				try {
-					channel.port1.postMessage({
-						...outcome,
-						type: "ryotql-result",
-						requestId: request.requestId,
-					} satisfies PluginBridgeRyotQLResult);
-					if (pending.get(request.requestId)?.controller === controller) {
-						pending.delete(request.requestId);
-					}
-				} catch {
-					fail();
-				}
-				return undefined;
-			});
+		runRequest(
+			request.requestId,
+			"ryotql",
+			() => options.onRyotQL({ document: request.document }),
+			{ outcome: "failure", reason: "transport" } satisfies PluginRyotQLOutcome,
+			(outcome) =>
+				({
+					...outcome,
+					type: "ryotql-result",
+					requestId: request.requestId,
+				}) satisfies PluginBridgeRyotQLResult,
+		);
 	}
 
 	function handleRyotQLCancel(request: PluginBridgeRyotQLCancel) {
@@ -640,7 +552,7 @@ export function openPluginBridge(options: PluginBridgeOptions): PluginBridgeSess
 		if (current?.type !== "ryotql" || !pending.delete(request.requestId)) {
 			return;
 		}
-		current.controller.abort();
+		Effect.runFork(Fiber.interrupt(current.fiber));
 	}
 
 	function handleAssetCancel(request: PluginBridgeAssetCancel) {
@@ -648,7 +560,7 @@ export function openPluginBridge(options: PluginBridgeOptions): PluginBridgeSess
 		if (current?.type !== "asset" || !pending.delete(request.requestId)) {
 			return;
 		}
-		current.controller.abort();
+		Effect.runFork(Fiber.interrupt(current.fiber));
 	}
 
 	channel.port1.addEventListener(

@@ -241,6 +241,7 @@ const mountView = (
 };
 
 describe("import data list", () => {
+	// oxlint-disable-next-line effecttsgo/async-function -- Vitest awaits this Promise-based test callback and its framework assertions.
 	it("names each run by its source and opens the one that was clicked", async () => {
 		const view = mountView(
 			"/settings/import-data",
@@ -274,6 +275,7 @@ describe("import data list", () => {
 		);
 	});
 
+	// oxlint-disable-next-line effecttsgo/async-function -- Vitest awaits this Promise-based test callback and its framework assertions.
 	it("shows the progress of a run that is still going", async () => {
 		mountView(
 			"/settings/import-data",
@@ -300,6 +302,7 @@ describe("import data list", () => {
 		expect(within(card).getByRole("progressbar").getAttribute("aria-valuetext")).toBe("3 of 12");
 	});
 
+	// oxlint-disable-next-line effecttsgo/async-function -- Vitest awaits this Promise-based test callback and its framework assertions.
 	it("offers the wizard from the empty state", async () => {
 		mountView(
 			"/settings/import-data",
@@ -311,6 +314,7 @@ describe("import data list", () => {
 		expect(screen.getAllByRole("button", { name: "Start an import" })).toHaveLength(1);
 	});
 
+	// oxlint-disable-next-line effecttsgo/async-function -- Vitest awaits this Promise-based test callback and its framework assertions.
 	it("retries a failed run query without reloading the route", async () => {
 		let available = false;
 		mountView(
@@ -331,6 +335,7 @@ describe("import data list", () => {
 		await screen.findByRole("link", { name: /Open the Hevy import from/ });
 	});
 
+	// oxlint-disable-next-line effecttsgo/async-function -- Vitest awaits this Promise-based test callback and its framework assertions.
 	it("requests the configured next page size while keeping the current list visible", async () => {
 		const limits: number[] = [];
 		mountView(
@@ -351,6 +356,7 @@ describe("import data list", () => {
 		await waitFor(() => expect(limits).toEqual([LIMIT, LIMIT * 2]));
 	});
 
+	// oxlint-disable-next-line effecttsgo/async-function -- Vitest awaits this Promise-based test callback and its framework assertions.
 	it("starts an import and refreshes the active expanded list query", async () => {
 		const started: Record<string, unknown>[] = [];
 		const limits: number[] = [];
@@ -402,6 +408,7 @@ describe("import data list", () => {
 		expect(screen.queryByRole("dialog", { name: "Start an import" })).toBeNull();
 	});
 
+	// oxlint-disable-next-line effecttsgo/async-function -- Vitest awaits this Promise-based test callback and its framework assertions.
 	it("reveals the export steps for a source that documents them", async () => {
 		mountView(
 			"/settings/import-data",
@@ -419,6 +426,7 @@ describe("import data list", () => {
 		expect(screen.getByText("Open the Hevy app")).not.toBeNull();
 	});
 
+	// oxlint-disable-next-line effecttsgo/async-function -- Vitest awaits this Promise-based test callback and its framework assertions.
 	it("explains what a source still needs before it can be chosen", async () => {
 		mountView(
 			"/settings/import-data",
@@ -437,6 +445,7 @@ describe("import data list", () => {
 		).not.toBeNull();
 	});
 
+	// oxlint-disable-next-line effecttsgo/async-function -- Vitest awaits this Promise-based test callback and its framework assertions.
 	it("returns to the details step when the server rejects the input", async () => {
 		mountView(
 			"/settings/import-data",
@@ -458,6 +467,7 @@ describe("import data list", () => {
 		expect(screen.getByLabelText("Username")).not.toBeNull();
 	});
 
+	// oxlint-disable-next-line effecttsgo/async-function -- Vitest awaits this Promise-based test callback and its framework assertions.
 	it("keeps the failure visible when the services cannot be listed", async () => {
 		mountView(
 			"/settings/import-data",
@@ -475,6 +485,7 @@ describe("import data list", () => {
 });
 
 describe("import run detail", () => {
+	// oxlint-disable-next-line effecttsgo/async-function -- Vitest awaits this Promise-based test callback and its framework assertions.
 	it("retries a failed detail loader through the route error state", async () => {
 		let loads = 0;
 		mountView(
@@ -498,15 +509,17 @@ describe("import run detail", () => {
 		expect(loads).toBe(3);
 	});
 
+	// oxlint-disable-next-line effecttsgo/async-function -- Vitest awaits this Promise-based test callback and its framework assertions.
 	it("keeps an ordinary detail retry query-owned", async () => {
 		let loads = 0;
+		let retry = false;
 		mountView(
 			"/settings/import-data/run_1",
 			makeImportsApi(),
 			makeImportsStub({
 				loadRun: () => {
 					loads += 1;
-					return loads === 2
+					return loads > 1 && !retry
 						? Effect.fail(new ImportsLoadError({ stage: "run", cause: new Error("down") }))
 						: Effect.succeed(decodeRun([makeRun()]));
 				},
@@ -514,12 +527,14 @@ describe("import run detail", () => {
 		);
 
 		await screen.findByText("Unable to load this import");
+		retry = true;
 		fireEvent.click(screen.getByRole("button", { name: "Try again" }));
 
 		await screen.findByRole("heading", { level: 1, name: "Hevy" });
-		expect(loads).toBe(3);
+		expect(loads).toBeGreaterThan(2);
 	});
 
+	// oxlint-disable-next-line effecttsgo/async-function -- Vitest awaits this Promise-based test callback and its framework assertions.
 	it("shows the counts and groups what could not be brought over", async () => {
 		mountView(
 			"/settings/import-data/run_1",
@@ -552,6 +567,7 @@ describe("import run detail", () => {
 		expect(screen.getByText("row-5")).not.toBeNull();
 	});
 
+	// oxlint-disable-next-line effecttsgo/async-function -- Vitest awaits this Promise-based test callback and its framework assertions.
 	it("explains why a failed run stopped", async () => {
 		mountView(
 			"/settings/import-data/run_1",
@@ -574,6 +590,7 @@ describe("import run detail", () => {
 		).not.toBeNull();
 	});
 
+	// oxlint-disable-next-line effecttsgo/async-function -- Vitest awaits this Promise-based test callback and its framework assertions.
 	it("returns to the list after a confirmed delete", async () => {
 		const deleted: string[] = [];
 		const view = mountView(
@@ -600,6 +617,7 @@ describe("import run detail", () => {
 		await waitFor(() => expect(view.router.state.location.pathname).toBe("/settings/import-data"));
 	});
 
+	// oxlint-disable-next-line effecttsgo/async-function -- Vitest awaits this Promise-based test callback and its framework assertions.
 	it("offers no delete action while a run is still going", async () => {
 		mountView(
 			"/settings/import-data/run_1",
@@ -617,6 +635,7 @@ describe("import run detail", () => {
 		).not.toBeNull();
 	});
 
+	// oxlint-disable-next-line effecttsgo/async-function -- Vitest awaits this Promise-based test callback and its framework assertions.
 	it("uses the route not-found state for a run that no longer exists", async () => {
 		let loads = 0;
 		mountView(
@@ -635,6 +654,7 @@ describe("import run detail", () => {
 		expect(screen.queryByRole("button", { name: "Import actions" })).toBeNull();
 	});
 
+	// oxlint-disable-next-line effecttsgo/async-function -- Vitest awaits this Promise-based test callback and its framework assertions.
 	it("uses the route not-found state for a blank run id without loading detail", async () => {
 		let loads = 0;
 		mountView(

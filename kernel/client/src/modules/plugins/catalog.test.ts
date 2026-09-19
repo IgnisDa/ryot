@@ -64,6 +64,7 @@ const makeCatalogRuntime = (responses: ReadonlyArray<ContractSuccess<"ryotql", "
 };
 
 describe("plugin catalog service", () => {
+	// oxlint-disable-next-line effecttsgo/async-function -- Vitest awaits this Promise-based test callback and its framework assertions.
 	it("loads every catalog page through the direct Ryot client adapter", async () => {
 		const nextEntry = { ...entry, slug: "second", installationId: "installation-2" };
 		const first = {
@@ -106,8 +107,9 @@ describe("plugin catalog service", () => {
 		}
 	});
 
-	it("forwards the Effect cancellation signal to the Ryot client", async () => {
-		const signals: Array<AbortSignal | undefined> = [];
+	// oxlint-disable-next-line effecttsgo/async-function -- Vitest awaits this Promise-based test callback and its framework assertions.
+	it("loads the catalog through the Effect client capability", async () => {
+		const calls: unknown[] = [];
 		const response = {
 			data: {
 				installations: {
@@ -120,9 +122,9 @@ describe("plugin catalog service", () => {
 		const ryot = createRyotClient(
 			createTestRyotAdapter({
 				theme,
-				query: (_document, signal) => {
-					signals.push(signal);
-					return Promise.resolve(response);
+				query: (document) => {
+					calls.push(document);
+					return Effect.succeed(response);
 				},
 			}),
 		);
@@ -133,13 +135,13 @@ describe("plugin catalog service", () => {
 				Effect.flatMap(PluginCatalogService, (service) => service.load(ryot)),
 			);
 
-			expect(signals).toHaveLength(1);
-			expect(signals[0]).toBeInstanceOf(AbortSignal);
+			expect(calls).toHaveLength(1);
 		} finally {
 			await runtime.dispose();
 		}
 	});
 
+	// oxlint-disable-next-line effecttsgo/async-function -- Vitest awaits this Promise-based test callback and its framework assertions.
 	it("rejects a page that claims more rows without a cursor", async () => {
 		const response = {
 			data: {

@@ -114,6 +114,7 @@ describe("resolveDeepLinkHref", () => {
 });
 
 describe("createDeepLinkBridge", () => {
+	// oxlint-disable-next-line effecttsgo/async-function -- Vitest awaits this Promise-based test callback and its framework assertions.
 	it("replaces the current entry for a launch URL and pushes for a later one", async () => {
 		const harness = makeHarness("io.ryot.app://e/entity123");
 		const bridge = createDeepLinkBridge(harness.source, harness.navigator);
@@ -128,6 +129,7 @@ describe("createDeepLinkBridge", () => {
 		]);
 	});
 
+	// oxlint-disable-next-line effecttsgo/async-function -- Vitest awaits this Promise-based test callback and its framework assertions.
 	it("ignores a link that does not resolve to an application route", async () => {
 		const harness = makeHarness();
 		const bridge = createDeepLinkBridge(harness.source, harness.navigator);
@@ -139,6 +141,7 @@ describe("createDeepLinkBridge", () => {
 		expect(harness.navigated).toEqual([]);
 	});
 
+	// oxlint-disable-next-line effecttsgo/async-function -- Vitest awaits this Promise-based test callback and its framework assertions.
 	it("navigates back while history remains and exits at the root", async () => {
 		const harness = makeHarness();
 		const bridge = createDeepLinkBridge(harness.source, harness.navigator);
@@ -151,6 +154,7 @@ describe("createDeepLinkBridge", () => {
 		bridge.destroy();
 	});
 
+	// oxlint-disable-next-line effecttsgo/async-function -- Vitest awaits this Promise-based test callback and its framework assertions.
 	it("dismisses an open overlay before it pops history", async () => {
 		const harness = makeHarness();
 		const bridge = createDeepLinkBridge(harness.source, harness.navigator);
@@ -167,6 +171,7 @@ describe("createDeepLinkBridge", () => {
 		bridge.destroy();
 	});
 
+	// oxlint-disable-next-line effecttsgo/async-function -- Vitest awaits this Promise-based test callback and its framework assertions.
 	it("exits the application when there is nothing to go back to", async () => {
 		const harness = makeHarness();
 		const bridge = createDeepLinkBridge(harness.source, harness.navigator);
@@ -178,6 +183,7 @@ describe("createDeepLinkBridge", () => {
 		expect(harness.counts()).toEqual({ exited: 1, backCount: 0, dismissed: 0 });
 	});
 
+	// oxlint-disable-next-line effecttsgo/async-function -- Vitest awaits this Promise-based test callback and its framework assertions.
 	it("removes every listener once and ignores events after disposal", async () => {
 		const harness = makeHarness();
 		const bridge = createDeepLinkBridge(harness.source, harness.navigator);

@@ -26,3 +26,7 @@ renders entity art itself only in the table layout, from a `managed-asset` table
 states, and result layouts. Saved views adapt their configured recipe and optional provider Add flow;
 collections adapt the collections recipe, never expose Add, and pass `{ collectionId }` as the entity
 presentation context.
+
+Renderer queries return Effects from `createRyotQuery` callbacks. The collection header loads before
+the member query uses its schema; aggregate, count, and member requests then run concurrently. Query
+cancellation follows Effect interruption when the page unmounts.

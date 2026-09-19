@@ -42,6 +42,7 @@ export function CredentialsForm(props: {
 	const form = useForm({
 		errorVisibility,
 		defaultValues: { email: "", password: "" },
+		// oxlint-disable-next-line effecttsgo/async-function -- React auth form callback.
 		onSubmit: async ({ value }) => {
 			setServerError(undefined);
 			setServerError(await props.onSubmit(normalizeCredentials(value)));
@@ -219,6 +220,7 @@ export function TwoFactorForm(props: {
 	const form = useForm({
 		errorVisibility,
 		defaultValues: { code: "" },
+		// oxlint-disable-next-line effecttsgo/async-function -- React auth form callback.
 		onSubmit: async ({ value }) => {
 			setServerError(undefined);
 			const error = await props.onSubmit(value.code.trim());

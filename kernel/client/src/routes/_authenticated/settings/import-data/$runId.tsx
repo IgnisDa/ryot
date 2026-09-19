@@ -47,6 +47,7 @@ export const Route = createFileRoute("/_authenticated/settings/import-data/$runI
 	pendingComponent: ImportRunPending,
 	errorComponent: ImportRunLoaderError,
 	notFoundComponent: ImportRunNotFound,
+	// oxlint-disable-next-line effecttsgo/async-function -- TanStack import route loader.
 	loader: async ({ params, context, abortController }) => {
 		const runId = params.runId.trim();
 		if (runId.length === 0) {
@@ -137,6 +138,7 @@ function ImportRunRoute() {
 		});
 	}, [backInterceptors, deletion.isPending, isConfirming, menuOpen]);
 
+	// oxlint-disable-next-line effecttsgo/async-function -- React confirmation handler.
 	const confirmDelete = async () => {
 		deletion.reset();
 		try {

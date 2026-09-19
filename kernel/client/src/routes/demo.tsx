@@ -21,6 +21,7 @@ export const Route = createFileRoute("/demo")({
 	pendingComponent: () => (
 		<AuthStatus title="Opening demo" message="Preparing the shared demo account..." />
 	),
+	// oxlint-disable-next-line effecttsgo/async-function -- TanStack route guard.
 	beforeLoad: async ({ context }) => {
 		const result = await context.runtime.runPromise(
 			Effect.gen(function* () {
