@@ -159,6 +159,7 @@ export const definitionIntegrationProvider = snakeCase.table(
 		description: text().notNull(),
 		requiresProKey: boolean().notNull(),
 		settingsSchema: jsonb().$type<AppSchema>().notNull(),
+		supportsOwnershipSync: boolean().notNull().default(false),
 		lot: text().$type<PluginIntegrationProvider["lot"]>().notNull(),
 		pluginRevisionId: text()
 			.notNull()
@@ -490,12 +491,13 @@ export const userIntegrationProvider = snakeCase
 		scriptId: text(),
 		scriptSlug: text(),
 		requiresProKey: boolean().notNull(),
+		supportsOwnershipSync: boolean().notNull(),
 		settingsSchema: jsonb().$type<AppSchema>().notNull(),
 		lot: text().$type<PluginIntegrationProvider["lot"]>().notNull(),
 	})
 	.as(
 		sql`
-			select p.user_id, d.id, p.plugin_id, d.plugin_revision_id, p.slug as plugin_slug, p.scope as plugin_scope, p.installation_id, p.config_revision_id, d.slug, d.name, d.description, d.position, d.lot, d.script_slug, s.id as script_id, d.settings_schema, d.requires_pro_key
+			select p.user_id, d.id, p.plugin_id, d.plugin_revision_id, p.slug as plugin_slug, p.scope as plugin_scope, p.installation_id, p.config_revision_id, d.slug, d.name, d.description, d.position, d.lot, d.script_slug, s.id as script_id, d.settings_schema, d.requires_pro_key, d.supports_ownership_sync
 			from ${userPlugin} p
 			join definition_integration_provider d on d.plugin_revision_id = p.active_revision_id
 			left join sandbox_script s on s.plugin_revision_id = d.plugin_revision_id and s.slug = d.script_slug

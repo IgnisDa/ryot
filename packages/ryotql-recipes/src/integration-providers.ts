@@ -21,7 +21,7 @@ export const integrationProvidersRecipe = defineRecipe(
 				...providers,
 				items: providers.items.map((item) => ({
 					...item,
-					commonSchema: integrationCommonSchema(item.lot),
+					commonSchema: integrationCommonSchema(item.lot, item.supportsOwnershipSync),
 				})),
 			}),
 		queries: {
@@ -39,6 +39,10 @@ export const integrationProvidersRecipe = defineRecipe(
 					settingsSchema: selectedField(column(provider, "settingsSchema"), AppSchema),
 					requiresProKey: selectedField(column(provider, "requiresProKey"), Schema.Boolean),
 					lot: selectedField(column(provider, "lot"), Schema.Literals([...integrationLots])),
+					supportsOwnershipSync: selectedField(
+						column(provider, "supportsOwnershipSync"),
+						Schema.Boolean,
+					),
 				},
 			}),
 		},

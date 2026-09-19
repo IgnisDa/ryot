@@ -74,39 +74,58 @@ it("decodes executable import metadata and nullable export help", () => {
 	});
 });
 
-it("builds provider common fields by lot without deciding pro-key eligibility", () => {
+it("builds provider common fields from lot and ownership-sync support", () => {
 	const decoded = Result.getOrThrow(
-		integrationProvidersRecipe({ limit: 2 }).decode({
+		integrationProvidersRecipe({ limit: 3 }).decode({
 			data: {
-				providers: page([
-					{
-						id: "a",
-						lot: "push",
-						slug: "push",
-						name: "Push",
-						hasScript: true,
-						pluginSlug: "plug",
-						requiresProKey: false,
-						description: "Push provider",
-						settingsSchema: { fields: {} },
-					},
-					{
-						id: "b",
-						lot: "yank",
-						slug: "yank",
-						name: "Yank",
-						hasScript: false,
-						pluginSlug: "plug",
-						requiresProKey: true,
-						description: "Yank provider",
-						settingsSchema: { fields: {} },
-					},
-				]),
+				providers: page(
+					[
+						{
+							id: "a",
+							lot: "push",
+							slug: "push",
+							name: "Push",
+							hasScript: true,
+							pluginSlug: "plug",
+							requiresProKey: false,
+							supportsOwnershipSync: false,
+							description: "Push provider",
+							settingsSchema: { fields: {} },
+						},
+						{
+							id: "b",
+							lot: "yank",
+							slug: "yank",
+							name: "Yank",
+							hasScript: false,
+							pluginSlug: "plug",
+							requiresProKey: true,
+							supportsOwnershipSync: true,
+							description: "Yank provider",
+							settingsSchema: { fields: {} },
+						},
+						{
+							id: "c",
+							lot: "yank",
+							hasScript: true,
+							pluginSlug: "plug",
+							requiresProKey: false,
+							slug: "unsupported-yank",
+							name: "Unsupported yank",
+							supportsOwnershipSync: false,
+							settingsSchema: { fields: {} },
+							description: "Yank provider without ownership sync",
+						},
+					],
+					3,
+				),
 			},
 		}),
 	);
 	expect(Object.keys(decoded.items[0]?.commonSchema.fields ?? {})).not.toContain("minimumProgress");
+	expect(Object.keys(decoded.items[0]?.commonSchema.fields ?? {})).not.toContain("syncOwnership");
 	expect(Object.keys(decoded.items[1]?.commonSchema.fields ?? {})).toContain("syncOwnership");
+	expect(Object.keys(decoded.items[2]?.commonSchema.fields ?? {})).not.toContain("syncOwnership");
 	expect(decoded.items[1]).toMatchObject({ hasScript: false, requiresProKey: true });
 });
 
