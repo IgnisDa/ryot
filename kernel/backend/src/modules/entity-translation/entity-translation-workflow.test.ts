@@ -1,12 +1,11 @@
-import { assert, expect, it } from "@effect/vitest";
+import { assert, expect, layer } from "@effect/vitest";
 import { SandboxRunError } from "@ryot-app/contract/errors";
 import { EntityId, SandboxProviderId, UserId } from "@ryot-app/contract/schema/brands";
-import { Cause, Effect, Exit, Layer, Option, Schema } from "effect";
+import { Cause, Context, Effect, Exit, Layer, Option, Ref, Schema } from "effect";
 import { Workflow } from "effect/unstable/workflow";
 import { WorkflowEngine, WorkflowInstance } from "effect/unstable/workflow/WorkflowEngine";
 
 import { RedisService } from "#lib/infrastructure/redis";
-import type { MockOverrides } from "#lib/test-utils/effect";
 import {
 	databaseLayer,
 	makeRedisService,
@@ -19,6 +18,7 @@ import {
 	TranslateEntityWorkflowOperations,
 	type TranslateEntityWorkflowOperationsValue,
 } from "./operations-workflow";
+import type { TranslationOverlayInput } from "./repository";
 import { TranslationsService } from "./service";
 
 const TestTranslateEntityWorkflow = Workflow.make("TestTranslateEntityWorkflow", {
@@ -39,110 +39,87 @@ const payload = {
 	providerId: SandboxProviderId.make("provider-1"),
 } satisfies TranslateEntityWorkflowPayload;
 
-const mockTranslationsService = Layer.mock(TranslationsService);
+class FakeTranslationEffects extends Context.Service<
+	FakeTranslationEffects,
+	{
+		readonly upserts: Effect.Effect<ReadonlyArray<TranslationOverlayInput>>;
+		readonly published: Effect.Effect<ReadonlyArray<{ channel: string; message: string }>>;
+	}
+>()("test/FakeTranslationEffects") {}
 
-const makeTranslationsService = (overrides: MockOverrides<typeof mockTranslationsService> = {}) =>
-	mockTranslationsService({
-		requestFill: () => Effect.void,
-		upsert: () => Effect.succeed("translation-id"),
-		...overrides,
-	});
-
-type TestLayerOptions = {
-	translationsService?: Layer.Layer<TranslationsService>;
-	publishedMessages?: Array<{ channel: string; message: string }>;
-	processSandbox?: TranslateEntityWorkflowOperationsValue["processSandbox"];
-};
-
-const makeTestLayer = (options: TestLayerOptions) =>
-	Layer.mergeAll(
-		databaseLayer,
-		Layer.succeed(
-			RedisService,
-			makeRedisService({
-				publish: (channel, message) => {
-					options.publishedMessages?.push({ channel, message });
-					return Effect.succeed(0);
-				},
-			}),
-		),
-		Layer.mock(TranslateEntityWorkflowOperations, {
-			processSandbox: options.processSandbox ?? (() => Effect.die("unused")),
+const makeTestLayer = (processSandbox: TranslateEntityWorkflowOperationsValue["processSandbox"]) =>
+	Layer.unwrap(
+		Effect.gen(function* () {
+			const upserts = yield* Ref.make<ReadonlyArray<TranslationOverlayInput>>([]);
+			const published = yield* Ref.make<ReadonlyArray<{ channel: string; message: string }>>([]);
+			const instance = WorkflowInstance.initial(TestTranslateEntityWorkflow, payload.executionId);
+			return Layer.mergeAll(
+				databaseLayer,
+				Layer.succeed(WorkflowInstance, instance),
+				Layer.succeed(WorkflowEngine, makeWorkflowActivityEngine(instance)),
+				Layer.succeed(
+					RedisService,
+					makeRedisService({
+						publish: (channel, message) =>
+							Ref.update(published, (all) => [...all, { channel, message }]).pipe(Effect.as(0)),
+					}),
+				),
+				Layer.mock(TranslateEntityWorkflowOperations, { processSandbox }),
+				Layer.mock(TranslationsService)({
+					requestFill: () => Effect.void,
+					upsert: (input) =>
+						Ref.update(upserts, (all) => [...all, input]).pipe(Effect.as("translation-id")),
+				}),
+				Layer.succeed(FakeTranslationEffects, {
+					upserts: Ref.get(upserts),
+					published: Ref.get(published),
+				}),
+			);
 		}),
-		options.translationsService ?? makeTranslationsService(),
 	);
 
-const withTestLayer = <A, E, R>(
-	options: TestLayerOptions,
-	executionId: string,
-	effect: Effect.Effect<A, E, R>,
-) => {
-	const instance = WorkflowInstance.initial(TestTranslateEntityWorkflow, executionId);
-	const engine = makeWorkflowActivityEngine(instance);
-
-	return effect.pipe(
-		Effect.provideService(WorkflowEngine, engine),
-		Effect.provideService(WorkflowInstance, instance),
-		Effect.provide(makeTestLayer(options)),
-	);
-};
-
-it.effect("upserts the translation overlay and publishes an update on success", () => {
-	let upsertedInput: unknown;
-	const publishedMessages: Array<{ channel: string; message: string }> = [];
-
-	const options = {
-		publishedMessages,
-		translationsService: makeTranslationsService({
-			upsert: (input) => {
-				upsertedInput = input;
-				return Effect.succeed("translation-id");
-			},
+layer(
+	makeTestLayer(() =>
+		Effect.succeed({
+			logs: [],
+			error: null,
+			status: "completed" as const,
+			value: { name: "Libro de Prueba", properties: { title: "Libro de Prueba" } },
 		}),
-		processSandbox: () =>
-			Effect.succeed({
-				logs: [],
-				error: null,
-				status: "completed" as const,
-				value: { name: "Libro de Prueba", properties: { title: "Libro de Prueba" } },
-			}),
-	} satisfies TestLayerOptions;
-
-	return withTestLayer(
-		options,
-		payload.executionId,
+	),
+)((test) => {
+	test.effect("upserts the translation overlay and publishes an update on success", () =>
 		Effect.gen(function* () {
 			yield* runTranslateEntityWorkflow(payload, payload.executionId);
 
+			const effects = yield* FakeTranslationEffects;
+			const [upsertedInput] = yield* effects.upserts;
 			expect(upsertedInput).toMatchObject({
 				language: "es",
 				entityId: "entity-1",
 				name: "Libro de Prueba",
 				properties: { title: "Libro de Prueba" },
 			});
-			expect(publishedMessages).toHaveLength(1);
+			expect(yield* effects.published).toHaveLength(1);
 		}),
 	);
 });
 
-it.effect("fails with the sandbox's reported error", () => {
-	const options = {
-		processSandbox: () =>
-			Effect.succeed({
-				logs: [],
-				value: null,
-				status: "completed" as const,
-				error: {
-					phase: "execute" as const,
-					kind: "script-failure" as const,
-					message: "Translate script execution failed",
-				},
-			}),
-	} satisfies TestLayerOptions;
-
-	return withTestLayer(
-		options,
-		payload.executionId,
+layer(
+	makeTestLayer(() =>
+		Effect.succeed({
+			logs: [],
+			value: null,
+			status: "completed" as const,
+			error: {
+				phase: "execute" as const,
+				kind: "script-failure" as const,
+				message: "Translate script execution failed",
+			},
+		}),
+	),
+)((test) => {
+	test.effect("fails with the sandbox's reported error", () =>
 		Effect.gen(function* () {
 			const exit = yield* Effect.exit(runTranslateEntityWorkflow(payload, payload.executionId));
 
@@ -155,20 +132,12 @@ it.effect("fails with the sandbox's reported error", () => {
 	);
 });
 
-it.effect("fails when the sandbox result does not decode as a translate result", () => {
-	const options = {
-		processSandbox: () =>
-			Effect.succeed({
-				logs: [],
-				error: null,
-				value: { name: 12345 },
-				status: "completed" as const,
-			}),
-	} satisfies TestLayerOptions;
-
-	return withTestLayer(
-		options,
-		payload.executionId,
+layer(
+	makeTestLayer(() =>
+		Effect.succeed({ logs: [], error: null, value: { name: 12345 }, status: "completed" as const }),
+	),
+)((test) => {
+	test.effect("fails when the sandbox result does not decode as a translate result", () =>
 		Effect.gen(function* () {
 			const exit = yield* Effect.exit(runTranslateEntityWorkflow(payload, payload.executionId));
 
