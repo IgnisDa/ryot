@@ -14,17 +14,16 @@ export const Route = createFileRoute("/_authenticated/e/$entityId")({
 	component: EntityPage,
 	errorComponent: EntityError,
 	pendingComponent: EntityPending,
-	// oxlint-disable-next-line effecttsgo/async-function -- TanStack entity route loader.
-	loader: async ({ params, context, abortController }) => {
-		const preparation = await context.runtime.runPromise(
-			prepareClientPage(context.scope, {
-				kind: "entity",
-				entityId: EntityId.make(params.entityId),
-			}),
-			{ signal: abortController.signal },
-		);
-		return { preparation };
-	},
+	loader: ({ params, context, abortController }) =>
+		context.runtime
+			.runPromise(
+				prepareClientPage(context.scope, {
+					kind: "entity",
+					entityId: EntityId.make(params.entityId),
+				}),
+				{ signal: abortController.signal },
+			)
+			.then((preparation) => ({ preparation })),
 });
 
 function EntityPage() {

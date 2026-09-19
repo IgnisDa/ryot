@@ -1,6 +1,7 @@
+import { describe, expect, it } from "@effect/vitest";
 import { render, screen, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
-import { describe, expect, it } from "vitest";
+import { Effect } from "effect";
 
 import type { AuthMode, TwoFactorMethod } from "#/modules/auth/flow";
 import type { CredentialsValues } from "#/modules/auth/form-values";
@@ -96,75 +97,90 @@ describe("credentials form", () => {
 		);
 	});
 
-	// oxlint-disable-next-line effecttsgo/async-function -- Vitest awaits this Promise-based test callback and its framework assertions.
-	it("keeps the email and clears the password when switching to signup", async () => {
-		const { user, modeChanges } = renderCredentialsForm();
-		const email = screen.getByLabelText<HTMLInputElement>("Email address");
-		const password = screen.getByLabelText<HTMLInputElement>("Password");
+	it.live("keeps the email and clears the password when switching to signup", () =>
+		Effect.gen(function* () {
+			const { user, modeChanges } = renderCredentialsForm();
+			const email = screen.getByLabelText<HTMLInputElement>("Email address");
+			const password = screen.getByLabelText<HTMLInputElement>("Password");
 
-		await user.type(email, "user@example.com");
-		await user.type(password, "Sup3rSecret");
-		await user.click(modeSwitcher().getByRole("button", { name: "Sign up" }));
+			yield* Effect.promise(() => user.type(email, "user@example.com"));
+			yield* Effect.promise(() => user.type(password, "Sup3rSecret"));
+			yield* Effect.promise(() =>
+				user.click(modeSwitcher().getByRole("button", { name: "Sign up" })),
+			);
 
-		expect(modeChanges).toEqual(["signup"]);
-		expect(email.value).toBe("user@example.com");
-		expect(password.value).toBe("");
-	});
+			expect(modeChanges).toEqual(["signup"]);
+			expect(email.value).toBe("user@example.com");
+			expect(password.value).toBe("");
+		}),
+	);
 
-	// oxlint-disable-next-line effecttsgo/async-function -- Vitest awaits this Promise-based test callback and its framework assertions.
-	it("moves focus to the password field when Enter is pressed in the email field", async () => {
-		const { user, submissions } = renderCredentialsForm();
+	it.live("moves focus to the password field when Enter is pressed in the email field", () =>
+		Effect.gen(function* () {
+			const { user, submissions } = renderCredentialsForm();
 
-		await user.type(screen.getByLabelText("Email address"), "user@example.com{Enter}");
+			yield* Effect.promise(() =>
+				user.type(screen.getByLabelText("Email address"), "user@example.com{Enter}"),
+			);
 
-		expect(document.activeElement).toBe(screen.getByLabelText("Password"));
-		expect(submissions).toEqual([]);
-	});
+			expect(document.activeElement).toBe(screen.getByLabelText("Password"));
+			expect(submissions).toEqual([]);
+		}),
+	);
 
-	// oxlint-disable-next-line effecttsgo/async-function -- Vitest awaits this Promise-based test callback and its framework assertions.
-	it("submits normalized credentials once", async () => {
-		const { user, submissions } = renderCredentialsForm();
+	it.live("submits normalized credentials once", () =>
+		Effect.gen(function* () {
+			const { user, submissions } = renderCredentialsForm();
 
-		await user.type(screen.getByLabelText("Email address"), "  USER@Example.COM  ");
-		await user.type(screen.getByLabelText("Password"), "Sup3rSecret");
-		await user.click(submitButton());
+			yield* Effect.promise(() =>
+				user.type(screen.getByLabelText("Email address"), "  USER@Example.COM  "),
+			);
+			yield* Effect.promise(() => user.type(screen.getByLabelText("Password"), "Sup3rSecret"));
+			yield* Effect.promise(() => user.click(submitButton()));
 
-		expect(submissions).toEqual([{ password: "Sup3rSecret", email: "user@example.com" }]);
-	});
+			expect(submissions).toEqual([{ password: "Sup3rSecret", email: "user@example.com" }]);
+		}),
+	);
 
-	// oxlint-disable-next-line effecttsgo/async-function -- Vitest awaits this Promise-based test callback and its framework assertions.
-	it("shows a submission error until the password changes", async () => {
-		const { user } = renderCredentialsForm({ submitError: "Invalid credentials." });
+	it.live("shows a submission error until the password changes", () =>
+		Effect.gen(function* () {
+			const { user } = renderCredentialsForm({ submitError: "Invalid credentials." });
 
-		await user.type(screen.getByLabelText("Email address"), "user@example.com");
-		await user.type(screen.getByLabelText("Password"), "Sup3rSecret");
-		await user.click(submitButton());
+			yield* Effect.promise(() =>
+				user.type(screen.getByLabelText("Email address"), "user@example.com"),
+			);
+			yield* Effect.promise(() => user.type(screen.getByLabelText("Password"), "Sup3rSecret"));
+			yield* Effect.promise(() => user.click(submitButton()));
 
-		expect(screen.getByRole("alert").textContent).toBe("Invalid credentials.");
+			expect(screen.getByRole("alert").textContent).toBe("Invalid credentials.");
 
-		await user.type(screen.getByLabelText("Password"), "!");
+			yield* Effect.promise(() => user.type(screen.getByLabelText("Password"), "!"));
 
-		expect(screen.queryByRole("alert")).toBeNull();
-	});
+			expect(screen.queryByRole("alert")).toBeNull();
+		}),
+	);
 
-	// oxlint-disable-next-line effecttsgo/async-function -- Vitest awaits this Promise-based test callback and its framework assertions.
-	it("blocks submission while a blurred field is invalid", async () => {
-		const { user } = renderCredentialsForm();
+	it.live("blocks submission while a blurred field is invalid", () =>
+		Effect.gen(function* () {
+			const { user } = renderCredentialsForm();
 
-		await user.type(screen.getByLabelText("Email address"), "not-an-email");
-		await user.tab();
+			yield* Effect.promise(() =>
+				user.type(screen.getByLabelText("Email address"), "not-an-email"),
+			);
+			yield* Effect.promise(() => user.tab());
 
-		expect(screen.getByText("Enter a valid email address.").getAttribute("role")).toBe("alert");
-		expect(submitButton().disabled).toBe(true);
+			expect(screen.getByText("Enter a valid email address.").getAttribute("role")).toBe("alert");
+			expect(submitButton().disabled).toBe(true);
 
-		await user.type(screen.getByLabelText("Password"), "short");
-		await user.tab();
+			yield* Effect.promise(() => user.type(screen.getByLabelText("Password"), "short"));
+			yield* Effect.promise(() => user.tab());
 
-		expect(screen.getByText("Password must be at least 8 characters.").getAttribute("role")).toBe(
-			"alert",
-		);
-		expect(submitButton().disabled).toBe(true);
-	});
+			expect(screen.getByText("Password must be at least 8 characters.").getAttribute("role")).toBe(
+				"alert",
+			);
+			expect(submitButton().disabled).toBe(true);
+		}),
+	);
 
 	it("disables every input and mode button when disabled", () => {
 		renderCredentialsForm({ disabled: true });
@@ -204,46 +220,54 @@ describe("two-factor form", () => {
 		expect(backupCode.getAttribute("inputmode")).toBe("text");
 	});
 
-	// oxlint-disable-next-line effecttsgo/async-function -- Vitest awaits this Promise-based test callback and its framework assertions.
-	it("offers a method switch only when more than one method exists", async () => {
-		const single = renderTwoFactorForm({ methods: ["totp"] });
+	it.live("offers a method switch only when more than one method exists", () =>
+		Effect.gen(function* () {
+			const single = renderTwoFactorForm({ methods: ["totp"] });
 
-		expect(screen.queryByRole("button", { name: "Use a backup code" })).toBeNull();
+			expect(screen.queryByRole("button", { name: "Use a backup code" })).toBeNull();
 
-		single.view.unmount();
-		const { user, methodChanges } = renderTwoFactorForm();
-		await user.click(screen.getByRole("button", { name: "Use a backup code" }));
+			single.view.unmount();
+			const { user, methodChanges } = renderTwoFactorForm();
+			yield* Effect.promise(() =>
+				user.click(screen.getByRole("button", { name: "Use a backup code" })),
+			);
 
-		expect(methodChanges).toEqual(["backupCode"]);
-	});
+			expect(methodChanges).toEqual(["backupCode"]);
+		}),
+	);
 
-	// oxlint-disable-next-line effecttsgo/async-function -- Vitest awaits this Promise-based test callback and its framework assertions.
-	it("submits the trimmed code", async () => {
-		const { user, submissions } = renderTwoFactorForm({ method: "backupCode" });
+	it.live("submits the trimmed code", () =>
+		Effect.gen(function* () {
+			const { user, submissions } = renderTwoFactorForm({ method: "backupCode" });
 
-		await user.type(screen.getByLabelText("Backup code"), " 123456 ");
-		await user.click(screen.getByRole("button", { name: "Verify" }));
+			yield* Effect.promise(() => user.type(screen.getByLabelText("Backup code"), " 123456 "));
+			yield* Effect.promise(() => user.click(screen.getByRole("button", { name: "Verify" })));
 
-		expect(submissions).toEqual(["123456"]);
-	});
+			expect(submissions).toEqual(["123456"]);
+		}),
+	);
 
-	// oxlint-disable-next-line effecttsgo/async-function -- Vitest awaits this Promise-based test callback and its framework assertions.
-	it("shows a submission error and clears the code", async () => {
-		const { user } = renderTwoFactorForm({ submitError: "That code did not work." });
+	it.live("shows a submission error and clears the code", () =>
+		Effect.gen(function* () {
+			const { user } = renderTwoFactorForm({ submitError: "That code did not work." });
 
-		await user.type(screen.getByLabelText("Authenticator code"), "123456");
-		await user.click(screen.getByRole("button", { name: "Verify" }));
+			yield* Effect.promise(() => user.type(screen.getByLabelText("Authenticator code"), "123456"));
+			yield* Effect.promise(() => user.click(screen.getByRole("button", { name: "Verify" })));
 
-		expect(screen.getByRole("alert").textContent).toBe("That code did not work.");
-		expect(screen.getByLabelText<HTMLInputElement>("Authenticator code").value).toBe("");
-	});
+			expect(screen.getByRole("alert").textContent).toBe("That code did not work.");
+			expect(screen.getByLabelText<HTMLInputElement>("Authenticator code").value).toBe("");
+		}),
+	);
 
-	// oxlint-disable-next-line effecttsgo/async-function -- Vitest awaits this Promise-based test callback and its framework assertions.
-	it("returns to sign in", async () => {
-		const { user, backRequests } = renderTwoFactorForm();
+	it.live("returns to sign in", () =>
+		Effect.gen(function* () {
+			const { user, backRequests } = renderTwoFactorForm();
 
-		await user.click(screen.getByRole("button", { name: "Back to sign in" }));
+			yield* Effect.promise(() =>
+				user.click(screen.getByRole("button", { name: "Back to sign in" })),
+			);
 
-		expect(backRequests).toEqual([true]);
-	});
+			expect(backRequests).toEqual([true]);
+		}),
+	);
 });

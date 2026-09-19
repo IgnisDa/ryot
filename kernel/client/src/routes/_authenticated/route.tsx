@@ -19,57 +19,53 @@ export const Route = createFileRoute("/_authenticated")({
 	component: AuthenticatedLayout,
 	pendingComponent: RestoringSession,
 	errorComponent: AuthenticatedLoadError,
-	// oxlint-disable-next-line effecttsgo/async-function -- TanStack route guard.
-	beforeLoad: async ({ context, location }) => {
-		const authenticated = await protectedRouteGuard(context, location.href);
-		const session = context.ryotClients.get(authenticated.scope);
-		return {
-			...authenticated,
-			ryot: session.client,
-			ryotRuntime: session.runtime,
-			hostServices: session.hostServices,
-		};
-	},
-	// oxlint-disable-next-line effecttsgo/async-function -- TanStack loader.
-	loader: async ({ context, location, abortController }) => {
-		const [catalog, navigation, rememberedSlug, isPro] = await context.runtime.runPromise(
-			Effect.all(
-				[
-					Effect.flatMap(PluginCatalogService, (service) => service.load(context.ryot)),
-					Effect.flatMap(NavigationService, (service) => service.load(context.ryot)),
-					Effect.flatMap(ClientStorage, (service) => service.getLastWorkspace(context.scope)),
-					Effect.flatMap(PublicApi, (api) => api.getSystemConfig(context.server)).pipe(
-						Effect.match({
-							onFailure: () => false,
-							onSuccess: (config) => config.pro.isServerKeyValidated,
-						}),
-					),
-				],
-				{ concurrency: "unbounded" },
-			),
-			{ signal: abortController.signal },
-		);
-		if (location.pathname === "/") {
-			const selected = resolveRememberedWorkspace(catalog, rememberedSlug);
-			if (selected !== null) {
-				if (selected.slug !== rememberedSlug) {
-					await context.runtime.runPromise(
-						Effect.flatMap(ClientStorage, (service) =>
-							service.setLastWorkspace(context.scope, selected.slug),
+	beforeLoad: ({ context, location }) =>
+		protectedRouteGuard(context, location.href).then((authenticated) => {
+			const session = context.ryotClients.get(authenticated.scope);
+			return {
+				...authenticated,
+				ryot: session.client,
+				ryotRuntime: session.runtime,
+				hostServices: session.hostServices,
+			};
+		}),
+	loader: ({ context, location, abortController }) =>
+		context.runtime.runPromise(
+			Effect.gen(function* () {
+				const [catalog, navigation, rememberedSlug, isPro] = yield* Effect.all(
+					[
+						Effect.flatMap(PluginCatalogService, (service) => service.load(context.ryot)),
+						Effect.flatMap(NavigationService, (service) => service.load(context.ryot)),
+						Effect.flatMap(ClientStorage, (service) => service.getLastWorkspace(context.scope)),
+						Effect.flatMap(PublicApi, (api) => api.getSystemConfig(context.server)).pipe(
+							Effect.match({
+								onFailure: () => false,
+								onSuccess: (config) => config.pro.isServerKeyValidated,
+							}),
 						),
-						{ signal: abortController.signal },
-					);
+					],
+					{ concurrency: "unbounded" },
+				);
+				if (location.pathname === "/") {
+					const selected = resolveRememberedWorkspace(catalog, rememberedSlug);
+					if (selected !== null) {
+						if (selected.slug !== rememberedSlug) {
+							yield* Effect.flatMap(ClientStorage, (service) =>
+								service.setLastWorkspace(context.scope, selected.slug),
+							);
+						}
+						// oxlint-disable-next-line typescript/only-throw-error
+						throw redirect({
+							replace: true,
+							to: "/$pluginSlug",
+							params: { pluginSlug: selected.slug },
+						});
+					}
 				}
-				// oxlint-disable-next-line typescript/only-throw-error
-				throw redirect({
-					replace: true,
-					to: "/$pluginSlug",
-					params: { pluginSlug: selected.slug },
-				});
-			}
-		}
-		return { isPro, catalog, navigation, rememberedSlug };
-	},
+				return { isPro, catalog, navigation, rememberedSlug };
+			}),
+			{ signal: abortController.signal },
+		),
 	// oxlint-disable-next-line perfectionist/sort-objects -- TanStack derives route context in declaration order.
 	shouldReload: ({ location }) => location.pathname === "/",
 });

@@ -53,34 +53,36 @@ export const Route = createFileRoute("/_authenticated/v/$viewSlug")({
 		entityId:
 			typeof search.entityId === "string" && search.entityId !== "" ? search.entityId : undefined,
 	}),
-	// oxlint-disable-next-line effecttsgo/async-function -- TanStack saved-view route loader.
-	loader: async ({ params, context, abortController }) => {
-		const slug = params.viewSlug.trim();
-		if (slug.length === 0) {
-			// oxlint-disable-next-line typescript/only-throw-error
-			throw notFound();
-		}
-		let prepared = await context.runtime.runPromise(
-			Effect.flatMap(ClientPagesApi, (api) =>
-				api.prepare(context.scope, { payload: { target: { slug, kind: "saved-view" } } }),
-			),
+	loader: ({ params, context, abortController }) =>
+		context.runtime.runPromise(
+			Effect.gen(function* () {
+				const slug = params.viewSlug.trim();
+				if (slug.length === 0) {
+					// oxlint-disable-next-line typescript/only-throw-error
+					throw notFound();
+				}
+				let prepared = yield* Effect.flatMap(ClientPagesApi, (api) =>
+					api.prepare(context.scope, { payload: { target: { slug, kind: "saved-view" } } }),
+				);
+				const settings = entityBrowserSettings(prepared);
+				if (settings !== null) {
+					const storedLayout = yield* Effect.flatMap(ClientStorage, (storage) =>
+						storage.getSavedViewLayout(context.scope, slug),
+					);
+					if (settings.layouts.includes(storedLayout)) {
+						prepared = {
+							...prepared,
+							context: {
+								...prepared.context,
+								settings: { ...settings, defaultLayout: storedLayout },
+							},
+						};
+					}
+				}
+				return { slug, prepared };
+			}),
 			{ signal: abortController.signal },
-		);
-		const settings = entityBrowserSettings(prepared);
-		if (settings !== null) {
-			const storedLayout = await context.runtime.runPromise(
-				Effect.flatMap(ClientStorage, (storage) => storage.getSavedViewLayout(context.scope, slug)),
-				{ signal: abortController.signal },
-			);
-			if (settings.layouts.includes(storedLayout)) {
-				prepared = {
-					...prepared,
-					context: { ...prepared.context, settings: { ...settings, defaultLayout: storedLayout } },
-				};
-			}
-		}
-		return { slug, prepared };
-	},
+		),
 });
 
 function SavedViewPage() {

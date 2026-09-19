@@ -1,6 +1,6 @@
+import { describe, expect, it } from "@effect/vitest";
 import { Effect } from "@ryot-app/sandbox-sdk/effect";
 import { defineSandboxTestHost, runSandboxTestScript } from "@ryot-app/sandbox-sdk/testing";
-import { describe, expect, it } from "vitest";
 
 import {
 	execution,
@@ -94,65 +94,66 @@ describe("Kodi sink", () => {
 		]);
 	});
 
-	// oxlint-disable-next-line effecttsgo/async-function -- Vitest awaits this Promise-returning test callback.
-	it("parses a Kodi webhook raw body", async () => {
-		const result = await runKodi(JSON.stringify({ lot: "movie", progress: 30, identifier: "603" }));
-		expect(result.failures).toEqual([]);
-		expect(result.entityGroups[0]?.entityRef).toMatchObject({
-			externalId: "603",
-			entitySchemaSlug: "movie",
-			providerSlug: "movie.tmdb",
-		});
-	});
+	it.live("parses a Kodi webhook raw body", () =>
+		Effect.gen(function* () {
+			const result = yield* Effect.promise(() =>
+				runKodi(JSON.stringify({ lot: "movie", progress: 30, identifier: "603" })),
+			);
+			expect(result.failures).toEqual([]);
+			expect(result.entityGroups[0]?.entityRef).toMatchObject({
+				externalId: "603",
+				entitySchemaSlug: "movie",
+				providerSlug: "movie.tmdb",
+			});
+		}),
+	);
 });
 
 describe("media server sinks", () => {
-	// oxlint-disable-next-line effecttsgo/async-function -- Vitest awaits this Promise-returning test callback.
-	it("maps an Emby episode webhook to a TMDB show ref", async () => {
-		const rawBody = JSON.stringify({
-			IndexNumber: 3,
-			PositionTicks: 50,
-			RunTimeTicks: 100,
-			ItemType: "Episode",
-			ParentIndexNumber: 1,
-			SeriesName: "Severance",
-			SeriesProvider_tmdb: "95396",
-		});
-		const result = await Effect.runPromise(
-			runSandboxTestScript(
+	it.live("maps an Emby episode webhook to a TMDB show ref", () =>
+		Effect.gen(function* () {
+			const rawBody = JSON.stringify({
+				IndexNumber: 3,
+				PositionTicks: 50,
+				RunTimeTicks: 100,
+				ItemType: "Episode",
+				ParentIndexNumber: 1,
+				SeriesName: "Severance",
+				SeriesProvider_tmdb: "95396",
+			});
+			const result = yield* runSandboxTestScript(
 				embyDefinition,
 				sinkInput(rawBody),
 				defineSandboxTestHost(embyManifest, {
 					getCurrentIntegration: () => hostSuccess(integrationRecord({ provider: "emby" })),
 				}),
 				execution,
-			),
-		);
-		expect(result.failures).toEqual([]);
-		expect(result.entityGroups[0]).toMatchObject({
-			entityRef: { externalId: "95396", entitySchemaSlug: "show", providerSlug: "show.tmdb" },
-			events: [
-				{
-					properties: { consumedOn: "emby", progressPercent: 50 },
-					unresolvedEpisode: { type: "show", seasonNumber: 1, episodeNumber: 3 },
-				},
-			],
-		});
-	});
+			);
+			expect(result.failures).toEqual([]);
+			expect(result.entityGroups[0]).toMatchObject({
+				entityRef: { externalId: "95396", entitySchemaSlug: "show", providerSlug: "show.tmdb" },
+				events: [
+					{
+						properties: { consumedOn: "emby", progressPercent: 50 },
+						unresolvedEpisode: { type: "show", seasonNumber: 1, episodeNumber: 3 },
+					},
+				],
+			});
+		}),
+	);
 
-	// oxlint-disable-next-line effecttsgo/async-function -- Vitest awaits this Promise-returning test callback.
-	it("maps a Jellyfin episode webhook to a TMDB show ref with an episode locator", async () => {
-		const rawBody = JSON.stringify({
-			IndexNumber: 4,
-			RunTimeTicks: 100,
-			PositionTicks: 25,
-			SeriesName: "Silo",
-			ItemType: "Episode",
-			ParentIndexNumber: 2,
-			SeriesProvider_tmdb: "125988",
-		});
-		const result = await Effect.runPromise(
-			runSandboxTestScript(
+	it.live("maps a Jellyfin episode webhook to a TMDB show ref with an episode locator", () =>
+		Effect.gen(function* () {
+			const rawBody = JSON.stringify({
+				IndexNumber: 4,
+				RunTimeTicks: 100,
+				PositionTicks: 25,
+				SeriesName: "Silo",
+				ItemType: "Episode",
+				ParentIndexNumber: 2,
+				SeriesProvider_tmdb: "125988",
+			});
+			const result = yield* runSandboxTestScript(
 				jellyfinDefinition,
 				sinkInput(rawBody),
 				defineSandboxTestHost(jellyfinManifest, {
@@ -160,24 +161,23 @@ describe("media server sinks", () => {
 						hostSuccess(integrationRecord({ provider: "jellyfin_sink" })),
 				}),
 				execution,
-			),
-		);
-		expect(result.failures).toEqual([]);
-		expect(result.entityGroups[0]).toMatchObject({
-			entityRef: { externalId: "125988", entitySchemaSlug: "show", providerSlug: "show.tmdb" },
-			events: [
-				{
-					properties: { progressPercent: 25, consumedOn: "jellyfin_sink" },
-					unresolvedEpisode: { type: "show", seasonNumber: 2, episodeNumber: 4 },
-				},
-			],
-		});
-	});
+			);
+			expect(result.failures).toEqual([]);
+			expect(result.entityGroups[0]).toMatchObject({
+				entityRef: { externalId: "125988", entitySchemaSlug: "show", providerSlug: "show.tmdb" },
+				events: [
+					{
+						properties: { progressPercent: 25, consumedOn: "jellyfin_sink" },
+						unresolvedEpisode: { type: "show", seasonNumber: 2, episodeNumber: 4 },
+					},
+				],
+			});
+		}),
+	);
 
-	// oxlint-disable-next-line effecttsgo/async-function -- Vitest awaits this Promise-returning test callback.
-	it("skips a Jellyfin webhook when the username does not match", async () => {
-		const result = await Effect.runPromise(
-			runSandboxTestScript(
+	it.live("skips a Jellyfin webhook when the username does not match", () =>
+		Effect.gen(function* () {
+			const result = yield* runSandboxTestScript(
 				jellyfinDefinition,
 				sinkInput(
 					JSON.stringify({
@@ -193,11 +193,11 @@ describe("media server sinks", () => {
 						hostSuccess(integrationRecord({ providerSpecifics: { username: "alice" } })),
 				}),
 				execution,
-			),
-		);
-		expect(result.entityGroups).toEqual([]);
-		expect(result.failures).toEqual([]);
-	});
+			);
+			expect(result.entityGroups).toEqual([]);
+			expect(result.failures).toEqual([]);
+		}),
+	);
 });
 
 const runPlex = (payload: unknown, username?: string) =>
@@ -219,66 +219,75 @@ const runPlex = (payload: unknown, username?: string) =>
 	);
 
 describe("Plex sink", () => {
-	// oxlint-disable-next-line effecttsgo/async-function -- Vitest awaits this Promise-returning test callback.
-	it("maps a Plex scrobble multipart webhook to a movie ref", async () => {
-		const result = await runPlex({
-			event: "media.scrobble",
-			Metadata: { type: "movie", title: "Inception", Guid: [{ id: "tmdb://27205" }] },
-		});
-		expect(result.failures).toEqual([]);
-		expect(result.entityGroups[0]).toMatchObject({
-			events: [{ properties: { progressPercent: 100, consumedOn: "plex_sink" } }],
-			entityRef: { externalId: "27205", entitySchemaSlug: "movie", providerSlug: "movie.tmdb" },
-		});
-	});
+	it.live("maps a Plex scrobble multipart webhook to a movie ref", () =>
+		Effect.gen(function* () {
+			const result = yield* Effect.promise(() =>
+				runPlex({
+					event: "media.scrobble",
+					Metadata: { type: "movie", title: "Inception", Guid: [{ id: "tmdb://27205" }] },
+				}),
+			);
+			expect(result.failures).toEqual([]);
+			expect(result.entityGroups[0]).toMatchObject({
+				events: [{ properties: { progressPercent: 100, consumedOn: "plex_sink" } }],
+				entityRef: { externalId: "27205", entitySchemaSlug: "movie", providerSlug: "movie.tmdb" },
+			});
+		}),
+	);
 
-	// oxlint-disable-next-line effecttsgo/async-function -- Vitest awaits this Promise-returning test callback.
-	it("maps a Plex episode multipart webhook to a TMDB show ref with an episode locator", async () => {
-		const result = await runPlex({
-			event: "media.pause",
-			Metadata: {
-				index: 5,
-				duration: 100,
-				viewOffset: 80,
-				parentIndex: 3,
-				type: "episode",
-				Guid: [{ id: "tmdb://93740" }],
-				grandparentTitle: "Foundation",
-			},
-		});
-		expect(result.failures).toEqual([]);
-		expect(result.entityGroups[0]).toMatchObject({
-			entityRef: { externalId: "93740", entitySchemaSlug: "show", providerSlug: "show.tmdb" },
-			events: [
-				{
-					properties: { progressPercent: 80, consumedOn: "plex_sink" },
-					unresolvedEpisode: { type: "show", seasonNumber: 3, episodeNumber: 5 },
-				},
-			],
-		});
-	});
+	it.live("maps a Plex episode multipart webhook to a TMDB show ref with an episode locator", () =>
+		Effect.gen(function* () {
+			const result = yield* Effect.promise(() =>
+				runPlex({
+					event: "media.pause",
+					Metadata: {
+						index: 5,
+						duration: 100,
+						viewOffset: 80,
+						parentIndex: 3,
+						type: "episode",
+						Guid: [{ id: "tmdb://93740" }],
+						grandparentTitle: "Foundation",
+					},
+				}),
+			);
+			expect(result.failures).toEqual([]);
+			expect(result.entityGroups[0]).toMatchObject({
+				entityRef: { externalId: "93740", entitySchemaSlug: "show", providerSlug: "show.tmdb" },
+				events: [
+					{
+						properties: { progressPercent: 80, consumedOn: "plex_sink" },
+						unresolvedEpisode: { type: "show", seasonNumber: 3, episodeNumber: 5 },
+					},
+				],
+			});
+		}),
+	);
 
-	it.each([
+	it.live.each([
 		["accepts a Plex webhook from any user when the configured username is blank", "   ", false],
 		["skips a Plex webhook when the configured username does not match", "alice", true],
 		["trims a whitespace-padded Plex username before matching", "  bob  ", false],
-		// oxlint-disable-next-line effecttsgo/async-function -- Vitest awaits this Promise-returning test callback.
-	])("%s", async (_name, username, skipped) => {
-		const result = await runPlex(
-			{
-				event: "media.scrobble",
-				Account: { title: "bob" },
-				Metadata: { type: "movie", title: "Inception", Guid: [{ id: "tmdb://27205" }] },
-			},
-			username,
-		);
-		expect(result.failures).toEqual([]);
-		if (skipped) {
-			expect(result.entityGroups).toEqual([]);
-		} else {
-			expect(result.entityGroups[0]?.entityRef).toMatchObject({ externalId: "27205" });
-		}
-	});
+	])("%s", (_name, username, skipped) =>
+		Effect.gen(function* () {
+			const result = yield* Effect.promise(() =>
+				runPlex(
+					{
+						event: "media.scrobble",
+						Account: { title: "bob" },
+						Metadata: { type: "movie", title: "Inception", Guid: [{ id: "tmdb://27205" }] },
+					},
+					username,
+				),
+			);
+			expect(result.failures).toEqual([]);
+			if (skipped) {
+				expect(result.entityGroups).toEqual([]);
+			} else {
+				expect(result.entityGroups[0]?.entityRef).toMatchObject({ externalId: "27205" });
+			}
+		}),
+	);
 });
 
 const runBrowser = (rawBody: string, disabledSites: string[] = []) =>
@@ -295,42 +304,48 @@ const runBrowser = (rawBody: string, disabledSites: string[] = []) =>
 	);
 
 describe("browser extension sink", () => {
-	// oxlint-disable-next-line effecttsgo/async-function -- Vitest awaits this Promise-returning test callback.
-	it("ignores browser extension events from disabled sites", async () => {
-		const result = await runBrowser(
-			JSON.stringify({
-				url: "https://www.youtube.com/watch?v=1",
-				data: { progress: 80, lot: "movie", identifier: "12345" },
-			}),
-			["youtube.com"],
-		);
-		expect(result.entityGroups).toEqual([]);
-		expect(result.failures).toEqual([]);
-	});
+	it.live("ignores browser extension events from disabled sites", () =>
+		Effect.gen(function* () {
+			const result = yield* Effect.promise(() =>
+				runBrowser(
+					JSON.stringify({
+						url: "https://www.youtube.com/watch?v=1",
+						data: { progress: 80, lot: "movie", identifier: "12345" },
+					}),
+					["youtube.com"],
+				),
+			);
+			expect(result.entityGroups).toEqual([]);
+			expect(result.failures).toEqual([]);
+		}),
+	);
 
-	// oxlint-disable-next-line effecttsgo/async-function -- Vitest awaits this Promise-returning test callback.
-	it("maps a browser extension show webhook to a TMDB show ref with an episode locator", async () => {
-		const result = await runBrowser(
-			JSON.stringify({
-				url: "https://www.max.com/watch/1",
-				data: {
-					lot: "show",
-					progress: 80,
-					identifier: "94997",
-					show_season_number: 1,
-					show_episode_number: 6,
-				},
-			}),
-		);
-		expect(result.failures).toEqual([]);
-		expect(result.entityGroups[0]).toMatchObject({
-			entityRef: { externalId: "94997", entitySchemaSlug: "show", providerSlug: "show.tmdb" },
-			events: [
-				{
-					properties: { consumedOn: "max", progressPercent: 80 },
-					unresolvedEpisode: { type: "show", seasonNumber: 1, episodeNumber: 6 },
-				},
-			],
-		});
-	});
+	it.live("maps a browser extension show webhook to a TMDB show ref with an episode locator", () =>
+		Effect.gen(function* () {
+			const result = yield* Effect.promise(() =>
+				runBrowser(
+					JSON.stringify({
+						url: "https://www.max.com/watch/1",
+						data: {
+							lot: "show",
+							progress: 80,
+							identifier: "94997",
+							show_season_number: 1,
+							show_episode_number: 6,
+						},
+					}),
+				),
+			);
+			expect(result.failures).toEqual([]);
+			expect(result.entityGroups[0]).toMatchObject({
+				entityRef: { externalId: "94997", entitySchemaSlug: "show", providerSlug: "show.tmdb" },
+				events: [
+					{
+						properties: { consumedOn: "max", progressPercent: 80 },
+						unresolvedEpisode: { type: "show", seasonNumber: 1, episodeNumber: 6 },
+					},
+				],
+			});
+		}),
+	);
 });

@@ -1,7 +1,7 @@
+import { describe, expect, it } from "@effect/vitest";
 import { RyotQLDocument } from "@ryot-app/contract/modules/ryotql/language";
 import { Effect, Schema } from "@ryot-app/sandbox-sdk/effect";
 import { defineSandboxTestHost, runSandboxTestScript } from "@ryot-app/sandbox-sdk/testing";
-import { describe, expect, it } from "vitest";
 
 import { execution } from "../../tests/backend/automations/automation-test-utils";
 import { MediaMonitoringEnableInput, MediaMonitoringOutput } from "../contracts/operations";
@@ -32,172 +32,173 @@ const libraryRows = (items: unknown[]) => ({
 });
 
 describe("media monitoring operations", () => {
-	// oxlint-disable-next-line effecttsgo/async-function -- Vitest awaits this Promise-returning test callback.
-	it("pushes monitorability and status into one query and keeps duplicate results aligned", async () => {
-		const documents: unknown[] = [];
-		const host = defineSandboxTestHost(statusManifest, {
-			executeRyotql: (document) =>
-				Effect.sync(() => {
-					documents.push(document);
-					return rows([target("entity-a", "library-1")]);
-				}),
-		});
+	it.live(
+		"pushes monitorability and status into one query and keeps duplicate results aligned",
+		() =>
+			Effect.gen(function* () {
+				const documents: unknown[] = [];
+				const host = defineSandboxTestHost(statusManifest, {
+					executeRyotql: (document) =>
+						Effect.sync(() => {
+							documents.push(document);
+							return rows([target("entity-a", "library-1")]);
+						}),
+				});
 
-		await expect(
-			Effect.runPromise(
-				runSandboxTestScript(
-					statusDefinition,
-					{ entityIds: ["entity-a", "missing", "entity-a"] },
-					host,
-					execution,
-				),
-			),
-		).resolves.toEqual({
-			results: [
-				{ status: "found", entityId: "entity-a", isMediaMonitored: true },
-				{ status: "notFound", entityId: "missing" },
-				{ status: "found", entityId: "entity-a", isMediaMonitored: true },
-			],
-		});
-		expect(documents).toHaveLength(1);
-		expect(Schema.is(RyotQLDocument)(documents[0])).toBe(true);
-		expect(documents[0]).toMatchObject({
-			queries: {
-				targets: {
-					where: { type: "and" },
-					from: { table: "entity", alias: "entity" },
-					output: {
-						type: "rows",
-						pagination: { limit: 3 },
-						include: [
-							expect.objectContaining({
-								key: "monitoringLibraries",
-								from: { table: "relationship", alias: "monitoringRelationship" },
-							}),
-						],
+				expect(
+					yield* runSandboxTestScript(
+						statusDefinition,
+						{ entityIds: ["entity-a", "missing", "entity-a"] },
+						host,
+						execution,
+					),
+				).toEqual({
+					results: [
+						{ status: "found", entityId: "entity-a", isMediaMonitored: true },
+						{ status: "notFound", entityId: "missing" },
+						{ status: "found", entityId: "entity-a", isMediaMonitored: true },
+					],
+				});
+				expect(documents).toHaveLength(1);
+				expect(Schema.is(RyotQLDocument)(documents[0])).toBe(true);
+				expect(documents[0]).toMatchObject({
+					queries: {
+						targets: {
+							where: { type: "and" },
+							from: { table: "entity", alias: "entity" },
+							output: {
+								type: "rows",
+								pagination: { limit: 3 },
+								include: [
+									expect.objectContaining({
+										key: "monitoringLibraries",
+										from: { table: "relationship", alias: "monitoringRelationship" },
+									}),
+								],
+							},
+						},
 					},
-				},
-			},
-		});
-		const serialized = JSON.stringify(documents[0]);
-		expect(serialized).toContain('"field":"targetEntityId"');
-		expect(serialized).toContain(
-			'"field":"userId","type":"column","tableAlias":"monitoringRelationship"},"type":"isNotNull"',
-		);
-		expect(serialized).toContain('"field":"providerId"');
-		expect(serialized).toContain('"field":"externalId"');
-		expect(serialized).not.toContain('"table":"entity","alias":"mediaLibrary"');
-		expect(serialized).not.toContain("show-season");
-	});
+				});
+				const serialized = JSON.stringify(documents[0]);
+				expect(serialized).toContain('"field":"targetEntityId"');
+				expect(serialized).toContain(
+					'"field":"userId","type":"column","tableAlias":"monitoringRelationship"},"type":"isNotNull"',
+				);
+				expect(serialized).toContain('"field":"providerId"');
+				expect(serialized).toContain('"field":"externalId"');
+				expect(serialized).not.toContain('"table":"entity","alias":"mediaLibrary"');
+				expect(serialized).not.toContain("show-season");
+			}),
+	);
 
-	// oxlint-disable-next-line effecttsgo/async-function -- Vitest awaits this Promise-returning test callback.
-	it("enables valid targets with one atomic relationship batch and no user id", async () => {
-		const changes: unknown[] = [];
-		const documents: unknown[] = [];
-		const host = defineSandboxTestHost(enableManifest, {
-			changeUserRelationships: (batches) =>
-				Effect.sync(() => {
-					changes.push(batches);
-					return [{ created: 2, deleted: 0 }];
-				}),
-			executeRyotql: (document) =>
-				Effect.gen(function* () {
-					documents.push(document);
-					const query = yield* Schema.decodeEffect(RyotQLDocument)(document).pipe(Effect.orDie);
-					return "mediaLibrary" in query.queries
-						? libraryRows([{ entityId: "library-1" }])
-						: rows([target("entity-a")]);
-				}),
-		});
+	it.live("enables valid targets with one atomic relationship batch and no user id", () =>
+		Effect.gen(function* () {
+			const changes: unknown[] = [];
+			const documents: unknown[] = [];
+			const host = defineSandboxTestHost(enableManifest, {
+				changeUserRelationships: (batches) =>
+					Effect.sync(() => {
+						changes.push(batches);
+						return [{ created: 2, deleted: 0 }];
+					}),
+				executeRyotql: (document) =>
+					Effect.gen(function* () {
+						documents.push(document);
+						const query = yield* Schema.decodeEffect(RyotQLDocument)(document).pipe(Effect.orDie);
+						return "mediaLibrary" in query.queries
+							? libraryRows([{ entityId: "library-1" }])
+							: rows([target("entity-a")]);
+					}),
+			});
 
-		await expect(
-			Effect.runPromise(
-				runSandboxTestScript(
+			expect(
+				yield* runSandboxTestScript(
 					enableDefinition,
 					{ entityIds: ["entity-a", "missing"] },
 					host,
 					execution,
 				),
-			),
-		).resolves.toEqual({
-			results: [
-				{ status: "found", entityId: "entity-a", isMediaMonitored: true },
-				{ status: "notFound", entityId: "missing" },
-			],
-		});
-		expect(changes).toEqual([
-			[
-				{
-					deletes: [],
-					creates: [
+			).toEqual({
+				results: [
+					{ status: "found", entityId: "entity-a", isMediaMonitored: true },
+					{ status: "notFound", entityId: "missing" },
+				],
+			});
+			expect(changes).toEqual([
+				[
+					{
+						deletes: [],
+						creates: [
+							{
+								properties: {},
+								sourceEntityId: "entity-a",
+								targetEntityId: "library-1",
+								relationshipSchemaSlug: "in-media-library",
+							},
+							{
+								properties: {},
+								sourceEntityId: "entity-a",
+								targetEntityId: "library-1",
+								relationshipSchemaSlug: "media-monitoring",
+							},
+						],
+					},
+				],
+			]);
+			expect(documents).toHaveLength(2);
+			for (const document of documents) {
+				expect(Schema.is(RyotQLDocument)(document)).toBe(true);
+			}
+			expect(JSON.stringify(changes)).not.toContain("userId");
+		}),
+	);
+
+	it.live(
+		"disables only existing monitoring edges and leaves ordinary media library membership alone",
+		() =>
+			Effect.gen(function* () {
+				const changes: unknown[] = [];
+				const host = defineSandboxTestHost(disableManifest, {
+					executeRyotql: () =>
+						Effect.succeed(rows([target("entity-a", "library-1"), target("entity-b")])),
+					changeUserRelationships: (batches) =>
+						Effect.sync(() => {
+							changes.push(batches);
+							return [{ created: 0, deleted: 1 }];
+						}),
+				});
+
+				expect(
+					yield* runSandboxTestScript(
+						disableDefinition,
+						{ entityIds: ["entity-a", "entity-b", "missing"] },
+						host,
+						execution,
+					),
+				).toEqual({
+					results: [
+						{ status: "found", entityId: "entity-a", isMediaMonitored: false },
+						{ status: "found", entityId: "entity-b", isMediaMonitored: false },
+						{ status: "notFound", entityId: "missing" },
+					],
+				});
+				expect(changes).toEqual([
+					[
 						{
-							properties: {},
-							sourceEntityId: "entity-a",
-							targetEntityId: "library-1",
-							relationshipSchemaSlug: "in-media-library",
-						},
-						{
-							properties: {},
-							sourceEntityId: "entity-a",
-							targetEntityId: "library-1",
-							relationshipSchemaSlug: "media-monitoring",
+							creates: [],
+							deletes: [
+								{
+									sourceEntityId: "entity-a",
+									targetEntityId: "library-1",
+									relationshipSchemaSlug: "media-monitoring",
+								},
+							],
 						},
 					],
-				},
-			],
-		]);
-		expect(documents).toHaveLength(2);
-		for (const document of documents) {
-			expect(Schema.is(RyotQLDocument)(document)).toBe(true);
-		}
-		expect(JSON.stringify(changes)).not.toContain("userId");
-	});
-
-	// oxlint-disable-next-line effecttsgo/async-function -- Vitest awaits this Promise-returning test callback.
-	it("disables only existing monitoring edges and leaves ordinary media library membership alone", async () => {
-		const changes: unknown[] = [];
-		const host = defineSandboxTestHost(disableManifest, {
-			executeRyotql: () =>
-				Effect.succeed(rows([target("entity-a", "library-1"), target("entity-b")])),
-			changeUserRelationships: (batches) =>
-				Effect.sync(() => {
-					changes.push(batches);
-					return [{ created: 0, deleted: 1 }];
-				}),
-		});
-
-		await expect(
-			Effect.runPromise(
-				runSandboxTestScript(
-					disableDefinition,
-					{ entityIds: ["entity-a", "entity-b", "missing"] },
-					host,
-					execution,
-				),
-			),
-		).resolves.toEqual({
-			results: [
-				{ status: "found", entityId: "entity-a", isMediaMonitored: false },
-				{ status: "found", entityId: "entity-b", isMediaMonitored: false },
-				{ status: "notFound", entityId: "missing" },
-			],
-		});
-		expect(changes).toEqual([
-			[
-				{
-					creates: [],
-					deletes: [
-						{
-							sourceEntityId: "entity-a",
-							targetEntityId: "library-1",
-							relationshipSchemaSlug: "media-monitoring",
-						},
-					],
-				},
-			],
-		]);
-		expect(JSON.stringify(changes)).not.toContain("in-media-library");
-	});
+				]);
+				expect(JSON.stringify(changes)).not.toContain("in-media-library");
+			}),
+	);
 
 	it("bounds operation batches and validates aligned result variants", () => {
 		expect(() => Schema.decodeSync(MediaMonitoringEnableInput)({ entityIds: [] })).toThrow();

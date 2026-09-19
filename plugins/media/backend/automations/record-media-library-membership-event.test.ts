@@ -1,6 +1,6 @@
+import { expect, it } from "@effect/vitest";
 import { Effect } from "@ryot-app/sandbox-sdk/effect";
 import { defineSandboxTestHost } from "@ryot-app/sandbox-sdk/testing";
-import { expect, it } from "vitest";
 
 import {
 	automationContext,
@@ -38,54 +38,54 @@ const addToMediaLibrarySchema = {
 	propertiesSchema: { fields: {} },
 };
 
-// oxlint-disable-next-line effecttsgo/async-function -- Vitest awaits this Promise-returning test callback.
-it("records an add-to-media-library event for a newly-created media membership", async () => {
-	const created: unknown[] = [];
-	const host = defineSandboxTestHost(manifest, {
-		executeRyotql: () => hostSuccess(mediaEntityRows()),
-		listEventSchemas: () => hostSuccess([addToMediaLibrarySchema]),
-		createEvents: (events) => {
-			created.push(events);
-			return hostSuccess({ count: events.length });
-		},
-	});
-
-	await Effect.runPromise(definition.run(relationshipContext(), host));
-
-	expect(created).toEqual([
-		[
-			{
-				properties: {},
-				entityId: "entity-1",
-				eventSchemaSlug: "event-schema-1",
-				occurredAt: "2026-01-01T00:00:00.000Z",
+it.live("records an add-to-media-library event for a newly-created media membership", () =>
+	Effect.gen(function* () {
+		const created: unknown[] = [];
+		const host = defineSandboxTestHost(manifest, {
+			executeRyotql: () => hostSuccess(mediaEntityRows()),
+			listEventSchemas: () => hostSuccess([addToMediaLibrarySchema]),
+			createEvents: (events) => {
+				created.push(events);
+				return hostSuccess({ count: events.length });
 			},
-		],
-	]);
-});
+		});
 
-// oxlint-disable-next-line effecttsgo/async-function -- Vitest awaits this Promise-returning test callback.
-it("ignores non-media relationships", async () => {
-	let calls = 0;
-	const host = defineSandboxTestHost(manifest, {
-		createEvents: () => {
-			calls += 1;
-			return hostSuccess({ count: 1 });
-		},
-		executeRyotql: () => {
-			calls += 1;
-			return hostSuccess(mediaEntityRows("workout"));
-		},
-		listEventSchemas: () => {
-			calls += 1;
-			return hostSuccess([addToMediaLibrarySchema]);
-		},
-	});
+		yield* definition.run(relationshipContext(), host);
 
-	await Effect.runPromise(
-		definition.run(relationshipContext({ relationshipSchemaSlug: "owns" }), host),
-	);
-	await Effect.runPromise(definition.run(relationshipContext(), host));
+		expect(created).toEqual([
+			[
+				{
+					properties: {},
+					entityId: "entity-1",
+					eventSchemaSlug: "event-schema-1",
+					occurredAt: "2026-01-01T00:00:00.000Z",
+				},
+			],
+		]);
+	}),
+);
 
-	expect(calls).toBe(1);
-});
+it.live("ignores non-media relationships", () =>
+	Effect.gen(function* () {
+		let calls = 0;
+		const host = defineSandboxTestHost(manifest, {
+			createEvents: () => {
+				calls += 1;
+				return hostSuccess({ count: 1 });
+			},
+			executeRyotql: () => {
+				calls += 1;
+				return hostSuccess(mediaEntityRows("workout"));
+			},
+			listEventSchemas: () => {
+				calls += 1;
+				return hostSuccess([addToMediaLibrarySchema]);
+			},
+		});
+
+		yield* definition.run(relationshipContext({ relationshipSchemaSlug: "owns" }), host);
+		yield* definition.run(relationshipContext(), host);
+
+		expect(calls).toBe(1);
+	}),
+);

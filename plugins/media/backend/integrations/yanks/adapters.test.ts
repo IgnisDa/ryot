@@ -1,8 +1,8 @@
+import { describe, expect, it } from "@effect/vitest";
 import type { JsonValue } from "@ryot-app/contract/modules/ryotql/language";
 import type { SandboxHost } from "@ryot-app/sandbox-sdk/core";
 import { Effect } from "@ryot-app/sandbox-sdk/effect";
 import { defineSandboxTestHost, runSandboxTestScript } from "@ryot-app/sandbox-sdk/testing";
-import { describe, expect, it } from "vitest";
 
 import {
 	execution,
@@ -146,194 +146,221 @@ const runAudiobookshelf = (routes: Record<string, Route>, syncOwnership = false)
 	);
 
 describe("Plex yank", () => {
-	// oxlint-disable-next-line effecttsgo/async-function -- Vitest awaits this Promise-returning test callback.
-	it("maps watched movies and per-episode show coverage by guid", async () => {
-		const result = await runPlex({
-			"/library/sections": libraries([
-				{ key: "1", type: "movie", title: "Movies" },
-				{ key: "2", type: "show", title: "Shows" },
-			]),
-			"/library/metadata/555/allLeaves": metadata([
-				{ index: 3, key: "/e/1", title: "Ep1", parentIndex: 1, lastViewedAt: 1_700_000_100 },
-			]),
-			"/library/sections/1/all?includeGuids=1": metadata([
-				{
-					key: "/m/1",
-					type: "movie",
-					title: "Arrival",
-					lastViewedAt: 1_700_000_000,
-					Guid: [{ id: "tmdb://329865" }],
-				},
-			]),
-			"/library/sections/2/all?includeGuids=1": metadata([
-				{
-					key: "/s/1",
-					type: "show",
-					ratingKey: "555",
-					title: "Severance",
-					lastViewedAt: 1_700_000_000,
-					Guid: [{ id: "tmdb://95396" }],
-				},
-			]),
-		});
-		expect(result.failures).toEqual([]);
-		expect(result.entityGroups).toHaveLength(2);
-		expect(result.entityGroups[0]).toMatchObject({
-			events: [{ eventSchemaSlug: "complete" }],
-			entityRef: { externalId: "329865", entitySchemaSlug: "movie", providerSlug: "movie.tmdb" },
-		});
-		expect(result.entityGroups[1]).toMatchObject({
-			entityRef: { externalId: "95396", entitySchemaSlug: "show", providerSlug: "show.tmdb" },
-			events: [
-				{
-					eventSchemaSlug: "progress",
-					properties: { progressPercent: 100 },
-					unresolvedEpisode: { type: "show", seasonNumber: 1, episodeNumber: 3 },
-				},
-			],
-		});
-	});
+	it.live("maps watched movies and per-episode show coverage by guid", () =>
+		Effect.gen(function* () {
+			const result = yield* Effect.promise(() =>
+				runPlex({
+					"/library/sections": libraries([
+						{ key: "1", type: "movie", title: "Movies" },
+						{ key: "2", type: "show", title: "Shows" },
+					]),
+					"/library/metadata/555/allLeaves": metadata([
+						{ index: 3, key: "/e/1", title: "Ep1", parentIndex: 1, lastViewedAt: 1_700_000_100 },
+					]),
+					"/library/sections/1/all?includeGuids=1": metadata([
+						{
+							key: "/m/1",
+							type: "movie",
+							title: "Arrival",
+							lastViewedAt: 1_700_000_000,
+							Guid: [{ id: "tmdb://329865" }],
+						},
+					]),
+					"/library/sections/2/all?includeGuids=1": metadata([
+						{
+							key: "/s/1",
+							type: "show",
+							ratingKey: "555",
+							title: "Severance",
+							lastViewedAt: 1_700_000_000,
+							Guid: [{ id: "tmdb://95396" }],
+						},
+					]),
+				}),
+			);
+			expect(result.failures).toEqual([]);
+			expect(result.entityGroups).toHaveLength(2);
+			expect(result.entityGroups[0]).toMatchObject({
+				events: [{ eventSchemaSlug: "complete" }],
+				entityRef: { externalId: "329865", entitySchemaSlug: "movie", providerSlug: "movie.tmdb" },
+			});
+			expect(result.entityGroups[1]).toMatchObject({
+				entityRef: { externalId: "95396", entitySchemaSlug: "show", providerSlug: "show.tmdb" },
+				events: [
+					{
+						eventSchemaSlug: "progress",
+						properties: { progressPercent: 100 },
+						unresolvedEpisode: { type: "show", seasonNumber: 1, episodeNumber: 3 },
+					},
+				],
+			});
+		}),
+	);
 
-	// oxlint-disable-next-line effecttsgo/async-function -- Vitest awaits this Promise-returning test callback.
-	it("records a failure for a watched item without a provider id", async () => {
-		const result = await runPlex({
-			"/library/sections": libraries([{ key: "1", type: "movie", title: "Movies" }]),
-			"/library/sections/1/all?includeGuids=1": metadata([
-				{ key: "/m/9", type: "movie", title: "No Ids", lastViewedAt: 1_700_000_000 },
-			]),
-		});
-		expect(result.entityGroups).toEqual([]);
-		expect(result.failures).toHaveLength(1);
-		expect(result.failures[0]).toMatchObject({
-			itemIndex: 0,
-			sourceLabel: "No Ids",
-			stage: "input_transformation",
-			message: "Plex item has no TMDB, TVDB, or IMDb identifier",
-		});
-	});
+	it.live("records a failure for a watched item without a provider id", () =>
+		Effect.gen(function* () {
+			const result = yield* Effect.promise(() =>
+				runPlex({
+					"/library/sections": libraries([{ key: "1", type: "movie", title: "Movies" }]),
+					"/library/sections/1/all?includeGuids=1": metadata([
+						{ key: "/m/9", type: "movie", title: "No Ids", lastViewedAt: 1_700_000_000 },
+					]),
+				}),
+			);
+			expect(result.entityGroups).toEqual([]);
+			expect(result.failures).toHaveLength(1);
+			expect(result.failures[0]).toMatchObject({
+				itemIndex: 0,
+				sourceLabel: "No Ids",
+				stage: "input_transformation",
+				message: "Plex item has no TMDB, TVDB, or IMDb identifier",
+			});
+		}),
+	);
 
-	// oxlint-disable-next-line effecttsgo/async-function -- Vitest awaits this Promise-returning test callback.
-	it("returns owned movies and shows regardless of watch state", async () => {
-		const result = await runPlex(
-			{
-				"/library/sections": libraries([
-					{ key: "1", type: "movie", title: "Movies" },
-					{ key: "2", type: "show", title: "Shows" },
-				]),
-				"/library/sections/1/all?includeGuids=1": metadata([
-					{ key: "/m/1", type: "movie", title: "Arrival", Guid: [{ id: "tmdb://329865" }] },
-				]),
-				"/library/sections/2/all?includeGuids=1": metadata([
-					{ key: "/s/1", type: "show", title: "Severance", Guid: [{ id: "tmdb://95396" }] },
-				]),
-			},
-			true,
-		);
-		const owned = result.entityGroups.filter(
-			(group: EntityGroup) => group.ownershipProvider === "plex_yank",
-		);
-		expect(owned).toHaveLength(2);
-		expect(owned.map((group: EntityGroup) => group.entityRef)).toMatchObject([
-			{ externalId: "329865", entitySchemaSlug: "movie" },
-			{ externalId: "95396", entitySchemaSlug: "show" },
-		]);
-	});
+	it.live("returns owned movies and shows regardless of watch state", () =>
+		Effect.gen(function* () {
+			const result = yield* Effect.promise(() =>
+				runPlex(
+					{
+						"/library/sections": libraries([
+							{ key: "1", type: "movie", title: "Movies" },
+							{ key: "2", type: "show", title: "Shows" },
+						]),
+						"/library/sections/1/all?includeGuids=1": metadata([
+							{ key: "/m/1", type: "movie", title: "Arrival", Guid: [{ id: "tmdb://329865" }] },
+						]),
+						"/library/sections/2/all?includeGuids=1": metadata([
+							{ key: "/s/1", type: "show", title: "Severance", Guid: [{ id: "tmdb://95396" }] },
+						]),
+					},
+					true,
+				),
+			);
+			const owned = result.entityGroups.filter(
+				(group: EntityGroup) => group.ownershipProvider === "plex_yank",
+			);
+			expect(owned).toHaveLength(2);
+			expect(owned.map((group: EntityGroup) => group.entityRef)).toMatchObject([
+				{ externalId: "329865", entitySchemaSlug: "movie" },
+				{ externalId: "95396", entitySchemaSlug: "show" },
+			]);
+		}),
+	);
 
-	// oxlint-disable-next-line effecttsgo/async-function -- Vitest awaits this Promise-returning test callback.
-	it("omits owned items without a provider id", async () => {
-		const result = await runPlex(
-			{
-				"/library/sections": libraries([{ key: "1", type: "movie", title: "Movies" }]),
-				"/library/sections/1/all?includeGuids=1": metadata([
-					{ key: "/m/1", type: "movie", title: "With Id", Guid: [{ id: "tmdb://1" }] },
-					{ key: "/m/2", type: "movie", title: "No Id" },
-				]),
-			},
-			true,
-		);
-		expect(
-			result.entityGroups.filter((group: EntityGroup) => group.ownershipProvider),
-		).toHaveLength(1);
-	});
+	it.live("omits owned items without a provider id", () =>
+		Effect.gen(function* () {
+			const result = yield* Effect.promise(() =>
+				runPlex(
+					{
+						"/library/sections": libraries([{ key: "1", type: "movie", title: "Movies" }]),
+						"/library/sections/1/all?includeGuids=1": metadata([
+							{ key: "/m/1", type: "movie", title: "With Id", Guid: [{ id: "tmdb://1" }] },
+							{ key: "/m/2", type: "movie", title: "No Id" },
+						]),
+					},
+					true,
+				),
+			);
+			expect(
+				result.entityGroups.filter((group: EntityGroup) => group.ownershipProvider),
+			).toHaveLength(1);
+		}),
+	);
 
-	// oxlint-disable-next-line effecttsgo/async-function -- Vitest awaits this Promise-returning test callback.
-	it("skips a section whose item fetch fails and keeps the rest", async () => {
-		const result = await runPlex(
-			{
-				"/library/sections/2/all?includeGuids=1": failure,
-				"/library/sections": libraries([
-					{ key: "1", type: "movie", title: "Movies" },
-					{ key: "2", type: "show", title: "Shows" },
-				]),
-				"/library/sections/1/all?includeGuids=1": metadata([
-					{ key: "/m/1", type: "movie", title: "Arrival", Guid: [{ id: "tmdb://329865" }] },
-				]),
-			},
-			true,
-		);
-		expect(
-			result.entityGroups.filter((group: EntityGroup) => group.ownershipProvider),
-		).toHaveLength(1);
-		expect(result.failures[0]).toMatchObject({ stage: "source_fetch" });
-	});
+	it.live("skips a section whose item fetch fails and keeps the rest", () =>
+		Effect.gen(function* () {
+			const result = yield* Effect.promise(() =>
+				runPlex(
+					{
+						"/library/sections/2/all?includeGuids=1": failure,
+						"/library/sections": libraries([
+							{ key: "1", type: "movie", title: "Movies" },
+							{ key: "2", type: "show", title: "Shows" },
+						]),
+						"/library/sections/1/all?includeGuids=1": metadata([
+							{ key: "/m/1", type: "movie", title: "Arrival", Guid: [{ id: "tmdb://329865" }] },
+						]),
+					},
+					true,
+				),
+			);
+			expect(
+				result.entityGroups.filter((group: EntityGroup) => group.ownershipProvider),
+			).toHaveLength(1);
+			expect(result.failures[0]).toMatchObject({ stage: "source_fetch" });
+		}),
+	);
 
-	// oxlint-disable-next-line effecttsgo/async-function -- Vitest awaits this Promise-returning test callback.
-	it("falls back to an unresolved IMDb ref", async () => {
-		const result = await runPlex({
-			"/library/sections": libraries([{ key: "1", type: "movie", title: "Movies" }]),
-			"/library/sections/1/all?includeGuids=1": metadata([
-				{
-					key: "/m/1",
-					type: "movie",
-					title: "Primer",
-					lastViewedAt: 1_700_000_000,
-					Guid: [{ id: "imdb://tt0390384" }, { id: "tvdb://123" }],
-				},
-			]),
-		});
-		expect(result.entityGroups[0]?.entityRef).toEqual({
-			kind: "unresolved",
-			sourceLabel: "Primer",
-			identifierType: "imdb",
-			entitySchemaSlug: "movie",
-			identifierValue: "tt0390384",
-		});
-	});
+	it.live("falls back to an unresolved IMDb ref", () =>
+		Effect.gen(function* () {
+			const result = yield* Effect.promise(() =>
+				runPlex({
+					"/library/sections": libraries([{ key: "1", type: "movie", title: "Movies" }]),
+					"/library/sections/1/all?includeGuids=1": metadata([
+						{
+							key: "/m/1",
+							type: "movie",
+							title: "Primer",
+							lastViewedAt: 1_700_000_000,
+							Guid: [{ id: "imdb://tt0390384" }, { id: "tvdb://123" }],
+						},
+					]),
+				}),
+			);
+			expect(result.entityGroups[0]?.entityRef).toEqual({
+				kind: "unresolved",
+				sourceLabel: "Primer",
+				identifierType: "imdb",
+				entitySchemaSlug: "movie",
+				identifierValue: "tt0390384",
+			});
+		}),
+	);
 
-	// oxlint-disable-next-line effecttsgo/async-function -- Vitest awaits this Promise-returning test callback.
-	it("isolates a show episode request failure and continues later rows", async () => {
-		const result = await runPlex({
-			"/library/metadata/1/allLeaves": failure,
-			"/library/sections": libraries([{ key: "1", type: "show", title: "Shows" }]),
-			"/library/metadata/2/allLeaves": metadata([
-				{ index: 1, key: "/e/2", parentIndex: 1, title: "Episode", lastViewedAt: 1_700_000_100 },
-			]),
-			"/library/sections/1/all?includeGuids=1": metadata([
-				{
-					key: "/s/1",
-					type: "show",
-					ratingKey: "1",
-					title: "Broken",
-					Guid: [{ id: "tmdb://1" }],
-					lastViewedAt: 1_700_000_000,
-				},
-				{
-					key: "/s/2",
-					type: "show",
-					ratingKey: "2",
-					title: "Working",
-					Guid: [{ id: "tmdb://2" }],
-					lastViewedAt: 1_700_000_000,
-				},
-			]),
-		});
-		expect(result.failures[0]).toMatchObject({
-			itemIndex: 0,
-			stage: "source_fetch",
-			message: "Failed to fetch watched episodes from Plex",
-		});
-		expect(result.entityGroups[0]?.entityRef).toMatchObject({ externalId: "2" });
-	});
+	it.live("isolates a show episode request failure and continues later rows", () =>
+		Effect.gen(function* () {
+			const result = yield* Effect.promise(() =>
+				runPlex({
+					"/library/metadata/1/allLeaves": failure,
+					"/library/sections": libraries([{ key: "1", type: "show", title: "Shows" }]),
+					"/library/metadata/2/allLeaves": metadata([
+						{
+							index: 1,
+							key: "/e/2",
+							parentIndex: 1,
+							title: "Episode",
+							lastViewedAt: 1_700_000_100,
+						},
+					]),
+					"/library/sections/1/all?includeGuids=1": metadata([
+						{
+							key: "/s/1",
+							type: "show",
+							ratingKey: "1",
+							title: "Broken",
+							Guid: [{ id: "tmdb://1" }],
+							lastViewedAt: 1_700_000_000,
+						},
+						{
+							key: "/s/2",
+							type: "show",
+							ratingKey: "2",
+							title: "Working",
+							Guid: [{ id: "tmdb://2" }],
+							lastViewedAt: 1_700_000_000,
+						},
+					]),
+				}),
+			);
+			expect(result.failures[0]).toMatchObject({
+				itemIndex: 0,
+				stage: "source_fetch",
+				message: "Failed to fetch watched episodes from Plex",
+			});
+			expect(result.entityGroups[0]?.entityRef).toMatchObject({ externalId: "2" });
+		}),
+	);
 });
 
 describe("Audiobookshelf yank", () => {
@@ -343,10 +370,79 @@ describe("Audiobookshelf yank", () => {
 		"/api/libraries/lib1/items?expanded=1&filter=progress.ZmluaXNoZWQ=": { results: items },
 	});
 
-	// oxlint-disable-next-line effecttsgo/async-function -- Vitest awaits this Promise-returning test callback.
-	it("maps Audible audiobooks and ISBN ebooks into library collections", async () => {
-		const result = await runAudiobookshelf(
-			itemRoutes([
+	it.live("maps Audible audiobooks and ISBN ebooks into library collections", () =>
+		Effect.gen(function* () {
+			const result = yield* Effect.promise(() =>
+				runAudiobookshelf(
+					itemRoutes([
+						{
+							id: "a1",
+							media: {
+								ebookFormat: null,
+								metadata: { asin: "B08G9PRS1K", title: "Project Hail Mary" },
+							},
+						},
+						{
+							id: "b1",
+							media: { ebookFormat: "epub", metadata: { title: "Dune", isbn: "9780441013593" } },
+						},
+					]),
+				),
+			);
+			expect(result.failures).toEqual([]);
+			expect(result.entityGroups).toHaveLength(2);
+			expect(result.entityGroups[0]).toMatchObject({
+				events: [{ eventSchemaSlug: "complete" }],
+				collectionMemberships: [{ collectionName: "Audiobooks" }],
+				entityRef: { externalId: "B08G9PRS1K", providerSlug: "audiobook.audible" },
+			});
+			expect(result.entityGroups[1]).toMatchObject({
+				collectionMemberships: [{ collectionName: "Audiobooks" }],
+				entityRef: { kind: "unresolved", identifierType: "isbn", identifierValue: "9780441013593" },
+			});
+		}),
+	);
+
+	it.live("records a failure for an item missing media metadata", () =>
+		Effect.gen(function* () {
+			const result = yield* Effect.promise(() =>
+				runAudiobookshelf(itemRoutes([{ id: "x1", name: "Broken" }])),
+			);
+			expect(result.entityGroups).toEqual([]);
+			expect(result.failures[0]).toMatchObject({
+				itemIndex: 0,
+				sourceIdentifier: "x1",
+				stage: "input_transformation",
+				message: "Audiobookshelf item is missing media metadata",
+			});
+		}),
+	);
+
+	it.live("rejects an ebook with an invalid ISBN", () =>
+		Effect.gen(function* () {
+			const result = yield* Effect.promise(() =>
+				runAudiobookshelf(
+					itemRoutes([
+						{
+							id: "bad-isbn",
+							media: { ebookFormat: "epub", metadata: { title: "Invalid", isbn: "9780441013594" } },
+						},
+					]),
+				),
+			);
+			expect(result.entityGroups).toEqual([]);
+			expect(result.failures[0]).toMatchObject({
+				itemIndex: 0,
+				sourceIdentifier: "bad-isbn",
+				stage: "input_transformation",
+				message: "Audiobookshelf ebook is missing a valid ISBN",
+			});
+		}),
+	);
+
+	it.live("returns owned audiobooks and ebooks regardless of finished state", () =>
+		Effect.gen(function* () {
+			const items: JsonValue[] = [
 				{
 					id: "a1",
 					media: {
@@ -358,206 +454,176 @@ describe("Audiobookshelf yank", () => {
 					id: "b1",
 					media: { ebookFormat: "epub", metadata: { title: "Dune", isbn: "9780441013593" } },
 				},
-			]),
-		);
-		expect(result.failures).toEqual([]);
-		expect(result.entityGroups).toHaveLength(2);
-		expect(result.entityGroups[0]).toMatchObject({
-			events: [{ eventSchemaSlug: "complete" }],
-			collectionMemberships: [{ collectionName: "Audiobooks" }],
-			entityRef: { externalId: "B08G9PRS1K", providerSlug: "audiobook.audible" },
-		});
-		expect(result.entityGroups[1]).toMatchObject({
-			collectionMemberships: [{ collectionName: "Audiobooks" }],
-			entityRef: { kind: "unresolved", identifierType: "isbn", identifierValue: "9780441013593" },
-		});
-	});
+			];
+			const result = yield* Effect.promise(() =>
+				runAudiobookshelf(
+					{ ...itemRoutes(items), "/api/libraries/lib1/items?expanded=1": { results: items } },
+					true,
+				),
+			);
+			const owned = result.entityGroups.filter(
+				(group: EntityGroup) => group.ownershipProvider === "audiobookshelf",
+			);
+			expect(owned).toHaveLength(2);
+			expect(owned.map((group: EntityGroup) => group.entityRef)).toMatchObject([
+				{ externalId: "B08G9PRS1K", entitySchemaSlug: "audiobook" },
+				{ entitySchemaSlug: "book", identifierValue: "9780441013593" },
+			]);
+		}),
+	);
 
-	// oxlint-disable-next-line effecttsgo/async-function -- Vitest awaits this Promise-returning test callback.
-	it("records a failure for an item missing media metadata", async () => {
-		const result = await runAudiobookshelf(itemRoutes([{ id: "x1", name: "Broken" }]));
-		expect(result.entityGroups).toEqual([]);
-		expect(result.failures[0]).toMatchObject({
-			itemIndex: 0,
-			sourceIdentifier: "x1",
-			stage: "input_transformation",
-			message: "Audiobookshelf item is missing media metadata",
-		});
-	});
+	it.live("omits owned items without a usable identifier", () =>
+		Effect.gen(function* () {
+			const items: JsonValue[] = [
+				{ id: "a1", media: { ebookFormat: null, metadata: { asin: "B01", title: "Has Asin" } } },
+				{ id: "x1", media: { ebookFormat: null, metadata: { title: "No Ids" } } },
+			];
+			const result = yield* Effect.promise(() =>
+				runAudiobookshelf(
+					{ ...itemRoutes(items), "/api/libraries/lib1/items?expanded=1": { results: items } },
+					true,
+				),
+			);
+			expect(
+				result.entityGroups.filter((group: EntityGroup) => group.ownershipProvider),
+			).toHaveLength(1);
+		}),
+	);
 
-	// oxlint-disable-next-line effecttsgo/async-function -- Vitest awaits this Promise-returning test callback.
-	it("rejects an ebook with an invalid ISBN", async () => {
-		const result = await runAudiobookshelf(
-			itemRoutes([
-				{
-					id: "bad-isbn",
-					media: { ebookFormat: "epub", metadata: { title: "Invalid", isbn: "9780441013594" } },
-				},
-			]),
-		);
-		expect(result.entityGroups).toEqual([]);
-		expect(result.failures[0]).toMatchObject({
-			itemIndex: 0,
-			sourceIdentifier: "bad-isbn",
-			stage: "input_transformation",
-			message: "Audiobookshelf ebook is missing a valid ISBN",
-		});
-	});
-
-	// oxlint-disable-next-line effecttsgo/async-function -- Vitest awaits this Promise-returning test callback.
-	it("returns owned audiobooks and ebooks regardless of finished state", async () => {
-		const items: JsonValue[] = [
-			{
+	it.live("skips a library whose item fetch fails and keeps the rest", () =>
+		Effect.gen(function* () {
+			const item = {
 				id: "a1",
-				media: { ebookFormat: null, metadata: { asin: "B08G9PRS1K", title: "Project Hail Mary" } },
-			},
-			{
-				id: "b1",
-				media: { ebookFormat: "epub", metadata: { title: "Dune", isbn: "9780441013593" } },
-			},
-		];
-		const result = await runAudiobookshelf(
-			{ ...itemRoutes(items), "/api/libraries/lib1/items?expanded=1": { results: items } },
-			true,
-		);
-		const owned = result.entityGroups.filter(
-			(group: EntityGroup) => group.ownershipProvider === "audiobookshelf",
-		);
-		expect(owned).toHaveLength(2);
-		expect(owned.map((group: EntityGroup) => group.entityRef)).toMatchObject([
-			{ externalId: "B08G9PRS1K", entitySchemaSlug: "audiobook" },
-			{ entitySchemaSlug: "book", identifierValue: "9780441013593" },
-		]);
-	});
-
-	// oxlint-disable-next-line effecttsgo/async-function -- Vitest awaits this Promise-returning test callback.
-	it("omits owned items without a usable identifier", async () => {
-		const items: JsonValue[] = [
-			{ id: "a1", media: { ebookFormat: null, metadata: { asin: "B01", title: "Has Asin" } } },
-			{ id: "x1", media: { ebookFormat: null, metadata: { title: "No Ids" } } },
-		];
-		const result = await runAudiobookshelf(
-			{ ...itemRoutes(items), "/api/libraries/lib1/items?expanded=1": { results: items } },
-			true,
-		);
-		expect(
-			result.entityGroups.filter((group: EntityGroup) => group.ownershipProvider),
-		).toHaveLength(1);
-	});
-
-	// oxlint-disable-next-line effecttsgo/async-function -- Vitest awaits this Promise-returning test callback.
-	it("skips a library whose item fetch fails and keeps the rest", async () => {
-		const item = {
-			id: "a1",
-			media: { ebookFormat: null, metadata: { asin: "B01", title: "Owned" } },
-		};
-		const result = await runAudiobookshelf(
-			{
-				"/api/libraries/lib2/items?expanded=1": failure,
-				"/api/libraries/lib1/items?expanded=1": { results: [item] },
-				"/api/libraries/lib2/items?expanded=1&filter=progress.ZmluaXNoZWQ=": failure,
-				"/api/libraries/lib1/items?expanded=1&filter=progress.ZmluaXNoZWQ=": { results: [item] },
-				"/api/libraries": {
-					libraries: [
-						{ name: "A", id: "lib1", mediaType: "book" },
-						{ name: "B", id: "lib2", mediaType: "book" },
-					],
-				},
-			},
-			true,
-		);
-		expect(
-			result.entityGroups.filter((group: EntityGroup) => group.ownershipProvider),
-		).toHaveLength(1);
-		expect(result.failures).toContainEqual(
-			expect.objectContaining({ stage: "source_fetch", sourceIdentifier: "lib2" }),
-		);
-	});
+				media: { ebookFormat: null, metadata: { asin: "B01", title: "Owned" } },
+			};
+			const result = yield* Effect.promise(() =>
+				runAudiobookshelf(
+					{
+						"/api/libraries/lib2/items?expanded=1": failure,
+						"/api/libraries/lib1/items?expanded=1": { results: [item] },
+						"/api/libraries/lib2/items?expanded=1&filter=progress.ZmluaXNoZWQ=": failure,
+						"/api/libraries/lib1/items?expanded=1&filter=progress.ZmluaXNoZWQ=": {
+							results: [item],
+						},
+						"/api/libraries": {
+							libraries: [
+								{ name: "A", id: "lib1", mediaType: "book" },
+								{ name: "B", id: "lib2", mediaType: "book" },
+							],
+						},
+					},
+					true,
+				),
+			);
+			expect(
+				result.entityGroups.filter((group: EntityGroup) => group.ownershipProvider),
+			).toHaveLength(1);
+			expect(result.failures).toContainEqual(
+				expect.objectContaining({ stage: "source_fetch", sourceIdentifier: "lib2" }),
+			);
+		}),
+	);
 
 	const podcastLibrary = {
 		libraries: [{ id: "podcasts", name: "Podcasts", mediaType: "podcast" }],
 	};
 
-	// oxlint-disable-next-line effecttsgo/async-function -- Vitest awaits this Promise-returning test callback.
-	it("imports only the podcast episodes this account finished", async () => {
-		const result = await runAudiobookshelf({
-			"/api/libraries": podcastLibrary,
-			"/api/libraries/podcasts/items?expanded=1": { results: [podcastItem("pod1")] },
-			"/api/items/pod1?expanded=1&include=progress": {
-				media: {
-					episodes: [
-						{ id: "e1", episodeNumber: 1 },
-						{ id: "e2", episodeNumber: 2 },
-						{ id: "e3", episodeNumber: 3 },
-					],
-				},
-			},
-			"/api/me": {
-				mediaProgress: [
-					{ episodeId: "e1", isFinished: false, libraryItemId: "pod1" },
-					{ episodeId: "e2", isFinished: true, libraryItemId: "pod1" },
-					{ episodeId: "e3", isFinished: true, libraryItemId: "pod2" },
-				],
-			},
-		});
-		expect(result.failures).toEqual([]);
-		expect(result.entityGroups[0]).toMatchObject({
-			entityRef: { externalId: "42", providerSlug: "podcast.itunes" },
-			events: [{ unresolvedEpisode: { type: "podcast", episodeNumber: 2 } }],
-		});
-	});
+	it.live("imports only the podcast episodes this account finished", () =>
+		Effect.gen(function* () {
+			const result = yield* Effect.promise(() =>
+				runAudiobookshelf({
+					"/api/libraries": podcastLibrary,
+					"/api/libraries/podcasts/items?expanded=1": { results: [podcastItem("pod1")] },
+					"/api/items/pod1?expanded=1&include=progress": {
+						media: {
+							episodes: [
+								{ id: "e1", episodeNumber: 1 },
+								{ id: "e2", episodeNumber: 2 },
+								{ id: "e3", episodeNumber: 3 },
+							],
+						},
+					},
+					"/api/me": {
+						mediaProgress: [
+							{ episodeId: "e1", isFinished: false, libraryItemId: "pod1" },
+							{ episodeId: "e2", isFinished: true, libraryItemId: "pod1" },
+							{ episodeId: "e3", isFinished: true, libraryItemId: "pod2" },
+						],
+					},
+				}),
+			);
+			expect(result.failures).toEqual([]);
+			expect(result.entityGroups[0]).toMatchObject({
+				entityRef: { externalId: "42", providerSlug: "podcast.itunes" },
+				events: [{ unresolvedEpisode: { type: "podcast", episodeNumber: 2 } }],
+			});
+		}),
+	);
 
-	// oxlint-disable-next-line effecttsgo/async-function -- Vitest awaits this Promise-returning test callback.
-	it("reads podcast details whose episodes carry null numbering fields", async () => {
-		const result = await runAudiobookshelf({
-			"/api/libraries": podcastLibrary,
-			"/api/libraries/podcasts/items?expanded=1": { results: [podcastItem("pod1")] },
-			"/api/me": { mediaProgress: [{ episodeId: "e1", isFinished: true, libraryItemId: "pod1" }] },
-			"/api/items/pod1?expanded=1&include=progress": {
-				media: { episodes: [{ id: "e1", index: null, episode: "", episodeNumber: 3 }] },
-			},
-		});
-		expect(result.failures).toEqual([]);
-		expect(result.entityGroups[0]).toMatchObject({
-			entityRef: { externalId: "42", providerSlug: "podcast.itunes" },
-			events: [{ unresolvedEpisode: { type: "podcast", episodeNumber: 3 } }],
-		});
-	});
+	it.live("reads podcast details whose episodes carry null numbering fields", () =>
+		Effect.gen(function* () {
+			const result = yield* Effect.promise(() =>
+				runAudiobookshelf({
+					"/api/libraries": podcastLibrary,
+					"/api/libraries/podcasts/items?expanded=1": { results: [podcastItem("pod1")] },
+					"/api/me": {
+						mediaProgress: [{ episodeId: "e1", isFinished: true, libraryItemId: "pod1" }],
+					},
+					"/api/items/pod1?expanded=1&include=progress": {
+						media: { episodes: [{ id: "e1", index: null, episode: "", episodeNumber: 3 }] },
+					},
+				}),
+			);
+			expect(result.failures).toEqual([]);
+			expect(result.entityGroups[0]).toMatchObject({
+				entityRef: { externalId: "42", providerSlug: "podcast.itunes" },
+				events: [{ unresolvedEpisode: { type: "podcast", episodeNumber: 3 } }],
+			});
+		}),
+	);
 
-	// oxlint-disable-next-line effecttsgo/async-function -- Vitest awaits this Promise-returning test callback.
-	it("leaves podcasts with nothing finished out of the result without failing them", async () => {
-		const result = await runAudiobookshelf({
-			"/api/libraries": podcastLibrary,
-			"/api/items/pod2?expanded=1&include=progress": { media: { episodes: [] } },
-			"/api/libraries/podcasts/items?expanded=1": {
-				results: [podcastItem("pod1"), podcastItem("pod2")],
-			},
-			"/api/items/pod1?expanded=1&include=progress": {
-				media: { episodes: [{ id: "e1", episodeNumber: 1 }] },
-			},
-		});
-		expect(result.failures).toEqual([]);
-		expect(result.entityGroups).toEqual([]);
-	});
+	it.live("leaves podcasts with nothing finished out of the result without failing them", () =>
+		Effect.gen(function* () {
+			const result = yield* Effect.promise(() =>
+				runAudiobookshelf({
+					"/api/libraries": podcastLibrary,
+					"/api/items/pod2?expanded=1&include=progress": { media: { episodes: [] } },
+					"/api/libraries/podcasts/items?expanded=1": {
+						results: [podcastItem("pod1"), podcastItem("pod2")],
+					},
+					"/api/items/pod1?expanded=1&include=progress": {
+						media: { episodes: [{ id: "e1", episodeNumber: 1 }] },
+					},
+				}),
+			);
+			expect(result.failures).toEqual([]);
+			expect(result.entityGroups).toEqual([]);
+		}),
+	);
 
-	// oxlint-disable-next-line effecttsgo/async-function -- Vitest awaits this Promise-returning test callback.
-	it("records a failure when a finished podcast episode has no episode number", async () => {
-		const result = await runAudiobookshelf({
-			"/api/libraries": podcastLibrary,
-			"/api/libraries/podcasts/items?expanded=1": { results: [podcastItem("pod1")] },
-			"/api/me": { mediaProgress: [{ episodeId: "e1", isFinished: true, libraryItemId: "pod1" }] },
-			"/api/items/pod1?expanded=1&include=progress": {
-				media: { episodes: [{ id: "e1", index: null, episode: "", episodeNumber: null }] },
-			},
-		});
-		expect(result.entityGroups).toEqual([]);
-		expect(result.failures[0]).toMatchObject({
-			itemIndex: 0,
-			sourceIdentifier: "e1",
-			stage: "input_transformation",
-			message: "Audiobookshelf podcast episode is finished but has no episode number",
-		});
-	});
+	it.live("records a failure when a finished podcast episode has no episode number", () =>
+		Effect.gen(function* () {
+			const result = yield* Effect.promise(() =>
+				runAudiobookshelf({
+					"/api/libraries": podcastLibrary,
+					"/api/libraries/podcasts/items?expanded=1": { results: [podcastItem("pod1")] },
+					"/api/me": {
+						mediaProgress: [{ episodeId: "e1", isFinished: true, libraryItemId: "pod1" }],
+					},
+					"/api/items/pod1?expanded=1&include=progress": {
+						media: { episodes: [{ id: "e1", index: null, episode: "", episodeNumber: null }] },
+					},
+				}),
+			);
+			expect(result.entityGroups).toEqual([]);
+			expect(result.failures[0]).toMatchObject({
+				itemIndex: 0,
+				sourceIdentifier: "e1",
+				stage: "input_transformation",
+				message: "Audiobookshelf podcast episode is finished but has no episode number",
+			});
+		}),
+	);
 });
 
 describe("Komga yank", () => {
@@ -604,19 +670,18 @@ describe("Komga yank", () => {
 		expect(extractMangaRef([], "Berserk")).toBeNull();
 	});
 
-	// oxlint-disable-next-line effecttsgo/async-function -- Vitest awaits this Promise-returning test callback.
-	it("accepts null and unread progress while preserving ownership", async () => {
-		const book = {
-			id: "book1",
-			readProgress: null,
-			media: { pagesCount: 100 },
-			metadata: {
-				title: "Berserk",
-				links: [{ label: "AniList", url: "https://anilist.co/manga/30002" }],
-			},
-		};
-		const result = await Effect.runPromise(
-			runSandboxTestScript(
+	it.live("accepts null and unread progress while preserving ownership", () =>
+		Effect.gen(function* () {
+			const book = {
+				id: "book1",
+				readProgress: null,
+				media: { pagesCount: 100 },
+				metadata: {
+					title: "Berserk",
+					links: [{ label: "AniList", url: "https://anilist.co/manga/30002" }],
+				},
+			};
+			const result = yield* runSandboxTestScript(
 				komgaDefinition,
 				{},
 				defineSandboxTestHost(komgaManifest, {
@@ -637,13 +702,13 @@ describe("Komga yank", () => {
 					}),
 				}),
 				execution,
-			),
-		);
-		expect(result.failures).toEqual([]);
-		expect(result.entityGroups).toEqual([
-			expect.objectContaining({ events: [], ownershipProvider: "komga" }),
-		]);
-	});
+			);
+			expect(result.failures).toEqual([]);
+			expect(result.entityGroups).toEqual([
+				expect.objectContaining({ events: [], ownershipProvider: "komga" }),
+			]);
+		}),
+	);
 });
 
 const setup = (songs?: ReadonlyArray<{ title: string; videoId: string }>) => {
@@ -708,23 +773,35 @@ describe("YouTube Music yank", () => {
 		expect(dailyProgressWindow("UTC", "2026-01-01T23:50:00.000Z").isFinalWindow).toBe(true);
 	});
 
-	// oxlint-disable-next-line effecttsgo/async-function -- Vitest awaits this Promise-returning test callback.
-	it("emits 35 once, emits 100 once, then skips songs already completed that day", async () => {
-		const { run } = setup([
-			{ videoId: "v1", title: "First" },
-			{ videoId: "v2", title: "Second" },
-			{ videoId: "v1", title: "First duplicate" },
-		]);
-		expect(progressValues(await run("2026-01-01T12:00:00.000Z"))).toEqual([35, 35]);
-		expect(progressValues(await run("2026-01-01T12:05:00.000Z"))).toEqual([100, 100]);
-		expect(progressValues(await run("2026-01-01T12:10:00.000Z"))).toEqual([]);
-	});
+	it.live("emits 35 once, emits 100 once, then skips songs already completed that day", () =>
+		Effect.gen(function* () {
+			const { run } = setup([
+				{ videoId: "v1", title: "First" },
+				{ videoId: "v2", title: "Second" },
+				{ videoId: "v1", title: "First duplicate" },
+			]);
+			expect(progressValues(yield* Effect.promise(() => run("2026-01-01T12:00:00.000Z")))).toEqual([
+				35, 35,
+			]);
+			expect(progressValues(yield* Effect.promise(() => run("2026-01-01T12:05:00.000Z")))).toEqual([
+				100, 100,
+			]);
+			expect(progressValues(yield* Effect.promise(() => run("2026-01-01T12:10:00.000Z")))).toEqual(
+				[],
+			);
+		}),
+	);
 
-	// oxlint-disable-next-line effecttsgo/async-function -- Vitest awaits this Promise-returning test callback.
-	it("completes a song directly when first found in the final ten minutes", async () => {
-		const { run, claims } = setup();
-		expect(progressValues(await run("2026-01-01T23:50:00.000Z"))).toEqual([100]);
-		expect(progressValues(await run("2026-01-01T23:55:00.000Z"))).toEqual([]);
-		expect([...claims]).toEqual([expect.stringMatching(/:v1:2026-01-01:completed$/)]);
-	});
+	it.live("completes a song directly when first found in the final ten minutes", () =>
+		Effect.gen(function* () {
+			const { run, claims } = setup();
+			expect(progressValues(yield* Effect.promise(() => run("2026-01-01T23:50:00.000Z")))).toEqual([
+				100,
+			]);
+			expect(progressValues(yield* Effect.promise(() => run("2026-01-01T23:55:00.000Z")))).toEqual(
+				[],
+			);
+			expect([...claims]).toEqual([expect.stringMatching(/:v1:2026-01-01:completed$/)]);
+		}),
+	);
 });

@@ -1,3 +1,4 @@
+import { describe, expect, it } from "@effect/vitest";
 import type { PluginThemeSnapshot } from "@ryot-app/client-plugin-contract";
 import { AuthRateLimited, AuthUnauthorized } from "@ryot-app/contract/auth-middleware";
 import type { ContractSuccess } from "@ryot-app/contract/client";
@@ -14,7 +15,6 @@ import {
 } from "@ryot-app/contract/modules/uploads/schemas";
 import type { PreparedRecipe } from "@ryot-app/ryotql";
 import { Effect, Layer, ManagedRuntime, Result, Schema } from "effect";
-import { describe, expect, it } from "vitest";
 
 import { AuthenticatedApiError } from "#/api/authenticated";
 import { decodeServerOrigin } from "#/api/origin";
@@ -123,8 +123,7 @@ const source = new Blob(["id,title"], { type: "text/csv" });
 const uploadRequest = { source, fileName: "items.csv", contentType: "text/csv" };
 
 describe("kernel Ryot client", () => {
-	// oxlint-disable-next-line effecttsgo/async-function -- Vitest awaits this Promise-based test callback and its framework assertions.
-	it("routes semantic collection mutations through the scoped collections port", async () => {
+	it.live("routes semantic collection mutations through the scoped collections port", () => {
 		const calls: unknown[] = [];
 		const runtime = ManagedRuntime.make(
 			Layer.mergeAll(
@@ -147,27 +146,21 @@ describe("kernel Ryot client", () => {
 				}),
 			),
 		);
-		try {
+		return Effect.gen(function* () {
 			const client = createKernelRyotClient(runtime, scope, theme);
-			await expect(
-				Effect.runPromise(client.collections.create({ name: "Favorites" })),
-			).resolves.toEqual(collection);
-			await expect(
-				Effect.runPromise(
-					client.collections.upsertMembership({
-						entityId: "entity-1",
-						collectionId: "collection-1",
-					}),
-				),
-			).resolves.toEqual(membership);
-			await expect(
-				Effect.runPromise(
-					client.collections.removeMembership({
-						entityId: "entity-1",
-						collectionId: "collection-1",
-					}),
-				),
-			).resolves.toEqual(membership);
+			expect(yield* client.collections.create({ name: "Favorites" })).toEqual(collection);
+			expect(
+				yield* client.collections.upsertMembership({
+					entityId: "entity-1",
+					collectionId: "collection-1",
+				}),
+			).toEqual(membership);
+			expect(
+				yield* client.collections.removeMembership({
+					entityId: "entity-1",
+					collectionId: "collection-1",
+				}),
+			).toEqual(membership);
 			expect(calls).toEqual([
 				{ scope, method: "create", request: { payload: { name: "Favorites" } } },
 				{
@@ -181,47 +174,47 @@ describe("kernel Ryot client", () => {
 					request: { payload: { entityId: "entity-1", collectionId: "collection-1" } },
 				},
 			]);
-		} finally {
-			await runtime.dispose();
-		}
+		}).pipe(Effect.ensuring(Effect.promise(() => runtime.dispose())));
 	});
 
-	// oxlint-disable-next-line effecttsgo/async-function -- Vitest awaits this Promise-based test callback and its framework assertions.
-	it("sanitizes declared and unexpected collection failures", async () => {
-		await Promise.all(
-			(
-				[
-					[
-						new CollectionBadRequest({ reason: { field: "name", code: "name-required" } }),
-						"collection-failed",
-					],
-					[new TypeError("private network detail"), "transport"],
-				] as const
-			).map(([failure, reason]) => {
-				const runtime = ManagedRuntime.make(
-					Layer.mergeAll(
-						makeEntityInterestService(),
-						makeRyotQLApi(),
-						makeUploadsApi(),
-						makeCollectionsApi({ create: () => fails(failure) }),
-					),
-				);
-				const client = createKernelRyotClient(runtime, scope, theme);
-				return Effect.runPromise(
-					Effect.promise(() =>
-						expect(
-							Effect.runPromise(client.collections.create({ name: "Favorites" })),
-						).rejects.toMatchObject({ reason }),
-					).pipe(Effect.ensuring(Effect.promise(() => runtime.dispose()))),
-				);
-			}),
-		);
-	});
+	it.live("sanitizes declared and unexpected collection failures", () =>
+		Effect.gen(function* () {
+			yield* Effect.promise(() =>
+				Promise.all(
+					(
+						[
+							[
+								new CollectionBadRequest({ reason: { field: "name", code: "name-required" } }),
+								"collection-failed",
+							],
+							[new TypeError("private network detail"), "transport"],
+						] as const
+					).map(([failure, reason]) => {
+						const runtime = ManagedRuntime.make(
+							Layer.mergeAll(
+								makeEntityInterestService(),
+								makeRyotQLApi(),
+								makeUploadsApi(),
+								makeCollectionsApi({ create: () => fails(failure) }),
+							),
+						);
+						const client = createKernelRyotClient(runtime, scope, theme);
+						return Effect.runPromise(
+							Effect.promise(() =>
+								expect(
+									Effect.runPromise(client.collections.create({ name: "Favorites" })),
+								).rejects.toMatchObject({ reason }),
+							).pipe(Effect.ensuring(Effect.promise(() => runtime.dispose()))),
+						);
+					}),
+				),
+			);
+		}),
+	);
 
-	// oxlint-disable-next-line effecttsgo/async-function -- Vitest awaits this Promise-based test callback and its framework assertions.
-	it("reuses one client for equivalent API scopes and separates users", async () => {
+	it.live("reuses one client for equivalent API scopes and separates users", () => {
 		const runtime = makeRuntime(new Error("not used"));
-		try {
+		return Effect.sync(() => {
 			// This focused runtime provides the services used by the kernel client adapter.
 			// oxlint-disable-next-line typescript/no-unsafe-type-assertion
 			const store = createKernelRyotClientStore(runtime as ClientRuntime, theme);
@@ -229,57 +222,55 @@ describe("kernel Ryot client", () => {
 			expect(store.get({ ...scope })).toBe(first);
 			expect(first.hostServices).toEqual({ scope, runtime });
 			expect(store.get({ ...scope, userId: "user-2" })).not.toBe(first);
-		} finally {
-			await runtime.dispose();
-		}
+		}).pipe(Effect.ensuring(Effect.promise(() => runtime.dispose())));
 	});
 
-	// oxlint-disable-next-line effecttsgo/async-function -- Vitest awaits this Promise-based test callback and its framework assertions.
-	it("attaches synchronous watches by scope without acquiring a session for each client", async () => {
-		const calls: unknown[] = [];
-		const runtime = ManagedRuntime.make(
-			Layer.mergeAll(
-				makeCollectionsApi(),
-				makeRyotQLApi(),
-				makeUploadsApi(),
-				makeEntityInterestService({
-					acquire: () => {
-						throw new Error("Client construction must not acquire a session");
-					},
-					watch: (receivedScope, interest, onUpdate) => {
-						calls.push({ interest, scope: receivedScope });
-						onUpdate({ entityId: "a", reason: "translated" });
-						return {
-							update: (next) => calls.push(next),
-							dispose: () => {
-								calls.push("disposed");
-							},
-						};
-					},
-				}),
-			),
-		);
-		try {
-			const first = createKernelRyotClient(runtime, scope, theme);
-			const second = createKernelRyotClient(runtime, { ...scope }, theme);
-			expect(calls).toEqual([]);
-			const updates: unknown[] = [];
-			const interest = { visible: [], foreground: ["a"] };
-			const handle = first.entities.watch(interest, (update) => updates.push(update));
-			second.entities.watch(interest, () => {});
-			handle.update({ foreground: [], visible: ["b"] });
-			handle.dispose();
-			expect(calls).toEqual([
-				{ scope, interest },
-				{ scope, interest },
-				{ foreground: [], visible: ["b"] },
-				"disposed",
-			]);
-			expect(updates).toEqual([{ entityId: "a", reason: "translated" }]);
-		} finally {
-			await runtime.dispose();
-		}
-	});
+	it.live(
+		"attaches synchronous watches by scope without acquiring a session for each client",
+		() => {
+			const calls: unknown[] = [];
+			const runtime = ManagedRuntime.make(
+				Layer.mergeAll(
+					makeCollectionsApi(),
+					makeRyotQLApi(),
+					makeUploadsApi(),
+					makeEntityInterestService({
+						acquire: () => {
+							throw new Error("Client construction must not acquire a session");
+						},
+						watch: (receivedScope, interest, onUpdate) => {
+							calls.push({ interest, scope: receivedScope });
+							onUpdate({ entityId: "a", reason: "translated" });
+							return {
+								update: (next) => calls.push(next),
+								dispose: () => {
+									calls.push("disposed");
+								},
+							};
+						},
+					}),
+				),
+			);
+			return Effect.sync(() => {
+				const first = createKernelRyotClient(runtime, scope, theme);
+				const second = createKernelRyotClient(runtime, { ...scope }, theme);
+				expect(calls).toEqual([]);
+				const updates: unknown[] = [];
+				const interest = { visible: [], foreground: ["a"] };
+				const handle = first.entities.watch(interest, (update) => updates.push(update));
+				second.entities.watch(interest, () => {});
+				handle.update({ foreground: [], visible: ["b"] });
+				handle.dispose();
+				expect(calls).toEqual([
+					{ scope, interest },
+					{ scope, interest },
+					{ foreground: [], visible: ["b"] },
+					"disposed",
+				]);
+				expect(updates).toEqual([{ entityId: "a", reason: "translated" }]);
+			}).pipe(Effect.ensuring(Effect.promise(() => runtime.dispose())));
+		},
+	);
 	const managedAssets = [
 		{ type: "local", key: "permanent/local.png" },
 		{ type: "s3", key: "permanent/remote.png" },
@@ -304,35 +295,26 @@ describe("kernel Ryot client", () => {
 	];
 
 	for (const failure of declaredFailures) {
-		// oxlint-disable-next-line effecttsgo/async-function -- Vitest awaits this Promise-based test callback and its framework assertions.
-		it(`classifies ${failure._tag} as query-failed`, async () => {
+		it.live(`classifies ${failure._tag} as query-failed`, () => {
 			const runtime = makeRuntime(failure);
-			try {
-				const client = createKernelRyotClient(runtime, scope, theme);
-				await expect(Effect.runPromise(client.data.query(recipe))).rejects.toMatchObject({
-					reason: "query-failed",
-				});
-			} finally {
-				await runtime.dispose();
-			}
+			const client = createKernelRyotClient(runtime, scope, theme);
+			const query = Effect.runPromise(client.data.query(recipe));
+			return Effect.promise(() =>
+				expect(query).rejects.toMatchObject({ reason: "query-failed" }),
+			).pipe(Effect.ensuring(Effect.promise(() => runtime.dispose())));
 		});
 	}
 
-	// oxlint-disable-next-line effecttsgo/async-function -- Vitest awaits this Promise-based test callback and its framework assertions.
-	it("classifies an unexpected failure as transport", async () => {
+	it.live("classifies an unexpected failure as transport", () => {
 		const runtime = makeRuntime(new TypeError("private network detail"));
-		try {
-			const client = createKernelRyotClient(runtime, scope, theme);
-			await expect(Effect.runPromise(client.data.query(recipe))).rejects.toMatchObject({
-				reason: "transport",
-			});
-		} finally {
-			await runtime.dispose();
-		}
+		const client = createKernelRyotClient(runtime, scope, theme);
+		const query = Effect.runPromise(client.data.query(recipe));
+		return Effect.promise(() => expect(query).rejects.toMatchObject({ reason: "transport" })).pipe(
+			Effect.ensuring(Effect.promise(() => runtime.dispose())),
+		);
 	});
 
-	// oxlint-disable-next-line effecttsgo/async-function -- Vitest awaits this Promise-based test callback and its framework assertions.
-	it("interrupts a query with the caller signal", async () => {
+	it.live("interrupts a query with the caller signal", () => {
 		const runtime = ManagedRuntime.make(
 			Layer.mergeAll(
 				makeCollectionsApi(),
@@ -343,20 +325,17 @@ describe("kernel Ryot client", () => {
 		);
 		const controller = new AbortController();
 		const reason = new DOMException("Caller canceled", "AbortError");
-		try {
-			const client = createKernelRyotClient(runtime, scope, theme);
-			const query = Effect.runPromise(client.data.query(recipe), { signal: controller.signal });
+		const client = createKernelRyotClient(runtime, scope, theme);
+		const query = Effect.runPromise(client.data.query(recipe), { signal: controller.signal });
 
-			controller.abort(reason);
+		controller.abort(reason);
 
-			await expect(query).rejects.toThrow(/interrupted/);
-		} finally {
-			await runtime.dispose();
-		}
+		return Effect.promise(() => expect(query).rejects.toThrow(/interrupted/)).pipe(
+			Effect.ensuring(Effect.promise(() => runtime.dispose())),
+		);
 	});
 
-	// oxlint-disable-next-line effecttsgo/async-function -- Vitest awaits this Promise-based test callback and its framework assertions.
-	it("resolves managed assets through the authenticated upload port", async () => {
+	it.live("resolves managed assets through the authenticated upload port", () => {
 		const calls: Array<{ readonly scope: typeof scope; readonly request: unknown }> = [];
 		const runtime = ManagedRuntime.make(
 			Layer.mergeAll(
@@ -380,19 +359,14 @@ describe("kernel Ryot client", () => {
 				}),
 			),
 		);
-		try {
+		return Effect.gen(function* () {
 			const client = createKernelRyotClient(runtime, scope, theme);
-			await expect(Effect.runPromise(client.assets.resolve(managedAssets))).resolves.toEqual(
-				managedAssetResolutions,
-			);
+			expect(yield* client.assets.resolve(managedAssets)).toEqual(managedAssetResolutions);
 			expect(calls).toEqual([{ scope, request: { payload: { assets: [...managedAssets] } } }]);
-		} finally {
-			await runtime.dispose();
-		}
+		}).pipe(Effect.ensuring(Effect.promise(() => runtime.dispose())));
 	});
 
-	// oxlint-disable-next-line effecttsgo/async-function -- Vitest awaits this Promise-based test callback and its framework assertions.
-	it("interrupts authenticated asset resolution on cancellation", async () => {
+	it.live("interrupts authenticated asset resolution on cancellation", () => {
 		const runtime = ManagedRuntime.make(
 			Layer.mergeAll(
 				makeCollectionsApi(),
@@ -403,19 +377,17 @@ describe("kernel Ryot client", () => {
 		);
 		const controller = new AbortController();
 		const reason = new DOMException("Caller canceled", "AbortError");
-		try {
-			const client = createKernelRyotClient(runtime, scope, theme);
-			const resolution = Effect.runPromise(
-				client.assets.resolve([{ type: "local", key: "permanent/local.png" }]),
-				{ signal: controller.signal },
-			);
+		const client = createKernelRyotClient(runtime, scope, theme);
+		const resolution = Effect.runPromise(
+			client.assets.resolve([{ type: "local", key: "permanent/local.png" }]),
+			{ signal: controller.signal },
+		);
 
-			controller.abort(reason);
+		controller.abort(reason);
 
-			await expect(resolution).rejects.toThrow(/interrupted/);
-		} finally {
-			await runtime.dispose();
-		}
+		return Effect.promise(() => expect(resolution).rejects.toThrow(/interrupted/)).pipe(
+			Effect.ensuring(Effect.promise(() => runtime.dispose())),
+		);
 	});
 
 	for (const failure of [
@@ -424,8 +396,7 @@ describe("kernel Ryot client", () => {
 		new UploadBadRequest({ reason: { code: "asset-forbidden" } }),
 		new UploadInternalError({ reason: { code: "unexpected-error" } }),
 	]) {
-		// oxlint-disable-next-line effecttsgo/async-function -- Vitest awaits this Promise-based test callback and its framework assertions.
-		it(`classifies ${failure._tag} as asset-failed`, async () => {
+		it.live(`classifies ${failure._tag} as asset-failed`, () => {
 			const runtime = ManagedRuntime.make(
 				Layer.mergeAll(
 					makeCollectionsApi(),
@@ -434,19 +405,18 @@ describe("kernel Ryot client", () => {
 					makeUploadsApi({ resolveDownloads: () => fails(failure) }),
 				),
 			);
-			try {
+			return Effect.gen(function* () {
 				const client = createKernelRyotClient(runtime, scope, theme);
-				await expect(
-					Effect.runPromise(client.assets.resolve([{ type: "local", key: "permanent/local.png" }])),
-				).rejects.toMatchObject({ reason: "asset-failed" });
-			} finally {
-				await runtime.dispose();
-			}
+				expect(
+					yield* Effect.flip(
+						client.assets.resolve([{ type: "local", key: "permanent/local.png" }]),
+					),
+				).toMatchObject({ reason: "asset-failed" });
+			}).pipe(Effect.ensuring(Effect.promise(() => runtime.dispose())));
 		});
 	}
 
-	// oxlint-disable-next-line effecttsgo/async-function -- Vitest awaits this Promise-based test callback and its framework assertions.
-	it("classifies an unexpected asset failure as transport", async () => {
+	it.live("classifies an unexpected asset failure as transport", () => {
 		const runtime = ManagedRuntime.make(
 			Layer.mergeAll(
 				makeCollectionsApi(),
@@ -455,20 +425,17 @@ describe("kernel Ryot client", () => {
 				makeUploadsApi({ resolveDownloads: () => fails(new TypeError("private network detail")) }),
 			),
 		);
-		try {
+		return Effect.gen(function* () {
 			const client = createKernelRyotClient(runtime, scope, theme);
-			await expect(
-				Effect.runPromise(client.assets.resolve([{ type: "local", key: "permanent/local.png" }])),
-			).rejects.toMatchObject({ reason: "transport" });
-		} finally {
-			await runtime.dispose();
-		}
+			expect(
+				yield* Effect.flip(client.assets.resolve([{ type: "local", key: "permanent/local.png" }])),
+			).toMatchObject({ reason: "transport" });
+		}).pipe(Effect.ensuring(Effect.promise(() => runtime.dispose())));
 	});
 });
 
 describe("kernel temporary uploads", () => {
-	// oxlint-disable-next-line effecttsgo/async-function -- Vitest awaits this Promise-based test callback and its framework assertions.
-	it("creates an intent, transfers the bytes with its headers, then completes it", async () => {
+	it.live("creates an intent, transfers the bytes with its headers, then completes it", () => {
 		const events: string[] = [];
 		const transfers: unknown[] = [];
 		const runtime = ManagedRuntime.make(
@@ -493,11 +460,9 @@ describe("kernel temporary uploads", () => {
 				}),
 			),
 		);
-		try {
+		return Effect.gen(function* () {
 			const client = createKernelRyotClient(runtime, scope, theme);
-			await expect(
-				Effect.runPromise(client.uploads.uploadTemporary(uploadRequest)),
-			).resolves.toEqual(uploadToken);
+			expect(yield* client.uploads.uploadTemporary(uploadRequest)).toEqual(uploadToken);
 
 			expect(events).toEqual([
 				"create-intent:items.csv",
@@ -512,13 +477,10 @@ describe("kernel temporary uploads", () => {
 					uploadUrl: "/uploads/local/intent-1",
 				},
 			]);
-		} finally {
-			await runtime.dispose();
-		}
+		}).pipe(Effect.ensuring(Effect.promise(() => runtime.dispose())));
 	});
 
-	// oxlint-disable-next-line effecttsgo/async-function -- Vitest awaits this Promise-based test callback and its framework assertions.
-	it("classifies a declared intent failure as operation-failed and skips the transfer", async () => {
+	it.live("classifies a declared intent failure as operation-failed and skips the transfer", () => {
 		const events: string[] = [];
 		const runtime = makeUploadsRuntime(events, {
 			completeIntent: Effect.succeed(uploadToken),
@@ -528,112 +490,98 @@ describe("kernel temporary uploads", () => {
 				}),
 			),
 		});
-		try {
+		return Effect.gen(function* () {
 			const client = createKernelRyotClient(runtime, scope, theme);
-			await expect(
-				Effect.runPromise(client.uploads.uploadTemporary(uploadRequest)),
-			).rejects.toMatchObject({ reason: "operation-failed" });
+			expect(yield* Effect.flip(client.uploads.uploadTemporary(uploadRequest))).toMatchObject({
+				reason: "operation-failed",
+			});
 
 			expect(events).toEqual(["create-intent:items.csv"]);
-		} finally {
-			await runtime.dispose();
-		}
+		}).pipe(Effect.ensuring(Effect.promise(() => runtime.dispose())));
 	});
 
-	// oxlint-disable-next-line effecttsgo/async-function -- Vitest awaits this Promise-based test callback and its framework assertions.
-	it("classifies an unexpected intent failure as transport", async () => {
+	it.live("classifies an unexpected intent failure as transport", () => {
 		const events: string[] = [];
 		const runtime = makeUploadsRuntime(events, {
 			completeIntent: Effect.succeed(uploadToken),
 			createIntent: fails(new TypeError("private network detail")),
 		});
-		try {
+		return Effect.gen(function* () {
 			const client = createKernelRyotClient(runtime, scope, theme);
-			await expect(
-				Effect.runPromise(client.uploads.uploadTemporary(uploadRequest)),
-			).rejects.toMatchObject({ reason: "transport" });
-		} finally {
-			await runtime.dispose();
-		}
+			expect(yield* Effect.flip(client.uploads.uploadTemporary(uploadRequest))).toMatchObject({
+				reason: "transport",
+			});
+		}).pipe(Effect.ensuring(Effect.promise(() => runtime.dispose())));
 	});
 
-	// oxlint-disable-next-line effecttsgo/async-function -- Vitest awaits this Promise-based test callback and its framework assertions.
-	it("classifies a rejected byte transfer and never completes the intent", async () => {
-		const rejected: string[] = [];
-		const rejectedRuntime = makeUploadsRuntime(rejected, {
-			putBytes: fails(403),
-			createIntent: Effect.succeed(intent),
-			completeIntent: Effect.succeed(uploadToken),
-		});
-		try {
-			const client = createKernelRyotClient(rejectedRuntime, scope, theme);
-			await expect(
-				Effect.runPromise(client.uploads.uploadTemporary(uploadRequest)),
-			).rejects.toMatchObject({ reason: "operation-failed" });
-			expect(rejected).toEqual(["create-intent:items.csv", "put:/uploads/local/intent-1"]);
-		} finally {
-			await rejectedRuntime.dispose();
-		}
+	it.live("classifies a rejected byte transfer and never completes the intent", () =>
+		Effect.gen(function* () {
+			const rejected: string[] = [];
+			const rejectedRuntime = makeUploadsRuntime(rejected, {
+				putBytes: fails(403),
+				createIntent: Effect.succeed(intent),
+				completeIntent: Effect.succeed(uploadToken),
+			});
+			yield* Effect.gen(function* () {
+				const client = createKernelRyotClient(rejectedRuntime, scope, theme);
+				expect(yield* Effect.flip(client.uploads.uploadTemporary(uploadRequest))).toMatchObject({
+					reason: "operation-failed",
+				});
+				expect(rejected).toEqual(["create-intent:items.csv", "put:/uploads/local/intent-1"]);
+			}).pipe(Effect.ensuring(Effect.promise(() => rejectedRuntime.dispose())));
 
-		const offline: string[] = [];
-		const offlineRuntime = makeUploadsRuntime(offline, {
-			createIntent: Effect.succeed(intent),
-			completeIntent: Effect.succeed(uploadToken),
-			putBytes: fails(new TypeError("Failed to fetch")),
-		});
-		try {
-			const client = createKernelRyotClient(offlineRuntime, scope, theme);
-			await expect(
-				Effect.runPromise(client.uploads.uploadTemporary(uploadRequest)),
-			).rejects.toMatchObject({ reason: "transport" });
-			expect(offline).toEqual(["create-intent:items.csv", "put:/uploads/local/intent-1"]);
-		} finally {
-			await offlineRuntime.dispose();
-		}
-	});
+			const offline: string[] = [];
+			const offlineRuntime = makeUploadsRuntime(offline, {
+				createIntent: Effect.succeed(intent),
+				completeIntent: Effect.succeed(uploadToken),
+				putBytes: fails(new TypeError("Failed to fetch")),
+			});
+			yield* Effect.gen(function* () {
+				const client = createKernelRyotClient(offlineRuntime, scope, theme);
+				expect(yield* Effect.flip(client.uploads.uploadTemporary(uploadRequest))).toMatchObject({
+					reason: "transport",
+				});
+				expect(offline).toEqual(["create-intent:items.csv", "put:/uploads/local/intent-1"]);
+			}).pipe(Effect.ensuring(Effect.promise(() => offlineRuntime.dispose())));
+		}),
+	);
 
-	// oxlint-disable-next-line effecttsgo/async-function -- Vitest awaits this Promise-based test callback and its framework assertions.
-	it("classifies a failed completion after the bytes are transferred", async () => {
+	it.live("classifies a failed completion after the bytes are transferred", () => {
 		const events: string[] = [];
 		const runtime = makeUploadsRuntime(events, {
 			createIntent: Effect.succeed(intent),
 			completeIntent: fails(new UploadInternalError({ reason: { code: "unexpected-error" } })),
 		});
-		try {
+		return Effect.gen(function* () {
 			const client = createKernelRyotClient(runtime, scope, theme);
-			await expect(
-				Effect.runPromise(client.uploads.uploadTemporary(uploadRequest)),
-			).rejects.toMatchObject({ reason: "operation-failed" });
+			expect(yield* Effect.flip(client.uploads.uploadTemporary(uploadRequest))).toMatchObject({
+				reason: "operation-failed",
+			});
 
 			expect(events).toEqual([
 				"create-intent:items.csv",
 				"put:/uploads/local/intent-1",
 				"complete-intent:intent-1",
 			]);
-		} finally {
-			await runtime.dispose();
-		}
+		}).pipe(Effect.ensuring(Effect.promise(() => runtime.dispose())));
 	});
 
-	// oxlint-disable-next-line effecttsgo/async-function -- Vitest awaits this Promise-based test callback and its framework assertions.
-	it("rejects a completion that resolves to a managed asset instead of a token", async () => {
+	it.live("rejects a completion that resolves to a managed asset instead of a token", () => {
 		const events: string[] = [];
 		const runtime = makeUploadsRuntime(events, {
 			createIntent: Effect.succeed(intent),
 			completeIntent: Effect.succeed({ type: "local", key: "assets/items.csv" }),
 		});
-		try {
+		return Effect.gen(function* () {
 			const client = createKernelRyotClient(runtime, scope, theme);
-			await expect(
-				Effect.runPromise(client.uploads.uploadTemporary(uploadRequest)),
-			).rejects.toMatchObject({ reason: "malformed-result" });
+			expect(yield* Effect.flip(client.uploads.uploadTemporary(uploadRequest))).toMatchObject({
+				reason: "malformed-result",
+			});
 			expect(events).toEqual([
 				"create-intent:items.csv",
 				"put:/uploads/local/intent-1",
 				"complete-intent:intent-1",
 			]);
-		} finally {
-			await runtime.dispose();
-		}
+		}).pipe(Effect.ensuring(Effect.promise(() => runtime.dispose())));
 	});
 });

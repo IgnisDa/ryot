@@ -1,6 +1,7 @@
+import { describe, expect, it } from "@effect/vitest";
 import { fireEvent, render, screen } from "@testing-library/react";
+import { Effect } from "effect";
 import { useState } from "react";
-import { describe, expect, it } from "vitest";
 import { axe } from "vitest-axe";
 
 import { MultiSelect } from "./multi-select";
@@ -49,15 +50,18 @@ describe("MultiSelect", () => {
 		expect(screen.queryByRole("button", { name: "Clear selections in Genres" })).toBeNull();
 	});
 
-	// oxlint-disable-next-line effecttsgo/async-function -- Vitest awaits the axe Promise.
-	it("passes an axe pass with its options modal open", async () => {
-		render(<GenreSelect />);
-		openOptions();
+	it.live("passes an axe pass with its options modal open", () =>
+		Effect.gen(function* () {
+			render(<GenreSelect />);
+			openOptions();
 
-		const results = await axe(document.body, {
-			rules: { region: { enabled: false }, "color-contrast": { enabled: false } },
-		});
+			const results = yield* Effect.promise(() =>
+				axe(document.body, {
+					rules: { region: { enabled: false }, "color-contrast": { enabled: false } },
+				}),
+			);
 
-		expect(results.violations.map((violation) => violation.id)).toEqual([]);
-	});
+			expect(results.violations.map((violation) => violation.id)).toEqual([]);
+		}),
+	);
 });
