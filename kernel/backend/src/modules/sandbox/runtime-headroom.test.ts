@@ -1,6 +1,6 @@
 import { BunServices } from "@effect/platform-bun";
 import { PgClient } from "@effect/sql-pg";
-import { expect, layer } from "@effect/vitest";
+import { assert, expect, layer } from "@effect/vitest";
 import { SandboxRunError } from "@ryot-app/contract/errors";
 import { SandboxScriptId, UserId } from "@ryot-app/contract/schema/brands";
 import {
@@ -315,6 +315,7 @@ const makeHeadroomLayer = Layer.unwrap(
 				const admission = yield* SandboxSidecarAdmission;
 				const state = yield* SandboxHeadroomControl;
 				return SandboxDurableHostDispatcher.of({
+					cancelInline: () => Effect.void,
 					dispatch: () => Effect.die("Non-inline durable dispatch is not expected"),
 					settleInline: (requests, _context, _principal, _lane, executionId) =>
 						Effect.gen(function* () {
@@ -328,6 +329,7 @@ const makeHeadroomLayer = Layer.unwrap(
 								requests,
 								(request) =>
 									Effect.gen(function* () {
+										assert(request.kind === "host");
 										if (
 											request.name !== "getCachedValue" ||
 											request.args.capability !== "getCachedValue"

@@ -8,6 +8,7 @@ import { Context, Effect, Layer, Ref, Schema } from "effect";
 
 import { redisKeys, RedisService } from "#lib/infrastructure/redis";
 import { SandboxService as RuntimeSandboxService } from "#lib/infrastructure/sandbox-runtime/service";
+import { makeSandboxShortWait } from "#lib/infrastructure/sandbox-runtime/short-wait";
 import { appendWorkflowJournal } from "#lib/infrastructure/sandbox-runtime/workflow-journal";
 import { readPinnedJournal } from "#lib/infrastructure/sandbox-runtime/workflow-journal.test-support";
 import { databaseLayer } from "#lib/test-utils/effect";
@@ -31,6 +32,7 @@ const queuedReplay = {
 const encodeJson = Schema.encodeSync(Schema.fromJsonString(Schema.Unknown));
 
 const dispatcherLayer = Layer.succeed(SandboxDurableHostDispatcher, {
+	cancelInline: () => Effect.void,
 	dispatch: () => Effect.die("durable dispatch is not expected"),
 	settleInline: () => Effect.die("inline dispatch is not expected"),
 });
@@ -96,6 +98,7 @@ const settlingDispatcherLayer = Layer.unwrap(
 		const settlements = yield* Ref.make<ReadonlyArray<InlineSettlement>>([]);
 		return Layer.merge(
 			Layer.succeed(SandboxDurableHostDispatcher, {
+				cancelInline: () => Effect.void,
 				dispatch: () => Effect.die("durable dispatch is not expected"),
 				settleInline: (requests, context, _principal, lane, executionId, startedAt) =>
 					Ref.update(settlements, (all) => [
@@ -219,6 +222,7 @@ layer(
 						error: null,
 						success: true,
 						harvest: null,
+						pendingInline: [],
 						executionId: input.executionId,
 						timing: { totalMs: 1, executionMs: 1 },
 					});
@@ -317,6 +321,7 @@ layer(
 				error: null,
 				success: true,
 				harvest: null,
+				pendingInline: [],
 				value: "queued-result",
 				executionId: input.executionId,
 				timing: { totalMs: 1, executionMs: 1 },
@@ -415,12 +420,15 @@ layer(
 		runtimeSandboxLayer((input) =>
 			Effect.gen(function* () {
 				const inline = input.inlineDurableHost;
-				const results = inline ? yield* inline.settle([inlineRequest]) : null;
+				const results = inline?.capabilities.includes("getCachedValue")
+					? yield* inline.settle([inlineRequest], makeSandboxShortWait(), () => Effect.void)
+					: null;
 				return {
 					logs: [],
 					error: null,
 					success: true,
 					harvest: null,
+					pendingInline: [],
 					value: results?.length ?? 0,
 					executionId: input.executionId,
 					timing: { totalMs: 1, executionMs: 1 },
@@ -485,7 +493,7 @@ layer(
 				inline ? inline.capabilities : null,
 			);
 
-			expect(offered).toEqual([["getCachedValue"], null]);
+			expect(offered).toEqual([["getCachedValue"], []]);
 			expect(runs.map((run) => run.replayJournal?.entries.length)).toEqual([3, 0]);
 			expect(runs.map((run) => run.lane)).toEqual(["background", "interactive"]);
 			expect((yield* (yield* RecordedRuns).reserved).slice(reservedBefore)).toEqual([
@@ -527,6 +535,7 @@ layer(
 							error: null,
 							success: true,
 							harvest: null,
+							pendingInline: [],
 							executionId: input.executionId,
 							value: "script caught the failed read",
 							timing: { totalMs: 1, executionMs: 1 },
@@ -592,6 +601,7 @@ layer(
 				inline: [],
 				error: null,
 				value: null,
+				pendingInline: [],
 				status: "completed",
 				projectionMissing: true,
 			});

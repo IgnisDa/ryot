@@ -283,6 +283,7 @@ export class SandboxService extends Context.Service<SandboxService>()("SandboxSe
 						recovery: result.recovery,
 						success: response.success,
 						executionId: input.executionId,
+						pendingInline: result.pendingInline,
 						value: response.success ? response.value : null,
 						error: response.success ? null : response.error,
 						logs: mergeSandboxExecutionLogs(consoleLogs, collector),

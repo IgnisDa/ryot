@@ -16,6 +16,7 @@ import {
 import { SandboxRecoveryIdentity } from "#lib/infrastructure/sandbox-recovery-store";
 import { SandboxExecutionPrincipal } from "#lib/infrastructure/sandbox-runtime/execution-principal";
 import { sandboxInlineDurableCapabilities } from "#lib/infrastructure/sandbox-runtime/host-execution-policy";
+import { SandboxInlineProgress } from "#lib/infrastructure/sandbox-runtime/inline-progress";
 import { SandboxService as RuntimeSandboxService } from "#lib/infrastructure/sandbox-runtime/service";
 import { SandboxAdmissionLease } from "#lib/infrastructure/sandbox-runtime/sidecar-admission";
 import { SidecarRecoverySuspended } from "#lib/infrastructure/sandbox-runtime/sidecar-supervisor";
@@ -49,6 +50,7 @@ const SandboxReplayResult = Schema.Struct({
 	recovery: Schema.optional(SandboxRecoveryIdentity),
 	recoverySuspended: Schema.optional(Schema.Literal(true)),
 	...SandboxExecutionResult.fields,
+	pendingInline: Schema.Array(SandboxInlineProgress),
 	inline: Schema.Array(workflowReplayJournalEntrySchema),
 	projectionMissing: Schema.optional(Schema.Literal(true)),
 });
@@ -67,6 +69,7 @@ const emptyReplayResult = () => ({
 	inline: [],
 	error: null,
 	value: null,
+	pendingInline: [],
 	status: "completed" as const,
 });
 
@@ -149,22 +152,21 @@ export const executeSandboxExecution = Effect.fn("executeSandboxExecution")(func
 					compiledFormat: artifact.compiledFormat,
 					workflowExecutionId: payload.workflowExecutionId,
 					...(grants ? { grants } : {}),
-					...(inlineCapabilities.length > 0
-						? {
-								inlineDurableHost: {
-									capabilities: inlineCapabilities,
-									settle: (requests) =>
-										dispatcher.settleInline(
-											requests,
-											payload.context,
-											payload.principal,
-											payload.lane,
-											payload.workflowExecutionId,
-											payload.startedAt,
-										),
-								},
-							}
-						: {}),
+					inlineDurableHost: {
+						capabilities: inlineCapabilities,
+						cancel: (progress) => dispatcher.cancelInline(payload.workflowExecutionId, progress),
+						settle: (requests, wait, checkpoint) =>
+							dispatcher.settleInline(
+								requests,
+								payload.context,
+								payload.principal,
+								payload.lane,
+								payload.workflowExecutionId,
+								payload.startedAt,
+								wait,
+								checkpoint,
+							),
+					},
 				})
 				.pipe(Effect.provideService(SandboxAdmissionLease, lease), Effect.exit);
 			// A lost or rewritten projection decides the replay, whatever the script made of the failed read.
@@ -192,6 +194,7 @@ export const executeSandboxExecution = Effect.fn("executeSandboxExecution")(func
 				harvest: result.harvest,
 				recovery: result.recovery,
 				status: "completed" as const,
+				pendingInline: result.pendingInline,
 			};
 		}).pipe(
 			Effect.catchIf(

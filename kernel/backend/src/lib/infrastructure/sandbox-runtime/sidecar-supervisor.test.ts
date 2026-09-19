@@ -322,7 +322,7 @@ const makeRecordingHarness = Effect.gen(function* () {
 
 const idleBytes = (admission: SandboxSidecarAdmission["Service"]) =>
 	admission.plan.budget - admission.plan.dynamicBytes;
-const configLayer = makeAppConfigLayer({ sandbox: { memoryBudgetMiB: Option.some(2048) } });
+const configLayer = makeAppConfigLayer({ sandbox: { memoryBudgetMiB: Option.some(1904) } });
 const harnessLayer = Layer.effect(SupervisorTestHarness, makeRecordingHarness);
 const clientLayer = Layer.effect(
 	SandboxSidecarClient,
@@ -536,6 +536,8 @@ const makePrepare =
 			const gate: SandboxHostCallGateRegistration = {
 				journal: undefined,
 				inlineEntries: () => [],
+				pendingEntries: () => [],
+				handoff: () => undefined,
 				extend: (milliseconds) =>
 					Effect.sync(() => {
 						settledMs += milliseconds;
@@ -1500,6 +1502,7 @@ supervisorTest("inline_settlement_pauses_only_script_time_with_ceilings_and_back
 					metadata: { kind: "workflow", runtimeImports: [], capabilities: ["getCachedValue"] },
 				},
 				inlineDurableHost: {
+					cancel: () => Effect.void,
 					capabilities: ["getCachedValue"],
 					settle: (requests) =>
 						Effect.gen(function* () {
@@ -1633,6 +1636,7 @@ supervisorTest("per_handle_bounds_admit_honest_maximum_concurrency", () =>
 					metadata: { kind: "workflow", runtimeImports: [], capabilities: ["getCachedValue"] },
 				},
 				inlineDurableHost: {
+					cancel: () => Effect.void,
 					capabilities: ["getCachedValue"],
 					settle: (requests) =>
 						Deferred.await(release).pipe(

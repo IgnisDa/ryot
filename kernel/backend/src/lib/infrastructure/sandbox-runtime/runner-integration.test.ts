@@ -187,7 +187,9 @@ export default defineWorkflow({
 								},
 					);
 					expect(result.inline).toEqual([]);
-					expect(result.controls.every((name) => name === "journalRead")).toBe(true);
+					expect(result.controls.filter((name) => name !== "journalRead")).toEqual(
+						prefixLength === 2 ? ["inlineBatch"] : [],
+					);
 					if (prefixLength > 0) {
 						expect(result.controls.length).toBeGreaterThan(0);
 					}
@@ -512,6 +514,7 @@ export default defineWorkflow({
 					lane: "background",
 					workflowExecutionId: "freeze-test",
 					inlineDurableHost: {
+						cancel: () => Effect.void,
 						capabilities: ["getCachedValue"],
 						settle: (requests) =>
 							Effect.sleep("100 millis").pipe(
@@ -997,6 +1000,7 @@ export default defineScript({ manifest, input: Schema.Struct({}), output: Schema
 			const compiled = yield* (yield* SandboxCompiler).compile(durableSource);
 			const batches: string[][] = [];
 			const inlineDurableHost: SandboxInlineDurableHost = {
+				cancel: () => Effect.void,
 				capabilities: ["getCachedValue"] as const,
 				settle: (requests) =>
 					Effect.sync(() => {
@@ -1062,6 +1066,7 @@ export default defineScript({ manifest, input: Schema.Struct({}), output: Schema
 						lane: "background",
 						workflowExecutionId: "durable-parent",
 						inlineDurableHost: {
+							cancel: () => Effect.void,
 							capabilities: ["getCachedValue"],
 							settle: (requests) =>
 								Effect.sync(() => {
@@ -1097,6 +1102,7 @@ export default defineScript({ manifest, input: Schema.Struct({}), output: Schema
 						workflowExecutionId: "durable-parent",
 						inlineDurableHost: {
 							capabilities,
+							cancel: () => Effect.void,
 							settle: () =>
 								Effect.sync(() => {
 									settlements++;
