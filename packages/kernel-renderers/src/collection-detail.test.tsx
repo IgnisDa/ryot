@@ -22,10 +22,13 @@ const openCollection = (collectionId = "col-1", search = "") =>
 	});
 
 const request = (page: ReturnType<typeof mountPluginPage>, name: string) =>
-	waitFor(() => expect(page.queryRequests(name).length).toBeGreaterThan(0)).then(() => {
+	Effect.gen(function* () {
+		yield* Effect.promise(() =>
+			waitFor(() => expect(page.queryRequests(name).length).toBeGreaterThan(0)),
+		);
 		const found = page.queryRequests(name)[0];
 		if (!found) {
-			throw new Error(`${name} request was not issued`);
+			return yield* Effect.die(new Error(`${name} request was not issued`));
 		}
 		return found;
 	});
@@ -42,83 +45,79 @@ const answerCollection = (
 		readonly total?: number | undefined;
 	},
 ) =>
-	request(page, "collection")
-		.then((header) => {
-			expect(page.queryRequests()).toHaveLength(1);
-			page.replyQuery(header.requestId, {
-				outcome: "success",
-				response: {
-					data: {
-						collection: {
-							type: "rows",
-							pageInfo: { limit: 2, hasMore: false, nextCursor: null },
-							items: [
-								{
-									name: input.name,
-									entityId: "col-1",
-									properties: input.membershipPropertiesSchema
-										? { membershipPropertiesSchema: input.membershipPropertiesSchema }
-										: {},
-								},
-							],
-						},
-					},
-				},
-			});
-			return Promise.all([
-				request(page, "aggregate"),
-				request(page, "count"),
-				request(page, "members"),
-			]);
-		})
-		.then(([aggregate, count, members]) => {
-			page.replyQuery(aggregate.requestId, {
-				outcome: "success",
-				response: {
-					data: {
-						aggregate: {
-							type: "aggregate",
-							items: input.groups ?? [],
-							...(input.groupsHaveMore ? { pageInfo: { limit: 100, hasMore: true } } : {}),
-						},
-					},
-				},
-			});
-			page.replyQuery(count.requestId, {
-				outcome: "success",
-				response: {
-					data: {
-						count: {
-							type: "aggregate",
-							items: [
-								{
-									total:
-										input.total ??
-										(input.groups ?? []).reduce((sum, group) => sum + Number(group.count), 0),
-								},
-							],
-						},
-					},
-				},
-			});
-			page.replyQuery(members.requestId, {
-				outcome: "success",
-				response: {
-					data: {
-						members: {
-							type: "rows",
-							items: input.members ?? [],
-							pageInfo: {
-								limit: 20,
-								hasMore: input.hasMore ?? false,
-								nextCursor: input.hasMore ? "next" : null,
+	Effect.gen(function* () {
+		const header = yield* request(page, "collection");
+		expect(page.queryRequests()).toHaveLength(1);
+		page.replyQuery(header.requestId, {
+			outcome: "success",
+			response: {
+				data: {
+					collection: {
+						type: "rows",
+						pageInfo: { limit: 2, hasMore: false, nextCursor: null },
+						items: [
+							{
+								name: input.name,
+								entityId: "col-1",
+								properties: input.membershipPropertiesSchema
+									? { membershipPropertiesSchema: input.membershipPropertiesSchema }
+									: {},
 							},
+						],
+					},
+				},
+			},
+		});
+		const [aggregate, count, members] = yield* Effect.all(
+			[request(page, "aggregate"), request(page, "count"), request(page, "members")],
+			{ concurrency: "unbounded" },
+		);
+		page.replyQuery(aggregate.requestId, {
+			outcome: "success",
+			response: {
+				data: {
+					aggregate: {
+						type: "aggregate",
+						items: input.groups ?? [],
+						...(input.groupsHaveMore ? { pageInfo: { limit: 100, hasMore: true } } : {}),
+					},
+				},
+			},
+		});
+		page.replyQuery(count.requestId, {
+			outcome: "success",
+			response: {
+				data: {
+					count: {
+						type: "aggregate",
+						items: [
+							{
+								total:
+									input.total ??
+									(input.groups ?? []).reduce((sum, group) => sum + Number(group.count), 0),
+							},
+						],
+					},
+				},
+			},
+		});
+		page.replyQuery(members.requestId, {
+			outcome: "success",
+			response: {
+				data: {
+					members: {
+						type: "rows",
+						items: input.members ?? [],
+						pageInfo: {
+							limit: 20,
+							hasMore: input.hasMore ?? false,
+							nextCursor: input.hasMore ? "next" : null,
 						},
 					},
 				},
-			});
-			return undefined;
+			},
 		});
+	});
 
 describe("collection detail", () => {
 	afterEach(disposePluginBridges);
@@ -128,59 +127,57 @@ describe("collection detail", () => {
 		() =>
 			Effect.gen(function* () {
 				const page = openCollection();
-				yield* Effect.promise(() =>
-					answerCollection(page, {
-						total: 5,
-						name: "Road Trips",
-						groupsHaveMore: true,
-						membershipPropertiesSchema: {
-							fields: {
-								template: {
-									position: 0,
-									type: "boolean",
-									label: "Template",
-									description: "Uses the collection template",
-								},
+				yield* answerCollection(page, {
+					total: 5,
+					name: "Road Trips",
+					groupsHaveMore: true,
+					membershipPropertiesSchema: {
+						fields: {
+							template: {
+								position: 0,
+								type: "boolean",
+								label: "Template",
+								description: "Uses the collection template",
 							},
 						},
-						groups: [
-							{
-								count: 1,
-								ownerPluginId: "media",
-								ownerPluginName: "Media",
-								entitySchemaSlug: "book",
-							},
-							{
-								count: 1,
-								ownerPluginId: null,
-								ownerPluginName: null,
-								entitySchemaSlug: "collection",
-							},
-						],
-						members: [
-							{
-								name: "Dune",
-								entityId: "book-1",
-								ownerPluginId: "media",
-								ownerPluginName: "Media",
-								entitySchemaSlug: "book",
-								populationStatus: "ready",
-								translationStatus: "ready",
-								properties: { template: true },
-							},
-							{
-								name: "Favorites",
-								entityId: "col-2",
-								ownerPluginId: null,
-								ownerPluginName: null,
-								populationStatus: "ready",
-								translationStatus: "none",
-								entitySchemaSlug: "collection",
-								properties: { template: false },
-							},
-						],
-					}),
-				);
+					},
+					groups: [
+						{
+							count: 1,
+							ownerPluginId: "media",
+							ownerPluginName: "Media",
+							entitySchemaSlug: "book",
+						},
+						{
+							count: 1,
+							ownerPluginId: null,
+							ownerPluginName: null,
+							entitySchemaSlug: "collection",
+						},
+					],
+					members: [
+						{
+							name: "Dune",
+							entityId: "book-1",
+							ownerPluginId: "media",
+							ownerPluginName: "Media",
+							entitySchemaSlug: "book",
+							populationStatus: "ready",
+							translationStatus: "ready",
+							properties: { template: true },
+						},
+						{
+							name: "Favorites",
+							entityId: "col-2",
+							ownerPluginId: null,
+							ownerPluginName: null,
+							populationStatus: "ready",
+							translationStatus: "none",
+							entitySchemaSlug: "collection",
+							properties: { template: false },
+						},
+					],
+				});
 
 				yield* Effect.promise(() =>
 					waitFor(() =>
@@ -211,21 +208,14 @@ describe("collection detail", () => {
 	it.live("keeps schema-driven table configuration when the collection has zero members", () =>
 		Effect.gen(function* () {
 			const page = openCollection("col-empty", "layout=table");
-			yield* Effect.promise(() =>
-				answerCollection(page, {
-					name: "Empty",
-					membershipPropertiesSchema: {
-						fields: {
-							notes: {
-								position: 0,
-								type: "string",
-								label: "Notes",
-								description: "Membership notes",
-							},
-						},
+			yield* answerCollection(page, {
+				name: "Empty",
+				membershipPropertiesSchema: {
+					fields: {
+						notes: { position: 0, type: "string", label: "Notes", description: "Membership notes" },
 					},
-				}),
-			);
+				},
+			});
 			yield* Effect.promise(() =>
 				waitFor(() =>
 					expect(screen.getByRole("heading", { level: 1, name: "Empty" })).toBeTruthy(),
@@ -241,24 +231,22 @@ describe("collection detail", () => {
 	it.live("counts all collection search matches on demand", () =>
 		Effect.gen(function* () {
 			const page = openCollection("col-1", "search=dune");
-			yield* Effect.promise(() =>
-				answerCollection(page, {
-					name: "Books",
-					hasMore: true,
-					members: [
-						{
-							name: "Dune",
-							properties: {},
-							entityId: "book-1",
-							ownerPluginId: "media",
-							ownerPluginName: "Media",
-							entitySchemaSlug: "book",
-							populationStatus: "ready",
-							translationStatus: "ready",
-						},
-					],
-				}),
-			);
+			yield* answerCollection(page, {
+				name: "Books",
+				hasMore: true,
+				members: [
+					{
+						name: "Dune",
+						properties: {},
+						entityId: "book-1",
+						ownerPluginId: "media",
+						ownerPluginName: "Media",
+						entitySchemaSlug: "book",
+						populationStatus: "ready",
+						translationStatus: "ready",
+					},
+				],
+			});
 			yield* Effect.promise(() =>
 				waitFor(() => expect(screen.getByRole("button", { name: "Count all" })).toBeTruthy()),
 			);
@@ -290,7 +278,7 @@ describe("collection detail", () => {
 		Effect.gen(function* () {
 			const page = openCollection();
 			page.navigate(entityLocation("col-1", "collection"), { compact: true });
-			yield* Effect.promise(() => answerCollection(page, { name: "Mixed" }));
+			yield* answerCollection(page, { name: "Mixed" });
 			yield* Effect.promise(() =>
 				waitFor(() =>
 					expect(
@@ -329,23 +317,21 @@ describe("collection detail", () => {
 		() =>
 			Effect.gen(function* () {
 				const page = openCollection();
-				yield* Effect.promise(() =>
-					answerCollection(page, {
-						name: "Mixed",
-						members: [
-							{
-								name: "Dune",
-								properties: {},
-								entityId: "book-1",
-								ownerPluginId: "media",
-								ownerPluginName: "Media",
-								entitySchemaSlug: "book",
-								populationStatus: "ready",
-								translationStatus: "ready",
-							},
-						],
-					}),
-				);
+				yield* answerCollection(page, {
+					name: "Mixed",
+					members: [
+						{
+							name: "Dune",
+							properties: {},
+							entityId: "book-1",
+							ownerPluginId: "media",
+							ownerPluginName: "Media",
+							entitySchemaSlug: "book",
+							populationStatus: "ready",
+							translationStatus: "ready",
+						},
+					],
+				});
 				yield* Effect.promise(() =>
 					waitFor(() =>
 						expect(screen.getByRole("heading", { level: 1, name: "Mixed" })).toBeTruthy(),

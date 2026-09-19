@@ -491,15 +491,16 @@ describe("plugin archive", () => {
 				[Symbol.asyncIterator]() {
 					let offset = 0;
 					return {
-						next: (): Promise<IteratorResult<Uint8Array>> =>
-							Promise.resolve().then(() => {
-								if (offset >= pluginBytes.byteLength) {
-									return Object.assign({ done: true as const }, { value: undefined });
-								}
-								const value = pluginBytes.subarray(offset, offset + 7);
-								offset += 7;
-								return Object.assign({ done: false as const }, { value });
-							}),
+						next: (): Promise<IteratorResult<Uint8Array>> => {
+							if (offset >= pluginBytes.byteLength) {
+								return Promise.resolve(
+									Object.assign({ done: true as const }, { value: undefined }),
+								);
+							}
+							const value = pluginBytes.subarray(offset, offset + 7);
+							offset += 7;
+							return Promise.resolve(Object.assign({ done: false as const }, { value }));
+						},
 					};
 				},
 			};

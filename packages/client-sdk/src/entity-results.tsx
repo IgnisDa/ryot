@@ -251,42 +251,47 @@ const createPresentationRuntime = (
 					}
 					state = "loading";
 					notify();
-					void Promise.resolve()
-						.then(registration.load)
-						.then((definition) => {
-							if (
-								typeof definition.loader !== "function" ||
-								typeof definition.component !== "function"
-							) {
-								throw new Error("Invalid entity presentation definition");
-							}
-							const query = createRyotQuery<BatchInput, Readonly<Record<string, unknown>>>(
-								({ input, client }) =>
-									Effect.gen(function* () {
-										const references = referencesFromBatchInput(input);
-										const requested = new Set(references.map(({ entityId }) => entityId));
-										const batch = (scheduler ??= createBatchScheduler(schedule));
-										const result = yield* batch.run(() =>
-											definition.loader({ client, references }),
-										);
-										for (const entityId of Object.keys(result)) {
-											if (!requested.has(entityId)) {
-												return yield* new RyotClientError("malformed-result");
-											}
-										}
-										return result;
-									}),
-								{ cancelOnUnmount: true },
-							);
-							presentation = { query, definition };
-							state = "ready";
-							notify();
-							return undefined;
-						})
-						.catch(() => {
-							state = "failed";
-							notify();
-						});
+					void Effect.runFork(
+						Effect.tryPromise(registration.load).pipe(
+							Effect.flatMap((definition) =>
+								Effect.try(() => {
+									if (
+										typeof definition.loader !== "function" ||
+										typeof definition.component !== "function"
+									) {
+										throw new Error("Invalid entity presentation definition");
+									}
+									const query = createRyotQuery<BatchInput, Readonly<Record<string, unknown>>>(
+										({ input, client }) =>
+											Effect.gen(function* () {
+												const references = referencesFromBatchInput(input);
+												const requested = new Set(references.map(({ entityId }) => entityId));
+												const batch = (scheduler ??= createBatchScheduler(schedule));
+												const result = yield* batch.run(() =>
+													definition.loader({ client, references }),
+												);
+												for (const entityId of Object.keys(result)) {
+													if (!requested.has(entityId)) {
+														return yield* new RyotClientError("malformed-result");
+													}
+												}
+												return result;
+											}),
+										{ cancelOnUnmount: true },
+									);
+									presentation = { query, definition };
+									state = "ready";
+									notify();
+								}),
+							),
+							Effect.catch(() =>
+								Effect.sync(() => {
+									state = "failed";
+									notify();
+								}),
+							),
+						),
+					);
 				},
 			},
 		);
