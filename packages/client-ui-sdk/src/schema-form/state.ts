@@ -295,16 +295,10 @@ const stringValidationMessage = (
 	if (validation?.pattern !== undefined && !new RegExp(validation.pattern).test(value)) {
 		return `${label} has an invalid format`;
 	}
-	if (
-		property.format?.kind === "url" &&
-		Result.isFailure(Schema.decodeUnknownResult(HttpUrl)(value))
-	) {
+	if (property.format?.kind === "url" && Result.isFailure(Schema.decodeResult(HttpUrl)(value))) {
 		return `${label} has an invalid format`;
 	}
-	if (
-		property.format?.kind === "email" &&
-		Result.isFailure(Schema.decodeUnknownResult(Email)(value))
-	) {
+	if (property.format?.kind === "email" && Result.isFailure(Schema.decodeResult(Email)(value))) {
 		return `${label} has an invalid format`;
 	}
 	return undefined;
@@ -369,13 +363,13 @@ const propertyValueValidationMessage = (
 		),
 		Match.when({ type: "date" }, () =>
 			typeof value === "string" &&
-			Result.isSuccess(Schema.decodeUnknownResult(Schema.DateFromString)(value))
+			Result.isSuccess(Schema.decodeResult(Schema.DateFromString)(value))
 				? undefined
 				: `${label} has an invalid format`,
 		),
 		Match.when({ type: "datetime" }, () =>
 			typeof value === "string" &&
-			Result.isSuccess(Schema.decodeUnknownResult(Schema.DateTimeUtcFromString)(value))
+			Result.isSuccess(Schema.decodeResult(Schema.DateTimeUtcFromString)(value))
 				? undefined
 				: `${label} has an invalid format`,
 		),

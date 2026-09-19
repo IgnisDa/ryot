@@ -42,6 +42,7 @@ export const useConfigData = () =>
 				if (!response.ok) {
 					throw new Error("Failed to fetch config");
 				}
+				// oxlint-disable-next-line typescript/no-unsafe-type-assertion -- Same-origin response produced by the api.config loader
 				return response.json() as Promise<ConfigData>;
 			}),
 	});
