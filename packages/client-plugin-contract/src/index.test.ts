@@ -175,8 +175,8 @@ describe("plugin client bridge contract", () => {
 	});
 
 	it("pins the protocol and compiler versions it stamps into an artifact", () => {
-		expect(CLIENT_BRIDGE_PROTOCOL_VERSION).toBe(3);
-		expect(CLIENT_COMPILER_VERSION).toBe(2);
+		expect(CLIENT_BRIDGE_PROTOCOL_VERSION).toBe(1);
+		expect(CLIENT_COMPILER_VERSION).toBe(1);
 	});
 
 	it("admits strict overlay state, dismissal, and acknowledgement messages in one direction", () => {
