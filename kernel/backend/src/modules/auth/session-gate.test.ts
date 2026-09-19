@@ -9,7 +9,6 @@ import { fakeDatabaseSession } from "#lib/test-utils/effect";
 import { LifecycleWriteGuard } from "./lifecycle-write-guard";
 import { SessionCreationGate } from "./session-gate";
 
-const completedAt = new Date("2026-01-01T00:00:00Z");
 const disabledAt = new Date("2026-01-01T00:00:00Z");
 
 function assertApiError(error: unknown): asserts error is APIError {
@@ -18,7 +17,7 @@ function assertApiError(error: unknown): asserts error is APIError {
 	}
 }
 
-type UserRow = { disabledAt: Date | null; bootstrapCompletedAt: Date | null };
+type UserRow = { disabledAt: Date | null };
 
 const gateLayer = (rows: ReadonlyArray<UserRow>, active = false) => {
 	const database = Object.assign(Object.create(null), {
@@ -34,12 +33,9 @@ const gateLayer = (rows: ReadonlyArray<UserRow>, active = false) => {
 	);
 };
 
-const runGate = (
-	userId: string,
-	runBootstrap: (userId: string) => Effect.Effect<void, unknown> = () => Effect.void,
-) =>
+const runGate = (userId: string) =>
 	Effect.flatMap(SessionCreationGate, (sessionGate) =>
-		sessionGate.gate(userId, runBootstrap).pipe(Effect.result),
+		sessionGate.gate(userId).pipe(Effect.result),
 	);
 
 const extractError = (either: Result.Result<void, unknown>) => {
@@ -52,64 +48,23 @@ const extractError = (either: Result.Result<void, unknown>) => {
 };
 
 describe("gateSessionCreation", () => {
-	layer(gateLayer([{ disabledAt: null, bootstrapCompletedAt: completedAt }]))((test) => {
-		test.effect("resolves without calling runBootstrap when the marker is already set", () =>
+	layer(gateLayer([{ disabledAt: null }]))((test) => {
+		test.effect("resolves when the user is enabled", () =>
 			Effect.gen(function* () {
-				let called = false;
-				const either = yield* runGate("user-1", () => {
-					called = true;
-					return Effect.void;
-				});
+				const either = yield* runGate("user-1");
 				expect(either._tag).toBe("Success");
-				expect(called).toBe(false);
 			}),
 		);
 	});
 
-	layer(gateLayer([{ disabledAt: null, bootstrapCompletedAt: null }]))((test) => {
-		test.effect(
-			"calls runBootstrap and resolves when the marker is null and bootstrap succeeds",
-			() =>
-				Effect.gen(function* () {
-					let called = false;
-					const either = yield* runGate("user-1", () => {
-						called = true;
-						return Effect.void;
-					});
-					expect(either._tag).toBe("Success");
-					expect(called).toBe(true);
-				}),
-		);
-	});
-
-	layer(gateLayer([{ disabledAt: null, bootstrapCompletedAt: null }]))((test) => {
-		test.effect(
-			"throws USER_INITIALIZING (503) when the marker is null and bootstrap rejects",
-			() =>
-				Effect.gen(function* () {
-					const either = yield* runGate("user-1", () => Effect.fail("db down"));
-					const error = extractError(either);
-					expect(error.statusCode).toBe(503);
-					expect(error.body?.code).toBe("USER_INITIALIZING");
-				}),
-		);
-	});
-
-	layer(gateLayer([{ disabledAt, bootstrapCompletedAt: null }]))((test) => {
-		test.effect(
-			"throws USER_DISABLED (403) when disabledAt is set, regardless of marker state",
-			() =>
-				Effect.gen(function* () {
-					let called = false;
-					const either = yield* runGate("user-1", () => {
-						called = true;
-						return Effect.void;
-					});
-					const error = extractError(either);
-					expect(error.statusCode).toBe(403);
-					expect(error.body?.code).toBe("USER_DISABLED");
-					expect(called).toBe(false);
-				}),
+	layer(gateLayer([{ disabledAt }]))((test) => {
+		test.effect("throws USER_DISABLED (403) when the user is disabled", () =>
+			Effect.gen(function* () {
+				const either = yield* runGate("user-1");
+				const error = extractError(either);
+				expect(error.statusCode).toBe(403);
+				expect(error.body?.code).toBe("USER_DISABLED");
+			}),
 		);
 	});
 
@@ -124,15 +79,10 @@ describe("gateSessionCreation", () => {
 	});
 
 	layer(gateLayer([]))((test) => {
-		test.effect("resolves without calling runBootstrap when the user row is not found", () =>
+		test.effect("resolves when the user row is not found", () =>
 			Effect.gen(function* () {
-				let called = false;
-				const either = yield* runGate("missing-user", () => {
-					called = true;
-					return Effect.void;
-				});
+				const either = yield* runGate("missing-user");
 				expect(either._tag).toBe("Success");
-				expect(called).toBe(false);
 			}),
 		);
 	});

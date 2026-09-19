@@ -16,6 +16,7 @@ import {
 	DemoOperationProtected,
 	defaultUserPreferences,
 	normalizeUserPreferences,
+	UserInitializing,
 } from "@ryot-app/contract/auth-middleware";
 import type { DbError } from "@ryot-app/contract/errors";
 import { badRequest, internalError, unknownToDbError } from "@ryot-app/contract/errors";
@@ -55,6 +56,7 @@ import { effectPostgresAuthAdapter } from "./effect-postgres-adapter";
 import { LifecycleWriteGuard } from "./lifecycle-write-guard";
 import { AuthRepository } from "./repository";
 import { SessionCreationGate } from "./session-gate";
+import { userInitializationPlugin } from "./user-initialization-plugin";
 
 const RESET_LINK_TIMEOUT_MS = 10_000;
 
@@ -143,17 +145,20 @@ const parseResetLinkMessage = (message: string) => {
 	return null;
 };
 
-export class AuthUserBootstrap extends Context.Service<
-	AuthUserBootstrap,
-	{ run: (userId: string) => Effect.Effect<void, AuthBootstrapError> }
->()("AuthUserBootstrap") {}
+export class AuthUserBootstrapScheduler extends Context.Service<
+	AuthUserBootstrapScheduler,
+	{ schedule: (userId: string) => Effect.Effect<void, AuthBootstrapScheduleError> }
+>()("AuthUserBootstrapScheduler") {}
 
-export class AuthBootstrapError extends Schema.TaggedError<AuthBootstrapError>()(
-	"AuthBootstrapError",
+export class AuthBootstrapScheduleError extends Schema.TaggedError<AuthBootstrapScheduleError>()(
+	"AuthBootstrapScheduleError",
 	{ message: Schema.String },
 ) {}
 
-const makeOAuthProviderPlugin = (frontendUrl: string) => {
+const makeOAuthProviderPlugin = (
+	frontendUrl: string,
+	requiresUserInitialization: (userId: string) => Promise<boolean>,
+) => {
 	const { endpoints, ...plugin } = oauthProvider({
 		disableJwtPlugin: false,
 		scopes: [...OAUTH_SCOPES],
@@ -165,6 +170,11 @@ const makeOAuthProviderPlugin = (frontendUrl: string) => {
 		resources: [getOAuthResource(frontendUrl)],
 		allowUnauthenticatedClientRegistration: false,
 		grantTypes: ["authorization_code", "refresh_token"],
+		postLogin: {
+			page: "/oauth/initializing",
+			consentReferenceId: () => undefined,
+			shouldRedirect: ({ user }) => requiresUserInitialization(user.id),
+		},
 	});
 	const compatiblePlugin: BetterAuthPlugin = plugin;
 	Object.assign(compatiblePlugin, { endpoints });
@@ -176,7 +186,9 @@ const makeAuthInstance = (args: {
 	readonly config: AppConfigValue;
 	readonly session: DatabaseSession["Service"];
 	readonly runtime: Context.Context<DatabaseSession | RedisService>;
-	readonly bootstrapNewUser: (userId: string) => Effect.Effect<void, AuthBootstrapError>;
+	readonly scheduleUserBootstrap: (
+		userId: string,
+	) => Effect.Effect<void, AuthBootstrapScheduleError>;
 	readonly lifecycle: LifecycleWriteGuard["Service"];
 	readonly sessionGate: SessionCreationGate["Service"];
 	readonly revokeOAuthTokens: (userId: UserId) => Effect.Effect<void, DbError>;
@@ -184,10 +196,21 @@ const makeAuthInstance = (args: {
 	const oidcEnabled = isOidcEnabled(args.config);
 
 	const database = effectPostgresAuthAdapter({ session: args.session, context: args.runtime });
+	const requiresUserInitialization = (userId: string) =>
+		Effect.runPromiseWith(args.runtime)(
+			args.session.run((db) =>
+				db
+					.select({ bootstrapCompletedAt: authSchema.user.bootstrapCompletedAt })
+					.from(authSchema.user)
+					.where(eq(authSchema.user.id, userId))
+					.limit(1)
+					.pipe(Effect.map((users) => !users[0]?.bootstrapCompletedAt)),
+			),
+		);
 	const auth = betterAuth({
-		database,
 		appName: "Ryot",
 		basePath: "/api/auth",
+		database: database.adapter,
 		baseURL: args.config.frontendUrl,
 		advanced: { disableCSRFCheck: false },
 		trustedOrigins: [args.config.frontendUrl],
@@ -211,10 +234,8 @@ const makeAuthInstance = (args: {
 		databaseHooks: {
 			session: {
 				create: {
-					before: (session) =>
-						Effect.runPromiseWith(args.runtime)(
-							args.sessionGate.gate(session.userId, args.bootstrapNewUser),
-						),
+					before: (session, context) =>
+						database.runInCurrentContext(context, args.sessionGate.gate(session.userId)),
 				},
 			},
 			user: {
@@ -222,10 +243,10 @@ const makeAuthInstance = (args: {
 					after: (user) =>
 						Effect.runPromiseWith(args.runtime)(
 							args
-								.bootstrapNewUser(user.id)
+								.scheduleUserBootstrap(user.id)
 								.pipe(
 									Effect.catchCause((cause) =>
-										Effect.logError("user bootstrap failed", cause).pipe(
+										Effect.logError("user bootstrap scheduling failed", cause).pipe(
 											Effect.annotateLogs({ userId: user.id }),
 										),
 									),
@@ -237,7 +258,8 @@ const makeAuthInstance = (args: {
 		plugins: [
 			jwt(),
 			demoAccessPlugin(Option.getOrNull(args.config.users.demoAccountId)),
-			makeOAuthProviderPlugin(args.config.frontendUrl),
+			userInitializationPlugin(),
+			makeOAuthProviderPlugin(args.config.frontendUrl, requiresUserInitialization),
 			twoFactor({ allowPasswordless: true }),
 			apiKey({
 				fallbackToDatabase: true,
@@ -269,51 +291,6 @@ const makeAuthInstance = (args: {
 					]
 				: []),
 		],
-		hooks: {
-			before: createAuthMiddleware((ctx) =>
-				Effect.runPromiseWith(args.runtime)(
-					Effect.gen(function* () {
-						const needsSession =
-							demoProtectedAuthPaths.has(ctx.path) || ctx.path === "/oauth2/authorize";
-						if (!needsSession) {
-							return undefined;
-						}
-						const session = yield* Effect.promise(() =>
-							getSessionFromCtx(ctx, { disableCookieCache: true }),
-						);
-						if (!session) {
-							return undefined;
-						}
-						if (
-							isDemoProtectedAuthRequest(
-								ctx.path,
-								Reflect.get(session.session, "accessClass"),
-								requestClientId(ctx),
-							)
-						) {
-							return yield* Effect.fail(
-								APIError.from("FORBIDDEN", {
-									code: "DEMO_OPERATION_PROTECTED",
-									message: "This operation is unavailable while using the shared demo account.",
-								}),
-							);
-						}
-						if (!isLifecycleProtectedAuthPath(ctx.path)) {
-							return undefined;
-						}
-						if (yield* args.lifecycle.isActive(UserId.make(session.user.id))) {
-							return yield* Effect.fail(
-								APIError.from("FORBIDDEN", {
-									code: "USER_LIFECYCLE_ACTIVE",
-									message: "This user is temporarily unavailable.",
-								}),
-							);
-						}
-						return undefined;
-					}),
-				),
-			),
-		},
 		emailAndPassword: {
 			enabled: true,
 			autoSignIn: true,
@@ -354,6 +331,70 @@ const makeAuthInstance = (args: {
 					),
 				),
 		},
+		hooks: {
+			before: createAuthMiddleware((ctx) =>
+				Effect.runPromiseWith(args.runtime)(
+					Effect.gen(function* () {
+						const needsSession =
+							demoProtectedAuthPaths.has(ctx.path) ||
+							ctx.path === "/oauth2/authorize" ||
+							ctx.path === "/oauth2/continue";
+						if (!needsSession) {
+							return undefined;
+						}
+						const session = yield* Effect.promise(() =>
+							getSessionFromCtx(ctx, { disableCookieCache: true }),
+						);
+						if (!session) {
+							return undefined;
+						}
+						if (
+							isDemoProtectedAuthRequest(
+								ctx.path,
+								Reflect.get(session.session, "accessClass"),
+								requestClientId(ctx),
+							)
+						) {
+							return yield* Effect.fail(
+								APIError.from("FORBIDDEN", {
+									code: "DEMO_OPERATION_PROTECTED",
+									message: "This operation is unavailable while using the shared demo account.",
+								}),
+							);
+						}
+						const currentUser =
+							ctx.path === "/oauth2/continue"
+								? yield* Effect.promise(() =>
+										ctx.context.internalAdapter.findUserById(session.user.id),
+									)
+								: null;
+						if (
+							ctx.path === "/oauth2/continue" &&
+							(!currentUser || !Reflect.get(currentUser, "bootstrapCompletedAt"))
+						) {
+							return yield* Effect.fail(
+								APIError.from("SERVICE_UNAVAILABLE", {
+									code: "USER_INITIALIZING",
+									message: "Account initialization is still in progress.",
+								}),
+							);
+						}
+						if (!isLifecycleProtectedAuthPath(ctx.path)) {
+							return undefined;
+						}
+						if (yield* args.lifecycle.isActive(UserId.make(session.user.id))) {
+							return yield* Effect.fail(
+								APIError.from("FORBIDDEN", {
+									code: "USER_LIFECYCLE_ACTIVE",
+									message: "This user is temporarily unavailable.",
+								}),
+							);
+						}
+						return undefined;
+					}),
+				),
+			),
+		},
 	});
 
 	return auth;
@@ -363,7 +404,7 @@ type AuthInstance = ReturnType<typeof makeAuthInstance>;
 type AuthContextValue = Awaited<AuthInstance["$context"]>;
 type AuthUserRecord = Pick<
 	typeof authSchema.user.$inferSelect,
-	"id" | "name" | "email" | "image" | "disabledAt" | "preferences"
+	"id" | "name" | "email" | "image" | "disabledAt" | "bootstrapCompletedAt" | "preferences"
 >;
 export type AuthUserInput = {
 	id: string;
@@ -478,6 +519,9 @@ export const resolveCredential = <E>(
 		if (!user || user.disabledAt) {
 			return yield* authenticationRequired();
 		}
+		if (!user.bootstrapCompletedAt) {
+			return yield* new UserInitializing({ reason: { code: "user-initializing" } });
+		}
 		let accessClass: AccessClass = "standard";
 		if (
 			verified.credential.kind === "oauth" &&
@@ -508,7 +552,7 @@ export class AuthService extends Context.Service<AuthService>()("AuthService", {
 		const config = yield* AppConfig;
 		const redis = yield* RedisService;
 		const repository = yield* AuthRepository;
-		const userBootstrap = yield* AuthUserBootstrap;
+		const userBootstrap = yield* AuthUserBootstrapScheduler;
 		const lifecycle = yield* LifecycleWriteGuard;
 		const sessionGate = yield* SessionCreationGate;
 		const runtime = yield* Effect.context<DatabaseSession | RedisService>();
@@ -519,7 +563,7 @@ export class AuthService extends Context.Service<AuthService>()("AuthService", {
 			lifecycle,
 			sessionGate,
 			redis: redis.client,
-			bootstrapNewUser: userBootstrap.run,
+			scheduleUserBootstrap: userBootstrap.schedule,
 			revokeOAuthTokens: repository.revokeUserOAuthTokens,
 		});
 		const findUserById = (userId: string) =>
@@ -532,6 +576,7 @@ export class AuthService extends Context.Service<AuthService>()("AuthService", {
 						image: authSchema.user.image,
 						disabledAt: authSchema.user.disabledAt,
 						preferences: authSchema.user.preferences,
+						bootstrapCompletedAt: authSchema.user.bootstrapCompletedAt,
 					})
 					.from(authSchema.user)
 					.where(eq(authSchema.user.id, userId))
@@ -729,7 +774,7 @@ export const makeAuthMiddleware = (
 		>,
 		resolved: Effect.Effect<
 			ResolvedCredential,
-			AuthRateLimited | AuthUnauthorized,
+			AuthRateLimited | AuthUnauthorized | UserInitializing,
 			HttpServerRequest.HttpServerRequest
 		>,
 		endpoint: HttpApiEndpoint.Top,

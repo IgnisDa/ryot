@@ -1,6 +1,6 @@
 import { Layer } from "effect";
 
-import { AuthUserBootstrapServiceLive } from "#modules/user-bootstrap/layer";
+import { AuthUserBootstrapSchedulerLive } from "#modules/user-bootstrap/layer";
 
 import { LifecycleWriteGuard } from "./lifecycle-write-guard";
 import { InternalOAuthProvisioningComplete, OAuthProvisioningService } from "./oauth-provisioning";
@@ -12,7 +12,7 @@ export const AuthServiceLive = AuthService.layer.pipe(
 	Layer.provide(
 		Layer.mergeAll(
 			AuthRepository.layer,
-			AuthUserBootstrapServiceLive,
+			AuthUserBootstrapSchedulerLive,
 			SessionCreationGate.layer.pipe(Layer.provideMerge(LifecycleWriteGuard.layer)),
 		),
 	),

@@ -20,6 +20,9 @@ type AuthResponse<A> = {
 };
 
 const DemoSignInResponse = strictStruct({ mode: Schema.Literals(["demo", "standard"]) });
+const InitializationStatusResponse = strictStruct({
+	status: Schema.Literals(["initializing", "ready"]),
+});
 
 export const requestDemoSignIn = (fetcher: typeof fetch, baseURL: string) =>
 	Effect.gen(function* () {
@@ -47,6 +50,41 @@ export const requestDemoSignIn = (fetcher: typeof fetch, baseURL: string) =>
 		return yield* Schema.decodeUnknownEffect(DemoSignInResponse)(payload).pipe(
 			Effect.mapError(
 				() => new HostedAuthError({ message: "The shared demo returned an invalid response." }),
+			),
+		);
+	});
+
+export const requestInitializationStatus = (fetcher: typeof fetch, baseURL: string) =>
+	Effect.gen(function* () {
+		const response = yield* Effect.tryPromise({
+			catch: (cause) =>
+				new HostedAuthError({
+					message:
+						cause instanceof Error ? cause.message : "Could not check account initialization.",
+				}),
+			try: () =>
+				fetcher(new URL("/api/auth/initialization-status", baseURL), {
+					method: "GET",
+					cache: "no-store",
+					credentials: "same-origin",
+				}),
+		});
+		if (!response.ok) {
+			return yield* new HostedAuthError({
+				message:
+					response.status === 401
+						? "Your sign-in session has ended. Please sign in again."
+						: "Could not check account initialization.",
+			});
+		}
+		const payload = yield* Effect.tryPromise({
+			try: () => response.json() as Promise<unknown>,
+			catch: () =>
+				new HostedAuthError({ message: "Could not read the account initialization response." }),
+		});
+		return yield* Schema.decodeUnknownEffect(InitializationStatusResponse)(payload).pipe(
+			Effect.mapError(
+				() => new HostedAuthError({ message: "The server returned an invalid account status." }),
 			),
 		);
 	});
@@ -122,13 +160,32 @@ export class HostedAuthService extends Context.Service<HostedAuthService>()("Hos
 				}),
 			"Could not open the identity provider.",
 		).pipe(Effect.asVoid);
+		const initializationStatus = Effect.suspend(() =>
+			requestInitializationStatus(globalThis.fetch, window.location.origin),
+		);
+		const continueAfterInitialization = request(
+			() => client().oauth2.continue({ postLogin: true }),
+			"Could not continue sign-in.",
+		).pipe(Effect.asVoid);
+		const signOutHosted = request(() => client().signOut(), "Could not sign out.").pipe(
+			Effect.asVoid,
+		);
 		const resetPassword = (server: ServerOrigin, token: string, newPassword: string) =>
 			request(
 				() => makeHostedClient(server).resetPassword({ token, newPassword }),
 				"Could not reset your password.",
 			).pipe(Effect.asVoid);
 
-		return { signInDemo, resetPassword, signInWithOidc, verifyTwoFactor, submitCredentials };
+		return {
+			signInDemo,
+			resetPassword,
+			signOutHosted,
+			signInWithOidc,
+			verifyTwoFactor,
+			submitCredentials,
+			initializationStatus,
+			continueAfterInitialization,
+		};
 	}),
 }) {
 	static readonly layer = Layer.effect(this, this.make);
