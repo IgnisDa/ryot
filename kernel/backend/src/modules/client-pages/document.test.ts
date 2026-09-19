@@ -1,6 +1,6 @@
-import { assert, expect, it } from "@effect/vitest";
+import { assert, expect, it, layer } from "@effect/vitest";
 import { UserId } from "@ryot-app/contract/schema/brands";
-import { Effect, Layer } from "effect";
+import { Context, Effect, Layer, Ref } from "effect";
 
 import { ClientArtifactGrantService } from "#modules/client-artifacts/grant-service";
 import { ClientArtifactStore } from "#modules/client-artifacts/store";
@@ -137,73 +137,83 @@ it("deduplicates eager and multi-presentation artifact preloads", () => {
 	expect(plan.stylesheets.filter((url) => url.endsWith("/module.css"))).toHaveLength(2);
 });
 
-it.effect(
-	"issues one capability per distinct private artifact and reuses its URL across specifiers",
-	() => {
-		const issued: string[] = [];
+class RecordedArtifactGrants extends Context.Service<
+	RecordedArtifactGrants,
+	{ readonly issued: Effect.Effect<ReadonlyArray<string>> }
+>()("test/RecordedArtifactGrants") {}
+
+const documentDependenciesLayer = Layer.effectContext(
+	Effect.gen(function* () {
+		const issued = yield* Ref.make<ReadonlyArray<string>>([]);
 		const description = descriptions();
-		const base = manifest();
-		const pageManifest = {
-			...base,
-			imports: {
-				...base.imports,
-				"@ryot-app/plugins/page/alias": { file: "module.js", artifactHash: "b".repeat(64) },
-			},
-		};
-		const layered = Effect.gen(function* () {
-			const html = yield* generateClientDocument(
-				UserId.make("user-1"),
-				"composition-hash",
-				pageManifest,
-			);
-			expect(issued).toEqual(["b".repeat(64), "c".repeat(64)]);
-			expect(html).toContain(`/api/client-assets/${"a".repeat(64)}/public/bootstrap.js`);
-			expect(html).toContain(`/api/client-assets/${"b".repeat(64)}/${"x".repeat(43)}/module.js`);
-			expect(html).toContain('"@ryot-app/plugins/page/alias"');
-		});
-		return layered.pipe(
-			Effect.provide(
-				Layer.mergeAll(
-					Layer.succeed(
-						ClientArtifactStore,
-						ClientArtifactStore.of({
-							findFile: () => Effect.succeed(null),
-							isPublic: (hash) => hash === "a".repeat(64),
-							exists: (hash) => Effect.succeed(description.has(hash)),
-							describe: (hash) => {
-								if (!description.has(hash)) {
-									return Effect.succeed(null);
-								}
-								const artifactDescription = description.get(hash);
-								assert(artifactDescription);
-								return Effect.succeed({
-									...artifactDescription,
-									hash,
-									format: 1,
-									apiVersion: 1,
-									bridgeVersion: 1,
-									compilerVersion: 1,
-								});
-							},
-						}),
-					),
-					Layer.succeed(
-						ClientArtifactGrantService,
-						ClientArtifactGrantService.of({
-							resolve: () => Effect.succeed(null),
-							issue: (_user, hash) =>
-								Effect.sync(() => {
-									issued.push(hash);
-									return {
-										grantId: "id",
-										token: "x".repeat(43),
-										expiresAt: "2026-01-01T00:00:00Z",
-									};
-								}),
-						}),
-					),
-				),
+		return Context.make(
+			ClientArtifactStore,
+			ClientArtifactStore.of({
+				findFile: () => Effect.succeed(null),
+				isPublic: (hash) => hash === "a".repeat(64),
+				exists: (hash) => Effect.succeed(description.has(hash)),
+				describe: (hash) => {
+					if (!description.has(hash)) {
+						return Effect.succeed(null);
+					}
+					const artifactDescription = description.get(hash);
+					assert(artifactDescription);
+					return Effect.succeed({
+						...artifactDescription,
+						hash,
+						format: 1,
+						apiVersion: 1,
+						bridgeVersion: 1,
+						compilerVersion: 1,
+					});
+				},
+			}),
+		).pipe(
+			Context.add(
+				ClientArtifactGrantService,
+				ClientArtifactGrantService.of({
+					resolve: () => Effect.succeed(null),
+					issue: (_user, hash) =>
+						Ref.update(issued, (all) => [...all, hash]).pipe(
+							Effect.as({
+								grantId: "id",
+								token: "x".repeat(43),
+								expiresAt: "2026-01-01T00:00:00Z",
+							}),
+						),
+				}),
 			),
+			Context.add(RecordedArtifactGrants, { issued: Ref.get(issued) }),
 		);
-	},
+	}),
 );
+
+layer(documentDependenciesLayer)((test) => {
+	test.effect(
+		"issues one capability per distinct private artifact and reuses its URL across specifiers",
+		() => {
+			const base = manifest();
+			const pageManifest = {
+				...base,
+				imports: {
+					...base.imports,
+					"@ryot-app/plugins/page/alias": { file: "module.js", artifactHash: "b".repeat(64) },
+				},
+			};
+			return Effect.gen(function* () {
+				const html = yield* generateClientDocument(
+					UserId.make("user-1"),
+					"composition-hash",
+					pageManifest,
+				);
+				expect(yield* (yield* RecordedArtifactGrants).issued).toEqual([
+					"b".repeat(64),
+					"c".repeat(64),
+				]);
+				expect(html).toContain(`/api/client-assets/${"a".repeat(64)}/public/bootstrap.js`);
+				expect(html).toContain(`/api/client-assets/${"b".repeat(64)}/${"x".repeat(43)}/module.js`);
+				expect(html).toContain('"@ryot-app/plugins/page/alias"');
+			});
+		},
+	);
+});

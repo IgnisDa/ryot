@@ -1,4 +1,4 @@
-import { expect, it } from "@effect/vitest";
+import { expect, layer } from "@effect/vitest";
 import type { PluginManifest } from "@ryot-app/contract/modules/plugins/manifest";
 import type { SandboxExecutionPayload } from "@ryot-app/contract/modules/sandbox/schemas";
 import { SandboxScriptId, UserId } from "@ryot-app/contract/schema/brands";
@@ -143,9 +143,47 @@ const layerFor = (installed: Array<PluginInstallationState>) =>
 		baseLayer,
 	);
 
-it.effect(
-	"dispatches sorted installed entries with bound user subject and deterministic ids",
-	() => {
+layer(layerFor([systemInstallation("example"), systemInstallation("sample")]))((test) => {
+	test.effect(
+		"dispatches sorted installed entries with bound user subject and deterministic ids",
+		() => {
+			const payloads: SandboxExecutionPayload[] = [];
+			return Effect.gen(function* () {
+				const dispatcher = yield* makePluginUserBootstrapDispatcher((payload) =>
+					Effect.sync(() => {
+						payloads.push(payload);
+						return { error: null };
+					}),
+				);
+				yield* dispatcher.dispatchAll(UserId.make("user-1"));
+
+				expect(payloads).toEqual([
+					{
+						context: {},
+						scriptId: "bootstrap.first-id",
+						subject: { type: "user", userId: "user-1" },
+						executionId: userBootstrapExecutionId("user-1", "example", "first"),
+					},
+					{
+						context: {},
+						scriptId: "bootstrap.second-id",
+						subject: { type: "user", userId: "user-1" },
+						executionId: userBootstrapExecutionId("user-1", "example", "second"),
+					},
+					{
+						context: {},
+						scriptId: "bootstrap.only-id",
+						subject: { type: "user", userId: "user-1" },
+						executionId: userBootstrapExecutionId("user-1", "sample", "only"),
+					},
+				]);
+			});
+		},
+	);
+});
+
+layer(layerFor([]))((test) => {
+	test.effect("dispatches nothing for a user with no system installations", () => {
 		const payloads: SandboxExecutionPayload[] = [];
 		return Effect.gen(function* () {
 			const dispatcher = yield* makePluginUserBootstrapDispatcher((payload) =>
@@ -156,75 +194,46 @@ it.effect(
 			);
 			yield* dispatcher.dispatchAll(UserId.make("user-1"));
 
-			expect(payloads).toEqual([
-				{
-					context: {},
-					scriptId: "bootstrap.first-id",
-					subject: { type: "user", userId: "user-1" },
-					executionId: userBootstrapExecutionId("user-1", "example", "first"),
-				},
-				{
-					context: {},
-					scriptId: "bootstrap.second-id",
-					subject: { type: "user", userId: "user-1" },
-					executionId: userBootstrapExecutionId("user-1", "example", "second"),
-				},
-				{
-					context: {},
-					scriptId: "bootstrap.only-id",
-					subject: { type: "user", userId: "user-1" },
-					executionId: userBootstrapExecutionId("user-1", "sample", "only"),
-				},
-			]);
-		}).pipe(
-			Effect.provide(layerFor([systemInstallation("example"), systemInstallation("sample")])),
-		);
-	},
-);
-
-it.effect("dispatches nothing for a user with no system installations", () => {
-	const payloads: SandboxExecutionPayload[] = [];
-	return Effect.gen(function* () {
-		const dispatcher = yield* makePluginUserBootstrapDispatcher((payload) =>
-			Effect.sync(() => {
-				payloads.push(payload);
-				return { error: null };
-			}),
-		);
-		yield* dispatcher.dispatchAll(UserId.make("user-1"));
-
-		expect(payloads).toEqual([]);
-	}).pipe(Effect.provide(layerFor([])));
-});
-
-it.effect("skips snapshot plugins the user has no installation for", () => {
-	const executed: string[] = [];
-	return Effect.gen(function* () {
-		const dispatcher = yield* makePluginUserBootstrapDispatcher((payload) =>
-			Effect.sync(() => {
-				executed.push(payload.scriptId);
-				return { error: null };
-			}),
-		);
-		yield* dispatcher.dispatchAll(UserId.make("user-1"));
-
-		expect(executed).toEqual(["bootstrap.only-id"]);
-	}).pipe(Effect.provide(layerFor([systemInstallation("sample")])));
-});
-
-it.effect("propagates a sandbox result error and reruns the same deterministic identity", () => {
-	const executionIds: string[] = [];
-	let attempts = 0;
-	return Effect.gen(function* () {
-		const dispatcher = yield* makePluginUserBootstrapDispatcher((payload) => {
-			executionIds.push(payload.executionId);
-			attempts += 1;
-			return Effect.succeed({ error: attempts === 1 ? { message: "script failed" } : null });
+			expect(payloads).toEqual([]);
 		});
-		const first = yield* Effect.exit(dispatcher.dispatchAll(UserId.make("user-1")));
-		expect(first._tag).toBe("Failure");
+	});
+});
 
-		yield* dispatcher.dispatchAll(UserId.make("user-1"));
-		expect(executionIds[0]).toBe(executionIds[1]);
-	}).pipe(Effect.provide(layerFor([systemInstallation("example")])));
+layer(layerFor([systemInstallation("sample")]))((test) => {
+	test.effect("skips snapshot plugins the user has no installation for", () => {
+		const executed: string[] = [];
+		return Effect.gen(function* () {
+			const dispatcher = yield* makePluginUserBootstrapDispatcher((payload) =>
+				Effect.sync(() => {
+					executed.push(payload.scriptId);
+					return { error: null };
+				}),
+			);
+			yield* dispatcher.dispatchAll(UserId.make("user-1"));
+
+			expect(executed).toEqual(["bootstrap.only-id"]);
+		});
+	});
+});
+
+layer(layerFor([systemInstallation("example")]))((test) => {
+	test.effect(
+		"propagates a sandbox result error and reruns the same deterministic identity",
+		() => {
+			const executionIds: string[] = [];
+			let attempts = 0;
+			return Effect.gen(function* () {
+				const dispatcher = yield* makePluginUserBootstrapDispatcher((payload) => {
+					executionIds.push(payload.executionId);
+					attempts += 1;
+					return Effect.succeed({ error: attempts === 1 ? { message: "script failed" } : null });
+				});
+				const first = yield* Effect.exit(dispatcher.dispatchAll(UserId.make("user-1")));
+				expect(first._tag).toBe("Failure");
+
+				yield* dispatcher.dispatchAll(UserId.make("user-1"));
+				expect(executionIds[0]).toBe(executionIds[1]);
+			});
+		},
+	);
 });
