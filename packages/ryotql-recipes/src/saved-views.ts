@@ -197,7 +197,7 @@ const displayValue = (
 	fieldName: string,
 ): Result.Result<SavedViewDisplayValue, Error> => {
 	if (value === null) {
-		return Result.succeed({ value, displayKind } as SavedViewDisplayValue);
+		return Result.succeed({ value, displayKind });
 	}
 	if (displayKind === "json") {
 		return Result.succeed({ value, displayKind });
