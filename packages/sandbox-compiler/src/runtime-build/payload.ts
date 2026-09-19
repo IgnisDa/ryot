@@ -2,17 +2,12 @@ import { canonicalFileSetHash, sha256Hex } from "@ryot-app/ts-utils/crypto";
 import { buildDenoEsm } from "@ryot-app/vite-compiler";
 import { Effect, Schema } from "effect";
 
-import type {
-	SandboxRuntimePayload,
-	SandboxRuntimePayloadMetadata,
-} from "../src/lib/infrastructure/sandbox-runtime/payload";
-import { SANDBOX_RUNTIME_PAYLOAD_FORMAT } from "../src/lib/infrastructure/sandbox-runtime/payload";
 import {
 	SANDBOX_DENO_VERSION,
 	SandboxRuntimeBuildError,
 	resolveSandboxRuntimeRegistry,
 	resolveViteVersion,
-} from "./sandbox-runtime-registry";
+} from "./registry";
 
 const encodeJson = Schema.encodeSync(Schema.fromJsonString(Schema.Unknown));
 
@@ -58,9 +53,10 @@ export const buildSandboxRuntimePayload = (resolveFrom: string) =>
 			),
 		);
 		const importMapFile = { path: "import-map.json", contents: `${encodeJson({ imports })}\n` };
+		// oxlint-disable perfectionist/sort-objects -- Metadata key order determines the payload bytes.
 		const metadataWithoutFiles = {
 			denoVersion: SANDBOX_DENO_VERSION,
-			format: SANDBOX_RUNTIME_PAYLOAD_FORMAT,
+			format: 1 as const,
 			viteVersion: yield* resolveViteVersion(resolveFrom),
 			dependencies: dependencies.map((dependency) => ({
 				name: dependency.name,
@@ -71,8 +67,9 @@ export const buildSandboxRuntimePayload = (resolveFrom: string) =>
 				runtimeFile: dependency.runtimeFile,
 			})),
 		};
+		// oxlint-enable perfectionist/sort-objects
 		const contentFiles = [importMapFile, ...moduleFiles];
-		const metadata: SandboxRuntimePayloadMetadata = {
+		const metadata = {
 			...metadataWithoutFiles,
 			files: contentFiles.map(({ path, contents }) => {
 				const bytes = new TextEncoder().encode(contents);
@@ -83,9 +80,5 @@ export const buildSandboxRuntimePayload = (resolveFrom: string) =>
 			...contentFiles,
 			{ path: "runtime-metadata.json", contents: `${encodeJson(metadata)}\n` },
 		].sort(({ path: left }, { path: right }) => left.localeCompare(right));
-		return {
-			files,
-			metadata,
-			contentHash: canonicalFileSetHash(files),
-		} satisfies SandboxRuntimePayload;
+		return { files, metadata, contentHash: canonicalFileSetHash(files) };
 	});

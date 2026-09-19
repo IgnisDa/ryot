@@ -1,6 +1,7 @@
 #!/usr/bin/env bun
 
 import { BunRuntime, BunServices } from "@effect/platform-bun";
+import { runProcessCapturing } from "@ryot-app/sandbox-compiler/runtime-build/process";
 import { hostSuccess } from "@ryot-app/sandbox-sdk/wire";
 import { Clock, Crypto, Data, Effect, Encoding, FileSystem, Layer, Path, Schema } from "effect";
 
@@ -13,7 +14,6 @@ import {
 	sandboxDenoRunFlags,
 } from "../../../kernel/backend/src/lib/infrastructure/sandbox-runtime/runtime";
 import { sandboxRuntimePayload } from "../../../kernel/backend/src/lib/infrastructure/sandbox-runtime/runtime-payload.generated";
-import { runProcessCapturing } from "./run-process";
 
 class SandboxRuntimeSmokeError extends Data.TaggedError("SandboxRuntimeSmokeError")<{
 	readonly message: string;
