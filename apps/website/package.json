@@ -6,8 +6,8 @@
 	"scripts": {
 		"build": "bun --bun react-router build",
 		"dev": "bun --bun react-router dev --port 5200 --host",
-		"typecheck": "react-router typegen && safe-routes typegen && tsc",
-		"check": "bun run typecheck && oxfmt . --write && oxlint . --fix"
+		"check": "bun run typecheck && oxfmt . --write && oxlint . --fix",
+		"typecheck": "react-router typegen && safe-routes typegen && bun --check"
 	},
 	"dependencies": {
 		"@conform-to/zod": "1.19.3",
@@ -70,7 +70,6 @@
 		"remark-mdx-frontmatter": "5.2.0",
 		"rollup": "4.50.0",
 		"tailwindcss": "4.3.0",
-		"typescript": "7.0.2",
 		"vite": "8.0.14"
 	},
 	"installConfig": {
