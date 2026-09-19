@@ -54,7 +54,7 @@ const document = {
 
 const identity = {
 	sessionId: "session-1",
-	artifactHash: "hash-1",
+	compositionHash: "hash-1",
 	apiVersion: CLIENT_API_VERSION,
 	format: CLIENT_ARTIFACT_FORMAT,
 	compilerVersion: CLIENT_COMPILER_VERSION,
@@ -175,8 +175,8 @@ describe("plugin client bridge contract", () => {
 	});
 
 	it("pins the protocol and compiler versions it stamps into an artifact", () => {
-		expect(CLIENT_BRIDGE_PROTOCOL_VERSION).toBe(2);
-		expect(CLIENT_COMPILER_VERSION).toBe(1);
+		expect(CLIENT_BRIDGE_PROTOCOL_VERSION).toBe(3);
+		expect(CLIENT_COMPILER_VERSION).toBe(2);
 	});
 
 	it("admits strict overlay state, dismissal, and acknowledgement messages in one direction", () => {
@@ -339,10 +339,15 @@ describe("plugin client bridge contract", () => {
 		};
 
 		expect(Result.isSuccess(decodeInit(init))).toBe(true);
+		expect(Result.isFailure(decodeInit({ ...init, bridgeVersion: 2 }))).toBe(true);
+		expect(
+			Result.isFailure(decodeInit({ ...init, artifactHash: "hash-1", compositionHash: undefined })),
+		).toBe(true);
 		expect(Result.isFailure(decodeInit({ ...identity, mode: "dark" }))).toBe(true);
 		expect(Result.isFailure(decodeInit({ ...init, safeAreaTop: -1 }))).toBe(true);
 		expect(Result.isFailure(decodeInit({ ...init, safeAreaBottom: -1 }))).toBe(true);
 		expect(Result.isSuccess(decodeReady(identity))).toBe(true);
+		expect(Result.isFailure(decodeReady({ ...identity, bridgeVersion: 2 }))).toBe(true);
 		expect(Result.isFailure(decodeReady(init))).toBe(true);
 	});
 

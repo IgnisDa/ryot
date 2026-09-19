@@ -11,8 +11,6 @@ import {
 	IMPORT_SOURCE_STATE_CLAIMED_TTL_SECONDS,
 	IMPORT_SOURCE_STATE_PENDING_TTL_SECONDS,
 	ImportSourceStateFromJson,
-	hashClientPageArtifactGrantToken,
-	CLIENT_PAGE_ARTIFACT_GRANT_TTL_SECONDS,
 	redisKeys,
 } from "./redis";
 
@@ -90,20 +88,5 @@ describe("import source state", () => {
 		const encoded = Schema.encodeSync(ImportSourceStateFromJson)(state);
 
 		expect(Schema.decodeSync(ImportSourceStateFromJson)(encoded)).toEqual(state);
-	});
-});
-
-describe("client page artifact grants", () => {
-	it("uses a centralized grant key and a fifteen-minute lease", () => {
-		expect(redisKeys.clientPageArtifactGrant("grant-1")).toBe("ryot:client-pages:grant:grant-1");
-		expect(CLIENT_PAGE_ARTIFACT_GRANT_TTL_SECONDS).toBe(900);
-	});
-
-	it("derives an opaque lease key from a stable SHA-256 fixture", () => {
-		const token = "artifact-session-token";
-		const sessionId = hashClientPageArtifactGrantToken(token);
-
-		expect(sessionId).toBe("22fded508748d6ee69f7a3a1e3ac0f1eaaef6f00b79d54acc02cbd9022f604d6");
-		expect(redisKeys.clientPageArtifactGrant(sessionId)).not.toContain(token);
 	});
 });

@@ -1,7 +1,7 @@
 {
 	"version": "8",
 	"dialect": "postgres",
-	"id": "235f9a65-1a18-4878-920c-292481407a4f",
+	"id": "47b1dc0b-679e-48f3-84ab-ea9b32ad995a",
 	"prevIds": ["00000000-0000-0000-0000-000000000000"],
 	"ddl": [
 		{ "isRlsEnabled": false, "name": "account", "entityType": "tables", "schema": "public" },
@@ -28,7 +28,19 @@
 		{ "isRlsEnabled": false, "name": "backup_run", "entityType": "tables", "schema": "public" },
 		{
 			"isRlsEnabled": false,
-			"name": "client_page_build",
+			"name": "client_artifact",
+			"entityType": "tables",
+			"schema": "public"
+		},
+		{
+			"isRlsEnabled": false,
+			"name": "client_artifact_file",
+			"entityType": "tables",
+			"schema": "public"
+		},
+		{
+			"isRlsEnabled": false,
+			"name": "client_page_composition",
 			"entityType": "tables",
 			"schema": "public"
 		},
@@ -153,18 +165,6 @@
 		{ "isRlsEnabled": false, "name": "plugin", "entityType": "tables", "schema": "public" },
 		{
 			"isRlsEnabled": false,
-			"name": "plugin_client_artifact",
-			"entityType": "tables",
-			"schema": "public"
-		},
-		{
-			"isRlsEnabled": false,
-			"name": "plugin_client_artifact_file",
-			"entityType": "tables",
-			"schema": "public"
-		},
-		{
-			"isRlsEnabled": false,
 			"name": "plugin_config_encryption_key",
 			"entityType": "tables",
 			"schema": "public"
@@ -190,6 +190,12 @@
 		{
 			"isRlsEnabled": false,
 			"name": "plugin_revision_source_file",
+			"entityType": "tables",
+			"schema": "public"
+		},
+		{
+			"isRlsEnabled": false,
+			"name": "provider_import_admission",
 			"entityType": "tables",
 			"schema": "public"
 		},
@@ -784,19 +790,6 @@
 			"table": "automation_run"
 		},
 		{
-			"type": "boolean",
-			"typeSchema": null,
-			"notNull": true,
-			"dimensions": 0,
-			"default": "false",
-			"generated": null,
-			"identity": null,
-			"name": "history_payload_truncated",
-			"entityType": "columns",
-			"schema": "public",
-			"table": "automation_run"
-		},
-		{
 			"type": "timestamp with time zone",
 			"typeSchema": null,
 			"notNull": false,
@@ -883,6 +876,19 @@
 			"generated": null,
 			"identity": null,
 			"name": "sandbox_script_id",
+			"entityType": "columns",
+			"schema": "public",
+			"table": "automation_run"
+		},
+		{
+			"type": "boolean",
+			"typeSchema": null,
+			"notNull": true,
+			"dimensions": 0,
+			"default": "false",
+			"generated": null,
+			"identity": null,
+			"name": "history_payload_truncated",
 			"entityType": "columns",
 			"schema": "public",
 			"table": "automation_run"
@@ -1109,45 +1115,6 @@
 			"table": "automation_run_attempt"
 		},
 		{
-			"type": "jsonb",
-			"typeSchema": null,
-			"notNull": false,
-			"dimensions": 0,
-			"default": null,
-			"generated": null,
-			"identity": null,
-			"name": "history_logs",
-			"entityType": "columns",
-			"schema": "public",
-			"table": "automation_run_attempt"
-		},
-		{
-			"type": "jsonb",
-			"typeSchema": null,
-			"notNull": false,
-			"dimensions": 0,
-			"default": null,
-			"generated": null,
-			"identity": null,
-			"name": "history_error",
-			"entityType": "columns",
-			"schema": "public",
-			"table": "automation_run_attempt"
-		},
-		{
-			"type": "boolean",
-			"typeSchema": null,
-			"notNull": true,
-			"dimensions": 0,
-			"default": "false",
-			"generated": null,
-			"identity": null,
-			"name": "history_artifacts_truncated",
-			"entityType": "columns",
-			"schema": "public",
-			"table": "automation_run_attempt"
-		},
-		{
 			"type": "timestamp with time zone",
 			"typeSchema": null,
 			"notNull": true,
@@ -1169,6 +1136,45 @@
 			"generated": null,
 			"identity": null,
 			"name": "timing",
+			"entityType": "columns",
+			"schema": "public",
+			"table": "automation_run_attempt"
+		},
+		{
+			"type": "boolean",
+			"typeSchema": null,
+			"notNull": true,
+			"dimensions": 0,
+			"default": "false",
+			"generated": null,
+			"identity": null,
+			"name": "history_artifacts_truncated",
+			"entityType": "columns",
+			"schema": "public",
+			"table": "automation_run_attempt"
+		},
+		{
+			"type": "jsonb",
+			"typeSchema": null,
+			"notNull": false,
+			"dimensions": 0,
+			"default": null,
+			"generated": null,
+			"identity": null,
+			"name": "history_logs",
+			"entityType": "columns",
+			"schema": "public",
+			"table": "automation_run_attempt"
+		},
+		{
+			"type": "jsonb",
+			"typeSchema": null,
+			"notNull": false,
+			"dimensions": 0,
+			"default": null,
+			"generated": null,
+			"identity": null,
+			"name": "history_error",
 			"entityType": "columns",
 			"schema": "public",
 			"table": "automation_run_attempt"
@@ -1681,6 +1687,32 @@
 			"table": "backup_run"
 		},
 		{
+			"type": "smallint",
+			"typeSchema": null,
+			"notNull": true,
+			"dimensions": 0,
+			"default": null,
+			"generated": null,
+			"identity": null,
+			"name": "format",
+			"entityType": "columns",
+			"schema": "public",
+			"table": "client_artifact"
+		},
+		{
+			"type": "smallint",
+			"typeSchema": null,
+			"notNull": true,
+			"dimensions": 0,
+			"default": null,
+			"generated": null,
+			"identity": null,
+			"name": "api_version",
+			"entityType": "columns",
+			"schema": "public",
+			"table": "client_artifact"
+		},
+		{
 			"type": "text",
 			"typeSchema": null,
 			"notNull": true,
@@ -1688,36 +1720,75 @@
 			"default": null,
 			"generated": null,
 			"identity": null,
-			"name": "artifact_key",
+			"name": "hash",
 			"entityType": "columns",
 			"schema": "public",
-			"table": "client_page_build"
+			"table": "client_artifact"
 		},
 		{
-			"type": "jsonb",
+			"type": "smallint",
 			"typeSchema": null,
 			"notNull": true,
 			"dimensions": 0,
 			"default": null,
 			"generated": null,
 			"identity": null,
-			"name": "artifact_identity",
+			"name": "bridge_version",
 			"entityType": "columns",
 			"schema": "public",
-			"table": "client_page_build"
+			"table": "client_artifact"
 		},
 		{
-			"type": "timestamp with time zone",
+			"type": "smallint",
 			"typeSchema": null,
 			"notNull": true,
 			"dimensions": 0,
-			"default": "now()",
+			"default": null,
 			"generated": null,
 			"identity": null,
-			"name": "created_at",
+			"name": "compiler_version",
 			"entityType": "columns",
 			"schema": "public",
-			"table": "client_page_build"
+			"table": "client_artifact"
+		},
+		{
+			"type": "text",
+			"typeSchema": null,
+			"notNull": true,
+			"dimensions": 0,
+			"default": null,
+			"generated": null,
+			"identity": null,
+			"name": "name",
+			"entityType": "columns",
+			"schema": "public",
+			"table": "client_artifact_file"
+		},
+		{
+			"type": "bytea",
+			"typeSchema": null,
+			"notNull": true,
+			"dimensions": 0,
+			"default": null,
+			"generated": null,
+			"identity": null,
+			"name": "contents",
+			"entityType": "columns",
+			"schema": "public",
+			"table": "client_artifact_file"
+		},
+		{
+			"type": "text",
+			"typeSchema": null,
+			"notNull": true,
+			"dimensions": 0,
+			"default": null,
+			"generated": null,
+			"identity": null,
+			"name": "content_type",
+			"entityType": "columns",
+			"schema": "public",
+			"table": "client_artifact_file"
 		},
 		{
 			"type": "text",
@@ -1730,7 +1801,72 @@
 			"name": "artifact_hash",
 			"entityType": "columns",
 			"schema": "public",
-			"table": "client_page_build"
+			"table": "client_artifact_file"
+		},
+		{
+			"type": "text",
+			"typeSchema": null,
+			"notNull": true,
+			"dimensions": 0,
+			"default": null,
+			"generated": null,
+			"identity": null,
+			"name": "composition_key",
+			"entityType": "columns",
+			"schema": "public",
+			"table": "client_page_composition"
+		},
+		{
+			"type": "text",
+			"typeSchema": null,
+			"notNull": true,
+			"dimensions": 0,
+			"default": null,
+			"generated": null,
+			"identity": null,
+			"name": "composition_hash",
+			"entityType": "columns",
+			"schema": "public",
+			"table": "client_page_composition"
+		},
+		{
+			"type": "jsonb",
+			"typeSchema": null,
+			"notNull": true,
+			"dimensions": 0,
+			"default": null,
+			"generated": null,
+			"identity": null,
+			"name": "identity",
+			"entityType": "columns",
+			"schema": "public",
+			"table": "client_page_composition"
+		},
+		{
+			"type": "jsonb",
+			"typeSchema": null,
+			"notNull": true,
+			"dimensions": 0,
+			"default": null,
+			"generated": null,
+			"identity": null,
+			"name": "manifest",
+			"entityType": "columns",
+			"schema": "public",
+			"table": "client_page_composition"
+		},
+		{
+			"type": "timestamp with time zone",
+			"typeSchema": null,
+			"notNull": true,
+			"dimensions": 0,
+			"default": "now()",
+			"generated": null,
+			"identity": null,
+			"name": "created_at",
+			"entityType": "columns",
+			"schema": "public",
+			"table": "client_page_composition"
 		},
 		{
 			"type": "text",
@@ -5607,123 +5743,6 @@
 			"table": "plugin"
 		},
 		{
-			"type": "smallint",
-			"typeSchema": null,
-			"notNull": true,
-			"dimensions": 0,
-			"default": null,
-			"generated": null,
-			"identity": null,
-			"name": "format",
-			"entityType": "columns",
-			"schema": "public",
-			"table": "plugin_client_artifact"
-		},
-		{
-			"type": "smallint",
-			"typeSchema": null,
-			"notNull": true,
-			"dimensions": 0,
-			"default": null,
-			"generated": null,
-			"identity": null,
-			"name": "api_version",
-			"entityType": "columns",
-			"schema": "public",
-			"table": "plugin_client_artifact"
-		},
-		{
-			"type": "text",
-			"typeSchema": null,
-			"notNull": true,
-			"dimensions": 0,
-			"default": null,
-			"generated": null,
-			"identity": null,
-			"name": "hash",
-			"entityType": "columns",
-			"schema": "public",
-			"table": "plugin_client_artifact"
-		},
-		{
-			"type": "smallint",
-			"typeSchema": null,
-			"notNull": true,
-			"dimensions": 0,
-			"default": null,
-			"generated": null,
-			"identity": null,
-			"name": "bridge_version",
-			"entityType": "columns",
-			"schema": "public",
-			"table": "plugin_client_artifact"
-		},
-		{
-			"type": "smallint",
-			"typeSchema": null,
-			"notNull": true,
-			"dimensions": 0,
-			"default": null,
-			"generated": null,
-			"identity": null,
-			"name": "compiler_version",
-			"entityType": "columns",
-			"schema": "public",
-			"table": "plugin_client_artifact"
-		},
-		{
-			"type": "text",
-			"typeSchema": null,
-			"notNull": true,
-			"dimensions": 0,
-			"default": null,
-			"generated": null,
-			"identity": null,
-			"name": "name",
-			"entityType": "columns",
-			"schema": "public",
-			"table": "plugin_client_artifact_file"
-		},
-		{
-			"type": "bytea",
-			"typeSchema": null,
-			"notNull": true,
-			"dimensions": 0,
-			"default": null,
-			"generated": null,
-			"identity": null,
-			"name": "contents",
-			"entityType": "columns",
-			"schema": "public",
-			"table": "plugin_client_artifact_file"
-		},
-		{
-			"type": "text",
-			"typeSchema": null,
-			"notNull": true,
-			"dimensions": 0,
-			"default": null,
-			"generated": null,
-			"identity": null,
-			"name": "content_type",
-			"entityType": "columns",
-			"schema": "public",
-			"table": "plugin_client_artifact_file"
-		},
-		{
-			"type": "text",
-			"typeSchema": null,
-			"notNull": true,
-			"dimensions": 0,
-			"default": null,
-			"generated": null,
-			"identity": null,
-			"name": "artifact_hash",
-			"entityType": "columns",
-			"schema": "public",
-			"table": "plugin_client_artifact_file"
-		},
-		{
 			"type": "text",
 			"typeSchema": null,
 			"notNull": true,
@@ -5818,11 +5837,11 @@
 			"type": "text",
 			"typeSchema": null,
 			"notNull": true,
-			"dimensions": 1,
+			"dimensions": 0,
 			"default": null,
 			"generated": null,
 			"identity": null,
-			"name": "configured_keys",
+			"name": "payload_fingerprint",
 			"entityType": "columns",
 			"schema": "public",
 			"table": "plugin_config_revision"
@@ -5831,11 +5850,11 @@
 			"type": "text",
 			"typeSchema": null,
 			"notNull": true,
-			"dimensions": 0,
+			"dimensions": 1,
 			"default": null,
 			"generated": null,
 			"identity": null,
-			"name": "payload_fingerprint",
+			"name": "configured_keys",
 			"entityType": "columns",
 			"schema": "public",
 			"table": "plugin_config_revision"
@@ -6129,12 +6148,12 @@
 		{
 			"type": "text",
 			"typeSchema": null,
-			"notNull": true,
+			"notNull": false,
 			"dimensions": 0,
 			"default": null,
 			"generated": null,
 			"identity": null,
-			"name": "source_hash",
+			"name": "client_artifact_hash",
 			"entityType": "columns",
 			"schema": "public",
 			"table": "plugin_revision"
@@ -6142,12 +6161,12 @@
 		{
 			"type": "text",
 			"typeSchema": null,
-			"notNull": false,
+			"notNull": true,
 			"dimensions": 0,
 			"default": null,
 			"generated": null,
 			"identity": null,
-			"name": "client_artifact_hash",
+			"name": "source_hash",
 			"entityType": "columns",
 			"schema": "public",
 			"table": "plugin_revision"
@@ -6255,6 +6274,123 @@
 			"entityType": "columns",
 			"schema": "public",
 			"table": "plugin_revision_source_file"
+		},
+		{
+			"type": "jsonb",
+			"typeSchema": null,
+			"notNull": true,
+			"dimensions": 0,
+			"default": null,
+			"generated": null,
+			"identity": null,
+			"name": "payload",
+			"entityType": "columns",
+			"schema": "public",
+			"table": "provider_import_admission"
+		},
+		{
+			"type": "text",
+			"typeSchema": null,
+			"notNull": true,
+			"dimensions": 0,
+			"default": null,
+			"generated": null,
+			"identity": null,
+			"name": "external_id",
+			"entityType": "columns",
+			"schema": "public",
+			"table": "provider_import_admission"
+		},
+		{
+			"type": "text",
+			"typeSchema": null,
+			"notNull": true,
+			"dimensions": 0,
+			"default": null,
+			"generated": null,
+			"identity": null,
+			"name": "provider_id",
+			"entityType": "columns",
+			"schema": "public",
+			"table": "provider_import_admission"
+		},
+		{
+			"type": "text",
+			"typeSchema": null,
+			"notNull": true,
+			"dimensions": 0,
+			"default": null,
+			"generated": null,
+			"identity": null,
+			"name": "id",
+			"entityType": "columns",
+			"schema": "public",
+			"table": "provider_import_admission"
+		},
+		{
+			"type": "text",
+			"typeSchema": null,
+			"notNull": true,
+			"dimensions": 0,
+			"default": null,
+			"generated": null,
+			"identity": null,
+			"name": "entity_schema_slug",
+			"entityType": "columns",
+			"schema": "public",
+			"table": "provider_import_admission"
+		},
+		{
+			"type": "timestamp with time zone",
+			"typeSchema": null,
+			"notNull": false,
+			"dimensions": 0,
+			"default": null,
+			"generated": null,
+			"identity": null,
+			"name": "admitted_at",
+			"entityType": "columns",
+			"schema": "public",
+			"table": "provider_import_admission"
+		},
+		{
+			"type": "text",
+			"typeSchema": null,
+			"notNull": true,
+			"dimensions": 0,
+			"default": null,
+			"generated": null,
+			"identity": null,
+			"name": "status",
+			"entityType": "columns",
+			"schema": "public",
+			"table": "provider_import_admission"
+		},
+		{
+			"type": "timestamp with time zone",
+			"typeSchema": null,
+			"notNull": true,
+			"dimensions": 0,
+			"default": "now()",
+			"generated": null,
+			"identity": null,
+			"name": "created_at",
+			"entityType": "columns",
+			"schema": "public",
+			"table": "provider_import_admission"
+		},
+		{
+			"type": "text",
+			"typeSchema": null,
+			"notNull": true,
+			"dimensions": 0,
+			"default": null,
+			"generated": null,
+			"identity": null,
+			"name": "user_id",
+			"entityType": "columns",
+			"schema": "public",
+			"table": "provider_import_admission"
 		},
 		{
 			"type": "text",
@@ -9801,6 +9937,76 @@
 			"nameExplicit": true,
 			"columns": [
 				{
+					"value": "status",
+					"isExpression": false,
+					"asc": true,
+					"nullsFirst": false,
+					"opclass": null
+				},
+				{
+					"value": "created_at",
+					"isExpression": false,
+					"asc": true,
+					"nullsFirst": false,
+					"opclass": null
+				}
+			],
+			"isUnique": false,
+			"where": null,
+			"with": "",
+			"method": "btree",
+			"concurrently": false,
+			"name": "provider_import_admission_status_created_at_idx",
+			"entityType": "indexes",
+			"schema": "public",
+			"table": "provider_import_admission"
+		},
+		{
+			"nameExplicit": true,
+			"columns": [
+				{
+					"value": "user_id",
+					"isExpression": false,
+					"asc": true,
+					"nullsFirst": false,
+					"opclass": null
+				},
+				{
+					"value": "provider_id",
+					"isExpression": false,
+					"asc": true,
+					"nullsFirst": false,
+					"opclass": null
+				},
+				{
+					"value": "entity_schema_slug",
+					"isExpression": false,
+					"asc": true,
+					"nullsFirst": false,
+					"opclass": null
+				},
+				{
+					"value": "external_id",
+					"isExpression": false,
+					"asc": true,
+					"nullsFirst": false,
+					"opclass": null
+				}
+			],
+			"isUnique": true,
+			"where": null,
+			"with": "",
+			"method": "btree",
+			"concurrently": false,
+			"name": "provider_import_admission_identity_unique",
+			"entityType": "indexes",
+			"schema": "public",
+			"table": "provider_import_admission"
+		},
+		{
+			"nameExplicit": true,
+			"columns": [
+				{
 					"value": "relationship_schema_slug",
 					"isExpression": false,
 					"asc": true,
@@ -10457,14 +10663,14 @@
 			"nameExplicit": false,
 			"columns": ["artifact_hash"],
 			"schemaTo": "public",
-			"tableTo": "plugin_client_artifact",
+			"tableTo": "client_artifact",
 			"columnsTo": ["hash"],
 			"onUpdate": "NO ACTION",
-			"onDelete": "RESTRICT",
-			"name": "client_page_build_h5bSY8fiMNIQ_fkey",
+			"onDelete": "NO ACTION",
+			"name": "client_artifact_file_artifact_hash_client_artifact_hash_fkey",
 			"entityType": "fks",
 			"schema": "public",
-			"table": "client_page_build"
+			"table": "client_artifact_file"
 		},
 		{
 			"nameExplicit": true,
@@ -11040,19 +11246,6 @@
 		},
 		{
 			"nameExplicit": false,
-			"columns": ["artifact_hash"],
-			"schemaTo": "public",
-			"tableTo": "plugin_client_artifact",
-			"columnsTo": ["hash"],
-			"onUpdate": "NO ACTION",
-			"onDelete": "NO ACTION",
-			"name": "plugin_client_artifact_file_vYqlZNnp2DwH_fkey",
-			"entityType": "fks",
-			"schema": "public",
-			"table": "plugin_client_artifact_file"
-		},
-		{
-			"nameExplicit": false,
 			"columns": ["owner_user_id"],
 			"schemaTo": "public",
 			"tableTo": "user",
@@ -11146,7 +11339,7 @@
 			"nameExplicit": true,
 			"columns": ["client_artifact_hash"],
 			"schemaTo": "public",
-			"tableTo": "plugin_client_artifact",
+			"tableTo": "client_artifact",
 			"columnsTo": ["hash"],
 			"onUpdate": "NO ACTION",
 			"onDelete": "NO ACTION",
@@ -11167,6 +11360,19 @@
 			"entityType": "fks",
 			"schema": "public",
 			"table": "plugin_revision_source_file"
+		},
+		{
+			"nameExplicit": false,
+			"columns": ["user_id"],
+			"schemaTo": "public",
+			"tableTo": "user",
+			"columnsTo": ["id"],
+			"onUpdate": "NO ACTION",
+			"onDelete": "CASCADE",
+			"name": "provider_import_admission_user_id_user_id_fkey",
+			"entityType": "fks",
+			"schema": "public",
+			"table": "provider_import_admission"
 		},
 		{
 			"nameExplicit": false,
@@ -11385,20 +11591,20 @@
 			"table": "automation_trigger_recipient"
 		},
 		{
+			"columns": ["artifact_hash", "name"],
+			"nameExplicit": false,
+			"name": "client_artifact_file_pkey",
+			"entityType": "pks",
+			"schema": "public",
+			"table": "client_artifact_file"
+		},
+		{
 			"columns": ["provider", "key"],
 			"nameExplicit": false,
 			"name": "managed_asset_pkey",
 			"entityType": "pks",
 			"schema": "public",
 			"table": "managed_asset"
-		},
-		{
-			"columns": ["artifact_hash", "name"],
-			"nameExplicit": false,
-			"name": "plugin_client_artifact_file_pkey",
-			"entityType": "pks",
-			"schema": "public",
-			"table": "plugin_client_artifact_file"
 		},
 		{
 			"columns": ["plugin_revision_id", "path"],
@@ -11457,11 +11663,19 @@
 			"entityType": "pks"
 		},
 		{
+			"columns": ["hash"],
 			"nameExplicit": false,
-			"name": "client_page_build_pkey",
-			"columns": ["artifact_key"],
+			"name": "client_artifact_pkey",
 			"schema": "public",
-			"table": "client_page_build",
+			"table": "client_artifact",
+			"entityType": "pks"
+		},
+		{
+			"columns": ["composition_key"],
+			"nameExplicit": false,
+			"name": "client_page_composition_pkey",
+			"schema": "public",
+			"table": "client_page_composition",
 			"entityType": "pks"
 		},
 		{
@@ -11689,14 +11903,6 @@
 			"entityType": "pks"
 		},
 		{
-			"columns": ["hash"],
-			"nameExplicit": false,
-			"name": "plugin_client_artifact_pkey",
-			"schema": "public",
-			"table": "plugin_client_artifact",
-			"entityType": "pks"
-		},
-		{
 			"columns": ["singleton"],
 			"nameExplicit": false,
 			"name": "plugin_config_encryption_key_pkey",
@@ -11726,6 +11932,14 @@
 			"name": "plugin_revision_pkey",
 			"schema": "public",
 			"table": "plugin_revision",
+			"entityType": "pks"
+		},
+		{
+			"columns": ["id"],
+			"nameExplicit": false,
+			"name": "provider_import_admission_pkey",
+			"schema": "public",
+			"table": "provider_import_admission",
 			"entityType": "pks"
 		},
 		{
@@ -12040,6 +12254,15 @@
 		},
 		{
 			"nameExplicit": false,
+			"columns": ["composition_hash"],
+			"nullsNotDistinct": false,
+			"name": "client_page_composition_composition_hash_key",
+			"schema": "public",
+			"table": "client_page_composition",
+			"entityType": "uniques"
+		},
+		{
+			"nameExplicit": false,
 			"columns": ["script_id"],
 			"nullsNotDistinct": false,
 			"name": "kernel_script_script_id_key",
@@ -12291,7 +12514,7 @@
 			"table": "plugin_config_revision"
 		},
 		{
-			"definition": "\n\t\t\tselect d.id, d.plugin_id, d.plugin_revision_id, g.slug as plugin_slug, d.slug, d.name, d.position, d.icon, d.properties_schema, d.user_state, d.merge_identity_properties\n\t\t\tfrom definition_entity_schema d\n\t\t\tleft join global_plugin g on g.plugin_id = d.plugin_id and g.active_revision_id = d.plugin_revision_id\n\t\t\twhere d.plugin_revision_id is null or g.plugin_id is not null\n\t\t",
+			"definition": "\n\t\t\tselect d.id, d.plugin_id, d.plugin_revision_id, g.slug as plugin_slug, d.slug, d.name, d.position, d.icon, d.properties_schema, d.user_state, d.merge_identity_properties\n\t\t\tfrom definition_entity_schema d\n\t\t\tleft join (\n\tselect p.id as plugin_id, p.slug, p.active_revision_id, p.environment_config_revision_id as config_revision_id, coalesce(c.scope = 'environment' and c.encrypted_payload is not null, false) as is_executable\n\tfrom plugin p\n\tleft join plugin_config_revision c on c.id = p.environment_config_revision_id\n\twhere p.scope = 'system' and p.status = 'active'\n) g on g.plugin_id = d.plugin_id and g.active_revision_id = d.plugin_revision_id\n\t\t\twhere d.plugin_revision_id is null or g.plugin_id is not null\n\t\t",
 			"with": null,
 			"withNoData": null,
 			"using": null,
@@ -12302,7 +12525,7 @@
 			"schema": "public"
 		},
 		{
-			"definition": "\n\t\t\tselect v.id, v.entity_schema_id, e.slug as entity_schema_slug, e.plugin_id, v.slug, v.name, v.position, v.properties_schema\n\t\t\tfrom global_entity_schema e\n\t\t\tjoin definition_event_schema v on v.entity_schema_id = e.id\n\t\t",
+			"definition": "\n\t\t\tselect v.id, v.entity_schema_id, e.slug as entity_schema_slug, e.plugin_id, v.slug, v.name, v.position, v.properties_schema\n\t\t\tfrom \"global_entity_schema\" e\n\t\t\tjoin definition_event_schema v on v.entity_schema_id = e.id\n\t\t",
 			"with": null,
 			"withNoData": null,
 			"using": null,
@@ -12313,7 +12536,7 @@
 			"schema": "public"
 		},
 		{
-			"definition": "\n\t\t\tselect p.id as plugin_id, p.slug, p.active_revision_id, p.environment_config_revision_id as config_revision_id, coalesce(c.scope = 'environment' and c.encrypted_payload is not null, false) as is_executable\n\t\t\tfrom plugin p\n\t\t\tleft join plugin_config_revision c on c.id = p.environment_config_revision_id\n\t\t\twhere p.scope = 'system' and p.status = 'active'\n\t\t",
+			"definition": "\n\tselect p.id as plugin_id, p.slug, p.active_revision_id, p.environment_config_revision_id as config_revision_id, coalesce(c.scope = 'environment' and c.encrypted_payload is not null, false) as is_executable\n\tfrom plugin p\n\tleft join plugin_config_revision c on c.id = p.environment_config_revision_id\n\twhere p.scope = 'system' and p.status = 'active'\n",
 			"with": null,
 			"withNoData": null,
 			"using": null,
@@ -12324,7 +12547,7 @@
 			"schema": "public"
 		},
 		{
-			"definition": "\n\t\t\tselect d.id, d.plugin_id, d.plugin_revision_id, g.slug as plugin_slug, d.slug, d.name, d.position, d.source_entity_schema_slug, d.target_entity_schema_slug, d.properties_schema\n\t\t\tfrom definition_relationship_schema d\n\t\t\tleft join global_plugin g on g.plugin_id = d.plugin_id and g.active_revision_id = d.plugin_revision_id\n\t\t\twhere d.plugin_revision_id is null or g.plugin_id is not null\n\t\t",
+			"definition": "\n\t\t\tselect d.id, d.plugin_id, d.plugin_revision_id, g.slug as plugin_slug, d.slug, d.name, d.position, d.source_entity_schema_slug, d.target_entity_schema_slug, d.properties_schema\n\t\t\tfrom definition_relationship_schema d\n\t\t\tleft join \"global_plugin\" g on g.plugin_id = d.plugin_id and g.active_revision_id = d.plugin_revision_id\n\t\t\twhere d.plugin_revision_id is null or g.plugin_id is not null\n\t\t",
 			"with": null,
 			"withNoData": null,
 			"using": null,
@@ -12335,7 +12558,7 @@
 			"schema": "public"
 		},
 		{
-			"definition": "\n\t\t\tselect d.id, d.plugin_id, d.plugin_revision_id, g.slug as plugin_slug, d.slug, d.name, d.position, d.icon, d.sort_order, d.data_sources, d.settings, d.renderer\n\t\t\tfrom definition_saved_view d\n\t\t\tleft join global_plugin g on g.plugin_id = d.plugin_id and g.active_revision_id = d.plugin_revision_id\n\t\t\twhere d.plugin_revision_id is null or g.plugin_id is not null\n\t\t",
+			"definition": "\n\t\t\tselect d.id, d.plugin_id, d.plugin_revision_id, g.slug as plugin_slug, d.slug, d.name, d.position, d.icon, d.sort_order, d.data_sources, d.settings, d.renderer\n\t\t\tfrom definition_saved_view d\n\t\t\tleft join \"global_plugin\" g on g.plugin_id = d.plugin_id and g.active_revision_id = d.plugin_revision_id\n\t\t\twhere d.plugin_revision_id is null or g.plugin_id is not null\n\t\t",
 			"with": null,
 			"withNoData": null,
 			"using": null,
@@ -12346,7 +12569,7 @@
 			"schema": "public"
 		},
 		{
-			"definition": "\n\t\t\tselect d.id, d.plugin_id, d.plugin_revision_id, g.slug as plugin_slug, d.slug, d.name, d.position, d.notification_hook_slug, d.properties_schema, d.audience_policy, d.catalog_state\n\t\t\tfrom definition_signal_schema d\n\t\t\tleft join global_plugin g on g.plugin_id = d.plugin_id and g.active_revision_id = d.plugin_revision_id\n\t\t\twhere d.plugin_revision_id is null or g.plugin_id is not null\n\t\t",
+			"definition": "\n\t\t\tselect d.id, d.plugin_id, d.plugin_revision_id, g.slug as plugin_slug, d.slug, d.name, d.position, d.notification_hook_slug, d.properties_schema, d.audience_policy, d.catalog_state\n\t\t\tfrom definition_signal_schema d\n\t\t\tleft join \"global_plugin\" g on g.plugin_id = d.plugin_id and g.active_revision_id = d.plugin_revision_id\n\t\t\twhere d.plugin_revision_id is null or g.plugin_id is not null\n\t\t",
 			"with": null,
 			"withNoData": null,
 			"using": null,
@@ -12357,7 +12580,7 @@
 			"schema": "public"
 		},
 		{
-			"definition": "\n\t\t\tselect u.id as user_id, d.id, d.plugin_id, d.plugin_revision_id, null::text as plugin_slug, null::text as plugin_scope, d.slug, d.name, d.position, d.icon, d.properties_schema, d.user_state, d.merge_identity_properties, true as is_effective\n\t\t\tfrom definition_entity_schema d\n\t\t\tcross join \"user\" u\n\t\t\twhere d.plugin_revision_id is null\n\t\t\tunion all\n\t\t\tselect p.user_id, d.id, d.plugin_id, d.plugin_revision_id, p.slug, p.scope, d.slug, d.name, d.position, d.icon, d.properties_schema, d.user_state, d.merge_identity_properties, p.is_definition_effective\n\t\t\tfrom user_plugin p\n\t\t\tjoin definition_entity_schema d on d.plugin_revision_id = p.active_revision_id\n\t\t\twhere p.is_listed and (p.scope = 'system' or not exists (select 1 from global_entity_schema g where g.slug = d.slug))\n\t\t",
+			"definition": "\n\t\t\tselect u.id as user_id, d.id, d.plugin_id, d.plugin_revision_id, null::text as plugin_slug, null::text as plugin_scope, d.slug, d.name, d.position, d.icon, d.properties_schema, d.user_state, d.merge_identity_properties, true as is_effective\n\t\t\tfrom definition_entity_schema d\n\t\t\tcross join \"user\" u\n\t\t\twhere d.plugin_revision_id is null\n\t\t\tunion all\n\t\t\tselect p.user_id, d.id, d.plugin_id, d.plugin_revision_id, p.slug, p.scope, d.slug, d.name, d.position, d.icon, d.properties_schema, d.user_state, d.merge_identity_properties, p.is_definition_effective\n\t\t\tfrom (\n\tselect i.user_id, p.id as plugin_id, i.id as installation_id, p.slug, p.scope, p.owner_user_id, p.active_revision_id, case when p.scope = 'system' then p.environment_config_revision_id else i.active_config_revision_id end as config_revision_id, i.health, i.is_disabled, i.sort_order, i.health <> 'incompatible' as is_listed, not i.is_disabled and (i.health = 'ready' or (p.scope = 'system' and i.health = 'installing')) as is_definition_effective, coalesce(not i.is_disabled and i.health = 'ready' and c.plugin_revision_id = p.active_revision_id and c.encrypted_payload is not null and case when p.scope = 'system' then c.scope = 'environment' else c.scope = 'installation' and c.owner_user_id = i.user_id and c.plugin_installation_id = i.id end, false) as is_executable\n\tfrom plugin_installation i\n\tjoin plugin p on p.id = i.plugin_id\n\tleft join plugin_config_revision c on c.id = case when p.scope = 'system' then p.environment_config_revision_id else i.active_config_revision_id end\n\twhere i.uninstalled_at is null and p.status = 'active' and (p.scope = 'system' or p.owner_user_id = i.user_id)\n) p\n\t\t\tjoin definition_entity_schema d on d.plugin_revision_id = p.active_revision_id\n\t\t\twhere p.is_listed and (p.scope = 'system' or not exists (select 1 from \"global_entity_schema\" g where g.slug = d.slug))\n\t\t",
 			"with": null,
 			"withNoData": null,
 			"using": null,
@@ -12368,7 +12591,7 @@
 			"schema": "public"
 		},
 		{
-			"definition": "\n\t\t\tselect e.user_id, v.id, v.entity_schema_id, e.slug as entity_schema_slug, e.plugin_id, v.slug, v.name, v.position, v.properties_schema, e.is_effective\n\t\t\tfrom user_entity_schema e\n\t\t\tjoin definition_event_schema v on v.entity_schema_id = e.id\n\t\t",
+			"definition": "\n\t\t\tselect e.user_id, v.id, v.entity_schema_id, e.slug as entity_schema_slug, e.plugin_id, v.slug, v.name, v.position, v.properties_schema, e.is_effective\n\t\t\tfrom \"user_entity_schema\" e\n\t\t\tjoin definition_event_schema v on v.entity_schema_id = e.id\n\t\t",
 			"with": null,
 			"withNoData": null,
 			"using": null,
@@ -12379,29 +12602,7 @@
 			"schema": "public"
 		},
 		{
-			"definition": "\n\t\t\tselect p.user_id, d.id, d.plugin_id, d.plugin_revision_id, p.slug as plugin_slug, p.scope as plugin_scope, p.installation_id, p.config_revision_id, d.slug, d.name, d.description, d.position, d.workflow_slug, s.id as workflow_script_id, d.input_schema, d.required_plugin_config_keys, d.export_help\n\t\t\tfrom user_plugin p\n\t\t\tjoin definition_import_source d on d.plugin_revision_id = p.active_revision_id\n\t\t\tleft join sandbox_script s on s.plugin_revision_id = d.plugin_revision_id and s.slug = d.workflow_script_slug\n\t\t\twhere p.is_executable and not exists (select 1 from user_plugin sp join definition_import_source g on g.plugin_revision_id = sp.active_revision_id where sp.user_id = p.user_id and sp.plugin_id <> p.plugin_id and sp.scope = 'system' and sp.is_executable and g.slug = d.slug)\n\t\t",
-			"with": null,
-			"withNoData": null,
-			"using": null,
-			"tablespace": null,
-			"materialized": false,
-			"name": "user_import_source",
-			"entityType": "views",
-			"schema": "public"
-		},
-		{
-			"definition": "\n\t\t\tselect p.user_id, d.id, d.plugin_id, d.plugin_revision_id, p.slug as plugin_slug, p.scope as plugin_scope, p.installation_id, p.config_revision_id, d.slug, d.name, d.description, d.position, d.lot, d.script_slug, s.id as script_id, d.settings_schema, d.requires_pro_key\n\t\t\tfrom user_plugin p\n\t\t\tjoin definition_integration_provider d on d.plugin_revision_id = p.active_revision_id\n\t\t\tleft join sandbox_script s on s.plugin_revision_id = d.plugin_revision_id and s.slug = d.script_slug\n\t\t\twhere p.is_executable and not exists (select 1 from user_plugin sp join definition_integration_provider g on g.plugin_revision_id = sp.active_revision_id where sp.user_id = p.user_id and sp.plugin_id <> p.plugin_id and sp.scope = 'system' and sp.is_executable and g.slug = d.slug)\n\t\t",
-			"with": null,
-			"withNoData": null,
-			"using": null,
-			"tablespace": null,
-			"materialized": false,
-			"name": "user_integration_provider",
-			"entityType": "views",
-			"schema": "public"
-		},
-		{
-			"definition": "\n\t\t\tselect i.user_id, p.id as plugin_id, i.id as installation_id, p.slug, p.scope, p.owner_user_id, p.active_revision_id, case when p.scope = 'system' then p.environment_config_revision_id else i.active_config_revision_id end as config_revision_id, i.health, i.is_disabled, i.sort_order, i.health <> 'incompatible' as is_listed, not i.is_disabled and (i.health = 'ready' or (p.scope = 'system' and i.health = 'installing')) as is_definition_effective, coalesce(not i.is_disabled and i.health = 'ready' and c.plugin_revision_id = p.active_revision_id and c.encrypted_payload is not null and case when p.scope = 'system' then c.scope = 'environment' else c.scope = 'installation' and c.owner_user_id = i.user_id and c.plugin_installation_id = i.id end, false) as is_executable\n\t\t\tfrom plugin_installation i\n\t\t\tjoin plugin p on p.id = i.plugin_id\n\t\t\tleft join plugin_config_revision c on c.id = case when p.scope = 'system' then p.environment_config_revision_id else i.active_config_revision_id end\n\t\t\twhere i.uninstalled_at is null and p.status = 'active' and (p.scope = 'system' or p.owner_user_id = i.user_id)\n\t\t",
+			"definition": "\n\tselect i.user_id, p.id as plugin_id, i.id as installation_id, p.slug, p.scope, p.owner_user_id, p.active_revision_id, case when p.scope = 'system' then p.environment_config_revision_id else i.active_config_revision_id end as config_revision_id, i.health, i.is_disabled, i.sort_order, i.health <> 'incompatible' as is_listed, not i.is_disabled and (i.health = 'ready' or (p.scope = 'system' and i.health = 'installing')) as is_definition_effective, coalesce(not i.is_disabled and i.health = 'ready' and c.plugin_revision_id = p.active_revision_id and c.encrypted_payload is not null and case when p.scope = 'system' then c.scope = 'environment' else c.scope = 'installation' and c.owner_user_id = i.user_id and c.plugin_installation_id = i.id end, false) as is_executable\n\tfrom plugin_installation i\n\tjoin plugin p on p.id = i.plugin_id\n\tleft join plugin_config_revision c on c.id = case when p.scope = 'system' then p.environment_config_revision_id else i.active_config_revision_id end\n\twhere i.uninstalled_at is null and p.status = 'active' and (p.scope = 'system' or p.owner_user_id = i.user_id)\n",
 			"with": null,
 			"withNoData": null,
 			"using": null,
@@ -12412,7 +12613,29 @@
 			"schema": "public"
 		},
 		{
-			"definition": "\n\t\t\tselect u.id as user_id, d.id, d.plugin_id, d.plugin_revision_id, null::text as plugin_slug, null::text as plugin_scope, d.slug, d.name, d.position, d.source_entity_schema_slug, d.target_entity_schema_slug, d.properties_schema, true as is_effective\n\t\t\tfrom definition_relationship_schema d\n\t\t\tcross join \"user\" u\n\t\t\twhere d.plugin_revision_id is null\n\t\t\tunion all\n\t\t\tselect p.user_id, d.id, d.plugin_id, d.plugin_revision_id, p.slug, p.scope, d.slug, d.name, d.position, d.source_entity_schema_slug, d.target_entity_schema_slug, d.properties_schema, p.is_definition_effective and (d.source_entity_schema_slug is null or exists (select 1 from user_entity_schema e where e.user_id = p.user_id and e.slug = d.source_entity_schema_slug and e.is_effective)) and (d.target_entity_schema_slug is null or exists (select 1 from user_entity_schema e where e.user_id = p.user_id and e.slug = d.target_entity_schema_slug and e.is_effective))\n\t\t\tfrom user_plugin p\n\t\t\tjoin definition_relationship_schema d on d.plugin_revision_id = p.active_revision_id\n\t\t\twhere p.is_listed and (p.scope = 'system' or not exists (select 1 from global_relationship_schema g where g.slug = d.slug)) and (d.source_entity_schema_slug is null or exists (select 1 from user_entity_schema e where e.user_id = p.user_id and e.slug = d.source_entity_schema_slug)) and (d.target_entity_schema_slug is null or exists (select 1 from user_entity_schema e where e.user_id = p.user_id and e.slug = d.target_entity_schema_slug))\n\t\t",
+			"definition": "\n\t\t\tselect p.user_id, d.id, d.plugin_id, d.plugin_revision_id, p.slug as plugin_slug, p.scope as plugin_scope, p.installation_id, p.config_revision_id, d.slug, d.name, d.description, d.position, d.workflow_slug, s.id as workflow_script_id, d.input_schema, d.required_plugin_config_keys, d.export_help\n\t\t\tfrom \"user_plugin\" p\n\t\t\tjoin definition_import_source d on d.plugin_revision_id = p.active_revision_id\n\t\t\tleft join sandbox_script s on s.plugin_revision_id = d.plugin_revision_id and s.slug = d.workflow_script_slug\n\t\t\twhere p.is_executable and not exists (select 1 from \"user_plugin\" sp join definition_import_source g on g.plugin_revision_id = sp.active_revision_id where sp.user_id = p.user_id and sp.plugin_id <> p.plugin_id and sp.scope = 'system' and sp.is_executable and g.slug = d.slug)\n\t\t",
+			"with": null,
+			"withNoData": null,
+			"using": null,
+			"tablespace": null,
+			"materialized": false,
+			"name": "user_import_source",
+			"entityType": "views",
+			"schema": "public"
+		},
+		{
+			"definition": "\n\t\t\tselect p.user_id, d.id, d.plugin_id, d.plugin_revision_id, p.slug as plugin_slug, p.scope as plugin_scope, p.installation_id, p.config_revision_id, d.slug, d.name, d.description, d.position, d.lot, d.script_slug, s.id as script_id, d.settings_schema, d.requires_pro_key\n\t\t\tfrom \"user_plugin\" p\n\t\t\tjoin definition_integration_provider d on d.plugin_revision_id = p.active_revision_id\n\t\t\tleft join sandbox_script s on s.plugin_revision_id = d.plugin_revision_id and s.slug = d.script_slug\n\t\t\twhere p.is_executable and not exists (select 1 from \"user_plugin\" sp join definition_integration_provider g on g.plugin_revision_id = sp.active_revision_id where sp.user_id = p.user_id and sp.plugin_id <> p.plugin_id and sp.scope = 'system' and sp.is_executable and g.slug = d.slug)\n\t\t",
+			"with": null,
+			"withNoData": null,
+			"using": null,
+			"tablespace": null,
+			"materialized": false,
+			"name": "user_integration_provider",
+			"entityType": "views",
+			"schema": "public"
+		},
+		{
+			"definition": "\n\t\t\tselect u.id as user_id, d.id, d.plugin_id, d.plugin_revision_id, null::text as plugin_slug, null::text as plugin_scope, d.slug, d.name, d.position, d.source_entity_schema_slug, d.target_entity_schema_slug, d.properties_schema, true as is_effective\n\t\t\tfrom definition_relationship_schema d\n\t\t\tcross join \"user\" u\n\t\t\twhere d.plugin_revision_id is null\n\t\t\tunion all\n\t\t\tselect p.user_id, d.id, d.plugin_id, d.plugin_revision_id, p.slug, p.scope, d.slug, d.name, d.position, d.source_entity_schema_slug, d.target_entity_schema_slug, d.properties_schema, p.is_definition_effective and (d.source_entity_schema_slug is null or exists (select 1 from \"user_entity_schema\" e where e.user_id = p.user_id and e.slug = d.source_entity_schema_slug and e.is_effective)) and (d.target_entity_schema_slug is null or exists (select 1 from \"user_entity_schema\" e where e.user_id = p.user_id and e.slug = d.target_entity_schema_slug and e.is_effective))\n\t\t\tfrom \"user_plugin\" p\n\t\t\tjoin definition_relationship_schema d on d.plugin_revision_id = p.active_revision_id\n\t\t\twhere p.is_listed and (p.scope = 'system' or not exists (select 1 from \"global_relationship_schema\" g where g.slug = d.slug)) and (d.source_entity_schema_slug is null or exists (select 1 from \"user_entity_schema\" e where e.user_id = p.user_id and e.slug = d.source_entity_schema_slug)) and (d.target_entity_schema_slug is null or exists (select 1 from \"user_entity_schema\" e where e.user_id = p.user_id and e.slug = d.target_entity_schema_slug))\n\t\t",
 			"with": null,
 			"withNoData": null,
 			"using": null,
@@ -12423,7 +12646,7 @@
 			"schema": "public"
 		},
 		{
-			"definition": "\n\t\t\tselect p.user_id, s.id, s.plugin_id, p.scope as plugin_scope, p.installation_id, s.slug, s.name, s.root_entity_schema_slug, s.information, s.created_at, s.updated_at\n\t\t\tfrom user_plugin p\n\t\t\tjoin sandbox_provider s on s.plugin_id = p.plugin_id\n\t\t\tjoin plugin_revision r on r.id = p.active_revision_id\n\t\t\twhere p.is_executable and exists (select 1 from jsonb_array_elements(r.manifest -> 'providers') m where m ->> 'slug' = s.slug) and exists (select 1 from user_entity_schema e where e.user_id = p.user_id and e.slug = s.root_entity_schema_slug and e.is_effective)\n\t\t",
+			"definition": "\n\t\t\tselect p.user_id, s.id, s.plugin_id, p.scope as plugin_scope, p.installation_id, s.slug, s.name, s.root_entity_schema_slug, s.information, s.created_at, s.updated_at\n\t\t\tfrom \"user_plugin\" p\n\t\t\tjoin sandbox_provider s on s.plugin_id = p.plugin_id\n\t\t\tjoin plugin_revision r on r.id = p.active_revision_id\n\t\t\twhere p.is_executable and exists (select 1 from jsonb_array_elements(r.manifest -> 'providers') m where m ->> 'slug' = s.slug) and exists (select 1 from \"user_entity_schema\" e where e.user_id = p.user_id and e.slug = s.root_entity_schema_slug and e.is_effective)\n\t\t",
 			"with": null,
 			"withNoData": null,
 			"using": null,
@@ -12434,7 +12657,7 @@
 			"schema": "public"
 		},
 		{
-			"definition": "\n\t\t\tselect u.id as user_id, d.id, d.plugin_id, d.plugin_revision_id, null::text as plugin_slug, null::text as plugin_scope, d.slug, d.name, d.position, d.icon, d.sort_order, d.data_sources, d.settings, d.renderer, true as is_effective\n\t\t\tfrom definition_saved_view d\n\t\t\tcross join \"user\" u\n\t\t\twhere d.plugin_revision_id is null\n\t\t\tunion all\n\t\t\tselect p.user_id, d.id, d.plugin_id, d.plugin_revision_id, p.slug, p.scope, d.slug, d.name, d.position, d.icon, d.sort_order, d.data_sources, d.settings, d.renderer, p.is_definition_effective\n\t\t\tfrom user_plugin p\n\t\t\tjoin definition_saved_view d on d.plugin_revision_id = p.active_revision_id\n\t\t\twhere p.is_listed and (p.scope = 'system' or not exists (select 1 from global_saved_view g where g.slug = d.slug))\n\t\t",
+			"definition": "\n\t\t\tselect u.id as user_id, d.id, d.plugin_id, d.plugin_revision_id, null::text as plugin_slug, null::text as plugin_scope, d.slug, d.name, d.position, d.icon, d.sort_order, d.data_sources, d.settings, d.renderer, true as is_effective\n\t\t\tfrom definition_saved_view d\n\t\t\tcross join \"user\" u\n\t\t\twhere d.plugin_revision_id is null\n\t\t\tunion all\n\t\t\tselect p.user_id, d.id, d.plugin_id, d.plugin_revision_id, p.slug, p.scope, d.slug, d.name, d.position, d.icon, d.sort_order, d.data_sources, d.settings, d.renderer, p.is_definition_effective\n\t\t\tfrom \"user_plugin\" p\n\t\t\tjoin definition_saved_view d on d.plugin_revision_id = p.active_revision_id\n\t\t\twhere p.is_listed and (p.scope = 'system' or not exists (select 1 from \"global_saved_view\" g where g.slug = d.slug))\n\t\t",
 			"with": null,
 			"withNoData": null,
 			"using": null,
@@ -12445,7 +12668,7 @@
 			"schema": "public"
 		},
 		{
-			"definition": "\n\t\t\tselect u.id as user_id, d.id, d.plugin_id, d.plugin_revision_id, null::text as plugin_slug, null::text as plugin_scope, d.slug, d.name, d.position, d.notification_hook_slug, d.properties_schema, d.audience_policy, d.catalog_state, true as is_effective\n\t\t\tfrom definition_signal_schema d\n\t\t\tcross join \"user\" u\n\t\t\twhere d.plugin_revision_id is null\n\t\t\tunion all\n\t\t\tselect p.user_id, d.id, d.plugin_id, d.plugin_revision_id, p.slug, p.scope, d.slug, d.name, d.position, d.notification_hook_slug, d.properties_schema, d.audience_policy, d.catalog_state, p.is_definition_effective and (d.audience_policy ->> 'kind' <> 'related_users' or exists (select 1 from user_relationship_schema r where r.user_id = p.user_id and r.slug = d.audience_policy ->> 'relationshipSchemaSlug' and r.is_effective))\n\t\t\tfrom user_plugin p\n\t\t\tjoin definition_signal_schema d on d.plugin_revision_id = p.active_revision_id\n\t\t\twhere p.is_listed and (p.scope = 'system' or not exists (select 1 from global_signal_schema g where g.slug = d.slug)) and (d.audience_policy ->> 'kind' <> 'related_users' or exists (select 1 from user_relationship_schema r where r.user_id = p.user_id and r.slug = d.audience_policy ->> 'relationshipSchemaSlug'))\n\t\t",
+			"definition": "\n\t\t\tselect u.id as user_id, d.id, d.plugin_id, d.plugin_revision_id, null::text as plugin_slug, null::text as plugin_scope, d.slug, d.name, d.position, d.notification_hook_slug, d.properties_schema, d.audience_policy, d.catalog_state, true as is_effective\n\t\t\tfrom definition_signal_schema d\n\t\t\tcross join \"user\" u\n\t\t\twhere d.plugin_revision_id is null\n\t\t\tunion all\n\t\t\tselect p.user_id, d.id, d.plugin_id, d.plugin_revision_id, p.slug, p.scope, d.slug, d.name, d.position, d.notification_hook_slug, d.properties_schema, d.audience_policy, d.catalog_state, p.is_definition_effective and (d.audience_policy ->> 'kind' <> 'related_users' or exists (select 1 from \"user_relationship_schema\" r where r.user_id = p.user_id and r.slug = d.audience_policy ->> 'relationshipSchemaSlug' and r.is_effective))\n\t\t\tfrom \"user_plugin\" p\n\t\t\tjoin definition_signal_schema d on d.plugin_revision_id = p.active_revision_id\n\t\t\twhere p.is_listed and (p.scope = 'system' or not exists (select 1 from \"global_signal_schema\" g where g.slug = d.slug)) and (d.audience_policy ->> 'kind' <> 'related_users' or exists (select 1 from \"user_relationship_schema\" r where r.user_id = p.user_id and r.slug = d.audience_policy ->> 'relationshipSchemaSlug'))\n\t\t",
 			"with": null,
 			"withNoData": null,
 			"using": null,
@@ -12454,220 +12677,6 @@
 			"name": "user_signal_schema",
 			"entityType": "views",
 			"schema": "public"
-		},
-		{
-			"isRlsEnabled": false,
-			"name": "provider_import_admission",
-			"entityType": "tables",
-			"schema": "public"
-		},
-		{
-			"type": "text",
-			"typeSchema": null,
-			"notNull": true,
-			"dimensions": 0,
-			"default": null,
-			"generated": null,
-			"identity": null,
-			"name": "id",
-			"entityType": "columns",
-			"schema": "public",
-			"table": "provider_import_admission"
-		},
-		{
-			"type": "jsonb",
-			"typeSchema": null,
-			"notNull": true,
-			"dimensions": 0,
-			"default": null,
-			"generated": null,
-			"identity": null,
-			"name": "payload",
-			"entityType": "columns",
-			"schema": "public",
-			"table": "provider_import_admission"
-		},
-		{
-			"type": "text",
-			"typeSchema": null,
-			"notNull": true,
-			"dimensions": 0,
-			"default": null,
-			"generated": null,
-			"identity": null,
-			"name": "external_id",
-			"entityType": "columns",
-			"schema": "public",
-			"table": "provider_import_admission"
-		},
-		{
-			"type": "text",
-			"typeSchema": null,
-			"notNull": true,
-			"dimensions": 0,
-			"default": null,
-			"generated": null,
-			"identity": null,
-			"name": "provider_id",
-			"entityType": "columns",
-			"schema": "public",
-			"table": "provider_import_admission"
-		},
-		{
-			"type": "text",
-			"typeSchema": null,
-			"notNull": true,
-			"dimensions": 0,
-			"default": null,
-			"generated": null,
-			"identity": null,
-			"name": "entity_schema_slug",
-			"entityType": "columns",
-			"schema": "public",
-			"table": "provider_import_admission"
-		},
-		{
-			"type": "timestamp with time zone",
-			"typeSchema": null,
-			"notNull": false,
-			"dimensions": 0,
-			"default": null,
-			"generated": null,
-			"identity": null,
-			"name": "admitted_at",
-			"entityType": "columns",
-			"schema": "public",
-			"table": "provider_import_admission"
-		},
-		{
-			"type": "text",
-			"typeSchema": null,
-			"notNull": true,
-			"dimensions": 0,
-			"default": null,
-			"generated": null,
-			"identity": null,
-			"name": "status",
-			"entityType": "columns",
-			"schema": "public",
-			"table": "provider_import_admission"
-		},
-		{
-			"type": "timestamp with time zone",
-			"typeSchema": null,
-			"notNull": true,
-			"dimensions": 0,
-			"default": "now()",
-			"generated": null,
-			"identity": null,
-			"name": "created_at",
-			"entityType": "columns",
-			"schema": "public",
-			"table": "provider_import_admission"
-		},
-		{
-			"type": "text",
-			"typeSchema": null,
-			"notNull": true,
-			"dimensions": 0,
-			"default": null,
-			"generated": null,
-			"identity": null,
-			"name": "user_id",
-			"entityType": "columns",
-			"schema": "public",
-			"table": "provider_import_admission"
-		},
-		{
-			"nameExplicit": true,
-			"columns": [
-				{
-					"value": "status",
-					"isExpression": false,
-					"asc": true,
-					"nullsFirst": false,
-					"opclass": null
-				},
-				{
-					"value": "created_at",
-					"isExpression": false,
-					"asc": true,
-					"nullsFirst": false,
-					"opclass": null
-				}
-			],
-			"isUnique": false,
-			"where": null,
-			"with": "",
-			"method": "btree",
-			"concurrently": false,
-			"name": "provider_import_admission_status_created_at_idx",
-			"entityType": "indexes",
-			"schema": "public",
-			"table": "provider_import_admission"
-		},
-		{
-			"nameExplicit": true,
-			"columns": [
-				{
-					"value": "user_id",
-					"isExpression": false,
-					"asc": true,
-					"nullsFirst": false,
-					"opclass": null
-				},
-				{
-					"value": "provider_id",
-					"isExpression": false,
-					"asc": true,
-					"nullsFirst": false,
-					"opclass": null
-				},
-				{
-					"value": "entity_schema_slug",
-					"isExpression": false,
-					"asc": true,
-					"nullsFirst": false,
-					"opclass": null
-				},
-				{
-					"value": "external_id",
-					"isExpression": false,
-					"asc": true,
-					"nullsFirst": false,
-					"opclass": null
-				}
-			],
-			"isUnique": true,
-			"where": null,
-			"with": "",
-			"method": "btree",
-			"concurrently": false,
-			"name": "provider_import_admission_identity_unique",
-			"entityType": "indexes",
-			"schema": "public",
-			"table": "provider_import_admission"
-		},
-		{
-			"nameExplicit": false,
-			"columns": ["user_id"],
-			"schemaTo": "public",
-			"tableTo": "user",
-			"columnsTo": ["id"],
-			"onUpdate": "NO ACTION",
-			"onDelete": "CASCADE",
-			"name": "provider_import_admission_user_id_user_id_fkey",
-			"entityType": "fks",
-			"schema": "public",
-			"table": "provider_import_admission"
-		},
-		{
-			"columns": ["id"],
-			"nameExplicit": false,
-			"name": "provider_import_admission_pkey",
-			"schema": "public",
-			"table": "provider_import_admission",
-			"entityType": "pks"
 		}
 	],
 	"renames": []

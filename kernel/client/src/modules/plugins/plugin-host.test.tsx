@@ -25,8 +25,8 @@ const theme: ThemeStore = {
 const home: PluginLogicalLocation = { path: "/", kind: "route", search: "keep=1" };
 const grant = {
 	grantId: "grant-1",
-	src: "https://artifacts.example/session-1/index.html",
 	expiresAt: new Date(Date.now() + 10 * 60_000).toISOString(),
+	src: "https://artifacts.example/api/client-pages/documents/session-1",
 };
 
 function mount(
@@ -73,16 +73,16 @@ function mount(
 		backInterceptors,
 		mutationCompleted,
 		chromeLeading: null,
-		artifactGrant: grant,
+		documentGrant: grant,
 		documentKey: pageKey,
 		freshnessCheckRevision,
 		onHeader: () => undefined,
-		artifactHash: "artifact-hash",
 		onOpenDrawer: () => undefined,
 		onNavigateBack: () => undefined,
 		onOverlayState: () => undefined,
 		onKernelShortcut: () => undefined,
 		chromeTriggerRef: { current: null },
+		compositionHash: "composition-hash",
 		subscribeResume: options.subscribeResume,
 		viewport: { safeAreaTop: 7, safeAreaBottom: 11 },
 		onScreenState: (state: unknown) => states.push(state),
@@ -481,7 +481,7 @@ describe("PluginFrame", () => {
 		);
 	});
 
-	it("disposes a genuinely failed bridge and locally reloads it", async () => {
+	it("requests a new document grant when the bridge fails", async () => {
 		let parentReloads = 0;
 		const host = mount({
 			onReloadCurrent: () => {
@@ -498,10 +498,24 @@ describe("PluginFrame", () => {
 
 		await screen.findByText("This plugin stopped working.");
 		expect(screen.queryByTitle("Fixture plugin")).toBeNull();
-		fireEvent.click(screen.getByRole("button", { name: "Reload plugin" }));
-		const nextFrame = await screen.findByTitle<HTMLIFrameElement>("Fixture plugin");
-		expect(nextFrame).not.toBe(frame);
-		expect(parentReloads).toBe(0);
+		fireEvent.click(screen.getByRole("button", { name: "Retry" }));
+		expect(screen.queryByTitle("Fixture plugin")).toBeNull();
+		expect(parentReloads).toBe(1);
 		host.unmount();
+	});
+
+	it("offers a retry when the initial document cannot load", async () => {
+		let reloads = 0;
+		mount({
+			onReloadCurrent: () => {
+				reloads++;
+			},
+		});
+		const frame = screen.getByTitle<HTMLIFrameElement>("Fixture plugin");
+		fireEvent.error(frame);
+		await screen.findByText("This plugin stopped working.");
+		expect(screen.queryByTitle("Fixture plugin")).toBeNull();
+		fireEvent.click(screen.getByRole("button", { name: "Retry" }));
+		expect(reloads).toBe(1);
 	});
 });
