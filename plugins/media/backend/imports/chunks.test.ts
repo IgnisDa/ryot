@@ -12,6 +12,41 @@ const showRef = {
 	providerSlug: "show.tmdb",
 } as const;
 
+it("keeps source record identities when groups move between write batches", () => {
+	const groups = [4, 29].map((itemIndex) => ({
+		itemIndex,
+		events: [],
+		entityRef: showRef,
+		collectionMemberships: [],
+	}));
+	const together = createMediaImportChunk(
+		{
+			failures: [],
+			entityGroups: groups,
+			populationResults: groups.map((_, index) => ({
+				index,
+				entityId: "show-1",
+				status: "completed" as const,
+			})),
+		},
+		ownershipSyncedAt,
+	);
+	const separate = groups.flatMap(
+		(group) =>
+			createMediaImportChunk(
+				{
+					failures: [],
+					entityGroups: [group],
+					populationResults: [{ index: 0, entityId: "show-1", status: "completed" }],
+				},
+				ownershipSyncedAt,
+			).items,
+	);
+
+	expect(separate).toEqual(together.items);
+	expect(new Set(separate.map(({ recordId }) => recordId)).size).toBe(2);
+});
+
 it("writes finalized episode subjects and keeps plugin-private episode data out of the chunk", () => {
 	const chunk = createMediaImportChunk(
 		{
@@ -49,6 +84,8 @@ it("writes finalized episode subjects and keeps plugin-private episode data out 
 	expect(chunk.failures).toEqual([
 		{
 			itemIndex: 0,
+			unit: "records",
+			recordKind: "media",
 			sourceLabel: "Lost",
 			sourceIdentifier: "20",
 			entitySchemaSlug: "show",
@@ -98,6 +135,8 @@ it("turns missing and failed population results into staged failures without wri
 	expect(chunk.failures).toEqual([
 		{
 			itemIndex: 0,
+			unit: "records",
+			recordKind: "media",
 			sourceLabel: "Lost",
 			sourceIdentifier: "20",
 			entitySchemaSlug: "show",
@@ -106,6 +145,8 @@ it("turns missing and failed population results into staged failures without wri
 		},
 		{
 			itemIndex: 1,
+			unit: "records",
+			recordKind: "media",
 			sourceLabel: "Lost",
 			sourceIdentifier: "20",
 			entitySchemaSlug: "show",
@@ -134,7 +175,13 @@ it("emits library membership and ownership as a generic relationship mutation", 
 	);
 
 	expect(chunk.items[0]).toMatchObject({
-		collectionMemberships: [{ entityAlias: "media", collectionName: "Pinned" }],
+		collectionMemberships: [
+			{
+				entityAlias: "media",
+				collectionName: "Pinned",
+				operationId: '["media",0,"collection","Pinned"]',
+			},
+		],
 		entities: [
 			{ alias: "media" },
 			{
@@ -173,6 +220,7 @@ it("emits membership without ownership properties for unowned media", () => {
 			propertiesMode: "merge",
 			targetAlias: "media-library",
 			relationshipSchemaSlug: "in-media-library",
+			operationId: '["media",0,"library-membership"]',
 		},
 	]);
 });

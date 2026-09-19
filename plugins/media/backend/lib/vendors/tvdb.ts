@@ -29,7 +29,7 @@ export const firstStringValue = (record: UnknownRecord, keys: readonly string[])
 	keys.reduce<string | null>((value, key) => value ?? stringValue(record[key]), null);
 
 const getTvdbApiKey = (host: TvdbHost) =>
-	host.getPluginConfig(["tvdbApiKey"]).pipe(
+	host.getPluginConfig({ required: ["tvdbApiKey"] }).pipe(
 		Effect.map(({ tvdbApiKey }) => tvdbApiKey),
 		Effect.mapError((error) => ({
 			...error,

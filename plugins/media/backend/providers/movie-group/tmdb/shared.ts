@@ -20,7 +20,6 @@ export const manifest = defineManifest({
 	kind: "provider",
 	slug: "movie-group.tmdb",
 	capabilities: ["httpCall", "getPluginConfig"],
-	requiredPluginConfigKeys: ["tmdbAccessToken"],
 });
 
 const stripCollectionSuffix = (name: string) =>

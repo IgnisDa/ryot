@@ -7,7 +7,6 @@ export const manifest = defineManifest({
 	kind: "provider",
 	name: "TMDB Person Translate",
 	slug: "person.tmdb.translate",
-	requiredPluginConfigKeys: ["tmdbAccessToken"],
 	capabilities: ["httpCall", "getPluginConfig", "getUserSettings"],
 });
 

@@ -3,7 +3,6 @@ import { Effect, Schema } from "@ryot-app/sandbox-sdk/effect";
 
 export const manifest = defineManifest({
 	kind: "script",
-	requiredPluginConfigKeys: [],
 	slug: "bootstrap.fitness-workspace",
 	name: "Initialize Fitness Workspace",
 	capabilities: ["ensureUserEntities"],

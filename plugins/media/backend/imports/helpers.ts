@@ -1,6 +1,6 @@
 import { getOccurredAtValue } from "./dates";
 import type { ImportMediaEntityGroupBuilder } from "./groups";
-import type { ImportMediaEvent, MediaImportAdapterFailure } from "./schemas";
+import type { ImportMediaEvent } from "./schemas";
 
 export const assertRequiredHeaders = (
 	headers: string[],
@@ -46,7 +46,7 @@ export const normalizeIsbn = (value: string) => {
 
 export const normalizeReadCount = (value: string) => {
 	const parsed = Number.parseInt(value.trim(), 10);
-	return Number.isFinite(parsed) && parsed > 0 ? parsed : 0;
+	return Number.isSafeInteger(parsed) && parsed > 0 ? parsed : 0;
 };
 
 const isValidIsbn10 = (value: string) =>
@@ -217,21 +217,3 @@ export const finalizeEntityGroups = (groups: Iterable<ImportMediaEntityGroupBuil
 	}
 	return finalized;
 };
-
-export const batchMediaImportResult = (
-	result: {
-		totalItems: number;
-		failures: MediaImportAdapterFailure[];
-		entityGroups: ReadonlyArray<ImportMediaEntityGroupBuilder>;
-	},
-	start: number,
-	limit: number,
-) => ({
-	totalItems: result.totalItems,
-	failures: result.failures.filter(
-		({ itemIndex }) => itemIndex >= start && itemIndex < start + limit,
-	),
-	entityGroups: result.entityGroups.filter(
-		({ itemIndex }) => itemIndex >= start && itemIndex < start + limit,
-	),
-});

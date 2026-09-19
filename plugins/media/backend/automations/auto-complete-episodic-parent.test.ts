@@ -219,7 +219,6 @@ describe("auto-complete-episodic-parent sandbox script", () => {
 		expect(manifest).toEqual({
 			kind: "automation",
 			automationType: "automation",
-			requiredPluginConfigKeys: [],
 			name: "Auto-Complete Episodic Parent",
 			slug: "automation.media-auto-complete-episodic-parent",
 			capabilities: ["executeRyotql", "createEvents", "claimPersistentValue"],

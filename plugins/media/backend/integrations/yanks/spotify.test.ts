@@ -2,6 +2,7 @@ import { describe, expect, it } from "@effect/vitest";
 import type { JsonValue } from "@ryot-app/contract/modules/ryotql/language";
 import { Effect, Schema } from "@ryot-app/sandbox-sdk/effect";
 import { defineSandboxTestHost, runSandboxTestScript } from "@ryot-app/sandbox-sdk/testing";
+import { TestClock } from "effect/testing";
 
 import {
 	execution,
@@ -9,8 +10,10 @@ import {
 	httpSuccess,
 	integrationRecord,
 } from "../../../tests/backend/automations/automation-test-utils";
+import { mediaFilesystem } from "../../imports/ingestion.test-support";
 import type { MediaIntegrationAdapterResult } from "../../imports/schemas";
 import { MediaSandboxError } from "../../lib/failures";
+import { integrationTestResult } from "../artifacts.test-support";
 import spotifyDefinition, { manifest as spotifyManifest } from "./spotify.sandbox";
 
 const encodeClaimKey = Schema.encodeSync(Schema.fromJsonString(Schema.Array(Schema.String)));
@@ -34,6 +37,7 @@ const setup = (lastFinishedAt: string | null = null) => {
 	let response: Response = { items: [], status: 200 };
 	const host = defineSandboxTestHost(spotifyManifest, {
 		span: () => hostSuccess(null),
+		getPersistentValue: (key) => hostSuccess(claims.has(key) ? true : null),
 		log: (entries) => {
 			logs.push(...entries.map(({ message }) => message));
 			return hostSuccess(null);
@@ -70,7 +74,42 @@ const setup = (lastFinishedAt: string | null = null) => {
 	});
 	const run = (next: Response) => {
 		response = next;
-		return runSandboxTestScript(spotifyDefinition, {}, host, execution);
+		return Effect.gen(function* () {
+			yield* TestClock.setTime(Date.parse(execution.startedAt));
+			const fs = mediaFilesystem({});
+			yield* runSandboxTestScript(spotifyDefinition, {}, host, execution);
+			const records = yield* fs.records();
+			yield* runSandboxTestScript(
+				spotifyDefinition,
+				{
+					ingestionConfirmation: {
+						part: 0,
+						final: true,
+						runId: "run",
+						batchId: "batch",
+						inputFingerprint: "fingerprint",
+						confirmed: records.flatMap(
+							({ group }) =>
+								group?.events.flatMap((event) =>
+									event.operationId && event.attribution
+										? [
+												{
+													reason: null,
+													result: "created" as const,
+													operationId: event.operationId,
+													attribution: event.attribution,
+												},
+											]
+										: [],
+								) ?? [],
+						),
+					},
+				},
+				host,
+				execution,
+			);
+			return integrationTestResult(records);
+		});
 	};
 	return { run, logs, claims, requests, tokenRequests };
 };

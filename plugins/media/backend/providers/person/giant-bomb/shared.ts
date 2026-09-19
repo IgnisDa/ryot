@@ -21,7 +21,6 @@ export const manifest = defineManifest({
 	name: "GiantBomb",
 	slug: "person.giant-bomb",
 	capabilities: ["httpCall", "getPluginConfig"],
-	requiredPluginConfigKeys: ["giantBombApiKey"],
 });
 
 const lastNonEmptySegment = (value: unknown) => {

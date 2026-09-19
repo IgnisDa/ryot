@@ -8,7 +8,6 @@ export const manifest = defineManifest({
 	name: "Metron Details",
 	slug: "comic-book.metron.details",
 	capabilities: ["httpCall", "getPluginConfig"],
-	requiredPluginConfigKeys: ["metronUsername", "metronPassword"],
 });
 
 export default defineProvider({ manifest, run: details.run, operation: "details" });

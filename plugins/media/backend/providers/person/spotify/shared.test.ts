@@ -19,7 +19,7 @@ const makeHost = (
 	defineSandboxTestHost(manifest, {
 		setCachedValue: () => Effect.succeed(null),
 		getCachedValue: () => Effect.succeed("cached-token"),
-		getPluginConfig: (keys) =>
+		getPluginConfig: ({ required: keys = [] }) =>
 			Effect.succeed(
 				Object.fromEntries(keys.map((key) => [key, key.endsWith("Secret") ? "secret" : "id"])),
 			),

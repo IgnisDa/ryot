@@ -8,7 +8,6 @@ export const manifest = defineManifest({
 	name: "TMDB Company Details",
 	slug: "company.tmdb.details",
 	capabilities: ["httpCall", "getPluginConfig"],
-	requiredPluginConfigKeys: ["tmdbAccessToken"],
 });
 
 export default defineProvider({ manifest, run: details.run, operation: "details" });

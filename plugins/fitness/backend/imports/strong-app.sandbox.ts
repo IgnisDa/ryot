@@ -1,27 +1,18 @@
 import { defineManifest, defineScript } from "@ryot-app/sandbox-sdk/driver";
-import { Effect, Schema } from "@ryot-app/sandbox-sdk/effect";
-import { genericImportAdapterManifestSchema } from "@ryot-app/sandbox-sdk/imports";
 
-import { readImportArtifactText, writeImportChunks } from "./shared";
-import { adaptStrongAppCsv } from "./strong-app";
-import { toWorkoutWriteItem } from "./workout";
+import { FitnessStageInput, FitnessStageOutput } from "./schemas";
+import { runFitnessStage } from "./shared";
 
 export const manifest = defineManifest({
 	kind: "script",
 	slug: "import.strong-app",
-	name: "Parse Strong import",
-	requiredPluginConfigKeys: [],
+	name: "Collect Strong import",
 	capabilities: ["artifact-read", "scratch"],
 });
 
 export default defineScript({
 	manifest,
-	output: genericImportAdapterManifestSchema,
-	input: Schema.Struct({ timezone: Schema.String }),
-	run: (input) =>
-		Effect.gen(function* () {
-			const text = yield* readImportArtifactText;
-			const result = adaptStrongAppCsv(text, input.timezone);
-			return yield* writeImportChunks(result.failures, result.items.map(toWorkoutWriteItem));
-		}),
+	input: FitnessStageInput,
+	output: FitnessStageOutput,
+	run: (input) => runFitnessStage("strong_app", input),
 });

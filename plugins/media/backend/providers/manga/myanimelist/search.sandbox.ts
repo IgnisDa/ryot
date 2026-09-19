@@ -7,7 +7,6 @@ export const manifest = defineManifest({
 	kind: "provider",
 	name: "MyAnimeList Search",
 	slug: "manga.myanimelist.search",
-	requiredPluginConfigKeys: ["malClientId"],
 	capabilities: ["httpCall", "getPluginConfig", "getUserSettings"],
 });
 

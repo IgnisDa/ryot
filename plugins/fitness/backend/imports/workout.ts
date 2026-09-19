@@ -4,6 +4,8 @@ import type { JsonValue } from "@ryot-app/sandbox-sdk/wire";
 import { buildWorkoutSetEventProperties, type WorkoutImportItem } from "./workout-domain";
 
 export const toWorkoutWriteItem = (workout: WorkoutImportItem): GenericImportWriteItem => {
+	const operationId = (...parts: Array<string | number>) =>
+		JSON.stringify(["workout", workout.itemIndex, ...parts]);
 	const workoutProperties: Record<string, JsonValue> = { startedAt: workout.startedAt };
 	if (workout.endedAt) {
 		workoutProperties["endedAt"] = workout.endedAt;
@@ -17,12 +19,14 @@ export const toWorkoutWriteItem = (workout: WorkoutImportItem): GenericImportWri
 		subjectEntityAlias: "workout",
 		sourceLabel: workout.sourceLabel,
 		sourceIdentifier: workout.sourceIdentifier,
+		recordId: JSON.stringify(["workout", workout.itemIndex]),
 		relationships: workout.exercises.map((_exercise, index) => ({
 			properties: {},
 			targetAlias: "fitness-library",
 			propertiesMode: "merge" as const,
 			sourceAlias: `exercise-${index}`,
 			relationshipSchemaSlug: "in-fitness-library",
+			operationId: operationId("exercise-membership", index),
 		})),
 		events: workout.exercises.flatMap((exercise, exerciseOrder) =>
 			exercise.sets.map((set, setOrder) => ({
@@ -30,12 +34,19 @@ export const toWorkoutWriteItem = (workout: WorkoutImportItem): GenericImportWri
 				sessionEntityAlias: "workout",
 				eventSchemaSlug: "workout-set",
 				entityAlias: `exercise-${exerciseOrder}`,
+				outcome: { unit: "sets", recordKind: "workout-sets" },
+				operationId: operationId("set", exerciseOrder, setOrder),
 				properties: buildWorkoutSetEventProperties({
 					set,
 					setOrder,
 					exerciseOrder,
 					exerciseKind: exercise.kind,
 				}),
+				attribution: {
+					sourceLabel: workout.sourceLabel,
+					sourceIdentifier: workout.sourceIdentifier,
+					recordId: JSON.stringify(["workout", workout.itemIndex]),
+				},
 			})),
 		),
 		entities: [
@@ -44,6 +55,7 @@ export const toWorkoutWriteItem = (workout: WorkoutImportItem): GenericImportWri
 				scope: "user" as const,
 				alias: `exercise-${index}`,
 				entitySchemaSlug: "exercise",
+				operationId: operationId("exercise", index),
 				properties: { images: [], muscles: [], instructions: [], kind: exercise.kind },
 				match: {
 					name: exercise.name,
@@ -65,6 +77,7 @@ export const toWorkoutWriteItem = (workout: WorkoutImportItem): GenericImportWri
 							name: "Fitness Library",
 							alias: "fitness-library",
 							entitySchemaSlug: "fitness-library",
+							operationId: operationId("fitness-library"),
 							match: { properties: {}, name: "Fitness Library" },
 						},
 					]
@@ -74,6 +87,8 @@ export const toWorkoutWriteItem = (workout: WorkoutImportItem): GenericImportWri
 				name: workout.name,
 				entitySchemaSlug: "workout",
 				properties: workoutProperties,
+				operationId: operationId("entity"),
+				outcome: { unit: "workouts", recordKind: "workouts" },
 			},
 		],
 	};

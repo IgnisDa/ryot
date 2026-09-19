@@ -559,7 +559,6 @@ const entityClients = [...schemaClients, ...creatorClients];
 export const mediaPlugin = definePlugin({
 	entitySchemas,
 	relationshipSchemas,
-	integrationProviders,
 	providers: mediaProviders,
 	savedViews: mediaSavedViews(),
 	configSchema: mediaConfigSchema,
@@ -596,6 +595,16 @@ export const mediaPlugin = definePlugin({
 		{ requests: 90, key: "spotify", intervalMs: 60_000, origins: ["https://api.spotify.com"] },
 		{ requests: 1, intervalMs: 1_000, key: "musicbrainz", origins: ["https://musicbrainz.org"] },
 	],
+	integrationProviders: integrationProviders.map((integrationProvider) =>
+		"scriptSlug" in integrationProvider
+			? Object.assign({}, integrationProvider, {
+					scriptSlug: "workflow.media-integration",
+					plan: {
+						selections: { "integration-adapter": { value: integrationProvider.scriptSlug } },
+					},
+				})
+			: integrationProvider,
+	),
 	crons: [
 		{
 			slug: "media-monitoring",
@@ -621,13 +630,6 @@ export const mediaPlugin = definePlugin({
 			tokenUrl: "https://accounts.spotify.com/api/token",
 			authorizeUrl: "https://accounts.spotify.com/authorize",
 		},
-	],
-	workflows: [
-		{ slug: "import", scriptSlug: "workflow.media-import" },
-		{ slug: "media-monitoring-sweep", scriptSlug: "workflow.media-monitoring-sweep" },
-		{ slug: "media-import-segment", scriptSlug: "workflow.media-import-segment" },
-		{ slug: "media-import-population", scriptSlug: "workflow.media-import-population" },
-		{ slug: "media-import-resolution", scriptSlug: "workflow.media-import-resolution" },
 	],
 	client: {
 		homeView: null,
@@ -659,6 +661,19 @@ export const mediaPlugin = definePlugin({
 			...Object.fromEntries(entityClients.flatMap((client) => Object.entries(client.exports))),
 		},
 	},
+	workflows: [
+		{ slug: "import", scriptSlug: "workflow.media-import" },
+		{ slug: "integration", scriptSlug: "workflow.media-integration" },
+		{ slug: "media-integration-collection", scriptSlug: "workflow.media-integration-segment" },
+		{ slug: "media-integration-segment", scriptSlug: "workflow.media-integration-segment" },
+		{ slug: "media-monitoring-sweep", scriptSlug: "workflow.media-monitoring-sweep" },
+		{ slug: "media-import-segment", scriptSlug: "workflow.media-import-segment" },
+		{ slug: "media-import-merge", scriptSlug: "workflow.media-import-merge" },
+		{ slug: "media-import-collection", scriptSlug: "workflow.media-import-collection" },
+		{ slug: "media-import-application", scriptSlug: "workflow.media-import-application" },
+		{ slug: "media-import-population", scriptSlug: "workflow.media-import-population" },
+		{ slug: "media-import-resolution", scriptSlug: "workflow.media-import-resolution" },
+	],
 	operations: [
 		{
 			auth: "user",
@@ -888,359 +903,359 @@ export const mediaPlugin = definePlugin({
 			})),
 		},
 	],
-	importSources: [
-		{
-			slug: "spotify",
-			name: "Spotify",
-			workflowSlug: "import",
-			exportHelp: importDocs("spotify"),
-			requiredPluginConfigKeys: ["spotifyClientId", "spotifyClientSecret"],
-			description: "Import listening history from a Spotify extended streaming history export",
-			inputSchema: uploadInputSchema("Spotify export", "Spotify extended streaming history ZIP", [
-				"zip",
-			]),
-		},
-		{
-			slug: "netflix",
-			name: "Netflix",
-			workflowSlug: "import",
-			exportHelp: importDocs("netflix"),
-			requiredPluginConfigKeys: ["tmdbAccessToken"],
-			description: "Import viewing activity, ratings, and watchlist entries from Netflix",
-			inputSchema: {
-				unknownKeys: "strict",
-				fields: {
-					...uploadInputSchema("Netflix export", "Netflix data export ZIP", ["zip"]).fields,
-					profileName: {
-						position: 1,
-						type: "string",
-						label: "Profile name",
-						description: "Only import viewing activity for this Netflix profile",
-					},
-				},
+	importSources: (
+		[
+			{
+				slug: "spotify",
+				name: "Spotify",
+				workflowSlug: "import",
+				exportHelp: importDocs("spotify"),
+				description: "Import listening history from a Spotify extended streaming history export",
+				inputSchema: uploadInputSchema("Spotify export", "Spotify extended streaming history ZIP", [
+					"zip",
+				]),
 			},
-		},
-		{
-			slug: "goodreads",
-			name: "Goodreads",
-			workflowSlug: "import",
-			requiredPluginConfigKeys: [],
-			exportHelp: importDocs("goodreads"),
-			description: "Import books, reading history, reviews, and shelves from Goodreads",
-			inputSchema: uploadInputSchema("Goodreads export", "Goodreads library export CSV", ["csv"]),
-		},
-		{
-			slug: "storygraph",
-			name: "StoryGraph",
-			workflowSlug: "import",
-			requiredPluginConfigKeys: [],
-			exportHelp: importDocs("storygraph"),
-			description: "Import books, reading history, reviews, and tags from StoryGraph",
-			inputSchema: uploadInputSchema("StoryGraph export", "StoryGraph library export CSV", ["csv"]),
-		},
-		{
-			slug: "hardcover",
-			name: "Hardcover",
-			workflowSlug: "import",
-			exportHelp: importDocs("hardcover"),
-			requiredPluginConfigKeys: ["hardcoverApiKey"],
-			description: "Import books, reading history, reviews, lists, and ownership from Hardcover",
-			inputSchema: uploadInputSchema("Hardcover export", "Hardcover library export CSV", ["csv"]),
-		},
-		{
-			slug: "anilist",
-			name: "AniList",
-			workflowSlug: "import",
-			requiredPluginConfigKeys: [],
-			exportHelp: importDocs("anilist"),
-			inputSchema: timezoneUploadInputSchema("AniList export", "AniList JSON export", ["json"]),
-			description:
-				"Import anime, manga, progress, reviews, favorites, and custom lists from AniList",
-		},
-		{
-			slug: "trakt",
-			name: "Trakt",
-			workflowSlug: "import",
-			requiredPluginConfigKeys: [],
-			exportHelp: importDocs("trakt"),
-			description:
-				"Import movies, shows, history, ratings, watchlist, lists, and ownership from Trakt",
-			inputSchema: {
-				unknownKeys: "strict",
-				rules: [
-					{
-						kind: "visibility",
-						path: ["exportUploadToken"],
-						visibility: { hidden: true },
-						when: { path: ["mode"], value: "export", operator: "neq" },
-					},
-					{
-						path: ["username"],
-						kind: "visibility",
-						visibility: { hidden: true },
-						when: { value: "user", path: ["mode"], operator: "neq" },
-					},
-					{
-						path: ["url"],
-						kind: "visibility",
-						visibility: { hidden: true },
-						when: { value: "list", path: ["mode"], operator: "neq" },
-					},
-					{
-						kind: "visibility",
-						path: ["collection"],
-						visibility: { hidden: true },
-						when: { value: "list", path: ["mode"], operator: "neq" },
-					},
-				],
-				fields: {
-					username: {
-						position: 2,
-						type: "string",
-						label: "Username",
-						description: "Public Trakt profile slug",
-						validation: { minLength: 1, required: true },
-					},
-					url: {
-						position: 3,
-						type: "string",
-						label: "List URL",
-						format: { kind: "url" },
-						validation: { required: true },
-						description: "Public Trakt list URL",
-					},
-					collection: {
-						position: 4,
-						type: "string",
-						label: "Collection",
-						validation: { minLength: 1, required: true },
-						description: "Ryot collection for imported list items",
-					},
-					exportUploadToken: {
-						position: 1,
-						type: "string",
-						label: "Export file",
-						description: "Trakt data export ZIP",
-						validation: { minLength: 1, required: true },
-						format: { kind: "upload", allowedFileExtensions: ["zip"] },
-					},
-					mode: {
-						position: 0,
-						type: "enum",
-						label: "Import method",
-						validation: { required: true },
-						description: "How to import Trakt data",
-						choices: {
-							kind: "static",
-							values: [
-								{ value: "export", label: "Export file" },
-								{ value: "user", label: "Username" },
-								{ value: "list", label: "List" },
-							],
+			{
+				slug: "netflix",
+				name: "Netflix",
+				workflowSlug: "import",
+				exportHelp: importDocs("netflix"),
+				description: "Import viewing activity, ratings, and watchlist entries from Netflix",
+				inputSchema: {
+					unknownKeys: "strict",
+					fields: {
+						...uploadInputSchema("Netflix export", "Netflix data export ZIP", ["zip"]).fields,
+						profileName: {
+							position: 1,
+							type: "string",
+							label: "Profile name",
+							description: "Only import viewing activity for this Netflix profile",
 						},
 					},
 				},
 			},
-		},
-		{
-			slug: "imdb",
-			name: "IMDb",
-			workflowSlug: "import",
-			exportHelp: importDocs("imdb"),
-			requiredPluginConfigKeys: ["tmdbAccessToken"],
-			description: "Import movie and show watchlist entries from IMDb",
-			inputSchema: uploadInputSchema("IMDb export", "IMDb watchlist export CSV", ["csv"]),
-		},
-		{
-			slug: "igdb",
-			name: "IGDB",
-			workflowSlug: "import",
-			exportHelp: importDocs("igdb"),
-			requiredPluginConfigKeys: ["twitchClientId", "twitchClientSecret"],
-			description: "Import video games into a selected collection from IGDB",
-			inputSchema: {
-				unknownKeys: "strict",
-				fields: {
-					...uploadInputSchema("IGDB export", "IGDB game export CSV", ["csv"]).fields,
-					collection: {
-						position: 1,
-						type: "string",
-						label: "Collection",
-						validation: { minLength: 1, required: true },
-						description: "Ryot collection for imported games",
+			{
+				slug: "goodreads",
+				name: "Goodreads",
+				workflowSlug: "import",
+				exportHelp: importDocs("goodreads"),
+				description: "Import books, reading history, reviews, and shelves from Goodreads",
+				inputSchema: uploadInputSchema("Goodreads export", "Goodreads library export CSV", ["csv"]),
+			},
+			{
+				slug: "storygraph",
+				name: "StoryGraph",
+				workflowSlug: "import",
+				exportHelp: importDocs("storygraph"),
+				description: "Import books, reading history, reviews, and tags from StoryGraph",
+				inputSchema: uploadInputSchema("StoryGraph export", "StoryGraph library export CSV", [
+					"csv",
+				]),
+			},
+			{
+				slug: "hardcover",
+				name: "Hardcover",
+				workflowSlug: "import",
+				exportHelp: importDocs("hardcover"),
+				description: "Import books, reading history, reviews, lists, and ownership from Hardcover",
+				inputSchema: uploadInputSchema("Hardcover export", "Hardcover library export CSV", ["csv"]),
+			},
+			{
+				slug: "anilist",
+				name: "AniList",
+				workflowSlug: "import",
+				exportHelp: importDocs("anilist"),
+				inputSchema: timezoneUploadInputSchema("AniList export", "AniList JSON export", ["json"]),
+				description:
+					"Import anime, manga, progress, reviews, favorites, and custom lists from AniList",
+			},
+			{
+				slug: "trakt",
+				name: "Trakt",
+				workflowSlug: "import",
+				exportHelp: importDocs("trakt"),
+				description:
+					"Import movies, shows, history, ratings, watchlist, lists, and ownership from Trakt",
+				inputSchema: {
+					unknownKeys: "strict",
+					rules: [
+						{
+							kind: "visibility",
+							path: ["exportUploadToken"],
+							visibility: { hidden: true },
+							when: { path: ["mode"], value: "export", operator: "neq" },
+						},
+						{
+							path: ["username"],
+							kind: "visibility",
+							visibility: { hidden: true },
+							when: { value: "user", path: ["mode"], operator: "neq" },
+						},
+						{
+							path: ["url"],
+							kind: "visibility",
+							visibility: { hidden: true },
+							when: { value: "list", path: ["mode"], operator: "neq" },
+						},
+						{
+							kind: "visibility",
+							path: ["collection"],
+							visibility: { hidden: true },
+							when: { value: "list", path: ["mode"], operator: "neq" },
+						},
+					],
+					fields: {
+						username: {
+							position: 2,
+							type: "string",
+							label: "Username",
+							description: "Public Trakt profile slug",
+							validation: { minLength: 1, required: true },
+						},
+						url: {
+							position: 3,
+							type: "string",
+							label: "List URL",
+							format: { kind: "url" },
+							validation: { required: true },
+							description: "Public Trakt list URL",
+						},
+						collection: {
+							position: 4,
+							type: "string",
+							label: "Collection",
+							validation: { minLength: 1, required: true },
+							description: "Ryot collection for imported list items",
+						},
+						exportUploadToken: {
+							position: 1,
+							type: "string",
+							label: "Export file",
+							description: "Trakt data export ZIP",
+							validation: { minLength: 1, required: true },
+							format: { kind: "upload", allowedFileExtensions: ["zip"] },
+						},
+						mode: {
+							position: 0,
+							type: "enum",
+							label: "Import method",
+							validation: { required: true },
+							description: "How to import Trakt data",
+							choices: {
+								kind: "static",
+								values: [
+									{ value: "export", label: "Export file" },
+									{ value: "user", label: "Username" },
+									{ value: "list", label: "List" },
+								],
+							},
+						},
 					},
 				},
 			},
-		},
-		{
-			slug: "grouvee",
-			name: "Grouvee",
-			workflowSlug: "import",
-			exportHelp: importDocs("grouvee"),
-			requiredPluginConfigKeys: ["giantBombApiKey"],
-			inputSchema: uploadInputSchema("Grouvee export", "Grouvee game export CSV", ["csv"]),
-			description: "Import video games, play history, reviews, ratings, and shelves from Grouvee",
-		},
-		{
-			slug: "watcharr",
-			name: "Watcharr",
-			workflowSlug: "import",
-			exportHelp: importDocs("watcharr"),
-			requiredPluginConfigKeys: ["tmdbAccessToken"],
-			inputSchema: uploadInputSchema("Watcharr export", "Watcharr JSON export", ["json"]),
-			description: "Import movies, shows, episode history, reviews, and collections from Watcharr",
-		},
-		{
-			slug: "movary",
-			name: "Movary",
-			workflowSlug: "import",
-			exportHelp: importDocs("movary"),
-			requiredPluginConfigKeys: ["tmdbAccessToken"],
-			description: "Import movie history, ratings, and watchlist entries from Movary",
-			inputSchema: {
-				unknownKeys: "strict",
-				fields: {
-					historyUploadToken: {
-						position: 0,
-						type: "string",
-						label: "History export",
-						description: "Movary history.csv export",
-						validation: { minLength: 1, required: true },
-						format: { kind: "upload", allowedFileExtensions: ["csv"] },
-					},
-					ratingsUploadToken: {
-						position: 1,
-						type: "string",
-						label: "Ratings export",
-						description: "Movary ratings.csv export",
-						validation: { minLength: 1, required: true },
-						format: { kind: "upload", allowedFileExtensions: ["csv"] },
-					},
-					watchlistUploadToken: {
-						position: 2,
-						type: "string",
-						label: "Watchlist export",
-						description: "Movary watchlist.csv export",
-						validation: { minLength: 1, required: true },
-						format: { kind: "upload", allowedFileExtensions: ["csv"] },
+			{
+				slug: "imdb",
+				name: "IMDb",
+				workflowSlug: "import",
+				exportHelp: importDocs("imdb"),
+				description: "Import movie and show watchlist entries from IMDb",
+				inputSchema: uploadInputSchema("IMDb export", "IMDb watchlist export CSV", ["csv"]),
+			},
+			{
+				slug: "igdb",
+				name: "IGDB",
+				workflowSlug: "import",
+				exportHelp: importDocs("igdb"),
+				description: "Import video games into a selected collection from IGDB",
+				inputSchema: {
+					unknownKeys: "strict",
+					fields: {
+						...uploadInputSchema("IGDB export", "IGDB game export CSV", ["csv"]).fields,
+						collection: {
+							position: 1,
+							type: "string",
+							label: "Collection",
+							validation: { minLength: 1, required: true },
+							description: "Ryot collection for imported games",
+						},
 					},
 				},
 			},
-		},
-		{
-			slug: "myanimelist",
-			name: "MyAnimeList",
-			workflowSlug: "import",
-			exportHelp: importDocs("myanimelist"),
-			requiredPluginConfigKeys: ["malClientId"],
-			description: "Import anime and manga history, progress, ratings, and status from MyAnimeList",
-			inputSchema: {
-				unknownKeys: "strict",
-				rules: [
-					{
-						kind: "validation",
-						path: ["animeUploadToken"],
-						validation: { required: true },
-						when: { operator: "not_exists", path: ["mangaUploadToken"] },
-					},
-					{
-						kind: "validation",
-						path: ["mangaUploadToken"],
-						validation: { required: true },
-						when: { operator: "not_exists", path: ["animeUploadToken"] },
-					},
-				],
-				fields: {
-					animeUploadToken: {
-						position: 0,
-						type: "string",
-						label: "Anime export",
-						validation: { minLength: 1 },
-						description: "MyAnimeList anime export",
-						format: { kind: "upload", allowedFileExtensions: ["gz", "xml"] },
-					},
-					mangaUploadToken: {
-						position: 1,
-						type: "string",
-						label: "Manga export",
-						validation: { minLength: 1 },
-						description: "MyAnimeList manga export",
-						format: { kind: "upload", allowedFileExtensions: ["gz", "xml"] },
+			{
+				slug: "grouvee",
+				name: "Grouvee",
+				workflowSlug: "import",
+				exportHelp: importDocs("grouvee"),
+				inputSchema: uploadInputSchema("Grouvee export", "Grouvee game export CSV", ["csv"]),
+				description: "Import video games, play history, reviews, ratings, and shelves from Grouvee",
+			},
+			{
+				slug: "watcharr",
+				name: "Watcharr",
+				workflowSlug: "import",
+				exportHelp: importDocs("watcharr"),
+				inputSchema: uploadInputSchema("Watcharr export", "Watcharr JSON export", ["json"]),
+				description:
+					"Import movies, shows, episode history, reviews, and collections from Watcharr",
+			},
+			{
+				slug: "movary",
+				name: "Movary",
+				workflowSlug: "import",
+				exportHelp: importDocs("movary"),
+				description: "Import movie history, ratings, and watchlist entries from Movary",
+				inputSchema: {
+					unknownKeys: "strict",
+					fields: {
+						historyUploadToken: {
+							position: 0,
+							type: "string",
+							label: "History export",
+							description: "Movary history.csv export",
+							validation: { minLength: 1, required: true },
+							format: { kind: "upload", allowedFileExtensions: ["csv"] },
+						},
+						ratingsUploadToken: {
+							position: 1,
+							type: "string",
+							label: "Ratings export",
+							description: "Movary ratings.csv export",
+							validation: { minLength: 1, required: true },
+							format: { kind: "upload", allowedFileExtensions: ["csv"] },
+						},
+						watchlistUploadToken: {
+							position: 2,
+							type: "string",
+							label: "Watchlist export",
+							description: "Movary watchlist.csv export",
+							validation: { minLength: 1, required: true },
+							format: { kind: "upload", allowedFileExtensions: ["csv"] },
+						},
 					},
 				},
 			},
-		},
-		{
-			slug: "jellyfin",
-			name: "Jellyfin",
-			workflowSlug: "import",
-			requiredPluginConfigKeys: [],
-			exportHelp: importDocs("jellyfin"),
-			description: "Import watched movies, episodes, and favorites from Jellyfin",
-			inputSchema: {
-				unknownKeys: "strict",
-				fields: {
-					username: {
-						position: 1,
-						type: "string",
-						label: "Username",
-						description: "Jellyfin username",
-						validation: { minLength: 1, required: true },
-					},
-					password: {
-						position: 2,
-						secret: true,
-						type: "string",
-						label: "Password",
-						validation: { minLength: 1 },
-						description: "Jellyfin password",
-					},
-					allowInsecureConnections: {
-						position: 3,
-						type: "boolean",
-						label: "Allow insecure connections",
-						description: "Allow connections with invalid TLS certificates",
-					},
-					apiUrl: {
-						position: 0,
-						type: "string",
-						label: "Server URL",
-						format: { kind: "url" },
-						validation: { required: true },
-						description: "Jellyfin server URL",
+			{
+				slug: "myanimelist",
+				name: "MyAnimeList",
+				workflowSlug: "import",
+				exportHelp: importDocs("myanimelist"),
+				description:
+					"Import anime and manga history, progress, ratings, and status from MyAnimeList",
+				inputSchema: {
+					unknownKeys: "strict",
+					rules: [
+						{
+							kind: "validation",
+							path: ["animeUploadToken"],
+							validation: { required: true },
+							when: { operator: "not_exists", path: ["mangaUploadToken"] },
+						},
+						{
+							kind: "validation",
+							path: ["mangaUploadToken"],
+							validation: { required: true },
+							when: { operator: "not_exists", path: ["animeUploadToken"] },
+						},
+					],
+					fields: {
+						animeUploadToken: {
+							position: 0,
+							type: "string",
+							label: "Anime export",
+							validation: { minLength: 1 },
+							description: "MyAnimeList anime export",
+							format: { kind: "upload", allowedFileExtensions: ["gz", "xml"] },
+						},
+						mangaUploadToken: {
+							position: 1,
+							type: "string",
+							label: "Manga export",
+							validation: { minLength: 1 },
+							description: "MyAnimeList manga export",
+							format: { kind: "upload", allowedFileExtensions: ["gz", "xml"] },
+						},
 					},
 				},
 			},
-		},
-		{
-			slug: "plex",
-			name: "Plex",
-			workflowSlug: "import",
-			requiredPluginConfigKeys: [],
-			exportHelp: importDocs("plex"),
-			description: "Import watched movies and episodes from Plex",
-			inputSchema: apiKeyInputSchema("Plex", "Plex authentication token"),
-		},
-		{
-			slug: "audiobookshelf",
-			name: "Audiobookshelf",
-			workflowSlug: "import",
-			requiredPluginConfigKeys: [],
-			exportHelp: importDocs("audiobookshelf"),
-			inputSchema: apiKeyInputSchema("Audiobookshelf"),
-			description: "Import finished audiobooks, ebooks, podcasts, and library collections",
-		},
-		{
-			name: "MediaTracker",
-			slug: "media_tracker",
-			workflowSlug: "import",
-			requiredPluginConfigKeys: [],
-			exportHelp: importDocs("mediatracker"),
-			inputSchema: apiKeyInputSchema("MediaTracker"),
-			description:
-				"Import media history, reviews, lifecycle states, and collections from MediaTracker",
-		},
-	],
+			{
+				slug: "jellyfin",
+				name: "Jellyfin",
+				workflowSlug: "import",
+				exportHelp: importDocs("jellyfin"),
+				description: "Import watched movies, episodes, and favorites from Jellyfin",
+				inputSchema: {
+					unknownKeys: "strict",
+					fields: {
+						username: {
+							position: 1,
+							type: "string",
+							label: "Username",
+							description: "Jellyfin username",
+							validation: { minLength: 1, required: true },
+						},
+						password: {
+							position: 2,
+							secret: true,
+							type: "string",
+							label: "Password",
+							validation: { minLength: 1 },
+							description: "Jellyfin password",
+						},
+						allowInsecureConnections: {
+							position: 3,
+							type: "boolean",
+							label: "Allow insecure connections",
+							description: "Allow connections with invalid TLS certificates",
+						},
+						apiUrl: {
+							position: 0,
+							type: "string",
+							label: "Server URL",
+							format: { kind: "url" },
+							validation: { required: true },
+							description: "Jellyfin server URL",
+						},
+					},
+				},
+			},
+			{
+				slug: "plex",
+				name: "Plex",
+				workflowSlug: "import",
+				exportHelp: importDocs("plex"),
+				description: "Import watched movies and episodes from Plex",
+				inputSchema: apiKeyInputSchema("Plex", "Plex authentication token"),
+			},
+			{
+				slug: "audiobookshelf",
+				name: "Audiobookshelf",
+				workflowSlug: "import",
+				exportHelp: importDocs("audiobookshelf"),
+				inputSchema: apiKeyInputSchema("Audiobookshelf"),
+				description: "Import finished audiobooks, ebooks, podcasts, and library collections",
+			},
+			{
+				name: "MediaTracker",
+				slug: "media_tracker",
+				workflowSlug: "import",
+				exportHelp: importDocs("mediatracker"),
+				inputSchema: apiKeyInputSchema("MediaTracker"),
+				description:
+					"Import media history, reviews, lifecycle states, and collections from MediaTracker",
+			},
+		] as const
+	).map((source) =>
+		Object.assign(source, {
+			plan: {
+				selections: {
+					"source-parser":
+						source.slug === "trakt"
+							? { field: "mode", cases: { user: "trakt", list: "trakt", export: "trakt-export" } }
+							: { value: source.slug },
+				},
+			},
+		}),
+	),
 });
 
 export default mediaPlugin;

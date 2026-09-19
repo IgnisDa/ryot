@@ -10,7 +10,6 @@ export const manifest = defineManifest({
 	kind: "provider",
 	slug: "company.tmdb",
 	capabilities: ["httpCall", "getPluginConfig"],
-	requiredPluginConfigKeys: ["tmdbAccessToken"],
 });
 
 export const search = defineProvider({

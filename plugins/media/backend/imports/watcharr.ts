@@ -60,13 +60,8 @@ const normalizeOccurredAt = (value: string | null | undefined, fallback: string)
 const latestOccurredAt = (left: string, right: string) =>
 	getOccurredAtValue(left) >= getOccurredAtValue(right) ? left : right;
 
-const findEpisodeWatchDate = (
-	activities: ReadonlyArray<WatcharrActivity>,
-	season: number,
-	episode: number,
-	fallback: string,
-) => {
-	let matched: string | undefined;
+const episodeWatchDates = (activities: ReadonlyArray<WatcharrActivity>) => {
+	const dates = new Map<string, { occurredAt: string | null; usesFallback: boolean }>();
 	for (const activity of activities) {
 		const activityData = activity.data;
 		if (!activity.type.includes("EPISODE") || !activityData) {
@@ -79,14 +74,22 @@ const findEpisodeWatchDate = (
 		const decoded = decodeWatcharrActivityData(parsed.success);
 		if (
 			Result.isSuccess(decoded) &&
-			decoded.success.season === season &&
-			decoded.success.episode === episode
+			decoded.success.season !== undefined &&
+			decoded.success.episode !== undefined
 		) {
-			const occurredAt = normalizeOccurredAt(activity.customDate, fallback);
-			matched = matched ? latestOccurredAt(matched, occurredAt) : occurredAt;
+			const key = JSON.stringify([decoded.success.season, decoded.success.episode]);
+			const prior = dates.get(key);
+			const occurredAt = parseDateInput(activity.customDate);
+			dates.set(key, {
+				usesFallback: (prior?.usesFallback ?? false) || !occurredAt,
+				occurredAt:
+					occurredAt && prior?.occurredAt
+						? latestOccurredAt(prior.occurredAt, occurredAt)
+						: (occurredAt ?? prior?.occurredAt ?? null),
+			});
 		}
 	}
-	return matched ?? fallback;
+	return dates;
 };
 
 const entitySchemaSlugForContentType = (contentType: string) => {
@@ -99,7 +102,14 @@ const entitySchemaSlugForContentType = (contentType: string) => {
 	return null;
 };
 
-export const adaptWatcharrExportBatch = (jsonText: string, start: number, limit: number) => {
+export const adaptWatcharrExportBatch = (
+	jsonText: string,
+	start: number,
+	limit: number,
+	importedAt = nowIso(),
+	eventStart = 0,
+	eventLimit = Number.MAX_SAFE_INTEGER,
+) => {
 	const parsed = JSON.parse(jsonText) as unknown;
 	if (!Array.isArray(parsed)) {
 		throw new Error("Watcharr export must be a JSON array");
@@ -108,6 +118,7 @@ export const adaptWatcharrExportBatch = (jsonText: string, start: number, limit:
 	const failures: MediaImportAdapterFailure[] = [];
 	const groups = new Map<string, ImportMediaEntityGroupBuilder>();
 	const end = Math.min(parsed.length, start + limit);
+	let nextEventOffset = 0;
 	for (let itemIndex = start; itemIndex < end; itemIndex += 1) {
 		const parsedItem = decodeWatcharrItem(parsed[itemIndex]);
 		if (Result.isFailure(parsedItem)) {
@@ -142,8 +153,15 @@ export const adaptWatcharrExportBatch = (jsonText: string, start: number, limit:
 			},
 		};
 		groups.set(key, group);
-		const importedAt = nowIso();
 		const activities = item.activity ?? [];
+		const episodeDates = episodeWatchDates(activities);
+		let eventCount = 0;
+		const pushEvent = (event: ImportMediaEvent) => {
+			if (eventCount >= eventStart && eventCount < eventStart + eventLimit) {
+				group.events.push(event);
+			}
+			eventCount++;
+		};
 		let latest: string | undefined;
 		let hasHistory = false;
 
@@ -155,19 +173,23 @@ export const adaptWatcharrExportBatch = (jsonText: string, start: number, limit:
 				const occurredAt = normalizeOccurredAt(activity.customDate, importedAt);
 				latest = latest ? latestOccurredAt(latest, occurredAt) : occurredAt;
 				hasHistory = true;
-				group.events.push(createCompleteEvent({ occurredAt, completedOn: occurredAt }));
+				pushEvent(createCompleteEvent({ occurredAt, completedOn: occurredAt }));
 			}
 		} else {
 			for (const episode of item.watchedEpisodes ?? []) {
-				const occurredAt = findEpisodeWatchDate(
-					activities,
-					episode.seasonNumber,
-					episode.episodeNumber,
-					normalizeOccurredAt(episode.createdAt, importedAt),
+				const fallback = normalizeOccurredAt(episode.createdAt, importedAt);
+				const date = episodeDates.get(
+					JSON.stringify([episode.seasonNumber, episode.episodeNumber]),
 				);
+				let occurredAt = fallback;
+				if (date?.occurredAt) {
+					occurredAt = date.usesFallback
+						? latestOccurredAt(date.occurredAt, fallback)
+						: date.occurredAt;
+				}
 				latest = latest ? latestOccurredAt(latest, occurredAt) : occurredAt;
 				hasHistory = true;
-				group.events.push({
+				pushEvent({
 					occurredAt,
 					eventSchemaSlug: "progress",
 					properties: { progressPercent: 100 },
@@ -182,13 +204,13 @@ export const adaptWatcharrExportBatch = (jsonText: string, start: number, limit:
 
 		const occurredAt = latest ?? importedAt;
 		if (item.status === "PLANNED") {
-			group.events.push(createBacklogEvent(occurredAt));
+			pushEvent(createBacklogEvent(occurredAt));
 		} else if (item.status === "WATCHING" && !hasHistory) {
-			group.events.push(createProgressEvent(occurredAt));
+			pushEvent(createProgressEvent(occurredAt));
 		} else if (item.status === "DROPPED") {
-			group.events.push(createDroppedEvent({ occurredAt }));
+			pushEvent(createDroppedEvent({ occurredAt }));
 		} else if (item.status === "FINISHED" && entitySchemaSlug === "movie" && !hasHistory) {
-			group.events.push(createCompleteEvent({ occurredAt }));
+			pushEvent(createCompleteEvent({ occurredAt }));
 		}
 		const review = createReviewEvent({
 			occurredAt,
@@ -196,7 +218,7 @@ export const adaptWatcharrExportBatch = (jsonText: string, start: number, limit:
 			rating: normalizeRating(String(item.rating)),
 		});
 		if (review) {
-			group.events.push(review);
+			pushEvent(review);
 		}
 		if (
 			item.pinned &&
@@ -204,10 +226,12 @@ export const adaptWatcharrExportBatch = (jsonText: string, start: number, limit:
 		) {
 			group.collectionMemberships.push({ collectionName: "Pinned" });
 		}
+		nextEventOffset = eventStart + eventLimit < eventCount ? eventStart + eventLimit : 0;
 	}
 
 	return {
 		failures,
+		nextEventOffset,
 		totalItems: parsed.length,
 		entityGroups: finalizeEntityGroups(groups.values()),
 	};

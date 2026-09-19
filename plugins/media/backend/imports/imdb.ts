@@ -14,12 +14,11 @@ const getEntitySchemaSlug = (titleType: string) => {
 	return undefined;
 };
 
-export const adaptImdbCsv = (csvText: string) => {
+export const adaptImdbCsv = (csvText: string, importedAt = nowIso()) => {
 	const { rows, headers } = parseCsvText(csvText);
 	assertRequiredHeaders(headers, ["Const", "Title Type"], "IMDb");
 	const failures: MediaImportAdapterFailure[] = [];
 	const groupMap = new Map<string, ImportMediaEntityGroupBuilder>();
-	const importedAt = nowIso();
 	for (let itemIndex = 0; itemIndex < rows.length; itemIndex++) {
 		const row = rows[itemIndex];
 		if (!row) {

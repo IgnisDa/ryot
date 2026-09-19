@@ -22,7 +22,6 @@ export const manifest = defineManifest({
 	kind: "automation",
 	name: "Jellyfin Push",
 	automationType: "automation",
-	requiredPluginConfigKeys: [],
 	slug: "trigger.jellyfin-push",
 	inputProjection: { event: { properties: [], compareProperties: [] } },
 	capabilities: [

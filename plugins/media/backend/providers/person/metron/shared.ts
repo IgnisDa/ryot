@@ -10,7 +10,6 @@ export const manifest = defineManifest({
 	kind: "provider",
 	slug: "person.metron",
 	capabilities: ["httpCall", "getPluginConfig"],
-	requiredPluginConfigKeys: ["metronUsername", "metronPassword"],
 });
 
 const parseYear = (value: unknown) => {

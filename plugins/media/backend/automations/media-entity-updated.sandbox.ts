@@ -8,7 +8,6 @@ import { getSeasonContext, isSpecialSeason } from "./season-context";
 export const manifest = defineManifest({
 	kind: "automation",
 	automationType: "automation",
-	requiredPluginConfigKeys: [],
 	capabilities: ["emitSignal"],
 	name: "Media Entity Updated Detector",
 	slug: "automation.media-entity-updated",

@@ -20,7 +20,6 @@ export const manifest = defineManifest({
 	name: "Sonarr Push",
 	slug: "trigger.sonarr-push",
 	automationType: "automation",
-	requiredPluginConfigKeys: [],
 	inputProjection: {
 		event: { compareProperties: [], properties: ["entitySchemaSlug", "entityId"] },
 	},

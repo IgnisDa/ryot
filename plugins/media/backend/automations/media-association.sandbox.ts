@@ -9,7 +9,6 @@ import { builtinMediaEntitySchemaSlugs } from "../../shared/media-schema-slugs";
 export const manifest = defineManifest({
 	kind: "automation",
 	automationType: "automation",
-	requiredPluginConfigKeys: [],
 	name: "Media Association Detector",
 	slug: "automation.media-association",
 	capabilities: ["executeRyotql", "emitSignal"],

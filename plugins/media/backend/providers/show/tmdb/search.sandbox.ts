@@ -7,7 +7,6 @@ export const manifest = defineManifest({
 	kind: "provider",
 	name: "TMDB Show Search",
 	slug: "show.tmdb.search",
-	requiredPluginConfigKeys: ["tmdbAccessToken"],
 	capabilities: ["httpCall", "getPluginConfig", "getUserSettings"],
 });
 

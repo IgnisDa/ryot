@@ -21,7 +21,7 @@ const makeHost = (httpCall: TvdbHost["httpCall"]) =>
 		httpCall,
 		setCachedValue: () => Effect.succeed(null),
 		getCachedValue: () => Effect.succeed("Bearer test-token"),
-		getPluginConfig: (keys) =>
+		getPluginConfig: ({ required: keys = [] }) =>
 			Effect.succeed(Object.fromEntries(keys.map((key) => [key, "test-api-key"]))),
 	});
 

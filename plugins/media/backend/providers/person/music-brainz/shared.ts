@@ -10,7 +10,6 @@ export const manifest = defineManifest({
 	name: "MusicBrainz",
 	capabilities: ["httpCall"],
 	slug: "person.music-brainz",
-	requiredPluginConfigKeys: [],
 });
 
 const buildArtistDescription = (artist: Record<string, unknown>) => {

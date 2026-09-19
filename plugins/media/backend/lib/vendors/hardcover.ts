@@ -21,7 +21,7 @@ export const idValue = (value: unknown) => {
 };
 
 export const getHardcoverApiKey = (host: HardcoverHost) =>
-	host.getPluginConfig(["hardcoverApiKey"]).pipe(
+	host.getPluginConfig({ required: ["hardcoverApiKey"] }).pipe(
 		Effect.map(({ hardcoverApiKey }) => hardcoverApiKey),
 		Effect.mapError((error) => ({
 			...error,

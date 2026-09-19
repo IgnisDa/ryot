@@ -171,14 +171,19 @@ export const adaptHevyCsv = (csvText: string, timezone: string): WorkoutAdapterR
 	if (headers.length === 0) {
 		throw new Error("Hevy CSV is empty or has no header row");
 	}
+	return adaptHevyRows(
+		rows.map((row, itemIndex) => ({ row, itemIndex })),
+		timezone,
+	);
+};
 
+export const adaptHevyRows = (
+	rows: ReadonlyArray<{ row: Record<string, string>; itemIndex: number }>,
+	timezone: string,
+): WorkoutAdapterResult => {
 	const failures: WorkoutAdapterFailure[] = [];
 	const parsedRows: HevyRow[] = [];
-	for (let rowIdx = 0; rowIdx < rows.length; rowIdx++) {
-		const row = rows[rowIdx];
-		if (!row) {
-			continue;
-		}
+	for (const { row, itemIndex: rowIdx } of rows) {
 		const parsed = Result.try(() => parseHevyRow(row, rowIdx));
 		if (Result.isFailure(parsed)) {
 			failures.push({

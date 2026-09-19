@@ -6,7 +6,6 @@ import { search } from "./shared";
 export const manifest = defineManifest({
 	kind: "provider",
 	capabilities: ["httpCall"],
-	requiredPluginConfigKeys: [],
 	name: "VNDB Visual Novel Search",
 	slug: "visual-novel.vndb.search",
 });

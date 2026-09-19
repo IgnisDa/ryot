@@ -51,13 +51,11 @@ const createHost = (
 		minimum?: number;
 		maximum?: number;
 		threshold?: JsonValue;
-		claimed?: boolean;
 		events?: ReturnType<typeof eventRecord>[];
 	} = {},
 ) => {
 	const calls: string[] = [];
 	const queries: JsonValue[] = [];
-	const claims: { key: string; value: JsonValue; ttl: number }[] = [];
 	const logs: LogEntry[] = [];
 	const host = defineSandboxTestHost(manifest, {
 		log: (entries) => {
@@ -82,16 +80,8 @@ const createHost = (
 				}),
 			);
 		},
-		claimPersistentValue: (key, value, ttl) => {
-			claims.push({ key, ttl, value });
-			return hostSuccess(
-				options.claimed === false
-					? { value: null, claimed: false as const }
-					: { claimed: true as const },
-			);
-		},
 	});
-	return { host, logs, calls, claims, queries };
+	return { host, logs, calls, queries };
 };
 
 it.live("leaves ordinary imports and non-progress events untouched without admission calls", () =>
@@ -129,7 +119,7 @@ it.live(
 	"clamps above maximum to completion while preserving unmodified numeric representations and timestamps",
 	() =>
 		Effect.gen(function* () {
-			const { host, claims } = createHost({ maximum: 95 });
+			const { host } = createHost({ maximum: 95 });
 			const normalized = yield* admitIntegrationProgress(
 				input({ consumedOn: "Plex", progressPercent: 97 }),
 				host,
@@ -149,13 +139,6 @@ it.live(
 				},
 				{ concurrency: "unbounded" },
 			);
-			expect(claims).toEqual([
-				{
-					ttl: 7200,
-					value: true,
-					key: '["media.integration-progress.v1","integration-1","movie-1","movie","progress","Plex",""]',
-				},
-			]);
 		}),
 );
 
@@ -206,19 +189,17 @@ it.live(
 );
 
 it.live.each([
-	{ ttl: 7200, minutes: 30, threshold: 2, claimed: false, suppressed: true },
-	{ ttl: 7200, minutes: 180, threshold: 2, claimed: false, suppressed: false },
-	{ ttl: 7200, minutes: 30, threshold: 2, claimed: true, suppressed: false },
-	{ ttl: 3600, minutes: 90, claimed: false, threshold: "1", suppressed: false },
-	{ ttl: 7200, minutes: 30, claimed: false, suppressed: true, threshold: "invalid" },
-	{ ttl: 7200, minutes: 30, threshold: 0, claimed: false, suppressed: true },
+	{ minutes: 30, threshold: 2, suppressed: true },
+	{ minutes: 180, threshold: 2, suppressed: false },
+	{ minutes: 90, threshold: "1", suppressed: false },
+	{ minutes: 30, suppressed: true, threshold: "invalid" },
+	{ minutes: 30, threshold: 0, suppressed: true },
 ])(
-	"preserves completion claim/history behavior: $minutes minutes, claimed $claimed, threshold $threshold",
-	({ ttl, minutes, claimed, threshold, suppressed }) =>
+	"debounces against committed history: $minutes minutes, threshold $threshold",
+	({ minutes, threshold, suppressed }) =>
 		Effect.gen(function* () {
 			const now = yield* DateTime.now;
-			const { host, claims } = createHost({
-				claimed,
+			const { host } = createHost({
 				threshold,
 				events: [
 					eventRecord({
@@ -236,7 +217,6 @@ it.live.each([
 				host,
 			);
 			expect(result.entityGroups[0]?.events).toHaveLength(suppressed ? 0 : 1);
-			expect(claims[0]?.ttl).toBe(ttl);
 		}),
 );
 
@@ -244,7 +224,7 @@ it.live(
 	"uses the resolved episode identity and stable integration key across import executions",
 	() =>
 		Effect.gen(function* () {
-			const { host, logs, claims, queries } = createHost();
+			const { host, logs, queries } = createHost();
 			const episode = input(
 				{ consumedOn: "Plex", progressPercent: 100 },
 				{ subjectEntityId: "episode-1", subjectEntitySchemaSlug: "show-episode" },
@@ -265,11 +245,11 @@ it.live(
 			expect(queryValues).toContain("episode-1");
 			expect(queryValues).toContain("show-episode");
 			expect(queryValues).not.toContain("movie-1");
-			expect(claims[0]?.key).toBe(
+			expect(logs[0]?.attributes?.["claimKey"]).toBe(
 				'["media.integration-progress.v1","integration-1","episode-1","show-episode","progress","Plex",""]',
 			);
-			expect(claims[1]?.key).toBe(claims[0]?.key);
-			expect(claims[2]?.key).not.toBe(claims[0]?.key);
+			expect(logs[1]?.attributes?.["claimKey"]).toBe(logs[0]?.attributes?.["claimKey"]);
+			expect(logs[2]?.attributes?.["claimKey"]).not.toBe(logs[0]?.attributes?.["claimKey"]);
 			expect(logs.map((log) => log.attributes?.["importRunId"])).toEqual([
 				"run-1",
 				"run-2",

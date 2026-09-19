@@ -7,7 +7,6 @@ export const manifest = defineManifest({
 	kind: "provider",
 	slug: "podcast.listennotes.details",
 	name: "Listen Notes Podcast Details",
-	requiredPluginConfigKeys: ["listennotesApiKey"],
 	capabilities: ["httpCall", "getPluginConfig", "getCachedValue", "setCachedValue"],
 });
 

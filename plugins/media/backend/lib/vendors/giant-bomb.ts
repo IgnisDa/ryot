@@ -16,7 +16,7 @@ export const BASE_URL = "https://www.giantbomb.com/api";
 export const GUID_PATTERN = /^\d+-\d+$/;
 
 export const getApiKey = (host: GiantBombHost) =>
-	host.getPluginConfig(["giantBombApiKey"]).pipe(
+	host.getPluginConfig({ required: ["giantBombApiKey"] }).pipe(
 		Effect.map(({ giantBombApiKey }) => giantBombApiKey),
 		Effect.mapError((error) => ({
 			...error,

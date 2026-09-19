@@ -11,7 +11,6 @@ import { resolve } from "../providers/book/openlibrary/shared";
 export const manifest = defineManifest({
 	kind: "script",
 	capabilities: ["httpCall"],
-	requiredPluginConfigKeys: [],
 	name: "Resolve imported OpenLibrary book",
 	slug: "media-import-resolve.book.openlibrary",
 });

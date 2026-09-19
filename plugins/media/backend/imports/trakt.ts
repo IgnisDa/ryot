@@ -1,20 +1,16 @@
-import { Effect, Schema } from "@ryot-app/sandbox-sdk/effect";
+import { Schema } from "@ryot-app/sandbox-sdk/effect";
 
 import { MediaSandboxError } from "../lib/failures";
-import { getOccurredAtValue, nowIso } from "./dates";
 import { getOrCreateMediaEntityGroup, type ImportMediaEntityGroupBuilder } from "./groups";
 import {
 	addCollectionMembership,
-	createBacklogEvent,
 	createCompleteEvent,
 	createReviewEvent,
 	finalizeEntityGroups,
 } from "./helpers";
-import type { ImportEntityRef, MediaImportAdapterFailure, TraktImportTarget } from "./schemas";
-import { requestSourceJson, requestSourceResponse, type HttpHost } from "./source-api";
+import type { ImportEntityRef, MediaImportAdapterFailure } from "./schemas";
+import { classifyTraktExportName } from "./trakt-files";
 
-const API_URL = "https://api.trakt.tv";
-const PAGE_LIMIT = "1000";
 const Ids = Schema.Struct({
 	slug: Schema.optional(Schema.String),
 	imdb: Schema.optional(Schema.NullOr(Schema.String)),
@@ -27,46 +23,6 @@ const Item = Schema.Struct({
 	year: Schema.optional(Schema.NullOr(Schema.Finite)),
 });
 type Item = typeof Item.Type;
-const History = Schema.Struct({
-	id: Schema.Finite,
-	watched_at: Schema.String,
-	show: Schema.optional(Item),
-	movie: Schema.optional(Item),
-	type: Schema.Literals(["movie", "episode"]),
-	episode: Schema.optional(
-		Schema.Struct({
-			ids: Ids,
-			number: Schema.Finite,
-			season: Schema.Finite,
-			title: Schema.optional(Schema.String),
-		}),
-	),
-});
-const Rating = Schema.Struct({
-	rating: Schema.Finite,
-	rated_at: Schema.String,
-	show: Schema.optional(Item),
-	movie: Schema.optional(Item),
-	type: Schema.Literals(["movie", "show", "season", "episode"]),
-});
-const Watchlist = Schema.Struct({
-	show: Schema.optional(Item),
-	movie: Schema.optional(Item),
-	type: Schema.Literals(["movie", "show"]),
-	listed_at: Schema.optional(Schema.String),
-});
-const ListItem = Schema.Struct({
-	type: Schema.String,
-	show: Schema.optional(Item),
-	movie: Schema.optional(Item),
-});
-type ListItem = typeof ListItem.Type;
-const List = Schema.Struct({
-	ids: Ids,
-	name: Schema.String,
-	description: Schema.optional(Schema.String),
-});
-const CollectionItem = Schema.Struct({ show: Schema.optional(Item), movie: Schema.optional(Item) });
 const ExportComment = Schema.Struct({
 	comment: Schema.String,
 	spoiler: Schema.Boolean,
@@ -93,63 +49,6 @@ const ExportList = Schema.Struct({
 	name: Schema.String,
 	description: Schema.optional(Schema.String),
 });
-
-const numberedPage = (name: string, stem: string) => {
-	if (!name.startsWith(stem) || !name.endsWith(".json")) {
-		return undefined;
-	}
-	const suffix = name.slice(stem.length, -".json".length);
-	if (!suffix) {
-		return 0;
-	}
-	if (!suffix.startsWith("-")) {
-		return undefined;
-	}
-	const page = Number.parseInt(suffix.slice(1), 10);
-	return Number.isSafeInteger(page) && page >= 0 && String(page) === suffix.slice(1)
-		? page
-		: undefined;
-};
-
-export const classifyTraktExportName = (path: string) => {
-	const name = path.split(/[\\/]/).pop() ?? "";
-	const listMetadataPage = numberedPage(name, "lists-lists");
-	if (listMetadataPage !== undefined) {
-		return { name, page: listMetadataPage, kind: { order: 0, type: "list-metadata" } } as const;
-	}
-	for (const mediaType of ["movies", "shows", "seasons", "episodes"] as const) {
-		for (const [prefix, kind] of [
-			["ratings", { order: 2, type: "rating" }],
-			["comments", { order: 3, type: "comment" }],
-		] as const) {
-			const page = numberedPage(name, `${prefix}-${mediaType}`);
-			if (page !== undefined) {
-				return { name, page, kind };
-			}
-		}
-	}
-	for (const mediaType of ["movies", "shows"] as const) {
-		const page = numberedPage(name, `collection-${mediaType}`);
-		if (page !== undefined) {
-			return { name, page, kind: { order: 4, type: "collection" } } as const;
-		}
-	}
-	const historyPage = numberedPage(name, "watched-history");
-	if (historyPage !== undefined) {
-		return { name, page: historyPage, kind: { order: 1, type: "history" } } as const;
-	}
-	for (const list of ["watchlist", "favorites"] as const) {
-		const page = numberedPage(name, `lists-${list}`);
-		if (page !== undefined) {
-			return { name, page, kind: { order: 5, type: "system-list" } } as const;
-		}
-	}
-	const custom = name.match(/^lists-list-(\d+)-.+\.json$/);
-	const id = custom?.[1] ? Number.parseInt(custom[1], 10) : Number.NaN;
-	return Number.isSafeInteger(id)
-		? ({ name, page: 0, kind: { id, order: 6, type: "custom-list" } } as const)
-		: undefined;
-};
 
 const decodeExportEntry = <A>(
 	name: string,
@@ -329,7 +228,7 @@ const invalidListUrl = () =>
 			"Invalid Trakt list URL: expected an http(s) URL on trakt.tv or www.trakt.tv with path /users/{username}/lists/{slug}",
 	});
 
-const parseListUrl = (value: string) => {
+export const parseListUrl = (value: string) => {
 	const url = new URL(value);
 	if (
 		!["http:", "https:"].includes(url.protocol) ||
@@ -363,7 +262,7 @@ const parseListUrl = (value: string) => {
 	return `/users/${encodeURIComponent(username)}/lists/${encodeURIComponent(slug)}/items`;
 };
 
-const ref = (item: Item, entitySchemaSlug: "movie" | "show"): ImportEntityRef | null => {
+export const ref = (item: Item, entitySchemaSlug: "movie" | "show"): ImportEntityRef | null => {
 	const sourceLabel =
 		item.title ??
 		`${entitySchemaSlug === "movie" ? "Movie" : "Show"} ${item.ids.trakt ?? "unknown"}`;
@@ -387,179 +286,3 @@ const ref = (item: Item, entitySchemaSlug: "movie" | "show"): ImportEntityRef | 
 			}
 		: null;
 };
-
-type TraktApiTarget = Exclude<TraktImportTarget, { mode: "export" }>;
-
-export const adaptTraktData = (target: TraktApiTarget, clientId: string, host: HttpHost) =>
-	Effect.gen(function* () {
-		const headers = {
-			"trakt-api-version": "2",
-			"trakt-api-key": clientId,
-			"Content-Type": "application/json",
-		};
-		const fetchAll = <A, I, R>(
-			path: string,
-			schema: Schema.Schema<A> & Schema.Decoder<A, R> & Schema.Encoder<I>,
-		) =>
-			Effect.gen(function* () {
-				const response = yield* requestSourceResponse(host, {
-					path,
-					headers,
-					method: "HEAD",
-					baseUrl: API_URL,
-					query: { limit: PAGE_LIMIT },
-				});
-				const count = Number.parseInt(response.headers["x-pagination-page-count"] ?? "1", 10);
-				const pages = Number.isFinite(count) && count > 0 ? count : 1;
-				const values: A[] = [];
-				for (let page = 1; page <= pages; page += 1) {
-					const rows = yield* requestSourceJson(host, {
-						path,
-						headers,
-						baseUrl: API_URL,
-						query: { page, limit: PAGE_LIMIT },
-					}).pipe(Effect.flatMap(Schema.decodeUnknownEffect(Schema.Array(schema))));
-					values.push(...rows);
-				}
-				return values;
-			});
-		const failures: MediaImportAdapterFailure[] = [];
-		const groups = new Map<string, ImportMediaEntityGroupBuilder>();
-		let itemIndex = 0;
-		const nextItemIndex = () => itemIndex++;
-		const missing = (item: Item, kind: "Movie" | "Show", currentIndex: number) => {
-			failures.push({
-				itemIndex: currentIndex,
-				sourceLabel: item.title,
-				message: `${kind} does not have a TMDB or IMDb id`,
-				sourceIdentifier: typeof item.ids.trakt === "number" ? String(item.ids.trakt) : undefined,
-			});
-		};
-		const importListItems = (items: ListItem[], collection: string) => {
-			for (const item of items) {
-				const currentIndex = nextItemIndex();
-				if (item.type !== "movie" && item.type !== "show") {
-					continue;
-				}
-				const source = item.type === "movie" ? item.movie : item.show;
-				if (!source) {
-					continue;
-				}
-				const entityRef = ref(source, item.type);
-				if (!entityRef) {
-					missing(source, item.type === "movie" ? "Movie" : "Show", currentIndex);
-					continue;
-				}
-				addCollectionMembership(
-					getOrCreateMediaEntityGroup(groups, entityRef, currentIndex),
-					collection,
-				);
-			}
-		};
-		if (target.mode === "list") {
-			const listPath = yield* Effect.try({
-				catch: () => invalidListUrl(),
-				try: () => parseListUrl(target.url),
-			});
-			const items = yield* fetchAll(listPath, ListItem);
-			importListItems(items, target.collection);
-			return {
-				failures,
-				totalItems: itemIndex,
-				entityGroups: finalizeEntityGroups(groups.values()),
-			};
-		}
-		const userUrl = `/users/${target.username}`;
-		const history = yield* fetchAll(`${userUrl}/history`, History);
-		history.sort((a, b) => getOccurredAtValue(a.watched_at) - getOccurredAtValue(b.watched_at));
-		for (const item of history) {
-			const currentIndex = nextItemIndex();
-			if (item.type === "movie" && item.movie) {
-				const entityRef = ref(item.movie, "movie");
-				if (!entityRef) {
-					missing(item.movie, "Movie", currentIndex);
-					continue;
-				}
-				getOrCreateMediaEntityGroup(groups, entityRef, currentIndex).events.push(
-					createCompleteEvent({ occurredAt: item.watched_at, completedOn: item.watched_at }),
-				);
-			} else if (item.type === "episode" && item.show && item.episode) {
-				const entityRef = ref(item.show, "show");
-				if (!entityRef) {
-					missing(item.show, "Show", currentIndex);
-					continue;
-				}
-				getOrCreateMediaEntityGroup(groups, entityRef, currentIndex).events.push({
-					occurredAt: item.watched_at,
-					eventSchemaSlug: "progress",
-					properties: { progressPercent: 100 },
-					unresolvedEpisode: {
-						type: "show",
-						seasonNumber: item.episode.season,
-						episodeNumber: item.episode.number,
-					},
-				});
-			}
-		}
-		for (const type of ["movies", "shows"] as const) {
-			for (const item of yield* fetchAll(`${userUrl}/ratings/${type}`, Rating)) {
-				const currentIndex = nextItemIndex();
-				const source = type === "movies" ? item.movie : item.show;
-				if (!source) {
-					continue;
-				}
-				const entityRef = ref(source, type === "movies" ? "movie" : "show");
-				if (!entityRef) {
-					missing(source, type === "movies" ? "Movie" : "Show", currentIndex);
-					continue;
-				}
-				const review = createReviewEvent({ rating: item.rating * 10, occurredAt: item.rated_at });
-				if (review) {
-					getOrCreateMediaEntityGroup(groups, entityRef, currentIndex).events.push(review);
-				}
-			}
-		}
-		for (const item of yield* fetchAll(`${userUrl}/watchlist`, Watchlist)) {
-			const currentIndex = nextItemIndex();
-			const source = item.type === "movie" ? item.movie : item.show;
-			if (!source) {
-				continue;
-			}
-			const entityRef = ref(source, item.type);
-			if (!entityRef) {
-				missing(source, item.type === "movie" ? "Movie" : "Show", currentIndex);
-				continue;
-			}
-			getOrCreateMediaEntityGroup(groups, entityRef, currentIndex).events.push(
-				createBacklogEvent(item.listed_at ?? nowIso()),
-			);
-		}
-		for (const list of yield* fetchAll(`${userUrl}/lists`, List)) {
-			if (list.name.toLowerCase() === "watchlist" || typeof list.ids.trakt !== "number") {
-				continue;
-			}
-			importListItems(
-				yield* fetchAll(`${userUrl}/lists/${list.ids.trakt}/items`, ListItem),
-				list.name,
-			);
-		}
-		for (const type of ["movies", "shows"] as const) {
-			for (const item of yield* fetchAll(`${userUrl}/collection/${type}`, CollectionItem)) {
-				const currentIndex = nextItemIndex();
-				const source = type === "movies" ? item.movie : item.show;
-				if (!source) {
-					continue;
-				}
-				const entityRef = ref(source, type === "movies" ? "movie" : "show");
-				if (!entityRef) {
-					missing(source, type === "movies" ? "Movie" : "Show", currentIndex);
-					continue;
-				}
-				addCollectionMembership(
-					getOrCreateMediaEntityGroup(groups, entityRef, currentIndex),
-					"Owned",
-				);
-			}
-		}
-		return { failures, totalItems: itemIndex, entityGroups: finalizeEntityGroups(groups.values()) };
-	});

@@ -13,7 +13,7 @@ const httpSuccess = (body: unknown) =>
 const makeHost = (httpCall: MetronGroupHost["httpCall"]) =>
 	defineSandboxTestHost(manifest, {
 		httpCall,
-		getPluginConfig: (keys) =>
+		getPluginConfig: ({ required: keys = [] }) =>
 			Effect.succeed(
 				Object.fromEntries(keys.map((key) => [key, key === "metronUsername" ? "user" : "pass"])),
 			),

@@ -1,24 +1,22 @@
 import { defineManifest, defineScript } from "@ryot-app/sandbox-sdk/driver";
 import { Effect } from "@ryot-app/sandbox-sdk/effect";
 
-import { adaptAudiobookshelfData } from "./audiobookshelf";
-import { batchMediaImportResult } from "./helpers";
-import { MediaImportAdapterBatch, UrlAndKeyImportParserInput } from "./schemas";
+import { recoverMediaApiTask } from "./api-collection";
+import { collectAudiobookshelf } from "./audiobookshelf-collection";
+import { MediaSourceInput, MediaSourceOutput } from "./collection-schemas";
 
 export const manifest = defineManifest({
 	kind: "script",
-	capabilities: ["httpCall"],
-	requiredPluginConfigKeys: [],
 	slug: "import.audiobookshelf",
-	name: "Fetch Audiobookshelf import",
+	name: "Collect Audiobookshelf history",
+	capabilities: ["artifact-read", "scratch", "httpCall"],
 });
-
 export default defineScript({
 	manifest,
-	output: MediaImportAdapterBatch,
-	input: UrlAndKeyImportParserInput,
+	input: MediaSourceInput,
+	output: MediaSourceOutput,
 	run: (input, host) =>
-		adaptAudiobookshelfData(input, host).pipe(
-			Effect.map((result) => batchMediaImportResult(result, input.start, input.limit)),
+		collectAudiobookshelf(input, host).pipe(
+			Effect.catch((error) => recoverMediaApiTask(input, error, "Audiobookshelf")),
 		),
 });

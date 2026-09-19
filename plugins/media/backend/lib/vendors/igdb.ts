@@ -25,7 +25,7 @@ const asCachedToken = (value: unknown): CachedToken | null => {
 };
 
 export const getCredentials = (host: IgdbHost) =>
-	host.getPluginConfig(["twitchClientId", "twitchClientSecret"]).pipe(
+	host.getPluginConfig({ required: ["twitchClientId", "twitchClientSecret"] }).pipe(
 		Effect.mapError((error) => ({
 			...error,
 			message: error.message || "Failed to retrieve Twitch credentials",

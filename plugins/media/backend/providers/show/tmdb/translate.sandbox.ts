@@ -8,7 +8,6 @@ export const manifest = defineManifest({
 	name: "TMDB Show Translate",
 	slug: "show.tmdb.translate",
 	capabilities: ["httpCall", "getPluginConfig"],
-	requiredPluginConfigKeys: ["tmdbAccessToken"],
 });
 
 export default defineProvider({ manifest, run: translate.run, operation: "translate" });

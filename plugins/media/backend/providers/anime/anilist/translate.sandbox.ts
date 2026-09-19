@@ -6,7 +6,6 @@ import { translate } from "./shared";
 export const manifest = defineManifest({
 	kind: "provider",
 	name: "Anilist Translate",
-	requiredPluginConfigKeys: [],
 	slug: "anime.anilist.translate",
 	capabilities: ["httpCall", "getUserSettings"],
 });

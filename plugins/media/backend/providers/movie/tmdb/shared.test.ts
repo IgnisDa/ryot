@@ -21,7 +21,7 @@ const makeHost = (httpCall: TmdbHost["httpCall"]) =>
 	defineSandboxTestHost(manifest, {
 		httpCall,
 		getUserSettings: () => Effect.succeed({ allowNsfw: false }),
-		getPluginConfig: (keys) =>
+		getPluginConfig: ({ required: keys = [] }) =>
 			Effect.succeed(Object.fromEntries(keys.map((key) => [key, "token"]))),
 	});
 const execution = { metadata: {}, sandboxScriptId: "script_test" };
@@ -47,13 +47,11 @@ describe("movie.tmdb sandbox script", () => {
 			slug: trendingManifest.slug,
 			capabilities: trendingManifest.capabilities,
 			operation: "operation" in trending ? trending.operation : null,
-			requiredPluginConfigKeys: trendingManifest.requiredPluginConfigKeys,
 		}).toEqual({
 			kind: "script",
 			operation: null,
 			slug: "movie.tmdb.trending",
 			capabilities: ["httpCall", "getPluginConfig"],
-			requiredPluginConfigKeys: ["tmdbAccessToken"],
 		});
 	});
 

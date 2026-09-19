@@ -1,32 +1,15 @@
-import { Effect } from "@ryot-app/sandbox-sdk/effect";
-import { afterEach, expect, it } from "vitest";
+import { expect, it } from "vitest";
 
-import { readImportArtifactText } from "./shared";
+import { csvRecordEnds } from "./shared";
 
-const filesystemKey = Symbol.for("@ryot-app/sandbox-sdk/filesystem");
-
-afterEach(() => {
-	Reflect.deleteProperty(globalThis, filesystemKey);
-});
-
-it("reads the uploadToken named artifact used by every fitness importer", () => {
-	const keys: string[] = [];
-	Reflect.set(globalThis, filesystemKey, {
-		writeScratchChunks: () => Promise.resolve(),
-		readArtifact: () => Promise.reject(new Error("single artifact must not be read")),
-		readNamedArtifact: (key: string) => {
-			keys.push(key);
-			return Promise.resolve(new TextEncoder().encode("upload contents"));
-		},
-	});
-
-	return Effect.runPromise(
-		readImportArtifactText.pipe(
-			Effect.map((text) => {
-				expect(text).toBe("upload contents");
-				expect(keys).toEqual(["uploadToken"]);
-				return text;
-			}),
-		),
-	);
+it("frames quoted newlines, escaped quotes, CRLF and partial UTF-8 without decoding a partial record", () => {
+	const encoder = new TextEncoder();
+	const text = 'date,comment\r\n2026-01-01,"a\n""quoted"" 🏋️"\r\n';
+	const bytes = encoder.encode(text);
+	const first = encoder.encode("date,comment\r\n").length;
+	for (let end = first; end < bytes.length - 1; end++) {
+		expect(csvRecordEnds(bytes.slice(0, end), false)).toEqual([first]);
+	}
+	expect(csvRecordEnds(bytes, true)).toEqual([first, bytes.length]);
+	expect(() => csvRecordEnds(encoder.encode('date\n"broken'), true)).toThrow("quoted field");
 });

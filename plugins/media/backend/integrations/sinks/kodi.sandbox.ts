@@ -1,8 +1,9 @@
 import { defineManifest, defineScript } from "@ryot-app/sandbox-sdk/driver";
 import { Effect } from "@ryot-app/sandbox-sdk/effect";
 
-import { MediaIntegrationAdapterResult } from "../../imports/schemas";
 import { resolvedMediaRef } from "../../imports/source-helpers";
+import { captureIntegrationRecords } from "../artifacts";
+import { IntegrationArtifactOutput } from "../schemas";
 import {
 	executionStartedAt,
 	failureResult,
@@ -16,8 +17,7 @@ export const manifest = defineManifest({
 	kind: "script",
 	name: "Kodi sink",
 	slug: "integration.kodi",
-	requiredPluginConfigKeys: [],
-	capabilities: ["getCurrentIntegration"],
+	capabilities: ["getCurrentIntegration", "scratch"],
 });
 
 export const parseKodi = (rawBody: string, occurredAt: string) =>
@@ -69,11 +69,14 @@ export const parseKodi = (rawBody: string, occurredAt: string) =>
 export default defineScript({
 	manifest,
 	input: SinkInput,
-	output: MediaIntegrationAdapterResult,
+	output: IntegrationArtifactOutput,
 	run: (input, host, execution) =>
 		Effect.gen(function* () {
+			if ("ingestionConfirmation" in input) {
+				return { failures: [], entityGroups: [] };
+			}
 			const occurredAt = yield* executionStartedAt(execution);
 			yield* host.getCurrentIntegration();
 			return yield* parseKodi(input.rawBody, occurredAt);
-		}),
+		}).pipe(Effect.flatMap((result) => captureIntegrationRecords(manifest.slug, result))),
 });

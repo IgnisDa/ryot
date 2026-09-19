@@ -13,7 +13,6 @@ export const manifest = defineManifest({
 	name: "Resolve imported Hardcover book",
 	slug: "media-import-resolve.book.hardcover",
 	capabilities: ["httpCall", "getPluginConfig"],
-	requiredPluginConfigKeys: ["hardcoverApiKey"],
 });
 
 export default defineScript({

@@ -1,24 +1,22 @@
 import { defineManifest, defineScript } from "@ryot-app/sandbox-sdk/driver";
 import { Effect } from "@ryot-app/sandbox-sdk/effect";
 
-import { batchMediaImportResult } from "./helpers";
-import { adaptJellyfinData } from "./jellyfin";
-import { JellyfinImportParserInput, MediaImportAdapterBatch } from "./schemas";
+import { recoverMediaApiTask } from "./api-collection";
+import { MediaSourceInput, MediaSourceOutput } from "./collection-schemas";
+import { collectJellyfin } from "./jellyfin-collection";
 
 export const manifest = defineManifest({
 	kind: "script",
 	slug: "import.jellyfin",
-	capabilities: ["httpCall"],
-	requiredPluginConfigKeys: [],
-	name: "Fetch Jellyfin import",
+	name: "Collect Jellyfin history",
+	capabilities: ["artifact-read", "scratch", "httpCall"],
 });
-
 export default defineScript({
 	manifest,
-	output: MediaImportAdapterBatch,
-	input: JellyfinImportParserInput,
+	input: MediaSourceInput,
+	output: MediaSourceOutput,
 	run: (input, host) =>
-		adaptJellyfinData(input, host).pipe(
-			Effect.map((result) => batchMediaImportResult(result, input.start, input.limit)),
+		collectJellyfin(input, host).pipe(
+			Effect.catch((error) => recoverMediaApiTask(input, error, "Jellyfin")),
 		),
 });

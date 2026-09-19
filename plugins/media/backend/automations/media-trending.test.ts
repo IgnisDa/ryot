@@ -18,7 +18,7 @@ describe("media trending cron", () => {
 		const relationshipWrites: Parameters<TrendingHost["upsertGlobalRelationships"]>[0][] = [];
 		const host = defineSandboxTestHost(manifest, {
 			log: () => Effect.succeed(null),
-			getPluginConfig: (keys) =>
+			getPluginConfig: ({ required: keys = [] }) =>
 				Effect.succeed(Object.fromEntries(keys.map((key) => [key, "token"]))),
 			upsertGlobalRelationships: (groups) =>
 				Effect.sync(() => {
@@ -110,7 +110,7 @@ describe("media trending cron", () => {
 							logs.push(entries);
 							return null;
 						}),
-					getPluginConfig: (keys) =>
+					getPluginConfig: ({ required: keys = [] }) =>
 						Effect.succeed(Object.fromEntries(keys.map((key) => [key, "token"]))),
 					upsertGlobalEntities: (items) =>
 						Effect.succeed(

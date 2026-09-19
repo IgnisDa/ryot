@@ -8,6 +8,7 @@ import { assert, expect, it } from "vitest";
 import { manifest as userBootstrapManifest } from "../backend/bootstrap/user-bootstrap.sandbox";
 import { manifest as hevyManifest } from "../backend/imports/hevy.sandbox";
 import { manifest as openScaleManifest } from "../backend/imports/open-scale.sandbox";
+import { manifest as settingsManifest } from "../backend/imports/settings.sandbox";
 import { manifest as strongAppManifest } from "../backend/imports/strong-app.sandbox";
 import { FitnessCreateImportRunBody } from "./import-sources";
 import { fitnessPlugin } from "./plugin";
@@ -112,7 +113,11 @@ it("declares the complete fitness-owned source", () => {
 			},
 		},
 	]);
-	expect(fitnessPlugin.workflows).toEqual([{ slug: "import", scriptSlug: "workflow.import" }]);
+	expect(fitnessPlugin.workflows).toEqual([
+		{ slug: "import", scriptSlug: "workflow.import" },
+		{ slug: "import-application", scriptSlug: "workflow.import-application" },
+		{ slug: "import-merge", scriptSlug: "workflow.import-merge" },
+	]);
 	expect(fitnessPlugin.importSources.map(({ slug }) => slug)).toEqual(
 		expectedImportSources.map(({ slug }) => slug),
 	);
@@ -158,15 +163,14 @@ it("declares the complete fitness-owned source", () => {
 		).not.toThrow();
 	}
 	expect(
-		[hevyManifest, openScaleManifest, strongAppManifest].map(({ kind, slug, capabilities }) => ({
-			kind,
-			slug,
-			capabilities,
-		})),
+		[hevyManifest, openScaleManifest, strongAppManifest, settingsManifest].map(
+			({ kind, slug, capabilities }) => ({ kind, slug, capabilities }),
+		),
 	).toEqual([
 		{ kind: "script", slug: "import.hevy", capabilities: ["artifact-read", "scratch"] },
 		{ kind: "script", slug: "import.open-scale", capabilities: ["artifact-read", "scratch"] },
 		{ kind: "script", slug: "import.strong-app", capabilities: ["artifact-read", "scratch"] },
+		{ kind: "script", slug: "import.settings", capabilities: ["artifact-read"] },
 	]);
 	expect(userBootstrapManifest).toMatchObject({
 		kind: "script",

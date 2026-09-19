@@ -8,7 +8,6 @@ export const manifest = defineManifest({
 	name: "GiantBomb Person Search",
 	slug: "person.giant-bomb.search",
 	capabilities: ["httpCall", "getPluginConfig"],
-	requiredPluginConfigKeys: ["giantBombApiKey"],
 });
 
 export default defineProvider({ manifest, run: search.run, operation: "search" });

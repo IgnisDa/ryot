@@ -7,7 +7,6 @@ export const manifest = defineManifest({
 	kind: "provider",
 	name: "Spotify Person Details",
 	slug: "person.spotify.details",
-	requiredPluginConfigKeys: ["spotifyClientId", "spotifyClientSecret"],
 	capabilities: ["httpCall", "getPluginConfig", "getCachedValue", "setCachedValue"],
 });
 
