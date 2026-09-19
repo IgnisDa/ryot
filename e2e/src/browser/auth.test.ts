@@ -2,7 +2,6 @@ import { OAUTH_WEB_CLIENT_ID } from "@ryot-app/contract/oauth";
 import { Effect, Fiber, Option, Stream } from "effect";
 import { Playwright, PlaywrightSpawner } from "effect-playwright";
 
-import { browserLayer } from "~/support/browser";
 import { expect, it } from "~/support/effect-test";
 import { getFrontendUrl } from "~/support/harness-target";
 
@@ -47,5 +46,5 @@ it.live("signs up through the hosted OAuth flow", () =>
 		expect(oauthResponse.ok()).toBe(true);
 		yield* page.getByTestId("authenticated-shell").waitFor({ state: "visible" });
 		expect(new URL(page.url()).pathname).not.toMatch(/^\/auth(?:\/|$)/);
-	}).pipe(PlaywrightSpawner.withBrowser, Effect.provide(browserLayer)),
+	}).pipe(PlaywrightSpawner.withBrowser),
 );

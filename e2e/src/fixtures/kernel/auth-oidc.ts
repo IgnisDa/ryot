@@ -1,4 +1,5 @@
 import { Data, Effect, Schema } from "effect";
+import type { HttpClient } from "effect/unstable/http";
 import { Events, OAuth2Server } from "oauth2-mock-server";
 
 import { requirePresent } from "~/support/assertions";
@@ -22,7 +23,7 @@ class OidcFixtureError extends Data.TaggedError("OidcFixtureError")<{ readonly c
 
 const attempt = <A>(run: () => Promise<A>) =>
 	Effect.tryPromise({ try: run, catch: (cause) => new OidcFixtureError({ cause }) });
-const mapAuthError = <A, E>(effect: Effect.Effect<A, E>) =>
+const mapAuthError = <A, E, R>(effect: Effect.Effect<A, E, R>) =>
 	effect.pipe(Effect.mapError((cause) => new OidcFixtureError({ cause })));
 
 export const startMockOidcServer = Effect.gen(function* () {
@@ -66,7 +67,11 @@ export const performOidcSignIn = (
 	username: string,
 	apiUrl: string,
 	claims?: Record<string, unknown>,
-): Effect.Effect<{ pending: PendingOAuth; response: Response }, OidcFixtureError> =>
+): Effect.Effect<
+	{ pending: PendingOAuth; response: Response },
+	OidcFixtureError,
+	HttpClient.HttpClient
+> =>
 	Effect.gen(function* () {
 		const pending = yield* mapAuthError(prepareOAuth(apiUrl));
 		const step1Response = yield* mapAuthError(
@@ -122,7 +127,7 @@ export const oidcSignIn = (
 	username: string,
 	apiUrl: string,
 	claims?: Record<string, unknown>,
-): Effect.Effect<string, OidcFixtureError> =>
+): Effect.Effect<string, OidcFixtureError, HttpClient.HttpClient> =>
 	Effect.gen(function* () {
 		const { pending, response } = yield* performOidcSignIn(
 			mockOidcServer,

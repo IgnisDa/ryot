@@ -3,6 +3,7 @@ import { fileURLToPath } from "node:url";
 import { Effect } from "effect";
 import getPort from "get-port";
 
+import { runPromise } from "./src/support/e2e-runtime";
 import {
 	buildApiEnv,
 	spawnApiProcess,
@@ -19,7 +20,7 @@ const serverCwd = fileURLToPath(new URL("../apps/server", import.meta.url));
 const clientDist = fileURLToPath(new URL("../kernel/client/dist", import.meta.url));
 
 export default () =>
-	Effect.runPromise(
+	runPromise(
 		Effect.gen(function* () {
 			const build = Bun.spawnSync(
 				[
@@ -103,5 +104,5 @@ export default () =>
 		process.env.E2E_API_URL = apiUrl;
 		process.env.E2E_ADMIN_ACCESS_TOKEN = adminToken;
 		console.info(`PostgreSQL logs: ${pgLogPath}`);
-		return () => Effect.runPromise(shutdown);
+		return () => runPromise(shutdown);
 	});

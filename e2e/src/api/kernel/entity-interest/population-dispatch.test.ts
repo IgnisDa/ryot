@@ -20,7 +20,7 @@ import {
 	seedPopulatedProviderEntity,
 	waitForEntityPopulated,
 } from "~/fixtures/plugins/media";
-import { afterAll, beforeAll, describe, expect, it } from "~/support/effect-test";
+import { afterAll, beforeAll, describe, expect, it, runPromise } from "~/support/effect-test";
 
 const GRACE_WINDOW_MS = 3000;
 const POPULATED_NAME = "E2E Populated Studio";
@@ -29,7 +29,7 @@ let provider: InstalledTestProvider;
 
 describe("entity population via client-declared interest", () => {
 	beforeAll(() =>
-		Effect.runPromise(
+		runPromise(
 			Effect.gen(function* () {
 				const { client } = yield* createAuthenticatedClient();
 				const { schema } = yield* findBuiltinSchemaBySlug(client, "company");
@@ -47,7 +47,7 @@ describe("entity population via client-declared interest", () => {
 		),
 	);
 
-	afterAll(() => Effect.runPromise(uninstallTestProvider(provider)));
+	afterAll(() => runPromise(uninstallTestProvider(provider)));
 
 	it.live("keeps a bare read side-effect-free and populates once client interest is declared", () =>
 		Effect.gen(function* () {

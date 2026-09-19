@@ -29,7 +29,7 @@ import {
 } from "~/fixtures/plugins/fitness";
 import { seedGlobalShowEpisodeTree } from "~/fixtures/plugins/media";
 import { requirePresent } from "~/support/assertions";
-import { browserLayer, signInThroughHostedOAuth } from "~/support/browser";
+import { signInThroughHostedOAuth } from "~/support/browser";
 import { expect, it } from "~/support/effect-test";
 import { getApiUrl, getFrontendUrl } from "~/support/harness-target";
 import { webRequest } from "~/support/web-request";
@@ -118,7 +118,7 @@ it.live("retains the document and bridge across same-composition saved views", (
 		expect(requests.slice(before).filter((path) => path.startsWith("/api/client-assets/"))).toEqual(
 			[],
 		);
-	}).pipe(PlaywrightSpawner.withBrowser, Effect.provide(browserLayer)),
+	}).pipe(PlaywrightSpawner.withBrowser),
 );
 
 it.live("renders a saved view from an installed client plugin page", () =>
@@ -185,7 +185,7 @@ it.live("renders a saved view from an installed client plugin page", () =>
 		expect(yield* clientImportUrl(mediaFrame, "@ryot-app/client-sdk/plugin")).toBe(runtimeUrl);
 		const shippedModule = yield* clientImportUrl(mediaFrame, "@ryot-app/plugins/media/media-card");
 		expect(shippedModule).toMatch(/^\/api\/client-assets\/[a-f0-9]{64}\/public\/module\.js$/);
-	}).pipe(PlaywrightSpawner.withBrowser, Effect.provide(browserLayer)),
+	}).pipe(PlaywrightSpawner.withBrowser),
 );
 
 it.live("keeps configured entity-browser controls within their declared source", () =>
@@ -283,7 +283,7 @@ it.live("keeps configured entity-browser controls within their declared source",
 		expect(params.get("keep")).toBe("1");
 		expect(params.get("sort")).toBe("name-desc");
 		expect(yield* runtime.getByText(excluded.name, { exact: true }).count).toBe(0);
-	}).pipe(PlaywrightSpawner.withBrowser, Effect.provide(browserLayer)),
+	}).pipe(PlaywrightSpawner.withBrowser),
 );
 
 it.live("warms private Pokemon presentation files without evaluating them until pagination", () =>
@@ -402,7 +402,7 @@ it.live("warms private Pokemon presentation files without evaluating them until 
 			yield* runtime.locator("html").getAttribute("data-e2e-pokemon-presentation-evaluated"),
 		).toBe("true");
 		expect(blocked).toEqual([]);
-	}).pipe(PlaywrightSpawner.withBrowser, Effect.provide(browserLayer)),
+	}).pipe(PlaywrightSpawner.withBrowser),
 );
 
 it.live(
@@ -475,7 +475,7 @@ it.live(
 			yield* runtime.getByRole("heading", { level: 1, name: viewRecord.name }).waitFor();
 			yield* rows.getByText("Third row", { exact: true }).waitFor({ state: "visible" });
 			expect(yield* rows.count).toBe(3);
-		}).pipe(PlaywrightSpawner.withBrowser, Effect.provide(browserLayer)),
+		}).pipe(PlaywrightSpawner.withBrowser),
 );
 
 it.live("keeps one rich mixed entity browser runtime across pagination and layouts", () =>
@@ -746,5 +746,5 @@ it.live("keeps one rich mixed entity browser runtime across pagination and layou
 		expect(yield* frame.evaluate((current, initial) => current === initial, iframe)).toBe(true);
 		expect(yield* frame.count).toBe(1);
 		expect(yield* runtime.locator("#app").count).toBe(1);
-	}).pipe(PlaywrightSpawner.withBrowser, Effect.provide(browserLayer)),
+	}).pipe(PlaywrightSpawner.withBrowser),
 );
