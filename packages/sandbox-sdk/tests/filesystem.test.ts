@@ -1,6 +1,7 @@
 import { Effect } from "@ryot-app/sandbox-sdk/effect";
 import {
 	readArtifact,
+	readArtifactRange,
 	readNamedArtifact,
 	writeScratchChunks,
 } from "@ryot-app/sandbox-sdk/filesystem";
@@ -17,11 +18,37 @@ test("fails closed when filesystem grants are unavailable", () =>
 		Effect.gen(function* () {
 			const read = yield* Effect.flip(readArtifact);
 			const readNamed = yield* Effect.flip(readNamedArtifact("historyFilePath"));
+			const range = yield* Effect.flip(readArtifactRange(0, 1));
 			const write = yield* Effect.flip(writeScratchChunks([]));
 
 			expect(read.message).toBe("Sandbox artifact grant is unavailable");
 			expect(readNamed.message).toBe("Sandbox artifact grant is unavailable");
+			expect(range.message).toBe("Sandbox artifact grant is unavailable");
 			expect(write.message).toBe("Sandbox scratch grant is unavailable");
+		}),
+	));
+
+test("rejects invalid byte ranges before calling the binding", () =>
+	Effect.runPromise(
+		Effect.gen(function* () {
+			let calls = 0;
+			Reflect.set(globalThis, filesystemKey, {
+				readArtifactRange: () => {
+					calls++;
+					return Promise.resolve({ size: 0, bytes: new Uint8Array() });
+				},
+			});
+			for (const [offset, length] of [
+				[-1, 1],
+				[0, 0],
+				[0, 1048577],
+				[0.5, 1],
+			]) {
+				expect((yield* Effect.flip(readArtifactRange(offset, length))).message).toContain(
+					"Artifact range requires",
+				);
+			}
+			expect(calls).toBe(0);
 		}),
 	));
 

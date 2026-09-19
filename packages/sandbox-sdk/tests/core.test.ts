@@ -25,7 +25,6 @@ describe("generic script definitions", () => {
 			capabilities: [],
 			name: "Increment",
 			slug: "increment",
-			requiredPluginConfigKeys: [],
 		});
 		const definition = defineScript({
 			manifest,
@@ -205,7 +204,6 @@ describe("sandbox test hosts", () => {
 			kind: "script",
 			name: "Cache reader",
 			slug: "cache-reader",
-			requiredPluginConfigKeys: [],
 			capabilities: ["getCachedValue"],
 		});
 		const definition = defineScript({
@@ -234,7 +232,6 @@ describe("domain host contracts", () => {
 			kind: "script",
 			name: "Domain reader",
 			slug: "domain-reader",
-			requiredPluginConfigKeys: [],
 			capabilities: ["executeRyotql"],
 		});
 		const definition = defineScript({

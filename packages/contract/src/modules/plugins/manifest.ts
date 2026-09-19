@@ -14,6 +14,8 @@ import { RyotQLDocument } from "../ryotql/language";
 import { POLICY_SAFE_SANDBOX_CAPABILITIES, SANDBOX_HOST_CAPABILITIES } from "../sandbox/wire";
 import { AuthoredSavedViewRenderer } from "../saved-views/schemas";
 import { isSupportedUploadFileExtension } from "../uploads/upload-policy";
+import { hasValidExecutableDependencies, SourcePlan } from "./execution";
+import { SandboxExecutionMetadata } from "./execution-metadata";
 import { pluginConfigEnvironmentKey } from "./plugin-config";
 
 export const CLIENT_API_VERSION = 1 as const;
@@ -414,10 +416,10 @@ export const PluginConfigSchema = PluginAppSchema.pipe(
 export type PluginConfigSchema = Schema.Schema.Type<typeof PluginConfigSchema>;
 
 const PluginScriptFields = {
+	...SandboxExecutionMetadata.fields,
 	entry: Schema.String,
 	slug: sandboxManifestSlug,
 	name: sandboxManifestString,
-	requiredPluginConfigKeys: Schema.Array(sandboxManifestString),
 };
 const PluginScriptCapabilities = Schema.Array(Schema.Literals([...SANDBOX_HOST_CAPABILITIES]));
 
@@ -568,6 +570,7 @@ export const PluginIntegrationProvider = Schema.Union([
 	strictStruct({
 		...PluginIntegrationProviderFields,
 		scriptSlug: sandboxManifestSlug,
+		plan: Schema.optional(SourcePlan),
 		lot: Schema.Literals(["yank", "sink"]),
 	}),
 	strictStruct({ ...PluginIntegrationProviderFields, lot: Schema.Literal("push") }),
@@ -637,8 +640,8 @@ const PluginImportSourceFields = {
 	slug: sandboxManifestSlug,
 	name: sandboxManifestString,
 	workflowSlug: sandboxManifestSlug,
+	plan: Schema.optional(SourcePlan),
 	description: sandboxManifestString,
-	requiredPluginConfigKeys: Schema.Array(sandboxManifestString),
 };
 
 const ImportInputSchema = Schema.toType(AppSchema).pipe(
@@ -991,13 +994,6 @@ const hasValidAuthoredPluginManifestReferences = (
 	if (new Set(configEnvironmentKeys).size !== configEnvironmentKeys.length) {
 		return false;
 	}
-	if (
-		!manifest.importSources
-			.flatMap(({ requiredPluginConfigKeys }) => requiredPluginConfigKeys)
-			.every((key) => configKeys.has(key))
-	) {
-		return false;
-	}
 	if (new Set(manifest.providers.map(({ slug }) => slug)).size !== manifest.providers.length) {
 		return false;
 	}
@@ -1062,7 +1058,7 @@ const hasValidPluginManifestReferences = (manifest: typeof PluginManifestFields.
 	}
 	const requiredConfigKeys = [
 		...manifest.scripts.flatMap(({ requiredPluginConfigKeys }) => requiredPluginConfigKeys),
-		...manifest.importSources.flatMap(({ requiredPluginConfigKeys }) => requiredPluginConfigKeys),
+		...manifest.scripts.flatMap(({ optionalPluginConfigKeys }) => optionalPluginConfigKeys),
 	];
 	if (!requiredConfigKeys.every((key) => configKeys.has(key))) {
 		return false;
@@ -1227,7 +1223,10 @@ const hasValidPluginManifestReferences = (manifest: typeof PluginManifestFields.
 		),
 	];
 
-	return referencedScriptSlugs.every((scriptSlug) => scriptSlugs.has(scriptSlug));
+	return (
+		referencedScriptSlugs.every((scriptSlug) => scriptSlugs.has(scriptSlug)) &&
+		hasValidExecutableDependencies(manifest)
+	);
 };
 
 export const PluginManifest = PluginManifestFields.pipe(

@@ -16,7 +16,6 @@ const allCapabilitiesManifest = defineManifest({
 	kind: "script",
 	name: "All core capabilities",
 	slug: "all-core-capabilities",
-	requiredPluginConfigKeys: ["timezone"],
 	capabilities: [
 		"log",
 		"span",
@@ -62,9 +61,9 @@ defineScript({
 				const value: JsonValue | null = claim.value;
 				void value;
 			}
-			const pluginConfig: Readonly<Record<string, JsonValue>> = yield* host.getPluginConfig([
-				"timezone",
-			]);
+			const pluginConfig: Readonly<Record<string, JsonValue>> = yield* host.getPluginConfig({
+				required: ["timezone"],
+			});
 			const preferences = yield* host.getUserPreferences();
 			const disableIntegrations: boolean = preferences.disableIntegrations;
 			const settings: Readonly<Record<string, JsonValue>> = yield* host.getUserSettings();
@@ -95,7 +94,6 @@ defineScript({
 
 const narrowedManifest = defineManifest({
 	kind: "script",
-	requiredPluginConfigKeys: [],
 	name: "Narrowed capabilities",
 	slug: "narrowed-capabilities",
 	capabilities: ["getCachedValue"],
@@ -118,7 +116,6 @@ defineSandboxTestHost(narrowedManifest, {
 
 const allDomainManifest = defineManifest({
 	kind: "script",
-	requiredPluginConfigKeys: [],
 	name: "All domain capabilities",
 	slug: "all-domain-capabilities",
 	capabilities: [
@@ -227,7 +224,6 @@ defineScript({
 const promiseScriptManifest = defineManifest({
 	kind: "script",
 	capabilities: [],
-	requiredPluginConfigKeys: [],
 	name: "Promise driver rejection",
 	slug: "promise-driver-rejection",
 });

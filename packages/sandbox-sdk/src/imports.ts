@@ -1,4 +1,14 @@
 import { LifecycleCommand } from "@ryot-app/contract/modules/automations/lifecycle";
+import {
+	IngestionActivity,
+	IngestionSummary,
+	IngestionIssue,
+	IngestionPlan,
+	IngestionAttribution,
+	IngestionOutcome,
+	IngestionReason,
+} from "@ryot-app/contract/modules/imports/ingestion";
+import { KERNEL_PROCESS_IMPORT_CHUNKS_WORKFLOW } from "@ryot-app/contract/modules/plugins/execution";
 import { Schema } from "@ryot-app/sandbox-sdk/effect";
 
 import {
@@ -12,6 +22,7 @@ import {
 	SANDBOX_SDK_WORKFLOW_IMPORT,
 } from "./runtime-registry";
 import { jsonValueSchema, strictStruct } from "./wire";
+import { defineWorkflowReference } from "./workflow";
 
 export { LifecycleCommand };
 export * from "./runtime-registry";
@@ -31,6 +42,31 @@ export const SANDBOX_SDK_IMPORTS = [
 ] as const;
 
 const importRecordSchema = Schema.Record(Schema.String, jsonValueSchema);
+
+export const ingestionArtifactsSchema = strictStruct({
+	runId: Schema.NonEmptyString,
+	captures: Schema.Record(
+		Schema.String.check(Schema.isPattern(/^[A-Za-z0-9_-]{1,100}$/)),
+		Schema.NonEmptyString,
+	).check(
+		Schema.makeFilter(
+			(captures) =>
+				(Object.keys(captures).length >= 1 && Object.keys(captures).length <= 100) ||
+				"Capture grants require 1..100 names",
+		),
+	),
+});
+
+const ingestionIntentFields = {
+	operationId: Schema.NonEmptyString,
+	attribution: Schema.optional(IngestionAttribution),
+	outcome: Schema.optional(
+		strictStruct({
+			unit: IngestionOutcome.fields.unit,
+			recordKind: IngestionOutcome.fields.recordKind,
+		}),
+	),
+};
 
 const hasGenericImportAttribution = (
 	command: Schema.Schema.Type<typeof LifecycleCommand>,
@@ -56,7 +92,9 @@ export const genericImportFailureSchema = strictStruct({
 	message: Schema.String,
 	itemIndex: Schema.Finite,
 	sourceLabel: Schema.String,
+	unit: Schema.NonEmptyString,
 	sourceIdentifier: Schema.String,
+	recordKind: Schema.NonEmptyString,
 	entitySchemaSlug: Schema.optional(Schema.String),
 	stage: Schema.optional(
 		Schema.Literals([
@@ -71,6 +109,7 @@ export const genericImportFailureSchema = strictStruct({
 });
 
 export const genericImportEntityIntentSchema = strictStruct({
+	...ingestionIntentFields,
 	name: Schema.String,
 	alias: Schema.String,
 	properties: importRecordSchema,
@@ -95,6 +134,7 @@ export const genericImportEntityIntentSchema = strictStruct({
 });
 
 export const genericImportEventIntentSchema = strictStruct({
+	...ingestionIntentFields,
 	occurredAt: Schema.String,
 	entityAlias: Schema.String,
 	properties: importRecordSchema,
@@ -104,11 +144,13 @@ export const genericImportEventIntentSchema = strictStruct({
 });
 
 export const genericImportCollectionMembershipIntentSchema = strictStruct({
+	...ingestionIntentFields,
 	entityAlias: Schema.String,
 	collectionName: Schema.String,
 });
 
 export const genericImportRelationshipIntentSchema = strictStruct({
+	...ingestionIntentFields,
 	sourceAlias: Schema.String,
 	targetAlias: Schema.String,
 	properties: importRecordSchema,
@@ -119,6 +161,7 @@ export const genericImportRelationshipIntentSchema = strictStruct({
 export const genericImportWriteItemSchema = strictStruct({
 	itemIndex: Schema.Finite,
 	sourceLabel: Schema.String,
+	recordId: Schema.NonEmptyString,
 	sourceIdentifier: Schema.String,
 	subjectEntityAlias: Schema.String,
 	events: Schema.Array(genericImportEventIntentSchema),
@@ -130,40 +173,35 @@ export const genericImportWriteItemSchema = strictStruct({
 });
 
 export const genericImportChunkSchema = strictStruct({
-	items: Schema.Array(genericImportWriteItemSchema),
-	failures: Schema.Array(genericImportFailureSchema),
-});
-
-const genericImportManifestFields = {
-	totalItems: Schema.Number.pipe(
-		Schema.check(Schema.isInt()),
-		Schema.check(Schema.isGreaterThanOrEqualTo(0)),
+	items: Schema.Array(genericImportWriteItemSchema).pipe(Schema.check(Schema.isMaxLength(100))),
+	failures: Schema.Array(genericImportFailureSchema).pipe(Schema.check(Schema.isMaxLength(100))),
+}).pipe(
+	Schema.check(
+		Schema.makeFilter((chunk) => {
+			const ids = chunk.items.flatMap((item) =>
+				[
+					...item.entities,
+					...item.events,
+					...item.relationships,
+					...(item.collectionMemberships ?? []),
+				].map((intent) => intent.operationId),
+			);
+			return (
+				(ids.length + chunk.failures.length <= 1000 &&
+					new Set(ids).size === ids.length &&
+					new Set(chunk.items.map((item) => item.recordId)).size === chunk.items.length) ||
+				"Ingestion chunk identities must be unique and bounded"
+			);
+		}),
 	),
-	failureCount: Schema.Number.pipe(
-		Schema.check(Schema.isInt()),
-		Schema.check(Schema.isGreaterThanOrEqualTo(0)),
-	),
-	writeItemCount: Schema.Number.pipe(
-		Schema.check(Schema.isInt()),
-		Schema.check(Schema.isGreaterThanOrEqualTo(0)),
-	),
-};
-
-export const genericImportAdapterManifestSchema = strictStruct({
-	chunkFiles: Schema.Array(Schema.String),
-	...genericImportManifestFields,
-});
-
-export const genericImportWorkflowManifestSchema = strictStruct({
-	chunkHandles: Schema.Array(Schema.String),
-	...genericImportManifestFields,
-});
+);
 
 export const genericImportWorkflowInputSchema = strictStruct({
+	plan: IngestionPlan,
 	runId: Schema.String,
 	source: Schema.String,
 	command: LifecycleCommand,
-	sourcePayload: Schema.optional(Schema.Record(Schema.String, jsonValueSchema)),
+	sourcePayloadHandle: Schema.NonEmptyString,
 }).pipe(
 	Schema.check(
 		Schema.makeFilter(
@@ -175,44 +213,178 @@ export const genericImportWorkflowInputSchema = strictStruct({
 );
 
 export const genericImportWorkflowResultSchema = strictStruct({
-	failedItems: Schema.Finite,
-	importedItems: Schema.Finite,
-	processedItems: Schema.Finite,
+	summary: IngestionSummary,
+	issues: Schema.Array(IngestionIssue).pipe(Schema.check(Schema.isMaxLength(1000))),
 });
 
-export const genericImportKernelInputSchema = strictStruct({
+export const genericImportCaptureResultSchema = strictStruct({
+	handle: Schema.NonEmptyString,
+	captureId: Schema.NonEmptyString,
+	inputFingerprint: Schema.NonEmptyString,
+});
+export const genericImportMaterializeResultSchema = strictStruct({ handle: Schema.NonEmptyString });
+export const genericImportArtifactSchema = strictStruct({
+	runId: Schema.NonEmptyString,
+	captureId: Schema.NonEmptyString,
+});
+export const genericImportActivityResultSchema = strictStruct({ recorded: Schema.Literal(true) });
+export const genericImportSealResultSchema = strictStruct({
+	summary: IngestionSummary,
+	sealed: Schema.Literal(true),
+});
+export const genericImportCapturesResultSchema = strictStruct({
+	next: Schema.NullOr(Schema.Int),
+	captures: Schema.Array(
+		strictStruct({
+			ordinal: Schema.Int,
+			checkpoint: jsonValueSchema,
+			captureId: Schema.NonEmptyString,
+			inputFingerprint: Schema.NonEmptyString,
+		}),
+	).pipe(Schema.check(Schema.isMaxLength(100))),
+});
+export const genericImportApplyResultSchema = strictStruct({
+	summary: IngestionSummary,
+	issues: Schema.Array(IngestionIssue).pipe(Schema.check(Schema.isMaxLength(1000))),
+	confirmed: Schema.Array(
+		strictStruct({
+			attribution: IngestionAttribution,
+			operationId: Schema.NonEmptyString,
+			reason: Schema.NullOr(IngestionReason),
+			result: Schema.Literals(["created", "updated", "unchanged", "skipped"]),
+		}),
+	).pipe(Schema.check(Schema.isMaxLength(1000))),
+});
+export const integrationConfirmationSchema = strictStruct({
 	runId: Schema.String,
-	command: LifecycleCommand,
-	failRun: Schema.optional(Schema.Boolean),
-	chunkHandles: Schema.Array(Schema.String),
-	totalItems: Schema.Number.pipe(
-		Schema.check(Schema.isInt()),
-		Schema.check(Schema.isGreaterThanOrEqualTo(0)),
-	),
-	failureCount: Schema.Number.pipe(
-		Schema.check(Schema.isInt()),
-		Schema.check(Schema.isGreaterThanOrEqualTo(0)),
-	),
-	writeItemCount: Schema.Number.pipe(
-		Schema.check(Schema.isInt()),
-		Schema.check(Schema.isGreaterThanOrEqualTo(0)),
-	),
-}).pipe(
-	Schema.check(
-		Schema.makeFilter(
-			(value) =>
-				hasGenericImportAttribution(value.command, value.runId) ||
-				"Generic import command attribution does not match the import run",
+	final: Schema.Boolean,
+	batchId: Schema.String,
+	inputFingerprint: Schema.String,
+	confirmed: genericImportApplyResultSchema.fields.confirmed,
+	part: Schema.Int.pipe(Schema.check(Schema.isGreaterThanOrEqualTo(0))),
+});
+export const integrationConfirmationWorkflowInputSchema = strictStruct({
+	plan: IngestionPlan,
+	integrationContext: jsonValueSchema,
+	ingestionConfirmation: integrationConfirmationSchema,
+});
+export const integrationConfirmationWorkflowResultSchema = strictStruct({
+	confirmed: Schema.Literal(true),
+});
+
+const ordinalSchema = Schema.Int.pipe(Schema.check(Schema.isGreaterThanOrEqualTo(0)));
+const encodeCheckpoint = Schema.encodeSync(Schema.fromJsonString(jsonValueSchema));
+const captureOperation = strictStruct({
+	ordinal: ordinalSchema,
+	handle: Schema.NonEmptyString,
+	captureId: Schema.NonEmptyString,
+	action: Schema.Literal("capture"),
+	phase: Schema.Literals(["collection", "application"]),
+	checkpoint: jsonValueSchema.pipe(
+		Schema.check(
+			Schema.makeFilter(
+				(value) =>
+					new TextEncoder().encode(encodeCheckpoint(value)).byteLength <= 16 * 1024 ||
+					"Ingestion checkpoint exceeds its byte limit",
+			),
 		),
 	),
+});
+const applyOperation = strictStruct({
+	ordinal: ordinalSchema,
+	batchId: Schema.NonEmptyString,
+	action: Schema.Literal("apply"),
+	captureId: Schema.NonEmptyString,
+	inputFingerprint: Schema.NonEmptyString,
+});
+const sealOperation = strictStruct({ action: Schema.Literal("seal") });
+const activityOperation = strictStruct({
+	activity: IngestionActivity,
+	action: Schema.Literal("activity"),
+});
+const materializeOperation = strictStruct({
+	captureId: Schema.NonEmptyString,
+	action: Schema.Literal("materialize"),
+});
+const capturesOperation = strictStruct({
+	action: Schema.Literal("captures"),
+	after: Schema.NullOr(ordinalSchema),
+	limit: Schema.Int.pipe(Schema.check(Schema.isBetween({ minimum: 1, maximum: 100 }))),
+});
+const kernelAttributionSchema = Schema.Struct({ runId: Schema.String, command: LifecycleCommand });
+const kernelAttributionFilter = Schema.makeFilter(
+	(value: typeof kernelAttributionSchema.Type) =>
+		hasGenericImportAttribution(value.command, value.runId) ||
+		"Generic import command attribution does not match the import run",
 );
 
+export const genericImportCaptureInputSchema = strictStruct({
+	...kernelAttributionSchema.fields,
+	operation: captureOperation,
+}).pipe(Schema.check(kernelAttributionFilter));
+export const genericImportApplyInputSchema = strictStruct({
+	...kernelAttributionSchema.fields,
+	operation: applyOperation,
+}).pipe(Schema.check(kernelAttributionFilter));
+export const genericImportSealInputSchema = strictStruct({
+	...kernelAttributionSchema.fields,
+	operation: sealOperation,
+}).pipe(Schema.check(kernelAttributionFilter));
+export const genericImportActivityInputSchema = strictStruct({
+	...kernelAttributionSchema.fields,
+	operation: activityOperation,
+}).pipe(Schema.check(kernelAttributionFilter));
+export const genericImportMaterializeInputSchema = strictStruct({
+	...kernelAttributionSchema.fields,
+	operation: materializeOperation,
+}).pipe(Schema.check(kernelAttributionFilter));
+export const genericImportCapturesInputSchema = strictStruct({
+	...kernelAttributionSchema.fields,
+	operation: capturesOperation,
+}).pipe(Schema.check(kernelAttributionFilter));
+export const genericImportKernelInputSchema = strictStruct({
+	...kernelAttributionSchema.fields,
+	operation: Schema.Union([
+		captureOperation,
+		applyOperation,
+		sealOperation,
+		activityOperation,
+		materializeOperation,
+		capturesOperation,
+	]),
+}).pipe(Schema.check(kernelAttributionFilter));
+
 export type GenericImportChunk = Schema.Schema.Type<typeof genericImportChunkSchema>;
+
+export const genericImportCaptureReference = defineWorkflowReference({
+	input: genericImportCaptureInputSchema,
+	output: genericImportCaptureResultSchema,
+	workflowSlug: KERNEL_PROCESS_IMPORT_CHUNKS_WORKFLOW,
+});
+export const genericImportMaterializeReference = defineWorkflowReference({
+	input: genericImportMaterializeInputSchema,
+	output: genericImportMaterializeResultSchema,
+	workflowSlug: KERNEL_PROCESS_IMPORT_CHUNKS_WORKFLOW,
+});
+export const genericImportCapturesReference = defineWorkflowReference({
+	input: genericImportCapturesInputSchema,
+	output: genericImportCapturesResultSchema,
+	workflowSlug: KERNEL_PROCESS_IMPORT_CHUNKS_WORKFLOW,
+});
+export const genericImportApplyReference = defineWorkflowReference({
+	input: genericImportApplyInputSchema,
+	output: genericImportApplyResultSchema,
+	workflowSlug: KERNEL_PROCESS_IMPORT_CHUNKS_WORKFLOW,
+});
+export const genericImportActivityReference = defineWorkflowReference({
+	input: genericImportActivityInputSchema,
+	output: genericImportActivityResultSchema,
+	workflowSlug: KERNEL_PROCESS_IMPORT_CHUNKS_WORKFLOW,
+});
+export const genericImportSealReference = defineWorkflowReference({
+	input: genericImportSealInputSchema,
+	output: genericImportSealResultSchema,
+	workflowSlug: KERNEL_PROCESS_IMPORT_CHUNKS_WORKFLOW,
+});
 export type GenericImportFailure = Schema.Schema.Type<typeof genericImportFailureSchema>;
 export type GenericImportWriteItem = Schema.Schema.Type<typeof genericImportWriteItemSchema>;
-export type GenericImportAdapterManifest = Schema.Schema.Type<
-	typeof genericImportAdapterManifestSchema
->;
-export type GenericImportWorkflowManifest = Schema.Schema.Type<
-	typeof genericImportWorkflowManifestSchema
->;

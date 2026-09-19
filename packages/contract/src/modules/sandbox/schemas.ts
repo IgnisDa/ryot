@@ -18,7 +18,8 @@ import {
 	AutomationInvocationFields,
 	AutomationPolicyInputProjection,
 } from "../automations/lifecycle";
-import { SANDBOX_HOST_CAPABILITIES } from "./wire";
+import { SandboxExecutionMetadata } from "../plugins/execution-metadata";
+import { POLICY_SAFE_SANDBOX_CAPABILITIES, SANDBOX_HOST_CAPABILITIES } from "./wire";
 
 export const ProviderInformation = Schema.Struct({
 	source: Schema.String,
@@ -33,17 +34,26 @@ export const SandboxScriptMetadata = Schema.Struct({
 	capabilities: Schema.optional(Schema.Array(Schema.String)),
 	searchOptionsSchema: Schema.optional(Schema.toType(AppSchema)),
 	requiredPluginConfigKeys: Schema.optional(Schema.Array(Schema.String)),
+	automationType: Schema.optional(Schema.Literals(["automation", "policy"])),
+	oauthConnectionFields: Schema.optional(SandboxExecutionMetadata.fields.oauthConnectionFields),
+	executableDependencies: Schema.optional(SandboxExecutionMetadata.fields.executableDependencies),
+	optionalPluginConfigKeys: Schema.optional(
+		SandboxExecutionMetadata.fields.optionalPluginConfigKeys,
+	),
 	kind: Schema.optional(
 		Schema.Literals(["script", "operation", "workflow", "provider", "automation"]),
+	),
+	inputProjection: Schema.optional(
+		Schema.Union([AutomationAfterInputProjection, AutomationPolicyInputProjection]),
 	),
 });
 
 export type SandboxScriptMetadata = Schema.Schema.Type<typeof SandboxScriptMetadata>;
 
 const SandboxScriptManifestFields = {
+	...SandboxExecutionMetadata.fields,
 	name: Schema.String,
 	slug: Schema.String,
-	requiredPluginConfigKeys: Schema.Array(Schema.String),
 	capabilities: Schema.Array(Schema.Literals([...SANDBOX_HOST_CAPABILITIES])),
 };
 
@@ -61,6 +71,7 @@ export const SandboxScriptManifest = Schema.Union([
 		kind: Schema.Literal("automation"),
 		automationType: Schema.Literal("policy"),
 		inputProjection: AutomationPolicyInputProjection,
+		capabilities: Schema.Array(Schema.Literals([...POLICY_SAFE_SANDBOX_CAPABILITIES])),
 	}),
 	Schema.Struct({
 		...SandboxScriptManifestFields,

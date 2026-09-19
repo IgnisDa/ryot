@@ -22,7 +22,6 @@ describe("workflow definitions", () => {
 					slug: "replay",
 					kind: "workflow",
 					capabilities: [],
-					requiredPluginConfigKeys: [],
 				});
 				const workflow = defineWorkflow({
 					manifest,
@@ -118,7 +117,6 @@ describe("workflow definitions", () => {
 					capabilities: [],
 					name: "Parallel replay",
 					slug: "parallel-replay",
-					requiredPluginConfigKeys: [],
 				});
 				const workflow = defineWorkflow({
 					manifest,
@@ -179,7 +177,6 @@ describe("workflow definitions", () => {
 					name: "Complete",
 					slug: "complete",
 					capabilities: [],
-					requiredPluginConfigKeys: [],
 				});
 				const workflow = defineWorkflow({
 					manifest,
@@ -228,7 +225,6 @@ describe("workflow definitions", () => {
 						name: "Mismatch",
 						slug: "mismatch",
 						capabilities: [],
-						requiredPluginConfigKeys: [],
 					}),
 				});
 
@@ -269,7 +265,6 @@ describe("workflow definitions", () => {
 					capabilities: [],
 					name: "Invalid input",
 					slug: "invalid-input",
-					requiredPluginConfigKeys: [],
 				});
 				const workflow = defineWorkflow({
 					manifest,
@@ -325,22 +320,10 @@ describe("workflow definitions", () => {
 	test("requires workflow manifests to declare no normal capabilities", () => {
 		const decode = Schema.decodeUnknownSync(sandboxManifestSchema);
 		expect(
-			decode({
-				kind: "workflow",
-				capabilities: [],
-				name: "Workflow",
-				slug: "workflow",
-				requiredPluginConfigKeys: [],
-			}),
+			decode({ kind: "workflow", capabilities: [], name: "Workflow", slug: "workflow" }),
 		).toMatchObject({ kind: "workflow", capabilities: [] });
 		expect(() =>
-			decode({
-				kind: "workflow",
-				name: "Workflow",
-				slug: "workflow",
-				capabilities: ["httpCall"],
-				requiredPluginConfigKeys: [],
-			}),
+			decode({ kind: "workflow", name: "Workflow", slug: "workflow", capabilities: ["httpCall"] }),
 		).toThrow();
 	});
 
@@ -350,64 +333,75 @@ describe("workflow definitions", () => {
 		expect(Reflect.get(Effect, "randomWith")).toBeUndefined();
 	});
 
-	test("turns a workflow body failure into a failed envelope keeping its durable requests", () =>
-		RuntimeEffect.runPromise(
-			RuntimeEffect.gen(function* () {
-				const manifest = defineManifest({
-					name: "Failing",
-					slug: "failing",
-					kind: "workflow",
-					capabilities: [],
-					requiredPluginConfigKeys: [],
-				});
-				const workflow = defineWorkflow({
-					manifest,
-					output: Schema.String,
-					input: Schema.Struct({}),
-					run: (_input, replay) =>
-						Effect.gen(function* () {
-							yield* replay.activity(
-								"step",
-								{ output: Schema.String, input: Schema.Struct({}), scriptSlug: "activity.step" },
-								{},
-							);
-							return yield* Effect.fail(new TestWorkflowFailure("invariant violated"));
-						}),
-				});
+	test.each([
+		{
+			message: "Error: invariant violated",
+			failure: new TestWorkflowFailure("invariant violated"),
+		},
+		{
+			message: "Sandbox artifact grant is unavailable",
+			failure: { _tag: "SandboxFilesystemError", message: "Sandbox artifact grant is unavailable" },
+		},
+	])(
+		"keeps durable requests and the failure message in a failed envelope: $message",
+		({ failure, message }) =>
+			RuntimeEffect.runPromise(
+				RuntimeEffect.gen(function* () {
+					const manifest = defineManifest({
+						name: "Failing",
+						slug: "failing",
+						kind: "workflow",
+						capabilities: [],
+					});
+					const workflow = defineWorkflow({
+						manifest,
+						output: Schema.String,
+						input: Schema.Struct({}),
+						run: (_input, replay) =>
+							Effect.gen(function* () {
+								yield* replay.activity(
+									"step",
+									{ output: Schema.String, input: Schema.Struct({}), scriptSlug: "activity.step" },
+									{},
+								);
+								return yield* Effect.fail(failure);
+							}),
+					});
 
-				const envelope = yield* workflow.run(
-					{},
-					{
-						replayJournal: () =>
-							RuntimeEffect.succeed([
-								{
-									value: "recorded",
-									request: {
-										index: 0,
-										name: "step",
-										kind: "activity" as const,
-										args: { input: {}, scriptSlug: "activity.step" },
-									},
-								},
-							]),
-					},
-					{ metadata: {}, sandboxScriptId: "failing" },
-				);
-
-				expect(envelope).toEqual({
-					state: "failed",
-					journalLength: 1,
-					kind: "script-failure",
-					error: "Error: invariant violated",
-					requests: [
+					const envelope = yield* workflow.run(
+						{},
 						{
-							index: 0,
-							name: "step",
-							kind: "activity",
-							args: { input: {}, scriptSlug: "activity.step" },
+							replayJournal: () =>
+								RuntimeEffect.succeed([
+									{
+										value: "recorded",
+										request: {
+											index: 0,
+											name: "step",
+											kind: "activity" as const,
+											args: { input: {}, scriptSlug: "activity.step" },
+										},
+									},
+								]),
 						},
-					],
-				});
-			}),
-		));
+						{ metadata: {}, sandboxScriptId: "failing" },
+					);
+
+					expect(envelope).toEqual({
+						error: message,
+						state: "failed",
+						journalLength: 1,
+						kind: "script-failure",
+						requests: [
+							{
+								index: 0,
+								name: "step",
+								kind: "activity",
+								args: { input: {}, scriptSlug: "activity.step" },
+							},
+						],
+					});
+				}),
+			),
+	);
 });

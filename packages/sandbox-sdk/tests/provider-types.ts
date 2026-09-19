@@ -10,7 +10,6 @@ const manifest = defineManifest({
 	kind: "provider",
 	name: "Typed provider",
 	slug: "typed.provider",
-	requiredPluginConfigKeys: [],
 	capabilities: ["getCachedValue"],
 });
 const provider = defineProvider({

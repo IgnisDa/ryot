@@ -8,7 +8,6 @@ export const manifest = defineManifest({
 	slug: "alpha",
 	kind: "script",
 	capabilities: [],
-	requiredPluginConfigKeys: ["alpha-key"],
 });
 
 export default defineScript({
