@@ -110,6 +110,11 @@ export const ingestionTestDatabase = (
 			const fingerprints = new Map<string, string>();
 			const dialect = new PgDialect();
 			return fakeDatabaseSession({
+				execute: (query: Parameters<PgDialect["sqlToQuery"]>[0]) => {
+					const [id] = dialect.sqlToQuery(query).params;
+					const fingerprint = typeof id === "string" ? (fingerprints.get(id) ?? null) : null;
+					return Effect.succeed([{ fingerprint, retiring: false }]);
+				},
 				insert: () => ({
 					values: (
 						input: Pick<typeof mutationReceipt.$inferInsert, "id" | "inputFingerprint">,
