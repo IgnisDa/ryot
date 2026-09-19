@@ -11,7 +11,6 @@ type ScriptModuleSourceInput = SandboxSourceIdentity & {
 	readonly filesystemImport?: boolean;
 	readonly sdkImports?: readonly string[];
 	readonly ryotqlImports?: readonly string[];
-	readonly requiredPluginConfigKeys?: readonly string[];
 	readonly capabilities: readonly SandboxHostCapability[];
 };
 
@@ -43,7 +42,6 @@ export const manifest = defineManifest({
   name: ${JSON.stringify(input.name)},
   slug: ${JSON.stringify(input.slug)},
   capabilities: ${JSON.stringify(input.capabilities)},
-  requiredPluginConfigKeys: ${JSON.stringify(input.requiredPluginConfigKeys ?? [])},
 });
 
 ${input.declarations ?? ""}
@@ -281,7 +279,7 @@ export function eventSchemasSandboxSource(input: SandboxSourceIdentity) {
 export function pluginConfigSandboxSource(
 	input: SandboxSourceIdentity & {
 		readonly keys: readonly string[];
-		readonly requiredPluginConfigKeys?: readonly string[];
+		readonly optionalKeys?: readonly string[];
 	},
 ) {
 	return scriptModuleSource({
@@ -290,8 +288,7 @@ export function pluginConfigSandboxSource(
 		inputSchema: "Schema.Struct({})",
 		capabilities: ["getPluginConfig"],
 		outputSchema: "Schema.Record(Schema.String, jsonValueSchema)",
-		requiredPluginConfigKeys: input.requiredPluginConfigKeys ?? input.keys,
-		run: `(_input, host) => host.getPluginConfig(${JSON.stringify(input.keys)})`,
+		run: `(_input, host) => host.getPluginConfig({ required: ${JSON.stringify(input.keys)}, optional: ${JSON.stringify(input.optionalKeys ?? [])} })`,
 	});
 }
 
@@ -465,7 +462,6 @@ import { Effect, Schema } from "@ryot-app/sandbox-sdk/effect";
 export const manifest = defineManifest({
   kind: "operation",
   capabilities: [],
-  requiredPluginConfigKeys: [],
   name: ${JSON.stringify(input.name)},
   slug: ${JSON.stringify(input.slug)},
 });
@@ -491,7 +487,6 @@ import { Effect, Schema } from "@ryot-app/sandbox-sdk/effect";
 export const manifest = defineManifest({
   kind: "operation",
   capabilities: ["getCurrentIntegration", "listIntegrations"],
-  requiredPluginConfigKeys: [],
   name: ${JSON.stringify(input.name)},
   slug: ${JSON.stringify(input.slug)},
 });
@@ -524,7 +519,6 @@ import { Effect, Schema } from "@ryot-app/sandbox-sdk/effect";
 export const manifest = defineManifest({
   kind: "operation",
   capabilities: ["getPluginConfig"],
-  requiredPluginConfigKeys: [${configKey}],
   name: ${JSON.stringify(input.name)},
   slug: ${JSON.stringify(input.slug)},
 });
@@ -534,7 +528,7 @@ export default defineOperation({
   input: Schema.Struct({ prefix: Schema.String }),
   output: Schema.Struct({ label: Schema.String }),
   run: (input, host) => Effect.gen(function* () {
-    const config = yield* host.getPluginConfig([${configKey}]);
+    const config = yield* host.getPluginConfig({ required: [${configKey}] });
     const value = String(config[${configKey}]);
     return { label: input.prefix + ":" + (${input.transform ?? "value"}) };
   }),

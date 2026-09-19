@@ -25,7 +25,6 @@ import { entityReadRecipe, executeRyotqlRecipe } from "@ryot-app/sandbox-sdk/ryo
 
 export const manifest = defineManifest({
   kind: "operation",
-  requiredPluginConfigKeys: [],
   name: ${JSON.stringify(input.name)},
   slug: ${JSON.stringify(input.slug)},
   capabilities: [
@@ -80,6 +79,7 @@ export default defineOperation({
       "tracer-child",
       {
         workflowSlug: "tracer-child",
+        referenceKind: "workflow" as const,
         input: Schema.Struct({ value: Schema.String }),
         output: Schema.String,
       },
@@ -107,7 +107,6 @@ import { defineManifest, defineWorkflow, Effect, Schema } from "@ryot-app/sandbo
 export const manifest = defineManifest({
   kind: "workflow",
   capabilities: [],
-  requiredPluginConfigKeys: [],
   name: ${JSON.stringify(input.name)},
   slug: ${JSON.stringify(input.slug)},
 });

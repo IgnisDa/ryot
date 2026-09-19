@@ -14,7 +14,6 @@ export const manifest = defineManifest({
   name: ${JSON.stringify(input.name)},
   slug: ${JSON.stringify(input.slug)},
   capabilities: ["upsertGlobalEntities", "upsertGlobalRelationships"],
-  requiredPluginConfigKeys: [],
 });
 
 const trendingResultSchema = Schema.Struct({

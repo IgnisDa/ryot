@@ -243,7 +243,7 @@ describe("sandbox async flow", () => {
 		}),
 	);
 
-	it.live("rejects an undeclared plugin config key", () =>
+	it.live("omits missing optional plugin config", () =>
 		Effect.gen(function* () {
 			const { client, userId } = yield* createAuthenticatedClient();
 			const slug = `undeclared-plugin-config-value-${crypto.randomUUID()}`;
@@ -255,22 +255,17 @@ describe("sandbox async flow", () => {
 				capabilities: ["getPluginConfig"],
 				configSchema: configFixtureSchema,
 				pluginSlug: configFixturePluginSlug,
-				config: { fixtureLimit: 17, fixtureValue: "sandbox-plugin-config-value" },
+				config: { fixtureValue: "sandbox-plugin-config-value" },
 				source: pluginConfigSandboxSource({
 					slug,
-					keys: ["fixtureValue"],
-					requiredPluginConfigKeys: [],
+					keys: [],
+					optionalKeys: ["fixtureLimit"],
 					name: "undeclared-plugin-config",
 				}),
 			});
 			const { jobId } = yield* enqueueSandboxScript(userId, { scriptId });
 
-			const result = yield* pollSandboxResult(userId, jobId);
-			assertCompleted(result, "sandbox job");
-			expect(result.error).toMatchObject({
-				phase: "execute",
-				message: 'Plugin config key "fixtureValue" is not declared by this script',
-			});
+			expect(requireCompletedSandboxValue(yield* pollSandboxResult(userId, jobId))).toEqual({});
 		}),
 	);
 

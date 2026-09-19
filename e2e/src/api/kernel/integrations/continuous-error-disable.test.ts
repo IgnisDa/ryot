@@ -47,12 +47,12 @@ describe("integration auto-disable on continuous errors", () => {
 					extraSettings: { disableOnContinuousErrors: true },
 				});
 
-				// An empty payload passes the contract schema but fails Kodi sink parsing,
-				// producing a genuinely failed run on an enabled integration. The runs must be
-				// sequential so the recent-status window sees 5 consecutive failures.
 				for (let attempt = 0; attempt < 5; attempt++) {
 					const { run } = yield* postIntegrationWebhookAndWait(client, integration, {});
-					expect(run.status).toBe("failed");
+					expect(run).toMatchObject({
+						status: "failed",
+						failureReason: { code: "input-transformation-failed" },
+					});
 				}
 
 				const disabled = yield* pollUntil(
@@ -84,14 +84,15 @@ describe("integration auto-disable on continuous errors", () => {
 					fakeApprise.requests.filter((request) => request.path === "/notify/disabled"),
 				).toEqual([]);
 
-				// A further webhook fails fast at the disabled-integration guard without
-				// running the workflow, so no duplicate notification is produced.
 				const { run: afterDisableRun } = yield* postIntegrationWebhookAndWait(
 					client,
 					integration,
 					{},
 				);
-				expect(afterDisableRun.status).toBe("failed");
+				expect(afterDisableRun).toMatchObject({
+					status: "failed",
+					failureReason: { code: "integration-disabled" },
+				});
 
 				yield* Effect.sleep(Duration.millis(3000));
 				expect(

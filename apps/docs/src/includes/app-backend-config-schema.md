@@ -7,8 +7,8 @@
 | App Config Key | Variable | Description | Required | Sensitive | Default |
 |---|---|---|---|---|---|
 | `port` | `PORT` | HTTP port the server listens on | No | No | `8000` |
-| `redisUrl` | `REDIS_URL` | Redis connection string | Yes | Yes | — |
 | `timezone` | `TZ` | IANA timezone used for plugin cron schedules | No | No | `Etc/GMT` |
+| `redisUrl` | `REDIS_URL` | Redis connection string | Yes | Yes | — |
 | `disableTelemetry` | `DISABLE_TELEMETRY` | Disable anonymous usage analytics reported by the client | No | No | `false` |
 | `frontendUrl` | `FRONTEND_URL` | Exact origin users browse to; defines OAuth issuer and callbacks. HTTPS strongly recommended | Yes | No | `https://app.ryot.io` |
 

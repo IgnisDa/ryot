@@ -19,9 +19,11 @@ describe.skipIf(!RUN_LIVE)("live fitness import smoke (real external APIs)", () 
 				expect(completedRun.id).toBe(ImportRunId.make(runId));
 				expect(completedRun.source).toBe("hevy");
 				expect(completedRun.status).toBe("completed");
-				expect(completedRun.failedItems).toBe(0);
-				expect(completedRun.importedItems).toBeGreaterThan(0);
-				expect(completedRun.progress).toBe(100);
+				expect(completedRun.summary.every(({ counts }) => counts.unsuccessful === 0)).toBe(true);
+				expect(
+					completedRun.summary.find(({ unit }) => unit === "workouts")?.counts.created,
+				).toBeGreaterThan(0);
+				expect(completedRun.activities.every(({ state }) => state === "completed")).toBe(true);
 			}),
 		300_000,
 	);

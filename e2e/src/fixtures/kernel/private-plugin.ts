@@ -258,39 +258,32 @@ export const updatePrivatePlugin = (input: {
 
 const privateImportWorkflowSource = (scriptSlug: string) => `
 import {
-  genericImportKernelInputSchema,
+  genericImportSealReference,
   genericImportWorkflowInputSchema,
   genericImportWorkflowResultSchema,
 } from "@ryot-app/sandbox-sdk/imports";
-import { defineManifest, defineWorkflow } from "@ryot-app/sandbox-sdk/workflow";
+import { Effect, defineManifest, defineWorkflow } from "@ryot-app/sandbox-sdk/workflow";
 
 export const manifest = defineManifest({
   kind: "workflow",
   capabilities: [],
   name: "E2E private import",
-  requiredPluginConfigKeys: [],
   slug: ${JSON.stringify(scriptSlug)},
 });
-
-const kernelImport = {
-  input: genericImportKernelInputSchema,
-  output: genericImportWorkflowResultSchema,
-  workflowSlug: "kernel:process-import-chunks",
-};
 
 export default defineWorkflow({
   manifest,
   input: genericImportWorkflowInputSchema,
   output: genericImportWorkflowResultSchema,
   run: (input, replay) =>
-    replay.child("complete-import", kernelImport, {
-      totalItems: 0,
-      failureCount: 0,
-      chunkHandles: [],
-      writeItemCount: 0,
-      runId: input.runId,
-      command: input.command,
-    }),
+     Effect.gen(function* () {
+     const sealed = yield* replay.child("complete-import", genericImportSealReference, {
+       operation: { action: "seal" },
+       runId: input.runId,
+       command: input.command,
+     });
+     return { summary: sealed.summary, issues: [] };
+     }),
 });
 `;
 
@@ -302,7 +295,6 @@ import { Effect, Schema } from "@ryot-app/sandbox-sdk/effect";
 export const manifest = defineManifest({
   capabilities: [],
   kind: "operation",
-  requiredPluginConfigKeys: [],
   name: "E2E private integration operation",
   slug: ${JSON.stringify(scriptSlug)},
 });
@@ -353,6 +345,15 @@ export const privateImportPluginPackage = (
 	const manifest = testPluginManifest({
 		pluginSlug,
 		workflows: [{ scriptSlug, slug: workflowSlug }],
+		importSources: [
+			{
+				name,
+				workflowSlug,
+				slug: sourceSlug,
+				description: name,
+				inputSchema: { fields: {}, unknownKeys: "strict" },
+			},
+		],
 		scripts: [
 			{
 				entry,
@@ -361,16 +362,6 @@ export const privateImportPluginPackage = (
 				capabilities: [],
 				name: "E2E private import",
 				requiredPluginConfigKeys: [],
-			},
-		],
-		importSources: [
-			{
-				name,
-				workflowSlug,
-				slug: sourceSlug,
-				description: name,
-				requiredPluginConfigKeys: [],
-				inputSchema: { fields: {}, unknownKeys: "strict" },
 			},
 		],
 	});

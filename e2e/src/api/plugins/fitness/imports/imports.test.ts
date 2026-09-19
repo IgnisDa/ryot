@@ -25,10 +25,32 @@ describe("OpenScale Import E2E", () => {
 			expect(completedRun.id).toBe(ImportRunId.make(runId));
 			expect(completedRun.status).toBe("completed");
 			expect(completedRun.source).toBe("open_scale");
-			expect(completedRun.importedItems).toBeGreaterThan(0);
-			expect(completedRun.totalItems).toBe(3);
-			expect(completedRun.failedItems).toBe(0);
-			expect(completedRun.progress).toBe(100);
+			expect(completedRun.summary).toEqual([
+				{
+					unit: "measurements",
+					recordKind: "measurements",
+					counts: { created: 3, updated: 0, skipped: 0, unchanged: 0, unsuccessful: 0 },
+				},
+			]);
+			expect(completedRun.activities.every(({ state }) => state === "completed")).toBe(true);
+			expect(completedRun.activities).toEqual(
+				expect.arrayContaining([
+					expect.objectContaining({
+						completed: 3,
+						unit: "records",
+						kind: "preparing",
+						state: "completed",
+						id: "normalization",
+					}),
+					expect.objectContaining({
+						completed: 3,
+						kind: "writing",
+						id: "application",
+						state: "completed",
+						unit: "measurements",
+					}),
+				]),
+			);
 			expect(completedRun.startedAt).not.toBeNull();
 			expect(completedRun.finishedAt).not.toBeNull();
 
@@ -138,30 +160,34 @@ describe("OpenScale Import E2E", () => {
 			const completedRun = yield* pollImportRunUntilTerminal(client, runId);
 
 			expect(completedRun.status).toBe("completed");
-			expect(completedRun.failedItems).toBeGreaterThan(0);
-			expect(completedRun.importedItems).toBeGreaterThan(0);
-			expect(completedRun.totalItems).toBe(3);
-			expect(completedRun.processedItems).toBe(3);
-			expect(completedRun.importedItems).toBe(1);
-			expect(completedRun.failedItems).toBe(2);
+			expect(completedRun.summary).toEqual([
+				{
+					unit: "measurements",
+					recordKind: "measurements",
+					counts: { created: 1, updated: 0, skipped: 0, unchanged: 0, unsuccessful: 2 },
+				},
+			]);
 
 			const runData = yield* getImportRun(client, runId, undefined, 20);
 
-			expect(runData.failures.items.length).toBeGreaterThan(0);
-			expect(runData.failures.items).toMatchObject([
-				{
-					itemIndex: 1,
-					sourceLabel: "Row 2",
-					sourceIdentifier: "2",
-					reason: { code: "input-transformation-failed" },
-				},
-				{
-					itemIndex: 2,
-					sourceLabel: "2026-01-03 08:00",
-					sourceIdentifier: "2026-01-03T08:00:00.000Z",
-					reason: { code: "input-transformation-failed" },
-				},
-			]);
+			expect(runData.issues.items).toHaveLength(2);
+			expect(runData.issues.items.map(({ data }) => data)).toEqual(
+				expect.arrayContaining([
+					expect.objectContaining({
+						recordKind: "measurements",
+						reason: { key: null, code: "input-transformation-failed" },
+						attribution: expect.objectContaining({ sourceLabel: "Row 2", sourceIdentifier: "2" }),
+					}),
+					expect.objectContaining({
+						recordKind: "measurements",
+						reason: { key: null, code: "input-transformation-failed" },
+						attribution: expect.objectContaining({
+							sourceLabel: "2026-01-03 08:00",
+							sourceIdentifier: "2026-01-03T08:00:00.000Z",
+						}),
+					}),
+				]),
+			);
 		}),
 	);
 });
