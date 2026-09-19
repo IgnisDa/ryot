@@ -16,7 +16,7 @@ describe("upload response schemas", () => {
 		};
 		const response = [item];
 
-		expect(Schema.decodeUnknownSync(DownloadResolutionResponse)(response)).toEqual(response);
+		expect(Schema.decodeSync(DownloadResolutionResponse)(response)).toEqual(response);
 		expect(() =>
 			Schema.decodeUnknownSync(DownloadResolutionResponse)([
 				{ asset: item.asset, downloadUrl: item.downloadUrl },
@@ -29,9 +29,9 @@ describe("upload response schemas", () => {
 			type: "local" as const,
 			key: `permanent/${index}.png`,
 		}));
-		expect(Schema.decodeUnknownSync(DownloadResolutionInput)({ assets })).toEqual({ assets });
+		expect(Schema.decodeSync(DownloadResolutionInput)({ assets })).toEqual({ assets });
 		expect(() =>
-			Schema.decodeUnknownSync(DownloadResolutionInput)({
+			Schema.decodeSync(DownloadResolutionInput)({
 				assets: [...assets, { type: "local", key: "permanent/overflow.png" }],
 			}),
 		).toThrow();

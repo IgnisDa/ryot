@@ -14,7 +14,7 @@ describe("JsonValue", () => {
 		const value = { left: shared, right: nullPrototype, list: [null, "text", 42, false] };
 
 		expect(isJsonValue(value)).toBe(true);
-		expect(Schema.decodeUnknownSync(JsonValue)(value)).toBe(value);
+		expect(Schema.decodeSync(JsonValue)(value)).toBe(value);
 	});
 
 	it("rejects non-JSON scalar and object values", () => {

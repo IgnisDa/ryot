@@ -94,9 +94,9 @@ export const UploadFailureReason = Schema.Union([
 		code: Schema.Literal("asset-content-type-unsupported"),
 	}),
 	Schema.Struct({
-		maxBytes: Schema.Number,
+		maxBytes: Schema.Finite,
 		code: Schema.Literal("upload-too-large"),
-		actualBytes: Schema.NullOr(Schema.Number),
+		actualBytes: Schema.NullOr(Schema.Finite),
 	}),
 	Schema.Struct({
 		expected: Schema.String,

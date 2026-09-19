@@ -244,7 +244,7 @@ export const PluginSavedView = strictStruct({
 	icon: Schema.String,
 	name: Schema.String,
 	slug: Schema.String,
-	sortOrder: Schema.Number,
+	sortOrder: Schema.Finite,
 	renderer: AuthoredSavedViewRenderer,
 	pluginSlug: Schema.NullOr(Schema.String),
 	dataSources: Schema.NullOr(PluginQueryDocument),
@@ -292,7 +292,7 @@ const httpOrigin = Schema.String.pipe(
 		encode: SchemaGetter.transform((value) => normalizeHttpOrigin(value) ?? value),
 	}),
 );
-const safePositiveInteger = Schema.Number.pipe(
+const safePositiveInteger = Schema.Finite.pipe(
 	Schema.check(
 		Schema.makeFilter((value) =>
 			Number.isSafeInteger(value) && value > 0 ? true : "Expected a safe positive integer",
@@ -615,7 +615,7 @@ export const PluginHook = Schema.Union([
 		stage: Schema.Literal("before"),
 		batchFrequency: Schema.optional(Schema.Literals(["item", "once-per-subject"])),
 		position: Schema.optional(
-			Schema.Number.pipe(Schema.check(Schema.makeFilter((n) => Number.isSafeInteger(n)))),
+			Schema.Finite.pipe(Schema.check(Schema.makeFilter((n) => Number.isSafeInteger(n)))),
 		),
 	}).pipe(
 		Schema.check(
