@@ -5,6 +5,7 @@ import {
 } from "@paddle/paddle-node-sdk";
 import { desc, eq, type InferSelectModel } from "drizzle-orm";
 import { Effect } from "effect";
+import type { HttpClient } from "effect/unstable/http";
 import { data } from "react-router";
 
 import { customerPurchase, type customer } from "~/drizzle/schema.server";
@@ -16,6 +17,7 @@ import {
 } from "~/lib/customer-lookup.server";
 import { fromPromise, type WebsiteFailure } from "~/lib/effect.server";
 import { handlePurchaseOrRenewal, revokePurchase } from "~/lib/provisioning.server";
+import { runPromise } from "~/lib/runtime.server";
 import { getPaddleServerClient, getProductAndPlanTypeByPriceId } from "~/lib/utilities.server";
 
 import type { Route } from "./+types/paddle-webhook";
@@ -44,7 +46,7 @@ function findOrCreateCustomer(
 
 function handleTransactionCompleted(
 	paddleData: TransactionNotification,
-): Effect.Effect<WebhookResponse, WebsiteFailure> {
+): Effect.Effect<WebhookResponse, WebsiteFailure, HttpClient.HttpClient> {
 	return Effect.gen(function* () {
 		const paddleCustomerId = paddleData.customerId;
 		if (!paddleCustomerId) {
@@ -81,7 +83,7 @@ function handleTransactionCompleted(
 
 function handleSubscriptionCancelled(
 	paddleData: SubscriptionNotification,
-): Effect.Effect<WebhookResponse, WebsiteFailure> {
+): Effect.Effect<WebhookResponse, WebsiteFailure, HttpClient.HttpClient> {
 	return Effect.gen(function* () {
 		const customerId = paddleData.customerId;
 		if (!customerId) {
@@ -135,7 +137,7 @@ function handleSubscriptionResumed(
 }
 
 export const action = ({ request }: Route.ActionArgs) =>
-	Effect.runPromise(
+	runPromise(
 		Effect.gen(function* () {
 			const paddleSignature = request.headers.get("paddle-signature");
 			if (!paddleSignature) {

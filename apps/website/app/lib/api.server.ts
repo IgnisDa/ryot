@@ -1,17 +1,21 @@
-import { type ContractPayload, type ContractProgram, runContract } from "@ryot-app/contract/client";
+import {
+	type ContractPayload,
+	type ContractProgram,
+	makeContractClient,
+} from "@ryot-app/contract/client";
 import type { UserId } from "@ryot-app/contract/schema/brands";
+import { Effect } from "effect";
 
 import { getServerVariables } from "./config.server";
-import { fromPromise } from "./effect.server";
+import { WebsiteFailure } from "./effect.server";
 
 const runAdmin = <A, E>(program: ContractProgram<A, E>) => {
 	const serverVariables = getServerVariables();
-
-	return fromPromise(() =>
-		runContract(program, {
-			baseUrl: `${serverVariables.RYOT_BASE_URL}/api`,
-			headers: { "Admin-Access-Token": serverVariables.SERVER_ADMIN_ACCESS_TOKEN },
-		}),
+	return makeContractClient(`${serverVariables.RYOT_BASE_URL}/api`, {
+		"Admin-Access-Token": serverVariables.SERVER_ADMIN_ACCESS_TOKEN,
+	}).pipe(
+		Effect.flatMap(program),
+		Effect.mapError((cause) => new WebsiteFailure({ cause })),
 	);
 };
 
