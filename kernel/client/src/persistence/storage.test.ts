@@ -1,5 +1,5 @@
 import { describe, expect, it } from "@effect/vitest";
-import { SandboxProviderId } from "@ryot-app/contract/schema/brands";
+import { PluginSlug, SandboxProviderId } from "@ryot-app/contract/schema/brands";
 import { Effect } from "effect";
 
 import { decodeServerOrigin } from "#/api/origin";
@@ -7,6 +7,8 @@ import {
 	ClientStorage,
 	clientStorageLayer,
 	lastWorkspaceKey,
+	pluginStorageKey,
+	PluginStorageQuotaError,
 	rememberedProviderKey,
 	SERVER_SELECTION_KEY,
 	savedViewLayoutKey,
@@ -204,6 +206,69 @@ describe("browser persistence", () => {
 			expect(yield* service.getRememberedProvider(scope, "book")).toBeNull();
 			yield* service.setRememberedProvider(scope, "book", SandboxProviderId.make("provider-1"));
 			expect(yield* service.getRememberedProvider(scope, "movie")).toBeNull();
+		}).pipe(Effect.provide(clientStorageLayer(storage)));
+	});
+
+	it.effect("partitions plugin values by server, user, plugin, and key", () => {
+		const firstScope = { userId: "user-1", serverUrl: oneOrigin };
+		const secondUser = { userId: "user-2", serverUrl: oneOrigin };
+		const secondServer = { userId: "user-1", serverUrl: twoOrigin };
+		const media = PluginSlug.make("media");
+		const fitness = PluginSlug.make("fitness");
+		const { values, storage } = makeStorage();
+
+		return Effect.gen(function* () {
+			const service = yield* ClientStorage;
+			yield* service.setPluginValue(firstScope, media, "order", { order: "aired" });
+			yield* service.setPluginValue(firstScope, media, "other", 1);
+			yield* service.setPluginValue(firstScope, fitness, "order", 2);
+			yield* service.setPluginValue(secondUser, media, "order", 3);
+			yield* service.setPluginValue(secondServer, media, "order", 4);
+
+			expect(
+				values.get('ryot:plugin-storage:["https://one.example.com","user-1"]:media:order'),
+			).toBe('{"order":"aired"}');
+			expect(yield* service.getPluginValue(firstScope, media, "order")).toEqual({ order: "aired" });
+			expect(yield* service.getPluginValue(firstScope, media, "other")).toBe(1);
+			expect(yield* service.getPluginValue(firstScope, fitness, "order")).toBe(2);
+			expect(yield* service.getPluginValue(secondUser, media, "order")).toBe(3);
+			expect(yield* service.getPluginValue(secondServer, media, "order")).toBe(4);
+
+			yield* service.removePluginValue(firstScope, media, "order");
+			expect(yield* service.getPluginValue(firstScope, media, "order")).toBeNull();
+			expect(yield* service.getPluginValue(firstScope, media, "other")).toBe(1);
+		}).pipe(Effect.provide(clientStorageLayer(storage)));
+	});
+
+	it.effect("reads missing or unparseable plugin values as null", () => {
+		const scope = { userId: "user-1", serverUrl: oneOrigin };
+		const media = PluginSlug.make("media");
+		const { values, storage } = makeStorage();
+
+		return Effect.gen(function* () {
+			const service = yield* ClientStorage;
+			expect(yield* service.getPluginValue(scope, media, "order")).toBeNull();
+			values.set(pluginStorageKey(scope, media, "order"), "{not json");
+			expect(yield* service.getPluginValue(scope, media, "order")).toBeNull();
+		}).pipe(Effect.provide(clientStorageLayer(storage)));
+	});
+
+	it.effect("surfaces a rejected plugin value write as a quota failure", () => {
+		const scope = { userId: "user-1", serverUrl: oneOrigin };
+		const storage: BrowserStorage = {
+			getItem: () => null,
+			removeItem: () => undefined,
+			setItem: () => {
+				throw new DOMException("full", "QuotaExceededError");
+			},
+		};
+
+		return Effect.gen(function* () {
+			const service = yield* ClientStorage;
+			const error = yield* Effect.flip(
+				service.setPluginValue(scope, PluginSlug.make("media"), "order", 1),
+			);
+			expect(error).toBeInstanceOf(PluginStorageQuotaError);
 		}).pipe(Effect.provide(clientStorageLayer(storage)));
 	});
 
