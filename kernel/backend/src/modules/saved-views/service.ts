@@ -19,7 +19,6 @@ import { slugify } from "#lib/shared/slug";
 import { trimToNull } from "#lib/shared/validation";
 import { DefinitionRepository } from "#modules/definition-registry/repository";
 import { PluginCatalogInvalidator } from "#modules/plugins/catalog-events";
-import { ClientSurfaceMaterializer } from "#modules/plugins/client-surface-materializer";
 import { PluginInstallationRepository } from "#modules/plugins/installation-repository";
 import { PluginRepository } from "#modules/plugins/repository";
 import { PluginRuntimeResolver } from "#modules/plugins/runtime-resolver";
@@ -34,12 +33,13 @@ export class SavedViewsService extends Context.Service<SavedViewsService>()("Sav
 		const pluginRuntime = yield* PluginRuntimeResolver;
 		const definitions = yield* DefinitionRepository;
 		const invalidator = yield* PluginCatalogInvalidator;
-		const surfaces = yield* ClientSurfaceMaterializer;
 		const installations = yield* PluginInstallationRepository;
 		const pluginRepository = yield* PluginRepository;
 		const session = yield* DatabaseSession;
-		const transact = <A, E, R>(work: Effect.Effect<A, E, R>) =>
-			session.transaction(work).pipe(Effect.catchTag("DatabaseSessionStateError", Effect.die));
+		const transact = <A, E, R>(userId: UserId, work: Effect.Effect<A, E, R>) =>
+			session
+				.transaction(work.pipe(Effect.tap(() => invalidator.recordUser(userId))))
+				.pipe(Effect.catchTag("DatabaseSessionStateError", Effect.die));
 		const resolvePluginInstallation = Effect.fn(function* (
 			userId: CurrentUserValue["id"],
 			pluginSlug: PluginSlug,
@@ -114,9 +114,9 @@ export class SavedViewsService extends Context.Service<SavedViewsService>()("Sav
 				payload.settings,
 				payload.dataSources,
 			);
-			yield* surfaces.materializeRenderer(user.id, payload.renderer);
 			const created = yield* mapDatabaseErrors(
 				transact(
+					user.id,
 					Effect.gen(function* () {
 						yield* pluginRepository.lockIngestionShared();
 						const [builtin] = yield* session.run((transaction) =>
@@ -221,11 +221,9 @@ export class SavedViewsService extends Context.Service<SavedViewsService>()("Sav
 						reason: { viewSlug, code: "builtin-view-immutable" },
 					});
 				}
-				if (previous.isHidden && !payload.isHidden) {
-					yield* surfaces.materializeRenderer(user.id, previous.renderer);
-				}
 				const updated = yield* mapDatabaseErrors(
 					transact(
+						user.id,
 						Effect.gen(function* () {
 							yield* session.acquireUserWriteLock(user.id);
 							const current = yield* repository.findBySlug(user.id, viewSlug);
@@ -276,10 +274,10 @@ export class SavedViewsService extends Context.Service<SavedViewsService>()("Sav
 					payload.settings ?? previous.settings,
 					payload.dataSources === undefined ? previous.dataSources : payload.dataSources,
 				);
-				yield* surfaces.materializeRenderer(user.id, nextRenderer);
 			}
 			const { updated, reenabled, rendererChanged } = yield* mapDatabaseErrors(
 				transact(
+					user.id,
 					Effect.gen(function* () {
 						yield* session.acquireUserWriteLock(user.id);
 						const current = yield* repository.lockBySlug(user.id, viewSlug);
@@ -316,6 +314,7 @@ export class SavedViewsService extends Context.Service<SavedViewsService>()("Sav
 		const deleteView = Effect.fn(function* (user: CurrentUserValue, viewSlug: string) {
 			const deleted = yield* mapDatabaseErrors(
 				transact(
+					user.id,
 					Effect.gen(function* () {
 						yield* session.acquireUserWriteLock(user.id);
 						const effectiveView = yield* repository.findBySlug(user.id, viewSlug);
@@ -355,8 +354,9 @@ export class SavedViewsService extends Context.Service<SavedViewsService>()("Sav
 		});
 
 		const reorder = Effect.fn(function* (user: CurrentUserValue, payload: ReorderSavedViewsBody) {
-			return yield* mapDatabaseErrors(
+			const result = yield* mapDatabaseErrors(
 				transact(
+					user.id,
 					Effect.gen(function* () {
 						yield* session.acquireUserWriteLock(user.id);
 						const pluginInstallationId = payload.pluginSlug
@@ -403,6 +403,8 @@ export class SavedViewsService extends Context.Service<SavedViewsService>()("Sav
 					}),
 				),
 			);
+			yield* invalidator.user(user.id);
+			return result;
 		});
 
 		return { clone, create, update, reorder, delete: deleteView, hasCustomInstallationReferences };

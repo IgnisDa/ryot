@@ -158,6 +158,7 @@ export class PluginIngestionService extends Context.Service<PluginIngestionServi
 							if (environmentResolution === "immediate") {
 								yield* repository.resolveEnvironmentConfig(authoritative);
 							}
+							yield* invalidator.recordAll;
 							return authoritative;
 						}),
 					);
@@ -192,6 +193,7 @@ export class PluginIngestionService extends Context.Service<PluginIngestionServi
 						if (environmentResolution === "immediate") {
 							yield* repository.resolveEnvironmentConfig(entry);
 						}
+						yield* invalidator.recordAll;
 						return entry;
 					}),
 				);
@@ -283,6 +285,7 @@ export class PluginIngestionService extends Context.Service<PluginIngestionServi
 							});
 						}
 						yield* repository.deactivate(plugin.id);
+						yield* invalidator.recordAll;
 						return plugin.id;
 					}),
 				);
