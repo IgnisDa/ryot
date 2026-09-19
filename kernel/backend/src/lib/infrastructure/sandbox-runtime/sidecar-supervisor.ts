@@ -781,6 +781,7 @@ export class SandboxSidecarSupervisor extends Context.Service<SandboxSidecarSupe
 							...result.done.usage,
 							tier: key.tier,
 							trust: key.trust,
+							lane: options.lane,
 							outcome: result.done.outcome.status,
 							kind: sandboxMetricKind(options.principal.metadata),
 						};

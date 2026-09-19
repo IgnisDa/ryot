@@ -335,6 +335,7 @@ pub struct Console {
 pub struct Usage {
     pub heap_bytes: u64,
     pub external_bytes: u64,
+    pub cpu_wait_ms: u64,
 }
 
 #[derive(Debug, Serialize, Deserialize)]

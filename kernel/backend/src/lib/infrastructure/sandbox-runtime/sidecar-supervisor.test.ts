@@ -300,9 +300,9 @@ const makeRecordingHarness = Effect.gen(function* () {
 				type: "done",
 				handle: run.handle,
 				generation: run.generation,
-				usage: { heapBytes: 0, externalBytes: 0 },
 				console: { entries: [], truncated: false },
 				outcome: { value: null, status: "completed" },
+				usage: { cpuWaitMs: 0, heapBytes: 0, externalBytes: 0 },
 			} satisfies DoneFrame).pipe(Effect.asVoid),
 		emit: (generation, frame) => {
 			const record = recordFor(generation);
@@ -1605,8 +1605,8 @@ supervisorTest("inline_settlement_pauses_only_script_time_with_ceilings_and_back
 				handle: run.handle,
 				generation: run.generation,
 				outcome: { status: "cancelled" },
-				usage: { heapBytes: 0, externalBytes: 0 },
 				console: { entries: [], truncated: false },
+				usage: { cpuWaitMs: 0, heapBytes: 0, externalBytes: 0 },
 			});
 			expect((yield* Fiber.join(runFiber)).done.outcome).toEqual({ status: "cancelled" });
 			expect(connection.finalized).toBe(false);
@@ -1695,8 +1695,8 @@ supervisorTest("per_handle_bounds_admit_honest_maximum_concurrency", () =>
 				handle: run.handle,
 				generation: run.generation,
 				outcome: { status: "cancelled" },
-				usage: { heapBytes: 0, externalBytes: 0 },
 				console: { entries: [], truncated: false },
+				usage: { cpuWaitMs: 0, heapBytes: 0, externalBytes: 0 },
 			});
 			const failure = yield* Effect.flip(Fiber.join(runFiber));
 			expect(failure.message).toBe("Sandbox sidecar returned an invalid execution payload");
