@@ -1,7 +1,10 @@
 #!/usr/bin/env bun
 
 import { BunRuntime, BunServices } from "@effect/platform-bun";
-import { compileClientPluginModule } from "@ryot-app/client-plugin-compiler";
+import {
+	clientPluginCompilerPlatformLayer,
+	compileClientPluginModule,
+} from "@ryot-app/client-plugin-compiler";
 import {
 	isPluginSourceFile,
 	pluginClientFileExtension,
@@ -17,11 +20,12 @@ import {
 	type PluginArchivePackage,
 } from "@ryot-app/plugin-archive";
 import type { SandboxCompilerDiagnostic } from "@ryot-app/sandbox-compiler/diagnostics";
+import { sandboxCompilerPlatformLayer } from "@ryot-app/sandbox-compiler/platform";
 import {
 	derivePluginSandboxScripts,
 	pluginScriptCompileMismatchIssue,
 } from "@ryot-app/sandbox-compiler/plugin-manifest";
-import { Clock, Data, Effect, FileSystem, Option, Path, Schema, Stream } from "effect";
+import { Clock, Data, Effect, FileSystem, Layer, Option, Path, Schema, Stream } from "effect";
 import { Command, Flag } from "effect/unstable/cli";
 import { ChildProcess, ChildProcessSpawner } from "effect/unstable/process";
 
@@ -56,7 +60,7 @@ const loadManifest = Effect.fn("loadManifest")(function* (cwd: string) {
 	const fs = yield* FileSystem.FileSystem;
 	const packageJsonPath = path.join(cwd, "package.json");
 	const packageJsonSource = yield* fs.readFileString(packageJsonPath);
-	const packageJson = yield* Schema.decodeUnknownEffect(Schema.fromJsonString(PackageJson))(
+	const packageJson = yield* Schema.decodeEffect(Schema.fromJsonString(PackageJson))(
 		packageJsonSource,
 	).pipe(
 		Effect.mapError(
@@ -247,10 +251,7 @@ const buildPlugin = Effect.fn("buildPlugin")(function* ({ cwd, output }: BuildOp
 	const sources = yield* collectSources(cwd);
 	const { scripts, compiledScripts } = yield* deriveManifestScripts(sources);
 	const compiledClient = yield* compileClientArtifact(authored, sources);
-	const manifest = yield* Schema.decodeUnknownEffect(PluginManifestSchema)({
-		...authored,
-		scripts,
-	}).pipe(
+	const manifest = yield* Schema.decodeEffect(PluginManifestSchema)({ ...authored, scripts }).pipe(
 		Effect.mapError(
 			(error) => new BuildError({ message: `Invalid plugin manifest: ${String(error)}` }),
 		),
@@ -401,5 +402,16 @@ const cli = Command.make("ryot").pipe(Command.withSubcommands([pluginCommand]));
 const program = Command.run(cli, { version: "0.0.0" });
 
 if (import.meta.main) {
-	BunRuntime.runMain(program.pipe(Effect.provide(BunServices.layer)));
+	BunRuntime.runMain(
+		program.pipe(
+			// oxlint-disable-next-line effecttsgo/strict-effect-provide -- The CLI main module is the runtime entrypoint
+			Effect.provide(
+				Layer.mergeAll(
+					BunServices.layer,
+					sandboxCompilerPlatformLayer,
+					clientPluginCompilerPlatformLayer,
+				),
+			),
+		),
+	);
 }

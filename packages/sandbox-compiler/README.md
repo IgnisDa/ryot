@@ -6,16 +6,18 @@ uses `@ryot-app/vite-compiler` for the complete Deno ESM build profile and scope
 
 ## Public Entrypoints And Callers
 
-| Entrypoint                                | Public surface                                                                                   | Main callers                                                              |
-| ----------------------------------------- | ------------------------------------------------------------------------------------------------ | ------------------------------------------------------------------------- |
-| `./worker`                                | Standalone JSON stdin/stdout compiler worker                                                     | The kernel sandbox compiler supervisor and the packaged-worker smoke test |
-| `./builtins`                              | `compileBuiltInSandboxEntry`, `compileBuiltInSandboxEntries`, and `compileSandboxPackageEntries` | Built-in compiler tests and backend tooling                               |
-| `./plugins`                               | `compilePluginSandboxEntries`, `compilePluginSandboxSourceEntries`, and entry-path helpers       | Kernel plugin bootstrap and sandbox runner tests                          |
-| `./plugin-manifest`                       | `derivePluginSandboxScripts` and `compilePluginManifestScripts`                                  | `ryot plugin build` and kernel plugin ingestion                           |
-| `./protocol`, `./diagnostics`, `./limits` | Worker wire types, diagnostics, and shared limits                                                | Kernel supervisors, runtime services, and CLI code                        |
-| `./runtime-build/*`                       | Trusted dependency registry, payload, source walking, and process capture                        | Kernel build and server runtime-image verification                        |
+| Entrypoint                                | Public surface                                                                               | Main callers                                                              |
+| ----------------------------------------- | -------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------- |
+| `./worker`                                | Standalone JSON stdin/stdout compiler worker                                                 | The kernel sandbox compiler supervisor and the packaged-worker smoke test |
+| `./builtins`                              | `compileBuiltInSandboxEntry` and `compileSandboxPackageEntries`                              | Built-in compiler tests and backend tooling                               |
+| `./platform`                              | `sandboxCompilerPlatformLayer`, the Bun file system and Vite build services compiles require | Entrypoints and test harnesses that run compiles                          |
+| `./plugins`                               | `compilePluginSandboxEntries`, `compilePluginSandboxSourceEntries`, and entry-path helpers   | Kernel plugin bootstrap and sandbox runner tests                          |
+| `./plugin-manifest`                       | `derivePluginSandboxScripts` and `compilePluginManifestScripts`                              | `ryot plugin build` and kernel plugin ingestion                           |
+| `./protocol`, `./diagnostics`, `./limits` | Worker wire types, diagnostics, and shared limits                                            | Kernel supervisors, runtime services, and CLI code                        |
+| `./runtime-build/*`                       | Trusted dependency registry, payload, source walking, and process capture                    | Kernel build and server runtime-image verification                        |
 
-Standalone user scripts enter through `./worker`. Built-ins and plugin manifest scripts use the same
+Compile functions require `FileSystem` and `ViteBuildService`; callers provide
+`sandboxCompilerPlatformLayer` at their entrypoint. Standalone user scripts enter through `./worker`. Built-ins and plugin manifest scripts use the same
 semantic and Vite Deno build stages, but retain their separate public APIs and metadata checks.
 
 ## Build Pipeline
