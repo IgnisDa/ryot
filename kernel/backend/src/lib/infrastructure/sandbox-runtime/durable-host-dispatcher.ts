@@ -33,6 +33,7 @@ import {
 	providerHttpTicketId,
 } from "#lib/infrastructure/provider-http-admission";
 import { recordSandboxHostCall } from "#lib/infrastructure/runtime-metrics";
+import { sandboxDurableHostDispatchStrategy } from "#lib/infrastructure/sandbox-runtime/host-execution-policy";
 import {
 	SandboxLifecycleHostFailure,
 	SandboxLifecycleHostInput,
@@ -75,7 +76,6 @@ import {
 	prepareSandboxSendNotification,
 	runSandboxDurableHostServiceWorkflow,
 	sandboxDurableHttpRequestUrl,
-	sandboxDurableHostDispatchStrategy,
 	sandboxHttpRedirectClassifier,
 	SandboxDurableHostServiceWorkflow,
 	SandboxDurableHostDispatcher,
