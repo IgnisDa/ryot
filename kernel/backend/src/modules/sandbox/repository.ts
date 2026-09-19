@@ -8,7 +8,7 @@ import {
 } from "@ryot-app/contract/schema/brands";
 import type { WorkflowDurableCallRequest } from "@ryot-app/sandbox-sdk/workflow";
 import { and, eq, sql } from "drizzle-orm";
-import { Context, Effect, Layer } from "effect";
+import { Context, Effect, Layer, Option, Schema } from "effect";
 
 import * as schema from "#lib/infrastructure/db/schema/tables/combined";
 import { DatabaseSession } from "#lib/infrastructure/db/session";
@@ -16,6 +16,7 @@ import type {
 	SandboxExecutionPrincipal,
 	SandboxPluginRevision,
 } from "#lib/infrastructure/sandbox-runtime/execution-principal";
+import { PluginSandboxAuthority } from "#lib/infrastructure/sandbox-runtime/plugin-authority";
 
 type SandboxScriptPin = Omit<SandboxExecutionPrincipal, "subject">;
 
@@ -87,10 +88,10 @@ export class SandboxRepository extends Context.Service<SandboxRepository>()("San
 						pluginId: schema.pluginRevision.pluginId,
 						providerId: schema.sandboxScript.providerId,
 						contentHash: schema.sandboxScript.contentHash,
-						pluginManifest: schema.pluginRevision.manifest,
 						activeRevisionId: schema.plugin.activeRevisionId,
 						providerPluginId: schema.sandboxProvider.pluginId,
 						pluginRevisionId: schema.sandboxScript.pluginRevisionId,
+						sandboxAuthority: schema.pluginRevision.sandboxAuthority,
 						environmentConfigRevisionId: schema.plugin.environmentConfigRevisionId,
 						sourcePresent: sql<boolean>`${schema.sandboxScript.source} is not null`,
 					})
@@ -129,6 +130,13 @@ export class SandboxRepository extends Context.Service<SandboxRepository>()("San
 						})
 					: null;
 			}
+			const decodedAuthority = Schema.decodeUnknownOption(PluginSandboxAuthority)(
+				row.sandboxAuthority,
+			);
+			if (Option.isNone(decodedAuthority)) {
+				return null;
+			}
+			const authority = decodedAuthority.value;
 			if (
 				expectedRevision &&
 				(expectedRevision.id !== row.pluginId ||
@@ -136,21 +144,19 @@ export class SandboxRepository extends Context.Service<SandboxRepository>()("San
 			) {
 				return null;
 			}
-			const declaration = row.pluginManifest?.scripts.find(({ slug }) => slug === row.slug);
 			if (
 				(!expectedRevision &&
 					(row.pluginStatus !== "active" || row.activeRevisionId !== row.pluginRevisionId)) ||
 				!row.pluginSlug ||
-				!row.pluginManifest ||
 				!row.pluginRevisionId ||
-				declaration?.kind !== row.metadata.kind ||
+				!authority.scriptKinds[row.slug] ||
+				authority.scriptKinds[row.slug] !== row.metadata.kind ||
 				(row.providerId !== null && row.providerPluginId !== row.pluginId)
 			) {
 				return null;
 			}
 			const { pluginId, pluginRevisionId } = row;
 			const pluginScope = row.pluginOwnerId === null ? "system" : "user";
-			const manifest = row.pluginManifest;
 			const scripts = yield* database.run((db) =>
 				db
 					.select({
@@ -167,7 +173,12 @@ export class SandboxRepository extends Context.Service<SandboxRepository>()("San
 				} else {
 					const [state] = yield* database.run((db) =>
 						db
-							.select()
+							.select({
+								health: schema.pluginInstallation.health,
+								isHidden: schema.pluginInstallation.isHidden,
+								uninstalledAt: schema.pluginInstallation.uninstalledAt,
+								activeConfigRevisionId: schema.pluginInstallation.activeConfigRevisionId,
+							})
 							.from(schema.pluginInstallation)
 							.where(
 								and(
@@ -193,7 +204,11 @@ export class SandboxRepository extends Context.Service<SandboxRepository>()("San
 			}
 			const [config] = yield* database.run((db) =>
 				db
-					.select()
+					.select({
+						ownerUserId: schema.pluginConfigRevision.ownerUserId,
+						encryptedPayload: schema.pluginConfigRevision.encryptedPayload,
+						pluginRevisionId: schema.pluginConfigRevision.pluginRevisionId,
+					})
 					.from(schema.pluginConfigRevision)
 					.where(eq(schema.pluginConfigRevision.id, configRevisionId))
 					.limit(1),
@@ -215,30 +230,17 @@ export class SandboxRepository extends Context.Service<SandboxRepository>()("San
 					scope: pluginScope,
 					slug: row.pluginSlug,
 					id: PluginId.make(row.pluginId),
-					configSchema: manifest.configSchema,
+					schemaScope: authority.schemaScope,
+					configSchema: authority.configSchema,
+					workflowScripts: authority.workflowScripts,
 					revisionId: PluginRevisionId.make(row.pluginRevisionId),
 					configRevisionId: PluginConfigRevisionId.make(configRevisionId),
 					ownerId: row.pluginOwnerId ? UserId.make(row.pluginOwnerId) : null,
+					userBootstrapScriptSlugs:
+						pluginScope === "system" ? authority.userBootstrapScriptSlugs : [],
 					compiledHashes: Object.fromEntries(
 						scripts.map(({ slug, contentHash }) => [slug, contentHash]),
 					),
-					workflowScripts: Object.fromEntries(
-						manifest.workflows.map(({ slug, scriptSlug }) => [slug, scriptSlug]),
-					),
-					userBootstrapScriptSlugs:
-						pluginScope === "system"
-							? manifest.userBootstrap.map(({ scriptSlug }) => scriptSlug)
-							: [],
-					schemaScope: {
-						entitySchemaSlugs: manifest.entitySchemas.map(({ slug }) => slug),
-						relationshipSchemaSlugs: manifest.relationshipSchemas.map(({ slug }) => slug),
-						eventSchemas: manifest.entitySchemas.flatMap((entitySchema) =>
-							entitySchema.eventSchemas.map((eventSchema) => ({
-								eventSchemaSlug: eventSchema.slug,
-								entitySchemaSlug: entitySchema.slug,
-							})),
-						),
-					},
 				},
 			});
 		});
