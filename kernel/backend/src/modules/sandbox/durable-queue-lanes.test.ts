@@ -131,6 +131,7 @@ const queueLayer = Layer.mergeAll(
 					pollInterval: "10 millis",
 					flowOf: sandboxSchedulingKey,
 					capacity: sandboxLaneCapacity(2),
+					lanes: ["interactive", "background"],
 				}),
 			),
 		),

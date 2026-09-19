@@ -267,7 +267,7 @@ export const KernelWorkflowReferencesLive = Layer.effect(
 								return dispatchAdmittedWorkflow(
 									receipts,
 									engine,
-									ProviderEntityPopulationWorkflow,
+									ProviderEntityPopulationWorkflow.forLane(lane),
 									null,
 									{
 										executionId: childExecutionId,
@@ -651,7 +651,7 @@ export const KernelWorkflowReferencesLive = Layer.effect(
 						const result = yield* dispatchAdmittedWorkflow(
 							receipts,
 							engine,
-							EntityImportWorkflow,
+							EntityImportWorkflow.forLane(command.causation.lane),
 							command.accountGeneration,
 							{ payload, executionId },
 							admit,
@@ -705,7 +705,7 @@ export const KernelWorkflowReferencesLive = Layer.effect(
 					const result = yield* dispatchAdmittedWorkflow(
 						receipts,
 						engine,
-						EventCreateWorkflow,
+						EventCreateWorkflow.forLane(command.causation.lane),
 						command.accountGeneration,
 						{ payload, executionId },
 						admit,

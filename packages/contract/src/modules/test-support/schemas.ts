@@ -13,6 +13,7 @@ import {
 } from "../../schema/brands";
 import { JsonValue } from "../../schema/json";
 import { strictStruct } from "../../schema/utils";
+import { ExecutionLane } from "../automations/lifecycle";
 import { PluginManifest } from "../plugins/manifest";
 import { EnqueueSandboxBody } from "../sandbox/schemas";
 
@@ -66,6 +67,7 @@ export const TestSupportPluginWriteResult = Schema.Struct({
 
 export const TestSupportEnqueueSandboxBody = strictStruct({
 	...EnqueueSandboxBody.fields,
+	lane: ExecutionLane,
 	executingUserId: UserId,
 });
 

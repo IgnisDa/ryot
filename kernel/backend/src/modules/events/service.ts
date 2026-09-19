@@ -55,7 +55,8 @@ import { parseAppSchemaProperties } from "#lib/property-schema/property-schema-r
 import {
 	createWorkflowJobId,
 	deriveJobIdSecret,
-	resolveWorkflowExecutionId,
+	resolveWorkflowJob,
+	type WorkflowJob,
 } from "#lib/shared/job-id";
 import { toWorkflowRunResult } from "#lib/shared/workflow-result";
 import { EntitiesRepository } from "#modules/entities/repository";
@@ -287,16 +288,17 @@ export class EventsService extends Context.Service<EventsService>()("EventsServi
 		});
 		const operationState = Effect.fn("EventsService.operationState")(function* (
 			userId: UserId,
-			executionId: string,
+			job: WorkflowJob,
 			totalItems: number,
 		): Effect.fn.Return<Schema.Schema.Type<typeof EventCreateOperation>, DbError> {
+			const { lane, executionId } = job;
 			const operationId = createWorkflowJobId(
 				operationSecret,
-				`${executionId}:${totalItems}`,
+				{ lane, executionId: `${executionId}:${totalItems}` },
 				userId,
 			);
 			const result = toWorkflowRunResult(
-				Option.getOrUndefined(yield* engine.poll(EventCreateWorkflow, executionId)),
+				Option.getOrUndefined(yield* engine.poll(EventCreateWorkflow.forLane(lane), executionId)),
 				{ onSuccess: (value) => ({ result: value }) },
 			);
 			if (result.status === "failed") {
@@ -324,20 +326,20 @@ export class EventsService extends Context.Service<EventsService>()("EventsServi
 			}
 			yield* verifyCreateBatchInput(input, command);
 			const started = yield* Clock.currentTimeMillis;
-			const executionId = command.causation.executionId;
+			const job = { lane: command.causation.lane, executionId: command.causation.executionId };
 			yield* dispatchAdmittedWorkflow(
 				receipts,
 				engine,
-				EventCreateWorkflow,
+				EventCreateWorkflow.forLane(job.lane),
 				command.accountGeneration,
-				{ executionId, discard: true, payload: { ...input, command } },
+				{ discard: true, executionId: job.executionId, payload: { ...input, command } },
 				(admission) => admission,
 				(dispatch) => dispatch.pipe(Effect.uninterruptible),
 			);
 			const remaining = Math.max(0, 35_000 - ((yield* Clock.currentTimeMillis) - started));
 			const observed = yield* Effect.gen(function* () {
 				for (;;) {
-					const state = yield* operationState(input.userId, executionId, input.payload.length);
+					const state = yield* operationState(input.userId, job, input.payload.length);
 					if (state.status === "completed" || state.status === "failed") {
 						return state;
 					}
@@ -346,7 +348,7 @@ export class EventsService extends Context.Service<EventsService>()("EventsServi
 			}).pipe(Effect.timeoutOption(Duration.millis(remaining)));
 			const state = Option.isSome(observed)
 				? observed.value
-				: yield* operationState(input.userId, executionId, input.payload.length);
+				: yield* operationState(input.userId, job, input.payload.length);
 			yield* verifyCreateBatchInput(input, command);
 			if (state.status === "completed") {
 				return state.result;
@@ -360,14 +362,14 @@ export class EventsService extends Context.Service<EventsService>()("EventsServi
 			userId: UserId,
 			operationId: string,
 		) {
-			const identity = resolveWorkflowExecutionId(operationSecret, userId, operationId);
-			const separator = identity?.lastIndexOf(":") ?? -1;
-			const executionId = identity?.slice(0, separator);
-			const totalItems = Number(identity?.slice(separator + 1));
-			if (!executionId || !Number.isSafeInteger(totalItems) || totalItems < 1) {
+			const identity = resolveWorkflowJob(operationSecret, userId, operationId);
+			const separator = identity?.executionId.lastIndexOf(":") ?? -1;
+			const executionId = identity?.executionId.slice(0, separator);
+			const totalItems = Number(identity?.executionId.slice(separator + 1));
+			if (!identity || !executionId || !Number.isSafeInteger(totalItems) || totalItems < 1) {
 				return yield* new EventOperationNotFound({ reason: { code: "operation-not-found" } });
 			}
-			return yield* operationState(userId, executionId, totalItems);
+			return yield* operationState(userId, { executionId, lane: identity.lane }, totalItems);
 		});
 
 		const lookupEditReceipt = (

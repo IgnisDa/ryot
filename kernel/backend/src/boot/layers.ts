@@ -1,5 +1,5 @@
 import { BunServices } from "@effect/platform-bun";
-import { Layer } from "effect";
+import { Effect, Layer } from "effect";
 import { PersistedQueue } from "effect/persistence";
 
 import { AppConfig } from "#lib/infrastructure/config/service";
@@ -306,13 +306,27 @@ const RuntimeWorkflowDefinitionsLive = Layer.mergeAll(
 	TranslateEntityWorkflowDefinitionsLive,
 ).pipe(Layer.provide(AdmittedWorkflowCatalogueLive));
 
-export const RuntimeLive = Layer.mergeAll(
-	RuntimeWorkflowDefinitionsLive,
-	ServerLive,
-	FrequentCronWorkflowDefinitionsLive,
+const RuntimeSchedulersLive = Layer.mergeAll(
 	FrequentCronSchedulerLive,
 	PluginInstallationSweepDispatcherLive,
 	PluginCronSchedulerProvidedLive,
+);
+
+const RuntimeWorkLive = Layer.merge(
+	RuntimeWorkflowDefinitionsLive,
+	FrequentCronWorkflowDefinitionsLive,
+);
+
+const RuntimeLive = Layer.unwrap(
+	Effect.map(AppConfig, ({ server }) => {
+		if (server.lanes === "interactive") {
+			return Layer.merge(RuntimeWorkLive, ServerLive);
+		}
+		if (server.lanes === "background") {
+			return Layer.merge(RuntimeWorkLive, RuntimeSchedulersLive);
+		}
+		return Layer.mergeAll(RuntimeWorkLive, ServerLive, RuntimeSchedulersLive);
+	}),
 );
 
 const MigrationBootstrapServicesLive = Layer.mergeAll(

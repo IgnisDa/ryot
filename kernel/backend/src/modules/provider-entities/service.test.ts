@@ -5,8 +5,14 @@ import {
 	ProviderEntityImportBacklogFull,
 	ProviderEntityNotFound,
 } from "@ryot-app/contract/modules/provider-entities/schemas";
-import { EntitySchemaSlug, SandboxProviderId, UserId } from "@ryot-app/contract/schema/brands";
+import {
+	EntityId,
+	EntitySchemaSlug,
+	SandboxProviderId,
+	UserId,
+} from "@ryot-app/contract/schema/brands";
 import { Cause, Context, Effect, Exit, Layer, Option, Ref } from "effect";
+import { Workflow } from "effect/workflow";
 import { WorkflowEngine } from "effect/workflow/WorkflowEngine";
 
 import { createWorkflowJobId, deriveJobIdSecret } from "#lib/shared/job-id";
@@ -20,6 +26,7 @@ import { EntitiesRepository } from "#modules/entities/repository";
 import { PluginRuntimeResolver } from "#modules/plugins/runtime-resolver";
 
 import { ProviderImportAdmission } from "./admission";
+import { EntityImportWorkflow } from "./entity-import-workflow";
 import { EntityImportService } from "./service";
 
 const user: CurrentUserValue = {
@@ -250,7 +257,11 @@ layer(
 			const service = yield* EntityImportService;
 			const result = yield* service.import(user, { providerId, externalId });
 			expect(result.jobId).toBe(
-				createWorkflowJobId(deriveJobIdSecret("test-admin-token"), "exec-pending", user.id),
+				createWorkflowJobId(
+					deriveJobIdSecret("test-admin-token"),
+					{ lane: "interactive", executionId: "exec-pending" },
+					user.id,
+				),
 			);
 		}),
 	);
@@ -312,7 +323,11 @@ const importResultLayer = (
 
 const importResult = Effect.gen(function* () {
 	const service = yield* EntityImportService;
-	const jobId = createWorkflowJobId(deriveJobIdSecret("test-admin-token"), "exec-abc", user.id);
+	const jobId = createWorkflowJobId(
+		deriveJobIdSecret("test-admin-token"),
+		{ lane: "interactive", executionId: "exec-abc" },
+		user.id,
+	);
 	return yield* service.getImportResult(user, jobId);
 });
 
@@ -328,6 +343,32 @@ layer(importResultLayer("running", () => Effect.succeedNone))((test) => {
 	test.effect("returns running status when an admitted workflow has not completed", () =>
 		Effect.gen(function* () {
 			expect(yield* importResult).toEqual({ status: "running" });
+		}),
+	);
+});
+
+const importedEntity = {
+	externalId,
+	providerId,
+	properties: {},
+	name: "Imported",
+	id: EntityId.make("entity-imported"),
+	createdAt: "2026-10-10T00:00:00.000Z",
+	updatedAt: "2026-10-10T00:00:00.000Z",
+	populatedAt: "2026-10-10T00:00:00.000Z",
+	entitySchemaSlug: EntitySchemaSlug.make("book"),
+};
+
+layer(
+	importResultLayer("running", (workflow, executionId) =>
+		workflow._tag === EntityImportWorkflow.interactive._tag && executionId === "exec-abc"
+			? Effect.succeedSome(new Workflow.Complete({ exit: Exit.succeed(importedEntity) }))
+			: Effect.succeedNone,
+	),
+)((test) => {
+	test.effect("returns the completed import from the interactive workflow named by the job", () =>
+		Effect.gen(function* () {
+			expect(yield* importResult).toEqual({ status: "completed", data: importedEntity });
 		}),
 	);
 });
