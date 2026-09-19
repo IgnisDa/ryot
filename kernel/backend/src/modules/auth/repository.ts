@@ -57,6 +57,25 @@ export type InternalOAuthClientResource = Pick<
 export class AuthRepository extends Context.Service<AuthRepository>()("AuthRepository", {
 	make: Effect.gen(function* () {
 		const database = yield* DatabaseSession;
+		const getUserPreferences = Effect.fn("AuthRepository.getUserPreferences")(function* (
+			userId: UserId,
+		) {
+			const [row] = yield* database.run((db) =>
+				db
+					.select({ preferences: schema.user.preferences })
+					.from(schema.user)
+					.where(eq(schema.user.id, userId))
+					.limit(1),
+			);
+			return row
+				? yield* Schema.decodeEffect(UserPreferences)(row.preferences).pipe(
+						Effect.mapError(
+							(error) =>
+								new DbError({ message: `Invalid stored user preferences: ${error.message}` }),
+						),
+					)
+				: null;
+		});
 		const upsertInternalOAuthClient = Effect.fn("AuthRepository.upsertInternalOAuthClient")(
 			function* (client: InternalOAuthClient) {
 				yield* database.run((db) =>
@@ -220,6 +239,7 @@ export class AuthRepository extends Context.Service<AuthRepository>()("AuthRepos
 		});
 
 		return {
+			getUserPreferences,
 			getPortableProfile,
 			patchUserPreferences,
 			revokeUserOAuthTokens,

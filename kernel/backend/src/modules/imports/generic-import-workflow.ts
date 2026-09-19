@@ -1,5 +1,8 @@
 import { unknownToMessage } from "@ryot-app/contract/errors";
-import type { AutomationWarning as AutomationWarningValue } from "@ryot-app/contract/modules/automations/lifecycle";
+import {
+	LifecycleCommand,
+	type AutomationWarning as AutomationWarningValue,
+} from "@ryot-app/contract/modules/automations/lifecycle";
 import type { CreateEventItem } from "@ryot-app/contract/modules/events/schemas";
 import type { ImportRunFailureReason } from "@ryot-app/contract/modules/imports/schemas";
 import type { ImportRunFailureStage } from "@ryot-app/contract/modules/imports/types";
@@ -25,7 +28,6 @@ import { Cause, DateTime, Effect, FileSystem, Schema } from "effect";
 import { Workflow } from "effect/unstable/workflow";
 import { WorkflowEngine, WorkflowInstance } from "effect/unstable/workflow/WorkflowEngine";
 
-import { LifecycleCommand } from "#lib/domain/lifecycle-command";
 import {
 	mapCommittedResult,
 	runLifecycleWriteStep,
@@ -44,9 +46,12 @@ import { EntitiesRepository } from "#modules/entities/repository";
 import { EntitiesService, PendingEntityMutation } from "#modules/entities/service";
 import { EventsService } from "#modules/events/service";
 import { MutationReceipts } from "#modules/mutations/receipts";
+import { admitWorkflow, dispatchAdmittedWorkflow } from "#modules/mutations/workflow-dispatch";
 import { PluginRuntimeResolver } from "#modules/plugins/runtime-resolver";
-import type { EntityImportError } from "#modules/provider-entities/entity-import-workflow";
-import { EntityImportWorkflow } from "#modules/provider-entities/entity-import-workflow";
+import {
+	EntityImportWorkflow,
+	type EntityImportError,
+} from "#modules/provider-entities/entity-import-workflow";
 import { EntityImportWorkflowOperations } from "#modules/provider-entities/operations-workflow";
 import {
 	PendingRelationshipMutations,
@@ -327,16 +332,12 @@ const resolveProviderEntity = Effect.fn("imports.resolveProviderEntity")(functio
 	}
 	const engine = yield* WorkflowEngine;
 	const receipts = yield* MutationReceipts.make;
-	yield* receipts
-		.registerWorkflow(command.accountGeneration, EntityImportWorkflow._tag, executionId)
-		.pipe(
-			Effect.mapError(
-				(error) =>
-					new GenericImportProviderError({ message: error.message, stage: "provider_details" }),
-			),
-		);
-	const providerEntity = yield* engine
-		.execute(EntityImportWorkflow, {
+	const providerEntity = yield* dispatchAdmittedWorkflow(
+		receipts,
+		engine,
+		EntityImportWorkflow,
+		command.accountGeneration,
+		{
 			executionId,
 			payload: {
 				command,
@@ -346,13 +347,22 @@ const resolveProviderEntity = Effect.fn("imports.resolveProviderEntity")(functio
 				entitySchemaSlug: EntitySchemaSlug.make(intent.entitySchemaSlug),
 				entityScope: { userId, type: provider.pluginScope === "system" ? "global" : "user" },
 			},
-		})
-		.pipe(
-			Effect.mapError(
-				(error: EntityImportError) =>
-					new GenericImportProviderError({ message: error.message, stage: "provider_details" }),
+		},
+		(admission) =>
+			admission.pipe(
+				Effect.mapError(
+					(error) =>
+						new GenericImportProviderError({ message: error.message, stage: "provider_details" }),
+				),
 			),
-		);
+		(execution) =>
+			execution.pipe(
+				Effect.mapError(
+					(error: EntityImportError) =>
+						new GenericImportProviderError({ message: error.message, stage: "provider_details" }),
+				),
+			),
+	);
 	return matchesImportIntent(providerEntity, intent) ? providerEntity.id : undefined;
 });
 
@@ -691,13 +701,12 @@ export const runProcessGenericImportChunksWorkflow = Effect.fn(
 	"ProcessGenericImportChunksWorkflow",
 )(function* (payload: typeof ProcessGenericImportChunksPayload.Type, executionId: string) {
 	const receipts = yield* MutationReceipts.make;
-	yield* receipts
-		.registerWorkflow(
-			payload.command.accountGeneration,
-			ProcessGenericImportChunksWorkflow._tag,
-			executionId,
-		)
-		.pipe(Effect.mapError(toWorkflowError));
+	yield* admitWorkflow(
+		receipts,
+		ProcessGenericImportChunksWorkflow,
+		payload.command.accountGeneration,
+		executionId,
+	).pipe(Effect.mapError(toWorkflowError));
 	let failedItems = 0;
 	let importedItems = 0;
 	let processedItems = 0;
@@ -755,15 +764,12 @@ export const runProcessGenericImportChunksWorkflow = Effect.fn(
 					const engine = yield* WorkflowEngine;
 					for (const [membershipIndex, membership] of outcome.collectionMemberships.entries()) {
 						const collectionExecutionId = `${executionId}-item-${processedItems}-collection-${membershipIndex}`;
-						yield* receipts
-							.registerWorkflow(
-								payload.command.accountGeneration,
-								AddEntityToCollectionWorkflow._tag,
-								collectionExecutionId,
-							)
-							.pipe(Effect.mapError(toWorkflowError));
-						const collectionResult = yield* engine
-							.execute(AddEntityToCollectionWorkflow, {
+						const collectionResult = yield* dispatchAdmittedWorkflow(
+							receipts,
+							engine,
+							AddEntityToCollectionWorkflow,
+							payload.command.accountGeneration,
+							{
 								executionId: collectionExecutionId,
 								payload: {
 									properties: {},
@@ -778,8 +784,10 @@ export const runProcessGenericImportChunksWorkflow = Effect.fn(
 										membershipIndex,
 									),
 								},
-							})
-							.pipe(Effect.result);
+							},
+							(admission) => admission.pipe(Effect.mapError(toWorkflowError)),
+							(execution) => execution.pipe(Effect.result),
+						);
 						if (collectionResult._tag === "Failure" && !message) {
 							message = unknownToMessage(collectionResult.failure);
 						} else if (collectionResult._tag === "Success") {

@@ -3,6 +3,7 @@ import { WorkflowEngine } from "effect/unstable/workflow/WorkflowEngine";
 
 import { implementWorkflow, makeActivity } from "#lib/infrastructure/workflow-scope";
 import { MutationReceipts } from "#modules/mutations/receipts";
+import { admitWorkflow, dispatchAdmittedWorkflow } from "#modules/mutations/workflow-dispatch";
 
 import { ProcessIntegrationRunWorkflow } from "./integration-workflow";
 import { IntegrationSyncRun } from "./jobs";
@@ -15,9 +16,12 @@ export const runIntegrationSyncWorkflow = Effect.fn("IntegrationSyncWorkflow")(
 		const engine = yield* WorkflowEngine;
 		const integrations = yield* IntegrationsService;
 		const receipts = yield* MutationReceipts.make;
-		yield* receipts
-			.registerWorkflow(payload.accountGeneration, IntegrationSyncWorkflow._tag, executionId)
-			.pipe(Effect.orDie);
+		yield* admitWorkflow(
+			receipts,
+			IntegrationSyncWorkflow,
+			payload.accountGeneration,
+			executionId,
+		).pipe(Effect.orDie);
 
 		const runs = yield* makeActivity({
 			error: Schema.Never,
@@ -29,11 +33,12 @@ export const runIntegrationSyncWorkflow = Effect.fn("IntegrationSyncWorkflow")(
 		});
 
 		for (const run of runs) {
-			yield* receipts
-				.registerWorkflow(run.accountGeneration, ProcessIntegrationRunWorkflow._tag, run.runId)
-				.pipe(Effect.orDie);
-			yield* engine
-				.execute(ProcessIntegrationRunWorkflow, {
+			yield* dispatchAdmittedWorkflow(
+				receipts,
+				engine,
+				ProcessIntegrationRunWorkflow,
+				run.accountGeneration,
+				{
 					discard: true,
 					executionId: run.runId,
 					payload: {
@@ -42,19 +47,22 @@ export const runIntegrationSyncWorkflow = Effect.fn("IntegrationSyncWorkflow")(
 						integrationId: run.integrationId,
 						accountGeneration: run.accountGeneration,
 					},
-				})
-				.pipe(
-					Effect.catchCause((cause) =>
-						Effect.logError("integration sync run dispatch failed", cause).pipe(
-							Effect.annotateLogs({ runId: run.runId }),
-							Effect.andThen(
-								integrations
-									.settleImportDispatchFailure({ runId: run.runId, userId: run.userId })
-									.pipe(Effect.orDie),
+				},
+				(admission) => admission.pipe(Effect.orDie),
+				(execution) =>
+					execution.pipe(
+						Effect.catchCause((cause) =>
+							Effect.logError("integration sync run dispatch failed", cause).pipe(
+								Effect.annotateLogs({ runId: run.runId }),
+								Effect.andThen(
+									integrations
+										.settleImportDispatchFailure({ runId: run.runId, userId: run.userId })
+										.pipe(Effect.orDie),
+								),
 							),
 						),
 					),
-				);
+			);
 		}
 	},
 	(effect, payload, executionId) =>

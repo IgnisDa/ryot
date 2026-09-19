@@ -2,7 +2,10 @@ import { BunServices } from "@effect/platform-bun";
 import { PgClient } from "@effect/sql-pg";
 import { expect, layer } from "@effect/vitest";
 import { DbError, SandboxRunError } from "@ryot-app/contract/errors";
-import type { AutomationWarning } from "@ryot-app/contract/modules/automations/lifecycle";
+import {
+	LifecycleCommand,
+	type AutomationWarning,
+} from "@ryot-app/contract/modules/automations/lifecycle";
 import {
 	AutomationHookSlug,
 	AutomationExecutionId,
@@ -24,7 +27,7 @@ import { WorkflowEngine, WorkflowInstance } from "effect/unstable/workflow/Workf
 import { assert } from "vitest";
 
 import { LifecyclePlanner } from "#lib/domain/lifecycle";
-import { rootLifecycleCommand, LifecycleCommand } from "#lib/domain/lifecycle-command";
+import { rootLifecycleCommand } from "#lib/domain/lifecycle-command";
 import { LifecycleExecution } from "#lib/domain/lifecycle-execution";
 import { SandboxArtifactStore } from "#lib/infrastructure/sandbox-runtime/artifacts";
 import { makeAppConfigLayer, makeWorkflowActivityEngine } from "#lib/test-utils/effect";
