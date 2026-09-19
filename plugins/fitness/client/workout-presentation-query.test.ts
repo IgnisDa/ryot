@@ -80,6 +80,7 @@ describe("workout presentation recipe", () => {
 						{
 							id: "workout-1",
 							name: "Push day",
+							exerciseNotes: null,
 							endedAt: "2026-09-07T09:30:00.000Z",
 							startedAt: "2026-09-07T08:00:00.000Z",
 							sets: rows(
@@ -115,6 +116,7 @@ describe("workout presentation recipe", () => {
 					exercises: [
 						{
 							order: 0,
+							notes: [],
 							id: "exercise-1",
 							name: "Bench Press",
 							sets: [
@@ -133,6 +135,111 @@ describe("workout presentation recipe", () => {
 						},
 					],
 				},
+			],
+		});
+	});
+
+	it("keeps repeated exercise occurrences separate and attaches notes by order", () => {
+		const decoded = workoutPresentationRecipe(["workout-1"]).decode({
+			data: {
+				workouts: rows(
+					[
+						{
+							id: "workout-1",
+							name: "Push day",
+							endedAt: "2026-09-07T09:30:00.000Z",
+							startedAt: "2026-09-07T08:00:00.000Z",
+							exerciseNotes: [
+								{ exerciseOrder: 0, notes: ["Brace before each rep."] },
+								{ exerciseOrder: 2, notes: ["Pause at the top."] },
+								{ exerciseOrder: 3, notes: ["No sets for this note."] },
+							],
+							sets: rows(
+								[
+									{
+										reps: 6,
+										weight: 60,
+										setOrder: 1,
+										duration: null,
+										distance: null,
+										exerciseOrder: 0,
+										unitSystem: "metric",
+										exerciseId: "exercise-1",
+										exerciseName: "Bench Press",
+									},
+									{
+										reps: 10,
+										weight: 20,
+										setOrder: 0,
+										duration: null,
+										distance: null,
+										exerciseOrder: 1,
+										unitSystem: "metric",
+										exerciseId: "exercise-2",
+										exerciseName: "Incline Press",
+									},
+									{
+										reps: 8,
+										weight: 60,
+										setOrder: 0,
+										duration: null,
+										distance: null,
+										exerciseOrder: 0,
+										unitSystem: "metric",
+										exerciseId: "exercise-1",
+										exerciseName: "Bench Press",
+									},
+									{
+										reps: 5,
+										weight: 60,
+										setOrder: 0,
+										duration: null,
+										distance: null,
+										exerciseOrder: 2,
+										unitSystem: "metric",
+										exerciseId: "exercise-1",
+										exerciseName: "Bench Press",
+									},
+								],
+								100,
+							),
+						},
+					],
+					100,
+				),
+			},
+		});
+
+		expect(decoded).toEqual({
+			success: [
+				expect.objectContaining({
+					exercises: [
+						expect.objectContaining({
+							order: 0,
+							id: "exercise-1",
+							name: "Bench Press",
+							notes: ["Brace before each rep."],
+							sets: [
+								expect.objectContaining({ reps: 6, setOrder: 1 }),
+								expect.objectContaining({ reps: 8, setOrder: 0 }),
+							],
+						}),
+						expect.objectContaining({
+							order: 1,
+							notes: [],
+							id: "exercise-2",
+							name: "Incline Press",
+							sets: [expect.objectContaining({ reps: 10, setOrder: 0 })],
+						}),
+						expect.objectContaining({
+							order: 2,
+							id: "exercise-1",
+							name: "Bench Press",
+							notes: ["Pause at the top."],
+							sets: [expect.objectContaining({ reps: 5, setOrder: 0 })],
+						}),
+					],
+				}),
 			],
 		});
 	});

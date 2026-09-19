@@ -206,6 +206,32 @@ export const workoutPropertiesSchema: AppSchema = {
 				description: "Superset grouping within a workout or template",
 			},
 		},
+		exerciseNotes: {
+			type: "array",
+			label: "Exercise Notes",
+			description: "Notes for each exercise occurrence in this workout",
+			items: {
+				label: "Item",
+				type: "object",
+				unknownKeys: "strict",
+				description: "Notes for an exercise occurrence",
+				properties: {
+					exerciseOrder: {
+						type: "integer",
+						label: "Exercise Order",
+						validation: { minimum: 0, required: true },
+						description: "Zero-based position of this exercise within the workout",
+					},
+					notes: {
+						type: "array",
+						label: "Notes",
+						validation: { required: true },
+						description: "Notes for this exercise",
+						items: { label: "Item", type: "string", description: "Item" },
+					},
+				},
+			},
+		},
 	},
 };
 
