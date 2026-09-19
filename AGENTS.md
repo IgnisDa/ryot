@@ -23,6 +23,10 @@
 - Derive types from schemas and existing types instead of writing mirrors. Use Effect Schema.
 - Build application-owned query documents with `@ryot-app/ryotql` and use named recipes when available.
 - Colocate app-owned RyotQL result schemas, decoders, and decoded types with their recipes. Consumers must not parse generic `RowItem` values directly; reusable wire codecs belong in `@ryot-app/contract`, while presentation-only transformations remain consumer-owned.
+- Application-owned asynchronous work uses Effect; native Promises belong at platform and framework boundaries.
+- Resolve implementation dependencies in service constructors and Layers; service methods must not require their repositories or database session from callers.
+- Use `Effect.fn` or `Effect.fnUntraced` for reusable effectful operations, `Effect.gen` for local control flow, and `pipe` for short transformations.
+- Feature modules own their canonical Layers; boot modules compose feature Layers.
 
 ## Testing
 
