@@ -22,6 +22,19 @@ const clientDist = fileURLToPath(new URL("../kernel/client/dist", import.meta.ur
 
 // oxlint-disable-next-line effecttsgo/async-function -- Vitest globalSetup owns the Promise-returning setup contract.
 export const setupE2e = async (extraEnv: Readonly<Record<string, string | undefined>> = {}) => {
+	const sleepInhibitor =
+		process.platform === "darwin"
+			? Bun.spawn(["caffeinate", "-i", "-w", String(process.pid)], {
+					stdout: "ignore",
+					stderr: "ignore",
+				})
+			: undefined;
+	const releaseSleepInhibitor = Effect.gen(function* () {
+		if (sleepInhibitor) {
+			sleepInhibitor.kill();
+			yield* Effect.promise(() => sleepInhibitor.exited);
+		}
+	});
 	const setup = await runPromise(
 		Effect.gen(function* () {
 			const build = Bun.spawnSync(
@@ -109,7 +122,7 @@ export const setupE2e = async (extraEnv: Readonly<Record<string, string | undefi
 				};
 			});
 			return yield* startup.pipe(Effect.onError(() => shutdown));
-		}),
+		}).pipe(Effect.onError(() => releaseSleepInhibitor)),
 	);
 	process.env.E2E_FRONTEND_URL = setup.frontendUrl;
 	process.env.E2E_SERVER_PID = String(setup.apiPid);
@@ -117,7 +130,7 @@ export const setupE2e = async (extraEnv: Readonly<Record<string, string | undefi
 	process.env.E2E_ADMIN_ACCESS_TOKEN = setup.adminToken;
 	process.env.E2E_SERVER_LOG_FILE = setup.logFile;
 	console.info(`PostgreSQL logs: ${setup.pgLogPath}`);
-	return () => runPromise(setup.shutdown);
+	return () => runPromise(setup.shutdown.pipe(Effect.ensuring(releaseSleepInhibitor)));
 };
 
 export default () => setupE2e();
