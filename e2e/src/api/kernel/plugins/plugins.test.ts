@@ -26,6 +26,7 @@ import {
 	testPluginManifest,
 	uninstallTestPlugin,
 	waitForEventWithSchema,
+	waitForCreateEvents,
 	searchProviderEntities,
 } from "~/fixtures/kernel";
 import {
@@ -396,7 +397,7 @@ export default defineAutomation({
 				}),
 			);
 			expect(eventResult).toMatchObject({ count: 1, failure: null });
-			const eventOutcome = eventResult.outcomes[0];
+			const eventOutcome = (yield* waitForCreateEvents(client, eventResult)).outcomes[0];
 			assert(eventOutcome?.status === "written");
 			expect(eventOutcome.index).toBe(0);
 			const event = yield* waitForEventWithSchema(client, importResult.data.id, eventSlug);

@@ -1,7 +1,7 @@
 import type { DbError } from "@ryot-app/contract/errors";
 import type { AutomationWarning } from "@ryot-app/contract/modules/automations/lifecycle";
-import { Cause, Clock, Context, Duration, Effect, Layer } from "effect";
-import { WorkflowEngine } from "effect/unstable/workflow/WorkflowEngine";
+import { Cause, Clock, Context, Duration, Effect, Layer, Option } from "effect";
+import { WorkflowEngine, WorkflowInstance } from "effect/unstable/workflow/WorkflowEngine";
 
 import { LifecyclePersistenceError } from "#lib/domain/lifecycle";
 import {
@@ -10,14 +10,18 @@ import {
 } from "#lib/domain/lifecycle-execution";
 import { DatabaseSession } from "#lib/infrastructure/db/session";
 import { SANDBOX_LIMITS } from "#lib/infrastructure/sandbox-runtime/limits";
+import {
+	observeWorkflowDeadline,
+	startWorkflowDeadline,
+} from "#lib/infrastructure/workflow-deadline";
 import { ActivityBody } from "#lib/infrastructure/workflow-scope";
 
 import { automationAttemptIdentity } from "./attempt-repository";
 import { AutomationRunRepository } from "./run-repository";
 import {
+	type AutomationRunWorkflowResult,
 	AutomationRunWorkflow,
 	type AutomationRunWorkflowPayload,
-	type AutomationRunWorkflowResult,
 } from "./run-workflow";
 
 export const AUTOMATION_IMMEDIATE_TIMEOUT_MS = SANDBOX_LIMITS.execution.timeoutMs + 5_000;
@@ -28,9 +32,9 @@ export class AutomationExecutionOperations extends Context.Service<
 	{
 		skipQueuedPolicies: LifecycleExecution["Service"]["skipQueuedPolicies"];
 		submit: (payload: AutomationRunWorkflowPayload) => Effect.Effect<void, DbError>;
-		execute: (
+		poll: (
 			payload: AutomationRunWorkflowPayload,
-		) => Effect.Effect<AutomationRunWorkflowResult, DbError>;
+		) => Effect.Effect<AutomationRunWorkflowResult | null, DbError>;
 	}
 >()("AutomationExecutionOperations") {}
 
@@ -41,18 +45,26 @@ export const AutomationExecutionOperationsLive = Layer.effect(
 		const runs = yield* AutomationRunRepository;
 		return AutomationExecutionOperations.of({
 			skipQueuedPolicies: (input) => runs.skipQueuedPolicies(input),
-			execute: (payload) =>
-				engine.execute(AutomationRunWorkflow, {
-					payload,
-					executionId: automationAttemptIdentity(payload.runId, payload.attemptNumber)
-						.workflowExecutionId,
-				}),
 			submit: (payload) =>
 				engine.execute(AutomationRunWorkflow, {
 					payload,
 					discard: true,
 					executionId: automationAttemptIdentity(payload.runId, payload.attemptNumber)
 						.workflowExecutionId,
+				}),
+			poll: (payload) =>
+				Effect.gen(function* () {
+					const executionId = automationAttemptIdentity(
+						payload.runId,
+						payload.attemptNumber,
+					).workflowExecutionId;
+					const observed = Option.getOrUndefined(
+						yield* engine.poll(AutomationRunWorkflow, executionId),
+					);
+					if (!observed || observed._tag === "Suspended") {
+						return null;
+					}
+					return yield* observed.exit;
 				}),
 		});
 	}),
@@ -65,73 +77,107 @@ const requireWorkflowBody = (operation: string) =>
 			: Effect.void,
 	);
 
+const attemptCompletedAt = (value: AutomationRunWorkflowResult) =>
+	value.attempt ? Date.parse(value.attempt.finishedAt ?? value.attempt.startedAt) : null;
+
 export const LifecycleExecutionLive = Layer.effect(
 	LifecycleExecution,
 	Effect.gen(function* () {
 		const operations = yield* AutomationExecutionOperations;
 		const session = yield* DatabaseSession;
+		const engine = yield* WorkflowEngine;
+		const startDeadline = Effect.fnUntraced(function* (name: string) {
+			const instance = yield* Effect.serviceOption(WorkflowInstance);
+			return Option.isSome(instance)
+				? yield* startWorkflowDeadline(name, AUTOMATION_IMMEDIATE_TIMEOUT_MS).pipe(
+						Effect.provideService(WorkflowInstance, instance.value),
+						Effect.provideService(WorkflowEngine, engine),
+					)
+				: (yield* Clock.currentTimeMillis) + AUTOMATION_IMMEDIATE_TIMEOUT_MS;
+		});
+		const observeAttempt = Effect.fnUntraced(function* (
+			name: string,
+			deadline: number,
+			payload: AutomationRunWorkflowPayload,
+		) {
+			const instance = yield* Effect.serviceOption(WorkflowInstance);
+			if (Option.isSome(instance)) {
+				return yield* observeWorkflowDeadline({
+					name,
+					deadline,
+					poll: operations.poll(payload),
+					completedAt: attemptCompletedAt,
+				}).pipe(
+					Effect.provideService(WorkflowInstance, instance.value),
+					Effect.provideService(WorkflowEngine, engine),
+				);
+			}
+			for (;;) {
+				const result = yield* operations.poll(payload);
+				if (result !== null) {
+					const finishedAt = attemptCompletedAt(result);
+					return finishedAt === null || finishedAt < deadline
+						? { value: result, status: "completed" as const }
+						: { status: "expired" as const };
+				}
+				const remaining = deadline - (yield* Clock.currentTimeMillis);
+				if (remaining <= 0) {
+					return { status: "expired" as const };
+				}
+				yield* Effect.sleep(Duration.millis(Math.min(500, remaining)));
+			}
+		});
 		const after: LifecycleExecution["Service"]["after"] = ({ runs, triggerId }) =>
 			Effect.gen(function* () {
 				yield* requireWorkflowBody("after");
-				const deadline = (yield* Clock.currentTimeMillis) + AUTOMATION_IMMEDIATE_TIMEOUT_MS;
 				const eligible = runs.filter(
 					(run) => run.triggerId === triggerId && run.status !== "skipped",
 				);
-				return yield* Effect.forEach(
-					[
-						eligible.filter((run) => run.delivery === "async"),
-						eligible.filter((run) => run.delivery === "required"),
-					],
-					(group) =>
-						Effect.forEach(
-							group,
-							(run) =>
-								Effect.gen(function* () {
-									const payload = { runId: run.id, attemptNumber: 1, acceptedPatches: [] };
-									const warning = (
-										code: "required-hook-pending" | "required-hook-failed",
-									): AutomationWarning => ({ code, runId: run.id, hookSlug: run.hookSlug });
-									const remaining = deadline - (yield* Clock.currentTimeMillis);
-									if (remaining <= 0) {
-										return run.delivery === "async" ? null : warning("required-hook-pending");
-									}
-									return yield* (
-										run.delivery === "async"
-											? operations.submit(payload).pipe(Effect.as(null))
-											: operations
-													.execute(payload)
-													.pipe(
-														Effect.map((result) =>
-															result.attempt?.status === "succeeded"
-																? null
-																: warning(
-																		result.attempt?.status === "failed"
-																			? "required-hook-failed"
-																			: "required-hook-pending",
-																	),
-														),
-													)
-									).pipe(
-										Effect.timeoutOrElse({
-											duration: Duration.millis(remaining),
-											orElse: () =>
-												Effect.succeed(
-													run.delivery === "async" ? null : warning("required-hook-pending"),
-												),
-										}),
-										Effect.catchCauseIf(
-											(cause) => !Cause.hasInterruptsOnly(cause),
-											() =>
-												Effect.succeed(
-													run.delivery === "async" ? null : warning("required-hook-pending"),
-												),
-										),
+				if (eligible.length === 0) {
+					return [];
+				}
+				const deadline = yield* startDeadline(`after-${triggerId}`);
+				const warnings = yield* Effect.forEach(
+					eligible,
+					(run) =>
+						Effect.gen(function* () {
+							const payload = { runId: run.id, attemptNumber: 1, acceptedPatches: [] };
+							const warning = (
+								code: "required-hook-pending" | "required-hook-failed",
+							): AutomationWarning => ({ code, runId: run.id, hookSlug: run.hookSlug });
+							yield* operations.submit(payload);
+							if (run.delivery === "async") {
+								return null;
+							}
+							const observed = yield* observeAttempt(`after-${run.id}`, deadline, payload);
+							if (observed.status === "expired") {
+								return warning("required-hook-pending");
+							}
+							return observed.value.attempt?.status === "succeeded"
+								? null
+								: warning(
+										observed.value.attempt?.status === "failed"
+											? "required-hook-failed"
+											: "required-hook-pending",
 									);
-								}),
-							{ concurrency: AUTOMATION_IMMEDIATE_CONCURRENCY },
+						}).pipe(
+							Effect.catchCauseIf(
+								(cause) => !Cause.hasInterruptsOnly(cause),
+								() =>
+									Effect.succeed(
+										run.delivery === "async"
+											? null
+											: ({
+													runId: run.id,
+													hookSlug: run.hookSlug,
+													code: "required-hook-pending",
+												} satisfies AutomationWarning),
+									),
+							),
 						),
-					{ concurrency: 2 },
-				).pipe(Effect.map((groups) => groups.flat().filter((warning) => warning !== null)));
+					{ concurrency: AUTOMATION_IMMEDIATE_CONCURRENCY },
+				);
+				return warnings.filter((warning) => warning !== null);
 			});
 		return LifecycleExecution.of({
 			after,
@@ -155,13 +201,20 @@ export const LifecycleExecutionLive = Layer.effect(
 			executePolicy: ({ runId, acceptedPatches }) =>
 				requireWorkflowBody("executePolicy").pipe(
 					Effect.andThen(
-						operations.execute({ runId, acceptedPatches, attemptNumber: 1 }).pipe(
-							Effect.timeout(Duration.millis(AUTOMATION_IMMEDIATE_TIMEOUT_MS)),
-							Effect.flatMap((result) =>
-								result.attempt?.status === "succeeded" && result.policyOutput !== null
-									? Effect.succeed(result.policyOutput)
-									: new AutomationPolicyExecutionError({ runId, code: "policy-execution-failed" }),
-							),
+						Effect.gen(function* () {
+							const payload = { runId, acceptedPatches, attemptNumber: 1 };
+							const deadline = yield* startDeadline(`policy-${runId}`);
+							yield* operations.submit(payload);
+							const observed = yield* observeAttempt(`policy-${runId}`, deadline, payload);
+							return observed.status === "completed" &&
+								observed.value.attempt?.status === "succeeded" &&
+								observed.value.policyOutput !== null
+								? observed.value.policyOutput
+								: yield* new AutomationPolicyExecutionError({
+										runId,
+										code: "policy-execution-failed",
+									});
+						}).pipe(
 							Effect.mapError(
 								() =>
 									new AutomationPolicyExecutionError({ runId, code: "policy-execution-failed" }),

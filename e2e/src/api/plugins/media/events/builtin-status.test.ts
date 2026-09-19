@@ -6,6 +6,7 @@ import {
 	findBuiltinSchemaBySlug,
 	listEventSchemas,
 	requireEventSchemaBySlug,
+	waitForCreateEvents,
 	waitForEventCount,
 } from "~/fixtures/kernel";
 import { createBuiltinMediaLifecycleFixture, seedMediaEntity } from "~/fixtures/plugins/media";
@@ -34,7 +35,7 @@ describe("Events built-in status schemas", () => {
 				}),
 			);
 
-			expect(createResult.count).toBe(2);
+			expect((yield* waitForCreateEvents(apiClient, createResult)).count).toBe(2);
 
 			const allEvents = yield* waitForEventCount(apiClient, entityId, 3);
 			const events = allEvents.filter((event) => event.eventSchemaSlug === "backlog");
@@ -69,7 +70,7 @@ describe("Events built-in status schemas", () => {
 					}),
 				);
 
-				expect(createResult.count).toBe(2);
+				expect((yield* waitForCreateEvents(apiClient, createResult)).count).toBe(2);
 
 				const allEvents = yield* waitForEventCount(apiClient, entityId, 3);
 				expect(allEvents.filter((event) => event.eventSchemaSlug === "complete")).toHaveLength(0);
@@ -108,7 +109,7 @@ describe("Events built-in status schemas", () => {
 				}),
 			);
 
-			expect(createResult.count).toBe(2);
+			expect((yield* waitForCreateEvents(apiClient, createResult)).count).toBe(2);
 
 			const allEvents = yield* waitForEventCount(apiClient, entityId, 3);
 			const events = allEvents.filter((event) => event.eventSchemaSlug === "complete");
@@ -141,7 +142,7 @@ describe("Events built-in status schemas", () => {
 				}),
 			);
 
-			expect(createResult.count).toBe(1);
+			expect((yield* waitForCreateEvents(apiClient, createResult)).count).toBe(1);
 
 			const allEvents = yield* waitForEventCount(apiClient, entityId, 2);
 			const events = allEvents.filter((event) => event.eventSchemaSlug === "complete");
@@ -169,7 +170,7 @@ describe("Events built-in status schemas", () => {
 				}),
 			);
 
-			expect(createResult.count).toBe(1);
+			expect((yield* waitForCreateEvents(apiClient, createResult)).count).toBe(1);
 		}),
 	);
 
@@ -218,7 +219,7 @@ describe("Events built-in status schemas", () => {
 				}),
 			);
 
-			expect(createResult.count).toBe(2);
+			expect((yield* waitForCreateEvents(apiClient, createResult)).count).toBe(2);
 
 			const allEvents = yield* waitForEventCount(apiClient, entityId, 3);
 			const events = allEvents.filter((event) => event.eventSchemaSlug === "review");
@@ -248,7 +249,7 @@ describe("Events built-in status schemas", () => {
 				}),
 			);
 
-			expect(createResult.count).toBe(1);
+			expect((yield* waitForCreateEvents(apiClient, createResult)).count).toBe(1);
 
 			const allEvents = yield* waitForEventCount(apiClient, entityId, 2);
 			const droppedEvent = allEvents.find((event) => event.eventSchemaSlug === "dropped");
@@ -275,7 +276,7 @@ describe("Events built-in status schemas", () => {
 				}),
 			);
 
-			expect(createResult.count).toBe(1);
+			expect((yield* waitForCreateEvents(apiClient, createResult)).count).toBe(1);
 
 			const allEvents = yield* waitForEventCount(apiClient, entityId, 2);
 			const onHoldEvent = allEvents.find((event) => event.eventSchemaSlug === "on_hold");
@@ -333,7 +334,7 @@ describe("Events built-in status schemas", () => {
 				}),
 			);
 
-			expect(createResult.count).toBe(2);
+			expect((yield* waitForCreateEvents(apiClient, createResult)).count).toBe(2);
 
 			const allEvents = yield* waitForEventCount(apiClient, entityId, 3);
 			const events = allEvents.filter((event) => event.eventSchemaSlug === "dropped");
@@ -368,7 +369,7 @@ describe("Events built-in status schemas", () => {
 				}),
 			);
 
-			expect(createResult.count).toBe(2);
+			expect((yield* waitForCreateEvents(apiClient, createResult)).count).toBe(2);
 
 			const allEvents = yield* waitForEventCount(apiClient, entityId, 3);
 			const events = allEvents.filter((event) => event.eventSchemaSlug === "on_hold");
@@ -427,7 +428,7 @@ describe("Events built-in status schemas", () => {
 				}),
 			);
 
-			expect(createResult.count).toBe(2);
+			expect((yield* waitForCreateEvents(apiClient, createResult)).count).toBe(2);
 
 			const allEvents = yield* waitForEventCount(apiClient, entity.id, 3);
 			const events = allEvents.filter((event) => event.eventSchemaSlug !== "add-to-media-library");

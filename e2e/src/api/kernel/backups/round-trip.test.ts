@@ -34,6 +34,7 @@ import {
 	literalSandboxSource,
 	listEventSchemas,
 	listEventsForEntity,
+	waitForCreateEvents,
 	listNotificationSubscriptions,
 	listRelationshipSchemas,
 	listSavedViews,
@@ -363,23 +364,26 @@ describe("backup export and restore round trip", () => {
 				context: { note: "latest" },
 				labels: ["newer", "ordered"],
 			};
-			const createdEvents = yield* source.client.call((c) =>
-				c.events.create({
-					payload: [
-						{
-							entityId: firstEntity.id,
-							occurredAt: olderOccurredAt,
-							properties: olderProperties,
-							eventSchemaSlug: eventSchema.id,
-						},
-						{
-							entityId: firstEntity.id,
-							occurredAt: newerOccurredAt,
-							properties: newerProperties,
-							eventSchemaSlug: eventSchema.id,
-						},
-					],
-				}),
+			const createdEvents = yield* waitForCreateEvents(
+				source.client,
+				yield* source.client.call((c) =>
+					c.events.create({
+						payload: [
+							{
+								entityId: firstEntity.id,
+								occurredAt: olderOccurredAt,
+								properties: olderProperties,
+								eventSchemaSlug: eventSchema.id,
+							},
+							{
+								entityId: firstEntity.id,
+								occurredAt: newerOccurredAt,
+								properties: newerProperties,
+								eventSchemaSlug: eventSchema.id,
+							},
+						],
+					}),
+				),
 			);
 			expect(createdEvents.failure).toBeNull();
 			const olderOutcome = createdEvents.outcomes.find(({ index }) => index === 0);

@@ -6,9 +6,24 @@ import {
 	type AutomationRequestPayload,
 	type AutomationWarning,
 } from "@ryot-app/contract/modules/automations/lifecycle";
-import type { CreateEventItem } from "@ryot-app/contract/modules/events/schemas";
+import {
+	type CreateEventItem,
+	EventOperationNotFound,
+	type EventCreateOperation,
+} from "@ryot-app/contract/modules/events/schemas";
 import type { EventId, UserId } from "@ryot-app/contract/schema/brands";
-import { Cause, Context, DateTime, Effect, Layer, Schema } from "effect";
+import {
+	Cause,
+	Clock,
+	Context,
+	DateTime,
+	Duration,
+	Effect,
+	Layer,
+	Option,
+	Redacted,
+	Schema,
+} from "effect";
 import { WorkflowEngine } from "effect/unstable/workflow/WorkflowEngine";
 
 import {
@@ -20,10 +35,17 @@ import {
 } from "#lib/domain/lifecycle";
 import { lifecycleTrigger, LifecycleCommand } from "#lib/domain/lifecycle-command";
 import { LifecycleExecution } from "#lib/domain/lifecycle-execution";
+import { AppConfig } from "#lib/infrastructure/config/service";
 import { retryOnDeadlock } from "#lib/infrastructure/db/errors";
 import { DatabaseSession, DatabaseSessionStateError } from "#lib/infrastructure/db/session";
+import {
+	createWorkflowJobId,
+	deriveJobIdSecret,
+	resolveWorkflowExecutionId,
+} from "#lib/shared/job-id";
+import { toWorkflowRunResult } from "#lib/shared/workflow-result";
 
-import { enqueueEventCreate } from "./event-create-workflow";
+import { enqueueEventCreate, EventCreateWorkflow } from "./event-create-workflow";
 import {
 	EventsRepository,
 	type EventIdentityInput,
@@ -62,6 +84,11 @@ const eventDraft = ({
 export class EventsService extends Context.Service<EventsService>()("EventsService", {
 	make: Effect.gen(function* () {
 		const engine = yield* WorkflowEngine;
+		const config = yield* AppConfig;
+		const operationSecret = deriveJobIdSecret(
+			Redacted.value(config.server.adminAccessToken),
+			"events-operation-id",
+		);
 		const repository = yield* EventsRepository;
 		const session = yield* DatabaseSession;
 		const planner = yield* LifecyclePlanner;
@@ -99,6 +126,86 @@ export class EventsService extends Context.Service<EventsService>()("EventsServi
 			return yield* enqueueEventCreate({ ...input, command }).pipe(
 				Effect.provideService(WorkflowEngine, engine),
 			);
+		});
+		const operationState = Effect.fn("EventsService.operationState")(function* (
+			userId: UserId,
+			executionId: string,
+			totalItems: number,
+		): Effect.fn.Return<Schema.Schema.Type<typeof EventCreateOperation>, DbError> {
+			const operationId = createWorkflowJobId(
+				operationSecret,
+				`${executionId}:${totalItems}`,
+				userId,
+			);
+			const result = toWorkflowRunResult(
+				Option.getOrUndefined(yield* engine.poll(EventCreateWorkflow, executionId)),
+				{ onSuccess: (value) => ({ result: value }) },
+			);
+			if (result.status === "failed") {
+				return { operationId, status: "failed", reason: "unexpected-error" };
+			}
+			const progress = yield* repository.getCreateProgress(userId, executionId);
+			if (result.status === "completed" && !progress.requiredPending) {
+				return { operationId, status: "completed", result: result.result };
+			}
+			return progress.writtenCount > 0
+				? {
+						operationId,
+						writtenCount: progress.writtenCount,
+						status: "committed-follow-up-pending",
+						writesPending: result.status !== "completed" && progress.writtenCount < totalItems,
+					}
+				: { operationId, writtenCount: 0, status: "accepted", writesPending: true };
+		});
+		const createHttp = Effect.fn("EventsService.createHttp")(function* (
+			input: { readonly userId: UserId; readonly payload: ReadonlyArray<CreateEventItem> },
+			command: LifecycleCommand,
+		) {
+			if (input.payload.length === 0) {
+				return { count: 0, outcomes: [], warnings: [], failure: null };
+			}
+			const started = yield* Clock.currentTimeMillis;
+			const executionId = command.causation.executionId;
+			yield* engine
+				.execute(EventCreateWorkflow, {
+					executionId,
+					discard: true,
+					payload: { ...input, command },
+				})
+				.pipe(Effect.uninterruptible);
+			const remaining = Math.max(0, 35_000 - ((yield* Clock.currentTimeMillis) - started));
+			const observed = yield* Effect.gen(function* () {
+				for (;;) {
+					const state = yield* operationState(input.userId, executionId, input.payload.length);
+					if (state.status === "completed" || state.status === "failed") {
+						return state;
+					}
+					yield* Effect.sleep(Duration.millis(500));
+				}
+			}).pipe(Effect.timeoutOption(Duration.millis(remaining)));
+			const state = Option.isSome(observed)
+				? observed.value
+				: yield* operationState(input.userId, executionId, input.payload.length);
+			if (state.status === "completed") {
+				return state.result;
+			}
+			if (state.status === "failed") {
+				return yield* new DbError({ message: "Event creation failed" });
+			}
+			return state;
+		});
+		const getCreateOperation = Effect.fn("EventsService.getCreateOperation")(function* (
+			userId: UserId,
+			operationId: string,
+		) {
+			const identity = resolveWorkflowExecutionId(operationSecret, userId, operationId);
+			const separator = identity?.lastIndexOf(":") ?? -1;
+			const executionId = identity?.slice(0, separator);
+			const totalItems = Number(identity?.slice(separator + 1));
+			if (!executionId || !Number.isSafeInteger(totalItems) || totalItems < 1) {
+				return yield* new EventOperationNotFound({ reason: { code: "operation-not-found" } });
+			}
+			return yield* operationState(userId, executionId, totalItems);
 		});
 
 		const prepare = Effect.fnUntraced(function* (
@@ -321,8 +428,10 @@ export class EventsService extends Context.Service<EventsService>()("EventsServi
 
 		return {
 			create,
+			createHttp,
 			prepareUpdate,
 			prepareDelete,
+			getCreateOperation,
 			persistPreparedUpdate,
 			persistPreparedDelete,
 			delete: (input: EventIdentityInput, command: LifecycleCommand) => mutate(input, command),
