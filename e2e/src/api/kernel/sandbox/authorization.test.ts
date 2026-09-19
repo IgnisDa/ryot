@@ -18,7 +18,7 @@ describe("sandbox capability authorization", () => {
 				installTestPluginBundle({
 					scope: "system",
 					files: {
-						"scripts/denied.sandbox.ts": userPreferencesSandboxSource({
+						"backend/scripts/denied.sandbox.ts": userPreferencesSandboxSource({
 							slug: scriptSlug,
 							name: "System denied capability",
 						}),
@@ -38,8 +38,8 @@ describe("sandbox capability authorization", () => {
 							requiredPluginConfigKeys: [],
 							requiredSystemConfigKeys: [],
 							name: "System denied capability",
-							entry: "scripts/denied.sandbox.ts",
 							capabilities: ["getUserPreferences"],
+							entry: "backend/scripts/denied.sandbox.ts",
 						} satisfies TestPluginScript & { entry: string },
 					],
 				}),
