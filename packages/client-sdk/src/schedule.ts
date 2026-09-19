@@ -98,23 +98,3 @@ export const makeRyotPluginRuntime = (
 			RyotNavigationService.layer(navigation),
 		),
 	);
-
-type BootstrapRyotRuntimeFactory = (
-	client: RyotClient,
-	navigation: PluginRouterNavigation,
-) => RyotPluginRuntime;
-
-let bootstrapRuntimeFactory: BootstrapRyotRuntimeFactory = makeRyotPluginRuntime;
-
-/**
- * Internal test seam. `testing.ts` swaps in a `TestClock`-backed runtime so `bootstrapClientPage`
- * and `bootstrapClientPlugin` can be driven by a test clock. Never re-exported through `./plugin`.
- */
-export const setBootstrapRyotRuntimeFactory = (
-	factory: BootstrapRyotRuntimeFactory | undefined,
-) => {
-	bootstrapRuntimeFactory = factory ?? makeRyotPluginRuntime;
-};
-
-export const createBootstrapRyotRuntime: BootstrapRyotRuntimeFactory = (client, navigation) =>
-	bootstrapRuntimeFactory(client, navigation);

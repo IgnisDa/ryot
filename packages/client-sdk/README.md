@@ -9,6 +9,9 @@ The plugin bootstrap validates embedded artifact metadata before registering a `
 accepts exactly one `MessagePort` from `window.parent`; all other sources and port counts are ignored.
 `PluginBridgeInit` validates protocol markers and its artifact hash must match the embedded metadata.
 `PluginBridgeReady` reports the embedded metadata, not values echoed from init.
+Production bootstraps construct a live SDK runtime per page. Tests use `createTestRyotClock().bootstrap`
+when mounting a page against that harness's clock; each page owns and disposes its SDK runtime,
+including its schedule scope, while the harness owns the clock. Concurrent harnesses are independent.
 
 The port carries no bearer token, server URL, user identity, plugin identity, or installation
 identity. Reserved `Mod+K` and `Mod+Shift+Space` shortcuts are forwarded as semantic kernel messages,
@@ -110,7 +113,8 @@ Every SDK delay goes through `RyotSchedule` (`now`, `after`), built by `RyotSche
 the Effect `Clock` in its layer, and distributed to components by `RyotProvider` alongside the
 client. `makeRyotRuntime(client)` assembles the live runtime; `createTestRyotClock` from
 `./testing` assembles a `TestClock`-backed one, so tests advance time with `advance(ms)` instead of
-faking timers. `RyotSchedule` keeps synchronous callback registration for React and router code;
+faking timers. Bootstrapped page tests pass the harness's `bootstrap` to `mountPluginPage` or call its
+`bootstrapClientPage` / `bootstrapClientPlugin` method. `RyotSchedule` keeps synchronous callback registration for React and router code;
 client-only plugin code can also use the SDK Effect barrel. `after` forks its sleep on the layer's
 captured clock and returns a synchronous cancel; a throw inside the callback is rethrown on a
 microtask so the plugin fatal path still sees it. `run` executes refresh Effects on that same scoped
