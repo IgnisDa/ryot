@@ -31,9 +31,11 @@ Mount `/home/ryot/storage` if you do not configure S3. Never persist `/home/ryot
 
 ## Memory
 
-Give the Ryot container a memory limit, as the [installation](./index.md#installation) compose
-file does. On a 4 GB server, 2 GB for Ryot leaves enough room for the database and Redis. If a
-plugin uses too much memory, only that plugin's task fails; Ryot keeps running.
+Ryot sizes plugin memory from the memory it can see: the container's memory limit if it has one,
+otherwise the server's memory. Plugins get the smaller of 1,536 MiB and half of that memory, or
+`SANDBOX_MEMORY_BUDGET_MIB`, which may not exceed half. A plugin that uses too much memory fails
+only its own task. A container memory limit is optional; if you set one, give Ryot at least 3 GB so
+interactive and background plugin work keep separate memory.
 
 ## Imports
 
