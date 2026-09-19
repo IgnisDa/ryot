@@ -1,11 +1,9 @@
-import { unknownToMessage } from "@ryot-app/contract/errors";
 import { UserId } from "@ryot-app/contract/schema/brands";
-import { eq, sql } from "drizzle-orm";
+import { asc, eq, isNull, sql } from "drizzle-orm";
 import { Context, DateTime, Effect, Layer } from "effect";
 
 import * as schema from "#lib/infrastructure/db/schema/tables/combined";
 import { DatabaseSession } from "#lib/infrastructure/db/session";
-import { AuthBootstrapError, AuthUserBootstrap } from "#modules/auth/service";
 import { generateUserAvatar } from "#modules/auth/user-avatar";
 import { NotificationSubscriptionsService } from "#modules/automations/notification-subscriptions-service";
 import { ClientSurfaceMaterializer } from "#modules/plugins/client-surface-materializer";
@@ -37,9 +35,17 @@ export class UserBootstrap extends Context.Service<UserBootstrap>()("UserBootstr
 					.where(eq(schema.user.id, userId))
 					.for("update"),
 			);
-			return row
-				? { image: row.image, bootstrapCompletedAt: row.bootstrapCompletedAt }
-				: { image: null, bootstrapCompletedAt: null };
+			return row ? { image: row.image, bootstrapCompletedAt: row.bootstrapCompletedAt } : null;
+		});
+		const listIncomplete = Effect.fn("UserBootstrap.listIncomplete")(function* (limit: number) {
+			return yield* session.run((db) =>
+				db
+					.select({ id: schema.user.id })
+					.from(schema.user)
+					.where(isNull(schema.user.bootstrapCompletedAt))
+					.orderBy(asc(schema.user.createdAt))
+					.limit(limit),
+			);
 		});
 
 		const markBootstrapComplete = Effect.fn(function* (userId: string, image: string | null) {
@@ -56,16 +62,17 @@ export class UserBootstrap extends Context.Service<UserBootstrap>()("UserBootstr
 			);
 		});
 
-		const perform = Effect.fn("bootstrapNewUser")(function* (userId: string) {
+		const perform = Effect.fn("UserBootstrap.perform")(function* (userId: string) {
 			yield* Effect.annotateCurrentSpan({ userId });
 			const user = UserId.make(userId);
-			const alreadyComplete = yield* session.transaction(
+			const shouldSkip = yield* session.transaction(
 				Effect.gen(function* () {
 					yield* acquireBootstrapLock(userId);
-					return (yield* readBootstrapState(userId)).bootstrapCompletedAt !== null;
+					const state = yield* readBootstrapState(userId);
+					return state?.bootstrapCompletedAt !== null;
 				}),
 			);
-			if (alreadyComplete) {
+			if (shouldSkip) {
 				return;
 			}
 			yield* pluginInstallations.provisionSystemInstallations(user);
@@ -75,7 +82,7 @@ export class UserBootstrap extends Context.Service<UserBootstrap>()("UserBootstr
 				Effect.gen(function* () {
 					yield* acquireBootstrapLock(userId);
 					const state = yield* readBootstrapState(userId);
-					if (state.bootstrapCompletedAt !== null) {
+					if (state?.bootstrapCompletedAt !== null) {
 						return;
 					}
 					yield* notificationSubscriptions.ensureDefaultRules(user);
@@ -86,25 +93,8 @@ export class UserBootstrap extends Context.Service<UserBootstrap>()("UserBootstr
 			);
 		});
 
-		return { perform };
+		return { perform, listIncomplete };
 	}),
 }) {
 	static readonly layer = Layer.effect(this, this.make);
 }
-
-export const AuthUserBootstrapLive = Layer.effect(
-	AuthUserBootstrap,
-	Effect.gen(function* () {
-		const bootstrap = yield* UserBootstrap;
-		return {
-			run: (userId: string) =>
-				bootstrap
-					.perform(userId)
-					.pipe(
-						Effect.mapError(
-							(error) => new AuthBootstrapError({ message: unknownToMessage(error) }),
-						),
-					),
-		};
-	}),
-);

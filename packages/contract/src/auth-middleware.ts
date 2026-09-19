@@ -29,6 +29,10 @@ export class DemoOperationProtected extends Schema.TaggedError<DemoOperationProt
 	{ reason: Schema.Struct({ code: Schema.Literal("demo-operation-protected") }) },
 ) {}
 
+export class UserInitializing extends Schema.TaggedError<UserInitializing>()("UserInitializing", {
+	reason: Schema.Struct({ code: Schema.Literal("user-initializing") }),
+}) {}
+
 export type CachedUserPreferences = {
 	readonly allowNsfw: boolean;
 	readonly language: string | null;
@@ -91,6 +95,7 @@ export class AuthMiddleware extends HttpApiMiddleware.Service<
 		AuthUnauthorized.pipe(HttpApiSchema.status(401)),
 		DemoOperationProtected.pipe(HttpApiSchema.status(403)),
 		AuthRateLimited.pipe(HttpApiSchema.status(429)),
+		UserInitializing.pipe(HttpApiSchema.status(503)),
 	],
 }) {}
 
