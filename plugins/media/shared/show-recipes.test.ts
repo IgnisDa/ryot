@@ -1,7 +1,13 @@
 import { rowsResult } from "@ryot-app/ryotql-recipes/test-utils";
 import { describe, expect, it } from "vitest";
 
-import { showRecipes, showSeasonEpisodesRecipe, showSeasonsRecipe } from "./show-recipes";
+import {
+	showOrderEpisodesRecipe,
+	showOrderGroupCoverageRecipe,
+	showRecipes,
+	showSeasonEpisodesRecipe,
+	showSeasonsRecipe,
+} from "./show-recipes";
 
 const showRows = (items: readonly Record<string, unknown>[]) =>
 	rowsResult(items, { limit: 1, hasMore: false, nextCursor: null });
@@ -252,6 +258,7 @@ describe("media show query recipes", () => {
 			"schemaSlug",
 			"populationStatus",
 			"translationStatus",
+			"episodeOrders",
 		]);
 		expect(seasons).toMatchObject({ limit: 4, key: "seasons" });
 		expect(seasons?.include).toBeUndefined();
@@ -275,6 +282,153 @@ describe("media show query recipes", () => {
 			"upcomingTotal",
 			"watchedMinutes",
 		]);
+	});
+
+	it("decodes a show's stored episode orders and treats a show without any as having none", () => {
+		const recipe = showSeasonsRecipe({ seasonLimit: 4, entityId: "show-1" });
+		const episodeOrders = [
+			{
+				type: "dvd",
+				name: "DVD Order",
+				description: null,
+				externalId: "dvd-order",
+				groups: [{ order: 1, name: "Disc 1", episodeExternalIds: ["1048593", "1048594"] }],
+			},
+		];
+		const decode = (orders: unknown) =>
+			recipe.decode({
+				data: {
+					show: showRows([
+						{
+							id: "show-1",
+							name: "Firefly",
+							schemaSlug: "show",
+							episodeOrders: orders,
+							populationStatus: "ready",
+							translationStatus: "none",
+							seasons: { items: [], pageInfo: { limit: 4, hasMore: false } },
+						},
+					]),
+				},
+			});
+
+		expect(decode(episodeOrders)).toMatchObject({ success: { episodeOrders } });
+		expect(decode(null)).toMatchObject({ success: { episodeOrders: [] } });
+		expect(decode([{ ...episodeOrders[0], type: "broadcast" }])._tag).toBe("Failure");
+	});
+
+	it("selects a show's episodes by external id with the season episode fields", () => {
+		const recipe = showOrderEpisodesRecipe({
+			entityId: "show-1",
+			externalIds: ["1048594", "1048593"],
+		});
+		const episodes = recipe.document.queries["episodes"];
+		if (episodes?.output.type !== "rows" || episodes.where?.type !== "and") {
+			throw new Error("Expected a filtered episode rows query");
+		}
+		const seasonEpisodes = showSeasonEpisodesRecipe({ limit: 12, containerId: "season-id" })
+			.document.queries["episodes"];
+		if (seasonEpisodes?.output.type !== "rows") {
+			throw new Error("Expected a season episode rows query");
+		}
+
+		expect(Object.keys(recipe.document.queries)).toEqual(["episodes"]);
+		expect(episodes.output.pagination).toEqual({ limit: 2 });
+		expect(episodes.where.predicates[1]).toMatchObject({ type: "exists" });
+		expect(JSON.stringify(episodes.where.predicates[1])).toContain('"show-1"');
+		expect(episodes.where.predicates[2]).toMatchObject({
+			type: "in",
+			expr: { field: "externalId" },
+			values: [{ value: "1048594" }, { value: "1048593" }],
+		});
+		expect(episodes.output.fields.map((field) => ("key" in field ? field.key : null))).toEqual([
+			...seasonEpisodes.output.fields.map((field) => ("key" in field ? field.key : null)),
+			"externalId",
+		]);
+	});
+
+	it("decodes a show's episodes by external id with their external ids", () => {
+		const recipe = showOrderEpisodesRecipe({ entityId: "show-1", externalIds: ["1048593"] });
+		const episode = {
+			runtime: 88,
+			images: null,
+			seasonNumber: 1,
+			id: "episode-11",
+			name: "Serenity",
+			episodeNumber: 11,
+			description: null,
+			state: "complete",
+			externalId: "1048593",
+			publishDate: "2002-12-20",
+			populationStatus: "ready",
+			translationStatus: "none",
+			schemaSlug: "show-episode",
+		};
+
+		expect(recipe.decode({ data: { episodes: showRows([episode]) } })).toMatchObject({
+			success: [episode],
+		});
+	});
+
+	it("counts coverage over the show's episodes with the requested external ids", () => {
+		const recipe = showOrderGroupCoverageRecipe({
+			entityId: "show-1",
+			externalIds: ["1048594", "1048593"],
+		});
+		const show = recipe.document.queries["coverage"];
+		if (show?.output.type !== "rows") {
+			throw new Error("Expected a show rows query");
+		}
+
+		expect(Object.keys(recipe.document.queries)).toEqual(["coverage"]);
+		expect(show.where).toMatchObject({
+			type: "and",
+			predicates: [{ right: { value: "show" } }, { right: { value: "show-1" } }],
+		});
+		expect(show.output.fields.map((field) => ("key" in field ? field.key : null))).toEqual([
+			"episodeTotal",
+			"watchedTotal",
+			"watchedUnknownRuntime",
+			"upcomingTotal",
+			"watchedMinutes",
+		]);
+		const episodeTotal = show.output.fields[0];
+		if (
+			!episodeTotal ||
+			!("expr" in episodeTotal) ||
+			episodeTotal.expr.type !== "aggregate" ||
+			episodeTotal.expr.query.where?.type !== "and"
+		) {
+			throw new Error("Expected a filtered episode count");
+		}
+
+		expect(episodeTotal.expr.query.where.predicates[0]).toMatchObject({
+			predicates: [
+				{ right: { value: "show-episode" } },
+				{ type: "exists" },
+				{
+					type: "in",
+					expr: { field: "externalId" },
+					values: [{ value: "1048594" }, { value: "1048593" }],
+				},
+			],
+		});
+	});
+
+	it("decodes group coverage and a missing show as no coverage", () => {
+		const recipe = showOrderGroupCoverageRecipe({ entityId: "show-1", externalIds: ["1048593"] });
+		const coverage = {
+			watchedTotal: 3,
+			episodeTotal: 14,
+			upcomingTotal: 0,
+			watchedMinutes: 132,
+			watchedUnknownRuntime: 0,
+		};
+
+		expect(recipe.decode({ data: { coverage: showRows([coverage]) } })).toMatchObject({
+			success: coverage,
+		});
+		expect(recipe.decode({ data: { coverage: showRows([]) } })).toMatchObject({ success: null });
 	});
 
 	it("pages a season's episodes ascending as a top-level row query", () => {

@@ -19,6 +19,7 @@
 - Flat measures use `mediaTimeSpentMeasure` or `mediaEntityCountMeasure`.
 - `mediaSummaryHeaderDetail` frames every flat and episodic descriptor's facts with `mediaRatingFact` first and `mediaProductionStatusFact` last; a descriptor returns only its own facts. Creator headers carry neither fact.
 - Activity copy comes from `mediaFlatActivityCopy` and `mediaEpisodicActivityCopy` in `client/media/activity-copy.ts`, which hold the per-verb vocabulary. The verb table also owns the row and card `progressVerb`. A descriptor passes only what the verb table cannot say, such as a schema's own progress row label.
+- Show episode orders are presentation-only; next up, coverage, and lifecycle keep default seasons.
 - Episode lists are cursor-paged top-level row queries, never includes; only a top-level rows query exposes `pageInfo.nextCursor`. Container-level counts come from the container query's aggregates, never from a loaded episode page.
 - A schema selects only fields its own entity schema declares. `watchProviders` belongs to `movie` and `show` alone, so it lives in `mediaWatchProviderSelection` rather than `mediaSummarySelection`.
 - Overview sections sourced from the summary are descriptor-provided through `overviewTrailing`; `client/media/` owns no schema-specific section. "Where to watch" is `mediaWatchProvidersTrailing`, not a `MediaOverview` prop.

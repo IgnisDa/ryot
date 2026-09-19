@@ -6,6 +6,7 @@ import {
 	count,
 	defineRecipe,
 	eq,
+	inArray,
 	join,
 	literal,
 	selectedField,
@@ -28,12 +29,16 @@ import {
 } from "./entity-selections";
 import {
 	episodicCoverageSelection,
+	episodicEpisodeMembership,
+	episodicEpisodeSelection,
 	episodicEpisodesRecipe,
+	episodicScopedCoverageSelection,
 	mediaEpisodicRecipes,
 } from "./episodic-recipes";
 import { showEpisodicKindConfig } from "./lifecycle-expressions";
 import { MediaImageListSchema } from "./media-image";
 import { mediaWatchProviderSelection } from "./media-recipes";
+import { ShowEpisodeOrderListSchema } from "./show-episode-order";
 
 const SHOW_SEASON_RELATIONSHIP = "show-to-show-season";
 
@@ -166,10 +171,86 @@ export const showSeasonsRecipe = defineRecipe(
 			map: ({ show }) => Result.succeed(show ?? null),
 			queries: {
 				show: selectedOptionalRow(entity, {
-					selection: entityIdentitySelection(entity),
 					orderBy: [ascending(column(entity, "id"))],
 					include: { seasons: showSeasonInclude(entity, input.seasonLimit) },
 					where: and(entitySchema(entity, "show"), entityId(entity, input.entityId)),
+					selection: {
+						...entityIdentitySelection(entity),
+						episodeOrders: selectedField(
+							propertyJson(entity, "episodeOrders"),
+							ShowEpisodeOrderListSchema,
+						),
+					},
+				}),
+			},
+		};
+	},
+);
+
+/** Episodes of one show whose provider external id is among the requested ones. */
+const showEpisodesByExternalId = (
+	episode: Table,
+	input: { readonly entityId: string; readonly externalIds: readonly [string, ...string[]] },
+	alias: string,
+) =>
+	and(
+		entitySchema(episode, "show-episode"),
+		episodicEpisodeMembership(showEpisodicKindConfig, episode, input.entityId, alias),
+		inArray(
+			column(episode, "externalId"),
+			input.externalIds.map((externalId) => literal(externalId)),
+		),
+	);
+
+/**
+ * One episode order group's episodes, selected like a season's episodes plus their external id.
+ * Rows come back in season order; callers order them by their position in the group.
+ */
+export const showOrderEpisodesRecipe = defineRecipe(
+	(input: { readonly entityId: string; readonly externalIds: readonly [string, ...string[]] }) => {
+		const episode = table("entity", "orderEpisode");
+		const show = table("entity", "orderEpisodeShow");
+		return {
+			map: ({ episodes }) => Result.succeed(episodes.items),
+			queries: {
+				episodes: selectedRows(episode, {
+					limit: input.externalIds.length,
+					joins: [join("inner", show, entityId(show, input.entityId))],
+					where: showEpisodesByExternalId(episode, input, "orderEpisodeMember"),
+					orderBy: [
+						ascending(propertyNumber(episode, "seasonNumber")),
+						ascending(propertyNumber(episode, "episodeNumber")),
+						ascending(column(episode, "id")),
+					],
+					selection: {
+						...episodicEpisodeSelection(episode, show, "orderEpisodeState"),
+						...showSeasonNumber(episode),
+						externalId: selectedField(column(episode, "externalId"), Schema.String),
+					},
+				}),
+			},
+		};
+	},
+);
+
+/** A season header's coverage counts over one episode order group's episodes. */
+export const showOrderGroupCoverageRecipe = defineRecipe(
+	(input: { readonly entityId: string; readonly externalIds: readonly [string, ...string[]] }) => {
+		const show = table("entity", "orderGroupShow");
+		return {
+			map: ({ coverage }) => Result.succeed(coverage ?? null),
+			queries: {
+				coverage: selectedOptionalRow(show, {
+					orderBy: [ascending(column(show, "id"))],
+					where: and(entitySchema(show, "show"), entityId(show, input.entityId)),
+					selection: episodicScopedCoverageSelection({
+						parent: show,
+						alias: "orderGroupCoverage",
+						scope: (episode) => ({
+							joins: [],
+							where: showEpisodesByExternalId(episode, input, "orderGroupMember"),
+						}),
+					}),
 				}),
 			},
 		};
