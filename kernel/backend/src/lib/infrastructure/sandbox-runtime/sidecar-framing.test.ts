@@ -587,7 +587,9 @@ it("lane_pools_keep_rust_assemblies_within_connection_bound", () => {
 	const runText = "x".repeat(SIDECAR_PROTOCOL_LIMITS.messageBytes.run - 4096);
 	let largestQueue = 0;
 	for (const budget of [854, 1094, 1452, 1536, 1904]) {
-		const plan = Result.getOrThrow(sandboxMemoryPlan(Option.some(budget), 8 * 1024 * MiB));
+		const plan = Result.getOrThrow(
+			sandboxMemoryPlan(Option.some(budget), 8 * 1024 * MiB, ["interactive", "background"]),
+		);
 		const pools: ReadonlyArray<readonly [ExecutionLane, number]> =
 			plan.mode === "lane"
 				? [

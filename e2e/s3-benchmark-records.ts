@@ -29,6 +29,12 @@ export const MetricSnapshot = Schema.Struct({
 });
 export type MetricSnapshot = typeof MetricSnapshot.Type;
 
+export const RoleMetricSnapshot = Schema.Struct({ role: Schema.String, snapshot: MetricSnapshot });
+
+/** Cumulative snapshots per `ryot.server.role`: one stream for `all`, or one per split role. */
+export const RoleMetrics = Schema.Record(Schema.String, Schema.Array(MetricSnapshot));
+export type RoleMetrics = typeof RoleMetrics.Type;
+
 export const LatencySample = Schema.Struct({
 	index: Schema.Int,
 	durationMs: Millis,
@@ -63,6 +69,7 @@ export const Configuration = Schema.Record(Schema.String, Schema.Union([Schema.S
 export const LatencyTrialRecord = Schema.Struct({
 	pair: Schema.Int,
 	resolutionMs: Millis,
+	metrics: RoleMetrics,
 	startedAt: Schema.String,
 	measureEndedAtMs: Millis,
 	measureStartedAtMs: Millis,
@@ -70,7 +77,6 @@ export const LatencyTrialRecord = Schema.Struct({
 	host: Schema.Array(HostSample),
 	kind: Schema.Literal("latency"),
 	mode: Schema.Literals(LATENCY_MODES),
-	metrics: Schema.Array(MetricSnapshot),
 	warmup: Schema.Struct({ search: Schema.Int, details: Schema.Int }),
 	samples: Schema.Struct({
 		search: Schema.Array(LatencySample),
@@ -116,13 +122,13 @@ const FairnessUserRecord = Schema.Struct({
 
 export const FairnessRecord = Schema.Struct({
 	windowMs: Millis,
+	metrics: RoleMetrics,
 	windowEndedAtMs: Millis,
 	startedAt: Schema.String,
 	windowStartedAtMs: Millis,
 	configuration: Configuration,
 	host: Schema.Array(HostSample),
 	kind: Schema.Literal("fairness"),
-	metrics: Schema.Array(MetricSnapshot),
 	users: Schema.Array(FairnessUserRecord),
 	tolerance: Schema.Struct({ admissions: Millis, executions: Millis }),
 	hashes: Schema.Struct({

@@ -119,12 +119,6 @@ const sandbox = group(
 			description:
 				"Global sandbox execution concurrency across trust and snapshot tiers; keep it within available database and memory headroom",
 		}),
-		memoryBudgetMiB: integerField({
-			label: "Memory budget (MiB)",
-			envKey: "SANDBOX_MEMORY_BUDGET_MIB",
-			description:
-				"Aggregate memory reservation budget for sandbox processes and execution buffers; derived as the smaller of 1536 MiB and half of effective memory when unset",
-		}),
 		perUserSidecars: booleanField({
 			defaultValue: false,
 			label: "Per-user sidecars",
@@ -147,6 +141,12 @@ const sandbox = group(
 			label: "Development sandbox runtime directory",
 			description:
 				"Directory containing ryot-sandboxd and snapshots for non-Linux development; relative paths resolve from the working directory",
+		}),
+		memoryBudgetMiB: integerField({
+			label: "Memory budget (MiB)",
+			envKey: "SANDBOX_MEMORY_BUDGET_MIB",
+			description:
+				"Aggregate memory reservation budget for sandbox processes and execution buffers; derived as the smaller of 1536 MiB and half of effective memory when unset. With SERVER_LANES=split it is the deployment total, divided equally between the two roles, and is derived as half of effective memory when unset",
 		}),
 	},
 );
@@ -356,7 +356,7 @@ const server = group(
 			label: "Runner socket directory",
 			envKey: "SERVER_RUNNER_SOCKET_DIR",
 			description:
-				"Absolute path of the private directory holding the Unix sockets both roles use to deliver workflow messages to each other; required when SERVER_LANES is interactive or background and rejected otherwise",
+				"Absolute path of the private directory holding the Unix sockets both roles use to deliver workflow messages to each other; required when SERVER_LANES is interactive, background, or split and rejected otherwise",
 		}),
 		egressAllowedNetworks: stringField({
 			label: "Egress allowed networks",
@@ -370,10 +370,15 @@ const server = group(
 			envKey: "SERVER_LANES",
 			choices: {
 				kind: "static",
-				values: [{ value: "all" }, { value: "interactive" }, { value: "background" }],
+				values: [
+					{ value: "all" },
+					{ value: "interactive" },
+					{ value: "background" },
+					{ value: "split" },
+				],
 			},
 			description:
-				"Work this process runs: all of it, or one role of a two-process deployment on one host where interactive serves HTTP and interactive-lane work and background runs everything else",
+				"Work this process runs: all of it; one role of a two-process deployment on one host, where interactive serves HTTP and interactive-lane work and background runs everything else; or split, which supervises both roles as child processes of one entry point, running migrations first and starting the background role at the lowest CPU priority",
 		}),
 	},
 );
