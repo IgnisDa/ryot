@@ -7,6 +7,8 @@ import { Match } from "effect";
 import { AuthenticatedApiError } from "#/api/authenticated";
 import type { WizardStep } from "#/modules/ui/wizard/wizard-state";
 
+import { ingestionBlockReasonLabel } from "./run-presentation";
+
 export type ImportStartFailure = { readonly detail: string; readonly step: WizardStep | undefined };
 
 const fallback = {
@@ -28,10 +30,11 @@ const presentReason = (reason: ImportRequestFailureReason): ImportStartFailure =
 			step: "configure" as const,
 			detail: "The selected file is no longer available. Choose it again.",
 		})),
-		Match.when({ code: "source-not-configured" }, () => ({
-			step: "pick" as const,
+		Match.when({ code: "source-not-ready" }, ({ blockReasons }) => ({
+			step: "configure" as const,
 			detail:
-				"This service is not configured on your server yet. Set what it needs, then choose it again.",
+				blockReasons.map((blockReason) => ingestionBlockReasonLabel(blockReason)).join(" ") ||
+				"Setup is not ready for this source. Check its requirements and try again.",
 		})),
 		Match.when({ code: "source-not-found" }, () => ({
 			step: "pick" as const,

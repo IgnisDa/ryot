@@ -7,7 +7,7 @@ import { resolveApiUrl } from "#/api/origin";
 import type { ApiScope } from "#/api/scope";
 import { FileDownloads } from "#/modules/downloads/file";
 
-export const importRunFailuresFileName = (runId: string) => `ryot-import-failures-${runId}.json`;
+export const importRunIssuesFileName = (runId: string) => `ryot-import-issues-${runId}.json`;
 
 export class ImportsApi extends Context.Service<ImportsApi>()("ImportsApi", {
 	make: Effect.gen(function* () {
@@ -20,7 +20,7 @@ export class ImportsApi extends Context.Service<ImportsApi>()("ImportsApi", {
 				api.run(scope, (client) => client.imports.cancelRun(request)),
 			deleteRun: (scope: ApiScope, request: ContractRequest<"imports", "deleteRun">) =>
 				api.run(scope, (client) => client.imports.deleteRun(request)),
-			downloadFailures: (scope: ApiScope, runId: string) =>
+			downloadIssues: (scope: ApiScope, runId: string) =>
 				Effect.gen(function* () {
 					const ticket = yield* api.run(scope, (client) =>
 						client.imports.createFailuresDownloadTicket({
@@ -29,7 +29,7 @@ export class ImportsApi extends Context.Service<ImportsApi>()("ImportsApi", {
 					);
 					yield* downloads
 						.download({
-							fileName: importRunFailuresFileName(runId),
+							fileName: importRunIssuesFileName(runId),
 							url: resolveApiUrl(scope.serverUrl, ticket.url),
 						})
 						.pipe(Effect.mapError((error) => new AuthenticatedApiError({ cause: error.cause })));

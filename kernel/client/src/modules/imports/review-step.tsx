@@ -1,5 +1,6 @@
 import { Button, FieldMessage } from "@ryot-app/client-ui-sdk";
 import type { SchemaFormValues } from "@ryot-app/client-ui-sdk/schema-form";
+import { toSchemaFormPayload } from "@ryot-app/client-ui-sdk/schema-form";
 
 import {
 	importSourceInputShape,
@@ -7,8 +8,10 @@ import {
 } from "#/modules/imports/source-selection";
 import { schemaReviewRows } from "#/modules/ui/review-rows";
 
+import { SelectedImportReadiness } from "./selected-readiness";
+
 const UNDOABLE_NOTE =
-	"Starting this adds these entries to your library. An import cannot be undone.";
+	"An import appends history and cannot be undone. A separate import can duplicate history already imported or synced by an integration.";
 
 export function ImportReviewStep(props: {
 	readonly pending: boolean;
@@ -51,15 +54,22 @@ export function ImportReviewStep(props: {
 				<FieldMessage>{props.failureDetail}</FieldMessage>
 			)}
 			<div className="flex flex-col gap-2 sm:flex-row-reverse sm:justify-end">
-				<Button
-					type="button"
-					variant="primary"
-					className="sm:px-6"
-					onClick={props.onStart}
-					disabled={props.pending}
+				<SelectedImportReadiness
+					slug={props.source.slug}
+					settings={toSchemaFormPayload(props.source.inputSchema, props.values)}
 				>
-					{props.pending ? "Starting..." : "Start import"}
-				</Button>
+					{(ready) => (
+						<Button
+							type="button"
+							variant="primary"
+							className="sm:px-6"
+							onClick={props.onStart}
+							disabled={props.pending || !ready}
+						>
+							{props.pending ? "Starting..." : "Start import"}
+						</Button>
+					)}
+				</SelectedImportReadiness>
 				<Button
 					type="button"
 					variant="secondary"

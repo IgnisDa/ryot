@@ -1,5 +1,6 @@
 import type { IntegrationLot } from "@ryot-app/contract/modules/integrations/types";
 
+import { ingestionReadinessRequirement } from "#/modules/imports/readiness-presentation";
 import { integrationProviderKey } from "#/modules/integrations/presentation";
 import type { IntegrationProviderItem } from "#/modules/integrations/service";
 import { pluginCatalogGroup, type CatalogEntry } from "#/modules/ui/catalog/selection";
@@ -23,21 +24,21 @@ export const integrationLotDetail = (lot: IntegrationLot) => {
 };
 
 const integrationProviderRequirement = (provider: IntegrationProviderItem) => {
-	if (provider.isCreatable) {
-		return undefined;
+	if (!provider.isCreatable) {
+		return provider.requiresProKey
+			? PRO_REQUIRED_INTEGRATION_MESSAGE
+			: "This service is unavailable in this plugin installation.";
 	}
-	return provider.requiresProKey
-		? PRO_REQUIRED_INTEGRATION_MESSAGE
-		: "This service is not ready on your server yet.";
+	return ingestionReadinessRequirement(provider.readiness, provider.pluginScope);
 };
 
 export const integrationProviderEntry = (provider: IntegrationProviderItem): CatalogEntry => ({
 	slug: provider.slug,
 	name: provider.name,
 	description: provider.description,
-	isAvailable: provider.isCreatable,
 	badge: integrationLotLabel(provider.lot),
 	requirement: integrationProviderRequirement(provider),
+	isAvailable: provider.isCreatable && provider.readiness.ready,
 	group:
 		provider.pluginSlug === null
 			? { key: "kernel", heading: "Ryot" }

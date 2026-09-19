@@ -5,18 +5,16 @@ import { Link } from "@tanstack/react-router";
 import clsx from "clsx";
 
 import {
-	importRunCountsLabel,
 	importRunOutcomeLabel,
-	importRunProgress,
-	importRunProgressValue,
 	importSourceName,
 	liveImportRun,
 } from "#/modules/imports/run-presentation";
 import { LoadErrorState } from "#/modules/ui/load-error-state";
-import { RunProgressBar } from "#/modules/ui/run/run-progress-bar";
 import { formatRelativeTime, runDurationLabel, runStartedLabel } from "#/modules/ui/run/run-status";
 import { RunStatusGlyph, RunStatusPill } from "#/modules/ui/run/run-status-pill";
 import { StatusState } from "#/modules/ui/status-state";
+
+import { IngestionRunReport } from "./ingestion-run-report";
 
 const INTRO =
 	"Bring your history over from another service. Files are uploaded to your own server, read once, and deleted when the import finishes.";
@@ -53,7 +51,6 @@ function LiveImportRunCard(props: {
 	readonly sourceName: string;
 	readonly run: ImportRunSummary;
 }) {
-	const progress = importRunProgress(props.run);
 	return (
 		<Link
 			params={{ runId: props.run.id }}
@@ -67,15 +64,7 @@ function LiveImportRunCard(props: {
 				</span>
 				<RunStatusPill status={props.run.status} />
 			</span>
-			<span className="flex flex-col gap-2">
-				<RunProgressBar progress={progress} value={importRunProgressValue(props.run)} />
-				<span className="flex items-center justify-between gap-3">
-					<span className="text-xs tabular-nums text-text-muted">
-						{importRunCountsLabel(props.run)}
-					</span>
-					<span className="text-xs font-medium text-text-subtle">{progress.label}</span>
-				</span>
-			</span>
+			<IngestionRunReport run={props.run} />
 			<span className="text-xs text-text-subtle">{runStartedLabel(props.run, props.nowMs)}</span>
 			<span className="text-xs text-text-muted">
 				This keeps running on your server, even if you close Ryot or the server restarts.
