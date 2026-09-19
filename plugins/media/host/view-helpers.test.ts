@@ -3,15 +3,17 @@ import { describe, expect, it } from "vitest";
 import { buildViewExpressions } from "./view-helpers";
 
 describe("buildViewExpressions", () => {
-	it("projects the first entity image for the table thumbnail", () => {
-		expect(buildViewExpressions("movie").table.image).toEqual({
-			type: "cast",
-			target: "json",
-			expr: {
-				type: "jsonPath",
-				path: ["images", 0],
-				expr: { type: "column", field: "properties", tableAlias: "entity" },
-			},
+	it("prefers cover artwork and falls back to the first image for the table thumbnail", () => {
+		expect(buildViewExpressions("movie").table.image).toMatchObject({
+			type: "coalesce",
+			values: [
+				{
+					type: "jsonFirst",
+					where: { right: { value: "cover" } },
+					array: { expr: { path: ["images"] } },
+				},
+				{ path: [0], type: "jsonPath", expr: { expr: { path: ["images"] } } },
+			],
 		});
 	});
 

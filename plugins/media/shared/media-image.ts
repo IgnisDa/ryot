@@ -22,6 +22,12 @@ export const MediaImageSchema = Schema.Union([
 	mediaImageVariant(RemoteAssetLocator.fields),
 ]);
 
+export const MediaImageAssetSchema = Schema.Union([
+	S3AssetLocator,
+	LocalAssetLocator,
+	RemoteAssetLocator,
+]);
+
 export const MediaImageListSchema = Schema.NullOr(Schema.Array(MediaImageSchema));
 
 export type MediaImage = Schema.Schema.Type<typeof MediaImageSchema>;

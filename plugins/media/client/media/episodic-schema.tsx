@@ -4,6 +4,7 @@ import type { PreparedRecipe } from "@ryot-app/client-sdk/ryotql";
 import clsx from "clsx";
 import { createElement, type ReactNode } from "react";
 
+import type { MediaPresentationSource } from "../../shared/entity-presentations";
 import type { EpisodicActivityInput, EpisodicOverviewInput } from "../../shared/episodic-recipes";
 import type { EpisodicLifecycleState } from "../../shared/lifecycle-expressions";
 import type { MediaOverviewRows, MediaUnlinkedCreatorsOverview } from "../../shared/media-recipes";
@@ -22,13 +23,12 @@ import {
 	type MediaDetailBodyInput,
 } from "./detail-screen";
 import {
-	createMediaPresentationLoader,
 	defineMediaPresentationPair,
 	MediaCardContent,
 	MediaRowContent,
 	type MediaArtworkAspect,
-	type MediaPresentationSubject,
 	type MediaPresentationViewData,
+	type MediaSavedViewPresentationSubject,
 } from "./entity-presentation";
 import {
 	mediaEpisodicActivityView,
@@ -90,7 +90,7 @@ export type MediaEpisodicSummaryValue = MediaSummaryValue &
 		readonly collections: { readonly items: readonly { readonly id: string }[] };
 	};
 
-export type MediaEpisodicPresentationValue = MediaPresentationSubject &
+export type MediaEpisodicPresentationValue = MediaSavedViewPresentationSubject &
 	EpisodicCounts & {
 		readonly state: EpisodicLifecycleState;
 		readonly publishDate: string | null;
@@ -120,9 +120,7 @@ export type MediaEpisodicSchemaDescriptor<
 		}) => PreparedRecipe<EpisodicSummaryResult<Summary>>;
 		readonly overviewRecipe: (input: EpisodicOverviewInput) => PreparedRecipe<Overview>;
 		readonly activityRecipe: (input: EpisodicActivityInput) => PreparedRecipe<Activity>;
-		readonly presentationRecipe: (
-			entityIds: readonly string[],
-		) => PreparedRecipe<readonly Presentation[]>;
+		readonly presentationSource: MediaPresentationSource<Presentation>;
 	};
 	readonly typeLabel: string;
 	readonly aspect: MediaArtworkAspect;
@@ -450,7 +448,7 @@ export const defineEpisodicMediaSchema = <
 	const presentations = defineMediaPresentationPair({
 		Facts,
 		aspect: descriptor.aspect,
-		loader: createMediaPresentationLoader(recipes.presentationRecipe),
+		source: recipes.presentationSource,
 	});
 
 	return {

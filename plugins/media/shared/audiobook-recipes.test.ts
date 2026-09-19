@@ -42,7 +42,7 @@ describe("media audiobook query recipes", () => {
 		);
 
 		expect(summary.slice(-2)).toEqual(["progressPercent", "runtime"]);
-		expect(keys(audiobookRecipes.presentationRecipe(["audiobook-1"]), "rows")).toContain("runtime");
+		expect(audiobookRecipes.presentationSource.fields.map(({ key }) => key)).toContain("runtime");
 	});
 
 	it("falls back to the audiobook runtime when a completion recorded no time spent", () => {

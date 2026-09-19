@@ -439,26 +439,15 @@ describe("media flat recipes", () => {
 		});
 	});
 
-	it("builds one presentation query for all requested IDs", () => {
-		const recipe = flatFixtureRecipes.presentationRecipe(["media-2", "media-1"]);
-		const presentation = recipe.document.queries["rows"];
-		if (presentation?.output.type !== "rows" || presentation.where?.type !== "and") {
-			throw new Error("Expected a filtered presentation rows query");
-		}
-
-		expect(Object.keys(recipe.document.queries)).toEqual(["rows"]);
-		expect(presentation.where.predicates[1]).toMatchObject({
-			type: "in",
-			values: [{ value: "media-2" }, { value: "media-1" }],
-		});
-		expect(fieldKeys(presentation.output.fields)).toEqual([
+	it("selects the complete flat presentation from the saved-view row", () => {
+		expect(fieldKeys(flatFixtureRecipes.presentationSource.fields)).toEqual([
 			"id",
 			"name",
 			"schemaSlug",
 			"populationStatus",
 			"translationStatus",
 			"state",
-			"images",
+			"image",
 			"progressPercent",
 			"publishDate",
 			"publishYear",
