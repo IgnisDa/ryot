@@ -28,6 +28,7 @@ import {
 } from "../../tests/client/flat-media/recipes";
 import {
 	fixtureSchema,
+	railedFixtureSchema,
 	ungroupedFixtureSchema,
 } from "../../tests/client/flat-media/schema-fixture";
 import {
@@ -468,6 +469,54 @@ describe("flat media overview", () => {
 	);
 });
 
+const railed = (overview: ReturnType<typeof overviewOf>) =>
+	mountRyotClient(
+		noopAdapter,
+		<railedFixtureSchema.ScreenBody
+			compact
+			safeAreaTop={0}
+			activity={null}
+			settled={undefined}
+			state={readyState()}
+			refresh={() => undefined}
+			refreshOverview={() => undefined}
+			overview={mapMediaOverview(readyQueryResult(overview))}
+		/>,
+	);
+
+describe("flat media descriptor rails", () => {
+	it("renders each non-empty rail after the group section in descriptor order", () => {
+		const { unmount, container } = railed(overviewOf());
+		const text = container.textContent;
+
+		expect(text).toContain("First rail");
+		expect(text).toContain("Second rail");
+		expect(text).not.toContain("Empty rail");
+		expect(text.indexOf(`Part of ${flatGroupRow.name}`)).toBeLessThan(text.indexOf("First rail"));
+		expect(text.indexOf("First rail")).toBeLessThan(text.indexOf("Second rail"));
+		expect(container.querySelector('a[href="/e/rail-2"]')).not.toBeNull();
+		unmount();
+	});
+
+	it("keeps an overview whose only content is a rail", () => {
+		const bare = overviewOf({ group: [], people: [], companies: [], recommendations: [] });
+
+		expect(railedFixtureSchema.overviewIsEmpty(bare)).toBe(false);
+		expect(fixtureSchema.overviewIsEmpty(bare)).toBe(true);
+		const { unmount, container } = railed(bare);
+		expect(container.textContent).toContain("First rail");
+		unmount();
+	});
+
+	it("resolves rail covers through the overview's managed assets", () => {
+		expect(railedFixtureSchema.overviewManagedAssets(overviewOf())).toEqual([
+			{ type: "s3", key: "fc2-cover" },
+			{ type: "s3", key: "rail-1-cover" },
+			{ type: "s3", key: "rail-2-cover" },
+		]);
+	});
+});
+
 const art = (container: HTMLElement) => ({
 	header: container.querySelector('img[src="https://images.test/fc-cover.jpg"]')?.className,
 	recommendation: container.querySelector(`a[href="/e/${flatRecommendationRow.id}"] img`)
@@ -617,4 +666,15 @@ describe("flat media query entity interest", () => {
 		},
 		["collection-1"],
 	);
+});
+
+describe("flat media descriptor rail entity interest", () => {
+	declaresInterest("overview", railedFixtureSchema.overviewQuery, { data: flatOverviewData() }, [
+		"person-1",
+		"company-1",
+		"media-2",
+		"media-3",
+		"rail-1",
+		"rail-2",
+	]);
 });

@@ -234,7 +234,7 @@ export const creditCharacterSelection = (relationship: Table) => ({
 });
 
 /** Rows of `relationship` joining `related` on `relatedSide`, anchored to the entity on the other side. */
-const relatedRows = (input: {
+export const relatedRows = (input: {
 	readonly limit: number;
 	readonly related: Table;
 	readonly entityId: string;

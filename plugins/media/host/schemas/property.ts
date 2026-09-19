@@ -321,6 +321,10 @@ export const videoGamePropertiesSchema: AppSchema = {
 	fields: {
 		...mediaBaseFields,
 		images: mediaImagesField("Cover and promotional images for this video game"),
+		gameType: stringField(
+			"Game Type",
+			"Provider classification of this release, e.g. Main Game, Port, Remake",
+		),
 		platformReleases: {
 			type: "array",
 			label: "Platform Releases",
