@@ -1142,6 +1142,52 @@ describe("Media episodic next up and display state", () => {
 		}),
 	);
 
+	it.live("keeps a watched special's lifetime state through a rewatch", () =>
+		Effect.gen(function* () {
+			const { client } = yield* createAuthenticatedClient();
+			const schemas = yield* loadLifecycleSchemas(client);
+			const { show, seasons, episodes } = yield* seedShow(client, schemas, {
+				productionStatus: "Continuing",
+				seasons: [
+					{ seasonNumber: 0, episodeCount: 1 },
+					{ seasonNumber: 1, episodeCount: 1 },
+				],
+			});
+			const [special, regular] = episodes.map(({ entity }) => entity);
+			const specialSeason = seasons[0];
+			assertPresent(special, "Expected the special");
+			assertPresent(regular, "Expected E1");
+			assertPresent(specialSeason, "Expected the specials season");
+
+			yield* createComplete(
+				client,
+				special.id,
+				schemas.showEpisodeEvents.complete,
+				"2026-05-13T01:00:00.000Z",
+			);
+			yield* createComplete(
+				client,
+				regular.id,
+				schemas.showEpisodeEvents.complete,
+				"2026-05-13T02:00:00.000Z",
+			);
+			yield* createComplete(
+				client,
+				show.id,
+				schemas.showEvents.complete,
+				"2026-05-13T03:00:00.000Z",
+			);
+			yield* createProgress(
+				client,
+				regular.id,
+				schemas.showEpisodeEvents.progress,
+				"2026-05-13T04:00:00.000Z",
+			);
+
+			expect(yield* readSeasonStates(client, specialSeason.id)).toEqual(["complete"]);
+		}),
+	);
+
 	it.live("offers a podcast's newest untracked episode", () =>
 		Effect.gen(function* () {
 			const { client } = yield* createAuthenticatedClient();
