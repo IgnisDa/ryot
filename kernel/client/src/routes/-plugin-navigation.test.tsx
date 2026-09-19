@@ -34,7 +34,7 @@ import { createBackInterceptors } from "#/modules/navigation/back-interceptors";
 import { PluginCatalogService } from "#/modules/plugins/catalog";
 import { makePluginCatalogEventsTestLayer } from "#/modules/plugins/events.test-layer";
 import { PluginOperationsService } from "#/modules/plugins/operations";
-import { PluginQueriesService } from "#/modules/plugins/queries";
+import { makePluginQueries } from "#/modules/plugins/services.test-layer";
 import type { ProviderAddService } from "#/modules/provider-add/service";
 import { ClientStorage } from "#/persistence/storage";
 import { getRouter } from "#/router";
@@ -220,7 +220,7 @@ function mount(options: {
 					return Effect.succeed({ value: null, outcome: "success" });
 				},
 			}),
-			Layer.succeed(PluginQueriesService, { query: () => Effect.die("not used") }),
+			makePluginQueries(),
 		).pipe(
 			Layer.provideMerge(OAuthRouteStubs),
 			Layer.provideMerge(
