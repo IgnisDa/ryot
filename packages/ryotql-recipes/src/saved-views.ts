@@ -7,6 +7,7 @@ import {
 	RyotQLDocument,
 	rowsResultSchema,
 	type FieldSelection,
+	type Include,
 	type JsonValue as JsonValueType,
 	type NamedQuery,
 	type OrderBy,
@@ -122,6 +123,7 @@ type SavedViewGeneratedSource = {
 	readonly fields: readonly FieldSelection[];
 	readonly orderBy?: readonly OrderBy[] | undefined;
 	readonly entitySchemaSlugs: readonly [string, ...string[]];
+	readonly include?: readonly [Include, ...Include[]] | undefined;
 };
 
 type SavedViewPersistedSource = {
@@ -170,6 +172,7 @@ const generatedDocument = (input: SavedViewGeneratedSource) => {
 			after: input.after,
 			limit: input.limit,
 			fields: input.fields,
+			include: input.include,
 			orderBy: input.orderBy ?? [ascending(column(entity, "name"))],
 			where: input.where ? and(schemaFilter, input.where) : schemaFilter,
 		}),
@@ -379,6 +382,7 @@ export const EntityBrowserResultItem = Schema.Struct({
 	entityId: Schema.String,
 	entitySchemaSlug: Schema.String,
 	ownerPluginId: Schema.NullOr(Schema.String),
+	presentation: Schema.NullOr(Schema.Record(Schema.String, JsonValue)),
 	cells: Schema.Array(
 		Schema.Struct({ key: Schema.String, label: Schema.String, value: SavedViewDisplayValue }),
 	),
@@ -566,6 +570,7 @@ export const entityBrowserRecipe = (
 												);
 												const item = {
 													cells,
+													presentation: row,
 													name: yield* textField(row, nameField),
 													entityId: yield* textField(row, input.settings.entityIdField),
 													sync: yield* syncFields(row, populationField, translationField),

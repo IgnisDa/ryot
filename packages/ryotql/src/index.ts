@@ -584,6 +584,52 @@ export const selectedRows = <
 	};
 };
 
+type SelectedRowsSourceQueryInput = Omit<Parameters<typeof rows>[1], "fields" | "include">;
+
+export type SelectedRowsSource<Data> = {
+	readonly fields: readonly FieldSelection[];
+	readonly include: RowsOutput["include"];
+	readonly decode: (value: unknown) => Result.Result<Data, unknown>;
+	readonly query: (
+		input?: SelectedRowsSourceQueryInput,
+	) => SelectedQuery<{ readonly items: readonly Data[]; readonly pageInfo: SelectedRowsPageInfo }>;
+};
+
+export const selectedRowsSource = <
+	const Selection extends SelectedSelection,
+	const Includes extends SelectedIncludes = Record<never, never>,
+>(
+	from: TableReference,
+	input: { readonly selection: Selection; readonly include?: Includes | undefined },
+): SelectedRowsSource<SelectedRow<Selection, Includes>> => {
+	const query = (queryInput: SelectedRowsSourceQueryInput = {}) =>
+		selectedRows(from, {
+			...queryInput,
+			selection: input.selection,
+			...(input.include === undefined ? {} : { include: input.include }),
+		});
+	const source = query({ limit: 1 });
+	return {
+		query,
+		include: source.document.output.include,
+		fields: source.document.output.fields.flatMap((selection) =>
+			"key" in selection ? [selection] : [],
+		),
+		decode: (value: unknown) =>
+			Result.flatMap(
+				source.decodeResult({
+					type: "rows",
+					items: [value],
+					pageInfo: { limit: 1, hasMore: false, nextCursor: null },
+				}),
+				({ items }) =>
+					items[0] === undefined
+						? fail("Selected rows source did not decode a row")
+						: Result.succeed(items[0]),
+			),
+	};
+};
+
 type SelectedCardinalityInput<
 	Selection extends SelectedSelection,
 	Includes extends SelectedIncludes,
