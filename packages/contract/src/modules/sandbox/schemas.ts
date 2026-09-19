@@ -123,6 +123,7 @@ const automationRunSubjectFields = {
 	triggerId: AutomationInvocationFields.triggerId,
 	causation: AutomationInvocationFields.causation,
 	accountGeneration: Schema.NullOr(AccountGeneration),
+	delivery: Schema.Literals(["policy", "required", "async"]),
 	executionUserId: AutomationInvocationFields.executionUserId,
 };
 
