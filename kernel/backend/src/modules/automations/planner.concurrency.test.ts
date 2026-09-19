@@ -138,6 +138,12 @@ const statements = (spans: ReadonlyArray<Tracer.Span>, fragment: string) =>
 		return typeof text === "string" && text.includes(fragment);
 	}).length;
 
+const counted = (spans: ReadonlyArray<Tracer.Span>) => ({
+	exclusive: statements(spans, "pg_advisory_xact_lock("),
+	shared: statements(spans, "pg_advisory_xact_lock_shared("),
+	catalog: statements(spans, 'from "plugin"') + statements(spans, 'from "user_plugin"'),
+});
+
 describe("LifecyclePlanner independent PostgreSQL transactions", () => {
 	it.effect("serializes a shared root budget and replays without spending it twice", () =>
 		withPlannerSchema(({ ddl, planner, plugins, transaction }) =>
@@ -329,11 +335,6 @@ describe("LifecyclePlanner independent PostgreSQL transactions", () => {
 				yield* transaction(planner.plan({ trigger: withRoot("single", "single-root") })).pipe(
 					Effect.withTracer(makeRecordingTracer(single)),
 				);
-				const counted = (spans: ReadonlyArray<Tracer.Span>) => ({
-					exclusive: statements(spans, "pg_advisory_xact_lock("),
-					shared: statements(spans, "pg_advisory_xact_lock_shared("),
-					catalog: statements(spans, 'from "plugin"') + statements(spans, 'from "user_plugin"'),
-				});
 				// The ingestion key plus the one `plugin-config:` key, the two `lockCatalog` selects plus
 				// the one `catalog` select, and the per-trigger `automation-root:` lock as the control.
 				expect(counted(many)).toEqual({ shared: 2, catalog: 3, exclusive: 3 });
