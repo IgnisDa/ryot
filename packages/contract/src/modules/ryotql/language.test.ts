@@ -191,6 +191,7 @@ describe("RyotQLDocument", () => {
 			{ expr: value, type: "integer" },
 			{ expr: value, type: "isNotNull" },
 			{ bucket: "day", expr: createdAt, type: "dateBucket", timeZone: "America/New_York" },
+			{ type: "currentDate" },
 		] as const;
 
 		for (const expr of expressions) {
