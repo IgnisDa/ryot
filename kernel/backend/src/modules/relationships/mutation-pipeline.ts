@@ -107,6 +107,7 @@ export const RelationshipMutationError = Schema.Union([
 ]);
 
 export const RelationshipSingleResult = Schema.Struct({
+	operation: Schema.Literals(["create", "update", "delete", "noop"]),
 	relationship: Schema.NullOr(
 		Schema.Struct({ ...RelationshipScope.fields, updatedAt: Schema.String }),
 	),
@@ -115,6 +116,21 @@ type RelationshipMutationResults = ReadonlyArray<
 	RelationshipSingleResult & { readonly operation: "create" | "update" | "delete" | "noop" }
 >;
 export type RelationshipSingleResult = typeof RelationshipSingleResult.Type;
+
+export const projectRelationshipIngestionReceipt = (commandKind: string, result: unknown) =>
+	commandKind === "relationship:change-user" || commandKind === "relationship:upsert"
+		? Schema.decodeUnknownEffect(RelationshipSingleResult)(result).pipe(
+				Effect.map((value) => {
+					if (value.operation === "create") {
+						return "created" as const;
+					}
+					if (value.operation === "update") {
+						return "updated" as const;
+					}
+					return "unchanged" as const;
+				}),
+			)
+		: Effect.succeed(null);
 
 export const RelationshipBatchSummary = Schema.Struct(
 	Struct.omit(RelationshipBatchResult.fields, ["warnings"]),
@@ -137,7 +153,10 @@ export const prepareProjectedRelationshipMutations = <Result, E, R>(
 
 export const singleRelationshipResult = (
 	results: RelationshipMutationResults,
-): RelationshipSingleResult => ({ relationship: results[0]?.relationship ?? null });
+): RelationshipSingleResult => ({
+	operation: results[0]?.operation ?? "noop",
+	relationship: results[0]?.relationship ?? null,
+});
 
 export const summarizeRelationshipMutations = (
 	results: RelationshipMutationResults,

@@ -76,6 +76,7 @@ const implementations: SandboxHostImplementations["Service"] = {
 		httpCall: unused,
 		getCachedValue: unused,
 		setCachedValue: unused,
+		getPersistentValue: unused,
 		claimPersistentValue: unused,
 	},
 	additional: {
@@ -135,8 +136,11 @@ const script = {
 	metadata: {
 		name: "Dispatcher",
 		slug: "dispatcher",
+		oauthConnectionFields: [],
+		executableDependencies: [],
 		kind: "automation" as const,
 		requiredPluginConfigKeys: [],
+		optionalPluginConfigKeys: [],
 		capabilities: ["emitSignal", "httpCall", "sendNotification"],
 	},
 };

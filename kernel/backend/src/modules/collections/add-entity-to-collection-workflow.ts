@@ -10,6 +10,12 @@ import { Schema } from "effect";
 import { Workflow } from "effect/unstable/workflow";
 
 import type { DurableSchema } from "#lib/infrastructure/workflow";
+import { RelationshipSingleResult } from "#modules/relationships/mutation-pipeline";
+
+export const CollectionMembershipWorkflowResult = Schema.Struct({
+	...MembershipResponse.fields,
+	operation: RelationshipSingleResult.fields.operation,
+});
 
 export const AddEntityToCollectionWorkflowError = Schema.Union([
 	DbError,
@@ -32,7 +38,7 @@ export type AddEntityToCollectionWorkflowPayload = typeof AddEntityToCollectionW
 
 export const AddEntityToCollectionWorkflow = Workflow.make("AddEntityToCollectionWorkflow", {
 	idempotencyKey: ({ executionId }) => executionId,
-	success: MembershipResponse satisfies DurableSchema,
 	error: AddEntityToCollectionWorkflowError satisfies DurableSchema,
+	success: CollectionMembershipWorkflowResult satisfies DurableSchema,
 	payload: AddEntityToCollectionWorkflowPayload satisfies DurableSchema,
 });

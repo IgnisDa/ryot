@@ -116,7 +116,10 @@ describe("immutable revisions in PostgreSQL (isolated schema)", () => {
 											capabilities: [],
 											slug: "fixture.workflow",
 											name: "Fixture workflow",
+											oauthConnectionFields: [],
+											executableDependencies: [],
 											requiredPluginConfigKeys: [],
+											optionalPluginConfigKeys: [],
 											entry: "backend/workflow.sandbox.ts",
 										},
 									],
@@ -381,8 +384,11 @@ describe("immutable revisions in PostgreSQL (isolated schema)", () => {
 											capabilities: [],
 											kind: "automation",
 											slug: "kernel.notify",
+											oauthConnectionFields: [],
+											executableDependencies: [],
 											name: "Kernel notification",
 											requiredPluginConfigKeys: [],
+											optionalPluginConfigKeys: [],
 										},
 									});
 								const kernelRun = {

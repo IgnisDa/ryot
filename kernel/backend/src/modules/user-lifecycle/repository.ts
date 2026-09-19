@@ -18,6 +18,7 @@ import * as mutationSchema from "#lib/infrastructure/db/schema/tables/mutations"
 import * as uploadSchema from "#lib/infrastructure/db/schema/tables/uploads";
 import * as lifecycleSchema from "#lib/infrastructure/db/schema/tables/user-lifecycle";
 import { DatabaseSession } from "#lib/infrastructure/db/session";
+import { ImportsRepository } from "#modules/imports/repository";
 import { MutationReceipts } from "#modules/mutations/receipts";
 
 const LifecycleMetadata = Schema.Struct({
@@ -75,6 +76,7 @@ export class UserLifecycleRepository extends Context.Service<UserLifecycleReposi
 		make: Effect.gen(function* () {
 			const database = yield* DatabaseSession;
 			const receipts = yield* MutationReceipts.make;
+			const imports = yield* ImportsRepository;
 			const listUserMutationWork = Effect.fn("UserLifecycleRepository.listUserMutationWork")(
 				function* (userId: UserId) {
 					return yield* database.run((db) =>
@@ -116,6 +118,7 @@ export class UserLifecycleRepository extends Context.Service<UserLifecycleReposi
 							userId,
 							privatePluginRows.map(({ id }) => id),
 						);
+						yield* imports.purgePayloadReservations({ userId });
 						yield* database.run((db) =>
 							Effect.gen(function* () {
 								const privatePluginIds = db
@@ -342,6 +345,16 @@ export class UserLifecycleRepository extends Context.Service<UserLifecycleReposi
 					),
 				]);
 				const locators = new Map<string, ManagedAssetLocator>();
+				for (const { reservation } of yield* imports.listPayloadReservations({ userId })) {
+					const locator = yield* Schema.decodeEffect(Schema.fromJsonString(ManagedAssetLocator))(
+						reservation.payload.locator,
+					).pipe(
+						Effect.mapError(
+							() => new DbError({ message: "Invalid retained ingestion payload locator" }),
+						),
+					);
+					locators.set(`${locator.type}\0${locator.key}`, locator);
+				}
 				for (const locator of [...assets, ...backupArtifacts]) {
 					if (locator.key !== null && locator.type !== null) {
 						locators.set(`${locator.type}\0${locator.key}`, {
@@ -634,5 +647,7 @@ export class UserLifecycleRepository extends Context.Service<UserLifecycleReposi
 		}),
 	},
 ) {
-	static readonly layer = Layer.effect(this, this.make);
+	static readonly layer = Layer.effect(this, this.make).pipe(
+		Layer.provide(ImportsRepository.layer),
+	);
 }

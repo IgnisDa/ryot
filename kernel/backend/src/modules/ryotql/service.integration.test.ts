@@ -84,12 +84,29 @@ const trigger = (id: string) => ({
 
 const manifest = (slug: string, homeView: string | null): PluginManifest => ({
 	...fixtureManifest(),
+	workflows: [
+		{ slug: "import", scriptSlug: slug === systemPluginSlug ? "sys.import" : "private.import" },
+	],
 	metadata: {
 		...fixtureManifest().metadata,
 		slug,
 		name: `${slug} name`,
 		description: `${slug} description`,
 	},
+	integrationProviders:
+		slug === systemPluginSlug
+			? [
+					{
+						lot: "yank",
+						name: "Yank",
+						description: "Yank",
+						slug: "provider-yank",
+						scriptSlug: "sys.yank",
+						settingsSchema: { fields: {} },
+						plan: { selections: { collector: { value: "remote" } } },
+					},
+				]
+			: [],
 	client: {
 		homeView,
 		apiVersion: CLIENT_API_VERSION,
@@ -107,6 +124,20 @@ const manifest = (slug: string, homeView: string | null): PluginManifest => ({
 			},
 		},
 	},
+	scripts: [
+		...fixtureManifest().scripts,
+		{
+			name: "Import",
+			capabilities: [],
+			kind: "workflow",
+			oauthConnectionFields: [],
+			executableDependencies: [],
+			optionalPluginConfigKeys: [],
+			entry: "backend/import.sandbox.ts",
+			slug: slug === systemPluginSlug ? "sys.import" : "private.import",
+			requiredPluginConfigKeys: slug === systemPluginSlug ? ["apiKey"] : ["token"],
+		},
+	],
 });
 
 const insertPlugin = Effect.fn(function* (input: {
@@ -1039,11 +1070,18 @@ layer(catalogDatabaseLayer)((test) => {
 			expect(yield* readRows(other, "importSource", ["id"])).not.toContainEqual({
 				id: "import-private",
 			});
-			expect(yield* readRows(owner, "integrationProvider", ["id", "lot", "hasScript"])).toEqual([
-				{ lot: "sink", hasScript: true, id: `kernel:data-json:${owner.userId}` },
-				{ lot: "yank", hasScript: false, id: "provider-missing" },
-				{ lot: "push", hasScript: true, id: "provider-push" },
-				{ lot: "yank", hasScript: true, id: "provider-yank" },
+			expect(
+				yield* readRows(owner, "integrationProvider", ["id", "lot", "hasScript", "plan"]),
+			).toEqual([
+				{ plan: null, lot: "sink", hasScript: true, id: `kernel:data-json:${owner.userId}` },
+				{ plan: null, lot: "yank", hasScript: false, id: "provider-missing" },
+				{ plan: null, lot: "push", hasScript: true, id: "provider-push" },
+				{
+					lot: "yank",
+					hasScript: true,
+					id: "provider-yank",
+					plan: { selections: { collector: { value: "remote" } } },
+				},
 			]);
 		}),
 	);

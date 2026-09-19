@@ -1,6 +1,6 @@
-import { expect, layer } from "@effect/vitest";
+import { assert, expect, layer } from "@effect/vitest";
 import { jsonByteLength, utf8ByteLength } from "@ryot-app/sandbox-compiler/limits";
-import { Effect } from "effect";
+import { Effect, Schema } from "effect";
 
 import { SANDBOX_LIMITS } from "#lib/infrastructure/sandbox-runtime/limits";
 
@@ -35,23 +35,47 @@ layer(SandboxCompiler.layer)((test) => {
 });
 
 layer(SandboxCompiler.layer)((test) => {
-	test.effect("rejects a static manifest over its JSON byte boundary", () =>
+	test.effect("accepts the full manifest byte boundary and rejects static UTF-8 overflow", () =>
 		Effect.gen(function* () {
-			const requiredKeys = Array.from(
-				{ length: 900 },
-				(_, index) => `"key-${index}-${"x".repeat(12)}"`,
-			);
-			const failure = yield* compile(
-				validSource.replace(
-					"requiredPluginConfigKeys: []",
-					`requiredPluginConfigKeys: [${requiredKeys.join(",")}]`,
-				),
-			).pipe(Effect.flip);
+			const baseline = yield* compile(validSource);
+			const manifestBytes = jsonByteLength(baseline.manifest);
+			assert(manifestBytes !== null);
+			const padding = SANDBOX_LIMITS.compiler.manifestBytes - manifestBytes;
+			const name = `Plain value${"a".repeat(padding)}`;
+			const boundary = yield* compile(validSource.replace("Plain value", name));
+			expect(jsonByteLength(boundary.manifest)).toBe(SANDBOX_LIMITS.compiler.manifestBytes);
 
-			expect(failure.diagnostics).toEqual([
-				expect.objectContaining({ file: "script.ts", code: "RYOT_MANIFEST_SIZE" }),
-			]);
+			for (const overflow of ["a", "🙂"]) {
+				const failure = yield* compile(
+					validSource.replace("Plain value", `${name}${overflow}`),
+				).pipe(Effect.flip);
+				expect(failure.diagnostics).toEqual([
+					expect.objectContaining({ file: "script.ts", code: "RYOT_MANIFEST_SIZE" }),
+				]);
+			}
 		}),
+	);
+	test.effect.each(["required", "optional"] as const)(
+		"counts generated %s configuration keys in the manifest byte limit",
+		(keyKind) =>
+			Effect.gen(function* () {
+				const keys = Array.from({ length: 200 }, (_, index) => `${index}-${"k".repeat(90)}`);
+				const encoded = yield* Schema.encodeEffect(
+					Schema.fromJsonString(Schema.Array(Schema.String)),
+				)(keys);
+				const source = validSource
+					.replace("capabilities: []", 'capabilities: ["getPluginConfig"]')
+					.replace(
+						"run: (input) => Effect.succeed(input.value)",
+						`run: (_input, host) => host.getPluginConfig({ ${keyKind}: ${encoded} }).pipe(Effect.as(1))`,
+					);
+				expect(utf8ByteLength(source)).toBeLessThan(SANDBOX_LIMITS.compiler.sourceBytes);
+				expect(jsonByteLength(keys)).toBeGreaterThan(SANDBOX_LIMITS.compiler.manifestBytes);
+				const failure = yield* compile(source).pipe(Effect.flip);
+				expect(failure.diagnostics).toEqual([
+					expect.objectContaining({ file: "script.ts", code: "RYOT_MANIFEST_SIZE" }),
+				]);
+			}),
 	);
 });
 
@@ -85,7 +109,6 @@ layer(SandboxCompiler.layer)((test) => {
 	  capabilities: [],
 	  name: "Large compiled value",
 	  slug: "large-compiled-value",
-	  requiredPluginConfigKeys: [],
 	});
 	export default defineScript({
 		manifest,

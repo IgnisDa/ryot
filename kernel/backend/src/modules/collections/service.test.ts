@@ -123,10 +123,12 @@ const membershipPlan = {
 	blockedReason: null,
 	triggerId: AutomationTriggerId.make("membership-trigger"),
 };
-const committedRelationship = {
+const committedRelationship: Effect.Success<
+	ReturnType<RelationshipsService["Service"]["prepareCreate"]>
+> = {
 	_tag: "Committed" as const,
 	dispatch: [membershipPlan],
-	result: { relationship: { ...membership, updatedAt: now } },
+	result: { operation: "create", relationship: { ...membership, updatedAt: now } },
 };
 
 const mockCollections = Layer.mock(CollectionsRepository);

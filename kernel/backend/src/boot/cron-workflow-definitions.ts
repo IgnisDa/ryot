@@ -7,6 +7,8 @@ import type { AutomationReconciliation } from "#modules/automations/reconciliati
 import { automationsFrequentTask } from "#modules/automations/reconciliation";
 import { AutomationRetention } from "#modules/automations/retention";
 import { BackupsService } from "#modules/backups/service";
+import { ingestionFrequentTask } from "#modules/imports/frequent-task";
+import type { ImportsService } from "#modules/imports/service";
 import { integrationsFrequentTask } from "#modules/integrations/frequent-task";
 import { oauthConnectionsFrequentTask } from "#modules/oauth-connections/frequent-task";
 import type { OAuthConnectionsService } from "#modules/oauth-connections/service";
@@ -41,6 +43,7 @@ const frequentCronTasks: ReadonlyArray<
 		| UserBootstrapScheduling
 		| UserLifecycleService
 		| WorkflowEngine
+		| ImportsService
 	>
 > = [
 	{
@@ -65,6 +68,7 @@ const frequentCronTasks: ReadonlyArray<
 			),
 	},
 	integrationsFrequentTask,
+	ingestionFrequentTask,
 	oauthConnectionsFrequentTask,
 	uploadsFrequentTask,
 	userBootstrapFrequentTask,

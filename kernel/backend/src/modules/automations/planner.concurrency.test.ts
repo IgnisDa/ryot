@@ -179,8 +179,11 @@ describe("LifecyclePlanner independent PostgreSQL transactions", () => {
 										name: "Notify",
 										capabilities: [],
 										kind: "automation",
+										oauthConnectionFields: [],
+										executableDependencies: [],
 										automationType: "automation",
 										requiredPluginConfigKeys: [],
+										optionalPluginConfigKeys: [],
 										slug: "automation.notification",
 										inputProjection: {
 											entity: { properties: [], compareProperties: [], parentEntityProperties: [] },

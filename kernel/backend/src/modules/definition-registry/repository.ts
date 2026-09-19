@@ -325,6 +325,7 @@ export class DefinitionRepository extends Context.Service<DefinitionRepository>(
 										pluginRevisionId,
 										name: definition.name,
 										slug: definition.slug,
+										plan: definition.plan ?? null,
 										description: definition.description,
 										inputSchema: definition.inputSchema,
 										workflowSlug: definition.workflowSlug,

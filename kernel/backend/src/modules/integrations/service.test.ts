@@ -5,7 +5,7 @@ import {
 	integrationCommonSchema,
 	integrationCommonPropertyNames,
 } from "@ryot-app/contract/modules/integrations/schemas";
-import { IntegrationWebhookToken, UserId } from "@ryot-app/contract/schema/brands";
+import { IntegrationWebhookToken, SandboxScriptId, UserId } from "@ryot-app/contract/schema/brands";
 import { Context, Effect, Layer, Ref } from "effect";
 import { WorkflowEngine } from "effect/unstable/workflow/WorkflowEngine";
 
@@ -18,13 +18,21 @@ import {
 } from "#lib/test-utils/effect";
 import { mutationAdmissionTestLayer } from "#lib/test-utils/mutation-admission";
 import { DataImportAdmission } from "#modules/imports/data-admission";
+import { IngestionExecution } from "#modules/imports/execution-service";
+import { ImportsRepository } from "#modules/imports/repository";
+import { IngestionRetirement } from "#modules/imports/retirement-service";
 import { ImportsService } from "#modules/imports/service";
 import { OAuthConnectionsService } from "#modules/oauth-connections/service";
+import {
+	IngestionReadinessError,
+	IngestionReadinessService,
+} from "#modules/plugins/ingestion-readiness-service";
 import {
 	IntegrationProviderCatalog,
 	type RegisteredIntegrationProvider,
 } from "#modules/plugins/integration-provider-catalog";
 
+import { IntegrationIngestion } from "./ingestion";
 import { IntegrationsRepository, type IntegrationRecord } from "./repository";
 import { IntegrationsService, validateProgressThresholds } from "./service";
 import { makeIntegration, makeRun, testWebhookToken } from "./test-support";
@@ -47,6 +55,7 @@ const systemPlugin = (pluginSlug: string) =>
 		pluginScope: "system",
 		pluginId: `${pluginSlug}-plugin-id`,
 		installationId: `${pluginSlug}-installation-id`,
+		readinessMetadata: { scripts: [], workflows: [], oauthProviders: [], availableConfigKeys: [] },
 		configContext: {
 			kind: "revision",
 			ownerUserId: null,
@@ -117,14 +126,18 @@ const mockRepository = Layer.mock(IntegrationsRepository);
 const mockCatalog = Layer.mock(IntegrationProviderCatalog);
 const mockImports = Layer.mock(ImportsService);
 const mockOAuthConnections = Layer.mock(OAuthConnectionsService);
+const mockReadiness = Layer.mock(IngestionReadinessService);
+const mockDataAdmission = Layer.mock(DataImportAdmission);
 
 const makeServiceLayer = (options: {
 	proKey?: boolean;
 	stored?: IntegrationRecord;
 	dependencies?: (tools: FakeTools) => {
 		engine?: WorkflowEngineOverrides;
+		dataAdmission?: MockOverrides<typeof mockDataAdmission>;
 		imports?: MockOverrides<typeof mockImports>;
 		catalog?: MockOverrides<typeof mockCatalog>;
+		readiness?: MockOverrides<typeof mockReadiness>;
 		repository?: MockOverrides<typeof mockRepository>;
 	};
 }) =>
@@ -132,7 +145,9 @@ const makeServiceLayer = (options: {
 		Layer.provideMerge(
 			Layer.mergeAll(
 				mutationAdmissionTestLayer,
-				Layer.mock(DataImportAdmission)({}),
+				Layer.mock(ImportsRepository)({}),
+				Layer.mock(IngestionExecution)({}),
+				Layer.mock(IngestionRetirement)({}),
 				mockProKey(options.proKey ?? true),
 				Layer.unwrap(
 					Effect.gen(function* () {
@@ -144,6 +159,24 @@ const makeServiceLayer = (options: {
 								record: (method, input) => Ref.update(calls, (all) => [...all, { input, method }]),
 							}) ?? {};
 						return Layer.mergeAll(
+							mockDataAdmission(dependencies.dataAdmission ?? {}),
+							Layer.mock(IntegrationIngestion)({
+								release: () => Effect.succeed(true),
+								admitWebhook: (integration, webhook, failureReason) =>
+									Ref.update(calls, (all) => [
+										...all,
+										{ method: "admitWebhook", input: { webhook, integration, failureReason } },
+									]).pipe(
+										Effect.as({
+											userId: integration.userId,
+											runId: makeRun("completed").id,
+											accountGeneration: {
+												userId: integration.userId,
+												token: "test-account-generation",
+											},
+										}),
+									),
+							}),
 							Layer.succeed(FakeIntegrationDependencies, {
 								calls: Ref.get(calls),
 								storedIntegration: Ref.get(stored),
@@ -151,6 +184,7 @@ const makeServiceLayer = (options: {
 							mockImports(dependencies.imports ?? {}),
 							mockOAuthConnections({ bindIntegrationSettings: () => Effect.void }),
 							mockCatalog(dependencies.catalog ?? {}),
+							mockReadiness(dependencies.readiness ?? {}),
 							mockRepository(dependencies.repository ?? {}),
 							Layer.succeed(WorkflowEngine, makeWorkflowEngine(dependencies.engine)),
 						);
@@ -444,25 +478,23 @@ describe("installation availability", () => {
 		makeServiceLayer({
 			dependencies: () => ({
 				catalog: unavailableCatalog,
-				repository: { getByWebhookToken: () => Effect.succeed(sinkIntegration) },
 				imports: { createIntegrationRun: () => Effect.die("run should not be created") },
+				repository: {
+					getUserDisableIntegrations: () => Effect.succeed(false),
+					getByWebhookToken: () => Effect.succeed(sinkIntegration),
+				},
 			}),
 		}),
 	)((test) => {
-		test.effect("rejects webhook enqueue for an unavailable system installation", () =>
+		test.effect("retains a webhook without dispatch while its installation is unavailable", () =>
 			Effect.gen(function* () {
 				const service = yield* IntegrationsService;
-				const error = yield* Effect.flip(
-					service.handleWebhook({
-						rawBody: "{}",
-						webhookToken: testWebhookToken,
-						contentType: "application/json",
-					}),
-				);
-				expect(error).toMatchObject({
-					_tag: "IntegrationNotFoundError",
-					reason: { code: "integration-not-found", integrationId: sinkIntegration.id },
+				const accepted = yield* service.handleWebhook({
+					rawBody: "{}",
+					webhookToken: testWebhookToken,
+					contentType: "application/json",
 				});
+				expect(accepted).toEqual({ runId: makeRun("completed").id });
 			}),
 		);
 	});
@@ -513,7 +545,7 @@ describe("prepareYankRuns", () => {
 		settingsSchema: { fields: {} },
 	};
 
-	const layerFor = (admitted: boolean) =>
+	const layerFor = (admitted: boolean, ready = true, unavailable = false) =>
 		makeServiceLayer({
 			dependencies: ({ record }) => ({
 				catalog: {
@@ -525,8 +557,34 @@ describe("prepareYankRuns", () => {
 				},
 				imports: {
 					createIntegrationRunIfIdle: (input) =>
-						record("createIntegrationRunIfIdle", input).pipe(
-							Effect.as(admitted ? makeRun("completed") : null),
+						(ready && !unavailable
+							? record("createIntegrationRunIfIdle", input)
+							: Effect.die("unready integration was admitted")
+						).pipe(Effect.as(admitted ? makeRun("completed") : null)),
+				},
+				readiness: {
+					evaluateIntegration: (input) =>
+						record("evaluateIntegration", input).pipe(
+							Effect.andThen(
+								unavailable
+									? Effect.fail(new IngestionReadinessError({ message: "Operation unavailable" }))
+									: Effect.succeed({
+											script: null,
+											provider: registeredYank,
+											pins: {
+												pluginConfigRevisionId: null,
+												pluginRevisionId: "example-revision-id",
+												scriptId: SandboxScriptId.make("theta-script"),
+											},
+											readiness: {
+												ready,
+												plan: { selection: {}, operation: "theta-sync" },
+												blockReasons: ready
+													? []
+													: [{ key: "token", code: "configuration-required" as const }],
+											},
+										}),
+							),
 						),
 				},
 			}),
@@ -561,9 +619,95 @@ describe("prepareYankRuns", () => {
 			}),
 		);
 	});
+
+	layer(layerFor(true, false))((test) => {
+		test.effect("rechecks missing setup on each tick without creating reports", () =>
+			Effect.gen(function* () {
+				const service = yield* IntegrationsService;
+				expect(yield* service.prepareYankRuns(null, null)).toEqual([]);
+				expect(yield* service.prepareYankRuns(null, null)).toEqual([]);
+				expect(yield* (yield* FakeIntegrationDependencies).calls).toEqual(
+					Array.from({ length: 2 }, () => ({
+						method: "evaluateIntegration",
+						input: {
+							settings: {},
+							providerSlug: "theta",
+							userId: yankIntegration.userId,
+							integrationId: yankIntegration.id,
+							installationId: "example-installation-id",
+						},
+					})),
+				);
+			}),
+		);
+	});
+
+	layer(layerFor(true, true, true))((test) => {
+		test.effect("waits without admitting when the executable is unavailable", () =>
+			Effect.gen(function* () {
+				expect(yield* (yield* IntegrationsService).prepareYankRuns(null, null)).toEqual([]);
+			}),
+		);
+	});
 });
 
 describe("handleWebhook", () => {
+	const dataIntegration = makeIntegration({ provider: "data-json", pluginInstallationId: null });
+	layer(
+		makeServiceLayer({
+			dependencies: ({ record }) => ({
+				engine: { execute: (_workflow, options) => record("execute", options) },
+				repository: {
+					getUserDisableIntegrations: () => Effect.succeed(false),
+					getByWebhookToken: () => Effect.succeed(dataIntegration),
+				},
+				dataAdmission: {
+					release: () => Effect.void,
+					admit: (input) =>
+						record("admitData", input).pipe(
+							Effect.as({ created: true, digest: "data-digest", runId: makeRun("completed").id }),
+						),
+				},
+			}),
+		}),
+	)((test) => {
+		test.effect(
+			"passes Data submission keys and the current account generation to durable admission",
+			() =>
+				Effect.gen(function* () {
+					yield* (yield* IntegrationsService).handleWebhook({
+						rawBody: "{}",
+						submissionKey: "delivery-key",
+						webhookToken: testWebhookToken,
+						contentType: "application/json",
+					});
+					const calls = yield* (yield* FakeIntegrationDependencies).calls;
+					expect(calls[0]).toMatchObject({
+						method: "admitData",
+						input: {
+							submissionKey: "delivery-key",
+							integrationId: dataIntegration.id,
+							accountGeneration: {
+								userId: dataIntegration.userId,
+								token: "test-account-generation",
+							},
+						},
+					});
+					expect(calls[1]).toMatchObject({
+						method: "execute",
+						input: {
+							executionId: makeRun("completed").id,
+							payload: {
+								accountGeneration: {
+									userId: dataIntegration.userId,
+									token: "test-account-generation",
+								},
+							},
+						},
+					});
+				}),
+		);
+	});
 	layer(
 		makeServiceLayer({
 			dependencies: () => ({ repository: { getByWebhookToken: () => Effect.succeed(null) } }),
@@ -603,6 +747,43 @@ describe("handleWebhook", () => {
 		scriptSlug: "kodi-webhook",
 		settingsSchema: { fields: {} },
 	};
+	for (const code of [
+		"integration-disabled",
+		"integrations-disabled",
+		"pro-key-required",
+	] as const) {
+		layer(
+			makeServiceLayer({
+				proKey: code !== "pro-key-required",
+				dependencies: () => ({
+					engine: { execute: () => Effect.die("Rejected deliveries must not dispatch") },
+					catalog: {
+						findOwnedForUser: () =>
+							Effect.succeed({ ...kodiSink, requiresProKey: code === "pro-key-required" }),
+					},
+					repository: {
+						getUserDisableIntegrations: () => Effect.succeed(code === "integrations-disabled"),
+						getByWebhookToken: () =>
+							Effect.succeed({ ...kodiIntegration, isDisabled: code === "integration-disabled" }),
+					},
+				}),
+			}),
+		)((test) => {
+			test.effect(`classifies ${code} before making the delivery recoverable`, () =>
+				Effect.gen(function* () {
+					yield* (yield* IntegrationsService).handleWebhook({
+						rawBody: "{}",
+						webhookToken: testWebhookToken,
+						contentType: "application/json",
+					});
+					expect((yield* (yield* FakeIntegrationDependencies).calls).at(-1)).toMatchObject({
+						method: "admitWebhook",
+						input: { failureReason: { code } },
+					});
+				}),
+			);
+		});
+	}
 
 	layer(
 		makeServiceLayer({
@@ -632,9 +813,7 @@ describe("handleWebhook", () => {
 					}),
 				).toEqual({ runId: makeRun("completed").id });
 				expect((yield* (yield* FakeIntegrationDependencies).calls).at(-1)?.input).toMatchObject({
-					source: "kodi",
-					integrationLot: "sink",
-					integrationId: kodiIntegration.id,
+					integration: { lot: "sink", provider: "kodi", id: kodiIntegration.id },
 				});
 			}),
 		);
@@ -676,14 +855,21 @@ describe("handleWebhook", () => {
 			}),
 		}),
 	)((test) => {
-		test.effect("forwards the untouched request transport to the run workflow", () =>
-			Effect.gen(function* () {
-				const service = yield* IntegrationsService;
-				yield* service.handleWebhook({ rawBody, contentType, webhookToken: testWebhookToken });
-				expect((yield* (yield* FakeIntegrationDependencies).calls).at(-1)?.input).toMatchObject({
-					payload: { webhook: { rawBody, contentType } },
-				});
-			}),
+		test.effect(
+			"stores the untouched request transport before dispatching the run identifier",
+			() =>
+				Effect.gen(function* () {
+					const service = yield* IntegrationsService;
+					yield* service.handleWebhook({ rawBody, contentType, webhookToken: testWebhookToken });
+					const calls = yield* (yield* FakeIntegrationDependencies).calls;
+					expect(calls.find((call) => call.method === "admitWebhook")?.input).toMatchObject({
+						webhook: { rawBody, contentType },
+					});
+					expect(calls.at(-1)?.input).toMatchObject({
+						payload: { runId: makeRun("completed").id },
+					});
+					expect(calls.at(-1)?.input).not.toHaveProperty("payload.webhook");
+				}),
 		);
 	});
 });

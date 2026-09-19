@@ -12,8 +12,10 @@ import { WorkflowEngine } from "effect/unstable/workflow/WorkflowEngine";
 
 import { DatabaseSession } from "#lib/infrastructure/db/session";
 import type { DurableSchema } from "#lib/infrastructure/workflow";
+import { interruptWorkflowAndWait } from "#lib/infrastructure/workflow-interruption";
 import { implementWorkflow, makeActivity } from "#lib/infrastructure/workflow-scope";
 import { AuthService } from "#modules/auth/service";
+import { IngestionExecution } from "#modules/imports/execution-service";
 import { MutationReceipts } from "#modules/mutations/receipts";
 import { AdmittedWorkflowCatalogue } from "#modules/mutations/workflow-catalogue";
 import { dispatchAdmittedWorkflow } from "#modules/mutations/workflow-dispatch";
@@ -76,6 +78,7 @@ export const UserLifecycleWorkflowOperationsLive = Layer.effect(
 		const engine = yield* WorkflowEngine;
 		const receipts = yield* MutationReceipts.make;
 		const mutationWorkflows = yield* AdmittedWorkflowCatalogue;
+		const ingestion = yield* IngestionExecution;
 
 		const requireOperation = (operationId: string) =>
 			repository.getInternalById(operationId).pipe(
@@ -105,10 +108,23 @@ export const UserLifecycleWorkflowOperationsLive = Layer.effect(
 			asInternal(
 				Effect.gen(function* () {
 					const operation = yield* requireOperation(operationId);
+					for (const owner of yield* repository.listUserMutationWork(operation.operation.userId)) {
+						const workflow = mutationWorkflows.find(
+							(candidate) => candidate._tag === owner.workflowName,
+						);
+						if (!workflow) {
+							return yield* internalError("User mutation workflow owner is unknown");
+						}
+						yield* interruptWorkflowAndWait(workflow, owner.executionId).pipe(
+							Effect.provideService(WorkflowEngine, engine),
+						);
+					}
+					yield* ingestion.retire({ userId: operation.operation.userId });
 					yield* Effect.forEach(operation.metadata.locators, objectStorage.deleteObject, {
 						discard: true,
 						concurrency: 1,
 					});
+					return yield* Effect.void;
 				}),
 				"User-owned object cleanup failed",
 			);
@@ -119,16 +135,6 @@ export const UserLifecycleWorkflowOperationsLive = Layer.effect(
 					const operation = yield* requireOperation(operationId);
 					if (operation.databaseCleanupCompletedAt !== null) {
 						return yield* Effect.void;
-					}
-					const work = yield* repository.listUserMutationWork(operation.operation.userId);
-					for (const owner of work) {
-						const workflow = mutationWorkflows.find(
-							(candidate) => candidate._tag === owner.workflowName,
-						);
-						if (!workflow) {
-							return yield* internalError("User mutation workflow owner is unknown");
-						}
-						yield* engine.interrupt(workflow, owner.executionId);
 					}
 					yield* repository.deleteUserData(operation.operation.userId);
 					yield* repository.markDatabaseCleanupCompleted(operationId);

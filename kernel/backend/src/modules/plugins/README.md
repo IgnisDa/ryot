@@ -25,3 +25,10 @@ resets validate the active persisted schema under the ingestion lock and invalid
 RyotQL exposes stored choices to the kernel preferences UI. Sandbox reads resolve the execution user
 and plugin identity, applying the pinned revision's schema and defaults. These preferences remain
 separate from encrypted configuration revisions and their redacted client projections.
+
+## Ingestion retirement
+
+Uninstall commits an installation admission fence under the user write lock, then delegates
+ingestion interruption, reconciliation, and payload/pin cleanup to the imports owner outside
+the transaction. Only after cleanup does it tombstone the installation and record the uninstall
+receipt. Retrying an interrupted uninstall retains the same fence and cleanup owners.

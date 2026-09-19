@@ -523,7 +523,14 @@ const runGetOAuthAccessToken = (
 		Effect.flatMap((functions) =>
 			Effect.result(
 				functions.getOAuthAccessToken(
-					runInput(subject, SANDBOX_HOST_CAPABILITIES, principalFacts),
+					runInput(subject, SANDBOX_HOST_CAPABILITIES, {
+						...principalFacts,
+						metadata: {
+							oauthConnectionFields: ["account"],
+							capabilities: SANDBOX_HOST_CAPABILITIES,
+							...principalFacts.metadata,
+						},
+					}),
 					{ field: "account" },
 				),
 			),
@@ -721,7 +728,7 @@ const runGetPluginConfig = (principalFacts: Partial<SandboxExecutionPrincipal>) 
 						...principalFacts,
 						metadata: { capabilities: ["getPluginConfig"], requiredPluginConfigKeys: ["apiToken"] },
 					}),
-					["apiToken"],
+					{ required: ["apiToken"] },
 				),
 			),
 		),

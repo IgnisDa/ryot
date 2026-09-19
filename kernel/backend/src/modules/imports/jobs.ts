@@ -6,9 +6,7 @@ export const ImportRunJobData = Schema.Struct({
 	userId: UserId,
 	runId: ImportRunId,
 	command: LifecycleCommand,
-	sourceStateId: Schema.String,
 	dataJson: Schema.optional(Schema.Boolean),
-	uploadIntentIds: Schema.Array(Schema.String),
 });
 
 export type ImportRunJobData = typeof ImportRunJobData.Type;

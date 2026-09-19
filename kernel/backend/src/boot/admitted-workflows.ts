@@ -3,6 +3,7 @@ import { Layer } from "effect";
 import { AutomationRunWorkflow } from "#modules/automations/run-workflow";
 import { AddEntityToCollectionWorkflow } from "#modules/collections/add-entity-to-collection-workflow";
 import { EventCreateWorkflow } from "#modules/events/event-create-workflow";
+import { ProcessIngestionCaptureWorkflow } from "#modules/imports/capture-write-workflow";
 import {
 	ProcessDataImportWorkflow,
 	ProcessDataImportSegmentWorkflow,
@@ -29,6 +30,7 @@ export const AdmittedWorkflowCatalogueLive = Layer.succeed(
 		ProcessDataImportWorkflow,
 		ProcessDataImportSegmentWorkflow,
 		ProcessGenericImportChunksWorkflow,
+		ProcessIngestionCaptureWorkflow,
 		ProcessIntegrationRunWorkflow,
 		IntegrationSyncWorkflow,
 		SandboxScriptWorkflow,

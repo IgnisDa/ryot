@@ -14,7 +14,6 @@ export const manifest = defineManifest({
   name: "Built-in provider",
 	slug: "builtin.provider",
 	capabilities: [],
-	requiredPluginConfigKeys: [],
 });
 
 export default defineProvider({
@@ -38,7 +37,10 @@ it.layer(sandboxCompilerPlatformLayer)("compileBuiltInSandboxEntry", (test) => {
 				capabilities: [],
 				slug: "builtin.provider",
 				name: "Built-in provider",
+				oauthConnectionFields: [],
+				executableDependencies: [],
 				requiredPluginConfigKeys: [],
+				optionalPluginConfigKeys: [],
 			});
 			expect(result.compiled.javascript).toContain("resolved-id");
 			expect(result.compiled.javascript).not.toContain('from "./helper"');

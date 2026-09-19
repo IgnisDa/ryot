@@ -12,10 +12,14 @@ import { DatabaseSession } from "#lib/infrastructure/db/session";
 import { RedisService, redisKeys } from "#lib/infrastructure/redis";
 import { sandboxContextError } from "#lib/infrastructure/sandbox-runtime/limits";
 import { getSandboxProcessMetrics } from "#lib/infrastructure/sandbox-runtime/runtime";
+import { IngestionExecution } from "#modules/imports/execution-service";
+import { ImportsRepository } from "#modules/imports/repository";
 import { ImportsService } from "#modules/imports/service";
 import { MutationReceipts } from "#modules/mutations/receipts";
 import { PluginRuntimeResolver } from "#modules/plugins/runtime-resolver";
 import { SandboxExecutionService } from "#modules/sandbox/service";
+
+import { OperationalGateRepository } from "./operational-gate-repository";
 
 const WORKFLOW_LOAD_GATE_CHUNK_SIZE = 1_000;
 
@@ -35,6 +39,9 @@ export class OperationalGateService extends Context.Service<OperationalGateServi
 			const session = yield* DatabaseSession;
 			const redis = yield* RedisService;
 			const imports = yield* ImportsService;
+			const repository = yield* ImportsRepository;
+			const ingestion = yield* IngestionExecution;
+			const gateRepository = yield* OperationalGateRepository;
 			const sandbox = yield* SandboxExecutionService;
 			const pluginRuntime = yield* PluginRuntimeResolver;
 			const receipts = yield* MutationReceipts.make;
@@ -54,6 +61,7 @@ export class OperationalGateService extends Context.Service<OperationalGateServi
 					});
 				}
 				const run = yield* imports.createManualRun({
+					accountGeneration,
 					source: input.source,
 					userId: input.executingUserId,
 					pluginInstallationId: installation.installationId,
@@ -62,8 +70,22 @@ export class OperationalGateService extends Context.Service<OperationalGateServi
 				const startedAt = yield* DateTime.nowAsDate;
 				const occurredAt = IsoUtcString.make(startedAt.toISOString());
 				const rootExecutionId = AutomationExecutionId.make(`${run.id}-workflow-load`);
-				yield* imports.markStarted({ startedAt, runId: run.id });
-				yield* imports.updateProgress({ runId: run.id, totalItems: input.itemCount });
+				const scope = { runId: run.id, accountGeneration, userId: input.executingUserId };
+				yield* session.transaction(
+					Effect.gen(function* () {
+						yield* repository.pinIngestion({
+							scope,
+							plan: { selection: {}, operation: "workflow-load-operational-gate" },
+							pins: {
+								pluginRevisionId: null,
+								executionId: rootExecutionId,
+								pluginConfigRevisionId: null,
+								scriptId: "workflow-load-operational-gate",
+							},
+						});
+						yield* repository.startIngestion({ scope, startedAt });
+					}),
+				);
 
 				const items = Array.from({ length: input.itemCount }, (_, index) => ({
 					index,
@@ -111,6 +133,20 @@ export class OperationalGateService extends Context.Service<OperationalGateServi
 				if (chunk.length > 0) {
 					chunks.push(chunk);
 				}
+				yield* session.transaction(
+					repository.putActivity(scope, {
+						wait: null,
+						completed: 0,
+						batchId: null,
+						parentId: null,
+						kind: "writing",
+						state: "running",
+						id: "workflow-load",
+						exactTotal: chunks.length,
+						lastAdvancedAt: occurredAt,
+						unit: "workflow executions",
+					}),
+				);
 
 				const executionIds: string[] = [];
 				for (const [chunkIndex, packedItems] of chunks.entries()) {
@@ -158,25 +194,39 @@ export class OperationalGateService extends Context.Service<OperationalGateServi
 					}
 					if (executions.every(({ status }) => status === "completed" || status === "failed")) {
 						const failed = executions.some(({ status }) => status === "failed");
-						const finishedAt = yield* DateTime.nowAsDate;
-						const result = {
-							finishedAt,
-							progress: 100,
-							runId: input.runId,
-							processedItems: input.itemCount,
-							failedItems: failed ? input.itemCount : 0,
-							importedItems: failed ? 0 : input.itemCount,
-						};
-						if (failed) {
-							yield* imports.finishFailed({
-								...result,
-								failureReason: {
-									code: "unexpected-failure",
-									operation: "workflow-load-operational-gate",
-								},
+						const scope = yield* gateRepository.runningScope(input.runId);
+						if (scope) {
+							const advancedAt = yield* DateTime.nowAsDate;
+							yield* session.transaction(
+								Effect.gen(function* () {
+									yield* repository.putActivity(scope, {
+										wait: null,
+										batchId: null,
+										parentId: null,
+										kind: "writing",
+										id: "workflow-load",
+										unit: "workflow executions",
+										completed: executions.length,
+										exactTotal: executions.length,
+										state: failed ? "failed" : "completed",
+										lastAdvancedAt: advancedAt.toISOString(),
+									});
+									yield* repository.sealCollection(scope);
+								}),
+							);
+							yield* ingestion.settle({
+								scope,
+								reconcile: () => Effect.succeed([]),
+								status: failed ? "failed" : "completed",
+								...(failed
+									? {
+											failureReason: {
+												code: "unexpected-failure" as const,
+												operation: "workflow-load-operational-gate",
+											},
+										}
+									: {}),
 							});
-						} else {
-							yield* imports.finishCompleted(result);
 						}
 					}
 					return { executions, runId: input.runId };

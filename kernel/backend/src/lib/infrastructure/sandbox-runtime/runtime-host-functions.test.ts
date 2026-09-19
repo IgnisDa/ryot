@@ -66,6 +66,36 @@ const runtimeHostLayer = Layer.unwrap(
 
 describe("runtime sandbox host functions", () => {
 	layer(runtimeHostLayer)((test) => {
+		test.effect(
+			"reads persistent completion without claiming and retains its namespace across server runs",
+			() =>
+				Effect.gen(function* () {
+					const host = yield* makeRuntimeSandboxApiFunctions;
+					expect(yield* host.getPersistentValue(input, "completion")).toBeNull();
+					expect(yield* host.claimPersistentValue(input, "completion", true, 60)).toEqual({
+						claimed: true,
+					});
+					const restarted = yield* makeRuntimeSandboxApiFunctions.pipe(
+						Effect.provideService(ServerRun, { id: "run-2" }),
+					);
+					expect(yield* restarted.getPersistentValue(input, "completion")).toBe(true);
+					expect(
+						yield* restarted.getPersistentValue(
+							{
+								...input,
+								principal: { ...input.principal, scriptId: SandboxScriptId.make("other-script") },
+							},
+							"completion",
+						),
+					).toBeNull();
+					expect(yield* host.claimPersistentValue(input, "completion", false, 60)).toEqual({
+						value: true,
+						claimed: false,
+					});
+				}),
+		);
+	});
+	layer(runtimeHostLayer)((test) => {
 		test.effect("round-trips run-scoped cache values", () =>
 			Effect.gen(function* () {
 				const host = yield* makeRuntimeSandboxApiFunctions;

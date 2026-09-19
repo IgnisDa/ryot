@@ -217,6 +217,14 @@ export class EntitiesService extends Context.Service<EntitiesService>()("Entitie
 		const peekEntityReceipt = (identity: ReturnType<typeof mutationReceiptIdentity>) =>
 			receipts.peek(identity, EntitySnapshotResult).pipe(Effect.mapError(receiptConflict));
 		const execution = yield* LifecycleExecution;
+		const replayCreateStep = Effect.fn("EntitiesService.replayCreateStep")(function* (
+			input: CreateEntityInput,
+		) {
+			const replay = yield* peekEntityReceipt(createReceipt(input));
+			return replay
+				? { result: replay.result, dispatch: replay.dispatch, _tag: "Committed" as const }
+				: null;
+		});
 
 		const assertOwner = session.requireRoot.pipe(Effect.mapError(enclosingTransaction));
 		const assertActiveTransaction = session.requireTransaction.pipe(
@@ -243,6 +251,38 @@ export class EntitiesService extends Context.Service<EntitiesService>()("Entitie
 			}
 			return definition;
 		});
+		const prepareReferenceStep = Effect.fn("EntitiesService.prepareReferenceStep")(
+			function* (input: { userId: UserId; entityId: EntityId; lifecycle: LifecycleCommand }) {
+				return yield* transaction(
+					Effect.gen(function* () {
+						const identity = mutationReceiptIdentity({
+							command: input.lifecycle,
+							ownerUserId: input.userId,
+							scopeUserId: input.userId,
+							commandKind: "entity:reference",
+							input: { entityId: input.entityId },
+						});
+						const replay = yield* lookupEntityReceipt(identity);
+						if (replay) {
+							return {
+								result: replay.result,
+								dispatch: replay.dispatch,
+								_tag: "Committed" as const,
+							};
+						}
+						const entity = yield* repository.getByIdForUser(input);
+						if (!entity) {
+							return yield* new EntityNotFound({
+								reason: { code: "entity-not-found", entityId: input.entityId },
+							});
+						}
+						const result = yield* Schema.decodeEffect(EntitySnapshotResult)({ entity });
+						yield* receipts.insert({ result, identity, dispatch: [] });
+						return { result, dispatch: [], _tag: "Committed" as const };
+					}),
+				);
+			},
+		);
 		const validateDraft = Effect.fnUntraced(function* (
 			draft: Omit<AutomationEntityDraft, "properties"> & { properties: unknown },
 			scopeUserId: UserId | null,
@@ -1358,8 +1398,10 @@ export class EntitiesService extends Context.Service<EntitiesService>()("Entitie
 			createGlobal,
 			commitMutation,
 			getByIdAnyScope,
+			replayCreateStep,
 			prepareCreateStep,
 			ensureUserEntities,
+			prepareReferenceStep,
 			upsertGlobalEntities,
 			applyMutationPolicies,
 			applyGlobalEntityPolicies,

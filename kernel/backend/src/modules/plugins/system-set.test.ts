@@ -125,7 +125,10 @@ it("rejects integration provider and import source slug collisions across active
 						slug: "hevy",
 						name: "Hevy",
 						description: "Hevy CSV",
+						oauthConnectionFields: [],
+						executableDependencies: [],
 						requiredPluginConfigKeys: [],
+						optionalPluginConfigKeys: [],
 						workflowSlug: "fixture.workflow",
 						inputSchema: {
 							unknownKeys: "strict" as const,

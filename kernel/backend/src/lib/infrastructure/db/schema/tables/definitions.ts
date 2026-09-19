@@ -145,6 +145,7 @@ export const definitionImportSource = snakeCase.table(
 		workflowSlug: text().notNull(),
 		inputSchema: jsonb().$type<AppSchema>().notNull(),
 		requiredPluginConfigKeys: text().array().notNull(),
+		plan: jsonb().$type<NonNullable<PluginImportSource["plan"]>>(),
 		exportHelp: jsonb().$type<NonNullable<PluginImportSource["exportHelp"]>>(),
 		pluginRevisionId: text()
 			.notNull()
@@ -478,17 +479,18 @@ export const userImportSource = snakeCase
 		workflowSlug: text().notNull(),
 		inputSchema: jsonb().$type<AppSchema>().notNull(),
 		requiredPluginConfigKeys: text().array().notNull(),
+		plan: jsonb().$type<NonNullable<PluginImportSource["plan"]>>(),
 		exportHelp: jsonb().$type<NonNullable<PluginImportSource["exportHelp"]>>(),
 	})
 	.as(
 		sql`
-			select p.user_id, d.id, p.plugin_id, d.plugin_revision_id, p.slug as plugin_slug, p.scope as plugin_scope, p.installation_id, p.config_revision_id, d.slug, d.name, d.description, d.position, d.workflow_slug, s.id as workflow_script_id, d.input_schema, d.required_plugin_config_keys, d.export_help
+			select p.user_id, d.id, p.plugin_id, d.plugin_revision_id, p.slug as plugin_slug, p.scope as plugin_scope, p.installation_id, p.config_revision_id, d.slug, d.name, d.description, d.position, d.workflow_slug, s.id as workflow_script_id, d.input_schema, d.required_plugin_config_keys, d.export_help, d.plan
 			from ${userPlugin} p
 			join definition_import_source d on d.plugin_revision_id = p.active_revision_id
 			left join sandbox_script s on s.plugin_revision_id = d.plugin_revision_id and s.slug = d.workflow_script_slug
 			where p.is_executable and not exists (select 1 from ${userPlugin} sp join definition_import_source g on g.plugin_revision_id = sp.active_revision_id where sp.user_id = p.user_id and sp.plugin_id <> p.plugin_id and sp.scope = 'system' and sp.is_executable and g.slug = d.slug)
 			union all
-			select u.id, 'kernel:data-json:' || u.id, null::text, null::text, null::text, null::text, null::text, null::text, 'data-json', 'Data import', 'Import generic entities, relationships, and events from JSON.', 0, 'data-json', null::text, ${sql.raw(`'${JSON.stringify(dataJsonImportInputSchema).replaceAll("'", "''")}'::jsonb`)}, '{}'::text[], null::jsonb
+			select u.id, 'kernel:data-json:' || u.id, null::text, null::text, null::text, null::text, null::text, null::text, 'data-json', 'Data import', 'Import generic entities, relationships, and events from JSON.', 0, 'data-json', null::text, ${sql.raw(`'${JSON.stringify(dataJsonImportInputSchema).replaceAll("'", "''")}'::jsonb`)}, '{}'::text[], null::jsonb, null::jsonb
 			from ${user} u
 		`,
 	);

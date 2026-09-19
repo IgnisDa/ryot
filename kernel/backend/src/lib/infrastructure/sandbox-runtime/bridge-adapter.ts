@@ -173,6 +173,11 @@ export const bindSandboxHostFunctions = (
 		(...args) => implementations.getUserPreferences(input, ...args),
 		defaultFailure("getUserPreferences"),
 	),
+	getPersistentValue: bindHostFunction(
+		coreSandboxHostContracts.getPersistentValue,
+		(...args) => implementations.getPersistentValue(input, ...args),
+		defaultFailure("getPersistentValue"),
+	),
 	ensureUserEntities: bindHostFunction(
 		domainSandboxHostContracts.ensureUserEntities,
 		(...args) => implementations.ensureUserEntities(input, ...args),

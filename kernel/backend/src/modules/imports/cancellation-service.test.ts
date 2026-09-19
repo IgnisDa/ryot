@@ -65,7 +65,11 @@ layer(makeLayer({ id: runId, status: "running", executionKind: "source" }))((tes
 				id: runId,
 			});
 			expect(yield* (yield* FakeCancellationDispatch).executions).toEqual([
-				{ discard: true, executionId: "run-1-cancellation", payload: { runId, userId: user.id } },
+				{
+					discard: true,
+					executionId: "run-1-cancellation",
+					payload: { runId, userId: user.id, accountGeneration: user.accountGeneration },
+				},
 			]);
 		}),
 	);

@@ -1,6 +1,11 @@
 {
 	"lock": false,
-	"imports": { "@ryot-app/sandbox-sdk/effect": "npm:effect@4.0.0-rc.117" },
+	"imports": {
+		"@ryot-app/sandbox-sdk/effect": "npm:effect@4.0.0-rc.117",
+		"effect": "npm:effect@4.0.0-rc.117",
+		"@ryot-app/contract/modules/plugins/execution-metadata": "../../../../../../packages/contract/src/modules/plugins/execution-metadata.ts",
+		"../../../../../../packages/contract/src/schema/utils": "../../../../../../packages/contract/src/schema/utils.ts"
+	},
 	"compilerOptions": {
 		"strict": true,
 		"noImplicitReturns": true,

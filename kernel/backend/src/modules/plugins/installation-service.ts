@@ -36,6 +36,7 @@ import { ObjectStorageService } from "#modules/uploads/object-storage/service";
 
 import { PluginCatalogInvalidator } from "./catalog-events";
 import { PluginIngestionLock } from "./ingestion-lock";
+import { PluginIngestionRetirement } from "./ingestion-retirement";
 import {
 	PluginInstallationRepository,
 	type PluginInstallationRow,
@@ -238,6 +239,7 @@ export class PluginInstallationService extends Context.Service<PluginInstallatio
 			const repository = yield* PluginRepository;
 			const definitions = yield* DefinitionRepository;
 			const ingestionLock = yield* PluginIngestionLock;
+			const ingestionRetirement = yield* PluginIngestionRetirement;
 			const uploadIntents = yield* UploadIntentsService;
 			const objectStorage = yield* ObjectStorageService;
 			const invalidator = yield* PluginCatalogInvalidator;
@@ -710,6 +712,7 @@ export class PluginInstallationService extends Context.Service<PluginInstallatio
 									input.userId,
 									Effect.gen(function* () {
 										yield* repository.lockIngestion();
+										yield* installations.assertIngestionActive(input.userId, installation.id);
 										yield* assertUnclaimedSavedViewSlugs(input.userId, manifest);
 										const current = yield* repository.findPrivateByIdForUser(
 											plugin.id,
@@ -925,6 +928,7 @@ export class PluginInstallationService extends Context.Service<PluginInstallatio
 							Effect.gen(function* () {
 								yield* repository.lockIngestion();
 								const receipt = yield* repository.findUninstallReceipt(activationId);
+								yield* database.acquireUserWriteLock(userId);
 								if (
 									receipt?.ownerId === userId &&
 									receipt.slug === slug &&
@@ -971,16 +975,7 @@ export class PluginInstallationService extends Context.Service<PluginInstallatio
 									});
 								}
 								yield* assertUnreferenced(current, currentInstallation, pluginSlug);
-								yield* installations.remove(currentInstallation.id);
-								yield* repository.deactivate(current.id);
-								yield* repository.recordUninstallReceipt({
-									slug,
-									activationId,
-									ownerId: userId,
-									pluginId: plugin.id,
-									installationId: installation.id,
-								});
-								yield* invalidator.recordUser(userId);
+								yield* installations.beginIngestionRetirement(userId, currentInstallation.id);
 								return {
 									replayed: false,
 									result: { id: installation.id, pluginId: PluginId.make(plugin.id) },
@@ -990,6 +985,44 @@ export class PluginInstallationService extends Context.Service<PluginInstallatio
 						.pipe(Effect.catchTag("DatabaseSessionStateError", Effect.die)),
 				);
 				if (!removed.replayed) {
+					yield* ingestionRetirement.retire({ userId, pluginInstallationId: removed.result.id });
+					yield* database
+						.transaction(
+							Effect.gen(function* () {
+								yield* repository.lockIngestion();
+								yield* database.acquireUserWriteLock(userId);
+								const current = yield* repository.findPrivateByIdForUser(
+									removed.result.pluginId,
+									userId,
+								);
+								const receipt = yield* repository.findUninstallReceipt(activationId);
+								if (
+									receipt?.ownerId === userId &&
+									receipt.slug === slug &&
+									receipt.installationId === removed.result.id &&
+									receipt.pluginId === removed.result.pluginId
+								) {
+									return yield* Effect.void;
+								}
+								if (!current || current.activationId !== activationId) {
+									return yield* new PluginNotFoundError({
+										reason: { pluginSlug, code: "plugin-not-found" },
+									});
+								}
+								yield* installations.remove(removed.result.id);
+								yield* repository.deactivate(current.id);
+								yield* repository.recordUninstallReceipt({
+									slug,
+									activationId,
+									ownerId: userId,
+									pluginId: current.id,
+									installationId: removed.result.id,
+								});
+								yield* invalidator.recordUser(userId);
+								return yield* Effect.void;
+							}),
+						)
+						.pipe(Effect.catchTag("DatabaseSessionStateError", Effect.die));
 					yield* invalidator.user(userId);
 				}
 				return removed.result;

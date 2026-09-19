@@ -1,8 +1,10 @@
 import { BunServices } from "@effect/platform-bun";
-import { SandboxCompilationFailure } from "@ryot-app/contract/modules/sandbox/schemas";
+import {
+	SandboxCompilationFailure,
+	SandboxScriptManifest,
+} from "@ryot-app/contract/modules/sandbox/schemas";
 import { utf8ByteLength } from "@ryot-app/sandbox-compiler/limits";
 import { CompilerWorkerRequest, CompilerWorkerResponse } from "@ryot-app/sandbox-compiler/protocol";
-import { sandboxManifestSchema } from "@ryot-app/sandbox-sdk/core";
 import { getCompilerWorkspaceRoot } from "@ryot-app/vite-compiler";
 import { Context, Effect, FileSystem, Layer, Match, Path, Schema, Semaphore } from "effect";
 
@@ -124,7 +126,7 @@ export const makeSandboxCompiler = (configuredWorkspaceParentPath?: string) =>
 								);
 							}
 
-							return Schema.decodeUnknownEffect(sandboxManifestSchema)(
+							return Schema.decodeUnknownEffect(SandboxScriptManifest)(
 								response.value.manifest,
 							).pipe(
 								Effect.mapError(() =>
