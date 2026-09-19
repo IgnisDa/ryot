@@ -815,7 +815,7 @@ export function useRyotQuery<Data, HostServices>(
 	}
 	// The definition declares the host type; React context cannot link that generic to a provider.
 	// oxlint-disable-next-line typescript/no-unsafe-type-assertion
-	const atom = query.atom(registry, client, hostServices as HostServices, input);
+	const atom = query.atom(registry, client, hostServices, input);
 	useQueryInterest(client, schedule, atom, input, query.entityInterest);
 	const result = useAtomValue(atom);
 	const refetch = useAtomRefresh(atom);
