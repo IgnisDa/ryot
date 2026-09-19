@@ -127,15 +127,12 @@ it.live(
 				{},
 			);
 			const page = yield* prepareClientPage(client, view.slug);
-			const documentResponse = yield* webRequest(
-				new URL(page.composition.documentGrant.src, `${apiUrl}/`),
+			const document = yield* client.call((contract) =>
+				contract.clientPages.document({ payload: { identity: page.identity } }),
 			);
-			expect(documentResponse.status).toBe(200);
-			expect(documentResponse.headers.get("cache-control")).toBe("private, no-store");
-			const document = yield* Effect.promise(() => documentResponse.text());
-			const assetPath = document.match(
-				new RegExp(`/api/client-assets/${artifactHash}/([A-Za-z0-9_-]{43})/module\\.js`),
-			)?.[0];
+			const assetPath = document.modulepreloads.find((url) =>
+				new RegExp(`^/api/client-assets/${artifactHash}/[A-Za-z0-9_-]{43}/module\\.js$`).test(url),
+			);
 			expect(assetPath).toBeDefined();
 			if (!assetPath) {
 				throw new Error("Installed system plugin asset URL is missing");
