@@ -21,7 +21,11 @@ import {
 	pluginConfigEncryptionKey,
 } from "#lib/infrastructure/db/schema/tables/core";
 import { DatabaseSession } from "#lib/infrastructure/db/session";
-import { testDatabaseUrl } from "#lib/test-utils/database";
+import {
+	applyBaselineMigration,
+	baselineMigrationStatements,
+} from "#lib/test-utils/baseline-migration";
+import { testDatabaseUrl, withIsolatedDatabase } from "#lib/test-utils/database";
 import { makeAppConfigLayer, makeConfigProviderLayer } from "#lib/test-utils/effect";
 import { fixtureManifest } from "#modules/plugins/test-support";
 
@@ -56,33 +60,22 @@ const withDatabase = <E>(
 		Layer.provide(makeAppConfigLayer({ database: { url: Redacted.make(url) } })),
 	);
 	return Effect.gen(function* () {
-		const db = yield* (yield* DatabaseSession).current;
-		const directory = new URL("../../drizzle/", import.meta.url).pathname;
-		const paths = [...new Bun.Glob("*/migration.sql").scanSync({ cwd: directory })];
-		assert(paths.length === 1);
-		const ddl = yield* Effect.promise(() => Bun.file(directory + paths[0]).text());
-		yield* db.execute(sql`create database ${sql.identifier(schema)}`);
-		yield* Effect.gen(function* () {
-			const scopedUrl = new URL(url);
-			scopedUrl.pathname = `/${schema}`;
+		const statements = yield* baselineMigrationStatements();
+		yield* withIsolatedDatabase(schema, url, (scopedUrl) => {
 			const scopedLayer = DatabaseSession.layer.pipe(
-				Layer.provide(
-					makeAppConfigLayer({ database: { url: Redacted.make(scopedUrl.toString()) } }),
-				),
+				Layer.provide(makeAppConfigLayer({ database: { url: Redacted.make(scopedUrl) } })),
 				Layer.fresh,
 			);
-			yield* Effect.gen(function* () {
+			return Effect.gen(function* () {
 				const isolated = yield* (yield* DatabaseSession).current;
-				for (const statement of ddl.split("--> statement-breakpoint")) {
-					yield* isolated.execute(sql.raw(statement));
-				}
+				yield* applyBaselineMigration(statements, (statement) =>
+					isolated.execute(sql.raw(statement)),
+				);
 				yield* test;
 			}).pipe(
 				Effect.provide(AutomationAttemptRepository.layer.pipe(Layer.provideMerge(scopedLayer))),
 			);
-		}).pipe(
-			Effect.ensuring(db.execute(sql`drop database ${sql.identifier(schema)}`).pipe(Effect.orDie)),
-		);
+		});
 	}).pipe(Effect.provide(layer.pipe(Layer.provideMerge(makeConfigProviderLayer()))));
 };
 
