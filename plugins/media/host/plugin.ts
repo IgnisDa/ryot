@@ -399,6 +399,23 @@ const integrationProviders = [
 		}),
 	},
 	{
+		lot: "yank",
+		slug: "spotify",
+		name: "Spotify",
+		requiresProKey: true,
+		scriptSlug: "integration.spotify",
+		description: "Import listening history from Spotify",
+		settingsSchema: providerSettings("spotify", {
+			account: {
+				type: "string",
+				label: "Spotify account",
+				validation: { required: true },
+				format: { provider: "spotify", kind: "oauth-connection" },
+				description: "Spotify account to read listening history from",
+			},
+		}),
+	},
+	{
 		lot: "push",
 		slug: "radarr",
 		name: "Radarr",
@@ -564,6 +581,18 @@ export const mediaPlugin = definePlugin({
 			scriptSlug: "media-trending",
 			schedule: { tier: "infrequent" },
 			description: "Refresh global media trending rankings",
+		},
+	],
+	oauthProviders: [
+		{
+			slug: "spotify",
+			name: "Spotify",
+			clientIdConfigKey: "spotifyClientId",
+			scopes: ["user-read-recently-played"],
+			tokenEndpointAuth: "client_secret_basic",
+			clientSecretConfigKey: "spotifyClientSecret",
+			tokenUrl: "https://accounts.spotify.com/api/token",
+			authorizeUrl: "https://accounts.spotify.com/authorize",
 		},
 	],
 	client: {
