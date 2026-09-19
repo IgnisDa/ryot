@@ -2,25 +2,31 @@ import { StatusMessage } from "@ryot-app/client-ui-sdk";
 import { AppIcon } from "@ryot-app/client-ui-sdk/icon";
 import { useNavigate } from "@tanstack/react-router";
 import clsx from "clsx";
+import { Effect } from "effect";
 
 import { SettingsSection } from "#/modules/settings/settings-section";
 
 export function AccountSession(props: {
 	readonly failed: boolean;
 	readonly isPending: boolean;
-	readonly onSignOut: () => Promise<boolean>;
+	readonly onSignOut: () => Effect.Effect<boolean, Error>;
 }) {
 	const navigate = useNavigate();
 
 	function signOut() {
-		return props
-			.onSignOut()
-			.catch(() => null)
-			.then((launched) =>
-				launched === false
-					? navigate({ to: "/auth", replace: true, search: { redirect: undefined } })
-					: undefined,
-			);
+		return Effect.runPromise(
+			props.onSignOut().pipe(
+				Effect.catchCause(() => Effect.succeed(null)),
+				Effect.tap((launched) =>
+					launched === false
+						? Effect.sync(() => {
+								void navigate({ to: "/auth", replace: true, search: { redirect: undefined } });
+							})
+						: Effect.void,
+				),
+				Effect.asVoid,
+			),
+		);
 	}
 
 	return (
