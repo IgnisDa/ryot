@@ -1,6 +1,6 @@
 use std::sync::Arc;
 
-use anyhow::Result;
+use anyhow::{Result, anyhow};
 use chrono::{Duration, Utc};
 use common_models::BackgroundJob;
 use common_utils::{MAX_IMPORT_RETRIES_FOR_PARTIAL_STATE, ryot_log};
@@ -26,17 +26,19 @@ pub mod job_operations;
 pub async fn perform_import(
     ss: &Arc<SupportingService>,
     user_id: String,
+    import_report_id: String,
     input: Box<DeployImportJobInput>,
 ) -> Result<()> {
     let import_started_at = Utc::now();
-    let model = import_report::ActiveModel {
-        source: ActiveValue::Set(input.source),
-        progress: ActiveValue::Set(Some(dec!(0))),
-        user_id: ActiveValue::Set(user_id.to_owned()),
-        estimated_finish_time: ActiveValue::Set(import_started_at + Duration::hours(1)),
-        ..Default::default()
-    };
-    let db_import_job = model.insert(&ss.db).await?;
+    let mut model = ImportReport::find_by_id(import_report_id)
+        .one(&ss.db)
+        .await?
+        .ok_or(anyhow!("Import report does not exist"))?
+        .into_active_model();
+    model.progress = ActiveValue::Set(Some(dec!(0)));
+    model.started_on = ActiveValue::Set(import_started_at);
+    model.estimated_finish_time = ActiveValue::Set(import_started_at + Duration::hours(1));
+    let db_import_job = model.update(&ss.db).await?;
     let import_id = db_import_job.id.clone();
     ryot_log!(debug, "Started import job with id {import_id}");
     let maybe_import = match input.source {
