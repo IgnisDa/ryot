@@ -415,20 +415,19 @@ export class BridgeService extends Context.Service<BridgeService>()("BridgeServi
 					Effect.map((body) => body.args),
 					Effect.mapError(() => badRequest("Invalid request body")),
 				);
-				const hostCall = runSandboxBridgeHostFunction(fn, args, {
-					fnName,
-					executionId,
-					parentSpan: activeSession.parentSpan,
+				const hostCall = Effect.gen(function* () {
+					const result = yield* runSandboxBridgeHostFunction(fn, args, {
+						fnName,
+						executionId,
+						parentSpan: activeSession.parentSpan,
+					}).pipe(Effect.mapError((error) => internalError(unknownToMessage(error))));
+					return yield* sandboxBridgeResultResponse(
+						result,
+						fnName === "replayJournal"
+							? SANDBOX_LIMITS.bridge.durableResponseBytes
+							: SANDBOX_LIMITS.bridge.responseBytes,
+					);
 				}).pipe(
-					Effect.mapError((error) => internalError(unknownToMessage(error))),
-					Effect.flatMap((result) =>
-						sandboxBridgeResultResponse(
-							result,
-							fnName === "replayJournal"
-								? SANDBOX_LIMITS.bridge.durableResponseBytes
-								: SANDBOX_LIMITS.bridge.responseBytes,
-						),
-					),
 					Effect.catch((error) =>
 						Effect.succeed(Response.json({ error: unknownToMessage(error) }, { status: 500 })),
 					),
@@ -468,7 +467,20 @@ export class BridgeService extends Context.Service<BridgeService>()("BridgeServi
 			}),
 		);
 
-		return { addSession, port: address.port };
+		const bootstrap = Effect.fn("BridgeService.bootstrap")(function* (
+			executionId: string,
+			token: string,
+			body: string,
+		) {
+			return yield* handleRequest(
+				new Request(
+					`http://127.0.0.1:${address.port}/rpc/${encodeURIComponent(executionId)}/replayJournal`,
+					{ body, method: "POST", headers: { authorization: `Bearer ${token}` } },
+				),
+			);
+		});
+
+		return { bootstrap, addSession, port: address.port };
 	}),
 }) {
 	static readonly layer = Layer.effect(this, this.make);
