@@ -255,7 +255,7 @@ export const collectionHeaderRecipe = defineRecipe((input: { readonly collection
 			return Result.map(
 				rawSchema === undefined || rawSchema === null
 					? Result.succeed(null)
-					: Schema.decodeUnknownResult(AppSchema)(rawSchema),
+					: Schema.decodeResult(AppSchema)(rawSchema),
 				(membershipPropertiesSchema) => ({
 					name: header.name,
 					entityId: header.entityId,
@@ -373,7 +373,7 @@ export const collectionMembersCountRecipe = defineRecipe(
 					measures: {
 						total: selectedMeasure(
 							{ function: "countDistinct", expr: column(entity, "id") },
-							Schema.Number,
+							Schema.Finite,
 						),
 					},
 				}),
@@ -402,7 +402,7 @@ export const collectionMembersAggregateRecipe = defineRecipe(
 					limit: 100,
 					joins: [entityJoin, ownerPluginJoin],
 					where: collectionMembershipWhere(membership, entity, input.collectionId),
-					measures: { count: selectedMeasure({ function: "count" }, Schema.Number) },
+					measures: { count: selectedMeasure({ function: "count" }, Schema.Finite) },
 					orderBy: [groupAscending("ownerPluginId"), groupAscending("entitySchemaSlug")],
 					groupBy: {
 						entitySchemaSlug: selectedField(column(entity, "entitySchemaSlug"), Schema.String),

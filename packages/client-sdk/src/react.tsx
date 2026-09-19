@@ -518,7 +518,7 @@ export const usePluginStorage = <A,>(options: {
 	const identity = JSON.stringify([pluginSlug, key]);
 	const [stored, setStored] = useState<{ readonly identity: string; readonly value: A | null }>();
 	const decode = useEffectEvent((value: JsonValue | null) =>
-		value === null ? null : Option.getOrNull(Schema.decodeUnknownOption(schema)(value)),
+		value === null ? null : Option.getOrNull(Schema.decodeOption(schema)(value)),
 	);
 	useEffect(() => {
 		const fiber = Effect.runFork(

@@ -48,7 +48,7 @@ export type EntityInterestSubscription = {
 };
 
 const normalizeInterest = (interest: EntityInterest): EntityInterest => {
-	const decoded = Schema.decodeUnknownResult(EntityInterest)(interest);
+	const decoded = Schema.decodeResult(EntityInterest)(interest);
 	if (Result.isFailure(decoded)) {
 		throw new RyotClientError("invalid-input");
 	}
@@ -276,7 +276,7 @@ export const createRyotClient = (adapter: RyotClientAdapter) => {
 		}
 	};
 	const openProviderSearch = (request: RyotProviderSearchScreenRequest) => {
-		const decoded = Schema.decodeUnknownResult(ProviderSearchScreenRequest)(request);
+		const decoded = Schema.decodeResult(ProviderSearchScreenRequest)(request);
 		if (Result.isFailure(decoded)) {
 			throw new RyotClientError("invalid-input");
 		}
@@ -383,7 +383,7 @@ export const createRyotClient = (adapter: RyotClientAdapter) => {
 		assets: {
 			resolve: (assets: readonly ManagedAssetLocatorValue[]) =>
 				Effect.gen(function* () {
-					const decodedAssets = Schema.decodeUnknownResult(ManagedAssetResolutionBatch)(assets);
+					const decodedAssets = Schema.decodeResult(ManagedAssetResolutionBatch)(assets);
 					if (Result.isFailure(decodedAssets)) {
 						return yield* new RyotClientError("invalid-input");
 					}
@@ -427,7 +427,7 @@ export const createRyotClient = (adapter: RyotClientAdapter) => {
 						if (disposed) {
 							return;
 						}
-						const decoded = Schema.decodeUnknownResult(EntityUpdatedMessage)(value);
+						const decoded = Schema.decodeResult(EntityUpdatedMessage)(value);
 						if (Result.isFailure(decoded)) {
 							throw new RyotClientError("malformed-result");
 						}

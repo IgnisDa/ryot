@@ -79,8 +79,9 @@ const createCompilerWorkspace = Effect.fn("createCompilerWorkspace")(function* (
 	let rootPath: string;
 	if (options.jobId !== undefined) {
 		if (options.parentPath === undefined) {
-			return yield* Effect.fail(
-				viteCompilerError("invalid-input", "A workspace job identity requires a parent path"),
+			return yield* viteCompilerError(
+				"invalid-input",
+				"A workspace job identity requires a parent path",
 			);
 		}
 		const parentPath = options.parentPath;
@@ -216,11 +217,9 @@ const stageFiles = Effect.fn("stageWorkspaceFiles")(function* (
 						),
 					);
 				if (componentStatus.type === "SymbolicLink") {
-					return yield* Effect.fail(
-						viteCompilerError(
-							"workspace-symlink",
-							`Workspace path escapes through a symlink: ${file.path}`,
-						),
+					return yield* viteCompilerError(
+						"workspace-symlink",
+						`Workspace path escapes through a symlink: ${file.path}`,
 					);
 				}
 			}
@@ -234,11 +233,9 @@ const stageFiles = Effect.fn("stageWorkspaceFiles")(function* (
 				relativeParent === ".." ||
 				relativeParent.startsWith(`..${process.platform === "win32" ? "\\" : "/"}`)
 			) {
-				return yield* Effect.fail(
-					viteCompilerError(
-						"workspace-symlink",
-						`Workspace path escapes its namespace: ${file.path}`,
-					),
+				return yield* viteCompilerError(
+					"workspace-symlink",
+					`Workspace path escapes its namespace: ${file.path}`,
 				);
 			}
 			const exists = yield* fs
@@ -254,13 +251,11 @@ const stageFiles = Effect.fn("stageWorkspaceFiles")(function* (
 							filesystemError("inspect workspace file", destination, cause),
 						),
 					);
-				return yield* Effect.fail(
-					viteCompilerError(
-						status.type === "SymbolicLink" ? "workspace-symlink" : "workspace-collision",
-						status.type === "SymbolicLink"
-							? `Workspace destination is a symlink: ${file.path}`
-							: `Workspace path collision: ${file.path}`,
-					),
+				return yield* viteCompilerError(
+					status.type === "SymbolicLink" ? "workspace-symlink" : "workspace-collision",
+					status.type === "SymbolicLink"
+						? `Workspace destination is a symlink: ${file.path}`
+						: `Workspace path collision: ${file.path}`,
 				);
 			}
 			return { file, destination };

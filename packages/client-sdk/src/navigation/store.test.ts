@@ -21,7 +21,7 @@ const routeLocation = (path: string, search = ""): PluginRouteLocation => ({
 	kind: "route",
 });
 const entityLocation = (entityId: string) =>
-	Schema.decodeUnknownSync(PluginEntityLocation)({
+	Schema.decodeSync(PluginEntityLocation)({
 		entityId,
 		search: "",
 		kind: "entity",
