@@ -1,8 +1,6 @@
 import { CheckoutEventNames, type Paddle } from "@paddle/paddle-js";
 import { UserId } from "@ryot-app/contract/schema/brands";
 import PurchaseCompleteEmail from "@ryot-app/transactional/emails/purchase-complete";
-import { getActionIntent } from "@ryot-app/ts-utils/request";
-import { changeCase } from "@ryot-app/ts-utils/string";
 import dayjs from "dayjs";
 import { eq } from "drizzle-orm";
 import { useEffect, useState } from "react";
@@ -37,10 +35,12 @@ import {
 import { initializePaddleForApplication, startUrl } from "~/lib/general";
 import {
 	createUnkeyKey,
+	getActionIntent,
 	getCustomerWithActivePurchase,
 	getPaddleServerClient,
 	sendEmail,
 } from "~/lib/utilities.server";
+import { changeCase } from "~/lib/utils";
 
 import type { Route } from "./+types/me";
 
