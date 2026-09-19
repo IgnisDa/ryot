@@ -208,6 +208,14 @@ const installIntersectionObserver = () => {
 	return records;
 };
 
+const gridPage = () => (
+	<EntityResults
+		layout="grid"
+		viewContext={null}
+		references={Array.from({ length: 20 }, (_, index) => reference(String(index)))}
+	/>
+);
+
 describe("EntityResults", () => {
 	it("loads one presentation for 20 entities before running any data query, and retains it across page remounts", async () => {
 		let resolveDefinition:
@@ -241,14 +249,7 @@ describe("EntityResults", () => {
 				});
 			},
 		};
-		const page = () => (
-			<EntityResults
-				layout="grid"
-				viewContext={null}
-				references={Array.from({ length: 20 }, (_, index) => reference(String(index)))}
-			/>
-		);
-		const { draw, clock, container } = render([registration], page());
+		const { draw, clock, container } = render([registration], gridPage());
 		await flush(clock);
 		expect(definitionLoads).toBe(1);
 		expect(dataLoads).toBe(0);
@@ -261,13 +262,13 @@ describe("EntityResults", () => {
 			definitionLoads: 1,
 		});
 		draw(null);
-		draw(page());
+		draw(gridPage());
 		await flush(clock);
 		expect(definitionLoads).toBe(1);
 		expect(mounts).toBe(40);
 		act(() => roots[0]?.unmount());
 		roots = [];
-		const fresh = render([registration], page());
+		const fresh = render([registration], gridPage());
 		await flush(fresh.clock);
 		expect(definitionLoads).toBe(2);
 	});
