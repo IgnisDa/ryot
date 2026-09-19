@@ -6,7 +6,7 @@ import { Effect, Layer, Ref } from "effect";
 import { describe } from "vitest";
 
 import * as tables from "#lib/infrastructure/db/schema/tables/combined";
-import { Database } from "#lib/infrastructure/db/service";
+import { DatabaseSession } from "#lib/infrastructure/db/session";
 import { makeAppConfigLayer } from "#lib/test-utils/effect";
 import { withRevisionDatabase } from "#modules/plugins/revision.test-support";
 import { ScriptGarbageCollector } from "#modules/plugins/script-garbage-collector";
@@ -59,7 +59,7 @@ describe("AutomationRetention", () => {
 		() =>
 			withRevisionDatabase(
 				Effect.gen(function* () {
-					const db = yield* Database;
+					const db = yield* (yield* DatabaseSession).current;
 					yield* db
 						.insert(tables.sandboxScript)
 						.values({

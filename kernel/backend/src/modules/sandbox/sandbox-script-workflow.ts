@@ -16,7 +16,8 @@ import { Cause, Clock, DateTime, Duration, Effect, Schema } from "effect";
 import { DurableClock, Workflow } from "effect/unstable/workflow";
 import { WorkflowEngine, WorkflowInstance } from "effect/unstable/workflow/WorkflowEngine";
 
-import { Database, mapDatabaseErrors } from "#lib/infrastructure/db/service";
+import { mapDatabaseErrors } from "#lib/infrastructure/db/service";
+import { DatabaseSession } from "#lib/infrastructure/db/session";
 import {
 	recordSandboxWorkflowReplayFinished,
 	sandboxMetricKind,
@@ -133,11 +134,11 @@ export const establishSandboxWorkflowPin = Effect.fn("establishSandboxWorkflowPi
 	executionId: string,
 	expectedPluginId?: string,
 ) {
-	const database = yield* Database;
+	const database = yield* DatabaseSession;
 	const repository = yield* SandboxRepository;
 	const references = yield* SandboxWorkflowReferenceRepository;
 	return yield* mapDatabaseErrors(
-		database.transaction((transaction) =>
+		database.transaction(
 			Effect.gen(function* () {
 				yield* references.lockIngestionShared();
 				const subject = payload.subject;
@@ -227,7 +228,7 @@ export const establishSandboxWorkflowPin = Effect.fn("establishSandboxWorkflowPi
 						})).status
 					: ("not-required" as const);
 				return { principal, registrationStatus };
-			}).pipe(Effect.provideService(Database, transaction)),
+			}),
 		),
 	).pipe(Effect.mapError(rethrowSandboxFailure("infrastructure")));
 });

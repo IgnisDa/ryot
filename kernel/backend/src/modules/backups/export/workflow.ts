@@ -1,10 +1,12 @@
 import { InternalError, internalError } from "@ryot-app/contract/errors";
 import { BackupRunId, UserId } from "@ryot-app/contract/schema/brands";
+import { sql } from "drizzle-orm";
 import { Context, DateTime, Effect, FileSystem, Layer, Result, Schema, Stream } from "effect";
 import { Workflow } from "effect/unstable/workflow";
 
 import { AppConfig } from "#lib/infrastructure/config/service";
-import { Database, mapDatabaseErrors } from "#lib/infrastructure/db/service";
+import { mapDatabaseErrors } from "#lib/infrastructure/db/service";
+import { DatabaseSession } from "#lib/infrastructure/db/session";
 import type { DurableSchema } from "#lib/infrastructure/workflow";
 import { implementWorkflow, makeActivity } from "#lib/infrastructure/workflow-scope";
 import { ObjectStorageService } from "#modules/uploads/object-storage/service";
@@ -69,7 +71,7 @@ export const ExportBackupWorkflowOperationsLive = Layer.effect(
 	ExportBackupWorkflowOperations,
 	Effect.gen(function* () {
 		const config = yield* AppConfig;
-		const database = yield* Database;
+		const database = yield* DatabaseSession;
 		const fs = yield* FileSystem.FileSystem;
 		const uploads = yield* ObjectStorageService;
 		const repository = yield* BackupsRepository;
@@ -112,14 +114,16 @@ export const ExportBackupWorkflowOperationsLive = Layer.effect(
 						prefix: "ryot-backup-export-",
 					});
 					const eventsPath = `${directory}/events.ndjson`;
-					const snapshot = yield* mapDatabaseErrors(
-						database.transaction(
-							(transaction) =>
-								snapshotService
-									.prepareExportSnapshot(payload.userId, eventsPath)
-									.pipe(Effect.provideService(Database, transaction)),
-							{ accessMode: "read only", isolationLevel: "repeatable read" },
-						),
+					const snapshot = yield* database.transaction(
+						Effect.gen(function* () {
+							const db = yield* database.current;
+							yield* mapDatabaseErrors(
+								db.execute(sql`set transaction isolation level repeatable read, read only`),
+							);
+							return yield* snapshotService
+								.prepareExportSnapshot(payload.userId, eventsPath)
+								.pipe(Effect.provideService(DatabaseSession, database));
+						}),
 					);
 					yield* repository.updateProgress({ ...payload, progress: 45 });
 
@@ -231,14 +235,7 @@ export const ExportBackupWorkflowOperationsLive = Layer.effect(
 				"Backup export failure could not be recorded",
 			);
 
-		const provideDatabase = <A, E>(effect: Effect.Effect<A, E, Database>) =>
-			effect.pipe(Effect.provideService(Database, database));
-		return {
-			begin: (payload) => provideDatabase(begin(payload)),
-			build: (payload) => provideDatabase(build(payload)),
-			complete: (payload, artifact) => provideDatabase(complete(payload, artifact)),
-			fail: (payload, error, artifact) => provideDatabase(fail(payload, error, artifact)),
-		} satisfies ExportBackupWorkflowOperationsValue;
+		return { fail, begin, build, complete } satisfies ExportBackupWorkflowOperationsValue;
 	}),
 );
 

@@ -16,7 +16,8 @@ import { Effect } from "effect";
 
 import { toLifecycleDispatchPlan } from "#lib/domain/lifecycle";
 import type { LifecycleCommand } from "#lib/domain/lifecycle-command";
-import { Database, mapDatabaseErrors, retryOnDeadlock } from "#lib/infrastructure/db/service";
+import { mapDatabaseErrors, retryOnDeadlock } from "#lib/infrastructure/db/service";
+import { DatabaseSession } from "#lib/infrastructure/db/session";
 import { parseAppSchemaProperties } from "#lib/property-schema/property-schema-runtime";
 import type { DefinitionSnapshot } from "#modules/definition-registry/snapshot";
 import { EntitiesRepository, providerEntityMutationLockKey } from "#modules/entities/repository";
@@ -45,7 +46,7 @@ export const syncRelatedEntityGroup = Effect.fn("syncRelatedEntityGroup")(functi
 		group: ProviderDetailsRelatedEntityGroup;
 	} & ({ scope: "global" } | { scope: "user"; userId: UserId }),
 ) {
-	const database = yield* Database;
+	const session = yield* DatabaseSession;
 	const entities = yield* EntitiesService;
 	const repository = yield* EntitiesRepository;
 	const pluginRuntime = yield* PluginRuntimeResolver;
@@ -178,7 +179,7 @@ export const syncRelatedEntityGroup = Effect.fn("syncRelatedEntityGroup")(functi
 	];
 	const committed = yield* retryOnDeadlock(
 		mapDatabaseErrors(
-			database.transaction((transaction) =>
+			session.transaction(
 				Effect.gen(function* () {
 					const upserts = yield* entities.persistPlannedProviderUpserts({
 						batch: {
@@ -238,7 +239,7 @@ export const syncRelatedEntityGroup = Effect.fn("syncRelatedEntityGroup")(functi
 						result: relationshipWork.result,
 						relationshipPlans: relationshipWork.plans,
 					};
-				}).pipe(Effect.provideService(Database, transaction)),
+				}),
 			),
 		),
 	).pipe(mapDbErrorToSandbox);

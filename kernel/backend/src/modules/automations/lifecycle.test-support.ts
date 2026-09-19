@@ -1,10 +1,9 @@
-import type { PgClient } from "@effect/sql-pg";
 import {
 	AutomationTrigger,
 	type AutomationWarning,
 } from "@ryot-app/contract/modules/automations/lifecycle";
 import type { PluginId } from "@ryot-app/contract/schema/brands";
-import { Effect, Option, Schema } from "effect";
+import { Effect, Schema } from "effect";
 
 import {
 	LifecyclePersistenceError,
@@ -13,6 +12,7 @@ import {
 } from "#lib/domain/lifecycle";
 import { lifecycleBatchTriggers } from "#lib/domain/lifecycle-batch";
 import { LifecycleExecution } from "#lib/domain/lifecycle-execution";
+import type { DatabaseSession } from "#lib/infrastructure/db/session";
 
 export const withLifecycleBatchPlanning = (
 	planner: Omit<LifecyclePlanner["Service"], "planBatch">,
@@ -25,7 +25,7 @@ export const withLifecycleBatchPlanning = (
 
 export const withLifecycleDispatch = (
 	execution: Omit<LifecycleExecution["Service"], "dispatch">,
-	client?: PgClient.PgClient,
+	session?: DatabaseSession["Service"],
 ): LifecycleExecution["Service"] =>
 	LifecycleExecution.of({
 		...execution,
@@ -44,14 +44,13 @@ export const withLifecycleDispatch = (
 			).pipe(
 				Effect.map((groups) => groups.flat()),
 				Effect.andThen((warnings) =>
-					client === undefined
+					session === undefined
 						? Effect.succeed(warnings)
-						: Effect.serviceOption(client.transactionService).pipe(
-								Effect.flatMap((active) =>
-									Option.isSome(active)
-										? new LifecyclePersistenceError({ code: "postcommit-requires-root" })
-										: Effect.succeed(warnings),
+						: session.requireRoot.pipe(
+								Effect.mapError(
+									() => new LifecyclePersistenceError({ code: "postcommit-requires-root" }),
 								),
+								Effect.as(warnings),
 							),
 				),
 			),

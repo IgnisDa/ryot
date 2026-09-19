@@ -1,4 +1,3 @@
-import { PgClient } from "@effect/sql-pg";
 import type { CurrentUserValue } from "@ryot-app/contract/auth-middleware";
 import type { AutomationWarning } from "@ryot-app/contract/modules/automations/lifecycle";
 import type {
@@ -28,10 +27,7 @@ import { generateId } from "better-auth";
 import { Context, DateTime, Effect, Layer, Schema, Struct } from "effect";
 import { WorkflowEngine } from "effect/unstable/workflow/WorkflowEngine";
 
-import { LifecyclePlanner } from "#lib/domain/lifecycle";
 import { type LifecycleCommand, rootLifecycleCommand } from "#lib/domain/lifecycle-command";
-import { LifecycleExecution } from "#lib/domain/lifecycle-execution";
-import { Database } from "#lib/infrastructure/db/service";
 import type {
 	LifecycleCommittedStep,
 	LifecyclePreparedStep,
@@ -41,7 +37,6 @@ import {
 	parseLabeledPropertySchemaInput,
 } from "#lib/property-schema/property-schema-runtime";
 import { trimToNull } from "#lib/shared/validation";
-import { EntitiesRepository } from "#modules/entities/repository";
 import {
 	EntitiesService,
 	type EntitySaveResult,
@@ -124,37 +119,16 @@ export class CollectionsService extends Context.Service<CollectionsService>()(
 	"CollectionsService",
 	{
 		make: Effect.gen(function* () {
-			const database = yield* Database;
-			const sqlClient = yield* PgClient.PgClient;
-			const planner = yield* LifecyclePlanner;
-			const lifecycleExecution = yield* LifecycleExecution;
-			const entitiesRepository = yield* EntitiesRepository;
 			const events = yield* EventsService;
 			const engine = yield* WorkflowEngine;
 			const entities = yield* EntitiesService;
 			const repository = yield* CollectionsRepository;
 			const relationships = yield* RelationshipsService;
 			const relationshipSchemasRepository = yield* RelationshipSchemasRepository;
-			const provideMutation = <A, E>(
-				effect: Effect.Effect<
-					A,
-					E,
-					Database | EntitiesRepository | LifecycleExecution | LifecyclePlanner | PgClient.PgClient
-				>,
-			) =>
-				effect.pipe(
-					Effect.provideService(Database, database),
-					Effect.provideService(PgClient.PgClient, sqlClient),
-					Effect.provideService(LifecyclePlanner, planner),
-					Effect.provideService(LifecycleExecution, lifecycleExecution),
-					Effect.provideService(EntitiesRepository, entitiesRepository),
-				);
-
 			const memberOfSchema = yield* Effect.cached(
 				relationshipSchemasRepository
 					.findBuiltinBySlug("member-of")
 					.pipe(
-						Effect.provideService(Database, database),
 						Effect.flatMap(
 							requireBuiltinOrDie("member-of relationship schema not found in database"),
 						),
@@ -256,29 +230,27 @@ export class CollectionsService extends Context.Service<CollectionsService>()(
 				}
 
 				const entitySchema = yield* collectionEntitySchema;
-				const created = yield* provideMutation(
-					entities
-						.create({
-							name,
-							lifecycle,
-							properties,
-							scope: "user",
-							userId: user.id,
-							entitySchemaSlug: entitySchema.entitySchemaSlug,
-						})
-						.pipe(
-							Effect.catchTags({
-								EntityNotFound: (error) => Effect.die(error),
-								EntityBadRequest: (error) =>
-									new CollectionBadRequest({
-										reason: {
-											code: "invalid-collection-properties",
-											paths: error.reason.code === "invalid-properties" ? error.reason.paths : [],
-										},
-									}),
-							}),
-						),
-				);
+				const created = yield* entities
+					.create({
+						name,
+						lifecycle,
+						properties,
+						scope: "user",
+						userId: user.id,
+						entitySchemaSlug: entitySchema.entitySchemaSlug,
+					})
+					.pipe(
+						Effect.catchTags({
+							EntityNotFound: (error) => Effect.die(error),
+							EntityBadRequest: (error) =>
+								new CollectionBadRequest({
+									reason: {
+										code: "invalid-collection-properties",
+										paths: error.reason.code === "invalid-properties" ? error.reason.paths : [],
+									},
+								}),
+						}),
+					);
 				return toCollectionResponse(created.entity, created.warnings);
 			});
 
@@ -303,24 +275,22 @@ export class CollectionsService extends Context.Service<CollectionsService>()(
 					stableStringify(["collection:get-or-create", name]),
 					"import",
 				);
-				return yield* provideMutation(
-					entities
-						.prepareCreateStep({
-							name,
-							userId,
-							lifecycle,
-							scope: "user",
-							properties: {},
-							entitySchemaSlug: entitySchema.entitySchemaSlug,
-						})
-						.pipe(
-							Effect.map(collectionStep),
-							Effect.catchTags({
-								EntityNotFound: (error) => Effect.die(error),
-								EntityBadRequest: (error) => Effect.die(error),
-							}),
-						),
-				);
+				return yield* entities
+					.prepareCreateStep({
+						name,
+						userId,
+						lifecycle,
+						scope: "user",
+						properties: {},
+						entitySchemaSlug: entitySchema.entitySchemaSlug,
+					})
+					.pipe(
+						Effect.map(collectionStep),
+						Effect.catchTags({
+							EntityNotFound: (error) => Effect.die(error),
+							EntityBadRequest: (error) => Effect.die(error),
+						}),
+					);
 			});
 
 			const committedMembership = Effect.fnUntraced(function* (
@@ -338,25 +308,21 @@ export class CollectionsService extends Context.Service<CollectionsService>()(
 			});
 
 			const applyMembershipPolicies = (pending: PendingCollectionMembership) =>
-				provideMutation(
-					relationships.applyPolicies(pending.mutations).pipe(
-						Effect.map((mutations) => ({ ...pending, mutations })),
-						Effect.catchTag("RelationshipBadRequest", invalidMembership),
-					),
+				relationships.applyPolicies(pending.mutations).pipe(
+					Effect.map((mutations) => ({ ...pending, mutations })),
+					Effect.catchTag("RelationshipBadRequest", invalidMembership),
 				);
 
 			const commitMembership = (pending: PendingCollectionMembership) =>
-				provideMutation(
-					relationships.commitSingle(pending.mutations).pipe(
-						Effect.catchTags({
-							RelationshipBadRequest: invalidMembership,
-							RelationshipNotFound: (error) => Effect.die(error),
-						}),
-						Effect.flatMap((committed) =>
-							committed._tag === "Committed"
-								? committedMembership(pending.membership, committed)
-								: Effect.die("membership commit requires policies"),
-						),
+				relationships.commitSingle(pending.mutations).pipe(
+					Effect.catchTags({
+						RelationshipBadRequest: invalidMembership,
+						RelationshipNotFound: (error) => Effect.die(error),
+					}),
+					Effect.flatMap((committed) =>
+						committed._tag === "Committed"
+							? committedMembership(pending.membership, committed)
+							: Effect.die("membership commit requires policies"),
 					),
 				);
 
@@ -433,16 +399,14 @@ export class CollectionsService extends Context.Service<CollectionsService>()(
 						addEventSchemaSlug: addEvent?.id ?? null,
 						entitySchemaSlug: entity.entitySchemaSlug,
 					};
-					const prepared = yield* provideMutation(
-						relationships
-							.prepareCreate(membershipInput, input.command)
-							.pipe(
-								Effect.catchTags({
-									RelationshipBadRequest: invalidMembership,
-									RelationshipNotFound: (error) => Effect.die(error),
-								}),
-							),
-					);
+					const prepared = yield* relationships
+						.prepareCreate(membershipInput, input.command)
+						.pipe(
+							Effect.catchTags({
+								RelationshipBadRequest: invalidMembership,
+								RelationshipNotFound: (error) => Effect.die(error),
+							}),
+						);
 					if (prepared._tag === "PoliciesRequired") {
 						return {
 							_tag: "PoliciesRequired",
@@ -485,35 +449,29 @@ export class CollectionsService extends Context.Service<CollectionsService>()(
 				relationshipId: RelationshipId,
 				command: LifecycleCommand,
 			) =>
-				provideMutation(
-					relationships
-						.prepareDeleteUserRelationshipById(userId, relationshipId, command)
-						.pipe(
-							Effect.catchTags({
-								RelationshipNotFound: Effect.die,
-								RelationshipBadRequest: compensationFailed,
-							}),
-						),
-				);
+				relationships
+					.prepareDeleteUserRelationshipById(userId, relationshipId, command)
+					.pipe(
+						Effect.catchTags({
+							RelationshipNotFound: Effect.die,
+							RelationshipBadRequest: compensationFailed,
+						}),
+					);
 
 			const applyCompensationPolicies = (pending: PendingRelationshipMutations) =>
-				provideMutation(
-					relationships
-						.applyPolicies(pending)
-						.pipe(Effect.catchTag("RelationshipBadRequest", compensationFailed)),
-				);
+				relationships
+					.applyPolicies(pending)
+					.pipe(Effect.catchTag("RelationshipBadRequest", compensationFailed));
 
 			const commitCompensation = (pending: PendingRelationshipMutations) =>
-				provideMutation(
-					relationships
-						.commitSingle(pending)
-						.pipe(
-							Effect.catchTags({
-								RelationshipNotFound: Effect.die,
-								RelationshipBadRequest: compensationFailed,
-							}),
-						),
-				);
+				relationships
+					.commitSingle(pending)
+					.pipe(
+						Effect.catchTags({
+							RelationshipNotFound: Effect.die,
+							RelationshipBadRequest: compensationFailed,
+						}),
+					);
 
 			const removeFromCollection = Effect.fn("CollectionsService.removeFromCollection")(function* (
 				user: CurrentUserValue,
@@ -535,32 +493,30 @@ export class CollectionsService extends Context.Service<CollectionsService>()(
 				}
 
 				const membershipSchema = yield* memberOfSchema;
-				const result = yield* provideMutation(
-					relationships
-						.delete(
-							{
-								scope: "user",
-								userId: user.id,
-								sourceEntityId: payload.entityId,
-								targetEntityId: payload.collectionId,
-								relationshipSchemaSlug: membershipSchema.id,
-								relationshipSchemaPluginId: membershipSchema.pluginId ?? null,
-							},
-							command,
-						)
-						.pipe(
-							Effect.catchTags({
-								RelationshipNotFound: Effect.die,
-								RelationshipBadRequest: (error) =>
-									new CollectionBadRequest({
-										reason: {
-											code: "invalid-membership-properties",
-											paths: error.reason.code === "invalid-properties" ? error.reason.paths : [],
-										},
-									}),
-							}),
-						),
-				);
+				const result = yield* relationships
+					.delete(
+						{
+							scope: "user",
+							userId: user.id,
+							sourceEntityId: payload.entityId,
+							targetEntityId: payload.collectionId,
+							relationshipSchemaSlug: membershipSchema.id,
+							relationshipSchemaPluginId: membershipSchema.pluginId ?? null,
+						},
+						command,
+					)
+					.pipe(
+						Effect.catchTags({
+							RelationshipNotFound: Effect.die,
+							RelationshipBadRequest: (error) =>
+								new CollectionBadRequest({
+									reason: {
+										code: "invalid-membership-properties",
+										paths: error.reason.code === "invalid-properties" ? error.reason.paths : [],
+									},
+								}),
+						}),
+					);
 				const deleted = result.relationship;
 
 				if (!deleted) {
@@ -607,23 +563,19 @@ export class CollectionsService extends Context.Service<CollectionsService>()(
 				applyCompensationPolicies,
 				prepareGetOrCreateCollection,
 				applyCollectionPolicies: (pending: PendingEntityMutation) =>
-					provideMutation(
-						entities
-							.applyMutationPolicies(pending)
-							.pipe(Effect.catchTag("EntityBadRequest", (error) => Effect.die(error))),
-					),
+					entities
+						.applyMutationPolicies(pending)
+						.pipe(Effect.catchTag("EntityBadRequest", (error) => Effect.die(error))),
 				commitCollection: (pending: PendingEntityMutation) =>
-					provideMutation(
-						entities
-							.commitMutation(pending)
-							.pipe(
-								Effect.map(collectionStep),
-								Effect.catchTags({
-									EntityNotFound: (error) => Effect.die(error),
-									EntityBadRequest: (error) => Effect.die(error),
-								}),
-							),
-					),
+					entities
+						.commitMutation(pending)
+						.pipe(
+							Effect.map(collectionStep),
+							Effect.catchTags({
+								EntityNotFound: (error) => Effect.die(error),
+								EntityBadRequest: (error) => Effect.die(error),
+							}),
+						),
 			};
 		}),
 	},

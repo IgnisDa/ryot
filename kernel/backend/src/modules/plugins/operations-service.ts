@@ -17,7 +17,8 @@ import { generateId } from "better-auth";
 import { Context, Effect, Layer, Option, Result } from "effect";
 import type { Headers as PlatformHeaders } from "effect/unstable/http";
 
-import { Database, mapDatabaseErrors } from "#lib/infrastructure/db/service";
+import { mapDatabaseErrors } from "#lib/infrastructure/db/service";
+import { DatabaseSession } from "#lib/infrastructure/db/session";
 import { AuthService } from "#modules/auth/service";
 import { SandboxExecutionService } from "#modules/sandbox/service";
 
@@ -51,7 +52,7 @@ type DispatchInput = {
 export class OperationsService extends Context.Service<OperationsService>()("OperationsService", {
 	make: Effect.gen(function* () {
 		const auth = yield* AuthService;
-		const database = yield* Database;
+		const database = yield* DatabaseSession;
 		const repository = yield* PluginRepository;
 		const runtime = yield* PluginRuntimeResolver;
 		const sandbox = yield* SandboxExecutionService;
@@ -233,12 +234,14 @@ export class OperationsService extends Context.Service<OperationsService>()("Ope
 				sourceHash === undefined
 					? yield* resolveAuthorized()
 					: yield* mapDatabaseErrors(
-							database.transaction((transaction) =>
-								Effect.gen(function* () {
-									yield* repository.lockIngestion();
-									return yield* resolveAuthorized();
-								}).pipe(Effect.provideService(Database, transaction)),
-							),
+							database
+								.transaction(
+									Effect.gen(function* () {
+										yield* repository.lockIngestion();
+										return yield* resolveAuthorized();
+									}),
+								)
+								.pipe(Effect.catchTag("DatabaseSessionStateError", Effect.die)),
 						);
 			return yield* dispatch(authorized);
 		});

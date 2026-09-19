@@ -13,7 +13,7 @@ import { Effect, Result } from "effect";
 import { assert, describe } from "vitest";
 
 import * as tables from "#lib/infrastructure/db/schema/tables/combined";
-import { Database } from "#lib/infrastructure/db/service";
+import { DatabaseSession } from "#lib/infrastructure/db/session";
 import {
 	clientArtifactMatches,
 	ClientArtifactsRepository,
@@ -78,7 +78,7 @@ describe("plugin repository revisions", () => {
 	it.effect("retains and exports a precompiled client artifact for the active package", () =>
 		withRevisionDatabase(
 			Effect.gen(function* () {
-				const db = yield* Database;
+				const db = yield* (yield* DatabaseSession).current;
 				const repository = yield* PluginRepository;
 				const artifacts = yield* ClientArtifactsRepository;
 				const base = fixtureManifest();
@@ -226,7 +226,7 @@ describe("plugin repository revisions", () => {
 		() =>
 			withRevisionDatabase(
 				Effect.gen(function* () {
-					const db = yield* Database;
+					const db = yield* (yield* DatabaseSession).current;
 					const repository = yield* PluginRepository;
 					const runtime = yield* PluginRuntimeResolver;
 					const first = revisionPackage().scripts[0];
@@ -277,11 +277,7 @@ describe("plugin repository revisions", () => {
 					expect(
 						Result.isFailure(
 							yield* Effect.result(
-								db.transaction((tx) =>
-									repository
-										.persistKernelScript({ ...old, source: "conflicting-source" })
-										.pipe(Effect.provideService(Database, tx)),
-								),
+								repository.persistKernelScript({ ...old, source: "conflicting-source" }),
 							),
 						),
 					).toBe(true);
@@ -377,7 +373,7 @@ describe("plugin repository revisions", () => {
 		() =>
 			withRevisionDatabase(
 				Effect.gen(function* () {
-					const db = yield* Database;
+					const db = yield* (yield* DatabaseSession).current;
 					const repository = yield* PluginRepository;
 					const first = yield* installRevisionPackage(revisionPackage("notes"), owner);
 					const other = yield* installRevisionPackage(
@@ -413,7 +409,7 @@ describe("plugin repository revisions", () => {
 		() =>
 			withRevisionDatabase(
 				Effect.gen(function* () {
-					const db = yield* Database;
+					const db = yield* (yield* DatabaseSession).current;
 					const repository = yield* PluginRepository;
 					const installed = yield* installRevisionPackage(revisionPackage());
 					const provider = yield* repository.resolveProviderBySlugs({
@@ -442,7 +438,7 @@ describe("plugin repository revisions", () => {
 	it.effect("fences integrations on the exact plugin and optional installation", () =>
 		withRevisionDatabase(
 			Effect.gen(function* () {
-				const db = yield* Database;
+				const db = yield* (yield* DatabaseSession).current;
 				const repository = yield* PluginRepository;
 				const first = yield* installRevisionPackage(revisionPackage("notes"), owner);
 				const second = yield* installRevisionPackage(
@@ -510,7 +506,7 @@ describe("plugin repository revisions", () => {
 	it.effect("updates provider operation pointers without changing retained script rows", () =>
 		withRevisionDatabase(
 			Effect.gen(function* () {
-				const db = yield* Database;
+				const db = yield* (yield* DatabaseSession).current;
 				const first = yield* installRevisionPackage(revisionPackage());
 				const old = yield* db.select().from(tables.sandboxProviderOperation);
 				yield* installRevisionPackage(revisionPackage("fixture", "v2"));
@@ -537,7 +533,7 @@ describe("plugin repository revisions", () => {
 	it.effect("deactivates package identity without immediately deleting scripts", () =>
 		withRevisionDatabase(
 			Effect.gen(function* () {
-				const db = yield* Database;
+				const db = yield* (yield* DatabaseSession).current;
 				const repository = yield* PluginRepository;
 				const installed = yield* installRevisionPackage(revisionPackage());
 				yield* repository.deactivate(installed.pluginId);
@@ -552,7 +548,7 @@ describe("plugin repository revisions", () => {
 		() =>
 			withRevisionDatabase(
 				Effect.gen(function* () {
-					const db = yield* Database;
+					const db = yield* (yield* DatabaseSession).current;
 					const repository = yield* PluginRepository;
 					const first = yield* installRevisionPackage(revisionPackage());
 					const [root] = yield* db
@@ -599,7 +595,7 @@ describe("plugin repository revisions", () => {
 	it.effect("deletes only unreferenced inactive private tombstones", () =>
 		withRevisionDatabase(
 			Effect.gen(function* () {
-				const db = yield* Database;
+				const db = yield* (yield* DatabaseSession).current;
 				const repository = yield* PluginRepository;
 				const installations = yield* PluginInstallationRepository;
 				const installed = yield* installRevisionPackage(revisionPackage("notes"), owner);

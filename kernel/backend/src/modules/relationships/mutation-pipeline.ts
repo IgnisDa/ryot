@@ -27,7 +27,7 @@ import {
 	applyLifecyclePolicyPatch,
 	canonicalLifecyclePolicyPatch,
 } from "#lib/domain/lifecycle-policy-patch";
-import { Database, mapDatabaseErrors } from "#lib/infrastructure/db/service";
+import { DatabaseSession } from "#lib/infrastructure/db/session";
 import {
 	mapCommittedResult,
 	runLifecycleWriteInline,
@@ -742,7 +742,7 @@ export const prepareReconcileGlobalGroup = (
 		Effect.gen(function* () {
 			const definitions = yield* DefinitionRepository;
 			const repository = yield* RelationshipsRepository;
-			const database = yield* Database;
+			const session = yield* DatabaseSession;
 			const definition = yield* definitions.findGlobalRelationshipSchema(
 				group.relationshipSchemaSlug,
 			);
@@ -781,11 +781,7 @@ export const prepareReconcileGlobalGroup = (
 				}
 				seen.add(key);
 			}
-			const existing = yield* mapDatabaseErrors(
-				database.transaction((tx) =>
-					repository.listGlobalRelationships(selector).pipe(Effect.provideService(Database, tx)),
-				),
-			);
+			const existing = yield* session.transaction(repository.listGlobalRelationships(selector));
 			const mutations = [
 				...group.relationships.map((input) => ({ input, mode: "upsert" as const })),
 				...existing

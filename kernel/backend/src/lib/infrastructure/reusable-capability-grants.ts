@@ -66,3 +66,7 @@ export class ReusableCapabilityGrantStore extends Context.Service<ReusableCapabi
 ) {
 	static readonly layer = Layer.effect(this, this.make);
 }
+
+export const ReusableCapabilityGrantStoreLive = ReusableCapabilityGrantStore.layer.pipe(
+	Layer.provide(RedisService.layer),
+);

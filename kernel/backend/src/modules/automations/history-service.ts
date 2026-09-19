@@ -9,8 +9,6 @@ import {
 import type { AutomationRunId, UserId } from "@ryot-app/contract/schema/brands";
 import { Cause, Context, DateTime, Effect, Layer } from "effect";
 
-import { Database } from "#lib/infrastructure/db/service";
-
 import { AutomationAttemptRepository } from "./attempt-repository";
 import { AutomationExecutionOperations } from "./execution";
 import { AutomationHistoryRepository } from "./history-repository";
@@ -25,9 +23,6 @@ export class AutomationHistoryService extends Context.Service<AutomationHistoryS
 			const history = yield* AutomationHistoryRepository;
 			const attempts = yield* AutomationAttemptRepository;
 			const execution = yield* AutomationExecutionOperations;
-			const database = yield* Database;
-			const persisted = <A, E>(effect: Effect.Effect<A, E, Database>) =>
-				effect.pipe(Effect.provideService(Database, database));
 			const requireRun = Effect.fn(function* (userId: UserId, runId: AutomationRunId) {
 				const run = yield* history.findOwnedRun(userId, runId);
 				if (!run) {
@@ -40,9 +35,9 @@ export class AutomationHistoryService extends Context.Service<AutomationHistoryS
 				runId: AutomationRunId,
 				body: AutomationHistoryRetryBody,
 			) {
-				const run = yield* persisted(requireRun(userId, runId));
+				const run = yield* requireRun(userId, runId);
 				const now = DateTime.toDate(yield* DateTime.now);
-				const reason = yield* persisted(attempts.retryEligibility(runId, now));
+				const reason = yield* attempts.retryEligibility(runId, now);
 				if (reason !== null) {
 					return yield* new AutomationHistoryRetryConflict({ reason: { runId, code: reason } });
 				}
@@ -51,13 +46,14 @@ export class AutomationHistoryService extends Context.Service<AutomationHistoryS
 						reason: { runId, code: "retry-conflict" },
 					});
 				}
-				const queued = yield* persisted(
-					attempts.queueRetry({ now, runId, expectedAttemptCount: body.expectedAttemptCount }),
-				).pipe(
-					Effect.mapError(
-						() => new AutomationHistoryRetryConflict({ reason: { runId, code: "retry-conflict" } }),
-					),
-				);
+				const queued = yield* attempts
+					.queueRetry({ now, runId, expectedAttemptCount: body.expectedAttemptCount })
+					.pipe(
+						Effect.mapError(
+							() =>
+								new AutomationHistoryRetryConflict({ reason: { runId, code: "retry-conflict" } }),
+						),
+					);
 				const dispatch = yield* execution
 					.submit({ runId, acceptedPatches: [], attemptNumber: queued.attemptNumber })
 					.pipe(

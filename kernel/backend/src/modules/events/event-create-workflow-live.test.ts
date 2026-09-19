@@ -34,9 +34,9 @@ import {
 	LifecycleExecution,
 } from "#lib/domain/lifecycle-execution";
 import { applyLifecyclePolicyPatches } from "#lib/domain/lifecycle-policy-patch";
-import { Database } from "#lib/infrastructure/db/service";
+import { DatabaseSession } from "#lib/infrastructure/db/session";
 import { assertExitFails } from "#lib/test-utils/assertions";
-import { makeWorkflowEngine } from "#lib/test-utils/effect";
+import { databaseLayer, makeWorkflowEngine } from "#lib/test-utils/effect";
 import {
 	withLifecycleBatchPlanning,
 	withLifecycleDispatch,
@@ -103,153 +103,161 @@ const harness = (
 	let activeActivity = false;
 	let schemaActivated = false;
 	let schemaDisabled = false;
-	const tx: Parameters<Parameters<Database["Service"]["transaction"]>[0]>[0] = Object.assign(
-		Object.create(null),
-		{},
-	);
-	const database = Database.of(
-		Object.assign(Object.create(null), {
-			transaction: ((callback) =>
-				Effect.gen(function* () {
-					expect(activeActivity).toBe(true);
-					expect(activeTransaction).toBe(false);
-					const saved = { created: created.length, triggers: triggers.length };
-					activeTransaction = true;
-					calls.push("begin");
-					return yield* callback(tx).pipe(
-						Effect.tapError(() =>
-							Effect.sync(() => {
-								triggers.length = saved.triggers;
-								created.length = saved.created;
-								calls.push("rollback");
-							}),
-						),
-						Effect.tap(() =>
-							Effect.sync(() => {
-								calls.push("commit");
-							}),
-						),
-						Effect.ensuring(
-							Effect.sync(() => {
-								activeTransaction = false;
-							}),
-						),
-					);
-				})) satisfies Database["Service"]["transaction"],
-		}),
-	);
-	const planner = LifecyclePlanner.of(
-		withLifecycleBatchPlanning({
-			plan: (input) =>
-				Effect.gen(function* () {
-					expect(activeTransaction).toBe(true);
-					expect(yield* Database).toBe(tx);
-					const trigger = input.trigger;
-					const existing = triggers.find(({ id }) => id === trigger.id);
-					if (existing) {
-						if (!Bun.deepEquals(existing, trigger)) {
-							return yield* new DbError({ message: "Automation trigger identity conflict" });
-						}
-						calls.push(`plan:${trigger.kind.category}`);
-						return { runs: [], policies: [], trigger: existing, wasCreated: false };
-					}
-					if (trigger.kind.category === "change" && options.failChange) {
-						return yield* new DbError({ message: "planning failed" });
-					}
-					calls.push(`plan:${trigger.kind.category}`);
-					triggers.push(trigger);
-					if (trigger.kind.category === options.blocked) {
-						return {
-							runs: [],
-							policies: [],
-							wasCreated: true,
-							trigger: {
-								...trigger,
-								blockedReason: {
-									code: "automation-limit-reached" as const,
-									hasRequiredHooks: trigger.kind.category === "change",
-									omittedHooks: [
-										{
-											pluginId: PluginId.make("plugin"),
-											hookSlug: AutomationHookSlug.make("hook"),
-										},
-									],
-								},
-							},
-						};
-					}
-					if (trigger.kind.category !== "request") {
-						return { trigger, runs: [], policies: [], wasCreated: true };
-					}
-					exclusions.push(input.excludedOncePerSubjectPolicies);
-					const declarations = (options.policies ?? []).filter(
-						(policy) =>
-							policy.frequency !== "once-per-subject" ||
-							!input.excludedOncePerSubjectPolicies?.some(
-								(excluded) =>
-									excluded.pluginId === (policy.plugin ?? "plugin") &&
-									excluded.hookSlug === policy.slug,
+	const database = Layer.effect(
+		DatabaseSession,
+		Effect.gen(function* () {
+			const session = yield* DatabaseSession;
+			return DatabaseSession.of({
+				...session,
+				transaction: (work) =>
+					Effect.gen(function* () {
+						expect(activeActivity).toBe(true);
+						expect(activeTransaction).toBe(false);
+						const saved = { created: created.length, triggers: triggers.length };
+						activeTransaction = true;
+						calls.push("begin");
+						return yield* session.transaction(work).pipe(
+							Effect.tapError(() =>
+								Effect.sync(() => {
+									triggers.length = saved.triggers;
+									created.length = saved.created;
+									calls.push("rollback");
+								}),
 							),
-					);
-					const runs = declarations.map((policy) => {
-						const pluginId = PluginId.make(policy.plugin ?? "plugin");
-						const hookSlug = AutomationHookSlug.make(policy.slug);
-						return Schema.decodeSync(AutomationRun)({
-							pluginId,
-							hookSlug,
-							queuedAt: now,
-							stage: "before",
-							attemptCount: 0,
-							startedAt: null,
-							status: "queued",
-							skipReason: null,
-							finishedAt: null,
-							retryPolicy: null,
-							delivery: "policy",
-							nextAttemptAt: null,
-							scriptSlug: "script",
-							triggerId: trigger.id,
-							hookName: policy.slug,
-							artifactsExpireAt: now,
-							executionUserId: userId,
-							sandboxScriptId: "script",
-							scriptContentHash: "hash",
-							pluginRevisionId: "revision",
-							pluginConfigRevisionId: "config",
-							id: lifecycleRunId({
-								pluginId,
-								hookSlug,
-								triggerId: trigger.id,
-								executionUserId: userId,
-							}),
-						});
-					});
-					for (const run of runs) {
-						queued.add(run.id);
-						identities.set(run.id, `${run.pluginId}/${run.hookSlug}`);
-						if (trigger.payload?.category === "request") {
-							policyRequests.set(run.id, trigger.payload);
-						}
-					}
-					assert(trigger.payload?.category === "request" && trigger.payload.resource === "event");
-					return {
-						runs,
-						wasCreated: true,
-						trigger: {
-							...trigger,
-							payload: {
-								...trigger.payload,
-								excludedOncePerSubjectPolicies: input.excludedOncePerSubjectPolicies ?? [],
-							},
-						},
-						policies: runs.map((run, index) => ({
-							runId: run.id,
-							batchFrequency: declarations[index]?.frequency,
-							position: declarations[index]?.position ?? 1000,
-						})),
-					};
-				}),
+							Effect.tap(() =>
+								Effect.sync(() => {
+									calls.push("commit");
+								}),
+							),
+							Effect.ensuring(
+								Effect.sync(() => {
+									activeTransaction = false;
+								}),
+							),
+						);
+					}),
+			});
 		}),
+	).pipe(Layer.provide(databaseLayer));
+	const planner = Layer.effect(
+		LifecyclePlanner,
+		Effect.map(DatabaseSession, (session) =>
+			LifecyclePlanner.of(
+				withLifecycleBatchPlanning({
+					plan: (input) =>
+						Effect.gen(function* () {
+							expect(activeTransaction).toBe(true);
+							expect(yield* (yield* DatabaseSession).isTransactionActive).toBe(true);
+							const trigger = input.trigger;
+							const existing = triggers.find(({ id }) => id === trigger.id);
+							if (existing) {
+								if (!Bun.deepEquals(existing, trigger)) {
+									return yield* new DbError({ message: "Automation trigger identity conflict" });
+								}
+								calls.push(`plan:${trigger.kind.category}`);
+								return { runs: [], policies: [], trigger: existing, wasCreated: false };
+							}
+							if (trigger.kind.category === "change" && options.failChange) {
+								return yield* new DbError({ message: "planning failed" });
+							}
+							calls.push(`plan:${trigger.kind.category}`);
+							triggers.push(trigger);
+							if (trigger.kind.category === options.blocked) {
+								return {
+									runs: [],
+									policies: [],
+									wasCreated: true,
+									trigger: {
+										...trigger,
+										blockedReason: {
+											code: "automation-limit-reached" as const,
+											hasRequiredHooks: trigger.kind.category === "change",
+											omittedHooks: [
+												{
+													pluginId: PluginId.make("plugin"),
+													hookSlug: AutomationHookSlug.make("hook"),
+												},
+											],
+										},
+									},
+								};
+							}
+							if (trigger.kind.category !== "request") {
+								return { trigger, runs: [], policies: [], wasCreated: true };
+							}
+							exclusions.push(input.excludedOncePerSubjectPolicies);
+							const declarations = (options.policies ?? []).filter(
+								(policy) =>
+									policy.frequency !== "once-per-subject" ||
+									!input.excludedOncePerSubjectPolicies?.some(
+										(excluded) =>
+											excluded.pluginId === (policy.plugin ?? "plugin") &&
+											excluded.hookSlug === policy.slug,
+									),
+							);
+							const runs = declarations.map((policy) => {
+								const pluginId = PluginId.make(policy.plugin ?? "plugin");
+								const hookSlug = AutomationHookSlug.make(policy.slug);
+								return Schema.decodeSync(AutomationRun)({
+									pluginId,
+									hookSlug,
+									queuedAt: now,
+									stage: "before",
+									attemptCount: 0,
+									startedAt: null,
+									status: "queued",
+									skipReason: null,
+									finishedAt: null,
+									retryPolicy: null,
+									delivery: "policy",
+									nextAttemptAt: null,
+									scriptSlug: "script",
+									triggerId: trigger.id,
+									hookName: policy.slug,
+									artifactsExpireAt: now,
+									executionUserId: userId,
+									sandboxScriptId: "script",
+									scriptContentHash: "hash",
+									pluginRevisionId: "revision",
+									pluginConfigRevisionId: "config",
+									id: lifecycleRunId({
+										pluginId,
+										hookSlug,
+										triggerId: trigger.id,
+										executionUserId: userId,
+									}),
+								});
+							});
+							for (const run of runs) {
+								queued.add(run.id);
+								identities.set(run.id, `${run.pluginId}/${run.hookSlug}`);
+								if (trigger.payload?.category === "request") {
+									policyRequests.set(run.id, trigger.payload);
+								}
+							}
+							assert(
+								trigger.payload?.category === "request" && trigger.payload.resource === "event",
+							);
+							return {
+								runs,
+								wasCreated: true,
+								policies: runs.map((run, index) => ({
+									runId: run.id,
+									batchFrequency: declarations[index]?.frequency,
+									position: declarations[index]?.position ?? 1000,
+								})),
+								trigger: {
+									...trigger,
+									payload: {
+										...trigger.payload,
+										excludedOncePerSubjectPolicies: input.excludedOncePerSubjectPolicies ?? [],
+									},
+								},
+							};
+						}).pipe(Effect.provideService(DatabaseSession, session)),
+				}),
+			),
+		),
 	);
 	const execution = withLifecycleDispatch({
 		skipQueuedPolicies: () =>
@@ -284,8 +292,8 @@ const harness = (
 			}),
 	});
 	const dependencies = Layer.mergeAll(
-		Layer.succeed(Database, database),
-		Layer.succeed(LifecyclePlanner, planner),
+		database,
+		planner.pipe(Layer.provide(database)),
 		Layer.succeed(LifecycleExecution, execution),
 		Layer.mock(EntitiesRepository)({
 			lockEntityReferencesByIds: (entityIds) =>
@@ -347,10 +355,9 @@ const harness = (
 		}),
 		Layer.mock(EventsRepository)({
 			createEvent: (input) =>
-				Effect.gen(function* () {
+				Effect.sync(() => {
 					expect(activeTransaction).toBe(true);
 					expect(activeActivity).toBe(true);
-					expect(yield* Database).toBe(tx);
 					created.push(input);
 					calls.push("write");
 					return {

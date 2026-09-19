@@ -12,7 +12,7 @@ import { writePluginArchive } from "@ryot-app/plugin-archive";
 import { sha256Hex } from "@ryot-app/ts-utils/crypto";
 import { Cause, Context, Effect, Exit, Layer, Option, Stream } from "effect";
 
-import { Database } from "#lib/infrastructure/db/service";
+import { DatabaseSession } from "#lib/infrastructure/db/session";
 import { databaseLayer } from "#lib/test-utils/effect";
 import { kernelDefinitionSource } from "#modules/definition-registry/kernel-source";
 import { DefinitionRepository } from "#modules/definition-registry/repository";
@@ -186,51 +186,62 @@ const makeLayer = (input?: {
 				return `${identity.slug}-plugin-id`;
 			}),
 	});
-	const installationLayer = Layer.mock(PluginInstallationRepository)({
-		refreshClientConfigsForPlugin: () => Effect.void,
-		provisionSystemInstallationsForAllUsers: () => Effect.void,
-		remove: (id) => Effect.sync(() => input?.removed?.push(id)),
-		listForUser: () => Effect.succeed(input?.installations ?? []),
-		listPendingLifecycle: () => Effect.succeed(input?.pendingLifecycle ?? []),
-		listPrivateInstallations: () => Effect.succeed(input?.privateInstallations ?? []),
-		updateHealth: (values) => Effect.sync(() => void input?.healthUpdates?.push(values)),
-		findByUserAndPlugin: (_user, pluginId) =>
-			Effect.succeed((input?.installations ?? []).find((row) => row.pluginId === pluginId) ?? null),
-		upsertState: (values) =>
-			Effect.sync(() => {
-				input?.created?.push(values);
-				return installationRow({ ...values, pluginId: values.pluginId });
+	const installationLayer = Layer.unwrap(
+		Effect.map(DatabaseSession, (database) =>
+			Layer.mock(PluginInstallationRepository)({
+				refreshClientConfigsForPlugin: () => Effect.void,
+				provisionSystemInstallationsForAllUsers: () => Effect.void,
+				remove: (id) => Effect.sync(() => input?.removed?.push(id)),
+				listForUser: () => Effect.succeed(input?.installations ?? []),
+				listPendingLifecycle: () => Effect.succeed(input?.pendingLifecycle ?? []),
+				listPrivateInstallations: () => Effect.succeed(input?.privateInstallations ?? []),
+				updateHealth: (values) => Effect.sync(() => void input?.healthUpdates?.push(values)),
+				findByUserAndPlugin: (_user, pluginId) =>
+					Effect.succeed(
+						(input?.installations ?? []).find((row) => row.pluginId === pluginId) ?? null,
+					),
+				upsertState: (values) =>
+					Effect.sync(() => {
+						input?.created?.push(values);
+						return installationRow({ ...values, pluginId: values.pluginId });
+					}),
+				findHomeSavedView: (_ownerId, savedViewSlug) =>
+					Effect.gen(function* () {
+						input?.homeViewTransactionScopes?.push(
+							(yield* database.isTransactionActive) ? "transaction" : "root",
+						);
+						input?.homeViewEvents?.push("lock-saved-view");
+						return input?.homeTargets?.get(savedViewSlug) ?? null;
+					}),
+				setHomeSavedView: (ownerId, id, homeSavedViewSlug) =>
+					Effect.gen(function* () {
+						input?.homeViewTransactionScopes?.push(
+							(yield* database.isTransactionActive) ? "transaction" : "root",
+						);
+						input?.homeViewEvents?.push("set-installation");
+						input?.homeViewUpdates?.push({ id, userId: ownerId, homeSavedViewSlug });
+						return (input?.installations ?? []).some(
+							(row) => row.id === id && row.userId === ownerId,
+						);
+					}),
+				updateState: (values) =>
+					Effect.sync(() => {
+						input?.updated?.push(values);
+						const current = (input?.installations ?? []).find((row) => row.id === values.id);
+						return current && !input?.missingUpdateState
+							? {
+									...current,
+									...values,
+									healthReason:
+										current.health === "needs-configuration" ? null : current.healthReason,
+									health:
+										current.health === "needs-configuration" ? ("ready" as const) : current.health,
+								}
+							: undefined;
+					}),
 			}),
-		findHomeSavedView: (_ownerId, savedViewSlug) =>
-			Effect.gen(function* () {
-				const database = yield* Database;
-				input?.homeViewTransactionScopes?.push("transaction" in database ? "root" : "transaction");
-				input?.homeViewEvents?.push("lock-saved-view");
-				return input?.homeTargets?.get(savedViewSlug) ?? null;
-			}),
-		setHomeSavedView: (ownerId, id, homeSavedViewSlug) =>
-			Effect.gen(function* () {
-				const database = yield* Database;
-				input?.homeViewTransactionScopes?.push("transaction" in database ? "root" : "transaction");
-				input?.homeViewEvents?.push("set-installation");
-				input?.homeViewUpdates?.push({ id, userId: ownerId, homeSavedViewSlug });
-				return (input?.installations ?? []).some((row) => row.id === id && row.userId === ownerId);
-			}),
-		updateState: (values) =>
-			Effect.sync(() => {
-				input?.updated?.push(values);
-				const current = (input?.installations ?? []).find((row) => row.id === values.id);
-				return current && !input?.missingUpdateState
-					? {
-							...current,
-							...values,
-							healthReason: current.health === "needs-configuration" ? null : current.healthReason,
-							health:
-								current.health === "needs-configuration" ? ("ready" as const) : current.health,
-						}
-					: undefined;
-			}),
-	});
+		),
+	).pipe(Layer.provide(databaseLayer));
 	const ingestionLockLayer = PluginIngestionLock.layer.pipe(
 		Layer.provide(
 			Layer.mergeAll(

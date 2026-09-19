@@ -23,7 +23,8 @@ import { Clock, Context, DateTime, Effect, Layer, Schema } from "effect";
 
 import { applyLifecyclePolicyPatches } from "#lib/domain/lifecycle-policy-patch";
 import { pluginRevision } from "#lib/infrastructure/db/schema/tables/core";
-import { Database, mapDatabaseErrors } from "#lib/infrastructure/db/service";
+import { mapDatabaseErrors } from "#lib/infrastructure/db/service";
+import { DatabaseSession } from "#lib/infrastructure/db/session";
 import { SANDBOX_LIMITS } from "#lib/infrastructure/sandbox-runtime/limits";
 import { implementWorkflow, makeActivity } from "#lib/infrastructure/workflow-scope";
 import type { SandboxExecutionResult } from "#modules/sandbox/execution-result";
@@ -193,7 +194,7 @@ export const AutomationRunWorkflowOperationsLive = Layer.effect(
 		const triggers = yield* AutomationTriggerRepository;
 		const scripts = yield* SandboxRepository;
 		const sandbox = yield* SandboxExecutionService;
-		const database = yield* Database;
+		const session = yield* DatabaseSession;
 		return AutomationRunWorkflowOperations.of({
 			runSandbox: (input) => sandbox.executeScript(input),
 			finalize: (input) =>
@@ -202,7 +203,7 @@ export const AutomationRunWorkflowOperationsLive = Layer.effect(
 						input,
 						DateTime.toDate(DateTime.makeUnsafe(yield* Clock.currentTimeMillis)),
 					);
-				}).pipe(Effect.provideService(Database, database)),
+				}),
 			claim: (payload) =>
 				Effect.gen(function* () {
 					const result = yield* attempts.claimNextAttempt({
@@ -214,7 +215,7 @@ export const AutomationRunWorkflowOperationsLive = Layer.effect(
 						return yield* new DbError({ message: "Automation run is unavailable" });
 					}
 					return { stage: run.stage, attempt: result.attempt };
-				}).pipe(Effect.provideService(Database, database)),
+				}),
 			prepare: (payload) =>
 				Effect.gen(function* () {
 					const run = yield* runs.findById(payload.runId);
@@ -255,6 +256,7 @@ export const AutomationRunWorkflowOperationsLive = Layer.effect(
 					}
 					let hookMetadata: JsonValue | undefined;
 					if (run.pluginId !== null) {
+						const database = yield* session.current;
 						const [revision] = yield* mapDatabaseErrors(
 							database
 								.select({ manifest: pluginRevision.manifest })
@@ -283,7 +285,7 @@ export const AutomationRunWorkflowOperationsLive = Layer.effect(
 						hookMetadata = hook.metadata;
 					}
 					return yield* prepareAutomationInvocation(run, trigger, payload, script, hookMetadata);
-				}).pipe(Effect.provideService(Database, database)),
+				}),
 		});
 	}),
 );

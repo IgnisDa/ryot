@@ -4,7 +4,8 @@ import { Context, Effect, Layer, Schema } from "effect";
 
 import { PLUGIN_INGESTION_ADVISORY_LOCK_KEY } from "#lib/infrastructure/db/advisory-locks";
 import * as schema from "#lib/infrastructure/db/schema/tables/combined";
-import { Database, mapDatabaseErrors } from "#lib/infrastructure/db/service";
+import { mapDatabaseErrors } from "#lib/infrastructure/db/service";
+import { DatabaseSession } from "#lib/infrastructure/db/session";
 
 type WorkflowReferenceRow = typeof schema.sandboxWorkflowReference.$inferSelect;
 
@@ -25,11 +26,12 @@ const toReference = (row: WorkflowReferenceRow): SandboxWorkflowReference => ({
 export class SandboxWorkflowReferenceRepository extends Context.Service<SandboxWorkflowReferenceRepository>()(
 	"SandboxWorkflowReferenceRepository",
 	{
-		make: Effect.sync(() => {
+		make: Effect.gen(function* () {
+			const database = yield* DatabaseSession;
 			const lockIngestionShared = Effect.fn(
 				"SandboxWorkflowReferenceRepository.lockIngestionShared",
 			)(function* () {
-				const db = yield* Database;
+				const db = yield* database.current;
 				yield* mapDatabaseErrors(
 					db.execute(
 						sql`select pg_advisory_xact_lock_shared(hashtext(${PLUGIN_INGESTION_ADVISORY_LOCK_KEY}))`,
@@ -47,7 +49,7 @@ export class SandboxWorkflowReferenceRepository extends Context.Service<SandboxW
 				contentHash: string;
 				scriptId: SandboxScriptId;
 			}) {
-				const db = yield* Database;
+				const db = yield* database.current;
 				const [plugin] = yield* mapDatabaseErrors(
 					db
 						.select({
@@ -130,7 +132,7 @@ export class SandboxWorkflowReferenceRepository extends Context.Service<SandboxW
 			const release = Effect.fn("SandboxWorkflowReferenceRepository.release")(function* (
 				executionId: string,
 			) {
-				const db = yield* Database;
+				const db = yield* database.current;
 				yield* mapDatabaseErrors(
 					db
 						.delete(schema.sandboxWorkflowReference)
@@ -140,7 +142,7 @@ export class SandboxWorkflowReferenceRepository extends Context.Service<SandboxW
 
 			const hasReferences = Effect.fn("SandboxWorkflowReferenceRepository.hasReferences")(
 				function* (pluginId: string) {
-					const db = yield* Database;
+					const db = yield* database.current;
 					const [row] = yield* mapDatabaseErrors(
 						db
 							.select({ executionId: schema.sandboxWorkflowReference.executionId })
@@ -155,7 +157,7 @@ export class SandboxWorkflowReferenceRepository extends Context.Service<SandboxW
 			const hasInstallationReferences = Effect.fn(
 				"SandboxWorkflowReferenceRepository.hasInstallationReferences",
 			)(function* (pluginInstallationId: string) {
-				const db = yield* Database;
+				const db = yield* database.current;
 				const [row] = yield* mapDatabaseErrors(
 					db
 						.select({ executionId: schema.sandboxWorkflowReference.executionId })
@@ -168,7 +170,7 @@ export class SandboxWorkflowReferenceRepository extends Context.Service<SandboxW
 
 			const listReferences = Effect.fn("SandboxWorkflowReferenceRepository.listReferences")(
 				function* (pluginId?: string) {
-					const db = yield* Database;
+					const db = yield* database.current;
 					const query = db.select().from(schema.sandboxWorkflowReference);
 					const rows = yield* mapDatabaseErrors(
 						pluginId ? query.where(eq(schema.sandboxWorkflowReference.pluginId, pluginId)) : query,

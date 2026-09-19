@@ -16,7 +16,8 @@ import { and, eq, inArray } from "drizzle-orm";
 import { Context, Effect, Layer, Result, Schema } from "effect";
 
 import * as schema from "#lib/infrastructure/db/schema/tables/combined";
-import { Database, mapDatabaseErrors } from "#lib/infrastructure/db/service";
+import { mapDatabaseErrors } from "#lib/infrastructure/db/service";
+import { DatabaseSession } from "#lib/infrastructure/db/session";
 import { acquireUserWriteLock } from "#lib/infrastructure/db/user-write-lock";
 import {
 	formatPropertyIssues,
@@ -149,29 +150,27 @@ const validateEffectiveSurfaceSlugs = (
 		},
 	});
 
-const assertUnclaimedSavedViewSlugs = Effect.fn(function* (
-	userId: UserId,
-	manifest: PluginManifest,
-) {
-	const slugs = manifest.savedViews.map(({ slug }) => slug);
-	if (slugs.length === 0) {
+const assertUnclaimedSavedViewSlugsForSession = (database: DatabaseSession["Service"]) =>
+	Effect.fn(function* (userId: UserId, manifest: PluginManifest) {
+		const slugs = manifest.savedViews.map(({ slug }) => slug);
+		if (slugs.length === 0) {
+			return yield* Effect.void;
+		}
+		const db = yield* database.current;
+		const [collision] = yield* mapDatabaseErrors(
+			db
+				.select({ slug: schema.savedView.slug })
+				.from(schema.savedView)
+				.where(and(eq(schema.savedView.userId, userId), inArray(schema.savedView.slug, slugs)))
+				.limit(1),
+		);
+		if (collision) {
+			return yield* new PluginValidationError({
+				issues: [`Saved view slug '${collision.slug}' is owned by a custom view`],
+			});
+		}
 		return yield* Effect.void;
-	}
-	const db = yield* Database;
-	const [collision] = yield* mapDatabaseErrors(
-		db
-			.select({ slug: schema.savedView.slug })
-			.from(schema.savedView)
-			.where(and(eq(schema.savedView.userId, userId), inArray(schema.savedView.slug, slugs)))
-			.limit(1),
-	);
-	if (collision) {
-		return yield* new PluginValidationError({
-			issues: [`Saved view slug '${collision.slug}' is owned by a custom view`],
-		});
-	}
-	return yield* Effect.void;
-});
+	});
 
 const definitionClaimKinds = [
 	["savedViews", "saved view"],
@@ -232,7 +231,10 @@ export class PluginInstallationService extends Context.Service<PluginInstallatio
 	"PluginInstallationService",
 	{
 		make: Effect.gen(function* () {
-			const database = yield* Database;
+			const database = yield* DatabaseSession;
+			const transaction = <A, E, R>(work: Effect.Effect<A, E, R>) =>
+				database.transaction(work).pipe(Effect.catchTag("DatabaseSessionStateError", Effect.die));
+			const assertUnclaimedSavedViewSlugs = assertUnclaimedSavedViewSlugsForSession(database);
 			const repository = yield* PluginRepository;
 			const definitions = yield* DefinitionRepository;
 			const ingestionLock = yield* PluginIngestionLock;
@@ -440,7 +442,7 @@ export class PluginInstallationService extends Context.Service<PluginInstallatio
 					});
 				}
 				const updated = yield* mapDatabaseErrors(
-					database.transaction((transaction) =>
+					transaction(
 						Effect.gen(function* () {
 							yield* acquireUserWriteLock(userId);
 							const usablePluginIds = new Set(
@@ -481,7 +483,7 @@ export class PluginInstallationService extends Context.Service<PluginInstallatio
 								}
 							}
 							return yield* installations.setHomeSavedView(userId, state.id, payload.savedViewSlug);
-						}).pipe(Effect.provideService(Database, transaction)),
+						}),
 					),
 				);
 				if (!updated) {
@@ -557,7 +559,7 @@ export class PluginInstallationService extends Context.Service<PluginInstallatio
 					yield* validatePluginExecutableScripts(normalized);
 					const state = yield* Effect.uninterruptible(
 						mapDatabaseErrors(
-							database.transaction((transaction) =>
+							transaction(
 								Effect.gen(function* () {
 									const pluginId = yield* ingestionLock.persistUserPlugin(normalized, {
 										slug,
@@ -587,7 +589,7 @@ export class PluginInstallationService extends Context.Service<PluginInstallatio
 										});
 									}
 									return existingState;
-								}).pipe(Effect.provideService(Database, transaction)),
+								}),
 							),
 						).pipe(Effect.tap(() => invalidator.user(input.userId))),
 					);
@@ -669,7 +671,7 @@ export class PluginInstallationService extends Context.Service<PluginInstallatio
 
 							const updated = yield* Effect.uninterruptible(
 								mapDatabaseErrors(
-									database.transaction((transaction) =>
+									transaction(
 										Effect.gen(function* () {
 											yield* repository.lockIngestion();
 											yield* assertUnclaimedSavedViewSlugs(input.userId, manifest);
@@ -730,7 +732,7 @@ export class PluginInstallationService extends Context.Service<PluginInstallatio
 												id: currentInstallation.id,
 											});
 											return { id: state.id };
-										}).pipe(Effect.provideService(Database, transaction)),
+										}),
 									),
 								).pipe(Effect.tap(() => invalidator.user(input.userId))),
 							);
@@ -815,13 +817,7 @@ export class PluginInstallationService extends Context.Service<PluginInstallatio
 
 			const updateInstallation = Effect.fn("PluginInstallationService.updateInstallation")(
 				(userId: UserId, slug: string, payload: UpdatePluginInstallationBody) =>
-					mapDatabaseErrors(
-						database.transaction((transaction) =>
-							updateInstallationUnlocked(userId, slug, payload).pipe(
-								Effect.provideService(Database, transaction),
-							),
-						),
-					).pipe(
+					mapDatabaseErrors(transaction(updateInstallationUnlocked(userId, slug, payload))).pipe(
 						Effect.tap(() => invalidator.user(userId)),
 						Effect.catchTag("PluginValidationError", (error) =>
 							Effect.fail(
@@ -907,7 +903,7 @@ export class PluginInstallationService extends Context.Service<PluginInstallatio
 				}
 				yield* Effect.uninterruptible(
 					mapDatabaseErrors(
-						database.transaction((transaction) =>
+						transaction(
 							Effect.gen(function* () {
 								yield* repository.lockIngestion();
 								const current = yield* repository.findPrivateByIdForUser(plugin.id, userId);
@@ -924,7 +920,7 @@ export class PluginInstallationService extends Context.Service<PluginInstallatio
 								yield* installations.remove(currentInstallation.id);
 								yield* repository.deactivate(current.id);
 								return undefined;
-							}).pipe(Effect.provideService(Database, transaction)),
+							}),
 						),
 					).pipe(Effect.andThen(invalidator.user(userId))),
 				);
@@ -945,4 +941,6 @@ export class PluginInstallationService extends Context.Service<PluginInstallatio
 	},
 ) {
 	static readonly layer = Layer.effect(this, this.make);
+	static readonly layerRuntime = Layer.effect(this, this.make);
+	static readonly layerMigration = Layer.effect(this, this.make);
 }
