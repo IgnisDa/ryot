@@ -198,24 +198,24 @@ export const buildTrackTranslate = (client: TrackQueueClient, externalId: string
 		),
 	);
 
-export const buildHistory = (client: HistoryClient, timezone: string, startedAt: string) =>
-	Effect.tryPromise(() => client.getHistory()).pipe(
+export const buildHistory = (client: HistoryClient, timezone: string, startedAt: string) => {
+	const isTodayHeader = (title: string) => {
+		const lower = title.toLowerCase();
+		if (lower === "today") {
+			return true;
+		}
+		const localDate = new Intl.DateTimeFormat("en-US", {
+			month: "long",
+			day: "numeric",
+			year: "numeric",
+			timeZone: timezone,
+		})
+			.format(new Date(startedAt))
+			.toLowerCase();
+		return lower.includes(localDate);
+	};
+	return Effect.tryPromise(() => client.getHistory()).pipe(
 		Effect.map((history) => {
-			const isTodayHeader = (title: string) => {
-				const lower = title.toLowerCase();
-				if (lower === "today") {
-					return true;
-				}
-				const localDate = new Intl.DateTimeFormat("en-US", {
-					month: "long",
-					day: "numeric",
-					year: "numeric",
-					timeZone: timezone,
-				})
-					.format(new Date(startedAt))
-					.toLowerCase();
-				return lower.includes(localDate);
-			};
 			const songs: { videoId: string; title: string }[] = [];
 			const rootContents = asRecord(asRecord(history)?.["contents"]);
 			const browseResults = asRecord(rootContents?.["singleColumnBrowseResultsRenderer"]);
@@ -247,3 +247,4 @@ export const buildHistory = (client: HistoryClient, timezone: string, startedAt:
 			return { songs };
 		}),
 	);
+};
