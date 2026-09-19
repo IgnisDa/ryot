@@ -3,10 +3,10 @@
 	"private": true,
 	"scripts": {
 		"dev": "bun run dev.ts",
+		"build": "bun run tooling/build.ts",
 		"assemble": "bun run tooling/assemble.ts",
 		"check": "tsc && oxfmt . --write && oxlint . --fix",
-		"run-migration": "bun run --cwd ../../kernel/backend build && bun run --cwd ../../packages/kernel-renderers build && RUN_MIGRATION_ONLY=true bun run src/main.ts",
-		"build": "bun run tooling/build.ts"
+		"run-migration": "bun turbo --filter=@ryot-app/kernel-backend --filter=@ryot-app/kernel-renderers build && RUN_MIGRATION_ONLY=true bun run src/main.ts"
 	},
 	"dependencies": {
 		"@better-auth/core": "1.7.2",
