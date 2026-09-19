@@ -21,10 +21,10 @@ import { SandboxAdmissionLease } from "#lib/infrastructure/sandbox-runtime/sidec
 import { SidecarRecoverySuspended } from "#lib/infrastructure/sandbox-runtime/sidecar-supervisor";
 import { servedLanes, serverRole } from "#lib/infrastructure/server-role";
 
+import { SandboxCompiledArtifacts } from "./compiled-artifacts";
 import { SandboxDurableHostDispatcher } from "./durable-host-dispatcher";
 import { SandboxExecutionResult } from "./execution-result";
 import { KernelWorkflowReferences } from "./kernel-workflow-references";
-import { SandboxRepository } from "./repository";
 import { sandboxSchedulingKey } from "./scheduling-key";
 
 const SandboxExecutionQueuePayload = Schema.Struct({
@@ -104,7 +104,7 @@ export const executeSandboxExecution = Effect.fn("executeSandboxExecution")(func
 		scriptId: payload.principal.scriptId,
 		...("userId" in payload.principal.subject ? { userId: payload.principal.subject.userId } : {}),
 	});
-	const repository = yield* SandboxRepository;
+	const artifacts = yield* SandboxCompiledArtifacts;
 	const sandbox = yield* RuntimeSandboxService;
 	const dispatcher = yield* SandboxDurableHostDispatcher;
 	return yield* Effect.scoped(
@@ -121,13 +121,7 @@ export const executeSandboxExecution = Effect.fn("executeSandboxExecution")(func
 			const lease = yield* sandbox.reserve(payload.principal, payload.lane);
 			const replayJournal = pinSandboxJournal(redis, payload.workflowExecutionId, inspection);
 
-			const script = yield* repository.getScript(payload.principal.scriptId);
-			if (!script || script.contentHash !== payload.principal.contentHash) {
-				return yield* new SandboxRunError({
-					kind: "missing-artifact",
-					message: "Sandbox script not found",
-				});
-			}
+			const artifact = yield* artifacts.get(payload.principal);
 			const inlineCapabilities = sandboxInlineDurableCapabilities(payload.principal);
 			const grants =
 				isObjectRecord(payload.context) &&
@@ -151,8 +145,8 @@ export const executeSandboxExecution = Effect.fn("executeSandboxExecution")(func
 					startedAt: payload.startedAt,
 					principal: payload.principal,
 					executionId: payload.executionId,
-					compiledCode: script.compiledCode,
-					compiledFormat: script.compiledFormat,
+					compiledCode: artifact.compiledCode,
+					compiledFormat: artifact.compiledFormat,
 					workflowExecutionId: payload.workflowExecutionId,
 					...(grants ? { grants } : {}),
 					...(inlineCapabilities.length > 0

@@ -50,6 +50,7 @@ import { testExecutionId, testRedisUrl } from "#lib/test-utils/redis";
 import { makeUserPluginRevision, sandboxRuntimeDirectory } from "#lib/test-utils/sandbox-runtime";
 import { SandboxCompiler } from "#modules/sandbox/sandbox-compiler";
 
+import { SandboxCompiledArtifacts } from "./compiled-artifacts";
 import { SandboxDurableHostDispatcher } from "./durable-host-dispatcher";
 import { SandboxExecutionQueueWorkerLive, processSandboxExecutionQueue } from "./durable-queues";
 import { KernelWorkflowReferences } from "./kernel-workflow-references";
@@ -294,8 +295,13 @@ const makeHeadroomLayer = Layer.unwrap(
 						: Effect.die("Sandbox fixture was not compiled before queue execution");
 				}),
 		};
+		const repositoryLayer = Layer.succeed(SandboxRepository, repository);
+		const artifactLayer = Layer.effect(
+			SandboxCompiledArtifacts,
+			SandboxCompiledArtifacts.make,
+		).pipe(Layer.provideMerge(repositoryLayer));
 		const fixtureServices = Layer.mergeAll(
-			Layer.succeed(SandboxRepository, repository),
+			artifactLayer,
 			Layer.succeed(KernelWorkflowReferences, {
 				execute: () => Effect.die("Kernel workflow dispatch is unused"),
 				resolveArtifactGrants: () => Effect.die("Artifact grants are unused"),

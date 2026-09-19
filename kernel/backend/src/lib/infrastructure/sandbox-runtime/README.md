@@ -10,6 +10,8 @@ Build tooling emits the trusted isolate runner and runtime modules into `kernel/
 
 Before each invocation, `SandboxService` reloads persisted authority and verifies the compiled script's SHA-256. It chooses the smallest audited isolate tier required. System authority is allowed only for a verified kernel script or verified system-scope plugin. User-scope plugin scripts run with user authority under their owning user.
 
+Each role retains at most 16 verified compiled modules by content hash, each bounded by the 1 MiB compiled-code limit. Cache entries contain code and format only; authority remains a persisted-row read. Missing or invalid artifacts and failed loads are not retained.
+
 ## Isolation And Capacity
 
 The Rust sidecar runs each invocation in a fresh isolate. The sidecar and backend use a duplex inherited socket with framed messages. An execution-scoped host-call gate validates each operation, and sealed SDK bindings expose only the approved host surface.
