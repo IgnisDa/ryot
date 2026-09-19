@@ -168,6 +168,7 @@ const fakeAuthRepositoryLayer = Layer.effectContext(
 			AuthRepository.of({
 				findSession: () => Effect.die("unused"),
 				findUserById: () => Effect.die("unused"),
+				deleteUserApiKeys: () => Effect.die("unused"),
 				getUserPreferences: () => Effect.die("unused"),
 				getPortableProfile: () => Effect.die("unused"),
 				patchUserPreferences: () => Effect.die("unused"),

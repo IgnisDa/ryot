@@ -4,6 +4,8 @@ import { Effect } from "effect";
 
 import { buildLegacyImagesSql, buildLegacyVideosSql } from "./asset-mapping";
 import {
+	buildAbortOnRowsSql,
+	buildAnomalyReportSql,
 	type EntityMigrationTarget,
 	type ResolvedEntityMigrationTarget,
 	buildEntityTargetValuesSql,
@@ -36,6 +38,60 @@ const supportedExerciseLotValuesSql = sql.join(
 	supportedExerciseLots.map((lot) => sql`(${lot})`),
 	sql`, `,
 );
+
+const exerciseHasLegacyReferencesSql = (exerciseAlias: string) => `(
+	EXISTS (
+		SELECT 1 FROM "user_to_entity" user_to_entity
+		WHERE user_to_entity.exercise_id::text = ${exerciseAlias}.id::text
+	)
+	OR EXISTS (
+		SELECT 1 FROM "review" review
+		WHERE review.exercise_id::text = ${exerciseAlias}.id::text
+	)
+	OR EXISTS (
+		SELECT 1 FROM "collection_to_entity" collection_to_entity
+		WHERE collection_to_entity.exercise_id::text = ${exerciseAlias}.id::text
+	)
+	OR EXISTS (
+		SELECT 1
+		FROM "workout" workout
+		CROSS JOIN LATERAL jsonb_array_elements(
+			CASE
+				WHEN jsonb_typeof(workout.information -> 'exercises') = 'array'
+				THEN workout.information -> 'exercises'
+				ELSE '[]'::jsonb
+			END
+		) AS workout_exercise(value)
+		WHERE workout_exercise.value ->> 'id' = ${exerciseAlias}.id::text
+	)
+	OR EXISTS (
+		SELECT 1
+		FROM "workout_template" workout_template
+		CROSS JOIN LATERAL jsonb_array_elements(
+			CASE
+				WHEN jsonb_typeof(workout_template.information -> 'exercises') = 'array'
+				THEN workout_template.information -> 'exercises'
+				ELSE '[]'::jsonb
+			END
+		) AS template_exercise(value)
+		WHERE template_exercise.value ->> 'id' = ${exerciseAlias}.id::text
+	)
+)`;
+
+const ownerlessUnreferencedExerciseSourceSql = `
+	SELECT
+		exercise.id::text AS id,
+		exercise.name AS name,
+		exercise.source AS source,
+		exercise.muscles AS muscles,
+		exercise.equipment AS equipment,
+		exercise.assets AS assets,
+		exercise.created_by_user_id AS creator_user_id
+	FROM "exercise" exercise
+	WHERE exercise.source = 'custom'
+		AND exercise.created_by_user_id IS NULL
+		AND NOT ${exerciseHasLegacyReferencesSql("exercise")}
+`;
 
 export const getUnsupportedExerciseSources = Effect.gen(function* () {
 	const session = yield* DatabaseSession;
@@ -108,9 +164,51 @@ DECLARE
 	cursor_id text := '';
 	next_cursor_id text;
 	rows_inserted int := 0;
+	ownerless_exercise_report_seq int;
+	ownerless_exercise_count int;
+	ownerless_exercise_sample text;
 	started_at timestamptz := clock_timestamp();
 BEGIN
 	${buildRequireLegacyTableSql("exercise -> entity", "exercise")}
+	${buildRequireLegacyTableSql("exercise -> entity", "user_to_entity")}
+	${buildRequireLegacyTableSql("exercise -> entity", "review")}
+	${buildRequireLegacyTableSql("exercise -> entity", "collection_to_entity")}
+	${buildRequireLegacyTableSql("exercise -> entity", "workout")}
+	${buildRequireLegacyTableSql("exercise -> entity", "workout_template")}
+
+	${buildAbortOnRowsSql({
+		countVariable: "ownerless_exercise_count",
+		sampleVariable: "ownerless_exercise_sample",
+		source: `
+			SELECT exercise.id::text AS label
+			FROM "exercise" exercise
+			WHERE exercise.source = 'custom'
+				AND exercise.created_by_user_id IS NULL
+				AND ${exerciseHasLegacyReferencesSql("exercise")}
+		`,
+		message:
+			"exercise -> entity: % custom exercise(s) have no creator but are referenced by user data, so omitting them would lose linked data and there is no owner to assign: %. Set a creator on those rows in V1 or remove every listed reference, then start the server again.",
+	})}
+
+	${buildAnomalyReportSql({
+		phase: "exercise -> entity",
+		code: "exercise-ownerless-unreferenced",
+		countVariable: "ownerless_exercise_count",
+		seqVariable: "ownerless_exercise_report_seq",
+		source: `(${ownerlessUnreferencedExerciseSourceSql}) ownerless_exercise`,
+		message:
+			"Unreferenced custom exercises with no creator were omitted because V2 custom exercises require an owner. Each omitted row is listed below with its taxonomy and asset data.",
+		detail: `jsonb_build_object(
+			'code', 'exercise-ownerless-unreferenced',
+			'legacyRecordId', ownerless_exercise.id,
+			'name', ownerless_exercise.name,
+			'source', ownerless_exercise.source,
+			'muscles', to_jsonb(ownerless_exercise.muscles),
+			'equipment', ownerless_exercise.equipment,
+			'assets', ownerless_exercise.assets,
+			'creatorUserId', ownerless_exercise.creator_user_id
+		)`,
+	})}
 
 	LOOP
 		WITH exercise_targets (source, entity_schema_slug, entity_schema_plugin_id, provider_id) AS (
@@ -119,7 +217,11 @@ BEGIN
 			SELECT exercise.id::text AS id
 			FROM "exercise" exercise
 			INNER JOIN exercise_targets ON exercise_targets.source = exercise.source
-			WHERE exercise.id::text > cursor_id
+			WHERE NOT (
+				exercise.source = 'custom'
+				AND exercise.created_by_user_id IS NULL
+			)
+				AND exercise.id::text > cursor_id
 			ORDER BY exercise.id::text
 			LIMIT batch_size
 		)
@@ -148,19 +250,17 @@ BEGIN
 			exercise.id,
 			exercise.name,
 			NOW(),
-			NOW(),
+			CASE WHEN exercise.source = 'github' THEN NULL ELSE NOW() END,
 			CASE WHEN exercise.source = 'github' THEN NULL ELSE exercise.created_by_user_id END,
 			jsonb_strip_nulls(
 				jsonb_build_object(
 					'kind', exercise.lot,
 					'images', ${buildLegacyImagesSql("exercise.assets")},
 					'videos', ${buildLegacyVideosSql("exercise.assets")},
-					'muscles', COALESCE(to_jsonb(exercise.muscles), '[]'::jsonb),
 					'instructions', COALESCE(to_jsonb(exercise.instructions), '[]'::jsonb),
 					'force', exercise.force,
 					'level', exercise.level,
-					'mechanic', exercise.mechanic,
-					'equipment', exercise.equipment
+					'mechanic', exercise.mechanic
 				)
 			),
 			exercise_targets.entity_schema_slug,
@@ -171,6 +271,10 @@ BEGIN
 		INNER JOIN exercise_targets ON exercise_targets.source = exercise.source
 		WHERE exercise.id::text > cursor_id
 			AND exercise.id::text <= next_cursor_id
+			AND NOT (
+				exercise.source = 'custom'
+				AND exercise.created_by_user_id IS NULL
+			)
 		ON CONFLICT DO NOTHING;
 		GET DIAGNOSTICS batch_rows_inserted = ROW_COUNT;
 

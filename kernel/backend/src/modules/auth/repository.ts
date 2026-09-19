@@ -245,6 +245,17 @@ export class AuthRepository extends Context.Service<AuthRepository>()("AuthRepos
 			yield* revokeOAuthTokens("userId", userId);
 		});
 
+		const deleteUserApiKeys = Effect.fn("AuthRepository.deleteUserApiKeys")(function* (
+			userId: UserId,
+		) {
+			return yield* database.run((db) =>
+				db
+					.delete(schema.apikey)
+					.where(eq(schema.apikey.referenceId, userId))
+					.returning({ id: schema.apikey.id, key: schema.apikey.key }),
+			);
+		});
+
 		const findSession = Effect.fn("AuthRepository.findSession")(function* (sessionId: string) {
 			const [row] = yield* database.run((db) =>
 				db
@@ -293,6 +304,7 @@ export class AuthRepository extends Context.Service<AuthRepository>()("AuthRepos
 		return {
 			findSession,
 			findUserById,
+			deleteUserApiKeys,
 			getUserPreferences,
 			getPortableProfile,
 			patchUserPreferences,

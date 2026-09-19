@@ -1,23 +1,40 @@
 import { expect, layer } from "@effect/vitest";
-import { ClientPagePreparationError } from "@ryot-app/contract/modules/client-pages/schemas";
-import { PluginSlug, UserId } from "@ryot-app/contract/schema/brands";
-import { Context, Effect, Layer, Ref } from "effect";
+import {
+	ClientPageDocumentStale,
+	ClientPagePreparationError,
+	PreparedClientPage,
+} from "@ryot-app/contract/modules/client-pages/schemas";
+import { EntityId, PluginSlug, UserId } from "@ryot-app/contract/schema/brands";
+import { Context, Effect, Layer, Ref, Schema } from "effect";
 
 import { DatabaseSession } from "#lib/infrastructure/db/session";
 import { assertExitFails } from "#lib/test-utils/assertions";
+import { ClientArtifactGrantService } from "#modules/client-artifacts/grant-service";
 import { ImageClientArtifacts } from "#modules/client-artifacts/image-artifacts";
+import { ClientArtifactStore } from "#modules/client-artifacts/store";
 import { EntitiesRepository } from "#modules/entities/repository";
 import { PluginRuntimeResolver } from "#modules/plugins/runtime-resolver";
 import { fixtureManifest } from "#modules/plugins/test-support";
 
 import { composeClientPage } from "./composition";
 import { ClientPageCompositionService } from "./composition-service";
-import { ClientDocumentGrantService } from "./grant-service";
-import { resolveClientPageGraph } from "./graph";
+import { resolveClientPageGraph, type ResolvedClientPageGraph } from "./graph";
 import { ClientPagesRepository } from "./repository";
 import { ClientPagesService } from "./service";
 
 const createdAt = new Date(0);
+const runtimeHash = "a".repeat(64);
+const pluginHash = "b".repeat(64);
+const artifacts = new Map([
+	[runtimeHash, { files: [{ name: "bootstrap.js", contentType: "text/javascript" }] }],
+	[pluginHash, { files: [{ name: "module.js", contentType: "text/javascript" }] }],
+]);
+const routeTarget = {
+	path: "/",
+	search: "",
+	kind: "plugin-route" as const,
+	pluginSlug: PluginSlug.make("fixture"),
+};
 
 const manifest = fixtureManifest();
 const plugin = {
@@ -31,7 +48,7 @@ const plugin = {
 	pluginRevisionId: "revision",
 	pluginConfigRevisionId: null,
 	installationId: "installation",
-	clientArtifactHash: "plugin-hash",
+	clientArtifactHash: pluginHash,
 	ownerUserId: UserId.make("user-1"),
 	manifest: {
 		...manifest,
@@ -62,51 +79,58 @@ class AvailablePlugins extends Context.Service<
 	{ readonly revoke: Effect.Effect<void> }
 >()("test/AvailablePlugins") {}
 
+const stored = (graph: ResolvedClientPageGraph) => ({
+	createdAt,
+	identity: graph.identity,
+	compositionHash: "composition-hash",
+	compositionKey: graph.compositionKey,
+	manifest: composeClientPage({
+		artifacts,
+		identity: graph.identity,
+		runtimeEntries: { bootstrap: "bootstrap.js" },
+	}),
+});
+
 const recordingDependenciesLayer = Layer.effectContext(
 	Effect.gen(function* () {
 		const calls = yield* Ref.make<ReadonlyArray<string>>([]);
 		const record = (call: string) => Ref.update(calls, (all) => [...all, call]);
 		return Context.make(
-			ClientDocumentGrantService,
-			ClientDocumentGrantService.of({
-				resolve: () => Effect.die("unused"),
-				issue: (_userId, hash) =>
-					record(`grant:${hash}`).pipe(
-						Effect.as({
-							grantId: "grant-id",
-							expiresAt: "2026-01-01T00:00:00Z",
-							src: "/api/client-pages/documents/token",
-						}),
-					),
+			ClientPageCompositionService,
+			ClientPageCompositionService.of({
+				find: (graph) => Effect.succeed(stored(graph)),
+				getOrMaterialize: (graph) =>
+					record(`find:${graph.compositionKey}`).pipe(Effect.as(stored(graph))),
 			}),
 		).pipe(
 			Context.add(
-				ClientPageCompositionService,
-				ClientPageCompositionService.of({
-					find: () => Effect.die("unused"),
-					getOrMaterialize: (graph) =>
-						record(`find:${graph.compositionKey}`).pipe(
-							Effect.as({
-								createdAt,
-								identity: graph.identity,
-								compositionHash: "composition-hash",
-								compositionKey: graph.compositionKey,
-								manifest: composeClientPage({
-									identity: graph.identity,
-									runtimeEntries: { bootstrap: "bootstrap.js" },
-									artifacts: new Map([
-										[
-											"runtime-hash",
-											{ files: [{ name: "bootstrap.js", contentType: "text/javascript" }] },
-										],
-										[
-											"plugin-hash",
-											{ files: [{ name: "module.js", contentType: "text/javascript" }] },
-										],
-									]),
-								}),
-							}),
-						),
+				ClientArtifactStore,
+				ClientArtifactStore.of({
+					isPublic: () => true,
+					findFile: () => Effect.succeed(null),
+					exists: (hash) => Effect.succeed(artifacts.has(hash)),
+					describe: (hash) => {
+						const description = artifacts.get(hash);
+						return Effect.succeed(
+							description
+								? {
+										...description,
+										hash,
+										format: 1,
+										apiVersion: 1,
+										bridgeVersion: 1,
+										compilerVersion: 1,
+									}
+								: null,
+						);
+					},
+				}),
+			),
+			Context.add(
+				ClientArtifactGrantService,
+				ClientArtifactGrantService.of({
+					resolve: () => Effect.die("unused"),
+					issue: () => Effect.die("public artifacts must not request grants"),
 				}),
 			),
 			Context.add(RecordedPrepareCalls, { calls: Ref.get(calls) }),
@@ -118,7 +142,14 @@ const pagesLayer = ClientPagesService.layer.pipe(
 	Layer.provideMerge(
 		Layer.mergeAll(
 			Layer.mock(DatabaseSession)({}),
-			Layer.succeed(EntitiesRepository, EntitiesRepository.of(Object.create(null))),
+			Layer.succeed(
+				EntitiesRepository,
+				EntitiesRepository.of(
+					Object.assign(Object.create(null), {
+						getClientPageEntityForUser: () => Effect.succeed(null),
+					}),
+				),
+			),
 			Layer.succeed(ClientPagesRepository, ClientPagesRepository.of(Object.create(null))),
 			Layer.effectContext(
 				Effect.gen(function* () {
@@ -138,7 +169,7 @@ const pagesLayer = ClientPagesService.layer.pipe(
 				ImageClientArtifacts.of(
 					Object.assign(Object.create(null), {
 						renderers: new Map(),
-						runtime: { artifact: { hash: "runtime-hash" }, entries: { bootstrap: "bootstrap.js" } },
+						runtime: { artifact: { hash: runtimeHash }, entries: { bootstrap: "bootstrap.js" } },
 					}),
 				),
 			),
@@ -148,47 +179,66 @@ const pagesLayer = ClientPagesService.layer.pipe(
 );
 
 layer(pagesLayer)((test) => {
-	test.effect("prepares a composition and issues a document grant", () => {
-		const target = {
-			path: "/",
-			search: "",
-			kind: "plugin-route" as const,
-			pluginSlug: PluginSlug.make("fixture"),
-		};
-		return Effect.gen(function* () {
+	test.effect("prepares a composition without generating its document", () =>
+		Effect.gen(function* () {
 			const expected = yield* resolveClientPageGraph({
 				plugin,
 				plugins: [plugin],
 				exportName: "main",
 				application: "plugin-route",
-				runtimeArtifactHash: "runtime-hash",
+				runtimeArtifactHash: runtimeHash,
 			});
 			const service = yield* ClientPagesService;
-			const page = yield* service.prepare({ id: UserId.make("user-1") }, target);
+			const page = yield* service.prepare({ id: UserId.make("user-1") }, routeTarget);
 			expect(page.identity.compositionKey).toBe(expected.compositionKey);
 			expect(page.composition.hash).toBe("composition-hash");
-			expect(page.composition.documentGrant.src).toBe("/api/client-pages/documents/token");
 			expect(yield* (yield* RecordedPrepareCalls).calls).toEqual([
 				`find:${expected.compositionKey}`,
-				"grant:composition-hash",
 			]);
-		});
-	});
+		}),
+	);
+
+	test.effect("generates the document only for an identity that is still current", () =>
+		Effect.gen(function* () {
+			const service = yield* ClientPagesService;
+			const user = { id: UserId.make("user-1") };
+			const page = yield* Schema.decodeUnknownEffect(PreparedClientPage)(
+				yield* service.prepare(user, routeTarget),
+			);
+			const document = yield* service.document(user, page.identity);
+			expect(document.metadata.hash).toBe("composition-hash");
+			expect(document.bootstrap).toBe(`/api/client-assets/${runtimeHash}/public/bootstrap.js`);
+			const stale = new ClientPageDocumentStale({ reason: { code: "client-page-document-stale" } });
+			assertExitFails(
+				yield* Effect.exit(
+					service.document(user, { ...page.identity, compositionHash: "other-composition" }),
+				),
+				stale,
+			);
+			const foreignEntity: PreparedClientPage["identity"] = {
+				...page.identity,
+				exportName: "main",
+				kind: "plugin-page",
+				pluginId: plugin.id,
+				sourceHash: plugin.sourceHash,
+				installationId: plugin.installationId,
+				target: { kind: "entity", entityId: EntityId.make("foreign-entity") },
+			};
+			assertExitFails(
+				yield* Effect.exit(service.document({ id: UserId.make("user-2") }, foreignEntity)),
+				stale,
+			);
+		}),
+	);
 
 	test.effect("rejects a formerly prepared plugin after catalog revocation", () =>
 		Effect.gen(function* () {
 			const service = yield* ClientPagesService;
-			const target = {
-				path: "/",
-				search: "",
-				kind: "plugin-route" as const,
-				pluginSlug: PluginSlug.make("fixture"),
-			};
-			yield* service.prepare({ id: UserId.make("user-1") }, target);
+			yield* service.prepare({ id: UserId.make("user-1") }, routeTarget);
 			const recorded = yield* RecordedPrepareCalls;
 			const before = yield* recorded.calls;
 			yield* (yield* AvailablePlugins).revoke;
-			const exit = yield* Effect.exit(service.prepare({ id: UserId.make("user-1") }, target));
+			const exit = yield* Effect.exit(service.prepare({ id: UserId.make("user-1") }, routeTarget));
 			assertExitFails(
 				exit,
 				new ClientPagePreparationError({

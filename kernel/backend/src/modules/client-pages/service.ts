@@ -1,5 +1,6 @@
 import type { CurrentUserValue } from "@ryot-app/contract/auth-middleware";
 import {
+	ClientPageDocumentStale,
 	ClientPagePreparationError,
 	type ClientPageTarget,
 	type ClientRendererDefinition,
@@ -8,13 +9,20 @@ import {
 import type { SavedViewRenderer } from "@ryot-app/contract/modules/saved-views/schemas";
 import { Context, Effect, Layer } from "effect";
 
+import { ClientArtifactGrantService } from "#modules/client-artifacts/grant-service";
 import { ImageClientArtifacts } from "#modules/client-artifacts/image-artifacts";
+import { ClientArtifactStore } from "#modules/client-artifacts/store";
 import { EntitiesRepository } from "#modules/entities/repository";
 import { type AvailablePlugin, PluginRuntimeResolver } from "#modules/plugins/runtime-resolver";
 
 import { ClientPageCompositionService } from "./composition-service";
-import { ClientDocumentGrantService } from "./grant-service";
-import { clientPageCodeContributors, resolveClientPageGraph, type GraphPlugin } from "./graph";
+import { generateClientDocument } from "./document";
+import {
+	clientPageCodeContributors,
+	resolveClientPageGraph,
+	type GraphPlugin,
+	type ResolvedClientPageGraph,
+} from "./graph";
 import { getKernelClientRenderer, getKernelEntityRenderer } from "./kernel-renderers";
 import { clientPageOperationTargets, resolvePluginPageTarget } from "./prepare";
 import { ClientPagesRepository } from "./repository";
@@ -45,7 +53,8 @@ export class ClientPagesService extends Context.Service<ClientPagesService>()(
 			const entities = yield* EntitiesRepository;
 			const repository = yield* ClientPagesRepository;
 			const compositions = yield* ClientPageCompositionService;
-			const grants = yield* ClientDocumentGrantService;
+			const artifactStore = yield* ClientArtifactStore;
+			const artifactGrants = yield* ClientArtifactGrantService;
 			const image = yield* ImageClientArtifacts;
 			const runtimeArtifactHash = image.runtime.artifact.hash;
 			const rendererHash = (name: string, sourceHash: string) => {
@@ -112,19 +121,14 @@ export class ClientPagesService extends Context.Service<ClientPagesService>()(
 				});
 				return { ...resolved, graph, operationTargets: clientPageOperationTargets(available) };
 			});
-			const compositionFor = Effect.fn("ClientPages.issueDocumentGrant")(function* (
-				userId: CurrentUserValue["id"],
+			const compositionFor = (
 				composition: Effect.Success<ReturnType<typeof compositions.getOrMaterialize>>,
-			) {
-				const documentGrant = yield* grants.issue(userId, composition.compositionHash);
-				return {
-					documentGrant,
-					hash: composition.compositionHash,
-					format: composition.identity.format,
-					apiVersion: composition.identity.apiVersion,
-					bridgeVersion: composition.identity.bridgeVersion,
-					compilerVersion: composition.identity.compilerVersion,
-				};
+			) => ({
+				hash: composition.compositionHash,
+				format: composition.identity.format,
+				apiVersion: composition.identity.apiVersion,
+				bridgeVersion: composition.identity.bridgeVersion,
+				compilerVersion: composition.identity.compilerVersion,
 			});
 			const rendererGraph = Effect.fn(function* <Plugin extends GraphPlugin>(
 				available: ReadonlyArray<Plugin>,
@@ -203,7 +207,7 @@ export class ClientPagesService extends Context.Service<ClientPagesService>()(
 					}
 					return {
 						identity,
-						composition: yield* compositionFor(user.id, composition),
+						composition: compositionFor(composition),
 						context: {
 							target,
 							route: { params: {} },
@@ -234,7 +238,7 @@ export class ClientPagesService extends Context.Service<ClientPagesService>()(
 					contributors: clientPageCodeContributors(resolved.graph.identity, available),
 				};
 				return {
-					composition: yield* compositionFor(user.id, composition),
+					composition: compositionFor(composition),
 					context: {
 						view: null,
 						settings: {},
@@ -269,13 +273,30 @@ export class ClientPagesService extends Context.Service<ClientPagesService>()(
 								},
 				};
 			});
-			const isIdentityCurrent = Effect.fn(function* (
+			const matchingComposition = Effect.fn(function* (
+				available: ReadonlyArray<AvailablePlugin>,
+				graph: ResolvedClientPageGraph,
+				identity: PreparedClientPage["identity"],
+			) {
+				if (
+					graph.compositionKey !== identity.compositionKey ||
+					!Bun.deepEquals(
+						clientPageCodeContributors(graph.identity, available),
+						identity.contributors,
+					)
+				) {
+					return null;
+				}
+				const composition = yield* compositions.find(graph);
+				return composition?.compositionHash === identity.compositionHash ? composition : null;
+			});
+			const currentComposition = Effect.fn(function* (
 				userId: CurrentUserValue["id"],
 				identity: PreparedClientPage["identity"],
 			) {
 				const available = yield* listAvailable(userId);
 				if (!operationTargetsCurrent(available, identity.operationTargets)) {
-					return false;
+					return null;
 				}
 				if (identity.kind === "kernel-saved-view" || identity.kind === "plugin-saved-view") {
 					const prepared = yield* repository.findPreparedTarget(userId, identity.target.slug);
@@ -284,7 +305,7 @@ export class ClientPagesService extends Context.Service<ClientPagesService>()(
 						prepared.viewId !== identity.savedViewId ||
 						prepared.view.revision !== identity.viewRevision
 					) {
-						return false;
+						return null;
 					}
 					const resolved = yield* rendererGraph(available, prepared.view.renderer);
 					if (
@@ -293,7 +314,7 @@ export class ClientPagesService extends Context.Service<ClientPagesService>()(
 							resolved.kernel.name !== identity.rendererName ||
 							resolved.kernel.sourceHash !== identity.sourceHash)
 					) {
-						return false;
+						return null;
 					}
 					if (
 						identity.kind === "plugin-saved-view" &&
@@ -303,16 +324,9 @@ export class ClientPagesService extends Context.Service<ClientPagesService>()(
 							resolved.plugin.installationId !== identity.installationId ||
 							resolved.exportName !== identity.exportName)
 					) {
-						return false;
+						return null;
 					}
-					return (
-						resolved.graph.compositionKey === identity.compositionKey &&
-						Bun.deepEquals(
-							clientPageCodeContributors(resolved.graph.identity, available),
-							identity.contributors,
-						) &&
-						(yield* compositions.find(resolved.graph))?.compositionHash === identity.compositionHash
-					);
+					return yield* matchingComposition(available, resolved.graph, identity);
 				}
 				const resolved = yield* resolvePluginTarget(userId, identity.target, available);
 				if (
@@ -322,7 +336,7 @@ export class ClientPagesService extends Context.Service<ClientPagesService>()(
 						resolved.sourceHash !== identity.sourceHash ||
 						resolved.entity.entitySchemaSlug !== identity.entitySchemaSlug)
 				) {
-					return false;
+					return null;
 				}
 				if (
 					identity.kind === "plugin-page" &&
@@ -332,18 +346,38 @@ export class ClientPagesService extends Context.Service<ClientPagesService>()(
 						resolved.plugin.installationId !== identity.installationId ||
 						resolved.exportName !== identity.exportName)
 				) {
-					return false;
+					return null;
 				}
-				return (
-					resolved.graph.compositionKey === identity.compositionKey &&
-					Bun.deepEquals(
-						clientPageCodeContributors(resolved.graph.identity, available),
-						identity.contributors,
-					) &&
-					(yield* compositions.find(resolved.graph))?.compositionHash === identity.compositionHash
+				return yield* matchingComposition(available, resolved.graph, identity);
+			});
+			const isIdentityCurrent = Effect.fn(function* (
+				userId: CurrentUserValue["id"],
+				identity: PreparedClientPage["identity"],
+			) {
+				return (yield* currentComposition(userId, identity)) !== null;
+			});
+			const document = Effect.fn("ClientPages.document")(function* (
+				user: Pick<CurrentUserValue, "id">,
+				identity: PreparedClientPage["identity"],
+			) {
+				const composition = yield* currentComposition(user.id, identity).pipe(
+					Effect.catchTags({ ClientPagePreparationError: () => Effect.succeed(null) }),
+				);
+				if (!composition) {
+					return yield* new ClientPageDocumentStale({
+						reason: { code: "client-page-document-stale" },
+					});
+				}
+				return yield* generateClientDocument(
+					user.id,
+					composition.compositionHash,
+					composition.manifest,
+				).pipe(
+					Effect.provideService(ClientArtifactStore, artifactStore),
+					Effect.provideService(ClientArtifactGrantService, artifactGrants),
 				);
 			});
-			return { prepare, isIdentityCurrent };
+			return { prepare, document, isIdentityCurrent };
 		}),
 	},
 ) {

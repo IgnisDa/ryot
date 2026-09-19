@@ -110,13 +110,13 @@ end
 
 local state = nil
 if #raw > 0 then
-  if #raw ~= 6 then
+  if #raw ~= 8 then
     return { "corrupt" }
   end
   state = {}
   for index = 1, #raw, 2 do
     local field = raw[index]
-    if (field ~= "h" and field ~= "n" and field ~= "b") or state[field] ~= nil then
+    if (field ~= "h" and field ~= "n" and field ~= "b" and field ~= "a") or state[field] ~= nil then
       return { "corrupt" }
     end
     state[field] = raw[index + 1]
@@ -126,7 +126,8 @@ if #raw > 0 then
   end
   state.n = parse_non_negative_integer(state.n)
   state.b = parse_non_negative_integer(state.b)
-  if not state.n or not state.b then
+  state.a = parse_non_negative_integer(state.a)
+  if not state.n or not state.b or not state.a then
     return { "corrupt" }
   end
 end
@@ -135,7 +136,8 @@ local operation = ARGV[1]
 local declaration_hash = ARGV[2]
 local value = parse_non_negative_integer(ARGV[3])
 local base_ttl = parse_positive_integer(ARGV[4])
-if not operation or not declaration_hash or declaration_hash == "" or not value or not base_ttl then
+local spacing = parse_positive_integer(ARGV[5])
+if not operation or not declaration_hash or declaration_hash == "" or not value or not base_ttl or not spacing then
   return { "corrupt" }
 end
 
@@ -156,10 +158,12 @@ if operation == "reserve" then
   end
   local blocked_until = state and state.b or 0
   local next_eligible = now
+  local next_admission = 0
   if state and state.h == declaration_hash then
     next_eligible = state.n
+    next_admission = state.a
   end
-  local eligible = math.max(now, next_eligible, blocked_until)
+  local eligible = math.max(now, next_eligible, next_admission, blocked_until)
   local ttl = expiry_ttl(blocked_until)
   if eligible > MAX_SAFE_INTEGER - value or not ttl then
     return { "corrupt" }
@@ -169,6 +173,7 @@ if operation == "reserve" then
     KEYS[1],
     "h", declaration_hash,
     "n", format_integer(eligible + value),
+    "a", format_integer(next_admission),
     "b", format_integer(blocked_until)
   )
   redis.call("PEXPIRE", KEYS[1], ttl)
@@ -180,7 +185,7 @@ if not state or state.h ~= declaration_hash then
 end
 
 if operation == "confirm" then
-  local eligible = math.max(value, state.b)
+  local eligible = math.max(value, state.b, state.a)
   local ttl = expiry_ttl(state.b)
   if not ttl then
     return { "corrupt" }
@@ -189,6 +194,16 @@ if operation == "confirm" then
   if eligible > now then
     return { "later", format_integer(eligible), observed_at }
   end
+  if now > MAX_SAFE_INTEGER - spacing then
+    return { "corrupt" }
+  end
+  local next_admission = now + spacing
+  redis.call(
+    "HSET",
+    KEYS[1],
+    "a", format_integer(next_admission),
+    "n", format_integer(math.max(state.n, next_admission))
+  )
   return { "admitted" }
 end
 
@@ -266,6 +281,7 @@ export class ProviderHttpAdmissionService extends Context.Service<ProviderHttpAd
 								declarationHash,
 								String(operationValue),
 								String(ttlMs),
+								String(spacingMs),
 							),
 					}).pipe(
 						Effect.timeoutOrElse({

@@ -228,6 +228,21 @@ export const builtinRelationshipSchemas = (): BuiltinRelationshipSchema[] => [
 		orderDescription: "Display order of this company in the group credits",
 		rolesDescription: "Roles this company filled in this group (e.g. Label, Publisher)",
 	}),
+	{
+		slug: "video-game-to-video-game",
+		name: "Video Game to Video Game",
+		sourceEntitySchemaSlug: "video-game",
+		targetEntitySchemaSlug: "video-game",
+		propertiesSchema: {
+			fields: {
+				kind: {
+					label: "Kind",
+					type: "string" as const,
+					description: "How the target relates to the source, e.g. Port, Remake, Edition",
+				},
+			},
+		},
+	},
 	...(
 		[
 			{ group: "book-group", name: "Book Series to Book" },

@@ -10,6 +10,7 @@ import { PluginSlug } from "@ryot-app/contract/schema/brands";
 import { act, fireEvent, render, screen, waitFor } from "@testing-library/react";
 import { Effect, Schema } from "effect";
 
+import { AuthenticatedApiError } from "#/api/authenticated";
 import { createBackInterceptors } from "#/modules/navigation/back-interceptors";
 import type { PluginOperationDispatchOutcome } from "#/modules/plugins/operations";
 import { PluginFrame } from "#/modules/plugins/plugin-host";
@@ -23,15 +24,12 @@ const theme: ThemeStore = {
 	getSnapshot: () => ({ resolvedMode: "light" }),
 };
 const home: PluginLogicalLocation = { path: "/", kind: "route", search: "keep=1" };
-const grant = {
-	grantId: "grant-1",
-	expiresAt: new Date(Date.now() + 10 * 60_000).toISOString(),
-	src: "https://artifacts.example/api/client-pages/documents/session-1",
-};
+const srcDoc = '<!doctype html><html><body><div id="app"></div></body></html>';
 
 function mount(
 	options: {
 		readonly onReloadCurrent?: () => void;
+		readonly onLoadDocument?: () => Effect.Effect<string, Error>;
 		readonly onCheckFreshness?: () => Effect.Effect<boolean, Error>;
 		readonly subscribeResume?: (resumed: () => void) => () => void;
 		readonly onInvokeOperation?: (
@@ -40,6 +38,11 @@ function mount(
 	} = {},
 ) {
 	const backInterceptors = createBackInterceptors();
+	let documentLoads = 0;
+	const onLoadDocument = () => {
+		documentLoads += 1;
+		return options.onLoadDocument?.() ?? Effect.succeed(srcDoc);
+	};
 	const states: unknown[] = [];
 	const searches: unknown[] = [];
 	const navigations: unknown[] = [];
@@ -69,11 +72,11 @@ function mount(
 		theme,
 		active,
 		location,
+		onLoadDocument,
 		title: "Fixture",
 		backInterceptors,
 		mutationCompleted,
 		chromeLeading: null,
-		documentGrant: grant,
 		documentKey: pageKey,
 		freshnessCheckRevision,
 		onHeader: () => undefined,
@@ -137,6 +140,7 @@ function mount(
 		providerSearches,
 		backInterceptors,
 		refresh: mutationCompleted.hint,
+		documentLoads: () => documentLoads,
 		setActive: (active: boolean) => view.rerender(<PluginFrame {...props(home, 0, 0, active)} />),
 		replace: (pageKey: string) =>
 			view.rerender(<PluginFrame {...props(home, 0, 0, true, pageKey)} />),
@@ -193,11 +197,13 @@ function connect(frame: HTMLIFrameElement) {
 }
 
 describe("PluginFrame", () => {
-	it.live("uses one grant and bridge while location and global history change", () =>
+	it.live("uses one document and bridge while location and global history change", () =>
 		Effect.gen(function* () {
 			const host = mount();
 			yield* Effect.promise(() => flush());
-			const frame = screen.getByTitle<HTMLIFrameElement>("Fixture plugin");
+			const frame = yield* Effect.promise(() =>
+				screen.findByTitle<HTMLIFrameElement>("Fixture plugin"),
+			);
 			const bridge = connect(frame);
 			bridge.port.postMessage(bridge.ready);
 			yield* Effect.promise(() => waitFor(() => expect(bridge.messages).toHaveLength(1)));
@@ -220,7 +226,9 @@ describe("PluginFrame", () => {
 	it.live("replaces a document without reloading the iframe and clears page-owned state", () =>
 		Effect.gen(function* () {
 			const host = mount();
-			const frame = screen.getByTitle<HTMLIFrameElement>("Fixture plugin");
+			const frame = yield* Effect.promise(() =>
+				screen.findByTitle<HTMLIFrameElement>("Fixture plugin"),
+			);
 			const bridge = connect(frame);
 			bridge.port.postMessage(bridge.ready);
 			yield* Effect.promise(() => waitFor(() => expect(bridge.messages).toHaveLength(1)));
@@ -246,11 +254,56 @@ describe("PluginFrame", () => {
 		}),
 	);
 
+	it.live("loads the document once into a sandboxed srcdoc frame", () =>
+		Effect.gen(function* () {
+			const host = mount();
+			const frame = yield* Effect.promise(() =>
+				screen.findByTitle<HTMLIFrameElement>("Fixture plugin"),
+			);
+			expect(frame.getAttribute("srcdoc")).toBe(srcDoc);
+			expect(frame.hasAttribute("src")).toBe(false);
+			expect(frame.getAttribute("sandbox")).toBe("allow-scripts");
+			expect(host.documentLoads()).toBe(1);
+		}),
+	);
+
+	it.live("never reloads the document when the frame rerenders or replaces its page", () =>
+		Effect.gen(function* () {
+			const host = mount();
+			const frame = yield* Effect.promise(() =>
+				screen.findByTitle<HTMLIFrameElement>("Fixture plugin"),
+			);
+			const bridge = connect(frame);
+			bridge.port.postMessage(bridge.ready);
+			yield* Effect.promise(() => waitFor(() => expect(bridge.messages).toHaveLength(1)));
+
+			host.move({ search: "", kind: "route", path: "/details" }, 1);
+			host.setActive(false);
+			host.setActive(true);
+			host.replace("page-2");
+			host.refresh();
+
+			yield* Effect.promise(() =>
+				waitFor(() =>
+					expect(bridge.messages).toContainEqual(
+						expect.objectContaining({ type: "document", documentKey: "page-2" }),
+					),
+				),
+			);
+			expect(screen.getByTitle("Fixture plugin")).toBe(frame);
+			expect(frame.getAttribute("srcdoc")).toBe(srcDoc);
+			expect(host.documentLoads()).toBe(1);
+			expect(screen.queryByText("Preparing this plugin...")).toBeNull();
+		}),
+	);
+
 	it.live("forwards explicit route, page-search, operation target, and matching readiness", () =>
 		Effect.gen(function* () {
 			const host = mount();
 			yield* Effect.promise(() => flush());
-			const bridge = connect(screen.getByTitle("Fixture plugin"));
+			const bridge = connect(
+				yield* Effect.promise(() => screen.findByTitle<HTMLIFrameElement>("Fixture plugin")),
+			);
 			bridge.port.postMessage(bridge.ready);
 			yield* Effect.promise(() => waitFor(() => expect(bridge.messages).toHaveLength(1)));
 			bridge.port.postMessage({
@@ -305,7 +358,9 @@ describe("PluginFrame", () => {
 		Effect.gen(function* () {
 			const host = mount();
 			yield* Effect.promise(() => flush());
-			const bridge = connect(screen.getByTitle("Fixture plugin"));
+			const bridge = connect(
+				yield* Effect.promise(() => screen.findByTitle<HTMLIFrameElement>("Fixture plugin")),
+			);
 			bridge.port.postMessage(bridge.ready);
 			yield* Effect.promise(() => waitFor(() => expect(bridge.messages).toHaveLength(1)));
 
@@ -329,7 +384,9 @@ describe("PluginFrame", () => {
 		Effect.gen(function* () {
 			const host = mount();
 			yield* Effect.promise(() => flush());
-			const bridge = connect(screen.getByTitle("Fixture plugin"));
+			const bridge = connect(
+				yield* Effect.promise(() => screen.findByTitle<HTMLIFrameElement>("Fixture plugin")),
+			);
 			bridge.port.postMessage(bridge.ready);
 			yield* Effect.promise(() => waitFor(() => expect(bridge.messages).toHaveLength(1)));
 			bridge.port.postMessage({ count: 1, type: "overlay-state" });
@@ -360,7 +417,9 @@ describe("PluginFrame", () => {
 		return Effect.gen(function* () {
 			mount();
 			yield* Effect.promise(() => flush());
-			const bridge = connect(screen.getByTitle("Fixture plugin"));
+			const bridge = connect(
+				yield* Effect.promise(() => screen.findByTitle<HTMLIFrameElement>("Fixture plugin")),
+			);
 			bridge.port.postMessage(bridge.ready);
 			yield* Effect.promise(() => waitFor(() => expect(bridge.messages).toHaveLength(1)));
 
@@ -414,7 +473,9 @@ describe("PluginFrame", () => {
 				},
 			});
 			yield* Effect.promise(() => flush());
-			const bridge = connect(screen.getByTitle("Fixture plugin"));
+			const bridge = connect(
+				yield* Effect.promise(() => screen.findByTitle<HTMLIFrameElement>("Fixture plugin")),
+			);
 			bridge.port.postMessage(bridge.ready);
 			yield* Effect.promise(() => waitFor(() => expect(bridge.messages).toHaveLength(1)));
 
@@ -440,7 +501,9 @@ describe("PluginFrame", () => {
 		Effect.gen(function* () {
 			const host = mount();
 			yield* Effect.promise(() => flush());
-			const bridge = connect(screen.getByTitle("Fixture plugin"));
+			const bridge = connect(
+				yield* Effect.promise(() => screen.findByTitle<HTMLIFrameElement>("Fixture plugin")),
+			);
 			bridge.port.postMessage(bridge.ready);
 			yield* Effect.promise(() => waitFor(() => expect(bridge.messages).toHaveLength(1)));
 			bridge.port.postMessage({ count: 1, type: "overlay-state" });
@@ -477,7 +540,9 @@ describe("PluginFrame", () => {
 				},
 			});
 			yield* Effect.promise(() => flush());
-			const frame = screen.getByTitle<HTMLIFrameElement>("Fixture plugin");
+			const frame = yield* Effect.promise(() =>
+				screen.findByTitle<HTMLIFrameElement>("Fixture plugin"),
+			);
 			const bridge = connect(frame);
 			bridge.port.postMessage(bridge.ready);
 			yield* Effect.promise(() => waitFor(() => expect(bridge.messages).toHaveLength(1)));
@@ -505,7 +570,9 @@ describe("PluginFrame", () => {
 				onInvokeOperation: () => Effect.succeed({ outcome: "stale-session" }),
 			});
 			yield* Effect.promise(() => flush());
-			const frame = screen.getByTitle<HTMLIFrameElement>("Fixture plugin");
+			const frame = yield* Effect.promise(() =>
+				screen.findByTitle<HTMLIFrameElement>("Fixture plugin"),
+			);
 			const bridge = connect(frame);
 			bridge.port.postMessage(bridge.ready);
 			yield* Effect.promise(() => waitFor(() => expect(bridge.messages).toHaveLength(1)));
@@ -536,7 +603,7 @@ describe("PluginFrame", () => {
 		}),
 	);
 
-	it.live("requests a new document grant when the bridge fails", () =>
+	it.live("reprepares the page when the bridge fails", () =>
 		Effect.gen(function* () {
 			let parentReloads = 0;
 			const host = mount({
@@ -545,7 +612,9 @@ describe("PluginFrame", () => {
 				},
 			});
 			yield* Effect.promise(() => flush());
-			const frame = screen.getByTitle<HTMLIFrameElement>("Fixture plugin");
+			const frame = yield* Effect.promise(() =>
+				screen.findByTitle<HTMLIFrameElement>("Fixture plugin"),
+			);
 			const bridge = connect(frame);
 			bridge.port.postMessage(bridge.ready);
 			yield* Effect.promise(() => waitFor(() => expect(bridge.messages).toHaveLength(1)));
@@ -561,16 +630,16 @@ describe("PluginFrame", () => {
 		}),
 	);
 
-	it.live("offers a retry when the initial document cannot load", () =>
+	it.live("offers a retry without rendering a frame when the document cannot load", () =>
 		Effect.gen(function* () {
 			let reloads = 0;
 			mount({
 				onReloadCurrent: () => {
 					reloads++;
 				},
+				onLoadDocument: () =>
+					Effect.fail(new AuthenticatedApiError({ cause: new Error("stale document") })),
 			});
-			const frame = screen.getByTitle<HTMLIFrameElement>("Fixture plugin");
-			fireEvent.error(frame);
 			yield* Effect.promise(() => screen.findByText("This plugin stopped working."));
 			expect(screen.queryByTitle("Fixture plugin")).toBeNull();
 			fireEvent.click(screen.getByRole("button", { name: "Retry" }));

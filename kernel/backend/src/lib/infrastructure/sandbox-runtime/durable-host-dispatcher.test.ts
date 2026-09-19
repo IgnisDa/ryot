@@ -536,7 +536,7 @@ layer(httpDispatchLayer({ outcomes: [{ status: 200 }], resolutions: [httpPolicy(
 			const harness = yield* HttpDispatchHarness;
 			expect(yield* runHttpDispatch).toMatchObject({ state: "success" });
 			expect(yield* harness.reservationKeys).toEqual(["provider"]);
-			expect(yield* harness.confirms).toBe(0);
+			expect(yield* harness.confirms).toBe(1);
 			expect(yield* harness.clockNames).toEqual([]);
 			const logs = yield* harness.logs;
 			expect(logs).toEqual(
@@ -579,6 +579,29 @@ layer(
 	httpDispatchLayer({
 		outcomes: [{ status: 200 }],
 		resolutions: [httpPolicy(), httpPolicy()],
+		confirmations: [
+			{ status: "later", eligibleAtMs: 11_000, observedAtMs: 10_000 },
+			{ status: "admitted" },
+		],
+	}),
+)((test) => {
+	test.effect("delays an immediate reservation when another request has consumed admission", () =>
+		Effect.gen(function* () {
+			const harness = yield* HttpDispatchHarness;
+			yield* runHttpDispatch;
+			expect(yield* harness.calls).toBe(1);
+			expect(yield* harness.confirms).toBe(2);
+			expect(yield* harness.reservationKeys).toEqual(["provider"]);
+			expect(yield* harness.clockNames).toEqual(["sandbox-http-7-admission-wait-0"]);
+			expect(yield* harness.clockDurations).toEqual([1_000]);
+		}),
+	);
+});
+
+layer(
+	httpDispatchLayer({
+		outcomes: [{ status: 200 }],
+		resolutions: [httpPolicy(), httpPolicy()],
 		reservations: [{ eligibleAtMs: 5_000, observedAtMs: 4_000 }],
 	}),
 )((test) => {
@@ -609,7 +632,7 @@ layer(
 			const harness = yield* HttpDispatchHarness;
 			yield* runHttpDispatch;
 			expect(yield* harness.reservationKeys).toEqual(["old", "new"]);
-			expect(yield* harness.confirms).toBe(0);
+			expect(yield* harness.confirms).toBe(1);
 		}),
 	);
 });

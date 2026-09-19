@@ -50,6 +50,7 @@ import {
 	SavedViewRouteStubs,
 	ServerStub,
 	catalog,
+	clientCompositionDocument,
 	makeAuthStub,
 	makeProviderAddStub,
 	makePublicApiStub,
@@ -84,11 +85,6 @@ const preparedFor = (
 			hash: `composition-${pluginId}`,
 			compilerVersion: CLIENT_COMPILER_VERSION,
 			bridgeVersion: CLIENT_BRIDGE_PROTOCOL_VERSION,
-			documentGrant: {
-				grantId: `grant-${pluginId}`,
-				expiresAt: "2030-01-01T00:00:00.000Z",
-				src: `https://artifacts.example/api/client-pages/documents/${pluginId}`,
-			},
 		},
 		identity: {
 			target,
@@ -166,6 +162,16 @@ function mount(options: {
 	readonly check?: ClientPageFreshness["Service"]["check"];
 }) {
 	const targets: ClientPageTarget[] = [];
+	let documentLoads = 0;
+	const loadDocument: ClientPagesApi["Service"]["document"] = (_scope, request) => {
+		documentLoads += 1;
+		return Effect.succeed(
+			clientCompositionDocument(
+				request.payload.identity.compositionHash,
+				`document-${documentLoads}`,
+			),
+		);
+	};
 	const operations: Parameters<PluginOperationsService["Service"]["invoke"]>[0][] = [];
 	let catalogLoads = 0;
 	const entries = options.entries ?? catalog;
@@ -211,6 +217,7 @@ function mount(options: {
 			CustomizeRouteStubs,
 			Layer.succeed(ClientPagesApi, {
 				prepare,
+				document: loadDocument,
 				checkFreshness: () => Effect.succeed({ current: true }),
 			}),
 			Layer.succeed(ClientPageFreshness, { check: options.check ?? (() => Effect.succeed(true)) }),
@@ -234,7 +241,15 @@ function mount(options: {
 		createMemoryHistory({ initialEntries: [options.entry] }),
 	);
 	const view = render(<RouterProvider router={router} />);
-	return { ...view, events, router, targets, operations, getCatalogLoads: () => catalogLoads };
+	return {
+		...view,
+		events,
+		router,
+		targets,
+		operations,
+		getCatalogLoads: () => catalogLoads,
+		getDocumentLoads: () => documentLoads,
+	};
 }
 
 function connectFrame(frame: HTMLIFrameElement) {
@@ -496,7 +511,7 @@ describe("client page routes", () => {
 		}),
 	);
 
-	it.live("prepares an ordinary plugin route with its document grant", () =>
+	it.live("prepares an ordinary plugin route and loads its document into srcdoc", () =>
 		Effect.gen(function* () {
 			const view = mount({ entry: "/fixture/details/one?tab=stats" });
 			const frame = yield* Effect.promise(() =>
@@ -508,7 +523,10 @@ describe("client page routes", () => {
 			expect(view.targets).toEqual([
 				{ search: "tab=stats", path: "/details/one", kind: "plugin-route", pluginSlug: "fixture" },
 			]);
-			expect(frame.getAttribute("src")).toContain("/api/client-pages/documents/plugin-1");
+			expect(frame.hasAttribute("src")).toBe(false);
+			expect(frame.getAttribute("srcdoc")).toContain('"hash":"composition-plugin-1"');
+			expect(frame.getAttribute("srcdoc")).toContain("<title>document-1</title>");
+			expect(view.getDocumentLoads()).toBe(1);
 			expect(
 				yield* Schema.decodeUnknownEffect(PluginBridgeLocation)(bridge.messages[0]),
 			).toMatchObject({ location: { kind: "route", search: "tab=stats", path: "/details/one" } });
@@ -563,7 +581,7 @@ describe("client page routes", () => {
 			);
 			const bridge = connectFrame(pluginFrame);
 			yield* Effect.promise(() => waitFor(() => expect(bridge.messages).toHaveLength(1)));
-			const initialSrc = pluginFrame.getAttribute("src");
+			const initialSrcDoc = pluginFrame.getAttribute("srcdoc");
 
 			yield* Effect.promise(() => view.router.navigate({ href: "/e/entity-1" }));
 			yield* Effect.promise(() =>
@@ -584,7 +602,8 @@ describe("client page routes", () => {
 					),
 				),
 			);
-			expect(pluginFrame.getAttribute("src")).toBe(initialSrc);
+			expect(pluginFrame.getAttribute("srcdoc")).toBe(initialSrcDoc);
+			expect(view.getDocumentLoads()).toBe(1);
 
 			yield* Effect.promise(() => view.router.navigate({ href: "/e/entity-2" }));
 			yield* Effect.promise(() =>
@@ -614,10 +633,10 @@ describe("client page routes", () => {
 		}),
 	);
 
-	it.live("ignores a newly prepared grant for a retained composition when settings change", () =>
+	it.live("keeps a retained composition's document when settings change", () =>
 		Effect.gen(function* () {
 			let defaultLayout = "grid";
-			let grants = 0;
+			let preparations = 0;
 			const view = mount({
 				entry: "/fixture/details/one",
 				prepare: (_scope, request) => {
@@ -631,17 +650,10 @@ describe("client page routes", () => {
 							? "plugin-2"
 							: "plugin-1",
 					);
-					grants++;
+					preparations++;
 					return Effect.succeed({
 						...prepared,
 						context: { ...prepared.context, settings: { defaultLayout } },
-						composition: {
-							...prepared.composition,
-							documentGrant: {
-								...prepared.composition.documentGrant,
-								src: `/api/client-pages/documents/grant-${grants}`,
-							},
-						},
 					});
 				},
 			});
@@ -650,14 +662,14 @@ describe("client page routes", () => {
 			);
 			const bridge = connectFrame(frame);
 			yield* Effect.promise(() => waitFor(() => expect(bridge.messages).toHaveLength(1)));
-			const firstSrc = frame.getAttribute("src");
+			const firstSrcDoc = frame.getAttribute("srcdoc");
 
 			yield* Effect.promise(() => view.router.navigate({ href: "/fixture/details/two" }));
 			yield* Effect.promise(() =>
 				waitFor(() => expect(view.router.state.location.pathname).toBe("/fixture/details/two")),
 			);
 			expect(screen.getByTitle<HTMLIFrameElement>("fixture plugin")).toBe(frame);
-			expect(frame.getAttribute("src")).toBe(firstSrc);
+			expect(frame.getAttribute("srcdoc")).toBe(firstSrcDoc);
 			yield* Effect.promise(() =>
 				waitFor(() =>
 					expect(bridge.messages).toContainEqual(expect.objectContaining({ type: "document" })),
@@ -666,9 +678,10 @@ describe("client page routes", () => {
 
 			defaultLayout = "list";
 			yield* Effect.promise(() => view.router.navigate({ href: "/fixture/details/three" }));
-			yield* Effect.promise(() => waitFor(() => expect(grants).toBe(3)));
+			yield* Effect.promise(() => waitFor(() => expect(preparations).toBe(3)));
 			expect(screen.getByTitle<HTMLIFrameElement>("fixture plugin")).toBe(frame);
-			expect(frame.getAttribute("src")).toBe(firstSrc);
+			expect(frame.getAttribute("srcdoc")).toBe(firstSrcDoc);
+			expect(view.getDocumentLoads()).toBe(1);
 			yield* Effect.promise(() =>
 				waitFor(() =>
 					expect(bridge.messages).toContainEqual(
@@ -736,7 +749,15 @@ describe("client page routes", () => {
 			);
 			const bridge = connectFrame(first);
 			yield* Effect.promise(() => waitFor(() => expect(bridge.messages).toHaveLength(1)));
-			const src = first.getAttribute("src");
+			const srcDoc = first.getAttribute("srcdoc");
+			const wrapper = first.closest("main > div");
+			const removed: Array<Node> = [];
+			const observer = new MutationObserver((records) => {
+				for (const record of records) {
+					removed.push(...record.removedNodes);
+				}
+			});
+			observer.observe(document.querySelector("main") ?? document.body, { childList: true });
 			yield* Effect.promise(() => view.router.navigate({ href: "/plugin-2" }));
 			yield* Effect.promise(() =>
 				waitFor(() => expect(document.querySelectorAll("iframe")).toHaveLength(2)),
@@ -747,7 +768,11 @@ describe("client page routes", () => {
 				waitFor(() => expect(view.router.state.location.pathname).toBe("/plugin-1/details")),
 			);
 			expect(first.isConnected).toBe(true);
-			expect(first.getAttribute("src")).toBe(src);
+			expect(first.hasAttribute("src")).toBe(false);
+			expect(first.getAttribute("srcdoc")).toBe(srcDoc);
+			observer.disconnect();
+			expect(wrapper).not.toBeNull();
+			expect(removed).not.toContain(wrapper);
 			yield* Effect.promise(() =>
 				waitFor(() =>
 					expect(bridge.messages).toContainEqual(
@@ -763,7 +788,7 @@ describe("client page routes", () => {
 		}),
 	);
 
-	it.live("reprepares and replaces a failed iframe using the new document grant", () =>
+	it.live("keeps a retained composition's document when revisited after a new preparation", () =>
 		Effect.gen(function* () {
 			let preparations = 0;
 			const view = mount({
@@ -774,17 +799,55 @@ describe("client page routes", () => {
 						return Effect.die("not used");
 					}
 					preparations++;
-					const prepared = preparedFor(target);
-					return Effect.succeed({
-						...prepared,
-						composition: {
-							...prepared.composition,
-							documentGrant: {
-								...prepared.composition.documentGrant,
-								src: `/api/client-pages/documents/grant-${preparations}`,
-							},
-						},
-					});
+					return Effect.succeed(preparedFor(target));
+				},
+			});
+			const frame = yield* Effect.promise(() =>
+				screen.findByTitle<HTMLIFrameElement>("fixture plugin"),
+			);
+			const bridge = connectFrame(frame);
+			yield* Effect.promise(() => waitFor(() => expect(bridge.messages).toHaveLength(1)));
+			const srcDoc = frame.getAttribute("srcdoc");
+
+			yield* Effect.promise(() => view.router.navigate({ href: "/customize-sidebar" }));
+			yield* Effect.promise(() =>
+				waitFor(() => expect(view.router.state.location.pathname).toBe("/customize-sidebar")),
+			);
+			expect(frame.isConnected).toBe(true);
+
+			yield* Effect.promise(() => view.router.navigate({ href: "/fixture/details" }));
+			yield* Effect.promise(() => waitFor(() => expect(preparations).toBe(2)));
+			yield* Effect.promise(() =>
+				waitFor(() =>
+					expect(bridge.messages).toContainEqual(
+						expect.objectContaining({
+							type: "document",
+							page: expect.objectContaining({
+								target: expect.objectContaining({ path: "/details" }),
+							}),
+						}),
+					),
+				),
+			);
+			expect(screen.getByTitle<HTMLIFrameElement>("fixture plugin")).toBe(frame);
+			expect(frame.getAttribute("srcdoc")).toBe(srcDoc);
+			expect(view.getDocumentLoads()).toBe(1);
+			expect(bridge.messages).not.toContainEqual({ reason: "disposed", type: "lifecycle-close" });
+		}),
+	);
+
+	it.live("reprepares and replaces a failed iframe with a newly loaded document", () =>
+		Effect.gen(function* () {
+			let preparations = 0;
+			const view = mount({
+				entry: "/fixture",
+				prepare: (_scope, request) => {
+					const target = request.payload.target;
+					if (target.kind !== "plugin-route") {
+						return Effect.die("not used");
+					}
+					preparations++;
+					return Effect.succeed(preparedFor(target));
 				},
 			});
 			const first = yield* Effect.promise(() =>
@@ -792,7 +855,7 @@ describe("client page routes", () => {
 			);
 			const bridge = connectFrame(first);
 			yield* Effect.promise(() => waitFor(() => expect(bridge.messages).toHaveLength(1)));
-			expect(first.getAttribute("src")).toContain("grant-1");
+			expect(first.getAttribute("srcdoc")).toContain("<title>document-1</title>");
 			bridge.port.postMessage({ reason: "failed", type: "lifecycle-close" });
 			fireEvent.click(yield* Effect.promise(() => screen.findByRole("button", { name: "Retry" })));
 			const next = yield* Effect.promise(() =>
@@ -802,7 +865,8 @@ describe("client page routes", () => {
 					return frame;
 				}),
 			);
-			expect(next.getAttribute("src")).toContain("grant-2");
+			expect(next.hasAttribute("src")).toBe(false);
+			expect(next.getAttribute("srcdoc")).toContain("<title>document-2</title>");
 			expect(first.isConnected).toBe(false);
 			expect(preparations).toBe(2);
 			view.unmount();

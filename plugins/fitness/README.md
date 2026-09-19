@@ -10,6 +10,13 @@ workout presentation query. List recipes share input types with pagination deriv
 inputs. The shared sources use the neutral Plugin Kit imports so both plugin compilers can resolve
 them.
 
+Exercise targets and equipment are separate entity taxonomies in `shared/taxonomy-recipes.ts`.
+Exercise targets use `exercise-targets` relationships with an optional role; equipment uses
+`exercise-uses-equipment`. Shared standard entities and private user-owned entities are visible
+through RyotQL scoping, and `userId` identifies their origin. Omitting a target role is valid.
+Authenticated entity and relationship create operations support manual additions; provider taxonomy
+migration remains pending.
+
 ## Imports
 
 Fitness imports append history and cannot be reversed. A separate import can duplicate existing

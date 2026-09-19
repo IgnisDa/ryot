@@ -56,7 +56,7 @@ export const toWorkoutWriteItem = (workout: WorkoutImportItem): GenericImportWri
 				alias: `exercise-${index}`,
 				entitySchemaSlug: "exercise",
 				operationId: operationId("exercise", index),
-				properties: { images: [], muscles: [], instructions: [], kind: exercise.kind },
+				properties: { images: [], instructions: [], kind: exercise.kind },
 				match: {
 					name: exercise.name,
 					nameNormalization: "slug" as const,

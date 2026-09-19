@@ -16,11 +16,9 @@ import { signInThroughHostedOAuth } from "~/support/browser";
 import { expect, it } from "~/support/effect-test";
 import { getApiUrl, getFrontendUrl } from "~/support/harness-target";
 
-type DocumentGrant = { readonly src: string; readonly credential: string };
-
 type BridgeObservation = { readonly serialized: string; readonly bridgeSessionId: string | null };
 
-const documentGrantPath = /^\/api\/client-pages\/documents\/([A-Za-z0-9_-]{43})$/;
+const privateAccessKey = /\/api\/client-assets\/[a-f0-9]{64}\/([A-Za-z0-9_-]{43})\//g;
 
 const observeBridgeMessages = (page: Playwright.Page, observations: BridgeObservation[]) =>
 	Effect.gen(function* () {
@@ -88,53 +86,41 @@ const observeBridgeMessages = (page: Playwright.Page, observations: BridgeObserv
 		});
 	});
 
-const readDocumentGrant = (frame: Playwright.Locator, selectedApiUrl: string) =>
+const readSrcDoc = (frame: Playwright.Locator) =>
 	Effect.gen(function* () {
-		const src = yield* frame.getAttribute("src");
-		if (src === null) {
-			return yield* Effect.die(
-				new Error("Plugin document grant URL is missing [credential redacted]"),
-			);
-		}
-		if (!URL.canParse(src)) {
-			return yield* Effect.die(
-				new Error("Plugin document grant URL is invalid [credential redacted]"),
-			);
-		}
-		const url = new URL(src);
-		const credential = documentGrantPath.exec(url.pathname)?.[1];
-		if (
-			url.origin !== new URL(selectedApiUrl).origin ||
-			url.username !== "" ||
-			url.password !== "" ||
-			url.search !== "" ||
-			url.hash !== "" ||
-			credential === undefined
-		) {
-			return yield* Effect.die(
-				new Error(
-					"Plugin document grant URL must use the selected server and private document endpoint [credential redacted]",
-				),
-			);
-		}
-		return { src, credential };
+		expect(
+			yield* frame.getAttribute("src"),
+			"Plugin frame must not have a document URL",
+		).toBeNull();
+		return requirePresent(yield* frame.getAttribute("srcdoc"), "Plugin frame srcdoc is missing");
 	});
 
-const expectSameDocumentGrant = (current: DocumentGrant, expected: DocumentGrant) => {
-	expect(current, "Plugin document grant changed unexpectedly [credentials redacted]").toEqual(
-		expected,
-	);
-};
-
-const expectFreshDocumentGrant = (current: DocumentGrant, previous: DocumentGrant) => {
-	expect(current.src, "Plugin document grant URL was reused [credentials redacted]").not.toBe(
-		previous.src,
-	);
-	expect(
-		current.credential,
-		"Plugin document grant credential was reused [credentials redacted]",
-	).not.toBe(previous.credential);
-};
+const expectIsolatedFrame = (frame: Playwright.Locator, selectedApiUrl: string) =>
+	Effect.gen(function* () {
+		expect(yield* frame.getAttribute("sandbox")).toBe("allow-scripts");
+		yield* readSrcDoc(frame);
+		const realm = yield* frame
+			.contentFrame()
+			.locator("html")
+			.evaluate(() => {
+				let parentReadable = true;
+				try {
+					parent.document.querySelector("html");
+				} catch {
+					parentReadable = false;
+				}
+				return {
+					parentReadable,
+					origin: self.origin,
+					base: document.querySelector("base")?.href ?? null,
+				};
+			});
+		expect(realm).toEqual({
+			origin: "null",
+			parentReadable: false,
+			base: `${new URL(selectedApiUrl).origin}/`,
+		});
+	});
 
 const waitForFreshBridgeSession = (observations: BridgeObservation[], previous?: string) =>
 	Effect.gen(function* () {
@@ -157,25 +143,21 @@ const expectCurrentBridgeSession = (observations: BridgeObservation[], expected:
 	expect(current, "Plugin bridge session changed unexpectedly").toBe(expected);
 };
 
-const expectDocumentGrantValid = (page: Playwright.Page, grant: DocumentGrant) =>
-	Effect.gen(function* () {
-		const response = yield* page.use((nativePage) => nativePage.context().request.get(grant.src));
-		const status = response.status();
-		yield* page.use(() => response.dispose());
-		expect(status, "Retained document grant is no longer valid [credential redacted]").toBe(200);
-	});
-
-const expectNoCredentialsInBridgeMessages = (
+const expectNoPrivateAccessKeysInBridgeMessages = (
 	observations: BridgeObservation[],
-	grants: DocumentGrant[],
+	srcDocs: string[],
 ) => {
+	const keys = new Set(
+		srcDocs.flatMap((srcDoc) => [...srcDoc.matchAll(privateAccessKey)].map(([, key]) => key)),
+	);
+	expect(keys.size, "Plugin documents carried no private artifact access key").toBeGreaterThan(0);
 	if (
 		observations.some(({ serialized }) =>
-			grants.some(({ credential }) => serialized.includes(credential)),
+			[...keys].some((key) => key !== undefined && serialized.includes(key)),
 		)
 	) {
 		expect.unreachable(
-			"Plugin bridge message exposed a document grant credential [credential redacted]",
+			"Plugin bridge message exposed a private artifact access key [credential redacted]",
 		);
 	}
 };
@@ -219,7 +201,7 @@ it.live("runs the client plugin lifecycle in a real browser", () =>
 		const browser = yield* Playwright.Browser;
 		const page = yield* browser.newPage();
 		const bridgeObservations: BridgeObservation[] = [];
-		const observedGrants: DocumentGrant[] = [];
+		const observedSrcDocs: string[] = [];
 		yield* observeBridgeMessages(page, bridgeObservations);
 		const frame = page.locator(
 			'main > div:not([aria-hidden="true"]) iframe[title="fixture plugin"]',
@@ -245,13 +227,11 @@ it.live("runs the client plugin lifecycle in a real browser", () =>
 		yield* page.waitForURL(`${frontendUrl}/fixture`);
 		yield* frame.waitFor({ state: "visible" });
 
-		yield* frame.waitFor({ state: "visible" });
 		expect(yield* frame.getAttribute("title")).toBe("fixture plugin");
-		expect(yield* frame.getAttribute("sandbox")).toBe("allow-scripts");
-		expect(yield* frame.getAttribute("referrerpolicy")).toBe("no-referrer");
-		const initialGrant = yield* readDocumentGrant(frame, apiUrl);
-		observedGrants.push(initialGrant);
 		yield* expectVisibleText(home, FIXTURE_CLIENT_REVISION_MARKERS.A);
+		yield* expectIsolatedFrame(frame, apiUrl);
+		const initialSrcDoc = yield* readSrcDoc(frame);
+		observedSrcDocs.push(initialSrcDoc);
 		// oxlint-disable-next-line effecttsgo/async-function -- Runs in the browser realm via Playwright evaluate; Effect is unavailable there.
 		const typography = yield* home.evaluate(async (element) => {
 			const heading = element.querySelector("h1");
@@ -286,7 +266,7 @@ it.live("runs the client plugin lifecycle in a real browser", () =>
 		yield* switcherTrigger.click();
 		yield* switcherMenu.waitFor({ state: "hidden" });
 		expect(yield* sameFrame()).toBe(true);
-		expectSameDocumentGrant(yield* readDocumentGrant(frame, apiUrl), initialGrant);
+		expect(yield* readSrcDoc(frame)).toBe(initialSrcDoc);
 		expectCurrentBridgeSession(bridgeObservations, initialBridgeSession);
 
 		yield* page.setViewportSize({ width: 390, height: 844 });
@@ -303,11 +283,17 @@ it.live("runs the client plugin lifecycle in a real browser", () =>
 
 		yield* page.setViewportSize({ width: 1280, height: 800 });
 		expect(yield* sameFrame()).toBe(true);
-		expectSameDocumentGrant(yield* readDocumentGrant(frame, apiUrl), initialGrant);
+		expect(yield* readSrcDoc(frame)).toBe(initialSrcDoc);
 		expectCurrentBridgeSession(bridgeObservations, initialBridgeSession);
 
 		yield* fixture.getByRole("button", { name: "Refresh catalog" }).click();
-		yield* expectVisibleText(home, "Installed client plugins: fitness, fixture, media");
+		const installedPlugins = home
+			.getByText(/^Installed client plugins: /)
+			.filter({ visible: true });
+		yield* installedPlugins.waitFor({ state: "visible" });
+		expect(
+			(yield* installedPlugins.innerText()).replace("Installed client plugins: ", "").split(", "),
+		).toEqual(expect.arrayContaining(["fitness", "fixture", "media"]));
 		yield* fixture.getByRole("button", { name: "Fetch greeting" }).click();
 		yield* expectVisibleText(home, "Hello, Ryot");
 		yield* fixture.getByRole("button", { name: "Fetch with invalid payload" }).click();
@@ -337,7 +323,7 @@ it.live("runs the client plugin lifecycle in a real browser", () =>
 				yield* page.waitForURL(`${frontendUrl}/fixture`);
 				yield* frame.waitFor({ state: "visible" });
 				yield* expectVisibleText(home, `Resolved mode: ${resolvedMode}`);
-				observedGrants.push(yield* readDocumentGrant(frame, apiUrl));
+				observedSrcDocs.push(yield* readSrcDoc(frame));
 			});
 
 		yield* openSettings;
@@ -377,8 +363,6 @@ it.live("runs the client plugin lifecycle in a real browser", () =>
 		yield* page.waitForURL(`${frontendUrl}/fixture`);
 		yield* expectVisibleText(home, "Greeted 0 times.");
 		const navigationFrame = Option.getOrThrow(yield* frame.elementHandle());
-		const navigationGrant = yield* readDocumentGrant(frame, apiUrl);
-		observedGrants.push(navigationGrant);
 		const navigationBridgeSession = yield* waitForFreshBridgeSession(bridgeObservations);
 
 		yield* fixture.getByRole("button", { name: "Crash during render" }).click();
@@ -392,15 +376,13 @@ it.live("runs the client plugin lifecycle in a real browser", () =>
 		expect(yield* frame.evaluate((current, initial) => current === initial, navigationFrame)).toBe(
 			false,
 		);
-		const crashRecoveryGrant = yield* readDocumentGrant(frame, apiUrl);
-		expectSameDocumentGrant(crashRecoveryGrant, navigationGrant);
-		observedGrants.push(crashRecoveryGrant);
+		yield* expectIsolatedFrame(frame, apiUrl);
+		observedSrcDocs.push(yield* readSrcDoc(frame));
 		yield* waitForFreshBridgeSession(bridgeObservations, navigationBridgeSession);
-		yield* expectDocumentGrantValid(page, navigationGrant);
 
 		yield* fixture.getByRole("button", { exact: true, name: "Greet" }).click();
 		yield* expectVisibleText(home, "Greeted 1 times.");
-		const revisionAGrant = yield* readDocumentGrant(frame, apiUrl);
+		const revisionASrcDoc = yield* readSrcDoc(frame);
 		const revisionABridgeSession = yield* waitForFreshBridgeSession(
 			bridgeObservations,
 			navigationBridgeSession,
@@ -422,7 +404,7 @@ it.live("runs the client plugin lifecycle in a real browser", () =>
 		expect(yield* frame.evaluate((current, initial) => current === initial, revisionAFrame)).toBe(
 			true,
 		);
-		expectSameDocumentGrant(yield* readDocumentGrant(frame, apiUrl), revisionAGrant);
+		expect(yield* readSrcDoc(frame)).toBe(revisionASrcDoc);
 		expectCurrentBridgeSession(bridgeObservations, revisionABridgeSession);
 		expect(yield* frame.getAttribute("data-e2e-revision")).toBe("A");
 		expect(page.url()).toBe(outerUrl);
@@ -433,21 +415,20 @@ it.live("runs the client plugin lifecycle in a real browser", () =>
 		expect(yield* frame.evaluate((current, initial) => current === initial, revisionAFrame)).toBe(
 			false,
 		);
-		const revisionBGrant = yield* readDocumentGrant(frame, apiUrl);
-		expectFreshDocumentGrant(revisionBGrant, revisionAGrant);
-		observedGrants.push(revisionBGrant);
+		const revisionBSrcDoc = yield* readSrcDoc(frame);
+		expect(revisionBSrcDoc).not.toBe(revisionASrcDoc);
+		observedSrcDocs.push(revisionBSrcDoc);
 		yield* waitForFreshBridgeSession(bridgeObservations, revisionABridgeSession);
-		yield* expectDocumentGrantValid(page, revisionAGrant);
 		expect(yield* frame.getAttribute("data-e2e-revision")).toBeNull();
 		expect(page.url()).toBe(outerUrl);
 		yield* expectVisibleText(home, "Greeted 0 times.");
 
-		expectNoCredentialsInBridgeMessages(bridgeObservations, observedGrants);
+		expectNoPrivateAccessKeysInBridgeMessages(bridgeObservations, observedSrcDocs);
 
 		yield* page.goto(`${frontendUrl}/e/${pokemon.id}`);
 		yield* frame.waitFor({ state: "visible" });
 		yield* expectVisibleText(fixture.locator("body"), "E2E deterministic Bulbasaur");
-		expect((yield* readDocumentGrant(frame, apiUrl)).src).toContain("/api/client-pages/documents/");
+		yield* expectIsolatedFrame(frame, apiUrl);
 
 		yield* page.goto(`${frontendUrl}/e/${showId}`);
 		const mediaFrame = page.locator('iframe[title="media plugin"]');
@@ -456,8 +437,6 @@ it.live("runs the client plugin lifecycle in a real browser", () =>
 		yield* media
 			.getByRole("heading", { level: 1, exact: true, name: "E2E deterministic show" })
 			.waitFor({ state: "visible" });
-		expect((yield* readDocumentGrant(mediaFrame, apiUrl)).src).toContain(
-			"/api/client-pages/documents/",
-		);
+		yield* expectIsolatedFrame(mediaFrame, apiUrl);
 	}).pipe(PlaywrightSpawner.withBrowser),
 );

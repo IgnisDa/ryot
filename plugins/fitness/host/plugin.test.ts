@@ -42,12 +42,16 @@ it("declares the complete fitness-owned source", () => {
 	expect(fitnessPlugin.entitySchemas.map(({ slug }) => slug)).toEqual([
 		"fitness-library",
 		"exercise",
+		"exercise-target",
+		"exercise-equipment",
 		"workout",
 		"workout-template",
 		"measurement",
 	]);
 	expect(fitnessPlugin.relationshipSchemas.map(({ slug }) => slug)).toEqual([
 		"in-fitness-library",
+		"exercise-targets",
+		"exercise-uses-equipment",
 		"workout-repeated-from",
 		"workout-to-workout-template",
 	]);
@@ -86,6 +90,70 @@ it("declares the complete fitness-owned source", () => {
 	const exercise = fitnessPlugin.entitySchemas.find(({ slug }) => slug === "exercise");
 	assert(exercise && "mergeIdentityProperties" in exercise);
 	expect(exercise.mergeIdentityProperties).toEqual(["kind"]);
+	expect(exercise.propertiesSchema.fields).not.toHaveProperty("muscles");
+	expect(exercise.propertiesSchema.fields).not.toHaveProperty("equipment");
+	const exerciseTarget = fitnessPlugin.entitySchemas.find(({ slug }) => slug === "exercise-target");
+	assert(exerciseTarget);
+	assert("description" in exerciseTarget.propertiesSchema.fields);
+	expect(exerciseTarget.propertiesSchema.fields).toMatchObject({
+		description: { type: "string" },
+		kind: {
+			type: "enum",
+			validation: { required: true },
+			choices: {
+				kind: "static",
+				values: [
+					{ value: "muscle" },
+					{ value: "muscle_region" },
+					{ value: "tendon" },
+					{ value: "fascia" },
+					{ value: "joint" },
+					{ value: "region" },
+				],
+			},
+		},
+	});
+	expect(exerciseTarget.propertiesSchema.fields["description"]).not.toHaveProperty("validation");
+	const exerciseEquipment = fitnessPlugin.entitySchemas.find(
+		({ slug }) => slug === "exercise-equipment",
+	);
+	assert(exerciseEquipment);
+	assert("description" in exerciseEquipment.propertiesSchema.fields);
+	expect(exerciseEquipment.propertiesSchema.fields).toMatchObject({
+		description: { type: "string" },
+	});
+	expect(exerciseEquipment.propertiesSchema.fields["description"]).not.toHaveProperty("validation");
+	const exerciseTargetsRelationship = fitnessPlugin.relationshipSchemas.find(
+		({ slug }) => slug === "exercise-targets",
+	);
+	assert(exerciseTargetsRelationship);
+	expect(exerciseTargetsRelationship).toMatchObject({
+		sourceEntitySchemaSlug: "exercise",
+		targetEntitySchemaSlug: "exercise-target",
+		propertiesSchema: {
+			fields: {
+				role: {
+					type: "enum",
+					choices: {
+						kind: "static",
+						values: [{ value: "primary" }, { value: "secondary" }, { value: "stabilizer" }],
+					},
+				},
+			},
+		},
+	});
+	assert("role" in exerciseTargetsRelationship.propertiesSchema.fields);
+	expect(exerciseTargetsRelationship.propertiesSchema.fields.role).not.toHaveProperty("validation");
+	expect(exerciseTargetsRelationship.propertiesSchema.fields.role).not.toHaveProperty("default");
+	const exerciseEquipmentRelationship = fitnessPlugin.relationshipSchemas.find(
+		({ slug }) => slug === "exercise-uses-equipment",
+	);
+	assert(exerciseEquipmentRelationship);
+	expect(exerciseEquipmentRelationship).toMatchObject({
+		propertiesSchema: { fields: {} },
+		sourceEntitySchemaSlug: "exercise",
+		targetEntitySchemaSlug: "exercise-equipment",
+	});
 	expect(fitnessPlugin.configSchema).toMatchObject({ fields: {}, unknownKeys: "strict" });
 	expect(
 		fitnessPlugin.entitySchemas
@@ -110,6 +178,28 @@ it("declares the complete fitness-owned source", () => {
 				search: "exercise.free-exercise-db.search",
 				details: "exercise.free-exercise-db.details",
 				resolve: "exercise.free-exercise-db.resolve",
+			},
+		},
+		{
+			name: "Exercise Target Fitness Catalog",
+			rootEntitySchemaSlug: "exercise-target",
+			slug: "exercise-target.fitness-catalog",
+			information: { source: "fitness-catalog" },
+			operations: {
+				search: "exercise-target.fitness-catalog.search",
+				details: "exercise-target.fitness-catalog.details",
+				resolve: "exercise-target.fitness-catalog.resolve",
+			},
+		},
+		{
+			name: "Exercise Equipment Fitness Catalog",
+			rootEntitySchemaSlug: "exercise-equipment",
+			slug: "exercise-equipment.fitness-catalog",
+			information: { source: "fitness-catalog" },
+			operations: {
+				search: "exercise-equipment.fitness-catalog.search",
+				details: "exercise-equipment.fitness-catalog.details",
+				resolve: "exercise-equipment.fitness-catalog.resolve",
 			},
 		},
 	]);

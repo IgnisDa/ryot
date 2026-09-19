@@ -11,6 +11,7 @@ export const MigrationReportAnomalyCode = Schema.Literals([
 	"review-episode-ambiguous",
 	"integration-cache-provider-unmapped",
 	"integration-cache-entity-unresolved",
+	"exercise-ownerless-unreferenced",
 	"asset-locator-unresolved",
 	"asset-deletion-failed",
 ]);
@@ -58,6 +59,16 @@ export const MigrationReportDetail = Schema.Union([
 		legacyMetadataId: Schema.NullOr(Schema.String),
 		requestedEpisode: Schema.NullOr(Schema.String),
 		code: Schema.Literal("integration-cache-entity-unresolved"),
+	}),
+	Schema.Struct({
+		name: Schema.String,
+		source: Schema.String,
+		assets: Schema.Unknown,
+		muscles: Schema.Unknown,
+		equipment: Schema.Unknown,
+		legacyRecordId: Schema.String,
+		creatorUserId: Schema.NullOr(Schema.String),
+		code: Schema.Literal("exercise-ownerless-unreferenced"),
 	}),
 ]);
 

@@ -65,19 +65,6 @@ export const fitnessPlugin = definePlugin({
 		{ slug: "import-application", scriptSlug: "workflow.import-application" },
 		{ slug: "import-merge", scriptSlug: "workflow.import-merge" },
 	],
-	providers: [
-		{
-			name: "Free Exercise DB",
-			rootEntitySchemaSlug: "exercise",
-			slug: "exercise.free-exercise-db",
-			information: { source: "free-exercise-db" },
-			operations: {
-				search: "exercise.free-exercise-db.search",
-				details: "exercise.free-exercise-db.details",
-				resolve: "exercise.free-exercise-db.resolve",
-			},
-		},
-	],
 	client: {
 		homeView: null,
 		apiVersion: CLIENT_API_VERSION,
@@ -144,6 +131,41 @@ export const fitnessPlugin = definePlugin({
 				maxDelayMs: 60000,
 				initialDelayMs: 1000,
 				externalIdempotency: "none",
+			},
+		},
+	],
+	providers: [
+		{
+			name: "Free Exercise DB",
+			rootEntitySchemaSlug: "exercise",
+			slug: "exercise.free-exercise-db",
+			information: { source: "free-exercise-db" },
+			operations: {
+				search: "exercise.free-exercise-db.search",
+				details: "exercise.free-exercise-db.details",
+				resolve: "exercise.free-exercise-db.resolve",
+			},
+		},
+		{
+			name: "Exercise Target Fitness Catalog",
+			rootEntitySchemaSlug: "exercise-target",
+			slug: "exercise-target.fitness-catalog",
+			information: { source: "fitness-catalog" },
+			operations: {
+				search: "exercise-target.fitness-catalog.search",
+				details: "exercise-target.fitness-catalog.details",
+				resolve: "exercise-target.fitness-catalog.resolve",
+			},
+		},
+		{
+			name: "Exercise Equipment Fitness Catalog",
+			rootEntitySchemaSlug: "exercise-equipment",
+			slug: "exercise-equipment.fitness-catalog",
+			information: { source: "fitness-catalog" },
+			operations: {
+				search: "exercise-equipment.fitness-catalog.search",
+				details: "exercise-equipment.fitness-catalog.details",
+				resolve: "exercise-equipment.fitness-catalog.resolve",
 			},
 		},
 	],

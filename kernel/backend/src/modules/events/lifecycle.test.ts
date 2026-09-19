@@ -1104,6 +1104,7 @@ describe("Event lifecycle PostgreSQL", () => {
 								purgeApiKeyCaches: () => Effect.void,
 								deleteUserSessions: () => Effect.void,
 								revokeUserOAuthTokens: () => Effect.void,
+								revokePasswordResetLinks: () => Effect.void,
 								handler: () => Effect.die("unused").pipe(Effect.runPromise),
 								requestPasswordResetLink: (email) =>
 									Effect.succeed({ email, resetUrl: "https://example.test/reset" }),

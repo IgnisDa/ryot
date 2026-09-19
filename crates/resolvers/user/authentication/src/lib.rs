@@ -1,8 +1,8 @@
 use async_graphql::{Context, Object, Result};
 use media_models::{
-    AuthUserInput, LoginResult, OidcTokenOutput, RegisterResult, RegisterUserInput,
-    UserTwoFactorBackupCodesResponse, UserTwoFactorInitiateResponse, UserTwoFactorSetupInput,
-    UserTwoFactorVerifyInput, VerifyTwoFactorResult,
+    AuthUserInput, CompleteOidcLoginInput, LoginResult, OidcAuthorizationResponse, RegisterResult,
+    RegisterUserInput, UserTwoFactorBackupCodesResponse, UserTwoFactorInitiateResponse,
+    UserTwoFactorSetupInput, UserTwoFactorVerifyInput, VerifyTwoFactorResult,
 };
 use traits::GraphqlDependencyInjector;
 use user_service::{
@@ -18,15 +18,12 @@ impl GraphqlDependencyInjector for UserAuthenticationQueryResolver {}
 #[Object]
 impl UserAuthenticationQueryResolver {
     /// Get an authorization URL using the configured OIDC client.
-    async fn get_oidc_redirect_url(&self, gql_ctx: &Context<'_>) -> Result<String> {
+    async fn get_oidc_redirect_url(
+        &self,
+        gql_ctx: &Context<'_>,
+    ) -> Result<OidcAuthorizationResponse> {
         let service = self.dependency(gql_ctx);
         Ok(oidc_operations::get_oidc_redirect_url(service).await?)
-    }
-
-    /// Get an access token using the configured OIDC client.
-    async fn get_oidc_token(&self, gql_ctx: &Context<'_>, code: String) -> Result<OidcTokenOutput> {
-        let service = self.dependency(gql_ctx);
-        Ok(oidc_operations::get_oidc_token(service, code).await?)
     }
 
     /// Get user by OIDC issuer ID.
@@ -51,6 +48,15 @@ impl GraphqlDependencyInjector for UserAuthenticationMutationResolver {
 
 #[Object]
 impl UserAuthenticationMutationResolver {
+    async fn complete_oidc_login(
+        &self,
+        gql_ctx: &Context<'_>,
+        input: CompleteOidcLoginInput,
+    ) -> Result<LoginResult> {
+        let service = self.dependency(gql_ctx);
+        Ok(oidc_operations::complete_oidc_login(service, input).await?)
+    }
+
     /// Create a new user for the service. Also set their `lot` as admin if
     /// they are the first user.
     async fn register_user(

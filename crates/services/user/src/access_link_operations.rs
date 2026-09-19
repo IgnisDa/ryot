@@ -110,7 +110,10 @@ pub async fn generate_impersonation_link(
     ss: &Arc<SupportingService>,
     input: GenerateUserImpersonationLinkInput,
 ) -> Result<GenerateUserImpersonationLinkResponse> {
-    if input.admin_access_token != ss.config.server.admin_access_token {
+    if !crate::authorization::secrets_match(
+        &input.admin_access_token,
+        &ss.config.server.admin_access_token,
+    ) {
         bail!("Invalid admin access token");
     }
     let user = User::find_by_id(&input.user_id).one(&ss.db).await?;

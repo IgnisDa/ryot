@@ -290,11 +290,6 @@ export const PreparedClientPage = strictStruct({
 		apiVersion: Schema.Int,
 		bridgeVersion: Schema.Int,
 		compilerVersion: Schema.Int,
-		documentGrant: strictStruct({
-			src: Schema.String,
-			grantId: Schema.String,
-			expiresAt: Schema.String,
-		}),
 	}),
 });
 export type PreparedClientPage = typeof PreparedClientPage.Type;
@@ -302,9 +297,46 @@ export type PreparedClientPage = typeof PreparedClientPage.Type;
 export const CheckClientPageFreshnessBody = strictStruct({ identity: PreparedClientPageIdentity });
 export const CheckClientPageFreshnessResponse = strictStruct({ current: Schema.Boolean });
 
-export class ClientDocumentGrantNotFound extends Schema.TaggedError<ClientDocumentGrantNotFound>()(
-	"ClientDocumentGrantNotFound",
-	{ reason: strictStruct({ code: Schema.Literal("document-grant-not-found") }) },
+export const ClientCompositionDocumentBody = strictStruct({ identity: PreparedClientPageIdentity });
+
+export const ClientCompositionDocument = strictStruct({
+	title: Schema.String,
+	bootstrap: Schema.String,
+	stylesheets: Schema.Array(Schema.String),
+	modulepreloads: Schema.Array(Schema.String),
+	importMap: strictStruct({ imports: Schema.Record(Schema.String, Schema.String) }),
+	preloads: Schema.Array(
+		strictStruct({
+			href: Schema.String,
+			type: Schema.String,
+			as: Schema.Literals(["font", "image", "fetch"]),
+		}),
+	),
+	metadata: strictStruct({
+		format: Schema.Int,
+		hash: Schema.String,
+		apiVersion: Schema.Int,
+		bridgeVersion: Schema.Int,
+		compilerVersion: Schema.Int,
+	}),
+	descriptor: strictStruct({
+		...ClientPageCompositionManifest.fields.descriptor.fields,
+		automaticRegistry: Schema.Array(
+			strictStruct({
+				stylesheets: Schema.Array(Schema.String),
+				layout: ClientCompositionPresentationRegistration.fields.layout,
+				module: ClientCompositionPresentationRegistration.fields.module,
+				ownerPluginId: ClientCompositionPresentationRegistration.fields.ownerPluginId,
+				entitySchemaSlug: ClientCompositionPresentationRegistration.fields.entitySchemaSlug,
+			}),
+		),
+	}),
+});
+export type ClientCompositionDocument = typeof ClientCompositionDocument.Type;
+
+export class ClientPageDocumentStale extends Schema.TaggedError<ClientPageDocumentStale>()(
+	"ClientPageDocumentStale",
+	{ reason: strictStruct({ code: Schema.Literal("client-page-document-stale") }) },
 ) {}
 
 export class ClientAssetNotFound extends Schema.TaggedError<ClientAssetNotFound>()(

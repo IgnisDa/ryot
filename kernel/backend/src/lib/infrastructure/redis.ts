@@ -21,6 +21,7 @@ export const redisKeys = {
 	uploadToken: (token: string) => `ryot:upload:token:${token}`,
 	uploadIntent: (intentId: string) => `ryot:upload:intent:${intentId}`,
 	godModePendingReset: (email: string) => `ryot:god-mode:pending:${email}`,
+	passwordResetToken: (userId: string) => `ryot:auth:password-reset:${userId}`,
 	uploadIntentLock: (intentId: string) => `ryot:upload:intent-lock:${intentId}`,
 	importAdapterResult: (runId: string) => `ryot:imports:adapter-result:${runId}`,
 	impersonationHandoff: (ticketHash: string) => `ryot:auth:impersonation:${ticketHash}`,

@@ -20,7 +20,6 @@ import type {
 } from "@ryot-app/client-plugin-contract";
 import type { RyotClient } from "@ryot-app/client-sdk";
 import { Button, ScreenFrame, useShortcut } from "@ryot-app/client-ui-sdk";
-import type { PreparedClientPage } from "@ryot-app/contract/modules/client-pages/schemas";
 import clsx from "clsx";
 import { Effect } from "effect";
 import {
@@ -72,7 +71,7 @@ export function PluginFrame(props: {
 	readonly inert?: boolean;
 	readonly theme: ThemeStore;
 	readonly compositionHash: string;
-	readonly documentGrant: PreparedClientPage["composition"]["documentGrant"];
+	readonly onLoadDocument: () => Effect.Effect<string, Error>;
 	readonly documentKey: string;
 	readonly page?: ClientPageContext;
 	readonly chromeLeading: ReactNode;
@@ -113,7 +112,7 @@ export function PluginFrame(props: {
 	const entitySchemaSlug = location.kind === "entity" ? location.entitySchemaSlug : undefined;
 	const { subscribeResume, chromeTriggerRef } = props;
 	const latest = useRef(props);
-	const [documentSrc] = useState(props.documentGrant.src);
+	const [srcDoc, setSrcDoc] = useState<string>();
 	const frame = useRef<HTMLIFrameElement>(null);
 	const backSettle = useRef<number>(undefined);
 	const bridge = useRef<PluginBridgeSession>(undefined);
@@ -157,13 +156,19 @@ export function PluginFrame(props: {
 		return () => window.clearTimeout(timeout);
 	}, [frameStatus]);
 	useEffect(() => {
-		const element = frame.current;
-		if (!element) {
-			return undefined;
-		}
-		const failed = () => failHandshake();
-		element.addEventListener("error", failed);
-		return () => element.removeEventListener("error", failed);
+		const controller = new AbortController();
+		Effect.runFork(
+			latest.current
+				.onLoadDocument()
+				.pipe(
+					Effect.match({
+						onFailure: () => failHandshake(),
+						onSuccess: (document) => setSrcDoc(document),
+					}),
+				),
+			{ signal: controller.signal },
+		);
+		return () => controller.abort();
 	}, []);
 
 	useEffect(() => {
@@ -418,20 +423,21 @@ export function PluginFrame(props: {
 						onPress={() => bridge.current?.sendShortcut(shortcut)}
 					/>
 				))}
-			<iframe
-				src={documentSrc}
-				sandbox="allow-scripts"
-				referrerPolicy="no-referrer"
-				title={`${props.title} plugin`}
-				inert={props.inert === true || updateAvailable}
-				className={clsx("h-full w-full border-0", frameStatus !== "ready" && "invisible")}
-				ref={(node) => {
-					frame.current = node;
-					if (props.active) {
-						chromeTriggerRef.current = node;
-					}
-				}}
-			/>
+			{srcDoc === undefined ? null : (
+				<iframe
+					srcDoc={srcDoc}
+					sandbox="allow-scripts"
+					title={`${props.title} plugin`}
+					inert={props.inert === true || updateAvailable}
+					className={clsx("h-full w-full border-0", frameStatus !== "ready" && "invisible")}
+					ref={(node) => {
+						frame.current = node;
+						if (props.active) {
+							chromeTriggerRef.current = node;
+						}
+					}}
+				/>
+			)}
 			{frameStatus === "ready" ? null : (
 				<div className="absolute inset-0">
 					<PluginChromeFrame

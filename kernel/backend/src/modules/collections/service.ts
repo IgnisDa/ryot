@@ -300,10 +300,15 @@ export class CollectionsService extends Context.Service<CollectionsService>()(
 				if (!committed.result.relationship) {
 					return yield* Effect.die("membership upsert returned no relationship");
 				}
-				const { wasInserted: _savedWasInserted, ...memberOf } = committed.result.relationship;
+				const { wasInserted, ...memberOf } = committed.result.relationship;
 				return {
 					...committed,
-					result: { ...membership, memberOf, operation: committed.result.operation },
+					result: {
+						...membership,
+						memberOf,
+						operation: committed.result.operation,
+						addEventSchemaSlug: wasInserted ? membership.addEventSchemaSlug : null,
+					},
 				} satisfies LifecycleCommittedStep<CollectionMembershipResult>;
 			});
 
