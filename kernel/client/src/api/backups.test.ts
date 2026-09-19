@@ -1,4 +1,4 @@
-import { describe, expect, it } from "@effect/vitest";
+import { assert, describe, expect, it } from "@effect/vitest";
 import { BackupRunId } from "@ryot-app/contract/schema/brands";
 import { Effect, Layer, ManagedRuntime } from "effect";
 import { HttpClient, HttpClientResponse, type HttpClientRequest } from "effect/unstable/http";
@@ -54,6 +54,7 @@ describe("backups API", () => {
 				expect(http.seen[0].request.method).toBe("GET");
 				expect(http.seen[0].request.headers).toMatchObject({ authorization: "Bearer token-1" });
 				expect(blob).toBeInstanceOf(Blob);
+				assert.isDefined(blob);
 				expect(blob.type).toBe("application/zip");
 				expect(new Uint8Array(yield* Effect.promise(() => blob.arrayBuffer()))).toEqual(
 					archiveBytes,

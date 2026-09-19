@@ -31,8 +31,8 @@ import {
 	liveBackupRun,
 } from "#/modules/backups/presentation";
 import { BackupRestoreWizard } from "#/modules/backups/restore-wizard";
-import { saveBackupArchive } from "#/modules/backups/save-archive";
 import { DEMO_PROTECTION_MESSAGE, useIsDemoSession } from "#/modules/demo-protection";
+import { saveDownloadedFile } from "#/modules/downloads/file";
 import { SettingsFrame } from "#/modules/settings/settings-frame";
 import { LoadErrorState } from "#/modules/ui/load-error-state";
 import { RUN_LIST_POLL_MS, useRunPolling } from "#/modules/ui/run/use-run-polling";
@@ -211,7 +211,9 @@ function BackupsStandard() {
 					onSuccess: (blob) => {
 						downloading.current = undefined;
 						setDownloadingRunId(undefined);
-						saveBackupArchive(blob, backupArchiveFileName(run.id));
+						if (blob !== undefined) {
+							saveDownloadedFile(blob, backupArchiveFileName(run.id));
+						}
 					},
 				}),
 			),
