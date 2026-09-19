@@ -4,7 +4,7 @@ import {
 	useContext,
 	useEffect,
 	useEffectEvent,
-	useRef,
+	useState,
 	useSyncExternalStore,
 	type ReactNode,
 } from "react";
@@ -89,8 +89,7 @@ export function OverlayScope(props: {
 }) {
 	const back = useContext(OverlayBackContext);
 	const parent = useContext(ShortcutScopeContext);
-	const scope = useRef<ShortcutScope>({ parent, id: Symbol("shortcut-scope") }).current;
-	const escape = useEffectEvent(() => props.onEscape());
+	const [scope] = useState<ShortcutScope>(() => ({ parent, id: Symbol("shortcut-scope") }));
 	const dismiss = useEffectEvent(() => {
 		if (props.onBack !== undefined) {
 			return props.onBack();
@@ -132,7 +131,7 @@ export function OverlayScope(props: {
 		};
 	}, [back, enabled, props.backEnabled, scope]);
 
-	useShortcut("Escape", escape, { scope, enabled });
+	useShortcut("Escape", () => props.onEscape(), { scope, enabled });
 
 	return (
 		<ShortcutScopeContext.Provider value={scope}>{props.children}</ShortcutScopeContext.Provider>
