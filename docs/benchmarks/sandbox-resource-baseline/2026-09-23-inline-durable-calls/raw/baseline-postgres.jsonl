@@ -1,7 +1,0 @@
-{"label":"baseline","scenario":"direct:0","repetitions":5,"postgresCpuSeconds":1.10868,"postgresCommits":262}
-{"label":"baseline","scenario":"direct:1","repetitions":5,"postgresCpuSeconds":1.82876,"postgresCommits":652}
-{"label":"baseline","scenario":"direct:5","repetitions":5,"postgresCpuSeconds":4.74042,"postgresCommits":2969}
-{"label":"baseline","scenario":"direct:10","repetitions":5,"postgresCpuSeconds":9.66712,"postgresCommits":7673}
-{"label":"baseline","scenario":"import","repetitions":3,"postgresCpuSeconds":60.5002,"postgresCommits":23260}
-{"label":"baseline","scenario":"batch:5","repetitions":2,"postgresCpuSeconds":210.979,"postgresCommits":113007}
-{"label":"baseline","scenario":"import","repetitions":1,"postgresCpuSeconds":31.8566,"postgresCommits":11465}
