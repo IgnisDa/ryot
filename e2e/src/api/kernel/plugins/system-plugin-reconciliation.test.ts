@@ -58,9 +58,9 @@ const listPlugins = (client: Client) =>
 const reconcilePluginInstallations = () =>
 	adminSession().call((c) => c.testSupport.reconcilePluginInstallations(), adminHeaders());
 
-const uninstallShippedPlugin = (pluginSlug: PluginSlug) =>
+const uninstallShippedPlugin = (pluginSlug: PluginSlug, activationId: string) =>
 	adminSession().call(
-		(c) => c.testSupport.uninstallSystemPlugin({ params: { pluginSlug } }),
+		(c) => c.testSupport.uninstallSystemPlugin({ params: { pluginSlug, activationId } }),
 		adminHeaders(),
 	);
 
@@ -90,11 +90,9 @@ const installShippedPlugin = (
 		[entry]: literalSandboxSource({ name, slug, value: true }),
 	});
 	return Effect.acquireRelease(
-		installTestSupportSystemPlugin({ files, manifest, baseUrl: apiUrl() }).pipe(
-			Effect.as(pluginSlug),
-		),
-		() =>
-			uninstallShippedPlugin(pluginSlug).pipe(
+		installTestSupportSystemPlugin({ files, manifest, baseUrl: apiUrl() }),
+		(installed) =>
+			uninstallShippedPlugin(pluginSlug, installed.activationId).pipe(
 				Effect.catch((error) =>
 					Effect.logWarning(
 						`[reconciliation] shipped cleanup failed for '${pluginSlug}' (non-fatal)`,
@@ -219,7 +217,7 @@ describe("system plugin reconciliation", () => {
 				"id",
 			);
 
-			yield* installShippedPlugin(pluginSlug);
+			const shipped = yield* installShippedPlugin(pluginSlug);
 			yield* reconcilePluginInstallations();
 
 			const conflicted = yield* ownedInstallation(client, pluginSlug);
@@ -229,7 +227,7 @@ describe("system plugin reconciliation", () => {
 				health: "ready",
 			});
 
-			yield* uninstallShippedPlugin(pluginSlug);
+			yield* uninstallShippedPlugin(pluginSlug, shipped.activationId);
 			yield* reconcilePluginInstallations();
 
 			const restored = yield* ownedInstallation(client, pluginSlug);
@@ -245,13 +243,20 @@ describe("system plugin reconciliation", () => {
 		Effect.gen(function* () {
 			const { client } = yield* createAuthenticatedClient(apiUrl());
 			const pluginSlug = PluginSlug.make(`e2e-shadowed-removable-${crypto.randomUUID()}`);
-			yield* installPrivatePlugin({ client, pluginSlug, baseUrl: apiUrl(), config: privateConfig });
+			const privatePlugin = yield* installPrivatePlugin({
+				client,
+				pluginSlug,
+				baseUrl: apiUrl(),
+				config: privateConfig,
+			});
 			yield* installShippedPlugin(pluginSlug);
 			yield* reconcilePluginInstallations();
 			expect((yield* ownedInstallation(client, pluginSlug)).health).toBe("incompatible");
 
 			const [before] = yield* installationRows(client, pluginSlug, "user");
-			const removed = yield* client.call((c) => c.plugins.uninstall({ params: { pluginSlug } }));
+			const removed = yield* client.call((c) =>
+				c.plugins.uninstall({ params: { pluginSlug, activationId: privatePlugin.activationId } }),
+			);
 			expect(removed.id).toBe(
 				requireRyotQLText(
 					requirePresent(before, "Shadowed private installation was not found"),

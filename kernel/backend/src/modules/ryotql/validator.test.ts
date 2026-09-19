@@ -126,6 +126,7 @@ it("exposes only approved application-table fields", () => {
 			"slug",
 			"scope",
 			"status",
+			"activationId",
 			"version",
 			"sourceHash",
 			"ingestedAt",

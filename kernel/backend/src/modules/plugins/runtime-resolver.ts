@@ -379,6 +379,7 @@ export class PluginRuntimeResolver extends Context.Service<PluginRuntimeResolver
 					db
 						.select({
 							revisionId: schema.pluginRevision.id,
+							activationId: schema.plugin.activationId,
 							userBootstrap: manifestField("userBootstrap"),
 							scope: sql<
 								"system" | "user"
@@ -405,6 +406,7 @@ export class PluginRuntimeResolver extends Context.Service<PluginRuntimeResolver
 					entries,
 					health: state.health,
 					pluginScope: active.scope,
+					activationId: active.activationId,
 					userId: UserId.make(state.userId),
 				};
 			});

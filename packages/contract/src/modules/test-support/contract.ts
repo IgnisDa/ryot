@@ -253,14 +253,18 @@ export const TestSupportGroup = HttpApiGroup.make("testSupport")
 		),
 	)
 	.add(
-		HttpApiEndpoint.delete("uninstallSystemPlugin", "/test-support/system-plugins/:pluginSlug", {
-			params: { pluginSlug: PluginSlug },
-			success: Schema.Struct({ pluginId: PluginId }),
-			error: [
-				...testSupportErrors,
-				PluginConflictError.pipe(HttpApiSchema.status(409)),
-				PluginNotFoundError.pipe(HttpApiSchema.status(404)),
-			],
-		}).annotate(OpenApi.Description, "Uninstalls a system plugin"),
+		HttpApiEndpoint.delete(
+			"uninstallSystemPlugin",
+			"/test-support/system-plugins/:pluginSlug/:activationId",
+			{
+				success: Schema.Struct({ pluginId: PluginId }),
+				params: { pluginSlug: PluginSlug, activationId: Schema.String },
+				error: [
+					...testSupportErrors,
+					PluginConflictError.pipe(HttpApiSchema.status(409)),
+					PluginNotFoundError.pipe(HttpApiSchema.status(404)),
+				],
+			},
+		).annotate(OpenApi.Description, "Uninstalls a system plugin"),
 	)
 	.middleware(AdminMiddleware);

@@ -4,7 +4,18 @@ import {
 	encodePluginCatalogInvalidatedMessage,
 } from "@ryot-app/contract/modules/plugins/contract";
 import { UserId } from "@ryot-app/contract/schema/brands";
-import { Context, Effect, Fiber, Layer, Option, Queue, Ref, Result, Stream } from "effect";
+import {
+	Context,
+	Deferred,
+	Effect,
+	Fiber,
+	Layer,
+	Option,
+	Queue,
+	Ref,
+	Result,
+	Stream,
+} from "effect";
 import { TestClock } from "effect/testing";
 import Redis from "ioredis";
 
@@ -135,6 +146,32 @@ layer(
 		Layer.provideMerge(isolatedDatabaseLayer("plugin_catalog_events")),
 	),
 )((test) => {
+	test.effect("recovers a committed invalidation after its request is interrupted", () =>
+		Effect.gen(function* () {
+			const invalidator = yield* PluginCatalogInvalidator;
+			const database = yield* DatabaseSession;
+			const recorded = yield* RecordedPublications;
+			const committed = yield* Deferred.make<void>();
+			const request = yield* database
+				.transaction(invalidator.recordAll)
+				.pipe(
+					Effect.andThen(Deferred.succeed(committed, undefined)),
+					Effect.andThen(Effect.never),
+					Effect.forkChild,
+				);
+			yield* Deferred.await(committed);
+			yield* Fiber.interrupt(request);
+			expect(yield* recorded.published).toEqual([]);
+			expect(
+				yield* database.run((db) => db.select().from(schema.pluginCatalogChange)),
+			).toHaveLength(1);
+			yield* invalidator.deliverPending(100);
+			expect((yield* recorded.published).map(({ channel }) => channel)).toEqual([
+				redisKeys.pluginCatalogChannel,
+			]);
+			expect(yield* database.run((db) => db.select().from(schema.pluginCatalogChange))).toEqual([]);
+		}),
+	);
 	test.effect(
 		"publishes encoded user and global invalidations without surfacing Redis failures",
 		() =>
@@ -142,6 +179,7 @@ layer(
 				const recorded = yield* RecordedPublications;
 				const invalidator = yield* PluginCatalogInvalidator;
 				const database = yield* DatabaseSession;
+				const publishedBefore = (yield* recorded.published).length;
 				const userId = UserId.make("user-1");
 				yield* database.run((db) =>
 					db
@@ -153,7 +191,7 @@ layer(
 				);
 				yield* invalidator.user(userId);
 				yield* invalidator.all;
-				const published = yield* recorded.published;
+				const published = (yield* recorded.published).slice(publishedBefore);
 				expect(published.map(({ channel }) => channel)).toEqual([
 					redisKeys.pluginCatalogUserChannel,
 					redisKeys.pluginCatalogChannel,
@@ -170,7 +208,9 @@ layer(
 				expect(yield* database.run((db) => db.select().from(schema.pluginCatalogChange))).toEqual(
 					[],
 				);
-				expect((yield* recorded.published).map(({ channel }) => channel)).toEqual([
+				expect(
+					(yield* recorded.published).slice(publishedBefore).map(({ channel }) => channel),
+				).toEqual([
 					redisKeys.pluginCatalogUserChannel,
 					redisKeys.pluginCatalogChannel,
 					redisKeys.pluginCatalogUserChannel,

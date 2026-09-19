@@ -57,7 +57,9 @@ export const PluginsRoutesLive = HttpApiBuilder.group(AppContract, "plugins", (h
 			Effect.gen(function* () {
 				const user = yield* CurrentUser;
 				const service = yield* PluginInstallationService;
-				return yield* service.uninstallPlugin(user.id, params.pluginSlug).pipe(dieOnDbError);
+				return yield* service
+					.uninstallPlugin(user.id, params.pluginSlug, params.activationId)
+					.pipe(dieOnDbError);
 			}),
 		)
 		.handle("updatePluginState", ({ params, payload }) =>

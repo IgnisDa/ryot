@@ -231,6 +231,11 @@ export const PluginInstallationWriteResult = Schema.Struct({
 	pluginId: PluginId,
 });
 
+export const PluginInstallResult = Schema.Struct({
+	...PluginInstallationWriteResult.fields,
+	activationId: Schema.String,
+});
+
 export const PluginInvokeBody = Schema.Struct({
 	payload: JsonValue,
 	sourceHash: Schema.optional(Schema.String),

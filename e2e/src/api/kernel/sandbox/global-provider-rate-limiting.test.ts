@@ -466,7 +466,10 @@ describe("isolated deployment-global sandbox HTTP rate limiting", () => {
 						.call(
 							(c) =>
 								c.testSupport.uninstallSystemPlugin({
-									params: { pluginSlug: PluginSlug.make(pluginSlug) },
+									params: {
+										activationId: installed.activationId,
+										pluginSlug: PluginSlug.make(pluginSlug),
+									},
 								}),
 							adminHeaders(),
 						)

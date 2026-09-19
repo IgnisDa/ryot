@@ -1,4 +1,4 @@
-import { expect, layer } from "@effect/vitest";
+import { expect, it, layer } from "@effect/vitest";
 import { SandboxScriptId, UserId } from "@ryot-app/contract/schema/brands";
 import { Context, Effect, Layer, Ref } from "effect";
 import { WorkflowEngine, WorkflowInstance } from "effect/unstable/workflow/WorkflowEngine";
@@ -10,6 +10,7 @@ import { PluginCatalogInvalidator } from "./catalog-events";
 import { PluginInstallationRepository } from "./installation-repository";
 import {
 	pluginInstallationBootstrapExecutionId,
+	pluginInstallationExecutionId,
 	PluginInstallationWorkflow,
 	PluginInstallationWorkflowOperationsLive,
 	runPluginInstallationWorkflow,
@@ -18,6 +19,19 @@ import { PluginRuntimeResolver } from "./runtime-resolver";
 
 const userId = UserId.make("user-1");
 const installationId = "installation-1";
+const activationId = "activation-1";
+
+it("keeps lifecycle executions distinct for each installation and activation", () => {
+	expect(pluginInstallationExecutionId("installation-2", activationId)).not.toBe(
+		pluginInstallationExecutionId(installationId, activationId),
+	);
+	expect(pluginInstallationExecutionId(installationId, "replacement")).not.toBe(
+		pluginInstallationExecutionId(installationId, activationId),
+	);
+	expect(pluginInstallationBootstrapExecutionId("installation-2", activationId, "first")).not.toBe(
+		pluginInstallationBootstrapExecutionId(installationId, activationId, "first"),
+	);
+});
 
 type ResolvedBootstrap = Effect.Success<
 	ReturnType<PluginRuntimeResolver["Service"]["resolveInstallationBootstrap"]>
@@ -31,6 +45,7 @@ const bootstrapEntry = (slug: string) => ({ slug, scriptId: SandboxScriptId.make
 
 const resolved = (overrides: Partial<NonNullable<ResolvedBootstrap>> = {}) => ({
 	userId,
+	activationId,
 	pluginScope: "user" as const,
 	health: "installing" as const,
 	entries: [bootstrapEntry("first"), bootstrapEntry("second")],
@@ -102,10 +117,13 @@ const workflowLayer = (input: {
 						resolveInstallationBootstrap: () => Ref.get(bootstrap),
 					}),
 					Layer.mock(PluginInstallationRepository)({
-						updateHealth: (values) =>
-							pushOrder(`health:${values.health}`).pipe(
-								Effect.andThen(Ref.update(healthUpdates, (all) => [...all, values])),
-							),
+						updateHealthForActivation: ({ activationId: expected, ...values }) =>
+							expected === activationId
+								? pushOrder(`health:${values.health}`).pipe(
+										Effect.andThen(Ref.update(healthUpdates, (all) => [...all, values])),
+										Effect.as(true),
+									)
+								: Effect.succeed(false),
 						findById: () =>
 							Effect.succeed({
 								userId,
@@ -155,7 +173,7 @@ const workflowLayer = (input: {
 	);
 };
 
-const runWorkflow = runPluginInstallationWorkflow({ installationId }, "execution-1");
+const runWorkflow = runPluginInstallationWorkflow({ activationId, installationId }, "execution-1");
 
 layer(workflowLayer({ bootstrap: resolved() }))((test) => {
 	test.effect("runs bootstrap entries in declared order with owner subject and stable ids", () =>
@@ -167,12 +185,20 @@ layer(workflowLayer({ bootstrap: resolved() }))((test) => {
 				{
 					scriptId: "first-id",
 					subject: { userId, type: "user" },
-					executionId: pluginInstallationBootstrapExecutionId(installationId, "first"),
+					executionId: pluginInstallationBootstrapExecutionId(
+						installationId,
+						activationId,
+						"first",
+					),
 				},
 				{
 					scriptId: "second-id",
 					subject: { userId, type: "user" },
-					executionId: pluginInstallationBootstrapExecutionId(installationId, "second"),
+					executionId: pluginInstallationBootstrapExecutionId(
+						installationId,
+						activationId,
+						"second",
+					),
 				},
 			]);
 			expect(yield* fake.healthUpdates).toEqual([
@@ -184,7 +210,7 @@ layer(workflowLayer({ bootstrap: resolved() }))((test) => {
 
 layer(workflowLayer({ bootstrap: null }))((test) => {
 	test.effect("does nothing for a missing or settled installation", () => {
-		const cases = [null, resolved({ health: "ready" })];
+		const cases = [null, resolved({ health: "ready" }), resolved({ activationId: "replacement" })];
 		return Effect.gen(function* () {
 			const fake = yield* FakeInstallationWorkflow;
 			yield* Effect.forEach(cases, (bootstrap) =>
@@ -206,10 +232,10 @@ layer(workflowLayer({ bootstrap: resolved() }))((test) => {
 			yield* runWorkflow;
 			yield* runWorkflow;
 			expect((yield* fake.executions).map(({ executionId }) => executionId)).toEqual([
-				pluginInstallationBootstrapExecutionId(installationId, "first"),
-				pluginInstallationBootstrapExecutionId(installationId, "second"),
-				pluginInstallationBootstrapExecutionId(installationId, "first"),
-				pluginInstallationBootstrapExecutionId(installationId, "second"),
+				pluginInstallationBootstrapExecutionId(installationId, activationId, "first"),
+				pluginInstallationBootstrapExecutionId(installationId, activationId, "second"),
+				pluginInstallationBootstrapExecutionId(installationId, activationId, "first"),
+				pluginInstallationBootstrapExecutionId(installationId, activationId, "second"),
 			]);
 		}),
 	);
