@@ -7,7 +7,7 @@ import {
 } from "@ryot-app/client-plugin-contract";
 import { PluginSlug } from "@ryot-app/contract/schema/brands";
 import { act, fireEvent, render, screen, waitFor } from "@testing-library/react";
-import { Schema } from "effect";
+import { Effect, Schema } from "effect";
 import { describe, expect, it } from "vitest";
 
 import { createBackInterceptors } from "#/modules/navigation/back-interceptors";
@@ -36,7 +36,7 @@ function mount(
 		readonly subscribeResume?: (resumed: () => void) => () => void;
 		readonly onInvokeOperation?: (
 			request: PluginOperationRequest,
-		) => Promise<PluginOperationDispatchOutcome>;
+		) => Effect.Effect<PluginOperationDispatchOutcome>;
 	} = {},
 ) {
 	const backInterceptors = createBackInterceptors();
@@ -92,12 +92,12 @@ function mount(
 		onProviderSearch: (request: unknown) => providerSearches.push(request),
 		onCheckFreshness: options.onCheckFreshness ?? (() => Promise.resolve(true)),
 		watchEntities: () => ({ update: () => undefined, dispose: () => undefined }),
-		onQuery: () => Promise.resolve({ outcome: "failure" as const, reason: "transport" as const }),
-		onAssets: () => Promise.resolve({ outcome: "failure" as const, reason: "transport" as const }),
-		onUpload: () => Promise.resolve({ outcome: "failure" as const, reason: "transport" as const }),
-		onStorage: () => Promise.resolve({ outcome: "failure" as const, reason: "transport" as const }),
+		onQuery: () => Effect.succeed({ outcome: "failure" as const, reason: "transport" as const }),
+		onAssets: () => Effect.succeed({ outcome: "failure" as const, reason: "transport" as const }),
+		onUpload: () => Effect.succeed({ outcome: "failure" as const, reason: "transport" as const }),
+		onStorage: () => Effect.succeed({ outcome: "failure" as const, reason: "transport" as const }),
 		onCollection: () =>
-			Promise.resolve({ outcome: "failure" as const, reason: "transport" as const }),
+			Effect.succeed({ outcome: "failure" as const, reason: "transport" as const }),
 		navigation: {
 			index,
 			location,
@@ -110,7 +110,7 @@ function mount(
 			operations.push(request);
 			return (
 				options.onInvokeOperation?.(request) ??
-				Promise.resolve({ value: null, outcome: "success" as const })
+				Effect.succeed({ value: null, outcome: "success" as const })
 			);
 		},
 		page: {
@@ -145,11 +145,15 @@ function mount(
 	};
 }
 
-async function flush() {
-	await act(async () => {
-		await Promise.resolve();
-		await Promise.resolve();
-	});
+function flush() {
+	return act(() =>
+		Effect.runPromise(
+			Effect.gen(function* () {
+				yield* Effect.promise(() => Promise.resolve());
+				yield* Effect.promise(() => Promise.resolve());
+			}),
+		),
+	);
 }
 
 function connect(frame: HTMLIFrameElement) {
@@ -189,6 +193,7 @@ function connect(frame: HTMLIFrameElement) {
 }
 
 describe("PluginFrame", () => {
+	// oxlint-disable-next-line effecttsgo/async-function -- Vitest awaits this Promise-based test callback and its framework assertions.
 	it("uses one grant and bridge while location and global history change", async () => {
 		const host = mount();
 		await flush();
@@ -211,6 +216,7 @@ describe("PluginFrame", () => {
 		});
 	});
 
+	// oxlint-disable-next-line effecttsgo/async-function -- Vitest awaits this Promise-based test callback and its framework assertions.
 	it("replaces a document without reloading the iframe and clears page-owned state", async () => {
 		const host = mount();
 		const frame = screen.getByTitle<HTMLIFrameElement>("Fixture plugin");
@@ -234,6 +240,7 @@ describe("PluginFrame", () => {
 		expect(host.backInterceptors.run()).toBe(false);
 	});
 
+	// oxlint-disable-next-line effecttsgo/async-function -- Vitest awaits this Promise-based test callback and its framework assertions.
 	it("forwards explicit route, page-search, operation target, and matching readiness", async () => {
 		const host = mount();
 		await flush();
@@ -282,6 +289,7 @@ describe("PluginFrame", () => {
 		expect(host.states).toContainEqual({ index: 0, key: "k0", hasPreviousScreen: true });
 	});
 
+	// oxlint-disable-next-line effecttsgo/async-function -- Vitest awaits this Promise-based test callback and its framework assertions.
 	it("sends one page refresh for a host mutation-completed hint", async () => {
 		const host = mount();
 		await flush();
@@ -302,6 +310,7 @@ describe("PluginFrame", () => {
 		).toHaveLength(1);
 	});
 
+	// oxlint-disable-next-line effecttsgo/async-function -- Vitest awaits this Promise-based test callback and its framework assertions.
 	it("suppresses retained frame effects and refreshes once after a missed mutation", async () => {
 		const host = mount();
 		await flush();
@@ -328,6 +337,7 @@ describe("PluginFrame", () => {
 		).toHaveLength(1);
 	});
 
+	// oxlint-disable-next-line effecttsgo/async-function -- Vitest awaits this Promise-based test callback and its framework assertions.
 	it("sends one lifecycle page refresh only when the application becomes visible", async () => {
 		const visibility = Object.getOwnPropertyDescriptor(document, "visibilityState");
 		try {
@@ -368,6 +378,7 @@ describe("PluginFrame", () => {
 		}
 	});
 
+	// oxlint-disable-next-line effecttsgo/async-function -- Vitest awaits this Promise-based test callback and its framework assertions.
 	it("sends the same page refresh on native resume and releases the listener", async () => {
 		let resume: (() => void) | undefined;
 		let released = false;
@@ -399,6 +410,7 @@ describe("PluginFrame", () => {
 		expect(released).toBe(true);
 	});
 
+	// oxlint-disable-next-line effecttsgo/async-function -- Vitest awaits this Promise-based test callback and its framework assertions.
 	it("registers iframe overlay Back ownership and releases it after acknowledgement", async () => {
 		const host = mount();
 		await flush();
@@ -419,6 +431,7 @@ describe("PluginFrame", () => {
 		await waitFor(() => expect(host.backInterceptors.run()).toBe(false));
 	});
 
+	// oxlint-disable-next-line effecttsgo/async-function -- Vitest awaits this Promise-based test callback and its framework assertions.
 	it("keeps the current frame mounted when an invalidation reports an update", async () => {
 		let reloads = 0;
 		let checks = 0;
@@ -447,13 +460,14 @@ describe("PluginFrame", () => {
 		expect(reloads).toBe(1);
 	});
 
+	// oxlint-disable-next-line effecttsgo/async-function -- Vitest awaits this Promise-based test callback and its framework assertions.
 	it("keeps the bridge mounted and reports a clear failure when an operation is stale", async () => {
 		let reloads = 0;
 		mount({
 			onReloadCurrent: () => {
 				reloads += 1;
 			},
-			onInvokeOperation: () => Promise.resolve({ outcome: "stale-session" }),
+			onInvokeOperation: () => Effect.succeed({ outcome: "stale-session" }),
 		});
 		await flush();
 		const frame = screen.getByTitle<HTMLIFrameElement>("Fixture plugin");
@@ -482,6 +496,7 @@ describe("PluginFrame", () => {
 		);
 	});
 
+	// oxlint-disable-next-line effecttsgo/async-function -- Vitest awaits this Promise-based test callback and its framework assertions.
 	it("requests a new document grant when the bridge fails", async () => {
 		let parentReloads = 0;
 		const host = mount({
@@ -505,6 +520,7 @@ describe("PluginFrame", () => {
 		host.unmount();
 	});
 
+	// oxlint-disable-next-line effecttsgo/async-function -- Vitest awaits this Promise-based test callback and its framework assertions.
 	it("offers a retry when the initial document cannot load", async () => {
 		let reloads = 0;
 		mount({

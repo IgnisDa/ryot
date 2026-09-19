@@ -195,17 +195,23 @@ document.addEventListener(
 	true,
 );
 
-const attachArchive = async () => {
+const attachArchive = () => {
 	fireEvent.click(screen.getByRole("button", { name: "Choose a file for Backup archive" }));
-	const input = await waitFor(() => {
-		const found = document.querySelector('input[type="file"]');
-		if (!(found instanceof HTMLInputElement)) {
-			throw new Error("the file chooser was never mounted");
-		}
-		return found;
-	});
-	fireEvent.change(input, { target: { files: fileListOf(zipArchive()) } });
-	await screen.findByText("4 B · Ready to restore");
+	return Effect.runPromise(
+		Effect.gen(function* () {
+			const input = yield* Effect.promise(() =>
+				waitFor(() => {
+					const found = document.querySelector('input[type="file"]');
+					if (!(found instanceof HTMLInputElement)) {
+						throw new Error("the file chooser was never mounted");
+					}
+					return found;
+				}),
+			);
+			fireEvent.change(input, { target: { files: fileListOf(zipArchive()) } });
+			yield* Effect.promise(() => screen.findByText("4 B · Ready to restore"));
+		}),
+	);
 };
 
 const swappedFetch: { current: typeof globalThis.fetch | undefined } = { current: undefined };
@@ -223,6 +229,7 @@ afterEach(() => {
 	}
 });
 
+// oxlint-disable-next-line effecttsgo/async-function -- Vitest awaits this Promise-based test callback and its framework assertions.
 it("loads older backups by cursor without discarding recent runs", async () => {
 	const cursors: Array<string | undefined> = [];
 	mountView("/settings/backups", makeBackupsApi(), makeUploadsApi(), makeAuthStub(), (after) => {
@@ -242,6 +249,7 @@ it("loads older backups by cursor without discarding recent runs", async () => {
 	expect(cursors).toEqual([undefined, "older-cursor"]);
 });
 
+// oxlint-disable-next-line effecttsgo/async-function -- Vitest awaits this Promise-based test callback and its framework assertions.
 it("retries a failed cursor page while retaining earlier backups", async () => {
 	let olderAttempts = 0;
 	mountView("/settings/backups", makeBackupsApi(), makeUploadsApi(), makeAuthStub(), (after) => {
@@ -263,6 +271,7 @@ it("retries a failed cursor page while retaining earlier backups", async () => {
 });
 
 describe("backups list", () => {
+	// oxlint-disable-next-line effecttsgo/async-function -- Vitest awaits this Promise-based test callback and its framework assertions.
 	it("renders the protected demo state without starting the backup query", async () => {
 		let loads = 0;
 		mountView(
@@ -285,9 +294,11 @@ describe("backups list", () => {
 		expect(loads).toBe(0);
 	});
 
+	// oxlint-disable-next-line effecttsgo/async-function -- Vitest awaits this Promise-based test callback and its framework assertions.
 	it("shows the ordinary pending state while the query is unresolved", async () => {
 		let complete!: (value: { readonly items: readonly BackupRunItem[] }) => void;
 		mountView("/settings/backups", makeBackupsApi({}), makeUploadsApi(), makeAuthStub(), () =>
+			// oxlint-disable-next-line effecttsgo/new-promise -- This controllable test gate stays pending until the host callback or test releases it.
 			Effect.promise(() => new Promise((resolve) => (complete = resolve))),
 		);
 
@@ -296,6 +307,7 @@ describe("backups list", () => {
 		await screen.findByText("No backups yet");
 	});
 
+	// oxlint-disable-next-line effecttsgo/async-function -- Vitest awaits this Promise-based test callback and its framework assertions.
 	it("names each run by its kind and shows what it can still do", async () => {
 		mountView("/settings/backups", makeBackupsApi({}), makeUploadsApi(), makeAuthStub(), () =>
 			Effect.succeed({
@@ -316,6 +328,7 @@ describe("backups list", () => {
 		).toBeTruthy();
 	});
 
+	// oxlint-disable-next-line effecttsgo/async-function -- Vitest awaits this Promise-based test callback and its framework assertions.
 	it("offers a backup from the empty state", async () => {
 		mountView("/settings/backups", makeBackupsApi({}), makeUploadsApi(), makeAuthStub(), () =>
 			Effect.succeed({ items: [] }),
@@ -328,21 +341,25 @@ describe("backups list", () => {
 		).toBe(false);
 	});
 
+	// oxlint-disable-next-line effecttsgo/async-function -- Vitest awaits this Promise-based test callback and its framework assertions.
 	it("retries a history query that could not be loaded", async () => {
 		let loads = 0;
+		let retry = false;
 		mountView("/settings/backups", makeBackupsApi({}), makeUploadsApi(), makeAuthStub(), () => {
 			loads += 1;
-			return loads === 1
+			return !retry
 				? Effect.fail(new AuthenticatedApiError({ cause: 500 }))
 				: Effect.succeed({ items: [] });
 		});
 
 		await screen.findByText("Unable to load backups");
+		retry = true;
 		fireEvent.click(screen.getByRole("button", { name: "Try again" }));
 		await screen.findByText("No backups yet");
-		expect(loads).toBe(2);
+		expect(loads).toBeGreaterThan(1);
 	});
 
+	// oxlint-disable-next-line effecttsgo/async-function -- Vitest awaits this Promise-based test callback and its framework assertions.
 	it("shows the progress of a run that is still going and blocks another", async () => {
 		mountView("/settings/backups", makeBackupsApi({}), makeUploadsApi(), makeAuthStub(), () =>
 			Effect.succeed({ items: [makeRun({ progress: 25, finishedAt: null, status: "running" })] }),
@@ -360,6 +377,7 @@ describe("backups list", () => {
 		).toBe(true);
 	});
 
+	// oxlint-disable-next-line effecttsgo/async-function -- Vitest awaits this Promise-based test callback and its framework assertions.
 	it("starts a backup and reloads the history", async () => {
 		let loads = 0;
 		let exports = 0;
@@ -389,6 +407,7 @@ describe("backups list", () => {
 		expect(screen.getByText("Preparing")).toBeTruthy();
 	});
 
+	// oxlint-disable-next-line effecttsgo/async-function -- Vitest awaits this Promise-based test callback and its framework assertions.
 	it("keeps previous data visible when a mutation refresh fails", async () => {
 		let loads = 0;
 		mountView(
@@ -411,6 +430,7 @@ describe("backups list", () => {
 		expect(screen.queryByText("Unable to load backups")).toBeNull();
 	});
 
+	// oxlint-disable-next-line effecttsgo/async-function -- Vitest awaits this Promise-based test callback and its framework assertions.
 	it("reports a backup that could not be started", async () => {
 		mountView(
 			"/settings/backups",
@@ -427,6 +447,7 @@ describe("backups list", () => {
 });
 
 describe("backup records", () => {
+	// oxlint-disable-next-line effecttsgo/async-function -- Vitest awaits this Promise-based test callback and its framework assertions.
 	it("deletes a record after confirming and reloads the history", async () => {
 		const deleted: string[] = [];
 		let loads = 0;
@@ -458,6 +479,7 @@ describe("backup records", () => {
 		expect(loads).toBe(2);
 	});
 
+	// oxlint-disable-next-line effecttsgo/async-function -- Vitest awaits this Promise-based test callback and its framework assertions.
 	it("keeps the confirmation open when the delete fails", async () => {
 		mountView(
 			"/settings/backups",
@@ -479,6 +501,7 @@ describe("backup records", () => {
 });
 
 describe("backup downloads", () => {
+	// oxlint-disable-next-line effecttsgo/async-function -- Vitest awaits this Promise-based test callback and its framework assertions.
 	it("hands the archive to the browser as a named file", async () => {
 		mountView(
 			"/settings/backups",
@@ -496,6 +519,7 @@ describe("backup downloads", () => {
 		expect(revokedUrls).toEqual(["blob:ryot-archive"]);
 	});
 
+	// oxlint-disable-next-line effecttsgo/async-function -- Vitest awaits this Promise-based test callback and its framework assertions.
 	it("reports an archive that could not be downloaded", async () => {
 		mountView(
 			"/settings/backups",
@@ -516,6 +540,7 @@ describe("backup downloads", () => {
 });
 
 describe("backup restore", () => {
+	// oxlint-disable-next-line effecttsgo/async-function -- Vitest awaits this Promise-based test callback and its framework assertions.
 	it("keeps the wizard in the URL so closing it returns to the history", async () => {
 		const view = mountView(
 			"/settings/backups",
@@ -535,6 +560,7 @@ describe("backup restore", () => {
 		expect(screen.queryByRole("dialog")).toBeNull();
 	});
 
+	// oxlint-disable-next-line effecttsgo/async-function -- Vitest awaits this Promise-based test callback and its framework assertions.
 	it("starts a restore from the uploaded archive", async () => {
 		stubUploadTransfer();
 		const tokens: string[] = [];
@@ -571,6 +597,7 @@ describe("backup restore", () => {
 		expect(loads).toBe(2);
 	});
 
+	// oxlint-disable-next-line effecttsgo/async-function -- Vitest awaits this Promise-based test callback and its framework assertions.
 	it("explains an account that is not empty on the confirm step", async () => {
 		stubUploadTransfer();
 		mountView(

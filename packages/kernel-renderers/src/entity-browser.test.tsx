@@ -46,6 +46,7 @@ const testClock = () => {
 	return clock;
 };
 
+// oxlint-disable-next-line effecttsgo/async-function -- Test helper awaits the React bridge harness.
 const browserRequest = async (page: ReturnType<typeof mountPluginPage>, index: number) => {
 	await waitFor(() => expect(page.queryRequests("entityBrowser").length).toBeGreaterThan(index));
 	const request = page.queryRequests("entityBrowser")[index];
@@ -67,6 +68,7 @@ const replyBrowser = (
 		response: browserPage(items, hasMore, nextCursor),
 	});
 
+// oxlint-disable-next-line effecttsgo/async-function -- Test helper awaits the React bridge harness.
 const answerBrowser = async (
 	page: ReturnType<typeof mountPluginPage>,
 	answered: Set<string>,
@@ -90,11 +92,13 @@ const answerBrowser = async (
 };
 
 describe("entity browser", () => {
+	// oxlint-disable-next-line effecttsgo/async-function -- Vitest teardown awaits runtime disposal.
 	afterEach(async () => {
 		disposePluginBridges();
 		await Promise.all(clocks.splice(0).map((clock) => clock.dispose()));
 	});
 
+	// oxlint-disable-next-line effecttsgo/async-function -- Vitest awaits the React bridge harness.
 	it("titles the screen with the saved view and announces its shipped chrome", async () => {
 		const answered = new Set<string>();
 		const page = openBrowser();
@@ -121,6 +125,7 @@ describe("entity browser", () => {
 		expect(dialog.textContent).not.toContain("View as");
 	});
 
+	// oxlint-disable-next-line effecttsgo/async-function -- Vitest awaits the React bridge harness.
 	it("registers its page shortcuts upward and opens provider search on a kernel press", async () => {
 		const answered = new Set<string>();
 		const page = openBrowser();
@@ -142,6 +147,7 @@ describe("entity browser", () => {
 		);
 	});
 
+	// oxlint-disable-next-line effecttsgo/async-function -- Vitest awaits the React bridge harness.
 	it("counts every result on demand and reports the total beside the loaded count", async () => {
 		const answered = new Set<string>();
 		const page = openBrowser();
@@ -161,6 +167,7 @@ describe("entity browser", () => {
 		await waitFor(() => expect(page.container?.textContent).toContain("1 of 42 results"));
 	});
 
+	// oxlint-disable-next-line effecttsgo/async-function -- Vitest awaits the React bridge harness.
 	it("offers an online search that seeds the provider query when nothing matches", async () => {
 		const answered = new Set<string>();
 		const page = openBrowser({ search: "search=piranesi" });
@@ -180,6 +187,7 @@ describe("entity browser", () => {
 		);
 	});
 
+	// oxlint-disable-next-line effecttsgo/async-function -- Vitest awaits the React bridge harness.
 	it("invites the first import from an empty view", async () => {
 		const answered = new Set<string>();
 		const page = openBrowser();
@@ -198,6 +206,7 @@ describe("entity browser", () => {
 		);
 	});
 
+	// oxlint-disable-next-line effecttsgo/async-function -- Vitest awaits the React bridge harness.
 	it("builds table columns from settings instead of the first row", async () => {
 		const answered = new Set<string>();
 		const page = openBrowser({ search: "layout=table" });
@@ -209,6 +218,7 @@ describe("entity browser", () => {
 		]);
 	});
 
+	// oxlint-disable-next-line effecttsgo/async-function -- Vitest awaits the React bridge harness.
 	it("hands the compact layout its own search row, options sheet, and add affordance", async () => {
 		const answered = new Set<string>();
 		const page = openBrowser();
@@ -232,6 +242,7 @@ describe("entity browser", () => {
 		expect(screen.getByRole("button", { name: "Exit search" })).toBeTruthy();
 	});
 
+	// oxlint-disable-next-line effecttsgo/async-function -- Vitest awaits the React bridge harness.
 	it("debounces draft search for 300ms instead of querying per keystroke", async () => {
 		const clock = testClock();
 		const answered = new Set<string>();
@@ -259,6 +270,7 @@ describe("entity browser", () => {
 		);
 	});
 
+	// oxlint-disable-next-line effecttsgo/async-function -- Vitest awaits the React bridge harness.
 	it("commits Enter immediately and debounces clearing the draft", async () => {
 		const clock = testClock();
 		const answered = new Set<string>();
@@ -286,6 +298,7 @@ describe("entity browser", () => {
 		await browserRequest(page, 2);
 	});
 
+	// oxlint-disable-next-line effecttsgo/async-function -- Vitest awaits the React bridge harness.
 	it("keeps search focus through the committed query result lifecycle", async () => {
 		const clock = testClock();
 		const answered = new Set<string>();
@@ -303,6 +316,7 @@ describe("entity browser", () => {
 		expect(document.activeElement).toBe(search);
 	});
 
+	// oxlint-disable-next-line effecttsgo/async-function -- Vitest awaits the React bridge harness.
 	it("applies external URL search to both the draft and committed query", async () => {
 		const answered = new Set<string>();
 		const page = openBrowser({ search: "panel=details" });
@@ -318,6 +332,7 @@ describe("entity browser", () => {
 		expect(JSON.stringify(request.document)).toContain("external");
 	});
 
+	// oxlint-disable-next-line effecttsgo/async-function -- Vitest awaits the React bridge harness.
 	it("requests one cursor page per load-more click and never before a click", async () => {
 		const page = openBrowser();
 		const first = await browserRequest(page, 0);
@@ -339,6 +354,7 @@ describe("entity browser", () => {
 		expect(JSON.stringify(third.document)).toContain("cursor-2");
 	});
 
+	// oxlint-disable-next-line effecttsgo/async-function -- Vitest awaits the React bridge harness.
 	it("refreshes a one-page browser with exactly one page", async () => {
 		const page = openBrowser();
 		const first = await browserRequest(page, 0);
@@ -352,6 +368,7 @@ describe("entity browser", () => {
 		expect(page.queryRequests("entityBrowser")).toHaveLength(2);
 	});
 
+	// oxlint-disable-next-line effecttsgo/async-function -- Vitest awaits the React bridge harness.
 	it("replays exactly the manually loaded page depth during refresh", async () => {
 		const page = openBrowser();
 		const first = await browserRequest(page, 0);
@@ -386,6 +403,7 @@ describe("entity browser", () => {
 		expect(page.queryRequests("entityBrowser")).toHaveLength(4);
 	});
 
+	// oxlint-disable-next-line effecttsgo/async-function -- Vitest awaits the React bridge harness.
 	it("does not leak loaded state between mounts of the same saved view", async () => {
 		const firstPage = openBrowser({ savedViewId: "shared-view" });
 		const first = await browserRequest(firstPage, 0);

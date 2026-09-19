@@ -62,6 +62,7 @@ export function ImportStartWizard(props: {
 	const source = findBySlug(listed, state.slug);
 	const schema = source?.inputSchema;
 
+	// oxlint-disable-next-line effecttsgo/async-function -- React import form handler.
 	const startRun = async (values: SchemaFormValues) => {
 		if (source === undefined) {
 			return;

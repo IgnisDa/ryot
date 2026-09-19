@@ -1,5 +1,5 @@
 import { describe, expect, it } from "@effect/vitest";
-import { createRyotClient } from "@ryot-app/client-sdk";
+import { createRyotClient, RyotClientError } from "@ryot-app/client-sdk";
 import { createTestRyotAdapter } from "@ryot-app/client-sdk/testing";
 import type { ContractSuccess } from "@ryot-app/contract/client";
 import { EntitySchemaSlug, SandboxProviderId } from "@ryot-app/contract/schema/brands";
@@ -70,7 +70,7 @@ const dataClient = (queries: unknown[]) =>
 		createTestRyotAdapter({
 			query: (query) => {
 				queries.push(query);
-				return Promise.resolve({
+				return Effect.succeed({
 					data:
 						queries.length === 1
 							? { providers: rowsResult([providerRow]) }
@@ -81,7 +81,9 @@ const dataClient = (queries: unknown[]) =>
 	);
 
 const failingDataClient = () =>
-	createRyotClient(createTestRyotAdapter({ query: () => Promise.reject(new Error("offline")) }));
+	createRyotClient(
+		createTestRyotAdapter({ query: () => Effect.fail(new RyotClientError("transport")) }),
+	);
 
 describe("ProviderAddService", () => {
 	it.effect("loads provider summaries and entity links through the RyotQL client", () => {

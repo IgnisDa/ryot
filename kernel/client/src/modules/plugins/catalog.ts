@@ -18,26 +18,24 @@ export class PluginCatalogService extends Context.Service<PluginCatalogService>(
 	{
 		make: Effect.sync(() => {
 			const load = Effect.fn("PluginCatalogService.load")((ryot: KernelRyotClient) =>
-				Effect.tryPromise({
-					catch: (cause) => new PluginCatalogError({ cause }),
-					try: (signal) => {
-						const loadPage = (
-							after: string | undefined,
-							catalog: PluginClientCatalogEntry[],
-						): Promise<PluginClientCatalog> =>
-							ryot.data.query(pluginClientCatalogRecipe({ after }), { signal }).then((page) => {
-								catalog.push(...page.items);
-								if (!page.pageInfo.hasMore) {
-									return catalog;
-								}
-								if (page.pageInfo.nextCursor === null) {
-									throw new Error("Plugin catalog page omitted its next cursor");
-								}
-								return loadPage(page.pageInfo.nextCursor, catalog);
+				Effect.gen(function* () {
+					const catalog: PluginClientCatalogEntry[] = [];
+					let after: string | undefined;
+					let hasMore: boolean;
+					do {
+						const page = yield* ryot.data
+							.query(pluginClientCatalogRecipe({ after }))
+							.pipe(Effect.mapError((cause) => new PluginCatalogError({ cause })));
+						catalog.push(...page.items);
+						hasMore = page.pageInfo.hasMore;
+						if (hasMore && page.pageInfo.nextCursor === null) {
+							return yield* new PluginCatalogError({
+								cause: "Plugin catalog page omitted its next cursor",
 							});
-
-						return loadPage(undefined, []);
-					},
+						}
+						after = page.pageInfo.nextCursor ?? undefined;
+					} while (hasMore);
+					return catalog satisfies PluginClientCatalog;
 				}),
 			);
 
@@ -51,12 +49,9 @@ export class PluginCatalogService extends Context.Service<PluginCatalogService>(
 export const pluginCatalogQuery = createRyotQuery<
 	PluginClientCatalog,
 	PluginClientCatalog,
-	KernelHostServices
->(
-	({ client, signal, hostServices }) =>
-		hostServices.runtime.runPromise(
-			Effect.flatMap(PluginCatalogService, (service) => service.load(client)),
-			{ signal },
-		),
-	{ cancelOnUnmount: true, initialData: (input) => input },
-);
+	KernelHostServices,
+	PluginCatalogError
+>(({ client, hostServices }) => hostServices.runtime.runSync(PluginCatalogService).load(client), {
+	cancelOnUnmount: true,
+	initialData: (input) => input,
+});

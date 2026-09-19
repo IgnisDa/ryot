@@ -31,14 +31,11 @@ export class ProviderAddService extends Context.Service<ProviderAddService>()(
 				entitySchemaSlug: EntitySchemaSlug,
 				ownerPluginId?: string,
 			) {
-				return yield* Effect.tryPromise({
-					catch: (cause) => new ProviderAddLoadError({ cause, stage: "providers" }),
-					try: (signal) =>
-						client.data.query(
-							providerSearchRecipe({ ownerPluginId, rootEntitySchemaSlug: entitySchemaSlug }),
-							{ signal },
-						),
-				});
+				return yield* client.data
+					.query(providerSearchRecipe({ ownerPluginId, rootEntitySchemaSlug: entitySchemaSlug }))
+					.pipe(
+						Effect.mapError((cause) => new ProviderAddLoadError({ cause, stage: "providers" })),
+					);
 			});
 			const loadEntityLinks = Effect.fn("ProviderAddService.loadEntityLinks")(function* (
 				client: ProviderAddClient,
@@ -50,10 +47,9 @@ export class ProviderAddService extends Context.Service<ProviderAddService>()(
 					readonly librarySchemaSlug: string;
 				},
 			) {
-				return yield* Effect.tryPromise({
-					catch: (cause) => new ProviderAddLoadError({ cause, stage: "links" }),
-					try: (signal) => client.data.query(providerEntityLinksRecipe(input), { signal }),
-				});
+				return yield* client.data
+					.query(providerEntityLinksRecipe(input))
+					.pipe(Effect.mapError((cause) => new ProviderAddLoadError({ cause, stage: "links" })));
 			});
 			const loadSearchOptions = Effect.fn("ProviderAddService.loadSearchOptions")(function* (
 				scope: ApiScope,

@@ -4,6 +4,7 @@ import type {
 	PluginClientCatalogEntry,
 } from "@ryot-app/ryotql-recipes/plugin-client-catalog";
 import { act, fireEvent, render, screen, waitFor } from "@testing-library/react";
+import { Effect } from "effect";
 import { type MotionValue, motionValue, useMotionValue } from "motion/react";
 import { useRef, useState } from "react";
 import { describe, expect, it } from "vitest";
@@ -110,14 +111,20 @@ function Harness(props: HarnessProps) {
 	);
 }
 
-const openDrawer = async () => {
+const openDrawer = () => {
 	const trigger = screen.getByRole("button", { name: "Open navigation" });
 	trigger.focus();
 	fireEvent.click(trigger);
-	return { trigger, dialog: await screen.findByRole("dialog", { name: "Navigation" }) };
+	return Effect.runPromise(
+		Effect.map(
+			Effect.promise(() => screen.findByRole("dialog", { name: "Navigation" })),
+			(dialog) => ({ dialog, trigger }),
+		),
+	);
 };
 
 describe("mobile drawer", () => {
+	// oxlint-disable-next-line effecttsgo/async-function -- Vitest awaits this Promise-based test callback and its framework assertions.
 	it("closes on Escape, restores focus, and releases body scrolling", async () => {
 		render(<Harness />);
 		const { dialog, trigger } = await openDrawer();
@@ -130,6 +137,7 @@ describe("mobile drawer", () => {
 		expect(document.body.style.overflow).toBe("");
 	});
 
+	// oxlint-disable-next-line effecttsgo/async-function -- Vitest awaits this Promise-based test callback and its framework assertions.
 	it("passes an axe pass while open", async () => {
 		render(<Harness />);
 		await openDrawer();
@@ -139,6 +147,7 @@ describe("mobile drawer", () => {
 		expect(results.violations.map((violation) => violation.id)).toEqual([]);
 	});
 
+	// oxlint-disable-next-line effecttsgo/async-function -- Vitest awaits this Promise-based test callback and its framework assertions.
 	it("contains forward and reverse Tab focus", async () => {
 		render(<Harness />);
 		const { dialog } = await openDrawer();
@@ -167,6 +176,7 @@ describe("mobile drawer", () => {
 		expect(screen.queryByTestId("mobile-drawer")).toBeNull();
 	});
 
+	// oxlint-disable-next-line effecttsgo/async-function -- Vitest awaits this Promise-based test callback and its framework assertions.
 	it("closes on scrim click", async () => {
 		render(<Harness />);
 		const { trigger } = await openDrawer();
@@ -177,6 +187,7 @@ describe("mobile drawer", () => {
 		expect(screen.queryByRole("dialog", { name: "Navigation" })).toBeNull();
 	});
 
+	// oxlint-disable-next-line effecttsgo/async-function -- Vitest awaits this Promise-based test callback and its framework assertions.
 	it("resets its workspace menu when the drawer closes", async () => {
 		render(<Harness />);
 		await openDrawer();
@@ -189,6 +200,7 @@ describe("mobile drawer", () => {
 		expect(screen.queryByRole("menu", { name: "Workspaces" })).toBeNull();
 	});
 
+	// oxlint-disable-next-line effecttsgo/async-function -- Vitest awaits this Promise-based test callback and its framework assertions.
 	it("releases body scrolling before it reports the close", async () => {
 		const overflow: Array<string> = [];
 		render(<Harness onClose={() => overflow.push(document.body.style.overflow)} />);
@@ -200,6 +212,7 @@ describe("mobile drawer", () => {
 		expect(overflow).toEqual([""]);
 	});
 
+	// oxlint-disable-next-line effecttsgo/async-function -- Vitest awaits this Promise-based test callback and its framework assertions.
 	it("closes before Home and workspace navigation", async () => {
 		let homeOpen: boolean | null = null;
 		let selected: { readonly open: boolean; readonly slug: string } | null = null;

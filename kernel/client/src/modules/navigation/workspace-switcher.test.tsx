@@ -138,6 +138,7 @@ describe("workspace switcher", () => {
 		expect(within(menu).getByText("Custom workspace · 0 views")).toBeTruthy();
 	});
 
+	// oxlint-disable-next-line effecttsgo/async-function -- Vitest awaits this Promise-based test callback and its framework assertions.
 	it("focuses the current workspace on open and exposes its selection", async () => {
 		const current = workspace();
 		render(
@@ -157,6 +158,7 @@ describe("workspace switcher", () => {
 		expect(item.getAttribute("aria-checked")).toBe("true");
 	});
 
+	// oxlint-disable-next-line effecttsgo/async-function -- Vitest awaits this Promise-based test callback and its framework assertions.
 	it("opens from its desktop shortcut and focuses the current workspace", async () => {
 		const current = workspace();
 		const fitness = workspace({
@@ -213,6 +215,7 @@ describe("workspace switcher", () => {
 		expect(screen.queryByRole("menu", { name: "Workspaces" })).toBeNull();
 	});
 
+	// oxlint-disable-next-line effecttsgo/async-function -- Vitest awaits this Promise-based test callback and its framework assertions.
 	it("focuses the current workspace when externally reopened after a stale active item", async () => {
 		const current = workspace();
 		const fitness = workspace({
@@ -272,6 +275,7 @@ describe("workspace switcher", () => {
 		).toBe(null);
 	});
 
+	// oxlint-disable-next-line effecttsgo/async-function -- Vitest awaits this Promise-based test callback and its framework assertions.
 	it("closes when its trigger is clicked while the menu owns focus", async () => {
 		const user = userEvent.setup();
 		const current = workspace();
@@ -298,6 +302,7 @@ describe("workspace switcher", () => {
 		expect(document.activeElement).toBe(trigger);
 	});
 
+	// oxlint-disable-next-line effecttsgo/async-function -- Vitest awaits this Promise-based test callback and its framework assertions.
 	it("dismisses on outside pointer interaction without restoring trigger focus", async () => {
 		const current = workspace();
 		render(
@@ -328,6 +333,7 @@ describe("workspace switcher", () => {
 		expect(document.activeElement).toBe(outside);
 	});
 
+	// oxlint-disable-next-line effecttsgo/async-function -- Vitest awaits this Promise-based test callback and its framework assertions.
 	it("does not select the current workspace and restores trigger focus", async () => {
 		const selections: string[] = [];
 		const current = workspace();
@@ -352,6 +358,7 @@ describe("workspace switcher", () => {
 		expect(selections).toEqual([]);
 	});
 
+	// oxlint-disable-next-line effecttsgo/async-function -- Vitest awaits this Promise-based test callback and its framework assertions.
 	it("closes and restores trigger focus before selecting another workspace", async () => {
 		const current = workspace();
 		const observations: Array<{ focused: boolean; open: boolean; slug: string }> = [];
@@ -383,6 +390,7 @@ describe("workspace switcher", () => {
 		);
 	});
 
+	// oxlint-disable-next-line effecttsgo/async-function -- Vitest awaits this Promise-based test callback and its framework assertions.
 	it("closes with Escape and restores trigger focus", async () => {
 		const current = workspace();
 		render(
@@ -403,6 +411,7 @@ describe("workspace switcher", () => {
 		expect(screen.queryByRole("menu")).toBeNull();
 	});
 
+	// oxlint-disable-next-line effecttsgo/async-function -- Vitest awaits this Promise-based test callback and its framework assertions.
 	it("moves through workspace choices with arrow, Home, and End keys", async () => {
 		const current = workspace();
 		render(
@@ -447,6 +456,7 @@ describe("workspace switcher", () => {
 		await waitFor(() => expect(document.activeElement).toBe(media));
 	});
 
+	// oxlint-disable-next-line effecttsgo/async-function -- Vitest awaits this Promise-based test callback and its framework assertions.
 	it("closes on Tab departure without pulling focus back", async () => {
 		const user = userEvent.setup();
 		const current = workspace();
@@ -512,6 +522,7 @@ describe("workspace switcher", () => {
 		return waitFor(() => expect(events).toEqual(["closed"]));
 	});
 
+	// oxlint-disable-next-line effecttsgo/async-function -- Vitest awaits this Promise-based test callback and its framework assertions.
 	it("walks the arrow keys past the workspaces onto the customize entry", async () => {
 		const current = workspace();
 		render(

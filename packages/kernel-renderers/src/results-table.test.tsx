@@ -13,6 +13,7 @@ import ResultsTablePage from "./results-table";
 describe("results table", () => {
 	afterEach(disposePluginBridges);
 
+	// oxlint-disable-next-line effecttsgo/async-function -- Vitest awaits the React bridge harness.
 	it("titles the screen with the saved view and renders its declared columns", async () => {
 		const page = mountPluginPage(ResultsTablePage, {
 			location: routeLocation("/v/reading-log", ""),

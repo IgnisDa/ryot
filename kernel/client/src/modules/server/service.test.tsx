@@ -42,6 +42,6 @@ describe("server service", () => {
 			expect(succeeded).toBe(true);
 			expect(attempts).toBe(2);
 			expect(saved).toEqual(["https://example.com"]);
-		}).pipe(Effect.provide(ServerService.layer), Effect.provide(dependencies));
+		}).pipe(Effect.provide(Layer.provide(ServerService.layer, dependencies)));
 	});
 });
