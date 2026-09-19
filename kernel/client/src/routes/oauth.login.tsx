@@ -120,11 +120,9 @@ function OAuthLogin() {
 		setOidcPending(true);
 		const error = await runtime
 			.runPromise(
-				auth
-					.signInWithOidc()
-					.pipe(
-						Effect.match({ onSuccess: () => undefined, onFailure: (failure) => failure.message }),
-					),
+				auth.signInWithOidc.pipe(
+					Effect.match({ onSuccess: () => undefined, onFailure: (failure) => failure.message }),
+				),
 				{ signal: controller.current.signal },
 			)
 			.then(

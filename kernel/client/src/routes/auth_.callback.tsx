@@ -28,7 +28,7 @@ export const Route = createFileRoute("/auth_/callback")({
 	errorComponent: CouldNotCompleteSignIn,
 	pendingComponent: () => <AuthStatus {...completingSignIn} />,
 	validateSearch: (search) =>
-		Schema.decodeUnknownSync(OAuthCallbackQuery)({
+		Schema.decodeSync(OAuthCallbackQuery)({
 			code: searchValue(search.code),
 			error: searchValue(search.error),
 			state: searchValue(search.state),
@@ -57,7 +57,7 @@ export const Route = createFileRoute("/auth_/callback")({
 					return yield* new OAuthTokenError({ reason: "invalid-callback" });
 				}
 				if (client.nativeApplicationId !== null) {
-					yield* Effect.tryPromise(() => Browser.close()).pipe(Effect.catch(() => Effect.void));
+					yield* Effect.tryPromise(() => Browser.close()).pipe(Effect.ignore);
 				}
 				const tokens = yield* OAuthTokenService;
 				if (search.error) {

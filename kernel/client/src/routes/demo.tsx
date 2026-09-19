@@ -36,7 +36,7 @@ export const Route = createFileRoute("/demo")({
 					return { _tag: "Authenticated" } as const;
 				}
 				const hosted = yield* HostedAuthService;
-				const { mode } = yield* hosted.signInDemo();
+				const { mode } = yield* hosted.signInDemo;
 				const launcher = yield* OAuthLauncher;
 				return yield* launcher.prepare(undefined, {
 					serverOrigin,
