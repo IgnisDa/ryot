@@ -1,7 +1,7 @@
 # Sandbox Isolate Runtime Plan
 
 **Status:** S1, S2, and S4 are implemented (see [S1](s1.md), [S2](s2.md), and [S4](s4.md));
-S3 awaits an E2 decision ([s3.md](s3.md)); S5 is implemented with benchmark and hosted CI pending
+S3 awaits an E2 decision ([s3.md](s3.md)); S5 is implemented, with reference-host benchmark and Linux CI verified
 ([s5.md](s5.md));
 S6 is separate.
 Replaces the single-use Deno process per replay with V8 isolates hosted by long-lived, OS-confined
@@ -270,7 +270,7 @@ S6 requires separate review.
 
 ### S5 — Replay tuning
 
-- **Status:** implemented; local acceptance verified; benchmark and hosted CI pending. Contract and acceptance:
+- **Status:** implemented; local acceptance, reference-host benchmark, and Linux CI verified. Contract and acceptance:
   [s5.md](s5.md).
 - **Outcome:** waits shorter than a threshold, including matched HTTP rate-limit slots, settle in the
   live isolate.
