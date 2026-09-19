@@ -1,7 +1,12 @@
 import type { RyotQueryResult } from "@ryot-app/client-sdk/react";
 import type { Recipe } from "@ryot-app/client-sdk/ryotql";
 
-import type { showSeasonEpisodesRecipe, showSeasonsRecipe } from "../../shared/show-recipes";
+import type {
+	showOrderEpisodesRecipe,
+	showOrderGroupCoverageRecipe,
+	showSeasonEpisodesRecipe,
+	showSeasonsRecipe,
+} from "../../shared/show-recipes";
 import { optionalText } from "../media/activity-timeline";
 import { mediaDateLabel } from "../media/episodes-state";
 import { collectManagedAssetLocators, preferredMediaImageAsset } from "../media/image";
@@ -16,11 +21,22 @@ export type ShowSeason = ShowSeasons["seasons"]["items"][number];
 
 export type ShowEpisode = Recipe.Success<typeof showSeasonEpisodesRecipe>["items"][number];
 
+export type ShowOrderEpisode = Recipe.Success<typeof showOrderEpisodesRecipe>[number];
+
+export type ShowOrderGroupCoverage = Recipe.Success<typeof showOrderGroupCoverageRecipe>;
+
 export type ShowSeasonList = readonly [ShowSeason, ...ShowSeason[]];
 
 export type ShowSeasonsState = MappedRyotQueryState<
-	{ readonly status: "empty" } | { readonly status: "ready"; readonly seasons: ShowSeasonList }
+	| { readonly status: "empty" }
+	| {
+			readonly status: "ready";
+			readonly seasons: ShowSeasonList;
+			readonly episodeOrders: ShowSeasons["episodeOrders"];
+	  }
 >;
+
+type ShowEpisodeCoverage = Pick<ShowSeason, "episodeTotal" | "watchedTotal" | "upcomingTotal">;
 
 type ShowSeasonsFailure = Pick<
 	Extract<ShowSeasonsState, { status: "transport-error" | "malformed" }>,
@@ -51,7 +67,9 @@ export const mapShowSeasons = (result: RyotQueryResult<ShowSeasonsResult>): Show
 		return state;
 	}
 	const [first, ...rest] = orderShowSeasons(state.value?.seasons.items ?? []);
-	return first === undefined ? { status: "empty" } : { status: "ready", seasons: [first, ...rest] };
+	return first === undefined || state.value === null
+		? { status: "empty" }
+		: { status: "ready", seasons: [first, ...rest], episodeOrders: state.value.episodeOrders };
 };
 
 export const showSeasonsError = (state: ShowSeasonsFailure) => ({
@@ -74,16 +92,16 @@ export const showSeasonLabel = (season: ShowSeason) => {
 	return season.name.trim() === "" ? showSeasonOriginLabel(season) : season.name;
 };
 
-export const showSeasonCompletionPercent = (season: ShowSeason) =>
-	season.episodeTotal === 0
+export const showCoverageCompletionPercent = (coverage: ShowEpisodeCoverage) =>
+	coverage.episodeTotal === 0
 		? undefined
-		: Math.min(Math.round((season.watchedTotal / season.episodeTotal) * 100), 100);
+		: Math.min(Math.round((coverage.watchedTotal / coverage.episodeTotal) * 100), 100);
 
-export const showSeasonAiredLabel = (season: ShowSeason) =>
+export const showCoverageAiredLabel = (coverage: ShowEpisodeCoverage) =>
 	mediaEpisodicAiredLabel({
-		aired: season.episodeTotal,
-		watched: season.watchedTotal,
-		upcoming: season.upcomingTotal,
+		aired: coverage.episodeTotal,
+		watched: coverage.watchedTotal,
+		upcoming: coverage.upcomingTotal,
 	});
 
 export const showSeasonDescription = (season: ShowSeason) => optionalText(season.description);

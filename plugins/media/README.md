@@ -41,6 +41,13 @@ returns them as `episodeOrders`; a picked order regroups the Episodes tab throug
 external id. Watch history stays on the `show-episode` entities, and next up, coverage, caught-up,
 auto-complete, and activity keep the default seasons.
 
+The Episodes tab offers an order picker ("Aired order" first, then each order) only when the show has
+orders. The pick is per device in plugin storage under `episode-order:<showEntityId>`, holding the
+order's `externalId`; aired order, or a stored id the show no longer offers, removes the key. The tab
+reads storage before it queries the seasons. A picked order replaces the season chips with its groups,
+heads each group with its coverage, and pages the group's episode ids by offset in group order, each
+row labelled with its origin season and episode. Next up appears only in aired order.
+
 Podcast providers (iTunes and ListenNotes) emit no person or company credit relationships, so its
 credits arrive as `unlinkedCreators`, the way Book's and Audiobook's do. They also ship cover art only - no backdrops,
 and episode artwork is square `cover` rather than show's `aspect-video` `still` - so the podcast hero
