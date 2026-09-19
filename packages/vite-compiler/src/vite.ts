@@ -1,3 +1,5 @@
+// Vite's synchronous diagnostic hooks normalize native filesystem paths.
+// oxlint-disable-next-line effecttsgo/node-builtin-import
 import { isAbsolute, relative, resolve, sep } from "node:path";
 
 import type { TypeScriptProjectConfiguration } from "@ryot-app/typescript-compiler";
@@ -25,11 +27,17 @@ export interface ViteCompilerOptions {
 
 export class ViteBuildService extends Context.Service<
 	ViteBuildService,
-	{ readonly build: (config: InlineConfig) => Effect.Effect<unknown, unknown> }
+	{ readonly build: (config: InlineConfig) => Effect.Effect<unknown, ViteCompilerError> }
 >()("@ryot-app/vite-compiler/ViteBuildService") {
 	static readonly layer = Layer.succeed(
 		this,
-		this.of({ build: (config) => Effect.tryPromise(() => build(config)) }),
+		this.of({
+			build: (config) =>
+				Effect.tryPromise({
+					try: () => build(config),
+					catch: (cause) => viteCompilerError("vite-build", "Vite build failed", cause),
+				}),
+		}),
 	);
 }
 
@@ -125,6 +133,8 @@ const typeScriptTransformPlugin = (
 ): Plugin => ({
 	enforce: "pre",
 	name: "ryot:typescript-transform",
+	// Vite requires its plugin hook to return a Promise from the Oxc transform.
+	// oxlint-disable-next-line effecttsgo/async-function
 	async transform(code, id) {
 		if (!/\.(?:[cm]?ts|[jt]sx)(?:\?|$)/.test(id)) {
 			return null;
@@ -197,11 +207,12 @@ export const buildWithVite = Effect.fn("buildWithVite")(function* ({
 	};
 	const result = yield* viteBuild.build(protectedConfig).pipe(
 		Effect.mapError((cause) => {
-			const normalized = [...diagnostics, ...thrownDiagnostics(cause, workspace, viteRoot)];
+			const originalCause = cause.cause ?? cause;
+			const normalized = [...diagnostics, ...thrownDiagnostics(originalCause, workspace, viteRoot)];
 			return viteCompilerError(
 				"vite-build",
 				normalized.at(-1)?.message ?? "Vite build failed",
-				cause,
+				originalCause,
 				normalized,
 			);
 		}),

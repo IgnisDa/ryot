@@ -14,6 +14,7 @@
 	},
 	"dependencies": {
 		"@oxc-project/types": "0.132.0",
+		"@ryot-app/ts-utils": "workspace:*",
 		"@ryot-app/typescript-compiler": "workspace:*",
 		"effect": "4.0.0-rc.117",
 		"rolldown": "1.0.2",
