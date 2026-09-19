@@ -26,7 +26,7 @@ import {
 import { mutationAdmissionTestLayer } from "#lib/test-utils/mutation-admission";
 import { planFixture } from "#modules/automations/lifecycle.test-support";
 import { DefinitionRepository } from "#modules/definition-registry/repository";
-import type { DefinitionSnapshot } from "#modules/definition-registry/snapshot";
+import type { EntityRelationshipDefinitions } from "#modules/definition-registry/snapshot";
 import { EntitiesRepository } from "#modules/entities/repository";
 import { EntitiesService } from "#modules/entities/service";
 import { PluginRuntimeResolver } from "#modules/plugins/runtime-resolver";
@@ -58,19 +58,9 @@ const command = rootLifecycleCommand({
 	executionId: AutomationExecutionId.make("population-execution"),
 });
 
-const entityDefinition = (slug: string) => ({
-	slug,
-	name: slug,
-	icon: "circle",
-	pluginSlug: null,
-	eventSchemas: {},
-	mergeIdentityProperties: [],
-	propertiesSchema: { fields: {} },
-});
+const entityDefinition = (slug: string) => ({ slug, pluginId: null });
 
 const definitions = {
-	savedViews: {},
-	signalSchemas: {},
 	entitySchemas: {
 		[rootSchemaSlug]: entityDefinition(rootSchemaSlug),
 		[childSchemaSlug]: entityDefinition(childSchemaSlug),
@@ -92,7 +82,7 @@ const definitions = {
 			targetEntitySchemaSlug: childSchemaSlug,
 		},
 	},
-} satisfies DefinitionSnapshot;
+} satisfies EntityRelationshipDefinitions;
 
 const listedEntity = (id: string, entitySchemaSlug: EntitySchemaSlug): ListedEntity => ({
 	providerId,
@@ -145,6 +135,7 @@ class FakePopulationWrites extends Context.Service<
 type DispatchedPlans = Parameters<LifecycleExecution["Service"]["dispatch"]>[0];
 
 const populationLayer = (options: {
+	readonly definitions?: EntityRelationshipDefinitions;
 	readonly rootPlans?: ReadonlyArray<LifecyclePlan>;
 	readonly dispatch: (plans: DispatchedPlans) => {
 		readonly entry: string;
@@ -176,8 +167,11 @@ const populationLayer = (options: {
 			return Layer.mergeAll(
 				mutationAdmissionTestLayer,
 				Layer.mock(DefinitionRepository)({
-					getGlobalSnapshot: Effect.succeed(definitions),
-					getUserSnapshot: () => Effect.succeed(definitions),
+					getUserEntityRelationshipDefinitions: () =>
+						Effect.succeed(options.definitions ?? definitions),
+					getGlobalEntityRelationshipDefinitions: Effect.succeed(
+						options.definitions ?? definitions,
+					),
 				}),
 				Layer.succeed(RedisService, makeRedisService({ publish: () => Effect.succeed(1) })),
 				Layer.mock(PluginRuntimeResolver)({
@@ -323,5 +317,35 @@ layer(populationLayer({ dispatch: () => ({ warnings: [], entry: "dispatch" }) })
 			expect(activityRuns.filter((name) => name === "upsert-root-entity")).toHaveLength(1);
 			expect(activityRuns.filter((name) => name === "stamp-root-populated-at")).toHaveLength(1);
 		});
+	});
+});
+
+layer(
+	populationLayer({
+		dispatch: () => ({ warnings: [], entry: "dispatch" }),
+		definitions: {
+			...definitions,
+			entitySchemas: {
+				[childSchemaSlug]: entityDefinition(childSchemaSlug),
+				[relatedSchemaSlug]: entityDefinition(relatedSchemaSlug),
+			},
+		},
+	}),
+)((test) => {
+	test.effect("fails when the root entity schema is missing from the catalog", () => {
+		const executionId = "population-missing-root-schema";
+		const instance = WorkflowInstance.initial(
+			ProviderEntityPopulationWorkflow.background,
+			executionId,
+		);
+		return Effect.gen(function* () {
+			const error = yield* Effect.flip(
+				runProviderEntityPopulationWorkflow({ ...payload, executionId }, executionId),
+			);
+			expect(error.message).toBe("Entity schema not found");
+		}).pipe(
+			Effect.provideService(WorkflowInstance, instance),
+			Effect.provideService(WorkflowEngine, makeWorkflowActivityEngine(instance)),
+		);
 	});
 });
