@@ -26,7 +26,7 @@ import type {
 	SandboxProviderId,
 } from "@ryot-app/contract/schema/brands";
 import clsx from "clsx";
-import { Match } from "effect";
+import { Effect, Match } from "effect";
 import { useEffect, useEffectEvent, useReducer, useRef, useState } from "react";
 
 import {
@@ -54,7 +54,7 @@ import {
 	type ProviderSearchResultItem,
 	type ProviderSearchState,
 } from "#/modules/provider-add/search-controller";
-import type { ProviderSearchSummary } from "#/modules/provider-add/service";
+import type { ProviderAddLoadError, ProviderSearchSummary } from "#/modules/provider-add/service";
 import { useFormSeed } from "#/modules/ui/use-form-seed";
 
 const SEARCH_DEBOUNCE_MS = 350;
@@ -107,18 +107,18 @@ type ProviderSearchPanelProps = {
 	readonly onSelectProvider: (providerId: SandboxProviderId) => void;
 	readonly loadSearchOptions: (
 		providerId: SandboxProviderId,
-	) => Promise<ProviderAddOutcome<SearchProviderOptionsResponse>>;
+	) => Effect.Effect<SearchProviderOptionsResponse, ProviderAddLoadError>;
 	readonly loadEntityLinks: (
 		input: ProviderEntityLinksInput,
-	) => Promise<ProviderAddOutcome<ProviderEntityLinks>>;
+	) => Effect.Effect<ProviderEntityLinks, ProviderAddLoadError>;
 	readonly search: (
 		payload: SearchProviderEntitiesBody,
-	) => Promise<ProviderAddOutcome<SearchProviderEntitiesResponse>>;
+	) => Effect.Effect<SearchProviderEntitiesResponse, ProviderAddLoadError>;
 	readonly importEntity: (input: {
 		readonly externalId: string;
 		readonly providerId: SandboxProviderId;
 		readonly onProgress: (entry: ProviderEntityImportEntry) => void;
-	}) => Promise<ProviderEntityImportEntry>;
+	}) => Effect.Effect<ProviderEntityImportEntry, ProviderAddLoadError>;
 };
 
 const schemaFormIcons: SchemaFormIcons = {
@@ -221,20 +221,26 @@ function ProviderSearchResultList(props: {
 			props.items[0].externalId,
 			...props.items.slice(1).map((item) => item.externalId),
 		];
-		void props
-			.loadEntityLinks({
-				externalIds,
-				providerId: props.providerId,
-				entitySchemaSlug: props.entitySchemaSlug,
-				relationshipSlug: props.relationshipSlug,
-				librarySchemaSlug: props.librarySchemaSlug,
-			})
-			.then((result) => {
-				if (isActive()) {
-					setLoadedLinks({ request, links: "value" in result ? result.value : undefined });
-				}
-				return undefined;
-			});
+		void Effect.runPromise(
+			props
+				.loadEntityLinks({
+					externalIds,
+					providerId: props.providerId,
+					entitySchemaSlug: props.entitySchemaSlug,
+					relationshipSlug: props.relationshipSlug,
+					librarySchemaSlug: props.librarySchemaSlug,
+				})
+				.pipe(
+				Effect.match({ onFailure: () => undefined, onSuccess: (linkMap) => linkMap }),
+				Effect.tap((linkMap) =>
+					Effect.sync(() => {
+						if (isActive()) {
+							setLoadedLinks({ links: linkMap, request });
+							}
+						}),
+					),
+				),
+		);
 	});
 
 	useEffect(() => {
@@ -341,36 +347,46 @@ export function ProviderSearchPanel(props: ProviderSearchPanelProps) {
 	const fetchProviderOptions = (provider: ProviderSearchSummary | undefined) => {
 		const requestId = ++optionsRequestId.current;
 		if (provider === undefined) {
-			return Promise.resolve();
+			return Effect.void;
 		}
 		if (provider.searchOptionsSchema === null) {
-			return Promise.resolve();
+			return Effect.void;
 		}
-		return props.loadSearchOptions(provider.providerId).then((result) => {
-			if (optionsRequestId.current !== requestId) {
-				return undefined;
-			}
-			setOptions((current) => {
-				if (
-					!isProviderOptionsRequestCurrent(
-						current,
-						provider.providerId,
-						requestId,
-						optionsRequestId.current,
-					)
-				) {
-					return current;
-				}
-				return "value" in result
-					? applyProviderOptionsResponse(current, result.value)
-					: applyProviderOptionsFailure(current, result.cause);
-			});
-			return undefined;
-		});
+		return props.loadSearchOptions(provider.providerId).pipe(
+			Effect.match({
+				onFailure: (cause): ProviderAddOutcome<SearchProviderOptionsResponse> => ({ cause }),
+				onSuccess: (value): ProviderAddOutcome<SearchProviderOptionsResponse> => ({ value }),
+			}),
+			Effect.tap((result) =>
+				Effect.sync(() => {
+					if (optionsRequestId.current !== requestId) {
+						return;
+					}
+					setOptions((current) => {
+						if (
+							!isProviderOptionsRequestCurrent(
+								current,
+								provider.providerId,
+								requestId,
+								optionsRequestId.current,
+							)
+						) {
+							return current;
+						}
+						return "value" in result
+							? applyProviderOptionsResponse(current, result.value)
+							: applyProviderOptionsFailure(current, result.cause);
+					});
+				}),
+			),
+			Effect.asVoid,
+		);
 	};
 	const fetchSelectedProviderOptions = useEffectEvent(
 		(providerId: SandboxProviderId | undefined) =>
-			void fetchProviderOptions(available.find((provider) => provider.providerId === providerId)),
+			void Effect.runPromise(
+				fetchProviderOptions(available.find((provider) => provider.providerId === providerId)),
+			),
 	);
 
 	useEffect(() => {
@@ -406,7 +422,7 @@ export function ProviderSearchPanel(props: ProviderSearchPanelProps) {
 			return;
 		}
 		setOptions(createProviderOptionsState(selected));
-		void fetchProviderOptions(selected);
+		void Effect.runPromise(fetchProviderOptions(selected));
 	};
 	const activeOptionCount =
 		options.status === "ready"
@@ -415,7 +431,7 @@ export function ProviderSearchPanel(props: ProviderSearchPanelProps) {
 
 	const runSearch = useEffectEvent((operation: ProviderSearchOperation) => {
 		if (selected === undefined) {
-			return Promise.resolve();
+			return Effect.void;
 		}
 		const optionPayload =
 			options.status === "ready" && options.providerId === selected.providerId
@@ -430,14 +446,17 @@ export function ProviderSearchPanel(props: ProviderSearchPanelProps) {
 					providerId: selected.providerId,
 				}),
 			)
-			.then((result) => {
-				if ("value" in result) {
-					dispatch({ token: operation.token, response: result.value, type: "response-received" });
-					return undefined;
-				}
-				dispatch({ type: "request-failed", token: operation.token });
-				return undefined;
-			});
+			.pipe(
+				Effect.match({ onFailure: () => undefined, onSuccess: (response) => response }),
+				Effect.tap((result) =>
+					Effect.sync(() =>
+						result === undefined
+							? dispatch({ type: "request-failed", token: operation.token })
+							: dispatch({ response: result, token: operation.token, type: "response-received" }),
+					),
+				),
+				Effect.asVoid,
+			);
 	});
 
 	useEffect(() => {
@@ -446,7 +465,7 @@ export function ProviderSearchPanel(props: ProviderSearchPanelProps) {
 			return;
 		}
 		lastRunToken.current = operation.token;
-		void runSearch(operation);
+		void Effect.runPromise(runSearch(operation));
 	}, [state.operation]);
 
 	const addProviderEntity = (externalId: string) => {
@@ -457,15 +476,20 @@ export function ProviderSearchPanel(props: ProviderSearchPanelProps) {
 		const setEntry = (entry: ProviderEntityImportEntry) =>
 			setImportState((entries) => setProviderEntityImportEntry(entries, externalId, entry));
 		setEntry({ status: "importing" });
-		void props
-			.importEntity({ externalId, onProgress: setEntry, providerId: selected.providerId })
-			.then((entry) => {
-				if (entry.status === "imported") {
-					props.onImported();
-				}
-				setEntry(entry);
-				return entry;
-			});
+		void Effect.runPromise(
+			props
+				.importEntity({ externalId, onProgress: setEntry, providerId: selected.providerId })
+				.pipe(
+					Effect.tap((entry) =>
+						Effect.sync(() => {
+							if (entry.status === "imported") {
+								props.onImported();
+							}
+							setEntry(entry);
+						}),
+					),
+				),
+		);
 	};
 
 	return (
