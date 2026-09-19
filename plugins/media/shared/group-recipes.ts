@@ -247,12 +247,12 @@ export const mediaGroupRecipes = <
 
 	const recipes = { summaryRecipe, membersRecipe, activityRecipe, presentationRecipe };
 
-	// oxlint-disable-next-line typescript/no-unsafe-type-assertion
-	const credits = (
-		isCreditGroup(config.slug) ? { overviewRecipe } : {}
-	) as Slug extends CreditGroupSlug
+	type Credits = Slug extends CreditGroupSlug
 		? { readonly overviewRecipe: typeof overviewRecipe }
 		: Record<never, never>;
+	const creditEntries = isCreditGroup(config.slug) ? { overviewRecipe } : {};
+	// oxlint-disable-next-line typescript/no-unsafe-type-assertion
+	const credits = creditEntries as Credits;
 
 	return { ...recipes, ...credits };
 };

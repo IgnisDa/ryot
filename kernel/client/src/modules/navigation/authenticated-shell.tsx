@@ -1,5 +1,5 @@
 import { KERNEL_SHORTCUTS, type KernelShortcut } from "@ryot-app/client-plugin-contract";
-import { Modal, useShortcut } from "@ryot-app/client-ui-sdk";
+import { Modal, useShortcut, useValueChange } from "@ryot-app/client-ui-sdk";
 import type { NavigationData } from "@ryot-app/ryotql-recipes/navigation";
 import {
 	Outlet,
@@ -10,7 +10,7 @@ import {
 } from "@tanstack/react-router";
 import { Effect } from "effect";
 import { motion, useMotionValue, useTransform } from "motion/react";
-import { useCallback, useEffect, useEffectEvent, useId, useMemo, useRef, useState } from "react";
+import { useCallback, useEffect, useId, useMemo, useRef, useState } from "react";
 
 import { AuthService } from "#/modules/auth/service";
 import { ClientPageDocumentProvider } from "#/modules/client-pages/document";
@@ -62,6 +62,7 @@ import {
 	resolveRememberedWorkspace,
 } from "#/modules/navigation/workspace-state";
 import { usePluginCatalog } from "#/modules/plugins/catalog-provider";
+import { useStableHandler } from "#/modules/ui/use-stable-handler";
 import { ClientStorage } from "#/persistence/storage";
 
 export function AuthenticatedShell(props: {
@@ -88,7 +89,6 @@ export function AuthenticatedShell(props: {
 	const [pluginHeader, setPluginHeader] = useState<PluginHeaderState | null>(null);
 	const [pluginScreenState, setPluginScreenState] = useState<ClientPageScreenState | null>(null);
 	const [pluginOverlayCount, setPluginOverlayCount] = useState(0);
-	const activeDocumentOwner = useRef<string | null>(null);
 	const [discarding, setDiscarding] = useState(false);
 	const [rememberedSlug, setRememberedSlug] = useState(props.initialRememberedSlug);
 	const settingsActive = isSettingsPath(pathname);
@@ -106,6 +106,23 @@ export function AuthenticatedShell(props: {
 		[current?.slug, props.navigation],
 	);
 	const entry = historyEntry(state);
+	useValueChange(workspaceChrome, (chrome) => {
+		if (!chrome) {
+			setDrawerOpen(false);
+		}
+	});
+	const [documentEntry, setDocumentEntry] = useState(entry);
+	if (documentEntry.index !== entry.index || documentEntry.key !== entry.key) {
+		setDocumentEntry(entry);
+		setPluginScreenState(null);
+		setPluginHeader((currentHeader) =>
+			currentHeader !== null &&
+			currentHeader.index === entry.index &&
+			currentHeader.key === entry.key
+				? currentHeader
+				: null,
+		);
+	}
 	const pluginTitle =
 		pluginHeader !== null && pluginHeader.index === entry.index && pluginHeader.key === entry.key
 			? pluginHeader.title
@@ -143,14 +160,14 @@ export function AuthenticatedShell(props: {
 			},
 		});
 	};
-	const interceptSearchBack = useEffectEvent(() => {
+	const interceptSearchBack = () => {
 		setSearchOpen(false);
 		return true;
-	});
-	const interceptDiscardBack = useEffectEvent(() => {
+	};
+	const interceptDiscardBack = () => {
 		setDiscarding(false);
 		return true;
-	});
+	};
 	const onKernelShortcut = useCallback(
 		(shortcut: KernelShortcut) => {
 			if (shortcut === "command-center") {
@@ -182,7 +199,7 @@ export function AuthenticatedShell(props: {
 			? navigate({ to: "/", replace: true })
 			: navigate({ replace: true, to: "/$pluginSlug", params: { pluginSlug: current.slug } }));
 	};
-	const requestLeaveCustomize = useEffectEvent(() => {
+	const requestLeaveCustomize = useStableHandler(() => {
 		if (customize.isDirty) {
 			setDiscarding(true);
 			return true;
@@ -225,10 +242,10 @@ export function AuthenticatedShell(props: {
 		}
 		leaveCustomize();
 	};
-	const saveCustomize = useEffectEvent(() => void commitCustomize());
+	const saveCustomize = useStableHandler(() => void commitCustomize());
 	// The edge gesture performs a kernel-owned back directly, so it has to consult the same guard
 	// that `BackInterceptors` gives Android's hardware Back; otherwise one of them loses the draft.
-	const goBack = useEffectEvent(() => {
+	const goBack = useStableHandler(() => {
 		if (customizeActive) {
 			requestLeaveCustomize();
 			return;
@@ -237,21 +254,15 @@ export function AuthenticatedShell(props: {
 	});
 	const customizeController = useMemo<CustomizeController>(
 		() => ({ customize, readOnly: isDemo, onSave: saveCustomize, onLeave: requestLeaveCustomize }),
-		[customize, isDemo],
+		[customize, isDemo, requestLeaveCustomize, saveCustomize],
 	);
-	const {
-		header,
-		screen: pageScreen,
-		overlay: pageOverlay,
-	} = useMemo(
-		() =>
-			createClientDocumentControllers(
-				activeDocumentOwner,
-				setPluginHeader,
-				setPluginScreenState,
-				setPluginOverlayCount,
-			),
-		[],
+	const [{ header, screen: pageScreen, overlay: pageOverlay }] = useState(() =>
+		createClientDocumentControllers(
+			{ current: null },
+			setPluginHeader,
+			setPluginScreenState,
+			setPluginOverlayCount,
+		),
 	);
 	const shellChrome = useMemo<ShellChrome>(
 		() => ({
@@ -263,7 +274,7 @@ export function AuthenticatedShell(props: {
 			isDrawerOpen: drawerOpen,
 			onOpenDrawer: () => setDrawerOpen(true),
 		}),
-		[drawerId, drawerOpen, onKernelShortcut, safeAreaInsets],
+		[drawerId, drawerOpen, goBack, onKernelShortcut, safeAreaInsets],
 	);
 	const hasPluginBackScreen =
 		pluginScreenState?.index === entry.index &&
@@ -292,7 +303,10 @@ export function AuthenticatedShell(props: {
 		if (!searchOpen) {
 			return undefined;
 		}
-		return backInterceptors.register(interceptSearchBack);
+		return backInterceptors.register(() => {
+			setSearchOpen(false);
+			return true;
+		});
 	}, [backInterceptors, searchOpen]);
 	useEffect(() => {
 		if (!customizeActive || !customize.isDirty || discarding) {
@@ -303,23 +317,6 @@ export function AuthenticatedShell(props: {
 			return true;
 		});
 	}, [backInterceptors, customizeActive, customize.isDirty, discarding]);
-	useEffect(() => {
-		if (!workspaceChrome) {
-			setDrawerOpen(false);
-		}
-	}, [workspaceChrome]);
-	useEffect(() => {
-		setPluginScreenState(null);
-	}, [entry.index, entry.key]);
-	useEffect(() => {
-		setPluginHeader((currentHeader) =>
-			currentHeader !== null &&
-			currentHeader.index === entry.index &&
-			currentHeader.key === entry.key
-				? currentHeader
-				: null,
-		);
-	}, [entry.index, entry.key]);
 	useDesktopEffect(() => setDrawerOpen(false));
 	useShortcut(KERNEL_SHORTCUTS.commandCenter, () => setSearchOpen(true));
 

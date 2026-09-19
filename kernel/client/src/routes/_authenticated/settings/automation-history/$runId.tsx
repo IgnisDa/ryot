@@ -1,7 +1,7 @@
 import { useRyotMutation, useRyotQuery } from "@ryot-app/client-sdk/react";
 import type { AutomationHistoryRetryResult } from "@ryot-app/contract/modules/automations/history-schemas";
 import { createFileRoute } from "@tanstack/react-router";
-import { useEffectEvent, useState } from "react";
+import { useState } from "react";
 
 import { AuthService } from "#/modules/auth/service";
 import { AutomationHistoryDetailView } from "#/modules/automation-history/detail-view";
@@ -33,7 +33,7 @@ function AutomationHistoryDetailRoute() {
 		enabled: displayed?.run.status === "queued" || displayed?.run.status === "running",
 	});
 
-	const retryRun = useEffectEvent(async () => {
+	const retryRun = async () => {
 		if (isDemoProtected || displayed === undefined || displayed.retryEligibility.reason !== null) {
 			return;
 		}
@@ -44,7 +44,7 @@ function AutomationHistoryDetailRoute() {
 			.then(setRetryResult)
 			.catch(() => undefined);
 		detail.refetch();
-	});
+	};
 
 	let body;
 	if (displayed !== undefined) {

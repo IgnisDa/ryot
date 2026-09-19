@@ -7,7 +7,7 @@ import {
 	type SchemaFormValues,
 } from "@ryot-app/client-ui-sdk/schema-form";
 import { Match } from "effect";
-import { useEffect, useEffectEvent, useReducer, useState } from "react";
+import { useReducer, useState } from "react";
 
 import { ImportInputStep } from "#/modules/imports/input-step";
 import { ImportReviewStep } from "#/modules/imports/review-step";
@@ -18,6 +18,7 @@ import { importStartFailure, type ImportStartFailure } from "#/modules/imports/s
 import { CatalogPicker, type CatalogPickerState } from "#/modules/ui/catalog/picker";
 import { findBySlug } from "#/modules/ui/catalog/selection";
 import { useSchemaFileUpload } from "#/modules/ui/schema-form-upload";
+import { useFormSeed } from "#/modules/ui/use-form-seed";
 import { WizardShell } from "#/modules/ui/wizard/wizard-shell";
 import {
 	createWizardState,
@@ -61,7 +62,7 @@ export function ImportStartWizard(props: {
 	const source = findBySlug(listed, state.slug);
 	const schema = source?.inputSchema;
 
-	const startRun = useEffectEvent(async (values: SchemaFormValues) => {
+	const startRun = async (values: SchemaFormValues) => {
 		if (source === undefined) {
 			return;
 		}
@@ -81,22 +82,18 @@ export function ImportStartWizard(props: {
 		}
 		props.onStarted();
 		props.onClose();
-	});
+	};
 
-	const requestReview = useEffectEvent(() => {
+	const requestReview = () => {
 		setFailure(undefined);
 		dispatch({ type: "review-requested" });
-	});
+	};
 
 	const form = useSchemaForm({ schemas: [schema], onSubmit: requestReview });
 
-	const seedForm = useEffectEvent(() => {
-		form.reset(schema === undefined ? {} : initialSchemaFormValues(schema));
-	});
-
-	useEffect(() => {
-		seedForm();
-	}, [state.slug]);
+	useFormSeed(form, state.slug, () =>
+		schema === undefined ? {} : initialSchemaFormValues(schema),
+	);
 
 	const goBack = () => {
 		setFailure(undefined);

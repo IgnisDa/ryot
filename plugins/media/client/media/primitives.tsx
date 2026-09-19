@@ -192,7 +192,10 @@ export function MediaOverviewSection(props: {
 	);
 }
 
-export function MediaLinkButton(props: {
+export function MediaLinkButton({
+	ref,
+	...props
+}: {
 	readonly label: string;
 	readonly onClick: () => void;
 	readonly tone?: "accent" | "plain";
@@ -200,8 +203,8 @@ export function MediaLinkButton(props: {
 }) {
 	return (
 		<button
+			ref={ref}
 			type="button"
-			ref={props.ref}
 			onClick={props.onClick}
 			className={clsx(
 				"font-ui font-medium text-[13px]",
