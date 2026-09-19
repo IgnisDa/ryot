@@ -58,6 +58,33 @@ layer(
 	);
 });
 
+layer(
+	authorityLayer(() =>
+		Effect.succeed([declarations("database", "catalog.api", "https://api.example.com")]),
+	),
+)((test) => {
+	test.effect("sandbox_http_redirects_admit_every_matched_hop: matches trailing-dot hosts", () =>
+		Effect.gen(function* () {
+			const authority = yield* PluginHttpRateLimitAuthority;
+
+			for (const url of [
+				"https://api.example.com./path",
+				"https://API.Example.COM..:443/path",
+				"https://api.example.com.:443",
+			]) {
+				expect(yield* authority.resolve(url)).toMatchObject({
+					matched: true,
+					origin: "https://api.example.com",
+				});
+			}
+			expect(yield* authority.resolve("https://./path")).toEqual({
+				matched: false,
+				reason: "invalid-url",
+			});
+		}),
+	);
+});
+
 layer(authorityLayer(() => Effect.fail(new DbError({ message: "database unavailable" }))))(
 	(test) => {
 		test.effect("propagates database failures instead of returning unmatched", () =>

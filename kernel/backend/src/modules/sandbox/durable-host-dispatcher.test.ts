@@ -146,6 +146,14 @@ it("extracts only schema-valid durable HTTP request URLs", () => {
 			args: { args: ["GET"], capability: "httpCall" },
 		}),
 	).toBeNull();
+	expect(
+		sandboxDurableHttpRequestUrl({
+			index: 0,
+			kind: "host",
+			name: "httpCall",
+			args: { capability: "httpCall", args: ["GET", "https://provider.test/path", null] },
+		}),
+	).toBe("https://provider.test/path");
 });
 
 it("derives service workflow identity from the parent and call index", () => {
