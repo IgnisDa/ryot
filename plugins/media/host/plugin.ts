@@ -640,15 +640,24 @@ export const mediaPlugin = definePlugin({
 			name: "Ensure media library membership",
 			slug: "media.ensure-media-library-membership",
 			scriptSlug: "automation.ensure-media-library-membership",
+			targets: mediaLibraryMemberEntitySchemaSlugs.flatMap((entitySchemaSlug) => [
+				{ entitySchemaSlug, resource: "entity" as const, operation: "create" as const },
+				{
+					entitySchemaSlug,
+					operation: "complete" as const,
+					resource: "provider-entity-import" as const,
+				},
+			]),
+		},
+		{
+			stage: "after",
+			frequency: "batch",
+			delivery: "required",
+			executionScope: "user",
+			name: "Ensure media library membership for events",
+			slug: "media.ensure-media-library-membership-on-events",
+			scriptSlug: "automation.ensure-media-library-membership",
 			targets: [
-				...mediaLibraryMemberEntitySchemaSlugs.flatMap((entitySchemaSlug) => [
-					{ entitySchemaSlug, resource: "entity" as const, operation: "create" as const },
-					{
-						entitySchemaSlug,
-						operation: "complete" as const,
-						resource: "provider-entity-import" as const,
-					},
-				]),
 				...entitySchemas.flatMap((schema) =>
 					schema.eventSchemas
 						.filter(({ slug }) => slug !== "add-to-media-library")

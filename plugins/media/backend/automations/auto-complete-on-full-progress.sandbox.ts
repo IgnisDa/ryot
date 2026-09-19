@@ -205,8 +205,7 @@ const getInheritedCompletionProperties = (
 	);
 };
 
-const createCompletionEvent = (
-	host: AutomationHost,
+const completionEvent = (
 	hookMetadata: JsonValue | null,
 	event: AutomationEventSnapshot,
 	completeSchema: EventSchemaRecord,
@@ -215,23 +214,19 @@ const createCompletionEvent = (
 	const occurredAt =
 		source === event ? source.occurredAt || event.occurredAt : normalizeDate(source.occurredAt);
 	const properties = jsonObject(source.properties) ?? {};
-	return host
-		.createEvents([
-			{
-				occurredAt,
-				entityId: event.entityId,
-				eventSchemaSlug: completeSchema.id,
-				...(source.sessionEntityId === undefined || source.sessionEntityId === null
-					? {}
-					: { sessionEntityId: source.sessionEntityId }),
-				properties: {
-					...getInheritedCompletionProperties(hookMetadata, properties),
-					completedOn: occurredAt,
-					completionMode: "custom_timestamps",
-				},
-			},
-		])
-		.pipe(Effect.as(null));
+	return {
+		occurredAt,
+		entityId: event.entityId,
+		eventSchemaSlug: completeSchema.id,
+		...(source.sessionEntityId === undefined || source.sessionEntityId === null
+			? {}
+			: { sessionEntityId: source.sessionEntityId }),
+		properties: {
+			...getInheritedCompletionProperties(hookMetadata, properties),
+			completedOn: occurredAt,
+			completionMode: "custom_timestamps",
+		},
+	};
 };
 
 export default defineAutomation({
@@ -269,13 +264,9 @@ export default defineAutomation({
 				if (!isEpisodic) {
 					const completeSchema = yield* getCompleteSchema(host, entity.entitySchemaSlug);
 					if (completeSchema) {
-						yield* Effect.forEach(events, (current) =>
-							createCompletionEvent(
-								host,
-								automation.hookMetadata ?? null,
-								current,
-								completeSchema,
-								current,
+						yield* host.createEvents(
+							events.map((current) =>
+								completionEvent(automation.hookMetadata ?? null, current, completeSchema, current),
 							),
 						);
 					}
@@ -308,15 +299,18 @@ export default defineAutomation({
 					const trigger = eventsById.get(candidate.emitterEventId);
 					return trigger ? [{ trigger, candidate }] : [];
 				});
-				yield* Effect.forEach(completionCandidates, ({ trigger, candidate }) =>
-					createCompletionEvent(
-						host,
-						automation.hookMetadata ?? null,
-						trigger,
-						completeSchema,
-						candidate.completionEvent,
-					),
-				);
+				if (completionCandidates.length > 0) {
+					yield* host.createEvents(
+						completionCandidates.map(({ trigger, candidate }) =>
+							completionEvent(
+								automation.hookMetadata ?? null,
+								trigger,
+								completeSchema,
+								candidate.completionEvent,
+							),
+						),
+					);
+				}
 			}),
 		).pipe(Effect.as(null));
 	},
