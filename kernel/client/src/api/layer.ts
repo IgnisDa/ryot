@@ -19,13 +19,11 @@ import { RyotQLApi } from "#/api/ryotql";
 import { SavedViewsApi } from "#/api/saved-views";
 import { UploadsApi } from "#/api/uploads";
 import { UserSettingsApi } from "#/api/user-settings";
-import { OAuthStorage } from "#/modules/auth/oauth-storage";
 import { RuntimeOAuthClientService } from "#/modules/auth/runtime-client";
 import { OAuthTokenService } from "#/modules/auth/token-service";
 
-const token = OAuthTokenService.layer.pipe(Layer.provideMerge(OAuthStorage.layer));
 export const TransportLive = Layer.mergeAll(AdminApi.layer, AuthenticatedApi.layer).pipe(
-	Layer.provideMerge(token),
+	Layer.provideMerge(OAuthTokenService.layer),
 	Layer.provideMerge(RuntimeOAuthClientService.layer),
 );
 
