@@ -739,6 +739,9 @@ describe("client page routes", () => {
 		const second = [...document.querySelectorAll("iframe")].find((frame) => frame !== first);
 		await view.router.navigate({ href: "/plugin-3" });
 		await waitFor(() => expect(document.querySelectorAll("iframe")).toHaveLength(3));
+		const third = [...document.querySelectorAll("iframe")].find(
+			(frame) => frame !== first && frame !== second,
+		);
 		await view.router.navigate({ href: "/plugin-4" });
 		await waitFor(() => expect(document.querySelectorAll("iframe")).toHaveLength(3));
 		expect(first.isConnected).toBe(false);
@@ -750,8 +753,10 @@ describe("client page routes", () => {
 		expect(second?.isConnected).toBe(true);
 
 		await view.router.navigate({ href: "/plugin-1" });
-		await waitFor(() => expect(document.querySelectorAll("iframe")).toHaveLength(3));
+		await waitFor(() => expect(third?.isConnected).toBe(false));
+		expect(document.querySelectorAll("iframe")).toHaveLength(3);
 		expect(first.isConnected).toBe(false);
+		expect(second?.isConnected).toBe(true);
 	});
 
 	it("uses freshly prepared operation targets and reloads an updated composition on request", async () => {
