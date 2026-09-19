@@ -1,7 +1,7 @@
 import { useRyotMutation, useRyotQuery } from "@ryot-app/client-sdk/react";
 import type { NotificationChannelsResult } from "@ryot-app/ryotql-recipes/notification-channels";
 import { createFileRoute } from "@tanstack/react-router";
-import { useEffect, useEffectEvent, useState, type ReactNode } from "react";
+import { useState, type ReactNode } from "react";
 
 import { AuthService } from "#/modules/auth/service";
 import { useIsDemoSession } from "#/modules/demo-protection";
@@ -24,6 +24,8 @@ import { SettingsFrame } from "#/modules/settings/settings-frame";
 import { LoadErrorState } from "#/modules/ui/load-error-state";
 import { useSearchParamModal } from "#/modules/ui/search-param-modal";
 import { StatusState } from "#/modules/ui/status-state";
+import { useLatestListState } from "#/modules/ui/use-latest-defined";
+import { RELATIVE_TIME_REFRESH_MS, useNowMs } from "#/modules/ui/use-now-ms";
 
 const listState = (page: NotificationChannelsResult): NotificationChannelListState =>
 	page.items.length === 0
@@ -62,26 +64,17 @@ function NotificationChannelsRoute() {
 	const [limit, setLimit] = useState(NOTIFICATION_CHANNELS_PAGE_SIZE);
 	const listed = useRyotQuery(notificationChannelsQuery, limit);
 	const smtpEnabled = useRyotQuery(notificationSmtpEnabledQuery);
-	const [state, setState] = useState<NotificationChannelListState | undefined>(() =>
-		listed.data === undefined ? undefined : listState(listed.data),
-	);
+	const state = useLatestListState(listed, listState);
+	const nowMs = useNowMs(RELATIVE_TIME_REFRESH_MS);
 	const sendTestMutation = useRyotMutation(testNotificationChannelsMutation);
 	const updateMutation = useRyotMutation(updateNotificationChannelMutation);
 	const deleteMutation = useRyotMutation(deleteNotificationChannelMutation);
-
-	useEffect(() => {
-		if (listed.data !== undefined) {
-			setState(listState(listed.data));
-		} else if (listed.isError) {
-			setState((current) => current ?? { status: "failed" });
-		}
-	}, [listed.data, listed.isError]);
 
 	const enabledCount =
 		state?.status === "ready" ? enabledNotificationChannelCount(state.channels) : 0;
 
 	/** Delivery is enqueued and the endpoint returns at once, so "queued" is all that can be said. */
-	const sendTest = useEffectEvent(async () => {
+	const sendTest = async () => {
 		setTestDetail(undefined);
 		setTestSucceeded(false);
 		const queued = await sendTestMutation
@@ -94,17 +87,17 @@ function NotificationChannelsRoute() {
 				? testedChannelsDetail(enabledCount)
 				: "The test notification could not be sent. Try again.",
 		);
-	});
+	};
 
-	const toggleChannel = useEffectEvent(async (id: string, isDisabled: boolean) => {
+	const toggleChannel = async (id: string, isDisabled: boolean) => {
 		setPendingChannelId(id);
 		setTestDetail(undefined);
 		setDeleteFailedId(undefined);
 		await updateMutation.mutateAsync({ id, isDisabled }).catch(() => undefined);
 		setPendingChannelId(undefined);
-	});
+	};
 
-	const deleteChannel = useEffectEvent(async (id: string) => {
+	const deleteChannel = async (id: string) => {
 		setPendingChannelId(id);
 		setDeleteFailedId(undefined);
 		const removed = await deleteMutation
@@ -117,7 +110,7 @@ function NotificationChannelsRoute() {
 			return;
 		}
 		setTestDetail(undefined);
-	});
+	};
 
 	const wizard = useSearchParamModal({
 		isOpen: create === true,
@@ -138,7 +131,7 @@ function NotificationChannelsRoute() {
 		<NotificationChannelsFrame>
 			<NotificationChannelsView
 				state={state}
-				nowMs={Date.now()}
+				nowMs={nowMs}
 				onAdd={wizard.open}
 				testDetail={testDetail}
 				onRetry={listed.refetch}

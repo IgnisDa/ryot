@@ -211,8 +211,11 @@ export function MigrationReportView(props: {
 	const [pages, setPages] = useState<ReadonlyArray<ReportPage>>([
 		{ after: undefined, state: "loading" },
 	]);
-	const load = useEffectEvent(async (after: string | undefined, signal: AbortSignal) => {
-		const result = await props.load(after, signal);
+	const applyPage = (
+		after: string | undefined,
+		signal: AbortSignal,
+		result: Exit.Exit<GodModeMigrationReport, unknown>,
+	) => {
 		if (signal.aborted) {
 			return;
 		}
@@ -231,12 +234,15 @@ export function MigrationReportView(props: {
 					: { after, state: "failure" };
 			}),
 		);
-	});
+	};
+	const load = (after: string | undefined, signal: AbortSignal) =>
+		props.load(after, signal).then((result) => applyPage(after, signal, result));
+	const loadFirstPage = useEffectEvent((signal: AbortSignal) => void load(undefined, signal));
 
 	useEffect(() => {
 		const initial = new AbortController();
 		controller.current = initial;
-		void load(undefined, initial.signal);
+		loadFirstPage(initial.signal);
 		return () => controller.current?.abort();
 	}, []);
 

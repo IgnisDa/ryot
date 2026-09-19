@@ -634,24 +634,24 @@ describe("account settings", () => {
 	});
 });
 
-describe("preferences settings", () => {
-	const mountPreferences = (
-		userSettingsLayer = makeUserSettingsStub(),
-		authLayer: Layer.Layer<AuthService> = AuthStub,
-		settingsQueries: Layer.Layer<RyotQLApi> = makeUserSettingsQueries(),
-	) =>
-		mountView(
-			"/settings/preferences",
-			undefined,
-			undefined,
-			authLayer,
-			undefined,
-			undefined,
-			userSettingsLayer,
-			undefined,
-			settingsQueries,
-		);
+const mountPreferences = (
+	userSettingsLayer = makeUserSettingsStub(),
+	authLayer: Layer.Layer<AuthService> = AuthStub,
+	settingsQueries: Layer.Layer<RyotQLApi> = makeUserSettingsQueries(),
+) =>
+	mountView(
+		"/settings/preferences",
+		undefined,
+		undefined,
+		authLayer,
+		undefined,
+		undefined,
+		userSettingsLayer,
+		undefined,
+		settingsQueries,
+	);
 
+describe("preferences settings", () => {
 	it("keeps local appearance usable and makes demo server preferences read-only", async () => {
 		let saves = 0;
 		mountPreferences(
