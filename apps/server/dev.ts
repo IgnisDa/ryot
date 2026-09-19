@@ -118,5 +118,6 @@ const program = Effect.gen(function* () {
 });
 
 BunRuntime.runMain(
+	// oxlint-disable-next-line effecttsgo/strict-effect-provide -- The development supervisor is a command-line entrypoint
 	program.pipe(Effect.provide(Layer.merge(BunServices.layer, clientPluginCompilerPlatformLayer))),
 );
