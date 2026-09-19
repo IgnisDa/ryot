@@ -179,12 +179,12 @@ export const syncRelatedEntityGroup = Effect.fn("syncRelatedEntityGroup")(functi
 					},
 					items: resolvedRelatedEntities.map(({ relatedEntity, schemaProvider }) => ({
 						...scope,
-						properties: {},
 						populatedAt: null,
 						updateExisting: false,
 						name: relatedEntity.name,
 						externalId: relatedEntity.externalId,
 						providerId: schemaProvider.providerId,
+						properties: relatedEntity.properties ?? {},
 						entitySchemaSlug: schemaProvider.entitySchemaSlug,
 						lifecycle: populationLifecycleCommand(
 							input.command,

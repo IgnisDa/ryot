@@ -47,6 +47,7 @@ export const migrationReportDetailLabel = (detail: MigrationReportDetail) =>
 			{ code: "integration-cache-entity-unresolved" },
 			(value) => value.parentName ?? `Progress marker ${value.legacyCacheId}`,
 		),
+		Match.when({ code: "exercise-ownerless-unreferenced" }, (value) => value.name),
 		Match.orElse((value) => `${value.parentName} — ${positionLabel(value)}`),
 	);
 
@@ -81,6 +82,10 @@ export const migrationReportDetailSentence = (detail: MigrationReportDetail) =>
 			{ code: "integration-cache-entity-unresolved" },
 			() => "The item this marker points at was not migrated, so nothing in V2 can hold it.",
 		),
+		Match.when(
+			{ code: "exercise-ownerless-unreferenced" },
+			() => "This custom exercise had no creator and no V1 references, so it was omitted.",
+		),
 		Match.exhaustive,
 	);
 
@@ -96,6 +101,12 @@ export const migrationReportDetailProvenance = (detail: MigrationReportDetail) =
 				["Cache row", value.legacyCacheId],
 				["User", value.userId],
 				["Legacy item", value.legacyMetadataId],
+			]),
+			Match.when({ code: "exercise-ownerless-unreferenced" }, (value) => [
+				["Exercise", value.name],
+				["Legacy row", value.legacyRecordId],
+				["Source", value.source],
+				["Creator", value.creatorUserId],
 			]),
 			Match.orElse((value) => [
 				["Title", value.parentName],

@@ -36,6 +36,7 @@ export type EntityImportWorkflowOperationsValue = {
 	processSandbox: (
 		payload: EntityImportPayload,
 		executionId: string,
+		existingProperties?: unknown,
 	) => Effect.Effect<SandboxExecutionResult, SandboxRunError, WorkflowEngine | WorkflowInstance>;
 	processProviderResolve: (
 		input: ProviderResolveOperationInput,
@@ -63,7 +64,11 @@ export const EntityImportWorkflowOperationsLive = Layer.effect(
 		const sandbox = yield* SandboxExecutionService;
 		const pluginRuntime = yield* PluginRuntimeResolver;
 
-		const processSandboxEntityDetails = (payload: EntityImportPayload, executionId: string) =>
+		const processSandboxEntityDetails = (
+			payload: EntityImportPayload,
+			executionId: string,
+			existingProperties?: unknown,
+		) =>
 			Effect.gen(function* () {
 				const accountGeneration = payload.command.accountGeneration;
 				if (payload.entityScope.userId !== null && accountGeneration === null) {
@@ -88,8 +93,11 @@ export const EntityImportWorkflowOperationsLive = Layer.effect(
 				});
 				return yield* sandbox.executeScript({
 					scriptId,
-					input: { externalId: payload.externalId },
 					executionId: `${executionId}-sandbox-details`,
+					input: {
+						externalId: payload.externalId,
+						...(existingProperties === undefined ? {} : { existingProperties }),
+					},
 					subject: accountGeneration
 						? { type: "user", accountGeneration, userId: accountGeneration.userId }
 						: { type: "system" },

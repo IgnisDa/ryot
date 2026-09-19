@@ -5,6 +5,12 @@ import {
 	workoutDetailRecipe,
 	workoutTemplateDetailRecipe,
 } from "../shared/query-recipes";
+import {
+	equipmentListRecipe,
+	exerciseEquipmentRecipe,
+	exerciseTargetsRecipe,
+	targetListRecipe,
+} from "../shared/taxonomy-recipes";
 
 describe("fitness query recipes", () => {
 	it("builds typed filtered exercise rows", () => {
@@ -55,6 +61,16 @@ describe("fitness query recipes", () => {
 			expect.objectContaining({
 				pagination: { limit: 5, after: "exercise-cursor" },
 				orderBy: [expect.objectContaining({ direction: "asc" })],
+				include: [
+					expect.objectContaining({
+						limit: 100,
+						key: "equipment",
+						from: { table: "relationship", alias: "exerciseEquipmentRelationship" },
+						joins: [
+							expect.objectContaining({ table: { table: "entity", alias: "exerciseEquipment" } }),
+						],
+					}),
+				],
 				fields: expect.arrayContaining([
 					expect.objectContaining({
 						key: "image",
@@ -66,6 +82,9 @@ describe("fitness query recipes", () => {
 					}),
 				]),
 			}),
+		);
+		expect(exercises.output.fields).not.toEqual(
+			expect.arrayContaining([expect.objectContaining({ key: "equipment" })]),
 		);
 	});
 
@@ -177,7 +196,7 @@ describe("fitness query recipes", () => {
 		);
 	});
 
-	it("decodes plain selected exercise values", () => {
+	it("decodes exercise equipment relationships and removes duplicate equipment ids", () => {
 		const recipe = exerciseListRecipe({});
 		expect(
 			recipe.decode({
@@ -189,16 +208,108 @@ describe("fitness query recipes", () => {
 							{
 								image: null,
 								name: "Push Up",
-								equipment: null,
 								id: "exercise-1",
 								kind: "strength",
 								level: "beginner",
 								schemaSlug: "exercise",
+								equipment: {
+									type: "rows",
+									pageInfo: { limit: 100, hasMore: false, nextCursor: null },
+									items: [
+										{ name: "Barbell", id: "equipment-1" },
+										{ name: "Barbell", id: "equipment-1" },
+									],
+								},
 							},
 						],
 					},
 				},
 			}),
-		).toMatchObject({ success: { items: [{ id: "exercise-1", level: "beginner" }] } });
+		).toMatchObject({
+			success: {
+				items: [
+					{
+						id: "exercise-1",
+						level: "beginner",
+						equipment: [{ name: "Barbell", id: "equipment-1" }],
+					},
+				],
+			},
+		});
+	});
+
+	it("queries shared and user-owned taxonomy entities and their exercise relationships", () => {
+		const targetList = targetListRecipe({ limit: 4, name: "Lats", after: "target-cursor" });
+		const targetRows = targetList.document.queries.targets;
+		const equipmentList = equipmentListRecipe({ limit: 5 });
+		const equipmentRows = equipmentList.document.queries.equipment;
+		const targets = exerciseTargetsRecipe({
+			limit: 3,
+			exerciseId: "exercise-1",
+			after: "relationship-cursor",
+		});
+		const targetRelationships = targets.document.queries.targets;
+		const equipment = exerciseEquipmentRecipe({ limit: 2, exerciseId: "exercise-1" });
+		const equipmentRelationships = equipment.document.queries.equipment;
+		if (
+			targetRows?.output.type !== "rows" ||
+			equipmentRows?.output.type !== "rows" ||
+			targetRelationships?.output.type !== "rows" ||
+			equipmentRelationships?.output.type !== "rows"
+		) {
+			throw new Error("Expected taxonomy rows queries");
+		}
+
+		expect(targetRows.output).toMatchObject({ pagination: { limit: 4, after: "target-cursor" } });
+		expect(targetRows.where).toEqual(
+			expect.objectContaining({
+				predicates: expect.arrayContaining([
+					expect.objectContaining({ right: { type: "literal", value: "exercise-target" } }),
+					expect.objectContaining({ right: { value: "Lats", type: "literal" } }),
+				]),
+			}),
+		);
+		expect(targetRows.output.fields.map((field) => "key" in field && field.key)).toEqual([
+			"id",
+			"name",
+			"kind",
+			"userId",
+		]);
+		expect(equipmentRows.where).toMatchObject({
+			predicates: [
+				expect.objectContaining({ right: { type: "literal", value: "exercise-equipment" } }),
+			],
+		});
+		expect(targetRelationships.output).toMatchObject({
+			pagination: { limit: 3, after: "relationship-cursor" },
+			orderBy: [
+				expect.objectContaining({ direction: "asc" }),
+				expect.objectContaining({ direction: "asc" }),
+			],
+			fields: expect.arrayContaining([
+				expect.objectContaining({ key: "relationshipId" }),
+				expect.objectContaining({ key: "id" }),
+				expect.objectContaining({ key: "userId" }),
+				expect.objectContaining({ key: "kind" }),
+				expect.objectContaining({ key: "role" }),
+			]),
+		});
+		expect(targetRelationships.where).toEqual(
+			expect.objectContaining({
+				predicates: expect.arrayContaining([
+					expect.objectContaining({ right: { type: "literal", value: "exercise-1" } }),
+					expect.objectContaining({ right: { type: "literal", value: "exercise-targets" } }),
+					expect.objectContaining({ right: { type: "literal", value: "exercise-target" } }),
+				]),
+			}),
+		);
+		expect(equipmentRelationships.where).toEqual(
+			expect.objectContaining({
+				predicates: expect.arrayContaining([
+					expect.objectContaining({ right: { type: "literal", value: "exercise-uses-equipment" } }),
+					expect.objectContaining({ right: { type: "literal", value: "exercise-equipment" } }),
+				]),
+			}),
+		);
 	});
 });

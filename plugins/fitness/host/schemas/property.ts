@@ -1,6 +1,8 @@
 import { imagesField, videosField } from "@ryot-app/contract/schema/core";
 import type { AppPropertyDefinition, AppSchema } from "@ryot-app/contract/schema/property-schema";
 
+import { exerciseKinds } from "../../shared/exercise-kinds";
+
 const workoutSupersetItemProperties: Readonly<Record<string, AppPropertyDefinition>> = {
 	color: {
 		type: "string",
@@ -27,6 +29,12 @@ export const exercisePropertiesSchema: AppSchema = {
 			items: { label: "Item", type: "string", description: "Item" },
 			description: "Step-by-step instructions for performing this exercise",
 		},
+		kind: {
+			type: "enum",
+			label: "Kind",
+			description: "Which measurements are used to track sets of this exercise",
+			choices: { kind: "static", values: exerciseKinds.map((value) => ({ value })) },
+		},
 		force: {
 			type: "enum",
 			label: "Force",
@@ -50,72 +58,6 @@ export const exercisePropertiesSchema: AppSchema = {
 			choices: {
 				kind: "static",
 				values: [{ value: "beginner" }, { value: "intermediate" }, { value: "expert" }],
-			},
-		},
-		kind: {
-			type: "enum",
-			label: "Kind",
-			description: "Which measurements are used to track sets of this exercise",
-			choices: {
-				kind: "static",
-				values: [
-					{ value: "reps" },
-					{ value: "duration" },
-					{ value: "reps_and_weight" },
-					{ value: "reps_and_duration" },
-					{ value: "distance_and_duration" },
-					{ value: "reps_and_duration_and_distance" },
-				],
-			},
-		},
-		equipment: {
-			type: "enum",
-			label: "Equipment",
-			description: "Equipment required to perform this exercise",
-			choices: {
-				kind: "static",
-				values: [
-					{ value: "bands" },
-					{ value: "cable" },
-					{ value: "other" },
-					{ value: "barbell" },
-					{ value: "machine" },
-					{ value: "body_only" },
-					{ value: "dumbbell" },
-					{ value: "foam_roll" },
-					{ value: "ez_curl_bar" },
-					{ value: "kettlebells" },
-					{ value: "exercise_ball" },
-					{ value: "medicine_ball" },
-				],
-			},
-		},
-		muscles: {
-			label: "Muscles",
-			type: "enum-array",
-			validation: { required: true },
-			description: "Primary and secondary muscle groups targeted by this exercise",
-			choices: {
-				kind: "static",
-				values: [
-					{ value: "lats" },
-					{ value: "neck" },
-					{ value: "traps" },
-					{ value: "chest" },
-					{ value: "biceps" },
-					{ value: "calves" },
-					{ value: "glutes" },
-					{ value: "triceps" },
-					{ value: "forearms" },
-					{ value: "abductors" },
-					{ value: "adductors" },
-					{ value: "shoulders" },
-					{ value: "lower_back" },
-					{ value: "abdominals" },
-					{ value: "hamstrings" },
-					{ value: "quadriceps" },
-					{ value: "middle_back" },
-				],
 			},
 		},
 	},

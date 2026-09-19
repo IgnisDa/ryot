@@ -7,6 +7,9 @@ import type {
 } from "@ryot-app/sandbox-sdk/provider";
 import type { JsonValue } from "@ryot-app/sandbox-sdk/wire";
 
+import { exerciseKindSchema } from "../../../../shared/exercise-kinds";
+import { exerciseEquipmentCatalog, exerciseTargetCatalog } from "../../../../shared/taxonomy";
+
 type ExerciseSourceHost = SandboxHost<readonly ["httpCall", "getCachedValue", "setCachedValue"]>;
 
 class FitnessExerciseError extends Error {
@@ -17,12 +20,10 @@ const exerciseImageSchema = Schema.Struct({ url: Schema.String, type: Schema.Lit
 type ExerciseImage = Schema.Schema.Type<typeof exerciseImageSchema>;
 
 const exercisePropertiesSchema = Schema.Struct({
-	kind: Schema.String,
 	level: Schema.String,
+	kind: exerciseKindSchema,
 	force: Schema.NullOr(Schema.String),
-	muscles: Schema.Array(Schema.String),
 	mechanic: Schema.NullOr(Schema.String),
-	equipment: Schema.NullOr(Schema.String),
 	images: Schema.Array(exerciseImageSchema),
 	instructions: Schema.Array(Schema.String),
 });
@@ -32,25 +33,13 @@ const normalizedExerciseSchema = Schema.Struct({
 	externalId: Schema.String,
 	searchText: Schema.String,
 	properties: exercisePropertiesSchema,
+	equipment: Schema.NullOr(Schema.String),
+	primaryMuscles: Schema.Array(Schema.String),
+	secondaryMuscles: Schema.Array(Schema.String),
 });
 type ExerciseProperties = Schema.Schema.Type<typeof exercisePropertiesSchema>;
 type NormalizedExercise = Schema.Schema.Type<typeof normalizedExerciseSchema>;
 
-const cachedExerciseSchema = Schema.Struct({
-	name: Schema.String,
-	externalId: Schema.String,
-	searchText: Schema.String,
-	properties: Schema.Struct({
-		kind: Schema.String,
-		level: Schema.String,
-		muscles: Schema.Array(Schema.String),
-		force: Schema.optional(Schema.Unknown),
-		mechanic: Schema.optional(Schema.Unknown),
-		images: Schema.Array(exerciseImageSchema),
-		instructions: Schema.Array(Schema.String),
-		equipment: Schema.optional(Schema.Unknown),
-	}),
-});
 const cachedExercisesMetadataSchema = Schema.Struct({
 	version: Schema.String,
 	chunkCount: Schema.Number.pipe(
@@ -80,39 +69,10 @@ const equipmentAliases: Record<string, string> = { "e-z curl bar": "ez_curl_bar"
 const validForce = new Set(["pull", "push", "static"]);
 const validLevel = new Set(["beginner", "intermediate", "expert"]);
 const validMechanic = new Set(["compound", "isolation"]);
-const validMuscles = new Set([
-	"lats",
-	"neck",
-	"traps",
-	"chest",
-	"biceps",
-	"calves",
-	"glutes",
-	"triceps",
-	"forearms",
-	"abductors",
-	"adductors",
-	"shoulders",
-	"lower_back",
-	"abdominals",
-	"hamstrings",
-	"quadriceps",
-	"middle_back",
-]);
-const validEquipment = new Set([
-	"bands",
-	"cable",
-	"other",
-	"barbell",
-	"machine",
-	"body_only",
-	"dumbbell",
-	"foam_roll",
-	"ez_curl_bar",
-	"kettlebells",
-	"exercise_ball",
-	"medicine_ball",
-]);
+const validMuscles = new Set<string>(exerciseTargetCatalog.map(({ externalId }) => externalId));
+const validEquipment = new Set<string>(
+	exerciseEquipmentCatalog.map(({ externalId }) => externalId),
+);
 
 type UnknownRecord = Record<string, unknown>;
 
@@ -120,9 +80,6 @@ const isRecord = (value: unknown): value is UnknownRecord =>
 	value !== null && typeof value === "object" && !Array.isArray(value);
 
 const asRecord = (value: unknown): UnknownRecord | null => (isRecord(value) ? value : null);
-
-const stringValue = (value: unknown) =>
-	typeof value === "string" && value.trim() ? value.trim() : null;
 
 const categoryToKind = (category: string) => {
 	const lower = category.toLowerCase();
@@ -257,17 +214,20 @@ const normalizeExercise = (value: unknown): NormalizedExercise | null => {
 		kind,
 		level,
 		images,
-		muscles,
 		instructions,
 		force: force.value,
 		mechanic: mechanic.value,
-		equipment: equipment.value,
 	};
 
 	return {
 		name,
 		properties,
 		externalId: name,
+		equipment: equipment.value,
+		primaryMuscles: [...new Set(primaryMuscles)],
+		secondaryMuscles: [...new Set(secondaryMuscles)].filter(
+			(muscle) => !primaryMuscles.includes(muscle),
+		),
 		searchText: normalizeSearchText([
 			name,
 			kind,
@@ -283,41 +243,11 @@ const normalizeExercise = (value: unknown): NormalizedExercise | null => {
 };
 
 const reviveExercise = (value: unknown): NormalizedExercise | null => {
-	const decoded = Schema.decodeUnknownResult(cachedExerciseSchema)(value);
+	const decoded = Schema.decodeUnknownResult(normalizedExerciseSchema)(value);
 	if (decoded._tag === "Failure") {
 		return null;
 	}
-	const row = decoded.success;
-	const name = stringValue(row.name);
-	const externalId = stringValue(row.externalId);
-	const kind = stringValue(row.properties.kind);
-	const level = stringValue(row.properties.level);
-	if (name === null || externalId === null || kind === null || level === null) {
-		return null;
-	}
-	const images: ExerciseImage[] = [];
-	for (const image of row.properties.images) {
-		const url = stringValue(image.url);
-		if (url === null) {
-			return null;
-		}
-		images.push({ url, type: "remote" });
-	}
-	return {
-		name,
-		externalId,
-		searchText: row.searchText,
-		properties: {
-			kind,
-			level,
-			images,
-			muscles: [...row.properties.muscles],
-			instructions: [...row.properties.instructions],
-			force: typeof row.properties.force === "string" ? row.properties.force : null,
-			mechanic: typeof row.properties.mechanic === "string" ? row.properties.mechanic : null,
-			equipment: typeof row.properties.equipment === "string" ? row.properties.equipment : null,
-		},
-	};
+	return decoded.success;
 };
 
 const writeCachedValue = (host: ExerciseSourceHost, key: string, value: JsonValue) =>
@@ -512,7 +442,47 @@ export const getExerciseDetails = (
 				new FitnessExerciseError(`Exercise not found: ${input.externalId}`),
 			);
 		}
-		return { name: row.name, properties: row.properties };
+		const existingKind = Schema.decodeUnknownResult(Schema.Struct({ kind: exerciseKindSchema }))(
+			input.existingProperties,
+		);
+		return {
+			name: row.name,
+			properties: {
+				...row.properties,
+				kind: existingKind._tag === "Success" ? existingKind.success.kind : row.properties.kind,
+			},
+			relatedEntityGroups: [
+				{
+					direction: "outgoing" as const,
+					synchronization: "authoritative" as const,
+					relationshipSchemaSlug: "exercise-targets",
+					entities: exerciseTargetCatalog
+						.filter(
+							({ externalId }) =>
+								row.primaryMuscles.includes(externalId) ||
+								row.secondaryMuscles.includes(externalId),
+						)
+						.map((target) =>
+							Object.assign(target, {
+								providerSlug: "exercise-target.fitness-catalog",
+								relationshipProperties: {
+									role: row.primaryMuscles.includes(target.externalId) ? "primary" : "secondary",
+								},
+							}),
+						),
+				},
+				{
+					direction: "outgoing" as const,
+					synchronization: "authoritative" as const,
+					relationshipSchemaSlug: "exercise-uses-equipment",
+					entities: exerciseEquipmentCatalog
+						.filter(({ externalId }) => externalId === row.equipment)
+						.map((equipment) =>
+							Object.assign(equipment, { providerSlug: "exercise-equipment.fitness-catalog" }),
+						),
+				},
+			],
+		};
 	});
 
 export const resolveExercise = (

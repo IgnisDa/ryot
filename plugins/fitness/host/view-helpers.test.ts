@@ -17,7 +17,7 @@ describe("buildViewExpressions", () => {
 	});
 
 	it.each([
-		["exercise", ["Name", "Level", "Equipment"]],
+		["exercise", ["Name", "Level"]],
 		["workout", ["Name", "Started At", "Ended At"]],
 	] as const)("builds the expected %s table columns", (slug, labels) => {
 		expect(buildViewExpressions(slug).table.columns.map(({ label }) => label)).toEqual(labels);

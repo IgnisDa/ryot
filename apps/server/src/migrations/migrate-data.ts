@@ -23,6 +23,7 @@ import {
 	getUnsupportedExerciseLots,
 	getUnsupportedExerciseSources,
 } from "./exercise-mapping";
+import { buildExerciseTaxonomyMigrationSql } from "./exercise-taxonomy-mapping";
 import { buildHistoricalAutomationCheckSql } from "./historical-automation-check";
 import { buildIntegrationMigrationSql, readLegacyIntegrationSettings } from "./integration-mapping";
 import {
@@ -211,6 +212,25 @@ export const migrateLegacyTables = Effect.gen(function* () {
 		"in-fitness-library",
 	);
 	const exerciseEntitySchema = entitySchema(fitnessPluginId, "exercise");
+	const exerciseTargetEntitySchema = entitySchema(fitnessPluginId, "exercise-target");
+	const exerciseEquipmentEntitySchema = entitySchema(fitnessPluginId, "exercise-equipment");
+	const exerciseTargetsRelationshipSchema = relationshipSchema(fitnessPluginId, "exercise-targets");
+	const exerciseUsesEquipmentRelationshipSchema = relationshipSchema(
+		fitnessPluginId,
+		"exercise-uses-equipment",
+	);
+	const exerciseTargetProviderId = requireMapped(
+		resolution.providers,
+		fitnessPluginId,
+		"exercise-target.fitness-catalog",
+		"provider",
+	);
+	const exerciseEquipmentProviderId = requireMapped(
+		resolution.providers,
+		fitnessPluginId,
+		"exercise-equipment.fitness-catalog",
+		"provider",
+	);
 	for (const slug of legacySavedViewTargets.kernel) {
 		requireSchema(resolution.savedViews, null, slug, "saved view");
 	}
@@ -464,6 +484,20 @@ export const migrateLegacyTables = Effect.gen(function* () {
 			);
 			yield* connection.executeRaw(buildCollectionEntityMigrationSql(collectionEntitySchema), []);
 			yield* connection.executeRaw(buildExerciseMigrationSql(resolvedExerciseTargets), []);
+			yield* connection.executeRaw(
+				buildExerciseTaxonomyMigrationSql({
+					fitnessPluginId,
+					exerciseEntitySchema,
+					exerciseTargets: resolvedExerciseTargets,
+					targetProviderId: exerciseTargetProviderId,
+					targetEntitySchema: exerciseTargetEntitySchema,
+					equipmentProviderId: exerciseEquipmentProviderId,
+					equipmentEntitySchema: exerciseEquipmentEntitySchema,
+					targetRelationshipSchema: exerciseTargetsRelationshipSchema,
+					equipmentRelationshipSchema: exerciseUsesEquipmentRelationshipSchema,
+				}),
+				[],
+			);
 			yield* connection.executeRaw(buildMeasurementMigrationSql(measurementEntitySchema), []);
 			yield* connection.executeRaw(
 				buildWorkoutTemplateMigrationSql(workoutTemplateEntitySchema),

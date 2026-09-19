@@ -54,12 +54,12 @@ export const fitnessPresentationRecipe = defineRecipe(
 							isExercise ? titleCase(property("level")) : literal(null),
 							nullableText,
 						),
-						primary: selectedField(
-							isExercise ? titleCase(property("kind")) : castDate(recordedAt),
+						secondary: selectedField(
+							isExercise ? literal(null) : castText(property("comment")),
 							nullableText,
 						),
-						secondary: selectedField(
-							isExercise ? titleCase(property("equipment")) : castText(property("comment")),
+						primary: selectedField(
+							isExercise ? titleCase(property("kind")) : castDate(recordedAt),
 							nullableText,
 						),
 						images: selectedField(
