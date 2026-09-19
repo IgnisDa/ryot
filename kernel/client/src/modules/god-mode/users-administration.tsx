@@ -1,4 +1,11 @@
-import { Button, Menu, type MenuItem, Modal, useFieldEscape } from "@ryot-app/client-ui-sdk";
+import {
+	Button,
+	Menu,
+	type MenuItem,
+	Modal,
+	useFieldEscape,
+	useValueChange,
+} from "@ryot-app/client-ui-sdk";
 import { AppIcon } from "@ryot-app/client-ui-sdk/icon";
 import { DataTable, type DataTableColumn } from "@ryot-app/client-ui-sdk/table";
 import clsx from "clsx";
@@ -102,32 +109,41 @@ export function UsersAdministration(props: UsersAdministrationProps) {
 	const searchInput = useRef<HTMLInputElement>(null);
 	useFieldEscape(searchInput, { hasValue: search !== "", onClear: () => setSearch("") });
 	const [query, setQuery] = useState("");
-	const [pages, setPages] = useState<ReadonlyArray<Page>>([]);
+	const [pages, setPages] = useState<ReadonlyArray<Page>>([{ after: undefined, state: "loading" }]);
+	useValueChange(query, () => setPages([{ after: undefined, state: "loading" }]));
 
-	const loadPage = useEffectEvent(
-		async (pageQuery: string, after: string | undefined, version: number) => {
-			const exit = await props.operations.listUsers(pageQuery, after, PAGE_SIZE);
-			if (generation.current !== version) {
-				return;
-			}
-			if (Exit.isFailure(exit) && isUnauthorizedCause(exit.cause)) {
-				props.onUnauthorized();
-				return;
-			}
-			setPages((current) =>
-				current.map((page) => {
-					if (page.after !== after) {
-						return page;
-					}
-					return Exit.isSuccess(exit)
-						? { after, state: "loaded", value: exit.value }
-						: { after, state: "error" };
-				}),
-			);
-			if (Exit.isFailure(exit)) {
-				logFailure("god-mode users request failed", exit.cause);
-			}
-		},
+	const applyPage = (
+		after: string | undefined,
+		version: number,
+		exit: Exit.Exit<GodModeUsers, unknown>,
+	) => {
+		if (generation.current !== version) {
+			return;
+		}
+		if (Exit.isFailure(exit) && isUnauthorizedCause(exit.cause)) {
+			props.onUnauthorized();
+			return;
+		}
+		setPages((current) =>
+			current.map((page) => {
+				if (page.after !== after) {
+					return page;
+				}
+				return Exit.isSuccess(exit)
+					? { after, state: "loaded", value: exit.value }
+					: { after, state: "error" };
+			}),
+		);
+		if (Exit.isFailure(exit)) {
+			logFailure("god-mode users request failed", exit.cause);
+		}
+	};
+	const loadPage = (pageQuery: string, after: string | undefined, version: number) =>
+		props.operations
+			.listUsers(pageQuery, after, PAGE_SIZE)
+			.then((exit) => applyPage(after, version, exit));
+	const loadFirstPage = useEffectEvent(
+		(pageQuery: string, version: number) => void loadPage(pageQuery, undefined, version),
 	);
 
 	useEffect(() => {
@@ -138,8 +154,7 @@ export function UsersAdministration(props: UsersAdministrationProps) {
 	useEffect(() => {
 		const version = generation.current + 1;
 		generation.current = version;
-		setPages([{ after: undefined, state: "loading" }]);
-		void loadPage(query, undefined, version);
+		loadFirstPage(query, version);
 		return () => {
 			generation.current += 1;
 		};
