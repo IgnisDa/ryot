@@ -23,7 +23,7 @@ export default defineScript({
 	output: genericImportAdapterManifestSchema,
 	run: () =>
 		Effect.gen(function* () {
-			const text = yield* readImportArtifactText();
+			const text = yield* readImportArtifactText;
 			const result = adaptOpenScaleCsv(text);
 			const items: GenericImportWriteItem[] = result.items.map((item) => ({
 				events: [],
