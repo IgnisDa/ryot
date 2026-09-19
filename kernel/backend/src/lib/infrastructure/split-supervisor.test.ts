@@ -32,16 +32,16 @@ type Started = {
 	readonly socketDirectoryMode: number | undefined;
 };
 
-const makeSpawner = (
+const makeSpawner = Effect.fnUntraced(function* (
 	exitsAfterStart: Readonly<Record<string, number>> = {},
 	failOnStart?: string,
-) => {
+) {
+	const fs = yield* FileSystem.FileSystem;
 	const started: Array<Started> = [];
 	const killed: Array<string> = [];
 	const spawner = ChildProcessSpawner.make((command) =>
 		Effect.gen(function* () {
 			assert(ChildProcess.isStandardCommand(command));
-			const fs = yield* FileSystem.FileSystem;
 			const env = command.options.env;
 			const socketDirectory = env?.["RYOT_RUNNER_SOCKET_DIR"];
 			const socketDirectoryMode =
@@ -81,11 +81,13 @@ const makeSpawner = (
 						Effect.asVoid,
 					),
 			});
-			return yield* Effect.acquireRelease(Effect.succeed(handle), () => handle.kill());
+			return yield* Effect.acquireRelease(Effect.succeed(handle), () =>
+				Effect.ignore(handle.kill()),
+			);
 		}),
 	);
 	return { killed, spawner, started };
-};
+});
 
 const supervise = (spawner: ChildProcessSpawner.ChildProcessSpawner["Service"]) =>
 	runSplitSupervisor({ entry, effectiveMemory: 8192 * MiB }).pipe(
@@ -100,7 +102,7 @@ layer(Layer.merge(configured(1904), BunServices.layer))("split supervisor", (tes
 	test.effect("runs migrations first and then starts both roles with their own environment", () =>
 		Effect.gen(function* () {
 			const fs = yield* FileSystem.FileSystem;
-			const { spawner, started } = makeSpawner({ background: 0 });
+			const { spawner, started } = yield* makeSpawner({ background: 0 });
 			yield* supervise(spawner);
 
 			expect(started.map(({ role }) => role)).toEqual(["migration", "interactive", "background"]);
@@ -158,7 +160,7 @@ layer(Layer.merge(configured(1904), BunServices.layer))("split supervisor", (tes
 
 	test.effect("starts no role when the migration process fails", () =>
 		Effect.gen(function* () {
-			const { spawner, started } = makeSpawner({ migration: 3 });
+			const { spawner, started } = yield* makeSpawner({ migration: 3 });
 			const exit = yield* Effect.exit(supervise(spawner));
 
 			assert(Exit.isFailure(exit));
@@ -174,7 +176,7 @@ layer(Layer.merge(configured(1904), BunServices.layer))("split supervisor", (tes
 	test.effect("exits with the code of the first role that exits and terminates the other", () =>
 		Effect.gen(function* () {
 			const fs = yield* FileSystem.FileSystem;
-			const { killed, spawner, started } = makeSpawner({ background: 7 });
+			const { killed, spawner, started } = yield* makeSpawner({ background: 7 });
 			const exit = yield* Effect.exit(supervise(spawner));
 
 			assert(Exit.isFailure(exit));
@@ -197,7 +199,7 @@ layer(Layer.merge(configured(1904), BunServices.layer))("split supervisor", (tes
 	test.effect("releases a started role when the next role fails to spawn", () =>
 		Effect.gen(function* () {
 			const fs = yield* FileSystem.FileSystem;
-			const { killed, spawner, started } = makeSpawner({}, "background");
+			const { killed, spawner, started } = yield* makeSpawner({}, "background");
 			const exit = yield* Effect.exit(supervise(spawner));
 
 			assert(Exit.isFailure(exit));
@@ -213,7 +215,7 @@ layer(Layer.merge(configured(1904), BunServices.layer))("split supervisor", (tes
 	test.effect("terminates both roles when interrupted", () =>
 		Effect.gen(function* () {
 			const fs = yield* FileSystem.FileSystem;
-			const { killed, spawner, started } = makeSpawner();
+			const { killed, spawner, started } = yield* makeSpawner();
 			const fiber = yield* Effect.forkChild(supervise(spawner));
 			while (started.length < 3) {
 				yield* Effect.yieldNow;
@@ -234,17 +236,20 @@ layer(Layer.merge(configured(1904), BunServices.layer))("split supervisor", (tes
 	});
 });
 
-layer(configured(1000))("split supervisor with an undividable budget", (test) => {
-	test.effect("refuses to start anything", () =>
-		Effect.gen(function* () {
-			const { spawner, started } = makeSpawner();
-			const exit = yield* Effect.exit(supervise(spawner));
+layer(Layer.merge(configured(1000), BunServices.layer))(
+	"split supervisor with an undividable budget",
+	(test) => {
+		test.effect("refuses to start anything", () =>
+			Effect.gen(function* () {
+				const { spawner, started } = yield* makeSpawner();
+				const exit = yield* Effect.exit(supervise(spawner));
 
-			assert(Exit.isFailure(exit));
-			expect(started).toEqual([]);
-		}),
-	);
-});
+				assert(Exit.isFailure(exit));
+				expect(started).toEqual([]);
+			}),
+		);
+	},
+);
 
 const mebibytes = (value: number) => value * MiB;
 
