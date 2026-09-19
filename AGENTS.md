@@ -47,4 +47,4 @@
 ## Workflow
 
 - Stay within the agreed scope. Ask before widening it, and do not start another review round once findings are addressed.
-- Work is done when `bun run check` and `bun turbo --filter='!@ryot-app/e2e' --output-logs=full test` are clean. Run only the affected e2e files, never the whole e2e suite.
+- Work is done when `bun run check` and `bun turbo --filter='!@ryot-app/e2e' test` are clean. Run only the affected e2e files, never the whole e2e suite.
