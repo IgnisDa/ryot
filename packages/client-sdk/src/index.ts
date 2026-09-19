@@ -36,7 +36,7 @@ import { EntityId, PluginSlug } from "@ryot-app/contract/schema/brands";
 import { isJsonValue, type JsonValue } from "@ryot-app/contract/schema/json";
 import { strictStruct } from "@ryot-app/contract/schema/utils";
 import type { PreparedRecipe } from "@ryot-app/ryotql";
-import { Result, Schema } from "effect";
+import { Data, Effect, Result, Schema } from "effect";
 
 export type { EntitySettle, EntitySettleReason } from "./settle";
 export type { RyotClientErrorReason } from "@ryot-app/client-plugin-contract";
@@ -66,12 +66,11 @@ export { AssetLocator, EntitySyncState, PopulationStatus, TranslationStatus };
 export type RyotThemeSnapshot = PluginThemeSnapshotValue;
 export type ManagedAssetResolution = PluginManagedAssetResolutionValue;
 
-export class RyotClientError extends Error {
+export class RyotClientError extends Data.TaggedError("RyotClientError")<{
 	readonly reason: RyotClientErrorReason;
-
+}> {
 	constructor(reason: RyotClientErrorReason) {
-		super(`Ryot client failed: ${reason}`);
-		this.reason = reason;
+		super({ reason });
 	}
 }
 
@@ -118,11 +117,19 @@ export const RyotNavigationTarget = Schema.Union([
 export type RyotNavigationTarget = Schema.Codec.Encoded<typeof RyotNavigationTarget>;
 
 export type RyotClientAdapter = {
-	readonly uploadTemporary: (request: TemporaryUploadRequest) => Promise<unknown>;
-	readonly invokeOperation?: (request: OperationAdapterRequest) => Promise<unknown>;
+	readonly uploadTemporary: (
+		request: TemporaryUploadRequest,
+	) => Effect.Effect<unknown, RyotClientError>;
+	readonly invokeOperation?: (
+		request: OperationAdapterRequest,
+	) => Effect.Effect<unknown, RyotClientError>;
 	readonly openProviderSearch?: (request: ProviderSearchScreenRequestValue) => void;
-	readonly mutateCollection?: (request: CollectionAdapterRequest) => Promise<unknown>;
-	readonly accessStorage?: (request: StorageAdapterRequest) => Promise<unknown>;
+	readonly mutateCollection?: (
+		request: CollectionAdapterRequest,
+	) => Effect.Effect<unknown, RyotClientError>;
+	readonly accessStorage?: (
+		request: StorageAdapterRequest,
+	) => Effect.Effect<unknown, RyotClientError>;
 	readonly navigate?: (mode: "push" | "replace", target: RyotNavigationTarget) => void;
 	readonly navigatePageSearch?: (mode: "push" | "replace", update: RyotPageSearchUpdate) => void;
 	readonly overlays?: {
@@ -135,17 +142,30 @@ export type RyotClientAdapter = {
 	) => EntityInterestSubscription;
 	readonly query: (
 		document: PreparedRecipe<unknown>["document"],
-		signal?: AbortSignal,
-	) => Promise<unknown>;
+	) => Effect.Effect<unknown, RyotClientError>;
 	readonly theme?: {
 		readonly getSnapshot: () => unknown;
 		readonly subscribe: (listener: () => void) => () => void;
 	};
 	readonly resolveAssets?: (
 		assets: readonly ManagedAssetLocatorValue[],
-		signal?: AbortSignal,
-	) => Promise<unknown>;
+	) => Effect.Effect<unknown, RyotClientError>;
 };
+
+const decodeCapability = <A>(
+	schema: Schema.Codec<A, unknown>,
+	value: unknown,
+): Effect.Effect<A, RyotClientError> => {
+	const decoded = Schema.decodeUnknownResult(schema)(value);
+	return Result.isFailure(decoded)
+		? Effect.fail(new RyotClientError("malformed-result"))
+		: Effect.succeed(decoded.success);
+};
+
+const adapterEffect = (call: () => Effect.Effect<unknown, RyotClientError>) =>
+	Effect.flatMap(Effect.try({ try: call, catch: asTransportError }), (effect) =>
+		Effect.mapError(effect, asTransportError),
+	);
 
 export const createRyotClient = (adapter: RyotClientAdapter) => {
 	const overlays: Array<() => boolean> = [];
@@ -177,49 +197,40 @@ export const createRyotClient = (adapter: RyotClientAdapter) => {
 			};
 		},
 	};
-	const mutateCollection = async <Output extends Schema.Codec<unknown, unknown>>(
+	const mutateCollection = <Output extends Schema.Codec<unknown, unknown>>(
 		request: unknown,
 		outputSchema: Output,
-	): Promise<Output["Type"]> => {
-		const decodedRequest = Schema.decodeUnknownResult(PluginCollectionRequest)(request);
-		if (Result.isFailure(decodedRequest)) {
-			throw new RyotClientError("invalid-input");
-		}
-		if (!adapter.mutateCollection) {
-			throw new RyotClientError("unsupported-capability");
-		}
-		let value: unknown;
-		try {
-			value = await adapter.mutateCollection(decodedRequest.success);
-		} catch (error) {
-			throw asTransportError(error);
-		}
-		const decodedOutput = Schema.decodeUnknownResult(outputSchema)(value);
-		if (Result.isFailure(decodedOutput)) {
-			throw new RyotClientError("malformed-result");
-		}
-		mutationCompleted.hint();
-		return decodedOutput.success;
-	};
-	const accessStorage = async (request: unknown): Promise<JsonValue | null> => {
-		const decodedRequest = Schema.decodeUnknownResult(PluginStorageRequest)(request);
-		if (Result.isFailure(decodedRequest)) {
-			throw new RyotClientError("invalid-input");
-		}
-		if (!adapter.accessStorage) {
-			throw new RyotClientError("unsupported-capability");
-		}
-		let value: unknown;
-		try {
-			value = await adapter.accessStorage(decodedRequest.success);
-		} catch (error) {
-			throw asTransportError(error);
-		}
-		if (value !== null && !isJsonValue(value)) {
-			throw new RyotClientError("malformed-result");
-		}
-		return value;
-	};
+	): Effect.Effect<Output["Type"], RyotClientError> =>
+		Effect.gen(function* () {
+			const decodedRequest = Schema.decodeUnknownResult(PluginCollectionRequest)(request);
+			if (Result.isFailure(decodedRequest)) {
+				return yield* new RyotClientError("invalid-input");
+			}
+			const mutate = adapter.mutateCollection;
+			if (!mutate) {
+				return yield* new RyotClientError("unsupported-capability");
+			}
+			const value = yield* adapterEffect(() => mutate(decodedRequest.success));
+			const decoded = yield* decodeCapability(outputSchema, value);
+			mutationCompleted.hint();
+			return decoded;
+		});
+	const accessStorage = (request: unknown): Effect.Effect<JsonValue | null, RyotClientError> =>
+		Effect.gen(function* () {
+			const decodedRequest = Schema.decodeUnknownResult(PluginStorageRequest)(request);
+			if (Result.isFailure(decodedRequest)) {
+				return yield* new RyotClientError("invalid-input");
+			}
+			const access = adapter.accessStorage;
+			if (!access) {
+				return yield* new RyotClientError("unsupported-capability");
+			}
+			const value = yield* adapterEffect(() => access(decodedRequest.success));
+			if (value !== null && !isJsonValue(value)) {
+				return yield* new RyotClientError("malformed-result");
+			}
+			return value;
+		});
 	let themeSnapshotInput: unknown;
 	let themeSnapshot: PluginThemeSnapshotValue | undefined;
 	const decodeThemeSnapshot = (value: unknown): PluginThemeSnapshotValue => {
@@ -307,14 +318,22 @@ export const createRyotClient = (adapter: RyotClientAdapter) => {
 				}
 			},
 		},
+		uploads: {
+			uploadTemporary: (request: TemporaryUploadRequest) =>
+				Effect.gen(function* () {
+					if (!(request.source instanceof Blob)) {
+						return yield* new RyotClientError("invalid-input");
+					}
+					const value = yield* adapterEffect(() => adapter.uploadTemporary(request));
+					return yield* decodeCapability(TemporaryUploadToken, value);
+				}),
+		},
 		storage: {
 			get: (pluginSlug: string, key: string) => accessStorage({ key, pluginSlug, action: "get" }),
-			remove: async (pluginSlug: string, key: string) => {
-				await accessStorage({ key, pluginSlug, action: "remove" });
-			},
-			set: async (pluginSlug: string, key: string, value: JsonValue) => {
-				await accessStorage({ key, value, pluginSlug, action: "set" });
-			},
+			remove: (pluginSlug: string, key: string) =>
+				Effect.asVoid(accessStorage({ key, pluginSlug, action: "remove" })),
+			set: (pluginSlug: string, key: string, value: JsonValue) =>
+				Effect.asVoid(accessStorage({ key, value, pluginSlug, action: "set" })),
 		},
 		collections: {
 			create: (input: typeof CreateCollectionBody.Encoded) =>
@@ -324,83 +343,74 @@ export const createRyotClient = (adapter: RyotClientAdapter) => {
 			removeMembership: (input: typeof DeleteMembershipBody.Encoded) =>
 				mutateCollection({ input, action: "remove-membership" }, MembershipResponse),
 		},
-		uploads: {
-			uploadTemporary: async (request: TemporaryUploadRequest) => {
-				if (!(request.source instanceof Blob)) {
-					throw new RyotClientError("invalid-input");
-				}
-				let value: unknown;
-				try {
-					value = await adapter.uploadTemporary(request);
-				} catch (error) {
-					throw asTransportError(error);
-				}
-				const decoded = Schema.decodeUnknownResult(TemporaryUploadToken)(value);
-				if (Result.isFailure(decoded)) {
-					throw new RyotClientError("malformed-result");
-				}
-				return decoded.success;
-			},
-		},
 		data: {
-			query: async <Success>(
-				recipe: PreparedRecipe<Success>,
-				options?: { readonly signal?: AbortSignal },
-			) => {
-				if (options?.signal?.aborted) {
-					throw options.signal.reason;
-				}
-				let response: unknown;
-				try {
-					response = await adapter.query(recipe.document, options?.signal);
-				} catch (error) {
-					if (options?.signal?.aborted) {
-						throw options.signal.reason;
+			query: <Success>(recipe: PreparedRecipe<Success>): Effect.Effect<Success, RyotClientError> =>
+				Effect.gen(function* () {
+					const response = yield* adapterEffect(() => adapter.query(recipe.document));
+					const decoded = yield* Effect.try({
+						try: () => recipe.decode(response),
+						catch: () => new RyotClientError("malformed-result"),
+					});
+					if (Result.isFailure(decoded)) {
+						return yield* new RyotClientError("malformed-result");
 					}
-					throw asTransportError(error);
-				}
-				let decoded: ReturnType<typeof recipe.decode>;
-				try {
-					decoded = recipe.decode(response);
-				} catch {
-					throw new RyotClientError("malformed-result");
-				}
-				if (Result.isFailure(decoded)) {
-					throw new RyotClientError("malformed-result");
-				}
-				return decoded.success;
-			},
+					return decoded.success;
+				}),
 		},
 		operations: {
-			invoke: async <Output extends Schema.Codec<unknown, unknown>>(
+			invoke: <Output extends Schema.Codec<unknown, unknown>>(
 				request: OperationInvocation<Output>,
-			) => {
-				if (!isJsonValue(request.input)) {
-					throw new RyotClientError("invalid-input");
-				}
-				if (!adapter.invokeOperation) {
-					throw new RyotClientError("unsupported-capability");
-				}
-				let value: unknown;
-				try {
-					value = await adapter.invokeOperation({
-						slug: request.slug,
-						input: request.input,
-						pluginSlug: request.pluginSlug,
-					});
-				} catch (error) {
-					throw asTransportError(error);
-				}
-				if (!isJsonValue(value)) {
-					throw new RyotClientError("malformed-result");
-				}
-				const decoded = Schema.decodeUnknownResult(request.output)(value);
-				if (Result.isFailure(decoded)) {
-					throw new RyotClientError("malformed-result");
-				}
-				mutationCompleted.hint();
-				return decoded.success;
-			},
+			): Effect.Effect<Output["Type"], RyotClientError> =>
+				Effect.gen(function* () {
+					if (!isJsonValue(request.input)) {
+						return yield* new RyotClientError("invalid-input");
+					}
+					const invoke = adapter.invokeOperation;
+					if (!invoke) {
+						return yield* new RyotClientError("unsupported-capability");
+					}
+					const value = yield* adapterEffect(() =>
+						invoke({ slug: request.slug, input: request.input, pluginSlug: request.pluginSlug }),
+					);
+					if (!isJsonValue(value)) {
+						return yield* new RyotClientError("malformed-result");
+					}
+					const decoded = yield* decodeCapability(request.output, value);
+					mutationCompleted.hint();
+					return decoded;
+				}),
+		},
+		assets: {
+			resolve: (assets: readonly ManagedAssetLocatorValue[]) =>
+				Effect.gen(function* () {
+					const decodedAssets = Schema.decodeUnknownResult(ManagedAssetResolutionBatch)(assets);
+					if (Result.isFailure(decodedAssets)) {
+						return yield* new RyotClientError("invalid-input");
+					}
+					const resolve = adapter.resolveAssets;
+					if (!resolve) {
+						return yield* new RyotClientError("unsupported-capability");
+					}
+					const value = yield* adapterEffect(() => resolve(decodedAssets.success));
+					const decoded = Schema.decodeUnknownResult(Schema.Array(PluginManagedAssetResolution))(
+						value,
+					);
+					if (
+						Result.isFailure(decoded) ||
+						decoded.success.length !== decodedAssets.success.length ||
+						decoded.success.some((resolution, index) => {
+							const requested = decodedAssets.success[index];
+							return (
+								requested === undefined ||
+								resolution.asset.type !== requested.type ||
+								resolution.asset.key !== requested.key
+							);
+						})
+					) {
+						return yield* new RyotClientError("malformed-result");
+					}
+					return decoded.success;
+				}),
 		},
 		entities: {
 			watch: (
@@ -450,50 +460,6 @@ export const createRyotClient = (adapter: RyotClientAdapter) => {
 				} catch (error) {
 					throw asTransportError(error);
 				}
-			},
-		},
-		assets: {
-			resolve: async (
-				assets: readonly ManagedAssetLocatorValue[],
-				options?: { readonly signal?: AbortSignal },
-			) => {
-				if (options?.signal?.aborted) {
-					throw options.signal.reason;
-				}
-				const decodedAssets = Schema.decodeUnknownResult(ManagedAssetResolutionBatch)(assets);
-				if (Result.isFailure(decodedAssets)) {
-					throw new RyotClientError("invalid-input");
-				}
-				if (!adapter.resolveAssets) {
-					throw new RyotClientError("unsupported-capability");
-				}
-				let value: unknown;
-				try {
-					value = await adapter.resolveAssets(decodedAssets.success, options?.signal);
-				} catch (error) {
-					if (options?.signal?.aborted) {
-						throw options.signal.reason;
-					}
-					throw asTransportError(error);
-				}
-				const decoded = Schema.decodeUnknownResult(Schema.Array(PluginManagedAssetResolution))(
-					value,
-				);
-				if (
-					Result.isFailure(decoded) ||
-					decoded.success.length !== decodedAssets.success.length ||
-					decoded.success.some((resolution, index) => {
-						const requested = decodedAssets.success[index];
-						return (
-							requested === undefined ||
-							resolution.asset.type !== requested.type ||
-							resolution.asset.key !== requested.key
-						);
-					})
-				) {
-					throw new RyotClientError("malformed-result");
-				}
-				return decoded.success;
 			},
 		},
 	};

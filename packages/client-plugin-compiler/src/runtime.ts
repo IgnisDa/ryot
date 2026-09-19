@@ -1,3 +1,5 @@
+// Vite entries use native paths; emitted module references use POSIX URL paths.
+// oxlint-disable-next-line effecttsgo/node-builtin-import
 import { posix, resolve } from "node:path";
 
 import { BunFileSystem } from "@effect/platform-bun";
@@ -396,7 +398,7 @@ export const buildClientRuntime = () =>
 				plugins: tailwindcss(),
 				oxc: { jsx: { development: false } },
 				envPrefix: "__RYOT_CLIENT_RUNTIME_NO_ENV__",
-				define: { "import.meta.env": "{}", "process.env.NODE_ENV": JSON.stringify("production") },
+				define: { "import.meta.env": "{}", "process.env.NODE_ENV": '"production"' },
 				resolve: {
 					dedupe: ["react", "react-dom", "@ryot-app/client-sdk", "@ryot-app/client-ui-sdk"],
 				},

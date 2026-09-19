@@ -18,3 +18,4 @@ Rationale lives in `README.md`.
 - Take router navigation from `RyotNavigationService`, never a `PluginRouter` prop. Only a plugin artifact's runtime provides it.
 - Layers construct shared values; React context distributes them. Per-screen values (`RouterContext`, `PluginScreenContext`, `ActiveScreenContext`) cannot be Layers, because `PluginRouter` mounts several `Screen`s at once with different locations.
 - Keep every SDK layer synchronously constructible; `RyotProvider` resolves its services with `runtime.runSync` during render.
+- Keep asynchronous client capabilities and React query/mutation definitions as Effects. Run them as Promises only at React/framework boundaries. Preserve the existing RyotQL and asset cancel messages on fiber interruption.

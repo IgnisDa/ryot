@@ -101,6 +101,7 @@ describe("Modal", () => {
 		expect(screen.queryByRole("dialog")).toBeNull();
 	});
 
+	// oxlint-disable-next-line effecttsgo/async-function -- Vitest awaits React test updates.
 	it("restores trigger focus after document Back dismisses it", async () => {
 		let dismiss: (() => boolean) | undefined;
 		const adapter: OverlayBackAdapter = {
@@ -137,12 +138,14 @@ describe("Modal", () => {
 		fireEvent.click(trigger);
 
 		act(() => expect(dismiss?.()).toBe(true));
+		// oxlint-disable-next-line effecttsgo/async-function -- React act requires a Promise callback.
 		await act(async () => {});
 
 		expect(screen.queryByRole("dialog")).toBeNull();
 		expect(document.activeElement).toBe(trigger);
 	});
 
+	// oxlint-disable-next-line effecttsgo/async-function -- Vitest awaits React test updates.
 	it("focuses its first control and restores focus to the trigger when it closes", async () => {
 		const view = render(<TriggeredModal onClose={() => {}} />);
 
@@ -150,6 +153,7 @@ describe("Modal", () => {
 
 		const trigger = screen.getByRole("button", { name: "Open" });
 		view.rerender(<TriggeredModal open={false} onClose={() => {}} />);
+		// oxlint-disable-next-line effecttsgo/async-function -- React act requires a Promise callback.
 		await act(async () => {});
 
 		expect(document.activeElement).toBe(trigger);
@@ -294,6 +298,7 @@ describe("Modal", () => {
 		expect(screen.getByRole("menuitem", { name: "Rename" }).closest("[inert]")).toBeNull();
 	});
 
+	// oxlint-disable-next-line effecttsgo/async-function -- Vitest awaits the axe Promise.
 	it("passes an axe pass on the open dialog", async () => {
 		render(<TriggeredModal onClose={() => {}} />);
 

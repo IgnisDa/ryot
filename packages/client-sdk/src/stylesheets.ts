@@ -13,6 +13,7 @@ export const loadStylesheet = (href: string): Promise<void> => {
 		return Promise.resolve();
 	}
 	const link = existing ?? document.createElement("link");
+	// oxlint-disable-next-line effecttsgo/new-promise -- DOM stylesheet load/error events have no native Promise API.
 	const loaded = new Promise<void>((resolve, reject) => {
 		const failure = () => reject(new Error(`Client stylesheet failed to load: ${href}`));
 		link.addEventListener("load", () => resolve(), { once: true });

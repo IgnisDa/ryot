@@ -1,42 +1,48 @@
 import clsx from "clsx";
+import * as Effect from "effect/Effect";
 import { useEffect, useState } from "react";
 
 import { deriveImageTint, getImageTintGradientStops, quantizeImageTintPixels } from "./image-tint";
 
 const MAX_DIMENSION = 64;
 
-const loadImageTint = async (url: string) => {
-	if (typeof document === "undefined") {
-		return undefined;
-	}
-	const image = new Image();
-	image.src = url;
-	image.crossOrigin = "anonymous";
-	try {
-		await image.decode();
-	} catch {
-		return undefined;
-	}
-	const { naturalWidth: width, naturalHeight: height } = image;
-	if (width === 0 || height === 0) {
-		return undefined;
-	}
-	const scale = Math.min(1, MAX_DIMENSION / Math.max(width, height));
-	const canvas = document.createElement("canvas");
-	canvas.width = Math.max(1, Math.round(width * scale));
-	canvas.height = Math.max(1, Math.round(height * scale));
-	const context = canvas.getContext("2d");
-	if (context === null) {
-		return undefined;
-	}
-	try {
-		context.drawImage(image, 0, 0, canvas.width, canvas.height);
-		const { data } = context.getImageData(0, 0, canvas.width, canvas.height);
-		return deriveImageTint(quantizeImageTintPixels(data));
-	} catch {
-		return undefined;
-	}
-};
+const loadImageTint = (url: string) =>
+	Effect.gen(function* () {
+		if (typeof document === "undefined") {
+			return undefined;
+		}
+		const image = new Image();
+		image.src = url;
+		image.crossOrigin = "anonymous";
+		const decoded = yield* Effect.tryPromise({
+			catch: () => undefined,
+			try: () => image.decode(),
+		}).pipe(Effect.option);
+		if (decoded._tag === "None") {
+			return undefined;
+		}
+		const { naturalWidth: width, naturalHeight: height } = image;
+		if (width === 0 || height === 0) {
+			return undefined;
+		}
+		const scale = Math.min(1, MAX_DIMENSION / Math.max(width, height));
+		const canvas = document.createElement("canvas");
+		canvas.width = Math.max(1, Math.round(width * scale));
+		canvas.height = Math.max(1, Math.round(height * scale));
+		const tint = yield* Effect.try({
+			catch: () => undefined,
+			try: () => {
+				const context = canvas.getContext("2d");
+				if (context === null) {
+					return undefined;
+				}
+				context.drawImage(image, 0, 0, canvas.width, canvas.height);
+				const { data } = context.getImageData(0, 0, canvas.width, canvas.height);
+				return deriveImageTint(quantizeImageTintPixels(data));
+			},
+		}).pipe(Effect.option);
+		return tint._tag === "Some" ? tint.value : undefined;
+	});
 
 export function useImageTint(url: string | undefined) {
 	const [tint, setTint] = useState<{
@@ -48,7 +54,7 @@ export function useImageTint(url: string | undefined) {
 	useEffect(() => {
 		let active = true;
 		if (url) {
-			void loadImageTint(url).then((loaded) => {
+			void Effect.runPromise(loadImageTint(url)).then((loaded) => {
 				if (!active) {
 					return undefined;
 				}

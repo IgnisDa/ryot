@@ -1,9 +1,10 @@
 import { waitFor } from "@testing-library/dom";
+import { Effect } from "effect";
 import { act, type ReactNode } from "react";
 import { createRoot, type Root } from "react-dom/client";
 import { afterEach, describe, expect, it } from "vitest";
 
-import type { ManagedAssetLocator, RyotClientAdapter } from "./index";
+import { RyotClientError, type ManagedAssetLocator, type RyotClientAdapter } from "./index";
 import {
 	ManagedAssetProvider,
 	managedAssetBatches,
@@ -42,7 +43,7 @@ const successfulAdapter = (
 ): Partial<RyotClientAdapter> => ({
 	resolveAssets: (assets) => {
 		calls.push(assets);
-		return Promise.resolve(
+		return Effect.succeed(
 			assets.map((asset) => ({
 				asset,
 				expiresAt,
@@ -52,6 +53,7 @@ const successfulAdapter = (
 	},
 });
 
+// oxlint-disable-next-line effecttsgo/async-function -- Vitest teardown awaits the clock runtime.
 afterEach(async () => {
 	for (const root of roots.splice(0)) {
 		act(() => root.unmount());
@@ -92,6 +94,7 @@ describe("managedAssetBatches", () => {
 });
 
 describe("ManagedAssetProvider", () => {
+	// oxlint-disable-next-line effecttsgo/async-function -- Vitest awaits React asset updates.
 	it("issues one resolve query per batch and none for an empty provider", async () => {
 		const calls: (readonly ManagedAssetLocator[])[] = [];
 		render(
@@ -105,6 +108,7 @@ describe("ManagedAssetProvider", () => {
 		await waitFor(() => expect(calls.map((batch) => batch.length)).toEqual([64, 1]));
 	});
 
+	// oxlint-disable-next-line effecttsgo/async-function -- Vitest awaits React asset updates.
 	it("does not query again for an equivalent reordered locator list", async () => {
 		const calls: (readonly ManagedAssetLocator[])[] = [];
 		const locators = makeLocators(3);
@@ -122,6 +126,7 @@ describe("ManagedAssetProvider", () => {
 		expect(calls).toHaveLength(1);
 	});
 
+	// oxlint-disable-next-line effecttsgo/async-function -- Vitest awaits React asset updates.
 	it("refreshes one minute before the earliest expiry", async () => {
 		const calls: (readonly ManagedAssetLocator[])[] = [];
 		const clock = createTestRyotClock(successfulAdapter(calls, "2026-09-04T12:05:00.000Z"));
@@ -146,6 +151,7 @@ describe("ManagedAssetProvider", () => {
 		await waitFor(() => expect(calls).toHaveLength(2));
 	});
 
+	// oxlint-disable-next-line effecttsgo/async-function -- Vitest awaits React asset updates.
 	it("retains the cached URL when an expiry refresh fails", async () => {
 		const asset = { type: "s3", key: "cover" } as const;
 		let calls = 0;
@@ -153,9 +159,9 @@ describe("ManagedAssetProvider", () => {
 			resolveAssets: (assets) => {
 				calls++;
 				if (calls > 1) {
-					return Promise.reject(new Error("offline"));
+					return Effect.fail(new RyotClientError("transport"));
 				}
-				return Promise.resolve(
+				return Effect.succeed(
 					assets.map((requested) => ({
 						asset: requested,
 						url: "https://cdn.test/stable-cover",
