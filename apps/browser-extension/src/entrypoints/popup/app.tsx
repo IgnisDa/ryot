@@ -64,7 +64,6 @@ const App = () => {
 			const savedUrl = await storage.getItem<string>(STORAGE_KEYS.INTEGRATION_URL);
 			if (savedUrl) {
 				setUrl(savedUrl);
-				validateUrl(savedUrl);
 				setFormState({ status: "submitted" });
 			}
 		};
