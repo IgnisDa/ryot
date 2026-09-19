@@ -2,16 +2,18 @@ import { describe, expect, it } from "@effect/vitest";
 import { Effect } from "effect";
 
 import { decodeServerOrigin } from "#/api/origin";
-import { makeRuntimeOAuthClient } from "#/modules/auth/runtime-client";
+import { makeRuntimeOAuthClient, RuntimeOAuthClientError } from "#/modules/auth/runtime-client";
 
 const origin = decodeServerOrigin("https://ryot.example");
 
 describe("runtime OAuth client", () => {
 	it.live("describes the web client from the server origin", () =>
 		Effect.gen(function* () {
-			const client = makeRuntimeOAuthClient({
+			const client = yield* makeRuntimeOAuthClient({
 				isNative: () => false,
-				getApplicationId: () => Promise.reject(new Error("not used")),
+				getApplicationId: Effect.fail(
+					new RuntimeOAuthClientError({ cause: new Error("not used") }),
+				),
 			});
 
 			expect(yield* client.forServer(origin)).toEqual({
@@ -27,9 +29,9 @@ describe("runtime OAuth client", () => {
 		"describes the validated native client for %s",
 		(applicationId) =>
 			Effect.gen(function* () {
-				const client = makeRuntimeOAuthClient({
+				const client = yield* makeRuntimeOAuthClient({
 					isNative: () => true,
-					getApplicationId: () => Promise.resolve(applicationId),
+					getApplicationId: Effect.succeed(applicationId),
 				});
 
 				expect(yield* client.forServer(origin)).toEqual({
@@ -42,11 +44,11 @@ describe("runtime OAuth client", () => {
 	);
 
 	it.live.each([
-		() => Promise.resolve("io.ryot.unknown"),
-		() => Promise.reject(new Error("unavailable")),
+		Effect.succeed("io.ryot.unknown"),
+		Effect.fail(new RuntimeOAuthClientError({ cause: new Error("unavailable") })),
 	])("rejects an unreadable or unknown native application", (getApplicationId) =>
 		Effect.gen(function* () {
-			const client = makeRuntimeOAuthClient({ getApplicationId, isNative: () => true });
+			const client = yield* makeRuntimeOAuthClient({ getApplicationId, isNative: () => true });
 
 			expect(yield* Effect.flip(client.forServer(origin))).toMatchObject({
 				_tag: "RuntimeOAuthClientError",
@@ -57,12 +59,12 @@ describe("runtime OAuth client", () => {
 	it.live("reads the native application ID once", () =>
 		Effect.gen(function* () {
 			let calls = 0;
-			const client = makeRuntimeOAuthClient({
+			const client = yield* makeRuntimeOAuthClient({
 				isNative: () => true,
-				getApplicationId: () => {
+				getApplicationId: Effect.sync(() => {
 					calls += 1;
-					return Promise.resolve("io.ryot.app");
-				},
+					return "io.ryot.app";
+				}),
 			});
 
 			yield* Effect.all([client.forServer(origin), client.forServer(origin)]);

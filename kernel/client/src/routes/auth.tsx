@@ -20,27 +20,29 @@ export const Route = createFileRoute("/auth")({
 		/>
 	),
 	beforeLoad: ({ search, context }) =>
-		context.runtime
-			.runPromise(Effect.flatMap(OAuthLauncher, (launcher) => launcher.prepare(search.redirect)))
-			.then((result) => {
-				if (result._tag === "MissingServer") {
-					// oxlint-disable-next-line typescript/only-throw-error
-					throw redirect({
-						replace: true,
-						to: "/onboarding",
-						search: { redirect: search.redirect },
-					});
-				}
-				if (result._tag === "Authenticated") {
-					// oxlint-disable-next-line typescript/only-throw-error
-					throw redirect({
-						replace: true,
-						to: result.destination,
-						search: { redirect: undefined },
-					});
-				}
-				return { plan: result.plan };
-			}),
+		context.runtime.runPromise(
+			Effect.flatMap(OAuthLauncher, (launcher) => launcher.prepare(search.redirect)).pipe(
+				Effect.map((result) => {
+					if (result._tag === "MissingServer") {
+						// oxlint-disable-next-line typescript/only-throw-error
+						throw redirect({
+							replace: true,
+							to: "/onboarding",
+							search: { redirect: search.redirect },
+						});
+					}
+					if (result._tag === "Authenticated") {
+						// oxlint-disable-next-line typescript/only-throw-error
+						throw redirect({
+							replace: true,
+							to: result.destination,
+							search: { redirect: undefined },
+						});
+					}
+					return { plan: result.plan };
+				}),
+			),
+		),
 });
 
 function OAuthLaunchUnavailable({ error }: { error: unknown }) {
@@ -84,7 +86,11 @@ function OAuthLaunch() {
 
 	function launch(target: OAuthLaunchPlan) {
 		setFailedPlan(undefined);
-		void runtime.runPromise(launcher.launch(target)).catch(() => setFailedPlan(target));
+		runtime.runFork(
+			launcher
+				.launch(target)
+				.pipe(Effect.catchCause(() => Effect.sync(() => setFailedPlan(target)))),
+		);
 	}
 	const launchAuth = useEffectEvent(launch);
 

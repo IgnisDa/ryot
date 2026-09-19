@@ -34,9 +34,13 @@ describe("OAuth PKCE", () => {
 					expect(challenge).toBe("E9Melhoa2OwvFrEMTJguCHaoeK1t8URWbuGJSstw-cM");
 					expect(generateOAuthRandomValue()).toMatch(/^[A-Za-z0-9_-]{43}$/);
 				},
+			).pipe(
+				Effect.ensuring(
+					Effect.sync(() => {
+						Object.defineProperty(globalThis, "crypto", { value: secure, configurable: true });
+					}),
+				),
 			),
-		).finally(() => {
-			Object.defineProperty(globalThis, "crypto", { value: secure, configurable: true });
-		});
+		);
 	});
 });

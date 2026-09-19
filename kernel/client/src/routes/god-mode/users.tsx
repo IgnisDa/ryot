@@ -1,4 +1,5 @@
 import { createFileRoute } from "@tanstack/react-router";
+import { Effect } from "effect";
 
 import { useGodMode } from "#/modules/god-mode/context";
 import { transferResetLink } from "#/modules/god-mode/reset-link-transfer";
@@ -12,14 +13,14 @@ function GodModeUsers() {
 	const { sessionId, unauthorized } = useGodMode();
 	const service = runtime.runSync(GodModeService);
 	const operations = {
-		resetUser: (userId: string) => runtime.runPromiseExit(service.resetUser(sessionId, userId)),
-		deleteUser: (userId: string) => runtime.runPromiseExit(service.deleteUser(sessionId, userId)),
+		resetUser: (userId: string) => Effect.exit(service.resetUser(sessionId, userId)),
+		deleteUser: (userId: string) => Effect.exit(service.deleteUser(sessionId, userId)),
 		resetUserPassword: (userId: string) =>
-			runtime.runPromiseExit(service.resetUserPassword(sessionId, userId)),
+			Effect.exit(service.resetUserPassword(sessionId, userId)),
 		setUserDisabled: (userId: string, disabled: boolean) =>
-			runtime.runPromiseExit(service.setUserDisabled(sessionId, userId, disabled)),
+			Effect.exit(service.setUserDisabled(sessionId, userId, disabled)),
 		listUsers: (search: string, after: string | undefined, limit: number) =>
-			runtime.runPromiseExit(service.listUsers(sessionId, search, after, limit)),
+			Effect.exit(service.listUsers(sessionId, search, after, limit)),
 	};
 
 	return (
