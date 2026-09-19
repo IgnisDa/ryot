@@ -1,4 +1,4 @@
-import { it } from "@effect/vitest";
+import { layer } from "@effect/vitest";
 import { Effect, Layer, Schema } from "effect";
 import { Workflow } from "effect/unstable/workflow";
 
@@ -16,6 +16,8 @@ const ChildWorkflowLayer = implementWorkflow(ChildWorkflow, () => Effect.void).p
 	Layer.provideMerge(workflowEngineTestLayer),
 );
 
-it.effect("provides an in-memory workflow test runtime", () =>
-	ChildWorkflow.execute({ executionId: "memory" }).pipe(Effect.provide(ChildWorkflowLayer)),
-);
+layer(ChildWorkflowLayer)((test) => {
+	test.effect("provides an in-memory workflow test runtime", () =>
+		ChildWorkflow.execute({ executionId: "memory" }),
+	);
+});

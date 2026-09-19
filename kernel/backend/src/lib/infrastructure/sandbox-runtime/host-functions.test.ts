@@ -1,6 +1,5 @@
-import { expect, it } from "@effect/vitest";
+import { describe, expect, it, layer } from "@effect/vitest";
 import { DbError } from "@ryot-app/contract/errors";
-import type { AutomationWarning } from "@ryot-app/contract/modules/automations/lifecycle";
 import type { RyotQLDocument } from "@ryot-app/contract/modules/ryotql/language";
 import type { SandboxExecutionSubject } from "@ryot-app/contract/modules/sandbox/schemas";
 import { SANDBOX_HOST_CAPABILITIES } from "@ryot-app/contract/modules/sandbox/wire";
@@ -19,11 +18,9 @@ import {
 	UserId,
 } from "@ryot-app/contract/schema/brands";
 import type { ChangeUserRelationshipBatch } from "@ryot-app/sandbox-sdk/core";
-import { Effect, Result, Layer, Option } from "effect";
-import { describe } from "vitest";
+import { Context, Effect, Layer, Option, Ref, Result } from "effect";
 
 import { LifecyclePlanner } from "#lib/domain/lifecycle";
-import type { LifecycleCommand } from "#lib/domain/lifecycle-command";
 import { LifecycleExecution } from "#lib/domain/lifecycle-execution";
 import { RedisService } from "#lib/infrastructure/redis";
 import type { SandboxExecutionPrincipal } from "#lib/infrastructure/sandbox-runtime/execution-principal";
@@ -50,16 +47,6 @@ import {
 	normalizePreferences,
 	toSandboxCreateEventsResult,
 } from "./host-functions";
-
-const definitionRepository = (source: DefinitionSource = kernelDefinitionSource()) => {
-	const snapshot = buildDefinitionSnapshot(source);
-	return Layer.mock(DefinitionRepository)({
-		findUserEntitySchemas: () => Effect.succeed(snapshot.entitySchemas),
-		findUserRelationshipSchemas: () => Effect.succeed(snapshot.relationshipSchemas),
-		findGlobalRelationshipSchema: (slug) =>
-			Effect.succeed(snapshot.relationshipSchemas[slug] ?? null),
-	});
-};
 
 const hostDatabaseLayer = Layer.mergeAll(
 	databaseLayer,
@@ -184,115 +171,6 @@ const automationSubject = (
 		},
 	}) satisfies SandboxExecutionSubject;
 
-const runGetCurrentIntegration = (
-	subject: SandboxExecutionSubject,
-	getForUser: (input: GetForUserInput) => Effect.Effect<IntegrationRecord | null>,
-) =>
-	makeAdditionalSandboxApiFunctions.pipe(
-		Effect.flatMap((functions) =>
-			Effect.result(functions.getCurrentIntegration(runInput(subject))),
-		),
-		Effect.provide(
-			Layer.mergeAll(
-				hostDatabaseLayer,
-				makeAppConfigLayer(),
-				Layer.succeed(RedisService, makeRedisService()),
-				Layer.mock(EventsService)({}),
-				Layer.mock(EntitiesService)({}),
-				Layer.mock(EntitiesRepository)({ lockEntityReferencesByIds: () => Effect.void }),
-				Layer.mock(RyotQLService)({}),
-				definitionRepository(),
-				Layer.mock(PluginRuntimeResolver)({}),
-				Layer.mock(RelationshipsRepository)({}),
-				Layer.mock(IntegrationsRepository)({ getForUser }),
-			),
-		),
-	);
-
-const executeRyotql = () => Effect.void;
-
-describe("getCurrentIntegration", () => {
-	it.effect("resolves the integration the operation execution was dispatched for", () =>
-		Effect.gen(function* () {
-			const requested: GetForUserInput[] = [];
-			const result = yield* runGetCurrentIntegration(
-				{
-					type: "user",
-					userId: UserId.make("user-1"),
-					integrationId: IntegrationId.make("int-trusted"),
-				},
-				(input) => {
-					requested.push(input);
-					return Effect.succeed(ownedIntegration(input));
-				},
-			);
-
-			expect(requested).toEqual([{ userId: "user-1", integrationId: "int-trusted" }]);
-			const integration = Result.getOrThrow(result);
-			expect(integration.id).toBe("int-trusted");
-			expect(integration).not.toHaveProperty("pluginSlug");
-			expect(integration.providerSpecifics).toEqual({
-				kind: "lambda_yank",
-				token: "lambda-token",
-				baseUrl: "https://lambda.example",
-			});
-		}),
-	);
-
-	it.effect("resolves the integration a subscription execution originated from", () =>
-		Effect.gen(function* () {
-			const requested: GetForUserInput[] = [];
-			const result = yield* runGetCurrentIntegration(
-				automationSubject({ kind: "integration", integrationId: IntegrationId.make("int-origin") }),
-				(input) => {
-					requested.push(input);
-					return Effect.succeed(ownedIntegration(input));
-				},
-			);
-
-			expect(requested).toEqual([{ userId: "user-1", integrationId: "int-origin" }]);
-			expect(Result.getOrThrow(result).id).toBe("int-origin");
-		}),
-	);
-
-	it.effect("fails when the execution has no integration in scope", () =>
-		Effect.forEach(
-			[
-				{ type: "user", userId: UserId.make("user-1") },
-				automationSubject({ kind: "api" }),
-			] satisfies SandboxExecutionSubject[],
-			(subject) =>
-				Effect.gen(function* () {
-					const result = yield* runGetCurrentIntegration(subject, () =>
-						Effect.die("must not reach the repository"),
-					);
-
-					expect(Result.getFailure(result)).toEqual(
-						Option.some({
-							message:
-								"getCurrentIntegration is available only to executions scoped to an integration",
-						}),
-					);
-				}),
-		),
-	);
-
-	it.effect("keeps the executing user's ownership scope", () =>
-		Effect.gen(function* () {
-			const result = yield* runGetCurrentIntegration(
-				{
-					type: "user",
-					userId: UserId.make("user-1"),
-					integrationId: IntegrationId.make("int-of-another-user"),
-				},
-				() => Effect.succeed(null),
-			);
-
-			expect(Result.getFailure(result)).toEqual(Option.some({ message: "Integration not found" }));
-		}),
-	);
-});
-
 const ryotqlDocument = {
 	queries: {
 		entities: {
@@ -337,6 +215,253 @@ const systemPluginRevision = {
 	},
 };
 
+type EntityScope = {
+	entityId: EntityId;
+	isBuiltin: boolean;
+	entityName: string;
+	entityUserId: UserId | null;
+	entitySchemaPluginId: string | null;
+	entitySchemaSlug: EntitySchemaSlug;
+};
+
+const builtinEntityScope = ({ entityId }: { userId: UserId; entityId: EntityId }) =>
+	Effect.succeed<EntityScope | null>({
+		entityId,
+		isBuiltin: true,
+		entityUserId: null,
+		entityName: "Entity",
+		entitySchemaPluginId: null,
+		entitySchemaSlug: EntitySchemaSlug.make(entityId === "collection-1" ? "collection" : "entity"),
+	});
+
+class HostFunctionCalls extends Context.Service<
+	HostFunctionCalls,
+	{
+		readonly ensuredEntities: Effect.Effect<ReadonlyArray<unknown>>;
+		readonly ryotqlUserCalls: Effect.Effect<ReadonlyArray<unknown>>;
+		readonly ryotqlPluginCalls: Effect.Effect<ReadonlyArray<unknown>>;
+		readonly pluginConfigLookups: Effect.Effect<ReadonlyArray<unknown>>;
+		readonly createdRelationships: Effect.Effect<ReadonlyArray<unknown>>;
+		readonly deletedRelationships: Effect.Effect<ReadonlyArray<unknown>>;
+		readonly integrationLookups: Effect.Effect<ReadonlyArray<GetForUserInput>>;
+		readonly useDefinitions: (source: DefinitionSource) => Effect.Effect<void>;
+	}
+>()("test/HostFunctionCalls") {}
+
+const append = <A>(ref: Ref.Ref<ReadonlyArray<A>>, value: A) =>
+	Ref.update(ref, (all) => [...all, value]);
+
+const hostFunctionsLayer = (
+	options: {
+		readonly definitions?: DefinitionSource;
+		readonly forbidRelationshipWrites?: boolean;
+		readonly entityScope?: typeof builtinEntityScope;
+		readonly integration?: (input: GetForUserInput) => Effect.Effect<IntegrationRecord | null>;
+		readonly pluginConfig?: PluginRuntimeResolver["Service"]["resolvePluginConfigContext"];
+	} = {},
+) =>
+	Layer.unwrap(
+		Effect.gen(function* () {
+			const ensuredEntities = yield* Ref.make<ReadonlyArray<unknown>>([]);
+			const ryotqlUserCalls = yield* Ref.make<ReadonlyArray<unknown>>([]);
+			const ryotqlPluginCalls = yield* Ref.make<ReadonlyArray<unknown>>([]);
+			const pluginConfigLookups = yield* Ref.make<ReadonlyArray<unknown>>([]);
+			const createdRelationships = yield* Ref.make<ReadonlyArray<unknown>>([]);
+			const deletedRelationships = yield* Ref.make<ReadonlyArray<unknown>>([]);
+			const integrationLookups = yield* Ref.make<ReadonlyArray<GetForUserInput>>([]);
+			const snapshot = yield* Ref.make(
+				buildDefinitionSnapshot(options.definitions ?? kernelDefinitionSource()),
+			);
+			return Layer.mergeAll(
+				hostDatabaseLayer,
+				makeAppConfigLayer(),
+				Layer.succeed(RedisService, makeRedisService()),
+				Layer.mock(EventsService)({}),
+				Layer.succeed(HostFunctionCalls, {
+					ensuredEntities: Ref.get(ensuredEntities),
+					ryotqlUserCalls: Ref.get(ryotqlUserCalls),
+					ryotqlPluginCalls: Ref.get(ryotqlPluginCalls),
+					integrationLookups: Ref.get(integrationLookups),
+					pluginConfigLookups: Ref.get(pluginConfigLookups),
+					createdRelationships: Ref.get(createdRelationships),
+					deletedRelationships: Ref.get(deletedRelationships),
+					useDefinitions: (source) => Ref.set(snapshot, buildDefinitionSnapshot(source)),
+				}),
+				Layer.mock(DefinitionRepository)({
+					findUserEntitySchemas: () => Effect.map(Ref.get(snapshot), (all) => all.entitySchemas),
+					findUserRelationshipSchemas: () =>
+						Effect.map(Ref.get(snapshot), (all) => all.relationshipSchemas),
+					findGlobalRelationshipSchema: (slug) =>
+						Effect.map(Ref.get(snapshot), (all) => all.relationshipSchemas[slug] ?? null),
+				}),
+				Layer.mock(IntegrationsRepository)({
+					getForUser: (input) =>
+						append(integrationLookups, input).pipe(
+							Effect.andThen(
+								options.integration ? options.integration(input) : Effect.die("unused"),
+							),
+						),
+				}),
+				Layer.mock(PluginRuntimeResolver)({
+					lockCatalog: () => Effect.void,
+					resolvePluginConfigContext: (input) =>
+						append(pluginConfigLookups, input).pipe(
+							Effect.andThen(
+								options.pluginConfig
+									? options.pluginConfig(input)
+									: Effect.die("unused plugin config"),
+							),
+						),
+				}),
+				Layer.mock(RyotQLService)({
+					executeForPlugin: (scope, doc) =>
+						append(ryotqlPluginCalls, { scope, document: doc }).pipe(Effect.as(ryotqlResponse)),
+					executeForUser: (userId, language, audience, doc) =>
+						append(ryotqlUserCalls, { userId, language, audience, document: doc }).pipe(
+							Effect.as(ryotqlResponse),
+						),
+				}),
+				Layer.mock(EntitiesRepository)({
+					lockEntityReferencesByIds: () => Effect.void,
+					getEntityScopeForUser: options.entityScope ?? builtinEntityScope,
+				}),
+				Layer.mock(EntitiesService)({
+					ensureUserEntities: (userId, items, lifecycle) =>
+						Ref.modify(ensuredEntities, (all) => [
+							all.length === 0,
+							[...all, { items, userId, lifecycle }],
+						]).pipe(
+							Effect.map((wasInserted) => [
+								{ wasInserted, warnings: [], entityId: EntityId.make("workspace-id") },
+							]),
+						),
+				}),
+				Layer.mock(RelationshipsRepository)({
+					findRelationship: () => Effect.succeed(null),
+					lockRelationshipMutations: () => Effect.void,
+					findLifecyclePayload: () => Effect.succeed(null),
+					createRelationship: (input) =>
+						append(createdRelationships, input).pipe(
+							Effect.andThen(
+								options.forbidRelationshipWrites
+									? Effect.die("must not write")
+									: Effect.succeed({
+											...input,
+											wasInserted: true,
+											createdAt: "2026-07-28T00:00:00.000Z",
+											updatedAt: "2026-07-28T00:00:00.000Z",
+											id: RelationshipId.make("relationship-1"),
+										}),
+							),
+						),
+					...(options.forbidRelationshipWrites
+						? {}
+						: {
+								deleteRelationship: (input: unknown) =>
+									append(deletedRelationships, input).pipe(Effect.as(null)),
+							}),
+				}),
+			);
+		}),
+	);
+
+const runGetCurrentIntegration = (subject: SandboxExecutionSubject) =>
+	makeAdditionalSandboxApiFunctions.pipe(
+		Effect.flatMap((functions) =>
+			Effect.result(functions.getCurrentIntegration(runInput(subject))),
+		),
+	);
+
+const executeRyotql = () => Effect.void;
+
+describe("getCurrentIntegration", () => {
+	layer(hostFunctionsLayer({ integration: (input) => Effect.succeed(ownedIntegration(input)) }))(
+		(test) => {
+			test.effect("resolves the integration the operation execution was dispatched for", () =>
+				Effect.gen(function* () {
+					const result = yield* runGetCurrentIntegration({
+						type: "user",
+						userId: UserId.make("user-1"),
+						integrationId: IntegrationId.make("int-trusted"),
+					});
+
+					expect(yield* (yield* HostFunctionCalls).integrationLookups).toEqual([
+						{ userId: "user-1", integrationId: "int-trusted" },
+					]);
+					const integration = Result.getOrThrow(result);
+					expect(integration.id).toBe("int-trusted");
+					expect(integration).not.toHaveProperty("pluginSlug");
+					expect(integration.providerSpecifics).toEqual({
+						kind: "lambda_yank",
+						token: "lambda-token",
+						baseUrl: "https://lambda.example",
+					});
+				}),
+			);
+		},
+	);
+
+	layer(hostFunctionsLayer({ integration: (input) => Effect.succeed(ownedIntegration(input)) }))(
+		(test) => {
+			test.effect("resolves the integration a subscription execution originated from", () =>
+				Effect.gen(function* () {
+					const result = yield* runGetCurrentIntegration(
+						automationSubject({
+							kind: "integration",
+							integrationId: IntegrationId.make("int-origin"),
+						}),
+					);
+
+					expect(yield* (yield* HostFunctionCalls).integrationLookups).toEqual([
+						{ userId: "user-1", integrationId: "int-origin" },
+					]);
+					expect(Result.getOrThrow(result).id).toBe("int-origin");
+				}),
+			);
+		},
+	);
+
+	layer(hostFunctionsLayer({ integration: () => Effect.die("must not reach the repository") }))(
+		(test) => {
+			test.effect("fails when the execution has no integration in scope", () =>
+				Effect.forEach(
+					[
+						{ type: "user", userId: UserId.make("user-1") },
+						automationSubject({ kind: "api" }),
+					] satisfies SandboxExecutionSubject[],
+					(subject) =>
+						Effect.gen(function* () {
+							const result = yield* runGetCurrentIntegration(subject);
+
+							expect(Result.getFailure(result)).toEqual(
+								Option.some({
+									message:
+										"getCurrentIntegration is available only to executions scoped to an integration",
+								}),
+							);
+						}),
+				),
+			);
+		},
+	);
+
+	layer(hostFunctionsLayer({ integration: () => Effect.succeed(null) }))((test) => {
+		test.effect("keeps the executing user's ownership scope", () =>
+			Effect.gen(function* () {
+				const result = yield* runGetCurrentIntegration({
+					type: "user",
+					userId: UserId.make("user-1"),
+					integrationId: IntegrationId.make("int-of-another-user"),
+				});
+
+				expect(Result.getFailure(result)).toEqual(
+					Option.some({ message: "Integration not found" }),
+				);
+			}),
+		);
+	});
+});
+
 const pluginConfigSchema = {
 	unknownKeys: "strict",
 	fields: {
@@ -344,10 +469,7 @@ const pluginConfigSchema = {
 	},
 } as const;
 
-const runGetPluginConfig = (
-	principalFacts: Partial<SandboxExecutionPrincipal>,
-	resolver: Layer.Layer<PluginRuntimeResolver>,
-) =>
+const runGetPluginConfig = (principalFacts: Partial<SandboxExecutionPrincipal>) =>
 	makeAdditionalSandboxApiFunctions.pipe(
 		Effect.flatMap((functions) =>
 			Effect.result(
@@ -360,189 +482,158 @@ const runGetPluginConfig = (
 				),
 			),
 		),
-		Effect.provide(
-			Layer.mergeAll(
-				hostDatabaseLayer,
-				makeAppConfigLayer(),
-				Layer.succeed(RedisService, makeRedisService()),
-				Layer.mock(EventsService)({}),
-				Layer.mock(EntitiesService)({}),
-				Layer.mock(EntitiesRepository)({ lockEntityReferencesByIds: () => Effect.void }),
-				Layer.mock(RyotQLService)({}),
-				definitionRepository(),
-				resolver,
-				Layer.mock(IntegrationsRepository)({}),
-				Layer.mock(RelationshipsRepository)({}),
-			),
-		),
 	);
 
 describe("getPluginConfig", () => {
-	it.effect("resolves the exact pinned configuration revision", () => {
-		const requests: unknown[] = [];
-		return Effect.gen(function* () {
-			const result = yield* runGetPluginConfig(
-				{ pluginRevision: { ...systemPluginRevision, configSchema: pluginConfigSchema } },
-				Layer.mock(PluginRuntimeResolver)({
-					resolvePluginConfigContext: (input) => {
-						requests.push(input);
-						return Effect.succeed({ apiToken: "pinned-value" });
-					},
+	layer(hostFunctionsLayer({ pluginConfig: () => Effect.succeed({ apiToken: "pinned-value" }) }))(
+		(test) => {
+			test.effect("resolves the exact pinned configuration revision", () =>
+				Effect.gen(function* () {
+					const result = yield* runGetPluginConfig({
+						pluginRevision: { ...systemPluginRevision, configSchema: pluginConfigSchema },
+					});
+
+					expect(Result.getOrThrow(result)).toEqual({ apiToken: "pinned-value" });
+					expect(yield* (yield* HostFunctionCalls).pluginConfigLookups).toEqual([
+						{ id: "config-1", ownerUserId: null, pluginRevisionId: "revision-1" },
+					]);
 				}),
 			);
+		},
+	);
 
-			expect(Result.getOrThrow(result)).toEqual({ apiToken: "pinned-value" });
-			expect(requests).toEqual([
-				{ id: "config-1", ownerUserId: null, pluginRevisionId: "revision-1" },
-			]);
-		});
+	layer(hostFunctionsLayer({ pluginConfig: () => Effect.die("must not resolve unpinned config") }))(
+		(test) => {
+			test.effect("rejects config access before resolving without a trusted pin", () =>
+				Effect.gen(function* () {
+					const result = yield* runGetPluginConfig({});
+
+					expect(Result.getFailure(result)).toEqual(
+						Option.some({ message: "Plugin config is available only to active plugin scripts" }),
+					);
+				}),
+			);
+		},
+	);
+
+	layer(
+		hostFunctionsLayer({
+			pluginConfig: () =>
+				Effect.fail(new DbError({ message: "Invalid pinned plugin configuration ownership" })),
+		}),
+	)((test) => {
+		test.effect("preserves the structured failure for an unavailable pinned configuration", () =>
+			Effect.gen(function* () {
+				const result = yield* runGetPluginConfig({
+					pluginRevision: { ...systemPluginRevision, configSchema: pluginConfigSchema },
+				});
+
+				expect(Result.getFailure(result)).toMatchObject(
+					Option.some({
+						_tag: "DbError",
+						message: "Invalid pinned plugin configuration ownership",
+					}),
+				);
+			}),
+		);
 	});
-
-	it.effect("rejects config access before resolving without a trusted pin", () =>
-		Effect.gen(function* () {
-			const result = yield* runGetPluginConfig(
-				{},
-				Layer.mock(PluginRuntimeResolver)({
-					resolvePluginConfigContext: () => Effect.die("must not resolve unpinned config"),
-				}),
-			);
-
-			expect(Result.getFailure(result)).toEqual(
-				Option.some({ message: "Plugin config is available only to active plugin scripts" }),
-			);
-		}),
-	);
-
-	it.effect("preserves the structured failure for an unavailable pinned configuration", () =>
-		Effect.gen(function* () {
-			const result = yield* runGetPluginConfig(
-				{ pluginRevision: { ...systemPluginRevision, configSchema: pluginConfigSchema } },
-				Layer.mock(PluginRuntimeResolver)({
-					resolvePluginConfigContext: () =>
-						Effect.fail(new DbError({ message: "Invalid pinned plugin configuration ownership" })),
-				}),
-			);
-
-			expect(Result.getFailure(result)).toMatchObject(
-				Option.some({ _tag: "DbError", message: "Invalid pinned plugin configuration ownership" }),
-			);
-		}),
-	);
 });
 
-const runExecuteRyotql = (input: SandboxRunInput, document: RyotQLDocument = ryotqlDocument) => {
-	const userCalls: unknown[] = [];
-	const pluginCalls: unknown[] = [];
-	return makeAdditionalSandboxApiFunctions.pipe(
+const runExecuteRyotql = (input: SandboxRunInput, document: RyotQLDocument = ryotqlDocument) =>
+	makeAdditionalSandboxApiFunctions.pipe(
 		Effect.flatMap((functions) => Effect.result(functions.executeRyotql(input, document))),
-		Effect.map((result) => ({ result, userCalls, pluginCalls })),
-		Effect.provide(
-			Layer.mergeAll(
-				hostDatabaseLayer,
-				makeAppConfigLayer(),
-				Layer.succeed(RedisService, makeRedisService()),
-				Layer.mock(EventsService)({}),
-				Layer.mock(EntitiesService)({}),
-				Layer.mock(EntitiesRepository)({ lockEntityReferencesByIds: () => Effect.void }),
-				Layer.mock(IntegrationsRepository)({}),
-				Layer.mock(RelationshipsRepository)({}),
-				definitionRepository(),
-				Layer.mock(PluginRuntimeResolver)({}),
-				Layer.mock(RyotQLService)({
-					executeForPlugin: (scope, doc) => {
-						pluginCalls.push({ scope, document: doc });
-						return Effect.succeed(ryotqlResponse);
-					},
-					executeForUser: (userId, language, audience, doc) => {
-						userCalls.push({ userId, language, audience, document: doc });
-						return Effect.succeed(ryotqlResponse);
-					},
-				}),
-			),
-		),
 	);
-};
 
 describe("executeRyotql", () => {
-	it.effect("keeps pinned schema scope after the active manifest changes", () =>
-		Effect.gen(function* () {
-			const activeManifest = { schemaScope: systemPluginRevision.schemaScope };
-			const pinnedRevision = { ...systemPluginRevision, schemaScope: activeManifest.schemaScope };
-			activeManifest.schemaScope = {
-				eventSchemas: [],
-				relationshipSchemaSlugs: [],
-				entitySchemaSlugs: ["replacement"],
-			};
-			const execution = yield* runExecuteRyotql({
-				...runInput({ type: "system" }),
-				principal: {
-					...runInput({ type: "system" }).principal,
-					pluginRevision: pinnedRevision,
-					metadata: { kind: "script", capabilities: ["executeRyotql"] },
-				},
-			});
-
-			expect(Result.getOrThrow(execution.result)).toEqual(ryotqlResponse);
-			expect(execution.pluginCalls).toEqual([
-				{
-					document: ryotqlDocument,
-					scope: {
-						eventSchemas: [],
-						pluginSlug: "example",
-						entitySchemaSlugs: ["example"],
-						relationshipSchemaSlugs: ["example-monitoring"],
+	layer(hostFunctionsLayer())((test) => {
+		test.effect("keeps pinned schema scope after the active manifest changes", () =>
+			Effect.gen(function* () {
+				const activeManifest = { schemaScope: systemPluginRevision.schemaScope };
+				const pinnedRevision = { ...systemPluginRevision, schemaScope: activeManifest.schemaScope };
+				activeManifest.schemaScope = {
+					eventSchemas: [],
+					relationshipSchemaSlugs: [],
+					entitySchemaSlugs: ["replacement"],
+				};
+				const result = yield* runExecuteRyotql({
+					...runInput({ type: "system" }),
+					principal: {
+						...runInput({ type: "system" }).principal,
+						pluginRevision: pinnedRevision,
+						metadata: { kind: "script", capabilities: ["executeRyotql"] },
 					},
-				},
-			]);
-			expect(execution.userCalls).toEqual([]);
-		}),
-	);
+				});
 
-	it.effect("keeps delegated execution in the user scope with the plugin audience", () =>
-		Effect.gen(function* () {
-			const execution = yield* runExecuteRyotql(runInput(automationSubject({ kind: "api" })));
+				const calls = yield* HostFunctionCalls;
+				expect(Result.getOrThrow(result)).toEqual(ryotqlResponse);
+				expect(yield* calls.ryotqlPluginCalls).toEqual([
+					{
+						document: ryotqlDocument,
+						scope: {
+							eventSchemas: [],
+							pluginSlug: "example",
+							entitySchemaSlugs: ["example"],
+							relationshipSchemaSlugs: ["example-monitoring"],
+						},
+					},
+				]);
+				expect(yield* calls.ryotqlUserCalls).toEqual([]);
+			}),
+		);
+	});
 
-			expect(Result.getOrThrow(execution.result)).toEqual(ryotqlResponse);
-			expect(execution.pluginCalls).toEqual([]);
-			expect(execution.userCalls).toEqual([
-				{ language: null, userId: "user-1", audience: "plugin", document: ryotqlDocument },
-			]);
-		}),
-	);
+	layer(hostFunctionsLayer())((test) => {
+		test.effect("keeps delegated execution in the user scope with the plugin audience", () =>
+			Effect.gen(function* () {
+				const result = yield* runExecuteRyotql(runInput(automationSubject({ kind: "api" })));
 
-	it.effect("rejects unpinned system execution", () =>
-		Effect.gen(function* () {
-			const execution = yield* runExecuteRyotql({
-				...runInput({ type: "system" }),
-				principal: {
-					...runInput({ type: "system" }).principal,
-					metadata: { kind: "script", capabilities: ["executeRyotql"] },
-				},
-			});
+				const calls = yield* HostFunctionCalls;
+				expect(Result.getOrThrow(result)).toEqual(ryotqlResponse);
+				expect(yield* calls.ryotqlPluginCalls).toEqual([]);
+				expect(yield* calls.ryotqlUserCalls).toEqual([
+					{ language: null, userId: "user-1", audience: "plugin", document: ryotqlDocument },
+				]);
+			}),
+		);
+	});
 
-			expect(Result.getFailure(execution.result)).toEqual(
-				Option.some({
-					message: "executeRyotql system access requires a pinned system plugin script",
-				}),
-			);
-			expect(execution.pluginCalls).toEqual([]);
-		}),
-	);
+	layer(hostFunctionsLayer())((test) => {
+		test.effect("rejects unpinned system execution", () =>
+			Effect.gen(function* () {
+				const result = yield* runExecuteRyotql({
+					...runInput({ type: "system" }),
+					principal: {
+						...runInput({ type: "system" }).principal,
+						metadata: { kind: "script", capabilities: ["executeRyotql"] },
+					},
+				});
 
-	it.effect("rejects caller-supplied execution scope in the document", () =>
-		Effect.gen(function* () {
-			const callerSuppliedDocument = { ...ryotqlDocument, scope: "plugin" };
-			const execution = yield* runExecuteRyotql(
-				runInput({ type: "user", userId: UserId.make("user-1") }),
-				callerSuppliedDocument,
-			);
+				expect(Result.getFailure(result)).toEqual(
+					Option.some({
+						message: "executeRyotql system access requires a pinned system plugin script",
+					}),
+				);
+				expect(yield* (yield* HostFunctionCalls).ryotqlPluginCalls).toEqual([]);
+			}),
+		);
+	});
 
-			expect(Option.getOrThrow(Result.getFailure(execution.result))).toMatchObject({
-				message: expect.stringContaining("scope"),
-			});
-			expect(execution.userCalls).toEqual([]);
-		}),
-	);
+	layer(hostFunctionsLayer())((test) => {
+		test.effect("rejects caller-supplied execution scope in the document", () =>
+			Effect.gen(function* () {
+				const callerSuppliedDocument = { ...ryotqlDocument, scope: "plugin" };
+				const result = yield* runExecuteRyotql(
+					runInput({ type: "user", userId: UserId.make("user-1") }),
+					callerSuppliedDocument,
+				);
+
+				expect(Option.getOrThrow(Result.getFailure(result))).toMatchObject({
+					message: expect.stringContaining("scope"),
+				});
+				expect(yield* (yield* HostFunctionCalls).ryotqlUserCalls).toEqual([]);
+			}),
+		);
+	});
 
 	it("gates RyotQL by the declared capability", () => {
 		const bound = { executeRyotql };
@@ -561,50 +652,10 @@ describe("executeRyotql", () => {
 const runChangeUserRelationships = (
 	subject: SandboxExecutionSubject,
 	batches: ReadonlyArray<ChangeUserRelationshipBatch>,
-	repository: Layer.Layer<RelationshipsRepository>,
-	getEntityScopeForUser: (input: {
-		userId: UserId;
-		entityId: EntityId;
-	}) => Effect.Effect<{
-		entityId: EntityId;
-		isBuiltin: boolean;
-		entityName: string;
-		entityUserId: UserId | null;
-		entitySchemaPluginId: string | null;
-		entitySchemaSlug: EntitySchemaSlug;
-	} | null> = ({ entityId }) =>
-		Effect.succeed({
-			entityId,
-			isBuiltin: true,
-			entityUserId: null,
-			entityName: "Entity",
-			entitySchemaPluginId: null,
-			entitySchemaSlug: EntitySchemaSlug.make(
-				entityId === "collection-1" ? "collection" : "entity",
-			),
-		}),
 ) =>
 	makeAdditionalSandboxApiFunctions.pipe(
 		Effect.flatMap((functions) =>
 			Effect.result(functions.changeUserRelationships(runInput(subject), batches)),
-		),
-		Effect.provide(
-			Layer.mergeAll(
-				hostDatabaseLayer,
-				makeAppConfigLayer(),
-				Layer.succeed(RedisService, makeRedisService()),
-				Layer.mock(EventsService)({}),
-				Layer.mock(EntitiesService)({}),
-				Layer.mock(RyotQLService)({}),
-				Layer.mock(PluginRuntimeResolver)({ lockCatalog: () => Effect.void }),
-				Layer.mock(IntegrationsRepository)({}),
-				repository,
-				definitionRepository(),
-				Layer.mock(EntitiesRepository)({
-					getEntityScopeForUser,
-					lockEntityReferencesByIds: () => Effect.void,
-				}),
-			),
 		),
 	);
 
@@ -616,214 +667,149 @@ describe("changeUserRelationships", () => {
 	};
 	const batch = { deletes: [], creates: [{ ...identity, properties: {} }] };
 
-	it.effect("derives the relationship owner from direct user subject", () => {
-		const created: unknown[] = [];
-		const repository = Layer.mock(RelationshipsRepository)({
-			findRelationship: () => Effect.succeed(null),
-			lockRelationshipMutations: () => Effect.void,
-			findLifecyclePayload: () => Effect.succeed(null),
-			createRelationship: (input) => {
-				created.push(input);
-				return Effect.succeed({
-					...input,
-					wasInserted: true,
-					createdAt: "2026-07-28T00:00:00.000Z",
-					updatedAt: "2026-07-28T00:00:00.000Z",
-					id: RelationshipId.make("relationship-1"),
-				});
-			},
-		});
+	layer(hostFunctionsLayer())((test) => {
+		test.effect("derives the relationship owner from direct user subject", () =>
+			Effect.gen(function* () {
+				const result = yield* runChangeUserRelationships(
+					{ type: "user", userId: UserId.make("trusted-user") },
+					[batch],
+				);
 
-		return Effect.gen(function* () {
-			const result = yield* runChangeUserRelationships(
-				{ type: "user", userId: UserId.make("trusted-user") },
-				[batch],
-				repository,
-			);
-
-			expect(Result.getOrThrow(result)).toEqual([{ created: 1, deleted: 0 }]);
-			expect(created).toEqual([
-				{
-					scope: "user",
-					userId: "trusted-user",
-					properties: { rank: 0 },
-					sourceEntityId: "entity-1",
-					targetEntityId: "collection-1",
-					relationshipSchemaPluginId: null,
-					relationshipSchemaSlug: "member-of",
-				},
-			]);
-		});
+				expect(Result.getOrThrow(result)).toEqual([{ created: 1, deleted: 0 }]);
+				expect(yield* (yield* HostFunctionCalls).createdRelationships).toEqual([
+					{
+						scope: "user",
+						userId: "trusted-user",
+						properties: { rank: 0 },
+						sourceEntityId: "entity-1",
+						targetEntityId: "collection-1",
+						relationshipSchemaPluginId: null,
+						relationshipSchemaSlug: "member-of",
+					},
+				]);
+			}),
+		);
 	});
 
-	it.effect("derives the relationship owner from subscription subject", () => {
-		const created: unknown[] = [];
-		const repository = Layer.mock(RelationshipsRepository)({
-			findRelationship: () => Effect.succeed(null),
-			lockRelationshipMutations: () => Effect.void,
-			findLifecyclePayload: () => Effect.succeed(null),
-			createRelationship: (input) => {
-				created.push(input);
-				return Effect.succeed({
-					...input,
-					wasInserted: true,
-					createdAt: "2026-07-28T00:00:00.000Z",
-					updatedAt: "2026-07-28T00:00:00.000Z",
-					id: RelationshipId.make("relationship-1"),
-				});
-			},
-		});
+	layer(hostFunctionsLayer())((test) => {
+		test.effect("derives the relationship owner from subscription subject", () =>
+			Effect.gen(function* () {
+				const result = yield* runChangeUserRelationships(automationSubject({ kind: "api" }), [
+					batch,
+				]);
 
-		return Effect.gen(function* () {
-			const result = yield* runChangeUserRelationships(
-				automationSubject({ kind: "api" }),
-				[batch],
-				repository,
-			);
-
-			expect(Result.getOrThrow(result)).toEqual([{ created: 1, deleted: 0 }]);
-			expect(created).toEqual([
-				{
-					scope: "user",
-					userId: "user-1",
-					properties: { rank: 0 },
-					sourceEntityId: "entity-1",
-					targetEntityId: "collection-1",
-					relationshipSchemaPluginId: null,
-					relationshipSchemaSlug: "member-of",
-				},
-			]);
-		});
+				expect(Result.getOrThrow(result)).toEqual([{ created: 1, deleted: 0 }]);
+				expect(yield* (yield* HostFunctionCalls).createdRelationships).toEqual([
+					{
+						scope: "user",
+						userId: "user-1",
+						properties: { rank: 0 },
+						sourceEntityId: "entity-1",
+						targetEntityId: "collection-1",
+						relationshipSchemaPluginId: null,
+						relationshipSchemaSlug: "member-of",
+					},
+				]);
+			}),
+		);
 	});
 
-	it.effect("does not write an absent relationship delete", () => {
-		const deleted: unknown[] = [];
-		const repository = Layer.mock(RelationshipsRepository)({
-			findRelationship: () => Effect.succeed(null),
-			lockRelationshipMutations: () => Effect.void,
-			findLifecyclePayload: () => Effect.succeed(null),
-			deleteRelationship: (input) => {
-				deleted.push(input);
-				return Effect.succeed(null);
-			},
-		});
+	layer(hostFunctionsLayer())((test) => {
+		test.effect("does not write an absent relationship delete", () =>
+			Effect.gen(function* () {
+				const result = yield* runChangeUserRelationships(
+					{ type: "user", userId: UserId.make("trusted-user") },
+					[{ creates: [], deletes: [identity] }],
+				);
 
-		return Effect.gen(function* () {
-			const result = yield* runChangeUserRelationships(
-				{ type: "user", userId: UserId.make("trusted-user") },
-				[{ creates: [], deletes: [identity] }],
-				repository,
-			);
-
-			expect(Result.getOrThrow(result)).toEqual([{ created: 0, deleted: 0 }]);
-			expect(deleted).toEqual([]);
-		});
+				expect(Result.getOrThrow(result)).toEqual([{ created: 0, deleted: 0 }]);
+				expect(yield* (yield* HostFunctionCalls).deletedRelationships).toEqual([]);
+			}),
+		);
 	});
 
-	it.effect("rejects a subscription relationship with an endpoint invisible to its user", () => {
-		let writes = 0;
-		const repository = Layer.mock(RelationshipsRepository)({
-			findRelationship: () => Effect.succeed(null),
-			lockRelationshipMutations: () => Effect.void,
-			findLifecyclePayload: () => Effect.succeed(null),
-			createRelationship: () => {
-				writes += 1;
-				return Effect.die("must not write");
-			},
-		});
+	layer(
+		hostFunctionsLayer({
+			forbidRelationshipWrites: true,
+			entityScope: ({ userId, entityId }) =>
+				entityId === "collection-1" && userId === "user-1"
+					? Effect.succeed(null)
+					: Effect.succeed({
+							entityId,
+							isBuiltin: true,
+							entityUserId: null,
+							entityName: "Entity",
+							entitySchemaPluginId: null,
+							entitySchemaSlug: EntitySchemaSlug.make("entity"),
+						}),
+		}),
+	)((test) => {
+		test.effect("rejects a subscription relationship with an endpoint invisible to its user", () =>
+			Effect.gen(function* () {
+				const result = yield* runChangeUserRelationships(automationSubject({ kind: "api" }), [
+					batch,
+				]);
 
-		return Effect.gen(function* () {
-			const result = yield* runChangeUserRelationships(
-				automationSubject({ kind: "api" }),
-				[batch],
-				repository,
-				({ userId, entityId }) =>
-					entityId === "collection-1" && userId === "user-1"
-						? Effect.succeed(null)
-						: Effect.succeed({
-								entityId,
-								isBuiltin: true,
-								entityUserId: null,
-								entityName: "Entity",
-								entitySchemaPluginId: null,
-								entitySchemaSlug: EntitySchemaSlug.make("entity"),
-							}),
-			);
-
-			expect(Result.getFailure(result)).toMatchObject(
-				Option.some({
-					message: "entity-not-found",
-					data: { code: "entity-not-found", entityIds: ["entity-1", "collection-1"] },
-				}),
-			);
-			expect(writes).toBe(0);
-		});
+				expect(Result.getFailure(result)).toMatchObject(
+					Option.some({
+						message: "entity-not-found",
+						data: { code: "entity-not-found", entityIds: ["entity-1", "collection-1"] },
+					}),
+				);
+				expect(yield* (yield* HostFunctionCalls).createdRelationships).toHaveLength(0);
+			}),
+		);
 	});
 
-	it.effect("rejects system subject and total change overflow before writing", () => {
-		let writes = 0;
-		const repository = Layer.mock(RelationshipsRepository)({
-			findRelationship: () => Effect.succeed(null),
-			lockRelationshipMutations: () => Effect.void,
-			findLifecyclePayload: () => Effect.succeed(null),
-			createRelationship: () => {
-				writes += 1;
-				return Effect.die("must not write");
-			},
-		});
-		const overflow = Array.from({ length: 501 }, () => identity);
+	layer(hostFunctionsLayer({ forbidRelationshipWrites: true }))((test) => {
+		test.effect("rejects system subject and total change overflow before writing", () =>
+			Effect.gen(function* () {
+				const overflow = Array.from({ length: 501 }, () => identity);
+				const system = yield* runChangeUserRelationships({ type: "system" }, [batch]);
+				const tooMany = yield* runChangeUserRelationships(
+					{ type: "user", userId: UserId.make("trusted-user") },
+					[{ creates: [], deletes: overflow }],
+				);
 
-		return Effect.gen(function* () {
-			const system = yield* runChangeUserRelationships({ type: "system" }, [batch], repository);
-			const tooMany = yield* runChangeUserRelationships(
-				{ type: "user", userId: UserId.make("trusted-user") },
-				[{ creates: [], deletes: overflow }],
-				repository,
-			);
-
-			expect(Result.getFailure(system)).toEqual(
-				Option.some({ message: "changeUserRelationships is not available for system executions" }),
-			);
-			expect(Result.getFailure(tooMany)).toEqual(
-				Option.some({ message: "changeUserRelationships exceeds 500 changes" }),
-			);
-			expect(writes).toBe(0);
-		});
+				expect(Result.getFailure(system)).toEqual(
+					Option.some({
+						message: "changeUserRelationships is not available for system executions",
+					}),
+				);
+				expect(Result.getFailure(tooMany)).toEqual(
+					Option.some({ message: "changeUserRelationships exceeds 500 changes" }),
+				);
+				expect(yield* (yield* HostFunctionCalls).createdRelationships).toHaveLength(0);
+			}),
+		);
 	});
 });
 
+const workspaceDefinitions = (schemaPluginId: string = systemPluginRevision.id) => ({
+	savedViews: [],
+	signalSchemas: [],
+	relationshipSchemas: [],
+	entitySchemas: [
+		{
+			icon: "box",
+			eventSchemas: [],
+			slug: "workspace",
+			name: "Workspace",
+			pluginSlug: "example",
+			pluginId: schemaPluginId,
+			mergeIdentityProperties: [],
+			propertiesSchema: { fields: {} },
+		},
+	],
+});
+
 const runEnsureUserEntities = (options: {
-	schemaPluginId?: string;
 	subject: SandboxExecutionSubject;
 	caller: { pluginSlug: string } | null;
 	allowedHostFunctions?: readonly string[];
 	pinnedEntitySchemaSlugs?: readonly string[];
-	ensure?: (
-		userId: UserId,
-		items: ReadonlyArray<{ name: string; properties: unknown; entitySchemaSlug: EntitySchemaSlug }>,
-		lifecycle: LifecycleCommand,
-	) => Effect.Effect<
-		Array<{ entityId: EntityId; wasInserted: boolean; warnings: AutomationWarning[] }>
-	>;
-}) => {
-	const definitions = definitionRepository({
-		savedViews: [],
-		signalSchemas: [],
-		relationshipSchemas: [],
-		entitySchemas: [
-			{
-				icon: "box",
-				eventSchemas: [],
-				slug: "workspace",
-				name: "Workspace",
-				pluginSlug: "example",
-				mergeIdentityProperties: [],
-				propertiesSchema: { fields: {} },
-				pluginId: options.schemaPluginId ?? systemPluginRevision.id,
-			},
-		],
-	});
-	return makeAdditionalSandboxApiFunctions.pipe(
+}) =>
+	makeAdditionalSandboxApiFunctions.pipe(
 		Effect.flatMap((functions) =>
 			Effect.result(
 				functions.ensureUserEntities(
@@ -844,135 +830,113 @@ const runEnsureUserEntities = (options: {
 				),
 			),
 		),
-		Effect.provide(
-			Layer.mergeAll(
-				hostDatabaseLayer,
-				makeAppConfigLayer(),
-				Layer.succeed(RedisService, makeRedisService()),
-				Layer.mock(EventsService)({}),
-				Layer.mock(RyotQLService)({}),
-				Layer.mock(IntegrationsRepository)({}),
-				Layer.mock(RelationshipsRepository)({}),
-				Layer.mock(EntitiesRepository)({ lockEntityReferencesByIds: () => Effect.void }),
-				Layer.mock(EntitiesService)({
-					ensureUserEntities:
-						options.ensure ??
-						(() =>
-							Effect.succeed([
-								{ warnings: [], wasInserted: true, entityId: EntityId.make("workspace-id") },
-							])),
-				}),
-				Layer.mock(PluginRuntimeResolver)({ lockCatalog: () => Effect.void }),
-				definitions,
-			),
-		),
 	);
-};
 
 describe("ensureUserEntities", () => {
-	it.effect("binds the direct user and preserves first-create/idempotent results", () => {
-		const calls: Array<unknown> = [];
-		let attempt = 0;
-		return Effect.gen(function* () {
-			const run = () =>
-				runEnsureUserEntities({
+	layer(hostFunctionsLayer({ definitions: workspaceDefinitions() }))((test) => {
+		test.effect("binds the direct user and preserves first-create/idempotent results", () =>
+			Effect.gen(function* () {
+				const run = runEnsureUserEntities({
 					caller: { pluginSlug: "example" },
 					subject: { type: "user", userId: UserId.make("trusted-user") },
-					ensure: (userId, items, lifecycle) => {
-						calls.push({ items, userId, lifecycle });
-						attempt += 1;
-						return Effect.succeed([
-							{ warnings: [], wasInserted: attempt === 1, entityId: EntityId.make("workspace-id") },
-						]);
-					},
 				});
-			expect(Result.getOrThrow(yield* run())).toEqual([
-				{ wasInserted: true, entityId: "workspace-id" },
-			]);
-			expect(Result.getOrThrow(yield* run())).toEqual([
-				{ wasInserted: false, entityId: "workspace-id" },
-			]);
-			expect(calls).toMatchObject([
-				{
-					userId: "trusted-user",
-					items: [{ properties: {}, name: "Workspace", entitySchemaSlug: "workspace" }],
-				},
-				{
-					userId: "trusted-user",
-					items: [{ properties: {}, name: "Workspace", entitySchemaSlug: "workspace" }],
-				},
-			]);
-		});
+				expect(Result.getOrThrow(yield* run)).toEqual([
+					{ wasInserted: true, entityId: "workspace-id" },
+				]);
+				expect(Result.getOrThrow(yield* run)).toEqual([
+					{ wasInserted: false, entityId: "workspace-id" },
+				]);
+				expect(yield* (yield* HostFunctionCalls).ensuredEntities).toMatchObject([
+					{
+						userId: "trusted-user",
+						items: [{ properties: {}, name: "Workspace", entitySchemaSlug: "workspace" }],
+					},
+					{
+						userId: "trusted-user",
+						items: [{ properties: {}, name: "Workspace", entitySchemaSlug: "workspace" }],
+					},
+				]);
+			}),
+		);
 	});
 
-	it.effect("rejects delegated, system, untrusted, and foreign-schema executions", () =>
-		Effect.gen(function* () {
-			const trusted = { pluginSlug: "example" };
-			const delegated = yield* runEnsureUserEntities({
-				caller: trusted,
-				subject: automationSubject({ kind: "api" }),
-			});
-			const system = yield* runEnsureUserEntities({ caller: trusted, subject: { type: "system" } });
-			const untrusted = yield* runEnsureUserEntities({
-				caller: null,
-				subject: { type: "user", userId: UserId.make("user-1") },
-			});
-			const foreign = yield* runEnsureUserEntities({
-				caller: trusted,
-				schemaPluginId: "sample-plugin-id",
-				subject: { type: "user", userId: UserId.make("user-1") },
-			});
+	layer(hostFunctionsLayer({ definitions: workspaceDefinitions() }))((test) => {
+		test.effect("rejects delegated, system, untrusted, and foreign-schema executions", () =>
+			Effect.gen(function* () {
+				const trusted = { pluginSlug: "example" };
+				const delegated = yield* runEnsureUserEntities({
+					caller: trusted,
+					subject: automationSubject({ kind: "api" }),
+				});
+				const system = yield* runEnsureUserEntities({
+					caller: trusted,
+					subject: { type: "system" },
+				});
+				const untrusted = yield* runEnsureUserEntities({
+					caller: null,
+					subject: { type: "user", userId: UserId.make("user-1") },
+				});
+				yield* (yield* HostFunctionCalls).useDefinitions(workspaceDefinitions("sample-plugin-id"));
+				const foreign = yield* runEnsureUserEntities({
+					caller: trusted,
+					subject: { type: "user", userId: UserId.make("user-1") },
+				});
 
-			expect(Result.getFailure(delegated)).toEqual(
-				Option.some({ message: "ensureUserEntities is available only to user executions" }),
-			);
-			expect(Result.getFailure(system)).toEqual(
-				Option.some({ message: "ensureUserEntities is not available for system executions" }),
-			);
-			expect(Result.getFailure(untrusted)).toEqual(
-				Option.some({
-					message: "ensureUserEntities is available only to pinned system user bootstrap scripts",
-				}),
-			);
-			expect(Result.getFailure(foreign)).toEqual(
-				Option.some({
-					message: "ensureUserEntities cannot write foreign entity schema: workspace",
-				}),
-			);
-		}),
-	);
+				expect(Result.getFailure(delegated)).toEqual(
+					Option.some({ message: "ensureUserEntities is available only to user executions" }),
+				);
+				expect(Result.getFailure(system)).toEqual(
+					Option.some({ message: "ensureUserEntities is not available for system executions" }),
+				);
+				expect(Result.getFailure(untrusted)).toEqual(
+					Option.some({
+						message: "ensureUserEntities is available only to pinned system user bootstrap scripts",
+					}),
+				);
+				expect(Result.getFailure(foreign)).toEqual(
+					Option.some({
+						message: "ensureUserEntities cannot write foreign entity schema: workspace",
+					}),
+				);
+			}),
+		);
+	});
 
-	it.effect("rejects a current same-plugin schema outside the pinned bootstrap scope", () =>
-		Effect.gen(function* () {
-			const result = yield* runEnsureUserEntities({
-				pinnedEntitySchemaSlugs: [],
-				caller: { pluginSlug: "example" },
-				subject: { type: "user", userId: UserId.make("user-1") },
-			});
+	layer(hostFunctionsLayer({ definitions: workspaceDefinitions() }))((test) => {
+		test.effect("rejects a current same-plugin schema outside the pinned bootstrap scope", () =>
+			Effect.gen(function* () {
+				const result = yield* runEnsureUserEntities({
+					pinnedEntitySchemaSlugs: [],
+					caller: { pluginSlug: "example" },
+					subject: { type: "user", userId: UserId.make("user-1") },
+				});
 
-			expect(Result.getFailure(result)).toEqual(
-				Option.some({
-					message: "ensureUserEntities cannot write foreign entity schema: workspace",
-				}),
-			);
-		}),
-	);
+				expect(Result.getFailure(result)).toEqual(
+					Option.some({
+						message: "ensureUserEntities cannot write foreign entity schema: workspace",
+					}),
+				);
+			}),
+		);
+	});
 
-	it.effect("refuses a private script that declares the capability", () =>
-		Effect.gen(function* () {
-			const declared = yield* runEnsureUserEntities({
-				caller: null,
-				allowedHostFunctions: ["ensureUserEntities"],
-				subject: { type: "user", userId: UserId.make("owner-1") },
-			});
+	layer(hostFunctionsLayer({ definitions: workspaceDefinitions() }))((test) => {
+		test.effect("refuses a private script that declares the capability", () =>
+			Effect.gen(function* () {
+				const declared = yield* runEnsureUserEntities({
+					caller: null,
+					allowedHostFunctions: ["ensureUserEntities"],
+					subject: { type: "user", userId: UserId.make("owner-1") },
+				});
 
-			expect(Result.getFailure(declared)).toEqual(
-				Option.some({
-					message: "ensureUserEntities is available only to pinned system user bootstrap scripts",
-				}),
-			);
-		}),
-	);
+				expect(Result.getFailure(declared)).toEqual(
+					Option.some({
+						message: "ensureUserEntities is available only to pinned system user bootstrap scripts",
+					}),
+				);
+			}),
+		);
+	});
 });
 
 describe("toSandboxCreateEventsResult", () => {

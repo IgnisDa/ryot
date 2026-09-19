@@ -1,7 +1,7 @@
+import { assert, describe, expect, it, layer } from "@effect/vitest";
 import { pluginConfigEnvironmentKey } from "@ryot-app/contract/modules/plugins/plugin-config";
 import type { AppSchema } from "@ryot-app/contract/schema/property-schema";
 import { Effect } from "effect";
-import { assert, describe, expect, it } from "vitest";
 
 import { makeConfigProviderLayer } from "#lib/test-utils/effect";
 
@@ -22,49 +22,41 @@ const pluginConfigSchema = {
 	},
 } satisfies AppSchema;
 
+const pluginEnvironmentLayer = (values: Readonly<Record<string, string>>) =>
+	makeConfigProviderLayer(
+		Object.fromEntries(
+			Object.entries(values).map(([configKey, value]) => [
+				pluginConfigEnvironmentKey(pluginSlug, configKey),
+				value,
+			]),
+		),
+	);
+
 const runPluginConfig = (
 	keys: ReadonlyArray<string>,
-	values: Readonly<Record<string, string>>,
 	requiredPluginConfigKeys: ReadonlyArray<string> = keys,
-) => {
-	const configValues = Object.fromEntries(
-		Object.entries(values).map(([configKey, value]) => [
-			pluginConfigEnvironmentKey(pluginSlug, configKey),
-			value,
-		]),
-	);
-	return Effect.runSync(
-		getPluginConfig({
-			keys,
-			metadata: { requiredPluginConfigKeys },
-			context: { pluginSlug, kind: "environment", configSchema: pluginConfigSchema },
-		}).pipe(Effect.result, Effect.provide(makeConfigProviderLayer(configValues))),
-	);
-};
+) =>
+	getPluginConfig({
+		keys,
+		metadata: { requiredPluginConfigKeys },
+		context: { pluginSlug, kind: "environment", configSchema: pluginConfigSchema },
+	}).pipe(Effect.result);
 
 const runInstallationConfig = (
 	keys: ReadonlyArray<string>,
 	config: Readonly<Record<string, unknown>>,
 	requiredPluginConfigKeys: ReadonlyArray<string> = keys,
 ) =>
-	Effect.runSync(
-		getPluginConfig({
-			keys,
-			metadata: { requiredPluginConfigKeys },
-			context: { config, kind: "installation", configSchema: pluginConfigSchema },
-		}).pipe(Effect.result, Effect.provide(makeConfigProviderLayer())),
-	);
+	getPluginConfig({
+		keys,
+		metadata: { requiredPluginConfigKeys },
+		context: { config, kind: "installation", configSchema: pluginConfigSchema },
+	}).pipe(Effect.result);
 
 const runSystemConfig = (
 	keys: ReadonlyArray<string>,
 	requiredSystemConfigKeys: ReadonlyArray<string> = keys,
-) =>
-	Effect.runSync(
-		getSystemConfig(keys, { requiredSystemConfigKeys }).pipe(
-			Effect.result,
-			Effect.provide(makeConfigProviderLayer()),
-		),
-	);
+) => getSystemConfig(keys, { requiredSystemConfigKeys }).pipe(Effect.result);
 
 describe("getPluginConfig", () => {
 	it("derives stable environment keys from the plugin slug and config key", () => {
@@ -73,87 +65,116 @@ describe("getPluginConfig", () => {
 		);
 	});
 
-	it("reads and parses declared plugin config from the config provider", () => {
-		expect(
-			runPluginConfig(["requestLimit", "enabled", "requestLimit"], {
-				enabled: "true",
-				apiToken: "secret",
-				requestLimit: "12",
+	layer(pluginEnvironmentLayer({ enabled: "true", apiToken: "secret", requestLimit: "12" }))(
+		(test) => {
+			test.effect("reads and parses declared plugin config from the config provider", () =>
+				Effect.gen(function* () {
+					expect(yield* runPluginConfig(["requestLimit", "enabled", "requestLimit"])).toMatchObject(
+						{ _tag: "Success", success: { enabled: true, requestLimit: 12 } },
+					);
+				}),
+			);
+		},
+	);
+
+	layer(pluginEnvironmentLayer({}))((test) => {
+		test.effect("returns an empty record without loading config", () =>
+			Effect.gen(function* () {
+				expect(yield* runPluginConfig([])).toMatchObject({ success: {}, _tag: "Success" });
 			}),
-		).toMatchObject({ _tag: "Success", success: { enabled: true, requestLimit: 12 } });
+		);
 	});
 
-	it("returns an empty record without loading config", () => {
-		expect(runPluginConfig([], {})).toMatchObject({ success: {}, _tag: "Success" });
-	});
-
-	it("rejects undeclared, unknown, and unconfigured plugin config", () => {
-		expect(
-			runPluginConfig(["apiToken", "requestLimit"], { apiToken: "secret" }, ["apiToken"]),
-		).toMatchObject({ _tag: "Failure", failure: expect.stringContaining("is not declared") });
-		expect(runPluginConfig(["missing"], { apiToken: "secret" })).toMatchObject({
-			_tag: "Failure",
-			failure: expect.stringContaining("does not exist"),
-		});
-		expect(runPluginConfig(["enabled"], { apiToken: "secret" })).toMatchObject({
-			_tag: "Failure",
-			failure: expect.stringContaining("is not configured"),
-		});
+	layer(pluginEnvironmentLayer({ apiToken: "secret" }))((test) => {
+		test.effect("rejects undeclared, unknown, and unconfigured plugin config", () =>
+			Effect.gen(function* () {
+				expect(yield* runPluginConfig(["apiToken", "requestLimit"], ["apiToken"])).toMatchObject({
+					_tag: "Failure",
+					failure: expect.stringContaining("is not declared"),
+				});
+				expect(yield* runPluginConfig(["missing"])).toMatchObject({
+					_tag: "Failure",
+					failure: expect.stringContaining("does not exist"),
+				});
+				expect(yield* runPluginConfig(["enabled"])).toMatchObject({
+					_tag: "Failure",
+					failure: expect.stringContaining("is not configured"),
+				});
+			}),
+		);
 	});
 });
 
 describe("getPluginConfig for an installation", () => {
-	it("reads declared plugin config from the stored installation values", () => {
-		expect(
-			runInstallationConfig(["requestLimit", "enabled"], {
-				enabled: true,
-				requestLimit: 12,
-				apiToken: "secret",
+	layer(makeConfigProviderLayer())((test) => {
+		test.effect("reads declared plugin config from the stored installation values", () =>
+			Effect.gen(function* () {
+				expect(
+					yield* runInstallationConfig(["requestLimit", "enabled"], {
+						enabled: true,
+						requestLimit: 12,
+						apiToken: "secret",
+					}),
+				).toMatchObject({ _tag: "Success", success: { enabled: true, requestLimit: 12 } });
 			}),
-		).toMatchObject({ _tag: "Success", success: { enabled: true, requestLimit: 12 } });
-	});
+		);
 
-	it("rejects undeclared and unknown installation config keys", () => {
-		expect(
-			runInstallationConfig(["apiToken", "requestLimit"], { apiToken: "secret" }, ["apiToken"]),
-		).toMatchObject({ _tag: "Failure", failure: expect.stringContaining("is not declared") });
-		expect(runInstallationConfig(["missing"], { apiToken: "secret" })).toMatchObject({
-			_tag: "Failure",
-			failure: expect.stringContaining("does not exist"),
-		});
-	});
+		test.effect("rejects undeclared and unknown installation config keys", () =>
+			Effect.gen(function* () {
+				expect(
+					yield* runInstallationConfig(["apiToken", "requestLimit"], { apiToken: "secret" }, [
+						"apiToken",
+					]),
+				).toMatchObject({ _tag: "Failure", failure: expect.stringContaining("is not declared") });
+				expect(yield* runInstallationConfig(["missing"], { apiToken: "secret" })).toMatchObject({
+					_tag: "Failure",
+					failure: expect.stringContaining("does not exist"),
+				});
+			}),
+		);
 
-	it("reports unconfigured installation keys without naming environment variables", () => {
-		const result = runInstallationConfig(["enabled"], { apiToken: "secret" });
-		expect(result).toMatchObject({
-			_tag: "Failure",
-			failure: expect.stringContaining("is not configured for this installation"),
-		});
-		assert(result._tag === "Failure");
-		expect(result.failure).not.toContain("RYOT_PLUGIN");
+		test.effect("reports unconfigured installation keys without naming environment variables", () =>
+			Effect.gen(function* () {
+				const result = yield* runInstallationConfig(["enabled"], { apiToken: "secret" });
+				expect(result).toMatchObject({
+					_tag: "Failure",
+					failure: expect.stringContaining("is not configured for this installation"),
+				});
+				assert(result._tag === "Failure");
+				expect(result.failure).not.toContain("RYOT_PLUGIN");
+			}),
+		);
 	});
 });
 
 describe("getSystemConfig", () => {
-	it("returns an allowlisted, declared system config value", () => {
-		expect(runSystemConfig(["timezone", "timezone"])).toMatchObject({
-			_tag: "Success",
-			success: { timezone: "Etc/GMT" },
-		});
-	});
+	layer(makeConfigProviderLayer())((test) => {
+		test.effect("returns an allowlisted, declared system config value", () =>
+			Effect.gen(function* () {
+				expect(yield* runSystemConfig(["timezone", "timezone"])).toMatchObject({
+					_tag: "Success",
+					success: { timezone: "Etc/GMT" },
+				});
+			}),
+		);
 
-	it("returns an empty record without loading system config", () => {
-		expect(runSystemConfig([])).toMatchObject({ success: {}, _tag: "Success" });
-	});
+		test.effect("returns an empty record without loading system config", () =>
+			Effect.gen(function* () {
+				expect(yield* runSystemConfig([])).toMatchObject({ success: {}, _tag: "Success" });
+			}),
+		);
 
-	it("rejects undeclared and non-plugin-readable system config", () => {
-		expect(runSystemConfig(["timezone"], [])).toMatchObject({
-			_tag: "Failure",
-			failure: expect.stringContaining("is not declared"),
-		});
-		expect(runSystemConfig(["port"])).toMatchObject({
-			_tag: "Failure",
-			failure: expect.stringContaining("is not available to plugins"),
-		});
+		test.effect("rejects undeclared and non-plugin-readable system config", () =>
+			Effect.gen(function* () {
+				expect(yield* runSystemConfig(["timezone"], [])).toMatchObject({
+					_tag: "Failure",
+					failure: expect.stringContaining("is not declared"),
+				});
+				expect(yield* runSystemConfig(["port"])).toMatchObject({
+					_tag: "Failure",
+					failure: expect.stringContaining("is not available to plugins"),
+				});
+			}),
+		);
 	});
 });
