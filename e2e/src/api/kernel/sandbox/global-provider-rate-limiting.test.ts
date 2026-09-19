@@ -403,12 +403,14 @@ describe("isolated deployment-global sandbox HTTP rate limiting", () => {
 					yield* waitForHealthCheck(
 						`${apiOriginA()}/api/system/health`,
 						"Global Rate Limit API A",
+						apiProcessA,
 						90,
 					);
 					apiProcessB = spawnApiProcess(apiEnvB);
 					yield* waitForHealthCheck(
 						`${apiOriginB()}/api/system/health`,
 						"Global Rate Limit API B",
+						apiProcessB,
 						90,
 					);
 				}).pipe(Effect.onError(stopIsolatedServices)),
@@ -509,6 +511,7 @@ describe("isolated deployment-global sandbox HTTP rate limiting", () => {
 				yield* waitForHealthCheck(
 					`${apiOriginA()}/api/system/health`,
 					"Global Rate Limit API A Restart",
+					apiProcessA,
 					90,
 				);
 				const restartedClientA = makeSession(apiUrlA());

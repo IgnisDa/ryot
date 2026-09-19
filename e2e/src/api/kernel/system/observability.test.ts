@@ -218,7 +218,12 @@ beforeAll(
 				});
 				logFile = requireString(env.SERVER_LOG_FILE, "Observability api log file is missing");
 				apiProcess = spawnApiProcess(env);
-				yield* waitForHealthCheck(`${apiOrigin}/api/system/health`, "Observability Setup", 90);
+				yield* waitForHealthCheck(
+					`${apiOrigin}/api/system/health`,
+					"Observability Setup",
+					apiProcess,
+					90,
+				);
 			}),
 		),
 	120_000,
