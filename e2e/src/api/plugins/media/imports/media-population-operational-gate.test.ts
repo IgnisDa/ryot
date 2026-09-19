@@ -1,5 +1,3 @@
-import { randomUUID } from "node:crypto";
-
 import { MediaImportPopulationWorkflowOutput } from "@ryot-app/media-plugin/contracts/workflows";
 import { Clock, Effect, Schema } from "effect";
 
@@ -37,9 +35,11 @@ describe.skipIf(!RUN_OPERATIONAL_GATES)("media population operational gate", () 
 						name: "Phase 3 Operational Gate Book",
 					}),
 				});
-				const baseline = yield* sampleOperationalPressure([`phase-3-baseline-${randomUUID()}`]);
+				const baseline = yield* sampleOperationalPressure([
+					`phase-3-baseline-${crypto.randomUUID()}`,
+				]);
 				const startedAt = yield* Clock.currentTimeMillis;
-				const prefix = randomUUID();
+				const prefix = crypto.randomUUID();
 				const runs = yield* Effect.forEach(
 					[
 						{ executingUserId: firstUser.userId, identifierPrefix: `${prefix}-first` },

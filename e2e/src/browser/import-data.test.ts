@@ -90,15 +90,15 @@ const withImportsBrowser = <E, R>(run: (page: Playwright.Page) => Effect.Effect<
 		yield* run(page);
 	});
 
-beforeAll(async () => {
-	await Effect.runPromise(
+beforeAll(() =>
+	Effect.runPromise(
 		Effect.gen(function* () {
 			const user = yield* createTestUser();
 			email = user.email;
 			password = user.password;
 		}),
-	);
-});
+	),
+);
 
 it.live("starts, follows and deletes an import from settings", () =>
 	withImportsBrowser((page) =>

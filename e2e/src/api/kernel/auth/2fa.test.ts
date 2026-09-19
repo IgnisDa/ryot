@@ -5,7 +5,7 @@ import {
 	completeTwoFactorSignIn,
 	collectRyotQLRecipeItems,
 	createTestUser,
-	enableTwoFactorForSession,
+	enableTwoFactorForSessionEffect,
 	makeSession,
 	signInWithPassword,
 	verifyBackupCodeForSession,
@@ -25,9 +25,12 @@ describe("Two-factor sign-in flow", () => {
 			const baseUrl = getApiUrl();
 			const { token, email, password, sessionCookie } = yield* createTestUser();
 
-			const { backupCodes, token: twoFactorToken } = yield* Effect.promise(() =>
-				enableTwoFactorForSession({ token, baseUrl, password, sessionCookie }),
-			);
+			const { backupCodes, token: twoFactorToken } = yield* enableTwoFactorForSessionEffect({
+				token,
+				baseUrl,
+				password,
+				sessionCookie,
+			});
 
 			const [backupCode] = requireNonEmptyArray(
 				backupCodes,
@@ -41,14 +44,12 @@ describe("Two-factor sign-in flow", () => {
 			expect(signIn.token).toBeUndefined();
 			expect(signIn.data).toHaveProperty("twoFactorRedirect", true);
 
-			const verification = yield* Effect.promise(() =>
-				verifyBackupCodeForSession({
-					token,
-					baseUrl,
-					code: backupCode,
-					twoFactorToken: signIn.twoFactorToken,
-				}),
-			);
+			const verification = yield* verifyBackupCodeForSession({
+				token,
+				baseUrl,
+				code: backupCode,
+				twoFactorToken: signIn.twoFactorToken,
+			});
 			expect(verification.error).toBeNull();
 			yield* listPluginsWithToken(
 				baseUrl,
@@ -60,14 +61,12 @@ describe("Two-factor sign-in flow", () => {
 			expect(secondSignIn.token).toBeUndefined();
 			expect(secondSignIn.data).toHaveProperty("twoFactorRedirect", true);
 
-			const reuse = yield* Effect.promise(() =>
-				verifyBackupCodeForSession({
-					token,
-					baseUrl,
-					code: backupCode,
-					twoFactorToken: secondSignIn.twoFactorToken,
-				}),
-			);
+			const reuse = yield* verifyBackupCodeForSession({
+				token,
+				baseUrl,
+				code: backupCode,
+				twoFactorToken: secondSignIn.twoFactorToken,
+			});
 			expect(reuse.error).toEqual(
 				expect.objectContaining({ message: expect.stringMatching(/invalid/i) }),
 			);
@@ -78,22 +77,23 @@ describe("Two-factor sign-in flow", () => {
 		Effect.gen(function* () {
 			const baseUrl = getApiUrl();
 			const { token, email, password, sessionCookie } = yield* createTestUser();
-			const { totpCodes } = yield* Effect.promise(() =>
-				enableTwoFactorForSession({ token, baseUrl, password, sessionCookie }),
-			);
+			const { totpCodes } = yield* enableTwoFactorForSessionEffect({
+				token,
+				baseUrl,
+				password,
+				sessionCookie,
+			});
 
 			const signIn = yield* signInWithPassword(email, password, baseUrl);
 			expect(signIn.error).toBeNull();
 			expect(signIn.token).toBeUndefined();
 			expect(signIn.data).toHaveProperty("twoFactorRedirect", true);
 
-			const verification = yield* Effect.promise(() =>
-				completeTwoFactorSignIn(
-					baseUrl,
-					requirePresent(signIn.twoFactorToken, "Missing two-factor browser cookie"),
-					"/two-factor/verify-totp",
-					{ code: totpCodes.current },
-				),
+			const verification = yield* completeTwoFactorSignIn(
+				baseUrl,
+				requirePresent(signIn.twoFactorToken, "Missing two-factor browser cookie"),
+				"/two-factor/verify-totp",
+				{ code: totpCodes.current },
 			);
 			const accessToken = requirePresent(
 				verification.token,

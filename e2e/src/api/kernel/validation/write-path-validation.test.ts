@@ -1,4 +1,4 @@
-import { Effect } from "effect";
+import { Effect, Schema } from "effect";
 
 import {
 	createAuthenticatedClient,
@@ -12,6 +12,7 @@ import {
 import { assertTaggedError } from "~/support/assertions";
 import { describe, expect, it } from "~/support/effect-test";
 import { getApiUrl } from "~/support/harness-target";
+import { webRequest } from "~/support/web-request";
 
 describe("Entity write path — propertiesSchema validation", () => {
 	it.live("rejects entity creation when a required field is missing", () =>
@@ -208,13 +209,14 @@ describe("Collection entity write path — propertiesSchema validation", () => {
 		Effect.gen(function* () {
 			const { token } = yield* createAuthenticatedClient();
 
-			const response = yield* Effect.promise(() =>
-				fetch(`${getApiUrl()}/collections`, {
-					method: "POST",
-					body: JSON.stringify({ description: 12345, name: "Invalid Description Type" }),
-					headers: { Authorization: `Bearer ${token}`, "Content-Type": "application/json" },
+			const response = yield* webRequest(`${getApiUrl()}/collections`, {
+				method: "POST",
+				headers: { Authorization: `Bearer ${token}`, "Content-Type": "application/json" },
+				body: yield* Schema.encodeEffect(Schema.fromJsonString(Schema.Unknown))({
+					description: 12345,
+					name: "Invalid Description Type",
 				}),
-			);
+			});
 
 			expect(response.status).toBe(400);
 		}),

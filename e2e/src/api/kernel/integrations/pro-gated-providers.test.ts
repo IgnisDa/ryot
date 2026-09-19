@@ -1,5 +1,3 @@
-import type { ChildProcess } from "node:child_process";
-
 import type { ContractSuccess } from "@ryot-app/contract/client";
 import type { PluginManifest } from "@ryot-app/contract/modules/plugins/manifest";
 import { integrationProvidersRecipe } from "@ryot-app/ryotql-recipes/integration-providers";
@@ -54,94 +52,123 @@ let keyedApiUrl: string;
 let lapsedApiUrl: string;
 let keylessApiUrl: string;
 
-let keyedProcess: ChildProcess | undefined;
-let lapsedProcess: ChildProcess | undefined;
-let keylessProcess: ChildProcess | undefined;
+let keyedProcess: ReturnType<typeof spawnApiProcess> | undefined;
+let lapsedProcess: ReturnType<typeof spawnApiProcess> | undefined;
+let keylessProcess: ReturnType<typeof spawnApiProcess> | undefined;
 
 let validUnkey: FakeHttpServer | undefined;
 let invalidUnkey: FakeHttpServer | undefined;
 
-let coreInfrastructure: Awaited<ReturnType<typeof startCoreTestInfrastructure>> | undefined;
+let coreInfrastructure: Effect.Success<ReturnType<typeof startCoreTestInfrastructure>> | undefined;
 
-beforeAll(async () => {
-	coreInfrastructure = await startCoreTestInfrastructure({ bucketName: S3_BUCKET_NAME });
-	const infrastructure = requirePresent(
-		coreInfrastructure,
-		"Pro-gated providers test infrastructure is not initialised",
-	);
+beforeAll(
+	() =>
+		Effect.runPromise(
+			Effect.gen(function* () {
+				coreInfrastructure = yield* startCoreTestInfrastructure({ bucketName: S3_BUCKET_NAME });
+				const infrastructure = requirePresent(
+					coreInfrastructure,
+					"Pro-gated providers test infrastructure is not initialised",
+				);
 
-	[validUnkey, invalidUnkey] = await Promise.all([
-		startFakeHttpServer(() =>
-			unkeyEnvelope({ valid: true, code: "VALID", meta: { expiry: "2030-01-01" } }),
-		),
-		startFakeHttpServer(() => unkeyEnvelope({ valid: false, code: "NOT_FOUND" })),
-	]);
+				[validUnkey, invalidUnkey] = yield* Effect.all(
+					[
+						startFakeHttpServer(() =>
+							unkeyEnvelope({ valid: true, code: "VALID", meta: { expiry: "2030-01-01" } }),
+						),
+						startFakeHttpServer(() => unkeyEnvelope({ valid: false, code: "NOT_FOUND" })),
+					],
+					{ concurrency: "unbounded" },
+				);
 
-	const [keyedPort, keylessPort, lapsedPort] = await Promise.all([getPort(), getPort(), getPort()]);
-	keyedApiUrl = `http://127.0.0.1:${keyedPort}/api`;
-	keylessApiUrl = `http://127.0.0.1:${keylessPort}/api`;
-	lapsedApiUrl = `http://127.0.0.1:${lapsedPort}/api`;
+				const [keyedPort, keylessPort, lapsedPort] = yield* Effect.all(
+					[
+						Effect.promise(() => getPort()),
+						Effect.promise(() => getPort()),
+						Effect.promise(() => getPort()),
+					],
+					{ concurrency: "unbounded" },
+				);
+				keyedApiUrl = `http://127.0.0.1:${keyedPort}/api`;
+				keylessApiUrl = `http://127.0.0.1:${keylessPort}/api`;
+				lapsedApiUrl = `http://127.0.0.1:${lapsedPort}/api`;
 
-	// Processes on one database share a FRONTEND_URL: the internal OAuth client and API resource
-	// are provisioned from it, as they are for replicas of a single deployment.
-	const sharedFrontendUrl = `http://127.0.0.1:${keyedPort}`;
-	const startApi = (label: string, port: number, extraEnv: Record<string, string>) =>
-		spawnApiProcess(
-			buildApiEnv({
-				port,
-				extraEnv,
-				label: `Pro-gated ${label}`,
-				dbUrl: infrastructure.dbUrl,
-				s3BucketName: S3_BUCKET_NAME,
-				frontendUrl: sharedFrontendUrl,
-				redisUrl: infrastructure.redisUrl,
-				s3Endpoint: infrastructure.s3Endpoint,
+				// Processes on one database share a FRONTEND_URL: the internal OAuth client and API resource
+				// are provisioned from it, as they are for replicas of a single deployment.
+				const sharedFrontendUrl = `http://127.0.0.1:${keyedPort}`;
+				const startApi = (label: string, port: number, extraEnv: Record<string, string>) =>
+					spawnApiProcess(
+						buildApiEnv({
+							port,
+							extraEnv,
+							label: `Pro-gated ${label}`,
+							dbUrl: infrastructure.dbUrl,
+							s3BucketName: S3_BUCKET_NAME,
+							frontendUrl: sharedFrontendUrl,
+							redisUrl: infrastructure.redisUrl,
+							s3Endpoint: infrastructure.s3Endpoint,
+						}),
+					);
+
+				// The keyed api boots first: the plugin catalog is a per-process, boot-time snapshot, so the
+				// provider must be installed against a running API before the other API processes start and read
+				// it from the shared database at their own boot.
+				keyedProcess = startApi("keyed", keyedPort, {
+					SERVER_PRO_KEY: PRO_KEY_ENV_VALUE,
+					SERVER_PRO_KEY_VERIFICATION_URL: requirePresent(validUnkey, "Valid fake Unkey missing")
+						.url,
+				});
+				yield* waitForHealthCheck(`${keyedApiUrl}/system/health`, "Pro-gated keyed setup", 90);
+
+				const { providerSlug: slug } = yield* installTestIntegrationProvider(settingsSchema, {
+					requiresProKey: true,
+					baseUrl: keyedApiUrl,
+				});
+				const { client } = yield* createAuthenticatedClient(keyedApiUrl);
+				const integration = yield* createIntegration(client, { provider: slug, providerSpecifics });
+				providerSlug = slug;
+				keyedClient = client;
+				existingIntegration = integration;
+
+				keylessProcess = startApi("keyless", keylessPort, { SERVER_PRO_KEY: "" });
+				lapsedProcess = startApi("lapsed", lapsedPort, {
+					SERVER_PRO_KEY: PRO_KEY_ENV_VALUE,
+					SERVER_PRO_KEY_VERIFICATION_URL: requirePresent(
+						invalidUnkey,
+						"Invalid fake Unkey missing",
+					).url,
+				});
+				yield* waitForHealthCheck(`${keylessApiUrl}/system/health`, "Pro-gated keyless setup", 90);
+				yield* waitForHealthCheck(`${lapsedApiUrl}/system/health`, "Pro-gated lapsed setup", 90);
 			}),
-		);
+		),
+	240_000,
+);
 
-	// The keyed api boots first: the plugin catalog is a per-process, boot-time snapshot, so the
-	// provider must be installed against a running API before the other API processes start and read
-	// it from the shared database at their own boot.
-	keyedProcess = startApi("keyed", keyedPort, {
-		SERVER_PRO_KEY: PRO_KEY_ENV_VALUE,
-		SERVER_PRO_KEY_VERIFICATION_URL: requirePresent(validUnkey, "Valid fake Unkey missing").url,
-	});
-	await waitForHealthCheck(`${keyedApiUrl}/system/health`, "Pro-gated keyed setup", 90);
-
-	const setup = await Effect.runPromise(
+afterAll(() =>
+	Effect.runPromise(
 		Effect.gen(function* () {
-			const { providerSlug: slug } = yield* installTestIntegrationProvider(settingsSchema, {
-				requiresProKey: true,
-				baseUrl: keyedApiUrl,
-			});
-			const { client } = yield* createAuthenticatedClient(keyedApiUrl);
-			const integration = yield* createIntegration(client, { provider: slug, providerSpecifics });
-			return { client, integration, providerSlug: slug };
+			yield* Effect.all(
+				[
+					stopApiProcess(keyedProcess),
+					stopApiProcess(keylessProcess),
+					stopApiProcess(lapsedProcess),
+				],
+				{ concurrency: "unbounded" },
+			);
+			const valid = validUnkey;
+			const invalid = invalidUnkey;
+			yield* Effect.all(
+				[
+					valid ? Effect.promise(() => valid.stop()) : Effect.void,
+					invalid ? Effect.promise(() => invalid.stop()) : Effect.void,
+				],
+				{ concurrency: "unbounded" },
+			);
+			yield* stopCoreTestInfrastructure(coreInfrastructure);
 		}),
-	);
-	providerSlug = setup.providerSlug;
-	keyedClient = setup.client;
-	existingIntegration = setup.integration;
-
-	keylessProcess = startApi("keyless", keylessPort, { SERVER_PRO_KEY: "" });
-	lapsedProcess = startApi("lapsed", lapsedPort, {
-		SERVER_PRO_KEY: PRO_KEY_ENV_VALUE,
-		SERVER_PRO_KEY_VERIFICATION_URL: requirePresent(invalidUnkey, "Invalid fake Unkey missing").url,
-	});
-	await waitForHealthCheck(`${keylessApiUrl}/system/health`, "Pro-gated keyless setup", 90);
-	await waitForHealthCheck(`${lapsedApiUrl}/system/health`, "Pro-gated lapsed setup", 90);
-}, 240_000);
-
-afterAll(async () => {
-	await Promise.all([
-		stopApiProcess(keyedProcess),
-		stopApiProcess(keylessProcess),
-		stopApiProcess(lapsedProcess),
-	]);
-	validUnkey?.stop();
-	invalidUnkey?.stop();
-	await stopCoreTestInfrastructure(coreInfrastructure);
-});
+	),
+);
 
 describe("Without a valid Pro Key", () => {
 	it.live("lists the pro-gated provider as not creatable", () =>

@@ -24,6 +24,7 @@ import {
 import { assertTaggedError } from "~/support/assertions";
 import { describe, expect, it } from "~/support/effect-test";
 import { getApiUrl } from "~/support/harness-target";
+import { webRequest } from "~/support/web-request";
 
 describe("backup lifecycle", () => {
 	it.live("exports, isolates, downloads, and deletes a completed backup", () =>
@@ -73,13 +74,11 @@ describe("backup lifecycle", () => {
 			assertTaggedError(deleteError, "BackupNotFound");
 			expect(deleteError.reason).toEqual({ code: "run-not-found" });
 
-			const otherDownload = yield* Effect.promise(() =>
-				fetch(`${getApiUrl()}/backups/runs/${runId}/download`, {
-					headers: { Authorization: `Bearer ${other.token}` },
-				}),
-			);
-			const unauthenticatedDownload = yield* Effect.promise(() =>
-				fetch(`${getApiUrl()}/backups/runs/${runId}/download`),
+			const otherDownload = yield* webRequest(`${getApiUrl()}/backups/runs/${runId}/download`, {
+				headers: { Authorization: `Bearer ${other.token}` },
+			});
+			const unauthenticatedDownload = yield* webRequest(
+				`${getApiUrl()}/backups/runs/${runId}/download`,
 			);
 			expect(otherDownload.status).toBe(404);
 			expect(unauthenticatedDownload.status).toBe(401);
@@ -161,13 +160,11 @@ describe("backup lifecycle", () => {
 					payload: { kind: "permanent", contentType: "text/csv", fileName: "backup-asset.csv" },
 				}),
 			);
-			const upload = yield* Effect.promise(() =>
-				fetch(new URL(intent.uploadUrl, `${getApiUrl()}/`), {
-					method: intent.method,
-					headers: intent.headers,
-					body: new Uint8Array(assetBytes),
-				}),
-			);
+			const upload = yield* webRequest(new URL(intent.uploadUrl, `${getApiUrl()}/`), {
+				method: intent.method,
+				headers: intent.headers,
+				body: new Uint8Array(assetBytes),
+			});
 			expect([200, 204]).toContain(upload.status);
 			const sourceLocator = yield* source.client.call((c) =>
 				c.uploads.completeIntent({ params: { intentId: intent.intentId } }),
@@ -229,8 +226,8 @@ describe("backup lifecycle", () => {
 			expect(resolved[0]?.asset).toEqual(targetLocator);
 			expect(resolved[0]?.expiresAt).toEqual(expect.any(String));
 			expect(Number.isNaN(Date.parse(resolved[0]?.expiresAt ?? ""))).toBe(false);
-			const targetDownload = yield* Effect.promise(() =>
-				fetch(new URL(resolved[0]?.downloadUrl ?? "", `${getApiUrl()}/`)),
+			const targetDownload = yield* webRequest(
+				new URL(resolved[0]?.downloadUrl ?? "", `${getApiUrl()}/`),
 			);
 			expect(targetDownload.status).toBe(200);
 			expect(new Uint8Array(yield* Effect.promise(() => targetDownload.arrayBuffer()))).toEqual(

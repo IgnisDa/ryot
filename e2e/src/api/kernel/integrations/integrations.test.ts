@@ -5,7 +5,7 @@ import {
 	IntegrationWebhookToken,
 } from "@ryot-app/contract/schema/brands";
 import { integrationProvidersRecipe } from "@ryot-app/ryotql-recipes/integration-providers";
-import { Effect, Option } from "effect";
+import { Effect, Option, Schema } from "effect";
 
 import {
 	collectRyotQLRecipeItems,
@@ -31,6 +31,7 @@ import {
 	requireString,
 } from "~/support/assertions";
 import { describe, expect, it } from "~/support/effect-test";
+import { webRequest } from "~/support/web-request";
 
 const kodiPayload = { lot: "movie", progress: 50, identifier: "tt1234567" };
 
@@ -358,13 +359,11 @@ describe("Webhook routes", () => {
 				requirePresent(detail.webhookToken, "Expected sink webhook token"),
 			);
 
-			const response = yield* Effect.promise(() =>
-				fetch(webhookUrl, {
-					method: "POST",
-					body: JSON.stringify(kodiPayload),
-					headers: { "Content-Type": "application/json" },
-				}),
-			);
+			const response = yield* webRequest(webhookUrl, {
+				method: "POST",
+				headers: { "Content-Type": "application/json" },
+				body: yield* Schema.encodeEffect(Schema.fromJsonString(Schema.Unknown))(kodiPayload),
+			});
 			const data = requireObjectRecord(
 				yield* Effect.promise(() => response.json()),
 				"Expected webhook response",

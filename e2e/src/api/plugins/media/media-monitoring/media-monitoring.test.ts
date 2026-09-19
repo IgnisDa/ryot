@@ -73,8 +73,8 @@ const extraEntityIds: string[] = [];
 let provider: Effect.Success<ReturnType<typeof installTestProvider>>;
 let discoveryProvider: Effect.Success<ReturnType<typeof installTestProvider>>;
 
-beforeAll(async () => {
-	await Effect.runPromise(
+beforeAll(() =>
+	Effect.runPromise(
 		Effect.gen(function* () {
 			const { client } = yield* createAuthenticatedClient();
 			providerCompilerClient = client;
@@ -128,16 +128,15 @@ beforeAll(async () => {
 					}),
 				adminHeaders(),
 			);
+			fakeApprise = yield* startFakeAppriseServer;
 		}),
-	);
+	),
+);
 
-	fakeApprise = await startFakeAppriseServer();
-});
-
-afterAll(async () => {
-	fakeApprise.stop();
-	await Effect.runPromise(
+afterAll(() =>
+	Effect.runPromise(
 		Effect.gen(function* () {
+			yield* Effect.promise(() => fakeApprise.stop());
 			const [firstExtraEntityId, ...remainingExtraEntityIds] = extraEntityIds;
 			if (firstExtraEntityId) {
 				yield* getApiClient().call(
@@ -154,8 +153,8 @@ afterAll(async () => {
 				);
 			}
 		}),
-	);
-});
+	),
+);
 
 describe("media monitoring endpoints", () => {
 	it.live("requires authentication", () =>

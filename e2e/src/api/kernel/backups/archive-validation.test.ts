@@ -1,5 +1,5 @@
 import { column, document, eq, field, literal, rows, table } from "@ryot-app/ryotql";
-import { Effect } from "effect";
+import { Effect, Schema } from "effect";
 import { unzipSync, zipSync } from "fflate";
 
 import {
@@ -62,13 +62,16 @@ describe("V1 backup archive validation", () => {
 			for (const version of [0, 2]) {
 				const manifestBytes = entries["manifest.json"];
 				assert(manifestBytes);
-				const manifest = JSON.parse(new TextDecoder().decode(manifestBytes));
+				const manifest = yield* Schema.decodeEffect(
+					Schema.fromJsonString(Schema.Record(Schema.String, Schema.Unknown)),
+				)(new TextDecoder().decode(manifestBytes));
+				const mutatedManifest = yield* Schema.encodeEffect(Schema.fromJsonString(Schema.Unknown))({
+					...manifest,
+					version,
+				});
 				const failed = yield* restoreBackup(
 					client,
-					zipSync({
-						...entries,
-						"manifest.json": new TextEncoder().encode(JSON.stringify({ ...manifest, version })),
-					}),
+					zipSync({ ...entries, "manifest.json": new TextEncoder().encode(mutatedManifest) }),
 				);
 				expect(failed.run.status).toBe("failed");
 				expect(failed.run.failure).toEqual({ feature: "format", code: "archive-unsupported" });
