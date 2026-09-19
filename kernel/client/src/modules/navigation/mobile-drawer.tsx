@@ -1,4 +1,4 @@
-import { OverlayScope, useFocusTrap, useScrollLock } from "@ryot-app/client-ui-sdk";
+import { OverlayScope, useFocusTrap, useScrollLock, useValueChange } from "@ryot-app/client-ui-sdk";
 import type { NavigationData } from "@ryot-app/ryotql-recipes/navigation";
 import type {
 	PluginClientCatalog,
@@ -53,6 +53,11 @@ export function MobileDrawer(props: MobileDrawerProps) {
 	const rootRef = useRef<HTMLDivElement>(null);
 	const [isSettling, setIsSettling] = useState(false);
 	const [workspaceSwitcherOpen, setWorkspaceSwitcherOpen] = useState(false);
+	useValueChange(props.isOpen, (isOpen) => {
+		if (!isOpen) {
+			setWorkspaceSwitcherOpen(false);
+		}
+	});
 	const reduceMotion = useReducedMotion() === true;
 	const x = useTransform(props.progress, [0, 1], ["-100%", "0%"]);
 	const presented = props.isOpen || isSettling;
@@ -69,12 +74,6 @@ export function MobileDrawer(props: MobileDrawerProps) {
 	};
 
 	useMotionValueEvent(props.progress, "change", (value) => setIsSettling(value > 0));
-
-	useEffect(() => {
-		if (!props.isOpen) {
-			setWorkspaceSwitcherOpen(false);
-		}
-	}, [props.isOpen]);
 
 	useEffect(() => {
 		if (reduceMotion) {

@@ -1,5 +1,5 @@
 import clsx from "clsx";
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useState } from "react";
 
 import { deriveImageTint, getImageTintGradientStops, quantizeImageTintPixels } from "./image-tint";
 
@@ -39,21 +39,28 @@ const loadImageTint = async (url: string) => {
 };
 
 export function useImageTint(url: string | undefined) {
-	const currentUrl = useRef(url);
-	const failedUrl = useRef<string | undefined>(undefined);
-	const [gradientStops, setGradientStops] = useState<readonly [string, string, string]>();
-	currentUrl.current = url;
+	const [tint, setTint] = useState<{
+		readonly url: string;
+		readonly failed: boolean;
+		readonly gradientStops: readonly [string, string, string] | undefined;
+	}>();
 
 	useEffect(() => {
 		let active = true;
-		failedUrl.current = undefined;
-		setGradientStops(undefined);
 		if (url) {
-			void loadImageTint(url).then((tint) => {
-				if (!active || failedUrl.current === url) {
+			void loadImageTint(url).then((loaded) => {
+				if (!active) {
 					return undefined;
 				}
-				setGradientStops(tint ? getImageTintGradientStops(tint) : undefined);
+				setTint((previous) =>
+					previous?.url === url && previous.failed
+						? previous
+						: {
+								url,
+								failed: false,
+								gradientStops: loaded ? getImageTintGradientStops(loaded) : undefined,
+							},
+				);
 				return undefined;
 			});
 		}
@@ -64,13 +71,12 @@ export function useImageTint(url: string | undefined) {
 	}, [url]);
 
 	return {
-		gradientStops,
+		gradientStops: tint?.url === url ? tint?.gradientStops : undefined,
 		onImageError: () => {
-			if (!url || currentUrl.current !== url) {
+			if (!url) {
 				return;
 			}
-			failedUrl.current = url;
-			setGradientStops(undefined);
+			setTint({ url, failed: true, gradientStops: undefined });
 		},
 	};
 }
@@ -84,9 +90,12 @@ export function ImageTintOverlay(props: {
 	const gradientStops = props.gradientStops;
 	const [visible, setVisible] = useState(false);
 
+	if (!gradientStops && visible) {
+		setVisible(false);
+	}
+
 	useEffect(() => {
 		if (!gradientStops) {
-			setVisible(false);
 			return undefined;
 		}
 		const frame = requestAnimationFrame(() => setVisible(true));

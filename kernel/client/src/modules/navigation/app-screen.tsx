@@ -25,11 +25,11 @@ export function useScreenLeadingControl(backFallbackHref?: string) {
 	const edge = useEdge();
 	const router = useRouter();
 	const navigate = useNavigate();
-	const chrome = useShellChrome();
+	const { onBack, drawerId, triggerRef, isDrawerOpen, onOpenDrawer } = useShellChrome();
 
 	const goBack = () => {
 		if (router.history.canGoBack()) {
-			chrome.onBack();
+			onBack();
 			return;
 		}
 		if (backFallbackHref !== undefined) {
@@ -40,13 +40,13 @@ export function useScreenLeadingControl(backFallbackHref?: string) {
 	if (edge.intent === "drawer") {
 		return (
 			<ScreenBarButton
+				onClick={onOpenDrawer}
 				label="Open navigation"
-				onClick={chrome.onOpenDrawer}
-				aria-controls={chrome.drawerId}
-				aria-expanded={chrome.isDrawerOpen}
+				aria-controls={drawerId}
+				aria-expanded={isDrawerOpen}
 				className="text-text hover:bg-surface-2"
 				ref={(node) => {
-					chrome.triggerRef.current = node;
+					triggerRef.current = node;
 				}}
 			>
 				<AppIcon size={22} name="menu" />

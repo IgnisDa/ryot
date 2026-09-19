@@ -42,6 +42,19 @@ const packageWithProviders = (slug: string, version = "v1") => {
 	return { ...plugin, manifest: { ...plugin.manifest, integrationProviders } };
 };
 
+const clashing = (slug: string) => {
+	const plugin = packageWithProviders(slug);
+	return {
+		...plugin,
+		manifest: {
+			...plugin.manifest,
+			integrationProviders: plugin.manifest.integrationProviders.map((provider) =>
+				Object.assign({}, provider, { slug: `shared-${provider.lot}` }),
+			),
+		},
+	};
+};
+
 describe("revision-backed integration providers", () => {
 	it.effect(
 		"lists providers by plugin and slug and resolves each lot's executable declaration",
@@ -126,18 +139,6 @@ describe("revision-backed integration providers", () => {
 	it.effect("lets the executable system provider win a private slug clash", () =>
 		withRevisionDatabase(
 			Effect.gen(function* () {
-				const clashing = (slug: string) => {
-					const plugin = packageWithProviders(slug);
-					return {
-						...plugin,
-						manifest: {
-							...plugin.manifest,
-							integrationProviders: plugin.manifest.integrationProviders.map((provider) =>
-								Object.assign({}, provider, { slug: `shared-${provider.lot}` }),
-							),
-						},
-					};
-				};
 				yield* installRevisionPackage(clashing("notes"), owner);
 				const system = yield* installRevisionPackage(clashing("zebra"));
 				const catalog = yield* IntegrationProviderCatalog.make;

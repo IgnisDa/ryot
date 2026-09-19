@@ -45,14 +45,12 @@ export const makeRuntimeOAuthClient = (source: RuntimeOAuthClientSource) => {
 		}
 		return Effect.tryPromise(getApplicationId).pipe(
 			Effect.flatMap(Schema.decodeUnknownEffect(NativeOAuthApplicationId)),
-			Effect.map(
-				(nativeApplicationId): RuntimeOAuthClientDescriptor => ({
-					nativeApplicationId,
-					clientId: OAUTH_NATIVE_CLIENT_ID,
-					callbackUri: getNativeOAuthCallbackUri(nativeApplicationId),
-					logoutUri: getNativeOAuthLogoutCallbackUri(nativeApplicationId),
-				}),
-			),
+			Effect.map((nativeApplicationId): RuntimeOAuthClientDescriptor => ({
+				nativeApplicationId,
+				clientId: OAUTH_NATIVE_CLIENT_ID,
+				callbackUri: getNativeOAuthCallbackUri(nativeApplicationId),
+				logoutUri: getNativeOAuthLogoutCallbackUri(nativeApplicationId),
+			})),
 			Effect.mapError((cause) => new RuntimeOAuthClientError({ cause })),
 		);
 	};

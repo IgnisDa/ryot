@@ -1,19 +1,15 @@
-import type { SandboxHost } from "@ryot-app/sandbox-sdk/core";
 import { Effect } from "@ryot-app/sandbox-sdk/effect";
 import { defineSandboxTestHost, runSandboxTestScript } from "@ryot-app/sandbox-sdk/testing";
 import { describe, expect, it } from "vitest";
 
 import { details, manifest, search } from "./shared";
 
-type MusicBrainzPersonHost = SandboxHost<typeof manifest.capabilities>;
-
 const httpSuccess = (body: unknown) =>
 	Effect.succeed({ status: 200, headers: {}, body: JSON.stringify(body) });
 
 const makeHost = (route: (url: string) => unknown) =>
 	defineSandboxTestHost(manifest, {
-		httpCall: ((_method: string, url: string) =>
-			httpSuccess(route(url))) as MusicBrainzPersonHost["httpCall"],
+		httpCall: (_method: string, url: string) => httpSuccess(route(url)),
 	});
 
 const execution = { metadata: {}, sandboxScriptId: "script_test" };
