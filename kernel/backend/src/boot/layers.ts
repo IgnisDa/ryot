@@ -1,6 +1,5 @@
 import { BunServices } from "@effect/platform-bun";
 import { Layer } from "effect";
-import { FetchHttpClient } from "effect/http";
 import { PersistedQueue } from "effect/persistence";
 
 import { AppConfig } from "#lib/infrastructure/config/service";
@@ -8,6 +7,7 @@ import { MigrationsComplete } from "#lib/infrastructure/db/migrate";
 import { PgClientLive } from "#lib/infrastructure/db/postgres";
 import { DatabaseSession } from "#lib/infrastructure/db/session";
 import { DownloadTickets } from "#lib/infrastructure/download-tickets";
+import { EgressHttpClientLive } from "#lib/infrastructure/egress/http-client";
 import { HmacSigner } from "#lib/infrastructure/hmac-signer";
 import { LocalStorageService } from "#lib/infrastructure/local-storage";
 import { ObservabilityLive } from "#lib/infrastructure/observability";
@@ -165,7 +165,7 @@ const BaseInfrastructureServicesLive = Layer.provideMerge(
 		ServerRun.layer,
 		S3Service.layer,
 		ProKeyService.layer,
-		FetchHttpClient.layer,
+		EgressHttpClientLive,
 	),
 );
 

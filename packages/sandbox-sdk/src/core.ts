@@ -74,7 +74,7 @@ export const httpCallFailureDetailsSchema = Schema.Union([
 		headers: Schema.Record(Schema.String, Schema.String),
 		status: Schema.Number.pipe(Schema.check(Schema.isInt())),
 	}),
-	strictStruct({ code: Schema.Literal("external-uncertain") }),
+	strictStruct({ code: Schema.Literals(["destination-denied", "external-uncertain"]) }),
 ]);
 export const httpCallArgsSchema = Schema.Tuple([
 	Schema.String,
