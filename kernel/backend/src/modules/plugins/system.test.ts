@@ -1,8 +1,8 @@
 import { BunServices } from "@effect/platform-bun";
+import { assert, expect, layer } from "@effect/vitest";
 import { PluginArchiveError, writePluginArchive } from "@ryot-app/plugin-archive";
 import type { Path } from "effect";
 import { Effect, FileSystem } from "effect";
-import { assert, expect, it } from "vitest";
 
 import { loadPluginSource } from "./source.test-support";
 import { discoverSystemPlugins } from "./system";
@@ -17,7 +17,7 @@ const withRoot = <A, E>(
 			const root = yield* fs.makeTempDirectoryScoped({ prefix: "ryot-system-plugins-" });
 			return yield* run(root);
 		}),
-	).pipe(Effect.provide(BunServices.layer));
+	);
 
 const writeArchive = Effect.fn("writeArchive")(function* (root: string, slug: string) {
 	const fs = yield* FileSystem.FileSystem;
@@ -41,8 +41,8 @@ const writeArchive = Effect.fn("writeArchive")(function* (root: string, slug: st
 	yield* fs.writeFile(`${root}/${slug}.zip`, writePluginArchive({ ...source, manifest }));
 });
 
-it("discovers valid archives in sorted filename order", () =>
-	Effect.runPromise(
+layer(BunServices.layer)((test) => {
+	test.effect("discovers valid archives in sorted filename order", () =>
 		withRoot((root) =>
 			Effect.gen(function* () {
 				yield* writeArchive(root, "zeta");
@@ -63,20 +63,18 @@ it("discovers valid archives in sorted filename order", () =>
 				expect(sources[0]?.compiledClient?.hash).toMatch(/^[a-f0-9]{64}$/);
 			}),
 		),
-	));
+	);
 
-it("returns no plugins for absent and empty directories", () =>
-	Effect.runPromise(
+	test.effect("returns no plugins for absent and empty directories", () =>
 		withRoot((root) =>
 			Effect.gen(function* () {
 				expect(yield* discoverSystemPlugins(`${root}/absent`)).toEqual([]);
 				expect(yield* discoverSystemPlugins(root)).toEqual([]);
 			}),
 		),
-	));
+	);
 
-it("ignores non-archive entries", () =>
-	Effect.runPromise(
+	test.effect("ignores non-archive entries", () =>
 		withRoot((root) =>
 			Effect.gen(function* () {
 				const fs = yield* FileSystem.FileSystem;
@@ -86,10 +84,9 @@ it("ignores non-archive entries", () =>
 				expect(yield* discoverSystemPlugins(root)).toEqual([]);
 			}),
 		),
-	));
+	);
 
-it("fails discovery for a malformed archive", () =>
-	Effect.runPromise(
+	test.effect("fails discovery for a malformed archive", () =>
 		withRoot((root) =>
 			Effect.gen(function* () {
 				const fs = yield* FileSystem.FileSystem;
@@ -101,4 +98,5 @@ it("fails discovery for a malformed archive", () =>
 				expect(result.failure.reason).toBe("malformed-zip");
 			}),
 		),
-	));
+	);
+});

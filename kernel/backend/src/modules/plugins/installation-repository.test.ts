@@ -1,7 +1,7 @@
-import { expect, it } from "@effect/vitest";
+import { expect, layer } from "@effect/vitest";
 import { UserId } from "@ryot-app/contract/schema/brands";
 import { eq } from "drizzle-orm";
-import { Effect, Layer } from "effect";
+import { Context, Effect, Layer, Ref } from "effect";
 import { assert, describe } from "vitest";
 
 import * as tables from "#lib/infrastructure/db/schema/tables/combined";
@@ -15,7 +15,7 @@ import { PluginRevisionActivation } from "./revision-activation";
 import {
 	installRevisionPackage,
 	revisionPackage,
-	withRevisionDatabase,
+	revisionDatabaseLayer,
 } from "./revision.test-support";
 
 const owner = UserId.make("owner");
@@ -56,39 +56,55 @@ const clientProjection = (id: string) =>
 		return row;
 	});
 
-describe("installation revision persistence", () => {
-	it.effect("resolves kernel and plugin saved-view renderers without custom renderer state", () =>
-		withRevisionDatabase(
-			Effect.gen(function* () {
-				const repository = yield* PluginInstallationRepository;
-				const db = yield* (yield* DatabaseSession).current;
-				const renderers = [
-					{ kind: "kernel", name: "entity-browser" },
-					{ kind: "plugin", exportName: "home", pluginId: "plugin-id" },
-				] as const;
-				for (const [index, renderer] of renderers.entries()) {
-					const id = `saved-view-${index}`;
-					yield* db
-						.insert(tables.savedView)
-						.values({
-							id,
-							slug: id,
-							name: id,
-							renderer,
-							icon: "view",
-							settings: {},
-							userId: owner,
-						});
-					expect(yield* repository.findHomeSavedView(owner, id)).toEqual({
-						view: { renderer, isDisabled: false },
-					});
-				}
-			}),
-		),
-	);
+class RecordedActivations extends Context.Service<
+	RecordedActivations,
+	{ readonly activated: Effect.Effect<ReadonlyArray<string>> }
+>()("test/RecordedActivations") {}
 
-	it.effect("scopes home-view writes to the owning user", () =>
-		withRevisionDatabase(
+const recordedActivationsLayer = Layer.effectContext(
+	Effect.gen(function* () {
+		const activated = yield* Ref.make<ReadonlyArray<string>>([]);
+		return Context.make(PluginRevisionActivation, {
+			activated: (pluginId) => Ref.update(activated, (all) => [...all, pluginId]),
+		}).pipe(Context.add(RecordedActivations, { activated: Ref.get(activated) }));
+	}),
+);
+
+describe("installation revision persistence", () => {
+	layer(revisionDatabaseLayer)((test) => {
+		test.effect(
+			"resolves kernel and plugin saved-view renderers without custom renderer state",
+			() =>
+				Effect.gen(function* () {
+					const repository = yield* PluginInstallationRepository;
+					const db = yield* (yield* DatabaseSession).current;
+					const renderers = [
+						{ kind: "kernel", name: "entity-browser" },
+						{ kind: "plugin", exportName: "home", pluginId: "plugin-id" },
+					] as const;
+					for (const [index, renderer] of renderers.entries()) {
+						const id = `saved-view-${index}`;
+						yield* db
+							.insert(tables.savedView)
+							.values({
+								id,
+								slug: id,
+								name: id,
+								renderer,
+								icon: "view",
+								settings: {},
+								userId: owner,
+							});
+						expect(yield* repository.findHomeSavedView(owner, id)).toEqual({
+							view: { renderer, isDisabled: false },
+						});
+					}
+				}),
+		);
+	});
+
+	layer(revisionDatabaseLayer)((test) => {
+		test.effect("scopes home-view writes to the owning user", () =>
 			Effect.gen(function* () {
 				const repository = yield* PluginInstallationRepository;
 				const installed = yield* installRevisionPackage(revisionPackage("notes"), owner);
@@ -103,13 +119,18 @@ describe("installation revision persistence", () => {
 					true,
 				);
 			}),
-		),
-	);
+		);
+	});
 
-	it.effect(
-		"restores portable private config as encrypted revisions and preserves destination config when requested",
-		() =>
-			withRevisionDatabase(
+	layer(
+		BackupRestorePersistence.layer.pipe(
+			Layer.provide(SavedViewsRepository.layer),
+			Layer.provideMerge(revisionDatabaseLayer),
+		),
+	)((test) => {
+		test.effect(
+			"restores portable private config as encrypted revisions and preserves destination config when requested",
+			() =>
 				Effect.gen(function* () {
 					const repository = yield* PluginInstallationRepository;
 					const db = yield* (yield* DatabaseSession).current;
@@ -158,18 +179,19 @@ describe("installation revision persistence", () => {
 						clientConfig: {},
 						configuredSecretPaths: ["token"],
 					});
-				}).pipe(
-					Effect.provide(
-						BackupRestorePersistence.layer.pipe(Layer.provide(SavedViewsRepository.layer)),
-					),
-				),
-			),
-	);
+				}),
+		);
+	});
 
-	it.effect(
-		"keeps system environment configuration separate from restored installation preferences",
-		() =>
-			withRevisionDatabase(
+	layer(
+		BackupRestorePersistence.layer.pipe(
+			Layer.provide(SavedViewsRepository.layer),
+			Layer.provideMerge(revisionDatabaseLayer),
+		),
+	)((test) => {
+		test.effect(
+			"keeps system environment configuration separate from restored installation preferences",
+			() =>
 				Effect.gen(function* () {
 					const db = yield* (yield* DatabaseSession).current;
 					const repository = yield* PluginInstallationRepository;
@@ -196,19 +218,19 @@ describe("installation revision persistence", () => {
 					expect(state?.config).toEqual({});
 					expect(state?.activeConfigRevisionId).toBeNull();
 					expect(yield* environmentRevisions()).toEqual(before);
-				}).pipe(
-					Effect.provide(
-						BackupRestorePersistence.layer.pipe(Layer.provide(SavedViewsRepository.layer)),
-					),
-				),
-			),
-	);
+				}),
+		);
+	});
 
-	it.effect(
-		"projects client config without secrets and recomputes it when the private revision changes",
-		() => {
-			const activated: Array<string> = [];
-			return withRevisionDatabase(
+	layer(
+		PluginIngestionLock.layer.pipe(
+			Layer.provideMerge(recordedActivationsLayer),
+			Layer.provideMerge(revisionDatabaseLayer),
+		),
+	)((test) => {
+		test.effect(
+			"projects client config without secrets and recomputes it when the private revision changes",
+			() =>
 				Effect.gen(function* () {
 					const repository = yield* PluginInstallationRepository;
 					const installed = yield* installRevisionPackage(configuredPackage("v1", false), owner);
@@ -226,7 +248,7 @@ describe("installation revision persistence", () => {
 						configuredPackage("v2", true),
 						{ slug: "notes", scope: "user", ownerId: owner },
 					);
-					expect(activated).toEqual([pluginId]);
+					expect(yield* (yield* RecordedActivations).activated).toEqual([pluginId]);
 					expect(yield* clientProjection(installed.installation.id)).toEqual({
 						clientConfig: {},
 						configuredSecretPaths: ["endpoint", "token"],
@@ -236,18 +258,7 @@ describe("installation revision persistence", () => {
 						clientConfig: {},
 						configuredSecretPaths: [],
 					});
-				}).pipe(
-					Effect.provide(
-						PluginIngestionLock.layer.pipe(
-							Layer.provide(
-								Layer.succeed(PluginRevisionActivation, {
-									activated: (pluginId) => Effect.sync(() => void activated.push(pluginId)),
-								}),
-							),
-						),
-					),
-				),
-			);
-		},
-	);
+				}),
+		);
+	});
 });

@@ -1,4 +1,4 @@
-import { expect, it } from "@effect/vitest";
+import { expect, it, layer } from "@effect/vitest";
 import {
 	CLIENT_API_VERSION,
 	CLIENT_ARTIFACT_FORMAT,
@@ -25,7 +25,7 @@ import { PluginRepository } from "./repository";
 import {
 	installRevisionPackage,
 	revisionPackage,
-	withRevisionDatabase,
+	revisionDatabaseLayer,
 } from "./revision.test-support";
 import { PluginRuntimeResolver } from "./runtime-resolver";
 import { fixtureClientArtifact } from "./source.test-support";
@@ -75,8 +75,8 @@ it("matches immutable client artifacts by exact bytes", () => {
 });
 
 describe("plugin repository revisions", () => {
-	it.effect("retains and exports a precompiled client artifact for the active package", () =>
-		withRevisionDatabase(
+	layer(revisionDatabaseLayer)((test) => {
+		test.effect("retains and exports a precompiled client artifact for the active package", () =>
 			Effect.gen(function* () {
 				const db = yield* (yield* DatabaseSession).current;
 				const repository = yield* PluginRepository;
@@ -218,13 +218,13 @@ describe("plugin repository revisions", () => {
 					Result.isFailure(yield* Effect.result(artifacts.persistClientArtifact(compiledClient))),
 				).toBe(true);
 			}),
-		),
-	);
+		);
+	});
 
-	it.effect(
-		"selects the booted kernel artifact after downgrade and prunes only unpinned old code",
-		() =>
-			withRevisionDatabase(
+	layer(revisionDatabaseLayer)((test) => {
+		test.effect(
+			"selects the booted kernel artifact after downgrade and prunes only unpinned old code",
+			() =>
 				Effect.gen(function* () {
 					const db = yield* (yield* DatabaseSession).current;
 					const repository = yield* PluginRepository;
@@ -299,79 +299,86 @@ describe("plugin repository revisions", () => {
 						retained.id,
 					]);
 				}),
-			),
-	);
-	it.effect("resolves portable provider identity and preserves it across package upgrades", () =>
-		withRevisionDatabase(
-			Effect.gen(function* () {
-				const repository = yield* PluginRepository;
-				const installed = yield* installRevisionPackage(revisionPackage());
-				const before = yield* repository.resolveProviderBySlugs({
-					pluginId: installed.pluginId,
-					providerSlug: "fixture-provider",
-				});
-				assert(before);
-				yield* installRevisionPackage(revisionPackage("fixture", "v2"));
-				expect(
-					yield* repository.resolveProviderBySlugs({
+		);
+	});
+	layer(revisionDatabaseLayer)((test) => {
+		test.effect(
+			"resolves portable provider identity and preserves it across package upgrades",
+			() =>
+				Effect.gen(function* () {
+					const repository = yield* PluginRepository;
+					const installed = yield* installRevisionPackage(revisionPackage());
+					const before = yield* repository.resolveProviderBySlugs({
 						pluginId: installed.pluginId,
 						providerSlug: "fixture-provider",
-					}),
-				).toEqual(before);
-				expect(
-					yield* repository.resolveProviderBySlugs({
-						pluginId: "other-plugin",
-						providerSlug: "fixture-provider",
-					}),
-				).toBeNull();
-			}),
-		),
-	);
-	it.effect("returns current persisted test-support handles across private package updates", () =>
-		withRevisionDatabase(
-			Effect.gen(function* () {
-				const repository = yield* PluginRepository;
-				const first = yield* installRevisionPackage(revisionPackage("handle-fixture", "v1"), owner);
-				const before = yield* repository.findTestSupportOperationResult({
-					scope: "user",
-					ownerId: owner,
-					slug: "handle-fixture",
-				});
-				assert(before);
-				expect(before).toMatchObject({
-					id: first.pluginId,
-					activeRevisionId: first.revisionId,
-					installationId: first.installation.id,
-					configRevisionId: first.installation.activeConfigRevisionId,
-				});
-				expect(before.scripts).toHaveLength(5);
+					});
+					assert(before);
+					yield* installRevisionPackage(revisionPackage("fixture", "v2"));
+					expect(
+						yield* repository.resolveProviderBySlugs({
+							pluginId: installed.pluginId,
+							providerSlug: "fixture-provider",
+						}),
+					).toEqual(before);
+					expect(
+						yield* repository.resolveProviderBySlugs({
+							pluginId: "other-plugin",
+							providerSlug: "fixture-provider",
+						}),
+					).toBeNull();
+				}),
+		);
+	});
+	layer(revisionDatabaseLayer)((test) => {
+		test.effect(
+			"returns current persisted test-support handles across private package updates",
+			() =>
+				Effect.gen(function* () {
+					const repository = yield* PluginRepository;
+					const first = yield* installRevisionPackage(
+						revisionPackage("handle-fixture", "v1"),
+						owner,
+					);
+					const before = yield* repository.findTestSupportOperationResult({
+						scope: "user",
+						ownerId: owner,
+						slug: "handle-fixture",
+					});
+					assert(before);
+					expect(before).toMatchObject({
+						id: first.pluginId,
+						activeRevisionId: first.revisionId,
+						installationId: first.installation.id,
+						configRevisionId: first.installation.activeConfigRevisionId,
+					});
+					expect(before.scripts).toHaveLength(5);
 
-				const second = yield* installRevisionPackage(
-					revisionPackage("handle-fixture", "v2"),
-					owner,
-				);
-				const after = yield* repository.findTestSupportOperationResult({
-					scope: "user",
-					ownerId: owner,
-					slug: "handle-fixture",
-				});
-				assert(after);
-				expect(after.id).toBe(before.id);
-				expect(after.installationId).toBe(before.installationId);
-				expect(after.activeRevisionId).toBe(second.revisionId);
-				expect(after.activeRevisionId).not.toBe(before.activeRevisionId);
-				expect(after.scripts.map(({ id }) => id)).not.toEqual(before.scripts.map(({ id }) => id));
-				expect(after.scripts.map(({ slug }) => slug)).toEqual(
-					before.scripts.map(({ slug }) => slug),
-				);
-			}),
-		),
-	);
+					const second = yield* installRevisionPackage(
+						revisionPackage("handle-fixture", "v2"),
+						owner,
+					);
+					const after = yield* repository.findTestSupportOperationResult({
+						scope: "user",
+						ownerId: owner,
+						slug: "handle-fixture",
+					});
+					assert(after);
+					expect(after.id).toBe(before.id);
+					expect(after.installationId).toBe(before.installationId);
+					expect(after.activeRevisionId).toBe(second.revisionId);
+					expect(after.activeRevisionId).not.toBe(before.activeRevisionId);
+					expect(after.scripts.map(({ id }) => id)).not.toEqual(before.scripts.map(({ id }) => id));
+					expect(after.scripts.map(({ slug }) => slug)).toEqual(
+						before.scripts.map(({ slug }) => slug),
+					);
+				}),
+		);
+	});
 
-	it.effect(
-		"fences entity references by stable plugin ownership rather than a colliding schema slug",
-		() =>
-			withRevisionDatabase(
+	layer(revisionDatabaseLayer)((test) => {
+		test.effect(
+			"fences entity references by stable plugin ownership rather than a colliding schema slug",
+			() =>
 				Effect.gen(function* () {
 					const db = yield* (yield* DatabaseSession).current;
 					const repository = yield* PluginRepository;
@@ -401,13 +408,13 @@ describe("plugin repository revisions", () => {
 						}),
 					).toBe(false);
 				}),
-			),
-	);
+		);
+	});
 
-	it.effect(
-		"detects provider-backed references even when the entity has another definition owner",
-		() =>
-			withRevisionDatabase(
+	layer(revisionDatabaseLayer)((test) => {
+		test.effect(
+			"detects provider-backed references even when the entity has another definition owner",
+			() =>
 				Effect.gen(function* () {
 					const db = yield* (yield* DatabaseSession).current;
 					const repository = yield* PluginRepository;
@@ -432,11 +439,11 @@ describe("plugin repository revisions", () => {
 						}),
 					).toBe(true);
 				}),
-			),
-	);
+		);
+	});
 
-	it.effect("fences integrations on the exact plugin and optional installation", () =>
-		withRevisionDatabase(
+	layer(revisionDatabaseLayer)((test) => {
+		test.effect("fences integrations on the exact plugin and optional installation", () =>
 			Effect.gen(function* () {
 				const db = yield* (yield* DatabaseSession).current;
 				const repository = yield* PluginRepository;
@@ -468,11 +475,11 @@ describe("plugin repository revisions", () => {
 					}),
 				).toBe(false);
 			}),
-		),
-	);
+		);
+	});
 
-	it.effect("loads manifests and source-hash entries through the active revision", () =>
-		withRevisionDatabase(
+	layer(revisionDatabaseLayer)((test) => {
+		test.effect("loads manifests and source-hash entries through the active revision", () =>
 			Effect.gen(function* () {
 				const repository = yield* PluginRepository;
 				const first = revisionPackage();
@@ -500,11 +507,11 @@ describe("plugin repository revisions", () => {
 				).toBeNull();
 				expect((yield* repository.listPortablePluginMetadata())[0]?.version).toBe("v2");
 			}),
-		),
-	);
+		);
+	});
 
-	it.effect("updates provider operation pointers without changing retained script rows", () =>
-		withRevisionDatabase(
+	layer(revisionDatabaseLayer)((test) => {
+		test.effect("updates provider operation pointers without changing retained script rows", () =>
 			Effect.gen(function* () {
 				const db = yield* (yield* DatabaseSession).current;
 				const first = yield* installRevisionPackage(revisionPackage());
@@ -527,11 +534,11 @@ describe("plugin repository revisions", () => {
 						.where(eq(tables.sandboxScript.pluginRevisionId, first.revisionId))).length,
 				).toBe(5);
 			}),
-		),
-	);
+		);
+	});
 
-	it.effect("deactivates package identity without immediately deleting scripts", () =>
-		withRevisionDatabase(
+	layer(revisionDatabaseLayer)((test) => {
+		test.effect("deactivates package identity without immediately deleting scripts", () =>
 			Effect.gen(function* () {
 				const db = yield* (yield* DatabaseSession).current;
 				const repository = yield* PluginRepository;
@@ -540,13 +547,13 @@ describe("plugin repository revisions", () => {
 				expect(yield* repository.listActiveSystemPlugins()).toEqual([]);
 				expect((yield* db.select().from(tables.sandboxScript)).length).toBe(5);
 			}),
-		),
-	);
+		);
+	});
 
-	it.effect(
-		"retains a complete old executable revision while a workflow can still call its siblings",
-		() =>
-			withRevisionDatabase(
+	layer(revisionDatabaseLayer)((test) => {
+		test.effect(
+			"retains a complete old executable revision while a workflow can still call its siblings",
+			() =>
 				Effect.gen(function* () {
 					const db = yield* (yield* DatabaseSession).current;
 					const repository = yield* PluginRepository;
@@ -590,10 +597,10 @@ describe("plugin repository revisions", () => {
 							.where(eq(tables.sandboxScript.pluginRevisionId, first.revisionId)),
 					).toEqual([]);
 				}),
-			),
-	);
-	it.effect("deletes only unreferenced inactive private tombstones", () =>
-		withRevisionDatabase(
+		);
+	});
+	layer(revisionDatabaseLayer)((test) => {
+		test.effect("deletes only unreferenced inactive private tombstones", () =>
 			Effect.gen(function* () {
 				const db = yield* (yield* DatabaseSession).current;
 				const repository = yield* PluginRepository;
@@ -612,11 +619,11 @@ describe("plugin repository revisions", () => {
 				]);
 				expect(yield* db.select().from(tables.pluginRevision)).toEqual([]);
 			}),
-		),
-	);
+		);
+	});
 
-	it.effect("reloads exact source bytes and denies another user's installation", () =>
-		withRevisionDatabase(
+	layer(revisionDatabaseLayer)((test) => {
+		test.effect("reloads exact source bytes and denies another user's installation", () =>
 			Effect.gen(function* () {
 				const repository = yield* PluginRepository;
 				const packageValue = {
@@ -642,6 +649,6 @@ describe("plugin repository revisions", () => {
 					}),
 				).toBeNull();
 			}),
-		),
-	);
+		);
+	});
 });

@@ -1,6 +1,6 @@
-import { expect, it } from "@effect/vitest";
+import { expect, layer } from "@effect/vitest";
 import { SandboxScriptId, UserId } from "@ryot-app/contract/schema/brands";
-import { Effect, Layer } from "effect";
+import { Context, Effect, Layer, Ref } from "effect";
 import { WorkflowEngine, WorkflowInstance } from "effect/unstable/workflow/WorkflowEngine";
 
 import { databaseLayer, makeWorkflowActivityEngine } from "#lib/test-utils/effect";
@@ -38,187 +38,228 @@ const resolved = (overrides: Partial<NonNullable<ResolvedBootstrap>> = {}) => ({
 	...overrides,
 });
 
-const runWorkflow = (input: {
-	readonly executions: Array<Execution>;
+class FakeInstallationWorkflow extends Context.Service<
+	FakeInstallationWorkflow,
+	{
+		readonly order: Effect.Effect<ReadonlyArray<string>>;
+		readonly executions: Effect.Effect<ReadonlyArray<Execution>>;
+		readonly healthUpdates: Effect.Effect<ReadonlyArray<HealthUpdate>>;
+		readonly resolveBootstrapWith: (bootstrap: ResolvedBootstrap) => Effect.Effect<void>;
+	}
+>()("test/FakeInstallationWorkflow") {}
+
+class InstallationWorkflowFakeState extends Context.Service<
+	InstallationWorkflowFakeState,
+	{
+		readonly bootstrap: Ref.Ref<ResolvedBootstrap>;
+		readonly executions: Ref.Ref<ReadonlyArray<Execution>>;
+		readonly healthUpdates: Ref.Ref<ReadonlyArray<HealthUpdate>>;
+		readonly pushOrder: (entry: string) => Effect.Effect<void>;
+	}
+>()("test/InstallationWorkflowFakeState") {}
+
+const workflowLayer = (input: {
 	readonly bootstrap: ResolvedBootstrap;
-	readonly healthUpdates: Array<HealthUpdate>;
 	readonly scriptErrors?: Record<string, string>;
-	readonly order?: string[];
 }) => {
-	const instance = WorkflowInstance.initial(PluginInstallationWorkflow, installationId);
-	const engine = makeWorkflowActivityEngine(instance);
-	const layer = PluginInstallationWorkflowOperationsLive.pipe(
-		Layer.provide(
-			Layer.mergeAll(
-				databaseLayer,
-				Layer.succeed(ClientSurfaceMaterializer, {
+	const fakes = Layer.effectContext(
+		Effect.gen(function* () {
+			const order = yield* Ref.make<ReadonlyArray<string>>([]);
+			const executions = yield* Ref.make<ReadonlyArray<Execution>>([]);
+			const healthUpdates = yield* Ref.make<ReadonlyArray<HealthUpdate>>([]);
+			const bootstrap = yield* Ref.make(input.bootstrap);
+			const pushOrder = (entry: string) => Ref.update(order, (all) => [...all, entry]);
+			const instance = WorkflowInstance.initial(PluginInstallationWorkflow, installationId);
+			return Context.make(WorkflowInstance, instance).pipe(
+				Context.add(WorkflowEngine, makeWorkflowActivityEngine(instance)),
+				Context.add(ClientSurfaceMaterializer, {
 					materializeRenderer: () => Effect.void,
 					assertUserCompositions: () => Effect.void,
 					materializeSystemCompositions: Effect.void,
 					materializeUserCompositions: () => Effect.void,
-					materializePendingInstallation: (_owner, id) =>
-						Effect.sync(() => {
-							input.order?.push(`build:${id}`);
-						}),
+					materializePendingInstallation: (_owner, id) => pushOrder(`build:${id}`),
 				}),
-				Layer.mock(PluginRuntimeResolver)({
-					resolveInstallationBootstrap: () => Effect.succeed(input.bootstrap),
-				}),
-				Layer.mock(PluginInstallationRepository)({
-					updateHealth: (values) =>
-						Effect.sync(() => {
-							input.order?.push(`health:${values.health}`);
-							input.healthUpdates.push(values);
-						}),
-					findById: () =>
-						Effect.succeed({
-							userId,
-							config: {},
-							sortOrder: 0,
-							isDisabled: false,
-							healthReason: null,
-							id: installationId,
-							uninstalledAt: null,
-							pluginScope: "user",
-							health: "installing",
-							pluginId: "plugin-1",
-							pluginSlug: "fixture",
-							createdAt: new Date(0),
-							updatedAt: new Date(0),
-							homeSavedViewSlug: null,
-							activeConfigRevisionId: null,
-						}),
-				}),
-				Layer.succeed(PluginCatalogInvalidator, {
+				Context.add(PluginCatalogInvalidator, {
 					all: Effect.void,
-					user: () =>
-						Effect.sync(() => {
-							input.order?.push("invalidate");
-						}),
+					user: () => pushOrder("invalidate"),
 				}),
-				Layer.mock(SandboxExecutionService)({
-					executeScript: (payload) =>
-						Effect.sync(() => {
-							input.executions.push({
+				Context.add(FakeInstallationWorkflow, {
+					order: Ref.get(order),
+					executions: Ref.get(executions),
+					healthUpdates: Ref.get(healthUpdates),
+					resolveBootstrapWith: (next) => Ref.set(bootstrap, next),
+				}),
+				Context.add(InstallationWorkflowFakeState, {
+					bootstrap,
+					pushOrder,
+					executions,
+					healthUpdates,
+				}),
+			);
+		}),
+	);
+	const mocks = Layer.unwrap(
+		Effect.map(
+			InstallationWorkflowFakeState,
+			({ bootstrap, pushOrder, executions, healthUpdates }) =>
+				Layer.mergeAll(
+					Layer.mock(PluginRuntimeResolver)({
+						resolveInstallationBootstrap: () => Ref.get(bootstrap),
+					}),
+					Layer.mock(PluginInstallationRepository)({
+						updateHealth: (values) =>
+							pushOrder(`health:${values.health}`).pipe(
+								Effect.andThen(Ref.update(healthUpdates, (all) => [...all, values])),
+							),
+						findById: () =>
+							Effect.succeed({
+								userId,
+								config: {},
+								sortOrder: 0,
+								isDisabled: false,
+								healthReason: null,
+								id: installationId,
+								uninstalledAt: null,
+								pluginScope: "user",
+								health: "installing",
+								pluginId: "plugin-1",
+								pluginSlug: "fixture",
+								createdAt: new Date(0),
+								updatedAt: new Date(0),
+								homeSavedViewSlug: null,
+								activeConfigRevisionId: null,
+							}),
+					}),
+					Layer.mock(SandboxExecutionService)({
+						executeScript: (payload) => {
+							const message = input.scriptErrors?.[payload.scriptId];
+							const execution = {
 								subject: payload.subject,
 								scriptId: payload.scriptId,
 								executionId: payload.executionId,
-							});
-							const message = input.scriptErrors?.[payload.scriptId];
-							return {
-								logs: [],
-								value: null,
-								status: "completed" as const,
-								error: message
-									? { message, phase: "execute" as const, kind: "script-failure" as const }
-									: null,
 							};
-						}),
-				}),
-			),
+							return Ref.update(executions, (all) => [...all, execution]).pipe(
+								Effect.as({
+									logs: [],
+									value: null,
+									status: "completed" as const,
+									error: message
+										? { message, phase: "execute" as const, kind: "script-failure" as const }
+										: null,
+								}),
+							);
+						},
+					}),
+				),
 		),
 	);
-	return runPluginInstallationWorkflow({ installationId }, "execution-1").pipe(
-		Effect.provide(
-			Layer.mergeAll(
-				layer,
-				Layer.succeed(WorkflowInstance, instance),
-				Layer.succeed(WorkflowEngine, engine),
-			),
-		),
+	return PluginInstallationWorkflowOperationsLive.pipe(
+		Layer.provide(mocks),
+		Layer.provideMerge(fakes),
+		Layer.provideMerge(databaseLayer),
 	);
 };
 
-it.effect("runs bootstrap entries in declared order with owner subject and stable ids", () => {
-	const executions: Array<Execution> = [];
-	const healthUpdates: Array<HealthUpdate> = [];
-	const order: string[] = [];
-	return Effect.gen(function* () {
-		yield* runWorkflow({ order, executions, healthUpdates, bootstrap: resolved() });
-		expect(order).toEqual([`build:${installationId}`, "health:ready", "invalidate"]);
-		expect(executions).toEqual([
-			{
-				scriptId: "first-id",
-				subject: { userId, type: "user" },
-				executionId: pluginInstallationBootstrapExecutionId(installationId, "first"),
-			},
-			{
-				scriptId: "second-id",
-				subject: { userId, type: "user" },
-				executionId: pluginInstallationBootstrapExecutionId(installationId, "second"),
-			},
-		]);
-		expect(healthUpdates).toEqual([{ health: "ready", healthReason: null, id: installationId }]);
-	});
-});
+const runWorkflow = runPluginInstallationWorkflow({ installationId }, "execution-1");
 
-it.effect("does nothing for a missing or settled installation", () => {
-	const cases = [null, resolved({ health: "ready" })];
-	return Effect.forEach(cases, (bootstrap) =>
+layer(workflowLayer({ bootstrap: resolved() }))((test) => {
+	test.effect("runs bootstrap entries in declared order with owner subject and stable ids", () =>
 		Effect.gen(function* () {
-			const executions: Array<Execution> = [];
-			const healthUpdates: Array<HealthUpdate> = [];
-			yield* runWorkflow({ bootstrap, executions, healthUpdates });
-			expect(executions).toEqual([]);
-			expect(healthUpdates).toEqual([]);
+			const fake = yield* FakeInstallationWorkflow;
+			yield* runWorkflow;
+			expect(yield* fake.order).toEqual([`build:${installationId}`, "health:ready", "invalidate"]);
+			expect(yield* fake.executions).toEqual([
+				{
+					scriptId: "first-id",
+					subject: { userId, type: "user" },
+					executionId: pluginInstallationBootstrapExecutionId(installationId, "first"),
+				},
+				{
+					scriptId: "second-id",
+					subject: { userId, type: "user" },
+					executionId: pluginInstallationBootstrapExecutionId(installationId, "second"),
+				},
+			]);
+			expect(yield* fake.healthUpdates).toEqual([
+				{ health: "ready", healthReason: null, id: installationId },
+			]);
 		}),
 	);
 });
 
-it.effect("derives the same durable execution id for an entry on every run", () => {
-	const executions: Array<Execution> = [];
-	const healthUpdates: Array<HealthUpdate> = [];
-	return Effect.gen(function* () {
-		yield* runWorkflow({ executions, healthUpdates, bootstrap: resolved() });
-		yield* runWorkflow({ executions, healthUpdates, bootstrap: resolved() });
-		expect(executions.map(({ executionId }) => executionId)).toEqual([
-			pluginInstallationBootstrapExecutionId(installationId, "first"),
-			pluginInstallationBootstrapExecutionId(installationId, "second"),
-			pluginInstallationBootstrapExecutionId(installationId, "first"),
-			pluginInstallationBootstrapExecutionId(installationId, "second"),
-		]);
+layer(workflowLayer({ bootstrap: null }))((test) => {
+	test.effect("does nothing for a missing or settled installation", () => {
+		const cases = [null, resolved({ health: "ready" })];
+		return Effect.gen(function* () {
+			const fake = yield* FakeInstallationWorkflow;
+			yield* Effect.forEach(cases, (bootstrap) =>
+				Effect.gen(function* () {
+					yield* fake.resolveBootstrapWith(bootstrap);
+					yield* runWorkflow;
+					expect(yield* fake.executions).toEqual([]);
+					expect(yield* fake.healthUpdates).toEqual([]);
+				}),
+			);
+		});
 	});
 });
 
-it.effect("fails the installation when a bootstrap entry has no compiled script", () => {
-	const executions: Array<Execution> = [];
-	const healthUpdates: Array<HealthUpdate> = [];
-	return Effect.gen(function* () {
-		yield* runWorkflow({
-			executions,
-			healthUpdates,
-			bootstrap: resolved({ entries: [{ slug: "first", scriptId: null }] }),
-		});
-		expect(executions).toEqual([]);
-		expect(healthUpdates).toEqual([
-			{
-				health: "failed",
-				id: installationId,
-				healthReason: "Plugin installation could not be started",
-			},
-		]);
-	});
+layer(workflowLayer({ bootstrap: resolved() }))((test) => {
+	test.effect("derives the same durable execution id for an entry on every run", () =>
+		Effect.gen(function* () {
+			const fake = yield* FakeInstallationWorkflow;
+			yield* runWorkflow;
+			yield* runWorkflow;
+			expect((yield* fake.executions).map(({ executionId }) => executionId)).toEqual([
+				pluginInstallationBootstrapExecutionId(installationId, "first"),
+				pluginInstallationBootstrapExecutionId(installationId, "second"),
+				pluginInstallationBootstrapExecutionId(installationId, "first"),
+				pluginInstallationBootstrapExecutionId(installationId, "second"),
+			]);
+		}),
+	);
 });
 
-it.effect("fails the installation with a safe reason and skips later entries", () => {
-	const executions: Array<Execution> = [];
-	const healthUpdates: Array<HealthUpdate> = [];
-	return Effect.gen(function* () {
-		yield* runWorkflow({
-			executions,
-			healthUpdates,
-			bootstrap: resolved(),
-			scriptErrors: { "first-id": "TypeError at scripts/bootstrap.sandbox.ts:12" },
-		});
-		expect(executions.map(({ scriptId }) => scriptId)).toEqual(["first-id"]);
-		expect(healthUpdates).toEqual([
-			{
-				health: "failed",
-				id: installationId,
-				healthReason: "Plugin installation bootstrap failed: first",
-			},
-		]);
-		expect(String(healthUpdates[0]?.healthReason)).not.toContain("TypeError");
-		expect(String(healthUpdates[0]?.healthReason)).not.toContain("bootstrap.sandbox.ts");
-	});
+layer(workflowLayer({ bootstrap: resolved({ entries: [{ slug: "first", scriptId: null }] }) }))(
+	(test) => {
+		test.effect("fails the installation when a bootstrap entry has no compiled script", () =>
+			Effect.gen(function* () {
+				const fake = yield* FakeInstallationWorkflow;
+				yield* runWorkflow;
+				expect(yield* fake.executions).toEqual([]);
+				expect(yield* fake.healthUpdates).toEqual([
+					{
+						health: "failed",
+						id: installationId,
+						healthReason: "Plugin installation could not be started",
+					},
+				]);
+			}),
+		);
+	},
+);
+
+layer(
+	workflowLayer({
+		bootstrap: resolved(),
+		scriptErrors: { "first-id": "TypeError at scripts/bootstrap.sandbox.ts:12" },
+	}),
+)((test) => {
+	test.effect("fails the installation with a safe reason and skips later entries", () =>
+		Effect.gen(function* () {
+			const fake = yield* FakeInstallationWorkflow;
+			yield* runWorkflow;
+			expect((yield* fake.executions).map(({ scriptId }) => scriptId)).toEqual(["first-id"]);
+			const healthUpdates = yield* fake.healthUpdates;
+			expect(healthUpdates).toEqual([
+				{
+					health: "failed",
+					id: installationId,
+					healthReason: "Plugin installation bootstrap failed: first",
+				},
+			]);
+			expect(String(healthUpdates[0]?.healthReason)).not.toContain("TypeError");
+			expect(String(healthUpdates[0]?.healthReason)).not.toContain("bootstrap.sandbox.ts");
+		}),
+	);
 });
