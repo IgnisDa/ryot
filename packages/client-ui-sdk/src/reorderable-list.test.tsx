@@ -100,6 +100,7 @@ describe("ReorderableList", () => {
 		expect(document.activeElement).toBe(screen.getByRole("button", { name: "Reorder Shows" }));
 	});
 
+	// oxlint-disable-next-line effecttsgo/async-function -- Vitest awaits the axe Promise.
 	it("passes an axe pass", async () => {
 		render(<Harness />);
 

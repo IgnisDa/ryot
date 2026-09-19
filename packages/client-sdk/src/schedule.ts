@@ -13,10 +13,11 @@ import type { PluginRouterNavigation } from "./navigation/store";
 // Deep `effect/*` imports only: the plugin bundler replaces the bare `effect` barrel with a
 // six-export shim, so `import { Clock } from "effect"` would resolve to nothing at runtime.
 
-/** Plugin-facing shape: plain callbacks, no Effect types. */
+/** Clock-backed scheduling and scoped execution for client work. */
 export type RyotSchedule = {
 	readonly now: () => number;
 	readonly after: (delayMs: number, run: () => void) => () => void;
+	readonly run: (work: Effect.Effect<void>, onExit: () => void) => () => void;
 };
 
 export class RyotClientService extends Context.Service<RyotClientService, RyotClient>()(
@@ -38,6 +39,8 @@ export class RyotScheduleService extends Context.Service<RyotScheduleService, Ry
 			const runCallback = Effect.runCallbackWith(yield* Effect.context());
 			return {
 				now: () => clock.currentTimeMillisUnsafe(),
+				run: (work, onExit) =>
+					runCallback(work, { onExit: () => onExit(), onFiberStart: Fiber.runIn(scope) }),
 				after: (delayMs: number, run: () => void) => {
 					const interrupt = runCallback(Effect.andThen(Effect.sleep(delayMs), Effect.sync(run)), {
 						// Ties the pending sleep to the layer scope, so disposing the runtime interrupts it.

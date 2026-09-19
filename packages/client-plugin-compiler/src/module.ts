@@ -1,3 +1,5 @@
+// Vite consumes native absolute paths for the staged entry and workspace regions.
+// oxlint-disable-next-line effecttsgo/node-builtin-import
 import { basename, resolve } from "node:path";
 
 import { BunFileSystem } from "@effect/platform-bun";
@@ -171,7 +173,7 @@ export const compileClientPluginModule = (
 				resolve: { noExternal: true },
 				oxc: { jsx: { development: false } },
 				envPrefix: "__RYOT_CLIENT_PLUGIN_NO_ENV__",
-				define: { "import.meta.env": "{}", "process.env.NODE_ENV": JSON.stringify("production") },
+				define: { "import.meta.env": "{}", "process.env.NODE_ENV": '"production"' },
 				build: {
 					minify: true,
 					target: "es2022",
