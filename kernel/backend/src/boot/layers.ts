@@ -4,7 +4,7 @@ import { FetchHttpClient } from "effect/unstable/http";
 
 import { AppConfig } from "#lib/infrastructure/config/service";
 import { MigrationsComplete } from "#lib/infrastructure/db/migrate";
-import { PgClientLive } from "#lib/infrastructure/db/service";
+import { PgClientLive } from "#lib/infrastructure/db/postgres";
 import { DatabaseSession } from "#lib/infrastructure/db/session";
 import { LocalStorageService } from "#lib/infrastructure/local-storage";
 import { ObservabilityLive } from "#lib/infrastructure/observability";

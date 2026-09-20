@@ -14,7 +14,7 @@ import { Context, Effect, Layer, Ref } from "effect";
 import { HttpClientRequest, HttpRouter, HttpServer } from "effect/unstable/http";
 import { HttpApiMiddleware, HttpApiTest } from "effect/unstable/httpapi";
 
-import { mapDatabaseErrors } from "#lib/infrastructure/db/service";
+import { mapDatabaseErrors } from "#lib/infrastructure/db/errors";
 import { fakeDatabaseSession } from "#lib/test-utils/effect";
 import { makeAuthMiddleware } from "#modules/auth/service";
 
