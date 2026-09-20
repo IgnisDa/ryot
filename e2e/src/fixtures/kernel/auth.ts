@@ -111,7 +111,7 @@ export const prepareOAuth = (baseUrl: string) =>
 export const continueOAuthAuthorization = (pending: PendingOAuth, sessionCookie: string) =>
 	webRequest(pending.authorizationUrl, { redirect: "manual", headers: { Cookie: sessionCookie } });
 
-const continueAfterInitialization = (
+export const continueAfterInitialization = (
 	response: Response,
 	pending: PendingOAuth,
 	sessionCookie: string,

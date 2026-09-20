@@ -60,7 +60,10 @@ export class UserBootstrap extends Context.Service<UserBootstrap>()("UserBootstr
 			);
 		});
 
-		const perform = Effect.fn("UserBootstrap.perform")(function* (userId: string) {
+		const perform = Effect.fn("UserBootstrap.perform")(function* (
+			userId: string,
+			generation?: string,
+		) {
 			yield* Effect.annotateCurrentSpan({ userId });
 			const user = UserId.make(userId);
 			const shouldSkip = yield* session.transaction(
@@ -74,7 +77,7 @@ export class UserBootstrap extends Context.Service<UserBootstrap>()("UserBootstr
 				return;
 			}
 			yield* pluginInstallations.provisionSystemInstallations(user);
-			yield* pluginBootstrap.dispatchAll(user);
+			yield* pluginBootstrap.dispatchAll(user, generation);
 			yield* session.transaction(
 				Effect.gen(function* () {
 					yield* acquireBootstrapLock(userId);
