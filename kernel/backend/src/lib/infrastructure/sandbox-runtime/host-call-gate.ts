@@ -5,6 +5,7 @@ import {
 	workflowDurableResultSchema,
 	workflowInlineRequestSchema,
 	workflowReplayJournalEntrySchema,
+	type WorkflowInlineRequest,
 	type WorkflowReplayJournalEntry,
 } from "@ryot-app/sandbox-sdk/workflow";
 import type { Scope, Tracer } from "effect";
@@ -199,12 +200,12 @@ const gateError = (reason: string) => new GateError({ reason });
 
 const pinJournal = (
 	source: NonNullable<SandboxRunInput["replayJournal"]>,
-): Effect.Effect<SandboxInvocationJournal, GateError> => {
+): SandboxInvocationJournal | undefined => {
 	if (
 		source.entries.length > SANDBOX_LIMITS.hostCalls.total ||
 		source.bytes > SANDBOX_LIMITS.journalBytes
 	) {
-		return Effect.fail(gateError("Sandbox workflow journal exceeds its byte limit"));
+		return undefined;
 	}
 	const offsets = [0];
 	let totalBytes = 0;
@@ -212,7 +213,7 @@ const pinJournal = (
 		totalBytes += bytes;
 		offsets.push(totalBytes);
 	}
-	return Effect.succeed({ offsets, totalBytes, length: source.entries.length });
+	return { offsets, totalBytes, length: source.entries.length };
 };
 
 const jsonBytesWithin = (value: unknown, limit: number) =>
@@ -275,7 +276,39 @@ const frameFailure = (
 const ownerKey = (options: SandboxHostCallGateOptions) =>
 	encodeUnknownJson([options.instance, options.generation, options.handle]);
 
+type RunState = {
+	readonly closed: Deferred.Deferred<void>;
+	readonly drained: Deferred.Deferred<void>;
+	readonly evidence: TransientPermit[];
+	readonly hostCallBudget: { http: number; total: number };
+	readonly inlineEncodedEntries: Uint8Array[];
+	readonly journal: SandboxInvocationJournal | undefined;
+	readonly journalSource: SandboxRunInput["replayJournal"];
+	readonly pendingEncodedEntries: Map<number, Uint8Array>;
+	readonly pinnedCount: number;
+	readonly scriptStartedAt: number;
+	readonly seenSequences: Set<number>;
+	readonly semaphore: Semaphore.Semaphore;
+	readonly shortWait: ReturnType<typeof makeSandboxShortWait>;
+	expiresAt: number;
+	gateFiles: SandboxFileAccess | undefined;
+	gateFunctions: Readonly<Record<string, BoundHostFunction>> | undefined;
+	gateInput: SandboxRunInput | undefined;
+	handedOff: boolean;
+	isClosed: boolean;
+	outstanding: number;
+	pendingExtensionMs: number;
+	readBytes: number;
+	readCount: number;
+	settledMs: number;
+	settlementStartedAt: number | undefined;
+	totalJournalJsonBytes: number;
+	waiting: number;
+};
+
 type GateAction = (
+	state: RunState,
+	options: SandboxHostCallGateOptions,
 	frame: SidecarHostCallFrameType,
 	frameArgs: unknown,
 	retain: (bytes: number) => void,
@@ -285,6 +318,434 @@ const closeResult = (frame: SidecarHostCallFrameType) =>
 	frameFailure(frame, "Sandbox execution is no longer active");
 
 const releaseOnReturn: SandboxHostResultDelivery = (_reply, released) => Effect.sync(released);
+
+const makeRunState = Effect.fnUntraced(function* (
+	options: SandboxHostCallGateOptions,
+	journal: SandboxInvocationJournal | undefined,
+) {
+	const journalSource = options.input.replayJournal;
+	const closed = yield* Deferred.make<void>();
+	const semaphore = yield* Semaphore.make(SANDBOX_LIMITS.bridge.concurrentHostCalls);
+	const scriptStartedAt = yield* Clock.currentTimeMillis;
+	const drained = yield* Deferred.make<void>();
+	const state: RunState = {
+		closed,
+		drained,
+		journal,
+		semaphore,
+		waiting: 0,
+		readBytes: 0,
+		readCount: 0,
+		settledMs: 0,
+		evidence: [],
+		journalSource,
+		outstanding: 0,
+		scriptStartedAt,
+		isClosed: false,
+		handedOff: false,
+		pendingExtensionMs: 0,
+		seenSequences: new Set(),
+		inlineEncodedEntries: [],
+		gateInput: options.input,
+		gateFiles: options.files,
+		settlementStartedAt: undefined,
+		pendingEncodedEntries: new Map(),
+		shortWait: makeSandboxShortWait(),
+		gateFunctions: options.apiFunctions,
+		hostCallBudget: { http: 0, total: 0 },
+		pinnedCount: journalSource?.entries.length ?? 0,
+		totalJournalJsonBytes: journalSource?.bytes ?? 2,
+		expiresAt: (yield* Clock.currentTimeMillis) + initialExpiryMs,
+	};
+	return state;
+});
+
+const clearBuffers = (state: RunState) => {
+	for (const bytes of state.inlineEncodedEntries) {
+		bytes.fill(0);
+	}
+	state.inlineEncodedEntries.length = 0;
+	for (const bytes of state.pendingEncodedEntries.values()) {
+		bytes.fill(0);
+	}
+	state.pendingEncodedEntries.clear();
+	state.seenSequences.clear();
+	state.gateInput = undefined;
+	state.gateFiles = undefined;
+	state.gateFunctions = undefined;
+	state.pendingExtensionMs = 0;
+};
+
+const sequenceFailure = (state: RunState, frame: SidecarHostCallFrameType) => {
+	if (
+		!Number.isSafeInteger(frame.seq) ||
+		frame.seq < 0 ||
+		state.seenSequences.has(frame.seq) ||
+		state.seenSequences.size >= maximumSequenceCount
+	) {
+		return frameFailure(frame, "Sandbox host call sequence is invalid or repeated");
+	}
+	state.seenSequences.add(frame.seq);
+	return undefined;
+};
+
+const withPermits = <A, E>(
+	state: RunState,
+	permits: number,
+	effect: Effect.Effect<A, E>,
+): Effect.Effect<A | typeof dispatchQueueFull, E> =>
+	Effect.suspend((): Effect.Effect<A | typeof dispatchQueueFull, E> => {
+		if (state.waiting >= SANDBOX_LIMITS.bridge.concurrentHostCalls) {
+			return Effect.succeed(dispatchQueueFull);
+		}
+		state.waiting += 1;
+		let acquired = false;
+		return state.semaphore
+			.withPermits(permits)(
+				Effect.gen(function* () {
+					state.waiting -= 1;
+					acquired = true;
+					return yield* effect;
+				}),
+			)
+			.pipe(
+				Effect.ensuring(
+					Effect.sync(() => {
+						if (!acquired) {
+							state.waiting -= 1;
+						}
+					}),
+				),
+			);
+	});
+
+const raceClosed = (
+	state: RunState,
+	frame: SidecarHostCallFrameType,
+	effect: Effect.Effect<SidecarHostResultFrameType, GateError>,
+) => Effect.raceFirst(effect, Deferred.await(state.closed).pipe(Effect.as(closeResult(frame))));
+
+const boundedHostCall = (
+	options: SandboxHostCallGateOptions,
+	frame: SidecarHostCallFrameType,
+	name: string,
+	effect: Effect.Effect<
+		unknown,
+		Schema.SchemaError | { readonly message: string; readonly data?: unknown }
+	>,
+) =>
+	effect.pipe(
+		Effect.match({ onFailure: safeHostFailure, onSuccess: (value) => value }),
+		Effect.onExit((exit) =>
+			sandboxMetricHostFunction(name) === "unknown"
+				? Effect.void
+				: recordSandboxHostCall({
+						function: name,
+						outcome: exit._tag === "Success" ? "success" : "failure",
+					}),
+		),
+		catchNonInterrupt(() => Effect.succeed(hostFailure(failureMessage))),
+		Effect.map((value) => hostResultFrame(frame, value)),
+		Effect.withSpan(`sandbox.host.${name}`, {
+			attributes: { functionName: name, executionId: options.input.executionId },
+		}),
+		Effect.withParentSpan(options.parentSpan),
+	);
+
+const inlineProgressBoundBytes = (requests: ReadonlyArray<WorkflowInlineRequest>) => {
+	let valueBytes = 0;
+	let progressBoundBytes = 0;
+	for (const request of requests) {
+		const resultBytes =
+			request.kind === "sleep" ? 4 : sandboxHostResultBytes(request.args.capability);
+		if (resultBytes === null) {
+			return undefined;
+		}
+		valueBytes += resultBytes;
+		const wireBytes =
+			request.kind === "sleep" ? 4 : sandboxHostResultWireBytes(request.args.capability);
+		if (wireBytes === null) {
+			return undefined;
+		}
+		progressBoundBytes +=
+			Math.min(wireBytes, SANDBOX_LIMITS.bridge.responseBytes) +
+			2 * encoder.encode(encodeHostRequestJson(request)).byteLength +
+			8 * KiB;
+	}
+	return { valueBytes, progressBoundBytes };
+};
+
+const journalRead: GateAction = (state, options, frame, frameArgs) =>
+	Effect.gen(function* () {
+		if (state.readCount >= SANDBOX_LIMITS.journalReads.count) {
+			return frameFailure(frame, "Sandbox workflow journal read budget exceeded");
+		}
+		state.readCount += 1;
+		const decodedArgs = decodeJournalReadArgs(frameArgs);
+		if (Option.isNone(decodedArgs)) {
+			return frameFailure(frame, "Sandbox workflow journal range is invalid");
+		}
+		const args = decodedArgs.value;
+		const { journal, journalSource } = state;
+		const index = journal?.offsets.findLastIndex((start) => start <= args.offset) ?? -1;
+		const start = journal?.offsets[index];
+		const pin = journalSource?.entries[index];
+		if (
+			journal === undefined ||
+			journalSource === undefined ||
+			start === undefined ||
+			pin === undefined ||
+			args.offset >= journal.totalBytes
+		) {
+			return frameFailure(frame, "Sandbox workflow journal range is outside its pinned prefix");
+		}
+		const chunk = Math.floor((args.offset - start) / SANDBOX_JOURNAL_CHUNK_BYTES);
+		const chunkStart = chunk * SANDBOX_JOURNAL_CHUNK_BYTES;
+		const chunkBytes = Math.min(SANDBOX_JOURNAL_CHUNK_BYTES, pin[0] - chunkStart);
+		if (state.readBytes + chunkBytes > SANDBOX_LIMITS.journalReads.totalBytes) {
+			return frameFailure(frame, "Sandbox workflow journal read budget exceeded");
+		}
+		state.readBytes += chunkBytes;
+		const bytes = yield* journalSource.readChunk(index, chunk);
+		if (bytes === null) {
+			return frameFailure(frame, "Sandbox workflow journal projection is unavailable");
+		}
+		if (bytes.byteLength !== chunkBytes) {
+			bytes.fill(0);
+			return frameFailure(frame, "Sandbox workflow journal range is incomplete");
+		}
+		const from = args.offset - start - chunkStart;
+		const data = Base64.encode(bytes.subarray(from, from + args.length));
+		bytes.fill(0);
+		return hostResultFrame(frame, { data, offset: args.offset, totalBytes: journal.totalBytes });
+	}).pipe(
+		Effect.withSpan("sandbox.host.journalRead", {
+			attributes: { executionId: options.input.executionId },
+		}),
+		Effect.withParentSpan(options.parentSpan),
+	);
+
+const dispatchInlineBatch: GateAction = (state, options, frame, frameArgs, retain) =>
+	Effect.gen(function* () {
+		const decoded = decodeInlineBatch(frameArgs);
+		if (Option.isNone(decoded)) {
+			return frameFailure(frame, "Sandbox inline durable batch is invalid");
+		}
+		const requests = decoded.value.requests;
+		const input = state.gateInput;
+		const inline = input?.inlineDurableHost;
+		if (!input || !inline) {
+			return hostResultFrame(frame, { defer: true });
+		}
+		if (!jsonBytesWithin({ inline: decoded.value }, SANDBOX_LIMITS.bridge.requestBytes - 1)) {
+			return hostResultFrame(frame, { defer: true });
+		}
+		const firstIndex = state.pinnedCount + state.inlineEncodedEntries.length;
+		const invalidRequest =
+			requests.some(
+				(request, index) =>
+					request.index !== firstIndex + index ||
+					(request.kind === "host" &&
+						(!inline.capabilities.includes(request.args.capability) ||
+							!isSandboxCapabilityAllowed(input, request.args.capability))),
+			) || firstIndex + requests.length > SANDBOX_LIMITS.hostCalls.total;
+		if (invalidRequest) {
+			return hostResultFrame(frame, { defer: true });
+		}
+		const requestBytes = requests.map((request) => encodeHostRequestJson(request));
+
+		let budgetExceeded = false;
+		for (const request of requests) {
+			if (
+				consumeSandboxHostCall(
+					state.hostCallBudget,
+					request.kind === "host" ? request.args.capability : "sleep",
+				)
+			) {
+				budgetExceeded = true;
+			}
+		}
+		if (budgetExceeded) {
+			return hostResultFrame(frame, { defer: true });
+		}
+		const bounds = inlineProgressBoundBytes(requests);
+		if (bounds === undefined) {
+			return hostResultFrame(frame, { defer: true });
+		}
+		const { valueBytes, progressBoundBytes } = bounds;
+		if (
+			valueBytes > SANDBOX_TRANSIENT_MEMORY.inlineValueBytes ||
+			progressBoundBytes * SANDBOX_TRANSIENT_MEMORY.evidenceCopies >
+				SANDBOX_TRANSIENT_MEMORY.inlineEvidenceBytes
+		) {
+			return hostResultFrame(frame, { defer: true });
+		}
+		const checkpoint = (progress: SandboxInlineProgress) =>
+			Effect.sync(() => {
+				const index = progress.request.index - firstIndex;
+				if (
+					state.isClosed ||
+					requestBytes[index] !== encodeHostRequestJson(progress.request) ||
+					(progress._tag === "Http" && progress.request.args.capability !== "httpCall")
+				) {
+					throw gateError("Sandbox inline progress does not match its batch");
+				}
+				const bytes = encoder.encode(encodeProgressJson(progress));
+				state.pendingEncodedEntries.get(progress.request.index)?.fill(0);
+				state.pendingEncodedEntries.set(progress.request.index, bytes);
+				const held = [...state.pendingEncodedEntries.values()].reduce(
+					(sum, entry) => sum + entry.byteLength,
+					0,
+				);
+				if (held > progressBoundBytes) {
+					throw gateError("Sandbox inline progress exceeds its reserved evidence");
+				}
+				retain(SANDBOX_TRANSIENT_MEMORY.evidenceCopies * held);
+			});
+
+		const settledAtStart = yield* Clock.currentTimeMillis;
+		state.settlementStartedAt = settledAtStart;
+		const settled = yield* inline.settle(requests, state.shortWait, checkpoint).pipe(
+			Effect.timeoutOrElse({
+				orElse: () => Effect.succeed(null),
+				duration: SANDBOX_LIMITS.sidecar.settlementMs,
+			}),
+			Effect.match({ onFailure: () => null, onSuccess: (value) => value }),
+			catchNonInterrupt(() => Effect.succeed(null)),
+			Effect.ensuring(
+				Clock.currentTimeMillis.pipe(
+					Effect.flatMap((endedAt) =>
+						Effect.sync(() => {
+							const elapsed = Math.max(0, endedAt - settledAtStart);
+							state.settledMs += elapsed;
+							state.pendingExtensionMs += elapsed;
+							state.settlementStartedAt = undefined;
+						}),
+					),
+				),
+			),
+		);
+		if (settled === null || settled.length !== requests.length || state.isClosed) {
+			return hostResultFrame(frame, { defer: true });
+		}
+
+		const canonicalResults = yield* Effect.forEach(settled, (result, index) =>
+			requests[index]?.kind === "sleep"
+				? Schema.decodeUnknownEffect(Schema.Null)(result)
+				: Schema.decodeUnknownEffect(workflowDurableResultSchema, strictOptions)(result),
+		).pipe(Effect.match({ onFailure: () => undefined, onSuccess: (results) => results }));
+		if (canonicalResults === undefined) {
+			return hostResultFrame(frame, { defer: true });
+		}
+		const inlineReply = { results: canonicalResults };
+		if (
+			!isJsonValue(inlineReply) ||
+			!jsonBytesWithin(inlineReply, SANDBOX_LIMITS.bridge.responseBytes)
+		) {
+			return hostResultFrame(frame, { defer: true });
+		}
+		const totalResult = resultFrame(frame, { status: "success", value: inlineReply });
+
+		const encodedEntries: Uint8Array[] = [];
+		const deferAndClear = () => {
+			for (const encoded of encodedEntries) {
+				encoded.fill(0);
+			}
+			return hostResultFrame(frame, { defer: true });
+		};
+		let nextJournalJsonBytes = state.totalJournalJsonBytes;
+		for (const [index, result] of canonicalResults.entries()) {
+			const requestJson = requestBytes[index];
+			if (requestJson === undefined) {
+				return deferAndClear();
+			}
+			const journalEntry = decodeJournalEntry({
+				value: result,
+				request: decodeHostRequestJson(requestJson),
+			});
+			const bytes = encoder.encode(encodeJournalEntryJson(journalEntry));
+			const separatorBytes =
+				state.pinnedCount + state.inlineEncodedEntries.length + encodedEntries.length === 0 ? 0 : 1;
+			nextJournalJsonBytes += bytes.byteLength + separatorBytes;
+			if (nextJournalJsonBytes > SANDBOX_LIMITS.journalBytes) {
+				bytes.fill(0);
+				return deferAndClear();
+			}
+			encodedEntries.push(bytes);
+		}
+
+		state.inlineEncodedEntries.push(...encodedEntries);
+		for (const request of requests) {
+			state.pendingEncodedEntries.get(request.index)?.fill(0);
+			state.pendingEncodedEntries.delete(request.index);
+		}
+		state.totalJournalJsonBytes = nextJournalJsonBytes;
+		retain(
+			SANDBOX_TRANSIENT_MEMORY.evidenceCopies *
+				encodedEntries.reduce((sum, bytes) => sum + bytes.byteLength, 0),
+		);
+		return totalResult;
+	}).pipe(
+		catchNonInterrupt(() => Effect.succeed(hostResultFrame(frame, { defer: true }))),
+		Effect.withSpan("sandbox.host.inlineBatch", {
+			attributes: { functionName: "inlineBatch", executionId: options.input.executionId },
+		}),
+		Effect.withParentSpan(options.parentSpan),
+	);
+
+const ordinaryDispatch: GateAction = (state, options, frame, frameArgs) =>
+	Effect.gen(function* () {
+		const decodedArgs = decodeHostCallArgs(frameArgs);
+		if (Option.isNone(decodedArgs)) {
+			return frameFailure(frame, "Sandbox host call arguments are invalid");
+		}
+		const parsed = decodedArgs.value;
+		if (!jsonBytesWithin({ args: parsed }, SANDBOX_LIMITS.bridge.requestBytes)) {
+			return frameFailure(
+				frame,
+				`Sandbox bridge request exceeds ${SANDBOX_LIMITS.bridge.requestBytes} UTF-8 bytes`,
+			);
+		}
+
+		const input = state.gateInput;
+		const functions = state.gateFunctions;
+		const fn =
+			functions && Object.hasOwn(functions, frame.name) ? functions[frame.name] : undefined;
+		if (
+			!input ||
+			!fn ||
+			!isSandboxCapability(frame.name) ||
+			!isSandboxCapabilityAllowed(input, frame.name)
+		) {
+			return frameFailure(frame, "Sandbox host function is not available");
+		}
+		return yield* boundedHostCall(options, frame, frame.name, fn(parsed));
+	});
+
+const fileControl: GateAction = (state, options, frame, frameArgs) =>
+	Effect.gen(function* () {
+		const files = state.gateFiles;
+		if (!files) {
+			return frameFailure(frame, "Sandbox file session is unavailable");
+		}
+		if (frame.name === "artifactReadRange") {
+			const args = decodeArtifactReadRangeArgs(frameArgs);
+			if (Option.isNone(args)) {
+				return frameFailure(frame, "Sandbox artifact range arguments are invalid");
+			}
+			return yield* boundedHostCall(
+				options,
+				frame,
+				frame.name,
+				files.artifactReadRange(args.value),
+			);
+		}
+		const args = decodeScratchWriteArgs(frameArgs);
+		if (Option.isNone(args)) {
+			return frameFailure(frame, "Sandbox scratch write arguments are invalid");
+		}
+		return yield* boundedHostCall(options, frame, frame.name, files.scratchWrite(args.value));
+	});
 
 export class SandboxHostCallGate extends Context.Service<SandboxHostCallGate>()(
 	"SandboxHostCallGate",
@@ -303,73 +764,34 @@ export class SandboxHostCallGate extends Context.Service<SandboxHostCallGate>()(
 			): Effect.fn.Return<SandboxHostCallGateRegistration, GateError, Scope.Scope> {
 				const pool = pools[options.input.lane];
 				const journalSource = options.input.replayJournal;
-				const journal = journalSource === undefined ? undefined : yield* pinJournal(journalSource);
+				const journal = journalSource === undefined ? undefined : pinJournal(journalSource);
+				if (journalSource !== undefined && journal === undefined) {
+					return yield* gateError("Sandbox workflow journal exceeds its byte limit");
+				}
 				if (options.input.workflowExecutionId !== undefined && journal === undefined) {
 					return yield* gateError("Workflow executions require a host-pinned journal prefix");
 				}
 
-				const closed = yield* Deferred.make<void>();
-				const semaphore = yield* Semaphore.make(SANDBOX_LIMITS.bridge.concurrentHostCalls);
-				const hostCallBudget = { http: 0, total: 0 };
-				const shortWait = makeSandboxShortWait();
-				const seenSequences = new Set<number>();
-				const inlineEncodedEntries: Uint8Array[] = [];
-				const pendingEncodedEntries = new Map<number, Uint8Array>();
-				let handedOff = false;
-				const pinnedCount = journalSource?.entries.length ?? 0;
-				let readCount = 0;
-				let readBytes = 0;
-				let totalJournalJsonBytes = journalSource?.bytes ?? 2;
-				let pendingExtensionMs = 0;
-				let settledMs = 0;
-				let settlementStartedAt: number | undefined;
-				const scriptStartedAt = yield* Clock.currentTimeMillis;
-				let waiting = 0;
-				let outstanding = 0;
-				let isClosed = false;
-				const drained = yield* Deferred.make<void>();
-				const evidence: TransientPermit[] = [];
-				let gateInput: SandboxRunInput | undefined = options.input;
-				let gateFiles: SandboxFileAccess | undefined = options.files;
-				let gateFunctions: Readonly<Record<string, BoundHostFunction>> | undefined =
-					options.apiFunctions;
+				const state = yield* makeRunState(options, journal);
 				const generation = options.generation;
 				const handle = options.handle;
-				const executionId = options.input.executionId;
-				const parentSpan = options.parentSpan;
 				const key = ownerKey(options);
 
-				const clearBuffers = () => {
-					for (const bytes of inlineEncodedEntries) {
-						bytes.fill(0);
-					}
-					inlineEncodedEntries.length = 0;
-					for (const bytes of pendingEncodedEntries.values()) {
-						bytes.fill(0);
-					}
-					pendingEncodedEntries.clear();
-					seenSequences.clear();
-					gateInput = undefined;
-					gateFiles = undefined;
-					gateFunctions = undefined;
-					pendingExtensionMs = 0;
-				};
-
 				const pendingEntries = () =>
-					[...pendingEncodedEntries.values()].map((bytes) =>
+					[...state.pendingEncodedEntries.values()].map((bytes) =>
 						decodeProgressJson(decoder.decode(bytes)),
 					);
 				const close: Effect.Effect<void> = Effect.gen(function* () {
-					if (!isClosed) {
-						isClosed = true;
-						Deferred.doneUnsafe(closed, Effect.void);
-						const cancel = gateInput?.inlineDurableHost?.cancel;
-						if (!handedOff && cancel) {
+					if (!state.isClosed) {
+						state.isClosed = true;
+						Deferred.doneUnsafe(state.closed, Effect.void);
+						const cancel = state.gateInput?.inlineDurableHost?.cancel;
+						if (!state.handedOff && cancel) {
 							yield* cancel(pendingEntries());
 						}
-						clearBuffers();
-						if (outstanding === 0) {
-							Deferred.doneUnsafe(drained, Effect.void);
+						clearBuffers(state);
+						if (state.outstanding === 0) {
+							Deferred.doneUnsafe(state.drained, Effect.void);
 						}
 					}
 					if (registrations.get(key) === close) {
@@ -382,402 +804,36 @@ export class SandboxHostCallGate extends Context.Service<SandboxHostCallGate>()(
 						if (frame.handle !== handle || frame.generation !== generation) {
 							return frameFailure(frame, "Sandbox host call identity does not match");
 						}
-						if (isClosed) {
+						if (state.isClosed) {
 							return closeResult(frame);
 						}
-						if ((yield* Clock.currentTimeMillis) > expiresAt) {
+						if ((yield* Clock.currentTimeMillis) > state.expiresAt) {
 							yield* close;
 							return frameFailure(frame, "Sandbox execution expired");
 						}
 						return undefined;
 					});
 
-				let expiresAt = (yield* Clock.currentTimeMillis) + initialExpiryMs;
-
-				const sequenceFailure = (frame: SidecarHostCallFrameType) => {
-					if (
-						!Number.isSafeInteger(frame.seq) ||
-						frame.seq < 0 ||
-						seenSequences.has(frame.seq) ||
-						seenSequences.size >= maximumSequenceCount
-					) {
-						return frameFailure(frame, "Sandbox host call sequence is invalid or repeated");
-					}
-					seenSequences.add(frame.seq);
-					return undefined;
-				};
-
-				const withPermits = <A, E>(
-					permits: number,
-					effect: Effect.Effect<A, E>,
-				): Effect.Effect<A | typeof dispatchQueueFull, E> =>
-					Effect.suspend((): Effect.Effect<A | typeof dispatchQueueFull, E> => {
-						if (waiting >= SANDBOX_LIMITS.bridge.concurrentHostCalls) {
-							return Effect.succeed(dispatchQueueFull);
-						}
-						waiting += 1;
-						let acquired = false;
-						return semaphore
-							.withPermits(permits)(
-								Effect.gen(function* () {
-									waiting -= 1;
-									acquired = true;
-									return yield* effect;
-								}),
-							)
-							.pipe(
-								Effect.ensuring(
-									Effect.sync(() => {
-										if (!acquired) {
-											waiting -= 1;
-										}
-									}),
-								),
-							);
-					});
-
 				const track = (permit: TransientPermit) => {
-					outstanding += 1;
+					state.outstanding += 1;
 					let held = true;
 					return (retainedBytes = 0) => {
 						if (!held) {
 							return;
 						}
 						held = false;
-						if (retainedBytes > 0 && !isClosed) {
+						if (retainedBytes > 0 && !state.isClosed) {
 							permit.shrink(retainedBytes);
-							evidence.push(permit);
+							state.evidence.push(permit);
 						} else {
 							permit.release();
 						}
-						outstanding -= 1;
-						if (outstanding === 0 && isClosed) {
-							Deferred.doneUnsafe(drained, Effect.void);
+						state.outstanding -= 1;
+						if (state.outstanding === 0 && state.isClosed) {
+							Deferred.doneUnsafe(state.drained, Effect.void);
 						}
 					};
 				};
-
-				const raceClosed = (
-					frame: SidecarHostCallFrameType,
-					effect: Effect.Effect<SidecarHostResultFrameType, GateError>,
-				) => Effect.raceFirst(effect, Deferred.await(closed).pipe(Effect.as(closeResult(frame))));
-
-				const boundedHostCall = (
-					frame: SidecarHostCallFrameType,
-					name: string,
-					effect: Effect.Effect<
-						unknown,
-						Schema.SchemaError | { readonly message: string; readonly data?: unknown }
-					>,
-				) =>
-					effect.pipe(
-						Effect.match({ onFailure: safeHostFailure, onSuccess: (value) => value }),
-						Effect.onExit((exit) =>
-							sandboxMetricHostFunction(name) === "unknown"
-								? Effect.void
-								: recordSandboxHostCall({
-										function: name,
-										outcome: exit._tag === "Success" ? "success" : "failure",
-									}),
-						),
-						catchNonInterrupt(() => Effect.succeed(hostFailure(failureMessage))),
-						Effect.map((value) => hostResultFrame(frame, value)),
-						Effect.withSpan(`sandbox.host.${name}`, {
-							attributes: { executionId, functionName: name },
-						}),
-						Effect.withParentSpan(parentSpan),
-					);
-
-				const journalRead = (frame: SidecarHostCallFrameType, frameArgs: unknown) =>
-					Effect.gen(function* () {
-						if (readCount >= SANDBOX_LIMITS.journalReads.count) {
-							return frameFailure(frame, "Sandbox workflow journal read budget exceeded");
-						}
-						readCount += 1;
-						const decodedArgs = decodeJournalReadArgs(frameArgs);
-						if (Option.isNone(decodedArgs)) {
-							return frameFailure(frame, "Sandbox workflow journal range is invalid");
-						}
-						const args = decodedArgs.value;
-						const index = journal?.offsets.findLastIndex((start) => start <= args.offset) ?? -1;
-						const start = journal?.offsets[index];
-						const pin = journalSource?.entries[index];
-						if (
-							journal === undefined ||
-							journalSource === undefined ||
-							start === undefined ||
-							pin === undefined ||
-							args.offset >= journal.totalBytes
-						) {
-							return frameFailure(
-								frame,
-								"Sandbox workflow journal range is outside its pinned prefix",
-							);
-						}
-						const chunk = Math.floor((args.offset - start) / SANDBOX_JOURNAL_CHUNK_BYTES);
-						const chunkStart = chunk * SANDBOX_JOURNAL_CHUNK_BYTES;
-						const chunkBytes = Math.min(SANDBOX_JOURNAL_CHUNK_BYTES, pin[0] - chunkStart);
-						if (readBytes + chunkBytes > SANDBOX_LIMITS.journalReads.totalBytes) {
-							return frameFailure(frame, "Sandbox workflow journal read budget exceeded");
-						}
-						readBytes += chunkBytes;
-						const bytes = yield* journalSource.readChunk(index, chunk);
-						if (bytes === null) {
-							return frameFailure(frame, "Sandbox workflow journal projection is unavailable");
-						}
-						if (bytes.byteLength !== chunkBytes) {
-							bytes.fill(0);
-							return frameFailure(frame, "Sandbox workflow journal range is incomplete");
-						}
-						const from = args.offset - start - chunkStart;
-						const data = Base64.encode(bytes.subarray(from, from + args.length));
-						bytes.fill(0);
-						return hostResultFrame(frame, {
-							data,
-							offset: args.offset,
-							totalBytes: journal.totalBytes,
-						});
-					}).pipe(
-						Effect.withSpan("sandbox.host.journalRead", { attributes: { executionId } }),
-						Effect.withParentSpan(parentSpan),
-					);
-
-				const dispatchInlineBatch = (
-					frame: SidecarHostCallFrameType,
-					frameArgs: unknown,
-					retain: (bytes: number) => void,
-				) =>
-					Effect.gen(function* () {
-						const decoded = decodeInlineBatch(frameArgs);
-						if (Option.isNone(decoded)) {
-							return frameFailure(frame, "Sandbox inline durable batch is invalid");
-						}
-						const requests = decoded.value.requests;
-						const input = gateInput;
-						const inline = input?.inlineDurableHost;
-						if (!input || !inline) {
-							return hostResultFrame(frame, { defer: true });
-						}
-						if (
-							!jsonBytesWithin({ inline: decoded.value }, SANDBOX_LIMITS.bridge.requestBytes - 1)
-						) {
-							return hostResultFrame(frame, { defer: true });
-						}
-						const firstIndex = pinnedCount + inlineEncodedEntries.length;
-						const invalidRequest =
-							requests.some(
-								(request, index) =>
-									request.index !== firstIndex + index ||
-									(request.kind === "host" &&
-										(!inline.capabilities.includes(request.args.capability) ||
-											!isSandboxCapabilityAllowed(input, request.args.capability))),
-							) || firstIndex + requests.length > SANDBOX_LIMITS.hostCalls.total;
-						if (invalidRequest) {
-							return hostResultFrame(frame, { defer: true });
-						}
-						const requestBytes = requests.map((request) => encodeHostRequestJson(request));
-
-						let budgetExceeded = false;
-						for (const request of requests) {
-							if (
-								consumeSandboxHostCall(
-									hostCallBudget,
-									request.kind === "host" ? request.args.capability : "sleep",
-								)
-							) {
-								budgetExceeded = true;
-							}
-						}
-						if (budgetExceeded) {
-							return hostResultFrame(frame, { defer: true });
-						}
-						let valueBytes = 0;
-						let progressBoundBytes = 0;
-						for (const request of requests) {
-							const resultBytes =
-								request.kind === "sleep" ? 4 : sandboxHostResultBytes(request.args.capability);
-							if (resultBytes === null) {
-								return hostResultFrame(frame, { defer: true });
-							}
-							valueBytes += resultBytes;
-							const wireBytes =
-								request.kind === "sleep" ? 4 : sandboxHostResultWireBytes(request.args.capability);
-							if (wireBytes === null) {
-								return hostResultFrame(frame, { defer: true });
-							}
-							progressBoundBytes +=
-								Math.min(wireBytes, SANDBOX_LIMITS.bridge.responseBytes) +
-								2 * encoder.encode(encodeHostRequestJson(request)).byteLength +
-								8 * KiB;
-						}
-						if (
-							valueBytes > SANDBOX_TRANSIENT_MEMORY.inlineValueBytes ||
-							progressBoundBytes * SANDBOX_TRANSIENT_MEMORY.evidenceCopies >
-								SANDBOX_TRANSIENT_MEMORY.inlineEvidenceBytes
-						) {
-							return hostResultFrame(frame, { defer: true });
-						}
-						const checkpoint = (progress: SandboxInlineProgress) =>
-							Effect.sync(() => {
-								const index = progress.request.index - firstIndex;
-								if (
-									isClosed ||
-									requestBytes[index] !== encodeHostRequestJson(progress.request) ||
-									(progress._tag === "Http" && progress.request.args.capability !== "httpCall")
-								) {
-									throw gateError("Sandbox inline progress does not match its batch");
-								}
-								const bytes = encoder.encode(encodeProgressJson(progress));
-								pendingEncodedEntries.get(progress.request.index)?.fill(0);
-								pendingEncodedEntries.set(progress.request.index, bytes);
-								const held = [...pendingEncodedEntries.values()].reduce(
-									(sum, entry) => sum + entry.byteLength,
-									0,
-								);
-								if (held > progressBoundBytes) {
-									throw gateError("Sandbox inline progress exceeds its reserved evidence");
-								}
-								retain(SANDBOX_TRANSIENT_MEMORY.evidenceCopies * held);
-							});
-
-						const settledAtStart = yield* Clock.currentTimeMillis;
-						settlementStartedAt = settledAtStart;
-						const settled = yield* inline.settle(requests, shortWait, checkpoint).pipe(
-							Effect.timeoutOrElse({
-								orElse: () => Effect.succeed(null),
-								duration: SANDBOX_LIMITS.sidecar.settlementMs,
-							}),
-							Effect.match({ onFailure: () => null, onSuccess: (value) => value }),
-							catchNonInterrupt(() => Effect.succeed(null)),
-							Effect.ensuring(
-								Clock.currentTimeMillis.pipe(
-									Effect.flatMap((endedAt) =>
-										Effect.sync(() => {
-											const elapsed = Math.max(0, endedAt - settledAtStart);
-											settledMs += elapsed;
-											pendingExtensionMs += elapsed;
-											settlementStartedAt = undefined;
-										}),
-									),
-								),
-							),
-						);
-						if (settled === null || settled.length !== requests.length || isClosed) {
-							return hostResultFrame(frame, { defer: true });
-						}
-
-						const canonicalResults = yield* Effect.forEach(settled, (result, index) =>
-							requests[index]?.kind === "sleep"
-								? Schema.decodeUnknownEffect(Schema.Null)(result)
-								: Schema.decodeUnknownEffect(workflowDurableResultSchema, strictOptions)(result),
-						).pipe(Effect.match({ onFailure: () => undefined, onSuccess: (results) => results }));
-						if (canonicalResults === undefined) {
-							return hostResultFrame(frame, { defer: true });
-						}
-						const inlineReply = { results: canonicalResults };
-						if (
-							!isJsonValue(inlineReply) ||
-							!jsonBytesWithin(inlineReply, SANDBOX_LIMITS.bridge.responseBytes)
-						) {
-							return hostResultFrame(frame, { defer: true });
-						}
-						const totalResult = resultFrame(frame, { status: "success", value: inlineReply });
-
-						const encodedEntries: Uint8Array[] = [];
-						const deferAndClear = () => {
-							for (const encoded of encodedEntries) {
-								encoded.fill(0);
-							}
-							return hostResultFrame(frame, { defer: true });
-						};
-						let nextJournalJsonBytes = totalJournalJsonBytes;
-						for (const [index, result] of canonicalResults.entries()) {
-							const requestJson = requestBytes[index];
-							if (requestJson === undefined) {
-								return deferAndClear();
-							}
-							const journalEntry = decodeJournalEntry({
-								value: result,
-								request: decodeHostRequestJson(requestJson),
-							});
-							const bytes = encoder.encode(encodeJournalEntryJson(journalEntry));
-							const separatorBytes =
-								pinnedCount + inlineEncodedEntries.length + encodedEntries.length === 0 ? 0 : 1;
-							nextJournalJsonBytes += bytes.byteLength + separatorBytes;
-							if (nextJournalJsonBytes > SANDBOX_LIMITS.journalBytes) {
-								bytes.fill(0);
-								return deferAndClear();
-							}
-							encodedEntries.push(bytes);
-						}
-
-						inlineEncodedEntries.push(...encodedEntries);
-						for (const request of requests) {
-							pendingEncodedEntries.get(request.index)?.fill(0);
-							pendingEncodedEntries.delete(request.index);
-						}
-						totalJournalJsonBytes = nextJournalJsonBytes;
-						retain(
-							SANDBOX_TRANSIENT_MEMORY.evidenceCopies *
-								encodedEntries.reduce((sum, bytes) => sum + bytes.byteLength, 0),
-						);
-						return totalResult;
-					}).pipe(
-						catchNonInterrupt(() => Effect.succeed(hostResultFrame(frame, { defer: true }))),
-						Effect.withSpan("sandbox.host.inlineBatch", {
-							attributes: { executionId, functionName: "inlineBatch" },
-						}),
-						Effect.withParentSpan(parentSpan),
-					);
-
-				const ordinaryDispatch = (frame: SidecarHostCallFrameType, frameArgs: unknown) =>
-					Effect.gen(function* () {
-						const decodedArgs = decodeHostCallArgs(frameArgs);
-						if (Option.isNone(decodedArgs)) {
-							return frameFailure(frame, "Sandbox host call arguments are invalid");
-						}
-						const parsed = decodedArgs.value;
-						if (!jsonBytesWithin({ args: parsed }, SANDBOX_LIMITS.bridge.requestBytes)) {
-							return frameFailure(
-								frame,
-								`Sandbox bridge request exceeds ${SANDBOX_LIMITS.bridge.requestBytes} UTF-8 bytes`,
-							);
-						}
-
-						const input = gateInput;
-						const functions = gateFunctions;
-						const fn =
-							functions && Object.hasOwn(functions, frame.name) ? functions[frame.name] : undefined;
-						if (
-							!input ||
-							!fn ||
-							!isSandboxCapability(frame.name) ||
-							!isSandboxCapabilityAllowed(input, frame.name)
-						) {
-							return frameFailure(frame, "Sandbox host function is not available");
-						}
-						return yield* boundedHostCall(frame, frame.name, fn(parsed));
-					});
-
-				const fileControl = (frame: SidecarHostCallFrameType, frameArgs: unknown) =>
-					Effect.gen(function* () {
-						const files = gateFiles;
-						if (!files) {
-							return frameFailure(frame, "Sandbox file session is unavailable");
-						}
-						if (frame.name === "artifactReadRange") {
-							const args = decodeArtifactReadRangeArgs(frameArgs);
-							if (Option.isNone(args)) {
-								return frameFailure(frame, "Sandbox artifact range arguments are invalid");
-							}
-							return yield* boundedHostCall(frame, frame.name, files.artifactReadRange(args.value));
-						}
-						const args = decodeScratchWriteArgs(frameArgs);
-						if (Option.isNone(args)) {
-							return frameFailure(frame, "Sandbox scratch write arguments are invalid");
-						}
-						return yield* boundedHostCall(frame, frame.name, files.scratchWrite(args.value));
-					});
 
 				const dispatch: SandboxHostCallGateRegistration["dispatch"] = (
 					frame,
@@ -788,12 +844,12 @@ export class SandboxHostCallGate extends Context.Service<SandboxHostCallGate>()(
 						if (invalid) {
 							return invalid;
 						}
-						const repeated = sequenceFailure(frame);
+						const repeated = sequenceFailure(state, frame);
 						if (repeated) {
 							return repeated;
 						}
 						if (frame.name !== "journalRead" && frame.name !== "inlineBatch") {
-							const budgetError = consumeSandboxHostCall(hostCallBudget, frame.name);
+							const budgetError = consumeSandboxHostCall(state.hostCallBudget, frame.name);
 							if (budgetError) {
 								return frameFailure(frame, budgetError.message, budgetError.reason);
 							}
@@ -817,6 +873,7 @@ export class SandboxHostCallGate extends Context.Service<SandboxHostCallGate>()(
 						const permits =
 							frame.name === "inlineBatch" ? SANDBOX_LIMITS.bridge.concurrentHostCalls : 1;
 						const response = yield* withPermits(
+							state,
 							permits,
 							Effect.uninterruptibleMask((restore) =>
 								Effect.gen(function* () {
@@ -861,7 +918,7 @@ export class SandboxHostCallGate extends Context.Service<SandboxHostCallGate>()(
 										if (Option.isNone(args)) {
 											return frameFailure(frame, "Sandbox host call arguments are invalid");
 										}
-										return yield* action(frame, args.value, (retained) => {
+										return yield* action(state, options, frame, args.value, (retained) => {
 											retainedBytes = retained;
 										});
 									});
@@ -872,7 +929,7 @@ export class SandboxHostCallGate extends Context.Service<SandboxHostCallGate>()(
 										workState = "running";
 										return body;
 									}).pipe(Effect.ensuring(Effect.sync(settleWork)));
-									const reply = yield* restore(raceClosed(frame, work)).pipe(
+									const reply = yield* restore(raceClosed(state, frame, work)).pipe(
 										Effect.onExit(() =>
 											Effect.sync(() => {
 												if (workState === "pending") {
@@ -897,17 +954,17 @@ export class SandboxHostCallGate extends Context.Service<SandboxHostCallGate>()(
 					);
 
 				const inlineEntries = () =>
-					inlineEncodedEntries.map((bytes) => decodeJournalEntryJson(decoder.decode(bytes)));
+					state.inlineEncodedEntries.map((bytes) => decodeJournalEntryJson(decoder.decode(bytes)));
 
 				const extend: SandboxHostCallGateRegistration["extend"] = (ms) =>
 					Effect.gen(function* () {
-						if (isClosed || !Number.isFinite(ms) || ms < 0 || ms > pendingExtensionMs) {
+						if (state.isClosed || !Number.isFinite(ms) || ms < 0 || ms > state.pendingExtensionMs) {
 							return yield* gateError(
 								"Sandbox session extension is not validated inline settlement time",
 							);
 						}
-						expiresAt += ms;
-						pendingExtensionMs -= ms;
+						state.expiresAt += ms;
+						state.pendingExtensionMs -= ms;
 						return yield* Effect.void;
 					});
 
@@ -921,10 +978,10 @@ export class SandboxHostCallGate extends Context.Service<SandboxHostCallGate>()(
 					}),
 					() =>
 						close.pipe(
-							Effect.andThen(Deferred.await(drained)),
+							Effect.andThen(Deferred.await(state.drained)),
 							Effect.andThen(
 								Effect.sync(() => {
-									for (const permit of evidence.splice(0)) {
+									for (const permit of state.evidence.splice(0)) {
 										permit.release();
 									}
 								}),
@@ -932,18 +989,18 @@ export class SandboxHostCallGate extends Context.Service<SandboxHostCallGate>()(
 						),
 				);
 				const scriptBudget = Effect.map(Clock.currentTimeMillis, (now) => ({
-					settledMs,
-					remainingMs: isClosed
+					settledMs: state.settledMs,
+					remainingMs: state.isClosed
 						? 0
 						: Math.max(
 								0,
 								SANDBOX_LIMITS.execution.timeoutMs -
 									(now -
-										scriptStartedAt -
-										settledMs -
-										(settlementStartedAt === undefined
+										state.scriptStartedAt -
+										state.settledMs -
+										(state.settlementStartedAt === undefined
 											? 0
-											: Math.max(0, now - settlementStartedAt))),
+											: Math.max(0, now - state.settlementStartedAt))),
 							),
 				}));
 				return {
@@ -955,7 +1012,7 @@ export class SandboxHostCallGate extends Context.Service<SandboxHostCallGate>()(
 					inlineEntries,
 					pendingEntries,
 					handoff: () => {
-						handedOff = true;
+						state.handedOff = true;
 					},
 				};
 			});
