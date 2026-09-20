@@ -16,7 +16,7 @@ import {
 	refreshOAuthTokens,
 	signInWithPassword,
 } from "~/fixtures/kernel";
-import { assertPresent, assertTaggedError } from "~/support/assertions";
+import { assertPresent, assertTaggedError, requirePresent } from "~/support/assertions";
 import { describe, expect, it } from "~/support/effect-test";
 import { getApiUrl } from "~/support/harness-target";
 
@@ -37,6 +37,18 @@ const getUserIdByEmail = (email: string) =>
 		assertPresent(user, "missing user row");
 		return user.id;
 	});
+
+const issueResetToken = (userId: UserId) =>
+	Effect.gen(function* () {
+		const { resetUrl } = yield* getApiClient().call(
+			(c) => c.godMode.resetUserPassword({ params: { userId } }),
+			adminHeaders(),
+		);
+		return requirePresent(new URL(resetUrl).searchParams.get("token"), "missing token");
+	});
+
+const resetPasswordWith = (token: string, newPassword: string) =>
+	Effect.promise(() => createTestAuthClient().resetPassword({ token, newPassword }));
 
 const createNoAccountUser = (name: string) =>
 	Effect.gen(function* () {
@@ -371,6 +383,58 @@ describe("Reset link generation and completion for credential user", () => {
 			expect(signInRes.error).toBeNull();
 			assertPresent(signInRes.token, "Expected an auth token after re-sign-in");
 			yield* listPluginsWithHeaders({ Authorization: `Bearer ${signInRes.token}` });
+		}),
+	);
+});
+
+describe("Reset link revocation", () => {
+	it.live("revokes an earlier link as soon as a newer one is issued", () =>
+		Effect.gen(function* () {
+			const { email } = yield* createTestUser();
+			const userId = yield* getUserIdByEmail(email);
+			const first = yield* issueResetToken(userId);
+			const second = yield* issueResetToken(userId);
+
+			expect((yield* resetPasswordWith(first, "superseded-pw-123!")).error).not.toBeNull();
+			expect((yield* resetPasswordWith(second, "latest-pw-123!")).error).toBeNull();
+			expect((yield* resetPasswordWith(first, "superseded-pw-123!")).error).not.toBeNull();
+			expect((yield* signInWithPassword(email, "latest-pw-123!")).error).toBeNull();
+		}),
+	);
+
+	it.live("ignores a forged capture header on the public reset request", () =>
+		Effect.gen(function* () {
+			const { email } = yield* createTestUser();
+			const userId = yield* getUserIdByEmail(email);
+			const token = yield* issueResetToken(userId);
+
+			const forged = yield* Effect.promise(() =>
+				createTestAuthClient().requestPasswordReset(
+					{ email },
+					{ headers: { "x-ryot-reset-capture-id": crypto.randomUUID() } },
+				),
+			);
+			expect(forged.error).toBeNull();
+
+			expect((yield* resetPasswordWith(token, "kept-link-pw-123!")).error).toBeNull();
+			expect((yield* signInWithPassword(email, "kept-link-pw-123!")).error).toBeNull();
+		}),
+	);
+
+	it.live("deletes only the resetting user's API keys", () =>
+		Effect.gen(function* () {
+			const target = yield* createTestUser();
+			const other = yield* createTestUser();
+			const targetKey = yield* createApiKey(target.sessionCookie);
+			const otherKey = yield* createApiKey(other.sessionCookie);
+			yield* listPluginsWithHeaders({ "X-Api-Key": targetKey });
+
+			const token = yield* issueResetToken(yield* getUserIdByEmail(target.email));
+			expect((yield* resetPasswordWith(token, "api-key-reset-pw-123!")).error).toBeNull();
+
+			const revoked = yield* Effect.flip(listPluginsWithHeaders({ "X-Api-Key": targetKey }));
+			assertTaggedError(revoked, "AuthUnauthorized");
+			yield* listPluginsWithHeaders({ "X-Api-Key": otherKey });
 		}),
 	);
 });
