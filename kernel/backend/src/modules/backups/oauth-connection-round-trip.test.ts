@@ -16,6 +16,7 @@ import { RedisService } from "#lib/infrastructure/redis";
 import { S3Service } from "#lib/infrastructure/s3";
 import { makeAppConfigLayer, makeRedisService, makeWorkflowEngine } from "#lib/test-utils/effect";
 import { LifecycleWriteGuard } from "#modules/auth/lifecycle-write-guard";
+import { DataImportAdmission } from "#modules/imports/data-admission";
 import { ImportsService } from "#modules/imports/service";
 import { IntegrationsRepository } from "#modules/integrations/repository";
 import { IntegrationsService } from "#modules/integrations/service";
@@ -84,6 +85,7 @@ const roundTripLayer = Layer.mergeAll(
 				IntegrationProviderCatalog.layer,
 				OAuthConnectionsServiceLive,
 				Layer.mock(ImportsService)({}),
+				Layer.mock(DataImportAdmission)({}),
 				Layer.succeed(WorkflowEngine, makeWorkflowEngine()),
 				Layer.mock(ProKeyService)({ isValidated: Effect.succeed(true) }),
 			),

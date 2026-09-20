@@ -91,10 +91,11 @@ const progressCommonFields = {
 export const integrationCommonSchema = (
 	lot: (typeof integrationLots)[number],
 	supportsOwnershipSync: boolean,
+	supportsProgress = true,
 ): AppSchema => ({
 	fields: {
 		...baseCommonFields,
-		...(lot === "push" ? {} : progressCommonFields),
+		...(lot === "push" || !supportsProgress ? {} : progressCommonFields),
 		...(lot === "yank" && supportsOwnershipSync
 			? {
 					syncOwnership: {
@@ -122,7 +123,6 @@ export const IntegrationSnapshot = Schema.Struct({
 	lot: IntegrationLot,
 	createdAt: Schema.String,
 	updatedAt: Schema.String,
-	pluginSlug: Schema.String,
 	isDisabled: Schema.Boolean,
 	provider: IntegrationProvider,
 	syncOwnership: Schema.Boolean,
@@ -130,6 +130,7 @@ export const IntegrationSnapshot = Schema.Struct({
 	maximumProgress: Schema.Finite,
 	name: Schema.NullOr(Schema.String),
 	extraSettings: IntegrationExtraSettings,
+	pluginSlug: Schema.NullOr(Schema.String),
 	lastFinishedAt: Schema.NullOr(Schema.String),
 	providerSpecifics: IntegrationProviderSettings,
 });

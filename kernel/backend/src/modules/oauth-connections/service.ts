@@ -209,7 +209,10 @@ export class OAuthConnectionsService extends Context.Service<OAuthConnectionsSer
 							reason: { code: "integration-not-found", integrationId: body.integrationId },
 						});
 					}
-					if (integration.provider !== body.integrationProvider) {
+					if (
+						integration.provider !== body.integrationProvider ||
+						integration.pluginInstallationId === null
+					) {
 						return yield* providerNotFound;
 					}
 					registered = yield* catalog.findOwnedForUser(
