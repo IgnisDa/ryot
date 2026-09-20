@@ -2,8 +2,8 @@ import { Effect } from "effect";
 import { Playwright, PlaywrightSpawner } from "effect-playwright";
 
 import { createTestUser } from "~/fixtures/kernel";
-import { browserLayer, signInThroughHostedOAuth } from "~/support/browser";
-import { beforeAll, expect, it } from "~/support/effect-test";
+import { signInThroughHostedOAuth } from "~/support/browser";
+import { beforeAll, expect, it, runPromise } from "~/support/effect-test";
 import { getFrontendUrl } from "~/support/harness-target";
 
 const SUITE_ID = crypto.randomUUID();
@@ -52,7 +52,7 @@ const withNotificationsBrowser = <E, R>(
 	});
 
 beforeAll(() =>
-	Effect.runPromise(
+	runPromise(
 		Effect.gen(function* () {
 			const user = yield* createTestUser();
 			email = user.email;
@@ -92,7 +92,7 @@ it.live("adds, pauses, tests and deletes a notification channel", () =>
 
 			yield* page.getByText("No notification channels yet").waitFor({ state: "visible" });
 		}),
-	).pipe(PlaywrightSpawner.withBrowser, Effect.provide(browserLayer)),
+	).pipe(PlaywrightSpawner.withBrowser),
 );
 
 it.live("hides email behind the SMTP requirement and keeps the wizard in the URL", () =>
@@ -116,5 +116,5 @@ it.live("hides email behind the SMTP requirement and keeps the wizard in the URL
 			yield* wizard(page).waitFor({ state: "hidden" });
 			yield* page.waitForURL((url) => !url.searchParams.has("create"));
 		}),
-	).pipe(PlaywrightSpawner.withBrowser, Effect.provide(browserLayer)),
+	).pipe(PlaywrightSpawner.withBrowser),
 );

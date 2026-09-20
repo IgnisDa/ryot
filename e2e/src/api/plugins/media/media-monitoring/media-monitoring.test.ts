@@ -26,7 +26,7 @@ import {
 	triggerCronAndWaitForEntity,
 } from "~/fixtures/plugins/media";
 import { assertTaggedError, requireObjectRecord } from "~/support/assertions";
-import { afterAll, beforeAll, describe, expect, it } from "~/support/effect-test";
+import { afterAll, beforeAll, describe, expect, it, runPromise } from "~/support/effect-test";
 import type { FakeHttpServer } from "~/support/fake-http-server";
 
 const providerName = "Media Monitoring E2E Provider";
@@ -74,7 +74,7 @@ let provider: Effect.Success<ReturnType<typeof installTestProvider>>;
 let discoveryProvider: Effect.Success<ReturnType<typeof installTestProvider>>;
 
 beforeAll(() =>
-	Effect.runPromise(
+	runPromise(
 		Effect.gen(function* () {
 			const { client } = yield* createAuthenticatedClient();
 			providerCompilerClient = client;
@@ -134,7 +134,7 @@ beforeAll(() =>
 );
 
 afterAll(() =>
-	Effect.runPromise(
+	runPromise(
 		Effect.gen(function* () {
 			yield* Effect.promise(() => fakeApprise.stop());
 			const [firstExtraEntityId, ...remainingExtraEntityIds] = extraEntityIds;

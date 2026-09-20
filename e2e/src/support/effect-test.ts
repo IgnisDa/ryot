@@ -1,14 +1,19 @@
 import { afterAll, assert, beforeAll, describe, expect, it as fullIt } from "@effect/vitest";
+import type { Effect, Scope } from "effect";
+import type { TestContext } from "vitest";
+
+import { type E2eServices, provideE2eServices } from "./e2e-runtime";
 
 export { afterAll, assert, beforeAll, describe, expect };
+export { runPromise } from "./e2e-runtime";
 
-type BannedItMethod = "effect" | "layer" | "prop" | "flakyTest";
-
-/**
- * The only sanctioned runner surface for `e2e/src/api/**`. `it.effect` and the other
- * TestClock-/per-file-layer-bearing variants are withheld at the type level: `it.effect` installs
- * the Effect `TestClock`, which deadlocks the real-time waits these E2E suites depend on.
- * `it.live` provides a per-test `Scope` for `Effect.acquireRelease` without `TestClock`.
- */
-// oxlint-disable-next-line typescript/no-unsafe-type-assertion -- narrowing the third-party `it` to hide TestClock-bearing variants is only expressible as an assertion
-export const it = fullIt as unknown as typeof fullIt & Record<BannedItMethod, never>;
+export const it = Object.assign(
+	(name: string, test: () => void, timeout?: number) => fullIt(name, test, timeout),
+	{
+		live: <A, E>(
+			name: string,
+			self: (context: TestContext) => Effect.Effect<A, E, Scope.Scope | E2eServices>,
+			timeout?: number,
+		) => fullIt.live(name, (context) => provideE2eServices(self(context)), timeout),
+	},
+);

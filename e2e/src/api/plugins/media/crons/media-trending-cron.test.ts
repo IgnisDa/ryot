@@ -22,7 +22,15 @@ import {
 } from "~/fixtures/kernel";
 import { trendingSandboxSource } from "~/fixtures/plugins/media";
 import { assertPresent, assertTaggedError, requireObjectRecord } from "~/support/assertions";
-import { afterAll, assert, beforeAll, describe, expect, it } from "~/support/effect-test";
+import {
+	afterAll,
+	assert,
+	beforeAll,
+	describe,
+	expect,
+	it,
+	runPromise,
+} from "~/support/effect-test";
 
 const SCRIPT_SLUG = "movie.e2e-test-trending";
 const PROVIDER_SLUG = "movie.e2e-test-trending-provider";
@@ -48,7 +56,7 @@ let trendingPlugin: InstalledTestPlugin | undefined;
 
 describe("POST /test-support/cron/plugin (media-trending cron)", () => {
 	beforeAll(() =>
-		Effect.runPromise(
+		runPromise(
 			Effect.gen(function* () {
 				const { client } = yield* createAuthenticatedClient();
 				queryClient = client;
@@ -139,7 +147,7 @@ describe("POST /test-support/cron/plugin (media-trending cron)", () => {
 		),
 	);
 
-	afterAll(() => trendingPlugin && Effect.runPromise(uninstallTestPlugin(trendingPlugin)));
+	afterAll(() => trendingPlugin && runPromise(uninstallTestPlugin(trendingPlugin)));
 
 	it.live("rejects the trigger without a valid admin token", () =>
 		Effect.gen(function* () {

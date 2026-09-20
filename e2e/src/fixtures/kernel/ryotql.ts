@@ -40,9 +40,11 @@ type RecipePage<Item> = {
 
 type PagedRecipe<Item> = (after: string | undefined) => PreparedRecipe<RecipePage<Item>>;
 
-const collectRecipeItems = <Item, Error>(
+const collectRecipeItems = <Item, Error, Requirements>(
 	recipe: PagedRecipe<Item>,
-	execute: (prepared: PreparedRecipe<RecipePage<Item>>) => Effect.Effect<RecipePage<Item>, Error>,
+	execute: (
+		prepared: PreparedRecipe<RecipePage<Item>>,
+	) => Effect.Effect<RecipePage<Item>, Error, Requirements>,
 ) =>
 	Effect.gen(function* () {
 		const items: Item[] = [];
