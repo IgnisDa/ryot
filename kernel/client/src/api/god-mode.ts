@@ -13,8 +13,8 @@ export class GodModeApi extends Context.Service<GodModeApi>()("GodModeApi", {
 	make: Effect.gen(function* () {
 		const api = yield* AdminApi;
 		return {
-			listLogs: (origin: ServerOrigin, token: string) =>
-				api.run(origin, token, (client) => client.serverLogs.list()),
+			listLogs: (origin: ServerOrigin, token: string, after: string | undefined, limit: number) =>
+				api.run(origin, token, (client) => client.serverLogs.list({ query: { limit, after } })),
 			resetUser: (
 				origin: ServerOrigin,
 				token: string,
