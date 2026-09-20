@@ -15,7 +15,10 @@ import * as schema from "#lib/infrastructure/db/schema/tables/combined";
 import { mapDatabaseErrors } from "#lib/infrastructure/db/service";
 import { DatabaseSession } from "#lib/infrastructure/db/session";
 import { DefinitionRepository } from "#modules/definition-registry/repository";
-import { PluginRuntimeResolver } from "#modules/plugins/runtime-resolver";
+import {
+	PluginRuntimeResolver,
+	PluginRuntimeResolverLive,
+} from "#modules/plugins/runtime-resolver";
 
 import {
 	entitySelection,
@@ -932,3 +935,8 @@ export class EntitiesRepository extends Context.Service<EntitiesRepository>()(
 ) {
 	static readonly layer = Layer.effect(this, this.make);
 }
+
+export const EntitiesRepositoryLive = EntitiesRepository.layer.pipe(
+	Layer.provide(PluginRuntimeResolverLive),
+	Layer.provide(DefinitionRepository.layer),
+);
