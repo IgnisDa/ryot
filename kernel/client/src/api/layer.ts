@@ -1,4 +1,5 @@
 import { Layer } from "effect";
+import { FetchHttpClient } from "effect/unstable/http";
 
 import { AdminApi } from "#/api/admin";
 import { AuthenticatedApi } from "#/api/authenticated";
@@ -25,6 +26,7 @@ import { OAuthTokenService } from "#/modules/auth/token-service";
 export const TransportLive = Layer.mergeAll(AdminApi.layer, AuthenticatedApi.layer).pipe(
 	Layer.provideMerge(OAuthTokenService.layer),
 	Layer.provideMerge(RuntimeOAuthClientService.layer),
+	Layer.provideMerge(FetchHttpClient.layer),
 );
 
 export const ApiLive = Layer.mergeAll(
