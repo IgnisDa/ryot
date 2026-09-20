@@ -12,6 +12,7 @@ import type {
 	SandboxHostCapability,
 	POLICY_SAFE_SANDBOX_CAPABILITIES,
 } from "@ryot-app/contract/modules/sandbox/wire";
+import { PluginId } from "@ryot-app/contract/schema/brands";
 import type { AppSchema } from "@ryot-app/contract/schema/property-schema";
 import type { Effect } from "@ryot-app/sandbox-sdk/effect";
 import { Schema } from "@ryot-app/sandbox-sdk/effect";
@@ -272,6 +273,7 @@ export const entityRecordSchema = strictStruct({
 	providerId: Schema.NullOr(Schema.String),
 	externalId: Schema.NullOr(Schema.String),
 	populatedAt: Schema.NullOr(Schema.String),
+	entitySchemaPluginId: Schema.NullOr(PluginId),
 });
 export type EntityRecord = Schema.Schema.Type<typeof entityRecordSchema>;
 
@@ -285,8 +287,9 @@ export const entitySchemaRecordSchema = strictStruct({
 	name: Schema.String,
 	slug: Schema.String,
 	isBuiltin: Schema.Boolean,
-	pluginSlug: Schema.String,
+	pluginId: Schema.NullOr(PluginId),
 	propertiesSchema: jsonValueSchema,
+	pluginSlug: Schema.NullOr(Schema.String),
 	providers: Schema.Array(entitySchemaProviderSchema),
 });
 export type EntitySchemaRecord = Schema.Schema.Type<typeof entitySchemaRecordSchema>;
@@ -296,6 +299,7 @@ export const eventSchemaRecordSchema = strictStruct({
 	name: Schema.String,
 	slug: Schema.String,
 	entitySchemaSlug: Schema.String,
+	pluginId: Schema.NullOr(PluginId),
 	propertiesSchema: jsonValueSchema,
 });
 export type EventSchemaRecord = Schema.Schema.Type<typeof eventSchemaRecordSchema>;
@@ -309,6 +313,7 @@ export const eventRecordSchema = strictStruct({
 	properties: jsonValueSchema,
 	eventSchemaName: Schema.String,
 	eventSchemaSlug: Schema.String,
+	eventSchemaPluginId: Schema.NullOr(PluginId),
 	sessionEntityId: Schema.optional(Schema.String),
 });
 export type EventRecord = Schema.Schema.Type<typeof eventRecordSchema>;

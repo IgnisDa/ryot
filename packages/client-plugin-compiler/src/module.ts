@@ -1,8 +1,12 @@
 import {
 	clientArtifactFile,
 	clientArtifactMetadata,
+	clientRuntimeArtifactMetadata,
 	isPluginClientArtifactContentType,
+	pluginExportSpecifier,
+	type ClientRuntimeArtifact,
 	type PluginClientArtifact,
+	type PluginClientImport,
 } from "@ryot-app/client-plugin-contract";
 import { decodeExecutableText } from "@ryot-app/ts-utils/executable-text";
 import { sortBy } from "@ryot-app/ts-utils/lodash";
@@ -31,7 +35,7 @@ import { isExternalReference, referencePath } from "./reference-path";
 import { clientTypeScriptProject } from "./semantic-check";
 
 const PLUGIN_IMPORT =
-	/^@ryot-app\/plugins\/([a-z0-9]+(?:[._-][a-z0-9]+)*)\/[a-z0-9]+(?:[._-][a-z0-9]+)*$/;
+	/^@ryot-app\/plugins\/([a-z0-9]+(?:[._-][a-z0-9]+)*)\/([a-z0-9]+(?:[._-][a-z0-9]+)*)$/;
 const OUTPUT_FILE =
 	/^(?:module\.(?:js|css)|chunk-[A-Za-z0-9_-]+\.js|asset-[A-Za-z0-9_-]+\.(?:svg|png|jpe?g|gif|webp|avif|ico|woff2|wasm))$/;
 
@@ -72,7 +76,7 @@ const outputReferenceIssue = (
 	contentType: string,
 	names: ReadonlySet<string>,
 	trustedModules: ReadonlySet<string>,
-	pluginDependencies: ReadonlySet<string>,
+	pluginDependencies: ReadonlyMap<string, PluginClientImport>,
 ) => {
 	let references: string[];
 	if (contentType.startsWith("text/javascript")) {
@@ -87,11 +91,10 @@ const outputReferenceIssue = (
 		return null;
 	}
 	for (const reference of references) {
-		const pluginSlug = PLUGIN_IMPORT.exec(reference)?.[1];
 		if (
 			isExternalReference(reference) ||
 			trustedModules.has(reference) ||
-			(pluginSlug !== undefined && pluginDependencies.has(pluginSlug))
+			pluginDependencies.has(reference)
 		) {
 			continue;
 		}
@@ -103,14 +106,30 @@ const outputReferenceIssue = (
 	return null;
 };
 
-export const compileClientPluginModule = (
-	input: ClientPluginCompilerPackageInput,
-): Effect.Effect<
-	{ readonly artifact: PluginClientArtifact },
+type PluginInput = Extract<ClientPluginCompilerPackageInput, { readonly kind: "plugin" }>;
+type KernelInput = Extract<ClientPluginCompilerPackageInput, { readonly kind: "kernel" }>;
+type CompilationOutput =
+	| { readonly kind: "plugin"; readonly artifact: PluginClientArtifact }
+	| { readonly kind: "kernel"; readonly artifact: ClientRuntimeArtifact };
+type Compilation<Output> = Effect.Effect<
+	Output,
 	ClientPluginCompilerFailure,
 	FileSystem.FileSystem | Path.Path | ViteBuildService
-> =>
-	Effect.gen(function* () {
+>;
+
+export function compileClientPluginModule(
+	input: PluginInput,
+): Compilation<Extract<CompilationOutput, { kind: "plugin" }>>;
+export function compileClientPluginModule(
+	input: KernelInput,
+): Compilation<Extract<CompilationOutput, { kind: "kernel" }>>;
+export function compileClientPluginModule(
+	input: ClientPluginCompilerPackageInput,
+): Compilation<CompilationOutput>;
+export function compileClientPluginModule(
+	input: ClientPluginCompilerPackageInput,
+): Compilation<CompilationOutput> {
+	return Effect.gen(function* () {
 		const { dependencies, compiledFiles: sourceEntries } =
 			yield* validateClientPluginPackage(input);
 		const reachableSources = sourceEntries
@@ -144,7 +163,7 @@ export const compileClientPluginModule = (
 				(specifier) => isTrustedClientModule(specifier) || isNeutralPluginModule(specifier),
 			),
 		);
-		const pluginDependencies = new Set(input.pluginDependencies ?? []);
+		const pluginDependencies = new Map<string, PluginClientImport>();
 		const bundled = yield* buildWithVite({
 			workspace,
 			root: workspace.generatedPath,
@@ -152,7 +171,6 @@ export const compileClientPluginModule = (
 			config: {
 				base: "./",
 				mode: "production",
-				plugins: tailwindcss(),
 				resolve: { noExternal: true },
 				oxc: { jsx: { development: false } },
 				envPrefix: "__RYOT_CLIENT_PLUGIN_NO_ENV__",
@@ -167,13 +185,7 @@ export const compileClientPluginModule = (
 					rolldownOptions: {
 						preserveEntrySignatures: "strict",
 						input: paths.resolve(workspace.generatedPath, "module.ts"),
-						external: (specifier: string) => {
-							const pluginSlug = PLUGIN_IMPORT.exec(specifier)?.[1];
-							return (
-								trustedModules.has(specifier) ||
-								(pluginSlug !== undefined && pluginDependencies.has(pluginSlug))
-							);
-						},
+						external: (specifier: string) => trustedModules.has(specifier),
 						output: {
 							format: "es",
 							entryFileNames: "module.js",
@@ -185,6 +197,30 @@ export const compileClientPluginModule = (
 						},
 					},
 				},
+				plugins: [
+					{
+						enforce: "pre",
+						name: "ryot-plugin-dependencies",
+						resolveId(specifier) {
+							if (!specifier.startsWith("@ryot-app/plugins/")) {
+								return null;
+							}
+							const match = PLUGIN_IMPORT.exec(specifier);
+							const alias = match?.[1];
+							const exportName = match?.[2];
+							const reference = alias === undefined ? undefined : input.pluginDependencies?.[alias];
+							if (reference === undefined || exportName === undefined) {
+								return this.error(
+									`Public plugin import "${specifier}" is not present in the authorized export map`,
+								);
+							}
+							const id = pluginExportSpecifier(reference, exportName);
+							pluginDependencies.set(id, { reference, exportName });
+							return { id, external: true };
+						},
+					},
+					tailwindcss(),
+				],
 			},
 		}).pipe(
 			Effect.mapError((error) => {
@@ -296,6 +332,26 @@ export const compileClientPluginModule = (
 				`Compiled client module exceeds ${CLIENT_PLUGIN_COMPILER_LIMITS.artifactBytes} bytes`,
 			);
 		}
-		const metadata = clientArtifactMetadata(input.name, files);
-		return { artifact: { ...metadata, files: sortBy(files, ({ name }) => name) } };
+		const sortedFiles = sortBy(files, ({ name }) => name);
+		const imports = [...pluginDependencies.values()];
+		if (input.kind === "plugin") {
+			return {
+				kind: "plugin" as const,
+				artifact: {
+					...clientArtifactMetadata(input.name, input.packageId, files, {
+						imports,
+						clientDeclarationHash: input.clientDeclarationHash,
+					}),
+					files: sortedFiles,
+				},
+			};
+		}
+		return {
+			kind: "kernel" as const,
+			artifact: {
+				...clientRuntimeArtifactMetadata(input.name, files, imports),
+				files: sortedFiles,
+			},
+		};
 	}).pipe(Effect.scoped);
+}

@@ -7,6 +7,57 @@ letters and numbers separated by `.`, `_`, or `-`; `/` is reserved for path mapp
 
 ## Package Layout
 
+Run `ryot plugin init-identity` once in the package root. It exclusively creates
+`shared/plugin-identity.ts` with a permanent UUIDv4 `PLUGIN_PACKAGE_ID`; it fails if that file exists.
+Import the constant into the manifest and set `metadata.packageId` with `PluginPackageId.make`.
+Builds never generate or change this identity. An independently installable fork needs a fresh UUID.
+
+### Identity and queries
+
+The package UUID is portable. The local `plugin.id` identifies one system record or one user's
+private record. Names and slugs are display metadata, not selectors. Routes use `/p/<localPluginId>`;
+entity routes use `/e/<entityId>`. Saved views use `/v/c/<savedViewId>`, `/v/k/<slug>`, or
+`/v/p/<localPluginId>/<slug>` through the shared navigation helpers.
+
+Domain recipes accept a `PluginIdentityReference`. Authored saved views and trusted sandbox scripts
+pass `{ kind: "self" }`. Browser contributors call
+`usePluginIdentity(PluginPackageId.make(PLUGIN_PACKAGE_ID))`; non-React query callbacks use the same
+`client.pluginIdentity` accessor. Presentation loaders use the selected entity's stored owner, not
+the page owner. Exact schema predicates combine local names with this owner; raw slug-only queries
+remain deliberately cross-plugin. Ordinary HTTP queries must use exact `local` references or
+`{ kind: "package", packageId, scope: "system" | "user" }`, never unresolved `self`.
+
+Client dependencies are an importer-local alias map:
+
+```ts
+pluginDependencies: {
+  catalog: { packageId: PluginPackageId.make(CATALOG_PACKAGE_ID), scope: "system" },
+}
+```
+
+Imports use `@ryot-app/plugins/catalog/<export-name>`. Aliases are local to each importer; compilation
+pins scope and the full package UUID. Dependencies do not grant read or write authority. Contributors
+share one JavaScript realm: identity bindings route resources reliably but do not isolate modules.
+
+System configuration keys use `RYOT_PLUGIN_<UUID_WITHOUT_HYPHENS_UPPERCASE>_<CONFIG_KEY>`, for example
+`RYOT_PLUGIN_BCAD4408A7E7465EACCBC1A553C78090_TMDB_ACCESS_TOKEN`. Private configuration never reads
+deployment environment variables.
+
+One active system revision serves all users; each private owner selects their own active revision.
+Compatible upgrades select new pins for new work. Admitted work and eligible retries retain exact
+code, config, and owned definition pins, but current ownership and quarantine checks still apply.
+All replicas must run the same server/runtime release and deployment configuration.
+
+A system package identity cannot be installed privately. If system activation conflicts with a
+retained private claim, activation succeeds and that private installation is quarantined. Its data
+and local references remain attached to it. Removing the conflict does not reactivate it; explicit
+re-enabling must validate the retained package again. UUIDs and content hashes do not verify a publisher.
+
+Backups remap typed plugin references by package UUID and scope to destination-local owners. System
+dependencies require a matching compatible destination system package; restore does not install,
+replace, downgrade, or configure system code. Conflicting private records remain private and
+quarantined. Arbitrary entity IDs and strings in opaque plugin JSON are not made portable or rewritten.
+
 | Root       | Archive output                             | Owner and allowed dependencies                                                       |
 | ---------- | ------------------------------------------ | ------------------------------------------------------------------------------------ |
 | `host/`    | None                                       | Manifest and code imported directly by the server or kernel client                   |
@@ -22,7 +73,7 @@ Nothing host-only belongs under backend, client, or shared.
 Client entries default-export components or presentation definitions. They do not mount or bootstrap
 an application. The compiler generates one application bootstrap and React root for plugin routes,
 entity pages, saved-view renderers, and workspace homes. Public cross-plugin imports use
-`@ryot-app/plugins/<plugin-slug>/<export-name>` and must name a declared client dependency.
+`@ryot-app/plugins/<dependency-alias>/<export-name>` and must name a declared client dependency.
 Client code may read `usePageContext().target.kind`, but must derive target paths, route parameters,
 entity IDs, and entity schema slugs from the live routing APIs. The kernel retains and reuses a client
 realm across locations, so the initial page context is not a navigation state source.
@@ -102,14 +153,14 @@ entry can therefore leave otherwise unreachable shared files unchecked.
 
 | Section                | Purpose                                                                 |
 | ---------------------- | ----------------------------------------------------------------------- |
-| `metadata`             | Package slug, name, description, version, and icon                      |
+| `metadata`             | Permanent package UUID, slug, name, description, version, and icon      |
 | `configSchema`         | Plugin-owned environment configuration                                  |
 | `userSettingsSchema`   | Optional non-secret per-user preferences rendered by the kernel         |
 | `scripts`              | Build-derived sandbox entries and requirements                          |
 | `providers`            | Logical providers mapped to provider-operation scripts                  |
 | `workflows`            | Public workflow slugs                                                   |
 | `operations`           | Public user- or integration-authenticated operations                    |
-| `userBootstrap`        | Per-user bootstrap dispatches for system plugins                        |
+| `userBootstrap`        | Per-user bootstrap dispatches for system and private plugins            |
 | `crons`                | Scheduled system-subject dispatches                                     |
 | `importSources`        | Payload, single-file, or named-file workflow inputs                     |
 | `httpRateLimits`       | Deployment-global limits by normalized HTTP(S) origin                   |
@@ -122,8 +173,8 @@ entry can therefore leave otherwise unreachable shared files unchecked.
 | `savedViews`           | Renderer, settings, and optional named RyotQL data sources              |
 | `hooks`                | Stable before/after lifecycle hooks                                     |
 
-All referenced scripts, workflows, providers, and config keys must exist. Active plugins share the
-global namespaces enforced by `PluginManifest`. Entity and relationship schema evolution is additive.
+All referenced scripts, workflows, providers, and config keys must exist within the declaring package.
+Local declaration names can repeat across packages. Entity and relationship schema evolution is additive.
 
 Client exports are stable names with kind `page`, `component`, or `presentation`. Routes map URL
 patterns to page exports; entity declarations map owned schema slugs to detail and grid/list
@@ -154,8 +205,8 @@ the kernel-owned `disableIntegrations`; entity language remains a kernel prefere
 
 Ingestion assigns plugin scope (`system` or `user`); manifests do not. Execution subject identifies
 whose data an invocation uses and does not widen plugin privilege. Kernel dispatch selects it, never
-script input. User plugins cannot declare `userBootstrap`, `httpRateLimits`, or `oauthProviders`,
-or use a system plugin slug.
+script input. Private plugins may initialize their own user entities through `userBootstrap`; they
+cannot write global domain data or declare deployment-owned `httpRateLimits` or `oauthProviders`.
 
 The compiler follows each entry's used execution graph, including ordinary helpers, closures, direct
 host-method references, and local forwarding methods. It records that entry's used host capabilities
@@ -248,8 +299,8 @@ semantics are in the sandbox runtime reference.
 ## Lifecycle Hooks
 
 Every manifest declares `hooks`, including `[]` when empty. A hook's identity is `(pluginId, slug)`;
-keep its slug stable when changing its script, targets, order, or metadata. Hook targets name schemas
-declared by the manifest. Event targets name both their entity schema and event schema. There are no
+keep its slug stable when changing its script, targets, order, or metadata. Ordinary hook targets name
+schemas declared by the manifest. Event targets name both their entity schema and event schema. There are no
 wildcards or expression rules. The archive includes only active discovered scripts, and every hook
 must reference an automation-kind script with the correct `automationType`.
 
@@ -276,6 +327,28 @@ Entity, event, and relationship targets support `create`, `update`, and `delete`
 supports only after-`complete`; signal supports only after-`emit`. Import completion remains a fact
 even when the global entity already exists. `signalSchemas[].notificationHookSlug` names an after
 hook that targets that signal; it is never a script slug.
+
+An after hook may also observe the kernel's collection events with an explicit target:
+
+```ts
+{
+  stage: "after",
+  executionScope: "user",
+  targets: [{
+    owner: { kind: "kernel" },
+    resource: "event",
+    entitySchemaSlug: "collection",
+    eventSchemaSlug: "add-entity-to-collection",
+    operation: "create",
+  }],
+}
+```
+
+Only `review`, `add-entity-to-collection`, and `remove-entity-from-collection` are available through
+this exception. It requires user execution and cannot be a before hook or a global observer. An
+observer retains its own plugin's write authority; it must not extend kernel schemas or write another
+plugin's domain data. A plugin's own schema named `collection` remains a separate local target. Names
+alone never select kernel ownership.
 
 Before hooks use `defineAutomationPolicy` and `automationType: "policy"`. They execute sequentially
 by `(position, pluginId, hookSlug)`; omitted `position` means 1000. The compiler and runtime allow
@@ -372,8 +445,8 @@ settings `field` and finite `cases` mapping setting values to alternative keys. 
 validated against compiled dependencies. Plan selection is pure and returns an ingestion operation
 and selection map; it performs no source requests or writes.
 
-Ingestion setup uses `importSourcesRecipe({ selected: { slug, settings }, limit })` and
-`integrationProvidersRecipe({ selected: { slug, settings, integrationId? }, limit })` from
+Ingestion setup uses `importSourcesRecipe({ selected: { reference, settings }, limit })` and
+`integrationProvidersRecipe({ selected: { reference, settings, integrationId? }, limit })` from
 `@ryot-app/ryotql-recipes`. Their structured `readiness` contains `ready`, the selected `plan`, and
 `blockReasons`; installation metadata scopes configuration to the exact system or private plugin.
 Picker readiness covers unconditional requirements. Selected settings refine branch and account
@@ -463,5 +536,5 @@ sources use ordinary fields.
 ## Recipes
 
 `@ryot-app/plugin-kit/operations` provides an Effect-based typed operation invoker.
-`defineOperationRecipe` pins plugin slug, operation slug, and input/output Effect Schemas;
+`defineOperationRecipe` pins the exact local plugin ID, operation slug, and input/output Effect Schemas;
 `invokeOperationRecipe` encodes input, calls the supplied transport, and decodes output.

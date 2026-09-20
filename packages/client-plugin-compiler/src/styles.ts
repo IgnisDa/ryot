@@ -93,7 +93,10 @@ const validateScript = (
 			continue;
 		}
 		if (specifier.startsWith("@ryot-app/plugins/")) {
-			const slug = /^@ryot-app\/plugins\/([^/]+)\//.exec(specifier)?.[1];
+			const slug =
+				/^@ryot-app\/plugins\/([a-z0-9]+(?:[._-][a-z0-9]+)*)\/[a-z0-9]+(?:[._-][a-z0-9]+)*$/.exec(
+					specifier,
+				)?.[1];
 			if (
 				isSharedSource(path) ||
 				(publicExports[specifier] === undefined &&

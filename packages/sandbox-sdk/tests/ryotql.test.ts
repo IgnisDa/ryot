@@ -1,3 +1,4 @@
+import { PluginId } from "@ryot-app/contract/schema/brands";
 import { defineManifest, defineScript } from "@ryot-app/sandbox-sdk/driver";
 import { Effect, Schema } from "@ryot-app/sandbox-sdk/effect";
 import {
@@ -30,6 +31,7 @@ const rowsResponse = {
 					properties: { pages: 320 },
 					createdAt: "2026-01-01T00:00:00Z",
 					updatedAt: "2026-01-02T00:00:00Z",
+					entitySchemaPluginId: "book-owner",
 				},
 			],
 		},
@@ -46,9 +48,15 @@ describe("RyotQL sandbox SDK", () => {
 			queries: { entities: { from: entity, output: { type: "rows", pagination: { limit: 100 } } } },
 		});
 		expect(
-			eventReadRecipe({ entitySchemaSlug: "book", eventSchemaSlug: "progress" }).document,
+			eventReadRecipe({
+				entitySchemaSlug: "book",
+				eventSchemaSlug: "progress",
+				owner: { kind: "local", pluginId: PluginId.make("book-owner") },
+			}).document,
 		).toHaveProperty("queries.events");
-		expect(userMediaLibraryRecipe().document).toHaveProperty("queries.mediaLibrary");
+		expect(userMediaLibraryRecipe({ kind: "self" }).document).toHaveProperty(
+			"queries.mediaLibrary",
+		);
 	});
 
 	it("executes and decodes a prepared recipe", () => {

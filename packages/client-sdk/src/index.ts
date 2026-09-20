@@ -29,12 +29,17 @@ import {
 } from "@ryot-app/contract/modules/entities/schemas";
 import { EntityUpdatedMessage } from "@ryot-app/contract/modules/entity-interest/messages";
 import {
+	SavedViewReference,
+	type PluginIdentityReference,
+} from "@ryot-app/contract/modules/plugins/references";
+import {
 	AssetLocator,
 	ManagedAssetResolutionBatch,
 	type ManagedAssetLocator as ManagedAssetLocatorValue,
 	TemporaryUploadToken,
 } from "@ryot-app/contract/modules/uploads/schemas";
-import { EntityId, PluginSlug } from "@ryot-app/contract/schema/brands";
+import type { PluginPackageId } from "@ryot-app/contract/schema/brands";
+import { EntityId, PluginId } from "@ryot-app/contract/schema/brands";
 import { isJsonValue, type JsonValue } from "@ryot-app/contract/schema/json";
 import { strictStruct } from "@ryot-app/contract/schema/utils";
 import type { PreparedRecipe } from "@ryot-app/ryotql";
@@ -106,11 +111,11 @@ export type TemporaryUploadRequest = {
 
 export const RyotNavigationTarget = Schema.Union([
 	strictStruct({ entityId: EntityId, kind: Schema.Literal("entity") }),
-	strictStruct({ slug: Schema.String, kind: Schema.Literal("saved-view") }),
+	strictStruct({ reference: SavedViewReference, kind: Schema.Literal("saved-view") }),
 	strictStruct({ page: KernelPage, kind: Schema.Literal("kernel-page") }),
 	strictStruct({
+		pluginId: PluginId,
 		path: Schema.String,
-		pluginSlug: PluginSlug,
 		kind: Schema.Literal("plugin-route"),
 		search: Schema.optional(Schema.Record(Schema.String, Schema.String)),
 	}),
@@ -119,6 +124,9 @@ export const RyotNavigationTarget = Schema.Union([
 export type RyotNavigationTarget = Schema.Codec.Encoded<typeof RyotNavigationTarget>;
 
 export type RyotClientAdapter = {
+	readonly pluginIdentity?: (
+		packageId: PluginPackageId,
+	) => Extract<PluginIdentityReference, { readonly kind: "local" }>;
 	readonly openExternalLink?: (
 		request: ExternalLinkRequest,
 	) => Effect.Effect<unknown, RyotClientError>;
@@ -299,6 +307,12 @@ export const createRyotClient = (adapter: RyotClientAdapter) => {
 		overlayBack,
 		mutationCompleted,
 		screens: { openProviderSearch },
+		pluginIdentity: (packageId: PluginPackageId) => {
+			if (!adapter.pluginIdentity) {
+				throw new RyotClientError("invalid-request");
+			}
+			return adapter.pluginIdentity(packageId);
+		},
 		navigation: {
 			push: (target: RyotNavigationTarget) => navigate("push", target),
 			replace: (target: RyotNavigationTarget) => navigate("replace", target),
@@ -334,11 +348,14 @@ export const createRyotClient = (adapter: RyotClientAdapter) => {
 				}),
 		},
 		storage: {
-			get: (pluginSlug: string, key: string) => accessStorage({ key, pluginSlug, action: "get" }),
-			remove: (pluginSlug: string, key: string) =>
-				Effect.asVoid(accessStorage({ key, pluginSlug, action: "remove" })),
-			set: (pluginSlug: string, key: string, value: JsonValue) =>
-				Effect.asVoid(accessStorage({ key, value, pluginSlug, action: "set" })),
+			get: (pluginId: string, key: string) =>
+				accessStorage({ key, action: "get", pluginId: PluginId.make(pluginId) }),
+			remove: (pluginId: string, key: string) =>
+				Effect.asVoid(accessStorage({ key, action: "remove", pluginId: PluginId.make(pluginId) })),
+			set: (pluginId: string, key: string, value: JsonValue) =>
+				Effect.asVoid(
+					accessStorage({ key, value, action: "set", pluginId: PluginId.make(pluginId) }),
+				),
 		},
 		collections: {
 			create: (input: typeof CreateCollectionBody.Encoded) =>
@@ -390,7 +407,7 @@ export const createRyotClient = (adapter: RyotClientAdapter) => {
 						return yield* new RyotClientError("unsupported-capability");
 					}
 					const value = yield* adapterEffect(() =>
-						invoke({ slug: request.slug, input: request.input, pluginSlug: request.pluginSlug }),
+						invoke({ slug: request.slug, input: request.input, pluginId: request.pluginId }),
 					);
 					if (!isJsonValue(value)) {
 						return yield* new RyotClientError("malformed-result");

@@ -11,7 +11,7 @@ import {
 	type PluginRouteLocation,
 } from "@ryot-app/client-plugin-contract";
 import { Modal } from "@ryot-app/client-ui-sdk";
-import { EntityId, EntitySchemaSlug, PluginSlug } from "@ryot-app/contract/schema/brands";
+import { EntityId, EntitySchemaSlug, PluginId } from "@ryot-app/contract/schema/brands";
 import { fireEvent, waitFor } from "@testing-library/dom";
 import { Effect, Layer, ManagedRuntime, Schema } from "effect";
 import { useEffect, useState } from "react";
@@ -61,11 +61,12 @@ const routeLocation = (path: string, search = ""): PluginRouteLocation => ({
 });
 const replacementPage = (label: string): ClientPageContext => ({
 	view: null,
+	contributors: [],
 	dataSources: null,
 	settings: { label },
 	route: { params: {} },
 	renderer: { kind: "kernel", name: "fixture" },
-	target: { path: "/", search: "", kind: "plugin-route", pluginSlug: PluginSlug.make("fixture") },
+	target: { path: "/", search: "", kind: "plugin-route", pluginId: PluginId.make("fixture") },
 });
 let channels: MessageChannel[] = [];
 let bootstraps: Array<{ dispose: () => void }> = [];
@@ -80,7 +81,7 @@ const Home = () => {
 				ryot.operations.invoke({
 					input: {},
 					slug: "greet",
-					pluginSlug: "fixture",
+					pluginId: "fixture",
 					output: Schema.String,
 				}),
 				(greeting) => Effect.sync(() => setResult(greeting)),
@@ -95,7 +96,7 @@ const StaticHome = () => <p>Mounted</p>;
 const PageContextHome = () => {
 	const { target, renderer } = usePageContext();
 	return (
-		<p>{`${target.kind}:${renderer.kind}:${target.kind === "plugin-route" ? target.pluginSlug : ""}`}</p>
+		<p>{`${target.kind}:${renderer.kind}:${target.kind === "plugin-route" ? target.pluginId : ""}`}</p>
 	);
 };
 
@@ -480,6 +481,7 @@ describe("bootstrapClientPlugin", () => {
 						page: {
 							view: null,
 							settings: {},
+							contributors: [],
 							dataSources: null,
 							route: { params: {} },
 							renderer: { kind: "plugin", exportName: "home", pluginId: "plugin-1" },
@@ -487,7 +489,7 @@ describe("bootstrapClientPlugin", () => {
 								path: "/",
 								search: "tab=stats",
 								kind: "plugin-route",
-								pluginSlug: PluginSlug.make("plugin-1"),
+								pluginId: PluginId.make("plugin-1"),
 							},
 						},
 					},
@@ -517,6 +519,7 @@ describe("bootstrapClientPlugin", () => {
 				{
 					view: null,
 					settings: {},
+					contributors: [],
 					dataSources: null,
 					route: { params: { itemId: "item-1" } },
 					renderer: { kind: "plugin", pluginId: "plugin-1", exportName: "details" },
@@ -524,7 +527,7 @@ describe("bootstrapClientPlugin", () => {
 						search: "tab=stats",
 						kind: "plugin-route",
 						path: "/details/item-1",
-						pluginSlug: PluginSlug.make("plugin-1"),
+						pluginId: PluginId.make("plugin-1"),
 					},
 				},
 				routeLocation("/details/item-1", "tab=stats"),
@@ -607,6 +610,7 @@ describe("bootstrapClientPlugin", () => {
 				{
 					view: null,
 					settings: {},
+					contributors: [],
 					dataSources: null,
 					route: { params: {} },
 					renderer: { kind: "plugin", pluginId: "plugin-1", exportName: "not-found" },
@@ -614,7 +618,7 @@ describe("bootstrapClientPlugin", () => {
 						search: "",
 						path: "/missing",
 						kind: "plugin-route",
-						pluginSlug: PluginSlug.make("plugin-1"),
+						pluginId: PluginId.make("plugin-1"),
 					},
 				},
 				routeLocation("/missing"),
@@ -634,6 +638,7 @@ describe("bootstrapClientPlugin", () => {
 				{
 					view: null,
 					settings: {},
+					contributors: [],
 					dataSources: null,
 					route: { params: {} },
 					renderer: { kind: "plugin", exportName: "detail", pluginId: "plugin-1" },

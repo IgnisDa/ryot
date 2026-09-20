@@ -1,7 +1,7 @@
 import {
 	clientArtifactFile,
-	clientArtifactMetadata,
-	type PluginClientArtifact,
+	clientRuntimeArtifactMetadata,
+	type ClientRuntimeArtifact,
 } from "@ryot-app/client-plugin-contract";
 import { decodeExecutableText } from "@ryot-app/ts-utils/executable-text";
 import { sortBy } from "@ryot-app/ts-utils/lodash";
@@ -315,7 +315,7 @@ export const buildClientRuntime = Effect.gen(function* () {
 	if (missingReference) {
 		return yield* failure(missingReference);
 	}
-	const metadata = clientArtifactMetadata(CLIENT_RUNTIME_ARTIFACT_NAME, files);
-	const artifact: PluginClientArtifact = { ...metadata, files };
-	return { entries, artifact };
+	const metadata = clientRuntimeArtifactMetadata(CLIENT_RUNTIME_ARTIFACT_NAME, files);
+	const artifact: ClientRuntimeArtifact = { ...metadata, files };
+	return { entries, artifact, kind: "kernel" as const };
 }).pipe(Effect.scoped);

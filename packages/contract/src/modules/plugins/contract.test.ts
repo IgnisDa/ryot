@@ -50,7 +50,7 @@ describe("PluginsGroup", () => {
 		const endpoint = PluginsGroup.endpoints.setHomeView;
 
 		expect(endpoint.method).toBe("PUT");
-		expect(endpoint.path).toBe("/plugins/:pluginSlug/home-view");
+		expect(endpoint.path).toBe("/plugins/installations/:installationId/home-view");
 		expect(endpoint.middlewares.size).toBeGreaterThan(0);
 	});
 

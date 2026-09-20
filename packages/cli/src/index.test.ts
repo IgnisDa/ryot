@@ -1,10 +1,13 @@
 import { BunServices } from "@effect/platform-bun";
 import { expect, it, layer } from "@effect/vitest";
+import { clientDeclarationHash } from "@ryot-app/client-plugin-contract";
 import { PLUGIN_ARCHIVE_LIMITS, readPluginArchive } from "@ryot-app/plugin-archive";
 import { Data, Effect, FileSystem, Path, Schema, Stream } from "effect";
 import { ChildProcess, ChildProcessSpawner } from "effect/process";
 
 const decoder = new TextDecoder();
+const packageId = "ee8040dd-5a40-42a1-916d-58190c1a06e8";
+const archiveName = `${packageId}.zip`;
 
 const createPlugin = Effect.fn("createPlugin")(function* () {
 	const path = yield* Path.Path;
@@ -56,6 +59,52 @@ const waitFor = Effect.fn("waitFor")(function* <E>(check: Effect.Effect<boolean,
 });
 
 it.layer(BunServices.layer)("ryot plugin build", (test) => {
+	test.effect("creates identity exclusively without requiring a shared directory", () =>
+		Effect.gen(function* () {
+			const fs = yield* FileSystem.FileSystem;
+			const path = yield* Path.Path;
+			const root = yield* fs.makeTempDirectoryScoped({ prefix: "ryot-identity-" });
+			const first = yield* run(root, ["plugin", "init-identity"]);
+			expect(first.exitCode, first.stderr + first.stdout).toBe(0);
+			const identityPath = path.join(root, "shared", "plugin-identity.ts");
+			const identity = yield* fs.readFileString(identityPath);
+			expect(identity).toMatch(
+				/^export const PLUGIN_PACKAGE_ID = "[a-f0-9]{8}-[a-f0-9]{4}-4[a-f0-9]{3}-[89ab][a-f0-9]{3}-[a-f0-9]{12}";\n$/,
+			);
+			const second = yield* run(root, ["plugin", "init-identity"]);
+			expect(second.exitCode).not.toBe(0);
+			expect(yield* fs.readFileString(identityPath)).toBe(identity);
+			expect(yield* fs.readDirectory(root)).toEqual(["shared"]);
+		}),
+	);
+	test.effect(
+		"keeps same-slug package outputs independent and builds without generating identity",
+		() =>
+			Effect.gen(function* () {
+				const fs = yield* FileSystem.FileSystem;
+				const path = yield* Path.Path;
+				const plugin = yield* createPlugin();
+				const first = yield* run(plugin, ["plugin", "build"]);
+				expect(first.exitCode, first.stdout + first.stderr).toBe(0);
+				const firstBytes = yield* fs.readFile(path.join(plugin, "dist", archiveName));
+				const nextPackageId = "97887987-a15b-452b-bfdc-633028850ad9";
+				const manifestPath = path.join(plugin, "manifest.ts");
+				const manifest = yield* fs.readFileString(manifestPath);
+				yield* fs.writeFileString(manifestPath, manifest.replace(packageId, nextPackageId));
+				const second = yield* run(plugin, ["plugin", "build"]);
+				expect(second.exitCode, second.stdout + second.stderr).toBe(0);
+				expect(yield* fs.readFile(path.join(plugin, "dist", archiveName))).toEqual(firstBytes);
+				const firstArchive = yield* readPluginArchive(firstBytes);
+				const secondArchive = yield* readPluginArchive(
+					yield* fs.readFile(path.join(plugin, "dist", `${nextPackageId}.zip`)),
+				);
+				expect(firstArchive.manifest.metadata.slug).toBe(secondArchive.manifest.metadata.slug);
+				expect(firstArchive.compiledClient?.packageId).toBe(packageId);
+				expect(secondArchive.compiledClient?.packageId).toBe(nextPackageId);
+				expect(firstArchive.compiledClient?.hash).not.toBe(secondArchive.compiledClient?.hash);
+				expect(yield* fs.exists(path.join(plugin, "shared", "plugin-identity.ts"))).toBe(false);
+			}),
+	);
 	test.effect("preserves generated configuration, OAuth, and executable facts in the archive", () =>
 		Effect.gen(function* () {
 			const path = yield* Path.Path;
@@ -95,7 +144,7 @@ export default defineWorkflow({ manifest, input: Schema.Unknown, output: Schema.
 			const result = yield* run(plugin, ["plugin", "build"]);
 			expect(result.exitCode, result.stdout + result.stderr).toBe(0);
 			const archive = yield* readPluginArchive(
-				yield* fs.readFile(path.join(plugin, "dist", "cli-test.zip")),
+				yield* fs.readFile(path.join(plugin, "dist", archiveName)),
 			);
 			expect(archive.manifest.scripts.find(({ slug }) => slug === "main")).toMatchObject({
 				executableDependencies: [],
@@ -137,7 +186,7 @@ export default ${helper}({ manifest, run: () => Effect.succeed(${automationType 
 			const result = yield* run(plugin, ["plugin", "build"]);
 			expect(result.exitCode, result.stdout + result.stderr).toBe(0);
 			const archive = yield* readPluginArchive(
-				yield* fs.readFile(path.join(plugin, "dist", "cli-test.zip")),
+				yield* fs.readFile(path.join(plugin, "dist", archiveName)),
 			);
 			expect(archive.manifest.scripts.filter(({ kind }) => kind === "automation")).toMatchObject([
 				{
@@ -205,17 +254,22 @@ export default ${helper}({ manifest, run: () => Effect.succeed(${automationType 
 				yield* fs.writeFile(path.join(plugin, "client", "ignored.PNG"), assetBytes);
 				const result = yield* run(plugin, ["plugin", "build"]);
 				expect(result.exitCode, result.stdout + result.stderr).toBe(0);
-				const output = path.join(plugin, "dist", "cli-test.zip");
+				const output = path.join(plugin, "dist", archiveName);
 				const first = yield* fs.readFile(output);
 				const pluginPackage = yield* readPluginArchive(first);
 				const secondResult = yield* run(plugin, ["plugin", "build"]);
 				const compiledClient = pluginPackage.compiledClient;
+				if (pluginPackage.manifest.client !== undefined) {
+					expect(compiledClient?.clientDeclarationHash).toBe(
+						clientDeclarationHash(pluginPackage.manifest.client),
+					);
+				}
 
 				expect(secondResult.exitCode, secondResult.stderr).toBe(0);
 				expect(compiledClient).toBeDefined();
 				expect(compiledClient?.files.map(({ name }) => name)).toContain("module.js");
 				expect(compiledClient?.files.map(({ name }) => name)).toContain("module.css");
-				expect(yield* fs.readDirectory(path.join(plugin, "dist"))).toEqual(["cli-test.zip"]);
+				expect(yield* fs.readDirectory(path.join(plugin, "dist"))).toEqual([archiveName]);
 				expect(yield* fs.readFile(output)).toEqual(first);
 				expect(pluginPackage.manifest).toMatchObject({
 					httpRateLimits: [{ origins: ["https://example.com"] }],
@@ -267,15 +321,15 @@ export default ${helper}({ manifest, run: () => Effect.succeed(${automationType 
 			const manifest = yield* fs.readFileString(manifestPath);
 			yield* fs.writeFileString(
 				manifestPath,
-				manifest.replace(/\n\tclient: \{[\s\S]*?\n\t\},(?=\n};)/, ""),
+				manifest.replace(/\n\tclient: \{[\s\S]*?\n\t\},/, ""),
 			);
 
 			const result = yield* run(plugin, ["plugin", "build"]);
+			expect(result.exitCode, result.stdout + result.stderr).toBe(0);
 			const pluginPackage = yield* readPluginArchive(
-				yield* fs.readFile(path.join(plugin, "dist", "cli-test.zip")),
+				yield* fs.readFile(path.join(plugin, "dist", archiveName)),
 			);
 
-			expect(result.exitCode, result.stderr).toBe(0);
 			expect(pluginPackage.compiledClient).toBeUndefined();
 			expect(pluginPackage.compiledScripts).toHaveLength(1);
 		}),
@@ -290,16 +344,16 @@ export default ${helper}({ manifest, run: () => Effect.succeed(${automationType 
 			const manifest = yield* fs.readFileString(manifestPath);
 			yield* fs.writeFileString(
 				manifestPath,
-				manifest.replace(/\n\tclient: \{[\s\S]*?\n\t\},(?=\n};)/, ""),
+				manifest.replace(/\n\tclient: \{[\s\S]*?\n\t\},/, ""),
 			);
 			yield* fs.remove(path.join(plugin, "backend", "main.sandbox.ts"));
 
 			const result = yield* run(plugin, ["plugin", "build"]);
+			expect(result.exitCode, result.stdout + result.stderr).toBe(0);
 			const pluginPackage = yield* readPluginArchive(
-				yield* fs.readFile(path.join(plugin, "dist", "cli-test.zip")),
+				yield* fs.readFile(path.join(plugin, "dist", archiveName)),
 			);
 
-			expect(result.exitCode, result.stderr).toBe(0);
 			expect(pluginPackage.manifest.scripts).toEqual([]);
 			expect(pluginPackage.compiledScripts).toEqual([]);
 			expect(pluginPackage.compiledClient).toBeUndefined();
@@ -318,7 +372,7 @@ export default ${helper}({ manifest, run: () => Effect.succeed(${automationType 
 				(yield* readPluginArchive(yield* fs.readFile(path.join(plugin, "artifacts", "plugin.zip"))))
 					.manifest.metadata.slug,
 			).toBe("cli-test");
-			expect(yield* fs.exists(path.join(plugin, "dist", "cli-test.zip"))).toBe(false);
+			expect(yield* fs.exists(path.join(plugin, "dist", archiveName))).toBe(false);
 		}),
 	);
 
@@ -327,7 +381,7 @@ export default ${helper}({ manifest, run: () => Effect.succeed(${automationType 
 			const path = yield* Path.Path;
 			const fs = yield* FileSystem.FileSystem;
 			const plugin = yield* createPlugin();
-			const output = path.join(plugin, "dist", "cli-test.zip");
+			const output = path.join(plugin, "dist", archiveName);
 			yield* fs.makeDirectory(path.dirname(output), { recursive: true });
 			yield* fs.writeFileString(output, "keep");
 			yield* fs.writeFileString(
@@ -349,7 +403,7 @@ export default ${helper}({ manifest, run: () => Effect.succeed(${automationType 
 				const path = yield* Path.Path;
 				const fs = yield* FileSystem.FileSystem;
 				const plugin = yield* createPlugin();
-				const output = path.join(plugin, "dist", "cli-test.zip");
+				const output = path.join(plugin, "dist", archiveName);
 				yield* fs.makeDirectory(path.dirname(output), { recursive: true });
 				yield* fs.writeFileString(output, "keep");
 				const manifestPath = path.join(plugin, "manifest.ts");
@@ -375,7 +429,7 @@ export default ${helper}({ manifest, run: () => Effect.succeed(${automationType 
 			const path = yield* Path.Path;
 			const fs = yield* FileSystem.FileSystem;
 			const plugin = yield* createPlugin();
-			const output = path.join(plugin, "dist", "cli-test.zip");
+			const output = path.join(plugin, "dist", archiveName);
 			yield* fs.makeDirectory(path.dirname(output), { recursive: true });
 			yield* fs.writeFileString(output, "keep");
 			const entryPath = path.join(plugin, "backend", "main.sandbox.ts");
@@ -396,7 +450,7 @@ export default ${helper}({ manifest, run: () => Effect.succeed(${automationType 
 				const path = yield* Path.Path;
 				const fs = yield* FileSystem.FileSystem;
 				const plugin = yield* createPlugin();
-				const output = path.join(plugin, "dist", "cli-test.zip");
+				const output = path.join(plugin, "dist", archiveName);
 				yield* fs.makeDirectory(path.dirname(output), { recursive: true });
 				yield* fs.writeFileString(output, "keep");
 				const manifestPath = path.join(plugin, "manifest.ts");
@@ -418,7 +472,7 @@ export default ${helper}({ manifest, run: () => Effect.succeed(${automationType 
 			const path = yield* Path.Path;
 			const fs = yield* FileSystem.FileSystem;
 			const plugin = yield* createPlugin();
-			const output = path.join(plugin, "dist", "cli-test.zip");
+			const output = path.join(plugin, "dist", archiveName);
 			yield* fs.makeDirectory(path.dirname(output), { recursive: true });
 			yield* fs.writeFileString(output, "keep");
 			const homePath = path.join(plugin, "client", "home.tsx");
@@ -438,7 +492,7 @@ export default ${helper}({ manifest, run: () => Effect.succeed(${automationType 
 			const path = yield* Path.Path;
 			const fs = yield* FileSystem.FileSystem;
 			const plugin = yield* createPlugin();
-			const output = path.join(plugin, "dist", "cli-test.zip");
+			const output = path.join(plugin, "dist", archiveName);
 			yield* fs.makeDirectory(path.dirname(output), { recursive: true });
 			yield* fs.writeFileString(output, "keep");
 			yield* fs.writeFileString(
@@ -463,7 +517,10 @@ export default ${helper}({ manifest, run: () => Effect.succeed(${automationType 
 			const manifest = yield* fs.readFileString(manifestPath);
 			yield* fs.writeFileString(
 				manifestPath,
-				manifest.replace("client: {", 'client: {\n\t\tpluginDependencies: ["media"],'),
+				manifest.replace(
+					"client: {",
+					`client: {\n\t\tpluginDependencies: { media: { packageId: "97887987-a15b-452b-bfdc-633028850ad9", scope: "system" } },`,
+				),
 			);
 			yield* fs.writeFileString(
 				path.join(plugin, "client", "home.tsx"),
@@ -473,7 +530,16 @@ export default ${helper}({ manifest, run: () => Effect.succeed(${automationType 
 			const result = yield* run(plugin, ["plugin", "build"]);
 
 			expect(result.exitCode).toBe(0);
-			expect(yield* fs.exists(path.join(plugin, "dist", "cli-test.zip"))).toBe(true);
+			const archive = yield* readPluginArchive(
+				yield* fs.readFile(path.join(plugin, "dist", archiveName)),
+			);
+			expect(archive.compiledClient?.imports).toEqual([
+				{
+					exportName: "show-card",
+					reference: { scope: "system", packageId: "97887987-a15b-452b-bfdc-633028850ad9" },
+				},
+			]);
+			expect(yield* fs.exists(path.join(plugin, "dist", archiveName))).toBe(true);
 		}),
 	);
 
@@ -491,7 +557,7 @@ export default ${helper}({ manifest, run: () => Effect.succeed(${automationType 
 
 			expect(result.exitCode).not.toBe(0);
 			expect(result.stdout).toContain("authorized export map");
-			expect(yield* fs.exists(path.join(plugin, "dist", "cli-test.zip"))).toBe(false);
+			expect(yield* fs.exists(path.join(plugin, "dist", archiveName))).toBe(false);
 		}),
 	);
 
@@ -520,7 +586,7 @@ export default ${helper}({ manifest, run: () => Effect.succeed(${automationType 
 			expect(result.stdout).toMatch(
 				/backend\/main\.sandbox\.ts:\d+:\d+ error RYOT_MANIFEST: Manifest values must be JSON-safe literals/,
 			);
-			expect(yield* fs.exists(path.join(plugin, "dist", "cli-test.zip"))).toBe(false);
+			expect(yield* fs.exists(path.join(plugin, "dist", archiveName))).toBe(false);
 		}),
 	);
 

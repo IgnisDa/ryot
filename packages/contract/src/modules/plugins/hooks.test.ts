@@ -73,7 +73,14 @@ const authored = {
 	httpRateLimits: [],
 	integrationProviders: [],
 	configSchema: { fields: {}, unknownKeys: "strict" },
-	metadata: { icon: "box", slug: "test", name: "Test", version: "1", description: "Test" },
+	metadata: {
+		icon: "box",
+		slug: "test",
+		name: "Test",
+		version: "1",
+		description: "Test",
+		packageId: "965d3b69-bd20-491b-8387-c0cc73f152b1",
+	},
 	relationshipSchemas: [
 		{
 			slug: "contains",
@@ -156,25 +163,43 @@ describe("lifecycle hook declarations", () => {
 		}
 	});
 
-	it("resolves kernel collection targets without plugin-owned collection declarations", () => {
+	it("resolves plugin-owned collection targets", () => {
 		const targets = [
 			{ resource: "entity", operation: "update", entitySchemaSlug: "collection" },
 			{ ...target, eventSchemaSlug: "review", entitySchemaSlug: "collection" },
 			{ operation: "create", resource: "relationship", relationshipSchemaSlug: "member-of" },
 		];
+		const collection = {
+			icon: "box",
+			slug: "collection",
+			name: "Collection",
+			propertiesSchema: { fields: {} },
+			eventSchemas: [{ slug: "review", name: "Review", propertiesSchema: { fields: {} } }],
+		};
+		const membership = {
+			slug: "member-of",
+			name: "Member of",
+			propertiesSchema: { fields: {} },
+			sourceEntitySchemaSlug: "collection",
+			targetEntitySchemaSlug: "collection",
+		};
 		for (const [schema, base] of [
 			[AuthoredPluginManifest, authored],
 			[PluginManifest, manifest],
 		] as const) {
-			const candidate = { ...base, hooks: [{ ...hook, targets }] };
-			expect(Schema.decodeUnknownSync(schema)(candidate).entitySchemas).toEqual(
-				authored.entitySchemas,
-			);
+			const entitySchemas = [...base.entitySchemas, collection];
+			const candidate = {
+				...base,
+				entitySchemas,
+				hooks: [{ ...hook, targets }],
+				relationshipSchemas: [...base.relationshipSchemas, membership],
+			};
+			expect(Schema.decodeUnknownSync(schema)(candidate).entitySchemas).toEqual(entitySchemas);
 			for (const invalidTarget of [
-				{ ...target, entitySchemaSlug: "collection" },
-				{ ...target, eventSchemaSlug: "review" },
-				{ ...target, eventSchemaSlug: "review", entitySchemaSlug: "absent" },
-				{ operation: "create", resource: "relationship", relationshipSchemaSlug: "collection" },
+				{ ...target, entitySchemaSlug: "absent" },
+				{ ...target, eventSchemaSlug: "absent" },
+				{ ...target, entitySchemaSlug: "item", eventSchemaSlug: "review" },
+				{ operation: "create", resource: "relationship", relationshipSchemaSlug: "absent" },
 			]) {
 				expect(() =>
 					Schema.decodeUnknownSync(schema)({

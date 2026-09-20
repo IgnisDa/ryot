@@ -1,5 +1,6 @@
 import { Effect, Schema } from "effect";
 
+import { SandboxBoundaryReason } from "./modules/sandbox/boundary-reason";
 import { SANDBOX_FAILURE_KINDS } from "./modules/sandbox/wire";
 
 export const SandboxFailureKind = Schema.Literals([...SANDBOX_FAILURE_KINDS]);
@@ -69,6 +70,7 @@ export class InternalError extends Schema.TaggedError<InternalError>()("Internal
 export class SandboxRunError extends Schema.TaggedError<SandboxRunError>()("SandboxRunError", {
 	message: Schema.String,
 	kind: SandboxFailureKind,
+	data: Schema.optional(SandboxBoundaryReason),
 }) {}
 
 export const toSandboxRunError = (cause: unknown, kind: SandboxFailureKind): SandboxRunError =>

@@ -2,9 +2,19 @@ import { Result, Schema } from "effect";
 
 import type { AppSchema } from "../../schema/property-schema";
 import { strictStruct } from "../../schema/utils";
+import type { DeclarationReference } from "../plugins/references";
+import {
+	EntitySchemaReference,
+	ProviderReference,
+	RelationshipSchemaReference,
+} from "../plugins/references";
 import { jsonValueSchema } from "../sandbox/wire";
 
 export const dataJsonSource = "data-json";
+export const dataJsonSourceReference: DeclarationReference = {
+	slug: dataJsonSource,
+	owner: { kind: "kernel" },
+};
 
 export const DataRecordProperties = Schema.Record(Schema.String, jsonValueSchema);
 
@@ -18,13 +28,13 @@ export const DataRecordTimestamp = Schema.String.pipe(
 
 export const entityDataFields = {
 	name: Schema.String,
-	entitySchemaSlug: Schema.String,
 	properties: DataRecordProperties,
+	entitySchema: EntitySchemaReference,
 };
 
 export const relationshipDataFields = {
 	properties: DataRecordProperties,
-	relationshipSchemaSlug: Schema.String,
+	relationshipSchema: RelationshipSchemaReference,
 };
 
 export const eventDataFields = {
@@ -33,10 +43,7 @@ export const eventDataFields = {
 	properties: DataRecordProperties,
 };
 
-const entityReferenceFields = {
-	key: Schema.NonEmptyString,
-	entitySchemaSlug: Schema.NonEmptyString,
-};
+const entityReferenceFields = { key: Schema.NonEmptyString, entitySchema: EntitySchemaReference };
 
 export const DataJsonEntity = Schema.Union([
 	strictStruct({ ...entityDataFields, ...entityReferenceFields, kind: Schema.Literal("custom") }),
@@ -47,9 +54,9 @@ export const DataJsonEntity = Schema.Union([
 	}),
 	strictStruct({
 		...entityReferenceFields,
+		provider: ProviderReference,
 		value: Schema.NonEmptyString,
 		kind: Schema.Literal("provider"),
-		providerSlug: Schema.NonEmptyString,
 		identifierType: Schema.NonEmptyString,
 	}),
 ]);
@@ -81,8 +88,11 @@ export type DataJsonDocument = typeof DataJsonDocument.Type;
 
 export const DataJsonImportBody = strictStruct({
 	uploadToken: Schema.NonEmptyString,
-	source: Schema.Literal(dataJsonSource),
 	submissionKey: Schema.optional(Schema.NonEmptyString),
+	source: strictStruct({
+		slug: Schema.Literal(dataJsonSource),
+		owner: strictStruct({ kind: Schema.Literal("kernel") }),
+	}),
 });
 
 export const dataJsonImportInputSchema: AppSchema = {

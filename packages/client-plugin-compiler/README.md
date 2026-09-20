@@ -8,6 +8,14 @@ without invoking a compiler.
 `compileClientPluginModule` and `buildClientRuntime` require `FileSystem` and `ViteBuildService`;
 callers provide `clientPluginCompilerPlatformLayer` at their entrypoint.
 
+Module input selects `kind: "plugin"` with a required canonical `packageId`, or `kind: "kernel"`
+without an authored package identity. The result carries the same discriminator: plugin builds return
+`PluginClientArtifact`; kernel renderer builds and `buildClientRuntime` return `ClientRuntimeArtifact`.
+Plugin input also requires `clientDeclarationHash`, computed from the full canonical manifest client
+declaration. Module artifacts record the scoped package/export targets encountered during import
+resolution, not every declared dependency alias. Kernel modules share this import metadata; the root
+runtime has no plugin imports. Embedded composition metadata remains separate.
+
 ## Source And Import Policy
 
 Validated package-relative `client/**` and `shared/**` files are staged under the workspace source
@@ -18,7 +26,9 @@ and `.js` specifiers that resolve to TypeScript sources.
 Author imports are checked before Vite runs, including type-only imports. The data-only dependency
 registry in `src/dependencies.ts` is the authority for trusted and neutral module membership and
 TypeScript entry resolution. Shared sources can use only neutral registry entries and relative
-shared files. Declared plugin dependencies stay external and resolve through the page import map. Dynamic
+shared files. Plugin dependencies map importer-local aliases to `{ packageId, scope }`. Authored
+`@ryot-app/plugins/<alias>/<export>` imports resolve at Vite's import boundary to
+`@ryot-app/plugins/<scope>/<packageId>/<export>`, stay external, and resolve through the page import map. Dynamic
 imports, Vite query and glob imports, escaping asset URLs, and authored Tailwind `@plugin`,
 `@config`, and `@source` directives are rejected.
 
@@ -73,8 +83,10 @@ database IDs are not embedded in the plugin module.
 Vite may also emit `chunk-[hash].js` and `asset-[hash][extname]` files. Multiple and nested authored
 CSS imports are resolved into `module.css`; Vite owns asset URLs. Every emitted path, MIME type,
 local reference, file count, per-asset size, and total size is validated. The hash covers every
-output byte and content type plus the plugin name and compiler/protocol identity. Final files are
+output byte and content type plus the name, package or kernel identity, and compiler/protocol identity. Final files are
 sorted by name. Compiler version 1 identifies minified module artifacts.
+Hashes also cover the canonically sorted import targets and, for authored plugins, the client
+declaration hash. Archives require that declaration hash to match the manifest.
 The pure executable-text codec in `@ryot-app/ts-utils/executable-text` retains valid UTF-8 bytes,
 including a leading BOM, and rejects strings that would require replacement during encoding. Artifact
 hashing uses those bytes. The artifact identity implementation is owned by

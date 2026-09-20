@@ -1,7 +1,12 @@
 import { Schema } from "effect";
 
-import { EntitySchemaSlug, PluginSlug, SavedViewId } from "../../schema/brands";
+import { PluginSlug, SavedViewId } from "../../schema/brands";
 import { strictStruct } from "../../schema/utils";
+import {
+	AuthoredEntitySchemaReference,
+	EntitySchemaReference,
+	SavedViewReference,
+} from "../plugins/references";
 import { JsonValue, OutputFieldKey, RyotQLDocument } from "../ryotql/language";
 import { AssetLocator } from "../uploads/schemas";
 
@@ -10,22 +15,22 @@ const SavedViewBadRequestReason = Schema.Union([
 	Schema.Struct({ code: Schema.Literal("renderer-not-found") }),
 	Schema.Struct({ code: Schema.Literal("renderer-unpublished") }),
 	Schema.Struct({ code: Schema.Literal("renderer-kind-unavailable") }),
-	Schema.Struct({ pluginSlug: PluginSlug, code: Schema.Literal("plugin-not-found") }),
+	Schema.Struct({ installationId: Schema.String, code: Schema.Literal("plugin-not-found") }),
 	Schema.Struct({ message: Schema.String, code: Schema.Literal("settings-incompatible") }),
-	Schema.Struct({ viewSlug: Schema.String, code: Schema.Literal("builtin-view-immutable") }),
+	Schema.Struct({ reference: SavedViewReference, code: Schema.Literal("builtin-view-immutable") }),
 	Schema.Struct({
 		code: Schema.Literal("required-field"),
 		field: Schema.Literals(["name", "slug"]),
 	}),
 	Schema.Struct({
-		viewSlugs: Schema.Array(Schema.String),
 		code: Schema.Literal("invalid-reorder"),
+		references: Schema.Array(SavedViewReference),
 		issue: Schema.Literals(["empty", "duplicate", "unknown-view", "update-failed"]),
 	}),
 ]);
 
 const SavedViewNotFoundReason = Schema.Union([
-	Schema.Struct({ viewSlug: Schema.String, code: Schema.Literal("saved-view-not-found") }),
+	Schema.Struct({ reference: SavedViewReference, code: Schema.Literal("saved-view-not-found") }),
 ]);
 
 export class SavedViewBadRequest extends Schema.TaggedError<SavedViewBadRequest>()(
@@ -104,11 +109,16 @@ export const EntityBrowserSortChoice = strictStruct({
 export type EntityBrowserSortChoice = typeof EntityBrowserSortChoice.Type;
 
 export const EntityBrowserAddAction = strictStruct({
-	entitySchemaSlug: EntitySchemaSlug,
-	ownerPluginId: Schema.NonEmptyString,
+	schema: EntitySchemaReference,
 	type: Schema.Literal("provider-search"),
 });
 export type EntityBrowserAddAction = typeof EntityBrowserAddAction.Type;
+
+export const AuthoredEntityBrowserAddAction = strictStruct({
+	schema: AuthoredEntitySchemaReference,
+	type: EntityBrowserAddAction.fields.type,
+});
+export type AuthoredEntityBrowserAddAction = typeof AuthoredEntityBrowserAddAction.Type;
 
 const SavedViewPageSize = Schema.Int.pipe(
 	Schema.check(Schema.isGreaterThan(0)),
@@ -130,6 +140,13 @@ export const EntityBrowserSavedViewSettings = strictStruct({
 });
 export type EntityBrowserSavedViewSettings = typeof EntityBrowserSavedViewSettings.Type;
 
+export const AuthoredEntityBrowserSavedViewSettings = strictStruct({
+	...EntityBrowserSavedViewSettings.fields,
+	addAction: Schema.NullOr(AuthoredEntityBrowserAddAction),
+});
+export type AuthoredEntityBrowserSavedViewSettings =
+	typeof AuthoredEntityBrowserSavedViewSettings.Type;
+
 export const ResultsTableSavedViewSettings = strictStruct({
 	pageSize: SavedViewPageSize,
 	sourceName: Schema.NonEmptyString,
@@ -146,7 +163,9 @@ const ListedSavedViewBase = {
 	icon: Schema.String,
 	sortOrder: Schema.Finite,
 	isHidden: Schema.Boolean,
+	reference: SavedViewReference,
 	pluginSlug: Schema.NullOr(PluginSlug),
+	pluginInstallationId: Schema.NullOr(Schema.String),
 };
 
 const ListedSavedViewFields = {
@@ -180,8 +199,8 @@ export const CreateSavedViewBody = strictStruct({
 	name: Schema.String,
 	renderer: SavedViewRenderer,
 	dataSources: Schema.NullOr(RyotQLDocument),
-	workspacePluginSlug: Schema.optional(PluginSlug),
 	settings: Schema.Record(Schema.String, JsonValue),
+	workspaceInstallationId: Schema.optional(Schema.String),
 });
 
 export type CreateSavedViewBody = typeof CreateSavedViewBody.Type;
@@ -192,19 +211,21 @@ export const UpdateSavedViewBody = strictStruct({
 	name: Schema.optional(Schema.String),
 	renderer: Schema.optional(SavedViewRenderer),
 	dataSources: Schema.optional(Schema.NullOr(RyotQLDocument)),
-	workspacePluginSlug: Schema.optional(Schema.NullOr(PluginSlug)),
 	settings: Schema.optional(Schema.Record(Schema.String, JsonValue)),
+	workspaceInstallationId: Schema.optional(Schema.NullOr(Schema.String)),
 });
 
 export type UpdateSavedViewBody = typeof UpdateSavedViewBody.Type;
 
 export const ReorderSavedViewsBody = Schema.Struct({
-	viewSlugs: Schema.Array(Schema.String),
-	pluginSlug: Schema.optional(PluginSlug),
+	references: Schema.Array(SavedViewReference),
+	installationId: Schema.optional(Schema.String),
 });
 
 export type ReorderSavedViewsBody = typeof ReorderSavedViewsBody.Type;
 
-export const ReorderSavedViewsResponse = Schema.Struct({ viewSlugs: Schema.Array(Schema.String) });
+export const ReorderSavedViewsResponse = Schema.Struct({
+	references: Schema.Array(SavedViewReference),
+});
 
 export type ReorderSavedViewsResponse = typeof ReorderSavedViewsResponse.Type;
