@@ -30,6 +30,18 @@ export const clientPageComposition = snakeCase.table("client_page_composition", 
 	createdAt: timestamp({ withTimezone: true }).defaultNow().notNull(),
 });
 
+export const pluginCatalogChange = snakeCase.table(
+	"plugin_catalog_change",
+	{
+		userId: text().references(() => user.id, { onDelete: "cascade" }),
+		createdAt: timestamp({ withTimezone: true }).defaultNow().notNull(),
+		id: text()
+			.primaryKey()
+			.$defaultFn(() => /* @__PURE__ */ generateId()),
+	},
+	(table) => [index("plugin_catalog_change_user_id_idx").on(table.userId)],
+);
+
 // TODO: Expose as an RSS feed
 export const savedView = snakeCase.table(
 	"saved_view",

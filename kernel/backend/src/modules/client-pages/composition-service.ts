@@ -25,10 +25,13 @@ export class ClientPageCompositionService extends Context.Service<ClientPageComp
 				}
 				return composition;
 			});
-			const materialize = Effect.fn("ClientPageComposition.materialize")(function* (
+			const getOrMaterialize = Effect.fn("ClientPageComposition.getOrMaterialize")(function* (
 				graph: ResolvedClientPageGraph,
 			) {
 				const existing = yield* find(graph);
+				if (existing) {
+					return existing;
+				}
 				const hashes = new Set([
 					graph.identity.runtimeArtifactHash,
 					...graph.identity.contributors.map((contributor) =>
@@ -56,15 +59,6 @@ export class ClientPageCompositionService extends Context.Service<ClientPageComp
 					}),
 				).pipe(Effect.orDie);
 				const compositionHash = sha256Hex(stableStringify(manifest));
-				if (existing) {
-					if (
-						existing.compositionHash !== compositionHash ||
-						!Bun.deepEquals(existing.manifest, manifest)
-					) {
-						return yield* Effect.die(new Error("Conflicting immutable client page composition"));
-					}
-					return existing;
-				}
 				yield* repository.createComposition({
 					manifest,
 					compositionHash,
@@ -81,7 +75,7 @@ export class ClientPageCompositionService extends Context.Service<ClientPageComp
 				}
 				return stored;
 			});
-			return { find, materialize };
+			return { find, getOrMaterialize };
 		}),
 	},
 ) {
