@@ -30,7 +30,7 @@ export class BackupsApi extends Context.Service<BackupsApi>()("BackupsApi", {
 							}),
 					});
 					if (!response.ok) {
-						return yield* Effect.fail(new AuthenticatedApiError({ cause: response.status }));
+						return yield* new AuthenticatedApiError({ cause: response.status });
 					}
 					return yield* Effect.tryPromise({
 						try: () => response.blob(),

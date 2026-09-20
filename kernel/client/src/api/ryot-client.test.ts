@@ -73,7 +73,7 @@ const intent: UploadIntentResponse = {
 };
 
 const uploadToken = { token: "temporary-1", expiresAt: "2026-01-01T00:00:00.000Z" };
-const collection = Schema.decodeUnknownSync(CollectionResponse)({
+const collection = Schema.decodeSync(CollectionResponse)({
 	warnings: [],
 	properties: {},
 	providerId: null,
@@ -84,7 +84,7 @@ const collection = Schema.decodeUnknownSync(CollectionResponse)({
 	createdAt: "2026-09-07T00:00:00.000Z",
 	updatedAt: "2026-09-07T00:00:00.000Z",
 });
-const membership = Schema.decodeUnknownSync(MembershipResponse)({
+const membership = Schema.decodeSync(MembershipResponse)({
 	warnings: [],
 	memberOf: {
 		properties: {},

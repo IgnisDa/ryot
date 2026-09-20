@@ -57,12 +57,12 @@ const mountDemo = (
 	const oauth = makeOAuthRouteStubs(
 		{},
 		{
-			signInDemo: () => {
+			signInDemo: Effect.suspend(() => {
 				hostedCalls += 1;
 				return options.failHosted
 					? Effect.fail(new HostedAuthError({ message: "sensitive server detail" }))
 					: Effect.succeed({ mode: options.mode ?? "demo" });
-			},
+			}),
 		},
 		{ isNative: options.native ?? false },
 		{
