@@ -287,7 +287,6 @@ import { defineProvider, ${isTranslate ? "providerTranslateResultSchema" : resul
 
 export const manifest = defineManifest({
   kind: "provider",
-  capabilities: [],
   name: ${JSON.stringify(input.name)},
   slug: ${JSON.stringify(input.slug)},
 ${searchOptionsSchema}

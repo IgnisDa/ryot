@@ -157,7 +157,6 @@ export const manifest = defineManifest({
   automationType: "automation",
   name: "E2E Lifecycle Event Automation",
   slug: ${yield* Schema.encodeEffect(Schema.fromJsonString(Schema.String))(automationSlug)},
-  capabilities: ["createEvents"],
   inputProjection: { event: { properties: ["note"], compareProperties: [] } },
 });
 

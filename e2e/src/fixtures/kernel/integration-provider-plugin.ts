@@ -21,7 +21,6 @@ import { Effect, Schema } from "@ryot-app/sandbox-sdk/effect";
 
 export const manifest = defineManifest({
   kind: "script",
-  capabilities: [],
   name: ${JSON.stringify(name)},
   slug: ${JSON.stringify(scriptSlug)},
 });
@@ -43,7 +42,6 @@ import { defineExecutableAlternatives, defineManifest, defineScriptReference, de
 
 export const manifest = defineManifest({
   kind: "workflow",
-  capabilities: [],
   name: "E2E integration ingestion",
   slug: ${JSON.stringify(workflowScriptSlug)},
 });

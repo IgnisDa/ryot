@@ -44,7 +44,6 @@ import { Schema } from "@ryot-app/sandbox-sdk/effect";
 
 export const manifest = defineManifest({
   kind: "operation",
-  capabilities: ["getUserSettings"],
   name: ${JSON.stringify(input.name)},
   slug: ${JSON.stringify(input.slug)},
 });

@@ -27,16 +27,6 @@ export const manifest = defineManifest({
   kind: "operation",
   name: ${JSON.stringify(input.name)},
   slug: ${JSON.stringify(input.slug)},
-  capabilities: [
-    "log",
-    "span",
-    "httpCall",
-    "createEvents",
-    "getCachedValue",
-    "getUserPreferences",
-    "executeRyotql",
-    "claimPersistentValue",
-  ],
 });
 
 export default defineOperation({
@@ -106,7 +96,6 @@ import { defineManifest, defineWorkflow, Effect, Schema } from "@ryot-app/sandbo
 
 export const manifest = defineManifest({
   kind: "workflow",
-  capabilities: [],
   name: ${JSON.stringify(input.name)},
   slug: ${JSON.stringify(input.slug)},
 });

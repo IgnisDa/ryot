@@ -54,7 +54,6 @@ import { Effect, Schema, defineManifest, defineScriptReference, defineWorkflow }
 
 export const manifest = defineManifest({
   kind: "workflow",
-  capabilities: [],
   name: "E2E durable import",
   slug: ${JSON.stringify(workflowScriptSlug)},
 });
@@ -145,7 +144,6 @@ import { Effect, Schema } from "@ryot-app/sandbox-sdk/effect";
 
 export const manifest = defineManifest({
   kind: "script",
-  capabilities: ["getPluginConfig"],
   name: "E2E durable import config check",
   slug: ${JSON.stringify(activityScriptSlug)},
 });
@@ -171,7 +169,7 @@ import { Effect, Schema } from "@ryot-app/sandbox-sdk/effect";
 import { readArtifact } from "@ryot-app/sandbox-sdk/filesystem";
 
 export const manifest = defineManifest({
-  kind: "script", capabilities: ["artifact-read"],
+  kind: "script",
   name: "E2E durable import source read",
   slug: ${JSON.stringify(`${activityScriptSlug}-read`)},
 });

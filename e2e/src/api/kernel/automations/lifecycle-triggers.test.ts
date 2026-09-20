@@ -126,7 +126,6 @@ export const manifest = defineManifest({
   automationType: "policy",
   slug: ${JSON.stringify(slugs.policyScript)},
   name: "E2E lifecycle policy",
-  capabilities: [],
   inputProjection: { event: { properties: ["marker"] } },
 });
 
@@ -172,7 +171,6 @@ export const manifest = defineManifest({
   automationType: "automation",
   slug: ${JSON.stringify(input.slug)},
   name: ${JSON.stringify(input.name)},
-  capabilities: [],
   inputProjection: {
     entity: { properties: [], compareProperties: [], parentEntityProperties: [] },
     event: { properties: [], compareProperties: [] },
@@ -195,7 +193,6 @@ export const manifest = defineManifest({
   kind: "operation",
   slug: ${JSON.stringify(slugs.replayOperation)},
   name: "E2E lifecycle replay operation",
-  capabilities: ["createEvents"],
 });
 
 export default defineOperation({
@@ -234,7 +231,6 @@ export const manifest = defineManifest({
   kind: "workflow",
   slug: ${JSON.stringify(slugs.replayPause)},
   name: "E2E lifecycle replay pause",
-  capabilities: [],
 });
 
 export default defineWorkflow({

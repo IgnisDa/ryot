@@ -16,14 +16,13 @@ import { describe, expect, it } from "~/support/effect-test";
 import { startFakeHttpServerScoped } from "~/support/fake-http-server";
 
 const youtubeiSource = (input: { readonly name: string; readonly slug: string }) => `
-import type { SandboxHost } from "@ryot-app/sandbox-sdk/core";
+import type { ScriptHost } from "@ryot-app/sandbox-sdk/core";
 import { defineManifest, defineScript } from "@ryot-app/sandbox-sdk/driver";
 import { Effect, Schema } from "@ryot-app/sandbox-sdk/effect";
 import { createYoutubeMusicClient } from "@ryot-app/sandbox-sdk/youtubei";
 
 export const manifest = defineManifest({
   kind: "script",
-  capabilities: ["httpCall"],
   name: ${JSON.stringify(input.name)},
   slug: ${JSON.stringify(input.slug)},
 });
@@ -33,7 +32,7 @@ export default defineScript({
   output: Schema.Array(Schema.Number),
   input: Schema.Struct({ firstUrl: Schema.String, secondUrl: Schema.String }),
   run: (input, host) => Effect.gen(function* () {
-    const clientHost: SandboxHost<readonly ["httpCall"]> = {
+    const clientHost: Pick<ScriptHost, "httpCall"> = {
       httpCall: (method, url, options) => host.httpCall(
         method,
 					new URL(url, "https://www.youtube.com").pathname.includes("/first")

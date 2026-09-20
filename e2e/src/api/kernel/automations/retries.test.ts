@@ -70,7 +70,6 @@ export const manifest = defineManifest({
   automationType: "automation",
   name: ${JSON.stringify(`E2E retry automation ${slug}`)},
   slug: ${JSON.stringify(slug)},
-  capabilities: ["claimPersistentValue", "getPluginConfig", "httpCall"],
   inputProjection: { entity: { properties: [], compareProperties: [], parentEntityProperties: [] } },
 });
 
@@ -104,7 +103,6 @@ export const manifest = defineManifest({
   automationType: "automation",
   name: ${JSON.stringify(`E2E retry automation ${slug}`)},
   slug: ${JSON.stringify(slug)},
-  capabilities: ["httpCall"],
   inputProjection: { entity: { properties: [], compareProperties: [], parentEntityProperties: [] } },
 });
 
@@ -115,7 +113,7 @@ export default defineAutomation({
 });
 `;
 
-const terminalFailureSource = (slug: string, capabilities: ReadonlyArray<string> = []) => `
+const terminalFailureSource = (slug: string) => `
 import { defineAutomation } from "@ryot-app/sandbox-sdk/automation";
 import { defineManifest } from "@ryot-app/sandbox-sdk/driver";
 import { Effect } from "@ryot-app/sandbox-sdk/effect";
@@ -125,7 +123,6 @@ export const manifest = defineManifest({
   automationType: "automation",
   name: ${JSON.stringify(`E2E retry automation ${slug}`)},
   slug: ${JSON.stringify(slug)},
-  capabilities: ${JSON.stringify(capabilities)},
   inputProjection: { entity: { properties: [], compareProperties: [], parentEntityProperties: [] } },
 });
 
@@ -145,7 +142,6 @@ export const manifest = defineManifest({
   automationType: "automation",
   name: ${JSON.stringify(`E2E retry automation ${slug}`)},
   slug: ${JSON.stringify(slug)},
-  capabilities: ["claimPersistentValue", "getPluginConfig", "httpCall"],
   inputProjection: { entity: { properties: [], compareProperties: [], parentEntityProperties: [] } },
 });
 
@@ -449,7 +445,7 @@ describe("automation retries", () => {
 					client,
 					pluginSlug,
 					scripts: [automationScript(scriptSlug, entry, ["httpCall"])],
-					files: { [entry]: terminalFailureSource(scriptSlug, ["httpCall"]) },
+					files: { [entry]: terminalFailureSource(scriptSlug) },
 					hooks: [
 						{
 							scriptSlug,

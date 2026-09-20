@@ -75,7 +75,6 @@ export const manifest = defineManifest({
   kind: "script",
   name: ${JSON.stringify(input.name)},
   slug: ${JSON.stringify(input.slug)},
-  capabilities: ["executeRyotql", "upsertGlobalEntities"],
 });
 
 const query = Schema.decodeSync(ryotqlDocumentSchema)(JSON.parse(${JSON.stringify(
