@@ -9,7 +9,10 @@ import { WorkflowEngine, WorkflowInstance } from "effect/unstable/workflow/Workf
 import { DatabaseSession } from "#lib/infrastructure/db/session";
 import { testDatabaseUrl } from "#lib/test-utils/database";
 import { databaseLayer, makeWorkflowActivityEngine } from "#lib/test-utils/effect";
+import { ingestionRetirementTestLayer } from "#lib/test-utils/ingestion-retirement";
+import { isolatedDatabaseLayer } from "#lib/test-utils/isolated-database";
 import { AuthService } from "#modules/auth/service";
+import { ImportsRepository } from "#modules/imports/repository";
 import { AdmittedWorkflowCatalogue } from "#modules/mutations/workflow-catalogue";
 import { ObjectStorageService } from "#modules/uploads/object-storage/service";
 
@@ -188,6 +191,7 @@ const liveOperationsLayer = <R, E>(dependencies: {
 	readonly overrides: Layer.Layer<R, never, DatabaseSession>;
 }) =>
 	UserLifecycleWorkflowOperationsLive.pipe(
+		Layer.provide(ingestionRetirementTestLayer),
 		Layer.provide(Layer.succeed(AdmittedWorkflowCatalogue, Object.freeze([]))),
 		Layer.provideMerge(Layer.mergeAll(Layer.mock(WorkflowEngine)({}), dependencies.overrides)),
 		Layer.provideMerge(dependencies.database),
@@ -255,12 +259,16 @@ const flakyObjectStorageLayer = Layer.unwrap(
 
 layer(
 	liveOperationsLayer({
-		database: databaseLayer,
+		database: isolatedDatabaseLayer("lifecycle_object_cleanup"),
 		overrides: Layer.mergeAll(
 			Layer.mock(AuthService)({ handler: () => Effect.die("unused").pipe(Effect.runPromise) }),
-			Layer.mock(UserLifecycleRepository)({
-				getInternalById: () => Effect.succeed(deleteOperation),
-			}),
+			Layer.effect(
+				UserLifecycleRepository,
+				Effect.map(UserLifecycleRepository.make, (repository) => ({
+					...repository,
+					getInternalById: () => Effect.succeed(deleteOperation),
+				})),
+			).pipe(Layer.provide(ImportsRepository.layer)),
 			flakyObjectStorageLayer,
 		),
 	}),

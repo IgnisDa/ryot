@@ -4,21 +4,23 @@ import { DbError } from "@ryot-app/contract/errors";
 import { SandboxScriptId } from "@ryot-app/contract/schema/brands";
 import { sha256Hex } from "@ryot-app/ts-utils/crypto";
 import { eq, sql } from "drizzle-orm";
-import { Context, Deferred, Effect, Fiber, FileSystem, Layer, Ref } from "effect";
+import { Context, Deferred, Effect, Fiber, FileSystem, Layer, Redacted, Ref } from "effect";
 
 import { PLUGIN_INGESTION_ADVISORY_LOCK_KEY } from "#lib/infrastructure/db/advisory-locks";
 import * as tables from "#lib/infrastructure/db/schema/tables/combined";
 import { DatabaseSession } from "#lib/infrastructure/db/session";
 import { PackageCacheManager } from "#lib/infrastructure/sandbox-runtime/runtime";
-import { databaseLayer, makeAppConfigLayer } from "#lib/test-utils/effect";
+import { databaseLayer, makeAppConfigLayer, makeConfigProviderLayer } from "#lib/test-utils/effect";
+import { IsolatedDatabase, isolatedDatabaseLayer } from "#lib/test-utils/isolated-database";
+import { ClientArtifactsRepository } from "#modules/client-artifacts/repository";
+import { DefinitionRepository } from "#modules/definition-registry/repository";
 import { SandboxWorkflowReferenceRepository } from "#modules/sandbox/workflow-reference-repository";
 
+import { PluginConfigEncryptionKey } from "./config-encryption-key";
+import { PluginConfigRevisions } from "./config-revisions";
+import { PluginInstallationRepository } from "./installation-repository";
 import { PluginRepository } from "./repository";
-import {
-	installRevisionPackage,
-	revisionDatabaseLayer,
-	revisionPackage,
-} from "./revision.test-support";
+import { installRevisionPackage, revisionPackage } from "./revision.test-support";
 import { ScriptGarbageCollector } from "./script-garbage-collector";
 
 const hash = sha256Hex;
@@ -256,8 +258,39 @@ const runtimeLayer = Layer.effect(
 		};
 	}),
 );
+const collectorRepositories = Layer.mergeAll(
+	ClientArtifactsRepository.layer,
+	DefinitionRepository.layer,
+	PluginConfigEncryptionKey.layer,
+	PluginConfigRevisions.layer,
+	PluginInstallationRepository.layer,
+	SandboxWorkflowReferenceRepository.layer,
+);
+const collectorDatabaseLayer = Layer.effectDiscard(
+	Effect.gen(function* () {
+		const session = yield* DatabaseSession;
+		yield* session.run((db) =>
+			db
+				.insert(tables.user)
+				.values({
+					id: "owner",
+					name: "Owner",
+					email: "owner@example.test",
+					accountGeneration: "test-account-generation",
+				}),
+		);
+	}),
+).pipe(
+	Layer.provideMerge(
+		Layer.mergeAll(
+			collectorRepositories,
+			PluginRepository.layer.pipe(Layer.provide(collectorRepositories)),
+		).pipe(Layer.provideMerge(isolatedDatabaseLayer("script_gc"))),
+	),
+	Layer.provide(makeConfigProviderLayer()),
+);
 const realCollectorLayer = ScriptGarbageCollector.layer.pipe(
-	Layer.provideMerge(Layer.merge(runtimeLayer, revisionDatabaseLayer)),
+	Layer.provideMerge(Layer.merge(runtimeLayer, collectorDatabaseLayer)),
 	Layer.provideMerge(Layer.merge(BunServices.layer, makeAppConfigLayer())),
 );
 
@@ -342,7 +375,16 @@ layer(realCollectorLayer, { excludeTestServices: true })((test) => {
 				const fs = yield* FileSystem.FileSystem;
 				const runtime = yield* PackageCacheManager;
 				const collector = yield* ScriptGarbageCollector;
-				const admin = Context.get(yield* Layer.build(databaseLayer), DatabaseSession);
+				const { url } = yield* IsolatedDatabase;
+				const admin = Context.get(
+					yield* Layer.build(
+						DatabaseSession.layer.pipe(
+							Layer.provide(makeAppConfigLayer({ database: { url: Redacted.make(url) } })),
+							Layer.fresh,
+						),
+					),
+					DatabaseSession,
+				);
 				const held = yield* Deferred.make<void>();
 				const release = yield* Deferred.make<void>();
 				const holder = yield* Effect.forkChild(

@@ -107,8 +107,8 @@ export class RelationshipsService extends Context.Service<RelationshipsService>(
 					);
 					return {
 						_tag: "Committed",
+						result: replay.result,
 						dispatch: [...replay.dispatch, ...batch],
-						result: { relationship: replay.result.relationship },
 					} satisfies LifecycleCommittedStep<RelationshipSingleResult>;
 				}
 				const definition =
@@ -164,9 +164,9 @@ export class RelationshipsService extends Context.Service<RelationshipsService>(
 					.pipe(Effect.mapError(classifyRelationshipReceiptConflict));
 				if (recorded) {
 					return {
+						result: recorded.result,
 						_tag: "Committed" as const,
 						dispatch: recorded.dispatch,
-						result: { relationship: recorded.result.relationship },
 					};
 				}
 				const row = yield* repository.findUserRelationshipById(userId, relationshipId);
@@ -201,6 +201,7 @@ export class RelationshipsService extends Context.Service<RelationshipsService>(
 					_tag: "Committed",
 					dispatch: observed._tag === "Replayed" ? observed.replay.dispatch : [],
 					result: {
+						operation: observed._tag === "Replayed" ? observed.replay.result.operation : "noop",
 						relationship: observed._tag === "Replayed" ? observed.replay.result.relationship : null,
 					},
 				} satisfies LifecycleCommittedStep<RelationshipSingleResult>;

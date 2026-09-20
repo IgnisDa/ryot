@@ -5,7 +5,6 @@ export const manifest = defineManifest({
 	kind: "script",
 	name: "Host bridge fixture",
 	slug: "host-bridge-fixture",
-	requiredPluginConfigKeys: ["fixtureValue"],
 	capabilities: ["getCachedValue", "getPluginConfig", "httpCall", "setCachedValue"],
 });
 
@@ -15,7 +14,7 @@ export default defineScript({
 	input: Schema.Struct({}),
 	run: (_input, host) =>
 		Effect.gen(function* () {
-			const config = yield* host.getPluginConfig(["fixtureValue"]);
+			const config = yield* host.getPluginConfig({ required: ["fixtureValue"] });
 			const cached = yield* host.getCachedValue("fixture-key");
 			yield* host.setCachedValue("fixture-key", { ready: true }, 60);
 			const response = yield* host.httpCall("GET", "https://example.com/fixture");

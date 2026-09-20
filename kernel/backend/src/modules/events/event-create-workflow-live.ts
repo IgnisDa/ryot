@@ -141,7 +141,7 @@ const prepareItem = Effect.fn("prepareEventCreateItem")(function* (
 				const plan = yield* planner.plan({
 					excludedOncePerSubjectPolicies: excluded,
 					trigger: lifecycleTrigger(
-						eventCreateItemCommand(payload.command, index),
+						eventCreateItemCommand(payload.command, index, payload.itemIdentities?.[index]),
 						payload.userId,
 						{ draft, resource: "event", category: "request", operation: "create" },
 					),
@@ -216,7 +216,7 @@ const writeEvent = Effect.fn("writeEventCreateItem")(function* (
 	const planner = yield* LifecyclePlanner;
 	const session = yield* DatabaseSession;
 	const receipts = yield* MutationReceipts.make;
-	const command = eventCreateItemCommand(payload.command, index);
+	const command = eventCreateItemCommand(payload.command, index, payload.itemIdentities?.[index]);
 	const item = payload.payload[index];
 	if (!item) {
 		return yield* Effect.die("Missing event batch item");
