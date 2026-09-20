@@ -307,6 +307,7 @@ const builtinEntityScope = ({ entityId }: { userId: UserId; entityId: EntityId }
 class HostFunctionCalls extends Context.Service<
 	HostFunctionCalls,
 	{
+		readonly createdEntities: Effect.Effect<ReadonlyArray<unknown>>;
 		readonly ensuredEntities: Effect.Effect<ReadonlyArray<unknown>>;
 		readonly eventMutations: Effect.Effect<ReadonlyArray<unknown>>;
 		readonly ryotqlUserCalls: Effect.Effect<ReadonlyArray<unknown>>;
@@ -360,6 +361,7 @@ const hostFunctionsLayer = (
 ) =>
 	Layer.unwrap(
 		Effect.gen(function* () {
+			const createdEntities = yield* Ref.make<ReadonlyArray<unknown>>([]);
 			const ensuredEntities = yield* Ref.make<ReadonlyArray<unknown>>([]);
 			const ryotqlUserCalls = yield* Ref.make<ReadonlyArray<unknown>>([]);
 			const ryotqlPluginCalls = yield* Ref.make<ReadonlyArray<unknown>>([]);
@@ -402,6 +404,7 @@ const hostFunctionsLayer = (
 				Layer.succeed(HostFunctionCalls, {
 					lookupOrder: Ref.get(lookupOrder),
 					eventMutations: Ref.get(eventMutations),
+					createdEntities: Ref.get(createdEntities),
 					ensuredEntities: Ref.get(ensuredEntities),
 					ryotqlUserCalls: Ref.get(ryotqlUserCalls),
 					ryotqlPluginCalls: Ref.get(ryotqlPluginCalls),
@@ -531,6 +534,23 @@ const hostFunctionsLayer = (
 							Effect.map((wasInserted) => [
 								{ wasInserted, warnings: [], entityId: EntityId.make("workspace-id") },
 							]),
+						),
+					create: (input) =>
+						append(createdEntities, input).pipe(
+							Effect.as({
+								warnings: [],
+								entity: {
+									name: input.name,
+									externalId: null,
+									providerId: null,
+									populatedAt: null,
+									properties: input.properties,
+									id: EntityId.make("created-id"),
+									createdAt: "2026-01-01T00:00:00.000Z",
+									updatedAt: "2026-01-01T00:00:00.000Z",
+									entitySchemaSlug: input.entitySchemaSlug,
+								},
+							}),
 						),
 				}),
 				Layer.mock(RelationshipsRepository)({
@@ -1754,6 +1774,120 @@ const runEnsureUserEntities = (options: {
 			),
 		),
 	);
+
+const runCreateUserEntity = (
+	overrides: Partial<SandboxRunInput> = {},
+	omitWorkflowIdentity = false,
+) =>
+	makeAdditionalSandboxApiFunctions.pipe(
+		Effect.flatMap((functions) => {
+			const input = {
+				...runInput(
+					{
+						type: "user",
+						userId: UserId.make("trusted-user"),
+						accountGeneration: testAccountGeneration(UserId.make("trusted-user")),
+					},
+					["createUserEntity"],
+					{
+						pluginRevision: {
+							...systemPluginRevision,
+							schemaScope: {
+								...systemPluginRevision.schemaScope,
+								entitySchemaSlugs: ["workspace"],
+							},
+						},
+					},
+				),
+				...overrides,
+			};
+			const { workflowExecutionId: _workflowExecutionId, ...withoutIdentity } = input;
+			return functions.createUserEntity(omitWorkflowIdentity ? withoutIdentity : input, {
+				name: "Another workspace",
+				entitySchemaSlug: "workspace",
+				properties: { key: "another" },
+			});
+		}),
+	);
+
+describe("createUserEntity", () => {
+	layer(hostFunctionsLayer({ definitions: workspaceDefinitions() }))((test) => {
+		test.effect(
+			"uses the trusted user and durable command without bootstrap singleton semantics",
+			() =>
+				Effect.gen(function* () {
+					expect(yield* runCreateUserEntity()).toEqual({ entityId: "created-id" });
+					expect(yield* runCreateUserEntity({ hostCallDiscriminator: 1 })).toEqual({
+						entityId: "created-id",
+					});
+					expect(yield* (yield* HostFunctionCalls).createdEntities).toMatchObject([
+						{
+							scope: "user",
+							userId: "trusted-user",
+							name: "Another workspace",
+							entitySchemaSlug: "workspace",
+							properties: { key: "another" },
+							lifecycle: {
+								itemIdentity: "createUserEntity",
+								causation: { lane: "interactive", executionId: "workflow-1-host-0" },
+							},
+						},
+						{ lifecycle: { causation: { executionId: "workflow-1-host-1" } } },
+					]);
+					expect(yield* (yield* HostFunctionCalls).ensuredEntities).toEqual([]);
+				}),
+		);
+	});
+
+	layer(hostFunctionsLayer({ definitions: workspaceDefinitions() }))((test) => {
+		test.effect(
+			"rejects undeclared, system, unpinned and foreign-schema writes before creating",
+			() =>
+				Effect.gen(function* () {
+					const subject = {
+						type: "user",
+						userId: UserId.make("trusted-user"),
+						accountGeneration: testAccountGeneration(UserId.make("trusted-user")),
+					} as const;
+					const pinned = {
+						...systemPluginRevision,
+						schemaScope: { ...systemPluginRevision.schemaScope, entitySchemaSlugs: ["workspace"] },
+					};
+					for (const principal of [
+						runInput(subject, [], { pluginRevision: pinned }).principal,
+						runInput({ type: "system" }, ["createUserEntity"], { pluginRevision: pinned })
+							.principal,
+						runInput(subject, ["createUserEntity"]).principal,
+						runInput(subject, ["createUserEntity"], { pluginRevision: systemPluginRevision })
+							.principal,
+					]) {
+						const error = yield* Effect.flip(runCreateUserEntity({ principal }));
+						expect(error.data).toEqual({
+							code: "unavailable-operation",
+							operation: "createUserEntity",
+						});
+					}
+					yield* (yield* HostFunctionCalls).useDefinitions(workspaceDefinitions("foreign-plugin"));
+					const error = yield* Effect.flip(runCreateUserEntity());
+					expect(error.data).toEqual({
+						code: "unavailable-operation",
+						operation: "createUserEntity",
+					});
+					expect(yield* (yield* HostFunctionCalls).createdEntities).toEqual([]);
+				}),
+		);
+	});
+
+	layer(hostFunctionsLayer({ definitions: workspaceDefinitions() }))((test) => {
+		test.effect("requires durable host-call identity before writing", () =>
+			Effect.gen(function* () {
+				const error = yield* Effect.flip(runCreateUserEntity({}, true));
+				expect(error.message).toBe("Lifecycle writes require a trusted durable host call");
+				expect(yield* (yield* HostFunctionCalls).createdEntities).toEqual([]);
+			}),
+		);
+	});
+});
 
 describe("ensureUserEntities", () => {
 	layer(hostFunctionsLayer({ definitions: workspaceDefinitions() }))((test) => {

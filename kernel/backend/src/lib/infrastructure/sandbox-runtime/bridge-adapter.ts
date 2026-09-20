@@ -176,6 +176,11 @@ export const bindSandboxHostFunctions = (
 			domainSandboxHostContracts.listEventSchemas,
 			implementations.listEventSchemas,
 		),
+		createUserEntity: bind(
+			"createUserEntity",
+			domainSandboxHostContracts.createUserEntity,
+			implementations.createUserEntity,
+		),
 		sendNotification: bind(
 			"sendNotification",
 			automationSandboxHostContracts.sendNotification,
