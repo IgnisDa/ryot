@@ -78,7 +78,7 @@ describe("plugin repository revisions", () => {
 	layer(revisionDatabaseLayer)((test) => {
 		test.effect("retains and exports a precompiled client artifact for the active package", () =>
 			Effect.gen(function* () {
-				const db = yield* (yield* DatabaseSession).current;
+				const session = yield* DatabaseSession;
 				const repository = yield* PluginRepository;
 				const artifacts = yield* ClientArtifactsRepository;
 				const base = fixtureManifest();
@@ -130,35 +130,41 @@ describe("plugin repository revisions", () => {
 					ownerId: owner,
 					slug: manifest.metadata.slug,
 				});
-				yield* db
-					.insert(tables.clientArtifact)
-					.values({
-						format: 0,
-						hash: "unrelated-artifact",
-						apiVersion: CLIENT_API_VERSION,
-						compilerVersion: CLIENT_COMPILER_VERSION,
-						bridgeVersion: CLIENT_BRIDGE_PROTOCOL_VERSION,
-					});
-				yield* db
-					.insert(tables.clientArtifactFile)
-					.values({
-						name: "ignored.bin",
-						contents: Buffer.from([0]),
-						artifactHash: "unrelated-artifact",
-						contentType: "application/octet-stream",
-					});
+				yield* session.run((db) =>
+					db
+						.insert(tables.clientArtifact)
+						.values({
+							format: 0,
+							hash: "unrelated-artifact",
+							apiVersion: CLIENT_API_VERSION,
+							compilerVersion: CLIENT_COMPILER_VERSION,
+							bridgeVersion: CLIENT_BRIDGE_PROTOCOL_VERSION,
+						}),
+				);
+				yield* session.run((db) =>
+					db
+						.insert(tables.clientArtifactFile)
+						.values({
+							name: "ignored.bin",
+							contents: Buffer.from([0]),
+							artifactHash: "unrelated-artifact",
+							contentType: "application/octet-stream",
+						}),
+				);
 
 				expect(yield* repository.listCompiledPackageArtifacts(pluginId)).toEqual({
 					compiledClient,
 					compiledScripts,
 				});
-				const [revision] = yield* db
-					.select({
-						id: tables.pluginRevision.id,
-						clientArtifactHash: tables.pluginRevision.clientArtifactHash,
-					})
-					.from(tables.pluginRevision)
-					.where(eq(tables.pluginRevision.pluginId, pluginId));
+				const [revision] = yield* session.run((db) =>
+					db
+						.select({
+							id: tables.pluginRevision.id,
+							clientArtifactHash: tables.pluginRevision.clientArtifactHash,
+						})
+						.from(tables.pluginRevision)
+						.where(eq(tables.pluginRevision.pluginId, pluginId)),
+				);
 				assert(revision);
 				expect(revision.clientArtifactHash).toBe(compiledClient.hash);
 				expect(yield* repository.findRevisionClientArtifact(revision.id)).toEqual(compiledClient);
@@ -172,10 +178,12 @@ describe("plugin repository revisions", () => {
 					yield* repository.findClientArtifactForSource({ pluginId, sourceHash: "missing-source" }),
 				).toBeNull();
 
-				yield* db
-					.update(tables.pluginRevision)
-					.set({ clientArtifactHash: null })
-					.where(eq(tables.pluginRevision.id, revision.id));
+				yield* session.run((db) =>
+					db
+						.update(tables.pluginRevision)
+						.set({ clientArtifactHash: null })
+						.where(eq(tables.pluginRevision.id, revision.id)),
+				);
 				expect(
 					yield* repository.findClientArtifactForSource({
 						pluginId,
@@ -194,21 +202,25 @@ describe("plugin repository revisions", () => {
 					),
 				).toBe(true);
 
-				yield* db
-					.update(tables.pluginRevision)
-					.set({ clientArtifactHash: compiledClient.hash })
-					.where(eq(tables.pluginRevision.id, revision.id));
+				yield* session.run((db) =>
+					db
+						.update(tables.pluginRevision)
+						.set({ clientArtifactHash: compiledClient.hash })
+						.where(eq(tables.pluginRevision.id, revision.id)),
+				);
 				const artifactFile = compiledClient.files[0];
 				assert(artifactFile);
-				yield* db
-					.update(tables.clientArtifactFile)
-					.set({ contents: Buffer.from([...artifactFile.contents, 0]) })
-					.where(
-						and(
-							eq(tables.clientArtifactFile.artifactHash, compiledClient.hash),
-							eq(tables.clientArtifactFile.name, artifactFile.name),
+				yield* session.run((db) =>
+					db
+						.update(tables.clientArtifactFile)
+						.set({ contents: Buffer.from([...artifactFile.contents, 0]) })
+						.where(
+							and(
+								eq(tables.clientArtifactFile.artifactHash, compiledClient.hash),
+								eq(tables.clientArtifactFile.name, artifactFile.name),
+							),
 						),
-					);
+				);
 				expect(
 					Result.isFailure(
 						yield* Effect.result(repository.findRevisionClientArtifact(revision.id)),
@@ -226,7 +238,7 @@ describe("plugin repository revisions", () => {
 			"selects the booted kernel artifact after downgrade and prunes only unpinned old code",
 			() =>
 				Effect.gen(function* () {
-					const db = yield* (yield* DatabaseSession).current;
+					const session = yield* DatabaseSession;
 					const repository = yield* PluginRepository;
 					const runtime = yield* PluginRuntimeResolver;
 					const first = revisionPackage().scripts[0];
@@ -241,37 +253,41 @@ describe("plugin repository revisions", () => {
 					expect((yield* runtime.findKernelScript(old.slug))?.contentHash).toBe(newer.contentHash);
 					const newerRow = yield* runtime.findKernelScript(old.slug);
 					assert(newerRow);
-					yield* db
-						.insert(tables.automationTrigger)
-						.values({
-							depth: 0,
-							source: "api",
-							operation: "emit",
-							category: "signal",
-							occurredAt: expired,
-							id: "kernel-trigger",
-							resourceKind: "signal",
-							initiatorKind: "system",
-							payloadPrunedAt: expired,
-							executionId: "kernel-command",
-							rootExecutionId: "kernel-command",
-						});
-					yield* db
-						.insert(tables.automationRun)
-						.values({
-							stage: "after",
-							id: "kernel-run",
-							status: "failed",
-							delivery: "async",
-							scriptSlug: newer.slug,
-							artifactsExpireAt: expired,
-							triggerId: "kernel-trigger",
-							sandboxScriptId: newerRow.id,
-							hookSlug: "kernel.notification",
-							hookName: "Kernel notification",
-							scriptContentHash: newer.contentHash,
-							retryPolicy: DEFAULT_AUTOMATION_RETRY_POLICY,
-						});
+					yield* session.run((db) =>
+						db
+							.insert(tables.automationTrigger)
+							.values({
+								depth: 0,
+								source: "api",
+								operation: "emit",
+								category: "signal",
+								occurredAt: expired,
+								id: "kernel-trigger",
+								resourceKind: "signal",
+								initiatorKind: "system",
+								payloadPrunedAt: expired,
+								executionId: "kernel-command",
+								rootExecutionId: "kernel-command",
+							}),
+					);
+					yield* session.run((db) =>
+						db
+							.insert(tables.automationRun)
+							.values({
+								stage: "after",
+								id: "kernel-run",
+								status: "failed",
+								delivery: "async",
+								scriptSlug: newer.slug,
+								artifactsExpireAt: expired,
+								triggerId: "kernel-trigger",
+								sandboxScriptId: newerRow.id,
+								hookSlug: "kernel.notification",
+								hookName: "Kernel notification",
+								scriptContentHash: newer.contentHash,
+								retryPolicy: DEFAULT_AUTOMATION_RETRY_POLICY,
+							}),
+					);
 					yield* repository.persistKernelScript(old);
 					expect((yield* runtime.findKernelScript(old.slug))?.id).toBe(retained.id);
 					expect(
@@ -286,18 +302,24 @@ describe("plugin repository revisions", () => {
 						new Set(yield* repository.listPersistedLivenessContentHashes(cleanupNow)),
 						cleanupInput,
 					);
-					expect((yield* db.select().from(tables.sandboxScript)).length).toBe(2);
-					yield* db
-						.update(tables.automationRun)
-						.set({ sandboxScriptId: null })
-						.where(eq(tables.automationRun.id, "kernel-run"));
+					expect(yield* session.run((db) => db.select().from(tables.sandboxScript))).toHaveLength(
+						2,
+					);
+					yield* session.run((db) =>
+						db
+							.update(tables.automationRun)
+							.set({ sandboxScriptId: null })
+							.where(eq(tables.automationRun.id, "kernel-run")),
+					);
 					yield* repository.deleteUnreferencedScripts(
 						new Set(yield* repository.listPersistedLivenessContentHashes(cleanupNow)),
 						cleanupInput,
 					);
-					expect((yield* db.select().from(tables.sandboxScript)).map(({ id }) => id)).toEqual([
-						retained.id,
-					]);
+					expect(
+						(yield* session.run((db) => db.select().from(tables.sandboxScript))).map(
+							({ id }) => id,
+						),
+					).toEqual([retained.id]);
 				}),
 		);
 	});
@@ -380,21 +402,23 @@ describe("plugin repository revisions", () => {
 			"fences entity references by stable plugin ownership rather than a colliding schema slug",
 			() =>
 				Effect.gen(function* () {
-					const db = yield* (yield* DatabaseSession).current;
+					const session = yield* DatabaseSession;
 					const repository = yield* PluginRepository;
 					const first = yield* installRevisionPackage(revisionPackage("notes"), owner);
 					const other = yield* installRevisionPackage(
 						revisionPackage("notes"),
 						UserId.make("recipient"),
 					);
-					yield* db
-						.insert(tables.entity)
-						.values({
-							userId: owner,
-							name: "Owned notes",
-							entitySchemaSlug: "notes-entity",
-							entitySchemaPluginId: first.pluginId,
-						});
+					yield* session.run((db) =>
+						db
+							.insert(tables.entity)
+							.values({
+								userId: owner,
+								name: "Owned notes",
+								entitySchemaSlug: "notes-entity",
+								entitySchemaPluginId: first.pluginId,
+							}),
+					);
 					expect(
 						yield* repository.hasEntityReferences({
 							pluginId: first.pluginId,
@@ -416,7 +440,7 @@ describe("plugin repository revisions", () => {
 			"detects provider-backed references even when the entity has another definition owner",
 			() =>
 				Effect.gen(function* () {
-					const db = yield* (yield* DatabaseSession).current;
+					const session = yield* DatabaseSession;
 					const repository = yield* PluginRepository;
 					const installed = yield* installRevisionPackage(revisionPackage());
 					const provider = yield* repository.resolveProviderBySlugs({
@@ -424,14 +448,16 @@ describe("plugin repository revisions", () => {
 						providerSlug: "fixture-provider",
 					});
 					assert(provider);
-					yield* db
-						.insert(tables.entity)
-						.values({
-							userId: owner,
-							name: "Provider entity",
-							providerId: provider.id,
-							entitySchemaSlug: "kernel-entity",
-						});
+					yield* session.run((db) =>
+						db
+							.insert(tables.entity)
+							.values({
+								userId: owner,
+								name: "Provider entity",
+								providerId: provider.id,
+								entitySchemaSlug: "kernel-entity",
+							}),
+					);
 					expect(
 						yield* repository.hasEntityReferences({
 							entitySchemaSlugs: [],
@@ -445,25 +471,27 @@ describe("plugin repository revisions", () => {
 	layer(revisionDatabaseLayer)((test) => {
 		test.effect("fences integrations on the exact plugin and optional installation", () =>
 			Effect.gen(function* () {
-				const db = yield* (yield* DatabaseSession).current;
+				const session = yield* DatabaseSession;
 				const repository = yield* PluginRepository;
 				const first = yield* installRevisionPackage(revisionPackage("notes"), owner);
 				const second = yield* installRevisionPackage(
 					revisionPackage("notes"),
 					UserId.make("recipient"),
 				);
-				yield* db
-					.insert(tables.integration)
-					.values({
-						lot: "sink",
-						userId: owner,
-						providerSpecifics: {},
-						provider: "notes-sink",
-						clientProviderSpecifics: {},
-						webhookToken: crypto.randomUUID(),
-						pluginInstallationId: first.installation.id,
-						extraSettings: { disableOnContinuousErrors: false },
-					});
+				yield* session.run((db) =>
+					db
+						.insert(tables.integration)
+						.values({
+							lot: "sink",
+							userId: owner,
+							providerSpecifics: {},
+							provider: "notes-sink",
+							clientProviderSpecifics: {},
+							webhookToken: crypto.randomUUID(),
+							pluginInstallationId: first.installation.id,
+							extraSettings: { disableOnContinuousErrors: false },
+						}),
+				);
 				expect(yield* repository.hasIntegrationReferences({ pluginId: first.pluginId })).toBe(true);
 				expect(yield* repository.hasIntegrationReferences({ pluginId: second.pluginId })).toBe(
 					false,
@@ -513,11 +541,13 @@ describe("plugin repository revisions", () => {
 	layer(revisionDatabaseLayer)((test) => {
 		test.effect("updates provider operation pointers without changing retained script rows", () =>
 			Effect.gen(function* () {
-				const db = yield* (yield* DatabaseSession).current;
+				const session = yield* DatabaseSession;
 				const first = yield* installRevisionPackage(revisionPackage());
-				const old = yield* db.select().from(tables.sandboxProviderOperation);
+				const old = yield* session.run((db) => db.select().from(tables.sandboxProviderOperation));
 				yield* installRevisionPackage(revisionPackage("fixture", "v2"));
-				const current = yield* db.select().from(tables.sandboxProviderOperation);
+				const current = yield* session.run((db) =>
+					db.select().from(tables.sandboxProviderOperation),
+				);
 				expect(current.map(({ providerId }) => providerId)).toEqual(
 					old.map(({ providerId }) => providerId),
 				);
@@ -528,10 +558,12 @@ describe("plugin repository revisions", () => {
 					fields: {},
 				});
 				expect(
-					(yield* db
-						.select()
-						.from(tables.sandboxScript)
-						.where(eq(tables.sandboxScript.pluginRevisionId, first.revisionId))).length,
+					(yield* session.run((db) =>
+						db
+							.select()
+							.from(tables.sandboxScript)
+							.where(eq(tables.sandboxScript.pluginRevisionId, first.revisionId)),
+					)).length,
 				).toBe(5);
 			}),
 		);
@@ -540,12 +572,12 @@ describe("plugin repository revisions", () => {
 	layer(revisionDatabaseLayer)((test) => {
 		test.effect("deactivates package identity without immediately deleting scripts", () =>
 			Effect.gen(function* () {
-				const db = yield* (yield* DatabaseSession).current;
+				const session = yield* DatabaseSession;
 				const repository = yield* PluginRepository;
 				const installed = yield* installRevisionPackage(revisionPackage());
 				yield* repository.deactivate(installed.pluginId);
 				expect(yield* repository.listActiveSystemPlugins()).toEqual([]);
-				expect((yield* db.select().from(tables.sandboxScript)).length).toBe(5);
+				expect(yield* session.run((db) => db.select().from(tables.sandboxScript))).toHaveLength(5);
 			}),
 		);
 	});
@@ -555,46 +587,54 @@ describe("plugin repository revisions", () => {
 			"retains a complete old executable revision while a workflow can still call its siblings",
 			() =>
 				Effect.gen(function* () {
-					const db = yield* (yield* DatabaseSession).current;
+					const session = yield* DatabaseSession;
 					const repository = yield* PluginRepository;
 					const first = yield* installRevisionPackage(revisionPackage());
-					const [root] = yield* db
-						.select()
-						.from(tables.sandboxScript)
-						.where(
-							and(
-								eq(tables.sandboxScript.pluginRevisionId, first.revisionId),
-								eq(tables.sandboxScript.slug, "fixture.workflow"),
+					const [root] = yield* session.run((db) =>
+						db
+							.select()
+							.from(tables.sandboxScript)
+							.where(
+								and(
+									eq(tables.sandboxScript.pluginRevisionId, first.revisionId),
+									eq(tables.sandboxScript.slug, "fixture.workflow"),
+								),
 							),
-						);
+					);
 					assert(root);
-					yield* db
-						.insert(tables.sandboxWorkflowReference)
-						.values({
-							scriptId: root.id,
-							pluginId: first.pluginId,
-							executionId: "suspended",
-							contentHash: root.contentHash,
-							pluginInstallationId: first.installation.id,
-						});
+					yield* session.run((db) =>
+						db
+							.insert(tables.sandboxWorkflowReference)
+							.values({
+								scriptId: root.id,
+								pluginId: first.pluginId,
+								executionId: "suspended",
+								contentHash: root.contentHash,
+								pluginInstallationId: first.installation.id,
+							}),
+					);
 					yield* installRevisionPackage(revisionPackage("fixture", "v2"));
 					yield* repository.deleteUnreferencedScripts(new Set(), cleanupInput);
 					expect(
-						(yield* db
-							.select()
-							.from(tables.sandboxScript)
-							.where(eq(tables.sandboxScript.pluginRevisionId, first.revisionId))).length,
+						(yield* session.run((db) =>
+							db
+								.select()
+								.from(tables.sandboxScript)
+								.where(eq(tables.sandboxScript.pluginRevisionId, first.revisionId)),
+						)).length,
 					).toBe(5);
 					expect(yield* repository.listPersistedLivenessContentHashes(cleanupNow)).toContain(
 						"fixture.task-v1",
 					);
-					yield* db.delete(tables.sandboxWorkflowReference);
+					yield* session.run((db) => db.delete(tables.sandboxWorkflowReference));
 					yield* repository.deleteUnreferencedScripts(new Set(), cleanupInput);
 					expect(
-						yield* db
-							.select()
-							.from(tables.sandboxScript)
-							.where(eq(tables.sandboxScript.pluginRevisionId, first.revisionId)),
+						yield* session.run((db) =>
+							db
+								.select()
+								.from(tables.sandboxScript)
+								.where(eq(tables.sandboxScript.pluginRevisionId, first.revisionId)),
+						),
 					).toEqual([]);
 				}),
 		);
@@ -602,22 +642,24 @@ describe("plugin repository revisions", () => {
 	layer(revisionDatabaseLayer)((test) => {
 		test.effect("deletes only unreferenced inactive private tombstones", () =>
 			Effect.gen(function* () {
-				const db = yield* (yield* DatabaseSession).current;
+				const session = yield* DatabaseSession;
 				const repository = yield* PluginRepository;
 				const installations = yield* PluginInstallationRepository;
 				const installed = yield* installRevisionPackage(revisionPackage("notes"), owner);
 				yield* installations.remove(installed.installation.id);
 				yield* repository.deactivate(installed.pluginId);
 				expect(yield* repository.deleteInactiveUnreferencedPlugins(500)).toEqual([]);
-				yield* db
-					.update(tables.pluginInstallation)
-					.set({ uninstalledAt: expired })
-					.where(eq(tables.pluginInstallation.id, installed.installation.id));
+				yield* session.run((db) =>
+					db
+						.update(tables.pluginInstallation)
+						.set({ uninstalledAt: expired })
+						.where(eq(tables.pluginInstallation.id, installed.installation.id)),
+				);
 				yield* repository.pruneRevisionArtifacts({ ...cleanupInput, retryWindowDays: 7 });
 				expect(yield* repository.deleteInactiveUnreferencedPlugins(500)).toEqual([
 					{ id: installed.pluginId },
 				]);
-				expect(yield* db.select().from(tables.pluginRevision)).toEqual([]);
+				expect(yield* session.run((db) => db.select().from(tables.pluginRevision))).toEqual([]);
 			}),
 		);
 	});

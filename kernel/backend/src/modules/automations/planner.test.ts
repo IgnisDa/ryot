@@ -265,7 +265,7 @@ describe("LifecyclePlanner PostgreSQL", () => {
 			() =>
 				Effect.gen(function* () {
 					const planner = yield* LifecyclePlanner;
-					const db = yield* (yield* DatabaseSession).current;
+					const session = yield* DatabaseSession;
 					const installed = yield* installRevisionPackage(
 						eventPolicyPackage("v1", 7, "once-per-subject"),
 					);
@@ -289,12 +289,14 @@ describe("LifecyclePlanner PostgreSQL", () => {
 							payload: { ...trigger.payload, excludedOncePerSubjectPolicies: exclusions },
 						},
 					});
-					const [stored] = yield* db
-						.select()
-						.from(tables.automationTrigger)
-						.where(eq(tables.automationTrigger.id, trigger.id));
+					const [stored] = yield* session.run((db) =>
+						db
+							.select()
+							.from(tables.automationTrigger)
+							.where(eq(tables.automationTrigger.id, trigger.id)),
+					);
 					expect(stored?.payload).toEqual(result.trigger.payload);
-					expect(yield* db.select().from(tables.automationRun)).toEqual([]);
+					expect(yield* session.run((db) => db.select().from(tables.automationRun))).toEqual([]);
 					expect(
 						yield* planner.plan({ trigger, excludedOncePerSubjectPolicies: [a, z, a] }),
 					).toEqual({ ...result, wasCreated: false });
@@ -324,7 +326,9 @@ describe("LifecyclePlanner PostgreSQL", () => {
 					expect(accepted.runs).toHaveLength(1);
 					expect(accepted.trigger.blockedReason).toBeNull();
 					expect(
-						(yield* db.select().from(tables.automationRun)).map(({ triggerId }) => triggerId),
+						(yield* session.run((db) => db.select().from(tables.automationRun))).map(
+							({ triggerId }) => triggerId,
+						),
 					).toEqual(["remaining-budget"]);
 				}),
 		);
@@ -336,7 +340,7 @@ describe("LifecyclePlanner PostgreSQL", () => {
 			() =>
 				Effect.gen(function* () {
 					const planner = yield* LifecyclePlanner;
-					const db = yield* (yield* DatabaseSession).current;
+					const session = yield* DatabaseSession;
 					const value = eventPolicyPackage("v1", 7, "item");
 					const mixed = {
 						...value,
@@ -367,7 +371,7 @@ describe("LifecyclePlanner PostgreSQL", () => {
 					expect(second.policies).toEqual([
 						{ position: 7, batchFrequency: "item", runId: second.runs[0]?.id },
 					]);
-					const persisted = yield* db.select().from(tables.automationRun);
+					const persisted = yield* session.run((db) => db.select().from(tables.automationRun));
 					expect(persisted).toHaveLength(3);
 					expect(
 						persisted
@@ -577,7 +581,7 @@ describe("LifecyclePlanner PostgreSQL", () => {
 		test.effect("stores at most 100 distinct omitted hooks and accepts no partial runs", () =>
 			Effect.gen(function* () {
 				const planner = yield* LifecyclePlanner;
-				const db = yield* (yield* DatabaseSession).current;
+				const session = yield* DatabaseSession;
 				const value = hookPackage();
 				const hook = value.manifest.hooks.find(({ slug }) => slug === "fixture.changed");
 				assert(hook?.stage === "after");
@@ -604,10 +608,12 @@ describe("LifecyclePlanner PostgreSQL", () => {
 					policies: [],
 					trigger: { blockedReason: { hasRequiredHooks: true } },
 				});
-				const [trigger] = yield* db
-					.select()
-					.from(tables.automationTrigger)
-					.where(eq(tables.automationTrigger.id, "bounded"));
+				const [trigger] = yield* session.run((db) =>
+					db
+						.select()
+						.from(tables.automationTrigger)
+						.where(eq(tables.automationTrigger.id, "bounded")),
+				);
 				expect(trigger?.blockedReason?.omittedHooks).toHaveLength(100);
 				expect(blocked.trigger.blockedReason).toEqual(trigger?.blockedReason);
 				expect(
@@ -631,7 +637,7 @@ describe("LifecyclePlanner PostgreSQL", () => {
 					trigger: boundedDescendant,
 				});
 				expect(replayWithLargerBudget).toEqual({ ...blocked, wasCreated: false });
-				expect(yield* db.select().from(tables.automationRun)).toEqual([]);
+				expect(yield* session.run((db) => db.select().from(tables.automationRun))).toEqual([]);
 			}),
 		);
 	});
@@ -690,7 +696,7 @@ describe("LifecyclePlanner PostgreSQL", () => {
 			() =>
 				Effect.gen(function* () {
 					const planner = yield* LifecyclePlanner;
-					const db = yield* (yield* DatabaseSession).current;
+					const session = yield* DatabaseSession;
 					const installed = yield* installRevisionPackage(hookPackage());
 					const policies = yield* planner.plan({ trigger: entityTrigger("request", "request") });
 					expect(
@@ -742,10 +748,12 @@ describe("LifecyclePlanner PostgreSQL", () => {
 						}),
 					).toMatchObject({ runs: [], policies: [], trigger: { blockedReason: null } });
 					expect(
-						yield* db
-							.select()
-							.from(tables.automationTrigger)
-							.where(eq(tables.automationTrigger.id, "filtered")),
+						yield* session.run((db) =>
+							db
+								.select()
+								.from(tables.automationTrigger)
+								.where(eq(tables.automationTrigger.id, "filtered")),
+						),
 					).toHaveLength(1);
 					expect(
 						yield* planner
@@ -764,11 +772,12 @@ describe("LifecyclePlanner PostgreSQL", () => {
 			() =>
 				Effect.gen(function* () {
 					const planner = yield* LifecyclePlanner;
-					const db = yield* (yield* DatabaseSession).current;
+					const session = yield* DatabaseSession;
 					const installed = yield* installRevisionPackage(hookPackage(), owner);
 					const ready = yield* planner.plan({ trigger: entityTrigger("ready") });
 					expect(ready.runs).toHaveLength(1);
-					assert(ready.runs[0]?.pluginConfigRevisionId);
+					const activeConfigRevisionId = ready.runs[0]?.pluginConfigRevisionId;
+					assert(activeConfigRevisionId);
 					expect(
 						yield* planner.plan({ trigger: { ...entityTrigger("other"), scopeUserId: recipient } }),
 					).toMatchObject({ runs: [], policies: [] });
@@ -787,27 +796,33 @@ describe("LifecyclePlanner PostgreSQL", () => {
 						],
 						["no-config", { uninstalledAt: null, activeConfigRevisionId: null }],
 					] as const) {
-						yield* db
-							.update(tables.pluginInstallation)
-							.set(state)
-							.where(eq(tables.pluginInstallation.id, installed.installation.id));
+						yield* session.run((db) =>
+							db
+								.update(tables.pluginInstallation)
+								.set(state)
+								.where(eq(tables.pluginInstallation.id, installed.installation.id)),
+						);
 						expect(yield* nested(planner.plan({ trigger: entityTrigger(id) }))).toMatchObject({
 							runs: [],
 							policies: [],
 						});
 					}
-					const configs = yield* db.select().from(tables.pluginConfigRevision);
+					const configs = yield* session.run((db) => db.select().from(tables.pluginConfigRevision));
 					expect(configs).toHaveLength(1);
-					const [state] = yield* db
-						.select()
-						.from(tables.pluginInstallation)
-						.where(eq(tables.pluginInstallation.id, installed.installation.id));
+					const [state] = yield* session.run((db) =>
+						db
+							.select()
+							.from(tables.pluginInstallation)
+							.where(eq(tables.pluginInstallation.id, installed.installation.id)),
+					);
 					expect(state?.activeConfigRevisionId).toBeNull();
 					yield* installRevisionPackage(hookPackage("v2"), owner);
-					yield* db
-						.update(tables.pluginInstallation)
-						.set({ activeConfigRevisionId: ready.runs[0].pluginConfigRevisionId })
-						.where(eq(tables.pluginInstallation.id, installed.installation.id));
+					yield* session.run((db) =>
+						db
+							.update(tables.pluginInstallation)
+							.set({ activeConfigRevisionId })
+							.where(eq(tables.pluginInstallation.id, installed.installation.id)),
+					);
 					expect(yield* nested(planner.plan({ trigger: entityTrigger("mismatch") }))).toMatchObject(
 						{ runs: [], policies: [] },
 					);
@@ -825,7 +840,7 @@ describe("LifecyclePlanner PostgreSQL", () => {
 			() =>
 				Effect.gen(function* () {
 					const planner = yield* LifecyclePlanner;
-					const db = yield* (yield* DatabaseSession).current;
+					const session = yield* DatabaseSession;
 					const installations = yield* PluginInstallationRepository;
 					const installed = yield* installRevisionPackage(revisionPackage());
 					yield* installations.upsertState({
@@ -836,15 +851,17 @@ describe("LifecyclePlanner PostgreSQL", () => {
 						isDisabled: false,
 						pluginId: installed.pluginId,
 					});
-					yield* db
-						.insert(tables.notificationSubscription)
-						.values(
-							[owner, recipient].map((userId) => ({
-								userId,
-								signalSchemaSlug: "fixture.signal",
-								signalSchemaPluginId: installed.pluginId,
-							})),
-						);
+					yield* session.run((db) =>
+						db
+							.insert(tables.notificationSubscription)
+							.values(
+								[owner, recipient].map((userId) => ({
+									userId,
+									signalSchemaSlug: "fixture.signal",
+									signalSchemaPluginId: installed.pluginId,
+								})),
+							),
+					);
 					const trigger = triggerFixture("trigger-test", PluginId.make(installed.pluginId));
 					const planned = yield* planner.plan({
 						trigger,
@@ -855,7 +872,9 @@ describe("LifecyclePlanner PostgreSQL", () => {
 						recipient,
 					]);
 					expect(new Set(planned.runs.map(({ id }) => id)).size).toBe(2);
-					yield* db.update(tables.notificationSubscription).set({ isActive: false });
+					yield* session.run((db) =>
+						db.update(tables.notificationSubscription).set({ isActive: false }),
+					);
 					expect(planned.wasCreated).toBe(true);
 					expect(yield* planner.plan({ trigger, recipients: [owner, recipient] })).toEqual({
 						...planned,
@@ -872,10 +891,12 @@ describe("LifecyclePlanner PostgreSQL", () => {
 						wasCreated: false,
 					});
 					expect(
-						(yield* db
-							.select()
-							.from(tables.automationTriggerRecipient)
-							.where(eq(tables.automationTriggerRecipient.triggerId, trigger.id)))
+						(yield* session.run((db) =>
+							db
+								.select()
+								.from(tables.automationTriggerRecipient)
+								.where(eq(tables.automationTriggerRecipient.triggerId, trigger.id)),
+						))
 							.map(({ userId }) => userId)
 							.sort(),
 					).toEqual([owner, recipient]);
@@ -890,7 +911,7 @@ describe("LifecyclePlanner PostgreSQL", () => {
 				Effect.gen(function* () {
 					const planner = yield* LifecyclePlanner;
 					const plugins = yield* PluginRepository;
-					const db = yield* (yield* DatabaseSession).current;
+					const session = yield* DatabaseSession;
 					yield* seedKernelDefinitions();
 					const script = {
 						source: "v1",
@@ -918,13 +939,15 @@ describe("LifecyclePlanner PostgreSQL", () => {
 						contentHash: "kernel-v2",
 					});
 					yield* plugins.persistKernelScript(script);
-					yield* db
-						.insert(tables.notificationSubscription)
-						.values({
-							userId: owner,
-							signalSchemaPluginId: null,
-							signalSchemaSlug: "integration.disabled",
-						});
+					yield* session.run((db) =>
+						db
+							.insert(tables.notificationSubscription)
+							.values({
+								userId: owner,
+								signalSchemaPluginId: null,
+								signalSchemaSlug: "integration.disabled",
+							}),
+					);
 					const trigger = triggerFixture("kernel");
 					assert(trigger.payload?.resource === "signal");
 					const planned = yield* planner.plan({
@@ -961,7 +984,7 @@ describe("LifecyclePlanner PostgreSQL", () => {
 				Effect.gen(function* () {
 					const planner = yield* LifecyclePlanner;
 					const triggers = yield* AutomationTriggerRepository;
-					const db = yield* (yield* DatabaseSession).current;
+					const session = yield* DatabaseSession;
 					yield* installRevisionPackage(hookPackage());
 					const firstTrigger = asDescendant(entityTrigger("first"));
 					const first = yield* planner.plan({ trigger: firstTrigger });
@@ -996,11 +1019,12 @@ describe("LifecyclePlanner PostgreSQL", () => {
 					const failed = yield* (yield* DatabaseSession)
 						.transaction(
 							Effect.gen(function* () {
-								const transaction = yield* (yield* DatabaseSession).current;
-								yield* transaction
-									.update(tables.user)
-									.set({ name: "must roll back" })
-									.where(eq(tables.user.id, owner));
+								yield* (yield* DatabaseSession).run((db) =>
+									db
+										.update(tables.user)
+										.set({ name: "must roll back" })
+										.where(eq(tables.user.id, owner)),
+								);
 								yield* planner.plan({ trigger: entityTrigger("rollback") });
 								return yield* planner.plan({
 									trigger: { ...firstTrigger, scopeUserId: recipient },
@@ -1010,7 +1034,9 @@ describe("LifecyclePlanner PostgreSQL", () => {
 						.pipe(Effect.flip);
 					expect(failed).toMatchObject({ _tag: "DbError" });
 					expect(yield* triggers.findById(AutomationTriggerId.make("rollback"))).toBeNull();
-					const [user] = yield* db.select().from(tables.user).where(eq(tables.user.id, owner));
+					const [user] = yield* session.run((db) =>
+						db.select().from(tables.user).where(eq(tables.user.id, owner)),
+					);
 					expect(user?.name).toBe("Owner");
 				}),
 		);
