@@ -235,7 +235,11 @@ export default defineScript({
   output: Schema.Struct({ keys: Schema.Array(Schema.String), value: Schema.NullOr(jsonValueSchema) }),
   run: (_input, host) => Effect.gen(function* () {
     const value = yield* host.getCachedValue("redirect-check");
-    return { keys: Object.keys(host).sort(), value };
+    const keys: string[] = [];
+    for (const key in host) {
+      keys.push(key);
+    }
+    return { keys: keys.sort(), value };
   }),
 });
 `;

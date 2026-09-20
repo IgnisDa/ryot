@@ -4,7 +4,8 @@ export const ingestionReadinessMetadataSql = (alias: string) => `(SELECT jsonb_b
 		'requiredPluginConfigKeys', script->'requiredPluginConfigKeys',
 		'optionalPluginConfigKeys', script->'optionalPluginConfigKeys',
 		'oauthConnectionFields', script->'oauthConnectionFields',
-		'executableDependencies', script->'executableDependencies'
+		'executableDependencies', script->'executableDependencies',
+		'capabilities', script->'capabilities'
 	)) FROM jsonb_array_elements(revision.manifest->'scripts') script), '[]'::jsonb),
 	'workflows', COALESCE((SELECT jsonb_agg(jsonb_build_object('slug', workflow->'slug', 'scriptSlug', workflow->'scriptSlug')) FROM jsonb_array_elements(revision.manifest->'workflows') workflow), '[]'::jsonb),
 	'oauthProviders', COALESCE((SELECT jsonb_agg(jsonb_build_object('slug', provider->'slug', 'clientIdConfigKey', provider->'clientIdConfigKey', 'clientSecretConfigKey', provider->'clientSecretConfigKey')) FROM jsonb_array_elements(revision.manifest->'oauthProviders') provider), '[]'::jsonb),

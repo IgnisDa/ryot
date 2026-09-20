@@ -59,6 +59,7 @@ describe("sandbox limits", () => {
 				memoryBytes: 402_653_184,
 				diagnosticBytes: 262_144,
 				javascriptBytes: 1_048_576,
+				executionAnalysisSteps: 100_000,
 			},
 		});
 	});

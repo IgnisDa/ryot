@@ -18,6 +18,7 @@ const readinessFields = {
 		scripts: [
 			{
 				slug: "root",
+				capabilities: [],
 				oauthConnectionFields: [],
 				executableDependencies: [],
 				requiredPluginConfigKeys: [],

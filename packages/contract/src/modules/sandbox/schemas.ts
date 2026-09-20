@@ -19,6 +19,7 @@ import {
 	AutomationPolicyInputProjection,
 } from "../automations/lifecycle";
 import { SandboxExecutionMetadata } from "../plugins/execution-metadata";
+import { SandboxBoundaryReason } from "./boundary-reason";
 import { POLICY_SAFE_SANDBOX_CAPABILITIES } from "./wire";
 
 export const ProviderInformation = Schema.Struct({
@@ -200,6 +201,7 @@ export const SandboxExecutionError = Schema.Struct({
 	line: Schema.optional(Schema.Finite),
 	stack: Schema.optional(Schema.String),
 	column: Schema.optional(Schema.Finite),
+	data: Schema.optional(SandboxBoundaryReason),
 	phase: Schema.Literals(["load", "input", "execute", "output"]),
 });
 
