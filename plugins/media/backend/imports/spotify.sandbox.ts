@@ -18,7 +18,6 @@ export const manifest = defineManifest({
 	kind: "script",
 	slug: "import.spotify",
 	name: "Collect Spotify history",
-	capabilities: ["artifact-read", "scratch"],
 });
 const Identity = Schema.Struct({
 	ts: Schema.NullishOr(Schema.String),

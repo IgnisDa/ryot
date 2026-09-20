@@ -10,7 +10,6 @@ import { MediaApplicationInput, MediaApplicationOutput } from "../imports/proces
 
 export const manifest = defineManifest({
 	kind: "workflow",
-	capabilities: [],
 	name: "Apply media capture segments",
 	slug: "workflow.media-import-application",
 });

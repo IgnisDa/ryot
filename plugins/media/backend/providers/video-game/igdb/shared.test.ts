@@ -1,5 +1,5 @@
 import { describe, expect, it } from "@effect/vitest";
-import type { SandboxHost } from "@ryot-app/sandbox-sdk/core";
+import type { ScriptHost } from "@ryot-app/sandbox-sdk/core";
 import { Effect } from "@ryot-app/sandbox-sdk/effect";
 import { defineSandboxTestHost, runSandboxTestScript } from "@ryot-app/sandbox-sdk/testing";
 import type { JsonValue } from "@ryot-app/sandbox-sdk/wire";
@@ -9,12 +9,15 @@ import searchOptions, { manifest as searchOptionsManifest } from "./search-optio
 import search, { manifest as searchManifest } from "./search.sandbox";
 import { manifest } from "./shared";
 
-type IgdbVideoGameHost = SandboxHost<typeof manifest.capabilities>;
+type IgdbVideoGameHost = Pick<
+	ScriptHost,
+	"httpCall" | "getPluginConfig" | "getCachedValue" | "setCachedValue"
+>;
 const httpSuccess = (body: unknown, headers: Record<string, string> = {}) =>
 	Effect.succeed({ headers, status: 200, body: JSON.stringify(body) });
 const tokenResponse = () =>
 	httpSuccess({ expires_in: 3600, token_type: "bearer", access_token: "token" });
-const makeHost = (overrides: Partial<IgdbVideoGameHost>): IgdbVideoGameHost =>
+const makeHost = (overrides: Partial<IgdbVideoGameHost>) =>
 	defineSandboxTestHost(manifest, {
 		getCachedValue: () => Effect.succeed(null),
 		setCachedValue: () => Effect.succeed(null),
@@ -31,27 +34,15 @@ const makeHost = (overrides: Partial<IgdbVideoGameHost>): IgdbVideoGameHost =>
 const execution = { metadata: {}, sandboxScriptId: "script_test" };
 
 describe("video-game.igdb sandbox script", () => {
-	it("declares one narrowly scoped script per operation", () => {
+	it("declares a script for each operation", () => {
 		expect([
-			[searchManifest.slug, search.operation, searchManifest.capabilities],
-			[detailsManifest.slug, details.operation, detailsManifest.capabilities],
-			[searchOptionsManifest.slug, searchOptions.operation, searchOptionsManifest.capabilities],
+			[searchManifest.slug, search.operation],
+			[detailsManifest.slug, details.operation],
+			[searchOptionsManifest.slug, searchOptions.operation],
 		]).toEqual([
-			[
-				"video-game.igdb.search",
-				"search",
-				["httpCall", "getPluginConfig", "getCachedValue", "setCachedValue"],
-			],
-			[
-				"video-game.igdb.details",
-				"details",
-				["httpCall", "getPluginConfig", "getCachedValue", "setCachedValue"],
-			],
-			[
-				"video-game.igdb.search-options",
-				"search-options",
-				["httpCall", "getPluginConfig", "getCachedValue", "setCachedValue"],
-			],
+			["video-game.igdb.search", "search"],
+			["video-game.igdb.details", "details"],
+			["video-game.igdb.search-options", "search-options"],
 		]);
 	});
 

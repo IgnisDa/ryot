@@ -19,7 +19,6 @@ export const manifest = defineManifest({
 	kind: "provider",
 	name: "GiantBomb",
 	slug: "company.giant-bomb",
-	capabilities: ["httpCall", "getPluginConfig"],
 });
 
 const getGameGuid = (game: Record<string, unknown> | null) => {

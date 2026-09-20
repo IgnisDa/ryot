@@ -15,7 +15,6 @@ import {
 export const manifest = defineManifest({
 	kind: "provider",
 	name: "MusicBrainz",
-	capabilities: ["httpCall"],
 	slug: "music.music-brainz",
 });
 

@@ -12,7 +12,6 @@ import { buildHistory, YoutubeMusicSettings } from "./shared";
 
 export const manifest = defineManifest({
 	kind: "script",
-	capabilities: ["httpCall"],
 	name: "YouTube Music history",
 	slug: "music.youtube-music.history",
 });

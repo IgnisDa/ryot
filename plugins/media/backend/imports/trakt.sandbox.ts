@@ -8,7 +8,6 @@ export const manifest = defineManifest({
 	kind: "script",
 	slug: "import.trakt",
 	name: "Collect Trakt API",
-	capabilities: ["httpCall", "getPluginConfig", "artifact-read", "scratch"],
 });
 export default defineScript({
 	manifest,

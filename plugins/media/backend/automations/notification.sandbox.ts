@@ -13,7 +13,6 @@ export const manifest = defineManifest({
 	kind: "automation",
 	automationType: "automation",
 	name: "Media Signal Notification",
-	capabilities: ["sendNotification"],
 	slug: "automation.media-notification",
 	inputProjection: {
 		signal: {

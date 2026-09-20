@@ -15,7 +15,6 @@ export const manifest = defineManifest({
 	kind: "provider",
 	name: "Hardcover",
 	slug: "company.hardcover",
-	capabilities: ["httpCall", "getPluginConfig"],
 });
 
 export const search = defineProvider({

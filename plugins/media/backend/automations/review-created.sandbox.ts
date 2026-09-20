@@ -8,7 +8,6 @@ export const manifest = defineManifest({
 	automationType: "automation",
 	name: "Review Created Detector",
 	slug: "automation.review-created",
-	capabilities: ["executeRyotql", "emitSignal"],
 	inputProjection: { event: { properties: [], compareProperties: [] } },
 });
 

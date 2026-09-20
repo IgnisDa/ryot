@@ -5,12 +5,7 @@ import { defineProvider } from "@ryot-app/sandbox-sdk/provider";
 import { asRecord, numberValue, stringValue } from "../../../lib/records";
 import { getIdentifier, loadMetronJson } from "../../../lib/vendors/metron";
 
-export const manifest = defineManifest({
-	name: "Metron",
-	kind: "provider",
-	slug: "person.metron",
-	capabilities: ["httpCall", "getPluginConfig"],
-});
+export const manifest = defineManifest({ name: "Metron", kind: "provider", slug: "person.metron" });
 
 const parseYear = (value: unknown) => {
 	const date = stringValue(value);

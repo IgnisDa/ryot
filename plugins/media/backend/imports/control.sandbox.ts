@@ -9,7 +9,6 @@ import { MediaControlInput, MediaControlOutput } from "./references";
 export const manifest = defineManifest({
 	kind: "script",
 	slug: "import.control",
-	capabilities: ["artifact-read"],
 	name: "Read media import settings and archive directory",
 });
 export default defineScript({

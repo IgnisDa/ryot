@@ -22,7 +22,6 @@ export const manifest = defineManifest({
 	name: "PokeAPI",
 	kind: "provider",
 	slug: "pokemon.pokeapi",
-	capabilities: ["httpCall"],
 });
 
 const ALTERNATE_FORM_ID_START = 10_000;

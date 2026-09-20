@@ -7,7 +7,6 @@ export const manifest = defineManifest({
 	kind: "provider",
 	name: "TMDB Movie Details",
 	slug: "movie.tmdb.details",
-	capabilities: ["httpCall", "getPluginConfig"],
 });
 
 export default defineProvider({ manifest, run: details.run, operation: "details" });

@@ -9,7 +9,6 @@ import { mediaMonitoringSweepRecipe } from "../lib/media-monitoring-ryotql";
 
 export const manifest = defineManifest({
 	kind: "script",
-	capabilities: ["executeRyotql"],
 	slug: "media-monitoring-targets",
 	name: "List media monitoring targets",
 });

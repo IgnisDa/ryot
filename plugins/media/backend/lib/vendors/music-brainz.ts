@@ -1,9 +1,9 @@
-import type { SandboxHost } from "@ryot-app/sandbox-sdk/core";
+import type { ScriptHost } from "@ryot-app/sandbox-sdk/core";
 import { DateTime, Effect, Option } from "@ryot-app/sandbox-sdk/effect";
 
 import { asRecord, decodeJsonResponse, parseJsonResponse, stringValue } from "../records";
 
-export type MusicBrainzHost = SandboxHost<readonly ["httpCall"]>;
+export type MusicBrainzHost = Pick<ScriptHost, "httpCall">;
 
 const MB_BASE = "https://musicbrainz.org/ws/2";
 const CAA_BASE = "https://coverartarchive.org";
