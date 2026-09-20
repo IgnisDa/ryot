@@ -1,9 +1,9 @@
 import { assert, expect, layer } from "@effect/vitest";
 import { SandboxScriptId } from "@ryot-app/contract/schema/brands";
-import { eq, sql } from "drizzle-orm";
+import { eq } from "drizzle-orm";
 import { Context, Deferred, Effect, Fiber, Layer, Redacted } from "effect";
 
-import { PLUGIN_INGESTION_ADVISORY_LOCK_KEY } from "#lib/infrastructure/db/advisory-locks";
+import { lockPluginIngestionShared } from "#lib/infrastructure/db/advisory-locks";
 import * as tables from "#lib/infrastructure/db/schema/tables/combined";
 import { DatabaseSession } from "#lib/infrastructure/db/session";
 import { makeAppConfigLayer, makeConfigProviderLayer } from "#lib/test-utils/effect";
@@ -153,11 +153,7 @@ layer(realCollectorLayer, { excludeTestServices: true })((test) => {
 				const holder = yield* Effect.forkChild(
 					admin.transaction(
 						Effect.gen(function* () {
-							yield* admin.run((db) =>
-								db.execute(
-									sql`select pg_advisory_xact_lock_shared(hashtext(${PLUGIN_INGESTION_ADVISORY_LOCK_KEY}))`,
-								),
-							);
+							yield* lockPluginIngestionShared(admin);
 							yield* Deferred.succeed(held, undefined);
 							yield* Deferred.await(release);
 						}),

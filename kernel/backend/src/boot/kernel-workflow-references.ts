@@ -22,7 +22,6 @@ import {
 import { IsoUtcString } from "@ryot-app/contract/schema/utils";
 import { genericImportKernelInputSchema } from "@ryot-app/sandbox-sdk/imports";
 import { jsonValueSchema } from "@ryot-app/sandbox-sdk/wire";
-import { stableStringify } from "@ryot-app/ts-utils/json";
 import { isObjectRecord } from "@ryot-app/ts-utils/predicates";
 import { DateTime, Effect, Exit, Layer, Option, Schema } from "effect";
 import { WorkflowEngine } from "effect/workflow/WorkflowEngine";
@@ -37,6 +36,8 @@ import { SandboxArtifactStore } from "#lib/infrastructure/sandbox-runtime/artifa
 import {
 	SandboxExecutionAuthority,
 	SandboxPluginRevision,
+	samePluginPin,
+	sameRevisionPin,
 	sandboxSubjectUserId,
 	type SandboxExecutionPrincipal,
 } from "#lib/infrastructure/sandbox-runtime/execution-principal";
@@ -88,7 +89,7 @@ const ProviderEntityPopulationReferenceInput = Schema.Struct({
 
 const EventStreamDispatchReferenceInput = Schema.Struct({ id: Schema.String });
 
-const lifecycleCommand = (
+const wireLifecycleCommand = (
 	callerAuthority: SandboxExecutionPrincipal,
 	lane: ExecutionLane,
 	executionId: string,
@@ -96,38 +97,36 @@ const lifecycleCommand = (
 	occurredAt: LifecycleCommand["occurredAt"],
 	source: "api" | "import" | "integration" | "provider-refresh",
 	attribution: { importRunId?: ImportRunId; integrationId?: IntegrationId } = {},
-): DomainLifecycleCommand => {
+): LifecycleCommand => {
 	const subject = callerAuthority.subject;
 	if (subject.type === "automation-run") {
-		return {
-			...Schema.decodeSync(LifecycleCommand)({
-				occurredAt,
-				itemIdentity,
-				accountGeneration: subject.accountGeneration,
-				causation: automationLifecycleCausation(subject, AutomationExecutionId.make(executionId)),
-			}),
-			writeContext: callerAuthority,
-		};
+		return Schema.decodeSync(LifecycleCommand)({
+			occurredAt,
+			itemIdentity,
+			accountGeneration: subject.accountGeneration,
+			causation: automationLifecycleCausation(subject, AutomationExecutionId.make(executionId)),
+		});
 	}
 	const integrationId = subject.type === "user" ? subject.integrationId : undefined;
 	const attributedIntegrationId = integrationId ?? attribution.integrationId;
-	return {
-		...rootLifecycleCommand({
-			...lifecycleActor(subject.type === "user" ? subject : null),
-			lane,
-			occurredAt,
-			itemIdentity,
-			executionId: AutomationExecutionId.make(executionId),
-			source: integrationId === undefined ? source : "integration",
-			...(attribution.importRunId === undefined ? {} : { importRunId: attribution.importRunId }),
-			...(attributedIntegrationId === undefined ? {} : { integrationId: attributedIntegrationId }),
-			...(source === "provider-refresh"
-				? { providerExecutionId: AutomationExecutionId.make(executionId) }
-				: {}),
-		}),
-		writeContext: callerAuthority,
-	};
+	return rootLifecycleCommand({
+		...lifecycleActor(subject.type === "user" ? subject : null),
+		lane,
+		occurredAt,
+		itemIdentity,
+		executionId: AutomationExecutionId.make(executionId),
+		source: integrationId === undefined ? source : "integration",
+		...(attribution.importRunId === undefined ? {} : { importRunId: attribution.importRunId }),
+		...(attributedIntegrationId === undefined ? {} : { integrationId: attributedIntegrationId }),
+		...(source === "provider-refresh"
+			? { providerExecutionId: AutomationExecutionId.make(executionId) }
+			: {}),
+	});
 };
+
+const lifecycleCommand = (
+	...args: Parameters<typeof wireLifecycleCommand>
+): DomainLifecycleCommand => ({ ...wireLifecycleCommand(...args), writeContext: args[0] });
 
 const requireOwned = <A, E, R>(lookup: Effect.Effect<A | null, E, R>, message: string) =>
 	lookup.pipe(
@@ -192,7 +191,6 @@ export const KernelWorkflowReferencesLive = Layer.effect(
 			execute: (
 				workflowSlug,
 				input,
-				subject,
 				lane,
 				executionId,
 				_parentExecutionId,
@@ -200,12 +198,7 @@ export const KernelWorkflowReferencesLive = Layer.effect(
 				artifactOwnerExecutionId,
 			) =>
 				Effect.gen(function* () {
-					if (stableStringify(subject) !== stableStringify(callerAuthority.subject)) {
-						return yield* new SandboxRunError({
-							kind: "script-failure",
-							message: "Kernel workflow subject does not match the caller authority",
-						});
-					}
+					const subject = callerAuthority.subject;
 					yield* executionAuthority.resolve(callerAuthority);
 					const callerPlugin = callerAuthority.pluginRevision;
 					const userId = sandboxSubjectUserId(subject);
@@ -387,8 +380,7 @@ export const KernelWorkflowReferencesLive = Layer.effect(
 							!callerPlugin ||
 							work.key.eventSchemaPluginId !== callerPlugin.id ||
 							workPin?.id !== callerPlugin.id ||
-							workPin.revisionId !== callerPlugin.revisionId ||
-							workPin.configRevisionId !== callerPlugin.configRevisionId
+							!sameRevisionPin(workPin, callerPlugin)
 						) {
 							return yield* new SandboxRunError({
 								kind: "script-failure",
@@ -428,7 +420,7 @@ export const KernelWorkflowReferencesLive = Layer.effect(
 					if (workflowSlug === KERNEL_PROCESS_IMPORT_CHUNKS_WORKFLOW) {
 						const rawInput = isObjectRecord(input) ? input : {};
 						const rawRunId = Reflect.get(rawInput, "runId");
-						const command = lifecycleCommand(
+						const command = wireLifecycleCommand(
 							callerAuthority,
 							lane,
 							typeof rawRunId === "string" ? rawRunId : executionId,
@@ -471,18 +463,14 @@ export const KernelWorkflowReferencesLive = Layer.effect(
 								message: "Ingestion run is not running",
 							});
 						}
-						if (
-							!callerPlugin ||
-							run.pins.pluginRevisionId !== callerPlugin.revisionId ||
-							run.pins.pluginConfigRevisionId !== callerPlugin.configRevisionId
-						) {
+						if (!callerPlugin || !samePluginPin(callerPlugin, run.pins)) {
 							return yield* new SandboxRunError({
 								kind: "script-failure",
 								message: "Ingestion run does not match the exact caller plugin pin",
 							});
 						}
-						const acceptedCommand = { ...command, occurredAt: IsoUtcString.make(run.acceptedAt) };
-						const { writeContext: _writeContext, ...wireCommand } = acceptedCommand;
+						const wireCommand = { ...command, occurredAt: IsoUtcString.make(run.acceptedAt) };
+						const acceptedCommand = { ...wireCommand, writeContext: callerAuthority };
 						const decodedInput = yield* Schema.decodeUnknownEffect(genericImportKernelInputSchema)({
 							...rawInput,
 							command: wireCommand,

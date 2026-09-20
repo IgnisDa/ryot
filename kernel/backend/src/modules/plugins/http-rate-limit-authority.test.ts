@@ -10,7 +10,6 @@ import { PluginHttpRateLimitAuthority } from "./http-rate-limit-authority";
 import { PluginRepository } from "./repository";
 
 const declarations = (name: string, key: string, origin: string) => ({
-	scope: "system" as const,
 	owner: definitionOwner(name),
 	packageId: PluginPackageId.make(`test/${name}`),
 	httpRateLimits: [{ key, requests: 5, origins: [origin], intervalMs: 1_000 }],

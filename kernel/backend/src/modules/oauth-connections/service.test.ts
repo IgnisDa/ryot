@@ -4,7 +4,12 @@ import type { CurrentUserValue } from "@ryot-app/contract/auth-middleware";
 import type { OAuthConnectionClient } from "@ryot-app/contract/modules/oauth-connections/schemas";
 import { pluginConfigEnvironmentKey } from "@ryot-app/contract/modules/plugins/plugin-config";
 import type { IntegrationId, PluginPackageId } from "@ryot-app/contract/schema/brands";
-import { ImportRunId, OAuthConnectionId, UserId } from "@ryot-app/contract/schema/brands";
+import {
+	ImportRunId,
+	OAuthConnectionId,
+	pluginPackageSegments,
+	UserId,
+} from "@ryot-app/contract/schema/brands";
 import { CryptoHasher } from "bun";
 import { eq } from "drizzle-orm";
 import {
@@ -214,14 +219,25 @@ const installOAuthPlugin = (
 	});
 };
 
-const providerReference = Effect.fn(function* (slug: string) {
+const registeredProvider = Effect.fn(function* (slug: string) {
 	const rows = (yield* (yield* IntegrationProviderCatalog).listResolvedForUser(owner)).filter(
 		({ provider }) => provider.slug === slug,
 	);
 	assert(rows.length === 1);
 	const [row] = rows;
 	assert(row);
-	return row.provider.reference;
+	return row.provider;
+});
+
+const providerReference = Effect.fn(function* (slug: string) {
+	return (yield* registeredProvider(slug)).reference;
+});
+
+const callbackPath = Effect.fn(function* (slug: string, oauthProviderSlug: string) {
+	return {
+		oauthProviderSlug,
+		...pluginPackageSegments((yield* registeredProvider(slug)).packageId),
+	};
 });
 
 const fragmentOf = (location: string) => new URLSearchParams(location.split("#")[1] ?? "");
@@ -244,12 +260,11 @@ const authorize = Effect.fn(function* (
 const callback = (state: string, overrides: Record<string, string> = {}) =>
 	Effect.gen(function* () {
 		const service = yield* OAuthConnectionsService;
-		const reference = yield* providerReference("oauth-yank");
-		assert(reference.owner.kind === "plugin");
-		return yield* service.callback(
-			{ oauthProviderSlug: "account", pluginId: reference.owner.pluginId },
-			{ state, code: "auth-code-1", ...overrides },
-		);
+		return yield* service.callback(yield* callbackPath("oauth-yank", "account"), {
+			state,
+			code: "auth-code-1",
+			...overrides,
+		});
 	});
 
 const connect = Effect.fn(function* (user: UserId, field = "account") {
@@ -469,6 +484,7 @@ describe("OAuth connections", () => {
 			});
 			const service = yield* OAuthConnectionsService;
 			const endpoint = yield* FakeTokenEndpoint;
+			const path = yield* callbackPath("oauth-yank", "account");
 
 			const { state, authorizeUrl, connectionId } = yield* authorize(owner);
 			const authorizeParameters = new URL(authorizeUrl).searchParams;
@@ -480,7 +496,7 @@ describe("OAuth connections", () => {
 				response_type: "code",
 				client_id: "client-1",
 				code_challenge_method: "S256",
-				redirect_uri: `http://localhost:3000/api/oauth-connections/providers/${installed.pluginId}/account/callback`,
+				redirect_uri: `http://localhost:3000/api/oauth-connections/providers/${path.publisher}/${path.name}/account/callback`,
 			});
 			expect(yield* connectionStatus(owner, connectionId)).toBe("pending");
 
@@ -600,7 +616,7 @@ describe("OAuth connections", () => {
 
 			const mismatched = yield* authorize(owner);
 			const wrongPath = yield* service.callback(
-				{ pluginId: "wrong-plugin", oauthProviderSlug: "other" },
+				{ name: "plugin", publisher: "wrong", oauthProviderSlug: "other" },
 				{ code: "auth-code-1", state: mismatched.state },
 			);
 			expect(Object.fromEntries(fragmentOf(wrongPath))).toEqual({

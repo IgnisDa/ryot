@@ -3,9 +3,11 @@ import type {
 	PluginConfigSchema,
 	PluginImportSource,
 } from "@ryot-app/contract/modules/plugins/manifest";
-import type { DeclarationReference } from "@ryot-app/contract/modules/plugins/references";
 import {
-	PluginId,
+	definitionOwner,
+	type DeclarationReference,
+} from "@ryot-app/contract/modules/plugins/references";
+import {
 	SandboxScriptId,
 	type PluginPackageId,
 	type UserId,
@@ -13,6 +15,7 @@ import {
 import { and, eq, sql, type SQL } from "drizzle-orm";
 import { Context, Effect, Layer } from "effect";
 
+import { installationSlugWhere, referenceWhere } from "#lib/infrastructure/db/definition-owner";
 import * as schema from "#lib/infrastructure/db/schema/tables/combined";
 import { DatabaseSession } from "#lib/infrastructure/db/session";
 
@@ -123,10 +126,7 @@ const querySourcesForSession = (database: DatabaseSession["Service"]) =>
 							pluginScope,
 							installationId,
 							packageId: manifest.metadata.packageId,
-							reference: {
-								slug: row.slug,
-								owner: { kind: "plugin", pluginId: PluginId.make(pluginId) },
-							},
+							reference: { slug: row.slug, owner: definitionOwner(pluginId) },
 							...(exportHelp ? { exportHelp } : {}),
 							configContext: {
 								pluginRevisionId,
@@ -163,13 +163,7 @@ export class ImportSourceCatalog extends Context.Service<ImportSourceCatalog>()(
 				userId: UserId,
 				reference: DeclarationReference,
 			) {
-				if (reference.owner.kind === "kernel") {
-					return null;
-				}
-				const [resolved] = yield* querySources(
-					userId,
-					and(eq(view.slug, reference.slug), eq(view.pluginId, reference.owner.pluginId)),
-				);
+				const [resolved] = yield* querySources(userId, referenceWhere(view, reference));
 				return resolved ?? null;
 			});
 			const resolveOwnedForUser = Effect.fn("ImportSourceCatalog.resolveOwnedForUser")(function* (
@@ -179,7 +173,7 @@ export class ImportSourceCatalog extends Context.Service<ImportSourceCatalog>()(
 			) {
 				const [resolved] = yield* querySources(
 					userId,
-					and(eq(view.slug, sourceSlug), eq(view.installationId, installationId)),
+					installationSlugWhere(view, sourceSlug, installationId),
 				);
 				return resolved ?? null;
 			});

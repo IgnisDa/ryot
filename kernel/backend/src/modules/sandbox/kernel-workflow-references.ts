@@ -21,7 +21,6 @@ export class KernelWorkflowReferences extends Context.Service<
 		readonly execute: (
 			workflowSlug: string,
 			input: JsonValue,
-			subject: SandboxExecutionSubject,
 			lane: ExecutionLane,
 			executionId: string,
 			parentExecutionId: string,

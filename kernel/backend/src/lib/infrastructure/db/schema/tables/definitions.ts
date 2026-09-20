@@ -12,6 +12,7 @@ import type {
 import type { RyotQLDocument } from "@ryot-app/contract/modules/ryotql/language";
 import type { ProviderInformation } from "@ryot-app/contract/modules/sandbox/schemas";
 import type { SavedViewRenderer } from "@ryot-app/contract/modules/saved-views/schemas";
+import type { PluginPackageId } from "@ryot-app/contract/schema/brands";
 import type { JsonValue } from "@ryot-app/contract/schema/json";
 import type { AppSchema } from "@ryot-app/contract/schema/property-schema";
 import { generateId } from "better-auth";
@@ -195,9 +196,9 @@ export const globalPlugin = snakeCase
 	.view("global_plugin", {
 		configRevisionId: text(),
 		pluginId: text().notNull(),
-		packageId: text().notNull(),
 		isExecutable: boolean().notNull(),
 		activeRevisionId: text().notNull(),
+		packageId: text().$type<PluginPackageId>().notNull(),
 	})
 	.as(globalPluginQuery);
 
@@ -215,7 +216,6 @@ export const userPlugin = snakeCase
 		userId: text().notNull(),
 		configRevisionId: text(),
 		pluginId: text().notNull(),
-		packageId: text().notNull(),
 		isListed: boolean().notNull(),
 		isHidden: boolean().notNull(),
 		sortOrder: integer().notNull(),
@@ -224,18 +224,19 @@ export const userPlugin = snakeCase
 		activeRevisionId: text().notNull(),
 		isDefinitionEffective: boolean().notNull(),
 		scope: text().$type<PluginScope>().notNull(),
+		packageId: text().$type<PluginPackageId>().notNull(),
 		health: text().$type<InstallationHealth>().notNull(),
 	})
 	.as(userPluginQuery);
 
 const globalColumns = () => ({
 	pluginId: text(),
-	packageId: text(),
 	id: text().notNull(),
 	slug: text().notNull(),
 	name: text().notNull(),
 	pluginRevisionId: text(),
 	position: integer().notNull(),
+	packageId: text().$type<PluginPackageId>(),
 });
 
 const userColumns = () => ({
@@ -254,7 +255,6 @@ const entitySchemaColumns = () => ({
 
 const eventSchemaColumns = () => ({
 	pluginId: text(),
-	packageId: text(),
 	id: text().notNull(),
 	slug: text().notNull(),
 	name: text().notNull(),
@@ -262,6 +262,7 @@ const eventSchemaColumns = () => ({
 	position: integer().notNull(),
 	entitySchemaId: text().notNull(),
 	entitySchemaSlug: text().notNull(),
+	packageId: text().$type<PluginPackageId>(),
 	propertiesSchema: jsonb().$type<AppSchema>().notNull(),
 });
 
@@ -422,7 +423,6 @@ export const userSavedView = snakeCase
 
 export const userSavedViewEffective = snakeCase.view("user_saved_view_effective", {
 	pluginId: text(),
-	packageId: text(),
 	id: text().notNull(),
 	slug: text().notNull(),
 	name: text().notNull(),
@@ -433,6 +433,7 @@ export const userSavedViewEffective = snakeCase.view("user_saved_view_effective"
 	isHidden: boolean().notNull(),
 	sortOrder: integer().notNull(),
 	isBuiltin: boolean().notNull(),
+	packageId: text().$type<PluginPackageId>(),
 	dataSources: jsonb().$type<RyotQLDocument>(),
 	renderer: jsonb().$type<SavedViewRenderer>().notNull(),
 	createdAt: timestamp({ precision: 3, withTimezone: true }),
@@ -461,7 +462,6 @@ export const userSavedViewEffective = snakeCase.view("user_saved_view_effective"
 
 const executableDefinitionColumns = () => ({
 	pluginId: text(),
-	packageId: text(),
 	id: text().notNull(),
 	slug: text().notNull(),
 	name: text().notNull(),
@@ -472,6 +472,7 @@ const executableDefinitionColumns = () => ({
 	position: integer().notNull(),
 	description: text().notNull(),
 	pluginScope: text().$type<PluginScope>(),
+	packageId: text().$type<PluginPackageId>(),
 });
 
 export const userImportSource = snakeCase
@@ -527,10 +528,10 @@ export const userSandboxProvider = snakeCase
 		name: text().notNull(),
 		userId: text().notNull(),
 		pluginId: text().notNull(),
-		packageId: text().notNull(),
 		installationId: text().notNull(),
 		rootEntitySchemaSlug: text().notNull(),
 		pluginScope: text().$type<PluginScope>().notNull(),
+		packageId: text().$type<PluginPackageId>().notNull(),
 		information: jsonb().$type<ProviderInformation>().notNull(),
 		createdAt: timestamp({ precision: 3, withTimezone: true }).notNull(),
 		updatedAt: timestamp({ precision: 3, withTimezone: true }).notNull(),
@@ -548,10 +549,10 @@ export const userSandboxProvider = snakeCase
 export const userSandboxProviderOperation = snakeCase.view("user_sandbox_provider_operation", {
 	userId: text().notNull(),
 	pluginId: text().notNull(),
-	packageId: text().notNull(),
 	operation: text().notNull(),
 	providerId: text().notNull(),
 	optionsSchema: jsonb().$type<AppSchema>(),
+	packageId: text().$type<PluginPackageId>().notNull(),
 }).as(sql`
 		select provider.user_id, provider.id as provider_id, provider.plugin_id, provider.package_id,
 			case when operation.key = 'searchOptions' then 'search-options' else operation.key end as operation,

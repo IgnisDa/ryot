@@ -81,7 +81,6 @@ const pluginPinRow = {
 	providerId: "provider-id",
 	pluginPackageId: packageId,
 	contentHash: "current-hash",
-	manifestPackageId: packageId,
 	providerPluginId: "plugin-id",
 	pluginRevisionId: "revision-1",
 	activeRevisionId: "revision-1",
@@ -423,7 +422,6 @@ layer(pinRepositoryLayer)((test) => {
 				{ ...pluginPinRow, activeRevisionId: "revision-2" },
 				{ ...pluginPinRow, providerPluginId: "foreign-plugin-id" },
 				{ ...pluginPinRow, pluginPackageId: PluginPackageId.make("test/mismatched") },
-				{ ...pluginPinRow, manifestPackageId: PluginPackageId.make("test/mismatched") },
 			]) {
 				expect(yield* getPin(row)).toBeNull();
 			}

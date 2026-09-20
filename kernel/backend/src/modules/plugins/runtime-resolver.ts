@@ -3,10 +3,9 @@ import type {
 	PluginManifest,
 	PluginProviderOperation,
 } from "@ryot-app/contract/modules/plugins/manifest";
-import {
-	definitionOwner,
-	type EntitySchemaReference,
-	type DeclarationReference,
+import type {
+	EntitySchemaReference,
+	DeclarationReference,
 } from "@ryot-app/contract/modules/plugins/references";
 import {
 	EntitySchemaSlug,
@@ -18,9 +17,10 @@ import {
 } from "@ryot-app/contract/schema/brands";
 import { sha256Base64Url } from "@ryot-app/ts-utils/crypto";
 import { stableStringify } from "@ryot-app/ts-utils/json";
-import { and, asc, eq, exists, isNull, or, sql, type SQL } from "drizzle-orm";
+import { and, asc, eq, exists, isNull, sql, type SQL } from "drizzle-orm";
 import { Context, Data, Effect, Layer, Schema } from "effect";
 
+import { referencesWhere, referenceWhere } from "#lib/infrastructure/db/definition-owner";
 import * as schema from "#lib/infrastructure/db/schema/tables/combined";
 import { DatabaseSession } from "#lib/infrastructure/db/session";
 
@@ -28,11 +28,9 @@ import { PluginConfigRevisions } from "./config-revisions";
 import {
 	PluginInstallationRepository,
 	type PluginInstallationHealth,
-	type PluginInstallationState,
 } from "./installation-repository";
 import { storedScriptFields } from "./persisted-projections";
 import { decodeStoredManifest, PluginRepository } from "./repository";
-import { PluginValidationError } from "./validation";
 
 export class UnsupportedProviderOperationError extends Data.TaggedError(
 	"UnsupportedProviderOperationError",
@@ -57,8 +55,6 @@ export type AvailablePlugin = {
 	readonly ownerUserId: UserId | null;
 	readonly manifest: PluginManifest;
 	readonly health: PluginInstallationHealth;
-	readonly healthReason: string | null;
-	readonly incompatibilityReason: PluginInstallationState["incompatibilityReason"];
 	readonly compiledHashes: Readonly<Record<string, string>>;
 };
 
@@ -194,11 +190,9 @@ export class PluginRuntimeResolver extends Context.Service<PluginRuntimeResolver
 							ownerUserId: schema.userPlugin.ownerUserId,
 							sourceHash: schema.pluginRevision.sourceHash,
 							installationId: schema.userPlugin.installationId,
-							healthReason: schema.pluginInstallation.healthReason,
 							pluginRevisionId: schema.userPlugin.activeRevisionId,
 							pluginConfigRevisionId: schema.userPlugin.configRevisionId,
 							clientArtifactHash: schema.pluginRevision.clientArtifactHash,
-							incompatibilityReason: schema.pluginInstallation.incompatibilityReason,
 							clientImports: sql<
 								readonly PluginClientImport[]
 							>`coalesce(${schema.clientArtifact.imports}, '[]'::jsonb)`,
@@ -207,10 +201,6 @@ export class PluginRuntimeResolver extends Context.Service<PluginRuntimeResolver
 							>`coalesce((select jsonb_object_agg(s.slug, s.content_hash) from ${schema.sandboxScript} s where s.plugin_revision_id = ${schema.userPlugin.activeRevisionId}), '{}'::jsonb)`,
 						})
 						.from(schema.userPlugin)
-						.innerJoin(
-							schema.pluginInstallation,
-							eq(schema.pluginInstallation.id, schema.userPlugin.installationId),
-						)
 						.innerJoin(
 							schema.pluginRevision,
 							eq(schema.pluginRevision.id, schema.userPlugin.activeRevisionId),
@@ -231,21 +221,10 @@ export class PluginRuntimeResolver extends Context.Service<PluginRuntimeResolver
 				);
 				const result = yield* Effect.forEach(rows, (row) =>
 					Effect.map(
-						decodeStoredManifest(row.manifest, row.packageId).pipe(
-							Effect.tap((manifest) =>
-								manifest.metadata.packageId === row.packageId
-									? Effect.void
-									: Effect.fail(
-											new PluginValidationError({
-												issues: ["Persisted plugin package identity does not match its manifest"],
-											}),
-										),
-							),
-						),
+						decodeStoredManifest(row.manifest, row.packageId),
 						(manifest): AvailablePlugin => ({
 							...row,
 							manifest,
-							packageId: manifest.metadata.packageId,
 							ownerUserId: row.ownerUserId ? UserId.make(row.ownerUserId) : null,
 						}),
 					),
@@ -257,75 +236,6 @@ export class PluginRuntimeResolver extends Context.Service<PluginRuntimeResolver
 				"PluginRuntimeResolver.listPluginsAvailableToUser",
 			)((userId: UserId, listed = false) =>
 				queryAvailablePlugins(userId, listed ? "listed" : "executable"),
-			);
-			const listPluginsForManagement = Effect.fn("PluginRuntimeResolver.listPluginsForManagement")(
-				function* (userId: UserId) {
-					const rows = yield* database.run((db) =>
-						db
-							.select({
-								id: schema.plugin.id,
-								packageId: schema.plugin.packageId,
-								ownerUserId: schema.plugin.ownerId,
-								health: schema.pluginInstallation.health,
-								manifest: schema.pluginRevision.manifest,
-								pluginRevisionId: schema.pluginRevision.id,
-								isHidden: schema.pluginInstallation.isHidden,
-								installationId: schema.pluginInstallation.id,
-								sourceHash: schema.pluginRevision.sourceHash,
-								healthReason: schema.pluginInstallation.healthReason,
-								clientArtifactHash: schema.pluginRevision.clientArtifactHash,
-								incompatibilityReason: schema.pluginInstallation.incompatibilityReason,
-								scope: sql<
-									"system" | "user"
-								>`case when ${schema.plugin.ownerId} is null then 'system' else 'user' end`,
-								clientImports: sql<
-									readonly PluginClientImport[]
-								>`coalesce(${schema.clientArtifact.imports}, '[]'::jsonb)`,
-								pluginConfigRevisionId: sql<
-									string | null
-								>`case when ${schema.plugin.ownerId} is null then ${schema.plugin.environmentConfigRevisionId} else ${schema.pluginInstallation.activeConfigRevisionId} end`,
-								compiledHashes: sql<
-									Record<string, string>
-								>`coalesce((select jsonb_object_agg(s.slug, s.content_hash) from ${schema.sandboxScript} s where s.plugin_revision_id = ${schema.pluginRevision.id}), '{}'::jsonb)`,
-							})
-							.from(schema.pluginInstallation)
-							.innerJoin(schema.plugin, eq(schema.plugin.id, schema.pluginInstallation.pluginId))
-							.innerJoin(
-								schema.pluginRevision,
-								eq(schema.pluginRevision.id, schema.plugin.activeRevisionId),
-							)
-							.leftJoin(
-								schema.clientArtifact,
-								eq(schema.clientArtifact.hash, schema.pluginRevision.clientArtifactHash),
-							)
-							.where(
-								and(
-									eq(schema.pluginInstallation.userId, userId),
-									isNull(schema.pluginInstallation.uninstalledAt),
-									or(isNull(schema.plugin.ownerId), eq(schema.plugin.ownerId, userId)),
-								),
-							),
-					);
-					return yield* Effect.forEach(rows, (row) =>
-						decodeStoredManifest(row.manifest, row.packageId).pipe(
-							Effect.tap((manifest) =>
-								manifest.metadata.packageId === row.packageId
-									? Effect.void
-									: Effect.fail(
-											new PluginValidationError({
-												issues: ["Persisted plugin package identity does not match its manifest"],
-											}),
-										),
-							),
-							Effect.map((manifest): AvailablePlugin => ({
-								...row,
-								manifest,
-								packageId: manifest.metadata.packageId,
-								ownerUserId: row.ownerUserId === null ? null : UserId.make(row.ownerUserId),
-							})),
-						),
-					);
-				},
 			);
 			const resolveUserPackage = Effect.fn("PluginRuntimeResolver.resolveUserPackage")(function* (
 				userId: UserId,
@@ -493,8 +403,8 @@ export class PluginRuntimeResolver extends Context.Service<PluginRuntimeResolver
 							crons: manifestField("crons"),
 							userId: schema.userPlugin.userId,
 							pluginId: schema.userPlugin.pluginId,
+							packageId: schema.userPlugin.packageId,
 							installationId: schema.userPlugin.installationId,
-							packageId: sql<PluginPackageId>`${schema.userPlugin.packageId}`,
 						})
 						.from(schema.userPlugin)
 						.innerJoin(
@@ -519,8 +429,8 @@ export class PluginRuntimeResolver extends Context.Service<PluginRuntimeResolver
 						.select({
 							crons: manifestField("crons"),
 							userId: schema.userPlugin.userId,
+							packageId: schema.userPlugin.packageId,
 							revisionId: schema.userPlugin.activeRevisionId,
-							packageId: sql<PluginPackageId>`${schema.userPlugin.packageId}`,
 						})
 						.from(schema.userPlugin)
 						.innerJoin(
@@ -604,10 +514,6 @@ export class PluginRuntimeResolver extends Context.Service<PluginRuntimeResolver
 					.map((row) => ({
 						provider: { ...row, id: SandboxProviderId.make(row.id) },
 						entitySchemaSlug: EntitySchemaSlug.make(row.rootEntitySchemaSlug),
-						entitySchema: {
-							owner: definitionOwner(row.pluginId),
-							slug: EntitySchemaSlug.make(row.rootEntitySchemaSlug),
-						},
 					}))
 					.sort(
 						(left, right) =>
@@ -625,15 +531,12 @@ export class PluginRuntimeResolver extends Context.Service<PluginRuntimeResolver
 				return yield* querySchemaProviders(
 					input.userId,
 					input.entitySchemas
-						? or(
-								...input.entitySchemas.map(({ slug, owner }) =>
-									owner.kind === "plugin"
-										? and(
-												eq(schema.userSandboxProvider.pluginId, owner.pluginId),
-												eq(schema.userSandboxProvider.rootEntitySchemaSlug, slug),
-											)
-										: sql`false`,
-								),
+						? referencesWhere(
+								{
+									pluginId: schema.userSandboxProvider.pluginId,
+									slug: schema.userSandboxProvider.rootEntitySchemaSlug,
+								},
+								input.entitySchemas,
 							)
 						: undefined,
 				);
@@ -649,15 +552,9 @@ export class PluginRuntimeResolver extends Context.Service<PluginRuntimeResolver
 				userId: UserId,
 				reference: DeclarationReference,
 			) {
-				if (reference.owner.kind === "kernel") {
-					return null;
-				}
 				const [row] = yield* querySchemaProviders(
 					userId,
-					and(
-						eq(schema.userSandboxProvider.slug, reference.slug),
-						eq(schema.userSandboxProvider.pluginId, reference.owner.pluginId),
-					),
+					referenceWhere(schema.userSandboxProvider, reference),
 				);
 				return row?.provider ?? null;
 			});
@@ -696,14 +593,8 @@ export class PluginRuntimeResolver extends Context.Service<PluginRuntimeResolver
 			const findActiveProviderById = (id: SandboxProviderId) =>
 				findActiveProvider(eq(schema.sandboxProvider.id, id));
 			const findSchemaProviderByReference = Effect.fn(function* (reference: DeclarationReference) {
-				if (reference.owner.kind === "kernel") {
-					return null;
-				}
 				const provider = yield* findActiveProvider(
-					and(
-						eq(schema.sandboxProvider.slug, reference.slug),
-						eq(schema.sandboxProvider.pluginId, reference.owner.pluginId),
-					),
+					referenceWhere(schema.sandboxProvider, reference),
 				);
 				return provider
 					? { provider, entitySchemaSlug: EntitySchemaSlug.make(provider.rootEntitySchemaSlug) }
@@ -809,7 +700,6 @@ export class PluginRuntimeResolver extends Context.Service<PluginRuntimeResolver
 				listPrivateCronSchedules,
 				listSystemUserBootstraps,
 				resolvePrivatePluginCron,
-				listPluginsForManagement,
 				findPluginAvailableToUser,
 				findScriptAvailableToUser,
 				listPluginsAvailableToUser,

@@ -31,7 +31,10 @@ import {
 } from "drizzle-orm";
 import { Context, Effect, Layer, Schema } from "effect";
 
-import { PLUGIN_INGESTION_ADVISORY_LOCK_KEY } from "#lib/infrastructure/db/advisory-locks";
+import {
+	lockPluginIngestionShared,
+	PLUGIN_INGESTION_ADVISORY_LOCK_KEY,
+} from "#lib/infrastructure/db/advisory-locks";
 import * as schema from "#lib/infrastructure/db/schema/tables/combined";
 import { DatabaseSession } from "#lib/infrastructure/db/session";
 import { ClientArtifactsRepository } from "#modules/client-artifacts/repository";
@@ -105,11 +108,6 @@ const toLoadedRevision = Effect.fn(function* (
 	scripts: ReadonlyArray<{ readonly slug: string; readonly contentHash: string }>,
 ) {
 	const manifest = yield* decodeStoredManifest(row.manifest, row.packageId);
-	if (manifest.metadata.packageId !== row.packageId) {
-		return yield* new DbError({
-			message: "Retained manifest package identity does not match its owner",
-		});
-	}
 	const storedHashes = new Map(scripts.map((script) => [script.slug, script.contentHash]));
 	const compiledHashes: Record<string, string> = {};
 	const descriptors: Array<PluginScriptDescriptor> = [];
@@ -236,13 +234,9 @@ export class PluginRepository extends Context.Service<PluginRepository>()("Plugi
 			},
 		);
 
-		const lockIngestionShared = Effect.fn("PluginRepository.lockIngestionShared")(function* () {
-			yield* database.run((db) =>
-				db.execute(
-					sql`select pg_advisory_xact_lock_shared(hashtext(${PLUGIN_INGESTION_ADVISORY_LOCK_KEY}))`,
-				),
-			);
-		});
+		const lockIngestionShared = Effect.fn("PluginRepository.lockIngestionShared")(() =>
+			lockPluginIngestionShared(database),
+		);
 
 		const toStoredPlugins = Effect.fn(function* (rows: ReadonlyArray<PluginPointerRow>) {
 			const revisions = yield* loadRevisions(
@@ -354,11 +348,7 @@ export class PluginRepository extends Context.Service<PluginRepository>()("Plugi
 						.where(activeSystem)
 						.orderBy(asc(schema.plugin.packageId)),
 				);
-				return Array.from(rows, ({ id, ...row }) => ({
-					...row,
-					scope: "system" as const,
-					owner: definitionOwner(id),
-				}));
+				return Array.from(rows, ({ id, ...row }) => ({ ...row, owner: definitionOwner(id) }));
 			},
 		);
 
@@ -671,7 +661,10 @@ export class PluginRepository extends Context.Service<PluginRepository>()("Plugi
 		});
 
 		const findBySourceHash = Effect.fn("PluginRepository.findBySourceHash")(function* (
-			input: PluginPersistenceIdentity & { readonly sourceHash: string },
+			input: PluginPersistenceIdentity & {
+				readonly sourceHash: string;
+				readonly packageId: PluginPackageId;
+			},
 		) {
 			const [row] = yield* database.run((db) =>
 				db
@@ -822,11 +815,6 @@ export class PluginRepository extends Context.Service<PluginRepository>()("Plugi
 					return yield* new DbError({ message: `Plugin ${pluginId} has no active revision` });
 				}
 				const manifest = yield* decodeStoredManifest(revision.manifest, pluginId);
-				if (manifest.metadata.packageId !== revision.packageId) {
-					return yield* new DbError({
-						message: "Retained manifest package identity does not match its owner",
-					});
-				}
 				const scriptRows = yield* database.run((db) =>
 					db
 						.select({
@@ -923,11 +911,6 @@ export class PluginRepository extends Context.Service<PluginRepository>()("Plugi
 					return null;
 				}
 				const manifest = yield* decodeStoredManifest(revision.manifest, revision.packageId);
-				if (manifest.metadata.packageId !== revision.packageId) {
-					return yield* new DbError({
-						message: "Retained manifest package identity does not match its owner",
-					});
-				}
 				if (!manifest.client) {
 					return yield* new DbError({
 						message: `Plugin ${revision.packageId} has a client artifact without a client manifest`,
@@ -1031,11 +1014,6 @@ export class PluginRepository extends Context.Service<PluginRepository>()("Plugi
 		) {
 			yield* database.requireTransaction;
 			const { packageId } = plugin.manifest.metadata;
-			if (identity.packageId !== packageId) {
-				return yield* new DbError({
-					message: "Plugin persistence package identity does not match the manifest",
-				});
-			}
 			if (identity.pluginId) {
 				const targetId = identity.pluginId;
 				const [target] = yield* database.run((db) =>

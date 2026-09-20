@@ -9,6 +9,7 @@ import {
 import { and, asc, eq, isNotNull, isNull, or, sql } from "drizzle-orm";
 import { Context, Effect, Layer, Schema } from "effect";
 
+import { pluginIdWhere } from "#lib/infrastructure/db/definition-owner";
 import * as schema from "#lib/infrastructure/db/schema/tables/combined";
 import { DatabaseSession } from "#lib/infrastructure/db/session";
 
@@ -127,10 +128,8 @@ const toSavedRelationship = (row: RelationshipRow) => ({
 	wasInserted: row.wasInserted,
 });
 
-const relationshipSchemaPluginWhere = (pluginId: string | null | undefined) =>
-	pluginId == null
-		? isNull(schema.relationship.relationshipSchemaPluginId)
-		: eq(schema.relationship.relationshipSchemaPluginId, pluginId);
+const relationshipSchemaPluginWhere = (pluginId: string | null) =>
+	pluginIdWhere(schema.relationship.relationshipSchemaPluginId, pluginId);
 
 const relationshipIdentityWhere = (input: RelationshipIdentityInput) =>
 	input.scope === "user"
@@ -447,7 +446,7 @@ export class RelationshipsRepository extends Context.Service<RelationshipsReposi
 				subjectEntityId: EntityId;
 				subjectSide: "source" | "target";
 				relationshipSchemaSlug: RelationshipSchemaSlug;
-				relationshipSchemaPluginId?: string | null | undefined;
+				relationshipSchemaPluginId: string | null;
 			}) {
 				const rows = yield* session.run((db) =>
 					db

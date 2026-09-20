@@ -501,11 +501,7 @@ export class PluginConfigRevisions extends Context.Service<PluginConfigRevisions
 							)
 							.limit(1),
 					);
-					if (
-						!owner ||
-						owner.packageId !== input.packageId ||
-						owner.manifest.metadata.packageId !== owner.packageId
-					) {
+					if (!owner || owner.packageId !== input.packageId) {
 						return yield* new DbError({
 							message: "Environment configuration package ownership is invalid",
 						});

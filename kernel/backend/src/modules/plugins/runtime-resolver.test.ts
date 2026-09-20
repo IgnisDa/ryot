@@ -470,7 +470,7 @@ describe("revision-backed runtime resolution", () => {
 					yield* (yield* DatabaseSession).transaction(
 						plugins.persist(
 							revisionPackage("notes", "v2", "notes-entity", original.manifest.metadata.packageId),
-							{ scope: "user", ownerId: owner, packageId: original.manifest.metadata.packageId },
+							{ scope: "user", ownerId: owner },
 						),
 					);
 					expect(yield* runtime.listPluginsAvailableToUser(owner)).toEqual([]);
@@ -514,11 +514,6 @@ describe("revision-backed runtime resolution", () => {
 					).toBeUndefined();
 					const runtime = yield* PluginRuntimeResolver;
 					expect(yield* runtime.listPluginsAvailableToUser(owner, true)).toEqual([]);
-					expect(
-						(yield* runtime.listPluginsForManagement(owner)).map(
-							({ id, health, healthReason }) => ({ id, health, healthReason }),
-						),
-					).toEqual([{ id: installed.pluginId, health: "incompatible", healthReason: "conflict" }]);
 				}),
 		);
 	});
@@ -704,11 +699,6 @@ describe("revision-backed runtime resolution", () => {
 							pluginId: system.pluginId,
 						}))?.script.pluginId,
 					).toBe(system.pluginId);
-					expect(
-						(yield* runtime.listPluginsForManagement(owner)).find(
-							({ id }) => id === privatePlugin.pluginId,
-						)?.incompatibilityReason,
-					).toBe("package-identity-conflict");
 				}),
 		);
 	});

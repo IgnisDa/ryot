@@ -31,6 +31,7 @@ import { SandboxArtifactStore } from "#lib/infrastructure/sandbox-runtime/artifa
 import { isDeclaredExecutableCall } from "#lib/infrastructure/sandbox-runtime/executable-dependencies";
 import {
 	SandboxExecutionPrincipal,
+	samePluginPin,
 	sandboxSubjectUserId,
 } from "#lib/infrastructure/sandbox-runtime/execution-principal";
 import { sanitizeSandboxExecutionSegment } from "#lib/infrastructure/sandbox-runtime/filesystem-grants";
@@ -188,6 +189,10 @@ const pinningOwnership = (payload: SandboxScriptWorkflowPayloadValue) => {
 	}
 	return {
 		userId: subject.executionUserId,
+		conflicts:
+			payload.pluginRevision !== undefined &&
+			(payload.pluginRevision.id !== subject.pluginId ||
+				!samePluginPin(payload.pluginRevision, subject)),
 		expectedRevision:
 			subject.pluginId === null
 				? undefined
@@ -196,11 +201,6 @@ const pinningOwnership = (payload: SandboxScriptWorkflowPayloadValue) => {
 						revisionId: subject.pluginRevisionId,
 						configRevisionId: subject.pluginConfigRevisionId,
 					},
-		conflicts:
-			payload.pluginRevision !== undefined &&
-			(payload.pluginRevision.id !== subject.pluginId ||
-				payload.pluginRevision.revisionId !== subject.pluginRevisionId ||
-				payload.pluginRevision.configRevisionId !== subject.pluginConfigRevisionId),
 	};
 };
 
@@ -651,7 +651,6 @@ export const performSandboxWorkflowChild = Effect.fn("performSandboxWorkflowChil
 					references.execute(
 						request.args.workflowSlug,
 						request.args.input,
-						payload.subject,
 						payload.lane,
 						childExecutionId,
 						executionId,

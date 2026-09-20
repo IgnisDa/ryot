@@ -149,11 +149,7 @@ describe("immutable revisions in PostgreSQL (isolated schema)", () => {
 									})),
 								});
 								const pluginId = yield* session.transaction(
-									plugins.persist(packageAt("v1"), {
-										scope: "user",
-										ownerId: "owner",
-										packageId: manifest.metadata.packageId,
-									}),
+									plugins.persist(packageAt("v1"), { scope: "user", ownerId: "owner" }),
 								);
 								const installation = yield* installations.create({
 									pluginId,
@@ -199,7 +195,7 @@ describe("immutable revisions in PostgreSQL (isolated schema)", () => {
 												metadata: { ...manifest.metadata, version: "mutated" },
 											},
 										},
-										{ scope: "user", ownerId: "owner", packageId: manifest.metadata.packageId },
+										{ scope: "user", ownerId: "owner" },
 									),
 								);
 								expect(Result.isFailure(conflict)).toBe(true);
@@ -226,18 +222,13 @@ describe("immutable revisions in PostgreSQL (isolated schema)", () => {
 												Object.assign(candidate, { compiledCode: "changed" }),
 											),
 										},
-										{ scope: "user", ownerId: "owner", packageId: manifest.metadata.packageId },
+										{ scope: "user", ownerId: "owner" },
 									),
 								);
 								expect(Result.isFailure(scriptConflict)).toBe(true);
 								expect(
 									yield* session.transaction(
-										plugins.persist(packageAt("v2"), {
-											pluginId,
-											scope: "user",
-											ownerId: "owner",
-											packageId: manifest.metadata.packageId,
-										}),
+										plugins.persist(packageAt("v2"), { pluginId, scope: "user", ownerId: "owner" }),
 									),
 								).toBe(pluginId);
 								yield* installations.updateState({
@@ -494,11 +485,7 @@ describe("immutable revisions in PostgreSQL (isolated schema)", () => {
 								);
 								yield* environment.use({ [environmentKey]: "environment-secret" });
 								yield* session.transaction(
-									plugins.persist(environmentPackage, {
-										ownerId: null,
-										scope: "system",
-										packageId: environmentPackage.manifest.metadata.packageId,
-									}),
+									plugins.persist(environmentPackage, { ownerId: null, scope: "system" }),
 								);
 								expect(yield* transaction.select().from(tables.pluginConfigRevision)).toEqual([]);
 								const environmentPointer = transaction

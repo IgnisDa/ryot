@@ -313,19 +313,9 @@ describe("private package backup restore in PostgreSQL", () => {
 				const sourceV1 = packageAt("1.0.0");
 				const sourceV2 = packageAt("2.0.0");
 				const sourcePluginId = yield* session.transaction(
-					plugins.persist(sourceV1, {
-						scope: "user",
-						ownerId: "owner",
-						packageId: sourceV1.manifest.metadata.packageId,
-					}),
+					plugins.persist(sourceV1, { scope: "user", ownerId: "owner" }),
 				);
-				yield* session.transaction(
-					plugins.persist(sourceV2, {
-						scope: "user",
-						ownerId: "owner",
-						packageId: sourceV2.manifest.metadata.packageId,
-					}),
-				);
+				yield* session.transaction(plugins.persist(sourceV2, { scope: "user", ownerId: "owner" }));
 				const [current] = yield* plugins.listPrivateForUser("owner");
 				expect(current?.sourceHash).toBe(sourceV2.sourceHash);
 				const service = yield* PluginBackupRestore;

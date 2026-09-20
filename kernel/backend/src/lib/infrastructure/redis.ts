@@ -31,6 +31,7 @@ export const redisKeys = {
 	impersonationEndedChannel: "ryot:auth:impersonation-ended",
 	uploadToken: (token: string) => `ryot:upload:token:${token}`,
 	uploadIntent: (intentId: string) => `ryot:upload:intent:${intentId}`,
+	sandboxCacheNamespace: (tuple: string) => `ryot:sandbox:cache:${tuple}`,
 	godModePendingReset: (email: string) => `ryot:god-mode:pending:${email}`,
 	passwordResetToken: (userId: string) => `ryot:auth:password-reset:${userId}`,
 	uploadIntentLock: (intentId: string) => `ryot:upload:intent-lock:${intentId}`,
@@ -55,21 +56,17 @@ export const redisKeys = {
 		`ryot:integrations:cache:${integrationId}:${key}`,
 	sandboxProbationLease: (identity: string) =>
 		`ryot:sandbox:probation-lease:${encodeURIComponent(identity)}`,
+	sandboxRunCacheNamespace: (serverRunId: string, tuple: string) =>
+		`ryot:sandbox:cache:run:${serverRunId}:${tuple}`,
 	providerSearchOptions: (providerId: string, scriptId: string) =>
 		`ryot:provider:search-options:${providerId}:${scriptId}`,
-	sandboxCache: (userId: string | null, scriptId: string, key: string) =>
-		`ryot:sandbox:cache:${userId === null ? "kernel" : `user:${userId}`}:${scriptId}:${key}`,
-	sandboxRunCache: (serverRunId: string, userId: string | null, scriptId: string, key: string) =>
-		`ryot:sandbox:cache:run:${serverRunId}:${userId === null ? "kernel" : `user:${userId}`}:${scriptId}:${key}`,
 	sandboxPersistentCache: (
 		userId: string | null,
 		pluginScope: readonly ["plugin", string] | readonly ["kernel"],
 		operationScope: readonly [string, string],
 		key: string,
 	): string =>
-		redisKeys.sandboxCache(
-			null,
-			"namespace",
+		redisKeys.sandboxCacheNamespace(
 			identityTupleKey(userId, pluginScope, operationScope, key.trim()),
 		),
 	providerHttpAdmission: (policyKey: string) => {

@@ -33,7 +33,11 @@ import { ObjectStorageService } from "#modules/uploads/object-storage/service";
 
 import { PluginCatalogInvalidator } from "./catalog-events";
 import { PluginIngestionLock } from "./ingestion-lock";
-import { PluginIngestionRetirement } from "./ingestion-retirement";
+import {
+	PluginIngestionRetirement,
+	quarantinePackageConflicts,
+	retireQuarantinedInstallations,
+} from "./ingestion-retirement";
 import {
 	PluginInstallationRepository,
 	type PluginInstallationRow,
@@ -43,7 +47,6 @@ import { normalizePluginPackage, normalizePluginSource, structurePluginFailure }
 import { PluginRepository } from "./repository";
 import { PluginSavedViewReferences } from "./saved-view-references";
 import { validateAdditiveSchemaEvolution } from "./schema-evolution";
-import { SystemPlugins } from "./system";
 import type { NormalizedPlugin, StoredPlugin } from "./types";
 import { resolvePluginUserSettings } from "./user-settings";
 import {
@@ -128,13 +131,10 @@ export class PluginInstallationService extends Context.Service<PluginInstallatio
 			const installations = yield* PluginInstallationRepository;
 			const savedViewReferences = yield* PluginSavedViewReferences;
 			const lifecycleDispatcher = yield* PluginInstallationLifecycleDispatcher;
-			const bundled = yield* SystemPlugins;
 			const assertPackageAvailable = Effect.fn("PluginInstallationService.assertPackageAvailable")(
 				function* (manifest: PluginManifest, pluginId?: PluginId) {
-					if (
-						bundled.packageIds.has(manifest.metadata.packageId) ||
-						(yield* repository.findActiveSystemPluginByPackageId(manifest.metadata.packageId))
-					) {
+					const reserved = yield* ingestionLock.reservedSystemPackageIds();
+					if (reserved.has(manifest.metadata.packageId)) {
 						if (pluginId) {
 							return yield* new PluginConflictError({
 								reason: {
@@ -148,7 +148,7 @@ export class PluginInstallationService extends Context.Service<PluginInstallatio
 							reason: { code: "reserved-system-identity", packageId: manifest.metadata.packageId },
 						});
 					}
-					return yield* Effect.void;
+					return reserved;
 				},
 			);
 			const findOwnedInstallation = Effect.fn("PluginInstallationService.findOwnedInstallation")(
@@ -334,7 +334,7 @@ export class PluginInstallationService extends Context.Service<PluginInstallatio
 			) {
 				const { plugin } = selected;
 				const pluginId = PluginId.make(plugin.id);
-				yield* assertPackageAvailable(plugin.manifest, pluginId);
+				const reserved = yield* assertPackageAvailable(plugin.manifest, pluginId);
 				const artifacts = yield* repository.listCompiledPackageArtifacts(plugin.id);
 				const source = yield* normalizePluginSource({ manifest: plugin.manifest, ...artifacts });
 				if (source.sourceHash !== plugin.sourceHash) {
@@ -345,7 +345,7 @@ export class PluginInstallationService extends Context.Service<PluginInstallatio
 				const normalized = normalizePluginPackage(source);
 				yield* validatePluginManifestPolicy(normalized.manifest, {
 					scope: "user",
-					systemPackageIds: bundled.packageIds,
+					systemPackageIds: reserved,
 				});
 				yield* validatePluginScriptEntries(normalized.manifest);
 				yield* buildEffectiveDefinitions(yield* definitions.getGlobalSnapshot, [
@@ -389,30 +389,20 @@ export class PluginInstallationService extends Context.Service<PluginInstallatio
 						const conflicts = [];
 						for (const plugin of yield* repository.listActiveSystemPlugins()) {
 							conflicts.push(
-								...(yield* installations.quarantinePackageIdentityConflicts(plugin.packageId)),
+								...(yield* quarantinePackageConflicts(
+									installations,
+									invalidator,
+									plugin.packageId,
+								)),
 							);
-						}
-						for (const installation of conflicts) {
-							yield* invalidator.recordUser(UserId.make(installation.userId));
 						}
 						return conflicts;
 					}),
 				);
 				for (const installation of quarantined) {
 					yield* invalidator.user(UserId.make(installation.userId));
-					yield* ingestionRetirement.retire({
-						pluginInstallationId: installation.id,
-						userId: UserId.make(installation.userId),
-						policy: {
-							kind: "quarantine",
-							reason: {
-								installationId: installation.id,
-								code: "package-identity-conflict",
-								pluginId: PluginId.make(installation.pluginId),
-							},
-						},
-					});
 				}
+				yield* retireQuarantinedInstallations(ingestionRetirement, quarantined);
 			});
 
 			const reconcileSystemInstallations = Effect.fn(
@@ -527,10 +517,7 @@ export class PluginInstallationService extends Context.Service<PluginInstallatio
 					const systemPlugins = yield* repository.listActiveSystemPlugins();
 					yield* validatePluginManifestPolicy(manifest, {
 						scope: "user",
-						systemPackageIds: new Set([
-							...bundled.packageIds,
-							...systemPlugins.map((plugin) => plugin.packageId),
-						]),
+						systemPackageIds: yield* ingestionLock.reservedSystemPackageIds(),
 					});
 					yield* validatePluginScriptEntries(manifest);
 					const owned = yield* repository.listPrivateForUser(input.userId);
@@ -576,7 +563,6 @@ export class PluginInstallationService extends Context.Service<PluginInstallatio
 								}
 								yield* validateClientDependencies(normalized, input.userId);
 								const pluginId = yield* ingestionLock.persistUserPlugin(normalized, {
-									packageId,
 									scope: "user",
 									ownerId: input.userId,
 								});
@@ -653,15 +639,9 @@ export class PluginInstallationService extends Context.Service<PluginInstallatio
 									},
 								});
 							}
-							yield* assertPackageAvailable(manifest, pluginId);
 							yield* validatePluginManifestPolicy(manifest, {
 								scope: "user",
-								systemPackageIds: new Set([
-									...bundled.packageIds,
-									...(yield* repository.listActiveSystemPlugins()).map(
-										({ packageId }) => packageId,
-									),
-								]),
+								systemPackageIds: yield* assertPackageAvailable(manifest, pluginId),
 							});
 							yield* validatePluginScriptEntries(manifest);
 							yield* buildEffectiveDefinitions(yield* definitions.getGlobalSnapshot, [
@@ -737,7 +717,6 @@ export class PluginInstallationService extends Context.Service<PluginInstallatio
 											scope: "user",
 											pluginId: current.id,
 											ownerId: input.userId,
-											packageId: current.packageId,
 										});
 										if (persistedId !== current.id) {
 											return yield* new PluginValidationError({

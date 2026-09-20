@@ -344,20 +344,22 @@ const makeLayer = (input?: {
 					).pipe(Effect.as(cached));
 				},
 				persist: (plugin, identity) => {
-					const pluginId = identity.pluginId ?? `${identity.packageId}-plugin-id`;
+					const { packageId } = plugin.manifest.metadata;
+					const pluginId = identity.pluginId ?? `${packageId}-plugin-id`;
 					const { scripts, ...revision } = plugin;
 					const stored: StoredPlugin = {
 						...revision,
 						...identity,
+						packageId,
 						id: pluginId,
 						status: "active",
+						activationId: `${packageId}-activation`,
 						scripts: scripts.map(toPluginScriptDescriptor),
-						activationId: `${identity.packageId}-activation`,
 					};
 					return append(state.persisted, plugin).pipe(
 						Effect.andThen(
 							Ref.update(state.installed, (all) =>
-								upsertBy(all, stored, (candidate) => candidate.packageId === identity.packageId),
+								upsertBy(all, stored, (candidate) => candidate.packageId === packageId),
 							),
 						),
 						Effect.as(pluginId),

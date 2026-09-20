@@ -337,10 +337,8 @@ export const makeRuntimeSandboxApiFunctions = (
 		const serverRun = yield* ServerRun;
 		const httpClient = yield* HttpClient.HttpClient;
 		const runKey = (input: SandboxRunInput, key: string) =>
-			redisKeys.sandboxRunCache(
+			redisKeys.sandboxRunCacheNamespace(
 				serverRun.id,
-				null,
-				"namespace",
 				identityTupleKey(
 					...cacheScope(input),
 					input.principal.pluginRevision?.revisionId ?? input.principal.contentHash,

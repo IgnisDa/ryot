@@ -21,6 +21,13 @@ export class PluginIngestionLock extends Context.Service<PluginIngestionLock>()(
 			const installations = yield* PluginInstallationRepository;
 			const bundled = yield* SystemPlugins;
 
+			const reservedSystemPackageIds = Effect.fn("PluginIngestionLock.reservedSystemPackageIds")(
+				function* () {
+					const active = yield* repository.listActiveSystemPlugins();
+					return new Set([...bundled.packageIds, ...active.map(({ packageId }) => packageId)]);
+				},
+			);
+
 			const persistUserPlugin = Effect.fn("PluginIngestionLock.persistUserPlugin")(function* (
 				plugin: NormalizedPlugin,
 				identity: UserPluginPersistenceIdentity,
@@ -28,10 +35,7 @@ export class PluginIngestionLock extends Context.Service<PluginIngestionLock>()(
 				yield* repository.lockIngestion();
 				yield* validatePluginManifestPolicy(plugin.manifest, {
 					scope: "user",
-					systemPackageIds: new Set([
-						...bundled.packageIds,
-						...(yield* repository.listActiveSystemPlugins()).map(({ packageId }) => packageId),
-					]),
+					systemPackageIds: yield* reservedSystemPackageIds(),
 				});
 				const pluginId = yield* repository.persist(plugin, identity);
 				yield* installations.refreshClientConfigsForPlugin(pluginId);
@@ -39,7 +43,7 @@ export class PluginIngestionLock extends Context.Service<PluginIngestionLock>()(
 				return pluginId;
 			});
 
-			return { persistUserPlugin };
+			return { persistUserPlugin, reservedSystemPackageIds };
 		}),
 	},
 ) {

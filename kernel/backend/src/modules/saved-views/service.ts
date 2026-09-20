@@ -54,9 +54,7 @@ export class SavedViewsService extends Context.Service<SavedViewsService>()("Sav
 				)
 				.pipe(Effect.catchTag("DatabaseSessionStateError", Effect.die));
 		const requireInstallation = Effect.fn(function* (userId: UserId, installationId: string) {
-			const available = yield* pluginRuntime
-				.listPluginsAvailableToUser(userId, true)
-				.pipe(Effect.catchTag("PluginValidationError", Effect.die));
+			const available = yield* pluginRuntime.listPluginsAvailableToUser(userId, true);
 			if (!available.some((plugin) => plugin.installationId === installationId)) {
 				return yield* new SavedViewBadRequest({
 					reason: { installationId, code: "plugin-not-found" },
@@ -73,9 +71,7 @@ export class SavedViewsService extends Context.Service<SavedViewsService>()("Sav
 			settings: CreateSavedViewBody["settings"],
 			document: CreateSavedViewBody["dataSources"],
 		) {
-			const available = yield* pluginRuntime
-				.listPluginsAvailableToUser(userId, true)
-				.pipe(Effect.catchTag("PluginValidationError", Effect.die));
+			const available = yield* pluginRuntime.listPluginsAvailableToUser(userId, true);
 			const catalog = available.filter(({ health }) => health === "ready");
 			const page =
 				renderer.kind === "plugin"

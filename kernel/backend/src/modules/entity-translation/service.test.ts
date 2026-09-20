@@ -113,7 +113,6 @@ const makeServiceLayer = (
 										pluginPackageId: principal.pluginRevision.packageId,
 										activeRevisionId: principal.pluginRevision.revisionId,
 										pluginRevisionId: principal.pluginRevision.revisionId,
-										manifestPackageId: principal.pluginRevision.packageId,
 										environmentConfigRevisionId: principal.pluginRevision.configRevisionId,
 									},
 								];

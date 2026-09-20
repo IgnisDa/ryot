@@ -515,12 +515,7 @@ describe("definition views", () => {
 								"alpha-entity",
 								privatePackage.manifest.metadata.packageId,
 							),
-							{
-								scope: "user",
-								ownerId: owner,
-								pluginId: PluginId.make(alpha.pluginId),
-								packageId: privatePackage.manifest.metadata.packageId,
-							},
+							{ scope: "user", ownerId: owner, pluginId: PluginId.make(alpha.pluginId) },
 						);
 					}),
 				);
@@ -543,12 +538,7 @@ describe("definition views", () => {
 								"fixture-entity",
 								systemPackage.manifest.metadata.packageId,
 							),
-							{
-								ownerId: null,
-								scope: "system",
-								pluginId: PluginId.make(system.pluginId),
-								packageId: systemPackage.manifest.metadata.packageId,
-							},
+							{ ownerId: null, scope: "system", pluginId: PluginId.make(system.pluginId) },
 						);
 					}),
 				);
