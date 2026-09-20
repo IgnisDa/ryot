@@ -2,10 +2,9 @@ import { Layer } from "effect";
 
 import { PackageCacheManager } from "#lib/infrastructure/sandbox-runtime/runtime";
 import { WorkflowEngineLive } from "#lib/infrastructure/workflow";
-import { ClientArtifactsRepository } from "#modules/client-artifacts/repository";
 import { DefinitionRepository } from "#modules/definition-registry/repository";
 import { EntitiesRepositoryLive } from "#modules/entities/repository";
-import { PluginRepository } from "#modules/plugins/repository";
+import { PluginRepositoryLive } from "#modules/plugins/repository-layer";
 import { ScriptGarbageCollector } from "#modules/plugins/script-garbage-collector";
 import { RelationshipSchemasRepositoryLive } from "#modules/relationship-schemas/layer";
 import { RelationshipsRepository } from "#modules/relationships/repository";
@@ -40,7 +39,7 @@ export const AutomationExecutionOperationsServiceLive = AutomationExecutionOpera
 );
 
 const plannerResolver = AutomationPlannerResolver.layer.pipe(
-	Layer.provide(PluginRepository.layer.pipe(Layer.provide(ClientArtifactsRepository.layer))),
+	Layer.provide(PluginRepositoryLive),
 	Layer.provide(DefinitionRepository.layer),
 );
 
@@ -102,12 +101,7 @@ export const AutomationRetentionLive = AutomationRetention.layer.pipe(
 			AutomationRunRepository.layer,
 			AutomationTriggerRepository.layer,
 			ScriptGarbageCollector.layer.pipe(
-				Layer.provide(
-					Layer.merge(
-						PluginRepository.layer.pipe(Layer.provide(ClientArtifactsRepository.layer)),
-						PackageCacheManager.layer,
-					),
-				),
+				Layer.provide(Layer.merge(PluginRepositoryLive, PackageCacheManager.layer)),
 			),
 		),
 	),
@@ -128,6 +122,6 @@ export const SignalEmissionServiceLive = SignalEmissionService.layer.pipe(
 			RelationshipSchemasRepositoryLive,
 		),
 	),
-	Layer.provide(PluginRepository.layer.pipe(Layer.provide(ClientArtifactsRepository.layer))),
+	Layer.provide(PluginRepositoryLive),
 	Layer.provide(DefinitionRepository.layer),
 );

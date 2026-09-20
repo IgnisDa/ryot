@@ -1,5 +1,8 @@
 import { expect, layer } from "@effect/vitest";
-import type { AutomationPopulationContext } from "@ryot-app/contract/modules/automations/lifecycle";
+import type {
+	AutomationPopulationContext,
+	LifecycleCommand,
+} from "@ryot-app/contract/modules/automations/lifecycle";
 import type { ListedEntity } from "@ryot-app/contract/modules/entities/schemas";
 import { RelationshipBadRequest } from "@ryot-app/contract/modules/relationships/schemas";
 import type { JsonValue } from "@ryot-app/contract/modules/ryotql/language";
@@ -17,7 +20,7 @@ import { Context, Effect, Exit, Layer, Ref } from "effect";
 import { WorkflowEngine, WorkflowInstance } from "effect/unstable/workflow/WorkflowEngine";
 
 import { toLifecycleDispatchPlan } from "#lib/domain/lifecycle";
-import { rootLifecycleCommand, type LifecycleCommand } from "#lib/domain/lifecycle-command";
+import { rootLifecycleCommand } from "#lib/domain/lifecycle-command";
 import { LifecycleExecution } from "#lib/domain/lifecycle-execution";
 import { DatabaseSession } from "#lib/infrastructure/db/session";
 import { RedisService } from "#lib/infrastructure/redis";
@@ -129,20 +132,6 @@ const listedEntity = (input: {
 		populatedAt: input.populatedAt === undefined ? now : input.populatedAt,
 	}) satisfies ListedEntity;
 
-type TestEntity = ReturnType<typeof listedEntity>;
-
-const snapshot = (entity: TestEntity) => ({
-	id: entity.id,
-	name: entity.name,
-	createdAt: entity.createdAt,
-	updatedAt: entity.updatedAt,
-	properties: entity.properties,
-	externalId: entity.externalId,
-	providerId: entity.providerId,
-	populatedAt: entity.populatedAt,
-	entitySchemaSlug: entity.entitySchemaSlug,
-});
-
 const childEntityWork = (
 	input: Parameters<EntitiesService["Service"]["persistPlannedProviderUpsert"]>[0],
 ): PlannedEntityWork => {
@@ -157,12 +146,8 @@ const childEntityWork = (
 		properties: input.properties as Record<string, JsonValue>,
 	});
 	return {
+		result: { entity },
 		dispatch: [toLifecycleDispatchPlan(planFixture(`entity-${input.externalId}`))],
-		result: {
-			entity,
-			wasInserted: true,
-			outcome: { before: null, after: snapshot(entity), operation: "create" as const },
-		},
 	};
 };
 
@@ -517,7 +502,6 @@ const rootPopulationLayer = Layer.unwrap(
 					Effect.gen(function* () {
 						yield* transaction.expectTransaction(true);
 						yield* transaction.persist(input.lifecycle);
-						const commands = yield* transaction.persisted;
 						const entity = listedEntity({
 							name: input.name,
 							externalId: input.externalId,
@@ -528,14 +512,7 @@ const rootPopulationLayer = Layer.unwrap(
 							properties: input.properties as Record<string, JsonValue>,
 							id: input.lifecycle.population?.scopeEntity.id ?? rootEntityId,
 						});
-						return {
-							dispatch: [],
-							result: {
-								entity,
-								wasInserted: commands.length === 1,
-								outcome: { before: null, after: snapshot(entity), operation: "create" as const },
-							},
-						} satisfies PlannedEntityWork;
+						return { dispatch: [], result: { entity } } satisfies PlannedEntityWork;
 					}),
 			}),
 			Layer.succeed(LifecycleExecution, {

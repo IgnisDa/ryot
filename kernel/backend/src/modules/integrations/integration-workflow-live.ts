@@ -1,3 +1,4 @@
+import type { LifecycleCommand } from "@ryot-app/contract/modules/automations/lifecycle";
 import { ImportRunStatus } from "@ryot-app/contract/modules/imports/schemas";
 import { IntegrationSnapshot } from "@ryot-app/contract/modules/integrations/schemas";
 import type { JsonValue } from "@ryot-app/contract/modules/ryotql/language";
@@ -9,12 +10,13 @@ import { Cause, DateTime, Effect, Schema } from "effect";
 import { Workflow } from "effect/unstable/workflow";
 import { WorkflowInstance } from "effect/unstable/workflow/WorkflowEngine";
 
-import { rootLifecycleCommand, type LifecycleCommand } from "#lib/domain/lifecycle-command";
+import { rootLifecycleCommand } from "#lib/domain/lifecycle-command";
 import { implementWorkflow, makeActivity } from "#lib/infrastructure/workflow-scope";
 import { SignalEmissionService } from "#modules/automations/signal-service";
 import { markImportRunStarted } from "#modules/imports/runtime/import-run-status";
 import { ImportsService } from "#modules/imports/service";
 import { MutationReceipts } from "#modules/mutations/receipts";
+import { admitWorkflow } from "#modules/mutations/workflow-dispatch";
 import { IntegrationProviderCatalog } from "#modules/plugins/integration-provider-catalog";
 import { SandboxExecutionService } from "#modules/sandbox/service";
 
@@ -204,9 +206,12 @@ const runIntegrationRun = Effect.fn("runIntegrationRun")(function* (
 export const runIntegrationRunWorkflow = Effect.fn("ProcessIntegrationRunWorkflow")(
 	function* (payload: IntegrationRunJobData, executionId: string) {
 		const receipts = yield* MutationReceipts.make;
-		yield* receipts
-			.registerWorkflow(payload.accountGeneration, ProcessIntegrationRunWorkflow._tag, executionId)
-			.pipe(Effect.mapError(toIntegrationWorkflowError));
+		yield* admitWorkflow(
+			receipts,
+			ProcessIntegrationRunWorkflow,
+			payload.accountGeneration,
+			executionId,
+		).pipe(Effect.mapError(toIntegrationWorkflowError));
 		yield* Effect.annotateCurrentSpan({
 			executionId,
 			runId: payload.runId,

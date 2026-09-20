@@ -26,6 +26,7 @@ import {
 import { trimToNull } from "#lib/shared/validation";
 import { toWorkflowRunResult } from "#lib/shared/workflow-result";
 import { MutationReceipts } from "#modules/mutations/receipts";
+import { dispatchAdmittedWorkflow } from "#modules/mutations/workflow-dispatch";
 
 import { SandboxExecutionResult } from "./execution-result";
 import {
@@ -124,17 +125,14 @@ export class SandboxExecutionService extends Context.Service<SandboxExecutionSer
 						"active",
 					)
 					.pipe(Effect.catchTag("SandboxRunError", () => notFound(sandboxScriptNotFoundError)));
-				yield* receipts
-					.registerWorkflow(
-						resolvedPayload.subject.type === "system"
-							? null
-							: resolvedPayload.subject.accountGeneration,
-						SandboxScriptWorkflow._tag,
-						executionId,
-					)
-					.pipe(Effect.orDie);
-				yield* engine
-					.execute(SandboxScriptWorkflow, {
+				yield* dispatchAdmittedWorkflow(
+					receipts,
+					engine,
+					SandboxScriptWorkflow,
+					resolvedPayload.subject.type === "system"
+						? null
+						: resolvedPayload.subject.accountGeneration,
+					{
 						executionId,
 						discard: true,
 						payload: {
@@ -145,8 +143,10 @@ export class SandboxExecutionService extends Context.Service<SandboxExecutionSer
 							subject: resolvedPayload.subject,
 							scriptId: resolvedPayload.scriptId,
 						},
-					})
-					.pipe(Effect.orDie);
+					},
+					(admission) => admission.pipe(Effect.orDie),
+					(execution) => execution.pipe(Effect.orDie),
+				);
 
 				return {
 					executionId,
@@ -227,29 +227,32 @@ export class SandboxExecutionService extends Context.Service<SandboxExecutionSer
 					if (contextError) {
 						return yield* new SandboxRunError({ message: contextError, kind: "invalid-input" });
 					}
-					yield* receipts
-						.registerWorkflow(
-							input.subject.type === "system" ? null : input.subject.accountGeneration,
-							SandboxScriptWorkflow._tag,
-							input.executionId,
-						)
-						.pipe(
-							Effect.mapError(
-								(error) => new SandboxRunError({ kind: "infrastructure", message: error.message }),
-							),
-						);
-					return yield* engine.execute(SandboxScriptWorkflow, {
-						executionId: input.executionId,
-						payload: {
-							input: input.input,
-							subject: input.subject,
-							resolutionMode: "exact",
-							scriptId: input.scriptId,
+					return yield* dispatchAdmittedWorkflow(
+						receipts,
+						engine,
+						SandboxScriptWorkflow,
+						input.subject.type === "system" ? null : input.subject.accountGeneration,
+						{
 							executionId: input.executionId,
-							...(input.grants ? { grants: input.grants } : {}),
-							...(input.pluginRevision ? { pluginRevision: input.pluginRevision } : {}),
+							payload: {
+								input: input.input,
+								subject: input.subject,
+								resolutionMode: "exact",
+								scriptId: input.scriptId,
+								executionId: input.executionId,
+								...(input.grants ? { grants: input.grants } : {}),
+								...(input.pluginRevision ? { pluginRevision: input.pluginRevision } : {}),
+							},
 						},
-					});
+						(admission) =>
+							admission.pipe(
+								Effect.mapError(
+									(error) =>
+										new SandboxRunError({ kind: "infrastructure", message: error.message }),
+								),
+							),
+						(execution) => execution,
+					);
 				},
 			);
 
@@ -368,8 +371,12 @@ export class SandboxExecutionService extends Context.Service<SandboxExecutionSer
 						pin.registrationStatus === "registered"
 							? workflowReferences.release(input.executionId)
 							: Effect.void;
-					yield* engine
-						.execute(SandboxScriptWorkflow, {
+					yield* dispatchAdmittedWorkflow(
+						receipts,
+						engine,
+						SandboxScriptWorkflow,
+						input.accountGeneration,
+						{
 							discard: true,
 							executionId: input.executionId,
 							payload: {
@@ -380,15 +387,17 @@ export class SandboxExecutionService extends Context.Service<SandboxExecutionSer
 									? { pluginRevision: pin.principal.pluginRevision }
 									: {}),
 							},
-						})
-						.pipe(
-							Effect.matchCauseEffect({
-								onSuccess: Effect.succeed,
-								onFailure: (cause) =>
-									releaseRegistration.pipe(Effect.andThen(Effect.failCause(cause))),
-							}),
-							Effect.orDie,
-						);
+						},
+						(admission) => admission,
+						(dispatch) => dispatch,
+					).pipe(
+						Effect.matchCauseEffect({
+							onSuccess: Effect.succeed,
+							onFailure: (cause) =>
+								releaseRegistration.pipe(Effect.andThen(Effect.failCause(cause))),
+						}),
+						Effect.orDie,
+					);
 					return input.executionId;
 				},
 			);

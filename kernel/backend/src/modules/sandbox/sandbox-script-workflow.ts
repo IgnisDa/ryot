@@ -50,6 +50,7 @@ import {
 import type { DurableSchema } from "#lib/infrastructure/workflow";
 import { makeActivity } from "#lib/infrastructure/workflow-scope";
 import { MutationReceipts } from "#modules/mutations/receipts";
+import { admitWorkflow, dispatchAdmittedWorkflow } from "#modules/mutations/workflow-dispatch";
 
 import { SandboxDurableHostDispatcher } from "./durable-host-dispatcher";
 import {
@@ -58,8 +59,10 @@ import {
 	type SandboxExecutionResolutionMode,
 	type SandboxReplayResult,
 } from "./durable-queues";
-import { SandboxExecutionResult as SandboxExecutionResultSchema } from "./execution-result";
-import type { SandboxExecutionResult } from "./execution-result";
+import {
+	SandboxExecutionResult as SandboxExecutionResultSchema,
+	type SandboxExecutionResult,
+} from "./execution-result";
 import {
 	KernelWorkflowReferences,
 	KERNEL_PROCESS_IMPORT_CHUNKS_WORKFLOW,
@@ -191,9 +194,10 @@ export class SandboxWorkflowPinning extends Context.Service<SandboxWorkflowPinni
 						Effect.gen(function* () {
 							yield* references.lockIngestionShared();
 							const subject = payload.subject;
-							yield* receipts.registerWorkflow(
+							yield* admitWorkflow(
+								receipts,
+								SandboxScriptWorkflow,
 								subject.type === "system" ? null : subject.accountGeneration,
-								SandboxScriptWorkflow._tag,
 								executionId,
 							);
 							let expectedRevision: Parameters<typeof repository.getScriptPin>[1] =
@@ -572,6 +576,7 @@ export const performSandboxWorkflowChild = Effect.fn("performSandboxWorkflowChil
 	if (usesArtifacts) {
 		yield* artifactReference("retain");
 	}
+	const receipts = yield* MutationReceipts.make;
 
 	const child = yield* Effect.exit(
 		kernel
@@ -591,18 +596,27 @@ export const performSandboxWorkflowChild = Effect.fn("performSandboxWorkflowChil
 						? Effect.fail(
 								sandboxFailure("missing-artifact", "Child workflow script was not resolved"),
 							)
-						: engine.execute(SandboxScriptWorkflow, {
-								executionId: childExecutionId,
-								payload: {
-									resolutionMode: "exact",
-									subject: payload.subject,
-									input: request.args.input,
+						: dispatchAdmittedWorkflow(
+								receipts,
+								engine,
+								SandboxScriptWorkflow,
+								payload.subject.type === "system" ? null : payload.subject.accountGeneration,
+								{
 									executionId: childExecutionId,
-									scriptId: SandboxScriptId.make(targetScriptId),
-									grants: { ...payload.grants, artifactOwnerExecutionId },
-									...(payload.pluginRevision ? { pluginRevision: payload.pluginRevision } : {}),
+									payload: {
+										resolutionMode: "exact",
+										subject: payload.subject,
+										input: request.args.input,
+										executionId: childExecutionId,
+										scriptId: SandboxScriptId.make(targetScriptId),
+										grants: { ...payload.grants, artifactOwnerExecutionId },
+										...(payload.pluginRevision ? { pluginRevision: payload.pluginRevision } : {}),
+									},
 								},
-							}),
+								(admission) =>
+									admission.pipe(Effect.mapError(rethrowSandboxFailure("infrastructure"))),
+								(dispatch) => dispatch,
+							),
 				),
 	);
 	if (usesArtifacts) {
@@ -889,13 +903,12 @@ export const runSandboxScriptWorkflow = Effect.fn("SandboxScriptWorkflow")(funct
 	executionId: string,
 ) {
 	const receipts = yield* MutationReceipts.make;
-	yield* receipts
-		.registerWorkflow(
-			payload.subject.type === "system" ? null : payload.subject.accountGeneration,
-			SandboxScriptWorkflow._tag,
-			executionId,
-		)
-		.pipe(Effect.mapError(rethrowSandboxFailure("infrastructure")));
+	yield* admitWorkflow(
+		receipts,
+		SandboxScriptWorkflow,
+		payload.subject.type === "system" ? null : payload.subject.accountGeneration,
+		executionId,
+	).pipe(Effect.mapError(rethrowSandboxFailure("infrastructure")));
 	return yield* runSandboxScriptWorkflowBody(payload, executionId, processPinnedSandbox);
 });
 
@@ -904,17 +917,15 @@ export const executeSandboxScriptWorkflow = Effect.fn("executeSandboxScriptWorkf
 ) {
 	const engine = yield* WorkflowEngine;
 	const receipts = yield* MutationReceipts.make;
-	yield* receipts
-		.registerWorkflow(
-			payload.subject.type === "system" ? null : payload.subject.accountGeneration,
-			SandboxScriptWorkflow._tag,
-			payload.executionId,
-		)
-		.pipe(Effect.mapError(rethrowSandboxFailure("infrastructure")));
-	const value = yield* engine.execute(SandboxScriptWorkflow, {
-		payload,
-		executionId: payload.executionId,
-	});
+	const value = yield* dispatchAdmittedWorkflow(
+		receipts,
+		engine,
+		SandboxScriptWorkflow,
+		payload.subject.type === "system" ? null : payload.subject.accountGeneration,
+		{ payload, executionId: payload.executionId },
+		(admission) => admission.pipe(Effect.mapError(rethrowSandboxFailure("infrastructure"))),
+		(execution) => execution,
+	);
 	return yield* Schema.decodeUnknownEffect(SandboxExecutionResultSchema)(value).pipe(
 		Effect.mapError((error) =>
 			sandboxFailure(

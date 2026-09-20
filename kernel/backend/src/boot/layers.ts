@@ -128,6 +128,7 @@ import { UserLifecycleWorkflowDefinitionsLive } from "#modules/user-lifecycle/wo
 import { UserSettingsServiceLive } from "#modules/user-settings/layer";
 import { UserStateServiceLive } from "#modules/user-state/layer";
 
+import { AdmittedWorkflowCatalogueLive } from "./admitted-workflows";
 import { FrequentCronWorkflowDefinitionsLive } from "./cron-workflow-definitions";
 import { ImportRunExecutionControllerLive } from "./import-run-execution-controller";
 import { KernelWorkflowReferencesLive } from "./kernel-workflow-references";
@@ -312,7 +313,7 @@ const RuntimeWorkflowOperationsLive = Layer.mergeAll(
 		Layer.merge(SandboxExecutionServiceLive, PluginRuntimeResolverLive),
 	),
 	BackupWorkflowOperationsLive,
-	UserLifecycleWorkflowOperationsProvidedLive,
+	UserLifecycleWorkflowOperationsProvidedLive.pipe(Layer.provide(AdmittedWorkflowCatalogueLive)),
 	Layer.provide(UserBootstrapWorkflowOperationsLive, UserBootstrapLive),
 	PluginInstallationWorkflowOperationsProvidedLive,
 );

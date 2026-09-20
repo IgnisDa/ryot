@@ -14,18 +14,9 @@ import { DatabaseSession } from "#lib/infrastructure/db/session";
 import type { DurableSchema } from "#lib/infrastructure/workflow";
 import { implementWorkflow, makeActivity } from "#lib/infrastructure/workflow-scope";
 import { AuthService } from "#modules/auth/service";
-import { AutomationRunWorkflow } from "#modules/automations/run-workflow";
-import { AddEntityToCollectionWorkflow } from "#modules/collections/add-entity-to-collection-workflow";
-import { EventCreateWorkflow } from "#modules/events/event-create-workflow";
-import { ProcessGenericImportChunksWorkflow } from "#modules/imports/generic-import-workflow";
-import { ProcessImportRunWorkflow } from "#modules/imports/import-run-workflow";
-import { ProcessIntegrationRunWorkflow } from "#modules/integrations/integration-workflow";
-import { IntegrationSyncWorkflow } from "#modules/integrations/sync-workflow";
 import { MutationReceipts } from "#modules/mutations/receipts";
-import { EntityImportWorkflow } from "#modules/provider-entities/entity-import-workflow";
-import { ProviderEntityPopulationWorkflow } from "#modules/provider-entities/provider-entity-population-workflow";
-import { SandboxDurableHostServiceWorkflow } from "#modules/sandbox/durable-host-dispatcher";
-import { SandboxScriptWorkflow } from "#modules/sandbox/sandbox-script-workflow";
+import { AdmittedWorkflowCatalogue } from "#modules/mutations/workflow-catalogue";
+import { dispatchAdmittedWorkflow } from "#modules/mutations/workflow-dispatch";
 import { ObjectStorageService } from "#modules/uploads/object-storage/service";
 import { userBootstrapWorkflowExecutionId } from "#modules/user-bootstrap/scheduling";
 import { UserBootstrapWorkflow } from "#modules/user-bootstrap/workflow";
@@ -84,20 +75,7 @@ export const UserLifecycleWorkflowOperationsLive = Layer.effect(
 		const objectStorage = yield* ObjectStorageService;
 		const engine = yield* WorkflowEngine;
 		const receipts = yield* MutationReceipts.make;
-		const mutationWorkflows: ReadonlyArray<Workflow.Any> = [
-			EventCreateWorkflow,
-			EntityImportWorkflow,
-			ProviderEntityPopulationWorkflow,
-			AutomationRunWorkflow,
-			ProcessImportRunWorkflow,
-			ProcessGenericImportChunksWorkflow,
-			ProcessIntegrationRunWorkflow,
-			IntegrationSyncWorkflow,
-			SandboxScriptWorkflow,
-			SandboxDurableHostServiceWorkflow,
-			AddEntityToCollectionWorkflow,
-			UserBootstrapWorkflow,
-		];
+		const mutationWorkflows = yield* AdmittedWorkflowCatalogue;
 
 		const requireOperation = (operationId: string) =>
 			repository.getInternalById(operationId).pipe(
@@ -219,17 +197,15 @@ export const UserLifecycleWorkflowOperationsLive = Layer.effect(
 				Effect.gen(function* () {
 					const accountGeneration = yield* receipts.currentAccount(userId);
 					const executionId = `${userBootstrapWorkflowExecutionId(userId, accountGeneration)}-reset-${operationId}`;
-					yield* receipts.registerWorkflow(
+					return yield* dispatchAdmittedWorkflow(
+						receipts,
+						engine,
+						UserBootstrapWorkflow,
 						accountGeneration,
-						UserBootstrapWorkflow._tag,
-						executionId,
+						{ executionId, payload: { userId, accountGeneration, generation: operationId } },
+						(admission) => admission,
+						(execution) => execution.pipe(Effect.asVoid),
 					);
-					return yield* engine
-						.execute(UserBootstrapWorkflow, {
-							executionId,
-							payload: { userId, accountGeneration, generation: operationId },
-						})
-						.pipe(Effect.asVoid);
 				}),
 				"Reset user bootstrap failed",
 			);

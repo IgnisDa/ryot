@@ -1,4 +1,4 @@
-import type { DbError } from "@ryot-app/contract/errors";
+import type { LifecycleCommand } from "@ryot-app/contract/modules/automations/lifecycle";
 import {
 	RelationshipBadRequest,
 	RelationshipNotFound,
@@ -9,7 +9,6 @@ import type { AppSchema } from "@ryot-app/contract/schema/property-schema";
 import { Context, Effect, Layer } from "effect";
 
 import { LifecyclePlanner } from "#lib/domain/lifecycle";
-import type { LifecycleCommand } from "#lib/domain/lifecycle-command";
 import { LifecycleExecution } from "#lib/domain/lifecycle-execution";
 import { DatabaseSession } from "#lib/infrastructure/db/session";
 import {
@@ -19,11 +18,10 @@ import {
 } from "#lib/infrastructure/lifecycle-workflow-step";
 import { DefinitionRepository } from "#modules/definition-registry/repository";
 import { EntitiesRepository } from "#modules/entities/repository";
-import type { MutationReceiptIdentity } from "#modules/mutations/receipts";
 import {
 	mutationReceiptIdentity,
-	MutationReceiptIdentityConflict,
 	MutationReceipts,
+	type MutationReceiptIdentity,
 } from "#modules/mutations/receipts";
 import {
 	catalogDefinitionFingerprint,
@@ -39,6 +37,7 @@ import {
 	type PendingRelationshipMutations,
 	type RelationshipSingleResult,
 } from "./mutation-pipeline";
+import { classifyRelationshipReceiptConflict } from "./mutation-primitives";
 import {
 	rootTransaction,
 	rootTransactionGuard,
@@ -52,11 +51,6 @@ import {
 	type UserRelationshipIdentity,
 } from "./mutation-support";
 import { RelationshipsRepository, type RelationshipIdentityInput } from "./repository";
-
-const classifyReceiptConflict = (error: DbError | MutationReceiptIdentityConflict) =>
-	error instanceof MutationReceiptIdentityConflict
-		? new RelationshipBadRequest({ reason: { code: "lifecycle-command-conflict" } })
-		: error;
 
 export class RelationshipsService extends Context.Service<RelationshipsService>()(
 	"RelationshipsService",
@@ -167,7 +161,7 @@ export class RelationshipsService extends Context.Service<RelationshipsService>(
 				});
 				const recorded = yield* receipts
 					.peek(identity, RelationshipRecordedResult)
-					.pipe(Effect.mapError(classifyReceiptConflict));
+					.pipe(Effect.mapError(classifyRelationshipReceiptConflict));
 				if (recorded) {
 					return {
 						_tag: "Committed" as const,
@@ -191,13 +185,7 @@ export class RelationshipsService extends Context.Service<RelationshipsService>(
 					Effect.gen(function* () {
 						const replay = yield* receipts
 							.lookup(identity, RelationshipRecordedResult)
-							.pipe(
-								Effect.mapError((error) =>
-									error instanceof MutationReceiptIdentityConflict
-										? new RelationshipBadRequest({ reason: { code: "lifecycle-command-conflict" } })
-										: error,
-								),
-							);
+							.pipe(Effect.mapError(classifyRelationshipReceiptConflict));
 						if (replay) {
 							return { replay, _tag: "Replayed" as const };
 						}

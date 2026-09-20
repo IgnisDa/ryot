@@ -1,6 +1,9 @@
 import { expect, layer } from "@effect/vitest";
 import type { CurrentUserValue } from "@ryot-app/contract/auth-middleware";
-import type { AutomationWarning } from "@ryot-app/contract/modules/automations/lifecycle";
+import type {
+	AutomationWarning,
+	LifecycleCommand,
+} from "@ryot-app/contract/modules/automations/lifecycle";
 import { CollectionBadRequest } from "@ryot-app/contract/modules/collections/schemas";
 import type { CreateEventsResponse } from "@ryot-app/contract/modules/events/schemas";
 import {
@@ -19,7 +22,7 @@ import { Context, Effect, Layer, Ref } from "effect";
 import { WorkflowEngine, WorkflowInstance } from "effect/unstable/workflow/WorkflowEngine";
 
 import { LifecyclePlanner } from "#lib/domain/lifecycle";
-import { rootLifecycleCommand, type LifecycleCommand } from "#lib/domain/lifecycle-command";
+import { rootLifecycleCommand } from "#lib/domain/lifecycle-command";
 import { LifecycleExecution } from "#lib/domain/lifecycle-execution";
 import { assertExitFails } from "#lib/test-utils/assertions";
 import { makeWorkflowActivityEngine, type MockOverrides } from "#lib/test-utils/effect";

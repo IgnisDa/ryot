@@ -1,11 +1,17 @@
 import { unknownToMessage, type SandboxFailureKind } from "@ryot-app/contract/errors";
-import type {
-	AutomationSource,
-	AutomationWarning,
+import {
+	LifecycleCommand,
+	type AutomationSource,
+	type AutomationWarning,
 } from "@ryot-app/contract/modules/automations/lifecycle";
-import type { SandboxExecutionGrants } from "@ryot-app/contract/modules/sandbox/schemas";
-import type { SandboxHostCapability } from "@ryot-app/contract/modules/sandbox/wire";
-import { POLICY_SAFE_SANDBOX_CAPABILITIES } from "@ryot-app/contract/modules/sandbox/wire";
+import {
+	SandboxExecutionSubject,
+	type SandboxExecutionGrants,
+} from "@ryot-app/contract/modules/sandbox/schemas";
+import {
+	POLICY_SAFE_SANDBOX_CAPABILITIES,
+	type SandboxHostCapability,
+} from "@ryot-app/contract/modules/sandbox/wire";
 import { AutomationExecutionId, type UserId } from "@ryot-app/contract/schema/brands";
 import { isJsonValue, type JsonValue } from "@ryot-app/contract/schema/json";
 import { automationInputSchema } from "@ryot-app/sandbox-sdk/automation";
@@ -18,10 +24,16 @@ import type {
 import { isObjectRecord } from "@ryot-app/ts-utils/predicates";
 import { Effect, PlatformError, Schema } from "effect";
 
-import { LifecycleCommand } from "#lib/domain/lifecycle-command";
+import {
+	lifecycleActor,
+	automationLifecycleCausation,
+	rootLifecycleCausation,
+} from "#lib/domain/lifecycle-command";
 
-import type { SANDBOX_CAPABILITY_REQUIREMENTS } from "./capability-policy";
-import { sandboxCapabilityRequirement } from "./capability-policy";
+import {
+	sandboxCapabilityRequirement,
+	type SANDBOX_CAPABILITY_REQUIREMENTS,
+} from "./capability-policy";
 import type { SandboxExecutionPrincipal } from "./execution-principal";
 
 export { isJsonValue } from "@ryot-app/contract/schema/json";
@@ -177,7 +189,9 @@ export const sandboxLifecycleCommand = (
 		if (input.hostCallDiscriminator === undefined || input.workflowExecutionId === undefined) {
 			return yield* sandboxHostFailure("Lifecycle writes require a trusted durable host call");
 		}
-		const subject = input.principal.subject;
+		const subject = yield* Schema.decodeEffect(SandboxExecutionSubject)(
+			input.principal.subject,
+		).pipe(Effect.mapError(() => toSandboxHostError("Invalid lifecycle execution subject")));
 		if (subject.type === "automation-run") {
 			const { automation } = yield* decodeAutomationInput(input.context).pipe(
 				Effect.mapError(() =>
@@ -198,16 +212,10 @@ export const sandboxLifecycleCommand = (
 				...("population" in automation.payload && automation.payload.population !== undefined
 					? { population: automation.payload.population }
 					: {}),
-				causation: {
-					...subject.causation,
-					source: "automation",
-					parentRunId: subject.runId,
-					depth: subject.causation.depth + 1,
-					parentTriggerId: subject.triggerId,
-					executionId: AutomationExecutionId.make(
-						`${subject.runId}-host-${input.hostCallDiscriminator}`,
-					),
-				},
+				causation: automationLifecycleCausation(
+					subject,
+					AutomationExecutionId.make(`${subject.runId}-host-${input.hostCallDiscriminator}`),
+				),
 			}).pipe(Effect.mapError(() => toSandboxHostError("Invalid automation lifecycle command")));
 		}
 
@@ -215,30 +223,20 @@ export const sandboxLifecycleCommand = (
 			`${input.workflowExecutionId}-host-${input.hostCallDiscriminator}`,
 		);
 		const integrationId = subject.type === "user" ? subject.integrationId : undefined;
-		let initiator: LifecycleCommand["causation"]["initiator"] = { id: null, kind: "system" };
-		if (subject.type === "user") {
-			initiator =
-				integrationId === undefined
-					? { kind: "user", id: subject.userId }
-					: { id: integrationId, kind: "integration" };
-		}
+		const actor = lifecycleActor(subject.type === "user" ? subject : null);
 		return yield* Schema.decodeUnknownEffect(LifecycleCommand)({
 			itemIdentity,
 			occurredAt: input.startedAt,
-			accountGeneration: subject.type === "user" ? subject.accountGeneration : null,
-			causation: {
+			accountGeneration: actor.accountGeneration,
+			causation: rootLifecycleCausation({
 				source,
-				depth: 0,
-				initiator,
 				executionId,
-				parentRunId: null,
-				parentTriggerId: null,
-				rootExecutionId: executionId,
+				initiator: actor.initiator,
 				...(integrationId === undefined ? {} : { integrationId }),
 				...(source === "provider-refresh"
 					? { providerExecutionId: AutomationExecutionId.make(input.workflowExecutionId) }
 					: {}),
-			},
+			}),
 		}).pipe(Effect.mapError(() => toSandboxHostError("Invalid root lifecycle command")));
 	});
 

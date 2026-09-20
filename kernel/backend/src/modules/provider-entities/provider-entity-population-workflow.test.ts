@@ -14,8 +14,7 @@ import { IsoUtcString } from "@ryot-app/contract/schema/utils";
 import { Context, Effect, Layer, Ref } from "effect";
 import { WorkflowEngine, WorkflowInstance } from "effect/unstable/workflow/WorkflowEngine";
 
-import type { LifecyclePlan } from "#lib/domain/lifecycle";
-import { toLifecycleDispatchPlan } from "#lib/domain/lifecycle";
+import { toLifecycleDispatchPlan, type LifecyclePlan } from "#lib/domain/lifecycle";
 import { rootLifecycleCommand } from "#lib/domain/lifecycle-command";
 import { LifecycleExecution } from "#lib/domain/lifecycle-execution";
 import { RedisService } from "#lib/infrastructure/redis";
@@ -165,19 +164,11 @@ const populationLayer = (options: {
 				const entity = listedEntity(input.externalId, input.entitySchemaSlug);
 				return record(label).pipe(
 					Effect.as({
+						result: { entity },
 						dispatch:
 							label === "root-upsert"
 								? (options.rootPlans ?? [planFixture("root-upsert")]).map(toLifecycleDispatchPlan)
 								: [toLifecycleDispatchPlan(planFixture(label))],
-						result: {
-							entity,
-							wasInserted: true,
-							outcome: {
-								before: null,
-								operation: "create" as const,
-								after: { ...entity, properties: {} },
-							},
-						},
 					}),
 				);
 			};

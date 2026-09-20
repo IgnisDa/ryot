@@ -1,7 +1,6 @@
+import { LifecycleCommand } from "@ryot-app/contract/modules/automations/lifecycle";
 import { EntitySchemaSlug, SandboxProviderId, UserId } from "@ryot-app/contract/schema/brands";
 import { Schema } from "effect";
-
-import { LifecycleCommand } from "#lib/domain/lifecycle-command";
 
 const providerEntityPayloadFields = {
 	externalId: Schema.String,

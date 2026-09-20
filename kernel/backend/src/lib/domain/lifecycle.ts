@@ -1,6 +1,7 @@
 import type { DbError } from "@ryot-app/contract/errors";
 import {
 	type AutomationRun,
+	type AutomationHookIdentity,
 	AutomationPluginAfterRun,
 	AutomationTrigger,
 	type AutomationBatchChangePayload,
@@ -150,7 +151,7 @@ export class LifecyclePlanner extends Context.Service<
 		plan: (input: {
 			trigger: AutomationTrigger;
 			recipients?: ReadonlyArray<UserId>;
-			excludedOncePerSubjectPolicies?: ReadonlyArray<Pick<AutomationRun, "pluginId" | "hookSlug">>;
+			excludedOncePerSubjectPolicies?: ReadonlyArray<AutomationHookIdentity>;
 		}) => Effect.Effect<LifecyclePlanningResult, DbError>;
 		prepareBatch: (
 			input: LifecycleBatchInput & { scopes: ReadonlyArray<UserId | null> },

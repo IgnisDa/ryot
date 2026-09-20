@@ -4,6 +4,7 @@ import {
 	AutomationEventSnapshot,
 	AutomationRun,
 	AutomationTrigger,
+	type AutomationHookIdentity,
 	type AutomationWarning,
 } from "@ryot-app/contract/modules/automations/lifecycle";
 import {
@@ -24,16 +25,16 @@ import {
 	LifecyclePlanner,
 	toLifecycleDispatchPlan,
 } from "#lib/domain/lifecycle";
-import { lifecycleTrigger, type LifecycleCommand } from "#lib/domain/lifecycle-command";
+import { lifecycleTrigger } from "#lib/domain/lifecycle-command";
 import { LifecycleExecution } from "#lib/domain/lifecycle-execution";
-import { retryOnDeadlock } from "#lib/infrastructure/db/errors";
-import { DatabaseSession, DatabaseSessionStateError } from "#lib/infrastructure/db/session";
+import { DatabaseSession } from "#lib/infrastructure/db/session";
 import type { DurableSchema } from "#lib/infrastructure/workflow";
 import { implementWorkflow, makeActivity } from "#lib/infrastructure/workflow-scope";
 import { parseAppSchemaProperties } from "#lib/property-schema/property-schema-runtime";
 import { EntitiesRepository } from "#modules/entities/repository";
 import { EventSchemasRepository } from "#modules/event-schemas/repository";
-import { mutationReceiptIdentity, MutationReceipts } from "#modules/mutations/receipts";
+import { type MutationReceiptIdentity, MutationReceipts } from "#modules/mutations/receipts";
+import { admitWorkflow } from "#modules/mutations/workflow-dispatch";
 import {
 	CatalogDefinitionFingerprint,
 	catalogDefinitionFingerprint,
@@ -45,8 +46,16 @@ import {
 	type EventCreateWorkflowPayload,
 } from "./event-create-workflow";
 import { resolveEventCreateItemScopes } from "./event-creation";
-import { PolicyIdentity, runEventCreatePolicies } from "./event-policy-engine";
+import { runEventCreatePolicies } from "./event-policy-engine";
+import {
+	EventCreateReceiptResult,
+	eventCreateBatchInput,
+	eventCreateItemCommand,
+	eventCreateReceiptIdentity,
+	eventReceiptError,
+} from "./mutation-receipts";
 import { EventsRepository } from "./repository";
+import { eventRootTransaction } from "./transaction";
 
 const Plan = Schema.Struct({
 	wasCreated: Schema.Boolean,
@@ -60,13 +69,9 @@ const Plan = Schema.Struct({
 		}),
 	),
 });
-const EventReceiptResult = Schema.Struct({
-	eventId: EventId,
-	processed: Schema.Array(PolicyIdentity),
-});
 const PreparedItem = Schema.Union([
 	Schema.TaggedStruct("Committed", {
-		result: EventReceiptResult,
+		result: EventCreateReceiptResult,
 		dispatch: Schema.Array(LifecycleDispatchPlan),
 	}),
 	Schema.TaggedStruct("Pending", {
@@ -79,31 +84,10 @@ const PreparedItem = Schema.Union([
 	}),
 ]);
 
-const transaction = <A, E, R>(
-	session: DatabaseSession["Service"],
-	effect: Effect.Effect<A, E, R>,
-) =>
-	retryOnDeadlock(
-		session
-			.transaction(effect)
-			.pipe(
-				Effect.mapError((error) =>
-					error instanceof DatabaseSessionStateError
-						? new DbError({ message: "Event workflow transaction already active" })
-						: error,
-				),
-			),
-	);
-
-const itemCommand = (payload: EventCreateWorkflowPayload, index: number): LifecycleCommand => ({
-	...payload.command,
-	itemIdentity: `${payload.command.itemIdentity}:event:${index}`,
-});
-
 const prepareItem = Effect.fn("prepareEventCreateItem")(function* (
 	payload: EventCreateWorkflowPayload,
 	index: number,
-	excluded: ReadonlyArray<PolicyIdentity>,
+	excluded: ReadonlyArray<AutomationHookIdentity>,
 ) {
 	const planner = yield* LifecyclePlanner;
 	const session = yield* DatabaseSession;
@@ -116,32 +100,19 @@ const prepareItem = Effect.fn("prepareEventCreateItem")(function* (
 		name: `prepare-item-${index}`,
 		success: PreparedItem satisfies DurableSchema,
 		error: EventCreateWorkflowError satisfies DurableSchema,
-		execute: transaction(
+		execute: eventRootTransaction(
 			session,
+			"Event workflow transaction already active",
+		)(
 			Effect.gen(function* () {
-				yield* planner.prepareBatch({
-					resource: "event",
-					identity: ["events"],
-					command: payload.command,
+				const batch = yield* planner.prepareBatch({
+					...eventCreateBatchInput(payload),
 					scopes: [payload.userId],
-					commandInput: payload.payload,
 				});
-				const identity = mutationReceiptIdentity({
-					input: item,
-					commandKind: "event:create",
-					ownerUserId: payload.userId,
-					scopeUserId: payload.userId,
-					command: itemCommand(payload, index),
-				});
+				const identity = eventCreateReceiptIdentity(payload, index, item);
 				const replay = yield* receipts
-					.lookup(identity, EventReceiptResult)
-					.pipe(
-						Effect.mapError((error) =>
-							error instanceof DbError
-								? error
-								: new DbError({ message: "Conflicting event command identity" }),
-						),
-					);
+					.lookup(identity, EventCreateReceiptResult)
+					.pipe(Effect.mapError(eventReceiptError));
 				if (replay) {
 					return { _tag: "Committed" as const, ...replay };
 				}
@@ -169,12 +140,11 @@ const prepareItem = Effect.fn("prepareEventCreateItem")(function* (
 				);
 				const plan = yield* planner.plan({
 					excludedOncePerSubjectPolicies: excluded,
-					trigger: lifecycleTrigger(itemCommand(payload, index), payload.userId, {
-						draft,
-						resource: "event",
-						category: "request",
-						operation: "create",
-					}),
+					trigger: lifecycleTrigger(
+						eventCreateItemCommand(payload.command, index),
+						payload.userId,
+						{ draft, resource: "event", category: "request", operation: "create" },
+					),
 				});
 				const pending = {
 					draft,
@@ -215,7 +185,10 @@ const prepareItem = Effect.fn("prepareEventCreateItem")(function* (
 						() => new EventCreateItemError({ reason: { code: "invalid-properties" } }),
 					),
 				);
-				const committed = yield* writeEvent(payload, index, pending, validated, [], true);
+				const committed = yield* writeEvent(payload, index, pending, validated, [], {
+					batch,
+					identity,
+				});
 				return {
 					_tag: "Committed" as const,
 					dispatch: committed.dispatch,
@@ -231,8 +204,11 @@ const writeEvent = Effect.fn("writeEventCreateItem")(function* (
 	index: number,
 	prepared: Extract<typeof PreparedItem.Type, { _tag: "Pending" }>,
 	draft: AutomationEventDraft,
-	processed: ReadonlyArray<PolicyIdentity>,
-	inline = false,
+	processed: ReadonlyArray<AutomationHookIdentity>,
+	inline?: {
+		batch: Effect.Success<ReturnType<LifecyclePlanner["Service"]["prepareBatch"]>>;
+		identity: MutationReceiptIdentity;
+	},
 ) {
 	const repository = yield* EventsRepository;
 	const entities = yield* EntitiesRepository;
@@ -240,37 +216,27 @@ const writeEvent = Effect.fn("writeEventCreateItem")(function* (
 	const planner = yield* LifecyclePlanner;
 	const session = yield* DatabaseSession;
 	const receipts = yield* MutationReceipts.make;
-	const command = itemCommand(payload, index);
+	const command = eventCreateItemCommand(payload.command, index);
 	const item = payload.payload[index];
 	if (!item) {
 		return yield* Effect.die("Missing event batch item");
 	}
 	const work = Effect.gen(function* () {
-		const batch = yield* planner.prepareBatch({
-			resource: "event",
-			identity: ["events"],
-			command: payload.command,
-			scopes: [payload.userId],
-			commandInput: payload.payload,
-		});
-		const identity = mutationReceiptIdentity({
-			command,
-			input: item,
-			commandKind: "event:create",
-			ownerUserId: payload.userId,
-			scopeUserId: payload.userId,
-		});
-		const replay = yield* receipts
-			.lookup(identity, EventReceiptResult)
-			.pipe(
-				Effect.mapError((error) =>
-					error instanceof DbError
-						? error
-						: new DbError({ message: "Conflicting event command identity" }),
-				),
-			);
-		if (replay) {
-			return { ...replay.result, dispatch: replay.dispatch };
+		// Inline preparation still owns this transaction's pinned decision and receipt lock.
+		const batch = inline
+			? inline.batch
+			: yield* planner.prepareBatch({
+					...eventCreateBatchInput(payload),
+					scopes: [payload.userId],
+				});
+		const identity = inline?.identity ?? eventCreateReceiptIdentity(payload, index, item);
+		if (!inline) {
+			const replay = yield* receipts
+				.lookup(identity, EventCreateReceiptResult)
+				.pipe(Effect.mapError(eventReceiptError));
+			if (replay) {
+				return { ...replay.result, dispatch: replay.dispatch };
+			}
 		}
 		const eventId = EventId.make(
 			`event_${sha256Base64Url(stableStringify([command.causation.executionId, command.itemIdentity]))}`,
@@ -344,11 +310,11 @@ const writeEvent = Effect.fn("writeEventCreateItem")(function* (
 	}
 	return yield* makeActivity({
 		name: `write-event-${index}`,
-		execute: transaction(session, work),
 		error: EventCreateWorkflowError satisfies DurableSchema,
+		execute: eventRootTransaction(session, "Event workflow transaction already active")(work),
 		success: Schema.Struct({
 			dispatch: Schema.Array(LifecycleDispatchPlan),
-			...EventReceiptResult.fields,
+			...EventCreateReceiptResult.fields,
 		}) satisfies DurableSchema,
 	});
 });
@@ -362,15 +328,10 @@ const planEventBatch = Effect.fn("planEventCreateBatch")(function* (
 		name: "plan-event-batch",
 		error: EventCreateWorkflowError satisfies DurableSchema,
 		success: Schema.Array(LifecycleDispatchPlan) satisfies DurableSchema,
-		execute: transaction(
+		execute: eventRootTransaction(
 			session,
-			planner.planBatch({
-				resource: "event",
-				identity: ["events"],
-				command: payload.command,
-				commandInput: payload.payload,
-			}),
-		),
+			"Event workflow transaction already active",
+		)(planner.planBatch(eventCreateBatchInput(payload))),
 	});
 });
 
@@ -379,23 +340,14 @@ const hasPreparedEventBatch = Effect.fnUntraced(function* (payload: EventCreateW
 	return yield* receipts
 		.peekBatch(
 			receipts.batchIdentity({
-				resource: "event",
-				identity: ["events"],
-				command: payload.command,
-				commandInput: payload.payload,
+				...eventCreateBatchInput(payload),
 				ownerUserId:
 					payload.command.causation.initiator.kind === "user"
 						? payload.command.causation.initiator.id
 						: null,
 			}),
 		)
-		.pipe(
-			Effect.mapError((error) =>
-				error instanceof DbError
-					? error
-					: new DbError({ message: "Conflicting event command identity" }),
-			),
-		);
+		.pipe(Effect.mapError(eventReceiptError));
 });
 
 export const runEventCreateWorkflow = Effect.fn("EventCreateWorkflow")(function* (
@@ -404,9 +356,10 @@ export const runEventCreateWorkflow = Effect.fn("EventCreateWorkflow")(function*
 ) {
 	yield* Effect.annotateCurrentSpan({ executionId, userId: payload.userId });
 	const receipts = yield* MutationReceipts.make;
-	yield* receipts.registerWorkflow(
+	yield* admitWorkflow(
+		receipts,
+		EventCreateWorkflow,
 		payload.command.accountGeneration,
-		EventCreateWorkflow._tag,
 		executionId,
 	);
 	const execution = yield* LifecycleExecution;
@@ -426,7 +379,7 @@ export const runEventCreateWorkflow = Effect.fn("EventCreateWorkflow")(function*
 	);
 	const outcomes: EventCreateItemOutcome[] = [];
 	const warnings: AutomationWarning[] = [];
-	const subjects = new Map<string, PolicyIdentity[]>();
+	const subjects = new Map<string, AutomationHookIdentity[]>();
 	let count = 0;
 	const preparedAny = yield* Ref.make(false);
 	let failure: { index: number; reason: EventCreateFailureReason } | null = null;

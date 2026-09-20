@@ -1,17 +1,17 @@
 import {
 	AutomationEntityDraft,
+	type AutomationEntityChangePayload,
 	AutomationEntitySnapshot,
 	AutomationTrigger,
+	LifecycleCommand,
 } from "@ryot-app/contract/modules/automations/lifecycle";
-import type { ListedEntity } from "@ryot-app/contract/modules/entities/schemas";
-import { EntityBadRequest } from "@ryot-app/contract/modules/entities/schemas";
+import { EntityBadRequest, type ListedEntity } from "@ryot-app/contract/modules/entities/schemas";
 import { EntityId, UserId } from "@ryot-app/contract/schema/brands";
 import { stableStringify } from "@ryot-app/ts-utils/json";
 import { DateTime, Effect, Schema } from "effect";
 
-import type { LifecyclePlanner } from "#lib/domain/lifecycle";
-import { toLifecycleDispatchPlan } from "#lib/domain/lifecycle";
-import { LifecycleCommand, lifecycleTrigger } from "#lib/domain/lifecycle-command";
+import { toLifecycleDispatchPlan, type LifecyclePlanner } from "#lib/domain/lifecycle";
+import { lifecycleTrigger } from "#lib/domain/lifecycle-command";
 import {
 	MutationReceiptIdentity,
 	MutationReceiptIdentityConflict,
@@ -19,7 +19,6 @@ import {
 } from "#modules/mutations/receipts";
 import { CatalogDefinitionFingerprint } from "#modules/plugins/runtime-resolver";
 
-import { EntitySaveResult, type EntityMutationOutcome } from "./mutation-outcomes";
 import type { EntitiesRepository } from "./repository";
 
 export const PreparedEntityMutation = Schema.Struct({
@@ -49,15 +48,19 @@ export const same = (left: unknown, right: unknown) =>
 const conflict = (message: string) =>
 	new EntityBadRequest({ reason: { message, code: "mutation-conflict" } });
 
-export const makePersistMutation = <E, R>({
+export const makePersistMutation = <E, R, Result>({
 	planner,
 	receipts,
+	resultOf,
 	repository,
+	resultCodec,
 	validateDraft,
 }: {
 	repository: EntitiesRepository["Service"];
 	planner: LifecyclePlanner["Service"];
 	receipts: MutationReceipts["Service"];
+	resultCodec: Schema.Codec<Result, unknown>;
+	resultOf: (entity: ListedEntity, wasInserted: boolean) => Result;
 	validateDraft: (
 		draft: AutomationEntityDraft,
 		scopeUserId: UserId | null,
@@ -68,7 +71,7 @@ export const makePersistMutation = <E, R>({
 		batch?: { id: string; hasCandidates: boolean; index: number },
 	) {
 		const replay = yield* receipts
-			.lookup(input.receipt, EntitySaveResult)
+			.lookup(input.receipt, resultCodec)
 			.pipe(
 				Effect.mapError((error) =>
 					error instanceof MutationReceiptIdentityConflict
@@ -77,7 +80,7 @@ export const makePersistMutation = <E, R>({
 				),
 			);
 		if (replay) {
-			return { ...replay.result, dispatch: replay.dispatch };
+			return { result: replay.result, dispatch: replay.dispatch };
 		}
 		yield* repository.lockSchemaCatalog();
 		const currentSchema = yield* validateDraft(input.draft, input.scopeUserId);
@@ -106,8 +109,7 @@ export const makePersistMutation = <E, R>({
 			return yield* conflict("Entity scope changed");
 		}
 		let entity: ListedEntity;
-		let outcome: EntityMutationOutcome;
-		let changed = false;
+		let evidence: AutomationEntityChangePayload | undefined;
 		if (input.operation === "create") {
 			if (before) {
 				if (!same(draftOf(before), input.draft)) {
@@ -138,11 +140,15 @@ export const makePersistMutation = <E, R>({
 					);
 				}
 				entity = saved.entity;
-				changed = true;
 			}
-			outcome = before
-				? { before, after: before, operation: "noop" }
-				: { before: null, operation: "create", after: snapshot(entity) };
+			if (before === null) {
+				evidence = {
+					category: "change",
+					resource: "entity",
+					operation: "create",
+					after: snapshot(entity),
+				};
+			}
 		} else {
 			if (!before || !same(before, input.before)) {
 				return yield* conflict("Entity changed while policies ran; resubmit with a new command");
@@ -169,11 +175,11 @@ export const makePersistMutation = <E, R>({
 					),
 				});
 				const dispatch = plan.trigger === null ? [] : [toLifecycleDispatchPlan(plan)];
-				outcome = { before, after: before, operation: "noop" as const };
+				const result = resultOf(before, false);
 				yield* receipts.insert({
+					result,
 					dispatch,
 					identity: input.receipt,
-					result: { outcome, entity: before, wasInserted: false },
 					...(batch ? { batchId: batch.id, batchIndex: batch.index } : {}),
 					...(batch?.hasCandidates
 						? {
@@ -187,22 +193,17 @@ export const makePersistMutation = <E, R>({
 							}
 						: {}),
 				});
-				return {
-					dispatch,
-					entity: before,
-					wasInserted: false,
-					outcome: { before, after: before, operation: "noop" as const },
-				};
+				return { result, dispatch };
 			}
 			if (same(draftOf(before), input.draft)) {
-				outcome = { before, after: before, operation: "noop" as const };
+				const result = resultOf(before, false);
 				yield* receipts.insert({
+					result,
 					dispatch: [],
 					identity: input.receipt,
-					result: { outcome, entity: before, wasInserted: false },
 					...(batch ? { batchId: batch.id, batchIndex: batch.index } : {}),
 				});
-				return { outcome, dispatch: [], entity: before, wasInserted: false };
+				return { result, dispatch: [] };
 			}
 			entity = yield* repository.updateEntity({
 				name: input.draft.name,
@@ -213,10 +214,21 @@ export const makePersistMutation = <E, R>({
 						? null
 						: DateTime.toDateUtc(DateTime.makeUnsafe(input.draft.populatedAt)),
 			});
-			outcome = { before, operation: "update", after: snapshot(entity) };
-			changed = true;
+			evidence = {
+				before,
+				category: "change",
+				resource: "entity",
+				operation: "update",
+				after: snapshot(entity),
+			};
 		}
-		const plan = changed
+		const change = evidence
+			? {
+					...evidence,
+					...(input.lifecycle.population ? { population: input.lifecycle.population } : {}),
+				}
+			: undefined;
+		const plan = change
 			? yield* planner.plan({
 					trigger: lifecycleTrigger(
 						{
@@ -227,53 +239,18 @@ export const makePersistMutation = <E, R>({
 							},
 						},
 						input.scopeUserId,
-						{
-							category: "change",
-							resource: "entity",
-							...(outcome.operation === "create"
-								? { after: outcome.after, operation: "create" as const }
-								: { after: outcome.after, before: outcome.before, operation: "update" as const }),
-							...(input.lifecycle.population ? { population: input.lifecycle.population } : {}),
-						},
+						change,
 					),
 				})
 			: null;
 		const dispatch = plan?.trigger ? [toLifecycleDispatchPlan(plan)] : [];
+		const result = resultOf(entity, input.operation === "create" && before === null);
 		yield* receipts.insert({
+			result,
 			dispatch,
 			identity: input.receipt,
-			result: { entity, outcome, wasInserted: input.operation === "create" && before === null },
 			...(batch ? { batchId: batch.id, batchIndex: batch.index } : {}),
-			...(batch?.hasCandidates && outcome.operation !== "noop"
-				? {
-						evidence:
-							outcome.operation === "create"
-								? {
-										after: outcome.after,
-										category: "change" as const,
-										resource: "entity" as const,
-										operation: "create" as const,
-										...(input.lifecycle.population
-											? { population: input.lifecycle.population }
-											: {}),
-									}
-								: {
-										after: outcome.after,
-										before: outcome.before,
-										category: "change" as const,
-										resource: "entity" as const,
-										operation: "update" as const,
-										...(input.lifecycle.population
-											? { population: input.lifecycle.population }
-											: {}),
-									},
-					}
-				: {}),
+			...(batch?.hasCandidates && change ? { evidence: change } : {}),
 		});
-		return {
-			entity,
-			outcome,
-			dispatch,
-			wasInserted: input.operation === "create" && before === null,
-		};
+		return { result, dispatch };
 	});

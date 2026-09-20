@@ -1,10 +1,9 @@
 import { Layer } from "effect";
 
-import { ClientArtifactsRepository } from "#modules/client-artifacts/repository";
 import { DefinitionRepository } from "#modules/definition-registry/repository";
 import { PluginCatalogInvalidatorLive } from "#modules/plugins/catalog-events";
 import { PluginInstallationRepository } from "#modules/plugins/installation-repository";
-import { PluginRepository } from "#modules/plugins/repository";
+import { PluginRepositoryLive } from "#modules/plugins/repository-layer";
 import { PluginRuntimeResolverLive } from "#modules/plugins/runtime-resolver";
 
 import { SavedViewsRepository } from "./repository";
@@ -16,7 +15,7 @@ export const SavedViewsServiceLive = SavedViewsService.layer.pipe(
 			SavedViewsRepository.layer,
 			PluginRuntimeResolverLive,
 			PluginInstallationRepository.layer,
-			PluginRepository.layer.pipe(Layer.provide(ClientArtifactsRepository.layer)),
+			PluginRepositoryLive,
 			PluginCatalogInvalidatorLive,
 		),
 	),
