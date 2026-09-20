@@ -7,6 +7,7 @@ import {
 	count,
 	defineRecipe,
 	eq,
+	first,
 	gte,
 	latestEventField,
 	literal,
@@ -28,6 +29,7 @@ export const measurementSummaryRecipe = defineRecipe(
 	(input: { readonly rangeStart: string; readonly after?: string | undefined }) => {
 		const metric = table("entity", "metric");
 		const reading = table("event", "summaryReading");
+		const pin = table("relationship", "summaryPin");
 		const metricReadings = and(
 			eq(column(reading, "entityId"), column(metric, "id")),
 			eq(column(reading, "eventSchemaSlug"), literal("measurement-reading")),
@@ -71,6 +73,17 @@ export const measurementSummaryRecipe = defineRecipe(
 								),
 							}),
 							Schema.Finite,
+						),
+						pinnedAt: selectedField(
+							first(pin, {
+								select: column(pin, "createdAt"),
+								orderBy: [ascending(column(pin, "createdAt"))],
+								where: and(
+									eq(column(pin, "sourceEntityId"), column(metric, "id")),
+									eq(column(pin, "relationshipSchemaSlug"), literal("measurement-metric-pinned")),
+								),
+							}),
+							nullableString,
 						),
 					},
 				}),

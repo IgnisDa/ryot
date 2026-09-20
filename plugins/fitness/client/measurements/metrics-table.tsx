@@ -1,8 +1,9 @@
-import { SegmentedControl } from "@ryot-app/client-ui-sdk";
+import { SegmentedControl, StatusMessage } from "@ryot-app/client-ui-sdk";
 import { Sparkline } from "@ryot-app/client-ui-sdk/charts";
 import { AppIcon } from "@ryot-app/client-ui-sdk/icon";
 import clsx from "clsx";
 
+import { MEASUREMENT_PIN_LIMIT } from "../../shared/measurement-metric-operations";
 import { sectionHeadingClass } from "../exercise/styles";
 import {
 	formatChange,
@@ -32,11 +33,16 @@ export function MetricsTable(props: {
 	readonly sort: MetricSort;
 	readonly timeZone: string;
 	readonly rows: readonly MetricRow[];
+	readonly pinPending: boolean;
 	readonly selectedId: string | null;
+	readonly pinError: string | undefined;
+	readonly pinnedIds: ReadonlySet<string>;
 	readonly onSelect: (metricId: string) => void;
 	readonly onSortChange: (sort: MetricSort) => void;
+	readonly onPinChange: (metricId: string, pinned: boolean) => void;
 }) {
 	const { rows, sort, range, timeZone, onSelect, selectedId, onSortChange } = props;
+	const pinLimitReached = props.pinnedIds.size >= MEASUREMENT_PIN_LIMIT;
 	return (
 		<section aria-label="All metrics" className="flex min-w-0 flex-col gap-2.5 font-ui">
 			<div className="flex flex-wrap items-baseline justify-between gap-x-3 gap-y-2">
@@ -49,6 +55,9 @@ export function MetricsTable(props: {
 					onChange={onSortChange}
 				/>
 			</div>
+			{props.pinError === undefined ? null : (
+				<StatusMessage tone="error">{props.pinError}</StatusMessage>
+			)}
 			<div className="overflow-x-auto rounded-xl border border-border">
 				<table className="w-full min-w-155 border-collapse text-[14px]">
 					<thead>
@@ -76,6 +85,8 @@ export function MetricsTable(props: {
 					<tbody>
 						{rows.map(({ trend, change, summary }) => {
 							const { id, name, unit, latestAt, rangeCount, latestValue } = summary;
+							const pinned = props.pinnedIds.has(id);
+							const pinBlocked = !pinned && pinLimitReached;
 							return (
 								<tr
 									key={id}
@@ -84,11 +95,21 @@ export function MetricsTable(props: {
 									<td className="px-3 py-2">
 										<button
 											type="button"
+											aria-pressed={pinned}
 											aria-label={`Pin ${name}`}
-											onClick={() => console.log("TODO: pin metric")}
-											className="inline-flex rounded-md p-1 text-border-strong"
+											disabled={props.pinPending || pinBlocked}
+											onClick={() => props.onPinChange(id, !pinned)}
+											className={clsx(
+												"inline-flex rounded-md p-1 disabled:opacity-50",
+												pinned ? "text-accent" : "text-border-strong",
+											)}
+											title={
+												pinBlocked
+													? `Only ${MEASUREMENT_PIN_LIMIT} metrics can be pinned. Unpin one first.`
+													: undefined
+											}
 										>
-											<AppIcon size={16} name="star" />
+											<AppIcon size={16} name="star" className={clsx(pinned && "fill-current")} />
 										</button>
 									</td>
 									<td className="px-3 py-2">

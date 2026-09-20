@@ -13,13 +13,13 @@ import {
 	buildMetricRows,
 	rangeOptions,
 	rangeStartAt,
-	selectTileMetrics,
+	selectPinnedMetrics,
 	seriesWindow,
 	sortMetricRows,
 	type MetricSort,
 	type RangeKey,
 } from "./model";
-import { logReadingsMutation, readingFailureMessage } from "./mutations";
+import { logReadingsMutation, pinMetricMutation, readingFailureMessage } from "./mutations";
 import { ChartCard, MetricTiles } from "./overview";
 import { seriesQuery, summaryQuery } from "./queries";
 import { MeasurementDialog } from "./reading-composer";
@@ -33,11 +33,11 @@ function LogMeasurementDialog(props: {
 	const { metrics } = props;
 	const log = useRyotMutation(logReadingsMutation);
 	const [initial] = useState(() => {
-		const tiles = selectTileMetrics(metrics);
+		const pinned = selectPinnedMetrics(metrics);
 		return {
 			comment: null,
 			occurredAt: new Date().toISOString(),
-			values: (tiles.length === 0 ? metrics.slice(0, 1) : tiles).map(({ id }) => ({
+			values: (pinned.length === 0 ? metrics.slice(0, 1) : pinned).map(({ id }) => ({
 				value: null,
 				metricId: id,
 			})),
@@ -72,14 +72,16 @@ export function MeasurementsView(props: {
 	const [sort, setSort] = useState<MetricSort>("recent");
 	const [selectedChoice, setSelectedChoice] = useState<string | null>(null);
 	const [compareChoice, setCompareChoice] = useState("");
+	const pin = useRyotMutation(pinMetricMutation);
 	const rows = useMemo(() => buildMetricRows(summaries, series), [summaries, series]);
 	const tiles = useMemo(
 		() =>
-			selectTileMetrics(summaries).flatMap(({ id }) =>
+			selectPinnedMetrics(summaries).flatMap(({ id }) =>
 				rows.filter(({ summary }) => summary.id === id),
 			),
 		[summaries, rows],
 	);
+	const pinnedIds = useMemo(() => new Set(tiles.map(({ summary }) => summary.id)), [tiles]);
 	const sortedRows = useMemo(() => sortMetricRows(rows, sort), [rows, sort]);
 	const window = useMemo(() => seriesWindow(range, now, summaries), [range, now, summaries]);
 	const selected = rows.find(({ summary }) => summary.id === selectedChoice) ?? tiles[0] ?? rows[0];
@@ -95,16 +97,14 @@ export function MeasurementsView(props: {
 	};
 	return (
 		<div className="flex min-w-0 flex-col gap-6">
-			{tiles.length === 0 ? null : (
-				<MetricTiles
-					now={now}
-					rows={tiles}
-					range={range}
-					onSelect={select}
-					timeZone={timeZone}
-					selectedId={selected?.summary.id ?? null}
-				/>
-			)}
+			<MetricTiles
+				now={now}
+				rows={tiles}
+				range={range}
+				onSelect={select}
+				timeZone={timeZone}
+				selectedId={selected?.summary.id ?? null}
+			/>
 			{selected === undefined ? null : (
 				<ChartCard
 					now={now}
@@ -124,8 +124,12 @@ export function MeasurementsView(props: {
 				rows={sortedRows}
 				onSelect={select}
 				timeZone={timeZone}
+				pinnedIds={pinnedIds}
 				onSortChange={setSort}
+				pinPending={pin.isPending}
 				selectedId={selected?.summary.id ?? null}
+				onPinChange={(metricId, pinned) => pin.mutate({ pinned, metricId })}
+				pinError={pin.error === null ? undefined : "The pin couldn't be changed. Try again."}
 			/>
 			<ReadingLog
 				key={range}
