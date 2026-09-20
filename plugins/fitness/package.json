@@ -42,6 +42,10 @@
 			"types": "./shared/exercise-note-operations.ts",
 			"default": "./shared/exercise-note-operations.ts"
 		},
+		"./measurement-recipes": {
+			"types": "./shared/measurement-recipes.ts",
+			"default": "./shared/measurement-recipes.ts"
+		},
 		"./contracts/operation-recipes": {
 			"types": "./backend/contracts/operation-recipes.ts",
 			"default": "./backend/contracts/operation-recipes.ts"

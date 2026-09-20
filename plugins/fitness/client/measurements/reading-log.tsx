@@ -233,7 +233,15 @@ export function ReadingLog(props: {
 						sections={sections}
 						timeZone={timeZone}
 					/>
-					{shown.hasMore ? (
+					{result.isError ? (
+						<div className="flex flex-col items-start gap-3">
+							<StatusMessage tone="error">More readings couldn't be loaded.</StatusMessage>
+							<Button variant="secondary" onClick={result.refetch} disabled={result.isFetching}>
+								Try again
+							</Button>
+						</div>
+					) : null}
+					{shown.hasMore && !result.isError ? (
 						<Button
 							variant="secondary"
 							className="self-center"

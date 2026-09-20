@@ -1,12 +1,13 @@
 import { usePageContext, useRyotViewport } from "@ryot-app/client-sdk/plugin";
-import { useRyotQuery } from "@ryot-app/client-sdk/react";
+import { useRyotQuery, type RyotQueryResult } from "@ryot-app/client-sdk/react";
 import { PluginScreenFrame } from "@ryot-app/client-sdk/screen";
 import { Button, SegmentedControl, StatusMessage } from "@ryot-app/client-ui-sdk";
 import { AppIcon } from "@ryot-app/client-ui-sdk/icon";
 import clsx from "clsx";
-import { useMemo, useState } from "react";
+import { useMemo, useRef, useState } from "react";
 
 import type { MeasurementSeries, MeasurementSummary } from "../../shared/measurement-recipes";
+import { AddMetricDialog } from "./add-metric";
 import { MetricsTable } from "./metrics-table";
 import {
 	buildMetricRows,
@@ -148,9 +149,9 @@ function MeasurementsBody(props: {
 	readonly compact: boolean;
 	readonly range: RangeKey;
 	readonly timeZone: string;
+	readonly result: RyotQueryResult<readonly MeasurementSummary[]>;
 }) {
-	const { now, range } = props;
-	const result = useRyotQuery(summaryQuery, { rangeStart: rangeStartAt(range, now) });
+	const { result } = props;
 	if (result.data === undefined) {
 		return result.isError ? (
 			<div className="flex flex-col items-start gap-3 font-ui">
@@ -170,7 +171,7 @@ function MeasurementsBody(props: {
 			<div className="flex flex-col items-start gap-2 rounded-xl border border-dashed border-border p-6 font-ui">
 				<h2 className="font-display text-[22px] font-semibold text-text">No measurements yet</h2>
 				<p className="text-[14px] text-text-muted">
-					Log a measurement, or import your history from OpenScale, to see trends here.
+					Add a metric to track, or import your history from OpenScale, to get started.
 				</p>
 			</div>
 		);
@@ -184,6 +185,9 @@ export default function MeasurementsPage() {
 	const [now] = useState(() => new Date());
 	const [timeZone] = useState(() => Intl.DateTimeFormat().resolvedOptions().timeZone);
 	const [range, setRange] = useState<RangeKey>("1Y");
+	const [addingMetric, setAddingMetric] = useState(false);
+	const addMetricTrigger = useRef<HTMLButtonElement>(null);
+	const result = useRyotQuery(summaryQuery, { rangeStart: rangeStartAt(range, now) });
 	const controls = (
 		<div className={clsx("flex flex-wrap items-center gap-2.5", compact && "pb-4")}>
 			<SegmentedControl
@@ -196,6 +200,15 @@ export default function MeasurementsPage() {
 			<Button onClick={logMeasurement} className="min-h-9 px-3.5 py-1.5">
 				Log measurement
 			</Button>
+			<Button
+				variant="secondary"
+				ref={addMetricTrigger}
+				className="min-h-9 px-3 py-1.5"
+				onClick={() => setAddingMetric(true)}
+				disabled={result.data === undefined || result.isFetching || result.isError}
+			>
+				Add metric
+			</Button>
 		</div>
 	);
 	return (
@@ -207,7 +220,20 @@ export default function MeasurementsPage() {
 			}
 		>
 			{compact ? controls : null}
-			<MeasurementsBody now={now} range={range} compact={compact} timeZone={timeZone} />
+			<MeasurementsBody
+				now={now}
+				range={range}
+				result={result}
+				compact={compact}
+				timeZone={timeZone}
+			/>
+			{addingMetric && result.data !== undefined ? (
+				<AddMetricDialog
+					metrics={result.data}
+					triggerRef={addMetricTrigger}
+					onClose={() => setAddingMetric(false)}
+				/>
+			) : null}
 		</PluginScreenFrame>
 	);
 }

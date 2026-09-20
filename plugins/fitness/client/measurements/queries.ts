@@ -1,3 +1,4 @@
+import { RyotClientError } from "@ryot-app/client-sdk";
 import { Effect } from "@ryot-app/client-sdk/effect";
 import { createRyotQuery } from "@ryot-app/client-sdk/react";
 
@@ -16,7 +17,26 @@ const READING_PAGE_SIZE = 100;
 export const summaryQuery = createRyotQuery<
 	{ readonly rangeStart: string },
 	readonly MeasurementSummary[]
->(({ input, client }) => client.data.query(measurementSummaryRecipe(input)));
+>(({ input, client }) =>
+	Effect.gen(function* () {
+		const summaries: MeasurementSummary[] = [];
+		const cursors = new Set<string>();
+		let after: string | undefined;
+		for (;;) {
+			const page = yield* client.data.query(measurementSummaryRecipe({ ...input, after }));
+			summaries.push(...page.items);
+			if (!page.pageInfo.hasMore) {
+				return summaries;
+			}
+			const next = page.pageInfo.nextCursor;
+			if (next === null || cursors.has(next)) {
+				return yield* new RyotClientError("malformed-result");
+			}
+			cursors.add(next);
+			after = next;
+		}
+	}),
+);
 
 export const seriesQuery = createRyotQuery<
 	{
@@ -45,16 +65,22 @@ export const readingsQuery = createRyotQuery<
 		const items: MeasurementReading[] = [];
 		let after: string | undefined;
 		let hasMore = false;
+		const cursors = new Set<string>();
 		for (let page = 0; page < input.pages; page += 1) {
 			const result = yield* client.data.query(
 				measurementReadingListRecipe({ after, startAt: input.startAt, limit: READING_PAGE_SIZE }),
 			);
 			items.push(...result.items);
 			hasMore = result.pageInfo.hasMore;
-			after = result.pageInfo.nextCursor ?? undefined;
 			if (!hasMore) {
 				break;
 			}
+			const next = result.pageInfo.nextCursor;
+			if (next === null || cursors.has(next)) {
+				return yield* new RyotClientError("malformed-result");
+			}
+			cursors.add(next);
+			after = next;
 		}
 		return { items, hasMore };
 	}),
