@@ -22,6 +22,7 @@ import { RelationshipsRepository } from "#modules/relationships/repository";
 import { RyotQLService } from "#modules/ryotql/service";
 
 import { SandboxRepository } from "./repository";
+import { SandboxWorkflowPinning } from "./sandbox-script-workflow";
 import { SandboxExecutionService } from "./service";
 import { SandboxWorkflowReferenceRepository } from "./workflow-reference-repository";
 
@@ -30,14 +31,18 @@ export const SandboxPluginScriptResolverLive = Layer.provideMerge(
 	PluginRuntimeResolverLive,
 );
 
+const SandboxExecutionRepositoriesLive = Layer.mergeAll(
+	SandboxRepository.layer,
+	SandboxWorkflowReferenceRepository.layer,
+	SandboxPluginScriptResolverLive,
+);
+
+export const SandboxWorkflowPinningLive = SandboxWorkflowPinning.layer.pipe(
+	Layer.provide(SandboxExecutionRepositoriesLive),
+);
+
 export const SandboxExecutionServiceLive = SandboxExecutionService.layer.pipe(
-	Layer.provide(
-		Layer.mergeAll(
-			SandboxRepository.layer,
-			SandboxWorkflowReferenceRepository.layer,
-			SandboxPluginScriptResolverLive,
-		),
-	),
+	Layer.provide(Layer.merge(SandboxWorkflowPinningLive, SandboxExecutionRepositoriesLive)),
 );
 
 export const SandboxHostImplementationsLive = Layer.effect(
