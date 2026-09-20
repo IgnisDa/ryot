@@ -3,7 +3,7 @@
 ::: warning
 
 - This importer is in beta. Report problems on GitHub.
-- Set `RYOT_PLUGIN_MEDIA_TMDB_ACCESS_TOKEN` before import.
+- Set `RYOT_PLUGIN_BCAD4408A7E7465EACCBC1A553C78090_TMDB_ACCESS_TOKEN` before import.
 - Only Netflix exports in English are supported. Make sure your account language is set to
   English before requesting the export.
   :::

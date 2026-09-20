@@ -20,6 +20,14 @@ Ryot serves the final configuration loaded at the `/api/system/config` endpoint 
 Provider setup is documented in [Guides](guides/movies-and-shows.md). The generated reference
 below is authoritative for environment variable names.
 
+System plugin variables use the package's permanent UUID, without hyphens and in uppercase:
+`RYOT_PLUGIN_<UUID>_<SETTING>`. For Media, the prefix is
+`RYOT_PLUGIN_BCAD4408A7E7465EACCBC1A553C78090_`. Plugin names can repeat or change without changing
+these keys. Private plugins use their installation settings, never these environment variables.
+
+If you run multiple server replicas, use the same server/runtime release and deployment settings
+on every replica. Mixed-release rolling upgrades are not supported.
+
 ## Health endpoint
 
 Use `/api/system/health` for service health checks.

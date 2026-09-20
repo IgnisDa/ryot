@@ -10,6 +10,6 @@ Spotify metadata requires a client ID and client secret.
 5. Set:
 
    ```bash
-   RYOT_PLUGIN_MEDIA_SPOTIFY_CLIENT_ID=your-client-id
-   RYOT_PLUGIN_MEDIA_SPOTIFY_CLIENT_SECRET=your-client-secret
+   RYOT_PLUGIN_BCAD4408A7E7465EACCBC1A553C78090_SPOTIFY_CLIENT_ID=your-client-id
+   RYOT_PLUGIN_BCAD4408A7E7465EACCBC1A553C78090_SPOTIFY_CLIENT_SECRET=your-client-secret
    ```

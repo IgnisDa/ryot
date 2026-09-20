@@ -5,6 +5,7 @@ import { SandboxRunError } from "@ryot-app/contract/errors";
 import {
 	PluginConfigRevisionId,
 	PluginId,
+	PluginPackageId,
 	PluginRevisionId,
 	SandboxScriptId,
 	UserId,
@@ -189,6 +190,7 @@ const SandboxServiceSmokeLive = Layer.effect(SandboxService, SandboxService.make
 	Layer.provideMerge(SandboxHostCallGate.layer),
 	Layer.provide(SandboxFileService.layer),
 	Layer.provide(SandboxHostImplementationsSmokeLive),
+	Layer.provideMerge(SandboxExecutionAuthoritySmokeLive),
 	Layer.provideMerge(SandboxSidecarSupervisorSmokeLive),
 );
 
@@ -294,10 +296,12 @@ const smoke = Effect.gen(function* () {
 								configSchema: { fields: {}, unknownKeys: "strict" },
 								compiledHashes: { [smokeSourceManifest.slug]: contentHash },
 								revisionId: PluginRevisionId.make("production-runtime-smoke-revision"),
+								packageId: PluginPackageId.make("2eed98ed-dcb6-4aa1-aa43-c09d481e4cbe"),
 								configRevisionId: PluginConfigRevisionId.make("production-runtime-smoke-config"),
 								schemaScope: {
 									eventSchemas: [],
 									entitySchemaSlugs: [],
+									signalSchemaSlugs: [],
 									relationshipSchemaSlugs: [],
 								},
 							},

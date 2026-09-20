@@ -5,7 +5,7 @@ This integration reads only in-progress media. Use an [import](../importing/plex
 media.
 :::
 
-Media must have a valid TMDB ID. Set `RYOT_PLUGIN_MEDIA_TMDB_ACCESS_TOKEN`: Plex sends only episode
+Media must have a valid TMDB ID. Set `RYOT_PLUGIN_BCAD4408A7E7465EACCBC1A553C78090_TMDB_ACCESS_TOKEN`: Plex sends only episode
 IDs, so Ryot looks up the show of each episode on TMDB, and the show does not need to be in Ryot
 first.
 
