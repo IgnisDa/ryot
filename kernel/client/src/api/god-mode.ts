@@ -35,6 +35,11 @@ export class GodModeApi extends Context.Service<GodModeApi>()("GodModeApi", {
 				token: string,
 				request: ContractRequest<"godMode", "resetUserPassword">,
 			) => api.run(origin, token, (client) => client.godMode.resetUserPassword(request)),
+			startUserImpersonation: (
+				origin: ServerOrigin,
+				token: string,
+				request: ContractRequest<"godMode", "startUserImpersonation">,
+			) => api.run(origin, token, (client) => client.godMode.startUserImpersonation(request)),
 			query: <A>(origin: ServerOrigin, token: string, recipe: PreparedRecipe<A>) =>
 				api
 					.run(origin, token, (client) => client.adminRyotql.execute({ payload: recipe.document }))

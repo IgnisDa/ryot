@@ -1,5 +1,5 @@
 import { Browser } from "@capacitor/browser";
-import type { AccessClass } from "@ryot-app/contract/oauth";
+import type { AccessClass, ImpersonationSession } from "@ryot-app/contract/oauth";
 import { Context, Effect, Layer } from "effect";
 
 import type { ServerOrigin } from "#/api/origin";
@@ -21,6 +21,7 @@ export type AuthSessionSnapshot =
 				readonly email: string;
 				readonly image: string | null;
 			};
+			readonly impersonation?: ImpersonationSession;
 	  };
 
 export type SettledAuthSession = Exclude<AuthSessionSnapshot, { readonly status: "pending" }>;
@@ -98,6 +99,7 @@ export class AuthService extends Context.Service<AuthService>()("AuthService", {
 								image: user.picture ?? null,
 								name: user.name ?? user.email ?? user.sub,
 							},
+							...(user.impersonation === undefined ? {} : { impersonation: user.impersonation }),
 						}
 					: { status: "missing" };
 				getSession(canonical).set(snapshot);
@@ -154,7 +156,12 @@ export class AuthService extends Context.Service<AuthService>()("AuthService", {
 				return false;
 			}
 			const endSessionUrl = yield* tokens.logout(origin, client.logoutUri);
-			getSession(origin).set({ status: "missing" });
+			const impersonating =
+				endSessionUrl !== null &&
+				new URL(endSessionUrl).searchParams.get("state") === "impersonation";
+			if (!impersonating) {
+				getSession(origin).set({ status: "missing" });
+			}
 			if (!endSessionUrl) {
 				return false;
 			}
@@ -178,6 +185,7 @@ export class AuthService extends Context.Service<AuthService>()("AuthService", {
 
 		return {
 			signOut,
+			clearSession,
 			changeServer,
 			settledSession,
 			session: (origin: ServerOrigin) => getSession(origin).store,
