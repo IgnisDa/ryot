@@ -4,7 +4,12 @@ The backend executes plugin and source-zero kernel scripts as untrusted TypeScri
 
 ## Build And Execution
 
-Plugin ingestion validates `.sandbox.ts` manifest entries, compiles format-1 JavaScript, and stores immutable rows keyed by script provenance and content hash. Kernel scripts use the same compiler and content-addressed rows under definition source zero. Root scripts are pinned before first execution; child targets resolve from the active pinned plugin revision when first observed and are then pinned to that durable step.
+Plugin ingestion validates precompiled format-1 JavaScript from plugin archives and stores immutable rows
+keyed by script identity and content hash. It does not run compiler workers or prove source provenance.
+Local authoring and build checks compile `.sandbox.ts` entries from source. Build generation continues
+to compile embedded kernel scripts with the same compiler; those scripts use content-addressed rows
+under definition source zero. Root scripts are pinned before first execution; child targets resolve from
+the active pinned plugin revision when first observed and are then pinned to that durable step.
 
 `bun run build` runs `tooling/sandbox-runtime.ts` to generate the Deno runner,
 embed kernel sandbox sources, and build the trusted runtime payload. Generic registry/package

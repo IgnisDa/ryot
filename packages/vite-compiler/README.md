@@ -20,7 +20,8 @@ Vite plugin transform hook itself follows Vite's Promise callback API. Public fa
 and output collection return Effect `Result` values; they do not throw. Bun callers provide the
 standard `BunFileSystem.layer` (or their existing Bun services Layer) to workspace Effects.
 
-`buildDenoEsm` emits exactly one unminified ES2022 ESM file with an inline source map. It accepts
+`buildDenoEsm` emits exactly one unminified ES2022 ESM file with an inline source map containing
+normalized source paths and mappings but no `sourcesContent`. It accepts
 either staged source files and a relative entry or an external/absolute entry through a generated
 re-export. Callers provide exact aliases, the output filename, and the approved external import set.
 The facility disables CSS, module preload, and code splitting, preserves strict entry signatures,
