@@ -1,7 +1,7 @@
+import { describe, expect, it } from "@effect/vitest";
 import { createRyotClient, RyotClientError } from "@ryot-app/client-sdk";
 import { createTestRyotAdapter } from "@ryot-app/client-sdk/testing";
 import { Effect, Layer, ManagedRuntime } from "effect";
-import { describe, expect, it } from "vitest";
 
 import { decodeServerOrigin } from "#/api/origin";
 import {
@@ -33,8 +33,7 @@ const response = {
 } as const;
 
 describe("EntitiesService", () => {
-	// oxlint-disable-next-line effecttsgo/async-function -- Vitest awaits this Promise-based test callback and its framework assertions.
-	it("executes one focused provenance query through the kernel client", async () => {
+	it.live("executes one focused provenance query through the kernel client", () => {
 		const calls: unknown[] = [];
 		const api = makeRyotQLApi({
 			execute: (_scope, request) => {
@@ -53,14 +52,16 @@ describe("EntitiesService", () => {
 		);
 		const client = createKernelRyotClient(runtime, scope, theme);
 
-		try {
-			await expect(
-				runtime.runPromise(
-					Effect.flatMap(EntitiesService, (service) =>
-						service.loadRouteProvenance(client, "entity-1"),
+		return Effect.gen(function* () {
+			expect(
+				yield* Effect.promise(() =>
+					runtime.runPromise(
+						Effect.flatMap(EntitiesService, (service) =>
+							service.loadRouteProvenance(client, "entity-1"),
+						),
 					),
 				),
-			).resolves.toEqual({ entitySchemaSlug: "book", entitySchemaPluginId: "plugin-1" });
+			).toEqual({ entitySchemaSlug: "book", entitySchemaPluginId: "plugin-1" });
 			expect(calls).toHaveLength(1);
 			expect(calls[0]).toMatchObject({
 				payload: {
@@ -72,13 +73,10 @@ describe("EntitiesService", () => {
 					},
 				},
 			});
-		} finally {
-			await runtime.dispose();
-		}
+		}).pipe(Effect.ensuring(Effect.promise(() => runtime.dispose())));
 	});
 
-	// oxlint-disable-next-line effecttsgo/async-function -- Vitest awaits this Promise-based test callback and its framework assertions.
-	it("aborts one in-flight provenance query when its caller cancels", async () => {
+	it.live("aborts one in-flight provenance query when its caller cancels", () => {
 		let queryCount = 0;
 		let querySignal: AbortSignal | undefined;
 		let resolveQueryStarted!: () => void;
@@ -101,42 +99,37 @@ describe("EntitiesService", () => {
 		const runtime = ManagedRuntime.make(EntitiesService.layer);
 		const controller = new AbortController();
 
-		try {
+		return Effect.gen(function* () {
 			const load = runtime.runPromise(
 				Effect.flatMap(EntitiesService, (service) =>
 					service.loadRouteProvenance(client, "entity-1"),
 				),
 				{ signal: controller.signal },
 			);
-			await queryStarted;
+			yield* Effect.promise(() => queryStarted);
 
 			controller.abort();
 
-			await expect(load).rejects.toBeTruthy();
+			yield* Effect.promise(() => expect(load).rejects.toBeTruthy());
 			expect(queryCount).toBe(1);
 			expect(querySignal?.aborted).toBe(true);
-		} finally {
-			await runtime.dispose();
-		}
+		}).pipe(Effect.ensuring(Effect.promise(() => runtime.dispose())));
 	});
 
-	// oxlint-disable-next-line effecttsgo/async-function -- Vitest awaits this Promise-based test callback and its framework assertions.
-	it("maps query failures to the route error", async () => {
+	it.live("maps query failures to the route error", () => {
 		const client = createRyotClient(
 			createTestRyotAdapter({ query: () => Effect.fail(new RyotClientError("transport")) }),
 		);
 		const runtime = ManagedRuntime.make(EntitiesService.layer);
 
-		try {
-			await expect(
+		return Effect.promise(() =>
+			expect(
 				runtime.runPromise(
 					Effect.flatMap(EntitiesService, (service) =>
 						service.loadRouteProvenance(client, "entity-1"),
 					),
 				),
-			).rejects.toBeInstanceOf(EntityRouteLoadError);
-		} finally {
-			await runtime.dispose();
-		}
+			).rejects.toBeInstanceOf(EntityRouteLoadError),
+		).pipe(Effect.ensuring(Effect.promise(() => runtime.dispose())));
 	});
 });

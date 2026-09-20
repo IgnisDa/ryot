@@ -1,7 +1,7 @@
+import { expect, it } from "@effect/vitest";
 import type { AutomationInput } from "@ryot-app/sandbox-sdk/automation";
 import { Effect } from "@ryot-app/sandbox-sdk/effect";
 import { defineSandboxTestHost } from "@ryot-app/sandbox-sdk/testing";
-import { expect, it } from "vitest";
 
 import {
 	automationContext,
@@ -173,63 +173,67 @@ it("adds the event subject and the collection membership target to the media lib
 	);
 });
 
-// oxlint-disable-next-line effecttsgo/async-function -- Vitest awaits this Promise-returning test callback.
-it("uses trusted user scope for direct creation", async () => {
-	const changes: unknown[] = [];
-	let reads = 0;
-	const host = defineSandboxTestHost(manifest, {
-		executeRyotql: () => {
-			reads += 1;
-			return hostSuccess(mediaLibraryRows);
-		},
-		changeUserRelationships: (batches) => {
-			changes.push(batches);
-			return hostSuccess([{ created: 1, deleted: 0 }]);
-		},
-	});
-	const payload = {
-		category: "change",
-		resource: "entity",
-		operation: "create",
-		after: entityRecord({ entitySchemaSlug: "movie" }),
-	};
-	await Effect.runPromise(definition.run(automationContext(payload), host));
-	expect(reads).toBe(1);
-	expect(changes).toEqual([
-		[
-			{
-				deletes: [],
-				creates: [
-					{
-						properties: {},
-						sourceEntityId: "entity-1",
-						targetEntityId: "library-1",
-						relationshipSchemaSlug: "in-media-library",
-					},
-				],
+it.live("uses trusted user scope for direct creation", () =>
+	Effect.gen(function* () {
+		const changes: unknown[] = [];
+		let reads = 0;
+		const host = defineSandboxTestHost(manifest, {
+			executeRyotql: () => {
+				reads += 1;
+				return hostSuccess(mediaLibraryRows);
 			},
-		],
-	]);
-});
+			changeUserRelationships: (batches) => {
+				changes.push(batches);
+				return hostSuccess([{ created: 1, deleted: 0 }]);
+			},
+		});
+		const payload = {
+			category: "change",
+			resource: "entity",
+			operation: "create",
+			after: entityRecord({ entitySchemaSlug: "movie" }),
+		};
+		yield* definition.run(automationContext(payload), host);
+		expect(reads).toBe(1);
+		expect(changes).toEqual([
+			[
+				{
+					deletes: [],
+					creates: [
+						{
+							properties: {},
+							sourceEntityId: "entity-1",
+							targetEntityId: "library-1",
+							relationshipSchemaSlug: "in-media-library",
+						},
+					],
+				},
+			],
+		]);
+	}),
+);
 
-// oxlint-disable-next-line effecttsgo/async-function -- Vitest awaits this Promise-returning test callback.
-it("rejects provider completion for a different execution user before host calls", async () => {
-	let calls = 0;
-	const host = defineSandboxTestHost(manifest, {
-		changeUserRelationships: () => {
-			calls += 1;
-			return hostSuccess([]);
-		},
-		executeRyotql: () => {
-			calls += 1;
-			return hostSuccess(mediaLibraryRows);
-		},
-	});
-	const input = automationContext(context("movie").automation.payload, {
-		executionUserId: "other-user",
-	});
-	await expect(Effect.runPromise(definition.run(input, host))).rejects.toThrow(
-		"Provider import user does not match execution user",
-	);
-	expect(calls).toBe(0);
-});
+it.live("rejects provider completion for a different execution user before host calls", () =>
+	Effect.gen(function* () {
+		let calls = 0;
+		const host = defineSandboxTestHost(manifest, {
+			changeUserRelationships: () => {
+				calls += 1;
+				return hostSuccess([]);
+			},
+			executeRyotql: () => {
+				calls += 1;
+				return hostSuccess(mediaLibraryRows);
+			},
+		});
+		const input = automationContext(context("movie").automation.payload, {
+			executionUserId: "other-user",
+		});
+		yield* Effect.promise(() =>
+			expect(Effect.runPromise(definition.run(input, host))).rejects.toThrow(
+				"Provider import user does not match execution user",
+			),
+		);
+		expect(calls).toBe(0);
+	}),
+);

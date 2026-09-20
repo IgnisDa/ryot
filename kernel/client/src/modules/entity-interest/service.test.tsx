@@ -1,8 +1,8 @@
+import { afterEach, describe, expect, it } from "@effect/vitest";
 import type { EntityUpdate } from "@ryot-app/client-sdk";
 import { act, render } from "@testing-library/react";
 import { Effect, Layer, ManagedRuntime } from "effect";
 import { createElement, StrictMode, useEffect } from "react";
-import { afterEach, describe, expect, it } from "vitest";
 
 import { decodeServerOrigin } from "#/api/origin";
 import { makeEntityInterestApi } from "#/api/ports.test-layer";
@@ -15,10 +15,9 @@ const empty = { visible: [], foreground: [] };
 const cleanups: Array<() => Promise<void>> = [];
 const scope = { userId: "user-1", serverUrl: decodeServerOrigin("https://ryot.example") };
 
-// oxlint-disable-next-line effecttsgo/async-function -- Vitest awaits asynchronous test teardown.
-afterEach(async () => {
+afterEach(() => {
 	updates.length = 0;
-	await Promise.all(cleanups.splice(0).map((cleanup) => cleanup()));
+	return Promise.all(cleanups.splice(0).map((cleanup) => cleanup()));
 });
 
 class RecordingSocket extends EventTarget implements InterestSocket {
@@ -160,451 +159,488 @@ function setup(options: { readonly pendingTicket?: boolean } = {}) {
 }
 
 describe("entity interest session", () => {
-	// oxlint-disable-next-line effecttsgo/async-function -- Vitest awaits this Promise-based test callback and its framework assertions.
-	it("disposes an in-flight ticket even while multiple layout leases remain", async () => {
-		const test = setup({ pendingTicket: true });
-		const firstRelease = test.service.acquire(scope);
-		const secondRelease = test.service.acquire({ ...scope });
-		await settle();
-		await test.runtime.dispose();
-		firstRelease();
-		secondRelease();
-		test.lifecycle();
-		test.advance(60_000);
-		await settle();
-		expect(test.sockets).toEqual([]);
-		expect(test.cancelledTickets()).toBe(1);
-		expect(test.timers.size).toBe(0);
-		expect(test.hasListener()).toBe(false);
-	});
+	it.live("disposes an in-flight ticket even while multiple layout leases remain", () =>
+		Effect.gen(function* () {
+			const test = setup({ pendingTicket: true });
+			const firstRelease = test.service.acquire(scope);
+			const secondRelease = test.service.acquire({ ...scope });
+			yield* Effect.promise(() => settle());
+			yield* Effect.promise(() => test.runtime.dispose());
+			firstRelease();
+			secondRelease();
+			test.lifecycle();
+			test.advance(60_000);
+			yield* Effect.promise(() => settle());
+			expect(test.sockets).toEqual([]);
+			expect(test.cancelledTickets()).toBe(1);
+			expect(test.timers.size).toBe(0);
+			expect(test.hasListener()).toBe(false);
+		}),
+	);
 
-	// oxlint-disable-next-line effecttsgo/async-function -- Vitest awaits this Promise-based test callback and its framework assertions.
-	it("interrupts a pending ticket on reconnect and lease release", async () => {
-		const test = setup({ pendingTicket: true });
-		const release = test.service.acquire(scope);
-		await settle();
-		test.service.reconnect(scope);
-		await settle();
-		expect(test.cancelledTickets()).toBe(1);
-		release();
-		await settle();
-		expect(test.cancelledTickets()).toBe(2);
-		expect(test.sockets).toEqual([]);
-	});
+	it.live("interrupts a pending ticket on reconnect and lease release", () =>
+		Effect.gen(function* () {
+			const test = setup({ pendingTicket: true });
+			const release = test.service.acquire(scope);
+			yield* Effect.promise(() => settle());
+			test.service.reconnect(scope);
+			yield* Effect.promise(() => settle());
+			expect(test.cancelledTickets()).toBe(1);
+			release();
+			yield* Effect.promise(() => settle());
+			expect(test.cancelledTickets()).toBe(2);
+			expect(test.sockets).toEqual([]);
+		}),
+	);
 
-	// oxlint-disable-next-line effecttsgo/async-function -- Vitest awaits this Promise-based test callback and its framework assertions.
-	it("retains same-scope acquisitions without dropping newly declared owners or opening another socket", async () => {
-		const test = setup();
-		const firstRelease = test.service.acquire(scope);
-		await settle();
-		const socket = test.socket();
-		socket.ready();
-		socket.frame({ revision: 1, type: "applied" });
-		const owner = test.service.watch({ ...scope }, { visible: [], foreground: ["new"] }, (update) =>
-			updates.push(update),
-		);
-		const secondRelease = test.service.acquire({ ...scope });
-		test.advance(100);
-		await settle();
-		expect(test.sockets).toHaveLength(1);
-		expect(test.tickets()).toBe(1);
-		expect(socket.sent.at(-1)).toEqual({ remove: [], revision: 2, add: ["new"], type: "update" });
-		firstRelease();
-		firstRelease();
-		expect(socket.closed).toBe(false);
-		socket.frame({ entityId: "new", reason: "translated", type: "entity-updated" });
-		secondRelease();
-		expect(socket.closed).toBe(true);
-		expect(test.timers.size).toBe(0);
-		expect(test.hasListener()).toBe(false);
-		owner.update({ visible: [], foreground: ["new"] });
-		test.service.acquire(scope);
-		await settle();
-		test.socket().ready();
-		test.socket().frame({ entityId: "new", reason: "populated", type: "entity-updated" });
-		expect(test.socket().sent.at(-1)).toEqual({ revision: 1, entityIds: [], type: "replace" });
-		expect(updates).toEqual([{ entityId: "new", reason: "translated" }]);
-	});
-
-	// oxlint-disable-next-line effecttsgo/async-function -- Vitest awaits this Promise-based test callback and its framework assertions.
-	it("preserves child declarations after StrictMode replay, navigation, revalidation and browser resume", async () => {
-		const test = setup();
-		const events: string[] = [];
-		function Child(props: { id: string }) {
-			useEffect(() => {
-				events.push(`watch:${props.id}`);
+	it.live(
+		"retains same-scope acquisitions without dropping newly declared owners or opening another socket",
+		() =>
+			Effect.gen(function* () {
+				const test = setup();
+				const firstRelease = test.service.acquire(scope);
+				yield* Effect.promise(() => settle());
+				const socket = test.socket();
+				socket.ready();
+				socket.frame({ revision: 1, type: "applied" });
 				const owner = test.service.watch(
 					{ ...scope },
-					{ visible: [], foreground: [props.id] },
+					{ visible: [], foreground: ["new"] },
 					(update) => updates.push(update),
 				);
-				return () => owner.dispose();
-			}, [props.id]);
-			return null;
-		}
-		function Layout(props: { id: string; scope: typeof scope }) {
-			const { userId, serverUrl } = props.scope;
-			useEffect(() => {
-				events.push("acquire");
-				return test.service.acquire({ userId, serverUrl });
-			}, [userId, serverUrl]);
-			return createElement(Child, { id: props.id });
-		}
-		const tree = (id: string) =>
-			createElement(StrictMode, null, createElement(Layout, { id, scope: { ...scope } }));
-		const view = render(tree("a"));
-		await act(settle);
-		expect(events).toEqual(["watch:a", "acquire", "watch:a", "acquire"]);
-		const first = test.socket();
-		first.ready();
-		expect(first.sent.at(-1)).toEqual({ revision: 1, type: "replace", entityIds: ["a"] });
-		first.frame({ entityId: "a", reason: "populated", type: "entity-updated" });
-		view.rerender(tree("b"));
-		view.rerender(tree("b"));
-		await act(settle);
-		expect(events).toEqual(["watch:a", "acquire", "watch:a", "acquire", "watch:b"]);
-		expect(test.socket()).toBe(first);
-		test.lifecycle(false);
-		test.advance(2000);
-		test.lifecycle();
-		await act(settle);
-		const resumed = test.socket();
-		resumed.ready();
-		expect(resumed.sent.at(-1)).toEqual({ revision: 1, type: "replace", entityIds: ["b"] });
-		resumed.frame({ entityId: "a", reason: "translated", type: "entity-updated" });
-		resumed.frame({ entityId: "b", reason: "translated", type: "entity-updated" });
-		view.unmount();
-		resumed.frame({ entityId: "b", reason: "populated", type: "entity-updated" });
-		expect(updates).toEqual([
-			{ entityId: "a", reason: "populated" },
-			{ entityId: "b", reason: "translated" },
-		]);
-		expect(resumed.closed).toBe(true);
-		expect(test.timers.size).toBe(0);
-		expect(test.hasListener()).toBe(false);
-	});
-
-	// oxlint-disable-next-line effecttsgo/async-function -- Vitest awaits this Promise-based test callback and its framework assertions.
-	it("reports deduplicated omitted count only once per layout session despite declaration churn and reconnects", async () => {
-		const test = setup();
-		const ids = Array.from({ length: 502 }, (_, i) => `id-${i}`);
-		const owner = test.service.watch(scope, { visible: ids, foreground: ["id-0"] }, () => {});
-		const release = test.service.acquire(scope);
-		expect(test.overflows).toEqual([2]);
-		for (let i = 0; i < 100; i++) {
-			owner.update({ foreground: [], visible: ids.slice(0, 500 + (i % 3)) });
-		}
-		test.lifecycle(false);
-		test.lifecycle();
-		await settle();
-		expect(test.overflows).toEqual([2]);
-		release();
-		test.service.watch(scope, { foreground: [], visible: ids.slice(1) }, () => {});
-		test.service.acquire(scope);
-		expect(test.overflows).toEqual([2, 1]);
-	});
-
-	// oxlint-disable-next-line effecttsgo/async-function -- Vitest awaits this Promise-based test callback and its framework assertions.
-	it("retains predeclared next-scope owners while invalidating the previous scope", async () => {
-		const test = setup();
-		let oldUpdates = 0;
-		const nextScope = { ...scope, userId: "user-2" };
-		test.service.watch(scope, { visible: [], foreground: ["a"] }, () => {
-			oldUpdates++;
-		});
-		const release = test.service.acquire(scope);
-		await settle();
-		const oldSocket = test.socket();
-		oldSocket.ready();
-		test.service.watch(nextScope, { foreground: [], visible: ["b"] }, (update) =>
-			updates.push(update),
-		);
-		test.service.acquire({ ...nextScope });
-		release();
-		await settle();
-		const socket = test.socket();
-		socket.ready();
-		expect(oldSocket.closed).toBe(true);
-		expect(socket.closed).toBe(false);
-		expect(socket.sent.at(-1)).toEqual({ revision: 1, type: "replace", entityIds: ["b"] });
-		socket.frame({ entityId: "b", reason: "translated", type: "entity-updated" });
-		socket.frame({ entityId: "a", reason: "populated", type: "entity-updated" });
-		expect(oldUpdates).toBe(0);
-		expect(updates).toEqual([{ entityId: "b", reason: "translated" }]);
-		await test.runtime.dispose();
-		expect(socket.closed).toBe(true);
-		expect(test.timers.size).toBe(0);
-		expect(test.hasListener()).toBe(false);
-	});
-
-	// oxlint-disable-next-line effecttsgo/async-function -- Vitest awaits this Promise-based test callback and its framework assertions.
-	it("isolates listener exceptions and stops disposed owners immediately", async () => {
-		const test = setup();
-		test.service.watch(scope, { visible: [], foreground: ["a"] }, () => {
-			throw new Error("Listener failed");
-		});
-		const owner = test.service.watch(scope, { foreground: [], visible: ["a"] }, (update) =>
-			updates.push(update),
-		);
-		test.service.acquire(scope);
-		await settle();
-		const socket = test.socket();
-		socket.ready();
-		socket.frame({ entityId: "a", reason: "populated", type: "entity-updated" });
-		owner.dispose();
-		owner.dispose();
-		owner.update({ visible: [], foreground: ["a"] });
-		socket.frame({ entityId: "a", reason: "translated", type: "entity-updated" });
-		expect(updates).toEqual([{ entityId: "a", reason: "populated" }]);
-		expect(socket.closed).toBe(false);
-	});
-
-	// oxlint-disable-next-line effecttsgo/async-function -- Vitest awaits this Promise-based test callback and its framework assertions.
-	it("holds declarations before layout mount, authenticates first and deduplicates foreground before visible", async () => {
-		const test = setup();
-		const visible = Array.from({ length: 501 }, (_, i) => `visible-${String(i).padStart(3, "0")}`);
-		test.service.watch(scope, { visible, foreground: ["foreground"] }, (update) =>
-			updates.push(update),
-		);
-		test.service.watch({ ...scope }, { visible: [], foreground: ["foreground"] }, () => {});
-		expect(test.tickets()).toBe(0);
-		test.service.acquire({ ...scope });
-		await settle();
-		expect(test.urls).toEqual(["wss://ryot.example/api/entity-interest/ws"]);
-		test.socket().ready();
-		expect(test.socket().sent).toEqual([
-			{ ticket: "ticket-1", type: "authenticate" },
-			{ revision: 1, type: "replace", entityIds: ["foreground", ...visible.slice(0, 499)] },
-		]);
-	});
-
-	// oxlint-disable-next-line effecttsgo/async-function -- Vitest awaits this Promise-based test callback and its framework assertions.
-	it("admits the active owner's interests first after activation changes", async () => {
-		const test = setup();
-		let activeFirst = true;
-		const retained = Array.from(
-			{ length: 500 },
-			(_, index) => `retained-${String(index).padStart(3, "0")}`,
-		);
-		test.service.watch(
-			scope,
-			{ foreground: [], visible: retained },
-			() => {},
-			() => !activeFirst,
-		);
-		test.service.watch(
-			scope,
-			{ visible: [], foreground: ["zz-active"] },
-			() => {},
-			() => activeFirst,
-		);
-		test.service.acquire(scope);
-		await settle();
-		const socket = test.socket();
-		socket.ready();
-		expect(socket.sent.at(-1)).toEqual({
-			revision: 1,
-			type: "replace",
-			entityIds: [...retained.slice(0, 499), "zz-active"].sort(),
-		});
-		socket.frame({ revision: 1, type: "applied" });
-
-		activeFirst = false;
-		test.service.refresh(scope);
-		test.advance(100);
-		expect(socket.sent.at(-1)).toEqual({
-			revision: 2,
-			type: "update",
-			add: [retained[499]],
-			remove: ["zz-active"],
-		});
-		socket.frame({ revision: 2, type: "applied" });
-
-		activeFirst = true;
-		test.service.refresh(scope);
-		test.advance(100);
-		expect(socket.sent.at(-1)).toEqual({
-			revision: 3,
-			type: "update",
-			add: ["zz-active"],
-			remove: [retained[499]],
-		});
-	});
-
-	// oxlint-disable-next-line effecttsgo/async-function -- Vitest awaits this Promise-based test callback and its framework assertions.
-	it("batches additions, serializes acknowledgements, and removes only after grace", async () => {
-		const test = setup();
-		const owner = test.service.watch(scope, { visible: [], foreground: ["a"] }, () => {});
-		test.service.acquire(scope);
-		await settle();
-		const socket = test.socket();
-		socket.ready();
-		owner.update({ visible: [], foreground: ["a", "b"] });
-		test.advance(100);
-		expect(socket.sent).toHaveLength(2);
-		socket.frame({ revision: 1, type: "applied" });
-		expect(socket.sent.at(-1)).toEqual({ add: ["b"], remove: [], revision: 2, type: "update" });
-		owner.update({ visible: [], foreground: ["b", "c"] });
-		test.advance(99);
-		socket.frame({ revision: 2, type: "applied" });
-		expect(socket.sent).toHaveLength(3);
-		test.advance(1);
-		expect(socket.sent.at(-1)).toEqual({ add: ["c"], remove: [], revision: 3, type: "update" });
-		socket.frame({ revision: 3, type: "applied" });
-		test.advance(1899);
-		expect(socket.sent).toHaveLength(4);
-		test.advance(1);
-		expect(socket.sent.at(-1)).toEqual({ add: [], revision: 4, remove: ["a"], type: "update" });
-	});
-
-	// oxlint-disable-next-line effecttsgo/async-function -- Vitest awaits this Promise-based test callback and its framework assertions.
-	it("evicts grace entries for new demand and cancels removal when demand returns", async () => {
-		const test = setup();
-		const ids = Array.from({ length: 500 }, (_, i) => `id-${i}`);
-		const owner = test.service.watch(scope, { visible: ids, foreground: [] }, () => {});
-		test.service.acquire(scope);
-		await settle();
-		const socket = test.socket();
-		socket.ready();
-		socket.frame({ revision: 1, type: "applied" });
-		owner.update({ foreground: ["new"], visible: ids.slice(1) });
-		test.advance(100);
-		expect(socket.sent.at(-1)).toEqual({
-			revision: 2,
-			add: ["new"],
-			type: "update",
-			remove: ["id-0"],
-		});
-		socket.frame({ revision: 2, type: "applied" });
-		owner.update(empty);
-		test.advance(1000);
-		owner.update({ foreground: ["new"], visible: ids.slice(1) });
-		test.advance(2000);
-		expect(socket.sent).toHaveLength(3);
-	});
-
-	// oxlint-disable-next-line effecttsgo/async-function -- Vitest awaits this Promise-based test callback and its framework assertions.
-	it("routes only current memberships and invalidates old owners and socket callbacks on release", async () => {
-		const test = setup();
-		const owner = test.service.watch(scope, { visible: [], foreground: ["a"] }, (update) =>
-			updates.push(update),
-		);
-		const release = test.service.acquire(scope);
-		await settle();
-		const socket = test.socket();
-		socket.ready();
-		const stale = socket.messageListener;
-		socket.frame({ entityId: "other", reason: "translated", type: "entity-updated" });
-		socket.frame({ entityId: "a", reason: "populated", type: "entity-updated" });
-		owner.update({ foreground: [], visible: ["b"] });
-		socket.frame({ entityId: "a", reason: "translated", type: "entity-updated" });
-		socket.frame({ entityId: "b", reason: "translated", type: "entity-updated" });
-		release();
-		release();
-		expect(test.timers.size).toBe(0);
-		expect(test.hasListener()).toBe(false);
-		owner.update({ visible: [], foreground: ["a"] });
-		test.service.acquire(scope);
-		await settle();
-		test.socket().ready();
-		stale?.(
-			new MessageEvent("message", {
-				data: JSON.stringify({ entityId: "a", reason: "populated", type: "entity-updated" }),
+				const secondRelease = test.service.acquire({ ...scope });
+				test.advance(100);
+				yield* Effect.promise(() => settle());
+				expect(test.sockets).toHaveLength(1);
+				expect(test.tickets()).toBe(1);
+				expect(socket.sent.at(-1)).toEqual({
+					remove: [],
+					revision: 2,
+					add: ["new"],
+					type: "update",
+				});
+				firstRelease();
+				firstRelease();
+				expect(socket.closed).toBe(false);
+				socket.frame({ entityId: "new", reason: "translated", type: "entity-updated" });
+				secondRelease();
+				expect(socket.closed).toBe(true);
+				expect(test.timers.size).toBe(0);
+				expect(test.hasListener()).toBe(false);
+				owner.update({ visible: [], foreground: ["new"] });
+				test.service.acquire(scope);
+				yield* Effect.promise(() => settle());
+				test.socket().ready();
+				test.socket().frame({ entityId: "new", reason: "populated", type: "entity-updated" });
+				expect(test.socket().sent.at(-1)).toEqual({ revision: 1, entityIds: [], type: "replace" });
+				expect(updates).toEqual([{ entityId: "new", reason: "translated" }]);
 			}),
-		);
-		expect(test.socket().sent.at(-1)).toEqual({ revision: 1, entityIds: [], type: "replace" });
-		expect(updates).toEqual([
-			{ entityId: "a", reason: "populated" },
-			{ entityId: "b", reason: "translated" },
-		]);
-	});
+	);
 
-	// oxlint-disable-next-line effecttsgo/async-function -- Vitest awaits this Promise-based test callback and its framework assertions.
-	it("gets a fresh ticket and replaces revision one after lease closure or lifecycle resume", async () => {
-		const test = setup();
-		test.service.watch(scope, { visible: [], foreground: ["a"] }, () => {});
-		test.service.acquire(scope);
-		await settle();
-		const first = test.socket();
-		first.ready();
-		first.dispatchEvent(new CloseEvent("close", { code: 4001 }));
-		test.advance(999);
-		await settle();
-		expect(test.sockets).toHaveLength(1);
-		test.advance(1);
-		await settle();
-		test.socket().ready();
-		expect(test.socket().sent).toEqual([
-			{ ticket: "ticket-2", type: "authenticate" },
-			{ revision: 1, type: "replace", entityIds: ["a"] },
-		]);
-		test.lifecycle(false);
-		expect(test.socket().closed).toBe(true);
-		test.advance(60_000);
-		await settle();
-		expect(test.sockets).toHaveLength(2);
-		test.lifecycle();
-		await settle();
-		expect(test.tickets()).toBe(3);
-		test.service.reconnect({ ...scope, userId: "other" });
-		await settle();
-		expect(test.tickets()).toBe(3);
-		test.service.reconnect({ ...scope });
-		await settle();
-		expect(test.tickets()).toBe(4);
-	});
+	it.live(
+		"preserves child declarations after StrictMode replay, navigation, revalidation and browser resume",
+		() =>
+			Effect.gen(function* () {
+				const test = setup();
+				const events: string[] = [];
+				function Child(props: { id: string }) {
+					useEffect(() => {
+						events.push(`watch:${props.id}`);
+						const owner = test.service.watch(
+							{ ...scope },
+							{ visible: [], foreground: [props.id] },
+							(update) => updates.push(update),
+						);
+						return () => owner.dispose();
+					}, [props.id]);
+					return null;
+				}
+				function Layout(props: { id: string; scope: typeof scope }) {
+					const { userId, serverUrl } = props.scope;
+					useEffect(() => {
+						events.push("acquire");
+						return test.service.acquire({ userId, serverUrl });
+					}, [userId, serverUrl]);
+					return createElement(Child, { id: props.id });
+				}
+				const tree = (id: string) =>
+					createElement(StrictMode, null, createElement(Layout, { id, scope: { ...scope } }));
+				const view = render(tree("a"));
+				yield* Effect.promise(() => act(settle));
+				expect(events).toEqual(["watch:a", "acquire", "watch:a", "acquire"]);
+				const first = test.socket();
+				first.ready();
+				expect(first.sent.at(-1)).toEqual({ revision: 1, type: "replace", entityIds: ["a"] });
+				first.frame({ entityId: "a", reason: "populated", type: "entity-updated" });
+				view.rerender(tree("b"));
+				view.rerender(tree("b"));
+				yield* Effect.promise(() => act(settle));
+				expect(events).toEqual(["watch:a", "acquire", "watch:a", "acquire", "watch:b"]);
+				expect(test.socket()).toBe(first);
+				test.lifecycle(false);
+				test.advance(2000);
+				test.lifecycle();
+				yield* Effect.promise(() => act(settle));
+				const resumed = test.socket();
+				resumed.ready();
+				expect(resumed.sent.at(-1)).toEqual({ revision: 1, type: "replace", entityIds: ["b"] });
+				resumed.frame({ entityId: "a", reason: "translated", type: "entity-updated" });
+				resumed.frame({ entityId: "b", reason: "translated", type: "entity-updated" });
+				view.unmount();
+				resumed.frame({ entityId: "b", reason: "populated", type: "entity-updated" });
+				expect(updates).toEqual([
+					{ entityId: "a", reason: "populated" },
+					{ entityId: "b", reason: "translated" },
+				]);
+				expect(resumed.closed).toBe(true);
+				expect(test.timers.size).toBe(0);
+				expect(test.hasListener()).toBe(false);
+			}),
+	);
 
-	it.each([
+	it.live(
+		"reports deduplicated omitted count only once per layout session despite declaration churn and reconnects",
+		() =>
+			Effect.gen(function* () {
+				const test = setup();
+				const ids = Array.from({ length: 502 }, (_, i) => `id-${i}`);
+				const owner = test.service.watch(scope, { visible: ids, foreground: ["id-0"] }, () => {});
+				const release = test.service.acquire(scope);
+				expect(test.overflows).toEqual([2]);
+				for (let i = 0; i < 100; i++) {
+					owner.update({ foreground: [], visible: ids.slice(0, 500 + (i % 3)) });
+				}
+				test.lifecycle(false);
+				test.lifecycle();
+				yield* Effect.promise(() => settle());
+				expect(test.overflows).toEqual([2]);
+				release();
+				test.service.watch(scope, { foreground: [], visible: ids.slice(1) }, () => {});
+				test.service.acquire(scope);
+				expect(test.overflows).toEqual([2, 1]);
+			}),
+	);
+
+	it.live("retains predeclared next-scope owners while invalidating the previous scope", () =>
+		Effect.gen(function* () {
+			const test = setup();
+			let oldUpdates = 0;
+			const nextScope = { ...scope, userId: "user-2" };
+			test.service.watch(scope, { visible: [], foreground: ["a"] }, () => {
+				oldUpdates++;
+			});
+			const release = test.service.acquire(scope);
+			yield* Effect.promise(() => settle());
+			const oldSocket = test.socket();
+			oldSocket.ready();
+			test.service.watch(nextScope, { foreground: [], visible: ["b"] }, (update) =>
+				updates.push(update),
+			);
+			test.service.acquire({ ...nextScope });
+			release();
+			yield* Effect.promise(() => settle());
+			const socket = test.socket();
+			socket.ready();
+			expect(oldSocket.closed).toBe(true);
+			expect(socket.closed).toBe(false);
+			expect(socket.sent.at(-1)).toEqual({ revision: 1, type: "replace", entityIds: ["b"] });
+			socket.frame({ entityId: "b", reason: "translated", type: "entity-updated" });
+			socket.frame({ entityId: "a", reason: "populated", type: "entity-updated" });
+			expect(oldUpdates).toBe(0);
+			expect(updates).toEqual([{ entityId: "b", reason: "translated" }]);
+			yield* Effect.promise(() => test.runtime.dispose());
+			expect(socket.closed).toBe(true);
+			expect(test.timers.size).toBe(0);
+			expect(test.hasListener()).toBe(false);
+		}),
+	);
+
+	it.live("isolates listener exceptions and stops disposed owners immediately", () =>
+		Effect.gen(function* () {
+			const test = setup();
+			test.service.watch(scope, { visible: [], foreground: ["a"] }, () => {
+				throw new Error("Listener failed");
+			});
+			const owner = test.service.watch(scope, { foreground: [], visible: ["a"] }, (update) =>
+				updates.push(update),
+			);
+			test.service.acquire(scope);
+			yield* Effect.promise(() => settle());
+			const socket = test.socket();
+			socket.ready();
+			socket.frame({ entityId: "a", reason: "populated", type: "entity-updated" });
+			owner.dispose();
+			owner.dispose();
+			owner.update({ visible: [], foreground: ["a"] });
+			socket.frame({ entityId: "a", reason: "translated", type: "entity-updated" });
+			expect(updates).toEqual([{ entityId: "a", reason: "populated" }]);
+			expect(socket.closed).toBe(false);
+		}),
+	);
+
+	it.live(
+		"holds declarations before layout mount, authenticates first and deduplicates foreground before visible",
+		() =>
+			Effect.gen(function* () {
+				const test = setup();
+				const visible = Array.from(
+					{ length: 501 },
+					(_, i) => `visible-${String(i).padStart(3, "0")}`,
+				);
+				test.service.watch(scope, { visible, foreground: ["foreground"] }, (update) =>
+					updates.push(update),
+				);
+				test.service.watch({ ...scope }, { visible: [], foreground: ["foreground"] }, () => {});
+				expect(test.tickets()).toBe(0);
+				test.service.acquire({ ...scope });
+				yield* Effect.promise(() => settle());
+				expect(test.urls).toEqual(["wss://ryot.example/api/entity-interest/ws"]);
+				test.socket().ready();
+				expect(test.socket().sent).toEqual([
+					{ ticket: "ticket-1", type: "authenticate" },
+					{ revision: 1, type: "replace", entityIds: ["foreground", ...visible.slice(0, 499)] },
+				]);
+			}),
+	);
+
+	it.live("admits the active owner's interests first after activation changes", () =>
+		Effect.gen(function* () {
+			const test = setup();
+			let activeFirst = true;
+			const retained = Array.from(
+				{ length: 500 },
+				(_, index) => `retained-${String(index).padStart(3, "0")}`,
+			);
+			test.service.watch(
+				scope,
+				{ foreground: [], visible: retained },
+				() => {},
+				() => !activeFirst,
+			);
+			test.service.watch(
+				scope,
+				{ visible: [], foreground: ["zz-active"] },
+				() => {},
+				() => activeFirst,
+			);
+			test.service.acquire(scope);
+			yield* Effect.promise(() => settle());
+			const socket = test.socket();
+			socket.ready();
+			expect(socket.sent.at(-1)).toEqual({
+				revision: 1,
+				type: "replace",
+				entityIds: [...retained.slice(0, 499), "zz-active"].sort(),
+			});
+			socket.frame({ revision: 1, type: "applied" });
+
+			activeFirst = false;
+			test.service.refresh(scope);
+			test.advance(100);
+			expect(socket.sent.at(-1)).toEqual({
+				revision: 2,
+				type: "update",
+				add: [retained[499]],
+				remove: ["zz-active"],
+			});
+			socket.frame({ revision: 2, type: "applied" });
+
+			activeFirst = true;
+			test.service.refresh(scope);
+			test.advance(100);
+			expect(socket.sent.at(-1)).toEqual({
+				revision: 3,
+				type: "update",
+				add: ["zz-active"],
+				remove: [retained[499]],
+			});
+		}),
+	);
+
+	it.live("batches additions, serializes acknowledgements, and removes only after grace", () =>
+		Effect.gen(function* () {
+			const test = setup();
+			const owner = test.service.watch(scope, { visible: [], foreground: ["a"] }, () => {});
+			test.service.acquire(scope);
+			yield* Effect.promise(() => settle());
+			const socket = test.socket();
+			socket.ready();
+			owner.update({ visible: [], foreground: ["a", "b"] });
+			test.advance(100);
+			expect(socket.sent).toHaveLength(2);
+			socket.frame({ revision: 1, type: "applied" });
+			expect(socket.sent.at(-1)).toEqual({ add: ["b"], remove: [], revision: 2, type: "update" });
+			owner.update({ visible: [], foreground: ["b", "c"] });
+			test.advance(99);
+			socket.frame({ revision: 2, type: "applied" });
+			expect(socket.sent).toHaveLength(3);
+			test.advance(1);
+			expect(socket.sent.at(-1)).toEqual({ add: ["c"], remove: [], revision: 3, type: "update" });
+			socket.frame({ revision: 3, type: "applied" });
+			test.advance(1899);
+			expect(socket.sent).toHaveLength(4);
+			test.advance(1);
+			expect(socket.sent.at(-1)).toEqual({ add: [], revision: 4, remove: ["a"], type: "update" });
+		}),
+	);
+
+	it.live("evicts grace entries for new demand and cancels removal when demand returns", () =>
+		Effect.gen(function* () {
+			const test = setup();
+			const ids = Array.from({ length: 500 }, (_, i) => `id-${i}`);
+			const owner = test.service.watch(scope, { visible: ids, foreground: [] }, () => {});
+			test.service.acquire(scope);
+			yield* Effect.promise(() => settle());
+			const socket = test.socket();
+			socket.ready();
+			socket.frame({ revision: 1, type: "applied" });
+			owner.update({ foreground: ["new"], visible: ids.slice(1) });
+			test.advance(100);
+			expect(socket.sent.at(-1)).toEqual({
+				revision: 2,
+				add: ["new"],
+				type: "update",
+				remove: ["id-0"],
+			});
+			socket.frame({ revision: 2, type: "applied" });
+			owner.update(empty);
+			test.advance(1000);
+			owner.update({ foreground: ["new"], visible: ids.slice(1) });
+			test.advance(2000);
+			expect(socket.sent).toHaveLength(3);
+		}),
+	);
+
+	it.live(
+		"routes only current memberships and invalidates old owners and socket callbacks on release",
+		() =>
+			Effect.gen(function* () {
+				const test = setup();
+				const owner = test.service.watch(scope, { visible: [], foreground: ["a"] }, (update) =>
+					updates.push(update),
+				);
+				const release = test.service.acquire(scope);
+				yield* Effect.promise(() => settle());
+				const socket = test.socket();
+				socket.ready();
+				const stale = socket.messageListener;
+				socket.frame({ entityId: "other", reason: "translated", type: "entity-updated" });
+				socket.frame({ entityId: "a", reason: "populated", type: "entity-updated" });
+				owner.update({ foreground: [], visible: ["b"] });
+				socket.frame({ entityId: "a", reason: "translated", type: "entity-updated" });
+				socket.frame({ entityId: "b", reason: "translated", type: "entity-updated" });
+				release();
+				release();
+				expect(test.timers.size).toBe(0);
+				expect(test.hasListener()).toBe(false);
+				owner.update({ visible: [], foreground: ["a"] });
+				test.service.acquire(scope);
+				yield* Effect.promise(() => settle());
+				test.socket().ready();
+				stale?.(
+					new MessageEvent("message", {
+						data: JSON.stringify({ entityId: "a", reason: "populated", type: "entity-updated" }),
+					}),
+				);
+				expect(test.socket().sent.at(-1)).toEqual({ revision: 1, entityIds: [], type: "replace" });
+				expect(updates).toEqual([
+					{ entityId: "a", reason: "populated" },
+					{ entityId: "b", reason: "translated" },
+				]);
+			}),
+	);
+
+	it.live(
+		"gets a fresh ticket and replaces revision one after lease closure or lifecycle resume",
+		() =>
+			Effect.gen(function* () {
+				const test = setup();
+				test.service.watch(scope, { visible: [], foreground: ["a"] }, () => {});
+				test.service.acquire(scope);
+				yield* Effect.promise(() => settle());
+				const first = test.socket();
+				first.ready();
+				first.dispatchEvent(new CloseEvent("close", { code: 4001 }));
+				test.advance(999);
+				yield* Effect.promise(() => settle());
+				expect(test.sockets).toHaveLength(1);
+				test.advance(1);
+				yield* Effect.promise(() => settle());
+				test.socket().ready();
+				expect(test.socket().sent).toEqual([
+					{ ticket: "ticket-2", type: "authenticate" },
+					{ revision: 1, type: "replace", entityIds: ["a"] },
+				]);
+				test.lifecycle(false);
+				expect(test.socket().closed).toBe(true);
+				test.advance(60_000);
+				yield* Effect.promise(() => settle());
+				expect(test.sockets).toHaveLength(2);
+				test.lifecycle();
+				yield* Effect.promise(() => settle());
+				expect(test.tickets()).toBe(3);
+				test.service.reconnect({ ...scope, userId: "other" });
+				yield* Effect.promise(() => settle());
+				expect(test.tickets()).toBe(3);
+				test.service.reconnect({ ...scope });
+				yield* Effect.promise(() => settle());
+				expect(test.tickets()).toBe(4);
+			}),
+	);
+
+	it.live.each([
 		{ revision: 5, type: "applied" },
 		{ type: "ready", maxEntityIds: 500, sessionId: "duplicate", heartbeatIntervalMs: 25_000 },
 		{ entityId: "a", reason: "invalid", type: "entity-updated" },
 		{ revision: 1, type: "rejected", maxEntityIds: 500, code: "interest-limit-exceeded" },
-		// oxlint-disable-next-line effecttsgo/async-function -- Vitest awaits this Promise-based test callback and its framework assertions.
-	])("reconnects on malformed or out-of-order frames: $type", async (frame) => {
-		const test = setup();
-		test.service.acquire(scope);
-		await settle();
-		const socket = test.socket();
-		socket.ready();
-		socket.frame(frame);
-		expect(socket.closed).toBe(true);
-		test.advance(1000);
-		await settle();
-		expect(test.tickets()).toBe(2);
-	});
+	])("reconnects on malformed or out-of-order frames: $type", (frame) =>
+		Effect.gen(function* () {
+			const test = setup();
+			test.service.acquire(scope);
+			yield* Effect.promise(() => settle());
+			const socket = test.socket();
+			socket.ready();
+			socket.frame(frame);
+			expect(socket.closed).toBe(true);
+			test.advance(1000);
+			yield* Effect.promise(() => settle());
+			expect(test.tickets()).toBe(2);
+		}),
+	);
 
-	// oxlint-disable-next-line effecttsgo/async-function -- Vitest awaits this Promise-based test callback and its framework assertions.
-	it("times out tickets and handshakes, caps backoff, and answers heartbeats", async () => {
-		const test = setup();
-		test.service.acquire(scope);
-		await settle();
-		for (const delay of [1000, 2000, 4000, 8000, 16_000, 30_000, 30_000]) {
-			const count = test.tickets();
-			test.advance(15_000);
-			expect(test.socket().closed).toBe(true);
-			test.advance(delay - 1);
-			// oxlint-disable-next-line eslint/no-await-in-loop -- Observe each retry before advancing its next deadline.
-			await settle();
-			expect(test.tickets()).toBe(count);
+	it.live("times out tickets and handshakes, caps backoff, and answers heartbeats", () =>
+		Effect.gen(function* () {
+			const test = setup();
+			test.service.acquire(scope);
+			yield* Effect.promise(() => settle());
+			for (const delay of [1000, 2000, 4000, 8000, 16_000, 30_000, 30_000]) {
+				const count = test.tickets();
+				test.advance(15_000);
+				expect(test.socket().closed).toBe(true);
+				test.advance(delay - 1);
+				// oxlint-disable-next-line eslint/no-await-in-loop -- Observe each retry before advancing its next deadline.
+				yield* Effect.promise(() => settle());
+				expect(test.tickets()).toBe(count);
+				test.advance(1);
+				// oxlint-disable-next-line eslint/no-await-in-loop -- Complete this ticket before the next retry.
+				yield* Effect.promise(() => settle());
+				expect(test.tickets()).toBe(count + 1);
+			}
+			const socket = test.socket();
+			socket.ready();
+			test.advance(25_000);
+			socket.frame({ type: "ping", nonce: "nonce" });
+			expect(socket.sent.at(-1)).toEqual({ type: "pong", nonce: "nonce" });
+			test.advance(74_999);
+			expect(socket.closed).toBe(false);
 			test.advance(1);
-			// oxlint-disable-next-line eslint/no-await-in-loop -- Complete this ticket before the next retry.
-			await settle();
-			expect(test.tickets()).toBe(count + 1);
-		}
-		const socket = test.socket();
-		socket.ready();
-		test.advance(25_000);
-		socket.frame({ type: "ping", nonce: "nonce" });
-		expect(socket.sent.at(-1)).toEqual({ type: "pong", nonce: "nonce" });
-		test.advance(74_999);
-		expect(socket.closed).toBe(false);
-		test.advance(1);
-		expect(socket.closed).toBe(true);
-		const pending = setup({ pendingTicket: true });
-		const release = pending.service.acquire(scope);
-		pending.advance(15_000);
-		expect(pending.sockets).toHaveLength(0);
-		release();
-		expect(pending.timers.size).toBe(0);
-	});
+			expect(socket.closed).toBe(true);
+			const pending = setup({ pendingTicket: true });
+			const release = pending.service.acquire(scope);
+			pending.advance(15_000);
+			expect(pending.sockets).toHaveLength(0);
+			release();
+			expect(pending.timers.size).toBe(0);
+		}),
+	);
 });

@@ -32,25 +32,27 @@ export const declaresEntityInterest =
 		response: unknown,
 		visible: readonly string[],
 	) => {
-		// oxlint-disable-next-line effecttsgo/async-function -- Vitest awaits the client test harness's Promise callbacks.
-		it(`${name} watches every entity it renders`, async () => {
+		it(`${name} watches every entity it renders`, () => {
 			const recording = recordingAdapter();
 			function Probe() {
 				return <p>{classifyRyotQueryResult(useRyotQuery(query, { entityId })).status}</p>;
 			}
 			const view = mountRyotClient(recording.adapter, <Probe />);
-			await flushRyotClient();
-			// oxlint-disable-next-line effecttsgo/async-function -- React act awaits the asynchronous request completion.
-			await act(async () => {
-				recording.requests[0]?.resolve(response);
-				await Promise.resolve();
-			});
-			await waitFor(() => expect(view.container.textContent).toContain("ready"));
-
-			expect(recording.interests.at(-1)).toEqual({
-				foreground: [entityId],
-				visible: [...visible].sort(),
-			});
-			view.unmount();
+			return Promise.resolve(flushRyotClient())
+				.then(() =>
+					act(() => {
+						recording.requests[0]?.resolve(response);
+						return Promise.resolve().then(() => undefined);
+					}),
+				)
+				.then(() => waitFor(() => expect(view.container.textContent).toContain("ready")))
+				.then(() => {
+					expect(recording.interests.at(-1)).toEqual({
+						foreground: [entityId],
+						visible: [...visible].sort(),
+					});
+					view.unmount();
+					return undefined;
+				});
 		});
 	};

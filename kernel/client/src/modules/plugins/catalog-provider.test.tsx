@@ -1,3 +1,4 @@
+import { describe, expect, it } from "@effect/vitest";
 import { RyotProvider } from "@ryot-app/client-sdk/react";
 import { createTestRyotClock } from "@ryot-app/client-sdk/testing";
 import {
@@ -8,7 +9,6 @@ import type { PluginClientCatalog } from "@ryot-app/ryotql-recipes/plugin-client
 import { act, render, screen, waitFor } from "@testing-library/react";
 import { Deferred, Effect, Layer, ManagedRuntime, Schedule } from "effect";
 import type { ReactNode } from "react";
-import { describe, expect, it } from "vitest";
 
 import { decodeServerOrigin } from "#/api/origin";
 import type { ApiScope } from "#/api/scope";
@@ -75,8 +75,7 @@ const makeView = (
 };
 
 describe("plugin catalog provider", () => {
-	// oxlint-disable-next-line effecttsgo/async-function -- Vitest awaits this Promise-based test callback and its framework assertions.
-	it("does not query when the catalog stream acknowledges its connection", async () => {
+	it.live("does not query when the catalog stream acknowledges its connection", () => {
 		let controller: ReadableStreamDefaultController<Uint8Array> | undefined;
 		let loads = 0;
 		const runtime = ManagedRuntime.make(
@@ -121,14 +120,14 @@ describe("plugin catalog provider", () => {
 				</PluginCatalogProvider>
 			</RyotProvider>,
 		);
-		try {
-			await waitFor(() => expect(controller).toBeDefined());
+		return Effect.gen(function* () {
+			yield* Effect.promise(() => waitFor(() => expect(controller).toBeDefined()));
 			act(() =>
 				controller?.enqueue(
 					new TextEncoder().encode(`event: ${PLUGIN_CATALOG_CONNECTED_EVENT}\ndata:\n\n`),
 				),
 			);
-			await waitFor(() => expect(controller?.desiredSize).toBe(1));
+			yield* Effect.promise(() => waitFor(() => expect(controller?.desiredSize).toBe(1)));
 			expect(loads).toBe(0);
 			expect(screen.getByText("catalog-revision:0")).toBeTruthy();
 			act(() =>
@@ -136,108 +135,115 @@ describe("plugin catalog provider", () => {
 					new TextEncoder().encode(`event: ${PLUGIN_CATALOG_INVALIDATED_EVENT}\ndata:\n\n`),
 				),
 			);
-			await waitFor(() => expect(loads).toBe(1));
-		} finally {
+			yield* Effect.promise(() => waitFor(() => expect(loads).toBe(1)));
+		}).pipe(
+			Effect.ensuring(
+				Effect.sync(() => view.unmount()).pipe(
+					Effect.andThen(Effect.promise(() => runtime.dispose())),
+				),
+			),
+		);
+	});
+
+	it.live("hydrates without a duplicate load and publishes event refreshes", () =>
+		Effect.gen(function* () {
+			let loads = 0;
+			let current = catalog;
+			const view = makeView(() =>
+				Effect.sync(() => {
+					loads += 1;
+					return current;
+				}),
+			);
+
+			expect(screen.getByText("catalog:source-hash")).toBeTruthy();
+			expect(screen.getByText("catalog-revision:0")).toBeTruthy();
+			yield* Effect.promise(() => waitFor(() => expect(view.events.isSubscribed()).toBe(true)));
+			expect(loads).toBe(0);
+
+			current = [{ ...catalog[0], sourceHash: "updated-source-hash" }];
+			act(() => view.events.send());
+
+			yield* Effect.promise(() => screen.findByText("catalog:updated-source-hash"));
+			expect(loads).toBe(1);
+			expect(screen.getByText("catalog-revision:1")).toBeTruthy();
+			expect(view.events.getSubscriptionCount()).toBe(1);
 			view.unmount();
-			await runtime.dispose();
-		}
-	});
+			yield* Effect.promise(() => view.runtime.dispose());
+		}),
+	);
 
-	// oxlint-disable-next-line effecttsgo/async-function -- Vitest awaits this Promise-based test callback and its framework assertions.
-	it("hydrates without a duplicate load and publishes event refreshes", async () => {
-		let loads = 0;
-		let current = catalog;
-		const view = makeView(() =>
-			Effect.sync(() => {
-				loads += 1;
-				return current;
-			}),
-		);
-
-		expect(screen.getByText("catalog:source-hash")).toBeTruthy();
-		expect(screen.getByText("catalog-revision:0")).toBeTruthy();
-		await waitFor(() => expect(view.events.isSubscribed()).toBe(true));
-		expect(loads).toBe(0);
-
-		current = [{ ...catalog[0], sourceHash: "updated-source-hash" }];
-		act(() => view.events.send());
-
-		await screen.findByText("catalog:updated-source-hash");
-		expect(loads).toBe(1);
-		expect(screen.getByText("catalog-revision:1")).toBeTruthy();
-		expect(view.events.getSubscriptionCount()).toBe(1);
-		view.unmount();
-		await view.runtime.dispose();
-	});
-
-	// oxlint-disable-next-line effecttsgo/async-function -- Vitest awaits this Promise-based test callback and its framework assertions.
-	it("keeps one subscription across child rerenders and multiple consumers", async () => {
-		const view = makeView(
-			() => Effect.die("not used"),
-			<>
-				<CatalogConsumer name="first" />
-				<CatalogConsumer name="second" />
-			</>,
-		);
-
-		await waitFor(() => expect(view.events.isSubscribed()).toBe(true));
-		expect(view.events.getSubscriptionCount()).toBe(1);
-
-		view.rerender(
-			view.tree(
+	it.live("keeps one subscription across child rerenders and multiple consumers", () =>
+		Effect.gen(function* () {
+			const view = makeView(
+				() => Effect.die("not used"),
 				<>
 					<CatalogConsumer name="first" />
 					<CatalogConsumer name="second" />
-					<CatalogConsumer name="third" />
 				</>,
-			),
-		);
+			);
 
-		expect(screen.getByText("third:source-hash")).toBeTruthy();
-		expect(view.events.getSubscriptionCount()).toBe(1);
-		view.unmount();
-		await view.runtime.dispose();
-	});
+			yield* Effect.promise(() => waitFor(() => expect(view.events.isSubscribed()).toBe(true)));
+			expect(view.events.getSubscriptionCount()).toBe(1);
 
-	// oxlint-disable-next-line effecttsgo/async-function -- Vitest awaits this Promise-based test callback and its framework assertions.
-	it("interrupts the subscription and prevents refreshes after unmount", async () => {
-		let loads = 0;
-		const view = makeView(() =>
-			Effect.sync(() => {
-				loads += 1;
-				return catalog;
-			}),
-		);
-		await waitFor(() => expect(view.events.isSubscribed()).toBe(true));
+			view.rerender(
+				view.tree(
+					<>
+						<CatalogConsumer name="first" />
+						<CatalogConsumer name="second" />
+						<CatalogConsumer name="third" />
+					</>,
+				),
+			);
 
-		view.unmount();
-		await waitFor(() => expect(view.events.isSubscribed()).toBe(false));
-		act(() => view.events.send());
-		await Promise.resolve();
+			expect(screen.getByText("third:source-hash")).toBeTruthy();
+			expect(view.events.getSubscriptionCount()).toBe(1);
+			view.unmount();
+			yield* Effect.promise(() => view.runtime.dispose());
+		}),
+	);
 
-		expect(loads).toBe(0);
-		await view.runtime.dispose();
-	});
+	it.live("interrupts the subscription and prevents refreshes after unmount", () =>
+		Effect.gen(function* () {
+			let loads = 0;
+			const view = makeView(() =>
+				Effect.sync(() => {
+					loads += 1;
+					return catalog;
+				}),
+			);
+			yield* Effect.promise(() => waitFor(() => expect(view.events.isSubscribed()).toBe(true)));
 
-	// oxlint-disable-next-line effecttsgo/async-function -- Vitest awaits this Promise-based test callback and its framework assertions.
-	it("interrupts an in-flight event refresh when the provider unmounts", async () => {
-		const started = Deferred.makeUnsafe<void>();
-		const cancelled = Deferred.makeUnsafe<void>();
-		const view = makeView(() =>
-			Effect.acquireRelease(Deferred.succeed(started, undefined), () =>
-				Deferred.succeed(cancelled, undefined),
-			).pipe(Effect.andThen(Effect.never), Effect.scoped),
-		);
-		await waitFor(() => expect(view.events.isSubscribed()).toBe(true));
+			view.unmount();
+			yield* Effect.promise(() => waitFor(() => expect(view.events.isSubscribed()).toBe(false)));
+			act(() => view.events.send());
+			yield* Effect.promise(() => Promise.resolve());
 
-		act(() => view.events.send());
-		await Effect.runPromise(Deferred.await(started));
-		view.removeProvider();
+			expect(loads).toBe(0);
+			yield* Effect.promise(() => view.runtime.dispose());
+		}),
+	);
 
-		await Effect.runPromise(Deferred.await(cancelled));
-		await waitFor(() => expect(view.events.isSubscribed()).toBe(false));
-		await view.runtime.dispose();
-	});
+	it.live("interrupts an in-flight event refresh when the provider unmounts", () =>
+		Effect.gen(function* () {
+			const started = Deferred.makeUnsafe<void>();
+			const cancelled = Deferred.makeUnsafe<void>();
+			const view = makeView(() =>
+				Effect.acquireRelease(Deferred.succeed(started, undefined), () =>
+					Deferred.succeed(cancelled, undefined),
+				).pipe(Effect.andThen(Effect.never), Effect.scoped),
+			);
+			yield* Effect.promise(() => waitFor(() => expect(view.events.isSubscribed()).toBe(true)));
+
+			act(() => view.events.send());
+			yield* Deferred.await(started);
+			view.removeProvider();
+
+			yield* Deferred.await(cancelled);
+			yield* Effect.promise(() => waitFor(() => expect(view.events.isSubscribed()).toBe(false)));
+			yield* Effect.promise(() => view.runtime.dispose());
+		}),
+	);
 
 	it("requires consumers to be inside the provider", () => {
 		expect(() => render(<CatalogConsumer name="outside" />)).toThrow(

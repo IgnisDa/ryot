@@ -1,3 +1,4 @@
+import { afterEach, describe, expect, it } from "@effect/vitest";
 import {
 	CLIENT_API_VERSION,
 	CLIENT_ARTIFACT_FORMAT,
@@ -6,11 +7,11 @@ import {
 	CLIENT_COMPILER_VERSION,
 	type PluginBridgeInit,
 } from "@ryot-app/client-plugin-contract";
+import { Effect } from "@ryot-app/client-sdk/effect";
 import { bootstrapClientPage } from "@ryot-app/client-sdk/plugin";
 import { createTestRyotClock } from "@ryot-app/client-sdk/testing";
 import { fireEvent, waitFor } from "@testing-library/dom";
 import { act } from "react";
-import { afterEach, describe, expect, it } from "vitest";
 
 import ShowDetailPage from "./show/screen";
 
@@ -258,14 +259,13 @@ const managedCoverImage = (container: HTMLElement | null) =>
 	);
 
 const flush = () =>
-	// oxlint-disable-next-line effecttsgo/async-function -- React act requires a Promise callback to flush microtasks.
-	act(async () => {
-		await Promise.resolve();
-		await Promise.resolve();
-	});
+	act(() =>
+		Promise.resolve()
+			.then(() => undefined)
+			.then(() => undefined),
+	);
 
-// oxlint-disable-next-line effecttsgo/async-function -- Vitest awaits disposal of the Promise-based client bootstrap.
-afterEach(async () => {
+afterEach(() => {
 	for (const bootstrap of bootstraps) {
 		bootstrap.dispose();
 	}
@@ -277,287 +277,348 @@ afterEach(async () => {
 	channels.length = 0;
 	document.head.innerHTML = "";
 	document.body.innerHTML = "";
-	await Promise.all(clocks.map((clock) => clock.dispose()));
-	clocks.length = 0;
+	return Promise.all(clocks.map((clock) => clock.dispose())).then(() => {
+		clocks.length = 0;
+		return undefined;
+	});
 });
 
 describe("ShowScreen", () => {
-	// oxlint-disable-next-line effecttsgo/async-function -- Vitest awaits the client test harness's Promise callbacks.
-	it("queries the live entity after same-document entity navigation", async () => {
-		const { channel, messages } = openShow();
-		await waitFor(() => expect(queryRequestsFor(messages, "summary")).toHaveLength(1));
-		channel.port1.postMessage({
-			index: 1,
-			key: "show-2",
-			compact: false,
-			edgeBack: true,
-			leading: "back",
-			type: "location",
-			location: { search: "", kind: "entity", entityId: "show-2", entitySchemaSlug: "show" },
-		});
-		await waitFor(() => expect(queryRequestsFor(messages, "summary")).toHaveLength(2));
-		expect(JSON.stringify(queryRequestsFor(messages, "summary")[1]?.document)).toContain("show-2");
-	});
+	it.live("queries the live entity after same-document entity navigation", () =>
+		Effect.gen(function* () {
+			const { channel, messages } = openShow();
+			yield* Effect.promise(() =>
+				waitFor(() => expect(queryRequestsFor(messages, "summary")).toHaveLength(1)),
+			);
+			channel.port1.postMessage({
+				index: 1,
+				key: "show-2",
+				compact: false,
+				edgeBack: true,
+				leading: "back",
+				type: "location",
+				location: { search: "", kind: "entity", entityId: "show-2", entitySchemaSlug: "show" },
+			});
+			yield* Effect.promise(() =>
+				waitFor(() => expect(queryRequestsFor(messages, "summary")).toHaveLength(2)),
+			);
+			expect(JSON.stringify(queryRequestsFor(messages, "summary")[1]?.document)).toContain(
+				"show-2",
+			);
+		}),
+	);
 
-	// oxlint-disable-next-line effecttsgo/async-function -- Vitest awaits the client test harness's Promise callbacks.
-	it("renders pending status while the summary and overview queries are in flight", async () => {
-		const { messages, container } = openShow();
+	it.live("renders pending status while the summary and overview queries are in flight", () =>
+		Effect.gen(function* () {
+			const { messages, container } = openShow();
 
-		await waitFor(() => expect(queryRequestsFor(messages, "summary")).toHaveLength(1));
-		await waitFor(() => expect(queryRequestsFor(messages, "people")).toHaveLength(1));
-		expect(container?.textContent).toContain("Loading show...");
-	});
+			yield* Effect.promise(() =>
+				waitFor(() => expect(queryRequestsFor(messages, "summary")).toHaveLength(1)),
+			);
+			yield* Effect.promise(() =>
+				waitFor(() => expect(queryRequestsFor(messages, "people")).toHaveLength(1)),
+			);
+			expect(container?.textContent).toContain("Loading show...");
+		}),
+	);
 
-	// oxlint-disable-next-line effecttsgo/async-function -- Vitest awaits the client test harness's Promise callbacks.
-	it("renders an error and retries through the query result", async () => {
-		const { channel, messages, container } = openShow();
-		await waitFor(() => expect(queryRequestsFor(messages, "summary")).toHaveLength(1));
-		reply(channel, queryRequestFor(messages, "summary").requestId, {
-			outcome: "failure",
-			reason: "query-failed",
-		});
-		await waitFor(() => expect(container?.textContent).toContain("Unable to load this show"));
+	it.live("renders an error and retries through the query result", () =>
+		Effect.gen(function* () {
+			const { channel, messages, container } = openShow();
+			yield* Effect.promise(() =>
+				waitFor(() => expect(queryRequestsFor(messages, "summary")).toHaveLength(1)),
+			);
+			reply(channel, queryRequestFor(messages, "summary").requestId, {
+				outcome: "failure",
+				reason: "query-failed",
+			});
+			yield* Effect.promise(() =>
+				waitFor(() => expect(container?.textContent).toContain("Unable to load this show")),
+			);
 
-		const retry = Array.from(container?.querySelectorAll("button") ?? []).find(
-			(button) => button.textContent === "Try again",
-		);
-		if (retry === undefined) {
-			throw new Error("Expected the Show retry button");
-		}
-		fireEvent.click(retry);
-		await waitFor(() => expect(queryRequestsFor(messages, "summary")).toHaveLength(2));
-		reply(channel, queryRequestFor(messages, "summary", 1).requestId, {
-			outcome: "success",
-			response: readyResponse,
-		});
+			const retry = Array.from(container?.querySelectorAll("button") ?? []).find(
+				(button) => button.textContent === "Try again",
+			);
+			if (retry === undefined) {
+				throw new Error("Expected the Show retry button");
+			}
+			fireEvent.click(retry);
+			yield* Effect.promise(() =>
+				waitFor(() => expect(queryRequestsFor(messages, "summary")).toHaveLength(2)),
+			);
+			reply(channel, queryRequestFor(messages, "summary", 1).requestId, {
+				outcome: "success",
+				response: readyResponse,
+			});
 
-		await waitFor(() => expect(container?.textContent).toContain("Tracer Show"));
-	});
+			yield* Effect.promise(() =>
+				waitFor(() => expect(container?.textContent).toContain("Tracer Show")),
+			);
+		}),
+	);
 
-	// oxlint-disable-next-line effecttsgo/async-function -- Vitest awaits the client test harness's Promise callbacks.
-	it("renders the missing state", async () => {
-		const missing = openShow();
-		await waitFor(() => expect(queryRequestsFor(missing.messages, "summary")).toHaveLength(1));
-		reply(missing.channel, queryRequestFor(missing.messages, "summary").requestId, {
-			outcome: "success",
-			response: { data: { summary: rows([]), requested: rows([]) } },
-		});
-		await waitFor(() =>
-			expect(missing.container?.textContent).toContain("This entity no longer exists."),
-		);
-	});
+	it.live("renders the missing state", () =>
+		Effect.gen(function* () {
+			const missing = openShow();
+			yield* Effect.promise(() =>
+				waitFor(() => expect(queryRequestsFor(missing.messages, "summary")).toHaveLength(1)),
+			);
+			reply(missing.channel, queryRequestFor(missing.messages, "summary").requestId, {
+				outcome: "success",
+				response: { data: { summary: rows([]), requested: rows([]) } },
+			});
+			yield* Effect.promise(() =>
+				waitFor(() =>
+					expect(missing.container?.textContent).toContain("This entity no longer exists."),
+				),
+			);
+		}),
+	);
 
-	// oxlint-disable-next-line effecttsgo/async-function -- Vitest awaits the client test harness's Promise callbacks.
-	it("renders the wrong-schema state", async () => {
-		const wrongSchema = openShow();
-		await waitFor(() => expect(queryRequestsFor(wrongSchema.messages, "summary")).toHaveLength(1));
-		reply(wrongSchema.channel, queryRequestFor(wrongSchema.messages, "summary").requestId, {
-			outcome: "success",
-			response: { data: { summary: rows([]), requested: rows([{ schemaSlug: "movie" }]) } },
-		});
-		await waitFor(() =>
-			expect(wrongSchema.container?.textContent).toContain(
-				"This entity is not a show, and only shows can be opened here.",
-			),
-		);
-	});
+	it.live("renders the wrong-schema state", () =>
+		Effect.gen(function* () {
+			const wrongSchema = openShow();
+			yield* Effect.promise(() =>
+				waitFor(() => expect(queryRequestsFor(wrongSchema.messages, "summary")).toHaveLength(1)),
+			);
+			reply(wrongSchema.channel, queryRequestFor(wrongSchema.messages, "summary").requestId, {
+				outcome: "success",
+				response: { data: { summary: rows([]), requested: rows([{ schemaSlug: "movie" }]) } },
+			});
+			yield* Effect.promise(() =>
+				waitFor(() =>
+					expect(wrongSchema.container?.textContent).toContain(
+						"This entity is not a show, and only shows can be opened here.",
+					),
+				),
+			);
+		}),
+	);
 
-	// oxlint-disable-next-line effecttsgo/async-function -- Vitest awaits the client test harness's Promise callbacks.
-	it("renders seeded summary fields and publishes the Show title", async () => {
-		const { channel, messages, container } = openShow();
-		await waitFor(() => expect(queryRequestsFor(messages, "summary")).toHaveLength(1));
-		reply(channel, queryRequestFor(messages, "summary").requestId, {
-			outcome: "success",
-			response: readyResponse,
-		});
-		await waitFor(() => expect(queryRequestsFor(messages, "people")).toHaveLength(1));
-		replyOverview(channel, messages);
+	it.live("renders seeded summary fields and publishes the Show title", () =>
+		Effect.gen(function* () {
+			const { channel, messages, container } = openShow();
+			yield* Effect.promise(() =>
+				waitFor(() => expect(queryRequestsFor(messages, "summary")).toHaveLength(1)),
+			);
+			reply(channel, queryRequestFor(messages, "summary").requestId, {
+				outcome: "success",
+				response: readyResponse,
+			});
+			yield* Effect.promise(() =>
+				waitFor(() => expect(queryRequestsFor(messages, "people")).toHaveLength(1)),
+			);
+			replyOverview(channel, messages);
 
-		await waitFor(() => expect(container?.textContent).toContain("Tracer Show"));
-		expect(container?.textContent).toContain("TMDB");
-		expect(container?.textContent).toContain("Drama");
-		expect(container?.textContent).toContain("Returning Series");
-		expect(container?.textContent).toContain("Seasons");
-		expect(container?.textContent).toContain("A deterministic show description.");
-		expect(
-			Array.from(container?.querySelectorAll("img") ?? []).map((image) =>
-				image.getAttribute("src"),
-			),
-		).toEqual([
-			"https://images.test/backdrop.jpg",
-			"https://images.test/cover.jpg",
-			"https://images.test/backdrop.jpg",
-			"https://images.test/cover.jpg",
-		]);
-		expect(assetRequests(messages)).toHaveLength(0);
-		await waitFor(() =>
-			expect(messages).toContainEqual({
-				index: 0,
-				key: "show-1",
-				type: "header",
-				header: { title: "Tracer Show" },
-			}),
-		);
-	});
+			yield* Effect.promise(() =>
+				waitFor(() => expect(container?.textContent).toContain("Tracer Show")),
+			);
+			expect(container?.textContent).toContain("TMDB");
+			expect(container?.textContent).toContain("Drama");
+			expect(container?.textContent).toContain("Returning Series");
+			expect(container?.textContent).toContain("Seasons");
+			expect(container?.textContent).toContain("A deterministic show description.");
+			expect(
+				Array.from(container?.querySelectorAll("img") ?? []).map((image) =>
+					image.getAttribute("src"),
+				),
+			).toEqual([
+				"https://images.test/backdrop.jpg",
+				"https://images.test/cover.jpg",
+				"https://images.test/backdrop.jpg",
+				"https://images.test/cover.jpg",
+			]);
+			expect(assetRequests(messages)).toHaveLength(0);
+			yield* Effect.promise(() =>
+				waitFor(() =>
+					expect(messages).toContainEqual({
+						index: 0,
+						key: "show-1",
+						type: "header",
+						header: { title: "Tracer Show" },
+					}),
+				),
+			);
+		}),
+	);
 
-	// oxlint-disable-next-line effecttsgo/async-function -- Vitest awaits the client test harness's Promise callbacks.
-	it("renders a managed cover placeholder before resolving its signed URL", async () => {
-		const { channel, messages, container } = openShow();
-		await waitFor(() => expect(queryRequestsFor(messages, "summary")).toHaveLength(1));
-		reply(channel, queryRequestFor(messages, "summary").requestId, {
-			outcome: "success",
-			response: responseWithImages([
-				{ type: "remote", purpose: "backdrop", url: "https://images.test/backdrop.jpg" },
-				{ type: "local", purpose: "cover", key: "managed-cover" },
-			]),
-		});
+	it.live("renders a managed cover placeholder before resolving its signed URL", () =>
+		Effect.gen(function* () {
+			const { channel, messages, container } = openShow();
+			yield* Effect.promise(() =>
+				waitFor(() => expect(queryRequestsFor(messages, "summary")).toHaveLength(1)),
+			);
+			reply(channel, queryRequestFor(messages, "summary").requestId, {
+				outcome: "success",
+				response: responseWithImages([
+					{ type: "remote", purpose: "backdrop", url: "https://images.test/backdrop.jpg" },
+					{ type: "local", purpose: "cover", key: "managed-cover" },
+				]),
+			});
 
-		await waitFor(() => expect(assetRequests(messages)).toHaveLength(1));
-		expect(assetRequestAt(messages, 0).assets).toEqual([{ type: "local", key: "managed-cover" }]);
-		expect(managedCoverImage(container)).toBeUndefined();
+			yield* Effect.promise(() => waitFor(() => expect(assetRequests(messages)).toHaveLength(1)));
+			expect(assetRequestAt(messages, 0).assets).toEqual([{ type: "local", key: "managed-cover" }]);
+			expect(managedCoverImage(container)).toBeUndefined();
 
-		const signedUrl = "https://assets.test/managed-cover-v1?signature=one";
-		assetReply(channel, assetRequestAt(messages, 0).requestId, {
-			outcome: "success",
-			resolutions: [
-				{
-					url: signedUrl,
-					asset: { type: "local", key: "managed-cover" },
-					expiresAt: new Date(Date.now() + 10 * 60_000).toISOString(),
+			const signedUrl = "https://assets.test/managed-cover-v1?signature=one";
+			assetReply(channel, assetRequestAt(messages, 0).requestId, {
+				outcome: "success",
+				resolutions: [
+					{
+						url: signedUrl,
+						asset: { type: "local", key: "managed-cover" },
+						expiresAt: new Date(Date.now() + 10 * 60_000).toISOString(),
+					},
+				],
+			});
+
+			yield* Effect.promise(() =>
+				waitFor(() => expect(managedCoverImage(container)?.getAttribute("src")).toBe(signedUrl)),
+			);
+		}),
+	);
+
+	it.live("shows an unavailable managed cover after the initial asset request fails", () =>
+		Effect.gen(function* () {
+			const { channel, messages, container } = openShow();
+			yield* Effect.promise(() =>
+				waitFor(() => expect(queryRequestsFor(messages, "summary")).toHaveLength(1)),
+			);
+			reply(channel, queryRequestFor(messages, "summary").requestId, {
+				outcome: "success",
+				response: responseWithImages([{ type: "local", purpose: "cover", key: "managed-cover" }]),
+			});
+			yield* Effect.promise(() => waitFor(() => expect(assetRequests(messages)).toHaveLength(1)));
+
+			assetReply(channel, assetRequestAt(messages, 0).requestId, {
+				outcome: "failure",
+				reason: "asset-failed",
+			});
+
+			yield* Effect.promise(() => flush());
+			expect(managedCoverImage(container)).toBeUndefined();
+		}),
+	);
+
+	it.live("refreshes one minute before expiry and keeps the stale URL after failure", () =>
+		Effect.gen(function* () {
+			const clock = openTestClock();
+			const { channel, messages, container } = openShow();
+			yield* Effect.promise(() =>
+				waitFor(() => expect(queryRequestsFor(messages, "summary")).toHaveLength(1)),
+			);
+			reply(channel, queryRequestFor(messages, "summary").requestId, {
+				outcome: "success",
+				response: responseWithImages([{ type: "local", purpose: "cover", key: "managed-cover" }]),
+			});
+			yield* Effect.promise(() => waitFor(() => expect(assetRequests(messages)).toHaveLength(1)));
+
+			yield* Effect.promise(() => clock.setTime(Date.parse("2026-09-04T12:00:00.000Z")));
+			const expiresAt = new Date("2026-09-04T12:05:00.000Z").toISOString();
+			const staleUrl = "https://assets.test/managed-cover-v1?signature=stale";
+			assetReply(channel, assetRequestAt(messages, 0).requestId, {
+				outcome: "success",
+				resolutions: [{ expiresAt, url: staleUrl, asset: { type: "local", key: "managed-cover" } }],
+			});
+			yield* Effect.promise(() => flush());
+			expect(managedCoverImage(container)?.getAttribute("src")).toBe(staleUrl);
+
+			yield* Effect.promise(() => clock.advance(4 * 60_000 - 1));
+			expect(assetRequests(messages)).toHaveLength(1);
+			yield* Effect.promise(() => clock.advance(1));
+			yield* Effect.promise(() => flush());
+			expect(assetRequests(messages)).toHaveLength(2);
+
+			assetReply(channel, assetRequestAt(messages, 1).requestId, {
+				outcome: "failure",
+				reason: "asset-failed",
+			});
+			yield* Effect.promise(() => flush());
+			expect(managedCoverImage(container)?.getAttribute("src")).toBe(staleUrl);
+		}),
+	);
+
+	it.live("cancels a managed cover request when its screen unmounts", () =>
+		Effect.gen(function* () {
+			const { channel, messages } = openShow();
+			yield* Effect.promise(() =>
+				waitFor(() => expect(queryRequestsFor(messages, "summary")).toHaveLength(1)),
+			);
+			reply(channel, queryRequestFor(messages, "summary").requestId, {
+				outcome: "success",
+				response: responseWithImages([{ type: "local", purpose: "cover", key: "managed-cover" }]),
+			});
+			yield* Effect.promise(() => waitFor(() => expect(assetRequests(messages)).toHaveLength(1)));
+
+			channel.port1.postMessage({
+				index: 2,
+				compact: false,
+				edgeBack: false,
+				leading: "none",
+				type: "location",
+				key: "replacement",
+				location: { search: "", kind: "route", path: "/replacement" },
+			});
+
+			yield* Effect.promise(() => waitFor(() => expect(assetCancels(messages)).toHaveLength(1)));
+			expect(assetCancels(messages)[0]).toEqual({
+				type: "asset-cancel",
+				requestId: assetRequestAt(messages, 0).requestId,
+			});
+		}),
+	);
+
+	it.live("omits absent optional fields", () =>
+		Effect.gen(function* () {
+			const { channel, messages, container } = openShow();
+			yield* Effect.promise(() =>
+				waitFor(() => expect(queryRequestsFor(messages, "summary")).toHaveLength(1)),
+			);
+			reply(channel, queryRequestFor(messages, "summary").requestId, {
+				outcome: "success",
+				response: {
+					data: {
+						requested: rows([{ schemaSlug: "show" }]),
+						summary: rows([
+							{
+								owned: null,
+								id: "show-1",
+								genres: null,
+								images: null,
+								airedEpisodes: 0,
+								publishYear: null,
+								description: null,
+								publishDate: null,
+								watchedEpisodes: 0,
+								state: "untracked",
+								totalSeasons: null,
+								providerName: null,
+								isMonitored: false,
+								schemaSlug: "show",
+								upcomingEpisodes: 0,
+								name: "Sparse Show",
+								totalEpisodes: null,
+								providerRating: null,
+								watchProviders: null,
+								inProgressEpisodes: 0,
+								productionStatus: null,
+								isInMediaLibrary: false,
+								populationStatus: "none",
+								translationStatus: "none",
+								nextUp: { items: [], pageInfo: { limit: 1, hasMore: false } },
+								collections: { items: [], pageInfo: { limit: 6, hasMore: false } },
+							},
+						]),
+					},
 				},
-			],
-		});
+			});
 
-		await waitFor(() => expect(managedCoverImage(container)?.getAttribute("src")).toBe(signedUrl));
-	});
-
-	// oxlint-disable-next-line effecttsgo/async-function -- Vitest awaits the client test harness's Promise callbacks.
-	it("shows an unavailable managed cover after the initial asset request fails", async () => {
-		const { channel, messages, container } = openShow();
-		await waitFor(() => expect(queryRequestsFor(messages, "summary")).toHaveLength(1));
-		reply(channel, queryRequestFor(messages, "summary").requestId, {
-			outcome: "success",
-			response: responseWithImages([{ type: "local", purpose: "cover", key: "managed-cover" }]),
-		});
-		await waitFor(() => expect(assetRequests(messages)).toHaveLength(1));
-
-		assetReply(channel, assetRequestAt(messages, 0).requestId, {
-			outcome: "failure",
-			reason: "asset-failed",
-		});
-
-		await flush();
-		expect(managedCoverImage(container)).toBeUndefined();
-	});
-
-	// oxlint-disable-next-line effecttsgo/async-function -- Vitest awaits the client test harness's Promise callbacks.
-	it("refreshes one minute before expiry and keeps the stale URL after failure", async () => {
-		const clock = openTestClock();
-		const { channel, messages, container } = openShow();
-		await waitFor(() => expect(queryRequestsFor(messages, "summary")).toHaveLength(1));
-		reply(channel, queryRequestFor(messages, "summary").requestId, {
-			outcome: "success",
-			response: responseWithImages([{ type: "local", purpose: "cover", key: "managed-cover" }]),
-		});
-		await waitFor(() => expect(assetRequests(messages)).toHaveLength(1));
-
-		await clock.setTime(Date.parse("2026-09-04T12:00:00.000Z"));
-		const expiresAt = new Date("2026-09-04T12:05:00.000Z").toISOString();
-		const staleUrl = "https://assets.test/managed-cover-v1?signature=stale";
-		assetReply(channel, assetRequestAt(messages, 0).requestId, {
-			outcome: "success",
-			resolutions: [{ expiresAt, url: staleUrl, asset: { type: "local", key: "managed-cover" } }],
-		});
-		await flush();
-		expect(managedCoverImage(container)?.getAttribute("src")).toBe(staleUrl);
-
-		await clock.advance(4 * 60_000 - 1);
-		expect(assetRequests(messages)).toHaveLength(1);
-		await clock.advance(1);
-		await flush();
-		expect(assetRequests(messages)).toHaveLength(2);
-
-		assetReply(channel, assetRequestAt(messages, 1).requestId, {
-			outcome: "failure",
-			reason: "asset-failed",
-		});
-		await flush();
-		expect(managedCoverImage(container)?.getAttribute("src")).toBe(staleUrl);
-	});
-
-	// oxlint-disable-next-line effecttsgo/async-function -- Vitest awaits the client test harness's Promise callbacks.
-	it("cancels a managed cover request when its screen unmounts", async () => {
-		const { channel, messages } = openShow();
-		await waitFor(() => expect(queryRequestsFor(messages, "summary")).toHaveLength(1));
-		reply(channel, queryRequestFor(messages, "summary").requestId, {
-			outcome: "success",
-			response: responseWithImages([{ type: "local", purpose: "cover", key: "managed-cover" }]),
-		});
-		await waitFor(() => expect(assetRequests(messages)).toHaveLength(1));
-
-		channel.port1.postMessage({
-			index: 2,
-			compact: false,
-			edgeBack: false,
-			leading: "none",
-			type: "location",
-			key: "replacement",
-			location: { search: "", kind: "route", path: "/replacement" },
-		});
-
-		await waitFor(() => expect(assetCancels(messages)).toHaveLength(1));
-		expect(assetCancels(messages)[0]).toEqual({
-			type: "asset-cancel",
-			requestId: assetRequestAt(messages, 0).requestId,
-		});
-	});
-
-	// oxlint-disable-next-line effecttsgo/async-function -- Vitest awaits the client test harness's Promise callbacks.
-	it("omits absent optional fields", async () => {
-		const { channel, messages, container } = openShow();
-		await waitFor(() => expect(queryRequestsFor(messages, "summary")).toHaveLength(1));
-		reply(channel, queryRequestFor(messages, "summary").requestId, {
-			outcome: "success",
-			response: {
-				data: {
-					requested: rows([{ schemaSlug: "show" }]),
-					summary: rows([
-						{
-							owned: null,
-							id: "show-1",
-							genres: null,
-							images: null,
-							airedEpisodes: 0,
-							publishYear: null,
-							description: null,
-							publishDate: null,
-							watchedEpisodes: 0,
-							state: "untracked",
-							totalSeasons: null,
-							providerName: null,
-							isMonitored: false,
-							schemaSlug: "show",
-							upcomingEpisodes: 0,
-							name: "Sparse Show",
-							totalEpisodes: null,
-							providerRating: null,
-							watchProviders: null,
-							inProgressEpisodes: 0,
-							productionStatus: null,
-							isInMediaLibrary: false,
-							populationStatus: "none",
-							translationStatus: "none",
-							nextUp: { items: [], pageInfo: { limit: 1, hasMore: false } },
-							collections: { items: [], pageInfo: { limit: 6, hasMore: false } },
-						},
-					]),
-				},
-			},
-		});
-
-		await waitFor(() => expect(container?.textContent).toContain("Sparse Show"));
-		expect(container?.textContent).not.toContain("Production status");
-		expect(container?.textContent).not.toContain("Seasons");
-		expect(container?.querySelector("img")).toBeNull();
-	});
+			yield* Effect.promise(() =>
+				waitFor(() => expect(container?.textContent).toContain("Sparse Show")),
+			);
+			expect(container?.textContent).not.toContain("Production status");
+			expect(container?.textContent).not.toContain("Seasons");
+			expect(container?.querySelector("img")).toBeNull();
+		}),
+	);
 });

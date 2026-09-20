@@ -47,25 +47,25 @@ export const Route = createFileRoute("/_authenticated/settings/import-data/$runI
 	pendingComponent: ImportRunPending,
 	errorComponent: ImportRunLoaderError,
 	notFoundComponent: ImportRunNotFound,
-	// oxlint-disable-next-line effecttsgo/async-function -- TanStack import route loader.
-	loader: async ({ params, context, abortController }) => {
-		const runId = params.runId.trim();
-		if (runId.length === 0) {
-			// oxlint-disable-next-line typescript/only-throw-error
-			throw notFound();
-		}
-		const detail = await context.runtime.runPromise(
-			Effect.flatMap(ImportsService, (service) =>
-				service.loadRun(context.ryot, { runId, failureLimit: IMPORT_FAILURES_PAGE_SIZE }),
-			),
+	loader: ({ params, context, abortController }) =>
+		context.runtime.runPromise(
+			Effect.gen(function* () {
+				const runId = params.runId.trim();
+				if (runId.length === 0) {
+					// oxlint-disable-next-line typescript/only-throw-error
+					throw notFound();
+				}
+				const detail = yield* Effect.flatMap(ImportsService, (service) =>
+					service.loadRun(context.ryot, { runId, failureLimit: IMPORT_FAILURES_PAGE_SIZE }),
+				);
+				if (detail.run === undefined) {
+					// oxlint-disable-next-line typescript/only-throw-error
+					throw notFound();
+				}
+				return { runId };
+			}),
 			{ signal: abortController.signal },
-		);
-		if (detail.run === undefined) {
-			// oxlint-disable-next-line typescript/only-throw-error
-			throw notFound();
-		}
-		return { runId };
-	},
+		),
 });
 
 function ImportRunFrame(props: {
@@ -138,20 +138,20 @@ function ImportRunRoute() {
 		});
 	}, [backInterceptors, deletion.isPending, isConfirming, menuOpen]);
 
-	// oxlint-disable-next-line effecttsgo/async-function -- React confirmation handler.
-	const confirmDelete = async () => {
+	const confirmDelete = () => {
 		deletion.reset();
-		try {
-			await deletion.mutateAsync(runId);
-		} catch {
-			return;
-		}
-		setIsConfirming(false);
-		if (router.history.canGoBack()) {
-			router.history.back();
-			return;
-		}
-		void navigate({ replace: true, to: "/settings/import-data", search: { start: undefined } });
+		return deletion.mutateAsync(runId).then(
+			() => {
+				setIsConfirming(false);
+				if (router.history.canGoBack()) {
+					router.history.back();
+					return undefined;
+				}
+				void navigate({ replace: true, to: "/settings/import-data", search: { start: undefined } });
+				return undefined;
+			},
+			() => undefined,
+		);
 	};
 
 	const menuItems: readonly MenuItem[] = [

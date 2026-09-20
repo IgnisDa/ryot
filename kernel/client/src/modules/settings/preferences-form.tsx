@@ -120,23 +120,22 @@ export function PreferencesForm(props: {
 	const [initial, setInitial] = useState(props.preferences);
 	const form = useForm({
 		defaultValues: makePreferenceDraft(props.preferences),
-		// oxlint-disable-next-line effecttsgo/async-function -- React preferences form callback.
-		onSubmit: async ({ value }) => {
+		onSubmit: ({ value }) => {
 			const payload = preferencePayload(initial, value);
 			if (Object.keys(payload).length === 0) {
-				return;
+				return Promise.resolve();
 			}
 			setFailed(false);
-			try {
-				await props.onSave(payload);
-			} catch {
-				setFailed(true);
-				return;
-			}
-			const updated = { ...initial, ...payload };
-			setInitial(updated);
-			form.reset(makePreferenceDraft(updated));
-			setSaved(true);
+			return props.onSave(payload).then(
+				() => {
+					const updated = { ...initial, ...payload };
+					setInitial(updated);
+					form.reset(makePreferenceDraft(updated));
+					setSaved(true);
+					return undefined;
+				},
+				() => setFailed(true),
+			);
 		},
 	});
 

@@ -1,9 +1,9 @@
+import { describe, expect, it } from "@effect/vitest";
 import {
 	PLUGIN_CATALOG_CONNECTED_EVENT,
 	PLUGIN_CATALOG_INVALIDATED_EVENT,
 } from "@ryot-app/contract/modules/plugins/contract";
 import { Effect, Fiber, Layer, ManagedRuntime, Schedule } from "effect";
-import { describe, expect, it } from "vitest";
 
 import { decodeServerOrigin } from "#/api/origin";
 import type { ApiScope } from "#/api/scope";
@@ -103,8 +103,7 @@ const waitUntil = (predicate: () => boolean, message: string) =>
 	);
 
 describe("plugin catalog events service", () => {
-	// oxlint-disable-next-line effecttsgo/async-function -- Vitest awaits this Promise-based test callback and its framework assertions.
-	it("does not refresh on connection and refreshes only on invalidation", async () => {
+	it.live("does not refresh on connection and refreshes only on invalidation", () => {
 		const { runtime, streams, requests } = makeRuntime({ token: "token-1" });
 		let refreshes = 0;
 		const subscription = runtime.runFork(
@@ -115,27 +114,31 @@ describe("plugin catalog events service", () => {
 			),
 		);
 
-		try {
-			await waitUntil(() => streams.length === 1, "stream was never opened");
+		return Effect.gen(function* () {
+			yield* Effect.promise(() => waitUntil(() => streams.length === 1, "stream was never opened"));
 			expect(requests[0]?.url).toBe(`${serverOrigin}/api/plugins/events`);
 			expect(requests[0]?.headers.authorization).toBe("Bearer token-1");
 			expect(requests[0]?.headers.accept).toBe("text/event-stream");
 
 			streams[0]?.send(": ping\n\n");
 			streams[0]?.send(frame(PLUGIN_CATALOG_CONNECTED_EVENT));
-			await waitUntil(() => streams[0]?.body.locked ?? false, "stream was not consumed");
+			yield* Effect.promise(() =>
+				waitUntil(() => streams[0]?.body.locked ?? false, "stream was not consumed"),
+			);
 			expect(refreshes).toBe(0);
 			streams[0]?.send(`${frame("unrelated")}${frame(PLUGIN_CATALOG_INVALIDATED_EVENT)}`);
-			await waitUntil(() => refreshes === 1, "catalog invalidation was never routed");
+			yield* Effect.promise(() =>
+				waitUntil(() => refreshes === 1, "catalog invalidation was never routed"),
+			);
 			expect(refreshes).toBe(1);
-		} finally {
-			await Effect.runPromise(Fiber.interrupt(subscription));
-			await runtime.dispose();
-		}
+		}).pipe(
+			Effect.ensuring(
+				Fiber.interrupt(subscription).pipe(Effect.andThen(Effect.promise(() => runtime.dispose()))),
+			),
+		);
 	});
 
-	// oxlint-disable-next-line effecttsgo/async-function -- Vitest awaits this Promise-based test callback and its framework assertions.
-	it("routes events split across chunk boundaries", async () => {
+	it.live("routes events split across chunk boundaries", () => {
 		const { runtime, streams } = makeRuntime({ token: "token-1" });
 		let refreshes = 0;
 		const subscription = runtime.runFork(
@@ -146,21 +149,23 @@ describe("plugin catalog events service", () => {
 			),
 		);
 
-		try {
-			await waitUntil(() => streams.length === 1, "stream was never opened");
+		return Effect.gen(function* () {
+			yield* Effect.promise(() => waitUntil(() => streams.length === 1, "stream was never opened"));
 			streams[0]?.send(`event: ${PLUGIN_CATALOG_INVALIDATED_EVENT}`);
 			streams[0]?.send("\nid: 7\nretry: 5000\ndata:");
 			expect(refreshes).toBe(0);
 			streams[0]?.send("\n\n");
-			await waitUntil(() => refreshes === 1, "chunked catalog event was never routed");
-		} finally {
-			await Effect.runPromise(Fiber.interrupt(subscription));
-			await runtime.dispose();
-		}
+			yield* Effect.promise(() =>
+				waitUntil(() => refreshes === 1, "chunked catalog event was never routed"),
+			);
+		}).pipe(
+			Effect.ensuring(
+				Fiber.interrupt(subscription).pipe(Effect.andThen(Effect.promise(() => runtime.dispose()))),
+			),
+		);
 	});
 
-	// oxlint-disable-next-line effecttsgo/async-function -- Vitest awaits this Promise-based test callback and its framework assertions.
-	it("reconnects with a fresh token when the stream ends", async () => {
+	it.live("reconnects with a fresh token when the stream ends", () => {
 		const { runtime, streams, requests, setToken } = makeRuntime({ token: "token-1" });
 		let refreshes = 0;
 		const subscription = runtime.runFork(
@@ -171,23 +176,27 @@ describe("plugin catalog events service", () => {
 			),
 		);
 
-		try {
-			await waitUntil(() => streams.length === 1, "stream was never opened");
+		return Effect.gen(function* () {
+			yield* Effect.promise(() => waitUntil(() => streams.length === 1, "stream was never opened"));
 			setToken("token-2");
 			streams[0]?.end();
 
-			await waitUntil(() => streams.length === 2, "stream was never reopened");
+			yield* Effect.promise(() =>
+				waitUntil(() => streams.length === 2, "stream was never reopened"),
+			);
 			expect(requests[1]?.headers.authorization).toBe("Bearer token-2");
 			streams[1]?.send(frame(PLUGIN_CATALOG_INVALIDATED_EVENT));
-			await waitUntil(() => refreshes === 1, "reconnected stream never routed events");
-		} finally {
-			await Effect.runPromise(Fiber.interrupt(subscription));
-			await runtime.dispose();
-		}
+			yield* Effect.promise(() =>
+				waitUntil(() => refreshes === 1, "reconnected stream never routed events"),
+			);
+		}).pipe(
+			Effect.ensuring(
+				Fiber.interrupt(subscription).pipe(Effect.andThen(Effect.promise(() => runtime.dispose()))),
+			),
+		);
 	});
 
-	// oxlint-disable-next-line effecttsgo/async-function -- Vitest awaits this Promise-based test callback and its framework assertions.
-	it("reconnects when the server rejects the stream", async () => {
+	it.live("reconnects when the server rejects the stream", () => {
 		const { runtime, streams, requests } = makeRuntime({ token: "token-1", rejectAttempts: 2 });
 		const subscription = runtime.runFork(
 			Effect.flatMap(PluginCatalogEventsService, (service) =>
@@ -195,35 +204,38 @@ describe("plugin catalog events service", () => {
 			),
 		);
 
-		try {
-			await waitUntil(() => streams.length === 1, "rejected stream was never retried");
+		return Effect.gen(function* () {
+			yield* Effect.promise(() =>
+				waitUntil(() => streams.length === 1, "rejected stream was never retried"),
+			);
 			expect(requests).toHaveLength(3);
-		} finally {
-			await Effect.runPromise(Fiber.interrupt(subscription));
-			await runtime.dispose();
-		}
-	});
-
-	// oxlint-disable-next-line effecttsgo/async-function -- Vitest awaits this Promise-based test callback and its framework assertions.
-	it("aborts the stream on interruption and stops reconnecting", async () => {
-		const { runtime, streams, requests } = makeRuntime({ token: "token-1" });
-		const subscription = runtime.runFork(
-			Effect.flatMap(PluginCatalogEventsService, (service) =>
-				service.subscribe(scope, () => undefined),
+		}).pipe(
+			Effect.ensuring(
+				Fiber.interrupt(subscription).pipe(Effect.andThen(Effect.promise(() => runtime.dispose()))),
 			),
 		);
-
-		await waitUntil(() => streams.length === 1, "stream was never opened");
-		await Effect.runPromise(Fiber.interrupt(subscription));
-		expect(streams[0]?.aborted).toBe(true);
-
-		await Effect.runPromise(Effect.sleep("50 millis"));
-		expect(requests).toHaveLength(1);
-		await runtime.dispose();
 	});
 
-	// oxlint-disable-next-line effecttsgo/async-function -- Vitest awaits this Promise-based test callback and its framework assertions.
-	it("does not open a stream when no token is stored", async () => {
+	it.live("aborts the stream on interruption and stops reconnecting", () =>
+		Effect.gen(function* () {
+			const { runtime, streams, requests } = makeRuntime({ token: "token-1" });
+			const subscription = runtime.runFork(
+				Effect.flatMap(PluginCatalogEventsService, (service) =>
+					service.subscribe(scope, () => undefined),
+				),
+			);
+
+			yield* Effect.promise(() => waitUntil(() => streams.length === 1, "stream was never opened"));
+			yield* Fiber.interrupt(subscription);
+			expect(streams[0]?.aborted).toBe(true);
+
+			yield* Effect.sleep("50 millis");
+			expect(requests).toHaveLength(1);
+			yield* Effect.promise(() => runtime.dispose());
+		}),
+	);
+
+	it.live("does not open a stream when no token is stored", () => {
 		const { runtime, requests, tokenRequests } = makeRuntime();
 		const subscription = runtime.runFork(
 			Effect.flatMap(PluginCatalogEventsService, (service) =>
@@ -231,17 +243,19 @@ describe("plugin catalog events service", () => {
 			),
 		);
 
-		try {
-			await waitUntil(() => tokenRequests.length === 1, "token was never requested");
+		return Effect.gen(function* () {
+			yield* Effect.promise(() =>
+				waitUntil(() => tokenRequests.length === 1, "token was never requested"),
+			);
 			expect(requests).toHaveLength(0);
-		} finally {
-			await Effect.runPromise(Fiber.interrupt(subscription));
-			await runtime.dispose();
-		}
+		}).pipe(
+			Effect.ensuring(
+				Fiber.interrupt(subscription).pipe(Effect.andThen(Effect.promise(() => runtime.dispose()))),
+			),
+		);
 	});
 
-	// oxlint-disable-next-line effecttsgo/async-function -- Vitest awaits this Promise-based test callback and its framework assertions.
-	it("force-refreshes once and retries once after an unauthorized response", async () => {
+	it.live("force-refreshes once and retries once after an unauthorized response", () => {
 		const { runtime, streams, requests, tokenRequests } = makeRuntime({
 			token: "token-1",
 			refreshedToken: "token-2",
@@ -253,20 +267,22 @@ describe("plugin catalog events service", () => {
 			),
 		);
 
-		try {
-			await waitUntil(() => streams.length === 1, "refreshed stream was never opened");
+		return Effect.gen(function* () {
+			yield* Effect.promise(() =>
+				waitUntil(() => streams.length === 1, "refreshed stream was never opened"),
+			);
 			expect(requests).toHaveLength(2);
 			expect(requests[0]?.headers.authorization).toBe("Bearer token-1");
 			expect(requests[1]?.headers.authorization).toBe("Bearer token-2");
 			expect(tokenRequests).toEqual([false, true]);
-		} finally {
-			await Effect.runPromise(Fiber.interrupt(subscription));
-			await runtime.dispose();
-		}
+		}).pipe(
+			Effect.ensuring(
+				Fiber.interrupt(subscription).pipe(Effect.andThen(Effect.promise(() => runtime.dispose()))),
+			),
+		);
 	});
 
-	// oxlint-disable-next-line effecttsgo/async-function -- Vitest awaits this Promise-based test callback and its framework assertions.
-	it("stops after a second unauthorized response", async () => {
+	it.live("stops after a second unauthorized response", () => {
 		const { runtime, requests, tokenRequests } = makeRuntime({
 			token: "token-1",
 			refreshedToken: "token-2",
@@ -278,14 +294,17 @@ describe("plugin catalog events service", () => {
 			),
 		);
 
-		try {
-			await waitUntil(() => requests.length === 2, "unauthorized stream was never retried");
-			await Effect.runPromise(Effect.sleep("20 millis"));
+		return Effect.gen(function* () {
+			yield* Effect.promise(() =>
+				waitUntil(() => requests.length === 2, "unauthorized stream was never retried"),
+			);
+			yield* Effect.sleep("20 millis");
 			expect(requests).toHaveLength(2);
 			expect(tokenRequests).toEqual([false, true]);
-		} finally {
-			await Effect.runPromise(Fiber.interrupt(subscription));
-			await runtime.dispose();
-		}
+		}).pipe(
+			Effect.ensuring(
+				Fiber.interrupt(subscription).pipe(Effect.andThen(Effect.promise(() => runtime.dispose()))),
+			),
+		);
 	});
 });

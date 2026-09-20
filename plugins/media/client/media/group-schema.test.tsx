@@ -1,7 +1,7 @@
+import { afterEach, describe, expect, it } from "@effect/vitest";
 import type { RyotClientAdapter } from "@ryot-app/client-sdk";
 import { Effect } from "@ryot-app/client-sdk/effect";
 import { getByRole, waitFor } from "@testing-library/dom";
-import { afterEach, describe, expect, it } from "vitest";
 
 import {
 	decodeCreditGroupOverview,
@@ -153,46 +153,54 @@ describe("group detail screen", () => {
 });
 
 describe("group members tab", () => {
-	// oxlint-disable-next-line effecttsgo/async-function -- Vitest awaits the client test harness's Promise callbacks.
-	it("numbers each member by its position in the group", async () => {
-		const { adapter } = pagingAdapter();
-		const view = mountRyotClient(
-			adapter,
-			<groupFixtureSchema.MembersTab compact entityId="group-1" />,
-		);
-		await flushRyotClient();
-		await waitFor(() => expect(view.container.textContent).toContain("The Matrix"));
+	it.live("numbers each member by its position in the group", () =>
+		Effect.gen(function* () {
+			const { adapter } = pagingAdapter();
+			const view = mountRyotClient(
+				adapter,
+				<groupFixtureSchema.MembersTab compact entityId="group-1" />,
+			);
+			yield* Effect.promise(() => flushRyotClient());
+			yield* Effect.promise(() =>
+				waitFor(() => expect(view.container.textContent).toContain("The Matrix")),
+			);
 
-		const articles = Array.from(view.container.querySelectorAll("article"));
-		expect(
-			articles.map((article) => article.querySelector(":scope > span")?.textContent ?? null),
-		).toEqual(["1", null]);
-		view.unmount();
-	});
+			const articles = Array.from(view.container.querySelectorAll("article"));
+			expect(
+				articles.map((article) => article.querySelector(":scope > span")?.textContent ?? null),
+			).toEqual(["1", null]);
+			view.unmount();
+		}),
+	);
 
-	// oxlint-disable-next-line effecttsgo/async-function -- Vitest awaits the client test harness's Promise callbacks.
-	it("appends the next page without refetching the page already on screen", async () => {
-		const { adapter, documents } = pagingAdapter();
-		const view = mountRyotClient(
-			adapter,
-			<groupFixtureSchema.MembersTab compact entityId="group-1" />,
-		);
-		await flushRyotClient();
-		await waitFor(() => expect(view.container.textContent).toContain("The Matrix"));
+	it.live("appends the next page without refetching the page already on screen", () =>
+		Effect.gen(function* () {
+			const { adapter, documents } = pagingAdapter();
+			const view = mountRyotClient(
+				adapter,
+				<groupFixtureSchema.MembersTab compact entityId="group-1" />,
+			);
+			yield* Effect.promise(() => flushRyotClient());
+			yield* Effect.promise(() =>
+				waitFor(() => expect(view.container.textContent).toContain("The Matrix")),
+			);
 
-		const control = loadMore(view.container);
-		if (control === undefined) {
-			throw new Error("Expected the load more control");
-		}
-		clickRyotElement(control);
-		await flushRyotClient();
+			const control = loadMore(view.container);
+			if (control === undefined) {
+				throw new Error("Expected the load more control");
+			}
+			clickRyotElement(control);
+			yield* Effect.promise(() => flushRyotClient());
 
-		await waitFor(() => expect(view.container.textContent).toContain("Revolutions"));
-		expect(view.container.textContent).toContain("The Matrix");
-		expect(documents).toHaveLength(2);
-		expect(loadMore(view.container)).toBeUndefined();
-		view.unmount();
-	});
+			yield* Effect.promise(() =>
+				waitFor(() => expect(view.container.textContent).toContain("Revolutions")),
+			);
+			expect(view.container.textContent).toContain("The Matrix");
+			expect(documents).toHaveLength(2);
+			expect(loadMore(view.container)).toBeUndefined();
+			view.unmount();
+		}),
+	);
 });
 
 const renderActivity = (state: Parameters<typeof groupFixtureSchema.Activity>[0]["state"]) =>

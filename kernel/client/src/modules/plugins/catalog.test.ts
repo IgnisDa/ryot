@@ -1,9 +1,9 @@
+import { describe, expect, it } from "@effect/vitest";
 import type { PluginThemeSnapshot } from "@ryot-app/client-plugin-contract";
 import { createRyotClient } from "@ryot-app/client-sdk";
 import { createTestRyotAdapter } from "@ryot-app/client-sdk/testing";
 import type { ContractPayload, ContractSuccess } from "@ryot-app/contract/client";
 import { Effect, Layer, ManagedRuntime } from "effect";
-import { describe, expect, it } from "vitest";
 
 import { decodeServerOrigin } from "#/api/origin";
 import {
@@ -64,8 +64,7 @@ const makeCatalogRuntime = (responses: ReadonlyArray<ContractSuccess<"ryotql", "
 };
 
 describe("plugin catalog service", () => {
-	// oxlint-disable-next-line effecttsgo/async-function -- Vitest awaits this Promise-based test callback and its framework assertions.
-	it("loads every catalog page through the direct Ryot client adapter", async () => {
+	it.live("loads every catalog page through the direct Ryot client adapter", () => {
 		const nextEntry = { ...entry, slug: "second", installationId: "installation-2" };
 		const first = {
 			data: {
@@ -87,9 +86,9 @@ describe("plugin catalog service", () => {
 		};
 		const { ryot, calls, runtime } = makeCatalogRuntime([first, second]);
 
-		try {
-			const catalog = await runtime.runPromise(
-				Effect.flatMap(PluginCatalogService, (service) => service.load(ryot)),
+		return Effect.gen(function* () {
+			const catalog = yield* Effect.promise(() =>
+				runtime.runPromise(Effect.flatMap(PluginCatalogService, (service) => service.load(ryot))),
 			);
 
 			expect(catalog).toEqual([entry, nextEntry]);
@@ -102,13 +101,10 @@ describe("plugin catalog service", () => {
 			expect(calls[1]?.payload.queries.installations).toMatchObject({
 				output: { pagination: { limit: 100, after: "next-page" } },
 			});
-		} finally {
-			await runtime.dispose();
-		}
+		}).pipe(Effect.ensuring(Effect.promise(() => runtime.dispose())));
 	});
 
-	// oxlint-disable-next-line effecttsgo/async-function -- Vitest awaits this Promise-based test callback and its framework assertions.
-	it("loads the catalog through the Effect client capability", async () => {
+	it.live("loads the catalog through the Effect client capability", () => {
 		const calls: unknown[] = [];
 		const response = {
 			data: {
@@ -130,19 +126,16 @@ describe("plugin catalog service", () => {
 		);
 		const runtime = ManagedRuntime.make(PluginCatalogService.layer);
 
-		try {
-			await runtime.runPromise(
-				Effect.flatMap(PluginCatalogService, (service) => service.load(ryot)),
+		return Effect.gen(function* () {
+			yield* Effect.promise(() =>
+				runtime.runPromise(Effect.flatMap(PluginCatalogService, (service) => service.load(ryot))),
 			);
 
 			expect(calls).toHaveLength(1);
-		} finally {
-			await runtime.dispose();
-		}
+		}).pipe(Effect.ensuring(Effect.promise(() => runtime.dispose())));
 	});
 
-	// oxlint-disable-next-line effecttsgo/async-function -- Vitest awaits this Promise-based test callback and its framework assertions.
-	it("rejects a page that claims more rows without a cursor", async () => {
+	it.live("rejects a page that claims more rows without a cursor", () => {
 		const response = {
 			data: {
 				installations: {
@@ -154,12 +147,10 @@ describe("plugin catalog service", () => {
 		};
 		const { ryot, runtime } = makeCatalogRuntime([response]);
 
-		try {
-			await expect(
+		return Effect.promise(() =>
+			expect(
 				runtime.runPromise(Effect.flatMap(PluginCatalogService, (service) => service.load(ryot))),
-			).rejects.toBeInstanceOf(PluginCatalogError);
-		} finally {
-			await runtime.dispose();
-		}
+			).rejects.toBeInstanceOf(PluginCatalogError),
+		).pipe(Effect.ensuring(Effect.promise(() => runtime.dispose())));
 	});
 });

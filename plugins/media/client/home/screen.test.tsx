@@ -1,3 +1,4 @@
+import { afterEach, describe, expect, it } from "@effect/vitest";
 import {
 	RyotClientError,
 	type RyotClientAdapter,
@@ -6,7 +7,6 @@ import {
 import { Effect } from "@ryot-app/client-sdk/effect";
 import { getByRole, waitFor } from "@testing-library/dom";
 import { act } from "react";
-import { afterEach, describe, expect, it } from "vitest";
 
 import { flatRow, rows } from "../../tests/client/home/fixtures";
 import {
@@ -129,123 +129,143 @@ afterEach(() => {
 });
 
 describe("home gate", () => {
-	// oxlint-disable-next-line effecttsgo/async-function -- Vitest awaits the client test harness's Promise callbacks.
-	it("shows a page skeleton while the library count is pending", async () => {
-		const view = mountHome(homeAdapter({ gate: "pending" }).adapter);
-		await flushRyotClient();
-		expect(view.container.querySelector('[aria-label="Loading your media"]')).not.toBeNull();
-		view.unmount();
-	});
+	it.live("shows a page skeleton while the library count is pending", () =>
+		Effect.gen(function* () {
+			const view = mountHome(homeAdapter({ gate: "pending" }).adapter);
+			yield* Effect.promise(() => flushRyotClient());
+			expect(view.container.querySelector('[aria-label="Loading your media"]')).not.toBeNull();
+			view.unmount();
+		}),
+	);
 
-	// oxlint-disable-next-line effecttsgo/async-function -- Vitest awaits the client test harness's Promise callbacks.
-	it("shows the first-run panel for an empty library", async () => {
-		const view = mountHome(homeAdapter({ gate: 0 }).adapter);
-		await waitFor(() => expect(view.container.textContent).toContain("Start your media library"));
-		view.unmount();
-	});
+	it.live("shows the first-run panel for an empty library", () =>
+		Effect.gen(function* () {
+			const view = mountHome(homeAdapter({ gate: 0 }).adapter);
+			yield* Effect.promise(() =>
+				waitFor(() => expect(view.container.textContent).toContain("Start your media library")),
+			);
+			view.unmount();
+		}),
+	);
 
-	// oxlint-disable-next-line effecttsgo/async-function -- Vitest awaits the client test harness's Promise callbacks.
-	it("shows the rails for a library with media", async () => {
-		const view = mountHome(
-			homeAdapter({ gate: 1, responses: { "flat.items": rows([inProgressMovie]) } }).adapter,
-		);
-		await waitFor(() => expect(view.container.textContent).toContain("Continue"));
-		expect(view.container.textContent).not.toContain("Start your media library");
-		view.unmount();
-	});
+	it.live("shows the rails for a library with media", () =>
+		Effect.gen(function* () {
+			const view = mountHome(
+				homeAdapter({ gate: 1, responses: { "flat.items": rows([inProgressMovie]) } }).adapter,
+			);
+			yield* Effect.promise(() =>
+				waitFor(() => expect(view.container.textContent).toContain("Continue")),
+			);
+			expect(view.container.textContent).not.toContain("Start your media library");
+			view.unmount();
+		}),
+	);
 
-	// oxlint-disable-next-line effecttsgo/async-function -- Vitest awaits the client test harness's Promise callbacks.
-	it("fails open to the rails when the library count errors", async () => {
-		const view = mountHome(
-			homeAdapter({ gate: "error", responses: { "flat.items": rows([inProgressMovie]) } }).adapter,
-		);
-		await waitFor(() => expect(view.container.textContent).toContain("Heat"));
-		expect(view.container.textContent).not.toContain("Start your media library");
-		view.unmount();
-	});
+	it.live("fails open to the rails when the library count errors", () =>
+		Effect.gen(function* () {
+			const view = mountHome(
+				homeAdapter({ gate: "error", responses: { "flat.items": rows([inProgressMovie]) } })
+					.adapter,
+			);
+			yield* Effect.promise(() =>
+				waitFor(() => expect(view.container.textContent).toContain("Heat")),
+			);
+			expect(view.container.textContent).not.toContain("Start your media library");
+			view.unmount();
+		}),
+	);
 
-	// oxlint-disable-next-line effecttsgo/async-function -- Vitest awaits the client test harness's Promise callbacks.
-	it("falls back to first run when the count errors and every eager rail is empty", async () => {
-		const view = mountHome(homeAdapter({ gate: "error" }).adapter);
-		await waitFor(() => expect(view.container.textContent).toContain("Start your media library"));
-		view.unmount();
-	});
+	it.live("falls back to first run when the count errors and every eager rail is empty", () =>
+		Effect.gen(function* () {
+			const view = mountHome(homeAdapter({ gate: "error" }).adapter);
+			yield* Effect.promise(() =>
+				waitFor(() => expect(view.container.textContent).toContain("Start your media library")),
+			);
+			view.unmount();
+		}),
+	);
 });
 
 describe("home sections", () => {
-	// oxlint-disable-next-line effecttsgo/async-function -- Vitest awaits the client test harness's Promise callbacks.
-	it("runs eager sections as their own documents and mounts the rest near the viewport", async () => {
-		globalThis.IntersectionObserver = RecordingIntersectionObserver;
-		const home = homeAdapter({ gate: 1 });
-		const view = mountHome(home.adapter);
-		await flushRyotClient();
-		const documents = () => home.requested.map((names) => [...names].sort());
+	it.live("runs eager sections as their own documents and mounts the rest near the viewport", () =>
+		Effect.gen(function* () {
+			globalThis.IntersectionObserver = RecordingIntersectionObserver;
+			const home = homeAdapter({ gate: 1 });
+			const view = mountHome(home.adapter);
+			yield* Effect.promise(() => flushRyotClient());
+			const documents = () => home.requested.map((names) => [...names].sort());
 
-		expect(documents()).toEqual([
-			["library"],
-			["flat.items", "podcast.items", "show.items"],
-			["anime.anime", "shows.shows"],
-			["flat.items", "podcast.items", "show.items"],
-		]);
-		expect(observers.map(({ rootMargin }) => rootMargin)).toEqual([
-			"600px 0px",
-			"600px 0px",
-			"600px 0px",
-		]);
+			expect(documents()).toEqual([
+				["library"],
+				["flat.items", "podcast.items", "show.items"],
+				["anime.anime", "shows.shows"],
+				["flat.items", "podcast.items", "show.items"],
+			]);
+			expect(observers.map(({ rootMargin }) => rootMargin)).toEqual([
+				"600px 0px",
+				"600px 0px",
+				"600px 0px",
+			]);
 
-		act(() => {
-			for (const observer of observers) {
-				observer.intersect();
-			}
-		});
-		await flushRyotClient();
+			act(() => {
+				for (const observer of observers) {
+					observer.intersect();
+				}
+			});
+			yield* Effect.promise(() => flushRyotClient());
 
-		expect(documents().slice(4)).toEqual([
-			["suggestions.items", "suggestions.source"],
-			["trending.trending"],
-			["days", "figures", "mediaTypes"],
-			["days", "figures", "mediaTypes"],
-		]);
-		view.unmount();
-	});
-	// oxlint-disable-next-line effecttsgo/async-function -- Vitest awaits the client test harness's Promise callbacks.
-	it("refreshes every section at local midnight", async () => {
-		const home = homeAdapter({ gate: 1 });
-		const view = mountRyotClient(home.adapter, null);
-		await view.setTime(new Date(2026, 8, 25, 23, 30).getTime());
-		view.rerender(
-			<HomeBody compact pluginId="media-installation" scrollRootRef={{ current: null }} />,
-		);
-		await flushRyotClient();
-		const continueRequests = () =>
-			home.requested.filter((names) => names.includes("flat.items") && names.includes("show.items"))
-				.length;
-		const beforeMidnight = continueRequests();
+			expect(documents().slice(4)).toEqual([
+				["suggestions.items", "suggestions.source"],
+				["trending.trending"],
+				["days", "figures", "mediaTypes"],
+				["days", "figures", "mediaTypes"],
+			]);
+			view.unmount();
+		}),
+	);
+	it.live("refreshes every section at local midnight", () =>
+		Effect.gen(function* () {
+			const home = homeAdapter({ gate: 1 });
+			const view = mountRyotClient(home.adapter, null);
+			yield* Effect.promise(() => view.setTime(new Date(2026, 8, 25, 23, 30).getTime()));
+			view.rerender(
+				<HomeBody compact pluginId="media-installation" scrollRootRef={{ current: null }} />,
+			);
+			yield* Effect.promise(() => flushRyotClient());
+			const continueRequests = () =>
+				home.requested.filter(
+					(names) => names.includes("flat.items") && names.includes("show.items"),
+				).length;
+			const beforeMidnight = continueRequests();
 
-		await view.advance("31 minutes");
-		await flushRyotClient();
+			yield* Effect.promise(() => view.advance("31 minutes"));
+			yield* Effect.promise(() => flushRyotClient());
 
-		expect(continueRequests()).toBeGreaterThan(beforeMidnight);
-		view.unmount();
-	});
+			expect(continueRequests()).toBeGreaterThan(beforeMidnight);
+			view.unmount();
+		}),
+	);
 });
 
 describe("first run", () => {
-	// oxlint-disable-next-line effecttsgo/async-function -- Vitest awaits the client test harness's Promise callbacks.
-	it("links to the import page and opens provider search for the chosen type", async () => {
-		const home = homeAdapter({ gate: 0 });
-		const view = mountHome(home.adapter);
-		await waitFor(() => expect(view.container.textContent).toContain("Start your media library"));
+	it.live("links to the import page and opens provider search for the chosen type", () =>
+		Effect.gen(function* () {
+			const home = homeAdapter({ gate: 0 });
+			const view = mountHome(home.adapter);
+			yield* Effect.promise(() =>
+				waitFor(() => expect(view.container.textContent).toContain("Start your media library")),
+			);
 
-		clickRyotElement(getByRole(view.container, "link", { name: "Import your history" }));
-		expect(home.navigations).toEqual([{ kind: "kernel-page", page: "import-data" }]);
+			clickRyotElement(getByRole(view.container, "link", { name: "Import your history" }));
+			expect(home.navigations).toEqual([{ kind: "kernel-page", page: "import-data" }]);
 
-		clickRyotElement(getByRole(view.container, "button", { name: "Add a title" }));
-		clickRyotElement(getByRole(document.body, "menuitem", { name: "Comic book" }));
-		expect(home.providerSearches).toEqual([
-			{ entitySchemaSlug: "comic-book", ownerPluginId: "media-installation" },
-		]);
-		expect(document.body.querySelector('[role="menu"]')).toBeNull();
-		view.unmount();
-	});
+			clickRyotElement(getByRole(view.container, "button", { name: "Add a title" }));
+			clickRyotElement(getByRole(document.body, "menuitem", { name: "Comic book" }));
+			expect(home.providerSearches).toEqual([
+				{ entitySchemaSlug: "comic-book", ownerPluginId: "media-installation" },
+			]);
+			expect(document.body.querySelector('[role="menu"]')).toBeNull();
+			view.unmount();
+		}),
+	);
 });

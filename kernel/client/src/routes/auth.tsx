@@ -19,21 +19,28 @@ export const Route = createFileRoute("/auth")({
 			message="Restoring your session and contacting the server..."
 		/>
 	),
-	// oxlint-disable-next-line effecttsgo/async-function -- TanStack route guard.
-	beforeLoad: async ({ search, context }) => {
-		const result = await context.runtime.runPromise(
-			Effect.flatMap(OAuthLauncher, (launcher) => launcher.prepare(search.redirect)),
-		);
-		if (result._tag === "MissingServer") {
-			// oxlint-disable-next-line typescript/only-throw-error
-			throw redirect({ replace: true, to: "/onboarding", search: { redirect: search.redirect } });
-		}
-		if (result._tag === "Authenticated") {
-			// oxlint-disable-next-line typescript/only-throw-error
-			throw redirect({ replace: true, to: result.destination, search: { redirect: undefined } });
-		}
-		return { plan: result.plan };
-	},
+	beforeLoad: ({ search, context }) =>
+		context.runtime
+			.runPromise(Effect.flatMap(OAuthLauncher, (launcher) => launcher.prepare(search.redirect)))
+			.then((result) => {
+				if (result._tag === "MissingServer") {
+					// oxlint-disable-next-line typescript/only-throw-error
+					throw redirect({
+						replace: true,
+						to: "/onboarding",
+						search: { redirect: search.redirect },
+					});
+				}
+				if (result._tag === "Authenticated") {
+					// oxlint-disable-next-line typescript/only-throw-error
+					throw redirect({
+						replace: true,
+						to: result.destination,
+						search: { redirect: undefined },
+					});
+				}
+				return { plan: result.plan };
+			}),
 });
 
 function OAuthLaunchUnavailable({ error }: { error: unknown }) {
@@ -88,10 +95,15 @@ function OAuthLaunch() {
 		}
 	}, [plan]);
 
-	// oxlint-disable-next-line effecttsgo/async-function -- React server-selection handler.
-	async function changeServer() {
-		await runtime.runPromise(auth.changeServer(decodeServerOrigin(plan.pending.serverOrigin)));
-		await navigate({ replace: true, to: "/onboarding", search: { redirect: search.redirect } });
+	function changeServer() {
+		return runtime.runPromise(
+			Effect.gen(function* () {
+				yield* auth.changeServer(decodeServerOrigin(plan.pending.serverOrigin));
+				yield* Effect.promise(() =>
+					navigate({ replace: true, to: "/onboarding", search: { redirect: search.redirect } }),
+				);
+			}),
+		);
 	}
 
 	if (failedPlan) {

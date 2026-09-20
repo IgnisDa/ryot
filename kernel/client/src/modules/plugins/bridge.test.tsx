@@ -1,3 +1,4 @@
+import { afterEach, describe, expect, it } from "@effect/vitest";
 // oxlint-disable unicorn/require-post-message-target-origin -- MessagePort takes a transfer list, not an origin
 import {
 	PluginBridgeInit,
@@ -33,7 +34,6 @@ import { MembershipResponse } from "@ryot-app/contract/modules/collections/schem
 import { EntityId, EntitySchemaSlug, PluginSlug } from "@ryot-app/contract/schema/brands";
 import { waitFor } from "@testing-library/dom";
 import { Effect, Schema } from "effect";
-import { afterEach, describe, expect, it } from "vitest";
 
 import {
 	openPluginBridge,
@@ -252,294 +252,328 @@ const readyFor = (init: PluginBridgeInit): PluginBridgeReady => ({
 });
 
 describe("bridge page screens", () => {
-	// oxlint-disable-next-line effecttsgo/async-function -- Vitest awaits this Promise-based test callback and its framework assertions.
-	it("delivers the latest document when navigation changes before handshake completes", async () => {
-		const { init, session, received, pluginPort } = connect();
-		const page = {
-			view: null,
-			settings: {},
-			dataSources: null,
-			route: { params: {} },
-			renderer: { name: "fixture", kind: "kernel" as const },
-			target: {
-				search: "",
-				path: "/music",
-				kind: "plugin-route" as const,
-				pluginSlug: PluginSlug.make("fixture"),
-			},
-		};
-		session.sendDocument("music", page, nav(detail, 1));
-		pluginPort.postMessage(readyFor(init));
-		await waitFor(() =>
-			expect(received).toContainEqual({
-				page,
-				type: "document",
-				documentKey: "music",
-				navigation: at(detail, 1),
-			}),
-		);
-		expect(received).toHaveLength(1);
-	});
-	// oxlint-disable-next-line effecttsgo/async-function -- Vitest awaits this Promise-based test callback and its framework assertions.
-	it("replaces the document on the same port and cancels old page requests", async () => {
-		let aborted = false;
-		const { init, session, received, pluginPort, overlayStates, pageShortcuts } = connect({
-			onRyotQL: () =>
-				Effect.promise((signal) => {
-					signal.addEventListener("abort", () => {
-						aborted = true;
-					});
-					// oxlint-disable-next-line effecttsgo/new-promise -- This test keeps the injected host request pending to verify cancellation or admission.
-					return new Promise<never>(() => {});
-				}),
-		});
-		pluginPort.postMessage(readyFor(init));
-		await waitFor(() => expect(received).toEqual([at()]));
-		pluginPort.postMessage({ document, type: "ryotql-request", requestId: "old-query" });
-		pluginPort.postMessage({ count: 1, type: "overlay-state" });
-		pluginPort.postMessage({ shortcuts: ["A"], type: "page-shortcuts" });
-		await waitFor(() => expect(pageShortcuts).toContainEqual(["A"]));
-		const page = {
-			view: null,
-			settings: {},
-			dataSources: null,
-			route: { params: {} },
-			renderer: { name: "fixture", kind: "kernel" as const },
-			target: {
-				search: "",
-				path: "/music",
-				kind: "plugin-route" as const,
-				pluginSlug: PluginSlug.make("fixture"),
-			},
-		};
-		session.sendDocument("music", page, nav());
-		await waitFor(() =>
-			expect(received).toContainEqual({
-				page,
-				type: "document",
-				navigation: at(),
-				documentKey: "music",
-			}),
-		);
-		expect(aborted).toBe(true);
-		expect(overlayStates.at(-1)).toBe(0);
-		expect(pageShortcuts.at(-1)).toEqual([]);
-	});
-	// oxlint-disable-next-line effecttsgo/async-function -- Vitest awaits this Promise-based test callback and its framework assertions.
-	it("forwards provider search and sends one page refresh", async () => {
-		const { init, session, received, pluginPort, providerSearches } = connect();
-		pluginPort.postMessage(readyFor(init));
-		await waitFor(() => expect(received).toEqual([at()]));
+	it.live("delivers the latest document when navigation changes before handshake completes", () =>
+		Effect.gen(function* () {
+			const { init, session, received, pluginPort } = connect();
+			const page = {
+				view: null,
+				settings: {},
+				dataSources: null,
+				route: { params: {} },
+				renderer: { name: "fixture", kind: "kernel" as const },
+				target: {
+					search: "",
+					path: "/music",
+					kind: "plugin-route" as const,
+					pluginSlug: PluginSlug.make("fixture"),
+				},
+			};
+			session.sendDocument("music", page, nav(detail, 1));
+			pluginPort.postMessage(readyFor(init));
+			yield* Effect.promise(() =>
+				waitFor(() =>
+					expect(received).toContainEqual({
+						page,
+						type: "document",
+						documentKey: "music",
+						navigation: at(detail, 1),
+					}),
+				),
+			);
+			expect(received).toHaveLength(1);
+		}),
+	);
+	it.live("replaces the document on the same port and cancels old page requests", () =>
+		Effect.gen(function* () {
+			let aborted = false;
+			const { init, session, received, pluginPort, overlayStates, pageShortcuts } = connect({
+				onRyotQL: () =>
+					Effect.promise((signal) => {
+						signal.addEventListener("abort", () => {
+							aborted = true;
+						});
+						// oxlint-disable-next-line effecttsgo/new-promise -- This test keeps the injected host request pending to verify cancellation or admission.
+						return new Promise<never>(() => {});
+					}),
+			});
+			pluginPort.postMessage(readyFor(init));
+			yield* Effect.promise(() => waitFor(() => expect(received).toEqual([at()])));
+			pluginPort.postMessage({ document, type: "ryotql-request", requestId: "old-query" });
+			pluginPort.postMessage({ count: 1, type: "overlay-state" });
+			pluginPort.postMessage({ shortcuts: ["A"], type: "page-shortcuts" });
+			yield* Effect.promise(() => waitFor(() => expect(pageShortcuts).toContainEqual(["A"])));
+			const page = {
+				view: null,
+				settings: {},
+				dataSources: null,
+				route: { params: {} },
+				renderer: { name: "fixture", kind: "kernel" as const },
+				target: {
+					search: "",
+					path: "/music",
+					kind: "plugin-route" as const,
+					pluginSlug: PluginSlug.make("fixture"),
+				},
+			};
+			session.sendDocument("music", page, nav());
+			yield* Effect.promise(() =>
+				waitFor(() =>
+					expect(received).toContainEqual({
+						page,
+						type: "document",
+						navigation: at(),
+						documentKey: "music",
+					}),
+				),
+			);
+			expect(aborted).toBe(true);
+			expect(overlayStates.at(-1)).toBe(0);
+			expect(pageShortcuts.at(-1)).toEqual([]);
+		}),
+	);
+	it.live("forwards provider search and sends one page refresh", () =>
+		Effect.gen(function* () {
+			const { init, session, received, pluginPort, providerSearches } = connect();
+			pluginPort.postMessage(readyFor(init));
+			yield* Effect.promise(() => waitFor(() => expect(received).toEqual([at()])));
 
-		pluginPort.postMessage({
-			initialQuery: "Dune",
-			entitySchemaSlug: "movie",
-			type: "provider-search-screen",
-			ownerPluginId: "media-installation",
-		});
-		await waitFor(() => expect(providerSearches).toHaveLength(1));
-		session.sendPageRefresh();
-		await waitFor(() => expect(received).toContainEqual({ type: "page-refresh" }));
-
-		expect(providerSearches).toEqual([
-			{
+			pluginPort.postMessage({
 				initialQuery: "Dune",
 				entitySchemaSlug: "movie",
 				type: "provider-search-screen",
 				ownerPluginId: "media-installation",
-			},
-		]);
-	});
+			});
+			yield* Effect.promise(() => waitFor(() => expect(providerSearches).toHaveLength(1)));
+			session.sendPageRefresh();
+			yield* Effect.promise(() =>
+				waitFor(() => expect(received).toContainEqual({ type: "page-refresh" })),
+			);
 
-	// oxlint-disable-next-line effecttsgo/async-function -- Vitest awaits this Promise-based test callback and its framework assertions.
-	it("registers only allowlisted page shortcuts and sends presses back down", async () => {
-		const { init, session, received, pluginPort, pageShortcuts } = connect();
-		pluginPort.postMessage(readyFor(init));
-		await waitFor(() => expect(received).toEqual([at()]));
+			expect(providerSearches).toEqual([
+				{
+					initialQuery: "Dune",
+					entitySchemaSlug: "movie",
+					type: "provider-search-screen",
+					ownerPluginId: "media-installation",
+				},
+			]);
+		}),
+	);
 
-		pluginPort.postMessage({
-			type: "page-shortcuts",
-			shortcuts: ["A", "/", "A", "Mod+K", "a", "Escape"],
-		});
-		await waitFor(() => expect(pageShortcuts).toHaveLength(1));
-		expect(pageShortcuts[0]).toEqual(["/", "A"]);
+	it.live("registers only allowlisted page shortcuts and sends presses back down", () =>
+		Effect.gen(function* () {
+			const { init, session, received, pluginPort, pageShortcuts } = connect();
+			pluginPort.postMessage(readyFor(init));
+			yield* Effect.promise(() => waitFor(() => expect(received).toEqual([at()])));
 
-		session.sendShortcut("A");
-		await waitFor(() =>
-			expect(received).toContainEqual({ shortcut: "A", type: "page-shortcut-press" }),
-		);
-	});
+			pluginPort.postMessage({
+				type: "page-shortcuts",
+				shortcuts: ["A", "/", "A", "Mod+K", "a", "Escape"],
+			});
+			yield* Effect.promise(() => waitFor(() => expect(pageShortcuts).toHaveLength(1)));
+			expect(pageShortcuts[0]).toEqual(["/", "A"]);
+
+			session.sendShortcut("A");
+			yield* Effect.promise(() =>
+				waitFor(() =>
+					expect(received).toContainEqual({ shortcut: "A", type: "page-shortcut-press" }),
+				),
+			);
+		}),
+	);
 });
 
 describe("bridge entity interest", () => {
-	it.each(["close", "crash", "invalid"])(
+	it.live.each(["close", "crash", "invalid"])(
 		"keeps one mutable owner and releases it on %s",
-		// oxlint-disable-next-line effecttsgo/async-function -- Vitest awaits this Promise-based test callback and its framework assertions.
-		async (exit) => {
-			const declarations: unknown[] = [];
-			let disposed = 0;
-			let notify:
-				| Parameters<Parameters<typeof openPluginBridge>[0]["watchEntities"]>[1]
-				| undefined;
-			const client = createRyotClient(
-				createTestRyotAdapter({
-					query: () => Effect.succeed({}),
-					watchEntities: (interest, onUpdate) => {
-						declarations.push(interest);
-						notify = onUpdate;
-						return {
-							update: (next) => declarations.push(next),
-							dispose: () => {
-								disposed++;
-							},
-						};
-					},
-				}),
-			);
-			const bridge = connect({ watchEntities: client.entities.watch });
-			bridge.pluginPort.postMessage(readyFor(bridge.init));
-			await waitFor(() => expect(bridge.readies).toHaveLength(1));
-			bridge.pluginPort.postMessage({ visible: [], foreground: ["a"], type: "entity-interest" });
-			await waitFor(() => expect(declarations).toEqual([{ visible: [], foreground: ["a"] }]));
-			notify?.({ entityId: "a", reason: "populated" });
-			notify?.({ entityId: "other", reason: "translated" });
-			await waitFor(() =>
-				expect(bridge.received).toContainEqual({
-					entityId: "a",
-					reason: "populated",
-					type: "entity-updated",
-				}),
-			);
-			bridge.pluginPort.postMessage({ foreground: [], visible: ["b"], type: "entity-interest" });
-			await waitFor(() =>
-				expect(declarations).toEqual([
-					{ visible: [], foreground: ["a"] },
-					{ foreground: [], visible: ["b"] },
-				]),
-			);
-			notify?.({ entityId: "a", reason: "translated" });
-			notify?.({ entityId: "b", reason: "translated" });
-			await waitFor(() =>
-				expect(bridge.received).toContainEqual({
-					entityId: "b",
-					reason: "translated",
-					type: "entity-updated",
-				}),
-			);
-			if (exit === "close") {
-				bridge.session.close();
-			} else {
-				bridge.pluginPort.postMessage(
-					exit === "crash" ? { reason: "failed", type: "lifecycle-close" } : { type: "invalid" },
+		(exit) =>
+			Effect.gen(function* () {
+				const declarations: unknown[] = [];
+				let disposed = 0;
+				let notify:
+					| Parameters<Parameters<typeof openPluginBridge>[0]["watchEntities"]>[1]
+					| undefined;
+				const client = createRyotClient(
+					createTestRyotAdapter({
+						query: () => Effect.succeed({}),
+						watchEntities: (interest, onUpdate) => {
+							declarations.push(interest);
+							notify = onUpdate;
+							return {
+								update: (next) => declarations.push(next),
+								dispose: () => {
+									disposed++;
+								},
+							};
+						},
+					}),
 				);
-			}
-			await waitFor(() => expect(disposed).toBe(1));
-			notify?.({ entityId: "b", reason: "populated" });
-			bridge.session.close();
-			await delay(10);
-			expect(disposed).toBe(1);
-			expect(
-				bridge.received.filter(
-					(message) =>
-						typeof message === "object" &&
-						message !== null &&
-						"type" in message &&
-						message.type === "entity-updated",
-				),
-			).toEqual([
-				{ entityId: "a", reason: "populated", type: "entity-updated" },
-				{ entityId: "b", reason: "translated", type: "entity-updated" },
-			]);
-		},
+				const bridge = connect({ watchEntities: client.entities.watch });
+				bridge.pluginPort.postMessage(readyFor(bridge.init));
+				yield* Effect.promise(() => waitFor(() => expect(bridge.readies).toHaveLength(1)));
+				bridge.pluginPort.postMessage({ visible: [], foreground: ["a"], type: "entity-interest" });
+				yield* Effect.promise(() =>
+					waitFor(() => expect(declarations).toEqual([{ visible: [], foreground: ["a"] }])),
+				);
+				notify?.({ entityId: "a", reason: "populated" });
+				notify?.({ entityId: "other", reason: "translated" });
+				yield* Effect.promise(() =>
+					waitFor(() =>
+						expect(bridge.received).toContainEqual({
+							entityId: "a",
+							reason: "populated",
+							type: "entity-updated",
+						}),
+					),
+				);
+				bridge.pluginPort.postMessage({ foreground: [], visible: ["b"], type: "entity-interest" });
+				yield* Effect.promise(() =>
+					waitFor(() =>
+						expect(declarations).toEqual([
+							{ visible: [], foreground: ["a"] },
+							{ foreground: [], visible: ["b"] },
+						]),
+					),
+				);
+				notify?.({ entityId: "a", reason: "translated" });
+				notify?.({ entityId: "b", reason: "translated" });
+				yield* Effect.promise(() =>
+					waitFor(() =>
+						expect(bridge.received).toContainEqual({
+							entityId: "b",
+							reason: "translated",
+							type: "entity-updated",
+						}),
+					),
+				);
+				if (exit === "close") {
+					bridge.session.close();
+				} else {
+					bridge.pluginPort.postMessage(
+						exit === "crash" ? { reason: "failed", type: "lifecycle-close" } : { type: "invalid" },
+					);
+				}
+				yield* Effect.promise(() => waitFor(() => expect(disposed).toBe(1)));
+				notify?.({ entityId: "b", reason: "populated" });
+				bridge.session.close();
+				yield* Effect.promise(() => delay(10));
+				expect(disposed).toBe(1);
+				expect(
+					bridge.received.filter(
+						(message) =>
+							typeof message === "object" &&
+							message !== null &&
+							"type" in message &&
+							message.type === "entity-updated",
+					),
+				).toEqual([
+					{ entityId: "a", reason: "populated", type: "entity-updated" },
+					{ entityId: "b", reason: "translated", type: "entity-updated" },
+				]);
+			}),
 	);
 
-	// oxlint-disable-next-line effecttsgo/async-function -- Vitest awaits this Promise-based test callback and its framework assertions.
-	it("does not spend request slots or fail the iframe when interest transport fails", async () => {
-		let declarations = 0;
-		const bridge = connect({
-			watchEntities: () => {
-				declarations++;
-				throw new Error("offline");
-			},
-		});
-		bridge.pluginPort.postMessage(readyFor(bridge.init));
-		await waitFor(() => expect(bridge.readies).toHaveLength(1));
-		for (let i = 0; i < CLIENT_BRIDGE_MAX_PENDING_REQUESTS; i++) {
-			bridge.pluginPort.postMessage({
-				input: {},
-				type: "operation-request",
-				requestId: `request-${i}`,
-				operationSlug: "operation",
+	it.live("does not spend request slots or fail the iframe when interest transport fails", () =>
+		Effect.gen(function* () {
+			let declarations = 0;
+			const bridge = connect({
+				watchEntities: () => {
+					declarations++;
+					throw new Error("offline");
+				},
 			});
-		}
-		bridge.pluginPort.postMessage({ visible: [], foreground: ["a"], type: "entity-interest" });
-		await waitFor(() => expect(declarations).toBe(1));
-		expect(bridge.failures).toEqual([]);
-	});
+			bridge.pluginPort.postMessage(readyFor(bridge.init));
+			yield* Effect.promise(() => waitFor(() => expect(bridge.readies).toHaveLength(1)));
+			for (let i = 0; i < CLIENT_BRIDGE_MAX_PENDING_REQUESTS; i++) {
+				bridge.pluginPort.postMessage({
+					input: {},
+					type: "operation-request",
+					requestId: `request-${i}`,
+					operationSlug: "operation",
+				});
+			}
+			bridge.pluginPort.postMessage({ visible: [], foreground: ["a"], type: "entity-interest" });
+			yield* Effect.promise(() => waitFor(() => expect(declarations).toBe(1)));
+			expect(bridge.failures).toEqual([]);
+		}),
+	);
 });
 
 describe("plugin bridge", () => {
-	// oxlint-disable-next-line effecttsgo/async-function -- Vitest awaits this Promise-based test callback and its framework assertions.
-	it("allows one acknowledged overlay dismissal at a time and preserves aggregate order", async () => {
-		const { init, session, received, pluginPort, overlayStates } = connect();
-		pluginPort.postMessage(readyFor(init));
-		await waitFor(() => expect(received).toHaveLength(1));
-		pluginPort.postMessage({ count: 2, type: "overlay-state" });
-		await waitFor(() => expect(overlayStates).toContain(2));
+	it.live("allows one acknowledged overlay dismissal at a time and preserves aggregate order", () =>
+		Effect.gen(function* () {
+			const { init, session, received, pluginPort, overlayStates } = connect();
+			pluginPort.postMessage(readyFor(init));
+			yield* Effect.promise(() => waitFor(() => expect(received).toHaveLength(1)));
+			pluginPort.postMessage({ count: 2, type: "overlay-state" });
+			yield* Effect.promise(() => waitFor(() => expect(overlayStates).toContain(2)));
 
-		expect(session.requestOverlayDismiss()).toBe(true);
-		expect(session.requestOverlayDismiss()).toBe(true);
-		await waitFor(() =>
-			expect(
-				received.filter((message) => Reflect.get(Object(message), "type") === "dismiss-overlay"),
-			).toHaveLength(1),
-		);
-		pluginPort.postMessage({
-			dismissed: true,
-			requestId: "overlay-1",
-			type: "dismiss-overlay-result",
-		});
-		await waitFor(() => expect(overlayStates.at(-1)).toBe(1));
+			expect(session.requestOverlayDismiss()).toBe(true);
+			expect(session.requestOverlayDismiss()).toBe(true);
+			yield* Effect.promise(() =>
+				waitFor(() =>
+					expect(
+						received.filter(
+							(message) => Reflect.get(Object(message), "type") === "dismiss-overlay",
+						),
+					).toHaveLength(1),
+				),
+			);
+			pluginPort.postMessage({
+				dismissed: true,
+				requestId: "overlay-1",
+				type: "dismiss-overlay-result",
+			});
+			yield* Effect.promise(() => waitFor(() => expect(overlayStates.at(-1)).toBe(1)));
 
-		expect(session.requestOverlayDismiss()).toBe(true);
-		await waitFor(() =>
-			expect(received).toContainEqual({ requestId: "overlay-2", type: "dismiss-overlay" }),
-		);
-	});
+			expect(session.requestOverlayDismiss()).toBe(true);
+			yield* Effect.promise(() =>
+				waitFor(() =>
+					expect(received).toContainEqual({ requestId: "overlay-2", type: "dismiss-overlay" }),
+				),
+			);
+		}),
+	);
 
-	// oxlint-disable-next-line effecttsgo/async-function -- Vitest awaits this Promise-based test callback and its framework assertions.
-	it("fails a document whose overlay dismissal is not acknowledged within the bound", async () => {
-		let expire: (() => void) | undefined;
-		const { init, session, failures, pluginPort } = connect({
-			scheduleOverlayDismissTimeout: (onTimeout) => {
-				expire = onTimeout;
-				return () => {
-					expire = undefined;
-				};
-			},
-		});
-		pluginPort.postMessage(readyFor(init));
-		pluginPort.postMessage({ count: 1, type: "overlay-state" });
-		await waitFor(() => expect(session.requestOverlayDismiss()).toBe(true));
+	it.live("fails a document whose overlay dismissal is not acknowledged within the bound", () =>
+		Effect.gen(function* () {
+			let expire: (() => void) | undefined;
+			const { init, session, failures, pluginPort } = connect({
+				scheduleOverlayDismissTimeout: (onTimeout) => {
+					expire = onTimeout;
+					return () => {
+						expire = undefined;
+					};
+				},
+			});
+			pluginPort.postMessage(readyFor(init));
+			pluginPort.postMessage({ count: 1, type: "overlay-state" });
+			yield* Effect.promise(() =>
+				waitFor(() => expect(session.requestOverlayDismiss()).toBe(true)),
+			);
 
-		expire?.();
+			expire?.();
 
-		expect(failures).toHaveLength(1);
-		expect(session.requestOverlayDismiss()).toBe(false);
-	});
+			expect(failures).toHaveLength(1);
+			expect(session.requestOverlayDismiss()).toBe(false);
+		}),
+	);
 
-	// oxlint-disable-next-line effecttsgo/async-function -- Vitest awaits this Promise-based test callback and its framework assertions.
-	it("routes explicit plugin Back through an owned overlay before navigation", async () => {
-		const { init, backs, received, pluginPort } = connect();
-		pluginPort.postMessage(readyFor(init));
-		pluginPort.postMessage({ count: 1, type: "overlay-state" });
-		pluginPort.postMessage({ type: "navigate-back" });
+	it.live("routes explicit plugin Back through an owned overlay before navigation", () =>
+		Effect.gen(function* () {
+			const { init, backs, received, pluginPort } = connect();
+			pluginPort.postMessage(readyFor(init));
+			pluginPort.postMessage({ count: 1, type: "overlay-state" });
+			pluginPort.postMessage({ type: "navigate-back" });
 
-		await waitFor(() =>
-			expect(received).toContainEqual({ requestId: "overlay-1", type: "dismiss-overlay" }),
-		);
-		expect(backs).toEqual([]);
-	});
+			yield* Effect.promise(() =>
+				waitFor(() =>
+					expect(received).toContainEqual({ requestId: "overlay-1", type: "dismiss-overlay" }),
+				),
+			);
+			expect(backs).toEqual([]);
+		}),
+	);
 
 	it("transfers exactly one port with the exact init markers and the resolved mode", () => {
 		const { init, origins } = connect();
@@ -560,807 +594,836 @@ describe("plugin bridge", () => {
 		expect(init.sessionId).not.toBe("");
 	});
 
-	// oxlint-disable-next-line effecttsgo/async-function -- Vitest awaits this Promise-based test callback and its framework assertions.
-	it("cleans up immediately when the initial port transfer fails", async () => {
-		const failures: null[] = [];
-		const session = openPluginBridge({
-			timeoutMs: 10,
-			compositionHash,
-			navigation: nav(),
-			theme: lightTheme,
-			onHeader: () => {},
-			documentKey: "page-1",
-			onReady: () => undefined,
-			onNavigate: () => undefined,
-			onAssets: () => Effect.never,
-			onRyotQL: () => Effect.never,
-			onUpload: () => Effect.never,
-			onStorage: () => Effect.never,
-			onPageSearch: () => undefined,
-			onOpenDrawer: () => undefined,
-			onScreenState: () => undefined,
-			onOverlayState: () => undefined,
-			onOperation: () => Effect.never,
-			onNavigateBack: () => undefined,
-			onCollection: () => Effect.never,
-			onPageShortcuts: () => undefined,
-			onKernelShortcut: () => undefined,
-			onProviderSearch: () => undefined,
-			onFailure: () => failures.push(null),
-			viewport: { safeAreaTop: 0, safeAreaBottom: 0 },
-			watchEntities: () => ({ update: () => {}, dispose: () => {} }),
-			target: {
-				postMessage: () => {
-					throw new Error("transfer failed");
+	it.live("cleans up immediately when the initial port transfer fails", () =>
+		Effect.gen(function* () {
+			const failures: null[] = [];
+			const session = openPluginBridge({
+				timeoutMs: 10,
+				compositionHash,
+				navigation: nav(),
+				theme: lightTheme,
+				onHeader: () => {},
+				documentKey: "page-1",
+				onReady: () => undefined,
+				onNavigate: () => undefined,
+				onAssets: () => Effect.never,
+				onRyotQL: () => Effect.never,
+				onUpload: () => Effect.never,
+				onStorage: () => Effect.never,
+				onPageSearch: () => undefined,
+				onOpenDrawer: () => undefined,
+				onScreenState: () => undefined,
+				onOverlayState: () => undefined,
+				onOperation: () => Effect.never,
+				onNavigateBack: () => undefined,
+				onCollection: () => Effect.never,
+				onPageShortcuts: () => undefined,
+				onKernelShortcut: () => undefined,
+				onProviderSearch: () => undefined,
+				onFailure: () => failures.push(null),
+				viewport: { safeAreaTop: 0, safeAreaBottom: 0 },
+				watchEntities: () => ({ update: () => {}, dispose: () => {} }),
+				target: {
+					postMessage: () => {
+						throw new Error("transfer failed");
+					},
 				},
-			},
-		});
-		sessions.push(session);
+			});
+			sessions.push(session);
 
-		expect(failures).toHaveLength(1);
-		await delay(40);
-		expect(failures).toHaveLength(1);
-	});
+			expect(failures).toHaveLength(1);
+			yield* Effect.promise(() => delay(40));
+			expect(failures).toHaveLength(1);
+		}),
+	);
 
-	// oxlint-disable-next-line effecttsgo/async-function -- Vitest awaits this Promise-based test callback and its framework assertions.
-	it("readies with the location as soon as the plugin reports ready", async () => {
-		const { init, readies, failures, messages, pluginPort } = connect();
+	it.live("readies with the location as soon as the plugin reports ready", () =>
+		Effect.gen(function* () {
+			const { init, readies, failures, messages, pluginPort } = connect();
 
-		pluginPort.postMessage(readyFor(init));
+			pluginPort.postMessage(readyFor(init));
 
-		await waitFor(() => expect(readies).toHaveLength(1));
-		expect(messages).toEqual([at()]);
-		expect(failures).toEqual([]);
-	});
+			yield* Effect.promise(() => waitFor(() => expect(readies).toHaveLength(1)));
+			expect(messages).toEqual([at()]);
+			expect(failures).toEqual([]);
+		}),
+	);
 
-	// oxlint-disable-next-line effecttsgo/async-function -- Vitest awaits this Promise-based test callback and its framework assertions.
-	it("forwards matching active screen readiness without protocol policy", async () => {
-		const { init, readies, pluginPort, screenStates } = connect();
+	it.live("forwards matching active screen readiness without protocol policy", () =>
+		Effect.gen(function* () {
+			const { init, readies, pluginPort, screenStates } = connect();
 
-		pluginPort.postMessage(readyFor(init));
-		await waitFor(() => expect(readies).toHaveLength(1));
-		pluginPort.postMessage({ index: 0, key: "k0", type: "screen-state", hasPreviousScreen: true });
+			pluginPort.postMessage(readyFor(init));
+			yield* Effect.promise(() => waitFor(() => expect(readies).toHaveLength(1)));
+			pluginPort.postMessage({
+				index: 0,
+				key: "k0",
+				type: "screen-state",
+				hasPreviousScreen: true,
+			});
 
-		await waitFor(() =>
-			expect(screenStates).toEqual([{ index: 0, key: "k0", hasPreviousScreen: true }]),
-		);
-	});
+			yield* Effect.promise(() =>
+				waitFor(() =>
+					expect(screenStates).toEqual([{ index: 0, key: "k0", hasPreviousScreen: true }]),
+				),
+			);
+		}),
+	);
 
-	// oxlint-disable-next-line effecttsgo/async-function -- Vitest awaits this Promise-based test callback and its framework assertions.
-	it("dispatches semantic kernel shortcuts once ready", async () => {
-		const { init, readies, shortcuts, pluginPort } = connect();
+	it.live("dispatches semantic kernel shortcuts once ready", () =>
+		Effect.gen(function* () {
+			const { init, readies, shortcuts, pluginPort } = connect();
 
-		pluginPort.postMessage(readyFor(init));
-		await waitFor(() => expect(readies).toHaveLength(1));
-		pluginPort.postMessage({ type: "kernel-shortcut", shortcut: "command-center" });
-		pluginPort.postMessage({ type: "kernel-shortcut", shortcut: "workspace-switcher" });
+			pluginPort.postMessage(readyFor(init));
+			yield* Effect.promise(() => waitFor(() => expect(readies).toHaveLength(1)));
+			pluginPort.postMessage({ type: "kernel-shortcut", shortcut: "command-center" });
+			pluginPort.postMessage({ type: "kernel-shortcut", shortcut: "workspace-switcher" });
 
-		await waitFor(() => expect(shortcuts).toEqual(["command-center", "workspace-switcher"]));
-	});
+			yield* Effect.promise(() =>
+				waitFor(() => expect(shortcuts).toEqual(["command-center", "workspace-switcher"])),
+			);
+		}),
+	);
 
-	// oxlint-disable-next-line effecttsgo/async-function -- Vitest awaits this Promise-based test callback and its framework assertions.
-	it("ignores screen readiness that no longer matches the latest navigation", async () => {
-		const { init, readies, session, pluginPort, screenStates } = connect();
+	it.live("ignores screen readiness that no longer matches the latest navigation", () =>
+		Effect.gen(function* () {
+			const { init, readies, session, pluginPort, screenStates } = connect();
 
-		pluginPort.postMessage(readyFor(init));
-		await waitFor(() => expect(readies).toHaveLength(1));
-		session.sendLocation(nav(detail, 1));
-		pluginPort.postMessage({ index: 0, key: "k0", type: "screen-state", hasPreviousScreen: true });
-		pluginPort.postMessage({ index: 1, key: "k1", type: "screen-state", hasPreviousScreen: false });
+			pluginPort.postMessage(readyFor(init));
+			yield* Effect.promise(() => waitFor(() => expect(readies).toHaveLength(1)));
+			session.sendLocation(nav(detail, 1));
+			pluginPort.postMessage({
+				index: 0,
+				key: "k0",
+				type: "screen-state",
+				hasPreviousScreen: true,
+			});
+			pluginPort.postMessage({
+				index: 1,
+				key: "k1",
+				type: "screen-state",
+				hasPreviousScreen: false,
+			});
 
-		await waitFor(() =>
-			expect(screenStates).toEqual([{ index: 1, key: "k1", hasPreviousScreen: false }]),
-		);
-	});
+			yield* Effect.promise(() =>
+				waitFor(() =>
+					expect(screenStates).toEqual([{ index: 1, key: "k1", hasPreviousScreen: false }]),
+				),
+			);
+		}),
+	);
 
-	// oxlint-disable-next-line effecttsgo/async-function -- Vitest awaits this Promise-based test callback and its framework assertions.
-	it("does not process screen readiness before activation or after close", async () => {
-		const premature = connect();
-		premature.pluginPort.postMessage({
-			index: 0,
-			key: "k0",
-			type: "screen-state",
-			hasPreviousScreen: false,
-		});
-		await waitFor(() => expect(premature.failures).toHaveLength(1));
+	it.live("does not process screen readiness before activation or after close", () =>
+		Effect.gen(function* () {
+			const premature = connect();
+			premature.pluginPort.postMessage({
+				index: 0,
+				key: "k0",
+				type: "screen-state",
+				hasPreviousScreen: false,
+			});
+			yield* Effect.promise(() => waitFor(() => expect(premature.failures).toHaveLength(1)));
 
-		const closed = connect();
-		closed.pluginPort.postMessage(readyFor(closed.init));
-		await waitFor(() => expect(closed.readies).toHaveLength(1));
-		closed.session.close();
-		closed.pluginPort.postMessage({
-			index: 0,
-			key: "k0",
-			type: "screen-state",
-			hasPreviousScreen: true,
-		});
-		await delay(10);
+			const closed = connect();
+			closed.pluginPort.postMessage(readyFor(closed.init));
+			yield* Effect.promise(() => waitFor(() => expect(closed.readies).toHaveLength(1)));
+			closed.session.close();
+			closed.pluginPort.postMessage({
+				index: 0,
+				key: "k0",
+				type: "screen-state",
+				hasPreviousScreen: true,
+			});
+			yield* Effect.promise(() => delay(10));
 
-		expect(premature.screenStates).toEqual([]);
-		expect(closed.screenStates).toEqual([]);
-	});
+			expect(premature.screenStates).toEqual([]);
+			expect(closed.screenStates).toEqual([]);
+		}),
+	);
 
-	// oxlint-disable-next-line effecttsgo/async-function -- Vitest awaits this Promise-based test callback and its framework assertions.
-	it("fails a ready from another session or another artifact", async () => {
-		const other = connect();
-		other.pluginPort.postMessage({ ...readyFor(other.init), sessionId: "other-session" });
-		await waitFor(() => expect(other.failures).toHaveLength(1));
+	it.live("fails a ready from another session or another artifact", () =>
+		Effect.gen(function* () {
+			const other = connect();
+			other.pluginPort.postMessage({ ...readyFor(other.init), sessionId: "other-session" });
+			yield* Effect.promise(() => waitFor(() => expect(other.failures).toHaveLength(1)));
 
-		const mismatched = connect();
-		mismatched.pluginPort.postMessage({
-			...readyFor(mismatched.init),
-			compositionHash: "other-composition",
-		});
-		await waitFor(() => expect(mismatched.failures).toHaveLength(1));
+			const mismatched = connect();
+			mismatched.pluginPort.postMessage({
+				...readyFor(mismatched.init),
+				compositionHash: "other-composition",
+			});
+			yield* Effect.promise(() => waitFor(() => expect(mismatched.failures).toHaveLength(1)));
 
-		expect(other.readies).toEqual([]);
-		expect(mismatched.readies).toEqual([]);
-	});
+			expect(other.readies).toEqual([]);
+			expect(mismatched.readies).toEqual([]);
+		}),
+	);
 
-	// oxlint-disable-next-line effecttsgo/async-function -- Vitest awaits this Promise-based test callback and its framework assertions.
-	it("fails a malformed, wrong-version, or out-of-order first message", async () => {
-		const malformed = connect();
-		malformed.pluginPort.postMessage({ sessionId: malformed.init.sessionId });
-		await waitFor(() => expect(malformed.failures).toHaveLength(1));
+	it.live("fails a malformed, wrong-version, or out-of-order first message", () =>
+		Effect.gen(function* () {
+			const malformed = connect();
+			malformed.pluginPort.postMessage({ sessionId: malformed.init.sessionId });
+			yield* Effect.promise(() => waitFor(() => expect(malformed.failures).toHaveLength(1)));
 
-		const outdated = connect();
-		outdated.pluginPort.postMessage({ ...readyFor(outdated.init), bridgeVersion: 0 });
-		await waitFor(() => expect(outdated.failures).toHaveLength(1));
+			const outdated = connect();
+			outdated.pluginPort.postMessage({ ...readyFor(outdated.init), bridgeVersion: 0 });
+			yield* Effect.promise(() => waitFor(() => expect(outdated.failures).toHaveLength(1)));
 
-		const premature = connect();
-		premature.pluginPort.postMessage({ mode: "push", target: home, type: "navigate" });
-		await waitFor(() => expect(premature.failures).toHaveLength(1));
+			const premature = connect();
+			premature.pluginPort.postMessage({ mode: "push", target: home, type: "navigate" });
+			yield* Effect.promise(() => waitFor(() => expect(premature.failures).toHaveLength(1)));
 
-		expect(premature.navigations).toEqual([]);
-	});
+			expect(premature.navigations).toEqual([]);
+		}),
+	);
 
-	// oxlint-disable-next-line effecttsgo/async-function -- Vitest awaits this Promise-based test callback and its framework assertions.
-	it("honors lifecycle closure before activation without replying with a failure", async () => {
-		const disposed = connect();
-		disposed.pluginPort.postMessage({ reason: "disposed", type: "lifecycle-close" });
-		await waitFor(() => expect(disposed.failures).toHaveLength(1));
+	it.live("honors lifecycle closure before activation without replying with a failure", () =>
+		Effect.gen(function* () {
+			const disposed = connect();
+			disposed.pluginPort.postMessage({ reason: "disposed", type: "lifecycle-close" });
+			yield* Effect.promise(() => waitFor(() => expect(disposed.failures).toHaveLength(1)));
 
-		const failed = connect();
-		failed.pluginPort.postMessage({ reason: "failed", type: "lifecycle-close" });
-		await waitFor(() => expect(failed.failures).toHaveLength(1));
+			const failed = connect();
+			failed.pluginPort.postMessage({ reason: "failed", type: "lifecycle-close" });
+			yield* Effect.promise(() => waitFor(() => expect(failed.failures).toHaveLength(1)));
 
-		expect(disposed.received).toEqual([]);
-		expect(failed.received).toEqual([]);
-	});
+			expect(disposed.received).toEqual([]);
+			expect(failed.received).toEqual([]);
+		}),
+	);
 
-	// oxlint-disable-next-line effecttsgo/async-function -- Vitest awaits this Promise-based test callback and its framework assertions.
-	it("fails when the plugin never completes the handshake", async () => {
-		const { readies, failures } = connect({ timeoutMs: 10 });
+	it.live("fails when the plugin never completes the handshake", () =>
+		Effect.gen(function* () {
+			const { readies, failures } = connect({ timeoutMs: 10 });
 
-		await waitFor(() => expect(failures).toHaveLength(1));
-		expect(readies).toEqual([]);
-	});
+			yield* Effect.promise(() => waitFor(() => expect(failures).toHaveLength(1)));
+			expect(readies).toEqual([]);
+		}),
+	);
 
-	// oxlint-disable-next-line effecttsgo/async-function -- Vitest awaits this Promise-based test callback and its framework assertions.
-	it("stops the handshake timeout once the plugin is ready", async () => {
-		const { init, readies, failures, pluginPort } = connect({ timeoutMs: 10 });
+	it.live("stops the handshake timeout once the plugin is ready", () =>
+		Effect.gen(function* () {
+			const { init, readies, failures, pluginPort } = connect({ timeoutMs: 10 });
 
-		pluginPort.postMessage(readyFor(init));
-		await waitFor(() => expect(readies).toHaveLength(1));
-		await delay(40);
+			pluginPort.postMessage(readyFor(init));
+			yield* Effect.promise(() => waitFor(() => expect(readies).toHaveLength(1)));
+			yield* Effect.promise(() => delay(40));
 
-		expect(failures).toEqual([]);
-	});
+			expect(failures).toEqual([]);
+		}),
+	);
 
-	// oxlint-disable-next-line effecttsgo/async-function -- Vitest awaits this Promise-based test callback and its framework assertions.
-	it("delivers only the latest pre-ready location, then every later location", async () => {
-		const { init, session, received, pluginPort } = connect();
+	it.live("delivers only the latest pre-ready location, then every later location", () =>
+		Effect.gen(function* () {
+			const { init, session, received, pluginPort } = connect();
 
-		session.sendLocation(nav(detail, 1));
-		session.sendLocation(nav({ kind: "route", path: "/details/2", search: "tab=stats" }, 2));
-		pluginPort.postMessage(readyFor(init));
+			session.sendLocation(nav(detail, 1));
+			session.sendLocation(nav({ kind: "route", path: "/details/2", search: "tab=stats" }, 2));
+			pluginPort.postMessage(readyFor(init));
 
-		await waitFor(() =>
-			expect(received).toEqual([at({ kind: "route", path: "/details/2", search: "tab=stats" }, 2)]),
-		);
+			yield* Effect.promise(() =>
+				waitFor(() =>
+					expect(received).toEqual([
+						at({ kind: "route", path: "/details/2", search: "tab=stats" }, 2),
+					]),
+				),
+			);
 
-		session.sendLocation(nav());
+			session.sendLocation(nav());
 
-		await waitFor(() =>
-			expect(received).toEqual([
-				at({ kind: "route", path: "/details/2", search: "tab=stats" }, 2),
-				at(),
-			]),
-		);
-	});
+			yield* Effect.promise(() =>
+				waitFor(() =>
+					expect(received).toEqual([
+						at({ kind: "route", path: "/details/2", search: "tab=stats" }, 2),
+						at(),
+					]),
+				),
+			);
+		}),
+	);
 
-	// oxlint-disable-next-line effecttsgo/async-function -- Vitest awaits this Promise-based test callback and its framework assertions.
-	it("sends an entity location from the kernel to the plugin", async () => {
-		const { init, session, received, pluginPort } = connect();
+	it.live("sends an entity location from the kernel to the plugin", () =>
+		Effect.gen(function* () {
+			const { init, session, received, pluginPort } = connect();
 
-		pluginPort.postMessage(readyFor(init));
-		await waitFor(() => expect(received).toEqual([at()]));
+			pluginPort.postMessage(readyFor(init));
+			yield* Effect.promise(() => waitFor(() => expect(received).toEqual([at()])));
 
-		session.sendLocation(nav(entity, 1));
+			session.sendLocation(nav(entity, 1));
 
-		await waitFor(() => expect(received).toEqual([at(), at(entity, 1)]));
-	});
+			yield* Effect.promise(() => waitFor(() => expect(received).toEqual([at(), at(entity, 1)])));
+		}),
+	);
 
-	// oxlint-disable-next-line effecttsgo/async-function -- Vitest awaits this Promise-based test callback and its framework assertions.
-	it("latches a pre-ready theme change and sends later themes on the active channel", async () => {
-		const { init, readies, session, messages, pluginPort } = connect();
+	it.live("latches a pre-ready theme change and sends later themes on the active channel", () =>
+		Effect.gen(function* () {
+			const { init, readies, session, messages, pluginPort } = connect();
 
-		session.sendTheme(darkTheme);
-		pluginPort.postMessage(readyFor(init));
+			session.sendTheme(darkTheme);
+			pluginPort.postMessage(readyFor(init));
 
-		await waitFor(() => expect(readies).toHaveLength(1));
-		expect(messages).toEqual([at(), { mode: "dark", type: "theme" }]);
+			yield* Effect.promise(() => waitFor(() => expect(readies).toHaveLength(1)));
+			expect(messages).toEqual([at(), { mode: "dark", type: "theme" }]);
 
-		session.sendTheme(lightTheme);
-		await waitFor(() =>
-			expect(messages).toEqual([
-				at(),
-				{ mode: "dark", type: "theme" },
-				{ mode: "light", type: "theme" },
-			]),
-		);
-	});
+			session.sendTheme(lightTheme);
+			yield* Effect.promise(() =>
+				waitFor(() =>
+					expect(messages).toEqual([
+						at(),
+						{ mode: "dark", type: "theme" },
+						{ mode: "light", type: "theme" },
+					]),
+				),
+			);
+		}),
+	);
 
-	// oxlint-disable-next-line effecttsgo/async-function -- Vitest awaits this Promise-based test callback and its framework assertions.
-	it("sends no theme when the pre-ready mode still matches init", async () => {
-		const { init, readies, session, messages, pluginPort } = connect();
+	it.live("sends no theme when the pre-ready mode still matches init", () =>
+		Effect.gen(function* () {
+			const { init, readies, session, messages, pluginPort } = connect();
 
-		session.sendTheme(darkTheme);
-		session.sendTheme(lightTheme);
-		pluginPort.postMessage(readyFor(init));
+			session.sendTheme(darkTheme);
+			session.sendTheme(lightTheme);
+			pluginPort.postMessage(readyFor(init));
 
-		await waitFor(() => expect(readies).toHaveLength(1));
-		expect(messages).toEqual([at()]);
-	});
+			yield* Effect.promise(() => waitFor(() => expect(readies).toHaveLength(1)));
+			expect(messages).toEqual([at()]);
+		}),
+	);
 
-	// oxlint-disable-next-line effecttsgo/async-function -- Vitest awaits this Promise-based test callback and its framework assertions.
-	it("forwards decoded navigation requests once ready", async () => {
-		const { init, readies, failures, pluginPort, navigations } = connect();
-		const request = {
-			mode: "push",
-			type: "navigate",
-			target: {
-				path: "/details/1",
-				search: "tab=stats",
-				kind: "plugin-route",
-				pluginSlug: PluginSlug.make("fixture"),
-			},
-		} satisfies PluginBridgeNavigate;
+	it.live("forwards decoded navigation requests once ready", () =>
+		Effect.gen(function* () {
+			const { init, readies, failures, pluginPort, navigations } = connect();
+			const request = {
+				mode: "push",
+				type: "navigate",
+				target: {
+					path: "/details/1",
+					search: "tab=stats",
+					kind: "plugin-route",
+					pluginSlug: PluginSlug.make("fixture"),
+				},
+			} satisfies PluginBridgeNavigate;
 
-		pluginPort.postMessage(readyFor(init));
-		await waitFor(() => expect(readies).toHaveLength(1));
-		pluginPort.postMessage(request);
+			pluginPort.postMessage(readyFor(init));
+			yield* Effect.promise(() => waitFor(() => expect(readies).toHaveLength(1)));
+			pluginPort.postMessage(request);
 
-		await waitFor(() => expect(navigations).toEqual([request]));
-		expect(failures).toEqual([]);
-	});
+			yield* Effect.promise(() => waitFor(() => expect(navigations).toEqual([request])));
+			expect(failures).toEqual([]);
+		}),
+	);
 
-	// oxlint-disable-next-line effecttsgo/async-function -- Vitest awaits this Promise-based test callback and its framework assertions.
-	it("round-trips a managed asset request and result without identity details", async () => {
-		const assets = [{ type: "local", key: "permanent/cover.png" }] as const;
-		const resolutions = [
-			{
-				asset: assets[0],
-				expiresAt: "2026-09-04T12:15:00.000Z",
-				url: "https://ryot.example/api/uploads/local/download?key=permanent/cover.png",
-			},
-		] as const;
-		const calls: PluginAssetRequest[] = [];
-		const { init, received, pluginPort } = connect({
-			onAssets: (request) => {
-				calls.push(request);
-				return Effect.succeed({ resolutions, outcome: "success" });
-			},
-		});
-		pluginPort.postMessage(readyFor(init));
-		await waitFor(() => expect(received).toHaveLength(1));
-
-		pluginPort.postMessage({ assets, requestId: "asset-1", type: "asset-request" });
-
-		await waitFor(() => expect(received).toHaveLength(2));
-		expect(calls).toEqual([{ assets }]);
-		expect(received[1]).toEqual({
-			resolutions,
-			outcome: "success",
-			requestId: "asset-1",
-			type: "asset-result",
-		});
-	});
-
-	for (const reason of ["asset-failed", "transport"] satisfies PluginAssetBridgeErrorReason[]) {
-		// oxlint-disable-next-line effecttsgo/async-function -- Vitest awaits this Promise-based test callback and its framework assertions.
-		it(`round-trips an ${reason} asset bridge error without extra details`, async () => {
-			const { init, received, failures, pluginPort } = connect({
-				onAssets: () => Effect.succeed({ reason, outcome: "failure" }),
+	it.live("round-trips a managed asset request and result without identity details", () =>
+		Effect.gen(function* () {
+			const assets = [{ type: "local", key: "permanent/cover.png" }] as const;
+			const resolutions = [
+				{
+					asset: assets[0],
+					expiresAt: "2026-09-04T12:15:00.000Z",
+					url: "https://ryot.example/api/uploads/local/download?key=permanent/cover.png",
+				},
+			] as const;
+			const calls: PluginAssetRequest[] = [];
+			const { init, received, pluginPort } = connect({
+				onAssets: (request) => {
+					calls.push(request);
+					return Effect.succeed({ resolutions, outcome: "success" });
+				},
 			});
 			pluginPort.postMessage(readyFor(init));
-			await waitFor(() => expect(received).toHaveLength(1));
+			yield* Effect.promise(() => waitFor(() => expect(received).toHaveLength(1)));
 
-			pluginPort.postMessage({
-				requestId: "asset-1",
-				type: "asset-request",
-				assets: [{ type: "s3", key: "permanent/cover.png" }],
-			});
+			pluginPort.postMessage({ assets, requestId: "asset-1", type: "asset-request" });
 
-			await waitFor(() => expect(received).toHaveLength(2));
+			yield* Effect.promise(() => waitFor(() => expect(received).toHaveLength(2)));
+			expect(calls).toEqual([{ assets }]);
 			expect(received[1]).toEqual({
-				reason,
-				outcome: "failure",
+				resolutions,
+				outcome: "success",
 				requestId: "asset-1",
 				type: "asset-result",
 			});
-			expect(failures).toEqual([]);
-		});
+		}),
+	);
+
+	for (const reason of ["asset-failed", "transport"] satisfies PluginAssetBridgeErrorReason[]) {
+		it.live(`round-trips an ${reason} asset bridge error without extra details`, () =>
+			Effect.gen(function* () {
+				const { init, received, failures, pluginPort } = connect({
+					onAssets: () => Effect.succeed({ reason, outcome: "failure" }),
+				});
+				pluginPort.postMessage(readyFor(init));
+				yield* Effect.promise(() => waitFor(() => expect(received).toHaveLength(1)));
+
+				pluginPort.postMessage({
+					requestId: "asset-1",
+					type: "asset-request",
+					assets: [{ type: "s3", key: "permanent/cover.png" }],
+				});
+
+				yield* Effect.promise(() => waitFor(() => expect(received).toHaveLength(2)));
+				expect(received[1]).toEqual({
+					reason,
+					outcome: "failure",
+					requestId: "asset-1",
+					type: "asset-result",
+				});
+				expect(failures).toEqual([]);
+			}),
+		);
 	}
 
-	// oxlint-disable-next-line effecttsgo/async-function -- Vitest awaits this Promise-based test callback and its framework assertions.
-	it("rejects an asset request carrying installation or authentication identity", async () => {
-		const calls: PluginAssetRequest[] = [];
-		const { init, received, failures, pluginPort } = connect({
-			onAssets: (request) => {
-				calls.push(request);
-				return Effect.succeed({ resolutions: [], outcome: "success" });
-			},
-		});
-		pluginPort.postMessage(readyFor(init));
-		await waitFor(() => expect(received).toHaveLength(1));
+	it.live("rejects an asset request carrying installation or authentication identity", () =>
+		Effect.gen(function* () {
+			const calls: PluginAssetRequest[] = [];
+			const { init, received, failures, pluginPort } = connect({
+				onAssets: (request) => {
+					calls.push(request);
+					return Effect.succeed({ resolutions: [], outcome: "success" });
+				},
+			});
+			pluginPort.postMessage(readyFor(init));
+			yield* Effect.promise(() => waitFor(() => expect(received).toHaveLength(1)));
 
-		pluginPort.postMessage({
-			userId: "user-1",
-			requestId: "asset-1",
-			type: "asset-request",
-			installationId: "installation-1",
-			authorization: "Bearer private-token",
-			assets: [{ type: "local", key: "permanent/cover.png" }],
-		});
+			pluginPort.postMessage({
+				userId: "user-1",
+				requestId: "asset-1",
+				type: "asset-request",
+				installationId: "installation-1",
+				authorization: "Bearer private-token",
+				assets: [{ type: "local", key: "permanent/cover.png" }],
+			});
 
-		await waitFor(() => expect(failures).toHaveLength(1));
-		expect(calls).toEqual([]);
-		expect(received).toEqual([at(), { reason: "failed", type: "lifecycle-close" }]);
-	});
+			yield* Effect.promise(() => waitFor(() => expect(failures).toHaveLength(1)));
+			expect(calls).toEqual([]);
+			expect(received).toEqual([at(), { reason: "failed", type: "lifecycle-close" }]);
+		}),
+	);
 
-	// oxlint-disable-next-line effecttsgo/async-function -- Vitest awaits this Promise-based test callback and its framework assertions.
-	it("cancels only matching asset work, releases admission, and ignores late results", async () => {
-		const signals: AbortSignal[] = [];
-		const calls: Array<ReturnType<typeof deferred<PluginAssetOutcome>>> = [];
-		const { init, received, failures, pluginPort } = connect({
-			onAssets: () =>
-				Effect.promise((signal) => {
-					signals.push(signal);
-					const call = deferred<PluginAssetOutcome>();
-					calls.push(call);
-					return call.promise;
-				}),
-		});
-		pluginPort.postMessage(readyFor(init));
-		await waitFor(() => expect(received).toHaveLength(1));
+	it.live("cancels only matching asset work, releases admission, and ignores late results", () =>
+		Effect.gen(function* () {
+			const signals: AbortSignal[] = [];
+			const calls: Array<ReturnType<typeof deferred<PluginAssetOutcome>>> = [];
+			const { init, received, failures, pluginPort } = connect({
+				onAssets: () =>
+					Effect.promise((signal) => {
+						signals.push(signal);
+						const call = deferred<PluginAssetOutcome>();
+						calls.push(call);
+						return call.promise;
+					}),
+			});
+			pluginPort.postMessage(readyFor(init));
+			yield* Effect.promise(() => waitFor(() => expect(received).toHaveLength(1)));
 
-		for (let index = 0; index < CLIENT_BRIDGE_MAX_PENDING_REQUESTS; index += 1) {
+			for (let index = 0; index < CLIENT_BRIDGE_MAX_PENDING_REQUESTS; index += 1) {
+				pluginPort.postMessage({
+					type: "asset-request",
+					requestId: `asset-${index}`,
+					assets: [{ type: "local", key: `permanent/asset-${index}.png` }],
+				});
+			}
+			yield* Effect.promise(() =>
+				waitFor(() => expect(signals).toHaveLength(CLIENT_BRIDGE_MAX_PENDING_REQUESTS)),
+			);
+
+			pluginPort.postMessage({ requestId: "unknown", type: "asset-cancel" });
+			pluginPort.postMessage({ requestId: "asset-0", type: "asset-cancel" });
+			pluginPort.postMessage({ requestId: "asset-0", type: "asset-cancel" });
+			yield* Effect.promise(() => waitFor(() => expect(signals[0]?.aborted).toBe(true)));
+
 			pluginPort.postMessage({
 				type: "asset-request",
-				requestId: `asset-${index}`,
-				assets: [{ type: "local", key: `permanent/asset-${index}.png` }],
-			});
-		}
-		await waitFor(() => expect(signals).toHaveLength(CLIENT_BRIDGE_MAX_PENDING_REQUESTS));
-
-		pluginPort.postMessage({ requestId: "unknown", type: "asset-cancel" });
-		pluginPort.postMessage({ requestId: "asset-0", type: "asset-cancel" });
-		pluginPort.postMessage({ requestId: "asset-0", type: "asset-cancel" });
-		await waitFor(() => expect(signals[0]?.aborted).toBe(true));
-
-		pluginPort.postMessage({
-			type: "asset-request",
-			requestId: "replacement",
-			assets: [{ type: "s3", key: "permanent/replacement.png" }],
-		});
-		await waitFor(() => expect(signals).toHaveLength(CLIENT_BRIDGE_MAX_PENDING_REQUESTS + 1));
-
-		calls[0]?.resolve({ resolutions: [], outcome: "success" });
-		calls.at(-1)?.resolve({ resolutions: [], outcome: "success" });
-		await waitFor(() =>
-			expect(received).toContainEqual({
-				resolutions: [],
-				outcome: "success",
-				type: "asset-result",
 				requestId: "replacement",
-			}),
-		);
+				assets: [{ type: "s3", key: "permanent/replacement.png" }],
+			});
+			yield* Effect.promise(() =>
+				waitFor(() => expect(signals).toHaveLength(CLIENT_BRIDGE_MAX_PENDING_REQUESTS + 1)),
+			);
 
-		expect(received).not.toContainEqual(expect.objectContaining({ requestId: "asset-0" }));
-		expect(failures).toEqual([]);
-	});
+			calls[0]?.resolve({ resolutions: [], outcome: "success" });
+			calls.at(-1)?.resolve({ resolutions: [], outcome: "success" });
+			yield* Effect.promise(() =>
+				waitFor(() =>
+					expect(received).toContainEqual({
+						resolutions: [],
+						outcome: "success",
+						type: "asset-result",
+						requestId: "replacement",
+					}),
+				),
+			);
 
-	// oxlint-disable-next-line effecttsgo/async-function -- Vitest awaits this Promise-based test callback and its framework assertions.
-	it("aborts pending asset work on disposal and suppresses its late result", async () => {
-		let signal: AbortSignal | undefined;
-		const call = deferred<PluginAssetOutcome>();
-		const { init, session, received, pluginPort } = connect({
-			onAssets: () =>
-				Effect.promise((requestSignal) => {
-					signal = requestSignal;
-					return call.promise;
-				}),
-		});
-		pluginPort.postMessage(readyFor(init));
-		await waitFor(() => expect(received).toHaveLength(1));
-		pluginPort.postMessage({
-			requestId: "asset-1",
-			type: "asset-request",
-			assets: [{ type: "local", key: "permanent/cover.png" }],
-		});
-		await waitFor(() => expect(signal).toBeDefined());
+			expect(received).not.toContainEqual(expect.objectContaining({ requestId: "asset-0" }));
+			expect(failures).toEqual([]);
+		}),
+	);
 
-		session.close();
-		expect(signal?.aborted).toBe(true);
-		call.resolve({ resolutions: [], outcome: "success" });
-		await delay(10);
+	it.live("aborts pending asset work on disposal and suppresses its late result", () =>
+		Effect.gen(function* () {
+			let signal: AbortSignal | undefined;
+			const call = deferred<PluginAssetOutcome>();
+			const { init, session, received, pluginPort } = connect({
+				onAssets: () =>
+					Effect.promise((requestSignal) => {
+						signal = requestSignal;
+						return call.promise;
+					}),
+			});
+			pluginPort.postMessage(readyFor(init));
+			yield* Effect.promise(() => waitFor(() => expect(received).toHaveLength(1)));
+			pluginPort.postMessage({
+				requestId: "asset-1",
+				type: "asset-request",
+				assets: [{ type: "local", key: "permanent/cover.png" }],
+			});
+			yield* Effect.promise(() => waitFor(() => expect(signal).toBeDefined()));
 
-		expect(received).toEqual([at(), { reason: "disposed", type: "lifecycle-close" }]);
-	});
+			session.close();
+			expect(signal?.aborted).toBe(true);
+			call.resolve({ resolutions: [], outcome: "success" });
+			yield* Effect.promise(() => delay(10));
 
-	// oxlint-disable-next-line effecttsgo/async-function -- Vitest awaits this Promise-based test callback and its framework assertions.
-	it("sends only lifecycle close after teardown or a failed handshake", async () => {
-		const torndown = connect();
-		torndown.session.close();
-		torndown.session.sendLocation(nav(detail, 1));
+			expect(received).toEqual([at(), { reason: "disposed", type: "lifecycle-close" }]);
+		}),
+	);
 
-		const failed = connect({ timeoutMs: 10 });
-		await waitFor(() => expect(failed.failures).toHaveLength(1));
-		failed.session.sendLocation(nav(detail, 1));
+	it.live("sends only lifecycle close after teardown or a failed handshake", () =>
+		Effect.gen(function* () {
+			const torndown = connect();
+			torndown.session.close();
+			torndown.session.sendLocation(nav(detail, 1));
 
-		await delay(10);
+			const failed = connect({ timeoutMs: 10 });
+			yield* Effect.promise(() => waitFor(() => expect(failed.failures).toHaveLength(1)));
+			failed.session.sendLocation(nav(detail, 1));
 
-		expect(torndown.received).toEqual([{ reason: "disposed", type: "lifecycle-close" }]);
-		expect(failed.received).toEqual([{ reason: "failed", type: "lifecycle-close" }]);
-	});
+			yield* Effect.promise(() => delay(10));
 
-	// oxlint-disable-next-line effecttsgo/async-function -- Vitest awaits this Promise-based test callback and its framework assertions.
-	it("stops delivering after teardown", async () => {
-		const { init, readies, session, failures, pluginPort } = connect();
+			expect(torndown.received).toEqual([{ reason: "disposed", type: "lifecycle-close" }]);
+			expect(failed.received).toEqual([{ reason: "failed", type: "lifecycle-close" }]);
+		}),
+	);
 
-		session.close();
-		pluginPort.postMessage(readyFor(init));
-		await delay(10);
+	it.live("stops delivering after teardown", () =>
+		Effect.gen(function* () {
+			const { init, readies, session, failures, pluginPort } = connect();
 
-		expect(readies).toEqual([]);
-		expect(failures).toEqual([]);
-	});
+			session.close();
+			pluginPort.postMessage(readyFor(init));
+			yield* Effect.promise(() => delay(10));
 
-	// oxlint-disable-next-line effecttsgo/async-function -- Vitest awaits this Promise-based test callback and its framework assertions.
-	it("honors peer disposal, aborts work, and ignores late admissions", async () => {
-		let signal: AbortSignal | undefined;
-		const call = deferred<PluginOperationOutcome>();
-		const { init, received, pluginPort, navigations } = connect({
-			onOperation: () =>
-				Effect.promise((requestSignal) => {
-					signal = requestSignal;
-					return call.promise;
-				}),
-		});
-		pluginPort.postMessage(readyFor(init));
-		await waitFor(() => expect(received).toHaveLength(1));
-		pluginPort.postMessage({
-			input: null,
-			requestId: "request-1",
-			operationSlug: "greet",
-			type: "operation-request",
-		});
-		await waitFor(() => expect(signal).toBeDefined());
+			expect(readies).toEqual([]);
+			expect(failures).toEqual([]);
+		}),
+	);
 
-		pluginPort.postMessage({ reason: "disposed", type: "lifecycle-close" });
-		await waitFor(() => expect(signal?.aborted).toBe(true));
-		pluginPort.postMessage({ mode: "push", target: home, type: "navigate" });
-		call.resolve({ value: "late", outcome: "success" });
-		await delay(10);
-
-		expect(navigations).toEqual([]);
-		expect(received).toEqual([at()]);
-	});
-
-	// oxlint-disable-next-line effecttsgo/async-function -- Vitest awaits this Promise-based test callback and its framework assertions.
-	it("round-trips a successful operation", async () => {
-		const calls: PluginOperationRequest[] = [];
-		const { init, received, pluginPort } = connect({
-			onOperation: (request) => {
-				calls.push(request);
-				return Effect.succeed({ value: "ok", outcome: "success" });
-			},
-		});
-		pluginPort.postMessage(readyFor(init));
-		await waitFor(() => expect(received).toHaveLength(1));
-
-		pluginPort.postMessage({
-			requestId: "request-1",
-			operationSlug: "greet",
-			type: "operation-request",
-			input: { greeting: "hi" },
-		});
-
-		await waitFor(() =>
-			expect(received).toContainEqual({
-				value: "ok",
-				outcome: "success",
+	it.live("honors peer disposal, aborts work, and ignores late admissions", () =>
+		Effect.gen(function* () {
+			let signal: AbortSignal | undefined;
+			const call = deferred<PluginOperationOutcome>();
+			const { init, received, pluginPort, navigations } = connect({
+				onOperation: () =>
+					Effect.promise((requestSignal) => {
+						signal = requestSignal;
+						return call.promise;
+					}),
+			});
+			pluginPort.postMessage(readyFor(init));
+			yield* Effect.promise(() => waitFor(() => expect(received).toHaveLength(1)));
+			pluginPort.postMessage({
+				input: null,
 				requestId: "request-1",
-				type: "operation-result",
-			}),
-		);
-		expect(calls).toEqual([
-			{ operationSlug: "greet", input: { greeting: "hi" }, pluginSlug: PluginSlug.make("fixture") },
-		]);
-	});
+				operationSlug: "greet",
+				type: "operation-request",
+			});
+			yield* Effect.promise(() => waitFor(() => expect(signal).toBeDefined()));
 
-	// oxlint-disable-next-line effecttsgo/async-function -- Vitest awaits this Promise-based test callback and its framework assertions.
-	it("round-trips a collection mutation and sanitizes invalid outcomes", async () => {
-		const calls: PluginCollectionRequest[] = [];
-		let count = 0;
-		const redactedFailure = { cause: "secret", reason: "private", outcome: "failure" };
-		const { init, received, failures, pluginPort } = connect({
-			onCollection: (request) => {
-				calls.push(request);
-				count += 1;
-				return Effect.succeed(
-					count === 1
-						? { outcome: "success", response: membership }
-						: // oxlint-disable-next-line typescript/no-unsafe-type-assertion -- verifies runtime detail redaction
-							(redactedFailure as unknown as PluginCollectionOutcome),
-				);
-			},
-		});
-		pluginPort.postMessage(readyFor(init));
-		await waitFor(() => expect(received).toHaveLength(1));
+			pluginPort.postMessage({ reason: "disposed", type: "lifecycle-close" });
+			yield* Effect.promise(() => waitFor(() => expect(signal?.aborted).toBe(true)));
+			pluginPort.postMessage({ mode: "push", target: home, type: "navigate" });
+			call.resolve({ value: "late", outcome: "success" });
+			yield* Effect.promise(() => delay(10));
 
-		const request = {
-			requestId: "collection-1",
-			type: "collection-request" as const,
-			action: "upsert-membership" as const,
-			input: { entityId: "entity-1", collectionId: "collection-1" },
-		};
-		pluginPort.postMessage(request);
-		await waitFor(() => expect(received).toHaveLength(2));
-		expect(received[1]).toMatchObject({
-			outcome: "success",
-			requestId: "collection-1",
-			type: "collection-result",
-		});
-		expect(calls).toEqual([{ input: request.input, action: request.action }]);
+			expect(navigations).toEqual([]);
+			expect(received).toEqual([at()]);
+		}),
+	);
 
-		pluginPort.postMessage({ ...request, requestId: "collection-2" });
-		await waitFor(() => expect(received).toHaveLength(3));
-		expect(received[2]).toEqual({
-			outcome: "failure",
-			reason: "transport",
-			requestId: "collection-2",
-			type: "collection-result",
-		});
-		expect(failures).toEqual([]);
-	});
+	it.live("round-trips a successful operation", () =>
+		Effect.gen(function* () {
+			const calls: PluginOperationRequest[] = [];
+			const { init, received, pluginPort } = connect({
+				onOperation: (request) => {
+					calls.push(request);
+					return Effect.succeed({ value: "ok", outcome: "success" });
+				},
+			});
+			pluginPort.postMessage(readyFor(init));
+			yield* Effect.promise(() => waitFor(() => expect(received).toHaveLength(1)));
 
-	// oxlint-disable-next-line effecttsgo/async-function -- Vitest awaits this Promise-based test callback and its framework assertions.
-	it("round-trips storage requests and sanitizes invalid outcomes", async () => {
-		const calls: PluginStorageRequest[] = [];
-		const outcomes: PluginStorageOutcome[] = [
-			{ outcome: "success", value: { order: "aired" } },
-			{ reason: "quota", outcome: "failure" },
-			// oxlint-disable-next-line typescript/no-unsafe-type-assertion -- verifies runtime detail redaction
-			{ reason: "private", outcome: "failure" } as unknown as PluginStorageOutcome,
-		];
-		const { init, received, failures, pluginPort } = connect({
-			onStorage: (request) => {
-				calls.push(request);
-				const outcome = outcomes.shift();
-				return outcome === undefined ? Effect.die("unexpected") : Effect.succeed(outcome);
-			},
-		});
-		pluginPort.postMessage(readyFor(init));
-		await waitFor(() => expect(received).toHaveLength(1));
+			pluginPort.postMessage({
+				requestId: "request-1",
+				operationSlug: "greet",
+				type: "operation-request",
+				input: { greeting: "hi" },
+			});
 
-		const request = { key: "order", pluginSlug: "media", type: "storage-request" as const };
-		pluginPort.postMessage({ ...request, action: "get", requestId: "storage-1" });
-		await waitFor(() => expect(received).toHaveLength(2));
-		expect(received[1]).toEqual({
-			outcome: "success",
-			requestId: "storage-1",
-			type: "storage-result",
-			value: { order: "aired" },
-		});
+			yield* Effect.promise(() =>
+				waitFor(() =>
+					expect(received).toContainEqual({
+						value: "ok",
+						outcome: "success",
+						requestId: "request-1",
+						type: "operation-result",
+					}),
+				),
+			);
+			expect(calls).toEqual([
+				{
+					operationSlug: "greet",
+					input: { greeting: "hi" },
+					pluginSlug: PluginSlug.make("fixture"),
+				},
+			]);
+		}),
+	);
 
-		pluginPort.postMessage({ ...request, value: 1, action: "set", requestId: "storage-2" });
-		await waitFor(() => expect(received).toHaveLength(3));
-		expect(received[2]).toEqual({
-			reason: "quota",
-			outcome: "failure",
-			requestId: "storage-2",
-			type: "storage-result",
-		});
+	it.live("round-trips a collection mutation and sanitizes invalid outcomes", () =>
+		Effect.gen(function* () {
+			const calls: PluginCollectionRequest[] = [];
+			let count = 0;
+			const redactedFailure = { cause: "secret", reason: "private", outcome: "failure" };
+			const { init, received, failures, pluginPort } = connect({
+				onCollection: (request) => {
+					calls.push(request);
+					count += 1;
+					return Effect.succeed(
+						count === 1
+							? { outcome: "success", response: membership }
+							: // oxlint-disable-next-line typescript/no-unsafe-type-assertion -- verifies runtime detail redaction
+								(redactedFailure as unknown as PluginCollectionOutcome),
+					);
+				},
+			});
+			pluginPort.postMessage(readyFor(init));
+			yield* Effect.promise(() => waitFor(() => expect(received).toHaveLength(1)));
 
-		pluginPort.postMessage({ ...request, action: "remove", requestId: "storage-3" });
-		await waitFor(() => expect(received).toHaveLength(4));
-		expect(received[3]).toEqual({
-			outcome: "failure",
-			reason: "transport",
-			requestId: "storage-3",
-			type: "storage-result",
-		});
-		expect(calls).toEqual([
-			{ key: "order", action: "get", pluginSlug: "media" },
-			{ value: 1, key: "order", action: "set", pluginSlug: "media" },
-			{ key: "order", action: "remove", pluginSlug: "media" },
-		]);
-		expect(failures).toEqual([]);
-	});
-
-	// oxlint-disable-next-line effecttsgo/async-function -- Vitest awaits this Promise-based test callback and its framework assertions.
-	it("round-trips an upload and hands the source to the host untouched", async () => {
-		const calls: PluginUploadRequest[] = [];
-		const token = { token: "upload-token", expiresAt: "2026-01-01T00:15:00.000Z" };
-		const { init, received, pluginPort } = connect({
-			onUpload: (request) => {
-				calls.push(request);
-				return Effect.succeed({ token, outcome: "success" });
-			},
-		});
-		pluginPort.postMessage(readyFor(init));
-		await waitFor(() => expect(received).toHaveLength(1));
-
-		pluginPort.postMessage({
-			fileName: "items.csv",
-			requestId: "upload-1",
-			type: "upload-request",
-			contentType: "text/csv",
-			source: new Blob(["id,title"], { type: "text/csv" }),
-		});
-
-		await waitFor(() =>
-			expect(received).toContainEqual({
-				token,
+			const request = {
+				requestId: "collection-1",
+				type: "collection-request" as const,
+				action: "upsert-membership" as const,
+				input: { entityId: "entity-1", collectionId: "collection-1" },
+			};
+			pluginPort.postMessage(request);
+			yield* Effect.promise(() => waitFor(() => expect(received).toHaveLength(2)));
+			expect(received[1]).toMatchObject({
 				outcome: "success",
+				requestId: "collection-1",
+				type: "collection-result",
+			});
+			expect(calls).toEqual([{ input: request.input, action: request.action }]);
+
+			pluginPort.postMessage({ ...request, requestId: "collection-2" });
+			yield* Effect.promise(() => waitFor(() => expect(received).toHaveLength(3)));
+			expect(received[2]).toEqual({
+				outcome: "failure",
+				reason: "transport",
+				requestId: "collection-2",
+				type: "collection-result",
+			});
+			expect(failures).toEqual([]);
+		}),
+	);
+
+	it.live("round-trips storage requests and sanitizes invalid outcomes", () =>
+		Effect.gen(function* () {
+			const calls: PluginStorageRequest[] = [];
+			const outcomes: PluginStorageOutcome[] = [
+				{ outcome: "success", value: { order: "aired" } },
+				{ reason: "quota", outcome: "failure" },
+				// oxlint-disable-next-line typescript/no-unsafe-type-assertion -- verifies runtime detail redaction
+				{ reason: "private", outcome: "failure" } as unknown as PluginStorageOutcome,
+			];
+			const { init, received, failures, pluginPort } = connect({
+				onStorage: (request) => {
+					calls.push(request);
+					const outcome = outcomes.shift();
+					return outcome === undefined ? Effect.die("unexpected") : Effect.succeed(outcome);
+				},
+			});
+			pluginPort.postMessage(readyFor(init));
+			yield* Effect.promise(() => waitFor(() => expect(received).toHaveLength(1)));
+
+			const request = { key: "order", pluginSlug: "media", type: "storage-request" as const };
+			pluginPort.postMessage({ ...request, action: "get", requestId: "storage-1" });
+			yield* Effect.promise(() => waitFor(() => expect(received).toHaveLength(2)));
+			expect(received[1]).toEqual({
+				outcome: "success",
+				requestId: "storage-1",
+				type: "storage-result",
+				value: { order: "aired" },
+			});
+
+			pluginPort.postMessage({ ...request, value: 1, action: "set", requestId: "storage-2" });
+			yield* Effect.promise(() => waitFor(() => expect(received).toHaveLength(3)));
+			expect(received[2]).toEqual({
+				reason: "quota",
+				outcome: "failure",
+				requestId: "storage-2",
+				type: "storage-result",
+			});
+
+			pluginPort.postMessage({ ...request, action: "remove", requestId: "storage-3" });
+			yield* Effect.promise(() => waitFor(() => expect(received).toHaveLength(4)));
+			expect(received[3]).toEqual({
+				outcome: "failure",
+				reason: "transport",
+				requestId: "storage-3",
+				type: "storage-result",
+			});
+			expect(calls).toEqual([
+				{ key: "order", action: "get", pluginSlug: "media" },
+				{ value: 1, key: "order", action: "set", pluginSlug: "media" },
+				{ key: "order", action: "remove", pluginSlug: "media" },
+			]);
+			expect(failures).toEqual([]);
+		}),
+	);
+
+	it.live("round-trips an upload and hands the source to the host untouched", () =>
+		Effect.gen(function* () {
+			const calls: PluginUploadRequest[] = [];
+			const token = { token: "upload-token", expiresAt: "2026-01-01T00:15:00.000Z" };
+			const { init, received, pluginPort } = connect({
+				onUpload: (request) => {
+					calls.push(request);
+					return Effect.succeed({ token, outcome: "success" });
+				},
+			});
+			pluginPort.postMessage(readyFor(init));
+			yield* Effect.promise(() => waitFor(() => expect(received).toHaveLength(1)));
+
+			pluginPort.postMessage({
+				fileName: "items.csv",
 				requestId: "upload-1",
-				type: "upload-result",
-			}),
-		);
-		expect(calls).toHaveLength(1);
-		const uploaded = calls[0];
-		expect(uploaded).toMatchObject({ fileName: "items.csv", contentType: "text/csv" });
-		expect(uploaded.source).toBeInstanceOf(Blob);
-		expect(await uploaded.source.text()).toBe("id,title");
-	});
+				type: "upload-request",
+				contentType: "text/csv",
+				source: new Blob(["id,title"], { type: "text/csv" }),
+			});
 
-	// oxlint-disable-next-line effecttsgo/async-function -- Vitest awaits this Promise-based test callback and its framework assertions.
-	it("reports upload failures and rejects a source that is not a Blob", async () => {
-		const { init, received, failures, pluginPort } = connect({
-			onUpload: () => Effect.die("upload exploded"),
-		});
-		pluginPort.postMessage(readyFor(init));
-		await waitFor(() => expect(received).toHaveLength(1));
+			yield* Effect.promise(() =>
+				waitFor(() =>
+					expect(received).toContainEqual({
+						token,
+						outcome: "success",
+						requestId: "upload-1",
+						type: "upload-result",
+					}),
+				),
+			);
+			expect(calls).toHaveLength(1);
+			const uploaded = calls[0];
+			expect(uploaded).toMatchObject({ fileName: "items.csv", contentType: "text/csv" });
+			expect(uploaded.source).toBeInstanceOf(Blob);
+			expect(yield* Effect.promise(() => uploaded.source.text())).toBe("id,title");
+		}),
+	);
 
-		pluginPort.postMessage({
-			fileName: "items.csv",
-			requestId: "upload-1",
-			type: "upload-request",
-			contentType: "text/csv",
-			source: new Blob(["id,title"]),
-		});
-		await waitFor(() =>
+	it.live("reports upload failures and rejects a source that is not a Blob", () =>
+		Effect.gen(function* () {
+			const { init, received, failures, pluginPort } = connect({
+				onUpload: () => Effect.die("upload exploded"),
+			});
+			pluginPort.postMessage(readyFor(init));
+			yield* Effect.promise(() => waitFor(() => expect(received).toHaveLength(1)));
+
+			pluginPort.postMessage({
+				fileName: "items.csv",
+				requestId: "upload-1",
+				type: "upload-request",
+				contentType: "text/csv",
+				source: new Blob(["id,title"]),
+			});
+			yield* Effect.promise(() =>
+				waitFor(() =>
+					expect(received).toContainEqual({
+						outcome: "failure",
+						reason: "transport",
+						type: "upload-result",
+						requestId: "upload-1",
+					}),
+				),
+			);
+
+			pluginPort.postMessage({
+				source: {},
+				requestId: "upload-2",
+				fileName: "items.csv",
+				type: "upload-request",
+				contentType: "text/csv",
+			});
+			yield* Effect.promise(() => waitFor(() => expect(failures).toHaveLength(1)));
+		}),
+	);
+
+	it.live("maps synchronous operation and query failures to transport results", () =>
+		Effect.gen(function* () {
+			const { init, received, pluginPort } = connect({
+				onRyotQL: () => {
+					throw new Error("query failed synchronously");
+				},
+				onOperation: () => {
+					throw new Error("operation failed synchronously");
+				},
+			});
+			pluginPort.postMessage(readyFor(init));
+			yield* Effect.promise(() => waitFor(() => expect(received).toHaveLength(1)));
+
+			pluginPort.postMessage({
+				input: null,
+				operationSlug: "greet",
+				requestId: "operation-1",
+				type: "operation-request",
+			});
+			pluginPort.postMessage({ document, requestId: "query-1", type: "ryotql-request" });
+
+			yield* Effect.promise(() => waitFor(() => expect(received).toHaveLength(3)));
 			expect(received).toContainEqual({
 				outcome: "failure",
 				reason: "transport",
-				type: "upload-result",
-				requestId: "upload-1",
-			}),
-		);
-
-		pluginPort.postMessage({
-			source: {},
-			requestId: "upload-2",
-			fileName: "items.csv",
-			type: "upload-request",
-			contentType: "text/csv",
-		});
-		await waitFor(() => expect(failures).toHaveLength(1));
-	});
-
-	// oxlint-disable-next-line effecttsgo/async-function -- Vitest awaits this Promise-based test callback and its framework assertions.
-	it("maps synchronous operation and query failures to transport results", async () => {
-		const { init, received, pluginPort } = connect({
-			onRyotQL: () => {
-				throw new Error("query failed synchronously");
-			},
-			onOperation: () => {
-				throw new Error("operation failed synchronously");
-			},
-		});
-		pluginPort.postMessage(readyFor(init));
-		await waitFor(() => expect(received).toHaveLength(1));
-
-		pluginPort.postMessage({
-			input: null,
-			operationSlug: "greet",
-			requestId: "operation-1",
-			type: "operation-request",
-		});
-		pluginPort.postMessage({ document, requestId: "query-1", type: "ryotql-request" });
-
-		await waitFor(() => expect(received).toHaveLength(3));
-		expect(received).toContainEqual({
-			outcome: "failure",
-			reason: "transport",
-			requestId: "operation-1",
-			type: "operation-result",
-		});
-		expect(received).toContainEqual({
-			outcome: "failure",
-			reason: "transport",
-			requestId: "query-1",
-			type: "ryotql-result",
-		});
-	});
-
-	// oxlint-disable-next-line effecttsgo/async-function -- Vitest awaits this Promise-based test callback and its framework assertions.
-	it("maps an invalid operation success to malformed-result and keeps the session alive", async () => {
-		let calls = 0;
-		const { init, received, failures, pluginPort } = connect({
-			onOperation: () => {
-				calls += 1;
-				return Effect.succeed(
-					calls === 1
-						? // oxlint-disable-next-line typescript/no-unsafe-type-assertion -- injects an invalid runtime boundary value
-							({ outcome: "success", value: () => undefined } as unknown as PluginOperationOutcome)
-						: { value: "ok", outcome: "success" },
-				);
-			},
-		});
-		pluginPort.postMessage(readyFor(init));
-		await waitFor(() => expect(received).toHaveLength(1));
-
-		pluginPort.postMessage({
-			input: null,
-			requestId: "request-1",
-			operationSlug: "greet",
-			type: "operation-request",
-		});
-
-		await waitFor(() =>
+				requestId: "operation-1",
+				type: "operation-result",
+			});
 			expect(received).toContainEqual({
 				outcome: "failure",
-				requestId: "request-1",
-				type: "operation-result",
-				reason: "malformed-result",
-			}),
-		);
-		pluginPort.postMessage({
-			input: null,
-			requestId: "request-2",
-			operationSlug: "greet",
-			type: "operation-request",
-		});
-		await waitFor(() =>
-			expect(received).toContainEqual({
-				value: "ok",
-				outcome: "success",
-				requestId: "request-2",
-				type: "operation-result",
-			}),
-		);
-		expect(failures).toEqual([]);
-	});
+				reason: "transport",
+				requestId: "query-1",
+				type: "ryotql-result",
+			});
+		}),
+	);
 
-	for (const reason of [
-		"transport",
-		"operation-failed",
-		"malformed-result",
-	] satisfies PluginOperationBridgeErrorReason[]) {
-		// oxlint-disable-next-line effecttsgo/async-function -- Vitest awaits this Promise-based test callback and its framework assertions.
-		it(`round-trips a ${reason} operation bridge error without extra details`, async () => {
+	it.live("maps an invalid operation success to malformed-result and keeps the session alive", () =>
+		Effect.gen(function* () {
+			let calls = 0;
 			const { init, received, failures, pluginPort } = connect({
-				onOperation: () =>
-					Effect.succeed(
-						// oxlint-disable-next-line typescript/no-unsafe-type-assertion -- verifies runtime detail redaction
-						{ reason, outcome: "failure", cause: new Error("private") } as PluginOperationOutcome,
-					),
+				onOperation: () => {
+					calls += 1;
+					return Effect.succeed(
+						calls === 1
+							? // oxlint-disable-next-line typescript/no-unsafe-type-assertion -- injects an invalid runtime boundary value
+								({
+									outcome: "success",
+									value: () => undefined,
+								} as unknown as PluginOperationOutcome)
+							: { value: "ok", outcome: "success" },
+					);
+				},
 			});
 			pluginPort.postMessage(readyFor(init));
-			await waitFor(() => expect(received).toHaveLength(1));
+			yield* Effect.promise(() => waitFor(() => expect(received).toHaveLength(1)));
 
 			pluginPort.postMessage({
 				input: null,
@@ -1369,553 +1432,654 @@ describe("plugin bridge", () => {
 				type: "operation-request",
 			});
 
-			await waitFor(() => expect(received).toHaveLength(2));
-			expect(received[1]).toEqual({
-				reason,
-				outcome: "failure",
-				requestId: "request-1",
-				type: "operation-result",
+			yield* Effect.promise(() =>
+				waitFor(() =>
+					expect(received).toContainEqual({
+						outcome: "failure",
+						requestId: "request-1",
+						type: "operation-result",
+						reason: "malformed-result",
+					}),
+				),
+			);
+			pluginPort.postMessage({
+				input: null,
+				requestId: "request-2",
+				operationSlug: "greet",
+				type: "operation-request",
 			});
+			yield* Effect.promise(() =>
+				waitFor(() =>
+					expect(received).toContainEqual({
+						value: "ok",
+						outcome: "success",
+						requestId: "request-2",
+						type: "operation-result",
+					}),
+				),
+			);
 			expect(failures).toEqual([]);
-		});
+		}),
+	);
+
+	for (const reason of [
+		"transport",
+		"operation-failed",
+		"malformed-result",
+	] satisfies PluginOperationBridgeErrorReason[]) {
+		it.live(`round-trips a ${reason} operation bridge error without extra details`, () =>
+			Effect.gen(function* () {
+				const { init, received, failures, pluginPort } = connect({
+					onOperation: () =>
+						Effect.succeed(
+							// oxlint-disable-next-line typescript/no-unsafe-type-assertion -- verifies runtime detail redaction
+							{ reason, outcome: "failure", cause: new Error("private") } as PluginOperationOutcome,
+						),
+				});
+				pluginPort.postMessage(readyFor(init));
+				yield* Effect.promise(() => waitFor(() => expect(received).toHaveLength(1)));
+
+				pluginPort.postMessage({
+					input: null,
+					requestId: "request-1",
+					operationSlug: "greet",
+					type: "operation-request",
+				});
+
+				yield* Effect.promise(() => waitFor(() => expect(received).toHaveLength(2)));
+				expect(received[1]).toEqual({
+					reason,
+					outcome: "failure",
+					requestId: "request-1",
+					type: "operation-result",
+				});
+				expect(failures).toEqual([]);
+			}),
+		);
 	}
 
-	// oxlint-disable-next-line effecttsgo/async-function -- Vitest awaits this Promise-based test callback and its framework assertions.
-	it("maps an invalid callback failure reason to transport", async () => {
-		const { init, received, pluginPort } = connect({
-			onOperation: () =>
-				Effect.succeed(
-					// oxlint-disable-next-line typescript/no-unsafe-type-assertion -- injects an invalid runtime boundary value
-					{ outcome: "failure", reason: "private-failure" } as unknown as PluginOperationOutcome,
-				),
-		});
-		pluginPort.postMessage(readyFor(init));
-		await waitFor(() => expect(received).toHaveLength(1));
+	it.live("maps an invalid callback failure reason to transport", () =>
+		Effect.gen(function* () {
+			const { init, received, pluginPort } = connect({
+				onOperation: () =>
+					Effect.succeed(
+						// oxlint-disable-next-line typescript/no-unsafe-type-assertion -- injects an invalid runtime boundary value
+						{ outcome: "failure", reason: "private-failure" } as unknown as PluginOperationOutcome,
+					),
+			});
+			pluginPort.postMessage(readyFor(init));
+			yield* Effect.promise(() => waitFor(() => expect(received).toHaveLength(1)));
 
-		pluginPort.postMessage({
-			input: null,
-			requestId: "request-1",
-			operationSlug: "greet",
-			type: "operation-request",
-		});
+			pluginPort.postMessage({
+				input: null,
+				requestId: "request-1",
+				operationSlug: "greet",
+				type: "operation-request",
+			});
 
-		await waitFor(() => expect(received).toHaveLength(2));
-		expect(received[1]).toEqual({
-			outcome: "failure",
-			reason: "transport",
-			requestId: "request-1",
-			type: "operation-result",
-		});
-	});
-
-	// oxlint-disable-next-line effecttsgo/async-function -- Vitest awaits this Promise-based test callback and its framework assertions.
-	it("reports a transport failure when onOperation rejects", async () => {
-		const { init, received, pluginPort } = connect({ onOperation: () => Effect.die("boom") });
-		pluginPort.postMessage(readyFor(init));
-		await waitFor(() => expect(received).toHaveLength(1));
-
-		pluginPort.postMessage({
-			input: null,
-			requestId: "request-1",
-			operationSlug: "greet",
-			type: "operation-request",
-		});
-
-		await waitFor(() =>
-			expect(received).toContainEqual({
+			yield* Effect.promise(() => waitFor(() => expect(received).toHaveLength(2)));
+			expect(received[1]).toEqual({
 				outcome: "failure",
 				reason: "transport",
 				requestId: "request-1",
 				type: "operation-result",
-			}),
-		);
-		expect(received).toHaveLength(2);
-	});
+			});
+		}),
+	);
 
-	// oxlint-disable-next-line effecttsgo/async-function -- Vitest awaits this Promise-based test callback and its framework assertions.
-	it("settles two concurrent calls out of order, each exactly once", async () => {
-		const calls: Array<ReturnType<typeof deferred<PluginOperationOutcome>>> = [];
-		const { init, received, pluginPort } = connect({
-			onOperation: () => {
-				const call = deferred<PluginOperationOutcome>();
-				calls.push(call);
-				return Effect.promise(() => call.promise);
-			},
-		});
-		pluginPort.postMessage(readyFor(init));
-		await waitFor(() => expect(received).toHaveLength(1));
+	it.live("reports a transport failure when onOperation rejects", () =>
+		Effect.gen(function* () {
+			const { init, received, pluginPort } = connect({ onOperation: () => Effect.die("boom") });
+			pluginPort.postMessage(readyFor(init));
+			yield* Effect.promise(() => waitFor(() => expect(received).toHaveLength(1)));
 
-		pluginPort.postMessage({
-			input: "a",
-			requestId: "request-a",
-			operationSlug: "greet",
-			type: "operation-request",
-		});
-		pluginPort.postMessage({
-			input: "b",
-			requestId: "request-b",
-			operationSlug: "greet",
-			type: "operation-request",
-		});
-		await waitFor(() => expect(calls).toHaveLength(2));
+			pluginPort.postMessage({
+				input: null,
+				requestId: "request-1",
+				operationSlug: "greet",
+				type: "operation-request",
+			});
 
-		calls[1]?.resolve({ value: "b-value", outcome: "success" });
-		await waitFor(() =>
-			expect(received).toContainEqual({
-				value: "b-value",
-				outcome: "success",
+			yield* Effect.promise(() =>
+				waitFor(() =>
+					expect(received).toContainEqual({
+						outcome: "failure",
+						reason: "transport",
+						requestId: "request-1",
+						type: "operation-result",
+					}),
+				),
+			);
+			expect(received).toHaveLength(2);
+		}),
+	);
+
+	it.live("settles two concurrent calls out of order, each exactly once", () =>
+		Effect.gen(function* () {
+			const calls: Array<ReturnType<typeof deferred<PluginOperationOutcome>>> = [];
+			const { init, received, pluginPort } = connect({
+				onOperation: () => {
+					const call = deferred<PluginOperationOutcome>();
+					calls.push(call);
+					return Effect.promise(() => call.promise);
+				},
+			});
+			pluginPort.postMessage(readyFor(init));
+			yield* Effect.promise(() => waitFor(() => expect(received).toHaveLength(1)));
+
+			pluginPort.postMessage({
+				input: "a",
+				requestId: "request-a",
+				operationSlug: "greet",
+				type: "operation-request",
+			});
+			pluginPort.postMessage({
+				input: "b",
 				requestId: "request-b",
-				type: "operation-result",
-			}),
-		);
+				operationSlug: "greet",
+				type: "operation-request",
+			});
+			yield* Effect.promise(() => waitFor(() => expect(calls).toHaveLength(2)));
 
-		calls[0]?.resolve({ value: "a-value", outcome: "success" });
-		await waitFor(() =>
-			expect(received).toContainEqual({
-				value: "a-value",
-				outcome: "success",
+			calls[1]?.resolve({ value: "b-value", outcome: "success" });
+			yield* Effect.promise(() =>
+				waitFor(() =>
+					expect(received).toContainEqual({
+						value: "b-value",
+						outcome: "success",
+						requestId: "request-b",
+						type: "operation-result",
+					}),
+				),
+			);
+
+			calls[0]?.resolve({ value: "a-value", outcome: "success" });
+			yield* Effect.promise(() =>
+				waitFor(() =>
+					expect(received).toContainEqual({
+						value: "a-value",
+						outcome: "success",
+						requestId: "request-a",
+						type: "operation-result",
+					}),
+				),
+			);
+
+			expect(received).toHaveLength(3);
+		}),
+	);
+
+	it.live("ignores a second request that reuses an in-flight request id", () =>
+		Effect.gen(function* () {
+			const calls: Array<ReturnType<typeof deferred<PluginOperationOutcome>>> = [];
+			const { init, received, pluginPort } = connect({
+				onOperation: () => {
+					const call = deferred<PluginOperationOutcome>();
+					calls.push(call);
+					return Effect.promise(() => call.promise);
+				},
+			});
+			pluginPort.postMessage(readyFor(init));
+			yield* Effect.promise(() => waitFor(() => expect(received).toHaveLength(1)));
+
+			pluginPort.postMessage({
+				input: "a",
 				requestId: "request-a",
-				type: "operation-result",
-			}),
-		);
+				operationSlug: "greet",
+				type: "operation-request",
+			});
+			yield* Effect.promise(() => waitFor(() => expect(calls).toHaveLength(1)));
 
-		expect(received).toHaveLength(3);
-	});
-
-	// oxlint-disable-next-line effecttsgo/async-function -- Vitest awaits this Promise-based test callback and its framework assertions.
-	it("ignores a second request that reuses an in-flight request id", async () => {
-		const calls: Array<ReturnType<typeof deferred<PluginOperationOutcome>>> = [];
-		const { init, received, pluginPort } = connect({
-			onOperation: () => {
-				const call = deferred<PluginOperationOutcome>();
-				calls.push(call);
-				return Effect.promise(() => call.promise);
-			},
-		});
-		pluginPort.postMessage(readyFor(init));
-		await waitFor(() => expect(received).toHaveLength(1));
-
-		pluginPort.postMessage({
-			input: "a",
-			requestId: "request-a",
-			operationSlug: "greet",
-			type: "operation-request",
-		});
-		await waitFor(() => expect(calls).toHaveLength(1));
-
-		pluginPort.postMessage({
-			input: "a-again",
-			requestId: "request-a",
-			operationSlug: "greet",
-			type: "operation-request",
-		});
-		await delay(10);
-
-		expect(calls).toHaveLength(1);
-		calls[0]?.resolve({ value: "a-value", outcome: "success" });
-
-		await waitFor(() =>
-			expect(received).toContainEqual({
-				value: "a-value",
-				outcome: "success",
+			pluginPort.postMessage({
+				input: "a-again",
 				requestId: "request-a",
-				type: "operation-result",
-			}),
-		);
-		expect(received).toHaveLength(2);
-	});
+				operationSlug: "greet",
+				type: "operation-request",
+			});
+			yield* Effect.promise(() => delay(10));
 
-	// oxlint-disable-next-line effecttsgo/async-function -- Vitest awaits this Promise-based test callback and its framework assertions.
-	it("fails the session when aggregate pending requests exceed the admission limit", async () => {
-		const signals: AbortSignal[] = [];
-		const { init, received, failures, pluginPort } = connect({
-			onRyotQL: () =>
-				Effect.promise((signal) => {
-					signals.push(signal);
-					// oxlint-disable-next-line effecttsgo/new-promise -- This test keeps the injected host request pending to verify cancellation or admission.
-					return new Promise<never>(() => {});
-				}),
-			onOperation: () =>
-				Effect.promise((signal) => {
-					signals.push(signal);
-					// oxlint-disable-next-line effecttsgo/new-promise -- This test keeps the injected host request pending to verify cancellation or admission.
-					return new Promise<never>(() => {});
-				}),
-		});
-		pluginPort.postMessage(readyFor(init));
-		await waitFor(() => expect(received).toHaveLength(1));
+			expect(calls).toHaveLength(1);
+			calls[0]?.resolve({ value: "a-value", outcome: "success" });
 
-		for (let index = 0; index < CLIENT_BRIDGE_MAX_PENDING_REQUESTS; index += 1) {
-			if (index % 2 === 0) {
+			yield* Effect.promise(() =>
+				waitFor(() =>
+					expect(received).toContainEqual({
+						value: "a-value",
+						outcome: "success",
+						requestId: "request-a",
+						type: "operation-result",
+					}),
+				),
+			);
+			expect(received).toHaveLength(2);
+		}),
+	);
+
+	it.live("fails the session when aggregate pending requests exceed the admission limit", () =>
+		Effect.gen(function* () {
+			const signals: AbortSignal[] = [];
+			const { init, received, failures, pluginPort } = connect({
+				onRyotQL: () =>
+					Effect.promise((signal) => {
+						signals.push(signal);
+						// oxlint-disable-next-line effecttsgo/new-promise -- This test keeps the injected host request pending to verify cancellation or admission.
+						return new Promise<never>(() => {});
+					}),
+				onOperation: () =>
+					Effect.promise((signal) => {
+						signals.push(signal);
+						// oxlint-disable-next-line effecttsgo/new-promise -- This test keeps the injected host request pending to verify cancellation or admission.
+						return new Promise<never>(() => {});
+					}),
+			});
+			pluginPort.postMessage(readyFor(init));
+			yield* Effect.promise(() => waitFor(() => expect(received).toHaveLength(1)));
+
+			for (let index = 0; index < CLIENT_BRIDGE_MAX_PENDING_REQUESTS; index += 1) {
+				if (index % 2 === 0) {
+					pluginPort.postMessage({
+						input: null,
+						operationSlug: "greet",
+						type: "operation-request",
+						requestId: `request-${index}`,
+					});
+				} else {
+					pluginPort.postMessage({
+						document,
+						type: "ryotql-request",
+						requestId: `request-${index}`,
+					});
+				}
+			}
+			yield* Effect.promise(() =>
+				waitFor(() => expect(signals).toHaveLength(CLIENT_BRIDGE_MAX_PENDING_REQUESTS)),
+			);
+
+			pluginPort.postMessage({ document, requestId: "overflow", type: "ryotql-request" });
+			yield* Effect.promise(() => waitFor(() => expect(failures).toHaveLength(1)));
+
+			expect(signals).toHaveLength(CLIENT_BRIDGE_MAX_PENDING_REQUESTS);
+			expect(signals.every((signal) => signal.aborted)).toBe(true);
+			expect(received).toEqual([at(), { reason: "failed", type: "lifecycle-close" }]);
+		}),
+	);
+
+	it.live("fails the session on a malformed active-port message and suppresses late work", () =>
+		Effect.gen(function* () {
+			let signal: AbortSignal | undefined;
+			const call = deferred<PluginOperationOutcome>();
+			const { init, received, failures, pluginPort } = connect({
+				onOperation: () =>
+					Effect.promise((requestSignal) => {
+						signal = requestSignal;
+						return call.promise;
+					}),
+			});
+			pluginPort.postMessage(readyFor(init));
+			yield* Effect.promise(() => waitFor(() => expect(received).toHaveLength(1)));
+
+			pluginPort.postMessage({
+				input: null,
+				requestId: "request-1",
+				operationSlug: "greet",
+				type: "operation-request",
+			});
+			yield* Effect.promise(() => waitFor(() => expect(signal).toBeDefined()));
+
+			pluginPort.postMessage({
+				requestId: "malformed",
+				operationSlug: "greet",
+				type: "operation-request",
+			});
+			yield* Effect.promise(() => waitFor(() => expect(failures).toHaveLength(1)));
+			expect(signal?.aborted).toBe(true);
+
+			call.resolve({ value: "late", outcome: "success" });
+			yield* Effect.promise(() => delay(10));
+
+			expect(received).toEqual([at(), { reason: "failed", type: "lifecycle-close" }]);
+		}),
+	);
+
+	it.live.each([
+		["untagged", { search: "", path: "/details/1" }],
+		["entity-shaped", { kind: "entity", entityId: "entity-1", entitySchemaSlug: "show" }],
+	] as const)("fails an %s plugin navigation message", (_label, target) =>
+		Effect.gen(function* () {
+			const { init, received, failures, pluginPort, navigations } = connect();
+			pluginPort.postMessage(readyFor(init));
+			yield* Effect.promise(() => waitFor(() => expect(received).toEqual([at()])));
+
+			pluginPort.postMessage({ target, mode: "push", type: "navigate" });
+
+			yield* Effect.promise(() => waitFor(() => expect(failures).toHaveLength(1)));
+			expect(navigations).toEqual([]);
+			expect(received).toEqual([at(), { reason: "failed", type: "lifecycle-close" }]);
+		}),
+	);
+
+	it.live(
+		"aborts pending operation and RyotQL work on failure and suppresses both late results",
+		() =>
+			Effect.gen(function* () {
+				let operationSignal: AbortSignal | undefined;
+				let querySignal: AbortSignal | undefined;
+				const operationCall = deferred<PluginOperationOutcome>();
+				const queryCall = deferred<PluginRyotQLOutcome>();
+				const { init, received, failures, pluginPort } = connect({
+					onRyotQL: () =>
+						Effect.promise((signal) => {
+							querySignal = signal;
+							return queryCall.promise;
+						}),
+					onOperation: () =>
+						Effect.promise((signal) => {
+							operationSignal = signal;
+							return operationCall.promise;
+						}),
+				});
+				pluginPort.postMessage(readyFor(init));
+				yield* Effect.promise(() => waitFor(() => expect(received).toHaveLength(1)));
+
 				pluginPort.postMessage({
 					input: null,
 					operationSlug: "greet",
+					requestId: "operation-1",
 					type: "operation-request",
-					requestId: `request-${index}`,
 				});
-			} else {
-				pluginPort.postMessage({ document, type: "ryotql-request", requestId: `request-${index}` });
-			}
-		}
-		await waitFor(() => expect(signals).toHaveLength(CLIENT_BRIDGE_MAX_PENDING_REQUESTS));
+				pluginPort.postMessage({ document, requestId: "query-1", type: "ryotql-request" });
+				yield* Effect.promise(() =>
+					waitFor(() => {
+						expect(querySignal).toBeDefined();
+						expect(operationSignal).toBeDefined();
+					}),
+				);
 
-		pluginPort.postMessage({ document, requestId: "overflow", type: "ryotql-request" });
-		await waitFor(() => expect(failures).toHaveLength(1));
+				pluginPort.postMessage({ type: "unknown-message" });
+				yield* Effect.promise(() => waitFor(() => expect(failures).toHaveLength(1)));
+				expect(operationSignal?.aborted).toBe(true);
+				expect(querySignal?.aborted).toBe(true);
 
-		expect(signals).toHaveLength(CLIENT_BRIDGE_MAX_PENDING_REQUESTS);
-		expect(signals.every((signal) => signal.aborted)).toBe(true);
-		expect(received).toEqual([at(), { reason: "failed", type: "lifecycle-close" }]);
-	});
+				operationCall.resolve({ outcome: "success", value: "late-operation" });
+				queryCall.resolve({ outcome: "success", response: { data: {} } });
+				yield* Effect.promise(() => delay(10));
 
-	// oxlint-disable-next-line effecttsgo/async-function -- Vitest awaits this Promise-based test callback and its framework assertions.
-	it("fails the session on a malformed active-port message and suppresses late work", async () => {
-		let signal: AbortSignal | undefined;
-		const call = deferred<PluginOperationOutcome>();
-		const { init, received, failures, pluginPort } = connect({
-			onOperation: () =>
-				Effect.promise((requestSignal) => {
-					signal = requestSignal;
-					return call.promise;
-				}),
-		});
-		pluginPort.postMessage(readyFor(init));
-		await waitFor(() => expect(received).toHaveLength(1));
-
-		pluginPort.postMessage({
-			input: null,
-			requestId: "request-1",
-			operationSlug: "greet",
-			type: "operation-request",
-		});
-		await waitFor(() => expect(signal).toBeDefined());
-
-		pluginPort.postMessage({
-			requestId: "malformed",
-			operationSlug: "greet",
-			type: "operation-request",
-		});
-		await waitFor(() => expect(failures).toHaveLength(1));
-		expect(signal?.aborted).toBe(true);
-
-		call.resolve({ value: "late", outcome: "success" });
-		await delay(10);
-
-		expect(received).toEqual([at(), { reason: "failed", type: "lifecycle-close" }]);
-	});
-
-	it.each([
-		["untagged", { search: "", path: "/details/1" }],
-		["entity-shaped", { kind: "entity", entityId: "entity-1", entitySchemaSlug: "show" }],
-		// oxlint-disable-next-line effecttsgo/async-function -- Vitest awaits this Promise-based test callback and its framework assertions.
-	] as const)("fails an %s plugin navigation message", async (_label, target) => {
-		const { init, received, failures, pluginPort, navigations } = connect();
-		pluginPort.postMessage(readyFor(init));
-		await waitFor(() => expect(received).toEqual([at()]));
-
-		pluginPort.postMessage({ target, mode: "push", type: "navigate" });
-
-		await waitFor(() => expect(failures).toHaveLength(1));
-		expect(navigations).toEqual([]);
-		expect(received).toEqual([at(), { reason: "failed", type: "lifecycle-close" }]);
-	});
-
-	// oxlint-disable-next-line effecttsgo/async-function -- Vitest awaits this Promise-based test callback and its framework assertions.
-	it("aborts pending operation and RyotQL work on failure and suppresses both late results", async () => {
-		let operationSignal: AbortSignal | undefined;
-		let querySignal: AbortSignal | undefined;
-		const operationCall = deferred<PluginOperationOutcome>();
-		const queryCall = deferred<PluginRyotQLOutcome>();
-		const { init, received, failures, pluginPort } = connect({
-			onRyotQL: () =>
-				Effect.promise((signal) => {
-					querySignal = signal;
-					return queryCall.promise;
-				}),
-			onOperation: () =>
-				Effect.promise((signal) => {
-					operationSignal = signal;
-					return operationCall.promise;
-				}),
-		});
-		pluginPort.postMessage(readyFor(init));
-		await waitFor(() => expect(received).toHaveLength(1));
-
-		pluginPort.postMessage({
-			input: null,
-			operationSlug: "greet",
-			requestId: "operation-1",
-			type: "operation-request",
-		});
-		pluginPort.postMessage({ document, requestId: "query-1", type: "ryotql-request" });
-		await waitFor(() => {
-			expect(querySignal).toBeDefined();
-			expect(operationSignal).toBeDefined();
-		});
-
-		pluginPort.postMessage({ type: "unknown-message" });
-		await waitFor(() => expect(failures).toHaveLength(1));
-		expect(operationSignal?.aborted).toBe(true);
-		expect(querySignal?.aborted).toBe(true);
-
-		operationCall.resolve({ outcome: "success", value: "late-operation" });
-		queryCall.resolve({ outcome: "success", response: { data: {} } });
-		await delay(10);
-
-		expect(received).toEqual([at(), { reason: "failed", type: "lifecycle-close" }]);
-	});
-
-	// oxlint-disable-next-line effecttsgo/async-function -- Vitest awaits this Promise-based test callback and its framework assertions.
-	it("fails the session before invoking an operation with extra identity fields", async () => {
-		const { init, received, failures, pluginPort, operationCalls } = connect();
-		pluginPort.postMessage(readyFor(init));
-		await waitFor(() => expect(received).toHaveLength(1));
-
-		pluginPort.postMessage({
-			input: null,
-			requestId: "request-1",
-			operationSlug: "greet",
-			type: "operation-request",
-			installationId: "installation-2",
-		});
-		await waitFor(() => expect(failures).toHaveLength(1));
-
-		expect(operationCalls).toEqual([]);
-		expect(received).toEqual([at(), { reason: "failed", type: "lifecycle-close" }]);
-	});
-
-	// oxlint-disable-next-line effecttsgo/async-function -- Vitest awaits this Promise-based test callback and its framework assertions.
-	it("aborts pending signals on close and posts nothing after a late resolution", async () => {
-		let signal: AbortSignal | undefined;
-		const call = deferred<PluginOperationOutcome>();
-		const { init, session, received, pluginPort } = connect({
-			onOperation: () =>
-				Effect.promise((requestSignal) => {
-					signal = requestSignal;
-					return call.promise;
-				}),
-		});
-		pluginPort.postMessage(readyFor(init));
-		await waitFor(() => expect(received).toHaveLength(1));
-
-		pluginPort.postMessage({
-			input: null,
-			requestId: "request-1",
-			operationSlug: "greet",
-			type: "operation-request",
-		});
-		await waitFor(() => expect(signal).toBeDefined());
-
-		session.close();
-		expect(signal?.aborted).toBe(true);
-
-		call.resolve({ value: "too-late", outcome: "success" });
-		await delay(10);
-
-		expect(received).toEqual([at(), { reason: "disposed", type: "lifecycle-close" }]);
-	});
-
-	// oxlint-disable-next-line effecttsgo/async-function -- Vitest awaits this Promise-based test callback and its framework assertions.
-	it("correlates concurrent RyotQL requests completed out of order", async () => {
-		const calls: Array<ReturnType<typeof deferred<PluginRyotQLOutcome>>> = [];
-		const { init, received, pluginPort } = connect({
-			onRyotQL: () => {
-				const call = deferred<PluginRyotQLOutcome>();
-				calls.push(call);
-				return Effect.promise(() => call.promise);
-			},
-		});
-		pluginPort.postMessage(readyFor(init));
-		await waitFor(() => expect(received).toHaveLength(1));
-
-		pluginPort.postMessage({ document, requestId: "query-a", type: "ryotql-request" });
-		pluginPort.postMessage({ document, requestId: "query-b", type: "ryotql-request" });
-		await waitFor(() => expect(calls).toHaveLength(2));
-
-		calls[1]?.resolve({ outcome: "success", response: { data: {} } });
-		await waitFor(() =>
-			expect(received).toContainEqual({
-				outcome: "success",
-				requestId: "query-b",
-				type: "ryotql-result",
-				response: { data: {} },
+				expect(received).toEqual([at(), { reason: "failed", type: "lifecycle-close" }]);
 			}),
-		);
-		calls[0]?.resolve({ outcome: "failure", reason: "query-failed" });
-		await waitFor(() =>
-			expect(received).toContainEqual({
-				outcome: "failure",
-				requestId: "query-a",
-				type: "ryotql-result",
-				reason: "query-failed",
-			}),
-		);
-		expect(received).toHaveLength(3);
-	});
+	);
 
-	// oxlint-disable-next-line effecttsgo/async-function -- Vitest awaits this Promise-based test callback and its framework assertions.
-	it("rejects duplicate in-flight IDs across query and operation requests", async () => {
-		const query = deferred<PluginRyotQLOutcome>();
-		const operationCalls: PluginOperationRequest[] = [];
-		const { init, received, pluginPort } = connect({
-			onRyotQL: () => Effect.promise(() => query.promise),
-			onOperation: (request) => {
-				operationCalls.push(request);
-				return Effect.succeed({ value: null, outcome: "success" });
-			},
-		});
-		pluginPort.postMessage(readyFor(init));
-		await waitFor(() => expect(received).toHaveLength(1));
+	it.live("fails the session before invoking an operation with extra identity fields", () =>
+		Effect.gen(function* () {
+			const { init, received, failures, pluginPort, operationCalls } = connect();
+			pluginPort.postMessage(readyFor(init));
+			yield* Effect.promise(() => waitFor(() => expect(received).toHaveLength(1)));
 
-		pluginPort.postMessage({ document, requestId: "shared-id", type: "ryotql-request" });
-		pluginPort.postMessage({
-			input: null,
-			requestId: "shared-id",
-			operationSlug: "greet",
-			type: "operation-request",
-		});
-		await delay(10);
+			pluginPort.postMessage({
+				input: null,
+				requestId: "request-1",
+				operationSlug: "greet",
+				type: "operation-request",
+				installationId: "installation-2",
+			});
+			yield* Effect.promise(() => waitFor(() => expect(failures).toHaveLength(1)));
 
-		expect(operationCalls).toEqual([]);
-		query.resolve({ outcome: "success", response: { data: {} } });
-		await waitFor(() => expect(received).toHaveLength(2));
-	});
+			expect(operationCalls).toEqual([]);
+			expect(received).toEqual([at(), { reason: "failed", type: "lifecycle-close" }]);
+		}),
+	);
 
-	// oxlint-disable-next-line effecttsgo/async-function -- Vitest awaits this Promise-based test callback and its framework assertions.
-	it("fails the session on a malformed RyotQL request", async () => {
-		const calls: PluginRyotQLRequest[] = [];
-		const { init, received, failures, pluginPort } = connect({
-			onRyotQL: (request) => {
-				calls.push(request);
-				return Effect.succeed({ outcome: "success", response: { data: {} } });
-			},
-		});
-		pluginPort.postMessage(readyFor(init));
-		await waitFor(() => expect(received).toHaveLength(1));
+	it.live("aborts pending signals on close and posts nothing after a late resolution", () =>
+		Effect.gen(function* () {
+			let signal: AbortSignal | undefined;
+			const call = deferred<PluginOperationOutcome>();
+			const { init, session, received, pluginPort } = connect({
+				onOperation: () =>
+					Effect.promise((requestSignal) => {
+						signal = requestSignal;
+						return call.promise;
+					}),
+			});
+			pluginPort.postMessage(readyFor(init));
+			yield* Effect.promise(() => waitFor(() => expect(received).toHaveLength(1)));
 
-		pluginPort.postMessage({
-			document,
-			userId: "user-1",
-			requestId: "query-a",
-			type: "ryotql-request",
-		});
-		await waitFor(() => expect(failures).toHaveLength(1));
+			pluginPort.postMessage({
+				input: null,
+				requestId: "request-1",
+				operationSlug: "greet",
+				type: "operation-request",
+			});
+			yield* Effect.promise(() => waitFor(() => expect(signal).toBeDefined()));
 
-		expect(calls).toEqual([]);
-		expect(received).toEqual([at(), { reason: "failed", type: "lifecycle-close" }]);
-	});
+			session.close();
+			expect(signal?.aborted).toBe(true);
 
-	// oxlint-disable-next-line effecttsgo/async-function -- Vitest awaits this Promise-based test callback and its framework assertions.
-	it("aborts a pending RyotQL request and suppresses its late response", async () => {
-		let signal: AbortSignal | undefined;
-		const call = deferred<PluginRyotQLOutcome>();
-		const { init, session, received, pluginPort } = connect({
-			onRyotQL: () =>
-				Effect.promise((requestSignal) => {
-					signal = requestSignal;
-					return call.promise;
-				}),
-		});
-		pluginPort.postMessage(readyFor(init));
-		await waitFor(() => expect(received).toHaveLength(1));
-		pluginPort.postMessage({ document, requestId: "query-a", type: "ryotql-request" });
-		await waitFor(() => expect(signal).toBeDefined());
+			call.resolve({ value: "too-late", outcome: "success" });
+			yield* Effect.promise(() => delay(10));
 
-		session.close();
-		expect(signal?.aborted).toBe(true);
-		call.resolve({ outcome: "failure", reason: "transport" });
-		await delay(10);
+			expect(received).toEqual([at(), { reason: "disposed", type: "lifecycle-close" }]);
+		}),
+	);
 
-		expect(received).toEqual([at(), { reason: "disposed", type: "lifecycle-close" }]);
-	});
-
-	// oxlint-disable-next-line effecttsgo/async-function -- Vitest awaits this Promise-based test callback and its framework assertions.
-	it("cancels matching RyotQL work, releases admission, and ignores cancellation races", async () => {
-		const signals: AbortSignal[] = [];
-		const calls: Array<ReturnType<typeof deferred<PluginRyotQLOutcome>>> = [];
-		const { init, received, failures, pluginPort } = connect({
-			onRyotQL: () =>
-				Effect.promise((signal) => {
-					signals.push(signal);
+	it.live("correlates concurrent RyotQL requests completed out of order", () =>
+		Effect.gen(function* () {
+			const calls: Array<ReturnType<typeof deferred<PluginRyotQLOutcome>>> = [];
+			const { init, received, pluginPort } = connect({
+				onRyotQL: () => {
 					const call = deferred<PluginRyotQLOutcome>();
 					calls.push(call);
-					return call.promise;
-				}),
-		});
-		pluginPort.postMessage(readyFor(init));
-		await waitFor(() => expect(received).toHaveLength(1));
+					return Effect.promise(() => call.promise);
+				},
+			});
+			pluginPort.postMessage(readyFor(init));
+			yield* Effect.promise(() => waitFor(() => expect(received).toHaveLength(1)));
 
-		for (let index = 0; index < CLIENT_BRIDGE_MAX_PENDING_REQUESTS; index += 1) {
-			pluginPort.postMessage({ document, type: "ryotql-request", requestId: `query-${index}` });
-		}
-		await waitFor(() => expect(signals).toHaveLength(CLIENT_BRIDGE_MAX_PENDING_REQUESTS));
+			pluginPort.postMessage({ document, requestId: "query-a", type: "ryotql-request" });
+			pluginPort.postMessage({ document, requestId: "query-b", type: "ryotql-request" });
+			yield* Effect.promise(() => waitFor(() => expect(calls).toHaveLength(2)));
 
-		pluginPort.postMessage({ requestId: "unknown", type: "ryotql-cancel" });
-		pluginPort.postMessage({ requestId: "query-0", type: "ryotql-cancel" });
-		pluginPort.postMessage({ requestId: "query-0", type: "ryotql-cancel" });
-		await waitFor(() => expect(signals[0]?.aborted).toBe(true));
-		pluginPort.postMessage({ document, type: "ryotql-request", requestId: "replacement" });
-		await waitFor(() => expect(signals).toHaveLength(CLIENT_BRIDGE_MAX_PENDING_REQUESTS + 1));
-
-		calls[0]?.resolve({ outcome: "success", response: { data: {} } });
-		calls.at(-1)?.resolve({ outcome: "success", response: { data: {} } });
-		await waitFor(() =>
-			expect(received).toContainEqual({
-				outcome: "success",
-				type: "ryotql-result",
-				response: { data: {} },
-				requestId: "replacement",
-			}),
-		);
-
-		expect(received).not.toContainEqual(expect.objectContaining({ requestId: "query-0" }));
-		expect(failures).toEqual([]);
-	});
-
-	// oxlint-disable-next-line effecttsgo/async-function -- Vitest awaits this Promise-based test callback and its framework assertions.
-	it("never posts a Ryot credential, identity, or scope value to the plugin across a full session", async () => {
-		const { init, session, received, pluginPort } = connect({
-			onOperation: (request) =>
-				Effect.succeed(
-					request.operationSlug === "fail"
-						? ({ outcome: "failure", reason: "operation-failed" } as const)
-						: ({ outcome: "success", value: { echoed: request.input } } as const),
+			calls[1]?.resolve({ outcome: "success", response: { data: {} } });
+			yield* Effect.promise(() =>
+				waitFor(() =>
+					expect(received).toContainEqual({
+						outcome: "success",
+						requestId: "query-b",
+						type: "ryotql-result",
+						response: { data: {} },
+					}),
 				),
-		});
-		pluginPort.postMessage(readyFor(init));
-		await waitFor(() => expect(received).toHaveLength(1));
+			);
+			calls[0]?.resolve({ outcome: "failure", reason: "query-failed" });
+			yield* Effect.promise(() =>
+				waitFor(() =>
+					expect(received).toContainEqual({
+						outcome: "failure",
+						requestId: "query-a",
+						type: "ryotql-result",
+						reason: "query-failed",
+					}),
+				),
+			);
+			expect(received).toHaveLength(3);
+		}),
+	);
 
-		session.sendLocation(nav({ kind: "route", path: "/details/1", search: "tab=stats" }, 1));
+	it.live("rejects duplicate in-flight IDs across query and operation requests", () =>
+		Effect.gen(function* () {
+			const query = deferred<PluginRyotQLOutcome>();
+			const operationCalls: PluginOperationRequest[] = [];
+			const { init, received, pluginPort } = connect({
+				onRyotQL: () => Effect.promise(() => query.promise),
+				onOperation: (request) => {
+					operationCalls.push(request);
+					return Effect.succeed({ value: null, outcome: "success" });
+				},
+			});
+			pluginPort.postMessage(readyFor(init));
+			yield* Effect.promise(() => waitFor(() => expect(received).toHaveLength(1)));
 
-		pluginPort.postMessage({
-			requestId: "request-1",
-			operationSlug: "greet",
-			type: "operation-request",
-			input: { greeting: "hi" },
-		});
-		pluginPort.postMessage({
-			input: null,
-			operationSlug: "fail",
-			requestId: "request-2",
-			type: "operation-request",
-		});
+			pluginPort.postMessage({ document, requestId: "shared-id", type: "ryotql-request" });
+			pluginPort.postMessage({
+				input: null,
+				requestId: "shared-id",
+				operationSlug: "greet",
+				type: "operation-request",
+			});
+			yield* Effect.promise(() => delay(10));
 
-		await waitFor(() => expect(received).toHaveLength(4));
+			expect(operationCalls).toEqual([]);
+			query.resolve({ outcome: "success", response: { data: {} } });
+			yield* Effect.promise(() => waitFor(() => expect(received).toHaveLength(2)));
+		}),
+	);
 
-		expect(received).toEqual([
-			at(),
-			at({ kind: "route", path: "/details/1", search: "tab=stats" }, 1),
-			{
-				outcome: "success",
-				requestId: "request-1",
-				type: "operation-result",
-				value: { echoed: { greeting: "hi" } },
-			},
-			{
-				outcome: "failure",
-				requestId: "request-2",
-				type: "operation-result",
-				reason: "operation-failed",
-			},
-		]);
-	});
+	it.live("fails the session on a malformed RyotQL request", () =>
+		Effect.gen(function* () {
+			const calls: PluginRyotQLRequest[] = [];
+			const { init, received, failures, pluginPort } = connect({
+				onRyotQL: (request) => {
+					calls.push(request);
+					return Effect.succeed({ outcome: "success", response: { data: {} } });
+				},
+			});
+			pluginPort.postMessage(readyFor(init));
+			yield* Effect.promise(() => waitFor(() => expect(received).toHaveLength(1)));
+
+			pluginPort.postMessage({
+				document,
+				userId: "user-1",
+				requestId: "query-a",
+				type: "ryotql-request",
+			});
+			yield* Effect.promise(() => waitFor(() => expect(failures).toHaveLength(1)));
+
+			expect(calls).toEqual([]);
+			expect(received).toEqual([at(), { reason: "failed", type: "lifecycle-close" }]);
+		}),
+	);
+
+	it.live("aborts a pending RyotQL request and suppresses its late response", () =>
+		Effect.gen(function* () {
+			let signal: AbortSignal | undefined;
+			const call = deferred<PluginRyotQLOutcome>();
+			const { init, session, received, pluginPort } = connect({
+				onRyotQL: () =>
+					Effect.promise((requestSignal) => {
+						signal = requestSignal;
+						return call.promise;
+					}),
+			});
+			pluginPort.postMessage(readyFor(init));
+			yield* Effect.promise(() => waitFor(() => expect(received).toHaveLength(1)));
+			pluginPort.postMessage({ document, requestId: "query-a", type: "ryotql-request" });
+			yield* Effect.promise(() => waitFor(() => expect(signal).toBeDefined()));
+
+			session.close();
+			expect(signal?.aborted).toBe(true);
+			call.resolve({ outcome: "failure", reason: "transport" });
+			yield* Effect.promise(() => delay(10));
+
+			expect(received).toEqual([at(), { reason: "disposed", type: "lifecycle-close" }]);
+		}),
+	);
+
+	it.live("cancels matching RyotQL work, releases admission, and ignores cancellation races", () =>
+		Effect.gen(function* () {
+			const signals: AbortSignal[] = [];
+			const calls: Array<ReturnType<typeof deferred<PluginRyotQLOutcome>>> = [];
+			const { init, received, failures, pluginPort } = connect({
+				onRyotQL: () =>
+					Effect.promise((signal) => {
+						signals.push(signal);
+						const call = deferred<PluginRyotQLOutcome>();
+						calls.push(call);
+						return call.promise;
+					}),
+			});
+			pluginPort.postMessage(readyFor(init));
+			yield* Effect.promise(() => waitFor(() => expect(received).toHaveLength(1)));
+
+			for (let index = 0; index < CLIENT_BRIDGE_MAX_PENDING_REQUESTS; index += 1) {
+				pluginPort.postMessage({ document, type: "ryotql-request", requestId: `query-${index}` });
+			}
+			yield* Effect.promise(() =>
+				waitFor(() => expect(signals).toHaveLength(CLIENT_BRIDGE_MAX_PENDING_REQUESTS)),
+			);
+
+			pluginPort.postMessage({ requestId: "unknown", type: "ryotql-cancel" });
+			pluginPort.postMessage({ requestId: "query-0", type: "ryotql-cancel" });
+			pluginPort.postMessage({ requestId: "query-0", type: "ryotql-cancel" });
+			yield* Effect.promise(() => waitFor(() => expect(signals[0]?.aborted).toBe(true)));
+			pluginPort.postMessage({ document, type: "ryotql-request", requestId: "replacement" });
+			yield* Effect.promise(() =>
+				waitFor(() => expect(signals).toHaveLength(CLIENT_BRIDGE_MAX_PENDING_REQUESTS + 1)),
+			);
+
+			calls[0]?.resolve({ outcome: "success", response: { data: {} } });
+			calls.at(-1)?.resolve({ outcome: "success", response: { data: {} } });
+			yield* Effect.promise(() =>
+				waitFor(() =>
+					expect(received).toContainEqual({
+						outcome: "success",
+						type: "ryotql-result",
+						response: { data: {} },
+						requestId: "replacement",
+					}),
+				),
+			);
+
+			expect(received).not.toContainEqual(expect.objectContaining({ requestId: "query-0" }));
+			expect(failures).toEqual([]);
+		}),
+	);
+
+	it.live(
+		"never posts a Ryot credential, identity, or scope value to the plugin across a full session",
+		() =>
+			Effect.gen(function* () {
+				const { init, session, received, pluginPort } = connect({
+					onOperation: (request) =>
+						Effect.succeed(
+							request.operationSlug === "fail"
+								? ({ outcome: "failure", reason: "operation-failed" } as const)
+								: ({ outcome: "success", value: { echoed: request.input } } as const),
+						),
+				});
+				pluginPort.postMessage(readyFor(init));
+				yield* Effect.promise(() => waitFor(() => expect(received).toHaveLength(1)));
+
+				session.sendLocation(nav({ kind: "route", path: "/details/1", search: "tab=stats" }, 1));
+
+				pluginPort.postMessage({
+					requestId: "request-1",
+					operationSlug: "greet",
+					type: "operation-request",
+					input: { greeting: "hi" },
+				});
+				pluginPort.postMessage({
+					input: null,
+					operationSlug: "fail",
+					requestId: "request-2",
+					type: "operation-request",
+				});
+
+				yield* Effect.promise(() => waitFor(() => expect(received).toHaveLength(4)));
+
+				expect(received).toEqual([
+					at(),
+					at({ kind: "route", path: "/details/1", search: "tab=stats" }, 1),
+					{
+						outcome: "success",
+						requestId: "request-1",
+						type: "operation-result",
+						value: { echoed: { greeting: "hi" } },
+					},
+					{
+						outcome: "failure",
+						requestId: "request-2",
+						type: "operation-result",
+						reason: "operation-failed",
+					},
+				]);
+			}),
+	);
 });

@@ -62,13 +62,11 @@ describe("Youtubei durable tracer", () => {
 		Effect.gen(function* () {
 			const { resolve: releaseSecondRequest, promise: secondRequestReleased } =
 				Promise.withResolvers<void>();
-			// oxlint-disable-next-line effecttsgo/async-function -- The fake Web HTTP handler must return a Promise while waiting for a request release.
-			const http = yield* startFakeHttpServerScoped(async (url) => {
-				if (url.pathname === "/second") {
-					await secondRequestReleased;
-				}
-				return Response.json({ ok: true });
-			});
+			const http = yield* startFakeHttpServerScoped((url) =>
+				url.pathname === "/second"
+					? secondRequestReleased.then(() => Response.json({ ok: true }))
+					: Response.json({ ok: true }),
+			);
 			yield* Effect.addFinalizer(() => Effect.sync(releaseSecondRequest));
 			const scriptSlug = `youtubei-tracer-${crypto.randomUUID()}`;
 			const entry = "backend/scripts/youtubei-tracer.sandbox.ts";

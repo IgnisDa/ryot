@@ -1,3 +1,4 @@
+import { describe, expect, it } from "@effect/vitest";
 import type { NavigationData } from "@ryot-app/ryotql-recipes/navigation";
 import type {
 	PluginClientCatalog,
@@ -5,8 +6,8 @@ import type {
 } from "@ryot-app/ryotql-recipes/plugin-client-catalog";
 import { fireEvent, render, screen, waitFor, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
+import { Effect } from "effect";
 import { useState } from "react";
-import { describe, expect, it } from "vitest";
 
 import { WorkspaceSwitcher as WorkspaceSwitcherView } from "#/modules/navigation/workspace-switcher";
 
@@ -138,60 +139,64 @@ describe("workspace switcher", () => {
 		expect(within(menu).getByText("Custom workspace · 0 views")).toBeTruthy();
 	});
 
-	// oxlint-disable-next-line effecttsgo/async-function -- Vitest awaits this Promise-based test callback and its framework assertions.
-	it("focuses the current workspace on open and exposes its selection", async () => {
-		const current = workspace();
-		render(
-			<WorkspaceSwitcher
-				current={current}
-				summary="2 views"
-				catalog={[current]}
-				navigation={navigation}
-				onSelect={() => undefined}
-			/>,
-		);
+	it.live("focuses the current workspace on open and exposes its selection", () =>
+		Effect.gen(function* () {
+			const current = workspace();
+			render(
+				<WorkspaceSwitcher
+					current={current}
+					summary="2 views"
+					catalog={[current]}
+					navigation={navigation}
+					onSelect={() => undefined}
+				/>,
+			);
 
-		fireEvent.click(screen.getByRole("button", { name: "Media workspace, media" }));
+			fireEvent.click(screen.getByRole("button", { name: "Media workspace, media" }));
 
-		const item = screen.getByRole("menuitemradio", { name: "Switch to Media workspace" });
-		await waitFor(() => expect(document.activeElement).toBe(item));
-		expect(item.getAttribute("aria-checked")).toBe("true");
-	});
+			const item = screen.getByRole("menuitemradio", { name: "Switch to Media workspace" });
+			yield* Effect.promise(() => waitFor(() => expect(document.activeElement).toBe(item)));
+			expect(item.getAttribute("aria-checked")).toBe("true");
+		}),
+	);
 
-	// oxlint-disable-next-line effecttsgo/async-function -- Vitest awaits this Promise-based test callback and its framework assertions.
-	it("opens from its desktop shortcut and focuses the current workspace", async () => {
-		const current = workspace();
-		const fitness = workspace({
-			sortOrder: 1,
-			name: "Fitness",
-			slug: "fitness",
-			installationId: "installation-fitness",
-		});
-		render(
-			<WorkspaceSwitcher
-				showShortcut
-				summary="2 views"
-				current={current}
-				navigation={navigation}
-				onSelect={() => undefined}
-				catalog={[current, fitness]}
-			/>,
-		);
-		const trigger = screen.getByRole("button", { name: "Media workspace, media" });
+	it.live("opens from its desktop shortcut and focuses the current workspace", () =>
+		Effect.gen(function* () {
+			const current = workspace();
+			const fitness = workspace({
+				sortOrder: 1,
+				name: "Fitness",
+				slug: "fitness",
+				installationId: "installation-fitness",
+			});
+			render(
+				<WorkspaceSwitcher
+					showShortcut
+					summary="2 views"
+					current={current}
+					navigation={navigation}
+					onSelect={() => undefined}
+					catalog={[current, fitness]}
+				/>,
+			);
+			const trigger = screen.getByRole("button", { name: "Media workspace, media" });
 
-		fireEvent.keyDown(document, { key: " ", ctrlKey: true, shiftKey: true });
+			fireEvent.keyDown(document, { key: " ", ctrlKey: true, shiftKey: true });
 
-		const media = screen.getByRole("menuitemradio", { name: "Switch to Media workspace" });
-		const fitnessItem = screen.getByRole("menuitemradio", { name: "Switch to Fitness workspace" });
-		await waitFor(() => expect(document.activeElement).toBe(media));
-		fireEvent.keyDown(screen.getByRole("menu"), { key: "ArrowDown" });
-		await waitFor(() => expect(document.activeElement).toBe(fitnessItem));
-		fireEvent.keyDown(document, { key: " ", ctrlKey: true, shiftKey: true });
-		await waitFor(() => expect(document.activeElement).toBe(media));
-		expect(screen.getByRole("menu", { name: "Workspaces" })).toBeTruthy();
-		expect(trigger.getAttribute("aria-keyshortcuts")).toBe("Mod+Shift+Space");
-		expect(screen.getByText("⌘⇧Space")).toBeTruthy();
-	});
+			const media = screen.getByRole("menuitemradio", { name: "Switch to Media workspace" });
+			const fitnessItem = screen.getByRole("menuitemradio", {
+				name: "Switch to Fitness workspace",
+			});
+			yield* Effect.promise(() => waitFor(() => expect(document.activeElement).toBe(media)));
+			fireEvent.keyDown(screen.getByRole("menu"), { key: "ArrowDown" });
+			yield* Effect.promise(() => waitFor(() => expect(document.activeElement).toBe(fitnessItem)));
+			fireEvent.keyDown(document, { key: " ", ctrlKey: true, shiftKey: true });
+			yield* Effect.promise(() => waitFor(() => expect(document.activeElement).toBe(media)));
+			expect(screen.getByRole("menu", { name: "Workspaces" })).toBeTruthy();
+			expect(trigger.getAttribute("aria-keyshortcuts")).toBe("Mod+Shift+Space");
+			expect(screen.getByText("⌘⇧Space")).toBeTruthy();
+		}),
+	);
 
 	it("renders only from its controlled open value and reports close requests", () => {
 		const changes: boolean[] = [];
@@ -215,43 +220,48 @@ describe("workspace switcher", () => {
 		expect(screen.queryByRole("menu", { name: "Workspaces" })).toBeNull();
 	});
 
-	// oxlint-disable-next-line effecttsgo/async-function -- Vitest awaits this Promise-based test callback and its framework assertions.
-	it("focuses the current workspace when externally reopened after a stale active item", async () => {
-		const current = workspace();
-		const fitness = workspace({
-			sortOrder: 1,
-			name: "Fitness",
-			slug: "fitness",
-			installationId: "installation-fitness",
-		});
-		const journal = workspace({
-			sortOrder: 2,
-			name: "Journal",
-			slug: "journal",
-			installationId: "installation-journal",
-		});
-		const props = {
-			current,
-			navigation,
-			summary: "2 views",
-			onSelect: () => undefined,
-			onOpenChange: () => undefined,
-			catalog: [current, fitness, journal],
-		};
-		const rendered = render(<WorkspaceSwitcherView {...props} open />);
-		const media = screen.getByRole("menuitemradio", { name: "Switch to Media workspace" });
-		const fitnessItem = screen.getByRole("menuitemradio", { name: "Switch to Fitness workspace" });
-		await waitFor(() => expect(document.activeElement).toBe(media));
+	it.live("focuses the current workspace when externally reopened after a stale active item", () =>
+		Effect.gen(function* () {
+			const current = workspace();
+			const fitness = workspace({
+				sortOrder: 1,
+				name: "Fitness",
+				slug: "fitness",
+				installationId: "installation-fitness",
+			});
+			const journal = workspace({
+				sortOrder: 2,
+				name: "Journal",
+				slug: "journal",
+				installationId: "installation-journal",
+			});
+			const props = {
+				current,
+				navigation,
+				summary: "2 views",
+				onSelect: () => undefined,
+				onOpenChange: () => undefined,
+				catalog: [current, fitness, journal],
+			};
+			const rendered = render(<WorkspaceSwitcherView {...props} open />);
+			const media = screen.getByRole("menuitemradio", { name: "Switch to Media workspace" });
+			const fitnessItem = screen.getByRole("menuitemradio", {
+				name: "Switch to Fitness workspace",
+			});
+			yield* Effect.promise(() => waitFor(() => expect(document.activeElement).toBe(media)));
 
-		fireEvent.keyDown(screen.getByRole("menu"), { key: "ArrowDown" });
-		await waitFor(() => expect(document.activeElement).toBe(fitnessItem));
+			fireEvent.keyDown(screen.getByRole("menu"), { key: "ArrowDown" });
+			yield* Effect.promise(() => waitFor(() => expect(document.activeElement).toBe(fitnessItem)));
 
-		rendered.rerender(<WorkspaceSwitcherView {...props} open={false} />);
-		rendered.rerender(<WorkspaceSwitcherView {...props} open current={journal} />);
+			rendered.rerender(<WorkspaceSwitcherView {...props} open={false} />);
+			rendered.rerender(<WorkspaceSwitcherView {...props} open current={journal} />);
 
-		const journalItem = screen.getByRole("menuitemradio", { name: "Switch to Journal workspace" });
-		await waitFor(() => expect(document.activeElement).toBe(journalItem));
-	});
+			const journalItem = screen.getByRole("menuitemradio", {
+				name: "Switch to Journal workspace",
+			});
+			yield* Effect.promise(() => waitFor(() => expect(document.activeElement).toBe(journalItem)));
+		}),
+	);
 
 	it("does not register the desktop shortcut when it is not enabled", () => {
 		const current = workspace();
@@ -275,215 +285,230 @@ describe("workspace switcher", () => {
 		).toBe(null);
 	});
 
-	// oxlint-disable-next-line effecttsgo/async-function -- Vitest awaits this Promise-based test callback and its framework assertions.
-	it("closes when its trigger is clicked while the menu owns focus", async () => {
-		const user = userEvent.setup();
-		const current = workspace();
-		render(
-			<WorkspaceSwitcher
-				current={current}
-				summary="2 views"
-				catalog={[current]}
-				navigation={navigation}
-				onSelect={() => undefined}
-			/>,
-		);
-		const trigger = screen.getByRole("button", { name: "Media workspace, media" });
-		fireEvent.click(trigger);
-		await waitFor(() =>
-			expect(document.activeElement).toBe(
-				screen.getByRole("menuitemradio", { name: "Switch to Media workspace" }),
-			),
-		);
+	it.live("closes when its trigger is clicked while the menu owns focus", () =>
+		Effect.gen(function* () {
+			const user = userEvent.setup();
+			const current = workspace();
+			render(
+				<WorkspaceSwitcher
+					current={current}
+					summary="2 views"
+					catalog={[current]}
+					navigation={navigation}
+					onSelect={() => undefined}
+				/>,
+			);
+			const trigger = screen.getByRole("button", { name: "Media workspace, media" });
+			fireEvent.click(trigger);
+			yield* Effect.promise(() =>
+				waitFor(() =>
+					expect(document.activeElement).toBe(
+						screen.getByRole("menuitemradio", { name: "Switch to Media workspace" }),
+					),
+				),
+			);
 
-		await user.click(trigger);
+			yield* Effect.promise(() => user.click(trigger));
 
-		expect(screen.queryByRole("menu")).toBeNull();
-		expect(document.activeElement).toBe(trigger);
-	});
+			expect(screen.queryByRole("menu")).toBeNull();
+			expect(document.activeElement).toBe(trigger);
+		}),
+	);
 
-	// oxlint-disable-next-line effecttsgo/async-function -- Vitest awaits this Promise-based test callback and its framework assertions.
-	it("dismisses on outside pointer interaction without restoring trigger focus", async () => {
-		const current = workspace();
-		render(
-			<>
+	it.live("dismisses on outside pointer interaction without restoring trigger focus", () =>
+		Effect.gen(function* () {
+			const current = workspace();
+			render(
+				<>
+					<WorkspaceSwitcher
+						summary="2 views"
+						current={current}
+						catalog={[current]}
+						navigation={navigation}
+						onSelect={() => undefined}
+					/>
+					<button type="button">Outside</button>
+				</>,
+			);
+			const trigger = screen.getByRole("button", { name: "Media workspace, media" });
+			fireEvent.click(trigger);
+			yield* Effect.promise(() =>
+				waitFor(() =>
+					expect(document.activeElement).toBe(
+						screen.getByRole("menuitemradio", { name: "Switch to Media workspace" }),
+					),
+				),
+			);
+
+			const outside = screen.getByRole("button", { name: "Outside" });
+			fireEvent.pointerDown(outside);
+			outside.focus();
+
+			expect(screen.queryByRole("menu")).toBeNull();
+			expect(document.activeElement).toBe(outside);
+		}),
+	);
+
+	it.live("does not select the current workspace and restores trigger focus", () =>
+		Effect.gen(function* () {
+			const selections: string[] = [];
+			const current = workspace();
+			render(
 				<WorkspaceSwitcher
 					summary="2 views"
 					current={current}
 					catalog={[current]}
 					navigation={navigation}
-					onSelect={() => undefined}
-				/>
-				<button type="button">Outside</button>
-			</>,
-		);
-		const trigger = screen.getByRole("button", { name: "Media workspace, media" });
-		fireEvent.click(trigger);
-		await waitFor(() =>
-			expect(document.activeElement).toBe(
-				screen.getByRole("menuitemradio", { name: "Switch to Media workspace" }),
-			),
-		);
+					onSelect={(slug) => {
+						selections.push(slug);
+					}}
+				/>,
+			);
+			const trigger = screen.getByRole("button", { name: "Media workspace, media" });
+			fireEvent.click(trigger);
 
-		const outside = screen.getByRole("button", { name: "Outside" });
-		fireEvent.pointerDown(outside);
-		outside.focus();
+			fireEvent.click(screen.getByRole("menuitemradio", { name: "Switch to Media workspace" }));
 
-		expect(screen.queryByRole("menu")).toBeNull();
-		expect(document.activeElement).toBe(outside);
-	});
+			yield* Effect.promise(() => waitFor(() => expect(document.activeElement).toBe(trigger)));
+			expect(screen.queryByRole("menu")).toBeNull();
+			expect(selections).toEqual([]);
+		}),
+	);
 
-	// oxlint-disable-next-line effecttsgo/async-function -- Vitest awaits this Promise-based test callback and its framework assertions.
-	it("does not select the current workspace and restores trigger focus", async () => {
-		const selections: string[] = [];
-		const current = workspace();
-		render(
-			<WorkspaceSwitcher
-				summary="2 views"
-				current={current}
-				catalog={[current]}
-				navigation={navigation}
-				onSelect={(slug) => {
-					selections.push(slug);
-				}}
-			/>,
-		);
-		const trigger = screen.getByRole("button", { name: "Media workspace, media" });
-		fireEvent.click(trigger);
-
-		fireEvent.click(screen.getByRole("menuitemradio", { name: "Switch to Media workspace" }));
-
-		await waitFor(() => expect(document.activeElement).toBe(trigger));
-		expect(screen.queryByRole("menu")).toBeNull();
-		expect(selections).toEqual([]);
-	});
-
-	// oxlint-disable-next-line effecttsgo/async-function -- Vitest awaits this Promise-based test callback and its framework assertions.
-	it("closes and restores trigger focus before selecting another workspace", async () => {
-		const current = workspace();
-		const observations: Array<{ focused: boolean; open: boolean; slug: string }> = [];
-		render(
-			<WorkspaceSwitcher
-				current={current}
-				summary="2 views"
-				navigation={navigation}
-				catalog={[
-					current,
-					workspace({ name: "Fitness", slug: "fitness", installationId: "installation-fitness" }),
-				]}
-				onSelect={(slug) => {
-					observations.push({
-						slug,
-						open: screen.queryByRole("menu") !== null,
-						focused: document.activeElement === trigger,
-					});
-				}}
-			/>,
-		);
-		const trigger = screen.getByRole("button", { name: "Media workspace, media" });
-		fireEvent.click(trigger);
-
-		fireEvent.click(screen.getByRole("menuitemradio", { name: "Switch to Fitness workspace" }));
-
-		await waitFor(() =>
-			expect(observations).toEqual([{ open: false, focused: true, slug: "fitness" }]),
-		);
-	});
-
-	// oxlint-disable-next-line effecttsgo/async-function -- Vitest awaits this Promise-based test callback and its framework assertions.
-	it("closes with Escape and restores trigger focus", async () => {
-		const current = workspace();
-		render(
-			<WorkspaceSwitcher
-				current={current}
-				summary="2 views"
-				catalog={[current]}
-				navigation={navigation}
-				onSelect={() => undefined}
-			/>,
-		);
-		const trigger = screen.getByRole("button", { name: "Media workspace, media" });
-		fireEvent.click(trigger);
-
-		fireEvent.keyDown(screen.getByRole("menu"), { key: "Escape" });
-
-		await waitFor(() => expect(document.activeElement).toBe(trigger));
-		expect(screen.queryByRole("menu")).toBeNull();
-	});
-
-	// oxlint-disable-next-line effecttsgo/async-function -- Vitest awaits this Promise-based test callback and its framework assertions.
-	it("moves through workspace choices with arrow, Home, and End keys", async () => {
-		const current = workspace();
-		render(
-			<WorkspaceSwitcher
-				summary="2 views"
-				current={current}
-				navigation={navigation}
-				onSelect={() => undefined}
-				catalog={[
-					current,
-					workspace({
-						sortOrder: 1,
-						name: "Fitness",
-						slug: "fitness",
-						installationId: "installation-fitness",
-					}),
-					workspace({
-						sortOrder: 2,
-						name: "Journal",
-						slug: "journal",
-						installationId: "installation-journal",
-					}),
-				]}
-			/>,
-		);
-		fireEvent.click(screen.getByRole("button", { name: "Media workspace, media" }));
-		const menu = screen.getByRole("menu");
-		const media = screen.getByRole("menuitemradio", { name: "Switch to Media workspace" });
-		const fitness = screen.getByRole("menuitemradio", { name: "Switch to Fitness workspace" });
-		const journal = screen.getByRole("menuitemradio", { name: "Switch to Journal workspace" });
-		await waitFor(() => expect(document.activeElement).toBe(media));
-
-		fireEvent.keyDown(menu, { key: "ArrowDown" });
-		await waitFor(() => expect(document.activeElement).toBe(fitness));
-		fireEvent.keyDown(menu, { key: "End" });
-		await waitFor(() => expect(document.activeElement).toBe(journal));
-		fireEvent.keyDown(menu, { key: "ArrowDown" });
-		await waitFor(() => expect(document.activeElement).toBe(media));
-		fireEvent.keyDown(menu, { key: "ArrowUp" });
-		await waitFor(() => expect(document.activeElement).toBe(journal));
-		fireEvent.keyDown(menu, { key: "Home" });
-		await waitFor(() => expect(document.activeElement).toBe(media));
-	});
-
-	// oxlint-disable-next-line effecttsgo/async-function -- Vitest awaits this Promise-based test callback and its framework assertions.
-	it("closes on Tab departure without pulling focus back", async () => {
-		const user = userEvent.setup();
-		const current = workspace();
-		render(
-			<>
+	it.live("closes and restores trigger focus before selecting another workspace", () =>
+		Effect.gen(function* () {
+			const current = workspace();
+			const observations: Array<{ focused: boolean; open: boolean; slug: string }> = [];
+			render(
 				<WorkspaceSwitcher
-					summary="2 views"
 					current={current}
+					summary="2 views"
+					navigation={navigation}
+					catalog={[
+						current,
+						workspace({ name: "Fitness", slug: "fitness", installationId: "installation-fitness" }),
+					]}
+					onSelect={(slug) => {
+						observations.push({
+							slug,
+							open: screen.queryByRole("menu") !== null,
+							focused: document.activeElement === trigger,
+						});
+					}}
+				/>,
+			);
+			const trigger = screen.getByRole("button", { name: "Media workspace, media" });
+			fireEvent.click(trigger);
+
+			fireEvent.click(screen.getByRole("menuitemradio", { name: "Switch to Fitness workspace" }));
+
+			yield* Effect.promise(() =>
+				waitFor(() =>
+					expect(observations).toEqual([{ open: false, focused: true, slug: "fitness" }]),
+				),
+			);
+		}),
+	);
+
+	it.live("closes with Escape and restores trigger focus", () =>
+		Effect.gen(function* () {
+			const current = workspace();
+			render(
+				<WorkspaceSwitcher
+					current={current}
+					summary="2 views"
 					catalog={[current]}
 					navigation={navigation}
 					onSelect={() => undefined}
-				/>
-				<button type="button">After switcher</button>
-			</>,
-		);
-		fireEvent.click(screen.getByRole("button", { name: "Media workspace, media" }));
-		await waitFor(() =>
-			expect(document.activeElement).toBe(
-				screen.getByRole("menuitemradio", { name: "Switch to Media workspace" }),
-			),
-		);
+				/>,
+			);
+			const trigger = screen.getByRole("button", { name: "Media workspace, media" });
+			fireEvent.click(trigger);
 
-		await user.tab();
+			fireEvent.keyDown(screen.getByRole("menu"), { key: "Escape" });
 
-		expect(screen.queryByRole("menu")).toBeNull();
-		expect(document.activeElement).toBe(screen.getByRole("button", { name: "After switcher" }));
-	});
+			yield* Effect.promise(() => waitFor(() => expect(document.activeElement).toBe(trigger)));
+			expect(screen.queryByRole("menu")).toBeNull();
+		}),
+	);
+
+	it.live("moves through workspace choices with arrow, Home, and End keys", () =>
+		Effect.gen(function* () {
+			const current = workspace();
+			render(
+				<WorkspaceSwitcher
+					summary="2 views"
+					current={current}
+					navigation={navigation}
+					onSelect={() => undefined}
+					catalog={[
+						current,
+						workspace({
+							sortOrder: 1,
+							name: "Fitness",
+							slug: "fitness",
+							installationId: "installation-fitness",
+						}),
+						workspace({
+							sortOrder: 2,
+							name: "Journal",
+							slug: "journal",
+							installationId: "installation-journal",
+						}),
+					]}
+				/>,
+			);
+			fireEvent.click(screen.getByRole("button", { name: "Media workspace, media" }));
+			const menu = screen.getByRole("menu");
+			const media = screen.getByRole("menuitemradio", { name: "Switch to Media workspace" });
+			const fitness = screen.getByRole("menuitemradio", { name: "Switch to Fitness workspace" });
+			const journal = screen.getByRole("menuitemradio", { name: "Switch to Journal workspace" });
+			yield* Effect.promise(() => waitFor(() => expect(document.activeElement).toBe(media)));
+
+			fireEvent.keyDown(menu, { key: "ArrowDown" });
+			yield* Effect.promise(() => waitFor(() => expect(document.activeElement).toBe(fitness)));
+			fireEvent.keyDown(menu, { key: "End" });
+			yield* Effect.promise(() => waitFor(() => expect(document.activeElement).toBe(journal)));
+			fireEvent.keyDown(menu, { key: "ArrowDown" });
+			yield* Effect.promise(() => waitFor(() => expect(document.activeElement).toBe(media)));
+			fireEvent.keyDown(menu, { key: "ArrowUp" });
+			yield* Effect.promise(() => waitFor(() => expect(document.activeElement).toBe(journal)));
+			fireEvent.keyDown(menu, { key: "Home" });
+			yield* Effect.promise(() => waitFor(() => expect(document.activeElement).toBe(media)));
+		}),
+	);
+
+	it.live("closes on Tab departure without pulling focus back", () =>
+		Effect.gen(function* () {
+			const user = userEvent.setup();
+			const current = workspace();
+			render(
+				<>
+					<WorkspaceSwitcher
+						summary="2 views"
+						current={current}
+						catalog={[current]}
+						navigation={navigation}
+						onSelect={() => undefined}
+					/>
+					<button type="button">After switcher</button>
+				</>,
+			);
+			fireEvent.click(screen.getByRole("button", { name: "Media workspace, media" }));
+			yield* Effect.promise(() =>
+				waitFor(() =>
+					expect(document.activeElement).toBe(
+						screen.getByRole("menuitemradio", { name: "Switch to Media workspace" }),
+					),
+				),
+			);
+
+			yield* Effect.promise(() => user.tab());
+
+			expect(screen.queryByRole("menu")).toBeNull();
+			expect(document.activeElement).toBe(screen.getByRole("button", { name: "After switcher" }));
+		}),
+	);
 
 	it("offers no customize entry when the consumer supplies no handler", () => {
 		const current = workspace();
@@ -522,28 +547,31 @@ describe("workspace switcher", () => {
 		return waitFor(() => expect(events).toEqual(["closed"]));
 	});
 
-	// oxlint-disable-next-line effecttsgo/async-function -- Vitest awaits this Promise-based test callback and its framework assertions.
-	it("walks the arrow keys past the workspaces onto the customize entry", async () => {
-		const current = workspace();
-		render(
-			<WorkspaceSwitcher
-				current={current}
-				summary="2 views"
-				catalog={[current]}
-				navigation={navigation}
-				onSelect={() => undefined}
-				onCustomize={() => undefined}
-			/>,
-		);
+	it.live("walks the arrow keys past the workspaces onto the customize entry", () =>
+		Effect.gen(function* () {
+			const current = workspace();
+			render(
+				<WorkspaceSwitcher
+					current={current}
+					summary="2 views"
+					catalog={[current]}
+					navigation={navigation}
+					onSelect={() => undefined}
+					onCustomize={() => undefined}
+				/>,
+			);
 
-		fireEvent.click(screen.getByRole("button", { name: "Media workspace, media" }));
-		const menu = screen.getByRole("menu", { name: "Workspaces" });
-		fireEvent.keyDown(menu, { key: "ArrowDown" });
+			fireEvent.click(screen.getByRole("button", { name: "Media workspace, media" }));
+			const menu = screen.getByRole("menu", { name: "Workspaces" });
+			fireEvent.keyDown(menu, { key: "ArrowDown" });
 
-		await waitFor(() =>
-			expect(document.activeElement).toBe(
-				screen.getByRole("menuitem", { name: "Customize sidebar" }),
-			),
-		);
-	});
+			yield* Effect.promise(() =>
+				waitFor(() =>
+					expect(document.activeElement).toBe(
+						screen.getByRole("menuitem", { name: "Customize sidebar" }),
+					),
+				),
+			);
+		}),
+	);
 });

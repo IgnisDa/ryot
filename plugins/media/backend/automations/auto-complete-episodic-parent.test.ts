@@ -1,9 +1,9 @@
+import { describe, expect, it } from "@effect/vitest";
 import type { AutomationInput } from "@ryot-app/sandbox-sdk/automation";
 import type { CreateEventItem } from "@ryot-app/sandbox-sdk/core";
 import { Effect } from "@ryot-app/sandbox-sdk/effect";
 import type { RyotQLDocument } from "@ryot-app/sandbox-sdk/ryotql";
 import { defineSandboxTestHost } from "@ryot-app/sandbox-sdk/testing";
-import { describe, expect, it } from "vitest";
 
 import type { EpisodicLifecycleState } from "../../shared/lifecycle-expressions";
 import {
@@ -230,15 +230,16 @@ describe("auto-complete-episodic-parent sandbox script", () => {
 		});
 	});
 
-	// oxlint-disable-next-line effecttsgo/async-function -- Vitest awaits this Promise-returning test callback.
-	it("requires an episode completion session", async () => {
-		const testHost = createHost([completeCoverage()]);
-		await Effect.runPromise(run(eventContext({ sessionEntityId: undefined }), testHost.host));
-		expect(testHost.queryCount).toBe(0);
-		expect(testHost.claims).toEqual([]);
-	});
+	it.live("requires an episode completion session", () =>
+		Effect.gen(function* () {
+			const testHost = createHost([completeCoverage()]);
+			yield* run(eventContext({ sessionEntityId: undefined }), testHost.host);
+			expect(testHost.queryCount).toBe(0);
+			expect(testHost.claims).toEqual([]);
+		}),
+	);
 
-	it.each([
+	it.live.each([
 		{
 			name: "occurredAt",
 			boundary: {
@@ -263,440 +264,461 @@ describe("auto-complete-episodic-parent sandbox script", () => {
 				occurredAt: "2026-01-04T00:00:00.000Z",
 			},
 		},
-		// oxlint-disable-next-line effecttsgo/async-function -- Vitest awaits this Promise-returning test callback.
-	])("ignores event triggers at or before the boundary by $name", async ({ boundary }) => {
-		const testHost = createHost([{ ...completeCoverage(), boundary }]);
-		await Effect.runPromise(run(eventContext(), testHost.host));
-		expect(testHost.claims).toEqual([]);
-		expect(testHost.created).toEqual([]);
-	});
+	])("ignores event triggers at or before the boundary by $name", ({ boundary }) =>
+		Effect.gen(function* () {
+			const testHost = createHost([{ ...completeCoverage(), boundary }]);
+			yield* run(eventContext(), testHost.host);
+			expect(testHost.claims).toEqual([]);
+			expect(testHost.created).toEqual([]);
+		}),
+	);
 
-	it.each([
+	it.live.each([
 		{
 			name: "incomplete coverage",
 			fixture: { ...completeCoverage(), coverageComplete: false, state: "in_progress" as const },
 		},
 		{ name: "nonterminal status", fixture: completeCoverage("Continuing") },
 		{ name: "unknown status", fixture: completeCoverage("Unknown") },
-		// oxlint-disable-next-line effecttsgo/async-function -- Vitest awaits this Promise-returning test callback.
-	])("does not claim for $name", async ({ fixture }) => {
-		const testHost = createHost([fixture]);
-		await Effect.runPromise(run(eventContext(), testHost.host));
-		expect(testHost.claims).toEqual([]);
-		expect(testHost.created).toEqual([]);
-	});
+	])("does not claim for $name", ({ fixture }) =>
+		Effect.gen(function* () {
+			const testHost = createHost([fixture]);
+			yield* run(eventContext(), testHost.host);
+			expect(testHost.claims).toEqual([]);
+			expect(testHost.created).toEqual([]);
+		}),
+	);
 
-	// oxlint-disable-next-line effecttsgo/async-function -- Vitest awaits this Promise-returning test callback.
-	it("does not complete a show with zero regular seasons", async () => {
-		const fixture: SnapshotFixture = {
-			events: [],
-			state: "untracked",
-			requiredEpisodeIds: [],
-			coverageComplete: false,
-			productionStatus: "Ended",
-			coverageStructureValid: false,
-		};
-		const testHost = createHost([fixture]);
-		await Effect.runPromise(run(eventContext(), testHost.host));
-		expect(testHost.claims).toEqual([]);
-		expect(testHost.created).toEqual([]);
-		expect(testHost.documents.at(-1)).toMatchObject({
-			queries: {
-				parent: {
-					output: {
-						fields: expect.arrayContaining([
-							expect.objectContaining({ key: "coverageStructureValid" }),
-						]),
+	it.live("does not complete a show with zero regular seasons", () =>
+		Effect.gen(function* () {
+			const fixture: SnapshotFixture = {
+				events: [],
+				state: "untracked",
+				requiredEpisodeIds: [],
+				coverageComplete: false,
+				productionStatus: "Ended",
+				coverageStructureValid: false,
+			};
+			const testHost = createHost([fixture]);
+			yield* run(eventContext(), testHost.host);
+			expect(testHost.claims).toEqual([]);
+			expect(testHost.created).toEqual([]);
+			expect(testHost.documents.at(-1)).toMatchObject({
+				queries: {
+					parent: {
+						output: {
+							fields: expect.arrayContaining([
+								expect.objectContaining({ key: "coverageStructureValid" }),
+							]),
+						},
 					},
 				},
-			},
-		});
-	});
+			});
+		}),
+	);
 
-	// oxlint-disable-next-line effecttsgo/async-function -- Vitest awaits this Promise-returning test callback.
-	it("excludes season-zero and unaired episodes from aggregate coverage", async () => {
-		const fixture: SnapshotFixture = {
-			events: [],
-			state: "untracked",
-			requiredEpisodeIds: [],
-			coverageComplete: false,
-			productionStatus: "Ended",
-			coverageStructureValid: false,
-		};
-		const testHost = createHost([fixture]);
-		await Effect.runPromise(run(eventContext(), testHost.host));
-		const document = testHost.documents[0];
-		expect(JSON.stringify(document)).toContain('"seasonNumber"');
-		expect(JSON.stringify(document)).toContain('"operator":"gt"');
-		expect(JSON.stringify(document)).toContain('"publishDate"');
-		expect(JSON.stringify(document)).toContain('"type":"currentDate"');
-		expect(testHost.claims).toEqual([]);
-		expect(testHost.created).toEqual([]);
-	});
+	it.live("excludes season-zero and unaired episodes from aggregate coverage", () =>
+		Effect.gen(function* () {
+			const fixture: SnapshotFixture = {
+				events: [],
+				state: "untracked",
+				requiredEpisodeIds: [],
+				coverageComplete: false,
+				productionStatus: "Ended",
+				coverageStructureValid: false,
+			};
+			const testHost = createHost([fixture]);
+			yield* run(eventContext(), testHost.host);
+			const document = testHost.documents[0];
+			expect(JSON.stringify(document)).toContain('"seasonNumber"');
+			expect(JSON.stringify(document)).toContain('"operator":"gt"');
+			expect(JSON.stringify(document)).toContain('"publishDate"');
+			expect(JSON.stringify(document)).toContain('"type":"currentDate"');
+			expect(testHost.claims).toEqual([]);
+			expect(testHost.created).toEqual([]);
+		}),
+	);
 
-	// oxlint-disable-next-line effecttsgo/async-function -- Vitest awaits this Promise-returning test callback.
-	it("does not combine pre-boundary completions with current-cycle coverage", async () => {
-		const boundary = {
-			id: "parent-complete-1",
-			createdAt: "2026-01-05T00:00:00.000Z",
-			occurredAt: "2026-01-05T00:00:00.000Z",
-		};
-		const fixture: SnapshotFixture = {
-			boundary,
-			state: "in_progress",
-			coverageComplete: false,
-			productionStatus: "Ended",
-			requiredEpisodeIds: ["episode-1", "episode-2"],
-			events: [childEvent("rewatch-1", "episode-1", "complete", "2026-01-06T00:00:00.000Z")],
-		};
-		const testHost = createHost([fixture]);
-		await Effect.runPromise(
-			run(
+	it.live("does not combine pre-boundary completions with current-cycle coverage", () =>
+		Effect.gen(function* () {
+			const boundary = {
+				id: "parent-complete-1",
+				createdAt: "2026-01-05T00:00:00.000Z",
+				occurredAt: "2026-01-05T00:00:00.000Z",
+			};
+			const fixture: SnapshotFixture = {
+				boundary,
+				state: "in_progress",
+				coverageComplete: false,
+				productionStatus: "Ended",
+				requiredEpisodeIds: ["episode-1", "episode-2"],
+				events: [childEvent("rewatch-1", "episode-1", "complete", "2026-01-06T00:00:00.000Z")],
+			};
+			const testHost = createHost([fixture]);
+			yield* run(
 				eventContext({
 					id: "rewatch-1",
 					createdAt: "2026-01-06T00:00:00.000Z",
 					occurredAt: "2026-01-06T00:00:00.000Z",
 				}),
 				testHost.host,
-			),
-		);
-		expect(JSON.stringify(testHost.documents[0])).toContain(
-			'"tableAlias":"lifecycleSnapshotCompletionEpisodeBoundary"',
-		);
-		expect(testHost.claims).toEqual([]);
-		expect(testHost.created).toEqual([]);
-	});
+			);
+			expect(JSON.stringify(testHost.documents[0])).toContain(
+				'"tableAlias":"lifecycleSnapshotCompletionEpisodeBoundary"',
+			);
+			expect(testHost.claims).toEqual([]);
+			expect(testHost.created).toEqual([]);
+		}),
+	);
 
-	// oxlint-disable-next-line effecttsgo/async-function -- Vitest awaits this Promise-returning test callback.
-	it("later progress reopens coverage after a closing completion", async () => {
-		const fixture: SnapshotFixture = {
-			state: "in_progress",
-			coverageComplete: false,
-			productionStatus: "Ended",
-			requiredEpisodeIds: ["episode-1", "episode-2"],
-			events: [
-				childEvent("complete-1", "episode-1", "complete", "2026-01-01T00:00:00.000Z"),
-				childEvent("complete-2", "episode-2", "complete", "2026-01-02T00:00:00.000Z"),
-				childEvent("progress-1", "episode-1", "progress", "2026-01-03T00:00:00.000Z"),
-			],
-		};
-		const testHost = createHost([fixture]);
-		await Effect.runPromise(run(eventContext(), testHost.host));
-		expect(testHost.claims).toEqual([]);
-		expect(testHost.created).toEqual([]);
-	});
+	it.live("later progress reopens coverage after a closing completion", () =>
+		Effect.gen(function* () {
+			const fixture: SnapshotFixture = {
+				state: "in_progress",
+				coverageComplete: false,
+				productionStatus: "Ended",
+				requiredEpisodeIds: ["episode-1", "episode-2"],
+				events: [
+					childEvent("complete-1", "episode-1", "complete", "2026-01-01T00:00:00.000Z"),
+					childEvent("complete-2", "episode-2", "complete", "2026-01-02T00:00:00.000Z"),
+					childEvent("progress-1", "episode-1", "progress", "2026-01-03T00:00:00.000Z"),
+				],
+			};
+			const testHost = createHost([fixture]);
+			yield* run(eventContext(), testHost.host);
+			expect(testHost.claims).toEqual([]);
+			expect(testHost.created).toEqual([]);
+		}),
+	);
 
-	// oxlint-disable-next-line effecttsgo/async-function -- Vitest awaits this Promise-returning test callback.
-	it("duplicate completion does not move the coverage-closing event", async () => {
-		const fixture = {
-			...completeCoverage(),
-			events: [
-				...completeCoverage().events,
-				childEvent("duplicate", "episode-2", "complete", "2026-01-04T00:00:00.000Z", "Plex"),
-			],
-		};
-		const testHost = createHost([fixture, fixture]);
-		await Effect.runPromise(
-			run(
+	it.live("duplicate completion does not move the coverage-closing event", () =>
+		Effect.gen(function* () {
+			const fixture = {
+				...completeCoverage(),
+				events: [
+					...completeCoverage().events,
+					childEvent("duplicate", "episode-2", "complete", "2026-01-04T00:00:00.000Z", "Plex"),
+				],
+			};
+			const testHost = createHost([fixture, fixture]);
+			yield* run(
 				eventContext({
 					id: "duplicate",
 					createdAt: "2026-01-04T00:00:00.000Z",
 					occurredAt: "2026-01-04T00:00:00.000Z",
 				}),
 				testHost.host,
-			),
-		);
+			);
 
-		expect(testHost.claims).toEqual([
-			["media-parent-completion:show-1:initial", true, PARENT_COMPLETION_CLAIM_TTL_SECONDS],
-		]);
-		expect(testHost.created).toEqual([
-			[
-				{
-					entityId: "show-1",
-					sessionEntityId: "show-1",
-					eventSchemaSlug: "complete",
-					occurredAt: "2026-01-03T00:00:00.000Z",
-					properties: {
-						consumedOn: "Plex",
-						completionMode: "custom_timestamps",
-						completedOn: "2026-01-03T00:00:00.000Z",
+			expect(testHost.claims).toEqual([
+				["media-parent-completion:show-1:initial", true, PARENT_COMPLETION_CLAIM_TTL_SECONDS],
+			]);
+			expect(testHost.created).toEqual([
+				[
+					{
+						entityId: "show-1",
+						sessionEntityId: "show-1",
+						eventSchemaSlug: "complete",
+						occurredAt: "2026-01-03T00:00:00.000Z",
+						properties: {
+							consumedOn: "Plex",
+							completionMode: "custom_timestamps",
+							completedOn: "2026-01-03T00:00:00.000Z",
+						},
 					},
-				},
-			],
-		]);
-	});
+				],
+			]);
+		}),
+	);
 
-	// oxlint-disable-next-line effecttsgo/async-function -- Vitest awaits this Promise-returning test callback.
-	it("stops immediately when the claim is held", async () => {
-		const testHost = createHost([completeCoverage()], { claimed: false });
-		await Effect.runPromise(run(eventContext(), testHost.host));
-		expect(testHost.queryCount).toBe(1);
-		expect(testHost.created).toEqual([]);
-	});
+	it.live("stops immediately when the claim is held", () =>
+		Effect.gen(function* () {
+			const testHost = createHost([completeCoverage()], { claimed: false });
+			yield* run(eventContext(), testHost.host);
+			expect(testHost.queryCount).toBe(1);
+			expect(testHost.created).toEqual([]);
+		}),
+	);
 
-	// oxlint-disable-next-line effecttsgo/async-function -- Vitest awaits this Promise-returning test callback.
-	it("rechecks lifecycle state after a successful claim", async () => {
-		const testHost = createHost([
-			completeCoverage(),
-			{ ...completeCoverage(), state: "complete", coverageComplete: false },
-		]);
-		await Effect.runPromise(run(eventContext(), testHost.host));
-		expect(testHost.queryCount).toBe(2);
-		expect(testHost.created).toEqual([]);
-	});
+	it.live("rechecks lifecycle state after a successful claim", () =>
+		Effect.gen(function* () {
+			const testHost = createHost([
+				completeCoverage(),
+				{ ...completeCoverage(), state: "complete", coverageComplete: false },
+			]);
+			yield* run(eventContext(), testHost.host);
+			expect(testHost.queryCount).toBe(2);
+			expect(testHost.created).toEqual([]);
+		}),
+	);
 
-	// oxlint-disable-next-line effecttsgo/async-function -- Vitest awaits this Promise-returning test callback.
-	it("uses the latest parent-completion boundary in the claim key", async () => {
-		const boundary = {
-			id: "parent-complete-1",
-			createdAt: "2026-01-01T00:00:00.000Z",
-			occurredAt: "2026-01-01T00:00:00.000Z",
-		};
-		const fixture = { ...completeCoverage(), boundary };
-		const testHost = createHost([fixture, fixture]);
-		await Effect.runPromise(run(eventContext(), testHost.host));
-		expect(testHost.claims[0]).toEqual([
-			"media-parent-completion:show-1:parent-complete-1",
-			true,
-			3600,
-		]);
-	});
-
-	// oxlint-disable-next-line effecttsgo/async-function -- Vitest awaits this Promise-returning test callback.
-	it("does not let an old event trigger close a cycle whose boundary advanced after claiming", async () => {
-		const current = {
-			...completeCoverage(),
-			boundary: {
+	it.live("uses the latest parent-completion boundary in the claim key", () =>
+		Effect.gen(function* () {
+			const boundary = {
 				id: "parent-complete-1",
-				createdAt: "2026-01-05T00:00:00.000Z",
-				occurredAt: "2026-01-05T00:00:00.000Z",
-			},
-			events: [
-				childEvent("rewatch-1", "episode-1", "complete", "2026-01-06T00:00:00.000Z"),
-				childEvent("rewatch-2", "episode-2", "complete", "2026-01-07T00:00:00.000Z"),
-			],
-		};
-		const testHost = createHost([completeCoverage(), current]);
-		await Effect.runPromise(run(eventContext(), testHost.host));
-		expect(testHost.claims).toHaveLength(1);
-		expect(testHost.created).toEqual([]);
-	});
+				createdAt: "2026-01-01T00:00:00.000Z",
+				occurredAt: "2026-01-01T00:00:00.000Z",
+			};
+			const fixture = { ...completeCoverage(), boundary };
+			const testHost = createHost([fixture, fixture]);
+			yield* run(eventContext(), testHost.host);
+			expect(testHost.claims[0]).toEqual([
+				"media-parent-completion:show-1:parent-complete-1",
+				true,
+				3600,
+			]);
+		}),
+	);
 
-	// oxlint-disable-next-line effecttsgo/async-function -- Vitest awaits this Promise-returning test callback.
-	it("uses one claim key for concurrent final candidates and creates one event", async () => {
-		let held = false;
-		const claims: Array<readonly [string, boolean, number]> = [];
-		const created: CreateEventItem[][] = [];
-		const claim = (_key: string, _value: boolean, _ttl: number) => {
-			if (held) {
-				return hostSuccess({ value: null, claimed: false as const });
-			}
-			held = true;
-			return hostSuccess({ claimed: true as const });
-		};
-		const first = createHost([completeCoverage(), completeCoverage()], { claim, claims, created });
-		const second = createHost([completeCoverage(), completeCoverage()], { claim, claims, created });
-
-		await Effect.runPromise(
-			Effect.all([run(eventContext(), first.host), run(eventContext(), second.host)], {
-				concurrency: "unbounded",
+	it.live(
+		"does not let an old event trigger close a cycle whose boundary advanced after claiming",
+		() =>
+			Effect.gen(function* () {
+				const current = {
+					...completeCoverage(),
+					boundary: {
+						id: "parent-complete-1",
+						createdAt: "2026-01-05T00:00:00.000Z",
+						occurredAt: "2026-01-05T00:00:00.000Z",
+					},
+					events: [
+						childEvent("rewatch-1", "episode-1", "complete", "2026-01-06T00:00:00.000Z"),
+						childEvent("rewatch-2", "episode-2", "complete", "2026-01-07T00:00:00.000Z"),
+					],
+				};
+				const testHost = createHost([completeCoverage(), current]);
+				yield* run(eventContext(), testHost.host);
+				expect(testHost.claims).toHaveLength(1);
+				expect(testHost.created).toEqual([]);
 			}),
-		);
-		expect(claims).toEqual([
-			["media-parent-completion:show-1:initial", true, 3600],
-			["media-parent-completion:show-1:initial", true, 3600],
-		]);
-		expect(created).toHaveLength(1);
-	});
+	);
 
-	// oxlint-disable-next-line effecttsgo/async-function -- Vitest awaits this Promise-returning test callback.
-	it("uses one aggregate query per snapshot for more than 100 episodes", async () => {
-		const firstEpisodeIds = Array.from(
-			{ length: 100 },
-			(_, index) => `episode-${String(index + 1).padStart(3, "0")}`,
-		);
-		const finalEpisodeId = "episode-101";
-		const firstEventPage = firstEpisodeIds.map((entityId, index) =>
-			childEvent(
-				`complete-${index + 1}`,
-				entityId,
+	it.live("uses one claim key for concurrent final candidates and creates one event", () =>
+		Effect.gen(function* () {
+			let held = false;
+			const claims: Array<readonly [string, boolean, number]> = [];
+			const created: CreateEventItem[][] = [];
+			const claim = (_key: string, _value: boolean, _ttl: number) => {
+				if (held) {
+					return hostSuccess({ value: null, claimed: false as const });
+				}
+				held = true;
+				return hostSuccess({ claimed: true as const });
+			};
+			const first = createHost([completeCoverage(), completeCoverage()], {
+				claim,
+				claims,
+				created,
+			});
+			const second = createHost([completeCoverage(), completeCoverage()], {
+				claim,
+				claims,
+				created,
+			});
+
+			yield* Effect.all([run(eventContext(), first.host), run(eventContext(), second.host)], {
+				concurrency: "unbounded",
+			});
+			expect(claims).toEqual([
+				["media-parent-completion:show-1:initial", true, 3600],
+				["media-parent-completion:show-1:initial", true, 3600],
+			]);
+			expect(created).toHaveLength(1);
+		}),
+	);
+
+	it.live("uses one aggregate query per snapshot for more than 100 episodes", () =>
+		Effect.gen(function* () {
+			const firstEpisodeIds = Array.from(
+				{ length: 100 },
+				(_, index) => `episode-${String(index + 1).padStart(3, "0")}`,
+			);
+			const finalEpisodeId = "episode-101";
+			const firstEventPage = firstEpisodeIds.map((entityId, index) =>
+				childEvent(
+					`complete-${index + 1}`,
+					entityId,
+					"complete",
+					new Date(Date.UTC(2026, 0, 1, 0, index)).toISOString(),
+				),
+			);
+			const finalEvent = childEvent(
+				"complete-101",
+				finalEpisodeId,
 				"complete",
-				new Date(Date.UTC(2026, 0, 1, 0, index)).toISOString(),
-			),
-		);
-		const finalEvent = childEvent(
-			"complete-101",
-			finalEpisodeId,
-			"complete",
-			new Date(Date.UTC(2026, 0, 1, 0, 100)).toISOString(),
-		);
-		const fixture: SnapshotFixture = {
-			state: "caught_up",
-			coverageComplete: true,
-			productionStatus: "Ended",
-			events: [...firstEventPage, finalEvent],
-			requiredEpisodeIds: [...firstEpisodeIds, finalEpisodeId],
-		};
-		const testHost = createHost([fixture, fixture]);
-		await Effect.runPromise(
-			run(
+				new Date(Date.UTC(2026, 0, 1, 0, 100)).toISOString(),
+			);
+			const fixture: SnapshotFixture = {
+				state: "caught_up",
+				coverageComplete: true,
+				productionStatus: "Ended",
+				events: [...firstEventPage, finalEvent],
+				requiredEpisodeIds: [...firstEpisodeIds, finalEpisodeId],
+			};
+			const testHost = createHost([fixture, fixture]);
+			yield* run(
 				eventContext({
 					id: finalEvent.id,
 					createdAt: finalEvent.createdAt,
 					occurredAt: finalEvent.occurredAt,
 				}),
 				testHost.host,
-			),
-		);
-		expect(testHost.queryCount).toBe(2);
-		expect(testHost.documents.map(({ queries }) => Object.keys(queries))).toEqual([
-			["parent"],
-			["parent"],
-		]);
-		expect(testHost.created).toHaveLength(1);
-		expect(testHost.created[0]?.[0]?.occurredAt).toBe(finalEvent.occurredAt);
-	});
+			);
+			expect(testHost.queryCount).toBe(2);
+			expect(testHost.documents.map(({ queries }) => Object.keys(queries))).toEqual([
+				["parent"],
+				["parent"],
+			]);
+			expect(testHost.created).toHaveLength(1);
+			expect(testHost.created[0]?.[0]?.occurredAt).toBe(finalEvent.occurredAt);
+		}),
+	);
 
-	it.each([
+	it.live.each([
 		["Continuing", "Ended"],
 		["Unknown", "CANCELED"],
 		["Continuing", "cancelled"],
-		// oxlint-disable-next-line effecttsgo/async-function -- Vitest awaits this Promise-returning test callback.
-	])("completes caught-up parents on %s to %s", async (oldStatus, newStatus) => {
-		const fixture = completeCoverage(newStatus);
-		const testHost = createHost([fixture, fixture]);
-		await Effect.runPromise(run(statusSignalContext(oldStatus, newStatus), testHost.host));
-		expect(testHost.created).toHaveLength(1);
-		expect(testHost.created[0]?.[0]?.occurredAt).toBe("2026-01-03T00:00:00.000Z");
-	});
+	] as const)("completes caught-up parents on %s to %s", ([oldStatus, newStatus]) =>
+		Effect.gen(function* () {
+			const fixture = completeCoverage(newStatus);
+			const testHost = createHost([fixture, fixture]);
+			yield* run(statusSignalContext(oldStatus, newStatus), testHost.host);
+			expect(testHost.created).toHaveLength(1);
+			expect(testHost.created[0]?.[0]?.occurredAt).toBe("2026-01-03T00:00:00.000Z");
+		}),
+	);
 
-	// oxlint-disable-next-line effecttsgo/async-function -- Vitest awaits this Promise-returning test callback.
-	it("completes caught-up podcasts when production ends", async () => {
-		const fixture = completeCoverage();
-		const testHost = createHost([fixture, fixture]);
-		await Effect.runPromise(
-			run(statusSignalContext("Continuing", "Ended", "podcast"), testHost.host),
-		);
-		expect(testHost.created[0]?.[0]?.eventSchemaSlug).toBe("complete");
-	});
+	it.live("completes caught-up podcasts when production ends", () =>
+		Effect.gen(function* () {
+			const fixture = completeCoverage();
+			const testHost = createHost([fixture, fixture]);
+			yield* run(statusSignalContext("Continuing", "Ended", "podcast"), testHost.host);
+			expect(testHost.created[0]?.[0]?.eventSchemaSlug).toBe("complete");
+		}),
+	);
 
-	it.each([
+	it.live.each([
 		["Ended", "Cancelled"],
 		["Continuing", "Returning Series"],
-		// oxlint-disable-next-line effecttsgo/async-function -- Vitest awaits this Promise-returning test callback.
-	])("ignores production-status changes from %s to %s", async (oldStatus, newStatus) => {
-		const testHost = createHost([completeCoverage(newStatus)]);
-		await Effect.runPromise(run(statusSignalContext(oldStatus, newStatus), testHost.host));
-		expect(testHost.queryCount).toBe(0);
-	});
+	] as const)("ignores production-status changes from %s to %s", ([oldStatus, newStatus]) =>
+		Effect.gen(function* () {
+			const testHost = createHost([completeCoverage(newStatus)]);
+			yield* run(statusSignalContext(oldStatus, newStatus), testHost.host);
+			expect(testHost.queryCount).toBe(0);
+		}),
+	);
 
-	it.each([
+	it.live.each([
 		{ name: "a non-episodic schema", context: statusSignalContext("Continuing", "Ended", "anime") },
 		{
 			name: "a missing subject",
 			context: statusSignalContext("Continuing", "Ended", "show", null),
 		},
-		// oxlint-disable-next-line effecttsgo/async-function -- Vitest awaits this Promise-returning test callback.
-	])("ignores status signals for $name", async ({ context }) => {
-		const testHost = createHost([completeCoverage()]);
-		await Effect.runPromise(run(context, testHost.host));
-		expect(testHost.queryCount).toBe(0);
-	});
-
-	// oxlint-disable-next-line effecttsgo/async-function -- Vitest awaits this Promise-returning test callback.
-	it("does not complete a terminal status change with incomplete coverage", async () => {
-		const fixture: SnapshotFixture = {
-			state: "in_progress",
-			coverageComplete: false,
-			productionStatus: "Ended",
-			requiredEpisodeIds: ["episode-1", "episode-2"],
-			events: [childEvent("complete-1", "episode-1", "complete", "2026-01-03T00:00:00.000Z")],
-		};
-		const testHost = createHost([fixture]);
-		await Effect.runPromise(run(statusSignalContext("Continuing", "Ended"), testHost.host));
-		expect(testHost.claims).toEqual([]);
-		expect(testHost.created).toEqual([]);
-	});
-
-	it.each(["on_hold", "dropped"] as const)(
-		"does not complete a terminal status change while parent state is %s",
-		// oxlint-disable-next-line effecttsgo/async-function -- Vitest awaits this Promise-returning test callback.
-		async (state) => {
-			const fixture = { ...completeCoverage(), state };
-			const testHost = createHost([fixture]);
-			await Effect.runPromise(run(statusSignalContext("Continuing", "Ended"), testHost.host));
-			expect(testHost.claims).toEqual([]);
-			expect(testHost.created).toEqual([]);
-		},
+	])("ignores status signals for $name", ({ context }) =>
+		Effect.gen(function* () {
+			const testHost = createHost([completeCoverage()]);
+			yield* run(context, testHost.host);
+			expect(testHost.queryCount).toBe(0);
+		}),
 	);
 
-	// oxlint-disable-next-line effecttsgo/async-function -- Vitest awaits this Promise-returning test callback.
-	it("resumes after on hold when a later child completion closes coverage", async () => {
-		const firstComplete = childEvent(
-			"complete-1",
-			"episode-1",
-			"complete",
-			"2026-01-03T00:00:00.000Z",
-		);
-		const finalComplete = childEvent(
-			"complete-2",
-			"episode-2",
-			"complete",
-			"2026-01-11T00:00:00.000Z",
-		);
-		const onHold: SnapshotFixture = {
-			state: "on_hold",
-			events: [firstComplete],
-			coverageComplete: false,
-			productionStatus: "Ended",
-			requiredEpisodeIds: ["episode-1", "episode-2"],
-		};
-		const resumed: SnapshotFixture = {
-			...onHold,
-			state: "caught_up",
-			coverageComplete: true,
-			events: [firstComplete, finalComplete],
-		};
-		const testHost = createHost([onHold, resumed, resumed]);
-		await Effect.runPromise(run(statusSignalContext("Continuing", "Ended"), testHost.host));
-		expect(testHost.claims).toEqual([]);
-		expect(testHost.created).toEqual([]);
+	it.live("does not complete a terminal status change with incomplete coverage", () =>
+		Effect.gen(function* () {
+			const fixture: SnapshotFixture = {
+				state: "in_progress",
+				coverageComplete: false,
+				productionStatus: "Ended",
+				requiredEpisodeIds: ["episode-1", "episode-2"],
+				events: [childEvent("complete-1", "episode-1", "complete", "2026-01-03T00:00:00.000Z")],
+			};
+			const testHost = createHost([fixture]);
+			yield* run(statusSignalContext("Continuing", "Ended"), testHost.host);
+			expect(testHost.claims).toEqual([]);
+			expect(testHost.created).toEqual([]);
+		}),
+	);
 
-		await Effect.runPromise(
-			run(
+	it.live.each(["on_hold", "dropped"] as const)(
+		"does not complete a terminal status change while parent state is %s",
+		(state) =>
+			Effect.gen(function* () {
+				const fixture = { ...completeCoverage(), state };
+				const testHost = createHost([fixture]);
+				yield* run(statusSignalContext("Continuing", "Ended"), testHost.host);
+				expect(testHost.claims).toEqual([]);
+				expect(testHost.created).toEqual([]);
+			}),
+	);
+
+	it.live("resumes after on hold when a later child completion closes coverage", () =>
+		Effect.gen(function* () {
+			const firstComplete = childEvent(
+				"complete-1",
+				"episode-1",
+				"complete",
+				"2026-01-03T00:00:00.000Z",
+			);
+			const finalComplete = childEvent(
+				"complete-2",
+				"episode-2",
+				"complete",
+				"2026-01-11T00:00:00.000Z",
+			);
+			const onHold: SnapshotFixture = {
+				state: "on_hold",
+				events: [firstComplete],
+				coverageComplete: false,
+				productionStatus: "Ended",
+				requiredEpisodeIds: ["episode-1", "episode-2"],
+			};
+			const resumed: SnapshotFixture = {
+				...onHold,
+				state: "caught_up",
+				coverageComplete: true,
+				events: [firstComplete, finalComplete],
+			};
+			const testHost = createHost([onHold, resumed, resumed]);
+			yield* run(statusSignalContext("Continuing", "Ended"), testHost.host);
+			expect(testHost.claims).toEqual([]);
+			expect(testHost.created).toEqual([]);
+
+			yield* run(
 				eventContext({
 					id: finalComplete.id,
 					createdAt: finalComplete.createdAt,
 					occurredAt: finalComplete.occurredAt,
 				}),
 				testHost.host,
-			),
-		);
-		expect(testHost.claims).toEqual([
-			["media-parent-completion:show-1:initial", true, PARENT_COMPLETION_CLAIM_TTL_SECONDS],
-		]);
-		expect(testHost.created[0]?.[0]?.occurredAt).toBe(finalComplete.occurredAt);
-	});
+			);
+			expect(testHost.claims).toEqual([
+				["media-parent-completion:show-1:initial", true, PARENT_COMPLETION_CLAIM_TTL_SECONDS],
+			]);
+			expect(testHost.created[0]?.[0]?.occurredAt).toBe(finalComplete.occurredAt);
+		}),
+	);
 
-	// oxlint-disable-next-line effecttsgo/async-function -- Vitest awaits this Promise-returning test callback.
-	it("supports podcast child completion with no agreed consumedOn", async () => {
-		const fixture: SnapshotFixture = {
-			state: "caught_up",
-			coverageComplete: true,
-			parentEntityId: "show-1",
-			productionStatus: "Ended",
-			requiredEpisodeIds: ["episode-1"],
-			events: [childEvent("complete-1", "episode-1", "complete", "2026-01-03T00:00:00.000Z")],
-		};
-		const testHost = createHost([fixture, fixture]);
-		await Effect.runPromise(run(eventContext({}, "podcast-episode"), testHost.host));
-		expect(testHost.created[0]?.[0]).toEqual({
-			entityId: "show-1",
-			sessionEntityId: "show-1",
-			eventSchemaSlug: "complete",
-			occurredAt: "2026-01-03T00:00:00.000Z",
-			properties: { completionMode: "custom_timestamps", completedOn: "2026-01-03T00:00:00.000Z" },
-		});
-	});
+	it.live("supports podcast child completion with no agreed consumedOn", () =>
+		Effect.gen(function* () {
+			const fixture: SnapshotFixture = {
+				state: "caught_up",
+				coverageComplete: true,
+				parentEntityId: "show-1",
+				productionStatus: "Ended",
+				requiredEpisodeIds: ["episode-1"],
+				events: [childEvent("complete-1", "episode-1", "complete", "2026-01-03T00:00:00.000Z")],
+			};
+			const testHost = createHost([fixture, fixture]);
+			yield* run(eventContext({}, "podcast-episode"), testHost.host);
+			expect(testHost.created[0]?.[0]).toEqual({
+				entityId: "show-1",
+				sessionEntityId: "show-1",
+				eventSchemaSlug: "complete",
+				occurredAt: "2026-01-03T00:00:00.000Z",
+				properties: {
+					completionMode: "custom_timestamps",
+					completedOn: "2026-01-03T00:00:00.000Z",
+				},
+			});
+		}),
+	);
 });
