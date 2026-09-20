@@ -39,7 +39,6 @@ it.live("enrolls and removes an authenticator app from account settings", () =>
 		yield* openManagement(page, email, password);
 		const setup = page.getByRole("button", { name: "Set up authenticator app" });
 		yield* setup.waitFor({ state: "visible" });
-		yield* page.getByLabel("Password").fill(password);
 		yield* setup.click();
 		yield* page
 			.getByRole("img", { name: "QR code for your authenticator app" })
@@ -60,7 +59,6 @@ it.live("enrolls and removes an authenticator app from account settings", () =>
 		yield* challenge.fill(generateTotpCode(secret));
 		yield* page.getByRole("button", { exact: true, name: "Verify" }).click();
 		yield* page.getByRole("button", { name: "Disable two-factor authentication" }).click();
-		yield* page.getByLabel("Password").fill(password);
 		yield* page.getByRole("button", { name: "Turn off two-factor authentication" }).click();
 		yield* page.getByText("Two-factor authentication is off.").waitFor({ state: "visible" });
 		yield* returnToSettings(page, "Off");

@@ -13,12 +13,13 @@ const passwordCheck = (password: string) =>
 		? Effect.void
 		: Effect.fail(new HostedAuthError({ message: "Invalid password" }));
 
-const renderManagement = (enabled: boolean) => {
+const renderManagement = (enabled: boolean, signInPassword = "correct-password") => {
 	const calls: string[] = [];
 	const done: true[] = [];
 	render(
 		<TwoFactorManagement
 			enabled={enabled}
+			password={signInPassword}
 			onDone={() => done.push(true)}
 			actions={{
 				disableTwoFactor: (password) => {
@@ -56,7 +57,7 @@ describe("two-factor management", () => {
 		Effect.gen(function* () {
 			const { user, done, calls } = renderManagement(false);
 
-			yield* Effect.promise(() => user.type(screen.getByLabelText("Password"), "correct-password"));
+			expect(screen.queryByLabelText("Password")).toBeNull();
 			yield* Effect.promise(() =>
 				user.click(screen.getByRole("button", { name: "Set up authenticator app" })),
 			);
@@ -105,9 +106,8 @@ describe("two-factor management", () => {
 
 	it.live("keeps enrollment closed when the password is rejected", () =>
 		Effect.gen(function* () {
-			const { user } = renderManagement(false);
+			const { user } = renderManagement(false, "wrong-password");
 
-			yield* Effect.promise(() => user.type(screen.getByLabelText("Password"), "wrong-password"));
 			yield* Effect.promise(() =>
 				user.click(screen.getByRole("button", { name: "Set up authenticator app" })),
 			);
@@ -119,14 +119,14 @@ describe("two-factor management", () => {
 		}),
 	);
 
-	it.live("regenerates backup codes after confirming the password", () =>
+	it.live("regenerates backup codes with the sign-in password after confirming", () =>
 		Effect.gen(function* () {
 			const { user, calls } = renderManagement(true);
 
 			yield* Effect.promise(() =>
 				user.click(screen.getByRole("button", { name: "Regenerate backup codes" })),
 			);
-			yield* Effect.promise(() => user.type(screen.getByLabelText("Password"), "correct-password"));
+			expect(screen.queryByLabelText("Password")).toBeNull();
 			yield* Effect.promise(() =>
 				user.click(screen.getByRole("button", { name: "Generate new codes" })),
 			);
@@ -143,30 +143,20 @@ describe("two-factor management", () => {
 		}),
 	);
 
-	it.live("turns two-factor authentication off after confirming the password", () =>
+	it.live("turns two-factor authentication off with the sign-in password after confirming", () =>
 		Effect.gen(function* () {
 			const { user, done, calls } = renderManagement(true);
 
 			yield* Effect.promise(() =>
 				user.click(screen.getByRole("button", { name: "Disable two-factor authentication" })),
 			);
-			const passwordInput = screen.getByLabelText("Password");
-			yield* Effect.promise(() => user.type(passwordInput, "wrong-password"));
-			yield* Effect.promise(() =>
-				user.click(screen.getByRole("button", { name: "Turn off two-factor authentication" })),
-			);
-			expect((yield* Effect.promise(() => screen.findByRole("alert"))).textContent).toBe(
-				"Invalid password",
-			);
-
-			yield* Effect.promise(() => user.clear(passwordInput));
-			yield* Effect.promise(() => user.type(passwordInput, "correct-password"));
+			expect(screen.queryByLabelText("Password")).toBeNull();
 			yield* Effect.promise(() =>
 				user.click(screen.getByRole("button", { name: "Turn off two-factor authentication" })),
 			);
 
 			yield* Effect.promise(() => screen.findByText("Two-factor authentication is off."));
-			expect(calls).toEqual(["disable:wrong-password", "disable:correct-password"]);
+			expect(calls).toEqual(["disable:correct-password"]);
 
 			yield* Effect.promise(() => user.click(screen.getByRole("button", { name: "Done" })));
 			expect(done).toEqual([true]);

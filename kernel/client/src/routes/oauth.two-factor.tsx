@@ -35,8 +35,12 @@ export const Route = createFileRoute("/oauth/two-factor")({
 type Step =
 	| { readonly kind: "sign-in" }
 	| { readonly kind: "finished" }
-	| { readonly kind: "manage"; readonly enabled: boolean }
-	| { readonly kind: "challenge"; readonly methods: readonly TwoFactorMethod[] };
+	| { readonly kind: "manage"; readonly enabled: boolean; readonly password: string }
+	| {
+			readonly kind: "challenge";
+			readonly password: string;
+			readonly methods: readonly TwoFactorMethod[];
+	  };
 
 function OAuthTwoFactorUnavailable() {
 	const router = useRouter();
@@ -67,15 +71,16 @@ function OAuthTwoFactor() {
 	const [step, setStep] = useState<Step>({ kind: "sign-in" });
 	const [twoFactorMethod, setTwoFactorMethod] = useState<TwoFactorMethod>("totp");
 
-	const openManagement = auth.twoFactorSession.pipe(
-		Effect.match({
-			onFailure: (error) => error.message,
-			onSuccess: (session) => {
-				setStep({ kind: "manage", enabled: session.twoFactorEnabled });
-				return undefined;
-			},
-		}),
-	);
+	const openManagement = (password: string) =>
+		auth.twoFactorSession.pipe(
+			Effect.match({
+				onFailure: (error) => error.message,
+				onSuccess: (session) => {
+					setStep({ password, kind: "manage", enabled: session.twoFactorEnabled });
+					return undefined;
+				},
+			}),
+		);
 
 	function submitCredentials(values: CredentialsValues) {
 		return auth.submitCredentials({ values, mode: "login" }).pipe(
@@ -84,21 +89,21 @@ function OAuthTwoFactor() {
 				onSuccess: (result) => {
 					if (result._tag === "TwoFactor") {
 						setTwoFactorMethod(result.methods[0]);
-						setStep({ kind: "challenge", methods: result.methods });
+						setStep({ kind: "challenge", methods: result.methods, password: values.password });
 						return Effect.undefined;
 					}
-					return openManagement;
+					return openManagement(values.password);
 				},
 			}),
 		);
 	}
 
-	function submitTwoFactor(code: string) {
+	function submitTwoFactor(password: string, code: string) {
 		return auth
 			.verifyTwoFactor(twoFactorMethod, code)
 			.pipe(
 				Effect.matchEffect({
-					onSuccess: () => openManagement,
+					onSuccess: () => openManagement(password),
 					onFailure: (error) => Effect.succeed(error.message),
 				}),
 			);
@@ -151,15 +156,20 @@ function OAuthTwoFactor() {
 				className="ui-stack ui-card mx-auto w-[min(100%,480px)]"
 			>
 				{step.kind === "manage" && (
-					<TwoFactorManagement actions={auth} onDone={finish} enabled={step.enabled} />
+					<TwoFactorManagement
+						actions={auth}
+						onDone={finish}
+						enabled={step.enabled}
+						password={step.password}
+					/>
 				)}
 				{step.kind === "challenge" && (
 					<TwoFactorForm
 						methods={step.methods}
 						method={twoFactorMethod}
-						onSubmit={submitTwoFactor}
 						onMethodChange={setTwoFactorMethod}
 						onBack={() => setStep({ kind: "sign-in" })}
+						onSubmit={(code) => submitTwoFactor(step.password, code)}
 					/>
 				)}
 				{step.kind === "sign-in" && (
