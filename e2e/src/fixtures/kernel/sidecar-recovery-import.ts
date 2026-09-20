@@ -63,7 +63,7 @@ export const installSidecarRecoveryImport = (client: Client, checkpointUrl: stri
 			httpRateLimits: [
 				{
 					requests: 1,
-					intervalMs: 100,
+					intervalMs: 2_000,
 					key: `sidecar.recovery.${suffix}`,
 					origins: [new URL(checkpointUrl).origin],
 				},
@@ -175,6 +175,7 @@ export const manifest = defineManifest({ kind: "provider", name: "Sidecar recove
 export default defineProvider({ manifest, operation: "details",
   run: (input, host, execution) => Effect.gen(function* () {
     yield* host.httpCall("POST", ${encodeJson(`${checkpointUrl}/enter`)}, { body: JSON.stringify({ input, startedAt: execution.startedAt, scriptId: execution.sandboxScriptId }), headers: { "content-type": "application/json" } });
+    yield* host.httpCall("GET", ${encodeJson(`${checkpointUrl}/checkpoint`)});
     yield* host.log([{ level: "info", message: ${encodeJson(checkpoint)} }]);
     yield* Effect.sleep("20 seconds");
     return { name: ${encodeJson(recoveredName)}, properties: {} };
