@@ -76,8 +76,8 @@ const makeServiceLayer = (
 				packageId: execution.principal.pluginRevision.packageId,
 				schemaScope: execution.principal.pluginRevision.schemaScope,
 				configSchema: execution.principal.pluginRevision.configSchema,
-				scriptKinds: { [execution.principal.scriptSlug]: execution.principal.metadata.kind },
 				workflowScripts: execution.principal.pluginRevision.workflowScripts,
+				scriptKinds: { [execution.principal.scriptSlug]: execution.principal.metadata.kind },
 				userBootstrapScriptSlugs: execution.principal.pluginRevision.userBootstrapScriptSlugs,
 			};
 			const db = {
@@ -101,25 +101,25 @@ const makeServiceLayer = (
 							if (table === tables.sandboxScript) {
 								return [
 									{
+										kernelSlug: null,
+										sandboxAuthority,
+										sourcePresent: true,
+										pluginStatus: "active",
 										id: execution.principal.scriptId,
 										slug: execution.principal.scriptSlug,
-										pluginStatus: "active",
-										pluginOwnerId: principal.pluginRevision.ownerId,
-										kernelSlug: null,
-										metadata: execution.principal.metadata,
-										pluginPackageId: principal.pluginRevision.packageId,
-										activationId: "existing-principal-state",
 										pluginId: principal.pluginRevision.id,
+										metadata: execution.principal.metadata,
+										activationId: "existing-principal-state",
+										pluginSlug: principal.pluginRevision.slug,
 										providerId: execution.principal.providerId,
 										contentHash: execution.principal.contentHash,
-										activeRevisionId: principal.pluginRevision.revisionId,
 										providerPluginId: principal.pluginRevision.id,
+										pluginOwnerId: principal.pluginRevision.ownerId,
+										pluginPackageId: principal.pluginRevision.packageId,
+										activeRevisionId: principal.pluginRevision.revisionId,
 										pluginRevisionId: principal.pluginRevision.revisionId,
-										environmentConfigRevisionId: principal.pluginRevision.configRevisionId,
-										sourcePresent: true,
-										sandboxAuthority,
-										pluginSlug: principal.pluginRevision.slug,
 										manifestPackageId: principal.pluginRevision.packageId,
+										environmentConfigRevisionId: principal.pluginRevision.configRevisionId,
 									},
 								];
 							}
@@ -129,18 +129,18 @@ const makeServiceLayer = (
 							if (table === tables.pluginInstallation) {
 								return [
 									{
+										isHidden: false,
+										disabledAt: null,
+										uninstalledAt: null,
+										isInitialized: true,
+										ingestionRetiring: false,
 										id: "existing-installation",
 										activationId: "existing-principal-state",
-										uninstalledAt: null,
-										ingestionRetiring: false,
 										health: (yield* Ref.get(quarantined)) ? "incompatible" : "ready",
-										isInitialized: true,
-										isHidden: false,
+										activeConfigRevisionId: principal.pluginRevision.configRevisionId,
 										incompatibilityReason: (yield* Ref.get(quarantined))
 											? "package-identity-conflict"
 											: null,
-										activeConfigRevisionId: principal.pluginRevision.configRevisionId,
-										disabledAt: null,
 									},
 								];
 							}
@@ -148,16 +148,16 @@ const makeServiceLayer = (
 								return [
 									{
 										disabledAt: null,
-										accountGeneration: payload.accountGeneration.token,
 										token: payload.accountGeneration.token,
+										accountGeneration: payload.accountGeneration.token,
 									},
 								];
 							}
 							if (table === tables.pluginConfigRevision) {
 								return [
 									{
-										ownerUserId: principal.pluginRevision.ownerId,
 										encryptedPayload: "encrypted-config",
+										ownerUserId: principal.pluginRevision.ownerId,
 										pluginRevisionId: principal.pluginRevision.revisionId,
 									},
 								];
@@ -175,21 +175,19 @@ const makeServiceLayer = (
 							return [];
 						});
 						const query = {
+							innerJoin: () => query,
 							where: (condition: SQLWrapper) => {
 								predicate = condition;
 								return scriptList ? rows : query;
 							},
-							innerJoin: () => query,
 							limit: () => {
-								const selectedRows = table === tables.pluginInstallation
-									? Ref.update(installationOwners, (all) => [
-											...all,
-											predicate
-												? dialect.sqlToQuery(predicate.getSQL()).params
-												: [],
-										])
-										.pipe(Effect.andThen(rows))
-									: rows;
+								const selectedRows =
+									table === tables.pluginInstallation
+										? Ref.update(installationOwners, (all) => [
+												...all,
+												predicate ? dialect.sqlToQuery(predicate.getSQL()).params : [],
+											]).pipe(Effect.andThen(rows))
+										: rows;
 								return Object.assign(selectedRows, { for: () => selectedRows });
 							},
 						};
@@ -330,8 +328,8 @@ const makeServiceLayer = (
 						Layer.succeed(TranslationEffects, {
 							upserts: Ref.get(upserts),
 							executions: Ref.get(executions),
-							installationOwners: Ref.get(installationOwners),
 							quarantine: Ref.set(quarantined, true),
+							installationOwners: Ref.get(installationOwners),
 						}),
 					),
 				),

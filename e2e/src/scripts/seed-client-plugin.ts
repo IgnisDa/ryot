@@ -59,10 +59,7 @@ async function main() {
 			client,
 			{ kind: "plugin", pluginId: installation.pluginId, exportName: "fixture-home" },
 			{},
-			{
-				name: "Task 10 primary plugin page",
-				workspaceInstallationId: installation.installationId,
-			},
+			{ name: "Task 10 primary plugin page", workspaceInstallationId: installation.installationId },
 		),
 	);
 	const secondaryView = await runPromise(

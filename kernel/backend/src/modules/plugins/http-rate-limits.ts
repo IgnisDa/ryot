@@ -48,10 +48,12 @@ export const buildHttpRateLimitLookups = (
 	const byKey: Record<string, CanonicalHttpRateLimitPolicy> = {};
 	const byOrigin: Record<string, CanonicalHttpRateLimitPolicy> = {};
 	for (const plugin of plugins) {
-		if (plugin.scope === "user" && plugin.httpRateLimits.length > 0)
-			{throw new Error("Private plugins cannot declare deployment HTTP policies");}
-		if (plugin.owner.kind === "kernel")
-			{throw new Error("Deployment HTTP policies require a plugin owner");}
+		if (plugin.scope === "user" && plugin.httpRateLimits.length > 0) {
+			throw new Error("Private plugins cannot declare deployment HTTP policies");
+		}
+		if (plugin.owner.kind === "kernel") {
+			throw new Error("Deployment HTTP policies require a plugin owner");
+		}
 		for (const declaration of plugin.httpRateLimits) {
 			const canonical = canonicalizeHttpRateLimitDeclaration(declaration);
 			const policy = { declaration: canonical, hash: hashCanonicalDeclaration(canonical) };

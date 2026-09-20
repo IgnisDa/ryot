@@ -27,7 +27,9 @@ export const scalarExpressionKind = <Scope>(
 	scope: Scope,
 	resolver: KindResolver<Scope>,
 ): ScalarKind | undefined => {
-	if (expr.type === "pluginId") {return "text";}
+	if (expr.type === "pluginId") {
+		return "text";
+	}
 	if (expr.type === "literal") {
 		if (expr.value === null) {
 			return "null";

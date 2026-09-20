@@ -167,9 +167,9 @@ const toSandboxExecutionResult = (
 		error === null
 			? null
 			: {
-					kind: installationUnavailable(error.data) ? "resource-unavailable" : error.kind,
 					phase: error.phase,
 					message: error.message,
+					kind: installationUnavailable(error.data) ? "resource-unavailable" : error.kind,
 					...(error.data === undefined ? {} : { data: error.data }),
 					...(error.line === undefined ? {} : { line: error.line }),
 					...(error.stack === undefined ? {} : { stack: error.stack }),
@@ -890,7 +890,11 @@ export const runSandboxScriptWorkflowBody = Effect.fn("SandboxScriptWorkflow")(f
 				return toSandboxExecutionResult(replay, null, error);
 			}
 			if (installationUnavailable(error.data)) {
-				return yield* new SandboxRunError({ kind: error.kind, message: error.message, ...(error.data === undefined ? {} : { data: error.data }) });
+				return yield* new SandboxRunError({
+					kind: error.kind,
+					message: error.message,
+					...(error.data === undefined ? {} : { data: error.data }),
+				});
 			}
 			return yield* sandboxFailure(
 				"script-failure",
@@ -1023,11 +1027,18 @@ export const runSandboxScriptWorkflowBody = Effect.fn("SandboxScriptWorkflow")(f
 	return yield* replayWorkflow().pipe(
 		Effect.catchTag("SandboxRunError", (error) =>
 			payload.resultMode === "execution" && installationUnavailable(error.data)
-				? Effect.succeed(toSandboxExecutionResult(
-						{ logs: [], value: null, status: "completed", error: null },
-						null,
-						{ kind: "resource-unavailable", phase: "execute", message: error.message, ...(error.data === undefined ? {} : { data: error.data }) },
-					))
+				? Effect.succeed(
+						toSandboxExecutionResult(
+							{ logs: [], value: null, error: null, status: "completed" },
+							null,
+							{
+								phase: "execute",
+								message: error.message,
+								kind: "resource-unavailable",
+								...(error.data === undefined ? {} : { data: error.data }),
+							},
+						),
+					)
 				: Effect.fail(error),
 		),
 		Effect.matchCauseEffect({
