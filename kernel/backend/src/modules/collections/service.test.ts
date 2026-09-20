@@ -343,6 +343,26 @@ const eventWarning = { ...warning, triggerId: AutomationTriggerId.make("event-tr
 
 layer(
 	makeServiceLayer({
+		relationships: {
+			prepareCreate: () =>
+				Effect.succeed({
+					...committedRelationship,
+					result: { relationship: { ...membership, updatedAt: now, wasInserted: false } },
+				}),
+		},
+	}),
+)((test) => {
+	test.effect("does not dispatch an added event for an existing membership", () =>
+		Effect.gen(function* () {
+			const result = yield* runAddWorkflow;
+			expect(result.memberOf.id).toBe(relationshipId);
+			expect(yield* (yield* CollectionCalls).workflowDispatches).toEqual([]);
+		}),
+	);
+});
+
+layer(
+	makeServiceLayer({
 		workflow: {
 			warnings: [warning],
 			eventResult: { count: 1, outcomes: [], failure: null, warnings: [eventWarning] },
