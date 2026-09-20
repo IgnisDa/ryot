@@ -15,28 +15,28 @@ export class PluginConfigEncryptionKeyRepository extends Context.Service<PluginC
 		make: Effect.gen(function* () {
 			const database = yield* DatabaseSession;
 			return {
-				lock: Effect.gen(function* () {
-					const db = yield* database.current;
-					yield* db.execute(sql`lock table ${pluginConfigEncryptionKey} in exclusive mode`);
-				}),
-				load: Effect.gen(function* () {
-					const db = yield* database.current;
-					const [key] = yield* db.select().from(pluginConfigEncryptionKey).limit(1);
-					return key;
-				}),
+				lock: database.run((db) =>
+					db
+						.execute(sql`lock table ${pluginConfigEncryptionKey} in exclusive mode`)
+						.pipe(Effect.asVoid),
+				),
+				load: database.run((db) =>
+					db
+						.select()
+						.from(pluginConfigEncryptionKey)
+						.limit(1)
+						.pipe(Effect.map(([key]) => key)),
+				),
 				insert: (key: Pick<typeof pluginConfigEncryptionKey.$inferInsert, "id" | "key">) =>
-					Effect.gen(function* () {
-						const db = yield* database.current;
-						yield* db.insert(pluginConfigEncryptionKey).values(key);
-						return key;
-					}),
-				retainedKeyIds: Effect.gen(function* () {
-					const db = yield* database.current;
-					return yield* db
+					database.run((db) =>
+						db.insert(pluginConfigEncryptionKey).values(key).pipe(Effect.as(key)),
+					),
+				retainedKeyIds: database.run((db) =>
+					db
 						.selectDistinct({ id: pluginConfigRevision.encryptionKeyId })
 						.from(pluginConfigRevision)
-						.where(isNotNull(pluginConfigRevision.encryptedPayload));
-				}),
+						.where(isNotNull(pluginConfigRevision.encryptedPayload)),
+				),
 			};
 		}),
 	},
