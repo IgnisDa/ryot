@@ -38,6 +38,7 @@ import {
 	searchProviderEntities,
 	signInWithPassword,
 	updateUserSettingsPreferences,
+	waitForCreateEvents,
 	type PendingOAuth,
 } from "~/fixtures/kernel";
 import {
@@ -452,7 +453,7 @@ describe("shared demo access acceptance", () => {
 					],
 				}),
 			);
-			expect(eventResult.count).toBe(1);
+			expect((yield* waitForCreateEvents(demoClient, eventResult)).count).toBe(1);
 
 			const merged = yield* mergeUserState(demoClient, {
 				mergeFrom: mergeFrom.id,
