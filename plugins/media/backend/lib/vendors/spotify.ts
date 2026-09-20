@@ -1,7 +1,9 @@
 import type { SandboxHost } from "@ryot-app/sandbox-sdk/core";
 import { Effect } from "@ryot-app/sandbox-sdk/effect";
+import type { SandboxHostError } from "@ryot-app/sandbox-sdk/wire";
 
-import { asRecord, numberValue, parseJsonResponse, stringValue } from "../records";
+import { MediaSandboxError } from "../failures";
+import { asRecord, decodeJsonResponse, numberValue, stringValue } from "../records";
 
 export type SpotifyHost = SandboxHost<
 	readonly ["httpCall", "getPluginConfig", "getCachedValue", "setCachedValue"]
@@ -51,22 +53,12 @@ export const getSpotifyErrorStatus = (error: unknown): number | null => {
 	return null;
 };
 
-const toSpotifyError = (error: unknown, fallback: string): Error => {
+const spotifyHostFailure = (error: SandboxHostError, fallback: string): SandboxHostError => {
 	const details = getHttpFailureDetails(error);
 	if (details) {
-		return Object.assign(
-			new Error(`Spotify API returned status ${details.status}: ${details.body}`),
-			{ status: details.status },
-		);
+		return { ...error, message: `Spotify API returned status ${details.status}: ${details.body}` };
 	}
-	if (error instanceof Error && error.message) {
-		return new Error(error.message);
-	}
-	const message = asRecord(error)?.["message"];
-	if (typeof message === "string" && message) {
-		return new Error(message);
-	}
-	return new Error(fallback);
+	return { ...error, message: error.message || fallback };
 };
 
 export const getImagesSortedBySize = (images: unknown): string[] => {
@@ -89,27 +81,34 @@ export const getFirstImage = (images: unknown) => getImagesSortedBySize(images)[
 
 export const getCredentials = (host: SpotifyHost) =>
 	host.getPluginConfig(["spotifyClientId", "spotifyClientSecret"]).pipe(
-		Effect.mapError(
-			(error) => new Error(error.message || "Failed to retrieve Spotify credentials"),
-		),
-		Effect.map(({ spotifyClientId: clientIdValue, spotifyClientSecret: clientSecretValue }) => {
+		Effect.mapError((error) => ({
+			...error,
+			message: error.message || "Failed to retrieve Spotify credentials",
+		})),
+		Effect.flatMap(({ spotifyClientId: clientIdValue, spotifyClientSecret: clientSecretValue }) => {
 			const clientId = stringValue(clientIdValue);
 			const clientSecret = stringValue(clientSecretValue);
 			if (!clientId) {
-				throw new Error(
-					"Spotify client ID is not configured. Set RYOT_PLUGIN_MEDIA_SPOTIFY_CLIENT_ID in your environment.",
+				return Effect.fail(
+					new MediaSandboxError({
+						message:
+							"Spotify client ID is not configured. Set RYOT_PLUGIN_MEDIA_SPOTIFY_CLIENT_ID in your environment.",
+					}),
 				);
 			}
 			if (!clientSecret) {
-				throw new Error(
-					"Spotify client secret is not configured. Set RYOT_PLUGIN_MEDIA_SPOTIFY_CLIENT_SECRET in your environment.",
+				return Effect.fail(
+					new MediaSandboxError({
+						message:
+							"Spotify client secret is not configured. Set RYOT_PLUGIN_MEDIA_SPOTIFY_CLIENT_SECRET in your environment.",
+					}),
 				);
 			}
-			return { clientId, clientSecret };
+			return Effect.succeed({ clientId, clientSecret });
 		}),
 	);
 
-export const getAccessToken = (host: SpotifyHost): Effect.Effect<string, unknown> =>
+export const getAccessToken = (host: SpotifyHost) =>
 	host.getCachedValue(TOKEN_CACHE_KEY).pipe(
 		Effect.catch(() => Effect.succeed(null)),
 		Effect.flatMap((cached) => {
@@ -129,12 +128,17 @@ export const getAccessToken = (host: SpotifyHost): Effect.Effect<string, unknown
 							},
 						})
 						.pipe(
-							Effect.mapError((error) => toSpotifyError(error, "Spotify token request failed")),
+							Effect.mapError((error) => spotifyHostFailure(error, "Spotify token request failed")),
+							Effect.flatMap((response) => decodeJsonResponse(response.body, "Spotify")),
 							Effect.flatMap((response) => {
-								const payload = asRecord(parseJsonResponse(response.body, "Spotify"));
+								const payload = asRecord(response);
 								const accessToken = stringValue(payload?.["access_token"]);
 								if (!accessToken) {
-									throw new Error("Spotify token response did not include an access token");
+									return Effect.fail(
+										new MediaSandboxError({
+											message: "Spotify token response did not include an access token",
+										}),
+									);
 								}
 								const expiresInValue = numberValue(payload?.["expires_in"]);
 								const expiresIn =
@@ -158,7 +162,7 @@ export const spotifyGet = (
 	host: SpotifyHost,
 	path: string,
 	params?: Readonly<Record<string, string>>,
-): Effect.Effect<unknown, unknown> =>
+) =>
 	getAccessToken(host).pipe(
 		Effect.flatMap((accessToken) => {
 			const search = params ? `?${new URLSearchParams(params).toString()}` : "";
@@ -167,8 +171,8 @@ export const spotifyGet = (
 					headers: { Authorization: `Bearer ${accessToken}` },
 				})
 				.pipe(
-					Effect.mapError((error) => toSpotifyError(error, `Spotify request failed: ${path}`)),
-					Effect.map((response) => parseJsonResponse(response.body, "Spotify")),
+					Effect.mapError((error) => spotifyHostFailure(error, `Spotify request failed: ${path}`)),
+					Effect.flatMap((response) => decodeJsonResponse(response.body, "Spotify")),
 				);
 		}),
 	);

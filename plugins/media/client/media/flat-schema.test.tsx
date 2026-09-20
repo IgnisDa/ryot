@@ -1,5 +1,5 @@
 import type { RyotClientAdapter } from "@ryot-app/client-sdk";
-import { Result } from "@ryot-app/client-sdk/effect";
+import { Effect, Result } from "@ryot-app/client-sdk/effect";
 import { ManagedAssetProvider } from "@ryot-app/client-sdk/react";
 import { fireEvent, waitFor } from "@testing-library/dom";
 import { afterEach, describe, expect, it } from "vitest";
@@ -47,12 +47,12 @@ import { decodeMediaSummaryResult } from "../../tests/client/summary-fixture";
 import { mountRyotClient } from "../../tests/client/test-support";
 import { mapMediaOverview } from "./overview-state";
 
-const noopAdapter = { query: () => Promise.resolve({}) };
+const noopAdapter = { query: () => Effect.succeed({}) };
 
 const resolvingAdapter: Partial<RyotClientAdapter> = {
-	query: () => Promise.resolve({}),
+	query: () => Effect.succeed({}),
 	resolveAssets: (assets) =>
-		Promise.resolve(
+		Effect.succeed(
 			assets.map((asset) => ({
 				asset,
 				url: `https://cdn.test/${asset.type}-${asset.key}`,
@@ -236,6 +236,7 @@ describe("flat media detail screen", () => {
 		inProgress.unmount();
 	});
 
+	// oxlint-disable-next-line effecttsgo/async-function -- Vitest awaits the client test harness's Promise callbacks.
 	it("switches to the activity tab on demand", async () => {
 		const { unmount, container } = renderBody(readyState());
 
@@ -434,6 +435,7 @@ describe("flat media overview", () => {
 		]);
 	});
 
+	// oxlint-disable-next-line effecttsgo/async-function -- Vitest awaits the client test harness's Promise callbacks.
 	it("resolves the group tiles through the overview's managed asset provider", async () => {
 		const overview = overviewOf();
 		const { unmount, container } = mountRyotClient(

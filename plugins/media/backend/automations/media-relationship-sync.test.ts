@@ -70,7 +70,6 @@ const run = (value: ReturnType<typeof input>) => {
 					return Effect.succeed({ wasCreated: true, triggerId: "signal-1" });
 				},
 			}),
-			{ metadata: {}, sandboxScriptId: "script-1" },
 		)
 		.pipe(Effect.as(calls));
 };

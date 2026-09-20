@@ -35,6 +35,10 @@ export const manifest = defineManifest({
 
 const BATCH_SIZE = 25;
 
+class MediaWorkflowError extends Error {
+	readonly _tag = "MediaWorkflowError";
+}
+
 const mediaImportResolutionActivitySlugByProvider = {
 	"show.tmdb": "media-import-resolve.show.tmdb",
 	"movie.tmdb": "media-import-resolve.movie.tmdb",
@@ -118,7 +122,9 @@ export default defineWorkflow({
 				if (input.source === "igdb") {
 					const collection = input.sourcePayload?.["collection"];
 					if (typeof collection !== "string" || !collection.trim()) {
-						return yield* Effect.fail(new Error("Import job is missing IGDB collection"));
+						return yield* Effect.fail(
+							new MediaWorkflowError("Import job is missing IGDB collection"),
+						);
 					}
 					parserInput = { ...parserInput, collection: collection.trim() };
 				}
@@ -132,7 +138,9 @@ export default defineWorkflow({
 					const hasAnimeFile = typeof input.sourcePayload?.["animeUploadToken"] === "string";
 					const hasMangaFile = typeof input.sourcePayload?.["mangaUploadToken"] === "string";
 					if (!hasAnimeFile && !hasMangaFile) {
-						return yield* Effect.fail(new Error("Import job is missing MyAnimeList export files"));
+						return yield* Effect.fail(
+							new MediaWorkflowError("Import job is missing MyAnimeList export files"),
+						);
 					}
 					parserInput = { ...parserInput, hasAnimeFile, hasMangaFile };
 				}
@@ -145,35 +153,51 @@ export default defineWorkflow({
 							(!Schema.is(Schema.NonEmptyString)(target["username"]) ||
 								!String(target["username"]).trim())
 						) {
-							return yield* Effect.fail(new Error("Import job is missing Trakt username"));
+							return yield* Effect.fail(
+								new MediaWorkflowError("Import job is missing Trakt username"),
+							);
 						}
 						if (mode === "user") {
-							return yield* Effect.fail(new Error("Import job has invalid Trakt user fields"));
+							return yield* Effect.fail(
+								new MediaWorkflowError("Import job has invalid Trakt user fields"),
+							);
 						}
 						if (mode === "list") {
 							if (!Schema.is(TraktImportUrl)(target["url"])) {
 								return yield* Effect.fail(
-									new Error("Import job is missing or invalid Trakt list URL"),
+									new MediaWorkflowError("Import job is missing or invalid Trakt list URL"),
 								);
 							}
 							if (
 								!Schema.is(Schema.NonEmptyString)(target["collection"]) ||
 								!String(target["collection"]).trim()
 							) {
-								return yield* Effect.fail(new Error("Import job is missing Trakt collection"));
+								return yield* Effect.fail(
+									new MediaWorkflowError("Import job is missing Trakt collection"),
+								);
 							}
-							return yield* Effect.fail(new Error("Import job has invalid Trakt list fields"));
+							return yield* Effect.fail(
+								new MediaWorkflowError("Import job has invalid Trakt list fields"),
+							);
 						}
 						if (mode === "export") {
-							return yield* Effect.fail(new Error("Import job is missing Trakt export ZIP"));
+							return yield* Effect.fail(
+								new MediaWorkflowError("Import job is missing Trakt export ZIP"),
+							);
 						}
-						return yield* Effect.fail(new Error("Import job is missing or invalid Trakt mode"));
+						return yield* Effect.fail(
+							new MediaWorkflowError("Import job is missing or invalid Trakt mode"),
+						);
 					}
 					if (target.mode === "user" && !target.username.trim()) {
-						return yield* Effect.fail(new Error("Import job is missing Trakt username"));
+						return yield* Effect.fail(
+							new MediaWorkflowError("Import job is missing Trakt username"),
+						);
 					}
 					if (target.mode === "list" && !target.collection.trim()) {
-						return yield* Effect.fail(new Error("Import job is missing Trakt collection"));
+						return yield* Effect.fail(
+							new MediaWorkflowError("Import job is missing Trakt collection"),
+						);
 					}
 					parserInput =
 						target.mode === "export"
@@ -191,7 +215,7 @@ export default defineWorkflow({
 					const apiUrl = input.sourcePayload?.["apiUrl"];
 					if (typeof apiKey !== "string" || !apiKey || typeof apiUrl !== "string" || !apiUrl) {
 						return yield* Effect.fail(
-							new Error(`Import job is missing ${input.source} credentials`),
+							new MediaWorkflowError(`Import job is missing ${input.source} credentials`),
 						);
 					}
 					parserInput = {
@@ -208,7 +232,7 @@ export default defineWorkflow({
 					const username = input.sourcePayload?.["username"];
 					if (typeof apiUrl !== "string" || !apiUrl || typeof username !== "string" || !username) {
 						return yield* Effect.fail(
-							new Error("Import job is missing Jellyfin connection details"),
+							new MediaWorkflowError("Import job is missing Jellyfin connection details"),
 						);
 					}
 					parserInput = {
@@ -360,12 +384,16 @@ export default defineWorkflow({
 					const request = episodeRequests[result.index];
 					if (!request) {
 						return yield* Effect.fail(
-							new Error(`Episode resolution returned an unexpected index ${result.index}`),
+							new MediaWorkflowError(
+								`Episode resolution returned an unexpected index ${result.index}`,
+							),
 						);
 					}
 					if (answeredRequests.has(result.index)) {
 						return yield* Effect.fail(
-							new Error(`Episode resolution returned a duplicate index ${result.index}`),
+							new MediaWorkflowError(
+								`Episode resolution returned a duplicate index ${result.index}`,
+							),
 						);
 					}
 					answeredRequests.add(result.index);
@@ -379,7 +407,9 @@ export default defineWorkflow({
 				);
 				if (unansweredRequests.length > 0) {
 					return yield* Effect.fail(
-						new Error(`Episode resolution omitted indices ${unansweredRequests.join(", ")}`),
+						new MediaWorkflowError(
+							`Episode resolution omitted indices ${unansweredRequests.join(", ")}`,
+						),
 					);
 				}
 				const episodeFailures: MediaImportAdapterFailure[] = [];

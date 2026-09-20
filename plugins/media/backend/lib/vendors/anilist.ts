@@ -3,16 +3,15 @@ import { Effect } from "@ryot-app/sandbox-sdk/effect";
 import type {
 	ProviderDetailsRelatedEntity,
 	ProviderSearchInput,
-	ProviderSearchResult,
 	ProviderTranslateInput,
-	ProviderTranslateResult,
 } from "@ryot-app/sandbox-sdk/provider";
 
+import { MediaSandboxError } from "../failures";
 import { getUserAllowNsfw } from "../host";
 import {
 	asRecord,
+	decodeJsonResponse,
 	numberValue,
-	parseJsonResponse,
 	stringValue,
 	type UnknownRecord,
 } from "../records";
@@ -50,14 +49,22 @@ export const anilistGraphql = (
 			headers: { Accept: "application/json", "Content-Type": "application/json" },
 		})
 		.pipe(
-			Effect.mapError((error) => new Error(error.message || `Anilist ${label} request failed`)),
-			Effect.map((response) => {
-				const payload = asRecord(parseJsonResponse(response.body, "Anilist"));
+			Effect.mapError((error) => ({
+				...error,
+				message: error.message || `Anilist ${label} request failed`,
+			})),
+			Effect.flatMap((response) => decodeJsonResponse(response.body, "Anilist")),
+			Effect.flatMap((response) => {
+				const payload = asRecord(response);
 				const graphQlErrorMessage = extractGraphQlErrorMessage(payload);
 				if (graphQlErrorMessage) {
-					throw new Error(`Anilist ${label} GraphQL error: ${graphQlErrorMessage}`);
+					return Effect.fail(
+						new MediaSandboxError({
+							message: `Anilist ${label} GraphQL error: ${graphQlErrorMessage}`,
+						}),
+					);
 				}
-				return asRecord(payload?.["data"]);
+				return Effect.succeed(asRecord(payload?.["data"]));
 			}),
 		);
 
@@ -236,7 +243,7 @@ export const searchAnilistMedia = (
 	host: AnilistUserHost,
 	input: ProviderSearchInput,
 	options: { readonly type: AnilistMediaType; readonly label: string },
-): Effect.Effect<ProviderSearchResult, unknown> =>
+) =>
 	getUserAllowNsfw(host).pipe(
 		Effect.flatMap((allowNsfw) =>
 			anilistGraphql(host, `${options.label} search`, MEDIA_SEARCH_QUERY, {
@@ -248,10 +255,12 @@ export const searchAnilistMedia = (
 				isAdult: allowNsfw ? null : false,
 			}),
 		),
-		Effect.map((data) => {
+		Effect.flatMap((data) => {
 			const pageData = asRecord(data?.["Page"]);
 			if (!pageData) {
-				throw new Error("Anilist returned invalid response structure");
+				return Effect.fail(
+					new MediaSandboxError({ message: "Anilist returned invalid response structure" }),
+				);
 			}
 			const totalValue = numberValue(asRecord(pageData["pageInfo"])?.["total"]);
 			const totalItems = totalValue === null ? 0 : Math.max(0, Math.trunc(totalValue));
@@ -281,13 +290,13 @@ export const searchAnilistMedia = (
 					},
 				];
 			});
-			return {
+			return Effect.succeed({
 				items,
 				details: {
 					totalItems,
 					nextPage: input.page * input.pageSize < totalItems ? input.page + 1 : null,
 				},
-			};
+			});
 		}),
 	);
 
@@ -305,7 +314,7 @@ export const translateAnilistMedia = (
 	host: AnilistHost,
 	input: ProviderTranslateInput,
 	options: { readonly type: AnilistMediaType; readonly label: string },
-): Effect.Effect<ProviderTranslateResult, unknown> => {
+) => {
 	const titleLanguage = bcp47ToAnilistMode(input.language);
 	if (!titleLanguage) {
 		return Effect.succeed({});

@@ -1,6 +1,8 @@
 import { Effect } from "@ryot-app/sandbox-sdk/effect";
 import type { ProviderDetailsInput, ProviderDetailsResult } from "@ryot-app/sandbox-sdk/provider";
 
+import { mediaFailureMessage } from "../../../lib/error-message";
+import { MediaSandboxError } from "../../../lib/failures";
 import { parsePublishYear } from "../../../lib/parse-publish-year";
 import { type UnknownRecord, asRecord, numberValue, stringValue } from "../../../lib/records";
 import {
@@ -106,7 +108,9 @@ export const getTmdbMovieDetails = (
 	token: string,
 ) => {
 	if (!/^\d+$/.test(input.externalId)) {
-		return Effect.fail(new Error("externalId must be a numeric TMDB movie ID"));
+		return Effect.fail(
+			new MediaSandboxError({ message: "externalId must be a numeric TMDB movie ID" }),
+		);
 	}
 	return Effect.all(
 		[
@@ -121,7 +125,7 @@ export const getTmdbMovieDetails = (
 		Effect.flatMap(
 			([movieData, creditsData, imagesData, recommendationsData, watchProvidersData]) =>
 				Effect.try({
-					catch: (error) => (error instanceof Error ? error : new Error(String(error))),
+					catch: (error) => new MediaSandboxError({ message: mediaFailureMessage(error) }),
 					try: () =>
 						buildDetailsResult(
 							input,

@@ -5,6 +5,7 @@ import {
 	MediaImportResolutionActivityInput,
 	MediaImportResolutionActivityResult,
 } from "../contracts/workflows";
+import { mediaFailureMessage } from "../lib/error-message";
 import { resolve } from "../providers/show/tmdb/shared";
 
 export const manifest = defineManifest({
@@ -20,11 +21,11 @@ export default defineScript({
 	manifest,
 	input: MediaImportResolutionActivityInput,
 	output: MediaImportResolutionActivityResult,
-	run: (input, host, execution) =>
-		resolve.run(input, host, execution).pipe(
+	run: (input, host) =>
+		resolve.run(input, host).pipe(
 			Effect.map(({ externalId }) => ({ externalId, status: "completed" as const })),
 			Effect.catch((error) =>
-				Effect.succeed({ message: String(error), status: "failed" as const }),
+				Effect.succeed({ status: "failed" as const, message: mediaFailureMessage(error) }),
 			),
 		),
 });

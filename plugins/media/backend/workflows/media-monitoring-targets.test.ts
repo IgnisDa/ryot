@@ -7,6 +7,7 @@ import { execution } from "../../tests/backend/automations/automation-test-utils
 import definition, { manifest } from "./media-monitoring-targets.sandbox";
 
 describe("media monitoring targets", () => {
+	// oxlint-disable-next-line effecttsgo/async-function -- Vitest awaits this Promise-returning test callback.
 	it("extracts provider ids from global monitorable roots and preserves cursor pagination", async () => {
 		const documents: unknown[] = [];
 		const host = defineSandboxTestHost(manifest, {

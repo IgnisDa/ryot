@@ -3,11 +3,11 @@ import { DateTime, Effect, Option } from "@ryot-app/sandbox-sdk/effect";
 import type {
 	ProviderDetailsRelatedEntity,
 	ProviderSearchInput,
-	ProviderSearchResult,
 } from "@ryot-app/sandbox-sdk/provider";
 
+import { MediaSandboxError } from "../failures";
 import { getUserAllowNsfw } from "../host";
-import { asRecord, numberValue, parseJsonResponse, stringValue } from "../records";
+import { asRecord, decodeJsonResponse, numberValue, stringValue } from "../records";
 
 export type MyAnimeListHost = SandboxHost<
 	readonly ["httpCall", "getPluginConfig", "getUserPreferences"]
@@ -18,13 +18,18 @@ const MAL_API_BASE_URL = "https://api.myanimelist.net/v2";
 export const getMalClientId = (host: MyAnimeListHost) =>
 	host.getPluginConfig(["malClientId"]).pipe(
 		Effect.map(({ malClientId }) => malClientId),
-		Effect.mapError((error) => new Error(error.message || "Could not load MyAnimeList client ID")),
-		Effect.map((value) => {
+		Effect.mapError((error) => ({
+			...error,
+			message: error.message || "Could not load MyAnimeList client ID",
+		})),
+		Effect.flatMap((value) => {
 			const clientId = typeof value === "string" ? value.trim() : "";
 			if (!clientId) {
-				throw new Error("RYOT_PLUGIN_MEDIA_MAL_CLIENT_ID is not configured");
+				return Effect.fail(
+					new MediaSandboxError({ message: "RYOT_PLUGIN_MEDIA_MAL_CLIENT_ID is not configured" }),
+				);
 			}
-			return clientId;
+			return Effect.succeed(clientId);
 		}),
 	);
 
@@ -40,8 +45,11 @@ export const malGet = (
 			headers: { "X-MAL-CLIENT-ID": clientId },
 		})
 		.pipe(
-			Effect.mapError((error) => new Error(error.message || `MyAnimeList ${label} request failed`)),
-			Effect.map((response) => parseJsonResponse(response.body, "MyAnimeList")),
+			Effect.mapError((error) => ({
+				...error,
+				message: error.message || `MyAnimeList ${label} request failed`,
+			})),
+			Effect.flatMap((response) => decodeJsonResponse(response.body, "MyAnimeList")),
 		);
 
 export const parsePublishYear = (startDate: unknown) => {
@@ -131,7 +139,7 @@ export const searchMal = (
 	host: MyAnimeListHost,
 	input: ProviderSearchInput,
 	options: { readonly path: "anime" | "manga" },
-): Effect.Effect<ProviderSearchResult, unknown> =>
+) =>
 	Effect.all([getMalClientId(host), getUserAllowNsfw(host)], { concurrency: "unbounded" }).pipe(
 		Effect.flatMap(([clientId, allowNsfw]) => {
 			const params = new URLSearchParams({

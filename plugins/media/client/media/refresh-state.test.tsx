@@ -1,4 +1,5 @@
 import { RyotClientError } from "@ryot-app/client-sdk";
+import { Effect } from "@ryot-app/client-sdk/effect";
 import { fireEvent, getByRole } from "@testing-library/dom";
 import { assert, describe, expect, it } from "vitest";
 
@@ -43,7 +44,7 @@ describe("show refresh failures", () => {
 				retries += 1;
 			};
 			const view = mountRyotClient(
-				{ query: () => Promise.resolve({}) },
+				{ query: () => Effect.succeed({}) },
 				<showSchema.ScreenBody
 					compact
 					safeAreaTop={0}
@@ -77,7 +78,7 @@ describe("show refresh failures", () => {
 			classifyRyotQueryResult(errorQueryResult(new RyotClientError("malformed-result"))),
 		).toEqual({ status: "malformed" });
 		const view = mountRyotClient(
-			{ query: () => Promise.resolve({}) },
+			{ query: () => Effect.succeed({}) },
 			<>
 				<MediaRefreshStatus result={errorQueryResult(error)} />
 				<MediaRefreshStatus result={pendingQueryResult()} />

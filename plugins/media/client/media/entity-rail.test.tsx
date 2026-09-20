@@ -1,3 +1,4 @@
+import { Effect } from "@ryot-app/client-sdk/effect";
 import { fireEvent } from "@testing-library/dom";
 import { afterEach, describe, expect, it } from "vitest";
 
@@ -5,7 +6,7 @@ import { mountRyotClient } from "../../tests/client/test-support";
 import type { MediaPresentationSubject } from "./entity-presentation";
 import { MediaEntityRailSection, MediaEntityTile, MediaRailFrame } from "./entity-rail";
 
-const noopAdapter = { query: () => Promise.resolve({}) };
+const noopAdapter = { query: () => Effect.succeed({}) };
 
 const subject = (id: string, name: string): MediaPresentationSubject => ({
 	id,

@@ -1,3 +1,4 @@
+import { Effect } from "@ryot-app/client-sdk/effect";
 import { afterEach, assert, describe, expect, it } from "vitest";
 
 import { musicRecipes } from "../../shared/music-recipes";
@@ -19,7 +20,7 @@ import { renderMediaScreenBody } from "../../tests/client/screen-fixture";
 import { mountRyotClient } from "../../tests/client/test-support";
 import { musicPresentationFacts, musicSchema, musicSummaryFacts } from "./schema";
 
-const noopAdapter = { query: () => Promise.resolve({}) };
+const noopAdapter = { query: () => Effect.succeed({}) };
 
 const musicSummary = (overrides: Record<string, unknown> = {}) =>
 	decodeFlatSummary(musicRecipes.summaryRecipe(FLAT_SUMMARY_INPUT), {

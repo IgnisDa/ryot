@@ -1,4 +1,5 @@
 import type { RyotClientAdapter } from "@ryot-app/client-sdk";
+import { Effect } from "@ryot-app/client-sdk/effect";
 import { getByRole, waitFor } from "@testing-library/dom";
 import { afterEach, describe, expect, it } from "vitest";
 
@@ -21,7 +22,7 @@ import {
 } from "../../tests/client/test-support";
 import { mapMediaOverview } from "./overview-state";
 
-const noopAdapter = { query: () => Promise.resolve({}) };
+const noopAdapter = { query: () => Effect.succeed({}) };
 
 const renderBody = (summary = decodeGroupSummary()) =>
 	mountRyotClient(
@@ -53,7 +54,7 @@ const pagingAdapter = () => {
 		watchEntities: () => ({ update: () => undefined, dispose: () => undefined }),
 		query: (document) => {
 			documents.push(document);
-			return Promise.resolve(
+			return Effect.succeed(
 				JSON.stringify(document).includes("cursor-1")
 					? groupMemberPageData({
 							members: [groupMemberRow({ position: 3, id: "member-3", name: "Revolutions" })],
@@ -152,6 +153,7 @@ describe("group detail screen", () => {
 });
 
 describe("group members tab", () => {
+	// oxlint-disable-next-line effecttsgo/async-function -- Vitest awaits the client test harness's Promise callbacks.
 	it("numbers each member by its position in the group", async () => {
 		const { adapter } = pagingAdapter();
 		const view = mountRyotClient(
@@ -168,6 +170,7 @@ describe("group members tab", () => {
 		view.unmount();
 	});
 
+	// oxlint-disable-next-line effecttsgo/async-function -- Vitest awaits the client test harness's Promise callbacks.
 	it("appends the next page without refetching the page already on screen", async () => {
 		const { adapter, documents } = pagingAdapter();
 		const view = mountRyotClient(

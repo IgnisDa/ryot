@@ -1,4 +1,4 @@
-import { Schema } from "@ryot-app/client-sdk/effect";
+import { Effect, Schema } from "@ryot-app/client-sdk/effect";
 import {
 	createRyotQuery,
 	ManagedAssetProvider,
@@ -61,10 +61,9 @@ export const SHOW_SEASON_LIMIT = 40;
 export const SHOW_EPISODE_PAGE_LIMIT = 60;
 
 export const showSeasonsQuery = createRyotQuery<{ readonly entityId: string }, ShowSeasonsResult>(
-	({ input, client, signal }) =>
+	({ input, client }) =>
 		client.data.query(
 			showSeasonsRecipe({ entityId: input.entityId, seasonLimit: SHOW_SEASON_LIMIT }),
-			{ signal },
 		),
 	{
 		entityInterest: ({ data, input }) => ({
@@ -78,14 +77,13 @@ export const showSeasonEpisodesQuery = createRyotQuery<
 	MediaEpisodePageInput,
 	MediaCursorPage<ShowEpisode>
 >(
-	({ input, client, signal }) =>
+	({ input, client }) =>
 		client.data.query(
 			showSeasonEpisodesRecipe({
 				limit: SHOW_EPISODE_PAGE_LIMIT,
 				containerId: input.containerId,
 				...(input.after === null ? {} : { after: input.after }),
 			}),
-			{ signal },
 		),
 	{
 		entityInterest: ({ data, input }) => ({
@@ -104,23 +102,24 @@ export const showOrderEpisodesQuery = createRyotQuery<
 	ShowOrderEpisodePageInput,
 	MediaCursorPage<ShowOrderEpisode>
 >(
-	async ({ input, client, signal }) => {
+	({ input, client }) => {
 		const page = showOrderEpisodePage(
 			input.episodeExternalIds,
 			input.after,
 			SHOW_EPISODE_PAGE_LIMIT,
 		);
 		if (page === null) {
-			return { items: [], pageInfo: { nextCursor: null } };
+			return Effect.succeed({ items: [], pageInfo: { nextCursor: null } });
 		}
-		const rows = await client.data.query(
-			showOrderEpisodesRecipe({ entityId: input.entityId, externalIds: page.externalIds }),
-			{ signal },
+		return Effect.map(
+			client.data.query(
+				showOrderEpisodesRecipe({ entityId: input.entityId, externalIds: page.externalIds }),
+			),
+			(rows) => ({
+				pageInfo: { nextCursor: page.nextCursor },
+				items: orderByExternalIds(rows, page.externalIds),
+			}),
 		);
-		return {
-			pageInfo: { nextCursor: page.nextCursor },
-			items: orderByExternalIds(rows, page.externalIds),
-		};
 	},
 	{
 		entityInterest: ({ data, input }) => ({
@@ -134,13 +133,12 @@ const showOrderGroupCoverageQuery = createRyotQuery<
 	{ readonly entityId: string; readonly externalIds: readonly string[] },
 	ShowOrderGroupCoverage
 >(
-	({ input, client, signal }) => {
+	({ input, client }) => {
 		const [first, ...rest] = input.externalIds;
 		return first === undefined
-			? Promise.resolve(null)
+			? Effect.succeed(null)
 			: client.data.query(
 					showOrderGroupCoverageRecipe({ entityId: input.entityId, externalIds: [first, ...rest] }),
-					{ signal },
 				);
 	},
 	{ entityInterest: ({ input }) => ({ visible: [], foreground: [input.entityId] }) },

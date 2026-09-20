@@ -51,6 +51,7 @@ describe("media lifecycle recipes", () => {
 		expect(document.match(/"type":"currentDate"/g)?.length).toBeGreaterThanOrEqual(2);
 	});
 
+	// oxlint-disable-next-line effecttsgo/async-function -- Vitest awaits this Promise-returning test callback.
 	it("executes and decodes one query per snapshot read", async () => {
 		let calls = 0;
 		const snapshot = await Effect.runPromise(

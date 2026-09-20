@@ -1,3 +1,4 @@
+import { Effect } from "@ryot-app/client-sdk/effect";
 import { afterEach, describe, expect, it } from "vitest";
 
 import { videoGameRecipes } from "../../shared/video-game-recipes";
@@ -14,7 +15,7 @@ import { renderMediaScreenBody } from "../../tests/client/screen-fixture";
 import { mountRyotClient } from "../../tests/client/test-support";
 import { videoGamePresentationFacts, videoGameSchema, videoGameSummaryFacts } from "./schema";
 
-const noopAdapter = { query: () => Promise.resolve({}) };
+const noopAdapter = { query: () => Effect.succeed({}) };
 
 const videoGameFields = {
 	timeToBeat: { hastily: 600, normally: 900, completely: 1500 },

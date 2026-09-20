@@ -3,6 +3,7 @@ import { Effect } from "@ryot-app/sandbox-sdk/effect";
 import { defineSandboxTestHost, runSandboxTestScript } from "@ryot-app/sandbox-sdk/testing";
 import { describe, expect, it } from "vitest";
 
+import { mediaFailureMessage } from "../../../lib/error-message";
 import details, { manifest as detailsManifest } from "./details.sandbox";
 import search, { manifest as searchManifest } from "./search.sandbox";
 import { manifest } from "./shared";
@@ -115,7 +116,7 @@ describe("manga.anilist sandbox script", () => {
 					return runSandboxTestScript(details, { externalId: "4" }, animeHost, execution).pipe(
 						Effect.flip,
 						Effect.map((error) =>
-							expect(String(error)).toContain("Anilist media is not a manga entry"),
+							expect(mediaFailureMessage(error)).toContain("Anilist media is not a manga entry"),
 						),
 					);
 				}),

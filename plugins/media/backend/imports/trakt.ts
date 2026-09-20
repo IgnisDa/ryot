@@ -1,5 +1,6 @@
 import { Effect, Schema } from "@ryot-app/sandbox-sdk/effect";
 
+import { MediaSandboxError } from "../lib/failures";
 import { getOccurredAtValue, nowIso } from "./dates";
 import { getOrCreateMediaEntityGroup, type ImportMediaEntityGroupBuilder } from "./groups";
 import {
@@ -323,9 +324,10 @@ export const adaptTraktExport = (archive: Record<string, Uint8Array>) => {
 };
 
 const invalidListUrl = () =>
-	new Error(
-		"Invalid Trakt list URL: expected an http(s) URL on trakt.tv or www.trakt.tv with path /users/{username}/lists/{slug}",
-	);
+	new MediaSandboxError({
+		message:
+			"Invalid Trakt list URL: expected an http(s) URL on trakt.tv or www.trakt.tv with path /users/{username}/lists/{slug}",
+	});
 
 const parseListUrl = (value: string) => {
 	const url = new URL(value);

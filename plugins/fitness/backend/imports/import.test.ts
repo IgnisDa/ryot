@@ -22,47 +22,49 @@ const importCommand = (runId: string) =>
 		},
 	});
 
-it("dispatches every fitness source to its matching parser activity", async () => {
-	await Promise.all(
-		(
+it("dispatches every fitness source to its matching parser activity", () =>
+	Effect.runPromise(
+		Effect.forEach(
 			[
 				["hevy", "import.hevy"],
 				["strong_app", "import.strong-app"],
 				["open_scale", "import.open-scale"],
-			] as const
-		).map(async ([source, scriptSlug]) => {
-			const envelope = await Effect.runPromise(
-				workflow.run(
-					{ source, runId: `run-${source}`, command: importCommand(`run-${source}`) },
-					{ replayJournal: () => Effect.succeed([]) } satisfies WorkflowReplayHost,
-					{ metadata: {}, sandboxScriptId: "fitness-import" },
-				),
-			);
-			expect(envelope).toMatchObject({
-				state: "pending",
-				requests: [{ kind: "activity", args: { scriptSlug } }],
-			});
-		}),
-	);
-});
+			] as const,
+			([source, scriptSlug]) =>
+				workflow
+					.run(
+						{ source, runId: `run-${source}`, command: importCommand(`run-${source}`) },
+						{ replayJournal: () => Effect.succeed([]) } satisfies WorkflowReplayHost,
+						{ metadata: {}, sandboxScriptId: "fitness-import" },
+					)
+					.pipe(
+						Effect.map((envelope) => {
+							expect(envelope).toMatchObject({
+								state: "pending",
+								requests: [{ kind: "activity", args: { scriptSlug } }],
+							});
+							return envelope;
+						}),
+					),
+		),
+	));
 
-it("orchestrates the source script and kernel chunk consumer", async () => {
+it("orchestrates the source script and kernel chunk consumer", () => {
 	const journal: JsonValue[] = [];
 	const requests: Array<WorkflowReplayEnvelope["requests"][number]> = [];
-	const replay = (): Promise<JsonValue> =>
-		Effect.runPromise(
-			workflow.run(
+	const replay = Effect.gen(function* () {
+		for (;;) {
+			const envelope = yield* workflow.run(
 				{ runId: "run-1", source: "strong_app", command: importCommand("run-1") },
 				{ replayJournal: () => Effect.succeed(journal) } satisfies WorkflowReplayHost,
 				{ metadata: {}, sandboxScriptId: "fitness-import" },
-			),
-		).then((envelope) => {
+			);
 			requests.splice(0, requests.length, ...envelope.requests);
 			if (envelope.state === "completed") {
 				return envelope.output;
 			}
 			if (envelope.state === "failed") {
-				throw new Error(envelope.error);
+				assert.fail(envelope.error);
 			}
 			const request = envelope.requests[journal.length];
 			assert(request);
@@ -76,29 +78,35 @@ it("orchestrates the source script and kernel chunk consumer", async () => {
 						}
 					: { failedItems: 1, importedItems: 1, processedItems: 2 },
 			);
-			return replay();
-		});
+		}
+	});
 
-	const result = await replay();
-	expect(result).toEqual({ failedItems: 1, importedItems: 1, processedItems: 2 });
-	expect(requests).toEqual([
-		expect.objectContaining({
-			kind: "activity",
-			args: expect.objectContaining({ scriptSlug: "import.strong-app" }),
-		}),
-		expect.objectContaining({
-			kind: "child",
-			args: {
-				workflowSlug: "kernel:process-import-chunks",
-				input: {
-					totalItems: 2,
-					runId: "run-1",
-					failureCount: 1,
-					writeItemCount: 1,
-					command: importCommand("run-1"),
-					chunkHandles: ["harvest-handle-0"],
-				},
-			},
-		}),
-	]);
+	return Effect.runPromise(
+		replay.pipe(
+			Effect.map((result) => {
+				expect(result).toEqual({ failedItems: 1, importedItems: 1, processedItems: 2 });
+				expect(requests).toEqual([
+					expect.objectContaining({
+						kind: "activity",
+						args: expect.objectContaining({ scriptSlug: "import.strong-app" }),
+					}),
+					expect.objectContaining({
+						kind: "child",
+						args: {
+							workflowSlug: "kernel:process-import-chunks",
+							input: {
+								totalItems: 2,
+								runId: "run-1",
+								failureCount: 1,
+								writeItemCount: 1,
+								command: importCommand("run-1"),
+								chunkHandles: ["harvest-handle-0"],
+							},
+						},
+					}),
+				]);
+				return result;
+			}),
+		),
+	);
 });

@@ -61,6 +61,6 @@ export const pokemonDetailRecipe = defineRecipe((input: { readonly entityId: str
 export type PokemonDetailData = Recipe.Success<typeof pokemonDetailRecipe>;
 
 export const pokemonDetailQuery = createRyotQuery<{ readonly entityId: string }, PokemonDetailData>(
-	({ input, client, signal }) => client.data.query(pokemonDetailRecipe(input), { signal }),
+	({ input, client }) => client.data.query(pokemonDetailRecipe(input)),
 	{ entityInterest: ({ input }) => ({ visible: [], foreground: [input.entityId] }) },
 );

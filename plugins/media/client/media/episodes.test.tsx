@@ -1,4 +1,5 @@
-import type { RyotClientAdapter } from "@ryot-app/client-sdk";
+import { RyotClientError, type RyotClientAdapter } from "@ryot-app/client-sdk";
+import { Effect } from "@ryot-app/client-sdk/effect";
 import { fireEvent, waitFor } from "@testing-library/dom";
 import { afterEach, describe, expect, it } from "vitest";
 
@@ -55,7 +56,7 @@ const pagingAdapter = () => {
 	const adapter: Partial<RyotClientAdapter> = {
 		query: (document) => {
 			documents.push(document);
-			return Promise.resolve(
+			return Effect.succeed(
 				JSON.stringify(document).includes("cursor-1")
 					? episodicEpisodePageData({ episodes: SECOND_PAGE })
 					: episodicEpisodePageData({ episodes: FIRST_PAGE, nextCursor: "cursor-1" }),
@@ -70,6 +71,7 @@ afterEach(() => {
 });
 
 describe("media episode pages", () => {
+	// oxlint-disable-next-line effecttsgo/async-function -- Vitest awaits the client test harness's Promise callbacks.
 	it("leads the first page with the summary's next up even when no loaded page holds it", async () => {
 		const { adapter, documents } = pagingAdapter();
 		const view = mountRyotClient(adapter, <Pages nextUp={SUMMARY_NEXT_UP} />);
@@ -84,6 +86,7 @@ describe("media episode pages", () => {
 		view.unmount();
 	});
 
+	// oxlint-disable-next-line effecttsgo/async-function -- Vitest awaits the client test harness's Promise callbacks.
 	it("renders no next up card without a summary next up", async () => {
 		const { adapter } = pagingAdapter();
 		const view = mountRyotClient(adapter, <Pages />);
@@ -94,6 +97,7 @@ describe("media episode pages", () => {
 		view.unmount();
 	});
 
+	// oxlint-disable-next-line effecttsgo/async-function -- Vitest awaits the client test harness's Promise callbacks.
 	it("appends the next page without refetching the pages already on screen", async () => {
 		const { adapter, documents } = pagingAdapter();
 		const view = mountRyotClient(adapter, <Pages />);
@@ -114,9 +118,10 @@ describe("media episode pages", () => {
 		view.unmount();
 	});
 
+	// oxlint-disable-next-line effecttsgo/async-function -- Vitest awaits the client test harness's Promise callbacks.
 	it("explains an empty feed and keeps the control away from a single page", async () => {
 		const view = mountRyotClient(
-			{ query: () => Promise.resolve(episodicEpisodePageData({ episodes: [] })) },
+			{ query: () => Effect.succeed(episodicEpisodePageData({ episodes: [] })) },
 			<Pages />,
 		);
 		await flushRyotClient();
@@ -128,8 +133,12 @@ describe("media episode pages", () => {
 		view.unmount();
 	});
 
+	// oxlint-disable-next-line effecttsgo/async-function -- Vitest awaits the client test harness's Promise callbacks.
 	it("keeps a page failure behind stable copy", async () => {
-		const view = mountRyotClient({ query: () => Promise.reject(new Error("offline")) }, <Pages />);
+		const view = mountRyotClient(
+			{ query: () => Effect.fail(new RyotClientError("transport")) },
+			<Pages />,
+		);
 		await flushRyotClient();
 
 		await waitFor(() =>

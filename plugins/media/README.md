@@ -7,6 +7,11 @@ schema; saved views do not declare sandbox scripts.
 
 ## Client
 
+Client query definitions return Effects from `@ryot-app/client-sdk/effect`. RyotQL requests compose
+directly through `client.data.query`; query cancellation follows the query fiber. Media presentation
+loaders also return Effects; their batch requests are interrupted when the presentation is disposed.
+React storage callbacks remain the SDK's framework boundary.
+
 The plugin client supplies a workspace home and `show`, `anime`, `movie`, `music`, `book`, `manga`,
 `podcast`, `audiobook`, `comic-book`, `visual-novel`, `video-game`, the six `*-group` schemas,
 `person`, and `company` entity renderers. Person and company register only a detail page and keep the shared media row and card. Entity links
@@ -288,6 +293,13 @@ not branch on provider identity. Supported relationship categories emit authorit
 refresh can remove stale relationships.
 
 ## Operations
+
+Sandbox scripts and providers import Effect from `@ryot-app/sandbox-sdk/effect`; deterministic
+workflows use `@ryot-app/sandbox-sdk/workflow`. Media-authored provider and import failures use
+`MediaSandboxError`; recipe response decoding fails with `RyotqlRecipeDecodeError`. Providers decode
+HTTP JSON at the Schema boundary, and Promise-native YouTube Music calls map external failures at
+their Effect boundary. Host capability failures retain `SandboxHostError`. Workflow import
+validation uses a workflow-local tagged error, with error-message formatting in a pure shared module.
 
 Media operations accept lists and return `results`. Per-item misses are values such as
 `status: "notFound"` or `entityId: null`, not operation failures. Most operations preserve positional
