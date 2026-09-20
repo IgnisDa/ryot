@@ -5,9 +5,23 @@ import { strictStruct } from "./schema/utils";
 export const OAUTH_WEB_CLIENT_ID = "ryot-web";
 export const OAUTH_NATIVE_CLIENT_ID = "ryot-native";
 export const OAUTH_DEMO_WEB_CLIENT_ID = "ryot-demo-web";
+export const OAUTH_IMPERSONATION_WEB_CLIENT_ID = "ryot-impersonation-web";
+export const OAUTH_IMPERSONATION_NATIVE_CLIENT_ID = "ryot-impersonation-native";
+export const OAUTH_IMPERSONATION_CLIENT_IDS = [
+	OAUTH_IMPERSONATION_WEB_CLIENT_ID,
+	OAUTH_IMPERSONATION_NATIVE_CLIENT_ID,
+] as const;
 export const OAUTH_NATIVE_APPLICATION_IDS = ["io.ryot.app", "io.ryot.app.dev"] as const;
-export const OAUTH_WEB_CLIENT_IDS = [OAUTH_WEB_CLIENT_ID, OAUTH_DEMO_WEB_CLIENT_ID] as const;
-export const OAUTH_CLIENT_IDS = [...OAUTH_WEB_CLIENT_IDS, OAUTH_NATIVE_CLIENT_ID] as const;
+export const OAUTH_WEB_CLIENT_IDS = [
+	OAUTH_WEB_CLIENT_ID,
+	OAUTH_DEMO_WEB_CLIENT_ID,
+	OAUTH_IMPERSONATION_WEB_CLIENT_ID,
+] as const;
+export const OAUTH_NATIVE_CLIENT_IDS = [
+	OAUTH_NATIVE_CLIENT_ID,
+	OAUTH_IMPERSONATION_NATIVE_CLIENT_ID,
+] as const;
+export const OAUTH_CLIENT_IDS = [...OAUTH_WEB_CLIENT_IDS, ...OAUTH_NATIVE_CLIENT_IDS] as const;
 
 export const AccessClass = Schema.Literals(["standard", "demo"]);
 export type AccessClass = typeof AccessClass.Type;
@@ -15,7 +29,7 @@ export type AccessClass = typeof AccessClass.Type;
 export const WebOAuthClientId = Schema.Literals(OAUTH_WEB_CLIENT_IDS);
 export type WebOAuthClientId = typeof WebOAuthClientId.Type;
 
-export const NativeOAuthClientId = Schema.Literal(OAUTH_NATIVE_CLIENT_ID);
+export const NativeOAuthClientId = Schema.Literals(OAUTH_NATIVE_CLIENT_IDS);
 export type NativeOAuthClientId = typeof NativeOAuthClientId.Type;
 
 export const OAuthClientId = Schema.Literals(OAUTH_CLIENT_IDS);
@@ -36,6 +50,8 @@ export const OAUTH_SCOPE = OAUTH_SCOPES.join(" ");
 
 export const OAUTH_PKCE_METHOD = "S256";
 export const OAUTH_ACCESS_TOKEN_TTL_SECONDS = 15 * 60;
+export const IMPERSONATION_HANDOFF_TTL_SECONDS = 60;
+export const IMPERSONATION_SESSION_TTL_SECONDS = 60 * 60;
 export const OAUTH_REFRESH_TOKEN_TTL_SECONDS = 30 * 24 * 60 * 60;
 
 export const OAUTH_LOGIN_PATH = "/oauth/login";
@@ -48,6 +64,18 @@ export const OAUTH_REVOKE_PATH = "/api/auth/oauth2/revoke";
 export const OAUTH_USERINFO_PATH = "/api/auth/oauth2/userinfo";
 export const OAUTH_AUTHORIZE_PATH = "/api/auth/oauth2/authorize";
 export const OAUTH_END_SESSION_PATH = "/api/auth/oauth2/end-session";
+
+export const ImpersonationAuthorization = strictStruct({
+	nonce: Schema.String,
+	state: Schema.String,
+	redirectUri: Schema.String,
+	codeChallenge: Schema.String,
+	clientId: Schema.Literals(OAUTH_IMPERSONATION_CLIENT_IDS),
+});
+export type ImpersonationAuthorization = typeof ImpersonationAuthorization.Type;
+
+export const ImpersonationSession = strictStruct({ expiresAt: Schema.Finite });
+export type ImpersonationSession = typeof ImpersonationSession.Type;
 
 export const getNativeOAuthCallbackUri = (applicationId: NativeOAuthApplicationId) =>
 	`${applicationId}:${OAUTH_CALLBACK_PATH}`;
@@ -74,6 +102,26 @@ const fromOrigin = (origin: string, path: string) => new URL(path, origin).toStr
 export const getOAuthResource = (origin: string) => fromOrigin(origin, "/api");
 export const getOAuthIssuer = (origin: string) => fromOrigin(origin, OAUTH_ISSUER_PATH);
 export const getOAuthEndpoint = (origin: string, path: string) => fromOrigin(origin, path);
+
+export const buildOAuthAuthorizationUrl = (
+	origin: string,
+	authorization: Pick<PendingAuthorization, "clientId" | "redirectUri" | "state" | "nonce"> &
+		Pick<ImpersonationAuthorization, "codeChallenge">,
+) => {
+	const url = new URL(getOAuthEndpoint(origin, OAUTH_AUTHORIZE_PATH));
+	url.search = new URLSearchParams({
+		scope: OAUTH_SCOPE,
+		response_type: "code",
+		nonce: authorization.nonce,
+		state: authorization.state,
+		client_id: authorization.clientId,
+		resource: getOAuthResource(origin),
+		redirect_uri: authorization.redirectUri,
+		code_challenge_method: OAUTH_PKCE_METHOD,
+		code_challenge: authorization.codeChallenge,
+	}).toString();
+	return url.toString();
+};
 export const getWebOAuthCallbackUri = (origin: string) => fromOrigin(origin, OAUTH_CALLBACK_PATH);
 export const getWebOAuthLogoutCallbackUri = (origin: string) =>
 	fromOrigin(origin, OAUTH_LOGOUT_CALLBACK_PATH);
@@ -97,6 +145,7 @@ export const OAuthUserInfoResponse = strictStruct({
 	sub: Schema.String,
 	name: Schema.optional(Schema.NullOr(Schema.String)),
 	email: Schema.optional(Schema.NullOr(Schema.String)),
+	impersonation: Schema.optional(ImpersonationSession),
 	picture: Schema.optional(Schema.NullOr(Schema.String)),
 	given_name: Schema.optional(Schema.NullOr(Schema.String)),
 	family_name: Schema.optional(Schema.NullOr(Schema.String)),
@@ -135,12 +184,17 @@ export const OAuthCallbackQuery = strictStruct({
 });
 export type OAuthCallbackQuery = typeof OAuthCallbackQuery.Type;
 
-const OAuthCredential = strictStruct({ clientId: Schema.String, kind: Schema.Literal("oauth") });
+const OAuthCredential = strictStruct({
+	clientId: Schema.String,
+	kind: Schema.Literal("oauth"),
+	sessionId: Schema.optional(Schema.String),
+});
 const ApiKeyCredential = strictStruct({ keyId: Schema.String, kind: Schema.Literal("api-key") });
 
 export const AuthorizationContext = strictStruct({
 	userId: Schema.String,
 	accessClass: AccessClass,
+	impersonation: Schema.optional(ImpersonationSession),
 	credential: Schema.Union([OAuthCredential, ApiKeyCredential]),
 });
 export type AuthorizationContext = typeof AuthorizationContext.Type;

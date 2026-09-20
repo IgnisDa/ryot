@@ -34,6 +34,7 @@ export const session = snakeCase.table(
 		token: text().notNull().unique(),
 		accessClass: text().default("standard").notNull(),
 		expiresAt: timestamp({ withTimezone: true }).notNull(),
+		impersonationExpiresAt: timestamp({ withTimezone: true }),
 		createdAt: timestamp({ withTimezone: true }).defaultNow().notNull(),
 		userId: text()
 			.notNull()
