@@ -269,7 +269,7 @@ layer(
 	liveOperationsLayer({
 		database: databaseLayer,
 		overrides: Layer.mergeAll(
-			Layer.mock(AuthService)({ auth: Object.create(null) }),
+			Layer.mock(AuthService)({ handler: () => Effect.die("unused").pipe(Effect.runPromise) }),
 			Layer.mock(UserLifecycleRepository)({
 				getInternalById: () => Effect.succeed(deleteOperation),
 			}),
@@ -344,7 +344,7 @@ const resetIdentityLayer = Layer.unwrap(
 					),
 			}),
 			Layer.mock(AuthService)({
-				auth: Object.create(null),
+				handler: () => Effect.die("unused").pipe(Effect.runPromise),
 				updateAuthUserDisabled: (_id, data) =>
 					record(data.disabledAt === null ? "enabled" : "disabled"),
 				requestPasswordResetLink: () =>
@@ -428,7 +428,7 @@ const transactionProbeLayer = Layer.unwrap(
 						Effect.as(undefined),
 					),
 			}),
-			Layer.mock(AuthService)({ auth: Object.create(null) }),
+			Layer.mock(AuthService)({ handler: () => Effect.die("unused").pipe(Effect.runPromise) }),
 			Layer.mock(ObjectStorageService)({}),
 			Layer.succeed(RecordedCompletionTransaction, { usedTransaction: Ref.get(usedTransaction) }),
 		);

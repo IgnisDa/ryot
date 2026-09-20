@@ -202,7 +202,7 @@ const RootRoutesLive = HttpRouter.use((router) =>
 		yield* registerRootRoutes(
 			router,
 			api.pipe(Effect.mapError(mapRouterError)),
-			auth.auth.handler,
+			auth.handler,
 			serveStatic,
 			config.frontendUrl,
 		);
