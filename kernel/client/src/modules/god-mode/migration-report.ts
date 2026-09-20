@@ -6,6 +6,12 @@ import type {
 import { Match } from "effect";
 
 export const migrationReportDetailKey = (detail: MigrationReportDetail) => {
+	if (
+		detail.code === "workout-active-duration-invalid" ||
+		detail.code === "workout-energy-invalid"
+	) {
+		return detail.workoutId;
+	}
 	if (detail.code === "workout-set-completion-outside-session") {
 		return `${detail.workoutId}:${detail.exerciseOrder}:${detail.setOrder}`;
 	}
@@ -66,6 +72,14 @@ export const migrationReportDetailLabel = (detail: MigrationReportDetail) =>
 			(value) =>
 				`Workout ${value.workoutId} — exercise ${value.exerciseOrder ?? "unknown"}, set ${value.setOrder ?? "unknown"}`,
 		),
+		Match.when(
+			{ code: "workout-active-duration-invalid" },
+			(value) => `Workout ${value.workoutId} — active duration`,
+		),
+		Match.when(
+			{ code: "workout-energy-invalid" },
+			(value) => `Workout ${value.workoutId} — energy`,
+		),
 		Match.orElse((value) => `${value.parentName} — ${positionLabel(value)}`),
 	);
 
@@ -109,6 +123,12 @@ export const migrationReportDetailSentence = (detail: MigrationReportDetail) =>
 			() =>
 				"This set's completion timestamp falls outside the recorded workout interval. Its original completion time was kept unchanged.",
 		),
+		Match.whenOr(
+			{ code: "workout-active-duration-invalid" },
+			{ code: "workout-energy-invalid" },
+			() =>
+				"The original negative value was omitted so this property remains unknown. The workout timestamps are unchanged, and the value was not clamped.",
+		),
 		Match.exhaustive,
 	);
 
@@ -137,6 +157,21 @@ export const migrationReportDetailProvenance = (detail: MigrationReportDetail) =
 				["Exercise order", value.exerciseOrder === null ? null : `${value.exerciseOrder}`],
 				["Set order", value.setOrder === null ? null : `${value.setOrder}`],
 				["Confirmed at", value.confirmedAt],
+				["Started at", value.startedAt],
+				["Ended at", value.endedAt],
+			]),
+			Match.when({ code: "workout-active-duration-invalid" }, (value) => [
+				["Workout", value.workoutId],
+				["User", value.userId],
+				["Original active duration (seconds)", value.legacyValue],
+				["Started at", value.startedAt],
+				["Ended at", value.endedAt],
+			]),
+			Match.when({ code: "workout-energy-invalid" }, (value) => [
+				["Workout", value.workoutId],
+				["User", value.userId],
+				["Original energy", value.legacyValue],
+				["Original energy unit", value.legacyEnergyUnit],
 				["Started at", value.startedAt],
 				["Ended at", value.endedAt],
 			]),

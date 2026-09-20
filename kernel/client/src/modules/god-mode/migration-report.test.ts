@@ -4,6 +4,7 @@ import { describe, expect, it } from "vitest";
 import {
 	buildMigrationReportClipboardText,
 	formatMigrationReportElapsed,
+	migrationReportDetailKey,
 	migrationReportDetailLabel,
 	migrationReportDetailProvenance,
 	migrationReportDetailSentence,
@@ -33,6 +34,25 @@ const outsideSession = {
 	startedAt: "2026-08-12T10:00:00.000Z",
 	confirmedAt: "2026-08-12T10:20:00.000Z",
 	code: "workout-set-completion-outside-session",
+} as const satisfies MigrationReportDetail;
+
+const invalidDuration = {
+	userId: "usr_1",
+	legacyValue: "-12.75",
+	workoutId: "wkt_duration",
+	endedAt: "2026-08-12T10:30:00.000Z",
+	startedAt: "2026-08-12T10:00:00.000Z",
+	code: "workout-active-duration-invalid",
+} as const satisfies MigrationReportDetail;
+
+const invalidEnergy = {
+	endedAt: null,
+	userId: "usr_2",
+	legacyValue: "-0.125",
+	legacyEnergyUnit: null,
+	workoutId: "wkt_energy",
+	code: "workout-energy-invalid",
+	startedAt: "2026-08-13T10:00:00.000Z",
 } as const satisfies MigrationReportDetail;
 
 describe("migration report presentation", () => {
@@ -135,6 +155,41 @@ describe("migration report presentation", () => {
 			{ key: "Confirmed at", value: "2026-08-12T10:20:00.000Z" },
 			{ key: "Started at", value: "2026-08-12T10:00:00.000Z" },
 		]);
+	});
+
+	it("presents invalid workout duration and energy with their original values", () => {
+		expect(migrationReportDetailKey(invalidDuration)).toBe("wkt_duration");
+		expect(migrationReportDetailKey(invalidEnergy)).toBe("wkt_energy");
+		expect(migrationReportDetailLabel(invalidDuration)).toBe(
+			"Workout wkt_duration — active duration",
+		);
+		expect(migrationReportDetailLabel(invalidEnergy)).toBe("Workout wkt_energy — energy");
+		const sentence =
+			"The original negative value was omitted so this property remains unknown. The workout timestamps are unchanged, and the value was not clamped.";
+		expect(migrationReportDetailSentence(invalidDuration)).toBe(sentence);
+		expect(migrationReportDetailSentence(invalidEnergy)).toBe(sentence);
+		expect(migrationReportDetailProvenance(invalidDuration)).toEqual([
+			{ key: "Workout", value: "wkt_duration" },
+			{ key: "User", value: "usr_1" },
+			{ value: "-12.75", key: "Original active duration (seconds)" },
+			{ key: "Started at", value: "2026-08-12T10:00:00.000Z" },
+			{ key: "Ended at", value: "2026-08-12T10:30:00.000Z" },
+		]);
+		expect(migrationReportDetailProvenance(invalidEnergy)).toEqual([
+			{ key: "Workout", value: "wkt_energy" },
+			{ key: "User", value: "usr_2" },
+			{ value: "-0.125", key: "Original energy" },
+			{ key: "Started at", value: "2026-08-13T10:00:00.000Z" },
+		]);
+		expect(
+			buildMigrationReportClipboardText({
+				totalDetails: 1,
+				details: [invalidEnergy],
+				phase: "workouts -> entity",
+				code: "workout-energy-invalid",
+				message: "A workout energy value was omitted.",
+			}),
+		).toContain("    Original energy: -0.125");
 	});
 
 	it("explains dropped integration cache markers", () => {

@@ -105,6 +105,8 @@ const allowedWarningCodes: ReadonlySet<MigrationReportAnomalyCode> = new Set([
 	"integration-cache-provider-unmapped",
 	"integration-cache-entity-unresolved",
 	"workout-set-completion-outside-session",
+	"workout-active-duration-invalid",
+	"workout-energy-invalid",
 ]);
 
 class UnexpectedLegacyBootstrapWarning extends Data.TaggedError(

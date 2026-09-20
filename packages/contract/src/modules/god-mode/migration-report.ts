@@ -15,6 +15,8 @@ export const MigrationReportAnomalyCode = Schema.Literals([
 	"asset-locator-unresolved",
 	"asset-deletion-failed",
 	"workout-set-completion-outside-session",
+	"workout-active-duration-invalid",
+	"workout-energy-invalid",
 ]);
 
 export type MigrationReportAnomalyCode = Schema.Schema.Type<typeof MigrationReportAnomalyCode>;
@@ -80,6 +82,23 @@ export const MigrationReportDetail = Schema.Union([
 		confirmedAt: Schema.NullOr(Schema.String),
 		exerciseOrder: Schema.NullOr(Schema.Finite),
 		code: Schema.Literal("workout-set-completion-outside-session"),
+	}),
+	Schema.Struct({
+		userId: Schema.String,
+		workoutId: Schema.String,
+		startedAt: Schema.String,
+		legacyValue: Schema.String,
+		endedAt: Schema.NullOr(Schema.String),
+		code: Schema.Literal("workout-active-duration-invalid"),
+	}),
+	Schema.Struct({
+		userId: Schema.String,
+		workoutId: Schema.String,
+		startedAt: Schema.String,
+		legacyValue: Schema.String,
+		endedAt: Schema.NullOr(Schema.String),
+		legacyEnergyUnit: Schema.NullOr(Schema.String),
+		code: Schema.Literal("workout-energy-invalid"),
 	}),
 ]);
 

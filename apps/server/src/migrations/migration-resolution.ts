@@ -2,12 +2,12 @@ import type {
 	PluginIntegrationProvider,
 	PluginManifest,
 } from "@ryot-app/contract/modules/plugins/manifest";
+import type { AppSchema } from "@ryot-app/contract/schema/property-schema";
 import * as schema from "@ryot-app/kernel-backend/lib/infrastructure/db/schema/tables/combined";
 import { DatabaseSession } from "@ryot-app/kernel-backend/lib/infrastructure/db/session";
 import { DefinitionRepository } from "@ryot-app/kernel-backend/modules/definition-registry/repository";
 import type { DefinitionSnapshot } from "@ryot-app/kernel-backend/modules/definition-registry/snapshot";
 import { PluginRepository } from "@ryot-app/kernel-backend/modules/plugins/repository";
-import { resolvePluginUserSettings } from "@ryot-app/kernel-backend/modules/plugins/user-settings";
 import { and, eq, inArray, isNull } from "drizzle-orm";
 import { Effect } from "effect";
 
@@ -21,9 +21,11 @@ export type LegacyPackageResolution = {
 	entitySchemas: Map<string, QualifiedSchema>;
 	eventSchemas: Map<string, QualifiedSchema>;
 	fitnessPluginId: string;
+	fitnessUserSettingsSchema: AppSchema;
 	installations: Map<string, string>;
 	integrationProviders: Map<string, ResolvedIntegrationProvider>;
 	mediaPluginId: string;
+	mediaUserSettingsSchema: AppSchema;
 	providers: Map<string, string>;
 	relationshipSchemas: Map<string, QualifiedSchema>;
 	savedViews: Map<string, QualifiedSchema>;
@@ -168,18 +170,11 @@ export const buildLegacyPackageResolution = Effect.fn("buildLegacyPackageResolut
 			"Legacy bootstrap: the active Media revision has no user settings schema, so NSFW preferences cannot migrate. Use a build with the Media user settings schema, then start again.",
 		);
 	}
-	for (const allowNsfw of [false, true]) {
-		yield* resolvePluginUserSettings(activeMedia.manifest.userSettingsSchema, { allowNsfw }).pipe(
-			Effect.catch((error) =>
-				Effect.die(
-					new Error(
-						`Legacy bootstrap: the active Media user settings schema rejects NSFW preferences (${String(error)}). Use a build with the supported Media user settings schema, then start again.`,
-					),
-				),
-			),
+	if (!activeFitness.manifest.userSettingsSchema) {
+		throw new Error(
+			"Legacy bootstrap: the active Fitness revision has no user settings schema, so fitness preferences cannot migrate. Use a build with the Fitness user settings schema, then start again.",
 		);
 	}
-
 	const resolvedEnvironmentConfigs = [activeMedia, activeFitness].map((plugin) => {
 		if (!plugin.configRevisionId) {
 			throw new Error(
@@ -379,6 +374,8 @@ export const buildLegacyPackageResolution = Effect.fn("buildLegacyPackageResolut
 		integrationProviders,
 		mediaPluginId: media.id,
 		fitnessPluginId: fitness.id,
+		mediaUserSettingsSchema: activeMedia.manifest.userSettingsSchema,
+		fitnessUserSettingsSchema: activeFitness.manifest.userSettingsSchema,
 	} satisfies LegacyPackageResolution;
 });
 
