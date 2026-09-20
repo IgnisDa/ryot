@@ -48,13 +48,15 @@ export class OperationalGateService extends Context.Service<OperationalGateServi
 				input: TestSupportStartWorkflowLoadGateBody,
 			) {
 				const accountGeneration = yield* receipts.currentAccount(input.executingUserId);
-				const available = yield* pluginRuntime.listPluginsAvailableToUser(input.executingUserId);
-				const installation = available.find(({ slug }) => slug === input.pluginSlug);
+				const installation = yield* pluginRuntime.findPluginAvailableToUser(
+					input.executingUserId,
+					input.pluginId,
+				);
 				if (!installation) {
 					return yield* new TestSupportBadRequest({
 						reason: {
 							code: "invalid-request",
-							diagnostic: `Plugin ${input.pluginSlug} is not installed for this user`,
+							diagnostic: `Plugin ${input.pluginId} is not installed for this user`,
 						},
 					});
 				}

@@ -1,6 +1,6 @@
 import { expect, it } from "@effect/vitest";
 import type { PluginManifest } from "@ryot-app/contract/modules/plugins/manifest";
-import { EntityId, EntitySchemaSlug, PluginSlug, UserId } from "@ryot-app/contract/schema/brands";
+import { EntityId, EntitySchemaSlug, PluginId, UserId } from "@ryot-app/contract/schema/brands";
 import { Effect } from "effect";
 
 import { fixtureManifest } from "#modules/plugins/test-support";
@@ -19,10 +19,14 @@ const plugin = (input: {
 		scope: "user",
 		slug: input.id,
 		health: "ready",
+		clientImports: [],
+		healthReason: null,
 		compiledHashes: {},
+		incompatibilityReason: null,
 		sourceHash: `${input.id}-source`,
 		isHidden: input.isHidden ?? false,
 		ownerUserId: UserId.make("user-1"),
+		packageId: manifest.metadata.packageId,
 		pluginRevisionId: `${input.id}-revision`,
 		installationId: `${input.id}-installation`,
 		pluginConfigRevisionId: `${input.id}-config`,
@@ -60,7 +64,7 @@ it.effect("selects a declared dynamic route from a hidden but ready direct insta
 				search: "tab=stats",
 				kind: "plugin-route",
 				path: "/details/item-1",
-				pluginSlug: PluginSlug.make(owner.slug),
+				pluginId: PluginId.make(owner.id),
 			},
 		});
 		expect(resolved.kind).toBe("plugin");
@@ -81,7 +85,6 @@ it("records hidden ready installations as operation targets without making them 
 	expect(clientPageOperationTargets([target])).toEqual([
 		{
 			pluginId: "operations-only",
-			pluginSlug: "operations-only",
 			sourceHash: "operations-only-source",
 			installationId: "operations-only-installation",
 		},
@@ -106,7 +109,7 @@ it.effect("decodes dynamic route parameters", () => {
 				search: "",
 				kind: "plugin-route",
 				path: "/details/item%201",
-				pluginSlug: PluginSlug.make(owner.slug),
+				pluginId: PluginId.make(owner.id),
 			},
 		});
 		expect(resolved.kind).toBe("plugin");
@@ -135,7 +138,7 @@ it.effect("selects a static route before an overlapping dynamic route", () => {
 				search: "",
 				path: "/items/new",
 				kind: "plugin-route",
-				pluginSlug: PluginSlug.make(owner.slug),
+				pluginId: PluginId.make(owner.id),
 			},
 		});
 		expect(resolved.kind).toBe("plugin");

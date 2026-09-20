@@ -162,9 +162,12 @@ const documentDependenciesLayer = Layer.effectContext(
 						...artifactDescription,
 						hash,
 						format: 1,
+						imports: [],
 						apiVersion: 1,
+						packageId: null,
 						bridgeVersion: 1,
 						compilerVersion: 1,
+						clientDeclarationHash: null,
 					});
 				},
 			}),

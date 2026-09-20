@@ -1,8 +1,6 @@
-import {
-	PluginClientArtifact as PluginClientArtifactSchema,
-	type PluginClientArtifact,
-} from "@ryot-app/client-plugin-contract";
+import { ClientArtifact } from "@ryot-app/client-plugin-contract";
 import { DbError } from "@ryot-app/contract/errors";
+import { stableStringify } from "@ryot-app/ts-utils/json";
 import { eq, and, asc } from "drizzle-orm";
 import { Context, Effect, Layer, Schema } from "effect";
 
@@ -19,11 +17,15 @@ const bytesEqual = (left: Uint8Array, right: Uint8Array) =>
 	left.byteLength === right.byteLength && left.every((byte, index) => byte === right[index]);
 
 export const clientArtifactMatches = (
-	artifact: PluginClientArtifact,
+	artifact: ClientArtifact,
 	metadata: ArtifactRow,
 	files: ReadonlyArray<FileRow>,
 ) =>
 	metadata.hash === artifact.hash &&
+	metadata.packageId === ("packageId" in artifact ? artifact.packageId : null) &&
+	metadata.clientDeclarationHash ===
+		("clientDeclarationHash" in artifact ? artifact.clientDeclarationHash : null) &&
+	stableStringify(metadata.imports) === stableStringify(artifact.imports) &&
 	metadata.format === artifact.format &&
 	metadata.apiVersion === artifact.apiVersion &&
 	metadata.bridgeVersion === artifact.bridgeVersion &&
@@ -95,8 +97,10 @@ export class ClientArtifactsRepository extends Context.Service<ClientArtifactsRe
 					const files = yield* session.run((db) =>
 						db.select().from(clientArtifactFile).where(eq(clientArtifactFile.artifactHash, hash)),
 					);
-					const artifact = yield* Schema.decodeUnknownEffect(PluginClientArtifactSchema)({
-						...metadata,
+					const { packageId, clientDeclarationHash, ...versions } = metadata;
+					const artifact = yield* Schema.decodeUnknownEffect(ClientArtifact)({
+						...versions,
+						...(packageId === null ? {} : { packageId, clientDeclarationHash }),
 						files: files.map(({ name, contents, contentType }) => ({
 							name,
 							contentType,
@@ -113,16 +117,20 @@ export class ClientArtifactsRepository extends Context.Service<ClientArtifactsRe
 					return artifact;
 				}),
 				persistClientArtifact: Effect.fn("ClientArtifactsRepository.persistClientArtifact")(
-					function* (artifact: PluginClientArtifact) {
+					function* (artifact: ClientArtifact) {
 						const [inserted] = yield* session.run((db) =>
 							db
 								.insert(clientArtifact)
 								.values({
 									hash: artifact.hash,
 									format: artifact.format,
+									imports: artifact.imports,
 									apiVersion: artifact.apiVersion,
 									bridgeVersion: artifact.bridgeVersion,
 									compilerVersion: artifact.compilerVersion,
+									packageId: "packageId" in artifact ? artifact.packageId : null,
+									clientDeclarationHash:
+										"clientDeclarationHash" in artifact ? artifact.clientDeclarationHash : null,
 								})
 								.onConflictDoNothing()
 								.returning({ hash: clientArtifact.hash }),

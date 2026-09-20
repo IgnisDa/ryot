@@ -4,7 +4,7 @@ import {
 	type ClientPageTarget,
 } from "@ryot-app/contract/modules/client-pages/schemas";
 import { comparePluginRoutePaths } from "@ryot-app/contract/modules/plugins/manifest";
-import { PluginSlug, type EntityId, type EntitySchemaSlug } from "@ryot-app/contract/schema/brands";
+import { PluginId, type EntityId, type EntitySchemaSlug } from "@ryot-app/contract/schema/brands";
 import { Effect } from "effect";
 
 import type { AvailablePlugin } from "#modules/plugins/runtime-resolver";
@@ -25,13 +25,12 @@ export const clientPageOperationTargets = (
 ): readonly ClientPageOperationTarget[] =>
 	plugins
 		.filter(({ health }) => health === "ready")
-		.map(({ id, slug, sourceHash, installationId }) => ({
+		.map(({ id, sourceHash, installationId }) => ({
 			sourceHash,
-			pluginId: id,
 			installationId,
-			pluginSlug: PluginSlug.make(slug),
+			pluginId: PluginId.make(id),
 		}))
-		.sort((left, right) => left.pluginSlug.localeCompare(right.pluginSlug));
+		.sort((left, right) => left.pluginId.localeCompare(right.pluginId));
 
 const matchRoute = (pattern: string, path: string) => {
 	const patternSegments = pattern.split("/").filter(Boolean);
@@ -90,12 +89,9 @@ export const resolvePluginPageTarget = <E, R>(input: {
 	Effect.gen(function* () {
 		if (input.target.kind === "plugin-route") {
 			const target = input.target;
-			const plugin = input.plugins.find(({ slug }) => slug === target.pluginSlug);
+			const plugin = input.plugins.find(({ id }) => id === target.pluginId);
 			if (plugin?.health !== "ready" || !plugin.manifest.client) {
-				return yield* failure({
-					code: "plugin-unavailable",
-					pluginId: plugin?.id ?? target.pluginSlug,
-				});
+				return yield* failure({ pluginId: target.pluginId, code: "plugin-unavailable" });
 			}
 			for (const [pattern, exportName] of Object.entries(plugin.manifest.client.routes ?? {}).sort(
 				([left], [right]) => comparePluginRoutePaths(left, right),

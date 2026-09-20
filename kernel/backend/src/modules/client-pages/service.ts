@@ -6,7 +6,9 @@ import {
 	type ClientRendererDefinition,
 	type PreparedClientPage,
 } from "@ryot-app/contract/modules/client-pages/schemas";
+import { identityTupleKey } from "@ryot-app/contract/modules/plugins/references";
 import type { SavedViewRenderer } from "@ryot-app/contract/modules/saved-views/schemas";
+import { PluginId } from "@ryot-app/contract/schema/brands";
 import { Context, Effect, Layer } from "effect";
 
 import { ClientArtifactGrantService } from "#modules/client-artifacts/grant-service";
@@ -29,8 +31,8 @@ import { ClientPagesRepository } from "./repository";
 
 const canonicalOperationTargets = (targets: PreparedClientPage["identity"]["operationTargets"]) =>
 	[...targets].sort((left, right) =>
-		`${left.pluginSlug}/${left.pluginId}/${left.installationId}`.localeCompare(
-			`${right.pluginSlug}/${right.pluginId}/${right.installationId}`,
+		identityTupleKey(left.pluginId, left.installationId).localeCompare(
+			identityTupleKey(right.pluginId, right.installationId),
 		),
 	);
 
@@ -57,7 +59,7 @@ export class ClientPagesService extends Context.Service<ClientPagesService>()(
 			const artifactGrants = yield* ClientArtifactGrantService;
 			const image = yield* ImageClientArtifacts;
 			const runtimeArtifactHash = image.runtime.artifact.hash;
-			const rendererHash = (name: string, sourceHash: string) => {
+			const rendererArtifact = (name: string, sourceHash: string) => {
 				const renderer = image.renderers.get(name);
 				if (!renderer) {
 					throw new Error(`Kernel renderer artifact is missing: ${name}`);
@@ -65,11 +67,13 @@ export class ClientPagesService extends Context.Service<ClientPagesService>()(
 				if (renderer.sourceHash !== sourceHash) {
 					throw new Error(`Kernel renderer artifact source hash mismatch: ${name}`);
 				}
-				return renderer.artifact.hash;
+				return renderer.artifact;
 			};
 			const pluginRuntime = yield* PluginRuntimeResolver;
 			const listAvailable = (userId: CurrentUserValue["id"]) =>
-				pluginRuntime.listPluginsAvailableToUser(userId, true);
+				pluginRuntime
+					.listPluginsAvailableToUser(userId, true)
+					.pipe(Effect.catchTag("PluginValidationError", Effect.die));
 			const resolveKernelRendererGraph = (
 				available: ReadonlyArray<GraphPlugin>,
 				kernel: {
@@ -77,16 +81,19 @@ export class ClientPagesService extends Context.Service<ClientPagesService>()(
 					readonly sourceHash: string;
 					readonly definition: ClientRendererDefinition;
 				},
-			) =>
-				resolveClientPageGraph({
+			) => {
+				const artifact = rendererArtifact(kernel.name, kernel.sourceHash);
+				return resolveClientPageGraph({
 					kernel: true,
 					plugins: available,
 					runtimeArtifactHash,
 					rendererName: kernel.name,
 					definition: kernel.definition,
 					sourceHash: kernel.sourceHash,
-					rendererArtifactHash: rendererHash(kernel.name, kernel.sourceHash),
+					clientImports: artifact.imports,
+					rendererArtifactHash: artifact.hash,
 				});
+			};
 			const resolvePluginTarget = Effect.fn(function* (
 				userId: CurrentUserValue["id"],
 				target: Exclude<ClientPageTarget, { kind: "saved-view" }>,
@@ -157,14 +164,45 @@ export class ClientPagesService extends Context.Service<ClientPagesService>()(
 				});
 				return { graph, plugin, kind: "plugin" as const, exportName: renderer.exportName };
 			});
+			const resolveSavedTarget = Effect.fn(function* (
+				userId: CurrentUserValue["id"],
+				target: ClientPageTarget,
+				available: ReadonlyArray<AvailablePlugin>,
+			) {
+				if (target.kind === "saved-view") {
+					return target;
+				}
+				if (target.kind !== "plugin-route" || target.path !== "/") {
+					return null;
+				}
+				const plugin = available.find(({ id }) => id === target.pluginId);
+				if (plugin?.health !== "ready" || !plugin.manifest.client) {
+					return yield* new ClientPagePreparationError({
+						reason: { pluginId: target.pluginId, code: "plugin-unavailable" },
+					});
+				}
+				const selected = yield* repository.findHomeSavedView(userId, plugin.id);
+				const reference =
+					selected ??
+					(plugin.manifest.client.homeView === null
+						? null
+						: {
+								kind: "plugin" as const,
+								pluginId: PluginId.make(plugin.id),
+								slug: plugin.manifest.client.homeView,
+							});
+				return reference === null ? null : { reference, kind: "saved-view" as const };
+			});
 			const prepare = Effect.fn("ClientPages.prepare")(function* (
 				user: Pick<CurrentUserValue, "id">,
-				target: ClientPageTarget,
+				requestedTarget: ClientPageTarget,
 			) {
 				const available = yield* listAvailable(user.id);
+				const target =
+					(yield* resolveSavedTarget(user.id, requestedTarget, available)) ?? requestedTarget;
 				if (target.kind === "saved-view") {
 					const prepared = yield* repository
-						.findPreparedTarget(user.id, target.slug)
+						.findPreparedTarget(user.id, target.reference)
 						.pipe(Effect.withSpan("ClientPages.resolve-target"));
 					if (!prepared) {
 						return yield* savedViewUnavailable();
@@ -172,12 +210,12 @@ export class ClientPagesService extends Context.Service<ClientPagesService>()(
 					const resolved = yield* rendererGraph(available, prepared.view.renderer);
 					const composition = yield* compositions.getOrMaterialize(resolved.graph);
 					const base = {
-						target,
 						savedViewId: prepared.viewId,
 						viewRevision: prepared.view.revision,
 						compositionHash: composition.compositionHash,
 						compositionKey: resolved.graph.compositionKey,
 						operationTargets: clientPageOperationTargets(available),
+						target: requestedTarget.kind === "plugin-route" ? requestedTarget : target,
 						contributors: clientPageCodeContributors(resolved.graph.identity, available),
 					};
 					let rendererContext: PreparedClientPage["context"]["renderer"];
@@ -212,6 +250,7 @@ export class ClientPagesService extends Context.Service<ClientPagesService>()(
 							target,
 							route: { params: {} },
 							renderer: rendererContext,
+							contributors: base.contributors,
 							settings: prepared.view.settings,
 							dataSources: prepared.view.dataSources,
 							view: { name: prepared.view.name, icon: prepared.view.icon },
@@ -244,6 +283,7 @@ export class ClientPagesService extends Context.Service<ClientPagesService>()(
 						settings: {},
 						dataSources: null,
 						target: contextTarget,
+						contributors: base.contributors,
 						route: { params: resolved.params },
 						renderer:
 							resolved.kind === "kernel-entity"
@@ -299,7 +339,11 @@ export class ClientPagesService extends Context.Service<ClientPagesService>()(
 					return null;
 				}
 				if (identity.kind === "kernel-saved-view" || identity.kind === "plugin-saved-view") {
-					const prepared = yield* repository.findPreparedTarget(userId, identity.target.slug);
+					const target = yield* resolveSavedTarget(userId, identity.target, available);
+					if (target === null) {
+						return null;
+					}
+					const prepared = yield* repository.findPreparedTarget(userId, target.reference);
 					if (
 						!prepared ||
 						prepared.viewId !== identity.savedViewId ||
