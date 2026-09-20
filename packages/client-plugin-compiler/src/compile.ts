@@ -55,15 +55,11 @@ export const validateClientPluginPackage = (input: ClientPluginCompilerPackageIn
 			if (!isCompiledTextSource(path)) {
 				continue;
 			}
-			try {
-				sourceFiles[path] = decoder.decode(contents);
-			} catch {
-				return yield* failure(
-					path,
-					"RYOT_CLIENT_UTF8",
-					`Client text source "${path}" is not valid UTF-8`,
-				);
-			}
+			sourceFiles[path] = yield* Effect.try({
+				try: () => decoder.decode(contents),
+				catch: () =>
+					failure(path, "RYOT_CLIENT_UTF8", `Client text source "${path}" is not valid UTF-8`),
+			});
 		}
 		if (plan.dependencyDeclarations !== undefined) {
 			sourceFiles["client/__ryot_plugin_dependencies__.d.ts"] = plan.dependencyDeclarations;
