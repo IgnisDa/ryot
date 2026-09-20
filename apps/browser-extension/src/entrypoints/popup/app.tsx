@@ -1,3 +1,4 @@
+import { Effect } from "effect";
 import { Settings } from "lucide-react";
 import { useEffect, useState } from "react";
 import { match } from "ts-pattern";
@@ -8,6 +9,7 @@ import logo from "~/assets/icon.png";
 import { MESSAGE_TYPES, STORAGE_KEYS } from "../../lib/constants";
 import { ExtensionStatus, type FormState } from "../../lib/extension-types";
 import { logger } from "../../lib/logger";
+import { fromPlatform, run } from "../../lib/platform";
 
 const getStatusMessage = (status: ExtensionStatus): string => {
 	return match(status)
@@ -60,51 +62,60 @@ const App = () => {
 	};
 
 	useEffect(() => {
-		const loadSavedUrl = async () => {
-			const savedUrl = await storage.getItem<string>(STORAGE_KEYS.INTEGRATION_URL);
-			if (savedUrl) {
-				setUrl(savedUrl);
-				setFormState({ status: "submitted" });
-			}
-		};
-
-		const loadExtensionStatus = async () => {
-			try {
-				const response = await browser.runtime.sendMessage({ type: MESSAGE_TYPES.GET_STATUS });
-				if (response.success) {
-					setExtensionStatus(response.data);
+		const loadSavedUrl = () =>
+			Effect.gen(function* () {
+				const savedUrl = yield* fromPlatform(() =>
+					storage.getItem<string>(STORAGE_KEYS.INTEGRATION_URL),
+				);
+				if (savedUrl) {
+					setUrl(savedUrl);
+					setFormState({ status: "submitted" });
 				}
-			} catch (error) {
-				logger.error("Failed to get extension status", { error });
-			}
-		};
+			});
 
-		const loadCurrentVideoTitle = async () => {
-			try {
-				const response = await browser.runtime.sendMessage({
-					type: MESSAGE_TYPES.GET_CACHED_TITLE,
-				});
-				if (response.success) {
-					setCurrentVideoTitle(response.data);
-				}
-			} catch (error) {
-				logger.error("Failed to get cached title", { error });
-			}
-		};
+		const loadExtensionStatus = () =>
+			fromPlatform(() => browser.runtime.sendMessage({ type: MESSAGE_TYPES.GET_STATUS })).pipe(
+				Effect.map((response) => {
+					if (response.success) {
+						setExtensionStatus(response.data);
+					}
+				}),
+				Effect.catch((error) =>
+					Effect.sync(() => {
+						logger.error("Failed to get extension status", { error });
+					}),
+				),
+			);
 
-		const loadDebugMode = async () => {
-			const savedDebugMode = await storage.getItem<boolean>(STORAGE_KEYS.DEBUG_MODE);
-			setDebugMode(savedDebugMode ?? false);
-		};
+		const loadCurrentVideoTitle = () =>
+			fromPlatform(() =>
+				browser.runtime.sendMessage({ type: MESSAGE_TYPES.GET_CACHED_TITLE }),
+			).pipe(
+				Effect.map((response) => {
+					if (response.success) {
+						setCurrentVideoTitle(response.data);
+					}
+				}),
+				Effect.catch((error) =>
+					Effect.sync(() => {
+						logger.error("Failed to get cached title", { error });
+					}),
+				),
+			);
 
-		void loadSavedUrl();
-		void loadExtensionStatus();
-		void loadCurrentVideoTitle();
-		void loadDebugMode();
+		const loadDebugMode = () =>
+			fromPlatform(() => storage.getItem<boolean>(STORAGE_KEYS.DEBUG_MODE)).pipe(
+				Effect.tap((savedDebugMode) => Effect.sync(() => setDebugMode(savedDebugMode ?? false))),
+			);
+
+		run(loadSavedUrl());
+		run(loadExtensionStatus());
+		run(loadCurrentVideoTitle());
+		run(loadDebugMode());
 
 		const handleStorageChange = () => {
-			void loadExtensionStatus();
-			void loadCurrentVideoTitle();
+			run(loadExtensionStatus());
+			run(loadCurrentVideoTitle());
 		};
 
 		const unwatch = storage.watch(STORAGE_KEYS.EXTENSION_STATUS, handleStorageChange);
@@ -112,7 +123,7 @@ const App = () => {
 		return unwatch;
 	}, []);
 
-	const handleSubmit = async (e: React.SyntheticEvent<HTMLFormElement>) => {
+	const handleSubmit = (e: React.SyntheticEvent<HTMLFormElement>) => {
 		e.preventDefault();
 
 		if (!validateUrl(url)) {
@@ -120,23 +131,33 @@ const App = () => {
 		}
 
 		setFormState({ status: "submitting" });
-		await storage.setItem(STORAGE_KEYS.INTEGRATION_URL, url);
-		setFormState({ status: "submitted" });
+		void Effect.runPromise(
+			fromPlatform(() => storage.setItem(STORAGE_KEYS.INTEGRATION_URL, url)).pipe(
+				Effect.tap(() => Effect.sync(() => setFormState({ status: "submitted" }))),
+			),
+		);
 	};
 
-	const handleClear = async () => {
-		await storage.clear("local");
-		setUrl("");
-		setFormState({ status: "idle" });
-		setExtensionStatus(null);
-		setCurrentVideoTitle(null);
-		setDebugMode(false);
-		setCurrentPage("main");
+	const handleClear = () => {
+		void Effect.runPromise(
+			fromPlatform(() => storage.clear("local")).pipe(
+				Effect.tap(() =>
+					Effect.sync(() => {
+						setUrl("");
+						setFormState({ status: "idle" });
+						setExtensionStatus(null);
+						setCurrentVideoTitle(null);
+						setDebugMode(false);
+						setCurrentPage("main");
+					}),
+				),
+			),
+		);
 	};
 
-	const handleDebugModeChange = async (enabled: boolean) => {
+	const handleDebugModeChange = (enabled: boolean) => {
 		setDebugMode(enabled);
-		await storage.setItem(STORAGE_KEYS.DEBUG_MODE, enabled);
+		void Effect.runPromise(fromPlatform(() => storage.setItem(STORAGE_KEYS.DEBUG_MODE, enabled)));
 	};
 
 	if (currentPage === "settings") {
@@ -161,7 +182,7 @@ const App = () => {
 								type="checkbox"
 								id="debug-mode"
 								checked={debugMode}
-								onChange={(e) => void handleDebugModeChange(e.target.checked)}
+								onChange={(e) => handleDebugModeChange(e.target.checked)}
 								className="w-4 h-4 text-blue-600 bg-gray-100 border-gray-300 rounded"
 							/>
 							<label htmlFor="debug-mode" className="text-sm text-gray-700">
@@ -180,7 +201,7 @@ const App = () => {
 						</p>
 						<button
 							type="button"
-							onClick={() => void handleClear()}
+							onClick={() => handleClear()}
 							className="w-full py-2.5 px-4 bg-red-500 text-white border-none rounded-md text-sm font-medium cursor-pointer transition-colors hover:bg-red-600"
 						>
 							Clear All Data
@@ -207,7 +228,7 @@ const App = () => {
 					<Settings size={18} />
 				</button>
 			</div>
-			<form className="flex flex-col gap-3" onSubmit={(e) => void handleSubmit(e)}>
+			<form className="flex flex-col gap-3" onSubmit={(e) => handleSubmit(e)}>
 				{formState.status !== "submitted" && (
 					<>
 						<label htmlFor="url-input" className="text-sm font-medium text-gray-600 mb-1">
