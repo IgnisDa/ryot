@@ -17,7 +17,6 @@ export const manifest = defineManifest({
 	name: "MusicBrainz",
 	capabilities: ["httpCall"],
 	slug: "music.music-brainz",
-	requiredPluginConfigKeys: [],
 });
 
 export const search = defineProvider({

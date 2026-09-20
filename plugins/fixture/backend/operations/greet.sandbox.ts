@@ -7,7 +7,6 @@ export const manifest = defineManifest({
 	kind: "operation",
 	slug: "operation.greet",
 	name: "Fixture greeting",
-	requiredPluginConfigKeys: [],
 });
 
 export default defineOperation({

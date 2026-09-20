@@ -16,7 +16,6 @@ export const manifest = defineManifest({
 	name: "Hardcover",
 	slug: "book-group.hardcover",
 	capabilities: ["httpCall", "getPluginConfig"],
-	requiredPluginConfigKeys: ["hardcoverApiKey"],
 });
 
 export const search = defineProvider({

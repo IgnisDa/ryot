@@ -1,4 +1,8 @@
-import { genericImportFailureSchema } from "@ryot-app/sandbox-sdk/imports";
+import {
+	genericImportEventIntentSchema,
+	genericImportFailureSchema,
+	ingestionArtifactsSchema,
+} from "@ryot-app/sandbox-sdk/imports";
 import { jsonValueSchema, strictStruct } from "@ryot-app/sandbox-sdk/wire";
 import { Schema } from "@ryot-app/sandbox-sdk/workflow";
 
@@ -35,6 +39,17 @@ export const ImportEntityRef = Schema.Union([ResolvedEntityRef, UnresolvedEntity
 
 export type ImportEntityRef = typeof ImportEntityRef.Type;
 
+export const NetflixResolutionInput = Schema.Struct({
+	items: Schema.Array(
+		Schema.Struct({ index: Schema.Int, title: Schema.String, entitySchemaSlug: Schema.String }),
+	),
+});
+export const NetflixResolutionOutput = Schema.Struct({
+	results: Schema.Array(
+		Schema.Struct({ index: Schema.Int, entityRef: Schema.NullOr(ResolvedEntityRef) }),
+	),
+});
+
 export const UnresolvedEpisodeRef = Schema.Union([
 	Schema.Struct({ seasonNumber: Schema.Int, type: Schema.Literal("show-season") }),
 	Schema.Struct({
@@ -50,7 +65,10 @@ export type UnresolvedEpisodeRef = typeof UnresolvedEpisodeRef.Type;
 const mediaEventFields = {
 	occurredAt: Schema.String,
 	eventSchemaSlug: Schema.String,
+	sourceItemIndex: Schema.optional(Schema.Finite),
+	operationId: Schema.optional(Schema.NonEmptyString),
 	properties: Schema.Record(Schema.String, jsonValueSchema),
+	attribution: genericImportEventIntentSchema.fields.attribution,
 };
 
 const ImportMediaEvent = Schema.Struct({
@@ -78,8 +96,10 @@ export const MediaImportAdapterFailure = Schema.Struct({
 	message: Schema.String,
 	itemIndex: Schema.Finite,
 	sourceLabel: Schema.optional(Schema.String),
+	unit: Schema.optional(Schema.NonEmptyString),
 	stage: genericImportFailureSchema.fields.stage,
 	sourceIdentifier: Schema.optional(Schema.String),
+	recordKind: Schema.optional(Schema.NonEmptyString),
 	entitySchemaSlug: genericImportFailureSchema.fields.entitySchemaSlug,
 	context: Schema.optional(Schema.Record(Schema.String, jsonValueSchema)),
 });
@@ -89,6 +109,9 @@ export type MediaImportAdapterFailure = typeof MediaImportAdapterFailure.Type;
 export const MediaIntegrationAdapterResult = Schema.Struct({
 	failures: Schema.Array(MediaImportAdapterFailure),
 	entityGroups: Schema.Array(ImportMediaEntityGroup),
+	sourceFailure: Schema.optional(
+		Schema.Literals(["input-transformation-failed", "source-fetch-failed"]),
+	),
 });
 
 export type MediaIntegrationAdapterResult = typeof MediaIntegrationAdapterResult.Type;
@@ -122,73 +145,6 @@ export const TraktImportTarget = Schema.Union([
 
 export type TraktImportTarget = typeof TraktImportTarget.Type;
 
-export const MediaImportParserInput = Schema.Struct({ start: Schema.Finite, limit: Schema.Finite });
-
-export const MediaImportDispatchParserInput = Schema.Struct({
-	...MediaImportParserInput.fields,
-	url: Schema.optional(TraktImportUrl),
-	apiKey: Schema.optional(Schema.String),
-	apiUrl: Schema.optional(Schema.String),
-	password: Schema.optional(Schema.String),
-	username: Schema.optional(Schema.String),
-	timezone: Schema.optional(Schema.String),
-	collection: Schema.optional(Schema.String),
-	profileName: Schema.optional(Schema.String),
-	hasAnimeFile: Schema.optional(Schema.Boolean),
-	hasMangaFile: Schema.optional(Schema.Boolean),
-	hasExportFile: Schema.optional(Schema.Boolean),
-	allowInsecureConnections: Schema.optional(Schema.Boolean),
-	mode: Schema.optional(
-		Schema.Union([Schema.Literal("user"), Schema.Literal("list"), Schema.Literal("export")]),
-	),
-});
-
-export const TraktImportParserInput = Schema.Union([
-	strictStruct({ ...MediaImportParserInput.fields, ...traktUserTarget.fields }),
-	strictStruct({ ...MediaImportParserInput.fields, ...traktListTarget.fields }),
-	strictStruct({
-		...MediaImportParserInput.fields,
-		mode: Schema.Literal("export"),
-		hasExportFile: Schema.Literal(true),
-	}),
-]);
-
-export const UrlAndKeyImportParserInput = Schema.Struct({
-	...MediaImportParserInput.fields,
-	apiKey: Schema.String,
-	apiUrl: Schema.String,
-	allowInsecureConnections: Schema.optional(Schema.Boolean),
-});
-
-export const JellyfinImportParserInput = Schema.Struct({
-	...MediaImportParserInput.fields,
-	apiUrl: Schema.String,
-	username: Schema.String,
-	password: Schema.optional(Schema.String),
-	allowInsecureConnections: Schema.optional(Schema.Boolean),
-});
-
-export const NetflixImportParserInput = Schema.Struct({
-	...MediaImportParserInput.fields,
-	profileName: Schema.optional(Schema.String),
-});
-
-export const AnilistImportParserInput = Schema.Struct({
-	...MediaImportParserInput.fields,
-	timezone: Schema.String,
-});
-
-export const MyanimelistImportParserInput = Schema.Struct({
-	...MediaImportParserInput.fields,
-	hasAnimeFile: Schema.Boolean,
-	hasMangaFile: Schema.Boolean,
-});
-
-export const IgdbImportParserInput = Schema.Struct({
-	...MediaImportParserInput.fields,
-	collection: Schema.String,
-});
-
 const MediaImportFinalizedEvent = Schema.Struct({
 	...mediaEventFields,
 	subjectEntityId: Schema.optional(Schema.NonEmptyString),
@@ -203,6 +159,7 @@ const MediaImportFinalizedEntityGroup = Schema.Struct({
 export const MediaImportWriteChunkInput = Schema.Struct({
 	failures: Schema.Array(MediaImportAdapterFailure),
 	entityGroups: Schema.Array(MediaImportFinalizedEntityGroup),
+	ingestionArtifacts: Schema.optional(ingestionArtifactsSchema),
 	populationResults: MediaImportPopulationWorkflowOutput.fields.results,
 	integration: Schema.optional(
 		Schema.Struct({ importRunId: Schema.String, integrationId: Schema.String }),
@@ -210,3 +167,8 @@ export const MediaImportWriteChunkInput = Schema.Struct({
 });
 
 export type MediaImportWriteChunkInput = typeof MediaImportWriteChunkInput.Type;
+
+export const MediaImportWriteChunkActivityInput = Schema.Struct({
+	...MediaImportWriteChunkInput.fields,
+	ownershipSyncedAt: Schema.String,
+});

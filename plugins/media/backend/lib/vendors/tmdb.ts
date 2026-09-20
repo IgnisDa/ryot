@@ -23,7 +23,7 @@ const TMDB_BASE_URL = "https://api.themoviedb.org/3";
 const TMDB_IMAGE_BASE = "https://image.tmdb.org/t/p/original";
 
 export const getTmdbAccessToken = (host: TmdbHost) =>
-	host.getPluginConfig(["tmdbAccessToken"]).pipe(
+	host.getPluginConfig({ required: ["tmdbAccessToken"] }).pipe(
 		Effect.map(({ tmdbAccessToken }) => tmdbAccessToken),
 		Effect.flatMap((value) => {
 			const token = stringValue(value);

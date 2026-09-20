@@ -1,6 +1,5 @@
 import { describe, expect, it } from "vitest";
 
-import { batchMediaImportResult } from "./helpers";
 import { adaptSpotifyStreamingHistory } from "./spotify";
 
 const play = (
@@ -140,24 +139,6 @@ describe("adaptSpotifyStreamingHistory", () => {
 				message: "Play has no valid end time",
 			},
 		]);
-	});
-
-	it("places every item in exactly one batch window", () => {
-		const rows = [
-			...Array.from({ length: 40 }, (_, index) => play("2020-01-01T00:00:00Z", `t${index}`)),
-			play("bad", "broken"),
-		];
-		const result = adaptSpotifyStreamingHistory([file(rows)]);
-		const windowed = [0, 25, 50].map((start) => batchMediaImportResult(result, start, 25));
-
-		expect(
-			windowed.map(({ failures, entityGroups }) => entityGroups.length + failures.length),
-		).toEqual([25, 16, 0]);
-		expect(
-			windowed
-				.flatMap(({ failures, entityGroups }) => [entityGroups, failures].flat())
-				.map(({ itemIndex }) => itemIndex),
-		).toEqual(Array.from({ length: result.totalItems }, (_, index) => index));
 	});
 
 	it("rejects a file that is not an array of play objects", () => {

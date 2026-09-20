@@ -13,7 +13,7 @@ const httpSuccess = (body: unknown) =>
 const makeHost = (httpCall: MetronComicBookHost["httpCall"]) =>
 	defineSandboxTestHost(manifest, {
 		httpCall,
-		getPluginConfig: (keys) =>
+		getPluginConfig: ({ required: keys = [] }) =>
 			Effect.succeed(
 				Object.fromEntries(keys.map((key) => [key, key === "metronUsername" ? "user" : "pass"])),
 			),
@@ -32,7 +32,7 @@ describe("comic-book.metron sandbox script", () => {
 	it("loads Basic auth credentials and maps issue search results", () => {
 		const configKeys: string[] = [];
 		const host = defineSandboxTestHost(manifest, {
-			getPluginConfig: (keys) => {
+			getPluginConfig: ({ required: keys = [] }) => {
 				configKeys.push(...keys);
 				return Effect.succeed(
 					Object.fromEntries(keys.map((key) => [key, key === "metronUsername" ? "user" : "pass"])),

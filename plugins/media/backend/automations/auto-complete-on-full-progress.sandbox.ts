@@ -16,7 +16,6 @@ import type { MediaProgressEvent } from "../lib/ryotql";
 export const manifest = defineManifest({
 	kind: "automation",
 	automationType: "automation",
-	requiredPluginConfigKeys: [],
 	name: "Auto-Complete on Full Progress",
 	slug: "trigger.auto-complete-on-full-progress",
 	capabilities: ["executeRyotql", "createEvents", "listEventSchemas"],

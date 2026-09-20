@@ -24,7 +24,6 @@ export const manifest = defineManifest({
 	name: "MangaUpdates",
 	capabilities: ["httpCall"],
 	slug: "manga.manga-updates",
-	requiredPluginConfigKeys: [],
 });
 
 const parsePublishYear = (value: unknown) => {

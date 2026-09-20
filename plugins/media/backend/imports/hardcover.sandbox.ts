@@ -1,27 +1,20 @@
 import { defineManifest, defineScript } from "@ryot-app/sandbox-sdk/driver";
-import { Effect } from "@ryot-app/sandbox-sdk/effect";
 
+import { collectMediaCsv } from "./collection";
+import { MediaSourceInput, MediaSourceOutput } from "./collection-schemas";
 import { adaptHardcoverCsv } from "./hardcover";
-import { batchMediaImportResult } from "./helpers";
-import { MediaImportAdapterBatch, MediaImportParserInput } from "./schemas";
-import { readImportArtifactText } from "./shared";
 
 export const manifest = defineManifest({
 	kind: "script",
 	slug: "import.hardcover",
-	requiredPluginConfigKeys: [],
 	name: "Parse Hardcover import",
-	capabilities: ["artifact-read"],
+	capabilities: ["artifact-read", "scratch"],
 });
 
 export default defineScript({
 	manifest,
-	input: MediaImportParserInput,
-	output: MediaImportAdapterBatch,
+	input: MediaSourceInput,
+	output: MediaSourceOutput,
 	run: (input) =>
-		readImportArtifactText.pipe(
-			Effect.map((text) =>
-				batchMediaImportResult(adaptHardcoverCsv(text), input.start, input.limit),
-			),
-		),
+		collectMediaCsv("hardcover", input, (text) => adaptHardcoverCsv(text, input.importedAt)),
 });

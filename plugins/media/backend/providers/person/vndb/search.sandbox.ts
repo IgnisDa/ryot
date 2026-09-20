@@ -8,7 +8,6 @@ export const manifest = defineManifest({
 	name: "VNDB Person Search",
 	slug: "person.vndb.search",
 	capabilities: ["httpCall"],
-	requiredPluginConfigKeys: [],
 });
 
 export default defineProvider({ manifest, run: search.run, operation: "search" });

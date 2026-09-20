@@ -6,7 +6,6 @@ import { details } from "./shared";
 export const manifest = defineManifest({
 	kind: "provider",
 	name: "Anilist Details",
-	requiredPluginConfigKeys: [],
 	slug: "anime.anilist.details",
 	capabilities: ["httpCall", "getUserSettings"],
 });

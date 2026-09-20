@@ -8,7 +8,6 @@ export const manifest = defineManifest({
 	name: "Hardcover Person Details",
 	slug: "person.hardcover.details",
 	capabilities: ["httpCall", "getPluginConfig"],
-	requiredPluginConfigKeys: ["hardcoverApiKey"],
 });
 
 export default defineProvider({ manifest, run: details.run, operation: "details" });

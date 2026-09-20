@@ -2,7 +2,7 @@ import { describe, expect, it } from "@effect/vitest";
 import type { JsonValue } from "@ryot-app/contract/modules/ryotql/language";
 import type { SandboxHost } from "@ryot-app/sandbox-sdk/core";
 import { Effect, Schema } from "@ryot-app/sandbox-sdk/effect";
-import { defineSandboxTestHost, runSandboxTestScript } from "@ryot-app/sandbox-sdk/testing";
+import { defineSandboxTestHost } from "@ryot-app/sandbox-sdk/testing";
 
 import {
 	execution,
@@ -11,6 +11,7 @@ import {
 	httpSuccess,
 	integrationRecord,
 } from "../../../tests/backend/automations/automation-test-utils";
+import { runIntegrationTestScript } from "../artifacts.test-support";
 import browserDefinition, { manifest as browserManifest } from "./browser-extension.sandbox";
 import embyDefinition, { manifest as embyManifest } from "./emby.sandbox";
 import jellyfinDefinition, { manifest as jellyfinManifest } from "./jellyfin.sandbox";
@@ -22,7 +23,7 @@ const encodeJson = Schema.encodeSync(Schema.fromJsonString(Schema.Unknown));
 const sinkInput = (rawBody: string, contentType = json) => ({ rawBody, contentType });
 const runKodi = (rawBody: string) =>
 	Effect.runPromise(
-		runSandboxTestScript(
+		runIntegrationTestScript(
 			kodiDefinition,
 			sinkInput(rawBody),
 			defineSandboxTestHost(kodiManifest, {
@@ -124,7 +125,7 @@ describe("media server sinks", () => {
 				SeriesName: "Severance",
 				SeriesProvider_tmdb: "95396",
 			});
-			const result = yield* runSandboxTestScript(
+			const result = yield* runIntegrationTestScript(
 				embyDefinition,
 				sinkInput(rawBody),
 				defineSandboxTestHost(embyManifest, {
@@ -156,7 +157,7 @@ describe("media server sinks", () => {
 				ParentIndexNumber: 2,
 				SeriesProvider_tmdb: "125988",
 			});
-			const result = yield* runSandboxTestScript(
+			const result = yield* runIntegrationTestScript(
 				jellyfinDefinition,
 				sinkInput(rawBody),
 				defineSandboxTestHost(jellyfinManifest, {
@@ -180,7 +181,7 @@ describe("media server sinks", () => {
 
 	it.live("skips a Jellyfin webhook when the username does not match", () =>
 		Effect.gen(function* () {
-			const result = yield* runSandboxTestScript(
+			const result = yield* runIntegrationTestScript(
 				jellyfinDefinition,
 				sinkInput(
 					encodeJson({
@@ -204,7 +205,7 @@ describe("media server sinks", () => {
 });
 
 const runJellyfin = (payload: unknown, providerSpecifics?: Record<string, string>) =>
-	runSandboxTestScript(
+	runIntegrationTestScript(
 		jellyfinDefinition,
 		sinkInput(encodeJson(payload)),
 		defineSandboxTestHost(jellyfinManifest, {
@@ -434,7 +435,7 @@ const runPlex = (
 ) => {
 	const cache = options.cache ?? new Map<string, JsonValue>();
 	return Effect.runPromise(
-		runSandboxTestScript(
+		runIntegrationTestScript(
 			plexDefinition,
 			sinkInput(multipart(payload), "multipart/form-data; boundary=abc"),
 			defineSandboxTestHost(plexManifest, {
@@ -444,7 +445,7 @@ const runPlex = (
 					cache.set(key, value);
 					return hostSuccess(null);
 				},
-				getPluginConfig: (keys) =>
+				getPluginConfig: ({ required: keys = [] }) =>
 					hostSuccess(Object.fromEntries(keys.map((key) => [key, "token"]))),
 				getCurrentIntegration: () =>
 					hostSuccess(
@@ -609,7 +610,7 @@ describe("Plex sink", () => {
 
 const runBrowser = (rawBody: string, disabledSites: string[] = []) =>
 	Effect.runPromise(
-		runSandboxTestScript(
+		runIntegrationTestScript(
 			browserDefinition,
 			sinkInput(rawBody),
 			defineSandboxTestHost(browserManifest, {

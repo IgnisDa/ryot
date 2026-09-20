@@ -16,7 +16,7 @@ import {
 	normalizeLifecycleStatus,
 	normalizeRating,
 } from "./helpers";
-import type { MediaImportAdapterFailure } from "./schemas";
+import type { ImportMediaEvent, MediaImportAdapterFailure } from "./schemas";
 
 const GrouveeDateEntry = Schema.Struct({
 	date_started: Schema.optional(Schema.NullOr(Schema.String)),
@@ -71,7 +71,12 @@ const getShelfLifecycle = (shelf: string) => {
 	return normalizeLifecycleStatus(shelf);
 };
 
-export const adaptGrouveeCsv = (csvText: string) => {
+export const adaptGrouveeCsv = (
+	csvText: string,
+	importedAt = nowIso(),
+	eventStart = 0,
+	eventLimit = Number.MAX_SAFE_INTEGER,
+) => {
 	const { rows, headers } = parseCsvText(csvText);
 	assertRequiredHeaders(
 		headers,
@@ -80,6 +85,7 @@ export const adaptGrouveeCsv = (csvText: string) => {
 	);
 	const failures: MediaImportAdapterFailure[] = [];
 	const groupMap = new Map<string, ImportMediaEntityGroupBuilder>();
+	let nextEventOffset = 0;
 	for (let itemIndex = 0; itemIndex < rows.length; itemIndex++) {
 		const row = rows[itemIndex];
 		if (!row) {
@@ -103,8 +109,14 @@ export const adaptGrouveeCsv = (csvText: string) => {
 			},
 			itemIndex,
 		);
-		const importedAt = nowIso();
 		let hasExplicitCompletion = false;
+		let eventCount = 0;
+		const pushEvent = (event: ImportMediaEvent) => {
+			if (eventCount >= eventStart && eventCount < eventStart + eventLimit) {
+				group.events.push(event);
+			}
+			eventCount++;
+		};
 		let lastOccurredAt: string | undefined;
 		for (const entry of parseDateEntries(row["dates"] ?? "")) {
 			if (!entry.date_finished) {
@@ -115,7 +127,7 @@ export const adaptGrouveeCsv = (csvText: string) => {
 			const occurredAt = completedOn ?? startedOn ?? importedAt;
 			hasExplicitCompletion = true;
 			lastOccurredAt = occurredAt;
-			group.events.push(createCompleteEvent({ startedOn, occurredAt, completedOn }));
+			pushEvent(createCompleteEvent({ startedOn, occurredAt, completedOn }));
 		}
 		for (const statusEntry of parseStatusEntries(row["statuses"] ?? "")) {
 			const text = statusEntry.status?.trim();
@@ -126,24 +138,24 @@ export const adaptGrouveeCsv = (csvText: string) => {
 			lastOccurredAt = occurredAt;
 			const review = createReviewEvent({ text, occurredAt });
 			if (review) {
-				group.events.push(review);
+				pushEvent(review);
 			}
 		}
 		for (const shelfName of parseShelfNames(row["shelves"] ?? "")) {
 			const lifecycle = getShelfLifecycle(shelfName);
 			if (lifecycle === "complete") {
 				if (!hasExplicitCompletion) {
-					group.events.push(createCompleteEvent({ occurredAt: importedAt }));
+					pushEvent(createCompleteEvent({ occurredAt: importedAt }));
 				}
 				hasExplicitCompletion = true;
 			} else if (lifecycle === "progress") {
-				group.events.push(createProgressEvent(importedAt));
+				pushEvent(createProgressEvent(importedAt));
 			} else if (lifecycle === "backlog") {
-				group.events.push(createBacklogEvent(importedAt));
+				pushEvent(createBacklogEvent(importedAt));
 			} else if (lifecycle === "dropped") {
-				group.events.push(createDroppedEvent({ occurredAt: importedAt }));
+				pushEvent(createDroppedEvent({ occurredAt: importedAt }));
 			} else if (lifecycle === "on_hold") {
-				group.events.push(createOnHoldEvent({ occurredAt: importedAt }));
+				pushEvent(createOnHoldEvent({ occurredAt: importedAt }));
 			} else {
 				addCollectionMembership(group, shelfName);
 			}
@@ -154,11 +166,13 @@ export const adaptGrouveeCsv = (csvText: string) => {
 			rating: normalizeRating(row["rating"] ?? ""),
 		});
 		if (review) {
-			group.events.push(review);
+			pushEvent(review);
 		}
+		nextEventOffset = eventStart + eventLimit < eventCount ? eventStart + eventLimit : 0;
 	}
 	return {
 		failures,
+		nextEventOffset,
 		totalItems: rows.length,
 		entityGroups: finalizeEntityGroups(groupMap.values()),
 	};
