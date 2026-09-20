@@ -93,16 +93,15 @@ export const search = defineProvider({
 	operation: "search",
 	run: (input, host) =>
 		Effect.gen(function* () {
-			const options = yield* Schema.decodeUnknownEffect(searchOptionsSchema)(input.options ?? {});
+			const options = yield* Schema.decodeEffect(searchOptionsSchema)(input.options ?? {});
 			const typeNames = options.typeNames ?? [];
 			const candidates =
 				typeNames.length === 0
 					? yield* loadIndexEntries(host)
 					: intersectEntries(
-							yield* Effect.all(
-								typeNames.map((typeName) => loadTypeEntries(host, typeName)),
-								{ concurrency: 3 },
-							),
+							yield* Effect.forEach(typeNames, (typeName) => loadTypeEntries(host, typeName), {
+								concurrency: 3,
+							}),
 						);
 			const query = input.query.trim().toLowerCase();
 			const matches = candidates
@@ -113,10 +112,9 @@ export const search = defineProvider({
 				.sort((left, right) => left.id - right.id);
 			const offset = (input.page - 1) * input.pageSize;
 			const pageEntries = matches.slice(offset, offset + input.pageSize);
-			const items = yield* Effect.all(
-				pageEntries.map((entry) => toSearchItem(host, entry)),
-				{ concurrency: 5 },
-			);
+			const items = yield* Effect.forEach(pageEntries, (entry) => toSearchItem(host, entry), {
+				concurrency: 5,
+			});
 			return {
 				items,
 				details: {
