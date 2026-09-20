@@ -34,7 +34,11 @@ import {
 import { mapDatabaseErrors } from "#lib/infrastructure/db/service";
 import { DatabaseSession } from "#lib/infrastructure/db/session";
 import { assertExitFails } from "#lib/test-utils/assertions";
-import { testDatabaseUrl } from "#lib/test-utils/database";
+import {
+	applyBaselineMigration,
+	baselineMigrationStatements,
+} from "#lib/test-utils/baseline-migration";
+import { testDatabaseUrl, withIsolatedDatabase } from "#lib/test-utils/database";
 import { makeAppConfigLayer, makeConfigProviderLayer } from "#lib/test-utils/effect";
 import { fixtureManifest } from "#modules/plugins/test-support";
 
@@ -72,19 +76,10 @@ const withDatabase = <E>(
 		Layer.provide(makeAppConfigLayer({ database: { url: Redacted.make(url) } })),
 	);
 	return Effect.gen(function* () {
-		const root = yield* (yield* DatabaseSession).current;
-		const directory = new URL("../../drizzle/", import.meta.url).pathname;
-		const paths = [...new Bun.Glob("*/migration.sql").scanSync({ cwd: directory })];
-		assert(paths.length === 1);
-		const ddl = yield* Effect.promise(() => Bun.file(directory + paths[0]).text());
-		yield* root.execute(sql`create database ${sql.identifier(name)}`);
-		yield* Effect.gen(function* () {
-			const scopedUrl = new URL(url);
-			scopedUrl.pathname = `/${name}`;
+		const statements = yield* baselineMigrationStatements();
+		yield* withIsolatedDatabase(name, url, (scopedUrl) => {
 			const database = DatabaseSession.layer.pipe(
-				Layer.provide(
-					makeAppConfigLayer({ database: { url: Redacted.make(scopedUrl.toString()) } }),
-				),
+				Layer.provide(makeAppConfigLayer({ database: { url: Redacted.make(scopedUrl) } })),
 				Layer.fresh,
 			);
 			const execution = Layer.succeed(
@@ -104,11 +99,9 @@ const withDatabase = <E>(
 			const services = AutomationHistoryService.layer.pipe(
 				Layer.provide(Layer.merge(repositories, execution)),
 			);
-			yield* Effect.gen(function* () {
+			return Effect.gen(function* () {
 				const db = yield* (yield* DatabaseSession).current;
-				for (const statement of ddl.split("--> statement-breakpoint")) {
-					yield* db.execute(sql.raw(statement));
-				}
+				yield* applyBaselineMigration(statements, (statement) => db.execute(sql.raw(statement)));
 				yield* db.insert(user).values([
 					{ id: owner.id, preferences: {}, name: owner.name, email: owner.email },
 					{ id: other.id, name: "Other", preferences: {}, email: "other@example.com" },
@@ -156,9 +149,7 @@ const withDatabase = <E>(
 					});
 				yield* test;
 			}).pipe(Effect.provide(Layer.merge(services, repositories)));
-		}).pipe(
-			Effect.ensuring(root.execute(sql`drop database ${sql.identifier(name)}`).pipe(Effect.orDie)),
-		);
+		});
 	}).pipe(Effect.provide(layer.pipe(Layer.provideMerge(makeConfigProviderLayer()))));
 };
 

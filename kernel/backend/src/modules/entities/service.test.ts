@@ -26,6 +26,10 @@ import {
 } from "#lib/domain/lifecycle-execution";
 import * as tables from "#lib/infrastructure/db/schema/tables/combined";
 import { DatabaseSession } from "#lib/infrastructure/db/session";
+import {
+	applyBaselineMigration,
+	baselineMigrationStatements,
+} from "#lib/test-utils/baseline-migration";
 import { testDatabaseUrl } from "#lib/test-utils/database";
 import { makeAppConfigLayer, makeConfigProviderLayer } from "#lib/test-utils/effect";
 import {
@@ -289,18 +293,13 @@ const withEntities = <E>(
 	);
 	return Effect.gen(function* () {
 		const db = yield* (yield* DatabaseSession).current;
-		const directory = new URL("../../drizzle/", import.meta.url).pathname;
-		const paths = [...new Bun.Glob("*/migration.sql").scanSync({ cwd: directory })];
-		assert(paths.length === 1);
-		const ddl = yield* Effect.promise(() => Bun.file(directory + paths[0]).text());
+		const statements = yield* baselineMigrationStatements();
 		yield* Effect.acquireUseRelease(
 			db.execute(sql`create schema ${sql.identifier(name)}`),
 			() =>
 				Effect.gen(function* () {
 					yield* db.execute(sql`set search_path to ${sql.identifier(name)}, public`);
-					for (const statement of ddl.split("--> statement-breakpoint")) {
-						yield* db.execute(sql.raw(statement));
-					}
+					yield* applyBaselineMigration(statements, (statement) => db.execute(sql.raw(statement)));
 					yield* (yield* DefinitionRepository.make).replaceKernelDefinitions(source);
 					yield* db
 						.insert(tables.user)

@@ -22,6 +22,10 @@ import * as tables from "#lib/infrastructure/db/schema/tables/combined";
 import { mapDatabaseErrors } from "#lib/infrastructure/db/service";
 import { DatabaseSession } from "#lib/infrastructure/db/session";
 import { assertExitFails } from "#lib/test-utils/assertions";
+import {
+	applyBaselineMigration,
+	baselineMigrationStatements,
+} from "#lib/test-utils/baseline-migration";
 import { testDatabaseUrl } from "#lib/test-utils/database";
 import {
 	makeAppConfigLayer,
@@ -87,13 +91,9 @@ const withDatabase = <E, R>(
 				}),
 				(client) => Effect.promise(() => client.end()),
 			);
-			const directory = new URL("../../drizzle/", import.meta.url).pathname;
-			const paths = [...new Bun.Glob("*/migration.sql").scanSync({ cwd: directory })];
-			assert(paths.length === 1);
-			const ddl = yield* Effect.tryPromise(() => Bun.file(directory + paths[0]).text());
-			for (const statement of ddl.split("--> statement-breakpoint")) {
-				yield* Effect.tryPromise(() => observer.query(statement));
-			}
+			yield* applyBaselineMigration(yield* baselineMigrationStatements(), (statement) =>
+				Effect.tryPromise(() => observer.query(statement)),
+			);
 			yield* Effect.tryPromise(() =>
 				observer.query(
 					`INSERT INTO "user" (id,name,email,preferences) VALUES ($1,'Owner','event@example.test','{}');`,
