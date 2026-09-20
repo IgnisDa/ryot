@@ -1,9 +1,11 @@
 import type { CurrentUserValue } from "@ryot-app/contract/auth-middleware";
+import type { DbError } from "@ryot-app/contract/errors";
 import { dataJsonSource } from "@ryot-app/contract/modules/imports/data-json";
 import {
-	ImportNotFoundError,
 	ImportConflictError,
+	ImportNotFoundError,
 	ImportRequestError,
+	ImportRunFailureSchema,
 	type CreateImportRunBody,
 	type ImportRunFailureReason,
 	type ImportRunStatus,
@@ -19,7 +21,7 @@ import {
 } from "@ryot-app/contract/schema/brands";
 import { IsoUtcString } from "@ryot-app/contract/schema/utils";
 import { stableStringify } from "@ryot-app/ts-utils/json";
-import { Context, DateTime, Effect, Exit, Result, Layer } from "effect";
+import { Context, DateTime, Effect, Exit, Layer, Result, Schema, Stream } from "effect";
 import { WorkflowEngine } from "effect/unstable/workflow/WorkflowEngine";
 
 import { rootLifecycleCommand } from "#lib/domain/lifecycle-command";
@@ -33,7 +35,7 @@ import { UploadIntentsService } from "#modules/uploads/intents/service";
 import { DataImportAdmission } from "./data-admission";
 import { ImportRunFailuresService, type ImportRunFailureDetails } from "./failure-service";
 import { ProcessImportRunWorkflow } from "./import-run-workflow";
-import { ImportsRepository } from "./repository";
+import { ImportsRepository, type ImportRunFailureCursor } from "./repository";
 import { validateFileExtension } from "./runtime/import-files";
 import {
 	buildImportInputSummary,
@@ -77,6 +79,9 @@ type DispatchImportRunInput = {
 
 const isTerminalStatus = (status: ImportRunStatus): boolean =>
 	status === "completed" || status === "failed" || status === "cancelled";
+
+const encodeJsonString = Schema.encodeSync(Schema.fromJsonString(Schema.String));
+const encodeImportRunFailure = Schema.encodeSync(Schema.fromJsonString(ImportRunFailureSchema));
 
 export class ImportsService extends Context.Service<ImportsService>()("ImportsService", {
 	make: Effect.gen(function* () {
@@ -399,6 +404,36 @@ export class ImportsService extends Context.Service<ImportsService>()("ImportsSe
 			return { id: runId };
 		});
 
+		const downloadFailures = Effect.fn("ImportsService.downloadFailures")(function* (
+			user: CurrentUserValue,
+			runId: ImportRunId,
+		) {
+			const run = yield* requireImportRun(user, runId);
+			const encoder = new TextEncoder();
+			const failureStream = (after?: ImportRunFailureCursor): Stream.Stream<Uint8Array, DbError> =>
+				Stream.fromEffect(repository.listRunFailurePage({ runId, after, limit: 100 })).pipe(
+					Stream.flatMap(({ items, nextCursor }) =>
+						Stream.fromIterable(
+							items.map((failure, index) =>
+								encoder.encode(
+									`${after === undefined && index === 0 ? "" : ","}${encodeImportRunFailure(failure)}`,
+								),
+							),
+						).pipe(Stream.concat(nextCursor === null ? Stream.empty : failureStream(nextCursor))),
+					),
+				);
+
+			const stream = Stream.fromIterable([
+				encoder.encode(
+					`{"runId":${encodeJsonString(run.id)},"source":${encodeJsonString(run.source)},"failures":[`,
+				),
+			]).pipe(
+				Stream.concat(failureStream()),
+				Stream.concat(Stream.fromIterable([encoder.encode("]}")])),
+			);
+			return { stream, fileName: `ryot-import-failures-${run.id}.json` };
+		});
+
 		const createIntegrationRun = (input: {
 			userId: UserId;
 			source: ImportRunSource;
@@ -462,6 +497,7 @@ export class ImportsService extends Context.Service<ImportsService>()("ImportsSe
 			finishCancelled,
 			createManualRun,
 			removeImportRun,
+			downloadFailures,
 			delete: deleteRun,
 			updateInputSummary,
 			getRunControlForUser,

@@ -1,5 +1,5 @@
 import { Schema } from "effect";
-import { HttpApiGroup, HttpApiSchema, OpenApi } from "effect/unstable/httpapi";
+import { HttpApiEndpoint, HttpApiGroup, HttpApiSchema, OpenApi } from "effect/unstable/httpapi";
 
 import { AuthMiddleware } from "../../auth-middleware";
 import { AuthenticatedMutationEndpoint } from "../../authenticated-mutation-endpoint";
@@ -42,5 +42,12 @@ export const ImportsGroup = HttpApiGroup.make("imports")
 				ImportNotFoundError.pipe(HttpApiSchema.status(404)),
 			],
 		}).annotate(OpenApi.Description, "Deletes an import run by ID"),
+	)
+	.add(
+		HttpApiEndpoint.get("downloadFailures", "/imports/runs/:runId/failures/download", {
+			params: { runId: ImportRunId },
+			success: HttpApiSchema.StreamUint8Array(),
+			error: [ImportNotFoundError.pipe(HttpApiSchema.status(404))],
+		}).annotate(OpenApi.Description, "Downloads the failures for an import run"),
 	)
 	.middleware(AuthMiddleware);
