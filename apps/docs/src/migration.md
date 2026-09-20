@@ -153,7 +153,7 @@ the browser extension) keep working, so you do not need to change anything in th
 
 Legacy Generic JSON integrations are not carried over. Recreate them as Data webhook integrations.
 Manual Data import and Data webhooks use the v11 `data-json` format; v10 Generic JSON payloads are
-not compatible. See [Data import and webhook](./data-import.md).
+not compatible. See [Data JSON](./importing/data-json.md).
 
 ### What to expect after the upgrade
 
