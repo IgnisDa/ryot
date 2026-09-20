@@ -1,0 +1,46 @@
+[package]
+name = "importer-service"
+version = "0.1.0"
+edition = "2024"
+
+[dependencies]
+anyhow = { workspace = true }
+chrono = { workspace = true }
+rust_decimal = { workspace = true }
+sea-orm = { workspace = true }
+serde_json = { workspace = true }
+tracing = { workspace = true }
+
+anilist-importer-service = { workspace = true }
+audiobookshelf-importer-service = { workspace = true }
+background-models = { workspace = true }
+common-models = { workspace = true }
+common-utils = { workspace = true }
+database-models = { workspace = true }
+dependent-import-utils = { workspace = true }
+dependent-jobs-utils = { workspace = true }
+dependent-provider-utils = { workspace = true }
+enum-models = { workspace = true }
+generic-json-importer-service = { workspace = true }
+goodreads-importer-service = { workspace = true }
+grouvee-importer-service = { workspace = true }
+hardcover-importer-service = { workspace = true }
+hevy-importer-service = { workspace = true }
+igdb-importer-service = { workspace = true }
+imdb-importer-service = { workspace = true }
+jellyfin-importer-service = { workspace = true }
+media-models = { workspace = true }
+mediatracker-importer-service = { workspace = true }
+movary-importer-service = { workspace = true }
+myanimelist-importer-service = { workspace = true }
+netflix-importer-service = { workspace = true }
+open-scale-importer-service = { workspace = true }
+plex-importer-service = { workspace = true }
+storygraph-importer-service = { workspace = true }
+strong-app-importer-service = { workspace = true }
+supporting-service = { workspace = true }
+traits = { workspace = true }
+trakt-importer-service = { workspace = true }
+watcharr-importer-service = { workspace = true }
+[package.metadata.cargo-machete]
+ignored = ["tracing"]

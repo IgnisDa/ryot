@@ -1,0 +1,17 @@
+[package]
+name = "fitness-resolver"
+version = "0.1.0"
+edition = "2024"
+
+[dependencies]
+async-graphql = { workspace = true }
+sea-orm = { workspace = true }
+
+database-models = { workspace = true }
+database-utils = { workspace = true }
+dependent-entity-list-utils = { workspace = true }
+dependent-fitness-utils = { workspace = true }
+dependent-models = { workspace = true }
+fitness-models = { workspace = true }
+fitness-service = { workspace = true }
+traits = { workspace = true }

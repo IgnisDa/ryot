@@ -1,0 +1,13 @@
+[package]
+name = "config-definition"
+version = "0.1.0"
+edition = "2024"
+
+[dependencies]
+anyhow = { workspace = true }
+async-graphql = { workspace = true }
+schematic = { workspace = true }
+serde = { workspace = true }
+
+common-utils = { workspace = true }
+config-macros = { workspace = true }
