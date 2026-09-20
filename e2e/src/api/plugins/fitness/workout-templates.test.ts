@@ -271,8 +271,17 @@ describe("Workout Templates E2E", () => {
 						type: "and",
 						predicates: expect.arrayContaining([
 							expect.objectContaining({
-								right: { type: "literal", value: "workout-template" },
-								left: { type: "column", tableAlias: "entity", field: "entitySchemaSlug" },
+								type: "and",
+								predicates: expect.arrayContaining([
+									expect.objectContaining({
+										right: { type: "literal", value: "workout-template" },
+										left: { type: "column", tableAlias: "entity", field: "entitySchemaSlug" },
+									}),
+								]),
+							}),
+							expect.objectContaining({
+								right: { type: "literal", value: expect.any(String) },
+								left: { type: "column", tableAlias: "entity", field: "entitySchemaPluginId" },
 							}),
 						]),
 					},
@@ -288,6 +297,14 @@ describe("Workout Templates E2E", () => {
 					"translationStatus",
 					"ownerPluginId",
 					"entitySchemaSlug",
+					"presentationId",
+					"presentationName",
+					"presentationPrimary",
+					"presentationCallout",
+					"presentationSecondary",
+					"presentationImage",
+					"presentationLatestValue",
+					"presentationLatestAt",
 				]);
 
 				const { workoutTemplate, workoutTemplateId } =
