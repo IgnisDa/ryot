@@ -50,7 +50,12 @@ const runtimePage: ClientPageContext = {
 	dataSources: null,
 	route: { params: {} },
 	renderer: { kind: "plugin", exportName: "main", pluginId: "fixture" },
-	target: { path: "/", search: "", kind: "plugin-route", pluginId: PluginId.make("fixture") },
+	target: {
+		path: "/",
+		search: "",
+		kind: "plugin-route",
+		packageId: PluginPackageId.make("test/fixture"),
+	},
 	contributors: [
 		{
 			kind: "plugin",
@@ -58,7 +63,7 @@ const runtimePage: ClientPageContext = {
 			revisionId: "revision",
 			installationId: "installation",
 			pluginId: PluginId.make("fixture"),
-			packageId: PluginPackageId.make("a90cb974-23b9-4b0e-8f02-82d4c968439d"),
+			packageId: PluginPackageId.make("test/fixture"),
 		},
 	],
 };
@@ -116,8 +121,8 @@ afterEach(() => {
 describe("plugin Effect request engine", () => {
 	it.live("binds only the exact prepared contributors and rejects foreign storage ownership", () =>
 		Effect.gen(function* () {
-			const packageId = PluginPackageId.make("a90cb974-23b9-4b0e-8f02-82d4c968439d");
-			const otherPackageId = PluginPackageId.make("baf8e00e-5094-4f92-bf16-0f227985dd50");
+			const packageId = PluginPackageId.make("test/fixture");
+			const otherPackageId = PluginPackageId.make("test/other");
 			const pluginId = PluginId.make("private-owner");
 			const page: ClientPageContext = {
 				view: null,
@@ -125,7 +130,7 @@ describe("plugin Effect request engine", () => {
 				dataSources: null,
 				route: { params: {} },
 				renderer: { pluginId, kind: "plugin", exportName: "main" },
-				target: { pluginId, path: "/", search: "", kind: "plugin-route" },
+				target: { packageId, path: "/", search: "", kind: "plugin-route" },
 				contributors: [
 					{
 						pluginId,
@@ -322,8 +327,8 @@ describe("plugin Effect request engine", () => {
 				runtime.client.operations.invoke({
 					input: {},
 					slug: "greet",
-					pluginId: "fixture",
 					output: Schema.String,
+					packageId: "test/fixture",
 				}),
 				{ startImmediately: true },
 			);
@@ -464,8 +469,8 @@ describe("plugin Effect request engine", () => {
 					runtime.client.operations.invoke({
 						input: null,
 						slug: "greet",
-						pluginId: "fixture",
 						output: Schema.String,
+						packageId: "test/fixture",
 					}),
 				),
 				{ startImmediately: true },
@@ -492,8 +497,8 @@ describe("plugin Effect request engine", () => {
 				runtime.client.operations.invoke({
 					input: {},
 					slug: "greet",
-					pluginId: "fixture",
 					output: Schema.String,
+					packageId: "test/fixture",
 				}),
 				{ startImmediately: true },
 			);
@@ -501,9 +506,9 @@ describe("plugin Effect request engine", () => {
 			expect(sent(messages, "operation-request")).toEqual([
 				{
 					input: {},
-					pluginId: "fixture",
 					operationSlug: "greet",
 					requestId: "operation-1",
+					packageId: "test/fixture",
 					type: "operation-request",
 				},
 			]);

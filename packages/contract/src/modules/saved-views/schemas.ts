@@ -1,6 +1,6 @@
 import { Schema } from "effect";
 
-import { PluginSlug, SavedViewId } from "../../schema/brands";
+import { SavedViewId } from "../../schema/brands";
 import { strictStruct } from "../../schema/utils";
 import {
 	AuthoredEntitySchemaReference,
@@ -164,7 +164,6 @@ const ListedSavedViewBase = {
 	sortOrder: Schema.Finite,
 	isHidden: Schema.Boolean,
 	reference: SavedViewReference,
-	pluginSlug: Schema.NullOr(PluginSlug),
 	pluginInstallationId: Schema.NullOr(Schema.String),
 };
 

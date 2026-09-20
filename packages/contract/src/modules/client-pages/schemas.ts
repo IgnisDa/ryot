@@ -32,9 +32,9 @@ const SavedViewClientPageTarget = strictStruct({
 const PluginClientPageTarget = Schema.Union([
 	strictStruct({ entityId: EntityId, kind: Schema.Literal("entity") }),
 	strictStruct({
-		pluginId: PluginId,
 		path: Schema.String,
 		search: Schema.String,
+		packageId: PluginPackageId,
 		kind: Schema.Literal("plugin-route"),
 	}),
 ]);
@@ -57,6 +57,7 @@ export const PrepareClientPageBody = strictStruct({ target: ClientPageTarget });
 export const ClientPagePreparationErrorReason = Schema.Union([
 	strictStruct({ entityId: EntityId, code: Schema.Literal("entity-not-found") }),
 	strictStruct({ pluginId: Schema.String, code: Schema.Literal("plugin-unavailable") }),
+	strictStruct({ packageId: PluginPackageId, code: Schema.Literal("plugin-package-unavailable") }),
 	strictStruct({
 		reference: PluginPackageReference,
 		code: Schema.Literal("dependency-unavailable"),
@@ -112,6 +113,7 @@ export type ClientPageCodeContributor = typeof ClientPageCodeContributor.Type;
 export const ClientPageOperationTarget = strictStruct({
 	pluginId: PluginId,
 	sourceHash: Schema.String,
+	packageId: PluginPackageId,
 	installationId: Schema.String,
 });
 export type ClientPageOperationTarget = typeof ClientPageOperationTarget.Type;

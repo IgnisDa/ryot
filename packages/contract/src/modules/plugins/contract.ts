@@ -9,7 +9,7 @@ import {
 	UserInitializing,
 } from "../../auth-middleware";
 import { AuthenticatedMutationEndpoint } from "../../authenticated-mutation-endpoint";
-import { PluginId, UserId } from "../../schema/brands";
+import { PluginPackageSegment, UserId } from "../../schema/brands";
 import { JsonValue } from "../../schema/json";
 import {
 	InstallPluginBody,
@@ -168,11 +168,15 @@ export const PluginsGroup = HttpApiGroup.make("plugins")
 		// Operation manifests enforce their own demo access when invoked.
 		AuthenticatedMutationEndpoint.post("allowed")(
 			"invoke",
-			"/plugins/:pluginId/operations/:operationSlug",
+			"/plugins/:publisher/:name/operations/:operationSlug",
 			{
 				payload: PluginInvokeBody,
 				success: PluginInvokeResult,
-				params: { pluginId: PluginId, operationSlug: Schema.String },
+				params: {
+					name: PluginPackageSegment,
+					operationSlug: Schema.String,
+					publisher: PluginPackageSegment,
+				},
 				error: [
 					AuthUnauthorized.pipe(HttpApiSchema.status(401)),
 					DemoOperationProtected.pipe(HttpApiSchema.status(403)),

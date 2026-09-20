@@ -1,4 +1,4 @@
-import type { PluginPackageId } from "../../schema/brands";
+import { pluginPackageSegments, type PluginPackageId } from "../../schema/brands";
 
 const normalizeEnvironmentSegment = (value: string) =>
 	value
@@ -7,5 +7,9 @@ const normalizeEnvironmentSegment = (value: string) =>
 		.replace(/^_+|_+$/g, "")
 		.toUpperCase();
 
-export const pluginConfigEnvironmentKey = (packageId: PluginPackageId, key: string) =>
-	`RYOT_PLUGIN_${packageId.replaceAll("-", "").toUpperCase()}_${normalizeEnvironmentSegment(key)}`;
+const packageEnvironmentSegment = (segment: string) => segment.replaceAll("-", "_").toUpperCase();
+
+export const pluginConfigEnvironmentKey = (packageId: PluginPackageId, key: string) => {
+	const { name, publisher } = pluginPackageSegments(packageId);
+	return `RYOT_PLUGIN__${packageEnvironmentSegment(publisher)}__${packageEnvironmentSegment(name)}__${normalizeEnvironmentSegment(key)}`;
+};

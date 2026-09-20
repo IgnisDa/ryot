@@ -13,7 +13,7 @@ import {
 } from "./artifact";
 
 const encoder = new TextEncoder();
-const packageId = PluginPackageId.make("ee8040dd-5a40-42a1-916d-58190c1a06e8");
+const packageId = PluginPackageId.make("test/primary");
 const identity = {
 	imports: [],
 	clientDeclarationHash: clientDeclarationHash({ homeView: null, apiVersion: CLIENT_API_VERSION }),
@@ -78,7 +78,7 @@ it("builds stable metadata from the plugin name, sorted byte hashes, and metadat
 	).not.toBe(
 		clientArtifactMetadata(
 			"Fixture plugin",
-			PluginPackageId.make("97887987-a15b-452b-bfdc-633028850ad9"),
+			PluginPackageId.make("test/dependency"),
 			[first, second],
 			identity,
 		).hash,

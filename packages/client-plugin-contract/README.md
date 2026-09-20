@@ -42,7 +42,7 @@ The complete public `RyotClientErrorReason` set is `disposed`, `protocol`, `tran
 `malformed-result`, `unsupported-capability`, `invalid-request`, and `quota`.
 
 Plugin storage is a per-device key/value capability for the opaque-origin iframe, which has no
-`localStorage` of its own. A `storage-request` names a plugin slug, a key of 1 to
+`localStorage` of its own. A `storage-request` names a local plugin ID, a key of 1 to
 `PLUGIN_STORAGE_KEY_MAX_LENGTH` (128) characters, and a `get`, `set`, or `remove` action; only `set`
 carries a JSON `value`. The `storage-result` succeeds with the stored value or `null` (always `null`
 for `set` and `remove`) or fails with `invalid-request`, `quota`, or `transport`. The serialized value

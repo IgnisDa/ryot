@@ -49,7 +49,6 @@ export const BackupRunFailure = Schema.Union([
 		feature: Schema.Literals(["format", "compression"]),
 	}),
 	Schema.Struct({
-		pluginSlug: Schema.String,
 		packageId: PluginPackageId,
 		requiredVersion: Schema.String,
 		code: Schema.Literal("required-plugin-unavailable"),

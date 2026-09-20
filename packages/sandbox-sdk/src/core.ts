@@ -289,7 +289,6 @@ export const entitySchemaRecordSchema = strictStruct({
 	isBuiltin: Schema.Boolean,
 	pluginId: Schema.NullOr(PluginId),
 	propertiesSchema: jsonValueSchema,
-	pluginSlug: Schema.NullOr(Schema.String),
 	providers: Schema.Array(entitySchemaProviderSchema),
 });
 export type EntitySchemaRecord = Schema.Schema.Type<typeof entitySchemaRecordSchema>;

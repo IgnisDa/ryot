@@ -17,7 +17,7 @@ import {
 	stringField,
 } from "./index";
 
-const packageId = PluginPackageId.make("bcad4408-a7e7-465e-accb-c1a553c78090");
+const packageId = PluginPackageId.make("ryot/media");
 
 const load = <A>(config: Config.Config<A>, values: Record<string, string>) =>
 	Effect.runSync(
@@ -83,11 +83,11 @@ describe("config definitions", () => {
 			}),
 		});
 		expect(pluginConfigEnvironmentKey(packageId, "apiToken")).toBe(
-			"RYOT_PLUGIN_BCAD4408A7E7465EACCBC1A553C78090_API_TOKEN",
+			"RYOT_PLUGIN__RYOT__MEDIA__API_TOKEN",
 		);
-		expect(
-			load(definition.config, { RYOT_PLUGIN_BCAD4408A7E7465EACCBC1A553C78090_API_TOKEN: "token" }),
-		).toEqual({ apiToken: "token" });
+		expect(load(definition.config, { RYOT_PLUGIN__RYOT__MEDIA__API_TOKEN: "token" })).toEqual({
+			apiToken: "token",
+		});
 	});
 
 	it("loads a runtime AppSchema with a caller-owned environment resolver", () => {
@@ -109,7 +109,7 @@ describe("config definitions", () => {
 	});
 
 	it("loads equal local config keys independently for different packages", () => {
-		const otherPackageId = PluginPackageId.make("9167bc09-c77a-4b8d-80cd-76f387c5c43f");
+		const otherPackageId = PluginPackageId.make("ryot/fixture");
 		const fields = {
 			apiToken: stringField({
 				label: "Token",
@@ -118,8 +118,8 @@ describe("config definitions", () => {
 			}),
 		};
 		const values = {
-			RYOT_PLUGIN_BCAD4408A7E7465EACCBC1A553C78090_API_TOKEN: "first",
-			RYOT_PLUGIN_9167BC09C77A4B8D80CD76F387C5C43F_API_TOKEN: "second",
+			RYOT_PLUGIN__RYOT__MEDIA__API_TOKEN: "first",
+			RYOT_PLUGIN__RYOT__FIXTURE__API_TOKEN: "second",
 		};
 		expect(load(definePluginConfig(packageId, fields).config, values)).toEqual({
 			apiToken: "first",
@@ -175,9 +175,7 @@ describe("config reference", () => {
 				description: "Plugin token",
 			}),
 		});
-		const markdown = renderConfigReference(core, [
-			{ packageId, name: "Media", slug: "media", schema: plugin },
-		]);
+		const markdown = renderConfigReference(core, [{ packageId, name: "Media", schema: plugin }]);
 
 		expect(markdown).toContain("# App Backend Configuration Reference");
 		expect(markdown).toContain("### Server settings");
@@ -185,7 +183,7 @@ describe("config reference", () => {
 			"| `timezone` | `TZ` | Application timezone | No | No | `Etc/GMT` |",
 		);
 		expect(markdown).toContain(
-			"| `media.token` | `RYOT_PLUGIN_BCAD4408A7E7465EACCBC1A553C78090_TOKEN` | Token | Plugin token | No | Yes | `token` |",
+			"| `ryot/media.token` | `RYOT_PLUGIN__RYOT__MEDIA__TOKEN` | Token | Plugin token | No | Yes | `token` |",
 		);
 		expect(markdown).not.toContain("HIDDEN");
 	});

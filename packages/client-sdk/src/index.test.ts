@@ -112,14 +112,14 @@ describe("Effect-native client capabilities", () => {
 						output,
 						slug: "greet",
 						input: Number.NaN,
-						pluginId: "fixture",
+						packageId: "test/fixture",
 					}),
 				),
 			).toMatchObject({ reason: "invalid-input" });
 			expect(calls).toBe(0);
 			expect(
 				yield* Effect.flip(
-					client.operations.invoke({ output, input: {}, slug: "greet", pluginId: "fixture" }),
+					client.operations.invoke({ output, input: {}, slug: "greet", packageId: "test/fixture" }),
 				),
 			).toMatchObject({ reason: "malformed-result" });
 			expect(calls).toBe(1);
@@ -150,8 +150,8 @@ describe("Effect-native client capabilities", () => {
 				yield* client.operations.invoke({
 					input: {},
 					slug: "save",
-					pluginId: "fixture",
 					output: Schema.String,
+					packageId: "test/fixture",
 				}),
 			).toBe("saved");
 			expect(
@@ -159,8 +159,8 @@ describe("Effect-native client capabilities", () => {
 					client.operations.invoke({
 						input: {},
 						slug: "save",
-						pluginId: "fixture",
 						output: Schema.Finite,
+						packageId: "test/fixture",
 					}),
 				),
 			).toMatchObject({ reason: "malformed-result" });
