@@ -8,18 +8,7 @@ import { SandboxRunError, unknownToMessage } from "@ryot-app/contract/errors";
 import { POLICY_SAFE_SANDBOX_CAPABILITIES } from "@ryot-app/contract/modules/sandbox/wire";
 import type { SandboxHostError } from "@ryot-app/sandbox-sdk/wire";
 import type { Scope } from "effect";
-import {
-	Context,
-	Effect,
-	Exit,
-	FileSystem,
-	Layer,
-	Option,
-	Path,
-	Result,
-	Schema,
-	Semaphore,
-} from "effect";
+import { Context, Effect, Exit, FileSystem, Layer, Option, Path, Result, Semaphore } from "effect";
 import { Base64 } from "effect/encoding";
 
 import { AppConfig } from "../config/service";
@@ -39,18 +28,12 @@ import {
 import { MiB, SANDBOX_LIMITS } from "./limits";
 import { toSandboxHostError, type SandboxRunInput } from "./shared";
 import {
-	artifactReadRangeArgsSchema,
 	base64DecodedLength,
-	scratchWriteArgsSchema,
+	type artifactReadRangeArgsSchema,
 	type artifactReadRangeResultSchema,
+	type scratchWriteArgsSchema,
 } from "./sidecar-protocol";
 
-const strictOptions = { onExcessProperty: "error" } as const;
-const decodeArtifactReadRangeArgs = Schema.decodeUnknownEffect(
-	artifactReadRangeArgsSchema,
-	strictOptions,
-);
-const decodeScratchWriteArgs = Schema.decodeUnknownEffect(scratchWriteArgsSchema, strictOptions);
 const missingArtifactGrant = (operation: string): SandboxHostError => ({
 	message: "Sandbox artifact grant is unavailable",
 	data: { operation, code: "missing-artifact-grant" },
@@ -347,12 +330,10 @@ export class SandboxFileService extends Context.Service<SandboxFileService>()(
 						}
 					});
 
+				// Arguments are strict-decoded by host-call-gate, the sole caller; this method does not re-validate them.
 				const artifactReadRange = Effect.fn("SandboxFileService.artifactReadRange")(function* (
-					unknownArgs: typeof artifactReadRangeArgsSchema.Type,
+					args: typeof artifactReadRangeArgsSchema.Type,
 				): Effect.fn.Return<typeof artifactReadRangeResultSchema.Type, SandboxHostError> {
-					const args = yield* decodeArtifactReadRangeArgs(unknownArgs).pipe(
-						Effect.mapError((error) => failedHostRequest(unknownToMessage(error))),
-					);
 					if (args.offset > Number.MAX_SAFE_INTEGER - args.length) {
 						return yield* Effect.fail(
 							failedHostRequest("Artifact range offset and length exceed safe integer bounds"),
@@ -390,12 +371,10 @@ export class SandboxFileService extends Context.Service<SandboxFileService>()(
 					} satisfies typeof artifactReadRangeResultSchema.Type;
 				});
 
+				// Arguments are strict-decoded by host-call-gate, the sole caller; this method does not re-validate them.
 				const scratchWrite = Effect.fn("SandboxFileService.scratchWrite")(function* (
-					unknownArgs: typeof scratchWriteArgsSchema.Type,
+					args: typeof scratchWriteArgsSchema.Type,
 				): Effect.fn.Return<null, SandboxHostError> {
-					const args = yield* decodeScratchWriteArgs(unknownArgs).pipe(
-						Effect.mapError((error) => failedHostRequest(unknownToMessage(error))),
-					);
 					if (scratchDirectory === undefined) {
 						return yield* Effect.fail(missingArtifactGrant("scratchWrite"));
 					}

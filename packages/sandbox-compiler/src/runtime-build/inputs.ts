@@ -18,6 +18,7 @@ const defaultLimits: SourceWalkLimits = {
 export const SANDBOX_ISOLATE_SOURCE_FILES = [
 	"isolate-invocation.ts",
 	"isolate-bootstrap.ts",
+	"isolate-primordials.ts",
 	"isolate-utilities.ts",
 	"limits.ts",
 	"sidecar-protocol.ts",

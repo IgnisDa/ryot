@@ -189,15 +189,15 @@ const admittedImportRunId = (input: UserSandboxRunInput) => {
 	return subject.importRunId ?? subject.integrationRunId ?? null;
 };
 
-const requireNonEmptyString = (value: unknown, message: string): Effect.Effect<string, string> => {
-	if (typeof value !== "string" || value.trim().length === 0) {
+const requireNonEmptyString = (value: string, message: string): Effect.Effect<string, string> => {
+	if (value.trim().length === 0) {
 		return Effect.fail(message);
 	}
 
 	return Effect.succeed(value.trim());
 };
 
-const requireUniqueNonEmptyStrings = (values: ReadonlyArray<unknown>, message: string) =>
+const requireUniqueNonEmptyStrings = (values: ReadonlyArray<string>, message: string) =>
 	Effect.forEach(values, (value) => requireNonEmptyString(value, message)).pipe(
 		Effect.map((strings) => [...new Set(strings)]),
 	);

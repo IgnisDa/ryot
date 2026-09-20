@@ -1,7 +1,7 @@
 import { describe, expect, it } from "vitest";
 
 import { createLogCollector, executionError } from "./isolate-utilities";
-import { SANDBOX_RUNNER_LIMITS } from "./limits";
+import { SANDBOX_LIMITS, SANDBOX_LOG_TRUNCATION_MARKER } from "./limits";
 
 const specifier = `ryot-module:/${"a".repeat(64)}.js`;
 
@@ -75,25 +75,20 @@ describe("isolate runner diagnostics", () => {
 	});
 
 	it("bounds console entries and appends one truncation marker", () => {
-		const collector = createLogCollector({ ...SANDBOX_RUNNER_LIMITS, logEntryCount: 2 });
+		const collector = createLogCollector({ ...SANDBOX_LIMITS.logs, entryCount: 2 });
 
 		collector.console.log("first");
 		collector.console.error("second");
 		collector.console.warn("third");
 
-		expect(collector.logs).toEqual(["first", SANDBOX_RUNNER_LIMITS.logTruncationMarker]);
+		expect(collector.logs).toEqual(["first", SANDBOX_LOG_TRUNCATION_MARKER]);
 	});
 
 	it("truncates UTF-8 only at a complete character boundary", () => {
-		const collector = createLogCollector({
-			...SANDBOX_RUNNER_LIMITS,
-			logEntryBytes: 3,
-			logEntryCount: 3,
-			logTotalBytes: 64,
-		});
+		const collector = createLogCollector({ entryBytes: 3, entryCount: 3, totalBytes: 64 });
 
 		collector.console.log("éé");
 
-		expect(collector.logs).toEqual(["é", SANDBOX_RUNNER_LIMITS.logTruncationMarker]);
+		expect(collector.logs).toEqual(["é", SANDBOX_LOG_TRUNCATION_MARKER]);
 	});
 });
