@@ -668,8 +668,8 @@ export const migrateLegacyTables = Effect.gen(function* () {
 	yield* session.transaction(integrations.refreshClientProviderSpecificsForPlugin(mediaPluginId));
 	yield* migrateIntegrationProgressCache({
 		pluginId: mediaPluginId,
-		scriptSlug: integrationProgressScript.slug,
 		cacheRows: legacyIntegrationProgressCache,
+		scriptSlug: integrationProgressScript.slug,
 		installationIdsByUserId: mediaInstallationIdsByUserId,
 		integrations: integrationSettings.map(({ id, userId, provider }) => ({ id, userId, provider })),
 	});

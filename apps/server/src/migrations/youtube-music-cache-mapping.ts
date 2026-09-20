@@ -73,12 +73,12 @@ export const migrateYoutubeMusicCache = (input: {
 					const keys = [
 						{
 							expiresAtMs: row.expiresAtMs,
-						key: redisKeys.sandboxPersistentCache(
-							row.userId,
-							["plugin", input.pluginId],
-							["script", input.scriptSlug],
-							`${key}:seen`,
-						),
+							key: redisKeys.sandboxPersistentCache(
+								row.userId,
+								["plugin", input.pluginId],
+								["script", input.scriptSlug],
+								`${key}:seen`,
+							),
 						},
 					];
 					if (row.completed) {

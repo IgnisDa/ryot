@@ -391,6 +391,8 @@ BEGIN
 	${buildAbortOnRowsSql({
 		countVariable: "invalid_rows",
 		sampleVariable: "invalid_sample",
+		message:
+			"seen -> event: % migrated progress event(s) are attached to a show or podcast itself rather than to one of its episodes, and V2 records episodic progress only on episodes: %. This is a defect in this migration's progress step rather than in the legacy data. Keep the dump and report it; retrying will not change the result.",
 		source: `
 			SELECT ev.id || ' (' || parent.name || ')' AS label
 			FROM "event" ev
@@ -400,8 +402,6 @@ BEGIN
 			  AND ev.event_schema_slug = 'progress'
 			  AND ev.event_schema_plugin_id = ${quoteSqlString(mediaPluginId)}
 		`,
-		message:
-			"seen -> event: % migrated progress event(s) are attached to a show or podcast itself rather than to one of its episodes, and V2 records episodic progress only on episodes: %. This is a defect in this migration's progress step rather than in the legacy data. Keep the dump and report it; retrying will not change the result.",
 	})}
 
 	IF EXISTS (
