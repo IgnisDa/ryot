@@ -29,17 +29,15 @@ const artifacts = new Map([
 	[runtimeHash, { files: [{ name: "bootstrap.js", contentType: "text/javascript" }] }],
 	[pluginHash, { files: [{ name: "module.js", contentType: "text/javascript" }] }],
 ]);
+const manifest = fixtureManifest();
 const routeTarget = {
 	path: "/",
 	search: "",
 	kind: "plugin-route" as const,
-	pluginId: PluginId.make("plugin-id"),
+	packageId: manifest.metadata.packageId,
 };
-
-const manifest = fixtureManifest();
 const plugin = {
 	id: "plugin-id",
-	slug: "fixture",
 	isHidden: false,
 	clientImports: [],
 	healthReason: null,
@@ -55,7 +53,6 @@ const plugin = {
 	packageId: manifest.metadata.packageId,
 	manifest: {
 		...manifest,
-		metadata: { ...manifest.metadata, slug: "fixture" },
 		client: {
 			homeView: null,
 			apiVersion: 1 as const,
@@ -170,6 +167,13 @@ const pagesLayer = ClientPagesService.layer.pipe(
 						PluginRuntimeResolver.of(
 							Object.assign(Object.create(null), {
 								listPluginsAvailableToUser: () => Ref.get(available),
+								resolveUserPackage: (_userId: unknown, packageId: string) =>
+									Effect.map(Ref.get(available), (current) => {
+										const selected = current.find((entry) => entry.packageId === packageId);
+										return selected
+											? { kind: "effective" as const, pluginId: PluginId.make(selected.id) }
+											: { kind: "absent" as const };
+									}),
 							}),
 						),
 					).pipe(Context.add(AvailablePlugins, { revoke: Ref.set(available, []) }));
@@ -253,7 +257,7 @@ layer(pagesLayer)((test) => {
 			assertExitFails(
 				exit,
 				new ClientPagePreparationError({
-					reason: { pluginId: plugin.id, code: "plugin-unavailable" },
+					reason: { packageId: plugin.packageId, code: "plugin-package-unavailable" },
 				}),
 			);
 			expect(yield* recorded.calls).toEqual(before);

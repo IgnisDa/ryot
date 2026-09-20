@@ -91,7 +91,7 @@ const fixturePackage = (): NormalizedPlugin => {
 		signalSchemas: [],
 		relationshipSchemas: [],
 		scripts: [{ ...script, entry }],
-		metadata: { ...fixture.metadata, slug: "stream-fixture" },
+		metadata: { ...fixture.metadata },
 		entitySchemas: [
 			{
 				...entitySchema,

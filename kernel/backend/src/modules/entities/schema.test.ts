@@ -1,5 +1,4 @@
 import { expect, layer } from "@effect/vitest";
-import { PluginPackageId } from "@ryot-app/contract/schema/brands";
 import { sql } from "drizzle-orm";
 import { Result, Effect } from "effect";
 import { Client } from "pg";
@@ -8,6 +7,7 @@ import * as tables from "#lib/infrastructure/db/schema/tables/combined";
 import { DatabaseSession } from "#lib/infrastructure/db/session";
 import { testDatabaseUrl } from "#lib/test-utils/database";
 import { revisionDatabaseLayer } from "#modules/plugins/revision.test-support";
+import { testPluginPackageId } from "#modules/plugins/test-support";
 
 layer(revisionDatabaseLayer)((test) => {
 	test.effect("qualifies external identities across nullable ownership and provenance", () =>
@@ -17,19 +17,13 @@ layer(revisionDatabaseLayer)((test) => {
 				Effect.gen(function* () {
 					yield* db
 						.insert(tables.plugin)
-						.values({
-							slug: "schema",
-							status: "inactive",
-							id: "schema-plugin",
-							packageId: PluginPackageId.make(crypto.randomUUID()),
-						});
+						.values({ status: "inactive", id: "schema-plugin", packageId: testPluginPackageId() });
 					yield* db
 						.insert(tables.plugin)
 						.values({
-							slug: "provider",
 							status: "inactive",
 							id: "provider-plugin",
-							packageId: PluginPackageId.make(crypto.randomUUID()),
+							packageId: testPluginPackageId(),
 						});
 					yield* db
 						.insert(tables.sandboxProvider)

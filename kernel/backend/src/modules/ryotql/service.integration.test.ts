@@ -63,15 +63,15 @@ import { savedView, savedViewOverride } from "#lib/infrastructure/db/schema/tabl
 import { DatabaseSession } from "#lib/infrastructure/db/session";
 import { makeConfigProviderLayer } from "#lib/test-utils/effect";
 import { isolatedDatabaseLayer } from "#lib/test-utils/isolated-database";
-import { fixtureManifest } from "#modules/plugins/test-support";
+import { fixtureManifest, testPluginPackageId } from "#modules/plugins/test-support";
 
 import type { RyotQLAudience } from "./catalog";
 import { RyotQLService } from "./service";
 
 const occurredAt = new Date(0);
 const futureExpiry = new Date("2100-01-01T00:00:00Z");
-const systemPluginSlug = "media-hub";
-const systemPackageId = PluginPackageId.make("455f7474-21f3-484d-9b44-ef045e9c1646");
+const systemPluginName = "media-hub";
+const systemPackageId = PluginPackageId.make("ryot/media-hub");
 
 const trigger = (id: string) => ({
 	id,
@@ -103,17 +103,16 @@ const manifest = (
 ): PluginManifest => ({
 	...fixtureManifest(),
 	workflows: [
-		{ slug: "import", scriptSlug: slug === systemPluginSlug ? "sys.import" : "private.import" },
+		{ slug: "import", scriptSlug: slug === systemPluginName ? "sys.import" : "private.import" },
 	],
 	metadata: {
 		...fixtureManifest().metadata,
-		slug,
 		packageId,
 		name: `${slug} name`,
 		description: `${slug} description`,
 	},
 	integrationProviders:
-		slug === systemPluginSlug
+		slug === systemPluginName
 			? [
 					{
 						lot: "yank",
@@ -154,8 +153,8 @@ const manifest = (
 			executableDependencies: [],
 			optionalPluginConfigKeys: [],
 			entry: "backend/import.sandbox.ts",
-			slug: slug === systemPluginSlug ? "sys.import" : "private.import",
-			requiredPluginConfigKeys: slug === systemPluginSlug ? ["apiKey"] : ["token"],
+			slug: slug === systemPluginName ? "sys.import" : "private.import",
+			requiredPluginConfigKeys: slug === systemPluginName ? ["apiKey"] : ["token"],
 		},
 	],
 });
@@ -168,19 +167,13 @@ const insertPlugin = Effect.fn(function* (input: {
 }) {
 	const revisionId = `${input.id}-revision`;
 	const packageId =
-		input.slug === systemPluginSlug ? systemPackageId : PluginPackageId.make(crypto.randomUUID());
+		input.slug === systemPluginName ? systemPackageId : PluginPackageId.make(`test/${input.slug}`);
 	const session = yield* DatabaseSession;
 	yield* session.run((db) =>
 		Effect.gen(function* () {
 			yield* db
 				.insert(plugin)
-				.values({
-					packageId,
-					id: input.id,
-					slug: input.slug,
-					status: "disabled",
-					ownerId: input.ownerId,
-				});
+				.values({ packageId, id: input.id, status: "disabled", ownerId: input.ownerId });
 			yield* db
 				.insert(pluginRevision)
 				.values({
@@ -378,23 +371,13 @@ const seedCatalog = Effect.gen(function* () {
 				},
 			]);
 			yield* db.insert(plugin).values([
-				{
-					slug: "installed",
-					status: "disabled",
-					id: "installed-plugin",
-					packageId: PluginPackageId.make(crypto.randomUUID()),
-				},
-				{
-					slug: "removed",
-					status: "disabled",
-					id: "removed-plugin",
-					packageId: PluginPackageId.make(crypto.randomUUID()),
-				},
+				{ status: "disabled", id: "installed-plugin", packageId: testPluginPackageId() },
+				{ status: "disabled", id: "removed-plugin", packageId: testPluginPackageId() },
 			]);
 			yield* insertPlugin({
 				ownerId: null,
 				id: "system-plugin",
-				slug: systemPluginSlug,
+				slug: systemPluginName,
 				homeView: "system-home",
 			});
 			yield* insertPlugin({
@@ -825,9 +808,10 @@ layer(catalogDatabaseLayer)((test) => {
 					yield* service.executeForUser("owner", null, "kernel", installationsRecipe.document),
 				),
 			);
-			expect(installations.items.find(({ slug }) => slug === "private")?.configuredSecrets).toEqual(
-				["token"],
-			);
+			expect(
+				installations.items.find(({ packageId }) => packageId === "test/private")
+					?.configuredSecrets,
+			).toEqual(["token"]);
 
 			const runRecipe = automationHistoryRunRecipe({ id: "run-eligible" });
 			const runDetail = Result.getOrThrow(
@@ -1083,7 +1067,7 @@ layer(catalogDatabaseLayer)((test) => {
 			).toEqual({
 				id: "system-plugin",
 				activeRevisionId: "system-plugin-revision",
-				description: `${systemPluginSlug} description`,
+				description: `${systemPluginName} description`,
 				configSchema: { fields: {}, unknownKeys: "strict" },
 			});
 			expect(
@@ -1147,13 +1131,13 @@ layer(catalogDatabaseLayer)((test) => {
 				expect(
 					yield* readRows({ audience, userId: "owner" }, "entitySchema", [
 						"id",
-						"pluginSlug",
+						"pluginId",
 						"mergeIdentityProperties",
 					]),
 				).toEqual([
-					{ pluginSlug: null, id: "kernel-entity", mergeIdentityProperties: ["name"] },
-					{ id: "private-entity", pluginSlug: "private", mergeIdentityProperties: ["name"] },
-					{ id: "system-entity", pluginSlug: systemPluginSlug, mergeIdentityProperties: ["name"] },
+					{ pluginId: null, id: "kernel-entity", mergeIdentityProperties: ["name"] },
+					{ id: "private-entity", pluginId: "private-plugin", mergeIdentityProperties: ["name"] },
+					{ id: "system-entity", pluginId: "system-plugin", mergeIdentityProperties: ["name"] },
 				]);
 			}
 			expect(yield* readRows(other, "entitySchema", ["id"])).toEqual([
@@ -1161,19 +1145,19 @@ layer(catalogDatabaseLayer)((test) => {
 				{ id: "other-entity" },
 				{ id: "system-entity" },
 			]);
-			expect(
-				yield* readRows(owner, "eventSchema", ["id", "pluginSlug", "entitySchemaSlug"]),
-			).toEqual([
-				{ pluginSlug: null, id: "kernel-event", entitySchemaSlug: "kernel-entity" },
-				{ id: "system-event", pluginSlug: systemPluginSlug, entitySchemaSlug: "system-entity" },
-			]);
+			expect(yield* readRows(owner, "eventSchema", ["id", "pluginId", "entitySchemaSlug"])).toEqual(
+				[
+					{ pluginId: null, id: "kernel-event", entitySchemaSlug: "kernel-entity" },
+					{ id: "system-event", pluginId: "system-plugin", entitySchemaSlug: "system-entity" },
+				],
+			);
 			expect(yield* readRows(owner, "relationshipSchema", ["id"])).toEqual([
 				{ id: "kernel-link" },
 				{ id: "private-link" },
 			]);
 			expect(yield* readRows(other, "relationshipSchema", ["id"])).toEqual([{ id: "kernel-link" }]);
-			expect(yield* readRows(other, "signalSchema", ["id", "pluginSlug", "catalogState"])).toEqual([
-				{ id: "system.signal", catalogState: "active", pluginSlug: systemPluginSlug },
+			expect(yield* readRows(other, "signalSchema", ["id", "pluginId", "catalogState"])).toEqual([
+				{ id: "system.signal", catalogState: "active", pluginId: "system-plugin" },
 			]);
 		}),
 	);
@@ -1270,7 +1254,7 @@ layer(catalogDatabaseLayer)((test) => {
 				{ pluginName: null, id: "run-expired", retryEligibility: { reason: "expired" } },
 				{
 					id: "run-missing",
-					pluginName: `${systemPluginSlug} name`,
+					pluginName: `${systemPluginName} name`,
 					retryEligibility: { reason: "missing-artifact" },
 				},
 				{ pluginName: null, id: "run-succeeded", retryEligibility: { reason: "not-failed" } },

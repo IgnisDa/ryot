@@ -68,10 +68,6 @@ const makeServiceLayer = (
 					}
 				: execution.principal;
 			const manifest = fixtureManifest(execution.principal.pluginRevision.packageId);
-			const storedManifest = {
-				...manifest,
-				metadata: { ...manifest.metadata, slug: execution.principal.pluginRevision.slug },
-			};
 			const sandboxAuthority = {
 				packageId: execution.principal.pluginRevision.packageId,
 				schemaScope: execution.principal.pluginRevision.schemaScope,
@@ -110,7 +106,6 @@ const makeServiceLayer = (
 										pluginId: principal.pluginRevision.id,
 										metadata: execution.principal.metadata,
 										activationId: "existing-principal-state",
-										pluginSlug: principal.pluginRevision.slug,
 										providerId: execution.principal.providerId,
 										contentHash: execution.principal.contentHash,
 										providerPluginId: principal.pluginRevision.id,
@@ -124,7 +119,7 @@ const makeServiceLayer = (
 								];
 							}
 							if (table === tables.pluginRevision) {
-								return [{ manifest: storedManifest }];
+								return [{ manifest }];
 							}
 							if (table === tables.pluginInstallation) {
 								return [
@@ -175,6 +170,7 @@ const makeServiceLayer = (
 							return [];
 						});
 						const query = {
+							leftJoin: () => query,
 							innerJoin: () => query,
 							where: (condition: SQLWrapper) => {
 								predicate = condition;

@@ -16,10 +16,11 @@ import {
 	revisionPackage,
 	revisionDatabaseLayer,
 } from "./revision.test-support";
+import { testPluginPackageId } from "./test-support";
 
 const owner = UserId.make("owner");
-const packageWithSources = (slug: string, version = "v1") => {
-	const plugin = revisionPackage(slug, version);
+const packageWithSources = (slug: string, version = "v1", packageId = testPluginPackageId()) => {
+	const plugin = revisionPackage(slug, version, undefined, packageId);
 	return {
 		...plugin,
 		manifest: {
@@ -54,8 +55,13 @@ describe("revision-backed import sources", () => {
 			"lists system and private sources in stable order with executable workflow status",
 			() =>
 				Effect.gen(function* () {
-					yield* installRevisionPackage(packageWithSources("zebra"));
-					yield* installRevisionPackage(packageWithSources("apple"), owner);
+					yield* installRevisionPackage(
+						packageWithSources("zebra", "v1", PluginPackageId.make("test/zebra")),
+					);
+					yield* installRevisionPackage(
+						packageWithSources("apple", "v1", PluginPackageId.make("test/apple")),
+						owner,
+					);
 					const catalog = yield* ImportSourceCatalog.make;
 					const rows = yield* catalog.listForUser(owner);
 					expect(rows.map(({ source }) => source.slug)).toEqual([
@@ -145,10 +151,7 @@ describe("revision-backed import sources", () => {
 					...systemPackage,
 					manifest: {
 						...systemPackage.manifest,
-						metadata: {
-							...systemPackage.manifest.metadata,
-							packageId: PluginPackageId.make(crypto.randomUUID()),
-						},
+						metadata: { ...systemPackage.manifest.metadata, packageId: testPluginPackageId() },
 					},
 				});
 				const catalog = yield* ImportSourceCatalog.make;

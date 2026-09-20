@@ -16,6 +16,7 @@ import {
 	ImportRunId,
 	IntegrationId,
 	SandboxProviderId,
+	PluginPackageId,
 	SandboxScriptId,
 	UserId,
 } from "@ryot-app/contract/schema/brands";
@@ -170,7 +171,6 @@ const populationReferencesLayer = (
 						source: "source",
 						compiledFormat: 1,
 						pluginId: "catalog",
-						pluginSlug: "catalog",
 						createdAt: new Date(0),
 						updatedAt: new Date(0),
 						name: "Catalog refresh",
@@ -179,6 +179,7 @@ const populationReferencesLayer = (
 						contentHash: "workflow-hash",
 						pluginRevisionId: "catalog-revision",
 						id: SandboxScriptId.make("caller-script"),
+						packageId: PluginPackageId.make("test/catalog"),
 						metadata: {
 							kind: "workflow",
 							capabilities: [],

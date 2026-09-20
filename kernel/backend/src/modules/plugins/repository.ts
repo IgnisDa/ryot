@@ -77,13 +77,11 @@ type LoadedPluginRevision = PluginRevision & {
 	readonly id: string;
 	readonly version: string;
 	readonly pluginId: string;
-	readonly pluginSlug: string;
 	readonly compiledHashes: Readonly<Record<string, string>>;
 };
 
 const revisionFields = {
 	id: schema.pluginRevision.id,
-	pluginSlug: schema.plugin.slug,
 	packageId: schema.plugin.packageId,
 	manifest: schema.pluginRevision.manifest,
 	pluginId: schema.pluginRevision.pluginId,
@@ -93,15 +91,12 @@ const revisionFields = {
 type RevisionRow = Pick<
 	typeof schema.pluginRevision.$inferSelect,
 	"id" | "manifest" | "pluginId" | "sourceHash"
-> & {
-	readonly pluginSlug: (typeof schema.plugin.$inferSelect)["slug"];
-	readonly packageId: PluginPackageId;
-};
+> & { readonly packageId: PluginPackageId };
 
-export const decodeStoredManifest = (manifest: unknown, pluginSlug: string) =>
+export const decodeStoredManifest = (manifest: unknown, packageId: string) =>
 	Schema.decodeUnknownEffect(PluginManifest)(manifest).pipe(
 		Effect.mapError(
-			() => new DbError({ message: `Plugin ${pluginSlug} has an invalid retained manifest` }),
+			() => new DbError({ message: `Plugin ${packageId} has an invalid retained manifest` }),
 		),
 	);
 
@@ -109,7 +104,7 @@ const toLoadedRevision = Effect.fn(function* (
 	row: RevisionRow,
 	scripts: ReadonlyArray<{ readonly slug: string; readonly contentHash: string }>,
 ) {
-	const manifest = yield* decodeStoredManifest(row.manifest, row.pluginSlug);
+	const manifest = yield* decodeStoredManifest(row.manifest, row.packageId);
 	if (manifest.metadata.packageId !== row.packageId) {
 		return yield* new DbError({
 			message: "Retained manifest package identity does not match its owner",
@@ -122,7 +117,7 @@ const toLoadedRevision = Effect.fn(function* (
 		const contentHash = storedHashes.get(script.slug);
 		if (!contentHash) {
 			return yield* new DbError({
-				message: `Plugin ${row.pluginSlug} is missing compiled script ${script.slug}`,
+				message: `Plugin ${row.packageId} is missing compiled script ${script.slug}`,
 			});
 		}
 		const { entry, ...metadata } = script;
@@ -136,7 +131,6 @@ const toLoadedRevision = Effect.fn(function* (
 		scripts: descriptors,
 		pluginId: row.pluginId,
 		sourceHash: row.sourceHash,
-		pluginSlug: row.pluginSlug,
 		version: manifest.metadata.version,
 	} satisfies LoadedPluginRevision;
 });
@@ -186,14 +180,12 @@ const toStoredPlugin = (pointer: PluginPointerRow, revision: LoadedPluginRevisio
 					ownerId: null,
 					id: pointer.id,
 					scope: "system",
-					slug: pointer.slug,
 					packageId: pointer.packageId,
 					activationId: pointer.activationId,
 				}
 			: {
 					scope: "user",
 					id: pointer.id,
-					slug: pointer.slug,
 					ownerId: pointer.ownerId,
 					packageId: pointer.packageId,
 					activationId: pointer.activationId,
@@ -261,7 +253,7 @@ export class PluginRepository extends Context.Service<PluginRepository>()("Plugi
 				const revision = row.activeRevisionId ? revisionsById.get(row.activeRevisionId) : undefined;
 				return revision
 					? Effect.succeed(toStoredPlugin(row, revision))
-					: new DbError({ message: `Plugin ${row.slug} has no retained active revision` });
+					: new DbError({ message: `Plugin ${row.packageId} has no retained active revision` });
 			});
 		});
 
@@ -274,7 +266,7 @@ export class PluginRepository extends Context.Service<PluginRepository>()("Plugi
 						.select(pluginPointerFields)
 						.from(schema.plugin)
 						.where(activeSystem)
-						.orderBy(asc(schema.plugin.slug)),
+						.orderBy(asc(schema.plugin.packageId)),
 				);
 				return yield* toStoredPlugins(rows);
 			},
@@ -349,7 +341,7 @@ export class PluginRepository extends Context.Service<PluginRepository>()("Plugi
 					db
 						.select({
 							id: schema.plugin.id,
-							slug: schema.plugin.slug,
+							packageId: schema.plugin.packageId,
 							httpRateLimits: sql<
 								ReadonlyArray<PluginHttpRateLimit>
 							>`${schema.pluginRevision.manifest} -> 'httpRateLimits'`,
@@ -360,7 +352,7 @@ export class PluginRepository extends Context.Service<PluginRepository>()("Plugi
 							eq(schema.pluginRevision.id, schema.plugin.activeRevisionId),
 						)
 						.where(activeSystem)
-						.orderBy(asc(schema.plugin.slug)),
+						.orderBy(asc(schema.plugin.packageId)),
 				);
 				return Array.from(rows, ({ id, ...row }) => ({
 					...row,
@@ -435,19 +427,19 @@ export class PluginRepository extends Context.Service<PluginRepository>()("Plugi
 					db
 						.select({
 							id: schema.plugin.id,
-							slug: schema.plugin.slug,
+							packageId: schema.plugin.packageId,
 							activeRevisionId: schema.plugin.activeRevisionId,
 						})
 						.from(schema.plugin)
 						.where(activeSystem)
-						.orderBy(asc(schema.plugin.slug)),
+						.orderBy(asc(schema.plugin.packageId)),
 				);
 				const revisionsById = new Map(
 					(yield* loadRevisions(
 						rows.flatMap(({ activeRevisionId }) => (activeRevisionId ? [activeRevisionId] : [])),
 					)).map((revision) => [revision.id, revision]),
 				);
-				return rows.flatMap(({ id, slug, activeRevisionId }) => {
+				return rows.flatMap(({ id, activeRevisionId }) => {
 					const revision = activeRevisionId ? revisionsById.get(activeRevisionId) : undefined;
 					if (!revision) {
 						return [];
@@ -456,7 +448,6 @@ export class PluginRepository extends Context.Service<PluginRepository>()("Plugi
 					return [
 						{
 							id,
-							slug,
 							client: manifest.client,
 							version: revision.version,
 							metadata: manifest.metadata,
@@ -766,7 +757,6 @@ export class PluginRepository extends Context.Service<PluginRepository>()("Plugi
 						and(
 							eq(schema.pluginInstallation.pluginId, plugin.id),
 							eq(schema.pluginInstallation.userId, identity.ownerId),
-							eq(schema.pluginInstallation.health, "ready"),
 							isNull(schema.pluginInstallation.incompatibilityReason),
 							isNull(schema.pluginInstallation.uninstalledAt),
 						),
@@ -920,7 +910,6 @@ export class PluginRepository extends Context.Service<PluginRepository>()("Plugi
 				const [revision] = yield* database.run((db) =>
 					db
 						.select({
-							pluginSlug: schema.plugin.slug,
 							packageId: schema.plugin.packageId,
 							manifest: schema.pluginRevision.manifest,
 							clientArtifactHash: schema.pluginRevision.clientArtifactHash,
@@ -933,7 +922,7 @@ export class PluginRepository extends Context.Service<PluginRepository>()("Plugi
 				if (!revision?.clientArtifactHash) {
 					return null;
 				}
-				const manifest = yield* decodeStoredManifest(revision.manifest, revision.pluginSlug);
+				const manifest = yield* decodeStoredManifest(revision.manifest, revision.packageId);
 				if (manifest.metadata.packageId !== revision.packageId) {
 					return yield* new DbError({
 						message: "Retained manifest package identity does not match its owner",
@@ -941,7 +930,7 @@ export class PluginRepository extends Context.Service<PluginRepository>()("Plugi
 				}
 				if (!manifest.client) {
 					return yield* new DbError({
-						message: `Plugin ${revision.pluginSlug} has a client artifact without a client manifest`,
+						message: `Plugin ${revision.packageId} has a client artifact without a client manifest`,
 					});
 				}
 				const artifact = yield* artifacts.loadClientArtifact(revision.clientArtifactHash);
@@ -969,7 +958,7 @@ export class PluginRepository extends Context.Service<PluginRepository>()("Plugi
 					).hash !== artifact.hash
 				) {
 					return yield* new DbError({
-						message: `Plugin ${revision.pluginSlug} retained client artifact hash does not match its contents`,
+						message: `Plugin ${revision.packageId} retained client artifact hash does not match its contents`,
 					});
 				}
 				return artifact;
@@ -1041,7 +1030,7 @@ export class PluginRepository extends Context.Service<PluginRepository>()("Plugi
 			identity: PluginPersistenceIdentity,
 		) {
 			yield* database.requireTransaction;
-			const { slug, packageId } = plugin.manifest.metadata;
+			const { packageId } = plugin.manifest.metadata;
 			if (identity.packageId !== packageId) {
 				return yield* new DbError({
 					message: "Plugin persistence package identity does not match the manifest",
@@ -1066,7 +1055,7 @@ export class PluginRepository extends Context.Service<PluginRepository>()("Plugi
 			const [inserted] = yield* database.run((db) =>
 				db
 					.insert(schema.plugin)
-					.values({ ...mutation, slug, packageId, ownerId: identity.ownerId })
+					.values({ ...mutation, packageId, ownerId: identity.ownerId })
 					.onConflictDoNothing()
 					.returning({ id: schema.plugin.id }),
 			);
@@ -1077,7 +1066,6 @@ export class PluginRepository extends Context.Service<PluginRepository>()("Plugi
 							.update(schema.plugin)
 							.set({
 								...mutation,
-								slug,
 								activationId: sql`case when ${schema.plugin.status} = 'inactive' then gen_random_uuid()::text else ${schema.plugin.activationId} end`,
 							})
 							.where(
@@ -1092,7 +1080,7 @@ export class PluginRepository extends Context.Service<PluginRepository>()("Plugi
 							.returning({ id: schema.plugin.id }),
 					);
 			if (!persisted) {
-				return yield* new DbError({ message: `Plugin ${slug} could not be persisted` });
+				return yield* new DbError({ message: `Plugin ${packageId} could not be persisted` });
 			}
 			const pluginId = persisted.id;
 			const [existingRevision] = yield* database.run((db) =>
@@ -1180,7 +1168,7 @@ export class PluginRepository extends Context.Service<PluginRepository>()("Plugi
 					pluginRevisionId,
 					definitions: yield* Effect.try({
 						catch: (error) => new DbError({ message: String(error) }),
-						try: () => revisionDefinitions(pluginId, slug, plugin.manifest),
+						try: () => revisionDefinitions(pluginId, plugin.manifest),
 					}),
 				});
 			}
@@ -1221,7 +1209,7 @@ export class PluginRepository extends Context.Service<PluginRepository>()("Plugi
 							const providerId = providerSlug ? providerIdBySlug.get(providerSlug) : undefined;
 							if (providerSlug && !providerId) {
 								return yield* new DbError({
-									message: `Plugin ${slug} is missing provider ${providerSlug}`,
+									message: `Plugin ${packageId} is missing provider ${providerSlug}`,
 								});
 							}
 							const [retained] = yield* database.run((db) =>
@@ -1296,7 +1284,7 @@ export class PluginRepository extends Context.Service<PluginRepository>()("Plugi
 		);
 
 		const resolveEnvironmentConfig = Effect.fn("PluginRepository.resolveEnvironmentConfig")(
-			function* (plugin: Pick<StoredPlugin, "id" | "manifest" | "slug">) {
+			function* (plugin: Pick<StoredPlugin, "id" | "manifest" | "packageId">) {
 				const [row] = yield* database.run((db) =>
 					db
 						.select({ activeRevisionId: schema.plugin.activeRevisionId })
@@ -1305,7 +1293,9 @@ export class PluginRepository extends Context.Service<PluginRepository>()("Plugi
 						.limit(1),
 				);
 				if (!row?.activeRevisionId) {
-					return yield* new DbError({ message: `Plugin ${plugin.slug} has no active revision` });
+					return yield* new DbError({
+						message: `Plugin ${plugin.packageId} has no active revision`,
+					});
 				}
 				const configRevisionId = yield* configs.resolveEnvironment({
 					pluginId: plugin.id,
@@ -1314,7 +1304,7 @@ export class PluginRepository extends Context.Service<PluginRepository>()("Plugi
 				});
 				yield* setEnvironmentConfigRevision(plugin.id, configRevisionId);
 				yield* Effect.logInfo(
-					`Resolved environment configuration ${configRevisionId} for plugin ${plugin.slug}`,
+					`Resolved environment configuration ${configRevisionId} for plugin ${plugin.packageId}`,
 				);
 				return configRevisionId;
 			},

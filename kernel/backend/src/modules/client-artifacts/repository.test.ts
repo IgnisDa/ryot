@@ -8,8 +8,8 @@ import { describe, expect, it } from "vitest";
 
 import { clientArtifactMatches } from "./repository";
 
-const packageId = PluginPackageId.make("b1cb7ed0-b540-4c94-8b6a-bf6097691738");
-const otherPackageId = PluginPackageId.make("4637681e-ef1c-4ddf-acb3-67f5f7c08d93");
+const packageId = PluginPackageId.make("test/artifacts");
+const otherPackageId = PluginPackageId.make("test/other-artifacts");
 const file = clientArtifactFile({
 	path: "module.js",
 	contentType: "text/javascript",

@@ -215,7 +215,6 @@ layer(
 					events: { count: 0, bytes: 0, chunks: [], sha256: EMPTY_SHA256 },
 					requiredPlugins: [
 						{
-							slug: "fixture",
 							version: "1.0.0",
 							sourceHash: "a".repeat(64),
 							packageId: fixtureManifest().metadata.packageId,
@@ -474,7 +473,6 @@ layer(
 				new BackupWorkflowError({
 					failure: {
 						requiredVersion: "2",
-						pluginSlug: "fixture",
 						code: "required-plugin-unavailable",
 						packageId: fixtureManifest().metadata.packageId,
 					},

@@ -10,11 +10,11 @@ import { PluginId, PluginPackageId } from "@ryot-app/contract/schema/brands";
 
 export const pageReference = {
 	scope: "user" as const,
-	packageId: PluginPackageId.make("b8ca02a6-72a0-4a55-914a-d4e8d8479b2e"),
+	packageId: PluginPackageId.make("test/page"),
 };
 export const presentationReference = {
 	scope: "user" as const,
-	packageId: PluginPackageId.make("7a055972-4f50-4c79-8086-546ac6024b54"),
+	packageId: PluginPackageId.make("test/presentation"),
 };
 
 export const identity = (): ClientPageCompositionIdentity => ({

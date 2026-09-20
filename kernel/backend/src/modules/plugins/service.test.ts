@@ -3,7 +3,7 @@ import { CLIENT_API_VERSION } from "@ryot-app/client-plugin-contract";
 import { encodePluginCatalogInvalidatedMessage } from "@ryot-app/contract/modules/plugins/contract";
 import type { PluginManifest } from "@ryot-app/contract/modules/plugins/manifest";
 import { PluginConflictError } from "@ryot-app/contract/modules/plugins/schemas";
-import { PluginId, PluginPackageId, type UserId } from "@ryot-app/contract/schema/brands";
+import { PluginId, type PluginPackageId, type UserId } from "@ryot-app/contract/schema/brands";
 import { emptySandboxExecutionMetadata } from "@ryot-app/contract/testing";
 import { sandboxCompilerPlatformLayer } from "@ryot-app/sandbox-compiler/platform";
 import { Cause, Context, Deferred, Effect, Exit, Fiber, Layer, Option, Ref } from "effect";
@@ -28,7 +28,7 @@ import { PluginRevisionActivation } from "./revision-activation";
 import { PluginIngestionService } from "./service";
 import { loadPluginSource } from "./source.test-support";
 import { SystemPlugins } from "./system";
-import { fixtureManifest, fixturePackageRoot } from "./test-support";
+import { fixtureManifest, fixturePackageRoot, testPluginPackageId } from "./test-support";
 import type { NormalizedPlugin, StoredPlugin } from "./types";
 
 const failureOf = (exit: Exit.Exit<unknown, unknown>) => {
@@ -52,10 +52,9 @@ const makeStoredPlugin = (manifest: PluginManifest, sourceHash: string): StoredP
 		ownerId: null,
 		scope: "system",
 		status: "active",
-		slug: manifest.metadata.slug,
 		packageId: manifest.metadata.packageId,
-		id: `${manifest.metadata.slug}-plugin-id`,
-		activationId: `${manifest.metadata.slug}-activation`,
+		id: `${manifest.metadata.packageId}-plugin-id`,
+		activationId: `${manifest.metadata.packageId}-activation`,
 		scripts: manifest.scripts.map((script) => {
 			const { entry, ...metadata } = script;
 			return {
@@ -81,18 +80,18 @@ const definitionOwnerManifest = (): PluginManifest => {
 		scripts: [],
 		signalSchemas: [],
 		relationshipSchemas: [],
-		metadata: { ...fixture.metadata, slug: "example", name: "Example" },
+		metadata: { ...fixture.metadata, name: "Example" },
 		entitySchemas: [{ ...entitySchema, slug: "item", eventSchemas: [] }],
 	};
 };
 
 const dependentManifest = (entitySchemaSlug: string): PluginManifest => {
-	const fixture = fixtureManifest(PluginPackageId.make(crypto.randomUUID()));
+	const fixture = fixtureManifest(testPluginPackageId());
 	return {
 		...fixture,
 		signalSchemas: [],
 		relationshipSchemas: [],
-		metadata: { ...fixture.metadata, name: "Dependent", slug: "dependent" },
+		metadata: { ...fixture.metadata, name: "Dependent" },
 		entitySchemas: Array.from(fixture.entitySchemas, (entity) => ({
 			...entity,
 			slug: entitySchemaSlug,
@@ -111,7 +110,7 @@ const dependentManifest = (entitySchemaSlug: string): PluginManifest => {
 };
 
 const formatterOwnerManifest = (): PluginManifest => {
-	const fixture = fixtureManifest(PluginPackageId.make(crypto.randomUUID()));
+	const fixture = fixtureManifest(testPluginPackageId());
 	const script = fixture.scripts[0];
 	assert(script);
 	return {
@@ -121,13 +120,13 @@ const formatterOwnerManifest = (): PluginManifest => {
 		entitySchemas: [],
 		signalSchemas: [],
 		relationshipSchemas: [],
+		metadata: { ...fixture.metadata, name: "Formatter owner" },
 		scripts: [{ ...script, slug: "formatter-owner.notification" }],
-		metadata: { ...fixture.metadata, name: "Formatter owner", slug: "formatter-owner" },
 	};
 };
 
 const relationshipDependentManifest = (targetEntitySchemaSlug: string): PluginManifest => {
-	const fixture = fixtureManifest(PluginPackageId.make(crypto.randomUUID()));
+	const fixture = fixtureManifest(testPluginPackageId());
 	const entitySchema = fixture.entitySchemas[0];
 	const relationshipSchema = fixture.relationshipSchemas[0];
 	const script = fixture.scripts[0];
@@ -138,8 +137,8 @@ const relationshipDependentManifest = (targetEntitySchemaSlug: string): PluginMa
 		...fixture,
 		hooks: [],
 		signalSchemas: [],
+		metadata: { ...fixture.metadata, name: "Dependent" },
 		scripts: [{ ...script, slug: "dependent.automation" }],
-		metadata: { ...fixture.metadata, name: "Dependent", slug: "dependent" },
 		entitySchemas: [
 			{ ...entitySchema, slug: "dependent-entity" },
 			{ ...entitySchema, slug: targetEntitySchemaSlug },
@@ -203,7 +202,7 @@ class IngestionFakeState extends Context.Service<
 			ReadonlyArray<{
 				activationId: string;
 				ownerId: string | null;
-				slug: string;
+				packageId: PluginPackageId;
 				pluginId: string;
 				installationId: string | null;
 			}>
@@ -245,7 +244,7 @@ const makeLayer = (input?: {
 	readonly cachedManifest?: PluginManifest;
 	readonly hasDefinitionReferences?: boolean;
 	readonly hasIntegrationReferences?: boolean;
-	readonly systemPluginSlugs?: ReadonlySet<string>;
+	readonly systemPluginNames?: ReadonlySet<string>;
 	readonly initialInstalled?: ReadonlyArray<StoredPlugin>;
 	readonly quarantined?: Effect.Success<
 		ReturnType<PluginInstallationRepository["Service"]["quarantinePackageIdentityConflicts"]>
@@ -270,7 +269,7 @@ const makeLayer = (input?: {
 					ReadonlyArray<{
 						activationId: string;
 						ownerId: string | null;
-						slug: string;
+						packageId: PluginPackageId;
 						pluginId: string;
 						installationId: string | null;
 					}>
@@ -321,8 +320,8 @@ const makeLayer = (input?: {
 					),
 				recordUninstallReceipt: (receipt) =>
 					append(state.receipts, {
-						slug: receipt.slug,
 						pluginId: receipt.pluginId,
+						packageId: receipt.packageId,
 						ownerId: receipt.ownerId ?? null,
 						activationId: receipt.activationId,
 						installationId: receipt.installationId ?? null,
@@ -345,15 +344,15 @@ const makeLayer = (input?: {
 					).pipe(Effect.as(cached));
 				},
 				persist: (plugin, identity) => {
-					const pluginId = identity.pluginId ?? `${identity.slug}-plugin-id`;
+					const pluginId = identity.pluginId ?? `${identity.packageId}-plugin-id`;
 					const { scripts, ...revision } = plugin;
 					const stored: StoredPlugin = {
 						...revision,
 						...identity,
 						id: pluginId,
 						status: "active",
-						activationId: `${identity.slug}-activation`,
 						scripts: scripts.map(toPluginScriptDescriptor),
+						activationId: `${identity.packageId}-activation`,
 					};
 					return append(state.persisted, plugin).pipe(
 						Effect.andThen(
@@ -404,7 +403,7 @@ const makeLayer = (input?: {
 				Layer.succeed(SystemPlugins, {
 					sources: [],
 					packageIds: new Set(
-						input?.systemPluginSlugs?.size ? [fixtureManifest().metadata.packageId] : [],
+						input?.systemPluginNames?.size ? [fixtureManifest().metadata.packageId] : [],
 					),
 				}),
 				Layer.mock(SandboxWorkflowReferenceRepository)({
@@ -675,7 +674,7 @@ layer(makeLayer({}))((test) => {
 			const manifest = userBootstrapManifest();
 			const source = yield* loadPluginSource(fixturePackageRoot(), {
 				...manifest,
-				metadata: { ...manifest.metadata, slug: "example" },
+				metadata: { ...manifest.metadata },
 			});
 			const plugin = yield* ingestion.ingestSystemPlugin(source);
 
@@ -861,7 +860,7 @@ layer(makeLayer({ initialInstalled: [storedFixture] }))((test) => {
 			const ingestion = yield* PluginIngestionService;
 
 			expect(yield* ingestion.listPlugins()).toEqual([
-				expect.objectContaining({ slug: "fixture" }),
+				expect.objectContaining({ packageId: fixtureManifest().metadata.packageId }),
 			]);
 
 			const removed = yield* ingestion.uninstallPlugin(
@@ -869,7 +868,7 @@ layer(makeLayer({ initialInstalled: [storedFixture] }))((test) => {
 				storedFixture.activationId,
 			);
 			expect(removed).toEqual({ pluginId: storedFixture.id });
-			expect(yield* fake.deactivated).toEqual(["fixture-plugin-id"]);
+			expect(yield* fake.deactivated).toEqual([storedFixture.id]);
 			expect(yield* ingestion.listPlugins()).toEqual([]);
 			expect(yield* fake.published).toEqual([
 				expect.objectContaining({ channel: redisKeys.pluginCatalogChannel }),
@@ -912,7 +911,7 @@ layer(
 				storedFixture.activationId,
 			);
 			expect(removed).toEqual({ pluginId: storedFixture.id });
-			expect(yield* fake.deactivated).toEqual(["fixture-plugin-id"]);
+			expect(yield* fake.deactivated).toEqual([storedFixture.id]);
 			expect(yield* ingestion.listPlugins()).toEqual([]);
 		});
 	});
@@ -930,7 +929,7 @@ layer(makeLayer({ hasWorkflowReferences: true, initialInstalled: [storedFixture]
 
 			expect(removed).toEqual({ pluginId: storedFixture.id });
 			expect(yield* fake.events).toEqual(["lock", "deactivate", "publish"]);
-			expect(yield* fake.deactivated).toEqual(["fixture-plugin-id"]);
+			expect(yield* fake.deactivated).toEqual([storedFixture.id]);
 			expect(yield* fake.published).toEqual([
 				{ message: "plugin-catalog-invalidated", channel: redisKeys.pluginCatalogChannel },
 			]);
@@ -1081,14 +1080,11 @@ layer(makeLayer({ initialInstalled: [formatterOwner, notificationDependent] }))(
 				const fake = yield* FakeIngestionDependencies;
 				const ingestion = yield* PluginIngestionService;
 				expect(
-					yield* ingestion.uninstallPlugin(
-						"formatter-owner-plugin-id",
-						"formatter-owner-activation",
-					),
+					yield* ingestion.uninstallPlugin(formatterOwner.id, formatterOwner.activationId),
 				).toEqual({ pluginId: formatterOwner.id });
 				expect(yield* fake.deactivated).toEqual([formatterOwner.id]);
-				expect((yield* ingestion.listPlugins()).map(({ slug }) => slug)).toEqual([
-					fixtureManifest().metadata.slug,
+				expect((yield* ingestion.listPlugins()).map(({ packageId }) => packageId)).toEqual([
+					fixtureManifest().metadata.packageId,
 				]);
 			}),
 	);
@@ -1121,7 +1117,7 @@ layer(makeLayer({ initialInstalled: [definitionOwner, relationshipDependent] }))
 layer(
 	makeLayer({
 		initialInstalled: [installedExample],
-		systemPluginSlugs: new Set([installedExample.manifest.metadata.slug]),
+		systemPluginNames: new Set([installedExample.manifest.metadata.packageId]),
 	}),
 )((test) => {
 	test.effect("refuses uninstall for a system plugin", () => {
@@ -1151,7 +1147,7 @@ layer(makeLayer({ cached: true }))((test) => {
 			expect(yield* fake.persisted).toHaveLength(0);
 			expect(yield* fake.events).toEqual([
 				"lock",
-				"resolve-environment:fixture-plugin-id",
+				`resolve-environment:${fixtureManifest().metadata.packageId}-plugin-id`,
 				"publish",
 			]);
 			expect(yield* fake.published).toEqual([
@@ -1174,10 +1170,7 @@ const cachedManifest: PluginManifest = {
 };
 const conflictingManifest: PluginManifest = {
 	...definitionOwnerManifest(),
-	metadata: {
-		...definitionOwnerManifest().metadata,
-		packageId: PluginPackageId.make(crypto.randomUUID()),
-	},
+	metadata: { ...definitionOwnerManifest().metadata, packageId: testPluginPackageId() },
 	httpRateLimits: [
 		{
 			requests: 2,
@@ -1215,7 +1208,7 @@ layer(makeLayer())((test) => {
 				reasonCode: "validation-failed",
 				manifest: {
 					...fixtureManifest(),
-					metadata: { ...fixtureManifest().metadata, slug: "bad/slug" },
+					metadata: { ...fixtureManifest().metadata, packageId: "bad" },
 				},
 			},
 			{
@@ -1328,11 +1321,7 @@ layer(makeLayer())((test) => {
 const otherPlugin = makeStoredPlugin(
 	{
 		...fixtureManifest(),
-		metadata: {
-			...fixtureManifest().metadata,
-			slug: "other-plugin",
-			packageId: PluginPackageId.make(crypto.randomUUID()),
-		},
+		metadata: { ...fixtureManifest().metadata, packageId: testPluginPackageId() },
 	},
 	"existing-source-hash",
 );

@@ -1,6 +1,7 @@
 import { CurrentUser } from "@ryot-app/contract/auth-middleware";
 import { AppContract } from "@ryot-app/contract/contract";
 import { dieOnDbError } from "@ryot-app/contract/errors";
+import { pluginPackageIdFromSegments } from "@ryot-app/contract/schema/brands";
 import { Effect } from "effect";
 import { HttpServerRequest, HttpServerResponse } from "effect/http";
 import { HttpApiBuilder } from "effect/http-api";
@@ -105,8 +106,8 @@ export const PluginsRoutesLive = HttpApiBuilder.group(AppContract, "plugins", (h
 					.invoke({
 						payload: payload.payload,
 						headers: request.headers,
-						pluginId: params.pluginId,
 						operationSlug: params.operationSlug,
+						packageId: pluginPackageIdFromSegments(params),
 						...(payload.sourceHash === undefined ? {} : { sourceHash: payload.sourceHash }),
 					})
 					.pipe(dieOnDbError);

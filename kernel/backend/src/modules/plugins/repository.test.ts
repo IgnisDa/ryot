@@ -7,7 +7,7 @@ import {
 	clientDeclarationHash,
 } from "@ryot-app/client-plugin-contract";
 import { DEFAULT_AUTOMATION_RETRY_POLICY } from "@ryot-app/contract/modules/automations/lifecycle";
-import { PluginPackageId, UserId } from "@ryot-app/contract/schema/brands";
+import { UserId } from "@ryot-app/contract/schema/brands";
 import { sha256Hex } from "@ryot-app/ts-utils/crypto";
 import { and, eq } from "drizzle-orm";
 import { Effect, Result } from "effect";
@@ -30,7 +30,7 @@ import {
 } from "./revision.test-support";
 import { PluginRuntimeResolver } from "./runtime-resolver";
 import { fixtureClientArtifact } from "./source.test-support";
-import { fixtureManifest } from "./test-support";
+import { fixtureManifest, testPluginPackageId } from "./test-support";
 
 const owner = UserId.make("owner");
 const expired = new Date(0);
@@ -98,7 +98,6 @@ describe("plugin repository revisions", () => {
 								repository.persist(plugin, {
 									ownerId: null,
 									scope: "system",
-									slug: plugin.manifest.metadata.slug,
 									packageId: plugin.manifest.metadata.packageId,
 								}),
 							);
@@ -113,7 +112,7 @@ describe("plugin repository revisions", () => {
 						sourceHash: "renamed-content",
 						manifest: {
 							...first.manifest,
-							metadata: { ...first.manifest.metadata, slug: "renamed", name: "Renamed" },
+							metadata: { ...first.manifest.metadata, name: "Renamed" },
 						},
 					};
 					expect(
@@ -122,13 +121,16 @@ describe("plugin repository revisions", () => {
 								ownerId: null,
 								scope: "system",
 								pluginId: firstId,
-								slug: renamed.manifest.metadata.slug,
 								packageId: first.manifest.metadata.packageId,
 							}),
 						),
 					).toBe(firstId);
-					expect((yield* repository.findActiveSystemPluginById(firstId))?.slug).toBe("renamed");
-					expect((yield* repository.findActiveSystemPluginById(secondId))?.slug).toBe("shared");
+					expect(
+						(yield* repository.findActiveSystemPluginById(firstId))?.manifest.metadata.name,
+					).toBe("Renamed");
+					expect(
+						(yield* repository.findActiveSystemPluginById(secondId))?.manifest.metadata.name,
+					).toBe("Fixture");
 					const revisions = yield* session.run((db) =>
 						db
 							.select({
@@ -153,7 +155,6 @@ describe("plugin repository revisions", () => {
 					repository.persist(first, {
 						ownerId: null,
 						scope: "system",
-						slug: first.manifest.metadata.slug,
 						packageId: first.manifest.metadata.packageId,
 					}),
 				);
@@ -164,7 +165,6 @@ describe("plugin repository revisions", () => {
 							pluginId,
 							ownerId: null,
 							scope: "system",
-							slug: claim.manifest.metadata.slug,
 							packageId: claim.manifest.metadata.packageId,
 						}),
 					),
@@ -186,7 +186,6 @@ describe("plugin repository revisions", () => {
 				const identity = {
 					ownerId: null,
 					scope: "system",
-					slug: pluginPackage.manifest.metadata.slug,
 					packageId: pluginPackage.manifest.metadata.packageId,
 				} satisfies Parameters<PluginRepository["Service"]["persist"]>[1];
 				const id = yield* session.transaction(repository.persist(pluginPackage, identity));
@@ -198,9 +197,9 @@ describe("plugin repository revisions", () => {
 						yield* repository.recordUninstallReceipt({
 							pluginId: id,
 							ownerId: null,
-							slug: identity.slug,
 							installationId: null,
 							activationId: first.activationId,
+							packageId: first.manifest.metadata.packageId,
 						});
 					}),
 				);
@@ -296,7 +295,6 @@ describe("plugin repository revisions", () => {
 					repository.persist(plugin, {
 						scope: "user",
 						ownerId: owner,
-						slug: manifest.metadata.slug,
 						packageId: manifest.metadata.packageId,
 					}),
 				);
@@ -675,7 +673,6 @@ describe("plugin repository revisions", () => {
 				expect(
 					(yield* repository.findBySourceHash({
 						ownerId: null,
-						slug: "fixture",
 						scope: "system",
 						sourceHash: first.sourceHash,
 						packageId: first.manifest.metadata.packageId,
@@ -687,7 +684,6 @@ describe("plugin repository revisions", () => {
 				expect(
 					yield* repository.findBySourceHash({
 						ownerId: null,
-						slug: "fixture",
 						scope: "system",
 						sourceHash: first.sourceHash,
 						packageId: first.manifest.metadata.packageId,
@@ -770,30 +766,23 @@ describe("plugin repository revisions", () => {
 		test.effect("enforces scoped package identity while allowing duplicate metadata", () =>
 			Effect.gen(function* () {
 				const session = yield* DatabaseSession;
-				const packageId = PluginPackageId.make(crypto.randomUUID());
+				const packageId = testPluginPackageId();
 				yield* session.run((db) =>
 					db.insert(tables.plugin).values([
-						{ packageId, id: "system", slug: "shared", status: "inactive" },
-						{ packageId, id: "owner", slug: "shared", ownerId: "owner", status: "inactive" },
+						{ packageId, id: "system", status: "inactive" },
+						{ packageId, id: "owner", ownerId: "owner", status: "inactive" },
+						{ packageId, id: "recipient", status: "inactive", ownerId: "recipient" },
 						{
-							packageId,
-							slug: "shared",
-							id: "recipient",
-							status: "inactive",
-							ownerId: "recipient",
-						},
-						{
-							slug: "shared",
 							ownerId: "owner",
 							id: "independent",
 							status: "inactive",
-							packageId: PluginPackageId.make(crypto.randomUUID()),
+							packageId: testPluginPackageId(),
 						},
 					]),
 				);
 				for (const duplicate of [
-					{ packageId, slug: "renamed", status: "inactive", id: "second-system" },
-					{ packageId, slug: "renamed", ownerId: "owner", id: "second-owner", status: "inactive" },
+					{ packageId, status: "inactive", id: "second-system" },
+					{ packageId, ownerId: "owner", id: "second-owner", status: "inactive" },
 				]) {
 					const result = yield* Effect.result(
 						session.transaction(session.run((db) => db.insert(tables.plugin).values(duplicate))),

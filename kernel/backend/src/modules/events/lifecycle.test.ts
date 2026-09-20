@@ -10,7 +10,6 @@ import {
 	EventId,
 	EventSchemaSlug,
 	UserId,
-	PluginPackageId,
 } from "@ryot-app/contract/schema/brands";
 import { and, eq, sql } from "drizzle-orm";
 import { Context, DateTime, Effect, Layer, Redacted, Ref, Schema, Scope } from "effect";
@@ -42,6 +41,7 @@ import { EventSchemasRepository } from "#modules/event-schemas/repository";
 import { ImportsRepository } from "#modules/imports/repository";
 import { MutationReceipts, MutationReceiptIdentity } from "#modules/mutations/receipts";
 import { AdmittedWorkflowCatalogue } from "#modules/mutations/workflow-catalogue";
+import { testPluginPackageId } from "#modules/plugins/test-support";
 import { ObjectStorageService } from "#modules/uploads/object-storage/service";
 import { UserLifecycleRepository } from "#modules/user-lifecycle/repository";
 import { UserLifecycleService } from "#modules/user-lifecycle/service";
@@ -706,12 +706,7 @@ describe("Event lifecycle PostgreSQL", () => {
 				yield* (yield* DatabaseSession).run((db) =>
 					db
 						.insert(tables.plugin)
-						.values({
-							id: "event-plugin",
-							status: "inactive",
-							slug: "event-fixture",
-							packageId: PluginPackageId.make(crypto.randomUUID()),
-						}),
+						.values({ id: "event-plugin", status: "inactive", packageId: testPluginPackageId() }),
 				);
 				yield* session.run((db) =>
 					db

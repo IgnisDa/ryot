@@ -69,11 +69,7 @@ import { BackupRestorePersistence } from "./persistence";
 
 export class RequiredBackupPluginUnavailable extends Data.TaggedError(
 	"RequiredBackupPluginUnavailable",
-)<{
-	readonly packageId: ArchiveRequiredPlugin["packageId"];
-	readonly pluginSlug: string;
-	readonly requiredVersion: string;
-}> {}
+)<{ readonly packageId: ArchiveRequiredPlugin["packageId"]; readonly requiredVersion: string }> {}
 
 const archiveReferenceError = (error: DataReferenceError) =>
 	archiveError(error.code, error.message);
@@ -93,7 +89,6 @@ export const resolveRequiredPluginIds = Effect.fn(function* (
 		const target = installed.get(plugin.packageId);
 		if (!target || pluginIdByKey.has(key)) {
 			return yield* new RequiredBackupPluginUnavailable({
-				pluginSlug: plugin.slug,
 				packageId: plugin.packageId,
 				requiredVersion: plugin.version,
 			});
@@ -104,7 +99,6 @@ export const resolveRequiredPluginIds = Effect.fn(function* (
 				stableStringify(archivePluginDefinitionContract(target.manifest))
 		) {
 			return yield* new RequiredBackupPluginUnavailable({
-				pluginSlug: plugin.slug,
 				packageId: plugin.packageId,
 				requiredVersion: plugin.version,
 			});
@@ -112,7 +106,6 @@ export const resolveRequiredPluginIds = Effect.fn(function* (
 		yield* Effect.try({
 			catch: () =>
 				new RequiredBackupPluginUnavailable({
-					pluginSlug: plugin.slug,
 					packageId: plugin.packageId,
 					requiredVersion: plugin.version,
 				}),
@@ -120,13 +113,7 @@ export const resolveRequiredPluginIds = Effect.fn(function* (
 				buildDefinitionSnapshot(
 					mergeManifestDefinitions(
 						{ savedViews: [], entitySchemas: [], signalSchemas: [], relationshipSchemas: [] },
-						[
-							{
-								id: target.id,
-								slug: plugin.slug,
-								manifest: { ...target.manifest, ...plugin.definitionContract },
-							},
-						],
+						[{ id: target.id, manifest: { ...target.manifest, ...plugin.definitionContract } }],
 					),
 				),
 		});
@@ -137,7 +124,6 @@ export const resolveRequiredPluginIds = Effect.fn(function* (
 			Effect.mapError(
 				() =>
 					new RequiredBackupPluginUnavailable({
-						pluginSlug: plugin.slug,
 						packageId: plugin.packageId,
 						requiredVersion: plugin.version,
 					}),
@@ -722,7 +708,6 @@ export class BackupRestoreWriter extends Context.Service<BackupRestoreWriter>()(
 						) !== target.id
 					) {
 						return yield* new RequiredBackupPluginUnavailable({
-							pluginSlug: plugin.slug,
 							packageId: plugin.packageId,
 							requiredVersion: plugin.version,
 						});
@@ -734,7 +719,6 @@ export class BackupRestoreWriter extends Context.Service<BackupRestoreWriter>()(
 					systemIds.add(target.id);
 					archivedCandidates.push({
 						id: target.id,
-						slug: plugin.slug,
 						manifest: { ...target.manifest, ...plugin.definitionContract },
 					});
 				}
@@ -823,7 +807,6 @@ export class BackupRestoreWriter extends Context.Service<BackupRestoreWriter>()(
 					[
 						...systemPlugins.map((plugin) => ({
 							id: plugin.id,
-							slug: plugin.slug,
 							client: plugin.manifest.client,
 							configSchema: plugin.manifest.configSchema,
 							userSettingsSchema: plugin.manifest.userSettingsSchema,
@@ -831,7 +814,6 @@ export class BackupRestoreWriter extends Context.Service<BackupRestoreWriter>()(
 						})),
 						...privatePlugins.map((plugin) => ({
 							id: plugin.id,
-							slug: plugin.slug,
 							client: plugin.manifest.client,
 							configSchema: plugin.manifest.configSchema,
 							userSettingsSchema: plugin.manifest.userSettingsSchema,

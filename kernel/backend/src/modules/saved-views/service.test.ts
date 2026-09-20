@@ -43,7 +43,6 @@ const baseView = {
 	name: "My View",
 	isHidden: false,
 	isBuiltin: false,
-	pluginSlug: null,
 	pluginInstallationId: null,
 	id: SavedViewId.make("sv-id"),
 	createdAt: "2026-01-01T00:00:00.000Z",
@@ -184,7 +183,6 @@ layer(
 		},
 		availablePlugins: [
 			{
-				slug: "fixture",
 				scope: "system",
 				health: "ready",
 				isHidden: false,

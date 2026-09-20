@@ -16,7 +16,6 @@ const pluginId = PluginId.make("visible-plugin");
 const kernelDefinition: EntitySchemaSnapshot = {
 	icon: "record",
 	pluginId: null,
-	pluginSlug: null,
 	eventSchemas: {},
 	name: "Kernel record",
 	slug: entitySchemaSlug,
@@ -27,7 +26,6 @@ const pluginDefinition: EntitySchemaSnapshot = {
 	...kernelDefinition,
 	pluginId,
 	name: "Plugin record",
-	pluginSlug: "visible-plugin",
 };
 const kernelReference: EntitySchemaReference = {
 	slug: entitySchemaSlug,

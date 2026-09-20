@@ -21,7 +21,6 @@ const entitySchemaSlug = EntitySchemaSlug.make("shared-record");
 const eventSchemaSlug = EventSchemaSlug.make("review");
 const entityDefinition = (pluginSlug: string, pluginId: PluginId) => ({
 	pluginId,
-	pluginSlug,
 	icon: "record",
 	slug: entitySchemaSlug,
 	name: `${pluginSlug} record`,

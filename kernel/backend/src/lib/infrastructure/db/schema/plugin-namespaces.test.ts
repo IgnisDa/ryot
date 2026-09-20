@@ -1,12 +1,7 @@
 import { assert, describe, expect, layer } from "@effect/vitest";
 import { DbError } from "@ryot-app/contract/errors";
 import { definitionKey, definitionOwner } from "@ryot-app/contract/modules/plugins/references";
-import {
-	PluginId,
-	PluginPackageId,
-	PluginRevisionId,
-	UserId,
-} from "@ryot-app/contract/schema/brands";
+import { PluginId, PluginRevisionId, UserId } from "@ryot-app/contract/schema/brands";
 import { and, eq, sql } from "drizzle-orm";
 import { Effect, Result } from "effect";
 
@@ -19,6 +14,7 @@ import {
 	revisionDatabaseLayer,
 	revisionPackage,
 } from "#modules/plugins/revision.test-support";
+import { testPluginPackageId } from "#modules/plugins/test-support";
 
 import * as tables from "./tables/combined";
 
@@ -40,7 +36,6 @@ describe("plugin namespaces in the generated migration baseline", () => {
 							tx
 								.insert(tables.plugin)
 								.values({
-									slug: "whiskey-copy",
 									status: "installing",
 									packageId: packageValue.manifest.metadata.packageId,
 								}),
@@ -59,7 +54,6 @@ describe("plugin namespaces in the generated migration baseline", () => {
 								.values({
 									ownerId: owner,
 									status: "installing",
-									slug: "private-whiskey-copy",
 									packageId: packageValue.manifest.metadata.packageId,
 								}),
 						),
@@ -74,7 +68,7 @@ describe("plugin namespaces in the generated migration baseline", () => {
 						db.transaction((tx) =>
 							tx
 								.insert(tables.plugin)
-								.values({ slug: "malformed", status: "installing", packageId: sql`'malformed'` }),
+								.values({ status: "installing", packageId: sql`'malformed'` }),
 						),
 					),
 				);
@@ -87,7 +81,7 @@ describe("plugin namespaces in the generated migration baseline", () => {
 						db.transaction((tx) =>
 							tx
 								.update(tables.plugin)
-								.set({ packageId: PluginPackageId.make(crypto.randomUUID()) })
+								.set({ packageId: testPluginPackageId() })
 								.where(eq(tables.plugin.id, system.pluginId)),
 						),
 					),
@@ -127,25 +121,6 @@ describe("plugin namespaces in the generated migration baseline", () => {
 				assert(Result.isFailure(changedRevisionManifest));
 				assert(changedRevisionManifest.failure instanceof DbError);
 				expect(changedRevisionManifest.failure.code).toBe("23503");
-
-				const renamed = yield* session.run((db) =>
-					db
-						.update(tables.plugin)
-						.set({ slug: "renamed-whiskey" })
-						.where(eq(tables.plugin.id, system.pluginId))
-						.returning({
-							id: tables.plugin.id,
-							slug: tables.plugin.slug,
-							packageId: tables.plugin.packageId,
-						}),
-				);
-				expect(renamed).toEqual([
-					{
-						id: system.pluginId,
-						slug: "renamed-whiskey",
-						packageId: packageValue.manifest.metadata.packageId,
-					},
-				]);
 
 				const mismatchedActiveRevision = yield* Effect.result(
 					session.run((db) =>

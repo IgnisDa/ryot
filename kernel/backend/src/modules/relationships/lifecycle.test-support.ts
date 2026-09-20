@@ -146,7 +146,6 @@ export const relationshipDatabaseLayer = (
 						pluginId: null,
 						name: "Fixture",
 						icon: "fixture",
-						pluginSlug: null,
 						eventSchemas: [],
 						slug: EntitySchemaSlug.make("fixture"),
 						propertiesSchema: {

@@ -16,7 +16,6 @@ import type { DefinitionSource, SavedViewDefinition } from "./snapshot";
 export const materializeSavedView = (
 	definition: PluginManifest["savedViews"][number],
 	pluginId: string,
-	pluginSlug: string,
 	client: PluginManifest["client"],
 ): SavedViewDefinition => {
 	const dataSources =
@@ -46,7 +45,6 @@ export const materializeSavedView = (
 		return {
 			...definition,
 			pluginId,
-			pluginSlug,
 			dataSources,
 			renderer: { pluginId, kind: "plugin" as const, exportName: definition.renderer.exportName },
 		};
@@ -82,21 +80,10 @@ export const materializeSavedView = (
 						},
 		};
 	}
-	return {
-		...definition,
-		pluginId,
-		settings,
-		pluginSlug,
-		dataSources,
-		renderer: definition.renderer,
-	};
+	return { ...definition, pluginId, settings, dataSources, renderer: definition.renderer };
 };
 
-export const revisionDefinitions = (
-	pluginId: string,
-	pluginSlug: string,
-	manifest: PluginManifest,
-) => ({
+export const revisionDefinitions = (pluginId: string, manifest: PluginManifest) => ({
 	integrationProviders: manifest.integrationProviders,
 	signalSchemas: manifest.signalSchemas.map((definition) => ({ ...definition, pluginId })),
 	relationshipSchemas: manifest.relationshipSchemas.map((definition) => ({
@@ -104,7 +91,7 @@ export const revisionDefinitions = (
 		pluginId,
 	})),
 	savedViews: manifest.savedViews.map((definition) =>
-		materializeSavedView(definition, pluginId, pluginSlug, manifest.client),
+		materializeSavedView(definition, pluginId, manifest.client),
 	),
 	importSources: manifest.importSources.map((source) => ({
 		...source,
@@ -115,7 +102,6 @@ export const revisionDefinitions = (
 	entitySchemas: manifest.entitySchemas.map((definition) => ({
 		...definition,
 		pluginId,
-		pluginSlug,
 		mergeIdentityProperties: definition.mergeIdentityProperties ?? [],
 		eventSchemas: definition.eventSchemas.map((eventSchema) => ({ ...eventSchema, pluginId })),
 	})),
@@ -125,15 +111,9 @@ export type RevisionDefinitions = ReturnType<typeof revisionDefinitions>;
 
 export const mergeManifestDefinitions = (
 	base: DefinitionSource,
-	plugins: ReadonlyArray<{
-		readonly id: string;
-		readonly slug: string;
-		readonly manifest: PluginManifest;
-	}>,
+	plugins: ReadonlyArray<{ readonly id: string; readonly manifest: PluginManifest }>,
 ): DefinitionSource => {
-	const revisions = plugins.map(({ id, slug, manifest }) =>
-		revisionDefinitions(id, slug, manifest),
-	);
+	const revisions = plugins.map(({ id, manifest }) => revisionDefinitions(id, manifest));
 	return {
 		savedViews: [...base.savedViews, ...revisions.flatMap(({ savedViews }) => savedViews)],
 		signalSchemas: [

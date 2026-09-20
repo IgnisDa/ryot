@@ -54,8 +54,8 @@ type DefinitionRows = {
 	readonly savedViews: ReadonlyArray<SavedViewRow>;
 	readonly entitySchemas: ReadonlyArray<EntitySchemaRow>;
 	readonly eventSchemas: ReadonlyArray<EventSchemaFields>;
-	readonly signalSchemas: ReadonlyArray<Omit<SignalSchemaRow, "pluginSlug">>;
-	readonly relationshipSchemas: ReadonlyArray<Omit<RelationshipSchemaRow, "pluginSlug">>;
+	readonly signalSchemas: ReadonlyArray<SignalSchemaRow>;
+	readonly relationshipSchemas: ReadonlyArray<RelationshipSchemaRow>;
 };
 
 type ListedOption = { readonly listed: boolean };
@@ -77,7 +77,6 @@ const toEntitySchema = (
 	name: row.name,
 	slug: row.slug,
 	pluginId: row.pluginId,
-	pluginSlug: row.pluginSlug,
 	propertiesSchema: row.propertiesSchema,
 	mergeIdentityProperties: row.mergeIdentityProperties,
 	...(row.userState ? { userState: row.userState } : {}),
@@ -86,9 +85,7 @@ const toEntitySchema = (
 	),
 });
 
-const toRelationshipSchema = (
-	row: Omit<RelationshipSchemaRow, "pluginSlug">,
-): RelationshipSchemaDefinition => ({
+const toRelationshipSchema = (row: RelationshipSchemaRow): RelationshipSchemaDefinition => ({
 	name: row.name,
 	slug: row.slug,
 	pluginId: row.pluginId,
@@ -97,7 +94,7 @@ const toRelationshipSchema = (
 	targetEntitySchemaSlug: row.targetEntitySchemaSlug,
 });
 
-const toSignalSchema = (row: Omit<SignalSchemaRow, "pluginSlug">): SignalSchemaDefinition => ({
+const toSignalSchema = (row: SignalSchemaRow): SignalSchemaDefinition => ({
 	name: row.name,
 	slug: row.slug,
 	pluginId: row.pluginId,
@@ -115,7 +112,6 @@ const toSavedView = (row: SavedViewRow): SavedViewDefinition => ({
 	renderer: row.renderer,
 	settings: row.settings,
 	sortOrder: row.sortOrder,
-	pluginSlug: row.pluginSlug,
 	dataSources: row.dataSources,
 });
 
@@ -163,7 +159,7 @@ const toSnapshot = Effect.fn(function* (rows: DefinitionRows) {
 
 const toEntityRelationshipDefinitions = Effect.fn(function* (rows: {
 	readonly entitySchemas: ReadonlyArray<Pick<EntitySchemaRow, "pluginId" | "slug">>;
-	readonly relationshipSchemas: ReadonlyArray<Omit<RelationshipSchemaRow, "pluginSlug">>;
+	readonly relationshipSchemas: ReadonlyArray<RelationshipSchemaRow>;
 }) {
 	const definitions: EntityRelationshipDefinitions = {
 		relationshipSchemas: yield* recordByIdentity(
@@ -193,20 +189,20 @@ const scopeRank = (pluginScope: PgColumn) =>
 const globalRank = (pluginId: PgColumn) => sql`${pluginId} is not null`;
 
 const userDefinitionOrder = (
-	view: { pluginScope: PgColumn; pluginSlug: PgColumn; position: PgColumn },
+	view: { pluginScope: PgColumn; packageId: PgColumn; position: PgColumn },
 	pluginsFirst = false,
 ) => [
 	pluginsFirst ? desc(scopeRank(view.pluginScope)) : asc(scopeRank(view.pluginScope)),
-	asc(view.pluginSlug),
+	asc(view.packageId),
 	asc(view.position),
 ];
 
 const globalDefinitionOrder = (
-	view: { pluginId: PgColumn; pluginSlug: PgColumn; position: PgColumn },
+	view: { pluginId: PgColumn; packageId: PgColumn; position: PgColumn },
 	pluginsFirst = false,
 ) => [
 	pluginsFirst ? desc(globalRank(view.pluginId)) : asc(globalRank(view.pluginId)),
-	asc(view.pluginSlug),
+	asc(view.packageId),
 	asc(view.position),
 ];
 
@@ -696,7 +692,6 @@ export class DefinitionRepository extends Context.Service<DefinitionRepository>(
 							...getTableColumns(schema.definitionEntitySchema),
 							pluginId: sql<string | null>`null::text`,
 							packageId: sql<string | null>`null::text`,
-							pluginSlug: sql<string | null>`null::text`,
 						})
 						.from(schema.definitionEntitySchema)
 						.where(isNull(schema.definitionEntitySchema.pluginRevisionId))
@@ -745,7 +740,6 @@ export class DefinitionRepository extends Context.Service<DefinitionRepository>(
 							...getTableColumns(schema.definitionSavedView),
 							pluginId: sql<string | null>`null::text`,
 							packageId: sql<string | null>`null::text`,
-							pluginSlug: sql<string | null>`null::text`,
 						})
 						.from(schema.definitionSavedView)
 						.where(isNull(schema.definitionSavedView.pluginRevisionId))
@@ -767,11 +761,7 @@ export class DefinitionRepository extends Context.Service<DefinitionRepository>(
 			) {
 				const [owner] = yield* session.run((db) =>
 					db
-						.select({
-							pluginId: schema.plugin.id,
-							pluginSlug: schema.plugin.slug,
-							packageId: schema.plugin.packageId,
-						})
+						.select({ pluginId: schema.plugin.id, packageId: schema.plugin.packageId })
 						.from(schema.pluginRevision)
 						.innerJoin(schema.plugin, eq(schema.plugin.id, schema.pluginRevision.pluginId))
 						.where(

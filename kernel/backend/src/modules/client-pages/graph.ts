@@ -38,7 +38,6 @@ export type GraphPlugin = Pick<
 	| "scope"
 	| "pluginRevisionId"
 	| "clientImports"
-	| "slug"
 	| "sourceHash"
 	| "clientArtifactHash"
 	| "manifest"
@@ -105,7 +104,7 @@ const missingExport = (specifier: string) =>
 	new ClientPagePreparationError({ reason: { exportName: specifier, code: "export-not-found" } });
 const artifactHash = (plugin: GraphPlugin): string => {
 	if (!plugin.clientArtifactHash) {
-		throw new Error(`Missing client artifact hash for ${plugin.slug}`);
+		throw new Error(`Missing client artifact hash for ${plugin.packageId}`);
 	}
 	return plugin.clientArtifactHash;
 };

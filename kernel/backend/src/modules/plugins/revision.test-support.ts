@@ -1,5 +1,5 @@
 import type { PluginManifest } from "@ryot-app/contract/modules/plugins/manifest";
-import { PluginPackageId, UserId } from "@ryot-app/contract/schema/brands";
+import { UserId } from "@ryot-app/contract/schema/brands";
 import { eq, sql } from "drizzle-orm";
 import { Effect, Layer, Redacted } from "effect";
 import { assert } from "vitest";
@@ -23,7 +23,7 @@ import { PluginInstallationRepository } from "./installation-repository";
 import { pluginSourceHash } from "./pipeline";
 import { PluginRepository } from "./repository";
 import { PluginRuntimeResolver } from "./runtime-resolver";
-import { fixtureManifest } from "./test-support";
+import { fixtureManifest, testPluginPackageId } from "./test-support";
 import type { NormalizedPlugin } from "./types";
 
 export const revisionDatabaseLayer = Layer.unwrap(
@@ -100,7 +100,7 @@ export const revisionPackage = (
 	slug = "fixture",
 	version = "v1",
 	entitySlug = `${slug}-entity`,
-	packageId = PluginPackageId.make(crypto.randomUUID()),
+	packageId = testPluginPackageId(),
 ): NormalizedPlugin => {
 	const fixture = fixtureManifest(packageId);
 	const entity = fixture.entitySchemas[0];
@@ -115,7 +115,7 @@ export const revisionPackage = (
 	};
 	const manifest: PluginManifest = {
 		...fixture,
-		metadata: { ...fixture.metadata, slug, version },
+		metadata: { ...fixture.metadata, version },
 		entitySchemas: [{ ...entity, slug: entitySlug }],
 		workflows: [{ slug: `${slug}-flow`, scriptSlug: `${slug}.workflow` }],
 		configSchema: {
@@ -242,16 +242,10 @@ export const installRevisionPackage = Effect.fn(function* (
 				const pluginId = yield* plugins.persist(
 					packageValue,
 					owner
-						? {
-								scope: "user",
-								ownerId: owner,
-								slug: packageValue.manifest.metadata.slug,
-								packageId: packageValue.manifest.metadata.packageId,
-							}
+						? { scope: "user", ownerId: owner, packageId: packageValue.manifest.metadata.packageId }
 						: {
 								ownerId: null,
 								scope: "system",
-								slug: packageValue.manifest.metadata.slug,
 								packageId: packageValue.manifest.metadata.packageId,
 							},
 				);
