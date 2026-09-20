@@ -22,7 +22,6 @@ import { Effect } from "@ryot-app/sandbox-sdk/effect";
 import { defineAutomation } from "@ryot-app/sandbox-sdk/automation";
 
 export const manifest = defineManifest({
-  capabilities: [],
   kind: "automation",
   automationType: "automation",
   inputProjection: { signal: { properties: [] } },
@@ -40,7 +39,6 @@ const workflowSource = `
 import { defineManifest, defineWorkflow, Effect, Schema } from "@ryot-app/sandbox-sdk/workflow";
 
 export const manifest = defineManifest({
-  capabilities: [],
   kind: "workflow",
   name: "Workflow",
   slug: "workflow.test",
@@ -138,44 +136,14 @@ layer(SandboxCompiler.layer)((test) => {
 });
 
 layer(SandboxCompiler.layer)((test) => {
-	test.effect("types a host method declared by the manifest capability tuple", () =>
-		Effect.gen(function* () {
-			const compiled = yield* compile(
-				validSource.replace("capabilities: []", 'capabilities: ["getCachedValue"]').replace(
-					"run: (input) => Effect.succeed(input.value),",
-					`run: (input, host) => Effect.gen(function* () {
-	    const cached = yield* host.getCachedValue("answer");
-	    return typeof cached === "number" ? cached : input.value;
-	  }),`,
-				),
-			);
-
-			expect(compiled.manifest.capabilities).toEqual(["getCachedValue"]);
-		}),
-	);
-});
-
-layer(SandboxCompiler.layer)((test) => {
-	test.effect("rejects a host method omitted from the manifest capability tuple", () =>
+	test.effect("rejects source-authored manifest capabilities", () =>
 		Effect.gen(function* () {
 			const failure = yield* compile(
-				validSource.replace(
-					"run: (input) => Effect.succeed(input.value),",
-					`run: (input, host) => Effect.gen(function* () {
-	    yield* host.getCachedValue("answer");
-	    return input.value;
-	  }),`,
-				),
+				validSource.replace('kind: "script",', 'kind: "script",\n  capabilities: [],'),
 			).pipe(Effect.flip);
 
 			expect(failure.diagnostics).toEqual(
-				expect.arrayContaining([
-					expect.objectContaining({
-						code: "TS2339",
-						severity: "error",
-						message: expect.stringContaining("getCachedValue"),
-					}),
-				]),
+				expect.arrayContaining([expect.objectContaining({ code: "TS2322", severity: "error" })]),
 			);
 		}),
 	);

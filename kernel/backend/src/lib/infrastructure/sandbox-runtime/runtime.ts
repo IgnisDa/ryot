@@ -1,5 +1,6 @@
 import { BunHttpServer } from "@effect/platform-bun";
 import { badRequest, internalError, unknownToMessage } from "@ryot-app/contract/errors";
+import type { SandboxBoundaryReason } from "@ryot-app/contract/modules/sandbox/boundary-reason";
 import { utf8ByteLength } from "@ryot-app/sandbox-compiler/limits";
 import { hostFailure } from "@ryot-app/sandbox-sdk/wire";
 import {
@@ -34,7 +35,7 @@ import type { SandboxProcessGrants } from "./filesystem-grants";
 import { consumeSandboxHostCall, SANDBOX_LIMITS, type SandboxHostCallBudget } from "./limits";
 import { readProcessRssBytes } from "./process-sampling";
 import { sandboxRunnerSource } from "./runner.generated";
-import type { BoundHostFunction } from "./shared";
+import { type BoundHostFunction, toSandboxJsonValue } from "./shared";
 import { readSandboxByteLimitedText } from "./stream-utils";
 
 const SandboxRpcArgs = Schema.Struct({ args: Schema.Array(Schema.Unknown) });
@@ -178,8 +179,11 @@ export const readSandboxBridgeRequestBody = (request: Request) => {
 	);
 };
 
-const hostFailureResponse = (message: string) =>
-	Response.json({ result: hostFailure(message) }, { status: 200 });
+const hostFailureResponse = (message: string, data?: SandboxBoundaryReason) =>
+	Response.json(
+		{ result: hostFailure(message, data === undefined ? undefined : toSandboxJsonValue(data)) },
+		{ status: 200 },
+	);
 
 export const sandboxBridgeResultResponse = (
 	result: unknown,
@@ -386,7 +390,7 @@ export class BridgeService extends Context.Service<BridgeService>()("BridgeServi
 					activeSession.hostCallLimit,
 				);
 				if (budgetError) {
-					return hostFailureResponse(budgetError);
+					return hostFailureResponse(budgetError.message, budgetError.reason);
 				}
 
 				const functions = activeSession.apiFunctions;

@@ -6,6 +6,7 @@ import type {
 	IngestionScope,
 } from "@ryot-app/contract/modules/imports/ingestion";
 import { ImportRunId, IntegrationId, UserId } from "@ryot-app/contract/schema/brands";
+import { stableStringify } from "@ryot-app/ts-utils/json";
 import { eq } from "drizzle-orm";
 import { Effect, Layer } from "effect";
 
@@ -123,14 +124,79 @@ layer(
 	seed.pipe(
 		Layer.provideMerge(IntegrationsRepository.layer),
 		Layer.provideMerge(
-			PluginInstallationRepository.layer.pipe(
-				Layer.provide(Layer.mock(PluginConfigEncryptionKey)({})),
-			),
+			PluginInstallationRepository.layer.pipe(Layer.provideMerge(PluginConfigEncryptionKey.layer)),
 		),
 		Layer.provideMerge(ImportsRepository.layer),
 		Layer.provideMerge(isolatedDatabaseLayer("ingestion_repository")),
 	),
 )((test) => {
+	test.effect("encrypts prepared release state and binds it to its ingestion scope", () =>
+		Effect.gen(function* () {
+			const database = yield* DatabaseSession;
+			const repository = yield* ImportsRepository;
+			const scope = yield* blockedRun();
+			const releasePlan = { ...plan, selection: { provider: "tmdb" } };
+			const marker = "prepared-release-private-value";
+			const preparedRelease = {
+				plan: releasePlan,
+				requiresProKey: true,
+				state: {
+					...ingestionTestSource,
+					sourcePayload: { credential: marker },
+					executionSettings: {
+						userSettings: { timezone: "Pacific/Auckland" },
+						integration: {
+							syncOwnership: true,
+							minimumProgress: 10,
+							maximumProgress: 90,
+							providerSpecifics: { token: marker, provider: "tmdb" },
+						},
+					},
+				},
+			};
+			const releasePins = {
+				executionId: `${scope.runId}-import`,
+				scriptId: ingestionTestSource.workflowScriptId,
+				pluginRevisionId: ingestionTestSource.pluginRevision.revisionId,
+				pluginConfigRevisionId: ingestionTestSource.pluginRevision.configRevisionId,
+			};
+
+			yield* database.transaction(
+				repository.reserveIngestionPins(scope, releasePins, preparedRelease),
+			);
+			const [storedRun] = yield* database.run((db) =>
+				db
+					.select({ preparedRelease: tables.importRun.preparedRelease })
+					.from(tables.importRun)
+					.where(eq(tables.importRun.id, scope.runId))
+					.limit(1),
+			);
+			assert(storedRun?.preparedRelease);
+			expect(storedRun.preparedRelease).toMatchObject({
+				plan: releasePlan,
+				requiresProKey: true,
+				state: {
+					keyId: expect.any(String),
+					nonce: expect.any(String),
+					ciphertext: expect.any(String),
+				},
+			});
+			expect(stableStringify(storedRun.preparedRelease)).not.toContain(marker);
+			expect(stableStringify(storedRun.preparedRelease)).not.toContain("Pacific/Auckland");
+			expect(yield* repository.getPreparedRelease(scope)).toEqual(preparedRelease);
+
+			const otherScope = yield* blockedRun();
+			yield* database.run((db) =>
+				db
+					.update(tables.importRun)
+					.set({ pins: releasePins, preparedRelease: storedRun.preparedRelease })
+					.where(eq(tables.importRun.id, otherScope.runId)),
+			);
+			const crossScope = yield* Effect.exit(repository.getPreparedRelease(otherScope));
+			expect(crossScope._tag).toBe("Failure");
+		}),
+	);
+
 	test.effect(
 		"arbitrates competing deliveries until committed application settles and releases failed owners",
 		() =>

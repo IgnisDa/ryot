@@ -60,12 +60,14 @@ export const ingestionReadinessMetadata = (
 	scripts: manifest.scripts.map(
 		({
 			slug,
+			capabilities,
 			oauthConnectionFields,
 			executableDependencies,
 			requiredPluginConfigKeys,
 			optionalPluginConfigKeys,
 		}) => ({
 			slug,
+			capabilities,
 			oauthConnectionFields,
 			executableDependencies,
 			requiredPluginConfigKeys,

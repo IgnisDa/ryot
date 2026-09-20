@@ -14,9 +14,11 @@ import { DefinitionRepository } from "#modules/definition-registry/repository";
 import { EntitiesServiceRuntimeLive } from "#modules/entities/layer";
 import { EntitiesRepositoryLive } from "#modules/entities/repository";
 import { EventsServiceLive } from "#modules/events/layer";
+import { ImportSourceStateStore } from "#modules/imports/runtime/source-state-store";
 import { IntegrationsRepository } from "#modules/integrations/repository";
 import { NotificationsServiceLive } from "#modules/notifications/layer";
 import { OAuthConnectionsServiceLive } from "#modules/oauth-connections/layer";
+import { PluginInstallationRepository } from "#modules/plugins/installation-repository";
 import { PluginRepository } from "#modules/plugins/repository";
 import { PluginRuntimeResolverLive } from "#modules/plugins/runtime-resolver";
 import { PluginSandboxScriptResolverLive } from "#modules/plugins/sandbox-plugin-script-resolver-live";
@@ -71,6 +73,8 @@ export const SandboxHostImplementationsLive = Layer.effect(
 	Layer.provide(EntitiesRepositoryLive),
 	Layer.provide(PluginRuntimeResolverLive),
 	Layer.provide(PluginRepository.layer),
+	Layer.provide(ImportSourceStateStore.layer),
+	Layer.provide(PluginInstallationRepository.layer),
 	Layer.provide(DefinitionRepository.layer),
 	Layer.provide(IntegrationsRepository.layer),
 	Layer.provide(AuthRepository.layer),

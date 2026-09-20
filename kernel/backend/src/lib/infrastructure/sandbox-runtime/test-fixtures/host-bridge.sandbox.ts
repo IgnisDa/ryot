@@ -5,7 +5,6 @@ export const manifest = defineManifest({
 	kind: "script",
 	name: "Host bridge fixture",
 	slug: "host-bridge-fixture",
-	capabilities: ["getCachedValue", "getPluginConfig", "httpCall", "setCachedValue"],
 });
 
 export default defineScript({

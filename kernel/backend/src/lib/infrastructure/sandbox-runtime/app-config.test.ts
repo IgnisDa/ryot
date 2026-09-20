@@ -184,7 +184,10 @@ describe("getPluginConfig", () => {
 				});
 				expect(yield* runPluginConfig(["enabled"])).toMatchObject({
 					_tag: "Failure",
-					failure: expect.stringContaining("is not configured"),
+					failure: {
+						message: expect.stringContaining("is not configured"),
+						data: { keys: ["enabled"], code: "missing-required-config" },
+					},
 				});
 			}),
 		);
@@ -224,10 +227,14 @@ describe("getPluginConfig for an installation", () => {
 				const result = yield* runInstallationConfig(["enabled"], { apiToken: "secret" });
 				expect(result).toMatchObject({
 					_tag: "Failure",
-					failure: expect.stringContaining("is not configured for this installation"),
+					failure: {
+						data: { keys: ["enabled"], code: "missing-required-config" },
+						message: expect.stringContaining("is not configured for this installation"),
+					},
 				});
 				assert(result._tag === "Failure");
-				expect(result.failure).not.toContain("RYOT_PLUGIN");
+				assert(typeof result.failure !== "string");
+				expect(result.failure.message).not.toContain("RYOT_PLUGIN");
 			}),
 		);
 	});

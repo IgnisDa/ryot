@@ -12,6 +12,7 @@ import { ImportsRepository } from "#modules/imports/repository";
 import { ImportSourceStateStore } from "#modules/imports/runtime/source-state-store";
 import { ImportWorkflowPinning } from "#modules/imports/workflow-pinning";
 import { IngestionReadinessService } from "#modules/plugins/ingestion-readiness-service";
+import { PluginInstallationRepository } from "#modules/plugins/installation-repository";
 import { SandboxPluginScriptResolver } from "#modules/sandbox/plugin-script-resolver";
 import { SandboxExecutionService } from "#modules/sandbox/service";
 
@@ -27,6 +28,7 @@ layer(
 				Layer.mock(ImportSourceStateStore)({}),
 				Layer.mock(ImportWorkflowPinning)({}),
 				Layer.mock(IngestionReadinessService)({}),
+				Layer.mock(PluginInstallationRepository)({}),
 				Layer.mock(SandboxPluginScriptResolver)({}),
 				Layer.mock(SandboxExecutionService)({}),
 				ImportsRepository.layer,

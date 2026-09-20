@@ -12,6 +12,7 @@ import { ImportsRepository } from "#modules/imports/repository";
 import { ImportSourceStateStore } from "#modules/imports/runtime/source-state-store";
 import { OAuthConnectionsServiceLive } from "#modules/oauth-connections/layer";
 import { IngestionReadinessService } from "#modules/plugins/ingestion-readiness-service";
+import { PluginInstallationRepository } from "#modules/plugins/installation-repository";
 import { IntegrationProviderCatalog } from "#modules/plugins/integration-provider-catalog";
 import {
 	SandboxExecutionServiceLive,
@@ -34,6 +35,7 @@ export const IntegrationIngestionLive = IntegrationIngestion.layer.pipe(
 			IngestionExecutionLive,
 			IngestionRetirementLive,
 			IngestionReadinessService.layer,
+			PluginInstallationRepository.layer,
 			SandboxExecutionServiceLive,
 			SandboxPluginScriptResolverLive,
 		),

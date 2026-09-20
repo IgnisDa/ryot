@@ -13,7 +13,6 @@ export const manifest = defineManifest({
   kind: "provider",
   name: "Built-in provider",
 	slug: "builtin.provider",
-	capabilities: [],
 });
 
 export default defineProvider({

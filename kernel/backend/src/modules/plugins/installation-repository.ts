@@ -653,6 +653,41 @@ export class PluginInstallationRepository extends Context.Service<PluginInstalla
 				);
 				return row;
 			});
+			const findUserSettingsForRevision = Effect.fn(function* (input: {
+				userId: UserId;
+				pluginId: string;
+				pluginRevisionId: string;
+				installationId?: string;
+			}) {
+				const [row] = yield* database.run((db) =>
+					db
+						.select({
+							manifest: schema.pluginRevision.manifest,
+							installationId: schema.pluginInstallation.id,
+							userSettings: schema.pluginInstallation.userSettings,
+						})
+						.from(schema.pluginInstallation)
+						.innerJoin(
+							schema.pluginRevision,
+							and(
+								eq(schema.pluginRevision.id, input.pluginRevisionId),
+								eq(schema.pluginRevision.pluginId, schema.pluginInstallation.pluginId),
+							),
+						)
+						.where(
+							and(
+								eq(schema.pluginInstallation.pluginId, input.pluginId),
+								eq(schema.pluginInstallation.userId, input.userId),
+								isNull(schema.pluginInstallation.uninstalledAt),
+								...(input.installationId
+									? [eq(schema.pluginInstallation.id, input.installationId)]
+									: []),
+							),
+						)
+						.limit(1),
+				);
+				return row ?? null;
+			});
 			const saveUserSettings = Effect.fn(function* (
 				userId: UserId,
 				id: string,
@@ -692,6 +727,7 @@ export class PluginInstallationRepository extends Context.Service<PluginInstalla
 				beginIngestionRetirement,
 				listPrivateInstallations,
 				updateHealthForActivation,
+				findUserSettingsForRevision,
 				clearHomeSavedViewReferences,
 				refreshClientConfigsForPlugin,
 				provisionSystemInstallationsForUser,

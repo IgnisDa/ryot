@@ -502,7 +502,6 @@ import { Effect, Schema } from "@ryot-app/sandbox-sdk/effect";
 
 export const manifest = defineManifest({
 	kind: "script",
-	capabilities: [],
 	name: "Fixture Bootstrap",
 	slug: "script.fixture-bootstrap",
 });
@@ -1336,7 +1335,6 @@ import { Effect, Schema } from "@ryot-app/sandbox-sdk/effect";
 import { defineOperation } from "@ryot-app/sandbox-sdk/operation";
 
 export const manifest = defineManifest({
-	capabilities: [],
 	kind: "operation",
 	name: "Fixture Operation",
 	slug: "operation.fixture",

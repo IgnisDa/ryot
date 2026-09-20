@@ -9,3 +9,9 @@ export const PreparedIngestionRelease = Schema.Struct({
 	requiresProKey: Schema.Boolean,
 });
 export type PreparedIngestionRelease = typeof PreparedIngestionRelease.Type;
+
+export const PreparedIngestionReleaseCiphertext = Schema.Struct({
+	...PreparedIngestionRelease.fields,
+	state: Schema.Struct({ keyId: Schema.String, nonce: Schema.String, ciphertext: Schema.String }),
+});
+export type PreparedIngestionReleaseCiphertext = typeof PreparedIngestionReleaseCiphertext.Type;

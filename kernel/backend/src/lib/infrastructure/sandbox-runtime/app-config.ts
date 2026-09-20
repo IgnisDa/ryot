@@ -1,5 +1,6 @@
 import { configFromAppSchema } from "@ryot-app/config";
 import { pluginConfigEnvironmentKey } from "@ryot-app/contract/modules/plugins/plugin-config";
+import type { SandboxBoundaryReason } from "@ryot-app/contract/modules/sandbox/boundary-reason";
 import type { AppSchema } from "@ryot-app/contract/schema/property-schema";
 import { isObjectRecord } from "@ryot-app/ts-utils/predicates";
 import { Effect, Match, Option } from "effect";
@@ -121,7 +122,10 @@ export const getPluginConfig = Effect.fn("getPluginConfig")(function* (input: {
 		const value = parsed[key];
 		if (value === undefined) {
 			if (required.has(key)) {
-				return yield* Effect.fail(unconfiguredMessage(input.context, key));
+				return yield* Effect.fail({
+					message: unconfiguredMessage(input.context, key),
+					data: { keys: [key], code: "missing-required-config" } satisfies SandboxBoundaryReason,
+				});
 			}
 			continue;
 		}

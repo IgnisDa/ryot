@@ -19,6 +19,8 @@ import { ImportSourceStateStore } from "#modules/imports/runtime/source-state-st
 import { ImportRunError } from "#modules/imports/runtime/workflow-errors";
 import { ImportWorkflowPinning } from "#modules/imports/workflow-pinning";
 import { IngestionReadinessService } from "#modules/plugins/ingestion-readiness-service";
+import { PluginInstallationRepository } from "#modules/plugins/installation-repository";
+import { fixtureManifest } from "#modules/plugins/test-support";
 import { SandboxPluginScriptResolver } from "#modules/sandbox/plugin-script-resolver";
 import { SandboxExecutionService } from "#modules/sandbox/service";
 
@@ -134,6 +136,22 @@ const runCase = (
 							},
 						};
 						return envelopeCapture;
+					}),
+			}),
+			Layer.mock(PluginInstallationRepository)({
+				findUserSettingsForRevision: () =>
+					Effect.succeed({
+						installationId: "installation-1",
+						userSettings: { timezone: "Pacific/Auckland" },
+						manifest: {
+							...fixtureManifest(),
+							userSettingsSchema: {
+								unknownKeys: "strict",
+								fields: {
+									timezone: { type: "string", label: "Timezone", description: "Import timezone" },
+								},
+							},
+						},
 					}),
 			}),
 			Layer.mock(ImportWorkflowPinning)({
@@ -436,6 +454,40 @@ it.effect(
 				selection: { "integration-adapter": "integration.fixture" },
 			});
 		}),
+);
+
+it.effect("captures integration settings selected when a blocked run is released", () =>
+	Effect.gen(function* () {
+		const selected = {
+			...integration,
+			minimumProgress: 15,
+			maximumProgress: 85,
+			syncOwnership: true,
+			providerSpecifics: { provider: "tmdb", filters: ["movie"] },
+		};
+		const test = yield* runCase();
+		const service = yield* Effect.provideContext(IntegrationIngestion, test.context);
+
+		expect(yield* service.release(ingestionTestScope, selected)).toBe(true);
+		expect(test.calls.find((call) => call.method === "evaluate")?.input).toMatchObject({
+			settings: selected.providerSpecifics,
+		});
+		expect(test.calls.find((call) => call.method === "pin")?.input).toMatchObject({
+			preparedRelease: {
+				state: {
+					executionSettings: {
+						userSettings: { timezone: "Pacific/Auckland" },
+						integration: {
+							syncOwnership: true,
+							minimumProgress: 15,
+							maximumProgress: 85,
+							providerSpecifics: selected.providerSpecifics,
+						},
+					},
+				},
+			},
+		});
+	}),
 );
 
 it.effect(

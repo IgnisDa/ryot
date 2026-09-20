@@ -13,6 +13,8 @@ import {
 	type RegisteredImportSource,
 } from "#modules/plugins/import-source-catalog";
 import { IngestionReadinessService } from "#modules/plugins/ingestion-readiness-service";
+import { PluginInstallationRepository } from "#modules/plugins/installation-repository";
+import { fixtureManifest } from "#modules/plugins/test-support";
 import { UploadIntentsService } from "#modules/uploads/intents/service";
 
 import { DataImportAdmission } from "./data-admission";
@@ -89,6 +91,7 @@ const script = {
 };
 const serviceCase = (
 	mode: "success" | "dispatch-failed" | "store-failed" | "pin-failed" | "not-ready",
+	userSettings: Record<string, string> = {},
 ) =>
 	Effect.gen(function* () {
 		const events: string[] = [];
@@ -129,6 +132,27 @@ const serviceCase = (
 					}),
 			}),
 			Layer.mock(ImportSourceCatalog)({ resolveForUser: () => Effect.succeed({ source, script }) }),
+			Layer.mock(PluginInstallationRepository)({
+				findUserSettingsForRevision: () =>
+					Effect.succeed({
+						userSettings,
+						installationId: "installation-1",
+						manifest: {
+							...fixtureManifest(),
+							userSettingsSchema: {
+								unknownKeys: "strict",
+								fields: {
+									timezone: {
+										type: "string",
+										label: "Timezone",
+										defaultValue: "UTC",
+										description: "Import timezone",
+									},
+								},
+							},
+						},
+					}),
+			}),
 			Layer.mock(IngestionReadinessService)({
 				evaluateImport: () =>
 					Effect.succeed({
@@ -215,10 +239,22 @@ it.effect(
 			expect(result.exit._tag).toBe("Success");
 			expect(result.events).toEqual(["create", "register", "store", "pin-plan", "dispatch"]);
 			expect(result.states[0]?.sourcePayload).toEqual({ apiKey: "secret" });
+			expect(result.states[0]?.executionSettings.userSettings).toEqual({ timezone: "UTC" });
 			expect(result.summaries).toEqual([{ source: "fixture" }]);
 			expect(result.dispatched[0]).not.toHaveProperty("payload.sourcePayload");
 			expect(result.dispatched[0]).not.toHaveProperty("payload.apiKey");
 		}),
+);
+it.effect("snapshots the current user timezone for each accepted import", () =>
+	Effect.gen(function* () {
+		const initial = yield* serviceCase("success", { timezone: "America/Los_Angeles" });
+		const later = yield* serviceCase("success", { timezone: "Asia/Tokyo" });
+
+		expect(initial.states[0]?.executionSettings.userSettings).toEqual({
+			timezone: "America/Los_Angeles",
+		});
+		expect(later.states[0]?.executionSettings.userSettings).toEqual({ timezone: "Asia/Tokyo" });
+	}),
 );
 it.effect("keeps durable admitted input and pins when dispatch must be retried", () =>
 	Effect.gen(function* () {
