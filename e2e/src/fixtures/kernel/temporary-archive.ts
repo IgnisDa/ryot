@@ -1,4 +1,8 @@
-import { PluginArchiveError, writePluginArchive } from "@ryot-app/plugin-archive";
+import {
+	PluginArchiveError,
+	type PluginArchivePackage,
+	writePluginArchive,
+} from "@ryot-app/plugin-archive";
 import { Effect } from "effect";
 
 import { getApiUrl } from "~/support/harness-target";
@@ -37,23 +41,21 @@ export const uploadTemporaryArchive = (
 
 export const uploadPrivatePluginPackage = (
 	client: Client,
-	pluginPackage: PluginPackageInput,
+	pluginPackage: PluginPackageInput | PluginArchivePackage,
 	baseUrl?: string,
 ) =>
-	compilePluginPackage(pluginPackage).pipe(
-		Effect.flatMap((compiledPackage) =>
-			Effect.try({
-				try: () => writePluginArchive(compiledPackage),
-				catch: (error) =>
-					error instanceof PluginArchiveError
-						? error
-						: new PluginArchiveError({ reason: "malformed-zip" }),
-			}),
-		),
-		Effect.flatMap((bytes) =>
-			uploadTemporaryArchive(client, bytes, {
-				baseUrl,
-				fileName: `${pluginPackage.manifest.metadata.slug}.zip`,
-			}),
-		),
-	);
+	Effect.gen(function* () {
+		const compiledPackage =
+			"files" in pluginPackage ? yield* compilePluginPackage(pluginPackage) : pluginPackage;
+		const bytes = yield* Effect.try({
+			try: () => writePluginArchive(compiledPackage),
+			catch: (error) =>
+				error instanceof PluginArchiveError
+					? error
+					: new PluginArchiveError({ reason: "malformed-zip" }),
+		});
+		return yield* uploadTemporaryArchive(client, bytes, {
+			baseUrl,
+			fileName: `${pluginPackage.manifest.metadata.slug}.zip`,
+		});
+	});

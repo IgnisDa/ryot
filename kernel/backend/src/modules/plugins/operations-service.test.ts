@@ -48,7 +48,6 @@ type AvailableOperation = (
 };
 
 const makeActiveScript = (id: string) => ({
-	source: "source",
 	slug: DRIVER_REF,
 	providerId: null,
 	name: DRIVER_REF,

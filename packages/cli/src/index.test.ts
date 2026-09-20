@@ -158,62 +158,59 @@ export default ${helper}({ manifest, run: () => Effect.succeed(${automationType 
 			expect(
 				archive.compiledScripts
 					.filter(({ entry }) => entry !== "backend/main.sandbox.ts")
-					.map(({ entry, source, format, javascript }) => ({
+					.map(({ entry, format, javascript }) => ({
 						entry,
-						source,
 						format,
 						javascript: javascript.length > 0,
 					})),
 			).toEqual([
-				{
-					format: 1,
-					javascript: true,
-					entry: "backend/automation.sandbox.ts",
-					source: expect.stringContaining('automationType: "automation"'),
-				},
-				{
-					format: 1,
-					javascript: true,
-					entry: "backend/policy.sandbox.ts",
-					source: expect.stringContaining('automationType: "policy"'),
-				},
+				{ format: 1, javascript: true, entry: "backend/automation.sandbox.ts" },
+				{ format: 1, javascript: true, entry: "backend/policy.sandbox.ts" },
 			]);
 		}),
 	);
 
 	test.effect(
-		"builds a deterministic slug archive with canonical manifest data and filtered sources",
+		"builds a deterministic source-free archive with compiled assets and canonical manifest data",
 		() =>
 			Effect.gen(function* () {
 				const path = yield* Path.Path;
 				const fs = yield* FileSystem.FileSystem;
 				const plugin = yield* createPlugin();
 				const assetBytes = new Uint8Array([0xff, 0x00, 0x7f]);
-				for (const extension of [
-					"png",
-					"jpg",
-					"jpeg",
-					"gif",
-					"webp",
-					"avif",
-					"ico",
-					"woff2",
-					"wasm",
-				]) {
-					yield* fs.writeFile(path.join(plugin, "client", `asset.${extension}`), assetBytes);
+				const extensions = ["png", "jpg", "jpeg", "gif", "webp", "ico", "woff2", "wasm"];
+				for (const extension of extensions) {
+					yield* fs.writeFile(
+						path.join(plugin, "client", `asset.${extension}`),
+						new Uint8Array([...assetBytes, extensions.indexOf(extension)]),
+					);
 				}
+				yield* fs.writeFileString(
+					path.join(plugin, "client", "styles.css"),
+					extensions
+						.map(
+							(extension) =>
+								`.asset-${extension} { background-image: url("./asset.${extension}"); }`,
+						)
+						.join("\n"),
+				);
 				yield* fs.writeFileString(path.join(plugin, "backend", "data.json"), "{}\n");
+				const homePath = path.join(plugin, "client", "home.tsx");
+				yield* fs.writeFileString(
+					homePath,
+					`import "./styles.css";\n${yield* fs.readFileString(homePath)}`,
+				);
 				yield* fs.writeFileString(path.join(plugin, "shared", "data.json"), "{}\n");
 				yield* fs.writeFileString(path.join(plugin, "client", "data.json"), "{}\n");
 				yield* fs.writeFile(path.join(plugin, "client", "ignored.PNG"), assetBytes);
 				const result = yield* run(plugin, ["plugin", "build"]);
+				expect(result.exitCode, result.stdout + result.stderr).toBe(0);
 				const output = path.join(plugin, "dist", "cli-test.zip");
 				const first = yield* fs.readFile(output);
 				const pluginPackage = yield* readPluginArchive(first);
 				const secondResult = yield* run(plugin, ["plugin", "build"]);
 				const compiledClient = pluginPackage.compiledClient;
 
-				expect(result.exitCode, result.stderr).toBe(0);
 				expect(secondResult.exitCode, secondResult.stderr).toBe(0);
 				expect(compiledClient).toBeDefined();
 				expect(compiledClient?.files.map(({ name }) => name)).toContain("module.js");
@@ -223,43 +220,41 @@ export default ${helper}({ manifest, run: () => Effect.succeed(${automationType 
 				expect(pluginPackage.manifest).toMatchObject({
 					httpRateLimits: [{ origins: ["https://example.com"] }],
 				});
-				expect(decoder.decode(pluginPackage.files["backend/main.sandbox.ts"])).toContain(
-					'"initial"',
-				);
-				expect(decoder.decode(pluginPackage.files["backend/nested/worker.ts"])).toContain("worker");
 				expect(pluginPackage.compiledScripts).toHaveLength(1);
 				expect(pluginPackage.compiledScripts[0]).toMatchObject({
 					format: 1,
 					entry: "backend/main.sandbox.ts",
-					source: expect.stringContaining('Effect.succeed("initial")'),
 				});
 				expect(pluginPackage.compiledScripts[0]?.javascript).toContain("initial");
-				expect(pluginPackage.files["backend/data.json"]).toBeUndefined();
-				expect(pluginPackage.files["backend/ignored.test.ts"]).toBeUndefined();
-				expect(Object.keys(pluginPackage.files)).toEqual([
-					"backend/main.sandbox.ts",
-					"backend/nested/worker.ts",
-					"shared/util.ts",
-					"client/asset.avif",
-					"client/asset.gif",
-					"client/asset.ico",
-					"client/asset.jpeg",
-					"client/asset.jpg",
-					"client/asset.png",
-					"client/asset.wasm",
-					"client/asset.webp",
-					"client/asset.woff2",
-					"client/home.tsx",
-					"client/logo.svg",
-					"client/styles.css",
-				]);
-				expect(pluginPackage.files["client/asset.png"]).toEqual(assetBytes);
-				expect(pluginPackage.files["client/data.json"]).toBeUndefined();
-				expect(pluginPackage.files["client/ignored.PNG"]).toBeUndefined();
-				expect(pluginPackage.files["client/ignored.test.tsx"]).toBeUndefined();
-				expect(decoder.decode(pluginPackage.files["shared/util.ts"])).toContain("sharedLabel");
-				expect(pluginPackage.files["shared/data.json"]).toBeUndefined();
-				expect(pluginPackage.files["shared/ignored.test.ts"]).toBeUndefined();
+				expect(pluginPackage).not.toHaveProperty("files");
+				expect(pluginPackage.compiledScripts[0]).not.toHaveProperty("source");
+				for (const extension of extensions) {
+					const asset = compiledClient?.files.find(({ name }) => name.endsWith(`.${extension}`));
+					const expected = new Uint8Array([...assetBytes, extensions.indexOf(extension)]);
+					expect(asset?.contents, extension).toEqual(expected);
+				}
+				for (const file of compiledClient?.files ?? []) {
+					expect(file.name).not.toMatch(/\.(?:map|tsx?|css\.map)$/);
+					if (file.contentType.startsWith("text/")) {
+						expect(decoder.decode(file.contents)).not.toContain("sourceMappingURL");
+					}
+				}
+				const inlineMap = pluginPackage.compiledScripts[0]?.javascript.match(
+					/sourceMappingURL=data:application\/json;base64,([^\s]+)/,
+				)?.[1];
+				expect(inlineMap).toBeDefined();
+				const map = yield* Schema.decodeEffect(
+					Schema.fromJsonString(
+						Schema.Struct({
+							mappings: Schema.String,
+							sources: Schema.Array(Schema.String),
+							sourcesContent: Schema.optional(Schema.Array(Schema.NullOr(Schema.String))),
+						}),
+					),
+				)(Buffer.from(inlineMap ?? "", "base64").toString("utf-8"));
+				expect(map.sources).toContain("backend/main.sandbox.ts");
+				expect(map.mappings.length).toBeGreaterThan(0);
+				expect(map.sourcesContent).toBeUndefined();
 			}),
 	);
 
@@ -580,9 +575,9 @@ layer(BunServices.layer, { excludeTestServices: true })("ryot plugin build --wat
 							return false;
 						}
 						const pluginPackage = yield* readPluginArchive(yield* fs.readFile(output));
-						return decoder
-							.decode(pluginPackage.files["backend/main.sandbox.ts"])
-							.includes('"updated"');
+						return pluginPackage.compiledScripts.some(({ javascript }) =>
+							javascript.includes('"updated"'),
+						);
 					}),
 				);
 			}),

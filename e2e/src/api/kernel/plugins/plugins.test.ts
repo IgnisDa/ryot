@@ -549,9 +549,7 @@ export default defineAutomation({
 				),
 				Effect.flip(
 					client.call((c) =>
-						c.testSupport.installSystemPlugin({
-							payload: { manifest, files: {}, compiledScripts: [] },
-						}),
+						c.testSupport.installSystemPlugin({ payload: { manifest, compiledScripts: [] } }),
 					),
 				),
 				Effect.flip(

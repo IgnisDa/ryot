@@ -444,8 +444,8 @@ describe("automation retries", () => {
 				installTestPluginBundle({
 					client,
 					pluginSlug,
-					scripts: [automationScript(scriptSlug, entry, ["httpCall"])],
 					files: { [entry]: terminalFailureSource(scriptSlug) },
+					scripts: [automationScript(scriptSlug, entry, ["httpCall"])],
 					hooks: [
 						{
 							scriptSlug,

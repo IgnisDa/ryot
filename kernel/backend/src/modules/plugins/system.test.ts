@@ -1,15 +1,16 @@
 import { BunServices } from "@effect/platform-bun";
 import { assert, expect, layer } from "@effect/vitest";
 import { PluginArchiveError, writePluginArchive } from "@ryot-app/plugin-archive";
+import { ViteBuildService } from "@ryot-app/vite-compiler";
 import type { Path } from "effect";
-import { Effect, FileSystem } from "effect";
+import { Effect, FileSystem, Layer } from "effect";
 
 import { loadPluginSource } from "./source.test-support";
 import { discoverSystemPlugins } from "./system";
 import { fixtureManifest, fixturePackageRoot } from "./test-support";
 
 const withRoot = <A, E>(
-	run: (root: string) => Effect.Effect<A, E, FileSystem.FileSystem | Path.Path>,
+	run: (root: string) => Effect.Effect<A, E, FileSystem.FileSystem | Path.Path | ViteBuildService>,
 ) =>
 	Effect.scoped(
 		Effect.gen(function* () {
@@ -41,7 +42,7 @@ const writeArchive = Effect.fn("writeArchive")(function* (root: string, slug: st
 	yield* fs.writeFile(`${root}/${slug}.zip`, writePluginArchive({ ...source, manifest }));
 });
 
-layer(BunServices.layer)((test) => {
+layer(Layer.merge(BunServices.layer, ViteBuildService.layer))((test) => {
 	test.effect("discovers valid archives in sorted filename order", () =>
 		withRoot((root) =>
 			Effect.gen(function* () {
@@ -50,13 +51,6 @@ layer(BunServices.layer)((test) => {
 				const sources = yield* discoverSystemPlugins(root);
 
 				expect(sources.map(({ manifest }) => manifest.metadata.slug)).toEqual(["alpha", "zeta"]);
-				expect(Object.keys(sources[0]?.files ?? {})).toEqual([
-					"backend/automations/fixture.sandbox.ts",
-					"backend/bootstrap/user-bootstrap.sandbox.ts",
-					"backend/providers/fixture/provider/details.sandbox.ts",
-					"backend/providers/fixture/provider/search.sandbox.ts",
-					"client/index.ts",
-				]);
 				expect(sources[0]?.compiledScripts.map(({ entry }) => entry)).toEqual([
 					"backend/automations/fixture.sandbox.ts",
 				]);

@@ -163,22 +163,15 @@ describe("plugin repository revisions", () => {
 				const compiledClient = fixtureClientArtifact(manifest.metadata.name);
 				const entry = manifest.scripts[0]?.entry;
 				assert(entry);
-				const source = "export default {};";
 				const javascript = "export {};";
-				const compiledScripts = [{ entry, source, format: 1, javascript }];
-				const files = {
-					[entry]: new TextEncoder().encode(source),
-					"client/index.ts": new TextEncoder().encode("export default null;"),
-				};
+				const compiledScripts = [{ entry, format: 1, javascript }];
 				const plugin = {
-					files,
 					manifest,
 					compiledClient,
-					sourceHash: pluginSourceHash(manifest, files, compiledScripts, compiledClient),
+					sourceHash: pluginSourceHash(manifest, compiledScripts, compiledClient),
 					scripts: manifest.scripts.map((script) => {
 						const { entry: scriptEntry, ...metadata } = script;
 						return {
-							source,
 							metadata,
 							slug: script.slug,
 							name: script.name,
@@ -241,6 +234,21 @@ describe("plugin repository revisions", () => {
 				expect(
 					yield* repository.findClientArtifactForSource({ pluginId, sourceHash: "missing-source" }),
 				).toBeNull();
+				yield* session.run((db) =>
+					db
+						.update(tables.pluginRevision)
+						.set({ sourceHash: "changed-package-hash" })
+						.where(eq(tables.pluginRevision.id, revision.id)),
+				);
+				expect(
+					Result.isFailure(yield* Effect.result(repository.listCompiledPackageArtifacts(pluginId))),
+				).toBe(true);
+				yield* session.run((db) =>
+					db
+						.update(tables.pluginRevision)
+						.set({ sourceHash: plugin.sourceHash })
+						.where(eq(tables.pluginRevision.id, revision.id)),
+				);
 
 				yield* session.run((db) =>
 					db
@@ -293,6 +301,9 @@ describe("plugin repository revisions", () => {
 				expect(
 					Result.isFailure(yield* Effect.result(artifacts.persistClientArtifact(compiledClient))),
 				).toBe(true);
+				expect(
+					Result.isFailure(yield* Effect.result(repository.listCompiledPackageArtifacts(pluginId))),
+				).toBe(true);
 			}),
 		);
 	});
@@ -307,7 +318,8 @@ describe("plugin repository revisions", () => {
 					const runtime = yield* PluginRuntimeResolver;
 					const first = revisionPackage().scripts[0];
 					assert(first);
-					const { entry: _entry, ...old } = first;
+					const { entry: _entry, ...script } = first;
+					const old = { ...script, source: "old" };
 					const newer = { ...old, source: "new", compiledCode: "new", contentHash: "new-kernel" };
 					expect(yield* runtime.findKernelScript(old.slug)).toBeNull();
 					yield* repository.persistKernelScript(old);
@@ -357,7 +369,7 @@ describe("plugin repository revisions", () => {
 					expect(
 						Result.isFailure(
 							yield* Effect.result(
-								repository.persistKernelScript({ ...old, source: "conflicting-source" }),
+								repository.persistKernelScript({ ...old, compiledCode: "conflicting-code" }),
 							),
 						),
 					).toBe(true);
@@ -775,36 +787,6 @@ describe("plugin repository revisions", () => {
 					{ id: installed.pluginId },
 				]);
 				expect(yield* session.run((db) => db.select().from(tables.pluginRevision))).toEqual([]);
-			}),
-		);
-	});
-
-	layer(revisionDatabaseLayer)((test) => {
-		test.effect("reloads exact source bytes and denies another user's installation", () =>
-			Effect.gen(function* () {
-				const repository = yield* PluginRepository;
-				const packageValue = {
-					...revisionPackage("notes"),
-					files: { "backend/main.ts": new Uint8Array([0, 255, 1]) },
-				};
-				const installed = yield* installRevisionPackage(packageValue, owner);
-				expect(yield* repository.listSourceFiles(installed.pluginId)).toEqual(packageValue.files);
-				expect(
-					yield* repository.listAuthorizedSourceFiles({
-						userId: "owner",
-						pluginId: installed.pluginId,
-						sourceHash: packageValue.sourceHash,
-						installationId: installed.installation.id,
-					}),
-				).toEqual(packageValue.files);
-				expect(
-					yield* repository.listAuthorizedSourceFiles({
-						userId: "recipient",
-						pluginId: installed.pluginId,
-						sourceHash: packageValue.sourceHash,
-						installationId: installed.installation.id,
-					}),
-				).toBeNull();
 			}),
 		);
 	});

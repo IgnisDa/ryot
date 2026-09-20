@@ -17,6 +17,7 @@ export const FIXTURE_CLIENT_REVISION_MARKERS = {
 } as const;
 
 const archiveUrl = new URL("../../../../plugins/fixture/dist/fixture.zip", import.meta.url);
+const authoringUrl = new URL("../../../../plugins/fixture/", import.meta.url);
 const homeEntry = "client/home.tsx";
 const pokemonPresentationEntry = "client/pokemon-presentation.tsx";
 const decoder = new TextDecoder("utf-8", { fatal: true });
@@ -37,7 +38,19 @@ export const fixtureClientPluginPackage = (
 		}
 		const archive = yield* Effect.promise(() => file.bytes());
 		const pluginPackage = yield* readPluginArchive(archive);
-		const homeBytes = pluginPackage.files[homeEntry];
+		const files = Object.fromEntries(
+			yield* Effect.forEach(
+				new Bun.Glob("{client,shared}/**/*").scanSync({
+					onlyFiles: true,
+					cwd: authoringUrl.pathname,
+				}),
+				(path) =>
+					Effect.promise(() => Bun.file(new URL(path, authoringUrl)).bytes()).pipe(
+						Effect.map((contents) => [path, contents] as const),
+					),
+			),
+		);
+		const homeBytes = files[homeEntry];
 		const home = homeBytes ? decoder.decode(homeBytes) : undefined;
 		if (!home?.includes("Fixture plugin")) {
 			throw new Error(`Fixture client source '${homeEntry}' has no revision marker target`);
@@ -55,7 +68,7 @@ export const fixtureClientPluginPackage = (
 							'<StatusMessage tone="success">Revision B is active.</StatusMessage>\n\t\t\t<img alt="" src={logo} className="plugin-logo" />',
 						)
 				: revisedHome;
-		const presentationBytes = pluginPackage.files[pokemonPresentationEntry];
+		const presentationBytes = files[pokemonPresentationEntry];
 		if (presentationEvaluationSignal && !presentationBytes) {
 			throw new Error(`Fixture client source '${pokemonPresentationEntry}' is missing`);
 		}
@@ -70,7 +83,7 @@ export const fixtureClientPluginPackage = (
 				},
 			},
 			files: {
-				...pluginPackage.files,
+				...files,
 				[homeEntry]: new TextEncoder().encode(revisionHome),
 				...(presentationEvaluationSignal && presentationBytes
 					? {

@@ -1,6 +1,5 @@
 import { Schema } from "effect";
 
-import { CanonicalBase64 } from "../../schema/base64";
 import {
 	EntitySchemaSlug,
 	ImportRunId,
@@ -43,14 +42,12 @@ export class TestSupportOperationFailure extends Schema.TaggedError<TestSupportO
 
 export const TestSupportPluginCompiledScript = strictStruct({
 	entry: Schema.String,
-	source: Schema.String,
 	javascript: Schema.String,
 	format: Schema.Int.pipe(Schema.check(Schema.isGreaterThanOrEqualTo(1))),
 });
 
 export const TestSupportInstallSystemPluginBodyBase64 = Schema.Struct({
 	manifest: PluginManifest,
-	files: Schema.Record(Schema.String, CanonicalBase64),
 	compiledScripts: Schema.Array(TestSupportPluginCompiledScript),
 	compiledClient: Schema.optional(Schema.Record(Schema.String, JsonValue)),
 });

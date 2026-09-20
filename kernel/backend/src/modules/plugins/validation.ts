@@ -10,7 +10,6 @@ import {
 	type PluginScript,
 } from "@ryot-app/contract/modules/plugins/manifest";
 import { reservedPluginSlugs } from "@ryot-app/contract/modules/plugins/schemas";
-import { utf8ByteLength } from "@ryot-app/sandbox-compiler/limits";
 import { canonicalRelativePosixPathIssue } from "@ryot-app/ts-utils/path";
 import { Cron, Data, Effect, Result, Schema } from "effect";
 
@@ -50,49 +49,16 @@ export const decodePluginManifest = (input: unknown) =>
 		Effect.mapError((error) => new PluginValidationError({ issues: [String(error)] })),
 	);
 
-export const validatePluginSourcePaths = (
-	files: Readonly<Record<string, Uint8Array>>,
-	manifest: PluginManifestValue,
-) =>
+export const validatePluginScriptEntries = (manifest: PluginManifestValue) =>
 	Effect.gen(function* () {
-		for (const path of Object.keys(files)) {
-			const issue = canonicalRelativePosixPathIssue(path);
-			if (issue) {
-				return yield* fail(`Plugin file path '${path}' ${issue}`);
-			}
-		}
 		for (const script of manifest.scripts) {
 			const issue = canonicalRelativePosixPathIssue(script.entry);
 			if (issue) {
 				return yield* fail(`Plugin script entry '${script.entry}' ${issue}`);
 			}
-			if (!Object.hasOwn(files, script.entry)) {
-				return yield* fail(`Plugin script entry is missing from files: ${script.entry}`);
-			}
-		}
-		if (manifest.client) {
-			for (const [entryLabel, entry] of Object.entries(manifest.client.exports ?? {}).map(
-				([name, declaration]) => [`public export ${name}`, declaration.entry] as const,
-			)) {
-				if (!Object.hasOwn(files, entry)) {
-					return yield* fail(`Plugin client ${entryLabel} entry is missing from files: ${entry}`);
-				}
-			}
 		}
 		return yield* Effect.void;
 	});
-
-export const PLUGIN_PACKAGE_LIMITS = {
-	fileCount: 64,
-	scriptCount: 32,
-	totalBytes: 2 * 1024 * 1024,
-} as const;
-
-export type PluginPackageLimit = "file-count" | "total-bytes" | "script-count";
-
-export class PluginPackageLimitError extends Data.TaggedError("PluginPackageLimitError")<{
-	readonly limit: PluginPackageLimit;
-}> {}
 
 export class PluginSurfaceError extends Data.TaggedError("PluginSurfaceError")<{
 	readonly surfaces: ReadonlyArray<string>;
@@ -101,28 +67,6 @@ export class PluginSurfaceError extends Data.TaggedError("PluginSurfaceError")<{
 export class PluginSlugReservedError extends Data.TaggedError("PluginSlugReservedError")<{
 	readonly pluginSlug: string;
 }> {}
-
-export const validatePluginPackageLimits = (
-	files: Readonly<Record<string, Uint8Array>>,
-	manifest: PluginManifestValue,
-) =>
-	Effect.gen(function* () {
-		const entries = Object.entries(files);
-		if (entries.length > PLUGIN_PACKAGE_LIMITS.fileCount) {
-			return yield* new PluginPackageLimitError({ limit: "file-count" });
-		}
-		if (manifest.scripts.length > PLUGIN_PACKAGE_LIMITS.scriptCount) {
-			return yield* new PluginPackageLimitError({ limit: "script-count" });
-		}
-		const totalBytes = entries.reduce(
-			(total, [path, contents]) => total + utf8ByteLength(path) + contents.byteLength,
-			0,
-		);
-		if (totalBytes > PLUGIN_PACKAGE_LIMITS.totalBytes) {
-			return yield* new PluginPackageLimitError({ limit: "total-bytes" });
-		}
-		return yield* Effect.void;
-	});
 
 const userRejectedCollections = [
 	"userBootstrap",

@@ -7,7 +7,6 @@ export type { PluginScriptMetadata };
 
 export type PluginSource = {
 	readonly manifest: unknown;
-	readonly files: Readonly<Record<string, Uint8Array>>;
 	readonly compiledScripts?: ReadonlyArray<PluginArchiveCompiledScript>;
 	readonly compiledClient?: PluginClientArtifact;
 };
@@ -21,7 +20,6 @@ export type PluginScriptDescriptor = {
 };
 
 export type NormalizedPluginScript = PluginScriptDescriptor & {
-	readonly source: string;
 	readonly compiledCode: string;
 	readonly compiledFormat: number;
 };
@@ -33,7 +31,6 @@ export type PluginRevision = {
 };
 
 export type NormalizedPlugin = Omit<PluginRevision, "scripts"> & {
-	readonly files: Readonly<Record<string, Uint8Array>>;
 	readonly scripts: ReadonlyArray<NormalizedPluginScript>;
 	readonly compiledClient?: PluginClientArtifact;
 };

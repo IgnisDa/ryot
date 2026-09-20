@@ -215,6 +215,7 @@ const denoConfig = (
 				format: "es",
 				codeSplitting: false,
 				entryFileNames: outputFile,
+				sourcemapExcludeSources: true,
 				sourcemapPathTransform: sourceMapPath(
 					workspace.outputPath,
 					workspace.sourcePath,

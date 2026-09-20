@@ -62,10 +62,7 @@ export default defineOperation({
       host.getCachedValue("durable-tracer-a"),
       host.getCachedValue("durable-tracer-b"),
     ], { concurrency: "unbounded" });
-    if (!host.executeWorkflow) {
-      return yield* Effect.fail(new Error("executeWorkflow is unavailable"));
-    }
-    const child = yield* host.executeWorkflow(
+    const child = yield* (host.executeWorkflow?.(
       "tracer-child",
       {
         workflowSlug: "tracer-child",
@@ -74,7 +71,7 @@ export default defineOperation({
         output: Schema.String,
       },
       { value: input.entityId },
-    );
+    ) ?? Effect.fail(new Error("executeWorkflow is unavailable")));
     yield* host.span([{ name: "durable.tracer.completed" }]);
     return {
       rows,

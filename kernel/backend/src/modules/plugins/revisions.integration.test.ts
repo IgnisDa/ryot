@@ -126,12 +126,10 @@ describe("immutable revisions in PostgreSQL (isolated schema)", () => {
 								};
 								const packageAt = (version: string): NormalizedPlugin => ({
 									sourceHash: version,
-									files: { "backend/main.ts": new TextEncoder().encode(version) },
 									manifest: { ...manifest, metadata: { ...manifest.metadata, version } },
 									scripts: manifest.scripts.map(({ entry, ...metadata }) => ({
 										entry,
 										metadata,
-										source: version,
 										compiledFormat: 1,
 										slug: metadata.slug,
 										name: metadata.name,
@@ -153,17 +151,6 @@ describe("immutable revisions in PostgreSQL (isolated schema)", () => {
 									userId: UserId.make("owner"),
 								});
 								assert(installation?.activeConfigRevisionId);
-								expect(yield* plugins.listSourceFiles(pluginId)).toEqual({
-									"backend/main.ts": new TextEncoder().encode("v1"),
-								});
-								expect(
-									yield* plugins.listAuthorizedSourceFiles({
-										pluginId,
-										sourceHash: "v1",
-										userId: "recipient",
-										installationId: installation.id,
-									}),
-								).toBeNull();
 								const [script] = yield* transaction
 									.select()
 									.from(tables.sandboxScript)
@@ -218,16 +205,6 @@ describe("immutable revisions in PostgreSQL (isolated schema)", () => {
 										pluginRevisionId: retainedPin.revisionId,
 									}),
 								).toEqual({ token: "private-config-token" });
-								const sourceConflict = yield* failedAttempt(
-									plugins.persist(
-										{
-											...packageAt("v1"),
-											files: { "backend/main.ts": new TextEncoder().encode("changed") },
-										},
-										{ scope: "user", slug: "fixture", ownerId: "owner" },
-									),
-								);
-								expect(Result.isFailure(sourceConflict)).toBe(true);
 								const scriptConflict = yield* failedAttempt(
 									plugins.persist(
 										{

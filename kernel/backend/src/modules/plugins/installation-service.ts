@@ -54,8 +54,7 @@ import {
 	validatePluginExecutableScripts,
 	validatePluginManifestPolicy,
 	validatePluginManifestReferences,
-	validatePluginSourcePaths,
-	validatePluginPackageLimits,
+	validatePluginScriptEntries,
 } from "./validation";
 
 type PrivatePluginPackageInput = PluginArchivePackage | { readonly uploadToken: string };
@@ -548,16 +547,15 @@ export class PluginInstallationService extends Context.Service<PluginInstallatio
 			const installPrivateUnlocked = Effect.fn("PluginInstallationService.installPrivateUnlocked")(
 				function* (input: DecodedInstallPrivatePluginInput) {
 					const normalizedSource = yield* normalizePluginSource(input);
-					const { files, manifest } = normalizedSource;
+					const { manifest } = normalizedSource;
 					const slug = manifest.metadata.slug;
 					const pluginSlug = PluginSlug.make(slug);
-					yield* validatePluginPackageLimits(files, manifest);
 					const systemSlugs = yield* repository.listActiveSystemSlugs();
 					yield* validatePluginManifestPolicy(manifest, {
 						scope: "user",
 						systemSlugs: new Set(systemSlugs),
 					});
-					yield* validatePluginSourcePaths(files, manifest);
+					yield* validatePluginScriptEntries(manifest);
 					const owned = yield* repository.listPrivateForUser(input.userId);
 					if (owned.some((plugin) => plugin.slug === slug)) {
 						return yield* new PluginConflictError({
@@ -672,7 +670,7 @@ export class PluginInstallationService extends Context.Service<PluginInstallatio
 					return yield* withPrivatePluginPackage(input, input.userId, (pluginPackage) =>
 						Effect.gen(function* () {
 							const normalizedSource = yield* normalizePluginSource(pluginPackage);
-							const { files, manifest } = normalizedSource;
+							const { manifest } = normalizedSource;
 							if (manifest.metadata.slug !== plugin.slug) {
 								return yield* new PluginValidationError({
 									issues: [
@@ -680,12 +678,11 @@ export class PluginInstallationService extends Context.Service<PluginInstallatio
 									],
 								});
 							}
-							yield* validatePluginPackageLimits(files, manifest);
 							yield* validatePluginManifestPolicy(manifest, {
 								scope: "user",
 								systemSlugs: new Set(yield* repository.listActiveSystemSlugs()),
 							});
-							yield* validatePluginSourcePaths(files, manifest);
+							yield* validatePluginScriptEntries(manifest);
 							const effectiveDefinitions = yield* buildEffectiveDefinitions(
 								yield* definitions.getGlobalSnapshot,
 								[

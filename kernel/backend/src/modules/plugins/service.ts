@@ -32,7 +32,7 @@ import {
 	validatePluginExecutableScripts,
 	validatePluginManifestPolicy,
 	validatePluginManifestReferences,
-	validatePluginSourcePaths,
+	validatePluginScriptEntries,
 	validateSignalSchemaFormatterReferences,
 } from "./validation";
 
@@ -125,9 +125,9 @@ export class PluginIngestionService extends Context.Service<PluginIngestionServi
 				"PluginIngestionService.ingestSystemPluginUnlocked",
 			)(function* (source: PluginSource, environmentResolution: EnvironmentResolutionTiming) {
 				const normalizedSource = yield* normalizePluginSource(source);
-				const { files, manifest, sourceHash } = normalizedSource;
+				const { manifest, sourceHash } = normalizedSource;
 				yield* validatePluginManifestPolicy(manifest, { scope: "system" });
-				yield* validatePluginSourcePaths(files, manifest);
+				yield* validatePluginScriptEntries(manifest);
 				const slug = manifest.metadata.slug;
 				const installed = yield* repository.listActiveSystemPlugins();
 				yield* validateSystemSet(
