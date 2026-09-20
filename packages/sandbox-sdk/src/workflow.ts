@@ -158,13 +158,14 @@ export type WorkflowReplay = {
 };
 
 type WorkflowExecution<
+	Manifest extends WorkflowManifest,
 	Input extends Schema.Codec<unknown, unknown>,
 	Output extends Schema.ConstraintDecoder<unknown>,
 	Failure,
 > = {
 	readonly input: Input;
 	readonly output: Output;
-	readonly manifest: WorkflowManifest;
+	readonly manifest: Manifest;
 	readonly run: (
 		input: Input["Type"],
 		replay: WorkflowReplay,
@@ -289,14 +290,8 @@ export const defineWorkflow = <
 	Input extends Schema.Codec<unknown, unknown>,
 	Output extends Schema.ConstraintDecoder<unknown>,
 	Failure,
-	// The body failure is inferred here before conversion to the host-facing replay envelope.
-	// oxlint-disable-next-line typescript/no-unnecessary-type-parameters -- Run captures the author's failure type.
-	Run extends WorkflowExecution<Input, Output, Failure>["run"],
 >(
-	definition: Omit<WorkflowExecution<Input, Output, Failure>, "run"> & {
-		readonly manifest: Manifest;
-		readonly run: Run;
-	},
+	definition: WorkflowExecution<Manifest, Input, Output, Failure>,
 ): WorkflowDefinition<Manifest, Input> => ({
 	...definition,
 	output: workflowReplayEnvelopeSchema,

@@ -1,7 +1,12 @@
-// The single-use generic functions are the strict type-equality mechanism (they let
-// `Equal` distinguish `any` from other types), so the rule is a false positive here.
-// oxlint-disable typescript/no-unnecessary-type-parameters
+type IsAny<T> = 0 extends 1 & T ? true : false;
+
 export type Equal<X, Y> =
-	(<T>() => T extends X ? 1 : 2) extends <T>() => T extends Y ? 1 : 2 ? true : false;
+	IsAny<X> extends true
+		? IsAny<Y>
+		: IsAny<Y> extends true
+			? false
+			: [X, Y] extends [Y, X]
+				? true
+				: false;
 
 export type Expect<T extends true> = T;
