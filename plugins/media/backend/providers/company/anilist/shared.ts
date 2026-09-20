@@ -15,8 +15,6 @@ export const manifest = defineManifest({
 	name: "Anilist",
 	kind: "provider",
 	slug: "company.anilist",
-	capabilities: ["httpCall"],
-	requiredPluginConfigKeys: [],
 });
 
 const STUDIO_SEARCH_QUERY = `

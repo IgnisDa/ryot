@@ -1,20 +1,19 @@
 import { defineManifest, defineScript } from "@ryot-app/sandbox-sdk/driver";
 import { DateTime, Effect, Option, Schema } from "@ryot-app/sandbox-sdk/effect";
 
-import type { ImportEntityRef } from "../../imports/schemas";
-import { MediaIntegrationAdapterResult } from "../../imports/schemas";
+import { readMediaCapture } from "../../imports/collection";
+import type { ImportEntityRef, MediaIntegrationAdapterResult } from "../../imports/schemas";
 import { movieOrShowImportRef, sourceFetchFailure } from "../../imports/source-helpers";
+import { captureIntegrationWindow } from "../artifacts";
+import { integrationRecordId } from "../identity";
+import { IntegrationWindowOutput, YankInput } from "../schemas";
 import { baseUrl, requestJson, specifics } from "../shared";
 
 export const manifest = defineManifest({
 	kind: "script",
 	name: "Plex yank",
-	requiredPluginConfigKeys: [],
 	slug: "integration.plex-yank",
-	capabilities: ["httpCall", "getCurrentIntegration"],
 });
-
-const Input = Schema.Struct({});
 
 const StringOrNumber = Schema.Union([Schema.String, Schema.Finite]);
 
@@ -41,6 +40,17 @@ const LibrariesResponse = Schema.Struct({
 });
 
 const ItemsResponse = Schema.Struct({ MediaContainer: Schema.optional(MediaContainer) });
+const Directory = Schema.Struct({ key: StringOrNumber, type: Schema.String });
+const Cursor = Schema.Struct({
+	offset: Schema.Int,
+	itemIndex: Schema.Int,
+	leafOffset: Schema.Int,
+	directoryIndex: Schema.Int,
+	directories: Schema.Array(Directory),
+	leaves: Schema.NullOr(ItemsResponse),
+	listing: Schema.NullOr(ItemsResponse),
+});
+const cursorJson = Schema.fromJsonString(Cursor);
 
 const refFor = (item: typeof Item.Type, lot: "movie" | "show"): ImportEntityRef | null => {
 	const ids = Object.fromEntries((item.Guid ?? []).map(({ id }) => id.split("://")));
@@ -53,31 +63,56 @@ const refFor = (item: typeof Item.Type, lot: "movie" | "show"): ImportEntityRef 
 
 export default defineScript({
 	manifest,
-	input: Input,
-	output: MediaIntegrationAdapterResult,
-	run: (_input, host) =>
+	input: YankInput,
+	output: IntegrationWindowOutput,
+	run: (input, host) =>
 		Effect.gen(function* () {
+			if (input.ingestionConfirmation) {
+				return { chunkFiles: [], carryFile: null };
+			}
 			const integration = yield* host.getCurrentIntegration();
 			const settings = specifics(integration.providerSpecifics);
 			const token = typeof settings?.["token"] === "string" ? settings["token"] : "";
 			const url = baseUrl(settings?.["baseUrl"]);
 			const headers = { "X-Plex-Token": token, Accept: "application/json" };
-			const libraries = yield* requestJson(host, "GET", `${url}/library/sections`, {
-				headers,
-			}).pipe(Effect.flatMap(Schema.decodeUnknownEffect(LibrariesResponse)));
+			const cursor = input.ingestionArtifacts
+				? yield* Schema.decodeEffect(cursorJson)(
+						new TextDecoder().decode(yield* readMediaCapture("carry")),
+					)
+				: {
+						offset: 0,
+						itemIndex: 0,
+						leaves: null,
+						listing: null,
+						leafOffset: 0,
+						directoryIndex: 0,
+						directories:
+							(yield* requestJson(host, "GET", `${url}/library/sections`, { headers }).pipe(
+								Effect.flatMap(Schema.decodeUnknownEffect(LibrariesResponse)),
+							)).MediaContainer?.Directory ?? [],
+					};
 			const failures: Array<MediaIntegrationAdapterResult["failures"][number]> = [];
 			const entityGroups: Array<MediaIntegrationAdapterResult["entityGroups"][number]> = [];
-			let itemIndex = 0;
-			for (const directory of libraries.MediaContainer?.Directory ?? []) {
+			let itemIndex = cursor.itemIndex;
+			let listing = cursor.listing;
+			let leaves = cursor.leaves;
+			let leafOffset = cursor.leafOffset;
+			let offset = cursor.offset;
+			for (const directory of cursor.directories.slice(
+				cursor.directoryIndex,
+				cursor.directoryIndex + 1,
+			)) {
 				if (directory.type !== "movie" && directory.type !== "show") {
 					continue;
 				}
-				const listingResult = yield* requestJson(
-					host,
-					"GET",
-					`${url}/library/sections/${directory.key}/all?includeGuids=1`,
-					{ headers },
-				).pipe(Effect.flatMap(Schema.decodeUnknownEffect(ItemsResponse)), Effect.option);
+				const listingResult = listing
+					? Option.some(listing)
+					: yield* requestJson(
+							host,
+							"GET",
+							`${url}/library/sections/${directory.key}/all?includeGuids=1`,
+							{ headers },
+						).pipe(Effect.flatMap(Schema.decodeUnknownEffect(ItemsResponse)), Effect.option);
 				if (Option.isNone(listingResult)) {
 					failures.push(
 						sourceFetchFailure({
@@ -89,10 +124,12 @@ export default defineScript({
 					);
 					continue;
 				}
-				const listing = listingResult.value;
-				for (const item of listing.MediaContainer?.Metadata ?? []) {
+				listing = listingResult.value;
+				for (const item of (listing.MediaContainer?.Metadata ?? []).slice(offset, offset + 1)) {
+					offset++;
 					const ref = refFor(item, directory.type);
-					const currentIndex = itemIndex++;
+					const currentIndex = itemIndex;
+					itemIndex++;
 					if (!ref && item.lastViewedAt) {
 						failures.push({
 							itemIndex: currentIndex,
@@ -116,6 +153,14 @@ export default defineScript({
 								occurredAt,
 								eventSchemaSlug: "complete",
 								properties: { completedOn: occurredAt, completionMode: "custom_timestamps" },
+								attribution: {
+									sourceLabel: item.title,
+									sourceIdentifier: String(item.ratingKey ?? item.key ?? currentIndex),
+									recordId: integrationRecordId([
+										"plex-item",
+										item.ratingKey ?? item.key ?? currentIndex,
+									]),
+								},
 							});
 						}
 					}
@@ -129,12 +174,14 @@ export default defineScript({
 						});
 					}
 					if (directory.type === "show" && item.lastViewedAt && item.ratingKey) {
-						const leavesResult = yield* requestJson(
-							host,
-							"GET",
-							`${url}/library/metadata/${item.ratingKey}/allLeaves`,
-							{ headers },
-						).pipe(Effect.flatMap(Schema.decodeUnknownEffect(ItemsResponse)), Effect.option);
+						const leavesResult = leaves
+							? Option.some(leaves)
+							: yield* requestJson(
+									host,
+									"GET",
+									`${url}/library/metadata/${item.ratingKey}/allLeaves`,
+									{ headers },
+								).pipe(Effect.flatMap(Schema.decodeUnknownEffect(ItemsResponse)), Effect.option);
 						if (Option.isNone(leavesResult)) {
 							failures.push(
 								sourceFetchFailure({
@@ -145,7 +192,10 @@ export default defineScript({
 								}),
 							);
 						} else {
-							for (const leaf of leavesResult.value.MediaContainer?.Metadata ?? []) {
+							leaves = leavesResult.value;
+							for (const [eventIndex, leaf] of (leaves.MediaContainer?.Metadata ?? [])
+								.slice(leafOffset, leafOffset + 128)
+								.entries()) {
 								if (leaf.lastViewedAt && leaf.parentIndex != null && leaf.index != null) {
 									const timestamp = Number(leaf.lastViewedAt);
 									if (!Number.isFinite(timestamp)) {
@@ -160,8 +210,31 @@ export default defineScript({
 											episodeNumber: leaf.index,
 											seasonNumber: leaf.parentIndex,
 										},
+										operationId: integrationRecordId([
+											"integration-plex-event",
+											currentIndex,
+											leafOffset + eventIndex,
+										]),
+										attribution: {
+											sourceLabel: leaf.title,
+											sourceIdentifier: String(
+												leaf.ratingKey ?? leaf.key ?? item.key ?? currentIndex,
+											),
+											recordId: integrationRecordId([
+												"plex-leaf",
+												leaf.ratingKey ?? leaf.key ?? leafOffset + eventIndex,
+											]),
+										},
 									});
 								}
+							}
+							leafOffset += 128;
+							if (leafOffset < (leaves.MediaContainer?.Metadata?.length ?? 0)) {
+								offset--;
+								itemIndex--;
+							} else {
+								leaves = null;
+								leafOffset = 0;
 							}
 						}
 					}
@@ -173,7 +246,7 @@ export default defineScript({
 							collectionMemberships: [],
 						});
 					}
-					if (integration.syncOwnership) {
+					if (integration.syncOwnership && !leaves) {
 						entityGroups.push({
 							events: [],
 							entityRef: ref,
@@ -184,6 +257,34 @@ export default defineScript({
 					}
 				}
 			}
-			return { failures, entityGroups };
+			const directoryDone = !listing || offset >= (listing.MediaContainer?.Metadata?.length ?? 0);
+			let next: typeof Cursor.Type | null = {
+				...cursor,
+				leaves,
+				offset,
+				listing,
+				itemIndex,
+				leafOffset,
+			};
+			if (directoryDone) {
+				next = null;
+				if (cursor.directoryIndex + 1 < cursor.directories.length) {
+					next = {
+						...cursor,
+						itemIndex,
+						offset: 0,
+						leaves: null,
+						listing: null,
+						leafOffset: 0,
+						directoryIndex: cursor.directoryIndex + 1,
+					};
+				}
+			}
+			return yield* captureIntegrationWindow(
+				manifest.slug,
+				{ failures, entityGroups },
+				next ? yield* Schema.encodeEffect(cursorJson)(next) : null,
+				cursor.leafOffset,
+			);
 		}),
 });

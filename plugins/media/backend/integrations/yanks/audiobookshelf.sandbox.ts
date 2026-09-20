@@ -1,20 +1,19 @@
 import { defineManifest, defineScript } from "@ryot-app/sandbox-sdk/driver";
 import { Effect, Option, Schema } from "@ryot-app/sandbox-sdk/effect";
 
-import type { ImportEntityRef } from "../../imports/schemas";
-import { MediaIntegrationAdapterResult } from "../../imports/schemas";
+import { readMediaCapture } from "../../imports/collection";
+import type { ImportEntityRef, MediaIntegrationAdapterResult } from "../../imports/schemas";
 import { sourceFetchFailure } from "../../imports/source-helpers";
+import { captureIntegrationWindow } from "../artifacts";
+import { integrationRecordId } from "../identity";
+import { IntegrationWindowOutput, YankInput } from "../schemas";
 import { baseUrl, executionStartedAt, requestJson, specifics } from "../shared";
 
 export const manifest = defineManifest({
 	kind: "script",
 	name: "Audiobookshelf yank",
-	requiredPluginConfigKeys: [],
 	slug: "integration.audiobookshelf",
-	capabilities: ["httpCall", "getCurrentIntegration"],
 });
-
-const Input = Schema.Struct({});
 
 const Metadata = Schema.Struct({
 	title: Schema.String,
@@ -72,6 +71,19 @@ const ListingResponse = Schema.Struct({ results: Schema.optional(Schema.Array(It
 const DetailsResponse = Schema.Struct({
 	media: Schema.optional(Schema.Struct({ episodes: Schema.optional(Schema.Array(Episode)) })),
 });
+const Cursor = Schema.Struct({
+	offset: Schema.Int,
+	itemIndex: Schema.Int,
+	libraryIndex: Schema.Int,
+	importedAt: Schema.String,
+	ownership: Schema.Boolean,
+	episodeOffset: Schema.Int,
+	libraries: LibrariesResponse,
+	listing: Schema.NullOr(ListingResponse),
+	details: Schema.NullOr(DetailsResponse),
+	finishedEpisodes: Schema.Array(Schema.String),
+});
+const cursorJson = Schema.fromJsonString(Cursor);
 
 const validIsbn = (value: string) => {
 	if (/^\d{13}$/.test(value)) {
@@ -131,40 +143,68 @@ const itemRef = (item: typeof Item.Type): ImportEntityRef | null => {
 
 export default defineScript({
 	manifest,
-	input: Input,
-	output: MediaIntegrationAdapterResult,
-	run: (_input, host, execution) =>
+	input: YankInput,
+	output: IntegrationWindowOutput,
+	run: (input, host, execution) =>
 		Effect.gen(function* () {
-			const importedAt = yield* executionStartedAt(execution);
+			if (input.ingestionConfirmation) {
+				return { chunkFiles: [], carryFile: null };
+			}
+			const startedAt = yield* executionStartedAt(execution);
 			const integration = yield* host.getCurrentIntegration();
 			const settings = specifics(integration.providerSpecifics);
 			const token = typeof settings?.["token"] === "string" ? settings["token"] : "";
 			const root = baseUrl(settings?.["baseUrl"]);
 			const url = root.endsWith("/api") ? root : `${root}/api`;
 			const headers = { Accept: "application/json", Authorization: `Bearer ${token}` };
-			const libraries = yield* requestJson(host, "GET", `${url}/libraries`, { headers }).pipe(
-				Effect.flatMap(Schema.decodeUnknownEffect(LibrariesResponse)),
-			);
-			const me = yield* requestJson(host, "GET", `${url}/me`, { headers }).pipe(
-				Effect.flatMap(Schema.decodeUnknownEffect(MeResponse)),
-			);
-			const finishedEpisodes = new Set(
-				(me.mediaProgress ?? [])
-					.filter((entry) => entry.isFinished && entry.episodeId)
-					.map((entry) => `${entry.libraryItemId}:${entry.episodeId}`),
-			);
+			const cursor = input.ingestionArtifacts
+				? yield* Schema.decodeEffect(cursorJson)(
+						new TextDecoder().decode(yield* readMediaCapture("carry")),
+					)
+				: {
+						offset: 0,
+						itemIndex: 0,
+						listing: null,
+						details: null,
+						libraryIndex: 0,
+						ownership: false,
+						episodeOffset: 0,
+						importedAt: startedAt,
+						libraries: yield* requestJson(host, "GET", `${url}/libraries`, { headers }).pipe(
+							Effect.flatMap(Schema.decodeUnknownEffect(LibrariesResponse)),
+						),
+						finishedEpisodes: (
+							(yield* requestJson(host, "GET", `${url}/me`, { headers }).pipe(
+								Effect.flatMap(Schema.decodeUnknownEffect(MeResponse)),
+							)).mediaProgress ?? []
+						)
+							.filter((entry) => entry.isFinished && entry.episodeId)
+							.map((entry) => `${entry.libraryItemId}:${entry.episodeId}`),
+					};
+			const finishedEpisodes = new Set(cursor.finishedEpisodes);
+			const importedAt = cursor.importedAt;
 			const failures: Array<MediaIntegrationAdapterResult["failures"][number]> = [];
 			const entityGroups: Array<MediaIntegrationAdapterResult["entityGroups"][number]> = [];
-			let itemIndex = 0;
-			for (const library of libraries.libraries ?? []) {
-				const filter = library.mediaType === "book" ? "&filter=progress.ZmluaXNoZWQ=" : "";
-				const listingResult = yield* requestJson(
-					host,
-					"GET",
-					`${url}/libraries/${library.id}/items?expanded=1${filter}`,
-					{ headers },
-				).pipe(Effect.flatMap(Schema.decodeUnknownEffect(ListingResponse)), Effect.option);
-				if (Option.isNone(listingResult)) {
+			let itemIndex = cursor.itemIndex;
+			let offset = cursor.offset;
+			let listing = cursor.listing;
+			let details = cursor.details;
+			let episodeOffset = cursor.episodeOffset;
+			for (const library of (cursor.libraries.libraries ?? []).slice(
+				cursor.libraryIndex,
+				cursor.libraryIndex + 1,
+			)) {
+				const filter =
+					!cursor.ownership && library.mediaType === "book" ? "&filter=progress.ZmluaXNoZWQ=" : "";
+				const listingResult = listing
+					? Option.some(listing)
+					: yield* requestJson(
+							host,
+							"GET",
+							`${url}/libraries/${library.id}/items?expanded=1${filter}`,
+							{ headers },
+						).pipe(Effect.flatMap(Schema.decodeUnknownEffect(ListingResponse)), Effect.option);
+				if (Option.isNone(listingResult) && !cursor.ownership) {
 					failures.push(
 						sourceFetchFailure({
 							itemIndex,
@@ -174,10 +214,23 @@ export default defineScript({
 						}),
 					);
 				}
-				const listing = Option.getOrElse(listingResult, () => ({ results: [] }));
-				for (const item of listing.results ?? []) {
+				listing = Option.getOrElse(listingResult, () => ({ results: [] }));
+				for (const item of (listing.results ?? []).slice(offset, offset + 1)) {
+					offset++;
 					const currentIndex = itemIndex++;
 					const ref = itemRef(item);
+					if (cursor.ownership) {
+						if (ref) {
+							entityGroups.push({
+								events: [],
+								entityRef: ref,
+								itemIndex: currentIndex,
+								collectionMemberships: [],
+								ownershipProvider: "audiobookshelf",
+							});
+						}
+						continue;
+					}
 					if (!ref) {
 						let message = "Audiobookshelf item is missing media metadata";
 						if (item.media?.metadata) {
@@ -204,14 +257,21 @@ export default defineScript({
 							occurredAt,
 							eventSchemaSlug: "complete",
 							properties: { completedOn: occurredAt, completionMode: "custom_timestamps" },
+							attribution: {
+								sourceIdentifier: item.id,
+								sourceLabel: ref.sourceLabel,
+								recordId: integrationRecordId(["audiobookshelf", item.id]),
+							},
 						});
 					} else {
-						const detailsResult = yield* requestJson(
-							host,
-							"GET",
-							`${url}/items/${item.id}?expanded=1&include=progress`,
-							{ headers },
-						).pipe(Effect.flatMap(Schema.decodeUnknownEffect(DetailsResponse)), Effect.option);
+						const detailsResult = details
+							? Option.some(details)
+							: yield* requestJson(
+									host,
+									"GET",
+									`${url}/items/${item.id}?expanded=1&include=progress`,
+									{ headers },
+								).pipe(Effect.flatMap(Schema.decodeUnknownEffect(DetailsResponse)), Effect.option);
 						if (Option.isNone(detailsResult)) {
 							failures.push(
 								sourceFetchFailure({
@@ -222,8 +282,10 @@ export default defineScript({
 								}),
 							);
 						}
-						const details = Option.getOrNull(detailsResult);
-						for (const episode of details?.media?.episodes ?? []) {
+						details = Option.getOrNull(detailsResult);
+						for (const [eventIndex, episode] of (details?.media?.episodes ?? [])
+							.slice(episodeOffset, episodeOffset + 128)
+							.entries()) {
 							if (!episode.id || !finishedEpisodes.has(`${item.id}:${episode.id}`)) {
 								continue;
 							}
@@ -250,7 +312,25 @@ export default defineScript({
 								eventSchemaSlug: "progress",
 								properties: { progressPercent: 100 },
 								unresolvedEpisode: { type: "podcast", episodeNumber: number },
+								operationId: integrationRecordId([
+									"integration-audiobookshelf-event",
+									currentIndex,
+									episodeOffset + eventIndex,
+								]),
+								attribution: {
+									sourceIdentifier: episode.id,
+									sourceLabel: ref.sourceLabel,
+									recordId: integrationRecordId(["audiobookshelf-episode", item.id, episode.id]),
+								},
 							});
+						}
+						episodeOffset += 128;
+						if (episodeOffset < (details?.media?.episodes?.length ?? 0)) {
+							offset--;
+							itemIndex--;
+						} else {
+							details = null;
+							episodeOffset = 0;
 						}
 					}
 					if (events.length) {
@@ -264,29 +344,46 @@ export default defineScript({
 						});
 					}
 				}
-				if (integration.syncOwnership) {
-					const ownedResult = yield* requestJson(
-						host,
-						"GET",
-						`${url}/libraries/${library.id}/items?expanded=1`,
-						{ headers },
-					).pipe(Effect.flatMap(Schema.decodeUnknownEffect(ListingResponse)), Effect.option);
-					if (Option.isSome(ownedResult)) {
-						for (const item of ownedResult.value.results ?? []) {
-							const ref = itemRef(item);
-							if (ref) {
-								entityGroups.push({
-									events: [],
-									entityRef: ref,
-									itemIndex: itemIndex++,
-									collectionMemberships: [],
-									ownershipProvider: "audiobookshelf",
-								});
-							}
-						}
-					}
+			}
+			const libraryDone = !listing || offset >= (listing.results?.length ?? 0);
+			let next: typeof Cursor.Type | null = {
+				...cursor,
+				offset,
+				listing,
+				details,
+				itemIndex,
+				episodeOffset,
+			};
+			if (libraryDone) {
+				next = null;
+				if (!cursor.ownership && integration.syncOwnership) {
+					next = {
+						...cursor,
+						itemIndex,
+						offset: 0,
+						listing: null,
+						details: null,
+						ownership: true,
+						episodeOffset: 0,
+					};
+				} else if (cursor.libraryIndex + 1 < (cursor.libraries.libraries?.length ?? 0)) {
+					next = {
+						...cursor,
+						itemIndex,
+						offset: 0,
+						listing: null,
+						details: null,
+						ownership: false,
+						episodeOffset: 0,
+						libraryIndex: cursor.libraryIndex + 1,
+					};
 				}
 			}
-			return { failures, entityGroups };
+			return yield* captureIntegrationWindow(
+				manifest.slug,
+				{ failures, entityGroups },
+				next ? yield* Schema.encodeEffect(cursorJson)(next) : null,
+				cursor.episodeOffset,
+			);
 		}),
 });

@@ -1,4 +1,4 @@
-import type { ScriptManifest } from "@ryot-app/sandbox-sdk/core";
+import type { ScriptHost, ScriptManifest } from "@ryot-app/sandbox-sdk/core";
 import { Effect } from "@ryot-app/sandbox-sdk/effect";
 import { defineProvider, type ProviderResolveResult } from "@ryot-app/sandbox-sdk/provider";
 
@@ -10,15 +10,13 @@ const manifest = defineManifest({
 	kind: "provider",
 	name: "Typed provider",
 	slug: "typed.provider",
-	requiredPluginConfigKeys: [],
-	capabilities: ["getCachedValue"],
 });
 const provider = defineProvider({
 	manifest,
 	operation: "resolve",
 	run: (input, host) => {
 		const inputType: Expect<Equal<typeof input.value, string>> = true;
-		const hostType: Expect<Equal<keyof typeof host, "executeWorkflow" | "getCachedValue">> = true;
+		const hostType: Expect<Equal<keyof typeof host, keyof ScriptHost>> = true;
 		void inputType;
 		void hostType;
 		return host

@@ -7,8 +7,6 @@ export const manifest = defineManifest({
 	kind: "provider",
 	name: "Spotify Music Group Details",
 	slug: "music-group.spotify.details",
-	requiredPluginConfigKeys: ["spotifyClientId", "spotifyClientSecret"],
-	capabilities: ["httpCall", "getPluginConfig", "getCachedValue", "setCachedValue"],
 });
 
 export default defineProvider({ manifest, run: details.run, operation: "details" });

@@ -3,10 +3,8 @@ import { Effect, Schema } from "@ryot-app/sandbox-sdk/effect";
 
 export const manifest = defineManifest({
 	kind: "script",
-	requiredPluginConfigKeys: [],
 	slug: "bootstrap.media-workspace",
 	name: "Initialize Media Workspace",
-	capabilities: ["ensureUserEntities"],
 });
 
 export default defineScript({

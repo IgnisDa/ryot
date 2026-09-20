@@ -7,6 +7,7 @@ import { databaseLayer } from "#lib/test-utils/effect";
 
 import { SandboxDurableHostDispatcher } from "./durable-host-dispatcher";
 import { executeSandboxExecution, SandboxExecutionQueue } from "./durable-queues";
+import { KernelWorkflowReferences } from "./kernel-workflow-references";
 import { SandboxPluginScriptResolver } from "./plugin-script-resolver";
 import { SandboxRepository } from "./repository";
 import { SandboxWorkflowPinning } from "./sandbox-script-workflow";
@@ -21,6 +22,11 @@ const queuedReplay = {
 const dispatcherLayer = Layer.succeed(SandboxDurableHostDispatcher, {
 	dispatch: () => Effect.die("durable dispatch is not expected"),
 	settleInline: () => Effect.die("inline dispatch is not expected"),
+});
+
+const kernelReferencesLayer = Layer.succeed(KernelWorkflowReferences, {
+	execute: () => Effect.die("kernel dispatch is not expected"),
+	resolveArtifactGrants: (_input, _subject, grants) => Effect.succeed(grants),
 });
 
 type RuntimeRunInput = Parameters<RuntimeSandboxService["Service"]["run"]>[0];
@@ -96,7 +102,10 @@ const hotSwapScript = (id: typeof historicalScriptId, compiledCode: string) => (
 		name: "Workflow",
 		slug: "workflow",
 		kind: "workflow" as const,
+		oauthConnectionFields: [],
+		executableDependencies: [],
 		requiredPluginConfigKeys: [],
+		optionalPluginConfigKeys: [],
 	},
 });
 const historical = hotSwapScript(historicalScriptId, historicalContent);
@@ -151,6 +160,7 @@ layer(
 			Layer.mergeAll(
 				databaseLayer,
 				dispatcherLayer,
+				kernelReferencesLayer,
 				Layer.mock(SandboxWorkflowReferenceRepository)({}),
 				Layer.mock(SandboxRepository)({
 					isPluginScript: () => Effect.succeed(true),
@@ -237,6 +247,7 @@ layer(
 	Layer.mergeAll(
 		databaseLayer,
 		dispatcherLayer,
+		kernelReferencesLayer,
 		Layer.mock(SandboxRepository)({
 			getScript: (scriptId) =>
 				Effect.succeed({
@@ -324,6 +335,7 @@ layer(
 	Layer.mergeAll(
 		databaseLayer,
 		settlingDispatcherLayer,
+		kernelReferencesLayer,
 		Layer.mock(SandboxRepository)({
 			getScript: () =>
 				Effect.succeed({

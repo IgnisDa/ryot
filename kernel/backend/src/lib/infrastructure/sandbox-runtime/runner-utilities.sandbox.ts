@@ -1,3 +1,6 @@
+import { SandboxBoundaryReason } from "@ryot-app/contract/modules/sandbox/boundary-reason";
+import { Schema } from "@ryot-app/sandbox-sdk/effect";
+
 export interface SandboxRunnerLimits {
 	readonly resultBytes: number;
 	readonly hostCallCount: number;
@@ -35,6 +38,7 @@ export interface SandboxRunnerPayload {
 }
 
 export interface SandboxRunnerError {
+	readonly data?: SandboxBoundaryReason;
 	readonly line?: number;
 	readonly kind: string;
 	readonly phase: string;
@@ -67,6 +71,7 @@ const decodeComponent = globalThis.decodeURIComponent;
 const failureKinds = new WeakMap<object, string>();
 const failurePhases = new WeakMap<object, string>();
 const jsonStringify = JSON.stringify.bind(JSON);
+const decodeBoundaryReason = Schema.decodeUnknownSync(SandboxBoundaryReason);
 const encodeText = encoder.encode.bind(encoder);
 const decodeText = decoder.decode.bind(decoder);
 const getFailureKind = failureKinds.get.bind(failureKinds);
@@ -308,6 +313,14 @@ const safeErrorProperty = (error: unknown, property: string): string | undefined
 	}
 };
 
+const boundaryErrorData = (error: unknown): SandboxBoundaryReason | undefined => {
+	try {
+		return decodeBoundaryReason(isRecord(error) ? error["data"] : undefined);
+	} catch {
+		return undefined;
+	}
+};
+
 const decodeUrlPath = (value: string): string => {
 	try {
 		return decodeComponent(value);
@@ -411,6 +424,7 @@ export const executionError = (
 		}
 	}
 	const firstFrame = frames[0];
+	const data = boundaryErrorData(error);
 	let sanitizedStack = "";
 	for (let index = 0; index < frames.length; index += 1) {
 		const frame = frames[index];
@@ -420,6 +434,7 @@ export const executionError = (
 		sanitizedStack += `${sanitizedStack ? "\n" : ""}    at ${frame.path}:${frame.line}:${frame.column}`;
 	}
 	return {
+		...(data ? { data } : {}),
 		kind,
 		phase,
 		message: sanitizeMessage(rawMessage, payload, phase, frames.length > 0),

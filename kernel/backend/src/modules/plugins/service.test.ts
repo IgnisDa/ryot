@@ -5,6 +5,7 @@ import { encodePluginCatalogInvalidatedMessage } from "@ryot-app/contract/module
 import type { PluginManifest } from "@ryot-app/contract/modules/plugins/manifest";
 import { PluginConflictError } from "@ryot-app/contract/modules/plugins/schemas";
 import { PluginSlug, type UserId } from "@ryot-app/contract/schema/brands";
+import { ViteBuildService } from "@ryot-app/vite-compiler";
 import { Cause, Context, Deferred, Effect, Exit, Fiber, Layer, Option, Ref } from "effect";
 
 import { redisKeys, RedisService } from "#lib/infrastructure/redis";
@@ -59,7 +60,6 @@ const makeStoredPlugin = (manifest: PluginManifest, sourceHash: string): StoredP
 				slug: script.slug,
 				name: script.name,
 				compiledFormat: 1,
-				source: "cached source",
 				compiledCode: "cached compiled",
 				contentHash: `cached-hash-${script.slug}`,
 			};
@@ -329,7 +329,7 @@ const makeLayer = (input?: {
 				},
 				persist: (plugin, identity) => {
 					const pluginId = `${identity.slug}-plugin-id`;
-					const { scripts, files: _files, ...revision } = plugin;
+					const { scripts, ...revision } = plugin;
 					const stored: StoredPlugin = {
 						...revision,
 						...identity,
@@ -451,7 +451,7 @@ const makeLayer = (input?: {
 	return PluginIngestionService.layer.pipe(
 		Layer.provideMerge(fakesLayer),
 		Layer.provideMerge(stateLayer),
-		Layer.provideMerge(Layer.merge(databaseLayer, BunFileSystem.layer)),
+		Layer.provideMerge(Layer.mergeAll(databaseLayer, BunFileSystem.layer, ViteBuildService.layer)),
 	);
 };
 
@@ -467,7 +467,6 @@ layer(makeLayer({}))((test) => {
 			expect(plugin.scripts[0]?.contentHash).toMatch(/^[a-f0-9]{64}$/);
 			const [persistedPackage] = yield* fake.persisted;
 			assert((yield* fake.persisted).length === 1 && persistedPackage);
-			expect(persistedPackage.files).toEqual(source.files);
 			expect(persistedPackage.manifest).toEqual(plugin.manifest);
 			expect(persistedPackage.sourceHash).toBe(plugin.sourceHash);
 			expect(persistedPackage.scripts.map(toPluginScriptDescriptor)).toEqual(plugin.scripts);
@@ -530,6 +529,9 @@ layer(makeLayer({}))((test) => {
 					{
 						kind: "provider" as const,
 						capabilities: [] as const,
+						oauthConnectionFields: [],
+						executableDependencies: [],
+						optionalPluginConfigKeys: [],
 						name: "Fixture Provider Details",
 						slug: "fixture.provider.details",
 						providerSlug: "fixture.provider",
@@ -541,6 +543,9 @@ layer(makeLayer({}))((test) => {
 						searchOptionsSchema,
 						kind: "provider" as const,
 						capabilities: [] as const,
+						oauthConnectionFields: [],
+						executableDependencies: [],
+						optionalPluginConfigKeys: [],
 						name: "Fixture Provider Search",
 						slug: "fixture.provider.search",
 						providerSlug: "fixture.provider",
@@ -573,7 +578,6 @@ layer(makeLayer({ publishFailure: "lost install publication" }))((test) => {
 
 			const [persistedPackage] = yield* fake.persisted;
 			assert((yield* fake.persisted).length === 1 && persistedPackage);
-			expect(persistedPackage.files).toEqual(source.files);
 			expect(persistedPackage.manifest).toEqual(plugin.manifest);
 			expect(persistedPackage.sourceHash).toBe(plugin.sourceHash);
 			expect(persistedPackage.scripts.map(toPluginScriptDescriptor)).toEqual(plugin.scripts);
@@ -597,6 +601,9 @@ const userBootstrapManifest = () => {
 			{
 				kind: "script" as const,
 				capabilities: [] as const,
+				oauthConnectionFields: [],
+				executableDependencies: [],
+				optionalPluginConfigKeys: [],
 				name: "Fixture User Bootstrap",
 				slug: "fixture.user-bootstrap",
 				requiredPluginConfigKeys: [] as const,
@@ -627,7 +634,6 @@ layer(makeLayer({}))((test) => {
 			]);
 			const [persistedPackage] = yield* fake.persisted;
 			assert((yield* fake.persisted).length === 1 && persistedPackage);
-			expect(persistedPackage.files).toEqual(source.files);
 			expect(persistedPackage.manifest).toEqual(plugin.manifest);
 			expect(persistedPackage.sourceHash).toBe(plugin.sourceHash);
 			expect(persistedPackage.scripts.map(toPluginScriptDescriptor)).toEqual(plugin.scripts);
@@ -1084,11 +1090,11 @@ layer(
 });
 
 layer(makeLayer({ cached: true }))((test) => {
-	test.effect("keeps a no-client plugin on the source-hash cache path", () =>
+	test.effect("reuses a cached compiled package without persisting it again", () =>
 		Effect.gen(function* () {
 			const fake = yield* FakeIngestionDependencies;
 			const ingestion = yield* PluginIngestionService;
-			const source = yield* loadPluginSource(fixturePackageRoot("diagnostic"), fixtureManifest());
+			const source = yield* loadPluginSource(fixturePackageRoot(), fixtureManifest());
 			const plugin = yield* ingestion.ingestSystemPlugin(source);
 
 			expect(plugin.scripts[0]?.contentHash).toBe("cached-hash-fixture.automation");
@@ -1139,7 +1145,7 @@ layer(
 		return Effect.gen(function* () {
 			const fake = yield* FakeIngestionDependencies;
 			const ingestion = yield* PluginIngestionService;
-			const source = yield* loadPluginSource(fixturePackageRoot("diagnostic"), cachedManifest);
+			const source = yield* loadPluginSource(fixturePackageRoot(), cachedManifest);
 			const exit = yield* Effect.exit(ingestion.ingestSystemPlugin(source));
 
 			expect(failureOf(exit)).toMatchObject({
@@ -1242,21 +1248,18 @@ layer(makeLayer({}))((test) => {
 });
 
 layer(makeLayer())((test) => {
-	test.effect("rejects non-canonical and missing plugin source paths as bad requests", () => {
+	test.effect("rejects non-canonical plugin script entries as bad requests", () => {
 		const manifest = fixtureManifest();
-		const entry = manifest.scripts[0]?.entry;
-		assert(entry);
 		const cases = [
-			{ path: "", scriptEntry: entry },
-			{ path: "/script.ts", scriptEntry: entry },
-			{ scriptEntry: entry, path: "scripts\\script.ts" },
-			{ scriptEntry: entry, path: "scripts//script.ts" },
-			{ scriptEntry: entry, path: "scripts/./script.ts" },
-			{ scriptEntry: entry, path: "scripts/../script.ts" },
-			{ path: entry, scriptEntry: "scripts/missing.ts" },
-		] as const;
+			"",
+			"/script.ts",
+			"scripts\\script.ts",
+			"scripts//script.ts",
+			"scripts/./script.ts",
+			"scripts/../script.ts",
+		];
 
-		return Effect.forEach(cases, ({ path, scriptEntry }) =>
+		return Effect.forEach(cases, (scriptEntry) =>
 			Effect.gen(function* () {
 				const ingestion = yield* PluginIngestionService;
 				const source = yield* loadPluginSource(fixturePackageRoot(), manifest);
@@ -1264,10 +1267,10 @@ layer(makeLayer())((test) => {
 				assert(script);
 				const exit = yield* Effect.exit(
 					ingestion.ingestSystemPlugin({
-						compiledScripts: source.compiledScripts,
 						manifest: { ...manifest, scripts: [{ ...script, entry: scriptEntry }] },
-						files:
-							path === entry ? {} : { ...source.files, [path]: new TextEncoder().encode("source") },
+						compiledScripts: source.compiledScripts.map((compiled) =>
+							Object.assign({}, compiled, { entry: scriptEntry }),
+						),
 					}),
 				);
 				expect(failureOf(exit)).toMatchObject({

@@ -56,9 +56,13 @@ import { WorkflowGarbageCollector } from "#modules/garbage-collection/workflows"
 import { GodModeServiceLive } from "#modules/god-mode/layer";
 import { CancelImportRunWorkflowDefinitionsLive } from "#modules/imports/cancel-workflow";
 import { ImportRunCancellationService } from "#modules/imports/cancellation-service";
+import { IngestionCaptures } from "#modules/imports/capture-service";
 import { ImportWorkflowDefinitionsLive } from "#modules/imports/import-run-workflow-live";
 import {
 	ImportsServiceLive,
+	IngestionArtifactStagingProvidedLive,
+	IngestionCaptureWorkflowDefinitionsProvidedLive,
+	IngestionRetirementLive,
 	ProcessGenericImportChunksWorkflowDefinitionsProvidedLive,
 	DataImportWorkflowDefinitionsProvidedLive,
 } from "#modules/imports/layer";
@@ -196,7 +200,7 @@ const ServicesLive = Layer.mergeAll(
 	PluginInstallationRuntimeLive,
 	ProviderEntitySearchServiceLive,
 	RelationshipsServiceLive,
-	RuntimeSandboxServiceLive,
+	RuntimeSandboxServiceLive.pipe(Layer.provide(IngestionArtifactStagingProvidedLive)),
 	SandboxExecutionServiceLive,
 	SavedViewsServiceLive,
 	RyotQLService.layer,
@@ -215,16 +219,21 @@ const ServicesLive = Layer.mergeAll(
 	AutomationReconciliationLive,
 	AutomationRetentionLive,
 	WorkflowGarbageCollector.layer,
-	PluginConfigEncryptionKey.layer,
 	PluginCronServiceLive,
 	LifecycleServicesLive,
 	// HTTP routes consume these ports directly.
 	LifecycleWriteGuard.layer,
 	ObjectStorageServiceLive,
 	PluginCatalogHub.layer,
-).pipe(Layer.provide(ContentLifecycleRepositoriesLive));
+).pipe(
+	Layer.provideMerge(PluginConfigEncryptionKey.layer),
+	Layer.provide(Layer.merge(ContentLifecycleRepositoriesLive, AdmittedWorkflowCatalogueLive)),
+);
 
-const ServicesWithTestSupportLive = Layer.merge(ServicesLive, TestSupportServicesLive);
+const ServicesWithTestSupportLive = Layer.merge(ServicesLive, TestSupportServicesLive).pipe(
+	Layer.provideMerge(Layer.mergeAll(IngestionRetirementLive, PluginRuntimeResolverLive)),
+	Layer.provide(AdmittedWorkflowCatalogueLive),
+);
 
 // Boot merges feature-owned definitions and keeps cross-feature composition explicit here.
 const RuntimeWorkflowDefinitionsLive = Layer.mergeAll(
@@ -242,6 +251,7 @@ const RuntimeWorkflowDefinitionsLive = Layer.mergeAll(
 	ProcessGenericImportChunksWorkflowDefinitionsProvidedLive,
 	DataImportWorkflowDefinitionsProvidedLive,
 	ExportBackupWorkflowDefinitionsLive,
+	IngestionCaptureWorkflowDefinitionsProvidedLive,
 	RestoreBackupWorkflowDefinitionsLive,
 	UserLifecycleWorkflowDefinitionsLive,
 	UserBootstrapWorkflowDefinitionsLive,
@@ -264,6 +274,7 @@ const RuntimeWorkflowDefinitionsLive = Layer.mergeAll(
 				Layer.provide(
 					Layer.mergeAll(
 						ImportsRepository.layer,
+						IngestionCaptures.layer,
 						IntegrationsRepository.layer,
 						PluginRuntimeResolverLive,
 					),
@@ -272,7 +283,7 @@ const RuntimeWorkflowDefinitionsLive = Layer.mergeAll(
 		),
 	),
 	TranslateEntityWorkflowDefinitionsLive,
-);
+).pipe(Layer.provide(AdmittedWorkflowCatalogueLive));
 
 export const RuntimeLive = Layer.mergeAll(
 	RuntimeWorkflowDefinitionsLive,
@@ -297,6 +308,8 @@ export const MigrationInfrastructureLive = Layer.mergeAll(
 	PluginInstallationMigrationLive,
 	IntegrationsRepository.layer,
 ).pipe(
+	Layer.provideMerge(AdmittedWorkflowCatalogueLive),
+	Layer.provideMerge(WorkflowEngineLive),
 	Layer.provideMerge(PgClientLive),
 	// Legacy migration and system ingestion consume these repositories directly.
 	Layer.provideMerge(
@@ -305,6 +318,7 @@ export const MigrationInfrastructureLive = Layer.mergeAll(
 	Layer.provideMerge(RedisService.layer),
 	Layer.provideMerge(SignedUrlInfrastructureLive),
 	Layer.provideMerge(S3Service.layer),
+	Layer.provideMerge(PluginConfigEncryptionKey.layer),
 	Layer.provideMerge(DatabaseSession.layer),
 	Layer.provideMerge(ConfigLive),
 );

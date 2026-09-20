@@ -7,8 +7,6 @@ export const manifest = defineManifest({
 	kind: "provider",
 	name: "TVDB Person Details",
 	slug: "person.tvdb.details",
-	requiredPluginConfigKeys: ["tvdbApiKey"],
-	capabilities: ["httpCall", "getCachedValue", "setCachedValue", "getPluginConfig"],
 });
 
 export default defineProvider({ manifest, run: details.run, operation: "details" });

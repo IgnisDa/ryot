@@ -6,8 +6,6 @@ export const manifest = defineManifest({
 	kind: "script",
 	name: "TMDB Show Trending",
 	slug: "show.tmdb.trending",
-	capabilities: ["httpCall", "getPluginConfig"],
-	requiredPluginConfigKeys: ["tmdbAccessToken"],
 });
 
 export default defineScript({

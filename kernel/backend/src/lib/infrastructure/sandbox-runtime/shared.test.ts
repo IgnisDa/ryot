@@ -237,14 +237,19 @@ describe("requireSandboxCapabilityInput", () => {
 	});
 
 	it("rejects direct-user-only capabilities for automation runs", () => {
-		expect(() =>
-			Effect.runSync(
+		const failure = Effect.runSync(
+			Effect.flip(
 				requireSandboxCapabilityInput(
 					makeRunInput(automationSubject("after", UserId.make("user_1"))),
 					"ensureUserEntities",
 				),
 			),
-		).toThrow("ensureUserEntities is available only to user executions");
+		);
+		expect(failure.message).toContain("available only to user executions");
+		expect(failure.data).toEqual({
+			code: "unavailable-operation",
+			operation: "ensureUserEntities",
+		});
 	});
 
 	it("accepts system script capabilities and requires provider scope when declared", () => {

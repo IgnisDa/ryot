@@ -6,8 +6,6 @@ import { searchTaxonomyCatalog } from "../../taxonomy";
 
 export const manifest = defineManifest({
 	kind: "provider",
-	capabilities: [],
-	requiredPluginConfigKeys: [],
 	name: "Exercise Equipment Fitness Catalog Search",
 	slug: "exercise-equipment.fitness-catalog.search",
 });

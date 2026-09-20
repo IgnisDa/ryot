@@ -21,13 +21,7 @@ import {
 	tmdbGet,
 } from "../../../lib/vendors/tmdb";
 
-export const manifest = defineManifest({
-	name: "TMDB",
-	kind: "provider",
-	slug: "person.tmdb",
-	requiredPluginConfigKeys: ["tmdbAccessToken"],
-	capabilities: ["httpCall", "getPluginConfig", "getUserSettings"],
-});
+export const manifest = defineManifest({ name: "TMDB", kind: "provider", slug: "person.tmdb" });
 
 export const search = defineProvider({
 	manifest,

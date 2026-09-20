@@ -7,7 +7,6 @@ import { validateImportSourceInputSchemas } from "./validation";
 const importSource = {
 	slug: "fixture",
 	name: "Fixture",
-	requiredPluginConfigKeys: [],
 	description: "Fixture import",
 	workflowSlug: "fixture-workflow",
 	inputSchema: {

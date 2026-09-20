@@ -16,6 +16,7 @@ import {
 
 import { PluginConfigEncryptionKey } from "./config-encryption-key";
 import { concretePluginConfigSecretPaths, redactPluginConfig } from "./config-redaction";
+import { availablePluginConfigKeys } from "./ingestion-readiness-metadata";
 
 type ConfigRow = typeof tables.pluginConfigRevision.$inferSelect;
 type CreateConfigRevisionInput = {
@@ -307,6 +308,7 @@ export class PluginConfigRevisions extends Context.Service<PluginConfigRevisions
 				id: string;
 				pluginRevisionId: string;
 				ownerUserId: string | null;
+				pluginInstallationId?: string | null;
 			}) {
 				const [row] = yield* database.run((db) =>
 					db
@@ -318,7 +320,9 @@ export class PluginConfigRevisions extends Context.Service<PluginConfigRevisions
 				if (
 					!row ||
 					row.pluginRevisionId !== input.pluginRevisionId ||
-					row.ownerUserId !== input.ownerUserId
+					row.ownerUserId !== input.ownerUserId ||
+					(input.pluginInstallationId !== undefined &&
+						row.pluginInstallationId !== input.pluginInstallationId)
 				) {
 					return yield* new DbError({ message: "Invalid pinned plugin configuration ownership" });
 				}
@@ -438,14 +442,18 @@ export class PluginConfigRevisions extends Context.Service<PluginConfigRevisions
 					.encrypt(properties, attribution(identity))
 					.pipe(Effect.mapError(() => new DbError({ message: "Configuration encryption failed" })));
 				yield* database.run((db) =>
-					db.insert(tables.pluginConfigRevision).values({
-						...identity,
-						...envelope,
-						pluginInstallationId: input.pluginInstallationId,
-						configuredKeys: Object.keys(properties)
-							.filter((key) => properties[key] !== undefined && properties[key] !== null)
-							.sort(),
-					}),
+					db
+						.insert(tables.pluginConfigRevision)
+						.values({
+							...identity,
+							...envelope,
+							pluginInstallationId: input.pluginInstallationId,
+							configuredKeys: availablePluginConfigKeys(
+								revision.manifest.configSchema,
+								revision.manifest.oauthProviders ?? [],
+								properties,
+							),
+						}),
 				);
 				return identity.id;
 			});

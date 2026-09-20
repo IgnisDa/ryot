@@ -48,7 +48,6 @@ type AvailableOperation = (
 };
 
 const makeActiveScript = (id: string) => ({
-	source: "source",
 	slug: DRIVER_REF,
 	providerId: null,
 	name: DRIVER_REF,
@@ -63,8 +62,11 @@ const makeActiveScript = (id: string) => ({
 		name: DRIVER_REF,
 		slug: DRIVER_REF,
 		capabilities: [],
+		oauthConnectionFields: [],
 		kind: "operation" as const,
+		executableDependencies: [],
 		requiredPluginConfigKeys: [],
+		optionalPluginConfigKeys: [],
 	},
 });
 

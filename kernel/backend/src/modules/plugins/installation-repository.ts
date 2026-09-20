@@ -11,7 +11,7 @@ import { PluginConfigRevisions } from "./config-revisions";
 
 type StoredInstallationRow = Omit<
 	typeof schema.pluginInstallation.$inferSelect,
-	"clientConfig" | "configuredSecretPaths"
+	"clientConfig" | "configuredSecretPaths" | "ingestionRetiring"
 >;
 export type PluginInstallationRow = StoredInstallationRow & {
 	readonly config: Record<string, unknown>;
@@ -482,6 +482,7 @@ export class PluginInstallationRepository extends Context.Service<PluginInstalla
 								healthReason: null,
 								uninstalledAt: null,
 								health: input.health,
+								ingestionRetiring: false,
 								isHidden: input.isHidden,
 								sortOrder: input.sortOrder,
 							},
@@ -524,6 +525,47 @@ export class PluginInstallationRepository extends Context.Service<PluginInstalla
 						.where(eq(schema.pluginInstallation.id, id)),
 				);
 			});
+			const beginIngestionRetirement = Effect.fn(
+				"PluginInstallationRepository.beginIngestionRetirement",
+			)(function* (userId: UserId, id: string) {
+				yield* database.requireTransaction;
+				yield* database.acquireUserWriteLock(userId);
+				yield* database.run((db) =>
+					db
+						.update(schema.pluginInstallation)
+						.set({ ingestionRetiring: true })
+						.where(
+							and(
+								eq(schema.pluginInstallation.id, id),
+								eq(schema.pluginInstallation.userId, userId),
+							),
+						),
+				);
+			});
+			const assertIngestionActive = Effect.fn("PluginInstallationRepository.assertIngestionActive")(
+				function* (userId: UserId, id: string) {
+					yield* database.requireTransaction;
+					yield* database.acquireUserWriteLock(userId);
+					const [row] = yield* database.run((db) =>
+						db
+							.select({ id: schema.pluginInstallation.id })
+							.from(schema.pluginInstallation)
+							.where(
+								and(
+									eq(schema.pluginInstallation.id, id),
+									eq(schema.pluginInstallation.userId, userId),
+									eq(schema.pluginInstallation.ingestionRetiring, false),
+									isNull(schema.pluginInstallation.uninstalledAt),
+								),
+							)
+							.limit(1),
+					);
+					if (!row) {
+						return yield* new DbError({ message: "Installation ingestion owner has retired" });
+					}
+					return yield* Effect.void;
+				},
+			);
 
 			const provisionSystemInstallationsForUser = Effect.fn(
 				"PluginInstallationRepository.provisionSystemInstallationsForUser",
@@ -611,6 +653,41 @@ export class PluginInstallationRepository extends Context.Service<PluginInstalla
 				);
 				return row;
 			});
+			const findUserSettingsForRevision = Effect.fn(function* (input: {
+				userId: UserId;
+				pluginId: string;
+				pluginRevisionId: string;
+				installationId?: string;
+			}) {
+				const [row] = yield* database.run((db) =>
+					db
+						.select({
+							manifest: schema.pluginRevision.manifest,
+							installationId: schema.pluginInstallation.id,
+							userSettings: schema.pluginInstallation.userSettings,
+						})
+						.from(schema.pluginInstallation)
+						.innerJoin(
+							schema.pluginRevision,
+							and(
+								eq(schema.pluginRevision.id, input.pluginRevisionId),
+								eq(schema.pluginRevision.pluginId, schema.pluginInstallation.pluginId),
+							),
+						)
+						.where(
+							and(
+								eq(schema.pluginInstallation.pluginId, input.pluginId),
+								eq(schema.pluginInstallation.userId, input.userId),
+								isNull(schema.pluginInstallation.uninstalledAt),
+								...(input.installationId
+									? [eq(schema.pluginInstallation.id, input.installationId)]
+									: []),
+							),
+						)
+						.limit(1),
+				);
+				return row ?? null;
+			});
 			const saveUserSettings = Effect.fn(function* (
 				userId: UserId,
 				id: string,
@@ -646,8 +723,11 @@ export class PluginInstallationRepository extends Context.Service<PluginInstalla
 				listHydratedForUser,
 				findByUserAndPlugin,
 				listPendingLifecycle,
+				assertIngestionActive,
+				beginIngestionRetirement,
 				listPrivateInstallations,
 				updateHealthForActivation,
+				findUserSettingsForRevision,
 				clearHomeSavedViewReferences,
 				refreshClientConfigsForPlugin,
 				provisionSystemInstallationsForUser,

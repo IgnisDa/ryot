@@ -15,7 +15,10 @@ import { WorkflowEngine } from "effect/unstable/workflow/WorkflowEngine";
 
 import { AppConfig } from "#lib/infrastructure/config/service";
 import { DatabaseSession } from "#lib/infrastructure/db/session";
-import type { SandboxPluginRevision } from "#lib/infrastructure/sandbox-runtime/execution-principal";
+import type {
+	SandboxPluginRevision,
+	SandboxExecutionPrincipal,
+} from "#lib/infrastructure/sandbox-runtime/execution-principal";
 import { sandboxContextError } from "#lib/infrastructure/sandbox-runtime/limits";
 import { makeActivity } from "#lib/infrastructure/workflow-scope";
 import {
@@ -304,6 +307,7 @@ export class SandboxExecutionService extends Context.Service<SandboxExecutionSer
 				executingUserId: UserId;
 				accountGeneration: AccountGeneration;
 				scriptId: SandboxScriptId;
+				retain?: (principal: SandboxExecutionPrincipal) => Effect.Effect<void, SandboxRunError>;
 			}) {
 				const pin = yield* pinning.establish(
 					{
@@ -319,6 +323,7 @@ export class SandboxExecutionService extends Context.Service<SandboxExecutionSer
 					},
 					input.executionId,
 					input.pluginId,
+					input.retain,
 				);
 				if (!pin.principal.pluginRevision) {
 					return yield* new SandboxRunError({

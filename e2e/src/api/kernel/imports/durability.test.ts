@@ -38,34 +38,37 @@ const nativeEntities = (prefix: string) =>
 		name: `${prefix} ${String(index).padStart(3, "0")}`,
 	}));
 
-const importWorkflowSource = (workflowScriptSlug: string, activityScriptSlug: string) => `
+const importWorkflowSource = (
+	workflowScriptSlug: string,
+	activityScriptSlug: string,
+	workflowSlug: string,
+) => `
 import {
-  genericImportKernelInputSchema,
+  genericImportActivityReference,
+  genericImportCaptureReference,
+  genericImportSealReference,
   genericImportWorkflowInputSchema,
-  genericImportWorkflowManifestSchema,
   genericImportWorkflowResultSchema,
 } from "@ryot-app/sandbox-sdk/imports";
-import { Effect, Schema, defineManifest, defineWorkflow } from "@ryot-app/sandbox-sdk/workflow";
+import { Effect, Schema, defineManifest, defineScriptReference, defineWorkflow } from "@ryot-app/sandbox-sdk/workflow";
 
 export const manifest = defineManifest({
   kind: "workflow",
-  capabilities: [],
   name: "E2E durable import",
-  requiredPluginConfigKeys: [],
   slug: ${JSON.stringify(workflowScriptSlug)},
 });
 
-const checkConfig = {
-  output: genericImportWorkflowManifestSchema,
+const checkConfig = defineScriptReference({
+  output: Schema.Null,
   input: Schema.Struct({ expectedValue: Schema.String }),
   scriptSlug: ${JSON.stringify(activityScriptSlug)},
-};
+});
 
-const kernelImport = {
-  input: genericImportKernelInputSchema,
-  output: genericImportWorkflowResultSchema,
-  workflowSlug: "kernel:process-import-chunks",
-};
+const readSource = defineScriptReference({
+  input: Schema.Struct({ artifactHandle: Schema.String }),
+  output: Schema.Struct({ expectedValue: Schema.String, delayMs: Schema.Int }),
+  scriptSlug: ${JSON.stringify(`${activityScriptSlug}-read`)},
+});
 
 export default defineWorkflow({
   manifest,
@@ -73,21 +76,64 @@ export default defineWorkflow({
   output: genericImportWorkflowResultSchema,
   run: (input, replay) =>
     Effect.gen(function* () {
-      const expectedValue = input.sourcePayload?.["expectedValue"];
-      const delayMs = input.sourcePayload?.["delayMs"];
-      if (typeof expectedValue !== "string" || typeof delayMs !== "number") {
-        return yield* Effect.fail(new Error("Invalid durable import input"));
+      if (input.plan.operation !== ${JSON.stringify(workflowSlug)}) {
+        return yield* Effect.fail(new Error("Import used an unexpected accepted plan"));
       }
+       const sourcePayload = yield* replay.activity("read-source", readSource, {
+         artifactHandle: input.sourcePayloadHandle,
+       });
+      const attribution = { runId: input.runId, command: input.command };
 
-      yield* replay.sleep("wait-before-config-read", delayMs);
-      const importManifest = yield* replay.activity("check-pinned-config", checkConfig, {
-        expectedValue,
+      yield* replay.child("capture-source", genericImportCaptureReference, {
+        ...attribution,
+        operation: {
+          action: "capture",
+          phase: "collection",
+          ordinal: 0,
+          captureId: "source-payload",
+          handle: input.sourcePayloadHandle,
+          checkpoint: { stage: "source-payload", source: input.source },
+        },
       });
-      return yield* replay.child("complete-import", kernelImport, {
-        ...importManifest,
-        runId: input.runId,
-        command: input.command,
+      yield* replay.child("record-reading", genericImportActivityReference, {
+        ...attribution,
+        operation: {
+          action: "activity",
+          activity: {
+            id: "source-payload",
+            kind: "reading",
+            unit: "records",
+            completed: 0,
+            lastAdvancedAt: input.command.occurredAt,
+             exactTotal: 1,
+            wait: null,
+            batchId: null,
+            parentId: null,
+            state: "running",
+          },
+        },
       });
+
+      yield* replay.sleep("wait-before-config-read", sourcePayload.delayMs);
+       yield* replay.activity("check-pinned-config", checkConfig, {
+         expectedValue: sourcePayload.expectedValue,
+       });
+       yield* replay.child("record-reading-complete", genericImportActivityReference, {
+         ...attribution,
+         operation: {
+           action: "activity",
+           activity: {
+             id: "source-payload", kind: "reading", unit: "records", completed: 1,
+             lastAdvancedAt: input.command.occurredAt, exactTotal: 1,
+             wait: null, batchId: null, parentId: null, state: "completed",
+           },
+         },
+       });
+      const sealed = yield* replay.child("seal-import", genericImportSealReference, {
+        ...attribution,
+        operation: { action: "seal" },
+      });
+      return { summary: sealed.summary, issues: [] };
     }),
 });
 `;
@@ -95,33 +141,48 @@ export default defineWorkflow({
 const configActivitySource = (activityScriptSlug: string) => `
 import { defineManifest, defineScript } from "@ryot-app/sandbox-sdk/driver";
 import { Effect, Schema } from "@ryot-app/sandbox-sdk/effect";
-import { genericImportWorkflowManifestSchema } from "@ryot-app/sandbox-sdk/imports";
 
 export const manifest = defineManifest({
   kind: "script",
-  capabilities: ["getPluginConfig"],
   name: "E2E durable import config check",
   slug: ${JSON.stringify(activityScriptSlug)},
-  requiredPluginConfigKeys: [${JSON.stringify(CONFIG_KEY)}],
 });
 
 export default defineScript({
   manifest,
-  output: genericImportWorkflowManifestSchema,
+  output: Schema.Null,
   input: Schema.Struct({ expectedValue: Schema.String }),
   run: (input, host) =>
     Effect.gen(function* () {
-      const config = yield* host.getPluginConfig([${JSON.stringify(CONFIG_KEY)}]);
+      const config = yield* host.getPluginConfig({ required: [${JSON.stringify(CONFIG_KEY)}] });
       if (config[${JSON.stringify(CONFIG_KEY)}] !== input.expectedValue) {
         return yield* Effect.fail(new Error("Import used an unexpected plugin configuration"));
       }
-      return {
-        totalItems: 0,
-        failureCount: 0,
-        chunkHandles: [],
-        writeItemCount: 0,
-      };
+      return null;
     }),
+});
+`;
+
+const readSourceActivity = (activityScriptSlug: string) => `
+import { defineManifest, defineScript } from "@ryot-app/sandbox-sdk/driver";
+import { Effect, Schema } from "@ryot-app/sandbox-sdk/effect";
+import { readArtifact } from "@ryot-app/sandbox-sdk/filesystem";
+
+export const manifest = defineManifest({
+  kind: "script",
+  name: "E2E durable import source read",
+  slug: ${JSON.stringify(`${activityScriptSlug}-read`)},
+});
+const sourceSchema = Schema.Struct({ expectedValue: Schema.String, delayMs: Schema.Int });
+export default defineScript({
+  manifest,
+  input: Schema.Struct({ artifactHandle: Schema.String }),
+  output: sourceSchema,
+  run: () => Effect.gen(function* () {
+    return yield* Schema.decodeEffect(Schema.fromJsonString(sourceSchema))(
+      new TextDecoder("utf-8", { fatal: true }).decode(yield* readArtifact),
+    );
+  }),
 });
 `;
 
@@ -130,7 +191,10 @@ const waitForRunningImport = (client: Client, runId: string) =>
 		`Import run '${runId}' to start`,
 		Effect.gen(function* () {
 			const run = (yield* getImportRun(client, runId, undefined, 10)).run;
-			return run?.status === "running" ? run : null;
+			return run?.status === "running" &&
+				run.activities.some(({ id, state }) => id === "source-payload" && state === "running")
+				? run
+				: null;
 		}),
 	);
 
@@ -185,10 +249,6 @@ describe("isolated import durability", () => {
 					pluginSlug,
 					scope: "system",
 					workflows: [{ slug: workflowSlug, scriptSlug: workflowScriptSlug }],
-					files: {
-						[activityEntry]: configActivitySource(activityScriptSlug),
-						[workflowEntry]: importWorkflowSource(workflowScriptSlug, activityScriptSlug),
-					},
 					configSchema: {
 						unknownKeys: "strict",
 						fields: {
@@ -200,30 +260,20 @@ describe("isolated import durability", () => {
 							},
 						},
 					},
-					scripts: [
-						{
-							kind: "workflow",
-							capabilities: [],
-							entry: workflowEntry,
-							slug: workflowScriptSlug,
-							name: "E2E durable import",
-							requiredPluginConfigKeys: [],
-						},
-						{
-							kind: "script",
-							entry: activityEntry,
-							slug: activityScriptSlug,
-							capabilities: ["getPluginConfig"],
-							requiredPluginConfigKeys: [CONFIG_KEY],
-							name: "E2E durable import config check",
-						},
-					],
+					files: {
+						[activityEntry]: configActivitySource(activityScriptSlug),
+						"backend/scripts/read-source.sandbox.ts": readSourceActivity(activityScriptSlug),
+						[workflowEntry]: importWorkflowSource(
+							workflowScriptSlug,
+							activityScriptSlug,
+							workflowSlug,
+						),
+					},
 					importSources: [
 						{
 							workflowSlug,
 							slug: sourceSlug,
 							name: "E2E durable import",
-							requiredPluginConfigKeys: [CONFIG_KEY],
 							description: "Exercise import recovery and configuration pinning",
 							inputSchema: {
 								unknownKeys: "strict",
@@ -242,6 +292,32 @@ describe("isolated import durability", () => {
 									},
 								},
 							},
+						},
+					],
+					scripts: [
+						{
+							kind: "script",
+							requiredPluginConfigKeys: [],
+							capabilities: ["artifact-read"],
+							slug: `${activityScriptSlug}-read`,
+							name: "E2E durable import source read",
+							entry: "backend/scripts/read-source.sandbox.ts",
+						},
+						{
+							kind: "workflow",
+							capabilities: [],
+							entry: workflowEntry,
+							slug: workflowScriptSlug,
+							name: "E2E durable import",
+							requiredPluginConfigKeys: [],
+						},
+						{
+							kind: "script",
+							entry: activityEntry,
+							slug: activityScriptSlug,
+							capabilities: ["getPluginConfig"],
+							requiredPluginConfigKeys: [CONFIG_KEY],
+							name: "E2E durable import config check",
 						},
 					],
 				});
@@ -274,7 +350,11 @@ describe("isolated import durability", () => {
 					"native import to commit before restart",
 					Effect.gen(function* () {
 						const run = (yield* getImportRun(client, nativeRunId, undefined, 10)).run;
-						return run && run.processedItems > 0 ? run : null;
+						return run?.summary.some(
+							({ unit, counts }) => unit === "entities" && counts.created > 0,
+						)
+							? run
+							: null;
 					}),
 				);
 				expect((yield* getImportRun(client, nativeRunId, undefined, 10)).run?.status).toBe(
@@ -284,10 +364,14 @@ describe("isolated import durability", () => {
 				yield* stopApiProcess(processA);
 				const processB = yield* startApi("Import Durability API B", NEW_CONFIG_VALUE);
 				expect(yield* pollImportRunUntilTerminal(client, nativeRunId)).toMatchObject({
-					failedItems: 0,
-					importedItems: 120,
 					status: "completed",
-					processedItems: 120,
+					summary: [
+						{
+							unit: "entities",
+							recordKind: "entity",
+							counts: { updated: 0, skipped: 0, created: 120, unchanged: 0, unsuccessful: 0 },
+						},
+					],
 				});
 				const nativeNames = yield* listImportedEntityNames(client, "collection");
 				expect(nativeNames).toHaveLength(100);
@@ -296,11 +380,19 @@ describe("isolated import durability", () => {
 					yield* sendDataWebhook(client, nativeIntegration, nativeDocument, "native-restart"),
 				).toBe(nativeRunId);
 				expect(yield* pollImportRunUntilTerminal(client, oldRun.id)).toMatchObject({
-					progress: 100,
-					importedItems: 0,
-					processedItems: 0,
+					summary: [],
 					status: "completed",
 					failureReason: null,
+					activities: [
+						{
+							completed: 1,
+							exactTotal: 1,
+							kind: "reading",
+							unit: "records",
+							state: "completed",
+							id: "source-payload",
+						},
+					],
 				});
 
 				const newRun = yield* client.call((c) =>
@@ -309,11 +401,19 @@ describe("isolated import durability", () => {
 					}),
 				);
 				expect(yield* pollImportRunUntilTerminal(client, newRun.id)).toMatchObject({
-					progress: 100,
-					importedItems: 0,
-					processedItems: 0,
+					summary: [],
 					status: "completed",
 					failureReason: null,
+					activities: [
+						{
+							completed: 1,
+							exactTotal: 1,
+							kind: "reading",
+							unit: "records",
+							state: "completed",
+							id: "source-payload",
+						},
+					],
 				});
 
 				const cancelledRun = yield* client.call((c) =>
@@ -333,12 +433,7 @@ describe("isolated import durability", () => {
 					c.imports.cancelRun({ params: { runId: ImportRunId.make(cancelledRun.id) } }),
 				);
 				const cancelled = yield* pollImportRunUntilTerminal(client, cancelledRun.id);
-				expect(cancelled).toMatchObject({
-					importedItems: 0,
-					processedItems: 0,
-					status: "cancelled",
-					failureReason: null,
-				});
+				expect(cancelled).toMatchObject({ summary: [], status: "cancelled", failureReason: null });
 				expect(cancelled.finishedAt).not.toBeNull();
 				const nativeCancelledRunId = yield* sendDataWebhook(
 					client,
@@ -350,7 +445,11 @@ describe("isolated import durability", () => {
 					"native import to commit before cancellation",
 					Effect.gen(function* () {
 						const run = (yield* getImportRun(client, nativeCancelledRunId, undefined, 10)).run;
-						return run && run.processedItems > 0 ? run : null;
+						return run?.summary.some(
+							({ unit, counts }) => unit === "entities" && counts.created > 0,
+						)
+							? run
+							: null;
 					}),
 				);
 				yield* client.call((c) =>
@@ -358,9 +457,10 @@ describe("isolated import durability", () => {
 				);
 				const nativeCancelled = yield* pollImportRunUntilTerminal(client, nativeCancelledRunId);
 				expect(nativeCancelled.status).toBe("cancelled");
-				expect(nativeCancelled.importedItems).toBeGreaterThan(0);
-				expect(nativeCancelled.importedItems).toBeLessThan(120);
-				expect(nativeCancelled.failedItems).toBe(0);
+				const entitySummary = nativeCancelled.summary.find(({ unit }) => unit === "entities");
+				expect(entitySummary?.counts.created).toBeGreaterThan(0);
+				expect(entitySummary?.counts.created).toBeLessThan(120);
+				expect(entitySummary?.counts.unsuccessful).toBe(0);
 			}),
 		180_000,
 	);

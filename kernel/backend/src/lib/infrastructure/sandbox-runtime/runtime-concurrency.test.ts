@@ -1,5 +1,5 @@
 import { it, layer } from "@effect/vitest";
-import { hostSuccess, type SandboxHostError } from "@ryot-app/sandbox-sdk/wire";
+import { hostFailure, hostSuccess, type SandboxHostError } from "@ryot-app/sandbox-sdk/wire";
 import type { Schema } from "effect";
 import {
 	Clock,
@@ -73,6 +73,57 @@ const tracedBridgeLayer = Layer.unwrap(
 
 describe("sandbox bridge host-call concurrency", () => {
 	layer(BridgeService.layer)((test) => {
+		test.effect("transports boundary reason data in a normal bridge result", () =>
+			Effect.gen(function* () {
+				const bridge = yield* BridgeService;
+				const reason = { keys: ["apiToken"], code: "missing-required-config" } as const;
+				yield* addSession(bridge, "boundary-reason", () =>
+					Effect.succeed(hostFailure("A required configuration value is not configured", reason)),
+				);
+
+				const response = yield* call(bridge, "boundary-reason");
+				expect(yield* Effect.tryPromise(() => response.json())).toMatchObject({
+					result: {
+						data: reason,
+						success: false,
+						error: expect.stringContaining("not configured"),
+					},
+				});
+			}).pipe(Effect.scoped, Effect.withSpan("sandbox-boundary-reason-test")),
+		);
+	});
+
+	layer(BridgeService.layer)((test) => {
+		test.effect("returns a structured reason when the server HTTP-call budget is exceeded", () =>
+			Effect.gen(function* () {
+				const bridge = yield* BridgeService;
+				const executionId = "http-budget";
+				yield* bridge.addSession(executionId, {
+					token: `${executionId}-token`,
+					parentSpan: yield* Effect.currentSpan,
+					hostCallLimit: SANDBOX_LIMITS.hostCalls.total,
+					expiresAt: (yield* Clock.currentTimeMillis) + 60_000,
+					apiFunctions: { httpCall: () => Effect.succeed(hostSuccess(null)) },
+				});
+				for (let index = 0; index < SANDBOX_LIMITS.hostCalls.http; index += 1) {
+					yield* Effect.tryPromise(() => requestBridge(bridge, executionId, undefined, "httpCall"));
+				}
+
+				const rejected = yield* Effect.tryPromise(() =>
+					requestBridge(bridge, executionId, undefined, "httpCall"),
+				);
+				expect(yield* Effect.tryPromise(() => rejected.json())).toMatchObject({
+					result: {
+						success: false,
+						data: { operation: "httpCall", code: "execution-limit" },
+						error: expect.stringContaining(`${SANDBOX_LIMITS.hostCalls.http} httpCall calls`),
+					},
+				});
+			}).pipe(Effect.scoped, Effect.withSpan("sandbox-http-limit-test")),
+		);
+	});
+
+	layer(BridgeService.layer)((test) => {
 		test.effect(
 			"rejects stdin bootstrap arguments before journal reads and consumes the failed attempt",
 			() =>
@@ -111,8 +162,12 @@ describe("sandbox bridge host-call concurrency", () => {
 					const exhausted = yield* Effect.tryPromise(() =>
 						requestBridge(bridge, "bootstrap-arguments", "unused", "replayJournal"),
 					);
-					expect(yield* Effect.tryPromise(() => exhausted.json())).toEqual({
-						result: { success: false, error: "Sandbox execution exceeds 2 host calls" },
+					expect(yield* Effect.tryPromise(() => exhausted.json())).toMatchObject({
+						result: {
+							success: false,
+							data: { code: "execution-limit" },
+							error: expect.stringContaining("exceeds 2 host calls"),
+						},
 					});
 					expect(reads).toBe(1);
 				}).pipe(Effect.scoped, Effect.withSpan("bootstrap-argument-test")),
@@ -145,8 +200,12 @@ describe("sandbox bridge host-call concurrency", () => {
 				const exhausted = yield* Effect.tryPromise(() =>
 					requestBridge(bridge, "stdin-bootstrap", "stdin-token"),
 				);
-				expect(yield* Effect.tryPromise(() => exhausted.json())).toEqual({
-					result: { success: false, error: "Sandbox execution exceeds 1 host calls" },
+				expect(yield* Effect.tryPromise(() => exhausted.json())).toMatchObject({
+					result: {
+						success: false,
+						data: { code: "execution-limit" },
+						error: expect.stringContaining("exceeds 1 host calls"),
+					},
 				});
 				expect(calls).toBe(1);
 			}).pipe(Effect.scoped, Effect.withSpan("stdin-bootstrap-test")),

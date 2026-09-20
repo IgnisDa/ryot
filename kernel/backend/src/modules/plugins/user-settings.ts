@@ -15,3 +15,14 @@ export const resolvePluginUserSettings = Effect.fn("resolvePluginUserSettings")(
 	});
 	return yield* Schema.decodeUnknownEffect(Schema.Record(Schema.String, JsonValue))(parsed);
 });
+
+export const resolveStoredPluginUserSettings = Effect.fn("resolveStoredPluginUserSettings")(
+	function* (settingsSchema: AppSchema, values: Readonly<Record<string, unknown>>) {
+		return yield* resolvePluginUserSettings(
+			settingsSchema,
+			Object.fromEntries(
+				Object.entries(values).filter(([key]) => Object.hasOwn(settingsSchema.fields, key)),
+			),
+		);
+	},
+);

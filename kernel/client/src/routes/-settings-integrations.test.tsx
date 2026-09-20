@@ -96,15 +96,22 @@ const ownershipSyncCommonSchema = {
 } satisfies IntegrationProviderItem["commonSchema"];
 
 const komgaProvider: IntegrationProviderItem = {
+	plan: null,
 	lot: "yank",
 	slug: "komga",
 	name: "Komga",
 	isCreatable: true,
+	scriptSlug: "komga",
 	pluginSlug: "media",
+	pluginScope: "system",
 	requiresProKey: false,
+	readinessMetadata: null,
+	readinessConnections: [],
 	supportsOwnershipSync: true,
+	installationId: "media-installation",
 	commonSchema: ownershipSyncCommonSchema,
 	description: "Import progress and ownership from Komga",
+	readiness: { plan: null, ready: true, blockReasons: [] },
 	settingsSchema: {
 		fields: {
 			baseUrl: { ...described("Base URL"), type: "string", validation: { required: true } },
@@ -119,16 +126,43 @@ const komgaProvider: IntegrationProviderItem = {
 };
 
 const kodiProvider: IntegrationProviderItem = {
+	plan: null,
 	lot: "sink",
 	slug: "kodi",
 	name: "Kodi",
 	commonSchema,
 	isCreatable: true,
+	scriptSlug: "kodi",
 	pluginSlug: "media",
+	pluginScope: "system",
 	requiresProKey: false,
+	readinessMetadata: null,
+	readinessConnections: [],
 	supportsOwnershipSync: false,
 	settingsSchema: { fields: {} },
+	installationId: "media-installation",
 	description: "Receive Kodi playback webhooks",
+	readiness: { plan: null, ready: true, blockReasons: [] },
+};
+
+const blockedProvider: IntegrationProviderItem = {
+	...komgaProvider,
+	pluginScope: "user",
+	readinessMetadata: {
+		workflows: [],
+		oauthProviders: [],
+		availableConfigKeys: [],
+		scripts: [
+			{
+				capabilities: [],
+				oauthConnectionFields: [],
+				executableDependencies: [],
+				optionalPluginConfigKeys: [],
+				slug: komgaProvider.scriptSlug ?? "komga",
+				requiredPluginConfigKeys: ["CLIENT_ID", "CLIENT_SECRET"],
+			},
+		],
+	},
 };
 
 const makeSummary = (overrides: Partial<IntegrationSummary> = {}): IntegrationSummary => ({
@@ -252,12 +286,16 @@ const makeIntegrationQueries = (
 
 const completedRun = {
 	progress: 100,
+	activities: [],
 	totalItems: 12,
 	failedItems: 0,
 	source: "komga",
+	blockReasons: [],
 	inputSummary: {},
 	importedItems: 12,
+	expiryReason: null,
 	processedItems: 12,
+	blockDeadline: null,
 	failureReason: null,
 	status: "completed",
 	id: ImportRunId.make("run_1"),
@@ -265,6 +303,13 @@ const completedRun = {
 	updatedAt: "2026-08-23T11:05:00.000Z",
 	startedAt: "2026-08-23T11:00:10.000Z",
 	finishedAt: "2026-08-23T11:05:00.000Z",
+	summary: [
+		{
+			unit: "reading events",
+			recordKind: "reading-event",
+			counts: { updated: 0, skipped: 0, created: 12, unchanged: 0, unsuccessful: 0 },
+		},
+	],
 };
 
 const mountView = (
@@ -315,6 +360,26 @@ const mountView = (
 };
 
 describe("integrations list", () => {
+	it.live("shows all exact-installation setup reasons before a provider can be chosen", () =>
+		Effect.gen(function* () {
+			mountView(
+				"/settings/integrations",
+				makeIntegrationsApi(),
+				makeIntegrationQueries({ providers: () => Effect.succeed([blockedProvider]) }),
+			);
+			fireEvent.click(
+				yield* Effect.promise(() => screen.findByRole("button", { name: "Connect a service" })),
+			);
+			yield* Effect.promise(() =>
+				screen.findByText(
+					"Set CLIENT_ID in this plugin installation. Set CLIENT_SECRET in this plugin installation.",
+				),
+			);
+			expect(
+				screen.getByRole("button", { name: "Komga is unavailable" }).hasAttribute("disabled"),
+			).toBe(true);
+		}),
+	);
 	it.live("keeps demo summaries visible while disabling protected actions", () =>
 		Effect.gen(function* () {
 			mountView(
@@ -626,11 +691,15 @@ describe("integration detail", () => {
 			yield* Effect.promise(() => screen.findByRole("heading", { level: 1, name: "Kodi" }));
 			expect(screen.getByText(`${window.location.origin}/_i/webhook-token-1`)).not.toBeNull();
 			expect(screen.getByRole("img", { name: "Completed" })).not.toBeNull();
-			expect(screen.getByText("12 added")).not.toBeNull();
+			expect(
+				screen.getByText(
+					"reading events: 12 created · 0 updated · 0 unchanged · 0 skipped · 0 unsuccessful",
+				),
+			).not.toBeNull();
 		}),
 	);
 
-	it.live("saves edited settings through the update endpoint", () =>
+	it.live("permits setup corrections when existing integration readiness is blocked", () =>
 		Effect.gen(function* () {
 			const saved: UpdateIntegrationBody[] = [];
 			let stored = makeDetail();
@@ -643,7 +712,10 @@ describe("integration detail", () => {
 						return Effect.succeed({ id: stored.id });
 					},
 				}),
-				makeIntegrationQueries({ detail: () => Effect.succeed(stored) }),
+				makeIntegrationQueries({
+					detail: () => Effect.succeed(stored),
+					providers: () => Effect.succeed([blockedProvider]),
+				}),
 			);
 
 			fireEvent.change(yield* Effect.promise(() => screen.findByLabelText("Name")), {

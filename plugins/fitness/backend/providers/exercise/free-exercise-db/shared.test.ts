@@ -1,14 +1,11 @@
 import type { JsonValue } from "@ryot-app/contract/modules/ryotql/language";
-import type { SandboxHost } from "@ryot-app/sandbox-sdk/core";
 import { Effect } from "@ryot-app/sandbox-sdk/effect";
 import { defineSandboxTestHost } from "@ryot-app/sandbox-sdk/testing";
 import { assert, describe, expect, it } from "vitest";
 
-import details, { manifest as detailsManifest } from "./details.sandbox";
-import resolve, { manifest as resolveManifest } from "./resolve.sandbox";
+import details from "./details.sandbox";
+import resolve from "./resolve.sandbox";
 import search, { manifest as searchManifest } from "./search.sandbox";
-
-type ExerciseHost = SandboxHost<typeof searchManifest.capabilities>;
 
 const CACHE_KEY = "free-exercise-db:normalized:v1";
 const IMAGES_PREFIX_URL =
@@ -58,7 +55,7 @@ const makeStatefulHost = (
 	const setCalls: SetCall[] = [];
 	let httpCallCount = 0;
 
-	const host: ExerciseHost = defineSandboxTestHost(searchManifest, {
+	const host = defineSandboxTestHost(searchManifest, {
 		getCachedValue: (key) => Effect.succeed(cache.get(key) ?? null),
 		httpCall: (_method, url) => {
 			expect(new URL(url).host).toBe("raw.githubusercontent.com");
@@ -82,15 +79,6 @@ const execution = {
 };
 
 describe("exercise.free-exercise-db sandbox script", () => {
-	it("uses matching narrow capabilities for all provider operations", () => {
-		expect(searchManifest.capabilities).toEqual(["httpCall", "getCachedValue", "setCachedValue"]);
-		expect(detailsManifest.capabilities).toEqual(searchManifest.capabilities);
-		expect(resolveManifest.capabilities).toEqual(searchManifest.capabilities);
-		expect(searchManifest.requiredPluginConfigKeys).toEqual([]);
-		expect(detailsManifest.requiredPluginConfigKeys).toEqual([]);
-		expect(resolveManifest.requiredPluginConfigKeys).toEqual([]);
-	});
-
 	it("fetches, normalizes and writes chunk + metadata cache entries on a cache miss", () => {
 		const { host, setCalls, httpCallCount } = makeStatefulHost();
 

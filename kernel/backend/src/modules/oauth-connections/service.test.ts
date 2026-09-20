@@ -1,3 +1,4 @@
+import { BunServices } from "@effect/platform-bun";
 import { assert, describe, expect, layer } from "@effect/vitest";
 import type { CurrentUserValue } from "@ryot-app/contract/auth-middleware";
 import type { OAuthConnectionClient } from "@ryot-app/contract/modules/oauth-connections/schemas";
@@ -24,19 +25,31 @@ import { WorkflowEngine } from "effect/unstable/workflow/WorkflowEngine";
 
 import * as tables from "#lib/infrastructure/db/schema/tables/combined";
 import { DatabaseSession } from "#lib/infrastructure/db/session";
+import { HmacSigner } from "#lib/infrastructure/hmac-signer";
+import { LocalStorageService } from "#lib/infrastructure/local-storage";
 import { ProKeyService } from "#lib/infrastructure/pro-key";
+import { S3Service } from "#lib/infrastructure/s3";
 import { makeAppConfigLayer, makeWorkflowEngine } from "#lib/test-utils/effect";
+import { ingestionRetirementTestLayer } from "#lib/test-utils/ingestion-retirement";
+import { integrationCrudIngestionLayer } from "#lib/test-utils/integration-crud";
 import { DataImportAdmission } from "#modules/imports/data-admission";
+import { ImportsRepository } from "#modules/imports/repository";
 import { ImportsService } from "#modules/imports/service";
 import { IntegrationsRepository } from "#modules/integrations/repository";
 import { IntegrationsService } from "#modules/integrations/service";
+import { AdmittedWorkflowCatalogue } from "#modules/mutations/workflow-catalogue";
+import { PluginConfigRevisions } from "#modules/plugins/config-revisions";
+import { ImportSourceCatalog } from "#modules/plugins/import-source-catalog";
+import { IngestionReadinessService } from "#modules/plugins/ingestion-readiness-service";
 import { PluginInstallationRepository } from "#modules/plugins/installation-repository";
 import { IntegrationProviderCatalog } from "#modules/plugins/integration-provider-catalog";
+import { PluginRepository } from "#modules/plugins/repository";
 import {
 	installRevisionPackage,
 	oauthRevisionPackage,
 	revisionDatabaseLayer,
 } from "#modules/plugins/revision.test-support";
+import { ObjectStorageService } from "#modules/uploads/object-storage/service";
 
 import { OAuthConnectionsRepository } from "./repository";
 import { OAUTH_ACCESS_TOKEN_MESSAGES, OAuthConnectionsService } from "./service";
@@ -125,6 +138,20 @@ const serviceLayer = Layer.mergeAll(
 		Layer.provide(
 			Layer.mergeAll(
 				IntegrationsRepository.layer,
+				ImportsRepository.layer,
+				integrationCrudIngestionLayer.pipe(
+					Layer.provideMerge(ingestionRetirementTestLayer),
+					Layer.provide(ObjectStorageService.layer),
+					Layer.provide(Layer.succeed(AdmittedWorkflowCatalogue, Object.freeze([]))),
+					Layer.provide(
+						Layer.mergeAll(
+							S3Service.layer,
+							LocalStorageService.layer.pipe(Layer.provide(HmacSigner.layer)),
+						),
+					),
+					Layer.provide(BunServices.layer),
+					Layer.provide(Layer.succeed(WorkflowEngine, makeWorkflowEngine())),
+				),
 				Layer.mock(DataImportAdmission)({}),
 				Layer.mock(ImportsService)({}),
 				Layer.succeed(WorkflowEngine, makeWorkflowEngine()),
@@ -135,8 +162,10 @@ const serviceLayer = Layer.mergeAll(
 	IntegrationsRepository.layer,
 ).pipe(
 	Layer.provideMerge(OAuthConnectionsService.layer),
+	Layer.provideMerge(Layer.effect(IngestionReadinessService, IngestionReadinessService.make)),
 	Layer.provideMerge(
 		Layer.mergeAll(
+			ImportSourceCatalog.layer,
 			IntegrationProviderCatalog.layer,
 			OAuthConnectionsRepository.layer,
 			OAuthTokenClient.layer.pipe(Layer.provide(fakeHttpClientLayer)),
@@ -213,17 +242,32 @@ const startRun = Effect.fn(function* (
 		db.select().from(tables.integration).where(eq(tables.integration.id, integrationId)),
 	);
 	assert(integration);
+	assert(integration.pluginInstallationId);
+	const resolved = yield* (yield* IntegrationProviderCatalog).resolveOwnedForUser(
+		UserId.make(integration.userId),
+		integration.provider,
+		integration.pluginInstallationId,
+	);
+	assert(resolved?.script);
 	const runId = ImportRunId.make(`run-${crypto.randomUUID()}`);
+	const pins = {
+		executionId: runId,
+		scriptId: resolved.script.id,
+		pluginRevisionId: resolved.provider.configContext.pluginRevisionId,
+		pluginConfigRevisionId: resolved.provider.configContext.pluginConfigRevisionId,
+	};
 	yield* session.run((db) =>
 		db
 			.insert(tables.importRun)
 			.values({
+				pins,
 				status,
 				id: runId,
 				integrationId,
 				integrationLot: "yank",
 				userId: integration.userId,
 				source: integration.provider,
+				accountGeneration: "test-account-generation",
 				pluginInstallationId: integration.pluginInstallationId,
 			}),
 	);
@@ -266,6 +310,37 @@ const isolated = <A, E>(
 ) => layer(serviceLayer)((test) => test.effect(name, body));
 
 describe("OAuth connections", () => {
+	isolated("connects private OAuth providers through their own installation configuration", () =>
+		Effect.gen(function* () {
+			const installed = yield* installRevisionPackage(
+				oauthRevisionPackage("oauth-test", "oauth-yank"),
+				owner,
+			);
+			const missing = yield* Effect.flip(
+				authorize(owner).pipe(
+					Effect.provideService(ConfigProvider.ConfigProvider, environmentConfig),
+				),
+			);
+			expect(missing).toMatchObject({ reason: { code: "oauth-client-not-configured" } });
+			yield* (yield* PluginInstallationRepository).updateState({
+				sortOrder: 0,
+				isHidden: false,
+				id: installed.installation.id,
+				config: { clientId: "private-client", clientSecret: "private-secret" },
+			});
+			const connectionId = yield* connect(owner);
+			const { id: integrationId } = yield* createIntegration(owner, { account: connectionId });
+			const integrationRunId = yield* startRun(integrationId);
+			expect(
+				(yield* accessToken({ integrationId, integrationRunId, pluginId: installed.pluginId }))
+					.accessToken,
+			).toBe("access-1");
+			expect((yield* (yield* FakeTokenEndpoint).requests)[0]?.authorization).toBe(
+				`Basic ${Buffer.from("private-client:private-secret").toString("base64")}`,
+			);
+		}),
+	);
+
 	isolated("connects an account and hands its access token to the running integration", () =>
 		Effect.gen(function* () {
 			const installed = yield* installOAuthPlugin("oauth-test", "oauth-yank");
@@ -503,45 +578,104 @@ describe("OAuth connections", () => {
 				(yield* accessToken({ integrationId, integrationRunId, pluginId: installed.pluginId }))
 					.accessToken,
 			).toBe("access-1");
+			yield* (yield* DatabaseSession).run((db) =>
+				db
+					.update(tables.importRun)
+					.set({ pins: null })
+					.where(eq(tables.importRun.id, integrationRunId)),
+			);
+			expect(
+				(yield* Effect.flip(
+					accessToken({ integrationId, integrationRunId, pluginId: installed.pluginId }),
+				)).message,
+			).toBe(OAUTH_ACCESS_TOKEN_MESSAGES.unavailable);
 		}),
 	);
 
-	isolated("refreshes once under a shared lease and persists the rotated refresh token", () =>
+	isolated(
+		"refreshes with accepted config under a shared lease and persists the rotated refresh token",
+		() =>
+			Effect.gen(function* () {
+				const installed = yield* installOAuthPlugin("oauth-test", "oauth-yank");
+				const endpoint = yield* FakeTokenEndpoint;
+				const run = yield* connectedIntegration(issuedTokens({ expires_in: 30 }));
+				const input = { ...run, pluginId: installed.pluginId };
+				const changedConfig = yield* (yield* PluginConfigRevisions).create({
+					ownerUserId: null,
+					scope: "environment",
+					pluginInstallationId: null,
+					pluginRevisionId: installed.revisionId,
+					properties: { clientId: "changed-client", clientSecret: "changed-secret" },
+				});
+				yield* (yield* PluginRepository).setEnvironmentConfigRevision(
+					installed.pluginId,
+					changedConfig,
+				);
+				const entered = yield* Deferred.make<void>();
+				const release = yield* Deferred.make<void>();
+				yield* endpoint.respond((form) =>
+					Deferred.succeed(entered, undefined).pipe(
+						Effect.andThen(Deferred.await(release)),
+						Effect.as(
+							issuedTokens({
+								access_token: `access-for-${form.get("refresh_token")}`,
+								refresh_token: `rotated-from-${form.get("refresh_token")}`,
+							}),
+						),
+					),
+				);
+
+				const first = yield* Effect.forkChild(accessToken(input));
+				yield* Deferred.await(entered);
+				const second = yield* Effect.forkChild(accessToken(input));
+				yield* Deferred.succeed(release, undefined);
+				expect((yield* Fiber.join(first)).accessToken).toBe("access-for-refresh-1");
+				while (second.pollUnsafe() === undefined) {
+					yield* TestClock.adjust("250 millis");
+					yield* TestClock.withLive(Effect.sleep("5 millis"));
+				}
+				expect((yield* Fiber.join(second)).accessToken).toBe("access-for-refresh-1");
+
+				yield* TestClock.adjust("2 hours");
+				expect((yield* accessToken(input)).accessToken).toBe("access-for-rotated-from-refresh-1");
+				expect(
+					(yield* endpoint.requests).map(
+						({ form }) => form.get("refresh_token") ?? form.get("code"),
+					),
+				).toEqual(["auth-code-1", "refresh-1", "rotated-from-refresh-1"]);
+				expect((yield* endpoint.requests).map(({ authorization }) => authorization)).toEqual([
+					`Basic ${Buffer.from("client-1:client-secret-1").toString("base64")}`,
+					`Basic ${Buffer.from("client-1:client-secret-1").toString("base64")}`,
+					`Basic ${Buffer.from("client-1:client-secret-1").toString("base64")}`,
+				]);
+			}),
+	);
+
+	isolated("uses retained OAuth declarations after the current provider is removed", () =>
 		Effect.gen(function* () {
 			const installed = yield* installOAuthPlugin("oauth-test", "oauth-yank");
-			const endpoint = yield* FakeTokenEndpoint;
 			const run = yield* connectedIntegration(issuedTokens({ expires_in: 30 }));
-			const input = { ...run, pluginId: installed.pluginId };
-			const entered = yield* Deferred.make<void>();
-			const release = yield* Deferred.make<void>();
-			yield* endpoint.respond((form) =>
-				Deferred.succeed(entered, undefined).pipe(
-					Effect.andThen(Deferred.await(release)),
-					Effect.as(
-						issuedTokens({
-							access_token: `access-for-${form.get("refresh_token")}`,
-							refresh_token: `rotated-from-${form.get("refresh_token")}`,
-						}),
-					),
-				),
-			);
-
-			const first = yield* Effect.forkChild(accessToken(input));
-			yield* Deferred.await(entered);
-			const second = yield* Effect.forkChild(accessToken(input));
-			yield* Deferred.succeed(release, undefined);
-			expect((yield* Fiber.join(first)).accessToken).toBe("access-for-refresh-1");
-			while (second.pollUnsafe() === undefined) {
-				yield* TestClock.adjust("250 millis");
-				yield* TestClock.withLive(Effect.sleep("5 millis"));
-			}
-			expect((yield* Fiber.join(second)).accessToken).toBe("access-for-refresh-1");
-
-			yield* TestClock.adjust("2 hours");
-			expect((yield* accessToken(input)).accessToken).toBe("access-for-rotated-from-refresh-1");
+			const next = oauthRevisionPackage("oauth-test", "oauth-yank");
+			yield* installRevisionPackage({
+				...next,
+				sourceHash: "oauth-next",
+				manifest: {
+					...next.manifest,
+					oauthProviders: [],
+					integrationProviders: [],
+					metadata: { ...next.manifest.metadata, version: "next" },
+				},
+			});
 			expect(
-				(yield* endpoint.requests).map(({ form }) => form.get("refresh_token") ?? form.get("code")),
-			).toEqual(["auth-code-1", "refresh-1", "rotated-from-refresh-1"]);
+				yield* (yield* IntegrationProviderCatalog).findOwnedForUser(
+					owner,
+					"oauth-yank",
+					installed.installation.id,
+				),
+			).toBeNull();
+			expect((yield* accessToken({ ...run, pluginId: installed.pluginId })).accessToken).toBe(
+				"access-1",
+			);
 		}),
 	);
 

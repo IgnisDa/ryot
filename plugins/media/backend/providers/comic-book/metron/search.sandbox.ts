@@ -7,8 +7,6 @@ export const manifest = defineManifest({
 	kind: "provider",
 	name: "Metron Search",
 	slug: "comic-book.metron.search",
-	capabilities: ["httpCall", "getPluginConfig"],
-	requiredPluginConfigKeys: ["metronUsername", "metronPassword"],
 });
 
 export default defineProvider({ manifest, run: search.run, operation: "search" });

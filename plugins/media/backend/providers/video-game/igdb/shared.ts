@@ -15,13 +15,7 @@ import {
 	toSlug,
 } from "../../../lib/vendors/igdb";
 
-export const manifest = defineManifest({
-	name: "IGDB",
-	kind: "provider",
-	slug: "video-game.igdb",
-	requiredPluginConfigKeys: ["twitchClientId", "twitchClientSecret"],
-	capabilities: ["httpCall", "getPluginConfig", "getCachedValue", "setCachedValue"],
-});
+export const manifest = defineManifest({ name: "IGDB", kind: "provider", slug: "video-game.igdb" });
 const IMAGE_BASE_URL = "https://images.igdb.com/igdb/image/upload/t_cover_big";
 const stringArray = Schema.Array(Schema.String);
 const igdbSearchOptionsSchema = strictStruct({

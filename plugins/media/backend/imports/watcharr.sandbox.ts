@@ -1,27 +1,27 @@
 import { defineManifest, defineScript } from "@ryot-app/sandbox-sdk/driver";
-import { Effect } from "@ryot-app/sandbox-sdk/effect";
-import { readNamedArtifact } from "@ryot-app/sandbox-sdk/filesystem";
 
-import { MediaImportAdapterBatch, MediaImportParserInput } from "./schemas";
+import { collectMediaJson } from "./collection";
+import { MediaSourceInput, MediaSourceOutput } from "./collection-schemas";
 import { adaptWatcharrExportBatch } from "./watcharr";
 
 export const manifest = defineManifest({
 	kind: "script",
 	slug: "import.watcharr",
-	requiredPluginConfigKeys: [],
-	name: "Parse Watcharr import",
-	capabilities: ["artifact-read"],
+	name: "Collect Watcharr export",
 });
-
-const decoder = new TextDecoder();
-
 export default defineScript({
 	manifest,
-	input: MediaImportParserInput,
-	output: MediaImportAdapterBatch,
+	input: MediaSourceInput,
+	output: MediaSourceOutput,
 	run: (input) =>
-		readNamedArtifact("uploadToken").pipe(
-			Effect.map(decoder.decode.bind(decoder)),
-			Effect.map((text) => adaptWatcharrExportBatch(text, input.start, input.limit)),
+		collectMediaJson("watcharr", input, (rows, eventOffset) =>
+			adaptWatcharrExportBatch(
+				JSON.stringify(rows),
+				0,
+				rows.length,
+				input.importedAt,
+				eventOffset,
+				128,
+			),
 		),
 });

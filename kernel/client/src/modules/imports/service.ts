@@ -3,6 +3,8 @@ import type { ContractRequest } from "@ryot-app/contract/client";
 import { ImportRunId } from "@ryot-app/contract/schema/brands";
 import {
 	importRunRecipe,
+	importIssuesRecipe,
+	type ImportIssuesPage,
 	manualImportRunsRecipe,
 	type ImportRunDetail,
 	type ImportRunList,
@@ -19,7 +21,12 @@ import type { KernelRyotClient } from "#/api/ryot-client";
 import type { KernelHostServices } from "#/host-services";
 
 export const IMPORT_RUNS_PAGE_SIZE = 20;
-export const IMPORT_FAILURES_PAGE_SIZE = 25;
+
+export const importIssuesQuery = createRyotQuery<
+	Parameters<typeof importIssuesRecipe>[0],
+	ImportIssuesPage,
+	KernelHostServices
+>(({ input, client }) => client.data.query(importIssuesRecipe(input)));
 
 type ImportsClient = Pick<KernelRyotClient, "data">;
 
@@ -40,10 +47,10 @@ export class ImportsService extends Context.Service<ImportsService>()("ImportsSe
 		});
 		const loadRun = Effect.fn("ImportsService.loadRun")(function* (
 			client: ImportsClient,
-			input: { readonly runId: string; readonly failureLimit: number },
+			input: Parameters<typeof importRunRecipe>[0],
 		) {
 			return yield* client.data
-				.query(importRunRecipe({ runId: input.runId, failureLimit: input.failureLimit }))
+				.query(importRunRecipe(input))
 				.pipe(Effect.mapError((cause) => new ImportsLoadError({ cause, stage: "run" })));
 		});
 
@@ -63,7 +70,7 @@ export const importRunsQuery = createRyotQuery<
 );
 
 export const importRunQuery = createRyotQuery<
-	{ readonly runId: string; readonly failureLimit: number },
+	Parameters<typeof importRunRecipe>[0],
 	ImportRunDetail,
 	KernelHostServices,
 	ImportsLoadError
@@ -98,6 +105,27 @@ export const importSourcesQuery = createRyotQuery<
 export type ImportSourceItem = Omit<ImportSourcesPage["items"][number], "id" | "exportHelp"> & {
 	readonly exportHelp?: NonNullable<ImportSourcesPage["items"][number]["exportHelp"]>;
 };
+
+export const selectedImportReadinessQuery = createRyotQuery<
+	NonNullable<Parameters<typeof importSourcesRecipe>[0]["selected"]>,
+	ImportSourcesPage["items"][number] | undefined,
+	KernelHostServices
+>(({ input, client }) =>
+	Effect.gen(function* () {
+		let after: string | undefined;
+		do {
+			const page = yield* client.data.query(
+				importSourcesRecipe({ after, limit: 100, selected: input }),
+			);
+			const source = page.items.find((item) => item.slug === input.slug);
+			if (source !== undefined) {
+				return source;
+			}
+			after = page.pageInfo.nextCursor ?? undefined;
+		} while (after !== undefined);
+		return undefined;
+	}),
+);
 
 type CreateRunPayload = ContractRequest<"imports", "createRun">["payload"];
 

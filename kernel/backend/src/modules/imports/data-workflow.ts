@@ -1,6 +1,7 @@
 import { unknownToMessage } from "@ryot-app/contract/errors";
 import { LifecycleCommand } from "@ryot-app/contract/modules/automations/lifecycle";
 import { DataJsonDocument, dataJsonSource } from "@ryot-app/contract/modules/imports/data-json";
+import { IngestionBatch, type IngestionScope } from "@ryot-app/contract/modules/imports/ingestion";
 import { importRunFailureStages } from "@ryot-app/contract/modules/imports/types";
 import {
 	EntityId,
@@ -20,6 +21,7 @@ import {
 	requiredReference,
 	rewritePropertyReferences,
 } from "#lib/domain/data-references";
+import { DatabaseSession } from "#lib/infrastructure/db/session";
 import { implementWorkflow, makeActivity } from "#lib/infrastructure/workflow-scope";
 import { DefinitionRepository } from "#modules/definition-registry/repository";
 import { DefinitionSnapshot, definitionLookup } from "#modules/definition-registry/snapshot";
@@ -35,6 +37,9 @@ import {
 import { RelationshipsService } from "#modules/relationships/service";
 import { ManagedAssetsService } from "#modules/uploads/managed-assets/service";
 
+import { IngestionOperation, reconcileIngestionBatch } from "./batch-results";
+import { IngestionCaptures } from "./capture-service";
+import { maximumDocumentBytes } from "./data-admission";
 import {
 	dataGraphDependencies,
 	dataGraphPropertiesSchema,
@@ -42,6 +47,7 @@ import {
 	orderDataGraph,
 	type DataGraphRecord,
 } from "./data-graph";
+import { IngestionExecution } from "./execution-service";
 import {
 	GenericImportEntity,
 	GenericImportProviderError,
@@ -50,13 +56,33 @@ import {
 	resolveProviderEntity,
 	runImportWriteStep,
 } from "./generic-import-workflow";
+import { ProcessImportRunWorkflow } from "./import-run-workflow";
+import { ingestionOperationCommand } from "./outcomes";
 import { ImportsRepository } from "./repository";
 import { ImportRunError, toWorkflowError } from "./runtime/workflow-errors";
 
-const recordCommand = (command: LifecycleCommand, key: string): LifecycleCommand => ({
-	...command,
-	itemIdentity: stableStringify([command.itemIdentity, "data-record", key]),
+const dataOperation = (scope: IngestionScope, item: DataGraphRecord): IngestionOperation => ({
+	recordKind: item.kind,
+	operationId: `data:${item.kind}:${item.record.key}`,
+	unit: { event: "events", entity: "entities", relationship: "relationships" }[item.kind],
+	itemIdentity: stableStringify(["ingestion", scope.runId, `data:${item.kind}:${item.record.key}`]),
+	attribution: {
+		recordId: item.record.key,
+		sourceLabel: dataJsonSource,
+		sourceIdentifier: item.record.key,
+	},
 });
+
+export const reconcileDataIngestionBatch = Effect.fn("imports.reconcileDataIngestionBatch")(
+	function* (scope: IngestionScope, batch: IngestionBatch) {
+		const repository = yield* ImportsRepository;
+		const capture = yield* repository.getCapture(scope, batch.captureId);
+		const operations = yield* Schema.decodeUnknownEffect(Schema.Array(IngestionOperation))(
+			capture?.checkpoint,
+		);
+		return yield* reconcileIngestionBatch(scope, batch, operations);
+	},
+);
 
 const DataImportPayload = Schema.Struct({
 	userId: UserId,
@@ -81,12 +107,12 @@ const DataImportCounters = Schema.Struct({
 const DataImportSegmentPayload = Schema.Struct({
 	userId: UserId,
 	runId: ImportRunId,
+	batch: IngestionBatch,
 	command: LifecycleCommand,
 	executionId: Schema.String,
 	snapshot: DefinitionSnapshot,
 	startingCounters: DataImportCounters,
 	failedKeys: Schema.Array(Schema.String),
-	records: Schema.Array(DataGraphRecordSchema),
 	entityIds: Schema.Record(Schema.String, Schema.String),
 	relationshipIds: Schema.Record(Schema.String, Schema.String),
 	entitySchemasByKey: Schema.Record(Schema.String, Schema.String),
@@ -115,239 +141,327 @@ class DataImportRecordError extends Schema.TaggedError<DataImportRecordError>()(
 
 const mapObject = (values: ReadonlyMap<string, string>) => Object.fromEntries(values);
 
-export const runDataImportWorkflow = Effect.fn("runDataImportWorkflow")(function* (
-	input: typeof DataImportPayload.Type,
-	executionId: string,
-) {
-	const repository = yield* ImportsRepository;
-	const definitionRepository = yield* DefinitionRepository;
-	const engine = yield* WorkflowEngine;
-	const receipts = yield* MutationReceipts.make;
-	const cancel = makeActivity({
-		error: ImportRunError,
-		name: "cancel-data-import",
-		execute: Effect.gen(function* () {
-			yield* repository.finishCancelled({
-				runId: input.runId,
-				finishedAt: yield* DateTime.nowAsDate,
-			});
-			yield* repository.releaseDataDocument(input.runId);
-		}).pipe(Effect.mapError(toWorkflowError)),
-	});
-	yield* Workflow.addFinalizer(() =>
-		Effect.flatMap(WorkflowInstance, (instance) =>
-			instance.interrupted ? cancel.pipe(Effect.catchCause(Effect.logError)) : Effect.void,
-		),
-	);
-	const execute = Effect.gen(function* () {
-		const start =
-			input.command.causation.source === "integration"
-				? "started"
-				: yield* makeActivity({
-						error: ImportRunError,
-						name: "start-data-import",
-						success: Schema.Literals(["started", "cancellation-requested", "preserved"]),
-						execute: repository
-							.markStarted({ runId: input.runId, startedAt: yield* DateTime.nowAsDate })
-							.pipe(Effect.mapError(toWorkflowError)),
-					});
-		if (start === "cancellation-requested") {
-			yield* cancel;
-			return;
+export const runDataImportWorkflow = Effect.fn("runDataImportWorkflow")(
+	function* (input: typeof DataImportPayload.Type, executionId: string) {
+		const repository = yield* ImportsRepository;
+		const definitionRepository = yield* DefinitionRepository;
+		const engine = yield* WorkflowEngine;
+		const receipts = yield* MutationReceipts.make;
+		if (!input.command.accountGeneration) {
+			return yield* new ImportRunError({ message: "Data ingestion account generation is missing" });
 		}
-		if (start === "preserved") {
-			return;
+		const scope = {
+			runId: input.runId,
+			userId: input.userId,
+			accountGeneration: input.command.accountGeneration,
+		};
+		const captures = yield* IngestionCaptures;
+		const execution = yield* IngestionExecution;
+		const database = yield* DatabaseSession;
+		const ownsSettlement = input.command.causation.source === "import";
+		const initial = yield* repository.getIngestionRun(scope).pipe(Effect.mapError(toWorkflowError));
+		if (!initial || ["completed", "failed", "cancelled", "expired"].includes(initial.status)) {
+			if (ownsSettlement) {
+				yield* execution.cleanup(scope);
+			}
+			return yield* Effect.void;
 		}
-		const document = yield* makeActivity({
+		const cancel = makeActivity({
 			error: ImportRunError,
-			success: DataJsonDocument,
-			name: "load-data-import-document",
-			execute: repository.getDataDocument(input).pipe(
-				Effect.filterOrFail(
-					(doc): doc is DataJsonDocument => doc !== null,
-					() => new ImportRunError({ message: "Data import document is unavailable" }),
-				),
-				Effect.mapError(toWorkflowError),
-			),
-		});
-		const snapshot = yield* makeActivity({
-			error: ImportRunError,
-			success: DefinitionSnapshot,
-			name: "resolve-data-import-definitions",
-			execute: definitionRepository
-				.getUserSnapshot(input.userId, { listed: false })
-				.pipe(Effect.mapError(toWorkflowError)),
-		});
-		const plan = orderDataGraph(document, snapshot);
-		const entityIds = new Map<string, string>();
-		const relationshipIds = new Map<string, string>();
-		const failedKeys = new Set<string>();
-		let processedItems = 0;
-		let failedItems = 0;
-		let importedItems = 0;
-		const totalItems =
-			document.entities.length + document.relationships.length + document.events.length;
-		for (let offset = 0; offset < plan.failures.length; offset += DATA_IMPORT_SEGMENT_SIZE) {
-			const batch = plan.failures.slice(offset, offset + DATA_IMPORT_SEGMENT_SIZE);
-			const batchProcessedItems = processedItems + batch.length;
-			const batchFailedItems = failedItems + batch.length;
-			const batchIndex = offset / DATA_IMPORT_SEGMENT_SIZE;
-			yield* makeActivity({
-				error: ImportRunError,
-				name: `report-data-record-failures-${batchIndex}`,
-				execute: Effect.gen(function* () {
-					for (const [index, failure] of batch.entries()) {
-						yield* Effect.logWarning("Data import record failed", {
-							message: failure.message,
-							key: failure.item.record.key,
-						});
-						yield* repository.createFailure({
-							runId: input.runId,
-							sourceLabel: dataJsonSource,
-							stage: "input_transformation",
-							itemIndex: processedItems + index,
-							sourceIdentifier: failure.item.record.key,
-							reason: { code: "input-transformation-failed" },
-							id: `${input.runId}:data:${processedItems + index}`,
-						});
-					}
-					yield* repository.updateProgress({
-						totalItems,
-						importedItems,
-						runId: input.runId,
-						failedItems: batchFailedItems,
-						processedItems: batchProcessedItems,
-						progress: totalItems > 0 ? Math.round((batchProcessedItems / totalItems) * 100) : 100,
-					});
-				}).pipe(Effect.mapError(toWorkflowError)),
-			});
-			for (const failure of batch) {
-				failedKeys.add(failure.item.record.key);
-			}
-			processedItems = batchProcessedItems;
-			failedItems = batchFailedItems;
-		}
-		for (
-			let offset = 0, segmentIndex = 0;
-			offset < plan.records.length;
-			offset += DATA_IMPORT_SEGMENT_SIZE
-		) {
-			const records = plan.records.slice(offset, offset + DATA_IMPORT_SEGMENT_SIZE);
-			const neededEntityKeys = new Set<string>();
-			const neededRelationshipKeys = new Set<string>();
-			const eventSubjectKeys = new Set<string>();
-			for (const item of records) {
-				if (item.kind === "event") {
-					eventSubjectKeys.add(item.record.entityKey);
-				}
-				const schema = dataGraphPropertiesSchema(item, plan.entitySchemasByKey, snapshot);
-				const dependencies = dataGraphDependencies(item, schema);
-				for (const key of dependencies.entityKeys) {
-					neededEntityKeys.add(key);
-				}
-				for (const key of dependencies.relationshipKeys) {
-					neededRelationshipKeys.add(key);
-				}
-			}
-			const dependencies = new Set([...neededEntityKeys, ...neededRelationshipKeys]);
-			const segmentExecutionId = `${executionId}-segment-${segmentIndex}`;
-			const result = yield* dispatchAdmittedWorkflow(
-				receipts,
-				engine,
-				ProcessDataImportSegmentWorkflow,
-				input.command.accountGeneration,
-				{
-					executionId: segmentExecutionId,
-					payload: {
-						records,
-						snapshot,
-						runId: input.runId,
-						userId: input.userId,
-						command: input.command,
-						executionId: segmentExecutionId,
-						failedKeys: [...failedKeys].filter((key) => dependencies.has(key)),
-						startingCounters: { totalItems, failedItems, importedItems, processedItems },
-						entityIds: mapObject(
-							new Map([...entityIds].filter(([key]) => neededEntityKeys.has(key))),
-						),
-						relationshipIds: mapObject(
-							new Map([...relationshipIds].filter(([key]) => neededRelationshipKeys.has(key))),
-						),
-						entitySchemasByKey: Object.fromEntries(
-							[...plan.entitySchemasByKey].filter(([key]) => eventSubjectKeys.has(key)),
-						),
-					},
-				},
-				(admission) => admission,
-				(execution) => execution,
-			).pipe(Effect.mapError(toWorkflowError));
-			for (const [key, value] of Object.entries(result.entityIds)) {
-				entityIds.set(key, value);
-			}
-			for (const [key, value] of Object.entries(result.relationshipIds)) {
-				relationshipIds.set(key, value);
-			}
-			for (const key of result.failedKeys) {
-				failedKeys.add(key);
-			}
-			processedItems = result.counters.processedItems;
-			importedItems = result.counters.importedItems;
-			failedItems = result.counters.failedItems;
-			segmentIndex++;
-		}
-		const settlement = yield* makeActivity({
-			error: ImportRunError,
-			name: "finish-data-import",
-			success: Schema.Literals(["settled", "cancellation-requested", "preserved"]),
+			name: "cancel-data-import",
 			execute: Effect.gen(function* () {
-				const outcome = yield* repository.finishCompleted({
-					totalItems,
-					failedItems,
-					importedItems,
-					progress: 100,
-					processedItems,
-					runId: input.runId,
-					finishedAt: yield* DateTime.nowAsDate,
-				});
-				yield* repository.releaseDataDocument(input.runId);
-				return outcome;
+				if (ownsSettlement) {
+					yield* execution.settle({
+						scope,
+						status: "cancelled",
+						reconcile: (batch) => reconcileDataIngestionBatch(scope, batch),
+					});
+				}
 			}).pipe(Effect.mapError(toWorkflowError)),
 		});
-		if (settlement === "cancellation-requested") {
-			yield* cancel;
-		}
-	});
-	yield* execute.pipe(
-		Effect.catchCause((cause) =>
-			Effect.flatMap(WorkflowInstance, (instance) => {
-				if (instance.suspended && Cause.hasInterruptsOnly(cause)) {
-					return Effect.failCause(cause);
-				}
-				return makeActivity({
-					error: ImportRunError,
-					name: "fail-data-import",
-					execute: Effect.gen(function* () {
-						yield* Effect.logError("Data import failed", cause);
-						const settlement = yield* repository.finishFailed({
-							runId: input.runId,
-							finishedAt: yield* DateTime.nowAsDate,
-							failureReason: { code: "input-transformation-failed" },
+		yield* Workflow.addFinalizer(() =>
+			Effect.flatMap(WorkflowInstance, (instance) =>
+				instance.interrupted ? cancel.pipe(Effect.catchCause(Effect.logError)) : Effect.void,
+			),
+		);
+		const execute = Effect.gen(function* () {
+			const start =
+				input.command.causation.source === "integration"
+					? "started"
+					: yield* makeActivity({
+							error: ImportRunError,
+							name: "start-data-import",
+							success: Schema.Literals(["started", "cancellation-requested", "preserved"]),
+							execute: Effect.gen(function* () {
+								if (
+									yield* repository.startIngestion({ scope, startedAt: yield* DateTime.nowAsDate })
+								) {
+									return "started" as const;
+								}
+								const run = yield* repository.getIngestionRun(scope);
+								return run?.status === "cancelling"
+									? ("cancellation-requested" as const)
+									: ("preserved" as const);
+							}).pipe(Effect.mapError(toWorkflowError)),
 						});
-						if (settlement === "cancellation-requested") {
-							yield* repository.finishCancelled({
-								runId: input.runId,
-								finishedAt: yield* DateTime.nowAsDate,
+			if (start === "cancellation-requested") {
+				yield* cancel;
+				return;
+			}
+			if (start === "preserved") {
+				return;
+			}
+			const document = yield* Schema.decodeEffect(Schema.fromJsonString(DataJsonDocument))(
+				new TextDecoder().decode(yield* captures.read(scope, "admitted-data", 32 * 1024 * 1024)),
+			).pipe(Effect.mapError(toWorkflowError));
+			const snapshot = yield* makeActivity({
+				error: ImportRunError,
+				success: DefinitionSnapshot,
+				name: "resolve-data-import-definitions",
+				execute: definitionRepository
+					.getUserSnapshot(input.userId, { listed: false })
+					.pipe(Effect.mapError(toWorkflowError)),
+			});
+			const plan = orderDataGraph(document, snapshot);
+			const registerBatch = Effect.fnUntraced(function* (
+				id: string,
+				ordinal: number,
+				records: ReadonlyArray<DataGraphRecord>,
+				operations: ReadonlyArray<IngestionOperation>,
+				ownerExecutionId: string,
+			) {
+				const capture = yield* captures.publish({
+					id,
+					scope,
+					state: "sealed",
+					phase: "application",
+					ordinal: ordinal + 64,
+					maxBytes: maximumDocumentBytes,
+					bytes: new TextEncoder().encode(stableStringify(records)),
+					checkpoint: yield* Schema.encodeUnknownEffect(Schema.Array(IngestionOperation))(
+						operations,
+					).pipe(Effect.flatMap(Schema.decodeUnknownEffect(Schema.Array(IngestionOperation)))),
+				});
+				if (!capture.payload) {
+					return yield* new ImportRunError({ message: "Data batch capture is missing" });
+				}
+				const batch = {
+					id,
+					ordinal,
+					summary: [],
+					captureId: id,
+					state: "pending" as const,
+					inputFingerprint: capture.payload.checksum,
+				};
+				let workflowName: string = ProcessDataImportSegmentWorkflow._tag;
+				if (ownerExecutionId === executionId) {
+					workflowName = ownsSettlement
+						? ProcessImportRunWorkflow._tag
+						: ProcessDataImportWorkflow._tag;
+				}
+				yield* database.transaction(
+					repository.registerBatch(
+						scope,
+						batch,
+						operations.map((operation) => operation.operationId),
+						{ workflowName, executionId: ownerExecutionId },
+					),
+				);
+				return batch;
+			});
+			const entityIds = new Map<string, string>();
+			const relationshipIds = new Map<string, string>();
+			const failedKeys = new Set<string>();
+			let processedItems = 0;
+			let failedItems = 0;
+			let importedItems = 0;
+			const totalItems =
+				document.entities.length + document.relationships.length + document.events.length;
+			for (let offset = 0; offset < plan.failures.length; offset += DATA_IMPORT_SEGMENT_SIZE) {
+				const batch = plan.failures.slice(offset, offset + DATA_IMPORT_SEGMENT_SIZE);
+				const batchProcessedItems = processedItems + batch.length;
+				const batchFailedItems = failedItems + batch.length;
+				const batchIndex = offset / DATA_IMPORT_SEGMENT_SIZE;
+				const operations = batch.map((failure, index) => ({
+					...dataOperation(scope, failure.item),
+					operationId: `data-plan:${offset + index}:${failure.item.record.key}`,
+				}));
+				const registered = yield* registerBatch(
+					`data-plan:${batchIndex}`,
+					batchIndex,
+					[],
+					operations,
+					executionId,
+				);
+				yield* makeActivity({
+					error: ImportRunError,
+					name: `report-data-record-failures-${batchIndex}`,
+					execute: Effect.gen(function* () {
+						for (const [index, failure] of batch.entries()) {
+							yield* Effect.logWarning("Data import record failed", {
+								message: failure.message,
+								key: failure.item.record.key,
 							});
+							const operation = operations[index];
+							if (operation) {
+								yield* database.transaction(
+									Effect.gen(function* () {
+										yield* repository.recordOutcome(scope, {
+											...operation,
+											receiptId: null,
+											result: "unsuccessful",
+											inputFingerprint: registered.inputFingerprint,
+											reason: { key: null, code: "input-transformation-failed" },
+										});
+										yield* repository.recordIssue(scope, {
+											severity: "error",
+											id: operation.operationId,
+											recordKind: operation.recordKind,
+											operationId: operation.operationId,
+											attribution: operation.attribution,
+											reason: { key: null, code: "input-transformation-failed" },
+										});
+									}),
+								);
+							}
 						}
-						yield* repository.releaseDataDocument(input.runId);
+						yield* reconcileDataIngestionBatch(scope, registered);
 					}).pipe(Effect.mapError(toWorkflowError)),
 				});
-			}),
-		),
-	);
-});
+				for (const failure of batch) {
+					failedKeys.add(failure.item.record.key);
+				}
+				processedItems = batchProcessedItems;
+				failedItems = batchFailedItems;
+			}
+			for (
+				let offset = 0, segmentIndex = 0;
+				offset < plan.records.length;
+				offset += DATA_IMPORT_SEGMENT_SIZE
+			) {
+				const records = plan.records.slice(offset, offset + DATA_IMPORT_SEGMENT_SIZE);
+				const neededEntityKeys = new Set<string>();
+				const neededRelationshipKeys = new Set<string>();
+				const eventSubjectKeys = new Set<string>();
+				for (const item of records) {
+					if (item.kind === "event") {
+						eventSubjectKeys.add(item.record.entityKey);
+					}
+					const schema = dataGraphPropertiesSchema(item, plan.entitySchemasByKey, snapshot);
+					const dependencies = dataGraphDependencies(item, schema);
+					for (const key of dependencies.entityKeys) {
+						neededEntityKeys.add(key);
+					}
+					for (const key of dependencies.relationshipKeys) {
+						neededRelationshipKeys.add(key);
+					}
+				}
+				const dependencies = new Set([...neededEntityKeys, ...neededRelationshipKeys]);
+				const segmentExecutionId = `${executionId}-segment-${segmentIndex}`;
+				const batch = yield* registerBatch(
+					`data-segment:${segmentIndex}`,
+					Math.ceil(plan.failures.length / DATA_IMPORT_SEGMENT_SIZE) + segmentIndex,
+					records,
+					records.map((record) => dataOperation(scope, record)),
+					segmentExecutionId,
+				);
+				const result = yield* dispatchAdmittedWorkflow(
+					receipts,
+					engine,
+					ProcessDataImportSegmentWorkflow,
+					input.command.accountGeneration,
+					{
+						executionId: segmentExecutionId,
+						payload: {
+							batch,
+							snapshot,
+							runId: input.runId,
+							userId: input.userId,
+							command: input.command,
+							executionId: segmentExecutionId,
+							failedKeys: [...failedKeys].filter((key) => dependencies.has(key)),
+							startingCounters: { totalItems, failedItems, importedItems, processedItems },
+							entityIds: mapObject(
+								new Map([...entityIds].filter(([key]) => neededEntityKeys.has(key))),
+							),
+							relationshipIds: mapObject(
+								new Map([...relationshipIds].filter(([key]) => neededRelationshipKeys.has(key))),
+							),
+							entitySchemasByKey: Object.fromEntries(
+								[...plan.entitySchemasByKey].filter(([key]) => eventSubjectKeys.has(key)),
+							),
+						},
+					},
+					(admission) => admission,
+					(dispatch) => dispatch,
+				).pipe(Effect.mapError(toWorkflowError));
+				for (const [key, value] of Object.entries(result.entityIds)) {
+					entityIds.set(key, value);
+				}
+				for (const [key, value] of Object.entries(result.relationshipIds)) {
+					relationshipIds.set(key, value);
+				}
+				for (const key of result.failedKeys) {
+					failedKeys.add(key);
+				}
+				processedItems = result.counters.processedItems;
+				importedItems = result.counters.importedItems;
+				failedItems = result.counters.failedItems;
+				segmentIndex++;
+			}
+			yield* database.transaction(repository.sealCollection(scope));
+			if (!ownsSettlement) {
+				return;
+			}
+			const settlement = yield* makeActivity({
+				error: ImportRunError,
+				success: Schema.Boolean,
+				name: "finish-data-import",
+				execute: execution
+					.settle({
+						scope,
+						status: "completed",
+						reconcile: (batch) => reconcileDataIngestionBatch(scope, batch),
+					})
+					.pipe(Effect.mapError(toWorkflowError)),
+			});
+			if (!settlement && (yield* repository.getIngestionRun(scope))?.status === "cancelling") {
+				yield* cancel;
+			}
+		});
+		yield* execute.pipe(
+			Effect.catchCause((cause) =>
+				Effect.flatMap(WorkflowInstance, (instance) => {
+					if (!ownsSettlement) {
+						return Effect.failCause(cause);
+					}
+					if (instance.suspended && Cause.hasInterruptsOnly(cause)) {
+						return Effect.failCause(cause);
+					}
+					return makeActivity({
+						error: ImportRunError,
+						name: "fail-data-import",
+						execute: Effect.gen(function* () {
+							yield* Effect.logError("Data import failed", cause);
+							yield* execution.settle({
+								scope,
+								status: "failed",
+								reconcile: (batch) => reconcileDataIngestionBatch(scope, batch),
+								failureReason: toWorkflowError(Cause.squash(cause)).reason ?? {
+									code: "input-transformation-failed",
+								},
+							});
+						}).pipe(Effect.mapError(toWorkflowError)),
+					});
+				}),
+			),
+		);
+		return yield* Effect.void;
+	},
+	(effect) => effect.pipe(Effect.mapError(toWorkflowError)),
+);
 
-const runDataImportSegmentWorkflow = Effect.fn("runDataImportSegmentWorkflow")(
+export const runDataImportSegmentWorkflow = Effect.fn("runDataImportSegmentWorkflow")(
 	function* (input: typeof DataImportSegmentPayload.Type) {
 		const receipts = yield* MutationReceipts.make;
 		yield* admitWorkflow(
@@ -357,6 +471,35 @@ const runDataImportSegmentWorkflow = Effect.fn("runDataImportSegmentWorkflow")(
 			input.executionId,
 		).pipe(Effect.mapError(toWorkflowError));
 		const repository = yield* ImportsRepository;
+		if (!input.command.accountGeneration) {
+			return yield* new ImportRunError({ message: "Data ingestion account generation is missing" });
+		}
+		const scope = {
+			runId: input.runId,
+			userId: input.userId,
+			accountGeneration: input.command.accountGeneration,
+		};
+		const captures = yield* IngestionCaptures;
+		const database = yield* DatabaseSession;
+		const records = yield* Schema.decodeEffect(
+			Schema.fromJsonString(Schema.Array(DataGraphRecordSchema)),
+		)(
+			new TextDecoder().decode(
+				yield* captures.read(scope, input.batch.captureId, maximumDocumentBytes),
+			),
+		);
+		yield* makeActivity({
+			error: ImportRunError,
+			name: "start-data-batch",
+			execute: database
+				.transaction(
+					Effect.gen(function* () {
+						yield* repository.advanceBatch(scope, input.batch.id, "preparing");
+						yield* repository.advanceBatch(scope, input.batch.id, "applying");
+					}),
+				)
+				.pipe(Effect.mapError(toWorkflowError)),
+		});
 		const entities = yield* EntitiesService;
 		const entityRepository = yield* EntitiesRepository;
 		const events = yield* EventsService;
@@ -373,36 +516,39 @@ const runDataImportSegmentWorkflow = Effect.fn("runDataImportSegmentWorkflow")(
 		let { failedItems, importedItems, processedItems } = input.startingCounters;
 		const { totalItems } = input.startingCounters;
 		const report = (
-			key: string,
+			item: DataGraphRecord,
 			failure: Pick<DataImportRecordError, "message" | "stage"> | null,
 		) =>
 			makeActivity({
 				error: ImportRunError,
-				name: `report-data-record-${processedItems}`,
+				name: `report-data-record-${item.record.key}`,
 				execute: Effect.gen(function* () {
 					if (failure !== null) {
 						yield* Effect.logWarning("Data import record failed", {
-							key,
+							key: item.record.key,
 							message: failure.message,
 						});
-						yield* repository.createFailure({
-							runId: input.runId,
-							stage: failure.stage,
-							sourceIdentifier: key,
-							sourceLabel: dataJsonSource,
-							itemIndex: processedItems - 1,
-							reason: failureReasonByStage[failure.stage],
-							id: `${input.runId}:data:${processedItems - 1}`,
-						});
+						const operation = dataOperation(scope, item);
+						yield* database.transaction(
+							Effect.gen(function* () {
+								yield* repository.recordIssue(scope, {
+									severity: "error",
+									id: operation.operationId,
+									recordKind: operation.recordKind,
+									operationId: operation.operationId,
+									attribution: operation.attribution,
+									reason: { key: null, code: failureReasonByStage[failure.stage].code },
+								});
+								yield* repository.recordOutcome(scope, {
+									...operation,
+									receiptId: null,
+									result: "unsuccessful",
+									inputFingerprint: input.batch.inputFingerprint,
+									reason: { key: null, code: failureReasonByStage[failure.stage].code },
+								});
+							}),
+						);
 					}
-					yield* repository.updateProgress({
-						totalItems,
-						failedItems,
-						importedItems,
-						processedItems,
-						runId: input.runId,
-						progress: totalItems > 0 ? Math.round((processedItems / totalItems) * 100) : 100,
-					});
 				}).pipe(Effect.mapError(toWorkflowError)),
 			});
 		const writeRecord = Effect.fnUntraced(function* (item: DataGraphRecord, index: number) {
@@ -457,12 +603,14 @@ const runDataImportSegmentWorkflow = Effect.fn("runDataImportSegmentWorkflow")(
 						new DataImportRecordError({ message: error.message, stage: "input_transformation" }),
 				),
 			);
-			const command = recordCommand(input.command, item.record.key);
+			const operation = dataOperation(scope, item);
+			const command = ingestionOperationCommand(input.command, operation.operationId);
 			if (item.kind === "entity") {
 				const record = item.record;
 				const intent: GenericImportWriteItem["entities"][number] = {
 					properties,
 					alias: record.key,
+					operationId: operation.operationId,
 					entitySchemaSlug: record.entitySchemaSlug,
 					name: record.kind === "custom" ? record.name : "",
 					...(record.kind === "existing" ? { existingOnly: true, entityId: record.entityId } : {}),
@@ -482,7 +630,7 @@ const runDataImportSegmentWorkflow = Effect.fn("runDataImportSegmentWorkflow")(
 								intent,
 								input.userId,
 								command,
-								`${input.runId}-data-provider-${index}`,
+								stableStringify([input.runId, "data-provider", item.record.key]),
 							)
 						: undefined;
 				if (record.kind === "provider" && entityId === undefined) {
@@ -502,12 +650,22 @@ const runDataImportSegmentWorkflow = Effect.fn("runDataImportSegmentWorkflow")(
 							entities
 								.commitMutation(pending)
 								.pipe(
-									Effect.map((step) => ({ ...step, result: { entityId: step.result.entity.id } })),
+									Effect.map((step) => ({
+										...step,
+										result: { result: "created" as const, entityId: step.result.entity.id },
+									})),
 								),
 					});
 					entityId = written.result.entityId;
 				}
 				if (record.kind !== "custom") {
+					if (record.kind === "provider") {
+						yield* entities.prepareReferenceStep({
+							entityId,
+							lifecycle: command,
+							userId: input.userId,
+						});
+					}
 					const selectedId = entityId;
 					yield* makeActivity({
 						error: ImportRunError,
@@ -580,6 +738,7 @@ const runDataImportSegmentWorkflow = Effect.fn("runDataImportSegmentWorkflow")(
 				const result = yield* events.create(
 					{
 						userId: input.userId,
+						itemIdentities: [command.itemIdentity],
 						payload: [
 							{
 								entityId,
@@ -601,10 +760,25 @@ const runDataImportSegmentWorkflow = Effect.fn("runDataImportSegmentWorkflow")(
 								: "database_commit",
 					});
 				}
+				const outcome = result.outcomes[0];
+				if (outcome?.status === "skipped_by_policy") {
+					yield* database.transaction(
+						repository.recordOutcome(scope, {
+							...operation,
+							receiptId: null,
+							result: "skipped",
+							reason: { key: null, code: outcome.reason },
+							inputFingerprint: input.batch.inputFingerprint,
+						}),
+					);
+				}
 			}
 			return undefined;
 		});
-		for (const item of input.records) {
+		for (const item of records) {
+			if ((yield* repository.getIngestionRun(scope))?.status !== "running") {
+				break;
+			}
 			const index = processedItems;
 			const result = yield* writeRecord(item, index).pipe(Effect.result);
 			processedItems++;
@@ -624,8 +798,15 @@ const runDataImportSegmentWorkflow = Effect.fn("runDataImportSegmentWorkflow")(
 			} else {
 				importedItems++;
 			}
-			yield* report(item.record.key, failure);
+			yield* report(item, failure);
 		}
+		yield* makeActivity({
+			error: ImportRunError,
+			name: "project-data-batch",
+			execute: reconcileDataIngestionBatch(scope, input.batch).pipe(
+				Effect.mapError(toWorkflowError),
+			),
+		});
 		return {
 			failedKeys: [...segmentFailedKeys],
 			entityIds: mapObject(segmentEntityIds),

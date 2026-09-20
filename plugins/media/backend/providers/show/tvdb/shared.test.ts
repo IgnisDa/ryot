@@ -1,4 +1,4 @@
-import type { SandboxHost } from "@ryot-app/sandbox-sdk/core";
+import type { ScriptHost } from "@ryot-app/sandbox-sdk/core";
 import { Effect } from "@ryot-app/sandbox-sdk/effect";
 import { defineSandboxTestHost, runSandboxTestScript } from "@ryot-app/sandbox-sdk/testing";
 import { describe, expect, it } from "vitest";
@@ -8,7 +8,10 @@ import search, { manifest as searchManifest } from "./search.sandbox";
 import { manifest } from "./shared";
 import translate, { manifest as translateManifest } from "./translate.sandbox";
 
-type TvdbHost = SandboxHost<typeof manifest.capabilities>;
+type TvdbHost = Pick<
+	ScriptHost,
+	"httpCall" | "getCachedValue" | "setCachedValue" | "getPluginConfig"
+>;
 const httpSuccess = (body: unknown) =>
 	Effect.succeed({ status: 200, headers: {}, body: JSON.stringify(body) });
 const makeHost = (httpCall: TvdbHost["httpCall"]) =>
@@ -16,12 +19,12 @@ const makeHost = (httpCall: TvdbHost["httpCall"]) =>
 		httpCall,
 		setCachedValue: () => Effect.succeed(null),
 		getCachedValue: () => Effect.succeed("Bearer test-token"),
-		getPluginConfig: (keys) =>
+		getPluginConfig: ({ required: keys = [] }) =>
 			Effect.succeed(Object.fromEntries(keys.map((key) => [key, "test-api-key"]))),
 	});
 const execution = { metadata: {}, sandboxScriptId: "script_test" };
 describe("show.tvdb sandbox script", () => {
-	it("declares one narrowly scoped script per operation", () => {
+	it("declares a script for each operation", () => {
 		expect([
 			[searchManifest.slug, search.operation],
 			[detailsManifest.slug, details.operation],
@@ -40,7 +43,7 @@ describe("show.tvdb sandbox script", () => {
 				cacheWrites.push([key, value, ttl]);
 				return Effect.succeed(null);
 			},
-			getPluginConfig: (keys) => {
+			getPluginConfig: ({ required: keys = [] }) => {
 				expect(keys).toEqual(["tvdbApiKey"]);
 				return Effect.succeed({ tvdbApiKey: "test-api-key" });
 			},

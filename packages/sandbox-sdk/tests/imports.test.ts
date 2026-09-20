@@ -10,6 +10,8 @@ it("decodes generic media write intents without admitting plugin-private event f
 		failures: [
 			{
 				itemIndex: 0,
+				unit: "plays",
+				recordKind: "play",
 				sourceLabel: "Lost",
 				sourceIdentifier: "20",
 				entitySchemaSlug: "show",
@@ -20,15 +22,19 @@ it("decodes generic media write intents without admitting plugin-private event f
 		items: [
 			{
 				itemIndex: 1,
+				recordId: "media-1",
 				sourceLabel: "Arrival",
 				sourceIdentifier: "10",
 				subjectEntityAlias: "media",
-				collectionMemberships: [{ entityAlias: "media", collectionName: "Pinned" }],
+				collectionMemberships: [
+					{ entityAlias: "media", collectionName: "Pinned", operationId: "pinned-membership" },
+				],
 				events: [
 					{
 						properties: {},
 						entityAlias: "media",
 						subjectEntityId: "movie-1",
+						operationId: "completion-1",
 						eventSchemaSlug: "complete",
 						occurredAt: "2026-01-01T00:00:00.000Z",
 					},
@@ -38,6 +44,7 @@ it("decodes generic media write intents without admitting plugin-private event f
 						sourceAlias: "media",
 						propertiesMode: "merge",
 						targetAlias: "mediaLibrary",
+						operationId: "library-membership",
 						relationshipSchemaSlug: "in-media-library",
 						properties: { ownershipSources: ["watcharr"] },
 					},
@@ -48,6 +55,7 @@ it("decodes generic media write intents without admitting plugin-private event f
 						properties: {},
 						name: "Arrival",
 						entityId: "movie-1",
+						operationId: "media",
 						entitySchemaSlug: "movie",
 						providerResolution: {
 							value: "tt2543164",
@@ -61,6 +69,7 @@ it("decodes generic media write intents without admitting plugin-private event f
 						name: "Library",
 						existingOnly: true,
 						alias: "mediaLibrary",
+						operationId: "media-library",
 						entitySchemaSlug: "media-library",
 					},
 				],
@@ -92,11 +101,8 @@ it("decodes generic media write intents without admitting plugin-private event f
 
 it("requires kernel import commands to carry matching import attribution", () => {
 	const input = {
-		totalItems: 0,
 		runId: "run-1",
-		failureCount: 0,
-		chunkHandles: [],
-		writeItemCount: 0,
+		operation: { action: "seal" },
 		command: {
 			occurredAt: "2026-01-01T00:00:00.000Z",
 			itemIdentity: '["integration-run","run-1"]',

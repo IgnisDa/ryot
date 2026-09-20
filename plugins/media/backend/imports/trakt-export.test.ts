@@ -1,6 +1,7 @@
 import { expect, it } from "vitest";
 
-import { adaptTraktExport, classifyTraktExportName } from "./trakt";
+import { adaptTraktExport } from "./trakt";
+import { classifyTraktExportName } from "./trakt-files";
 
 const encoder = new TextEncoder();
 const json = (value: unknown) => encoder.encode(JSON.stringify(value));

@@ -7,16 +7,17 @@ letters and numbers separated by `.`, `_`, or `-`; `/` is reserved for path mapp
 
 ## Package Layout
 
-| Root       | Archived | Owner and allowed dependencies                                                       |
-| ---------- | -------- | ------------------------------------------------------------------------------------ |
-| `host/`    | No       | Manifest and code imported directly by the server or kernel client                   |
-| `backend/` | Yes      | Sandbox entrypoints and libraries; may import siblings and `shared/`                 |
-| `client/`  | Yes      | Optional client source; uses client SDK/UI SDK and may import siblings and `shared/` |
-| `shared/`  | Yes      | Environment-neutral `.ts`; may import shared siblings and plugin-kit neutral shims   |
+| Root       | Archive output                             | Owner and allowed dependencies                                                       |
+| ---------- | ------------------------------------------ | ------------------------------------------------------------------------------------ |
+| `host/`    | None                                       | Manifest and code imported directly by the server or kernel client                   |
+| `backend/` | Compiled JavaScript                        | Sandbox entrypoints and libraries; may import siblings and `shared/`                 |
+| `client/`  | Emitted client assets                      | Optional client source; uses client SDK/UI SDK and may import siblings and `shared/` |
+| `shared/`  | Bundled when reachable into scripts/assets | Environment-neutral `.ts`; may import shared siblings and plugin-kit neutral shims   |
 
-Archived roots never import `host/`. Production host code reaches archived backend code only through
-`backend/contracts/**`, which holds sandbox-owned schemas, recipes, and helpers needed by host callers.
-Nothing host-only belongs under an archived root.
+Backend, client, and shared authoring sources never import `host/`. Production host code reaches
+backend source only through `backend/contracts/**`, which holds sandbox-owned schemas, recipes, and
+helpers needed by host callers.
+Nothing host-only belongs under backend, client, or shared.
 
 Client entries default-export components or presentation definitions. They do not mount or bootstrap
 an application. The compiler generates one application bootstrap and React root for plugin routes,
@@ -43,20 +44,26 @@ provider-associated ordinary scripts.
 
 ## Script Discovery
 
-Every `backend/**/*.sandbox.ts` file is an entrypoint. `ryot plugin build` reads its direct definition
-and derives `scripts`, including entry path and provider identity, into archive `manifest.json`.
-Installation recomputes that list from sources and rejects disagreement, so editing archive metadata
-cannot widen a script. Renaming a script slug requires updating all manifest references.
+Every local `backend/**/*.sandbox.ts` file is an entrypoint. `ryot plugin build` reads its direct
+definition, compiles it, and derives `scripts`, including entry path and provider identity, into archive
+`manifest.json`. The archive contains compiled backend JavaScript and metadata, plus emitted client
+assets when declared; it contains no authoring source files or compiled `script.source`. Installation
+validates archive structure and hashes but does not recompile sources or prove metadata provenance.
+Hashes establish artifact consistency, not that metadata was derived from the source. Renaming a script
+slug requires updating all manifest references.
 
 Each entry default-exports exactly one direct definition with static manifest, input schema, output
-schema, and Effect-returning `run`. The static manifest is the source of its metadata; there are no
-driver maps or runtime kind selection.
+schema, and Effect-returning `run`. `defineManifest` contains the script identity and kind plus its
+kind-specific authored fields, such as an automation `inputProjection` or provider
+`searchOptionsSchema`. It does not contain capabilities, configuration requirements, OAuth fields, or
+executable dependencies. The compiler derives those from the entry's used code and writes them to the
+build-derived script metadata. There are no driver maps or runtime kind selection.
 
 | Kind         | Helper                   | Use                                                             |
 | ------------ | ------------------------ | --------------------------------------------------------------- |
 | `script`     | `defineScript`           | Boot, cron, bootstrap, or internal execution                    |
 | `operation`  | `defineOperation`        | Public `plugins.invoke` entrypoint                              |
-| `workflow`   | `defineWorkflow`         | Deterministic durable orchestration; capabilities must be empty |
+| `workflow`   | `defineWorkflow`         | Deterministic durable orchestration; no local host capabilities |
 | `automation` | `defineAutomation`       | After hook (`automationType: "automation"`)                     |
 | `automation` | `defineAutomationPolicy` | Before hook (`automationType: "policy"`)                        |
 | `provider`   | `defineProvider`         | One logical provider operation                                  |
@@ -138,17 +145,26 @@ schemas. Retained execution reads use the pinned manifest schema; durable activi
 recorded read. System execution without a user cannot read user settings. `getUserPreferences` exposes
 the kernel-owned `disableIntegrations`; entity language remains a kernel preference.
 
-## Subject And Capabilities
+## Execution Authority
 
 Ingestion assigns plugin scope (`system` or `user`); manifests do not. Execution subject identifies
 whose data an invocation uses and does not widen plugin privilege. Kernel dispatch selects it, never
 script input. User plugins cannot declare `userBootstrap`, `httpRateLimits`, or `oauthProviders`,
 or use a system plugin slug.
 
-`capabilities` is an allowlist request, not a grant. The backend intersects it with host functions and
-policy for script kind, subject, plugin scope, provider association, and bootstrap designation. Domain
-modules still enforce ownership. Declare only used methods. `artifact-read` and `scratch` request
-filesystem grants. Workflows declare no capabilities and receive durable replay primitives only.
+The compiler follows each entry's used execution graph, including ordinary helpers, closures, direct
+host-method references, and local forwarding methods. It records that entry's used host capabilities
+in sorted compiled metadata, which local builds derive from source. Runtime installation validates
+declared metadata and archive hashes but does not rerun source analysis or prove source provenance.
+Executable dependencies do not merge authority: a parent keeps only its local capabilities, each child
+is checked against its own compiled metadata, and workflow replay has no local host capabilities.
+
+Ordinary scripts receive `ScriptHost`. Before-stage policies receive `PolicyHost`, whose type exposes
+only the policy-safe host methods. A helper typed as `Pick<ScriptHost, ...>` narrows TypeScript usage;
+it does not grant authorization. The runtime checks pinned compiled metadata against operation policy
+for script kind, subject, plugin scope, provider association, and bootstrap designation. Domain
+modules still enforce ownership. Filesystem capabilities are derived from SDK filesystem use; the
+kernel supplies any resource paths separately.
 
 Subject follows the dispatch path: cron uses system; user bootstrap uses the initialized user;
 user operations, imports, and user-triggered provider calls use the caller; integration operations add
@@ -241,8 +257,9 @@ even when the global entity already exists. `signalSchemas[].notificationHookSlu
 hook that targets that signal; it is never a script slug.
 
 Before hooks use `defineAutomationPolicy` and `automationType: "policy"`. They execute sequentially
-by `(position, pluginId, hookSlug)`; omitted `position` means 1000. Their capabilities are read-only:
-`executeRyotql`, schema/integration/config/preference reads, cache reads, and diagnostic `log`/`span`.
+by `(position, pluginId, hookSlug)`; omitted `position` means 1000. The compiler and runtime allow
+only the policy-safe host surface: `executeRyotql`, schema/integration/config/preference reads, cache
+reads, and diagnostic `log`/`span`.
 No domain writes, HTTP, signals, notifications, cache writes, persistent claims, child workflows, or filesystem grants
 are allowed. Outputs are `{ action: "allow" }`, `{ action: "reject", reason }`, or
 `{ action: "transform", patch }`. A patch must name the current resource and contain a non-empty
@@ -290,9 +307,10 @@ Exponential delays double from `initialDelayMs` (1–3,600,000) to `maxDelayMs` 
 must be at least the initial delay. Only kernel-classified infrastructure failures are retryable;
 schema failures, missing retained artifacts, and business failures are terminal. HTTP uncertain
 outcomes are terminal unless the hook declares `externalIdempotency: "run-id"`. Automatic retries
-for scripts with `httpCall` or `sendNotification` require this declaration. Declare it only if the
-external operation supports deduplication and receives `automation.runId` as its idempotency key.
-All attempts share that logical run ID; external exactly-once delivery is not guaranteed.
+require this declaration when the hook's reachable executable dependencies use `httpCall` or
+`sendNotification`, including delegated effects. Declare it only if the external operation supports
+deduplication and receives `automation.runId` as its idempotency key. All attempts share that logical
+run ID; external exactly-once delivery is not guaranteed.
 
 `causationSources` is an optional non-empty allowlist of `api`, `import`, `integration`, `bootstrap`,
 `provider-refresh`, or `automation`. Causation retains `initiator`, `executionId`, `rootExecutionId`,
@@ -302,10 +320,54 @@ attribution, set source to `automation`, and increment depth. Plugin input canno
 Depth and shared run budgets are kernel-enforced. Blocked policy planning rejects the write;
 blocked post-write planning retains the source mutation.
 
-`getPluginConfig` reads only the pinned configuration revision and declared keys. Configuration is
-never copied into automation input or history. `emitSignal` returns `{ triggerId, wasCreated }`.
+`getPluginConfig({ required: ["token"], optional: ["threshold"] })` reads only the requested keys
+from the pinned configuration revision. The compiler derives required and optional keys from the
+used calls, including calls reached through local helpers; keys must be literals or finite typed
+values. Values retain their exact `JsonValue` shape, so declared defaults such as `false` and `0` are
+returned rather than treated as missing. Missing required values fail with `missing-required-config`
+in SDK error `data`; unavailable optional values are omitted. Unrequested keys are not available to
+the script. The compiler records key metadata, not generated files for the full configuration schema;
+scripts do not author per-script key lists. Configuration is never copied into automation input or
+history. `emitSignal` returns `{ triggerId, wasCreated }`.
 Notification subscriptions remain portable user configuration; triggers, runs, attempts, retry
 state, logs, mutation receipts, pending batch evidence, and encryption keys are not account-backup data.
+
+Create executable references with `defineScriptReference` and `defineWorkflowReference` from
+`@ryot-app/sandbox-sdk/workflow`. `defineExecutableAlternatives({ id, stage, references })` and
+`selectExecutable(alternatives, key)` constrain selection to registered targets. Use `stage: "settings"`
+for setup choices and `stage: "record"` for choices refined from collected records. Configuration and
+executable SDK methods must be called directly; method aliases are unsupported.
+
+An import source can declare `plan.selections`: each selection has a fixed `value`, or a top-level
+settings `field` and finite `cases` mapping setting values to alternative keys. These selections are
+validated against compiled dependencies. Plan selection is pure and returns an ingestion operation
+and selection map; it performs no source requests or writes.
+
+Ingestion setup uses `importSourcesRecipe({ selected: { slug, settings }, limit })` and
+`integrationProvidersRecipe({ selected: { slug, settings, integrationId? }, limit })` from
+`@ryot-app/ryotql-recipes`. Their structured `readiness` contains `ready`, the selected `plan`, and
+`blockReasons`; installation metadata scopes configuration to the exact system or private plugin.
+Picker readiness covers unconditional requirements. Selected settings refine branch and account
+connection requirements; backend admission rechecks them. Presence does not validate remote credentials.
+
+Run reports use the schemas in `@ryot-app/contract/modules/imports/ingestion`. Give every activity
+its real `unit`, `completed`, optional `exactTotal`, `lastAdvancedAt`, and known `wait`. Concurrent
+activities keep distinct IDs. Batch summaries use `recordKind`, `unit`, and committed counts for
+`created`, `updated`, `unchanged`, `skipped`, and `unsuccessful`. Provider preparation is supporting
+work, not saved history. Issues carry a structured reason and source-record attribution; expected
+skips remain separate from errors.
+
+`manualImportRunsRecipe`, `integrationImportRunsRecipe`, and `importRunRecipe` select activities,
+semantic batch summaries, setup block reasons, the fixed block deadline, and expiry reason. They do
+not infer committed counts from requests or transport partitions. `importIssuesRecipe` pages
+client-safe issues by run and issue identity. Downloaded reports contain `runId`, `source`,
+`failureReason`, and canonical `issues`, including operation IDs and source attribution. Do not put
+credentials, capture locators, raw source bodies, or execution pins in issue fields.
+
+Independent manual imports append history and can duplicate earlier activity. Stable run-local
+identities protect replay of the same run. Active recovery retains captured inputs and execution
+pins; terminal cleanup releases them while preserving reports. Blocked webhook deliveries expire
+seven days after acceptance if setup remains unavailable; readiness checks do not extend that deadline.
 
 Commands with no matching hooks still commit and replay from a mutation receipt; they do not create
 automation trigger history. Batch hooks pin their script and configuration before the first item
@@ -336,9 +398,10 @@ Runtime pinning and replay semantics are in the
 
 ## Installation Lifecycle
 
-Ingestion validates a complete prospective registry, compiles entries, persists immutable
-content-addressed scripts, and atomically swaps the active snapshot. Readers see a complete old or new
-snapshot. Existing durable workflows retain pinned versions; new resolution uses the active snapshot.
+Ingestion validates a complete prospective registry, persists immutable precompiled content-addressed
+scripts, and atomically swaps the active snapshot. It does not start compiler workers. Readers see a
+complete old or new snapshot. Existing durable workflows retain pinned versions; new resolution uses
+the active snapshot.
 
 System plugins are deployment-controlled. Accepted hook runs keep pinned package, configuration,
 and script revisions through their retry window. Disablement and uninstall exclude new planning but
@@ -349,8 +412,9 @@ executable artifacts expire.
 
 `configSchema` is strict top-level `AppSchema` data with string, number, integer, boolean, or enum
 fields. It supports labels, descriptions, secrets, defaults, and ordinary validation, but not nested
-values, arrays, dates, translation, normalization, or schema rules. Script and import-source config
-requirements must name declared fields. Scripts declare host-owned configuration separately.
+values, arrays, dates, translation, normalization, or schema rules. Compiler-derived script keys and
+import-source configuration requirements must name declared fields. Script configuration access is
+derived from `getPluginConfig` calls, not authored as a separate list.
 
 Numeric `normalize.round.scale` in other manifest property schemas applies half-up rounding before
 validation.

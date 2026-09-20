@@ -1,60 +1,101 @@
 import { defineManifest, defineScript } from "@ryot-app/sandbox-sdk/driver";
 import { Effect, Schema } from "@ryot-app/sandbox-sdk/effect";
-import { strFromU8, unzipSync } from "@ryot-app/sandbox-sdk/fflate";
-import { readNamedArtifact } from "@ryot-app/sandbox-sdk/filesystem";
 
-import { MediaSandboxError } from "../lib/failures";
-import { batchMediaImportResult } from "./helpers";
-import { MediaImportAdapterBatch, MediaImportParserInput } from "./schemas";
+import {
+	collectMediaJson,
+	compareMediaRecords,
+	mediaRecordReader,
+	normalizeMediaRecords,
+	serializeMediaRecords,
+	sourceOutput,
+	WINDOW_BYTES,
+	writeMediaCapture,
+} from "./collection";
+import { MediaSourceInput, MediaSourceOutput, type MediaSourceRecord } from "./collection-schemas";
 import { adaptSpotifyStreamingHistory } from "./spotify";
 
 export const manifest = defineManifest({
 	kind: "script",
 	slug: "import.spotify",
-	name: "Parse Spotify import",
-	requiredPluginConfigKeys: [],
-	capabilities: ["artifact-read"],
+	name: "Collect Spotify history",
 });
-
-const STREAMING_HISTORY_ENTRY = /(^|\/)Streaming_History_(Audio|Video)_[^/]*\.json$/;
-
-const decodeJson = Schema.decodeUnknownEffect(Schema.fromJsonString(Schema.Unknown));
-
-const parseHistoryEntry = (archive: Uint8Array, name: string) =>
-	decodeJson(
-		strFromU8(
-			unzipSync(archive, { filter: (file) => file.name === name })[name] ?? new Uint8Array(),
-		),
-	).pipe(
-		Effect.map((rows) => ({ name, rows })),
-		Effect.mapError(() => new MediaSandboxError({ message: `${name} is not valid JSON` })),
-	);
-
+const Identity = Schema.Struct({
+	ts: Schema.NullishOr(Schema.String),
+	spotify_track_uri: Schema.NullishOr(Schema.String),
+});
 export default defineScript({
 	manifest,
-	input: MediaImportParserInput,
-	output: MediaImportAdapterBatch,
+	input: MediaSourceInput,
+	output: MediaSourceOutput,
 	run: (input) =>
 		Effect.gen(function* () {
-			const archive = yield* readNamedArtifact("uploadToken");
-			const entryNames: string[] = [];
-			unzipSync(archive, {
-				filter: (file) => {
-					entryNames.push(file.name);
-					return false;
-				},
+			if (input.action !== "normalize") {
+				return yield* collectMediaJson(
+					"spotify",
+					input,
+					() => ({ failures: [], entityGroups: [] }),
+					"uploadToken",
+					(raw, itemIndex) => {
+						const result = adaptSpotifyStreamingHistory([
+							{ rows: [raw], name: input.entry?.name ?? "history.json" },
+						]);
+						const identity = Schema.decodeUnknownSync(Identity)(raw);
+						const dedupKey = JSON.stringify([identity.spotify_track_uri, identity.ts]);
+						return normalizeMediaRecords(result, itemIndex, "spotify").map((record) =>
+							Object.assign(record, { dedupKey, key: dedupKey }),
+						);
+					},
+				);
+			}
+			const read = mediaRecordReader();
+			let offset = input.offset;
+			let header = input.header;
+			let itemIndex = input.itemIndex;
+			let done = false;
+			const records: MediaSourceRecord[] = [];
+			let bytes = 0;
+			for (let count = 0; count < 100; count++) {
+				const next = yield* read("records", offset);
+				if (!next) {
+					done = true;
+					break;
+				}
+				offset = next.next;
+				itemIndex++;
+				const record = next.record;
+				if (!record.dedupKey) {
+					throw new Error("Spotify captured record is missing its exact-play identity");
+				}
+				if (record.dedupKey === header) {
+					continue;
+				}
+				header = record.dedupKey;
+				const normalized = normalizeMediaRecords(
+					{
+						entityGroups: record.group ? [{ ...record.group, itemIndex: 0 }] : [],
+						failures: record.failure ? [{ ...record.failure, itemIndex: 0 }] : [],
+					},
+					record.itemIndex,
+					"spotify",
+					record.eventIndex,
+				).map((result) => Object.assign(result, { dedupKey: record.dedupKey }));
+				records.push(...normalized);
+				bytes += new TextEncoder().encode(serializeMediaRecords(normalized)).length;
+				if (bytes >= WINDOW_BYTES) {
+					break;
+				}
+			}
+			return yield* sourceOutput({
+				...(yield* writeMediaCapture([
+					{
+						name: "records.jsonl",
+						contents: serializeMediaRecords(records.sort(compareMediaRecords)),
+					},
+				])),
+				done,
+				offset,
+				header,
+				itemIndex,
 			});
-			const historyNames = entryNames.filter((name) => STREAMING_HISTORY_ENTRY.test(name)).sort();
-			if (historyNames.length === 0) {
-				return yield* new MediaSandboxError({
-					message:
-						"No Spotify extended streaming history files were found in the archive. Request Extended streaming history, not Account data.",
-				});
-			}
-			const files = [];
-			for (const name of historyNames) {
-				files.push(yield* parseHistoryEntry(archive, name));
-			}
-			return batchMediaImportResult(adaptSpotifyStreamingHistory(files), input.start, input.limit);
 		}),
 });

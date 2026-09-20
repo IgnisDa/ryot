@@ -12,8 +12,6 @@ export const manifest = defineManifest({
 	kind: "script",
 	name: "Resolve imported TMDB movie",
 	slug: "media-import-resolve.movie.tmdb",
-	capabilities: ["httpCall", "getPluginConfig"],
-	requiredPluginConfigKeys: ["tmdbAccessToken"],
 });
 
 export default defineScript({

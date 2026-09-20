@@ -41,4 +41,4 @@ if (runMigrationOnly) {
 	process.exit(0);
 }
 
-BunRuntime.runMain(Layer.launch(AppLive));
+BunRuntime.runMain(Effect.scoped(Layer.launch(AppLive)));

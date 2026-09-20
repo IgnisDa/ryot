@@ -2,6 +2,7 @@ import { tmpdir } from "node:os";
 
 import { BunFileSystem } from "@effect/platform-bun";
 import { expect, it, layer } from "@effect/vitest";
+import { CLIENT_API_VERSION, clientArtifactMetadata } from "@ryot-app/client-plugin-contract";
 import { BadRequest } from "@ryot-app/contract/errors";
 import {
 	NotificationSubscriptionId,
@@ -28,6 +29,7 @@ import { IntegrationsRepository } from "#modules/integrations/repository";
 import { PluginInstallationRepository } from "#modules/plugins/installation-repository";
 import { pluginSourceHash } from "#modules/plugins/pipeline";
 import { PluginRepository } from "#modules/plugins/repository";
+import { fixtureClientArtifact } from "#modules/plugins/source.test-support";
 import { fixtureManifest } from "#modules/plugins/test-support";
 import { RelationshipsRepository } from "#modules/relationships/repository";
 import { SavedViewsRepository } from "#modules/saved-views/repository";
@@ -258,6 +260,17 @@ const privateManifest = {
 	userBootstrap: [],
 	relationshipSchemas: [],
 	metadata: { ...fixtureManifest().metadata, slug: "private-plugin" },
+	client: {
+		homeView: null,
+		apiVersion: CLIENT_API_VERSION,
+		exports: {
+			card: {
+				entry: "client/card.tsx",
+				kind: "component" as const,
+				automaticEntityPresentations: false,
+			},
+		},
+	},
 	entitySchemas: [
 		{
 			icon: "box",
@@ -358,8 +371,19 @@ const privateManifest = {
 		},
 	},
 };
-const privateSourceFiles = { "client/asset.png": new Uint8Array([0x00, 0xff, 0x80, 0x41]) };
-const privateSourceHash = pluginSourceHash(privateManifest, privateSourceFiles, []);
+const privateCompiledFiles = [
+	...fixtureClientArtifact(privateManifest.metadata.name).files,
+	{
+		name: "asset.png",
+		contentType: "image/png",
+		contents: new Uint8Array([0x00, 0xff, 0x80, 0x41]),
+	},
+];
+const privateCompiledClient = {
+	...clientArtifactMetadata(privateManifest.metadata.name, privateCompiledFiles),
+	files: privateCompiledFiles,
+};
+const privateSourceHash = pluginSourceHash(privateManifest, [], privateCompiledClient);
 const differentOwnerManifest = {
 	...privateManifest,
 	entitySchemas: privateManifest.entitySchemas.map((definition) => ({
@@ -522,8 +546,8 @@ const privateRecordsExportLayer = withExportReads((reads) =>
 				}),
 				Layer.mock(ManagedAssetsService, { verifyManagedAssetOwnership: () => Effect.succeed([]) }),
 				Layer.mock(PluginRepository, {
-					listSourceFiles: () => Effect.succeed(privateSourceFiles),
-					listCompiledPackageArtifacts: () => Effect.succeed({ compiledScripts: [] }),
+					listCompiledPackageArtifacts: () =>
+						Effect.succeed({ compiledScripts: [], compiledClient: privateCompiledClient }),
 					listPrivateForUser: () =>
 						Effect.succeed([
 							{
@@ -630,10 +654,11 @@ layer(privateRecordsExportLayer)((test) => {
 						compiledScripts: [],
 						slug: "private-plugin",
 						sourceHash: privateSourceHash,
-						files: { "client/asset.png": "AP+AQQ==" },
+						compiledClient: privateCompiledClient,
 						key: `user:private-plugin:${privateSourceHash}`,
 					}),
 				]);
+				expect(prepared.records.privatePlugins[0]).not.toHaveProperty("files");
 				expect(prepared.records.entities).toEqual([
 					expect.objectContaining({
 						id: "private-entity",
@@ -743,7 +768,7 @@ const eventPagesManifest = {
 		},
 	],
 };
-const eventPagesSourceHash = pluginSourceHash(eventPagesManifest, {}, []);
+const eventPagesSourceHash = pluginSourceHash(eventPagesManifest);
 const eventRow = (id: string, note: string) => ({
 	id,
 	note,
@@ -851,7 +876,6 @@ const eventPagesExportLayer = withExportReads((reads) =>
 						),
 				}),
 				Layer.mock(PluginRepository, {
-					listSourceFiles: () => Effect.succeed({}),
 					listCompiledPackageArtifacts: () => Effect.succeed({ compiledScripts: [] }),
 					listPortablePluginMetadata: () =>
 						Ref.update(reads.portableReads, (count) => count + 1).pipe(Effect.as([])),

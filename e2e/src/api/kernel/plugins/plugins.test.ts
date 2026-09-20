@@ -95,7 +95,10 @@ describe("plugins", () => {
 				slug: detailsSlug,
 				entry: detailsEntry,
 				kind: "provider" as const,
+				oauthConnectionFields: [],
+				executableDependencies: [],
 				requiredPluginConfigKeys: [],
+				optionalPluginConfigKeys: [],
 				providerOperation: "details" as const,
 				name: "E2E Lifecycle Provider details",
 			} satisfies PluginScript;
@@ -105,15 +108,21 @@ describe("plugins", () => {
 				slug: searchSlug,
 				entry: searchEntry,
 				kind: "provider" as const,
+				oauthConnectionFields: [],
+				executableDependencies: [],
 				requiredPluginConfigKeys: [],
+				optionalPluginConfigKeys: [],
 				providerOperation: "search" as const,
 				name: "E2E Lifecycle Provider search",
 			} satisfies PluginScript;
 			const automationScript = {
 				slug: automationSlug,
 				entry: automationEntry,
+				oauthConnectionFields: [],
+				executableDependencies: [],
 				kind: "automation" as const,
 				requiredPluginConfigKeys: [],
+				optionalPluginConfigKeys: [],
 				capabilities: ["createEvents"],
 				automationType: "automation" as const,
 				name: "E2E Lifecycle Event Automation",
@@ -146,10 +155,8 @@ const isJsonObject = (value: JsonValue): value is Readonly<Record<string, JsonVa
 export const manifest = defineManifest({
   kind: "automation",
   automationType: "automation",
-  requiredPluginConfigKeys: [],
   name: "E2E Lifecycle Event Automation",
   slug: ${yield* Schema.encodeEffect(Schema.fromJsonString(Schema.String))(automationSlug)},
-  capabilities: ["createEvents"],
   inputProjection: { event: { properties: ["note"], compareProperties: [] } },
 });
 
@@ -542,9 +549,7 @@ export default defineAutomation({
 				),
 				Effect.flip(
 					client.call((c) =>
-						c.testSupport.installSystemPlugin({
-							payload: { manifest, files: {}, compiledScripts: [] },
-						}),
+						c.testSupport.installSystemPlugin({ payload: { manifest, compiledScripts: [] } }),
 					),
 				),
 				Effect.flip(

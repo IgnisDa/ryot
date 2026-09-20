@@ -1,4 +1,4 @@
-import { Effect, Result } from "@ryot-app/sandbox-sdk/effect";
+import { Result } from "@ryot-app/sandbox-sdk/effect";
 
 import {
 	extractMetadataLookupBaseTitle,
@@ -14,53 +14,18 @@ import {
 	createReviewEvent,
 	finalizeEntityGroups,
 } from "./helpers";
-import type { ImportEntityRef, MediaImportAdapterFailure } from "./schemas";
+import type { MediaImportAdapterFailure } from "./schemas";
 
-type ResolvedRef = Extract<ImportEntityRef, { kind: "resolved" }>;
-type NetflixLookupTitle = (input: {
-	title: string;
-	preferredEntitySchemaSlug?: "movie" | "show" | undefined;
-}) => Effect.Effect<{ entityRef: ResolvedRef; matchedTitle: string }, string>;
-
-const DATE_FORMATS = ["YYYY-MM-DD HH:mm:ss"];
 const skipTitle = (title: string) =>
-	title.includes("_hook_") ||
-	title.includes("Clip:") ||
-	title.includes("_CLIP_") ||
-	title.includes("Trailer:") ||
-	title.includes("_backfill");
-
+	["_hook_", "Clip:", "_CLIP_", "Trailer:", "_backfill"].some((marker) => title.includes(marker));
 const skipViewing = (row: Record<string, string>) =>
 	Boolean(row["Supplemental Video Type"]?.trim()) ||
 	row["Latest Bookmark"]?.trim() === "Not latest view" ||
 	(row["Attributes"]?.includes("Autoplayed: user action: None;") ?? false) ||
 	skipTitle(row["Title"]?.trim() ?? "");
-
-const matchesProfile = (profile: string | undefined, filter: string | undefined) => {
-	const trimmed = filter?.trim();
-	return trimmed ? (profile?.trim() ?? "") === trimmed : true;
-};
-
-const requiredCell = (row: Record<string, string>, key: string) => {
-	const value = row[key]?.trim();
-	if (!value) {
-		throw new Error(`Row is missing ${key}`);
-	}
-	return value;
-};
-
-const assertHeaders = (headers: string[], required: string[], label: string) => {
-	if (headers.length === 0) {
-		throw new Error(`${label} CSV is empty or has no header row`);
-	}
-	const missing = required.filter((header) => !headers.includes(header));
-	if (missing.length > 0) {
-		throw new Error(`${label} CSV is missing required columns: ${missing.join(", ")}`);
-	}
-};
-
-const occurredAt = (value: string) => parseDateTime(value, DATE_FORMATS);
-
+const matchesProfile = (profile: string | undefined, filter: string | undefined) =>
+	filter?.trim() ? (profile?.trim() ?? "") === filter.trim() : true;
+const occurredAt = (value: string) => parseDateTime(value, ["YYYY-MM-DD HH:mm:ss"]);
 const convertedRating = (row: Record<string, string>) => {
 	const stars = Number.parseInt(row["Star Value"]?.trim() ?? "", 10);
 	if (Number.isFinite(stars)) {
@@ -78,221 +43,123 @@ const convertedRating = (row: Record<string, string>) => {
 	}
 	return null;
 };
-
-const lookupFailure = (input: {
-	message: string;
-	itemIndex: number;
-	sourceLabel: string;
-	sourceIdentifier?: string;
-}): MediaImportAdapterFailure => ({
-	message: input.message,
-	itemIndex: input.itemIndex,
-	stage: "provider_resolution",
-	sourceLabel: input.sourceLabel,
-	...(input.sourceIdentifier ? { sourceIdentifier: input.sourceIdentifier } : {}),
-});
-
-export const adaptNetflixExports = Effect.fn("netflixAdapter.adaptExports")(function* (
-	input: {
-		myListCsv: string;
-		ratingsCsv: string;
-		importedAt: string;
-		profileName?: string | undefined;
-		viewingActivityCsv: string;
-	},
-	lookupTitle: NetflixLookupTitle,
-) {
-	const viewing = parseCsvText(input.viewingActivityCsv);
-	const ratings = parseCsvText(input.ratingsCsv);
-	const myList = parseCsvText(input.myListCsv);
-	assertHeaders(
-		viewing.headers,
-		["Title", "Start Time", "Profile Name"],
-		"Netflix ViewingActivity",
-	);
-	assertHeaders(ratings.headers, ["Title Name", "Profile Name"], "Netflix Ratings");
-	assertHeaders(myList.headers, ["Title Name", "Profile Name"], "Netflix MyList");
-
-	const failures: MediaImportAdapterFailure[] = [];
-	const groups = new Map<string, ImportMediaEntityGroupBuilder>();
-	const titleContext = new Map<string, "movie" | "show">();
-	for (const row of viewing.rows) {
-		if (skipViewing(row) || !matchesProfile(row["Profile Name"], input.profileName)) {
-			continue;
-		}
-		const title = row["Title"]?.trim() ?? "";
-		const base = extractMetadataLookupBaseTitle(title);
-		if (base) {
-			titleContext.set(base, hasMetadataLookupShowIndicators(title) ? "show" : "movie");
-		}
+export const netflixViewingContext = (input: {
+	text: string;
+	profileName?: string | undefined;
+}) => {
+	const row = parseCsvText(input.text).rows[0];
+	if (!row || skipViewing(row) || !matchesProfile(row["Profile Name"], input.profileName)) {
+		return null;
 	}
-
-	let itemIndex = 0;
-	for (const row of viewing.rows) {
-		const index = itemIndex++;
-		if (skipViewing(row) || !matchesProfile(row["Profile Name"], input.profileName)) {
+	const title = extractMetadataLookupBaseTitle(row["Title"] ?? "");
+	return title && new TextEncoder().encode(title).length <= 1024
+		? {
+				title,
+				preferred: hasMetadataLookupShowIndicators(row["Title"] ?? "")
+					? ("show" as const)
+					: ("movie" as const),
+			}
+		: null;
+};
+export const adaptNetflixCsv = (input: {
+	text: string;
+	file: string;
+	importedAt: string;
+	profileName?: string | undefined;
+}) => {
+	const parsed = parseCsvText(input.text);
+	const viewing = input.file === "ViewingActivity.csv";
+	const required = viewing
+		? ["Title", "Start Time", "Profile Name"]
+		: ["Title Name", "Profile Name"];
+	if (!parsed.headers.length) {
+		throw new Error(`Netflix ${input.file} CSV is empty or has no header row`);
+	}
+	const missing = required.filter((header) => !parsed.headers.includes(header));
+	if (missing.length) {
+		throw new Error(`Netflix ${input.file} CSV is missing required columns: ${missing.join(", ")}`);
+	}
+	const groups = new Map<string, ImportMediaEntityGroupBuilder>();
+	const failures: MediaImportAdapterFailure[] = [];
+	for (const [itemIndex, row] of parsed.rows.entries()) {
+		if (!matchesProfile(row["Profile Name"], input.profileName) || (viewing && skipViewing(row))) {
 			continue;
 		}
-		const title = row["Title"]?.trim() ?? "";
-		const label = title || `Netflix ViewingActivity row ${index + 1}`;
-		const parsed = Result.try(() => {
-			requiredCell(row, "Title");
-			const date = occurredAt(requiredCell(row, "Start Time"));
-			if (!date) {
+		const title = row[viewing ? "Title" : "Title Name"]?.trim() ?? "";
+		if (skipTitle(title)) {
+			continue;
+		}
+		const result = Result.try(() => {
+			if (!title) {
+				throw new Error("Row is missing title");
+			}
+			const baseTitle = extractMetadataLookupBaseTitle(title);
+			if (!baseTitle) {
+				throw new Error("Could not extract the media title");
+			}
+			if (new TextEncoder().encode(baseTitle).length > 1024) {
+				throw new Error("Netflix title exceeds its bounded resolution descriptor");
+			}
+			const date = viewing ? occurredAt(row["Start Time"]?.trim() ?? "") : null;
+			if (viewing && !date) {
 				throw new Error("Start Time is invalid");
 			}
-			return { date, episode: extractMetadataLookupSeasonEpisode(title) };
-		});
-		if (Result.isFailure(parsed)) {
-			failures.push({
-				itemIndex: index,
-				sourceLabel: label,
-				sourceIdentifier: title || undefined,
-				message: `ViewingActivity file: ${parsed.failure instanceof Error ? parsed.failure.message : "Netflix row is malformed"}`,
-			});
-			continue;
-		}
-		const lookup = yield* Effect.result(
-			lookupTitle({
-				title,
-				preferredEntitySchemaSlug: hasMetadataLookupShowIndicators(title) ? "show" : undefined,
-			}),
-		);
-		if (Result.isFailure(lookup)) {
-			failures.push(
-				lookupFailure({
-					itemIndex: index,
-					sourceLabel: label,
-					message: lookup.failure,
-					sourceIdentifier: title,
-				}),
-			);
-			continue;
-		}
-		if (lookup.success.entityRef.entitySchemaSlug === "show") {
-			if (!parsed.success.episode) {
-				failures.push(
-					lookupFailure({
-						itemIndex: index,
-						sourceLabel: label,
-						sourceIdentifier: title,
-						message: "Viewing activity matched a show but no season or episode could be extracted",
-					}),
-				);
-				continue;
+			const rating = input.file === "Ratings.csv" ? convertedRating(row) : null;
+			if (input.file === "Ratings.csv" && rating === null) {
+				return;
 			}
-			const group = getOrCreateMediaEntityGroup(groups, lookup.success.entityRef, index);
-			group.events.push({
-				eventSchemaSlug: "progress",
-				occurredAt: parsed.success.date,
-				properties: { progressPercent: 100 },
-				unresolvedEpisode: {
-					type: "show",
-					seasonNumber: parsed.success.episode.season,
-					episodeNumber: parsed.success.episode.episode,
+			const group = getOrCreateMediaEntityGroup(
+				groups,
+				{
+					kind: "unresolved",
+					sourceLabel: title,
+					identifierValue: baseTitle,
+					identifierType: "netflix-title",
+					entitySchemaSlug: hasMetadataLookupShowIndicators(title) ? "show" : "movie-or-show",
 				},
-			});
-		} else {
-			const group = getOrCreateMediaEntityGroup(groups, lookup.success.entityRef, index);
-			group.events.push(
-				createCompleteEvent({ occurredAt: parsed.success.date, completedOn: parsed.success.date }),
+				itemIndex,
 			);
-		}
-	}
-
-	for (const row of ratings.rows) {
-		const index = itemIndex++;
-		if (!matchesProfile(row["Profile Name"], input.profileName)) {
-			continue;
-		}
-		const title = row["Title Name"]?.trim() ?? "";
-		if (skipTitle(title)) {
-			continue;
-		}
-		const label = title || `Netflix Ratings row ${index + 1}`;
-		const parsed = Result.try(() => {
-			requiredCell(row, "Title Name");
-			return convertedRating(row);
+			if (viewing && date) {
+				const episode = extractMetadataLookupSeasonEpisode(title);
+				group.events.push(
+					episode
+						? {
+								occurredAt: date,
+								eventSchemaSlug: "progress",
+								properties: { progressPercent: 100 },
+								unresolvedEpisode: {
+									type: "show",
+									seasonNumber: episode.season,
+									episodeNumber: episode.episode,
+								},
+							}
+						: createCompleteEvent({ occurredAt: date, completedOn: date }),
+				);
+			} else if (input.file === "Ratings.csv") {
+				const event = createReviewEvent({
+					rating,
+					occurredAt: occurredAt(row["Event Utc Ts"]?.trim() ?? "") ?? input.importedAt,
+				});
+				if (event) {
+					group.events.push(event);
+				}
+			} else {
+				group.events.push(createBacklogEvent(input.importedAt));
+			}
 		});
-		if (Result.isFailure(parsed)) {
+		if (Result.isFailure(result)) {
 			failures.push({
-				itemIndex: index,
-				sourceLabel: label,
-				sourceIdentifier: title || undefined,
-				message: `Ratings file: ${parsed.failure instanceof Error ? parsed.failure.message : "Netflix row is malformed"}`,
+				itemIndex,
+				sourceLabel: title,
+				sourceIdentifier: title,
+				message:
+					result.failure instanceof Error ? result.failure.message : "Netflix row is malformed",
 			});
-			continue;
-		}
-		if (parsed.success === null) {
-			continue;
-		}
-		const lookup = yield* Effect.result(
-			lookupTitle({
-				title,
-				preferredEntitySchemaSlug: titleContext.get(extractMetadataLookupBaseTitle(title)),
-			}),
-		);
-		if (Result.isFailure(lookup)) {
-			failures.push(
-				lookupFailure({
-					itemIndex: index,
-					sourceLabel: label,
-					message: lookup.failure,
-					sourceIdentifier: title,
-				}),
-			);
-			continue;
-		}
-		const review = createReviewEvent({
-			rating: parsed.success,
-			occurredAt: occurredAt(row["Event Utc Ts"]?.trim() ?? "") ?? input.importedAt,
-		});
-		if (review) {
-			getOrCreateMediaEntityGroup(groups, lookup.success.entityRef, index).events.push(review);
 		}
 	}
-
-	for (const row of myList.rows) {
-		const index = itemIndex++;
-		if (!matchesProfile(row["Profile Name"], input.profileName)) {
-			continue;
-		}
-		const title = row["Title Name"]?.trim() ?? "";
-		if (skipTitle(title)) {
-			continue;
-		}
-		const label = title || `Netflix MyList row ${index + 1}`;
-		const parsed = Result.try(() => requiredCell(row, "Title Name"));
-		if (Result.isFailure(parsed)) {
-			failures.push({
-				itemIndex: index,
-				sourceLabel: label,
-				sourceIdentifier: title || undefined,
-				message: `MyList file: ${parsed.failure instanceof Error ? parsed.failure.message : "Netflix row is malformed"}`,
-			});
-			continue;
-		}
-		const lookup = yield* Effect.result(
-			lookupTitle({
-				title,
-				preferredEntitySchemaSlug: titleContext.get(extractMetadataLookupBaseTitle(title)),
-			}),
-		);
-		if (Result.isFailure(lookup)) {
-			failures.push(
-				lookupFailure({
-					itemIndex: index,
-					sourceLabel: label,
-					message: lookup.failure,
-					sourceIdentifier: title,
-				}),
-			);
-			continue;
-		}
-		getOrCreateMediaEntityGroup(groups, lookup.success.entityRef, index).events.push(
-			createBacklogEvent(input.importedAt),
-		);
-	}
-
-	return { failures, totalItems: itemIndex, entityGroups: finalizeEntityGroups(groups.values()) };
-});
+	return {
+		failures,
+		totalItems: parsed.rows.length,
+		entityGroups: finalizeEntityGroups(groups.values()),
+	};
+};

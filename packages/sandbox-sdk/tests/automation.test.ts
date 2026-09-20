@@ -13,12 +13,10 @@ import { sandboxManifestSchema } from "../src/core";
 import { defineManifest, SANDBOX_SCRIPT_DEFINITION } from "../src/driver";
 
 const manifest = defineManifest({
-	capabilities: [],
 	kind: "automation",
 	name: "Test automation",
 	slug: "test-automation",
 	automationType: "automation",
-	requiredPluginConfigKeys: [],
 	inputProjection: {
 		event: {
 			properties: ["progress"],
@@ -30,8 +28,9 @@ const run = () => Effect.succeed(null);
 const policyRun = () => Effect.succeed({ action: "allow" as const });
 
 describe("automation definitions", () => {
-	test("rejects unsafe policy manifests at the SDK boundary", () => {
+	test("rejects authored capabilities on policy manifests at the SDK boundary", () => {
 		for (const capability of [
+			"log",
 			"httpCall",
 			"createEvents",
 			"emitSignal",

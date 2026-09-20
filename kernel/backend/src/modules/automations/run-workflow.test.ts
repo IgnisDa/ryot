@@ -62,8 +62,11 @@ const afterScript = {
 	kind: "automation",
 	slug: "hook-script",
 	name: "Hook script",
+	oauthConnectionFields: [],
+	executableDependencies: [],
 	automationType: "automation",
 	requiredPluginConfigKeys: [],
+	optionalPluginConfigKeys: [],
 	inputProjection: { signal: { properties: ["nested"] } },
 } as const;
 const policyScript = {

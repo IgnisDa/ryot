@@ -1,7 +1,10 @@
-import { Layer } from "effect";
+import { DbError } from "@ryot-app/contract/errors";
+import { Effect, Layer } from "effect";
 
 import { DefinitionRepository } from "#modules/definition-registry/repository";
 import { ScriptGarbageCollectorLive } from "#modules/garbage-collection/layer";
+import { IngestionRetirementLive } from "#modules/imports/layer";
+import { IngestionRetirement } from "#modules/imports/retirement-service";
 import {
 	IntegrationPluginRevisionActivationLive,
 	IntegrationsRepository,
@@ -19,6 +22,7 @@ import {
 	PluginInvalidationSubscriber,
 } from "./catalog-events";
 import { PluginIngestionLock } from "./ingestion-lock";
+import { PluginIngestionRetirement } from "./ingestion-retirement";
 import { PluginInstallationRepository } from "./installation-repository";
 import { PluginInstallationService } from "./installation-service";
 import {
@@ -66,10 +70,21 @@ const installationRepositories = Layer.mergeAll(
 	SandboxWorkflowReferenceRepository.layer,
 );
 
+const pluginIngestionRetirement = Layer.effect(
+	PluginIngestionRetirement,
+	Effect.map(IngestionRetirement, (retirement) => ({
+		retire: (input: Parameters<PluginIngestionRetirement["Service"]["retire"]>[0]) =>
+			retirement
+				.retire(input)
+				.pipe(Effect.mapError((error) => new DbError({ message: String(error) }))),
+	})),
+).pipe(Layer.provide(IngestionRetirementLive));
+
 export const PluginInstallationMigrationLive = PluginInstallationService.layerMigration.pipe(
 	Layer.provide(
 		Layer.mergeAll(
 			installationRepositories,
+			pluginIngestionRetirement,
 			PluginCatalogInvalidator.layer,
 			PluginInstallationLifecycleDispatcher.layer,
 			UploadServicesLive,
@@ -84,6 +99,7 @@ export const PluginInstallationRuntimeLive = PluginInstallationService.layerRunt
 	Layer.provide(
 		Layer.mergeAll(
 			installationRepositories,
+			pluginIngestionRetirement,
 			PluginInstallationLifecycleDispatcherLive,
 			UploadServicesLive,
 			ObjectStorageServiceLive,

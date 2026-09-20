@@ -20,13 +20,7 @@ const decode = <A, I>(schema: Schema.Codec<A, I>) => Schema.decodeUnknownSync(sc
 
 describe("generic script definitions", () => {
 	test("preserves the manifest, schemas, and inferred implementation", () => {
-		const manifest = defineManifest({
-			kind: "script",
-			capabilities: [],
-			name: "Increment",
-			slug: "increment",
-			requiredPluginConfigKeys: [],
-		});
+		const manifest = defineManifest({ kind: "script", name: "Increment", slug: "increment" });
 		const definition = defineScript({
 			manifest,
 			output: Schema.Finite,
@@ -200,14 +194,8 @@ describe("shared value contracts", () => {
 });
 
 describe("sandbox test hosts", () => {
-	test("invokes a script with capability-checked host stubs", () => {
-		const manifest = defineManifest({
-			kind: "script",
-			name: "Cache reader",
-			slug: "cache-reader",
-			requiredPluginConfigKeys: [],
-			capabilities: ["getCachedValue"],
-		});
+	test("invokes a script with partial host stubs", () => {
+		const manifest = defineManifest({ kind: "script", name: "Cache reader", slug: "cache-reader" });
 		const definition = defineScript({
 			manifest,
 			output: Schema.NullOr(Schema.Finite),
@@ -234,8 +222,6 @@ describe("domain host contracts", () => {
 			kind: "script",
 			name: "Domain reader",
 			slug: "domain-reader",
-			requiredPluginConfigKeys: [],
-			capabilities: ["executeRyotql"],
 		});
 		const definition = defineScript({
 			manifest,

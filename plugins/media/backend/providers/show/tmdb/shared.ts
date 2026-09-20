@@ -18,21 +18,9 @@ import { translateTmdbShow } from "./translation";
 
 const canonicalLanguage = "en";
 
-export const manifest = defineManifest({
-	kind: "provider",
-	name: "TMDB Show",
-	slug: "show.tmdb",
-	requiredPluginConfigKeys: ["tmdbAccessToken"],
-	capabilities: ["httpCall", "getPluginConfig", "getUserSettings"],
-});
+export const manifest = defineManifest({ kind: "provider", name: "TMDB Show", slug: "show.tmdb" });
 
-const httpManifest = defineManifest({
-	kind: "provider",
-	name: "TMDB Show",
-	slug: "show.tmdb",
-	capabilities: ["httpCall", "getPluginConfig"],
-	requiredPluginConfigKeys: ["tmdbAccessToken"],
-});
+const httpManifest = defineManifest({ kind: "provider", name: "TMDB Show", slug: "show.tmdb" });
 
 export const search = defineProvider({
 	manifest,

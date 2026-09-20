@@ -80,9 +80,16 @@ layer(BunServices.layer)((test) => {
 				expect(entityImportWorkflow).toContain("validate-entity-details");
 				expect(entityImportWorkflow).toContain("upsert-root-entity");
 				expect(entityImportWorkflow).toContain("stamp-root-populated-at");
-				expect(integrationWorkflow).toContain("mark-integration-run-started");
+				expect(integrationWorkflow).toMatch(
+					/name: `start-integration-ingestion:\$\{attempt\}`,\s*execute: repository\s*\.startIntegrationIngestion\(/,
+				);
 				expect(integrationWorkflow).toContain("finalize-integration-run");
-				expect(integrationWorkflow).toContain("runIntegrationImport");
+				expect(integrationWorkflow).toMatch(
+					/dispatchAdmittedWorkflow\(\s*receipts,\s*engine,\s*ProcessDataImportWorkflow,/,
+				);
+				expect(integrationWorkflow).toMatch(/sandbox\s*\.executeWorkflow\(\{/);
+				expect(integrationWorkflow).toContain('yield* settle("completed")');
+				expect(integrationWorkflow).toContain('Effect.andThen(settle("failed"))');
 			}),
 	);
 

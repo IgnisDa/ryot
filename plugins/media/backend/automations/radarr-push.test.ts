@@ -1,5 +1,5 @@
 import { describe, expect, it } from "@effect/vitest";
-import type { LogEntry, SandboxHost } from "@ryot-app/sandbox-sdk/core";
+import type { LogEntry, ScriptHost } from "@ryot-app/sandbox-sdk/core";
 import { Effect } from "@ryot-app/sandbox-sdk/effect";
 import { defineSandboxTestHost } from "@ryot-app/sandbox-sdk/testing";
 
@@ -17,7 +17,15 @@ import {
 } from "../../tests/backend/automations/automation-test-utils";
 import definition, { manifest } from "./radarr-push.sandbox";
 
-type RadarrHost = SandboxHost<typeof manifest.capabilities>;
+type RadarrHost = Pick<
+	ScriptHost,
+	| "log"
+	| "httpCall"
+	| "executeRyotql"
+	| "getEntitySchemas"
+	| "listIntegrations"
+	| "getUserPreferences"
+>;
 type HttpCall = { url: string; method: string; options: Record<string, unknown> };
 
 const movieEntity = entityRecord({

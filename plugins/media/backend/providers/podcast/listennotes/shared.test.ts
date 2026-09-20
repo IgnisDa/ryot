@@ -1,4 +1,4 @@
-import type { SandboxHost } from "@ryot-app/sandbox-sdk/core";
+import type { ScriptHost } from "@ryot-app/sandbox-sdk/core";
 import { Effect } from "@ryot-app/sandbox-sdk/effect";
 import { defineSandboxTestHost, runSandboxTestScript } from "@ryot-app/sandbox-sdk/testing";
 import { describe, expect, it } from "vitest";
@@ -7,7 +7,10 @@ import details, { manifest as detailsManifest } from "./details.sandbox";
 import search, { manifest as searchManifest } from "./search.sandbox";
 import { manifest } from "./shared";
 
-type ListennotesHost = SandboxHost<typeof manifest.capabilities>;
+type ListennotesHost = Pick<
+	ScriptHost,
+	"httpCall" | "getPluginConfig" | "getCachedValue" | "setCachedValue"
+>;
 
 const httpSuccess = (body: unknown) =>
 	Effect.succeed({ status: 200, headers: {}, body: JSON.stringify(body) });
@@ -20,7 +23,7 @@ const makeHost = (
 		httpCall,
 		getCachedValue: () => Effect.succeed(null),
 		setCachedValue: () => Effect.succeed(null),
-		getPluginConfig: (keys) =>
+		getPluginConfig: ({ required: keys = [] }) =>
 			Effect.succeed(Object.fromEntries(keys.map((key) => [key, "listen-key"]))),
 		...overrides,
 	});
@@ -28,7 +31,7 @@ const makeHost = (
 const execution = { metadata: {}, sandboxScriptId: "script_test" };
 
 describe("podcast.listennotes sandbox script", () => {
-	it("declares one narrowly scoped script per operation", () => {
+	it("declares a script for each operation", () => {
 		expect([
 			[searchManifest.slug, search.operation],
 			[detailsManifest.slug, details.operation],
@@ -43,7 +46,7 @@ describe("podcast.listennotes sandbox script", () => {
 		const host = defineSandboxTestHost(manifest, {
 			getCachedValue: () => Effect.succeed(null),
 			setCachedValue: () => Effect.succeed(null),
-			getPluginConfig: (keys) => {
+			getPluginConfig: ({ required: keys = [] }) => {
 				configKeys.push(...keys);
 				return Effect.succeed(Object.fromEntries(keys.map((key) => [key, "listen-key"])));
 			},

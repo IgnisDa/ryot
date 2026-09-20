@@ -764,7 +764,16 @@ describe("backup export and restore round trip", () => {
 				"after-restore",
 			);
 			const run = yield* pollImportRunUntilTerminal(target.client, runId);
-			expect(run).toMatchObject({ failedItems: 0, importedItems: 1, status: "completed" });
+			expect(run).toMatchObject({
+				status: "completed",
+				summary: [
+					{
+						unit: "entities",
+						recordKind: "entity",
+						counts: { created: 1, updated: 0, skipped: 0, unchanged: 0, unsuccessful: 0 },
+					},
+				],
+			});
 			expect(yield* listImportedEntityNames(target.client, "collection")).toContain(name);
 		}),
 	);

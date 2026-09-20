@@ -1,7 +1,7 @@
 import { badRequest } from "@ryot-app/contract/errors";
 import type { UserId } from "@ryot-app/contract/schema/brands";
 import { stableStringify } from "@ryot-app/ts-utils/json";
-import { Context, Effect, Layer, Schema } from "effect";
+import { Context, Effect, Layer } from "effect";
 
 import type { ArchivePrivatePlugin } from "#modules/backups/archive/schemas";
 import { DefinitionRepository } from "#modules/definition-registry/repository";
@@ -21,14 +21,10 @@ import {
 	validatePluginExecutableScripts,
 	validatePluginManifestPolicy,
 	validatePluginManifestReferences,
-	validatePluginPackageLimits,
-	validatePluginSourcePaths,
+	validatePluginScriptEntries,
 } from "./validation";
 
-type PreparedBackupPrivatePlugin = Omit<ArchivePrivatePlugin, "files"> & {
-	readonly normalized: NormalizedPlugin;
-	readonly files: Readonly<Record<string, Uint8Array>>;
-};
+type PreparedBackupPrivatePlugin = ArchivePrivatePlugin & { readonly normalized: NormalizedPlugin };
 
 const asInvalidBackup = <A, E, R>(effect: Effect.Effect<A, E, R>) =>
 	effect.pipe(Effect.mapError((error) => badRequest(String(error))));
@@ -54,14 +50,6 @@ export class PluginBackupRestore extends Context.Service<PluginBackupRestore>()(
 					}
 					keys.add(item.key);
 					slugs.add(item.slug);
-					const files = Object.fromEntries(
-						yield* Effect.forEach(Object.entries(item.files), ([path, contents]) =>
-							Schema.decodeEffect(Schema.Uint8ArrayFromBase64)(contents).pipe(
-								asInvalidBackup,
-								Effect.map((decoded) => [path, decoded] as const),
-							),
-						),
-					);
 					const manifest = yield* asInvalidBackup(decodePluginManifest(item.manifest));
 					if (
 						manifest.metadata.slug !== item.slug ||
@@ -72,7 +60,6 @@ export class PluginBackupRestore extends Context.Service<PluginBackupRestore>()(
 					}
 					const normalizedSource = yield* asInvalidBackup(
 						normalizePluginSource({
-							files,
 							manifest,
 							compiledScripts: item.compiledScripts,
 							...(item.compiledClient ? { compiledClient: item.compiledClient } : {}),
@@ -81,17 +68,16 @@ export class PluginBackupRestore extends Context.Service<PluginBackupRestore>()(
 					if (normalizedSource.sourceHash !== item.sourceHash) {
 						return yield* badRequest("Backup private plugin source hash is invalid");
 					}
-					yield* asInvalidBackup(validatePluginPackageLimits(files, manifest));
 					yield* asInvalidBackup(
 						validatePluginManifestPolicy(manifest, {
 							scope: "user",
 							systemSlugs: new Set(system.map(({ slug }) => slug)),
 						}),
 					);
-					yield* asInvalidBackup(validatePluginSourcePaths(files, manifest));
+					yield* asInvalidBackup(validatePluginScriptEntries(manifest));
 					const normalized = yield* asInvalidBackup(normalizePluginPackage(normalizedSource));
 					yield* asInvalidBackup(validatePluginExecutableScripts(normalized));
-					prepared.push({ ...item, files, manifest, normalized });
+					prepared.push({ ...item, manifest, normalized });
 				}
 				const candidates = prepared.map(({ key, slug, normalized }) => ({
 					slug,

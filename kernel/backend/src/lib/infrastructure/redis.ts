@@ -1,32 +1,12 @@
-import { jsonValueSchema } from "@ryot-app/contract/modules/sandbox/wire";
-import { SandboxScriptId } from "@ryot-app/contract/schema/brands";
 import { Context, Effect, Layer, Redacted, Schema } from "effect";
 import Redis from "ioredis";
 
 import { AppConfig } from "./config/service";
-import { SandboxPluginRevision } from "./sandbox-runtime/execution-principal";
 
 export const ENTITY_INTEREST_SESSION_TTL_SECONDS = 15 * 60;
 export const ENTITY_INTEREST_PROGRESSION_LEASE_SECONDS = 30;
-export const IMPORT_SOURCE_STATE_PENDING_TTL_SECONDS = 24 * 60 * 60;
-export const IMPORT_SOURCE_STATE_CLAIMED_TTL_SECONDS = 24 * 60 * 60;
 export const PROVIDER_SEARCH_OPTIONS_CACHE_TTL_SECONDS = 24 * 60 * 60;
 export const ENTITY_INTEREST_SESSION_RENEWAL_INTERVAL_SECONDS = 5 * 60;
-
-export const ImportSourceState = Schema.Struct({
-	source: Schema.String,
-	pluginId: Schema.String,
-	workflowScriptId: SandboxScriptId,
-	pluginInstallationId: Schema.String,
-	pluginRevision: SandboxPluginRevision,
-	uploadIntentIds: Schema.Array(Schema.String),
-	sourcePayload: Schema.Record(Schema.String, jsonValueSchema),
-	namedArtifactPaths: Schema.Record(Schema.String, Schema.String),
-});
-
-export type ImportSourceState = typeof ImportSourceState.Type;
-
-export const ImportSourceStateFromJson = Schema.fromJsonString(ImportSourceState);
 
 export const ImpersonationEndedMessage = Schema.fromJsonString(
 	Schema.Struct({ sessionId: Schema.String }),
@@ -44,7 +24,6 @@ export const redisKeys = {
 	passwordResetToken: (userId: string) => `ryot:auth:password-reset:${userId}`,
 	uploadIntentLock: (intentId: string) => `ryot:upload:intent-lock:${intentId}`,
 	importAdapterResult: (runId: string) => `ryot:imports:adapter-result:${runId}`,
-	importSourceState: (stateId: string) => `ryot:imports:source-state:${stateId}`,
 	impersonationHandoff: (ticketHash: string) => `ryot:auth:impersonation:${ticketHash}`,
 	godModeResetChannel: (correlationId: string) => `ryot:god-mode:reset:${correlationId}`,
 	entityInterestTicket: (ticketHash: string) => `ryot:entity-interest:ticket:${ticketHash}`,
@@ -58,8 +37,6 @@ export const redisKeys = {
 		`ryot:integrations:cache:${integrationId}:${key}`,
 	providerHttpAdmission: (policyKey: string) =>
 		`ryot:provider-http-admission:${encodeURIComponent(policyKey)}`,
-	importSourceStateClaim: (stateId: string, claimId: string) =>
-		`ryot:imports:source-state:${stateId}:claim:${claimId}`,
 	providerSearchOptions: (providerId: string, scriptId: string) =>
 		`ryot:provider:search-options:${providerId}:${scriptId}`,
 	sandboxCache: (userId: string | null, scriptId: string, key: string) =>

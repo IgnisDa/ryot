@@ -4,6 +4,9 @@ import type { AccessClass } from "@ryot-app/contract/oauth";
 import { sql } from "drizzle-orm";
 
 import { automationRunRetryEligibility } from "#lib/infrastructure/db/automation-retry-eligibility";
+import { ingestionReadinessMetadataSql } from "#modules/plugins/ingestion-readiness-projection";
+
+import { ingestionActivitiesSql, ingestionSummarySql } from "./ingestion-projection";
 
 export type CatalogFieldKind = "boolean" | "date" | "json" | "number" | "text";
 
@@ -467,20 +470,19 @@ const executableDefinitionFields = {
 	slug: physicalField("slug", "text", false),
 	name: physicalField("name", "text", false),
 	pluginSlug: physicalField("plugin_slug", "text"),
+	pluginScope: physicalField("plugin_scope", "text"),
+	installationId: physicalField("installation_id", "text"),
 	description: physicalField("description", "text", false),
 };
 
 const pluginConfigEnvironmentSegment = (value: string) =>
 	`upper(regexp_replace(regexp_replace(regexp_replace(${value}, '([a-z0-9])([A-Z])', '\\1_\\2', 'g'), '[^a-zA-Z0-9]+', '_', 'g'), '^_+|_+$', '', 'g'))`;
 
-const missingPluginConfigKeys = (sqlAlias: string) => `CASE
-	WHEN ${sqlAlias}.plugin_scope <> 'system' THEN CASE WHEN ${sqlAlias}.config_revision_id IS NULL THEN to_jsonb(${sqlAlias}.required_plugin_config_keys) ELSE '[]'::jsonb END
-	ELSE COALESCE((
-		SELECT jsonb_agg('RYOT_PLUGIN_' || ${pluginConfigEnvironmentSegment(`${sqlAlias}.plugin_slug`)} || '_' || ${pluginConfigEnvironmentSegment("required_key.key")} ORDER BY required_key.position)
+const missingPluginConfigKeys = (sqlAlias: string) => `COALESCE((
+		SELECT jsonb_agg(CASE WHEN ${sqlAlias}.plugin_scope = 'system' THEN 'RYOT_PLUGIN_' || ${pluginConfigEnvironmentSegment(`${sqlAlias}.plugin_slug`)} || '_' || ${pluginConfigEnvironmentSegment("required_key.key")} ELSE required_key.key END ORDER BY required_key.position)
 		FROM unnest(${sqlAlias}.required_plugin_config_keys) WITH ORDINALITY required_key(key, position)
-		WHERE NOT required_key.key = ANY(COALESCE((SELECT configured.configured_keys FROM plugin_config_revision configured WHERE configured.id = ${sqlAlias}.config_revision_id), '{}'))
-	), '[]'::jsonb)
-END`;
+		WHERE NOT COALESCE(${ingestionReadinessMetadataSql(sqlAlias)}->'availableConfigKeys', '[]'::jsonb) ? required_key.key
+	), '[]'::jsonb)`;
 
 const importSource: CatalogTable = {
 	primaryKey: ["id"],
@@ -488,10 +490,16 @@ const importSource: CatalogTable = {
 	visibility: executableDefinitionVisibility,
 	fields: {
 		...executableDefinitionFields,
+		plan: physicalField("plan", "json"),
 		exportHelp: physicalField("export_help", "json"),
 		inputSchema: physicalField("input_schema", "json", false),
 		workflowSlug: physicalField("workflow_slug", "text", false),
 		requiredPluginConfigKeys: textArrayField("required_plugin_config_keys"),
+		readinessMetadata: {
+			kind: "json",
+			nullable: true,
+			resolve: ({ sqlAlias }) => sql.raw(ingestionReadinessMetadataSql(sqlAlias)),
+		},
 		missingPluginConfigKeys: {
 			kind: "json",
 			nullable: false,
@@ -515,15 +523,37 @@ const integrationProvider: CatalogTable = {
 	fields: {
 		...executableDefinitionFields,
 		lot: physicalField("lot", "text", false),
+		scriptSlug: physicalField("script_slug", "text"),
 		settingsSchema: physicalField("settings_schema", "json", false),
 		requiresProKey: physicalField("requires_pro_key", "boolean", false),
 		supportsOwnershipSync: physicalField("supports_ownership_sync", "boolean", false),
+		readinessMetadata: {
+			kind: "json",
+			nullable: true,
+			resolve: ({ sqlAlias }) => sql.raw(ingestionReadinessMetadataSql(sqlAlias)),
+		},
 		hasScript: {
 			kind: "boolean",
 			nullable: false,
 			resolve: ({ sqlAlias }) =>
 				sql.raw(
 					`(${sqlAlias}.plugin_id IS NULL OR ${sqlAlias}.lot = 'push' OR ${sqlAlias}.script_id IS NOT NULL)`,
+				),
+		},
+		plan: {
+			kind: "json",
+			nullable: true,
+			resolve: ({ sqlAlias }) =>
+				sql.raw(
+					`(SELECT declared->'plan' FROM plugin_revision revision CROSS JOIN LATERAL jsonb_array_elements(revision.manifest->'integrationProviders') declared WHERE revision.id = ${sqlAlias}.plugin_revision_id AND declared->>'slug' = ${sqlAlias}.slug AND declared->>'lot' <> 'push')`,
+				),
+		},
+		readinessConnections: {
+			kind: "json",
+			nullable: false,
+			resolve: ({ sqlAlias }) =>
+				sql.raw(
+					`COALESCE((SELECT jsonb_agg(jsonb_build_object('id', connection.id, 'field', connection.field, 'integrationId', connection.integration_id, 'provider', connection.oauth_provider_slug)) FROM oauth_connection connection WHERE connection.user_id = ${sqlAlias}.user_id AND connection.plugin_installation_id = ${sqlAlias}.installation_id AND connection.integration_provider_slug = ${sqlAlias}.slug AND connection.status = 'connected' AND (connection.expires_at IS NULL OR connection.expires_at > now())), '[]'::jsonb)`,
 				),
 		},
 	},
@@ -655,22 +685,35 @@ const importRun: CatalogTable = {
 		source: physicalField("source", "text", false),
 		status: physicalField("status", "text", false),
 		finishedAt: physicalField("finished_at", "date"),
-		totalItems: physicalField("total_items", "number"),
-		progress: physicalField("progress", "number", false),
+		expiryReason: physicalField("expiry_reason", "text"),
 		createdAt: physicalField("created_at", "date", false),
 		updatedAt: physicalField("updated_at", "date", false),
+		blockDeadline: physicalField("block_deadline", "date"),
 		failureReason: physicalField("failure_reason", "json"),
 		integrationId: physicalField("integration_id", "text"),
-		failedItems: physicalField("failed_items", "number", false),
+		blockReasons: physicalField("block_reasons", "json", false),
 		inputSummary: physicalField("input_summary", "json", false),
-		importedItems: physicalField("imported_items", "number", false),
-		processedItems: physicalField("processed_items", "number", false),
+		summary: {
+			kind: "json",
+			nullable: false,
+			resolve: ({ sqlAlias }) => ingestionSummarySql(sqlAlias),
+		},
+		activities: {
+			kind: "json",
+			nullable: false,
+			resolve: ({ sqlAlias }) => ingestionActivitiesSql(sqlAlias),
+		},
 	},
 };
 
-const importRunFailure: CatalogTable = {
-	primaryKey: ["id"],
-	name: "import_run_failure",
+const importIssue: CatalogTable = {
+	name: "import_issue",
+	primaryKey: ["runId", "id"],
+	fields: {
+		id: physicalField("id", "text", false),
+		data: physicalField("data", "json", false),
+		runId: physicalField("run_id", "text", false),
+	},
 	visibility: {
 		user: {
 			column: "run_id",
@@ -680,18 +723,6 @@ const importRunFailure: CatalogTable = {
 			parentTable: "import_run",
 			parentOwnerColumn: "user_id",
 		},
-	},
-	fields: {
-		id: physicalField("id", "text", false),
-		stage: physicalField("stage", "text", false),
-		runId: physicalField("run_id", "text", false),
-		reason: physicalField("reason", "json", false),
-		sourceLabel: physicalField("source_label", "text"),
-		createdAt: physicalField("created_at", "date", false),
-		itemIndex: physicalField("item_index", "number", false),
-		eventSchemaSlug: physicalField("event_schema_slug", "text"),
-		sourceIdentifier: physicalField("source_identifier", "text"),
-		entitySchemaSlug: physicalField("entity_schema_slug", "text"),
 	},
 };
 
@@ -1008,6 +1039,7 @@ const tables: Readonly<Record<string, CatalogTable>> = {
 	savedView,
 	eventSchema,
 	integration,
+	importIssue,
 	entitySchema,
 	importSource,
 	relationship,
@@ -1016,7 +1048,6 @@ const tables: Readonly<Record<string, CatalogTable>> = {
 	automationRun,
 	migrationReport,
 	sandboxProvider,
-	importRunFailure,
 	automationTrigger,
 	entityTranslation,
 	pluginInstallation,

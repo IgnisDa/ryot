@@ -1,6 +1,7 @@
 import { Layer } from "effect";
 
 import { AuthServiceLive } from "#modules/auth/layer";
+import { IngestionExecutionLive } from "#modules/imports/layer";
 import { ObjectStorageServiceLive } from "#modules/uploads/layer";
 import { UserBootstrapLive } from "#modules/user-bootstrap/layer";
 
@@ -19,6 +20,7 @@ export const UserLifecycleWorkflowOperationsProvidedLive = UserLifecycleWorkflow
 			UserLifecycleRepository.layer,
 			ObjectStorageServiceLive,
 			UserBootstrapLive,
+			IngestionExecutionLive,
 		),
 	),
 );

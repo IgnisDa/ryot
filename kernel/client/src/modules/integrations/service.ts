@@ -30,6 +30,27 @@ import type { KernelHostServices } from "#/host-services";
 export const INTEGRATIONS_PAGE_SIZE = 20;
 export const INTEGRATION_RUNS_PAGE_SIZE = 10;
 
+export const selectedIntegrationReadinessQuery = createRyotQuery<
+	NonNullable<Parameters<typeof integrationProvidersRecipe>[0]["selected"]>,
+	IntegrationProvidersPage["items"][number] | undefined,
+	KernelHostServices
+>(({ input, client }) =>
+	Effect.gen(function* () {
+		let after: string | undefined;
+		do {
+			const page = yield* client.data.query(
+				integrationProvidersRecipe({ after, limit: 100, selected: input }),
+			);
+			const provider = page.items.find((item) => item.slug === input.slug);
+			if (provider !== undefined) {
+				return provider;
+			}
+			after = page.pageInfo.nextCursor ?? undefined;
+		} while (after !== undefined);
+		return undefined;
+	}),
+);
+
 export type IntegrationProviderItem = Omit<
 	IntegrationProvidersPage["items"][number],
 	"id" | "hasScript"

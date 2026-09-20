@@ -260,14 +260,14 @@ it("exposes only approved application-table fields", () => {
 	expect(integration && "plugin" in integration.visibility).toBe(false);
 	expect(new Set(Object.keys(getCatalogTable("importRun")?.fields ?? {}))).toEqual(
 		new Set([
+			"summary",
+			"activities",
+			"blockReasons",
+			"expiryReason",
+			"blockDeadline",
 			"id",
 			"source",
 			"status",
-			"progress",
-			"totalItems",
-			"failedItems",
-			"importedItems",
-			"processedItems",
 			"failureReason",
 			"inputSummary",
 			"integrationId",
@@ -277,28 +277,17 @@ it("exposes only approved application-table fields", () => {
 			"updatedAt",
 		]),
 	);
-	expect(new Set(Object.keys(getCatalogTable("importRunFailure")?.fields ?? {}))).toEqual(
-		new Set([
-			"id",
-			"runId",
-			"stage",
-			"reason",
-			"itemIndex",
-			"sourceLabel",
-			"sourceIdentifier",
-			"eventSchemaSlug",
-			"entitySchemaSlug",
-			"createdAt",
-		]),
+	expect(new Set(Object.keys(getCatalogTable("importIssue")?.fields ?? {}))).toEqual(
+		new Set(["id", "runId", "data"]),
 	);
 	const importRun = getCatalogTable("importRun");
-	const importRunFailure = getCatalogTable("importRunFailure");
+	const importIssue = getCatalogTable("importIssue");
 	expect(importRun?.name).toBe("import_run");
 	expect(importRun?.visibility).toEqual({
 		user: { type: "owned", column: "user_id", includeGlobal: false, pluginReadable: true },
 	});
-	expect(importRunFailure?.name).toBe("import_run_failure");
-	expect(importRunFailure?.visibility).toEqual({
+	expect(importIssue?.name).toBe("import_issue");
+	expect(importIssue?.visibility).toEqual({
 		user: {
 			column: "run_id",
 			parentColumn: "id",
@@ -309,7 +298,7 @@ it("exposes only approved application-table fields", () => {
 		},
 	});
 	expect(importRun && "plugin" in importRun.visibility).toBe(false);
-	expect(importRunFailure && "plugin" in importRunFailure.visibility).toBe(false);
+	expect(importIssue && "plugin" in importIssue.visibility).toBe(false);
 });
 
 it("rejects hidden application-table fields", () => {
@@ -331,13 +320,19 @@ it("rejects hidden application-table fields", () => {
 		["integration", "webhookUrl"],
 		["integration", "clientProviderSpecifics"],
 		["importRun", "userId"],
+		["importRun", "pins"],
+		["importRun", "plan"],
+		["importRun", "progress"],
+		["importRun", "totalItems"],
+		["importRun", "failedItems"],
+		["importRun", "processedItems"],
+		["importRun", "importedItems"],
 		["backupRun", "userId"],
 		["backupRun", "artifactKey"],
 		["importSource", "userId"],
 		["importSource", "workflowScriptId"],
 		["importSource", "configRevisionId"],
 		["integrationProvider", "scriptId"],
-		["integrationProvider", "scriptSlug"],
 		["integrationProvider", "configRevisionId"],
 		["entitySchema", "isEffective"],
 		["automationRunAttempt", "returnedValue"],
@@ -364,7 +359,7 @@ it("rejects hidden application-table fields", () => {
 });
 
 it("denies user-only catalog tables to plugin execution", () => {
-	for (const tableName of ["importRun", "importRunFailure"] as const) {
+	for (const tableName of ["importRun", "importIssue"] as const) {
 		const source = table(tableName, "source");
 		expect(
 			validateRyotQLDocument(document({ rows: rows(source, { fields: [] }) }), { type: "plugin" }),
@@ -459,7 +454,7 @@ it("limits admin execution to tables with an admin policy", () => {
 		"importSource",
 		"signalSchema",
 		"sandboxProvider",
-		"importRunFailure",
+		"importIssue",
 		"relationshipSchema",
 		"integrationProvider",
 		"notificationChannel",

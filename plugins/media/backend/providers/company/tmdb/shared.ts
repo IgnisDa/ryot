@@ -5,13 +5,7 @@ import { defineProvider } from "@ryot-app/sandbox-sdk/provider";
 import { type UnknownRecord, numberValue, recordsValue, stringValue } from "../../../lib/records";
 import { getImageUrl, getTmdbAccessToken, tmdbGet, type TmdbHost } from "../../../lib/vendors/tmdb";
 
-export const manifest = defineManifest({
-	name: "TMDB",
-	kind: "provider",
-	slug: "company.tmdb",
-	capabilities: ["httpCall", "getPluginConfig"],
-	requiredPluginConfigKeys: ["tmdbAccessToken"],
-});
+export const manifest = defineManifest({ name: "TMDB", kind: "provider", slug: "company.tmdb" });
 
 export const search = defineProvider({
 	manifest,

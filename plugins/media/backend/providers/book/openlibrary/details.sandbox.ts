@@ -5,9 +5,7 @@ import { details } from "./shared";
 
 export const manifest = defineManifest({
 	kind: "provider",
-	capabilities: ["httpCall"],
 	name: "OpenLibrary Details",
-	requiredPluginConfigKeys: [],
 	slug: "book.openlibrary.details",
 });
 

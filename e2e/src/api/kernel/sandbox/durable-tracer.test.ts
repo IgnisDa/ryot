@@ -25,19 +25,8 @@ import { entityReadRecipe, executeRyotqlRecipe } from "@ryot-app/sandbox-sdk/ryo
 
 export const manifest = defineManifest({
   kind: "operation",
-  requiredPluginConfigKeys: [],
   name: ${JSON.stringify(input.name)},
   slug: ${JSON.stringify(input.slug)},
-  capabilities: [
-    "log",
-    "span",
-    "httpCall",
-    "createEvents",
-    "getCachedValue",
-    "getUserPreferences",
-    "executeRyotql",
-    "claimPersistentValue",
-  ],
 });
 
 export default defineOperation({
@@ -73,18 +62,16 @@ export default defineOperation({
       host.getCachedValue("durable-tracer-a"),
       host.getCachedValue("durable-tracer-b"),
     ], { concurrency: "unbounded" });
-    if (!host.executeWorkflow) {
-      return yield* Effect.fail(new Error("executeWorkflow is unavailable"));
-    }
-    const child = yield* host.executeWorkflow(
+    const child = yield* (host.executeWorkflow?.(
       "tracer-child",
       {
         workflowSlug: "tracer-child",
+        referenceKind: "workflow" as const,
         input: Schema.Struct({ value: Schema.String }),
         output: Schema.String,
       },
       { value: input.entityId },
-    );
+    ) ?? Effect.fail(new Error("executeWorkflow is unavailable")));
     yield* host.span([{ name: "durable.tracer.completed" }]);
     return {
       rows,
@@ -106,8 +93,6 @@ import { defineManifest, defineWorkflow, Effect, Schema } from "@ryot-app/sandbo
 
 export const manifest = defineManifest({
   kind: "workflow",
-  capabilities: [],
-  requiredPluginConfigKeys: [],
   name: ${JSON.stringify(input.name)},
   slug: ${JSON.stringify(input.slug)},
 });

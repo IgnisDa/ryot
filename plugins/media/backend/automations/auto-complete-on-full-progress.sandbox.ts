@@ -1,6 +1,6 @@
 import type { AutomationInput } from "@ryot-app/sandbox-sdk/automation";
 import { defineAutomation } from "@ryot-app/sandbox-sdk/automation";
-import type { EventSchemaRecord, SandboxHost } from "@ryot-app/sandbox-sdk/core";
+import type { EventSchemaRecord, ScriptHost } from "@ryot-app/sandbox-sdk/core";
 import { defineManifest } from "@ryot-app/sandbox-sdk/driver";
 import { DateTime, Effect, Option } from "@ryot-app/sandbox-sdk/effect";
 import {
@@ -16,10 +16,8 @@ import type { MediaProgressEvent } from "../lib/ryotql";
 export const manifest = defineManifest({
 	kind: "automation",
 	automationType: "automation",
-	requiredPluginConfigKeys: [],
 	name: "Auto-Complete on Full Progress",
 	slug: "trigger.auto-complete-on-full-progress",
-	capabilities: ["executeRyotql", "createEvents", "listEventSchemas"],
 	inputProjection: {
 		event: {
 			compareProperties: [],
@@ -29,7 +27,7 @@ export const manifest = defineManifest({
 });
 
 type Properties = Readonly<Record<string, JsonValue>>;
-type AutomationHost = SandboxHost<typeof manifest.capabilities>;
+type AutomationHost = Pick<ScriptHost, "executeRyotql" | "createEvents" | "listEventSchemas">;
 type AutomationEventSnapshot = Extract<
 	AutomationInput["automation"]["payload"],
 	{ resource: "event"; operation: "create"; category: "change" }

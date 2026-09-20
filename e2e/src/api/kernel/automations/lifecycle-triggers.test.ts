@@ -110,7 +110,10 @@ const automationScript = (
 	...declaration,
 	capabilities: [],
 	kind: "automation",
+	oauthConnectionFields: [],
+	executableDependencies: [],
 	requiredPluginConfigKeys: [],
+	optionalPluginConfigKeys: [],
 });
 
 const policySource = `
@@ -123,8 +126,6 @@ export const manifest = defineManifest({
   automationType: "policy",
   slug: ${JSON.stringify(slugs.policyScript)},
   name: "E2E lifecycle policy",
-  capabilities: [],
-  requiredPluginConfigKeys: [],
   inputProjection: { event: { properties: ["marker"] } },
 });
 
@@ -170,8 +171,6 @@ export const manifest = defineManifest({
   automationType: "automation",
   slug: ${JSON.stringify(input.slug)},
   name: ${JSON.stringify(input.name)},
-  capabilities: [],
-  requiredPluginConfigKeys: [],
   inputProjection: {
     entity: { properties: [], compareProperties: [], parentEntityProperties: [] },
     event: { properties: [], compareProperties: [] },
@@ -194,8 +193,6 @@ export const manifest = defineManifest({
   kind: "operation",
   slug: ${JSON.stringify(slugs.replayOperation)},
   name: "E2E lifecycle replay operation",
-  capabilities: ["createEvents"],
-  requiredPluginConfigKeys: [],
 });
 
 export default defineOperation({
@@ -209,18 +206,16 @@ export default defineOperation({
       properties: { marker: "replayed" },
       occurredAt: "2026-09-16T06:00:00.000Z",
     }]);
-    if (!host.executeWorkflow) {
-      return yield* Effect.fail(new Error("executeWorkflow is unavailable"));
-    }
-    yield* host.executeWorkflow(
+    yield* (host.executeWorkflow?.(
       ${JSON.stringify(slugs.replayPause)},
       {
         workflowSlug: ${JSON.stringify(slugs.replayPause)},
+        referenceKind: "workflow" as const,
         input: Schema.Struct({ value: Schema.String }),
         output: Schema.String,
       },
       { value: input.entityId },
-    );
+    ) ?? Effect.fail(new Error("executeWorkflow is unavailable")));
     return result;
   }),
 });
@@ -233,8 +228,6 @@ export const manifest = defineManifest({
   kind: "workflow",
   slug: ${JSON.stringify(slugs.replayPause)},
   name: "E2E lifecycle replay pause",
-  capabilities: [],
-  requiredPluginConfigKeys: [],
 });
 
 export default defineWorkflow({
@@ -294,8 +287,11 @@ const scripts = [
 	}),
 	{
 		kind: "operation",
+		oauthConnectionFields: [],
+		executableDependencies: [],
 		slug: slugs.replayOperation,
 		requiredPluginConfigKeys: [],
+		optionalPluginConfigKeys: [],
 		entry: entries.replayOperation,
 		capabilities: ["createEvents"],
 		name: "E2E lifecycle replay operation",
@@ -304,8 +300,11 @@ const scripts = [
 		kind: "workflow",
 		capabilities: [],
 		slug: slugs.replayPause,
+		oauthConnectionFields: [],
 		entry: entries.replayPause,
+		executableDependencies: [],
 		requiredPluginConfigKeys: [],
+		optionalPluginConfigKeys: [],
 		name: "E2E lifecycle replay pause",
 	},
 ] satisfies PluginManifest["scripts"];
@@ -649,12 +648,19 @@ describe("automation lifecycle triggers", () => {
 					occurredAt: `2026-10-01T00:0${index}:00.000Z`,
 				})),
 			});
-			expect(run).toMatchObject({
-				failedItems: 1,
-				importedItems: 3,
-				processedItems: 4,
-				status: "completed",
-			});
+			expect(run.status).toBe("completed");
+			expect(run.summary).toEqual([
+				{
+					unit: "entities",
+					recordKind: "entity",
+					counts: { created: 0, updated: 0, skipped: 0, unchanged: 1, unsuccessful: 0 },
+				},
+				{
+					unit: "events",
+					recordKind: "event",
+					counts: { created: 1, updated: 0, skipped: 1, unchanged: 0, unsuccessful: 1 },
+				},
+			]);
 			const events = yield* listEventsForEntity(user.client, entity.id, undefined, 100);
 			expect(events).toHaveLength(1);
 			const event = requirePresent(events[0], "Expected the policy-transformed event");

@@ -5,8 +5,6 @@ import { search } from "./shared";
 
 export const manifest = defineManifest({
 	kind: "provider",
-	capabilities: ["httpCall"],
-	requiredPluginConfigKeys: [],
 	name: "Audible Person Search",
 	slug: "person.audible.search",
 });

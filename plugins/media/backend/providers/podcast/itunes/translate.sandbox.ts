@@ -5,8 +5,6 @@ import { translate } from "./shared";
 
 export const manifest = defineManifest({
 	kind: "provider",
-	capabilities: ["httpCall"],
-	requiredPluginConfigKeys: [],
 	slug: "podcast.itunes.translate",
 	name: "iTunes Podcast Translation",
 });

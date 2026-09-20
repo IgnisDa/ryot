@@ -43,6 +43,10 @@
 			"types": "./src/imports.ts",
 			"default": "./src/imports.ts"
 		},
+		"./intrinsics": {
+			"types": "./src/intrinsics.ts",
+			"default": "./src/intrinsics.ts"
+		},
 		"./operation": {
 			"types": "./src/operation.ts",
 			"default": "./src/operation.ts"

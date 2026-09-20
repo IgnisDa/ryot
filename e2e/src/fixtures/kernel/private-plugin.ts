@@ -120,7 +120,7 @@ export const settledPrivateInstallation = (client: Client, pluginSlug: PluginSlu
 export const installPrivatePluginPackage = (input: {
 	readonly client: Client;
 	readonly baseUrl?: string;
-	readonly pluginPackage: PluginPackageInput;
+	readonly pluginPackage: PluginPackageInput | PluginArchivePackage;
 	readonly config: InstallPluginPayload["config"];
 }) =>
 	Effect.gen(function* () {
@@ -234,63 +234,55 @@ export const updatePrivatePlugin = (input: {
 	readonly client: Client;
 	readonly baseUrl?: string;
 	readonly pluginSlug: PluginSlug;
-	readonly payload: Omit<UpdatePluginPayload, "uploadToken"> & PluginPackageInput;
+	readonly payload: Omit<UpdatePluginPayload, "uploadToken"> &
+		(PluginPackageInput | PluginArchivePackage);
 }) =>
 	Effect.gen(function* () {
-		const { files, manifest, compiledClient, compiledScripts, ...payload } = input.payload;
+		const { config, unsetConfigKeys } = input.payload;
 		const uploadToken = yield* uploadPrivatePluginPackage(
 			input.client,
-			{
-				files,
-				manifest,
-				...(compiledScripts === undefined ? {} : { compiledScripts }),
-				...(compiledClient === undefined ? {} : { compiledClient }),
-			},
+			input.payload,
 			input.baseUrl,
 		);
 		return yield* input.client.call((c) =>
 			c.plugins.update({
-				payload: { ...payload, uploadToken },
 				params: { pluginSlug: input.pluginSlug },
+				payload: {
+					uploadToken,
+					...(config === undefined ? {} : { config }),
+					...(unsetConfigKeys === undefined ? {} : { unsetConfigKeys }),
+				},
 			}),
 		);
 	});
 
 const privateImportWorkflowSource = (scriptSlug: string) => `
 import {
-  genericImportKernelInputSchema,
+  genericImportSealReference,
   genericImportWorkflowInputSchema,
   genericImportWorkflowResultSchema,
 } from "@ryot-app/sandbox-sdk/imports";
-import { defineManifest, defineWorkflow } from "@ryot-app/sandbox-sdk/workflow";
+import { Effect, defineManifest, defineWorkflow } from "@ryot-app/sandbox-sdk/workflow";
 
 export const manifest = defineManifest({
   kind: "workflow",
-  capabilities: [],
   name: "E2E private import",
-  requiredPluginConfigKeys: [],
   slug: ${JSON.stringify(scriptSlug)},
 });
-
-const kernelImport = {
-  input: genericImportKernelInputSchema,
-  output: genericImportWorkflowResultSchema,
-  workflowSlug: "kernel:process-import-chunks",
-};
 
 export default defineWorkflow({
   manifest,
   input: genericImportWorkflowInputSchema,
   output: genericImportWorkflowResultSchema,
   run: (input, replay) =>
-    replay.child("complete-import", kernelImport, {
-      totalItems: 0,
-      failureCount: 0,
-      chunkHandles: [],
-      writeItemCount: 0,
-      runId: input.runId,
-      command: input.command,
-    }),
+     Effect.gen(function* () {
+     const sealed = yield* replay.child("complete-import", genericImportSealReference, {
+       operation: { action: "seal" },
+       runId: input.runId,
+       command: input.command,
+     });
+     return { summary: sealed.summary, issues: [] };
+     }),
 });
 `;
 
@@ -300,9 +292,7 @@ import { defineOperation } from "@ryot-app/sandbox-sdk/operation";
 import { Effect, Schema } from "@ryot-app/sandbox-sdk/effect";
 
 export const manifest = defineManifest({
-  capabilities: [],
   kind: "operation",
-  requiredPluginConfigKeys: [],
   name: "E2E private integration operation",
   slug: ${JSON.stringify(scriptSlug)},
 });
@@ -321,7 +311,7 @@ export type PrivateImportPluginPackage = {
 	readonly sourceSlug: string;
 	readonly pluginSlug: PluginSlug;
 	readonly manifest: PrivatePluginManifest;
-	readonly files: PluginArchivePackage["files"];
+	readonly files: PluginPackageInput["files"];
 };
 
 export type PrivateIntegrationPluginPackage = {
@@ -329,7 +319,7 @@ export type PrivateIntegrationPluginPackage = {
 	readonly operationSlug: string;
 	readonly pluginSlug: PluginSlug;
 	readonly manifest: PrivatePluginManifest;
-	readonly files: PluginArchivePackage["files"];
+	readonly files: PluginPackageInput["files"];
 };
 
 export const privateIntegrationSettingsSchema: PrivatePluginManifest["integrationProviders"][number]["settingsSchema"] =
@@ -353,6 +343,15 @@ export const privateImportPluginPackage = (
 	const manifest = testPluginManifest({
 		pluginSlug,
 		workflows: [{ scriptSlug, slug: workflowSlug }],
+		importSources: [
+			{
+				name,
+				workflowSlug,
+				slug: sourceSlug,
+				description: name,
+				inputSchema: { fields: {}, unknownKeys: "strict" },
+			},
+		],
 		scripts: [
 			{
 				entry,
@@ -361,16 +360,6 @@ export const privateImportPluginPackage = (
 				capabilities: [],
 				name: "E2E private import",
 				requiredPluginConfigKeys: [],
-			},
-		],
-		importSources: [
-			{
-				name,
-				workflowSlug,
-				slug: sourceSlug,
-				description: name,
-				requiredPluginConfigKeys: [],
-				inputSchema: { fields: {}, unknownKeys: "strict" },
 			},
 		],
 	});

@@ -47,7 +47,7 @@ import { dispatchAdmittedWorkflow } from "#modules/mutations/workflow-dispatch";
 import { RelationshipSchemasRepository } from "#modules/relationship-schemas/repository";
 import {
 	PendingRelationshipMutations,
-	type RelationshipSingleResult,
+	RelationshipSingleResult,
 } from "#modules/relationships/mutation-pipeline";
 import { RelationshipsService } from "#modules/relationships/service";
 
@@ -61,12 +61,15 @@ export const CollectionMembershipResult = Schema.Struct({
 	entitySchemaSlug: Schema.String,
 	memberOf: MembershipResponse.fields.memberOf,
 	addEventSchemaSlug: Schema.NullOr(EventSchemaSlug),
+	operation: RelationshipSingleResult.fields.operation,
 });
 export type CollectionMembershipResult = typeof CollectionMembershipResult.Type;
 
 export const PendingCollectionMembership = Schema.Struct({
 	mutations: PendingRelationshipMutations,
-	membership: Schema.Struct(Struct.omit(CollectionMembershipResult.fields, ["memberOf"])),
+	membership: Schema.Struct(
+		Struct.omit(CollectionMembershipResult.fields, ["memberOf", "operation"]),
+	),
 });
 export type PendingCollectionMembership = typeof PendingCollectionMembership.Type;
 
@@ -303,6 +306,7 @@ export class CollectionsService extends Context.Service<CollectionsService>()(
 					result: {
 						...membership,
 						memberOf,
+						operation: committed.result.operation,
 						addEventSchemaSlug: wasInserted ? membership.addEventSchemaSlug : null,
 					},
 				} satisfies LifecycleCommittedStep<CollectionMembershipResult>;

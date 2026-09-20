@@ -18,7 +18,9 @@ import {
 	AutomationInvocationFields,
 	AutomationPolicyInputProjection,
 } from "../automations/lifecycle";
-import { SANDBOX_HOST_CAPABILITIES } from "./wire";
+import { SandboxExecutionMetadata } from "../plugins/execution-metadata";
+import { SandboxBoundaryReason } from "./boundary-reason";
+import { POLICY_SAFE_SANDBOX_CAPABILITIES } from "./wire";
 
 export const ProviderInformation = Schema.Struct({
 	source: Schema.String,
@@ -33,18 +35,26 @@ export const SandboxScriptMetadata = Schema.Struct({
 	capabilities: Schema.optional(Schema.Array(Schema.String)),
 	searchOptionsSchema: Schema.optional(Schema.toType(AppSchema)),
 	requiredPluginConfigKeys: Schema.optional(Schema.Array(Schema.String)),
+	automationType: Schema.optional(Schema.Literals(["automation", "policy"])),
+	oauthConnectionFields: Schema.optional(SandboxExecutionMetadata.fields.oauthConnectionFields),
+	executableDependencies: Schema.optional(SandboxExecutionMetadata.fields.executableDependencies),
+	optionalPluginConfigKeys: Schema.optional(
+		SandboxExecutionMetadata.fields.optionalPluginConfigKeys,
+	),
 	kind: Schema.optional(
 		Schema.Literals(["script", "operation", "workflow", "provider", "automation"]),
+	),
+	inputProjection: Schema.optional(
+		Schema.Union([AutomationAfterInputProjection, AutomationPolicyInputProjection]),
 	),
 });
 
 export type SandboxScriptMetadata = Schema.Schema.Type<typeof SandboxScriptMetadata>;
 
 const SandboxScriptManifestFields = {
+	...SandboxExecutionMetadata.fields,
 	name: Schema.String,
 	slug: Schema.String,
-	requiredPluginConfigKeys: Schema.Array(Schema.String),
-	capabilities: Schema.Array(Schema.Literals([...SANDBOX_HOST_CAPABILITIES])),
 };
 
 export const SandboxScriptManifest = Schema.Union([
@@ -61,6 +71,7 @@ export const SandboxScriptManifest = Schema.Union([
 		kind: Schema.Literal("automation"),
 		automationType: Schema.Literal("policy"),
 		inputProjection: AutomationPolicyInputProjection,
+		capabilities: Schema.Array(Schema.Literals([...POLICY_SAFE_SANDBOX_CAPABILITIES])),
 	}),
 	Schema.Struct({
 		...SandboxScriptManifestFields,
@@ -114,13 +125,13 @@ const automationRunSubjectFields = {
 
 export const SandboxExecutionSubject = Schema.Union([
 	strictStruct({ type: Schema.Literal("system") }),
-	// `integrationId` is the integration the execution belongs to and `integrationRunId` is the
-	// integration run executing it. Only trusted kernel dispatch sets them, so a script can never
-	// widen its own credential scope by supplying an id.
+	// Only trusted kernel dispatch sets integration and import run IDs, so scripts cannot widen
+	// credential or snapshot scope by supplying an ID.
 	strictStruct({
 		userId: UserId,
 		type: Schema.Literal("user"),
 		accountGeneration: AccountGeneration,
+		importRunId: Schema.optional(ImportRunId),
 		integrationId: Schema.optional(IntegrationId),
 		integrationRunId: Schema.optional(ImportRunId),
 	}),
@@ -190,6 +201,7 @@ export const SandboxExecutionError = Schema.Struct({
 	line: Schema.optional(Schema.Finite),
 	stack: Schema.optional(Schema.String),
 	column: Schema.optional(Schema.Finite),
+	data: Schema.optional(SandboxBoundaryReason),
 	phase: Schema.Literals(["load", "input", "execute", "output"]),
 });
 

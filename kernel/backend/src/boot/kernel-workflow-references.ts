@@ -1,6 +1,12 @@
 import { SandboxRunError, unknownToMessage } from "@ryot-app/contract/errors";
 import { LifecycleCommand } from "@ryot-app/contract/modules/automations/lifecycle";
 import {
+	KERNEL_EVENT_CREATE_WORKFLOW,
+	KERNEL_ENTITY_IMPORT_WORKFLOW,
+	KERNEL_PROCESS_IMPORT_CHUNKS_WORKFLOW,
+	KERNEL_PROVIDER_ENTITY_POPULATION_WORKFLOW,
+} from "@ryot-app/contract/modules/plugins/execution";
+import {
 	AutomationExecutionId,
 	ImportRunId,
 	SandboxProviderId,
@@ -19,10 +25,14 @@ import {
 	lifecycleActor,
 	automationLifecycleCausation,
 } from "#lib/domain/lifecycle-command";
+import { DatabaseSession } from "#lib/infrastructure/db/session";
+import { SandboxArtifactStore } from "#lib/infrastructure/sandbox-runtime/artifacts";
 import {
 	EventCreateWorkflow,
 	EventCreateWorkflowPayload,
 } from "#modules/events/event-create-workflow";
+import { ingestionArtifactGrants } from "#modules/imports/artifact-grants";
+import { IngestionCaptures } from "#modules/imports/capture-service";
 import {
 	ProcessGenericImportChunksPayload,
 	ProcessGenericImportChunksWorkflow,
@@ -41,13 +51,7 @@ import {
 	type ProviderEntityPopulationPayload,
 } from "#modules/provider-entities/provider-entity-population-workflow";
 import { ProviderEntityImportWorkflowPayload } from "#modules/provider-entities/schemas";
-import {
-	KERNEL_EVENT_CREATE_WORKFLOW,
-	KERNEL_ENTITY_IMPORT_WORKFLOW,
-	KERNEL_PROCESS_IMPORT_CHUNKS_WORKFLOW,
-	KERNEL_PROVIDER_ENTITY_POPULATION_WORKFLOW,
-	KernelWorkflowReferences,
-} from "#modules/sandbox/kernel-workflow-references";
+import { KernelWorkflowReferences } from "#modules/sandbox/kernel-workflow-references";
 
 const PROVIDER_ENTITY_POPULATION_MAX_ITEMS = 100;
 const PROVIDER_ENTITY_POPULATION_CONCURRENCY = 4;
@@ -112,6 +116,9 @@ export const KernelWorkflowReferencesLive = Layer.effect(
 	KernelWorkflowReferences,
 	Effect.gen(function* () {
 		const imports = yield* ImportsRepository;
+		const captures = yield* IngestionCaptures;
+		const database = yield* DatabaseSession;
+		const artifacts = yield* SandboxArtifactStore;
 		const integrations = yield* IntegrationsRepository;
 		const pluginRuntime = yield* PluginRuntimeResolver;
 		const receipts = yield* MutationReceipts.make;
@@ -143,6 +150,16 @@ export const KernelWorkflowReferencesLive = Layer.effect(
 			]);
 
 		return {
+			resolveArtifactGrants: (input, subject, grants) =>
+				ingestionArtifactGrants(input, subject, grants).pipe(
+					Effect.provideService(ImportsRepository, imports),
+					Effect.provideService(IngestionCaptures, captures),
+					Effect.provideService(SandboxArtifactStore, artifacts),
+					Effect.mapError(
+						(error) =>
+							new SandboxRunError({ kind: "infrastructure", message: unknownToMessage(error) }),
+					),
+				),
 			execute: (
 				workflowSlug,
 				input,
@@ -301,15 +318,50 @@ export const KernelWorkflowReferencesLive = Layer.effect(
 						const rawRunId = Reflect.get(rawInput, "runId");
 						const command = lifecycleCommand(
 							subject,
-							executionId,
+							typeof rawRunId === "string" ? rawRunId : executionId,
 							KERNEL_PROCESS_IMPORT_CHUNKS_WORKFLOW,
 							occurredAt,
 							"import",
 							typeof rawRunId === "string" ? { importRunId: ImportRunId.make(rawRunId) } : {},
 						);
+						if (!command.accountGeneration || typeof rawRunId !== "string") {
+							return yield* new SandboxRunError({
+								kind: "invalid-input",
+								message: "Ingestion requires an account-scoped run",
+							});
+						}
+						const scope = {
+							userId,
+							runId: ImportRunId.make(rawRunId),
+							accountGeneration: command.accountGeneration,
+						};
+						const run = yield* imports
+							.getIngestionRun(scope)
+							.pipe(
+								Effect.mapError(
+									(error) =>
+										new SandboxRunError({
+											kind: "infrastructure",
+											message: unknownToMessage(error),
+										}),
+								),
+							);
+						if (!run) {
+							return yield* new SandboxRunError({
+								kind: "script-failure",
+								message: `Kernel workflow import run '${rawRunId}' does not belong to the executing user`,
+							});
+						}
+						if (run.status !== "running" || run.pins?.executionId !== artifactOwner) {
+							return yield* new SandboxRunError({
+								kind: "script-failure",
+								message: "Ingestion run is not running",
+							});
+						}
+						const acceptedCommand = { ...command, occurredAt: IsoUtcString.make(run.acceptedAt) };
 						const decodedInput = yield* Schema.decodeUnknownEffect(genericImportKernelInputSchema)({
 							...rawInput,
-							command,
+							command: acceptedCommand,
 						}).pipe(
 							Effect.mapError(
 								(error) =>
@@ -319,10 +371,107 @@ export const KernelWorkflowReferencesLive = Layer.effect(
 									}),
 							),
 						);
+						const operation = decodedInput.operation;
+						if (operation.action !== "apply") {
+							const result = yield* Effect.gen(function* () {
+								if (operation.action === "seal") {
+									yield* database.transaction(imports.sealCollection(scope));
+									return {
+										sealed: true,
+										summary: (yield* imports.getIngestionRun(scope))?.summary ?? [],
+									};
+								}
+								if (operation.action === "activity") {
+									yield* database.transaction(imports.putActivity(scope, operation.activity));
+									return { recorded: true };
+								}
+								if (operation.action === "captures") {
+									const page = yield* imports.pageCaptures(
+										scope,
+										operation.after === null ? null : operation.after + 64,
+										operation.limit,
+									);
+									const values = page.flatMap(({ data }) =>
+										data.payload
+											? [
+													{
+														captureId: data.id,
+														ordinal: data.ordinal - 64,
+														checkpoint: data.checkpoint,
+														inputFingerprint: data.payload.checksum,
+													},
+												]
+											: [],
+									);
+									return {
+										captures: values,
+										next:
+											page.length === operation.limit
+												? (page[page.length - 1]?.data.ordinal ?? 64) - 64
+												: null,
+									};
+								}
+								if (operation.action === "materialize") {
+									const handle = yield* captures.stage({
+										scope,
+										outputIndex: 0,
+										ownerExecutionId: artifactOwner,
+										activityExecutionId: executionId,
+										workflowExecutionId: _parentExecutionId,
+										bytes: yield* captures.read(scope, operation.captureId, 4 * 1024 * 1024),
+									});
+									return { handle };
+								}
+								const publication = {
+									scope,
+									phase: operation.phase,
+									id: operation.captureId,
+									state: "sealed" as const,
+									maxBytes: 4 * 1024 * 1024,
+									ordinal: operation.ordinal + 64,
+									checkpoint: operation.checkpoint,
+								};
+								let capture = yield* captures.resume(publication);
+								capture ??= yield* captures.publish({
+									...publication,
+									bytes: yield* captures.readStaged(scope, artifactOwner, operation.handle),
+								});
+								if (!capture.payload) {
+									return yield* new SandboxRunError({
+										kind: "infrastructure",
+										message: "Capture payload is missing",
+									});
+								}
+								return {
+									captureId: capture.id,
+									handle: operation.handle,
+									inputFingerprint: capture.payload.checksum,
+								};
+							}).pipe(
+								Effect.mapError(
+									(error) =>
+										new SandboxRunError({
+											kind: "infrastructure",
+											message: unknownToMessage(error),
+										}),
+								),
+							);
+							return yield* Schema.decodeEffect(jsonValueSchema)(result).pipe(
+								Effect.mapError(
+									(error) =>
+										new SandboxRunError({
+											kind: "infrastructure",
+											message: unknownToMessage(error),
+										}),
+								),
+							);
+						}
 						const payload = yield* Schema.decodeEffect(ProcessGenericImportChunksPayload)({
-							...decodedInput,
+							...operation,
 							userId,
 							executionId,
+							runId: scope.runId,
+							command: acceptedCommand,
 							artifactOwnerExecutionId: artifactOwner,
 							artifactReferenceExecutionId: executionId,
 							...("integrationId" in subject && subject.integrationId

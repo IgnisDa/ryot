@@ -37,8 +37,11 @@ const automationScript = (
 	capabilities,
 	inputProjection,
 	kind: "automation",
+	oauthConnectionFields: [],
+	executableDependencies: [],
 	automationType: "automation",
 	requiredPluginConfigKeys: [],
+	optionalPluginConfigKeys: [],
 	entry: `backend/scripts/${slug}.sandbox.ts`,
 });
 

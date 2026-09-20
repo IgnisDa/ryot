@@ -5,7 +5,7 @@ import {
 } from "@ryot-app/contract/modules/automations/lifecycle";
 import type { CreateEventItem } from "@ryot-app/contract/modules/events/schemas";
 import { EventId, type UserId } from "@ryot-app/contract/schema/brands";
-import { Schema } from "effect";
+import { Effect, Schema } from "effect";
 
 import {
 	mutationReceiptIdentity,
@@ -20,23 +20,39 @@ export const EventCreateReceiptResult = Schema.Struct({
 });
 export const EventMutationReceiptResult = Schema.Struct({ eventId: Schema.NullOr(EventId) });
 
+export const projectEventIngestionReceipt = (commandKind: string, result: unknown) =>
+	commandKind === "event:create"
+		? Schema.decodeUnknownEffect(EventCreateReceiptResult)(result).pipe(
+				Effect.as("created" as const),
+			)
+		: Effect.succeed(null);
+
 export const eventCreateBatchInput = (input: {
 	command: LifecycleCommand;
 	payload: ReadonlyArray<CreateEventItem>;
+	itemIdentities?: ReadonlyArray<string> | undefined;
 }) => ({
 	identity: ["events"],
 	command: input.command,
 	resource: "event" as const,
-	commandInput: input.payload,
+	commandInput: { payload: input.payload, itemIdentities: input.itemIdentities ?? null },
 });
 
 export const eventCreateItemCommand = (
 	command: LifecycleCommand,
 	index: number,
-): LifecycleCommand => ({ ...command, itemIdentity: `${command.itemIdentity}:event:${index}` });
+	itemIdentity?: string,
+): LifecycleCommand => ({
+	...command,
+	itemIdentity: itemIdentity ?? `${command.itemIdentity}:event:${index}`,
+});
 
 export const eventCreateReceiptIdentity = (
-	input: { userId: UserId; command: LifecycleCommand },
+	input: {
+		userId: UserId;
+		command: LifecycleCommand;
+		itemIdentities?: ReadonlyArray<string> | undefined;
+	},
 	index: number,
 	submittedItem: CreateEventItem,
 ) =>
@@ -45,7 +61,7 @@ export const eventCreateReceiptIdentity = (
 		ownerUserId: input.userId,
 		scopeUserId: input.userId,
 		commandKind: "event:create",
-		command: eventCreateItemCommand(input.command, index),
+		command: eventCreateItemCommand(input.command, index, input.itemIdentities?.[index]),
 	});
 
 export const eventMutationReceiptIdentity = (

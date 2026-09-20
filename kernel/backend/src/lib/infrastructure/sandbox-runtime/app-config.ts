@@ -1,5 +1,6 @@
 import { configFromAppSchema } from "@ryot-app/config";
 import { pluginConfigEnvironmentKey } from "@ryot-app/contract/modules/plugins/plugin-config";
+import type { SandboxBoundaryReason } from "@ryot-app/contract/modules/sandbox/boundary-reason";
 import type { AppSchema } from "@ryot-app/contract/schema/property-schema";
 import { isObjectRecord } from "@ryot-app/ts-utils/predicates";
 import { Effect, Match, Option } from "effect";
@@ -41,8 +42,35 @@ export type PluginConfigContext =
 			readonly config: Readonly<Record<string, unknown>>;
 	  };
 
-export const resolveContextConfig = (context: PluginConfigContext) =>
-	Match.value(context).pipe(
+export const resolveContextConfig = (
+	context: PluginConfigContext,
+	keys?: ReadonlyArray<string>,
+) => {
+	const selected =
+		keys === undefined
+			? context
+			: {
+					...context,
+					configSchema: {
+						unknownKeys: "strict" as const,
+						fields: Object.fromEntries(
+							Object.entries(context.configSchema.fields)
+								.filter(([key]) => keys.includes(key))
+								.map(([key, property]) => [
+									key,
+									{ ...property, validation: { ...property.validation, required: undefined } },
+								]),
+						),
+					},
+					...(context.kind === "installation"
+						? {
+								config: Object.fromEntries(
+									Object.entries(context.config).filter(([key]) => keys.includes(key)),
+								),
+							}
+						: {}),
+				};
+	return Match.value(selected).pipe(
 		Match.when({ kind: "environment" }, resolvePluginConfig),
 		Match.when({ kind: "installation" }, (installation) =>
 			parseAppSchemaProperties({
@@ -53,6 +81,7 @@ export const resolveContextConfig = (context: PluginConfigContext) =>
 		),
 		Match.exhaustive,
 	);
+};
 
 const unconfiguredMessage = (context: PluginConfigContext, key: string) =>
 	context.kind === "environment"
@@ -61,14 +90,22 @@ const unconfiguredMessage = (context: PluginConfigContext, key: string) =>
 
 export const getPluginConfig = Effect.fn("getPluginConfig")(function* (input: {
 	metadata: unknown;
-	keys: ReadonlyArray<string>;
+	access: { readonly required?: ReadonlyArray<string>; readonly optional?: ReadonlyArray<string> };
 	context: PluginConfigContext;
 }) {
-	const keys = [...new Set(input.keys)];
-	const declaredKeys = new Set(requiredKeys(input.metadata, "requiredPluginConfigKeys"));
+	const required = new Set(input.access.required ?? []);
+	const keys = [...new Set([...required, ...(input.access.optional ?? [])])];
+	const declaredRequired = new Set(requiredKeys(input.metadata, "requiredPluginConfigKeys"));
+	const declaredKeys = new Set([
+		...declaredRequired,
+		...requiredKeys(input.metadata, "optionalPluginConfigKeys"),
+	]);
 	for (const key of keys) {
 		if (!declaredKeys.has(key)) {
 			return yield* Effect.fail(`Plugin config key "${key}" is not declared by this script`);
+		}
+		if (required.has(key) && !declaredRequired.has(key)) {
+			return yield* Effect.fail(`Plugin config key "${key}" is not a required read by this script`);
 		}
 		if (!Object.hasOwn(input.context.configSchema.fields, key)) {
 			return yield* Effect.fail(`Plugin config key "${key}" does not exist`);
@@ -79,12 +116,18 @@ export const getPluginConfig = Effect.fn("getPluginConfig")(function* (input: {
 		return {};
 	}
 
-	const parsed = yield* resolveContextConfig(input.context);
+	const parsed = yield* resolveContextConfig(input.context, keys);
 	const values: Record<string, unknown> = {};
 	for (const key of keys) {
 		const value = parsed[key];
 		if (value === undefined) {
-			return yield* Effect.fail(unconfiguredMessage(input.context, key));
+			if (required.has(key)) {
+				return yield* Effect.fail({
+					message: unconfiguredMessage(input.context, key),
+					data: { keys: [key], code: "missing-required-config" } satisfies SandboxBoundaryReason,
+				});
+			}
+			continue;
 		}
 		values[key] = value;
 	}

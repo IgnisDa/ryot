@@ -2,6 +2,7 @@ import {
 	clientArtifactMetadata,
 	type PluginClientArtifact,
 } from "@ryot-app/client-plugin-contract";
+import { derivePluginSandboxScripts } from "@ryot-app/sandbox-compiler/plugin-manifest";
 import { Data, Effect, FileSystem, Stream } from "effect";
 
 import type { PluginSource } from "./types";
@@ -35,37 +36,47 @@ const pluginSourcePaths = (packageRoot: string) =>
 		Stream.runCollect,
 	);
 
+export const loadPluginSandboxScripts = Effect.fn("loadPluginSandboxScripts")(function* (
+	packageRoot: string,
+) {
+	const fs = yield* FileSystem.FileSystem;
+	const paths = yield* pluginSourcePaths(packageRoot);
+	const entries = yield* Effect.forEach(paths, (path) =>
+		fs.readFile(`${packageRoot}/${path}`).pipe(
+			Effect.mapError((error) => new PluginSourceError({ message: String(error) })),
+			Effect.map((contents) => [path, contents] as const),
+		),
+	);
+	const files = Object.fromEntries(entries);
+	return yield* derivePluginSandboxScripts(
+		Object.fromEntries(
+			Object.entries(files)
+				.filter(([path]) => path.startsWith("backend/") || path.startsWith("shared/"))
+				.map(([path, contents]) => [
+					path,
+					new TextDecoder("utf-8", { fatal: true }).decode(contents),
+				]),
+		),
+	);
+});
+
 export const loadPluginSource = (packageRoot: string, manifest: unknown) =>
 	Effect.gen(function* () {
-		const fs = yield* FileSystem.FileSystem;
-		const paths = yield* pluginSourcePaths(packageRoot);
-		const entries = yield* Effect.forEach(paths, (path) =>
-			fs.readFile(`${packageRoot}/${path}`).pipe(
-				Effect.mapError((error) => new PluginSourceError({ message: String(error) })),
-				Effect.map((contents) => [path, contents] as const),
-			),
-		);
-		const files = Object.fromEntries(entries);
+		const outputs = yield* loadPluginSandboxScripts(packageRoot);
 		const declaredScripts =
 			typeof manifest === "object" && manifest !== null && "scripts" in manifest
 				? manifest.scripts
 				: undefined;
+		const byEntry = new Map(outputs.map(({ script, compiled }) => [script.entry, compiled]));
 		const compiledScripts = Array.isArray(declaredScripts)
 			? declaredScripts.flatMap((value) => {
 					if (typeof value !== "object" || value === null || !("entry" in value)) {
 						return [];
 					}
 					const entry = value.entry;
-					const contents = files[String(entry)];
-					return typeof entry === "string" && contents
-						? [
-								{
-									entry,
-									format: 1,
-									javascript: "export {};",
-									source: new TextDecoder("utf-8", { fatal: true }).decode(contents),
-								},
-							]
+					const compiled = typeof entry === "string" ? byEntry.get(entry) : undefined;
+					return compiled && typeof entry === "string"
+						? [{ entry, format: compiled.format, javascript: compiled.javascript }]
 						: [];
 				})
 			: [];
@@ -89,7 +100,6 @@ export const loadPluginSource = (packageRoot: string, manifest: unknown) =>
 			compiledClient = fixtureClientArtifact(pluginName);
 		}
 		return {
-			files,
 			manifest,
 			compiledScripts,
 			...(compiledClient ? { compiledClient } : {}),

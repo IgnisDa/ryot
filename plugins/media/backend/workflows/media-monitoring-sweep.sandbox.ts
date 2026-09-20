@@ -1,4 +1,11 @@
-import { defineManifest, defineWorkflow, Effect, Schema } from "@ryot-app/sandbox-sdk/workflow";
+import {
+	defineManifest,
+	defineScriptReference,
+	defineWorkflow,
+	defineWorkflowReference,
+	Effect,
+	Schema,
+} from "@ryot-app/sandbox-sdk/workflow";
 
 import {
 	MediaMonitoringSweepWorkflowInput,
@@ -9,21 +16,19 @@ import {
 
 export const manifest = defineManifest({
 	kind: "workflow",
-	capabilities: [],
-	requiredPluginConfigKeys: [],
 	name: "Media monitoring sweep",
 	slug: "workflow.media-monitoring-sweep",
 });
 
 const BATCH_SIZE = 100;
 
-const listTargets = {
+const listTargets = defineScriptReference({
 	scriptSlug: "media-monitoring-targets",
 	input: MediaMonitoringTargetsActivityInput,
 	output: MediaMonitoringTargetsActivityOutput,
-};
+});
 
-const providerEntityPopulation = {
+const providerEntityPopulation = defineWorkflowReference({
 	output: Schema.Array(Schema.Unknown),
 	workflowSlug: "kernel:provider-entity-population",
 	input: Schema.Struct({
@@ -36,7 +41,7 @@ const providerEntityPopulation = {
 			}),
 		),
 	}),
-};
+});
 
 export default defineWorkflow({
 	manifest,

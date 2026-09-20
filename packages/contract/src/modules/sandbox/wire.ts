@@ -11,6 +11,7 @@ export const SANDBOX_HOST_CAPABILITIES = [
 	"getUserPreferences",
 	"getUserSettings",
 	"claimPersistentValue",
+	"getPersistentValue",
 	"createEvents",
 	"getEntitySchemas",
 	"listEventSchemas",

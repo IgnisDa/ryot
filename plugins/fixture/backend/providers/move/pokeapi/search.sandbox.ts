@@ -5,10 +5,8 @@ import { search } from "./shared";
 
 export const manifest = defineManifest({
 	kind: "provider",
-	capabilities: ["httpCall"],
 	name: "PokeAPI Move Search",
 	slug: "move.pokeapi.search",
-	requiredPluginConfigKeys: [],
 	searchOptionsSchema: {
 		unknownKeys: "strict",
 		fields: {

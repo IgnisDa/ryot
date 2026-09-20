@@ -33,7 +33,8 @@ it.layer(sandboxCompilerPlatformLayer)("plugin sandbox compilation", (test) => {
 					expect(result.compiled.javascript).not.toContain('from "../shared/value"');
 					expect(Object.keys(result.compiled).sort()).toEqual(["format", "javascript", "manifest"]);
 				}
-				expect(first[0]?.compiled.manifest.requiredPluginConfigKeys).toEqual(["alpha-key"]);
+				expect(first[0]?.compiled.manifest.requiredPluginConfigKeys).toEqual([]);
+				expect(first[0]?.compiled.manifest.capabilities).toEqual([]);
 			}),
 		10_000,
 	);
@@ -49,8 +50,6 @@ export const manifest = defineManifest({
 	name: "Operation",
 	slug: "operation",
 	kind: "operation",
-	capabilities: [],
-	requiredPluginConfigKeys: [],
 });
 
 export default defineOperation({
@@ -71,8 +70,6 @@ export const manifest = defineManifest({
 	kind: "automation",
 	automationType: "automation",
 	inputProjection: { event: { compareProperties: [], properties: [] } },
-	capabilities: [],
-	requiredPluginConfigKeys: [],
 });
 
 export default defineAutomation({
@@ -87,8 +84,6 @@ export const manifest = defineManifest({
 	name: "Workflow",
 	slug: "workflow",
 	kind: "workflow",
-	capabilities: [],
-	requiredPluginConfigKeys: [],
 });
 
 export default defineWorkflow({
@@ -117,6 +112,7 @@ export default defineWorkflow({
 				"workflow",
 			]);
 			expect(compiled[0]?.compiled.manifest).toMatchObject({
+				capabilities: [],
 				inputProjection: { event: { properties: [], compareProperties: [] } },
 			});
 			const workflowBundle = compiled.find(({ entry }) => entry === "workflow.sandbox.ts");
@@ -152,8 +148,6 @@ export const manifest = defineManifest({
 	name: "Workflow",
 	slug: "workflow",
 	kind: "workflow",
-	capabilities: [],
-	requiredPluginConfigKeys: [],
 });
 
 export default defineWorkflow({
@@ -202,8 +196,6 @@ export const manifest = defineManifest({
 	name: "Workflow",
 	slug: "workflow",
 	kind: "workflow",
-	capabilities: [],
-	requiredPluginConfigKeys: [],
 });
 
 export default defineWorkflow({
@@ -240,8 +232,6 @@ export const manifest = defineManifest({
 	name: "Workflow",
 	slug: "workflow",
 	kind: "workflow",
-	capabilities: [],
-	requiredPluginConfigKeys: [],
 });
 
 export default defineWorkflow({
@@ -297,8 +287,6 @@ export const manifest = defineManifest({
 	name: "Workflow",
 	slug: "workflow",
 	kind: "workflow",
-	capabilities: [],
-	requiredPluginConfigKeys: [],
 });
 
 export default defineWorkflow({
@@ -333,8 +321,6 @@ export const manifest = defineManifest({
 	name: "Operation",
 	slug: "operation",
 	kind: "operation",
-	capabilities: [],
-	requiredPluginConfigKeys: [],
 });
 
 export default defineOperation({
@@ -368,8 +354,6 @@ export const manifest = defineManifest({
 	name: "Provider",
 	slug: "provider",
 	kind: "provider",
-	capabilities: [],
-	requiredPluginConfigKeys: [],
 });
 
 export default defineProvider({
@@ -401,10 +385,8 @@ import { defineProvider } from "@ryot-app/sandbox-sdk/provider";
 
 export const manifest = defineManifest({
 	kind: "provider",
-	capabilities: [],
 	name: "Provider Search",
 	slug: "provider.search",
-	requiredPluginConfigKeys: [],
 	searchOptionsSchema: {
 		unknownKeys: "strict",
 		fields: {
@@ -450,11 +432,9 @@ export default defineProvider({
 import { defineDriver, defineManifest, defineOperation } from "@ryot-app/sandbox-sdk/driver";
 
 export const manifest = defineManifest({
-	capabilities: [],
 	kind: "operation",
 	name: "Old operation",
 	slug: "old-operation",
-	requiredPluginConfigKeys: [],
 });
 
 const main = defineDriver(manifest, {});
@@ -490,10 +470,8 @@ import { TYPE_CHOICES } from "./shared";
 
 export const manifest = defineManifest({
 	kind: "provider",
-	capabilities: [],
 	name: "Move search",
 	slug: "move.search",
-	requiredPluginConfigKeys: [],
 	searchOptionsSchema: {
 		unknownKeys: "strict",
 		fields: {
@@ -537,11 +515,9 @@ import { Schema } from "@ryot-app/plugin-kit/effect";
 import { rowSlug } from "../shared/row";
 
 export const manifest = defineManifest({
-	capabilities: [],
 	name: "Operation",
 	slug: "operation",
 	kind: "operation",
-	requiredPluginConfigKeys: [],
 });
 
 export default defineOperation({
@@ -607,7 +583,7 @@ export const rowSlug = "shared-row";
 					"shared/row.ts": `
 import { Effect } from "@ryot-app/sandbox-sdk/effect";
 
-export const rowSlug = Effect.runSync(Effect.succeed("shared-row"));
+export const rowSlug = "shared-row";
 `,
 				},
 				[{ kind: "operation", entry: "backend/operation.sandbox.ts" }],

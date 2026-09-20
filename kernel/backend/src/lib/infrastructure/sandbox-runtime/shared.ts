@@ -4,6 +4,7 @@ import {
 	type AutomationSource,
 	type AutomationWarning,
 } from "@ryot-app/contract/modules/automations/lifecycle";
+import type { SandboxBoundaryReason } from "@ryot-app/contract/modules/sandbox/boundary-reason";
 import {
 	SandboxExecutionSubject,
 	type SandboxExecutionGrants,
@@ -114,6 +115,7 @@ export type AdditionalSandboxHostImplementationMap = Omit<
 	| "getCachedValue"
 	| "sendNotification"
 	| "claimPersistentValue"
+	| "getPersistentValue"
 >;
 
 export const toSandboxHostError = (error: unknown): SandboxHostError => {
@@ -123,7 +125,13 @@ export const toSandboxHostError = (error: unknown): SandboxHostError => {
 		typeof error["reason"]["code"] === "string" &&
 		isJsonValue(error["reason"])
 	) {
-		return { data: error["reason"], message: error["reason"]["code"] };
+		return {
+			data: error["reason"],
+			message:
+				typeof error["message"] === "string" && error["message"].length > 0
+					? error["message"]
+					: error["reason"]["code"],
+		};
 	}
 	if (isObjectRecord(error) && typeof error["message"] === "string") {
 		return { ...error, message: error["message"] };
@@ -131,7 +139,13 @@ export const toSandboxHostError = (error: unknown): SandboxHostError => {
 	return { message: unknownToMessage(error) };
 };
 
-export const sandboxHostFailure = (message: string) => Effect.fail(toSandboxHostError(message));
+export const sandboxHostFailure = (
+	message: string,
+	data?: SandboxBoundaryReason,
+): Effect.Effect<never, SandboxHostError> =>
+	Effect.fail(
+		data === undefined ? toSandboxHostError(message) : { message, data: toSandboxJsonValue(data) },
+	);
 
 const EXHAUSTED_RESOURCE_CODES = new Set(["EAGAIN", "EMFILE", "ENFILE", "ENOMEM"]);
 
@@ -375,6 +389,7 @@ export const requireSandboxCapabilityInput = <
 		return sandboxHostFailure(
 			sandboxCapabilityError(input, capability) ??
 				`${capability} is not available to this execution`,
+			{ operation: capability, code: "unavailable-operation" },
 		);
 	}
 	return Effect.succeed(input);

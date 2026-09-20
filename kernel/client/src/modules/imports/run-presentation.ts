@@ -1,4 +1,9 @@
 import type {
+	IngestionActivity,
+	IngestionBlockReason,
+	IngestionSummary,
+} from "@ryot-app/contract/modules/imports/ingestion";
+import type {
 	ImportRunFailureReason,
 	ImportRunStatus,
 } from "@ryot-app/contract/modules/imports/schemas";
@@ -12,10 +17,7 @@ import {
 	type RunProgressValue,
 } from "#/modules/ui/run/run-status";
 
-type RunCounts = Pick<
-	ImportRunSummary,
-	"totalItems" | "failedItems" | "importedItems" | "processedItems"
->;
+type RunCounts = Pick<ImportRunSummary, "summary">;
 
 type ImportRunFailureNotice = { readonly label: string; readonly detail: string };
 
@@ -25,41 +27,71 @@ const stoppedEarly = {
 } as const;
 
 export const canDeleteImportRun = (status: ImportRunStatus) =>
-	status === "completed" || status === "failed" || status === "cancelled";
+	status === "completed" || status === "failed" || status === "cancelled" || status === "expired";
 
 export const canCancelImportRun = (status: ImportRunStatus) =>
-	status === "pending" || status === "running";
+	status === "pending" || status === "blocked" || status === "running";
 
 export const importRunCancelConfirmation =
 	'This stops future work. Items already added stay in your library. Type "Cancel this import" to continue.';
 
-export const importRunProgress = (run: RunCounts): RunProgress => {
-	if (run.totalItems === null) {
-		return { label: "Preparing", kind: "indeterminate" };
+export const ingestionActivityProgress = (activity: IngestionActivity): RunProgress => {
+	if (activity.exactTotal === null) {
+		return {
+			kind: "indeterminate",
+			label: `${formatRunCount(activity.completed)} ${activity.unit}`,
+		};
 	}
 	const percent =
-		run.totalItems <= 0
+		activity.exactTotal <= 0
 			? 100
-			: Math.min(Math.max(Math.round((run.processedItems / run.totalItems) * 100), 0), 100);
+			: Math.min(Math.max(Math.round((activity.completed / activity.exactTotal) * 100), 0), 100);
 	return { percent, kind: "determinate", label: `${percent}%` };
 };
 
-export const importRunProgressValue = (run: RunCounts): RunProgressValue =>
-	run.totalItems === null
-		? { text: `${formatRunCount(run.processedItems)} read so far` }
+export const ingestionActivityProgressValue = (activity: IngestionActivity): RunProgressValue =>
+	activity.exactTotal === null
+		? { text: `${formatRunCount(activity.completed)} ${activity.unit}` }
 		: {
 				min: 0,
-				max: run.totalItems,
-				now: run.processedItems,
-				text: `${formatRunCount(run.processedItems)} of ${formatRunCount(run.totalItems)}`,
+				now: activity.completed,
+				max: activity.exactTotal,
+				text: `${formatRunCount(activity.completed)} of ${formatRunCount(activity.exactTotal)} ${activity.unit}`,
 			};
 
-export const importRunCountsLabel = (run: RunCounts) => {
-	const read =
-		run.totalItems === null
-			? `${formatRunCount(run.processedItems)} read`
-			: `${formatRunCount(run.processedItems)} of ${formatRunCount(run.totalItems)} read`;
-	return `${read} · ${formatRunCount(run.importedItems)} added · ${formatRunCount(run.failedItems)} failed`;
+export const ingestionSummaryLabel = (summary: IngestionSummary) =>
+	summary
+		.map(
+			({ unit, counts }) =>
+				`${unit}: ${(["created", "updated", "unchanged", "skipped", "unsuccessful"] as const)
+					.map((result) => `${formatRunCount(counts[result])} ${result}`)
+					.join(" · ")}`,
+		)
+		.join("; ");
+
+export const importRunCountsLabel = (run: RunCounts & Pick<ImportRunSummary, "status">) => {
+	if (run.summary.length > 0) {
+		return ingestionSummaryLabel(run.summary);
+	}
+	return isTerminalRunStatus(run.status) ? "No outcomes recorded" : "No committed outcomes yet";
+};
+
+export const ingestionBlockReasonLabel = (
+	reason: IngestionBlockReason,
+	scope?: "system" | "user" | null,
+) => {
+	if (reason.code === "connection-required") {
+		return `Connect ${reason.key} for this account.`;
+	}
+	let location = "for this source";
+	if (scope === "user") {
+		location = "in this plugin installation";
+	} else if (scope === "system") {
+		location = "on your server";
+	}
+	return reason.code === "oauth-client-required"
+		? `Configure the OAuth client ${reason.key} ${location}.`
+		: `Set ${reason.key} ${location}.`;
 };
 
 export const importRunFailureNotice = (
@@ -69,6 +101,15 @@ export const importRunFailureNotice = (
 		return stoppedEarly;
 	}
 	return Match.value(reason).pipe(
+		Match.when({ code: "captured-input-unavailable" }, () => ({
+			label: "Captured input unavailable",
+			detail: "The saved source input is missing. Start a new import with the source data.",
+		})),
+		Match.when({ code: "captured-input-corrupt" }, () => ({
+			label: "Captured input damaged",
+			detail:
+				"The saved source input could not be verified. Start a new import with the source data.",
+		})),
 		Match.when({ code: "source-fetch-failed" }, () => ({
 			label: "Source unavailable",
 			detail: "The source could not be read. Check its availability, then start the import again.",
@@ -107,27 +148,22 @@ export const importRunOutcomeLabel = (
 	run: RunCounts & Pick<ImportRunSummary, "status" | "failureReason">,
 ) => {
 	if (run.status === "failed") {
-		return importRunFailureNotice(run.failureReason).label;
+		return `${importRunFailureNotice(run.failureReason).label} · ${importRunCountsLabel(run)}`;
 	}
 	if (run.status === "cancelled") {
-		return "Imported items remain";
+		return `Cancelled · ${importRunCountsLabel(run)}`;
 	}
-	return run.failedItems === 0
-		? `${formatRunCount(run.importedItems)} added`
-		: `${formatRunCount(run.importedItems)} added · ${formatRunCount(run.failedItems)} failed`;
+	if (run.status === "blocked") {
+		return "Waiting for setup";
+	}
+	if (run.status === "expired") {
+		return "Setup deadline expired";
+	}
+	return importRunCountsLabel(run);
 };
 
-export const importRunDeleteConfirmation = (run: RunCounts) => {
-	const removed =
-		run.failedItems === 0
-			? "This removes the record of this import."
-			: `This removes the record and its list of ${formatRunCount(run.failedItems)} ${run.failedItems === 1 ? "failure" : "failures"}.`;
-	const kept =
-		run.importedItems === 0
-			? "Nothing it added is affected."
-			: `The ${formatRunCount(run.importedItems)} ${run.importedItems === 1 ? "item it added stays" : "items it added stay"} in your library.`;
-	return `${removed} ${kept}`;
-};
+export const importRunDeleteConfirmation = () =>
+	"This removes the run report and its diagnostics. All committed changes remain in your library.";
 
 export const humanizeImportSourceSlug = (slug: string) => {
 	const words = slug

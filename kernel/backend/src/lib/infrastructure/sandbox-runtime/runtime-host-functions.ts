@@ -33,7 +33,7 @@ const defaultHeaders = { "User-Agent": "Ryot ( https://github.com/ignisda/ryot )
 
 export type RuntimeSandboxHostImplementationMap = Pick<
 	SandboxHostImplementationMap,
-	"claimPersistentValue" | "getCachedValue" | "httpCall" | "setCachedValue"
+	"claimPersistentValue" | "getPersistentValue" | "getCachedValue" | "httpCall" | "setCachedValue"
 >;
 
 const persistentClaimEnvelopeSchema = Schema.Struct({
@@ -140,6 +140,34 @@ export const makeRuntimeSandboxApiFunctions: Effect.Effect<
 				"expiry",
 			);
 		},
+		getPersistentValue: (input, key) =>
+			sandboxCacheInputGuard("getPersistentValue", key, () =>
+				redis
+					.get(
+						redisKeys.sandboxCache(
+							sandboxRunUserId(input),
+							input.principal.providerId ?? input.principal.scriptId,
+							key.trim(),
+						),
+					)
+					.pipe(
+						Effect.flatMap((stored) =>
+							stored === null
+								? Effect.succeed(null)
+								: decodePersistentClaimEnvelope(stored).pipe(
+										Effect.flatMap(({ value }) =>
+											isJsonValue(value)
+												? encodeSandboxCacheValue("getPersistentValue", value).pipe(
+														Effect.as(value),
+													)
+												: Effect.fail("getPersistentValue: stored value is not valid JSON"),
+										),
+										Effect.mapError(() => "getPersistentValue: stored claim is invalid"),
+									),
+						),
+						sandboxHostEffect,
+					),
+			),
 		getCachedValue: (input, key) => {
 			return sandboxCacheInputGuard("getCachedValue", key, () => {
 				const redisKey = redisKeys.sandboxRunCache(

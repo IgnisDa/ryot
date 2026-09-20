@@ -1,13 +1,14 @@
-import { expect, layer } from "@effect/vitest";
-import { CLIENT_API_VERSION } from "@ryot-app/client-plugin-contract";
+import { assert, expect, layer } from "@effect/vitest";
+import { CLIENT_API_VERSION, clientArtifactMetadata } from "@ryot-app/client-plugin-contract";
 import { UserId } from "@ryot-app/contract/schema/brands";
 import { and, eq } from "drizzle-orm";
-import { Context, Effect, Encoding, Layer, Ref } from "effect";
+import { Context, Effect, Layer, Ref, Schema } from "effect";
 import { describe } from "vitest";
 
 import * as tables from "#lib/infrastructure/db/schema/tables/combined";
 import { DatabaseSession } from "#lib/infrastructure/db/session";
 import { databaseLayer } from "#lib/test-utils/effect";
+import { ArchivePrivatePlugin } from "#modules/backups/archive/schemas";
 import { DefinitionRepository } from "#modules/definition-registry/repository";
 import type { DefinitionSnapshot } from "#modules/definition-registry/snapshot";
 
@@ -97,33 +98,7 @@ const makeLayer = (input?: {
 };
 
 layer(makeLayer())((test) => {
-	test.effect("round-trips an invalid UTF-8 private plugin asset before persistence", () => {
-		const manifest = privateManifest();
-		const sourceFiles = { "client/asset.png": new Uint8Array([0x00, 0xff, 0x80, 0x41]) };
-		const files = { "client/asset.png": Encoding.encodeBase64(sourceFiles["client/asset.png"]) };
-		const sourceHash = pluginSourceHash(manifest, sourceFiles, []);
-		return Effect.gen(function* () {
-			const service = yield* PluginBackupRestore;
-			const prepared = yield* service.prepare([
-				{
-					files,
-					manifest,
-					sourceHash,
-					compiledScripts: [],
-					slug: manifest.metadata.slug,
-					version: manifest.metadata.version,
-					key: `user:${manifest.metadata.slug}:${sourceHash}`,
-				},
-			]);
-			expect(prepared).toHaveLength(1);
-			expect(prepared[0]?.normalized.sourceHash).toBe(sourceHash);
-			expect(prepared[0]?.files).toEqual(sourceFiles);
-		});
-	});
-});
-
-layer(makeLayer())((test) => {
-	test.effect("prepares a private backup package with its precompiled client artifact", () => {
+	test.effect("prepares a source-free private package with binary compiled client assets", () => {
 		const base = privateManifest();
 		const manifest = {
 			...base,
@@ -139,29 +114,55 @@ layer(makeLayer())((test) => {
 				},
 			},
 		};
-		const sourceFiles = { "client/card.tsx": new TextEncoder().encode("export default null;") };
-		const encodedFiles = {
-			"client/card.tsx": Encoding.encodeBase64(sourceFiles["client/card.tsx"]),
-		};
-		const compiledClient = fixtureClientArtifact(manifest.metadata.name);
-		const sourceHash = pluginSourceHash(manifest, sourceFiles, [], compiledClient);
+		const files = [
+			...fixtureClientArtifact(manifest.metadata.name).files,
+			{
+				name: "asset.png",
+				contentType: "image/png",
+				contents: new Uint8Array([0x00, 0xff, 0x80, 0x41]),
+			},
+		];
+		const compiledClient = { ...clientArtifactMetadata(manifest.metadata.name, files), files };
+		const sourceHash = pluginSourceHash(manifest, [], compiledClient);
 		return Effect.gen(function* () {
 			const service = yield* PluginBackupRestore;
-			const prepared = yield* service.prepare([
-				{
-					manifest,
-					sourceHash,
-					compiledClient,
-					files: encodedFiles,
-					compiledScripts: [],
-					slug: manifest.metadata.slug,
-					version: manifest.metadata.version,
-					key: `user:${manifest.metadata.slug}:${sourceHash}`,
-				},
-			]);
+			const archived = yield* Schema.encodeEffect(ArchivePrivatePlugin)({
+				manifest,
+				sourceHash,
+				compiledClient,
+				compiledScripts: [],
+				slug: manifest.metadata.slug,
+				version: manifest.metadata.version,
+				key: `user:${manifest.metadata.slug}:${sourceHash}`,
+			});
+			expect(archived).not.toHaveProperty("files");
+			expect(archived.compiledClient?.files.at(-1)?.contents).toBe("AP+AQQ==");
+			const decoded = yield* Schema.decodeEffect(ArchivePrivatePlugin)(archived);
+			const prepared = yield* service.prepare([decoded]);
 
 			expect(prepared[0]?.normalized.compiledClient).toEqual(compiledClient);
 			expect(prepared[0]?.normalized.sourceHash).toBe(sourceHash);
+			expect(prepared[0]?.normalized).not.toHaveProperty("files");
+			const error = yield* service
+				.prepare([
+					{
+						...decoded,
+						compiledClient: {
+							...compiledClient,
+							files: files.map((file) =>
+								file.name === "asset.png"
+									? {
+											name: file.name,
+											contentType: file.contentType,
+											contents: new Uint8Array([0x01, 0xff, 0x80, 0x41]),
+										}
+									: file,
+							),
+						},
+					},
+				])
+				.pipe(Effect.flip);
+			expect(error).toMatchObject({ _tag: "BadRequest" });
 		});
 	});
 });
@@ -175,7 +176,6 @@ layer(makeLayer())((test) => {
 				.prepare([
 					{
 						manifest,
-						files: {},
 						compiledScripts: [],
 						sourceHash: "a".repeat(64),
 						slug: manifest.metadata.slug,
@@ -221,14 +221,12 @@ layer(
 				},
 			],
 		};
-		const files = {};
-		const sourceHash = pluginSourceHash(manifest, files, []);
+		const sourceHash = pluginSourceHash(manifest);
 		return Effect.gen(function* () {
 			const service = yield* PluginBackupRestore;
 			const error = yield* service
 				.prepare([
 					{
-						files,
 						manifest,
 						sourceHash,
 						compiledScripts: [],
@@ -256,21 +254,19 @@ layer(makeLayer())((test) => {
 					slug: "fixture.broken",
 					kind: "script" as const,
 					capabilities: [] as const,
+					oauthConnectionFields: [],
+					executableDependencies: [],
+					optionalPluginConfigKeys: [],
 					requiredPluginConfigKeys: [] as const,
 				},
 			],
 		};
-		const sourceFiles = { [entry]: new TextEncoder().encode("export default {") };
-		const files = { [entry]: Encoding.encodeBase64(sourceFiles[entry]) };
-		const compiledScripts = [
-			{ entry, format: 1, javascript: "export {};", source: "export default {" },
-		];
-		const sourceHash = pluginSourceHash(manifest, sourceFiles, compiledScripts);
+		const compiledScripts = [{ entry, format: 1, javascript: "export {};" }];
+		const sourceHash = pluginSourceHash(manifest, compiledScripts);
 		return Effect.gen(function* () {
 			const service = yield* PluginBackupRestore;
 			const prepared = yield* service.prepare([
 				{
-					files,
 					manifest,
 					sourceHash,
 					compiledScripts,
@@ -280,6 +276,19 @@ layer(makeLayer())((test) => {
 				},
 			]);
 			expect(prepared[0]?.normalized.scripts[0]?.compiledCode).toBe("export {};");
+			expect(prepared[0]?.normalized.scripts[0]).not.toHaveProperty("source");
+			const archived = prepared[0];
+			assert(archived);
+			const tampered = yield* service
+				.prepare([
+					{ ...archived, compiledScripts: [{ entry, format: 1, javascript: "export default 1;" }] },
+				])
+				.pipe(Effect.flip);
+			expect(tampered.message).toContain("source hash");
+			const missing = yield* service
+				.prepare([{ ...archived, compiledScripts: [] }])
+				.pipe(Effect.flip);
+			expect(missing).toMatchObject({ _tag: "BadRequest" });
 			expect(yield* (yield* FakeBackupRepository).persists).toBe(0);
 		});
 	});
@@ -288,13 +297,11 @@ layer(makeLayer())((test) => {
 layer(makeLayer({ systemSlugAddedOnLock: privateManifest().metadata.slug }))((test) => {
 	test.effect("rejects persistence when a system slug appears after backup preparation", () => {
 		const manifest = privateManifest();
-		const files = {};
-		const sourceHash = pluginSourceHash(manifest, files, []);
+		const sourceHash = pluginSourceHash(manifest);
 		return Effect.gen(function* () {
 			const service = yield* PluginBackupRestore;
 			const prepared = yield* service.prepare([
 				{
-					files,
 					manifest,
 					sourceHash,
 					compiledScripts: [],
@@ -313,8 +320,7 @@ layer(makeLayer({ systemSlugAddedOnLock: privateManifest().metadata.slug }))((te
 const packageAt = (version: string) => {
 	const base = privateManifest();
 	const manifest = { ...base, metadata: { ...base.metadata, version } };
-	const files = {};
-	return { files, manifest, scripts: [], sourceHash: pluginSourceHash(manifest, files, []) };
+	return { manifest, scripts: [], sourceHash: pluginSourceHash(manifest) };
 };
 
 describe("private package backup restore in PostgreSQL", () => {
@@ -347,7 +353,6 @@ describe("private package backup restore in PostgreSQL", () => {
 				const prepared = yield* service.prepare([
 					{
 						key,
-						files: {},
 						compiledScripts: [],
 						manifest: sourceV2.manifest,
 						sourceHash: sourceV2.sourceHash,

@@ -1,6 +1,6 @@
 import { ListedEntity } from "@ryot-app/contract/modules/entities/schemas";
 import { EntityId } from "@ryot-app/contract/schema/brands";
-import { Schema } from "effect";
+import { Effect, Schema } from "effect";
 
 export const EntityReferenceSnapshot = Schema.Struct({
 	id: EntityId,
@@ -17,3 +17,10 @@ export const EntityEnsureResult = Schema.Struct({
 	entityId: EntityId,
 	wasInserted: Schema.Boolean,
 });
+
+export const projectEntityIngestionReceipt = (commandKind: string, result: unknown) =>
+	commandKind === "entity:create" || commandKind === "entity:reference"
+		? Schema.decodeUnknownEffect(EntitySnapshotResult)(result).pipe(
+				Effect.as(commandKind === "entity:create" ? ("created" as const) : ("unchanged" as const)),
+			)
+		: Effect.succeed(null);

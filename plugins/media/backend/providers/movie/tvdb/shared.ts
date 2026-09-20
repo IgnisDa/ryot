@@ -19,13 +19,7 @@ import {
 	tvdbGetOptional,
 } from "../../../lib/vendors/tvdb";
 
-export const manifest = defineManifest({
-	name: "TVDB",
-	kind: "provider",
-	slug: "movie.tvdb",
-	requiredPluginConfigKeys: ["tvdbApiKey"],
-	capabilities: ["httpCall", "getCachedValue", "setCachedValue", "getPluginConfig"],
-});
+export const manifest = defineManifest({ name: "TVDB", kind: "provider", slug: "movie.tvdb" });
 
 export const search = defineProvider({
 	manifest,

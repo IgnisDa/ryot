@@ -37,7 +37,7 @@ Export upload additionally allows 64 MiB for ZIP overhead.
 
 The [kernel transaction invariant](../../../AGENTS.md#persistence) forbids transactions across network I/O. Export therefore creates a scoped temp directory, reads a single repeatable-read snapshot, spills events using database `ORDER BY id`, commits, then streams the archive to storage. Temp cleanup covers success, failure, and interruption.
 
-Restore validation spools events and assets into the caller's scoped temp directory. It validates section order, counts, hashes, limits, required system packages, and private packages before writes. Private packages include compiled scripts and client artifacts; these are validated and collision-checked without server-side compilation. Assets are staged before the transaction so network work is outside it.
+Restore validation spools events and assets into the caller's scoped temp directory. It validates section order, counts, hashes, limits, required system packages, and private packages before writes. Private packages include a manifest, compiled scripts, and the compiled-client artifact with its fingerprint; they include no authoring source. These artifacts are validated and collision-checked without server-side compilation. Assets are staged before the transaction so network work is outside it.
 
 All database writes occur in one transaction: restore is atomic. Local event-file reads and batched inserts occur inside it. Temp deletion failure is logged and swallowed so it cannot turn a committed restore into a failed run.
 
@@ -54,7 +54,7 @@ Installation records include per-user plugin preferences as JSON. Plugin manifes
 
 Client page compositions are derived from restored compiled artifacts and current runtime state. The archive contains custom views and only non-default built-in state overrides (or a selected built-in home), not copies of built-in content. Restore resolves built-ins from current definitions, rejects custom slug conflicts and missing definitions, then resolves installation home views by slug. The archive format version remains 1.
 
-Source files are user-authored and may contain credentials, so they are not redacted. Only manifest configuration and integration settings fields may be redacted. Managed assets use content-addressed locators.
+Private plugin backups contain no authoring source. Only manifest configuration and integration settings fields may be redacted. Managed assets use content-addressed locators.
 
 A restore target is clean only when every existing entity looks bootstrap-created: no provider, no external ID, and at most one such entity per entity schema, which is what a user-bootstrap ensure produces. Archived bootstrap entities match destination rows by schema and plugin ownership, never by name or initial properties. Every archived entity schema must exist in the current kernel or declared-plugin definition snapshot.
 

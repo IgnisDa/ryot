@@ -4,6 +4,8 @@ import { getOrderedAppSchemaFieldEntries } from "@ryot-app/contract/schema/prope
 import type { ImportSourceItem } from "#/modules/imports/service";
 import { pluginCatalogGroup, type CatalogEntry } from "#/modules/ui/catalog/selection";
 
+import { ingestionReadinessRequirement } from "./readiness-presentation";
+
 export type ImportWizardSource = Pick<
 	ImportSourceItem,
 	"slug" | "name" | "description" | "inputSchema" | "exportHelp"
@@ -36,22 +38,13 @@ export const importSourceInputShape = (schema: AppSchema) => {
 	return uploads.length === 1 ? fileShapeLabel(single) : `${uploads.length} files`;
 };
 
-const importSourceRequirement = (source: ImportSourceItem) => {
-	if (source.isStartable) {
-		return undefined;
-	}
-	return source.missingPluginConfigKeys.length === 0
-		? "This service is not ready on your server yet."
-		: `Set ${source.missingPluginConfigKeys.join(", ")} on your server to use this.`;
-};
-
 export const importSourceEntry = (source: ImportSourceItem): CatalogEntry => ({
 	slug: source.slug,
 	name: source.name,
 	description: source.description,
-	isAvailable: source.isStartable,
-	requirement: importSourceRequirement(source),
+	isAvailable: source.readiness.ready,
 	badge: importSourceInputShape(source.inputSchema),
+	requirement: ingestionReadinessRequirement(source.readiness, source.pluginScope),
 	group:
 		source.pluginSlug === null
 			? { key: "kernel", heading: "Ryot" }

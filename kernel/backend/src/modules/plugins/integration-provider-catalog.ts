@@ -1,3 +1,5 @@
+import type { SourcePlan } from "@ryot-app/contract/modules/plugins/execution";
+import type { IngestionReadinessMetadata } from "@ryot-app/contract/modules/plugins/ingestion-readiness";
 import type {
 	PluginConfigSchema,
 	PluginIntegrationProvider,
@@ -10,10 +12,13 @@ import { Context, Effect, Layer } from "effect";
 import * as schema from "#lib/infrastructure/db/schema/tables/combined";
 import { DatabaseSession } from "#lib/infrastructure/db/session";
 
+import { ingestionReadinessMetadata } from "./ingestion-readiness-metadata";
 import { type CatalogScript, catalogScriptFields } from "./persisted-projections";
 import type { pluginConfigContextFor } from "./runtime-resolver";
 
 export type RegisteredIntegrationProvider = {
+	readonly plan?: SourcePlan | undefined;
+	readonly readinessMetadata: IngestionReadinessMetadata;
 	readonly slug: string;
 	readonly name: string;
 	readonly pluginId: string;
@@ -47,12 +52,25 @@ const queryProvidersForSession = (database: DatabaseSession["Service"]) =>
 					installationId: provider.installationId,
 					requiresProKey: provider.requiresProKey,
 					settingsSchema: provider.settingsSchema,
+					manifest: schema.pluginRevision.manifest,
 					pluginRevisionId: provider.pluginRevisionId,
 					configRevisionId: provider.configRevisionId,
 					configSchema: sql<PluginConfigSchema>`${schema.pluginRevision.manifest} -> 'configSchema'`,
+					configuredKeys: sql<
+						ReadonlyArray<string>
+					>`coalesce(${schema.pluginConfigRevision.configuredKeys}, '{}')`,
 				})
 				.from(provider)
 				.innerJoin(schema.pluginRevision, eq(schema.pluginRevision.id, provider.pluginRevisionId))
+				.leftJoin(
+					schema.pluginConfigRevision,
+					and(
+						eq(schema.pluginConfigRevision.id, provider.configRevisionId),
+						eq(schema.pluginConfigRevision.pluginRevisionId, provider.pluginRevisionId),
+						sql`${schema.pluginConfigRevision.ownerUserId} is not distinct from case when ${provider.pluginScope} = 'user' then ${provider.userId} else null end`,
+						sql`${schema.pluginConfigRevision.pluginInstallationId} is not distinct from case when ${provider.pluginScope} = 'user' then ${provider.installationId} else null end`,
+					),
+				)
 				.leftJoin(schema.sandboxScript, eq(schema.sandboxScript.id, provider.scriptId))
 				.where(and(eq(provider.userId, userId), predicate)),
 		);
@@ -60,10 +78,12 @@ const queryProvidersForSession = (database: DatabaseSession["Service"]) =>
 			.flatMap(
 				({
 					script,
+					manifest,
 					pluginId,
 					pluginSlug,
 					pluginScope,
 					configSchema,
+					configuredKeys,
 					installationId,
 					configRevisionId,
 					pluginRevisionId,
@@ -88,6 +108,16 @@ const queryProvidersForSession = (database: DatabaseSession["Service"]) =>
 					} = {
 						script: script && { ...script, pluginId, id: SandboxScriptId.make(script.id) },
 						provider: {
+							readinessMetadata: ingestionReadinessMetadata(
+								manifest,
+								configuredKeys,
+								configRevisionId !== null,
+							),
+							plan: manifest.integrationProviders.flatMap((declared) =>
+								declared.slug === row.slug && declared.lot !== "push" && declared.plan
+									? [declared.plan]
+									: [],
+							)[0],
 							...row,
 							pluginId,
 							pluginSlug,

@@ -5,10 +5,14 @@ import type {
 	SchemaFormApi,
 	SchemaOAuthConnect,
 } from "@ryot-app/client-ui-sdk/schema-form";
+import { toSchemaFormPayload } from "@ryot-app/client-ui-sdk/schema-form";
 import type { ImportRunSummary } from "@ryot-app/ryotql-recipes/import-runs";
+import { Link } from "@tanstack/react-router";
 import clsx from "clsx";
 
+import { IngestionRunReport } from "#/modules/imports/ingestion-run-report";
 import { importRunOutcomeLabel } from "#/modules/imports/run-presentation";
+import { SelectedIntegrationReadiness } from "#/modules/imports/selected-readiness";
 import { integrationLotDetail } from "#/modules/integrations/provider-selection";
 import type {
 	IntegrationClientDetail,
@@ -45,19 +49,29 @@ function IntegrationRunRow(props: {
 	readonly run: ImportRunSummary;
 }) {
 	return (
-		<div
-			className={clsx(
-				"flex items-center gap-3 border-b border-border py-3",
-				props.isFirst && "border-t",
-			)}
-		>
-			<RunStatusGlyph status={props.run.status} />
-			<span className="min-w-0 flex-1 truncate text-xs text-text-subtle">
-				{formatRelativeTime(props.run.createdAt, props.nowMs)}
-			</span>
-			<span className="max-w-40 text-right text-xs tabular-nums text-text-muted">
-				{importRunOutcomeLabel(props.run)}
-			</span>
+		<div>
+			<Link
+				params={{ runId: props.run.id }}
+				to="/settings/import-data/$runId"
+				className={clsx(
+					"flex items-center gap-3 border-b border-border py-3",
+					props.isFirst && "border-t",
+				)}
+			>
+				<RunStatusGlyph status={props.run.status} />
+				<span className="min-w-0 flex-1 truncate text-xs text-text-subtle">
+					{formatRelativeTime(props.run.createdAt, props.nowMs)}
+				</span>
+				<span className="max-w-40 text-right text-xs tabular-nums text-text-muted">
+					{importRunOutcomeLabel(props.run)}
+				</span>
+			</Link>
+			{props.run.status === "blocked" ||
+			props.run.status === "running" ||
+			props.run.status === "pending" ||
+			props.run.status === "expired" ? (
+				<IngestionRunReport run={props.run} />
+			) : null}
 		</div>
 	);
 }
@@ -106,6 +120,19 @@ export function IntegrationDetailView(props: {
 						connectOAuth={props.connectOAuth}
 						oauthDisabledReason={props.oauthDisabledReason}
 					/>
+					<props.form.Subscribe selector={(state) => state.values}>
+						{(values) =>
+							props.provider === undefined ? null : (
+								<SelectedIntegrationReadiness
+									slug={props.provider.slug}
+									integrationId={props.integration.id}
+									settings={toSchemaFormPayload(props.provider.settingsSchema, values)}
+								>
+									{() => null}
+								</SelectedIntegrationReadiness>
+							)
+						}
+					</props.form.Subscribe>
 					{props.saveDetail === undefined ? null : <FieldMessage>{props.saveDetail}</FieldMessage>}
 					<Button
 						type="button"

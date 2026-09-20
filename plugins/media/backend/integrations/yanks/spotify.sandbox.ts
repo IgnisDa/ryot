@@ -1,26 +1,20 @@
-import type { SandboxHost } from "@ryot-app/sandbox-sdk/core";
+import type { ExecutionMetadata, ScriptHost } from "@ryot-app/sandbox-sdk/core";
 import { defineManifest, defineScript } from "@ryot-app/sandbox-sdk/driver";
 import { DateTime, Effect, Option, Schema } from "@ryot-app/sandbox-sdk/effect";
 
-import { MediaIntegrationAdapterResult } from "../../imports/schemas";
+import type { MediaIntegrationAdapterResult } from "../../imports/schemas";
 import { MediaSandboxError } from "../../lib/failures";
+import { captureIntegrationRecords } from "../artifacts";
+import { integrationRecordId } from "../identity";
+import { IntegrationArtifactOutput, YankInput } from "../schemas";
+import { executionStartedAt } from "../shared";
+import { confirmIntegrationSource, integrationSourceAttribution } from "../source-state";
 
 export const manifest = defineManifest({
 	kind: "script",
 	name: "Spotify yank",
 	slug: "integration.spotify",
-	requiredPluginConfigKeys: [],
-	capabilities: [
-		"log",
-		"span",
-		"httpCall",
-		"getCurrentIntegration",
-		"getOAuthAccessToken",
-		"claimPersistentValue",
-	],
 });
-
-const Input = Schema.Struct({});
 
 const RecentlyPlayed = Schema.Struct({
 	items: Schema.Array(
@@ -55,10 +49,23 @@ const spotifyRequestFailure = (error: unknown) =>
 type EntityGroup = MediaIntegrationAdapterResult["entityGroups"][number];
 
 const runSpotifyYank = (
-	_input: Schema.Schema.Type<typeof Input>,
-	host: SandboxHost<typeof manifest.capabilities>,
+	input: typeof YankInput.Type,
+	host: Pick<
+		ScriptHost,
+		| "log"
+		| "span"
+		| "httpCall"
+		| "getCurrentIntegration"
+		| "getOAuthAccessToken"
+		| "claimPersistentValue"
+		| "getPersistentValue"
+	>,
+	execution: ExecutionMetadata,
 ) =>
 	Effect.gen(function* () {
+		if (input.ingestionConfirmation) {
+			return yield* confirmIntegrationSource(input.ingestionConfirmation, host);
+		}
 		const integration = yield* host.getCurrentIntegration();
 		const lowerBound =
 			integration.lastFinishedAt === null
@@ -108,15 +115,21 @@ const runSpotifyYank = (
 			.filter(({ playedAtMs }) => lowerBound === null || playedAtMs > lowerBound)
 			.sort((left, right) => left.playedAtMs - right.playedAtMs);
 		const groups = new Map<string, EntityGroup>();
+		const pending = new Set<string>();
+		const expiresAt =
+			DateTime.toEpochMillis(DateTime.makeUnsafe(yield* executionStartedAt(execution))) +
+			PLAY_CLAIM_TTL_SECONDS * 1000;
 		for (const play of plays) {
-			const claim = yield* host.claimPersistentValue(
-				encodePlayClaimKey(["media.spotify-play", integration.id, play.trackId, play.playedAt]),
-				true,
-				PLAY_CLAIM_TTL_SECONDS,
-			);
-			if (!claim.claimed) {
+			const key = encodePlayClaimKey([
+				"media.spotify-play",
+				integration.id,
+				play.trackId,
+				play.playedAt,
+			]);
+			if (pending.has(key) || (yield* host.getPersistentValue(key)) === true) {
 				continue;
 			}
+			pending.add(key);
 			const occurredAt = DateTime.formatIso(DateTime.makeUnsafe(play.playedAtMs));
 			const group: EntityGroup = groups.get(play.trackId) ?? {
 				events: [],
@@ -137,6 +150,13 @@ const runSpotifyYank = (
 					{
 						occurredAt,
 						eventSchemaSlug: "complete",
+						operationId: integrationRecordId(["integration-source-event", key]),
+						attribution: integrationSourceAttribution(
+							play.trackId,
+							play.track.name,
+							[key],
+							expiresAt,
+						),
 						properties: {
 							consumedOn: "spotify",
 							completedOn: occurredAt,
@@ -165,7 +185,10 @@ const runSpotifyYank = (
 
 export default defineScript({
 	manifest,
-	input: Input,
-	run: runSpotifyYank,
-	output: MediaIntegrationAdapterResult,
+	input: YankInput,
+	output: IntegrationArtifactOutput,
+	run: (input, host, execution) =>
+		runSpotifyYank(input, host, execution).pipe(
+			Effect.flatMap((result) => captureIntegrationRecords(manifest.slug, result)),
+		),
 });

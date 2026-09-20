@@ -91,7 +91,10 @@ const seed = (stage: "after" | "before" = "after", maxAttempts = 2) =>
 							capabilities: [],
 							kind: "automation",
 							slug: "kernel.notify",
+							oauthConnectionFields: [],
+							executableDependencies: [],
 							requiredPluginConfigKeys: [],
+							optionalPluginConfigKeys: [],
 						},
 					});
 				yield* db

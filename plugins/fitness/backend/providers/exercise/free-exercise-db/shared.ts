@@ -1,4 +1,4 @@
-import type { ExecutionMetadata, SandboxHost } from "@ryot-app/sandbox-sdk/core";
+import type { ExecutionMetadata, ScriptHost } from "@ryot-app/sandbox-sdk/core";
 import { Effect, Schema } from "@ryot-app/sandbox-sdk/effect";
 import type {
 	ProviderDetailsInput,
@@ -10,7 +10,7 @@ import type { JsonValue } from "@ryot-app/sandbox-sdk/wire";
 import { exerciseKindSchema } from "../../../../shared/exercise-kinds";
 import { exerciseEquipmentCatalog, exerciseTargetCatalog } from "../../../../shared/taxonomy";
 
-type ExerciseSourceHost = SandboxHost<readonly ["httpCall", "getCachedValue", "setCachedValue"]>;
+type ExerciseSourceHost = Pick<ScriptHost, "httpCall" | "getCachedValue" | "setCachedValue">;
 
 class FitnessExerciseError extends Error {
 	readonly _tag = "FitnessExerciseError";

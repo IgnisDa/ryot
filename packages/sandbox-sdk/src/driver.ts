@@ -1,6 +1,12 @@
 import type { Effect, Schema } from "@ryot-app/sandbox-sdk/effect";
 
-import type { ExecutionMetadata, SandboxHost, SandboxManifest, ScriptManifest } from "./core";
+import type {
+	ExecutionMetadata,
+	PolicyHost,
+	SandboxManifest,
+	ScriptHost,
+	ScriptManifest,
+} from "./core";
 
 type ScriptExecution<
 	Input extends Schema.Codec<unknown, unknown>,
@@ -13,14 +19,15 @@ type ScriptExecution<
 	readonly run: (
 		input: Input["Type"],
 		host: Manifest extends { readonly kind: "automation"; readonly automationType: "policy" }
-			? Omit<SandboxHost<Manifest["capabilities"]>, "executeWorkflow">
-			: SandboxHost<Manifest["capabilities"]>,
+			? PolicyHost
+			: ScriptHost,
 		execution: ExecutionMetadata,
 	) => Effect.Effect<Output["Type"], Failure>;
 };
 
-export const defineManifest = <const Manifest extends SandboxManifest>(manifest: Manifest) =>
-	manifest;
+export const defineManifest = <const Manifest extends SandboxManifest>(
+	manifest: Manifest & { readonly capabilities?: never },
+): Manifest => manifest;
 
 export const SANDBOX_SCRIPT_DEFINITION = "ryot:sandbox-script" as const;
 export type GenericScriptDefinition<

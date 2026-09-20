@@ -5,10 +5,8 @@ import { resolveExercise } from "./shared";
 
 export const manifest = defineManifest({
 	kind: "provider",
-	requiredPluginConfigKeys: [],
 	name: "Free Exercise DB Resolve",
 	slug: "exercise.free-exercise-db.resolve",
-	capabilities: ["httpCall", "getCachedValue", "setCachedValue"],
 });
 
 export default defineProvider({

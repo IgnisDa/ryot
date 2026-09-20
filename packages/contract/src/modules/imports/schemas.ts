@@ -4,8 +4,15 @@ import { EntitySchemaSlug, EventSchemaSlug, ImportRunId } from "../../schema/bra
 import { jsonValueSchema } from "../sandbox/wire";
 import { importRunFailureStages } from "./types";
 
+export const ingestionBlockReasonFields = {
+	key: Schema.NonEmptyString,
+	code: Schema.Literals(["configuration-required", "connection-required", "oauth-client-required"]),
+};
+
 export const ImportRunStatus = Schema.Literals([
 	"pending",
+	"blocked",
+	"expired",
 	"running",
 	"cancelling",
 	"completed",
@@ -26,8 +33,8 @@ export const ImportRequestFailureReason = Schema.Union([
 	}),
 	Schema.Struct({
 		source: Schema.String,
-		code: Schema.Literal("source-not-configured"),
-		missingConfigKeys: Schema.Array(Schema.String),
+		code: Schema.Literal("source-not-ready"),
+		blockReasons: Schema.Array(Schema.Struct(ingestionBlockReasonFields)),
 	}),
 ]);
 
@@ -64,6 +71,8 @@ export class ImportConflictError extends Schema.TaggedError<ImportConflictError>
 ) {}
 
 export const ImportRunFailureReason = Schema.Union([
+	Schema.Struct({ code: Schema.Literal("captured-input-unavailable") }),
+	Schema.Struct({ code: Schema.Literal("captured-input-corrupt") }),
 	Schema.Struct({ code: Schema.Literal("pro-key-required") }),
 	Schema.Struct({ code: Schema.Literal("source-fetch-failed") }),
 	Schema.Struct({ code: Schema.Literal("event-policy-failed") }),
@@ -116,16 +125,11 @@ export const ListedImportRun = Schema.Struct({
 	id: ImportRunId,
 	source: Schema.String,
 	status: ImportRunStatus,
-	progress: Schema.Finite,
 	createdAt: Schema.String,
 	updatedAt: Schema.String,
-	failedItems: Schema.Finite,
 	inputSummary: InputSummary,
-	importedItems: Schema.Finite,
-	processedItems: Schema.Finite,
 	startedAt: Schema.NullOr(Schema.String),
 	finishedAt: Schema.NullOr(Schema.String),
-	totalItems: Schema.NullOr(Schema.Finite),
 	failureReason: Schema.NullOr(ImportRunFailureReason),
 });
 

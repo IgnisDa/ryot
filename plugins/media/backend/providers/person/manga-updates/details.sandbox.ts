@@ -5,8 +5,6 @@ import { details } from "./shared";
 
 export const manifest = defineManifest({
 	kind: "provider",
-	capabilities: ["httpCall"],
-	requiredPluginConfigKeys: [],
 	name: "MangaUpdates Person Details",
 	slug: "person.manga-updates.details",
 });

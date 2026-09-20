@@ -1,5 +1,5 @@
 import { describe, expect, it } from "@effect/vitest";
-import type { SandboxHost } from "@ryot-app/sandbox-sdk/core";
+import type { ScriptHost } from "@ryot-app/sandbox-sdk/core";
 import { Effect } from "@ryot-app/sandbox-sdk/effect";
 import { defineSandboxTestHost, runSandboxTestScript } from "@ryot-app/sandbox-sdk/testing";
 
@@ -8,7 +8,7 @@ import resolve, { manifest as resolveManifest } from "./resolve.sandbox";
 import search, { manifest as searchManifest } from "./search.sandbox";
 import { manifest } from "./shared";
 
-type GoogleBooksHost = SandboxHost<typeof manifest.capabilities>;
+type GoogleBooksHost = Pick<ScriptHost, "httpCall" | "getPluginConfig">;
 
 const httpSuccess = (body: unknown) =>
 	Effect.succeed({ status: 200, headers: {}, body: JSON.stringify(body) });
@@ -16,7 +16,7 @@ const httpSuccess = (body: unknown) =>
 const makeHost = (httpCall: GoogleBooksHost["httpCall"]) =>
 	defineSandboxTestHost(manifest, {
 		httpCall,
-		getPluginConfig: (keys) =>
+		getPluginConfig: ({ required: keys = [] }) =>
 			Effect.succeed(Object.fromEntries(keys.map((key) => [key, "google-key"]))),
 	});
 

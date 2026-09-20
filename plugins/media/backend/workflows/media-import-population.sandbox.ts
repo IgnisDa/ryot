@@ -1,5 +1,11 @@
 import { LifecycleCommand } from "@ryot-app/sandbox-sdk/imports";
-import { defineManifest, defineWorkflow, Effect, Schema } from "@ryot-app/sandbox-sdk/workflow";
+import {
+	defineManifest,
+	defineWorkflow,
+	defineWorkflowReference,
+	Effect,
+	Schema,
+} from "@ryot-app/sandbox-sdk/workflow";
 
 import {
 	KernelEntityImportResult,
@@ -9,13 +15,11 @@ import {
 
 export const manifest = defineManifest({
 	kind: "workflow",
-	capabilities: [],
-	requiredPluginConfigKeys: [],
 	name: "Media import population",
 	slug: "workflow.media-import-population",
 });
 
-const entityImport = {
+const entityImport = defineWorkflowReference({
 	output: KernelEntityImportResult,
 	workflowSlug: "kernel:entity-import",
 	input: Schema.Union([
@@ -32,7 +36,7 @@ const entityImport = {
 			entitySchemaSlug: Schema.String,
 		}),
 	]),
-};
+});
 
 const ITEM_CONCURRENCY = 4;
 

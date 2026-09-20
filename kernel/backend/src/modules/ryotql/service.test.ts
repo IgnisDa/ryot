@@ -994,16 +994,16 @@ layer(makeServiceLayer())((test) => {
 });
 
 layer(makeServiceLayer())((test) => {
-	test.effect("authorizes import runs and failures in every query occurrence", () => {
+	test.effect("authorizes import runs and issues in every query occurrence", () => {
 		const run = table("importRun", "run");
-		const root = table("importRunFailure", "root");
-		const left = table("importRunFailure", "left");
-		const inner = table("importRunFailure", "inner");
-		const included = table("importRunFailure", "included");
-		const correlated = table("importRunFailure", "correlated");
+		const root = table("importIssue", "root");
+		const left = table("importIssue", "left");
+		const inner = table("importIssue", "inner");
+		const included = table("importIssue", "included");
+		const correlated = table("importIssue", "correlated");
 		const document = {
 			queries: {
-				failures: rows(root, {
+				issues: rows(root, {
 					fields: [field("id", column(root, "id"))],
 					where: exists(correlated, {
 						where: eq(column(correlated, "runId"), column(root, "runId")),
@@ -1017,8 +1017,8 @@ layer(makeServiceLayer())((test) => {
 						include(included, {
 							limit: 1,
 							key: "related",
+							orderBy: [ascending(column(included, "id"))],
 							fields: [field("id", column(included, "id"))],
-							orderBy: [ascending(column(included, "createdAt"))],
 							where: eq(column(included, "runId"), column(root, "runId")),
 						}),
 					],
@@ -1032,14 +1032,14 @@ layer(makeServiceLayer())((test) => {
 
 			const statements = yield* (yield* RecordedStatements).statements;
 			const statement = statements[2];
-			expect(statement).toContain('INNER JOIN (SELECT * FROM "import_run_failure" WHERE EXISTS');
-			expect(statement).toContain('LEFT JOIN (SELECT * FROM "import_run_failure" WHERE EXISTS');
+			expect(statement).toContain('INNER JOIN (SELECT * FROM "import_issue" WHERE EXISTS');
+			expect(statement).toContain('LEFT JOIN (SELECT * FROM "import_issue" WHERE EXISTS');
 			expect(statement).toMatch(/SELECT \* FROM "import_run" WHERE "user_id" = \$\d+/);
-			expect(statement?.match(/SELECT \* FROM "import_run_failure" WHERE EXISTS/g)).toHaveLength(5);
+			expect(statement?.match(/SELECT \* FROM "import_issue" WHERE EXISTS/g)).toHaveLength(5);
 			expect(statement).toMatch(
-				/"import_run"\."id" = "import_run_failure"\."run_id" AND "import_run"\."user_id" = \$\d+/,
+				/"import_run"\."id" = "import_issue"\."run_id" AND "import_run"\."user_id" = \$\d+/,
 			);
-			expect(response.data["failures"]).toEqual({
+			expect(response.data["issues"]).toEqual({
 				items: [],
 				type: "rows",
 				pageInfo: { limit: 20, hasMore: false, nextCursor: null },

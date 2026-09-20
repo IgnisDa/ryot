@@ -10,9 +10,7 @@ import {
 
 export const manifest = defineManifest({
 	kind: "operation",
-	requiredPluginConfigKeys: [],
 	name: "Media monitoring status",
-	capabilities: ["executeRyotql"],
 	slug: "operation.media-monitoring-status",
 });
 

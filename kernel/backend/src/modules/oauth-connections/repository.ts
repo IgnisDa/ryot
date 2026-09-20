@@ -229,6 +229,30 @@ export class OAuthConnectionsRepository extends Context.Service<OAuthConnections
 				return row ?? null;
 			});
 
+			const listReadinessForUser = Effect.fn("OAuthConnectionsRepository.listReadinessForUser")(
+				function* (userId: UserId, pluginInstallationId: string, integrationProviderSlug: string) {
+					return yield* database.run((db) =>
+						db
+							.select({
+								id: connection.id,
+								field: connection.field,
+								status: connection.status,
+								expiresAt: connection.expiresAt,
+								integrationId: connection.integrationId,
+								oauthProviderSlug: connection.oauthProviderSlug,
+							})
+							.from(connection)
+							.where(
+								and(
+									eq(connection.userId, userId),
+									eq(connection.pluginInstallationId, pluginInstallationId),
+									eq(connection.integrationProviderSlug, integrationProviderSlug),
+								),
+							),
+					);
+				},
+			);
+
 			const findIntegrationForUser = Effect.fn("OAuthConnectionsRepository.findIntegrationForUser")(
 				function* (integrationId: IntegrationId, userId: UserId) {
 					const [row] = yield* database.run((db) =>
@@ -332,7 +356,14 @@ export class OAuthConnectionsRepository extends Context.Service<OAuthConnections
 				}) {
 					const [row] = yield* database.run((db) =>
 						db
-							.select({ ...connectionSelection, pluginId: schema.pluginInstallation.pluginId })
+							.select({
+								...connectionSelection,
+								pins: schema.importRun.pins,
+								pluginOwnerId: schema.plugin.ownerId,
+								manifest: schema.pluginRevision.manifest,
+								installationPluginSlug: schema.plugin.slug,
+								pluginId: schema.pluginInstallation.pluginId,
+							})
 							.from(connection)
 							.innerJoin(
 								schema.integration,
@@ -355,6 +386,14 @@ export class OAuthConnectionsRepository extends Context.Service<OAuthConnections
 								and(
 									eq(schema.pluginInstallation.id, connection.pluginInstallationId),
 									eq(schema.pluginInstallation.userId, connection.userId),
+								),
+							)
+							.innerJoin(schema.plugin, eq(schema.plugin.id, schema.pluginInstallation.pluginId))
+							.innerJoin(
+								schema.pluginRevision,
+								and(
+									eq(schema.pluginRevision.pluginId, schema.pluginInstallation.pluginId),
+									sql`${schema.pluginRevision.id} = ${schema.importRun.pins} ->> 'pluginRevisionId'`,
 								),
 							)
 							.where(
@@ -506,6 +545,7 @@ export class OAuthConnectionsRepository extends Context.Service<OAuthConnections
 				findOAuthProviders,
 				acquireRefreshLease,
 				releaseRefreshLease,
+				listReadinessForUser,
 				storeRefreshedTokens,
 				findForIntegrationRun,
 				findPendingByStateHash,

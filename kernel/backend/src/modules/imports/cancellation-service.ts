@@ -25,7 +25,7 @@ export class ImportRunCancellationService extends Context.Service<ImportRunCance
 				if (!run) {
 					return yield* new ImportNotFoundError({ reason: { runId, code: "run-not-found" } });
 				}
-				if (run.status === "completed" || run.status === "failed") {
+				if (run.status === "completed" || run.status === "failed" || run.status === "expired") {
 					return yield* new ImportConflictError({
 						reason: { runId, status: run.status, code: "run-not-cancellable" },
 					});
@@ -34,8 +34,8 @@ export class ImportRunCancellationService extends Context.Service<ImportRunCance
 					yield* engine
 						.execute(CancelImportRunWorkflow, {
 							discard: true,
-							payload: { runId, userId: user.id },
 							executionId: `${runId}-cancellation`,
+							payload: { runId, userId: user.id, accountGeneration: user.accountGeneration },
 						})
 						.pipe(Effect.orDie);
 				}

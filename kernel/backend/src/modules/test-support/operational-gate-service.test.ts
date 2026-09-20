@@ -9,22 +9,35 @@ import {
 } from "@ryot-app/contract/schema/brands";
 import { Context, Effect, Layer, Ref } from "effect";
 
+import { createPluginConfigEncryption } from "#lib/infrastructure/config/plugin-config-encryption";
 import type { DatabaseSession } from "#lib/infrastructure/db/session";
 import { RedisService, redisKeys } from "#lib/infrastructure/redis";
 import { assertExitFails } from "#lib/test-utils/assertions";
 import { fakeDatabaseSession, makeRedisService } from "#lib/test-utils/effect";
 import { mutationAdmissionTestLayer } from "#lib/test-utils/mutation-admission";
+import { IngestionExecution } from "#modules/imports/execution-service";
+import { ImportsRepository } from "#modules/imports/repository";
 import { ImportsService } from "#modules/imports/service";
+import { PluginConfigEncryptionKey } from "#modules/plugins/config-encryption-key";
 import { PluginRuntimeResolver } from "#modules/plugins/runtime-resolver";
 import { fixtureManifest } from "#modules/plugins/test-support";
 import { SandboxExecutionService } from "#modules/sandbox/service";
 
+import { OperationalGateRepository } from "./operational-gate-repository";
 import { OperationalGateService } from "./operational-gate-service";
 
 const runId = ImportRunId.make("run-id");
 const executingUserId = UserId.make("user-id");
 const mockImports = Layer.mock(ImportsService);
 const mockSandbox = Layer.mock(SandboxExecutionService);
+const pluginConfigEncryptionKey = Layer.succeed(
+	PluginConfigEncryptionKey,
+	PluginConfigEncryptionKey.of({
+		load: Effect.succeed(
+			createPluginConfigEncryption({ id: "test-key", key: new Uint8Array(32).fill(7) }),
+		),
+	}),
+);
 
 const gateInput = {
 	itemCount: 1,
@@ -39,14 +52,9 @@ const gateInput = {
 
 const importRun = {
 	id: runId,
-	progress: 0,
-	failedItems: 0,
 	startedAt: null,
-	totalItems: null,
 	inputSummary: {},
 	finishedAt: null,
-	importedItems: 0,
-	processedItems: 0,
 	failureReason: null,
 	source: gateInput.source,
 	status: "pending" as const,
@@ -89,26 +97,44 @@ const workflowLoadLayer = (
 			const updates = yield* Ref.make<ReadonlyArray<unknown>>([]);
 			const polledExecutionIds = yield* Ref.make<ReadonlyArray<string>>([]);
 			const terminal = yield* Ref.make(false);
+			const scope = {
+				runId,
+				userId: executingUserId,
+				accountGeneration: { userId: executingUserId, token: "test-account-generation" },
+			};
 			return OperationalGateService.layer.pipe(
+				Layer.provide(
+					Layer.effect(
+						ImportsRepository,
+						Effect.gen(function* () {
+							const repository = yield* ImportsRepository.make;
+							return {
+								...repository,
+								sealCollection: () => Effect.void,
+								pinIngestion: () => Effect.succeed(true),
+								startIngestion: () => Effect.succeed(true),
+								putActivity: (_scope, activity) =>
+									Ref.update(updates, (all) => [...all, activity]).pipe(Effect.as(undefined)),
+							};
+						}),
+					),
+				),
 				Layer.provideMerge(
 					Layer.mergeAll(
 						options.database ?? mutationAdmissionTestLayer,
-						mockImports({
-							createManualRun: () => Effect.succeed(importRun),
-							updateProgress: (input) =>
-								Ref.update(updates, (all) => [...all, input]).pipe(Effect.as(true)),
-							markStarted: (input) =>
-								Ref.update(updates, (all) => [...all, { ...input, status: "running" }]).pipe(
-									Effect.as("started" as const),
-								),
-							finishFailed: (input) =>
-								Ref.update(updates, (all) => [...all, { ...input, status: "failed" }]).pipe(
-									Effect.as("settled" as const),
-								),
-							finishCompleted: (input) =>
-								Ref.update(updates, (all) => [...all, { ...input, status: "completed" }]).pipe(
-									Effect.as("settled" as const),
-								),
+						pluginConfigEncryptionKey,
+						mockImports({ createManualRun: () => Effect.succeed(importRun) }),
+						Layer.succeed(OperationalGateRepository, { runningScope: () => Effect.succeed(scope) }),
+						Layer.succeed(IngestionExecution, {
+							retire: () => Effect.die("unused"),
+							cleanup: () => Effect.die("unused"),
+							deleteReport: () => Effect.die("unused"),
+							abortAdmission: () => Effect.die("unused"),
+							settle: (input) =>
+								Ref.update(updates, (all) => [
+									...all,
+									{ scope: input.scope, status: input.status },
+								]).pipe(Effect.as(true)),
 						}),
 						mockSandbox({
 							enqueuePluginWorkflow: (input) =>
@@ -285,13 +311,12 @@ layer(workflowLoadLayer())((test) => {
 			]);
 			expect(yield* fake.updates).toEqual([
 				expect.objectContaining({
-					runId,
-					progress: 100,
-					failedItems: 0,
-					importedItems: 2,
-					processedItems: 2,
-					status: "completed",
+					completed: 2,
+					exactTotal: 2,
+					state: "completed",
+					unit: "workflow executions",
 				}),
+				expect.objectContaining({ status: "completed", scope: expect.objectContaining({ runId }) }),
 			]);
 		}),
 	);

@@ -1,4 +1,4 @@
-import type { SandboxHost } from "@ryot-app/sandbox-sdk/core";
+import type { ScriptHost } from "@ryot-app/sandbox-sdk/core";
 import { DateTime, Effect, Option } from "@ryot-app/sandbox-sdk/effect";
 
 import {
@@ -9,7 +9,7 @@ import {
 	type UnknownRecord,
 } from "../records";
 
-export type VndbHost = SandboxHost<readonly ["httpCall"]>;
+export type VndbHost = Pick<ScriptHost, "httpCall">;
 
 const BASE_URL = "https://api.vndb.org/kana";
 

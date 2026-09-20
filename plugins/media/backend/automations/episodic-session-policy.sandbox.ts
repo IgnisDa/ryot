@@ -3,7 +3,7 @@ import {
 	automationPolicyResultSchema,
 	type AutomationPolicyInput,
 } from "@ryot-app/sandbox-sdk/automation";
-import type { SandboxHost } from "@ryot-app/sandbox-sdk/core";
+import type { ScriptHost } from "@ryot-app/sandbox-sdk/core";
 import { defineManifest } from "@ryot-app/sandbox-sdk/driver";
 import { Effect, Schema } from "@ryot-app/sandbox-sdk/effect";
 import { executeRyotqlRecipe } from "@ryot-app/sandbox-sdk/ryotql";
@@ -20,14 +20,12 @@ import {
 export const manifest = defineManifest({
 	kind: "automation",
 	automationType: "policy",
-	requiredPluginConfigKeys: [],
-	capabilities: ["executeRyotql"],
 	name: "Media Episodic Session Policy",
 	slug: "policy.media-episodic-session",
 	inputProjection: { event: { properties: [] } },
 });
 
-type AutomationHost = SandboxHost<typeof manifest.capabilities>;
+type AutomationHost = Pick<ScriptHost, "executeRyotql">;
 
 type EventPayload = Extract<AutomationPolicyInput["automation"]["payload"], { resource: "event" }>;
 

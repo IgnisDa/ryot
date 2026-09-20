@@ -8,9 +8,7 @@ import { buildLuceneQuery, mbGet } from "../../../lib/vendors/music-brainz";
 export const manifest = defineManifest({
 	kind: "provider",
 	name: "MusicBrainz",
-	capabilities: ["httpCall"],
 	slug: "person.music-brainz",
-	requiredPluginConfigKeys: [],
 });
 
 const buildArtistDescription = (artist: Record<string, unknown>) => {

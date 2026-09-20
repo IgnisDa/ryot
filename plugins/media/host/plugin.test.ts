@@ -539,7 +539,8 @@ it("declares the complete media-owned source", () => {
 	expect(mediaPlugin.integrationProviders.find(({ slug }) => slug === "spotify")).toMatchObject({
 		lot: "yank",
 		requiresProKey: true,
-		scriptSlug: "integration.spotify",
+		scriptSlug: "workflow.media-integration",
+		plan: { selections: { "integration-adapter": { value: "integration.spotify" } } },
 		settingsSchema: {
 			fields: {
 				account: {
@@ -667,7 +668,6 @@ it("declares the complete media-owned source", () => {
 	});
 	expect(monitoringTargetsManifest).toMatchObject({
 		kind: "script",
-		capabilities: ["executeRyotql"],
 		slug: "media-monitoring-targets",
 	});
 	expect(mediaPlugin.savedViews.every(({ pluginSlug }) => pluginSlug === "media")).toBe(true);

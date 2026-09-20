@@ -13,7 +13,7 @@ import {
 	SandboxScriptId,
 	UserId,
 } from "@ryot-app/contract/schema/brands";
-import { Context, Effect, Encoding, Layer, Ref, Schema } from "effect";
+import { Context, Effect, Layer, Ref, Schema } from "effect";
 
 import { LifecyclePlanner } from "#lib/domain/lifecycle";
 import { LifecycleExecution } from "#lib/domain/lifecycle-execution";
@@ -162,7 +162,6 @@ const systemPluginManifest = {
 };
 
 const systemPluginIngestion = recordingServiceLayer<{
-	files: Readonly<Record<string, Uint8Array>>;
 	compiledScripts: PluginSource["compiledScripts"];
 	compiledClient: PluginSource["compiledClient"];
 }>((record) => ({
@@ -176,8 +175,8 @@ const systemPluginIngestion = recordingServiceLayer<{
 			}),
 	},
 	pluginIngestion: {
-		installPlugin: ({ files, compiledClient, compiledScripts }) =>
-			record({ files, compiledClient, compiledScripts }).pipe(
+		installPlugin: ({ compiledClient, compiledScripts }) =>
+			record({ compiledClient, compiledScripts }).pipe(
 				Effect.as({ slug: PluginSlug.make("fixture"), pluginId: PluginId.make("plugin-id") }),
 			),
 	},
@@ -187,12 +186,7 @@ layer(systemPluginIngestion.layer)((test) => {
 	test.effect("returns persisted system plugin identity after real ingestion completes", () => {
 		const compiledClient = fixtureClientArtifact(systemPluginManifest.metadata.name);
 		const compiledScripts = [
-			{
-				format: 1,
-				source: "source",
-				javascript: "compiled",
-				entry: "backend/automations/fixture.sandbox.ts",
-			},
+			{ format: 1, javascript: "compiled", entry: "backend/automations/fixture.sandbox.ts" },
 		];
 		return Effect.gen(function* () {
 			const result = yield* (yield* TestSupportService).installSystemPlugin({
@@ -201,19 +195,8 @@ layer(systemPluginIngestion.layer)((test) => {
 				compiledClient: yield* Schema.encodeUnknownEffect(PluginClientArtifactFromBase64)(
 					compiledClient,
 				),
-				files: {
-					"client/page.tsx": Encoding.encodeBase64(
-						new TextEncoder().encode("export default () => null;"),
-					),
-					"backend/automations/fixture.sandbox.ts": Encoding.encodeBase64(
-						new TextEncoder().encode("source"),
-					),
-				},
 			});
 			const ingested = (yield* systemPluginIngestion.recorded).at(-1);
-			expect(
-				new TextDecoder().decode(ingested?.files["backend/automations/fixture.sandbox.ts"]),
-			).toBe("source");
 			expect(ingested?.compiledScripts).toEqual(compiledScripts);
 			expect(ingested?.compiledClient).toEqual(compiledClient);
 			expect(result).toEqual({
