@@ -1,4 +1,4 @@
-import { expect, it } from "@effect/vitest";
+import { expect, layer } from "@effect/vitest";
 import { DbError } from "@ryot-app/contract/errors";
 import type { AutomationWarning } from "@ryot-app/contract/modules/automations/lifecycle";
 import {
@@ -13,8 +13,18 @@ import {
 	UserId,
 } from "@ryot-app/contract/schema/brands";
 import type { JsonValue } from "@ryot-app/contract/schema/json";
-import { Cause, Duration, Effect, Exit, Layer, Logger, References } from "effect";
-import type { Logger as LoggerType } from "effect/Logger";
+import {
+	Cause,
+	Context,
+	Duration,
+	Effect,
+	Exit,
+	Layer,
+	Logger,
+	MutableRef,
+	References,
+	Ref,
+} from "effect";
 import { Workflow } from "effect/unstable/workflow";
 import { WorkflowEngine, WorkflowInstance } from "effect/unstable/workflow/WorkflowEngine";
 
@@ -150,110 +160,144 @@ const principal = {
 	},
 };
 
-it.effect("dispatches workflow-owned capabilities through their deterministic child owners", () => {
-	const executionId = "sandbox-parent";
-	const instance = WorkflowInstance.initial(SandboxScriptWorkflow, executionId);
-	const executions: Array<{
-		workflow: unknown;
-		options: Parameters<WorkflowEngine["Service"]["execute"]>[1];
-	}> = [];
-	const engine = makeWorkflowActivityEngine(instance, {
-		execute: (workflow, options) => {
-			executions.push({ options, workflow });
-			return Effect.succeed(
-				workflow.name === SandboxDurableHostServiceWorkflow.name
-					? { state: "success", value: { wasCreated: true, triggerId: "signal-trigger-1" } }
-					: options.executionId,
-			);
-		},
-	});
-	const layer = SandboxDurableHostDispatcherLive.pipe(
-		Layer.provide(
+const append = <A>(ref: Ref.Ref<ReadonlyArray<A>>, value: A) =>
+	Ref.update(ref, (all) => [...all, value]);
+
+const unusedAdmission = {
+	block: () => Effect.die("unused"),
+	confirm: () => Effect.die("unused"),
+	reserve: () => Effect.die("unused"),
+};
+
+const dispatcherLayer = (options: {
+	readonly script: typeof script;
+	readonly engine: WorkflowEngine["Service"];
+	readonly instance: WorkflowInstance["Service"];
+	readonly implementations?: SandboxHostImplementations["Service"];
+	readonly lifecycleExecution?: Layer.Layer<LifecycleExecution>;
+	readonly resolve?: PluginHttpRateLimitAuthority["Service"]["resolve"];
+	readonly admission?: Partial<ProviderHttpAdmissionService["Service"]>;
+}) =>
+	SandboxDurableHostDispatcherLive.pipe(
+		Layer.provideMerge(
 			Layer.mergeAll(
 				databaseLayer,
-				Layer.succeed(WorkflowEngine, engine),
-				Layer.succeed(WorkflowInstance, instance),
-				unusedLifecycleExecution,
-				Layer.succeed(SandboxHostImplementations, implementations),
-				Layer.mock(PluginHttpRateLimitAuthority)({ resolve: () => Effect.die("unused") }),
-				Layer.mock(ProviderHttpAdmissionService)({
-					block: () => Effect.die("unused"),
-					confirm: () => Effect.die("unused"),
-					reserve: () => Effect.die("unused"),
+				Layer.succeed(WorkflowEngine, options.engine),
+				Layer.succeed(WorkflowInstance, options.instance),
+				options.lifecycleExecution ?? unusedLifecycleExecution,
+				Layer.succeed(SandboxHostImplementations, options.implementations ?? implementations),
+				Layer.mock(SandboxRepository)({ getScript: () => Effect.succeed(options.script) }),
+				Layer.mock(PluginHttpRateLimitAuthority)({
+					resolve: options.resolve ?? (() => Effect.die("unused")),
 				}),
-				Layer.mock(SandboxRepository)({ getScript: () => Effect.succeed(script) }),
+				Layer.mock(ProviderHttpAdmissionService)({ ...unusedAdmission, ...options.admission }),
 			),
 		),
 	);
-	const payload = {
-		subject,
-		scriptId,
-		executionId,
-		resolutionMode: "exact" as const,
-		startedAt: "2026-08-06T00:00:00.000Z",
-		input: {
-			automation: {
-				runId,
-				causation,
-				triggerId,
-				hookSlug: "dispatcher",
-				occurredAt: "2026-08-06T00:00:00.000Z",
-				executionUserId: subject.executionUserId,
-				payload: {
-					properties: {},
-					operation: "emit",
-					resource: "signal",
-					category: "signal",
-					signalSchemaPluginId: null,
-					signalSchemaSlug: "fixture.signal",
-					actorUserId: subject.executionUserId,
-				},
-			},
-		},
-	};
 
-	return Effect.gen(function* () {
-		const dispatcher = yield* SandboxDurableHostDispatcher;
-		expect(
-			yield* dispatcher.dispatch(
-				{
-					index: 0,
-					kind: "host",
-					name: "emitSignal",
-					args: { args: [], capability: "emitSignal" },
-				},
-				payload,
-				principal,
-				executionId,
-			),
-		).toEqual({ state: "success", value: { wasCreated: true, triggerId: "signal-trigger-1" } });
-		expect(
-			yield* dispatcher.dispatch(
-				{
-					index: 1,
-					kind: "host",
-					name: "sendNotification",
-					args: { args: ["Ready"], capability: "sendNotification" },
-				},
-				payload,
-				principal,
-				executionId,
-			),
-		).toEqual({ value: null, state: "success" });
-		expect(executions).toMatchObject([
-			{
-				workflow: SandboxDurableHostServiceWorkflow,
-				options: { executionId: "sandbox-parent-host-service-0" },
-			},
-			{
-				workflow: NotificationDeliveryWorkflow,
-				options: { discard: true, executionId: "automation-run-1-host-1-notification" },
-			},
-		]);
-	}).pipe(
-		Effect.provide(layer),
-		Effect.provideService(WorkflowEngine, engine),
-		Effect.provideService(WorkflowInstance, instance),
+type WorkflowExecution = Readonly<{
+	workflow: unknown;
+	options: Parameters<WorkflowEngine["Service"]["execute"]>[1];
+}>;
+
+class RecordedWorkflowExecutions extends Context.Service<
+	RecordedWorkflowExecutions,
+	{ readonly executions: Effect.Effect<ReadonlyArray<WorkflowExecution>> }
+>()("test/RecordedWorkflowExecutions") {}
+
+const childOwnerExecutionId = "sandbox-parent";
+
+const childOwnerDispatchLayer = Layer.unwrap(
+	Effect.gen(function* () {
+		const executions = yield* Ref.make<ReadonlyArray<WorkflowExecution>>([]);
+		const instance = WorkflowInstance.initial(SandboxScriptWorkflow, childOwnerExecutionId);
+		const engine = makeWorkflowActivityEngine(instance, {
+			execute: (workflow, options) =>
+				append(executions, { options, workflow }).pipe(
+					Effect.as(
+						workflow.name === SandboxDurableHostServiceWorkflow.name
+							? { state: "success", value: { wasCreated: true, triggerId: "signal-trigger-1" } }
+							: options.executionId,
+					),
+				),
+		});
+		return Layer.merge(
+			dispatcherLayer({ engine, script, instance }),
+			Layer.succeed(RecordedWorkflowExecutions, { executions: Ref.get(executions) }),
+		);
+	}),
+);
+
+layer(childOwnerDispatchLayer)((test) => {
+	test.effect(
+		"dispatches workflow-owned capabilities through their deterministic child owners",
+		() =>
+			Effect.gen(function* () {
+				const executionId = childOwnerExecutionId;
+				const payload = {
+					subject,
+					scriptId,
+					executionId,
+					resolutionMode: "exact" as const,
+					startedAt: "2026-08-06T00:00:00.000Z",
+					input: {
+						automation: {
+							runId,
+							causation,
+							triggerId,
+							hookSlug: "dispatcher",
+							occurredAt: "2026-08-06T00:00:00.000Z",
+							executionUserId: subject.executionUserId,
+							payload: {
+								properties: {},
+								operation: "emit",
+								resource: "signal",
+								category: "signal",
+								signalSchemaPluginId: null,
+								signalSchemaSlug: "fixture.signal",
+								actorUserId: subject.executionUserId,
+							},
+						},
+					},
+				};
+				const dispatcher = yield* SandboxDurableHostDispatcher;
+				expect(
+					yield* dispatcher.dispatch(
+						{
+							index: 0,
+							kind: "host",
+							name: "emitSignal",
+							args: { args: [], capability: "emitSignal" },
+						},
+						payload,
+						principal,
+						executionId,
+					),
+				).toEqual({ state: "success", value: { wasCreated: true, triggerId: "signal-trigger-1" } });
+				expect(
+					yield* dispatcher.dispatch(
+						{
+							index: 1,
+							kind: "host",
+							name: "sendNotification",
+							args: { args: ["Ready"], capability: "sendNotification" },
+						},
+						payload,
+						principal,
+						executionId,
+					),
+				).toEqual({ value: null, state: "success" });
+				expect(yield* (yield* RecordedWorkflowExecutions).executions).toMatchObject([
+					{
+						workflow: SandboxDurableHostServiceWorkflow,
+						options: { executionId: "sandbox-parent-host-service-0" },
+					},
+					{
+						workflow: NotificationDeliveryWorkflow,
+						options: { discard: true, executionId: "automation-run-1-host-1-notification" },
+					},
+				]);
+			}),
 	);
 });
 
@@ -281,7 +325,27 @@ type CapturedLog = Readonly<{
 	annotations: Readonly<Record<string, unknown>>;
 }>;
 
-const makeHttpHarness = (options: {
+class HttpDispatchHarness extends Context.Service<
+	HttpDispatchHarness,
+	{
+		readonly calls: Effect.Effect<number>;
+		readonly confirms: Effect.Effect<number>;
+		readonly blocks: Effect.Effect<ReadonlyArray<number>>;
+		readonly logs: Effect.Effect<ReadonlyArray<CapturedLog>>;
+		readonly clockNames: Effect.Effect<ReadonlyArray<string>>;
+		readonly activityNames: Effect.Effect<ReadonlyArray<string>>;
+		readonly clockDurations: Effect.Effect<ReadonlyArray<number>>;
+		readonly reservationKeys: Effect.Effect<ReadonlyArray<string>>;
+	}
+>()("test/HttpDispatchHarness") {}
+
+const httpExecutionId = "sandbox-http-parent";
+
+const nextIndex = (cursor: Ref.Ref<number>) => Ref.getAndUpdate(cursor, (index) => index + 1);
+
+const at = <A>(items: ReadonlyArray<A>, index: number) => items[Math.min(index, items.length - 1)];
+
+const httpDispatchLayer = (options: {
 	readonly resolveFailures?: number;
 	readonly blockObservedAtMs?: number;
 	readonly outcomes: ReadonlyArray<HttpOutcome>;
@@ -290,298 +354,322 @@ const makeHttpHarness = (options: {
 	readonly reservations?: ReadonlyArray<
 		Pick<ProviderHttpAdmissionToken, "eligibleAtMs" | "observedAtMs">
 	>;
-}) => {
-	const blocks: number[] = [];
-	const logs: CapturedLog[] = [];
-	const clockNames: string[] = [];
-	const activityNames: string[] = [];
-	const clockDurations: number[] = [];
-	const reservationKeys: string[] = [];
-	let calls = 0;
-	let confirms = 0;
-	let resolutionIndex = 0;
-	let reservationIndex = 0;
-	let confirmationIndex = 0;
-	let remainingResolveFailures = options.resolveFailures ?? 0;
-	const logger = Logger.make<unknown, void>(
-		(entry: Parameters<LoggerType<unknown, unknown>["log"]>[0]) => {
-			logs.push({
-				logLevel: entry.logLevel,
-				message: String(entry.message),
-				annotations: entry.fiber.getRef(References.CurrentLogAnnotations),
-			});
-		},
-	);
-	const executionId = "sandbox-http-parent";
-	const instance = WorkflowInstance.initial(SandboxScriptWorkflow, executionId);
-	let engine: WorkflowEngine["Service"];
-	engine = makeWorkflowActivityEngine(instance, {
-		deferredResult: () => Effect.succeedSome(Exit.void),
-		scheduleClock: (_workflow, scheduled) =>
-			Effect.sync(() => {
-				clockNames.push(scheduled.clock.name);
-				clockDurations.push(Duration.toMillis(scheduled.clock.duration));
-			}),
-		activityExecute: (activity) =>
-			Effect.gen(function* () {
-				activityNames.push(activity.name);
-				const exit = yield* Effect.exit(
-					activity.execute.pipe(
-						Effect.provideService(WorkflowEngine, engine),
-						Effect.provideService(WorkflowInstance, instance),
+}) =>
+	Layer.unwrap(
+		Effect.gen(function* () {
+			const calls = yield* Ref.make(0);
+			const confirms = yield* Ref.make(0);
+			const blocks = yield* Ref.make<ReadonlyArray<number>>([]);
+			const logs = yield* Ref.make<ReadonlyArray<CapturedLog>>([]);
+			const clockNames = yield* Ref.make<ReadonlyArray<string>>([]);
+			const activityNames = yield* Ref.make<ReadonlyArray<string>>([]);
+			const clockDurations = yield* Ref.make<ReadonlyArray<number>>([]);
+			const reservationKeys = yield* Ref.make<ReadonlyArray<string>>([]);
+			const resolutionIndex = yield* Ref.make(0);
+			const reservationIndex = yield* Ref.make(0);
+			const confirmationIndex = yield* Ref.make(0);
+			const remainingResolveFailures = yield* Ref.make(options.resolveFailures ?? 0);
+
+			const logger = Logger.make<unknown, void>((entry) =>
+				MutableRef.update(logs.ref, (all) => [
+					...all,
+					{
+						logLevel: entry.logLevel,
+						message: String(entry.message),
+						annotations: entry.fiber.getRef(References.CurrentLogAnnotations),
+					},
+				]),
+			);
+			const instance = WorkflowInstance.initial(SandboxScriptWorkflow, httpExecutionId);
+			let engine: WorkflowEngine["Service"];
+			engine = makeWorkflowActivityEngine(instance, {
+				deferredResult: () => Effect.succeedSome(Exit.void),
+				scheduleClock: (_workflow, scheduled) =>
+					append(clockNames, scheduled.clock.name).pipe(
+						Effect.andThen(append(clockDurations, Duration.toMillis(scheduled.clock.duration))),
 					),
-				);
-				return new Workflow.Complete({ exit });
-			}),
-	});
-	const httpScript = { ...script, metadata: { ...script.metadata, capabilities: ["httpCall"] } };
-	const httpImplementations: SandboxHostImplementations["Service"] = {
-		...implementations,
-		runtime: {
-			...implementations.runtime,
-			httpCall: () =>
-				Effect.suspend(() => {
-					const outcome = options.outcomes[Math.min(calls++, options.outcomes.length - 1)];
-					if (!outcome) {
-						return Effect.die("missing HTTP outcome");
-					}
-					const data = {
-						status: outcome.status,
-						headers: outcome.headers ?? {},
-						body: "sensitive response body",
-					};
-					return outcome.status >= 200 && outcome.status < 300
-						? Effect.succeed(data)
-						: Effect.fail({ data, message: `HTTP ${outcome.status}` });
-				}),
-		},
-	};
-	const layer = SandboxDurableHostDispatcherLive.pipe(
-		Layer.provide(
-			Layer.mergeAll(
-				databaseLayer,
-				Layer.succeed(WorkflowEngine, engine),
-				Layer.succeed(WorkflowInstance, instance),
-				unusedLifecycleExecution,
-				Layer.succeed(SandboxHostImplementations, httpImplementations),
-				Layer.mock(SandboxRepository)({ getScript: () => Effect.succeed(httpScript) }),
-				Layer.mock(PluginHttpRateLimitAuthority)({
-					resolve: () => {
-						if (remainingResolveFailures-- > 0) {
-							return Effect.fail(new DbError({ message: "database unavailable" }));
-						}
-						const resolution =
-							options.resolutions[Math.min(resolutionIndex++, options.resolutions.length - 1)];
-						return resolution ? Effect.succeed(resolution) : Effect.die("missing resolution");
-					},
-				}),
-				Layer.mock(ProviderHttpAdmissionService)({
-					confirm: () => {
-						confirms += 1;
-						return Effect.succeed(
-							options.confirmations?.[
-								Math.min(confirmationIndex++, options.confirmations.length - 1)
-							] ?? { status: "admitted" as const },
+				activityExecute: (activity) =>
+					Effect.gen(function* () {
+						yield* append(activityNames, activity.name);
+						const exit = yield* Effect.exit(
+							activity.execute.pipe(
+								Effect.provideService(WorkflowEngine, engine),
+								Effect.provideService(WorkflowInstance, instance),
+							),
 						);
-					},
-					block: (_declaration, blockedUntilMs) => {
-						blocks.push(blockedUntilMs);
-						return Effect.succeed({
-							blockedUntilMs,
-							status: "blocked" as const,
-							observedAtMs: options.blockObservedAtMs ?? 0,
-						});
-					},
-					reserve: (declaration) => {
-						reservationKeys.push(declaration.key);
-						const reservation = options.reservations?.[
-							Math.min(reservationIndex++, options.reservations.length - 1)
-						] ?? { eligibleAtMs: 10_000, observedAtMs: 10_000 };
-						return Effect.succeed({ ...reservation, declarationHash: declaration.hash });
+						return new Workflow.Complete({ exit });
+					}),
+			});
+			const httpScript = {
+				...script,
+				metadata: { ...script.metadata, capabilities: ["httpCall"] },
+			};
+			const httpImplementations: SandboxHostImplementations["Service"] = {
+				...implementations,
+				runtime: {
+					...implementations.runtime,
+					httpCall: () =>
+						Effect.flatMap(nextIndex(calls), (call) => {
+							const outcome = at(options.outcomes, call);
+							if (!outcome) {
+								return Effect.die("missing HTTP outcome");
+							}
+							const data = {
+								status: outcome.status,
+								headers: outcome.headers ?? {},
+								body: "sensitive response body",
+							};
+							return outcome.status >= 200 && outcome.status < 300
+								? Effect.succeed(data)
+								: Effect.fail({ data, message: `HTTP ${outcome.status}` });
+						}),
+				},
+			};
+
+			return Layer.mergeAll(
+				dispatcherLayer({
+					engine,
+					instance,
+					script: httpScript,
+					implementations: httpImplementations,
+					resolve: () =>
+						Effect.gen(function* () {
+							const remaining = yield* Ref.getAndUpdate(remainingResolveFailures, (n) => n - 1);
+							if (remaining > 0) {
+								return yield* new DbError({ message: "database unavailable" });
+							}
+							const resolution = at(options.resolutions, yield* nextIndex(resolutionIndex));
+							return resolution ?? (yield* Effect.die("missing resolution"));
+						}),
+					admission: {
+						block: (_declaration, blockedUntilMs) =>
+							append(blocks, blockedUntilMs).pipe(
+								Effect.as({
+									blockedUntilMs,
+									status: "blocked" as const,
+									observedAtMs: options.blockObservedAtMs ?? 0,
+								}),
+							),
+						confirm: () =>
+							Effect.gen(function* () {
+								yield* Ref.update(confirms, (count) => count + 1);
+								const index = yield* nextIndex(confirmationIndex);
+								return (
+									(options.confirmations && at(options.confirmations, index)) ?? {
+										status: "admitted" as const,
+									}
+								);
+							}),
+						reserve: (declaration) =>
+							Effect.gen(function* () {
+								yield* append(reservationKeys, declaration.key);
+								const index = yield* nextIndex(reservationIndex);
+								const reservation = (options.reservations && at(options.reservations, index)) ?? {
+									eligibleAtMs: 10_000,
+									observedAtMs: 10_000,
+								};
+								return { ...reservation, declarationHash: declaration.hash };
+							}),
 					},
 				}),
-			),
-		),
-	);
-	const run = Effect.gen(function* () {
-		const dispatcher = yield* SandboxDurableHostDispatcher;
-		return yield* dispatcher.dispatch(
-			{
-				index: 7,
-				kind: "host",
-				name: "httpCall",
-				args: {
-					capability: "httpCall",
-					args: ["GET", "https://provider.test/private?token=secret"],
-				},
-			},
-			{ scriptId, input: {}, executionId, resolutionMode: "exact", subject: principal.subject },
-			principal,
-			executionId,
-		);
-	}).pipe(
-		Effect.provide(
-			Layer.mergeAll(
-				layer,
+				Layer.succeed(HttpDispatchHarness, {
+					logs: Ref.get(logs),
+					calls: Ref.get(calls),
+					blocks: Ref.get(blocks),
+					confirms: Ref.get(confirms),
+					clockNames: Ref.get(clockNames),
+					activityNames: Ref.get(activityNames),
+					clockDurations: Ref.get(clockDurations),
+					reservationKeys: Ref.get(reservationKeys),
+				}),
 				Logger.layer([logger]),
 				Layer.succeed(References.MinimumLogLevel, "Trace"),
-				Layer.succeed(WorkflowEngine, engine),
-				Layer.succeed(WorkflowInstance, instance),
-			),
-		),
+			);
+		}),
 	);
-	return {
-		run,
-		logs,
-		blocks,
-		clockNames,
-		activityNames,
-		clockDurations,
-		reservationKeys,
-		get calls() {
-			return calls;
-		},
-		get confirms() {
-			return confirms;
-		},
-	};
-};
 
-it.effect("skips admission for unmatched HTTP requests and runs once", () => {
-	const harness = makeHttpHarness({ resolutions: [unmatched], outcomes: [{ status: 200 }] });
-	return Effect.gen(function* () {
-		expect(yield* harness.run).toMatchObject({ state: "success" });
-		expect(harness.calls).toBe(1);
-		expect(harness.reservationKeys).toEqual([]);
-		expect(harness.activityNames).toEqual(["sandbox-http-7-resolve-0", "sandbox-http-7-network-1"]);
-	});
+const runHttpDispatch = Effect.gen(function* () {
+	const dispatcher = yield* SandboxDurableHostDispatcher;
+	return yield* dispatcher.dispatch(
+		{
+			index: 7,
+			kind: "host",
+			name: "httpCall",
+			args: { capability: "httpCall", args: ["GET", "https://provider.test/private?token=secret"] },
+		},
+		{
+			scriptId,
+			input: {},
+			resolutionMode: "exact",
+			subject: principal.subject,
+			executionId: httpExecutionId,
+		},
+		principal,
+		httpExecutionId,
+	);
 });
 
-it.effect("admits an immediate matched reservation", () => {
-	const harness = makeHttpHarness({ outcomes: [{ status: 200 }], resolutions: [httpPolicy()] });
-	return Effect.gen(function* () {
-		expect(yield* harness.run).toMatchObject({ state: "success" });
-		expect(harness.reservationKeys).toEqual(["provider"]);
-		expect(harness.confirms).toBe(0);
-		expect(harness.clockNames).toEqual([]);
-		expect(harness.logs).toEqual(
-			expect.arrayContaining([
-				expect.objectContaining({
-					logLevel: "Trace",
-					message: "sandbox HTTP policy resolution completed",
-					annotations: expect.objectContaining({
-						status: "matched",
-						policyKey: "provider",
-						origin: "https://provider.test",
-						sandboxWorkflowExecutionId: "sandbox-http-parent",
-					}),
-				}),
-				expect.objectContaining({
-					logLevel: "Trace",
-					message: "sandbox HTTP admission reserved",
-					annotations: expect.objectContaining({
-						status: "immediate",
-						policyKey: "provider",
-						origin: "https://provider.test",
-						sandboxWorkflowExecutionId: "sandbox-http-parent",
-					}),
-				}),
-			]),
-		);
-		const serializedLogs = harness.logs
-			.flatMap(({ message, annotations }) =>
-				[message].concat(Object.values(annotations).map(String)),
-			)
-			.join(" ");
-		expect(serializedLogs).not.toContain("private");
-		expect(serializedLogs).not.toContain("secret");
-		expect(serializedLogs).not.toContain("sensitive response body");
-	});
+layer(httpDispatchLayer({ resolutions: [unmatched], outcomes: [{ status: 200 }] }))((test) => {
+	test.effect("skips admission for unmatched HTTP requests and runs once", () =>
+		Effect.gen(function* () {
+			const harness = yield* HttpDispatchHarness;
+			expect(yield* runHttpDispatch).toMatchObject({ state: "success" });
+			expect(yield* harness.calls).toBe(1);
+			expect(yield* harness.reservationKeys).toEqual([]);
+			expect(yield* harness.activityNames).toEqual([
+				"sandbox-http-7-resolve-0",
+				"sandbox-http-7-network-1",
+			]);
+		}),
+	);
 });
 
-it.effect("sleeps, re-resolves, and confirms a future reservation", () => {
-	const policy = httpPolicy();
-	const harness = makeHttpHarness({
+layer(httpDispatchLayer({ outcomes: [{ status: 200 }], resolutions: [httpPolicy()] }))((test) => {
+	test.effect("admits an immediate matched reservation", () =>
+		Effect.gen(function* () {
+			const harness = yield* HttpDispatchHarness;
+			expect(yield* runHttpDispatch).toMatchObject({ state: "success" });
+			expect(yield* harness.reservationKeys).toEqual(["provider"]);
+			expect(yield* harness.confirms).toBe(0);
+			expect(yield* harness.clockNames).toEqual([]);
+			const logs = yield* harness.logs;
+			expect(logs).toEqual(
+				expect.arrayContaining([
+					expect.objectContaining({
+						logLevel: "Trace",
+						message: "sandbox HTTP policy resolution completed",
+						annotations: expect.objectContaining({
+							status: "matched",
+							policyKey: "provider",
+							origin: "https://provider.test",
+							sandboxWorkflowExecutionId: "sandbox-http-parent",
+						}),
+					}),
+					expect.objectContaining({
+						logLevel: "Trace",
+						message: "sandbox HTTP admission reserved",
+						annotations: expect.objectContaining({
+							status: "immediate",
+							policyKey: "provider",
+							origin: "https://provider.test",
+							sandboxWorkflowExecutionId: "sandbox-http-parent",
+						}),
+					}),
+				]),
+			);
+			const serializedLogs = logs
+				.flatMap(({ message, annotations }) =>
+					[message].concat(Object.values(annotations).map(String)),
+				)
+				.join(" ");
+			expect(serializedLogs).not.toContain("private");
+			expect(serializedLogs).not.toContain("secret");
+			expect(serializedLogs).not.toContain("sensitive response body");
+		}),
+	);
+});
+
+layer(
+	httpDispatchLayer({
 		outcomes: [{ status: 200 }],
-		resolutions: [policy, policy],
+		resolutions: [httpPolicy(), httpPolicy()],
 		reservations: [{ eligibleAtMs: 5_000, observedAtMs: 4_000 }],
-	});
-	return Effect.gen(function* () {
-		yield* harness.run;
-		expect(harness.reservationKeys).toEqual(["provider"]);
-		expect(harness.confirms).toBe(1);
-		expect(harness.clockNames).toEqual(["sandbox-http-7-admission-wait-0"]);
-		expect(harness.clockDurations).toEqual([1_000]);
-	});
+	}),
+)((test) => {
+	test.effect("sleeps, re-resolves, and confirms a future reservation", () =>
+		Effect.gen(function* () {
+			const harness = yield* HttpDispatchHarness;
+			yield* runHttpDispatch;
+			expect(yield* harness.reservationKeys).toEqual(["provider"]);
+			expect(yield* harness.confirms).toBe(1);
+			expect(yield* harness.clockNames).toEqual(["sandbox-http-7-admission-wait-0"]);
+			expect(yield* harness.clockDurations).toEqual([1_000]);
+		}),
+	);
 });
 
-it.effect("discards a waited slot when the live policy changes", () => {
-	const harness = makeHttpHarness({
+layer(
+	httpDispatchLayer({
 		outcomes: [{ status: 200 }],
 		resolutions: [httpPolicy("old"), httpPolicy("new")],
 		reservations: [
 			{ eligibleAtMs: 5_000, observedAtMs: 4_000 },
 			{ eligibleAtMs: 6_000, observedAtMs: 6_000 },
 		],
-	});
-	return Effect.gen(function* () {
-		yield* harness.run;
-		expect(harness.reservationKeys).toEqual(["old", "new"]);
-		expect(harness.confirms).toBe(0);
-	});
+	}),
+)((test) => {
+	test.effect("discards a waited slot when the live policy changes", () =>
+		Effect.gen(function* () {
+			const harness = yield* HttpDispatchHarness;
+			yield* runHttpDispatch;
+			expect(yield* harness.reservationKeys).toEqual(["old", "new"]);
+			expect(yield* harness.confirms).toBe(0);
+		}),
+	);
 });
 
-it.effect("runs once without confirmation when policy becomes unmatched during a wait", () => {
-	const harness = makeHttpHarness({
+layer(
+	httpDispatchLayer({
 		outcomes: [{ status: 200 }],
 		resolutions: [httpPolicy(), unmatched],
 		reservations: [{ eligibleAtMs: 5_000, observedAtMs: 4_000 }],
-	});
-	return Effect.gen(function* () {
-		yield* harness.run;
-		expect(harness.calls).toBe(1);
-		expect(harness.confirms).toBe(0);
-		expect(harness.reservationKeys).toEqual(["provider"]);
-	});
+	}),
+)((test) => {
+	test.effect("runs once without confirmation when policy becomes unmatched during a wait", () =>
+		Effect.gen(function* () {
+			const harness = yield* HttpDispatchHarness;
+			yield* runHttpDispatch;
+			expect(yield* harness.calls).toBe(1);
+			expect(yield* harness.confirms).toBe(0);
+			expect(yield* harness.reservationKeys).toEqual(["provider"]);
+		}),
+	);
 });
 
-it.effect("uses a new deterministic coordination Activity after durable backoff", () => {
-	const harness = makeHttpHarness({
+layer(
+	httpDispatchLayer({
 		resolveFailures: 1,
 		resolutions: [httpPolicy()],
 		outcomes: [{ status: 200 }],
-	});
-	return Effect.gen(function* () {
-		yield* harness.run;
-		expect(harness.clockNames).toEqual(["sandbox-http-7-coordination-backoff-0"]);
-		expect(harness.activityNames.slice(0, 2)).toEqual([
-			"sandbox-http-7-resolve-0",
-			"sandbox-http-7-resolve-1",
-		]);
-	});
+	}),
+)((test) => {
+	test.effect("uses a new deterministic coordination Activity after durable backoff", () =>
+		Effect.gen(function* () {
+			const harness = yield* HttpDispatchHarness;
+			yield* runHttpDispatch;
+			expect(yield* harness.clockNames).toEqual(["sandbox-http-7-coordination-backoff-0"]);
+			expect((yield* harness.activityNames).slice(0, 2)).toEqual([
+				"sandbox-http-7-resolve-0",
+				"sandbox-http-7-resolve-1",
+			]);
+		}),
+	);
 });
 
-it.effect("repeats later confirmation without taking a second reservation", () => {
-	const policy = httpPolicy();
-	const harness = makeHttpHarness({
+layer(
+	httpDispatchLayer({
 		outcomes: [{ status: 200 }],
-		resolutions: [policy, policy],
+		resolutions: [httpPolicy(), httpPolicy()],
 		reservations: [{ observedAtMs: 0, eligibleAtMs: 1_000 }],
 		confirmations: [
 			{ status: "later", eligibleAtMs: 5_000, observedAtMs: 2_000 },
 			{ status: "admitted" },
 		],
-	});
-	return Effect.gen(function* () {
-		yield* harness.run;
-		expect(harness.reservationKeys).toEqual(["provider"]);
-		expect(harness.confirms).toBe(2);
-		expect(harness.clockNames).toEqual([
-			"sandbox-http-7-admission-wait-0",
-			"sandbox-http-7-admission-wait-1",
-		]);
-		expect(harness.clockDurations).toEqual([1_000, 3_000]);
-	});
+	}),
+)((test) => {
+	test.effect("repeats later confirmation without taking a second reservation", () =>
+		Effect.gen(function* () {
+			const harness = yield* HttpDispatchHarness;
+			yield* runHttpDispatch;
+			expect(yield* harness.reservationKeys).toEqual(["provider"]);
+			expect(yield* harness.confirms).toBe(2);
+			expect(yield* harness.clockNames).toEqual([
+				"sandbox-http-7-admission-wait-0",
+				"sandbox-http-7-admission-wait-1",
+			]);
+			expect(yield* harness.clockDurations).toEqual([1_000, 3_000]);
+		}),
+	);
 });
 
 for (const [label, header, expected] of [
@@ -589,106 +677,109 @@ for (const [label, header, expected] of [
 	["HTTP date", { "retry-after": "Thu, 01 Jan 1970 00:00:05 GMT" }, 5_000],
 	["malformed fallback", { "retry-after": "1.5" }, 10_000],
 ] as const) {
-	it.effect(`uses Retry-After ${label} for the global block`, () => {
-		const policy = httpPolicy();
-		const harness = makeHttpHarness({
+	layer(
+		httpDispatchLayer({
 			blockObservedAtMs: 1_000,
-			resolutions: [policy, unmatched],
+			resolutions: [httpPolicy(), unmatched],
 			outcomes: [{ status: 429, headers: header }],
-		});
-		return Effect.gen(function* () {
-			expect(yield* harness.run).toMatchObject({
-				state: "failure",
-				error: { message: "HTTP 429" },
-			});
-			expect(harness.blocks).toEqual([expected]);
-			expect(harness.calls).toBe(1);
-			expect(harness.clockDurations).toEqual([expected - 1_000]);
-		});
+		}),
+	)((test) => {
+		test.effect(`uses Retry-After ${label} for the global block`, () =>
+			Effect.gen(function* () {
+				const harness = yield* HttpDispatchHarness;
+				expect(yield* runHttpDispatch).toMatchObject({
+					state: "failure",
+					error: { message: "HTTP 429" },
+				});
+				expect(yield* harness.blocks).toEqual([expected]);
+				expect(yield* harness.calls).toBe(1);
+				expect(yield* harness.clockDurations).toEqual([expected - 1_000]);
+			}),
+		);
 	});
 }
 
-it.effect("retries repeated matched 429 responses without a fixed cap", () => {
-	const policy = httpPolicy();
-	const harness = makeHttpHarness({
-		resolutions: [policy, policy, policy],
+layer(
+	httpDispatchLayer({
+		resolutions: [httpPolicy(), httpPolicy(), httpPolicy()],
 		outcomes: [
 			{ status: 429, headers: { "retry-after": "0" } },
 			{ status: 429, headers: { "retry-after": "0" } },
 			{ status: 200 },
 		],
-	});
-	return Effect.gen(function* () {
-		expect(yield* harness.run).toMatchObject({ state: "success" });
-		expect(harness.calls).toBe(3);
-		expect(harness.blocks).toEqual([0, 0]);
-		expect(harness.activityNames.filter((name) => name.includes("-network-"))).toEqual([
-			"sandbox-http-7-network-1",
-			"sandbox-http-7-network-2",
-			"sandbox-http-7-network-3",
-		]);
-		expect(harness.activityNames.join(" ")).not.toContain("private");
-		expect(harness.activityNames.join(" ")).not.toContain("secret");
-	});
-});
-
-it.effect("returns a non-429 HTTP failure after one attempt", () => {
-	const harness = makeHttpHarness({ resolutions: [httpPolicy()], outcomes: [{ status: 500 }] });
-	return Effect.gen(function* () {
-		expect(yield* harness.run).toMatchObject({ state: "failure", error: { message: "HTTP 500" } });
-		expect(harness.calls).toBe(1);
-		expect(harness.blocks).toEqual([]);
-	});
-});
-
-it.effect("does not swallow coordination interruption", () => {
-	const executionId = "sandbox-http-interrupted";
-	const instance = WorkflowInstance.initial(SandboxScriptWorkflow, executionId);
-	const engine = makeWorkflowActivityEngine(instance, { activityExecute: () => Effect.interrupt });
-	const layer = SandboxDurableHostDispatcherLive.pipe(
-		Layer.provide(
-			Layer.mergeAll(
-				databaseLayer,
-				Layer.succeed(WorkflowEngine, engine),
-				Layer.succeed(WorkflowInstance, instance),
-				unusedLifecycleExecution,
-				Layer.succeed(SandboxHostImplementations, implementations),
-				Layer.mock(SandboxRepository)({
-					getScript: () =>
-						Effect.succeed({
-							...script,
-							metadata: { ...script.metadata, capabilities: ["httpCall"] },
-						}),
-				}),
-				Layer.mock(PluginHttpRateLimitAuthority)({ resolve: () => Effect.succeed(unmatched) }),
-				Layer.mock(ProviderHttpAdmissionService)({
-					block: () => Effect.die("unused"),
-					confirm: () => Effect.die("unused"),
-					reserve: () => Effect.die("unused"),
-				}),
-			),
-		),
+	}),
+)((test) => {
+	test.effect("retries repeated matched 429 responses without a fixed cap", () =>
+		Effect.gen(function* () {
+			const harness = yield* HttpDispatchHarness;
+			expect(yield* runHttpDispatch).toMatchObject({ state: "success" });
+			expect(yield* harness.calls).toBe(3);
+			expect(yield* harness.blocks).toEqual([0, 0]);
+			const activityNames = yield* harness.activityNames;
+			expect(activityNames.filter((name) => name.includes("-network-"))).toEqual([
+				"sandbox-http-7-network-1",
+				"sandbox-http-7-network-2",
+				"sandbox-http-7-network-3",
+			]);
+			expect(activityNames.join(" ")).not.toContain("private");
+			expect(activityNames.join(" ")).not.toContain("secret");
+		}),
 	);
-	return Effect.gen(function* () {
-		const dispatcher = yield* SandboxDurableHostDispatcher;
-		const exit = yield* Effect.exit(
-			dispatcher.dispatch(
-				{
-					index: 0,
-					kind: "host",
-					name: "httpCall",
-					args: { capability: "httpCall", args: ["GET", "https://provider.test"] },
-				},
-				{ scriptId, input: {}, executionId, resolutionMode: "exact", subject: principal.subject },
-				principal,
-				executionId,
-			),
-		);
-		expect(Exit.isFailure(exit) && Cause.hasInterrupts(exit.cause)).toBe(true);
-	}).pipe(
-		Effect.provide(layer),
-		Effect.provideService(WorkflowEngine, engine),
-		Effect.provideService(WorkflowInstance, instance),
+});
+
+layer(httpDispatchLayer({ resolutions: [httpPolicy()], outcomes: [{ status: 500 }] }))((test) => {
+	test.effect("returns a non-429 HTTP failure after one attempt", () =>
+		Effect.gen(function* () {
+			const harness = yield* HttpDispatchHarness;
+			expect(yield* runHttpDispatch).toMatchObject({
+				state: "failure",
+				error: { message: "HTTP 500" },
+			});
+			expect(yield* harness.calls).toBe(1);
+			expect(yield* harness.blocks).toEqual([]);
+		}),
+	);
+});
+
+const interruptedExecutionId = "sandbox-http-interrupted";
+
+const interruptedDispatchLayer = Layer.unwrap(
+	Effect.sync(() => {
+		const instance = WorkflowInstance.initial(SandboxScriptWorkflow, interruptedExecutionId);
+		return dispatcherLayer({
+			instance,
+			resolve: () => Effect.succeed(unmatched),
+			script: { ...script, metadata: { ...script.metadata, capabilities: ["httpCall"] } },
+			engine: makeWorkflowActivityEngine(instance, { activityExecute: () => Effect.interrupt }),
+		});
+	}),
+);
+
+layer(interruptedDispatchLayer)((test) => {
+	test.effect("does not swallow coordination interruption", () =>
+		Effect.gen(function* () {
+			const dispatcher = yield* SandboxDurableHostDispatcher;
+			const exit = yield* Effect.exit(
+				dispatcher.dispatch(
+					{
+						index: 0,
+						kind: "host",
+						name: "httpCall",
+						args: { capability: "httpCall", args: ["GET", "https://provider.test"] },
+					},
+					{
+						scriptId,
+						input: {},
+						resolutionMode: "exact",
+						subject: principal.subject,
+						executionId: interruptedExecutionId,
+					},
+					principal,
+					interruptedExecutionId,
+				),
+			);
+			expect(Exit.isFailure(exit) && Cause.hasInterrupts(exit.cause)).toBe(true);
+		}),
 	);
 });
 
@@ -707,62 +798,80 @@ const lifecyclePayload = {
 	startedAt: "2026-09-17T00:00:00.000Z",
 };
 
+type LifecycleSteps = SandboxHostImplementations["Service"]["lifecycle"];
+
+class LifecycleDispatchHarness extends Context.Service<
+	LifecycleDispatchHarness,
+	{
+		readonly logs: Effect.Effect<ReadonlyArray<string>>;
+		readonly recorded: Effect.Effect<ReadonlyArray<string>>;
+		readonly useLifecycle: (lifecycle: LifecycleSteps) => Effect.Effect<void>;
+	}
+>()("test/LifecycleDispatchHarness") {}
+
+const lifecycleDispatchLayer = (options: {
+	readonly warnings?: ReadonlyArray<AutomationWarning>;
+	readonly lifecycle: (record: (entry: string) => Effect.Effect<void>) => LifecycleSteps;
+}) =>
+	Layer.unwrap(
+		Effect.gen(function* () {
+			const logs = yield* Ref.make<ReadonlyArray<string>>([]);
+			const recorded = yield* Ref.make<ReadonlyArray<string>>([]);
+			const record = (entry: string) => append(recorded, entry);
+			const lifecycle = yield* Ref.make(options.lifecycle(record));
+			const instance = WorkflowInstance.initial(
+				SandboxScriptWorkflow,
+				lifecyclePayload.executionId,
+			);
+			let engine: WorkflowEngine["Service"];
+			engine = makeWorkflowActivityEngine(instance, {
+				activityExecute: (activity) =>
+					Effect.gen(function* () {
+						yield* record(activity.name);
+						const exit = yield* Effect.exit(
+							activity.execute.pipe(
+								Effect.provideService(WorkflowEngine, engine),
+								Effect.provideService(WorkflowInstance, instance),
+							),
+						);
+						return new Workflow.Complete({ exit });
+					}),
+			});
+			const logger = Logger.make<unknown, void>((entry) =>
+				MutableRef.update(logs.ref, (all) => [...all, String(entry.message)]),
+			);
+			return Layer.mergeAll(
+				dispatcherLayer({
+					engine,
+					instance,
+					script: lifecycleScript,
+					implementations: {
+						...implementations,
+						get lifecycle() {
+							return MutableRef.get(lifecycle.ref);
+						},
+					},
+					lifecycleExecution: Layer.mock(LifecycleExecution)({
+						dispatch: (plans) =>
+							record(`dispatch:${plans.length}`).pipe(Effect.as(options.warnings ?? [])),
+					}),
+				}),
+				Layer.succeed(LifecycleDispatchHarness, {
+					logs: Ref.get(logs),
+					recorded: Ref.get(recorded),
+					useLifecycle: (next) => Ref.set(lifecycle, next),
+				}),
+				Logger.layer([logger]),
+			);
+		}),
+	);
+
 const runLifecycleDispatch = (options: {
-	readonly recorded: string[];
 	readonly args: ReadonlyArray<JsonValue>;
 	readonly capability: (typeof lifecycleCapabilities)[number];
-	readonly lifecycle: SandboxHostImplementations["Service"]["lifecycle"];
-	readonly warnings?: ReadonlyArray<AutomationWarning>;
-	readonly logs?: Array<string>;
 	readonly principal?: SandboxExecutionPrincipal;
-}) => {
-	const executionId = lifecyclePayload.executionId;
-	const instance = WorkflowInstance.initial(SandboxScriptWorkflow, executionId);
-	let engine: WorkflowEngine["Service"];
-	engine = makeWorkflowActivityEngine(instance, {
-		activityExecute: (activity) =>
-			Effect.gen(function* () {
-				options.recorded.push(activity.name);
-				const exit = yield* Effect.exit(
-					activity.execute.pipe(
-						Effect.provideService(WorkflowEngine, engine),
-						Effect.provideService(WorkflowInstance, instance),
-					),
-				);
-				return new Workflow.Complete({ exit });
-			}),
-	});
-	const logger = Logger.make<unknown, void>((entry) => {
-		options.logs?.push(String(entry.message));
-	});
-	const layer = SandboxDurableHostDispatcherLive.pipe(
-		Layer.provide(
-			Layer.mergeAll(
-				databaseLayer,
-				Layer.succeed(WorkflowEngine, engine),
-				Layer.succeed(WorkflowInstance, instance),
-				Layer.succeed(SandboxHostImplementations, {
-					...implementations,
-					lifecycle: options.lifecycle,
-				}),
-				Layer.mock(LifecycleExecution)({
-					dispatch: (plans) =>
-						Effect.sync(() => {
-							options.recorded.push(`dispatch:${plans.length}`);
-							return options.warnings ?? [];
-						}),
-				}),
-				Layer.mock(PluginHttpRateLimitAuthority)({ resolve: () => Effect.die("unused") }),
-				Layer.mock(ProviderHttpAdmissionService)({
-					block: () => Effect.die("unused"),
-					confirm: () => Effect.die("unused"),
-					reserve: () => Effect.die("unused"),
-				}),
-				Layer.mock(SandboxRepository)({ getScript: () => Effect.succeed(lifecycleScript) }),
-			),
-		),
-	);
-	return Effect.flatMap(SandboxDurableHostDispatcher, (dispatcher) =>
+}) =>
+	Effect.flatMap(SandboxDurableHostDispatcher, (dispatcher) =>
 		dispatcher.dispatch(
 			{
 				index: 4,
@@ -772,14 +881,9 @@ const runLifecycleDispatch = (options: {
 			},
 			lifecyclePayload,
 			options.principal ?? lifecyclePrincipal,
-			executionId,
+			lifecyclePayload.executionId,
 		),
-	).pipe(
-		Effect.provide(Layer.merge(layer, Logger.layer([logger]))),
-		Effect.provideService(WorkflowEngine, engine),
-		Effect.provideService(WorkflowInstance, instance),
 	);
-};
 
 const lifecycleSteps = (overrides: Record<string, unknown>) => ({
 	...unusedLifecycle,
@@ -788,24 +892,18 @@ const lifecycleSteps = (overrides: Record<string, unknown>) => ({
 
 const batch = { creates: [], deletes: [] };
 
-it.effect("writes each relationship batch as its own step and dispatches between them", () => {
-	const recorded: string[] = [];
-	const logs: string[] = [];
-	const warning = {
-		omittedHooks: [],
-		hasRequiredHooks: true,
-		code: "automation-limit-reached" as const,
-		triggerId: AutomationTriggerId.make("batch-trigger"),
-	};
+const batchWarning = {
+	omittedHooks: [],
+	hasRequiredHooks: true,
+	code: "automation-limit-reached" as const,
+	triggerId: AutomationTriggerId.make("batch-trigger"),
+};
 
-	return Effect.gen(function* () {
-		const result = yield* runLifecycleDispatch({
-			logs,
-			recorded,
-			warnings: [warning],
-			args: [[batch, batch]],
-			capability: "changeUserRelationships",
-			lifecycle: lifecycleSteps({
+layer(
+	lifecycleDispatchLayer({
+		warnings: [batchWarning],
+		lifecycle: () =>
+			lifecycleSteps({
 				changeUserRelationships: {
 					commit: () => Effect.die("no commit"),
 					applyPolicies: () => Effect.die("no policies"),
@@ -830,50 +928,46 @@ it.effect("writes each relationship batch as its own step and dispatches between
 						}),
 				},
 			}),
-		});
-		expect(result).toEqual({
-			state: "success",
-			value: [
-				{ created: 0, deleted: 0 },
-				{ created: 1, deleted: 0 },
-			],
-		});
-		expect(recorded).toEqual([
-			"sandbox-host-4-changeUserRelationships-input",
-			"sandbox-host-4-changeUserRelationships-0:prepare",
-			"dispatch:1",
-			"sandbox-host-4-changeUserRelationships-1:prepare",
-			"dispatch:1",
-		]);
-		expect(logs.filter((message) => message.includes("automation warnings"))).toHaveLength(1);
-	});
+	}),
+)((test) => {
+	test.effect("writes each relationship batch as its own step and dispatches between them", () =>
+		Effect.gen(function* () {
+			const harness = yield* LifecycleDispatchHarness;
+			const result = yield* runLifecycleDispatch({
+				args: [[batch, batch]],
+				capability: "changeUserRelationships",
+			});
+			expect(result).toEqual({
+				state: "success",
+				value: [
+					{ created: 0, deleted: 0 },
+					{ created: 1, deleted: 0 },
+				],
+			});
+			expect(yield* harness.recorded).toEqual([
+				"sandbox-host-4-changeUserRelationships-input",
+				"sandbox-host-4-changeUserRelationships-0:prepare",
+				"dispatch:1",
+				"sandbox-host-4-changeUserRelationships-1:prepare",
+				"dispatch:1",
+			]);
+			expect(
+				(yield* harness.logs).filter((message) => message.includes("automation warnings")),
+			).toHaveLength(1);
+		}),
+	);
 });
 
-it.effect("records the policy outcome for a global entity upsert before committing", () => {
-	const recorded: string[] = [];
-	const pending = { planned: [], pending: { policies: [] } };
-	const providerPrincipal = {
-		...lifecyclePrincipal,
-		subject: { type: "system" as const },
-		providerId: SandboxProviderId.make("provider-1"),
-		metadata: { ...lifecycleScript.metadata, kind: "script" as const },
-	};
+const policyPending = { planned: [], pending: { policies: [] } };
 
-	return Effect.gen(function* () {
-		const result = yield* runLifecycleDispatch({
-			recorded,
-			args: [[]],
-			principal: providerPrincipal,
-			capability: "upsertGlobalEntities",
-			lifecycle: lifecycleSteps({
+layer(
+	lifecycleDispatchLayer({
+		lifecycle: (record) =>
+			lifecycleSteps({
 				upsertGlobalEntities: {
 					value: (results: ReadonlyArray<{ status: string }>) => results,
-					prepare: () => Effect.succeed({ pending, _tag: "PoliciesRequired" }),
-					applyPolicies: (value: unknown) =>
-						Effect.sync(() => {
-							recorded.push("policies");
-							return value;
-						}),
+					applyPolicies: (value: unknown) => record("policies").pipe(Effect.as(value)),
+					prepare: () => Effect.succeed({ pending: policyPending, _tag: "PoliciesRequired" }),
 					commit: () =>
 						Effect.succeed({
 							_tag: "Committed",
@@ -894,69 +988,74 @@ it.effect("records the policy outcome for a global entity upsert before committi
 						}),
 				},
 			}),
-		});
-		expect(result).toEqual({ state: "success", value: [{ status: "skipped" }] });
-		expect(recorded).toEqual([
-			"sandbox-host-4-upsertGlobalEntities-input",
-			"sandbox-host-4-upsertGlobalEntities-0:prepare",
-			"policies",
-			"sandbox-host-4-upsertGlobalEntities-0:policy-outcome",
-			"sandbox-host-4-upsertGlobalEntities-0:commit",
-			"dispatch:1",
-		]);
-	});
+	}),
+)((test) => {
+	test.effect("records the policy outcome for a global entity upsert before committing", () =>
+		Effect.gen(function* () {
+			const providerPrincipal = {
+				...lifecyclePrincipal,
+				subject: { type: "system" as const },
+				providerId: SandboxProviderId.make("provider-1"),
+				metadata: { ...lifecycleScript.metadata, kind: "script" as const },
+			};
+			const result = yield* runLifecycleDispatch({
+				args: [[]],
+				principal: providerPrincipal,
+				capability: "upsertGlobalEntities",
+			});
+			expect(result).toEqual({ state: "success", value: [{ status: "skipped" }] });
+			expect(yield* (yield* LifecycleDispatchHarness).recorded).toEqual([
+				"sandbox-host-4-upsertGlobalEntities-input",
+				"sandbox-host-4-upsertGlobalEntities-0:prepare",
+				"policies",
+				"sandbox-host-4-upsertGlobalEntities-0:policy-outcome",
+				"sandbox-host-4-upsertGlobalEntities-0:commit",
+				"dispatch:1",
+			]);
+		}),
+	);
 });
 
-it.effect(
-	"reports invalid arguments, denied limits, and policy rejections as host failures",
-	() => {
-		const recorded: string[] = [];
-		const validated = {
-			batches: [batch],
-			userId: UserId.make("user-1"),
-			_tag: "ChangeUserRelationships",
-			command: {
-				causation,
-				occurredAt: "2026-09-17T00:00:00.000Z",
-				itemIdentity: "changeUserRelationships",
-			},
-		};
+layer(lifecycleDispatchLayer({ lifecycle: () => lifecycleSteps({}) }))((test) => {
+	test.effect(
+		"reports invalid arguments, denied limits, and policy rejections as host failures",
+		() =>
+			Effect.gen(function* () {
+				const harness = yield* LifecycleDispatchHarness;
+				const validated = {
+					batches: [batch],
+					userId: UserId.make("user-1"),
+					_tag: "ChangeUserRelationships",
+					command: {
+						causation,
+						occurredAt: "2026-09-17T00:00:00.000Z",
+						itemIdentity: "changeUserRelationships",
+					},
+				};
 
-		return Effect.gen(function* () {
-			expect(
-				yield* runLifecycleDispatch({
-					recorded,
-					args: [],
-					lifecycle: lifecycleSteps({}),
-					capability: "changeUserRelationships",
-				}),
-			).toEqual({
-				state: "failure",
-				error: { message: "changeUserRelationships received an invalid number of arguments" },
-			});
-			expect(
-				yield* runLifecycleDispatch({
-					recorded,
-					args: [[batch]],
-					capability: "changeUserRelationships",
-					lifecycle: lifecycleSteps({
+				expect(
+					yield* runLifecycleDispatch({ args: [], capability: "changeUserRelationships" }),
+				).toEqual({
+					state: "failure",
+					error: { message: "changeUserRelationships received an invalid number of arguments" },
+				});
+				yield* harness.useLifecycle(
+					lifecycleSteps({
 						changeUserRelationships: {
 							...unusedLifecycle.changeUserRelationships,
 							validate: () =>
 								Effect.fail({ message: "changeUserRelationships exceeds 500 changes" }),
 						},
 					}),
-				}),
-			).toEqual({
-				state: "failure",
-				error: { message: "changeUserRelationships exceeds 500 changes" },
-			});
-			expect(
-				yield* runLifecycleDispatch({
-					recorded,
-					args: [[batch]],
-					capability: "changeUserRelationships",
-					lifecycle: lifecycleSteps({
+				);
+				expect(
+					yield* runLifecycleDispatch({ args: [[batch]], capability: "changeUserRelationships" }),
+				).toEqual({
+					state: "failure",
+					error: { message: "changeUserRelationships exceeds 500 changes" },
+				});
+				yield* harness.useLifecycle(
+					lifecycleSteps({
 						changeUserRelationships: {
 							value: () => [],
 							commit: () => Effect.die("no commit"),
@@ -966,8 +1065,10 @@ it.effect(
 								Effect.fail(new SandboxLifecycleHostFailure({ message: "policy-rejected" })),
 						},
 					}),
-				}),
-			).toEqual({ state: "failure", error: { message: "policy-rejected" } });
-		});
-	},
-);
+				);
+				expect(
+					yield* runLifecycleDispatch({ args: [[batch]], capability: "changeUserRelationships" }),
+				).toEqual({ state: "failure", error: { message: "policy-rejected" } });
+			}),
+	);
+});

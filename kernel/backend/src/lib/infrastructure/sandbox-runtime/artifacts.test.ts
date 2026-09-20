@@ -1,34 +1,30 @@
 import { BunServices } from "@effect/platform-bun";
-import { it } from "@effect/vitest";
-import { Effect, FileSystem, Layer, Path } from "effect";
+import { layer } from "@effect/vitest";
+import { Context, Effect, FileSystem, Layer, Path } from "effect";
 import { expect } from "vitest";
 
 import { makeAppConfigLayer } from "#lib/test-utils/effect";
 
 import { SandboxArtifactStore } from "./artifacts";
 
-const makeStoreLayer = (root: string) =>
-	SandboxArtifactStore.layer.pipe(
-		Layer.provide(
-			Layer.merge(BunServices.layer, makeAppConfigLayer({ fileStorage: { localTempDir: root } })),
-		),
-	);
+class ArtifactRoot extends Context.Service<ArtifactRoot, string>()("test/ArtifactRoot") {}
 
-const withArtifactStore = <A, E>(
-	use: (
-		root: string,
-	) => Effect.Effect<A, E, SandboxArtifactStore | FileSystem.FileSystem | Path.Path>,
-) =>
+const artifactStoreLayer = Layer.unwrap(
 	Effect.gen(function* () {
 		const fs = yield* FileSystem.FileSystem;
 		const temporaryRoot = yield* fs.makeTempDirectoryScoped({ prefix: "ryot-sandbox-artifacts-" });
 		const root = yield* fs.realPath(temporaryRoot);
-		return yield* use(root).pipe(Effect.provide(makeStoreLayer(root)));
-	}).pipe(Effect.provide(BunServices.layer));
+		return SandboxArtifactStore.layer.pipe(
+			Layer.provideMerge(makeAppConfigLayer({ fileStorage: { localTempDir: root } })),
+			Layer.merge(Layer.succeed(ArtifactRoot, root)),
+		);
+	}),
+).pipe(Layer.provideMerge(BunServices.layer));
 
-it.effect("materializes immutable content-addressed input grants", () =>
-	withArtifactStore((root) =>
+layer(artifactStoreLayer)((test) => {
+	test.effect("materializes immutable content-addressed input grants", () =>
 		Effect.gen(function* () {
+			const root = yield* ArtifactRoot;
 			const path = yield* Path.Path;
 			const fs = yield* FileSystem.FileSystem;
 			const store = yield* SandboxArtifactStore;
@@ -50,12 +46,13 @@ it.effect("materializes immutable content-addressed input grants", () =>
 			}
 			expect(yield* fs.readFileString(grants.artifactPath)).toBe("same content");
 		}),
-	),
-);
+	);
+});
 
-it.effect("keeps opaque output handles while any workflow reference remains", () =>
-	withArtifactStore((root) =>
+layer(artifactStoreLayer)((test) => {
+	test.effect("keeps opaque output handles while any workflow reference remains", () =>
 		Effect.gen(function* () {
+			const root = yield* ArtifactRoot;
 			const path = yield* Path.Path;
 			const fs = yield* FileSystem.FileSystem;
 			const store = yield* SandboxArtifactStore;
@@ -74,24 +71,21 @@ it.effect("keeps opaque output handles while any workflow reference remains", ()
 			}
 			expect(yield* fs.readFileString(stored)).toBe('{"items":[]}');
 			expect((yield* Effect.exit(store.resolveOutputs("workflow-2", first)))._tag).toBe("Failure");
-			expect(
-				yield* Effect.gen(function* () {
-					const restarted = yield* SandboxArtifactStore;
-					return yield* restarted.resolveOutputs("workflow-1", first);
-				}).pipe(Effect.provide(makeStoreLayer(root))),
-			).toEqual([stored]);
+			const restarted = yield* SandboxArtifactStore.make;
+			expect(yield* restarted.resolveOutputs("workflow-1", first)).toEqual([stored]);
 
 			yield* store.release("workflow-1", "workflow-1");
 			expect(yield* store.resolveOutputs("workflow-1", first)).toEqual([stored]);
 			yield* store.release("workflow-1", "child-1");
 			expect((yield* Effect.exit(store.resolveOutputs("workflow-1", first)))._tag).toBe("Failure");
 		}),
-	),
-);
+	);
+});
 
-it.effect("rejects symlinked input artifacts before publishing grants", () =>
-	withArtifactStore((root) =>
+layer(artifactStoreLayer)((test) => {
+	test.effect("rejects symlinked input artifacts before publishing grants", () =>
 		Effect.gen(function* () {
+			const root = yield* ArtifactRoot;
 			const path = yield* Path.Path;
 			const fs = yield* FileSystem.FileSystem;
 			const store = yield* SandboxArtifactStore;
@@ -105,12 +99,13 @@ it.effect("rejects symlinked input artifacts before publishing grants", () =>
 			);
 			expect(result._tag).toBe("Failure");
 		}),
-	),
-);
+	);
+});
 
-it.effect("rejects input artifacts beneath a symlinked ancestor", () =>
-	withArtifactStore((root) =>
+layer(artifactStoreLayer)((test) => {
+	test.effect("rejects input artifacts beneath a symlinked ancestor", () =>
 		Effect.gen(function* () {
+			const root = yield* ArtifactRoot;
 			const path = yield* Path.Path;
 			const fs = yield* FileSystem.FileSystem;
 			const store = yield* SandboxArtifactStore;
@@ -128,5 +123,5 @@ it.effect("rejects input artifacts beneath a symlinked ancestor", () =>
 			expect(result._tag).toBe("Failure");
 			yield* fs.remove(outside, { force: true, recursive: true });
 		}),
-	),
-);
+	);
+});
