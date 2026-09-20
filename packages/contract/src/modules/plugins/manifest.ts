@@ -11,10 +11,14 @@ import {
 	AutomationSource,
 } from "../automations/lifecycle";
 import { RyotQLDocument } from "../ryotql/language";
-import { POLICY_SAFE_SANDBOX_CAPABILITIES, SANDBOX_HOST_CAPABILITIES } from "../sandbox/wire";
+import { POLICY_SAFE_SANDBOX_CAPABILITIES } from "../sandbox/wire";
 import { AuthoredSavedViewRenderer } from "../saved-views/schemas";
 import { isSupportedUploadFileExtension } from "../uploads/upload-policy";
-import { hasValidExecutableDependencies, SourcePlan } from "./execution";
+import {
+	hasReachableExternalEffects,
+	hasValidExecutableDependencies,
+	SourcePlan,
+} from "./execution";
 import { SandboxExecutionMetadata } from "./execution-metadata";
 import { pluginConfigEnvironmentKey } from "./plugin-config";
 
@@ -421,7 +425,6 @@ const PluginScriptFields = {
 	slug: sandboxManifestSlug,
 	name: sandboxManifestString,
 };
-const PluginScriptCapabilities = Schema.Array(Schema.Literals([...SANDBOX_HOST_CAPABILITIES]));
 
 export const PluginProviderOperation = Schema.Literals([
 	"details",
@@ -460,14 +463,9 @@ export const PluginScript = Schema.Union([
 	strictStruct({
 		...PluginScriptFields,
 		kind: Schema.Literal("script"),
-		capabilities: PluginScriptCapabilities,
 		providerSlug: Schema.optional(sandboxManifestSlug),
 	}),
-	strictStruct({
-		...PluginScriptFields,
-		kind: Schema.Literal("operation"),
-		capabilities: PluginScriptCapabilities,
-	}),
+	strictStruct({ ...PluginScriptFields, kind: Schema.Literal("operation") }),
 	strictStruct({
 		...PluginScriptFields,
 		capabilities: Schema.Tuple([]),
@@ -476,7 +474,6 @@ export const PluginScript = Schema.Union([
 	strictStruct({
 		...PluginScriptFields,
 		kind: Schema.Literal("automation"),
-		capabilities: PluginScriptCapabilities,
 		automationType: Schema.Literal("automation"),
 		inputProjection: AutomationAfterInputProjection,
 	}),
@@ -492,7 +489,6 @@ export const PluginScript = Schema.Union([
 			...PluginScriptFields,
 			kind: Schema.Literal("provider"),
 			providerSlug: sandboxManifestSlug,
-			capabilities: PluginScriptCapabilities,
 			providerOperation: Schema.Literal("search"),
 			searchOptionsSchema: Schema.optional(PluginAppSchema),
 		}),
@@ -500,7 +496,6 @@ export const PluginScript = Schema.Union([
 			...PluginScriptFields,
 			kind: Schema.Literal("provider"),
 			providerSlug: sandboxManifestSlug,
-			capabilities: PluginScriptCapabilities,
 			providerOperation: Schema.Literals(["details", "resolve", "translate", "search-options"]),
 		}),
 	]),
@@ -1110,6 +1105,7 @@ const hasValidPluginManifestReferences = (manifest: typeof PluginManifestFields.
 			if (script?.kind !== "automation") {
 				return true;
 			}
+			const externalEffects = hasReachableExternalEffects(manifest, script.slug);
 			if (hook.stage === "before") {
 				return (
 					script.automationType !== "policy" ||
@@ -1136,9 +1132,7 @@ const hasValidPluginManifestReferences = (manifest: typeof PluginManifestFields.
 					return script.inputProjection[projectionKey] === undefined;
 				}) ||
 				((hook.retry?.maxAttempts ?? 1) > 1 &&
-					script.capabilities.some(
-						(capability) => capability === "httpCall" || capability === "sendNotification",
-					) &&
+					externalEffects !== false &&
 					hook.retry?.externalIdempotency !== "run-id")
 			);
 		})

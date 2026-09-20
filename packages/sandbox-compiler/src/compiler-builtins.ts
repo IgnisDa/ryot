@@ -8,10 +8,12 @@ import { bundleSandboxPackage } from "./compiler-bundle";
 import { resolveSandboxCompilerDependencies } from "./compiler-dependencies";
 import {
 	sandboxCompilationFailure,
+	SandboxCompilerFailure,
 	sandboxCompilerDiagnostic,
 	toTypeScriptDiagnostic,
 } from "./compiler-diagnostics";
 import { extractSandboxManifest } from "./compiler-manifest";
+import { validateCompiledSandboxManifest } from "./compiler-metadata";
 import {
 	createTypeScriptSourcesProjectForEntries,
 	sandboxSourcePath,
@@ -161,12 +163,14 @@ const createSandboxPackageProject = (
 			dependencies.tsserverPath,
 		).pipe(
 			Effect.mapError((error) =>
-				sandboxCompilationFailure([
-					sandboxCompilerDiagnostic(
-						"RYOT_COMPILER",
-						`TypeScript compiler failed: ${String(error)}`,
-					),
-				]),
+				error instanceof SandboxCompilerFailure
+					? error
+					: sandboxCompilationFailure([
+							sandboxCompilerDiagnostic(
+								"RYOT_COMPILER",
+								`TypeScript compiler failed: ${String(error)}`,
+							),
+						]),
 			),
 		);
 		const typeErrors = project.diagnostics.filter(
@@ -290,6 +294,10 @@ const validateSandboxPackageEntries = (
 				]);
 			}
 			const manifest = { ...extracted.manifest, ...execution.metadata };
+			const capabilityDiagnostic = validateCompiledSandboxManifest(manifest);
+			if (capabilityDiagnostic) {
+				return yield* sandboxCompilationFailure([capabilityDiagnostic]);
+			}
 			if (
 				(jsonByteLength(manifest) ?? Number.POSITIVE_INFINITY) >
 				SANDBOX_COMPILER_LIMITS.manifestBytes

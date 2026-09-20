@@ -1,7 +1,9 @@
 import { expect, it } from "@effect/vitest";
 import { Effect, Schema } from "effect";
 
+import { compileSandboxPackageEntries } from "./compiler-builtins";
 import { compileSandboxSource } from "./compiler-core";
+import { validateCompiledSandboxManifest } from "./compiler-metadata";
 import { sandboxCompilerPlatformLayer } from "./compiler-platform";
 import { compilePluginSandboxSourceEntries } from "./compiler-plugins";
 
@@ -9,11 +11,68 @@ const source = (run: string) => `
 import { defineManifest, defineScript } from "@ryot-app/sandbox-sdk/driver";
 import { Effect, Schema } from "@ryot-app/sandbox-sdk/effect";
 import { read } from "./shared";
-export const manifest = defineManifest({ kind: "script", slug: "entry", name: "Entry", capabilities: ["getPluginConfig"] });
+export const manifest = defineManifest({ kind: "script", slug: "entry", name: "Entry" });
 export default defineScript({ manifest, input: Schema.Struct({ key: Schema.String }), output: Schema.Unknown, run: ${run} });
 `;
 
+const workflowFilesystemSource = `
+import { readArtifact } from "@ryot-app/sandbox-sdk/filesystem";
+import { defineManifest, defineWorkflow, Effect, Schema } from "@ryot-app/sandbox-sdk/workflow";
+export const manifest = defineManifest({ kind: "workflow", slug: "workflow", name: "Workflow" });
+export default defineWorkflow({ manifest, input: Schema.Struct({}), output: Schema.Null, run: () => readArtifact.pipe(Effect.as(null)) });
+`;
+
 it.layer(sandboxCompilerPlatformLayer)("execution dependency analysis", (test) => {
+	test.effect("rejects an automation policy capability inferred through a host helper", () =>
+		Effect.gen(function* () {
+			const compiled = yield* compileSandboxSource(`
+import { defineManifest, defineScript } from "@ryot-app/sandbox-sdk/driver";
+import { Schema } from "@ryot-app/sandbox-sdk/effect";
+import type { ScriptHost } from "@ryot-app/sandbox-sdk/core";
+const request = (host: Pick<ScriptHost, "httpCall">) => host.httpCall("GET", "https://example.com");
+export const manifest = defineManifest({ kind: "script", slug: "entry", name: "Entry" });
+export default defineScript({ manifest, input: Schema.Struct({}), output: Schema.Unknown, run: (_input, host) => request(host) });
+`);
+			const diagnostic = validateCompiledSandboxManifest({
+				...compiled.manifest,
+				kind: "automation",
+				automationType: "policy",
+				inputProjection: { event: { properties: [] } },
+			});
+			expect(compiled.manifest.capabilities).toEqual(["httpCall"]);
+			expect(diagnostic?.code).toBe("RYOT_CAPABILITY");
+			expect(
+				validateCompiledSandboxManifest({
+					...compiled.manifest,
+					capabilities: [],
+					kind: "automation",
+					automationType: "policy",
+					inputProjection: { event: { properties: [] } },
+					executableDependencies: [{ kind: "workflow", slug: "workflow" }],
+				})?.code,
+			).toBe("RYOT_CAPABILITY");
+		}),
+	);
+	test.effect.each(["source", "package"] as const)(
+		"rejects workflow filesystem capabilities through the $0 entrypoint",
+		(entrypoint) =>
+			Effect.gen(function* () {
+				const failure = yield* (
+					entrypoint === "source"
+						? compileSandboxSource(workflowFilesystemSource).pipe(Effect.asVoid)
+						: compileSandboxPackageEntries(
+								{
+									entry: "workflow.sandbox.ts",
+									files: { "workflow.sandbox.ts": workflowFilesystemSource },
+								},
+								["workflow.sandbox.ts"],
+							).pipe(Effect.asVoid)
+				).pipe(Effect.flip);
+				expect(failure.diagnostics).toEqual(
+					expect.arrayContaining([expect.objectContaining({ code: "RYOT_CAPABILITY" })]),
+				);
+			}),
+	);
 	test.effect.each(["single", "package"] as const)(
 		"includes generated execution metadata in the $0 manifest size limit",
 		(mode) =>
@@ -43,7 +102,7 @@ it.layer(sandboxCompilerPlatformLayer)("execution dependency analysis", (test) =
 				{
 					"backend/root.sandbox.ts": `
 import { defineManifest, defineScriptReference, defineWorkflow, Schema } from "@ryot-app/sandbox-sdk/workflow";
-export const manifest = defineManifest({ kind: "workflow", slug: "root", name: "Root", capabilities: [] });
+export const manifest = defineManifest({ kind: "workflow", slug: "root", name: "Root" });
 export default defineWorkflow({ manifest, input: Schema.Struct({ target: Schema.String }), output: Schema.String, run: (input, replay) => replay.activity("collect", defineScriptReference({ scriptSlug: input.target, input: Schema.Unknown, output: Schema.String }), {}) });
 `,
 				},
@@ -88,7 +147,7 @@ const alternatives = defineExecutableAlternatives({ id: "collector", stage: "set
   api: defineScriptReference({ scriptSlug: "api", input: Schema.Unknown, output: Schema.String }),
   file: defineScriptReference({ scriptSlug: "file", input: Schema.Unknown, output: Schema.String }),
 } });
-export const manifest = defineManifest({ kind: "workflow", slug: "root", name: "Root", capabilities: [] });
+export const manifest = defineManifest({ kind: "workflow", slug: "root", name: "Root" });
 export default defineWorkflow({ manifest, input: Schema.Struct({ mode: Schema.String }), output: Schema.String, run: (input, replay) => replay.activity("collect", selectExecutable(alternatives, input.mode), {}) });
 `,
 				},
@@ -137,14 +196,15 @@ export default defineWorkflow({ manifest, input: Schema.Struct({ mode: Schema.St
 						'import read from "./shared";',
 					),
 					"backend/shared.ts": `
-import type { SandboxHost } from "@ryot-app/sandbox-sdk/core";
-export default (host: SandboxHost<readonly ["getPluginConfig"]>) => host.getPluginConfig({ required: ["token"], optional: ["threshold"] });
+import type { ScriptHost } from "@ryot-app/sandbox-sdk/core";
+export default (host: Pick<ScriptHost, "getPluginConfig">) => host.getPluginConfig({ required: ["token"], optional: ["threshold"] });
 `,
 				},
 				[{ kind: "script", entry: "backend/entry.sandbox.ts" }],
 			);
 			expect(result?.compiled.manifest.requiredPluginConfigKeys).toEqual(["token"]);
 			expect(result?.compiled.manifest.optionalPluginConfigKeys).toEqual(["threshold"]);
+			expect(result?.compiled.manifest.capabilities).toEqual(["getPluginConfig"]);
 		}),
 	);
 	test.effect("follows the used helper and separates optional reads", () =>
@@ -153,15 +213,16 @@ export default (host: SandboxHost<readonly ["getPluginConfig"]>) => host.getPlug
 				{
 					"backend/entry.sandbox.ts": source("(_input, host) => read(host)"),
 					"backend/shared.ts": `
-import type { SandboxHost } from "@ryot-app/sandbox-sdk/core";
-export const read = (host: SandboxHost<readonly ["getPluginConfig"]>) => host.getPluginConfig({ required: ["token"], optional: ["threshold"] });
-export const unused = (host: SandboxHost<readonly ["getPluginConfig"]>) => host.getPluginConfig({ required: ["unused"] });
+import type { ScriptHost } from "@ryot-app/sandbox-sdk/core";
+export const read = (host: Pick<ScriptHost, "getPluginConfig">) => host.getPluginConfig({ required: ["token"], optional: ["threshold"] });
+export const unused = (host: Pick<ScriptHost, "getPluginConfig">) => host.getPluginConfig({ required: ["unused"] });
 `,
 				},
 				[{ kind: "script", entry: "backend/entry.sandbox.ts" }],
 			);
 			expect(result?.compiled.manifest.requiredPluginConfigKeys).toEqual(["token"]);
 			expect(result?.compiled.manifest.optionalPluginConfigKeys).toEqual(["threshold"]);
+			expect(result?.compiled.manifest.capabilities).toEqual(["getPluginConfig"]);
 		}),
 	);
 

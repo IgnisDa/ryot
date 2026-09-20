@@ -19,7 +19,7 @@ import {
 	AutomationPolicyInputProjection,
 } from "../automations/lifecycle";
 import { SandboxExecutionMetadata } from "../plugins/execution-metadata";
-import { POLICY_SAFE_SANDBOX_CAPABILITIES, SANDBOX_HOST_CAPABILITIES } from "./wire";
+import { POLICY_SAFE_SANDBOX_CAPABILITIES } from "./wire";
 
 export const ProviderInformation = Schema.Struct({
 	source: Schema.String,
@@ -54,7 +54,6 @@ const SandboxScriptManifestFields = {
 	...SandboxExecutionMetadata.fields,
 	name: Schema.String,
 	slug: Schema.String,
-	capabilities: Schema.Array(Schema.Literals([...SANDBOX_HOST_CAPABILITIES])),
 };
 
 export const SandboxScriptManifest = Schema.Union([

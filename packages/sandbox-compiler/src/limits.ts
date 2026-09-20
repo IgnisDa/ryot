@@ -18,6 +18,7 @@ export const SANDBOX_COMPILER_LIMITS = {
 	memoryPollIntervalMs: 5,
 	manifestBytes: 16 * KiB,
 	diagnosticBytes: 256 * KiB,
+	executionAnalysisSteps: 100_000,
 } as const;
 
 export const utf8ByteLength = (value: string) => encoder.encode(value).byteLength;

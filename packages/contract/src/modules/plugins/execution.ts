@@ -64,6 +64,72 @@ export const selectSourcePlan = (
 	),
 });
 
+export const hasReachableExternalEffects = (
+	manifest: Pick<ExecutableManifest, "scripts" | "workflows">,
+	rootSlug: string,
+): boolean | undefined => {
+	const scripts = new Map(manifest.scripts.map((script) => [script.slug, script]));
+	const workflows = new Map(
+		manifest.workflows.map((workflow) => [workflow.slug, workflow.scriptSlug]),
+	);
+	const dependencyCount = manifest.scripts.reduce(
+		(count, script) => count + script.executableDependencies.length,
+		0,
+	);
+	const traversalLimit = manifest.scripts.length + dependencyCount;
+	const pending = [rootSlug];
+	const visited = new Set<string>();
+	let traversalCount = 0;
+	let hasExternalEffect = false;
+
+	while (pending.length > 0) {
+		const slug = pending.pop();
+		if (slug === undefined || visited.has(slug)) {
+			continue;
+		}
+		if (traversalCount >= traversalLimit) {
+			return undefined;
+		}
+		traversalCount += 1;
+		const script = scripts.get(slug);
+		if (!script) {
+			return undefined;
+		}
+		visited.add(slug);
+		hasExternalEffect ||= script.capabilities.some(
+			(capability) => capability === "httpCall" || capability === "sendNotification",
+		);
+
+		for (const dependency of script.executableDependencies) {
+			if (traversalCount >= traversalLimit) {
+				return undefined;
+			}
+			traversalCount += 1;
+			if (dependency.kind === "script") {
+				if (scripts.get(dependency.slug)?.kind !== "script") {
+					return undefined;
+				}
+				pending.push(dependency.slug);
+				continue;
+			}
+			if (kernelWorkflowTargets.includes(dependency.slug)) {
+				// Kernel workflows own their durable retry guarantees.
+				continue;
+			}
+			const workflowScriptSlug = workflows.get(dependency.slug);
+			if (workflowScriptSlug === undefined) {
+				return undefined;
+			}
+			if (scripts.get(workflowScriptSlug)?.kind !== "workflow") {
+				return undefined;
+			}
+			pending.push(workflowScriptSlug);
+		}
+	}
+
+	return hasExternalEffect;
+};
+
 export const sourcePlanConfigKeys = (
 	manifest: Pick<ExecutableManifest, "scripts" | "workflows">,
 	source: { readonly workflowSlug: string; readonly plan?: SourcePlan | undefined },

@@ -1,3 +1,4 @@
+import { SandboxBoundaryReason } from "@ryot-app/contract/modules/sandbox/boundary-reason";
 import { Effect, Schema } from "@ryot-app/sandbox-sdk/effect";
 
 const encoder = new TextEncoder();
@@ -19,6 +20,7 @@ type SandboxFilesystemBinding = {
 export type SandboxFilesystemError = {
 	readonly message: string;
 	readonly _tag: "SandboxFilesystemError";
+	readonly data?: SandboxBoundaryReason;
 };
 
 export type SandboxScratchChunk = { readonly name: string; readonly contents: string | Uint8Array };
@@ -29,10 +31,24 @@ export const sandboxScratchManifestSchema = Schema.Struct({
 
 export type SandboxScratchManifest = Schema.Schema.Type<typeof sandboxScratchManifestSchema>;
 
-const filesystemError = (error: unknown): SandboxFilesystemError => ({
-	_tag: "SandboxFilesystemError",
-	message: error instanceof Error ? error.message : String(error),
-});
+const isSandboxBoundaryReason = Schema.is(SandboxBoundaryReason);
+
+const filesystemError = (error: unknown, data?: SandboxBoundaryReason): SandboxFilesystemError => {
+	const message = error instanceof Error ? error.message : String(error);
+	const errorData = error instanceof Error && "data" in error ? error.data : undefined;
+	let reason = data;
+	if (reason === undefined && isSandboxBoundaryReason(errorData)) {
+		reason = errorData;
+	}
+	return {
+		message,
+		_tag: "SandboxFilesystemError",
+		...(reason === undefined ? {} : { data: reason }),
+	};
+};
+
+const missingGrant = (message: string, operation: string) =>
+	filesystemError(message, { operation, code: "missing-artifact-grant" });
 
 const binding = () =>
 	(globalThis as typeof globalThis & { [SANDBOX_FILESYSTEM_KEY]?: SandboxFilesystemBinding })[
@@ -58,14 +74,14 @@ export const readArtifactRange = (offset: number, length: number, key?: string) 
 					catch: filesystemError,
 					try: () => filesystem.readArtifactRange(offset, length, key),
 				})
-			: Effect.fail(filesystemError("Sandbox artifact grant is unavailable"));
+			: Effect.fail(missingGrant("Sandbox artifact grant is unavailable", "readArtifactRange"));
 	});
 
 export const readArtifact = Effect.suspend(() => {
 	const filesystem = binding();
 	return filesystem
 		? Effect.tryPromise({ catch: filesystemError, try: () => filesystem.readArtifact() })
-		: Effect.fail(filesystemError("Sandbox artifact grant is unavailable"));
+		: Effect.fail(missingGrant("Sandbox artifact grant is unavailable", "readArtifact"));
 });
 
 export const readNamedArtifact = (key: string) =>
@@ -73,14 +89,16 @@ export const readNamedArtifact = (key: string) =>
 		const filesystem = binding();
 		return filesystem
 			? Effect.tryPromise({ catch: filesystemError, try: () => filesystem.readNamedArtifact(key) })
-			: Effect.fail(filesystemError("Sandbox artifact grant is unavailable"));
+			: Effect.fail(missingGrant("Sandbox artifact grant is unavailable", "readNamedArtifact"));
 	});
 
 export const writeScratchChunks = (chunks: ReadonlyArray<SandboxScratchChunk>) =>
 	Effect.suspend(() => {
 		const filesystem = binding();
 		if (!filesystem) {
-			return Effect.fail(filesystemError("Sandbox scratch grant is unavailable"));
+			return Effect.fail(
+				missingGrant("Sandbox scratch grant is unavailable", "writeScratchChunks"),
+			);
 		}
 		const encoded = chunks.map(({ name, contents }) => ({
 			name,

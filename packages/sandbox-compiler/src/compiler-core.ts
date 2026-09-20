@@ -7,10 +7,12 @@ import { resolveSandboxCompilerDependencies } from "./compiler-dependencies";
 import {
 	SANDBOX_SOURCE_FILE,
 	sandboxCompilationFailure,
+	SandboxCompilerFailure,
 	sandboxCompilerDiagnostic,
 	toTypeScriptDiagnostic,
 } from "./compiler-diagnostics";
 import { extractSandboxManifest } from "./compiler-manifest";
+import { validateCompiledSandboxManifest } from "./compiler-metadata";
 import { createTypeScriptSourcesProject } from "./compiler-project";
 import { type CompiledSandboxModule, SANDBOX_COMPILED_FORMAT } from "./compiler-protocol";
 import { inspectSandboxSource, sandboxDefinitionMismatch } from "./compiler-source";
@@ -34,12 +36,14 @@ export const compileSandboxSource = (source: string, workspaceOptions?: Compiler
 			dependencies.tsserverPath,
 		).pipe(
 			Effect.mapError((error) =>
-				sandboxCompilationFailure([
-					sandboxCompilerDiagnostic(
-						"RYOT_COMPILER",
-						`TypeScript compiler failed: ${String(error)}`,
-					),
-				]),
+				error instanceof SandboxCompilerFailure
+					? error
+					: sandboxCompilationFailure([
+							sandboxCompilerDiagnostic(
+								"RYOT_COMPILER",
+								`TypeScript compiler failed: ${String(error)}`,
+							),
+						]),
 			),
 		);
 		const inspection = inspectSandboxSource(project.sourceFile);
@@ -80,6 +84,10 @@ export const compileSandboxSource = (source: string, workspaceOptions?: Compiler
 			]);
 		}
 		const manifest = { ...extracted.manifest, ...project.execution.metadata };
+		const capabilityDiagnostic = validateCompiledSandboxManifest(manifest);
+		if (capabilityDiagnostic) {
+			return yield* sandboxCompilationFailure([capabilityDiagnostic]);
+		}
 		if (
 			(jsonByteLength(manifest) ?? Number.POSITIVE_INFINITY) > SANDBOX_COMPILER_LIMITS.manifestBytes
 		) {

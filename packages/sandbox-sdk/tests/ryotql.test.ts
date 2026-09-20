@@ -81,7 +81,6 @@ describe("RyotQL sandbox SDK", () => {
 			kind: "script",
 			name: "RyotQL reader",
 			slug: "ryotql-reader",
-			capabilities: ["executeRyotql"],
 		});
 		const definition = defineScript({
 			manifest,

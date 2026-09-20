@@ -3,12 +3,7 @@ import { Effect, Schema } from "@ryot-app/sandbox-sdk/effect";
 
 import { value } from "../shared/value";
 
-export const manifest = defineManifest({
-	name: "Alpha",
-	slug: "alpha",
-	kind: "script",
-	capabilities: [],
-});
+export const manifest = defineManifest({ name: "Alpha", slug: "alpha", kind: "script" });
 
 export default defineScript({
 	manifest,

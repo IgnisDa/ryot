@@ -14,12 +14,7 @@ import { describe, expect, test } from "vitest";
 import { defineManifest, SANDBOX_SCRIPT_DEFINITION } from "../src/driver";
 
 const decode = <A, I>(schema: Schema.Codec<A, I>) => Schema.decodeUnknownSync(schema);
-const manifest = defineManifest({
-	kind: "provider",
-	name: "Test provider",
-	slug: "test.provider",
-	capabilities: ["getCachedValue"],
-});
+const manifest = defineManifest({ kind: "provider", name: "Test provider", slug: "test.provider" });
 
 describe("provider definitions", () => {
 	test("selects standard schemas for a provider operation", () => {
