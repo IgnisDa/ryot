@@ -54,15 +54,15 @@ const settingsSchema = {
 describe("third-party integration provider redaction", () => {
 	it.live("redacts nested secrets after integration writes are re-queried", () =>
 		Effect.gen(function* () {
-			const { providerSlug } = yield* Effect.acquireRelease(
+			const { plugin, providerSlug } = yield* Effect.acquireRelease(
 				installTestIntegrationProvider(settingsSchema),
 				({ plugin: installed }) => uninstallTestPluginStrict(installed).pipe(Effect.orDie),
 			);
 			const { client } = yield* createAuthenticatedClient();
 			const created = yield* Effect.acquireRelease(
 				createIntegration(client, {
-					provider: providerSlug,
 					name: "Dynamic provider",
+					provider: { slug: providerSlug, owner: { kind: "plugin", pluginId: plugin.pluginId } },
 					providerSpecifics: {
 						endpoint: "https://provider.example.com",
 						credentials: { username: "alice", password: "create-password" },

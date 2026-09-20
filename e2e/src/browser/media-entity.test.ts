@@ -1,3 +1,4 @@
+import { savedViewPath } from "@ryot-app/contract/modules/plugins/navigation";
 import { Effect, Option } from "effect";
 import { Playwright, PlaywrightSpawner } from "effect-playwright";
 
@@ -6,13 +7,16 @@ import {
 	createEntity,
 	fakeProviderDetailsResult,
 	fakeProviderTranslations,
-	findBuiltinSchemaBySlug,
 	getEntity,
 	installTestProvider,
 	setUserLanguage,
 	uninstallTestProvider,
 } from "~/fixtures/kernel";
-import { insertLibraryMembership, seedGlobalShowEpisodeTree } from "~/fixtures/plugins/media";
+import {
+	findMediaEntitySchema,
+	insertLibraryMembership,
+	seedGlobalShowEpisodeTree,
+} from "~/fixtures/plugins/media";
 import { requirePresent } from "~/support/assertions";
 import { signInThroughHostedOAuth } from "~/support/browser";
 import { expect, it } from "~/support/effect-test";
@@ -36,7 +40,7 @@ it.live("automatically populates and translates a partial Show in the compiled M
 		const translatedDescription = `Resumen de la serie ${id}.`;
 		const { email, client, password } = yield* createAuthenticatedClient();
 		yield* setUserLanguage(client, "es");
-		const { schema } = yield* findBuiltinSchemaBySlug(client, "show");
+		const { schema } = yield* findMediaEntitySchema(client, "show");
 		const provider = yield* installTestProvider({
 			client,
 			rootEntitySchemaSlug: schema.id,
@@ -58,7 +62,7 @@ it.live("automatically populates and translates a partial Show in the compiled M
 			properties: {},
 			externalId: id,
 			name: `Partial Show ${id}`,
-			entitySchemaSlug: schema.id,
+			entitySchema: schema.reference,
 			providerId: provider.providerId,
 		});
 		expect((yield* getEntity(client, show.id)).populatedAt).toBeNull();
@@ -125,11 +129,14 @@ it.live("opens a Media Show entity from the canonical saved-view route", () =>
 				description: "A deterministic browser tracer show.",
 			},
 		});
+		const { pluginId } = yield* findMediaEntitySchema(client, "show");
 		yield* insertLibraryMembership(client, { mediaEntityId: showId });
 		const browser = yield* Playwright.Browser;
 		const page = yield* browser.newPage({ viewport: { width: 1280, height: 900 } });
 		yield* signInThroughHostedOAuth(page, email, password);
-		yield* page.goto(`${frontendUrl}/v/all-shows`);
+		yield* page.goto(
+			`${frontendUrl}${savedViewPath({ pluginId, kind: "plugin", slug: "all-shows" })}`,
+		);
 		yield* page
 			.locator("iframe")
 			.contentFrame()
@@ -207,7 +214,9 @@ it.live("opens a Media Show entity from the canonical saved-view route", () =>
 		expect(yield* frame.evaluate((element, initial) => element === initial, iframe)).toBe(true);
 
 		yield* page.goBack();
-		yield* page.waitForURL(`${frontendUrl}/v/all-shows`);
+		yield* page.waitForURL(
+			`${frontendUrl}${savedViewPath({ pluginId, kind: "plugin", slug: "all-shows" })}`,
+		);
 	}).pipe(PlaywrightSpawner.withBrowser),
 );
 
@@ -216,10 +225,10 @@ it.live("shows a kernel notice for a Media schema with no detail renderer", () =
 		const apiUrl = getApiUrl();
 		const frontendUrl = getFrontendUrl();
 		const { email, client, password } = yield* createAuthenticatedClient(apiUrl);
-		const { schema } = yield* findBuiltinSchemaBySlug(client, "media-library");
+		const { schema } = yield* findMediaEntitySchema(client, "media-library");
 		const library = yield* createEntity(client, {
 			properties: {},
-			entitySchemaSlug: schema.id,
+			entitySchema: schema.reference,
 			name: "Unsupported Media Library",
 		});
 		const browser = yield* Playwright.Browser;

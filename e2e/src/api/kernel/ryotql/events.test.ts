@@ -32,12 +32,12 @@ import { describe, expect, it } from "~/support/effect-test";
 
 const createFixture = (client: Client, name: string) =>
 	Effect.gen(function* () {
-		const { schemaId, slug: entitySchemaSlug } = yield* createPluginEntitySchema(client, {
+		const { reference, slug: entitySchemaSlug } = yield* createPluginEntitySchema(client, {
 			schemaName: name,
 		});
 		const eventSchema = yield* createEventSchema(client, {
 			name: `${name} Review`,
-			entitySchemaSlug: schemaId,
+			entitySchema: reference,
 			slug: `${name.toLowerCase()}-review-${crypto.randomUUID()}`,
 			propertiesSchema: {
 				fields: { rating: { type: "integer", label: "Rating", description: "Rating" } },
@@ -45,7 +45,7 @@ const createFixture = (client: Client, name: string) =>
 		});
 		const entity = yield* createEntityFixture(client, {
 			name: `${name} Entity`,
-			entitySchemaSlug: schemaId,
+			entitySchema: reference,
 		});
 		return { entity, entitySchemaSlug, eventSchemaSlug: eventSchema.slug };
 	});

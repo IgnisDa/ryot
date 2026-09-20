@@ -44,7 +44,14 @@ describe("private import sources", () => {
 
 			const failure = yield* Effect.flip(
 				outsider.client.call((c) =>
-					c.imports.createRun({ payload: { source: plugin.sourceSlug } }),
+					c.imports.createRun({
+						payload: {
+							source: {
+								slug: plugin.sourceSlug,
+								owner: { kind: "plugin", pluginId: plugin.pluginId },
+							},
+						},
+					}),
 				),
 			);
 			assertTaggedError(failure, "ImportRequestError");
@@ -60,7 +67,7 @@ describe("private import sources", () => {
 			const sourceSlug = `e2e-shared-private-import-${suffix}`;
 			const pluginSlug = `e2e-shared-private-import-plugin-${suffix}`;
 
-			yield* Effect.acquireRelease(
+			const firstPlugin = yield* Effect.acquireRelease(
 				installPrivateImportPlugin({
 					sourceSlug,
 					pluginSlug,
@@ -69,7 +76,7 @@ describe("private import sources", () => {
 				}),
 				({ pluginSlug: slug }) => releasePrivatePlugin(first.client, slug),
 			);
-			yield* Effect.acquireRelease(
+			const secondPlugin = yield* Effect.acquireRelease(
 				installPrivateImportPlugin({
 					sourceSlug,
 					pluginSlug,
@@ -89,10 +96,21 @@ describe("private import sources", () => {
 			expect(secondSources).toMatchObject([{ pluginSlug, name: "Second archive" }]);
 
 			const firstRun = yield* first.client.call((c) =>
-				c.imports.createRun({ payload: { source: sourceSlug } }),
+				c.imports.createRun({
+					payload: {
+						source: { slug: sourceSlug, owner: { kind: "plugin", pluginId: firstPlugin.pluginId } },
+					},
+				}),
 			);
 			const secondRun = yield* second.client.call((c) =>
-				c.imports.createRun({ payload: { source: sourceSlug } }),
+				c.imports.createRun({
+					payload: {
+						source: {
+							slug: sourceSlug,
+							owner: { kind: "plugin", pluginId: secondPlugin.pluginId },
+						},
+					},
+				}),
 			);
 
 			expect(yield* pollImportRunUntilTerminal(first.client, firstRun.id)).toMatchObject({
@@ -114,18 +132,27 @@ describe("private import sources", () => {
 				({ pluginSlug }) => releasePrivatePlugin(client, pluginSlug),
 			);
 
-			yield* updatePluginState(client, plugin.pluginSlug, { isHidden: true });
+			yield* updatePluginState(client, plugin.installationId, { isHidden: true });
 
 			const sources = yield* listSources(client);
 			expect(sources.map(({ slug }) => slug)).not.toContain(plugin.sourceSlug);
 
 			const failure = yield* Effect.flip(
-				client.call((c) => c.imports.createRun({ payload: { source: plugin.sourceSlug } })),
+				client.call((c) =>
+					c.imports.createRun({
+						payload: {
+							source: {
+								slug: plugin.sourceSlug,
+								owner: { kind: "plugin", pluginId: plugin.pluginId },
+							},
+						},
+					}),
+				),
 			);
 			assertTaggedError(failure, "ImportRequestError");
 			expect(failure.reason).toEqual({ code: "source-not-found", source: plugin.sourceSlug });
 
-			yield* updatePluginState(client, plugin.pluginSlug, { isHidden: false });
+			yield* updatePluginState(client, plugin.installationId, { isHidden: false });
 			expect((yield* listSources(client)).map(({ slug }) => slug)).toContain(plugin.sourceSlug);
 		}),
 	);

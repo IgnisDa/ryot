@@ -4,7 +4,6 @@ import { Effect } from "effect";
 
 import type { Client } from "~/fixtures/kernel/auth";
 import { createEntity } from "~/fixtures/kernel/entities";
-import { findBuiltinSchemaBySlug } from "~/fixtures/kernel/entity-schemas";
 import { listEventSchemas, requireEventSchemaBySlug } from "~/fixtures/kernel/event-schemas";
 import { pollUntil } from "~/fixtures/kernel/polling";
 import {
@@ -15,15 +14,17 @@ import {
 } from "~/fixtures/kernel/ryotql";
 import { requireObjectRecord } from "~/support/assertions";
 
+import { findFitnessEntitySchema } from "./exercises";
+
 export const createWorkoutEntityFixture = (
 	client: Client,
 	options: { name?: string; startedAt?: string; endedAt?: string } = {},
 ) =>
 	Effect.gen(function* () {
-		const { schema: workoutSchema } = yield* findBuiltinSchemaBySlug(client, "workout");
+		const { schema: workoutSchema } = yield* findFitnessEntitySchema(client, "workout");
 
 		const workout = yield* createEntity(client, {
-			entitySchemaSlug: workoutSchema.id,
+			entitySchema: workoutSchema.reference,
 			name: options.name ?? `Workout ${crypto.randomUUID()}`,
 			properties: {
 				endedAt: options.endedAt ?? "2026-04-27T11:00:00Z",
@@ -36,8 +37,8 @@ export const createWorkoutEntityFixture = (
 
 export const findWorkoutSetEventSchema = (client: Client) =>
 	Effect.gen(function* () {
-		const { schema: exerciseSchema } = yield* findBuiltinSchemaBySlug(client, "exercise");
-		const eventSchemas = yield* listEventSchemas(client, exerciseSchema.id);
+		const { schema: exerciseSchema } = yield* findFitnessEntitySchema(client, "exercise");
+		const eventSchemas = yield* listEventSchemas(client, exerciseSchema.reference);
 		const workoutSetEventSchema = requireEventSchemaBySlug(eventSchemas, "workout-set");
 
 		return { workoutSetEventSchema };

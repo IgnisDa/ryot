@@ -1,4 +1,8 @@
 import type { PluginManifest } from "@ryot-app/contract/modules/plugins/manifest";
+import {
+	definitionOwner,
+	type DefinitionOwner,
+} from "@ryot-app/contract/modules/plugins/references";
 import { EntitySchemaSlug, RelationshipSchemaSlug } from "@ryot-app/contract/schema/brands";
 import { relationshipDefinitionsRecipe } from "@ryot-app/ryotql-recipes/definitions";
 import { Effect } from "effect";
@@ -11,19 +15,20 @@ import { installTestDefinitions } from "./test-plugin";
 
 type PluginRelationshipSchema = PluginManifest["relationshipSchemas"][number];
 
-type CreateRelationshipSchemaOptions = Pick<PluginRelationshipSchema, "name" | "slug"> &
-	Partial<
+type CreateRelationshipSchemaOptions = Pick<PluginRelationshipSchema, "name" | "slug"> & {
+	readonly pluginSlug: string;
+} & Partial<
 		Pick<
 			PluginRelationshipSchema,
 			"propertiesSchema" | "sourceEntitySchemaSlug" | "targetEntitySchemaSlug"
 		>
 	>;
 
-export function requireRelationshipSchemaBySlug<T extends { slug: string }>(
-	schemas: readonly T[],
-	slug: string,
-): T {
-	const schema = schemas.find((s) => s.slug === slug);
+export function requireRelationshipSchemaBySlug<
+	T extends { slug: string; pluginId: string | null },
+>(schemas: readonly T[], slug: string, owner: DefinitionOwner): T {
+	const pluginId = owner.kind === "kernel" ? null : owner.pluginId;
+	const schema = schemas.find((s) => s.slug === slug && s.pluginId === pluginId);
 	return requirePresent(schema, `Relationship schema '${slug}' not found`);
 }
 
@@ -36,14 +41,19 @@ export const createRelationshipSchema = (client: Client, body: CreateRelationshi
 			sourceEntitySchemaSlug: body.sourceEntitySchemaSlug ?? null,
 			targetEntitySchemaSlug: body.targetEntitySchemaSlug ?? null,
 		};
-		yield* installTestDefinitions({
+		const installed = yield* installTestDefinitions({
 			client,
+			pluginSlug: body.pluginSlug,
 			relationshipSchemas: [schema],
-			pluginSlug: `e2e-relationship-${crypto.randomUUID()}`,
 		});
 		return {
 			...schema,
+			pluginId: installed.pluginId,
 			id: RelationshipSchemaSlug.make(body.slug),
+			reference: {
+				owner: definitionOwner(installed.pluginId),
+				slug: RelationshipSchemaSlug.make(body.slug),
+			},
 			sourceEntitySchemaSlug:
 				body.sourceEntitySchemaSlug == null
 					? null
@@ -58,6 +68,7 @@ export const createRelationshipSchema = (client: Client, body: CreateRelationshi
 export const listRelationshipSchemas = (
 	client: Client,
 	options: {
+		owner?: DefinitionOwner;
 		slugs?: string[];
 		sourceEntitySchemaSlug?: string | null;
 		targetEntitySchemaSlug?: string | null;
@@ -68,6 +79,11 @@ export const listRelationshipSchemas = (
 	).pipe(
 		Effect.map((schemas) =>
 			schemas
+				.filter(
+					(schema) =>
+						!options.owner ||
+						schema.pluginId === (options.owner.kind === "kernel" ? null : options.owner.pluginId),
+				)
 				.filter((schema) => !options.slugs || options.slugs.includes(schema.slug))
 				.filter(
 					(schema) =>
@@ -83,6 +99,7 @@ export const listRelationshipSchemas = (
 					Object.assign({}, schema, {
 						isBuiltin: true,
 						id: RelationshipSchemaSlug.make(schema.slug),
+						reference: { slug: schema.slug, owner: definitionOwner(schema.pluginId) },
 					}),
 				),
 		),

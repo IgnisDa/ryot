@@ -65,7 +65,7 @@ const createFixture = (client: Client, name: string) =>
 		});
 		const eventSchema = yield* createEventSchema(client, {
 			name: `${name} Event`,
-			entitySchemaSlug: entitySchema.schemaId,
+			entitySchema: entitySchema.reference,
 			slug: `${name.toLowerCase()}-${crypto.randomUUID()}`,
 			propertiesSchema: {
 				fields: { rating: { type: "integer", label: "Rating", description: "Rating" } },
@@ -73,7 +73,7 @@ const createFixture = (client: Client, name: string) =>
 		});
 		const entity = yield* createEntityFixture(client, {
 			name: `${name} Entity`,
-			entitySchemaSlug: entitySchema.schemaId,
+			entitySchema: entitySchema.reference,
 		});
 		yield* createEventFixture(client, {
 			entityId: entity.id,

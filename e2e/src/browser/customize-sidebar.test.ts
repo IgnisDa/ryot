@@ -90,7 +90,10 @@ beforeAll(() =>
 			for (const name of [ALPHA, BETA, GAMMA]) {
 				yield* createSavedView(client, {
 					name,
-					dataSources: buildSavedViewDataSources([ENTITY_SCHEMA_SLUG]),
+					dataSources: buildSavedViewDataSources([ENTITY_SCHEMA_SLUG], {
+						kind: "local",
+						pluginId: provider.pluginId,
+					}),
 				});
 			}
 		}),

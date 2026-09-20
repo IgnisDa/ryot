@@ -1,13 +1,6 @@
-import {
-	column,
-	defineRecipe,
-	eq,
-	literal,
-	selectedField,
-	selectedOptionalRow,
-	table,
-} from "@ryot-app/ryotql";
-import { Effect, Result, Schema } from "effect";
+import { savedViewPath } from "@ryot-app/contract/modules/plugins/navigation";
+import { definitionOwner } from "@ryot-app/contract/modules/plugins/references";
+import { Effect } from "effect";
 import { Playwright, PlaywrightSpawner } from "effect-playwright";
 
 import {
@@ -16,7 +9,6 @@ import {
 	createEntity,
 	createEntityBrowserSavedView,
 	createSavedView,
-	executeRyotQLRecipe,
 	fakeProviderDetailsResult,
 	fakeProviderSearchResult,
 	fakeProviderTranslations,
@@ -29,7 +21,7 @@ import {
 	uninstallTestProvider,
 	type InstalledTestProvider,
 } from "~/fixtures/kernel";
-import { assertTaggedError, requirePresent } from "~/support/assertions";
+import { assertTaggedError } from "~/support/assertions";
 import { signInThroughHostedOAuth } from "~/support/browser";
 import { afterAll, beforeAll, expect, it, runPromise } from "~/support/effect-test";
 import { getFrontendUrl } from "~/support/harness-target";
@@ -48,18 +40,6 @@ const SECOND_RESULT_TITLE = `Saved View Result Two ${SUITE_ID}`;
 const IMPORT_TIMEOUT = 150_000;
 const MODAL_LABEL = "Add from a provider";
 const PROVIDER_SLUG = `${ENTITY_SCHEMA_SLUG}.saved-view-add`;
-const plugin = table("plugin", "savedViewPlugin");
-const pluginIdRecipe = (slug: string) =>
-	defineRecipe(() => ({
-		map: ({ plugin: row }) => Result.succeed(row?.id ?? null),
-		queries: {
-			plugin: selectedOptionalRow(plugin, {
-				where: eq(column(plugin, "slug"), literal(slug)),
-				selection: { id: selectedField(column(plugin, "id"), Schema.String) },
-			}),
-		},
-	}))();
-
 let email: string;
 let password: string;
 let viewUrl: string;
@@ -158,10 +138,7 @@ beforeAll(() =>
 					},
 				],
 			});
-			const ownerPluginId = requirePresent(
-				yield* executeRyotQLRecipe(client, pluginIdRecipe(provider.pluginSlug)),
-				"Installed provider owner plugin ID was not found",
-			);
+			const ownerPluginId = provider.pluginId;
 			const settings = {
 				pageSize: 10,
 				sortChoices: [],
@@ -203,8 +180,8 @@ beforeAll(() =>
 				ENTITY_SCHEMA_SLUG,
 				ownerPluginId,
 			);
-			const viewSlug = (yield* findSavedViewById(client, view.id)).slug;
-			viewUrl = `${getFrontendUrl()}/v/${viewSlug}`;
+			const viewRecord = yield* findSavedViewById(client, view.id);
+			viewUrl = `${getFrontendUrl()}${savedViewPath(viewRecord.reference)}`;
 		}),
 	),
 );
@@ -248,18 +225,24 @@ it.live("automatically populates and translates entities rendered by a saved vie
 			externalId: id,
 			name: `Partial record ${id}`,
 			providerId: offlineProvider.providerId,
-			entitySchemaSlug: makeEntitySchemaSlug(schemaSlug),
+			entitySchema: {
+				slug: makeEntitySchemaSlug(schemaSlug),
+				owner: definitionOwner(offlineProvider.pluginId),
+			},
 		});
 		const view = yield* createSavedView(client, {
 			name: `Interest View ${id}`,
-			dataSources: buildSavedViewDataSources([schemaSlug]),
+			dataSources: buildSavedViewDataSources([schemaSlug], {
+				kind: "local",
+				pluginId: offlineProvider.pluginId,
+			}),
 		});
 		const viewRecord = yield* findSavedViewById(client, view.id);
 		expect((yield* getEntity(client, entity.id)).populationStatus).toBe("pending");
 		const browser = yield* Playwright.Browser;
 		const page = yield* browser.newPage({ locale: "en-US" });
 		yield* signInThroughHostedOAuth(page, user.email, user.password);
-		yield* page.goto(`${getFrontendUrl()}/v/${viewRecord.slug}`);
+		yield* page.goto(`${getFrontendUrl()}${savedViewPath(viewRecord.reference)}`);
 		const runtime = page.locator("iframe").contentFrame();
 		yield* runtime.getByRole("heading", { level: 1, name: `Interest View ${id}` }).waitFor();
 		yield* pollUntil(
@@ -317,17 +300,23 @@ it.live("keeps source data visible when saved-view translation is outstanding", 
 			externalId: id,
 			name: sourceName,
 			providerId: untranslatedProvider.providerId,
-			entitySchemaSlug: makeEntitySchemaSlug(schemaSlug),
+			entitySchema: {
+				slug: makeEntitySchemaSlug(schemaSlug),
+				owner: definitionOwner(untranslatedProvider.pluginId),
+			},
 		});
 		const view = yield* createSavedView(client, {
 			name: `Translating View ${id}`,
-			dataSources: buildSavedViewDataSources([schemaSlug]),
+			dataSources: buildSavedViewDataSources([schemaSlug], {
+				kind: "local",
+				pluginId: untranslatedProvider.pluginId,
+			}),
 		});
 		const viewRecord = yield* findSavedViewById(client, view.id);
 		const browser = yield* Playwright.Browser;
 		const page = yield* browser.newPage({ locale: "en-US" });
 		yield* signInThroughHostedOAuth(page, user.email, user.password);
-		yield* page.goto(`${getFrontendUrl()}/v/${viewRecord.slug}`);
+		yield* page.goto(`${getFrontendUrl()}${savedViewPath(viewRecord.reference)}`);
 		const runtime = page.locator("iframe").contentFrame();
 		yield* pollUntil(
 			"saved-view entity population with pending translation",

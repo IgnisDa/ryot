@@ -1,5 +1,4 @@
-import { PluginSlug } from "@ryot-app/contract/schema/brands";
-import type { JsonValue } from "@ryot-app/contract/schema/json";
+import type { ContractPayload, ContractPathParams } from "@ryot-app/contract/client";
 import {
 	mediaMonitoringDisableRecipe,
 	mediaMonitoringEnableRecipe,
@@ -27,20 +26,21 @@ import { pollUntil } from "~/fixtures/kernel/polling";
 import { executeRyotQL, requireRyotQLValue } from "~/fixtures/kernel/ryotql";
 import { assertCondition } from "~/support/assertions";
 
+import { findMediaEntitySchema, mediaFixtureInstallation } from "./entity-schemas";
+
 const CRON_TRIGGER_ATTEMPTS = 3;
 const CRON_TRIGGER_RETRY_DELAY = Duration.millis(5_000);
 
 export const triggerCronAndWaitForEntity = (auth: { client: Client }, entityId: string) =>
 	Effect.gen(function* () {
 		const previousPopulatedAt = (yield* getEntity(auth.client, entityId)).populatedAt;
+		const pluginId = (yield* mediaFixtureInstallation).id;
 		let lastCron: unknown;
 		let refreshed = false;
 		for (let attempt = 1; attempt <= CRON_TRIGGER_ATTEMPTS; attempt += 1) {
 			const cron = yield* getApiClient().call(
 				(c) =>
-					c.testSupport.triggerPluginCron({
-						payload: { cronSlug: "media-monitoring", pluginSlug: PluginSlug.make("media") },
-					}),
+					c.testSupport.triggerPluginCron({ payload: { pluginId, cronSlug: "media-monitoring" } }),
 				adminHeaders(),
 			);
 			lastCron = cron;
@@ -72,37 +72,52 @@ export const triggerCronAndWaitForEntity = (auth: { client: Client }, entityId: 
 	});
 
 export const getMediaMonitoringStatus = (client: Client, entityId: string) =>
-	invokeOperationRecipe(
-		mediaMonitoringStatusRecipe,
-		{ entityIds: [entityId] },
-		operationTransport(client),
-	).pipe(Effect.flatMap(singleResult));
+	mediaFixtureInstallation.pipe(
+		Effect.flatMap(({ id }) =>
+			invokeOperationRecipe(
+				mediaMonitoringStatusRecipe(id),
+				{ entityIds: [entityId] },
+				operationTransport(client),
+			),
+		),
+		Effect.flatMap(singleResult),
+	);
 
 export const enableMediaMonitoring = (client: Client, entityId: string) =>
-	invokeOperationRecipe(
-		mediaMonitoringEnableRecipe,
-		{ entityIds: [entityId] },
-		operationTransport(client),
-	).pipe(Effect.flatMap(singleResult));
+	mediaFixtureInstallation.pipe(
+		Effect.flatMap(({ id }) =>
+			invokeOperationRecipe(
+				mediaMonitoringEnableRecipe(id),
+				{ entityIds: [entityId] },
+				operationTransport(client),
+			),
+		),
+		Effect.flatMap(singleResult),
+	);
 
 export const disableMediaMonitoring = (client: Client, entityId: string) =>
-	invokeOperationRecipe(
-		mediaMonitoringDisableRecipe,
-		{ entityIds: [entityId] },
-		operationTransport(client),
-	).pipe(Effect.flatMap(singleResult));
+	mediaFixtureInstallation.pipe(
+		Effect.flatMap(({ id }) =>
+			invokeOperationRecipe(
+				mediaMonitoringDisableRecipe(id),
+				{ entityIds: [entityId] },
+				operationTransport(client),
+			),
+		),
+		Effect.flatMap(singleResult),
+	);
 
 const operationTransport =
 	(client: Client) =>
-	(request: { payload: JsonValue; pluginSlug: string; operationSlug: string }) =>
+	(
+		request: Pick<ContractPayload<"plugins", "invoke">, "payload"> &
+			ContractPathParams<"plugins", "invoke">,
+	) =>
 		client
 			.call((contract) =>
 				contract.plugins.invoke({
 					payload: { payload: request.payload },
-					params: {
-						operationSlug: request.operationSlug,
-						pluginSlug: PluginSlug.make(request.pluginSlug),
-					},
+					params: { pluginId: request.pluginId, operationSlug: request.operationSlug },
 				}),
 			)
 			.pipe(Effect.map(({ result }) => result));
@@ -120,6 +135,7 @@ export const countMediaMonitoringRelationships = (input: {
 	entitySchemaSlug: string;
 }) =>
 	Effect.gen(function* () {
+		const { pluginId } = yield* findMediaEntitySchema(input.client, input.entitySchemaSlug);
 		const relationship = table("relationship", "relationship");
 		const media = table("entity", "media");
 		const mediaLibrary = table("entity", "mediaLibrary");
@@ -138,9 +154,12 @@ export const countMediaMonitoringRelationships = (input: {
 					],
 					where: and(
 						eq(column(relationship, "relationshipSchemaSlug"), literal("media-monitoring")),
+						eq(column(relationship, "relationshipSchemaPluginId"), literal(pluginId)),
 						eq(column(media, "id"), literal(input.entityId)),
 						eq(column(media, "entitySchemaSlug"), literal(input.entitySchemaSlug)),
+						eq(column(media, "entitySchemaPluginId"), literal(pluginId)),
 						eq(column(mediaLibrary, "entitySchemaSlug"), literal("media-library")),
+						eq(column(mediaLibrary, "entitySchemaPluginId"), literal(pluginId)),
 					),
 				}),
 			}),

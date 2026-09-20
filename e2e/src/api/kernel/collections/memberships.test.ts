@@ -1,20 +1,23 @@
+import { definitionOwner } from "@ryot-app/contract/modules/plugins/references";
 import { EntityId } from "@ryot-app/contract/schema/brands";
 import { Effect } from "effect";
 
 import {
+	adminHeaders,
 	createAuthenticatedClient,
 	createCollection,
-	createPluginScope,
 	createPluginSchemaAndEntity,
-	findBuiltinSchemaBySlug,
+	createPluginScope,
 	getApiClient,
+	getEntitySchema,
 	installTestPluginBundle,
 	literalSandboxSource,
+	makeEntitySchemaSlug,
 } from "~/fixtures/kernel";
+import { findFitnessEntitySchema } from "~/fixtures/plugins/fitness";
 import {
 	createGlobalBookEntityFixture,
 	queryInMediaLibraryRelationship,
-	seedMediaEntity,
 } from "~/fixtures/plugins/media";
 import { assertTaggedError } from "~/support/assertions";
 import { describe, expect, it } from "~/support/effect-test";
@@ -121,15 +124,19 @@ describe("POST /collections/memberships", () => {
 	it.live("does not add a global fitness entity to the media library", () =>
 		Effect.gen(function* () {
 			const { client } = yield* createAuthenticatedClient();
-			const { schema } = yield* findBuiltinSchemaBySlug(client, "workout");
-			const entity = yield* seedMediaEntity({
-				userId: null,
-				providerId: null,
-				entitySchemaSlug: schema.id,
-				name: `Global Workout ${crypto.randomUUID()}`,
-				externalId: `global-workout-${crypto.randomUUID()}`,
-				properties: { endedAt: "2026-04-27T11:00:00Z", startedAt: "2026-04-27T10:00:00Z" },
-			});
+			const { schema } = yield* findFitnessEntitySchema(client, "workout");
+			const entity = yield* getApiClient().call(
+				(c) =>
+					c.testSupport.createGlobalEntity({
+						payload: {
+							entitySchema: schema.reference,
+							name: `Global Workout ${crypto.randomUUID()}`,
+							externalId: `global-workout-${crypto.randomUUID()}`,
+							properties: { endedAt: "2026-04-27T11:00:00Z", startedAt: "2026-04-27T10:00:00Z" },
+						},
+					}),
+				adminHeaders(),
+			);
 			const collection = yield* createCollection(client, { name: "Fitness Collection" });
 
 			yield* client.call((c) =>
@@ -151,7 +158,7 @@ describe("POST /collections/memberships", () => {
 			const schemaSlug = `schema-${crypto.randomUUID()}`;
 			const scriptSlug = `${pluginSlug}.fixture`;
 			const entry = "backend/scripts/fixture.sandbox.ts";
-			yield* installTestPluginBundle({
+			const installedPlugin = yield* installTestPluginBundle({
 				pluginSlug,
 				scope: "system",
 				files: {
@@ -184,14 +191,22 @@ describe("POST /collections/memberships", () => {
 				],
 			});
 			const { client } = yield* createAuthenticatedClient();
-			const entity = yield* seedMediaEntity({
-				userId: null,
-				providerId: null,
-				entitySchemaSlug: schemaSlug,
-				properties: { title: "Unrelated" },
-				name: `Global Fixture ${crypto.randomUUID()}`,
-				externalId: `global-fixture-${crypto.randomUUID()}`,
+			const { reference } = yield* getEntitySchema(client, {
+				slug: makeEntitySchemaSlug(schemaSlug),
+				owner: definitionOwner(installedPlugin.pluginId),
 			});
+			const entity = yield* getApiClient().call(
+				(c) =>
+					c.testSupport.createGlobalEntity({
+						payload: {
+							entitySchema: reference,
+							properties: { title: "Unrelated" },
+							name: `Global Fixture ${crypto.randomUUID()}`,
+							externalId: `global-fixture-${crypto.randomUUID()}`,
+						},
+					}),
+				adminHeaders(),
+			);
 			const collection = yield* createCollection(client, { name: "Fixture Collection" });
 
 			yield* client.call((c) =>

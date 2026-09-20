@@ -16,28 +16,29 @@ import { describe, expect, it } from "~/support/effect-test";
 const makeRelationshipFixture = (client: Client) =>
 	Effect.gen(function* () {
 		const pluginSlug = createPluginScope();
-		const { schemaId } = yield* createEntitySchema(client, {
+		const { reference } = yield* createEntitySchema(client, {
 			pluginSlug,
 			name: "Relationship Test Entity",
 		});
 		const source = yield* createEntity(client, {
 			name: "Source Entity",
-			entitySchemaSlug: schemaId,
+			entitySchema: reference,
 			properties: { title: "Source" },
 		});
 		const target = yield* createEntity(client, {
 			name: "Target Entity",
-			entitySchemaSlug: schemaId,
+			entitySchema: reference,
 			properties: { title: "Target" },
 		});
 		const relSchema = yield* createRelationshipSchema(client, {
+			pluginSlug,
 			name: "Test Relationship",
 			slug: `test-rel-${crypto.randomUUID()}`,
 			propertiesSchema: {
 				fields: { rating: { type: "integer", label: "Rating", description: "Rating" } },
 			},
 		});
-		return { source, target, relSchema };
+		return { source, target, relSchema, pluginSlug };
 	});
 
 describe("POST /relationships", () => {
@@ -50,7 +51,7 @@ describe("POST /relationships", () => {
 				sourceEntityId: source.id,
 				targetEntityId: target.id,
 				properties: { rating: 7 },
-				relationshipSchemaSlug: relSchema.id,
+				relationshipSchema: relSchema.reference,
 			});
 
 			expect(result.wasInserted).toBe(true);
@@ -72,14 +73,14 @@ describe("POST /relationships", () => {
 				sourceEntityId: source.id,
 				targetEntityId: target.id,
 				properties: { rating: 3 },
-				relationshipSchemaSlug: relSchema.id,
+				relationshipSchema: relSchema.reference,
 			});
 
 			const upserted = yield* createRelationship(client, {
 				sourceEntityId: source.id,
 				targetEntityId: target.id,
 				properties: { rating: 9 },
-				relationshipSchemaSlug: relSchema.id,
+				relationshipSchema: relSchema.reference,
 			});
 
 			expect(upserted.wasInserted).toBe(false);
@@ -100,7 +101,7 @@ describe("POST /relationships", () => {
 						payload: {
 							sourceEntityId: source.id,
 							targetEntityId: target.id,
-							relationshipSchemaSlug: relSchema.id,
+							relationshipSchema: relSchema.reference,
 						},
 					}),
 				),
@@ -108,7 +109,7 @@ describe("POST /relationships", () => {
 
 			assertTaggedError(error, "RelationshipNotFound");
 			expect(error.reason).toEqual({
-				relationshipSchemaSlug: relSchema.id,
+				schema: relSchema.reference,
 				code: "relationship-schema-not-found",
 			});
 		}),
@@ -117,8 +118,9 @@ describe("POST /relationships", () => {
 	it.live("returns 400 when properties violate the relationship schema", () =>
 		Effect.gen(function* () {
 			const { client } = yield* createAuthenticatedClient();
-			const { source, target } = yield* makeRelationshipFixture(client);
+			const { source, target, pluginSlug } = yield* makeRelationshipFixture(client);
 			const strictSchema = yield* createRelationshipSchema(client, {
+				pluginSlug,
 				name: "Strict Relationship",
 				slug: `strict-rel-${crypto.randomUUID()}`,
 				propertiesSchema: {
@@ -140,7 +142,7 @@ describe("POST /relationships", () => {
 							sourceEntityId: source.id,
 							targetEntityId: target.id,
 							properties: { status: "deleted" },
-							relationshipSchemaSlug: strictSchema.id,
+							relationshipSchema: strictSchema.reference,
 						},
 					}),
 				),
@@ -163,7 +165,7 @@ describe("POST /relationships", () => {
 						payload: {
 							sourceEntityId: source.id,
 							targetEntityId: target.id,
-							relationshipSchemaSlug: relSchema.id,
+							relationshipSchema: relSchema.reference,
 						},
 					}),
 				),

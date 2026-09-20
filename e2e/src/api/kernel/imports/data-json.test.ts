@@ -1,6 +1,9 @@
 import type { DataJsonDocument } from "@ryot-app/contract/modules/imports/data-json";
-import { dataJsonSource } from "@ryot-app/contract/modules/imports/data-json";
-import { ImportRunId } from "@ryot-app/contract/schema/brands";
+import {
+	dataJsonSource,
+	dataJsonSourceReference,
+} from "@ryot-app/contract/modules/imports/data-json";
+import { EntitySchemaSlug, ImportRunId } from "@ryot-app/contract/schema/brands";
 import { managedAssetItemSchema } from "@ryot-app/contract/schema/core";
 import {
 	column,
@@ -118,16 +121,28 @@ describe("Native data JSON imports", () => {
 							kind: "provider",
 							value: "foreign-id",
 							identifierType: "source-id",
-							entitySchemaSlug: matchedSlug,
-							providerSlug: matched.providerSlug,
+							provider: {
+								slug: matched.providerSlug,
+								owner: { kind: "plugin", pluginId: matched.pluginId },
+							},
+							entitySchema: {
+								slug: EntitySchemaSlug.make(matchedSlug),
+								owner: { kind: "plugin", pluginId: matched.pluginId },
+							},
 						},
 						{
 							key: "missing",
 							kind: "provider",
 							value: "missing-id",
 							identifierType: "source-id",
-							entitySchemaSlug: missingSlug,
-							providerSlug: missing.providerSlug,
+							provider: {
+								slug: missing.providerSlug,
+								owner: { kind: "plugin", pluginId: missing.pluginId },
+							},
+							entitySchema: {
+								slug: EntitySchemaSlug.make(missingSlug),
+								owner: { kind: "plugin", pluginId: missing.pluginId },
+							},
 						},
 					],
 				});
@@ -176,7 +191,7 @@ describe("Native data JSON imports", () => {
 						properties: {},
 						targetEntityKey: "beta",
 						sourceEntityKey: "alpha",
-						relationshipSchemaSlug: graph.relationship.id,
+						relationshipSchema: graph.relationship.reference,
 					},
 				],
 				events: [
@@ -195,14 +210,14 @@ describe("Native data JSON imports", () => {
 						kind: "custom",
 						name: alphaName,
 						properties: { relatedEntity: "beta" },
-						entitySchemaSlug: graph.entityA.schemaId,
+						entitySchema: graph.entityA.reference,
 					},
 					{
 						key: "beta",
 						kind: "custom",
 						properties: {},
 						name: betaName,
-						entitySchemaSlug: graph.entityB.schemaId,
+						entitySchema: graph.entityB.reference,
 					},
 				],
 			};
@@ -301,14 +316,14 @@ describe("Native data JSON imports", () => {
 							key: "invalid-entity",
 							name: "Invalid entity",
 							properties: { relatedEntity: 42 },
-							entitySchemaSlug: graph.entityA.schemaId,
+							entitySchema: graph.entityA.reference,
 						},
 						{
 							kind: "custom",
 							properties: {},
 							key: "survivor",
 							name: survivorName,
-							entitySchemaSlug: graph.entityB.schemaId,
+							entitySchema: graph.entityB.reference,
 						},
 					],
 				});
@@ -355,14 +370,14 @@ describe("Native data JSON imports", () => {
 							properties: {},
 							key: "duplicate",
 							name: "Duplicate one",
-							entitySchemaSlug: graph.entityA.schemaId,
+							entitySchema: graph.entityA.reference,
 						},
 						{
 							kind: "custom",
 							properties: {},
 							key: "duplicate",
 							name: "Duplicate two",
-							entitySchemaSlug: graph.entityB.schemaId,
+							entitySchema: graph.entityB.reference,
 						},
 					],
 				});
@@ -383,7 +398,7 @@ describe("Native data JSON imports", () => {
 							kind: "custom",
 							key: "unknown-reference",
 							name: "Unknown reference",
-							entitySchemaSlug: graph.entityA.schemaId,
+							entitySchema: graph.entityA.reference,
 							properties: { relatedEntity: "missing-entity" },
 						},
 					],
@@ -416,7 +431,7 @@ describe("Native data JSON imports", () => {
 						kind: "custom",
 						properties: {},
 						name: "Idempotent record",
-						entitySchemaSlug: schema.schemaId,
+						entitySchema: schema.reference,
 					},
 				],
 			};
@@ -429,8 +444,8 @@ describe("Native data JSON imports", () => {
 			const exactRetry = yield* user.client.call((c) =>
 				c.imports.createRun({
 					payload: {
-						source: dataJsonSource,
 						submissionKey: "manual-retry",
+						source: dataJsonSourceReference,
 						uploadToken: submitted.uploadToken,
 					},
 				}),
@@ -470,7 +485,7 @@ describe("Native data JSON imports", () => {
 			const ownedEntity = yield* createEntityFixture(owner.client, {
 				name: "Existing entity",
 				properties: { title: "Preserved" },
-				entitySchemaSlug: ownerSchema.schemaId,
+				entitySchema: ownerSchema.reference,
 			});
 			const original = yield* getEntity(owner.client, ownedEntity.id);
 			const ownImport = yield* startDataJsonImport(owner, {
@@ -481,7 +496,7 @@ describe("Native data JSON imports", () => {
 						key: "existing",
 						kind: "existing",
 						entityId: ownedEntity.id,
-						entitySchemaSlug: ownerSchema.schemaId,
+						entitySchema: ownerSchema.reference,
 					},
 				],
 			});
@@ -506,7 +521,7 @@ describe("Native data JSON imports", () => {
 						key: "foreign",
 						kind: "existing",
 						entityId: ownedEntity.id,
-						entitySchemaSlug: strangerSchema.schemaId,
+						entitySchema: strangerSchema.reference,
 					},
 				],
 			});
@@ -571,7 +586,7 @@ describe("Native data JSON imports", () => {
 						name,
 						kind: "custom",
 						key: "asset-record",
-						entitySchemaSlug: schema.schemaId,
+						entitySchema: schema.reference,
 						properties: { attachment: locator },
 					},
 				],
@@ -608,7 +623,7 @@ describe("Native data JSON imports", () => {
 						key: "foreign-asset",
 						name: "Foreign attachment",
 						properties: { attachment: locator },
-						entitySchemaSlug: strangerSchema.schemaId,
+						entitySchema: strangerSchema.reference,
 					},
 				],
 			});

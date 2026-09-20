@@ -80,7 +80,12 @@ describe("Definitions E2E", () => {
 
 			const providers = yield* executeRyotQLRecipe(
 				client,
-				providerSearchRecipe({ rootEntitySchemaSlug: EntitySchemaSlug.make(schemaSlug) }),
+				providerSearchRecipe({
+					schema: {
+						slug: EntitySchemaSlug.make(schemaSlug),
+						owner: { kind: "plugin" as const, pluginId: provider.pluginId },
+					},
+				}),
 			);
 			expect(providers.items).toContainEqual(
 				expect.objectContaining({ providerName, providerId: provider.providerId }),
@@ -91,7 +96,12 @@ describe("Definitions E2E", () => {
 			expect(outsiderSchemas.some(({ slug }) => slug === schemaSlug)).toBe(false);
 			const outsiderProviders = yield* executeRyotQLRecipe(
 				outsider.client,
-				providerSearchRecipe({ rootEntitySchemaSlug: EntitySchemaSlug.make(schemaSlug) }),
+				providerSearchRecipe({
+					schema: {
+						slug: EntitySchemaSlug.make(schemaSlug),
+						owner: { kind: "plugin" as const, pluginId: provider.pluginId },
+					},
+				}),
 			);
 			expect(outsiderProviders.items).toEqual([]);
 		}),

@@ -1,17 +1,19 @@
 import { pluginConfigEnvironmentKey } from "@ryot-app/contract/modules/plugins/plugin-config";
-import { ImportRunId } from "@ryot-app/contract/schema/brands";
+import { EntitySchemaSlug, ImportRunId, PluginPackageId } from "@ryot-app/contract/schema/brands";
 import { Effect } from "effect";
 import getPort from "get-port";
 
 import {
 	createAuthenticatedClient,
 	createIntegration,
+	encodePluginSourceFiles,
 	getImportRun,
-	installTestPluginBundle,
+	installTestSupportSystemPlugin,
 	listImportedEntityNames,
 	pollImportRunUntilTerminal,
 	pollUntil,
 	sendDataWebhook,
+	testPluginManifest,
 	type Client,
 } from "~/fixtures/kernel";
 import { describe, expect, it } from "~/support/effect-test";
@@ -34,8 +36,8 @@ const nativeEntities = (prefix: string) =>
 		properties: {},
 		key: `record-${index}`,
 		kind: "custom" as const,
-		entitySchemaSlug: "collection",
 		name: `${prefix} ${String(index).padStart(3, "0")}`,
+		entitySchema: { owner: { kind: "kernel" as const }, slug: EntitySchemaSlug.make("collection") },
 	}));
 
 const importWorkflowSource = (
@@ -212,13 +214,16 @@ describe("isolated import durability", () => {
 				const baseUrl = `${origin}/api`;
 				const suffix = crypto.randomUUID();
 				const pluginSlug = `e2e-import-durability-${suffix}`;
+				const pluginPackageId = PluginPackageId.make(
+					`e2e-import-durability-${crypto.randomUUID()}`,
+				);
 				const sourceSlug = `e2e_import_durability_${suffix.replaceAll("-", "_")}`;
 				const workflowSlug = `durable-import-${suffix}`;
 				const workflowScriptSlug = `workflow.e2e-durable-import-${suffix}`;
 				const activityScriptSlug = `import.e2e-durable-config-${suffix}`;
 				const workflowEntry = "backend/scripts/durable-import.sandbox.ts";
 				const activityEntry = "backend/scripts/durable-config.sandbox.ts";
-				const configEnvironmentKey = pluginConfigEnvironmentKey(pluginSlug, CONFIG_KEY);
+				const configEnvironmentKey = pluginConfigEnvironmentKey(pluginPackageId, CONFIG_KEY);
 
 				const apiEnv = (label: string, configValue: string) =>
 					buildApiEnv({
@@ -244,10 +249,9 @@ describe("isolated import durability", () => {
 					);
 
 				const processA = yield* startApi("Import Durability API A", OLD_CONFIG_VALUE);
-				yield* installTestPluginBundle({
-					baseUrl,
+				const pluginManifest = testPluginManifest({
 					pluginSlug,
-					scope: "system",
+					packageId: pluginPackageId,
 					workflows: [{ slug: workflowSlug, scriptSlug: workflowScriptSlug }],
 					configSchema: {
 						unknownKeys: "strict",
@@ -259,15 +263,6 @@ describe("isolated import durability", () => {
 								description: "Configuration pinned by the durable import run",
 							},
 						},
-					},
-					files: {
-						[activityEntry]: configActivitySource(activityScriptSlug),
-						"backend/scripts/read-source.sandbox.ts": readSourceActivity(activityScriptSlug),
-						[workflowEntry]: importWorkflowSource(
-							workflowScriptSlug,
-							activityScriptSlug,
-							workflowSlug,
-						),
 					},
 					importSources: [
 						{
@@ -321,19 +316,36 @@ describe("isolated import durability", () => {
 						},
 					],
 				});
+				const plugin = yield* installTestSupportSystemPlugin({
+					baseUrl,
+					manifest: pluginManifest,
+					files: encodePluginSourceFiles({
+						[activityEntry]: configActivitySource(activityScriptSlug),
+						"backend/scripts/read-source.sandbox.ts": readSourceActivity(activityScriptSlug),
+						[workflowEntry]: importWorkflowSource(
+							workflowScriptSlug,
+							activityScriptSlug,
+							workflowSlug,
+						),
+					}),
+				});
 
 				const { client } = yield* createAuthenticatedClient(baseUrl);
 				const oldRun = yield* client.call((c) =>
 					c.imports.createRun({
-						payload: { delayMs: 30_000, source: sourceSlug, expectedValue: OLD_CONFIG_VALUE },
+						payload: {
+							delayMs: 30_000,
+							expectedValue: OLD_CONFIG_VALUE,
+							source: { slug: sourceSlug, owner: { kind: "plugin", pluginId: plugin.pluginId } },
+						},
 					}),
 				);
 				yield* waitForRunningImport(client, oldRun.id);
 				yield* Effect.sleep(1_000);
 				expect((yield* getImportRun(client, oldRun.id, undefined, 10)).run?.status).toBe("running");
 				const nativeIntegration = yield* createIntegration(client, {
-					provider: "data-json",
 					providerSpecifics: {},
+					provider: { slug: "data-json", owner: { kind: "kernel" } },
 				});
 				const nativeDocument = {
 					events: [],
@@ -397,7 +409,11 @@ describe("isolated import durability", () => {
 
 				const newRun = yield* client.call((c) =>
 					c.imports.createRun({
-						payload: { delayMs: 250, source: sourceSlug, expectedValue: NEW_CONFIG_VALUE },
+						payload: {
+							delayMs: 250,
+							expectedValue: NEW_CONFIG_VALUE,
+							source: { slug: sourceSlug, owner: { kind: "plugin", pluginId: plugin.pluginId } },
+						},
 					}),
 				);
 				expect(yield* pollImportRunUntilTerminal(client, newRun.id)).toMatchObject({
@@ -418,7 +434,11 @@ describe("isolated import durability", () => {
 
 				const cancelledRun = yield* client.call((c) =>
 					c.imports.createRun({
-						payload: { delayMs: 120_000, source: sourceSlug, expectedValue: NEW_CONFIG_VALUE },
+						payload: {
+							delayMs: 120_000,
+							expectedValue: NEW_CONFIG_VALUE,
+							source: { slug: sourceSlug, owner: { kind: "plugin", pluginId: plugin.pluginId } },
+						},
 					}),
 				);
 				yield* waitForRunningImport(client, cancelledRun.id);

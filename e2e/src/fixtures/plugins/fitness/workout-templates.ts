@@ -1,24 +1,24 @@
+import { definitionOwner } from "@ryot-app/contract/modules/plugins/references";
 import { Effect } from "effect";
 
 import type { Client } from "~/fixtures/kernel/auth";
 import { createEntity } from "~/fixtures/kernel/entities";
-import { findBuiltinSchemaBySlug } from "~/fixtures/kernel/entity-schemas";
 import {
 	listRelationshipSchemas,
 	requireRelationshipSchemaBySlug,
 } from "~/fixtures/kernel/relationship-schemas";
-import { requirePresent } from "~/support/assertions";
 
-import { createExerciseEntityFixture } from "./exercises";
+import {
+	createExerciseEntityFixture,
+	findFitnessEntitySchema,
+	fitnessFixtureInstallation,
+} from "./exercises";
 
-export const findBuiltinRelationshipSchemaSlug = (client: Client, slug: string) =>
+export const findFitnessRelationshipSchema = (client: Client, slug: string) =>
 	Effect.gen(function* () {
-		const schemas = yield* listRelationshipSchemas(client, { slugs: [slug] });
-		const schema = requireRelationshipSchemaBySlug(schemas, slug);
-		return requirePresent(
-			schema.isBuiltin ? schema.id : null,
-			`Builtin relationship schema '${slug}' not found`,
-		);
+		const owner = definitionOwner((yield* fitnessFixtureInstallation).id);
+		const schemas = yield* listRelationshipSchemas(client, { owner, slugs: [slug] });
+		return requireRelationshipSchemaBySlug(schemas, slug, owner);
 	});
 
 export const createWorkoutTemplateEntityFixture = (
@@ -26,14 +26,14 @@ export const createWorkoutTemplateEntityFixture = (
 	options: { name?: string; comment?: string; exerciseId?: string } = {},
 ) =>
 	Effect.gen(function* () {
-		const { schema: workoutTemplateSchema } = yield* findBuiltinSchemaBySlug(
+		const { schema: workoutTemplateSchema } = yield* findFitnessEntitySchema(
 			client,
 			"workout-template",
 		);
 		const exerciseId =
 			options.exerciseId ?? (yield* createExerciseEntityFixture(client)).exerciseId;
 		const workoutTemplate = yield* createEntity(client, {
-			entitySchemaSlug: workoutTemplateSchema.id,
+			entitySchema: workoutTemplateSchema.reference,
 			name: options.name ?? `Workout Template ${crypto.randomUUID()}`,
 			properties: {
 				comment: options.comment ?? "Upper body template",

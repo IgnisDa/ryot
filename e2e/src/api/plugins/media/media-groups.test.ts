@@ -2,11 +2,12 @@ import { Effect } from "effect";
 
 import {
 	createAuthenticatedClient,
-	findBuiltinPluginBySlug,
 	listEntitySchemas,
 	listEventSchemas,
 	listSavedViews,
+	type Client,
 } from "~/fixtures/kernel";
+import { findMediaEntitySchema } from "~/fixtures/plugins/media";
 import { assertPresent } from "~/support/assertions";
 import { describe, expect, it } from "~/support/effect-test";
 
@@ -19,12 +20,17 @@ const GROUP_SCHEMA_SLUGS = [
 	"video-game-group",
 ] as const;
 
+const listMediaEntitySchemas = (client: Client) =>
+	Effect.gen(function* () {
+		const { pluginId } = yield* findMediaEntitySchema(client, "movie-group");
+		return { pluginId, schemas: yield* listEntitySchemas(client, { pluginId }) };
+	});
+
 describe("media group entity schemas", () => {
 	it.live("all six group schemas are present in the builtin media plugin", () =>
 		Effect.gen(function* () {
 			const { client } = yield* createAuthenticatedClient();
-			const builtinPlugin = yield* findBuiltinPluginBySlug(client, "media");
-			const schemas = yield* listEntitySchemas(client, { pluginSlug: builtinPlugin.slug });
+			const { schemas } = yield* listMediaEntitySchemas(client);
 
 			for (const slug of GROUP_SCHEMA_SLUGS) {
 				expect(schemas.some((s) => s.slug === slug)).toBe(true);
@@ -35,13 +41,13 @@ describe("media group entity schemas", () => {
 	it.live("each group schema is marked as builtin", () =>
 		Effect.gen(function* () {
 			const { client } = yield* createAuthenticatedClient();
-			const builtinPlugin = yield* findBuiltinPluginBySlug(client, "media");
-			const schemas = yield* listEntitySchemas(client, { pluginSlug: builtinPlugin.slug });
+			const { schemas, pluginId } = yield* listMediaEntitySchemas(client);
 
 			for (const slug of GROUP_SCHEMA_SLUGS) {
 				const schema = schemas.find((s) => s.slug === slug);
 				expect(schema).toBeDefined();
 				expect(schema?.isBuiltin).toBe(true);
+				expect(schema?.pluginId).toBe(pluginId);
 			}
 		}),
 	);
@@ -49,14 +55,13 @@ describe("media group entity schemas", () => {
 	it.live("group schemas expose only the review event schema", () =>
 		Effect.gen(function* () {
 			const { client } = yield* createAuthenticatedClient();
-			const builtinPlugin = yield* findBuiltinPluginBySlug(client, "media");
-			const schemas = yield* listEntitySchemas(client, { pluginSlug: builtinPlugin.slug });
+			const { schemas } = yield* listMediaEntitySchemas(client);
 			const eventSchemasBySlug = yield* Effect.all(
 				GROUP_SCHEMA_SLUGS.map((slug) =>
 					Effect.gen(function* () {
 						const schema = schemas.find((s) => s.slug === slug);
 						assertPresent(schema, `Group schema '${slug}' not found`);
-						return { slug, eventSchemas: yield* listEventSchemas(client, schema.id) };
+						return { slug, eventSchemas: yield* listEventSchemas(client, schema.reference) };
 					}),
 				),
 			);
@@ -75,8 +80,7 @@ describe("media group entity schemas", () => {
 	it.live("group schemas have the shared properties schema fields", () =>
 		Effect.gen(function* () {
 			const { client } = yield* createAuthenticatedClient();
-			const builtinPlugin = yield* findBuiltinPluginBySlug(client, "media");
-			const schemas = yield* listEntitySchemas(client, { pluginSlug: builtinPlugin.slug });
+			const { schemas } = yield* listMediaEntitySchemas(client);
 
 			const movieGroup = schemas.find((s) => s.slug === "movie-group");
 			assertPresent(movieGroup, "movie-group schema not found");
@@ -91,8 +95,7 @@ describe("media group entity schemas", () => {
 	it.live("group schemas have provider scripts seeded", () =>
 		Effect.gen(function* () {
 			const { client } = yield* createAuthenticatedClient();
-			const builtinPlugin = yield* findBuiltinPluginBySlug(client, "media");
-			const schemas = yield* listEntitySchemas(client, { pluginSlug: builtinPlugin.slug });
+			const { schemas } = yield* listMediaEntitySchemas(client);
 
 			const movieGroup = schemas.find((s) => s.slug === "movie-group");
 			assertPresent(movieGroup, "movie-group schema not found");
@@ -109,7 +112,8 @@ describe("media group saved views", () => {
 	it.live("builtin saved views include one view per group schema", () =>
 		Effect.gen(function* () {
 			const { client } = yield* createAuthenticatedClient();
-			const views = yield* listSavedViews(client);
+			const { pluginId } = yield* findMediaEntitySchema(client, "movie-group");
+			const views = yield* listSavedViews(client, { pluginId });
 
 			const expectedViewSlugs = [
 				"all-book-series",
@@ -129,7 +133,8 @@ describe("media group saved views", () => {
 	it.live("group saved views are scoped to the correct entity schema", () =>
 		Effect.gen(function* () {
 			const { client } = yield* createAuthenticatedClient();
-			const views = yield* listSavedViews(client);
+			const { pluginId } = yield* findMediaEntitySchema(client, "movie-group");
+			const views = yield* listSavedViews(client, { pluginId });
 
 			const movieGroupView = views.find((v) => v.slug === "all-movie-series");
 			expect(movieGroupView?.isBuiltin).toBe(true);

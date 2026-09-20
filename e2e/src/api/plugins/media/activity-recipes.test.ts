@@ -1,3 +1,4 @@
+import { definitionOwner } from "@ryot-app/contract/modules/plugins/references";
 import { mediaActivityRecipe } from "@ryot-app/media-plugin/shared/activity-recipes";
 import { Effect } from "effect";
 
@@ -5,7 +6,6 @@ import {
 	createAuthenticatedClient,
 	createEventFixture,
 	executeRyotQLRecipe,
-	getBuiltinEntitySchemaSlug,
 	insertGlobalRelationship,
 	listEventSchemas,
 	listRelationshipSchemas,
@@ -13,7 +13,7 @@ import {
 	requireRelationshipSchemaBySlug,
 	type Client,
 } from "~/fixtures/kernel";
-import { seedMediaEntity } from "~/fixtures/plugins/media";
+import { findMediaEntitySchema, seedMediaEntity } from "~/fixtures/plugins/media";
 import { describe, expect, it } from "~/support/effect-test";
 
 const WINDOW = {
@@ -26,14 +26,14 @@ const COMPLETE = { completionMode: "unknown" };
 
 const seed = (client: Client, slug: string, properties: Record<string, unknown>) =>
 	Effect.gen(function* () {
-		const schemaSlug = yield* getBuiltinEntitySchemaSlug(client, slug);
-		const eventSchemas = yield* listEventSchemas(client, schemaSlug);
+		const { schema, pluginId } = yield* findMediaEntitySchema(client, slug);
+		const eventSchemas = yield* listEventSchemas(client, schema.reference);
 		const suffix = crypto.randomUUID();
 		const entity = yield* seedMediaEntity({
 			properties,
 			userId: null,
 			providerId: null,
-			entitySchemaSlug: schemaSlug,
+			entitySchemaSlug: schema.id,
 			name: `Activity ${slug} ${suffix}`,
 			externalId: `activity-${slug}-${suffix}`,
 		});
@@ -44,16 +44,24 @@ const seed = (client: Client, slug: string, properties: Record<string, unknown>)
 				properties: eventProperties,
 				eventSchemaSlug: requireEventSchemaBySlug(eventSchemas, eventSlug).id,
 			});
-		return { log, entity };
+		return { log, entity, pluginId };
 	});
 
-const link = (client: Client, source: string, target: string, relationshipSlug: string) =>
+const link = (
+	client: Client,
+	pluginId: string,
+	source: string,
+	target: string,
+	relationshipSlug: string,
+) =>
 	Effect.gen(function* () {
-		const schemas = yield* listRelationshipSchemas(client, { slugs: [relationshipSlug] });
+		const owner = definitionOwner(pluginId);
+		const schemas = yield* listRelationshipSchemas(client, { owner, slugs: [relationshipSlug] });
 		yield* insertGlobalRelationship({
 			sourceEntityId: source,
 			targetEntityId: target,
-			relationshipSchemaSlug: requireRelationshipSchemaBySlug(schemas, relationshipSlug).id,
+			relationshipSchema: requireRelationshipSchemaBySlug(schemas, relationshipSlug, owner)
+				.reference,
 		});
 	});
 
@@ -70,8 +78,14 @@ describe("Media activity recipe", () => {
 				seasonNumber: 1,
 				episodeNumber: 1,
 			});
-			yield* link(client, show.entity.id, season.entity.id, "show-to-show-season");
-			yield* link(client, season.entity.id, episode.entity.id, "show-season-to-show-episode");
+			yield* link(client, show.pluginId, show.entity.id, season.entity.id, "show-to-show-season");
+			yield* link(
+				client,
+				show.pluginId,
+				season.entity.id,
+				episode.entity.id,
+				"show-season-to-show-episode",
+			);
 
 			// 03:00Z on Jan 10 is still Jan 9 in New York.
 			yield* movie.log("complete", "2026-01-10T03:00:00.000Z", COMPLETE);
@@ -81,7 +95,10 @@ describe("Media activity recipe", () => {
 			yield* episode.log("complete", "2026-01-12T13:00:00.000Z", COMPLETE);
 			yield* book.log("complete", "2025-12-31T12:00:00.000Z", { ...COMPLETE, timeSpent: 999 });
 
-			const activity = yield* executeRyotQLRecipe(client, mediaActivityRecipe(WINDOW));
+			const activity = yield* executeRyotQLRecipe(
+				client,
+				mediaActivityRecipe({ reference: { kind: "local", pluginId: movie.pluginId }, ...WINDOW }),
+			);
 
 			expect(activity.figures).toEqual({ reviews: 1, finished: 2, minutes: 195 });
 			expect(activity.days).toEqual([

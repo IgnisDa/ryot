@@ -22,7 +22,6 @@ import {
 	createNotificationChannel,
 	deleteNotificationChannel,
 	executeRyotQL,
-	findBuiltinSchemaBySlug,
 	getApiClient,
 	listNotificationChannels,
 	pollSignalTrigger,
@@ -34,6 +33,7 @@ import {
 	testNotificationChannels,
 	updateNotificationChannel,
 } from "~/fixtures/kernel";
+import { findFitnessEntitySchema } from "~/fixtures/plugins/fitness";
 import { assertTaggedError, requireObjectRecord, requirePresent } from "~/support/assertions";
 import { afterAll, beforeAll, describe, expect, it, runPromise } from "~/support/effect-test";
 import type { FakeHttpServer } from "~/support/fake-http-server";
@@ -298,16 +298,20 @@ describe("notification delivery", () => {
 			const { client, userId } = yield* createAuthenticatedClient();
 			expect(yield* listNotificationChannels(client)).toEqual([]);
 
-			const { schema } = yield* findBuiltinSchemaBySlug(client, "workout");
+			const { schema } = yield* findFitnessEntitySchema(client, "workout");
+			const signalSchema = {
+				owner: schema.reference.owner,
+				slug: SignalSchemaSlug.make("workout.created"),
+			};
 			yield* createEntity(client, {
-				entitySchemaSlug: schema.id,
+				entitySchema: schema.reference,
 				name: `Zero Channel Workout ${crypto.randomUUID()}`,
 				properties: { endedAt: "2026-07-21T11:00:00Z", startedAt: "2026-07-21T10:00:00Z" },
 			});
 
 			const { id: triggerId } = yield* pollSignalTrigger({
+				signalSchema,
 				actorUserId: UserId.make(userId),
-				signalSchemaSlug: SignalSchemaSlug.make("workout.created"),
 			});
 			const runs = yield* pollTerminalAutomationRuns({
 				triggerId,

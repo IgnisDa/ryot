@@ -19,7 +19,7 @@ describe("Entity write path — propertiesSchema validation", () => {
 	it.live("rejects entity creation when a required field is missing", () =>
 		Effect.gen(function* () {
 			const { client } = yield* createAuthenticatedClient();
-			const { schemaId } = yield* createPluginSchema(client, {
+			const { reference } = yield* createPluginSchema(client, {
 				name: "Required Field Schema",
 				propertiesSchema: {
 					fields: {
@@ -36,7 +36,7 @@ describe("Entity write path — propertiesSchema validation", () => {
 			const error = yield* Effect.flip(
 				client.call((c) =>
 					c.entities.create({
-						payload: { properties: {}, name: "Missing Required", entitySchemaSlug: schemaId },
+						payload: { properties: {}, entitySchema: reference, name: "Missing Required" },
 					}),
 				),
 			);
@@ -49,7 +49,7 @@ describe("Entity write path — propertiesSchema validation", () => {
 	it.live("rejects entity creation when a field has the wrong type", () =>
 		Effect.gen(function* () {
 			const { client } = yield* createAuthenticatedClient();
-			const { schemaId } = yield* createPluginSchema(client, {
+			const { reference } = yield* createPluginSchema(client, {
 				name: "Type Check Schema",
 				propertiesSchema: {
 					fields: {
@@ -68,7 +68,7 @@ describe("Entity write path — propertiesSchema validation", () => {
 					c.entities.create({
 						payload: {
 							name: "Wrong Type",
-							entitySchemaSlug: schemaId,
+							entitySchema: reference,
 							properties: { count: "not-a-number" },
 						},
 					}),
@@ -85,7 +85,7 @@ describe("Entity write path — propertiesSchema validation", () => {
 		() =>
 			Effect.gen(function* () {
 				const { client } = yield* createAuthenticatedClient();
-				const { schemaId } = yield* createPluginSchema(client, {
+				const { reference } = yield* createPluginSchema(client, {
 					name: "Strict Schema",
 					propertiesSchema: {
 						fields: { title: { label: "Title", description: "Title", type: "string" as const } },
@@ -94,7 +94,7 @@ describe("Entity write path — propertiesSchema validation", () => {
 
 				const entity = yield* createEntity(client, {
 					name: "Extra Field",
-					entitySchemaSlug: schemaId,
+					entitySchema: reference,
 					properties: { title: "OK", undeclaredField: "should fail" },
 				});
 
@@ -105,7 +105,7 @@ describe("Entity write path — propertiesSchema validation", () => {
 	it.live("accepts entity creation when properties match the schema exactly", () =>
 		Effect.gen(function* () {
 			const { client } = yield* createAuthenticatedClient();
-			const { schemaId } = yield* createPluginSchema(client, {
+			const { reference } = yield* createPluginSchema(client, {
 				name: "Valid Schema",
 				propertiesSchema: {
 					fields: {
@@ -122,7 +122,7 @@ describe("Entity write path — propertiesSchema validation", () => {
 
 			const entity = yield* createEntity(client, {
 				name: "Valid Entity",
-				entitySchemaSlug: schemaId,
+				entitySchema: reference,
 				properties: { rating: 4, title: "My Item" },
 			});
 

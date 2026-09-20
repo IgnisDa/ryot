@@ -4,12 +4,12 @@ import {
 	createAuthenticatedClient,
 	createEntity,
 	createEventTestFixture,
-	findBuiltinSchemaBySlug,
 	listEventSchemas,
 	requireEventSchemaBySlug,
 	waitForCreateEvents,
 	waitForEventCount,
 } from "~/fixtures/kernel";
+import { findFitnessEntitySchema } from "~/fixtures/plugins/fitness";
 import {
 	createGlobalBookEntityFixture,
 	queryInMediaLibraryRelationship,
@@ -22,7 +22,7 @@ describe("POST /events with global entities", () => {
 			const { client } = yield* createAuthenticatedClient();
 			const { entity, schema } = yield* createGlobalBookEntityFixture(client);
 
-			const eventSchemas = yield* listEventSchemas(client, schema.id);
+			const eventSchemas = yield* listEventSchemas(client, schema.reference);
 			const backlogEventSchema = requireEventSchemaBySlug(eventSchemas, "backlog");
 
 			const createResult = yield* client.call((c) =>
@@ -52,7 +52,7 @@ describe("POST /events with global entities", () => {
 		Effect.gen(function* () {
 			const { client } = yield* createAuthenticatedClient();
 			const { entity, schema } = yield* createGlobalBookEntityFixture(client);
-			const eventSchemas = yield* listEventSchemas(client, schema.id);
+			const eventSchemas = yield* listEventSchemas(client, schema.reference);
 			const backlog = requireEventSchemaBySlug(eventSchemas, "backlog");
 			const complete = requireEventSchemaBySlug(eventSchemas, "complete");
 
@@ -87,13 +87,13 @@ describe("media membership event exclusions", () => {
 	it.live("does not add fitness entities to the media library", () =>
 		Effect.gen(function* () {
 			const { client } = yield* createAuthenticatedClient();
-			const { schema } = yield* findBuiltinSchemaBySlug(client, "exercise");
-			const eventSchemas = yield* listEventSchemas(client, schema.id);
+			const { schema } = yield* findFitnessEntitySchema(client, "exercise");
+			const eventSchemas = yield* listEventSchemas(client, schema.reference);
 			const reviewEventSchema = requireEventSchemaBySlug(eventSchemas, "review");
 			const entity = yield* createEntity(client, {
 				properties: {},
 				name: "Event exercise",
-				entitySchemaSlug: schema.id,
+				entitySchema: schema.reference,
 			});
 
 			const result = yield* client.call((c) =>

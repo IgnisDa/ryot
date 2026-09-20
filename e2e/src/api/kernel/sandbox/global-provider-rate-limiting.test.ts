@@ -1,5 +1,5 @@
 import type { PluginManifest } from "@ryot-app/contract/modules/plugins/manifest";
-import { PluginSlug, type SandboxScriptId, UserId } from "@ryot-app/contract/schema/brands";
+import { type SandboxScriptId, UserId } from "@ryot-app/contract/schema/brands";
 import { Duration, Effect } from "effect";
 import getPort from "get-port";
 
@@ -459,10 +459,7 @@ describe("isolated deployment-global sandbox HTTP rate limiting", () => {
 						.call(
 							(c) =>
 								c.testSupport.uninstallSystemPlugin({
-									params: {
-										activationId: installed.activationId,
-										pluginSlug: PluginSlug.make(pluginSlug),
-									},
+									params: { pluginId: installed.pluginId, activationId: installed.activationId },
 								}),
 							adminHeaders(),
 						)

@@ -1,3 +1,4 @@
+import type { PluginId } from "@ryot-app/contract/schema/brands";
 import { PluginSlug } from "@ryot-app/contract/schema/brands";
 import { and, column, document, eq, field, join, literal, rows, table } from "@ryot-app/ryotql";
 import { pluginInstallationsRecipe } from "@ryot-app/ryotql-recipes/plugin-installations";
@@ -58,9 +59,9 @@ const listPlugins = (client: Client) =>
 const reconcilePluginInstallations = () =>
 	adminSession().call((c) => c.testSupport.reconcilePluginInstallations(), adminHeaders());
 
-const uninstallShippedPlugin = (pluginSlug: PluginSlug, activationId: string) =>
+const uninstallShippedPlugin = (pluginId: PluginId, activationId: string) =>
 	adminSession().call(
-		(c) => c.testSupport.uninstallSystemPlugin({ params: { pluginSlug, activationId } }),
+		(c) => c.testSupport.uninstallSystemPlugin({ params: { pluginId, activationId } }),
 		adminHeaders(),
 	);
 
@@ -91,7 +92,7 @@ const installShippedPlugin = (
 	return Effect.acquireRelease(
 		installTestSupportSystemPlugin({ files, manifest, baseUrl: apiUrl() }),
 		(installed) =>
-			uninstallShippedPlugin(pluginSlug, installed.activationId).pipe(
+			uninstallShippedPlugin(installed.pluginId, installed.activationId).pipe(
 				Effect.catch((error) =>
 					Effect.logWarning(
 						`[reconciliation] shipped cleanup failed for '${pluginSlug}' (non-fatal)`,
@@ -226,7 +227,7 @@ describe("system plugin reconciliation", () => {
 				health: "ready",
 			});
 
-			yield* uninstallShippedPlugin(pluginSlug, shipped.activationId);
+			yield* uninstallShippedPlugin(shipped.pluginId, shipped.activationId);
 			yield* reconcilePluginInstallations();
 
 			const restored = yield* ownedInstallation(client, pluginSlug);
@@ -254,7 +255,12 @@ describe("system plugin reconciliation", () => {
 
 			const [before] = yield* installationRows(client, pluginSlug, "user");
 			const removed = yield* client.call((c) =>
-				c.plugins.uninstall({ params: { pluginSlug, activationId: privatePlugin.activationId } }),
+				c.plugins.uninstall({
+					params: {
+						activationId: privatePlugin.activationId,
+						installationId: privatePlugin.installationId,
+					},
+				}),
 			);
 			expect(removed.id).toBe(
 				requireRyotQLText(
@@ -307,7 +313,7 @@ describe("system plugin reconciliation", () => {
 			// The shipped plugin is uninstalled when this test's scope closes, which would otherwise
 			// return the private installation to `ready` inside a later reconcile while the shipped
 			// plugin's generated view row still owns the shared slug.
-			yield* releasePrivatePlugin(client, pluginSlug);
+			yield* releasePrivatePlugin(client, plugin.installationId);
 		}),
 	);
 

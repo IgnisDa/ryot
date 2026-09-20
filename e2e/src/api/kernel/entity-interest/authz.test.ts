@@ -10,13 +10,12 @@ import {
 	createAuthenticatedClient,
 	createImpersonationSession,
 	endImpersonationSession,
-	findBuiltinSchemaBySlug,
 	getEntity,
 	makeSession,
 	openInterestWebSocketScoped,
 	type Client,
 } from "~/fixtures/kernel";
-import { seedMediaEntity } from "~/fixtures/plugins/media";
+import { findMediaEntitySchema, seedMediaEntity } from "~/fixtures/plugins/media";
 import { assertPresent } from "~/support/assertions";
 import { describe, expect, it } from "~/support/effect-test";
 import { getApiUrl } from "~/support/harness-target";
@@ -77,7 +76,7 @@ describe("interest authorization", () => {
 			const authA = yield* createAuthenticatedClient();
 			const authB = yield* createAuthenticatedClient();
 
-			const { schema } = yield* findBuiltinSchemaBySlug(authA.client, "company");
+			const { schema } = yield* findMediaEntitySchema(authA.client, "company");
 			const providerId = schema.providers.find(
 				(provider) => provider.name === "Anilist",
 			)?.providerId;
