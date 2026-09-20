@@ -24,6 +24,7 @@ import {
 	type FitnessPresentationSourceData,
 } from "../shared/entity-presentations";
 import { managedAssetBatch, useAssetUrl } from "./asset-urls";
+import { formatDay, formatValue } from "./measurements/model";
 
 export type FitnessPresentationViewData = {
 	readonly callout: string | null;
@@ -51,6 +52,7 @@ const buildFitnessPresentations = (
 			}),
 		),
 		(rows) => {
+			const timeZone = Intl.DateTimeFormat().resolvedOptions().timeZone;
 			const batchAssets = managedAssetBatch(
 				rows.map(({ presentationImage }) => presentationImage ?? undefined),
 			);
@@ -61,9 +63,12 @@ const buildFitnessPresentations = (
 						batchAssets,
 						name: source.presentationName,
 						image: source.presentationImage,
-						primary: source.presentationPrimary,
 						callout: source.presentationCallout,
 						secondary: source.presentationSecondary,
+						primary:
+							source.presentationLatestValue === null || source.presentationLatestAt === null
+								? source.presentationPrimary
+								: `${formatValue(source.presentationLatestValue, source.presentationPrimary)} · ${formatDay(source.presentationLatestAt, timeZone)}`,
 					},
 				]),
 			);
