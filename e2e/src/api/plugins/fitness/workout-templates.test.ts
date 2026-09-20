@@ -41,6 +41,7 @@ type WorkoutTemplateProperties = {
 		videos?: AssetLocator[];
 		sets: Array<{
 			note?: string;
+			restTime?: number;
 			setOrder: number;
 			rpe?: number | null;
 			reps?: number | null;
@@ -364,8 +365,8 @@ describe("Workout Templates E2E", () => {
 						videos: [{ type: "s3", key: "templates/video.mp4" }],
 						images: [{ type: "remote", url: "https://example.com/template-image.jpg" }],
 						sets: [
-							{ setOrder: 0, setLot: "normal" },
-							{ setOrder: 1, note: "Ramp up", setLot: "warm_up" },
+							{ setOrder: 0, restTime: 60, setLot: "normal" },
+							{ setOrder: 1, restTime: 0, note: "Ramp up", setLot: "warm_up" },
 						],
 					},
 					{

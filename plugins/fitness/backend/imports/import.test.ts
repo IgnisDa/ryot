@@ -369,6 +369,15 @@ it.each(["hevy", "strong_app"])(
 				Effect.map((result) => {
 					const items = result.chunks.flatMap((chunk) => chunk.items);
 					expect(items).toHaveLength(76);
+					for (const item of items) {
+						const workout = item.entities.find((entity) => entity.alias === "workout");
+						assert(workout);
+						if (source === "strong_app") {
+							expect(workout.properties["activeDuration"]).toBe(3600);
+						} else {
+							expect(workout.properties).not.toHaveProperty("activeDuration");
+						}
+					}
 					expect(result.chunks.length).toBeGreaterThan(1);
 					expect(result.collectionOffsets.length).toBeGreaterThan(1);
 					expect(result.maximumRead).toBeLessThanOrEqual(1024 * 1024);

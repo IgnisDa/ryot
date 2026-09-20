@@ -3,6 +3,38 @@ import { describe, expect, it } from "vitest";
 import { adaptStrongAppCsv } from "./strong-app";
 
 describe("adaptStrongAppCsv", () => {
+	it.each([
+		["0", 0],
+		["60", 60],
+		["1.5m 0.9s", 90],
+	])("records the reported session duration %s in whole seconds", (duration, expected) => {
+		const result = adaptStrongAppCsv(
+			[
+				"Date,Workout Name,Duration,Exercise Name,Set Order,Reps",
+				`2026-01-01 10:00:00,Session,${duration},Push Up,1,10`,
+			].join("\n"),
+			"Etc/GMT",
+		);
+		expect(result.failures).toEqual([]);
+		expect(result.items[0]?.activeDuration).toBe(expected);
+	});
+
+	it.each(["unknown", "-60", "-1h", "Infinity", "1h trailing", "1e309h"])(
+		"reports an invalid session duration %s instead of recording zero",
+		(duration) => {
+			const result = adaptStrongAppCsv(
+				[
+					"Date,Workout Name,Duration,Exercise Name,Set Order,Reps",
+					`2026-01-01 10:00:00,Session,${duration},Push Up,1,10`,
+				].join("\n"),
+				"Etc/GMT",
+			);
+			expect(result.items).toEqual([]);
+			expect(result.failures).toEqual([
+				expect.objectContaining({ message: `Could not parse workout duration "${duration}"` }),
+			]);
+		},
+	);
 	it("groups semicolon StrongApp rows into normalized workouts and exercises", () => {
 		const csv = [
 			"Date;Workout Name;Duration;Exercise Name;Set Order;Weight (kg);Reps;Distance (m);Seconds;Notes;Workout Notes",
@@ -19,6 +51,7 @@ describe("adaptStrongAppCsv", () => {
 		expect(result.items.length).toBe(1);
 		expect(result.items[0]).toMatchObject({
 			name: "Push Day",
+			activeDuration: 3723,
 			comment: "Good session",
 			endedAt: "2026-01-01T11:02:03.000Z",
 			sourceIdentifier: "2026-01-01 10:00:00:Push Day",
