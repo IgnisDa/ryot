@@ -2,9 +2,6 @@ import { expect, it } from "@effect/vitest";
 import { Cause, Effect, Exit, Option } from "effect";
 import { assert } from "vitest";
 
-import { kernelDefinitionSource } from "#modules/definition-registry/kernel-source";
-import { buildDefinitionSnapshot } from "#modules/definition-registry/snapshot";
-
 import { fixtureManifest } from "./test-support";
 import { validatePluginExecutableScripts, validatePluginManifestReferences } from "./validation";
 
@@ -44,12 +41,11 @@ it.effect("rejects duplicate operation slugs and unknown driver references", () 
 			return { ...manifest, operations: [{ ...operation, scriptSlug: "missing-script" }] };
 		},
 	];
-	const snapshot = buildDefinitionSnapshot(kernelDefinitionSource());
 
 	return Effect.forEach(cases, (mutate) => {
 		const manifest = mutate(operationManifest());
 		return Effect.gen(function* () {
-			const exit = yield* Effect.exit(validatePluginManifestReferences(manifest, snapshot));
+			const exit = yield* Effect.exit(validatePluginManifestReferences(manifest));
 			expect(Exit.isFailure(exit)).toBe(true);
 		});
 	});

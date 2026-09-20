@@ -1,5 +1,6 @@
 import { expect, layer } from "@effect/vitest";
 import { DbError } from "@ryot-app/contract/errors";
+import { definitionOwner, identityTupleKey } from "@ryot-app/contract/modules/plugins/references";
 import { Cause, Effect, Exit, Layer, Option } from "effect";
 
 import { databaseLayer } from "#lib/test-utils/effect";
@@ -9,6 +10,8 @@ import { PluginRepository } from "./repository";
 
 const declarations = (slug: string, key: string, origin: string) => ({
 	slug,
+	scope: "system" as const,
+	owner: definitionOwner(slug),
 	httpRateLimits: [{ key, requests: 5, origins: [origin], intervalMs: 1_000 }],
 });
 
@@ -37,8 +40,8 @@ layer(
 				declaration: {
 					requests: 5,
 					intervalMs: 1_000,
-					key: "catalog.api",
 					origins: ["https://api.example.com"],
+					key: identityTupleKey("http-origin", "https://api.example.com"),
 				},
 			});
 			expect(yield* authority.resolve("https://other.example.com/path")).toEqual({

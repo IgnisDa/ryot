@@ -1,8 +1,13 @@
 import {
 	clientArtifactMetadata,
+	clientDeclarationHash,
 	type PluginClientArtifact,
 } from "@ryot-app/client-plugin-contract";
-import type { PluginManifest } from "@ryot-app/contract/modules/plugins/manifest";
+import type {
+	PluginClientEntry,
+	PluginManifest,
+} from "@ryot-app/contract/modules/plugins/manifest";
+import type { PluginPackageId } from "@ryot-app/contract/schema/brands";
 import { derivePluginSandboxScripts } from "@ryot-app/sandbox-compiler/plugin-manifest";
 import { Data, Effect, FileSystem, Stream } from "effect";
 
@@ -12,7 +17,11 @@ export class PluginSourceError extends Data.TaggedError("PluginSourceError")<{
 	readonly message: string;
 }> {}
 
-export const fixtureClientArtifact = (pluginName: string): PluginClientArtifact => {
+export const fixtureClientArtifact = (
+	pluginName: string,
+	packageId: PluginPackageId,
+	client: PluginClientEntry,
+): PluginClientArtifact => {
 	const files = [
 		{
 			name: "index.html",
@@ -25,7 +34,13 @@ export const fixtureClientArtifact = (pluginName: string): PluginClientArtifact 
 			contents: new TextEncoder().encode("export {};"),
 		},
 	];
-	return { ...clientArtifactMetadata(pluginName, files), files };
+	return {
+		...clientArtifactMetadata(pluginName, packageId, files, {
+			imports: [],
+			clientDeclarationHash: clientDeclarationHash(client),
+		}),
+		files,
+	};
 };
 
 const pluginSourcePaths = (packageRoot: string) =>
@@ -78,6 +93,14 @@ export const loadPluginSource = (packageRoot: string, manifest: PluginManifest) 
 		return {
 			compiledScripts,
 			manifest: { ...manifest, scripts },
-			...(manifest.client ? { compiledClient: fixtureClientArtifact(manifest.metadata.name) } : {}),
+			...(manifest.client
+				? {
+						compiledClient: fixtureClientArtifact(
+							manifest.metadata.name,
+							manifest.metadata.packageId,
+							manifest.client,
+						),
+					}
+				: {}),
 		} satisfies PluginSource;
 	});

@@ -43,31 +43,13 @@ export const PluginIngestionLockLive = PluginIngestionLock.layer.pipe(
 			PluginRepository.layer,
 			PluginInstallationRepository.layer,
 			PluginRevisionActivationLive,
+			SystemPlugins.layer,
 		),
 	),
 );
 
 export const PluginInvalidationSubscriberLive = PluginInvalidationSubscriber.layer.pipe(
 	Layer.provide(PluginCatalogHub.layer),
-);
-
-export const PluginIngestionServiceLive = PluginIngestionService.layer.pipe(
-	Layer.provide(
-		Layer.mergeAll(
-			PluginRevisionActivationLive,
-			PluginRepository.layer,
-			DefinitionRepository.layer,
-			SystemPlugins.layer,
-			PluginCatalogInvalidatorLive,
-		),
-	),
-);
-
-const installationRepositories = Layer.mergeAll(
-	DefinitionRepository.layer,
-	PluginRepository.layer,
-	PluginInstallationRepository.layer,
-	SandboxWorkflowReferenceRepository.layer,
 );
 
 const pluginIngestionRetirement = Layer.effect(
@@ -80,6 +62,29 @@ const pluginIngestionRetirement = Layer.effect(
 	})),
 ).pipe(Layer.provide(IngestionRetirementLive));
 
+export const PluginIngestionServiceLive = PluginIngestionService.layer.pipe(
+	Layer.provide(
+		Layer.mergeAll(
+			PluginRevisionActivationLive,
+			PluginRepository.layer,
+			PluginInstallationRepository.layer,
+			DefinitionRepository.layer,
+			SystemPlugins.layer,
+			PluginCatalogInvalidatorLive,
+			pluginIngestionRetirement,
+		),
+	),
+);
+
+const installationRepositories = Layer.mergeAll(
+	DefinitionRepository.layer,
+	PluginIngestionLockLive,
+	PluginRepository.layer,
+	PluginInstallationRepository.layer,
+	SandboxWorkflowReferenceRepository.layer,
+	SystemPlugins.layer,
+);
+
 export const PluginInstallationMigrationLive = PluginInstallationService.layerMigration.pipe(
 	Layer.provide(
 		Layer.mergeAll(
@@ -89,7 +94,6 @@ export const PluginInstallationMigrationLive = PluginInstallationService.layerMi
 			PluginInstallationLifecycleDispatcher.layer,
 			UploadServicesLive,
 			ObjectStorageServiceLive,
-			PluginIngestionLockLive,
 			SavedViewPluginReferencesProvidedLive,
 		),
 	),
@@ -103,7 +107,6 @@ export const PluginInstallationRuntimeLive = PluginInstallationService.layerRunt
 			PluginInstallationLifecycleDispatcherLive,
 			UploadServicesLive,
 			ObjectStorageServiceLive,
-			PluginIngestionLockLive,
 			SavedViewPluginReferencesProvidedLive,
 			PluginCatalogInvalidatorLive,
 		),

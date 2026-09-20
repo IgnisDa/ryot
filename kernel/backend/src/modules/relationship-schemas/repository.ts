@@ -1,4 +1,10 @@
 import {
+	definitionKey,
+	type DefinitionOwner,
+	type EntitySchemaReference,
+	type RelationshipSchemaReference,
+} from "@ryot-app/contract/modules/plugins/references";
+import {
 	EntitySchemaSlug,
 	RelationshipSchemaSlug,
 	type UserId,
@@ -15,7 +21,7 @@ type RelationshipSchemaScope = {
 	readonly isBuiltin: boolean;
 	readonly id: RelationshipSchemaSlug;
 	readonly propertiesSchema: AppSchema;
-	readonly pluginId?: string | null | undefined;
+	readonly pluginId: string | null;
 	readonly sourceEntitySchemaSlug: EntitySchemaSlug | null;
 	readonly targetEntitySchemaSlug: EntitySchemaSlug | null;
 };
@@ -28,25 +34,41 @@ export class RelationshipSchemasRepository extends Context.Service<RelationshipS
 	{
 		make: Effect.gen(function* () {
 			const definitions = yield* DefinitionRepository;
-			const findBuiltinBySlug = (slug: string) =>
-				definitions.findGlobalRelationshipSchema(slug).pipe(Effect.map(toNullableScope));
-			const findById = (slug: RelationshipSchemaSlug, userId: UserId | null) =>
+			const findByReference = (reference: RelationshipSchemaReference, userId: UserId | null) =>
 				userId === null
-					? findBuiltinBySlug(slug)
+					? definitions.findGlobalRelationshipSchema(reference).pipe(Effect.map(toNullableScope))
 					: definitions
-							.findUserRelationshipSchemas(userId, [slug])
-							.pipe(Effect.map((found) => toNullableScope(found[slug])));
-			const findGlobalBySchemaIds = (input: {
-				sourceEntitySchemaSlug: EntitySchemaSlug;
-				targetEntitySchemaSlug: EntitySchemaSlug;
-			}) =>
+							.findUserRelationshipSchemas(userId, [reference])
+							.pipe(
+								Effect.map((found) =>
+									toNullableScope(
+										found[definitionKey("relationship", reference.owner, reference.slug)],
+									),
+								),
+							);
+			const findKernelBySlug = (slug: string) =>
 				definitions
-					.findGlobalRelationshipSchemaByEndpoints(
-						input.sourceEntitySchemaSlug,
-						input.targetEntitySchemaSlug,
-					)
+					.findGlobalRelationshipSchema({
+						owner: { kind: "kernel" },
+						slug: RelationshipSchemaSlug.make(slug),
+					})
 					.pipe(Effect.map(toNullableScope));
-			return { findById, findBuiltinBySlug, findGlobalBySchemaIds };
+			const findGlobalBySchemaIds = (input: {
+				owner: DefinitionOwner;
+				sourceEntitySchema: EntitySchemaReference;
+				targetEntitySchema: EntitySchemaReference;
+			}) =>
+				ownerMatches(input.owner, input.sourceEntitySchema.owner) &&
+				ownerMatches(input.owner, input.targetEntitySchema.owner)
+					? definitions
+							.findGlobalRelationshipSchemaByEndpoints(
+								input.owner,
+								input.sourceEntitySchema.slug,
+								input.targetEntitySchema.slug,
+							)
+							.pipe(Effect.map(toNullableScope))
+					: Effect.succeed(null);
+			return { findByReference, findKernelBySlug, findGlobalBySchemaIds };
 		}),
 	},
 ) {
@@ -54,12 +76,12 @@ export class RelationshipSchemasRepository extends Context.Service<RelationshipS
 }
 
 const toScope = (definition: RelationshipSchemaDefinition): RelationshipSchemaScope => ({
-	isBuiltin: true,
 	name: definition.name,
 	slug: definition.slug,
+	pluginId: definition.pluginId,
+	isBuiltin: definition.pluginId === null,
 	propertiesSchema: definition.propertiesSchema,
 	id: RelationshipSchemaSlug.make(definition.slug),
-	...(definition.pluginId == null ? {} : { pluginId: definition.pluginId }),
 	sourceEntitySchemaSlug: definition.sourceEntitySchemaSlug
 		? EntitySchemaSlug.make(definition.sourceEntitySchemaSlug)
 		: null,
@@ -67,3 +89,8 @@ const toScope = (definition: RelationshipSchemaDefinition): RelationshipSchemaSc
 		? EntitySchemaSlug.make(definition.targetEntitySchemaSlug)
 		: null,
 });
+
+const ownerMatches = (left: DefinitionOwner, right: DefinitionOwner) =>
+	left.kind === "kernel"
+		? right.kind === "kernel"
+		: right.kind === "plugin" && left.pluginId === right.pluginId;

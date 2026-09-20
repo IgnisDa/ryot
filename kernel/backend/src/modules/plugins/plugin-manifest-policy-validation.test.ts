@@ -31,7 +31,13 @@ it.effect("applies system and user manifest policy", () =>
 				},
 			],
 		};
-		yield* validatePluginManifestPolicy(allowed, { scope: "user", systemSlugs: new Set() });
+		yield* validatePluginManifestPolicy(
+			{
+				...allowed,
+				userBootstrap: [{ slug: "seed", description: "Seed", scriptSlug: script.slug }],
+			},
+			{ scope: "user", systemPackageIds: new Set() },
+		);
 		yield* validatePluginManifestPolicy(
 			{
 				...allowed,
@@ -52,7 +58,7 @@ it.effect("applies system and user manifest policy", () =>
 						{ requests: 1, key: "outbound", intervalMs: 1_000, origins: ["https://example.com"] },
 					],
 				},
-				{ scope: "user", systemSlugs: new Set() },
+				{ scope: "user", systemPackageIds: new Set() },
 			),
 		);
 		assert(Exit.isFailure(rejected));
@@ -60,7 +66,6 @@ it.effect("applies system and user manifest policy", () =>
 		assert(failure instanceof PluginSurfaceError);
 		expect([...failure.surfaces].sort((left, right) => left.localeCompare(right))).toEqual([
 			"httpRateLimits",
-			"userBootstrap",
 		]);
 	}),
 );
@@ -85,7 +90,7 @@ it.effect("reserves OAuth providers for system plugins", () =>
 		};
 		yield* validatePluginManifestPolicy(manifest, { scope: "system" });
 		const rejected = yield* Effect.exit(
-			validatePluginManifestPolicy(manifest, { scope: "user", systemSlugs: new Set() }),
+			validatePluginManifestPolicy(manifest, { scope: "user", systemPackageIds: new Set() }),
 		);
 		assert(Exit.isFailure(rejected));
 		const failure = Option.getOrThrow(Cause.findErrorOption(rejected.cause));

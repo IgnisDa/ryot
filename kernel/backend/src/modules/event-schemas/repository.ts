@@ -1,3 +1,8 @@
+import {
+	definitionKey,
+	definitionOwner,
+	type EntitySchemaReference,
+} from "@ryot-app/contract/modules/plugins/references";
 import { EntitySchemaSlug, EventSchemaSlug, type UserId } from "@ryot-app/contract/schema/brands";
 import { Context, Effect, Layer } from "effect";
 
@@ -8,9 +13,9 @@ import { PluginRuntimeResolver } from "#modules/plugins/runtime-resolver";
 const toListed = (entitySchemaSlug: string, event: EventSchemaDefinition) => ({
 	slug: event.slug,
 	name: event.name,
+	pluginId: event.pluginId,
 	id: EventSchemaSlug.make(event.slug),
 	propertiesSchema: event.propertiesSchema,
-	...(event.pluginId == null ? {} : { pluginId: event.pluginId }),
 	entitySchemaSlug: EntitySchemaSlug.make(entitySchemaSlug),
 });
 
@@ -21,39 +26,58 @@ export class EventSchemasRepository extends Context.Service<EventSchemasReposito
 			const definitions = yield* DefinitionRepository;
 			const pluginRuntime = yield* PluginRuntimeResolver;
 			const lockCatalog = pluginRuntime.lockCatalog;
-			const findEntitySchema = (userId: UserId, slug: EntitySchemaSlug) =>
+			const findEntitySchema = (userId: UserId, reference: EntitySchemaReference) =>
 				definitions
-					.findUserEntitySchemas(userId, [slug])
-					.pipe(Effect.map((found) => found[slug] ?? null));
+					.findUserEntitySchemas(userId, [reference])
+					.pipe(
+						Effect.map(
+							(found) => found[definitionKey("entity", reference.owner, reference.slug)] ?? null,
+						),
+					);
 			const getEntitySchemaScopeById = (input: {
 				userId: UserId;
-				entitySchemaSlug: EntitySchemaSlug;
+				entitySchema: EntitySchemaReference;
 			}) =>
-				findEntitySchema(input.userId, input.entitySchemaSlug).pipe(
+				findEntitySchema(input.userId, input.entitySchema).pipe(
 					Effect.map((definition) => {
 						return definition
-							? { userId: null, isBuiltin: true, slug: definition.slug, id: input.entitySchemaSlug }
+							? {
+									userId: null,
+									slug: definition.slug,
+									id: input.entitySchema.slug,
+									pluginId: definition.pluginId,
+									isBuiltin: definition.pluginId === null,
+								}
 							: null;
 					}),
 				);
 			const getBuiltinBySlug = (input: { entitySchemaSlug: EntitySchemaSlug; slug: string }) =>
 				definitions
-					.findGlobalEventSchema(input.entitySchemaSlug, input.slug)
+					.findGlobalEventSchema({
+						owner: { kind: "kernel" },
+						slug: EventSchemaSlug.make(input.slug),
+						entitySchemaSlug: input.entitySchemaSlug,
+					})
 					.pipe(
 						Effect.map((event) =>
 							event
-								? { id: EventSchemaSlug.make(event.slug), propertiesSchema: event.propertiesSchema }
+								? {
+										slug: event.slug,
+										pluginId: event.pluginId,
+										id: EventSchemaSlug.make(event.slug),
+										propertiesSchema: event.propertiesSchema,
+									}
 								: null,
 						),
 					);
 			const listByEntitySchemaForUser = (input: {
 				userId: UserId;
-				entitySchemaSlug: EntitySchemaSlug;
+				entitySchema: EntitySchemaReference;
 			}) =>
 				definitions
-					.listUserEventSchemas(input.userId, input.entitySchemaSlug)
+					.listUserEventSchemas(input.userId, input.entitySchema)
 					.pipe(
-						Effect.map((events) => events.map((event) => toListed(input.entitySchemaSlug, event))),
+						Effect.map((events) => events.map((event) => toListed(input.entitySchema.slug, event))),
 					);
 			const getScopeForUser = (input: {
 				userId: UserId;
@@ -61,13 +85,17 @@ export class EventSchemasRepository extends Context.Service<EventSchemasReposito
 				entitySchemaPluginId: string | null;
 				entitySchemaSlug: EntitySchemaSlug;
 			}) => {
-				return findEntitySchema(input.userId, input.entitySchemaSlug).pipe(
+				const entitySchemaReference = {
+					slug: input.entitySchemaSlug,
+					owner: definitionOwner(input.entitySchemaPluginId),
+				};
+				return findEntitySchema(input.userId, entitySchemaReference).pipe(
 					Effect.map((entity) => {
-						if (!entity || (entity.pluginId ?? null) !== input.entitySchemaPluginId) {
+						if (!entity || entity.pluginId !== input.entitySchemaPluginId) {
 							return null;
 						}
 						const event = entity.eventSchemas[input.eventSchemaSlug];
-						if (event && (event.pluginId ?? null) !== input.entitySchemaPluginId) {
+						if (event && event.pluginId !== input.entitySchemaPluginId) {
 							return null;
 						}
 						return event ? toListed(input.entitySchemaSlug, event) : null;

@@ -3,7 +3,13 @@ import type {
 	PluginConfigSchema,
 	PluginImportSource,
 } from "@ryot-app/contract/modules/plugins/manifest";
-import { SandboxScriptId, type UserId } from "@ryot-app/contract/schema/brands";
+import type { DeclarationReference } from "@ryot-app/contract/modules/plugins/references";
+import {
+	PluginId,
+	SandboxScriptId,
+	type PluginPackageId,
+	type UserId,
+} from "@ryot-app/contract/schema/brands";
 import { and, eq, sql, type SQL } from "drizzle-orm";
 import { Context, Effect, Layer } from "effect";
 
@@ -18,6 +24,8 @@ export type RegisteredImportSource = PluginImportSource & {
 	readonly readinessMetadata: IngestionReadinessMetadata;
 	readonly requiredPluginConfigKeys: ReadonlyArray<string>;
 	readonly pluginId: string;
+	readonly packageId: PluginPackageId;
+	readonly reference: DeclarationReference;
 	readonly pluginSlug: string;
 	readonly installationId: string;
 	readonly pluginScope: "system" | "user";
@@ -56,7 +64,13 @@ const querySourcesForSession = (database: DatabaseSession["Service"]) =>
 				})
 				.from(view)
 				.innerJoin(schema.pluginRevision, eq(schema.pluginRevision.id, view.pluginRevisionId))
-				.leftJoin(schema.sandboxScript, eq(schema.sandboxScript.id, view.workflowScriptId))
+				.leftJoin(
+					schema.sandboxScript,
+					and(
+						eq(schema.sandboxScript.id, view.workflowScriptId),
+						eq(schema.sandboxScript.pluginRevisionId, view.pluginRevisionId),
+					),
+				)
 				.leftJoin(
 					schema.pluginConfigRevision,
 					and(
@@ -113,6 +127,11 @@ const querySourcesForSession = (database: DatabaseSession["Service"]) =>
 							pluginSlug,
 							pluginScope,
 							installationId,
+							packageId: manifest.metadata.packageId,
+							reference: {
+								slug: row.slug,
+								owner: { kind: "plugin", pluginId: PluginId.make(pluginId) },
+							},
 							...(exportHelp ? { exportHelp } : {}),
 							configContext: {
 								pluginRevisionId,
@@ -147,13 +166,30 @@ export class ImportSourceCatalog extends Context.Service<ImportSourceCatalog>()(
 
 			const resolveForUser = Effect.fn("ImportSourceCatalog.resolveForUser")(function* (
 				userId: UserId,
-				sourceSlug: string,
+				reference: DeclarationReference,
 			) {
-				const [resolved] = yield* querySources(userId, eq(view.slug, sourceSlug));
+				if (reference.owner.kind === "kernel") {
+					return null;
+				}
+				const [resolved] = yield* querySources(
+					userId,
+					and(eq(view.slug, reference.slug), eq(view.pluginId, reference.owner.pluginId)),
+				);
+				return resolved ?? null;
+			});
+			const resolveOwnedForUser = Effect.fn("ImportSourceCatalog.resolveOwnedForUser")(function* (
+				userId: UserId,
+				sourceSlug: string,
+				installationId: string,
+			) {
+				const [resolved] = yield* querySources(
+					userId,
+					and(eq(view.slug, sourceSlug), eq(view.installationId, installationId)),
+				);
 				return resolved ?? null;
 			});
 
-			return { listForUser, resolveForUser };
+			return { listForUser, resolveForUser, resolveOwnedForUser };
 		}),
 	},
 ) {

@@ -1,17 +1,24 @@
+import type { PluginClientImport } from "@ryot-app/client-plugin-contract";
 import type {
 	PluginManifest,
 	PluginProviderOperation,
 } from "@ryot-app/contract/modules/plugins/manifest";
 import {
+	definitionOwner,
+	type EntitySchemaReference,
+	type ProviderReference,
+} from "@ryot-app/contract/modules/plugins/references";
+import {
 	EntitySchemaSlug,
 	PluginId,
+	type PluginPackageId,
 	SandboxProviderId,
 	SandboxScriptId,
 	UserId,
 } from "@ryot-app/contract/schema/brands";
 import { sha256Base64Url } from "@ryot-app/ts-utils/crypto";
 import { stableStringify } from "@ryot-app/ts-utils/json";
-import { and, asc, eq, exists, inArray, isNull, sql, type SQL } from "drizzle-orm";
+import { and, asc, eq, exists, isNull, or, sql, type SQL } from "drizzle-orm";
 import { Context, Data, Effect, Layer, Schema } from "effect";
 
 import * as schema from "#lib/infrastructure/db/schema/tables/combined";
@@ -21,9 +28,11 @@ import { PluginConfigRevisions } from "./config-revisions";
 import {
 	PluginInstallationRepository,
 	type PluginInstallationHealth,
+	type PluginInstallationState,
 } from "./installation-repository";
 import { storedScriptFields } from "./persisted-projections";
 import { decodeStoredManifest, PluginRepository } from "./repository";
+import { PluginValidationError } from "./validation";
 
 export class UnsupportedProviderOperationError extends Data.TaggedError(
 	"UnsupportedProviderOperationError",
@@ -36,9 +45,11 @@ export class UnsupportedProviderOperationError extends Data.TaggedError(
 
 export type AvailablePlugin = {
 	readonly id: string;
+	readonly packageId: PluginPackageId;
 	readonly slug: string;
 	readonly sourceHash: string;
 	readonly clientArtifactHash?: string | null;
+	readonly clientImports: readonly PluginClientImport[];
 	readonly pluginRevisionId: string;
 	readonly pluginConfigRevisionId: string | null;
 	readonly isHidden: boolean;
@@ -47,6 +58,8 @@ export type AvailablePlugin = {
 	readonly ownerUserId: UserId | null;
 	readonly manifest: PluginManifest;
 	readonly health: PluginInstallationHealth;
+	readonly healthReason: string | null;
+	readonly incompatibilityReason: PluginInstallationState["incompatibilityReason"];
 	readonly compiledHashes: Readonly<Record<string, string>>;
 };
 
@@ -99,7 +112,7 @@ const findRevisionScriptForSession = (database: DatabaseSession["Service"]) =>
 	});
 
 const findSystemManifestFieldForSession = (database: DatabaseSession["Service"]) =>
-	Effect.fn(function* <Key extends keyof PluginManifest>(pluginSlug: string, key: Key) {
+	Effect.fn(function* <Key extends keyof PluginManifest>(pluginId: string, key: Key) {
 		const [row] = yield* database.run((db) =>
 			db
 				.select({ value: manifestField(key), revisionId: schema.pluginRevision.id })
@@ -108,7 +121,7 @@ const findSystemManifestFieldForSession = (database: DatabaseSession["Service"])
 					schema.pluginRevision,
 					eq(schema.pluginRevision.id, schema.plugin.activeRevisionId),
 				)
-				.where(and(activeSystemPlugin, eq(schema.plugin.slug, pluginSlug)))
+				.where(and(activeSystemPlugin, eq(schema.plugin.id, pluginId)))
 				.limit(1),
 		);
 		return row ?? null;
@@ -167,7 +180,7 @@ export class PluginRuntimeResolver extends Context.Service<PluginRuntimeResolver
 
 			const queryAvailablePlugins = Effect.fn(function* (
 				userId: UserId,
-				listed: boolean,
+				visibility: "executable" | "listed",
 				predicate?: SQL,
 			) {
 				const rows = yield* database.run((db) =>
@@ -178,26 +191,40 @@ export class PluginRuntimeResolver extends Context.Service<PluginRuntimeResolver
 							scope: schema.userPlugin.scope,
 							health: schema.userPlugin.health,
 							isHidden: schema.userPlugin.isHidden,
+							packageId: schema.userPlugin.packageId,
 							manifest: schema.pluginRevision.manifest,
 							ownerUserId: schema.userPlugin.ownerUserId,
 							sourceHash: schema.pluginRevision.sourceHash,
 							installationId: schema.userPlugin.installationId,
+							healthReason: schema.pluginInstallation.healthReason,
 							pluginRevisionId: schema.userPlugin.activeRevisionId,
 							pluginConfigRevisionId: schema.userPlugin.configRevisionId,
 							clientArtifactHash: schema.pluginRevision.clientArtifactHash,
+							incompatibilityReason: schema.pluginInstallation.incompatibilityReason,
+							clientImports: sql<
+								readonly PluginClientImport[]
+							>`coalesce(${schema.clientArtifact.imports}, '[]'::jsonb)`,
 							compiledHashes: sql<
 								Record<string, string>
 							>`coalesce((select jsonb_object_agg(s.slug, s.content_hash) from ${schema.sandboxScript} s where s.plugin_revision_id = ${schema.userPlugin.activeRevisionId}), '{}'::jsonb)`,
 						})
 						.from(schema.userPlugin)
 						.innerJoin(
+							schema.pluginInstallation,
+							eq(schema.pluginInstallation.id, schema.userPlugin.installationId),
+						)
+						.innerJoin(
 							schema.pluginRevision,
 							eq(schema.pluginRevision.id, schema.userPlugin.activeRevisionId),
+						)
+						.leftJoin(
+							schema.clientArtifact,
+							eq(schema.clientArtifact.hash, schema.pluginRevision.clientArtifactHash),
 						)
 						.where(
 							and(
 								eq(schema.userPlugin.userId, userId),
-								listed
+								visibility === "listed"
 									? eq(schema.userPlugin.isListed, true)
 									: eq(schema.userPlugin.isExecutable, true),
 								predicate,
@@ -205,22 +232,108 @@ export class PluginRuntimeResolver extends Context.Service<PluginRuntimeResolver
 						),
 				);
 				const result = yield* Effect.forEach(rows, (row) =>
-					Effect.map(decodeStoredManifest(row.manifest, row.slug), (manifest): AvailablePlugin => ({
-						...row,
-						manifest,
-						ownerUserId: row.ownerUserId ? UserId.make(row.ownerUserId) : null,
-					})),
+					Effect.map(
+						decodeStoredManifest(row.manifest, row.slug).pipe(
+							Effect.tap((manifest) =>
+								manifest.metadata.packageId === row.packageId
+									? Effect.void
+									: Effect.fail(
+											new PluginValidationError({
+												issues: ["Persisted plugin package identity does not match its manifest"],
+											}),
+										),
+							),
+						),
+						(manifest): AvailablePlugin => ({
+							...row,
+							manifest,
+							packageId: manifest.metadata.packageId,
+							ownerUserId: row.ownerUserId ? UserId.make(row.ownerUserId) : null,
+						}),
+					),
 				);
 				return result.sort((a, b) => a.slug.localeCompare(b.slug));
 			});
 
 			const listPluginsAvailableToUser = Effect.fn(
 				"PluginRuntimeResolver.listPluginsAvailableToUser",
-			)((userId: UserId, listed = false) => queryAvailablePlugins(userId, listed));
+			)((userId: UserId, listed = false) =>
+				queryAvailablePlugins(userId, listed ? "listed" : "executable"),
+			);
+			const listPluginsForManagement = Effect.fn("PluginRuntimeResolver.listPluginsForManagement")(
+				function* (userId: UserId) {
+					const rows = yield* database.run((db) =>
+						db
+							.select({
+								id: schema.plugin.id,
+								slug: schema.plugin.slug,
+								packageId: schema.plugin.packageId,
+								ownerUserId: schema.plugin.ownerId,
+								health: schema.pluginInstallation.health,
+								manifest: schema.pluginRevision.manifest,
+								pluginRevisionId: schema.pluginRevision.id,
+								isHidden: schema.pluginInstallation.isHidden,
+								installationId: schema.pluginInstallation.id,
+								sourceHash: schema.pluginRevision.sourceHash,
+								healthReason: schema.pluginInstallation.healthReason,
+								clientArtifactHash: schema.pluginRevision.clientArtifactHash,
+								incompatibilityReason: schema.pluginInstallation.incompatibilityReason,
+								scope: sql<
+									"system" | "user"
+								>`case when ${schema.plugin.ownerId} is null then 'system' else 'user' end`,
+								clientImports: sql<
+									readonly PluginClientImport[]
+								>`coalesce(${schema.clientArtifact.imports}, '[]'::jsonb)`,
+								pluginConfigRevisionId: sql<
+									string | null
+								>`case when ${schema.plugin.ownerId} is null then ${schema.plugin.environmentConfigRevisionId} else ${schema.pluginInstallation.activeConfigRevisionId} end`,
+								compiledHashes: sql<
+									Record<string, string>
+								>`coalesce((select jsonb_object_agg(s.slug, s.content_hash) from ${schema.sandboxScript} s where s.plugin_revision_id = ${schema.pluginRevision.id}), '{}'::jsonb)`,
+							})
+							.from(schema.pluginInstallation)
+							.innerJoin(schema.plugin, eq(schema.plugin.id, schema.pluginInstallation.pluginId))
+							.innerJoin(
+								schema.pluginRevision,
+								eq(schema.pluginRevision.id, schema.plugin.activeRevisionId),
+							)
+							.leftJoin(
+								schema.clientArtifact,
+								eq(schema.clientArtifact.hash, schema.pluginRevision.clientArtifactHash),
+							)
+							.where(
+								and(
+									eq(schema.pluginInstallation.userId, userId),
+									isNull(schema.pluginInstallation.uninstalledAt),
+									or(isNull(schema.plugin.ownerId), eq(schema.plugin.ownerId, userId)),
+								),
+							),
+					);
+					return yield* Effect.forEach(rows, (row) =>
+						decodeStoredManifest(row.manifest, row.slug).pipe(
+							Effect.tap((manifest) =>
+								manifest.metadata.packageId === row.packageId
+									? Effect.void
+									: Effect.fail(
+											new PluginValidationError({
+												issues: ["Persisted plugin package identity does not match its manifest"],
+											}),
+										),
+							),
+							Effect.map((manifest): AvailablePlugin => ({
+								...row,
+								manifest,
+								packageId: manifest.metadata.packageId,
+								ownerUserId: row.ownerUserId === null ? null : UserId.make(row.ownerUserId),
+							})),
+						),
+					);
+				},
+			);
 			const findPluginAvailableToUser = Effect.fn(function* (userId: UserId, pluginId: string) {
 				const [plugin] = yield* queryAvailablePlugins(
 					userId,
-					false,
+					"executable",
 					eq(schema.userPlugin.pluginId, pluginId),
 				);
 				return plugin ?? null;
@@ -246,15 +359,10 @@ export class PluginRuntimeResolver extends Context.Service<PluginRuntimeResolver
 			});
 			const findOperationAvailableToUser = Effect.fn(function* (input: {
 				userId: UserId;
-				pluginSlug: string;
+				pluginId: string;
 				operationSlug: string;
 			}) {
-				const plugins = yield* queryAvailablePlugins(
-					input.userId,
-					false,
-					eq(schema.userPlugin.slug, input.pluginSlug),
-				);
-				const plugin = plugins.find((entry) => entry.scope === "system") ?? plugins[0];
+				const plugin = yield* findPluginAvailableToUser(input.userId, input.pluginId);
 				const operation = plugin?.manifest.operations.find(
 					({ slug }) => slug === input.operationSlug,
 				);
@@ -262,37 +370,64 @@ export class PluginRuntimeResolver extends Context.Service<PluginRuntimeResolver
 					plugin && operation
 						? yield* findScriptInAvailablePlugin(plugin, operation.scriptSlug)
 						: null;
-				return plugin && operation && script ? { plugin, script, operation } : null;
+				return plugin && operation && script?.metadata.kind === "operation"
+					? { plugin, script, operation }
+					: null;
 			});
-			const findActiveScriptById = Effect.fn(function* (scriptId: SandboxScriptId) {
-				const [row] = yield* database.run((db) =>
-					db
-						.select({ ...storedScriptFields, pluginSlug: schema.plugin.slug })
-						.from(schema.sandboxScript)
-						.innerJoin(
-							schema.plugin,
-							eq(schema.plugin.activeRevisionId, schema.sandboxScript.pluginRevisionId),
+			const findActiveScriptById = Effect.fn(function* (
+				scriptId: SandboxScriptId,
+				executingUserId: UserId | null,
+			) {
+				const selection = { ...storedScriptFields, pluginSlug: schema.plugin.slug };
+				const [row] = yield* executingUserId === null
+					? database.run((db) =>
+							db
+								.select(selection)
+								.from(schema.sandboxScript)
+								.innerJoin(
+									schema.plugin,
+									eq(schema.plugin.activeRevisionId, schema.sandboxScript.pluginRevisionId),
+								)
+								.where(and(eq(schema.sandboxScript.id, scriptId), activeSystemPlugin))
+								.limit(1),
 						)
-						.where(and(eq(schema.sandboxScript.id, scriptId), eq(schema.plugin.status, "active")))
-						.limit(1),
-				);
+					: database.run((db) =>
+							db
+								.select(selection)
+								.from(schema.userPlugin)
+								.innerJoin(
+									schema.sandboxScript,
+									and(
+										eq(schema.sandboxScript.id, scriptId),
+										eq(schema.sandboxScript.pluginRevisionId, schema.userPlugin.activeRevisionId),
+									),
+								)
+								.innerJoin(schema.plugin, eq(schema.plugin.id, schema.userPlugin.pluginId))
+								.where(
+									and(
+										eq(schema.userPlugin.userId, executingUserId),
+										eq(schema.userPlugin.isExecutable, true),
+									),
+								)
+								.limit(1),
+						);
 				return row ? { ...row, id: SandboxScriptId.make(row.id) } : null;
 			});
 			const resolveActivePluginCron = Effect.fn(function* (input: {
-				pluginSlug: string;
+				pluginId: string;
 				cronSlug: string;
 			}) {
-				const row = yield* findSystemManifestField(input.pluginSlug, "crons");
+				const row = yield* findSystemManifestField(input.pluginId, "crons");
 				const cron = row?.value.find(({ slug }) => slug === input.cronSlug);
 				const script =
 					row && cron ? yield* findRevisionScript(row.revisionId, cron.scriptSlug) : null;
 				return cron && script ? { cron, script } : null;
 			});
 			const resolveActivePluginUserBootstrap = Effect.fn(function* (input: {
-				pluginSlug: string;
+				pluginId: string;
 				bootstrapSlug: string;
 			}) {
-				const row = yield* findSystemManifestField(input.pluginSlug, "userBootstrap");
+				const row = yield* findSystemManifestField(input.pluginId, "userBootstrap");
 				const bootstrap = row?.value.find(({ slug }) => slug === input.bootstrapSlug);
 				const script =
 					row && bootstrap ? yield* findRevisionScript(row.revisionId, bootstrap.scriptSlug) : null;
@@ -301,7 +436,9 @@ export class PluginRuntimeResolver extends Context.Service<PluginRuntimeResolver
 			const listSystemCronSchedules = Effect.fn(function* () {
 				const rows = yield* listSystemManifestField("crons");
 				return bySlugs(
-					rows.flatMap(({ value, pluginSlug }) => value.map((cron) => ({ cron, pluginSlug }))),
+					rows.flatMap(({ value, pluginId, pluginSlug }) =>
+						value.map((cron) => ({ cron, pluginId, pluginSlug })),
+					),
 					({ cron }) => cron.slug,
 				);
 			});
@@ -358,6 +495,7 @@ export class PluginRuntimeResolver extends Context.Service<PluginRuntimeResolver
 						.where(
 							and(
 								eq(schema.userPlugin.installationId, input.installationId),
+								eq(schema.userPlugin.scope, "user"),
 								eq(schema.userPlugin.isExecutable, true),
 							),
 						)
@@ -431,6 +569,10 @@ export class PluginRuntimeResolver extends Context.Service<PluginRuntimeResolver
 					.map((row) => ({
 						provider: { ...row, id: SandboxProviderId.make(row.id) },
 						entitySchemaSlug: EntitySchemaSlug.make(row.rootEntitySchemaSlug),
+						entitySchema: {
+							owner: definitionOwner(row.pluginId),
+							slug: EntitySchemaSlug.make(row.rootEntitySchemaSlug),
+						},
 					}))
 					.sort(
 						(left, right) =>
@@ -440,15 +582,24 @@ export class PluginRuntimeResolver extends Context.Service<PluginRuntimeResolver
 			});
 			const listSchemaProviders = Effect.fn(function* (input: {
 				userId: UserId;
-				entitySchemaSlugs?: ReadonlyArray<string>;
+				entitySchemas?: ReadonlyArray<EntitySchemaReference>;
 			}) {
-				if (input.entitySchemaSlugs?.length === 0) {
+				if (input.entitySchemas?.length === 0) {
 					return [];
 				}
 				return yield* querySchemaProviders(
 					input.userId,
-					input.entitySchemaSlugs
-						? inArray(schema.userSandboxProvider.rootEntitySchemaSlug, [...input.entitySchemaSlugs])
+					input.entitySchemas
+						? or(
+								...input.entitySchemas.map(({ slug, owner }) =>
+									owner.kind === "plugin"
+										? and(
+												eq(schema.userSandboxProvider.pluginId, owner.pluginId),
+												eq(schema.userSandboxProvider.rootEntitySchemaSlug, slug),
+											)
+										: sql`false`,
+								),
+							)
 						: undefined,
 				);
 			});
@@ -459,14 +610,23 @@ export class PluginRuntimeResolver extends Context.Service<PluginRuntimeResolver
 				const [row] = yield* querySchemaProviders(userId, eq(schema.userSandboxProvider.id, id));
 				return row?.provider ?? null;
 			});
-			const findProviderAvailableToUserBySlug = Effect.fn(function* (userId: UserId, slug: string) {
+			const findProviderAvailableToUserByReference = Effect.fn(function* (
+				userId: UserId,
+				reference: ProviderReference,
+			) {
+				if (reference.owner.kind === "kernel") {
+					return null;
+				}
 				const [row] = yield* querySchemaProviders(
 					userId,
-					eq(schema.userSandboxProvider.slug, slug),
+					and(
+						eq(schema.userSandboxProvider.slug, reference.slug),
+						eq(schema.userSandboxProvider.pluginId, reference.owner.pluginId),
+					),
 				);
 				return row?.provider ?? null;
 			});
-			const findActiveProvider = Effect.fn(function* (predicate: SQL) {
+			const findActiveProvider = Effect.fn(function* (predicate: SQL | undefined) {
 				const [row] = yield* database.run((db) =>
 					db
 						.select({
@@ -485,6 +645,13 @@ export class PluginRuntimeResolver extends Context.Service<PluginRuntimeResolver
 							schema.pluginRevision,
 							eq(schema.pluginRevision.id, schema.plugin.activeRevisionId),
 						)
+						.innerJoin(
+							schema.globalEntitySchema,
+							and(
+								eq(schema.globalEntitySchema.pluginId, schema.sandboxProvider.pluginId),
+								eq(schema.globalEntitySchema.slug, schema.sandboxProvider.rootEntitySchemaSlug),
+							),
+						)
 						.where(and(activeSystemPlugin, declaresProvider, predicate))
 						.orderBy(asc(schema.sandboxProvider.id))
 						.limit(1),
@@ -493,36 +660,47 @@ export class PluginRuntimeResolver extends Context.Service<PluginRuntimeResolver
 			});
 			const findActiveProviderById = (id: SandboxProviderId) =>
 				findActiveProvider(eq(schema.sandboxProvider.id, id));
-			const findSchemaProviderBySlug = Effect.fn(function* (slug: string) {
-				const provider = yield* findActiveProvider(eq(schema.sandboxProvider.slug, slug));
+			const findSchemaProviderByReference = Effect.fn(function* (reference: ProviderReference) {
+				if (reference.owner.kind === "kernel") {
+					return null;
+				}
+				const provider = yield* findActiveProvider(
+					and(
+						eq(schema.sandboxProvider.slug, reference.slug),
+						eq(schema.sandboxProvider.pluginId, reference.owner.pluginId),
+					),
+				);
 				return provider
 					? { provider, entitySchemaSlug: EntitySchemaSlug.make(provider.rootEntitySchemaSlug) }
 					: null;
 			});
 			const findAuthorizedSchemaProviderById = Effect.fn(function* (input: {
-				pluginSlug: string;
-				entitySchemaSlug: string;
+				entitySchema: EntitySchemaReference;
 				providerId: SandboxProviderId;
 			}) {
 				const provider = yield* findActiveProviderById(input.providerId);
-				if (!provider || provider.rootEntitySchemaSlug !== input.entitySchemaSlug) {
+				if (
+					!provider ||
+					input.entitySchema.owner.kind !== "plugin" ||
+					provider.pluginId !== input.entitySchema.owner.pluginId ||
+					provider.rootEntitySchemaSlug !== input.entitySchema.slug
+				) {
 					return null;
 				}
+				const pluginId = input.entitySchema.owner.pluginId;
 				const [owner] = yield* database.run((db) =>
 					db
 						.select({ id: schema.globalEntitySchema.id })
 						.from(schema.globalEntitySchema)
 						.where(
 							and(
-								eq(schema.globalEntitySchema.pluginSlug, input.pluginSlug),
-								eq(schema.globalEntitySchema.slug, input.entitySchemaSlug),
+								eq(schema.globalEntitySchema.pluginId, pluginId),
+								eq(schema.globalEntitySchema.slug, input.entitySchema.slug),
 							),
 						)
 						.limit(1),
 				);
-				return owner
-					? { provider, entitySchemaSlug: EntitySchemaSlug.make(input.entitySchemaSlug) }
-					: null;
+				return owner ? { provider, entitySchemaSlug: input.entitySchema.slug } : null;
 			});
 			const resolveProviderOperation = (
 				operation: PluginProviderOperation,
@@ -559,7 +737,12 @@ export class PluginRuntimeResolver extends Context.Service<PluginRuntimeResolver
 							: definition?.operations[operation];
 					const script =
 						revision && scriptSlug ? yield* findRevisionScript(revision.id, scriptSlug) : null;
-					if (script?.metadata.kind !== "provider" || script.providerId !== providerId) {
+					if (
+						definition?.rootEntitySchemaSlug !== provider.rootEntitySchemaSlug ||
+						script?.metadata.kind !== "provider" ||
+						script.providerId !== providerId ||
+						script.pluginRevisionId !== revision?.id
+					) {
 						return yield* new UnsupportedProviderOperationError({
 							operation,
 							providerId,
@@ -590,7 +773,7 @@ export class PluginRuntimeResolver extends Context.Service<PluginRuntimeResolver
 				listPrivateCronSchedules,
 				listSystemUserBootstraps,
 				resolvePrivatePluginCron,
-				findSchemaProviderBySlug,
+				listPluginsForManagement,
 				findPluginAvailableToUser,
 				findScriptAvailableToUser,
 				listPluginsAvailableToUser,
@@ -598,11 +781,12 @@ export class PluginRuntimeResolver extends Context.Service<PluginRuntimeResolver
 				findProviderAvailableToUser,
 				findOperationAvailableToUser,
 				resolveInstallationBootstrap,
+				findSchemaProviderByReference,
 				resolveActivePluginUserBootstrap,
 				findAuthorizedSchemaProviderById,
 				findWorkflowScriptAvailableToUser,
-				findProviderAvailableToUserBySlug,
 				findWorkflowScriptInAvailablePlugin,
+				findProviderAvailableToUserByReference,
 				resolvePluginConfigContext: configs.read,
 				findKernelScript: repository.findKernelScript,
 				resolveSearchScript: systemOperation("search"),

@@ -1,3 +1,10 @@
+import {
+	definitionKey,
+	definitionOwner,
+	type DeclarationReference,
+	type DefinitionOwner,
+	type EventSchemaReference,
+} from "@ryot-app/contract/modules/plugins/references";
 import type { UserId } from "@ryot-app/contract/schema/brands";
 import {
 	and,
@@ -8,6 +15,7 @@ import {
 	inArray,
 	isNull,
 	notInArray,
+	or,
 	sql,
 	type InferSelectViewModel,
 	type SQL,
@@ -18,6 +26,7 @@ import { Context, Effect, Layer } from "effect";
 import * as schema from "#lib/infrastructure/db/schema/tables/combined";
 import { DatabaseSession } from "#lib/infrastructure/db/session";
 
+import { DefinitionReadUnavailable, type DefinitionReadContext } from "./read-context";
 import type {
 	EntityRelationshipDefinitions,
 	DefinitionSnapshot,
@@ -110,17 +119,20 @@ const toSavedView = (row: SavedViewRow): SavedViewDefinition => ({
 	dataSources: row.dataSources,
 });
 
-const recordBySlug = <Definition extends { readonly slug: string }>(
+const recordByIdentity = <
+	Definition extends { readonly slug: string; readonly pluginId: string | null },
+>(
 	kind: string,
 	definitions: ReadonlyArray<Definition>,
 ) =>
 	Effect.suspend(() => {
 		const record: Record<string, Definition> = {};
 		for (const definition of definitions) {
-			if (Object.hasOwn(record, definition.slug)) {
+			const key = definitionKey(kind, definitionOwner(definition.pluginId), definition.slug);
+			if (Object.hasOwn(record, key)) {
 				return Effect.die(new Error(`Duplicate ${kind} slug: ${definition.slug}`));
 			}
-			record[definition.slug] = definition;
+			record[key] = definition;
 		}
 		return Effect.succeed(record);
 	});
@@ -136,14 +148,14 @@ const eventsByEntitySchema = (rows: ReadonlyArray<EventSchemaFields>) => {
 const toSnapshot = Effect.fn(function* (rows: DefinitionRows) {
 	const events = eventsByEntitySchema(rows.eventSchemas);
 	return {
-		savedViews: yield* recordBySlug("saved view", rows.savedViews.map(toSavedView)),
-		signalSchemas: yield* recordBySlug("signal schema", rows.signalSchemas.map(toSignalSchema)),
-		relationshipSchemas: yield* recordBySlug(
-			"relationship schema",
+		savedViews: yield* recordByIdentity("saved-view", rows.savedViews.map(toSavedView)),
+		signalSchemas: yield* recordByIdentity("signal", rows.signalSchemas.map(toSignalSchema)),
+		relationshipSchemas: yield* recordByIdentity(
+			"relationship",
 			rows.relationshipSchemas.map(toRelationshipSchema),
 		),
-		entitySchemas: yield* recordBySlug(
-			"entity schema",
+		entitySchemas: yield* recordByIdentity(
+			"entity",
 			rows.entitySchemas.map((row) => toEntitySchema(row, events.get(row.id) ?? [])),
 		),
 	} satisfies DefinitionSnapshot;
@@ -154,12 +166,12 @@ const toEntityRelationshipDefinitions = Effect.fn(function* (rows: {
 	readonly relationshipSchemas: ReadonlyArray<Omit<RelationshipSchemaRow, "pluginSlug">>;
 }) {
 	const definitions: EntityRelationshipDefinitions = {
-		relationshipSchemas: yield* recordBySlug(
-			"relationship schema",
+		relationshipSchemas: yield* recordByIdentity(
+			"relationship",
 			rows.relationshipSchemas.map(toRelationshipSchema),
 		),
-		entitySchemas: yield* recordBySlug(
-			"entity schema",
+		entitySchemas: yield* recordByIdentity(
+			"entity",
 			rows.entitySchemas.map(({ slug, pluginId }) => ({ slug, pluginId })),
 		),
 	};
@@ -211,6 +223,17 @@ const userWhere = (
 	);
 
 const effective = { listed: false } as const;
+
+const ownerWhere = (column: PgColumn, owner: DefinitionOwner) =>
+	owner.kind === "kernel" ? isNull(column) : eq(column, owner.pluginId);
+const referenceWhere = (
+	view: { pluginId: PgColumn; slug: PgColumn },
+	reference: DeclarationReference,
+) => and(ownerWhere(view.pluginId, reference.owner), eq(view.slug, reference.slug));
+const referencesWhere = (
+	view: { pluginId: PgColumn; slug: PgColumn },
+	references: ReadonlyArray<DeclarationReference>,
+) => or(...references.map((reference) => referenceWhere(view, reference)));
 
 export class DefinitionRepository extends Context.Service<DefinitionRepository>()(
 	"DefinitionRepository",
@@ -379,6 +402,19 @@ export class DefinitionRepository extends Context.Service<DefinitionRepository>(
 
 			const replaceKernelDefinitions = Effect.fn("DefinitionRepository.replaceKernelDefinitions")(
 				function* (source: DefinitionSource) {
+					if (
+						[
+							...source.entitySchemas,
+							...source.entitySchemas.flatMap(({ eventSchemas }) => eventSchemas),
+							...source.relationshipSchemas,
+							...source.signalSchemas,
+							...source.savedViews,
+						].some(({ pluginId }) => pluginId !== null)
+					) {
+						return yield* Effect.die(
+							new Error("Kernel definition sources require explicit kernel ownership"),
+						);
+					}
 					const entities =
 						source.entitySchemas.length > 0
 							? yield* session.run((db) =>
@@ -573,6 +609,7 @@ export class DefinitionRepository extends Context.Service<DefinitionRepository>(
 						schema.definitionSavedView,
 						source.savedViews.map(({ slug }) => slug),
 					);
+					return yield* Effect.void;
 				},
 			);
 
@@ -658,6 +695,7 @@ export class DefinitionRepository extends Context.Service<DefinitionRepository>(
 						.select({
 							...getTableColumns(schema.definitionEntitySchema),
 							pluginId: sql<string | null>`null::text`,
+							packageId: sql<string | null>`null::text`,
 							pluginSlug: sql<string | null>`null::text`,
 						})
 						.from(schema.definitionEntitySchema)
@@ -684,6 +722,7 @@ export class DefinitionRepository extends Context.Service<DefinitionRepository>(
 						.select({
 							...getTableColumns(schema.definitionRelationshipSchema),
 							pluginId: sql<string | null>`null::text`,
+							packageId: sql<string | null>`null::text`,
 						})
 						.from(schema.definitionRelationshipSchema)
 						.where(isNull(schema.definitionRelationshipSchema.pluginRevisionId))
@@ -694,6 +733,7 @@ export class DefinitionRepository extends Context.Service<DefinitionRepository>(
 						.select({
 							...getTableColumns(schema.definitionSignalSchema),
 							pluginId: sql<string | null>`null::text`,
+							packageId: sql<string | null>`null::text`,
 						})
 						.from(schema.definitionSignalSchema)
 						.where(isNull(schema.definitionSignalSchema.pluginRevisionId))
@@ -704,6 +744,7 @@ export class DefinitionRepository extends Context.Service<DefinitionRepository>(
 						.select({
 							...getTableColumns(schema.definitionSavedView),
 							pluginId: sql<string | null>`null::text`,
+							packageId: sql<string | null>`null::text`,
 							pluginSlug: sql<string | null>`null::text`,
 						})
 						.from(schema.definitionSavedView)
@@ -721,9 +762,148 @@ export class DefinitionRepository extends Context.Service<DefinitionRepository>(
 				);
 			});
 
+			const readPinnedRows = Effect.fn("DefinitionRepository.readPinnedRows")(function* (
+				context: DefinitionReadContext,
+			) {
+				const [owner] = yield* session.run((db) =>
+					db
+						.select({
+							pluginId: schema.plugin.id,
+							pluginSlug: schema.plugin.slug,
+							packageId: schema.plugin.packageId,
+						})
+						.from(schema.pluginRevision)
+						.innerJoin(schema.plugin, eq(schema.plugin.id, schema.pluginRevision.pluginId))
+						.where(
+							and(
+								eq(schema.pluginRevision.id, context.pluginRevisionId),
+								eq(schema.plugin.id, context.pluginId),
+							),
+						),
+				);
+				if (!owner) {
+					return yield* new DefinitionReadUnavailable({ context });
+				}
+				const entitySchemas = Array.from(
+					yield* session.run((db) =>
+						db
+							.select()
+							.from(schema.definitionEntitySchema)
+							.where(eq(schema.definitionEntitySchema.pluginRevisionId, context.pluginRevisionId)),
+					),
+					(row) => ({ ...row, ...owner }),
+				);
+				const eventSchemas =
+					entitySchemas.length === 0
+						? []
+						: yield* session.run((db) =>
+								db
+									.select()
+									.from(schema.definitionEventSchema)
+									.where(
+										inArray(
+											schema.definitionEventSchema.entitySchemaId,
+											entitySchemas.map(({ id }) => id),
+										),
+									),
+							);
+				const relationshipSchemas = Array.from(
+					yield* session.run((db) =>
+						db
+							.select()
+							.from(schema.definitionRelationshipSchema)
+							.where(
+								eq(schema.definitionRelationshipSchema.pluginRevisionId, context.pluginRevisionId),
+							),
+					),
+					(row) => ({ ...row, ...owner }),
+				);
+				const signalSchemas = Array.from(
+					yield* session.run((db) =>
+						db
+							.select()
+							.from(schema.definitionSignalSchema)
+							.where(eq(schema.definitionSignalSchema.pluginRevisionId, context.pluginRevisionId)),
+					),
+					(row) => ({ ...row, ...owner }),
+				);
+				const savedViews = Array.from(
+					yield* session.run((db) =>
+						db
+							.select()
+							.from(schema.definitionSavedView)
+							.where(eq(schema.definitionSavedView.pluginRevisionId, context.pluginRevisionId)),
+					),
+					(row) => ({ ...row, ...owner }),
+				);
+				return { savedViews, eventSchemas, entitySchemas, signalSchemas, relationshipSchemas };
+			});
+
+			const getSnapshotForContext = Effect.fn("DefinitionRepository.getSnapshotForContext")(
+				function* (context: DefinitionReadContext, userId: UserId | null) {
+					const available =
+						userId === null
+							? yield* session.run((db) =>
+									db
+										.select({ pluginId: schema.globalPlugin.pluginId })
+										.from(schema.globalPlugin)
+										.where(eq(schema.globalPlugin.pluginId, context.pluginId)),
+								)
+							: yield* session.run((db) =>
+									db
+										.select({ pluginId: schema.userPlugin.pluginId })
+										.from(schema.userPlugin)
+										.where(
+											and(
+												eq(schema.userPlugin.userId, userId),
+												eq(schema.userPlugin.pluginId, context.pluginId),
+												eq(schema.userPlugin.isListed, true),
+											),
+										),
+								);
+					if (available.length === 0) {
+						return yield* new DefinitionReadUnavailable({ context });
+					}
+					const current =
+						userId === null ? yield* readGlobalRows() : yield* readUserRows(userId, effective);
+					const pinned = yield* readPinnedRows(context);
+					const ownEntityIds = new Set(
+						current.entitySchemas
+							.filter(({ pluginId }) => pluginId === context.pluginId)
+							.map(({ id }) => id),
+					);
+					return yield* toSnapshot({
+						savedViews: [
+							...current.savedViews.filter(({ pluginId }) => pluginId !== context.pluginId),
+							...pinned.savedViews,
+						],
+						entitySchemas: [
+							...current.entitySchemas.filter(({ pluginId }) => pluginId !== context.pluginId),
+							...pinned.entitySchemas,
+						],
+						signalSchemas: [
+							...current.signalSchemas.filter(({ pluginId }) => pluginId !== context.pluginId),
+							...pinned.signalSchemas,
+						],
+						eventSchemas: [
+							...current.eventSchemas.filter(
+								({ entitySchemaId }) => !ownEntityIds.has(entitySchemaId),
+							),
+							...pinned.eventSchemas,
+						],
+						relationshipSchemas: [
+							...current.relationshipSchemas.filter(
+								({ pluginId }) => pluginId !== context.pluginId,
+							),
+							...pinned.relationshipSchemas,
+						],
+					});
+				},
+			);
+
 			const findUserEntitySchemas = Effect.fn("DefinitionRepository.findUserEntitySchemas")(
-				function* (userId: UserId, slugs: ReadonlyArray<string>) {
-					if (slugs.length === 0) {
+				function* (userId: UserId, references: ReadonlyArray<DeclarationReference>) {
+					if (references.length === 0) {
 						return {};
 					}
 					const entitySchemas = yield* session.run((db) =>
@@ -735,7 +915,7 @@ export class DefinitionRepository extends Context.Service<DefinitionRepository>(
 									schema.userEntitySchema,
 									userId,
 									effective,
-									inArray(schema.userEntitySchema.slug, [...slugs]),
+									referencesWhere(schema.userEntitySchema, references),
 								),
 							),
 					);
@@ -755,15 +935,15 @@ export class DefinitionRepository extends Context.Service<DefinitionRepository>(
 								)
 							: [];
 					const events = eventsByEntitySchema(eventSchemas);
-					return yield* recordBySlug(
-						"entity schema",
+					return yield* recordByIdentity(
+						"entity",
 						entitySchemas.map((row) => toEntitySchema(row, events.get(row.id) ?? [])),
 					);
 				},
 			);
 
 			const listUserEventSchemas = Effect.fn("DefinitionRepository.listUserEventSchemas")(
-				function* (userId: UserId, entitySchemaSlug: string) {
+				function* (userId: UserId, reference: DeclarationReference) {
 					const rows = yield* session.run((db) =>
 						db
 							.select()
@@ -773,7 +953,8 @@ export class DefinitionRepository extends Context.Service<DefinitionRepository>(
 									schema.userEventSchema,
 									userId,
 									effective,
-									eq(schema.userEventSchema.entitySchemaSlug, entitySchemaSlug),
+									ownerWhere(schema.userEventSchema.pluginId, reference.owner),
+									eq(schema.userEventSchema.entitySchemaSlug, reference.slug),
 								),
 							)
 							.orderBy(asc(schema.userEventSchema.position)),
@@ -784,8 +965,8 @@ export class DefinitionRepository extends Context.Service<DefinitionRepository>(
 
 			const findUserRelationshipSchemas = Effect.fn(
 				"DefinitionRepository.findUserRelationshipSchemas",
-			)(function* (userId: UserId, slugs: ReadonlyArray<string>) {
-				if (slugs.length === 0) {
+			)(function* (userId: UserId, references: ReadonlyArray<DeclarationReference>) {
+				if (references.length === 0) {
 					return {};
 				}
 				const rows = yield* session.run((db) =>
@@ -797,27 +978,27 @@ export class DefinitionRepository extends Context.Service<DefinitionRepository>(
 								schema.userRelationshipSchema,
 								userId,
 								effective,
-								inArray(schema.userRelationshipSchema.slug, [...slugs]),
+								referencesWhere(schema.userRelationshipSchema, references),
 							),
 						),
 				);
-				return yield* recordBySlug("relationship schema", rows.map(toRelationshipSchema));
+				return yield* recordByIdentity("relationship", rows.map(toRelationshipSchema));
 			});
 
 			const findGlobalRelationshipSchemas = Effect.fn(
 				"DefinitionRepository.findGlobalRelationshipSchemas",
-			)(function* (slugs: ReadonlyArray<string>) {
-				if (slugs.length === 0) {
+			)(function* (references: ReadonlyArray<DeclarationReference>) {
+				if (references.length === 0) {
 					return {};
 				}
 				const rows = yield* session.run((db) =>
 					db
 						.select()
 						.from(schema.globalRelationshipSchema)
-						.where(inArray(schema.globalRelationshipSchema.slug, [...slugs]))
+						.where(referencesWhere(schema.globalRelationshipSchema, references))
 						.orderBy(...globalDefinitionOrder(schema.globalRelationshipSchema, true)),
 				);
-				return yield* recordBySlug("relationship schema", rows.map(toRelationshipSchema));
+				return yield* recordByIdentity("relationship", rows.map(toRelationshipSchema));
 			});
 
 			const getUserEntityRelationshipDefinitions = Effect.fn(
@@ -878,7 +1059,11 @@ export class DefinitionRepository extends Context.Service<DefinitionRepository>(
 			);
 
 			const findUserSignalSchema = Effect.fn("DefinitionRepository.findUserSignalSchema")(
-				function* (userId: UserId, slug: string, options: ListedOption = effective) {
+				function* (
+					userId: UserId,
+					reference: DeclarationReference,
+					options: ListedOption = effective,
+				) {
 					const rows = yield* session.run((db) =>
 						db
 							.select()
@@ -888,11 +1073,15 @@ export class DefinitionRepository extends Context.Service<DefinitionRepository>(
 									schema.userSignalSchema,
 									userId,
 									options,
-									eq(schema.userSignalSchema.slug, slug),
+									referenceWhere(schema.userSignalSchema, reference),
 								),
 							),
 					);
-					return (yield* recordBySlug("signal schema", rows.map(toSignalSchema)))[slug] ?? null;
+					return (
+						(yield* recordByIdentity("signal", rows.map(toSignalSchema)))[
+							definitionKey("signal", reference.owner, reference.slug)
+						] ?? null
+					);
 				},
 			);
 
@@ -911,14 +1100,16 @@ export class DefinitionRepository extends Context.Service<DefinitionRepository>(
 			});
 
 			const findGlobalEntitySchema = Effect.fn("DefinitionRepository.findGlobalEntitySchema")(
-				function* (slug: string) {
+				function* (reference: DeclarationReference) {
 					const rows = yield* session.run((db) =>
 						db
 							.select()
 							.from(schema.globalEntitySchema)
-							.where(eq(schema.globalEntitySchema.slug, slug)),
+							.where(referenceWhere(schema.globalEntitySchema, reference)),
 					);
-					const row = (yield* recordBySlug("entity schema", rows))[slug];
+					const row = (yield* recordByIdentity("entity", rows))[
+						definitionKey("entity", reference.owner, reference.slug)
+					];
 					if (!row) {
 						return null;
 					}
@@ -934,15 +1125,15 @@ export class DefinitionRepository extends Context.Service<DefinitionRepository>(
 			);
 
 			const findGlobalEventSchema = Effect.fn("DefinitionRepository.findGlobalEventSchema")(
-				function* (entitySchemaSlug: string, slug: string) {
+				function* (reference: EventSchemaReference) {
 					const [row] = yield* session.run((db) =>
 						db
 							.select()
 							.from(schema.globalEventSchema)
 							.where(
 								and(
-									eq(schema.globalEventSchema.entitySchemaSlug, entitySchemaSlug),
-									eq(schema.globalEventSchema.slug, slug),
+									referenceWhere(schema.globalEventSchema, reference),
+									eq(schema.globalEventSchema.entitySchemaSlug, reference.entitySchemaSlug),
 								),
 							)
 							.limit(1),
@@ -953,19 +1144,28 @@ export class DefinitionRepository extends Context.Service<DefinitionRepository>(
 
 			const findGlobalRelationshipSchema = Effect.fn(
 				"DefinitionRepository.findGlobalRelationshipSchema",
-			)(function* (slug: string) {
-				return (yield* findGlobalRelationshipSchemas([slug]))[slug] ?? null;
+			)(function* (reference: DeclarationReference) {
+				return (
+					(yield* findGlobalRelationshipSchemas([reference]))[
+						definitionKey("relationship", reference.owner, reference.slug)
+					] ?? null
+				);
 			});
 
 			const findGlobalRelationshipSchemaByEndpoints = Effect.fn(
 				"DefinitionRepository.findGlobalRelationshipSchemaByEndpoints",
-			)(function* (sourceEntitySchemaSlug: string, targetEntitySchemaSlug: string) {
+			)(function* (
+				owner: DefinitionOwner,
+				sourceEntitySchemaSlug: string,
+				targetEntitySchemaSlug: string,
+			) {
 				const [row] = yield* session.run((db) =>
 					db
 						.select()
 						.from(schema.globalRelationshipSchema)
 						.where(
 							and(
+								ownerWhere(schema.globalRelationshipSchema.pluginId, owner),
 								eq(schema.globalRelationshipSchema.sourceEntitySchemaSlug, sourceEntitySchemaSlug),
 								eq(schema.globalRelationshipSchema.targetEntitySchemaSlug, targetEntitySchemaSlug),
 							),
@@ -977,14 +1177,18 @@ export class DefinitionRepository extends Context.Service<DefinitionRepository>(
 			});
 
 			const findGlobalSignalSchema = Effect.fn("DefinitionRepository.findGlobalSignalSchema")(
-				function* (slug: string) {
+				function* (reference: DeclarationReference) {
 					const rows = yield* session.run((db) =>
 						db
 							.select()
 							.from(schema.globalSignalSchema)
-							.where(eq(schema.globalSignalSchema.slug, slug)),
+							.where(referenceWhere(schema.globalSignalSchema, reference)),
 					);
-					return (yield* recordBySlug("signal schema", rows.map(toSignalSchema)))[slug] ?? null;
+					return (
+						(yield* recordByIdentity("signal", rows.map(toSignalSchema)))[
+							definitionKey("signal", reference.owner, reference.slug)
+						] ?? null
+					);
 				},
 			);
 
@@ -1004,6 +1208,7 @@ export class DefinitionRepository extends Context.Service<DefinitionRepository>(
 				listUserSavedViews,
 				listUserEventSchemas,
 				findUserSignalSchema,
+				getSnapshotForContext,
 				findGlobalEventSchema,
 				findUserEntitySchemas,
 				listUserSignalSchemas,
