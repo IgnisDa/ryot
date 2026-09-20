@@ -8,7 +8,7 @@ import definition, { manifest } from "./workout-created.sandbox";
 
 it("emits an actor signal from the inline workout snapshot", () => {
 	const calls: unknown[] = [];
-	const input = Schema.decodeUnknownSync(automationInputSchema)({
+	const input = Schema.decodeSync(automationInputSchema)({
 		automation: {
 			runId: "run-1",
 			triggerId: "trigger-1",

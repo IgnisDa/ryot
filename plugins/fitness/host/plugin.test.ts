@@ -34,7 +34,7 @@ const expectedImportSources = [
 ] as const;
 
 it("declares the complete fitness-owned source", () => {
-	expect(() => Schema.decodeUnknownSync(AuthoredPluginManifest)(fitnessPlugin)).not.toThrow();
+	expect(() => Schema.decodeSync(AuthoredPluginManifest)(fitnessPlugin)).not.toThrow();
 	expect(fitnessPlugin.entitySchemas.map(({ slug }) => slug)).toEqual([
 		"fitness-library",
 		"exercise",
@@ -135,7 +135,7 @@ it("declares the complete fitness-owned source", () => {
 			},
 		});
 		expect(() =>
-			Schema.decodeUnknownSync(FitnessCreateImportRunBody)({
+			Schema.decodeSync(FitnessCreateImportRunBody)({
 				source: source.slug,
 				uploadToken: "upload-1",
 			}),
