@@ -12,6 +12,7 @@ import {
 	type SignalSchemaSlug,
 	UserId,
 } from "@ryot-app/contract/schema/brands";
+import type { JsonValue } from "@ryot-app/contract/schema/json";
 import { and, eq, isNotNull, isNull } from "drizzle-orm";
 import { Context, Effect, Layer } from "effect";
 
@@ -77,8 +78,9 @@ type RestoreInstallationInput = Pick<
 	readonly id?: string;
 	readonly config: Record<string, unknown>;
 	readonly preserveExistingConfig: boolean;
-	readonly configuredSecretPaths?: ReadonlyArray<string>;
 	readonly allowMissingRequiredSecrets?: boolean;
+	readonly userSettings: Record<string, JsonValue>;
+	readonly configuredSecretPaths?: ReadonlyArray<string>;
 };
 
 export class BackupRestorePersistence extends Context.Service<BackupRestorePersistence>()(
@@ -278,6 +280,7 @@ export class BackupRestorePersistence extends Context.Service<BackupRestorePersi
 									sortOrder: input.sortOrder,
 									createdAt: input.createdAt,
 									updatedAt: input.updatedAt,
+									userSettings: input.userSettings,
 								},
 							})
 							.returning(),
