@@ -105,6 +105,9 @@ export const pluginRevision = snakeCase.table(
 			.primaryKey()
 			.$defaultFn(() => generateId()),
 		createdAt: timestamp({ withTimezone: true }).defaultNow().notNull(),
+		name: text().generatedAlwaysAs(sql`manifest -> 'metadata' ->> 'name'`),
+		icon: text().generatedAlwaysAs(sql`manifest -> 'metadata' ->> 'icon'`),
+		description: text().generatedAlwaysAs(sql`manifest -> 'metadata' ->> 'description'`),
 		pluginId: text()
 			.notNull()
 			.references((): AnyPgColumn => plugin.id, { onDelete: "cascade" }),
