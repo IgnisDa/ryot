@@ -1,6 +1,6 @@
-import { expect, it } from "@effect/vitest";
+import { expect, layer } from "@effect/vitest";
 import { NotificationChannelId, UserId } from "@ryot-app/contract/schema/brands";
-import { Effect, Layer } from "effect";
+import { Context, Effect, Layer, Ref } from "effect";
 
 import { databaseLayer } from "#lib/test-utils/effect";
 
@@ -30,141 +30,166 @@ const makeChannel = (
 	id: NotificationChannelId.make(id),
 });
 
-const makeRepositoryLayer = (channels: NotificationChannelRecord[], requests: unknown[]) =>
-	Layer.succeed(
-		NotificationsRepository,
-		Object.assign(Object.create(null), {
-			listEnabledForUser: (input: { userId: UserId }) => {
-				requests.push(input);
-				return Effect.succeed(channels);
-			},
+class FakeNotificationChannels extends Context.Service<
+	FakeNotificationChannels,
+	{
+		readonly requests: Effect.Effect<ReadonlyArray<{ userId: UserId }>>;
+		readonly deliveredKinds: Effect.Effect<ReadonlyArray<string>>;
+		readonly deliveredMessages: Effect.Effect<ReadonlyArray<string>>;
+	}
+>()("test/FakeNotificationChannels") {}
+
+const fakeChannelsLayer = (
+	channels: ReadonlyArray<NotificationChannelRecord>,
+	failOnCall: number,
+) =>
+	Layer.effectContext(
+		Effect.gen(function* () {
+			const requests = yield* Ref.make<ReadonlyArray<{ userId: UserId }>>([]);
+			const kinds = yield* Ref.make<ReadonlyArray<string>>([]);
+			const messages = yield* Ref.make<ReadonlyArray<string>>([]);
+			return Context.make(
+				NotificationsRepository,
+				Object.assign(Object.create(null), {
+					listEnabledForUser: (input: { userId: UserId }) =>
+						Ref.update(requests, (all) => [...all, input]).pipe(Effect.as(channels)),
+				}),
+			).pipe(
+				Context.add(
+					NotificationDeliveryService,
+					Object.assign(Object.create(null), {
+						send: (input: {
+							message: string;
+							channelSpecifics: NotificationChannelRecord["channelSpecifics"];
+						}) =>
+							Effect.gen(function* () {
+								const shouldFail = yield* Ref.modify(kinds, (all) => [
+									all.length === failOnCall,
+									[...all, input.channelSpecifics.kind],
+								]);
+								yield* Ref.update(messages, (all) => [...all, input.message]);
+								return shouldFail
+									? yield* Effect.fail({
+											message: "failed",
+											_tag: "NotificationDeliveryError",
+										} as const)
+									: undefined;
+							}),
+					}),
+				),
+				Context.add(FakeNotificationChannels, {
+					requests: Ref.get(requests),
+					deliveredKinds: Ref.get(kinds),
+					deliveredMessages: Ref.get(messages),
+				}),
+			);
 		}),
 	);
 
-const makeDeliveryLayer = (failOnCall: number, calls: string[], messages?: string[]) =>
-	Layer.succeed(
-		NotificationDeliveryService,
-		Object.assign(Object.create(null), {
-			send: (input: {
-				message: string;
-				channelSpecifics: NotificationChannelRecord["channelSpecifics"];
-			}) => {
-				const id = input.channelSpecifics.kind;
-				const shouldFail = calls.length === failOnCall;
-				calls.push(id);
-				messages?.push(input.message);
-				return shouldFail
-					? Effect.fail({ message: "failed", _tag: "NotificationDeliveryError" } as const)
-					: Effect.void;
-			},
+const deliveryLayer = (channels: ReadonlyArray<NotificationChannelRecord>, failOnCall: number) =>
+	Layer.merge(databaseLayer, fakeChannelsLayer(channels, failOnCall));
+
+const first = makeChannel("channel-1");
+const second = makeChannel("channel-2");
+const emailChannel = makeChannel("channel-2", {
+	kind: "email",
+	recipient: "recipient@example.com",
+});
+const unavailableEmailChannel = makeChannel("channel-1", {
+	kind: "email",
+	recipient: "recipient@example.com",
+});
+
+layer(deliveryLayer([first, second], 0))((test) => {
+	test.effect(
+		"sends message deliveries to every enabled channel and returns best-effort outcomes",
+		() =>
+			Effect.gen(function* () {
+				const result = yield* deliverEnabledChannels({
+					userId,
+					executionId: "execution-1",
+					request: { kind: "message", message: "A review was posted" },
+				});
+
+				const fake = yield* FakeNotificationChannels;
+				expect(yield* fake.deliveredKinds).toEqual(["apprise", "apprise"]);
+				expect(yield* fake.requests).toEqual([{ userId }]);
+				expect(result).toEqual([
+					{ status: "failed", channel: "apprise", channelId: first.id },
+					{ status: "sent", channel: "apprise", channelId: second.id },
+				]);
+			}),
+	);
+});
+
+layer(deliveryLayer([first], -1))((test) => {
+	test.effect("sends a per-channel test message", () =>
+		Effect.gen(function* () {
+			const result = yield* deliverEnabledChannels({
+				userId,
+				request: { kind: "test" },
+				executionId: "execution-1",
+			});
+
+			expect(yield* (yield* FakeNotificationChannels).requests).toEqual([{ userId }]);
+			expect(result).toEqual([{ status: "sent", channel: "apprise", channelId: first.id }]);
 		}),
 	);
+});
 
-it.effect(
-	"sends message deliveries to every enabled channel and returns best-effort outcomes",
-	() => {
-		const calls: string[] = [];
-		const requests: unknown[] = [];
-		const deliveryLayer = makeDeliveryLayer(0, calls);
-		const first = makeChannel("channel-1");
-		const second = makeChannel("channel-2");
-		const repositoryLayer = makeRepositoryLayer([first, second], requests);
-
-		return Effect.gen(function* () {
+layer(deliveryLayer([first, emailChannel], -1))((test) => {
+	test.effect("preserves the message for every enabled channel", () =>
+		Effect.gen(function* () {
 			const result = yield* deliverEnabledChannels({
 				userId,
 				executionId: "execution-1",
-				request: { kind: "message", message: "A review was posted" },
+				request: { kind: "message", message: "Subscription run completed" },
 			});
 
-			expect(calls).toEqual(["apprise", "apprise"]);
-			expect(requests).toEqual([{ userId }]);
-			expect(result).toEqual([
-				{ status: "failed", channel: "apprise", channelId: first.id },
-				{ status: "sent", channel: "apprise", channelId: second.id },
+			const fake = yield* FakeNotificationChannels;
+			expect(yield* fake.deliveredKinds).toEqual(["apprise", "email"]);
+			expect(yield* fake.requests).toEqual([{ userId }]);
+			expect(yield* fake.deliveredMessages).toEqual([
+				"Subscription run completed",
+				"Subscription run completed",
 			]);
-		}).pipe(Effect.provide(Layer.mergeAll(databaseLayer, repositoryLayer, deliveryLayer)));
-	},
-);
-
-it.effect("sends a per-channel test message", () => {
-	const calls: string[] = [];
-	const requests: unknown[] = [];
-	const deliveryLayer = makeDeliveryLayer(-1, calls);
-	const channel = makeChannel("channel-1");
-	const repositoryLayer = makeRepositoryLayer([channel], requests);
-
-	return Effect.gen(function* () {
-		const result = yield* deliverEnabledChannels({
-			userId,
-			request: { kind: "test" },
-			executionId: "execution-1",
-		});
-
-		expect(requests).toEqual([{ userId }]);
-		expect(result).toEqual([{ status: "sent", channel: "apprise", channelId: channel.id }]);
-	}).pipe(Effect.provide(Layer.mergeAll(databaseLayer, repositoryLayer, deliveryLayer)));
+			expect(result).toEqual([
+				{ status: "sent", channel: "apprise", channelId: first.id },
+				{ status: "sent", channel: "email", channelId: emailChannel.id },
+			]);
+		}),
+	);
 });
 
-it.effect("preserves the message for every enabled channel", () => {
-	const calls: string[] = [];
-	const messages: string[] = [];
-	const requests: unknown[] = [];
-	const first = makeChannel("channel-1");
-	const deliveryLayer = makeDeliveryLayer(-1, calls, messages);
-	const second = makeChannel("channel-2", { kind: "email", recipient: "recipient@example.com" });
-	const repositoryLayer = makeRepositoryLayer([first, second], requests);
+layer(deliveryLayer([], -1))((test) => {
+	test.effect("completes message delivery when no channels are enabled", () =>
+		Effect.gen(function* () {
+			const result = yield* deliverEnabledChannels({
+				userId,
+				executionId: "execution-1",
+				request: { kind: "message", message: "Subscription run completed" },
+			});
 
-	return Effect.gen(function* () {
-		const result = yield* deliverEnabledChannels({
-			userId,
-			executionId: "execution-1",
-			request: { kind: "message", message: "Subscription run completed" },
-		});
-
-		expect(calls).toEqual(["apprise", "email"]);
-		expect(requests).toEqual([{ userId }]);
-		expect(messages).toEqual(["Subscription run completed", "Subscription run completed"]);
-		expect(result).toEqual([
-			{ status: "sent", channel: "apprise", channelId: first.id },
-			{ status: "sent", channel: "email", channelId: second.id },
-		]);
-	}).pipe(Effect.provide(Layer.mergeAll(databaseLayer, repositoryLayer, deliveryLayer)));
+			const fake = yield* FakeNotificationChannels;
+			expect(yield* fake.deliveredKinds).toEqual([]);
+			expect(yield* fake.requests).toEqual([{ userId }]);
+			expect(result).toEqual([]);
+		}),
+	);
 });
 
-it.effect("completes message delivery when no channels are enabled", () => {
-	const calls: string[] = [];
-	const requests: unknown[] = [];
-	const deliveryLayer = makeDeliveryLayer(-1, calls);
-	const repositoryLayer = makeRepositoryLayer([], requests);
+layer(deliveryLayer([unavailableEmailChannel], 0))((test) => {
+	test.effect("reports an unavailable delivery as failed", () =>
+		Effect.gen(function* () {
+			const result = yield* deliverEnabledChannels({
+				userId,
+				request: { kind: "test" },
+				executionId: "execution-1",
+			});
 
-	return Effect.gen(function* () {
-		const result = yield* deliverEnabledChannels({
-			userId,
-			executionId: "execution-1",
-			request: { kind: "message", message: "Subscription run completed" },
-		});
-
-		expect(calls).toEqual([]);
-		expect(requests).toEqual([{ userId }]);
-		expect(result).toEqual([]);
-	}).pipe(Effect.provide(Layer.mergeAll(databaseLayer, repositoryLayer, deliveryLayer)));
-});
-
-it.effect("reports an unavailable delivery as failed", () => {
-	const calls: string[] = [];
-	const requests: unknown[] = [];
-	const deliveryLayer = makeDeliveryLayer(0, calls);
-	const channel = makeChannel("channel-1", { kind: "email", recipient: "recipient@example.com" });
-	const repositoryLayer = makeRepositoryLayer([channel], requests);
-
-	return Effect.gen(function* () {
-		const result = yield* deliverEnabledChannels({
-			userId,
-			request: { kind: "test" },
-			executionId: "execution-1",
-		});
-
-		expect(result).toEqual([{ channel: "email", status: "failed", channelId: channel.id }]);
-	}).pipe(Effect.provide(Layer.mergeAll(databaseLayer, repositoryLayer, deliveryLayer)));
+			expect(result).toEqual([
+				{ channel: "email", status: "failed", channelId: unavailableEmailChannel.id },
+			]);
+		}),
+	);
 });
