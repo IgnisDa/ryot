@@ -20,6 +20,7 @@ import {
 } from "@ryot-app/plugin-archive";
 import { declaredScriptMetadata } from "@ryot-app/sandbox-compiler/plugin-manifest";
 import { sha256Hex } from "@ryot-app/ts-utils/crypto";
+import { decodeExecutableText, encodeExecutableText } from "@ryot-app/ts-utils/executable-text";
 import { stableStringify } from "@ryot-app/ts-utils/json";
 import { canonicalRelativePosixPathIssue } from "@ryot-app/ts-utils/path";
 import { Effect, Match, Schema } from "effect";
@@ -155,21 +156,13 @@ export const normalizePluginSource = Effect.fn("PluginPipeline.normalizePluginSo
 				issues: [`Plugin compiled script source does not match file: ${script.entry}`],
 			});
 		}
-		const javascriptText = yield* Effect.try({
-			try: () =>
-				new TextDecoder("utf-8", { fatal: true, ignoreBOM: true }).decode(
-					new TextEncoder().encode(script.javascript),
-				),
+		yield* Effect.try({
+			try: () => encodeExecutableText(script.javascript),
 			catch: () =>
 				new PluginValidationError({
 					issues: [`Plugin compiled script JavaScript is not valid UTF-8: ${script.entry}`],
 				}),
 		});
-		if (javascriptText !== script.javascript) {
-			return yield* new PluginValidationError({
-				issues: [`Plugin compiled script JavaScript is not valid UTF-8: ${script.entry}`],
-			});
-		}
 	}
 	if (Boolean(manifest.client) !== Boolean(source.compiledClient)) {
 		return yield* new PluginValidationError({
@@ -211,8 +204,7 @@ export const normalizePluginSource = Effect.fn("PluginPipeline.normalizePluginSo
 			}
 			if (file.contentType.startsWith("text/javascript")) {
 				yield* Effect.try({
-					try: () =>
-						new TextDecoder("utf-8", { fatal: true, ignoreBOM: true }).decode(file.contents),
+					try: () => decodeExecutableText(file.contents),
 					catch: () =>
 						new PluginValidationError({
 							issues: [`Plugin compiled client artifact file is invalid: ${file.name}`],

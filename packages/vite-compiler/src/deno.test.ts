@@ -38,6 +38,8 @@ describe("Deno ESM audit", () => {
 		["__vitePreload(() => import('approved'));", "forbidden runtime helper"],
 		["document.getElementsByTagName('link');", "forbidden runtime helper"],
 		['new Event("vite:preloadError");', "forbidden runtime helper"],
+		["new Event(`vite:preloadError`);", "forbidden runtime helper"],
+		['new Event("vite:\\x70reloadError");', "forbidden runtime helper"],
 	] as const)("rejects %s", ([javascript, message]) =>
 		Effect.sync(() => {
 			const result = auditDenoEsmOutput(javascript, new Set(["approved"]));

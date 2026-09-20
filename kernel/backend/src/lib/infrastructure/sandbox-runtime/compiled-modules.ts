@@ -1,4 +1,5 @@
 import { sha256Hex } from "@ryot-app/ts-utils/crypto";
+import { encodeExecutableText } from "@ryot-app/ts-utils/executable-text";
 import { Data, Effect, FileSystem, Path, PlatformError } from "effect";
 
 import type { SandboxRuntimePaths } from "./dependencies";
@@ -29,7 +30,13 @@ export const materializeSandboxCompiledModule = (
 	Effect.gen(function* () {
 		const path = yield* Path.Path;
 		const fs = yield* FileSystem.FileSystem;
-		const bytes = new TextEncoder().encode(javascript);
+		const bytes = yield* Effect.try({
+			try: () => encodeExecutableText(javascript),
+			catch: () =>
+				new SandboxCompiledModuleMaterializationError({
+					message: "Compiled module JavaScript is not valid UTF-8",
+				}),
+		});
 		if (sha256Hex(bytes) !== contentHash) {
 			return yield* new SandboxCompiledModuleMaterializationError({
 				message: "Compiled module bytes do not match supplied content hash",
