@@ -44,8 +44,16 @@ import {
 	RelationshipFixture,
 	relationshipsServiceWith,
 } from "./lifecycle.test-support";
+import type { ChangeUserRelationshipBatch } from "./mutation-support";
 import { RelationshipsRepository } from "./repository";
 import { RelationshipsService } from "./service";
+
+const relationshipChangeBatch = (
+	properties: ChangeUserRelationshipBatch["creates"][number]["properties"],
+	propertiesMode: ChangeUserRelationshipBatch["creates"][number]["propertiesMode"],
+): ReadonlyArray<ChangeUserRelationshipBatch> => [
+	{ deletes: [], creates: [{ ...baseInput, properties, propertiesMode }] },
+];
 
 const installPolicyFixture = Effect.fn(function* (owner: UserId | null = userId) {
 	const fixture = revisionPackage(
@@ -461,10 +469,12 @@ describe("Relationships lifecycle owner", () => {
 												sourceEntityId,
 												targetEntityId,
 												properties: {},
+												propertiesMode: "replace",
 												relationshipSchemaSlug: RelationshipSchemaSlug.make(target.slug),
 											},
 											{
 												properties: {},
+												propertiesMode: "replace",
 												sourceEntityId: targetEntityId,
 												targetEntityId: sourceEntityId,
 												relationshipSchemaSlug: RelationshipSchemaSlug.make(target.slug),
@@ -763,6 +773,77 @@ describe("Relationships lifecycle owner", () => {
 	});
 
 	layer(relationshipDatabaseLayer())((test) => {
+		test.effect("applies batch relationship property modes and replays no-hook writes", () =>
+			Effect.gen(function* () {
+				const service = yield* RelationshipsService;
+				const repository = yield* RelationshipsRepository;
+				const session = yield* DatabaseSession;
+				const identity = { ...baseInput, properties: { rank: 0, labels: ["keep"] } };
+				yield* service.create(identity, command("batch-mode-seed"));
+				const emptyMergeCommand = command("batch-empty-merge");
+				const emptyMerge = yield* service.changeUser(
+					userId,
+					relationshipChangeBatch({}, "merge"),
+					emptyMergeCommand,
+				);
+				expect(emptyMerge).toMatchObject([{ created: 0, updated: 0, deleted: 0, warnings: [] }]);
+				expect(yield* repository.findRelationship(identity)).toMatchObject({
+					properties: { rank: 0, labels: ["keep"] },
+				});
+				expect(
+					yield* service.changeUser(
+						userId,
+						relationshipChangeBatch({}, "merge"),
+						emptyMergeCommand,
+					),
+				).toEqual(emptyMerge);
+				yield* service.changeUser(
+					userId,
+					relationshipChangeBatch({ rank: 3 }, "merge"),
+					command("batch-overlay-merge"),
+				);
+				expect(yield* repository.findRelationship(identity)).toMatchObject({
+					properties: { rank: 3, labels: ["keep"] },
+				});
+				yield* service.changeUser(
+					userId,
+					relationshipChangeBatch({ rank: 4 }, "replace"),
+					command("batch-replace"),
+				);
+				expect(yield* repository.findRelationship(identity)).toMatchObject({
+					properties: { rank: 4 },
+				});
+				yield* service.changeUser(
+					userId,
+					[
+						{
+							deletes: [],
+							creates: [
+								{
+									...baseInput,
+									properties: {},
+									propertiesMode: "merge",
+									sourceEntityId: targetEntityId,
+									targetEntityId: sourceEntityId,
+								},
+							],
+						},
+					],
+					command("batch-merge-create"),
+				);
+				expect(
+					yield* repository.findRelationship({
+						...identity,
+						sourceEntityId: targetEntityId,
+						targetEntityId: sourceEntityId,
+					}),
+				).toMatchObject({ properties: {} });
+				expect(yield* session.run((db) => db.select().from(tables.automationTrigger))).toEqual([]);
+			}),
+		);
+	});
+
+	layer(relationshipDatabaseLayer())((test) => {
 		test.effect("rolls back the no-policy batch and receipts on planning failure", () =>
 			Effect.gen(function* () {
 				const planner = yield* LifecyclePlanner;
@@ -786,8 +867,13 @@ describe("Relationships lifecycle owner", () => {
 							{
 								deletes: [],
 								creates: [
-									baseInput,
-									{ ...baseInput, sourceEntityId: targetEntityId, targetEntityId: sourceEntityId },
+									{ ...baseInput, propertiesMode: "replace" },
+									{
+										...baseInput,
+										propertiesMode: "replace",
+										sourceEntityId: targetEntityId,
+										targetEntityId: sourceEntityId,
+									},
 								],
 							},
 						],
@@ -955,12 +1041,17 @@ describe("Relationships lifecycle owner", () => {
 						rootExecutionId: AutomationExecutionId.make("root-execution"),
 					},
 				};
-				const batches = [
+				const batches: ReadonlyArray<ChangeUserRelationshipBatch> = [
 					{
 						deletes: [],
 						creates: [
-							{ ...baseInput, properties: { rank: 4 } },
-							{ ...baseInput, sourceEntityId: targetEntityId, targetEntityId: sourceEntityId },
+							{ ...baseInput, properties: { rank: 4 }, propertiesMode: "replace" },
+							{
+								...baseInput,
+								propertiesMode: "replace",
+								sourceEntityId: targetEntityId,
+								targetEntityId: sourceEntityId,
+							},
 						],
 					},
 				];

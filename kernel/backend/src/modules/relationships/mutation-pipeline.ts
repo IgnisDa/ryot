@@ -672,8 +672,9 @@ export class RelationshipMutationPipeline extends Context.Service<RelationshipMu
 								[
 									...batch.creates.map((input) => ({
 										input,
-										mode: "upsert" as const,
 										properties: input.properties,
+										mode:
+											input.propertiesMode === "merge" ? ("merge" as const) : ("upsert" as const),
 									})),
 									...batch.deletes.map((input) => ({
 										input,
