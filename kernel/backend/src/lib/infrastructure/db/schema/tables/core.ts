@@ -1,8 +1,10 @@
 import type { PluginManifest } from "@ryot-app/contract/modules/plugins/manifest";
+import type { SavedViewReference } from "@ryot-app/contract/modules/plugins/references";
 import type {
 	ProviderInformation,
 	SandboxScriptMetadata,
 } from "@ryot-app/contract/modules/sandbox/schemas";
+import type { PluginPackageId } from "@ryot-app/contract/schema/brands";
 import type { JsonValue } from "@ryot-app/contract/schema/json";
 import type { AppSchema } from "@ryot-app/contract/schema/property-schema";
 import { generateId } from "better-auth";
@@ -50,6 +52,7 @@ export const plugin = snakeCase.table(
 		status: text().notNull(),
 		activeRevisionId: text(),
 		environmentConfigRevisionId: text(),
+		packageId: text().$type<PluginPackageId>().notNull(),
 		createdAt: timestamp({ precision: 3, withTimezone: true }).defaultNow().notNull(),
 		ownerId: text("owner_user_id").references(() => user.id, { onDelete: "cascade" }),
 		activationId: text()
@@ -80,8 +83,8 @@ export const plugin = snakeCase.table(
 			sql`${table.ownerId} is null or ${table.environmentConfigRevisionId} is null`,
 		),
 		index("plugin_owner_id_idx").on(table.ownerId),
-		uniqueIndex("plugin_owner_slug_unique").on(
-			table.slug,
+		uniqueIndex("plugin_owner_package_id_unique").on(
+			table.packageId,
 			sql`(case when ${table.ownerId} is null then '0' else '1' || ${table.ownerId} end)`,
 		),
 	],
@@ -134,6 +137,7 @@ export const pluginRevisionSandboxAuthority = snakeCase.view("plugin_revision_sa
 				or jsonb_typeof(manifest->'userBootstrap') is distinct from 'array'
 				or jsonb_typeof(manifest->'entitySchemas') is distinct from 'array'
 				or jsonb_typeof(manifest->'relationshipSchemas') is distinct from 'array'
+				or jsonb_typeof(manifest->'signalSchemas') is distinct from 'array'
 			then 'null'::jsonb
 			when exists (
 				select 1
@@ -142,6 +146,7 @@ export const pluginRevisionSandboxAuthority = snakeCase.view("plugin_revision_sa
 			)
 			then 'null'::jsonb
 			else jsonb_build_object(
+				'packageId', manifest->'metadata'->'packageId',
 				'configSchema', manifest->'configSchema',
 				'workflowScripts', coalesce(
 					(
@@ -159,6 +164,14 @@ export const pluginRevisionSandboxAuthority = snakeCase.view("plugin_revision_sa
 					'[]'::jsonb
 				),
 				'schemaScope', jsonb_build_object(
+					'signalSchemaSlugs', coalesce(
+						(
+							select jsonb_agg(signal_schema->'slug' order by signal_position)
+							from jsonb_array_elements(manifest->'signalSchemas')
+								with ordinality as signals(signal_schema, signal_position)
+						),
+						'[]'::jsonb
+					),
 					'entitySchemaSlugs', coalesce(
 						(
 							select jsonb_agg(entity_schema->'slug' order by entity_position)
@@ -208,12 +221,14 @@ export const pluginInstallation = snakeCase.table(
 	"plugin_installation",
 	{
 		healthReason: text(),
-		homeSavedViewSlug: text(),
 		sortOrder: integer().notNull().default(0),
 		isHidden: boolean().notNull().default(false),
+		isInitialized: boolean().notNull().default(false),
+		homeSavedView: jsonb().$type<SavedViewReference>(),
 		ingestionRetiring: boolean().notNull().default(false),
 		configuredSecretPaths: text().array().notNull().default([]),
 		uninstalledAt: timestamp({ precision: 3, withTimezone: true }),
+		incompatibilityReason: text().$type<"package-identity-conflict">(),
 		clientConfig: jsonb().$type<Record<string, JsonValue>>().notNull().default({}),
 		userSettings: jsonb().$type<Record<string, JsonValue>>().notNull().default({}),
 		createdAt: timestamp({ precision: 3, withTimezone: true }).defaultNow().notNull(),
@@ -238,6 +253,10 @@ export const pluginInstallation = snakeCase.table(
 			.default("ready"),
 	},
 	(table) => [
+		check(
+			"plugin_installation_incompatibility_reason_check",
+			sql`${table.incompatibilityReason} is null or (${table.incompatibilityReason} = 'package-identity-conflict' and ${table.health} = 'incompatible')`,
+		),
 		index("plugin_installation_user_id_idx").on(table.userId),
 		index("plugin_installation_plugin_id_idx").on(table.pluginId),
 		unique("plugin_installation_user_plugin_unique").on(table.userId, table.pluginId),
