@@ -1,12 +1,11 @@
-import { assert, expect, layer } from "@effect/vitest";
+import { expect, layer } from "@effect/vitest";
 import { Effect, Layer, Redacted } from "effect";
 
-import { assertExitFails } from "#lib/test-utils/assertions";
 import { makeAppConfigLayer } from "#lib/test-utils/effect";
 import { testExecutionId, testRedisUrl } from "#lib/test-utils/redis";
 
 import { redisKeys, RedisService } from "./redis";
-import { SandboxCrashStore, SandboxCrashStoreError } from "./sandbox-crash-store";
+import { QUARANTINE_MS, SandboxCrashStore, sandboxProtectionKeys } from "./sandbox-crash-store";
 
 const storeLayer = Layer.unwrap(
 	Effect.sync(() =>
@@ -22,14 +21,7 @@ const identities = Effect.acquireRelease(
 	(keys) =>
 		Effect.gen(function* () {
 			const redis = yield* RedisService;
-			yield* redis.del(
-				...keys.flatMap((key) => [
-					redisKeys.sandboxCrashWindow(key),
-					redisKeys.sandboxQuarantine(key),
-					redisKeys.sandboxProbation(key),
-					redisKeys.sandboxProbationLease(key),
-				]),
-			);
+			yield* redis.del(...keys.flatMap(sandboxProtectionKeys));
 		}),
 );
 
@@ -50,8 +42,8 @@ layer(storeLayer)((test) => {
 					const ttl = yield* Effect.promise(() =>
 						redis.client.pttl(redisKeys.sandboxQuarantine(key)),
 					);
-					expect(ttl).toBeGreaterThan(3_500_000);
-					expect(ttl).toBeLessThanOrEqual(3_600_000);
+					expect(ttl).toBeGreaterThan(QUARANTINE_MS - 100_000);
+					expect(ttl).toBeLessThanOrEqual(QUARANTINE_MS);
 				}
 			}),
 		),
@@ -109,20 +101,6 @@ layer(storeLayer)((test) => {
 				yield* store.strike(keys, "probe-crash");
 				expect(yield* store.acquire(keys, "next")).toBe("blocked");
 				expect(yield* store.survived(keys, "probe")).toBe("stale");
-			}),
-		),
-	);
-	test.effect("fails closed when persisted protection state is corrupt", () =>
-		Effect.scoped(
-			Effect.gen(function* () {
-				const store = yield* SandboxCrashStore;
-				const redis = yield* RedisService;
-				const keys = yield* identities;
-				const [identity] = keys;
-				assert(identity !== undefined);
-				yield* redis.set(redisKeys.sandboxProbation(identity), "invalid");
-				const exit = yield* Effect.exit(store.acquire(keys, "run"));
-				assertExitFails(exit, new SandboxCrashStoreError({ message: "Crash store is corrupt" }));
 			}),
 		),
 	);

@@ -4,19 +4,15 @@ import { sha256Hex } from "@ryot-app/ts-utils/crypto";
 import { Effect, FileSystem, Layer, Metric } from "effect";
 
 import { makeAppConfigLayer } from "#lib/test-utils/effect";
-import { sandboxRuntimeDirectory } from "#lib/test-utils/sandbox-runtime";
 
 import { decodedHostCallArgs } from "./host-call-args.test-support";
 import { SANDBOX_LIMITS } from "./limits";
 import { SandboxSidecarClient } from "./sidecar-client";
 
-const live = Layer.unwrap(
-	Effect.map(sandboxRuntimeDirectory, (runtimeDirectory) =>
-		SandboxSidecarClient.layer.pipe(
-			Layer.provideMerge(makeAppConfigLayer({ sandbox: { runtimeDirectory } })),
-		),
-	),
-).pipe(Layer.provideMerge(BunServices.layer));
+const live = SandboxSidecarClient.layer.pipe(
+	Layer.provideMerge(makeAppConfigLayer()),
+	Layer.provideMerge(BunServices.layer),
+);
 
 const parkSource =
 	"export default async (input, host) => { await host.call('park', input.marker); return input.marker; };";

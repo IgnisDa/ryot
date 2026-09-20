@@ -7,7 +7,7 @@ import { sha256Hex } from "@ryot-app/ts-utils/crypto";
 import { Effect, Layer, Result, Schema } from "effect";
 
 import { makeAppConfigLayer } from "#lib/test-utils/effect";
-import { makeUserPluginRevision, sandboxRuntimeDirectory } from "#lib/test-utils/sandbox-runtime";
+import { makeUserPluginRevision } from "#lib/test-utils/sandbox-runtime";
 import { SandboxCompiler } from "#modules/sandbox/sandbox-compiler";
 
 import { SandboxHostCallGate } from "./host-call-gate";
@@ -65,13 +65,6 @@ const unusedLifecycleSteps = {
 };
 
 export const nativePlatformLayer = Layer.mergeAll(BunServices.layer, sandboxCompilerPlatformLayer);
-
-export const nativeConfigLayer = (overrides: Parameters<typeof makeAppConfigLayer>[0] = {}) =>
-	Layer.unwrap(
-		Effect.map(sandboxRuntimeDirectory, (runtimeDirectory) =>
-			makeAppConfigLayer({ ...overrides, sandbox: { ...overrides.sandbox, runtimeDirectory } }),
-		),
-	);
 
 export const unusedSandboxHostImplementations = (
 	runtime: Partial<RuntimeSandboxHostImplementationMap> = {},
@@ -145,7 +138,7 @@ export const runnerNativeLayer = Layer.mergeAll(
 	SandboxSidecarClient.layer,
 	SandboxCompiler.layer,
 	SandboxHostCallGate.layer.pipe(Layer.provideMerge(SandboxSidecarAdmission.layer)),
-).pipe(Layer.provideMerge(nativeConfigLayer()), Layer.provideMerge(nativePlatformLayer));
+).pipe(Layer.provideMerge(makeAppConfigLayer()), Layer.provideMerge(nativePlatformLayer));
 
 export const makeRunnerInput = (
 	compiled: RunnerCompiled,

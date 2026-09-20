@@ -6,7 +6,11 @@ import { stableStringify } from "@ryot-app/ts-utils/json";
 import { Deferred, Effect, Fiber, Queue, Schema } from "effect";
 
 import { redisKeys, RedisService } from "#lib/infrastructure/redis";
-import { SandboxCrashStore, SandboxCrashStoreError } from "#lib/infrastructure/sandbox-crash-store";
+import {
+	QUARANTINE_MS,
+	SandboxCrashStore,
+	SandboxCrashStoreError,
+} from "#lib/infrastructure/sandbox-crash-store";
 import { SandboxRecoveryStore } from "#lib/infrastructure/sandbox-recovery-store";
 import { assertExitFails } from "#lib/test-utils/assertions";
 import { testExecutionId } from "#lib/test-utils/redis";
@@ -123,8 +127,8 @@ const quarantineThroughCrashes = Effect.fnUntraced(function* (
 		const ttl = yield* Effect.promise(() =>
 			redis.client.pttl(redisKeys.sandboxQuarantine(identity)),
 		);
-		expect(ttl).toBeGreaterThan(3_500_000);
-		expect(ttl).toBeLessThanOrEqual(3_600_000);
+		expect(ttl).toBeGreaterThan(QUARANTINE_MS - 100_000);
+		expect(ttl).toBeLessThanOrEqual(QUARANTINE_MS);
 	}
 });
 

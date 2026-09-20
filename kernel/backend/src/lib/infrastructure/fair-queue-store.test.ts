@@ -1,6 +1,6 @@
 import { expect, layer } from "@effect/vitest";
 import { sortBy } from "@ryot-app/ts-utils/lodash";
-import { Deferred, Duration, Effect, Exit, Fiber, Metric, Schedule, Schema, Scope } from "effect";
+import { Deferred, Duration, Effect, Exit, Fiber, Metric, Schema, Scope } from "effect";
 import type { PersistedQueue } from "effect/persistence";
 
 import { testRedisServiceLayer } from "#lib/test-utils/redis";
@@ -36,12 +36,6 @@ const takeOptions = (maxAttempts = 5) => ({
 
 const withIsolatedRegistry = <A, E, R>(effect: Effect.Effect<A, E, R>) =>
 	Effect.provideService(effect, Metric.MetricRegistry, new Map());
-
-const eventually = <E, R>(check: Effect.Effect<boolean, E, R>) =>
-	check.pipe(
-		Effect.repeat({ until: (done) => done, schedule: Schedule.spaced(10) }),
-		Effect.timeout("10 seconds"),
-	);
 
 const settle = Effect.sleep(250);
 
@@ -92,8 +86,8 @@ const makeTestStore = Effect.fnUntraced(function* (overrides: Partial<FairQueueO
 	const { client } = yield* RedisService;
 	const prefix = overrides.prefix ?? `ryot:test:fair:${crypto.randomUUID()}:`;
 	yield* Effect.addFinalizer(() => deleteKeys(client, prefix));
-	const made = yield* makeFairQueueStore(storeOptions(prefix, overrides));
-	return { ...made, client, prefix, keys: fairQueueKeys(prefix, queueName) };
+	const store = yield* makeFairQueueStore(storeOptions(prefix, overrides));
+	return { store, client, prefix, keys: fairQueueKeys(prefix, queueName) };
 });
 
 const offerAll = (
@@ -212,17 +206,15 @@ layer(testRedisServiceLayer, { excludeTestServices: true })((test) => {
 			yield* settle;
 			expect(yield* decodeEntry(firstItem.element)).toMatchObject({ n: 0, lane: background });
 			expect(yield* Deferred.isDone(second.received)).toBe(false);
-			expect(idle.inflight(queueName)).toEqual({ background: 1, interactive: 0 });
 			expect(yield* call(() => idle.client.scard(idle.keys.pending))).toBe(1);
 			yield* offerAll(idle.store, [entry(interactive, "user:b", "p", 2)]);
 			const secondItem = yield* Deferred.await(second.received).pipe(Effect.timeout("10 seconds"));
 			expect(yield* decodeEntry(secondItem.element)).toMatchObject({ n: 2, lane: interactive });
-			expect(idle.inflight(queueName)).toEqual({ background: 1, interactive: 1 });
 			yield* Deferred.succeed(first.finish, undefined);
 			yield* Deferred.succeed(second.finish, undefined);
 			yield* Fiber.join(first.fiber);
 			yield* Fiber.join(second.fiber);
-			expect(idle.inflight(queueName)).toEqual({ background: 0, interactive: 0 });
+			expect(yield* call(() => idle.client.scard(idle.keys.pending))).toBe(0);
 
 			yield* withIsolatedRegistry(
 				Effect.gen(function* () {
@@ -277,7 +269,8 @@ layer(testRedisServiceLayer, { excludeTestServices: true })((test) => {
 
 	test.effect("fair_admission_releases_tickets_and_reservations_exactly_once", () =>
 		Effect.gen(function* () {
-			const { keys, store, client, prefix, inflight } = yield* makeTestStore();
+			const capacity = { total: 1, background: 1 };
+			const { keys, store, client, prefix } = yield* makeTestStore({ capacity });
 			const idle = yield* redisSnapshot(client, prefix);
 			const element = entry(interactive, "user:a", "p", 0);
 			const queued = entry(interactive, "user:a", "p", 1);
@@ -288,9 +281,7 @@ layer(testRedisServiceLayer, { excludeTestServices: true })((test) => {
 
 			const interrupted = yield* holdTake(store);
 			yield* Deferred.await(interrupted.received);
-			expect(inflight(queueName)).toEqual({ background: 0, interactive: 1 });
 			yield* Fiber.interrupt(interrupted.fiber);
-			expect(inflight(queueName)).toEqual({ background: 0, interactive: 0 });
 			expect(yield* redisSnapshot(client, prefix)).toEqual(offered);
 
 			yield* store.offer({
@@ -303,7 +294,6 @@ layer(testRedisServiceLayer, { excludeTestServices: true })((test) => {
 			expect((yield* Deferred.await(failing.received)).id).toBe(id);
 			yield* Deferred.fail(failing.finish, "boom");
 			yield* Fiber.await(failing.fiber);
-			expect(inflight(queueName)).toEqual({ background: 0, interactive: 0 });
 			const retry = yield* holdTake(store);
 			const retried = yield* Deferred.await(retry.received);
 			expect({ id: retried.id, attempts: retried.attempts }).toEqual({ id, attempts: 2 });
@@ -311,68 +301,51 @@ layer(testRedisServiceLayer, { excludeTestServices: true })((test) => {
 			yield* Deferred.succeed(retry.finish, undefined);
 			yield* Fiber.join(retry.fiber);
 			expect((yield* takeThenComplete(store)).element).toEqual(queued);
-			expect(inflight(queueName)).toEqual({ background: 0, interactive: 0 });
 			expect(yield* redisSnapshot(client, prefix)).toEqual(idle);
 
-			const failingPoll = yield* makeTestStore();
+			const failingPoll = yield* makeTestStore({ capacity });
 			const waiting = yield* holdTake(failingPoll.store);
 			yield* call(() => failingPoll.client.set(failingPoll.keys.delayed, "not-a-sorted-set"));
 			yield* offerAll(failingPoll.store, [element]);
 			const beforeRecovery = yield* redisSnapshot(failingPoll.client, failingPoll.prefix);
 			yield* Effect.sleep(700);
 			expect(yield* Deferred.isDone(waiting.received)).toBe(false);
-			expect(failingPoll.inflight(queueName)).toEqual({ background: 0, interactive: 0 });
 			expect(yield* redisSnapshot(failingPoll.client, failingPoll.prefix)).toEqual(beforeRecovery);
 			yield* call(() => failingPoll.client.del(failingPoll.keys.delayed));
 			const recovered = yield* Deferred.await(waiting.received).pipe(Effect.timeout("10 seconds"));
 			expect(recovered.element).toEqual(element);
-			expect(failingPoll.inflight(queueName)).toEqual({ background: 0, interactive: 1 });
 			yield* Deferred.succeed(waiting.finish, undefined);
 			yield* Fiber.join(waiting.fiber);
-			expect(failingPoll.inflight(queueName)).toEqual({ background: 0, interactive: 0 });
+			yield* offerAll(failingPoll.store, [queued]);
+			expect((yield* takeThenComplete(failingPoll.store)).element).toEqual(queued);
 		}),
 	);
 
 	test.effect("fair_queue_redispatches_expired_peer_locks", () =>
 		Effect.gen(function* () {
 			const prefix = `ryot:test:fair:${crypto.randomUUID()}:`;
-			const peer = yield* makeTestStore({
-				prefix,
-				lockExpiration: 150,
-				lockRefreshInterval: Duration.hours(1),
-			});
-			const survivor = yield* makeTestStore({
-				prefix,
-				lockRefreshInterval: 50,
-				lockExpiration: Duration.minutes(1),
-			});
+			const peer = yield* makeTestStore({ prefix });
 			const flowElement = entry(interactive, "user:a", "p", 0);
 			const next = entry(interactive, "user:a", "p", 1);
-			yield* offerAll(survivor.store, [entry(interactive, "user:z", "warmup", 9)]);
-			yield* takeThenComplete(survivor.store);
 			const id = crypto.randomUUID();
 			yield* peer.store.offer({ id, name: queueName, isCustomId: false, element: flowElement });
 			yield* offerAll(peer.store, [next]);
-			const beforeTake = yield* redisSnapshot(peer.client, prefix);
 
 			const stalled = yield* holdTake(peer.store);
 			expect((yield* Deferred.await(stalled.received)).attempts).toBe(1);
-			yield* eventually(
-				Effect.map(
-					call(() => peer.client.scard(peer.keys.pending)),
-					(pending) => pending === 0,
-				),
-			);
-			expect(yield* redisSnapshot(peer.client, prefix)).toEqual({
-				...beforeTake,
-				[peer.keys.attempts]: { [id]: "1" },
-			});
+			const lockTtl = yield* call(() => peer.client.pttl(peer.keys.lock(id)));
+			expect(lockTtl).toBeGreaterThan(0);
+			expect(lockTtl).toBeLessThanOrEqual(90_000);
+			yield* call(() => peer.client.del(peer.keys.lock(id)));
 
-			const redispatched = yield* takeThenComplete(survivor.store);
-			expect({ id: redispatched.id, attempts: redispatched.attempts }).toEqual({ id, attempts: 2 });
-			expect((yield* takeThenComplete(survivor.store)).element).toEqual(next);
+			const survivor = yield* makeTestStore({ prefix });
+			const taken = [
+				yield* takeThenComplete(survivor.store),
+				yield* takeThenComplete(survivor.store),
+			];
+			expect(taken.find((item) => item.id === id)?.attempts).toBe(2);
+			expect(taken.map((item) => item.element)).toContainEqual(next);
 			yield* Fiber.interrupt(stalled.fiber);
-			expect(peer.inflight(queueName)).toEqual({ background: 0, interactive: 0 });
 			expect(yield* redisSnapshot(peer.client, prefix)).toEqual({});
 		}),
 	);
@@ -422,14 +395,14 @@ layer(testRedisServiceLayer, { excludeTestServices: true })((test) => {
 				expect(yield* redisSnapshot(client, prefix)).toEqual({});
 
 				const crashed = yield* Scope.make();
-				const crashedStore = yield* makeFairQueueStore(
-					storeOptions(prefix, { lockExpiration: 100, lockRefreshInterval: Duration.hours(1) }),
-				).pipe(Scope.provide(crashed));
-				yield* offerAll(crashedStore.store, [element]);
-				const lost = yield* holdTake(crashedStore.store);
+				const crashedStore = yield* makeFairQueueStore(storeOptions(prefix, {})).pipe(
+					Scope.provide(crashed),
+				);
+				yield* offerAll(crashedStore, [element]);
+				const lost = yield* holdTake(crashedStore);
 				const { id } = yield* Deferred.await(lost.received);
 				yield* Scope.close(crashed, Exit.void);
-				yield* Effect.sleep(200);
+				yield* call(() => client.del(keys.lock(id)));
 				const restarted = yield* makeTestStore({ prefix });
 				const resumed = yield* takeThenComplete(restarted.store);
 				expect({ id: resumed.id, attempts: resumed.attempts }).toEqual({ id, attempts: 2 });

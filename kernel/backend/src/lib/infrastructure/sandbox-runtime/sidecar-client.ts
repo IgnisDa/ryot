@@ -6,7 +6,6 @@ import type { ExecutionLane } from "@ryot-app/contract/modules/automations/lifec
 import { Context, Data, Deferred, Effect, FileSystem, Layer, Path, Queue, Schema } from "effect";
 import { ChildProcess, ChildProcessSpawner } from "effect/process";
 
-import { AppConfig } from "../config/service";
 import {
 	recordSandboxAggregateRss,
 	recordSandboxRuntimeGauges,
@@ -32,12 +31,12 @@ export class SandboxSidecarInstallation extends Context.Service<
 	static readonly layer = Layer.effect(
 		this,
 		Effect.gen(function* () {
-			const config = yield* AppConfig;
 			const path = yield* Path.Path;
 			if (process.platform === "linux") {
 				return { launcher: SANDBOX_LAUNCHER_PATH };
 			}
-			const directory = path.resolve(config.sandbox.runtimeDirectory);
+			const source = yield* path.fromFileUrl(new URL(import.meta.url));
+			const directory = path.resolve(path.dirname(source), "../../../../../sandboxd/dist");
 			return {
 				snapshots: path.join(directory, "snapshots"),
 				executable: path.join(directory, "ryot-sandboxd"),

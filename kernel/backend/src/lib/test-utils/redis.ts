@@ -2,20 +2,13 @@ import { Effect, Layer } from "effect";
 import Redis from "ioredis";
 import { inject } from "vitest";
 
-import { redisKeys, RedisService } from "#lib/infrastructure/redis";
+import { RedisService } from "#lib/infrastructure/redis";
 
 import { makeRedisService } from "./effect";
 
 export const testRedisUrl = () => inject("redisUrl");
 
 export const testExecutionId = (label: string) => `${label}-${crypto.randomUUID()}`;
-
-export const sandboxProtectionKeys = (identity: string) => [
-	redisKeys.sandboxCrashWindow(identity),
-	redisKeys.sandboxQuarantine(identity),
-	redisKeys.sandboxProbation(identity),
-	redisKeys.sandboxProbationLease(identity),
-];
 
 export const deleteRedisKeysOnExit = (keys: () => ReadonlyArray<string>) =>
 	Effect.gen(function* () {

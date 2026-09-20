@@ -27,14 +27,15 @@ export type FairQueueFlow = typeof FairQueueFlow.Type;
 export type FairQueueOptions = {
 	readonly prefix: string;
 	readonly pollInterval: Duration.Input;
-	readonly lockExpiration?: Duration.Input;
-	readonly lockRefreshInterval?: Duration.Input;
 	/** Per-process limits: `total` runs at once, of which at most `background` are background. */
 	readonly capacity: { readonly total: number; readonly background: number };
 	readonly flowOf: (element: unknown) => Effect.Effect<FairQueueFlow, Schema.SchemaError>;
 };
 
-const BACKGROUND_STARVATION_LIMIT = 4;
+export const BACKGROUND_STARVATION_LIMIT = 4;
+const LOCK_EXPIRATION_MS = 90_000;
+const LOCK_RENEWAL_INTERVAL_MS = 30_000;
+const LOCK_SWEEP_INTERVAL_MS = 30_000;
 const DISPATCHER_RETRY_SPACING_MS = 500;
 const interactive = "interactive" satisfies ExecutionLane;
 const background = "background" satisfies ExecutionLane;
@@ -307,17 +308,12 @@ local removed = 0
 while removed < ${trimFailedBatchSize} do
   local head = redis.call("LINDEX", key_failed, 0)
   if not head then break end
-  local ok, decoded = pcall(cjson.decode, head)
-  if ok then
-    local failed_at = tonumber(decoded.failedAt)
-    if failed_at ~= nil and failed_at >= cutoff then break end
-    redis.call("LPOP", key_failed)
-    if decoded.id ~= nil then
-      redis.call("ZREM", key_ids, decoded.id)
-    end
-  else
-    -- a corrupt head would otherwise block trimming of the whole list
-    redis.call("LPOP", key_failed)
+  local decoded = cjson.decode(head)
+  local failed_at = tonumber(decoded.failedAt)
+  if failed_at ~= nil and failed_at >= cutoff then break end
+  redis.call("LPOP", key_failed)
+  if decoded.id ~= nil then
+    redis.call("ZREM", key_ids, decoded.id)
   end
   removed = removed + 1
 end
@@ -340,10 +336,12 @@ export const fairQueueKeys = (prefix: string, name: string) => {
 	};
 };
 
-const ackRetrySchedule = (lockExpiration: Duration.Input) =>
-	Schedule.min([Schedule.exponential(200, 1.5), Schedule.spaced(5000)]).pipe(
-		Schedule.upTo({ duration: lockExpiration }),
-	);
+const ackRetrySchedule = Schedule.min([Schedule.exponential(200, 1.5), Schedule.spaced(5000)]).pipe(
+	Schedule.upTo({ duration: LOCK_EXPIRATION_MS }),
+);
+
+const acknowledge = <A, E>(effect: Effect.Effect<A, E>) =>
+	effect.pipe(Effect.retry(ackRetrySchedule), Effect.orDie);
 
 const hasDeadLetter = (cause: Cause.Cause<unknown>) =>
 	cause.reasons.some(
@@ -381,24 +379,8 @@ const redisCall = <A>(run: () => Promise<A>) =>
 export const makeFairQueueStore = Effect.fnUntraced(function* (options: FairQueueOptions) {
 	const { client } = yield* RedisService;
 	const scope = yield* Effect.scope;
-	const pollInterval = Duration.max(
-		Duration.fromInputUnsafe(options.pollInterval),
-		Duration.millis(1),
-	);
-	const lockRefreshMillis = Math.max(
-		options.lockRefreshInterval
-			? Duration.toMillis(Duration.fromInputUnsafe(options.lockRefreshInterval))
-			: 30_000,
-		1,
-	);
-	const lockExpirationMillis = Math.max(
-		options.lockExpiration
-			? Duration.toMillis(Duration.fromInputUnsafe(options.lockExpiration))
-			: 90_000,
-		1,
-	);
+	const pollInterval = Duration.fromInputUnsafe(options.pollInterval);
 	const workerId = crypto.randomUUID();
-	const retryAck = ackRetrySchedule(lockExpirationMillis);
 	const states = new Map<string, QueueState>();
 	const activeLocks = new Set<string>();
 
@@ -407,9 +389,6 @@ export const makeFairQueueStore = Effect.fnUntraced(function* (options: FairQueu
 		keys: ReadonlyArray<string>,
 		args: ReadonlyArray<string | number>,
 	) => redisCall(() => client.eval(script, keys.length, ...keys, ...args));
-
-	const acknowledge = <A, E>(effect: Effect.Effect<A, E>) =>
-		effect.pipe(Effect.retry(retryAck), Effect.orDie);
 
 	const resilient = <A, E, R>(effect: Effect.Effect<A, E, R>) =>
 		effect.pipe(
@@ -479,7 +458,7 @@ export const makeFairQueueStore = Effect.fnUntraced(function* (options: FairQueu
 		const response = yield* command(
 			takeScript,
 			[keys.delayed, keys.items, keys.flows, keys.pending, keys.attempts],
-			[keys.base, workerId, now, lockExpirationMillis, background, ...lanes],
+			[keys.base, workerId, now, LOCK_EXPIRATION_MS, background, ...lanes],
 		);
 		const taken = yield* decodeTaken(response);
 		if (taken === null) {
@@ -519,7 +498,7 @@ export const makeFairQueueStore = Effect.fnUntraced(function* (options: FairQueu
 					resilient(Effect.forever(dispatchOnce(name, state))),
 					resilient(
 						Effect.suspend(() => sweepExpiredLocks(name, state)).pipe(
-							Effect.andThen(Effect.sleep(lockRefreshMillis)),
+							Effect.andThen(Effect.sleep(LOCK_SWEEP_INTERVAL_MS)),
 							Effect.forever,
 						),
 					),
@@ -529,10 +508,10 @@ export const makeFairQueueStore = Effect.fnUntraced(function* (options: FairQueu
 		});
 
 	yield* Effect.suspend(() =>
-		command(expireAllScript, Array.from(activeLocks), [lockExpirationMillis]),
+		command(expireAllScript, Array.from(activeLocks), [LOCK_EXPIRATION_MS]),
 	).pipe(
 		Effect.ignore,
-		Effect.andThen(Effect.sleep(lockRefreshMillis)),
+		Effect.andThen(Effect.sleep(LOCK_RENEWAL_INTERVAL_MS)),
 		Effect.forever,
 		Effect.forkIn(scope),
 	);
@@ -699,17 +678,8 @@ export const makeFairQueueStore = Effect.fnUntraced(function* (options: FairQueu
 			),
 	});
 
-	return {
-		store,
-		inflight: (name: string) => ({
-			background: states.get(name)?.inflight.background ?? 0,
-			interactive: states.get(name)?.inflight.interactive ?? 0,
-		}),
-	};
+	return store;
 });
 
 export const fairQueueStoreLayer = (options: FairQueueOptions) =>
-	Layer.effect(
-		PersistedQueue.PersistedQueueStore,
-		Effect.map(makeFairQueueStore(options), ({ store }) => store),
-	);
+	Layer.effect(PersistedQueue.PersistedQueueStore, makeFairQueueStore(options));

@@ -6,7 +6,6 @@ import { sha256Hex } from "@ryot-app/ts-utils/crypto";
 import { Context, Effect, Exit, Layer, Result, Schema, Semaphore } from "effect";
 
 import { makeAppConfigLayer } from "#lib/test-utils/effect";
-import { sandboxRuntimeDirectory } from "#lib/test-utils/sandbox-runtime";
 import { loadPluginSandboxScripts } from "#modules/plugins/source.test-support";
 
 import { MiB, SANDBOX_LIMITS } from "./limits";
@@ -46,16 +45,13 @@ const errorText = (error: unknown) => boundedText(unknownToMessage(error));
 const pluginLoadFailure = (script: string, reason: string) =>
 	new SandboxRunError({ kind: "script-failure", message: boundedText(`${script}: ${reason}`) });
 
-export const pluginLoadLayer = Layer.unwrap(
-	Effect.map(sandboxRuntimeDirectory, (runtimeDirectory) => {
-		const appConfig = makeAppConfigLayer({ sandbox: { runtimeDirectory } });
-		const sidecar = SandboxSidecarClient.layer.pipe(
-			Layer.provideMerge(
-				Layer.mergeAll(BunServices.layer, sandboxCompilerPlatformLayer, appConfig),
-			),
-		);
-		return Layer.mergeAll(sidecar, Layer.effect(PluginLoadVerificationSlots, Semaphore.make(2)));
-	}),
+export const pluginLoadLayer = Layer.mergeAll(
+	SandboxSidecarClient.layer.pipe(
+		Layer.provideMerge(
+			Layer.mergeAll(BunServices.layer, sandboxCompilerPlatformLayer, makeAppConfigLayer()),
+		),
+	),
+	Layer.effect(PluginLoadVerificationSlots, Semaphore.make(2)),
 ).pipe(Layer.provide(BunServices.layer));
 
 const hostResult = (frame: SidecarHostCall): SidecarInboundFrame =>
