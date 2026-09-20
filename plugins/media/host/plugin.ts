@@ -36,6 +36,20 @@ const uploadInputSchema = (
 	},
 });
 
+const timezoneInputField = {
+	position: 1,
+	label: "Timezone",
+	type: "string" as const,
+	format: { kind: "timezone" as const },
+	validation: { required: true as const },
+	description: "Timezone the export's dates were recorded in",
+};
+
+const timezoneUploadInputSchema = (...args: Parameters<typeof uploadInputSchema>) => {
+	const base = uploadInputSchema(...args);
+	return { ...base, fields: { ...base.fields, timezone: timezoneInputField } };
+};
+
 const apiKeyInputSchema = (name: string, apiKeyDescription = `${name} API token`) => ({
 	unknownKeys: "strict" as const,
 	fields: {
@@ -939,7 +953,7 @@ export const mediaPlugin = definePlugin({
 			workflowSlug: "import",
 			requiredPluginConfigKeys: [],
 			exportHelp: importDocs("anilist"),
-			inputSchema: uploadInputSchema("AniList export", "AniList JSON export", ["json"]),
+			inputSchema: timezoneUploadInputSchema("AniList export", "AniList JSON export", ["json"]),
 			description:
 				"Import anime, manga, progress, reviews, favorites, and custom lists from AniList",
 		},
