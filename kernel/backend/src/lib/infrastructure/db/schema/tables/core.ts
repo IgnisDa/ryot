@@ -16,7 +16,6 @@ import {
 	index,
 	integer,
 	jsonb,
-	primaryKey,
 	smallint,
 	snakeCase,
 	text,
@@ -121,18 +120,6 @@ export const pluginRevision = snakeCase.table(
 			name: "plugin_revision_client_artifact_hash_fk",
 		}),
 	],
-);
-
-export const pluginRevisionSourceFile = snakeCase.table(
-	"plugin_revision_source_file",
-	{
-		path: text().notNull(),
-		contents: bytea().notNull(),
-		pluginRevisionId: text()
-			.notNull()
-			.references(() => pluginRevision.id, { onDelete: "cascade" }),
-	},
-	(table) => [primaryKey({ columns: [table.pluginRevisionId, table.path] })],
 );
 
 export const pluginInstallation = snakeCase.table(

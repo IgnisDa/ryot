@@ -52,11 +52,7 @@ import { adminAccessTokenHeaders } from "../fixtures/kernel/admin";
 import { signInWithPassword } from "../fixtures/kernel/auth";
 import { enableTwoFactorForSession } from "../fixtures/kernel/auth-2fa";
 import { compilePluginPackage } from "../fixtures/kernel/compiled-package";
-import {
-	encodePluginSourceFiles,
-	encodeTestSupportPluginFiles,
-	testPluginManifest,
-} from "../fixtures/kernel/test-plugin";
+import { encodePluginSourceFiles, testPluginManifest } from "../fixtures/kernel/test-plugin";
 
 type EntitySchemaInputSlug = ContractPayload<"entities", "create">["entitySchemaSlug"];
 
@@ -215,7 +211,7 @@ async function installSeedDefinitions(
 	];
 	const manifest = testPluginManifest({ pluginSlug: input.pluginSlug, entitySchemas });
 	await apiClient.runAdmin((c) =>
-		c.testSupport.installSystemPlugin({ payload: { files: {}, manifest, compiledScripts: [] } }),
+		c.testSupport.installSystemPlugin({ payload: { manifest, compiledScripts: [] } }),
 	);
 	seedPluginManifests.set(input.pluginSlug, manifest);
 }
@@ -258,11 +254,7 @@ export default defineScript({
 	);
 	const installed = await apiClient.runAdmin((c) =>
 		c.testSupport.installSystemPlugin({
-			payload: {
-				manifest: pluginPackage.manifest,
-				files: encodeTestSupportPluginFiles(pluginPackage.files),
-				compiledScripts: pluginPackage.compiledScripts,
-			},
+			payload: { manifest: pluginPackage.manifest, compiledScripts: pluginPackage.compiledScripts },
 		}),
 	);
 	const scriptTable = table("sandboxScript", "script");

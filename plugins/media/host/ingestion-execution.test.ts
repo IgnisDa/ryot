@@ -1,8 +1,7 @@
 import { assert, expect, layer } from "@effect/vitest";
 import { hasValidExecutableDependencies } from "@ryot-app/contract/modules/plugins/execution";
 import { pluginLoadLayer } from "@ryot-app/kernel-backend/lib/infrastructure/sandbox-runtime/plugin-load.test-support";
-import { loadPluginSource } from "@ryot-app/kernel-backend/modules/plugins/source.test-support";
-import { derivePluginSandboxScripts } from "@ryot-app/sandbox-compiler/plugin-manifest";
+import { loadPluginSandboxScripts } from "@ryot-app/kernel-backend/modules/plugins/source.test-support";
 import { Effect } from "effect";
 
 import mediaPlugin from "./plugin";
@@ -12,17 +11,7 @@ layer(pluginLoadLayer, { excludeTestServices: true })((test) => {
 		"keeps source and integration executable closures and accepted plans separate",
 		() =>
 			Effect.gen(function* () {
-				const source = yield* loadPluginSource(
-					new URL("..", import.meta.url).pathname,
-					mediaPlugin,
-				);
-				const decoder = new TextDecoder("utf-8", { fatal: true });
-				const files = Object.fromEntries(
-					Object.entries(source.files)
-						.filter(([path]) => path.startsWith("backend/") || path.startsWith("shared/"))
-						.map(([path, content]) => [path, decoder.decode(content)]),
-				);
-				const compiled = yield* derivePluginSandboxScripts(files);
+				const compiled = yield* loadPluginSandboxScripts(new URL("..", import.meta.url).pathname);
 				const scripts = compiled.map(({ script }) => script);
 				const manifest = { ...mediaPlugin, scripts };
 				expect(hasValidExecutableDependencies(manifest)).toBe(true);
