@@ -9,6 +9,7 @@ import { AppIcon } from "@ryot-app/client-ui-sdk/icon";
 import { Link, createFileRoute } from "@tanstack/react-router";
 import { Effect } from "effect";
 
+import { PublicApi } from "#/api/public";
 import { UserSettingsApi } from "#/api/user-settings";
 import type { KernelHostServices } from "#/host-services";
 import { RuntimeOAuthClientService } from "#/modules/auth/runtime-client";
@@ -16,6 +17,7 @@ import { AuthService, type SettledAuthSession } from "#/modules/auth/service";
 import { AccountProfile } from "#/modules/settings/account-profile";
 import { AccountServer } from "#/modules/settings/account-server";
 import { AccountSession } from "#/modules/settings/account-session";
+import { AccountVersions } from "#/modules/settings/account-versions";
 import { SettingsFrame } from "#/modules/settings/settings-frame";
 import { SettingsSection } from "#/modules/settings/settings-section";
 
@@ -29,6 +31,16 @@ const accountIdentityQuery = createRyotQuery<void, SettledAuthSession, KernelHos
 			.runSync(AuthService)
 			.settledSession(hostServices.scope.serverUrl)
 			.pipe(Effect.mapError(() => new RyotClientError("transport"))),
+);
+
+const serverVersionQuery = createRyotQuery<void, string, KernelHostServices>(({ hostServices }) =>
+	hostServices.runtime
+		.runSync(PublicApi)
+		.getSystemConfig(hostServices.scope.serverUrl)
+		.pipe(
+			Effect.map((config) => config.version),
+			Effect.mapError(() => new RyotClientError("transport")),
+		),
 );
 
 const refreshAvatarMutation = createRyotMutation<void, void, KernelHostServices>(
@@ -59,6 +71,7 @@ function AccountRoute() {
 	const { server, runtime } = Route.useRouteContext();
 	const { isNative } = runtime.runSync(RuntimeOAuthClientService);
 	const identity = useRyotQuery(accountIdentityQuery);
+	const serverVersion = useRyotQuery(serverVersionQuery);
 	const refreshAvatar = useRyotMutation(refreshAvatarMutation);
 	const signOut = useRyotMutation(signOutMutation);
 
@@ -94,6 +107,11 @@ function AccountRoute() {
 					</Link>
 				</SettingsSection>
 				{isNative && <AccountServer server={server} />}
+				<AccountVersions
+					serverVersion={serverVersion.data}
+					isLoading={serverVersion.isPending}
+					onRetry={() => serverVersion.refetch()}
+				/>
 				<AccountSession
 					isPending={signOut.isPending}
 					failed={signOut.status === "error"}
