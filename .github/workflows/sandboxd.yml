@@ -63,17 +63,23 @@ jobs:
       - name: Set up Docker Buildx
         uses: docker/setup-buildx-action@37fe631027851001ddb9b187196cc803df7f5f0e # v4.3.0
       - name: Build the sandbox test image
-        run: >-
-          docker buildx build --target sandbox-test --load --tag ryot-sandbox-test
-          --cache-from type=gha,scope=sandbox-${{ matrix.arch }}
-          --cache-to type=gha,mode=max,scope=sandbox-${{ matrix.arch }}
-          .
+        uses: docker/build-push-action@53b7df96c91f9c12dcc8a07bcb9ccacbed38856a # v7.3.0
+        with:
+          context: .
+          target: sandbox-test
+          load: true
+          tags: ryot-sandbox-test
+          cache-from: type=gha,scope=linux-${{ matrix.arch }}
+          cache-to: type=gha,mode=max,scope=linux-${{ matrix.arch }}
       - name: Build the release image
-        run: >-
-          docker buildx build --target runner --load --tag ryot-image
-          --cache-from type=gha,scope=sandbox-${{ matrix.arch }}
-          --cache-to type=gha,mode=max,scope=sandbox-${{ matrix.arch }}
-          .
+        uses: docker/build-push-action@53b7df96c91f9c12dcc8a07bcb9ccacbed38856a # v7.3.0
+        with:
+          context: .
+          target: runner
+          load: true
+          tags: ryot-image
+          cache-from: type=gha,scope=linux-${{ matrix.arch }}
+          cache-to: type=gha,mode=max,scope=linux-${{ matrix.arch }}
       - name: Check the sidecar, launcher, and protocol fixtures
         if: matrix.arch == 'amd64'
         run: docker run --rm --user 1001 --workdir /app/kernel/sandboxd ryot-sandbox-test bun run check
