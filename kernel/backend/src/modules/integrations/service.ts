@@ -193,7 +193,7 @@ export class IntegrationsService extends Context.Service<IntegrationsService>()(
 				user: CurrentUserValue,
 				body: CreateIntegrationBody,
 			) {
-				if (body.provider === dataJsonSource) {
+				if (body.provider.owner.kind === "kernel" && body.provider.slug === dataJsonSource) {
 					yield* parseAppSchemaProperties({
 						kind: "Data webhook",
 						properties: body.providerSpecifics,
@@ -225,10 +225,10 @@ export class IntegrationsService extends Context.Service<IntegrationsService>()(
 				const registered = yield* providerCatalog.findForUser(user.id, body.provider);
 				if (!registered) {
 					return yield* new IntegrationRequestError({
-						reason: { provider: body.provider, code: "provider-not-found" },
+						reason: { code: "provider-not-found", provider: body.provider.slug },
 					});
 				}
-				yield* validateRegisteredSettings(body.provider, registered, body.providerSpecifics);
+				yield* validateRegisteredSettings(body.provider.slug, registered, body.providerSpecifics);
 				yield* requireProKeyFor(registered);
 				const lot = registered.lot;
 
@@ -245,7 +245,7 @@ export class IntegrationsService extends Context.Service<IntegrationsService>()(
 							lot,
 							userId: user.id,
 							name: body.name ?? null,
-							provider: body.provider,
+							provider: body.provider.slug,
 							isDisabled: body.isDisabled ?? false,
 							minimumProgress: String(minimumProgress),
 							maximumProgress: String(maximumProgress),
@@ -380,7 +380,9 @@ export class IntegrationsService extends Context.Service<IntegrationsService>()(
 			) {
 				yield* requireIntegration(user.id, integrationId);
 				yield* transaction(repository.beginRetirement({ integrationId, userId: user.id }));
-				yield* retirement.retire({ integrationId, userId: user.id }).pipe(Effect.orDie);
+				yield* retirement
+					.retire({ integrationId, userId: user.id, policy: { kind: "removal" } })
+					.pipe(Effect.orDie);
 				yield* repository.deleteForUser({ integrationId, userId: user.id });
 				return { id: integrationId };
 			});

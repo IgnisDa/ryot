@@ -4,11 +4,12 @@ import {
 	DataJsonEvent,
 	DataJsonRelationship,
 } from "@ryot-app/contract/modules/imports/data-json";
+import type { EntitySchemaReference } from "@ryot-app/contract/modules/plugins/references";
 import type { AppSchema } from "@ryot-app/contract/schema/property-schema";
 import { Schema } from "effect";
 
 import { collectEmbeddedReferenceIds } from "#lib/domain/data-references";
-import type { DefinitionSnapshot } from "#modules/definition-registry/snapshot";
+import { definitionLookup, type DefinitionSnapshot } from "#modules/definition-registry/snapshot";
 
 export const DataGraphRecordSchema = Schema.Union([
 	Schema.Struct({ record: DataJsonEntity, kind: Schema.Literal("entity") }),
@@ -26,19 +27,22 @@ const dataGraphRecords = (document: DataJsonDocument): ReadonlyArray<DataGraphRe
 
 export const dataGraphPropertiesSchema = (
 	item: DataGraphRecord,
-	entitySchemasByKey: ReadonlyMap<string, string>,
+	entitySchemasByKey: ReadonlyMap<string, EntitySchemaReference>,
 	definitions: DefinitionSnapshot,
 ): AppSchema | undefined => {
 	if (item.kind === "entity") {
-		return definitions.entitySchemas[item.record.entitySchemaSlug]?.propertiesSchema;
+		return definitionLookup(definitions).getEntitySchema(item.record.entitySchema)
+			?.propertiesSchema;
 	}
 	if (item.kind === "relationship") {
-		return definitions.relationshipSchemas[item.record.relationshipSchemaSlug]?.propertiesSchema;
+		return definitionLookup(definitions).getRelationshipSchema(item.record.relationshipSchema)
+			?.propertiesSchema;
 	}
-	const entitySchemaSlug = entitySchemasByKey.get(item.record.entityKey);
-	return entitySchemaSlug
-		? definitions.entitySchemas[entitySchemaSlug]?.eventSchemas[item.record.eventSchemaSlug]
-				?.propertiesSchema
+	const entitySchema = entitySchemasByKey.get(item.record.entityKey);
+	return entitySchema
+		? definitionLookup(definitions).getEntitySchema(entitySchema)?.eventSchemas[
+				item.record.eventSchemaSlug
+			]?.propertiesSchema
 		: undefined;
 };
 
@@ -69,7 +73,7 @@ export const dataGraphDependencies = (item: DataGraphRecord, schema: AppSchema |
 export const orderDataGraph = (document: DataJsonDocument, definitions: DefinitionSnapshot) => {
 	const records = dataGraphRecords(document);
 	const entitySchemasByKey = new Map(
-		document.entities.map(({ key, entitySchemaSlug }) => [key, entitySchemaSlug]),
+		document.entities.map(({ key, entitySchema }) => [key, entitySchema]),
 	);
 	const entityKeys = new Set(document.entities.map(({ key }) => key));
 	const relationshipKeys = new Set(document.relationships.map(({ key }) => key));

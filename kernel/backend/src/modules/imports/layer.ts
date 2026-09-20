@@ -151,6 +151,7 @@ export const ProcessGenericImportChunksWorkflowDefinitionsProvidedLive =
 				PluginRuntimeResolverLive,
 				IngestionCaptures.layer,
 				ImportsRepository.layer,
+				ImportSourceStateStore.layer,
 			),
 		),
 	);

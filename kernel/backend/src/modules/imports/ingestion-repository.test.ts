@@ -492,7 +492,12 @@ layer(
 				yield* database.run((db) =>
 					db
 						.insert(tables.plugin)
-						.values({ status: "inactive", id: "retiring-plugin", slug: "retiring-plugin" }),
+						.values({
+							status: "inactive",
+							id: "retiring-plugin",
+							slug: "retiring-plugin",
+							packageId: ingestionTestSource.pluginRevision.packageId,
+						}),
 				);
 				yield* database.run((db) =>
 					db

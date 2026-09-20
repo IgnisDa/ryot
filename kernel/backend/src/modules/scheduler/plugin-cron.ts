@@ -1,7 +1,7 @@
 import { unknownToMessage } from "@ryot-app/contract/errors";
 import type { PluginCron } from "@ryot-app/contract/modules/plugins/manifest";
 import type { SandboxExecutionSubject } from "@ryot-app/contract/modules/sandbox/schemas";
-import type { PluginSlug } from "@ryot-app/contract/schema/brands";
+import type { PluginId } from "@ryot-app/contract/schema/brands";
 import { Cause, Clock, Context, Cron, Duration, Effect, Result, Layer } from "effect";
 import { WorkflowEngine } from "effect/workflow/WorkflowEngine";
 
@@ -13,7 +13,7 @@ import { SandboxScriptWorkflow } from "#modules/sandbox/sandbox-script-workflow"
 
 type PluginCronTarget = {
 	readonly cronSlug: string;
-	readonly pluginSlug: string;
+	readonly pluginId: string;
 	readonly installationId: string | null;
 };
 
@@ -24,10 +24,10 @@ const MINUTE_MS = Duration.toMillis(Duration.minutes(1));
 const PLUGIN_CRON_DISPATCH_CONCURRENCY = 8;
 
 export const pluginCronExecutionId = (
-	pluginSlug: string,
+	pluginId: string,
 	cronSlug: string,
 	scheduledAt: number | string,
-) => `plugin-cron-${pluginSlug.length}-${pluginSlug}-${cronSlug.length}-${cronSlug}-${scheduledAt}`;
+) => `plugin-cron-${pluginId.length}-${pluginId}-${cronSlug.length}-${cronSlug}-${scheduledAt}`;
 
 export const privatePluginCronExecutionId = (
 	installationId: string,
@@ -49,7 +49,7 @@ export class PluginCronService extends Context.Service<PluginCronService>()("Plu
 			if (entry.installationId === null) {
 				const system = yield* runtime.resolveActivePluginCron({
 					cronSlug: entry.cronSlug,
-					pluginSlug: entry.pluginSlug,
+					pluginId: entry.pluginId,
 				});
 				return (
 					system && { ...system, subject: { type: "system" } satisfies SandboxExecutionSubject }
@@ -78,11 +78,7 @@ export class PluginCronService extends Context.Service<PluginCronService>()("Plu
 			const resolved = yield* resolveTarget(entry);
 			if (!resolved) {
 				yield* Effect.logError("plugin cron target unavailable").pipe(
-					Effect.annotateLogs({
-						executionId,
-						cronSlug: entry.cronSlug,
-						pluginSlug: entry.pluginSlug,
-					}),
+					Effect.annotateLogs({ executionId, cronSlug: entry.cronSlug, pluginId: entry.pluginId }),
 				);
 				return { status: "notFound" as const };
 			}
@@ -137,7 +133,7 @@ export class PluginCronService extends Context.Service<PluginCronService>()("Plu
 										Effect.annotateLogs({
 											executionId,
 											cronSlug: entry.cronSlug,
-											pluginSlug: entry.pluginSlug,
+											pluginId: entry.pluginId,
 										}),
 									)
 								: Effect.void,
@@ -147,14 +143,11 @@ export class PluginCronService extends Context.Service<PluginCronService>()("Plu
 								Effect.annotateLogs({
 									executionId,
 									cronSlug: entry.cronSlug,
-									pluginSlug: entry.pluginSlug,
+									pluginId: entry.pluginId,
 								}),
 							),
 						),
 					),
-				// Every private installation's crons now join this tick, and `dispatch` awaits its
-				// script. Without bounded concurrency one slow user script would delay the next tick
-				// for every other user and for the system crons.
 				{ discard: true, concurrency: PLUGIN_CRON_DISPATCH_CONCURRENCY },
 			);
 
@@ -188,8 +181,8 @@ export class PluginCronService extends Context.Service<PluginCronService>()("Plu
 				dueDispatches(
 					entry,
 					scheduledAt,
-					{ installationId: null, cronSlug: entry.cron.slug, pluginSlug: entry.pluginSlug },
-					pluginCronExecutionId(entry.pluginSlug, entry.cron.slug, scheduledAt),
+					{ installationId: null, pluginId: entry.pluginId, cronSlug: entry.cron.slug },
+					pluginCronExecutionId(entry.pluginId, entry.cron.slug, scheduledAt),
 				),
 			);
 			return entries.flat();
@@ -202,8 +195,8 @@ export class PluginCronService extends Context.Service<PluginCronService>()("Plu
 					entry,
 					scheduledAt,
 					{
+						pluginId: entry.pluginId,
 						cronSlug: entry.cron.slug,
-						pluginSlug: entry.pluginSlug,
 						installationId: entry.installationId,
 					},
 					privatePluginCronExecutionId(entry.installationId, entry.cron.slug, scheduledAt),
@@ -219,24 +212,15 @@ export class PluginCronService extends Context.Service<PluginCronService>()("Plu
 		});
 
 		const trigger = Effect.fn("PluginCronService.trigger")(function* (
-			pluginSlug: PluginSlug,
+			pluginId: PluginId,
 			cronSlug: string,
 			parentExecutionId: string,
 		) {
-			const executionId = pluginCronExecutionId(pluginSlug, cronSlug, parentExecutionId);
-			const dispatched = yield* dispatch(
-				{ cronSlug, pluginSlug, installationId: null },
-				executionId,
-			);
+			const executionId = pluginCronExecutionId(pluginId, cronSlug, parentExecutionId);
+			const dispatched = yield* dispatch({ cronSlug, pluginId, installationId: null }, executionId);
 			return dispatched.status === "notFound"
-				? { cronSlug, pluginSlug, status: "notFound" as const }
-				: {
-						cronSlug,
-						pluginSlug,
-						executionId,
-						result: dispatched.result,
-						status: dispatched.status,
-					};
+				? { cronSlug, pluginId, status: "notFound" as const }
+				: { cronSlug, pluginId, executionId, result: dispatched.result, status: dispatched.status };
 		});
 
 		return { trigger, dispatchDue };

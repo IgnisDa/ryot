@@ -19,15 +19,22 @@ import type {
 } from "@ryot-app/contract/modules/imports/schemas";
 import type { ImportRunSource } from "@ryot-app/contract/modules/imports/types";
 import type { IntegrationLot } from "@ryot-app/contract/modules/integrations/types";
-import { ImportRunId, IntegrationId, type UserId } from "@ryot-app/contract/schema/brands";
+import {
+	ImportRunId,
+	IntegrationId,
+	PluginId,
+	type UserId,
+} from "@ryot-app/contract/schema/brands";
 import { stableStringify } from "@ryot-app/ts-utils/json";
 import { and, asc, desc, eq, gt, lte, inArray, isNotNull, isNull, or, sql } from "drizzle-orm";
 import { Context, Effect, Layer, Schema } from "effect";
 
+import { PLUGIN_INGESTION_ADVISORY_LOCK_KEY } from "#lib/infrastructure/db/advisory-locks";
 import { isUniqueConstraintError } from "#lib/infrastructure/db/errors";
 import * as schema from "#lib/infrastructure/db/schema/tables/combined";
 import { DatabaseSession } from "#lib/infrastructure/db/session";
 import { PluginConfigEncryptionKey } from "#modules/plugins/config-encryption-key";
+import type { PluginIngestionRetirementPolicy } from "#modules/plugins/ingestion-retirement";
 
 import {
 	PreparedIngestionRelease,
@@ -35,6 +42,7 @@ import {
 } from "./runtime/prepared-release";
 import type { IngestionRecoveryCursor } from "./runtime/recovery-cursor";
 import { ImportSourceState } from "./runtime/source-state";
+import { ImportRunError } from "./runtime/workflow-errors";
 
 type ImportRunRow = typeof schema.importRun.$inferSelect;
 
@@ -65,7 +73,7 @@ const preparedReleaseEncryptionPurpose = "ryot/ingestion/prepared-release";
 
 const executableOwner = () => sql`
 	(${schema.importRun.integrationId} is null or exists (select 1 from ${schema.integration} where ${schema.integration.id} = ${schema.importRun.integrationId} and not ${schema.integration.retiring}))
-	and (${schema.importRun.pluginInstallationId} is null or exists (select 1 from ${schema.pluginInstallation} where ${schema.pluginInstallation.id} = ${schema.importRun.pluginInstallationId} and not ${schema.pluginInstallation.ingestionRetiring} and ${schema.pluginInstallation.uninstalledAt} is null))
+	and (${schema.importRun.pluginInstallationId} is null or exists (select 1 from ${schema.pluginInstallation} where ${schema.pluginInstallation.id} = ${schema.importRun.pluginInstallationId} and ${schema.pluginInstallation.userId} = ${schema.importRun.userId} and ${schema.pluginInstallation.health} = 'ready' and not ${schema.pluginInstallation.ingestionRetiring} and ${schema.pluginInstallation.uninstalledAt} is null))
 `;
 
 export class ImportsRepository extends Context.Service<ImportsRepository>()("ImportsRepository", {
@@ -108,6 +116,13 @@ export class ImportsRepository extends Context.Service<ImportsRepository>()("Imp
 				pluginInstallationId: string | null;
 			}) {
 				yield* database.requireTransaction;
+				if (input.pluginInstallationId !== null) {
+					yield* database.run((db) =>
+						db.execute(
+							sql`select pg_advisory_xact_lock_shared(hashtext(${PLUGIN_INGESTION_ADVISORY_LOCK_KEY}))`,
+						),
+					);
+				}
 				yield* database.acquireUserWriteLock(input.userId);
 				const integrationId = input.integrationId;
 				const pluginInstallationId = input.pluginInstallationId;
@@ -139,6 +154,7 @@ export class ImportsRepository extends Context.Service<ImportsRepository>()("Imp
 									eq(schema.pluginInstallation.id, pluginInstallationId),
 									eq(schema.pluginInstallation.userId, input.userId),
 									eq(schema.pluginInstallation.ingestionRetiring, false),
+									eq(schema.pluginInstallation.health, "ready"),
 									isNull(schema.pluginInstallation.uninstalledAt),
 								),
 							)
@@ -443,6 +459,86 @@ export class ImportsRepository extends Context.Service<ImportsRepository>()("Imp
 			}
 			return run;
 		});
+		const checkCaptureOwner = Effect.fn("ImportsRepository.checkCaptureOwner")(function* (
+			scope: IngestionScope,
+		) {
+			yield* database.requireTransaction;
+			yield* database.run((db) =>
+				db.execute(
+					sql`select pg_advisory_xact_lock_shared(hashtext(${PLUGIN_INGESTION_ADVISORY_LOCK_KEY}))`,
+				),
+			);
+			const [owner] = yield* database.run((db) =>
+				db
+					.select({
+						pins: schema.importRun.pins,
+						status: schema.importRun.status,
+						health: schema.pluginInstallation.health,
+						pluginId: schema.pluginInstallation.pluginId,
+						isHidden: schema.pluginInstallation.isHidden,
+						failureReason: schema.importRun.failureReason,
+						installationId: schema.importRun.pluginInstallationId,
+						retiring: schema.pluginInstallation.ingestionRetiring,
+						uninstalledAt: schema.pluginInstallation.uninstalledAt,
+						incompatibilityReason: schema.pluginInstallation.incompatibilityReason,
+					})
+					.from(schema.importRun)
+					.leftJoin(
+						schema.pluginInstallation,
+						and(
+							eq(schema.pluginInstallation.id, schema.importRun.pluginInstallationId),
+							eq(schema.pluginInstallation.userId, scope.userId),
+						),
+					)
+					.where(
+						and(
+							owned(scope),
+							sql`exists (select 1 from ${schema.user} where ${schema.user.id} = ${scope.userId} and ${schema.user.disabledAt} is null)`,
+						),
+					)
+					.limit(1),
+			);
+			if (
+				owner &&
+				owner.installationId !== null &&
+				owner.pluginId !== null &&
+				(owner.health === "incompatible" ||
+					owner.incompatibilityReason !== null ||
+					owner.isHidden ||
+					owner.retiring ||
+					owner.uninstalledAt !== null ||
+					(owner.health !== "ready" &&
+						!(
+							owner.pins &&
+							(owner.health === "installing" || owner.health === "needs-configuration")
+						)))
+			) {
+				return yield* new ImportRunError({
+					message: "Ingestion installation is unavailable",
+					reason: {
+						installationId: owner.installationId,
+						pluginId: PluginId.make(owner.pluginId),
+						code:
+							owner.incompatibilityReason === "package-identity-conflict"
+								? "package-identity-conflict"
+								: "installation-unavailable",
+					},
+				});
+			}
+			if (
+				!owner ||
+				!["pending", "blocked", "running"].includes(owner.status) ||
+				(owner.installationId !== null && owner.pluginId === null)
+			) {
+				return yield* new ImportRunError({
+					message: "Ingestion capture owner is not active",
+					...(owner?.failureReason?.code === "package-identity-conflict"
+						? { reason: owner.failureReason }
+						: {}),
+				});
+			}
+			return yield* Effect.void;
+		});
 		const reservePayload = Effect.fn("ImportsRepository.reservePayload")(function* (
 			scope: IngestionScope,
 			input: Omit<
@@ -450,6 +546,7 @@ export class ImportsRepository extends Context.Service<ImportsRepository>()("Imp
 				"runId" | "released" | "ordinal"
 			> & { ordinal: number | null },
 		) {
+			yield* checkCaptureOwner(scope);
 			yield* lockProjection(scope, ["pending", "blocked", "running"]);
 			const [inserted] = yield* database.run((db) =>
 				db
@@ -558,6 +655,7 @@ export class ImportsRepository extends Context.Service<ImportsRepository>()("Imp
 			scope: IngestionScope,
 			id: string,
 		) {
+			yield* checkCaptureOwner(scope);
 			yield* lockProjection(scope, ["pending", "blocked", "running"]);
 			const rows = yield* database.run((db) =>
 				db
@@ -820,6 +918,7 @@ export class ImportsRepository extends Context.Service<ImportsRepository>()("Imp
 			capture: IngestionCapture,
 		) {
 			const data = yield* Schema.decodeEffect(IngestionCapture)(capture);
+			yield* checkCaptureOwner(scope);
 			const run = yield* lockProjection(scope, ["pending", "blocked", "running"]);
 			const [existing] = yield* database.run((db) =>
 				db
@@ -1180,6 +1279,7 @@ export class ImportsRepository extends Context.Service<ImportsRepository>()("Imp
 				status: run.status,
 				blockReasons: run.blockReasons,
 				expiryReason: run.expiryReason,
+				failureReason: run.failureReason,
 				integrationId: run.integrationId,
 				collectionSealed: run.collectionSealed,
 				acceptedAt: run.createdAt.toISOString(),
@@ -1269,7 +1369,9 @@ export class ImportsRepository extends Context.Service<ImportsRepository>()("Imp
 					.set({
 						status: input.status,
 						finishedAt: input.finishedAt,
-						failureReason: input.failureReason ?? null,
+						failureReason:
+							input.failureReason ??
+							sql`case when ${schema.importRun.failureReason}->>'code' = 'package-identity-conflict' then ${schema.importRun.failureReason} else null end`,
 					})
 					.where(
 						and(
@@ -1485,6 +1587,7 @@ export class ImportsRepository extends Context.Service<ImportsRepository>()("Imp
 						status: schema.importRun.status,
 						acceptedAt: schema.importRun.createdAt,
 						accountGeneration: schema.importRun.accountGeneration,
+						pluginInstallationId: schema.importRun.pluginInstallationId,
 						admitted: sql<boolean>`${schema.importRun.plan} is not null and ${schema.importRun.pins} is not null`,
 					})
 					.from(schema.importRun)
@@ -1635,6 +1738,7 @@ export class ImportsRepository extends Context.Service<ImportsRepository>()("Imp
 			userId: UserId;
 			integrationId?: IntegrationId;
 			pluginInstallationId?: string;
+			policy?: PluginIngestionRetirementPolicy;
 		}) {
 			yield* database.requireTransaction;
 			yield* database.acquireUserWriteLock(input.userId);
@@ -1646,26 +1750,54 @@ export class ImportsRepository extends Context.Service<ImportsRepository>()("Imp
 				input.pluginInstallationId === undefined
 					? undefined
 					: eq(schema.importRun.pluginInstallationId, input.pluginInstallationId),
+				input.policy?.kind === "quarantine"
+					? sql`exists (select 1 from ${schema.pluginInstallation} where ${schema.pluginInstallation.id} = ${schema.importRun.pluginInstallationId} and ${schema.pluginInstallation.userId} = ${input.userId} and ${schema.pluginInstallation.pluginId} = ${input.policy.reason.pluginId})`
+					: undefined,
 			);
 			yield* database.run((db) =>
 				db
 					.update(schema.importRun)
-					.set({ status: "cancelling" })
+					.set({
+						status: "cancelling",
+						...(input.policy?.kind === "quarantine" ? { failureReason: input.policy.reason } : {}),
+					})
 					.where(
-						and(predicate, inArray(schema.importRun.status, ["pending", "blocked", "running"])),
+						and(
+							predicate,
+							inArray(
+								schema.importRun.status,
+								input.policy?.kind === "quarantine"
+									? ["pending", "blocked", "running", "cancelling"]
+									: ["pending", "blocked", "running"],
+							),
+						),
 					),
 			);
-			return yield* database.run((db) =>
+			const runs = yield* database.run((db) =>
 				db
 					.select({
 						id: schema.importRun.id,
+						status: schema.importRun.status,
 						integrationId: schema.importRun.integrationId,
 						accountGeneration: schema.importRun.accountGeneration,
 						pluginInstallationId: schema.importRun.pluginInstallationId,
 					})
 					.from(schema.importRun)
-					.where(predicate),
+					.where(
+						and(
+							predicate,
+							input.policy?.kind === "quarantine"
+								? eq(schema.importRun.status, "cancelling")
+								: undefined,
+						),
+					),
 			);
+			if (input.policy?.kind === "quarantine") {
+				for (const run of runs) {
+					yield* stopPayloadWrites({ userId: input.userId, runId: ImportRunId.make(run.id) });
+				}
+			}
+			return runs;
 		});
 		const claimAdmissionAbort = Effect.fn("ImportsRepository.claimAdmissionAbort")(function* (
 			scope: IngestionScope,

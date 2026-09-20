@@ -10,10 +10,10 @@ export const ingestionItemIdentity = (
 	operationId: string,
 ) => stableStringify(["ingestion", runId, operationId]);
 
-export const ingestionOperationCommand = (
-	command: LifecycleCommand,
+export const ingestionOperationCommand = <Command extends LifecycleCommand>(
+	command: Command,
 	operationId: string,
-): LifecycleCommand => ({
+): Command => ({
 	...command,
 	itemIdentity: ingestionItemIdentity(command.causation.importRunId, operationId),
 });

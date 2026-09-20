@@ -1,4 +1,5 @@
 import { expect, it } from "@effect/vitest";
+import { PluginId } from "@ryot-app/contract/schema/brands";
 import { Deferred, Effect, Fiber, Layer, Schema } from "effect";
 import { Workflow } from "effect/workflow";
 import { WorkflowEngine } from "effect/workflow/WorkflowEngine";
@@ -14,9 +15,8 @@ import { ingestionTestScope } from "./ingestion.test-support";
 import { ImportsRepository } from "./repository";
 import { IngestionRetirement } from "./retirement-service";
 
-it.effect(
-	"waits for root interruption and reconciles cancellation before releasing captured bytes and pins",
-	() =>
+for (const mode of ["removal", "quarantine"] as const) {
+	it.effect(`${mode} preserves its interruption and cleanup policy`, () =>
 		Effect.gen(function* () {
 			const interrupted = yield* Deferred.make<void>();
 			const finish = yield* Deferred.make<void>();
@@ -36,25 +36,41 @@ it.effect(
 					retireRuns: () =>
 						Effect.sync(() => {
 							events.push("cancel-owners");
-							return [
+							const runs = [
 								{
 									id: ingestionTestScope.runId,
+									status: "cancelling" as const,
 									integrationId: "integration-1",
 									pluginInstallationId: "installation-1",
 									accountGeneration: ingestionTestScope.accountGeneration.token,
 								},
 							];
+							return mode === "quarantine"
+								? [
+										...runs,
+										{
+											...runs[0],
+											id: "completed-root",
+											status: "completed" as const,
+											integrationId: "integration-1",
+											pluginInstallationId: "installation-1",
+											accountGeneration: ingestionTestScope.accountGeneration.token,
+										},
+									]
+								: runs;
 						}),
 				}),
 				Layer.succeed(
 					WorkflowEngine,
 					makeWorkflowEngine({
-						poll: () => Effect.succeedNone,
+						poll: () => (mode === "quarantine" ? Effect.never : Effect.succeedNone),
 						interrupt: (_workflow, id) =>
 							Effect.gen(function* () {
 								events.push(`interrupt:${id}`);
 								yield* Deferred.succeed(interrupted, undefined);
-								yield* Deferred.await(finish);
+								if (mode === "removal") {
+									yield* Deferred.await(finish);
+								}
 							}),
 					}),
 				),
@@ -77,17 +93,34 @@ it.effect(
 				service.retire({
 					userId: ingestionTestScope.userId,
 					pluginInstallationId: "installation-1",
+					policy:
+						mode === "removal"
+							? { kind: "removal" }
+							: {
+									kind: "quarantine",
+									reason: {
+										installationId: "installation-1",
+										code: "package-identity-conflict",
+										pluginId: PluginId.make("plugin-1"),
+									},
+								},
 				}),
 			).pipe(Effect.provideContext(context), Effect.forkChild);
 			yield* Deferred.await(interrupted);
-			expect(events).toEqual(["cancel-owners", "interrupt:run-1"]);
-			yield* Deferred.succeed(finish, undefined);
-			yield* Fiber.join(fiber);
-			expect(events).toEqual([
-				"cancel-owners",
-				"interrupt:run-1",
-				"settle:cancelled",
-				"cleanup:run-1",
-			]);
+			if (mode === "removal") {
+				expect(events).toEqual(["cancel-owners", "interrupt:run-1"]);
+				yield* Deferred.succeed(finish, undefined);
+				yield* Fiber.join(fiber);
+				expect(events).toEqual([
+					"cancel-owners",
+					"interrupt:run-1",
+					"settle:cancelled",
+					"cleanup:run-1",
+				]);
+			} else {
+				yield* Fiber.join(fiber);
+				expect(events).toEqual(["cancel-owners", "interrupt:run-1", "settle:cancelled"]);
+			}
 		}),
-);
+	);
+}

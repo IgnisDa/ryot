@@ -6,6 +6,7 @@ import { DatabaseSession } from "#lib/infrastructure/db/session";
 import { WorkflowExecutionNotifications } from "#lib/infrastructure/workflow-execution-notifications";
 import { interruptWorkflowAndWait } from "#lib/infrastructure/workflow-interruption";
 import { AdmittedWorkflowCatalogue } from "#modules/mutations/workflow-catalogue";
+import type { PluginIngestionRetirementPolicy } from "#modules/plugins/ingestion-retirement";
 
 import { reconcileGenericIngestionBatch } from "./batch-results";
 import { IngestionCaptures } from "./capture-service";
@@ -29,8 +30,20 @@ export class IngestionRetirement extends Context.Service<IngestionRetirement>()(
 				userId: UserId;
 				integrationId?: IntegrationId;
 				pluginInstallationId?: string;
+				policy: PluginIngestionRetirementPolicy;
 			}) {
+				if (
+					input.policy.kind === "quarantine" &&
+					input.pluginInstallationId !== input.policy.reason.installationId
+				) {
+					return yield* new ImportRunError({
+						message: "Quarantine requires its exact installation",
+					});
+				}
 				for (const run of yield* database.transaction(repository.retireRuns(input))) {
+					if (input.policy.kind === "quarantine" && run.status !== "cancelling") {
+						continue;
+					}
 					const scope = {
 						userId: input.userId,
 						runId: ImportRunId.make(run.id),
@@ -46,14 +59,17 @@ export class IngestionRetirement extends Context.Service<IngestionRetirement>()(
 							message: "Ingestion retirement root is not registered",
 						});
 					}
-					yield* interruptWorkflowAndWait(root, scope.runId).pipe(
-						Effect.provideService(WorkflowEngine, engine),
-						Effect.provideService(WorkflowExecutionNotifications, notifications),
-					);
+					yield* input.policy.kind === "quarantine"
+						? engine.interrupt(root, scope.runId)
+						: interruptWorkflowAndWait(root, scope.runId).pipe(
+								Effect.provideService(WorkflowEngine, engine),
+								Effect.provideService(WorkflowExecutionNotifications, notifications),
+							);
 					yield* execution
 						.settle({
 							scope,
 							status: "cancelled",
+							retirementPolicy: input.policy,
 							reconcile: (batch) =>
 								run.pluginInstallationId === null
 									? reconcileDataIngestionBatch(scope, batch)
@@ -64,7 +80,9 @@ export class IngestionRetirement extends Context.Service<IngestionRetirement>()(
 							Effect.provideService(ImportsRepository, repository),
 							Effect.provideService(IngestionCaptures, captures),
 						);
-					yield* execution.retire(scope);
+					if (input.policy.kind === "removal") {
+						yield* execution.retire(scope);
+					}
 				}
 				return yield* Effect.void;
 			});

@@ -230,6 +230,11 @@ const runCase = (
 								settingsSchema: { fields: {} },
 								installationId: "installation-1",
 								scriptSlug: "workflow.media-integration",
+								packageId: ingestionTestRevision.packageId,
+								reference: {
+									slug: "fixture",
+									owner: { kind: "plugin" as const, pluginId: ingestionTestRevision.id },
+								},
 								readinessMetadata: {
 									scripts: [],
 									workflows: [],

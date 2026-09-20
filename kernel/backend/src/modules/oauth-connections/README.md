@@ -67,7 +67,7 @@ them.
 
 ## Provider Registration
 
-Register exactly `<FRONTEND_URL>/api/oauth-connections/providers/<pluginSlug>/<oauthProviderSlug>/callback`
+Register exactly `<FRONTEND_URL>/api/oauth-connections/providers/<pluginId>/<oauthProviderSlug>/callback`
 as the provider redirect URI. Providers such as Spotify require an exact match and accept only HTTPS
 or loopback `http://127.0.0.1` and `http://[::1]` redirect URIs, so `FRONTEND_URL` must use one of
 those forms.

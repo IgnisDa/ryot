@@ -6,6 +6,7 @@ import {
 } from "@ryot-app/contract/modules/automations/schemas";
 import {
 	NotificationSubscriptionId,
+	PluginId,
 	SandboxScriptId,
 	SignalSchemaSlug,
 	UserId,
@@ -27,6 +28,7 @@ const userId = UserId.make("user-1");
 const ruleId = NotificationSubscriptionId.make("rule-1");
 const scriptId = SandboxScriptId.make("script-1");
 const signalSchemaSlug = SignalSchemaSlug.make("review.created");
+const signalReference = { slug: signalSchemaSlug, owner: { kind: "kernel" } } as const;
 
 const signalSchema = {
 	slug: signalSchemaSlug,
@@ -68,6 +70,7 @@ const notificationStoreLayer = (
 		readonly initial?: StoredNotificationSubscription;
 		readonly catalogState?: CatalogState;
 		readonly includeDefinition?: boolean;
+		readonly pluginIds?: ReadonlyArray<PluginId>;
 	} = {},
 ) =>
 	Layer.unwrap(
@@ -80,7 +83,11 @@ const notificationStoreLayer = (
 			const catalogState = yield* Ref.make(options.catalogState ?? "active");
 			const signals = Effect.map(Ref.get(catalogState), (current) =>
 				(options.includeDefinition ?? true)
-					? [{ ...signalSchema, pluginId: null, catalogState: current }]
+					? Array.from(options.pluginIds ?? [null], (pluginId) => ({
+							...signalSchema,
+							pluginId,
+							catalogState: current,
+						}))
 					: [],
 			);
 			const owned = (input: { userId: UserId; ruleId: NotificationSubscriptionId }) =>
@@ -90,8 +97,17 @@ const notificationStoreLayer = (
 			return Layer.mergeAll(
 				Layer.mock(DefinitionRepository)({
 					listUserSignalSchemas: () => signals,
-					findUserSignalSchema: (_userId, slug) =>
-						Effect.map(signals, (all) => all.find((signal) => signal.slug === slug) ?? null),
+					findUserSignalSchema: (_userId, reference) =>
+						Effect.map(
+							signals,
+							(all) =>
+								all.find(
+									(signal) =>
+										signal.slug === reference.slug &&
+										signal.pluginId ===
+											(reference.owner.kind === "plugin" ? reference.owner.pluginId : null),
+								) ?? null,
+						),
 				}),
 				Layer.mock(AutomationsRepository)({
 					findNotificationSubscription: owned,
@@ -117,7 +133,11 @@ const notificationStoreLayer = (
 					insertNotificationSubscription: (input) =>
 						Effect.gen(function* () {
 							const inserted = yield* Ref.updateAndGet(inserts, (all) => [...all, input]);
-							if ((yield* Ref.get(subscription))?.signalSchemaSlug === input.signalSchemaSlug) {
+							const current = yield* Ref.get(subscription);
+							if (
+								current?.signalSchemaSlug === input.signalSchemaSlug &&
+								current.signalSchemaPluginId === input.signalSchemaPluginId
+							) {
 								return null;
 							}
 							const id = NotificationSubscriptionId.make(`rule-${inserted.length}`);
@@ -140,11 +160,38 @@ const makeLayer = (options?: Parameters<typeof notificationStoreLayer>[0]) =>
 		Layer.provideMerge(Layer.merge(databaseLayer, notificationStoreLayer(options))),
 	);
 
+layer(makeLayer({ pluginIds: [PluginId.make("owner-a"), PluginId.make("owner-b")] }))((test) => {
+	test.effect("installs same-named signals with their exact independent owners", () =>
+		Effect.gen(function* () {
+			const service = yield* NotificationSubscriptionsService;
+			const first = yield* service.installRule({
+				userId,
+				signalSchema: {
+					slug: signalSchemaSlug,
+					owner: { kind: "plugin", pluginId: PluginId.make("owner-a") },
+				},
+			});
+			const second = yield* service.installRule({
+				userId,
+				signalSchema: {
+					slug: signalSchemaSlug,
+					owner: { kind: "plugin", pluginId: PluginId.make("owner-b") },
+				},
+			});
+			expect(first.id).not.toBe(second.id);
+			expect(yield* (yield* NotificationStore).inserts).toMatchObject([
+				{ signalSchemaSlug, signalSchemaPluginId: "owner-a" },
+				{ signalSchemaSlug, signalSchemaPluginId: "owner-b" },
+			]);
+		}),
+	);
+});
+
 layer(makeLayer())((test) => {
 	test.effect("installs an active catalog schema with only server-selected state fields", () =>
 		Effect.gen(function* () {
 			const service = yield* NotificationSubscriptionsService;
-			const installed = yield* service.installRule({ userId, signalSchemaSlug });
+			const installed = yield* service.installRule({ userId, signalSchema: signalReference });
 			expect(installed).toEqual({ id: ruleId });
 			expect(yield* (yield* NotificationStore).inserts).toEqual([
 				{ userId, metadata: null, isActive: true, signalSchemaSlug, signalSchemaPluginId: null },
@@ -157,20 +204,24 @@ layer(makeLayer({ initial: state, catalogState: "hidden" }))((test) => {
 	test.effect("rejects hidden catalog schemas and duplicate installs", () =>
 		Effect.gen(function* () {
 			const service = yield* NotificationSubscriptionsService;
-			const hidden = yield* Effect.exit(service.installRule({ userId, signalSchemaSlug }));
+			const hidden = yield* Effect.exit(
+				service.installRule({ userId, signalSchema: signalReference }),
+			);
 			assertExitFails(
 				hidden,
 				new AutomationNotFoundError({
-					reason: { signalSchemaSlug, code: "signal-schema-not-found" },
+					reason: { signalSchema: signalReference, code: "signal-schema-not-found" },
 				}),
 			);
 
 			yield* (yield* NotificationStore).setCatalogState("active");
-			const duplicate = yield* Effect.exit(service.installRule({ userId, signalSchemaSlug }));
+			const duplicate = yield* Effect.exit(
+				service.installRule({ userId, signalSchema: signalReference }),
+			);
 			assertExitFails(
 				duplicate,
 				new AutomationConflictError({
-					reason: { signalSchemaSlug, code: "rule-already-installed" },
+					reason: { signalSchema: signalReference, code: "rule-already-installed" },
 				}),
 			);
 		}),
@@ -226,7 +277,7 @@ layer(makeLayer())((test) => {
 		Effect.gen(function* () {
 			const service = yield* NotificationSubscriptionsService;
 			const { subscription } = yield* NotificationStore;
-			const installed = yield* service.installRule({ userId, signalSchemaSlug });
+			const installed = yield* service.installRule({ userId, signalSchema: signalReference });
 			const deactivated = yield* service.setRuleActive({
 				userId,
 				isActive: false,
@@ -246,7 +297,7 @@ layer(makeLayer())((test) => {
 				id: installed.id,
 			});
 
-			const reinstalled = yield* service.installRule({ userId, signalSchemaSlug });
+			const reinstalled = yield* service.installRule({ userId, signalSchema: signalReference });
 			expect(reinstalled.id).not.toBe(installed.id);
 			expect(reinstalled).toEqual({ id: NotificationSubscriptionId.make("rule-2") });
 			expect(yield* subscription).toMatchObject({ isActive: true, signalSchemaSlug });
@@ -258,8 +309,8 @@ it("rejects arbitrary fields in the public install payload", () => {
 	expect(() =>
 		Schema.decodeUnknownSync(InstallNotificationRuleBody)({
 			scriptId,
-			signalSchemaSlug,
 			operation: "signal",
+			signalSchema: signalReference,
 		}),
 	).toThrow();
 });
