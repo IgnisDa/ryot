@@ -1,6 +1,7 @@
 import { useRyotMutation, useRyotQuery } from "@ryot-app/client-sdk/react";
 import type { AutomationHistoryRetryResult } from "@ryot-app/contract/modules/automations/history-schemas";
 import { createFileRoute } from "@tanstack/react-router";
+import { Effect } from "effect";
 import { useState } from "react";
 
 import { AuthService } from "#/modules/auth/service";
@@ -34,16 +35,24 @@ function AutomationHistoryDetailRoute() {
 	});
 
 	const retryRun = () => {
-		if (isDemoProtected || displayed === undefined || displayed.retryEligibility.reason !== null) {
-			return Promise.resolve();
-		}
-		retry.reset();
-		setRetryResult(undefined);
-		return retry
-			.mutateAsync({ runId, expectedAttemptCount: displayed.run.attemptCount })
-			.then(setRetryResult)
-			.catch(() => undefined)
-			.then(() => detail.refetch());
+		return Effect.runPromise(
+			Effect.gen(function* () {
+				if (
+					isDemoProtected ||
+					displayed === undefined ||
+					displayed.retryEligibility.reason !== null
+				) {
+					return;
+				}
+				retry.reset();
+				setRetryResult(undefined);
+				yield* retry.mutateEffect({ runId, expectedAttemptCount: displayed.run.attemptCount }).pipe(
+					Effect.tap((result) => Effect.sync(() => setRetryResult(result))),
+					Effect.ignoreCause,
+					Effect.ensuring(Effect.sync(detail.refetch)),
+				);
+			}),
+		);
 	};
 
 	let body;

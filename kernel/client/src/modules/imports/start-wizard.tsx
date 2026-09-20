@@ -6,7 +6,7 @@ import {
 	useSchemaForm,
 	type SchemaFormValues,
 } from "@ryot-app/client-ui-sdk/schema-form";
-import { Match } from "effect";
+import { Cause, Effect, Match } from "effect";
 import { useReducer, useState } from "react";
 
 import { ImportInputStep } from "#/modules/imports/input-step";
@@ -63,27 +63,33 @@ export function ImportStartWizard(props: {
 	const schema = source?.inputSchema;
 
 	const startRun = (values: SchemaFormValues) => {
-		if (source === undefined) {
-			return Promise.resolve();
-		}
-		setFailure(undefined);
-		return startMutation
-			.mutateAsync({ source: source.slug, ...toSchemaFormPayload(source.inputSchema, values) })
-			.then(
-				() => {
-					props.onStarted();
-					props.onClose();
-					return undefined;
-				},
-				(error) => {
-					const nextFailure = importStartFailure(error);
-					setFailure(nextFailure);
-					if (nextFailure.step !== undefined) {
-						dispatch({ type: "recover-at", step: nextFailure.step });
-					}
-					return undefined;
-				},
-			);
+		return Effect.runPromise(
+			Effect.gen(function* () {
+				if (source === undefined) {
+					return;
+				}
+				setFailure(undefined);
+				yield* startMutation
+					.mutateEffect({ source: source.slug, ...toSchemaFormPayload(source.inputSchema, values) })
+					.pipe(
+						Effect.tap(() =>
+							Effect.sync(() => {
+								props.onStarted();
+								props.onClose();
+							}),
+						),
+						Effect.catchCause((cause) =>
+							Effect.sync(() => {
+								const nextFailure = importStartFailure(Cause.squash(cause));
+								setFailure(nextFailure);
+								if (nextFailure.step !== undefined) {
+									dispatch({ type: "recover-at", step: nextFailure.step });
+								}
+							}),
+						),
+					);
+			}),
+		);
 	};
 
 	const requestReview = () => {

@@ -97,7 +97,7 @@ function AccountRoute() {
 				<AccountSession
 					isPending={signOut.isPending}
 					failed={signOut.status === "error"}
-					onSignOut={() => signOut.mutateAsync()}
+					onSignOut={() => signOut.mutateEffect()}
 				/>
 			</div>
 		</SettingsFrame>
