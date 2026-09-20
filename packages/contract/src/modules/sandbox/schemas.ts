@@ -79,10 +79,10 @@ export type SandboxScriptManifest = Schema.Schema.Type<typeof SandboxScriptManif
 export const SandboxCompilationDiagnostic = Schema.Struct({
 	code: Schema.String,
 	file: Schema.String,
-	line: Schema.Number,
-	column: Schema.Number,
+	line: Schema.Finite,
+	column: Schema.Finite,
 	message: Schema.String,
-	length: Schema.optional(Schema.Number),
+	length: Schema.optional(Schema.Finite),
 	severity: Schema.Literals(["error", "warning", "info"]),
 });
 
@@ -156,7 +156,7 @@ export const SandboxExecutionPayload = strictStruct({
 
 export type SandboxExecutionPayload = Schema.Schema.Type<typeof SandboxExecutionPayload>;
 
-const SandboxTiming = Schema.Struct({ totalMs: Schema.Number, executionMs: Schema.Number });
+const SandboxTiming = Schema.Struct({ totalMs: Schema.Finite, executionMs: Schema.Finite });
 
 const SandboxPendingResult = Schema.Struct({ status: Schema.Literal("pending") });
 
@@ -168,9 +168,9 @@ const SandboxFailedResult = Schema.Struct({
 export const SandboxExecutionError = Schema.Struct({
 	message: Schema.String,
 	kind: SandboxFailureKind,
-	line: Schema.optional(Schema.Number),
+	line: Schema.optional(Schema.Finite),
 	stack: Schema.optional(Schema.String),
-	column: Schema.optional(Schema.Number),
+	column: Schema.optional(Schema.Finite),
 	phase: Schema.Literals(["load", "input", "execute", "output"]),
 });
 

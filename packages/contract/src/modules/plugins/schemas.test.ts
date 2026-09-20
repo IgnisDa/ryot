@@ -14,7 +14,7 @@ const uploadPayload = { uploadToken: "fixture-upload-token" };
 describe("UpdatePrivatePluginBody", () => {
 	it("decodes an upload token and config patch", () => {
 		expect(
-			Schema.decodeUnknownSync(UpdatePrivatePluginBody)({
+			Schema.decodeSync(UpdatePrivatePluginBody)({
 				...uploadPayload,
 				unsetConfigKeys: ["region"],
 				config: { token: "replacement" },
@@ -36,7 +36,7 @@ describe("UpdatePrivatePluginBody", () => {
 describe("UpdatePluginInstallationBody", () => {
 	it("decodes config replacements, explicit unsets, and controls", () => {
 		expect(
-			Schema.decodeUnknownSync(UpdatePluginInstallationBody)({
+			Schema.decodeSync(UpdatePluginInstallationBody)({
 				sortOrder: 3,
 				isDisabled: true,
 				unsetConfigKeys: ["region"],
@@ -71,7 +71,7 @@ describe("UpdatePluginInstallationBody", () => {
 
 it("decodes saved-view uninstall conflicts", () => {
 	expect(
-		Schema.decodeUnknownSync(PluginConflictError)({
+		Schema.decodeSync(PluginConflictError)({
 			_tag: "PluginConflictError",
 			reason: { pluginSlug: "fixture", code: "saved-view-referenced" },
 		}),
@@ -80,7 +80,7 @@ it("decodes saved-view uninstall conflicts", () => {
 
 it("decodes stale plugin source revision conflicts", () => {
 	expect(
-		Schema.decodeUnknownSync(PluginConflictError)({
+		Schema.decodeSync(PluginConflictError)({
 			_tag: "PluginConflictError",
 			reason: { pluginSlug: "fixture", code: "source-revision-stale" },
 		}),

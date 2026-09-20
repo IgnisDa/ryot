@@ -85,8 +85,8 @@ export const getWebOAuthLogoutRedirectUris = (origin: string) => [
 export const OAuthTokenResponse = strictStruct({
 	scope: Schema.String,
 	token_type: Schema.String,
-	expires_at: Schema.Number,
-	expires_in: Schema.Number,
+	expires_at: Schema.Finite,
+	expires_in: Schema.Finite,
 	access_token: Schema.String,
 	id_token: Schema.optional(Schema.String),
 	refresh_token: Schema.optional(Schema.String),
@@ -108,7 +108,7 @@ export const PendingAuthorization = strictStruct({
 	state: Schema.String,
 	nonce: Schema.String,
 	clientId: OAuthClientId,
-	createdAt: Schema.Number,
+	createdAt: Schema.Finite,
 	redirectUri: Schema.String,
 	destination: Schema.String,
 	serverOrigin: Schema.String,
@@ -123,7 +123,7 @@ export const StoredTokenSet = strictStruct({
 	tokenType: Schema.String,
 	accessToken: Schema.String,
 	refreshToken: Schema.String,
-	accessTokenExpiresAt: Schema.Number,
+	accessTokenExpiresAt: Schema.Finite,
 });
 export type StoredTokenSet = typeof StoredTokenSet.Type;
 
