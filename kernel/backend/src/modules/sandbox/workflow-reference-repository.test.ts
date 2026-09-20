@@ -4,8 +4,8 @@ import { PgDialect } from "drizzle-orm/pg-core";
 import { Context, Effect, Layer, Ref } from "effect";
 
 import type * as schema from "#lib/infrastructure/db/schema/tables/combined";
-import { DatabaseSession } from "#lib/infrastructure/db/session";
 import { assertExitFails } from "#lib/test-utils/assertions";
+import { fakeDatabaseSession } from "#lib/test-utils/effect";
 
 import {
 	SandboxWorkflowReferenceRegistrationError,
@@ -94,7 +94,7 @@ const makeRegisterLayer = (options: {
 			return SandboxWorkflowReferenceRepository.layer.pipe(
 				Layer.provideMerge(
 					Layer.merge(
-						Layer.mock(DatabaseSession)({ current: Effect.succeed(executor) }),
+						fakeDatabaseSession(executor),
 						Layer.succeed(RegistrationDatabase, {
 							events: Ref.get(events),
 							references: Ref.get(references),
@@ -130,9 +130,7 @@ const releasingLayer = Layer.unwrap(
 		return SandboxWorkflowReferenceRepository.layer.pipe(
 			Layer.provideMerge(
 				Layer.merge(
-					Layer.mock(DatabaseSession)({
-						current: Effect.succeed(Object.assign(Object.create(null), db)),
-					}),
+					fakeDatabaseSession(db),
 					Layer.succeed(ReleaseDatabase, { releases: Ref.get(releases) }),
 				),
 			),

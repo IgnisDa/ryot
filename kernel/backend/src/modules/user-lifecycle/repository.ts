@@ -17,7 +17,6 @@ import * as coreSchema from "#lib/infrastructure/db/schema/tables/core";
 import * as uploadSchema from "#lib/infrastructure/db/schema/tables/uploads";
 import * as lifecycleSchema from "#lib/infrastructure/db/schema/tables/user-lifecycle";
 import { DatabaseSession } from "#lib/infrastructure/db/session";
-import { acquireUserWriteLock } from "#lib/infrastructure/db/user-write-lock";
 
 const LifecycleMetadata = Schema.Struct({
 	usesLocalAuth: Schema.Boolean,
@@ -196,7 +195,7 @@ export class UserLifecycleRepository extends Context.Service<UserLifecycleReposi
 			const loadPreparationForUpdate = Effect.fn(
 				"UserLifecycleRepository.loadPreparationForUpdate",
 			)(function* (userId: UserId, kind: UserLifecycleOperationKind) {
-				yield* acquireUserWriteLock(userId);
+				yield* database.acquireUserWriteLock(userId);
 				const active = yield* getActiveByUserId(userId);
 				if (active) {
 					return { active, retryable: null, metadata: active.metadata };

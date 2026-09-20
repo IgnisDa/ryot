@@ -6,8 +6,8 @@ import { PgDialect } from "drizzle-orm/pg-core";
 import { Context, Effect, Layer, Ref, Schema } from "effect";
 
 import * as tables from "#lib/infrastructure/db/schema/tables/combined";
-import { DatabaseSession } from "#lib/infrastructure/db/session";
 import { SandboxPluginRevision } from "#lib/infrastructure/sandbox-runtime/execution-principal";
+import { fakeDatabaseSession } from "#lib/test-utils/effect";
 
 import { isWorkflowCallTargetKind, SandboxRepository } from "./repository";
 
@@ -107,7 +107,7 @@ const pinDatabaseLayer = (rows: PinRows) =>
 				}),
 			});
 			return Layer.merge(
-				Layer.mock(DatabaseSession)({ current: Effect.succeed(database) }),
+				fakeDatabaseSession(database),
 				Layer.succeed(PinDatabase, {
 					conditions: Ref.get(conditions),
 					respondWith: (next) => Ref.set(response, next),
