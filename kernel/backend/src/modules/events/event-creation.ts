@@ -13,12 +13,8 @@ import {
 import { stableStringify } from "@ryot-app/ts-utils/json";
 import { DateTime, Effect, Option, Schema } from "effect";
 
-import { DatabaseSession } from "#lib/infrastructure/db/session";
 import { EntitiesRepository } from "#modules/entities/repository";
-import {
-	makeDomainWriteChecks,
-	type DomainLifecycleCommand,
-} from "#modules/entities/write-context";
+import { DomainWriteChecks, type DomainLifecycleCommand } from "#modules/entities/write-context";
 import { EventSchemasRepository } from "#modules/event-schemas/repository";
 
 export const CapturedEventReferences = Schema.Record(EntityId, Schema.String);
@@ -118,7 +114,7 @@ export const resolveEventCreateItemScopes = Effect.fn("resolveEventCreateItemSco
 		readonly commit?: boolean;
 	}) {
 		const eventSchemasRepository = yield* EventSchemasRepository;
-		const checks = makeDomainWriteChecks(yield* DatabaseSession);
+		const checks = yield* DomainWriteChecks;
 		const rawEntityId = input.item.entityId.trim();
 		if (!rawEntityId) {
 			return yield* new EventCreateItemError({ reason: { code: "entity-id-required" } });

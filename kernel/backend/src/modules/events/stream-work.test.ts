@@ -33,6 +33,7 @@ import {
 	withLifecycleDispatch,
 } from "#modules/automations/lifecycle.test-support";
 import { EntitiesRepository } from "#modules/entities/repository";
+import { DomainWriteChecksLive } from "#modules/entities/write-context";
 import { EventSchemasRepository } from "#modules/event-schemas/repository";
 import { EventsRepository } from "#modules/events/repository";
 import { EventsService } from "#modules/events/service";
@@ -205,6 +206,7 @@ const repositoriesLayer = Layer.mergeAll(
 	eventSchemasRepositoryLayer,
 	entitiesRepositoryLayer,
 	eventsRepositoryLayer,
+	DomainWriteChecksLive.pipe(Layer.provide(fixtureLayer)),
 );
 
 const streamWorkTestLayer = Layer.unwrap(

@@ -3,6 +3,7 @@ import { Layer } from "effect";
 import { ImpersonationSessions } from "#modules/auth/impersonation-sessions";
 import { DefinitionRepository } from "#modules/definition-registry/repository";
 import { EntitiesServiceRuntimeLive } from "#modules/entities/layer";
+import { DomainWriteChecksLive } from "#modules/entities/write-context";
 import { TranslationsServiceLive } from "#modules/entity-translation/layer";
 import { PluginRuntimeResolverLive } from "#modules/plugins/runtime-resolver";
 import { EntityPopulationTriggerLive } from "#modules/provider-entities/population-trigger-live";
@@ -26,7 +27,9 @@ export const InterestReconcilerLive = InterestReconciler.layer.pipe(
 	Layer.provide(
 		Layer.mergeAll(
 			RyotQLService.layer,
-			EntityPopulationTriggerLive.pipe(Layer.provide(SandboxExecutionServiceLive)),
+			EntityPopulationTriggerLive.pipe(
+				Layer.provide(Layer.merge(SandboxExecutionServiceLive, DomainWriteChecksLive)),
+			),
 			TranslationsServiceLive,
 		),
 	),

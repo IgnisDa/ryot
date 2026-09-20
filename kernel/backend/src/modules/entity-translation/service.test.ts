@@ -10,6 +10,7 @@ import * as tables from "#lib/infrastructure/db/schema/tables/combined";
 import { DatabaseSession } from "#lib/infrastructure/db/session";
 import { assertExitFails } from "#lib/test-utils/assertions";
 import { fakeDatabaseSession, makeWorkflowEngine } from "#lib/test-utils/effect";
+import { DomainWriteChecksLive } from "#modules/entities/write-context";
 import { PluginRuntimeResolver } from "#modules/plugins/runtime-resolver";
 import { fixtureManifest } from "#modules/plugins/test-support";
 import { SandboxExecutionService } from "#modules/sandbox/service";
@@ -305,6 +306,7 @@ const makeServiceLayer = (
 					Layer.mergeAll(
 						database,
 						repository,
+						DomainWriteChecksLive.pipe(Layer.provide(database)),
 						runtime,
 						sandbox,
 						Layer.succeed(
