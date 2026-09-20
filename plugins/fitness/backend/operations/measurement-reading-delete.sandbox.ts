@@ -1,50 +1,12 @@
 import { defineManifest } from "@ryot-app/sandbox-sdk/driver";
-import { Effect, Result, Schema } from "@ryot-app/sandbox-sdk/effect";
+import { Effect } from "@ryot-app/sandbox-sdk/effect";
 import { defineOperation } from "@ryot-app/sandbox-sdk/operation";
-import {
-	and,
-	ascending,
-	column,
-	defineRecipe,
-	eq,
-	executeRyotqlRecipe,
-	inArray,
-	join,
-	literal,
-	selectedField,
-	selectedRows,
-	table,
-} from "@ryot-app/sandbox-sdk/ryotql";
 
 import {
 	MeasurementReadingDeleteInput,
-	MeasurementReadingDeleteOutput,
+	MeasurementReadingOutput,
 } from "../../shared/measurement-reading-operations";
-
-export class MeasurementReadingNotFoundError extends Error {
-	readonly _tag = "MeasurementReadingNotFoundError";
-}
-
-const measurementReadingIdsRecipe = defineRecipe((readingIds: readonly string[]) => {
-	const reading = table("event", "reading");
-	const metric = table("entity", "metric");
-	return {
-		map: ({ readings }) => Result.succeed(readings.items.map(({ id }) => id)),
-		queries: {
-			readings: selectedRows(reading, {
-				limit: readingIds.length,
-				orderBy: [ascending(column(reading, "id"))],
-				selection: { id: selectedField(column(reading, "id"), Schema.String) },
-				joins: [join("inner", metric, eq(column(reading, "entityId"), column(metric, "id")))],
-				where: and(
-					inArray(column(reading, "id"), readingIds.map(literal)),
-					eq(column(reading, "eventSchemaSlug"), literal("measurement-reading")),
-					eq(column(metric, "entitySchemaSlug"), literal("measurement-metric")),
-				),
-			}),
-		},
-	};
-});
+import { requireMeasurementReadings } from "./measurement-readings";
 
 export const manifest = defineManifest({
 	kind: "operation",
@@ -54,20 +16,11 @@ export const manifest = defineManifest({
 
 export default defineOperation({
 	manifest,
+	output: MeasurementReadingOutput,
 	input: MeasurementReadingDeleteInput,
-	output: MeasurementReadingDeleteOutput,
 	run: (input, host) =>
 		Effect.gen(function* () {
-			const readingIds = [...new Set(input.readingIds)];
-			const found = yield* executeRyotqlRecipe(
-				host.executeRyotql,
-				measurementReadingIdsRecipe(readingIds),
-			);
-			if (found.length !== readingIds.length) {
-				return yield* Effect.fail(
-					new MeasurementReadingNotFoundError("Measurement reading not found"),
-				);
-			}
-			return yield* host.deleteEvents(readingIds);
+			const readings = yield* requireMeasurementReadings(input.readingIds, host.executeRyotql);
+			return yield* host.deleteEvents(readings.map(({ id }) => id));
 		}),
 });

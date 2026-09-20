@@ -1,6 +1,7 @@
 import type { GenericImportWriteItem } from "@ryot-app/sandbox-sdk/imports";
 
 import { measurementMetricUnit } from "../../shared/measurement-metrics";
+import { measurementReadingProperties } from "../../shared/measurement-reading-operations";
 import { measurementOperationId, measurementRecordId } from "./identity";
 import type { OpenScaleNormalizedItem } from "./open-scale";
 
@@ -28,7 +29,7 @@ export const toMeasurementWriteItem = (
 			entityAlias: `metric-${index}`,
 			eventSchemaSlug: "measurement-reading",
 			operationId: operationId("reading", index),
-			properties: { value: statistic.value, ...(comment ? { comment } : {}) },
+			properties: measurementReadingProperties(statistic.value, comment),
 			...(index === 0 ? { outcome: { unit: "measurements", recordKind: "measurements" } } : {}),
 		})),
 		entities: statistics.map((statistic, index) => {
