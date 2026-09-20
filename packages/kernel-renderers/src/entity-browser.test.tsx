@@ -49,15 +49,16 @@ const testClock = () => {
 const encodeJson = Schema.encodeEffect(Schema.fromJsonString(Schema.Unknown));
 
 const browserRequest = (page: ReturnType<typeof mountPluginPage>, index: number) =>
-	waitFor(() => expect(page.queryRequests("entityBrowser").length).toBeGreaterThan(index)).then(
-		() => {
-			const request = page.queryRequests("entityBrowser")[index];
-			if (!request) {
-				throw new Error(`Entity browser request ${index} was not issued`);
-			}
-			return request;
-		},
-	);
+	Effect.gen(function* () {
+		yield* Effect.promise(() =>
+			waitFor(() => expect(page.queryRequests("entityBrowser").length).toBeGreaterThan(index)),
+		);
+		const request = page.queryRequests("entityBrowser")[index];
+		if (!request) {
+			return yield* Effect.die(new Error(`Entity browser request ${index} was not issued`));
+		}
+		return request;
+	});
 
 const replyBrowser = (
 	page: ReturnType<typeof mountPluginPage>,
@@ -309,7 +310,7 @@ describe("entity browser", () => {
 			expect(page.queryRequests("entityBrowser")).toHaveLength(1);
 
 			yield* Effect.promise(() => clock.advance(1));
-			const request = yield* Effect.promise(() => browserRequest(page, 1));
+			const request = yield* browserRequest(page, 1);
 			expect(yield* encodeJson(request.document)).toContain("pir");
 			replyBrowser(page, request.requestId, [browserRow("book-2", "Pirate Cinema")]);
 			yield* Effect.promise(() =>
@@ -340,7 +341,7 @@ describe("entity browser", () => {
 				throw new Error("Search input is not inside its form");
 			}
 			fireEvent.submit(form);
-			const searched = yield* Effect.promise(() => browserRequest(page, 1));
+			const searched = yield* browserRequest(page, 1);
 			replyBrowser(page, searched.requestId, [browserRow("book-1", "Piranesi")]);
 			fireEvent.click(screen.getByRole("button", { name: "Clear search" }));
 			yield* Effect.promise(() =>
@@ -353,7 +354,7 @@ describe("entity browser", () => {
 			expect(page.queryRequests("entityBrowser")).toHaveLength(2);
 
 			yield* Effect.promise(() => clock.advance(300));
-			yield* Effect.promise(() => browserRequest(page, 2));
+			yield* browserRequest(page, 2);
 		}),
 	);
 
@@ -370,7 +371,7 @@ describe("entity browser", () => {
 			fireEvent.change(search, { target: { value: "pir" } });
 
 			yield* Effect.promise(() => clock.advance(300));
-			const request = yield* Effect.promise(() => browserRequest(page, 1));
+			const request = yield* browserRequest(page, 1);
 			expect(document.activeElement).toBe(search);
 			replyBrowser(page, request.requestId, [browserRow("book-2", "Pirate Cinema")]);
 			yield* Effect.promise(() =>
@@ -396,7 +397,7 @@ describe("entity browser", () => {
 					).toBe("external"),
 				),
 			);
-			const request = yield* Effect.promise(() => browserRequest(page, 1));
+			const request = yield* browserRequest(page, 1);
 			expect(yield* encodeJson(request.document)).toContain("external");
 		}),
 	);
@@ -404,7 +405,7 @@ describe("entity browser", () => {
 	it.live("requests one cursor page per load-more click and never before a click", () =>
 		Effect.gen(function* () {
 			const page = openBrowser();
-			const first = yield* Effect.promise(() => browserRequest(page, 0));
+			const first = yield* browserRequest(page, 0);
 			replyBrowser(page, first.requestId, [browserRow("book-1", "One")], true, "cursor-1");
 			yield* Effect.promise(() =>
 				waitFor(() =>
@@ -414,7 +415,7 @@ describe("entity browser", () => {
 			expect(page.queryRequests("entityBrowser")).toHaveLength(1);
 
 			fireEvent.click(screen.getByRole("button", { name: "Load more results" }));
-			const second = yield* Effect.promise(() => browserRequest(page, 1));
+			const second = yield* browserRequest(page, 1);
 			expect(yield* encodeJson(second.document)).toContain("cursor-1");
 			replyBrowser(page, second.requestId, [browserRow("book-2", "Two")], true, "cursor-2");
 			yield* Effect.promise(() =>
@@ -423,7 +424,7 @@ describe("entity browser", () => {
 			expect(page.queryRequests("entityBrowser")).toHaveLength(2);
 
 			fireEvent.click(screen.getByRole("button", { name: "Load more results" }));
-			const third = yield* Effect.promise(() => browserRequest(page, 2));
+			const third = yield* browserRequest(page, 2);
 			expect(yield* encodeJson(third.document)).toContain("cursor-2");
 		}),
 	);
@@ -431,14 +432,14 @@ describe("entity browser", () => {
 	it.live("refreshes a one-page browser with exactly one page", () =>
 		Effect.gen(function* () {
 			const page = openBrowser();
-			const first = yield* Effect.promise(() => browserRequest(page, 0));
+			const first = yield* browserRequest(page, 0);
 			replyBrowser(page, first.requestId, [browserRow("book-1", "Original")], true, "cursor-1");
 			yield* Effect.promise(() =>
 				waitFor(() => expect(page.container?.textContent).toContain("Original")),
 			);
 
 			page.send({ type: "page-refresh" });
-			const refreshed = yield* Effect.promise(() => browserRequest(page, 1));
+			const refreshed = yield* browserRequest(page, 1);
 			replyBrowser(page, refreshed.requestId, [browserRow("book-2", "Refreshed")], true, "fresh-1");
 			yield* Effect.promise(() =>
 				waitFor(() => expect(page.container?.textContent).toContain("Refreshed")),
@@ -450,7 +451,7 @@ describe("entity browser", () => {
 	it.live("replays exactly the manually loaded page depth during refresh", () =>
 		Effect.gen(function* () {
 			const page = openBrowser();
-			const first = yield* Effect.promise(() => browserRequest(page, 0));
+			const first = yield* browserRequest(page, 0);
 			replyBrowser(page, first.requestId, [browserRow("book-1", "One")], true, "cursor-1");
 			yield* Effect.promise(() =>
 				waitFor(() =>
@@ -458,14 +459,14 @@ describe("entity browser", () => {
 				),
 			);
 			fireEvent.click(screen.getByRole("button", { name: "Load more results" }));
-			const second = yield* Effect.promise(() => browserRequest(page, 1));
+			const second = yield* browserRequest(page, 1);
 			replyBrowser(page, second.requestId, [browserRow("book-2", "Two")], true, "cursor-2");
 			yield* Effect.promise(() =>
 				waitFor(() => expect(page.container?.textContent).toContain("2+ results")),
 			);
 
 			page.send({ type: "page-refresh" });
-			const replayFirst = yield* Effect.promise(() => browserRequest(page, 2));
+			const replayFirst = yield* browserRequest(page, 2);
 			replyBrowser(
 				page,
 				replayFirst.requestId,
@@ -473,7 +474,7 @@ describe("entity browser", () => {
 				true,
 				"fresh-1",
 			);
-			const replaySecond = yield* Effect.promise(() => browserRequest(page, 3));
+			const replaySecond = yield* browserRequest(page, 3);
 			expect(yield* encodeJson(replaySecond.document)).toContain("fresh-1");
 			replyBrowser(
 				page,
@@ -492,7 +493,7 @@ describe("entity browser", () => {
 	it.live("does not leak loaded state between mounts of the same saved view", () =>
 		Effect.gen(function* () {
 			const firstPage = openBrowser({ savedViewId: "shared-view" });
-			const first = yield* Effect.promise(() => browserRequest(firstPage, 0));
+			const first = yield* browserRequest(firstPage, 0);
 			replyBrowser(
 				firstPage,
 				first.requestId,
@@ -506,7 +507,7 @@ describe("entity browser", () => {
 				),
 			);
 			fireEvent.click(screen.getByRole("button", { name: "Load more results" }));
-			const second = yield* Effect.promise(() => browserRequest(firstPage, 1));
+			const second = yield* browserRequest(firstPage, 1);
 			replyBrowser(firstPage, second.requestId, [browserRow("book-old-2", "Old second page")]);
 			yield* Effect.promise(() =>
 				waitFor(() => expect(firstPage.container?.textContent).toContain("Old second page")),
@@ -515,7 +516,7 @@ describe("entity browser", () => {
 
 			const secondPage = openBrowser({ savedViewId: "shared-view" });
 			expect(secondPage.container?.textContent).not.toContain("Old mount");
-			const fresh = yield* Effect.promise(() => browserRequest(secondPage, 0));
+			const fresh = yield* browserRequest(secondPage, 0);
 			replyBrowser(
 				secondPage,
 				fresh.requestId,
@@ -527,7 +528,7 @@ describe("entity browser", () => {
 				waitFor(() => expect(secondPage.container?.textContent).toContain("New mount")),
 			);
 			secondPage.send({ type: "page-refresh" });
-			const refresh = yield* Effect.promise(() => browserRequest(secondPage, 1));
+			const refresh = yield* browserRequest(secondPage, 1);
 			replyBrowser(
 				secondPage,
 				refresh.requestId,
