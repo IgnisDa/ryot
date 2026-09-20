@@ -11,6 +11,7 @@ import { assertExitFails } from "#lib/test-utils/assertions";
 
 import { SandboxCompiledArtifacts } from "./compiled-artifacts";
 import { SandboxRepository } from "./repository";
+import { compiledArtifactsLayer } from "./sandbox-fixtures.test-support";
 
 type StoredScript = NonNullable<
 	Effect.Success<ReturnType<SandboxRepository["Service"]["getScript"]>>
@@ -70,9 +71,7 @@ const concurrentLayer = Layer.unwrap(
 				Effect.as(compiledScript(scriptId, concurrentCode)),
 			),
 		);
-		const artifacts = Layer.effect(SandboxCompiledArtifacts, SandboxCompiledArtifacts.make).pipe(
-			Layer.provideMerge(repository),
-		);
+		const artifacts = compiledArtifactsLayer(repository);
 		return Layer.merge(artifacts, Layer.succeed(ArtifactLookupGate, { entered, release }));
 	}),
 );
@@ -135,17 +134,12 @@ const invalidArtifacts = [
 ];
 const invalidScripts = new Map(invalidArtifacts.map(({ script }) => [script.id, script]));
 const invalidReads = new Map<SandboxScriptId, number>();
-const invalidArtifactsLayer = Layer.effect(
-	SandboxCompiledArtifacts,
-	SandboxCompiledArtifacts.make,
-).pipe(
-	Layer.provide(
-		repositoryLayer((scriptId) =>
-			Effect.sync(() => {
-				invalidReads.set(scriptId, (invalidReads.get(scriptId) ?? 0) + 1);
-				return invalidScripts.get(scriptId) ?? null;
-			}),
-		),
+const invalidArtifactsLayer = compiledArtifactsLayer(
+	repositoryLayer((scriptId) =>
+		Effect.sync(() => {
+			invalidReads.set(scriptId, (invalidReads.get(scriptId) ?? 0) + 1);
+			return invalidScripts.get(scriptId) ?? null;
+		}),
 	),
 );
 
@@ -167,14 +161,12 @@ const retryCode = "compiled-artifact-after-retry";
 const retryHash = sha256Hex(retryCode);
 let retryScript: StoredScript | null = null;
 let retryReads = 0;
-const retryLayer = Layer.effect(SandboxCompiledArtifacts, SandboxCompiledArtifacts.make).pipe(
-	Layer.provide(
-		repositoryLayer((scriptId) =>
-			Effect.sync(() => {
-				retryReads += 1;
-				return scriptId === retryScriptId ? retryScript : null;
-			}),
-		),
+const retryLayer = compiledArtifactsLayer(
+	repositoryLayer((scriptId) =>
+		Effect.sync(() => {
+			retryReads += 1;
+			return scriptId === retryScriptId ? retryScript : null;
+		}),
 	),
 );
 
@@ -205,14 +197,12 @@ const capacityPrincipals = Array.from({ length: 17 }, (_, index) => {
 	return { scriptId, contentHash: script.contentHash };
 });
 const capacityReads = new Map<SandboxScriptId, number>();
-const capacityLayer = Layer.effect(SandboxCompiledArtifacts, SandboxCompiledArtifacts.make).pipe(
-	Layer.provide(
-		repositoryLayer((scriptId) =>
-			Effect.sync(() => {
-				capacityReads.set(scriptId, (capacityReads.get(scriptId) ?? 0) + 1);
-				return capacityScripts.get(scriptId) ?? null;
-			}),
-		),
+const capacityLayer = compiledArtifactsLayer(
+	repositoryLayer((scriptId) =>
+		Effect.sync(() => {
+			capacityReads.set(scriptId, (capacityReads.get(scriptId) ?? 0) + 1);
+			return capacityScripts.get(scriptId) ?? null;
+		}),
 	),
 );
 

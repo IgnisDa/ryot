@@ -92,12 +92,7 @@ const liveSubmissionLayer = Layer.unwrap(
 					findById: (id) => Effect.succeed(queuedRunFixture(id)),
 					listDispatchStates: ([id]) =>
 						Effect.succeed([
-							{
-								attemptCount: 0,
-								status: "queued" as const,
-								id: AutomationRunId.make(id ?? ""),
-								lane: id === "missed" ? ("interactive" as const) : ("background" as const),
-							},
+							{ attemptCount: 0, status: "queued" as const, id: AutomationRunId.make(id ?? "") },
 						]),
 				}),
 			),

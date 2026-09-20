@@ -12,7 +12,7 @@ import { Workflow } from "effect/workflow";
 import type { DurableSchema } from "#lib/infrastructure/workflow";
 import { RelationshipSingleResult } from "#modules/relationships/mutation-pipeline";
 
-export const CollectionMembershipWorkflowResult = Schema.Struct({
+const CollectionMembershipWorkflowResult = Schema.Struct({
 	...MembershipResponse.fields,
 	operation: RelationshipSingleResult.fields.operation,
 });

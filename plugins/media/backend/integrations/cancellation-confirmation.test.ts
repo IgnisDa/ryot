@@ -5,6 +5,7 @@ import type {
 	IngestionBatch,
 } from "@ryot-app/contract/modules/imports/ingestion";
 import { IntegrationId } from "@ryot-app/contract/schema/brands";
+import { WorkflowExecutionNotifications } from "@ryot-app/kernel-backend/lib/infrastructure/workflow-execution-notifications";
 import { assertExitFails } from "@ryot-app/kernel-backend/lib/test-utils/assertions";
 import { makeWorkflowEngine } from "@ryot-app/kernel-backend/lib/test-utils/effect";
 import { IngestionCaptures } from "@ryot-app/kernel-backend/modules/imports/capture-service";
@@ -193,6 +194,7 @@ it.effect.each(["spotify", "youtube-music"] as const)(
 				ingestionTestDatabase(() => [receipt]),
 				Layer.succeed(AdmittedWorkflowCatalogue, []),
 				Layer.succeed(WorkflowEngine, makeWorkflowEngine()),
+				WorkflowExecutionNotifications.layer,
 				Layer.mock(IngestionReadinessService)({}),
 				Layer.mock(PluginInstallationRepository)({}),
 				Layer.mock(SandboxPluginScriptResolver)({}),

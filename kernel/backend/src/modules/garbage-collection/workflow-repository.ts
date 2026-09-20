@@ -27,6 +27,9 @@ const treeFilter = (root: WorkflowIdentity) =>
 
 const rootExecution = alias(table, "root");
 
+const retentionInterval = sql`case when bool_or(member.status = 'failed')
+	then interval '7 days' else interval '24 hours' end`;
+
 const RequestIdentity = Schema.Struct({
 	entityType: Schema.String,
 	executionId: Schema.String,
@@ -204,22 +207,20 @@ export class WorkflowGarbageCollectionRepository extends Context.Service<Workflo
 				reply: Reply.Encoded,
 				request: typeof RequestIdentity.Type,
 			) {
-				if (reply._tag !== "WithExit") {
-					return;
-				}
 				if (
+					reply._tag !== "WithExit" ||
 					request.tag !== "run" ||
 					!request.entityType.startsWith(workflowEntityPrefix) ||
 					request.entityType === workflowClockEntityType
 				) {
-					return;
+					return undefined;
 				}
 				const result =
 					reply.exit._tag === "Success"
 						? yield* Schema.decodeUnknownEffect(StoredWorkflowResult)(reply.exit.value)
 						: null;
 				if (result?._tag === "Suspended") {
-					return;
+					return undefined;
 				}
 				const completedAt = DateTime.toDate(yield* DateTime.now);
 				yield* session.run((db) =>
@@ -228,6 +229,7 @@ export class WorkflowGarbageCollectionRepository extends Context.Service<Workflo
 						.set({ completedAt, status: result?.exit._tag === "Success" ? "succeeded" : "failed" })
 						.where(and(identityFilter(request), eq(table.status, "active"))),
 				);
+				return { executionId: request.executionId, workflowName: request.workflowName };
 			});
 			const expireTrees = Effect.fn("WorkflowGarbageCollectionRepository.expireTrees")(function* (
 				now: Date,
@@ -244,51 +246,32 @@ export class WorkflowGarbageCollectionRepository extends Context.Service<Workflo
 							and root.expired_at is null and root.completed_at is not null
 							and (
 								select case when bool_and(member.status <> 'active') then
-									max(member.completed_at) + case when bool_or(member.status = 'failed')
-										then interval '7 days' else interval '24 hours' end end
+									max(member.completed_at) + ${retentionInterval} end
 								from workflow_execution member
 								where member.root_workflow_name = root.workflow_name
 									and member.root_execution_id = root.execution_id
 							) <= ${now.toISOString()}::timestamptz
+							and not exists (
+								select 1 from cluster_messages message
+								join workflow_execution execution on
+									message.entity_type = ${workflowEntityPrefix} || execution.workflow_name
+									and message.entity_id = execution.execution_id
+								where execution.root_workflow_name = root.workflow_name
+									and execution.root_execution_id = root.execution_id
+									and not message.processed
+							)
 						order by root.completed_at, root.workflow_name, root.execution_id
 						limit ${limit} for update of root skip locked
 					`,
 						"objects",
 					),
 				);
-				let expiredTrees = 0;
 				for (const root of roots) {
-					const [eligible] = yield* session.run((db) =>
-						db.execute<{ eligible: boolean }>(
-							sql`
-							select coalesce(bool_and(member.status <> 'active') and
-								max(member.completed_at) + case when bool_or(member.status = 'failed')
-									then interval '7 days' else interval '24 hours' end <= ${now.toISOString()}::timestamptz,
-								false) and not exists (
-									select 1 from cluster_messages message
-									join workflow_execution execution on
-										message.entity_type = ${workflowEntityPrefix} || execution.workflow_name
-										and message.entity_id = execution.execution_id
-									where execution.root_workflow_name = ${root.workflowName}
-										and execution.root_execution_id = ${root.executionId}
-										and not message.processed
-								) as eligible
-							from workflow_execution member
-							where member.root_workflow_name = ${root.workflowName}
-								and member.root_execution_id = ${root.executionId}
-						`,
-							"objects",
-						),
-					);
-					if (!eligible?.eligible) {
-						continue;
-					}
 					yield* session.run((db) =>
 						db.update(table).set({ expiredAt: now }).where(treeFilter(root)),
 					);
-					expiredTrees += 1;
 				}
-				return expiredTrees;
+				return roots.length;
 			});
 			const listPendingCleanup = Effect.fn(
 				"WorkflowGarbageCollectionRepository.listPendingCleanup",

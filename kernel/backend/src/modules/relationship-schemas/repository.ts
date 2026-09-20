@@ -9,7 +9,7 @@ import { Context, Effect, Layer } from "effect";
 import { DefinitionRepository } from "#modules/definition-registry/repository";
 import type { RelationshipSchemaDefinition } from "#modules/definition-registry/snapshot";
 
-export type RelationshipSchemaScope = {
+type RelationshipSchemaScope = {
 	readonly name: string;
 	readonly slug: string;
 	readonly isBuiltin: boolean;

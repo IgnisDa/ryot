@@ -75,7 +75,7 @@ export class PluginBackupRestore extends Context.Service<PluginBackupRestore>()(
 						}),
 					);
 					yield* asInvalidBackup(validatePluginScriptEntries(manifest));
-					const normalized = yield* asInvalidBackup(normalizePluginPackage(normalizedSource));
+					const normalized = normalizePluginPackage(normalizedSource);
 					yield* asInvalidBackup(validatePluginExecutableScripts(normalized));
 					prepared.push({ ...item, manifest, normalized });
 				}

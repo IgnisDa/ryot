@@ -1,5 +1,6 @@
 import { Effect, Layer } from "effect";
 
+import { WorkflowExecutionNotifications } from "#lib/infrastructure/workflow-execution-notifications";
 import { IngestionCaptures } from "#modules/imports/capture-service";
 import { IngestionExecution } from "#modules/imports/execution-service";
 import { ImportsRepository } from "#modules/imports/repository";
@@ -29,7 +30,11 @@ export const integrationCrudIngestionLayer = Layer.effect(
 ).pipe(
 	Layer.merge(
 		IngestionRetirement.layer.pipe(
-			Layer.provide(Layer.mergeAll(IngestionCaptures.layer, ImportsRepository.layer)),
+			Layer.provide(
+				Layer.mergeAll(IngestionCaptures.layer, ImportsRepository.layer).pipe(
+					Layer.provideMerge(WorkflowExecutionNotifications.layer),
+				),
+			),
 		),
 	),
 );

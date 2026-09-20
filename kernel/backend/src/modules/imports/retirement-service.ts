@@ -3,6 +3,7 @@ import { Context, Effect, Layer } from "effect";
 import { WorkflowEngine } from "effect/workflow/WorkflowEngine";
 
 import { DatabaseSession } from "#lib/infrastructure/db/session";
+import { WorkflowExecutionNotifications } from "#lib/infrastructure/workflow-execution-notifications";
 import { interruptWorkflowAndWait } from "#lib/infrastructure/workflow-interruption";
 import { AdmittedWorkflowCatalogue } from "#modules/mutations/workflow-catalogue";
 
@@ -23,6 +24,7 @@ export class IngestionRetirement extends Context.Service<IngestionRetirement>()(
 			const captures = yield* IngestionCaptures;
 			const catalogue = yield* AdmittedWorkflowCatalogue;
 			const engine = yield* WorkflowEngine;
+			const notifications = yield* WorkflowExecutionNotifications;
 			const retire = Effect.fn("IngestionRetirement.retire")(function* (input: {
 				userId: UserId;
 				integrationId?: IntegrationId;
@@ -46,6 +48,7 @@ export class IngestionRetirement extends Context.Service<IngestionRetirement>()(
 					}
 					yield* interruptWorkflowAndWait(root, scope.runId).pipe(
 						Effect.provideService(WorkflowEngine, engine),
+						Effect.provideService(WorkflowExecutionNotifications, notifications),
 					);
 					yield* execution
 						.settle({

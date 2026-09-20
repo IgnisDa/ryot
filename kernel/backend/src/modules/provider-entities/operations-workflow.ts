@@ -34,7 +34,7 @@ type ProviderResolveOperationInput = {
 	readonly accountGeneration: AccountGeneration | null;
 };
 
-export type EntityImportWorkflowOperationsValue = {
+type EntityImportWorkflowOperationsValue = {
 	processSandbox: (
 		payload: EntityImportPayload,
 		executionId: string,

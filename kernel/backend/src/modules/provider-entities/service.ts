@@ -19,7 +19,10 @@ import { WorkflowEngine } from "effect/workflow/WorkflowEngine";
 
 import { rootLifecycleCommand } from "#lib/domain/lifecycle-command";
 import { AppConfig } from "#lib/infrastructure/config/service";
-import { WorkflowExecutionNotifications } from "#lib/infrastructure/workflow-execution-notifications";
+import {
+	awaitWorkflowSettled,
+	WorkflowExecutionNotifications,
+} from "#lib/infrastructure/workflow-execution-notifications";
 import { createWorkflowJobId, deriveJobIdSecret, resolveWorkflowJob } from "#lib/shared/job-id";
 import { trimToNull } from "#lib/shared/validation";
 import { EntitiesRepository } from "#modules/entities/repository";
@@ -150,18 +153,13 @@ export class EntityImportService extends Context.Service<EntityImportService>()(
 				jobId: string,
 			) {
 				const { executionId } = yield* resolveJob(user, jobId);
-				const identity = { executionId, workflowName: EntityImportWorkflow._tag };
-				return yield* Effect.scoped(
-					Effect.gen(function* () {
-						const awaitHint = yield* notifications.listen(identity);
-						const result = yield* readResult(user, executionId);
-						if (result.status !== "queued" && result.status !== "running") {
-							return result;
-						}
-						yield* awaitHint.pipe(Effect.timeoutOption("20 seconds"));
-						return yield* readResult(user, executionId);
-					}),
-				);
+				return yield* awaitWorkflowSettled({
+					timeout: "20 seconds",
+					backstop: "20 seconds",
+					read: readResult(user, executionId),
+					identities: [{ executionId, workflowName: EntityImportWorkflow._tag }],
+					isSettled: (result) => result.status !== "queued" && result.status !== "running",
+				}).pipe(Effect.provideService(WorkflowExecutionNotifications, notifications));
 			});
 
 			const cancelImport = Effect.fn("EntityImportService.cancelImport")(function* (

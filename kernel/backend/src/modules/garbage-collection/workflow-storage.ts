@@ -4,7 +4,6 @@ import { MessageStorage, Snowflake, SqlMessageStorage } from "effect/cluster";
 import { DatabaseSession } from "#lib/infrastructure/db/session";
 import { WorkflowExecutionNotifications } from "#lib/infrastructure/workflow-execution-notifications";
 
-import { terminalWorkflowReplyIdentity } from "./workflow-models";
 import { WorkflowGarbageCollectionRepository } from "./workflow-repository";
 
 export const WorkflowGarbageCollectionStorageLive = Layer.effect(
@@ -34,21 +33,13 @@ export const WorkflowGarbageCollectionStorageLive = Layer.effect(
 								return undefined;
 							}
 							yield* storage.saveReply(reply);
-							yield* repository.complete(reply, request);
-							return request;
+							return yield* repository.complete(reply, request);
 						}),
 					)
 					.pipe(
 						Effect.orDie,
-						Effect.flatMap((request) =>
-							request
-								? terminalWorkflowReplyIdentity(reply, request).pipe(
-										Effect.orDie,
-										Effect.flatMap((identity) =>
-											identity ? notifications.publish(identity) : Effect.void,
-										),
-									)
-								: Effect.void,
+						Effect.flatMap((identity) =>
+							identity ? notifications.publish(identity) : Effect.void,
 						),
 					),
 		});

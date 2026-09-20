@@ -5,8 +5,6 @@ import { Context, Effect, Layer } from "effect";
 import * as schema from "#lib/infrastructure/db/schema/tables/combined";
 import { DatabaseSession } from "#lib/infrastructure/db/session";
 
-export type ProviderImportAdmissionRow = typeof schema.providerImportAdmission.$inferSelect;
-
 const ADMISSION_LOCK_KEY = "ryot-provider-import-admission";
 
 export class ProviderImportAdmissionRepository extends Context.Service<ProviderImportAdmissionRepository>()(

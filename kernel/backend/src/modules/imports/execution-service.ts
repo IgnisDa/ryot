@@ -4,11 +4,12 @@ import type {
 	IngestionSummary,
 } from "@ryot-app/contract/modules/imports/ingestion";
 import type { ImportRunFailureReason } from "@ryot-app/contract/modules/imports/schemas";
-import { Context, DateTime, Effect, Layer, Option, Schema } from "effect";
-import { Workflow } from "effect/workflow";
+import { Context, DateTime, Effect, Layer } from "effect";
 import { WorkflowEngine } from "effect/workflow/WorkflowEngine";
 
 import { DatabaseSession } from "#lib/infrastructure/db/session";
+import { WorkflowExecutionNotifications } from "#lib/infrastructure/workflow-execution-notifications";
+import { interruptWorkflowAndWait } from "#lib/infrastructure/workflow-interruption";
 import { AdmittedWorkflowCatalogue } from "#modules/mutations/workflow-catalogue";
 
 import { IngestionCaptures } from "./capture-service";
@@ -25,6 +26,7 @@ export class IngestionExecution extends Context.Service<IngestionExecution>()(
 			const pins = yield* ImportWorkflowPinning;
 			const database = yield* DatabaseSession;
 			const engine = yield* WorkflowEngine;
+			const notifications = yield* WorkflowExecutionNotifications;
 			const catalogue = yield* AdmittedWorkflowCatalogue;
 			const cleanup = Effect.fn("IngestionExecution.cleanup")(function* (scope: IngestionScope) {
 				const run = yield* repository.getIngestionRun(scope);
@@ -77,21 +79,12 @@ export class IngestionExecution extends Context.Service<IngestionExecution>()(
 								message: "Ingestion batch owner is not registered",
 							});
 						}
-						const completion = Workflow.make(workflow._tag, {
-							error: Schema.Unknown,
-							success: Schema.Unknown,
-							payload: Schema.Struct({}),
-							annotations: workflow.annotations,
-							idempotencyKey: () => owner.executionId,
-						});
-						yield* engine.interrupt(workflow, owner.executionId);
-						for (;;) {
-							const result = yield* engine.poll(completion, owner.executionId);
-							if (Option.isSome(result) && result.value._tag === "Complete") {
-								break;
-							}
-							yield* Effect.sleep("100 millis");
-						}
+						yield* interruptWorkflowAndWait(workflow, owner.executionId, {
+							requireReply: true,
+						}).pipe(
+							Effect.provideService(WorkflowEngine, engine),
+							Effect.provideService(WorkflowExecutionNotifications, notifications),
+						);
 					}
 				}
 				for (const { data } of yield* repository.listBatches(input.scope)) {

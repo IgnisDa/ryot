@@ -4,6 +4,7 @@ import { Effect, Layer, Schema } from "effect";
 import { Workflow } from "effect/workflow";
 import { WorkflowEngine } from "effect/workflow/WorkflowEngine";
 
+import { WorkflowExecutionNotifications } from "#lib/infrastructure/workflow-execution-notifications";
 import { makeWorkflowEngine } from "#lib/test-utils/effect";
 import { ingestionRetirementTestLayer } from "#lib/test-utils/ingestion-retirement";
 import { isolatedDatabaseLayer } from "#lib/test-utils/isolated-database";
@@ -73,6 +74,7 @@ const runRetirement = Effect.fnUntraced(function* (workflowName: string, calls: 
 			Layer.provide(ingestionRetirementTestLayer),
 			Layer.provide(
 				Layer.mergeAll(
+					WorkflowExecutionNotifications.layer,
 					Layer.succeed(WorkflowEngine, engine),
 					Layer.succeed(AdmittedWorkflowCatalogue, Object.freeze([ownerWorkflow])),
 					Layer.succeed(UserLifecycleRepository, {

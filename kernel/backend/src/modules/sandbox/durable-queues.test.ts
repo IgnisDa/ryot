@@ -9,18 +9,25 @@ import { Context, Effect, Layer, Ref, Schema } from "effect";
 import { redisKeys, RedisService } from "#lib/infrastructure/redis";
 import { SandboxService as RuntimeSandboxService } from "#lib/infrastructure/sandbox-runtime/service";
 import { makeSandboxShortWait } from "#lib/infrastructure/sandbox-runtime/short-wait";
+import { SidecarRecoverySuspended } from "#lib/infrastructure/sandbox-runtime/sidecar-supervisor";
 import { appendWorkflowJournal } from "#lib/infrastructure/sandbox-runtime/workflow-journal";
 import { readPinnedJournal } from "#lib/infrastructure/sandbox-runtime/workflow-journal.test-support";
+import { assertExitFails } from "#lib/test-utils/assertions";
 import { databaseLayer } from "#lib/test-utils/effect";
 import { testExecutionId, testRedisServiceLayer } from "#lib/test-utils/redis";
 import { stubRuntimeSandboxService } from "#lib/test-utils/sandbox-runtime";
 
-import { SandboxCompiledArtifacts } from "./compiled-artifacts";
 import { SandboxDurableHostDispatcher } from "./durable-host-dispatcher";
-import { executeSandboxExecution, SandboxExecutionQueue } from "./durable-queues";
+import {
+	executeSandboxExecution,
+	SandboxExecutionQueue,
+	SandboxProjectionMissing,
+	SandboxRecoverySuspended,
+} from "./durable-queues";
 import { KernelWorkflowReferences } from "./kernel-workflow-references";
 import { SandboxPluginScriptResolver } from "./plugin-script-resolver";
 import { SandboxRepository } from "./repository";
+import { compiledArtifactsLayer } from "./sandbox-fixtures.test-support";
 import { SandboxWorkflowPinning } from "./sandbox-script-workflow";
 import { SandboxWorkflowReferenceRepository } from "./workflow-reference-repository";
 
@@ -148,10 +155,7 @@ const hotSwapRepositoryLayer = Layer.mock(SandboxRepository)({
 	getScript: (scriptId) =>
 		Effect.succeed(scriptId === historicalScriptId ? historical : replacement),
 });
-const hotSwapArtifactsLayer = Layer.effect(
-	SandboxCompiledArtifacts,
-	SandboxCompiledArtifacts.make,
-).pipe(Layer.provideMerge(hotSwapRepositoryLayer));
+const hotSwapArtifactsLayer = compiledArtifactsLayer(hotSwapRepositoryLayer);
 
 class ActiveScript extends Context.Service<
 	ActiveScript,
@@ -302,10 +306,7 @@ const queuedRepositoryLayer = Layer.mock(SandboxRepository)({
 			contentHash: scriptId === queuedScriptId ? queuedContentHash : kernelContentHash,
 		}),
 });
-const queuedArtifactsLayer = Layer.effect(
-	SandboxCompiledArtifacts,
-	SandboxCompiledArtifacts.make,
-).pipe(Layer.provideMerge(queuedRepositoryLayer));
+const queuedArtifactsLayer = compiledArtifactsLayer(queuedRepositoryLayer);
 
 layer(
 	Layer.mergeAll(
@@ -389,10 +390,7 @@ const inlineRepositoryLayer = Layer.mock(SandboxRepository)({
 			metadata: { runtimeImports: [] },
 		}),
 });
-const inlineArtifactsLayer = Layer.effect(
-	SandboxCompiledArtifacts,
-	SandboxCompiledArtifacts.make,
-).pipe(Layer.provideMerge(inlineRepositoryLayer));
+const inlineArtifactsLayer = compiledArtifactsLayer(inlineRepositoryLayer);
 const inlinePrincipal = (capabilities: ReadonlyArray<string>) => ({
 	providerId: null,
 	pluginRevision: null,
@@ -511,6 +509,27 @@ layer(
 		});
 	});
 
+	test.effect("durable_replay_reports_a_suspended_sidecar_recovery_as_a_typed_failure", () =>
+		Effect.gen(function* () {
+			const workflowExecutionId = testExecutionId("recovery-suspended");
+			yield* appendWorkflowJournal(workflowExecutionId, 0, []);
+			const runtime = stubRuntimeSandboxService(() =>
+				Effect.fail(new SidecarRecoverySuspended({ instance: "instance-1" })),
+			);
+			const exit = yield* executeSandboxExecution({
+				lane: "interactive",
+				...queuedReplay,
+				context: {},
+				journalLength: 0,
+				workflowExecutionId,
+				principal: inlinePrincipal([]),
+				executionId: `${workflowExecutionId}-replay-0`,
+			}).pipe(Effect.provideService(RuntimeSandboxService, runtime), Effect.exit);
+
+			assertExitFails(exit, new SandboxRecoverySuspended({ instance: "instance-1" }));
+		}),
+	);
+
 	test.effect("durable_replay_reports_projection_faults_over_the_script_outcome", () =>
 		Effect.gen(function* () {
 			const redis = yield* RedisService;
@@ -563,10 +582,7 @@ layer(
 				message: "Sandbox workflow journal changed after inspection",
 			});
 			const missing = yield* replay("projection-lost", (key) => redis.client.del(key));
-			expect(missing).toMatchObject({
-				_tag: "Success",
-				success: { status: "completed", projectionMissing: true },
-			});
+			assert(missing._tag === "Failure" && missing.failure instanceof SandboxProjectionMissing);
 		}),
 	);
 });
@@ -577,34 +593,26 @@ layer(
 		testRedisServiceLayer,
 		dispatcherLayer,
 		kernelReferencesLayer,
-		Layer.effect(SandboxCompiledArtifacts, SandboxCompiledArtifacts.make).pipe(
-			Layer.provideMerge(
-				Layer.mock(SandboxRepository)({ getScript: () => Effect.die("script must not load") }),
-			),
+		compiledArtifactsLayer(
+			Layer.mock(SandboxRepository)({ getScript: () => Effect.die("script must not load") }),
 		),
 		runtimeSandboxLayer(() => Effect.die("sandbox must not start")),
 	),
 )((test) => {
 	test.effect("reports a lost journal projection without starting the sandbox", () =>
 		Effect.gen(function* () {
-			const result = yield* executeSandboxExecution({
-				lane: "interactive",
-				...queuedReplay,
-				context: {},
-				journalLength: 2,
-				principal: inlinePrincipal([]),
-				executionId: "workflow-id-replay-1",
-			});
+			const result = yield* Effect.exit(
+				executeSandboxExecution({
+					lane: "interactive",
+					...queuedReplay,
+					context: {},
+					journalLength: 2,
+					principal: inlinePrincipal([]),
+					executionId: "workflow-id-replay-1",
+				}),
+			);
 
-			expect(result).toEqual({
-				logs: [],
-				inline: [],
-				error: null,
-				value: null,
-				pendingInline: [],
-				status: "completed",
-				projectionMissing: true,
-			});
+			assertExitFails(result, new SandboxProjectionMissing());
 			expect(yield* (yield* RecordedRuns).runs).toEqual([]);
 		}),
 	);

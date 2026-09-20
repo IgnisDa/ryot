@@ -1,5 +1,4 @@
-import { Effect, Schema } from "effect";
-import type { Reply } from "effect/cluster";
+import { Schema } from "effect";
 
 import { WorkflowIdentity } from "#lib/infrastructure/workflow-identity";
 
@@ -18,27 +17,6 @@ export const StoredWorkflowResult = Schema.Union([
 		exit: Schema.Struct({ _tag: Schema.Literals(["Success", "Failure"]) }),
 	}),
 ]);
-
-export const terminalWorkflowReplyIdentity = Effect.fnUntraced(function* (
-	reply: Reply.Encoded,
-	request: WorkflowIdentity & { readonly entityType: string; readonly tag: string | null },
-) {
-	if (
-		reply._tag !== "WithExit" ||
-		request.tag !== "run" ||
-		!request.entityType.startsWith(workflowEntityPrefix) ||
-		request.entityType === workflowClockEntityType
-	) {
-		return undefined;
-	}
-	if (reply.exit._tag === "Failure") {
-		return { executionId: request.executionId, workflowName: request.workflowName };
-	}
-	const result = yield* Schema.decodeUnknownEffect(StoredWorkflowResult)(reply.exit.value);
-	return result._tag === "Complete"
-		? { executionId: request.executionId, workflowName: request.workflowName }
-		: undefined;
-});
 
 export class WorkflowExecutionExpired extends Schema.TaggedError<WorkflowExecutionExpired>()(
 	"WorkflowExecutionExpired",
