@@ -1,7 +1,7 @@
 {
 	"version": "8",
 	"dialect": "postgres",
-	"id": "e1d90c42-1330-4dff-96ae-b7f65c67fda9",
+	"id": "047cf6f1-4557-4dd6-a572-750a11cb3d53",
 	"prevIds": ["00000000-0000-0000-0000-000000000000"],
 	"ddl": [
 		{ "isRlsEnabled": false, "name": "account", "entityType": "tables", "schema": "public" },
@@ -260,6 +260,12 @@
 			"schema": "public"
 		},
 		{ "isRlsEnabled": false, "name": "verification", "entityType": "tables", "schema": "public" },
+		{
+			"isRlsEnabled": false,
+			"name": "workflow_execution",
+			"entityType": "tables",
+			"schema": "public"
+		},
 		{
 			"type": "text",
 			"typeSchema": null,
@@ -8412,6 +8418,123 @@
 			"table": "verification"
 		},
 		{
+			"type": "text",
+			"typeSchema": null,
+			"notNull": false,
+			"dimensions": 0,
+			"default": null,
+			"generated": null,
+			"identity": null,
+			"name": "shard_id",
+			"entityType": "columns",
+			"schema": "public",
+			"table": "workflow_execution"
+		},
+		{
+			"type": "text",
+			"typeSchema": null,
+			"notNull": true,
+			"dimensions": 0,
+			"default": null,
+			"generated": null,
+			"identity": null,
+			"name": "execution_id",
+			"entityType": "columns",
+			"schema": "public",
+			"table": "workflow_execution"
+		},
+		{
+			"type": "text",
+			"typeSchema": null,
+			"notNull": true,
+			"dimensions": 0,
+			"default": null,
+			"generated": null,
+			"identity": null,
+			"name": "workflow_name",
+			"entityType": "columns",
+			"schema": "public",
+			"table": "workflow_execution"
+		},
+		{
+			"type": "text",
+			"typeSchema": null,
+			"notNull": true,
+			"dimensions": 0,
+			"default": null,
+			"generated": null,
+			"identity": null,
+			"name": "root_execution_id",
+			"entityType": "columns",
+			"schema": "public",
+			"table": "workflow_execution"
+		},
+		{
+			"type": "text",
+			"typeSchema": null,
+			"notNull": true,
+			"dimensions": 0,
+			"default": null,
+			"generated": null,
+			"identity": null,
+			"name": "root_workflow_name",
+			"entityType": "columns",
+			"schema": "public",
+			"table": "workflow_execution"
+		},
+		{
+			"type": "timestamp with time zone",
+			"typeSchema": null,
+			"notNull": false,
+			"dimensions": 0,
+			"default": null,
+			"generated": null,
+			"identity": null,
+			"name": "cleared_at",
+			"entityType": "columns",
+			"schema": "public",
+			"table": "workflow_execution"
+		},
+		{
+			"type": "timestamp with time zone",
+			"typeSchema": null,
+			"notNull": false,
+			"dimensions": 0,
+			"default": null,
+			"generated": null,
+			"identity": null,
+			"name": "expired_at",
+			"entityType": "columns",
+			"schema": "public",
+			"table": "workflow_execution"
+		},
+		{
+			"type": "timestamp with time zone",
+			"typeSchema": null,
+			"notNull": false,
+			"dimensions": 0,
+			"default": null,
+			"generated": null,
+			"identity": null,
+			"name": "completed_at",
+			"entityType": "columns",
+			"schema": "public",
+			"table": "workflow_execution"
+		},
+		{
+			"type": "text",
+			"typeSchema": null,
+			"notNull": true,
+			"dimensions": 0,
+			"default": null,
+			"generated": null,
+			"identity": null,
+			"name": "status",
+			"entityType": "columns",
+			"schema": "public",
+			"table": "workflow_execution"
+		},
+		{
 			"nameExplicit": true,
 			"columns": [
 				{
@@ -11174,6 +11297,55 @@
 			"table": "verification"
 		},
 		{
+			"nameExplicit": true,
+			"columns": [
+				{
+					"value": "root_workflow_name",
+					"isExpression": false,
+					"asc": true,
+					"nullsFirst": false,
+					"opclass": null
+				},
+				{
+					"value": "root_execution_id",
+					"isExpression": false,
+					"asc": true,
+					"nullsFirst": false,
+					"opclass": null
+				}
+			],
+			"isUnique": false,
+			"where": null,
+			"with": "",
+			"method": "btree",
+			"concurrently": false,
+			"name": "workflow_execution_root_idx",
+			"entityType": "indexes",
+			"schema": "public",
+			"table": "workflow_execution"
+		},
+		{
+			"nameExplicit": true,
+			"columns": [
+				{
+					"value": "expired_at",
+					"isExpression": false,
+					"asc": true,
+					"nullsFirst": false,
+					"opclass": null
+				}
+			],
+			"isUnique": false,
+			"where": "\"expired_at\" is not null and \"cleared_at\" is null",
+			"with": "",
+			"method": "btree",
+			"concurrently": false,
+			"name": "workflow_execution_cleanup_idx",
+			"entityType": "indexes",
+			"schema": "public",
+			"table": "workflow_execution"
+		},
+		{
 			"nameExplicit": false,
 			"columns": ["user_id"],
 			"schemaTo": "public",
@@ -12488,6 +12660,14 @@
 			"table": "saved_view_override"
 		},
 		{
+			"columns": ["workflow_name", "execution_id"],
+			"nameExplicit": false,
+			"name": "workflow_execution_pkey",
+			"entityType": "pks",
+			"schema": "public",
+			"table": "workflow_execution"
+		},
+		{
 			"columns": ["id"],
 			"nameExplicit": false,
 			"name": "account_pkey",
@@ -13436,6 +13616,20 @@
 			"entityType": "checks",
 			"schema": "public",
 			"table": "user"
+		},
+		{
+			"value": "\"status\" in ('active', 'succeeded', 'failed')",
+			"name": "workflow_execution_status_check",
+			"entityType": "checks",
+			"schema": "public",
+			"table": "workflow_execution"
+		},
+		{
+			"value": "(\"status\" = 'active') = (\"completed_at\" is null)",
+			"name": "workflow_execution_completion_check",
+			"entityType": "checks",
+			"schema": "public",
+			"table": "workflow_execution"
 		},
 		{
 			"definition": "\n\t\t\tselect d.id, r.plugin_id, d.plugin_revision_id, g.slug as plugin_slug, d.slug, d.name, d.position, d.icon, d.properties_schema, d.user_state, d.merge_identity_properties\n\t\t\tfrom definition_entity_schema d\n\t\t\tleft join plugin_revision r on r.id = d.plugin_revision_id\n\t\t\tleft join (\n select p.id as plugin_id, p.slug, p.active_revision_id, p.environment_config_revision_id as config_revision_id, coalesce(c.owner_user_id is null and c.encrypted_payload is not null, false) as is_executable\n\tfrom plugin p\n\tleft join plugin_config_revision c on c.id = p.environment_config_revision_id\n\twhere p.owner_user_id is null and p.status = 'active'\n) g on g.plugin_id = r.plugin_id and g.active_revision_id = d.plugin_revision_id\n\t\t\twhere d.plugin_revision_id is null or g.plugin_id is not null\n\t\t",
