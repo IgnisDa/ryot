@@ -24,7 +24,6 @@ import { redactIntegrationForClient } from "#modules/integrations/client-redacti
 import { redactPluginConfig } from "#modules/plugins/config-redaction";
 import { PluginConfigRevisions } from "#modules/plugins/config-revisions";
 import { PluginInstallationRepository } from "#modules/plugins/installation-repository";
-import { SavedViewsRepository } from "#modules/saved-views/repository";
 
 type RestoreEntityInput = Pick<
 	typeof schema.entity.$inferInsert,
@@ -75,14 +74,15 @@ type RestoreCustomViewInput = Omit<
 type RestoreInstallationInput = Pick<
 	typeof schema.pluginInstallation.$inferInsert,
 	"userId" | "pluginId" | "sortOrder" | "health" | "isHidden" | "createdAt" | "updatedAt"
-> & {
-	readonly id?: string;
-	readonly config: Record<string, unknown>;
-	readonly preserveExistingConfig: boolean;
-	readonly allowMissingRequiredSecrets?: boolean;
-	readonly userSettings: Record<string, JsonValue>;
-	readonly configuredSecretPaths?: ReadonlyArray<string>;
-};
+> &
+	Pick<typeof schema.pluginInstallation.$inferSelect, "isInitialized"> & {
+		readonly id?: string;
+		readonly config: Record<string, unknown>;
+		readonly preserveExistingConfig: boolean;
+		readonly allowMissingRequiredSecrets?: boolean;
+		readonly userSettings: Record<string, JsonValue>;
+		readonly configuredSecretPaths?: ReadonlyArray<string>;
+	};
 
 export class BackupRestorePersistence extends Context.Service<BackupRestorePersistence>()(
 	"BackupRestorePersistence",
@@ -91,7 +91,6 @@ export class BackupRestorePersistence extends Context.Service<BackupRestorePersi
 			const session = yield* DatabaseSession;
 			const configs = yield* PluginConfigRevisions;
 			const installations = yield* PluginInstallationRepository;
-			const savedViews = yield* SavedViewsRepository;
 
 			const restoreEntity = Effect.fn("BackupRestorePersistence.restoreEntity")(function* (
 				input: RestoreEntityInput,
@@ -156,10 +155,34 @@ export class BackupRestorePersistence extends Context.Service<BackupRestorePersi
 				input: RestoreCustomViewInput,
 			) {
 				const [row] = yield* session.run((db) =>
-					db.insert(schema.savedView).values(input).returning({ slug: schema.savedView.slug }),
+					db.insert(schema.savedView).values(input).returning({ id: schema.savedView.id }),
 				);
-				return row ? yield* savedViews.findBySlug(input.userId, row.slug) : null;
+				return row ?? null;
 			});
+			const restoreBuiltinOverride = Effect.fn("BackupRestorePersistence.restoreBuiltinOverride")(
+				function* (input: typeof schema.savedViewOverride.$inferInsert) {
+					yield* session.run((db) =>
+						db
+							.insert(schema.savedViewOverride)
+							.values(input)
+							.onConflictDoUpdate({
+								set: { isHidden: input.isHidden, sortOrder: input.sortOrder },
+								targetWhere:
+									input.pluginId == null
+										? isNull(schema.savedViewOverride.pluginId)
+										: isNotNull(schema.savedViewOverride.pluginId),
+								target:
+									input.pluginId == null
+										? [schema.savedViewOverride.userId, schema.savedViewOverride.slug]
+										: [
+												schema.savedViewOverride.userId,
+												schema.savedViewOverride.pluginId,
+												schema.savedViewOverride.slug,
+											],
+							}),
+					);
+				},
+			);
 			const restoreNotificationSubscription = Effect.fn(
 				"BackupRestorePersistence.restoreNotificationSubscription",
 			)(function* (input: {
@@ -293,13 +316,16 @@ export class BackupRestorePersistence extends Context.Service<BackupRestorePersi
 								target: [schema.pluginInstallation.userId, schema.pluginInstallation.pluginId],
 								set: {
 									healthReason: null,
+									homeSavedView: null,
 									uninstalledAt: null,
 									health: input.health,
 									isHidden: input.isHidden,
 									sortOrder: input.sortOrder,
 									createdAt: input.createdAt,
 									updatedAt: input.updatedAt,
+									incompatibilityReason: null,
 									userSettings: input.userSettings,
+									isInitialized: input.isInitialized,
 								},
 							})
 							.returning(),
@@ -420,16 +446,19 @@ export class BackupRestorePersistence extends Context.Service<BackupRestorePersi
 					readonly id: string;
 					readonly updatedAt: Date;
 					readonly isHidden: boolean;
-					readonly health: "ready" | "needs-configuration";
+					readonly health: "ready" | "needs-configuration" | "incompatible";
+					readonly healthReason: string | null;
+					readonly incompatibilityReason: "package-identity-conflict" | null;
 				}) {
 					const [row] = yield* session.run((db) =>
 						db
 							.update(schema.pluginInstallation)
 							.set({
-								healthReason: null,
 								health: input.health,
 								isHidden: input.isHidden,
 								updatedAt: input.updatedAt,
+								healthReason: input.healthReason,
+								incompatibilityReason: input.incompatibilityReason,
 							})
 							.where(
 								and(
@@ -451,6 +480,7 @@ export class BackupRestorePersistence extends Context.Service<BackupRestorePersi
 				restoreTranslation,
 				restoreInstallation,
 				restoreRelationship,
+				restoreBuiltinOverride,
 				restorePortableProfile,
 				restoreNotificationSubscription,
 			};

@@ -4,6 +4,7 @@ export const isDefaultSystemInstallation = (installation: PluginInstallationHydr
 	installation.pluginScope === "system" &&
 	(installation.health === "ready" || installation.health === "installing") &&
 	!installation.isHidden &&
+	installation.homeSavedView === null &&
 	installation.sortOrder === 0 &&
 	Object.keys(installation.config).length === 0 &&
 	Object.keys(installation.userSettings).length === 0;
