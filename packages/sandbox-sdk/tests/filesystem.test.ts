@@ -25,6 +25,36 @@ test("fails closed when filesystem grants are unavailable", () =>
 			expect(readNamed.message).toBe("Sandbox artifact grant is unavailable");
 			expect(range.message).toBe("Sandbox artifact grant is unavailable");
 			expect(write.message).toBe("Sandbox scratch grant is unavailable");
+			expect(read.data).toEqual({ operation: "readArtifact", code: "missing-artifact-grant" });
+			expect(readNamed.data).toEqual({
+				operation: "readNamedArtifact",
+				code: "missing-artifact-grant",
+			});
+			expect(range.data).toEqual({
+				operation: "readArtifactRange",
+				code: "missing-artifact-grant",
+			});
+			expect(write.data).toEqual({
+				code: "missing-artifact-grant",
+				operation: "writeScratchChunks",
+			});
+		}),
+	));
+
+test("preserves a structured runner grant reason without adding filesystem paths", () =>
+	Effect.runPromise(
+		Effect.gen(function* () {
+			const reason = { operation: "readArtifact", code: "missing-artifact-grant" } as const;
+			Reflect.set(globalThis, filesystemKey, {
+				readArtifact: () =>
+					Promise.reject(
+						Object.assign(new Error("Sandbox artifact grant is unavailable"), { data: reason }),
+					),
+			});
+
+			const failure = yield* Effect.flip(readArtifact);
+			expect(failure.message).toContain("grant is unavailable");
+			expect(failure.data).toEqual(reason);
 		}),
 	));
 

@@ -4,7 +4,7 @@ import {
 } from "@ryot-app/typescript-compiler";
 import { Data, Effect } from "effect";
 
-import { analyzeSandboxExecution } from "./compiler-execution";
+import { createSandboxExecutionAnalyzer } from "./compiler-execution";
 
 const virtualRoot = "/__ryot_sandbox__";
 
@@ -64,6 +64,7 @@ export const createTypeScriptSourcesProjectForEntries = (
 		},
 		(project) =>
 			Effect.gen(function* () {
+				const analyzeSandboxExecution = createSandboxExecutionAnalyzer(project);
 				const executionByEntry = Object.fromEntries(
 					yield* Effect.forEach(entries, (entry) =>
 						Effect.gen(function* () {
@@ -73,7 +74,7 @@ export const createTypeScriptSourcesProjectForEntries = (
 									message: `TypeScript did not load ${entry}`,
 								});
 							}
-							return [entry, yield* analyzeSandboxExecution(project, file)] as const;
+							return [entry, yield* analyzeSandboxExecution(file)] as const;
 						}),
 					),
 				);
