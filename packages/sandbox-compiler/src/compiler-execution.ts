@@ -30,7 +30,12 @@ const children = (node: ts.Node) => {
 
 export const createSandboxExecutionAnalyzer = (project: TypeScriptProjectAccess) => {
 	const checker = project.checker;
-	const getSymbolAtLocation = (node: ts.Node) => checker.getSymbolAtLocation(node);
+	const getSymbolAtLocation = (node: ts.Node) =>
+		ts.isIdentifier(node) &&
+		ts.isShorthandPropertyAssignment(node.parent) &&
+		node.parent.name === node
+			? checker.getShorthandAssignmentValueSymbol(node.parent)
+			: checker.getSymbolAtLocation(node);
 	const getTypeAtLocation = (node: ts.Node) => checker.getTypeAtLocation(node);
 	const resolveDeclaration = (
 		handle: NonNullable<Awaited<ReturnType<typeof getSymbolAtLocation>>>["declarations"][number],
@@ -105,7 +110,8 @@ export const createSandboxExecutionAnalyzer = (project: TypeScriptProjectAccess)
 		const checkSteps = () => (steps > maximumSteps ? Effect.fail(analysisLimit()) : Effect.void);
 		const files = new Set(project.sourceFiles.map((file) => file.fileName));
 		const visited = new Set<ts.Node>();
-		const diagnostics: SandboxCompilerDiagnostic[] = [];
+		const visitedReceivers = new Map<ts.Node, Set<boolean | string>>();
+		const diagnostics = new Map<string, SandboxCompilerDiagnostic>();
 		const required = new Set<string>();
 		const optional = new Set<string>();
 		const capabilities = new Set<SandboxHostCapability>();
@@ -129,7 +135,11 @@ export const createSandboxExecutionAnalyzer = (project: TypeScriptProjectAccess)
 			"getOAuthAccessToken",
 		]);
 		const fail = (node: ts.Node, message: string) => {
-			diagnostics.push(sandboxDiagnosticAt(node, "RYOT_DEPENDENCY", message));
+			const diagnostic = sandboxDiagnosticAt(node, "RYOT_DEPENDENCY", message);
+			diagnostics.set(
+				`${diagnostic.file}:${diagnostic.line}:${diagnostic.column}:${message}`,
+				diagnostic,
+			);
 		};
 		const sdkOperation = (symbol: Awaited<ReturnType<typeof getSymbolAtLocation>>) =>
 			symbol?.declarations.some((handle) => handle.path.endsWith("/sandbox-sdk/src/core.ts"))
@@ -302,14 +312,37 @@ export const createSandboxExecutionAnalyzer = (project: TypeScriptProjectAccess)
 		});
 		const visit = Effect.fnUntraced(function* (
 			node: ts.Node,
+			receiver: boolean | string = false,
 		): Effect.fn.Return<void, Cause.UnknownError | SandboxCompilerFailure> {
-			if (visited.has(node) || ts.isTypeNode(node) || ts.isImportDeclaration(node)) {
+			const selections = visitedReceivers.get(node) ?? new Set<boolean | string>();
+			if (
+				(receiver !== false ? selections.has(receiver) : visited.has(node)) ||
+				ts.isTypeNode(node) ||
+				ts.isImportDeclaration(node)
+			) {
 				return;
 			}
 			currentNode = node;
 			steps += 1;
 			yield* checkSteps();
-			visited.add(node);
+			if (receiver !== false) {
+				selections.add(receiver);
+				visitedReceivers.set(node, selections);
+			} else {
+				visited.add(node);
+			}
+			let definitionReceiver = false;
+			if (ts.isVariableDeclaration(node) && node.initializer) {
+				if (!ts.isIdentifier(node.name)) {
+					yield* visit(node.name, true);
+				}
+				yield* visitInitialization(node.initializer);
+				return;
+			}
+			if (receiver !== false && ts.isObjectLiteralExpression(node)) {
+				yield* visitInitialization(node);
+				return;
+			}
 			if (ts.isPropertyAccessExpression(node) || ts.isElementAccessExpression(node)) {
 				const symbol = yield* symbolAt(node, query);
 				const operation = sdkOperation(symbol);
@@ -317,18 +350,18 @@ export const createSandboxExecutionAnalyzer = (project: TypeScriptProjectAccess)
 					capabilities.add(operation);
 				}
 				if (ts.isElementAccessExpression(node) && !operation) {
-					const receiver = yield* typeAt(node.expression, query);
+					const receiverType = yield* typeAt(node.expression, query);
 					const names = yield* stringValues(yield* typeAt(node.argumentExpression, query));
-					const properties = receiver
-						? yield* query(() => checker.getPropertiesOfType(receiver))
+					const properties = receiverType
+						? yield* query(() => checker.getPropertiesOfType(receiverType))
 						: [];
 					if (properties.some((property) => sdkOperation(property))) {
 						if (!names?.length) {
 							fail(node, "SDK host indexing requires statically finite operation names");
 						} else {
 							for (const name of names) {
-								const property = receiver
-									? yield* query(() => checker.getPropertyOfType(receiver, name))
+								const property = receiverType
+									? yield* query(() => checker.getPropertyOfType(receiverType, name))
 									: undefined;
 								const resolved = sdkOperation(property);
 								if (!resolved || analyzedMethods.has(name)) {
@@ -388,6 +421,15 @@ export const createSandboxExecutionAnalyzer = (project: TypeScriptProjectAccess)
 						);
 					}
 				}
+				if (receiver === true) {
+					if (node.name && !ts.isIdentifier(node.name)) {
+						yield* visit(node.name, true);
+					}
+					if (node.initializer) {
+						yield* visitInitialization(node.initializer);
+					}
+					return;
+				}
 			}
 			if (ts.isCallExpression(node)) {
 				let symbol = yield* symbolAt(node.expression, query);
@@ -400,6 +442,35 @@ export const createSandboxExecutionAnalyzer = (project: TypeScriptProjectAccess)
 				const sdkMethod = declarations.some((declaration) =>
 					declaration?.getSourceFile().fileName.includes("/sandbox-sdk/src/"),
 				);
+				definitionReceiver =
+					receiver !== false &&
+					sdkMethod &&
+					symbol !== undefined &&
+					symbol.name !== "defineManifest" &&
+					deferredSdkInitializers.has(symbol.name);
+				if (definitionReceiver && typeof receiver === "string") {
+					const definition = node.arguments[0];
+					if (definition && ts.isObjectLiteralExpression(definition)) {
+						yield* visitInitialization(definition);
+						for (const property of definition.properties) {
+							if (
+								ts.isPropertyAssignment(property) &&
+								(ts.isIdentifier(property.name) || ts.isStringLiteral(property.name)) &&
+								property.name.text === receiver
+							) {
+								yield* visit(property.initializer);
+							}
+							if (
+								ts.isShorthandPropertyAssignment(property) &&
+								ts.isIdentifier(property.name) &&
+								property.name.text === receiver
+							) {
+								yield* visit(property.name);
+							}
+						}
+						return;
+					}
+				}
 				for (const [index, argument] of node.arguments.entries()) {
 					if (!(yield* hostAt(argument))) {
 						continue;
@@ -431,6 +502,8 @@ export const createSandboxExecutionAnalyzer = (project: TypeScriptProjectAccess)
 									ts.isVariableDeclaration(declaration) ||
 									ts.isPropertyAssignment(declaration) ||
 									ts.isExportAssignment(declaration) ||
+									ts.isBindingElement(declaration) ||
+									ts.isShorthandPropertyAssignment(declaration) ||
 									(ts.isParameterDeclaration(declaration) &&
 										declaration.initializer !== undefined)),
 						);
@@ -541,7 +614,7 @@ export const createSandboxExecutionAnalyzer = (project: TypeScriptProjectAccess)
 							(ts.isVariableDeclaration(declaration) || ts.isParameterDeclaration(declaration)) &&
 							declaration.initializer
 						) {
-							yield* visit(declaration.initializer);
+							yield* visit(declaration.initializer, receiver);
 						}
 						if (
 							(ts.isFunctionDeclaration(declaration) || ts.isMethodDeclaration(declaration)) &&
@@ -555,16 +628,52 @@ export const createSandboxExecutionAnalyzer = (project: TypeScriptProjectAccess)
 							yield* visit(declaration.body);
 						}
 						if (ts.isPropertyAssignment(declaration)) {
-							yield* visit(declaration.initializer);
+							yield* visit(declaration.initializer, receiver);
+						}
+						if (ts.isShorthandPropertyAssignment(declaration)) {
+							yield* visit(declaration.name, receiver);
+						}
+						if (ts.isBindingElement(declaration) && ts.isObjectBindingPattern(declaration.parent)) {
+							const name = declaration.propertyName ?? declaration.name;
+							if (name && (ts.isIdentifier(name) || ts.isStringLiteral(name))) {
+								const type = yield* typeAt(declaration.parent, query);
+								const property = type
+									? yield* query(() => checker.getPropertyOfType(type, name.text))
+									: undefined;
+								for (const selectedHandle of property?.declarations ?? []) {
+									if (!files.has(selectedHandle.path)) {
+										continue;
+									}
+									const selectedDeclaration = yield* declarationAt(selectedHandle, query);
+									if (selectedDeclaration) {
+										yield* visit(selectedDeclaration, receiver);
+									}
+								}
+							}
+							if (declaration.initializer) {
+								yield* visit(declaration.initializer);
+							}
 						}
 						if (ts.isExportAssignment(declaration)) {
-							yield* visit(declaration.expression);
+							yield* visit(declaration.expression, receiver);
 						}
 					}
 				}
 			}
 			for (const child of children(node)) {
-				yield* visit(child);
+				let selected: boolean | string = definitionReceiver ? false : receiver;
+				if (
+					(ts.isPropertyAccessExpression(node) || ts.isElementAccessExpression(node)) &&
+					child === node.expression
+				) {
+					selected = true;
+					if (ts.isPropertyAccessExpression(node)) {
+						selected = node.name.text;
+					} else if (ts.isStringLiteralLikeNode(node.argumentExpression)) {
+						selected = node.argumentExpression.text;
+					}
+				}
+				yield* visit(child, selected);
 			}
 		});
 		const initialized = new Set<ts.SourceFile>();
@@ -641,10 +750,18 @@ export const createSandboxExecutionAnalyzer = (project: TypeScriptProjectAccess)
 			initialized.add(file);
 			for (const statement of file.statements) {
 				if (ts.isImportDeclaration(statement) || ts.isExportDeclaration(statement)) {
+					const clause = ts.isImportDeclaration(statement) ? statement.importClause : undefined;
+					const bindings = clause?.namedBindings;
 					if (
 						(ts.isExportDeclaration(statement) && statement.isTypeOnly) ||
 						(ts.isImportDeclaration(statement) &&
-							statement.importClause?.phaseModifier === ts.SyntaxKind.TypeKeyword)
+							statement.importClause?.phaseModifier === ts.SyntaxKind.TypeKeyword) ||
+						(clause &&
+							!clause.name &&
+							bindings &&
+							ts.isNamedImports(bindings) &&
+							bindings.elements.length > 0 &&
+							bindings.elements.every((element) => element.isTypeOnly))
 					) {
 						continue;
 					}
@@ -666,8 +783,10 @@ export const createSandboxExecutionAnalyzer = (project: TypeScriptProjectAccess)
 							yield* initialize(declaration.getSourceFile());
 						}
 					}
-				} else if (!ts.isExportAssignment(statement)) {
-					yield* visitInitialization(statement);
+				} else {
+					yield* visitInitialization(
+						ts.isExportAssignment(statement) ? statement.expression : statement,
+					);
 				}
 			}
 		});
@@ -681,7 +800,7 @@ export const createSandboxExecutionAnalyzer = (project: TypeScriptProjectAccess)
 			executables.map((dependency) => [JSON.stringify(dependency), dependency]),
 		);
 		return {
-			diagnostics,
+			diagnostics: [...diagnostics.values()],
 			metadata: {
 				capabilities: [...capabilities].sort(),
 				oauthConnectionFields: [...oauth].sort(),
