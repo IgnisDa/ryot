@@ -234,11 +234,8 @@ describe("video-game.igdb sandbox script", () => {
 				},
 			});
 
-			yield* Effect.promise(() =>
-				expect(
-					Effect.runPromise(runSandboxTestScript(searchOptions, {}, host, execution)),
-				).rejects.toThrow("IGDB unavailable"),
-			);
+			const error = yield* Effect.flip(runSandboxTestScript(searchOptions, {}, host, execution));
+			expect(error).toMatchObject({ message: "IGDB unavailable" });
 		}),
 	);
 
@@ -369,22 +366,20 @@ describe("video-game.igdb sandbox script", () => {
 				{ unsupported: [] },
 			];
 
-			yield* Effect.promise(() =>
-				Promise.all(
-					invalidOptions.map((options) =>
-						expect(
-							Effect.runPromise(
-								runSandboxTestScript(
-									search,
-									{ page: 1, options, pageSize: 20, query: "game" },
-									host,
-									execution,
-								),
-							),
-						).rejects.toBeDefined(),
+			const errors = yield* Effect.forEach(
+				invalidOptions,
+				(options) =>
+					Effect.flip(
+						runSandboxTestScript(
+							search,
+							{ page: 1, options, pageSize: 20, query: "game" },
+							host,
+							execution,
+						),
 					),
-				),
+				{ concurrency: "unbounded" },
 			);
+			expect(errors).toHaveLength(invalidOptions.length);
 		}),
 	);
 

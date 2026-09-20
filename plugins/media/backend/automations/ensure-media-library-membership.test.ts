@@ -229,11 +229,8 @@ it.live("rejects provider completion for a different execution user before host 
 		const input = automationContext(context("movie").automation.payload, {
 			executionUserId: "other-user",
 		});
-		yield* Effect.promise(() =>
-			expect(Effect.runPromise(definition.run(input, host))).rejects.toThrow(
-				"Provider import user does not match execution user",
-			),
-		);
+		const error = yield* Effect.flip(definition.run(input, host));
+		expect(error).toMatchObject({ message: "Provider import user does not match execution user" });
 		expect(calls).toBe(0);
 	}),
 );

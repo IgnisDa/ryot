@@ -6,10 +6,11 @@ import { Effect, Schema } from "effect";
 
 import workflow, { mediaImportParser } from "./import.sandbox";
 
+const encodeJson = Schema.encodeSync(Schema.fromJsonString(Schema.Unknown));
 const importCommand = (runId: string, integrationId?: string) =>
 	Schema.decodeSync(LifecycleCommand)({
 		occurredAt: "2026-09-16T00:00:00.000Z",
-		itemIdentity: JSON.stringify(["import-run", runId]),
+		itemIdentity: encodeJson(["import-run", runId]),
 		causation: {
 			depth: 0,
 			parentRunId: null,
@@ -189,15 +190,13 @@ it.live("marks adapter-only integration failures as failed kernel runs", () =>
 			},
 		};
 		const replay = () =>
-			Effect.runPromise(
-				workflow.run(
-					input,
-					{ replayJournal: () => Effect.succeed(journal) } satisfies WorkflowReplayHost,
-					{ metadata: {}, sandboxScriptId: "media-import" },
-				),
+			workflow.run(
+				input,
+				{ replayJournal: () => Effect.succeed(journal) } satisfies WorkflowReplayHost,
+				{ metadata: {}, sandboxScriptId: "media-import" },
 			);
 
-		let envelope = yield* Effect.promise(() => replay());
+		let envelope = yield* replay();
 		expect(envelope).toMatchObject({
 			state: "pending",
 			requests: [{ kind: "activity", args: { scriptSlug: "integration.kodi" } }],
@@ -207,7 +206,7 @@ it.live("marks adapter-only integration failures as failed kernel runs", () =>
 			failures: [{ itemIndex: 0, message: "Invalid payload", stage: "input_transformation" }],
 		});
 
-		envelope = yield* Effect.promise(() => replay());
+		envelope = yield* replay();
 		const chunkRequest = envelope.requests[journal.length];
 		assert(chunkRequest?.kind === "activity");
 		expect(chunkRequest.args.scriptSlug).toBe("import.write-chunks");
@@ -218,7 +217,7 @@ it.live("marks adapter-only integration failures as failed kernel runs", () =>
 			chunkHandles: ["harvest-handle-0"],
 		});
 
-		envelope = yield* Effect.promise(() => replay());
+		envelope = yield* replay();
 		const kernelRequest = envelope.requests[journal.length];
 		assert(kernelRequest?.kind === "child");
 		expect(kernelRequest.args).toMatchObject({
@@ -491,11 +490,7 @@ it.live(
 								providerSlug: "show.tmdb",
 								command: {
 									...importCommand("run-1"),
-									itemIdentity: JSON.stringify([
-										JSON.stringify(["import-run", "run-1"]),
-										"population",
-										0,
-									]),
+									itemIdentity: encodeJson([importCommand("run-1").itemIdentity, "population", 0]),
 								},
 							}),
 						],
@@ -585,9 +580,24 @@ it.live(
 					},
 				],
 			});
-			const writeInput = JSON.stringify(writeRequest.args.input);
-			expect(writeInput).not.toContain("unresolvedEpisode");
-			expect(writeInput).not.toContain('"subjectEntityId":"show-1"');
+			expect(writeRequest.args.input).not.toMatchObject({
+				entityGroups: expect.arrayContaining([
+					{
+						events: expect.arrayContaining([
+							expect.objectContaining({ unresolvedEpisode: expect.anything() }),
+						]),
+					},
+				]),
+			});
+			expect(writeRequest.args.input).not.toMatchObject({
+				entityGroups: expect.arrayContaining([
+					{
+						events: expect.arrayContaining([
+							expect.objectContaining({ subjectEntityId: "show-1" }),
+						]),
+					},
+				]),
+			});
 		}),
 );
 
