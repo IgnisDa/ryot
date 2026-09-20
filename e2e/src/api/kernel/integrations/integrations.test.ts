@@ -385,6 +385,7 @@ describe("Webhook routes", () => {
 			const error = yield* Effect.flip(
 				client.call((c) =>
 					c.integrations.webhook({
+						headers: {},
 						payload: "{}",
 						params: {
 							webhookToken: IntegrationWebhookToken.make("nonexistent-webhook-token-abc123"),
@@ -477,6 +478,7 @@ describe("Webhook routes", () => {
 			const error = yield* Effect.flip(
 				client.call((c) =>
 					c.integrations.webhook({
+						headers: {},
 						payload: "{}",
 						params: { webhookToken: IntegrationWebhookToken.make(integration.id) },
 					}),

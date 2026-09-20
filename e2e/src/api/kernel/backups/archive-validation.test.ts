@@ -5,6 +5,7 @@ import { unzipSync, zipSync } from "fflate";
 import {
 	type Client,
 	createAuthenticatedClient,
+	createIntegration,
 	executeRyotQL,
 	exportAndDownloadBackup,
 	getUserSettings,
@@ -53,6 +54,59 @@ const refreshedClient = Effect.fn(function* (email: string) {
 });
 
 describe("V1 backup archive validation", () => {
+	it.live("rejects a plugin provider claiming kernel ownership without mutating the target", () =>
+		Effect.gen(function* () {
+			const source = yield* createAuthenticatedClient();
+			const target = yield* createAuthenticatedClient();
+			const before = yield* inspectAccount(target.client);
+			yield* createIntegration(source.client, { provider: "data-json", providerSpecifics: {} });
+			const entries = unzipSync(
+				(yield* exportAndDownloadBackup(source.client, source.token)).bytes,
+			);
+			const manifestBytes = requirePresent(entries["manifest.json"], "Expected backup manifest");
+			const integrationBytes = requirePresent(
+				entries["integrations.ndjson"],
+				"Expected backup integrations",
+			);
+			const manifest = yield* Schema.decodeEffect(
+				Schema.fromJsonString(Schema.Record(Schema.String, Schema.Unknown)),
+			)(new TextDecoder().decode(manifestBytes));
+			const integration = yield* Schema.decodeEffect(
+				Schema.fromJsonString(Schema.Record(Schema.String, Schema.Unknown)),
+			)(new TextDecoder().decode(integrationBytes).trim());
+			const invalidIntegration = yield* Schema.encodeEffect(Schema.fromJsonString(Schema.Unknown))({
+				...integration,
+				provider: "plex",
+			});
+			const changedIntegrations = new TextEncoder().encode(`${invalidIntegration}\n`);
+			const sections = yield* Schema.decodeUnknownEffect(
+				Schema.Array(Schema.Record(Schema.String, Schema.Unknown)),
+			)(manifest["sections"]);
+			const section = requirePresent(
+				sections.find((sec) => sec["path"] === "integrations.ndjson"),
+				"Expected integration section declaration",
+			);
+			const sha256 = new Bun.CryptoHasher("sha256").update(changedIntegrations).digest("hex");
+			const changedManifest = yield* Schema.encodeEffect(Schema.fromJsonString(Schema.Unknown))({
+				...manifest,
+				sections: sections.map((candidate) =>
+					candidate === section ? Object.assign({}, candidate, { sha256 }) : candidate,
+				),
+			});
+			const failed = yield* restoreBackup(
+				target.client,
+				zipSync({
+					...entries,
+					"integrations.ndjson": changedIntegrations,
+					"manifest.json": new TextEncoder().encode(changedManifest),
+				}),
+			);
+			expect(failed.run.status).toBe("failed");
+			expect(failed.run.failure).toEqual({ issue: "invalid-entry", code: "archive-invalid" });
+			expect(yield* inspectAccount(target.client)).toEqual(before);
+		}),
+	);
+
 	it.live("rejects every non-V1 manifest version without mutating the account", () =>
 		Effect.gen(function* () {
 			const { email, token, client } = yield* createAuthenticatedClient();
