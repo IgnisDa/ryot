@@ -51,6 +51,7 @@
 ## Workflow
 
 - Stay within the agreed scope. Ask before widening it, and do not start another review round once findings are addressed.
+- Reviews are read-only: reviewers report findings and never edit files. Implementers own making checks and tests green.
 - Work is done when `bun run check` and `bun turbo --filter='!@ryot-app/e2e' test` are clean. Run only the affected e2e files, never the whole e2e suite.
 - When a task's changes are complete, read and execute `.agents/skills/codebase-cleanup` in the main session before reporting done.
 
