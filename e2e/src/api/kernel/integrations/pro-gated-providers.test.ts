@@ -118,7 +118,12 @@ beforeAll(
 					SERVER_PRO_KEY_VERIFICATION_URL: requirePresent(validUnkey, "Valid fake Unkey missing")
 						.url,
 				});
-				yield* waitForHealthCheck(`${keyedApiUrl}/system/health`, "Pro-gated keyed setup", 90);
+				yield* waitForHealthCheck(
+					`${keyedApiUrl}/system/health`,
+					"Pro-gated keyed setup",
+					keyedProcess,
+					90,
+				);
 
 				const { providerSlug: slug } = yield* installTestIntegrationProvider(settingsSchema, {
 					requiresProKey: true,
@@ -138,8 +143,18 @@ beforeAll(
 						"Invalid fake Unkey missing",
 					).url,
 				});
-				yield* waitForHealthCheck(`${keylessApiUrl}/system/health`, "Pro-gated keyless setup", 90);
-				yield* waitForHealthCheck(`${lapsedApiUrl}/system/health`, "Pro-gated lapsed setup", 90);
+				yield* waitForHealthCheck(
+					`${keylessApiUrl}/system/health`,
+					"Pro-gated keyless setup",
+					keylessProcess,
+					90,
+				);
+				yield* waitForHealthCheck(
+					`${lapsedApiUrl}/system/health`,
+					"Pro-gated lapsed setup",
+					lapsedProcess,
+					90,
+				);
 			}),
 		),
 	240_000,
