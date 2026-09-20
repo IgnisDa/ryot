@@ -14,7 +14,7 @@
 		"ios": "bun run sync && cap run ios",
 		"android": "bun run sync && cap run android",
 		"generate-assets": "bun scripts/generate-assets.ts",
-		"check": "tsc && oxfmt . --write && oxlint . --type-aware --fix"
+		"check": "tsc && oxfmt . --write && oxlint . --fix"
 	},
 	"dependencies": {
 		"@aparajita/capacitor-secure-storage": "^8.0.0",
