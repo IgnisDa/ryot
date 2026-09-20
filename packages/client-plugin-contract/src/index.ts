@@ -495,6 +495,8 @@ export type PluginUploadBridgeErrorReason = Schema.Schema.Type<
 >;
 
 export const RyotClientErrorReason = Schema.Literals([
+	"link-open-failed",
+	"activation-required",
 	"disposed",
 	"protocol",
 	"transport",
@@ -510,6 +512,43 @@ export const RyotClientErrorReason = Schema.Literals([
 ]);
 
 export type RyotClientErrorReason = Schema.Schema.Type<typeof RyotClientErrorReason>;
+
+export const ExternalLinkRequest = strictStruct({ url: HttpUrl });
+
+export type ExternalLinkRequest = Schema.Schema.Type<typeof ExternalLinkRequest>;
+
+const externalLinkErrorReason = Schema.Literals([
+	"invalid-request",
+	"link-open-failed",
+	"activation-required",
+]);
+
+export const ExternalLinkSuccess = strictStruct({ outcome: Schema.Literal("success") });
+
+const externalLinkFailure = strictStruct({
+	reason: externalLinkErrorReason,
+	outcome: Schema.Literal("failure"),
+});
+
+export const ExternalLinkOutcome = Schema.Union([ExternalLinkSuccess, externalLinkFailure]);
+
+export type ExternalLinkOutcome = Schema.Schema.Type<typeof ExternalLinkOutcome>;
+
+export const PluginBridgeExternalLinkRequest = strictStruct({
+	...ExternalLinkRequest.fields,
+	requestId: Schema.String,
+	type: Schema.Literal("external-link-request"),
+});
+
+export const PluginBridgeExternalLinkResult = Schema.Union(
+	[ExternalLinkSuccess, externalLinkFailure].map((variant) =>
+		strictStruct({
+			...variant.fields,
+			requestId: Schema.String,
+			type: Schema.Literal("external-link-result"),
+		}),
+	),
+);
 
 export const PluginCollectionBridgeErrorReason = Schema.Literals([
 	"transport",
@@ -868,6 +907,7 @@ export const PluginBridgeEntityUpdated = strictStruct({
 export type PluginBridgeEntityUpdated = Schema.Schema.Type<typeof PluginBridgeEntityUpdated>;
 
 export const PluginBridgeClientMessage = Schema.Union([
+	PluginBridgeExternalLinkRequest,
 	PluginBridgeHeader,
 	PluginBridgeNavigate,
 	PluginBridgePageSearch,
@@ -894,6 +934,7 @@ export const PluginBridgeClientMessage = Schema.Union([
 export type PluginBridgeClientMessage = Schema.Schema.Type<typeof PluginBridgeClientMessage>;
 
 export const PluginBridgeHostMessage = Schema.Union([
+	PluginBridgeExternalLinkResult,
 	PluginBridgeDocument,
 	PluginBridgeTheme,
 	PluginBridgeLocation,

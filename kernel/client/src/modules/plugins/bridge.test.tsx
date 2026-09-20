@@ -141,6 +141,7 @@ const connect = (
 		readonly timeoutMs?: number;
 		readonly onAssets?: Parameters<typeof openPluginBridge>[0]["onAssets"];
 		readonly onUpload?: Parameters<typeof openPluginBridge>[0]["onUpload"];
+		readonly onExternalLink?: Parameters<typeof openPluginBridge>[0]["onExternalLink"];
 		readonly scheduleOverlayDismissTimeout?: (onTimeout: () => void) => () => void;
 		readonly watchEntities?: Parameters<typeof openPluginBridge>[0]["watchEntities"];
 		readonly onCollection?: Parameters<typeof openPluginBridge>[0]["onCollection"];
@@ -196,6 +197,7 @@ const connect = (
 		onKernelShortcut: (shortcut) => shortcuts.push(shortcut),
 		onCollection: options.onCollection ?? (() => Effect.never),
 		onProviderSearch: (request) => providerSearches.push(request),
+		onExternalLink: options.onExternalLink ?? (() => Effect.never),
 		onPageShortcuts: (registered) => pageShortcuts.push(registered),
 		scheduleOverlayDismissTimeout: options.scheduleOverlayDismissTimeout,
 		watchEntities: options.watchEntities ?? (() => ({ update: () => {}, dispose: () => {} })),
@@ -279,6 +281,80 @@ const readyFor = (init: PluginBridgeInit): PluginBridgeReady => ({
 });
 
 describe("bridge page screens", () => {
+	it.live("validates external-link requests and correlates bounded launch outcomes", () =>
+		Effect.gen(function* () {
+			const calls: unknown[] = [];
+			const { init, received, failures, pluginPort } = connect({
+				onExternalLink: (request) =>
+					Effect.sync(() => {
+						calls.push(request);
+						return request.url.endsWith("/blocked")
+							? { outcome: "failure" as const, reason: "link-open-failed" as const }
+							: { outcome: "success" as const };
+					}),
+			});
+			pluginPort.postMessage(readyFor(init));
+			yield* Effect.promise(() => waitFor(() => expect(received).toContainEqual(at(home, 0))));
+			for (const [requestId, url, outcome] of [
+				["invalid", "javascript:alert(1)", { outcome: "failure", reason: "invalid-request" }],
+				["success", "https://example.test", { outcome: "success" }],
+				[
+					"blocked",
+					"https://example.test/blocked",
+					{ outcome: "failure", reason: "link-open-failed" },
+				],
+			] as const) {
+				pluginPort.postMessage({ url, requestId, type: "external-link-request" });
+				yield* Effect.promise(() =>
+					waitFor(() =>
+						expect(received).toContainEqual({
+							...outcome,
+							requestId,
+							type: "external-link-result",
+						}),
+					),
+				);
+			}
+			expect(calls).toEqual([
+				{ url: "https://example.test" },
+				{ url: "https://example.test/blocked" },
+			]);
+			expect(failures).toEqual([]);
+		}),
+	);
+
+	it.live("interrupts external-link work on close and suppresses late replies", () =>
+		Effect.gen(function* () {
+			const started: string[] = [];
+			const interrupted: string[] = [];
+			const result = deferred<{ readonly outcome: "success" }>();
+			const { init, session, received, pluginPort } = connect({
+				onExternalLink: (request) =>
+					Effect.sync(() => started.push(request.url)).pipe(
+						Effect.andThen(Effect.promise(() => result.promise)),
+						Effect.onInterrupt(() => Effect.sync(() => interrupted.push(request.url))),
+					),
+			});
+			pluginPort.postMessage(readyFor(init));
+			yield* Effect.promise(() => waitFor(() => expect(received).toContainEqual(at(home, 0))));
+			pluginPort.postMessage({
+				requestId: "late",
+				url: "https://example.test",
+				type: "external-link-request",
+			});
+			yield* Effect.promise(() => waitFor(() => expect(started).toEqual(["https://example.test"])));
+			session.close();
+			result.resolve({ outcome: "success" });
+			yield* Effect.promise(() =>
+				waitFor(() => expect(interrupted).toEqual(["https://example.test"])),
+			);
+			expect(received).not.toContainEqual({
+				requestId: "late",
+				outcome: "success",
+				type: "external-link-result",
+			});
+		}),
+	);
 	it.live("delivers the latest document when navigation changes before handshake completes", () =>
 		Effect.gen(function* () {
 			const { init, session, received, pluginPort } = connect();
@@ -647,6 +723,7 @@ describe("plugin bridge", () => {
 				onPageShortcuts: () => undefined,
 				onKernelShortcut: () => undefined,
 				onProviderSearch: () => undefined,
+				onExternalLink: () => Effect.never,
 				onFailure: () => failures.push(null),
 				viewport: { safeAreaTop: 0, safeAreaBottom: 0 },
 				watchEntities: () => ({ update: () => {}, dispose: () => {} }),

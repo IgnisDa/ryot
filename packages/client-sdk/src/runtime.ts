@@ -53,7 +53,14 @@ import type { PluginNavigationController, PluginNavigationSnapshot } from "./nav
 
 type PluginRuntimeState = "ready" | "active" | "closing" | "failed" | "disposed";
 
-type RequestType = "asset" | "collection" | "operation" | "ryotql" | "storage" | "upload";
+type RequestType =
+	| "asset"
+	| "collection"
+	| "external-link"
+	| "operation"
+	| "ryotql"
+	| "storage"
+	| "upload";
 
 type PendingCall = {
 	readonly type: RequestType;
@@ -398,6 +405,12 @@ export const createPluginRuntime = (
 		mutateCollection,
 		navigatePageSearch,
 		openProviderSearch,
+		openExternalLink: (request) =>
+			sendRequest("external-link", (requestId) => ({
+				...request,
+				requestId,
+				type: "external-link-request",
+			})),
 		overlays: {
 			setDismissHandler: (handler) => {
 				dismissOverlay = handler;
@@ -568,6 +581,15 @@ export const createPluginRuntime = (
 						"operation",
 						result.requestId,
 						result.outcome === "failure" ? result : { outcome: "success", value: result.value },
+					);
+				}),
+				Match.when({ type: "external-link-result" }, (result) => {
+					settle(
+						"external-link",
+						result.requestId,
+						result.outcome === "failure"
+							? result
+							: { outcome: "success", value: { outcome: "success" } },
 					);
 				}),
 				Match.when({ type: "storage-result" }, (result) => {

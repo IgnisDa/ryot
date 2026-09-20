@@ -20,6 +20,7 @@ import {
 import { ClientPageFreshness } from "#/modules/client-pages/freshness";
 import { renderClientDocument } from "#/modules/client-pages/srcdoc";
 import { EntityInterestService, type WatchEntities } from "#/modules/entity-interest/service";
+import { ExternalLinks } from "#/modules/external-links/service";
 import { useScreenLeadingControl } from "#/modules/navigation/app-screen";
 import {
 	type ClientPageOverlayController,
@@ -489,6 +490,7 @@ function ClientPageFrame(props: {
 			onOverlayState={(count) => props.overlay.publish(props.owner, count)}
 			onHeader={(publication) => props.header.publish(props.owner, publication)}
 			onProviderSearch={(request) => props.document.onProviderSearch?.(request)}
+			onExternalLink={(request) => props.runtime.runSync(ExternalLinks).outcome(request)}
 			onUpload={(request) => props.runtime.runSync(TemporaryUploads).outcome(props.scope, request)}
 			onAssets={(request) =>
 				props.runtime.runSync(ManagedAssetsService).outcome(props.scope, request.assets)

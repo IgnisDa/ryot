@@ -1,5 +1,7 @@
 import {
 	EntityInterest,
+	ExternalLinkRequest,
+	ExternalLinkSuccess,
 	PluginCollectionRequest,
 	PluginStorageRequest,
 	type PluginOperationRequest,
@@ -117,6 +119,9 @@ export const RyotNavigationTarget = Schema.Union([
 export type RyotNavigationTarget = Schema.Codec.Encoded<typeof RyotNavigationTarget>;
 
 export type RyotClientAdapter = {
+	readonly openExternalLink?: (
+		request: ExternalLinkRequest,
+	) => Effect.Effect<unknown, RyotClientError>;
 	readonly uploadTemporary: (
 		request: TemporaryUploadRequest,
 	) => Effect.Effect<unknown, RyotClientError>;
@@ -355,6 +360,21 @@ export const createRyotClient = (adapter: RyotClientAdapter) => {
 						return yield* new RyotClientError("malformed-result");
 					}
 					return decoded.success;
+				}),
+		},
+		links: {
+			open: (request: Schema.Codec.Encoded<typeof ExternalLinkRequest>) =>
+				Effect.gen(function* () {
+					const decoded = Schema.decodeResult(ExternalLinkRequest)(request);
+					if (Result.isFailure(decoded)) {
+						return yield* new RyotClientError("invalid-request");
+					}
+					const open = adapter.openExternalLink;
+					if (!open) {
+						return yield* new RyotClientError("unsupported-capability");
+					}
+					const value = yield* adapterEffect(() => open(decoded.success));
+					return yield* decodeCapability(ExternalLinkSuccess, value);
 				}),
 		},
 		operations: {

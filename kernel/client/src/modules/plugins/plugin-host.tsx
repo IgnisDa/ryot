@@ -1,6 +1,8 @@
 import { CLIENT_BRIDGE_BOOTSTRAP_READY } from "@ryot-app/client-plugin-contract";
 import type {
 	ClientPageContext,
+	ExternalLinkOutcome,
+	ExternalLinkRequest,
 	KernelShortcut,
 	PageShortcutKey,
 	PluginAssetOutcome,
@@ -96,6 +98,7 @@ export function PluginFrame(props: {
 	readonly onProviderSearch: (request: PluginBridgeProviderSearchScreen) => void;
 	readonly onAssets: (request: PluginAssetRequest) => Effect.Effect<PluginAssetOutcome>;
 	readonly onUpload: (request: PluginUploadRequest) => Effect.Effect<PluginUploadOutcome>;
+	readonly onExternalLink: (request: ExternalLinkRequest) => Effect.Effect<ExternalLinkOutcome>;
 	readonly onCollection: (
 		request: PluginCollectionRequest,
 	) => Effect.Effect<PluginCollectionOutcome>;
@@ -326,6 +329,7 @@ export function PluginFrame(props: {
 			onStorage: (request) => latest.current.onStorage(request),
 			onPageSearch: (request) => latest.current.onPageSearch(request),
 			onCollection: (request) => latest.current.onCollection(request),
+			onExternalLink: (request) => latest.current.onExternalLink(request),
 			onProviderSearch: (request) => latest.current.onProviderSearch(request),
 			onKernelShortcut: (shortcut) => latest.current.onKernelShortcut(shortcut),
 			watchEntities: (interest, onUpdate) => latest.current.watchEntities(interest, onUpdate),
