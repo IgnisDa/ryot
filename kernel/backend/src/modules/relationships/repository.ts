@@ -25,10 +25,6 @@ type RelationshipSnapshotRow = Pick<
 	| "relationshipSchemaPluginId"
 >;
 
-type RelationshipSnapshotWithProvenanceRow = RelationshipSnapshotRow & {
-	readonly relationshipSchemaPluginId: string | null;
-};
-
 type RelationshipRow = RelationshipSnapshotRow & { readonly wasInserted: boolean };
 
 const relationshipIdentityFields = {
@@ -113,12 +109,6 @@ const toRelationship = (row: RelationshipSnapshotRow) => ({
 	sourceEntityId: EntityId.make(row.sourceEntityId),
 	targetEntityId: EntityId.make(row.targetEntityId),
 	relationshipSchemaSlug: RelationshipSchemaSlug.make(row.relationshipSchemaSlug),
-	relationshipSchemaPluginId:
-		row.relationshipSchemaPluginId === null ? null : PluginId.make(row.relationshipSchemaPluginId),
-});
-
-const toRelationshipWithProvenance = (row: RelationshipSnapshotWithProvenanceRow) => ({
-	...toRelationship(row),
 	relationshipSchemaPluginId:
 		row.relationshipSchemaPluginId === null ? null : PluginId.make(row.relationshipSchemaPluginId),
 });
@@ -241,7 +231,7 @@ export class RelationshipsRepository extends Context.Service<RelationshipsReposi
 						)
 						.limit(1),
 				);
-				return row ? toRelationshipWithProvenance(row) : null;
+				return row ? toRelationship(row) : null;
 			});
 			const lockRelationshipMutations = Effect.fn(
 				"RelationshipsRepository.lockRelationshipMutations",
@@ -437,7 +427,7 @@ export class RelationshipsRepository extends Context.Service<RelationshipsReposi
 						)
 						.for("update"),
 				);
-				return rows.map(toRelationshipWithProvenance);
+				return rows.map(toRelationship);
 			});
 
 			const listEnabledOwnersForSubject = Effect.fn(

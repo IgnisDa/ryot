@@ -4,7 +4,7 @@ import { AuthServiceLive } from "#modules/auth/layer";
 import { DefinitionRepository } from "#modules/definition-registry/repository";
 import { EntitiesServiceRuntimeLive } from "#modules/entities/layer";
 import { InterestServicesLive } from "#modules/entity-interest/layer";
-import { TranslationsServiceLive } from "#modules/entity-translation/layer";
+import { TranslationsRepository } from "#modules/entity-translation/repository";
 import { ImportsServiceLive, IngestionExecutionLive } from "#modules/imports/layer";
 import { ImportsRepository } from "#modules/imports/repository";
 import { PluginIngestionServiceLive, PluginInstallationRuntimeLive } from "#modules/plugins/layer";
@@ -28,7 +28,7 @@ export const TestSupportServicesLive = Layer.merge(
 				InterestServicesLive,
 				PluginCronServiceLive,
 				SandboxExecutionServiceLive,
-				TranslationsServiceLive,
+				TranslationsRepository.layer,
 				RelationshipsServiceLive,
 				PluginIngestionServiceLive,
 				PluginInstallationRuntimeLive,

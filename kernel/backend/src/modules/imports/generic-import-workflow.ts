@@ -9,8 +9,7 @@ import type { ImportRunFailureReason } from "@ryot-app/contract/modules/imports/
 import type { ImportRunFailureStage } from "@ryot-app/contract/modules/imports/types";
 import {
 	definitionOwner,
-	type EntitySchemaReference,
-	type DeclarationReference,
+	type DefinitionOwner,
 	definitionOwnerPluginId,
 } from "@ryot-app/contract/modules/plugins/references";
 import {
@@ -175,13 +174,9 @@ export const prepareGenericImportEntity = Effect.fn("imports.prepareGenericImpor
 		intent: GenericImportWriteItem["entities"][number],
 		userId: UserId,
 		lifecycle: DomainLifecycleCommand,
-		reference: EntitySchemaReference,
+		owner: DefinitionOwner,
 	) {
-		if (reference.slug !== intent.entitySchemaSlug) {
-			return yield* new ImportRunError({
-				message: "Import entity schema reference does not match its intent",
-			});
-		}
+		const reference = { owner, slug: EntitySchemaSlug.make(intent.entitySchemaSlug) };
 		const entities = yield* EntitiesService;
 		const repository = yield* EntitiesRepository;
 		const replay = yield* entities.replayCreateStep({
@@ -282,8 +277,7 @@ const resolveGenericImportProvider = (
 	intent: GenericImportWriteItem["entities"][number],
 	userId: UserId,
 	executionId: string,
-	entitySchema: EntitySchemaReference,
-	reference: DeclarationReference,
+	owner: DefinitionOwner,
 ) =>
 	makeActivity({
 		error: ImportRunError,
@@ -295,16 +289,19 @@ const resolveGenericImportProvider = (
 				return yield* new ImportRunError({ message: "Provider resolution descriptor is missing" });
 			}
 			const runtime = yield* PluginRuntimeResolver;
-			const provider = yield* runtime.findProviderAvailableToUserByReference(userId, reference);
+			const provider = yield* runtime.findProviderAvailableToUserByReference(userId, {
+				owner,
+				slug: descriptor.providerSlug,
+			});
 			if (!provider) {
 				return yield* new ImportRunError({
 					message: `Provider '${descriptor.providerSlug}' is unavailable`,
 				});
 			}
 			if (
-				entitySchema.owner.kind !== "plugin" ||
-				provider.pluginId !== entitySchema.owner.pluginId ||
-				provider.rootEntitySchemaSlug !== entitySchema.slug
+				owner.kind !== "plugin" ||
+				provider.pluginId !== owner.pluginId ||
+				provider.rootEntitySchemaSlug !== intent.entitySchemaSlug
 			) {
 				return yield* new ImportRunError({
 					message: `Provider '${descriptor.providerSlug}' does not provide entity schema '${intent.entitySchemaSlug}'`,
@@ -323,20 +320,13 @@ export const resolveProviderEntity = Effect.fn("imports.resolveProviderEntity")(
 	userId: UserId,
 	command: DomainLifecycleCommand,
 	executionId: string,
-	entitySchema: EntitySchemaReference,
-	reference: DeclarationReference,
+	owner: DefinitionOwner,
 ) {
 	const descriptor = intent.providerResolution;
 	if (!descriptor) {
 		return undefined;
 	}
-	const provider = yield* resolveGenericImportProvider(
-		intent,
-		userId,
-		executionId,
-		entitySchema,
-		reference,
-	).pipe(
+	const provider = yield* resolveGenericImportProvider(intent, userId, executionId, owner).pipe(
 		Effect.mapError(
 			(error) =>
 				new GenericImportProviderError({ message: error.message, stage: "provider_resolution" }),
@@ -594,14 +584,7 @@ const writeGenericItem = Effect.fn("imports.writeGenericItem")(function* (
 				userId,
 				ingestionOperationCommand(command, intent.operationId),
 				providerExecutionId,
-				{
-					owner: definitionOwner(pluginRevision.id),
-					slug: EntitySchemaSlug.make(intent.entitySchemaSlug),
-				},
-				{
-					owner: definitionOwner(pluginRevision.id),
-					slug: intent.providerResolution?.providerSlug ?? "",
-				},
+				definitionOwner(pluginRevision.id),
 			);
 			if (providerEntityId) {
 				if (intent.outcome) {
@@ -619,6 +602,12 @@ const writeGenericItem = Effect.fn("imports.writeGenericItem")(function* (
 				pending: PendingEntityMutation,
 				applyPolicies: entities.applyMutationPolicies,
 				name: `generic-import-item-${index}-entity-${intentIndex}`,
+				prepare: prepareGenericImportEntity(
+					intent,
+					userId,
+					ingestionOperationCommand(command, intent.operationId),
+					definitionOwner(pluginRevision.id),
+				),
 				commit: (pending) =>
 					entities
 						.commitMutation(pending)
@@ -628,15 +617,6 @@ const writeGenericItem = Effect.fn("imports.writeGenericItem")(function* (
 								result: { result: "created" as const, entityId: step.result.entity.id },
 							})),
 						),
-				prepare: prepareGenericImportEntity(
-					intent,
-					userId,
-					ingestionOperationCommand(command, intent.operationId),
-					{
-						owner: definitionOwner(pluginRevision.id),
-						slug: EntitySchemaSlug.make(intent.entitySchemaSlug),
-					},
-				),
 			});
 			warnings.push(...written.warnings);
 			aliases.set(intent.alias, written.result.entityId);

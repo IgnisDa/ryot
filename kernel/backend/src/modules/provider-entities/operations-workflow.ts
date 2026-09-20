@@ -69,6 +69,41 @@ export const EntityImportWorkflowOperationsLive = Layer.effect(
 		const writes = makeDomainWriteChecks(session);
 		const reads = makeProviderExecutionReads(session);
 
+		const resolvePinnedProviderScript = Effect.fnUntraced(function* (input: {
+			userId: UserId | null;
+			providerId: SandboxProviderId;
+			operation: "details" | "resolve";
+			command: Parameters<typeof writes.check>[0];
+			pluginRevision: { id: string; revisionId: string };
+		}) {
+			const owner = definitionOwner(input.pluginRevision.id);
+			const manifest = yield* writes
+				.check(input.command, owner, input.userId)
+				.pipe(Effect.mapError((error) => toSandboxRunError(error, "invalid-input")));
+			const provider = yield* writes
+				.checkProvider(input.providerId, owner)
+				.pipe(Effect.mapError((error) => toSandboxRunError(error, "invalid-input")));
+			const slug = manifest?.providers.find(
+				({ slug: providerSlug }) => providerSlug === provider.slug,
+			)?.operations[input.operation];
+			const script = slug
+				? yield* reads
+						.findRevisionScript(input.pluginRevision.revisionId, slug)
+						.pipe(Effect.mapError((error) => toSandboxRunError(error, "infrastructure")))
+				: null;
+			if (
+				!script ||
+				script.providerId !== input.providerId ||
+				script.metadata.kind !== "provider"
+			) {
+				return yield* new SandboxRunError({
+					kind: "missing-artifact",
+					message: `Pinned provider ${input.operation} script is unavailable`,
+				});
+			}
+			return script;
+		});
+
 		const processSandboxEntityDetails = (
 			payload: EntityImportPayload,
 			executionId: string,
@@ -89,46 +124,13 @@ export const EntityImportWorkflowOperationsLive = Layer.effect(
 						message: "Provider details require the admitted plugin pin",
 					});
 				}
-				const manifest = yield* writes
-					.check(
-						payload.command,
-						definitionOwner(payload.pluginId),
-						payload.entityScope.type === "user" ? payload.entityScope.userId : null,
-					)
-					.pipe(
-						Effect.mapError(
-							(error) => new SandboxRunError({ kind: "invalid-input", message: error.message }),
-						),
-					);
-				const provider = yield* writes
-					.checkProvider(payload.providerId, definitionOwner(payload.pluginId))
-					.pipe(
-						Effect.mapError(
-							(error) => new SandboxRunError({ kind: "invalid-input", message: error.message }),
-						),
-					);
-				const declaration = manifest?.providers.find(({ slug }) => slug === provider.slug);
-				const detailsSlug = declaration?.operations.details;
-				const script = detailsSlug
-					? yield* reads
-							.findRevisionScript(principal.pluginRevision.revisionId, detailsSlug)
-							.pipe(
-								Effect.mapError(
-									(error) =>
-										new SandboxRunError({ kind: "infrastructure", message: error.message }),
-								),
-							)
-					: null;
-				if (
-					!script ||
-					script.providerId !== payload.providerId ||
-					script.metadata.kind !== "provider"
-				) {
-					return yield* new SandboxRunError({
-						kind: "missing-artifact",
-						message: "Pinned provider details script is unavailable",
-					});
-				}
+				const script = yield* resolvePinnedProviderScript({
+					operation: "details",
+					command: payload.command,
+					providerId: payload.providerId,
+					pluginRevision: principal.pluginRevision,
+					userId: payload.entityScope.type === "user" ? payload.entityScope.userId : null,
+				});
 				return yield* sandbox.executeScript({
 					scriptId: script.id,
 					subject: principal.subject,
@@ -161,31 +163,13 @@ export const EntityImportWorkflowOperationsLive = Layer.effect(
 					execute: Effect.gen(function* () {
 						const caller = input.writeContext;
 						if (caller?.pluginRevision) {
-							const owner = definitionOwner(caller.pluginRevision.id);
-							const manifest = yield* writes
-								.check({ writeContext: caller }, owner, input.userId)
-								.pipe(Effect.mapError((error) => toSandboxRunError(error, "invalid-input")));
-							const provider = yield* writes
-								.checkProvider(input.providerId, owner)
-								.pipe(Effect.mapError((error) => toSandboxRunError(error, "invalid-input")));
-							const slug = manifest?.providers.find(
-								({ slug: providerSlug }) => providerSlug === provider.slug,
-							)?.operations.resolve;
-							const script = slug
-								? yield* reads
-										.findRevisionScript(caller.pluginRevision.revisionId, slug)
-										.pipe(Effect.mapError((error) => toSandboxRunError(error, "infrastructure")))
-								: null;
-							if (
-								!script ||
-								script.providerId !== input.providerId ||
-								script.metadata.kind !== "provider"
-							) {
-								return yield* new SandboxRunError({
-									kind: "missing-artifact",
-									message: "Pinned provider resolve script is unavailable",
-								});
-							}
+							const script = yield* resolvePinnedProviderScript({
+								operation: "resolve",
+								userId: input.userId,
+								providerId: input.providerId,
+								command: { writeContext: caller },
+								pluginRevision: caller.pluginRevision,
+							});
 							return yield* Schema.decodeEffect(SandboxExecutionPrincipal)({
 								...caller,
 								scriptId: script.id,

@@ -25,7 +25,6 @@ import {
 } from "#lib/domain/lifecycle-policy-patch";
 import type { RelationshipSchemaDefinition } from "#modules/definition-registry/snapshot";
 import {
-	DomainWriteConflict,
 	makeDomainWriteChecks,
 	type DomainLifecycleCommand,
 } from "#modules/entities/write-context";
@@ -47,6 +46,7 @@ import {
 	type Mutation,
 	type RelationshipMutationDependencies,
 	type RelationshipRecordedResult,
+	relationshipWriteFailure,
 } from "./mutation-support";
 
 export const classifyRelationshipReceiptConflict = (
@@ -103,17 +103,7 @@ export const makeRelationshipMutationPrimitives = ({
 				mutation.input.scope === "user" ? mutation.input.userId : null,
 				lock,
 			)
-			.pipe(
-				Effect.mapError(
-					(error) =>
-						new RelationshipBadRequest({
-							reason:
-								error instanceof DomainWriteConflict
-									? error.reason
-									: { code: "concurrent-relationship-change" },
-						}),
-				),
-			);
+			.pipe(Effect.mapError(relationshipWriteFailure));
 		const activeDeclaration =
 			manifest && reference.owner.kind === "plugin"
 				? (yield* writes.activeManifest(reference.owner.pluginId)).relationshipSchemas.find(

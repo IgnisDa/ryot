@@ -4,9 +4,10 @@ import type {
 } from "@ryot-app/contract/modules/client-pages/schemas";
 import type { SavedViewReference } from "@ryot-app/contract/modules/plugins/references";
 import { SavedViewId, type UserId } from "@ryot-app/contract/schema/brands";
-import { and, eq, isNull } from "drizzle-orm";
+import { and, eq } from "drizzle-orm";
 import { Context, Effect, Layer } from "effect";
 
+import { savedViewReferenceWhere } from "#lib/infrastructure/db/definition-owner";
 import * as schema from "#lib/infrastructure/db/schema/tables/combined";
 import { DatabaseSession } from "#lib/infrastructure/db/session";
 
@@ -43,18 +44,7 @@ export class ClientPagesRepository extends Context.Service<ClientPagesRepository
 						.from(schema.userSavedViewEffective)
 						.where(
 							and(
-								...(reference.kind === "custom"
-									? [
-											eq(schema.userSavedViewEffective.isBuiltin, false),
-											eq(schema.userSavedViewEffective.id, reference.savedViewId),
-										]
-									: [
-											eq(schema.userSavedViewEffective.isBuiltin, true),
-											eq(schema.userSavedViewEffective.slug, reference.slug),
-											reference.kind === "kernel"
-												? isNull(schema.userSavedViewEffective.pluginId)
-												: eq(schema.userSavedViewEffective.pluginId, reference.pluginId),
-										]),
+								savedViewReferenceWhere(reference),
 								eq(schema.userSavedViewEffective.userId, userId),
 							),
 						)

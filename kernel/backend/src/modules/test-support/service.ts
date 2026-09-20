@@ -35,7 +35,7 @@ import { redisKeys, RedisService } from "#lib/infrastructure/redis";
 import { AuthService } from "#modules/auth/service";
 import { EntitiesService } from "#modules/entities/service";
 import { InterestService } from "#modules/entity-interest/service";
-import { TranslationsService } from "#modules/entity-translation/service";
+import { TranslationsRepository } from "#modules/entity-translation/repository";
 import { PluginInstallationService } from "#modules/plugins/installation-service";
 import { PluginRepository } from "#modules/plugins/repository";
 import { PluginIngestionService } from "#modules/plugins/service";
@@ -123,7 +123,7 @@ export class TestSupportService extends Context.Service<TestSupportService>()(
 			const interest = yield* InterestService;
 			const pluginCrons = yield* PluginCronService;
 			const sandbox = yield* SandboxExecutionService;
-			const translations = yield* TranslationsService;
+			const translations = yield* TranslationsRepository;
 			const relationships = yield* RelationshipsService;
 			const pluginIngestion = yield* PluginIngestionService;
 			const pluginInstallations = yield* PluginInstallationService;
@@ -335,10 +335,7 @@ export class TestSupportService extends Context.Service<TestSupportService>()(
 					properties: Record<string, unknown> | null;
 				}) {
 					return yield* translations
-						.upsertKernelOverlay(
-							{ ...input, populatedAt: yield* DateTime.nowAsDate },
-							yield* systemApiCommand("test-support:upsert-entity-translation"),
-						)
+						.upsertOverlay({ ...input, populatedAt: yield* DateTime.nowAsDate })
 						.pipe(
 							Effect.mapError(
 								(error) =>

@@ -30,7 +30,11 @@ import { parseAppSchemaProperties } from "#lib/property-schema/property-schema-r
 import type { DefinitionRepository } from "#modules/definition-registry/repository";
 import type { RelationshipSchemaDefinition } from "#modules/definition-registry/snapshot";
 import type { EntitiesRepository } from "#modules/entities/repository";
-import { DomainLifecycleCommand, writerPropertiesSchema } from "#modules/entities/write-context";
+import {
+	DomainLifecycleCommand,
+	DomainWriteConflict,
+	writerPropertiesSchema,
+} from "#modules/entities/write-context";
 import {
 	mutationReceiptIdentity,
 	mutationReceiptOwner,
@@ -165,6 +169,13 @@ export const relationshipKey = (input: { sourceEntityId: EntityId; targetEntityI
 	`${input.sourceEntityId}\u0000${input.targetEntityId}`;
 export const badProperties = (paths: ReadonlyArray<ReadonlyArray<string>>) =>
 	new RelationshipBadRequest({ reason: { paths, code: "invalid-properties" } });
+export const relationshipWriteFailure = (error: DbError | DomainWriteConflict) =>
+	new RelationshipBadRequest({
+		reason:
+			error instanceof DomainWriteConflict
+				? error.reason
+				: { code: "concurrent-relationship-change" },
+	});
 export const parseProperties = (properties: unknown, propertiesSchema: AppSchema, strict = false) =>
 	parseAppSchemaProperties({
 		properties,

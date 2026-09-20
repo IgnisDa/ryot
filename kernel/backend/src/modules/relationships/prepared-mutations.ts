@@ -9,11 +9,7 @@ import { Cause, Effect, Schema } from "effect";
 
 import type { LifecycleDispatchPlan } from "#lib/domain/lifecycle";
 import { lifecycleTrigger } from "#lib/domain/lifecycle-command";
-import {
-	DomainLifecycleCommand,
-	DomainWriteConflict,
-	makeDomainWriteChecks,
-} from "#modules/entities/write-context";
+import { DomainLifecycleCommand, makeDomainWriteChecks } from "#modules/entities/write-context";
 import { catalogDefinitionFingerprint } from "#modules/plugins/runtime-resolver";
 
 import {
@@ -33,6 +29,7 @@ import {
 	type DeleteRelationshipInput,
 	type Mutation,
 	type RelationshipMutationDependencies,
+	relationshipWriteFailure,
 } from "./mutation-support";
 import type { RelationshipIdentityInput } from "./repository";
 
@@ -97,17 +94,7 @@ export const makePreparedRelationshipMutations = (
 		);
 		yield* writes
 			.check(command, relationshipSchemaReference(input).owner, input.userId)
-			.pipe(
-				Effect.mapError(
-					(error) =>
-						new RelationshipBadRequest({
-							reason:
-								error instanceof DomainWriteConflict
-									? error.reason
-									: { code: "concurrent-relationship-change" },
-						}),
-				),
-			);
+			.pipe(Effect.mapError(relationshipWriteFailure));
 		const receiptMode = mode === "create" ? "upsert" : "delete";
 		const submittedProperties = "properties" in submitted ? submitted.properties : undefined;
 		const receipt = relationshipReceiptIdentity({
@@ -225,17 +212,7 @@ export const makePreparedRelationshipMutations = (
 				prepared.mutation.input.scope === "user" ? prepared.mutation.input.userId : null,
 				true,
 			)
-			.pipe(
-				Effect.mapError(
-					(error) =>
-						new RelationshipBadRequest({
-							reason:
-								error instanceof DomainWriteConflict
-									? error.reason
-									: { code: "concurrent-relationship-change" },
-						}),
-				),
-			);
+			.pipe(Effect.mapError(relationshipWriteFailure));
 		if ("committed" in prepared) {
 			return { dispatch: prepared.committed.dispatch, result: prepared.committed.relationship };
 		}

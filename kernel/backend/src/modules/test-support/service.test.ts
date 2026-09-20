@@ -23,7 +23,7 @@ import { EntitiesRepository } from "#modules/entities/repository";
 import { EntitiesService } from "#modules/entities/service";
 import type { DomainLifecycleCommand } from "#modules/entities/write-context";
 import { InterestService } from "#modules/entity-interest/service";
-import { TranslationsService } from "#modules/entity-translation/service";
+import { TranslationsRepository } from "#modules/entity-translation/repository";
 import { PluginInstallationService } from "#modules/plugins/installation-service";
 import { PluginRepository } from "#modules/plugins/repository";
 import { PluginIngestionService } from "#modules/plugins/service";
@@ -54,7 +54,7 @@ const mockPluginInstallations = Layer.mock(PluginInstallationService);
 const mockPluginRepository = Layer.mock(PluginRepository);
 const mockPluginCrons = Layer.mock(PluginCronService);
 const mockSandbox = Layer.mock(SandboxExecutionService);
-const mockTranslations = Layer.mock(TranslationsService);
+const mockTranslations = Layer.mock(TranslationsRepository);
 const mockRelationships = Layer.mock(RelationshipsService);
 const mockRelationshipSchemas = Layer.mock(RelationshipSchemasRepository);
 const makeServiceLayer = (
@@ -347,10 +347,8 @@ layer(privatePluginOperations.layer)((test) => {
 
 const translationUpserts = recordingServiceLayer<unknown>((record) => ({
 	translations: {
-		upsertKernelOverlay: (input, command) =>
-			record({ input, command }).pipe(
-				Effect.as({ entityId: input.entityId, language: input.language }),
-			),
+		upsertOverlay: (input) =>
+			record({ input }).pipe(Effect.as({ entityId: input.entityId, language: input.language })),
 	},
 }));
 
@@ -366,7 +364,6 @@ layer(translationUpserts.layer)((test) => {
 			expect(result).toEqual({ entityId, language: "es" });
 			expect((yield* translationUpserts.recorded).at(-1)).toMatchObject({
 				input: { entityId, language: "es", name: "Nombre" },
-				command: { writeContext: null, causation: { initiator: { id: null, kind: "system" } } },
 			});
 		}),
 	);

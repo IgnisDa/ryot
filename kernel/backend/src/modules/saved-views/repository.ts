@@ -4,10 +4,12 @@ import {
 } from "@ryot-app/contract/modules/plugins/references";
 import type { ListedSavedView } from "@ryot-app/contract/modules/saved-views/schemas";
 import { SavedViewId, type UserId } from "@ryot-app/contract/schema/brands";
-import { and, asc, eq, isNull, sql } from "drizzle-orm";
+import { and, asc, eq, isNotNull, isNull, sql } from "drizzle-orm";
 import type { EffectPgDatabase } from "drizzle-orm/effect-postgres";
+import type { PgUpdateSetSource } from "drizzle-orm/pg-core";
 import { Context, Effect, Layer } from "effect";
 
+import { savedViewReferenceWhere } from "#lib/infrastructure/db/definition-owner";
 import { mapDatabaseErrors } from "#lib/infrastructure/db/errors";
 import * as schema from "#lib/infrastructure/db/schema/tables/combined";
 import { DatabaseSession } from "#lib/infrastructure/db/session";
@@ -73,19 +75,29 @@ const savedViewReference = (
 	return builtinSavedViewReference(row.pluginId, row.slug);
 };
 
-const referencePredicate = (reference: SavedViewReference) =>
-	reference.kind === "custom"
-		? and(
-				eq(schema.userSavedViewEffective.isBuiltin, false),
-				eq(schema.userSavedViewEffective.id, reference.savedViewId),
-			)
-		: and(
-				eq(schema.userSavedViewEffective.isBuiltin, true),
-				eq(schema.userSavedViewEffective.slug, reference.slug),
-				reference.kind === "kernel"
-					? isNull(schema.userSavedViewEffective.pluginId)
-					: eq(schema.userSavedViewEffective.pluginId, reference.pluginId),
-			);
+export const upsertSavedViewOverride = (
+	db: EffectPgDatabase,
+	values: typeof schema.savedViewOverride.$inferInsert,
+	set: PgUpdateSetSource<typeof schema.savedViewOverride>,
+) =>
+	db
+		.insert(schema.savedViewOverride)
+		.values(values)
+		.onConflictDoUpdate({
+			set,
+			targetWhere:
+				values.pluginId == null
+					? isNull(schema.savedViewOverride.pluginId)
+					: isNotNull(schema.savedViewOverride.pluginId),
+			target:
+				values.pluginId == null
+					? [schema.savedViewOverride.userId, schema.savedViewOverride.slug]
+					: [
+							schema.savedViewOverride.userId,
+							schema.savedViewOverride.pluginId,
+							schema.savedViewOverride.slug,
+						],
+		});
 
 const withSavedViewScope = (pluginInstallationId?: string) =>
 	pluginInstallationId
@@ -170,7 +182,10 @@ export class SavedViewsRepository extends Context.Service<SavedViewsRepository>(
 						.select()
 						.from(schema.userSavedViewEffective)
 						.where(
-							and(eq(schema.userSavedViewEffective.userId, userId), referencePredicate(reference)),
+							and(
+								eq(schema.userSavedViewEffective.userId, userId),
+								savedViewReferenceWhere(reference),
+							),
 						)
 						.limit(1),
 				);
@@ -334,35 +349,16 @@ export class SavedViewsRepository extends Context.Service<SavedViewsRepository>(
 					return yield* findByReference(userId, reference);
 				}
 				yield* session.run((db) =>
-					db
-						.insert(schema.savedViewOverride)
-						.values({
-							userId,
+					upsertSavedViewOverride(
+						db,
+						{ userId, isHidden, sortOrder, slug: reference.slug, pluginId: current.pluginId },
+						{
 							isHidden,
 							sortOrder,
-							slug: reference.slug,
 							pluginId: current.pluginId,
-						})
-						.onConflictDoUpdate({
-							set: {
-								isHidden,
-								sortOrder,
-								pluginId: current.pluginId,
-								revision: sql`${schema.savedViewOverride.revision} + 1`,
-							},
-							targetWhere:
-								reference.kind === "kernel"
-									? sql`${schema.savedViewOverride.pluginId} is null`
-									: sql`${schema.savedViewOverride.pluginId} is not null`,
-							target:
-								reference.kind === "kernel"
-									? [schema.savedViewOverride.userId, schema.savedViewOverride.slug]
-									: [
-											schema.savedViewOverride.userId,
-											schema.savedViewOverride.pluginId,
-											schema.savedViewOverride.slug,
-										],
-						}),
+							revision: sql`${schema.savedViewOverride.revision} + 1`,
+						},
+					),
 				);
 				return yield* findByReference(userId, reference);
 			});

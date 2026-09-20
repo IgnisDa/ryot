@@ -89,7 +89,7 @@ const declaresProvider = exists(
 	sql`(select 1 from jsonb_array_elements(${schema.pluginRevision.manifest} -> 'providers') m where m ->> 'slug' = ${schema.sandboxProvider.slug})`,
 );
 
-const findRevisionScriptForSession = (database: DatabaseSession["Service"]) =>
+export const findRevisionScriptForSession = (database: DatabaseSession["Service"]) =>
 	Effect.fn(function* (pluginRevisionId: string, scriptSlug: string) {
 		const [row] = yield* database.run((db) =>
 			db

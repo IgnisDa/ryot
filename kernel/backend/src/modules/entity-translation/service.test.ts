@@ -205,10 +205,8 @@ const makeServiceLayer = (
 				userId: options.globalEntity ? null : payload.userId,
 			};
 			const repository = Layer.mock(TranslationsRepository)({
-				requireActiveAccount: () => Effect.void,
 				findEntityById: () => Effect.succeed(storedEntity),
 				findEntityForUser: () => Effect.succeed(storedEntity),
-				lockActivePluginOwner: () => Effect.succeed({ ownerId: principal.pluginRevision.ownerId }),
 				upsertOverlay: (input) =>
 					Ref.update(upserts, (all) => [...all, input]).pipe(
 						Effect.as({ entityId: input.entityId, language: input.language }),
@@ -333,18 +331,17 @@ const makeServiceLayer = (
 	);
 
 layer(makeServiceLayer())((test) => {
-	test.effect("preserves provider owner and restricted caller context when enqueueing", () =>
+	test.effect("enqueues with the provider owner and an unrestricted user command", () =>
 		Effect.gen(function* () {
 			const service = yield* TranslationsService;
-			const command = { ...payload.command, writeContext: execution.principal };
-			yield* service.requestFill({ ...payload, command });
+			yield* service.requestFill(payload);
 			expect(yield* (yield* TranslationEffects).executions).toMatchObject([
 				{
 					discard: true,
 					executionId: "translate-entity-1-es",
 					payload: {
-						command,
 						providerId: payload.providerId,
+						command: { writeContext: null },
 						entitySchemaPluginId: payload.entitySchemaPluginId,
 					},
 				},
@@ -440,33 +437,6 @@ layer(makeServiceLayer())((test) => {
 						{ ...payload, command: { ...payload.command, writeContext: caller } },
 						payload.executionId,
 					),
-				),
-			).toSatisfy(Exit.isFailure);
-			expect(yield* (yield* TranslationEffects).upserts).toEqual([]);
-		}),
-	);
-});
-
-layer(makeServiceLayer())((test) => {
-	test.effect(
-		"allows a kernel manual overlay in the stored private scope without executing plugin code",
-		() =>
-			Effect.gen(function* () {
-				expect(
-					yield* (yield* TranslationsService).upsertKernelOverlay(overlay, payload.command),
-				).toEqual({ entityId: payload.entityId, language: payload.language });
-				expect(yield* (yield* TranslationEffects).upserts).toEqual([overlay]);
-			}),
-	);
-});
-
-layer(makeServiceLayer())((test) => {
-	test.effect("does not let a manual kernel overlay bypass private quarantine", () =>
-		Effect.gen(function* () {
-			yield* (yield* TranslationEffects).quarantine;
-			expect(
-				yield* Effect.exit(
-					(yield* TranslationsService).upsertKernelOverlay(overlay, payload.command),
 				),
 			).toSatisfy(Exit.isFailure);
 			expect(yield* (yield* TranslationEffects).upserts).toEqual([]);

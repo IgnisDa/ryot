@@ -5,6 +5,7 @@ import { and, asc, eq, isNotNull, isNull, sql } from "drizzle-orm";
 import { Context, Effect, Layer } from "effect";
 
 import { lockPluginIngestionShared } from "#lib/infrastructure/db/advisory-locks";
+import { savedViewReferenceWhere } from "#lib/infrastructure/db/definition-owner";
 import * as schema from "#lib/infrastructure/db/schema/tables/combined";
 import { DatabaseSession } from "#lib/infrastructure/db/session";
 
@@ -377,18 +378,7 @@ export class PluginInstallationRepository extends Context.Service<PluginInstalla
 							.from(schema.userSavedViewEffective)
 							.where(
 								and(
-									reference.kind === "custom"
-										? and(
-												eq(schema.userSavedViewEffective.id, reference.savedViewId),
-												eq(schema.userSavedViewEffective.isBuiltin, false),
-											)
-										: and(
-												eq(schema.userSavedViewEffective.slug, reference.slug),
-												eq(schema.userSavedViewEffective.isBuiltin, true),
-												reference.kind === "kernel"
-													? isNull(schema.userSavedViewEffective.pluginId)
-													: eq(schema.userSavedViewEffective.pluginId, reference.pluginId),
-											),
+									savedViewReferenceWhere(reference),
 									eq(schema.userSavedViewEffective.userId, userId),
 								),
 							)
