@@ -50,9 +50,9 @@ import { redisKeys, RedisService } from "#lib/infrastructure/redis";
 
 import { demoAccessPlugin } from "./demo-access-plugin";
 import { effectPostgresAuthAdapter } from "./effect-postgres-adapter";
-import { isUserLifecycleActive, LifecycleWriteGuard } from "./lifecycle-write-guard";
+import { LifecycleWriteGuard } from "./lifecycle-write-guard";
 import { AuthRepository } from "./repository";
-import { gateSessionCreation } from "./session-gate";
+import { SessionCreationGate } from "./session-gate";
 
 const RESET_LINK_TIMEOUT_MS = 10_000;
 
@@ -165,6 +165,8 @@ const makeAuthInstance = (args: {
 	readonly session: DatabaseSession["Service"];
 	readonly runtime: Context.Context<DatabaseSession | RedisService>;
 	readonly bootstrapNewUser: (userId: string) => Effect.Effect<void, AuthBootstrapError>;
+	readonly lifecycle: LifecycleWriteGuard["Service"];
+	readonly sessionGate: SessionCreationGate["Service"];
 	readonly revokeOAuthTokens: (userId: UserId) => Effect.Effect<void, DbError>;
 }) => {
 	const oidcEnabled = isOidcEnabled(args.config);
@@ -199,7 +201,7 @@ const makeAuthInstance = (args: {
 				create: {
 					before: (session) =>
 						Effect.runPromiseWith(args.runtime)(
-							gateSessionCreation(session.userId, args.bootstrapNewUser),
+							args.sessionGate.gate(session.userId, args.bootstrapNewUser),
 						),
 				},
 			},
@@ -287,7 +289,7 @@ const makeAuthInstance = (args: {
 						if (!isLifecycleProtectedAuthPath(ctx.path)) {
 							return undefined;
 						}
-						if (yield* isUserLifecycleActive(UserId.make(session.user.id))) {
+						if (yield* args.lifecycle.isActive(UserId.make(session.user.id))) {
 							return yield* Effect.fail(
 								APIError.from("FORBIDDEN", {
 									code: "USER_LIFECYCLE_ACTIVE",
@@ -495,11 +497,15 @@ export class AuthService extends Context.Service<AuthService>()("AuthService", {
 		const redis = yield* RedisService;
 		const repository = yield* AuthRepository;
 		const userBootstrap = yield* AuthUserBootstrap;
+		const lifecycle = yield* LifecycleWriteGuard;
+		const sessionGate = yield* SessionCreationGate;
 		const runtime = yield* Effect.context<DatabaseSession | RedisService>();
 		const auth = makeAuthInstance({
 			config,
 			session,
 			runtime,
+			lifecycle,
+			sessionGate,
 			redis: redis.client,
 			bootstrapNewUser: userBootstrap.run,
 			revokeOAuthTokens: repository.revokeUserOAuthTokens,

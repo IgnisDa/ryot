@@ -22,9 +22,6 @@ const checkUserLifecycle = (session: DatabaseSession["Service"]) =>
 		return row !== undefined;
 	});
 
-export const isUserLifecycleActive = (userId: UserId) =>
-	Effect.flatMap(DatabaseSession, (session) => checkUserLifecycle(session)(userId));
-
 export class LifecycleWriteGuard extends Context.Service<LifecycleWriteGuard>()(
 	"LifecycleWriteGuard",
 	{
