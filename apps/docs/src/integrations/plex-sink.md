@@ -14,9 +14,3 @@ work for all the media that have a valid TMDb ID attached to their metadata.
        the specified Plex account only. Leave it empty to accept events from all users.
 2. In your Plex Webhooks settings, add a new webhook using the following settings:
     - Webhook Url => `<paste_url_copied>`
-
-::: warning
-Since Plex does not send the expected TMDb ID for shows, progress will only be synced
-if you already have the show in the Ryot database. To do this, simply add the show to
-your watchlist.
-:::
