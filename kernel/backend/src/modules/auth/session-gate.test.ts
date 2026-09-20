@@ -1,12 +1,13 @@
 import { expect, layer } from "@effect/vitest";
 import { APIError } from "better-auth/api";
 import type { Result } from "effect";
-import { Effect, Layer, Ref } from "effect";
+import { Effect, Layer } from "effect";
 import { describe } from "vitest";
 
-import { DatabaseSession } from "#lib/infrastructure/db/session";
+import { fakeDatabaseSession } from "#lib/test-utils/effect";
 
-import { gateSessionCreation } from "./session-gate";
+import { LifecycleWriteGuard } from "./lifecycle-write-guard";
+import { SessionCreationGate } from "./session-gate";
 
 const completedAt = new Date("2026-01-01T00:00:00Z");
 const disabledAt = new Date("2026-01-01T00:00:00Z");
@@ -19,32 +20,27 @@ function assertApiError(error: unknown): asserts error is APIError {
 
 type UserRow = { disabledAt: Date | null; bootstrapCompletedAt: Date | null };
 
-const mockDatabaseLayer = (rows: ReadonlyArray<UserRow>, active = false) =>
-	Layer.unwrap(
-		Effect.gen(function* () {
-			const selection = yield* Ref.make(0);
-			const activeRows = active ? [{ id: "op-1" }] : [];
-			const database = Object.assign(Object.create(null), {
-				select: () => ({
-					from: () => ({
-						where: () => ({
-							limit: () =>
-								Effect.map(
-									Ref.getAndUpdate(selection, (count) => count + 1),
-									(count) => (count === 0 ? activeRows : rows),
-								),
-						}),
-					}),
-				}),
-			});
-			return Layer.mock(DatabaseSession)({ current: Effect.succeed(database) });
-		}),
+const gateLayer = (rows: ReadonlyArray<UserRow>, active = false) => {
+	const database = Object.assign(Object.create(null), {
+		select: () => ({ from: () => ({ where: () => ({ limit: () => Effect.succeed(rows) }) }) }),
+	});
+	return SessionCreationGate.layer.pipe(
+		Layer.provide(
+			Layer.merge(
+				fakeDatabaseSession(database),
+				Layer.mock(LifecycleWriteGuard)({ isActive: () => Effect.succeed(active) }),
+			),
+		),
 	);
+};
 
 const runGate = (
 	userId: string,
 	runBootstrap: (userId: string) => Effect.Effect<void, unknown> = () => Effect.void,
-) => gateSessionCreation(userId, runBootstrap).pipe(Effect.result);
+) =>
+	Effect.flatMap(SessionCreationGate, (sessionGate) =>
+		sessionGate.gate(userId, runBootstrap).pipe(Effect.result),
+	);
 
 const extractError = (either: Result.Result<void, unknown>) => {
 	expect(either._tag).toBe("Failure");
@@ -56,7 +52,7 @@ const extractError = (either: Result.Result<void, unknown>) => {
 };
 
 describe("gateSessionCreation", () => {
-	layer(mockDatabaseLayer([{ disabledAt: null, bootstrapCompletedAt: completedAt }]))((test) => {
+	layer(gateLayer([{ disabledAt: null, bootstrapCompletedAt: completedAt }]))((test) => {
 		test.effect("resolves without calling runBootstrap when the marker is already set", () =>
 			Effect.gen(function* () {
 				let called = false;
@@ -70,7 +66,7 @@ describe("gateSessionCreation", () => {
 		);
 	});
 
-	layer(mockDatabaseLayer([{ disabledAt: null, bootstrapCompletedAt: null }]))((test) => {
+	layer(gateLayer([{ disabledAt: null, bootstrapCompletedAt: null }]))((test) => {
 		test.effect(
 			"calls runBootstrap and resolves when the marker is null and bootstrap succeeds",
 			() =>
@@ -86,7 +82,7 @@ describe("gateSessionCreation", () => {
 		);
 	});
 
-	layer(mockDatabaseLayer([{ disabledAt: null, bootstrapCompletedAt: null }]))((test) => {
+	layer(gateLayer([{ disabledAt: null, bootstrapCompletedAt: null }]))((test) => {
 		test.effect(
 			"throws USER_INITIALIZING (503) when the marker is null and bootstrap rejects",
 			() =>
@@ -99,7 +95,7 @@ describe("gateSessionCreation", () => {
 		);
 	});
 
-	layer(mockDatabaseLayer([{ disabledAt, bootstrapCompletedAt: null }]))((test) => {
+	layer(gateLayer([{ disabledAt, bootstrapCompletedAt: null }]))((test) => {
 		test.effect(
 			"throws USER_DISABLED (403) when disabledAt is set, regardless of marker state",
 			() =>
@@ -117,7 +113,7 @@ describe("gateSessionCreation", () => {
 		);
 	});
 
-	layer(mockDatabaseLayer([], true))((test) => {
+	layer(gateLayer([], true))((test) => {
 		test.effect("throws USER_LIFECYCLE_ACTIVE before creating a session", () =>
 			Effect.gen(function* () {
 				const error = extractError(yield* runGate("user-1"));
@@ -127,7 +123,7 @@ describe("gateSessionCreation", () => {
 		);
 	});
 
-	layer(mockDatabaseLayer([]))((test) => {
+	layer(gateLayer([]))((test) => {
 		test.effect("resolves without calling runBootstrap when the user row is not found", () =>
 			Effect.gen(function* () {
 				let called = false;

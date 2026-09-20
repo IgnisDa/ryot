@@ -8,11 +8,10 @@ import type { FileSystem } from "effect";
 import { ByteSize, Clock, Context, DateTime, Effect, Layer, Option, Ref, Stream } from "effect";
 
 import { mapDatabaseErrors } from "#lib/infrastructure/db/service";
-import { DatabaseSession } from "#lib/infrastructure/db/session";
 import { LocalStorageService } from "#lib/infrastructure/local-storage";
 import { S3Service } from "#lib/infrastructure/s3";
 import { assertExitFails } from "#lib/test-utils/assertions";
-import { databaseLayer } from "#lib/test-utils/effect";
+import { databaseLayer, fakeDatabaseSession } from "#lib/test-utils/effect";
 import { LifecycleWriteGuard } from "#modules/auth/lifecycle-write-guard";
 
 import { ObjectStorageService } from "../object-storage/service";
@@ -134,12 +133,13 @@ const makeLifecycleDatabaseLayer = (initiallyActive: boolean) =>
 					}),
 				}),
 			});
-			return Layer.merge(
-				Layer.succeed(FakeLifecycleOperation, { activate: Ref.set(active, true) }),
-				Layer.mock(DatabaseSession)({
-					current: Effect.succeed(transaction),
-					transaction: (work) => mapDatabaseErrors(work),
-				}),
+			return LifecycleWriteGuard.layer.pipe(
+				Layer.provideMerge(
+					Layer.merge(
+						Layer.succeed(FakeLifecycleOperation, { activate: Ref.set(active, true) }),
+						fakeDatabaseSession(transaction, { transaction: (work) => mapDatabaseErrors(work) }),
+					),
+				),
 			);
 		}),
 	);
@@ -340,7 +340,6 @@ const blockedRegistrationLayer = ManagedAssetsService.layer.pipe(
 			mockLocalStorage({}),
 			mockObjectStorage({}),
 			mockS3({ isConfigured: true }),
-			mockUserLifecycleGuard({ isActive: () => Effect.succeed(true) }),
 			mockManagedAssetsRepository({
 				registerPermanentOwnedObject: () => Effect.die("registration must be blocked"),
 			}),
@@ -373,7 +372,6 @@ const racedRegistrationLayer = ManagedAssetsService.layer.pipe(
 			makeLifecycleDatabaseLayer(false),
 			mockLocalStorage({}),
 			mockS3({ isConfigured: true }),
-			mockUserLifecycleGuard({ isActive: () => Effect.succeed(false) }),
 			mockManagedAssetsRepository({
 				getByLocator: () => Effect.succeed(null),
 				registerPermanentOwnedObject: () => Effect.die("registration must be blocked"),
