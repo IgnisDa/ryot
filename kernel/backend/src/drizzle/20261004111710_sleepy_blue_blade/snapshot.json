@@ -1,8 +1,8 @@
 {
 	"version": "8",
 	"dialect": "postgres",
-	"id": "2acb5d27-77b3-4176-8209-f280af13c6fe",
-	"prevIds": ["3caf9a82-fcc3-47f8-8ccf-9fdf8488efdb"],
+	"id": "b55dd6ac-26e8-4b4c-8c0f-cfa2dbaf7b78",
+	"prevIds": ["00000000-0000-0000-0000-000000000000"],
 	"ddl": [
 		{ "isRlsEnabled": false, "name": "account", "entityType": "tables", "schema": "public" },
 		{ "isRlsEnabled": false, "name": "apikey", "entityType": "tables", "schema": "public" },
