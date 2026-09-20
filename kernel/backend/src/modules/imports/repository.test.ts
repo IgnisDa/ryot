@@ -1,7 +1,7 @@
-import { expect, it } from "@effect/vitest";
+import { expect, layer } from "@effect/vitest";
 import { DbError } from "@ryot-app/contract/errors";
 import { ImportRunId, IntegrationId, UserId } from "@ryot-app/contract/schema/brands";
-import { Effect, Layer } from "effect";
+import { Context, Effect, Layer, Ref } from "effect";
 
 import { DatabaseSession } from "#lib/infrastructure/db/session";
 import { assertExitFails } from "#lib/test-utils/assertions";
@@ -37,74 +37,87 @@ const admission = {
 	pluginInstallationId: "example-installation-id",
 };
 
-const repositoryLayer = (db: unknown) =>
+class FakeImportRunInserts extends Context.Service<
+	FakeImportRunInserts,
+	{ readonly insertedValues: Effect.Effect<ReadonlyArray<Record<string, unknown>>> }
+>()("test/FakeImportRunInserts") {}
+
+const makeRepositoryLayer = (
+	onInsert: (admitted: boolean) => Effect.Effect<ReadonlyArray<typeof row>, DbError>,
+) =>
 	ImportsRepository.layer.pipe(
-		Layer.provide(
-			Layer.mock(DatabaseSession)({
-				current: Effect.succeed(Object.assign(Object.create(null), db)),
-			}),
+		Layer.provideMerge(
+			Layer.unwrap(
+				Effect.gen(function* () {
+					const admitted = yield* Ref.make(false);
+					const insertedValues = yield* Ref.make<ReadonlyArray<Record<string, unknown>>>([]);
+					const db = {
+						insert: () => ({
+							values: (values: Record<string, unknown>) => ({
+								returning: () =>
+									Ref.update(insertedValues, (all) => [...all, values]).pipe(
+										Effect.andThen(Ref.getAndSet(admitted, true)),
+										Effect.flatMap(onInsert),
+									),
+							}),
+						}),
+					};
+					return Layer.merge(
+						Layer.succeed(FakeImportRunInserts, { insertedValues: Ref.get(insertedValues) }),
+						Layer.mock(DatabaseSession)({
+							current: Effect.succeed(Object.assign(Object.create(null), db)),
+						}),
+					);
+				}),
+			),
 		),
 	);
 
-const insertingDatabase = (
-	onInsert: (values: Record<string, unknown>) => Effect.Effect<ReadonlyArray<typeof row>, DbError>,
-) => ({
-	insert: () => ({
-		values: (values: Record<string, unknown>) => ({
-			returning: () => Effect.suspend(() => onInsert(values)),
-		}),
-	}),
+const activeRunConflict = new DbError({
+	code: "23505",
+	message: "duplicate key",
+	constraint: "import_run_integration_active_unique",
 });
 
-it.effect("admits a single yank run and refuses the concurrent loser", () => {
-	let admitted = false;
-	const insertedValues: Array<Record<string, unknown>> = [];
-	const db = insertingDatabase((values) => {
-		insertedValues.push(values);
-		if (admitted) {
-			return Effect.fail(
-				new DbError({
-					code: "23505",
-					message: "duplicate key",
-					constraint: "import_run_integration_active_unique",
-				}),
+layer(
+	makeRepositoryLayer((alreadyAdmitted) =>
+		alreadyAdmitted ? Effect.fail(activeRunConflict) : Effect.succeed([row]),
+	),
+)((test) => {
+	test.effect("admits a single yank run and refuses the concurrent loser", () =>
+		Effect.gen(function* () {
+			const repository = yield* ImportsRepository;
+			const runs = yield* Effect.all(
+				[
+					repository.createRunForIntegrationIfIdle(admission),
+					repository.createRunForIntegrationIfIdle(admission),
+				],
+				{ concurrency: "unbounded" },
 			);
-		}
-		admitted = true;
-		return Effect.succeed([row]);
-	});
 
-	return Effect.gen(function* () {
-		const repository = yield* ImportsRepository;
-		const runs = yield* Effect.all(
-			[
-				repository.createRunForIntegrationIfIdle(admission),
-				repository.createRunForIntegrationIfIdle(admission),
-			],
-			{ concurrency: "unbounded" },
-		);
-
-		expect(runs.filter((run) => run !== null)).toHaveLength(1);
-		expect(runs.filter((run) => run === null)).toHaveLength(1);
-		for (const values of insertedValues) {
-			expect(values).toMatchObject({ integrationId, integrationLot: "yank" });
-		}
-	}).pipe(Effect.provide(repositoryLayer(db)));
+			expect(runs.filter((run) => run !== null)).toHaveLength(1);
+			expect(runs.filter((run) => run === null)).toHaveLength(1);
+			for (const values of yield* (yield* FakeImportRunInserts).insertedValues) {
+				expect(values).toMatchObject({ integrationId, integrationLot: "yank" });
+			}
+		}),
+	);
 });
 
-it.effect("propagates unique violations from other constraints", () => {
-	const failure = new DbError({
-		code: "23505",
-		message: "duplicate key",
-		constraint: "import_run_pkey",
-	});
-	const db = insertingDatabase(() => Effect.fail(failure));
+const otherConstraintFailure = new DbError({
+	code: "23505",
+	message: "duplicate key",
+	constraint: "import_run_pkey",
+});
 
-	return Effect.gen(function* () {
-		const repository = yield* ImportsRepository;
-		assertExitFails(
-			yield* Effect.exit(repository.createRunForIntegrationIfIdle(admission)),
-			failure,
-		);
-	}).pipe(Effect.provide(repositoryLayer(db)));
+layer(makeRepositoryLayer(() => Effect.fail(otherConstraintFailure)))((test) => {
+	test.effect("propagates unique violations from other constraints", () =>
+		Effect.gen(function* () {
+			const repository = yield* ImportsRepository;
+			assertExitFails(
+				yield* Effect.exit(repository.createRunForIntegrationIfIdle(admission)),
+				otherConstraintFailure,
+			);
+		}),
+	);
 });

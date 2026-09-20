@@ -1,10 +1,10 @@
-import { expect, it } from "@effect/vitest";
+import { expect, layer } from "@effect/vitest";
 import { ImportRunId, IntegrationId, UserId } from "@ryot-app/contract/schema/brands";
-import { Effect, Layer } from "effect";
+import { Context, Effect, Layer, Ref } from "effect";
 import { WorkflowEngine } from "effect/unstable/workflow/WorkflowEngine";
 
 import { ProKeyService } from "#lib/infrastructure/pro-key";
-import { databaseLayer, makeWorkflowEngine } from "#lib/test-utils/effect";
+import { databaseLayer, makeWorkflowEngine, type MockOverrides } from "#lib/test-utils/effect";
 import { ImportsService } from "#modules/imports/service";
 import { IntegrationProviderCatalog } from "#modules/plugins/integration-provider-catalog";
 import { PluginRuntimeResolver } from "#modules/plugins/runtime-resolver";
@@ -18,69 +18,84 @@ const integrationId = IntegrationId.make("integration-1");
 const mockRepository = Layer.mock(IntegrationsRepository);
 const mockProKey = Layer.mock(ProKeyService)({ isValidated: Effect.succeed(false) });
 
-const makeLayer = (repository: Layer.Layer<IntegrationsRepository>) =>
+class FakeAutoDisableClaims extends Context.Service<
+	FakeAutoDisableClaims,
+	{ readonly calls: Effect.Effect<ReadonlyArray<string>> }
+>()("test/FakeAutoDisableClaims") {}
+
+const makeLayer = (
+	repository: (
+		record: (call: string) => Effect.Effect<void>,
+	) => MockOverrides<typeof mockRepository>,
+) =>
 	IntegrationsService.layer.pipe(
-		Layer.provide(
+		Layer.provideMerge(
 			Layer.mergeAll(
 				databaseLayer,
-				repository,
 				mockProKey,
 				IntegrationProviderCatalog.layer.pipe(Layer.provide(databaseLayer)),
 				Layer.mock(PluginRuntimeResolver)({}),
 				Layer.mock(ImportsService, {}),
 				Layer.succeed(WorkflowEngine, makeWorkflowEngine()),
+				Layer.unwrap(
+					Effect.gen(function* () {
+						const calls = yield* Ref.make<ReadonlyArray<string>>([]);
+						return Layer.merge(
+							Layer.succeed(FakeAutoDisableClaims, { calls: Ref.get(calls) }),
+							mockRepository(repository((call) => Ref.update(calls, (all) => [...all, call]))),
+						);
+					}),
+				),
 			),
 		),
 	);
 
-it.effect("recognizes a committed auto-disable claim when its activity retries", () => {
-	const repository = mockRepository({
+layer(
+	makeLayer(() => ({
 		hasAutoDisableClaim: () => Effect.succeed(true),
 		insertAutoDisableClaim: () => Effect.die("retry inserted the claim again"),
 		disableForUserIfEnabled: () => Effect.die("retry attempted the transition again"),
-	});
-
-	return Effect.gen(function* () {
-		const service = yield* IntegrationsService;
-		expect(yield* service.disableIfEnabled(userId, integrationId, importRunId)).toBe(true);
-	}).pipe(Effect.provide(makeLayer(repository)));
+	})),
+)((test) => {
+	test.effect("recognizes a committed auto-disable claim when its activity retries", () =>
+		Effect.gen(function* () {
+			const service = yield* IntegrationsService;
+			expect(yield* service.disableIfEnabled(userId, integrationId, importRunId)).toBe(true);
+		}),
+	);
 });
 
-it.effect("persists the winning transition claim atomically", () => {
-	const calls: string[] = [];
-	const repository = mockRepository({
+layer(
+	makeLayer((record) => ({
 		hasAutoDisableClaim: () => Effect.succeed(false),
-		disableForUserIfEnabled: () => {
-			calls.push("disable");
-			return Effect.succeed(true);
-		},
-		insertAutoDisableClaim: (input) => {
-			calls.push(`claim:${input.importRunId}:${input.integrationId}`);
-			return Effect.void;
-		},
-	});
-
-	return Effect.gen(function* () {
-		const service = yield* IntegrationsService;
-		expect(yield* service.disableIfEnabled(userId, integrationId, importRunId)).toBe(true);
-		expect(calls).toEqual(["disable", "claim:run-1:integration-1"]);
-	}).pipe(Effect.provide(makeLayer(repository)));
+		disableForUserIfEnabled: () => record("disable").pipe(Effect.as(true)),
+		insertAutoDisableClaim: (input) => record(`claim:${input.importRunId}:${input.integrationId}`),
+	})),
+)((test) => {
+	test.effect("persists the winning transition claim atomically", () =>
+		Effect.gen(function* () {
+			const service = yield* IntegrationsService;
+			expect(yield* service.disableIfEnabled(userId, integrationId, importRunId)).toBe(true);
+			expect(yield* (yield* FakeAutoDisableClaims).calls).toEqual([
+				"disable",
+				"claim:run-1:integration-1",
+			]);
+		}),
+	);
 });
 
-it.effect("does not claim a transition won by another run", () => {
-	let checks = 0;
-	const repository = mockRepository({
+layer(
+	makeLayer((record) => ({
 		disableForUserIfEnabled: () => Effect.succeed(false),
+		hasAutoDisableClaim: () => record("check").pipe(Effect.as(false)),
 		insertAutoDisableClaim: () => Effect.die("losing run inserted a claim"),
-		hasAutoDisableClaim: () => {
-			checks += 1;
-			return Effect.succeed(false);
-		},
-	});
-
-	return Effect.gen(function* () {
-		const service = yield* IntegrationsService;
-		expect(yield* service.disableIfEnabled(userId, integrationId, importRunId)).toBe(false);
-		expect(checks).toBe(2);
-	}).pipe(Effect.provide(makeLayer(repository)));
+	})),
+)((test) => {
+	test.effect("does not claim a transition won by another run", () =>
+		Effect.gen(function* () {
+			const service = yield* IntegrationsService;
+			expect(yield* service.disableIfEnabled(userId, integrationId, importRunId)).toBe(false);
+			expect(yield* (yield* FakeAutoDisableClaims).calls).toEqual(["check", "check"]);
+		}),
+	);
 });

@@ -1,6 +1,6 @@
-import { expect, it } from "@effect/vitest";
+import { expect, layer } from "@effect/vitest";
 import { ImportRunId, IntegrationId, UserId } from "@ryot-app/contract/schema/brands";
-import { Effect, Layer } from "effect";
+import { Context, Effect, Layer, Ref } from "effect";
 import { WorkflowEngine, WorkflowInstance } from "effect/unstable/workflow/WorkflowEngine";
 
 import { databaseLayer, makeWorkflowActivityEngine } from "#lib/test-utils/effect";
@@ -22,113 +22,107 @@ const run = (input: {
 	integrationId: IntegrationId.make(input.integrationId),
 });
 
-type ExecuteStub = (
-	...args: Parameters<WorkflowEngine["Service"]["execute"]>
-) => Effect.Effect<unknown, unknown>;
+type ExecuteOptions = Parameters<WorkflowEngine["Service"]["execute"]>[1];
 
-const integrationsServiceMock = Layer.mock(IntegrationsService);
+class FakeIntegrationSync extends Context.Service<
+	FakeIntegrationSync,
+	{
+		readonly executions: Effect.Effect<ReadonlyArray<ExecuteOptions>>;
+		readonly preparedFor: Effect.Effect<ReadonlyArray<UserId | null>>;
+	}
+>()("test/FakeIntegrationSync") {}
 
-const makeIntegrationsService = (
-	runs: ReadonlyArray<IntegrationSyncRun>,
-	onPrepare?: (userId: UserId | null) => void,
-) =>
-	integrationsServiceMock({
-		prepareYankRuns: (userId) => {
-			onPrepare?.(userId);
-			return Effect.succeed([...runs]);
-		},
-	});
-
-const withEngine = <A, E, R>(
-	options: {
-		runs: ReadonlyArray<IntegrationSyncRun>;
-		execute?: ExecuteStub;
-		onPrepare?: (userId: UserId | null) => void;
-	},
-	effect: Effect.Effect<A, E, R>,
-) => {
-	const instance = WorkflowInstance.initial(IntegrationSyncWorkflow, payload.executionId);
-	const engine = makeWorkflowActivityEngine(instance, {
-		execute: options.execute ?? (() => Effect.void),
-	});
-	return effect.pipe(
-		Effect.provideService(WorkflowInstance, instance),
-		Effect.provideService(WorkflowEngine, engine),
-		Effect.provide(
-			Layer.mergeAll(databaseLayer, makeIntegrationsService(options.runs, options.onPrepare)),
+const makeSyncLayer = (options: {
+	runs: ReadonlyArray<IntegrationSyncRun>;
+	execute?: (options: ExecuteOptions) => Effect.Effect<unknown>;
+}) =>
+	Layer.mergeAll(
+		databaseLayer,
+		Layer.unwrap(
+			Effect.gen(function* () {
+				const executions = yield* Ref.make<ReadonlyArray<ExecuteOptions>>([]);
+				const preparedFor = yield* Ref.make<ReadonlyArray<UserId | null>>([]);
+				const instance = WorkflowInstance.initial(IntegrationSyncWorkflow, payload.executionId);
+				const execute = options.execute ?? (() => Effect.void);
+				return Layer.mergeAll(
+					Layer.succeed(FakeIntegrationSync, {
+						executions: Ref.get(executions),
+						preparedFor: Ref.get(preparedFor),
+					}),
+					Layer.succeed(WorkflowInstance, instance),
+					Layer.succeed(
+						WorkflowEngine,
+						makeWorkflowActivityEngine(instance, {
+							execute: (_workflow, executeOptions) =>
+								Ref.update(executions, (all) => [...all, executeOptions]).pipe(
+									Effect.andThen(execute(executeOptions)),
+								),
+						}),
+					),
+					Layer.mock(IntegrationsService)({
+						prepareYankRuns: (userId) =>
+							Ref.update(preparedFor, (all) => [...all, userId]).pipe(Effect.as([...options.runs])),
+					}),
+				);
+			}),
 		),
 	);
-};
 
-it.effect("prepares runs for the requested user", () => {
-	const preparedFor: Array<UserId | null> = [];
-	const userId = UserId.make("user-1");
+const runs = [
+	run({ runId: "run-1", userId: "user-1", integrationId: "integration-1" }),
+	run({ runId: "run-2", userId: "user-2", integrationId: "integration-2" }),
+];
 
-	return withEngine(
-		{ runs: [], onPrepare: (preparedUserId) => preparedFor.push(preparedUserId) },
+layer(makeSyncLayer({ runs: [] }))((test) => {
+	test.effect("prepares runs for the requested user", () =>
 		Effect.gen(function* () {
+			const userId = UserId.make("user-1");
 			yield* runIntegrationSyncWorkflow({ ...payload, userId }, payload.executionId);
 
-			expect(preparedFor).toEqual([userId]);
+			expect(yield* (yield* FakeIntegrationSync).preparedFor).toEqual([userId]);
 		}),
 	);
 });
 
-it.effect("dispatches a process run for every eligible integration from the body", () => {
-	const captured: Array<Parameters<WorkflowEngine["Service"]["execute"]>[1]> = [];
-	const runs = [
-		run({ runId: "run-1", userId: "user-1", integrationId: "integration-1" }),
-		run({ runId: "run-2", userId: "user-2", integrationId: "integration-2" }),
-	];
+layer(makeSyncLayer({ runs, execute: (options) => Effect.succeed(options.executionId) }))(
+	(test) => {
+		test.effect("dispatches a process run for every eligible integration from the body", () =>
+			Effect.gen(function* () {
+				yield* runIntegrationSyncWorkflow(payload, payload.executionId);
 
-	return withEngine(
-		{
-			runs,
-			execute: (_workflow, options) => {
-				captured.push(options);
-				return Effect.succeed(options.executionId);
-			},
-		},
-		Effect.gen(function* () {
-			yield* runIntegrationSyncWorkflow(payload, payload.executionId);
+				expect(yield* (yield* FakeIntegrationSync).executions).toMatchObject([
+					{
+						discard: true,
+						executionId: "run-1",
+						payload: { runId: "run-1", userId: "user-1", integrationId: "integration-1" },
+					},
+					{
+						discard: true,
+						executionId: "run-2",
+						payload: { runId: "run-2", userId: "user-2", integrationId: "integration-2" },
+					},
+				]);
+			}),
+		);
+	},
+);
 
-			expect(captured).toMatchObject([
-				{
-					discard: true,
-					executionId: "run-1",
-					payload: { runId: "run-1", userId: "user-1", integrationId: "integration-1" },
-				},
-				{
-					discard: true,
-					executionId: "run-2",
-					payload: { runId: "run-2", userId: "user-2", integrationId: "integration-2" },
-				},
-			]);
-		}),
-	);
-});
-
-it.effect("swallows a run dispatch failure and continues to the remaining runs", () => {
-	const dispatched: string[] = [];
-	const runs = [
-		run({ runId: "run-1", userId: "user-1", integrationId: "integration-1" }),
-		run({ runId: "run-2", userId: "user-2", integrationId: "integration-2" }),
-	];
-
-	return withEngine(
-		{
-			runs,
-			execute: (_workflow, options) => {
-				dispatched.push(options.executionId);
-				return options.executionId === "run-1"
-					? Effect.die("dispatch boom")
-					: Effect.succeed(options.executionId);
-			},
-		},
+layer(
+	makeSyncLayer({
+		runs,
+		execute: (options) =>
+			options.executionId === "run-1"
+				? Effect.die("dispatch boom")
+				: Effect.succeed(options.executionId),
+	}),
+)((test) => {
+	test.effect("swallows a run dispatch failure and continues to the remaining runs", () =>
 		Effect.gen(function* () {
 			const exit = yield* Effect.exit(runIntegrationSyncWorkflow(payload, payload.executionId));
 			expect(exit._tag).toBe("Success");
-			expect(dispatched).toEqual(["run-1", "run-2"]);
+			expect(
+				(yield* (yield* FakeIntegrationSync).executions).map(({ executionId }) => executionId),
+			).toEqual(["run-1", "run-2"]);
 		}),
 	);
 });
