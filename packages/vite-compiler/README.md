@@ -13,10 +13,12 @@ Workspace acquisition and staging are typed Effect APIs. `acquireCompilerWorkspa
 standard Effect `FileSystem` service and `Effect.acquireRelease`; its workspace is removed when the
 owning scope closes. A caller can supply `parentPath` and `jobId` so its supervisor knows the job
 directory before worker startup. `ViteBuildService.layer` provides the live Vite invocation and can
-be replaced by a deterministic Layer in tests. Public failures use `ViteCompilerError` and its stable
-`reason` field. Pure path validation, environment sanitization, and output collection return Effect
-`Result` values; they do not throw. Bun callers provide the standard `BunFileSystem.layer` (or their
-existing Bun services Layer) to workspace Effects.
+be replaced by a deterministic Layer in tests. Its `build` operation maps Vite's Promise rejection
+to a typed `ViteCompilerError`, retaining the original cause for diagnostic normalization. The
+Vite plugin transform hook itself follows Vite's Promise callback API. Public failures use
+`ViteCompilerError` and its stable `reason` field. Pure path validation, environment sanitization,
+and output collection return Effect `Result` values; they do not throw. Bun callers provide the
+standard `BunFileSystem.layer` (or their existing Bun services Layer) to workspace Effects.
 
 `buildDenoEsm` emits exactly one unminified ES2022 ESM file with an inline source map. It accepts
 either staged source files and a relative entry or an external/absolute entry through a generated

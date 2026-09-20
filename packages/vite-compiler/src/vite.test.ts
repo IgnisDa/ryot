@@ -1,3 +1,5 @@
+// Tests construct native filesystem paths for the Vite workspace.
+// oxlint-disable-next-line effecttsgo/node-builtin-import
 import { join } from "node:path";
 
 import { BunFileSystem } from "@effect/platform-bun";
@@ -10,6 +12,7 @@ import {
 	stageGeneratedFiles,
 	stageSourceFiles,
 	ViteBuildService,
+	ViteCompilerError,
 } from "./index";
 import type { CompilerWorkspace } from "./index";
 
@@ -173,7 +176,12 @@ describe("Vite build", () => {
 		};
 		const viteLayer = Layer.succeed(
 			ViteBuildService,
-			ViteBuildService.of({ build: () => Effect.fail(cause) }),
+			ViteBuildService.of({
+				build: () =>
+					Effect.fail(
+						new ViteCompilerError({ cause, reason: "vite-build", message: "Vite build failed" }),
+					),
+			}),
 		);
 		return Effect.gen(function* () {
 			const failure = yield* Effect.flip(
@@ -214,10 +222,7 @@ describe("Vite build", () => {
 			const workspace = yield* acquireCompilerWorkspace();
 			yield* stageSourceFiles(workspace, [
 				{ path: "dependency/index.ts", contents: "export const value: number = 1;" },
-				{
-					path: "dependency/tsconfig.json",
-					contents: JSON.stringify({ extends: "../../missing-tsconfig.json" }),
-				},
+				{ path: "dependency/tsconfig.json", contents: '{"extends":"../../missing-tsconfig.json"}' },
 			]);
 			yield* stageGeneratedFiles(workspace, [
 				{ path: "entry.ts", contents: 'export { value } from "../source/dependency/index";' },
