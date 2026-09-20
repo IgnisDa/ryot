@@ -1,18 +1,27 @@
+import { EntityId } from "@ryot-app/contract/schema/brands";
+import { measurementSummaryRecipe } from "@ryot-app/fitness-plugin/measurement-recipes";
 import { measurementReadingListRecipe } from "@ryot-app/fitness-plugin/query-recipes";
 import { Effect } from "effect";
 
 import {
 	createAuthenticatedClient,
+	createEntity,
 	executeRyotQLRecipe,
 	findBuiltinSchemaBySlug,
 	findBuiltinPluginBySlug,
+	getEntity,
 	listEntitySchemas,
+	listEventsForEntity,
 	listEventSchemas,
 	listSavedViews,
 	requireEventSchemaBySlug,
+	waitForCreateEvents,
 } from "~/fixtures/kernel";
-import { createMeasurementReadingFixture } from "~/fixtures/plugins/fitness";
-import { assertPresent } from "~/support/assertions";
+import {
+	createMeasurementMetric,
+	createMeasurementReadingFixture,
+} from "~/fixtures/plugins/fitness";
+import { assertPresent, requirePresent } from "~/support/assertions";
 import { describe, expect, it } from "~/support/effect-test";
 
 describe("Measurements E2E", () => {
@@ -88,6 +97,160 @@ describe("Measurements E2E", () => {
 					occurredAt: expect.stringMatching(/^2026-04-27T08:00:00(\.\d+)?Z$/),
 				}),
 			]);
+		}),
+	);
+
+	it.live("creates normalized metrics without readings and keeps their summaries private", () =>
+		Effect.gen(function* () {
+			const { client } = yield* createAuthenticatedClient();
+			const [weight, custom, unitless] = yield* Effect.all([
+				createMeasurementMetric(client, { name: " Weight " }),
+				createMeasurementMetric(client, { unit: " points ", name: " Custom Metric " }),
+				createMeasurementMetric(client, { name: "Resting Heart Rate" }),
+			]);
+			const metrics = [
+				{ name: "Weight", entityId: weight.entityId, properties: { unit: "kg", key: "weight" } },
+				{
+					name: "Custom Metric",
+					entityId: custom.entityId,
+					properties: { unit: "points", key: "custom_metric" },
+				},
+				{
+					name: "Resting Heart Rate",
+					entityId: unitless.entityId,
+					properties: { key: "resting_heart_rate" },
+				},
+			];
+
+			for (const metric of metrics) {
+				const stored = yield* getEntity(client, metric.entityId);
+				expect(stored).toMatchObject({
+					name: metric.name,
+					id: metric.entityId,
+					entitySchemaSlug: "measurement-metric",
+				});
+				expect(stored.properties).toEqual(metric.properties);
+				expect(yield* listEventsForEntity(client, metric.entityId, undefined, 100)).toEqual([]);
+			}
+
+			const summary = yield* executeRyotQLRecipe(
+				client,
+				measurementSummaryRecipe({ rangeStart: "1970-01-01T00:00:00.000Z" }),
+			);
+			expect(summary.items).toEqual(
+				expect.arrayContaining([
+					expect.objectContaining({
+						unit: "kg",
+						key: "weight",
+						firstAt: null,
+						rangeCount: 0,
+						latestAt: null,
+						latestValue: null,
+					}),
+					expect.objectContaining({
+						firstAt: null,
+						rangeCount: 0,
+						unit: "points",
+						latestAt: null,
+						latestValue: null,
+						key: "custom_metric",
+					}),
+					expect.objectContaining({
+						unit: null,
+						firstAt: null,
+						rangeCount: 0,
+						latestAt: null,
+						latestValue: null,
+						key: "resting_heart_rate",
+					}),
+				]),
+			);
+
+			const { client: otherClient } = yield* createAuthenticatedClient();
+			const otherSummary = yield* executeRyotQLRecipe(
+				otherClient,
+				measurementSummaryRecipe({ rangeStart: "1970-01-01T00:00:00.000Z" }),
+			);
+			expect(otherSummary.items).toEqual([]);
+		}),
+	);
+
+	it.live("paginates all measurement metrics after the summary cursor", () =>
+		Effect.gen(function* () {
+			const { client } = yield* createAuthenticatedClient();
+			const { schema: metricSchema } = yield* findBuiltinSchemaBySlug(client, "measurement-metric");
+			const seeded = yield* Effect.all(
+				Array.from({ length: 101 }, (_, index) => {
+					const suffix = index.toString().padStart(3, "0");
+					return createEntity(client, {
+						name: `Metric ${suffix}`,
+						entitySchemaSlug: metricSchema.id,
+						properties: { key: `metric_${suffix}` },
+					});
+				}),
+				{ concurrency: 4 },
+			);
+
+			const first = yield* executeRyotQLRecipe(
+				client,
+				measurementSummaryRecipe({ rangeStart: "1970-01-01T00:00:00.000Z" }),
+			);
+			expect(first.items).toHaveLength(100);
+			expect(first.pageInfo.hasMore).toBe(true);
+			const nextCursor = requirePresent(first.pageInfo.nextCursor, "Expected next metric cursor");
+
+			const second = yield* executeRyotQLRecipe(
+				client,
+				measurementSummaryRecipe({ after: nextCursor, rangeStart: "1970-01-01T00:00:00.000Z" }),
+			);
+			expect(second.items).toHaveLength(1);
+			expect(second.pageInfo.hasMore).toBe(false);
+			const ids = [...first.items, ...second.items].map(({ id }) => id);
+			expect(ids).toHaveLength(seeded.length);
+			expect(new Set(ids)).toEqual(new Set(seeded.map(({ id }) => id)));
+		}),
+	);
+
+	it.live("pages the reading log past 100 readings without repeating the boundary", () =>
+		Effect.gen(function* () {
+			const { client } = yield* createAuthenticatedClient();
+			const { entityId } = yield* createMeasurementMetric(client, { name: "Weight" });
+			const { schema } = yield* findBuiltinSchemaBySlug(client, "measurement-metric");
+			const eventSchema = requireEventSchemaBySlug(
+				yield* listEventSchemas(client, schema.id),
+				"measurement-reading",
+			);
+			const readings = Array.from({ length: 101 }, (_, value) => ({
+				properties: { value },
+				eventSchemaSlug: eventSchema.id,
+				entityId: EntityId.make(entityId),
+				occurredAt: new Date(Date.UTC(2026, 0, 1, 0, value)).toISOString(),
+			}));
+			for (const payload of [readings.slice(0, 100), readings.slice(100)]) {
+				yield* waitForCreateEvents(
+					client,
+					yield* client.call((contract) => contract.events.create({ payload })),
+				);
+			}
+			const first = yield* executeRyotQLRecipe(
+				client,
+				measurementReadingListRecipe({ limit: 100 }),
+			);
+			expect(first.items.map(({ value }) => value)).toEqual(
+				Array.from({ length: 100 }, (_, index) => 100 - index),
+			);
+			expect(first.pageInfo.hasMore).toBe(true);
+			const second = yield* executeRyotQLRecipe(
+				client,
+				measurementReadingListRecipe({
+					limit: 100,
+					after: requirePresent(first.pageInfo.nextCursor, "Expected next reading cursor"),
+				}),
+			);
+			expect(second.items.map(({ value }) => value)).toEqual([0]);
+			expect(second.pageInfo.hasMore).toBe(false);
+			expect(second.pageInfo.nextCursor).toBeNull();
+			expect(new Set([...first.items, ...second.items].map(({ id }) => id)).size).toBe(101);
 		}),
 	);
 });
