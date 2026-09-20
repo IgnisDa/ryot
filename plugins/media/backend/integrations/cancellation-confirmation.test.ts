@@ -25,6 +25,7 @@ import {
 } from "@ryot-app/kernel-backend/modules/integrations/ingestion";
 import { AdmittedWorkflowCatalogue } from "@ryot-app/kernel-backend/modules/mutations/workflow-catalogue";
 import { IngestionReadinessService } from "@ryot-app/kernel-backend/modules/plugins/ingestion-readiness-service";
+import { PluginInstallationRepository } from "@ryot-app/kernel-backend/modules/plugins/installation-repository";
 import { SandboxPluginScriptResolver } from "@ryot-app/kernel-backend/modules/sandbox/plugin-script-resolver";
 import { SandboxExecutionService } from "@ryot-app/kernel-backend/modules/sandbox/service";
 import { Effect, Schema } from "@ryot-app/sandbox-sdk/effect";
@@ -189,6 +190,7 @@ it.effect.each(["spotify", "youtube-music"] as const)(
 				Layer.succeed(AdmittedWorkflowCatalogue, []),
 				Layer.succeed(WorkflowEngine, makeWorkflowEngine()),
 				Layer.mock(IngestionReadinessService)({}),
+				Layer.mock(PluginInstallationRepository)({}),
 				Layer.mock(SandboxPluginScriptResolver)({}),
 				Layer.mock(ImportWorkflowPinning)({ release: () => Effect.void }),
 				Layer.mock(ImportSourceStateStore)({

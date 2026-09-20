@@ -1,3 +1,5 @@
+import type { SandboxBoundaryReason } from "@ryot-app/contract/modules/sandbox/boundary-reason";
+import { SANDBOX_HOST_CAPABILITIES } from "@ryot-app/contract/modules/sandbox/wire";
 import {
 	jsonByteLength,
 	SANDBOX_COMPILER_LIMITS,
@@ -46,6 +48,17 @@ export const sandboxHostCallLimitMessage = (limit: number) =>
 export const sandboxHttpCallLimitMessage = (limit: number) =>
 	`Sandbox execution exceeds ${limit} httpCall calls`;
 
+const executionLimit = (
+	message: string,
+	functionName: string,
+): { message: string; reason: SandboxBoundaryReason } => {
+	const operation = SANDBOX_HOST_CAPABILITIES.find((capability) => capability === functionName);
+	return {
+		message,
+		reason: { ...(operation === undefined ? {} : { operation }), code: "execution-limit" },
+	};
+};
+
 export const SANDBOX_RUNNER_LIMITS = {
 	httpCallCount: SANDBOX_LIMITS.hostCalls.http,
 	logEntryBytes: SANDBOX_LIMITS.logs.entryBytes,
@@ -73,10 +86,10 @@ export const consumeSandboxHostCall = (
 		budget.http += 1;
 	}
 	if (budget.total > totalLimit) {
-		return sandboxHostCallLimitMessage(totalLimit);
+		return executionLimit(sandboxHostCallLimitMessage(totalLimit), functionName);
 	}
 	if (budget.http > SANDBOX_LIMITS.hostCalls.http) {
-		return sandboxHttpCallLimitMessage(SANDBOX_LIMITS.hostCalls.http);
+		return executionLimit(sandboxHttpCallLimitMessage(SANDBOX_LIMITS.hostCalls.http), functionName);
 	}
 	return null;
 };

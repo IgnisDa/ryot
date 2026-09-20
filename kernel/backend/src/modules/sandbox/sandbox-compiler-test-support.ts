@@ -8,7 +8,6 @@ import { Effect, Schema } from "@ryot-app/sandbox-sdk/effect";
 
 export const manifest = defineManifest({
   kind: "script",
-  capabilities: [],
   name: "Plain value",
   slug: "plain-value",
 });

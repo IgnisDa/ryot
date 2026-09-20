@@ -37,6 +37,8 @@ import {
 	type RegisteredImportSource,
 } from "#modules/plugins/import-source-catalog";
 import { IngestionReadinessService } from "#modules/plugins/ingestion-readiness-service";
+import { PluginInstallationRepository } from "#modules/plugins/installation-repository";
+import { resolveStoredPluginUserSettings } from "#modules/plugins/user-settings";
 import { UploadIntentsService } from "#modules/uploads/intents/service";
 
 import { DataImportAdmission } from "./data-admission";
@@ -96,6 +98,7 @@ export class ImportsService extends Context.Service<ImportsService>()("ImportsSe
 		const workflowPinning = yield* ImportWorkflowPinning;
 		const receipts = yield* MutationReceipts.make;
 		const readiness = yield* IngestionReadinessService;
+		const pluginInstallations = yield* PluginInstallationRepository;
 		const execution = yield* IngestionExecution;
 
 		const createManualRun = Effect.fn("ImportsService.createManualRun")(function* (
@@ -169,6 +172,32 @@ export class ImportsService extends Context.Service<ImportsService>()("ImportsSe
 				yield* cleanupUploads(uploadIntentIds);
 				return yield* failDispatch("workflow-pin", pin.failure);
 			}
+			const installation = yield* pluginInstallations
+				.findUserSettingsForRevision({
+					userId: user.id,
+					pluginId: input.registered.pluginId,
+					installationId: input.registered.installationId,
+					pluginRevisionId: input.registered.configContext.pluginRevisionId,
+				})
+				.pipe(Effect.result);
+			if (Result.isFailure(installation) || !installation.success) {
+				yield* cleanupUploads(uploadIntentIds);
+				return yield* failDispatch(
+					"execution-settings",
+					Result.isFailure(installation) ? installation.failure : "Plugin installation not found",
+				);
+			}
+			const settingsSchema = installation.success.manifest.userSettingsSchema;
+			const userSettings = settingsSchema
+				? yield* resolveStoredPluginUserSettings(
+						settingsSchema,
+						installation.success.userSettings,
+					).pipe(Effect.result)
+				: Result.succeed({});
+			if (Result.isFailure(userSettings)) {
+				yield* cleanupUploads(uploadIntentIds);
+				return yield* failDispatch("execution-settings", userSettings.failure);
+			}
 
 			const stored = yield* sourceStates
 				.store({
@@ -181,6 +210,7 @@ export class ImportsService extends Context.Service<ImportsService>()("ImportsSe
 						pluginRevision: pin.success.pluginRevision,
 						namedArtifactPaths: input.namedArtifactPaths,
 						pluginInstallationId: input.registered.installationId,
+						executionSettings: { userSettings: userSettings.success },
 					},
 				})
 				.pipe(Effect.exit);

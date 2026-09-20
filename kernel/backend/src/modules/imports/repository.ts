@@ -27,9 +27,14 @@ import { Context, Effect, Layer, Schema } from "effect";
 import { isUniqueConstraintError } from "#lib/infrastructure/db/errors";
 import * as schema from "#lib/infrastructure/db/schema/tables/combined";
 import { DatabaseSession } from "#lib/infrastructure/db/session";
+import { PluginConfigEncryptionKey } from "#modules/plugins/config-encryption-key";
 
-import { PreparedIngestionRelease } from "./runtime/prepared-release";
+import {
+	PreparedIngestionRelease,
+	PreparedIngestionReleaseCiphertext,
+} from "./runtime/prepared-release";
 import type { IngestionRecoveryCursor } from "./runtime/recovery-cursor";
+import { ImportSourceState } from "./runtime/source-state";
 
 type ImportRunRow = typeof schema.importRun.$inferSelect;
 
@@ -56,6 +61,8 @@ const owned = (scope: IngestionScope) =>
 		sql`${schema.importRun.accountGeneration} = (select account_generation from "user" where id = ${scope.userId})`,
 	);
 
+const preparedReleaseEncryptionPurpose = "ryot/ingestion/prepared-release";
+
 const executableOwner = () => sql`
 	(${schema.importRun.integrationId} is null or exists (select 1 from ${schema.integration} where ${schema.integration.id} = ${schema.importRun.integrationId} and not ${schema.integration.retiring}))
 	and (${schema.importRun.pluginInstallationId} is null or exists (select 1 from ${schema.pluginInstallation} where ${schema.pluginInstallation.id} = ${schema.importRun.pluginInstallationId} and not ${schema.pluginInstallation.ingestionRetiring} and ${schema.pluginInstallation.uninstalledAt} is null))
@@ -64,6 +71,36 @@ const executableOwner = () => sql`
 export class ImportsRepository extends Context.Service<ImportsRepository>()("ImportsRepository", {
 	make: Effect.gen(function* () {
 		const database = yield* DatabaseSession;
+		const encryptionKeys = yield* PluginConfigEncryptionKey;
+		const encryptPreparedRelease = Effect.fn("ImportsRepository.encryptPreparedRelease")(function* (
+			scope: IngestionScope,
+			prepared: PreparedIngestionRelease,
+		) {
+			const plaintext = yield* Schema.encodeEffect(Schema.fromJsonString(ImportSourceState))(
+				prepared.state,
+			);
+			const state = yield* (yield* encryptionKeys.load).encryptWithSubkey(
+				preparedReleaseEncryptionPurpose,
+				plaintext,
+				scope,
+			);
+			return yield* Schema.decodeEffect(PreparedIngestionReleaseCiphertext)({ ...prepared, state });
+		});
+		const decryptPreparedRelease = Effect.fn("ImportsRepository.decryptPreparedRelease")(function* (
+			scope: IngestionScope,
+			input: unknown,
+		) {
+			const encrypted = yield* Schema.decodeUnknownEffect(PreparedIngestionReleaseCiphertext)(
+				input,
+			);
+			const plaintext = yield* (yield* encryptionKeys.load).decryptWithSubkey(
+				preparedReleaseEncryptionPurpose,
+				encrypted.state,
+				scope,
+			);
+			const state = yield* Schema.decodeEffect(Schema.fromJsonString(ImportSourceState))(plaintext);
+			return yield* Schema.decodeEffect(PreparedIngestionRelease)({ ...encrypted, state });
+		});
 		const assertAdmissionOwner = Effect.fn("ImportsRepository.assertAdmissionOwner")(
 			function* (input: {
 				userId: UserId;
@@ -1550,15 +1587,15 @@ export class ImportsRepository extends Context.Service<ImportsRepository>()("Imp
 			if (run.pins && stableStringify(run.pins) !== stableStringify(pins)) {
 				return yield* new DbError({ message: "Ingestion pin reservation changed" });
 			}
-			if (
-				run.preparedRelease &&
-				stableStringify(run.preparedRelease) !== stableStringify(preparedRelease)
-			) {
-				return yield* new DbError({ message: "Ingestion prepared release changed" });
-			}
 			const prepared = preparedRelease
 				? yield* Schema.decodeEffect(PreparedIngestionRelease)(preparedRelease)
 				: undefined;
+			const retained = run.preparedRelease
+				? yield* decryptPreparedRelease(scope, run.preparedRelease)
+				: null;
+			if (run.preparedRelease && stableStringify(retained) !== stableStringify(prepared)) {
+				return yield* new DbError({ message: "Ingestion prepared release changed" });
+			}
 			if (
 				prepared &&
 				(prepared.state.workflowScriptId !== pins.scriptId ||
@@ -1569,10 +1606,13 @@ export class ImportsRepository extends Context.Service<ImportsRepository>()("Imp
 					message: "Ingestion prepared release does not match retained pins",
 				});
 			}
+			const retainedCiphertext =
+				run.preparedRelease ??
+				(prepared ? yield* encryptPreparedRelease(scope, prepared) : undefined);
 			yield* database.run((db) =>
 				db
 					.update(schema.importRun)
-					.set({ pins, ...(prepared ? { preparedRelease: prepared } : {}) })
+					.set({ pins, ...(retainedCiphertext ? { preparedRelease: retainedCiphertext } : {}) })
 					.where(owned(scope)),
 			);
 			return yield* Effect.void;
@@ -1588,7 +1628,7 @@ export class ImportsRepository extends Context.Service<ImportsRepository>()("Imp
 					.limit(1),
 			);
 			return row?.preparedRelease
-				? yield* Schema.decodeEffect(PreparedIngestionRelease)(row.preparedRelease)
+				? yield* decryptPreparedRelease(scope, row.preparedRelease)
 				: null;
 		});
 		const retireRuns = Effect.fn("ImportsRepository.retireRuns")(function* (input: {
@@ -1812,5 +1852,7 @@ export class ImportsRepository extends Context.Service<ImportsRepository>()("Imp
 		};
 	}),
 }) {
-	static readonly layer = Layer.effect(this, this.make);
+	static readonly layer = Layer.effect(this, this.make).pipe(
+		Layer.provide(PluginConfigEncryptionKey.layer),
+	);
 }
