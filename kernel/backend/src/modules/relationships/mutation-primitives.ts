@@ -24,7 +24,11 @@ import {
 	canonicalLifecyclePolicyPatch,
 } from "#lib/domain/lifecycle-policy-patch";
 import type { RelationshipSchemaDefinition } from "#modules/definition-registry/snapshot";
-import type { DomainLifecycleCommand } from "#modules/entities/write-context";
+import {
+	assertStableUnder,
+	type DomainLifecycleCommand,
+	writerPropertiesSchema,
+} from "#modules/entities/write-context";
 import {
 	MutationReceiptIdentityConflict,
 	type MutationReceiptIdentity,
@@ -101,12 +105,12 @@ export const makeRelationshipMutationPrimitives = ({
 				lock,
 			)
 			.pipe(Effect.mapError(relationshipWriteFailure));
-		const activeDeclaration =
-			manifest && reference.owner.kind === "plugin"
-				? (yield* writes.activeManifest(reference.owner.pluginId)).relationshipSchemas.find(
-						({ slug }) => slug === reference.slug,
-					)
-				: null;
+		const { pinned: declared, active: activeDeclaration } = yield* writes.resolvePinnedDeclaration(
+			"relationship",
+			manifest,
+			reference.owner,
+			reference.slug,
+		);
 		let active: RelationshipSchemaDefinition | null = activeDeclaration
 			? { ...activeDeclaration, pluginId: mutation.input.relationshipSchemaPluginId }
 			: null;
@@ -125,7 +129,6 @@ export const makeRelationshipMutationPrimitives = ({
 				reason: { schema: reference, code: "relationship-schema-not-found" },
 			});
 		}
-		const declared = manifest?.relationshipSchemas.find(({ slug }) => slug === reference.slug);
 		if (manifest && !declared) {
 			return yield* new RelationshipBadRequest({
 				reason: { code: "concurrent-relationship-change" },
@@ -171,20 +174,12 @@ export const makeRelationshipMutationPrimitives = ({
 		yield* assertActiveTransaction;
 		const validated = yield* validateMutation(mutation);
 		if (before && mutation.command.writeContext?.pluginRevision) {
-			const stored = yield* parseProperties(
+			yield* assertStableUnder(
+				"Relationship",
+				writerPropertiesSchema(validated.pinned.propertiesSchema),
 				before.properties,
-				validated.pinned.propertiesSchema,
-				true,
-			).pipe(
-				Effect.mapError(
-					() => new RelationshipBadRequest({ reason: { code: "concurrent-relationship-change" } }),
-				),
+				() => new RelationshipBadRequest({ reason: { code: "concurrent-relationship-change" } }),
 			);
-			if (!equal(stored, before.properties)) {
-				return yield* new RelationshipBadRequest({
-					reason: { code: "concurrent-relationship-change" },
-				});
-			}
 		}
 		if (!before && mutation.mode === "update") {
 			return yield* new RelationshipNotFound({ reason: { code: "relationship-not-found" } });
@@ -356,20 +351,12 @@ export const makeRelationshipMutationPrimitives = ({
 		const current = row ? yield* snapshot(row) : null;
 		const stored = prepared ? before : current;
 		if (stored && mutation.command.writeContext?.pluginRevision) {
-			const parsed = yield* parseProperties(
+			yield* assertStableUnder(
+				"Relationship",
+				writerPropertiesSchema(validated.pinned.propertiesSchema),
 				stored.properties,
-				validated.pinned.propertiesSchema,
-				true,
-			).pipe(
-				Effect.mapError(
-					() => new RelationshipBadRequest({ reason: { code: "concurrent-relationship-change" } }),
-				),
+				() => new RelationshipBadRequest({ reason: { code: "concurrent-relationship-change" } }),
 			);
-			if (!equal(parsed, stored.properties)) {
-				return yield* new RelationshipBadRequest({
-					reason: { code: "concurrent-relationship-change" },
-				});
-			}
 		}
 		if (!prepared && !equal(current, before)) {
 			return yield* new RelationshipBadRequest({
