@@ -112,10 +112,6 @@ export const pluginRevision = snakeCase.table(
 		pluginId: text()
 			.notNull()
 			.references((): AnyPgColumn => plugin.id, { onDelete: "cascade" }),
-		sandboxAuthority: jsonb()
-			.$type<PluginSandboxAuthority>()
-			.notNull()
-			.generatedAlwaysAs(sql`plugin_sandbox_authority(manifest)`),
 	},
 	(table) => [
 		unique("plugin_revision_plugin_source_unique").on(table.pluginId, table.sourceHash),
@@ -127,6 +123,86 @@ export const pluginRevision = snakeCase.table(
 		}),
 	],
 );
+
+export const pluginRevisionSandboxAuthority = snakeCase.view("plugin_revision_sandbox_authority", {
+	id: text().notNull(),
+	sandboxAuthority: jsonb().$type<PluginSandboxAuthority>().notNull(),
+}).as(sql`
+		select id, case
+			when jsonb_typeof(manifest->'scripts') is distinct from 'array'
+				or jsonb_typeof(manifest->'workflows') is distinct from 'array'
+				or jsonb_typeof(manifest->'userBootstrap') is distinct from 'array'
+				or jsonb_typeof(manifest->'entitySchemas') is distinct from 'array'
+				or jsonb_typeof(manifest->'relationshipSchemas') is distinct from 'array'
+			then 'null'::jsonb
+			when exists (
+				select 1
+				from jsonb_array_elements(manifest->'entitySchemas') as entities(entity_schema)
+				where jsonb_typeof(entity_schema->'eventSchemas') is distinct from 'array'
+			)
+			then 'null'::jsonb
+			else jsonb_build_object(
+				'configSchema', manifest->'configSchema',
+				'workflowScripts', coalesce(
+					(
+						select jsonb_object_agg(workflow->>'slug', workflow->'scriptSlug')
+						from jsonb_array_elements(manifest->'workflows') as workflows(workflow)
+					),
+					'{}'::jsonb
+				),
+				'userBootstrapScriptSlugs', coalesce(
+					(
+						select jsonb_agg(bootstrap->'scriptSlug' order by bootstrap_position)
+						from jsonb_array_elements(manifest->'userBootstrap')
+							with ordinality as bootstraps(bootstrap, bootstrap_position)
+					),
+					'[]'::jsonb
+				),
+				'schemaScope', jsonb_build_object(
+					'entitySchemaSlugs', coalesce(
+						(
+							select jsonb_agg(entity_schema->'slug' order by entity_position)
+							from jsonb_array_elements(manifest->'entitySchemas')
+								with ordinality as entities(entity_schema, entity_position)
+						),
+						'[]'::jsonb
+					),
+					'relationshipSchemaSlugs', coalesce(
+						(
+							select jsonb_agg(relationship_schema->'slug' order by relationship_position)
+							from jsonb_array_elements(manifest->'relationshipSchemas')
+								with ordinality as relationships(relationship_schema, relationship_position)
+						),
+						'[]'::jsonb
+					),
+					'eventSchemas', coalesce(
+						(
+							select jsonb_agg(
+								jsonb_build_object(
+									'eventSchemaSlug', event_schema->'slug',
+									'entitySchemaSlug', entity_schema->'slug'
+								)
+								order by entity_position, event_position
+							)
+							from jsonb_array_elements(manifest->'entitySchemas')
+								with ordinality as entities(entity_schema, entity_position)
+							cross join lateral jsonb_array_elements(entity_schema->'eventSchemas')
+								with ordinality as events(event_schema, event_position)
+						),
+						'[]'::jsonb
+					)
+				),
+				'scriptKinds', coalesce(
+					(
+						select jsonb_object_agg(script->>'slug', script->'kind')
+						from jsonb_array_elements(manifest->'scripts') as scripts(script)
+					),
+					'{}'::jsonb
+				)
+			)
+		end as sandbox_authority
+		from "plugin_revision"
+	`);
 
 export const pluginInstallation = snakeCase.table(
 	"plugin_installation",
