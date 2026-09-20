@@ -1,12 +1,12 @@
 {
 	"env": { "node": true, "browser": true },
 	"settings": { "react": { "version": "19.0.0" } },
-	"options": { "typeAware": true, "denyWarnings": true },
 	"$schema": "./node_modules/oxlint/configuration_schema.json",
 	"jsPlugins": ["eslint-plugin-perfectionist", "./ci/oxlint/ryot-plugin.mjs"],
 	"extends": ["./node_modules/@effect/tsgo/oxlint-presets/recommended.json"],
 	"categories": { "perf": "warn", "suspicious": "warn", "correctness": "error" },
 	"plugins": ["react", "typescript", "unicorn", "import", "oxc", "node", "promise"],
+	"options": { "typeAware": true, "denyWarnings": true, "reportUnusedDisableDirectives": "error" },
 	"ignorePatterns": [
 		"**/out/**",
 		"**/dist/**",
