@@ -12,13 +12,10 @@ describe("user settings preference draft", () => {
 	});
 
 	it("only includes changed preferences", () => {
-		expect(
-			preferencePayload(preferences, {
-				allowNsfw: true,
-				language: " es ",
-				disableIntegrations: false,
-			}),
-		).toEqual({ language: "es", allowNsfw: true });
+		expect(preferencePayload(preferences, { allowNsfw: true, language: " es " })).toEqual({
+			language: "es",
+			allowNsfw: true,
+		});
 	});
 
 	it("clears an existing language when the field is blank", () => {

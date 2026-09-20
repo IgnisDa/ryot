@@ -5,12 +5,10 @@ import {
 	useRyotMutation,
 	useRyotQuery,
 } from "@ryot-app/client-sdk/react";
-import { AppIcon } from "@ryot-app/client-ui-sdk/icon";
 import type { TwoFactorStatus } from "@ryot-app/contract/modules/user-settings/schemas";
-import { Link, createFileRoute } from "@tanstack/react-router";
+import { createFileRoute } from "@tanstack/react-router";
 import { Effect } from "effect";
 
-import { PublicApi } from "#/api/public";
 import { UserSettingsApi } from "#/api/user-settings";
 import type { KernelHostServices } from "#/host-services";
 import { HostedAuthService } from "#/modules/auth/hosted-service";
@@ -18,12 +16,9 @@ import { RuntimeOAuthClientService } from "#/modules/auth/runtime-client";
 import { AuthService, type SettledAuthSession } from "#/modules/auth/service";
 import { useIsDemoSession } from "#/modules/demo-protection";
 import { AccountProfile } from "#/modules/settings/account-profile";
-import { AccountServer } from "#/modules/settings/account-server";
 import { AccountSession } from "#/modules/settings/account-session";
 import { AccountTwoFactor } from "#/modules/settings/account-two-factor";
-import { AccountVersions } from "#/modules/settings/account-versions";
 import { SettingsFrame } from "#/modules/settings/settings-frame";
-import { SettingsSection } from "#/modules/settings/settings-section";
 
 export const Route = createFileRoute("/_authenticated/settings/account")({
 	component: AccountRoute,
@@ -35,16 +30,6 @@ const accountIdentityQuery = createRyotQuery<void, SettledAuthSession, KernelHos
 			.runSync(AuthService)
 			.settledSession(hostServices.scope.serverUrl)
 			.pipe(Effect.mapError(() => new RyotClientError("transport"))),
-);
-
-const serverVersionQuery = createRyotQuery<void, string, KernelHostServices>(({ hostServices }) =>
-	hostServices.runtime
-		.runSync(PublicApi)
-		.getSystemConfig(hostServices.scope.serverUrl)
-		.pipe(
-			Effect.map((config) => config.version),
-			Effect.mapError(() => new RyotClientError("transport")),
-		),
 );
 
 const twoFactorStatusQuery = createRyotQuery<void, TwoFactorStatus, KernelHostServices>(
@@ -86,7 +71,6 @@ function AccountRoute() {
 	const identity = useRyotQuery(accountIdentityQuery);
 	const twoFactorStatus = useRyotQuery(twoFactorStatusQuery);
 	const isDemo = useIsDemoSession(runtime.runSync(AuthService).session(server));
-	const serverVersion = useRyotQuery(serverVersionQuery);
 	const refreshAvatar = useRyotMutation(refreshAvatarMutation);
 	const signOut = useRyotMutation(signOutMutation);
 
@@ -120,32 +104,6 @@ function AccountRoute() {
 									)
 							: undefined
 					}
-				/>
-				<SettingsSection
-					title="Server administration"
-					detail="Manage server-wide data and operations."
-				>
-					<Link
-						to="/god-mode"
-						className="flex items-center gap-4 rounded-xl border border-border bg-surface p-4 transition-colors hover:bg-surface-2"
-					>
-						<span className="flex size-11 shrink-0 items-center justify-center rounded-lg bg-accent-soft text-accent-text">
-							<AppIcon size={20} name="crown" />
-						</span>
-						<span className="min-w-0 flex-1">
-							<span className="block font-semibold text-text">God Mode</span>
-							<span className="block text-sm text-text-muted">
-								Requires an admin access token. The token stays in memory on this device.
-							</span>
-						</span>
-						<AppIcon name="chevron-right" className="shrink-0 text-text-subtle" />
-					</Link>
-				</SettingsSection>
-				{isNative && <AccountServer server={server} />}
-				<AccountVersions
-					serverVersion={serverVersion.data}
-					isLoading={serverVersion.isPending}
-					onRetry={() => serverVersion.refetch()}
 				/>
 				<AccountSession
 					isPending={signOut.isPending}
