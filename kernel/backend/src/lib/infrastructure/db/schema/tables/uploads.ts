@@ -11,7 +11,7 @@ export const managedAsset = snakeCase.table(
 		size: integer().notNull(),
 		contentType: text().notNull(),
 		provider: text().notNull().$type<ManagedAssetLocator["type"]>(),
-		createdAt: timestamp({ withTimezone: true }).defaultNow().notNull(),
+		createdAt: timestamp({ precision: 3, withTimezone: true }).defaultNow().notNull(),
 		ownerUserId: text()
 			.notNull()
 			.references(() => user.id, { onDelete: "cascade" }),

@@ -26,7 +26,7 @@ export const migrationReport = snakeCase.table(
 		elapsedSeconds: doublePrecision(),
 		code: text().$type<MigrationReportAnomalyCode>(),
 		level: text().notNull().$type<MigrationReportLevel>(),
-		createdAt: timestamp({ withTimezone: true }).defaultNow().notNull(),
+		createdAt: timestamp({ precision: 3, withTimezone: true }).defaultNow().notNull(),
 	},
 	(table) => [
 		check("migration_report_level_check", sql`${table.level} in ('info', 'warning')`),
@@ -42,7 +42,7 @@ export const migrationReportDetail = snakeCase.table(
 	{
 		seq: serial().primaryKey(),
 		detail: jsonb().$type<MigrationReportDetail>().notNull(),
-		createdAt: timestamp({ withTimezone: true }).defaultNow().notNull(),
+		createdAt: timestamp({ precision: 3, withTimezone: true }).defaultNow().notNull(),
 		reportSeq: integer()
 			.notNull()
 			.references(() => migrationReport.seq, { onDelete: "cascade" }),

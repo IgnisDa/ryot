@@ -24,10 +24,10 @@ export const mutationReceipt = snakeCase.table(
 		evidence: jsonb().$type<AutomationTriggerPayload>(),
 		accountGeneration: jsonb().$type<AccountGeneration>(),
 		mutationScope: text().$type<"global" | "user">().notNull(),
-		recordedAt: timestamp({ withTimezone: true }).defaultNow().notNull(),
 		ownerUserId: text().references(() => user.id, { onDelete: "cascade" }),
 		scopeUserId: text().references(() => user.id, { onDelete: "cascade" }),
 		pluginId: text().references(() => plugin.id, { onDelete: "restrict" }),
+		recordedAt: timestamp({ precision: 3, withTimezone: true }).defaultNow().notNull(),
 		sandboxScriptId: text().references(() => sandboxScript.id, { onDelete: "restrict" }),
 		pluginRevisionId: text().references(() => pluginRevision.id, { onDelete: "restrict" }),
 		pluginConfigRevisionId: text().references(() => pluginConfigRevision.id, {

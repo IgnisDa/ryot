@@ -54,13 +54,13 @@ export const integration = snakeCase.table(
 		isDisabled: boolean().notNull().default(false),
 		syncOwnership: boolean().notNull().default(false),
 		minimumProgress: numeric().notNull().default("2"),
-		lastFinishedAt: timestamp({ withTimezone: true }),
 		maximumProgress: numeric().notNull().default("95"),
 		provider: text().$type<IntegrationProvider>().notNull(),
+		lastFinishedAt: timestamp({ precision: 3, withTimezone: true }),
 		extraSettings: jsonb().$type<IntegrationExtraSettings>().notNull(),
-		createdAt: timestamp({ withTimezone: true }).defaultNow().notNull(),
 		providerSpecifics: jsonb().$type<IntegrationProviderSettings>().notNull(),
 		clientProviderSpecifics: jsonb().$type<IntegrationProviderSettings>().notNull(),
+		createdAt: timestamp({ precision: 3, withTimezone: true }).defaultNow().notNull(),
 		userId: text()
 			.notNull()
 			.references(() => user.id, { onDelete: "cascade" }),
@@ -68,7 +68,7 @@ export const integration = snakeCase.table(
 			.notNull()
 			.primaryKey()
 			.$defaultFn(() => /* @__PURE__ */ generateId()),
-		updatedAt: timestamp({ withTimezone: true })
+		updatedAt: timestamp({ precision: 3, withTimezone: true })
 			.defaultNow()
 			.$onUpdate(() => /* @__PURE__ */ new Date())
 			.notNull(),
@@ -108,19 +108,19 @@ export const importRun = snakeCase.table(
 		accountGeneration: text().notNull(),
 		plan: jsonb().$type<IngestionPlan>(),
 		pins: jsonb().$type<IngestionPins>(),
-		startedAt: timestamp({ withTimezone: true }),
-		finishedAt: timestamp({ withTimezone: true }),
 		integrationLot: text().$type<IntegrationLot>(),
-		blockDeadline: timestamp({ withTimezone: true }),
 		source: text().notNull().$type<ImportRunSource>(),
 		collectionSealed: boolean().notNull().default(false),
 		expiryReason: text().$type<"setup-deadline-expired">(),
 		failureReason: jsonb().$type<ImportRunFailureReason>(),
-		createdAt: timestamp({ withTimezone: true }).defaultNow().notNull(),
+		startedAt: timestamp({ precision: 3, withTimezone: true }),
+		finishedAt: timestamp({ precision: 3, withTimezone: true }),
+		blockDeadline: timestamp({ precision: 3, withTimezone: true }),
 		preparedRelease: jsonb().$type<PreparedIngestionReleaseCiphertext>(),
 		status: text().notNull().$type<ImportRunStatus>().default("pending"),
 		inputSummary: jsonb().$type<Record<string, unknown>>().notNull().default({}),
 		integrationId: text().references(() => integration.id, { onDelete: "cascade" }),
+		createdAt: timestamp({ precision: 3, withTimezone: true }).defaultNow().notNull(),
 		userId: text()
 			.notNull()
 			.references(() => user.id, { onDelete: "cascade" }),
@@ -130,7 +130,7 @@ export const importRun = snakeCase.table(
 			.primaryKey()
 			.$defaultFn(() => /* @__PURE__ */ generateId()),
 		pluginInstallationId: text().references(() => pluginInstallation.id, { onDelete: "set null" }),
-		updatedAt: timestamp({ withTimezone: true })
+		updatedAt: timestamp({ precision: 3, withTimezone: true })
 			.defaultNow()
 			.$onUpdate(() => /* @__PURE__ */ new Date())
 			.notNull(),
@@ -352,7 +352,7 @@ export const integrationAutoDisableClaim = snakeCase.table(
 	"integration_auto_disable_claim",
 	{
 		importRunId: text().notNull().primaryKey(),
-		createdAt: timestamp({ withTimezone: true }).defaultNow().notNull(),
+		createdAt: timestamp({ precision: 3, withTimezone: true }).defaultNow().notNull(),
 		integrationId: text()
 			.notNull()
 			.references(() => integration.id, { onDelete: "cascade" }),

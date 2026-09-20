@@ -27,17 +27,17 @@ export const clientPageComposition = snakeCase.table("client_page_composition", 
 	compositionHash: text().notNull().unique(),
 	identity: jsonb().$type<ClientPageCompositionIdentity>().notNull(),
 	manifest: jsonb().$type<ClientPageCompositionManifest>().notNull(),
-	createdAt: timestamp({ withTimezone: true }).defaultNow().notNull(),
+	createdAt: timestamp({ precision: 3, withTimezone: true }).defaultNow().notNull(),
 });
 
 export const pluginCatalogChange = snakeCase.table(
 	"plugin_catalog_change",
 	{
 		userId: text().references(() => user.id, { onDelete: "cascade" }),
-		createdAt: timestamp({ withTimezone: true }).defaultNow().notNull(),
 		id: text()
 			.primaryKey()
 			.$defaultFn(() => /* @__PURE__ */ generateId()),
+		createdAt: timestamp({ precision: 3, withTimezone: true }).defaultNow().notNull(),
 	},
 	(table) => [index("plugin_catalog_change_user_id_idx").on(table.userId)],
 );
@@ -55,15 +55,15 @@ export const savedView = snakeCase.table(
 		dataSources: jsonb().$type<RyotQLDocument>(),
 		isHidden: boolean().notNull().default(false),
 		renderer: jsonb().$type<SavedViewRenderer>().notNull(),
-		createdAt: timestamp({ withTimezone: true }).defaultNow().notNull(),
 		settings: jsonb().$type<Readonly<Record<string, JsonValue>>>().notNull(),
 		id: text()
 			.primaryKey()
 			.$defaultFn(() => /* @__PURE__ */ generateId()),
+		createdAt: timestamp({ precision: 3, withTimezone: true }).defaultNow().notNull(),
 		userId: text()
 			.notNull()
 			.references(() => user.id, { onDelete: "cascade" }),
-		updatedAt: timestamp({ withTimezone: true })
+		updatedAt: timestamp({ precision: 3, withTimezone: true })
 			.defaultNow()
 			.$onUpdate(() => /* @__PURE__ */ new Date())
 			.notNull(),

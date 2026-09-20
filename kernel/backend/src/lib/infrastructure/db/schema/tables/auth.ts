@@ -23,15 +23,15 @@ export const user = snakeCase.table(
 		id: text().primaryKey(),
 		twoFactorEnabled: boolean(),
 		email: text().notNull().unique(),
-		disabledAt: timestamp({ withTimezone: true }),
 		emailVerified: boolean().default(false).notNull(),
-		bootstrapCompletedAt: timestamp({ withTimezone: true }),
-		createdAt: timestamp({ withTimezone: true }).defaultNow().notNull(),
+		disabledAt: timestamp({ precision: 3, withTimezone: true }),
+		bootstrapCompletedAt: timestamp({ precision: 3, withTimezone: true }),
+		createdAt: timestamp({ precision: 3, withTimezone: true }).defaultNow().notNull(),
 		accountGeneration: text()
 			.default(sql`gen_random_uuid()::text`)
 			.notNull(),
 		preferences: jsonb().$type<UserPreferences>().default(defaultUserPreferences).notNull(),
-		updatedAt: timestamp({ withTimezone: true })
+		updatedAt: timestamp({ precision: 3, withTimezone: true })
 			.defaultNow()
 			.$onUpdate(() => /* @__PURE__ */ new Date())
 			.notNull(),
@@ -62,13 +62,13 @@ export const session = snakeCase.table(
 		id: text().primaryKey(),
 		token: text().notNull().unique(),
 		accessClass: text().default("standard").notNull(),
-		expiresAt: timestamp({ withTimezone: true }).notNull(),
-		impersonationExpiresAt: timestamp({ withTimezone: true }),
-		createdAt: timestamp({ withTimezone: true }).defaultNow().notNull(),
+		expiresAt: timestamp({ precision: 3, withTimezone: true }).notNull(),
+		impersonationExpiresAt: timestamp({ precision: 3, withTimezone: true }),
+		createdAt: timestamp({ precision: 3, withTimezone: true }).defaultNow().notNull(),
 		userId: text()
 			.notNull()
 			.references(() => user.id, { onDelete: "cascade" }),
-		updatedAt: timestamp({ withTimezone: true })
+		updatedAt: timestamp({ precision: 3, withTimezone: true })
 			.$onUpdate(() => /* @__PURE__ */ new Date())
 			.notNull(),
 	},
@@ -87,13 +87,13 @@ export const account = snakeCase.table(
 		issuer: text().notNull(),
 		accountId: text().notNull(),
 		providerId: text().notNull(),
-		accessTokenExpiresAt: timestamp({ withTimezone: true }),
-		refreshTokenExpiresAt: timestamp({ withTimezone: true }),
-		createdAt: timestamp({ withTimezone: true }).defaultNow().notNull(),
+		accessTokenExpiresAt: timestamp({ precision: 3, withTimezone: true }),
+		refreshTokenExpiresAt: timestamp({ precision: 3, withTimezone: true }),
+		createdAt: timestamp({ precision: 3, withTimezone: true }).defaultNow().notNull(),
 		userId: text()
 			.notNull()
 			.references(() => user.id, { onDelete: "cascade" }),
-		updatedAt: timestamp({ withTimezone: true })
+		updatedAt: timestamp({ precision: 3, withTimezone: true })
 			.$onUpdate(() => /* @__PURE__ */ new Date())
 			.notNull(),
 	},
@@ -106,9 +106,9 @@ export const verification = snakeCase.table(
 		id: text().primaryKey(),
 		value: text().notNull(),
 		identifier: text().notNull(),
-		expiresAt: timestamp({ withTimezone: true }).notNull(),
-		createdAt: timestamp({ withTimezone: true }).defaultNow().notNull(),
-		updatedAt: timestamp({ withTimezone: true })
+		expiresAt: timestamp({ precision: 3, withTimezone: true }).notNull(),
+		createdAt: timestamp({ precision: 3, withTimezone: true }).defaultNow().notNull(),
+		updatedAt: timestamp({ precision: 3, withTimezone: true })
 			.defaultNow()
 			.$onUpdate(() => /* @__PURE__ */ new Date())
 			.notNull(),
@@ -133,13 +133,13 @@ export const apikey = snakeCase.table(
 		requestCount: integer().default(0),
 		rateLimitMax: integer().default(10),
 		rateLimitEnabled: boolean().default(true),
-		expiresAt: timestamp({ withTimezone: true }),
 		configId: text().default("default").notNull(),
-		lastRequest: timestamp({ withTimezone: true }),
-		lastRefillAt: timestamp({ withTimezone: true }),
 		rateLimitTimeWindow: integer().default(86400000),
-		createdAt: timestamp({ withTimezone: true }).notNull(),
-		updatedAt: timestamp({ withTimezone: true }).notNull(),
+		expiresAt: timestamp({ precision: 3, withTimezone: true }),
+		lastRequest: timestamp({ precision: 3, withTimezone: true }),
+		lastRefillAt: timestamp({ precision: 3, withTimezone: true }),
+		createdAt: timestamp({ precision: 3, withTimezone: true }).notNull(),
+		updatedAt: timestamp({ precision: 3, withTimezone: true }).notNull(),
 		referenceId: text()
 			.notNull()
 			.references(() => user.id, { onDelete: "cascade" }),
@@ -157,7 +157,7 @@ export const twoFactor = snakeCase.table("two_factor", {
 	verified: boolean().notNull(),
 	backupCodes: text().notNull(),
 	failedVerificationCount: integer().default(0),
-	lockedUntil: timestamp({ withTimezone: true }),
+	lockedUntil: timestamp({ precision: 3, withTimezone: true }),
 	userId: text()
 		.notNull()
 		.references(() => user.id, { onDelete: "cascade" }),
@@ -169,8 +169,8 @@ export const jwks = snakeCase.table("jwks", {
 	id: text().primaryKey(),
 	publicKey: text().notNull(),
 	privateKey: text().notNull(),
-	expiresAt: timestamp({ withTimezone: true }),
-	createdAt: timestamp({ withTimezone: true }).notNull(),
+	expiresAt: timestamp({ precision: 3, withTimezone: true }),
+	createdAt: timestamp({ precision: 3, withTimezone: true }).notNull(),
 });
 
 export const oauthClient = snakeCase.table(
@@ -206,11 +206,11 @@ export const oauthClient = snakeCase.table(
 		redirectUris: text().array().notNull(),
 		postLogoutRedirectUris: text().array(),
 		backchannelLogoutSessionRequired: boolean(),
-		createdAt: timestamp({ withTimezone: true }),
-		updatedAt: timestamp({ withTimezone: true }),
 		dpopBoundAccessTokens: boolean().default(false),
 		metadata: jsonb().$type<Record<string, unknown>>(),
 		clientCredentialsScopes: text().array().default([]),
+		createdAt: timestamp({ precision: 3, withTimezone: true }),
+		updatedAt: timestamp({ precision: 3, withTimezone: true }),
 		userId: text().references(() => user.id, { onDelete: "cascade" }),
 	},
 	(table) => [index("oauth_client_userId_idx").on(table.userId)],
@@ -227,19 +227,19 @@ export const oauthResource = snakeCase.table("oauth_resource", {
 	disabled: boolean().default(false),
 	policyVersion: integer().default(1),
 	identifier: text().notNull().unique(),
-	createdAt: timestamp({ withTimezone: true }),
-	updatedAt: timestamp({ withTimezone: true }),
 	metadata: jsonb().$type<Record<string, unknown>>(),
 	customClaims: jsonb().$type<Record<string, unknown>>(),
 	dpopBoundAccessTokensRequired: boolean().default(false),
+	createdAt: timestamp({ precision: 3, withTimezone: true }),
+	updatedAt: timestamp({ precision: 3, withTimezone: true }),
 });
 
 export const oauthClientResource = snakeCase.table(
 	"oauth_client_resource",
 	{
 		id: text().primaryKey(),
-		createdAt: timestamp({ withTimezone: true }),
 		metadata: jsonb().$type<Record<string, unknown>>(),
+		createdAt: timestamp({ precision: 3, withTimezone: true }),
 		clientId: text()
 			.notNull()
 			.references(() => oauthClient.clientId, { onDelete: "cascade" }),
@@ -268,13 +268,13 @@ export const oauthRefreshToken = snakeCase.table(
 		token: text().notNull().unique(),
 		scopes: text().array().notNull(),
 		requestedUserInfoClaims: text().array(),
-		revoked: timestamp({ withTimezone: true }),
-		authTime: timestamp({ withTimezone: true }),
-		rotatedAt: timestamp({ withTimezone: true }),
 		confirmation: jsonb().$type<Record<string, unknown>>(),
-		expiresAt: timestamp({ withTimezone: true }).notNull(),
-		createdAt: timestamp({ withTimezone: true }).notNull(),
-		rotationReplayExpiresAt: timestamp({ withTimezone: true }),
+		revoked: timestamp({ precision: 3, withTimezone: true }),
+		authTime: timestamp({ precision: 3, withTimezone: true }),
+		rotatedAt: timestamp({ precision: 3, withTimezone: true }),
+		expiresAt: timestamp({ precision: 3, withTimezone: true }).notNull(),
+		createdAt: timestamp({ precision: 3, withTimezone: true }).notNull(),
+		rotationReplayExpiresAt: timestamp({ precision: 3, withTimezone: true }),
 		sessionId: text().references(() => session.id, { onDelete: "set null" }),
 		clientId: text()
 			.notNull()
@@ -301,11 +301,11 @@ export const oauthAccessToken = snakeCase.table(
 		authorizationCodeId: text(),
 		scopes: text().array().notNull(),
 		requestedUserInfoClaims: text().array(),
-		revoked: timestamp({ withTimezone: true }),
 		confirmation: jsonb().$type<Record<string, unknown>>(),
-		expiresAt: timestamp({ withTimezone: true }).notNull(),
-		createdAt: timestamp({ withTimezone: true }).notNull(),
+		revoked: timestamp({ precision: 3, withTimezone: true }),
 		userId: text().references(() => user.id, { onDelete: "cascade" }),
+		expiresAt: timestamp({ precision: 3, withTimezone: true }).notNull(),
+		createdAt: timestamp({ precision: 3, withTimezone: true }).notNull(),
 		sessionId: text().references(() => session.id, { onDelete: "set null" }),
 		clientId: text()
 			.notNull()
@@ -329,9 +329,9 @@ export const oauthConsent = snakeCase.table(
 		resources: text().array(),
 		scopes: text().array().notNull(),
 		requestedUserInfoClaims: text().array(),
-		createdAt: timestamp({ withTimezone: true }).notNull(),
-		updatedAt: timestamp({ withTimezone: true }).notNull(),
 		userId: text().references(() => user.id, { onDelete: "cascade" }),
+		createdAt: timestamp({ precision: 3, withTimezone: true }).notNull(),
+		updatedAt: timestamp({ precision: 3, withTimezone: true }).notNull(),
 		clientId: text()
 			.notNull()
 			.references(() => oauthClient.clientId),
@@ -344,5 +344,5 @@ export const oauthConsent = snakeCase.table(
 
 export const oauthClientAssertion = snakeCase.table("oauth_client_assertion", {
 	id: text().primaryKey(),
-	expiresAt: timestamp({ withTimezone: true }).notNull(),
+	expiresAt: timestamp({ precision: 3, withTimezone: true }).notNull(),
 });
