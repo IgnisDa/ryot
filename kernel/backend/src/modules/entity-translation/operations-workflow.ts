@@ -14,36 +14,6 @@ import { SandboxExecutionService } from "#modules/sandbox/service";
 
 import type { TranslateEntityWorkflowPayload } from "./entity-translation-workflow";
 
-const processSandboxTranslation = Effect.fn("processSandboxTranslation")(function* (
-	payload: TranslateEntityWorkflowPayload,
-	executionId: string,
-) {
-	const sandbox = yield* SandboxExecutionService;
-	const pluginRuntime = yield* PluginRuntimeResolver;
-	const scriptId = yield* makeActivity({
-		error: SandboxRunError,
-		success: SandboxScriptId satisfies DurableSchema,
-		name: `resolve-provider-translate-script-${executionId}`,
-		execute: pluginRuntime.resolveUserTranslateScript(payload.userId, payload.providerId).pipe(
-			Effect.map(({ id }) => id),
-			Effect.mapError((error) => toSandboxRunError(error, "infrastructure")),
-		),
-	});
-	return yield* sandbox
-		.executeScript({
-			scriptId,
-			executionId: `${executionId}-sandbox-translate`,
-			subject: { type: "user", userId: payload.userId },
-			input: {
-				language: payload.language,
-				externalId: payload.externalId,
-				properties: payload.properties,
-				entitySchemaSlug: payload.entitySchemaSlug,
-			},
-		})
-		.pipe(Effect.mapError((error) => toSandboxRunError(error, "infrastructure")));
-});
-
 export type TranslateEntityWorkflowOperationsValue = {
 	processSandbox: (
 		payload: TranslateEntityWorkflowPayload,
@@ -65,12 +35,37 @@ export const TranslateEntityWorkflowOperationsLive = Layer.effect(
 	Effect.gen(function* () {
 		const sandbox = yield* SandboxExecutionService;
 		const pluginRuntime = yield* PluginRuntimeResolver;
-		return {
-			processSandbox: (payload, executionId) =>
-				processSandboxTranslation(payload, executionId).pipe(
-					Effect.provideService(PluginRuntimeResolver, pluginRuntime),
-					Effect.provideService(SandboxExecutionService, sandbox),
+
+		const processSandboxTranslation = Effect.fn("processSandboxTranslation")(function* (
+			payload: TranslateEntityWorkflowPayload,
+			executionId: string,
+		) {
+			const scriptId = yield* makeActivity({
+				error: SandboxRunError,
+				success: SandboxScriptId satisfies DurableSchema,
+				name: `resolve-provider-translate-script-${executionId}`,
+				execute: pluginRuntime.resolveUserTranslateScript(payload.userId, payload.providerId).pipe(
+					Effect.map(({ id }) => id),
+					Effect.mapError((error) => toSandboxRunError(error, "infrastructure")),
 				),
+			});
+			return yield* sandbox
+				.executeScript({
+					scriptId,
+					executionId: `${executionId}-sandbox-translate`,
+					subject: { type: "user", userId: payload.userId },
+					input: {
+						language: payload.language,
+						externalId: payload.externalId,
+						properties: payload.properties,
+						entitySchemaSlug: payload.entitySchemaSlug,
+					},
+				})
+				.pipe(Effect.mapError((error) => toSandboxRunError(error, "infrastructure")));
+		});
+
+		return {
+			processSandbox: processSandboxTranslation,
 		} satisfies TranslateEntityWorkflowOperationsValue;
 	}),
 );

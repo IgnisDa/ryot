@@ -102,7 +102,7 @@ import { RyotQLService } from "#modules/ryotql/service";
 import {
 	RuntimeSandboxServiceLive,
 	SandboxExecutionServiceLive,
-	SandboxPluginScriptResolverLive,
+	SandboxWorkflowPinningLive,
 } from "#modules/sandbox/layer";
 import { SandboxRepository } from "#modules/sandbox/repository";
 import { SandboxWorkflowDefinitionsLive } from "#modules/sandbox/sandbox-workflow-live";
@@ -257,7 +257,7 @@ const RuntimeWorkflowDefinitionsLive = Layer.mergeAll(
 		SandboxWorkflowDefinitionsLive,
 		Layer.mergeAll(
 			SandboxRepository.layer,
-			SandboxPluginScriptResolverLive,
+			SandboxWorkflowPinningLive,
 			SandboxWorkflowReferenceRepository.layer,
 			KernelWorkflowReferencesLive.pipe(
 				Layer.provide(
