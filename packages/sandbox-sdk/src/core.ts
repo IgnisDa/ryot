@@ -2,6 +2,7 @@ import {
 	AutomationAfterInputProjection,
 	AutomationPolicyInputProjection,
 } from "@ryot-app/contract/modules/automations/lifecycle";
+import type { SandboxExecutionMetadata } from "@ryot-app/contract/modules/plugins/execution-metadata";
 import type { RyotQLDocument } from "@ryot-app/contract/modules/ryotql/language";
 import type { SandboxHostCapability } from "@ryot-app/contract/modules/sandbox/wire";
 import { POLICY_SAFE_SANDBOX_CAPABILITIES } from "@ryot-app/contract/modules/sandbox/wire";
@@ -25,7 +26,7 @@ const positiveInteger = Schema.Number.pipe(
 );
 
 type GetConfig = (
-	keys: ReadonlyArray<string>,
+	...args: Schema.Schema.Type<typeof getPluginConfigArgsSchema>
 ) => Effect.Effect<Readonly<Record<string, JsonValue>>, SandboxHostError>;
 
 export const CORE_SANDBOX_HOST_CAPABILITIES = [
@@ -38,6 +39,7 @@ export const CORE_SANDBOX_HOST_CAPABILITIES = [
 	"getUserPreferences",
 	"getUserSettings",
 	"claimPersistentValue",
+	"getPersistentValue",
 ] as const;
 
 export const coreSandboxHostCapabilitySchema = Schema.Literals([...CORE_SANDBOX_HOST_CAPABILITIES]);
@@ -96,7 +98,12 @@ export const claimPersistentValueArgsSchema = Schema.Tuple([
 	cacheTtlSecondsSchema,
 ]);
 export const configKeysSchema = Schema.Array(nonEmptyString);
-export const getPluginConfigArgsSchema = Schema.Tuple([configKeysSchema]);
+export const getPluginConfigArgsSchema = Schema.Tuple([
+	strictStruct({
+		required: Schema.optional(configKeysSchema),
+		optional: Schema.optional(configKeysSchema),
+	}),
+]);
 export const claimPersistentValueResultSchema = hostResultSchema(cacheClaimSchema);
 export const configValuesSchema = Schema.Record(Schema.String, jsonValueSchema);
 export const getPluginConfigResultSchema = hostResultSchema(configValuesSchema);
@@ -150,6 +157,11 @@ export const coreSandboxHostContracts = {
 		args: setCachedValueArgsSchema,
 		success: setCachedValueDataSchema,
 		result: setCachedValueResultSchema,
+	},
+	getPersistentValue: {
+		args: getCachedValueArgsSchema,
+		success: getCachedValueDataSchema,
+		result: getCachedValueResultSchema,
 	},
 	getUserPreferences: {
 		success: userPreferencesSchema,
@@ -648,7 +660,6 @@ const sandboxManifestBaseFields = {
 	slug: manifestSlugSchema,
 	name: manifestStringSchema,
 	capabilities: Schema.Array(sandboxHostCapabilitySchema),
-	requiredPluginConfigKeys: Schema.Array(manifestStringSchema),
 };
 
 export const sandboxManifestSchema = Schema.Union([
@@ -697,7 +708,13 @@ export type ExecutionMetadata = Schema.Schema.Type<typeof executionMetadataSchem
 export type SandboxWorkflowReference<
 	Input extends Schema.Constraint,
 	Output extends Schema.ConstraintDecoder<unknown>,
-> = { readonly input: Input; readonly output: Output; readonly workflowSlug: string };
+> = {
+	readonly input: Input;
+	readonly output: Output;
+	readonly workflowSlug: string;
+	readonly referenceKind: "workflow";
+	readonly selection?: SandboxExecutionMetadata["executableDependencies"][number]["selection"];
+};
 
 export type SandboxWorkflowHost = {
 	readonly executeWorkflow?: <

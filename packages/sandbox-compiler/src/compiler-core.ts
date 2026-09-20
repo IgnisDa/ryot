@@ -43,6 +43,14 @@ export const compileSandboxSource = (source: string, workspaceOptions?: Compiler
 			),
 		);
 		const inspection = inspectSandboxSource(project.sourceFile);
+		if (!project.execution) {
+			return yield* sandboxCompilationFailure([
+				sandboxCompilerDiagnostic("RYOT_DEPENDENCY", "Executable analysis is missing"),
+			]);
+		}
+		if (project.execution.diagnostics.length) {
+			return yield* sandboxCompilationFailure(project.execution.diagnostics);
+		}
 		if (inspection.diagnostics.length > 0) {
 			return yield* sandboxCompilationFailure(inspection.diagnostics);
 		}
@@ -71,9 +79,9 @@ export const compileSandboxSource = (source: string, workspaceOptions?: Compiler
 				sandboxCompilerDiagnostic("RYOT_DEFINITION", definitionMismatch),
 			]);
 		}
+		const manifest = { ...extracted.manifest, ...project.execution.metadata };
 		if (
-			(jsonByteLength(extracted.manifest) ?? Number.POSITIVE_INFINITY) >
-			SANDBOX_COMPILER_LIMITS.manifestBytes
+			(jsonByteLength(manifest) ?? Number.POSITIVE_INFINITY) > SANDBOX_COMPILER_LIMITS.manifestBytes
 		) {
 			return yield* sandboxCompilationFailure([
 				sandboxCompilerDiagnostic(
@@ -94,8 +102,8 @@ export const compileSandboxSource = (source: string, workspaceOptions?: Compiler
 		}
 
 		return {
+			manifest,
 			javascript,
-			manifest: extracted.manifest,
 			format: SANDBOX_COMPILED_FORMAT,
 		} satisfies CompiledSandboxModule;
 	});
