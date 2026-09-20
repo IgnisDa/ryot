@@ -13,20 +13,22 @@ import {
 import { Modal } from "@ryot-app/client-ui-sdk";
 import { EntityId, EntitySchemaSlug, PluginSlug } from "@ryot-app/contract/schema/brands";
 import { fireEvent, waitFor } from "@testing-library/dom";
-import { Effect, Schema } from "effect";
+import { Effect, Layer, ManagedRuntime, Schema } from "effect";
 import { useEffect, useState } from "react";
 
 import {
 	bootstrapClientPlugin,
 	bootstrapClientPage,
+	createClientBootstrap,
 	usePageContext,
 	usePluginParams,
 	usePluginTitle,
 	type EntityRendererProps,
 } from "./plugin";
 import * as pluginSurface from "./plugin";
-import { useRyot, useRyotTheme } from "./react";
-import { waitForMessagePortMacrotask } from "./testing";
+import { useRyot, useRyotSchedule, useRyotTheme } from "./react";
+import { RyotClientService, RyotNavigationService, RyotScheduleService } from "./schedule";
+import { createTestRyotClock, mountPluginPage, waitForMessagePortMacrotask } from "./testing";
 
 const metadata = {
 	hash: "composition-hash",
@@ -140,6 +142,13 @@ const CrashingHome = () => {
 	throw new Error("fatal render");
 };
 
+const ScheduledHome = () => {
+	const schedule = useRyotSchedule();
+	const [ticks, setTicks] = useState(0);
+	useEffect(() => schedule.after(100, () => setTicks((current) => current + 1)), [schedule]);
+	return <p>{`ticks:${ticks}`}</p>;
+};
+
 const embedMetadata = () => {
 	const element = document.createElement("script");
 	element.type = "application/json";
@@ -189,6 +198,205 @@ afterEach(() => {
 });
 
 describe("bootstrapClientPlugin", () => {
+	it.live(
+		"keeps simultaneous bootstrap clocks and navigation independent after one harness is disposed",
+		() =>
+			Effect.gen(function* () {
+				const a = createTestRyotClock();
+				const b = createTestRyotClock();
+				const open = (bootstrap: typeof a.bootstrap, sessionId: string) => {
+					const container = document.createElement("div");
+					container.id = "app";
+					document.body.append(container);
+					const instance = bootstrap.bootstrapClientPlugin({
+						home: { component: ScheduledHome },
+						routes: [{ path: "/detail", component: StaticHome }],
+					});
+					bootstraps.push(instance);
+					const channel = new MessageChannel();
+					channels.push(channel);
+					channel.port1.start();
+					window.dispatchEvent(
+						new MessageEvent("message", {
+							source: window.parent,
+							ports: [channel.port2],
+							data: { ...init, sessionId },
+						}),
+					);
+					const navigate = (path: string) =>
+						channel.port1.postMessage({
+							index: 0,
+							key: "k0",
+							compact: false,
+							edgeBack: false,
+							type: "location",
+							leading: "drawer",
+							location: routeLocation(path),
+						});
+					navigate("/");
+					return { instance, navigate, container };
+				};
+				try {
+					embedMetadata();
+					const pageA = open(a.bootstrap, "a");
+					yield* Effect.promise(() =>
+						waitFor(() => expect(pageA.container.textContent).toBe("ticks:0")),
+					);
+					pageA.container.id = "app-a";
+					const pageB = open(b.bootstrap, "b");
+					yield* Effect.promise(() =>
+						waitFor(() => expect(pageB.container.textContent).toBe("ticks:0")),
+					);
+					pageB.container.id = "app-b";
+					pageA.navigate("/detail");
+					yield* Effect.promise(() =>
+						waitFor(() => expect(pageA.container.textContent).toBe("Mounted")),
+					);
+					expect(pageB.container.textContent).toBe("ticks:0");
+					pageA.navigate("/");
+					yield* Effect.promise(() =>
+						waitFor(() => expect(pageA.container.textContent).toBe("ticks:0")),
+					);
+					yield* Effect.promise(() => a.advance(100));
+					expect(pageA.container.textContent).toBe("ticks:1");
+					expect(pageB.container.textContent).toBe("ticks:0");
+					pageA.instance.dispose();
+					yield* Effect.promise(() => a.dispose());
+					const pageC = open(b.bootstrap, "c");
+					yield* Effect.promise(() =>
+						waitFor(() => expect(pageC.container.textContent).toBe("ticks:0")),
+					);
+					yield* Effect.promise(() => b.advance(100));
+					expect(pageB.container.textContent).toBe("ticks:1");
+					expect(pageC.container.textContent).toBe("ticks:1");
+				} finally {
+					yield* Effect.promise(() => b.dispose());
+				}
+			}),
+	);
+
+	it.live("interrupts pending page work on disposal without disposing its harness clock", () =>
+		Effect.gen(function* () {
+			const clock = createTestRyotClock();
+			let started = false;
+			let interrupted = false;
+			const Pending = () => {
+				const schedule = useRyotSchedule();
+				useEffect(() => {
+					schedule.run(
+						Effect.sync(() => {
+							started = true;
+						}).pipe(
+							Effect.andThen(Effect.never),
+							Effect.ensuring(
+								Effect.sync(() => {
+									interrupted = true;
+								}),
+							),
+						),
+						() => {},
+					);
+				}, [schedule]);
+				return <p>Waiting</p>;
+			};
+			try {
+				const page = mountPluginPage(Pending, {
+					bootstrap: clock.bootstrap,
+					location: routeLocation("/"),
+				});
+				yield* Effect.promise(() =>
+					waitFor(() => expect(page.container?.textContent).toBe("Waiting")),
+				);
+				yield* Effect.promise(() => waitFor(() => expect(started).toBe(true)));
+				page.dispose();
+				yield* Effect.promise(() => waitFor(() => expect(interrupted).toBe(true)));
+				const next = mountPluginPage(ScheduledHome, {
+					bootstrap: clock.bootstrap,
+					location: routeLocation("/"),
+				});
+				yield* Effect.promise(() =>
+					waitFor(() => expect(next.container?.textContent).toBe("ticks:0")),
+				);
+				yield* Effect.promise(() => clock.advance(100));
+				expect(next.container?.textContent).toBe("ticks:1");
+				next.dispose();
+			} finally {
+				yield* Effect.promise(() => clock.dispose());
+			}
+		}),
+	);
+
+	it.live("cleans up the port and listeners when runtime construction fails", () =>
+		Effect.gen(function* () {
+			const clock = createTestRyotClock();
+			const broken = createClientBootstrap(() => {
+				throw new Error("private bootstrap failure");
+			});
+			try {
+				const failed = mountPluginPage(StaticHome, {
+					bootstrap: broken,
+					location: routeLocation("/"),
+				});
+				yield* Effect.promise(() =>
+					waitFor(() =>
+						expect(failed.messages).toContainEqual({ reason: "failed", type: "lifecycle-close" }),
+					),
+				);
+				failed.dispose();
+				const next = mountPluginPage(ScheduledHome, {
+					bootstrap: clock.bootstrap,
+					location: routeLocation("/"),
+				});
+				yield* Effect.promise(() =>
+					waitFor(() => expect(next.container?.textContent).toBe("ticks:0")),
+				);
+				yield* Effect.promise(() => clock.advance(100));
+				expect(next.container?.textContent).toBe("ticks:1");
+				next.dispose();
+			} finally {
+				yield* Effect.promise(() => clock.dispose());
+			}
+		}),
+	);
+
+	it.live("disposes a runtime once after fatal bootstrap failure and explicit disposal", () =>
+		Effect.gen(function* () {
+			let disposals = 0;
+			const bootstrap = createClientBootstrap((client, navigation) =>
+				ManagedRuntime.make(
+					Layer.mergeAll(
+						RyotClientService.layer(client),
+						RyotNavigationService.layer(navigation),
+						RyotScheduleService.layer,
+						Layer.effectDiscard(
+							Effect.addFinalizer(() =>
+								Effect.sync(() => {
+									disposals += 1;
+								}),
+							),
+						),
+					),
+				),
+			);
+			const page = mountPluginPage(StaticHome, { bootstrap, location: routeLocation("/") });
+			yield* Effect.promise(() =>
+				waitFor(() => expect(page.container?.textContent).toBe("Mounted")),
+			);
+			window.dispatchEvent(
+				new ErrorEvent("error", { cancelable: true, error: new Error("fatal") }),
+			);
+			yield* Effect.promise(() =>
+				waitFor(() =>
+					expect(page.messages).toContainEqual({ reason: "failed", type: "lifecycle-close" }),
+				),
+			);
+			yield* Effect.promise(() => waitFor(() => expect(disposals).toBe(1)));
+			page.dispose();
+			yield* waitForMessagePortMacrotask;
+			expect(disposals).toBe(1);
+		}),
+	);
+
 	it("does not expose the removed navigation hook", () => {
 		expect(pluginSurface).not.toHaveProperty("usePluginNavigation");
 	});

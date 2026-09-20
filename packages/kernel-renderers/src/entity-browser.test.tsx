@@ -25,10 +25,12 @@ const openBrowser = (
 		readonly search?: string;
 		readonly savedViewId?: string;
 		readonly settings?: Record<string, unknown>;
+		readonly clock?: ReturnType<typeof createTestRyotClock>;
 	} = {},
 ) => {
 	views += 1;
 	const page = mountPluginPage(EntityBrowserPage, {
+		bootstrap: options.clock?.bootstrap,
 		location: routeLocation("/v/all-books", options.search ?? ""),
 		page: savedViewPageContext({
 			rendererName: "entity-browser",
@@ -296,7 +298,7 @@ describe("entity browser", () => {
 		Effect.gen(function* () {
 			const clock = testClock();
 			const answered = new Set<string>();
-			const page = openBrowser({ search: "panel=details" });
+			const page = openBrowser({ clock, search: "panel=details" });
 			yield* Effect.promise(() =>
 				answerBrowser(page, answered, [browserRow("book-1", "Piranesi")]),
 			);
@@ -329,7 +331,7 @@ describe("entity browser", () => {
 		Effect.gen(function* () {
 			const clock = testClock();
 			const answered = new Set<string>();
-			const page = openBrowser();
+			const page = openBrowser({ clock });
 			yield* Effect.promise(() =>
 				answerBrowser(page, answered, [browserRow("book-1", "Piranesi")]),
 			);
@@ -362,7 +364,7 @@ describe("entity browser", () => {
 		Effect.gen(function* () {
 			const clock = testClock();
 			const answered = new Set<string>();
-			const page = openBrowser();
+			const page = openBrowser({ clock });
 			yield* Effect.promise(() =>
 				answerBrowser(page, answered, [browserRow("book-1", "Piranesi")]),
 			);
