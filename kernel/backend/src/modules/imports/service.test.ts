@@ -36,6 +36,7 @@ import { UploadIntentsService } from "#modules/uploads/intents/service";
 
 import { ImportRunFailuresService } from "./failure-service";
 import { ImportsRepository } from "./repository";
+import { ImportSourceStateStore } from "./runtime/source-state-store";
 import { ImportsService, type CreateImportRunInput } from "./service";
 import { ImportWorkflowPinning } from "./workflow-pinning";
 
@@ -197,6 +198,7 @@ const makeServiceLayer = (
 	} = {},
 ) =>
 	ImportsService.layer.pipe(
+		Layer.provideMerge(ImportSourceStateStore.layer),
 		Layer.provideMerge(
 			Layer.mergeAll(
 				BunFileSystem.layer,

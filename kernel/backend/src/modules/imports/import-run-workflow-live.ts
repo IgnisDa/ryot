@@ -5,6 +5,7 @@ import { implementWorkflow } from "#lib/infrastructure/workflow-scope";
 import { ProcessImportRunWorkflow } from "./import-run-workflow";
 import type { ImportRunJobData } from "./jobs";
 import { runPluginImportWorkflow } from "./plugin-import-workflow";
+import { ImportSourceStateStore } from "./runtime/source-state-store";
 import { ImportRunArtifacts } from "./runtime/workflow-helpers";
 
 export const runProcessImportRunWorkflow = Effect.fn("ProcessImportRunWorkflow")(
@@ -27,5 +28,5 @@ const ProcessImportRunWorkflowLive = implementWorkflow(
 );
 
 export const ImportWorkflowDefinitionsLive = ProcessImportRunWorkflowLive.pipe(
-	Layer.provide(ImportRunArtifacts.layer),
+	Layer.provide(ImportRunArtifacts.layer.pipe(Layer.provideMerge(ImportSourceStateStore.layer))),
 );

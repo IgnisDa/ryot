@@ -17,11 +17,7 @@ import {
 } from "#lib/infrastructure/redis";
 import { makeRedisService } from "#lib/test-utils/effect";
 
-import {
-	claimImportSourceState,
-	deleteImportSourceState,
-	storeImportSourceState,
-} from "./source-state-store";
+import { ImportSourceStateStore } from "./source-state-store";
 
 const state = {
 	source: "beta",
@@ -86,11 +82,12 @@ const recordingRedisLayer = Layer.unwrap(
 	}),
 );
 
-layer(recordingRedisLayer)((test) => {
+layer(ImportSourceStateStore.layer.pipe(Layer.provideMerge(recordingRedisLayer)))((test) => {
 	test.effect("stores, claims, and deletes import source state with bounded lifecycle keys", () =>
 		Effect.gen(function* () {
 			const redis = yield* FakeSourceStateRedis;
-			yield* storeImportSourceState({ state, stateId: "state-1" });
+			const sourceStates = yield* ImportSourceStateStore;
+			yield* sourceStates.store({ state, stateId: "state-1" });
 			const pending = yield* redis.pending;
 			expect(pending).toMatchObject({
 				key: redisKeys.importSourceState("state-1"),
@@ -99,14 +96,14 @@ layer(recordingRedisLayer)((test) => {
 			assert(pending);
 			expect(yield* Schema.decodeEffect(ImportSourceStateFromJson)(pending.value)).toEqual(state);
 
-			expect(yield* claimImportSourceState("state-1", "execution-1")).toEqual(state);
+			expect(yield* sourceStates.claim("state-1", "execution-1")).toEqual(state);
 			expect(yield* redis.claimInput).toEqual({
 				key: redisKeys.importSourceState("state-1"),
 				ttlSeconds: IMPORT_SOURCE_STATE_CLAIMED_TTL_SECONDS,
 				claimKey: redisKeys.importSourceStateClaim("state-1", "execution-1"),
 			});
 
-			yield* deleteImportSourceState("state-1", "execution-1");
+			yield* sourceStates.remove("state-1", "execution-1");
 			expect(yield* redis.deleted).toEqual([
 				[
 					redisKeys.importSourceState("state-1"),

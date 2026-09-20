@@ -35,6 +35,7 @@ import { ImportRunFailuresService } from "./failure-service";
 import { ProcessImportRunWorkflow } from "./import-run-workflow";
 import { runProcessImportRunWorkflow } from "./import-run-workflow-live";
 import type { ImportRunJobData } from "./jobs";
+import { ImportSourceStateStore } from "./runtime/source-state-store";
 import { ImportRunArtifacts } from "./runtime/workflow-helpers";
 import { ImportsService } from "./service";
 
@@ -160,16 +161,20 @@ const makeHarness = (
 		}),
 		databaseLayer,
 		BunServices.layer,
-		Layer.succeed(
-			RedisService,
-			makeRedisService({
-				claim: () =>
-					Effect.succeed(
-						typeof storedSourceState === "string"
-							? storedSourceState
-							: Schema.encodeSync(ImportSourceStateFromJson)(storedSourceState),
-					),
-			}),
+		ImportSourceStateStore.layer.pipe(
+			Layer.provide(
+				Layer.succeed(
+					RedisService,
+					makeRedisService({
+						claim: () =>
+							Effect.succeed(
+								typeof storedSourceState === "string"
+									? storedSourceState
+									: Schema.encodeSync(ImportSourceStateFromJson)(storedSourceState),
+							),
+					}),
+				),
+			),
 		),
 		Layer.mock(ImportsService)({}),
 		Layer.mock(ImportRunFailuresService)({}),
