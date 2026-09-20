@@ -14,11 +14,7 @@ const date = (expression: ScalarExpression) => ({ expression, displayKind: "date
 const tableColumns = (slug: string): ViewExpressions["table"]["columns"] => {
 	const name = { label: "Name", ...text(entityColumn("name")) };
 	if (slug === "exercise") {
-		return [
-			name,
-			{ label: "Level", ...text(titleCase(entityProperty("level"))) },
-			{ label: "Equipment", ...text(titleCase(entityProperty("equipment"))) },
-		];
+		return [name, { label: "Level", ...text(titleCase(entityProperty("level"))) }];
 	}
 	if (slug === "workout") {
 		return [

@@ -1,3 +1,5 @@
+import { exerciseTargetRoles } from "../../shared/taxonomy";
+
 export const fitnessRelationshipSchemas = () =>
 	[
 		{
@@ -6,6 +8,29 @@ export const fitnessRelationshipSchemas = () =>
 			propertiesSchema: { fields: {} },
 			sourceEntitySchemaSlug: "exercise",
 			targetEntitySchemaSlug: "fitness-library",
+		},
+		{
+			slug: "exercise-targets",
+			name: "Exercise Targets",
+			sourceEntitySchemaSlug: "exercise",
+			targetEntitySchemaSlug: "exercise-target",
+			propertiesSchema: {
+				fields: {
+					role: {
+						type: "enum",
+						label: "Role",
+						description: "How this target is involved in the exercise",
+						choices: { kind: "static", values: exerciseTargetRoles.map((value) => ({ value })) },
+					},
+				},
+			},
+		},
+		{
+			slug: "exercise-uses-equipment",
+			name: "Exercise Uses Equipment",
+			propertiesSchema: { fields: {} },
+			sourceEntitySchemaSlug: "exercise",
+			targetEntitySchemaSlug: "exercise-equipment",
 		},
 		{
 			slug: "workout-repeated-from",
