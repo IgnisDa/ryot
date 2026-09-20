@@ -180,7 +180,7 @@ export default defineScript({
   output: sandboxScratchManifestSchema,
   input: Schema.Struct({ chunkName: Schema.String, artifactKey: Schema.optional(Schema.String) }),
   run: (input) => Effect.gen(function* () {
-    const artifact = yield* input.artifactKey ? readNamedArtifact(input.artifactKey) : readArtifact();
+    const artifact = yield* input.artifactKey ? readNamedArtifact(input.artifactKey) : readArtifact;
     return yield* writeScratchChunks([{ name: input.chunkName, contents: artifact }]);
   }),
 });

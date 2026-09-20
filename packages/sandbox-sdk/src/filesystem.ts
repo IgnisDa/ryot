@@ -34,13 +34,12 @@ const binding = () =>
 		SANDBOX_FILESYSTEM_KEY
 	];
 
-export const readArtifact = () =>
-	Effect.suspend(() => {
-		const filesystem = binding();
-		return filesystem
-			? Effect.tryPromise({ catch: filesystemError, try: () => filesystem.readArtifact() })
-			: Effect.fail(filesystemError("Sandbox artifact grant is unavailable"));
-	});
+export const readArtifact = Effect.suspend(() => {
+	const filesystem = binding();
+	return filesystem
+		? Effect.tryPromise({ catch: filesystemError, try: () => filesystem.readArtifact() })
+		: Effect.fail(filesystemError("Sandbox artifact grant is unavailable"));
+});
 
 export const readNamedArtifact = (key: string) =>
 	Effect.suspend(() => {

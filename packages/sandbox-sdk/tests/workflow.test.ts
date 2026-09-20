@@ -28,7 +28,7 @@ describe("workflow definitions", () => {
 				const workflow = defineWorkflow({
 					manifest,
 					output: Schema.Array(Schema.String),
-					input: Schema.Struct({ value: Schema.Number }),
+					input: Schema.Struct({ value: Schema.Finite }),
 					run: (input, replay) =>
 						Effect.gen(function* () {
 							const first = yield* replay.activity(
@@ -36,7 +36,7 @@ describe("workflow definitions", () => {
 								{
 									output: Schema.String,
 									scriptSlug: "activity.first",
-									input: Schema.Struct({ value: Schema.Number }),
+									input: Schema.Struct({ value: Schema.Finite }),
 								},
 								input,
 							);
@@ -45,7 +45,7 @@ describe("workflow definitions", () => {
 								{
 									output: Schema.String,
 									workflowSlug: "workflow.second",
-									input: Schema.Struct({ value: Schema.Number }),
+									input: Schema.Struct({ value: Schema.Finite }),
 								},
 								input,
 							);
