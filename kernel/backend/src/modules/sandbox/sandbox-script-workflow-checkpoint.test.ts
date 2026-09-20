@@ -572,89 +572,127 @@ it.effect(
 		}),
 );
 
-it.effect.each([
-	{ ...firstRequest, name: "changed" },
-	{ ...firstRequest, args: { input: { index: 9 }, workflowSlug: "kernel:entity-import" } },
-	{ ...firstRequest, index: 1 },
-	{ index: 0, name: "child-0", kind: "sleep" as const, args: { durationMs: 0 } },
-])(
-	"rejects changed request identity before a cached observation or completion can hide it",
-	(changed) =>
+type Harness = ReturnType<typeof makeHarness>;
+
+const primed = (h: Harness) => Effect.asVoid(h.fresh().body);
+const settledSlot =
+	(request: unknown, targetScriptId: string | null = null) =>
+	(h: Harness) =>
+		Effect.sync(() => {
+			h.slots.set(
+				"sandbox-request-0",
+				Exit.succeed({ targetScriptId, entry: { request, value: null } }),
+			);
+		});
+const sleepAtZero = { index: 0, name: "child-0", kind: "sleep" as const, args: { durationMs: 0 } };
+const pinnedRequests =
+	"SandboxWorkflowNondeterminism: replay requests do not match the pinned observation";
+const settledIdentity =
+	"SandboxWorkflowNondeterminism: settled request[0] identity or pinned target changed";
+
+const divergedTraceCases: ReadonlyArray<{
+	readonly label: string;
+	readonly message: string;
+	readonly dispatches: ReadonlyArray<number>;
+	readonly setup: (h: Harness) => Effect.Effect<void, never, Scope.Scope>;
+	readonly requests?: ReadonlyArray<typeof firstRequest | typeof sleepAtZero>;
+}> = [
+	{
+		setup: primed,
+		dispatches: [0, 1],
+		message: pinnedRequests,
+		label: "changed name after a cached observation",
+		requests: [{ ...firstRequest, name: "changed" }, secondRequest],
+	},
+	{
+		setup: primed,
+		dispatches: [0, 1],
+		message: pinnedRequests,
+		label: "changed args after a cached observation",
+		requests: [
+			{ ...firstRequest, args: { input: { index: 9 }, workflowSlug: "kernel:entity-import" } },
+			secondRequest,
+		],
+	},
+	{
+		setup: primed,
+		dispatches: [0, 1],
+		message: pinnedRequests,
+		requests: [sleepAtZero, secondRequest],
+		label: "changed kind after a cached observation",
+	},
+	{
+		setup: primed,
+		dispatches: [0, 1],
+		message: pinnedRequests,
+		requests: [firstRequest],
+		label: "shortened trace after a cached observation",
+	},
+	{
+		setup: primed,
+		dispatches: [0, 1],
+		label: "index at the wrong trace position",
+		requests: [{ ...firstRequest, index: 1 }, secondRequest],
+		message: "SandboxWorkflowNondeterminism: durable call index 1 appeared at trace position 0",
+	},
+	{
+		dispatches: [],
+		setup: () => Effect.void,
+		label: "duplicate index with an unrecorded first request",
+		requests: [firstRequest, secondRequest, { ...secondRequest, name: "third" }],
+		message: "SandboxWorkflowNondeterminism: durable call index 1 appeared at trace position 2",
+	},
+	{
+		dispatches: [],
+		message: settledIdentity,
+		setup: settledSlot(firstRequest, "different-script"),
+		label: "pinned target differs from the observed target",
+	},
+	{
+		dispatches: [],
+		message: settledIdentity,
+		label: "settled slot with a changed name",
+		setup: settledSlot({ ...firstRequest, name: "other" }),
+	},
+	{
+		dispatches: [],
+		message: settledIdentity,
+		label: "settled slot with a changed index",
+		setup: settledSlot({ ...firstRequest, index: 7 }),
+	},
+	{
+		dispatches: [],
+		message: settledIdentity,
+		label: "settled slot with changed args",
+		setup: settledSlot({
+			...firstRequest,
+			args: { input: { index: 8 }, workflowSlug: "kernel:entity-import" },
+		}),
+	},
+	{
+		dispatches: [],
+		message: settledIdentity,
+		setup: settledSlot(sleepAtZero),
+		label: "settled slot with a changed kind",
+	},
+];
+
+it.effect.each(divergedTraceCases)(
+	"rejects a diverged trace before it can dispatch or complete: $label",
+	({ setup, message, dispatches, requests: diverged }) =>
 		Effect.gen(function* () {
 			const h = makeHarness();
-			yield* h.fresh().body;
-			const result = yield* h.fresh({
-				journalLength: 0,
-				state: "pending",
-				requests: [changed, secondRequest],
-			}).body;
+			yield* setup(h);
+			const result = yield* h.fresh(
+				diverged && { journalLength: 0, state: "pending", requests: diverged },
+			).body;
 			assert(result._tag === "Complete");
-			const exit = yield* Effect.exit(result.exit);
-			expect(exit.toString()).toContain("SandboxWorkflowNondeterminism");
-			expect(h.dispatches).toEqual([0, 1]);
+			assertExitFails(
+				yield* Effect.exit(result.exit),
+				new SandboxRunError({ message, kind: "script-failure" }),
+			);
+			expect(h.dispatches).toEqual(dispatches);
 		}),
-);
-
-it.effect("validates later duplicate indices even when the first request is unrecorded", () =>
-	Effect.gen(function* () {
-		const h = makeHarness();
-		const result = yield* h.fresh({
-			journalLength: 0,
-			state: "pending",
-			requests: [firstRequest, secondRequest, { ...secondRequest, name: "third" }],
-		}).body;
-		assert(result._tag === "Complete");
-		expect((yield* Effect.exit(result.exit)).toString()).toContain("trace position 2");
-		expect(h.dispatches).toEqual([]);
-	}),
-);
-
-it.effect("rejects a shortened pending trace despite a cached observation and settled prefix", () =>
-	Effect.gen(function* () {
-		const h = makeHarness();
-		yield* h.fresh().body;
-		const result = yield* h.fresh({ journalLength: 0, state: "pending", requests: [firstRequest] })
-			.body;
-		assert(result._tag === "Complete");
-		expect((yield* Effect.exit(result.exit)).toString()).toContain("pinned observation");
-		expect(h.dispatches).toEqual([0, 1]);
-	}),
-);
-
-it.effect("rejects a checkpoint whose pinned target differs from the observed target", () =>
-	Effect.gen(function* () {
-		const h = makeHarness();
-		h.slots.set(
-			"sandbox-request-0",
-			Exit.succeed({
-				targetScriptId: "different-script",
-				entry: { value: null, request: firstRequest },
-			}),
-		);
-		const result = yield* h.fresh().body;
-		assert(result._tag === "Complete");
-		expect((yield* Effect.exit(result.exit)).toString()).toContain("pinned target changed");
-		expect(h.dispatches).toEqual([]);
-	}),
-);
-
-it.effect.each([
-	{ ...firstRequest, name: "other" },
-	{ ...firstRequest, index: 7 },
-	{ ...firstRequest, args: { input: { index: 8 }, workflowSlug: "kernel:entity-import" } },
-	{ index: 0, name: "child-0", kind: "sleep" as const, args: { durationMs: 0 } },
-])("rejects a changed identity stored at the same index slot", (changed) =>
-	Effect.gen(function* () {
-		const h = makeHarness();
-		h.slots.set(
-			"sandbox-request-0",
-			Exit.succeed({ targetScriptId: null, entry: { value: null, request: changed } }),
-		);
-		const result = yield* h.fresh().body;
-		assert(result._tag === "Complete");
-		expect((yield* Effect.exit(result.exit)).toString()).toContain("settled request[0] identity");
-		expect(h.dispatches).not.toContain(0);
-	}),
 );
 
 it.effect("keeps child cancellation attached to the original parent instance", () =>
@@ -748,7 +786,13 @@ it.effect("keeps the durable step limit before dispatch or completion", () =>
 		const oversized = Array.from({ length: 1_001 }, (_, index) => requestAt(index));
 		const result = yield* h.fresh({ journalLength: 0, state: "pending", requests: oversized }).body;
 		assert(result._tag === "Complete");
-		expect((yield* Effect.exit(result.exit)).toString()).toContain("maximum of 1000 durable steps");
+		assertExitFails(
+			yield* Effect.exit(result.exit),
+			new SandboxRunError({
+				kind: "script-failure",
+				message: "Sandbox workflow exceeded the maximum of 1000 durable steps",
+			}),
+		);
 		expect(h.dispatches).toEqual([]);
 		expect(h.slots.size).toBe(0);
 	}),
@@ -770,7 +814,13 @@ it.effect("applies the journal entry byte limit to checkpoint hits", () =>
 		h.state.blocked = false;
 		const result = yield* h.fresh().body;
 		assert(result._tag === "Complete");
-		expect((yield* Effect.exit(result.exit)).toString()).toContain("durable journal entry exceeds");
+		assertExitFails(
+			yield* Effect.exit(result.exit),
+			new SandboxRunError({
+				kind: "script-failure",
+				message: `Sandbox workflow durable journal entry exceeds ${SANDBOX_LIMITS.bridge.durableResponseBytes} UTF-8 bytes`,
+			}),
+		);
 		expect(h.appends).toEqual([]);
 		expect(h.dispatches).toEqual([1]);
 	}),
@@ -802,7 +852,7 @@ it.effect("rejects invalid returned JSON before completing the slot", () =>
 		const error = Option.getOrUndefined(Cause.findErrorOption(exit.cause));
 		assert(error instanceof SandboxRunError);
 		expect(error.kind).toBe("invalid-output");
-		expect(exit.toString()).toContain("Sandbox workflow durable result is invalid");
+		expect(error.message).toContain("Sandbox workflow durable result is invalid");
 		expect(h.slots.size).toBe(0);
 	}),
 );

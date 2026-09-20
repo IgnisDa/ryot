@@ -50,6 +50,8 @@ import {
 } from "#modules/relationships/mutation-pipeline";
 import {
 	dispatchSandboxHostActivity,
+	type HostCallScope,
+	hostCallScopeOf,
 	durableHostFailure,
 	prepareSandboxCreateEvents,
 	prepareSandboxLifecycleHostInput,
@@ -159,10 +161,7 @@ export const SandboxDurableHostDispatcherLive = Layer.effect(
 
 		const dispatchLifecycleHost = (
 			request: Parameters<SandboxDurableHostDispatcher["Service"]["dispatch"]>[0],
-			payload: Parameters<SandboxDurableHostDispatcher["Service"]["dispatch"]>[1],
-			principal: Parameters<SandboxDurableHostDispatcher["Service"]["dispatch"]>[2],
-			executionId: string,
-			startedAt: string,
+			scope: HostCallScope,
 		) =>
 			Effect.gen(function* () {
 				const capability = request.args.capability;
@@ -171,14 +170,7 @@ export const SandboxDurableHostDispatcherLive = Layer.effect(
 					name: `${name}-input`,
 					error: SandboxRunError,
 					success: SandboxLifecycleHostInput,
-					execute: prepareSandboxLifecycleHostInput(
-						implementations,
-						request,
-						payload,
-						principal,
-						executionId,
-						startedAt,
-					),
+					execute: prepareSandboxLifecycleHostInput(implementations, request, scope),
 				});
 				if (prepared._tag === "Failure") {
 					return durableHostFailure(prepared.message);
@@ -263,6 +255,7 @@ export const SandboxDurableHostDispatcherLive = Layer.effect(
 		) => {
 			{
 				const startedAt = payload.startedAt ?? "";
+				const scope = hostCallScopeOf(payload, principal, executionId, startedAt);
 				const strategy = sandboxDurableHostDispatchStrategy(request.args.capability);
 				if (!strategy) {
 					return Effect.fail(
@@ -291,22 +284,14 @@ export const SandboxDurableHostDispatcherLive = Layer.effect(
 					);
 				}
 				if (strategy === "lifecycle-workflow") {
-					return dispatchLifecycleHost(request, payload, principal, executionId, startedAt);
+					return dispatchLifecycleHost(request, scope);
 				}
 				if (strategy === "activity") {
 					return makeActivity({
 						error: SandboxRunError,
 						success: workflowDurableResultSchema,
 						name: `sandbox-host-${request.index}-${request.args.capability}`,
-						execute: dispatchSandboxHostActivity(
-							implementations,
-							request,
-							payload.input,
-							principal,
-							payload.lane,
-							executionId,
-							startedAt,
-						),
+						execute: dispatchSandboxHostActivity(implementations, request, scope),
 					});
 				}
 				if (strategy === "service-workflow") {
@@ -341,14 +326,8 @@ export const SandboxDurableHostDispatcherLive = Layer.effect(
 						const prepared = yield* makeActivity({
 							error: SandboxRunError,
 							success: PreparedSandboxCreateEvents,
+							execute: prepareSandboxCreateEvents(request, scope),
 							name: `prepare-sandbox-create-events-${request.index}`,
-							execute: prepareSandboxCreateEvents(
-								request,
-								payload,
-								principal,
-								executionId,
-								startedAt,
-							),
 						});
 						const eventPayload = yield* Schema.decodeEffect(EventCreateWorkflowPayload)(
 							prepared,
@@ -406,14 +385,8 @@ export const SandboxDurableHostDispatcherLive = Layer.effect(
 					const prepared = yield* makeActivity({
 						error: SandboxRunError,
 						success: PreparedSandboxSendNotification,
+						execute: prepareSandboxSendNotification(request, scope),
 						name: `prepare-sandbox-send-notification-${request.index}`,
-						execute: prepareSandboxSendNotification(
-							request,
-							payload,
-							principal,
-							executionId,
-							startedAt,
-						),
 					});
 					const notificationPayload = yield* Schema.decodeEffect(
 						NotificationDeliveryWorkflowPayload,
@@ -524,15 +497,13 @@ export const SandboxDurableHostDispatcherLive = Layer.effect(
 										)
 									: recordHostCall(
 											request,
-											dispatchSandboxHostActivity(
-												implementations,
-												request,
+											dispatchSandboxHostActivity(implementations, request, {
+												lane,
 												context,
 												principal,
-												lane,
-												executionId,
 												startedAt,
-											),
+												executionId,
+											}),
 										);
 								if (value === null) {
 									return { value, settled: false };

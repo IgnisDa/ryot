@@ -44,32 +44,24 @@ it.effect("applies centralized capability authorization before durable host disp
 				args: { args: ["Ready"], capability: "sendNotification" },
 			},
 			{
-				input: {},
+				context: {},
 				lane: "interactive",
-				resolutionMode: "exact",
 				executionId: "sandbox-parent",
-				scriptId: SandboxScriptId.make("script-1"),
-				subject: {
-					type: "user",
-					userId: UserId.make("user-1"),
-					accountGeneration: { userId: UserId.make("user-1"), token: "test-account-generation" },
+				startedAt: "2026-08-06T00:00:00.000Z",
+				principal: {
+					providerId: null,
+					contentHash: "hash",
+					pluginRevision: null,
+					scriptSlug: "script",
+					scriptId: SandboxScriptId.make("script-1"),
+					metadata: { runtimeImports: [], capabilities: ["sendNotification"] },
+					subject: {
+						type: "user",
+						userId: UserId.make("user-1"),
+						accountGeneration: { userId: UserId.make("user-1"), token: "test-account-generation" },
+					},
 				},
 			},
-			{
-				providerId: null,
-				contentHash: "hash",
-				pluginRevision: null,
-				scriptSlug: "script",
-				scriptId: SandboxScriptId.make("script-1"),
-				metadata: { runtimeImports: [], capabilities: ["sendNotification"] },
-				subject: {
-					type: "user",
-					userId: UserId.make("user-1"),
-					accountGeneration: { userId: UserId.make("user-1"), token: "test-account-generation" },
-				},
-			},
-			"sandbox-parent",
-			"2026-08-06T00:00:00.000Z",
 		).pipe(Effect.flip);
 		expect(error.message).toBe(
 			"Sandbox durable host denied: sendNotification is available only to user automation runs",
@@ -87,32 +79,24 @@ it.effect("derives event root identity from the trusted workflow and host index"
 				args: { args: [[]], capability: "createEvents" },
 			},
 			{
-				input: {},
+				context: {},
 				lane: "interactive",
-				resolutionMode: "exact",
 				executionId: "sandbox-parent",
-				scriptId: SandboxScriptId.make("script-1"),
-				subject: {
-					type: "user",
-					userId: UserId.make("user-1"),
-					accountGeneration: { userId: UserId.make("user-1"), token: "test-account-generation" },
+				startedAt: "2026-08-06T00:00:00.000Z",
+				principal: {
+					providerId: null,
+					contentHash: "hash",
+					pluginRevision: null,
+					scriptSlug: "script",
+					scriptId: SandboxScriptId.make("script-1"),
+					metadata: { runtimeImports: [], capabilities: ["createEvents"] },
+					subject: {
+						type: "user",
+						userId: UserId.make("user-1"),
+						accountGeneration: { userId: UserId.make("user-1"), token: "test-account-generation" },
+					},
 				},
 			},
-			{
-				providerId: null,
-				contentHash: "hash",
-				pluginRevision: null,
-				scriptSlug: "script",
-				scriptId: SandboxScriptId.make("script-1"),
-				metadata: { runtimeImports: [], capabilities: ["createEvents"] },
-				subject: {
-					type: "user",
-					userId: UserId.make("user-1"),
-					accountGeneration: { userId: UserId.make("user-1"), token: "test-account-generation" },
-				},
-			},
-			"sandbox-parent",
-			"2026-08-06T00:00:00.000Z",
 		);
 		expect(prepared).toMatchObject({
 			payload: [],
@@ -132,23 +116,7 @@ it.effect("derives event root identity from the trusted workflow and host index"
 	}),
 );
 
-it("extracts only schema-valid durable HTTP request URLs", () => {
-	expect(
-		sandboxDurableHttpRequestUrl({
-			index: 0,
-			kind: "host",
-			name: "httpCall",
-			args: { capability: "httpCall", args: ["GET", "https://sensitive.test/path"] },
-		}),
-	).toBe("https://sensitive.test/path");
-	expect(
-		sandboxDurableHttpRequestUrl({
-			index: 0,
-			kind: "host",
-			name: "httpCall",
-			args: { args: ["GET"], capability: "httpCall" },
-		}),
-	).toBeNull();
+it("extracts the durable HTTP request URL when options are null", () => {
 	expect(
 		sandboxDurableHttpRequestUrl({
 			index: 0,

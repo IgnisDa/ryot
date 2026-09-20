@@ -23,9 +23,11 @@ import {
 	sandboxLaneCapacity,
 	SandboxExecutionQueueWorkerLive,
 } from "./durable-queues";
-import { KernelWorkflowReferences } from "./kernel-workflow-references";
-import { SandboxRepository } from "./repository";
-import { compiledArtifactsLayer } from "./sandbox-fixtures.test-support";
+import {
+	compiledArtifactsLayer,
+	scriptRepositoryLayer,
+	unusedKernelWorkflowReferencesLayer,
+} from "./sandbox-fixtures.test-support";
 import { sandboxSchedulingKey } from "./scheduling-key";
 
 const BACKGROUND_BACKLOG = 100;
@@ -105,17 +107,14 @@ const runtimeLayer = Layer.effect(
 	}),
 );
 
-const repositoryLayer = Layer.mock(SandboxRepository)({
-	getScript: (id) =>
-		Effect.succeed({
-			id,
-			providerId: null,
-			compiledFormat: 1,
-			compiledCode: scriptCode,
-			contentHash: scriptContentHash,
-			metadata: { runtimeImports: [] },
-		}),
-});
+const repositoryLayer = scriptRepositoryLayer((id) => ({
+	id,
+	providerId: null,
+	compiledFormat: 1,
+	compiledCode: scriptCode,
+	contentHash: scriptContentHash,
+	metadata: { runtimeImports: [] },
+}));
 const artifactLayer = compiledArtifactsLayer(repositoryLayer);
 
 const queueLayer = Layer.mergeAll(
@@ -126,10 +125,7 @@ const queueLayer = Layer.mergeAll(
 		dispatch: () => Effect.die("durable dispatch is not expected"),
 		settleInline: () => Effect.die("inline dispatch is not expected"),
 	}),
-	Layer.succeed(KernelWorkflowReferences, {
-		execute: () => Effect.die("kernel dispatch is not expected"),
-		resolveArtifactGrants: (_input, _subject, grants) => Effect.succeed(grants),
-	}),
+	unusedKernelWorkflowReferencesLayer,
 ).pipe(
 	Layer.provideMerge(
 		PersistedQueue.layer.pipe(
