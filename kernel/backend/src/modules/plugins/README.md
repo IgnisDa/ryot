@@ -4,6 +4,18 @@
 
 `repository-layer.ts` owns `PluginRepositoryLive`, which provides the repository's client-artifact dependency. Automations planner, retention, and signal Layers use this focused composition without importing the plugins runtime Layer. Reusing the Layer preserves Effect's shared-resource composition.
 
+## Plugin artifacts and revision identity
+
+System archives and private uploads contain a manifest, compiled backend JavaScript artifacts, and
+optional compiled client assets. Compiled backend metadata identifies each entry, format, and JavaScript
+hash. Archives contain no authoring source files or compiled `script.source`. Ingestion validates
+archive structure and artifact hashes without compiler workers or source-provenance proof; hashes
+establish internal consistency only.
+
+Plugin revisions have no source file table. Their `sourceHash` fingerprints the manifest, exact compiled
+backend entry/format/JavaScript, and exact compiled client content. It identifies package content, not
+proof that the metadata was derived from authoring source.
+
 ## System plugin synchronization
 
 `PluginIngestionService` owns system plugin ingestion and environment configuration

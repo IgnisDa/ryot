@@ -10,7 +10,7 @@ callers provide `clientPluginCompilerPlatformLayer` at their entrypoint.
 
 ## Source And Import Policy
 
-Validated archive-relative `client/**` and `shared/**` files are staged under the workspace source
+Validated package-relative `client/**` and `shared/**` files are staged under the workspace source
 namespace. Compiler-owned module and style entries are staged separately. Normal Vite and
 TypeScript bundler resolution handles relative TypeScript imports, including extensionless imports
 and `.js` specifiers that resolve to TypeScript sources.
@@ -19,7 +19,7 @@ Author imports are checked before Vite runs, including type-only imports. The da
 registry in `src/dependencies.ts` is the authority for trusted and neutral module membership and
 TypeScript entry resolution. Shared sources can use only neutral registry entries and relative
 shared files. Declared plugin dependencies stay external and resolve through the page import map. Dynamic
-imports, Vite query and glob imports, escaping asset URLs, and archive Tailwind `@plugin`,
+imports, Vite query and glob imports, escaping asset URLs, and authored Tailwind `@plugin`,
 `@config`, and `@source` directives are rejected.
 
 ## Compilation Stages
@@ -36,7 +36,7 @@ isolated in `src/generated-source.ts`.
 ## Vite Module
 
 The compiler builds an ES2022 ESM module with a relative base, production React JSX, and minified
-JavaScript and CSS. Trusted packages and declared plugin dependencies remain external, resolved
+JavaScript and CSS, with source maps disabled. Trusted packages and declared plugin dependencies remain external, resolved
 through the composed document's import map. Vite resolves plugin-local imports and assets.
 
 The official `@tailwindcss/vite` plugin processes a compiler-owned stylesheet. Automatic scanning is

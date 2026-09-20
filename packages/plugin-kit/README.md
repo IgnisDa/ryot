@@ -7,16 +7,17 @@ letters and numbers separated by `.`, `_`, or `-`; `/` is reserved for path mapp
 
 ## Package Layout
 
-| Root       | Archived | Owner and allowed dependencies                                                       |
-| ---------- | -------- | ------------------------------------------------------------------------------------ |
-| `host/`    | No       | Manifest and code imported directly by the server or kernel client                   |
-| `backend/` | Yes      | Sandbox entrypoints and libraries; may import siblings and `shared/`                 |
-| `client/`  | Yes      | Optional client source; uses client SDK/UI SDK and may import siblings and `shared/` |
-| `shared/`  | Yes      | Environment-neutral `.ts`; may import shared siblings and plugin-kit neutral shims   |
+| Root       | Archive output                             | Owner and allowed dependencies                                                       |
+| ---------- | ------------------------------------------ | ------------------------------------------------------------------------------------ |
+| `host/`    | None                                       | Manifest and code imported directly by the server or kernel client                   |
+| `backend/` | Compiled JavaScript                        | Sandbox entrypoints and libraries; may import siblings and `shared/`                 |
+| `client/`  | Emitted client assets                      | Optional client source; uses client SDK/UI SDK and may import siblings and `shared/` |
+| `shared/`  | Bundled when reachable into scripts/assets | Environment-neutral `.ts`; may import shared siblings and plugin-kit neutral shims   |
 
-Archived roots never import `host/`. Production host code reaches archived backend code only through
-`backend/contracts/**`, which holds sandbox-owned schemas, recipes, and helpers needed by host callers.
-Nothing host-only belongs under an archived root.
+Backend, client, and shared authoring sources never import `host/`. Production host code reaches
+backend source only through `backend/contracts/**`, which holds sandbox-owned schemas, recipes, and
+helpers needed by host callers.
+Nothing host-only belongs under backend, client, or shared.
 
 Client entries default-export components or presentation definitions. They do not mount or bootstrap
 an application. The compiler generates one application bootstrap and React root for plugin routes,
@@ -43,10 +44,13 @@ provider-associated ordinary scripts.
 
 ## Script Discovery
 
-Every `backend/**/*.sandbox.ts` file is an entrypoint. `ryot plugin build` reads its direct definition
-and derives `scripts`, including entry path and provider identity, into archive `manifest.json`.
-Installation recomputes that list from sources and rejects disagreement, so editing archive metadata
-cannot widen a script. Renaming a script slug requires updating all manifest references.
+Every local `backend/**/*.sandbox.ts` file is an entrypoint. `ryot plugin build` reads its direct
+definition, compiles it, and derives `scripts`, including entry path and provider identity, into archive
+`manifest.json`. The archive contains compiled backend JavaScript and metadata, plus emitted client
+assets when declared; it contains no authoring source files or compiled `script.source`. Installation
+validates archive structure and hashes but does not recompile sources or prove metadata provenance.
+Hashes establish artifact consistency, not that metadata was derived from the source. Renaming a script
+slug requires updating all manifest references.
 
 Each entry default-exports exactly one direct definition with static manifest, input schema, output
 schema, and Effect-returning `run`. `defineManifest` contains the script identity and kind plus its
@@ -150,10 +154,10 @@ or use a system plugin slug.
 
 The compiler follows each entry's used execution graph, including ordinary helpers, closures, direct
 host-method references, and local forwarding methods. It records that entry's used host capabilities
-in sorted compiled metadata; build and installation derive the values from source rather than trusting
-archive metadata. Executable dependencies do not merge authority: a parent keeps only its local
-capabilities, each child is checked against its own compiled metadata, and workflow replay has no local
-host capabilities.
+in sorted compiled metadata, which local builds derive from source. Runtime installation validates
+declared metadata and archive hashes but does not rerun source analysis or prove source provenance.
+Executable dependencies do not merge authority: a parent keeps only its local capabilities, each child
+is checked against its own compiled metadata, and workflow replay has no local host capabilities.
 
 Ordinary scripts receive `ScriptHost`. Before-stage policies receive `PolicyHost`, whose type exposes
 only the policy-safe host methods. A helper typed as `Pick<ScriptHost, ...>` narrows TypeScript usage;
@@ -394,9 +398,10 @@ Runtime pinning and replay semantics are in the
 
 ## Installation Lifecycle
 
-Ingestion validates a complete prospective registry, compiles entries, persists immutable
-content-addressed scripts, and atomically swaps the active snapshot. Readers see a complete old or new
-snapshot. Existing durable workflows retain pinned versions; new resolution uses the active snapshot.
+Ingestion validates a complete prospective registry, persists immutable precompiled content-addressed
+scripts, and atomically swaps the active snapshot. It does not start compiler workers. Readers see a
+complete old or new snapshot. Existing durable workflows retain pinned versions; new resolution uses
+the active snapshot.
 
 System plugins are deployment-controlled. Accepted hook runs keep pinned package, configuration,
 and script revisions through their retry window. Disablement and uninstall exclude new planning but
