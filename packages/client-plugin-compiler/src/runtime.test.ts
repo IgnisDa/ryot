@@ -1,6 +1,8 @@
+import { BunFileSystem } from "@effect/platform-bun";
 import { expect, it } from "@effect/vitest";
 import type { PluginClientArtifact } from "@ryot-app/client-plugin-contract";
-import { Effect } from "effect";
+import { ViteBuildService } from "@ryot-app/vite-compiler";
+import { Effect, Layer } from "effect";
 
 import { CLIENT_DEPENDENCY_SPECIFIERS } from "./dependencies";
 import { clientPluginCompilerPlatformLayer } from "./platform";
@@ -49,6 +51,65 @@ const artifactSnapshot = (artifact: PluginClientArtifact) =>
 const assertDefined: <Value>(value: Value | undefined) => asserts value is Value = (value) => {
 	expect(value).toBeDefined();
 };
+
+const emittedRuntime = (javascript: string, css = "") =>
+	Layer.merge(
+		BunFileSystem.layer,
+		Layer.succeed(
+			ViteBuildService,
+			ViteBuildService.of({
+				build: () =>
+					Effect.succeed({
+						output: [
+							...CLIENT_DEPENDENCY_SPECIFIERS.map((_, index) => ({
+								type: "chunk",
+								code: "export default 1;",
+								fileName: `entry-${index}.js`,
+							})),
+							{ type: "chunk", code: javascript, fileName: "entry-bootstrap.js" },
+							{ source: css, type: "asset", fileName: "runtime.css" },
+						],
+					}),
+			}),
+		),
+	);
+
+it.layer(
+	emittedRuntime(
+		'const text = `;import "./missing.js"`; /* export * from "./missing.js" */ export default text;',
+		'/* url("./missing.png") */',
+	),
+)("runtime output text", (test) => {
+	test.effect("ignores reference-like text in templates and comments", () =>
+		Effect.gen(function* () {
+			const runtime = yield* buildClientRuntime;
+			expect(
+				runtime.artifact.files.find((file) => file.name === "entry-bootstrap.js"),
+			).toBeDefined();
+		}),
+	);
+});
+
+it.layer(emittedRuntime('export * from "./missing.js";'))("runtime missing import", (test) => {
+	test.effect("rejects a real missing re-export", () =>
+		Effect.gen(function* () {
+			const error = yield* buildClientRuntime.pipe(Effect.flip);
+			expect(error.diagnostics[0]?.message).toContain("missing.js");
+		}),
+	);
+});
+
+it.layer(emittedRuntime("export default 1;", '@import url("./missing.css");'))(
+	"runtime CSS import",
+	(test) => {
+		test.effect("rejects a real missing stylesheet import", () =>
+			Effect.gen(function* () {
+				const error = yield* buildClientRuntime.pipe(Effect.flip);
+				expect(error.diagnostics[0]?.message).toContain("missing.css");
+			}),
+		);
+	},
+);
 
 it.layer(clientPluginCompilerPlatformLayer)("buildClientRuntime", (test) => {
 	test.effect("builds deterministic registry entries with shared React and SDK chunks", () =>

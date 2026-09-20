@@ -1,14 +1,16 @@
+import { BunFileSystem } from "@effect/platform-bun";
 import { expect, it } from "@effect/vitest";
 import {
 	CLIENT_API_VERSION,
 	CLIENT_BRIDGE_PROTOCOL_VERSION,
 	CLIENT_COMPILER_VERSION,
 	type PluginClientArtifact,
+	clientArtifactMetadata,
 } from "@ryot-app/client-plugin-contract";
 import { sha256Hex } from "@ryot-app/ts-utils/crypto";
-import { Effect } from "effect";
+import { ViteBuildService } from "@ryot-app/vite-compiler";
+import { Effect, Layer } from "effect";
 
-import { clientArtifactMetadata } from "./artifact";
 import { CLIENT_PLUGIN_COMPILER_LIMITS } from "./limits";
 import { compileClientPluginModule } from "./module";
 import { clientPluginCompilerPlatformLayer } from "./platform";
@@ -23,6 +25,143 @@ const requiredFile = (artifact: PluginClientArtifact, name: string) => {
 	assertDefined(file);
 	return file;
 };
+
+const emittedLayer = (javascript: string, css = "") =>
+	Layer.merge(
+		BunFileSystem.layer,
+		Layer.succeed(
+			ViteBuildService,
+			ViteBuildService.of({
+				build: () =>
+					Effect.succeed({
+						output: [
+							{ type: "chunk", code: javascript, fileName: "module.js" },
+							{ source: css, type: "asset", fileName: "module.css" },
+						],
+					}),
+			}),
+		),
+	);
+
+const emittedInput = {
+	name: "Reference plugin",
+	apiVersion: CLIENT_API_VERSION,
+	publicExports: { home: { entry: "client/home.tsx", kind: "component" as const } },
+	files: { "client/home.tsx": bytes("export default function Home() { return null; }") },
+};
+
+it.layer(
+	emittedLayer(
+		'const text = `;import "missing.js"`; /* ;export * from "other.js" */ export { text };',
+	),
+)("emitted reference syntax", (test) => {
+	test.effect("ignores import-like text inside strings and comments", () =>
+		Effect.gen(function* () {
+			const { artifact } = yield* compileClientPluginModule(emittedInput);
+			expect(text(requiredFile(artifact, "module.js").contents)).toContain("missing.js");
+		}),
+	);
+});
+
+it.layer(emittedLayer('export * from "./missing.js";'))("emitted missing reference", (test) => {
+	test.effect("rejects a real missing re-export", () =>
+		Effect.gen(function* () {
+			const error = yield* compileClientPluginModule(emittedInput).pipe(Effect.flip);
+			expect(error.diagnostics[0]?.message).toContain("missing.js");
+		}),
+	);
+});
+
+it.layer(emittedLayer('import value from "./missing.js"; export default value;'))(
+	"emitted static import",
+	(test) => {
+		test.effect("rejects a missing static import", () =>
+			Effect.gen(function* () {
+				const error = yield* compileClientPluginModule(emittedInput).pipe(Effect.flip);
+				expect(error.diagnostics[0]?.message).toContain("missing.js");
+			}),
+		);
+	},
+);
+
+it.layer(emittedLayer('const page = import("./missing.js"); export default page;'))(
+	"emitted dynamic import",
+	(test) => {
+		test.effect("rejects a missing literal dynamic import", () =>
+			Effect.gen(function* () {
+				const error = yield* compileClientPluginModule(emittedInput).pipe(Effect.flip);
+				expect(error.diagnostics[0]?.message).toContain("missing.js");
+			}),
+		);
+	},
+);
+
+it.layer(emittedLayer("const page = import(path); export default page;"))(
+	"emitted expression import",
+	(test) => {
+		test.effect("rejects a non-literal dynamic import", () =>
+			Effect.gen(function* () {
+				const error = yield* compileClientPluginModule(emittedInput).pipe(Effect.flip);
+				expect(error.diagnostics[0]?.message).toContain("non-literal dynamic import");
+			}),
+		);
+	},
+);
+
+it.layer(emittedLayer('export default new URL("./missing.png", import.meta.url);'))(
+	"emitted asset URL",
+	(test) => {
+		test.effect("rejects a missing import.meta asset reference", () =>
+			Effect.gen(function* () {
+				const error = yield* compileClientPluginModule(emittedInput).pipe(Effect.flip);
+				expect(error.diagnostics[0]?.message).toContain("missing.png");
+			}),
+		);
+	},
+);
+
+it.layer(emittedLayer("export default 1;", '@import "./missing.css";'))(
+	"emitted CSS import",
+	(test) => {
+		test.effect("rejects a missing stylesheet import", () =>
+			Effect.gen(function* () {
+				const error = yield* compileClientPluginModule(emittedInput).pipe(Effect.flip);
+				expect(error.diagnostics[0]?.message).toContain("missing.css");
+			}),
+		);
+	},
+);
+
+it.layer(
+	emittedLayer(
+		"export default 1;",
+		'/* url("./ignored.png") */ .page { background: url("./missing.png"); }',
+	),
+)("emitted CSS asset", (test) => {
+	test.effect("rejects a missing declaration URL without reading comments", () =>
+		Effect.gen(function* () {
+			const error = yield* compileClientPluginModule(emittedInput).pipe(Effect.flip);
+			expect(error.diagnostics[0]?.message).toContain("missing.png");
+		}),
+	);
+});
+
+it.layer(emittedLayer("\ufeff  export default 1;\n", '/* url("./missing.png") */'))(
+	"emitted executable bytes",
+	(test) => {
+		test.effect("keeps the BOM, whitespace, and CSS comment bytes", () =>
+			Effect.gen(function* () {
+				const { artifact } = yield* compileClientPluginModule(emittedInput);
+				expect(requiredFile(artifact, "module.js").contents).toEqual(
+					bytes("\ufeff  export default 1;\n"),
+				);
+				expect(requiredFile(artifact, "module.css").contents).toEqual(
+					bytes('/* url("./missing.png") */'),
+				);
+			}),
+		);
+	},
+);
 
 it.layer(clientPluginCompilerPlatformLayer)("compileClientPluginModule", (test) => {
 	test.effect(

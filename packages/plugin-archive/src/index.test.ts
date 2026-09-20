@@ -331,6 +331,36 @@ describe("plugin archive", () => {
 		}),
 	);
 
+	it.live("keeps a compiled JavaScript BOM in the archive and decoded script", () =>
+		Effect.gen(function* () {
+			const javascript = `\ufeff${scriptJavascript}`;
+			const bytes = encoder.encode(javascript);
+			const result = writePluginArchive({
+				...scriptFixture,
+				compiledScripts: [{ ...compiledScriptFixture, javascript }],
+			});
+			expect(unzipSync(result)[`compiled-backend/files/${sha256Hex(bytes)}.js`]).toEqual(bytes);
+			expect((yield* readPluginArchive(result)).compiledScripts[0]?.javascript).toBe(javascript);
+		}),
+	);
+
+	it("rejects invalid UTF-8 in compiled JavaScript despite a matching byte hash", () => {
+		const bytes = new Uint8Array([0xff]);
+		const hash = sha256Hex(bytes);
+		const metadata = encoder.encode(
+			`${JSON.stringify({ scripts: [{ hash, format: 1, entry: scriptEntry }] })}\n`,
+		);
+		return expectReason(
+			archive([
+				["manifest.json", scriptRawManifest],
+				[scriptEntry, encoder.encode(scriptSource)],
+				["compiled-backend/metadata.json", metadata],
+				[`compiled-backend/files/${hash}.js`, bytes],
+			]),
+			"compiled-script-invalid",
+		);
+	});
+
 	it.live("requires every manifest script and rejects duplicate, extra, and missing outputs", () =>
 		Effect.gen(function* () {
 			expectWriteReason({ ...scriptFixture, compiledScripts: [] }, "compiled-script-invalid");
@@ -732,6 +762,27 @@ describe("plugin archive", () => {
 				name: originalFile.name,
 				contents: originalFile.contents,
 				contentType: "application/json",
+			};
+			const compiledClient = { ...compiledClientFixture, files: [file] };
+			expectWriteReason({ ...fixture, compiledClient }, "compiled-client-invalid");
+			yield* Effect.promise(() =>
+				expectReason(
+					archive([
+						["manifest.json", rawManifest],
+						["compiled-client/metadata.json", compiledClientMetadata(compiledClient)],
+						["compiled-client/files/plugin.js", file.contents],
+					]),
+					"compiled-client-invalid",
+				),
+			);
+		}),
+	);
+
+	it.live("rejects invalid UTF-8 compiled client JavaScript in writer and reader", () =>
+		Effect.gen(function* () {
+			const file = {
+				...artifactFile(compiledClientFixture, "plugin.js"),
+				contents: new Uint8Array([0xff]),
 			};
 			const compiledClient = { ...compiledClientFixture, files: [file] };
 			expectWriteReason({ ...fixture, compiledClient }, "compiled-client-invalid");

@@ -1,8 +1,5 @@
 import {
-	CLIENT_API_VERSION,
-	CLIENT_ARTIFACT_FORMAT,
-	CLIENT_BRIDGE_PROTOCOL_VERSION,
-	CLIENT_COMPILER_VERSION,
+	clientArtifactMetadata,
 	PluginClientArtifact as PluginClientArtifactSchema,
 	isPluginClientArtifactContentType,
 	isPluginClientTextSource,
@@ -160,7 +157,7 @@ export const normalizePluginSource = Effect.fn("PluginPipeline.normalizePluginSo
 		}
 		const javascriptText = yield* Effect.try({
 			try: () =>
-				new TextDecoder("utf-8", { fatal: true }).decode(
+				new TextDecoder("utf-8", { fatal: true, ignoreBOM: true }).decode(
 					new TextEncoder().encode(script.javascript),
 				),
 			catch: () =>
@@ -212,21 +209,21 @@ export const normalizePluginSource = Effect.fn("PluginPipeline.normalizePluginSo
 					issues: [`Plugin compiled client artifact file is invalid: ${file.name}`],
 				});
 			}
+			if (file.contentType.startsWith("text/javascript")) {
+				yield* Effect.try({
+					try: () =>
+						new TextDecoder("utf-8", { fatal: true, ignoreBOM: true }).decode(file.contents),
+					catch: () =>
+						new PluginValidationError({
+							issues: [`Plugin compiled client artifact file is invalid: ${file.name}`],
+						}),
+				});
+			}
 		}
-		const identity = {
-			format: CLIENT_ARTIFACT_FORMAT,
-			apiVersion: CLIENT_API_VERSION,
-			compilerVersion: CLIENT_COMPILER_VERSION,
-			bridgeVersion: CLIENT_BRIDGE_PROTOCOL_VERSION,
-		};
-		const files = compiledClient.files
-			.slice()
-			.sort((left, right) => compareCodeUnits(left.name, right.name))
-			.map(({ name, contents, contentType }) => ({ name, contentType, sha256: digest(contents) }));
-		const expectedHash = digest(
-			stableStringify({ files, metadata: identity, name: manifest.metadata.name }),
-		);
-		if (compiledClient.hash !== expectedHash) {
+		if (
+			compiledClient.hash !==
+			clientArtifactMetadata(manifest.metadata.name, compiledClient.files).hash
+		) {
 			return yield* new PluginValidationError({
 				issues: ["Plugin compiled client artifact content hash is invalid"],
 			});
