@@ -56,7 +56,7 @@ describe("sandbox limits", () => {
 				sourceBytes: 262_144,
 				manifestBytes: 16_384,
 				memoryPollIntervalMs: 5,
-				memoryBytes: 268_435_456,
+				memoryBytes: 402_653_184,
 				diagnosticBytes: 262_144,
 				javascriptBytes: 1_048_576,
 			},
