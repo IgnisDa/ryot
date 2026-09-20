@@ -12,7 +12,6 @@ import { and, asc, eq, isNotNull, isNull, or, sql } from "drizzle-orm";
 import { Context, Effect, Layer, Schema } from "effect";
 
 import * as schema from "#lib/infrastructure/db/schema/tables/combined";
-import { mapDatabaseErrors } from "#lib/infrastructure/db/service";
 import { DatabaseSession } from "#lib/infrastructure/db/session";
 
 type RelationshipSnapshotRow = Pick<
@@ -214,8 +213,7 @@ export class RelationshipsRepository extends Context.Service<RelationshipsReposi
 			const session = yield* DatabaseSession;
 			const findLifecyclePayload = Effect.fn("RelationshipsRepository.findLifecyclePayload")(
 				function* (id: AutomationTriggerId) {
-					const db = yield* session.current;
-					const [row] = yield* mapDatabaseErrors(
+					const [row] = yield* session.run((db) =>
 						db
 							.select({ payload: schema.automationTrigger.payload })
 							.from(schema.automationTrigger)
@@ -234,8 +232,7 @@ export class RelationshipsRepository extends Context.Service<RelationshipsReposi
 			const findRelationship = Effect.fn("RelationshipsRepository.findRelationship")(function* (
 				input: RelationshipIdentityInput,
 			) {
-				const db = yield* session.current;
-				const [row] = yield* mapDatabaseErrors(
+				const [row] = yield* session.run((db) =>
 					db
 						.select(relationshipSnapshotSelection)
 						.from(schema.relationship)
@@ -248,8 +245,7 @@ export class RelationshipsRepository extends Context.Service<RelationshipsReposi
 			const findUserRelationshipById = Effect.fn(
 				"RelationshipsRepository.findUserRelationshipById",
 			)(function* (userId: UserId, relationshipId: RelationshipId) {
-				const db = yield* session.current;
-				const [row] = yield* mapDatabaseErrors(
+				const [row] = yield* session.run((db) =>
 					db
 						.select(relationshipSnapshotWithProvenanceSelection)
 						.from(schema.relationship)
@@ -266,10 +262,9 @@ export class RelationshipsRepository extends Context.Service<RelationshipsReposi
 			const lockRelationshipMutations = Effect.fn(
 				"RelationshipsRepository.lockRelationshipMutations",
 			)(function* (inputs: ReadonlyArray<RelationshipIdentityInput>) {
-				const db = yield* session.current;
 				const keys = [...new Set(inputs.map(relationshipMutationLockKey))].sort();
 				for (const key of keys) {
-					yield* mapDatabaseErrors(
+					yield* session.run((db) =>
 						db.execute(sql`select pg_advisory_xact_lock(hashtextextended(${key}, 0))`),
 					);
 				}
@@ -277,8 +272,7 @@ export class RelationshipsRepository extends Context.Service<RelationshipsReposi
 			const listUserRelationshipsForBackup = Effect.fn(
 				"RelationshipsRepository.listUserRelationshipsForBackup",
 			)(function* (userId: UserId) {
-				const db = yield* session.current;
-				return yield* mapDatabaseErrors(
+				return yield* session.run((db) =>
 					db
 						.select(relationshipSnapshotWithProvenanceSelection)
 						.from(schema.relationship)
@@ -296,8 +290,7 @@ export class RelationshipsRepository extends Context.Service<RelationshipsReposi
 				relationshipSchemaSlug: RelationshipSchemaSlug;
 				relationshipSchemaPluginId?: string | null | undefined;
 			}) {
-				const db = yield* session.current;
-				const [row] = yield* mapDatabaseErrors(
+				const [row] = yield* session.run((db) =>
 					db
 						.select({ properties: schema.relationship.properties })
 						.from(schema.relationship)
@@ -311,7 +304,6 @@ export class RelationshipsRepository extends Context.Service<RelationshipsReposi
 			const createRelationship = Effect.fn("RelationshipsRepository.createRelationship")(function* (
 				input: CreateRelationshipInput,
 			) {
-				const db = yield* session.current;
 				const values = {
 					properties: input.properties,
 					sourceEntityId: input.sourceEntityId,
@@ -321,7 +313,7 @@ export class RelationshipsRepository extends Context.Service<RelationshipsReposi
 					relationshipSchemaPluginId: input.relationshipSchemaPluginId ?? null,
 				};
 
-				const [inserted] = yield* mapDatabaseErrors(
+				const [inserted] = yield* session.run((db) =>
 					db
 						.insert(schema.relationship)
 						.values(values)
@@ -333,7 +325,7 @@ export class RelationshipsRepository extends Context.Service<RelationshipsReposi
 					return toSavedRelationship(inserted);
 				}
 
-				const [existing] = yield* mapDatabaseErrors(
+				const [existing] = yield* session.run((db) =>
 					db
 						.select(relationshipSelection)
 						.from(schema.relationship)
@@ -352,8 +344,7 @@ export class RelationshipsRepository extends Context.Service<RelationshipsReposi
 			const updateRelationship = Effect.fn("RelationshipsRepository.updateRelationship")(function* (
 				input: UpdateRelationshipInput,
 			) {
-				const db = yield* session.current;
-				const [row] = yield* mapDatabaseErrors(
+				const [row] = yield* session.run((db) =>
 					db
 						.update(schema.relationship)
 						.set({ properties: input.properties })
@@ -367,8 +358,7 @@ export class RelationshipsRepository extends Context.Service<RelationshipsReposi
 			const updatePreparedRelationship = Effect.fn(
 				"RelationshipsRepository.updatePreparedRelationship",
 			)(function* (input: UpdateRelationshipInput & { before: ReturnType<typeof toRelationship> }) {
-				const db = yield* session.current;
-				const [row] = yield* mapDatabaseErrors(
+				const [row] = yield* session.run((db) =>
 					db
 						.update(schema.relationship)
 						.set({ properties: input.properties })
@@ -382,8 +372,7 @@ export class RelationshipsRepository extends Context.Service<RelationshipsReposi
 			const deleteRelationship = Effect.fn("RelationshipsRepository.deleteRelationship")(function* (
 				input: RelationshipIdentityInput,
 			) {
-				const db = yield* session.current;
-				const [row] = yield* mapDatabaseErrors(
+				const [row] = yield* session.run((db) =>
 					db
 						.delete(schema.relationship)
 						.where(relationshipIdentityWhere(input))
@@ -398,8 +387,7 @@ export class RelationshipsRepository extends Context.Service<RelationshipsReposi
 			)(function* (
 				input: RelationshipIdentityInput & { before: ReturnType<typeof toRelationship> },
 			) {
-				const db = yield* session.current;
-				const [row] = yield* mapDatabaseErrors(
+				const [row] = yield* session.run((db) =>
 					db
 						.delete(schema.relationship)
 						.where(and(relationshipIdentityWhere(input), preparedRelationshipWhere(input.before)))
@@ -412,8 +400,7 @@ export class RelationshipsRepository extends Context.Service<RelationshipsReposi
 			const deleteUserRelationshipById = Effect.fn(
 				"RelationshipsRepository.deleteUserRelationshipById",
 			)(function* (userId: UserId, relationshipId: RelationshipId) {
-				const db = yield* session.current;
-				const [row] = yield* mapDatabaseErrors(
+				const [row] = yield* session.run((db) =>
 					db
 						.delete(schema.relationship)
 						.where(
@@ -430,8 +417,7 @@ export class RelationshipsRepository extends Context.Service<RelationshipsReposi
 			const listUserRelationshipsForEntity = Effect.fn(
 				"RelationshipsRepository.listUserRelationshipsForEntity",
 			)(function* (input: { userId: UserId; entityId: EntityId }) {
-				const db = yield* session.current;
-				const rows = yield* mapDatabaseErrors(
+				const rows = yield* session.run((db) =>
 					db
 						.select(relationshipSnapshotSelection)
 						.from(schema.relationship)
@@ -452,8 +438,7 @@ export class RelationshipsRepository extends Context.Service<RelationshipsReposi
 			const listUserRelationshipsForEntityWithProvenance = Effect.fn(
 				"RelationshipsRepository.listUserRelationshipsForEntityWithProvenance",
 			)(function* (input: { userId: UserId; entityId: EntityId }) {
-				const db = yield* session.current;
-				const rows = yield* mapDatabaseErrors(
+				const rows = yield* session.run((db) =>
 					db
 						.select(relationshipSnapshotWithProvenanceSelection)
 						.from(schema.relationship)
@@ -479,8 +464,7 @@ export class RelationshipsRepository extends Context.Service<RelationshipsReposi
 				relationshipSchemaSlug: RelationshipSchemaSlug;
 				relationshipSchemaPluginId?: string | null | undefined;
 			}) {
-				const db = yield* session.current;
-				const rows = yield* mapDatabaseErrors(
+				const rows = yield* session.run((db) =>
 					db
 						.selectDistinct({ userId: schema.relationship.userId })
 						.from(schema.relationship)
@@ -507,13 +491,12 @@ export class RelationshipsRepository extends Context.Service<RelationshipsReposi
 			const listRelationshipsForReconciliation = Effect.fn(
 				"RelationshipsRepository.listRelationshipsForReconciliation",
 			)(function* (input: RelationshipReconciliationListInput) {
-				const db = yield* session.current;
-				yield* mapDatabaseErrors(
+				yield* session.run((db) =>
 					db.execute(
 						sql`select pg_advisory_xact_lock(hashtextextended(${relationshipReconciliationLockKey(input)}, 0))`,
 					),
 				);
-				const rows = yield* mapDatabaseErrors(
+				const rows = yield* session.run((db) =>
 					db
 						.select(relationshipSnapshotSelection)
 						.from(schema.relationship)

@@ -9,7 +9,6 @@ import { and, eq, isNull, or } from "drizzle-orm";
 import { Context, Effect, Layer } from "effect";
 
 import * as schema from "#lib/infrastructure/db/schema/tables/combined";
-import { mapDatabaseErrors } from "#lib/infrastructure/db/service";
 import { DatabaseSession } from "#lib/infrastructure/db/session";
 import { DefinitionRepository } from "#modules/definition-registry/repository";
 
@@ -69,8 +68,7 @@ export class CollectionsRepository extends Context.Service<CollectionsRepository
 			const findCollectionByNameForUser = Effect.fn(
 				"CollectionsRepository.findCollectionByNameForUser",
 			)(function* (input: { name: string; userId: UserId; entitySchemaSlug: EntitySchemaSlug }) {
-				const db = yield* session.current;
-				const [row] = yield* mapDatabaseErrors(
+				const [row] = yield* session.run((db) =>
 					db
 						.select(collectionSelection)
 						.from(schema.entity)
@@ -93,8 +91,7 @@ export class CollectionsRepository extends Context.Service<CollectionsRepository
 				collectionId: EntityId,
 				userId: UserId,
 			) {
-				const db = yield* session.current;
-				const [row] = yield* mapDatabaseErrors(
+				const [row] = yield* session.run((db) =>
 					db
 						.select(collectionSelection)
 						.from(schema.entity)
@@ -113,8 +110,7 @@ export class CollectionsRepository extends Context.Service<CollectionsRepository
 
 			const getEntityForMembership = Effect.fn("CollectionsRepository.getEntityForMembership")(
 				function* (entityId: EntityId, userId: UserId) {
-					const db = yield* session.current;
-					const [row] = yield* mapDatabaseErrors(
+					const [row] = yield* session.run((db) =>
 						db
 							.select({
 								id: schema.entity.id,

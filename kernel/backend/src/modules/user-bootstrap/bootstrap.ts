@@ -4,7 +4,6 @@ import { eq, sql } from "drizzle-orm";
 import { DateTime, Effect, Layer } from "effect";
 
 import * as schema from "#lib/infrastructure/db/schema/tables/combined";
-import { mapDatabaseErrors } from "#lib/infrastructure/db/service";
 import { DatabaseSession } from "#lib/infrastructure/db/session";
 import { AuthBootstrapError, AuthUserBootstrap } from "#modules/auth/service";
 import { generateUserAvatar } from "#modules/auth/user-avatar";
@@ -15,15 +14,15 @@ import { PluginInstallationService } from "#modules/plugins/installation-service
 import { PluginUserBootstrapDispatcher } from "./plugin-dispatch";
 
 export const acquireBootstrapLock = Effect.fn(function* (userId: string) {
-	const db = yield* (yield* DatabaseSession).current;
-	yield* mapDatabaseErrors(
+	const session = yield* DatabaseSession;
+	yield* session.run((db) =>
 		db.execute(sql`select pg_advisory_xact_lock(hashtext(${`user:bootstrap:${userId}`}))`),
 	);
 });
 
 const readBootstrapState = Effect.fn(function* (userId: string) {
-	const db = yield* (yield* DatabaseSession).current;
-	const [row] = yield* mapDatabaseErrors(
+	const session = yield* DatabaseSession;
+	const [row] = yield* session.run((db) =>
 		db
 			.select({ image: schema.user.image, bootstrapCompletedAt: schema.user.bootstrapCompletedAt })
 			.from(schema.user)
@@ -36,9 +35,9 @@ const readBootstrapState = Effect.fn(function* (userId: string) {
 });
 
 const markBootstrapComplete = Effect.fn(function* (userId: string, image: string | null) {
-	const db = yield* (yield* DatabaseSession).current;
+	const session = yield* DatabaseSession;
 	const completedAt = yield* DateTime.nowAsDate;
-	yield* mapDatabaseErrors(
+	yield* session.run((db) =>
 		db
 			.update(schema.user)
 			.set(

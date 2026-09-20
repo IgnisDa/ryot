@@ -8,7 +8,6 @@ import { and, eq, isNotNull, sql } from "drizzle-orm";
 import { Context, Effect, Layer, Option, Schema } from "effect";
 
 import * as tables from "#lib/infrastructure/db/schema/tables/core";
-import { mapDatabaseErrors } from "#lib/infrastructure/db/service";
 import { DatabaseSession } from "#lib/infrastructure/db/session";
 import {
 	parseAppSchemaProperties,
@@ -287,8 +286,7 @@ export class PluginConfigRevisions extends Context.Service<PluginConfigRevisions
 			const database = yield* DatabaseSession;
 			const encryptionKey = yield* PluginConfigEncryptionKey;
 			const lock = Effect.fn("PluginConfigRevisions.lock")(function* (pluginId: string) {
-				const db = yield* database.current;
-				yield* mapDatabaseErrors(
+				yield* database.run((db) =>
 					db.execute(sql`select pg_advisory_xact_lock(hashtext(${"plugin-config:" + pluginId}))`),
 				);
 			});
@@ -308,8 +306,7 @@ export class PluginConfigRevisions extends Context.Service<PluginConfigRevisions
 				pluginRevisionId: string;
 				ownerUserId: string | null;
 			}) {
-				const db = yield* database.current;
-				const [row] = yield* mapDatabaseErrors(
+				const [row] = yield* database.run((db) =>
 					db
 						.select()
 						.from(tables.pluginConfigRevision)
@@ -330,9 +327,8 @@ export class PluginConfigRevisions extends Context.Service<PluginConfigRevisions
 				configuredSecretPaths?: ReadonlyArray<string>,
 				allowMissingRequiredSecrets = false,
 			) {
-				const db = yield* database.current;
 				const encryption = yield* encryptionKey.load;
-				const [revision] = yield* mapDatabaseErrors(
+				const [revision] = yield* database.run((db) =>
 					db
 						.select()
 						.from(tables.pluginRevision)
@@ -343,7 +339,7 @@ export class PluginConfigRevisions extends Context.Service<PluginConfigRevisions
 					return yield* new DbError({ message: "Plugin revision is unavailable" });
 				}
 				yield* lock(revision.pluginId);
-				const [plugin] = yield* mapDatabaseErrors(
+				const [plugin] = yield* database.run((db) =>
 					db.select().from(tables.plugin).where(eq(tables.plugin.id, revision.pluginId)).limit(1),
 				);
 				if (
@@ -358,12 +354,13 @@ export class PluginConfigRevisions extends Context.Service<PluginConfigRevisions
 				) {
 					return yield* new DbError({ message: "Invalid configuration revision ownership" });
 				}
-				if (input.scope === "installation" && input.pluginInstallationId) {
-					const [installation] = yield* mapDatabaseErrors(
+				const { pluginInstallationId } = input;
+				if (input.scope === "installation" && pluginInstallationId) {
+					const [installation] = yield* database.run((db) =>
 						db
 							.select()
 							.from(tables.pluginInstallation)
-							.where(eq(tables.pluginInstallation.id, input.pluginInstallationId))
+							.where(eq(tables.pluginInstallation.id, pluginInstallationId))
 							.limit(1),
 					);
 					if (
@@ -405,7 +402,7 @@ export class PluginConfigRevisions extends Context.Service<PluginConfigRevisions
 					.pipe(
 						Effect.mapError(() => new DbError({ message: "Configuration fingerprint failed" })),
 					);
-				const rows = yield* mapDatabaseErrors(
+				const rows = yield* database.run((db) =>
 					db
 						.select()
 						.from(tables.pluginConfigRevision)
@@ -439,7 +436,7 @@ export class PluginConfigRevisions extends Context.Service<PluginConfigRevisions
 				const envelope = yield* encryption
 					.encrypt(properties, attribution(identity))
 					.pipe(Effect.mapError(() => new DbError({ message: "Configuration encryption failed" })));
-				yield* mapDatabaseErrors(
+				yield* database.run((db) =>
 					db.insert(tables.pluginConfigRevision).values({
 						...identity,
 						...envelope,
