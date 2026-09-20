@@ -1,8 +1,8 @@
-import { expect, it } from "@effect/vitest";
+import { expect, layer } from "@effect/vitest";
 import { DbError } from "@ryot-app/contract/errors";
 import { AutomationExecutionId, EntityId, UserId } from "@ryot-app/contract/schema/brands";
 import { eq } from "drizzle-orm";
-import { DateTime, Effect, Layer } from "effect";
+import { Context, DateTime, Effect, Layer, Ref } from "effect";
 import { describe } from "vitest";
 
 import { LifecyclePlanner } from "#lib/domain/lifecycle";
@@ -17,7 +17,7 @@ import { PluginInstallationRepository } from "#modules/plugins/installation-repo
 import {
 	installRevisionPackage,
 	revisionPackage,
-	withRevisionDatabase,
+	revisionDatabaseLayer,
 } from "#modules/plugins/revision.test-support";
 import { RelationshipSchemasRepository } from "#modules/relationship-schemas/repository";
 import { RelationshipsRepository } from "#modules/relationships/repository";
@@ -153,26 +153,49 @@ const dependencies = Layer.mergeAll(
 	AutomationTriggerRepository.layer,
 );
 const plannerLayer = LifecyclePlannerLive.pipe(Layer.provide(makeAppConfigLayer()));
-const executionLayer = (started: string[]) =>
-	Layer.succeed(
-		LifecycleExecution,
-		withLifecycleDispatch({
-			executePolicy: () => Effect.die("Signals cannot execute policies"),
-			skipQueuedPolicies: () => Effect.die("Signals cannot skip policies"),
-			after: ({ triggerId }) =>
-				Effect.sync(() => {
-					started.push(triggerId);
-					return [];
-				}),
-		}),
+class StartedTriggers extends Context.Service<
+	StartedTriggers,
+	Effect.Effect<ReadonlyArray<string>>
+>()("test/StartedTriggers") {}
+
+const recordingExecutionLayer = Layer.effectContext(
+	Effect.gen(function* () {
+		const started = yield* Ref.make<ReadonlyArray<string>>([]);
+		return Context.make(
+			LifecycleExecution,
+			withLifecycleDispatch({
+				executePolicy: () => Effect.die("Signals cannot execute policies"),
+				skipQueuedPolicies: () => Effect.die("Signals cannot skip policies"),
+				after: ({ triggerId }) =>
+					Ref.update(started, (all) => [...all, triggerId]).pipe(Effect.as([])),
+			}),
+		).pipe(Context.add(StartedTriggers, Ref.get(started)));
+	}),
+);
+
+const planningFailure = new DbError({ message: "fail after planned writes" });
+const failingPlannerLayer = Layer.effect(
+	LifecyclePlanner,
+	Effect.gen(function* () {
+		const planner = yield* LifecyclePlanner;
+		return withLifecycleBatchPlanning({
+			plan: (request: Parameters<typeof planner.plan>[0]) =>
+				planner.plan(request).pipe(Effect.andThen(Effect.fail(planningFailure))),
+		});
+	}),
+).pipe(Layer.provide(plannerLayer));
+
+const signalLayer = (planner: typeof plannerLayer = plannerLayer) =>
+	SignalEmissionService.layer.pipe(
+		Layer.provideMerge(Layer.mergeAll(dependencies, planner, recordingExecutionLayer)),
+		Layer.provideMerge(revisionDatabaseLayer),
 	);
 
 describe("Signal emission PostgreSQL", () => {
-	it.effect(
-		"keeps original recipients and pinned runs after audience changes, and rejects payload reuse",
-		() => {
-			const started: string[] = [];
-			return withRevisionDatabase(
+	layer(signalLayer())((test) => {
+		test.effect(
+			"keeps original recipients and pinned runs after audience changes, and rejects payload reuse",
+			() =>
 				Effect.gen(function* () {
 					yield* setup;
 					const service = yield* SignalEmissionService;
@@ -203,19 +226,12 @@ describe("Signal emission PostgreSQL", () => {
 							.pipe(Effect.exit),
 						new DbError({ message: `Automation trigger identity conflict: ${first.triggerId}` }),
 					);
-					expect(started).toEqual([first.triggerId, first.triggerId]);
-				}).pipe(
-					Effect.provide(
-						SignalEmissionService.layer.pipe(
-							Layer.provide(Layer.mergeAll(dependencies, plannerLayer, executionLayer(started))),
-						),
-					),
-				),
-			);
-		},
-	);
-	it.effect("excludes disabled actors and recipients from new plans", () => {
-		return withRevisionDatabase(
+					expect(yield* yield* StartedTriggers).toEqual([first.triggerId, first.triggerId]);
+				}),
+		);
+	});
+	layer(signalLayer())((test) => {
+		test.effect("excludes disabled actors and recipients from new plans", () =>
 			Effect.gen(function* () {
 				yield* setup;
 				const db = yield* (yield* DatabaseSession).current;
@@ -225,17 +241,11 @@ describe("Signal emission PostgreSQL", () => {
 				expect(yield* db.select().from(tables.automationTrigger)).toHaveLength(1);
 				expect(yield* db.select().from(tables.automationTriggerRecipient)).toEqual([]);
 				expect(yield* db.select().from(tables.automationRun)).toEqual([]);
-			}).pipe(
-				Effect.provide(
-					SignalEmissionService.layer.pipe(
-						Layer.provide(Layer.mergeAll(dependencies, plannerLayer, executionLayer([]))),
-					),
-				),
-			),
+			}),
 		);
 	});
-	it.effect("does not resolve a same-slug private signal through the recipient's plugin", () =>
-		withRevisionDatabase(
+	layer(signalLayer())((test) => {
+		test.effect("does not resolve a same-slug private signal through the recipient's plugin", () =>
 			Effect.gen(function* () {
 				const actorPlugin = yield* installRevisionPackage(privateSignalPackage("private-a"), owner);
 				const recipientPlugin = yield* installRevisionPackage(
@@ -294,50 +304,25 @@ describe("Signal emission PostgreSQL", () => {
 					signalSchemaSlug: "shared.signal",
 					signalSchemaPluginId: actorPlugin.pluginId,
 				});
-			}).pipe(
-				Effect.provide(
-					SignalEmissionService.layer.pipe(
-						Layer.provide(Layer.mergeAll(dependencies, plannerLayer, executionLayer([]))),
-					),
-				),
-			),
-		),
-	);
-	it.effect(
-		"rolls back trigger, recipients and runs when planning fails, without starting execution",
-		() => {
-			const started: string[] = [];
-			const failure = new DbError({ message: "fail after planned writes" });
-			const failingPlanner = Layer.effect(
-				LifecyclePlanner,
-				Effect.gen(function* () {
-					const planner = yield* LifecyclePlanner;
-					return withLifecycleBatchPlanning({
-						plan: (request: Parameters<typeof planner.plan>[0]) =>
-							planner.plan(request).pipe(Effect.andThen(Effect.fail(failure))),
-					});
-				}),
-			).pipe(Layer.provide(plannerLayer));
-			return withRevisionDatabase(
+			}),
+		);
+	});
+	layer(signalLayer(failingPlannerLayer))((test) => {
+		test.effect(
+			"rolls back trigger, recipients and runs when planning fails, without starting execution",
+			() =>
 				Effect.gen(function* () {
 					yield* setup;
 					const db = yield* (yield* DatabaseSession).current;
 					assertExitFails(
 						yield* (yield* SignalEmissionService).emitSignal(input).pipe(Effect.exit),
-						failure,
+						planningFailure,
 					);
 					expect(yield* db.select().from(tables.automationTrigger)).toEqual([]);
 					expect(yield* db.select().from(tables.automationTriggerRecipient)).toEqual([]);
 					expect(yield* db.select().from(tables.automationRun)).toEqual([]);
-					expect(started).toEqual([]);
-				}).pipe(
-					Effect.provide(
-						SignalEmissionService.layer.pipe(
-							Layer.provide(Layer.mergeAll(dependencies, failingPlanner, executionLayer(started))),
-						),
-					),
-				),
-			);
-		},
-	);
+					expect(yield* yield* StartedTriggers).toEqual([]);
+				}),
+		);
+	});
 });
