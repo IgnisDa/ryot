@@ -16,7 +16,6 @@ export const SandboxHttpPolicy = Schema.Struct({
 export const SandboxHttpProgress = Schema.Struct({
 	url: Schema.String,
 	blockedUntilMs: Schema.NullOr(Schema.Int),
-	registeredAtMs: Schema.NullOr(Schema.Int),
 	redirect: Schema.NullOr(SandboxHttpRedirect),
 	attempt: Schema.Int.check(Schema.isGreaterThanOrEqualTo(0)),
 	terminalRateLimit: Schema.NullOr(workflowDurableResultSchema),

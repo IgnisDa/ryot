@@ -1,6 +1,5 @@
 import { type SandboxScriptId, UserId } from "@ryot-app/contract/schema/brands";
-import { stableStringify } from "@ryot-app/ts-utils/json";
-import { Config, Clock, Effect } from "effect";
+import { Clock, Effect } from "effect";
 
 import {
 	adminHeaders,
@@ -9,7 +8,6 @@ import {
 	installTestPluginBundle,
 	pollSandboxResult,
 	requireCompletedSandboxValue,
-	sampleOperationalPressure,
 	uninstallTestPlugin,
 } from "~/fixtures/kernel";
 import { requirePresent } from "~/support/assertions";
@@ -92,40 +90,6 @@ const enqueueTrustedSandbox = (userId: string, scriptId: SandboxScriptId) =>
 			}),
 		adminHeaders(),
 	);
-
-const runBenchmarkWorkload = (input: {
-	userId: string;
-	scriptId: SandboxScriptId;
-	workload: string;
-	sourceHash: string;
-}) =>
-	Effect.gen(function* () {
-		const backendPid = yield* Config.Int("E2E_SERVER_PID");
-		yield* Effect.logInfo(
-			`sandbox-replay-benchmark-start ${stableStringify({ backendPid, workload: input.workload })}`,
-		);
-		const before = yield* sampleOperationalPressure([`${input.workload}-baseline`]);
-		const startedAt = yield* Clock.currentTimeMillis;
-		const job = yield* enqueueTrustedSandbox(input.userId, input.scriptId);
-		const output = requireCompletedSandboxValue(
-			yield* pollSandboxResult(input.userId, job.jobId),
-			input.workload,
-		);
-		const finishedAt = yield* Clock.currentTimeMillis;
-		const after = yield* sampleOperationalPressure([job.executionId]);
-		const wallMs = finishedAt - startedAt;
-		yield* Effect.logInfo(
-			`sandbox-replay-benchmark-result ${stableStringify({
-				wallMs,
-				output,
-				workload: input.workload,
-				pressure: { after, before },
-				sourceHash: input.sourceHash,
-				sandboxExecutions: after.sandbox.totalExecutions - before.sandbox.totalExecutions,
-			})}`,
-		);
-		return output;
-	});
 
 describe("sandbox short waits and replay", () => {
 	it.live("short_and_long_sleeps_preserve_workflow_output", () =>
@@ -258,108 +222,6 @@ describe("sandbox short waits and replay", () => {
 						requirePresent(requestTimestamps[index - 1], "Missing previous request timestamp"),
 				).toBeGreaterThanOrEqual(140);
 			}
-		}),
-	);
-});
-
-describe.skipIf(process.env.SANDBOX_REPLAY_BENCHMARK !== "1")("sandbox replay benchmark", () => {
-	it.live("short_wait_workload_records_replays_time_and_memory", () =>
-		Effect.gen(function* () {
-			const requestTimestamps: Array<number> = [];
-			const http = yield* startFakeHttpServerScoped(() => {
-				requestTimestamps.push(Date.now());
-				return Response.json({ ok: true });
-			});
-			const suffix = crypto.randomUUID();
-			const pluginSlug = `e2e-short-wait-benchmark-${suffix}`;
-			const workflowSlug = `workflow.short-wait-benchmark-${suffix}`;
-			const scriptSlug = `short-http-benchmark-${suffix}`;
-			const workflowEntry = `backend/scripts/${workflowSlug}.sandbox.ts`;
-			const scriptEntry = `backend/scripts/${scriptSlug}.sandbox.ts`;
-			const plugin = yield* installSystemPluginScoped({
-				pluginSlug,
-				httpRateLimits: [
-					{
-						requests: 1,
-						intervalMs: 50,
-						origins: [new URL(http.url).origin],
-						key: `e2e.short-wait-benchmark.${suffix}`,
-					},
-				],
-				files: {
-					[scriptEntry]: httpScriptSource({
-						url: http.url,
-						requestCount: 10,
-						slug: scriptSlug,
-						name: "Short HTTP benchmark script",
-					}),
-					[workflowEntry]: workflowSource({
-						slug: workflowSlug,
-						name: "Short wait benchmark workflow",
-						sleepDurations: Array.from({ length: 10 }, () => 50),
-					}),
-				},
-				scripts: [
-					{
-						kind: "workflow",
-						capabilities: [],
-						slug: workflowSlug,
-						entry: workflowEntry,
-						requiredPluginConfigKeys: [],
-						name: "Short wait benchmark workflow",
-					},
-					{
-						kind: "script",
-						slug: scriptSlug,
-						entry: scriptEntry,
-						capabilities: ["httpCall"],
-						requiredPluginConfigKeys: [],
-						name: "Short HTTP benchmark script",
-					},
-				],
-			});
-
-			const { userId } = yield* createAuthenticatedClient();
-			const workflowOutput = yield* runBenchmarkWorkload({
-				userId,
-				sourceHash: plugin.sourceHash,
-				workload: "workflow-10x50ms-sleep",
-				scriptId: requirePresent(
-					plugin.scriptIds[workflowSlug],
-					"Benchmark workflow was not installed",
-				),
-			});
-			const scriptOutput = yield* runBenchmarkWorkload({
-				userId,
-				sourceHash: plugin.sourceHash,
-				workload: "script-10x50ms-http-call",
-				scriptId: requirePresent(
-					plugin.scriptIds[scriptSlug],
-					"Benchmark script was not installed",
-				),
-			});
-
-			expect(workflowOutput).toEqual({ completed: 10 });
-			expect(scriptOutput).toEqual({ completed: 10 });
-			expect(http.requests).toHaveLength(10);
-			expect(requestTimestamps).toHaveLength(10);
-			for (let index = 1; index < requestTimestamps.length; index += 1) {
-				expect(
-					requirePresent(requestTimestamps[index], "Missing request timestamp") -
-						requirePresent(requestTimestamps[index - 1], "Missing previous request timestamp"),
-				).toBeGreaterThanOrEqual(40);
-			}
-			yield* Effect.logInfo(
-				`sandbox-replay-benchmark-http-spacing ${stableStringify({
-					spacingMs: requestTimestamps
-						.slice(1)
-						.map(
-							(timestamp, index) =>
-								timestamp -
-								requirePresent(requestTimestamps[index], "Missing previous request timestamp"),
-						),
-				})}`,
-			);
 		}),
 	);
 });
