@@ -18,6 +18,7 @@ class FakeS3Server extends Context.Service<
 const fakeS3Layer = Layer.unwrap(
 	Effect.gen(function* () {
 		const objects = yield* Ref.make<ReadonlyMap<string, Uint8Array>>(new Map());
+		const run = Effect.runPromiseWith(yield* Effect.context());
 		const server = yield* Effect.acquireRelease(
 			Effect.sync(() =>
 				Bun.serve({
@@ -25,24 +26,26 @@ const fakeS3Layer = Layer.unwrap(
 					hostname: "127.0.0.1",
 					fetch(request) {
 						const path = new URL(request.url).pathname;
-						return request.arrayBuffer().then((buffer) => {
-							const body = new Uint8Array(buffer);
-							if (
-								request.method !== "PUT" ||
-								request.headers.get("if-none-match") !== "*" ||
-								request.headers.get("content-length") !== String(body.byteLength)
-							) {
-								return new Response(null, { status: 400 });
-							}
-							if (path.endsWith("/failure.txt")) {
-								return new Response(null, { status: 500 });
-							}
-							if (MutableRef.get(objects.ref).has(path)) {
-								return new Response(null, { status: 412 });
-							}
-							MutableRef.update(objects.ref, (all) => new Map(all).set(path, body));
-							return new Response(null, { status: 200 });
-						});
+						return run(
+							Effect.gen(function* () {
+								const body = new Uint8Array(yield* Effect.promise(() => request.arrayBuffer()));
+								if (
+									request.method !== "PUT" ||
+									request.headers.get("if-none-match") !== "*" ||
+									request.headers.get("content-length") !== String(body.byteLength)
+								) {
+									return new Response(null, { status: 400 });
+								}
+								if (path.endsWith("/failure.txt")) {
+									return new Response(null, { status: 500 });
+								}
+								if (MutableRef.get(objects.ref).has(path)) {
+									return new Response(null, { status: 412 });
+								}
+								MutableRef.update(objects.ref, (all) => new Map(all).set(path, body));
+								return new Response(null, { status: 200 });
+							}),
+						);
 					},
 				}),
 			),
