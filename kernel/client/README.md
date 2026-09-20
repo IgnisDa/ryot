@@ -37,10 +37,15 @@ Client artifacts are immutable, content-addressed outputs of a compile-only cont
 Shipped client-page builds are materialized during server boot, including when the database has no
 users. Plugin and renderer mutations materialize affected builds; user bootstrap checks that its
 required builds already exist without invoking the compiler. Navigation preparation only resolves
-the current page, finds its global build, and issues or reuses an authenticated grant for its
-artifact. The grant authorizes static artifact files until expiry. A separate freshness check on
-catalog invalidation detects changed page or plugin state and offers an explicit reload.
-There is no plugin-owned artifact selection or grant route.
+the current page and finds its global build. A new frame fetches its document once from the
+authenticated document endpoint and renders it into `srcdoc` with `sandbox="allow-scripts"`, so the
+frame keeps an opaque origin and never has a capability URL as its document URL. The document's
+`<base>` is the selected server origin, followed by a `no-referrer` policy, because a `srcdoc`
+document otherwise inherits the host's base URL and referrer policy. Its private artifact URLs carry
+expiring grants; immutable cached files keep working after expiry, and a failed bootstrap offers a
+retry that reprepares into a new frame. A separate freshness check on catalog invalidation detects
+changed page or plugin state and offers an explicit reload. There is no plugin-owned artifact
+selection or grant route.
 
 The kernel resolves every committed URL explicitly. Kernel routes render kernel surfaces;
 `/:pluginSlug/*`, `/v/:viewSlug`, and `/e/:entityId` resolve to client-page targets for plugin routes,

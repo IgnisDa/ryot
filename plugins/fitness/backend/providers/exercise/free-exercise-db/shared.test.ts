@@ -172,12 +172,109 @@ describe("exercise.free-exercise-db sandbox script", () => {
 					force: "push",
 					level: "beginner",
 					mechanic: "compound",
-					equipment: "barbell",
 					kind: "reps_and_weight",
-					muscles: ["chest", "triceps"],
 					instructions: ["Lie down.", "Push the bar up."],
 					images: [{ type: "remote", url: `${IMAGES_PREFIX_URL}/Bench_Press/0.jpg` }],
 				});
+				expect(result.relatedEntityGroups).toEqual([
+					{
+						direction: "outgoing",
+						synchronization: "authoritative",
+						relationshipSchemaSlug: "exercise-targets",
+						entities: [
+							{
+								name: "Chest",
+								externalId: "chest",
+								properties: { kind: "muscle_region" },
+								relationshipProperties: { role: "primary" },
+								providerSlug: "exercise-target.fitness-catalog",
+							},
+							{
+								name: "Triceps",
+								externalId: "triceps",
+								properties: { kind: "muscle_region" },
+								relationshipProperties: { role: "secondary" },
+								providerSlug: "exercise-target.fitness-catalog",
+							},
+						],
+					},
+					{
+						direction: "outgoing",
+						synchronization: "authoritative",
+						relationshipSchemaSlug: "exercise-uses-equipment",
+						entities: [
+							{
+								properties: {},
+								name: "Barbell",
+								externalId: "barbell",
+								providerSlug: "exercise-equipment.fitness-catalog",
+							},
+						],
+					},
+				]);
+			}),
+		);
+	});
+
+	it("keeps an existing exercise kind when returning details", () => {
+		const { host } = makeStatefulHost();
+		return Effect.runPromise(
+			Effect.gen(function* () {
+				const result = yield* details.run(
+					{ externalId: "Bench Press", existingProperties: { kind: "reps" } },
+					host,
+					execution,
+				);
+				expect(result.properties.kind).toBe("reps");
+			}),
+		);
+	});
+
+	it("keeps a duplicate muscle link only as a primary target", () => {
+		const duplicateMuscleDataset = dataset.map((exercise) =>
+			exercise.name === "Bench Press" ? { ...exercise, secondaryMuscles: ["chest"] } : exercise,
+		);
+		const { host } = makeStatefulHost({}, duplicateMuscleDataset);
+		return Effect.runPromise(
+			Effect.gen(function* () {
+				const result = yield* details.run({ externalId: "Bench Press" }, host, execution);
+				expect(result.relatedEntityGroups[0]?.entities).toEqual([
+					{
+						name: "Chest",
+						externalId: "chest",
+						properties: { kind: "muscle_region" },
+						relationshipProperties: { role: "primary" },
+						providerSlug: "exercise-target.fitness-catalog",
+					},
+				]);
+			}),
+		);
+	});
+
+	it("returns authoritative empty target and equipment groups", () => {
+		const emptyTaxonomyDataset = dataset.map((exercise) =>
+			exercise.name === "Bench Press"
+				? { ...exercise, primaryMuscles: [], secondaryMuscles: [], equipment: undefined }
+				: exercise,
+		);
+		const { host } = makeStatefulHost({}, emptyTaxonomyDataset);
+		return Effect.runPromise(
+			Effect.gen(function* () {
+				const result = yield* details.run({ externalId: "Bench Press" }, host, execution);
+				expect(result.relatedEntityGroups).toEqual([
+					{
+						entities: [],
+						direction: "outgoing",
+						synchronization: "authoritative",
+						relationshipSchemaSlug: "exercise-targets",
+					},
+					{
+						entities: [],
+						direction: "outgoing",
+						synchronization: "authoritative",
+						relationshipSchemaSlug: "exercise-uses-equipment",
+					},
+				]);
 			}),
 		);
 	});
@@ -226,16 +323,17 @@ describe("exercise.free-exercise-db sandbox script", () => {
 	it("reads chunks from a pre-seeded cache without making an http call", () => {
 		const seededRow = {
 			name: "Bench Press",
+			equipment: "barbell",
 			externalId: "Bench Press",
+			primaryMuscles: ["chest"],
+			secondaryMuscles: ["triceps"],
 			searchText:
 				"bench press reps and weight beginner strength push compound barbell chest triceps",
 			properties: {
 				force: "push",
 				level: "beginner",
 				mechanic: "compound",
-				equipment: "barbell",
 				kind: "reps_and_weight",
-				muscles: ["chest", "triceps"],
 				instructions: ["Lie down.", "Push the bar up."],
 				images: [{ type: "remote", url: `${IMAGES_PREFIX_URL}/Bench_Press/0.jpg` }],
 			},
@@ -261,6 +359,47 @@ describe("exercise.free-exercise-db sandbox script", () => {
 					},
 				]);
 				expect(result.details).toEqual({ totalItems: 1, nextPage: null });
+			}),
+		);
+	});
+
+	it("refetches a legacy cached row without normalized taxonomy arrays", () => {
+		const legacyRow = {
+			name: "Bench Press",
+			externalId: "Bench Press",
+			searchText:
+				"bench press reps and weight beginner strength push compound barbell chest triceps",
+			properties: {
+				force: "push",
+				level: "beginner",
+				mechanic: "compound",
+				equipment: "barbell",
+				kind: "reps_and_weight",
+				muscles: ["chest", "triceps"],
+				instructions: ["Lie down.", "Push the bar up."],
+				images: [{ type: "remote", url: `${IMAGES_PREFIX_URL}/Bench_Press/0.jpg` }],
+			},
+		};
+		const { host, httpCallCount } = makeStatefulHost({
+			[`${CACHE_KEY}:v-test:chunk:0`]: [legacyRow],
+			[CACHE_KEY]: { chunkCount: 1, version: "v-test" },
+		});
+
+		return Effect.runPromise(
+			Effect.gen(function* () {
+				const result = yield* search.run(
+					{ page: 1, pageSize: 20, query: "bench" },
+					host,
+					execution,
+				);
+				expect(httpCallCount()).toBe(1);
+				expect(result.items).toEqual([
+					{
+						title: "Bench Press",
+						externalId: "Bench Press",
+						imageUrl: `${IMAGES_PREFIX_URL}/Bench_Press/0.jpg`,
+					},
+				]);
 			}),
 		);
 	});

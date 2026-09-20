@@ -5,7 +5,7 @@ export class SandboxRuntimeBuildError extends Data.TaggedError("SandboxRuntimeBu
 	readonly message: string;
 }> {}
 
-export const SANDBOX_DENO_VERSION = "2.8.1";
+export const SANDBOX_DENO_VERSION = "2.9.7";
 
 const PackageManifest = Schema.fromJsonString(
 	Schema.Struct({ name: Schema.String, version: Schema.optional(Schema.String) }),

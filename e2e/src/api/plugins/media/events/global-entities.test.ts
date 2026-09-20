@@ -91,9 +91,9 @@ describe("media membership event exclusions", () => {
 			const eventSchemas = yield* listEventSchemas(client, schema.id);
 			const reviewEventSchema = requireEventSchemaBySlug(eventSchemas, "review");
 			const entity = yield* createEntity(client, {
+				properties: {},
 				name: "Event exercise",
 				entitySchemaSlug: schema.id,
-				properties: { muscles: [] },
 			});
 
 			const result = yield* client.call((c) =>

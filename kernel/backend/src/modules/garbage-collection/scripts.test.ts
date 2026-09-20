@@ -14,14 +14,14 @@ import { databaseLayer, makeAppConfigLayer, makeConfigProviderLayer } from "#lib
 import { IsolatedDatabase, isolatedDatabaseLayer } from "#lib/test-utils/isolated-database";
 import { ClientArtifactsRepository } from "#modules/client-artifacts/repository";
 import { DefinitionRepository } from "#modules/definition-registry/repository";
+import { PluginConfigEncryptionKey } from "#modules/plugins/config-encryption-key";
+import { PluginConfigRevisions } from "#modules/plugins/config-revisions";
+import { PluginInstallationRepository } from "#modules/plugins/installation-repository";
+import { PluginRepository } from "#modules/plugins/repository";
+import { installRevisionPackage, revisionPackage } from "#modules/plugins/revision.test-support";
 import { SandboxWorkflowReferenceRepository } from "#modules/sandbox/workflow-reference-repository";
 
-import { PluginConfigEncryptionKey } from "./config-encryption-key";
-import { PluginConfigRevisions } from "./config-revisions";
-import { PluginInstallationRepository } from "./installation-repository";
-import { PluginRepository } from "./repository";
-import { installRevisionPackage, revisionPackage } from "./revision.test-support";
-import { ScriptGarbageCollector } from "./script-garbage-collector";
+import { ScriptGarbageCollector } from "./scripts";
 
 const hash = sha256Hex;
 const scheduledCollection = { limit: 500, scheduled: true, now: new Date(0) };

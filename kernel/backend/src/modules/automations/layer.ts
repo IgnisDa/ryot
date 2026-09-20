@@ -4,8 +4,8 @@ import { PackageCacheManager } from "#lib/infrastructure/sandbox-runtime/runtime
 import { WorkflowEngineLive } from "#lib/infrastructure/workflow";
 import { DefinitionRepository } from "#modules/definition-registry/repository";
 import { EntitiesRepositoryLive } from "#modules/entities/repository";
+import { ScriptGarbageCollector } from "#modules/garbage-collection/scripts";
 import { PluginRepositoryLive } from "#modules/plugins/repository-layer";
-import { ScriptGarbageCollector } from "#modules/plugins/script-garbage-collector";
 import { RelationshipSchemasRepositoryLive } from "#modules/relationship-schemas/layer";
 import { RelationshipsRepository } from "#modules/relationships/repository";
 import { SandboxRepository } from "#modules/sandbox/repository";

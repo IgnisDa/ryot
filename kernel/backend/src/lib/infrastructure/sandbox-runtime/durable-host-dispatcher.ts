@@ -481,27 +481,27 @@ export const SandboxDurableHostDispatcherLive = Layer.effect(
 						if (!samePolicy(policy, resolution)) {
 							continue admissionLoop;
 						}
-						for (;;) {
-							const confirmed = yield* confirm(policy, reservation.token);
-							if (confirmed.status === "admitted") {
-								break;
-							}
-							if (confirmed.status === "stale") {
-								resolution = yield* resolvePolicy(url);
-								continue admissionLoop;
-							}
-							yield* sleepUntil(
-								`sandbox-http-${request.index}-admission-wait-${waitAttempt++}`,
-								confirmed.eligibleAtMs,
-								confirmed.observedAtMs,
-							);
+					}
+					for (;;) {
+						const confirmed = yield* confirm(policy, reservation.token);
+						if (confirmed.status === "admitted") {
+							break;
+						}
+						if (confirmed.status === "stale") {
 							resolution = yield* resolvePolicy(url);
-							if (!resolution.matched) {
-								return terminalRateLimit ?? (yield* runNetworkAttempt(null)).result;
-							}
-							if (!samePolicy(policy, resolution)) {
-								continue admissionLoop;
-							}
+							continue admissionLoop;
+						}
+						yield* sleepUntil(
+							`sandbox-http-${request.index}-admission-wait-${waitAttempt++}`,
+							confirmed.eligibleAtMs,
+							confirmed.observedAtMs,
+						);
+						resolution = yield* resolvePolicy(url);
+						if (!resolution.matched) {
+							return terminalRateLimit ?? (yield* runNetworkAttempt(null)).result;
+						}
+						if (!samePolicy(policy, resolution)) {
+							continue admissionLoop;
 						}
 					}
 

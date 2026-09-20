@@ -4,7 +4,10 @@ import {
 	CLIENT_BRIDGE_PROTOCOL_VERSION,
 	CLIENT_COMPILER_VERSION,
 } from "@ryot-app/client-plugin-contract";
-import type { PreparedClientPage } from "@ryot-app/contract/modules/client-pages/schemas";
+import type {
+	ClientCompositionDocument,
+	PreparedClientPage,
+} from "@ryot-app/contract/modules/client-pages/schemas";
 import { EntitySchemaSlug, PluginSlug, UserId } from "@ryot-app/contract/schema/brands";
 import type { NavigationData } from "@ryot-app/ryotql-recipes/navigation";
 import type { PluginClientCatalog } from "@ryot-app/ryotql-recipes/plugin-client-catalog";
@@ -359,6 +362,13 @@ export const preparePluginPage = (
 		},
 	];
 	return {
+		composition: {
+			hash: "composition-hash",
+			format: CLIENT_ARTIFACT_FORMAT,
+			apiVersion: CLIENT_API_VERSION,
+			compilerVersion: CLIENT_COMPILER_VERSION,
+			bridgeVersion: CLIENT_BRIDGE_PROTOCOL_VERSION,
+		},
 		context: {
 			view: null,
 			settings: {},
@@ -373,18 +383,6 @@ export const preparePluginPage = (
 							entitySchemaSlug: EntitySchemaSlug.make("book"),
 						}
 					: target,
-		},
-		composition: {
-			hash: "composition-hash",
-			format: CLIENT_ARTIFACT_FORMAT,
-			apiVersion: CLIENT_API_VERSION,
-			compilerVersion: CLIENT_COMPILER_VERSION,
-			bridgeVersion: CLIENT_BRIDGE_PROTOCOL_VERSION,
-			documentGrant: {
-				grantId: "grant-1",
-				expiresAt: "2030-01-01T00:00:00.000Z",
-				src: "https://ryot.example/api/client-pages/documents/grant-1",
-			},
 		},
 		identity: {
 			target,
@@ -409,8 +407,30 @@ export const preparePluginPage = (
 	};
 };
 
+export const clientCompositionDocument = (
+	hash: string,
+	title = "Fixture",
+): ClientCompositionDocument => ({
+	title,
+	preloads: [],
+	stylesheets: [],
+	modulepreloads: [],
+	importMap: { imports: {} },
+	descriptor: { application: "page", automaticRegistry: [] },
+	bootstrap: `/api/client-assets/${"a".repeat(64)}/public/bootstrap.js`,
+	metadata: {
+		hash,
+		format: CLIENT_ARTIFACT_FORMAT,
+		apiVersion: CLIENT_API_VERSION,
+		compilerVersion: CLIENT_COMPILER_VERSION,
+		bridgeVersion: CLIENT_BRIDGE_PROTOCOL_VERSION,
+	},
+});
+
 export const ClientPagesApiRouteStubs = Layer.succeed(ClientPagesApi, {
 	checkFreshness: () => Effect.succeed({ current: true }),
+	document: (_scope, request) =>
+		Effect.succeed(clientCompositionDocument(request.payload.identity.compositionHash)),
 	prepare: (_scope, request) =>
 		request.payload.target.kind === "saved-view"
 			? Effect.die("not used")
