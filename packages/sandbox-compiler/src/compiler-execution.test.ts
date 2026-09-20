@@ -293,6 +293,32 @@ export default defineWorkflow({ manifest, input: Schema.Struct({ mode: Schema.St
 			]);
 		}),
 	);
+
+	test.effect("records executable calls whose results are destructured or unused", () =>
+		Effect.gen(function* () {
+			const [result] = yield* compilePluginSandboxSourceEntries(
+				{
+					"backend/root.sandbox.ts": `
+import { defineManifest, defineScriptReference, defineWorkflow, defineWorkflowReference, Effect, Schema } from "@ryot-app/sandbox-sdk/workflow";
+const collect = defineScriptReference({ scriptSlug: "collect", input: Schema.Unknown, output: Schema.Struct({ value: Schema.String }) });
+const notify = defineWorkflowReference({ workflowSlug: "notify", input: Schema.Unknown, output: Schema.Null });
+export const manifest = defineManifest({ kind: "workflow", slug: "root", name: "Root" });
+export default defineWorkflow({ manifest, input: Schema.Struct({}), output: Schema.String, run: (_input, replay) => Effect.gen(function* () {
+  const { value } = yield* replay.activity("collect", collect, {});
+  const unused = yield* replay.child("notify", notify, {});
+  return value;
+}) });
+`,
+				},
+				[{ kind: "workflow", entry: "backend/root.sandbox.ts" }],
+			);
+			expect(result?.compiled.manifest.executableDependencies).toEqual([
+				{ kind: "script", slug: "collect" },
+				{ slug: "notify", kind: "workflow" },
+			]);
+		}),
+	);
+
 	test.effect("rejects destructured configuration method aliases", () =>
 		Effect.gen(function* () {
 			const failure = yield* compilePluginSandboxSourceEntries(
