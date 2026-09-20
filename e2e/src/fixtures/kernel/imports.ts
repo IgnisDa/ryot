@@ -221,7 +221,15 @@ export default defineWorkflow({
 });
 `;
 
-const FIXTURE_HANDLE_IMPORT_CHUNK_SOURCE = `
+const fixtureHandleImportChunkSource = (failureCount: number) => {
+	const failures = Array.from({ length: failureCount }, (_, index) => ({
+		itemIndex: index,
+		stage: "input_transformation",
+		sourceIdentifier: `fixture-${index}`,
+		message: "harvest handle fixture failure",
+		sourceLabel: `Harvest fixture ${index + 1}`,
+	}));
+	return `
 import { defineManifest, defineScript } from "@ryot-app/sandbox-sdk/driver";
 import { Effect, Schema } from "@ryot-app/sandbox-sdk/effect";
 import { writeScratchChunks } from "@ryot-app/sandbox-sdk/filesystem";
@@ -244,67 +252,64 @@ export default defineScript({
       {
         name: "fixture.json",
         contents: JSON.stringify({
-          failures: [
-            {
-              itemIndex: 0,
-              stage: "input_transformation",
-              sourceIdentifier: "fixture-0",
-              sourceLabel: "Harvest fixture",
-              message: "harvest handle fixture failure",
-            },
-          ],
+          failures: ${JSON.stringify(failures)},
           items: [],
         }),
       },
     ]).pipe(
       Effect.map(({ chunkFiles }) => ({
         chunkFiles,
-        totalItems: 1,
-        failureCount: 1,
+        totalItems: ${failureCount},
+        failureCount: ${failureCount},
         writeItemCount: 0,
       })),
     ),
 });
 `;
+};
 
-export const installTestHarvestHandleImportPlugin = Effect.suspend(() =>
-	installTestPluginBundle({
-		scope: "system",
-		workflows: [{ slug: "import", scriptSlug: "workflow.e2e-harvest-handle-import" }],
-		files: {
-			"backend/scripts/import.sandbox.ts": FIXTURE_HANDLE_IMPORT_WORKFLOW_SOURCE,
-			"backend/scripts/write-chunk.sandbox.ts": FIXTURE_HANDLE_IMPORT_CHUNK_SOURCE,
-		},
-		importSources: [
-			{
-				workflowSlug: "import",
-				requiredPluginConfigKeys: [],
-				name: "E2E harvest handle import",
-				slug: FIXTURE_HANDLE_IMPORT_SOURCE,
-				inputSchema: { fields: {}, unknownKeys: "strict" },
-				description: "Import fixture for opaque harvest handles",
+export const installTestHarvestHandleImportPlugin = (
+	failureCount = 1,
+	sourceSlug = FIXTURE_HANDLE_IMPORT_SOURCE,
+) =>
+	Effect.suspend(() =>
+		installTestPluginBundle({
+			scope: "system",
+			workflows: [{ slug: "import", scriptSlug: "workflow.e2e-harvest-handle-import" }],
+			files: {
+				"backend/scripts/import.sandbox.ts": FIXTURE_HANDLE_IMPORT_WORKFLOW_SOURCE,
+				"backend/scripts/write-chunk.sandbox.ts": fixtureHandleImportChunkSource(failureCount),
 			},
-		],
-		scripts: [
-			{
-				kind: "workflow",
-				capabilities: [],
-				requiredPluginConfigKeys: [],
-				name: "E2E harvest handle import",
-				entry: "backend/scripts/import.sandbox.ts",
-				slug: "workflow.e2e-harvest-handle-import",
-			},
-			{
-				kind: "script",
-				capabilities: ["scratch"],
-				requiredPluginConfigKeys: [],
-				name: "E2E write harvest chunk",
-				slug: "import.e2e-write-harvest-chunk",
-				entry: "backend/scripts/write-chunk.sandbox.ts",
-			},
-		],
-	}),
-);
+			importSources: [
+				{
+					workflowSlug: "import",
+					requiredPluginConfigKeys: [],
+					name: "E2E harvest handle import",
+					slug: sourceSlug,
+					inputSchema: { fields: {}, unknownKeys: "strict" },
+					description: "Import fixture for opaque harvest handles",
+				},
+			],
+			scripts: [
+				{
+					kind: "workflow",
+					capabilities: [],
+					requiredPluginConfigKeys: [],
+					name: "E2E harvest handle import",
+					entry: "backend/scripts/import.sandbox.ts",
+					slug: "workflow.e2e-harvest-handle-import",
+				},
+				{
+					kind: "script",
+					capabilities: ["scratch"],
+					requiredPluginConfigKeys: [],
+					name: "E2E write harvest chunk",
+					slug: "import.e2e-write-harvest-chunk",
+					entry: "backend/scripts/write-chunk.sandbox.ts",
+				},
+			],
+		}),
+	);
 
 const partialResultCancellationWorkflowSource = (
 	workflowScriptSlug: string,
