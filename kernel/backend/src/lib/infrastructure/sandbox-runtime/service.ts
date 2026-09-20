@@ -1,5 +1,4 @@
 import { SandboxRunError, TimeoutError, unknownToMessage } from "@ryot-app/contract/errors";
-import type { ExecutionLane } from "@ryot-app/contract/modules/automations/lifecycle";
 import { jsonByteLength, utf8ByteLength } from "@ryot-app/sandbox-compiler/limits";
 import { SANDBOX_COMPILED_FORMAT } from "@ryot-app/sandbox-compiler/protocol";
 import { sha256Hex } from "@ryot-app/ts-utils/crypto";
@@ -12,10 +11,8 @@ import {
 	sandboxMetricKind,
 	type SandboxExecutionOutcome,
 } from "../runtime-metrics";
-import type { SandboxRecoveryIdentity } from "../sandbox-recovery-store";
 import { bindSandboxHostFunctions } from "./bridge-adapter";
 import { isSandboxCapability } from "./capability-policy";
-import type { SandboxExecutionPrincipal } from "./execution-principal";
 import { SandboxFileService } from "./file-service";
 import { isSandboxFilesystemGrantCapability } from "./filesystem-grants";
 import { SandboxHostCallGate } from "./host-call-gate";
@@ -33,7 +30,6 @@ import {
 } from "./observability-host-functions";
 import {
 	isSandboxCapabilityAllowed,
-	sandboxMetadataKind,
 	sandboxPlatformFailureKind,
 	type BoundHostFunction,
 	type SandboxRunInput,
@@ -67,8 +63,7 @@ export const selectSandboxHostFunctions = (
 ) => {
 	const selected: Record<string, BoundHostFunction> = {};
 	const workflow =
-		input.workflowExecutionId !== undefined ||
-		sandboxMetadataKind(input.principal.metadata) === "workflow";
+		input.workflowExecutionId !== undefined || input.principal.metadata.kind === "workflow";
 	for (const name of input.principal.metadata.capabilities ?? []) {
 		if (
 			!isSandboxCapability(name) ||
@@ -95,12 +90,6 @@ export class SandboxService extends Context.Service<SandboxService>()("SandboxSe
 		const files = yield* SandboxFileService;
 		const hosts = yield* SandboxHostImplementations;
 		const apiFunctions = { ...hosts.runtime, ...hosts.additional, ...hosts.automation };
-		const reserve = Effect.fn("SandboxService.reserve")(function* (
-			principal: SandboxExecutionPrincipal,
-			lane: ExecutionLane,
-		) {
-			return yield* supervisor.reserve(principal, lane);
-		});
 		const run = Effect.fn("SandboxService.run")(function* (input: SandboxRunInput) {
 			const executionStartedAt = yield* Clock.currentTimeMillis;
 			const kind = sandboxMetricKind(input.principal.metadata);
@@ -116,7 +105,7 @@ export class SandboxService extends Context.Service<SandboxService>()("SandboxSe
 					const existingLease = yield* Effect.serviceOption(SandboxAdmissionLease);
 					const lease = Option.isSome(existingLease)
 						? existingLease.value
-						: yield* reserve(input.principal, input.lane);
+						: yield* supervisor.reserve(input.principal, input.lane);
 					const context = input.context ?? {};
 					const contextError = sandboxContextError(context);
 					if (contextError !== null) {
@@ -180,12 +169,12 @@ export class SandboxService extends Context.Service<SandboxService>()("SandboxSe
 								})({
 									context,
 									mode: "definition",
+									startedAt: input.startedAt,
 									executionId: input.executionId,
 									metadata: input.principal.metadata,
 									scriptId: input.principal.scriptId,
 									apiFunctions: Object.keys(selected),
 									compiledFormat: SANDBOX_COMPILED_FORMAT,
-									startedAt: input.startedAt ?? "1970-01-01T00:00:00.000Z",
 									...(registration.journal === undefined ? {} : { journal: registration.journal }),
 									...(input.workflowExecutionId === undefined
 										? {}
@@ -304,30 +293,25 @@ export class SandboxService extends Context.Service<SandboxService>()("SandboxSe
 				),
 				Effect.onExit((exit) =>
 					Effect.gen(function* () {
-						if (terminal !== undefined) {
-							yield* recordSandboxExecution({ kind, ...terminal });
-							return undefined;
-						}
 						const error =
 							exit._tag === "Failure" ? Cause.findErrorOption(exit.cause) : Option.none();
 						yield* recordSandboxExecution({
 							kind,
-							responseBytes: 0,
-							durationMs: Math.max(1, (yield* Clock.currentTimeMillis) - executionStartedAt),
-							outcome:
-								Option.isSome(error) && error.value instanceof TimeoutError ? "timeout" : "failure",
+							...(terminal ?? {
+								responseBytes: 0,
+								durationMs: Math.max(1, (yield* Clock.currentTimeMillis) - executionStartedAt),
+								outcome:
+									Option.isSome(error) && error.value instanceof TimeoutError
+										? "timeout"
+										: "failure",
+							}),
 						});
 						return undefined;
 					}),
 				),
 			);
 		}, Effect.withSpan("sandbox.execution"));
-		const completeRecovery = Effect.fn("SandboxService.completeRecovery")(function* (
-			identity: SandboxRecoveryIdentity,
-		) {
-			yield* supervisor.completeRecovery(identity);
-		});
-		return { run, reserve, completeRecovery };
+		return { run, reserve: supervisor.reserve, completeRecovery: supervisor.completeRecovery };
 	}),
 }) {
 	static readonly layer = Layer.effect(this, this.make).pipe(

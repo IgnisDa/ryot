@@ -5,7 +5,7 @@ import {
 } from "@ryot-app/contract/modules/sandbox/schemas";
 import { jsonValueSchema } from "@ryot-app/contract/modules/sandbox/wire";
 import { workflowInlineRequestSchema } from "@ryot-app/sandbox-sdk/workflow";
-import { Effect, Schema } from "effect";
+import { Schema } from "effect";
 
 import { KiB, MiB, SANDBOX_LIMITS } from "./limits";
 
@@ -234,7 +234,8 @@ const Handle = Schema.String.check(Schema.isPattern(/^[A-Za-z0-9_-]{1,64}$/));
 const Sha256 = Schema.String.check(Schema.isPattern(/^[0-9a-f]{64}$/));
 const Base64 = Schema.String.check(Schema.isPattern(base64Pattern));
 const Seq = boundedInt({ minimum: 0, maximum: Number.MAX_SAFE_INTEGER });
-const Generation = boundedInt({ minimum: 0, maximum: 4_294_967_295 });
+export const SIDECAR_GENERATION_MAX = 4_294_967_295;
+const Generation = boundedInt({ minimum: 0, maximum: SIDECAR_GENERATION_MAX });
 
 const envelope = { seq: Seq, handle: Handle, generation: Generation };
 
@@ -243,10 +244,9 @@ export const SIDECAR_INTERNAL_HOST_CALLS = [
 	"artifactReadRange",
 	"inlineBatch",
 	"journalRead",
-	"replayJournal",
 	"scratchWrite",
 ] as const;
-export const SidecarChunkedFrameType = Schema.Literals(["run", "done", "hostCall", "hostResult"]);
+const SidecarChunkedFrameType = Schema.Literals(["run", "done", "hostCall", "hostResult"]);
 
 export const SidecarRunFrame = Schema.Struct({
 	...envelope,
@@ -272,9 +272,9 @@ export const SidecarHostResultFrame = Schema.Struct({
 	]),
 });
 
-export const SidecarCancelFrame = Schema.Struct({ ...envelope, type: Schema.Literal("cancel") });
+const SidecarCancelFrame = Schema.Struct({ ...envelope, type: Schema.Literal("cancel") });
 
-export const SidecarPartFrame = Schema.Struct({
+const SidecarPartFrame = Schema.Struct({
 	...envelope,
 	data: Base64,
 	type: Schema.Literal("part"),
@@ -284,7 +284,7 @@ export const SidecarPartFrame = Schema.Struct({
 	byteLength: boundedInt({ minimum: 1, maximum: SIDECAR_PROTOCOL_LIMITS.messageBytes.hostResult }),
 });
 
-export const SidecarReadyFrame = Schema.Struct({
+const SidecarReadyFrame = Schema.Struct({
 	generation: Generation,
 	type: Schema.Literal("ready"),
 	heapHeadroomBytes: boundedInt({ minimum: 0, maximum: Number.MAX_SAFE_INTEGER }),
@@ -300,7 +300,7 @@ export const SidecarHostCallFrame = Schema.Struct({
 	),
 });
 
-export const SidecarOutcome = Schema.Union([
+const SidecarOutcome = Schema.Union([
 	Schema.Struct({ value: Schema.Json, status: Schema.Literal("completed") }),
 	Schema.Struct({ status: Schema.Literal("cancelled") }),
 	Schema.Struct({
@@ -343,13 +343,13 @@ export const SidecarDoneFrame = Schema.Struct({
 	}),
 });
 
-export const SidecarDrainingFrame = Schema.Struct({
+const SidecarDrainingFrame = Schema.Struct({
 	generation: Generation,
 	type: Schema.Literal("draining"),
 	reason: Schema.Literals(["executions", "memory"]),
 });
 
-export const SidecarFatalFrame = Schema.Struct({
+const SidecarFatalFrame = Schema.Struct({
 	handle: Handle,
 	generation: Generation,
 	type: Schema.Literal("fatal"),
@@ -424,48 +424,3 @@ export const decodeSidecarOutboundFrame = (value: unknown, byteLength: number) =
 
 export const decodeSidecarOutboundLogicalMessage = (bytes: Uint8Array) =>
 	decodeSidecarOutboundFrame(parseSidecarOutboundJson(bytes), bytes.byteLength);
-
-const sidecarFrameCodec = <Frame>(schema: Schema.Codec<Frame, Frame>) => {
-	const json = Schema.fromJsonString(schema);
-	const encodeJson = Schema.encodeSync(json, parseOptions);
-	const decodeJson = Schema.decodeEffect(json, parseOptions);
-	return {
-		encode: (frame: Frame) => {
-			const payload = encodeText(encodeJson(frame));
-			const bytes = new Uint8Array(4 + payload.byteLength);
-			new DataView(bytes.buffer).setUint32(0, payload.byteLength);
-			bytes.set(payload, 4);
-			return bytes;
-		},
-		decode: Effect.fnUntraced(function* (bytes: Uint8Array) {
-			if (bytes.byteLength < 4) {
-				return yield* new SidecarProtocolError({ reason: "framing", message: "missing length" });
-			}
-			const length = new DataView(bytes.buffer, bytes.byteOffset).getUint32(0);
-			if (length === 0 || length > SIDECAR_PROTOCOL_LIMITS.frameBytes) {
-				return yield* new SidecarProtocolError({
-					reason: "framing",
-					message: `frame length ${length} is outside 1..${SIDECAR_PROTOCOL_LIMITS.frameBytes}`,
-				});
-			}
-			if (bytes.byteLength !== 4 + length) {
-				return yield* new SidecarProtocolError({
-					reason: "framing",
-					message: `frame declares ${length} bytes but carries ${bytes.byteLength - 4}`,
-				});
-			}
-			const text = yield* Effect.try({
-				try: () => decoder.decode(bytes.subarray(4)),
-				catch: () => new SidecarProtocolError({ reason: "payload", message: "invalid UTF-8" }),
-			});
-			return yield* decodeJson(text).pipe(
-				Effect.mapError(
-					(error) => new SidecarProtocolError({ reason: "payload", message: error.message }),
-				),
-			);
-		}),
-	};
-};
-
-export const sidecarInboundFrames = sidecarFrameCodec(SidecarInboundFrame);
-export const sidecarOutboundFrames = sidecarFrameCodec(SidecarOutboundFrame);

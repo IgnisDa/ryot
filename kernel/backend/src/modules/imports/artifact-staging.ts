@@ -3,6 +3,7 @@ import { ImportRunId } from "@ryot-app/contract/schema/brands";
 import { Effect, FileSystem, Layer } from "effect";
 
 import { SandboxArtifactStaging } from "#lib/infrastructure/sandbox-runtime/artifact-staging";
+import { sandboxSubjectUserId } from "#lib/infrastructure/sandbox-runtime/execution-principal";
 
 import { IngestionCaptures } from "./capture-service";
 import { ImportsRepository } from "./repository";
@@ -21,7 +22,7 @@ export const IngestionArtifactStagingLive = Layer.effect(
 					if (!ownerExecutionId || !input.workflowExecutionId || subject.type === "system") {
 						return null;
 					}
-					const userId = subject.type === "user" ? subject.userId : subject.executionUserId;
+					const userId = sandboxSubjectUserId(subject);
 					if (!userId || !subject.accountGeneration) {
 						return null;
 					}

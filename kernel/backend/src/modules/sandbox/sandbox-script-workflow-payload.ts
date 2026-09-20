@@ -23,3 +23,7 @@ export const SandboxScriptWorkflowPayload = Schema.Struct({
 });
 
 export type SandboxScriptWorkflowPayload = Schema.Schema.Type<typeof SandboxScriptWorkflowPayload>;
+
+export type PinnedSandboxScriptWorkflowPayload = SandboxScriptWorkflowPayload & {
+	readonly startedAt: string;
+};

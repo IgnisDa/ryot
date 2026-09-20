@@ -63,6 +63,11 @@ const unusedLifecycleSteps = {
 	value: unusedLifecycleValue,
 	applyPolicies: unusedHostCall,
 };
+const unusedRelationshipSteps = {
+	validate: unusedHostCall,
+	value: unusedLifecycleValue,
+	itemWrite: unusedLifecycleValue,
+};
 
 export const nativePlatformLayer = Layer.mergeAll(BunServices.layer, sandboxCompilerPlatformLayer);
 
@@ -80,8 +85,8 @@ export const unusedSandboxHostImplementations = (
 	},
 	lifecycle: {
 		upsertGlobalEntities: unusedLifecycleSteps,
-		changeUserRelationships: unusedLifecycleSteps,
-		upsertGlobalRelationships: unusedLifecycleSteps,
+		changeUserRelationships: unusedRelationshipSteps,
+		upsertGlobalRelationships: unusedRelationshipSteps,
 		updateEvents: { commit: unusedHostCall, validate: unusedHostCall },
 		deleteEvents: { commit: unusedHostCall, validate: unusedHostCall },
 	},

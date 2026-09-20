@@ -190,21 +190,17 @@ const SandboxHostImplementationsSmokeLive = Layer.succeed(SandboxHostImplementat
 	lifecycle: {
 		updateEvents: { commit: unusedHostEffect, validate: unusedHostEffect },
 		deleteEvents: { commit: unusedHostEffect, validate: unusedHostEffect },
-		upsertGlobalEntities: {
-			value: unusedHostValue,
-			commit: unusedHostEffect,
-			prepare: unusedHostEffect,
-			validate: unusedHostEffect,
-			applyPolicies: unusedHostEffect,
-		},
 		changeUserRelationships: {
 			value: unusedHostValue,
-			commit: unusedHostEffect,
-			prepare: unusedHostEffect,
+			itemWrite: unusedHostValue,
 			validate: unusedHostEffect,
-			applyPolicies: unusedHostEffect,
 		},
 		upsertGlobalRelationships: {
+			value: unusedHostValue,
+			itemWrite: unusedHostValue,
+			validate: unusedHostEffect,
+		},
+		upsertGlobalEntities: {
 			value: unusedHostValue,
 			commit: unusedHostEffect,
 			prepare: unusedHostEffect,

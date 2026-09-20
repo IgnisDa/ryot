@@ -6,6 +6,7 @@ import type { FairQueueFlow } from "#lib/infrastructure/fair-queue-store";
 import {
 	SandboxExecutionPrincipal,
 	SandboxPluginRevision,
+	sandboxSubjectUserId,
 } from "#lib/infrastructure/sandbox-runtime/execution-principal";
 
 const QueueElementScheduling = Schema.Struct({
@@ -20,10 +21,7 @@ const QueueElementScheduling = Schema.Struct({
 const decodeQueueElementScheduling = Schema.decodeUnknownEffect(QueueElementScheduling);
 
 const schedulingTenant = (subject: SandboxExecutionSubject) => {
-	if (subject.type === "system") {
-		return "system";
-	}
-	const userId = subject.type === "user" ? subject.userId : subject.executionUserId;
+	const userId = sandboxSubjectUserId(subject);
 	return userId === null ? "system" : `user:${userId}`;
 };
 

@@ -13,6 +13,8 @@ import {
 export const KiB = 1024;
 export const MiB = 1024 * KiB;
 
+const CONCURRENT_HOST_CALLS = 4;
+
 export const SANDBOX_LIMITS = {
 	ryotqlResultBytes: MiB,
 	journalBytes: 100 * MiB,
@@ -42,9 +44,11 @@ export const SANDBOX_LIMITS = {
 	},
 	bridge: {
 		requestBytes: MiB,
-		concurrentHostCalls: 4,
 		responseBytes: 10 * MiB,
 		durableResponseBytes: 12 * MiB,
+		concurrentHostCalls: CONCURRENT_HOST_CALLS,
+		// Four slotted calls plus one blocking inline batch.
+		outstandingHostCalls: CONCURRENT_HOST_CALLS + 1,
 	},
 	sidecar: {
 		idleMs: 60_000,
@@ -53,9 +57,12 @@ export const SANDBOX_LIMITS = {
 		disposalMs: 2_000,
 		absoluteMs: 300_000,
 		settlementMs: 30_000,
+		monitorIntervalMs: 1_000,
+		restartBackoffMs: 30_000,
 		heapHeadroomBytes: 64 * MiB,
 		rssCeilingBytes: 1536 * MiB,
 		rssOverheadBytes: 128 * MiB,
+		probationAdmissionMs: 20_000,
 		queuedBytesPerThread: 52 * MiB,
 		bufferedBytesPerThread: 14 * MiB,
 	},
@@ -143,11 +150,6 @@ export const sandboxCacheValueError = (fnName: string, serialized: string, label
 export const sandboxHttpRequestBodyError = (body: string | undefined) =>
 	body !== undefined && utf8ByteLength(body) > SANDBOX_LIMITS.http.requestBytes
 		? `httpCall request body exceeds ${SANDBOX_LIMITS.http.requestBytes} UTF-8 bytes`
-		: null;
-
-export const sandboxRunnerRequestError = (request: string) =>
-	utf8ByteLength(request) > SANDBOX_LIMITS.execution.requestBytes
-		? `Sandbox runner request exceeds ${SANDBOX_LIMITS.execution.requestBytes} UTF-8 bytes`
 		: null;
 
 export const sandboxWorkflowJournalByteError = (

@@ -24,7 +24,7 @@ use crate::watchdog;
 pub const EXIT_DESYNC: i32 = 65;
 pub const EXIT_ESCALATED: i32 = 70;
 const WORKER_STACK: usize = 8 * 1024 * 1024;
-const ASSEMBLY_BYTES: usize = 64 * 1024 * 1024;
+pub const ASSEMBLY_BYTES: usize = 64 * 1024 * 1024;
 const FLUSH_TIMEOUT: Duration = Duration::from_secs(1);
 
 struct Job {

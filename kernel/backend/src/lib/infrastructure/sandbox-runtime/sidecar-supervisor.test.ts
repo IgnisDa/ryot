@@ -1492,6 +1492,7 @@ supervisorTest("inline_settlement_pauses_only_script_time_with_ceilings_and_back
 				lane: "background",
 				compiledCode: moduleSource,
 				executionId: "inline-budget",
+				startedAt: "2026-01-01T00:00:00.000Z",
 				replayJournal: memoryPinnedJournal([]),
 				workflowExecutionId: "inline-budget-workflow",
 				principal: {
@@ -1626,6 +1627,7 @@ supervisorTest("per_handle_bounds_admit_honest_maximum_concurrency", () =>
 				lane: "interactive",
 				compiledCode: moduleSource,
 				executionId: "pending-bound",
+				startedAt: "2026-01-01T00:00:00.000Z",
 				replayJournal: memoryPinnedJournal([]),
 				workflowExecutionId: "pending-bound-workflow",
 				principal: {
@@ -1913,6 +1915,7 @@ supervisorTest("memory_lock_order_prevents_admission_deadlock", () =>
 					lane: "background",
 					executionId: "lock-order",
 					compiledCode: moduleSource,
+					startedAt: "2026-01-01T00:00:00.000Z",
 					principal: {
 						...makePrincipal([], "lock-order"),
 						metadata: { kind: "script", runtimeImports: [], capabilities: ["httpCall"] },
