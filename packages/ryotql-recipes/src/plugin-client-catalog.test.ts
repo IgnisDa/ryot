@@ -9,15 +9,14 @@ const entry = {
 	icon: "puzzle",
 	scope: "system",
 	name: "Fixture",
-	slug: "fixture",
 	health: "ready",
 	isHidden: false,
 	clientApiVersion: 1,
 	homeSavedView: null,
 	pluginId: "plugin-1",
 	sourceHash: "source-hash",
+	packageId: "ryot/fitness",
 	installationId: "installation-1",
-	packageId: "2eed98ed-dcb6-4aa1-aa43-c09d481e4cbe",
 };
 
 const response = {
@@ -50,7 +49,7 @@ describe("plugin client catalog recipe", () => {
 				direction: "asc",
 				expr: { type: "column", field: "sortOrder", tableAlias: "installation" },
 			},
-			{ direction: "asc", expr: { field: "slug", type: "column", tableAlias: "plugin" } },
+			{ direction: "asc", expr: { type: "column", field: "packageId", tableAlias: "plugin" } },
 			{ direction: "asc", expr: { field: "id", type: "column", tableAlias: "installation" } },
 		]);
 	});
