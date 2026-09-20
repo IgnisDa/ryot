@@ -66,10 +66,7 @@ export const MaterializingPluginCatalogInvalidatorLive = Layer.effect(
 		const redis = yield* RedisService;
 		const session = yield* DatabaseSession;
 		const pages = yield* ClientPagesService;
-		const materialize = (userId: UserId) =>
-			pages
-				.materializeUserCompositions(userId)
-				.pipe(Effect.provideService(DatabaseSession, session));
+		const materialize = (userId: UserId) => pages.materializeUserCompositions(userId);
 		return {
 			user: (userId: UserId) =>
 				publishAfterCatalogMaterialization(
@@ -81,18 +78,19 @@ export const MaterializingPluginCatalogInvalidatorLive = Layer.effect(
 					),
 				).pipe(Effect.asVoid, Effect.orDie),
 			all: publishAfterCatalogMaterialization(
-				Effect.flatMap(session.current, (db) =>
-					db
-						.select({ id: schema.user.id })
-						.from(schema.user)
-						.where(isNotNull(schema.user.bootstrapCompletedAt))
-						.pipe(Effect.map((users) => users.map((user) => UserId.make(user.id)))),
-				),
+				session
+					.run((db) =>
+						db
+							.select({ id: schema.user.id })
+							.from(schema.user)
+							.where(isNotNull(schema.user.bootstrapCompletedAt)),
+					)
+					.pipe(Effect.map((users) => users.map((user) => UserId.make(user.id)))),
 				materialize,
 				redis
 					.publish(redisKeys.pluginCatalogChannel, "plugin-catalog-invalidated")
 					.pipe(Effect.asVoid),
-			).pipe(Effect.provideService(DatabaseSession, session), Effect.orDie),
+			).pipe(Effect.orDie),
 		};
 	}),
 ).pipe(Layer.provide(ClientPagesServiceLive), Layer.provide(RedisService.layer));
