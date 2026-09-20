@@ -15,7 +15,7 @@ and `build` tasks; server development runs the same entrypoint in watch mode. Th
 `runner.generated.ts`, `kernel-scripts.generated.ts`, and `runtime-payload.generated.ts`.
 `sandbox:check-runner` type-checks Deno globals separately.
 
-Before execution, the backend verifies compiled bytes against SHA-256, atomically materializes a read-only `<hash>.mjs`, and hard-links it into an execution directory. A single-use Deno process imports it through a local approved-dependency map. The runner validates definition input and output and returns a completed, failed, or pending envelope. The Deno launcher, permissions, and execution grants remain unchanged.
+Before execution, the backend verifies compiled bytes against SHA-256, atomically materializes a read-only `<hash>.mjs`, and hard-links it into an execution directory. A single-use Deno process imports it through a local approved-dependency map. The runner validates definition input and output and returns a completed, failed, or pending envelope. The Deno launcher applies deny-by-default permissions; bridge access and filesystem grants come from pinned compiled metadata plus trusted execution resources.
 
 `SANDBOX_WORKER_CONCURRENCY` bounds how many queued executions run at once and defaults to 2, sized for the canonical 2 vCPU / 4 GB self-hosted baseline where each live execution holds one Deno process and one shared application/workflow-pool connection. Excess work stays durably queued rather than rejected, so raising it trades queue latency for CPU contention and resident memory. Boot fails when the value exceeds `DATABASE_POOL_MAX - 1` and warns when it leaves the two always-on durable queue workers no connection headroom.
 
@@ -65,7 +65,10 @@ Workflow code cannot use ambient time or randomness. Expected workflow failure u
 
 ## Filesystem And Dependencies
 
-Filesystem access is capability-gated and deny-by-default:
+Filesystem capabilities come from compiler-derived execution metadata, but metadata does not name or
+authorize paths. The kernel supplies trusted artifact paths separately; without an artifact resource
+grant, artifact reads fail with `missing-artifact-grant`. Scratch access is limited to a kernel-created
+execution directory. Deno receives only the resulting grant paths:
 
 | Capability      | Grant                                                 |
 | --------------- | ----------------------------------------------------- |
@@ -88,7 +91,23 @@ Backend and browser plugin compilers remain separate engines.
 
 ## Capabilities
 
-The manifest declares an exact capability tuple. The backend intersects it with an exhaustive policy and implementation registry; domain services still enforce user, schema, provider, and integration ownership.
+The compiler derives each entry's local capabilities from its used code and persists them with the
+compiled script metadata. The runner, ordinary bridge dispatch, durable dispatch, and filesystem
+grant creation all use that pinned metadata; filesystem paths also require trusted resources, and
+grant-carrying runs use a dedicated process. Revision replay does not analyze current source or merge
+capabilities from child executables. Build and ingestion compare source-authored manifest fields such
+as identity, kind, projections, and provider search options separately from this execution metadata;
+those authored fields do not supply grants. Runtime policy further restricts each inferred operation
+by script kind, subject, plugin scope, provider association, and bootstrap designation; domain services
+still enforce user, schema, provider, and integration ownership.
+
+The contract package owns the capability vocabulary. `SANDBOX_CAPABILITY_REQUIREMENTS` is exhaustive
+for runtime policy, and durable host dispatch has exhaustive coverage for every bridge contract.
+Before-stage policies use only the policy-safe capability subset. Adding an operation requires updates
+at those canonical extension points, not a source-authored grant list.
+
+The role table is the runtime policy ceiling. A script receives only the methods both permitted for its
+trusted principal and present in its pinned compiled capability list.
 
 | Principal or role                   | Available bridge capabilities                                                                                                                                                            |
 | ----------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
@@ -140,7 +159,7 @@ Limits are fixed in `limits.ts` and compiler-owned limits, not environment setti
 | Boundary                                                           |                                  Limit |
 | ------------------------------------------------------------------ | -------------------------------------: |
 | Source / manifest / compiled JavaScript                            |               256 KiB / 16 KiB / 1 MiB |
-| Compiler concurrency / timeout / sampled Linux process-tree memory |                2 / 5 seconds / 256 MiB |
+| Compiler concurrency / timeout / sampled Linux process-tree memory |                2 / 5 seconds / 384 MiB |
 | Compiler diagnostics                                               |                  100 entries / 256 KiB |
 | Local replay timeout / context / final result                      |            30 seconds / 64 KiB / 4 MiB |
 | Runner request                                                     |                                  2 MiB |

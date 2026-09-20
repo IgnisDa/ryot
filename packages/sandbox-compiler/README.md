@@ -26,6 +26,45 @@ The compiler creates a TypeScript 7 no-emit project and reports bounded semantic
 inspects each entry, validates declarations, workflows, and literal manifests, and compiles validated
 entries with bounded concurrency. A semantic or policy failure never reaches the build stage.
 
+## Execution Metadata
+
+Each entry is analyzed inside the same bounded TypeScript project used for semantic checks. The
+analyzer follows used local declarations, ordinary helpers, closures, direct host-method references,
+and local forwarding methods. It emits sorted, entry-local capabilities plus required and optional
+configuration keys, OAuth connection fields, and executable dependencies. Child executables do not
+add grants to their parent. Workflow replay has no local host capabilities; workflow metadata keeps
+its own analyzed configuration and executable-dependency facts.
+
+The authored `defineManifest` contains static identity and kind plus kind-specific fields such as an
+automation `inputProjection` or provider `searchOptionsSchema`; capabilities and execution
+requirements are not authored there. Source-authored fields and compiler-derived execution metadata
+remain separate when the plugin build derives and validates script records. Installation recomputes
+those records from source, so archive metadata cannot widen a script.
+
+Configuration calls must be direct and use a literal object with finite required and optional key
+lists. `activity`, `child`, and `executeWorkflow` calls must use direct typed references or finite
+alternatives for their executable targets. Configuration, OAuth, and executable-reference method
+aliases are unsupported. Non-finite host indexing, reflection or type-erasure of host objects, and
+host escape to unresolved or external functions are rejected rather than guessed. Finite dependency
+targets and OAuth fields are checked from their call arguments.
+
+The analysis caches symbol, type, alias, and declaration queries and has a project-local step limit
+of 100,000. If traversal or checker queries exhaust the limit, compilation fails with
+`RYOT_ANALYSIS_LIMIT`; it never emits partial metadata.
+
+SDK intrinsic capabilities use canonical module and declaration identity, as summarized by
+`SANDBOX_SDK_INTRINSICS` in `@ryot-app/sandbox-sdk/src/intrinsics.ts`:
+
+| SDK source file     | Exported functions                                       | Inferred capability |
+| ------------------- | -------------------------------------------------------- | ------------------- |
+| `src/youtubei.ts`   | `createYoutubeMusicClient`, `createYoutubeHistoryClient` | `httpCall`          |
+| `src/filesystem.ts` | `readArtifact`, `readArtifactRange`, `readNamedArtifact` | `artifact-read`     |
+| `src/filesystem.ts` | `writeScratchChunks`                                     | `scratch`           |
+
+Keep those source filenames and exports aligned with the intrinsic map. Tests in
+`src/compiler-capabilities.test.ts` cover canonical SDK identity, helper forwarding, per-entry
+metadata, and analysis-limit failures.
+
 A build acquires a scoped workspace through `@ryot-app/vite-compiler` and stages the package under
 `source/`. A workspace may use the supervisor's `parentPath` and `jobId`, and its scope removes the
 workspace. A standalone user script builds its single entry with `buildDenoEsm`; built-ins and plugin
@@ -79,5 +118,5 @@ The parent supervisor creates a UUID job directory, passes its path and job ID t
 removes that directory with scoped acquire/use/release cleanup after success, failure, cancellation,
 timeout, or forced termination. The worker is run with no orphan processes and is killed on cleanup.
 
-Compiler limits are two concurrent jobs, a 5-second timeout, 256 MiB sampled Linux process-tree
+Compiler limits are two concurrent jobs, a 5-second timeout, 384 MiB sampled Linux process-tree
 memory, 256 KiB source, 1 MiB compiled JavaScript, 100 diagnostics, and 256 KiB diagnostic output.
