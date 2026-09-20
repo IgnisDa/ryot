@@ -1,12 +1,11 @@
 import { definePluginConfig, integerField, stringField } from "@ryot-app/config";
-import { PluginPackageId } from "@ryot-app/contract/schema/brands";
 import type { AppNumberPropertyValidation } from "@ryot-app/contract/schema/property-schema";
 
 import { PLUGIN_PACKAGE_ID } from "../shared/plugin-identity";
 
 const nonNegativeValidation: AppNumberPropertyValidation = { minimum: 0 };
 
-const mediaConfigDefinition = definePluginConfig(PluginPackageId.make(PLUGIN_PACKAGE_ID), {
+const mediaConfigDefinition = definePluginConfig(PLUGIN_PACKAGE_ID, {
 	anilistClientId: stringField({
 		label: "AniList client ID",
 		description: "Client ID for AniList accounts",

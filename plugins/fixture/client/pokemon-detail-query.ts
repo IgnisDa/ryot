@@ -1,5 +1,5 @@
 import { Result, Schema } from "@ryot-app/client-sdk/effect";
-import { PluginPackageId, type PluginIdentityReference } from "@ryot-app/client-sdk/plugin";
+import type { PluginIdentityReference } from "@ryot-app/client-sdk/plugin";
 import { createRyotQuery } from "@ryot-app/client-sdk/react";
 import {
 	and,
@@ -71,10 +71,7 @@ export type PokemonDetailData = Recipe.Success<typeof pokemonDetailRecipe>;
 export const pokemonDetailQuery = createRyotQuery<{ readonly entityId: string }, PokemonDetailData>(
 	({ input, client }) =>
 		client.data.query(
-			pokemonDetailRecipe({
-				...input,
-				reference: client.pluginIdentity(PluginPackageId.make(PLUGIN_PACKAGE_ID)),
-			}),
+			pokemonDetailRecipe({ ...input, reference: client.pluginIdentity(PLUGIN_PACKAGE_ID) }),
 		),
 	{ entityInterest: ({ input }) => ({ visible: [], foreground: [input.entityId] }) },
 );

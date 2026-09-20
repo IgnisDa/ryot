@@ -3,6 +3,7 @@ import type { NavigationData, NavigationView } from "@ryot-app/ryotql-recipes/na
 import type { PluginClientCatalog } from "@ryot-app/ryotql-recipes/plugin-client-catalog";
 
 import { sortWorkspaces } from "#/modules/navigation/workspace-state";
+import { pluginInstallationLabel } from "#/modules/ui/catalog/selection";
 
 export type CustomizeSection = "workspaces" | "views" | "savedViews";
 
@@ -16,7 +17,7 @@ export type CustomizeDraftItem = {
 export type CustomizeDraftViewItem = CustomizeDraftItem &
 	Pick<NavigationView, "reference" | "pluginInstallationId">;
 export type CustomizeDraftWorkspaceItem = CustomizeDraftItem &
-	Pick<PluginClientCatalog[number], "pluginId" | "installationId">;
+	Pick<PluginClientCatalog[number], "pluginId" | "packageId" | "installationId">;
 
 export type CustomizeDraft = {
 	readonly views: readonly CustomizeDraftViewItem[];
@@ -46,9 +47,10 @@ const draftWorkspaces = (catalog: PluginClientCatalog) =>
 			icon,
 			isHidden,
 			pluginId,
+			packageId,
 			installationId,
 			id: installationId,
-			name: `${name} · ${scope === "system" ? "System" : "Private"} · ${packageId}`,
+			name: pluginInstallationLabel({ name, scope, packageId }),
 		}),
 	);
 

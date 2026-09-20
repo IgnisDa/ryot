@@ -1,5 +1,5 @@
 import { identityTupleKey } from "@ryot-app/contract/modules/plugins/references";
-import { PluginPackageId, SavedViewId } from "@ryot-app/contract/schema/brands";
+import { PluginId, PluginPackageId, SavedViewId } from "@ryot-app/contract/schema/brands";
 import type { NavigationData } from "@ryot-app/ryotql-recipes/navigation";
 import type {
 	PluginClientCatalog,
@@ -48,9 +48,9 @@ const workspace = (
 	clientApiVersion: 1,
 	homeSavedView: null,
 	name: slug.toUpperCase(),
-	pluginId: `plugin-${slug}`,
 	sourceHash: `source-${slug}`,
 	installationId: `installation-${slug}`,
+	pluginId: PluginId.make(`plugin-${slug}`),
 	packageId: PluginPackageId.make(`test/${slug}`),
 });
 

@@ -121,6 +121,9 @@ const mediaLifecycleSignalSlugs = [
 	"list-state",
 ] as const;
 
+export const sameSchemaOwner = (from: TableReference, ownerField: string, parent: TableReference) =>
+	eq(column(from, ownerField), column(parent, "entitySchemaPluginId"));
+
 export const entitySchemaIs = (entity: TableReference, slug: string) =>
 	eq(column(entity, "entitySchemaSlug"), literal(slug));
 
@@ -133,8 +136,8 @@ export const relationshipConnects = (
 	and(
 		eq(column(relationship, "sourceEntityId"), column(parent, "id")),
 		eq(column(relationship, "targetEntityId"), column(child, "id")),
-		eq(column(relationship, "relationshipSchemaPluginId"), column(parent, "entitySchemaPluginId")),
-		eq(column(child, "entitySchemaPluginId"), column(parent, "entitySchemaPluginId")),
+		sameSchemaOwner(relationship, "relationshipSchemaPluginId", parent),
+		sameSchemaOwner(child, "entitySchemaPluginId", parent),
 		eq(column(relationship, "relationshipSchemaSlug"), literal(slug)),
 	);
 
@@ -167,7 +170,7 @@ export const latestParentCompletionExpressions = (
 	const event = table("event", alias);
 	const where = and(
 		eq(column(event, "entityId"), column(parent, "id")),
-		eq(column(event, "eventSchemaPluginId"), column(parent, "entitySchemaPluginId")),
+		sameSchemaOwner(event, "eventSchemaPluginId", parent),
 		eq(column(event, "sessionEntityId"), column(parent, "id")),
 		eq(column(event, "eventSchemaSlug"), literal("complete")),
 	);
@@ -196,7 +199,7 @@ export const latestEntityCompletionExpressions = (
 	const event = table("event", alias);
 	const where = and(
 		eq(column(event, "entityId"), column(entity, "id")),
-		eq(column(event, "eventSchemaPluginId"), column(entity, "entitySchemaPluginId")),
+		sameSchemaOwner(event, "eventSchemaPluginId", entity),
 		eq(column(event, "eventSchemaSlug"), literal("complete")),
 	);
 	return latestEventOrderExpressions(where, alias);
@@ -232,7 +235,7 @@ export const mediaLifecycleExpressions = (entity: TableReference, alias = "media
 	const signalAlias = `${alias}Signal`;
 	const signalEvent = table("event", signalAlias);
 	const signalWhere = and(
-		eq(column(signalEvent, "eventSchemaPluginId"), column(entity, "entitySchemaPluginId")),
+		sameSchemaOwner(signalEvent, "eventSchemaPluginId", entity),
 		eq(column(signalEvent, "entityId"), column(entity, "id")),
 		eventSlugIsOneOf(signalEvent, mediaLifecycleSignalSlugs),
 	);
@@ -248,7 +251,7 @@ export const mediaLifecycleExpressions = (entity: TableReference, alias = "media
 	const progressAlias = `${alias}Progress`;
 	const progressEvent = table("event", progressAlias);
 	const progressWhere = and(
-		eq(column(progressEvent, "eventSchemaPluginId"), column(entity, "entitySchemaPluginId")),
+		sameSchemaOwner(progressEvent, "eventSchemaPluginId", entity),
 		eq(column(progressEvent, "entityId"), column(entity, "id")),
 		eq(column(progressEvent, "eventSchemaSlug"), literal("progress")),
 	);
@@ -257,7 +260,7 @@ export const mediaLifecycleExpressions = (entity: TableReference, alias = "media
 	const snapshotAlias = `${alias}SnapshotBoundary`;
 	const snapshotEvent = table("event", snapshotAlias);
 	const snapshotWhere = and(
-		eq(column(snapshotEvent, "eventSchemaPluginId"), column(entity, "entitySchemaPluginId")),
+		sameSchemaOwner(snapshotEvent, "eventSchemaPluginId", entity),
 		eq(column(snapshotEvent, "entityId"), column(entity, "id")),
 		eq(column(snapshotEvent, "eventSchemaSlug"), literal("list-state")),
 	);
@@ -296,7 +299,7 @@ const latestEpisodeLifecycleExpressions = (
 	const event = table("event", alias);
 	const where = and(
 		eq(column(event, "entityId"), column(episode, "id")),
-		eq(column(event, "eventSchemaPluginId"), column(episode, "entitySchemaPluginId")),
+		sameSchemaOwner(event, "eventSchemaPluginId", episode),
 		eq(column(event, "sessionEntityId"), column(parent, "id")),
 		eventSlugIsOneOf(event, lifecycleEventSlugs),
 	);
@@ -309,7 +312,7 @@ const latestEpisodeLifecycleExpressions = (
 const latestEpisodeEventExpressions = (episode: TableReference, alias: string) => {
 	const event = table("event", alias);
 	const where = and(
-		eq(column(event, "eventSchemaPluginId"), column(episode, "entitySchemaPluginId")),
+		sameSchemaOwner(event, "eventSchemaPluginId", episode),
 		eq(column(event, "entityId"), column(episode, "id")),
 		eventSlugIsOneOf(event, lifecycleEventSlugs),
 	);
@@ -441,8 +444,8 @@ const latestAggregateSignalExpressions = (
 	const joins = [join("inner", entity, eq(column(event, "entityId"), column(entity, "id")))];
 	const where = and(
 		eq(column(event, "sessionEntityId"), column(parent, "id")),
-		eq(column(event, "eventSchemaPluginId"), column(parent, "entitySchemaPluginId")),
-		eq(column(entity, "entitySchemaPluginId"), column(parent, "entitySchemaPluginId")),
+		sameSchemaOwner(event, "eventSchemaPluginId", parent),
+		sameSchemaOwner(entity, "entitySchemaPluginId", parent),
 		or(
 			and(
 				eq(column(entity, "id"), column(parent, "id")),
@@ -529,7 +532,7 @@ export const episodeDisplayStateExpression = (
 	const cycleSignal = latestEventOrderExpressions(
 		and(
 			eq(column(cycleEvent, "sessionEntityId"), column(parent, "id")),
-			eq(column(cycleEvent, "eventSchemaPluginId"), column(parent, "entitySchemaPluginId")),
+			sameSchemaOwner(cycleEvent, "eventSchemaPluginId", parent),
 			neq(column(cycleEvent, "entityId"), column(parent, "id")),
 			eventSlugIsOneOf(cycleEvent, lifecycleEventSlugs),
 		),

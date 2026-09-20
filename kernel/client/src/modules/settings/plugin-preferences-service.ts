@@ -7,6 +7,7 @@ import {
 } from "@ryot-app/ryotql-recipes/plugin-user-settings";
 import { Effect } from "effect";
 
+import { loadAllPages } from "#/api/load-all-pages";
 import { PluginsApi } from "#/api/plugins";
 import type { KernelRyotClient } from "#/api/ryot-client";
 import type { KernelHostServices } from "#/host-services";
@@ -20,23 +21,9 @@ type SavePluginUserSettingsInput = {
 };
 
 const loadPluginUserSettings = (client: Pick<KernelRyotClient, "data">) =>
-	Effect.gen(function* () {
-		const settings: PluginUserSetting[] = [];
-		let after: string | undefined;
-		let hasMore: boolean;
-		do {
-			const page = yield* client.data.query(
-				pluginUserSettingsRecipe({ after, limit: PLUGIN_USER_SETTINGS_PAGE_SIZE }),
-			);
-			settings.push(...page.items);
-			hasMore = page.pageInfo.hasMore;
-			if (hasMore && page.pageInfo.nextCursor === null) {
-				return yield* new RyotClientError("transport");
-			}
-			after = page.pageInfo.nextCursor ?? undefined;
-		} while (hasMore);
-		return settings;
-	}).pipe(Effect.mapError(() => new RyotClientError("transport")));
+	loadAllPages((after) =>
+		client.data.query(pluginUserSettingsRecipe({ after, limit: PLUGIN_USER_SETTINGS_PAGE_SIZE })),
+	).pipe(Effect.mapError(() => new RyotClientError("transport")));
 
 export const pluginUserSettingsQuery = createRyotQuery<
 	void,

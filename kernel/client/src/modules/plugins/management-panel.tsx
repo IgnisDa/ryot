@@ -1,10 +1,9 @@
 import { Button, Modal } from "@ryot-app/client-ui-sdk";
 import { useState } from "react";
 
-import type { ManagedPluginInstallation, PluginManagementAction } from "./management";
+import { pluginInstallationLabel } from "#/modules/ui/catalog/selection";
 
-const label = (installation: ManagedPluginInstallation) =>
-	`${installation.name} · ${installation.scope === "system" ? "System" : "Private"} · ${installation.packageId}`;
+import type { ManagedPluginInstallation, PluginManagementAction } from "./management";
 
 function InstallationDetails(props: {
 	readonly installation: ManagedPluginInstallation;
@@ -141,7 +140,7 @@ function InstallationDetails(props: {
 				<Modal
 					closeLabel="Cancel uninstall"
 					onClose={() => setConfirmRemoval(false)}
-					label={`Uninstall ${label(installation)}`}
+					label={`Uninstall ${pluginInstallationLabel(installation)}`}
 				>
 					<div className="grid gap-3 p-4">
 						<p>
@@ -191,7 +190,7 @@ export function PluginManagementPanel(props: {
 						className="grid gap-3 rounded border border-border p-3"
 					>
 						<summary className="cursor-pointer font-medium">
-							{label(installation)} · {installation.health}
+							{pluginInstallationLabel(installation)} · {installation.health}
 							{installation.isHidden ? " · Hidden" : ""}
 						</summary>
 						<div className="grid gap-4 pt-3">

@@ -1,6 +1,5 @@
 import {
 	PLUGIN_STORAGE_VALUE_MAX_BYTES,
-	PLUGIN_STORAGE_KEY_MAX_LENGTH,
 	type PluginStorageOutcome,
 	type PluginStorageRequest,
 } from "@ryot-app/client-plugin-contract";
@@ -24,8 +23,6 @@ export class PluginStorage extends Context.Service<PluginStorage>()("PluginStora
 		): Effect.Effect<PluginStorageOutcome> =>
 			Effect.gen(function* () {
 				if (
-					request.key.length === 0 ||
-					request.key.length > PLUGIN_STORAGE_KEY_MAX_LENGTH ||
 					!contributors.some(
 						(contributor) =>
 							contributor.kind === "plugin" && contributor.pluginId === request.pluginId,

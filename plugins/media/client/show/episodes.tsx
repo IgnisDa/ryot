@@ -1,5 +1,4 @@
 import { Effect, Schema } from "@ryot-app/client-sdk/effect";
-import { PluginPackageId } from "@ryot-app/client-sdk/plugin";
 import {
 	createRyotQuery,
 	ManagedAssetProvider,
@@ -69,7 +68,7 @@ export const showSeasonsQuery = createRyotQuery<{ readonly entityId: string }, S
 			showSeasonsRecipe({
 				entityId: input.entityId,
 				seasonLimit: SHOW_SEASON_LIMIT,
-				reference: client.pluginIdentity(PluginPackageId.make(PLUGIN_PACKAGE_ID)),
+				reference: client.pluginIdentity(PLUGIN_PACKAGE_ID),
 			}),
 		),
 	{
@@ -89,7 +88,7 @@ export const showSeasonEpisodesQuery = createRyotQuery<
 			showSeasonEpisodesRecipe({
 				limit: SHOW_EPISODE_PAGE_LIMIT,
 				containerId: input.containerId,
-				reference: client.pluginIdentity(PluginPackageId.make(PLUGIN_PACKAGE_ID)),
+				reference: client.pluginIdentity(PLUGIN_PACKAGE_ID),
 				...(input.after === null ? {} : { after: input.after }),
 			}),
 		),
@@ -124,7 +123,7 @@ export const showOrderEpisodesQuery = createRyotQuery<
 				showOrderEpisodesRecipe({
 					entityId: input.entityId,
 					externalIds: page.externalIds,
-					reference: client.pluginIdentity(PluginPackageId.make(PLUGIN_PACKAGE_ID)),
+					reference: client.pluginIdentity(PLUGIN_PACKAGE_ID),
 				}),
 			),
 			(rows) => ({
@@ -153,7 +152,7 @@ const showOrderGroupCoverageQuery = createRyotQuery<
 					showOrderGroupCoverageRecipe({
 						entityId: input.entityId,
 						externalIds: [first, ...rest],
-						reference: client.pluginIdentity(PluginPackageId.make(PLUGIN_PACKAGE_ID)),
+						reference: client.pluginIdentity(PLUGIN_PACKAGE_ID),
 					}),
 				);
 	},
@@ -512,7 +511,7 @@ export function ShowEpisodesTab(props: {
 	readonly entityId: string;
 	readonly summary: { readonly nextUp: ShowEpisode | null } | undefined;
 }) {
-	const identity = usePluginIdentity(PluginPackageId.make(PLUGIN_PACKAGE_ID));
+	const identity = usePluginIdentity(PLUGIN_PACKAGE_ID);
 	const storage = usePluginStorage({
 		schema: Schema.String,
 		pluginId: identity.pluginId,

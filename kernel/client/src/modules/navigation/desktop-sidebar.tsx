@@ -10,7 +10,8 @@ import type { AuthSessionStore } from "#/modules/auth/service";
 import { AccountSummary } from "#/modules/navigation/account-summary";
 import type { CustomizeSection } from "#/modules/navigation/customize/customize-state";
 import { SidebarNav } from "#/modules/navigation/sidebar-nav";
-import type { SidebarItem, SidebarSections } from "#/modules/navigation/sidebar-sections";
+import type { SidebarEntry, SidebarSections } from "#/modules/navigation/sidebar-sections";
+import type { WorkspaceTarget } from "#/modules/navigation/workspace-state";
 
 type DesktopSidebarProps = {
 	readonly isPro: boolean;
@@ -30,8 +31,8 @@ type DesktopSidebarProps = {
 	readonly onNavigateSettings: () => void | Promise<void>;
 	readonly onEditSection: (section: CustomizeSection) => void;
 	readonly onWorkspaceSwitcherOpenChange: (open: boolean) => void;
-	readonly onSelectWorkspace: (slug: string) => void | Promise<void>;
-	readonly onNavigateItem: (item: SidebarItem) => void | Promise<void>;
+	readonly onSelectWorkspace: (workspace: WorkspaceTarget) => void | Promise<void>;
+	readonly onNavigateItem: (item: SidebarEntry) => void | Promise<void>;
 };
 
 export function DesktopSidebar(props: DesktopSidebarProps) {

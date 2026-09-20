@@ -1,4 +1,4 @@
-import { SavedViewId } from "@ryot-app/contract/schema/brands";
+import { PluginId, PluginPackageId, SavedViewId } from "@ryot-app/contract/schema/brands";
 import { describe, expect, it } from "vitest";
 
 import { buildCustomizePlan } from "#/modules/navigation/customize/customize-plan";
@@ -25,7 +25,8 @@ const workspace = (slug: string, isHidden = false) => ({
 	icon: "plugin",
 	installationId: slug,
 	name: slug.toUpperCase(),
-	pluginId: `plugin-${slug}`,
+	pluginId: PluginId.make(`plugin-${slug}`),
+	packageId: PluginPackageId.make(`test/${slug}`),
 });
 
 const initial: CustomizeDraft = {

@@ -1,5 +1,3 @@
-import type { DefinitionOwner } from "@ryot-app/contract/modules/plugins/references";
-import type { PluginId } from "@ryot-app/contract/schema/brands";
 import { HttpUrl, strictStruct } from "@ryot-app/contract/schema/utils";
 import { Schema } from "effect";
 
@@ -92,11 +90,3 @@ export const MediaCreateImportRunBody = Schema.Union([
 ]);
 
 export type MediaCreateImportRunBody = typeof MediaCreateImportRunBody.Type;
-
-export const createMediaImportRunBody = <const Source extends MediaCreateImportRunBody["source"]>(
-	pluginId: PluginId,
-	body: Extract<MediaCreateImportRunBody, { readonly source: Source }>,
-) => ({
-	...body,
-	source: { slug: body.source, owner: { pluginId, kind: "plugin" } satisfies DefinitionOwner },
-});

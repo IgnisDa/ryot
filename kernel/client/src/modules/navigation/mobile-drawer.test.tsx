@@ -1,5 +1,5 @@
 import { describe, expect, it } from "@effect/vitest";
-import { PluginPackageId } from "@ryot-app/contract/schema/brands";
+import { PluginId, PluginPackageId } from "@ryot-app/contract/schema/brands";
 import type { NavigationData } from "@ryot-app/ryotql-recipes/navigation";
 import type {
 	PluginClientCatalog,
@@ -14,6 +14,7 @@ import { axe } from "vitest-axe";
 import type { AuthSessionStore } from "#/modules/auth/service";
 import { MobileDrawer } from "#/modules/navigation/mobile-drawer";
 import type { SidebarSections } from "#/modules/navigation/sidebar-sections";
+import type { WorkspaceTarget } from "#/modules/navigation/workspace-state";
 
 const workspace = (
 	overrides: Partial<PluginClientCatalogEntry> = {},
@@ -30,7 +31,8 @@ const workspace = (
 	scope: overrides.scope ?? "system",
 	homeSavedView: overrides.homeSavedView ?? null,
 	packageId: overrides.packageId ?? PluginPackageId.make("ryot/media"),
-	pluginId: overrides.pluginId ?? `plugin-${overrides.packageId?.split("/")[1] ?? "media"}`,
+	pluginId:
+		overrides.pluginId ?? PluginId.make(`plugin-${overrides.packageId?.split("/")[1] ?? "media"}`),
 });
 
 const snapshot = {
@@ -67,7 +69,7 @@ type HarnessProps = {
 	readonly onNavigateHome?: () => void;
 	readonly catalog?: PluginClientCatalog;
 	readonly progress?: MotionValue<number>;
-	readonly onSelectWorkspace?: (slug: string) => void;
+	readonly onSelectWorkspace?: (workspace: WorkspaceTarget) => void;
 };
 
 function Harness(props: HarnessProps) {
@@ -105,7 +107,7 @@ function Harness(props: HarnessProps) {
 				onNavigateSettings={() => undefined}
 				catalog={props.catalog ?? [current]}
 				onNavigateHome={() => props.onNavigateHome?.()}
-				onSelectWorkspace={(slug) => props.onSelectWorkspace?.(slug)}
+				onSelectWorkspace={(target) => props.onSelectWorkspace?.(target)}
 				onClose={() => {
 					props.onClose?.();
 					setIsOpen(false);
@@ -231,9 +233,9 @@ describe("mobile drawer", () => {
 			const journal = workspace({
 				sortOrder: 1,
 				name: "Journal",
-				pluginId: "plugin-journal",
 				sourceHash: "source-journal",
 				installationId: "installation-journal",
+				pluginId: PluginId.make("plugin-journal"),
 				packageId: PluginPackageId.make("test/journal"),
 			});
 			render(
@@ -244,9 +246,9 @@ describe("mobile drawer", () => {
 							screen.queryByRole("dialog", { name: "Navigation" }) !== null ||
 							document.body.style.overflow === "hidden";
 					}}
-					onSelectWorkspace={(slug) => {
+					onSelectWorkspace={({ pluginId }) => {
 						selected = {
-							slug,
+							slug: pluginId,
 							open:
 								screen.queryByRole("dialog", { name: "Navigation" }) !== null ||
 								document.body.style.overflow === "hidden",

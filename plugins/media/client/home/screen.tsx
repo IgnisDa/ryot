@@ -1,8 +1,4 @@
-import {
-	usePluginScreenSurface,
-	useRyotViewport,
-	PluginPackageId,
-} from "@ryot-app/client-sdk/plugin";
+import { usePluginScreenSurface, useRyotViewport } from "@ryot-app/client-sdk/plugin";
 import { createRyotQuery, useRyotQuery } from "@ryot-app/client-sdk/react";
 import { PluginScreenFrame } from "@ryot-app/client-sdk/screen";
 import type { RefObject } from "react";
@@ -20,9 +16,7 @@ import { TrendingRail } from "./trending-rail";
 import { useLocalToday } from "./use-local-today";
 
 const libraryCountQuery = createRyotQuery(({ client }) =>
-	client.data.query(
-		libraryMediaCountRecipe(client.pluginIdentity(PluginPackageId.make(PLUGIN_PACKAGE_ID))),
-	),
+	client.data.query(libraryMediaCountRecipe(client.pluginIdentity(PLUGIN_PACKAGE_ID))),
 );
 
 const CONTINUE = { state: "in_progress" } as const;

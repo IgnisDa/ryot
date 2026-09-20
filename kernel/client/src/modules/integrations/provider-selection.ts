@@ -1,13 +1,9 @@
 import type { IntegrationLot } from "@ryot-app/contract/modules/integrations/types";
+import { definitionKey } from "@ryot-app/contract/modules/plugins/references";
 
 import { ingestionReadinessRequirement } from "#/modules/imports/readiness-presentation";
-import { integrationProviderKey } from "#/modules/integrations/presentation";
 import type { IntegrationProviderItem } from "#/modules/integrations/service";
-import {
-	pluginCatalogGroup,
-	pluginHeading,
-	type CatalogEntry,
-} from "#/modules/ui/catalog/selection";
+import { pluginCatalogGroup, type CatalogEntry } from "#/modules/ui/catalog/selection";
 
 export const PRO_REQUIRED_INTEGRATION_MESSAGE = "Ryot Pro is required to use this integration.";
 
@@ -15,6 +11,9 @@ const lotLabels = { push: "Push", sink: "Webhook", yank: "Scheduled" } as const 
 	IntegrationLot,
 	string
 >;
+
+export const integrationProviderItemKey = (provider: Pick<IntegrationProviderItem, "reference">) =>
+	definitionKey("integration-provider", provider.reference.owner, provider.reference.slug);
 
 export const integrationLotLabel = (lot: IntegrationLot) => lotLabels[lot];
 
@@ -39,31 +38,18 @@ const integrationProviderRequirement = (provider: IntegrationProviderItem) => {
 export const integrationProviderEntry = (provider: IntegrationProviderItem): CatalogEntry => ({
 	name: provider.name,
 	description: provider.description,
+	group: pluginCatalogGroup(provider),
 	badge: integrationLotLabel(provider.lot),
+	key: integrationProviderItemKey(provider),
 	requirement: integrationProviderRequirement(provider),
 	isAvailable: provider.isCreatable && provider.readiness.ready,
-	slug: integrationProviderKey({ provider: provider.slug, pluginId: provider.pluginId }),
-	group:
-		provider.reference.owner.kind === "kernel"
-			? { key: "kernel", heading: "Ryot" }
-			: pluginCatalogGroup({
-					scope: provider.pluginScope,
-					reference: provider.reference,
-					packageId: provider.packageId,
-					name: provider.packageId === null ? provider.name : pluginHeading(provider.packageId),
-				}),
 });
 
 export const integrationProviderChooseLabel = (entry: CatalogEntry) =>
 	entry.isAvailable ? `Connect ${entry.name}` : `${entry.name} is unavailable`;
 
 export const integrationProviderNames = (providers: readonly IntegrationProviderItem[]) =>
-	new Map(
-		providers.map((provider) => [
-			integrationProviderKey({ provider: provider.slug, pluginId: provider.pluginId }),
-			provider.name,
-		]),
-	);
+	new Map(providers.map((provider) => [integrationProviderItemKey(provider), provider.name]));
 
 export const findOwnedIntegrationProvider = (
 	providers: readonly IntegrationProviderItem[],

@@ -1,6 +1,5 @@
 import { RyotClientError } from "@ryot-app/client-sdk";
 import { Effect } from "@ryot-app/client-sdk/effect";
-import { PluginPackageId } from "@ryot-app/client-sdk/plugin";
 import { createRyotQuery } from "@ryot-app/client-sdk/react";
 
 import {
@@ -29,7 +28,7 @@ export const summaryQuery = createRyotQuery<
 				measurementSummaryRecipe({
 					...input,
 					after,
-					reference: client.pluginIdentity(PluginPackageId.make(PLUGIN_PACKAGE_ID)),
+					reference: client.pluginIdentity(PLUGIN_PACKAGE_ID),
 				}),
 			);
 			summaries.push(...page.items);
@@ -63,7 +62,7 @@ export const seriesQuery = createRyotQuery<
 					measurementSeriesRecipe({
 						...input,
 						metricIds,
-						reference: client.pluginIdentity(PluginPackageId.make(PLUGIN_PACKAGE_ID)),
+						reference: client.pluginIdentity(PLUGIN_PACKAGE_ID),
 					}),
 				),
 			{ concurrency: 4 },
@@ -87,7 +86,7 @@ export const readingsQuery = createRyotQuery<
 					after,
 					startAt: input.startAt,
 					limit: READING_PAGE_SIZE,
-					reference: client.pluginIdentity(PluginPackageId.make(PLUGIN_PACKAGE_ID)),
+					reference: client.pluginIdentity(PLUGIN_PACKAGE_ID),
 				}),
 			);
 			items.push(...result.items);

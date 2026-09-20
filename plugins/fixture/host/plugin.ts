@@ -1,5 +1,4 @@
 import { CLIENT_API_VERSION, definePlugin } from "@ryot-app/contract/modules/plugins/manifest";
-import { PluginPackageId } from "@ryot-app/contract/schema/brands";
 import {
 	integerField,
 	managedAssetItemSchema,
@@ -22,6 +21,13 @@ export const fixturePlugin = definePlugin({
 	integrationProviders: [],
 	savedViews: fixtureSavedViews,
 	configSchema: { fields: {}, unknownKeys: "strict" },
+	metadata: {
+		icon: "puzzle",
+		name: "Fixture",
+		version: "1.0.0",
+		packageId: PLUGIN_PACKAGE_ID,
+		description: "A client plugin fixture used by the web client tracer.",
+	},
 	operations: [
 		{
 			auth: "user",
@@ -31,13 +37,6 @@ export const fixturePlugin = definePlugin({
 			description: "Return a deterministic greeting for the caller",
 		},
 	],
-	metadata: {
-		icon: "puzzle",
-		name: "Fixture",
-		version: "1.0.0",
-		packageId: PluginPackageId.make(PLUGIN_PACKAGE_ID),
-		description: "A client plugin fixture used by the web client tracer.",
-	},
 	providers: [
 		{
 			name: "PokeAPI",

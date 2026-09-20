@@ -3,11 +3,7 @@ import type { AppSchema } from "@ryot-app/contract/schema/property-schema";
 import { getOrderedAppSchemaFieldEntries } from "@ryot-app/contract/schema/property-schema";
 
 import type { ImportSourceItem } from "#/modules/imports/service";
-import {
-	pluginCatalogGroup,
-	pluginHeading,
-	type CatalogEntry,
-} from "#/modules/ui/catalog/selection";
+import { pluginCatalogGroup, type CatalogEntry } from "#/modules/ui/catalog/selection";
 
 import { ingestionReadinessRequirement } from "./readiness-presentation";
 
@@ -45,20 +41,12 @@ export const importSourceInputShape = (schema: AppSchema) => {
 
 export const importSourceEntry = (source: ImportSourceItem): CatalogEntry => ({
 	name: source.name,
-	slug: importSourceKey(source),
+	key: importSourceKey(source),
 	description: source.description,
+	group: pluginCatalogGroup(source),
 	isAvailable: source.readiness.ready,
 	badge: importSourceInputShape(source.inputSchema),
 	requirement: ingestionReadinessRequirement(source.readiness, source.pluginScope),
-	group:
-		source.reference.owner.kind === "kernel"
-			? { key: "kernel", heading: "Ryot" }
-			: pluginCatalogGroup({
-					scope: source.pluginScope,
-					reference: source.reference,
-					packageId: source.packageId,
-					name: source.packageId === null ? source.name : pluginHeading(source.packageId),
-				}),
 });
 
 export const importSourceChooseLabel = (entry: CatalogEntry) =>

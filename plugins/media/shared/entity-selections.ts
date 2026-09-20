@@ -21,6 +21,8 @@ import {
 	TranslationStatus,
 } from "@ryot-app/plugin-kit/schema";
 
+import { entitySchemaIs, sameSchemaOwner } from "./lifecycle-expressions";
+
 export type Table = ReturnType<typeof table>;
 
 export const entityId = (entity: Table, id: string) => eq(column(entity, "id"), literal(id));
@@ -52,15 +54,6 @@ export const propertyNumber = (entity: Table, ...path: PropertyPath) =>
 export const propertyBoolean = (entity: Table, ...path: PropertyPath) =>
 	castBoolean(jsonPath(column(entity, "properties"), ...path));
 
-export const relationshipTo = (relationship: Table, parent: Table, child: Table, schema: string) =>
-	and(
-		eq(column(relationship, "sourceEntityId"), column(parent, "id")),
-		eq(column(relationship, "targetEntityId"), column(child, "id")),
-		eq(column(relationship, "relationshipSchemaPluginId"), column(parent, "entitySchemaPluginId")),
-		eq(column(child, "entitySchemaPluginId"), column(parent, "entitySchemaPluginId")),
-		eq(column(relationship, "relationshipSchemaSlug"), literal(schema)),
-	);
-
 export const libraryLinkExists = (entity: Table, alias: string, slug: string) => {
 	const mediaLibrary = table("entity", alias);
 	const relationship = table("relationship", `${alias}Relationship`);
@@ -73,12 +66,9 @@ export const libraryLinkExists = (entity: Table, alias: string, slug: string) =>
 			),
 		],
 		where: and(
-			eq(column(mediaLibrary, "entitySchemaSlug"), literal("media-library")),
-			eq(column(mediaLibrary, "entitySchemaPluginId"), column(entity, "entitySchemaPluginId")),
-			eq(
-				column(relationship, "relationshipSchemaPluginId"),
-				column(entity, "entitySchemaPluginId"),
-			),
+			entitySchemaIs(mediaLibrary, "media-library"),
+			sameSchemaOwner(mediaLibrary, "entitySchemaPluginId", entity),
+			sameSchemaOwner(relationship, "relationshipSchemaPluginId", entity),
 			eq(column(relationship, "sourceEntityId"), column(entity, "id")),
 			eq(column(relationship, "relationshipSchemaSlug"), literal(slug)),
 		),
