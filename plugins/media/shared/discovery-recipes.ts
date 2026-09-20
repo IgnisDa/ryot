@@ -23,7 +23,10 @@ import {
 	selectedRows,
 	table,
 	type Recipe,
+	schemaOwnerPredicate,
+	relationshipSchemaPredicate,
 } from "@ryot-app/plugin-kit/ryotql";
+import type { PluginIdentityReference } from "@ryot-app/plugin-kit/schema";
 
 import {
 	entityIdentitySelection,
@@ -56,7 +59,7 @@ const isSuggestible = (target: Table, alias: string) =>
  * suggestible target, so a completion whose suggestions are all in the library falls back to an
  * earlier one.
  */
-const suggestionSourceId = () => {
+const suggestionSourceId = (reference: PluginIdentityReference) => {
 	const event = table("event", "suggestionSourceEvent");
 	const source = table("entity", "suggestionSource");
 	const suggestion = table("relationship", "suggestionSourceEdge");
@@ -66,6 +69,8 @@ const suggestionSourceId = () => {
 		orderBy: eventOrderDescending(event),
 		joins: [join("inner", source, eq(column(event, "entityId"), column(source, "id")))],
 		where: and(
+			schemaOwnerPredicate(source, "entitySchemaPluginId", reference),
+			schemaOwnerPredicate(event, "eventSchemaPluginId", reference),
 			eq(column(event, "eventSchemaSlug"), literal("complete")),
 			inArray(
 				column(source, "entitySchemaSlug"),
@@ -77,8 +82,9 @@ const suggestionSourceId = () => {
 					join("inner", target, eq(column(suggestion, "targetEntityId"), column(target, "id"))),
 				],
 				where: and(
+					schemaOwnerPredicate(target, "entitySchemaPluginId", reference),
 					eq(column(suggestion, "sourceEntityId"), column(source, "id")),
-					eq(column(suggestion, "relationshipSchemaSlug"), literal("media-suggestion")),
+					relationshipSchemaPredicate(suggestion, "media-suggestion", reference),
 					isSuggestible(target, "suggestionSourceTargetLibrary"),
 				),
 			}),
@@ -91,7 +97,7 @@ const suggestionSourceId = () => {
  * another, so the items query repeats the source `first()` rather than taking its id.
  */
 export const latestCompletionSuggestionsRecipe = defineRecipe(
-	(input: { readonly limit: number }) => {
+	(input: { readonly reference: PluginIdentityReference; readonly limit: number }) => {
 		const source = table("entity", "source");
 		const suggestion = table("relationship", "suggestion");
 		const target = table("entity", "target");
@@ -102,7 +108,7 @@ export const latestCompletionSuggestionsRecipe = defineRecipe(
 				source: selectedOptionalRow(source, {
 					orderBy: [ascending(column(source, "id"))],
 					selection: discoveredMediaSelection(source),
-					where: eq(column(source, "id"), suggestionSourceId()),
+					where: eq(column(source, "id"), suggestionSourceId(input.reference)),
 				}),
 				items: selectedRows(suggestion, {
 					limit: input.limit,
@@ -112,8 +118,9 @@ export const latestCompletionSuggestionsRecipe = defineRecipe(
 						join("inner", target, eq(column(suggestion, "targetEntityId"), column(target, "id"))),
 					],
 					where: and(
-						eq(column(suggestion, "relationshipSchemaSlug"), literal("media-suggestion")),
-						eq(column(suggestion, "sourceEntityId"), suggestionSourceId()),
+						relationshipSchemaPredicate(suggestion, "media-suggestion", input.reference),
+						schemaOwnerPredicate(target, "entitySchemaPluginId", input.reference),
+						eq(column(suggestion, "sourceEntityId"), suggestionSourceId(input.reference)),
 						isSuggestible(target, "targetLibrary"),
 					),
 				}),
@@ -136,6 +143,7 @@ const trendingFetchedAt = (relationship: Table) =>
  */
 export const trendingLatestMediaRecipe = defineRecipe(
 	(input: {
+		readonly reference: PluginIdentityReference;
 		readonly limit: number;
 		readonly after?: string | undefined;
 		readonly entitySchemaSlugs: readonly [string, ...string[]];
@@ -155,7 +163,8 @@ export const trendingLatestMediaRecipe = defineRecipe(
 				),
 			],
 			where: and(
-				eq(column(latest, "relationshipSchemaSlug"), literal("media-trending")),
+				relationshipSchemaPredicate(latest, "media-trending", input.reference),
+				schemaOwnerPredicate(latestTarget, "entitySchemaPluginId", input.reference),
 				eq(column(latestTarget, "entitySchemaSlug"), column(target, "entitySchemaSlug")),
 			),
 		});
@@ -179,7 +188,8 @@ export const trendingLatestMediaRecipe = defineRecipe(
 						fetchedAt: selectedField(fetchedAt, IsoDateString),
 					},
 					where: and(
-						eq(column(relationship, "relationshipSchemaSlug"), literal("media-trending")),
+						relationshipSchemaPredicate(relationship, "media-trending", input.reference),
+						schemaOwnerPredicate(target, "entitySchemaPluginId", input.reference),
 						inArray(
 							column(target, "entitySchemaSlug"),
 							input.entitySchemaSlugs.map((slug) => literal(slug)),

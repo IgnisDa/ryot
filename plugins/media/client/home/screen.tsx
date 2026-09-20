@@ -1,13 +1,14 @@
 import {
-	usePageContext,
 	usePluginScreenSurface,
 	useRyotViewport,
+	PluginPackageId,
 } from "@ryot-app/client-sdk/plugin";
 import { createRyotQuery, useRyotQuery } from "@ryot-app/client-sdk/react";
 import { PluginScreenFrame } from "@ryot-app/client-sdk/screen";
 import type { RefObject } from "react";
 
 import { libraryMediaCountRecipe } from "../../shared/lifecycle-list-recipes";
+import { PLUGIN_PACKAGE_ID } from "../../shared/plugin-identity";
 import { ActivitySection } from "./activity-section";
 import { AiringRail, airingQuery } from "./airing-rail";
 import { BacklogRail } from "./backlog-rail";
@@ -19,7 +20,9 @@ import { TrendingRail } from "./trending-rail";
 import { useLocalToday } from "./use-local-today";
 
 const libraryCountQuery = createRyotQuery(({ client }) =>
-	client.data.query(libraryMediaCountRecipe()),
+	client.data.query(
+		libraryMediaCountRecipe(client.pluginIdentity(PluginPackageId.make(PLUGIN_PACKAGE_ID))),
+	),
 );
 
 const CONTINUE = { state: "in_progress" } as const;
@@ -44,7 +47,6 @@ function HomeSkeleton() {
  */
 export function HomeBody(props: {
 	readonly compact: boolean;
-	readonly pluginId: string;
 	readonly scrollRootRef: RefObject<HTMLElement | null>;
 }) {
 	const { compact, scrollRootRef } = props;
@@ -64,7 +66,7 @@ export function HomeBody(props: {
 		airing.data !== undefined &&
 		airing.data.shows.length + airing.data.anime.length === 0;
 	if (gate.data === 0 || (gate.data === undefined && railsEmpty)) {
-		return <FirstRun compact={compact} pluginId={props.pluginId} />;
+		return <FirstRun compact={compact} />;
 	}
 	return (
 		<div className={compact ? "flex flex-col gap-6" : "flex flex-col gap-8"}>
@@ -86,15 +88,10 @@ export function HomeBody(props: {
 
 export default function Home() {
 	const { compact } = useRyotViewport();
-	const { renderer } = usePageContext();
 	const { scrollRootRef } = usePluginScreenSurface();
 	return (
 		<PluginScreenFrame title="Media">
-			<HomeBody
-				compact={compact}
-				scrollRootRef={scrollRootRef}
-				pluginId={renderer.kind === "plugin" ? renderer.pluginId : ""}
-			/>
+			<HomeBody compact={compact} scrollRootRef={scrollRootRef} />
 		</PluginScreenFrame>
 	);
 }

@@ -1,6 +1,7 @@
-import type { ManagedAssetLocator } from "@ryot-app/client-sdk";
+import { RyotClientError, type ManagedAssetLocator } from "@ryot-app/client-sdk";
 import { Effect, Result } from "@ryot-app/client-sdk/effect";
 import {
+	PluginId,
 	defineEntityPresentation,
 	PluginLink,
 	useRyotViewport,
@@ -125,10 +126,23 @@ export const createMediaPresentationLoader =
 		source: MediaPresentationSource<Data>,
 	): EntityPresentationLoader<MediaPresentationViewData<Data>> =>
 	({ client, references }) => {
+		const selected = references[0];
+		if (selected === undefined) {
+			return Effect.succeed({});
+		}
+		if (selected.ownerPluginId === null) {
+			return Effect.fail(new RyotClientError("invalid-input"));
+		}
 		const entitySchemaSlug = references[0]?.entitySchemaSlug ?? "";
 		const entityIds = [...new Set(references.map(({ entityId }) => entityId))];
 		return client.data
-			.query(mediaPresentationSourceRecipe(source, { entityIds, entitySchemaSlug }))
+			.query(
+				mediaPresentationSourceRecipe(source, {
+					entityIds,
+					entitySchemaSlug,
+					reference: { kind: "local", pluginId: PluginId.make(selected.ownerPluginId) },
+				}),
+			)
 			.pipe(Effect.map(prepareMediaPresentationRows));
 	};
 

@@ -1,4 +1,5 @@
 import { expect, it } from "@effect/vitest";
+import { PluginId } from "@ryot-app/plugin-kit/schema";
 import { Effect } from "@ryot-app/sandbox-sdk/effect";
 import { defineSandboxTestHost } from "@ryot-app/sandbox-sdk/testing";
 
@@ -22,6 +23,7 @@ const relationshipContext = (overrides: Record<string, unknown> = {}) =>
 			targetEntityId: "library-1",
 			createdAt: "2026-01-01T00:00:00.000Z",
 			updatedAt: "2026-01-01T00:00:00.000Z",
+			relationshipSchemaPluginId: "media-owner",
 			relationshipSchemaSlug: "in-media-library",
 			...overrides,
 		},
@@ -36,6 +38,7 @@ const addToMediaLibrarySchema = {
 	slug: "add-to-media-library",
 	name: "Added to media library",
 	propertiesSchema: { fields: {} },
+	pluginId: PluginId.make("media-owner"),
 };
 
 it.live("records an add-to-media-library event for a newly-created media membership", () =>
@@ -57,8 +60,8 @@ it.live("records an add-to-media-library event for a newly-created media members
 				{
 					properties: {},
 					entityId: "entity-1",
-					eventSchemaSlug: "event-schema-1",
 					occurredAt: "2026-01-01T00:00:00.000Z",
+					eventSchemaSlug: "add-to-media-library",
 				},
 			],
 		]);

@@ -9,6 +9,7 @@ import {
 import { waitFor } from "@testing-library/dom";
 import { renderToStaticMarkup } from "react-dom/server";
 
+import { fixturePageContext } from "../tests/client/page-context";
 import PokemonDetailPage, { PokemonDetailBody } from "./pokemon-detail";
 import { pokemonDetailRecipe } from "./pokemon-detail-query";
 
@@ -25,12 +26,14 @@ describe("Pokemon detail page", () => {
 		Effect.gen(function* () {
 			const page = mountPluginPage(PokemonDetailPage, {
 				location: entityLocation("pokemon-1", "pokemon"),
-				page: entityPageContext({
-					pluginId: "fixture",
-					entityId: "pokemon-1",
-					entitySchemaSlug: "pokemon",
-					exportName: "pokemon-detail",
-				}),
+				page: fixturePageContext(
+					entityPageContext({
+						pluginId: "fixture",
+						entityId: "pokemon-1",
+						entitySchemaSlug: "pokemon",
+						exportName: "pokemon-detail",
+					}),
+				),
 			});
 			yield* Effect.promise(() =>
 				waitFor(() => expect(page.queryRequests("pokemon")).toHaveLength(1)),
@@ -58,7 +61,10 @@ describe("Pokemon detail page", () => {
 	);
 
 	it("decodes fixture-owned Pokemon data", () => {
-		const decoded = pokemonDetailRecipe({ entityId: "pokemon-1" }).decode({
+		const decoded = pokemonDetailRecipe({
+			entityId: "pokemon-1",
+			reference: { kind: "self" },
+		}).decode({
 			data: {
 				requested: rows([{ schemaSlug: "pokemon" }]),
 				pokemon: rows([

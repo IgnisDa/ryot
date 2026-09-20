@@ -1,6 +1,6 @@
 import { Effect } from "@ryot-app/client-sdk/effect";
 import type { usePluginLocation } from "@ryot-app/client-sdk/plugin";
-import { usePluginSearch } from "@ryot-app/client-sdk/plugin";
+import { usePluginSearch, PluginPackageId } from "@ryot-app/client-sdk/plugin";
 import {
 	createRyotMutation,
 	createRyotQuery,
@@ -12,6 +12,7 @@ import {
 import { Button, Modal, RadioGroup, StatusMessage, useValueChange } from "@ryot-app/client-ui-sdk";
 import { useEffect, useEffectEvent, useState } from "react";
 
+import { PLUGIN_PACKAGE_ID } from "../shared/plugin-identity";
 import { fixtureCollectionChoicesRecipe, fixturePokemonChoicesRecipe } from "./query-recipes";
 
 const DIALOG = "add-to-collection";
@@ -21,7 +22,9 @@ const collectionChoicesQuery = createRyotQuery(({ client }) =>
 );
 
 const pokemonChoicesQuery = createRyotQuery(({ client }) =>
-	client.data.query(fixturePokemonChoicesRecipe()),
+	client.data.query(
+		fixturePokemonChoicesRecipe(client.pluginIdentity(PluginPackageId.make(PLUGIN_PACKAGE_ID))),
+	),
 );
 
 const addToCollectionMutation = createRyotMutation<

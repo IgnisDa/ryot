@@ -1,4 +1,4 @@
-import { usePluginLocation, useRyotViewport } from "@ryot-app/client-sdk/plugin";
+import { usePluginLocation, useRyotViewport, PluginPackageId } from "@ryot-app/client-sdk/plugin";
 import {
 	createRyotQuery,
 	ManagedAssetProvider,
@@ -10,6 +10,7 @@ import { Button, StatusMessage } from "@ryot-app/client-ui-sdk";
 import clsx from "clsx";
 import { useMemo } from "react";
 
+import { PLUGIN_PACKAGE_ID } from "../../shared/plugin-identity";
 import { workoutDetailsRecipe, type WorkoutDetails } from "../../shared/workout-details-recipes";
 import { managedAssetBatch } from "../asset-urls";
 import {
@@ -23,7 +24,13 @@ import { ExerciseGroups } from "./exercise-card";
 import { WorkoutComment, WorkoutHeader, WorkoutSession, WorkoutSummaryRow } from "./overview";
 
 const workoutDetailsQuery = createRyotQuery<{ readonly entityId: string }, WorkoutDetails | null>(
-	({ input, client }) => client.data.query(workoutDetailsRecipe({ workoutId: input.entityId })),
+	({ input, client }) =>
+		client.data.query(
+			workoutDetailsRecipe({
+				workoutId: input.entityId,
+				reference: client.pluginIdentity(PluginPackageId.make(PLUGIN_PACKAGE_ID)),
+			}),
+		),
 	{
 		entityInterest: ({ data, input }) => ({
 			foreground: [input.entityId],

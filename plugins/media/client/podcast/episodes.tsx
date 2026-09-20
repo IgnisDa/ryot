@@ -1,8 +1,10 @@
+import { PluginPackageId } from "@ryot-app/client-sdk/plugin";
 import { createRyotQuery } from "@ryot-app/client-sdk/react";
 import type { Recipe } from "@ryot-app/client-sdk/ryotql";
 import clsx from "clsx";
 
 import type { MediaSummaryOf } from "../../shared/media-recipes";
+import { PLUGIN_PACKAGE_ID } from "../../shared/plugin-identity";
 import type { podcastRecipes } from "../../shared/podcast-recipes";
 import { podcastEpisodesRecipe } from "../../shared/podcast-recipes";
 import { mediaCursorPageError, type MediaCursorPage } from "../media/cursor-page-state";
@@ -33,6 +35,7 @@ export const podcastEpisodesQuery = createRyotQuery<
 			podcastEpisodesRecipe({
 				containerId: input.containerId,
 				limit: PODCAST_EPISODE_PAGE_LIMIT,
+				reference: client.pluginIdentity(PluginPackageId.make(PLUGIN_PACKAGE_ID)),
 				...(input.after === null ? {} : { after: input.after }),
 			}),
 		),

@@ -38,6 +38,8 @@ const eventDraft = (
 	sessionEntityId: "workout-1",
 	entitySchemaSlug: "exercise",
 	eventSchemaSlug: "workout-set",
+	eventSchemaPluginId: "fitness-owner",
+	entitySchemaPluginId: "fitness-owner",
 	occurredAt: "2026-01-01T09:00:00.000Z",
 	...overrides,
 });

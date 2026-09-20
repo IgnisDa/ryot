@@ -5,6 +5,17 @@ and authored lifecycle hooks. Generic package layout, manifest, and sandbox rule
 [Plugin Kit](../../packages/plugin-kit/README.md). Provider declarations identify their root entity
 schema; saved views do not declare sandbox scripts.
 
+`shared/plugin-identity.ts` holds the permanent package UUID used by the manifest, configuration,
+and client bindings. Domain recipes take an explicit owner; authored views and trusted sandbox work
+use `self`, browser queries use the contributor binding, and presentation loaders use the selected
+entity's stored owner. Equal schema names from another package never select Media data.
+
+Media observes kernel collection membership and review events through explicit kernel-owned after-hook
+targets, executed for the user. These observers retain membership, review notifications, and
+Radarr/Sonarr collection pushes. They do not grant foreign-plugin writes or global authority; Media
+membership changes still select Media-owned entities. Before hooks and ordinary domain targets remain
+local to Media.
+
 ## Client
 
 Client query definitions return Effects from `@ryot-app/client-sdk/effect`. RyotQL requests compose
@@ -449,8 +460,8 @@ connection. `syncAnime` and `syncManga` both default to `true`. OAuth requests n
 PKCE, and issues a 31,536,000-second access token without a refresh token. Expired or revoked
 connections require reconnecting. The optional `anilistClientId` and `anilistClientSecret` host
 configuration fields are required for authorization; the client secret is marked secret. Their
-environment names are `RYOT_PLUGIN_MEDIA_ANILIST_CLIENT_ID` and
-`RYOT_PLUGIN_MEDIA_ANILIST_CLIENT_SECRET`. Register exactly
+environment names are `RYOT_PLUGIN_BCAD4408A7E7465EACCBC1A553C78090_ANILIST_CLIENT_ID` and
+`RYOT_PLUGIN_BCAD4408A7E7465EACCBC1A553C78090_ANILIST_CLIENT_SECRET`. Register exactly
 `<FRONTEND_URL>/api/oauth-connections/providers/media/anilist/callback` as the callback URL.
 
 The collector reads `MediaListCollection` in 100-entry chunks through the captured-window pipeline.

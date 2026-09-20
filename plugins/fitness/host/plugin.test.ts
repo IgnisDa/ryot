@@ -324,7 +324,6 @@ it("declares the complete fitness-owned source", () => {
 		kind: "script",
 		slug: "bootstrap.fitness-workspace",
 	});
-	expect(fitnessPlugin.savedViews.every(({ pluginSlug }) => pluginSlug === "fitness")).toBe(true);
 	expect(fitnessPlugin.savedViews.map(({ name, renderer }) => ({ name, renderer }))).toEqual([
 		{ name: "All Exercises", renderer: { kind: "kernel", name: "entity-browser" } },
 		{ name: "All Workouts", renderer: { kind: "kernel", name: "entity-browser" } },

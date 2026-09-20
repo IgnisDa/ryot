@@ -11,6 +11,7 @@ import { creatorFixtureRecipes } from "./recipes";
 export const creatorOverviewRecipe = creatorFixtureRecipes.overviewRecipe({
 	creditLimit: 12,
 	entityId: "creator-1",
+	reference: { kind: "self" },
 });
 
 export const creatorMovieCreditRow = {

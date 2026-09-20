@@ -8,7 +8,7 @@ import { mediaMonitoringTargetsRecipe } from "../lib/media-monitoring-ryotql";
 export const queryMediaMonitoringTargets = (
 	entityIds: readonly string[],
 	executeRyotql: (document: RyotQLDocument) => Effect.Effect<unknown, SandboxHostError>,
-) => executeRyotqlRecipe(executeRyotql, mediaMonitoringTargetsRecipe(entityIds));
+) => executeRyotqlRecipe(executeRyotql, mediaMonitoringTargetsRecipe({ kind: "self" }, entityIds));
 
 export const alignedMediaMonitoringResults = (
 	entityIds: readonly string[],

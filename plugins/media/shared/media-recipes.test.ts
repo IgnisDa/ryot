@@ -22,6 +22,7 @@ const activityRows = (items: readonly Record<string, unknown>[]) =>
 const SUMMARY_RECIPE = flatFixtureRecipes.summaryRecipe({
 	collectionLimit: 6,
 	entityId: "media-1",
+	reference: { kind: "self" },
 });
 
 const OVERVIEW_RECIPE = flatFixtureRecipes.overviewRecipe({
@@ -30,12 +31,14 @@ const OVERVIEW_RECIPE = flatFixtureRecipes.overviewRecipe({
 	companyLimit: 6,
 	entityId: "media-1",
 	recommendationLimit: 12,
+	reference: { kind: "self" },
 });
 
 const ACTIVITY_RECIPE = flatFixtureRecipes.activityRecipe({
 	eventLimit: 60,
 	entityId: "media-1",
 	collectionEventLimit: 40,
+	reference: { kind: "self" },
 });
 
 const SUMMARY_ROW = {
@@ -95,7 +98,18 @@ describe("media flat recipes", () => {
 		expect(summary.output.include?.[0]).toMatchObject({ limit: 6, key: "collections" });
 		expect(summary.where).toMatchObject({
 			type: "and",
-			predicates: [{ right: { type: "literal", value: "fixture" } }, {}],
+			predicates: [
+				{
+					predicates: [
+						{ right: { type: "literal", value: "fixture" } },
+						{
+							left: { field: "entitySchemaPluginId" },
+							right: { type: "pluginId", reference: { kind: "self" } },
+						},
+					],
+				},
+				{},
+			],
 		});
 	});
 
@@ -152,19 +166,51 @@ describe("media flat recipes", () => {
 		});
 		expect(people.where).toMatchObject({
 			predicates: [
-				{ right: { type: "literal", value: "person" } },
+				{
+					predicates: [
+						{ right: { type: "literal", value: "person" } },
+						{
+							left: { field: "entitySchemaPluginId" },
+							right: { type: "pluginId", reference: { kind: "self" } },
+						},
+					],
+				},
 				{
 					right: { type: "literal", value: "media-1" },
 					left: { field: "targetEntityId", tableAlias: "personRelationship" },
 				},
-				{ right: { type: "literal", value: "person-to-fixture" } },
+				{
+					predicates: [
+						{ right: { type: "literal", value: "person-to-fixture" } },
+						{
+							left: { field: "relationshipSchemaPluginId" },
+							right: { type: "pluginId", reference: { kind: "self" } },
+						},
+					],
+				},
 			],
 		});
 		expect(companies.where).toMatchObject({
 			predicates: [
-				{ right: { type: "literal", value: "company" } },
+				{
+					predicates: [
+						{ right: { type: "literal", value: "company" } },
+						{
+							left: { field: "entitySchemaPluginId" },
+							right: { type: "pluginId", reference: { kind: "self" } },
+						},
+					],
+				},
 				{ left: { field: "targetEntityId", tableAlias: "companyRelationship" } },
-				{ right: { type: "literal", value: "company-to-fixture" } },
+				{
+					predicates: [
+						{ right: { type: "literal", value: "company-to-fixture" } },
+						{
+							left: { field: "relationshipSchemaPluginId" },
+							right: { type: "pluginId", reference: { kind: "self" } },
+						},
+					],
+				},
 			],
 		});
 		expect(recommendations.joins?.[0]).toMatchObject({
@@ -175,12 +221,28 @@ describe("media flat recipes", () => {
 		});
 		expect(recommendations.where).toMatchObject({
 			predicates: [
-				{ right: { type: "literal", value: "fixture" } },
+				{
+					predicates: [
+						{ right: { type: "literal", value: "fixture" } },
+						{
+							left: { field: "entitySchemaPluginId" },
+							right: { type: "pluginId", reference: { kind: "self" } },
+						},
+					],
+				},
 				{
 					right: { type: "literal", value: "media-1" },
 					left: { field: "sourceEntityId", tableAlias: "suggestionRelationship" },
 				},
-				{ right: { type: "literal", value: "media-suggestion" } },
+				{
+					predicates: [
+						{ right: { type: "literal", value: "media-suggestion" } },
+						{
+							left: { field: "relationshipSchemaPluginId" },
+							right: { type: "pluginId", reference: { kind: "self" } },
+						},
+					],
+				},
 			],
 		});
 	});
@@ -202,12 +264,28 @@ describe("media flat recipes", () => {
 		});
 		expect(group.where).toMatchObject({
 			predicates: [
-				{ right: { type: "literal", value: "fixture-group" } },
+				{
+					predicates: [
+						{ right: { type: "literal", value: "fixture-group" } },
+						{
+							left: { field: "entitySchemaPluginId" },
+							right: { type: "pluginId", reference: { kind: "self" } },
+						},
+					],
+				},
 				{
 					right: { type: "literal", value: "media-1" },
 					left: { field: "targetEntityId", tableAlias: "fixtureGroupRelationship" },
 				},
-				{ right: { type: "literal", value: "fixture-group-to-fixture" } },
+				{
+					predicates: [
+						{ right: { type: "literal", value: "fixture-group-to-fixture" } },
+						{
+							left: { field: "relationshipSchemaPluginId" },
+							right: { type: "pluginId", reference: { kind: "self" } },
+						},
+					],
+				},
 			],
 		});
 	});
@@ -225,7 +303,15 @@ describe("media flat recipes", () => {
 		expect(members).toMatchObject({ limit: 20, key: "members" });
 		expect(members.where).toMatchObject({
 			predicates: [
-				{ right: { type: "literal", value: "fixture" } },
+				{
+					predicates: [
+						{ right: { type: "literal", value: "fixture" } },
+						{
+							left: { field: "entitySchemaPluginId" },
+							right: { type: "pluginId", reference: { kind: "self" } },
+						},
+					],
+				},
 				{
 					operator: "neq",
 					right: { type: "literal", value: "media-1" },
@@ -269,6 +355,7 @@ describe("media flat recipes", () => {
 			companyLimit: 6,
 			entityId: "media-1",
 			recommendationLimit: 12,
+			reference: { kind: "self" },
 		});
 
 		expect(Object.keys(overview.document.queries)).toEqual([
@@ -283,6 +370,7 @@ describe("media flat recipes", () => {
 			eventLimit: 60,
 			entityId: "media-1",
 			collectionEventLimit: 40,
+			reference: { kind: "self" },
 		});
 		const events = activity.document.queries["events"];
 		if (events?.output.type !== "rows") {
@@ -342,7 +430,7 @@ describe("media flat recipes", () => {
 		}
 
 		expect(events.output.pagination).toMatchObject({ limit: 60 });
-		expect(events.where.predicates[1]).toMatchObject({
+		expect(events.where.predicates.find((predicate) => predicate.type === "in")).toMatchObject({
 			type: "in",
 			values: [
 				{ value: "add-to-media-library" },
@@ -511,6 +599,7 @@ const REVIEW_ACTIVITY_RECIPE = mediaReviewActivityRecipe({ slug: "reviewed", ali
 	eventLimit: 60,
 	entityId: "reviewed-1",
 	collectionEventLimit: 40,
+	reference: { kind: "self" },
 });
 
 const reviewActivityRows = (items: readonly Record<string, unknown>[], hasMore = false) =>
@@ -557,6 +646,10 @@ describe("media review activity recipe", () => {
 
 		expect(events.where).toMatchObject({
 			predicates: [
+				{
+					left: { field: "eventSchemaPluginId" },
+					right: { type: "pluginId", reference: { kind: "self" } },
+				},
 				{},
 				{ type: "in", values: [{ value: "review" }, { value: "add-to-media-library" }] },
 			],

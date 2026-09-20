@@ -13,6 +13,8 @@ import {
 	selectedOptionalRow,
 	table,
 	type RyotQLDocument,
+	entitySchemaPredicate,
+	eventSchemaPredicate,
 } from "@ryot-app/sandbox-sdk/ryotql";
 import type { SandboxHostError } from "@ryot-app/sandbox-sdk/wire";
 
@@ -34,7 +36,7 @@ const exerciseNoteExerciseRecipe = defineRecipe((exerciseId: string) => {
 				selection: { id: selectedField(column(exercise, "id"), Schema.String) },
 				where: and(
 					eq(column(exercise, "id"), literal(exerciseId)),
-					eq(column(exercise, "entitySchemaSlug"), literal("exercise")),
+					entitySchemaPredicate(exercise, "exercise", { kind: "self" }),
 				),
 			}),
 		},
@@ -53,8 +55,7 @@ const exerciseNoteEventRecipe = defineRecipe((noteId: string) => {
 				joins: [join("inner", exercise, eq(column(note, "entityId"), column(exercise, "id")))],
 				where: and(
 					eq(column(note, "id"), literal(noteId)),
-					eq(column(note, "eventSchemaSlug"), literal("review")),
-					eq(column(exercise, "entitySchemaSlug"), literal("exercise")),
+					eventSchemaPredicate(note, exercise, "exercise", "review", { kind: "self" }),
 				),
 			}),
 		},

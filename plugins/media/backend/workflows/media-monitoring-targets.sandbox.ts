@@ -18,5 +18,8 @@ export default defineScript({
 	input: MediaMonitoringTargetsActivityInput,
 	output: MediaMonitoringTargetsActivityOutput,
 	run: (input, host) =>
-		executeRyotqlRecipe(host.executeRyotql, mediaMonitoringSweepRecipe(input.after, input.limit)),
+		executeRyotqlRecipe(
+			host.executeRyotql,
+			mediaMonitoringSweepRecipe({ kind: "self" }, input.after, input.limit),
+		),
 });

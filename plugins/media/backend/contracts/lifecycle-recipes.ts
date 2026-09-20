@@ -1,3 +1,4 @@
+import type { PluginIdentityReference } from "@ryot-app/plugin-kit/schema";
 import type { Effect } from "@ryot-app/sandbox-sdk/effect";
 import { Result, Schema } from "@ryot-app/sandbox-sdk/effect";
 import {
@@ -26,6 +27,7 @@ import {
 	type PreparedRecipe,
 	type Recipe,
 	type RyotQLDocument,
+	entitySchemaPredicate,
 } from "@ryot-app/sandbox-sdk/ryotql";
 import type { SandboxHostError } from "@ryot-app/sandbox-sdk/wire";
 
@@ -103,14 +105,17 @@ export const EpisodicLifecycleSnapshotSchema = Schema.Struct({
 export type EpisodicLifecycleSnapshot = Schema.Schema.Type<typeof EpisodicLifecycleSnapshotSchema>;
 
 export function resolveEpisodeParentRecipe(input: {
+	readonly reference: PluginIdentityReference;
 	readonly config: typeof showEpisodicKindConfig;
 	readonly episodeEntityId: string;
 }): PreparedRecipe<Extract<EpisodeParentResolution, { kind: "show" }> | null>;
 export function resolveEpisodeParentRecipe(input: {
+	readonly reference: PluginIdentityReference;
 	readonly config: typeof podcastEpisodicKindConfig;
 	readonly episodeEntityId: string;
 }): PreparedRecipe<Extract<EpisodeParentResolution, { kind: "podcast" }> | null>;
 export function resolveEpisodeParentRecipe(input: {
+	readonly reference: PluginIdentityReference;
 	readonly config: EpisodicKindConfig;
 	readonly episodeEntityId: string;
 }) {
@@ -142,7 +147,7 @@ export function resolveEpisodeParentRecipe(input: {
 						),
 					],
 					where: and(
-						entitySchemaIs(parent, config.parentSchemaSlug),
+						entitySchemaPredicate(parent, config.parentSchemaSlug, input.reference),
 						entitySchemaIs(episode, config.episodeSchemaSlug),
 						eq(column(episode, "id"), literal(input.episodeEntityId)),
 						relationshipConnects(
@@ -192,7 +197,7 @@ export function resolveEpisodeParentRecipe(input: {
 					),
 				],
 				where: and(
-					entitySchemaIs(parent, config.parentSchemaSlug),
+					entitySchemaPredicate(parent, config.parentSchemaSlug, input.reference),
 					entitySchemaIs(season, "show-season"),
 					entitySchemaIs(episode, config.episodeSchemaSlug),
 					eq(column(episode, "id"), literal(input.episodeEntityId)),
@@ -291,6 +296,7 @@ const currentCoverageCompletionExpressions = (
 	const progress = table("event", `${alias}Progress`);
 	const progressOrder = eventOrderExpressions(progress);
 	const progressWhere = and(
+		eq(column(progress, "eventSchemaPluginId"), column(parent, "entitySchemaPluginId")),
 		eq(column(progress, "entityId"), column(episode, "id")),
 		eq(column(progress, "sessionEntityId"), column(parent, "id")),
 		eq(column(progress, "eventSchemaSlug"), literal("progress")),
@@ -315,6 +321,7 @@ const currentCoverageCompletionExpressions = (
 	const completion = table("event", `${alias}Completion`);
 	const completionOrder = eventOrderExpressions(completion);
 	const completionWhere = and(
+		eq(column(completion, "eventSchemaPluginId"), column(parent, "entitySchemaPluginId")),
 		eq(column(completion, "entityId"), column(episode, "id")),
 		eq(column(completion, "sessionEntityId"), column(parent, "id")),
 		eq(column(completion, "eventSchemaSlug"), literal("complete")),
@@ -396,7 +403,11 @@ const aggregateCoverageCompletionExpressions = (
 };
 
 export const episodicLifecycleSnapshotRecipe = defineRecipe(
-	(input: { readonly parentEntityId: string; readonly config: EpisodicKindConfig }) => {
+	(input: {
+		readonly reference: PluginIdentityReference;
+		readonly parentEntityId: string;
+		readonly config: EpisodicKindConfig;
+	}) => {
 		const parent = table("entity", "lifecycleSnapshotParent");
 		const expressions = episodicLifecycleExpressions(input.config, parent, "lifecycleSnapshot");
 		const completion = aggregateCoverageCompletionExpressions(
@@ -436,7 +447,7 @@ export const episodicLifecycleSnapshotRecipe = defineRecipe(
 				parent: selectedOptionalRow(parent, {
 					orderBy: [ascending(column(parent, "id"))],
 					where: and(
-						entitySchemaIs(parent, input.config.parentSchemaSlug),
+						entitySchemaPredicate(parent, input.config.parentSchemaSlug, input.reference),
 						eq(column(parent, "id"), literal(input.parentEntityId)),
 					),
 					selection: {
@@ -492,7 +503,11 @@ export type EpisodicLifecycleSnapshotResult = Recipe.Success<
 >;
 
 export const readEpisodicLifecycleSnapshot = <Requirements>(
-	input: { readonly parentEntityId: string; readonly config: EpisodicKindConfig },
+	input: {
+		readonly reference: PluginIdentityReference;
+		readonly parentEntityId: string;
+		readonly config: EpisodicKindConfig;
+	},
 	executeRyotql: (
 		document: RyotQLDocument,
 	) => Effect.Effect<unknown, SandboxHostError, Requirements>,

@@ -64,6 +64,7 @@ const videoGameRelatedOverviewQueries = (input: MediaFlatOverviewInput) => {
 				relatedSide,
 				relationship,
 				entityId: input.entityId,
+				reference: input.reference,
 				relatedSchemaSlug: "video-game",
 				relationshipSchemaSlug: "video-game-to-video-game",
 			}),

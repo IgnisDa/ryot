@@ -45,13 +45,15 @@ const libraryData = (input: {
 	readonly show?: readonly unknown[];
 	readonly podcast?: readonly unknown[];
 }) => ({
-	flat: decodeRecipe(flatByLifecycleStateRecipe({ limit: 20, states: ["in_progress"] }), {
-		items: rows(input.flat ?? []),
-	}),
+	flat: decodeRecipe(
+		flatByLifecycleStateRecipe({ limit: 20, states: ["in_progress"], reference: { kind: "self" } }),
+		{ items: rows(input.flat ?? []) },
+	),
 	show: decodeRecipe(
 		episodicByLifecycleStateRecipe({
 			limit: 20,
 			states: ["in_progress"],
+			reference: { kind: "self" },
 			config: showEpisodicKindConfig,
 		}),
 		{ items: rows(input.show ?? []) },
@@ -60,6 +62,7 @@ const libraryData = (input: {
 		episodicByLifecycleStateRecipe({
 			limit: 20,
 			states: ["in_progress"],
+			reference: { kind: "self" },
 			config: podcastEpisodicKindConfig,
 		}),
 		{ items: rows(input.podcast ?? []) },
@@ -70,12 +73,20 @@ const airingData = (input: {
 	readonly shows?: readonly unknown[];
 	readonly anime?: readonly unknown[];
 }) => ({
-	shows: decodeRecipe(showsAiringSoonRecipe({ from: "", until: "", limit: 20 }), {
-		shows: rows(input.shows ?? []),
-	}),
-	anime: decodeRecipe(animeAiringSoonRecipe({ now: "", until: "", fromDate: "", untilDate: "" }), {
-		anime: rows(input.anime ?? []),
-	}),
+	shows: decodeRecipe(
+		showsAiringSoonRecipe({ from: "", until: "", limit: 20, reference: { kind: "self" } }),
+		{ shows: rows(input.shows ?? []) },
+	),
+	anime: decodeRecipe(
+		animeAiringSoonRecipe({
+			now: "",
+			until: "",
+			fromDate: "",
+			untilDate: "",
+			reference: { kind: "self" },
+		}),
+		{ anime: rows(input.anime ?? []) },
+	),
 });
 
 const tileLines = (container: HTMLElement) =>

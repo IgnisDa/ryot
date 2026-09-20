@@ -1,5 +1,6 @@
 import { RyotClientError } from "@ryot-app/client-sdk";
 import { Effect, Result, Schema } from "@ryot-app/client-sdk/effect";
+import { PluginPackageId } from "@ryot-app/client-sdk/plugin";
 import { createRyotMutation, useRyotMutation } from "@ryot-app/client-sdk/react";
 import {
 	ActionForm,
@@ -18,6 +19,7 @@ import {
 } from "../../shared/measurement-metric-operations";
 import { measurementMetricKey, measurementMetricUnit } from "../../shared/measurement-metrics";
 import type { MeasurementSummary } from "../../shared/measurement-recipes";
+import { PLUGIN_PACKAGE_ID } from "../../shared/plugin-identity";
 
 const createMetricMutation = createRyotMutation<
 	{ readonly metric: MeasurementMetricCreateInput; readonly onCreated: () => void },
@@ -28,9 +30,9 @@ const createMetricMutation = createRyotMutation<
 		Effect.flatMap((input) =>
 			client.operations.invoke({
 				input,
-				pluginSlug: "fitness",
 				output: MeasurementMetricCreateOutput,
 				slug: measurementMetricCreateOperationSlug,
+				pluginId: client.pluginIdentity(PluginPackageId.make(PLUGIN_PACKAGE_ID)).pluginId,
 			}),
 		),
 		Effect.tap(() => Effect.sync(onCreated)),

@@ -5,7 +5,6 @@ import {
 	castNumber,
 	castText,
 	column,
-	eq,
 	inArray,
 	jsonPath,
 	literal,
@@ -13,8 +12,10 @@ import {
 	selectedRowsSource,
 	table,
 	type SelectedSelection,
+	entitySchemaPredicate,
 } from "@ryot-app/plugin-kit/ryotql";
 import { LocalAssetLocator, RemoteAssetLocator, S3AssetLocator } from "@ryot-app/plugin-kit/schema";
+import type { PluginIdentityReference } from "@ryot-app/plugin-kit/schema";
 
 const selectedPresentationSource = <const Selection extends SelectedSelection>(input: {
 	readonly selection: Selection;
@@ -24,11 +25,11 @@ const selectedPresentationSource = <const Selection extends SelectedSelection>(i
 	const source = selectedRowsSource(entity, { selection: input.selection });
 	return {
 		...source,
-		query: (entityIds: readonly string[]) =>
+		query: (reference: PluginIdentityReference, entityIds: readonly string[]) =>
 			source.query({
 				limit: 100,
 				where: and(
-					eq(column(entity, "entitySchemaSlug"), literal(input.slug)),
+					entitySchemaPredicate(entity, input.slug, reference),
 					inArray(
 						column(entity, "id"),
 						entityIds.map((entityId) => literal(entityId)),

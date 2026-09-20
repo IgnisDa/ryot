@@ -1,4 +1,5 @@
 import { defineOperationRecipe } from "@ryot-app/plugin-kit/operations";
+import type { PluginId } from "@ryot-app/plugin-kit/schema";
 
 import {
 	MediaMonitoringDisableInput,
@@ -9,30 +10,34 @@ import {
 	MetadataLookupOutput,
 } from "./operations";
 
-export const mediaMonitoringStatusRecipe = defineOperationRecipe({
-	pluginSlug: "media",
-	output: MediaMonitoringOutput,
-	input: MediaMonitoringStatusInput,
-	operationSlug: "media-monitoring-status",
-});
+export const mediaMonitoringStatusRecipe = (pluginId: PluginId) =>
+	defineOperationRecipe({
+		pluginId,
+		output: MediaMonitoringOutput,
+		input: MediaMonitoringStatusInput,
+		operationSlug: "media-monitoring-status",
+	});
 
-export const mediaMonitoringEnableRecipe = defineOperationRecipe({
-	pluginSlug: "media",
-	output: MediaMonitoringOutput,
-	input: MediaMonitoringEnableInput,
-	operationSlug: "media-monitoring-enable",
-});
+export const mediaMonitoringEnableRecipe = (pluginId: PluginId) =>
+	defineOperationRecipe({
+		pluginId,
+		output: MediaMonitoringOutput,
+		input: MediaMonitoringEnableInput,
+		operationSlug: "media-monitoring-enable",
+	});
 
-export const mediaMonitoringDisableRecipe = defineOperationRecipe({
-	pluginSlug: "media",
-	output: MediaMonitoringOutput,
-	input: MediaMonitoringDisableInput,
-	operationSlug: "media-monitoring-disable",
-});
+export const mediaMonitoringDisableRecipe = (pluginId: PluginId) =>
+	defineOperationRecipe({
+		pluginId,
+		output: MediaMonitoringOutput,
+		input: MediaMonitoringDisableInput,
+		operationSlug: "media-monitoring-disable",
+	});
 
-export const metadataLookupRecipe = defineOperationRecipe({
-	pluginSlug: "media",
-	input: MetadataLookupInput,
-	output: MetadataLookupOutput,
-	operationSlug: "metadata-lookup",
-});
+export const metadataLookupRecipe = (pluginId: PluginId) =>
+	defineOperationRecipe({
+		pluginId,
+		input: MetadataLookupInput,
+		output: MetadataLookupOutput,
+		operationSlug: "metadata-lookup",
+	});

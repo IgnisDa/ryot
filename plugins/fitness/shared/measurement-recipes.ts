@@ -17,7 +17,11 @@ import {
 	selectedTimeSeries,
 	table,
 	type Recipe,
+	entitySchemaPredicate,
+	relationshipSchemaPredicate,
+	schemaOwnerPredicate,
 } from "@ryot-app/plugin-kit/ryotql";
+import type { PluginIdentityReference } from "@ryot-app/plugin-kit/schema";
 
 import { property, propertyNumber } from "./entity-selections";
 
@@ -26,11 +30,16 @@ export const MEASUREMENT_SERIES_BATCH_SIZE = 5;
 const nullableString = Schema.NullOr(Schema.String);
 
 export const measurementSummaryRecipe = defineRecipe(
-	(input: { readonly rangeStart: string; readonly after?: string | undefined }) => {
+	(input: {
+		readonly reference: PluginIdentityReference;
+		readonly rangeStart: string;
+		readonly after?: string | undefined;
+	}) => {
 		const metric = table("entity", "metric");
 		const reading = table("event", "summaryReading");
 		const pin = table("relationship", "summaryPin");
 		const metricReadings = and(
+			schemaOwnerPredicate(reading, "eventSchemaPluginId", input.reference),
 			eq(column(reading, "entityId"), column(metric, "id")),
 			eq(column(reading, "eventSchemaSlug"), literal("measurement-reading")),
 		);
@@ -40,7 +49,7 @@ export const measurementSummaryRecipe = defineRecipe(
 				metrics: selectedRows(metric, {
 					limit: 100,
 					after: input.after,
-					where: eq(column(metric, "entitySchemaSlug"), literal("measurement-metric")),
+					where: entitySchemaPredicate(metric, "measurement-metric", input.reference),
 					orderBy: [ascending(column(metric, "name")), ascending(column(metric, "id"))],
 					selection: {
 						id: selectedField(column(metric, "id"), Schema.String),
@@ -80,7 +89,7 @@ export const measurementSummaryRecipe = defineRecipe(
 								orderBy: [ascending(column(pin, "createdAt"))],
 								where: and(
 									eq(column(pin, "sourceEntityId"), column(metric, "id")),
-									eq(column(pin, "relationshipSchemaSlug"), literal("measurement-metric-pinned")),
+									relationshipSchemaPredicate(pin, "measurement-metric-pinned", input.reference),
 								),
 							}),
 							nullableString,
@@ -103,6 +112,7 @@ const seriesQueries = (input: SeriesInput) => {
 	const selection = { value: Schema.Finite, endAt: Schema.String, startAt: Schema.String };
 	return input.metricIds.flatMap((metricId, index) => {
 		const where = and(
+			schemaOwnerPredicate(reading, "eventSchemaPluginId", input.reference),
 			eq(column(reading, "entityId"), literal(metricId)),
 			eq(column(reading, "eventSchemaSlug"), literal("measurement-reading")),
 		);
@@ -125,6 +135,7 @@ const seriesQueries = (input: SeriesInput) => {
 };
 
 type SeriesInput = {
+	readonly reference: PluginIdentityReference;
 	readonly endAt: string;
 	readonly startAt: string;
 	readonly bucket: "day" | "week";

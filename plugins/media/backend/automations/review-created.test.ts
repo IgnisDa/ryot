@@ -65,3 +65,48 @@ it.live("ignores non-review events and deleted subjects", () =>
 		expect(calls).toEqual([]);
 	}),
 );
+
+it.live("preserves review notifications for explicit kernel-owned collections", () =>
+	Effect.gen(function* () {
+		const signals: unknown[] = [];
+		yield* definition.run(
+			eventAutomationContext({
+				id: "collection-review",
+				entityId: "collection-1",
+				eventSchemaPluginId: null,
+				eventSchemaSlug: "review",
+				entitySchemaPluginId: null,
+				entitySchemaSlug: "collection",
+			}),
+			defineSandboxTestHost(manifest, {
+				emitSignal: (request) => {
+					signals.push(request);
+					return hostSuccess({ wasCreated: true, triggerId: "signal-1" });
+				},
+				executeRyotql: () =>
+					hostSuccess(
+						ryotqlRows("entities", [
+							entityRecord({
+								name: "Favorites",
+								id: "collection-1",
+								entitySchemaPluginId: null,
+								entitySchemaSlug: "collection",
+							}),
+						]),
+					),
+			}),
+		);
+		expect(signals).toEqual([
+			{
+				schemaSlug: "review.created",
+				discriminator: "collection-review",
+				properties: {
+					entityName: "Favorites",
+					entityId: "collection-1",
+					entitySchemaSlug: "collection",
+					reviewEventId: "collection-review",
+				},
+			},
+		]);
+	}),
+);

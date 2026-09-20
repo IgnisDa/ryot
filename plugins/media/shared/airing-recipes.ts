@@ -1,6 +1,7 @@
 import { Result, Schema } from "@ryot-app/plugin-kit/effect";
 import {
 	and,
+	entitySchemaPredicate,
 	ascending,
 	castDate,
 	castNumber,
@@ -28,11 +29,11 @@ import {
 	table,
 	type Recipe,
 } from "@ryot-app/plugin-kit/ryotql";
+import type { PluginIdentityReference } from "@ryot-app/plugin-kit/schema";
 
 import { AiringScheduleListSchema } from "./anime";
 import {
 	entityIdentitySelection,
-	entitySchema,
 	libraryLinkExists,
 	propertyJson,
 	propertyNumber,
@@ -94,7 +95,12 @@ const unwatchedShowEpisodes = (show: Table, alias: string) => {
  * itself included.
  */
 export const showsAiringSoonRecipe = defineRecipe(
-	(input: { readonly from: string; readonly until: string; readonly limit: number }) => {
+	(input: {
+		readonly reference: PluginIdentityReference;
+		readonly from: string;
+		readonly until: string;
+		readonly limit: number;
+	}) => {
 		const show = table("entity", "airingShow");
 		const lifecycle = episodicLifecycleExpressions(showEpisodicKindConfig, show, "airingLifecycle");
 		const inWindow = (episode: Table) =>
@@ -134,7 +140,7 @@ export const showsAiringSoonRecipe = defineRecipe(
 						ascending(column(show, "id")),
 					],
 					where: and(
-						entitySchema(show, "show"),
+						entitySchemaPredicate(show, "show", input.reference),
 						libraryLinkExists(show, "airingLibrary", "in-media-library"),
 						or(
 							eq(lifecycle.state, literal("in_progress")),
@@ -199,6 +205,7 @@ const DATE_ONLY_TIME = "T00:00:00.000Z";
  */
 export const animeAiringSoonRecipe = defineRecipe(
 	(input: {
+		readonly reference: PluginIdentityReference;
 		readonly now: string;
 		readonly until: string;
 		readonly fromDate: string;
@@ -257,7 +264,7 @@ export const animeAiringSoonRecipe = defineRecipe(
 				anime: selectedRows(anime, {
 					orderBy: [ascending(nextAiringAt), ascending(column(anime, "id"))],
 					where: and(
-						entitySchema(anime, "anime"),
+						entitySchemaPredicate(anime, "anime", input.reference),
 						libraryLinkExists(anime, "airingLibrary", "in-media-library"),
 						or(eq(lifecycle.state, literal("in_progress")), isMonitored(anime, "airingMonitoring")),
 						jsonArrayExists(schedule, inWindow),

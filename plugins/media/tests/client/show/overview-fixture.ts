@@ -8,6 +8,7 @@ export const showOverviewFixtureRecipe = showRecipes.overviewRecipe({
 	companyLimit: 6,
 	entityId: "show-1",
 	recommendationLimit: 12,
+	reference: { kind: "self" },
 });
 
 export const showPersonRow = {

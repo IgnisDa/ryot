@@ -39,7 +39,11 @@ const workoutRecord = (overrides: Readonly<Record<string, unknown>> = {}) => ({
 
 describe("workout record recipes", () => {
 	it("reads the current exercise and workout context", () => {
-		const context = workoutSetContextRecipe({ workoutId: "workout-1", exerciseId: "exercise-1" });
+		const context = workoutSetContextRecipe({
+			workoutId: "workout-1",
+			exerciseId: "exercise-1",
+			reference: { kind: "self" },
+		});
 		expect(Object.keys(context.document.queries)).toEqual(["exercise", "workout"]);
 		expect(context.document.queries.exercise?.where).toMatchObject({
 			type: "and",
@@ -55,7 +59,10 @@ describe("workout record recipes", () => {
 	});
 
 	it("reads only existing exercise identities for a bounded stream request", () => {
-		const recipe = existingExerciseIdsRecipe({ exerciseIds: ["exercise-1", "deleted-exercise"] });
+		const recipe = existingExerciseIdsRecipe({
+			reference: { kind: "self" },
+			exerciseIds: ["exercise-1", "deleted-exercise"],
+		});
 		const query = recipe.document.queries.exercises;
 		if (query?.output.type !== "rows") {
 			throw new Error("Expected exercise rows query");
@@ -76,7 +83,11 @@ describe("workout record recipes", () => {
 	});
 
 	it("pages the exercises of a workout's sets", () => {
-		const recipe = workoutSetExerciseIdsRecipe({ after: "event-cursor", workoutId: "workout-1" });
+		const recipe = workoutSetExerciseIdsRecipe({
+			after: "event-cursor",
+			workoutId: "workout-1",
+			reference: { kind: "self" },
+		});
 		const query = recipe.document.queries.workoutSetExerciseIds;
 		if (query?.output.type !== "rows") {
 			throw new Error("Expected workout-set exercise rows query");
@@ -132,6 +143,7 @@ describe("workout record recipes", () => {
 			order: "id",
 			after: "id-cursor",
 			exerciseId: "exercise-1",
+			reference: { kind: "self" },
 		});
 		const idQuery = normalization.document.queries.records;
 		if (idQuery?.output.type !== "rows") {
@@ -147,6 +159,7 @@ describe("workout record recipes", () => {
 			order: "records",
 			after: "record-cursor",
 			exerciseId: "exercise-1",
+			reference: { kind: "self" },
 		});
 		const recordsQuery = records.document.queries.records;
 		if (recordsQuery?.output.type !== "rows") {
@@ -193,6 +206,7 @@ describe("workout record recipes", () => {
 			limit: 1,
 			order: "records",
 			exerciseId: "exercise-1",
+			reference: { kind: "self" },
 		}).decode({
 			data: {
 				records: rows([workoutRecord({ distance: 0, exerciseOrder: 2 })], {
@@ -219,6 +233,7 @@ describe("workout record recipes", () => {
 			limit: 1,
 			order: "records",
 			exerciseId: "exercise-1",
+			reference: { kind: "self" },
 		}).decode({
 			data: {
 				records: rows([workoutRecord({ exerciseKind: "unsupported" })], {

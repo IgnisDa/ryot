@@ -3,6 +3,7 @@ import type {
 	AutomationEventSnapshot,
 } from "@ryot-app/contract/modules/automations/lifecycle";
 import type { JsonValue } from "@ryot-app/contract/modules/ryotql/language";
+import { PluginId } from "@ryot-app/contract/schema/brands";
 import {
 	automationInputSchema,
 	automationPolicyInputSchema,
@@ -61,6 +62,8 @@ export const eventAutomationContext = (
 				occurredAt: timestamp,
 				entitySchemaSlug: "movie",
 				eventSchemaSlug: "event-schema-1",
+				eventSchemaPluginId: PluginId.make("media-owner"),
+				entitySchemaPluginId: PluginId.make("media-owner"),
 				...overrides,
 				sessionEntityId: overrides.sessionEntityId ?? null,
 			},
@@ -85,6 +88,8 @@ export const policyAutomationContext = (
 					sessionEntityId: null,
 					entitySchemaSlug: "movie",
 					eventSchemaSlug: "event-schema-1",
+					eventSchemaPluginId: PluginId.make("media-owner"),
+					entitySchemaPluginId: PluginId.make("media-owner"),
 					...overrides,
 				},
 			},
@@ -101,6 +106,7 @@ export const entityRecord = (overrides: Partial<EntityRecord> = {}): EntityRecor
 	createdAt: timestamp,
 	updatedAt: timestamp,
 	entitySchemaSlug: "entity-schema-1",
+	entitySchemaPluginId: PluginId.make("media-owner"),
 	...overrides,
 });
 
@@ -115,6 +121,7 @@ export const entitySchemaRecord = (
 	pluginSlug: "media",
 	propertiesSchema: {},
 	id: "entity-schema-1",
+	pluginId: PluginId.make("media-owner"),
 	...overrides,
 });
 
@@ -127,6 +134,7 @@ export const eventRecord = (overrides: Partial<EventRecord> = {}): EventRecord =
 	occurredAt: timestamp,
 	eventSchemaName: "Progress",
 	eventSchemaSlug: "event-schema-1",
+	eventSchemaPluginId: PluginId.make("media-owner"),
 	...overrides,
 });
 
@@ -176,6 +184,7 @@ export const ryotqlRows = (
 							occurredAt: record.occurredAt,
 							properties: record.properties,
 							eventSchemaSlug: record.eventSchemaSlug,
+							eventSchemaPluginId: record.eventSchemaPluginId,
 							sessionEntityId: record.sessionEntityId ?? null,
 							entitySchemaSlug: record.entitySchemaSlug ?? "entity-schema-1",
 						}

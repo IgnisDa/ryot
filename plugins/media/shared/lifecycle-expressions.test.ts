@@ -24,13 +24,42 @@ const ACTIVITY_INPUT = {
 // next-up anchor with its display state is the deepest correlated chain these documents build.
 describe("episodic lifecycle documents", () => {
 	it.each([
-		["show summary", showRecipes.summaryRecipe({ entityId: "show-1", collectionLimit: 5 })],
-		["podcast summary", podcastRecipes.summaryRecipe({ entityId: "pod-1", collectionLimit: 5 })],
-		["show activity", showRecipes.activityRecipe(ACTIVITY_INPUT)],
-		["podcast activity", podcastRecipes.activityRecipe(ACTIVITY_INPUT)],
-		["show seasons", showSeasonsRecipe({ seasonLimit: 10, entityId: "show-1" })],
-		["show season episodes", showSeasonEpisodesRecipe({ limit: 10, containerId: "season-1" })],
-		["podcast episodes", podcastEpisodesRecipe({ limit: 10, containerId: "pod-1" })],
+		[
+			"show summary",
+			showRecipes.summaryRecipe({
+				entityId: "show-1",
+				collectionLimit: 5,
+				reference: { kind: "self" },
+			}),
+		],
+		[
+			"podcast summary",
+			podcastRecipes.summaryRecipe({
+				entityId: "pod-1",
+				collectionLimit: 5,
+				reference: { kind: "self" },
+			}),
+		],
+		[
+			"show activity",
+			showRecipes.activityRecipe({ ...ACTIVITY_INPUT, reference: { kind: "self" } }),
+		],
+		[
+			"podcast activity",
+			podcastRecipes.activityRecipe({ ...ACTIVITY_INPUT, reference: { kind: "self" } }),
+		],
+		[
+			"show seasons",
+			showSeasonsRecipe({ seasonLimit: 10, entityId: "show-1", reference: { kind: "self" } }),
+		],
+		[
+			"show season episodes",
+			showSeasonEpisodesRecipe({ limit: 10, containerId: "season-1", reference: { kind: "self" } }),
+		],
+		[
+			"podcast episodes",
+			podcastEpisodesRecipe({ limit: 10, containerId: "pod-1", reference: { kind: "self" } }),
+		],
 	])("validates the %s document", (_name, recipe) => {
 		expect(validateRyotQLDocument(recipe.document, savedViewDataSourceAccess)).toBeNull();
 	});
@@ -38,7 +67,11 @@ describe("episodic lifecycle documents", () => {
 	it.each([showEpisodicKindConfig, podcastEpisodicKindConfig])(
 		"validates the $kind lifecycle snapshot for sandbox execution",
 		(config) => {
-			const recipe = episodicLifecycleSnapshotRecipe({ config, parentEntityId: "parent-1" });
+			const recipe = episodicLifecycleSnapshotRecipe({
+				config,
+				parentEntityId: "parent-1",
+				reference: { kind: "self" },
+			});
 			expect(validateRyotQLDocument(recipe.document, { type: "plugin" })).toBeNull();
 		},
 	);

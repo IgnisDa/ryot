@@ -92,7 +92,11 @@ describe("person schema", () => {
 			personSchema,
 			personSummary({ website: "https://edward.test", sourceUrl: "https://tmdb.test/edward" }),
 			decodeCreatorOverviewOf(
-				personRecipes.overviewRecipe({ creditLimit: 12, entityId: "creator-1" }),
+				personRecipes.overviewRecipe({
+					creditLimit: 12,
+					entityId: "creator-1",
+					reference: { kind: "self" },
+				}),
 				{
 					movie: { items: [creatorMovieCreditRow] },
 					"music-group": { items: [creatorAlbumCreditRow] },

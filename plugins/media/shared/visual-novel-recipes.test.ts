@@ -25,7 +25,11 @@ const keys = (recipe: PreparedRecipe<unknown>, name: string) =>
 describe("media visual novel query recipes", () => {
 	it("selects the length the visual novel schema declares", () => {
 		const summary = keys(
-			visualNovelRecipes.summaryRecipe({ collectionLimit: 6, entityId: "visual-novel-1" }),
+			visualNovelRecipes.summaryRecipe({
+				collectionLimit: 6,
+				entityId: "visual-novel-1",
+				reference: { kind: "self" },
+			}),
 			"summary",
 		);
 
@@ -40,6 +44,7 @@ describe("media visual novel query recipes", () => {
 			eventLimit: 60,
 			collectionEventLimit: 60,
 			entityId: "visual-novel-1",
+			reference: { kind: "self" },
 		});
 
 		expect(fieldExpr(activity, "totals", "consumedAmount")).toMatchObject({
@@ -61,6 +66,7 @@ describe("media visual novel query recipes", () => {
 			companyLimit: 6,
 			recommendationLimit: 12,
 			entityId: "visual-novel-1",
+			reference: { kind: "self" },
 		});
 
 		expect(Object.keys(overview.document.queries)).toEqual([

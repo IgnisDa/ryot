@@ -1,3 +1,4 @@
+import type { PluginIdentityReference } from "@ryot-app/client-sdk/plugin";
 import type { RyotQueryResult } from "@ryot-app/client-sdk/react";
 
 import { animeAiringSoonRecipe, showsAiringSoonRecipe } from "../../shared/airing-recipes";
@@ -24,13 +25,15 @@ const localMidnight = (day: string, offsetDays: number) =>
  * Shows take local dates and anime takes instants. Anime starts at local midnight rather than now,
  * so the input changes once a day and an episode that aired earlier today still shows.
  */
-const airingRecipes = (input: { readonly today: string }) => ({
+const airingRecipes = (input: { readonly today: string }, reference: PluginIdentityReference) => ({
 	shows: showsAiringSoonRecipe({
+		reference,
 		limit: RAIL_LIMIT,
 		from: input.today,
 		until: formatLocalDateKey(localMidnight(input.today, WINDOW_DAYS)),
 	}),
 	anime: animeAiringSoonRecipe({
+		reference,
 		fromDate: input.today,
 		now: localMidnight(input.today, 0),
 		until: localMidnight(input.today, WINDOW_DAYS + 1),

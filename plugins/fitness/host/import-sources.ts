@@ -1,3 +1,5 @@
+import type { DefinitionOwner } from "@ryot-app/contract/modules/plugins/references";
+import type { PluginId } from "@ryot-app/contract/schema/brands";
 import { strictStruct } from "@ryot-app/contract/schema/utils";
 import { Schema } from "effect";
 
@@ -24,5 +26,9 @@ export type FitnessCreateImportRunBody = typeof FitnessCreateImportRunBody.Type;
 export const createFitnessImportRunBody = <
 	const Source extends FitnessCreateImportRunBody["source"],
 >(
+	pluginId: PluginId,
 	body: Extract<FitnessCreateImportRunBody, { readonly source: Source }>,
-) => body;
+) => ({
+	...body,
+	source: { slug: body.source, owner: { pluginId, kind: "plugin" } satisfies DefinitionOwner },
+});

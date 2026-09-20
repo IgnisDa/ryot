@@ -42,7 +42,7 @@ export default defineAutomation({
 			}
 			const fitnessLibrary = yield* executeRyotqlRecipe(
 				host.executeRyotql,
-				userFitnessLibraryRecipe(),
+				userFitnessLibraryRecipe({ kind: "self" }),
 			);
 			yield* host.changeUserRelationships([
 				{

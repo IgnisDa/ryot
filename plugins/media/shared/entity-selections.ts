@@ -25,9 +25,6 @@ export type Table = ReturnType<typeof table>;
 
 export const entityId = (entity: Table, id: string) => eq(column(entity, "id"), literal(id));
 
-export const entitySchema = (entity: Table, slug: string) =>
-	eq(column(entity, "entitySchemaSlug"), literal(slug));
-
 export const entitySyncSelection = (entity: Table) => ({
 	populationStatus: selectedField(column(entity, "populationStatus"), PopulationStatus),
 	translationStatus: selectedField(column(entity, "translationStatus"), TranslationStatus),
@@ -59,6 +56,8 @@ export const relationshipTo = (relationship: Table, parent: Table, child: Table,
 	and(
 		eq(column(relationship, "sourceEntityId"), column(parent, "id")),
 		eq(column(relationship, "targetEntityId"), column(child, "id")),
+		eq(column(relationship, "relationshipSchemaPluginId"), column(parent, "entitySchemaPluginId")),
+		eq(column(child, "entitySchemaPluginId"), column(parent, "entitySchemaPluginId")),
 		eq(column(relationship, "relationshipSchemaSlug"), literal(schema)),
 	);
 
@@ -74,7 +73,12 @@ export const libraryLinkExists = (entity: Table, alias: string, slug: string) =>
 			),
 		],
 		where: and(
-			entitySchema(mediaLibrary, "media-library"),
+			eq(column(mediaLibrary, "entitySchemaSlug"), literal("media-library")),
+			eq(column(mediaLibrary, "entitySchemaPluginId"), column(entity, "entitySchemaPluginId")),
+			eq(
+				column(relationship, "relationshipSchemaPluginId"),
+				column(entity, "entitySchemaPluginId"),
+			),
 			eq(column(relationship, "sourceEntityId"), column(entity, "id")),
 			eq(column(relationship, "relationshipSchemaSlug"), literal(slug)),
 		),

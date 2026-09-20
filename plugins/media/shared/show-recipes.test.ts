@@ -21,6 +21,7 @@ const ACTIVITY_RECIPE = showRecipes.activityRecipe({
 	episodeEventLimit: 100,
 	collectionEventLimit: 40,
 	episodeProgressLimit: 100,
+	reference: { kind: "self" },
 });
 
 const activityRows = (items: readonly Record<string, unknown>[]) =>
@@ -122,6 +123,7 @@ const OVERVIEW_RECIPE = showRecipes.overviewRecipe({
 	companyLimit: 6,
 	entityId: "show-1",
 	recommendationLimit: 12,
+	reference: { kind: "self" },
 });
 
 const SHOW_SUMMARY_ROW = {
@@ -228,7 +230,11 @@ describe("media show query recipes", () => {
 	});
 
 	it("builds show seasons without nested episodes", () => {
-		const recipe = showSeasonsRecipe({ seasonLimit: 4, entityId: "show-id" });
+		const recipe = showSeasonsRecipe({
+			seasonLimit: 4,
+			entityId: "show-id",
+			reference: { kind: "self" },
+		});
 		const show = recipe.document.queries["show"];
 		if (show?.output.type !== "rows") {
 			throw new Error("Expected show rows query");
@@ -269,7 +275,11 @@ describe("media show query recipes", () => {
 	});
 
 	it("decodes a show's stored episode orders and treats a show without any as having none", () => {
-		const recipe = showSeasonsRecipe({ seasonLimit: 4, entityId: "show-1" });
+		const recipe = showSeasonsRecipe({
+			seasonLimit: 4,
+			entityId: "show-1",
+			reference: { kind: "self" },
+		});
 		const episodeOrders = [
 			{
 				type: "dvd",
@@ -304,14 +314,18 @@ describe("media show query recipes", () => {
 	it("selects a show's episodes by external id with the season episode fields", () => {
 		const recipe = showOrderEpisodesRecipe({
 			entityId: "show-1",
+			reference: { kind: "self" },
 			externalIds: ["1048594", "1048593"],
 		});
 		const episodes = recipe.document.queries["episodes"];
 		if (episodes?.output.type !== "rows" || episodes.where?.type !== "and") {
 			throw new Error("Expected a filtered episode rows query");
 		}
-		const seasonEpisodes = showSeasonEpisodesRecipe({ limit: 12, containerId: "season-id" })
-			.document.queries["episodes"];
+		const seasonEpisodes = showSeasonEpisodesRecipe({
+			limit: 12,
+			containerId: "season-id",
+			reference: { kind: "self" },
+		}).document.queries["episodes"];
 		if (seasonEpisodes?.output.type !== "rows") {
 			throw new Error("Expected a season episode rows query");
 		}
@@ -332,7 +346,11 @@ describe("media show query recipes", () => {
 	});
 
 	it("decodes a show's episodes by external id with their external ids", () => {
-		const recipe = showOrderEpisodesRecipe({ entityId: "show-1", externalIds: ["1048593"] });
+		const recipe = showOrderEpisodesRecipe({
+			entityId: "show-1",
+			externalIds: ["1048593"],
+			reference: { kind: "self" },
+		});
 		const episode = {
 			runtime: 88,
 			images: null,
@@ -357,6 +375,7 @@ describe("media show query recipes", () => {
 	it("counts coverage over the show's episodes with the requested external ids", () => {
 		const recipe = showOrderGroupCoverageRecipe({
 			entityId: "show-1",
+			reference: { kind: "self" },
 			externalIds: ["1048594", "1048593"],
 		});
 		const show = recipe.document.queries["coverage"];
@@ -367,7 +386,18 @@ describe("media show query recipes", () => {
 		expect(Object.keys(recipe.document.queries)).toEqual(["coverage"]);
 		expect(show.where).toMatchObject({
 			type: "and",
-			predicates: [{ right: { value: "show" } }, { right: { value: "show-1" } }],
+			predicates: [
+				{
+					predicates: [
+						{ right: { value: "show" } },
+						{
+							left: { field: "entitySchemaPluginId" },
+							right: { type: "pluginId", reference: { kind: "self" } },
+						},
+					],
+				},
+				{ right: { value: "show-1" } },
+			],
 		});
 		expect(show.output.fields.map((field) => ("key" in field ? field.key : null))).toEqual([
 			"episodeTotal",
@@ -388,7 +418,15 @@ describe("media show query recipes", () => {
 
 		expect(episodeTotal.expr.query.where.predicates[0]).toMatchObject({
 			predicates: [
-				{ right: { value: "show-episode" } },
+				{
+					predicates: [
+						{ right: { value: "show-episode" } },
+						{
+							left: { field: "entitySchemaPluginId" },
+							right: { type: "pluginId", reference: { kind: "self" } },
+						},
+					],
+				},
 				{ type: "exists" },
 				{
 					type: "in",
@@ -400,7 +438,11 @@ describe("media show query recipes", () => {
 	});
 
 	it("decodes group coverage and a missing show as no coverage", () => {
-		const recipe = showOrderGroupCoverageRecipe({ entityId: "show-1", externalIds: ["1048593"] });
+		const recipe = showOrderGroupCoverageRecipe({
+			entityId: "show-1",
+			externalIds: ["1048593"],
+			reference: { kind: "self" },
+		});
 		const coverage = {
 			watchedTotal: 3,
 			episodeTotal: 14,
@@ -416,7 +458,11 @@ describe("media show query recipes", () => {
 	});
 
 	it("pages a season's episodes ascending as a top-level row query", () => {
-		const recipe = showSeasonEpisodesRecipe({ limit: 12, containerId: "season-id" });
+		const recipe = showSeasonEpisodesRecipe({
+			limit: 12,
+			containerId: "season-id",
+			reference: { kind: "self" },
+		});
 		const episodes = recipe.document.queries["episodes"];
 		if (episodes?.output.type !== "rows" || episodes.where?.type !== "and") {
 			throw new Error("Expected a filtered episode rows query");
@@ -425,13 +471,18 @@ describe("media show query recipes", () => {
 		expect(Object.keys(recipe.document.queries)).toEqual(["episodes"]);
 		expect(episodes.output.pagination).toEqual({ limit: 12 });
 		expect(episodes.output.orderBy.map(({ direction }) => direction)).toEqual(["asc", "asc"]);
-		expect(episodes.where.predicates[1]).toMatchObject({
+		expect(episodes.where.predicates[2]).toMatchObject({
 			type: "comparison",
 			right: { type: "literal", value: "season-id" },
 		});
-		expect(episodes.where.predicates[2]).toMatchObject({
-			type: "comparison",
-			right: { type: "literal", value: "show-season-to-show-episode" },
+		expect(episodes.where.predicates[3]).toMatchObject({
+			predicates: [
+				{ right: { type: "literal", value: "show-season-to-show-episode" } },
+				{
+					left: { field: "relationshipSchemaPluginId" },
+					right: { type: "pluginId", reference: { kind: "self" } },
+				},
+			],
 		});
 		expect(episodes.output.fields.map((field) => ("key" in field ? field.key : null))).toEqual([
 			"id",
@@ -454,6 +505,7 @@ describe("media show query recipes", () => {
 			limit: 12,
 			after: "season-cursor",
 			containerId: "season-id",
+			reference: { kind: "self" },
 		});
 		const episodes = recipe.document.queries["episodes"];
 		if (episodes?.output.type !== "rows") {
@@ -464,7 +516,11 @@ describe("media show query recipes", () => {
 	});
 
 	it("selects the show summary alongside the requested entity schema", () => {
-		const recipe = showRecipes.summaryRecipe({ collectionLimit: 6, entityId: "show-1" });
+		const recipe = showRecipes.summaryRecipe({
+			collectionLimit: 6,
+			entityId: "show-1",
+			reference: { kind: "self" },
+		});
 		const summary = recipe.document.queries["summary"];
 		const requested = recipe.document.queries["requested"];
 		if (summary?.output.type !== "rows" || requested?.output.type !== "rows") {
@@ -505,7 +561,11 @@ describe("media show query recipes", () => {
 	});
 
 	it("decodes a show summary with collections and asset locators", () => {
-		const recipe = showRecipes.summaryRecipe({ collectionLimit: 6, entityId: "show-1" });
+		const recipe = showRecipes.summaryRecipe({
+			collectionLimit: 6,
+			entityId: "show-1",
+			reference: { kind: "self" },
+		});
 
 		expect(
 			recipe.decode({
@@ -538,7 +598,11 @@ describe("media show query recipes", () => {
 	});
 
 	it("decodes the summary's next up as the one episode its include returned", () => {
-		const recipe = showRecipes.summaryRecipe({ collectionLimit: 6, entityId: "show-1" });
+		const recipe = showRecipes.summaryRecipe({
+			collectionLimit: 6,
+			entityId: "show-1",
+			reference: { kind: "self" },
+		});
 		const nextUp = {
 			runtime: 58,
 			images: null,
@@ -570,7 +634,11 @@ describe("media show query recipes", () => {
 	});
 
 	it("decodes a missing show as an absent summary and absent schema", () => {
-		const recipe = showRecipes.summaryRecipe({ collectionLimit: 6, entityId: "missing" });
+		const recipe = showRecipes.summaryRecipe({
+			collectionLimit: 6,
+			entityId: "missing",
+			reference: { kind: "self" },
+		});
 
 		expect(
 			recipe.decode({ data: { summary: showRows([]), requested: showRows([]) } }),
@@ -578,7 +646,11 @@ describe("media show query recipes", () => {
 	});
 
 	it("decodes a non-show entity as an absent summary with its schema slug", () => {
-		const recipe = showRecipes.summaryRecipe({ collectionLimit: 6, entityId: "book-1" });
+		const recipe = showRecipes.summaryRecipe({
+			collectionLimit: 6,
+			entityId: "book-1",
+			reference: { kind: "self" },
+		});
 
 		expect(
 			recipe.decode({
@@ -588,7 +660,11 @@ describe("media show query recipes", () => {
 	});
 
 	it("decodes omitted optional show properties as null", () => {
-		const recipe = showRecipes.summaryRecipe({ collectionLimit: 6, entityId: "show-1" });
+		const recipe = showRecipes.summaryRecipe({
+			collectionLimit: 6,
+			entityId: "show-1",
+			reference: { kind: "self" },
+		});
 
 		expect(
 			recipe.decode({
@@ -626,7 +702,11 @@ describe("media show query recipes", () => {
 	});
 
 	it("decodes each country's watch providers, offer kinds and link", () => {
-		const recipe = showRecipes.summaryRecipe({ collectionLimit: 6, entityId: "show-1" });
+		const recipe = showRecipes.summaryRecipe({
+			collectionLimit: 6,
+			entityId: "show-1",
+			reference: { kind: "self" },
+		});
 
 		expect(
 			recipe.decode({
@@ -659,7 +739,11 @@ describe("media show query recipes", () => {
 	});
 
 	it("rejects a watch provider offer kind outside the media contract", () => {
-		const recipe = showRecipes.summaryRecipe({ collectionLimit: 6, entityId: "show-1" });
+		const recipe = showRecipes.summaryRecipe({
+			collectionLimit: 6,
+			entityId: "show-1",
+			reference: { kind: "self" },
+		});
 
 		expect(
 			recipe.decode({
@@ -683,7 +767,11 @@ describe("media show query recipes", () => {
 	});
 
 	it("rejects a show summary whose lifecycle state is not a media state", () => {
-		const recipe = showRecipes.summaryRecipe({ collectionLimit: 6, entityId: "show-1" });
+		const recipe = showRecipes.summaryRecipe({
+			collectionLimit: 6,
+			entityId: "show-1",
+			reference: { kind: "self" },
+		});
 
 		expect(
 			recipe.decode({
@@ -696,7 +784,11 @@ describe("media show query recipes", () => {
 	});
 
 	it("rejects a show summary whose image locators are malformed", () => {
-		const recipe = showRecipes.summaryRecipe({ collectionLimit: 6, entityId: "show-1" });
+		const recipe = showRecipes.summaryRecipe({
+			collectionLimit: 6,
+			entityId: "show-1",
+			reference: { kind: "self" },
+		});
 
 		expect(
 			recipe.decode({
@@ -709,7 +801,11 @@ describe("media show query recipes", () => {
 	});
 
 	it("rejects a show summary whose image purpose is outside the media contract", () => {
-		const recipe = showRecipes.summaryRecipe({ collectionLimit: 6, entityId: "show-1" });
+		const recipe = showRecipes.summaryRecipe({
+			collectionLimit: 6,
+			entityId: "show-1",
+			reference: { kind: "self" },
+		});
 
 		expect(
 			recipe.decode({
@@ -727,7 +823,11 @@ describe("media show query recipes", () => {
 	});
 
 	it("decodes images without a recorded purpose", () => {
-		const recipe = showRecipes.summaryRecipe({ collectionLimit: 6, entityId: "show-1" });
+		const recipe = showRecipes.summaryRecipe({
+			collectionLimit: 6,
+			entityId: "show-1",
+			reference: { kind: "self" },
+		});
 
 		expect(
 			recipe.decode({
@@ -747,6 +847,7 @@ describe("media show query recipes", () => {
 			companyLimit: 6,
 			entityId: "show-1",
 			recommendationLimit: 12,
+			reference: { kind: "self" },
 		});
 		const people = recipe.document.queries["people"];
 		const companies = recipe.document.queries["companies"];
@@ -766,23 +867,55 @@ describe("media show query recipes", () => {
 		expect(people.where).toMatchObject({
 			type: "and",
 			predicates: [
-				{ right: { type: "literal", value: "person" } },
+				{
+					predicates: [
+						{ right: { type: "literal", value: "person" } },
+						{
+							left: { field: "entitySchemaPluginId" },
+							right: { type: "pluginId", reference: { kind: "self" } },
+						},
+					],
+				},
 				{
 					right: { type: "literal", value: "show-1" },
 					left: { field: "targetEntityId", tableAlias: "personRelationship" },
 				},
-				{ right: { type: "literal", value: "person-to-show" } },
+				{
+					predicates: [
+						{ right: { type: "literal", value: "person-to-show" } },
+						{
+							left: { field: "relationshipSchemaPluginId" },
+							right: { type: "pluginId", reference: { kind: "self" } },
+						},
+					],
+				},
 			],
 		});
 		expect(companies.where).toMatchObject({
 			type: "and",
 			predicates: [
-				{ right: { type: "literal", value: "company" } },
+				{
+					predicates: [
+						{ right: { type: "literal", value: "company" } },
+						{
+							left: { field: "entitySchemaPluginId" },
+							right: { type: "pluginId", reference: { kind: "self" } },
+						},
+					],
+				},
 				{
 					right: { type: "literal", value: "show-1" },
 					left: { field: "targetEntityId", tableAlias: "companyRelationship" },
 				},
-				{ right: { type: "literal", value: "company-to-show" } },
+				{
+					predicates: [
+						{ right: { type: "literal", value: "company-to-show" } },
+						{
+							left: { field: "relationshipSchemaPluginId" },
+							right: { type: "pluginId", reference: { kind: "self" } },
+						},
+					],
+				},
 			],
 		});
 		expect(people.output.pagination).toMatchObject({ limit: 12 });
@@ -814,6 +947,7 @@ describe("media show query recipes", () => {
 			companyLimit: 6,
 			entityId: "show-1",
 			recommendationLimit: 12,
+			reference: { kind: "self" },
 		});
 		const people = recipe.document.queries["people"];
 		if (people?.output.type !== "rows") {
@@ -835,6 +969,7 @@ describe("media show query recipes", () => {
 			companyLimit: 6,
 			entityId: "show-1",
 			recommendationLimit: 8,
+			reference: { kind: "self" },
 		});
 		const recommendations = recipe.document.queries["recommendations"];
 		if (recommendations?.output.type !== "rows") {
@@ -845,12 +980,28 @@ describe("media show query recipes", () => {
 		expect(recommendations.where).toMatchObject({
 			type: "and",
 			predicates: [
-				{ right: { value: "show", type: "literal" } },
+				{
+					predicates: [
+						{ right: { value: "show", type: "literal" } },
+						{
+							left: { field: "entitySchemaPluginId" },
+							right: { type: "pluginId", reference: { kind: "self" } },
+						},
+					],
+				},
 				{
 					right: { type: "literal", value: "show-1" },
 					left: { field: "sourceEntityId", tableAlias: "suggestionRelationship" },
 				},
-				{ right: { type: "literal", value: "media-suggestion" } },
+				{
+					predicates: [
+						{ right: { type: "literal", value: "media-suggestion" } },
+						{
+							left: { field: "relationshipSchemaPluginId" },
+							right: { type: "pluginId", reference: { kind: "self" } },
+						},
+					],
+				},
 			],
 		});
 		expect(recommendations.output.orderBy).toMatchObject([
@@ -1091,7 +1242,9 @@ describe("media show query recipes", () => {
 		if (episodeEvents?.output.type !== "rows" || episodeEvents.where?.type !== "and") {
 			throw new Error("Expected filtered episode event rows query");
 		}
-		const membership = episodeEvents.where.predicates[2];
+		const membership = episodeEvents.where.predicates.find(
+			(predicate) => predicate.type === "exists",
+		);
 		if (membership?.type !== "exists") {
 			throw new Error("Expected an episode membership existence predicate");
 		}

@@ -1,4 +1,5 @@
 import { CreateImportRunBody } from "@ryot-app/contract/modules/imports/schemas";
+import { PluginId } from "@ryot-app/contract/schema/brands";
 import { Schema } from "effect";
 import { expect, it } from "vitest";
 
@@ -15,11 +16,14 @@ const sources = [
 it.each(sources)(
 	"builds a typed %s request accepted by the open import envelope",
 	(source, input) => {
-		const body = createFitnessImportRunBody(input);
+		const body = createFitnessImportRunBody(PluginId.make("fitness-owner"), input);
 
-		expect(Schema.decodeSync(FitnessCreateImportRunBody)(body)).toEqual(body);
+		expect(Schema.decodeSync(FitnessCreateImportRunBody)(input)).toEqual(input);
 		expect(Schema.decodeSync(CreateImportRunBody)(body)).toEqual(body);
-		expect(body.source).toBe(source);
+		expect(body.source).toEqual({
+			slug: source,
+			owner: { kind: "plugin", pluginId: "fitness-owner" },
+		});
 	},
 );
 

@@ -20,8 +20,10 @@ import {
 	selectedOptionalRow,
 	table,
 	type Recipe,
+	entitySchemaPredicate,
 } from "@ryot-app/plugin-kit/ryotql";
 import { LocalAssetLocator, RemoteAssetLocator, S3AssetLocator } from "@ryot-app/plugin-kit/schema";
+import type { PluginIdentityReference } from "@ryot-app/plugin-kit/schema";
 
 import {
 	nullableEquals,
@@ -70,6 +72,11 @@ const repeatedFromInclude = (workout: Table) => {
 		],
 		where: and(
 			eq(column(relationship, "sourceEntityId"), column(workout, "id")),
+			eq(
+				column(relationship, "relationshipSchemaPluginId"),
+				column(workout, "entitySchemaPluginId"),
+			),
+			eq(column(repeatedFrom, "entitySchemaPluginId"), column(workout, "entitySchemaPluginId")),
 			eq(column(relationship, "relationshipSchemaSlug"), literal("workout-repeated-from")),
 			eq(column(repeatedFrom, "entitySchemaSlug"), literal("workout")),
 		),
@@ -143,6 +150,8 @@ const priorSession = (workout: Table, exercise: Table, pick: "sessionEntityId" |
 		],
 		where: and(
 			eq(column(priorSet, "entityId"), column(exercise, "id")),
+			eq(column(priorSet, "eventSchemaPluginId"), column(workout, "entitySchemaPluginId")),
+			eq(column(priorWorkout, "entitySchemaPluginId"), column(workout, "entitySchemaPluginId")),
 			eq(column(priorSet, "eventSchemaSlug"), literal("workout-set")),
 			eq(column(priorWorkout, "entitySchemaSlug"), literal("workout")),
 			lt(priorStartedAt, propertyDate(workout, "startedAt")),
@@ -158,16 +167,6 @@ const exercisesInclude = (workout: Table) => {
 	return selectedInclude(exercise, {
 		limit: includeLimit,
 		orderBy: [ascending(column(exercise, "id"))],
-		where: and(
-			eq(column(exercise, "entitySchemaSlug"), literal("exercise")),
-			exists(currentSet, {
-				where: and(
-					eq(column(currentSet, "entityId"), column(exercise, "id")),
-					eq(column(currentSet, "sessionEntityId"), column(workout, "id")),
-					eq(column(currentSet, "eventSchemaSlug"), literal("workout-set")),
-				),
-			}),
-		),
 		selection: {
 			id: selectedField(column(exercise, "id"), Schema.String),
 			name: selectedField(column(exercise, "name"), Schema.String),
@@ -177,6 +176,18 @@ const exercisesInclude = (workout: Table) => {
 				nullableString,
 			),
 		},
+		where: and(
+			eq(column(exercise, "entitySchemaSlug"), literal("exercise")),
+			eq(column(exercise, "entitySchemaPluginId"), column(workout, "entitySchemaPluginId")),
+			exists(currentSet, {
+				where: and(
+					eq(column(currentSet, "entityId"), column(exercise, "id")),
+					eq(column(currentSet, "eventSchemaPluginId"), column(workout, "entitySchemaPluginId")),
+					eq(column(currentSet, "sessionEntityId"), column(workout, "id")),
+					eq(column(currentSet, "eventSchemaSlug"), literal("workout-set")),
+				),
+			}),
+		),
 		include: {
 			targets: exerciseTargetInclude(exercise),
 			equipment: exerciseEquipmentInclude(exercise),
@@ -186,6 +197,7 @@ const exercisesInclude = (workout: Table) => {
 				selection: setMeasurementsSelection(previousSet),
 				where: and(
 					eq(column(previousSet, "entityId"), column(exercise, "id")),
+					eq(column(previousSet, "eventSchemaPluginId"), column(workout, "entitySchemaPluginId")),
 					eq(column(previousSet, "eventSchemaSlug"), literal("workout-set")),
 					eq(
 						column(previousSet, "sessionEntityId"),
@@ -198,6 +210,7 @@ const exercisesInclude = (workout: Table) => {
 				orderBy: setOrdering(set),
 				where: and(
 					eq(column(set, "entityId"), column(exercise, "id")),
+					eq(column(set, "eventSchemaPluginId"), column(workout, "entitySchemaPluginId")),
 					eq(column(set, "sessionEntityId"), column(workout, "id")),
 					eq(column(set, "eventSchemaSlug"), literal("workout-set")),
 				),
@@ -226,36 +239,38 @@ const exercisesInclude = (workout: Table) => {
 	});
 };
 
-export const workoutDetailsRecipe = defineRecipe((input: { readonly workoutId: string }) => {
-	const workout = table("entity", "workout");
-	return {
-		map: ({ workout: result }) => Result.succeed(result ?? null),
-		queries: {
-			workout: selectedOptionalRow(workout, {
-				orderBy: [ascending(column(workout, "id"))],
-				where: and(
-					eq(column(workout, "id"), literal(input.workoutId)),
-					eq(column(workout, "entitySchemaSlug"), literal("workout")),
-				),
-				include: {
-					exercises: exercisesInclude(workout),
-					repeatedFrom: repeatedFromInclude(workout),
-					template: workoutTemplateInclude(workout, 1),
-				},
-				selection: {
-					...workoutSelection(workout),
-					supersets: selectedField(
-						propertyJson(workout, "supersets"),
-						Schema.NullOr(SupersetsSchema),
+export const workoutDetailsRecipe = defineRecipe(
+	(input: { readonly reference: PluginIdentityReference; readonly workoutId: string }) => {
+		const workout = table("entity", "workout");
+		return {
+			map: ({ workout: result }) => Result.succeed(result ?? null),
+			queries: {
+				workout: selectedOptionalRow(workout, {
+					orderBy: [ascending(column(workout, "id"))],
+					where: and(
+						eq(column(workout, "id"), literal(input.workoutId)),
+						entitySchemaPredicate(workout, "workout", input.reference),
 					),
-					exerciseNotes: selectedField(
-						propertyJson(workout, "exerciseNotes"),
-						Schema.NullOr(ExerciseNotesSchema),
-					),
-				},
-			}),
-		},
-	};
-});
+					include: {
+						exercises: exercisesInclude(workout),
+						repeatedFrom: repeatedFromInclude(workout),
+						template: workoutTemplateInclude(workout, 1),
+					},
+					selection: {
+						...workoutSelection(workout),
+						supersets: selectedField(
+							propertyJson(workout, "supersets"),
+							Schema.NullOr(SupersetsSchema),
+						),
+						exerciseNotes: selectedField(
+							propertyJson(workout, "exerciseNotes"),
+							Schema.NullOr(ExerciseNotesSchema),
+						),
+					},
+				}),
+			},
+		};
+	},
+);
 
 export type WorkoutDetails = NonNullable<Recipe.Success<typeof workoutDetailsRecipe>>;

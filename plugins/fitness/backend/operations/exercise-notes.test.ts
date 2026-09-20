@@ -12,19 +12,52 @@ import { ExerciseNoteNotFoundError } from "./exercise-notes";
 
 const execution = { metadata: {}, sandboxScriptId: "script-test" };
 
-type StoredRow = Readonly<Record<string, string>>;
+type StoredRow = Readonly<Record<string, string | null>>;
 
 const tables: Readonly<Record<string, readonly StoredRow[]>> = {
 	entity: [
-		{ id: "exercise-1", entitySchemaSlug: "exercise" },
-		{ id: "movie-1", entitySchemaSlug: "movie" },
-		{ id: "collection-1", entitySchemaSlug: "collection" },
+		{ id: "exercise-1", entitySchemaSlug: "exercise", entitySchemaPluginId: "fitness-owner" },
+		{ id: "foreign-exercise", entitySchemaSlug: "exercise", entitySchemaPluginId: "foreign-owner" },
+		{ id: "movie-1", entitySchemaSlug: "movie", entitySchemaPluginId: "media-owner" },
+		{ id: "collection-1", entitySchemaPluginId: null, entitySchemaSlug: "collection" },
 	],
 	event: [
-		{ id: "note-1", entityId: "exercise-1", eventSchemaSlug: "review" },
-		{ id: "set-1", entityId: "exercise-1", eventSchemaSlug: "workout-set" },
-		{ id: "media-review", entityId: "movie-1", eventSchemaSlug: "review" },
-		{ id: "collection-review", entityId: "collection-1", eventSchemaSlug: "review" },
+		{
+			id: "note-1",
+			entityId: "exercise-1",
+			eventSchemaSlug: "review",
+			eventSchemaPluginId: "fitness-owner",
+		},
+		{
+			id: "foreign-note",
+			eventSchemaSlug: "review",
+			entityId: "foreign-exercise",
+			eventSchemaPluginId: "foreign-owner",
+		},
+		{
+			entityId: "exercise-1",
+			eventSchemaSlug: "review",
+			id: "owner-mismatched-note",
+			eventSchemaPluginId: "foreign-owner",
+		},
+		{
+			id: "set-1",
+			entityId: "exercise-1",
+			eventSchemaSlug: "workout-set",
+			eventSchemaPluginId: "fitness-owner",
+		},
+		{
+			id: "media-review",
+			entityId: "movie-1",
+			eventSchemaSlug: "review",
+			eventSchemaPluginId: "media-owner",
+		},
+		{
+			id: "collection-review",
+			entityId: "collection-1",
+			eventSchemaSlug: "review",
+			eventSchemaPluginId: null,
+		},
 	],
 };
 
@@ -34,6 +67,15 @@ const evaluate = (expression: unknown, rows: Rows): unknown => {
 	assert(typeof expression === "object" && expression !== null && "type" in expression);
 	if (expression.type === "literal" && "value" in expression) {
 		return expression.value;
+	}
+	if (expression.type === "pluginId" && "reference" in expression) {
+		assert(
+			typeof expression.reference === "object" &&
+				expression.reference !== null &&
+				"kind" in expression.reference &&
+				expression.reference.kind === "self",
+		);
+		return "fitness-owner";
 	}
 	if (expression.type === "column" && "tableAlias" in expression && "field" in expression) {
 		assert(typeof expression.tableAlias === "string" && typeof expression.field === "string");
@@ -113,7 +155,14 @@ const recordingHosts = () => {
 	};
 };
 
-const foreignEventIds = ["missing", "set-1", "media-review", "collection-review"];
+const foreignEventIds = [
+	"missing",
+	"set-1",
+	"media-review",
+	"collection-review",
+	"foreign-note",
+	"owner-mismatched-note",
+];
 
 describe("exercise note operations", () => {
 	it.live("creates one review on an exercise with only note properties", () =>
@@ -152,7 +201,7 @@ describe("exercise note operations", () => {
 		Effect.gen(function* () {
 			const hosts = recordingHosts();
 
-			for (const exerciseId of ["movie-1", "collection-1", "missing"]) {
+			for (const exerciseId of ["movie-1", "collection-1", "missing", "foreign-exercise"]) {
 				const failure = yield* Effect.flip(
 					runSandboxTestScript(
 						createDefinition,

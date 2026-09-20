@@ -1,3 +1,4 @@
+import type { PluginIdentityReference } from "@ryot-app/client-sdk/plugin";
 import type { RyotQueryResult } from "@ryot-app/client-sdk/react";
 
 import {
@@ -18,14 +19,19 @@ import { createHomeSectionQuery, type SectionData } from "./section-query";
 
 const RAIL_LIMIT = 20;
 
-const libraryStateRecipes = (input: { readonly state: "in_progress" | "backlog" }) => ({
-	flat: flatByLifecycleStateRecipe({ limit: RAIL_LIMIT, states: [input.state] }),
+const libraryStateRecipes = (
+	input: { readonly state: "in_progress" | "backlog" },
+	reference: PluginIdentityReference,
+) => ({
+	flat: flatByLifecycleStateRecipe({ reference, limit: RAIL_LIMIT, states: [input.state] }),
 	show: episodicByLifecycleStateRecipe({
+		reference,
 		limit: RAIL_LIMIT,
 		states: [input.state],
 		config: showEpisodicKindConfig,
 	}),
 	podcast: episodicByLifecycleStateRecipe({
+		reference,
 		limit: RAIL_LIMIT,
 		states: [input.state],
 		config: podcastEpisodicKindConfig,

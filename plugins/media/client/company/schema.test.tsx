@@ -38,7 +38,11 @@ describe("company schema", () => {
 			companySchema,
 			companySummary(),
 			decodeCreatorOverviewOf(
-				companyRecipes.overviewRecipe({ creditLimit: 12, entityId: "creator-1" }),
+				companyRecipes.overviewRecipe({
+					creditLimit: 12,
+					entityId: "creator-1",
+					reference: { kind: "self" },
+				}),
 			),
 		);
 		const logo = container.querySelector('img[src="https://images.test/logo.png"]');

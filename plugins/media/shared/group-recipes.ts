@@ -1,6 +1,7 @@
 import { Result, Schema } from "@ryot-app/plugin-kit/effect";
 import {
 	and,
+	entitySchemaPredicate,
 	ascending,
 	castJson,
 	column,
@@ -15,14 +16,15 @@ import {
 	literal,
 	selectedField,
 	selectedRows,
+	relationshipSchemaPredicate,
 	table,
 	type SelectedSelection,
 } from "@ryot-app/plugin-kit/ryotql";
+import type { PluginIdentityReference } from "@ryot-app/plugin-kit/schema";
 
 import { preferredMediaImageExpression, selectedPresentationSource } from "./entity-presentations";
 import {
 	entityIdentitySelection,
-	entitySchema,
 	propertyNumber,
 	propertyText,
 	type Table,
@@ -88,7 +90,12 @@ export const mediaGroupRecipes = <
 				),
 			],
 			where: and(
-				entitySchema(member, memberSlug),
+				eq(column(member, "entitySchemaSlug"), literal(memberSlug)),
+				eq(column(member, "entitySchemaPluginId"), column(group, "entitySchemaPluginId")),
+				eq(
+					column(relationship, "relationshipSchemaPluginId"),
+					column(group, "entitySchemaPluginId"),
+				),
 				eq(column(relationship, "sourceEntityId"), column(group, "id")),
 				eq(column(relationship, "relationshipSchemaSlug"), literal(relationshipSlug)),
 			),
@@ -110,6 +117,10 @@ export const mediaGroupRecipes = <
 						exists(completion, {
 							where: and(
 								eq(column(completion, "entityId"), column(completed.member, "id")),
+								eq(
+									column(completion, "eventSchemaPluginId"),
+									column(group, "entitySchemaPluginId"),
+								),
 								eq(column(completion, "eventSchemaSlug"), literal("complete")),
 							),
 						}),
@@ -142,7 +153,11 @@ export const mediaGroupRecipes = <
 	};
 
 	const summaryRecipe = defineRecipe(
-		(input: { readonly entityId: string; readonly collectionLimit: number }) => ({
+		(input: {
+			readonly reference: PluginIdentityReference;
+			readonly entityId: string;
+			readonly collectionLimit: number;
+		}) => ({
 			map: ({ summary, requested }) =>
 				mediaSummaryResult({
 					requested,
@@ -164,6 +179,7 @@ export const mediaGroupRecipes = <
 	/** Members of one group as a top-level row query, so the list pages by cursor. */
 	const membersRecipe = defineRecipe(
 		(query: {
+			readonly reference: PluginIdentityReference;
 			readonly limit: number;
 			readonly groupId: string;
 			readonly after?: string | undefined;
@@ -188,11 +204,6 @@ export const mediaGroupRecipes = <
 							ascending(column(member, "name")),
 							ascending(column(member, "id")),
 						],
-						where: and(
-							entitySchema(member, memberSlug),
-							eq(column(relationship, "sourceEntityId"), literal(query.groupId)),
-							eq(column(relationship, "relationshipSchemaSlug"), literal(relationshipSlug)),
-						),
 						selection: {
 							...config.member.presentationSelection(member, `${config.alias}Member`),
 							position: selectedField(
@@ -200,6 +211,11 @@ export const mediaGroupRecipes = <
 								Schema.NullOr(Schema.Finite),
 							),
 						},
+						where: and(
+							entitySchemaPredicate(member, memberSlug, query.reference),
+							eq(column(relationship, "sourceEntityId"), literal(query.groupId)),
+							relationshipSchemaPredicate(relationship, relationshipSlug, query.reference),
+						),
 					}),
 				},
 			};
@@ -235,6 +251,7 @@ export const mediaGroupRecipes = <
 
 	const overviewRecipe = defineRecipe(
 		(input: {
+			readonly reference: PluginIdentityReference;
 			readonly entityId: string;
 			readonly peopleLimit: number;
 			readonly companyLimit: number;

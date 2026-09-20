@@ -7,6 +7,7 @@ const creatorActivityRecipe = creatorFixtureRecipes.activityRecipe({
 	eventLimit: 60,
 	entityId: "creator-1",
 	collectionEventLimit: 60,
+	reference: { kind: "self" },
 });
 
 export const creatorReviewEventRow = {

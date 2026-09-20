@@ -31,6 +31,7 @@ const context = (entitySchemaSlug: string): AutomationInput =>
 		operation: "complete",
 		providerId: "provider-1",
 		resource: "provider-entity-import",
+		entitySchemaPluginId: "media-owner",
 	});
 
 const eventBatch = (...events: Parameters<typeof eventAutomationContext>[0][]): AutomationInput => {
@@ -129,6 +130,8 @@ it("ignores irrelevant entity and event inputs", () => {
 		eventSchemaSlug: "add-to-media-library",
 	});
 	const untargetedCollectionInput = eventBatch({
+		eventSchemaPluginId: null,
+		entitySchemaPluginId: null,
 		entitySchemaSlug: "collection",
 		eventSchemaSlug: "add-entity-to-collection",
 		properties: { entityId: "entity-9", entitySchemaSlug: "workout" },
@@ -151,13 +154,27 @@ it("upserts each distinct event or collection target once per written batch", ()
 	const changes: unknown[] = [];
 	let reads = 0;
 	const host = defineSandboxTestHost(manifest, {
-		executeRyotql: () => {
-			reads += 1;
-			return hostSuccess(mediaLibraryRows);
-		},
 		changeUserRelationships: (batches) => {
 			changes.push(batches);
 			return hostSuccess([{ created: 1, deleted: 0 }]);
+		},
+		executeRyotql: (document) => {
+			reads += 1;
+			if ("targets" in document.queries) {
+				return hostSuccess({
+					data: {
+						targets: {
+							type: "rows",
+							pageInfo: { limit: 2, hasMore: false, nextCursor: null },
+							items: [
+								{ entityId: "entity-1", entitySchemaSlug: "movie" },
+								{ entityId: "entity-2", entitySchemaSlug: "book" },
+							],
+						},
+					},
+				});
+			}
+			return hostSuccess(mediaLibraryRows);
 		},
 	});
 
@@ -170,6 +187,8 @@ it("upserts each distinct event or collection target once per written batch", ()
 						{ entitySchemaSlug: "movie", eventSchemaSlug: "complete" },
 						{ entitySchemaSlug: "workout", eventSchemaSlug: "progress" },
 						{
+							eventSchemaPluginId: null,
+							entitySchemaPluginId: null,
 							entitySchemaSlug: "collection",
 							eventSchemaSlug: "add-entity-to-collection",
 							properties: { entityId: "entity-2", entitySchemaSlug: "book" },
@@ -178,7 +197,7 @@ it("upserts each distinct event or collection target once per written batch", ()
 					host,
 				),
 			).toBeNull();
-			expect(reads).toBe(1);
+			expect(reads).toBe(2);
 			expect(changes).toEqual([
 				[
 					{
@@ -236,6 +255,87 @@ it("splits a batch of distinct membership targets within the host write limit", 
 			),
 	);
 });
+
+it.live("does not treat a plugin-owned collection name as kernel membership evidence", () =>
+	Effect.gen(function* () {
+		let calls = 0;
+		const host = defineSandboxTestHost(manifest, {
+			changeUserRelationships: () => {
+				calls += 1;
+				return hostSuccess([]);
+			},
+			executeRyotql: () => {
+				calls += 1;
+				return hostSuccess(mediaLibraryRows);
+			},
+		});
+		yield* definition.run(
+			eventBatch({
+				entitySchemaSlug: "collection",
+				eventSchemaSlug: "add-entity-to-collection",
+				properties: { entityId: "entity-2", entitySchemaSlug: "movie" },
+			}),
+			host,
+		);
+		expect(calls).toBe(0);
+	}),
+);
+
+it.live(
+	"checks the real member owner before creating Media membership from a kernel collection event",
+	() =>
+		Effect.gen(function* () {
+			const documents: unknown[] = [];
+			const changes: unknown[] = [];
+			const host = defineSandboxTestHost(manifest, {
+				changeUserRelationships: (batches) => {
+					changes.push(batches);
+					return hostSuccess([]);
+				},
+				executeRyotql: (document) => {
+					documents.push(document);
+					return hostSuccess({
+						data: {
+							targets: {
+								items: [],
+								type: "rows",
+								pageInfo: { limit: 1, hasMore: false, nextCursor: null },
+							},
+						},
+					});
+				},
+			});
+			yield* definition.run(
+				eventBatch({
+					eventSchemaPluginId: null,
+					entitySchemaPluginId: null,
+					entitySchemaSlug: "collection",
+					eventSchemaSlug: "add-entity-to-collection",
+					properties: { entityId: "foreign-movie", entitySchemaSlug: "movie" },
+				}),
+				host,
+			);
+			expect(documents).toMatchObject([
+				{
+					queries: {
+						targets: {
+							where: {
+								predicates: [
+									{
+										left: { field: "entitySchemaPluginId" },
+										right: { type: "pluginId", reference: { kind: "self" } },
+									},
+									{ values: [{ value: "foreign-movie" }] },
+									{ expr: { field: "entitySchemaSlug" } },
+								],
+							},
+						},
+					},
+				},
+			]);
+			expect(changes).toEqual([]);
+		}),
+);
 
 it.live("uses trusted user scope for direct creation", () =>
 	Effect.gen(function* () {

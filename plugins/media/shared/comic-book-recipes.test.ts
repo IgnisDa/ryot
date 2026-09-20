@@ -25,7 +25,11 @@ const keys = (recipe: PreparedRecipe<unknown>, name: string) =>
 describe("media comic book query recipes", () => {
 	it("selects the pages the comic book schema declares", () => {
 		const summary = keys(
-			comicBookRecipes.summaryRecipe({ collectionLimit: 6, entityId: "comic-book-1" }),
+			comicBookRecipes.summaryRecipe({
+				collectionLimit: 6,
+				entityId: "comic-book-1",
+				reference: { kind: "self" },
+			}),
 			"summary",
 		);
 
@@ -38,6 +42,7 @@ describe("media comic book query recipes", () => {
 			eventLimit: 60,
 			entityId: "comic-book-1",
 			collectionEventLimit: 60,
+			reference: { kind: "self" },
 		});
 
 		expect(fieldExpr(activity, "totals", "consumedAmount")).toMatchObject({
@@ -60,13 +65,30 @@ describe("media comic book query recipes", () => {
 			companyLimit: 6,
 			recommendationLimit: 12,
 			entityId: "comic-book-1",
+			reference: { kind: "self" },
 		});
 
 		expect(overview.document.queries["group"]?.where).toMatchObject({
 			predicates: [
-				{ right: { type: "literal", value: "comic-book-group" } },
+				{
+					predicates: [
+						{ right: { type: "literal", value: "comic-book-group" } },
+						{
+							left: { field: "entitySchemaPluginId" },
+							right: { type: "pluginId", reference: { kind: "self" } },
+						},
+					],
+				},
 				{},
-				{ right: { type: "literal", value: "comic-book-group-to-comic-book" } },
+				{
+					predicates: [
+						{ right: { type: "literal", value: "comic-book-group-to-comic-book" } },
+						{
+							left: { field: "relationshipSchemaPluginId" },
+							right: { type: "pluginId", reference: { kind: "self" } },
+						},
+					],
+				},
 			],
 		});
 	});

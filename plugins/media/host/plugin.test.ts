@@ -4,6 +4,7 @@ import {
 	AuthoredPluginManifest,
 	CLIENT_API_VERSION,
 } from "@ryot-app/contract/modules/plugins/manifest";
+import { AuthoredEntityBrowserAddAction } from "@ryot-app/contract/modules/saved-views/schemas";
 import { sortBy } from "@ryot-app/ts-utils/lodash";
 import { Effect, FileSystem, Schema } from "effect";
 
@@ -705,12 +706,12 @@ it("declares the complete media-owned source", () => {
 		kind: "script",
 		slug: "media-monitoring-targets",
 	});
-	expect(mediaPlugin.savedViews.every(({ pluginSlug }) => pluginSlug === "media")).toBe(true);
 	expect(
 		mediaPlugin.savedViews.map(({ name, settings }) => ({
 			name,
-			entitySchemaSlug: (settings["addAction"] as { readonly entitySchemaSlug: string })
-				.entitySchemaSlug,
+			entitySchemaSlug: Schema.decodeUnknownSync(AuthoredEntityBrowserAddAction)(
+				settings["addAction"],
+			).schema.slug,
 		})),
 	).toEqual([
 		{ name: "All Persons", entitySchemaSlug: "person" },
@@ -782,6 +783,7 @@ it("keeps entity and import membership immediate and groups event membership by 
 			{
 				resource: "event",
 				operation: "create",
+				owner: { kind: "kernel" },
 				entitySchemaSlug: "collection",
 				eventSchemaSlug: "add-entity-to-collection",
 			},
@@ -795,6 +797,46 @@ it("declares ownership sync only for integrations that import ownership", () => 
 			.filter((provider) => "supportsOwnershipSync" in provider && provider.supportsOwnershipSync)
 			.map(({ slug }) => slug),
 	).toEqual(["komga", "plex_yank", "audiobookshelf"]);
+});
+
+it("observes only explicit kernel collection targets in user-scoped after hooks", () => {
+	const observers = mediaPlugin.hooks.flatMap((hook) =>
+		hook.targets.flatMap((target) =>
+			"owner" in target
+				? [
+						{
+							target,
+							slug: hook.slug,
+							stage: hook.stage,
+							executionScope: "executionScope" in hook ? hook.executionScope : null,
+						},
+					]
+				: [],
+		),
+	);
+	const membershipTarget = {
+		resource: "event",
+		operation: "create",
+		owner: { kind: "kernel" },
+		entitySchemaSlug: "collection",
+		eventSchemaSlug: "add-entity-to-collection",
+	};
+	expect(observers).toEqual([
+		{
+			stage: "after",
+			executionScope: "user",
+			target: membershipTarget,
+			slug: "media.ensure-media-library-membership-on-events",
+		},
+		{
+			stage: "after",
+			executionScope: "user",
+			slug: "media.review-created",
+			target: { ...membershipTarget, eventSchemaSlug: "review" },
+		},
+		{ stage: "after", executionScope: "user", target: membershipTarget, slug: "media.radarr-push" },
+		{ stage: "after", executionScope: "user", target: membershipTarget, slug: "media.sonarr-push" },
+	]);
 });
 
 it("records newly-created media library memberships as events", () => {

@@ -1,6 +1,7 @@
-import type { ManagedAssetLocator } from "@ryot-app/client-sdk";
-import { Result } from "@ryot-app/client-sdk/effect";
+import { RyotClientError, type ManagedAssetLocator } from "@ryot-app/client-sdk";
+import { Effect, Result } from "@ryot-app/client-sdk/effect";
 import {
+	PluginId,
 	defineEntityPresentation,
 	PluginLink,
 	useRyotViewport,
@@ -92,8 +93,19 @@ export const loadFitnessPresentations: EntityPresentationLoader<FitnessPresentat
 }) => {
 	const source = fitnessPresentationSource(references[0]?.entitySchemaSlug ?? "");
 	const entityIds = [...new Set(references.map(({ entityId }) => entityId))];
+	const selected = references[0];
+	if (selected === undefined) {
+		return Effect.succeed({});
+	}
+	if (selected.ownerPluginId === null) {
+		return Effect.fail(new RyotClientError("invalid-input"));
+	}
+	const owner = {
+		kind: "local",
+		pluginId: PluginId.make(selected.ownerPluginId),
+	} satisfies Parameters<typeof source.query>[0];
 	const recipe = defineRecipe(() => ({
-		queries: { presentations: source.query(entityIds) },
+		queries: { presentations: source.query(owner, entityIds) },
 		map: ({ presentations }) => buildFitnessPresentations(references, presentations.items),
 	}))();
 	return client.data.query(recipe);
