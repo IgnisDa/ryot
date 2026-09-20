@@ -4,6 +4,7 @@ import { dieOnDbError } from "@ryot-app/contract/errors";
 import { Effect } from "effect";
 import { HttpApiBuilder } from "effect/unstable/httpapi";
 
+import { ImportRunCancellationService } from "./cancellation-service";
 import { ImportsService } from "./service";
 
 export const ImportsRoutesLive = HttpApiBuilder.group(AppContract, "imports", (handlers) =>
@@ -13,6 +14,13 @@ export const ImportsRoutesLive = HttpApiBuilder.group(AppContract, "imports", (h
 				const user = yield* CurrentUser;
 				const service = yield* ImportsService;
 				return yield* service.startImportRun(user, payload).pipe(dieOnDbError);
+			}),
+		)
+		.handle("cancelRun", ({ params }) =>
+			Effect.gen(function* () {
+				const user = yield* CurrentUser;
+				const service = yield* ImportRunCancellationService;
+				return yield* service.cancelRun(user, params.runId).pipe(dieOnDbError);
 			}),
 		)
 		.handle("deleteRun", ({ params }) =>

@@ -1,4 +1,7 @@
-import type { ImportRunFailureReason } from "@ryot-app/contract/modules/imports/schemas";
+import type {
+	ImportRunFailureReason,
+	ImportRunStatus,
+} from "@ryot-app/contract/modules/imports/schemas";
 import type {
 	ImportRunFailureStage,
 	ImportRunSource,
@@ -9,7 +12,6 @@ import type {
 	IntegrationProviderSettings,
 } from "@ryot-app/contract/modules/integrations/schemas";
 import type { IntegrationLot } from "@ryot-app/contract/modules/integrations/types";
-import type { RunStatus } from "@ryot-app/contract/schema/run-status";
 import { generateId } from "better-auth";
 import { sql } from "drizzle-orm";
 import {
@@ -89,8 +91,9 @@ export const importRun = snakeCase.table(
 		processedItems: integer().notNull().default(0),
 		source: text().notNull().$type<ImportRunSource>(),
 		failureReason: jsonb().$type<ImportRunFailureReason>(),
-		status: text().notNull().$type<RunStatus>().default("pending"),
+		executionKind: text().notNull().$type<"source" | "integration">(),
 		createdAt: timestamp({ withTimezone: true }).defaultNow().notNull(),
+		status: text().notNull().$type<ImportRunStatus>().default("pending"),
 		inputSummary: jsonb().$type<Record<string, unknown>>().notNull().default({}),
 		integrationId: text().references(() => integration.id, { onDelete: "cascade" }),
 		userId: text()
@@ -115,7 +118,17 @@ export const importRun = snakeCase.table(
 		index("import_run_plugin_installation_id_idx").on(table.pluginInstallationId),
 		uniqueIndex("import_run_integration_active_unique")
 			.on(table.integrationId)
-			.where(sql`${table.integrationLot} = 'yank' and ${table.status} in ('pending', 'running')`),
+			.where(
+				sql`${table.integrationLot} = 'yank' and ${table.status} in ('pending', 'running', 'cancelling')`,
+			),
+		check(
+			"import_run_status_check",
+			sql`${table.status} in ('pending', 'running', 'cancelling', 'completed', 'failed', 'cancelled')`,
+		),
+		check(
+			"import_run_execution_kind_check",
+			sql`(${table.executionKind} = 'source' and ${table.integrationId} is null and ${table.integrationLot} is null) or (${table.executionKind} = 'integration' and ${table.integrationId} is not null and ${table.integrationLot} is not null)`,
+		),
 	],
 );
 

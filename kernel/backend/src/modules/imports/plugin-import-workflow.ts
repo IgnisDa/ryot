@@ -1,8 +1,10 @@
+import { ImportRunStatus } from "@ryot-app/contract/modules/imports/schemas";
 import type { JsonValue } from "@ryot-app/contract/modules/ryotql/language";
 import { SandboxExecutionGrants } from "@ryot-app/contract/modules/sandbox/schemas";
 import { jsonValueSchema } from "@ryot-app/contract/modules/sandbox/wire";
 import { genericImportWorkflowInputSchema } from "@ryot-app/sandbox-sdk/imports";
-import { Cause, Effect, Schema } from "effect";
+import { Cause, DateTime, Effect, Schema } from "effect";
+import { Workflow } from "effect/unstable/workflow";
 import { WorkflowInstance } from "effect/unstable/workflow/WorkflowEngine";
 
 import { ImportSourceState } from "#lib/infrastructure/redis";
@@ -15,6 +17,7 @@ import { markImportRunStarted } from "./runtime/import-run-status";
 import { ImportSourceStateStore } from "./runtime/source-state-store";
 import { ImportRunError, toWorkflowError } from "./runtime/workflow-errors";
 import { createImportRunLifecycle } from "./runtime/workflow-helpers";
+import { ImportsService } from "./service";
 
 export const runPluginImportWorkflow = Effect.fn("runPluginImportWorkflow")(function* (
 	payload: ImportRunJobData,
@@ -24,7 +27,7 @@ export const runPluginImportWorkflow = Effect.fn("runPluginImportWorkflow")(func
 	const artifactOwnerExecutionId = `${executionId}-import`;
 	const artifactReferenceExecutionId = `${executionId}-import-orchestrator`;
 	const artifactDispatchReferenceExecutionId = `${executionId}-import-dispatch`;
-	let uploadIntentIds: ReadonlyArray<string> = [];
+	let uploadIntentIds: ReadonlyArray<string> = payload.uploadIntentIds;
 	const { failRunAndCleanup, cleanupUploadsBestEffort, cleanupArtifactsBestEffort } =
 		createImportRunLifecycle(payload, executionId);
 	const releaseImportWorkflowPin = makeActivity({
@@ -55,13 +58,48 @@ export const runPluginImportWorkflow = Effect.fn("runPluginImportWorkflow")(func
 			yield* artifacts.release(artifactOwnerExecutionId, artifactDispatchReferenceExecutionId);
 		}).pipe(Effect.mapError(toWorkflowError)),
 	});
-
-	const processWorkflow = Effect.gen(function* () {
+	const completeCancellation = Effect.fn("completeImportRunCancellation")(function* () {
+		yield* releaseImportWorkflowPin;
+		yield* releaseImportDispatchArtifacts;
+		yield* releaseImportArtifacts;
+		yield* cleanupArtifactsBestEffort("cleanup-import-artifacts-on-cancellation");
+		yield* cleanupUploadsBestEffort("cleanup-import-uploads-on-cancellation", uploadIntentIds);
 		yield* makeActivity({
 			error: ImportRunError,
+			name: "finish-import-run-cancelled",
+			execute: Effect.gen(function* () {
+				const imports = yield* ImportsService;
+				const finishedAt = yield* DateTime.nowAsDate;
+				yield* imports.finishCancelled({ finishedAt, runId: payload.runId });
+			}).pipe(Effect.mapError(toWorkflowError)),
+		});
+	});
+	yield* Workflow.addFinalizer(() =>
+		Effect.flatMap(WorkflowInstance, (instance) =>
+			instance.interrupted
+				? completeCancellation().pipe(
+						Effect.catchCause((cause) =>
+							Effect.logError("import cancellation cleanup failed", cause),
+						),
+					)
+				: Effect.void,
+		),
+	);
+
+	const processWorkflow = Effect.gen(function* () {
+		const start = yield* makeActivity({
+			error: ImportRunError,
 			name: "mark-import-run-started",
+			success: Schema.Literals(["started", "cancellation-requested", "preserved"]),
 			execute: markImportRunStarted(payload.runId).pipe(Effect.mapError(toWorkflowError)),
 		});
+		if (start === "cancellation-requested") {
+			yield* completeCancellation();
+			return;
+		}
+		if (start === "preserved") {
+			return;
+		}
 
 		const sourceState = yield* makeActivity({
 			error: ImportRunError,
@@ -70,10 +108,12 @@ export const runPluginImportWorkflow = Effect.fn("runPluginImportWorkflow")(func
 			execute: Effect.flatMap(ImportSourceStateStore, (sourceStates) =>
 				sourceStates.claim(payload.sourceStateId, executionId),
 			).pipe(Effect.mapError(toWorkflowError)),
-		});
-		if (sourceState === null) {
-			return yield* new ImportRunError({ message: "Import source state is unavailable" });
-		}
+		}).pipe(
+			Effect.filterOrFail(
+				(state): state is ImportSourceState => state !== null,
+				() => new ImportRunError({ message: "Import source state is unavailable" }),
+			),
+		);
 		uploadIntentIds = sourceState.uploadIntentIds;
 		yield* Effect.annotateCurrentSpan({
 			pluginId: sourceState.pluginId,
@@ -123,33 +163,62 @@ export const runPluginImportWorkflow = Effect.fn("runPluginImportWorkflow")(func
 			})
 			.pipe(Effect.mapError(toWorkflowError));
 
+		const runStatus = yield* makeActivity({
+			error: ImportRunError,
+			name: "settle-import-run-after-plugin",
+			success: Schema.NullOr(ImportRunStatus),
+			execute: Effect.gen(function* () {
+				const imports = yield* ImportsService;
+				const run = yield* imports.getRunControlForUser({
+					runId: payload.runId,
+					userId: payload.userId,
+				});
+				if (run?.status === "running") {
+					const finishedAt = yield* DateTime.nowAsDate;
+					yield* imports.finishFailed({
+						finishedAt,
+						runId: payload.runId,
+						failureReason: { code: "unexpected-failure", operation: "generic-import-finalization" },
+					});
+					return "failed" as const;
+				}
+				return run?.status ?? null;
+			}).pipe(Effect.mapError(toWorkflowError)),
+		});
+		if (runStatus === "cancelling") {
+			yield* completeCancellation();
+			return;
+		}
+
 		yield* releaseImportDispatchArtifacts;
 		yield* releaseImportArtifacts;
 		yield* cleanupArtifactsBestEffort("cleanup-import-artifacts-on-success");
 		yield* cleanupUploadsBestEffort("cleanup-import-uploads-on-success", uploadIntentIds);
-		return yield* Effect.void;
+		yield* Effect.void;
 	});
 
 	yield* processWorkflow.pipe(
 		Effect.catchCause((cause) =>
-			Effect.flatMap(WorkflowInstance, (instance) =>
-				instance.suspended && Cause.hasInterruptsOnly(cause)
-					? Effect.failCause(cause)
-					: Effect.logError("plugin import workflow failed", cause).pipe(
-							Effect.andThen(releaseImportWorkflowPin),
-							Effect.andThen(releaseImportDispatchArtifacts),
-							Effect.andThen(releaseImportArtifacts),
-							Effect.andThen(
-								failRunAndCleanup({
-									uploadIntentIds,
-									failureName: "fail-import-run-unexpected",
-									cleanupName: "cleanup-import-artifacts-on-unexpected-failure",
-									uploadCleanupName: "cleanup-import-uploads-on-unexpected-failure",
-									reason: { code: "unexpected-failure", operation: "plugin-import" },
-								}),
-							),
-						),
-			),
+			Effect.flatMap(WorkflowInstance, (instance) => {
+				const interruptedOnly = Cause.hasInterruptsOnly(cause);
+				if (interruptedOnly && instance.suspended) {
+					return Effect.failCause(cause);
+				}
+				return Effect.logError("plugin import workflow failed", cause).pipe(
+					Effect.andThen(releaseImportWorkflowPin),
+					Effect.andThen(releaseImportDispatchArtifacts),
+					Effect.andThen(releaseImportArtifacts),
+					Effect.andThen(
+						failRunAndCleanup({
+							uploadIntentIds,
+							failureName: "fail-import-run-unexpected",
+							cleanupName: "cleanup-import-artifacts-on-unexpected-failure",
+							uploadCleanupName: "cleanup-import-uploads-on-unexpected-failure",
+							reason: { code: "unexpected-failure", operation: "plugin-import" },
+						}),
+					),
+				);
+			}),
 		),
 	);
 });

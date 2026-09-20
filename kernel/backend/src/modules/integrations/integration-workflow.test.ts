@@ -114,6 +114,7 @@ const makeTestLayer = (
 				const workflowResolutions = yield* Ref.make<ReadonlyArray<Record<string, string>>>([]);
 				const store = yield* Ref.make<ReadonlyMap<string, string>>(new Map());
 				const instance = WorkflowInstance.initial(ProcessIntegrationRunWorkflow, "run_1");
+				instance.suspended = options.sandboxInterrupt ?? false;
 				return Layer.mergeAll(
 					Layer.succeed(FakeIntegrationRun, {
 						runUpdates: Ref.get(runUpdates),
@@ -183,7 +184,30 @@ const makeTestLayer = (
 								}),
 							),
 					}),
-					mockImportsService({ update: (input) => append(runUpdates, input) }),
+					mockImportsService({
+						markStarted: (input) =>
+							append(runUpdates, { ...input, status: "running" }).pipe(
+								Effect.as("started" as const),
+							),
+						finishFailed: (input) =>
+							append(runUpdates, { ...input, status: "failed" }).pipe(
+								Effect.as("settled" as const),
+							),
+						finishCancelled: (input) =>
+							append(runUpdates, { ...input, status: "cancelled" }).pipe(
+								Effect.as("settled" as const),
+							),
+						getRunControlForUser: () =>
+							Effect.succeed(
+								options.runStatus === undefined
+									? null
+									: {
+											status: options.runStatus,
+											id: ImportRunId.make("run_1"),
+											executionKind: "integration" as const,
+										},
+							),
+					}),
 					mockIntegrationsService({
 						update: (userId, integrationId, body) =>
 							append(integrationUpdates, { userId, integrationId, ...body }).pipe(

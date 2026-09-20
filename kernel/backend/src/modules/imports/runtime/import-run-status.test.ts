@@ -8,7 +8,9 @@ import { databaseLayer } from "#lib/test-utils/effect";
 import { ImportsService } from "../service";
 import { markImportRunStarted } from "./import-run-status";
 
-type ImportRunUpdate = Parameters<ImportsService["Service"]["update"]>[0];
+type ImportRunUpdate = Parameters<ImportsService["Service"]["markStarted"]>[0] & {
+	status: "running";
+};
 
 class FakeImportRunUpdates extends Context.Service<
 	FakeImportRunUpdates,
@@ -23,7 +25,10 @@ const recordingImportsServiceLayer = Layer.mergeAll(
 			return Layer.merge(
 				Layer.succeed(FakeImportRunUpdates, { updates: Ref.get(updates) }),
 				Layer.mock(ImportsService)({
-					update: (input) => Ref.update(updates, (all) => [...all, input]),
+					markStarted: (input) =>
+						Ref.update(updates, (all) => [...all, { ...input, status: "running" as const }]).pipe(
+							Effect.as("started" as const),
+						),
 				}),
 			);
 		}),
