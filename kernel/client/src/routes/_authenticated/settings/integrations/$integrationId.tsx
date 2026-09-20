@@ -1,5 +1,5 @@
 import { useRyotMutation, useRyotQuery } from "@ryot-app/client-sdk/react";
-import { Button, Menu, type MenuItem } from "@ryot-app/client-ui-sdk";
+import { Button, DestructiveConfirmation, Menu, type MenuItem } from "@ryot-app/client-ui-sdk";
 import { AppIcon } from "@ryot-app/client-ui-sdk/icon";
 import { useSchemaForm, type SchemaFormValues } from "@ryot-app/client-ui-sdk/schema-form";
 import { createFileRoute, notFound, useRouter } from "@tanstack/react-router";
@@ -30,7 +30,6 @@ import {
 	updateIntegrationMutation,
 } from "#/modules/integrations/service";
 import { SettingsFrame } from "#/modules/settings/settings-frame";
-import { DestructiveConfirmation } from "#/modules/ui/destructive-confirmation";
 import { isTerminalRunStatus } from "#/modules/ui/run/run-status";
 import { useSchemaFileUpload } from "#/modules/ui/schema-form-upload";
 import { StatusState } from "#/modules/ui/status-state";
