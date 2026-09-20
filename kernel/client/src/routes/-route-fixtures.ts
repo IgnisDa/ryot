@@ -411,6 +411,7 @@ export const makePublicApiStub = (isServerKeyValidated = false) =>
 		getSystemConfig: () =>
 			Effect.succeed({
 				analytics: {},
+				version: "v1.0.0",
 				pro: { isServerKeyValidated },
 				notifications: { smtpEnabled: false },
 				frontendOrigin: window.location.origin,
