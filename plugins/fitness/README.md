@@ -5,8 +5,10 @@ Generic package, manifest, and sandbox authoring rules belong to the
 
 Fitness list and detail recipes live in `shared/query-recipes.ts`; the user-library recipe and
 library-link predicate live in `shared/library-recipes.ts`. Shared entity selections in
-`shared/entity-selections.ts` are reused by the archived workout presentation query. The shared
-sources use the neutral Plugin Kit imports so both plugin compilers can resolve them.
+`shared/entity-selections.ts` and their table-neutral property expressions are reused by the archived
+workout presentation query. List recipes share input types with pagination derived from RyotQL query
+inputs. The shared sources use the neutral Plugin Kit imports so both plugin compilers can resolve
+them.
 
 ## Automations
 
