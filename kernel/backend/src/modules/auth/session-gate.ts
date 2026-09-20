@@ -4,7 +4,6 @@ import { eq } from "drizzle-orm";
 import { Cause, Effect } from "effect";
 
 import * as schema from "#lib/infrastructure/db/schema/tables/auth";
-import { mapDatabaseErrors } from "#lib/infrastructure/db/service";
 import { DatabaseSession } from "#lib/infrastructure/db/session";
 
 import { isUserLifecycleActive } from "./lifecycle-write-guard";
@@ -23,8 +22,7 @@ export const gateSessionCreation = <E>(
 			);
 		}
 		const database = yield* DatabaseSession;
-		const db = yield* database.current;
-		const [foundUser] = yield* mapDatabaseErrors(
+		const [foundUser] = yield* database.run((db) =>
 			db
 				.select({
 					disabledAt: schema.user.disabledAt,

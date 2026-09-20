@@ -7,7 +7,6 @@ import { and, eq } from "drizzle-orm";
 import { Context, Effect, Layer } from "effect";
 
 import * as schema from "#lib/infrastructure/db/schema/tables/combined";
-import { mapDatabaseErrors } from "#lib/infrastructure/db/service";
 import { DatabaseSession } from "#lib/infrastructure/db/session";
 
 export class ClientPagesRepository extends Context.Service<ClientPagesRepository>()(
@@ -19,8 +18,7 @@ export class ClientPagesRepository extends Context.Service<ClientPagesRepository
 				userId: UserId,
 				savedViewId: string,
 			) {
-				const db = yield* session.current;
-				const [row] = yield* mapDatabaseErrors(
+				const [row] = yield* session.run((db) =>
 					db
 						.select()
 						.from(schema.userSavedViewEffective)
@@ -38,8 +36,7 @@ export class ClientPagesRepository extends Context.Service<ClientPagesRepository
 			const listPreparedTargets = Effect.fn("ClientPagesRepository.listPreparedTargets")(function* (
 				userId: UserId,
 			) {
-				const db = yield* session.current;
-				const rows = yield* mapDatabaseErrors(
+				const rows = yield* session.run((db) =>
 					db
 						.select()
 						.from(schema.userSavedViewEffective)
@@ -56,8 +53,7 @@ export class ClientPagesRepository extends Context.Service<ClientPagesRepository
 			const findComposition = Effect.fn("ClientPagesRepository.findComposition")(function* (
 				compositionKey: string,
 			) {
-				const db = yield* session.current;
-				const [row] = yield* mapDatabaseErrors(
+				const [row] = yield* session.run((db) =>
 					db
 						.select()
 						.from(schema.clientPageComposition)
@@ -69,8 +65,7 @@ export class ClientPagesRepository extends Context.Service<ClientPagesRepository
 
 			const findCompositionByHash = Effect.fn("ClientPagesRepository.findCompositionByHash")(
 				function* (compositionHash: string) {
-					const db = yield* session.current;
-					const [row] = yield* mapDatabaseErrors(
+					const [row] = yield* session.run((db) =>
 						db
 							.select()
 							.from(schema.clientPageComposition)
@@ -88,8 +83,7 @@ export class ClientPagesRepository extends Context.Service<ClientPagesRepository
 					readonly identity: ClientPageCompositionIdentity;
 					readonly manifest: ClientPageCompositionManifest;
 				}) {
-					const db = yield* session.current;
-					const [row] = yield* mapDatabaseErrors(
+					const [row] = yield* session.run((db) =>
 						db
 							.insert(schema.clientPageComposition)
 							.values(input)

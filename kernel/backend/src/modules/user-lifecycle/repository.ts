@@ -16,7 +16,6 @@ import * as backupSchema from "#lib/infrastructure/db/schema/tables/backups";
 import * as coreSchema from "#lib/infrastructure/db/schema/tables/core";
 import * as uploadSchema from "#lib/infrastructure/db/schema/tables/uploads";
 import * as lifecycleSchema from "#lib/infrastructure/db/schema/tables/user-lifecycle";
-import { mapDatabaseErrors } from "#lib/infrastructure/db/service";
 import { DatabaseSession } from "#lib/infrastructure/db/session";
 import { acquireUserWriteLock } from "#lib/infrastructure/db/user-write-lock";
 
@@ -171,8 +170,7 @@ export class UserLifecycleRepository extends Context.Service<UserLifecycleReposi
 			const getActiveByUserId = Effect.fn("UserLifecycleRepository.getActiveByUserId")(function* (
 				userId: UserId,
 			) {
-				const db = yield* database.current;
-				const [row] = yield* mapDatabaseErrors(
+				const [row] = yield* database.run((db) =>
 					db
 						.select()
 						.from(lifecycleSchema.userLifecycleOperation)
@@ -185,8 +183,7 @@ export class UserLifecycleRepository extends Context.Service<UserLifecycleReposi
 			const getInternalById = Effect.fn("UserLifecycleRepository.getInternalById")(function* (
 				operationId: string,
 			) {
-				const db = yield* database.current;
-				const [row] = yield* mapDatabaseErrors(
+				const [row] = yield* database.run((db) =>
 					db
 						.select()
 						.from(lifecycleSchema.userLifecycleOperation)
@@ -205,8 +202,7 @@ export class UserLifecycleRepository extends Context.Service<UserLifecycleReposi
 					return { active, retryable: null, metadata: active.metadata };
 				}
 
-				const db = yield* database.current;
-				const [failed] = yield* mapDatabaseErrors(
+				const [failed] = yield* database.run((db) =>
 					db
 						.select()
 						.from(lifecycleSchema.userLifecycleOperation)
@@ -225,7 +221,7 @@ export class UserLifecycleRepository extends Context.Service<UserLifecycleReposi
 					return { retryable, active: null, metadata: retryable.metadata };
 				}
 
-				const [user] = yield* mapDatabaseErrors(
+				const [user] = yield* database.run((db) =>
 					db
 						.select({
 							id: authSchema.user.id,
@@ -242,7 +238,7 @@ export class UserLifecycleRepository extends Context.Service<UserLifecycleReposi
 				}
 
 				const [accounts, apiKeys, assets, backupArtifacts] = yield* Effect.all([
-					mapDatabaseErrors(
+					database.run((db) =>
 						db
 							.select({
 								accountId: authSchema.account.accountId,
@@ -251,13 +247,13 @@ export class UserLifecycleRepository extends Context.Service<UserLifecycleReposi
 							.from(authSchema.account)
 							.where(eq(authSchema.account.userId, userId)),
 					),
-					mapDatabaseErrors(
+					database.run((db) =>
 						db
 							.select({ id: authSchema.apikey.id, key: authSchema.apikey.key })
 							.from(authSchema.apikey)
 							.where(eq(authSchema.apikey.referenceId, userId)),
 					),
-					mapDatabaseErrors(
+					database.run((db) =>
 						db
 							.select({
 								key: uploadSchema.managedAsset.key,
@@ -266,7 +262,7 @@ export class UserLifecycleRepository extends Context.Service<UserLifecycleReposi
 							.from(uploadSchema.managedAsset)
 							.where(eq(uploadSchema.managedAsset.ownerUserId, userId)),
 					),
-					mapDatabaseErrors(
+					database.run((db) =>
 						db
 							.select({
 								key: backupSchema.backupRun.artifactKey,
@@ -314,8 +310,7 @@ export class UserLifecycleRepository extends Context.Service<UserLifecycleReposi
 				metadata: LifecycleMetadata;
 				kind: UserLifecycleOperationKind;
 			}) {
-				const db = yield* database.current;
-				const [row] = yield* mapDatabaseErrors(
+				const [row] = yield* database.run((db) =>
 					db
 						.insert(lifecycleSchema.userLifecycleOperation)
 						.values({ ...input, status: "pending" })
@@ -329,8 +324,7 @@ export class UserLifecycleRepository extends Context.Service<UserLifecycleReposi
 			const reactivateFailed = Effect.fn("UserLifecycleRepository.reactivateFailed")(function* (
 				operationId: string,
 			) {
-				const db = yield* database.current;
-				const [row] = yield* mapDatabaseErrors(
+				const [row] = yield* database.run((db) =>
 					db
 						.update(lifecycleSchema.userLifecycleOperation)
 						.set({
@@ -352,8 +346,7 @@ export class UserLifecycleRepository extends Context.Service<UserLifecycleReposi
 			const listPending = Effect.fn("UserLifecycleRepository.listPending")(function* (
 				limit: number,
 			) {
-				const db = yield* database.current;
-				const rows = yield* mapDatabaseErrors(
+				const rows = yield* database.run((db) =>
 					db
 						.select()
 						.from(lifecycleSchema.userLifecycleOperation)
@@ -366,9 +359,8 @@ export class UserLifecycleRepository extends Context.Service<UserLifecycleReposi
 
 			const claimAccessRevocation = Effect.fn("UserLifecycleRepository.claimAccessRevocation")(
 				function* (operationId: string, staleBefore: Date) {
-					const db = yield* database.current;
 					const now = yield* DateTime.nowAsDate;
-					const [row] = yield* mapDatabaseErrors(
+					const [row] = yield* database.run((db) =>
 						db
 							.update(lifecycleSchema.userLifecycleOperation)
 							.set({ accessRevocationStartedAt: now })
@@ -394,8 +386,7 @@ export class UserLifecycleRepository extends Context.Service<UserLifecycleReposi
 
 			const releaseAccessRevocation = Effect.fn("UserLifecycleRepository.releaseAccessRevocation")(
 				function* (operationId: string) {
-					const db = yield* database.current;
-					yield* mapDatabaseErrors(
+					yield* database.run((db) =>
 						db
 							.update(lifecycleSchema.userLifecycleOperation)
 							.set({ accessRevocationStartedAt: null })
@@ -416,9 +407,8 @@ export class UserLifecycleRepository extends Context.Service<UserLifecycleReposi
 				if (operation?.accessRevokedAt !== null) {
 					return operation;
 				}
-				const db = yield* database.current;
 				const now = yield* DateTime.nowAsDate;
-				const [row] = yield* mapDatabaseErrors(
+				const [row] = yield* database.run((db) =>
 					db
 						.update(lifecycleSchema.userLifecycleOperation)
 						.set({
@@ -435,9 +425,8 @@ export class UserLifecycleRepository extends Context.Service<UserLifecycleReposi
 			const markRunning = Effect.fn("UserLifecycleRepository.markRunning")(function* (
 				operationId: string,
 			) {
-				const db = yield* database.current;
 				const now = yield* DateTime.nowAsDate;
-				yield* mapDatabaseErrors(
+				yield* database.run((db) =>
 					db
 						.update(lifecycleSchema.userLifecycleOperation)
 						.set({ startedAt: now, status: "running" })
@@ -454,9 +443,8 @@ export class UserLifecycleRepository extends Context.Service<UserLifecycleReposi
 			const markDatabaseCleanupCompleted = Effect.fn(
 				"UserLifecycleRepository.markDatabaseCleanupCompleted",
 			)(function* (operationId: string) {
-				const db = yield* database.current;
 				const now = yield* DateTime.nowAsDate;
-				yield* mapDatabaseErrors(
+				yield* database.run((db) =>
 					db
 						.update(lifecycleSchema.userLifecycleOperation)
 						.set({ databaseCleanupCompletedAt: now })
@@ -473,9 +461,8 @@ export class UserLifecycleRepository extends Context.Service<UserLifecycleReposi
 				operationId: string,
 				resetResult: UserResetResult | null,
 			) {
-				const db = yield* database.current;
 				const now = yield* DateTime.nowAsDate;
-				const [completed] = yield* mapDatabaseErrors(
+				const [completed] = yield* database.run((db) =>
 					db
 						.update(lifecycleSchema.userLifecycleOperation)
 						.set({
@@ -493,7 +480,7 @@ export class UserLifecycleRepository extends Context.Service<UserLifecycleReposi
 						.returning({ userId: lifecycleSchema.userLifecycleOperation.userId }),
 				);
 				if (completed && resetResult !== null) {
-					const [enabled] = yield* mapDatabaseErrors(
+					const [enabled] = yield* database.run((db) =>
 						db
 							.update(authSchema.user)
 							.set({ updatedAt: now, disabledAt: null })
@@ -511,9 +498,8 @@ export class UserLifecycleRepository extends Context.Service<UserLifecycleReposi
 				operationId: string,
 				failure: UserLifecycleOperationFailure,
 			) {
-				const db = yield* database.current;
 				const now = yield* DateTime.nowAsDate;
-				yield* mapDatabaseErrors(
+				yield* database.run((db) =>
 					db
 						.update(lifecycleSchema.userLifecycleOperation)
 						.set({ failure, finishedAt: now, status: "failed" })
@@ -529,8 +515,7 @@ export class UserLifecycleRepository extends Context.Service<UserLifecycleReposi
 			const userExists = Effect.fn("UserLifecycleRepository.userExists")(function* (
 				userId: UserId,
 			) {
-				const db = yield* database.current;
-				const [row] = yield* mapDatabaseErrors(
+				const [row] = yield* database.run((db) =>
 					db
 						.select({ id: authSchema.user.id })
 						.from(authSchema.user)
@@ -542,8 +527,7 @@ export class UserLifecycleRepository extends Context.Service<UserLifecycleReposi
 
 			const loadRecreatedIdentity = Effect.fn("UserLifecycleRepository.loadRecreatedIdentity")(
 				function* (userId: UserId) {
-					const db = yield* database.current;
-					const [user] = yield* mapDatabaseErrors(
+					const [user] = yield* database.run((db) =>
 						db
 							.select({ id: authSchema.user.id, email: authSchema.user.email })
 							.from(authSchema.user)
@@ -553,7 +537,7 @@ export class UserLifecycleRepository extends Context.Service<UserLifecycleReposi
 					if (!user) {
 						return null;
 					}
-					const accounts = yield* mapDatabaseErrors(
+					const accounts = yield* database.run((db) =>
 						db
 							.select({
 								accountId: authSchema.account.accountId,

@@ -16,7 +16,6 @@ import { and, eq, inArray } from "drizzle-orm";
 import { Context, Effect, Layer, Result, Schema } from "effect";
 
 import * as schema from "#lib/infrastructure/db/schema/tables/combined";
-import { mapDatabaseErrors } from "#lib/infrastructure/db/service";
 import { DatabaseSession } from "#lib/infrastructure/db/session";
 import { acquireUserWriteLock } from "#lib/infrastructure/db/user-write-lock";
 import {
@@ -156,8 +155,7 @@ const assertUnclaimedSavedViewSlugsForSession = (database: DatabaseSession["Serv
 		if (slugs.length === 0) {
 			return yield* Effect.void;
 		}
-		const db = yield* database.current;
-		const [collision] = yield* mapDatabaseErrors(
+		const [collision] = yield* database.run((db) =>
 			db
 				.select({ slug: schema.savedView.slug })
 				.from(schema.savedView)
