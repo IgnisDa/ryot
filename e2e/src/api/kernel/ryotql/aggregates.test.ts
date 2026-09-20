@@ -327,25 +327,25 @@ describe("RyotQL aggregate outputs", () => {
 				createAuthenticatedClient(),
 				createAuthenticatedClient(),
 			]);
-			const ownerPluginSlug = createPluginScope();
-			const otherPluginSlug = createPluginScope();
+			const ownerPluginName = createPluginScope();
+			const otherPluginName = createPluginScope();
 			const ownerSchema = yield* createPluginEntitySchema(owner.client, {
-				pluginSlug: ownerPluginSlug,
+				pluginSlug: ownerPluginName,
 				schemaName: "RyotQLAggregateVisible",
 			});
 			const otherSchema = yield* createPluginEntitySchema(other.client, {
-				pluginSlug: otherPluginSlug,
+				pluginSlug: otherPluginName,
 				schemaName: "RyotQLAggregateHidden",
 			});
 			const ownerRelationship = yield* createRelationshipSchema(owner.client, {
-				pluginSlug: ownerPluginSlug,
+				pluginSlug: ownerPluginName,
 				name: "RyotQL Aggregate Visible Link",
 				targetEntitySchemaSlug: ownerSchema.schemaId,
 				sourceEntitySchemaSlug: ownerSchema.schemaId,
 				slug: `ryotql-aggregate-visible-${crypto.randomUUID()}`,
 			});
 			const otherRelationship = yield* createRelationshipSchema(other.client, {
-				pluginSlug: otherPluginSlug,
+				pluginSlug: otherPluginName,
 				name: "RyotQL Aggregate Hidden Link",
 				targetEntitySchemaSlug: otherSchema.schemaId,
 				sourceEntitySchemaSlug: otherSchema.schemaId,

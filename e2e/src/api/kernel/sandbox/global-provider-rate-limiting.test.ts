@@ -11,6 +11,7 @@ import {
 	httpCallFailureSandboxSource,
 	httpCallSandboxSource,
 	installTestPlugin,
+	testPluginPackageId,
 	listAdminSandboxScripts,
 	listAdminSystemPlugins,
 	makeSession,
@@ -135,7 +136,8 @@ describe("deployment-global sandbox HTTP rate limiting", () => {
 				httpRateLimits: [declaration],
 				url: `${http.url}/provider/catalog`,
 			});
-			const conflictingPluginSlug = `e2e-global-rate-limit-conflict-${crypto.randomUUID()}`;
+			const conflictingPluginName = `e2e-global-rate-limit-conflict-${crypto.randomUUID()}`;
+			const conflictingPackageId = testPluginPackageId();
 			const conflictingSlug = `global-rate-limit-conflict-${crypto.randomUUID()}`;
 			const conflictingSource = httpCallSandboxSource({
 				slug: conflictingSlug,
@@ -146,7 +148,8 @@ describe("deployment-global sandbox HTTP rate limiting", () => {
 				installTestPlugin({
 					scope: "system",
 					source: conflictingSource,
-					pluginSlug: conflictingPluginSlug,
+					packageId: conflictingPackageId,
+					pluginSlug: conflictingPluginName,
 					httpRateLimits: [{ ...declaration, intervalMs: 1_600 }],
 					script: {
 						kind: "script",
@@ -161,10 +164,10 @@ describe("deployment-global sandbox HTTP rate limiting", () => {
 			expect(conflict.reason.code).toBe("validation-failed");
 
 			const activePlugins = yield* listAdminSystemPlugins;
-			expect(activePlugins.some(({ slug: activeSlug }) => activeSlug === pluginSlug)).toBe(true);
 			expect(
-				activePlugins.some(({ slug: activeSlug }) => activeSlug === conflictingPluginSlug),
-			).toBe(false);
+				activePlugins.some(({ packageId }) => packageId === plugin.manifest.metadata.packageId),
+			).toBe(true);
+			expect(activePlugins.some(({ packageId }) => packageId === conflictingPackageId)).toBe(false);
 
 			const users = yield* Effect.all(
 				Array.from({ length: 3 }, () => createAuthenticatedClient()),

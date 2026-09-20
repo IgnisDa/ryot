@@ -1,9 +1,4 @@
-import {
-	PluginId,
-	PluginRevisionId,
-	PluginSlug,
-	PluginPackageId,
-} from "@ryot-app/contract/schema/brands";
+import { PluginId, PluginRevisionId, PluginPackageId } from "@ryot-app/contract/schema/brands";
 import {
 	and,
 	ascending,
@@ -34,7 +29,6 @@ export const adminSystemPluginsRecipe = defineRecipe((input: { readonly after?: 
 			),
 			selection: {
 				id: selectedField(column(plugin, "id"), PluginId),
-				slug: selectedField(column(plugin, "slug"), PluginSlug),
 				packageId: selectedField(column(plugin, "packageId"), PluginPackageId),
 				name: selectedField(column(plugin, "name"), Schema.NullOr(Schema.String)),
 				version: selectedField(column(plugin, "version"), Schema.NullOr(Schema.String)),

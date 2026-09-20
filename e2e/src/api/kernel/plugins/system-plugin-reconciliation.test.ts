@@ -1,5 +1,8 @@
-import type { PluginId } from "@ryot-app/contract/schema/brands";
-import { PluginSlug } from "@ryot-app/contract/schema/brands";
+import {
+	type PluginId,
+	type PluginPackageId,
+	pluginPackageSegments,
+} from "@ryot-app/contract/schema/brands";
 import { and, column, document, eq, field, join, literal, rows, table } from "@ryot-app/ryotql";
 import { pluginInstallationsRecipe } from "@ryot-app/ryotql-recipes/plugin-installations";
 import { Effect } from "effect";
@@ -23,6 +26,7 @@ import {
 	requireRows,
 	requireRyotQLText,
 	testPluginManifest,
+	testPluginPackageId,
 	testPluginSavedView,
 	installTestSupportSystemPlugin,
 } from "~/fixtures/kernel";
@@ -66,15 +70,16 @@ const uninstallShippedPlugin = (pluginId: PluginId, activationId: string) =>
 	);
 
 const installShippedPlugin = (
-	pluginSlug: PluginSlug,
+	packageId: PluginPackageId,
 	savedViews?: ReturnType<typeof testPluginManifest>["savedViews"],
 ) => {
 	const name = "E2E Reconciliation Shipped";
 	const slug = `e2e-reconciliation-${crypto.randomUUID()}`;
 	const entry = "backend/scripts/script.sandbox.ts";
 	const manifest = testPluginManifest({
-		pluginSlug,
+		packageId,
 		savedViews,
+		pluginSlug: pluginPackageSegments(packageId).name,
 		scripts: [
 			{
 				name,
@@ -95,7 +100,7 @@ const installShippedPlugin = (
 			uninstallShippedPlugin(installed.pluginId, installed.activationId).pipe(
 				Effect.catch((error) =>
 					Effect.logWarning(
-						`[reconciliation] shipped cleanup failed for '${pluginSlug}' (non-fatal)`,
+						`[reconciliation] shipped cleanup failed for '${packageId}' (non-fatal)`,
 						error,
 					),
 				),
@@ -103,7 +108,7 @@ const installShippedPlugin = (
 	);
 };
 
-const installationRows = (client: Client, pluginSlug: string, scope: "system" | "user") =>
+const installationRows = (client: Client, packageId: PluginPackageId, scope: "system" | "user") =>
 	Effect.gen(function* () {
 		const plugin = table("plugin", "plugin");
 		const installation = table("pluginInstallation", "installation");
@@ -120,7 +125,7 @@ const installationRows = (client: Client, pluginSlug: string, scope: "system" | 
 					],
 					where: and(
 						eq(column(plugin, "scope"), literal(scope)),
-						eq(column(plugin, "slug"), literal(pluginSlug)),
+						eq(column(plugin, "packageId"), literal(packageId)),
 					),
 				}),
 			}),
@@ -128,25 +133,29 @@ const installationRows = (client: Client, pluginSlug: string, scope: "system" | 
 		return requireRows(result.data.installations, "installations").items;
 	});
 
-const settledInstallation = (client: Client, pluginSlug: string, scope: "system" | "user") =>
+const settledInstallation = (
+	client: Client,
+	packageId: PluginPackageId,
+	scope: "system" | "user",
+) =>
 	pollUntil(
-		`${scope} installation of '${pluginSlug}'`,
+		`${scope} installation of '${packageId}'`,
 		listPlugins(client).pipe(
 			Effect.map((installations) => {
 				const entry = installations.find(
-					(item) => item.slug === pluginSlug && item.scope === scope,
+					(item) => item.packageId === packageId && item.scope === scope,
 				);
 				return entry && entry.health !== "installing" ? entry : null;
 			}),
 		),
 	);
 
-const ownedInstallation = (client: Client, pluginSlug: string) =>
+const ownedInstallation = (client: Client, packageId: PluginPackageId) =>
 	listPlugins(client).pipe(
 		Effect.map((installations) =>
 			requirePresent(
-				installations.find((entry) => entry.slug === pluginSlug && entry.scope === "user"),
-				`Private installation of '${pluginSlug}' was not listed`,
+				installations.find((entry) => entry.packageId === packageId && entry.scope === "user"),
+				`Private installation of '${packageId}' was not listed`,
 			),
 		),
 	);
@@ -202,37 +211,37 @@ describe("system plugin reconciliation", () => {
 	it.live("marks a shadowed private installation incompatible and restores it when clear", () =>
 		Effect.gen(function* () {
 			const { client } = yield* createAuthenticatedClient(apiUrl());
-			const pluginSlug = PluginSlug.make(`e2e-shadowed-${crypto.randomUUID()}`);
+			const packageId = testPluginPackageId();
 			const plugin = yield* installPrivatePlugin({
 				client,
-				pluginSlug,
+				packageId,
 				baseUrl: apiUrl(),
 				config: privateConfig,
 			});
 			expect(plugin.installation).toMatchObject({ health: "ready", healthReason: null });
 
-			const [owned] = yield* installationRows(client, pluginSlug, "user");
+			const [owned] = yield* installationRows(client, packageId, "user");
 			const installationId = requireRyotQLText(
 				requirePresent(owned, "Private installation row was not found"),
 				"id",
 			);
 
-			const shipped = yield* installShippedPlugin(pluginSlug);
+			const shipped = yield* installShippedPlugin(packageId);
 			yield* reconcilePluginInstallations();
 
-			const conflicted = yield* ownedInstallation(client, pluginSlug);
+			const conflicted = yield* ownedInstallation(client, packageId);
 			expect(conflicted.health).toBe("incompatible");
 			expect(conflicted.healthReason).not.toBeNull();
-			expect(yield* settledInstallation(client, pluginSlug, "system")).toMatchObject({
+			expect(yield* settledInstallation(client, packageId, "system")).toMatchObject({
 				health: "ready",
 			});
 
 			yield* uninstallShippedPlugin(shipped.pluginId, shipped.activationId);
 			yield* reconcilePluginInstallations();
 
-			const restored = yield* ownedInstallation(client, pluginSlug);
+			const restored = yield* ownedInstallation(client, packageId);
 			expect(restored).toMatchObject({ health: "ready", healthReason: null });
-			const [recovered] = yield* installationRows(client, pluginSlug, "user");
+			const [recovered] = yield* installationRows(client, packageId, "user");
 			expect(
 				requireRyotQLText(requirePresent(recovered, "Private installation row disappeared"), "id"),
 			).toBe(installationId);
@@ -242,18 +251,18 @@ describe("system plugin reconciliation", () => {
 	it.live("uninstalls a private installation shadowed by a shipped plugin", () =>
 		Effect.gen(function* () {
 			const { client } = yield* createAuthenticatedClient(apiUrl());
-			const pluginSlug = PluginSlug.make(`e2e-shadowed-removable-${crypto.randomUUID()}`);
+			const packageId = testPluginPackageId();
 			const privatePlugin = yield* installPrivatePlugin({
 				client,
-				pluginSlug,
+				packageId,
 				baseUrl: apiUrl(),
 				config: privateConfig,
 			});
-			yield* installShippedPlugin(pluginSlug);
+			yield* installShippedPlugin(packageId);
 			yield* reconcilePluginInstallations();
-			expect((yield* ownedInstallation(client, pluginSlug)).health).toBe("incompatible");
+			expect((yield* ownedInstallation(client, packageId)).health).toBe("incompatible");
 
-			const [before] = yield* installationRows(client, pluginSlug, "user");
+			const [before] = yield* installationRows(client, packageId, "user");
 			const removed = yield* client.call((c) =>
 				c.plugins.uninstall({
 					params: {
@@ -270,8 +279,8 @@ describe("system plugin reconciliation", () => {
 			);
 			const listed = yield* listPlugins(client);
 			expect(
-				listed.filter((entry) => entry.scope === "user").map(({ slug }) => slug),
-			).not.toContain(pluginSlug);
+				listed.filter((entry) => entry.scope === "user").map((entry) => entry.packageId),
+			).not.toContain(packageId);
 		}),
 	);
 
@@ -280,12 +289,12 @@ describe("system plugin reconciliation", () => {
 			const { client } = yield* createAuthenticatedClient(apiUrl());
 			const viewSlug = `e2e-shared-view-${crypto.randomUUID()}`;
 			const savedViews = [testPluginSavedView({ slug: viewSlug })];
-			const pluginSlug = PluginSlug.make(`e2e-view-owner-${crypto.randomUUID()}`);
-			const shippedSlug = PluginSlug.make(`e2e-view-claimer-${crypto.randomUUID()}`);
+			const packageId = testPluginPackageId();
+			const shippedPackageId = testPluginPackageId();
 			const plugin = yield* installPrivatePlugin({
 				client,
+				packageId,
 				savedViews,
-				pluginSlug,
 				baseUrl: apiUrl(),
 				config: privateConfig,
 			});
@@ -293,23 +302,23 @@ describe("system plugin reconciliation", () => {
 			expect(
 				(yield* listSavedViews(client))
 					.filter((view) => view.slug === viewSlug)
-					.map(({ pluginSlug: owner }) => owner),
-			).toEqual([pluginSlug]);
+					.map(({ packageId: owner }) => owner),
+			).toEqual([packageId]);
 
-			yield* installShippedPlugin(shippedSlug, savedViews);
+			yield* installShippedPlugin(shippedPackageId, savedViews);
 			yield* reconcilePluginInstallations();
 
-			const conflicted = yield* ownedInstallation(client, pluginSlug);
+			const conflicted = yield* ownedInstallation(client, packageId);
 			expect(conflicted.health).toBe("incompatible");
 			expect(conflicted.healthReason).not.toBeNull();
-			expect(yield* settledInstallation(client, shippedSlug, "system")).toMatchObject({
+			expect(yield* settledInstallation(client, shippedPackageId, "system")).toMatchObject({
 				health: "ready",
 			});
 			expect(
 				(yield* listSavedViews(client))
 					.filter((view) => view.slug === viewSlug)
-					.map(({ pluginSlug: owner }) => owner),
-			).toEqual([shippedSlug]);
+					.map(({ packageId: owner }) => owner),
+			).toEqual([shippedPackageId]);
 			// The shipped plugin is uninstalled when this test's scope closes, which would otherwise
 			// return the private installation to `ready` inside a later reconcile while the shipped
 			// plugin's generated view row still owns the shared slug.
@@ -320,15 +329,15 @@ describe("system plugin reconciliation", () => {
 	it.live("provisions an installation for an existing user when a shipped plugin appears", () =>
 		Effect.gen(function* () {
 			const { client } = yield* createAuthenticatedClient(apiUrl());
-			const pluginSlug = PluginSlug.make(`e2e-provisioned-${crypto.randomUUID()}`);
-			expect(yield* installationRows(client, pluginSlug, "system")).toEqual([]);
+			const packageId = testPluginPackageId();
+			expect(yield* installationRows(client, packageId, "system")).toEqual([]);
 
-			yield* installShippedPlugin(pluginSlug);
+			yield* installShippedPlugin(packageId);
 			yield* reconcilePluginInstallations();
 
 			const settled = yield* pollUntil(
-				`system installation of '${pluginSlug}'`,
-				installationRows(client, pluginSlug, "system").pipe(
+				`system installation of '${packageId}'`,
+				installationRows(client, packageId, "system").pipe(
 					Effect.map((items) => {
 						const [item] = items;
 						return item && requireRyotQLText(item, "health") !== "installing" ? item : null;

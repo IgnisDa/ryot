@@ -63,7 +63,7 @@ describe("saved views management", () => {
 	it.live("filters and reorders canonical views within a workspace", () =>
 		Effect.gen(function* () {
 			const { client } = yield* createAuthenticatedClient();
-			const { schemaId, pluginId, pluginSlug } = yield* createPluginEntitySchema(client, {
+			const { schemaId, pluginId } = yield* createPluginEntitySchema(client, {
 				schemaName: `Saved View Workspace ${crypto.randomUUID()}`,
 			});
 			const workspace = requirePresent(
@@ -97,7 +97,7 @@ describe("saved views management", () => {
 				second.slug,
 				first.slug,
 			]);
-			expect(workspaceViews.every((view) => view.pluginSlug === pluginSlug)).toBe(true);
+			expect(workspaceViews.every((view) => view.packageId === workspace.packageId)).toBe(true);
 		}),
 	);
 

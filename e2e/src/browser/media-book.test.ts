@@ -1,4 +1,5 @@
 import { savedViewPath } from "@ryot-app/contract/modules/plugins/navigation";
+import { mediaPlugin } from "@ryot-app/media-plugin";
 import { Effect } from "effect";
 import { Playwright, PlaywrightSpawner } from "effect-playwright";
 
@@ -209,7 +210,6 @@ it.live("renders the Book presentation facts in the canonical saved view", () =>
 			siblingName: `Row Tracer Sequel ${suffix}`,
 			bookProperties: { pages: 320, publishYear: 2014 },
 		});
-		const { pluginId } = yield* findMediaEntitySchema(client, "book");
 		const events = yield* bookEventSchemas(client);
 		yield* createEventFixture(client, {
 			entityId: seeded.book.id,
@@ -222,7 +222,7 @@ it.live("renders the Book presentation facts in the canonical saved view", () =>
 		const page = yield* browser.newPage({ viewport: { width: 1280, height: 900 } });
 		yield* signInThroughHostedOAuth(page, email, password);
 		yield* page.goto(
-			`${frontendUrl}${savedViewPath({ pluginId, kind: "plugin", slug: "all-books" })}`,
+			`${frontendUrl}${savedViewPath({ kind: "plugin", slug: "all-books", packageId: mediaPlugin.metadata.packageId })}`,
 		);
 		const view = page.locator("iframe").contentFrame();
 		const row = view.locator(`article[data-entity-id="${seeded.book.id}"]`);

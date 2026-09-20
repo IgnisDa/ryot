@@ -191,7 +191,7 @@ describe("sandbox RyotQL pinned-plugin authorization", () => {
 				}
 			});
 
-			const foreignPluginSlug = `e2e-ryotql-auth-foreign-${suffix}`;
+			const foreignPluginName = `e2e-ryotql-auth-foreign-${suffix}`;
 			const foreignRootSlug = `e2e-ryotql-auth-foreign-root-${suffix}`;
 			const foreignTargetSlug = `e2e-ryotql-auth-foreign-target-${suffix}`;
 			const foreignEventSlug = `e2e-ryotql-auth-foreign-event-${suffix}`;
@@ -236,7 +236,7 @@ describe("sandbox RyotQL pinned-plugin authorization", () => {
 			const foreignInstalled = yield* Effect.acquireRelease(
 				installTestPluginBundle({
 					scope: "system",
-					pluginSlug: foreignPluginSlug,
+					pluginSlug: foreignPluginName,
 					entitySchemas: foreignEntitySchemas,
 					relationshipSchemas: foreignRelationshipSchemas,
 					files: {

@@ -11,6 +11,7 @@ import {
 	executeRyotQLRecipe,
 	findBuiltinSchemaBySlug,
 	installTestPluginBundle,
+	testPluginPackageId,
 	listAutomationRunAttempts,
 	listAutomationRuns,
 	type AutomationRun,
@@ -450,11 +451,13 @@ describe("automation retries", () => {
 		Effect.gen(function* () {
 			const { client } = yield* createAuthenticatedClient();
 			const pluginSlug = `e2e-unsafe-http-retry-${crypto.randomUUID()}`;
+			const packageId = testPluginPackageId();
 			const scriptSlug = `automation.${pluginSlug}`;
 			const entry = `backend/automations/${scriptSlug}.sandbox.ts`;
 			const failure = yield* Effect.flip(
 				installTestPluginBundle({
 					client,
+					packageId,
 					pluginSlug,
 					files: { [entry]: alwaysRetryableFailureSource(scriptSlug) },
 					scripts: [automationScript(scriptSlug, entry, ["httpCall"])],
@@ -484,7 +487,7 @@ describe("automation retries", () => {
 			expect(
 				(yield* collectRyotQLRecipeItems(client, (after) =>
 					pluginInstallationsRecipe({ after, limit: 100 }),
-				)).some(({ slug }) => slug === pluginSlug),
+				)).some((candidate) => candidate.packageId === packageId),
 			).toBe(false);
 		}),
 	);

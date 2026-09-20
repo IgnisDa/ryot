@@ -1,4 +1,7 @@
+import { pluginExportSpecifier } from "@ryot-app/client-plugin-contract";
 import { savedViewPath } from "@ryot-app/contract/modules/plugins/navigation";
+import { fitnessPlugin } from "@ryot-app/fitness-plugin";
+import { mediaPlugin } from "@ryot-app/media-plugin";
 import { Effect, Option, Schema } from "effect";
 import { Playwright, PlaywrightSpawner } from "effect-playwright";
 
@@ -13,6 +16,7 @@ import {
 	createPluginSavedView,
 	createResultsTableSavedView,
 	findSavedViewById,
+	savedViewRecordPath,
 	installFixtureClientPlugin,
 	listEntitySchemas,
 	listEventSchemas,
@@ -27,7 +31,7 @@ import {
 } from "~/fixtures/plugins/fitness";
 import { findMediaEntitySchema, seedGlobalShowEpisodeTree } from "~/fixtures/plugins/media";
 import { requirePresent } from "~/support/assertions";
-import { signInThroughHostedOAuth } from "~/support/browser";
+import { signInThroughHostedOAuth, waitForSearchParam } from "~/support/browser";
 import { expect, it } from "~/support/effect-test";
 import { getApiUrl, getFrontendUrl } from "~/support/harness-target";
 import { webRequest } from "~/support/web-request";
@@ -147,7 +151,7 @@ it.live("renders a saved view from an installed client plugin page", () =>
 		const browser = yield* Playwright.Browser;
 		const page = yield* browser.newPage();
 		yield* signInThroughHostedOAuth(page, email, password);
-		yield* page.goto(`${getFrontendUrl()}${savedViewPath(viewRecord.reference)}`);
+		yield* page.goto(`${getFrontendUrl()}${savedViewRecordPath(viewRecord)}`);
 
 		const frame = activeClientFrame(page);
 		yield* frame.waitFor({ state: "visible" });
@@ -156,7 +160,10 @@ it.live("renders a saved view from an installed client plugin page", () =>
 			.contentFrame()
 			.getByRole("heading", { level: 1, exact: true, name: "Fixture plugin revision A" })
 			.waitFor({ state: "visible" });
-		const privateModule = yield* clientImportUrl(frame, "@ryot-app/plugins/fixture/fixture-home");
+		const privateModule = yield* clientImportUrl(
+			frame,
+			pluginExportSpecifier({ scope: "user", packageId: installation.packageId }, "fixture-home"),
+		);
 		expect(privateModule).toMatch(
 			/^\/api\/client-assets\/[a-f0-9]{64}\/[A-Za-z0-9_-]{43}\/module\.js$/,
 		);
@@ -177,14 +184,17 @@ it.live("renders a saved view from an installed client plugin page", () =>
 			.getByTestId("desktop-sidebar")
 			.getByRole("button", { name: /workspace/ })
 			.click();
-		yield* page.getByRole("menuitemradio", { name: "Switch to Media workspace" }).click();
+		yield* page
+			.getByRole("menuitemradio", {
+				name: `Switch to Media · System · ${mediaPlugin.metadata.packageId} workspace`,
+			})
+			.click();
 		yield* page
 			.getByTestId("desktop-sidebar")
 			.getByRole("link", { exact: true, name: "All Music" })
 			.click();
-		const { pluginId: mediaPluginId } = yield* findMediaEntitySchema(client, "music");
 		yield* page.waitForURL(
-			`${getFrontendUrl()}${savedViewPath({ kind: "plugin", slug: "all-music", pluginId: mediaPluginId })}`,
+			`${getFrontendUrl()}${savedViewPath({ kind: "plugin", slug: "all-music", packageId: mediaPlugin.metadata.packageId })}`,
 		);
 		const mediaFrame = activeClientFrame(page);
 		yield* mediaFrame
@@ -192,7 +202,13 @@ it.live("renders a saved view from an installed client plugin page", () =>
 			.getByRole("heading", { level: 1, name: "All Music" })
 			.waitFor();
 		expect(yield* clientImportUrl(mediaFrame, "@ryot-app/client-sdk/plugin")).toBe(runtimeUrl);
-		const shippedModule = yield* clientImportUrl(mediaFrame, "@ryot-app/plugins/media/media-card");
+		const shippedModule = yield* clientImportUrl(
+			mediaFrame,
+			pluginExportSpecifier(
+				{ scope: "system", packageId: mediaPlugin.metadata.packageId },
+				"media-card",
+			),
+		);
 		expect(shippedModule).toMatch(/^\/api\/client-assets\/[a-f0-9]{64}\/public\/module\.js$/);
 	}).pipe(PlaywrightSpawner.withBrowser),
 );
@@ -254,9 +270,7 @@ it.live("keeps configured entity-browser controls within their declared source",
 		const browser = yield* Playwright.Browser;
 		const page = yield* browser.newPage();
 		yield* signInThroughHostedOAuth(page, email, password);
-		yield* page.goto(
-			`${getFrontendUrl()}${savedViewPath(viewRecord.reference)}?keep=1&layout=table`,
-		);
+		yield* page.goto(`${getFrontendUrl()}${savedViewRecordPath(viewRecord)}?keep=1&layout=table`);
 		const runtime = activeClientFrame(page).contentFrame();
 		yield* runtime.getByRole("heading", { level: 1, name: "Configured entity browser" }).waitFor();
 		yield* runtime.getByText(alpha.name, { exact: true }).waitFor({ state: "visible" });
@@ -271,11 +285,11 @@ it.live("keeps configured entity-browser controls within their declared source",
 		yield* runtime
 			.getByRole("searchbox", { name: "Search Configured entity browser" })
 			.fill("Alpha");
-		yield* page.waitForURL((url) => url.searchParams.get("search") === "Alpha");
+		yield* waitForSearchParam(page, "Alpha");
 		expect(new URL(page.url()).searchParams.get("keep")).toBe("1");
 		yield* runtime.getByText("02 Zulu member", { exact: true }).waitFor({ state: "hidden" });
 		yield* runtime.getByRole("searchbox", { name: "Search Configured entity browser" }).fill("");
-		yield* page.waitForURL((url) => url.searchParams.get("search") === null);
+		yield* waitForSearchParam(page, null);
 
 		yield* runtime.getByRole("button", { name: /Filters/ }).click();
 		yield* runtime.getByRole("button", { name: "Sort results: Default order" }).click();
@@ -352,14 +366,17 @@ it.live("warms private Pokemon presentation files without evaluating them until 
 			nativePage.on("requestfinished", (request) => finished.push(new URL(request.url()).pathname));
 			return Promise.resolve();
 		});
-		yield* page.goto(`${getFrontendUrl()}${savedViewPath(viewRecord.reference)}`);
+		yield* page.goto(`${getFrontendUrl()}${savedViewRecordPath(viewRecord)}`);
 		const frame = activeClientFrame(page);
 		const runtime = frame.contentFrame();
 		yield* runtime.getByRole("heading", { level: 1, name: viewRecord.name }).waitFor();
 		yield* expectVisibleText(runtime.locator("body"), "01 Fallback");
 		yield* expectVisibleText(runtime.locator("body"), "02 Fallback");
 		expect(yield* runtime.locator("article").count).toBe(2);
-		const privateModule = yield* clientImportUrl(frame, "@ryot-app/plugins/fixture/pokemon-card");
+		const privateModule = yield* clientImportUrl(
+			frame,
+			pluginExportSpecifier({ scope: "user", packageId: installation.packageId }, "pokemon-card"),
+		);
 		expect(privateModule).toMatch(
 			/^\/api\/client-assets\/[a-f0-9]{64}\/[A-Za-z0-9_-]{43}\/module\.js$/,
 		);
@@ -450,7 +467,7 @@ it.live(
 			const browser = yield* Playwright.Browser;
 			const page = yield* browser.newPage();
 			yield* signInThroughHostedOAuth(page, email, password);
-			yield* page.goto(`${getFrontendUrl()}${savedViewPath(viewRecord.reference)}`);
+			yield* page.goto(`${getFrontendUrl()}${savedViewRecordPath(viewRecord)}`);
 			const runtime = activeClientFrame(page).contentFrame();
 			yield* runtime.getByRole("heading", { level: 1, name: viewRecord.name }).waitFor();
 			const rows = runtime.locator("tbody tr");
@@ -621,7 +638,7 @@ it.live("keeps one rich mixed entity browser runtime across pagination and layou
 			});
 			return Promise.resolve();
 		});
-		yield* page.goto(`${getFrontendUrl()}${savedViewPath(viewRecord.reference)}`);
+		yield* page.goto(`${getFrontendUrl()}${savedViewRecordPath(viewRecord)}`);
 
 		const frame = activeClientFrame(page);
 		yield* frame.waitFor({ state: "visible" });
@@ -630,7 +647,13 @@ it.live("keeps one rich mixed entity browser runtime across pagination and layou
 		yield* runtime
 			.getByRole("heading", { level: 1, name: "Mixed entity browser" })
 			.waitFor({ state: "visible" });
-		const fitnessModule = yield* clientImportUrl(frame, "@ryot-app/plugins/fitness/workout-card");
+		const fitnessModule = yield* clientImportUrl(
+			frame,
+			pluginExportSpecifier(
+				{ scope: "system", packageId: fitnessPlugin.metadata.packageId },
+				"workout-card",
+			),
+		);
 		expect(fitnessModule).toMatch(/^\/api\/client-assets\/[a-f0-9]{64}\/public\/module\.js$/);
 		const fitnessCss = fitnessModule.replace(/module\.js$/, "module.css");
 		yield* expectVisibleText(runtime.locator("body"), "01 Alpha fallback");
@@ -724,7 +747,7 @@ it.live("keeps one rich mixed entity browser runtime across pagination and layou
 		expect(fontRequests.every((path) => path.startsWith(runtimeBase))).toBe(true);
 		expect(yield* pokemonGrid.getAttribute("data-view-context")).toBe(
 			yield* Schema.encodeEffect(Schema.fromJsonString(Schema.Unknown))({
-				savedViewId: viewRecord.id,
+				savedView: { kind: "custom", savedViewId: viewRecord.id },
 			}),
 		);
 
@@ -737,7 +760,7 @@ it.live("keeps one rich mixed entity browser runtime across pagination and layou
 		expect(yield* runtime.locator("article").count).toBe(5);
 		expect(yield* pokemonList.getAttribute("data-view-context")).toBe(
 			yield* Schema.encodeEffect(Schema.fromJsonString(Schema.Unknown))({
-				savedViewId: viewRecord.id,
+				savedView: { kind: "custom", savedViewId: viewRecord.id },
 			}),
 		);
 		expect(yield* runtime.locator("body").getAttribute("data-e2e-page")).toBe("stable");

@@ -78,14 +78,24 @@ describe("Whiskey namespace workspaces", () => {
 					);
 					expect(originalView.identity.operationTargets).toEqual(
 						expect.arrayContaining([
-							{ pluginId: a.pluginId, installationId: a.id, sourceHash: a.installation.sourceHash },
-							{ pluginId: b.pluginId, installationId: b.id, sourceHash: b.installation.sourceHash },
+							{
+								pluginId: a.pluginId,
+								installationId: a.id,
+								sourceHash: a.installation.sourceHash,
+								packageId: packages.a.manifest.metadata.packageId,
+							},
+							{
+								pluginId: b.pluginId,
+								installationId: b.id,
+								sourceHash: b.installation.sourceHash,
+								packageId: packages.b.manifest.metadata.packageId,
+							},
 						]),
 					);
 					const browser = yield* Playwright.Browser;
 					const page = yield* browser.newPage({ viewport });
 					yield* signInThroughHostedOAuth(page, user.email, user.password);
-					yield* page.goto(`${getFrontendUrl()}${pluginPath(a.pluginId)}`);
+					yield* page.goto(`${getFrontendUrl()}${pluginPath(a.installation.packageId)}`);
 					const frame = page.locator("iframe").filter({ visible: true }).contentFrame();
 					const alice = frame.getByTestId("catalog-A1");
 					const bob = frame.getByTestId("catalog-B1");
@@ -114,7 +124,7 @@ describe("Whiskey namespace workspaces", () => {
 							.waitFor({ state: "visible" });
 						expect(yield* catalog.getByTestId("storage-value").textContent()).toBe(label);
 					}
-					yield* page.goto(`${getFrontendUrl()}${pluginPath(b.pluginId)}`);
+					yield* page.goto(`${getFrontendUrl()}${pluginPath(b.installation.packageId)}`);
 					const bFrame = page.locator("iframe").filter({ visible: true }).contentFrame();
 					yield* bFrame.getByTestId("catalog-B1").waitFor({ state: "visible" });
 					yield* pollUntil(
@@ -136,7 +146,7 @@ describe("Whiskey namespace workspaces", () => {
 					);
 					assert(updatedView.identity.kind === "plugin-saved-view");
 					expect(updatedView.identity.savedViewId).toBe(originalView.identity.savedViewId);
-					yield* page.goto(`${getFrontendUrl()}${pluginPath(a.pluginId)}`);
+					yield* page.goto(`${getFrontendUrl()}${pluginPath(a.installation.packageId)}`);
 					const updated = page.locator("iframe").filter({ visible: true }).contentFrame();
 					yield* updated.getByTestId("catalog-A2").waitFor({ state: "visible" });
 					yield* pollUntil(
@@ -175,7 +185,7 @@ describe("Whiskey namespace workspaces", () => {
 							.pipe(Effect.map((value) => (value === "B1" ? true : null))),
 					);
 					yield* page.goto(
-						`${getFrontendUrl()}${savedViewPath({ kind: "plugin", slug: "all-bottles", pluginId: b.pluginId })}`,
+						`${getFrontendUrl()}${savedViewPath({ kind: "plugin", slug: "all-bottles", packageId: b.installation.packageId })}`,
 					);
 					yield* page
 						.locator("iframe")
@@ -184,7 +194,11 @@ describe("Whiskey namespace workspaces", () => {
 						.getByTestId("catalog-B1")
 						.waitFor({ state: "visible" });
 					expect(new URL(page.url()).pathname).toBe(
-						savedViewPath({ kind: "plugin", slug: "all-bottles", pluginId: b.pluginId }),
+						savedViewPath({
+							kind: "plugin",
+							slug: "all-bottles",
+							packageId: b.installation.packageId,
+						}),
 					);
 					const contributor = yield* installNamespacePackage(user.client, packages.contributor);
 					const aliasComposition = yield* user.client.call((contract) =>
@@ -194,7 +208,7 @@ describe("Whiskey namespace workspaces", () => {
 									path: "/",
 									search: "",
 									kind: "plugin-route",
-									pluginId: contributor.pluginId,
+									packageId: contributor.installation.packageId,
 								},
 							},
 						}),
@@ -205,7 +219,7 @@ describe("Whiskey namespace workspaces", () => {
 							.map(({ pluginId }) => pluginId)
 							.sort(),
 					).toEqual([a.pluginId, b.pluginId, contributor.pluginId].sort());
-					yield* page.goto(`${getFrontendUrl()}${pluginPath(contributor.pluginId)}`);
+					yield* page.goto(`${getFrontendUrl()}${pluginPath(contributor.installation.packageId)}`);
 					const contributorFrame = page.locator("iframe").filter({ visible: true }).contentFrame();
 					yield* contributorFrame.getByTestId("catalog-Contributor").waitFor({ state: "visible" });
 					yield* contributorFrame.getByTestId("catalog-A2").waitFor({ state: "visible" });
@@ -215,7 +229,7 @@ describe("Whiskey namespace workspaces", () => {
 							.getByTestId("contributor-owner")
 							.textContent(),
 					).toBe(a.pluginId);
-					yield* page.goto(`${getFrontendUrl()}${pluginPath(a.pluginId)}`);
+					yield* page.goto(`${getFrontendUrl()}${pluginPath(a.installation.packageId)}`);
 					const system = yield* installTestSupportSystemPlugin(packages.claim);
 					yield* Effect.addFinalizer(() =>
 						getApiClient()
@@ -236,7 +250,7 @@ describe("Whiskey namespace workspaces", () => {
 						.getByRole("heading", { level: 1 })
 						.filter({ visible: true })
 						.waitFor({ state: "visible" });
-					expect(new URL(page.url()).pathname).toBe(pluginPath(a.pluginId));
+					expect(new URL(page.url()).pathname).toBe(pluginPath(a.installation.packageId));
 					expect(yield* page.locator("iframe").filter({ visible: true }).count).toBe(0);
 					yield* page.close;
 				}).pipe(PlaywrightSpawner.withBrowser),

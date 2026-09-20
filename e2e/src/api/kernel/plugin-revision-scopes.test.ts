@@ -58,7 +58,7 @@ describe("plugin revision scopes", () => {
 					))[0],
 					"A bottle missing",
 				);
-				yield* invokeNamespaceOperation(client, a.pluginId, {
+				yield* invokeNamespaceOperation(client, a.installation.packageId, {
 					entityId: bottle.id,
 					action: "create-event",
 				});
@@ -178,7 +178,7 @@ describe("plugin revision scopes", () => {
 				);
 				const properties = yield* Schema.decodeEffect(AppSchema)(definition.propertiesSchema);
 				expect(properties.fields.finish).toBeUndefined();
-				expect((yield* invokeNamespaceOperation(client, a.pluginId)).result).toEqual({
+				expect((yield* invokeNamespaceOperation(client, a.installation.packageId)).result).toEqual({
 					label: "A2",
 				});
 			}),
@@ -197,19 +197,22 @@ describe("plugin revision scopes", () => {
 			expect((yield* namespaceInstallation(bob.client, b.pluginId)).sourceHash).toBe(
 				b.installation.sourceHash,
 			);
-			expect((yield* invokeNamespaceOperation(alice.client, a.pluginId)).result).toEqual({
-				label: "A2",
-			});
-			expect((yield* invokeNamespaceOperation(bob.client, b.pluginId)).result).toEqual({
-				label: "A1",
-			});
+			expect(
+				(yield* invokeNamespaceOperation(alice.client, a.installation.packageId)).result,
+			).toEqual({ label: "A2" });
+			expect(
+				(yield* invokeNamespaceOperation(bob.client, b.installation.packageId)).result,
+			).toEqual({ label: "A1" });
 			const stale = yield* Effect.flip(
-				invokeNamespaceOperation(alice.client, a.pluginId, {}, a.installation.sourceHash),
+				invokeNamespaceOperation(
+					alice.client,
+					a.installation.packageId,
+					{},
+					a.installation.sourceHash,
+				),
 			);
 			assertTaggedError(stale, "PluginConflictError");
 			expect(stale.reason).toEqual({ pluginId: a.pluginId, code: "source-revision-stale" });
-			const foreign = yield* Effect.flip(invokeNamespaceOperation(bob.client, a.pluginId));
-			assertTaggedError(foreign, "PluginNotFoundError");
 			const aliceRows = yield* executeRyotQLRecipe(
 				alice.client,
 				namespaceBottlesRecipe({
@@ -290,9 +293,9 @@ describe("plugin revision scopes", () => {
 				});
 				activationId = updated.activationId;
 				for (const owner of [alice.client, bob.client]) {
-					expect((yield* invokeNamespaceOperation(owner, system.pluginId)).result).toEqual({
-						label: "A2",
-					});
+					expect(
+						(yield* invokeNamespaceOperation(owner, packages.a.manifest.metadata.packageId)).result,
+					).toEqual({ label: "A2" });
 				}
 				const duplicate = yield* Effect.flip(installTestSupportSystemPlugin(packages.a2));
 				assertTaggedError(duplicate, "PluginConflictError");

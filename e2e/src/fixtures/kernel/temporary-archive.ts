@@ -1,3 +1,4 @@
+import { pluginPackageSegments } from "@ryot-app/contract/schema/brands";
 import {
 	PluginArchiveError,
 	type PluginArchivePackage,
@@ -56,6 +57,6 @@ export const uploadPrivatePluginPackage = (
 		});
 		return yield* uploadTemporaryArchive(client, bytes, {
 			baseUrl,
-			fileName: `${pluginPackage.manifest.metadata.slug}.zip`,
+			fileName: `${pluginPackageSegments(pluginPackage.manifest.metadata.packageId).name}.zip`,
 		});
 	});

@@ -24,3 +24,12 @@ export const signInThroughHostedOAuth = (
 		yield* page.getByTestId("authenticated-shell").waitFor({ state: "visible" });
 		return { homeUrl: page.url(), historyLengthBeforeSubmit };
 	});
+
+export const waitForSearchParam = (page: Playwright.Page, value: string | null) =>
+	page
+		.locator("body")
+		.waitForFunction(
+			(body, expected) =>
+				new URLSearchParams(body.ownerDocument.location.search).get("search") === expected,
+			value,
+		);

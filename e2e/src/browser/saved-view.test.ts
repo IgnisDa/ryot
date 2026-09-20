@@ -1,4 +1,3 @@
-import { savedViewPath } from "@ryot-app/contract/modules/plugins/navigation";
 import { definitionOwner } from "@ryot-app/contract/modules/plugins/references";
 import { Effect } from "effect";
 import { Playwright, PlaywrightSpawner } from "effect-playwright";
@@ -13,6 +12,7 @@ import {
 	fakeProviderSearchResult,
 	fakeProviderTranslations,
 	findSavedViewById,
+	savedViewRecordPath,
 	getEntity,
 	installTestProvider,
 	makeEntitySchemaSlug,
@@ -22,7 +22,7 @@ import {
 	type InstalledTestProvider,
 } from "~/fixtures/kernel";
 import { assertTaggedError } from "~/support/assertions";
-import { signInThroughHostedOAuth } from "~/support/browser";
+import { signInThroughHostedOAuth, waitForSearchParam } from "~/support/browser";
 import { afterAll, beforeAll, expect, it, runPromise } from "~/support/effect-test";
 import { getFrontendUrl } from "~/support/harness-target";
 
@@ -151,9 +151,11 @@ beforeAll(() =>
 				ownerPluginIdField: "ownerPluginId",
 				entitySchemaSlugField: "entitySchemaSlug",
 				addAction: {
-					ownerPluginId,
 					type: "provider-search" as const,
-					entitySchemaSlug: makeEntitySchemaSlug(ENTITY_SCHEMA_SLUG),
+					schema: {
+						owner: definitionOwner(ownerPluginId),
+						slug: makeEntitySchemaSlug(ENTITY_SCHEMA_SLUG),
+					},
 				},
 			};
 			const mismatch = yield* Effect.flip(
@@ -163,7 +165,10 @@ beforeAll(() =>
 						name: `${VIEW_NAME} mismatched owner`,
 						settings: {
 							...settings,
-							addAction: { ...settings.addAction, ownerPluginId: "wrong-plugin-id" },
+							addAction: {
+								...settings.addAction,
+								schema: { ...settings.addAction.schema, owner: definitionOwner("wrong-plugin-id") },
+							},
 						},
 					},
 					[],
@@ -181,7 +186,7 @@ beforeAll(() =>
 				ownerPluginId,
 			);
 			const viewRecord = yield* findSavedViewById(client, view.id);
-			viewUrl = `${getFrontendUrl()}${savedViewPath(viewRecord.reference)}`;
+			viewUrl = `${getFrontendUrl()}${savedViewRecordPath(viewRecord)}`;
 		}),
 	),
 );
@@ -242,7 +247,7 @@ it.live("automatically populates and translates entities rendered by a saved vie
 		const browser = yield* Playwright.Browser;
 		const page = yield* browser.newPage({ locale: "en-US" });
 		yield* signInThroughHostedOAuth(page, user.email, user.password);
-		yield* page.goto(`${getFrontendUrl()}${savedViewPath(viewRecord.reference)}`);
+		yield* page.goto(`${getFrontendUrl()}${savedViewRecordPath(viewRecord)}`);
 		const runtime = page.locator("iframe").contentFrame();
 		yield* runtime.getByRole("heading", { level: 1, name: `Interest View ${id}` }).waitFor();
 		yield* pollUntil(
@@ -316,7 +321,7 @@ it.live("keeps source data visible when saved-view translation is outstanding", 
 		const browser = yield* Playwright.Browser;
 		const page = yield* browser.newPage({ locale: "en-US" });
 		yield* signInThroughHostedOAuth(page, user.email, user.password);
-		yield* page.goto(`${getFrontendUrl()}${savedViewPath(viewRecord.reference)}`);
+		yield* page.goto(`${getFrontendUrl()}${savedViewRecordPath(viewRecord)}`);
 		const runtime = page.locator("iframe").contentFrame();
 		yield* pollUntil(
 			"saved-view entity population with pending translation",
@@ -393,12 +398,12 @@ it.live("focuses the view search on / and releases it so page shortcuts return",
 		yield* waitForFocus(pageSearch(runtime), true);
 		yield* page.keyboard.type("dune");
 		yield* waitForInputValue(pageSearch(runtime), "dune");
-		yield* page.waitForURL((url) => url.searchParams.get("search") === "dune");
+		yield* waitForSearchParam(page, "dune");
 		expect(yield* isFocused(pageSearch(runtime))).toBe(true);
 
 		yield* page.keyboard.press("Escape");
 		yield* waitForInputValue(pageSearch(runtime), "");
-		yield* page.waitForURL((url) => url.searchParams.get("search") === null);
+		yield* waitForSearchParam(page, null);
 		expect(yield* isFocused(pageSearch(runtime))).toBe(true);
 
 		yield* page.keyboard.press("Escape");

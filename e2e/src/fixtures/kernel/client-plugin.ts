@@ -1,4 +1,4 @@
-import { PluginPackageId, PluginSlug } from "@ryot-app/contract/schema/brands";
+import type { PluginPackageId } from "@ryot-app/contract/schema/brands";
 import { fixturePlugin } from "@ryot-app/fixture-plugin";
 import { readPluginArchive } from "@ryot-app/plugin-archive";
 import { Effect, Schema } from "effect";
@@ -11,10 +11,10 @@ import {
 	settledPrivateInstallation,
 	updatePrivatePlugin,
 } from "./private-plugin";
+import { testPluginPackageId } from "./test-plugin";
 
 const fixturePackageIds = new Map<string, PluginPackageId>();
 
-export const FIXTURE_CLIENT_PLUGIN_SLUG = PluginSlug.make("fixture");
 export const FIXTURE_CLIENT_REVISION_MARKERS = {
 	A: "Fixture plugin revision A",
 	B: "Fixture plugin revision B",
@@ -33,7 +33,7 @@ type FixtureClientPluginRevision = keyof typeof FIXTURE_CLIENT_REVISION_MARKERS;
 export const fixtureClientPluginPackage = (
 	revision: FixtureClientPluginRevision,
 	variant = "",
-	pluginSlug = FIXTURE_CLIENT_PLUGIN_SLUG,
+	pluginSlug = "fixture",
 	presentationEvaluationSignal = false,
 ) =>
 	Effect.gen(function* () {
@@ -47,7 +47,7 @@ export const fixtureClientPluginPackage = (
 		const pluginPackage = yield* readPluginArchive(archive);
 		let packageId = fixturePackageIds.get(pluginSlug);
 		if (!packageId) {
-			packageId = PluginPackageId.make(crypto.randomUUID());
+			packageId = testPluginPackageId();
 			fixturePackageIds.set(pluginSlug, packageId);
 		}
 		const files = Object.fromEntries(
@@ -91,7 +91,6 @@ export const fixtureClientPluginPackage = (
 				metadata: {
 					...pluginPackage.manifest.metadata,
 					packageId,
-					slug: pluginSlug,
 					version: revision === "A" ? "1.0.0" : "2.0.0",
 				},
 			},
@@ -123,7 +122,7 @@ export const installFixtureClientPlugin = (
 		const pluginPackage = yield* fixtureClientPluginPackage(
 			revision,
 			variant,
-			FIXTURE_CLIENT_PLUGIN_SLUG,
+			"fixture",
 			presentationEvaluationSignal,
 		);
 		const installed = yield* installPrivatePluginPackage({

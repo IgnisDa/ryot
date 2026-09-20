@@ -1,4 +1,4 @@
-import { PluginSlug } from "@ryot-app/contract/schema/brands";
+import { pluginPackageSegments } from "@ryot-app/contract/schema/brands";
 import { Effect } from "effect";
 
 import {
@@ -17,7 +17,7 @@ import { describe, expect, it } from "~/support/effect-test";
 
 const installOtherOperationPlugin = (client: Client) => {
 	const scriptSlug = `e2e-operation-${crypto.randomUUID()}`;
-	const pluginSlug = PluginSlug.make(`e2e-operations-${crypto.randomUUID()}`);
+	const pluginSlug = `e2e-operations-${crypto.randomUUID()}`;
 	const entry = "backend/scripts/operation.sandbox.ts";
 	const manifest = testPluginManifest({
 		pluginSlug,
@@ -57,7 +57,7 @@ const installOtherOperationPlugin = (client: Client) => {
 				},
 			});
 			yield* settledPrivateInstallation(client, installed.id);
-			return { pluginSlug, installationId: installed.id, pluginId: installed.pluginId };
+			return { pluginSlug, installationId: installed.id, packageId: manifest.metadata.packageId };
 		}),
 		({ installationId }) => releasePrivatePlugin(client, installationId),
 	);
@@ -74,7 +74,7 @@ describe("client plugin operations", () => {
 			const { result } = yield* client.call((c) =>
 				c.plugins.invoke({
 					payload: { payload: { name: "Ryot" } },
-					params: { operationSlug: "greet", pluginId: installation.pluginId },
+					params: { ...pluginPackageSegments(installation.packageId), operationSlug: "greet" },
 				}),
 			);
 
@@ -91,7 +91,7 @@ describe("client plugin operations", () => {
 				client.call((c) =>
 					c.plugins.invoke({
 						payload: { payload: { name: "" } },
-						params: { operationSlug: "greet", pluginId: installation.pluginId },
+						params: { ...pluginPackageSegments(installation.packageId), operationSlug: "greet" },
 					}),
 				),
 			);
@@ -113,7 +113,7 @@ describe("client plugin operations", () => {
 				getApiClient().call((c) =>
 					c.plugins.invoke({
 						payload: { payload: { name: "Ryot" } },
-						params: { operationSlug: "greet", pluginId: installation.pluginId },
+						params: { ...pluginPackageSegments(installation.packageId), operationSlug: "greet" },
 					}),
 				),
 			);
@@ -132,7 +132,7 @@ describe("client plugin operations", () => {
 				client.call((c) =>
 					c.plugins.invoke({
 						payload: { payload: { name: "Ryot" } },
-						params: { operationSlug: "greet", pluginId: other.pluginId },
+						params: { ...pluginPackageSegments(other.packageId), operationSlug: "greet" },
 					}),
 				),
 			);
@@ -140,7 +140,7 @@ describe("client plugin operations", () => {
 			assertTaggedError(failure, "PluginNotFoundError");
 			expect(failure.reason).toEqual({
 				operationSlug: "greet",
-				pluginId: other.pluginId,
+				packageId: other.packageId,
 				code: "operation-not-found",
 			});
 		}),
