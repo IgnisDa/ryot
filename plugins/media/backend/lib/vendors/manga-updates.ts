@@ -33,7 +33,7 @@ export const mangaUpdatesGetOptional = (host: MangaUpdatesHost, path: string) =>
 				return null;
 			}
 		}),
-		Effect.catch(() => Effect.succeed(null)),
+		Effect.orElseSucceed(() => null),
 	);
 
 export const mangaUpdatesPost = (

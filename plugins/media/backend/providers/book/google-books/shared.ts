@@ -166,7 +166,7 @@ export const search = defineProvider({
 	operation: "search",
 	run: (input, host) =>
 		Effect.gen(function* () {
-			const options = yield* Schema.decodeUnknownEffect(googleBooksSearchOptionsSchema)(
+			const options = yield* Schema.decodeEffect(googleBooksSearchOptionsSchema)(
 				input.options ?? {},
 			);
 			const apiKey = yield* getGoogleBooksApiKey(host);
@@ -235,9 +235,7 @@ export const details = defineProvider({
 			const volumeInfo = asRecord(payload?.["volumeInfo"]);
 			const title = stringValue(volumeInfo?.["title"]);
 			if (!title) {
-				return yield* Effect.fail(
-					new MediaSandboxError({ message: "Google Books payload is missing title" }),
-				);
+				return yield* new MediaSandboxError({ message: "Google Books payload is missing title" });
 			}
 			const pageCount = numberValue(volumeInfo?.["pageCount"]);
 			return {

@@ -170,32 +170,29 @@ describe("anime.anilist sandbox script", () => {
 					return collectBody(options);
 				}),
 				execution,
-			)
-				.pipe(
-					Effect.flatMap((result) => {
-						expect(result.details).toEqual({ nextPage: 3, totalItems: 41 });
-						return runSandboxTestScript(
-							search,
-							{ page: 3, pageSize: 20, query: "hero" },
-							makeHost((_method, url, options) => {
-								expect(new URL(url).host).toBe("graphql.anilist.co");
-								return collectBody(options);
-							}, true),
-							execution,
-						);
-					}),
-				)
-				.pipe(
-					Effect.map((result) => {
-						expect(result.details).toEqual({ totalItems: 41, nextPage: null });
-						const [defaultBody, nsfwBody] = requestBodies.map((body): unknown => JSON.parse(body));
-						expect(defaultBody).toMatchObject({
-							variables: { page: 2, perPage: 20, type: "ANIME", search: "hero", isAdult: false },
-						});
-						expect(nsfwBody).toMatchObject({ variables: { isAdult: null } });
-						return undefined;
-					}),
-				),
+			).pipe(
+				Effect.flatMap((result) => {
+					expect(result.details).toEqual({ nextPage: 3, totalItems: 41 });
+					return runSandboxTestScript(
+						search,
+						{ page: 3, pageSize: 20, query: "hero" },
+						makeHost((_method, url, options) => {
+							expect(new URL(url).host).toBe("graphql.anilist.co");
+							return collectBody(options);
+						}, true),
+						execution,
+					);
+				}),
+				Effect.map((result) => {
+					expect(result.details).toEqual({ totalItems: 41, nextPage: null });
+					const [defaultBody, nsfwBody] = requestBodies.map((body): unknown => JSON.parse(body));
+					expect(defaultBody).toMatchObject({
+						variables: { page: 2, perPage: 20, type: "ANIME", search: "hero", isAdult: false },
+					});
+					expect(nsfwBody).toMatchObject({ variables: { isAdult: null } });
+					return undefined;
+				}),
+			),
 		);
 	});
 	it("maps search items and drops entries without usable ids or titles", () => {
@@ -252,24 +249,21 @@ describe("anime.anilist sandbox script", () => {
 				{ externalId: "1", language: "ja-latn", entitySchemaSlug: "anime" },
 				host,
 				execution,
-			)
-				.pipe(
-					Effect.flatMap((result) => {
-						expect(result).toEqual({ name: "Romaji" });
-						return runSandboxTestScript(
-							translate,
-							{ language: "fr", externalId: "1", entitySchemaSlug: "anime" },
-							host,
-							execution,
-						);
-					}),
-				)
-				.pipe(
-					Effect.map((result) => {
-						expect(result).toEqual({});
-						return undefined;
-					}),
-				),
+			).pipe(
+				Effect.flatMap((result) => {
+					expect(result).toEqual({ name: "Romaji" });
+					return runSandboxTestScript(
+						translate,
+						{ language: "fr", externalId: "1", entitySchemaSlug: "anime" },
+						host,
+						execution,
+					);
+				}),
+				Effect.map((result) => {
+					expect(result).toEqual({});
+					return undefined;
+				}),
+			),
 		);
 	});
 	it("rejects non-numeric external ids", () => {

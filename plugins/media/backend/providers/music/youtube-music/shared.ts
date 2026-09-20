@@ -99,15 +99,13 @@ export const buildTrackDetails = (client: TrackQueueClient, externalId: string) 
 					contents.find((item) => asRecord(item)?.["video_id"] === externalId) ?? contents[0];
 				const trackRecord = asRecord(trackItem);
 				if (!trackRecord) {
-					return yield* Effect.fail(
-						new MediaSandboxError({ message: `YouTube Music track not found: ${externalId}` }),
-					);
+					return yield* new MediaSandboxError({
+						message: `YouTube Music track not found: ${externalId}`,
+					});
 				}
 				const title = getTrackTitle(trackRecord);
 				if (!title) {
-					return yield* Effect.fail(
-						new MediaSandboxError({ message: "YouTube Music track is missing title" }),
-					);
+					return yield* new MediaSandboxError({ message: "YouTube Music track is missing title" });
 				}
 				const duration = numberValue(asRecord(trackRecord["duration"])?.["seconds"]);
 				const album = asRecord(trackRecord["album"]);
@@ -196,9 +194,9 @@ export const buildTrackTranslate = (client: TrackQueueClient, externalId: string
 					contents.find((item) => asRecord(item)?.["video_id"] === externalId),
 				);
 				if (!trackRecord) {
-					return yield* Effect.fail(
-						new MediaSandboxError({ message: `YouTube Music track not found: ${externalId}` }),
-					);
+					return yield* new MediaSandboxError({
+						message: `YouTube Music track not found: ${externalId}`,
+					});
 				}
 				const name = getTrackTitle(trackRecord);
 				return name ? { name } : {};

@@ -115,15 +115,11 @@ export const details = defineProvider({
 			);
 			const game = asRecord(payload?.["results"]);
 			if (!game) {
-				return yield* Effect.fail(
-					new MediaSandboxError({ message: "GiantBomb returned no game data" }),
-				);
+				return yield* new MediaSandboxError({ message: "GiantBomb returned no game data" });
 			}
 			const name = stringValue(game["name"]);
 			if (!name) {
-				return yield* Effect.fail(
-					new MediaSandboxError({ message: "GiantBomb game payload is missing name" }),
-				);
+				return yield* new MediaSandboxError({ message: "GiantBomb game payload is missing name" });
 			}
 
 			const companyAccumulator = createRoleAccumulator();

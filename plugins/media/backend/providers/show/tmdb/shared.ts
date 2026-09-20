@@ -98,9 +98,9 @@ export const resolve = defineProvider({
 	run: (input, host) =>
 		Effect.gen(function* () {
 			if (input.identifierType !== "imdb") {
-				return yield* Effect.fail(
-					new MediaSandboxError({ message: "TMDB show resolve supports only imdb identifiers" }),
-				);
+				return yield* new MediaSandboxError({
+					message: "TMDB show resolve supports only imdb identifiers",
+				});
 			}
 			const token = yield* getTmdbAccessToken(host);
 			const payload = yield* tmdbGet(

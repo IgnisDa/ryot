@@ -19,7 +19,7 @@ const MediaImportResolutionCandidate = Schema.Struct({
 export const MediaImportResolutionWorkflowInput = Schema.Struct({
 	items: Schema.Array(
 		Schema.Struct({
-			index: Schema.Number,
+			index: Schema.Finite,
 			value: Schema.String,
 			identifierType: Schema.String,
 			candidates: Schema.Array(MediaImportResolutionCandidate),
@@ -31,13 +31,13 @@ export const MediaImportResolutionWorkflowOutput = Schema.Struct({
 	results: Schema.Array(
 		Schema.Union([
 			Schema.Struct({
-				index: Schema.Number,
+				index: Schema.Finite,
 				externalId: Schema.String,
 				providerSlug: Schema.String,
 				status: Schema.Literal("resolved"),
 			}),
 			Schema.Struct({
-				index: Schema.Number,
+				index: Schema.Finite,
 				errors: Schema.Array(Schema.String),
 				status: Schema.Literal("unresolved"),
 			}),
@@ -49,7 +49,7 @@ export const MediaImportPopulationWorkflowInput = Schema.Struct({
 	items: Schema.Array(
 		Schema.Union([
 			Schema.Struct({
-				index: Schema.Number,
+				index: Schema.Finite,
 				command: LifecycleCommand,
 				externalId: Schema.String,
 				providerId: Schema.String,
@@ -57,7 +57,7 @@ export const MediaImportPopulationWorkflowInput = Schema.Struct({
 				userId: Schema.optional(Schema.String),
 			}),
 			Schema.Struct({
-				index: Schema.Number,
+				index: Schema.Finite,
 				command: LifecycleCommand,
 				externalId: Schema.String,
 				providerSlug: Schema.String,
@@ -83,12 +83,12 @@ export const MediaImportPopulationWorkflowOutput = Schema.Struct({
 	results: Schema.Array(
 		Schema.Union([
 			Schema.Struct({
-				index: Schema.Number,
+				index: Schema.Finite,
 				entityId: Schema.String,
 				status: Schema.Literal("completed"),
 			}),
 			Schema.Struct({
-				index: Schema.Number,
+				index: Schema.Finite,
 				message: Schema.String,
 				status: Schema.Literal("failed"),
 				stage: Schema.Literal("population"),

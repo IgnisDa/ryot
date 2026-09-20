@@ -50,9 +50,9 @@ export const buildAlbumDetails = (client: AlbumClient, externalId: string) =>
 		const albumRecord = asRecord(album);
 		const title = getAlbumTitle(albumRecord);
 		if (!title) {
-			return yield* Effect.fail(
-				new MediaSandboxError({ message: `YouTube Music album not found: ${externalId}` }),
-			);
+			return yield* new MediaSandboxError({
+				message: `YouTube Music album not found: ${externalId}`,
+			});
 		}
 
 		const headerRecord = asRecord(albumRecord?.["header"]);

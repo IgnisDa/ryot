@@ -97,9 +97,7 @@ export const details = defineProvider({
 			const track = asRecord(trackValue);
 			const title = stringValue(track?.["name"]);
 			if (!title) {
-				return yield* Effect.fail(
-					new MediaSandboxError({ message: "Spotify track is missing name" }),
-				);
+				return yield* new MediaSandboxError({ message: "Spotify track is missing name" });
 			}
 
 			const artists = Array.isArray(track?.["artists"]) ? track["artists"] : [];

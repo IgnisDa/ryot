@@ -11,6 +11,7 @@ import {
 import definition, { manifest } from "./episodic-session-policy.sandbox";
 
 const run = (context: AutomationPolicyInput, parents: readonly Record<string, unknown>[] = []) =>
+	// oxlint-disable-next-line effecttsgo/unnecessary-effect-gen -- Unifies the policy's union of Effect return types
 	Effect.gen(function* () {
 		return yield* definition.run(
 			context,

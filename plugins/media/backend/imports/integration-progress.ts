@@ -83,11 +83,9 @@ export const admitIntegrationProgress = (input: MediaImportWriteChunkInput, host
 				}
 				const entityId = event.subjectEntityId ?? population.entityId;
 				if (event.subjectEntityId && !event.subjectEntitySchemaSlug) {
-					return yield* Effect.fail(
-						new MediaSandboxError({
-							message: "Integration progress subject is missing its resolved schema",
-						}),
-					);
+					return yield* new MediaSandboxError({
+						message: "Integration progress subject is missing its resolved schema",
+					});
 				}
 				const entitySchemaSlug = event.subjectEntitySchemaSlug ?? group.entityRef.entitySchemaSlug;
 				const identity = [

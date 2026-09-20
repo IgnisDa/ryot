@@ -110,7 +110,7 @@ export const getCredentials = (host: SpotifyHost) =>
 
 export const getAccessToken = (host: SpotifyHost) =>
 	host.getCachedValue(TOKEN_CACHE_KEY).pipe(
-		Effect.catch(() => Effect.succeed(null)),
+		Effect.orElseSucceed(() => null),
 		Effect.flatMap((cached) => {
 			const cachedToken = stringValue(cached);
 			if (cachedToken) {
