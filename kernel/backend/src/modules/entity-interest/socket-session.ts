@@ -287,6 +287,7 @@ const runSocketSession = Effect.fn("EntityInterestSocketSession.run")(function* 
 	yield* store.openSession({
 		sessionId,
 		userId: principal.userId,
+		accountGeneration: principal.accountGeneration,
 		preferredLanguage: principal.preferredLanguage,
 	});
 	yield* sessions

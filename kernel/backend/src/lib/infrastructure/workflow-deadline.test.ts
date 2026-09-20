@@ -1,11 +1,11 @@
 import { expect, layer } from "@effect/vitest";
-import { Effect, Layer, Option, Schema } from "effect";
+import { Clock, Effect, Layer, Option, Schema } from "effect";
 import { TestClock } from "effect/testing";
 import { PersistedQueue } from "effect/unstable/persistence";
 import { Workflow, DurableQueue } from "effect/unstable/workflow";
-import { WorkflowEngine } from "effect/unstable/workflow/WorkflowEngine";
+import { WorkflowEngine, WorkflowInstance } from "effect/unstable/workflow/WorkflowEngine";
 
-import { workflowEngineTestLayer } from "#lib/test-utils/effect";
+import { makeWorkflowEngine, workflowEngineTestLayer } from "#lib/test-utils/effect";
 
 import { observeWorkflowDeadline, startWorkflowDeadline } from "./workflow-deadline";
 import { implementWorkflow } from "./workflow-scope";
@@ -52,7 +52,6 @@ const engineLayer = Layer.mergeAll(
 			});
 			const result = yield* observeWorkflowDeadline({
 				deadline,
-				name: "child",
 				completedAt: () => null,
 				poll: Effect.gen(function* () {
 					const value = Option.getOrUndefined(yield* engine.poll(Child, childId));
@@ -65,6 +64,29 @@ const engineLayer = Layer.mergeAll(
 ).pipe(Layer.provideMerge(workflowEngineTestLayer));
 
 layer(engineLayer)((test) => {
+	test.effect("polls a persisted deadline without scheduling a durable clock per retry", () =>
+		TestClock.withLive(
+			Effect.gen(function* () {
+				let polls = 0;
+				const deadline = (yield* Clock.currentTimeMillis) + 1_500;
+				const observed = yield* observeWorkflowDeadline({
+					deadline,
+					completedAt: () => null,
+					poll: Effect.sync(() => (++polls === 2 ? "completed" : null)),
+				}).pipe(
+					Effect.provideService(WorkflowInstance, WorkflowInstance.initial(Parent, "poll-replay")),
+					Effect.provideService(
+						WorkflowEngine,
+						makeWorkflowEngine({
+							scheduleClock: () => Effect.die("poll scheduled a durable clock"),
+						}),
+					),
+				);
+				expect(observed).toEqual({ value: "completed", status: "completed" });
+				expect(polls).toBe(2);
+			}),
+		),
+	);
 	test.effect("returns child completion before the durable deadline", () =>
 		TestClock.withLive(
 			Effect.gen(function* () {
@@ -99,7 +121,6 @@ const queuedLayer = Layer.mergeAll(
 			});
 			const observed = yield* observeWorkflowDeadline({
 				deadline,
-				name: "queue",
 				completedAt: () => null,
 				poll: Effect.gen(function* () {
 					const value = Option.getOrUndefined(yield* engine.poll(QueuedChild, `${id}-queue`));

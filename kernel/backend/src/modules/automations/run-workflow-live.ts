@@ -14,6 +14,7 @@ import {
 	type SandboxExecutionError,
 	type SandboxScriptManifest as SandboxScriptManifestType,
 } from "@ryot-app/contract/modules/sandbox/schemas";
+import type { AccountGeneration } from "@ryot-app/contract/schema/account-generation";
 import { SandboxScriptId } from "@ryot-app/contract/schema/brands";
 import { JsonValue } from "@ryot-app/contract/schema/json";
 import { jsonByteLength } from "@ryot-app/sandbox-compiler/limits";
@@ -26,6 +27,7 @@ import { pluginRevision } from "#lib/infrastructure/db/schema/tables/core";
 import { DatabaseSession } from "#lib/infrastructure/db/session";
 import { SANDBOX_LIMITS } from "#lib/infrastructure/sandbox-runtime/limits";
 import { implementWorkflow, makeActivity } from "#lib/infrastructure/workflow-scope";
+import { MutationReceipts } from "#modules/mutations/receipts";
 import type { SandboxExecutionResult } from "#modules/sandbox/execution-result";
 import { SandboxRepository } from "#modules/sandbox/repository";
 import { SandboxExecutionService } from "#modules/sandbox/service";
@@ -79,6 +81,7 @@ export const prepareAutomationInvocation = (
 	trigger: AutomationTrigger,
 	payload: AutomationRunWorkflowPayload,
 	script: Extract<SandboxScriptManifestType, { kind: "automation" }>,
+	accountGeneration: AccountGeneration | null,
 	hookMetadata?: JsonValue,
 ) =>
 	Effect.gen(function* () {
@@ -150,6 +153,7 @@ export const prepareAutomationInvocation = (
 			subject: {
 				runId: run.id,
 				stage: run.stage,
+				accountGeneration,
 				triggerId: trigger.id,
 				type: "automation-run",
 				pluginId: run.pluginId,
@@ -194,6 +198,7 @@ export const AutomationRunWorkflowOperationsLive = Layer.effect(
 		const scripts = yield* SandboxRepository;
 		const sandbox = yield* SandboxExecutionService;
 		const session = yield* DatabaseSession;
+		const receipts = yield* MutationReceipts.make;
 		return AutomationRunWorkflowOperations.of({
 			runSandbox: (input) => sandbox.executeScript(input),
 			finalize: (input) =>
@@ -216,74 +221,100 @@ export const AutomationRunWorkflowOperationsLive = Layer.effect(
 					return { stage: run.stage, attempt: result.attempt };
 				}),
 			prepare: (payload) =>
-				Effect.gen(function* () {
-					const run = yield* runs.findById(payload.runId);
-					if (!run?.sandboxScriptId) {
-						return yield* missing();
-					}
-					const trigger = yield* triggers.findById(run.triggerId);
-					if (!trigger?.payload) {
-						return yield* new AutomationPreparationError({
-							kind: "missing-artifact",
-							message: "Retained automation trigger payload is unavailable",
-						});
-					}
-					const pin = yield* scripts.getScriptPin(
-						run.sandboxScriptId,
-						run.pluginId === null
-							? undefined
-							: {
-									id: run.pluginId,
-									revisionId: run.pluginRevisionId,
-									configRevisionId: run.pluginConfigRevisionId,
-								},
-					);
-					if (
-						!pin ||
-						pin.contentHash !== run.scriptContentHash ||
-						pin.scriptSlug !== run.scriptSlug ||
-						pin.metadata.kind !== "automation" ||
-						(run.pluginId === null && pin.pluginRevision !== null)
-					) {
-						return yield* missing();
-					}
-					const script = yield* Schema.decodeUnknownEffect(SandboxScriptManifest)(
-						pin.metadata,
-					).pipe(Effect.mapError(() => projectionError(run, "has an invalid script declaration")));
-					if (script.kind !== "automation") {
-						return yield* projectionError(run, "has a non-automation script declaration");
-					}
-					let hookMetadata: JsonValue | undefined;
-					if (run.pluginId !== null) {
-						const [revision] = yield* session.run((database) =>
-							database
-								.select({ manifest: pluginRevision.manifest })
-								.from(pluginRevision)
-								.where(eq(pluginRevision.id, run.pluginRevisionId)),
-						);
-						const hook = revision?.manifest.hooks.find(
-							(candidate) => candidate.slug === run.hookSlug,
-						);
-						const declaration = revision?.manifest.scripts.find(
-							(candidate) => candidate.slug === run.scriptSlug,
-						);
-						if (!hook || hook.scriptSlug !== run.scriptSlug || hook.stage !== run.stage) {
-							return yield* missing();
-						}
-						if (!declaration) {
-							return yield* missing();
-						}
-						const { entry: _entry, ...declaredMetadata } = declaration;
-						if (stableStringify(declaredMetadata) !== stableStringify(pin.metadata)) {
-							return yield* projectionError(
-								run,
-								"does not match the exact pinned script declaration",
+				session
+					.transaction(
+						Effect.gen(function* () {
+							const initial = yield* runs.findById(payload.runId);
+							if (!initial) {
+								return yield* missing();
+							}
+							const accountGeneration =
+								initial.executionUserId === null
+									? null
+									: yield* receipts.currentAccount(initial.executionUserId);
+							const run = yield* runs.findById(payload.runId);
+							if (!run?.sandboxScriptId) {
+								return yield* missing();
+							}
+							const trigger = yield* triggers.findById(run.triggerId);
+							if (!trigger?.payload) {
+								return yield* new AutomationPreparationError({
+									kind: "missing-artifact",
+									message: "Retained automation trigger payload is unavailable",
+								});
+							}
+							const pin = yield* scripts.getScriptPin(
+								run.sandboxScriptId,
+								run.pluginId === null
+									? undefined
+									: {
+											id: run.pluginId,
+											revisionId: run.pluginRevisionId,
+											configRevisionId: run.pluginConfigRevisionId,
+										},
 							);
-						}
-						hookMetadata = hook.metadata;
-					}
-					return yield* prepareAutomationInvocation(run, trigger, payload, script, hookMetadata);
-				}),
+							if (
+								!pin ||
+								pin.contentHash !== run.scriptContentHash ||
+								pin.scriptSlug !== run.scriptSlug ||
+								pin.metadata.kind !== "automation" ||
+								(run.pluginId === null && pin.pluginRevision !== null)
+							) {
+								return yield* missing();
+							}
+							const script = yield* Schema.decodeUnknownEffect(SandboxScriptManifest)(
+								pin.metadata,
+							).pipe(
+								Effect.mapError(() => projectionError(run, "has an invalid script declaration")),
+							);
+							if (script.kind !== "automation") {
+								return yield* projectionError(run, "has a non-automation script declaration");
+							}
+							let hookMetadata: JsonValue | undefined;
+							if (run.pluginId !== null) {
+								const [revision] = yield* session.run((database) =>
+									database
+										.select({ manifest: pluginRevision.manifest })
+										.from(pluginRevision)
+										.where(eq(pluginRevision.id, run.pluginRevisionId)),
+								);
+								const hook = revision?.manifest.hooks.find(
+									(candidate) => candidate.slug === run.hookSlug,
+								);
+								const declaration = revision?.manifest.scripts.find(
+									(candidate) => candidate.slug === run.scriptSlug,
+								);
+								if (!hook || hook.scriptSlug !== run.scriptSlug || hook.stage !== run.stage) {
+									return yield* missing();
+								}
+								if (!declaration) {
+									return yield* missing();
+								}
+								const { entry: _entry, ...declaredMetadata } = declaration;
+								if (stableStringify(declaredMetadata) !== stableStringify(pin.metadata)) {
+									return yield* projectionError(
+										run,
+										"does not match the exact pinned script declaration",
+									);
+								}
+								hookMetadata = hook.metadata;
+							}
+							return yield* prepareAutomationInvocation(
+								run,
+								trigger,
+								payload,
+								script,
+								accountGeneration,
+								hookMetadata,
+							);
+						}),
+					)
+					.pipe(
+						Effect.catchTag(
+							"DatabaseSessionStateError",
+							() => new DbError({ message: "Automation preparation requires a root transaction" }),
+						),
+					),
 		});
 	}),
 );

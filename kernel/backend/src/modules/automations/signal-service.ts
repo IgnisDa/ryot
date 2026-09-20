@@ -1,4 +1,4 @@
-import { badRequest, notFound } from "@ryot-app/contract/errors";
+import { badRequest, DbError, notFound } from "@ryot-app/contract/errors";
 import { AutomationSignalPayload } from "@ryot-app/contract/modules/automations/lifecycle";
 import type { EntityId, UserId } from "@ryot-app/contract/schema/brands";
 import { Context, Effect, Layer, Schema } from "effect";
@@ -117,6 +117,9 @@ export class SignalEmissionService extends Context.Service<SignalEmissionService
 						return yield* planner.plan({ trigger, recipients });
 					}),
 				);
+				if (plan.trigger === null) {
+					return yield* new DbError({ message: "Signal planning did not retain its trigger" });
+				}
 				const warnings = yield* execution
 					.dispatch([toLifecycleDispatchPlan(plan)])
 					.pipe(Effect.catchTag("LifecyclePersistenceError", Effect.die));

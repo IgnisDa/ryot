@@ -70,12 +70,17 @@ export const revisionDatabaseLayer = Layer.unwrap(
 								transaction.execute(sql.raw(statement)),
 							);
 							yield* transaction.insert(tables.user).values([
-								{ id: "owner", name: "Owner", preferences: {}, email: "owner@example.test" },
+								{
+									id: "owner",
+									name: "Owner",
+									email: "owner@example.test",
+									accountGeneration: "test-account-generation",
+								},
 								{
 									id: "recipient",
-									preferences: {},
 									name: "Recipient",
 									email: "recipient@example.test",
+									accountGeneration: "test-account-generation",
 								},
 							]);
 						}),

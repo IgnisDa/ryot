@@ -7,6 +7,7 @@ export * from "./entities";
 export * from "./events";
 export * from "./imports";
 export * from "./migration-reports";
+export * from "./mutations";
 export * from "./notifications";
 export * from "./translations";
 export * from "./uploads";

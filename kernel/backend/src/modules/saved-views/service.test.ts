@@ -23,6 +23,7 @@ const user = {
 	email: "user@example.com",
 	id: UserId.make("user-id"),
 	preferences: { language: null, allowNsfw: false, disableIntegrations: false },
+	accountGeneration: { userId: UserId.make("user-id"), token: "test-account-generation" },
 } satisfies CurrentUserValue;
 
 const entity = table("entity", "entity");

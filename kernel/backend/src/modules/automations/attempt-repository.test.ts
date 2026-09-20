@@ -317,12 +317,7 @@ describe("AutomationAttemptRepository (PostgreSQL)", () => {
 						Effect.gen(function* () {
 							yield* db
 								.insert(user)
-								.values({
-									id: "owner",
-									name: "Owner",
-									preferences: {},
-									email: "owner@example.test",
-								});
+								.values({ id: "owner", name: "Owner", email: "owner@example.test" });
 							yield* db
 								.update(automationRun)
 								.set({ executionUserId: "owner" })

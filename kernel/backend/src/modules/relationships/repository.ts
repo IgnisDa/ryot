@@ -1,13 +1,10 @@
 import { DbError } from "@ryot-app/contract/errors";
-import { AutomationTriggerPayload } from "@ryot-app/contract/modules/automations/lifecycle";
-import type { AutomationTriggerId } from "@ryot-app/contract/schema/brands";
 import {
 	EntityId,
 	RelationshipId,
 	RelationshipSchemaSlug,
 	UserId,
 } from "@ryot-app/contract/schema/brands";
-import { decodeStoredSchema } from "@ryot-app/contract/schema/core";
 import { and, asc, eq, isNotNull, isNull, or, sql } from "drizzle-orm";
 import { Context, Effect, Layer, Schema } from "effect";
 
@@ -211,24 +208,6 @@ export class RelationshipsRepository extends Context.Service<RelationshipsReposi
 	{
 		make: Effect.gen(function* () {
 			const session = yield* DatabaseSession;
-			const findLifecyclePayload = Effect.fn("RelationshipsRepository.findLifecyclePayload")(
-				function* (id: AutomationTriggerId) {
-					const [row] = yield* session.run((db) =>
-						db
-							.select({ payload: schema.automationTrigger.payload })
-							.from(schema.automationTrigger)
-							.where(eq(schema.automationTrigger.id, id)),
-					);
-					if (!row) {
-						return null;
-					}
-					return yield* decodeStoredSchema(
-						row.payload,
-						AutomationTriggerPayload,
-						"Relationship command payload is invalid or pruned",
-					);
-				},
-			);
 			const findRelationship = Effect.fn("RelationshipsRepository.findRelationship")(function* (
 				input: RelationshipIdentityInput,
 			) {
@@ -515,7 +494,6 @@ export class RelationshipsRepository extends Context.Service<RelationshipsReposi
 				createRelationship,
 				updateRelationship,
 				deleteRelationship,
-				findLifecyclePayload,
 				listGlobalRelationships,
 				findUserRelationshipById,
 				lockRelationshipMutations,

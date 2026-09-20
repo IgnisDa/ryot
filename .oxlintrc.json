@@ -30,6 +30,7 @@
 		"import/no-self-import": "error",
 		"promise/no-return-wrap": "error",
 		"effecttsgo/new-promise": "error",
+		"ryot/no-promise-chains": "error",
 		"react/self-closing-comp": "error",
 		"typescript/require-await": "warn",
 		"react/no-array-index-key": "warn",
@@ -38,8 +39,8 @@
 		"import/no-named-as-default": "off",
 		"typescript/no-explicit-any": "warn",
 		"typescript/await-thenable": "error",
-		"ryot/no-promise-chains": "error",
 		"effecttsgo/async-function": "error",
+		"ryot/no-workflow-to-layer": "error",
 		"typescript/prefer-as-const": "error",
 		"react-hooks/exhaustive-deps": "error",
 		"typescript/only-throw-error": "error",
@@ -53,7 +54,6 @@
 		"typescript/no-floating-promises": "error",
 		"typescript/no-non-null-assertion": "warn",
 		"effecttsgo/leaking-requirements": "error",
-		"ryot/no-app-service-provide": "error",
 		"effecttsgo/strict-effect-provide": "warn",
 		"effecttsgo/effect-fn-opportunity": "error",
 		"import/first": ["error", "absolute-first"],
@@ -102,10 +102,6 @@
 				"property": "make",
 				"object": "Activity",
 				"message": "Create activities with makeActivity from kernel/backend/src/lib/infrastructure/workflow-scope.ts."
-			},
-			{
-				"property": "toLayer",
-				"message": "Register workflows with implementWorkflow from kernel/backend/src/lib/infrastructure/workflow-scope.ts."
 			},
 			{
 				"object": "vi",

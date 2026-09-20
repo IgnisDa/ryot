@@ -2,26 +2,26 @@ import { DbError } from "@ryot-app/contract/errors";
 import {
 	type AutomationPolicyPatch,
 	AutomationRelationshipDraft,
+	type AutomationRelationshipRequestPayload,
 	type AutomationRelationshipSnapshot,
 } from "@ryot-app/contract/modules/automations/lifecycle";
-import {
-	RelationshipBadRequest,
-	RelationshipNotFound,
-} from "@ryot-app/contract/modules/relationships/schemas";
+import { RelationshipBadRequest } from "@ryot-app/contract/modules/relationships/schemas";
 import type { UserId } from "@ryot-app/contract/schema/brands";
 import type { AppSchema } from "@ryot-app/contract/schema/property-schema";
 import { Cause, Effect, Schema } from "effect";
 
 import {
-	lifecycleTriggerId,
+	toLifecycleDispatchPlan,
 	type CommittedLifecycleWork,
-	type LifecyclePlan,
+	type LifecycleDispatchPlan,
 } from "#lib/domain/lifecycle";
 import { LifecycleCommand, lifecycleTrigger } from "#lib/domain/lifecycle-command";
 import {
 	applyLifecyclePolicyPatch,
 	canonicalLifecyclePolicyPatch,
 } from "#lib/domain/lifecycle-policy-patch";
+import type { MutationReceiptIdentity } from "#modules/mutations/receipts";
+import { MutationReceiptIdentityConflict } from "#modules/mutations/receipts";
 import {
 	catalogDefinitionFingerprint,
 	type CatalogDefinitionFingerprint,
@@ -31,45 +31,65 @@ import {
 	activeTransactionGuard,
 	badProperties,
 	equal,
-	mergeProperties,
 	parseProperties,
-	populationIdentity,
 	relationshipChange,
+	relationshipReceiptIdentity,
+	RelationshipRecordedResult,
 	rootTransaction,
 	rootTransactionGuard,
 	snapshot,
 	type CreateRelationshipInput,
 	type Mutation,
 	type RelationshipMutationDependencies,
-	type RelationshipRequest,
 } from "./mutation-support";
 import type { RelationshipIdentityInput, RelationshipsRepository } from "./repository";
 
-type PreparedUserRelationshipMutationData = {
+type PreparedRelationshipBase = {
 	readonly command: LifecycleCommand;
 	readonly input: RelationshipIdentityInput & { readonly scope: "user"; readonly userId: UserId };
-	readonly request: RelationshipRequest;
-	readonly requestId: LifecyclePlan["trigger"]["id"];
-} & (
-	| { readonly operation: "delete"; readonly before: AutomationRelationshipSnapshot }
-	| ({ readonly operation: "create"; readonly before: AutomationRelationshipSnapshot | null } & (
-			| {
-					readonly committed?: never;
-					readonly propertiesSchema: AppSchema;
-					readonly schemaFingerprint: CatalogDefinitionFingerprint;
-			  }
-			| {
-					readonly propertiesSchema?: never;
-					readonly schemaFingerprint?: never;
-					readonly committed: {
-						readonly plan: LifecyclePlan;
-						readonly relationship: Effect.Success<
-							ReturnType<RelationshipsRepository["Service"]["createRelationship"]>
-						>;
-					};
-			  }
-	  ))
-);
+	readonly receipt: MutationReceiptIdentity;
+};
+type CommittedRelationship = {
+	readonly dispatch: ReadonlyArray<LifecycleDispatchPlan>;
+	readonly relationship: Effect.Success<
+		ReturnType<RelationshipsRepository["Service"]["createRelationship"]>
+	>;
+};
+type PreparedUserRelationshipMutationData = PreparedRelationshipBase &
+	(
+		| {
+				readonly operation: "delete";
+				readonly committed: CommittedRelationship;
+				readonly request?: never;
+				readonly before?: never;
+				readonly requestId?: never;
+		  }
+		| {
+				readonly operation: "delete";
+				readonly committed?: never;
+				readonly request: AutomationRelationshipRequestPayload;
+				readonly before: AutomationRelationshipSnapshot;
+				readonly requestId: LifecycleCommand["causation"]["parentTriggerId"];
+		  }
+		| {
+				readonly operation: "create";
+				readonly committed: CommittedRelationship;
+				readonly request?: never;
+				readonly before?: never;
+				readonly requestId?: never;
+				readonly propertiesSchema?: never;
+				readonly schemaFingerprint?: never;
+		  }
+		| {
+				readonly operation: "create";
+				readonly committed?: never;
+				readonly request: AutomationRelationshipRequestPayload;
+				readonly before: AutomationRelationshipSnapshot | null;
+				readonly requestId: LifecycleCommand["causation"]["parentTriggerId"];
+				readonly propertiesSchema: AppSchema;
+				readonly schemaFingerprint: CatalogDefinitionFingerprint;
+		  }
+	);
 const preparedUserRelationshipCreate = Symbol("PreparedUserRelationshipCreate");
 const preparedUserRelationshipDelete = Symbol("PreparedUserRelationshipDelete");
 export type PreparedUserRelationshipCreate = {
@@ -96,6 +116,7 @@ export const makePreparedRelationshipMutations = ({
 	planner,
 	runtime,
 	entities,
+	receipts,
 	execution,
 	repository,
 	definitions,
@@ -106,129 +127,19 @@ export const makePreparedRelationshipMutations = ({
 	const committedReplay = Effect.fnUntraced(function* (
 		input: RelationshipIdentityInput,
 		command: LifecycleCommand,
-		mode: Exclude<Mutation["mode"], "delete">,
+		mode: Mutation["mode"],
 		properties: unknown,
 	) {
-		return yield* transaction(
-			Effect.gen(function* () {
-				if (input.scope === "user") {
-					const [source, target] = yield* Effect.all([
-						entities.getEntityScopeForUser({
-							userId: input.userId,
-							entityId: input.sourceEntityId,
-						}),
-						entities.getEntityScopeForUser({
-							userId: input.userId,
-							entityId: input.targetEntityId,
-						}),
-					]);
-					if (!source || !target) {
-						return yield* new RelationshipNotFound({
-							reason: {
-								code: "entity-not-found",
-								entityIds: [input.sourceEntityId, input.targetEntityId],
-							},
-						});
-					}
-				}
-				let request: RelationshipRequest | null = null;
-				for (const operation of ["create", "update", "delete"] as const) {
-					const payload = yield* repository.findLifecyclePayload(
-						lifecycleTriggerId({
-							discriminator: "lifecycle",
-							itemIdentity: command.itemIdentity,
-							executionId: command.causation.executionId,
-							kind: { operation, category: "request", resource: "relationship" },
-						}),
-					);
-					if (payload?.category === "request" && payload.resource === "relationship") {
-						if (request) {
-							return yield* new RelationshipBadRequest({
-								reason: { code: "lifecycle-command-conflict" },
-							});
-						}
-						request = payload;
-					}
-				}
-				if (!request) {
-					return null;
-				}
-				const before = request.operation === "update" ? request.before : null;
-				const draft = yield* Schema.decodeUnknownEffect(AutomationRelationshipDraft)({
-					sourceEntityId: input.sourceEntityId,
-					targetEntityId: input.targetEntityId,
-					relationshipSchemaSlug: input.relationshipSchemaSlug,
-					properties:
-						mode === "merge" ? mergeProperties(before?.properties, properties) : properties,
-				}).pipe(Effect.mapError(() => badProperties([])));
-				const supplied: RelationshipRequest = before
-					? { draft, before, category: "request", operation: "update", resource: "relationship" }
-					: { draft, category: "request", operation: "create", resource: "relationship" };
-				if (!equal(request, supplied)) {
-					return yield* new RelationshipBadRequest({
-						reason: { code: "lifecycle-command-conflict" },
-					});
-				}
-				const change = yield* repository.findLifecyclePayload(
-					lifecycleTriggerId({
-						discriminator: "lifecycle",
-						itemIdentity: command.itemIdentity,
-						executionId: command.causation.executionId,
-						kind: { category: "change", resource: "relationship", operation: request.operation },
-					}),
-				);
-				if (
-					change?.category !== "change" ||
-					change.resource !== "relationship" ||
-					change.operation === "batch"
-				) {
-					return null;
-				}
-				const persisted = change.operation === "delete" ? change.before : change.after;
-				const persistedDraft = {
-					properties: persisted.properties,
-					sourceEntityId: persisted.sourceEntityId,
-					targetEntityId: persisted.targetEntityId,
-					relationshipSchemaSlug: persisted.relationshipSchemaSlug,
-				};
-				if (
-					change.operation !== request.operation ||
-					!equal({ ...request.draft, properties: persisted.properties }, persistedDraft) ||
-					(request.operation === "update" &&
-						change.operation === "update" &&
-						!equal(request.before, change.before)) ||
-					!equal(populationIdentity(change.population), populationIdentity(command.population))
-				) {
-					return yield* new RelationshipBadRequest({
-						reason: { code: "lifecycle-command-conflict" },
-					});
-				}
-				const requestPlan = yield* planner.plan({
-					trigger: lifecycleTrigger(command, input.scope === "user" ? input.userId : null, request),
-				});
-				const changePlan = yield* planner.plan({
-					trigger: lifecycleTrigger(
-						{
-							...command,
-							causation: { ...command.causation, parentTriggerId: requestPlan.trigger.id },
-						},
-						input.scope === "user" ? input.userId : null,
-						change,
-					),
-				});
-				if (requestPlan.wasCreated || changePlan.wasCreated) {
-					return yield* new RelationshipBadRequest({
-						reason: { code: "lifecycle-command-conflict" },
-					});
-				}
-				return {
-					request,
-					requestPlan,
-					plan: changePlan,
-					relationship: { ...persisted, wasInserted: change.operation === "create" },
-				};
-			}),
-		);
+		const receipt = relationshipReceiptIdentity({ mode, input, command, properties });
+		return yield* receipts
+			.peek(receipt, RelationshipRecordedResult)
+			.pipe(
+				Effect.mapError((error) =>
+					error instanceof MutationReceiptIdentityConflict
+						? new RelationshipBadRequest({ reason: { code: "lifecycle-command-conflict" } })
+						: error,
+				),
+			);
 	});
 	const prepareUserMutation = Effect.fnUntraced(function* (
 		input: CreateRelationshipInput | RelationshipIdentityInput,
@@ -244,19 +155,35 @@ export const makePreparedRelationshipMutations = ({
 				() => new RelationshipBadRequest({ reason: { code: "lifecycle-command-conflict" } }),
 			),
 		);
-		if (mode === "create" && "properties" in input) {
-			const replay = yield* committedReplay(input, command, "upsert", input.properties);
-			if (replay) {
-				return {
-					input,
-					command,
-					request: replay.request,
-					operation: "create" as const,
-					requestId: replay.requestPlan.trigger.id,
-					committed: { plan: replay.plan, relationship: replay.relationship },
-					before: replay.request.operation === "update" ? replay.request.before : null,
-				};
+		const receiptMode = mode === "create" ? "upsert" : "delete";
+		const receiptProperties = "properties" in input ? input.properties : undefined;
+		const receipt = relationshipReceiptIdentity({
+			input,
+			command,
+			mode: receiptMode,
+			properties: receiptProperties,
+		});
+		const replay = yield* committedReplay(input, command, receiptMode, receiptProperties);
+		if (replay) {
+			if (!replay.result.relationship) {
+				return yield* new DbError({ message: "Committed relationship is missing its result" });
 			}
+			const committed = { dispatch: replay.dispatch, relationship: replay.result.relationship };
+			return mode === "create"
+				? ({
+						input,
+						command,
+						receipt,
+						committed,
+						operation: "create" as const,
+					} satisfies PreparedUserRelationshipMutationData)
+				: ({
+						input,
+						command,
+						receipt,
+						committed,
+						operation: "delete" as const,
+					} satisfies PreparedUserRelationshipMutationData);
 		}
 		let propertiesSchema: AppSchema | null = null;
 		let initialProperties: Record<string, unknown> | null = null;
@@ -300,7 +227,7 @@ export const makePreparedRelationshipMutations = ({
 				if (mode === "create" && before && equal(before.properties, initialProperties)) {
 					return null;
 				}
-				let request: RelationshipRequest;
+				let request: AutomationRelationshipRequestPayload;
 				if (mode === "delete") {
 					if (!before) {
 						return null;
@@ -331,7 +258,7 @@ export const makePreparedRelationshipMutations = ({
 		if (!planned) {
 			return null;
 		}
-		if (planned.plan.trigger.blockedReason !== null) {
+		if (planned.plan.trigger?.blockedReason) {
 			return yield* new RelationshipBadRequest({ reason: { code: "automation-limit-reached" } });
 		}
 		let request = planned.request;
@@ -387,9 +314,11 @@ export const makePreparedRelationshipMutations = ({
 			Effect.catchCauseIf(
 				(cause) => !Cause.hasInterruptsOnly(cause),
 				(cause) =>
-					execution
-						.skipQueuedPolicies({ triggerId: planned.plan.trigger.id })
-						.pipe(Effect.andThen(Effect.failCause(cause)), Effect.uninterruptible),
+					planned.plan.trigger === null
+						? Effect.failCause(cause)
+						: execution
+								.skipQueuedPolicies({ triggerId: planned.plan.trigger.id })
+								.pipe(Effect.andThen(Effect.failCause(cause)), Effect.uninterruptible),
 			),
 		);
 		if (request.operation !== "delete") {
@@ -408,16 +337,33 @@ export const makePreparedRelationshipMutations = ({
 		if (mode === "create" && (!propertiesSchema || !schemaFingerprint)) {
 			return yield* Effect.die("Prepared relationship create is missing schema metadata");
 		}
-		return {
+		const common = {
+			receipt,
 			request,
 			input: planned.input,
 			before: planned.before,
 			command: planned.command,
-			requestId: planned.plan.trigger.id,
-			...(mode === "create" && propertiesSchema && schemaFingerprint
-				? { propertiesSchema, schemaFingerprint, operation: "create" as const }
-				: { operation: "delete" as const }),
+			requestId: planned.plan.trigger?.id ?? null,
 		};
+		if (mode === "create") {
+			if (!propertiesSchema || !schemaFingerprint) {
+				return yield* Effect.die("Prepared relationship create is missing schema metadata");
+			}
+			return {
+				...common,
+				propertiesSchema,
+				schemaFingerprint,
+				operation: "create" as const,
+			} satisfies PreparedUserRelationshipMutationData;
+		}
+		if (!planned.before) {
+			return yield* Effect.die("Prepared relationship delete is missing its snapshot");
+		}
+		return {
+			...common,
+			before: planned.before,
+			operation: "delete" as const,
+		} satisfies PreparedUserRelationshipMutationData;
 	});
 	const prepareUserCreate = Effect.fn("RelationshipsService.prepareUserCreate")(function* (
 		input: CreateRelationshipInput,
@@ -428,7 +374,7 @@ export const makePreparedRelationshipMutations = ({
 			return null;
 		}
 		const prepared: PreparedUserRelationshipCreate = Object.freeze({
-			[preparedUserRelationshipCreate]: { ...value, operation: "create" as const },
+			[preparedUserRelationshipCreate]: value,
 		});
 		return prepared;
 	});
@@ -437,27 +383,43 @@ export const makePreparedRelationshipMutations = ({
 		command: LifecycleCommand,
 	) {
 		const value = yield* prepareUserMutation(input, command, "delete");
-		if (value?.operation !== "delete" || !value.before) {
+		if (value?.operation !== "delete") {
 			return null;
 		}
-		return Object.freeze({
-			[preparedUserRelationshipDelete]: {
-				...value,
-				before: value.before,
-				operation: "delete" as const,
-			},
-		});
+		return Object.freeze({ [preparedUserRelationshipDelete]: value });
 	});
 	const persistPreparedUserMutation = Effect.fnUntraced(function* (
 		prepared: PreparedUserRelationshipMutationData,
+		batchInput?: { command: LifecycleCommand; identity: ReadonlyArray<string>; index: number },
 	) {
 		yield* assertActiveTransaction;
-		if (prepared.operation === "create" && prepared.committed) {
+		if (prepared.committed) {
 			return {
-				plans: [prepared.committed.plan],
+				dispatch: prepared.committed.dispatch,
 				result: prepared.committed.relationship,
 			} satisfies CommittedLifecycleWork<typeof prepared.committed.relationship>;
 		}
+		const replay = yield* receipts
+			.lookup(prepared.receipt, RelationshipRecordedResult)
+			.pipe(
+				Effect.mapError((error) =>
+					error instanceof MutationReceiptIdentityConflict
+						? new RelationshipBadRequest({ reason: { code: "lifecycle-command-conflict" } })
+						: error,
+				),
+			);
+		if (replay) {
+			if (!replay.result.relationship) {
+				return yield* new DbError({ message: "Committed relationship is missing its result" });
+			}
+			return { dispatch: replay.dispatch, result: replay.result.relationship };
+		}
+		const batchScope = {
+			resource: "relationship" as const,
+			command: batchInput?.command ?? prepared.command,
+			identity: batchInput?.identity ?? [prepared.command.itemIdentity],
+		};
+		const batch = yield* planner.prepareBatch({ ...batchScope, scopes: [prepared.input.userId] });
 		let request = prepared.request;
 		if (prepared.operation === "create") {
 			if (request.operation === "delete") {
@@ -525,25 +487,43 @@ export const makePreparedRelationshipMutations = ({
 			trigger: lifecycleTrigger(
 				{
 					...prepared.command,
-					causation: { ...prepared.command.causation, parentTriggerId: prepared.requestId },
+					causation: {
+						...prepared.command.causation,
+						parentTriggerId: prepared.requestId ?? prepared.command.causation.parentTriggerId,
+					},
 				},
 				prepared.input.userId,
 				relationshipChange(request, persisted),
 			),
 		});
-		return {
-			plans: [plan],
-			result: { ...saved, wasInserted: request.operation === "create" },
-		} satisfies CommittedLifecycleWork<typeof saved & { wasInserted: boolean }>;
+		const dispatch = plan.trigger === null ? [] : [toLifecycleDispatchPlan(plan)];
+		const result = { ...saved, wasInserted: request.operation === "create" };
+		yield* receipts.insert({
+			dispatch,
+			batchId: batch.id,
+			identity: prepared.receipt,
+			batchIndex: batchInput?.index ?? 0,
+			result: { relationship: result, operation: request.operation },
+			...(batch.hasCandidates ? { evidence: relationshipChange(request, persisted) } : {}),
+		});
+		return { result, dispatch } satisfies CommittedLifecycleWork<
+			typeof saved & { wasInserted: boolean }
+		>;
 	});
 	const persistPreparedUserCreate = Effect.fn("RelationshipsService.persistPreparedUserCreate")(
-		function* (prepared: PreparedUserRelationshipCreate) {
-			return yield* persistPreparedUserMutation(prepared[preparedUserRelationshipCreate]);
+		function* (
+			prepared: PreparedUserRelationshipCreate,
+			batch?: { command: LifecycleCommand; identity: ReadonlyArray<string>; index: number },
+		) {
+			return yield* persistPreparedUserMutation(prepared[preparedUserRelationshipCreate], batch);
 		},
 	);
 	const persistPreparedUserDelete = Effect.fn("RelationshipsService.persistPreparedUserDelete")(
-		function* (prepared: PreparedUserRelationshipDelete) {
-			return yield* persistPreparedUserMutation(prepared[preparedUserRelationshipDelete]);
+		function* (
+			prepared: PreparedUserRelationshipDelete,
+			batch?: { command: LifecycleCommand; identity: ReadonlyArray<string>; index: number },
+		) {
+			return yield* persistPreparedUserMutation(prepared[preparedUserRelationshipDelete], batch);
 		},
 	);
 	return {

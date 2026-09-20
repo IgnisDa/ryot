@@ -1,5 +1,4 @@
 import { createOAuthAccountIssuer } from "@better-auth/core/db";
-import { defaultUserPreferences } from "@ryot-app/contract/auth-middleware";
 import {
 	GodModeInternalFailure,
 	GodModeNotFound,
@@ -55,7 +54,6 @@ export class GodModeService extends Context.Service<GodModeService>()("GodModeSe
 				name: input.name,
 				email: input.email,
 				emailVerified: true,
-				preferences: defaultUserPreferences,
 			});
 
 			if (input.provider === "oidc") {

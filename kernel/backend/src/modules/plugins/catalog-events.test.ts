@@ -182,9 +182,7 @@ layer(
 				const publishedBefore = (yield* recorded.published).length;
 				const userId = UserId.make("user-1");
 				yield* database.run((db) =>
-					db
-						.insert(schema.user)
-						.values({ id: userId, name: "Test", preferences: {}, email: "test@example.com" }),
+					db.insert(schema.user).values({ id: userId, name: "Test", email: "test@example.com" }),
 				);
 				yield* database.transaction(
 					invalidator.recordUser(userId).pipe(Effect.andThen(invalidator.recordAll)),

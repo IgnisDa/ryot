@@ -1,3 +1,5 @@
+import { DbError } from "@ryot-app/contract/errors";
+import type { AccountGeneration } from "@ryot-app/contract/schema/account-generation";
 import { UserId } from "@ryot-app/contract/schema/brands";
 import { asc, eq, isNull, sql } from "drizzle-orm";
 import { Context, DateTime, Effect, Layer } from "effect";
@@ -6,6 +8,7 @@ import * as schema from "#lib/infrastructure/db/schema/tables/combined";
 import { DatabaseSession } from "#lib/infrastructure/db/session";
 import { generateUserAvatar } from "#modules/auth/user-avatar";
 import { NotificationSubscriptionsService } from "#modules/automations/notification-subscriptions-service";
+import { MutationReceipts } from "#modules/mutations/receipts";
 import { PluginInstallationService } from "#modules/plugins/installation-service";
 
 import { PluginUserBootstrapDispatcher } from "./plugin-dispatch";
@@ -16,6 +19,7 @@ export class UserBootstrap extends Context.Service<UserBootstrap>()("UserBootstr
 		const pluginBootstrap = yield* PluginUserBootstrapDispatcher;
 		const pluginInstallations = yield* PluginInstallationService;
 		const notificationSubscriptions = yield* NotificationSubscriptionsService;
+		const receipts = yield* MutationReceipts.make;
 
 		const acquireBootstrapLock = (userId: string) =>
 			session.run((db) =>
@@ -62,24 +66,32 @@ export class UserBootstrap extends Context.Service<UserBootstrap>()("UserBootstr
 
 		const perform = Effect.fn("UserBootstrap.perform")(function* (
 			userId: string,
+			accountGeneration: AccountGeneration,
 			generation?: string,
 		) {
+			if (userId !== accountGeneration.userId) {
+				return yield* new DbError({
+					message: "Bootstrap account identity does not match its user",
+				});
+			}
 			yield* Effect.annotateCurrentSpan({ userId });
 			const user = UserId.make(userId);
 			const shouldSkip = yield* session.transaction(
 				Effect.gen(function* () {
+					yield* receipts.admitAccount(accountGeneration);
 					yield* acquireBootstrapLock(userId);
 					const state = yield* readBootstrapState(userId);
 					return state?.bootstrapCompletedAt !== null;
 				}),
 			);
 			if (shouldSkip) {
-				return;
+				return yield* Effect.void;
 			}
-			yield* pluginInstallations.provisionSystemInstallations(user);
-			yield* pluginBootstrap.dispatchAll(user, generation);
+			yield* pluginInstallations.provisionSystemInstallations(accountGeneration);
+			yield* pluginBootstrap.dispatchAll(user, accountGeneration, generation);
 			yield* session.transaction(
 				Effect.gen(function* () {
+					yield* receipts.admitAccount(accountGeneration);
 					yield* acquireBootstrapLock(userId);
 					const state = yield* readBootstrapState(userId);
 					if (state?.bootstrapCompletedAt !== null) {
@@ -91,6 +103,7 @@ export class UserBootstrap extends Context.Service<UserBootstrap>()("UserBootstr
 					yield* markBootstrapComplete(userId, avatar);
 				}),
 			);
+			return yield* Effect.void;
 		});
 
 		return { perform, listIncomplete };

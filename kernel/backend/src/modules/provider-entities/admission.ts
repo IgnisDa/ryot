@@ -4,6 +4,7 @@ import { WorkflowEngine } from "effect/unstable/workflow/WorkflowEngine";
 
 import { AppConfig } from "#lib/infrastructure/config/service";
 import { DatabaseSession } from "#lib/infrastructure/db/session";
+import { MutationReceipts } from "#modules/mutations/receipts";
 
 import { ProviderImportAdmissionRepository } from "./admission-repository";
 import { EntityImportWorkflow } from "./entity-import-workflow";
@@ -26,6 +27,7 @@ export class ProviderImportAdmission extends Context.Service<ProviderImportAdmis
 			const session = yield* DatabaseSession;
 			const engine = yield* WorkflowEngine;
 			const repository = yield* ProviderImportAdmissionRepository;
+			const receipts = yield* MutationReceipts.make;
 			const limit = config.sandbox.importConcurrency;
 			const wakeups = yield* Queue.sliding<void>(1);
 			const wake = Queue.offer(wakeups, undefined).pipe(Effect.asVoid);
@@ -33,7 +35,21 @@ export class ProviderImportAdmission extends Context.Service<ProviderImportAdmis
 			const start = (row: { id: string; payload: unknown }) =>
 				decodePayload(row.payload).pipe(
 					Effect.flatMap((payload) =>
-						engine.execute(EntityImportWorkflow, { payload, discard: true, executionId: row.id }),
+						receipts
+							.registerWorkflow(
+								payload.command.accountGeneration,
+								EntityImportWorkflow._tag,
+								row.id,
+							)
+							.pipe(
+								Effect.andThen(
+									engine.execute(EntityImportWorkflow, {
+										payload,
+										discard: true,
+										executionId: row.id,
+									}),
+								),
+							),
 					),
 				);
 

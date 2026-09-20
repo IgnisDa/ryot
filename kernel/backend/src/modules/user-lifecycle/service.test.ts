@@ -33,6 +33,7 @@ const metadata = {
 		disabledAt: null,
 		emailVerified: true,
 		email: "user@example.com",
+		accountGeneration: "test-account-generation",
 	},
 };
 const prepared = {

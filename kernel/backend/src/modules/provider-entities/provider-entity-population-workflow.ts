@@ -16,7 +16,7 @@ import { stableStringify } from "@ryot-app/ts-utils/json";
 import { Cause, DateTime, Effect, Schedule, Schema } from "effect";
 import { Workflow } from "effect/unstable/workflow";
 
-import { LifecycleDispatchPlan, toLifecycleDispatchPlan } from "#lib/domain/lifecycle";
+import { LifecycleDispatchPlan } from "#lib/domain/lifecycle";
 import type { LifecycleCommand } from "#lib/domain/lifecycle-command";
 import { LifecycleExecution } from "#lib/domain/lifecycle-execution";
 import { retryOnDeadlock } from "#lib/infrastructure/db/errors";
@@ -29,6 +29,7 @@ import { DefinitionSnapshot } from "#modules/definition-registry/snapshot";
 import { EntityMutationOutcome } from "#modules/entities/mutation-outcomes";
 import { EntitiesRepository } from "#modules/entities/repository";
 import { EntitiesService } from "#modules/entities/service";
+import { MutationReceipts } from "#modules/mutations/receipts";
 
 import { EntityImportWorkflowOperations } from "./operations-workflow";
 import { ChildEntitySetWriteResult, writeChildEntitySet } from "./population";
@@ -241,7 +242,7 @@ const upsertRootEntity = Effect.fn("upsertProviderRootEntity")(function* (
 					}),
 				),
 			).pipe(mapDbErrorToSandbox);
-			return { result: work.result, dispatch: work.plans.map(toLifecycleDispatchPlan) };
+			return { result: work.result, dispatch: work.dispatch };
 		}),
 	});
 });
@@ -348,7 +349,7 @@ const stampRootPopulatedAt = Effect.fn("stampProviderRootPopulatedAt")(function*
 					}),
 				),
 			).pipe(mapDbErrorToSandbox);
-			return { result: work.result, dispatch: work.plans.map(toLifecycleDispatchPlan) };
+			return { result: work.result, dispatch: work.dispatch };
 		}),
 	});
 });
@@ -492,6 +493,18 @@ export const ProviderEntityPopulationWorkflow = Workflow.make("ProviderEntityPop
 // by production modules.
 export const runProviderEntityPopulationWorkflow = Effect.fn("ProviderEntityPopulationWorkflow")(
 	function* (payload: ProviderEntityPopulationPayload, executionId: string) {
+		const receipts = yield* MutationReceipts.make;
+		yield* receipts
+			.registerWorkflow(
+				payload.command.accountGeneration,
+				ProviderEntityPopulationWorkflow._tag,
+				executionId,
+			)
+			.pipe(
+				Effect.mapError(
+					(error) => new SandboxRunError({ kind: "infrastructure", message: error.message }),
+				),
+			);
 		if (payload.mode === "refresh" && !payload.entitySchemaSlug) {
 			return yield* Effect.die("entitySchemaSlug is required for refresh");
 		}

@@ -29,7 +29,7 @@ import {
 	AutomationExecutionOperationsLive,
 	LifecycleExecutionLive,
 } from "./execution";
-import { triggerFixture } from "./lifecycle.test-support";
+import { triggerFixture, queuedRunFixture } from "./lifecycle.test-support";
 import { AutomationRunRepository } from "./run-repository";
 import type { AutomationRunWorkflowPayload, AutomationRunWorkflowResult } from "./run-workflow";
 import {
@@ -299,7 +299,12 @@ layer(
 
 layer(
 	AutomationExecutionOperationsLive.pipe(
-		Layer.provide(AutomationRunRepository.layer.pipe(Layer.provide(databaseLayer))),
+		Layer.provide(
+			Layer.mock(AutomationRunRepository)({
+				findById: (id) => Effect.succeed(queuedRunFixture(id)),
+			}),
+		),
+		Layer.provideMerge(databaseLayer),
 		Layer.provideMerge(recordingRunWorkflowEngineLayer()),
 	),
 )((test) => {

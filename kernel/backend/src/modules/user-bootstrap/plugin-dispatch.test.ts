@@ -155,26 +155,59 @@ layer(layerFor([systemInstallation("example"), systemInstallation("sample")]))((
 						return { error: null };
 					}),
 				);
-				yield* dispatcher.dispatchAll(UserId.make("user-1"));
+				yield* dispatcher.dispatchAll(UserId.make("user-1"), {
+					userId: UserId.make("user-1"),
+					token: "test-account-generation",
+				});
 
 				expect(payloads).toEqual([
 					{
 						context: {},
 						scriptId: "bootstrap.first-id",
-						subject: { type: "user", userId: "user-1" },
-						executionId: userBootstrapExecutionId("user-1", "example", "first"),
+						executionId: userBootstrapExecutionId("user-1", "example", "first", {
+							userId: UserId.make("user-1"),
+							token: "test-account-generation",
+						}),
+						subject: {
+							type: "user",
+							userId: "user-1",
+							accountGeneration: {
+								userId: UserId.make("user-1"),
+								token: "test-account-generation",
+							},
+						},
 					},
 					{
 						context: {},
 						scriptId: "bootstrap.second-id",
-						subject: { type: "user", userId: "user-1" },
-						executionId: userBootstrapExecutionId("user-1", "example", "second"),
+						executionId: userBootstrapExecutionId("user-1", "example", "second", {
+							userId: UserId.make("user-1"),
+							token: "test-account-generation",
+						}),
+						subject: {
+							type: "user",
+							userId: "user-1",
+							accountGeneration: {
+								userId: UserId.make("user-1"),
+								token: "test-account-generation",
+							},
+						},
 					},
 					{
 						context: {},
 						scriptId: "bootstrap.only-id",
-						subject: { type: "user", userId: "user-1" },
-						executionId: userBootstrapExecutionId("user-1", "sample", "only"),
+						executionId: userBootstrapExecutionId("user-1", "sample", "only", {
+							userId: UserId.make("user-1"),
+							token: "test-account-generation",
+						}),
+						subject: {
+							type: "user",
+							userId: "user-1",
+							accountGeneration: {
+								userId: UserId.make("user-1"),
+								token: "test-account-generation",
+							},
+						},
 					},
 				]);
 			});
@@ -192,7 +225,10 @@ layer(layerFor([]))((test) => {
 					return { error: null };
 				}),
 			);
-			yield* dispatcher.dispatchAll(UserId.make("user-1"));
+			yield* dispatcher.dispatchAll(UserId.make("user-1"), {
+				userId: UserId.make("user-1"),
+				token: "test-account-generation",
+			});
 
 			expect(payloads).toEqual([]);
 		});
@@ -209,7 +245,10 @@ layer(layerFor([systemInstallation("sample")]))((test) => {
 					return { error: null };
 				}),
 			);
-			yield* dispatcher.dispatchAll(UserId.make("user-1"));
+			yield* dispatcher.dispatchAll(UserId.make("user-1"), {
+				userId: UserId.make("user-1"),
+				token: "test-account-generation",
+			});
 
 			expect(executed).toEqual(["bootstrap.only-id"]);
 		});
@@ -225,9 +264,10 @@ layer(layerFor([systemInstallation("sample")]))((test) => {
 				}),
 			);
 			const userId = UserId.make("user-1");
-			yield* dispatcher.dispatchAll(userId);
-			yield* dispatcher.dispatchAll(userId, "reset-operation-1");
-			yield* dispatcher.dispatchAll(userId, "reset-operation-1");
+			const accountGeneration = { userId, token: "test-account-generation" };
+			yield* dispatcher.dispatchAll(userId, accountGeneration);
+			yield* dispatcher.dispatchAll(userId, accountGeneration, "reset-operation-1");
+			yield* dispatcher.dispatchAll(userId, accountGeneration, "reset-operation-1");
 			expect(executionIds[1]).not.toBe(executionIds[0]);
 			expect(executionIds[2]).toBe(executionIds[1]);
 		});
@@ -246,10 +286,18 @@ layer(layerFor([systemInstallation("example")]))((test) => {
 					attempts += 1;
 					return Effect.succeed({ error: attempts === 1 ? { message: "script failed" } : null });
 				});
-				const first = yield* Effect.exit(dispatcher.dispatchAll(UserId.make("user-1")));
+				const first = yield* Effect.exit(
+					dispatcher.dispatchAll(UserId.make("user-1"), {
+						userId: UserId.make("user-1"),
+						token: "test-account-generation",
+					}),
+				);
 				expect(first._tag).toBe("Failure");
 
-				yield* dispatcher.dispatchAll(UserId.make("user-1"));
+				yield* dispatcher.dispatchAll(UserId.make("user-1"), {
+					userId: UserId.make("user-1"),
+					token: "test-account-generation",
+				});
 				expect(executionIds[0]).toBe(executionIds[1]);
 			});
 		},

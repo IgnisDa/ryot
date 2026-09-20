@@ -4,6 +4,7 @@ import { RyotQLDocument } from "@ryot-app/contract/modules/ryotql/language";
 import { jsonValueSchema, type JsonValue } from "@ryot-app/contract/modules/sandbox/wire";
 import { KernelSavedViewRendererName } from "@ryot-app/contract/modules/saved-views/schemas";
 import { CanonicalBase64 } from "@ryot-app/contract/schema/base64";
+import { UserPreferences } from "@ryot-app/contract/schema/user-preferences";
 import { strictStruct } from "@ryot-app/contract/schema/utils";
 import { Result, Schema } from "effect";
 
@@ -85,7 +86,7 @@ export type ArchiveManifest = typeof ArchiveManifest.Type;
 
 export const ArchiveProfile = strictStruct({
 	name: Schema.String,
-	preferences: jsonObject,
+	preferences: UserPreferences,
 	image: Schema.NullOr(Schema.String),
 });
 export type ArchiveProfile = typeof ArchiveProfile.Type;

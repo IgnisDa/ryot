@@ -100,6 +100,7 @@ it("requires kernel import commands to carry matching import attribution", () =>
 		command: {
 			occurredAt: "2026-01-01T00:00:00.000Z",
 			itemIdentity: '["integration-run","run-1"]',
+			accountGeneration: { userId: "user-1", token: "test-account-generation" },
 			causation: {
 				depth: 0,
 				parentRunId: null,

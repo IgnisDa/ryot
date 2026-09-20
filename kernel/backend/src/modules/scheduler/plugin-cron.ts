@@ -6,6 +6,7 @@ import { Cause, Clock, Context, Cron, Duration, Effect, Result, Layer } from "ef
 import { WorkflowEngine } from "effect/unstable/workflow/WorkflowEngine";
 
 import { AppConfig } from "#lib/infrastructure/config/service";
+import { MutationReceipts } from "#modules/mutations/receipts";
 import { PluginRuntimeResolver } from "#modules/plugins/runtime-resolver";
 import { SandboxScriptWorkflow } from "#modules/sandbox/sandbox-script-workflow";
 
@@ -39,6 +40,7 @@ export class PluginCronService extends Context.Service<PluginCronService>()("Plu
 		const config = yield* AppConfig;
 		const engine = yield* WorkflowEngine;
 		const runtime = yield* PluginRuntimeResolver;
+		const receipts = yield* MutationReceipts.make;
 
 		const resolveTarget = Effect.fn("PluginCronService.resolveTarget")(function* (
 			entry: PluginCronTarget,
@@ -59,7 +61,11 @@ export class PluginCronService extends Context.Service<PluginCronService>()("Plu
 			return (
 				owned && {
 					...owned,
-					subject: { type: "user", userId: owned.userId } satisfies SandboxExecutionSubject,
+					subject: {
+						type: "user",
+						userId: owned.userId,
+						accountGeneration: yield* receipts.currentAccount(owned.userId),
+					} satisfies SandboxExecutionSubject,
 				}
 			);
 		});
@@ -80,16 +86,26 @@ export class PluginCronService extends Context.Service<PluginCronService>()("Plu
 				return { status: "notFound" as const };
 			}
 			const execution = yield* Effect.exit(
-				engine.execute(SandboxScriptWorkflow, {
-					executionId,
-					payload: {
-						input: {},
+				receipts
+					.registerWorkflow(
+						resolved.subject.type === "system" ? null : resolved.subject.accountGeneration,
+						SandboxScriptWorkflow._tag,
 						executionId,
-						resolutionMode: "exact",
-						subject: resolved.subject,
-						scriptId: resolved.script.id,
-					},
-				}),
+					)
+					.pipe(
+						Effect.andThen(
+							engine.execute(SandboxScriptWorkflow, {
+								executionId,
+								payload: {
+									input: {},
+									executionId,
+									resolutionMode: "exact",
+									subject: resolved.subject,
+									scriptId: resolved.script.id,
+								},
+							}),
+						),
+					),
 			);
 			const result =
 				execution._tag === "Success"

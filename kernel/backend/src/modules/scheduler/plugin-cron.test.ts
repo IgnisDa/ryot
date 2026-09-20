@@ -7,7 +7,8 @@ import { WorkflowEngine } from "effect/unstable/workflow/WorkflowEngine";
 import { assert } from "vitest";
 
 import { assertExitFails } from "#lib/test-utils/assertions";
-import { databaseLayer, makeAppConfigLayer, makeWorkflowEngine } from "#lib/test-utils/effect";
+import { makeAppConfigLayer, makeWorkflowEngine } from "#lib/test-utils/effect";
+import { mutationAdmissionTestLayer } from "#lib/test-utils/mutation-admission";
 import { PluginRuntimeResolver } from "#modules/plugins/runtime-resolver";
 import { fixtureManifest } from "#modules/plugins/test-support";
 import type { PluginRevision, StoredPluginIdentity } from "#modules/plugins/types";
@@ -187,7 +188,7 @@ const makeLayer = (
 								infrequentCronJobsSchedule: options.infrequentCronJobsSchedule ?? "0 0 * * *",
 							},
 						}),
-						databaseLayer,
+						mutationAdmissionTestLayer,
 						Layer.mock(PluginRuntimeResolver)({
 							listPrivateCronSchedules:
 								options.listPrivateCronSchedules ?? (() => Effect.succeed([])),
@@ -524,7 +525,7 @@ const makePrivateCronLayer = (
 	PluginCronService.layer.pipe(
 		Layer.provideMerge(
 			Layer.mergeAll(
-				databaseLayer,
+				mutationAdmissionTestLayer,
 				makeAppConfigLayer({ scheduler: { infrequentCronJobsSchedule: "0 0 * * *" } }),
 				Layer.mock(PluginRuntimeResolver)({
 					listSystemCronSchedules: () => Effect.succeed([]),
@@ -567,9 +568,16 @@ layer(
 					payload: {
 						input: {},
 						resolutionMode: "exact",
-						subject: { type: "user", userId: "user-1" },
 						scriptId: SandboxScriptId.make("installation-1-script-id"),
 						executionId: "private-plugin-cron-14-installation-1-12-private-cron-60000",
+						subject: {
+							type: "user",
+							userId: "user-1",
+							accountGeneration: {
+								userId: UserId.make("user-1"),
+								token: "test-account-generation",
+							},
+						},
 					},
 				},
 				{
@@ -577,9 +585,16 @@ layer(
 					payload: {
 						input: {},
 						resolutionMode: "exact",
-						subject: { type: "user", userId: "user-2" },
 						scriptId: SandboxScriptId.make("installation-2-script-id"),
 						executionId: "private-plugin-cron-14-installation-2-12-private-cron-60000",
+						subject: {
+							type: "user",
+							userId: "user-2",
+							accountGeneration: {
+								userId: UserId.make("user-2"),
+								token: "test-account-generation",
+							},
+						},
 					},
 				},
 			]);

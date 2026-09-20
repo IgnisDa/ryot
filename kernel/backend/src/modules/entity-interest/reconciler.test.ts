@@ -10,7 +10,11 @@ import { RyotQLService } from "#modules/ryotql/service";
 
 import { InterestReconciler } from "./reconciler";
 
-const principal = { preferredLanguage: "es", userId: UserId.make("user-1") };
+const principal = {
+	preferredLanguage: "es",
+	userId: UserId.make("user-1"),
+	accountGeneration: { userId: UserId.make("user-1"), token: "test-account-generation" },
+};
 
 type InterestItem = {
 	readonly id: string;

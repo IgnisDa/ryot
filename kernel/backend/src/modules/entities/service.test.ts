@@ -60,6 +60,7 @@ const command = (id: string) =>
 		initiator: { id: owner, kind: "user" },
 		executionId: AutomationExecutionId.make(id),
 		occurredAt: IsoUtcString.make("2026-09-15T00:00:00.000Z"),
+		accountGeneration: { userId: owner, token: "test-account-generation" },
 	});
 const createInput = (id: string) => ({
 	userId: owner,
@@ -75,6 +76,7 @@ const warning: AutomationWarning = {
 	hookSlug: AutomationHookSlug.make("fixture.after"),
 };
 type TestOptions = {
+	noHooks?: boolean;
 	blocked?: boolean;
 	blockedRequiredChange?: boolean;
 	activateSchemaOnWrite?: boolean;
@@ -174,61 +176,77 @@ const entitiesLayer = (options: TestOptions = {}) =>
 					const triggers = yield* AutomationTriggerRepository;
 					const session = yield* DatabaseSession;
 					return LifecyclePlanner.of(
-						withLifecycleBatchPlanning({
-							plan: ({ trigger }) =>
-								Effect.gen(function* () {
-									expect(yield* session.isTransactionActive).toBe(true);
-									let blockedReason: AutomationBlockedReason | null = null;
-									if (trigger.kind.category === "request" && options.blocked) {
-										blockedReason = {
-											omittedHooks: [],
-											hasRequiredHooks: false,
-											code: "automation-limit-reached",
+						withLifecycleBatchPlanning(
+							{
+								plan: ({ trigger }) =>
+									Effect.gen(function* () {
+										expect(yield* session.isTransactionActive).toBe(true);
+										if (options.noHooks) {
+											return {
+												trigger: null,
+												runs: [] as const,
+												policies: [] as const,
+												_tag: "NoHooks" as const,
+												wasCreated: false as const,
+											};
+										}
+										let blockedReason: AutomationBlockedReason | null = null;
+										if (trigger.kind.category === "request" && options.blocked) {
+											blockedReason = {
+												omittedHooks: [],
+												hasRequiredHooks: false,
+												code: "automation-limit-reached",
+											};
+										} else if (
+											trigger.kind.category === "change" &&
+											options.blockedRequiredChange
+										) {
+											blockedReason = {
+												omittedHooks: [],
+												hasRequiredHooks: true,
+												code: "automation-limit-reached",
+											};
+										}
+										const persisted = yield* triggers.insert({ ...trigger, blockedReason });
+										const changePlanCount =
+											trigger.kind.category === "change"
+												? yield* Ref.updateAndGet(changePlans, (count) => count + 1)
+												: yield* Ref.get(changePlans);
+										if (
+											trigger.kind.category === "change" &&
+											options.deadlockOnce &&
+											changePlanCount === 1
+										) {
+											return yield* new DbError({
+												code: "40P01",
+												message: "Injected deadlock after insert",
+											});
+										}
+										if (
+											trigger.kind.category === "change" &&
+											(options.failChange === true || options.failChange === changePlanCount)
+										) {
+											return yield* new DbError({
+												message: "Injected planning failure after insert",
+											});
+										}
+										return {
+											runs: [],
+											wasCreated: true,
+											trigger: persisted,
+											policies:
+												trigger.kind.category === "request"
+													? (options.policies ?? []).map((_, index) => ({
+															position: index,
+															runId: AutomationRunId.make(`policy-${index}`),
+														}))
+													: [],
 										};
-									} else if (trigger.kind.category === "change" && options.blockedRequiredChange) {
-										blockedReason = {
-											omittedHooks: [],
-											hasRequiredHooks: true,
-											code: "automation-limit-reached",
-										};
-									}
-									const persisted = yield* triggers.insert({ ...trigger, blockedReason });
-									const changePlanCount =
-										trigger.kind.category === "change"
-											? yield* Ref.updateAndGet(changePlans, (count) => count + 1)
-											: yield* Ref.get(changePlans);
-									if (
-										trigger.kind.category === "change" &&
-										options.deadlockOnce &&
-										changePlanCount === 1
-									) {
-										return yield* new DbError({
-											code: "40P01",
-											message: "Injected deadlock after insert",
-										});
-									}
-									if (
-										trigger.kind.category === "change" &&
-										(options.failChange === true || options.failChange === changePlanCount)
-									) {
-										return yield* new DbError({
-											message: "Injected planning failure after insert",
-										});
-									}
-									return {
-										runs: [],
-										wasCreated: true,
-										trigger: persisted,
-										policies:
-											trigger.kind.category === "request"
-												? (options.policies ?? []).map((_, index) => ({
-														position: index,
-														runId: AutomationRunId.make(`policy-${index}`),
-													}))
-												: [],
-									};
-								}),
-						}),
+									}),
+							},
+							200,
+							!options.noHooks,
+						),
 					);
 				}),
 			).pipe(Layer.provide(repositories));
@@ -325,7 +343,12 @@ const entitiesLayer = (options: TestOptions = {}) =>
 					yield* session.run((db) =>
 						db
 							.insert(tables.user)
-							.values({ id: owner, name: "Owner", preferences: {}, email: "owner@example.test" }),
+							.values({
+								id: owner,
+								name: "Owner",
+								email: "owner@example.test",
+								accountGeneration: "test-account-generation",
+							}),
 					);
 				}),
 			);
@@ -348,6 +371,30 @@ const proposal = (name: string, properties: { title: string }) => ({
 });
 
 describe("EntitiesService committed lifecycle", () => {
+	layer(entitiesLayer({ noHooks: true }))((test) => {
+		test.effect("replays a no-hook create after source deletion without new history", () =>
+			Effect.gen(function* () {
+				const service = yield* EntitiesService;
+				const session = yield* DatabaseSession;
+				const input = createInput("no-hook-replay");
+				const first = yield* service.create(input);
+				expect(first.warnings).toEqual([]);
+				expect(yield* session.run((db) => db.select().from(tables.automationTrigger))).toEqual([]);
+				const receipts = yield* session.run((db) => db.select().from(tables.mutationReceipt));
+				expect(receipts.filter(({ receiptType }) => receiptType === "item")).toHaveLength(1);
+				expect(receipts.every(({ evidence }) => evidence === null)).toBe(true);
+				yield* session.run((db) =>
+					db.delete(tables.entity).where(eq(tables.entity.id, first.entity.id)),
+				);
+				expect(yield* service.create(input)).toEqual(first);
+				expect(yield* session.run((db) => db.select().from(tables.entity))).toEqual([]);
+				expect(
+					yield* service.create({ ...input, name: "Different" }).pipe(Effect.flip),
+				).toMatchObject({ reason: { code: "mutation-conflict" } });
+				expect(yield* session.run((db) => db.select().from(tables.automationTrigger))).toEqual([]);
+			}),
+		);
+	});
 	layer(entitiesLayer())((test) => {
 		test.effect(
 			"normalizes numeric properties before persisting the entity and change snapshot",
@@ -648,11 +695,7 @@ describe("EntitiesService committed lifecycle", () => {
 				const replay = yield* service.upsertGlobalEntities(items, providerId, command("bulk"), {
 					maximumTotal: 2,
 				});
-				expect(replay.results).toMatchObject([
-					{ wasInserted: false },
-					{ wasInserted: false },
-					{ status: "skipped" },
-				]);
+				expect(replay.results).toEqual(result.results);
 				expect(yield* session.run((db) => db.select().from(tables.entity))).toHaveLength(2);
 				expect(
 					(yield* session.run((db) => db.select().from(tables.automationTrigger))).filter(
@@ -664,7 +707,7 @@ describe("EntitiesService committed lifecycle", () => {
 	});
 	layer(entitiesLayer({ failChange: true }))((test) => {
 		test.effect(
-			"atomically rolls source and change trigger back on planning failure, retaining request history",
+			"atomically rolls a no-policy source and change plan back on planning failure",
 			() =>
 				Effect.gen(function* () {
 					const service = yield* EntitiesService;
@@ -680,7 +723,7 @@ describe("EntitiesService committed lifecycle", () => {
 						]),
 					);
 					expect(entities).toEqual([]);
-					expect(triggers.map((row) => row.category)).toEqual(["request"]);
+					expect(triggers).toEqual([]);
 				}),
 		);
 	});
@@ -722,7 +765,7 @@ describe("EntitiesService committed lifecycle", () => {
 						yield* service
 							.create({ ...createInput("replay"), properties: { title: "different" } })
 							.pipe(Effect.flip),
-					).toMatchObject({ _tag: "DbError" });
+					).toMatchObject({ reason: { code: "mutation-conflict" } });
 					const [entities, triggers] = yield* session.run((db) =>
 						Effect.all([
 							db.select().from(tables.entity),
@@ -769,10 +812,9 @@ describe("EntitiesService committed lifecycle", () => {
 					expect(noop.entity).toEqual(updated.entity);
 					const deleted = yield* service.deleteByIds([created.entity.id], command("delete"));
 					expect(deleted).toEqual({ warnings: [], deletedCount: 1 });
-					expect(yield* service.deleteByIds([created.entity.id], command("delete"))).toEqual({
-						warnings: [],
-						deletedCount: 0,
-					});
+					expect(yield* service.deleteByIds([created.entity.id], command("delete"))).toEqual(
+						deleted,
+					);
 					const changes = (yield* session.run((db) =>
 						db.select().from(tables.automationTrigger),
 					)).filter((row) => row.category === "change");
@@ -909,40 +951,39 @@ describe("EntitiesService committed lifecycle", () => {
 	});
 
 	layer(entitiesLayer())((test) => {
-		test.effect(
-			"requires an active transaction and returns committed plans for post-commit dispatch",
-			() =>
-				Effect.gen(function* () {
-					yield* seedProvider;
-					const service = yield* EntitiesService;
-					const session = yield* DatabaseSession;
-					const input = {
-						providerId,
-						name: "Planned",
-						populatedAt: null,
-						updateExisting: true,
-						externalId: "planned",
-						entitySchemaSlug: slug,
-						scope: "global" as const,
-						lifecycle: command("planned"),
-						properties: { title: "planned" },
-					};
-					expect(
-						yield* service.persistPlannedProviderUpsert(input).pipe(Effect.flip),
-					).toMatchObject({ code: "active-transaction-required" });
-					const work = yield* session.transaction(service.persistPlannedProviderUpsert(input));
-					expect(work.result).toMatchObject({
-						wasInserted: true,
-						outcome: { operation: "create" },
-					});
-					expect(work.plans.map(({ trigger }) => trigger.kind)).toEqual([
-						{ category: "change", resource: "entity", operation: "create" },
-						{ category: "change", operation: "batch", resource: "entity" },
-					]);
-					const batch = work.plans[1]?.trigger.payload;
-					assert(batch?.operation === "batch");
-					expect(batch.items).toEqual([work.plans[0]?.trigger.payload]);
-				}),
+		test.effect("requires an active transaction and returns committed dispatch references", () =>
+			Effect.gen(function* () {
+				yield* seedProvider;
+				const service = yield* EntitiesService;
+				const session = yield* DatabaseSession;
+				const input = {
+					providerId,
+					name: "Planned",
+					populatedAt: null,
+					updateExisting: true,
+					externalId: "planned",
+					entitySchemaSlug: slug,
+					scope: "global" as const,
+					lifecycle: command("planned"),
+					properties: { title: "planned" },
+				};
+				expect(yield* service.persistPlannedProviderUpsert(input).pipe(Effect.flip)).toMatchObject({
+					code: "active-transaction-required",
+				});
+				const work = yield* session.transaction(service.persistPlannedProviderUpsert(input));
+				expect(work.result).toMatchObject({ wasInserted: true, outcome: { operation: "create" } });
+				const triggers = yield* AutomationTriggerRepository;
+				const planned = yield* Effect.forEach(work.dispatch, ({ triggerId }) =>
+					triggers.findById(triggerId),
+				);
+				expect(planned.map((trigger) => trigger?.kind)).toEqual([
+					{ category: "change", resource: "entity", operation: "create" },
+					{ category: "change", operation: "batch", resource: "entity" },
+				]);
+				const batch = planned[1]?.payload;
+				assert(batch?.operation === "batch");
+				expect(batch.items).toEqual([planned[0]?.payload]);
+			}),
 		);
 	});
 
@@ -971,14 +1012,18 @@ describe("EntitiesService committed lifecycle", () => {
 					}),
 				);
 				expect(work.results.map(({ entity }) => entity.externalId)).toEqual(["first", "second"]);
-				expect(work.plans.map(({ trigger }) => trigger.kind.operation)).toEqual([
+				const triggers = yield* AutomationTriggerRepository;
+				const planned = yield* Effect.forEach(work.dispatch, ({ triggerId }) =>
+					triggers.findById(triggerId),
+				);
+				expect(planned.map((trigger) => trigger?.kind.operation)).toEqual([
 					"create",
 					"create",
 					"batch",
 				]);
-				const batch = work.plans[2]?.trigger.payload;
+				const batch = planned[2]?.payload;
 				assert(batch?.operation === "batch");
-				expect(batch.items).toEqual(work.plans.slice(0, 2).map(({ trigger }) => trigger.payload));
+				expect(batch.items).toEqual(planned.slice(0, 2).map((trigger) => trigger?.payload));
 			}),
 		);
 	});
@@ -1029,9 +1074,7 @@ describe("EntitiesService committed lifecycle", () => {
 				];
 				const first = yield* service.ensureUserEntities(owner, items, command("ensure"));
 				expect(first).toMatchObject([{ wasInserted: true, warnings: [warning, warning] }]);
-				expect(yield* service.ensureUserEntities(owner, items, command("ensure"))).toEqual([
-					{ warnings: [], wasInserted: false, entityId: first[0]?.entityId },
-				]);
+				expect(yield* service.ensureUserEntities(owner, items, command("ensure"))).toEqual(first);
 				expect(yield* session.run((db) => db.select().from(tables.entity))).toHaveLength(1);
 				expect(
 					(yield* session.run((db) => db.select().from(tables.automationTrigger))).filter(

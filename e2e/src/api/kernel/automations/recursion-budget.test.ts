@@ -375,33 +375,19 @@ describe("automation recursion budgets", () => {
 				)
 				.sort((left, right) => left.causation.depth - right.causation.depth);
 
-			expect(childEventTriggers).toHaveLength(1);
-			expect(relationshipTriggers).toHaveLength(1);
+			expect(childEventTriggers).toEqual([]);
+			expect(relationshipTriggers).toEqual([]);
+			expect(triggers.filter(({ kind }) => kind.category === "request")).toEqual([]);
+			expect(rootTrigger.causation).toMatchObject({
+				depth: 0,
+				source: "api",
+				rootExecutionId,
+				parentRunId: null,
+				parentTriggerId: null,
+			});
 			expect(signalTriggers.map(({ causation }) => causation.depth)).toEqual([
 				1, 2, 3, 4, 5, 6, 7, 8, 9,
 			]);
-			for (const trigger of [childEventTriggers[0], relationshipTriggers[0]]) {
-				const changeTrigger = requirePresent(trigger, "Expected depth-one change trigger");
-				const requestTrigger = requirePresent(
-					triggers.find(({ id }) => id === changeTrigger.causation.parentTriggerId),
-					"Expected parent request trigger",
-				);
-				expect(changeTrigger.causation).toMatchObject({
-					depth: 1,
-					rootExecutionId,
-					parentRunId: root.id,
-					source: "automation",
-					parentTriggerId: requestTrigger.id,
-				});
-				expect(requestTrigger.payload).toMatchObject({ category: "request" });
-				expect(requestTrigger.causation).toMatchObject({
-					depth: 1,
-					rootExecutionId,
-					parentRunId: root.id,
-					source: "automation",
-					parentTriggerId: root.triggerId,
-				});
-			}
 			expect(signalTriggers[0]?.causation).toMatchObject({
 				depth: 1,
 				rootExecutionId,
@@ -608,19 +594,10 @@ describe("automation recursion budgets", () => {
 					trigger.payload.after.eventSchemaSlug === childEventSchemaSlug,
 			);
 			expect(childTriggers).toHaveLength(2);
+			expect(triggers.filter(({ kind }) => kind.category === "request")).toEqual([]);
 			for (const trigger of childTriggers) {
-				const requestTrigger = requirePresent(
-					triggers.find(({ id }) => id === trigger.causation.parentTriggerId),
-					"Expected concurrent child parent request trigger",
-				);
 				expect(trigger.causation).toMatchObject({
-					rootExecutionId,
-					parentRunId: root.id,
-					source: "automation",
-					parentTriggerId: requestTrigger.id,
-				});
-				expect(requestTrigger.payload).toMatchObject({ category: "request" });
-				expect(requestTrigger.causation).toMatchObject({
+					depth: 1,
 					rootExecutionId,
 					parentRunId: root.id,
 					source: "automation",

@@ -5,6 +5,7 @@ import type {
 	SandboxExecutionSubject,
 	SandboxExecutionGrants,
 } from "@ryot-app/contract/modules/sandbox/schemas";
+import type { AccountGeneration } from "@ryot-app/contract/schema/account-generation";
 import { SandboxScriptId, type UserId } from "@ryot-app/contract/schema/brands";
 import { jsonValueSchema } from "@ryot-app/sandbox-sdk/wire";
 import { generateId } from "better-auth";
@@ -13,6 +14,7 @@ import type { Workflow } from "effect/unstable/workflow";
 import { WorkflowEngine } from "effect/unstable/workflow/WorkflowEngine";
 
 import { AppConfig } from "#lib/infrastructure/config/service";
+import { DatabaseSession } from "#lib/infrastructure/db/session";
 import type { SandboxPluginRevision } from "#lib/infrastructure/sandbox-runtime/execution-principal";
 import { sandboxContextError } from "#lib/infrastructure/sandbox-runtime/limits";
 import { makeActivity } from "#lib/infrastructure/workflow-scope";
@@ -23,6 +25,7 @@ import {
 } from "#lib/shared/job-id";
 import { trimToNull } from "#lib/shared/validation";
 import { toWorkflowRunResult } from "#lib/shared/workflow-result";
+import { MutationReceipts } from "#modules/mutations/receipts";
 
 import { SandboxExecutionResult } from "./execution-result";
 import {
@@ -74,6 +77,16 @@ export class SandboxExecutionService extends Context.Service<SandboxExecutionSer
 			const jobIdSecret = deriveJobIdSecret(Redacted.value(config.server.adminAccessToken));
 			const workflowReferences = yield* SandboxWorkflowReferenceRepository;
 			const pinning = yield* SandboxWorkflowPinning;
+			const receipts = yield* MutationReceipts.make;
+			const database = yield* DatabaseSession;
+			const currentAccount = (userId: UserId) =>
+				receipts
+					.currentAccount(userId)
+					.pipe(
+						Effect.mapError(
+							(error) => new SandboxRunError({ kind: "infrastructure", message: error.message }),
+						),
+					);
 
 			const enqueue = Effect.fn("SandboxExecutionService.enqueue")(function* (
 				executingUserId: UserId,
@@ -102,11 +115,24 @@ export class SandboxExecutionService extends Context.Service<SandboxExecutionSer
 							context,
 							executionId,
 							scriptId: script.id,
-							subject: { type: "user", userId: executingUserId },
+							subject: {
+								type: "user",
+								userId: executingUserId,
+								accountGeneration: yield* currentAccount(executingUserId),
+							},
 						},
 						"active",
 					)
 					.pipe(Effect.catchTag("SandboxRunError", () => notFound(sandboxScriptNotFoundError)));
+				yield* receipts
+					.registerWorkflow(
+						resolvedPayload.subject.type === "system"
+							? null
+							: resolvedPayload.subject.accountGeneration,
+						SandboxScriptWorkflow._tag,
+						executionId,
+					)
+					.pipe(Effect.orDie);
 				yield* engine
 					.execute(SandboxScriptWorkflow, {
 						executionId,
@@ -201,6 +227,17 @@ export class SandboxExecutionService extends Context.Service<SandboxExecutionSer
 					if (contextError) {
 						return yield* new SandboxRunError({ message: contextError, kind: "invalid-input" });
 					}
+					yield* receipts
+						.registerWorkflow(
+							input.subject.type === "system" ? null : input.subject.accountGeneration,
+							SandboxScriptWorkflow._tag,
+							input.executionId,
+						)
+						.pipe(
+							Effect.mapError(
+								(error) => new SandboxRunError({ kind: "infrastructure", message: error.message }),
+							),
+						);
 					return yield* engine.execute(SandboxScriptWorkflow, {
 						executionId: input.executionId,
 						payload: {
@@ -245,7 +282,10 @@ export class SandboxExecutionService extends Context.Service<SandboxExecutionSer
 						scriptId: input.scriptId,
 						executionId: input.executionId,
 						...(input.grants ? { grants: input.grants } : {}),
-					}).pipe(Effect.provideService(WorkflowEngine, engine));
+					}).pipe(
+						Effect.provideService(WorkflowEngine, engine),
+						Effect.provideService(DatabaseSession, database),
+					);
 				}).pipe(
 					Effect.catchTag("SandboxRunError", (error) =>
 						Effect.succeed(sandboxExecutionFailure(error)),
@@ -259,6 +299,7 @@ export class SandboxExecutionService extends Context.Service<SandboxExecutionSer
 				pluginId: string;
 				executionId: string;
 				executingUserId: UserId;
+				accountGeneration: AccountGeneration;
 				scriptId: SandboxScriptId;
 			}) {
 				const pin = yield* pinning.establish(
@@ -267,7 +308,11 @@ export class SandboxExecutionService extends Context.Service<SandboxExecutionSer
 						resolutionMode: "exact",
 						scriptId: input.scriptId,
 						executionId: input.executionId,
-						subject: { type: "user", userId: input.executingUserId },
+						subject: {
+							type: "user",
+							userId: input.executingUserId,
+							accountGeneration: input.accountGeneration,
+						},
 					},
 					input.executionId,
 					input.pluginId,
@@ -286,6 +331,7 @@ export class SandboxExecutionService extends Context.Service<SandboxExecutionSer
 
 			const enqueuePluginWorkflow = Effect.fn("SandboxExecutionService.enqueuePluginWorkflow")(
 				function* (input: {
+					accountGeneration: AccountGeneration;
 					input: JsonValue;
 					pluginId: string;
 					executionId: string;
@@ -311,7 +357,11 @@ export class SandboxExecutionService extends Context.Service<SandboxExecutionSer
 						scriptId: script.id,
 						executionId: input.executionId,
 						resolutionMode: "active" as const,
-						subject: { type: "user" as const, userId: input.executingUserId },
+						subject: {
+							type: "user" as const,
+							userId: input.executingUserId,
+							accountGeneration: input.accountGeneration,
+						},
 					};
 					const pin = yield* pinning.establish(payload, input.executionId, input.pluginId);
 					const releaseRegistration =

@@ -1,4 +1,4 @@
-import type { DbError } from "@ryot-app/contract/errors";
+import { DbError } from "@ryot-app/contract/errors";
 import type { AutomationWarning } from "@ryot-app/contract/modules/automations/lifecycle";
 import { Cause, Clock, Context, Duration, Effect, Layer, Option } from "effect";
 import { WorkflowEngine, WorkflowInstance } from "effect/unstable/workflow/WorkflowEngine";
@@ -15,6 +15,7 @@ import {
 	startWorkflowDeadline,
 } from "#lib/infrastructure/workflow-deadline";
 import { ActivityBody } from "#lib/infrastructure/workflow-scope";
+import { MutationReceipts } from "#modules/mutations/receipts";
 
 import { automationAttemptIdentity } from "./attempt-repository";
 import { AutomationRunRepository } from "./run-repository";
@@ -43,15 +44,10 @@ export const AutomationExecutionOperationsLive = Layer.effect(
 	Effect.gen(function* () {
 		const engine = yield* WorkflowEngine;
 		const runs = yield* AutomationRunRepository;
+		const session = yield* DatabaseSession;
+		const receipts = yield* MutationReceipts.make;
 		return AutomationExecutionOperations.of({
 			skipQueuedPolicies: (input) => runs.skipQueuedPolicies(input),
-			submit: (payload) =>
-				engine.execute(AutomationRunWorkflow, {
-					payload,
-					discard: true,
-					executionId: automationAttemptIdentity(payload.runId, payload.attemptNumber)
-						.workflowExecutionId,
-				}),
 			poll: (payload) =>
 				Effect.gen(function* () {
 					const executionId = automationAttemptIdentity(
@@ -65,6 +61,43 @@ export const AutomationExecutionOperationsLive = Layer.effect(
 						return null;
 					}
 					return yield* observed.exit;
+				}),
+			submit: (payload) =>
+				Effect.gen(function* () {
+					const executionId = automationAttemptIdentity(
+						payload.runId,
+						payload.attemptNumber,
+					).workflowExecutionId;
+					yield* session
+						.transaction(
+							Effect.gen(function* () {
+								const run = yield* runs.findById(payload.runId);
+								if (!run) {
+									return yield* new DbError({ message: "Automation run is unavailable" });
+								}
+								if (run.executionUserId === null) {
+									return yield* Effect.void;
+								}
+								const account = yield* receipts.currentAccount(run.executionUserId);
+								if (!(yield* runs.findById(payload.runId))) {
+									return yield* new DbError({ message: "Automation run is unavailable" });
+								}
+								yield* receipts.registerWorkflow(account, AutomationRunWorkflow._tag, executionId);
+								return yield* Effect.void;
+							}),
+						)
+						.pipe(
+							Effect.catchTag(
+								"DatabaseSessionStateError",
+								() => new DbError({ message: "Automation admission requires a root transaction" }),
+							),
+						);
+					return yield* engine.execute(AutomationRunWorkflow, {
+						payload,
+						discard: true,
+						executionId: automationAttemptIdentity(payload.runId, payload.attemptNumber)
+							.workflowExecutionId,
+					});
 				}),
 		});
 	}),
@@ -96,14 +129,12 @@ export const LifecycleExecutionLive = Layer.effect(
 				: (yield* Clock.currentTimeMillis) + AUTOMATION_IMMEDIATE_TIMEOUT_MS;
 		});
 		const observeAttempt = Effect.fnUntraced(function* (
-			name: string,
 			deadline: number,
 			payload: AutomationRunWorkflowPayload,
 		) {
 			const instance = yield* Effect.serviceOption(WorkflowInstance);
 			if (Option.isSome(instance)) {
 				return yield* observeWorkflowDeadline({
-					name,
 					deadline,
 					poll: operations.poll(payload),
 					completedAt: attemptCompletedAt,
@@ -149,7 +180,7 @@ export const LifecycleExecutionLive = Layer.effect(
 							if (run.delivery === "async") {
 								return null;
 							}
-							const observed = yield* observeAttempt(`after-${run.id}`, deadline, payload);
+							const observed = yield* observeAttempt(deadline, payload);
 							if (observed.status === "expired") {
 								return warning("required-hook-pending");
 							}
@@ -205,7 +236,7 @@ export const LifecycleExecutionLive = Layer.effect(
 							const payload = { runId, acceptedPatches, attemptNumber: 1 };
 							const deadline = yield* startDeadline(`policy-${runId}`);
 							yield* operations.submit(payload);
-							const observed = yield* observeAttempt(`policy-${runId}`, deadline, payload);
+							const observed = yield* observeAttempt(deadline, payload);
 							return observed.status === "completed" &&
 								observed.value.attempt?.status === "succeeded" &&
 								observed.value.policyOutput !== null

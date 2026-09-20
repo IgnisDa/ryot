@@ -10,8 +10,10 @@ import { WorkflowInstance } from "effect/unstable/workflow/WorkflowEngine";
 import { ImportSourceState } from "#lib/infrastructure/redis";
 import { SandboxArtifactStore } from "#lib/infrastructure/sandbox-runtime/artifacts";
 import { makeActivity } from "#lib/infrastructure/workflow-scope";
+import { MutationReceipts } from "#modules/mutations/receipts";
 import { SandboxExecutionService } from "#modules/sandbox/service";
 
+import { ProcessImportRunWorkflow } from "./import-run-workflow";
 import type { ImportRunJobData } from "./jobs";
 import { markImportRunStarted } from "./runtime/import-run-status";
 import { ImportSourceStateStore } from "./runtime/source-state-store";
@@ -23,6 +25,14 @@ export const runPluginImportWorkflow = Effect.fn("runPluginImportWorkflow")(func
 	payload: ImportRunJobData,
 	executionId: string,
 ) {
+	const accountGeneration = payload.command.accountGeneration;
+	if (accountGeneration === null) {
+		return yield* new ImportRunError({ message: "Import account generation is missing" });
+	}
+	const receipts = yield* MutationReceipts.make;
+	yield* receipts
+		.registerWorkflow(accountGeneration, ProcessImportRunWorkflow._tag, executionId)
+		.pipe(Effect.mapError(toWorkflowError));
 	const sandbox = yield* SandboxExecutionService;
 	const artifactOwnerExecutionId = `${executionId}-import`;
 	const artifactReferenceExecutionId = `${executionId}-import-orchestrator`;
@@ -159,7 +169,7 @@ export const runPluginImportWorkflow = Effect.fn("runPluginImportWorkflow")(func
 				scriptId: sourceState.workflowScriptId,
 				pluginRevision: sourceState.pluginRevision,
 				...(pinnedGrants ? { grants: pinnedGrants } : {}),
-				subject: { type: "user", userId: payload.userId },
+				subject: { type: "user", accountGeneration, userId: payload.userId },
 			})
 			.pipe(Effect.mapError(toWorkflowError));
 
@@ -221,4 +231,5 @@ export const runPluginImportWorkflow = Effect.fn("runPluginImportWorkflow")(func
 			}),
 		),
 	);
+	return yield* Effect.void;
 });

@@ -80,6 +80,7 @@ const systemApiCommand = Effect.fnUntraced(function* (itemIdentity: string) {
 		executionId,
 		itemIdentity,
 		source: "api",
+		accountGeneration: null,
 		initiator: { id: null, kind: "system" },
 		occurredAt: IsoUtcString.make((yield* DateTime.nowAsDate).toISOString()),
 	});

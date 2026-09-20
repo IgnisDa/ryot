@@ -15,8 +15,8 @@ import * as tables from "#lib/infrastructure/db/schema/tables/combined";
 import { DatabaseSession } from "#lib/infrastructure/db/session";
 import { makeAppConfigLayer, makeConfigProviderLayer } from "#lib/test-utils/effect";
 import { IsolatedDatabase, isolatedDatabaseLayer } from "#lib/test-utils/isolated-database";
+import { LifecyclePlannerServiceLive } from "#modules/automations/layer";
 import { withLifecycleDispatch } from "#modules/automations/lifecycle.test-support";
-import { LifecyclePlannerLive } from "#modules/automations/planner";
 import { AutomationRunRepository } from "#modules/automations/run-repository";
 import { DefinitionRepository } from "#modules/definition-registry/repository";
 import type { DefinitionSource } from "#modules/definition-registry/snapshot";
@@ -55,13 +55,14 @@ export const baseInput = {
 	relationshipSchemaSlug,
 	properties: { rank: 1 },
 };
-export const command = (id: string) =>
+export const command = (id: string, actorUserId: UserId = userId) =>
 	rootLifecycleCommand({
 		source: "api",
 		itemIdentity: "relationship",
 		occurredAt: "2026-09-15T00:00:00.000Z",
-		initiator: { id: userId, kind: "user" },
 		executionId: AutomationExecutionId.make(id),
+		initiator: { kind: "user", id: actorUserId },
+		accountGeneration: { userId: actorUserId, token: "test-account-generation" },
 	});
 
 export class RelationshipFixture extends Context.Service<
@@ -188,7 +189,10 @@ export const relationshipDatabaseLayer = (
 							DefinitionRepository.layer,
 						);
 			const runtime = Layer.merge(dependencies, runtimeOnly);
-			const ownerDependencies = Layer.mergeAll(EntitiesRepository.layer, LifecyclePlannerLive).pipe(
+			const ownerDependencies = Layer.mergeAll(
+				EntitiesRepository.layer,
+				LifecyclePlannerServiceLive,
+			).pipe(
 				Layer.provideMerge(runtime),
 				Layer.provideMerge(
 					Layer.effect(
@@ -225,8 +229,8 @@ export const relationshipDatabaseLayer = (
 								.values({
 									id: userId,
 									name: "Owner",
-									preferences: {},
 									email: "relationship@example.test",
+									accountGeneration: "test-account-generation",
 								});
 							yield* db.insert(tables.entity).values([
 								{ name: "Source", properties: {}, id: sourceEntityId, entitySchemaSlug: "fixture" },
@@ -248,7 +252,7 @@ export const relationshipDatabaseLayer = (
 				}),
 			).pipe(
 				Layer.provide(
-					Layer.fresh(LifecyclePlannerLive).pipe(
+					Layer.fresh(LifecyclePlannerServiceLive).pipe(
 						Layer.provide(makeAppConfigLayer({ database, automations: { maxRuns: 1 } })),
 					),
 				),

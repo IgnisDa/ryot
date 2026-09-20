@@ -6,6 +6,7 @@ import {
 	type AutomationTrigger,
 	type AutomationTriggerPayload,
 } from "@ryot-app/contract/modules/automations/lifecycle";
+import type { AccountGeneration } from "@ryot-app/contract/schema/account-generation";
 import type {
 	AutomationExecutionId,
 	ImportRunId,
@@ -28,9 +29,11 @@ export const rootLifecycleCommand = (input: {
 	executionId: AutomationExecutionId;
 	source: Exclude<AutomationSource, "automation">;
 	providerExecutionId?: AutomationExecutionId;
+	accountGeneration: AccountGeneration | null;
 }): LifecycleCommand => ({
 	occurredAt: input.occurredAt,
 	itemIdentity: input.itemIdentity,
+	accountGeneration: input.accountGeneration,
 	causation: {
 		depth: 0,
 		parentRunId: null,

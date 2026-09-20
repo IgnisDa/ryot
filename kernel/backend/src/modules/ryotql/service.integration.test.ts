@@ -9,7 +9,10 @@ import type { RyotQLResponse, RowItem } from "@ryot-app/contract/modules/ryotql/
 import type { SavedViewRenderer } from "@ryot-app/contract/modules/saved-views/schemas";
 import { NotificationSubscriptionId, SignalSchemaSlug } from "@ryot-app/contract/schema/brands";
 import { ascending, column, descending, field, rows, star, table } from "@ryot-app/ryotql";
-import { automationHistoryRunRecipe } from "@ryot-app/ryotql-recipes/automation-history";
+import {
+	automationHistoryRunRecipe,
+	automationHistoryRunsRecipe,
+} from "@ryot-app/ryotql-recipes/automation-history";
 import { entityDefinitionsRecipe } from "@ryot-app/ryotql-recipes/definitions";
 import { godModeUsersRecipe, migrationReportRecipe } from "@ryot-app/ryotql-recipes/god-mode";
 import { importSourcesRecipe } from "@ryot-app/ryotql-recipes/import-sources";
@@ -245,10 +248,10 @@ const seedCatalog = Effect.gen(function* () {
 	yield* session.run((db) =>
 		Effect.gen(function* () {
 			yield* db.insert(user).values([
-				{ id: "owner", name: "Owner", preferences: {}, email: "owner@example.test" },
-				{ id: "other", name: "Other", preferences: {}, email: "other@example.test" },
-				{ id: "mixed", name: "Mixed", preferences: {}, email: "mixed@example.test" },
-				{ id: "plain", name: "Plain", preferences: {}, email: "plain@example.test" },
+				{ id: "owner", name: "Owner", email: "owner@example.test" },
+				{ id: "other", name: "Other", email: "other@example.test" },
+				{ id: "mixed", name: "Mixed", email: "mixed@example.test" },
+				{ id: "plain", name: "Plain", email: "plain@example.test" },
 			]);
 			yield* db.insert(account).values(
 				[
@@ -633,6 +636,46 @@ const collectPages = (query: ReturnType<typeof rows>, reader: Reader = "admin") 
 	});
 
 layer(catalogDatabaseLayer)((test) => {
+	test.effect("executes automation history filters against persisted runs", () =>
+		Effect.gen(function* () {
+			const service = yield* RyotQLService;
+			const read = (input: Parameters<typeof automationHistoryRunsRecipe>[0]) =>
+				Effect.map(
+					service.executeForUser(
+						"owner",
+						null,
+						"kernel",
+						automationHistoryRunsRecipe(input).document,
+					),
+					(response) =>
+						Result.getOrThrow(automationHistoryRunsRecipe(input).decode(response)).items.map(
+							({ id }) => id,
+						),
+				);
+			expect(
+				yield* read({
+					limit: 10,
+					stage: "after",
+					status: "failed",
+					to: "1970-01-02",
+					from: "1969-12-31",
+					triggerId: "trigger-a",
+					hookSlug: "run-missing",
+					pluginId: "system-plugin",
+				}),
+			).toEqual(["run-missing"]);
+			expect(yield* read({ limit: 10, from: "1970-01-02" })).toEqual([]);
+			expect(yield* read({ limit: 10, to: "1969-12-31" })).toEqual([]);
+			expect(yield* read({ limit: 10 })).toEqual([
+				"run-expired",
+				"run-succeeded",
+				"run-before",
+				"run-missing",
+				"run-eligible",
+			]);
+		}),
+	);
+
 	test.effect("executes recipe documents and decodes correlated includes and admin totals", () =>
 		Effect.gen(function* () {
 			const service = yield* RyotQLService;
@@ -829,9 +872,9 @@ layer(catalogDatabaseLayer)((test) => {
 					id: "owner",
 					image: null,
 					name: "Owner",
-					preferences: {},
 					email: "owner@example.test",
 					createdAt: expect.any(String),
+					preferences: { language: null, allowNsfw: false, disableIntegrations: false },
 				},
 			]);
 			expect(yield* readRows("admin", "user", ["id", "authState"])).toEqual([

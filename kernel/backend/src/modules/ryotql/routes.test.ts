@@ -27,6 +27,7 @@ const user = {
 	id: UserId.make("user-1"),
 	email: "user@example.com",
 	preferences: { language: null, allowNsfw: false, disableIntegrations: false },
+	accountGeneration: { userId: UserId.make("user-1"), token: "test-account-generation" },
 };
 
 type CredentialKind = "oauth" | "api-key";

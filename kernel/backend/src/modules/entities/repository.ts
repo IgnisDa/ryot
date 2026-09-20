@@ -1,13 +1,10 @@
 import { DbError } from "@ryot-app/contract/errors";
-import { AutomationTriggerPayload } from "@ryot-app/contract/modules/automations/lifecycle";
 import {
-	type AutomationTriggerId,
 	EntityId,
 	EntitySchemaSlug,
 	type SandboxProviderId,
 	UserId,
 } from "@ryot-app/contract/schema/brands";
-import { decodeStoredSchema } from "@ryot-app/contract/schema/core";
 import { and, asc, count, eq, exists, inArray, isNull, or, sql } from "drizzle-orm";
 import { Context, Effect, Layer } from "effect";
 
@@ -824,25 +821,6 @@ export class EntitiesRepository extends Context.Service<EntitiesRepository>()(
 				return rows.length;
 			});
 
-			const findLifecyclePayload = Effect.fn("EntitiesRepository.findLifecyclePayload")(function* (
-				id: AutomationTriggerId,
-			) {
-				const [row] = yield* session.run((db) =>
-					db
-						.select({ payload: schema.automationTrigger.payload })
-						.from(schema.automationTrigger)
-						.where(eq(schema.automationTrigger.id, id)),
-				);
-				if (!row) {
-					return null;
-				}
-				return yield* decodeStoredSchema(
-					row.payload,
-					AutomationTriggerPayload,
-					"Entity command payload is invalid or pruned",
-				);
-			});
-
 			const lockMutationKeys = Effect.fn("EntitiesRepository.lockMutationKeys")(function* (
 				keys: ReadonlyArray<string>,
 			) {
@@ -883,7 +861,6 @@ export class EntitiesRepository extends Context.Service<EntitiesRepository>()(
 				lockMutationKeys,
 				getMutationEntity,
 				lockSchemaCatalog,
-				findLifecyclePayload,
 				findGlobalEntityById,
 				getEntityScopeForUser,
 				findEntityByExternalId,

@@ -27,11 +27,8 @@ import { LifecyclePlanner } from "#lib/domain/lifecycle";
 import { rootLifecycleCommand, LifecycleCommand } from "#lib/domain/lifecycle-command";
 import { LifecycleExecution } from "#lib/domain/lifecycle-execution";
 import { SandboxArtifactStore } from "#lib/infrastructure/sandbox-runtime/artifacts";
-import {
-	databaseLayer,
-	makeAppConfigLayer,
-	makeWorkflowActivityEngine,
-} from "#lib/test-utils/effect";
+import { makeAppConfigLayer, makeWorkflowActivityEngine } from "#lib/test-utils/effect";
+import { mutationAdmissionTestLayer } from "#lib/test-utils/mutation-admission";
 import { CollectionsService } from "#modules/collections/service";
 import { kernelDefinitionSource } from "#modules/definition-registry/kernel-source";
 import { DefinitionRepository } from "#modules/definition-registry/repository";
@@ -79,7 +76,7 @@ const providerOperationsLayer = Layer.mock(EntityImportWorkflowOperations)({
 	processProviderResolve: () => Effect.die("unexpected provider resolve"),
 	completeProviderEntityImport: () => Effect.die("unexpected provider completion"),
 });
-const transactionDatabaseLayer = databaseLayer;
+const transactionDatabaseLayer = mutationAdmissionTestLayer;
 const dispatchPlan = (triggerId: string) => ({
 	runs: [],
 	blockedReason: null,
@@ -150,13 +147,14 @@ const importCommand = (
 	rootLifecycleCommand({
 		importRunId: runId,
 		source: integrationId ? "integration" : "import",
+		itemIdentity: JSON.stringify(["import-run", runId]),
+		executionId: AutomationExecutionId.make(executionId),
+		occurredAt: IsoUtcString.make("2026-01-01T00:00:00.000Z"),
+		accountGeneration: { userId, token: "test-account-generation" },
 		initiator: integrationId
 			? { id: integrationId, kind: "integration" }
 			: { id: userId, kind: "user" },
 		...(integrationId ? { integrationId } : {}),
-		itemIdentity: JSON.stringify(["import-run", runId]),
-		executionId: AutomationExecutionId.make(executionId),
-		occurredAt: IsoUtcString.make("2026-01-01T00:00:00.000Z"),
 	});
 
 const makeRelationshipSchemaImportItem = (
@@ -506,7 +504,7 @@ const genericWritesCase = () => {
 			),
 			providerOperationsLayer,
 			artifactStoreLayer,
-			databaseLayer,
+			mutationAdmissionTestLayer,
 			transactionDatabaseLayer,
 			lifecycleDependencies,
 			BunServices.layer,
@@ -813,7 +811,7 @@ const relationshipSchemasCase = () => {
 			Layer.succeed(WorkflowEngine, makeWorkflowActivityEngine(instance)),
 			providerOperationsLayer,
 			artifactStoreLayer,
-			databaseLayer,
+			mutationAdmissionTestLayer,
 			transactionDatabaseLayer,
 			lifecycleDependencies,
 			BunServices.layer,
@@ -1034,7 +1032,7 @@ const providerEntitiesCase = () => {
 				}),
 			),
 			artifactStoreLayer,
-			databaseLayer,
+			mutationAdmissionTestLayer,
 			transactionDatabaseLayer,
 			lifecycleDependencies,
 			BunServices.layer,
@@ -1164,7 +1162,7 @@ const initialUpdateFailureCase = () => {
 		Layer.succeed(WorkflowEngine, makeWorkflowActivityEngine(instance)),
 		providerOperationsLayer,
 		artifactStoreLayer,
-		databaseLayer,
+		mutationAdmissionTestLayer,
 		transactionDatabaseLayer,
 		lifecycleDependencies,
 		BunServices.layer,

@@ -1,4 +1,5 @@
 import type { EntityUpdatedReason } from "@ryot-app/contract/modules/entity-interest/messages";
+import type { AccountGeneration } from "@ryot-app/contract/schema/account-generation";
 import {
 	AutomationExecutionId,
 	type EntityId,
@@ -9,7 +10,10 @@ import { entityInterestRecipe, type EntityInterestResult } from "@ryot-app/ryotq
 import { Context, DateTime, Effect, Layer, Result } from "effect";
 
 import { rootLifecycleCommand } from "#lib/domain/lifecycle-command";
-import { EntityPopulationTrigger } from "#modules/entities/population-trigger";
+import {
+	EntityPopulationTrigger,
+	entityPopulationExecutionId,
+} from "#modules/entities/population-trigger";
 import { TranslationsService } from "#modules/entity-translation/service";
 import { RyotQLService } from "#modules/ryotql/service";
 
@@ -22,6 +26,7 @@ type ReconciliationResult = {
 
 export type InterestPrincipal = {
 	readonly userId: UserId;
+	readonly accountGeneration: AccountGeneration;
 	readonly preferredLanguage: string | null;
 };
 
@@ -40,7 +45,7 @@ export class InterestReconciler extends Context.Service<InterestReconciler>()(
 						row.externalId !== null &&
 						row.providerId !== null
 					) {
-						const executionId = `populate-${row.id}`;
+						const executionId = entityPopulationExecutionId(row.id, principal.accountGeneration);
 						yield* populationTrigger.request({
 							entityId: row.id,
 							userId: principal.userId,
@@ -50,6 +55,7 @@ export class InterestReconciler extends Context.Service<InterestReconciler>()(
 							command: rootLifecycleCommand({
 								source: "api",
 								itemIdentity: executionId,
+								accountGeneration: principal.accountGeneration,
 								initiator: { kind: "user", id: principal.userId },
 								executionId: AutomationExecutionId.make(executionId),
 								occurredAt: IsoUtcString.make((yield* DateTime.nowAsDate).toISOString()),
@@ -72,6 +78,7 @@ export class InterestReconciler extends Context.Service<InterestReconciler>()(
 								providerId: row.providerId,
 								language: principal.preferredLanguage,
 								entitySchemaSlug: row.entitySchemaSlug,
+								accountGeneration: principal.accountGeneration,
 							});
 						}
 						return null;

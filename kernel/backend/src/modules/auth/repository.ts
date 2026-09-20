@@ -1,6 +1,11 @@
+import { DbError } from "@ryot-app/contract/errors";
 import type { UserId } from "@ryot-app/contract/schema/brands";
-import { and, eq, inArray, isNull } from "drizzle-orm";
-import { Context, DateTime, Effect, Layer } from "effect";
+import {
+	UserPreferences,
+	type UserPreferencesPatch,
+} from "@ryot-app/contract/schema/user-preferences";
+import { and, eq, inArray, isNull, sql } from "drizzle-orm";
+import { Context, DateTime, Effect, Layer, Schema } from "effect";
 
 import * as schema from "#lib/infrastructure/db/schema/tables/combined";
 import { DatabaseSession } from "#lib/infrastructure/db/session";
@@ -141,7 +146,46 @@ export class AuthRepository extends Context.Service<AuthRepository>()("AuthRepos
 					.where(eq(schema.user.id, userId))
 					.limit(1),
 			);
-			return row ?? null;
+			return row
+				? {
+						...row,
+						preferences: yield* Schema.decodeEffect(UserPreferences)(row.preferences).pipe(
+							Effect.mapError(
+								(error) =>
+									new DbError({ message: `Invalid stored user preferences: ${error.message}` }),
+							),
+						),
+					}
+				: null;
+		});
+		const patchUserPreferences = Effect.fn("AuthRepository.patchUserPreferences")(function* (
+			userId: UserId,
+			patch: UserPreferencesPatch,
+		) {
+			const [row] = yield* database.run((db) =>
+				Object.keys(patch).length === 0
+					? db
+							.select({ preferences: schema.user.preferences })
+							.from(schema.user)
+							.where(eq(schema.user.id, userId))
+							.limit(1)
+					: db
+							.update(schema.user)
+							.set({
+								updatedAt: sql`CURRENT_TIMESTAMP`,
+								preferences: sql`${schema.user.preferences} || ${JSON.stringify(patch)}::jsonb`,
+							})
+							.where(eq(schema.user.id, userId))
+							.returning({ preferences: schema.user.preferences }),
+			);
+			if (!row) {
+				return yield* new DbError({ message: "User not found while patching preferences" });
+			}
+			return yield* Schema.decodeEffect(UserPreferences)(row.preferences).pipe(
+				Effect.mapError(
+					(error) => new DbError({ message: `Invalid stored user preferences: ${error.message}` }),
+				),
+			);
 		});
 
 		const revokeUserOAuthTokens = Effect.fn("AuthRepository.revokeUserOAuthTokens")(function* (
@@ -177,6 +221,7 @@ export class AuthRepository extends Context.Service<AuthRepository>()("AuthRepos
 
 		return {
 			getPortableProfile,
+			patchUserPreferences,
 			revokeUserOAuthTokens,
 			upsertInternalOAuthClient,
 			upsertInternalOAuthResource,
