@@ -2,7 +2,7 @@ import { expect, layer } from "@effect/vitest";
 import { EntityId, EventId, EventSchemaSlug, UserId } from "@ryot-app/contract/schema/brands";
 import { Context, Effect, Layer, Ref } from "effect";
 
-import { DatabaseSession } from "#lib/infrastructure/db/session";
+import { fakeDatabaseSession } from "#lib/test-utils/effect";
 import { BackupRestorePersistence } from "#modules/backups/restore/persistence";
 import { restorePersistenceWithDatabase } from "#modules/backups/restore/persistence.test-support";
 
@@ -88,14 +88,7 @@ layer(recordingDatabaseLayer(restorePersistenceWithDatabase))((test) => {
 
 layer(
 	recordingDatabaseLayer(
-		(db) =>
-			EventsRepository.layer.pipe(
-				Layer.provide(
-					Layer.mock(DatabaseSession)({
-						current: Effect.succeed(Object.assign(Object.create(null), db)),
-					}),
-				),
-			),
+		(db) => EventsRepository.layer.pipe(Layer.provide(fakeDatabaseSession(db))),
 		backupRows,
 	),
 )((test) => {

@@ -1,3 +1,4 @@
+import type { UserId } from "@ryot-app/contract/schema/brands";
 import { sql } from "drizzle-orm";
 import * as PgDrizzle from "drizzle-orm/effect-postgres";
 import { Context, Data, Effect, Layer } from "effect";
@@ -8,10 +9,12 @@ export class DatabaseSessionStateError extends Data.TaggedError("DatabaseSession
 	readonly reason: "transaction-already-active" | "transaction-required";
 }> {}
 
+export const userWriteLockStatement = (userId: UserId) => (db: PgDrizzle.EffectPgDatabase) =>
+	db.execute(sql`select pg_advisory_xact_lock(hashtext(${`user-write:${userId}`}))`);
+
 export class DatabaseSession extends Context.Service<DatabaseSession>()("DatabaseSession", {
 	make: Effect.gen(function* () {
 		const root = yield* PgDrizzle.makeWithDefaults();
-		// Effect v4's Context.Reference is fiber-local and replaces FiberRef.
 		const transactionExecutor = Context.Reference<PgDrizzle.EffectPgDatabase | null>(
 			"DatabaseSession.TransactionExecutor",
 			{ defaultValue: () => null },
@@ -19,6 +22,9 @@ export class DatabaseSession extends Context.Service<DatabaseSession>()("Databas
 		const current = Effect.map(transactionExecutor, (executor) => executor ?? root);
 		const run = <A, E, R>(statement: (db: PgDrizzle.EffectPgDatabase) => Effect.Effect<A, E, R>) =>
 			mapDatabaseErrors(Effect.flatMap(current, statement));
+		const acquireUserWriteLock = Effect.fn("acquireUserWriteLock")(function* (userId: UserId) {
+			yield* run(userWriteLockStatement(userId));
+		});
 		const isTransactionActive = Effect.map(transactionExecutor, (executor) => executor !== null);
 		const requireRoot = Effect.flatMap(isTransactionActive, (active) =>
 			active
@@ -39,7 +45,15 @@ export class DatabaseSession extends Context.Service<DatabaseSession>()("Databas
 					),
 				);
 			});
-		return { run, current, requireRoot, transaction, requireTransaction, isTransactionActive };
+		return {
+			run,
+			current,
+			requireRoot,
+			transaction,
+			requireTransaction,
+			isTransactionActive,
+			acquireUserWriteLock,
+		};
 	}),
 }) {
 	static readonly layer = Layer.effect(this, this.make).pipe(Layer.provide(PgClientLive));
