@@ -1,8 +1,15 @@
-import { LifecycleCommand } from "@ryot-app/contract/modules/automations/lifecycle";
-import { EntitySchemaSlug, SandboxProviderId, UserId } from "@ryot-app/contract/schema/brands";
+import {
+	EntitySchemaSlug,
+	PluginId,
+	SandboxProviderId,
+	UserId,
+} from "@ryot-app/contract/schema/brands";
 import { Schema } from "effect";
 
+import { DomainLifecycleCommand } from "#modules/entities/write-context";
+
 const providerEntityPayloadFields = {
+	pluginId: PluginId,
 	externalId: Schema.String,
 	executionId: Schema.String,
 	providerId: SandboxProviderId,
@@ -11,7 +18,7 @@ const providerEntityPayloadFields = {
 
 export const entityImportPayloadFields = {
 	...providerEntityPayloadFields,
-	command: LifecycleCommand,
+	command: DomainLifecycleCommand,
 } as const;
 
 export const EntityImportScope = Schema.Union([

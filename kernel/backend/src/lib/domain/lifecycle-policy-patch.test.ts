@@ -24,6 +24,7 @@ const request = Schema.decodeSync(AutomationEntityCreateRequestPayload)({
 		providerId: null,
 		populatedAt: null,
 		entitySchemaSlug: "record",
+		entitySchemaPluginId: null,
 		properties: { removed: 2, retained: 3, removeAndReset: 1 },
 	},
 });
@@ -33,7 +34,9 @@ const eventDraft = {
 	entityId: "entity-1",
 	occurredAt: timestamp,
 	sessionEntityId: null,
+	eventSchemaPluginId: null,
 	entitySchemaSlug: "record",
+	entitySchemaPluginId: null,
 	eventSchemaSlug: "progress",
 	properties: { stale: true, progress: 25 },
 };
@@ -105,6 +108,7 @@ it("applies ordered patches and rejects prohibited operations and mismatched res
 			providerId: null,
 			populatedAt: null,
 			entitySchemaSlug: "record",
+			entitySchemaPluginId: null,
 			properties: { retained: 3 },
 			createdAt: "2026-09-18T00:00:00.000Z",
 			updatedAt: "2026-09-18T00:00:00.000Z",

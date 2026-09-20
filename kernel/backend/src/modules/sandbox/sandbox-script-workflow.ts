@@ -151,6 +151,9 @@ const withHarvestedChunks = (
 	return { ...rest, chunkHandles };
 };
 
+const installationUnavailable = (data: NonNullable<SandboxExecutionResult["error"]>["data"]) =>
+	data?.code === "package-identity-conflict" || data?.code === "installation-unavailable";
+
 const toSandboxExecutionResult = (
 	result: SandboxExecutionResult,
 	value: JsonValue,
@@ -164,9 +167,10 @@ const toSandboxExecutionResult = (
 		error === null
 			? null
 			: {
-					kind: error.kind,
+					kind: installationUnavailable(error.data) ? "resource-unavailable" : error.kind,
 					phase: error.phase,
 					message: error.message,
+					...(error.data === undefined ? {} : { data: error.data }),
 					...(error.line === undefined ? {} : { line: error.line }),
 					...(error.stack === undefined ? {} : { stack: error.stack }),
 					...(error.column === undefined ? {} : { column: error.column }),
@@ -222,7 +226,10 @@ export class SandboxWorkflowPinning extends Context.Service<SandboxWorkflowPinni
 					return payload;
 				}
 
-				const activeScript = yield* pluginScriptResolver.findActiveScriptById(payload.scriptId);
+				const activeScript = yield* pluginScriptResolver.findActiveScriptById(
+					payload.scriptId,
+					sandboxSubjectUserId(payload.subject),
+				);
 				if (!activeScript) {
 					return yield* new SandboxRunError({
 						kind: "missing-artifact",
@@ -271,6 +278,8 @@ export class SandboxWorkflowPinning extends Context.Service<SandboxWorkflowPinni
 							const pinned = yield* repository.getScriptPin(
 								resolved.scriptId,
 								ownership.expectedRevision,
+								subject,
+								payload.initialization,
 							);
 							if (!pinned) {
 								return yield* sandboxFailure(
@@ -308,6 +317,7 @@ export class SandboxWorkflowPinning extends Context.Service<SandboxWorkflowPinni
 								...pinned,
 								subject: payload.subject,
 							} satisfies SandboxExecutionPrincipal;
+							const initialization = "initialization" in pinned ? pinned.initialization : undefined;
 							if (retain) {
 								yield* retain(principal);
 							}
@@ -317,6 +327,10 @@ export class SandboxWorkflowPinning extends Context.Service<SandboxWorkflowPinni
 										scriptId: principal.scriptId,
 										contentHash: principal.contentHash,
 										pluginId: principal.pluginRevision.id,
+										...(ownership.expectedRevision
+											? { expectedRevision: ownership.expectedRevision }
+											: {}),
+										...(initialization ? { initialization } : {}),
 										...(subject.type === "automation-run" ? { allowInactive: true } : {}),
 										...(userId === null ? {} : { userId }),
 									})).status
@@ -574,10 +588,11 @@ export const performSandboxWorkflowRequest = Effect.fn("performSandboxWorkflowRe
 			targetScriptId,
 			childPayload,
 			executionId,
+			principal,
 		);
 	}
 	const child = yield* Effect.exit(
-		performSandboxWorkflowChild(request, targetScriptId, childPayload, executionId),
+		performSandboxWorkflowChild(request, targetScriptId, childPayload, executionId, principal),
 	);
 	if (request.kind === "child") {
 		return child._tag === "Success" ? child.value : yield* Effect.failCause(child.cause);
@@ -601,6 +616,7 @@ export const performSandboxWorkflowChild = Effect.fn("performSandboxWorkflowChil
 	targetScriptId: SandboxScriptId | undefined,
 	payload: SandboxScriptWorkflowPayloadValue,
 	executionId: string,
+	callerAuthority: SandboxExecutionPrincipal,
 ) {
 	const childExecutionId = sandboxWorkflowChildExecutionId(
 		executionId,
@@ -639,7 +655,7 @@ export const performSandboxWorkflowChild = Effect.fn("performSandboxWorkflowChil
 						payload.lane,
 						childExecutionId,
 						executionId,
-						payload.scriptId,
+						callerAuthority,
 						artifactOwnerExecutionId,
 					),
 				)
@@ -873,6 +889,9 @@ export const runSandboxScriptWorkflowBody = Effect.fn("SandboxScriptWorkflow")(f
 			if (payload.resultMode === "execution") {
 				return toSandboxExecutionResult(replay, null, error);
 			}
+			if (installationUnavailable(error.data)) {
+				return yield* new SandboxRunError({ kind: error.kind, message: error.message, ...(error.data === undefined ? {} : { data: error.data }) });
+			}
 			return yield* sandboxFailure(
 				"script-failure",
 				`Workflow replay ${step} failed: ${description}`,
@@ -1002,6 +1021,15 @@ export const runSandboxScriptWorkflowBody = Effect.fn("SandboxScriptWorkflow")(f
 		);
 	});
 	return yield* replayWorkflow().pipe(
+		Effect.catchTag("SandboxRunError", (error) =>
+			payload.resultMode === "execution" && installationUnavailable(error.data)
+				? Effect.succeed(toSandboxExecutionResult(
+						{ logs: [], value: null, status: "completed", error: null },
+						null,
+						{ kind: "resource-unavailable", phase: "execute", message: error.message, ...(error.data === undefined ? {} : { data: error.data }) },
+					))
+				: Effect.fail(error),
+		),
 		Effect.matchCauseEffect({
 			onSuccess: (output) => releaseReference.pipe(Effect.as(output)),
 			onFailure: (cause) =>

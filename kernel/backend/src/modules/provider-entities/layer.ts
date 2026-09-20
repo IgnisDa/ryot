@@ -19,7 +19,11 @@ export const ProviderEntitySearchServiceLive = ProviderEntitySearchService.layer
 
 export const EntityImportServiceLive = EntityImportService.layer.pipe(
 	Layer.provide(Layer.merge(EntitiesRepositoryLive, PluginRuntimeResolverLive)),
-	Layer.provide(ProviderImportAdmission.liveLayer),
+	Layer.provide(
+		ProviderImportAdmission.liveLayer.pipe(
+			Layer.provide(Layer.merge(SandboxExecutionServiceLive, PluginRuntimeResolverLive)),
+		),
+	),
 );
 
 export const EntityImportWorkflowOperationsProvidedLive = EntityImportWorkflowOperationsLive.pipe(

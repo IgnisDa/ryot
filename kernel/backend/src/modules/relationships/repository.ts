@@ -4,6 +4,7 @@ import {
 	RelationshipId,
 	RelationshipSchemaSlug,
 	UserId,
+	PluginId,
 } from "@ryot-app/contract/schema/brands";
 import { and, asc, eq, isNotNull, isNull, or, sql } from "drizzle-orm";
 import { Context, Effect, Layer, Schema } from "effect";
@@ -20,6 +21,7 @@ type RelationshipSnapshotRow = Pick<
 	| "sourceEntityId"
 	| "targetEntityId"
 	| "relationshipSchemaSlug"
+	| "relationshipSchemaPluginId"
 >;
 
 type RelationshipSnapshotWithProvenanceRow = RelationshipSnapshotRow & {
@@ -32,7 +34,7 @@ const relationshipIdentityFields = {
 	sourceEntityId: EntityId,
 	targetEntityId: EntityId,
 	relationshipSchemaSlug: RelationshipSchemaSlug,
-	relationshipSchemaPluginId: Schema.optional(Schema.NullOr(Schema.String)),
+	relationshipSchemaPluginId: Schema.NullOr(Schema.String),
 };
 
 export const RelationshipIdentityInput = Schema.Union([
@@ -55,7 +57,7 @@ export const relationshipMutationLockKey = (input: RelationshipIdentityInput) =>
 		"relationship",
 		input.scope,
 		input.scope === "user" ? input.userId : "global",
-		input.relationshipSchemaPluginId ?? "kernel",
+		input.relationshipSchemaPluginId,
 		input.relationshipSchemaSlug,
 		input.sourceEntityId,
 		input.targetEntityId,
@@ -63,7 +65,7 @@ export const relationshipMutationLockKey = (input: RelationshipIdentityInput) =>
 
 const globalRelationshipListFields = {
 	relationshipSchemaSlug: RelationshipSchemaSlug,
-	relationshipSchemaPluginId: Schema.optional(Schema.NullOr(Schema.String)),
+	relationshipSchemaPluginId: Schema.NullOr(Schema.String),
 };
 
 export const GlobalRelationshipListInput = Schema.Union([
@@ -89,6 +91,7 @@ const relationshipSnapshotSelection = {
 	sourceEntityId: schema.relationship.sourceEntityId,
 	targetEntityId: schema.relationship.targetEntityId,
 	relationshipSchemaSlug: schema.relationship.relationshipSchemaSlug,
+	relationshipSchemaPluginId: schema.relationship.relationshipSchemaPluginId,
 };
 
 const relationshipSnapshotWithProvenanceSelection = {
@@ -109,11 +112,14 @@ const toRelationship = (row: RelationshipSnapshotRow) => ({
 	sourceEntityId: EntityId.make(row.sourceEntityId),
 	targetEntityId: EntityId.make(row.targetEntityId),
 	relationshipSchemaSlug: RelationshipSchemaSlug.make(row.relationshipSchemaSlug),
+	relationshipSchemaPluginId:
+		row.relationshipSchemaPluginId === null ? null : PluginId.make(row.relationshipSchemaPluginId),
 });
 
 const toRelationshipWithProvenance = (row: RelationshipSnapshotWithProvenanceRow) => ({
 	...toRelationship(row),
-	relationshipSchemaPluginId: row.relationshipSchemaPluginId,
+	relationshipSchemaPluginId:
+		row.relationshipSchemaPluginId === null ? null : PluginId.make(row.relationshipSchemaPluginId),
 });
 
 const toSavedRelationship = (row: RelationshipRow) => ({
@@ -267,7 +273,7 @@ export class RelationshipsRepository extends Context.Service<RelationshipsReposi
 				sourceEntityId: EntityId;
 				targetEntityId: EntityId;
 				relationshipSchemaSlug: RelationshipSchemaSlug;
-				relationshipSchemaPluginId?: string | null | undefined;
+				relationshipSchemaPluginId: string | null;
 			}) {
 				const [row] = yield* session.run((db) =>
 					db

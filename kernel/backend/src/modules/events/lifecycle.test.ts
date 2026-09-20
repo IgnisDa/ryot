@@ -10,6 +10,7 @@ import {
 	EventId,
 	EventSchemaSlug,
 	UserId,
+	PluginPackageId,
 } from "@ryot-app/contract/schema/brands";
 import { and, eq, sql } from "drizzle-orm";
 import { Context, DateTime, Effect, Layer, Redacted, Ref, Schema, Scope } from "effect";
@@ -65,8 +66,8 @@ const now = "2026-09-15T00:00:00.000Z";
 const editPropertiesSchema = {
 	fields: { rating: { type: "number", label: "Rating", description: "Rating" } },
 } as const;
-const command = (id: string) =>
-	rootLifecycleCommand({
+const command = (id: string) => ({
+	...rootLifecycleCommand({
 		source: "api",
 		occurredAt: now,
 		lane: "interactive",
@@ -74,7 +75,9 @@ const command = (id: string) =>
 		initiator: { id: userId, kind: "user" },
 		executionId: AutomationExecutionId.make(id),
 		accountGeneration: { userId, token: "test-account-generation" },
-	});
+	}),
+	writeContext: null,
+});
 const updateItem = (id: string, patch: UpdateEventItem["patch"]): UpdateEventItem => ({
 	patch,
 	eventId: EventId.make(id),
@@ -217,18 +220,6 @@ const planner = (
 const workflowLayer = Layer.mergeAll(
 	Layer.mock(EntitiesRepository)({
 		lockEntityReferencesByIds: () => Effect.void,
-		getByIdForUser: ({ entityId: requestedId }) =>
-			Effect.succeed({
-				createdAt: now,
-				updatedAt: now,
-				properties: {},
-				id: requestedId,
-				name: "Subject",
-				externalId: null,
-				providerId: null,
-				populatedAt: null,
-				entitySchemaSlug: EntitySchemaSlug.make("record"),
-			}),
 		getEntityScopeForUser: ({ entityId: requestedId }) =>
 			Effect.succeed({
 				isBuiltin: false,
@@ -239,12 +230,26 @@ const workflowLayer = Layer.mergeAll(
 				propertiesSchema: { fields: {} },
 				entitySchemaSlug: EntitySchemaSlug.make("record"),
 			}),
+		getByIdForUser: ({ entityId: requestedId }) =>
+			Effect.succeed({
+				createdAt: now,
+				updatedAt: now,
+				properties: {},
+				id: requestedId,
+				name: "Subject",
+				externalId: null,
+				providerId: null,
+				populatedAt: null,
+				entitySchemaPluginId: null,
+				entitySchemaSlug: EntitySchemaSlug.make("record"),
+			}),
 	}),
 	Layer.mock(EventSchemasRepository)({
 		lockCatalog: () => Effect.void,
 		getScopeForUser: () =>
 			Effect.succeed({
 				slug: "rating",
+				pluginId: null,
 				name: "Rating",
 				id: eventSchemaSlug,
 				propertiesSchema: { fields: {} },
@@ -291,6 +296,7 @@ const lifecycleDatabaseLayer = (
 				externalId: null,
 				providerId: null,
 				populatedAt: null,
+				entitySchemaPluginId: null,
 			});
 			return EventsService.layer.pipe(
 				Layer.provideMerge(
@@ -319,6 +325,7 @@ const lifecycleDatabaseLayer = (
 										input.entitySchemaSlug === entitySchemaSlug
 										? {
 												name: "Rating",
+												pluginId: null,
 												entitySchemaSlug,
 												id: eventSchemaSlug,
 												slug: eventSchemaSlug,
@@ -692,20 +699,37 @@ describe("Event lifecycle PostgreSQL", () => {
 				const session = yield* DatabaseSession;
 				const repository = yield* EventsRepository;
 				const eventId = EventId.make("replay-snapshot");
+				const ownedEntityId = EntityId.make("replay-owned-subject");
 				const identity = { userId, eventId };
 				const otherIdentity = { eventId, userId: UserId.make("another-user") };
 				expect(yield* repository.getEventSnapshot(identity)).toBeNull();
 				yield* (yield* DatabaseSession).run((db) =>
 					db
 						.insert(tables.plugin)
-						.values({ id: "event-plugin", status: "inactive", slug: "event-fixture" }),
+						.values({
+							id: "event-plugin",
+							status: "inactive",
+							slug: "event-fixture",
+							packageId: PluginPackageId.make(crypto.randomUUID()),
+						}),
+				);
+				yield* session.run((db) =>
+					db
+						.insert(tables.entity)
+						.values({
+							properties: {},
+							id: ownedEntityId,
+							name: "Owned subject",
+							entitySchemaSlug: "record",
+							entitySchemaPluginId: "event-plugin",
+						}),
 				);
 				yield* session.transaction(
 					repository.createEvent({
 						userId,
-						entityId,
 						id: eventId,
 						eventSchemaSlug,
+						entityId: ownedEntityId,
 						sessionEntityId: movedId,
 						eventSchemaName: "Rating",
 						properties: { rating: 5 },
@@ -718,6 +742,7 @@ describe("Event lifecycle PostgreSQL", () => {
 					sessionEntityId: movedId,
 					properties: { rating: 5 },
 					entitySchemaSlug: "record",
+					eventSchemaPluginId: "event-plugin",
 				});
 				expect(
 					yield* repository.listEventIdentitiesForEntities([movedId, entityId, movedId]),
@@ -819,17 +844,20 @@ describe("Event lifecycle PostgreSQL", () => {
 				expect(
 					yield* service.delete(
 						{ eventId, userId: UserId.make("not-owner") },
-						rootLifecycleCommand({
-							lane: "interactive",
-							...command("not-owner"),
-							source: "api",
-							executionId: AutomationExecutionId.make("not-owner"),
-							initiator: { kind: "user", id: UserId.make("not-owner") },
-							accountGeneration: {
-								userId: UserId.make("not-owner"),
-								token: "test-account-generation",
-							},
-						}),
+						{
+							...rootLifecycleCommand({
+								lane: "interactive",
+								...command("not-owner"),
+								source: "api",
+								executionId: AutomationExecutionId.make("not-owner"),
+								initiator: { kind: "user", id: UserId.make("not-owner") },
+								accountGeneration: {
+									userId: UserId.make("not-owner"),
+									token: "test-account-generation",
+								},
+							}),
+							writeContext: null,
+						},
 					),
 				).toEqual({ warnings: [], eventId: null });
 				expect(yield* service.moveReferences(move, command("move"))).toEqual({
@@ -1241,8 +1269,8 @@ describe("Event lifecycle PostgreSQL", () => {
 						WorkflowInstance.initial(EventCreateWorkflow, "source-operation-fixture"),
 					),
 				);
-				expect(result.count).toBe(1);
 				expect(result.failure).toBeNull();
+				expect(result.count).toBe(1);
 				expect(yield* Ref.get(transactionCount)).toBe(1);
 			}),
 		);

@@ -66,6 +66,8 @@ const toListedEvent = (row: EventRow): ListedEvent => ({
 	occurredAt: row.occurredAt.toISOString(),
 	eventSchemaSlug: EventSchemaSlug.make(row.eventSchemaSlug),
 	sessionEntityId: row.sessionEntityId ? EntityId.make(row.sessionEntityId) : undefined,
+	eventSchemaPluginId:
+		row.eventSchemaPluginId === null ? null : PluginId.make(row.eventSchemaPluginId),
 });
 
 const eventStreamKey = (row: {
@@ -479,7 +481,11 @@ export class EventsRepository extends Context.Service<EventsRepository>()("Event
 		) {
 			const [row] = yield* session.run((db) =>
 				db
-					.select({ ...createdEventSelection, entitySchemaSlug: schema.entity.entitySchemaSlug })
+					.select({
+						...createdEventSelection,
+						entitySchemaSlug: schema.entity.entitySchemaSlug,
+						entitySchemaPluginId: schema.entity.entitySchemaPluginId,
+					})
 					.from(schema.event)
 					.innerJoin(schema.entity, eq(schema.entity.id, schema.event.entityId))
 					.where(and(eq(schema.event.id, input.eventId), eq(schema.event.userId, input.userId)))
@@ -487,6 +493,11 @@ export class EventsRepository extends Context.Service<EventsRepository>()("Event
 			);
 			if (!row) {
 				return null;
+			}
+			if (row.eventSchemaPluginId !== row.entitySchemaPluginId) {
+				return yield* new DbError({
+					message: "Persisted event owner does not match its containing entity",
+				});
 			}
 			const event = yield* Schema.decodeUnknownEffect(AutomationEventSnapshot)({
 				id: row.id,
@@ -498,6 +509,8 @@ export class EventsRepository extends Context.Service<EventsRepository>()("Event
 				createdAt: row.createdAt.toISOString(),
 				updatedAt: row.updatedAt.toISOString(),
 				occurredAt: row.occurredAt.toISOString(),
+				eventSchemaPluginId: row.eventSchemaPluginId,
+				entitySchemaPluginId: row.entitySchemaPluginId,
 			}).pipe(Effect.mapError(() => new DbError({ message: "Invalid persisted event snapshot" })));
 			return event;
 		});

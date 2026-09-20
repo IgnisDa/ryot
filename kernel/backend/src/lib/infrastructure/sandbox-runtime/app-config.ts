@@ -1,6 +1,7 @@
 import { configFromAppSchema } from "@ryot-app/config";
 import { pluginConfigEnvironmentKey } from "@ryot-app/contract/modules/plugins/plugin-config";
 import type { SandboxBoundaryReason } from "@ryot-app/contract/modules/sandbox/boundary-reason";
+import type { PluginPackageId } from "@ryot-app/contract/schema/brands";
 import type { AppSchema } from "@ryot-app/contract/schema/property-schema";
 import { isObjectRecord } from "@ryot-app/ts-utils/predicates";
 import { Effect, Match, Option } from "effect";
@@ -20,22 +21,26 @@ const pluginConfigPropertyEntry = ([key, value]: [string, unknown]) => {
 };
 
 const resolvePluginConfig = Effect.fn("resolvePluginConfig")(function* (input: {
-	pluginSlug: string;
+	packageId: PluginPackageId;
 	configSchema: AppSchema;
 }) {
 	const loaded = yield* configFromAppSchema(input.configSchema, ([key]) =>
-		pluginConfigEnvironmentKey(input.pluginSlug, key ?? ""),
+		pluginConfigEnvironmentKey(input.packageId, key ?? ""),
 	);
 	const properties = Object.fromEntries(Object.entries(loaded).flatMap(pluginConfigPropertyEntry));
 	return yield* parseAppSchemaProperties({
 		properties,
 		propertiesSchema: input.configSchema,
-		kind: `Plugin ${input.pluginSlug} config`,
+		kind: `Plugin ${input.packageId} config`,
 	});
 });
 
 export type PluginConfigContext =
-	| { readonly kind: "environment"; readonly pluginSlug: string; readonly configSchema: AppSchema }
+	| {
+			readonly kind: "environment";
+			readonly packageId: PluginPackageId;
+			readonly configSchema: AppSchema;
+	  }
 	| {
 			readonly kind: "installation";
 			readonly configSchema: AppSchema;
@@ -85,7 +90,7 @@ export const resolveContextConfig = (
 
 const unconfiguredMessage = (context: PluginConfigContext, key: string) =>
 	context.kind === "environment"
-		? `Plugin config key "${key}" is not configured; set ${pluginConfigEnvironmentKey(context.pluginSlug, key)}`
+		? `Plugin config key "${key}" is not configured; set ${pluginConfigEnvironmentKey(context.packageId, key)}`
 		: `Plugin config key "${key}" is not configured for this installation`;
 
 export const getPluginConfig = Effect.fn("getPluginConfig")(function* (input: {

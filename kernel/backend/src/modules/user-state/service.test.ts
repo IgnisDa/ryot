@@ -12,6 +12,7 @@ import {
 	EntitySchemaSlug,
 	EventId,
 	AutomationHookSlug,
+	PluginId,
 	RelationshipId,
 	RelationshipSchemaSlug,
 	AutomationExecutionId,
@@ -39,7 +40,10 @@ import {
 	withLifecycleBatchPlanning,
 } from "#modules/automations/lifecycle.test-support";
 import { DefinitionRepository } from "#modules/definition-registry/repository";
-import { buildDefinitionSnapshot } from "#modules/definition-registry/snapshot";
+import {
+	buildDefinitionSnapshot,
+	type DefinitionSource,
+} from "#modules/definition-registry/snapshot";
 import { EntitiesRepository } from "#modules/entities/repository";
 import { EventsRepository } from "#modules/events/repository";
 import {
@@ -48,10 +52,6 @@ import {
 	type PreparedEventMoveReferences,
 } from "#modules/events/service";
 import { mutationReceiptIdentity, MutationReceipts } from "#modules/mutations/receipts";
-import type {
-	PreparedUserRelationshipCreate,
-	PreparedUserRelationshipDelete,
-} from "#modules/relationships/prepared-mutations";
 import { RelationshipsRepository } from "#modules/relationships/repository";
 import { RelationshipsService } from "#modules/relationships/service";
 
@@ -66,15 +66,18 @@ const user = {
 	accountGeneration: { userId: UserId.make("user-id"), token: "test-account-generation" },
 } satisfies CurrentUserValue;
 
-const command = rootLifecycleCommand({
-	source: "api",
-	lane: "interactive",
-	itemIdentity: "user-state",
-	initiator: { id: user.id, kind: "user" },
-	accountGeneration: user.accountGeneration,
-	occurredAt: IsoUtcString.make("2026-01-01T00:00:00.000Z"),
-	executionId: AutomationExecutionId.make("user-state-execution"),
-});
+const command = {
+	...rootLifecycleCommand({
+		source: "api",
+		lane: "interactive",
+		itemIdentity: "user-state",
+		initiator: { id: user.id, kind: "user" },
+		accountGeneration: user.accountGeneration,
+		occurredAt: IsoUtcString.make("2026-01-01T00:00:00.000Z"),
+		executionId: AutomationExecutionId.make("user-state-execution"),
+	}),
+	writeContext: null,
+};
 
 type PersistedRelationship = Effect.Success<
 	ReturnType<RelationshipsService["Service"]["persistPreparedUserDelete"]>
@@ -83,8 +86,14 @@ type PersistedRelationship = Effect.Success<
 const preparedEventDelete: PreparedEventDelete = Object.create(null);
 const preparedEventMoveReferences: PreparedEventMoveReferences = Object.create(null);
 const persistedRelationship: PersistedRelationship = Object.create(null);
-const preparedRelationshipCreate: PreparedUserRelationshipCreate = Object.create(null);
-const preparedRelationshipDelete: PreparedUserRelationshipDelete = Object.create(null);
+type PreparedRelationshipCreate = Effect.Success<
+	ReturnType<RelationshipsService["Service"]["prepareUserCreate"]>
+>;
+type PreparedRelationshipDelete = Effect.Success<
+	ReturnType<RelationshipsService["Service"]["prepareUserDelete"]>
+>;
+const preparedRelationshipCreate: PreparedRelationshipCreate = Object.create(null);
+const preparedRelationshipDelete: PreparedRelationshipDelete = Object.create(null);
 
 const mockEntitiesRepository = Layer.mock(EntitiesRepository);
 
@@ -115,6 +124,7 @@ const makeRelationshipsService = (overrides: MockOverrides<typeof mockRelationsh
 const makeDefinitionsLayer = (
 	mergeIdentityProperties: ReadonlyArray<string> = [],
 	deniedOperationsBySchema: Readonly<Record<string, ReadonlyArray<"clear" | "merge">>> = {},
+	pluginIds: ReadonlyArray<string | null> = [null],
 ) =>
 	Layer.mock(DefinitionRepository)({
 		findUserEntitySchemas: () =>
@@ -124,12 +134,13 @@ const makeDefinitionsLayer = (
 					signalSchemas: [],
 					relationshipSchemas: [],
 					entitySchemas: [
-						{
+						...pluginIds.map((pluginId): DefinitionSource["entitySchemas"][number] => ({
+							pluginId,
 							icon: "record",
 							name: "Record",
 							slug: "record",
 							eventSchemas: [],
-							pluginSlug: "test",
+							pluginSlug: null,
 							mergeIdentityProperties,
 							propertiesSchema: {
 								fields: { kind: { label: "Kind", type: "string", description: "Record kind" } },
@@ -137,15 +148,16 @@ const makeDefinitionsLayer = (
 							userState: deniedOperationsBySchema["record"]
 								? { deniedOperations: deniedOperationsBySchema["record"] }
 								: undefined,
-						},
+						})),
 						...Object.entries(deniedOperationsBySchema)
 							.filter(([slug]) => slug !== "record")
 							.map(([slug, deniedOperations]) => ({
 								slug,
 								name: slug,
 								icon: "box",
+								pluginId: null,
 								eventSchemas: [],
-								pluginSlug: "test",
+								pluginSlug: null,
 								userState: { deniedOperations },
 								propertiesSchema: { fields: {} },
 							})),
@@ -233,12 +245,14 @@ const recordingServiceLayer = <A>(
 const makeMergeScope = (overrides: {
 	entityId: EntityId;
 	entitySchemaSlug?: string;
+	entitySchemaPluginId?: string | null;
 	properties?: Record<string, unknown>;
 }) => ({
 	isBuiltin: false,
 	entityUserId: user.id,
 	entityId: overrides.entityId,
 	properties: overrides.properties ?? {},
+	entitySchemaPluginId: overrides.entitySchemaPluginId ?? null,
 	entitySchemaSlug: EntitySchemaSlug.make(overrides.entitySchemaSlug ?? "record"),
 });
 
@@ -344,7 +358,9 @@ const deletePlan = (id: string, resource: "event" | "relationship"): LifecyclePl
 							id,
 							entityId: "entity-1",
 							sessionEntityId: null,
+							eventSchemaPluginId: null,
 							entitySchemaSlug: "record",
+							entitySchemaPluginId: null,
 							eventSchemaSlug: "progress",
 							occurredAt: "2026-01-01T00:00:00.000Z",
 						}
@@ -353,6 +369,7 @@ const deletePlan = (id: string, resource: "event" | "relationship"): LifecyclePl
 							id,
 							sourceEntityId: "entity-1",
 							targetEntityId: "target-1",
+							relationshipSchemaPluginId: null,
 							relationshipSchemaSlug: "relationship-schema",
 						},
 		},
@@ -581,6 +598,50 @@ layer(
 					},
 				}),
 			);
+		}),
+	);
+});
+
+const differentOwnerMerge = recordingServiceLayer<string>(({ record }) => ({
+	definitions: makeDefinitionsLayer([], {}, [null, "other-plugin"]),
+	eventsRepository: makeEventsRepository({ listUserEventIdsForEntity: () => Effect.succeed([]) }),
+	relationshipsRepository: makeRelationshipsRepository({
+		listUserRelationshipsForEntityWithProvenance: () => Effect.succeed([]),
+	}),
+	entitiesRepository: makeEntitiesRepository({
+		getEntityMergeScopeForUser: ({ entityId }) =>
+			Effect.succeed(
+				makeMergeScope({
+					entityId,
+					entitySchemaPluginId: entityId === "from" ? null : "other-plugin",
+				}),
+			),
+	}),
+	lifecycleExecution: Layer.succeed(LifecycleExecution, {
+		after: () => Effect.die("unused"),
+		executePolicy: () => Effect.die("unused"),
+		skipQueuedPolicies: () => Effect.die("unused"),
+		dispatch: () => record("dispatch").pipe(Effect.as([])),
+	}),
+}));
+
+layer(differentOwnerMerge.layer)((test) => {
+	test.effect("rejects merging equal schema slugs owned by different plugins before dispatch", () =>
+		Effect.gen(function* () {
+			const service = yield* UserStateService;
+			const exit = yield* Effect.exit(
+				service.mergeUserState(
+					user,
+					{ mergeFrom: EntityId.make("from"), mergeInto: EntityId.make("into") },
+					command,
+				),
+			);
+
+			assertExitFails(
+				exit,
+				new UserStateBadRequest({ reason: { code: "entity-schema-mismatch" } }),
+			);
+			expect(yield* differentOwnerMerge.recorded).toEqual([]);
 		}),
 	);
 });
@@ -865,7 +926,7 @@ layer(
 						updatedAt: "2026-01-01T00:00:00.000Z",
 						targetEntityId: EntityId.make("target"),
 						id: RelationshipId.make("relationship-1"),
-						relationshipSchemaPluginId: "inactive-plugin",
+						relationshipSchemaPluginId: PluginId.make("inactive-plugin"),
 						relationshipSchemaSlug: RelationshipSchemaSlug.make("inactive"),
 					},
 				]),

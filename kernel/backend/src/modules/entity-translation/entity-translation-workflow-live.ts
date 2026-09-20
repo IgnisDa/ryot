@@ -1,4 +1,4 @@
-import { SandboxRunError, dieOnDbError, toSandboxRunError } from "@ryot-app/contract/errors";
+import { SandboxRunError, toSandboxRunError } from "@ryot-app/contract/errors";
 import { encodeEntityUpdatedMessage } from "@ryot-app/contract/modules/entity-interest/messages";
 import {
 	providerTranslateResultSchema,
@@ -13,6 +13,7 @@ import { implementWorkflow, makeActivity } from "#lib/infrastructure/workflow-sc
 import {
 	TranslateEntityWorkflow,
 	type TranslateEntityWorkflowPayload,
+	type TranslationExecution,
 } from "./entity-translation-workflow";
 import { TranslateEntityWorkflowOperations } from "./operations-workflow";
 import { TranslationsService } from "./service";
@@ -21,6 +22,7 @@ const decodeProviderTranslateResult = Schema.decodeUnknownEffect(providerTransla
 
 const writeTranslationOverlay = Effect.fn("writeTranslationOverlay")(function* (
 	payload: TranslateEntityWorkflowPayload,
+	execution: TranslationExecution,
 	translation: ProviderTranslateResult,
 ) {
 	const redis = yield* RedisService;
@@ -33,14 +35,18 @@ const writeTranslationOverlay = Effect.fn("writeTranslationOverlay")(function* (
 		execute: Effect.gen(function* () {
 			const populatedAt = yield* DateTime.nowAsDate;
 			yield* translations
-				.upsert({
-					populatedAt,
-					entityId: payload.entityId,
-					language: payload.language,
-					name: translation.name ?? null,
-					properties: translation.properties ?? null,
-				})
-				.pipe(dieOnDbError);
+				.upsert(
+					{
+						populatedAt,
+						entityId: payload.entityId,
+						language: payload.language,
+						name: translation.name ?? null,
+						properties: translation.properties ?? null,
+					},
+					payload,
+					execution,
+				)
+				.pipe(Effect.mapError((error) => toSandboxRunError(error, "infrastructure")));
 			yield* redis.publish(
 				redisKeys.entityUpdatedChannel,
 				encodeEntityUpdatedMessage(payload.entityId, "translated"),
@@ -58,7 +64,7 @@ export const runTranslateEntityWorkflow = Effect.fn("TranslateEntityWorkflow")(
 			providerId: payload.providerId,
 		});
 		const operations = yield* TranslateEntityWorkflowOperations;
-		const sandboxResult = yield* operations
+		const { execution, result: sandboxResult } = yield* operations
 			.processSandbox(payload, executionId)
 			.pipe(Effect.mapError((error) => toSandboxRunError(error, "infrastructure")));
 
@@ -78,7 +84,13 @@ export const runTranslateEntityWorkflow = Effect.fn("TranslateEntityWorkflow")(
 					}),
 			),
 		);
-		return yield* writeTranslationOverlay(payload, translation);
+		yield* writeTranslationOverlay(payload, execution, translation);
+		return yield* makeActivity({
+			error: SandboxRunError,
+			name: "release-translation-registration",
+			success: Schema.Void satisfies DurableSchema,
+			execute: operations.releaseRegistration(executionId),
+		});
 	},
 	(effect, _payload, executionId) =>
 		Effect.annotateLogs(effect, { executionId, workflow: "TranslateEntityWorkflow" }),

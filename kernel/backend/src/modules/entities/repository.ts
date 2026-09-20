@@ -1,5 +1,10 @@
 import { DbError } from "@ryot-app/contract/errors";
 import {
+	definitionKey,
+	type EntitySchemaReference,
+	type ProviderReference,
+} from "@ryot-app/contract/modules/plugins/references";
+import {
 	EntityId,
 	EntitySchemaSlug,
 	type SandboxProviderId,
@@ -31,7 +36,7 @@ export type InsertEntityInputBase = {
 	createdAt?: Date;
 	name: string;
 	entitySchemaSlug: EntitySchemaSlug;
-	entitySchemaPluginId?: string | null | undefined;
+	entitySchemaPluginId: string | null;
 } & (
 	| {
 			scope: "global";
@@ -64,6 +69,7 @@ export type GlobalEntityProvenanceScopeInput = {
 };
 
 export type ProviderEntityMutationLockInput = {
+	entitySchemaPluginId: string | null;
 	externalId: string;
 	providerId: SandboxProviderId;
 	entitySchemaSlug: EntitySchemaSlug;
@@ -74,6 +80,7 @@ export const providerEntityMutationLockKey = (input: ProviderEntityMutationLockI
 		"provider-entity",
 		input.scope,
 		input.scope === "user" ? input.userId : "global",
+		input.entitySchemaPluginId,
 		input.entitySchemaSlug,
 		input.providerId,
 		input.externalId,
@@ -182,8 +189,15 @@ export class EntitiesRepository extends Context.Service<EntitiesRepository>()(
 			const lockSchemaCatalog = pluginRuntime.lockCatalog;
 			const findEntityByExternalId = (input: FindEntityByExternalIdInput) =>
 				findEntityByExternalIdWithSession(session, input);
-			const findUserEntitySchema = Effect.fn(function* (userId: UserId, slug: EntitySchemaSlug) {
-				return (yield* definitions.findUserEntitySchemas(userId, [slug]))[slug] ?? null;
+			const findUserEntitySchema = Effect.fn(function* (
+				userId: UserId,
+				reference: EntitySchemaReference,
+			) {
+				return (
+					(yield* definitions.findUserEntitySchemas(userId, [reference]))[
+						definitionKey("entity", reference.owner, reference.slug)
+					] ?? null
+				);
 			});
 			const lockProviderEntityMutations = Effect.fn(
 				"EntitiesRepository.lockProviderEntityMutations",
@@ -213,8 +227,8 @@ export class EntitiesRepository extends Context.Service<EntitiesRepository>()(
 			);
 			const listMatchCandidatesBySchema = Effect.fn(
 				"EntitiesRepository.listMatchCandidatesBySchema",
-			)(function* (input: { userId: UserId; entitySchemaSlug: EntitySchemaSlug }) {
-				const definition = yield* findUserEntitySchema(input.userId, input.entitySchemaSlug);
+			)(function* (input: { userId: UserId; entitySchema: EntitySchemaReference }) {
+				const definition = yield* findUserEntitySchema(input.userId, input.entitySchema);
 				if (!definition) {
 					return [];
 				}
@@ -225,7 +239,7 @@ export class EntitiesRepository extends Context.Service<EntitiesRepository>()(
 						.where(
 							and(
 								entityVisibleToUserClause(input.userId),
-								eq(schema.entity.entitySchemaSlug, input.entitySchemaSlug),
+								eq(schema.entity.entitySchemaSlug, input.entitySchema.slug),
 								entitySchemaPluginWhere(definition.pluginId),
 							),
 						)
@@ -250,6 +264,7 @@ export class EntitiesRepository extends Context.Service<EntitiesRepository>()(
 								id: schema.entity.id,
 								name: schema.entity.name,
 								entitySchemaSlug: schema.entity.entitySchemaSlug,
+								entitySchemaPluginId: schema.entity.entitySchemaPluginId,
 							})
 							.from(schema.entity)
 							.where(inArray(schema.entity.id, [...entityIds]))
@@ -260,6 +275,7 @@ export class EntitiesRepository extends Context.Service<EntitiesRepository>()(
 						name: row.name,
 						id: EntityId.make(row.id),
 						entitySchemaSlug: row.entitySchemaSlug,
+						entitySchemaPluginId: row.entitySchemaPluginId,
 					}));
 				},
 			);
@@ -355,14 +371,14 @@ export class EntitiesRepository extends Context.Service<EntitiesRepository>()(
 			});
 
 			const findEntitySchemaForUser = Effect.fn("EntitiesRepository.findEntitySchemaForUser")(
-				function* (input: { userId: UserId; entitySchemaSlug: EntitySchemaSlug }) {
-					const definition = yield* findUserEntitySchema(input.userId, input.entitySchemaSlug);
+				function* (input: { userId: UserId; entitySchema: EntitySchemaReference }) {
+					const definition = yield* findUserEntitySchema(input.userId, input.entitySchema);
 					const scope: EntitySchemaScope | null = definition
 						? {
 								userId: null,
-								isBuiltin: true,
 								slug: definition.slug,
 								pluginId: definition.pluginId,
+								isBuiltin: definition.pluginId === null,
 								id: EntitySchemaSlug.make(definition.slug),
 								propertiesSchema: definition.propertiesSchema,
 							}
@@ -373,11 +389,11 @@ export class EntitiesRepository extends Context.Service<EntitiesRepository>()(
 
 			const findUserEntityWithoutProvenance = Effect.fn(
 				"EntitiesRepository.findUserEntityWithoutProvenance",
-			)(function* (input: { userId: UserId; entitySchemaSlug: EntitySchemaSlug }) {
-				const definition = yield* findUserEntitySchema(input.userId, input.entitySchemaSlug);
-				if (!definition) {
-					return null;
-				}
+			)(function* (input: {
+				userId: UserId;
+				entitySchemaSlug: EntitySchemaSlug;
+				entitySchemaPluginId: string | null;
+			}) {
 				const [row] = yield* session.run((db) =>
 					db
 						.select(entitySelection)
@@ -386,7 +402,7 @@ export class EntitiesRepository extends Context.Service<EntitiesRepository>()(
 							and(
 								eq(schema.entity.userId, input.userId),
 								eq(schema.entity.entitySchemaSlug, input.entitySchemaSlug),
-								entitySchemaPluginWhere(definition.pluginId),
+								entitySchemaPluginWhere(input.entitySchemaPluginId),
 								isNull(schema.entity.externalId),
 								isNull(schema.entity.providerId),
 							),
@@ -398,30 +414,21 @@ export class EntitiesRepository extends Context.Service<EntitiesRepository>()(
 			});
 
 			const lockUserEntityEnsureScopes = Effect.fn("EntitiesRepository.lockUserEntityEnsureScopes")(
-				function* (input: { userId: UserId; entitySchemaSlugs: ReadonlyArray<EntitySchemaSlug> }) {
-					const effective = yield* definitions.findUserEntitySchemas(
-						input.userId,
-						input.entitySchemaSlugs,
-					);
-					const scopes = [
-						...new Map(
-							input.entitySchemaSlugs.flatMap((entitySchemaSlug) => {
-								const definition = effective[entitySchemaSlug];
-								if (!definition) {
-									return [];
-								}
-								const pluginId = definition.pluginId ?? null;
-								return [
-									[`${entitySchemaSlug}:${pluginId ?? "kernel"}`, { pluginId, entitySchemaSlug }],
-								];
-							}),
-						).values(),
-					].sort((left, right) => left.entitySchemaSlug.localeCompare(right.entitySchemaSlug));
-					for (const { pluginId, entitySchemaSlug } of scopes) {
-						yield* session.run((db) =>
-							db.execute(
-								sql`select pg_advisory_xact_lock(hashtext(${`user-entity:ensure:${input.userId}:${entitySchemaSlug}:${pluginId ?? "kernel"}`}))`,
+				function* (input: { userId: UserId; entitySchemas: ReadonlyArray<EntitySchemaReference> }) {
+					const keys = [
+						...new Set(
+							input.entitySchemas.map((reference) =>
+								stableStringify([
+									"user-entity:ensure",
+									input.userId,
+									definitionKey("entity", reference.owner, reference.slug),
+								]),
 							),
+						),
+					].sort();
+					for (const key of keys) {
+						yield* session.run((db) =>
+							db.execute(sql`select pg_advisory_xact_lock(hashtext(${key}))`),
 						);
 					}
 				},
@@ -451,8 +458,8 @@ export class EntitiesRepository extends Context.Service<EntitiesRepository>()(
 
 					return {
 						...row,
-						isBuiltin: true,
 						entityId: EntityId.make(row.entityId),
+						isBuiltin: row.entitySchemaPluginId === null,
 						entitySchemaSlug: EntitySchemaSlug.make(row.entitySchemaSlug),
 						entityUserId: row.entityUserId ? UserId.make(row.entityUserId) : null,
 					};
@@ -468,6 +475,7 @@ export class EntitiesRepository extends Context.Service<EntitiesRepository>()(
 								entityUserId: schema.entity.userId,
 								properties: schema.entity.properties,
 								entitySchemaSlug: schema.entity.entitySchemaSlug,
+								entitySchemaPluginId: schema.entity.entitySchemaPluginId,
 							})
 							.from(schema.entity)
 							.where(
@@ -479,8 +487,8 @@ export class EntitiesRepository extends Context.Service<EntitiesRepository>()(
 					return row
 						? {
 								...row,
-								isBuiltin: true,
 								entityId: EntityId.make(row.entityId),
+								isBuiltin: row.entitySchemaPluginId === null,
 								entitySchemaSlug: EntitySchemaSlug.make(row.entitySchemaSlug),
 								entityUserId: row.entityUserId ? UserId.make(row.entityUserId) : null,
 							}
@@ -546,7 +554,11 @@ export class EntitiesRepository extends Context.Service<EntitiesRepository>()(
 			) {
 				const [row] = yield* session.run((db) =>
 					db
-						.select({ id: schema.entity.id, entitySchemaSlug: schema.entity.entitySchemaSlug })
+						.select({
+							id: schema.entity.id,
+							entitySchemaSlug: schema.entity.entitySchemaSlug,
+							entitySchemaPluginId: schema.entity.entitySchemaPluginId,
+						})
 						.from(schema.entity)
 						.where(and(eq(schema.entity.id, entityId), isNull(schema.entity.userId)))
 						.limit(1),
@@ -554,6 +566,7 @@ export class EntitiesRepository extends Context.Service<EntitiesRepository>()(
 				return row
 					? {
 							id: EntityId.make(row.id),
+							entitySchemaPluginId: row.entitySchemaPluginId,
 							entitySchemaSlug: EntitySchemaSlug.make(row.entitySchemaSlug),
 						}
 					: null;
@@ -564,11 +577,15 @@ export class EntitiesRepository extends Context.Service<EntitiesRepository>()(
 					externalId: string;
 					entitySchemaSlug: EntitySchemaSlug;
 					entitySchemaPluginId: string | null;
-					provider: { readonly pluginSlug: string; readonly providerSlug: string } | null;
+					provider: ProviderReference | null;
 				}) {
 					const [row] = yield* session.run((db) =>
 						db
-							.select({ id: schema.entity.id, entitySchemaSlug: schema.entity.entitySchemaSlug })
+							.select({
+								id: schema.entity.id,
+								entitySchemaSlug: schema.entity.entitySchemaSlug,
+								entitySchemaPluginId: schema.entity.entitySchemaPluginId,
+							})
 							.from(schema.entity)
 							.leftJoin(
 								schema.sandboxProvider,
@@ -584,9 +601,11 @@ export class EntitiesRepository extends Context.Service<EntitiesRepository>()(
 									input.provider === null
 										? isNull(schema.entity.providerId)
 										: and(
-												eq(schema.plugin.slug, input.provider.pluginSlug),
+												input.provider.owner.kind === "plugin"
+													? eq(schema.plugin.id, input.provider.owner.pluginId)
+													: sql`false`,
 												isNull(schema.plugin.ownerId),
-												eq(schema.sandboxProvider.slug, input.provider.providerSlug),
+												eq(schema.sandboxProvider.slug, input.provider.slug),
 											),
 								),
 							)
@@ -595,6 +614,7 @@ export class EntitiesRepository extends Context.Service<EntitiesRepository>()(
 					return row
 						? {
 								id: EntityId.make(row.id),
+								entitySchemaPluginId: row.entitySchemaPluginId,
 								entitySchemaSlug: EntitySchemaSlug.make(row.entitySchemaSlug),
 							}
 						: null;
@@ -604,7 +624,12 @@ export class EntitiesRepository extends Context.Service<EntitiesRepository>()(
 			const lockGlobalEntityProvenanceScope = Effect.fn(
 				"EntitiesRepository.lockGlobalEntityProvenanceScope",
 			)(function* (input: GlobalEntityProvenanceScopeInput) {
-				const lockKey = `global-entities:${input.entitySchemaSlug}:${input.entitySchemaPluginId ?? "kernel"}:${input.providerId}`;
+				const lockKey = stableStringify([
+					"global-entities",
+					input.entitySchemaPluginId,
+					input.entitySchemaSlug,
+					input.providerId,
+				]);
 				yield* session.run((db) =>
 					db.execute(sql`select pg_advisory_xact_lock(hashtext(${lockKey}))`),
 				);
@@ -629,8 +654,8 @@ export class EntitiesRepository extends Context.Service<EntitiesRepository>()(
 				return row?.count ?? 0;
 			});
 
-			const findSystemEntitySchemaById = (entitySchemaSlug: EntitySchemaSlug) =>
-				definitions.findGlobalEntitySchema(entitySchemaSlug).pipe(
+			const findSystemEntitySchemaByReference = (reference: EntitySchemaReference) =>
+				definitions.findGlobalEntitySchema(reference).pipe(
 					Effect.map((definition) => {
 						return definition
 							? {
@@ -642,10 +667,10 @@ export class EntitiesRepository extends Context.Service<EntitiesRepository>()(
 					}),
 				);
 
-			const findEntitySchemaProviderBySlug = Effect.fn(
-				"EntitiesRepository.findEntitySchemaProviderBySlug",
-			)(function* (providerSlug: string) {
-				const resolved = yield* pluginRuntime.findSchemaProviderBySlug(providerSlug);
+			const findEntitySchemaProviderByReference = Effect.fn(
+				"EntitiesRepository.findEntitySchemaProviderByReference",
+			)(function* (reference: ProviderReference) {
+				const resolved = yield* pluginRuntime.findSchemaProviderByReference(reference);
 				if (!resolved) {
 					return null;
 				}
@@ -892,13 +917,13 @@ export class EntitiesRepository extends Context.Service<EntitiesRepository>()(
 				lockUserEntityEnsureScopes,
 				getEntityMergeScopeForUser,
 				findGlobalEntityForRestore,
-				findSystemEntitySchemaById,
 				lockProviderEntityMutations,
 				listMatchCandidatesBySchema,
-				findEntitySchemaProviderBySlug,
 				findUserEntityWithoutProvenance,
 				lockGlobalEntityProvenanceScope,
 				listGlobalEntitiesByIdsForBackup,
+				findSystemEntitySchemaByReference,
+				findEntitySchemaProviderByReference,
 				countGlobalEntitiesByProvenanceScope,
 				listReferencedGlobalEntitiesForBackup,
 			};

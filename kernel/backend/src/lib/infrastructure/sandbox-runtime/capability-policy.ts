@@ -6,7 +6,7 @@ export type SandboxCapabilityRequirement = {
 	readonly bridge: boolean;
 	readonly requiresProvider?: boolean;
 	readonly requiresSystemPlugin?: boolean;
-	readonly requiresSystemUserBootstrap?: boolean;
+	readonly requiresUserBootstrap?: boolean;
 	readonly subjects: readonly SandboxCapabilitySubject[];
 	readonly systemKinds?: readonly SandboxCapabilitySystemKind[];
 };
@@ -35,12 +35,8 @@ export const SANDBOX_CAPABILITY_REQUIREMENTS = {
 	setCachedValue: { bridge: true, subjects: ["user", "automation-run", "system"] as const },
 	getPluginConfig: { bridge: true, subjects: ["user", "automation-run", "system"] as const },
 	getPersistentValue: { bridge: true, subjects: ["user", "automation-run", "system"] as const },
+	ensureUserEntities: { bridge: true, subjects: ["user"] as const, requiresUserBootstrap: true },
 	claimPersistentValue: { bridge: true, subjects: ["user", "automation-run", "system"] as const },
-	ensureUserEntities: {
-		bridge: true,
-		subjects: ["user"] as const,
-		requiresSystemUserBootstrap: true,
-	},
 	requestEventStreamWork: {
 		bridge: true,
 		requiresSystemPlugin: true,

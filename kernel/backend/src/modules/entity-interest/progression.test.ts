@@ -1,13 +1,16 @@
 import { expect, layer } from "@effect/vitest";
+import { SandboxRunError } from "@ryot-app/contract/errors";
 import {
 	EntityId,
 	EntitySchemaSlug,
+	PluginId,
 	SandboxProviderId,
 	UserId,
 } from "@ryot-app/contract/schema/brands";
 import { Clock, Context, Duration, Effect, Layer, Ref } from "effect";
 
 import { RedisService } from "#lib/infrastructure/redis";
+import { assertExitFails } from "#lib/test-utils/assertions";
 import { databaseLayer, makeRedisService } from "#lib/test-utils/effect";
 import { EntitiesService } from "#modules/entities/service";
 import { TranslationsService, type RequestFillInput } from "#modules/entity-translation/service";
@@ -25,6 +28,7 @@ const entity = {
 	createdAt: "2026-08-14T00:00:00.000Z",
 	updatedAt: "2026-08-14T00:00:00.000Z",
 	populatedAt: "2026-08-14T00:00:00.000Z",
+	entitySchemaPluginId: PluginId.make("plugin"),
 	providerId: SandboxProviderId.make("provider-1"),
 	entitySchemaSlug: EntitySchemaSlug.make("record"),
 };
@@ -32,6 +36,13 @@ const entity = {
 type SessionMetadata = Effect.Success<
 	ReturnType<EntityInterestStore["Service"]["getSessionMetadata"]>
 >;
+const spanishSession: SessionMetadata[number] = {
+	revision: 1,
+	sessionId: "session-1",
+	preferredLanguage: "es",
+	userId: UserId.make("user-1"),
+	accountGeneration: { userId: UserId.make("user-1"), token: "test-account-generation" },
+};
 
 class FakeProgressionEffects extends Context.Service<
 	FakeProgressionEffects,
@@ -47,6 +58,8 @@ const makeLayer = (input: {
 	readonly sessions: ReadonlyArray<string>;
 	readonly metadata: (sessionIds: ReadonlyArray<string>) => SessionMetadata;
 	readonly grantLease?: (attempt: number) => boolean;
+	readonly requestError?: SandboxRunError;
+	readonly foreignProvider?: boolean;
 }) =>
 	Layer.unwrap(
 		Effect.gen(function* () {
@@ -79,20 +92,25 @@ const makeLayer = (input: {
 						Layer.succeed(RedisService, redis),
 						Layer.mock(EntitiesService)({ getByIdAnyScope: () => Effect.succeed(entity) }),
 						Layer.mock(TranslationsService)({
-							requestFill: (request) => Ref.update(requests, (all) => [...all, request]),
+							requestFill: (request) =>
+								Ref.update(requests, (all) => [...all, request]).pipe(
+									Effect.andThen(
+										input.requestError ? Effect.fail(input.requestError) : Effect.void,
+									),
+								),
 						}),
 						Layer.mock(PluginRuntimeResolver)({
 							findProviderAvailableToUser: () =>
 								Effect.succeed({
 									slug: "provider",
 									name: "Provider",
-									pluginId: "plugin",
 									pluginScope: "user",
-									rootEntitySchemaSlug: "entity",
+									rootEntitySchemaSlug: "record",
 									id: SandboxProviderId.make("provider-1"),
 									createdAt: new Date("2026-08-14T00:00:00.000Z"),
 									updatedAt: new Date("2026-08-14T00:00:00.000Z"),
 									information: { source: "fixture", canonicalLanguage: "en" },
+									pluginId: input.foreignProvider ? "foreign-plugin" : "plugin",
 								}),
 						}),
 						Layer.succeed(FakeProgressionEffects, {
@@ -204,4 +222,61 @@ layer(
 			expect(yield* effects.released).toEqual(["ryot:entity-interest:progress:entity-1"]);
 		}).pipe(Effect.provideService(Clock.Clock, clock));
 	});
+});
+
+layer(
+	makeLayer({ foreignProvider: true, sessions: ["session-1"], metadata: () => [spanishSession] }),
+)((test) => {
+	test.effect("does not translate with a same-schema provider from another owner", () =>
+		Effect.gen(function* () {
+			yield* (yield* EntityInterestProgression).populated(entityId);
+			expect(yield* (yield* FakeProgressionEffects).requests).toEqual([]);
+		}),
+	);
+});
+
+layer(
+	makeLayer({
+		sessions: ["session-1"],
+		metadata: () => [spanishSession],
+		requestError: new SandboxRunError({
+			kind: "missing-artifact",
+			message: "Installation unavailable",
+		}),
+	}),
+)((test) => {
+	test.effect("releases progression when translation authority becomes unavailable", () =>
+		Effect.gen(function* () {
+			yield* (yield* EntityInterestProgression).populated(entityId);
+			const effects = yield* FakeProgressionEffects;
+			expect(yield* effects.requests).toMatchObject([{ entitySchemaPluginId: "plugin" }]);
+			expect(yield* effects.released).toEqual(["ryot:entity-interest:progress:entity-1"]);
+		}),
+	);
+});
+
+const unavailableQueue = new SandboxRunError({
+	kind: "infrastructure",
+	message: "Queue unavailable",
+});
+layer(
+	makeLayer({
+		sessions: ["session-1"],
+		requestError: unavailableQueue,
+		metadata: () => [spanishSession],
+	}),
+)((test) => {
+	test.effect(
+		"preserves retryable translation infrastructure failures and releases the lease",
+		() =>
+			Effect.gen(function* () {
+				assertExitFails(
+					yield* Effect.exit((yield* EntityInterestProgression).populated(entityId)),
+					unavailableQueue,
+				);
+				expect(yield* (yield* FakeProgressionEffects).released).toEqual([
+					"ryot:entity-interest:progress:entity-1",
+				]);
+			}),
+	);
 });

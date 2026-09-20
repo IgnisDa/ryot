@@ -2,23 +2,17 @@ import {
 	SignalAudiencePolicy,
 	type SignalCatalogState,
 } from "@ryot-app/contract/modules/automations/schemas";
+import type { SignalSchemaReference } from "@ryot-app/contract/modules/plugins/references";
 import { SignalSchemaSlug, type UserId } from "@ryot-app/contract/schema/brands";
-import type { AppSchema } from "@ryot-app/contract/schema/property-schema";
 import { Context, Effect, Layer, Schema } from "effect";
 
 import { DefinitionRepository } from "#modules/definition-registry/repository";
 import type { SignalSchemaDefinition } from "#modules/definition-registry/snapshot";
 
-export type SignalSchemaScope = {
-	slug: string;
-	name: string;
-	id: SignalSchemaSlug;
-	userId: UserId | null;
-	propertiesSchema: AppSchema;
-	catalogState: SignalCatalogState;
-	pluginId?: string | null | undefined;
-	audiencePolicy: SignalAudiencePolicy;
-};
+export type SignalSchemaScope = Pick<
+	SignalSchemaDefinition,
+	"catalogState" | "name" | "pluginId" | "propertiesSchema" | "slug"
+> & { id: SignalSchemaSlug; userId: UserId | null; audiencePolicy: SignalAudiencePolicy };
 
 export type BuiltinSignalSchemaInput = Pick<
 	SignalSchemaScope,
@@ -40,32 +34,38 @@ export class SignalSchemasRepository extends Context.Service<SignalSchemasReposi
 	{
 		make: Effect.gen(function* () {
 			const definitions = yield* DefinitionRepository;
-			const scope = (slug: string) =>
-				definitions.findGlobalSignalSchema(slug).pipe(Effect.map(toNullableScope));
-			const findGlobalBySlug = scope;
-			const findVisibleBySlug = (input: { slug: string; userId: UserId | null }) =>
+			const findGlobalByReference = (reference: SignalSchemaReference) =>
+				definitions.findGlobalSignalSchema(reference).pipe(Effect.map(toNullableScope));
+			const findVisibleByReference = (input: {
+				reference: SignalSchemaReference;
+				userId: UserId | null;
+			}) =>
 				input.userId === null
-					? scope(input.slug)
+					? findGlobalByReference(input.reference)
 					: definitions
-							.findUserSignalSchema(input.userId, input.slug)
+							.findUserSignalSchema(input.userId, input.reference)
 							.pipe(Effect.map(toNullableScope));
-			const findBuiltinById = (id: SignalSchemaSlug) => scope(id);
-			const findActiveBuiltinById = (id: SignalSchemaSlug) =>
-				scope(id).pipe(Effect.map((value) => (value?.catalogState === "active" ? value : null)));
+			const findKernelBySlug = (slug: string) =>
+				findGlobalByReference({ owner: { kind: "kernel" }, slug: SignalSchemaSlug.make(slug) });
+			const findActiveKernelBySlug = (slug: string) =>
+				findKernelBySlug(slug).pipe(
+					Effect.map((value) => (value?.catalogState === "active" ? value : null)),
+				);
 			const listActiveBuiltins = definitions
 				.listGlobalSignalSchemas()
 				.pipe(
 					Effect.map((signals) =>
 						signals.flatMap((signal) =>
-							signal.catalogState === "active" ? [toScope(signal)] : [],
+							signal.pluginId === null && signal.catalogState === "active" ? [toScope(signal)] : [],
 						),
 					),
 				);
 			const insertBuiltin = Effect.fn(function* (input: BuiltinSignalSchemaInput) {
 				return (
-					(yield* scope(input.slug)) ?? {
+					(yield* findKernelBySlug(input.slug)) ?? {
 						...input,
 						userId: null,
+						pluginId: null,
 						id: SignalSchemaSlug.make(input.slug),
 					}
 				);
@@ -74,15 +74,15 @@ export class SignalSchemasRepository extends Context.Service<SignalSchemasReposi
 				id: SignalSchemaSlug;
 				name: string;
 				catalogState: SignalCatalogState;
-			}) => scope(input.id);
+			}) => findKernelBySlug(input.id);
 			return {
 				insertBuiltin,
-				findBuiltinById,
-				findGlobalBySlug,
-				findVisibleBySlug,
+				findKernelBySlug,
 				listActiveBuiltins,
 				updateBuiltinDisplay,
-				findActiveBuiltinById,
+				findGlobalByReference,
+				findVisibleByReference,
+				findActiveKernelBySlug,
 			};
 		}),
 	},

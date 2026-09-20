@@ -7,7 +7,10 @@ import { SandboxScriptId } from "@ryot-app/contract/schema/brands";
 import { jsonValueSchema } from "@ryot-app/sandbox-sdk/wire";
 import { Schema } from "effect";
 
-import { SandboxPluginRevision } from "#lib/infrastructure/sandbox-runtime/execution-principal";
+import {
+	SandboxInstallationInitialization,
+	SandboxPluginRevision,
+} from "#lib/infrastructure/sandbox-runtime/execution-principal";
 
 export const SandboxScriptWorkflowPayload = Schema.Struct({
 	lane: ExecutionLane,
@@ -20,6 +23,7 @@ export const SandboxScriptWorkflowPayload = Schema.Struct({
 	resolutionMode: Schema.Literals(["active", "exact"]),
 	pluginRevision: Schema.optional(SandboxPluginRevision),
 	resultMode: Schema.optional(Schema.Literal("execution")),
+	initialization: Schema.optional(SandboxInstallationInitialization),
 });
 
 export type SandboxScriptWorkflowPayload = Schema.Schema.Type<typeof SandboxScriptWorkflowPayload>;

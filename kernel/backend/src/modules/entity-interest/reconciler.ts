@@ -48,19 +48,23 @@ export class InterestReconciler extends Context.Service<InterestReconciler>()(
 						const executionId = entityPopulationExecutionId(row.id, principal.accountGeneration);
 						yield* populationTrigger.request({
 							entityId: row.id,
-							userId: principal.userId,
+							userId: row.userId,
 							externalId: row.externalId,
 							providerId: row.providerId,
 							entitySchemaSlug: row.entitySchemaSlug,
-							command: rootLifecycleCommand({
-								source: "api",
-								lane: "interactive",
-								itemIdentity: executionId,
-								accountGeneration: principal.accountGeneration,
-								initiator: { kind: "user", id: principal.userId },
-								executionId: AutomationExecutionId.make(executionId),
-								occurredAt: IsoUtcString.make((yield* DateTime.nowAsDate).toISOString()),
-							}),
+							entitySchemaPluginId: row.entitySchemaPluginId,
+							command: {
+								...rootLifecycleCommand({
+									source: "api",
+									lane: "interactive",
+									itemIdentity: executionId,
+									accountGeneration: principal.accountGeneration,
+									initiator: { kind: "user", id: principal.userId },
+									executionId: AutomationExecutionId.make(executionId),
+									occurredAt: IsoUtcString.make((yield* DateTime.nowAsDate).toISOString()),
+								}),
+								writeContext: null,
+							},
 						});
 						return null;
 					}
@@ -71,17 +75,26 @@ export class InterestReconciler extends Context.Service<InterestReconciler>()(
 							row.externalId !== null &&
 							row.providerId !== null
 						) {
-							yield* translations.requestFill({
-								entityId: row.id,
-								lane: "interactive",
-								userId: principal.userId,
-								externalId: row.externalId,
-								properties: row.properties,
-								providerId: row.providerId,
-								language: principal.preferredLanguage,
-								entitySchemaSlug: row.entitySchemaSlug,
-								accountGeneration: principal.accountGeneration,
-							});
+							yield* translations
+								.requestFill({
+									entityId: row.id,
+									lane: "interactive",
+									userId: principal.userId,
+									externalId: row.externalId,
+									properties: row.properties,
+									providerId: row.providerId,
+									language: principal.preferredLanguage,
+									entitySchemaSlug: row.entitySchemaSlug,
+									entitySchemaPluginId: row.entitySchemaPluginId,
+									accountGeneration: principal.accountGeneration,
+								})
+								.pipe(
+									Effect.catchTag("SandboxRunError", (error) =>
+										error.kind === "missing-artifact" || error.kind === "invalid-input"
+											? Effect.void
+											: Effect.fail(error),
+									),
+								);
 						}
 						return null;
 					}

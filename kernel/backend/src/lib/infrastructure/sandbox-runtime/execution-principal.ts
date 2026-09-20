@@ -5,6 +5,7 @@ import {
 } from "@ryot-app/contract/modules/sandbox/schemas";
 import {
 	PluginId,
+	PluginPackageId,
 	PluginRevisionId,
 	PluginConfigRevisionId,
 	SandboxProviderId,
@@ -28,6 +29,7 @@ export const SandboxPluginRevision = Schema.Struct({
 	id: PluginId,
 	slug: Schema.String,
 	configSchema: AppSchema,
+	packageId: PluginPackageId,
 	revisionId: PluginRevisionId,
 	ownerId: Schema.NullOr(UserId),
 	configRevisionId: PluginConfigRevisionId,
@@ -36,6 +38,7 @@ export const SandboxPluginRevision = Schema.Struct({
 	compiledHashes: Schema.Record(Schema.String, Schema.String),
 	workflowScripts: Schema.Record(Schema.String, Schema.String),
 	schemaScope: Schema.Struct({
+		signalSchemaSlugs: Schema.Array(Schema.String),
 		entitySchemaSlugs: Schema.Array(Schema.String),
 		relationshipSchemaSlugs: Schema.Array(Schema.String),
 		eventSchemas: Schema.Array(
@@ -46,6 +49,12 @@ export const SandboxPluginRevision = Schema.Struct({
 
 export type SandboxPluginRevision = Schema.Schema.Type<typeof SandboxPluginRevision>;
 
+export const SandboxInstallationInitialization = Schema.Struct({
+	activationId: Schema.String,
+	installationId: Schema.String,
+});
+export type SandboxInstallationInitialization = typeof SandboxInstallationInitialization.Type;
+
 export const SandboxExecutionPrincipal = Schema.Struct({
 	scriptId: SandboxScriptId,
 	scriptSlug: Schema.String,
@@ -55,10 +64,17 @@ export const SandboxExecutionPrincipal = Schema.Struct({
 	providerId: Schema.NullOr(SandboxProviderId),
 	kernelScript: Schema.optional(Schema.Literal(true)),
 	pluginRevision: Schema.NullOr(SandboxPluginRevision),
+	initialization: Schema.optional(SandboxInstallationInitialization),
 }).pipe(
 	Schema.check(
 		Schema.makeFilter((principal) => {
 			const { subject, pluginRevision } = principal;
+			if (
+				principal.initialization &&
+				(subject.type !== "user" || pluginRevision === null || principal.metadata.kind !== "script")
+			) {
+				return "Installation initialization requires a pinned user bootstrap script";
+			}
 			if (principal.kernelScript === true && pluginRevision !== null) {
 				return "Kernel identity cannot accompany a plugin revision";
 			}

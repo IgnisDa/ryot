@@ -369,6 +369,7 @@ layer(
 						scopeEntity: {
 							id: entityId,
 							name: "Updated parent",
+							entitySchemaPluginId: null,
 							entitySchemaSlug: EntitySchemaSlug.make("record"),
 						},
 					},

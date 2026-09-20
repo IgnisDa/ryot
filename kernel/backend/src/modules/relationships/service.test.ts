@@ -1,5 +1,6 @@
 import { expect, layer } from "@effect/vitest";
 import { DbError } from "@ryot-app/contract/errors";
+import { definitionOwner } from "@ryot-app/contract/modules/plugins/references";
 import { RelationshipBadRequest } from "@ryot-app/contract/modules/relationships/schemas";
 import {
 	AutomationHookSlug,
@@ -29,6 +30,7 @@ import {
 	withLifecycleBatchPlanning,
 	withLifecycleDispatch,
 } from "#modules/automations/lifecycle.test-support";
+import { EntitiesRepository } from "#modules/entities/repository";
 import { EntitiesService } from "#modules/entities/service";
 import { installRevisionPackage, revisionPackage } from "#modules/plugins/revision.test-support";
 
@@ -54,6 +56,32 @@ const relationshipChangeBatch = (
 ): ReadonlyArray<ChangeUserRelationshipBatch> => [
 	{ deletes: [], creates: [{ ...baseInput, properties, propertiesMode }] },
 ];
+
+const ownedEndpoints = Effect.fnUntraced(function* (
+	installed: Pick<Effect.Success<ReturnType<typeof installRevisionPackage>>, "pluginId">,
+	slug: string,
+	scope: "global" | "user",
+) {
+	const entities = yield* EntitiesRepository;
+	const identity = {
+		properties: {},
+		populatedAt: null,
+		entitySchemaPluginId: installed.pluginId,
+		entitySchemaSlug: EntitySchemaSlug.make(slug),
+		...(scope === "global" ? { scope: "global" as const } : { userId, scope: "user" as const }),
+	};
+	const source = yield* entities.insertEntity({
+		...identity,
+		name: "Source",
+		id: EntityId.make(`${installed.pluginId}-source`),
+	});
+	const target = yield* entities.insertEntity({
+		...identity,
+		name: "Target",
+		id: EntityId.make(`${installed.pluginId}-target`),
+	});
+	return { sourceEntityId: source.entity.id, targetEntityId: target.entity.id };
+});
 
 const installPolicyFixture = Effect.fn(function* (owner: UserId | null = userId) {
 	const fixture = revisionPackage(
@@ -110,10 +138,22 @@ const installPolicyFixture = Effect.fn(function* (owner: UserId | null = userId)
 		},
 		owner,
 	);
+	const entityDeclaration = fixture.manifest.entitySchemas[0];
+	assert(entityDeclaration);
+	const endpoints = yield* ownedEndpoints(
+		installed,
+		entityDeclaration.slug,
+		owner === null ? "global" : "user",
+	);
 	return {
 		...baseInput,
+		...endpoints,
 		relationshipSchemaPluginId: installed.pluginId,
 		relationshipSchemaSlug: RelationshipSchemaSlug.make(schema.slug),
+		relationshipSchema: {
+			owner: definitionOwner(installed.pluginId),
+			slug: RelationshipSchemaSlug.make(schema.slug),
+		},
 	};
 });
 
@@ -152,19 +192,23 @@ describe("Relationships lifecycle owner", () => {
 	});
 
 	layer(relationshipDatabaseLayer())((test) => {
-		test.effect("rejects caller relationship schema provenance that differs from the catalog", () =>
+		test.effect("rejects a foreign qualified relationship schema", () =>
 			Effect.gen(function* () {
 				const service = yield* RelationshipsService;
 				expect(
 					yield* service
 						.create(
-							{ ...baseInput, relationshipSchemaPluginId: "stale-plugin" },
+							{
+								...baseInput,
+								relationshipSchema: {
+									slug: relationshipSchemaSlug,
+									owner: definitionOwner("stale-plugin"),
+								},
+							},
 							command("stale-plugin"),
 						)
 						.pipe(Effect.flip),
-				).toEqual(
-					new RelationshipBadRequest({ reason: { code: "concurrent-relationship-change" } }),
-				);
+				).toMatchObject({ reason: { code: "relationship-schema-not-found" } });
 			}),
 		);
 	});
@@ -235,8 +279,8 @@ describe("Relationships lifecycle owner", () => {
 					service.persistPlannedReconciliation(
 						[
 							{
-								relationshipSchemaSlug,
 								selector: { type: "self" },
+								relationshipSchema: baseInput.relationshipSchema,
 								relationships: [
 									{ sourceEntityId, properties: { rank: 1 }, targetEntityId: sourceEntityId },
 								],
@@ -360,18 +404,23 @@ describe("Relationships lifecycle owner", () => {
 					};
 					const target = fixture.manifest.relationshipSchemas[0];
 					assert(target);
-					yield* installRevisionPackage(
+					const installed = yield* installRevisionPackage(
 						{
 							...fixture,
 							scripts: [...fixture.scripts, policy],
 							manifest: {
 								...fixture.manifest,
-								relationshipSchemas: [
-									{ ...target, sourceEntitySchemaSlug: null, targetEntitySchemaSlug: null },
-								],
 								scripts: [
 									...fixture.manifest.scripts,
 									{ ...policy.metadata, entry: "backend/policy.sandbox.ts" },
+								],
+								relationshipSchemas: [
+									{
+										...target,
+										propertiesSchema,
+										sourceEntitySchemaSlug: null,
+										targetEntitySchemaSlug: null,
+									},
 								],
 								hooks: [
 									...fixture.manifest.hooks,
@@ -394,6 +443,10 @@ describe("Relationships lifecycle owner", () => {
 						},
 						userId,
 					);
+					const entityDeclaration = fixture.manifest.entitySchemas[0];
+					assert(entityDeclaration);
+					const { sourceEntityId: ownedSourceEntityId, targetEntityId: ownedTargetEntityId } =
+						yield* ownedEndpoints(installed, entityDeclaration.slug, "user");
 					for (const mode of ["reject", "failure"] as const) {
 						const cleanup: string[] = [];
 						const invoked: AutomationRunId[] = [];
@@ -466,18 +519,24 @@ describe("Relationships lifecycle owner", () => {
 										deletes: [],
 										creates: [
 											{
-												sourceEntityId,
-												targetEntityId,
 												properties: {},
 												propertiesMode: "replace",
-												relationshipSchemaSlug: RelationshipSchemaSlug.make(target.slug),
+												sourceEntityId: ownedSourceEntityId,
+												targetEntityId: ownedTargetEntityId,
+												relationshipSchema: {
+													owner: definitionOwner(installed.pluginId),
+													slug: RelationshipSchemaSlug.make(target.slug),
+												},
 											},
 											{
 												properties: {},
 												propertiesMode: "replace",
-												sourceEntityId: targetEntityId,
-												targetEntityId: sourceEntityId,
-												relationshipSchemaSlug: RelationshipSchemaSlug.make(target.slug),
+												sourceEntityId: ownedTargetEntityId,
+												targetEntityId: ownedSourceEntityId,
+												relationshipSchema: {
+													owner: definitionOwner(installed.pluginId),
+													slug: RelationshipSchemaSlug.make(target.slug),
+												},
 											},
 										],
 									},
@@ -568,6 +627,7 @@ describe("Relationships lifecycle owner", () => {
 							...fixture,
 							manifest: {
 								...fixture.manifest,
+								relationshipSchemas: [{ ...target, propertiesSchema }],
 								hooks: [
 									...fixture.manifest.hooks,
 									{
@@ -605,8 +665,13 @@ describe("Relationships lifecycle owner", () => {
 					);
 					const input = {
 						...baseInput,
+						...(yield* ownedEndpoints(installed, "fixture", "user")),
 						relationshipSchemaPluginId: installed.pluginId,
 						relationshipSchemaSlug: RelationshipSchemaSlug.make(target.slug),
+						relationshipSchema: {
+							owner: definitionOwner(installed.pluginId),
+							slug: RelationshipSchemaSlug.make(target.slug),
+						},
 					};
 					const failed = yield* Effect.exit(
 						(yield* relationshipsServiceWith({
@@ -674,7 +739,11 @@ describe("Relationships lifecycle owner", () => {
 					const limited = yield* (yield* relationshipsServiceWith({
 						planner: runLimitedPlanner,
 					})).create(
-						{ ...input, sourceEntityId: targetEntityId, targetEntityId: sourceEntityId },
+						{
+							...input,
+							sourceEntityId: input.targetEntityId,
+							targetEntityId: input.sourceEntityId,
+						},
 						{ ...limitedCommand, causation: { ...limitedCommand.causation, depth: 1 } },
 					);
 					const blocked = (yield* session.run((db) =>
@@ -965,9 +1034,9 @@ describe("Relationships lifecycle owner", () => {
 						[{ resource: "relationship", draft: { properties: { remove: [], set: { rank: 2 } } } }],
 					]);
 					expect(result.relationship).toMatchObject({
-						sourceEntityId,
-						targetEntityId,
 						properties: { rank: 3 },
+						sourceEntityId: policyInput.sourceEntityId,
+						targetEntityId: policyInput.targetEntityId,
 					});
 				}),
 		);
@@ -1210,6 +1279,7 @@ describe("Relationships lifecycle owner", () => {
 						scopeEntity: {
 							name: "Source",
 							id: sourceEntityId,
+							entitySchemaPluginId: null,
 							entitySchemaSlug: EntitySchemaSlug.make("fixture"),
 						},
 						batch: {
@@ -1223,8 +1293,8 @@ describe("Relationships lifecycle owner", () => {
 						},
 					};
 					const group = {
-						relationshipSchemaSlug,
 						selector: { type: "self" as const },
+						relationshipSchema: baseInput.relationshipSchema,
 						relationships: [
 							{ sourceEntityId, properties: { rank: 1 }, targetEntityId: sourceEntityId },
 							{ targetEntityId, properties: { rank: 2 }, sourceEntityId: targetEntityId },
@@ -1358,13 +1428,19 @@ describe("Relationships lifecycle owner", () => {
 					});
 					const groups = [
 						{
-							relationshipSchemaSlug: globalPolicyInput.relationshipSchemaSlug,
-							relationships: [{ sourceEntityId, targetEntityId, properties: { rank: 1 } }],
+							relationshipSchema: globalPolicyInput.relationshipSchema,
 							selector: {
 								type: "anchored" as const,
 								direction: "outgoing" as const,
-								anchorEntityId: sourceEntityId,
+								anchorEntityId: globalPolicyInput.sourceEntityId,
 							},
+							relationships: [
+								{
+									properties: { rank: 1 },
+									sourceEntityId: globalPolicyInput.sourceEntityId,
+									targetEntityId: globalPolicyInput.targetEntityId,
+								},
+							],
 						},
 					];
 					expect(
@@ -1413,12 +1489,13 @@ describe("Relationships lifecycle owner", () => {
 							.insert(tables.user)
 							.values({ id: "owner", name: "Plugin owner", email: "plugin-owner@example.test" }),
 					);
-					yield* installRevisionPackage({
+					const installed = yield* installRevisionPackage({
 						...fixture,
 						manifest: {
 							...fixture.manifest,
 							relationshipSchemas: fixture.manifest.relationshipSchemas.map((schema) => ({
 								...schema,
+								propertiesSchema,
 								sourceEntitySchemaSlug: null,
 								targetEntitySchemaSlug: null,
 								slug: groupRelationshipSchemaSlug,
@@ -1443,11 +1520,16 @@ describe("Relationships lifecycle owner", () => {
 							],
 						},
 					});
-					yield* session.run((db) =>
-						db
-							.insert(tables.plugin)
-							.values({ slug: "group", status: "disabled", id: "group-provider-plugin" }),
+					const { sourceEntityId: ownedSourceEntityId } = yield* ownedEndpoints(
+						installed,
+						"group-fixture",
+						"global",
 					);
+					const baselineEntityIds = (yield* session.run((db) =>
+						db.select({ id: tables.entity.id }).from(tables.entity),
+					))
+						.map(({ id }) => id)
+						.sort();
 					yield* session.run((db) =>
 						db
 							.insert(tables.sandboxProvider)
@@ -1455,7 +1537,7 @@ describe("Relationships lifecycle owner", () => {
 								id: providerId,
 								name: "Group provider",
 								slug: "group-provider",
-								pluginId: "group-provider-plugin",
+								pluginId: installed.pluginId,
 								information: { source: "fixture" },
 								rootEntitySchemaSlug: "group-fixture",
 							}),
@@ -1474,21 +1556,27 @@ describe("Relationships lifecycle owner", () => {
 										name: `Provider ${id}`,
 										properties: { title: id },
 										lifecycle: command(`${id}-entity`),
-										entitySchemaSlug: EntitySchemaSlug.make("group-fixture"),
+										entitySchema: {
+											owner: definitionOwner(installed.pluginId),
+											slug: EntitySchemaSlug.make("group-fixture"),
+										},
 									});
 									const relationshipWork = yield* relationships.persistPlannedReconciliation(
 										[
 											{
-												relationshipSchemaSlug: groupRelationshipSchemaSlug,
+												relationshipSchema: {
+													slug: groupRelationshipSchemaSlug,
+													owner: definitionOwner(installed.pluginId),
+												},
 												selector: {
 													type: "anchored",
 													direction: "outgoing",
-													anchorEntityId: sourceEntityId,
+													anchorEntityId: ownedSourceEntityId,
 												},
 												relationships: [
 													{
-														sourceEntityId,
 														properties: { rank: 1 },
+														sourceEntityId: ownedSourceEntityId,
 														targetEntityId: entityWork.result.entity.id,
 													},
 												],
@@ -1532,9 +1620,7 @@ describe("Relationships lifecycle owner", () => {
 					expect(relationshipsAfterRollback).toEqual([]);
 					expect(triggersAfterRollback).toEqual([]);
 					expect(runsAfterRollback).toEqual([]);
-					expect(entityRows.map(({ id }) => id).sort()).toEqual(
-						[sourceEntityId, targetEntityId].sort(),
-					);
+					expect(entityRows.map(({ id }) => id).sort()).toEqual(baselineEntityIds);
 
 					const work = yield* persistGroup("commit", false);
 					const visible = yield* Effect.tryPromise(() =>
@@ -1542,7 +1628,9 @@ describe("Relationships lifecycle owner", () => {
 							"select (select count(*)::int from entity) as entities, (select count(*)::int from relationship) as relationships, (select count(*)::int from automation_trigger) as triggers, (select count(*)::int from automation_run) as runs",
 						),
 					).pipe(Effect.mapError(() => new DbError({ message: "Observer failed" })));
-					expect(visible.rows).toEqual([{ runs: 2, entities: 3, triggers: 2, relationships: 1 }]);
+					expect(visible.rows).toEqual([
+						{ runs: 2, triggers: 2, relationships: 1, entities: baselineEntityIds.length + 1 },
+					]);
 					expect([...work.entityDispatch, ...work.relationshipDispatch]).toHaveLength(2);
 				}),
 		);
@@ -1613,21 +1701,32 @@ describe("Relationships lifecycle owner", () => {
 					},
 					userId,
 				);
+				const { sourceEntityId: ownedSourceEntityId, targetEntityId: ownedTargetEntityId } =
+					yield* ownedEndpoints(installed, "fixture", "user");
 				const group = {
-					relationshipSchemaSlug: privateSchemaSlug,
-					relationships: [{ sourceEntityId, targetEntityId, properties: {} }],
+					relationshipSchema: {
+						slug: privateSchemaSlug,
+						owner: definitionOwner(installed.pluginId),
+					},
 					selector: {
 						type: "anchored" as const,
 						direction: "outgoing" as const,
-						anchorEntityId: sourceEntityId,
+						anchorEntityId: ownedSourceEntityId,
 					},
+					relationships: [
+						{
+							properties: {},
+							sourceEntityId: ownedSourceEntityId,
+							targetEntityId: ownedTargetEntityId,
+						},
+					],
 				};
 				yield* repository.createRelationship({
 					scope: "user",
 					properties: {},
-					sourceEntityId,
-					targetEntityId,
 					userId: otherUserId,
+					sourceEntityId: ownedSourceEntityId,
+					targetEntityId: ownedTargetEntityId,
 					relationshipSchemaSlug: privateSchemaSlug,
 					relationshipSchemaPluginId: installed.pluginId,
 				});
@@ -1670,7 +1769,11 @@ describe("Relationships lifecycle owner", () => {
 								{
 									...group,
 									relationships: [
-										{ sourceEntityId, properties: {}, targetEntityId: foreignEntityId },
+										{
+											properties: {},
+											targetEntityId: foreignEntityId,
+											sourceEntityId: ownedSourceEntityId,
+										},
 									],
 								},
 							],
@@ -1802,11 +1905,7 @@ describe("Relationships lifecycle owner", () => {
 				const work = yield* session.transaction(service.persistPreparedUserCreate(creation));
 				expect(work.dispatch).toEqual([]);
 
-				const rejectedInput = {
-					...(yield* installPolicyFixture()),
-					targetEntityId,
-					sourceEntityId: targetEntityId,
-				};
+				const rejectedInput = yield* installPolicyFixture();
 				yield* repository.createRelationship(rejectedInput);
 				const rejectingService = yield* relationshipsServiceWith({
 					execution: withLifecycleDispatch({

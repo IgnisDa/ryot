@@ -114,6 +114,7 @@ export const runEventCreatePolicies = Effect.fn("runEventCreatePolicies")(functi
 				}
 				const scope = yield* resolveEventCreateItemScopes({
 					userId: payload.userId,
+					command: payload.command,
 					item: {
 						...patched.request.draft,
 						sessionEntityId: patched.request.draft.sessionEntityId ?? undefined,
@@ -174,6 +175,7 @@ export const runEventCreatePolicies = Effect.fn("runEventCreatePolicies")(functi
 			execute: Effect.gen(function* () {
 				const scope = yield* resolveEventCreateItemScopes({
 					userId: payload.userId,
+					command: payload.command,
 					item: { ...accepted.draft, sessionEntityId: accepted.draft.sessionEntityId ?? undefined },
 				});
 				const properties = yield* parseAppSchemaProperties({

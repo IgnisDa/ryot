@@ -9,11 +9,13 @@ import {
 
 import { SandboxRepository } from "./repository";
 
-const invalidPin = () =>
-	new SandboxRunError({
-		kind: "missing-artifact",
-		message: "Sandbox execution pin does not match its stored authority",
-	});
+const invalidPin = (error?: unknown) =>
+	error instanceof SandboxRunError
+		? error
+		: new SandboxRunError({
+				kind: "missing-artifact",
+				message: "Sandbox execution pin does not match its stored authority",
+			});
 
 export const SandboxExecutionAuthorityLive = Layer.effect(
 	SandboxExecutionAuthority,
@@ -26,7 +28,12 @@ export const SandboxExecutionAuthorityLive = Layer.effect(
 				Effect.mapError(invalidPin),
 			);
 			const pinned = yield* repository
-				.getScriptPin(validated.scriptId, validated.pluginRevision ?? undefined)
+				.getScriptPin(
+					validated.scriptId,
+					validated.pluginRevision ?? undefined,
+					validated.subject,
+					validated.initialization,
+				)
 				.pipe(Effect.mapError(invalidPin));
 			if (pinned === null) {
 				return yield* invalidPin();

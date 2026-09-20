@@ -12,6 +12,7 @@ import {
 	type EventCreateFailureReason,
 	type EventCreateItemOutcome,
 } from "@ryot-app/contract/modules/events/schemas";
+import { definitionOwner } from "@ryot-app/contract/modules/plugins/references";
 import { AutomationRunId, EventId } from "@ryot-app/contract/schema/brands";
 import { AppSchema } from "@ryot-app/contract/schema/property-schema";
 import { sha256Base64Url } from "@ryot-app/ts-utils/crypto";
@@ -32,6 +33,7 @@ import type { DurableSchema } from "#lib/infrastructure/workflow";
 import { implementWorkflow, makeActivity } from "#lib/infrastructure/workflow-scope";
 import { parseAppSchemaProperties } from "#lib/property-schema/property-schema-runtime";
 import { EntitiesRepository } from "#modules/entities/repository";
+import { makeDomainWriteChecks, writerPropertiesSchema } from "#modules/entities/write-context";
 import { EventSchemasRepository } from "#modules/event-schemas/repository";
 import { type MutationReceiptIdentity, MutationReceipts } from "#modules/mutations/receipts";
 import { admitWorkflow } from "#modules/mutations/workflow-dispatch";
@@ -97,6 +99,8 @@ const prepareItem = Effect.fn("prepareEventCreateItem")(function* (
 ) {
 	const planner = yield* LifecyclePlanner;
 	const session = yield* DatabaseSession;
+	const writes = makeDomainWriteChecks(session);
+	const eventSchemas = yield* EventSchemasRepository;
 	const receipts = yield* MutationReceipts.make;
 	const item = payload.payload[index];
 	if (!item) {
@@ -111,6 +115,15 @@ const prepareItem = Effect.fn("prepareEventCreateItem")(function* (
 			"Event workflow transaction already active",
 		)(
 			Effect.gen(function* () {
+				yield* eventSchemas.lockCatalog();
+				yield* writes
+					.check(
+						payload.command,
+						definitionOwner(payload.command.writeContext?.pluginRevision?.id ?? null),
+						payload.userId,
+						true,
+					)
+					.pipe(Effect.mapError((error) => new DbError({ message: error.message })));
 				const batch = yield* planner.prepareBatch({
 					...eventCreateBatchInput(payload),
 					scopes: [payload.userId],
@@ -124,6 +137,7 @@ const prepareItem = Effect.fn("prepareEventCreateItem")(function* (
 				}
 				const scope = yield* resolveEventCreateItemScopes({
 					userId: payload.userId,
+					command: payload.command,
 					item: {
 						...item,
 						occurredAt:
@@ -139,6 +153,8 @@ const prepareItem = Effect.fn("prepareEventCreateItem")(function* (
 					eventSchemaSlug: scope.eventSchemaScope.id,
 					sessionEntityId: scope.sessionEntityId ?? null,
 					entitySchemaSlug: scope.entityScope.entitySchemaSlug,
+					eventSchemaPluginId: scope.eventSchemaScope.pluginId ?? null,
+					entitySchemaPluginId: scope.entityScope.entitySchemaPluginId,
 				}).pipe(
 					Effect.mapError(
 						() => new EventCreateItemError({ reason: { code: "invalid-properties" } }),
@@ -158,9 +174,12 @@ const prepareItem = Effect.fn("prepareEventCreateItem")(function* (
 					capturedReferences,
 					_tag: "Pending" as const,
 					eventSchemaName: scope.eventSchemaScope.name,
-					propertiesSchema: scope.eventSchemaScope.propertiesSchema,
 					eventSchemaPluginId: scope.eventSchemaScope.pluginId ?? null,
 					eventSchemaFingerprint: catalogDefinitionFingerprint(scope.eventSchemaScope),
+					propertiesSchema:
+						payload.command.writeContext?.pluginRevision && scope.eventSchemaScope.pluginId !== null
+							? writerPropertiesSchema(scope.eventSchemaScope.propertiesSchema)
+							: scope.eventSchemaScope.propertiesSchema,
 					plan:
 						plan.trigger === null
 							? null
@@ -179,7 +198,10 @@ const prepareItem = Effect.fn("prepareEventCreateItem")(function* (
 				const properties = yield* parseAppSchemaProperties({
 					kind: "Event",
 					properties: draft.properties,
-					propertiesSchema: scope.eventSchemaScope.propertiesSchema,
+					propertiesSchema:
+						payload.command.writeContext?.pluginRevision && scope.eventSchemaScope.pluginId !== null
+							? writerPropertiesSchema(scope.eventSchemaScope.propertiesSchema)
+							: scope.eventSchemaScope.propertiesSchema,
 				}).pipe(
 					Effect.mapError(
 						() => new EventCreateItemError({ reason: { code: "invalid-properties" } }),
@@ -223,6 +245,7 @@ const writeEvent = Effect.fn("writeEventCreateItem")(function* (
 	const eventSchemas = yield* EventSchemasRepository;
 	const planner = yield* LifecyclePlanner;
 	const session = yield* DatabaseSession;
+	const writes = makeDomainWriteChecks(session);
 	const receipts = yield* MutationReceipts.make;
 	const command = eventCreateItemCommand(payload.command, index, payload.itemIdentities?.[index]);
 	const item = payload.payload[index];
@@ -230,6 +253,10 @@ const writeEvent = Effect.fn("writeEventCreateItem")(function* (
 		return yield* Effect.die("Missing event batch item");
 	}
 	const work = Effect.gen(function* () {
+		yield* eventSchemas.lockCatalog();
+		yield* writes
+			.check(command, definitionOwner(prepared.eventSchemaPluginId), payload.userId, true)
+			.pipe(Effect.mapError((error) => new DbError({ message: error.message })));
 		// Inline preparation still owns this transaction's pinned decision and receipt lock.
 		const batch = inline
 			? inline.batch
@@ -259,6 +286,7 @@ const writeEvent = Effect.fn("writeEventCreateItem")(function* (
 			].sort(),
 		);
 		const currentScope = yield* resolveEventCreateItemScopes({
+			command,
 			userId: payload.userId,
 			item: { ...draft, sessionEntityId: draft.sessionEntityId ?? undefined },
 		});
@@ -269,6 +297,19 @@ const writeEvent = Effect.fn("writeEventCreateItem")(function* (
 			return yield* new EventCreateItemError({
 				reason: { code: "event-schema-not-found", eventSchemaSlug: draft.eventSchemaSlug },
 			});
+		}
+		const storedProperties = yield* parseAppSchemaProperties({
+			kind: "Event",
+			properties: draft.properties,
+			propertiesSchema:
+				command.writeContext?.pluginRevision && currentScope.eventSchemaScope.pluginId !== null
+					? writerPropertiesSchema(currentScope.activePropertiesSchema)
+					: currentScope.activePropertiesSchema,
+		}).pipe(
+			Effect.mapError(() => new EventCreateItemError({ reason: { code: "invalid-properties" } })),
+		);
+		if (stableStringify(storedProperties) !== stableStringify(draft.properties)) {
+			return yield* new EventCreateItemError({ reason: { code: "invalid-properties" } });
 		}
 		yield* validateCapturedEventReferences(payload.userId, draft, prepared.capturedReferences);
 		const event = yield* repository.createEvent({
@@ -290,7 +331,9 @@ const writeEvent = Effect.fn("writeEventCreateItem")(function* (
 			properties: event.properties,
 			occurredAt: event.occurredAt,
 			eventSchemaSlug: event.eventSchemaSlug,
+			eventSchemaPluginId: event.eventSchemaPluginId,
 			sessionEntityId: event.sessionEntityId ?? null,
+			entitySchemaPluginId: currentScope.entityScope.entitySchemaPluginId,
 		}).pipe(Effect.mapError(() => new DbError({ message: "Invalid persisted event snapshot" })));
 		const plan = yield* planner.plan({
 			trigger: lifecycleTrigger(

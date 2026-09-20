@@ -5,9 +5,10 @@ import type {
 	SandboxExecutionSubject,
 	SandboxExecutionGrants,
 } from "@ryot-app/contract/modules/sandbox/schemas";
-import type { SandboxScriptId } from "@ryot-app/contract/schema/brands";
 import { Context, type Effect, type Scope } from "effect";
 import type { WorkflowEngine } from "effect/workflow/WorkflowEngine";
+
+import type { SandboxExecutionPrincipal } from "#lib/infrastructure/sandbox-runtime/execution-principal";
 
 export class KernelWorkflowReferences extends Context.Service<
 	KernelWorkflowReferences,
@@ -24,7 +25,7 @@ export class KernelWorkflowReferences extends Context.Service<
 			lane: ExecutionLane,
 			executionId: string,
 			parentExecutionId: string,
-			callerScriptId: SandboxScriptId,
+			callerAuthority: SandboxExecutionPrincipal,
 			artifactOwnerExecutionId?: string,
 		) => Effect.Effect<JsonValue, SandboxRunError, WorkflowEngine>;
 	}

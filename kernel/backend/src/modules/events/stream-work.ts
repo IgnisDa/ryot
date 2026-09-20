@@ -1,10 +1,10 @@
 import { DbError } from "@ryot-app/contract/errors";
-import { LifecycleCommand } from "@ryot-app/contract/modules/automations/lifecycle";
 import {
 	EventStreamStepInput,
 	EventStreamStepOutput,
 	type EventStreamWorkRequest,
 } from "@ryot-app/contract/modules/events/stream-work";
+import { definitionOwner } from "@ryot-app/contract/modules/plugins/references";
 import { AccountGeneration } from "@ryot-app/contract/schema/account-generation";
 import {
 	AutomationExecutionId,
@@ -15,6 +15,7 @@ import {
 import { JsonValue } from "@ryot-app/contract/schema/json";
 import { IsoUtcString } from "@ryot-app/contract/schema/utils";
 import { stableStringify } from "@ryot-app/ts-utils/json";
+import { and, eq } from "drizzle-orm";
 import { Context, Effect, Layer, Schema } from "effect";
 import { Workflow } from "effect/workflow";
 import { WorkflowEngine, WorkflowInstance } from "effect/workflow/WorkflowEngine";
@@ -22,10 +23,15 @@ import { WorkflowEngine, WorkflowInstance } from "effect/workflow/WorkflowEngine
 import { LifecyclePlanner } from "#lib/domain/lifecycle";
 import { rootLifecycleCausation } from "#lib/domain/lifecycle-command";
 import { LifecycleExecution } from "#lib/domain/lifecycle-execution";
+import * as tables from "#lib/infrastructure/db/schema/tables/combined";
 import { DatabaseSession } from "#lib/infrastructure/db/session";
-import { SandboxPluginRevision } from "#lib/infrastructure/sandbox-runtime/execution-principal";
+import {
+	SandboxExecutionPrincipal,
+	SandboxPluginRevision,
+} from "#lib/infrastructure/sandbox-runtime/execution-principal";
 import { implementWorkflow, makeActivity } from "#lib/infrastructure/workflow-scope";
 import { EntitiesRepository } from "#modules/entities/repository";
+import { DomainLifecycleCommand, makeDomainWriteChecks } from "#modules/entities/write-context";
 import { EventSchemasRepository } from "#modules/event-schemas/repository";
 import { MutationReceipts } from "#modules/mutations/receipts";
 import { dispatchAdmittedWorkflow } from "#modules/mutations/workflow-dispatch";
@@ -41,10 +47,13 @@ const EventStreamClaim = Schema.Struct({
 	revision: Schema.Int,
 	occurredAt: IsoUtcString,
 	input: EventStreamStepInput,
-	pluginPin: SandboxPluginRevision,
 	processorScriptId: SandboxScriptId,
 	accountGeneration: AccountGeneration,
 	outputProperties: Schema.Array(Schema.String),
+	pluginPin: Schema.Struct({
+		...SandboxPluginRevision.fields,
+		writeContext: SandboxExecutionPrincipal,
+	}),
 });
 
 export class EventStreamProcessor extends Context.Service<
@@ -76,6 +85,7 @@ export class EventStreamWorkService extends Context.Service<EventStreamWorkServi
 	{
 		make: Effect.gen(function* () {
 			const session = yield* DatabaseSession;
+			const writes = makeDomainWriteChecks(session);
 			const repository = yield* EventStreamRepository;
 			const events = yield* EventsService;
 			const eventRows = yield* EventsRepository;
@@ -92,8 +102,21 @@ export class EventStreamWorkService extends Context.Service<EventStreamWorkServi
 				processorScriptId: SandboxScriptId;
 				pluginPin: SandboxPluginRevision;
 				accountGeneration: AccountGeneration;
+				command: DomainLifecycleCommand;
 			}) {
+				if (
+					!input.command.writeContext?.pluginRevision ||
+					input.command.writeContext.pluginRevision.id !== input.pluginPin.id ||
+					input.command.writeContext.pluginRevision.revisionId !== input.pluginPin.revisionId ||
+					input.command.writeContext.pluginRevision.configRevisionId !==
+						input.pluginPin.configRevisionId
+				) {
+					return yield* new DbError({
+						message: "Event stream request requires its exact persisted execution authority",
+					});
+				}
 				const scope = yield* resolveEventCreateItemScopes({
+					command: input.command,
 					userId: input.accountGeneration.userId,
 					item: {
 						properties: {},
@@ -101,6 +124,7 @@ export class EventStreamWorkService extends Context.Service<EventStreamWorkServi
 						eventSchemaSlug: input.request.eventSchemaSlug,
 					},
 				}).pipe(
+					Effect.provideService(DatabaseSession, session),
 					Effect.provideService(EntitiesRepository, entities),
 					Effect.provideService(EventSchemasRepository, eventSchemas),
 				);
@@ -115,20 +139,52 @@ export class EventStreamWorkService extends Context.Service<EventStreamWorkServi
 					});
 				}
 				return yield* session.transaction(
-					repository.request({
-						processorScriptId: input.processorScriptId,
-						accountToken: input.accountGeneration.token,
-						pluginRevisionId: input.pluginPin.revisionId,
-						outputProperties: input.request.outputProperties,
-						pluginPin: yield* Schema.encodeUnknownEffect(JsonValue)(input.pluginPin).pipe(
-							Effect.mapError(() => new DbError({ message: "Invalid processor pin" })),
-						),
-						key: {
-							entityId: input.request.entityId,
-							userId: input.accountGeneration.userId,
-							eventSchemaPluginId: input.pluginPin.id,
-							eventSchemaSlug: input.request.eventSchemaSlug,
-						},
+					Effect.gen(function* () {
+						yield* writes
+							.check(
+								input.command,
+								definitionOwner(input.pluginPin.id),
+								input.accountGeneration.userId,
+								true,
+							)
+							.pipe(Effect.mapError((error) => new DbError({ message: error.message })));
+						const [target] = yield* session.run((db) =>
+							db
+								.select({
+									slug: tables.sandboxScript.slug,
+									contentHash: tables.sandboxScript.contentHash,
+								})
+								.from(tables.sandboxScript)
+								.where(
+									and(
+										eq(tables.sandboxScript.id, input.processorScriptId),
+										eq(tables.sandboxScript.pluginRevisionId, input.pluginPin.revisionId),
+									),
+								)
+								.limit(1),
+						);
+						if (!target || input.pluginPin.compiledHashes[target.slug] !== target.contentHash) {
+							return yield* new DbError({
+								message:
+									"Event stream processor does not belong to the exact admitted plugin revision",
+							});
+						}
+						return yield* repository.request({
+							processorScriptId: input.processorScriptId,
+							accountToken: input.accountGeneration.token,
+							pluginRevisionId: input.pluginPin.revisionId,
+							outputProperties: input.request.outputProperties,
+							key: {
+								entityId: input.request.entityId,
+								userId: input.accountGeneration.userId,
+								eventSchemaPluginId: input.pluginPin.id,
+								eventSchemaSlug: input.request.eventSchemaSlug,
+							},
+							pluginPin: yield* Schema.encodeUnknownEffect(JsonValue)({
+								...input.pluginPin,
+								writeContext: input.command.writeContext,
+							}).pipe(Effect.mapError(() => new DbError({ message: "Invalid processor pin" }))),
+						});
 					}),
 				);
 			});
@@ -207,9 +263,10 @@ export class EventStreamWorkService extends Context.Service<EventStreamWorkServi
 				if (new Set(output.updates.map(({ eventId }) => eventId)).size !== output.updates.length) {
 					return yield* new DbError({ message: "Event stream processor repeated an event" });
 				}
-				const command = yield* Schema.decodeEffect(LifecycleCommand)({
+				const command = yield* Schema.decodeEffect(DomainLifecycleCommand)({
 					itemIdentity: "stream-step",
 					occurredAt: workClaim.occurredAt,
+					writeContext: workClaim.pluginPin.writeContext,
 					accountGeneration: workClaim.accountGeneration,
 					causation: {
 						...rootLifecycleCausation({
@@ -247,6 +304,7 @@ export class EventStreamWorkService extends Context.Service<EventStreamWorkServi
 					if (
 						!before ||
 						before.entityId !== workClaim.input.entityId ||
+						before.eventSchemaPluginId !== workClaim.pluginPin.id ||
 						before.eventSchemaSlug !== workClaim.input.eventSchemaSlug
 					) {
 						return yield* new DbError({
@@ -266,6 +324,14 @@ export class EventStreamWorkService extends Context.Service<EventStreamWorkServi
 				}
 				const committed = yield* session.transaction(
 					Effect.gen(function* () {
+						yield* writes
+							.check(
+								command,
+								definitionOwner(workClaim.pluginPin.id),
+								workClaim.accountGeneration.userId,
+								true,
+							)
+							.pipe(Effect.mapError((error) => new DbError({ message: error.message })));
 						yield* entities.lockEntityReferencesByIds(
 							[...referenceIds].map((id) => EntityId.make(id)),
 						);
