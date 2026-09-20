@@ -21,7 +21,6 @@ import {
 export const manifest = defineManifest({
 	kind: "provider",
 	name: "GiantBomb",
-	requiredSystemConfigKeys: [],
 	slug: "video-game.giant-bomb",
 	capabilities: ["httpCall", "getPluginConfig"],
 	requiredPluginConfigKeys: ["giantBombApiKey"],

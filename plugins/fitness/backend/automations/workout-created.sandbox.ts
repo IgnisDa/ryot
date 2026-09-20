@@ -6,7 +6,6 @@ export const manifest = defineManifest({
 	kind: "automation",
 	automationType: "automation",
 	requiredPluginConfigKeys: [],
-	requiredSystemConfigKeys: [],
 	capabilities: ["emitSignal"],
 	name: "Workout Created Detector",
 	slug: "automation.workout-created",

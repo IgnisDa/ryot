@@ -1,4 +1,8 @@
 import { DbError } from "@ryot-app/contract/errors";
+import {
+	dataJsonSource,
+	type DataJsonDocument,
+} from "@ryot-app/contract/modules/imports/data-json";
 import type {
 	ImportRunFailureReason,
 	ListedImportRun,
@@ -8,8 +12,15 @@ import type {
 	ImportRunSource,
 } from "@ryot-app/contract/modules/imports/types";
 import type { IntegrationLot } from "@ryot-app/contract/modules/integrations/types";
-import { ImportRunId, type IntegrationId, type UserId } from "@ryot-app/contract/schema/brands";
-import { and, desc, eq, inArray } from "drizzle-orm";
+import {
+	EntitySchemaSlug,
+	EventSchemaSlug,
+	ImportRunId,
+	type IntegrationId,
+	type UserId,
+} from "@ryot-app/contract/schema/brands";
+import { generateId } from "better-auth";
+import { and, asc, desc, eq, inArray, isNull, sql } from "drizzle-orm";
 import { Context, Effect, Layer } from "effect";
 
 import { isUniqueConstraintError } from "#lib/infrastructure/db/errors";
@@ -22,6 +33,7 @@ export type ImportRunExecutionKind = "source" | "integration";
 export type ImportRunSettlement = "settled" | "cancellation-requested" | "preserved";
 export type ImportRunStart = "started" | "cancellation-requested" | "preserved";
 export type ImportRunCancellation = "requested" | "already-requested" | "not-cancellable";
+export type ImportRunFailureCursor = { readonly createdAt: string; readonly id: string };
 
 const normalizeRun = (row: ImportRunRow): ListedImportRun => ({
 	source: row.source,
@@ -46,7 +58,7 @@ export class ImportsRepository extends Context.Service<ImportsRepository>()("Imp
 		const insertRun = Effect.fn("ImportsRepository.insertRun")(function* (input: {
 			userId: UserId;
 			source: ImportRunSource;
-			pluginInstallationId: string;
+			pluginInstallationId: string | null;
 			inputSummary: Record<string, unknown>;
 			integrationId: IntegrationId | null;
 			integrationLot: IntegrationLot | null;
@@ -73,7 +85,7 @@ export class ImportsRepository extends Context.Service<ImportsRepository>()("Imp
 		const createManualRun = Effect.fn("ImportsRepository.createManualRun")(function* (input: {
 			userId: UserId;
 			source: ImportRunSource;
-			pluginInstallationId: string;
+			pluginInstallationId: string | null;
 			inputSummary: Record<string, unknown>;
 		}) {
 			return yield* insertRun({ ...input, integrationId: null, integrationLot: null });
@@ -85,7 +97,7 @@ export class ImportsRepository extends Context.Service<ImportsRepository>()("Imp
 				source: ImportRunSource;
 				integrationId: IntegrationId;
 				integrationLot: IntegrationLot;
-				pluginInstallationId: string;
+				pluginInstallationId: string | null;
 				inputSummary: Record<string, unknown>;
 			}) {
 				return yield* insertRun(input);
@@ -107,6 +119,136 @@ export class ImportsRepository extends Context.Service<ImportsRepository>()("Imp
 				);
 			},
 		);
+
+		const admitDataSubmission = Effect.fn("ImportsRepository.admitDataSubmission")(
+			function* (input: {
+				userId: UserId;
+				document: DataJsonDocument;
+				digest: string;
+				submissionKey: string | null;
+				uploadTokenHash: string | null;
+				integrationId: IntegrationId | null;
+				inputSummary: Record<string, unknown>;
+			}) {
+				const runId = ImportRunId.make(generateId());
+				const submissionKey = input.submissionKey;
+				if (submissionKey !== null) {
+					const [claim] = yield* database.run((db) =>
+						db
+							.insert(schema.dataImportSubmission)
+							.values({
+								runId,
+								key: submissionKey,
+								digest: input.digest,
+								userId: input.userId,
+								integrationId: input.integrationId,
+								uploadTokenHashes: input.uploadTokenHash === null ? [] : [input.uploadTokenHash],
+							})
+							.onConflictDoNothing()
+							.returning(),
+					);
+					if (!claim) {
+						const [existing] = yield* database.run((db) =>
+							db
+								.select()
+								.from(schema.dataImportSubmission)
+								.where(
+									and(
+										eq(schema.dataImportSubmission.userId, input.userId),
+										eq(schema.dataImportSubmission.key, submissionKey),
+										sql`coalesce(${schema.dataImportSubmission.integrationId}, '') = ${input.integrationId ?? ""}`,
+									),
+								)
+								.limit(1),
+						);
+						if (!existing) {
+							return yield* new DbError({ message: "Submission claim is unavailable" });
+						}
+						if (existing.digest === input.digest && input.uploadTokenHash !== null) {
+							yield* database.run((db) =>
+								db
+									.update(schema.dataImportSubmission)
+									.set({
+										uploadTokenHashes: sql`case when ${input.uploadTokenHash} = any(${schema.dataImportSubmission.uploadTokenHashes}) then ${schema.dataImportSubmission.uploadTokenHashes} else array_append(${schema.dataImportSubmission.uploadTokenHashes}, ${input.uploadTokenHash}) end`,
+									})
+									.where(
+										and(
+											eq(schema.dataImportSubmission.userId, input.userId),
+											eq(schema.dataImportSubmission.runId, existing.runId),
+										),
+									),
+							);
+						}
+						return {
+							created: false,
+							digest: existing.digest,
+							runId: ImportRunId.make(existing.runId),
+						};
+					}
+				}
+				yield* database.run((db) =>
+					db
+						.insert(schema.importRun)
+						.values({
+							id: runId,
+							userId: input.userId,
+							source: dataJsonSource,
+							dataDocument: input.document,
+							inputSummary: input.inputSummary,
+							integrationId: input.integrationId,
+							integrationLot: input.integrationId === null ? null : "sink",
+						}),
+				);
+				return { runId, created: true, digest: input.digest };
+			},
+		);
+
+		const getDataDocument = Effect.fn("ImportsRepository.getDataDocument")(function* (input: {
+			userId: UserId;
+			runId: ImportRunId;
+		}) {
+			const [row] = yield* database.run((db) =>
+				db
+					.select({ document: schema.importRun.dataDocument })
+					.from(schema.importRun)
+					.where(
+						and(eq(schema.importRun.id, input.runId), eq(schema.importRun.userId, input.userId)),
+					)
+					.limit(1),
+			);
+			return row?.document ?? null;
+		});
+
+		const findDataUploadRetry = Effect.fn("ImportsRepository.findDataUploadRetry")(
+			function* (input: { userId: UserId; key: string; uploadTokenHash: string }) {
+				const [row] = yield* database.run((db) =>
+					db
+						.select({ runId: schema.dataImportSubmission.runId })
+						.from(schema.dataImportSubmission)
+						.where(
+							and(
+								eq(schema.dataImportSubmission.userId, input.userId),
+								eq(schema.dataImportSubmission.key, input.key),
+								isNull(schema.dataImportSubmission.integrationId),
+								sql`${input.uploadTokenHash} = any(${schema.dataImportSubmission.uploadTokenHashes})`,
+							),
+						)
+						.limit(1),
+				);
+				return row ? ImportRunId.make(row.runId) : null;
+			},
+		);
+
+		const releaseDataDocument = Effect.fn("ImportsRepository.releaseDataDocument")(function* (
+			runId: ImportRunId,
+		) {
+			yield* database.run((db) =>
+				db
+					.update(schema.importRun)
+					.set({ dataDocument: null })
+					.where(eq(schema.importRun.id, runId)),
+			);
+		});
 
 		const getRunStatus = Effect.fn("ImportsRepository.getRunStatus")(function* (
 			runId: ImportRunId | string,
@@ -135,6 +277,69 @@ export class ImportsRepository extends Context.Service<ImportsRepository>()("Imp
 					.limit(1),
 			);
 			return row ? normalizeRun(row) : null;
+		});
+
+		const listRunFailurePage = Effect.fn("ImportsRepository.listRunFailurePage")(function* (input: {
+			limit: number;
+			runId: ImportRunId;
+			after?: ImportRunFailureCursor | undefined;
+		}) {
+			const failures = yield* database.run((db) => {
+				const runIdCondition = eq(schema.importRunFailure.runId, input.runId);
+				const afterCondition =
+					input.after === undefined
+						? undefined
+						: sql`(
+							${schema.importRunFailure.createdAt} > ${input.after.createdAt}::timestamptz
+							OR (
+								${schema.importRunFailure.createdAt} = ${input.after.createdAt}::timestamptz
+								AND ${schema.importRunFailure.id} > ${input.after.id}
+							)
+						)`;
+				return db
+					.select({
+						id: schema.importRunFailure.id,
+						runId: schema.importRunFailure.runId,
+						stage: schema.importRunFailure.stage,
+						reason: schema.importRunFailure.reason,
+						createdAt: schema.importRunFailure.createdAt,
+						itemIndex: schema.importRunFailure.itemIndex,
+						sourceLabel: schema.importRunFailure.sourceLabel,
+						eventSchemaSlug: schema.importRunFailure.eventSchemaSlug,
+						sourceIdentifier: schema.importRunFailure.sourceIdentifier,
+						entitySchemaSlug: schema.importRunFailure.entitySchemaSlug,
+						cursorCreatedAt: sql<string>`to_char(${schema.importRunFailure.createdAt} at time zone 'UTC', 'YYYY-MM-DD"T"HH24:MI:SS.US"Z"')`,
+					})
+					.from(schema.importRunFailure)
+					.where(
+						afterCondition === undefined ? runIdCondition : and(runIdCondition, afterCondition),
+					)
+					.orderBy(asc(schema.importRunFailure.createdAt), asc(schema.importRunFailure.id))
+					.limit(input.limit + 1);
+			});
+			const hasMore = failures.length > input.limit;
+			const items = failures
+				.slice(0, input.limit)
+				.map(({ cursorCreatedAt: _cursorCreatedAt, ...failure }) =>
+					Object.assign({}, failure, {
+						runId: ImportRunId.make(failure.runId),
+						createdAt: failure.createdAt.toISOString(),
+						eventSchemaSlug:
+							failure.eventSchemaSlug === null
+								? null
+								: EventSchemaSlug.make(failure.eventSchemaSlug),
+						entitySchemaSlug:
+							failure.entitySchemaSlug === null
+								? null
+								: EntitySchemaSlug.make(failure.entitySchemaSlug),
+					}),
+				);
+			const last = failures[input.limit - 1];
+			return {
+				items,
+				nextCursor:
+					hasMore && last !== undefined ? { id: last.id, createdAt: last.cursorCreatedAt } : null,
+			};
 		});
 
 		const getRunControlForUser = Effect.fn("ImportsRepository.getRunControlForUser")(
@@ -359,6 +564,7 @@ export class ImportsRepository extends Context.Service<ImportsRepository>()("Imp
 		});
 
 		const createFailure = Effect.fn("ImportsRepository.createFailure")(function* (input: {
+			id?: string;
 			runId: string;
 			itemIndex: number;
 			stage: ImportRunFailureStage;
@@ -372,6 +578,7 @@ export class ImportsRepository extends Context.Service<ImportsRepository>()("Imp
 				db
 					.insert(schema.importRunFailure)
 					.values({
+						...(input.id === undefined ? {} : { id: input.id }),
 						runId: input.runId,
 						stage: input.stage,
 						reason: input.reason,
@@ -380,7 +587,8 @@ export class ImportsRepository extends Context.Service<ImportsRepository>()("Imp
 						eventSchemaSlug: input.eventSchemaSlug ?? null,
 						sourceIdentifier: input.sourceIdentifier ?? null,
 						entitySchemaSlug: input.entitySchemaSlug ?? null,
-					}),
+					})
+					.onConflictDoNothing(),
 			);
 		});
 
@@ -394,8 +602,13 @@ export class ImportsRepository extends Context.Service<ImportsRepository>()("Imp
 			finishCompleted,
 			createManualRun,
 			finishCancelled,
+			getDataDocument,
+			listRunFailurePage,
 			updateInputSummary,
 			requestCancellation,
+			admitDataSubmission,
+			findDataUploadRetry,
+			releaseDataDocument,
 			createIntegrationRun,
 			getRunControlForUser,
 			createIntegrationRunIfIdle,

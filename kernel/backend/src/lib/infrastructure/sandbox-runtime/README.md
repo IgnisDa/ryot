@@ -90,19 +90,20 @@ Backend and browser plugin compilers remain separate engines.
 
 The manifest declares an exact capability tuple. The backend intersects it with an exhaustive policy and implementation registry; domain services still enforce user, schema, provider, and integration ownership.
 
-| Principal or role                   | Available bridge capabilities                                                                                                                                         |
-| ----------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| All valid subjects                  | `log`, `span`, `httpCall`, `getCachedValue`, `setCachedValue`, `getPluginConfig`, `getSystemConfig`, `claimPersistentValue`                                           |
-| User or user automation run         | `createEvents`, `getEntitySchemas`, `listEventSchemas`, `listIntegrations`, `getUserPreferences`, `getCurrentIntegration`, `changeUserRelationships`, `executeRyotql` |
-| System-plugin user-bootstrap script | `ensureUserEntities` for that plugin's entity schemas                                                                                                                 |
-| Pinned system-scope plugin script   | `executeRyotql`, `upsertGlobalEntities`, `upsertGlobalRelationships` within plugin ownership                                                                          |
-| User or system automation run       | `emitSignal`; `sendNotification` is available only to user automation runs                                                                                            |
+| Principal or role                   | Available bridge capabilities                                                                                                                                                            |
+| ----------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| All valid subjects                  | `log`, `span`, `httpCall`, `getCachedValue`, `setCachedValue`, `getPluginConfig`, `claimPersistentValue`                                                                                 |
+| User or user automation run         | `createEvents`, `getEntitySchemas`, `listEventSchemas`, `listIntegrations`, `getUserPreferences`, `getUserSettings`, `getCurrentIntegration`, `changeUserRelationships`, `executeRyotql` |
+| System-plugin user-bootstrap script | `ensureUserEntities` for that plugin's entity schemas                                                                                                                                    |
+| Pinned system-scope plugin script   | `executeRyotql`, `upsertGlobalEntities`, `upsertGlobalRelationships` within plugin ownership                                                                                             |
+| User or system automation run       | `emitSignal`; `sendNotification` is available only to user automation runs                                                                                                               |
+| Integration run of its own plugin   | `getOAuthAccessToken` for an OAuth connection field the integration's current settings schema declares                                                                                   |
 
 `scratch` and `artifact-read` are non-bridge permissions. System elevation requires a persisted pinned system-scope plugin principal. User capabilities require a trusted user subject. `getEntitySchemas` uses that user's effective ready, enabled plugin catalog. Entity and event data reads use RyotQL; schema calls expose metadata only.
 
 `upsertGlobalEntities` additionally requires provider association. `ensureUserEntities` is available only to the declared user-bootstrap script and remains scoped to entity schemas owned by that plugin.
 
-Plugin config reads are restricted to the owning plugin's declared `requiredPluginConfigKeys`; kernel fields require `requiredSystemConfigKeys`. Batches reject any undeclared, unreadable, or missing key. Normalized environment-key collisions reject plugin loading.
+Plugin config reads are restricted to the owning plugin's declared `requiredPluginConfigKeys`. Batches reject any undeclared, unreadable, or missing key. Normalized environment-key collisions reject plugin loading.
 
 Cache keys are isolated by executing user and logical provider ID, falling back to script ID only when no provider exists. Ordinary cache values are refreshed after backend restart; `claimPersistentValue` survives restart and writes only if absent.
 

@@ -1,10 +1,18 @@
 import { badRequest } from "@ryot-app/contract/errors";
+import { dataJsonIntegrationSettingsSchema } from "@ryot-app/contract/modules/imports/data-json";
 import type { PluginManifest } from "@ryot-app/contract/modules/plugins/manifest";
 import type { AssetLocator, ManagedAssetLocator } from "@ryot-app/contract/modules/uploads/schemas";
 import { EntityId, EventId, type UserId } from "@ryot-app/contract/schema/brands";
-import type { AppPropertyDefinition, AppSchema } from "@ryot-app/contract/schema/property-schema";
+import type { AppSchema } from "@ryot-app/contract/schema/property-schema";
 import { Context, Effect, Encoding, FileSystem, Layer } from "effect";
 
+import {
+	collectEmbeddedEntityIds,
+	collectManagedAssetLocatorsInto,
+	rewriteManagedAssetLocators,
+	sortedManagedAssetLocators,
+	type DataReferenceError,
+} from "#lib/domain/data-references";
 import { parseAppSchemaProperties } from "#lib/property-schema/property-schema-runtime";
 import { AuthRepository } from "#modules/auth/repository";
 import { AutomationsRepository } from "#modules/automations/repository";
@@ -22,12 +30,11 @@ import { RelationshipsRepository } from "#modules/relationships/repository";
 import { SavedViewsRepository } from "#modules/saved-views/repository";
 import { ManagedAssetsService } from "#modules/uploads/managed-assets/service";
 
+import { archiveError } from "../archive/error";
 import {
-	collectEmbeddedEntityIds,
 	collectReferencedPluginKeys,
 	redactSchemaSecrets,
 	rewriteAssetLocatorForArchive,
-	rewriteManagedAssetLocators,
 } from "../archive/references";
 import type {
 	ArchiveRecords,
@@ -47,6 +54,9 @@ type BackupPropertyRecord = {
 	readonly propertiesSchema: AppSchema;
 	readonly properties: Record<string, unknown>;
 };
+
+const archiveReferenceError = (error: DataReferenceError) =>
+	archiveError(error.code, error.message);
 
 type BackupEventPage = {
 	readonly nextAfterId: EventId | null;
@@ -85,64 +95,6 @@ export const requireNotificationMetadataSchema = Effect.fn(function* (
 
 const locatorKey = (locator: { readonly type: "local" | "s3"; readonly key: string }) =>
 	`${locator.type}:${locator.key}`;
-
-const collectPropertyAssets = (
-	property: AppPropertyDefinition,
-	value: unknown,
-	assets: ManagedAssetLocator[],
-) => {
-	if (property.secret === true) {
-		return;
-	}
-	if (property.type === "object") {
-		if (property.validation?.asset && isArchiveJsonObject(value)) {
-			if (
-				(value["type"] === "local" || value["type"] === "s3") &&
-				typeof value["key"] === "string"
-			) {
-				assets.push({ key: value["key"], type: value["type"] });
-			}
-			return;
-		}
-		if (isArchiveJsonObject(value)) {
-			for (const [key, child] of Object.entries(property.properties)) {
-				collectPropertyAssets(child, value[key], assets);
-			}
-		}
-		return;
-	}
-	if (property.type === "array" && Array.isArray(value)) {
-		for (const item of value) {
-			collectPropertyAssets(property.items, item, assets);
-		}
-	}
-};
-
-const collectManagedAssetLocatorsInto = (
-	records: ReadonlyArray<BackupPropertyRecord>,
-	collected: Map<string, ManagedAssetLocator>,
-) => {
-	const assets: ManagedAssetLocator[] = [];
-	for (const { properties, propertiesSchema } of records) {
-		for (const [key, property] of Object.entries(propertiesSchema.fields)) {
-			collectPropertyAssets(property, properties[key], assets);
-		}
-	}
-	for (const asset of assets) {
-		collected.set(locatorKey(asset), asset);
-	}
-};
-
-const sortedManagedAssetLocators = (collected: ReadonlyMap<string, ManagedAssetLocator>) =>
-	[...collected.values()].sort((left, right) => locatorKey(left).localeCompare(locatorKey(right)));
-
-export const collectManagedAssetLocators = (
-	records: ReadonlyArray<BackupPropertyRecord>,
-): ReadonlyArray<ManagedAssetLocator> => {
-	const collected = new Map<string, ManagedAssetLocator>();
-	collectManagedAssetLocatorsInto(records, collected);
-	return sortedManagedAssetLocators(collected);
-};
 
 const archivePluginKey = (scope: "system" | "user", slug: string, sourceHash: string) =>
 	`${scope}:${slug}:${sourceHash}`;
@@ -545,6 +497,7 @@ export class BackupExportSnapshot extends Context.Service<BackupExportSnapshot>(
 								createdAt: state.createdAt.toISOString(),
 								updatedAt: state.updatedAt.toISOString(),
 								homeSavedViewSlug: state.homeSavedViewSlug,
+								userSettings: decodeArchiveJsonObject(state.userSettings),
 								packageKey: yield* requirePluginKey(pluginKeyById, state.pluginId),
 								lifecycleIntent: installationLifecycleIntent(state.health, state.isHidden),
 								config: plugin?.scope === "system" ? {} : decodeArchiveJsonObject(state.config),
@@ -556,8 +509,11 @@ export class BackupExportSnapshot extends Context.Service<BackupExportSnapshot>(
 					storedIntegrations,
 					(integration) =>
 						Effect.gen(function* () {
-							const installation = installationById.get(integration.pluginInstallationId);
-							if (!installation) {
+							const installation =
+								integration.pluginInstallationId === null
+									? null
+									: installationById.get(integration.pluginInstallationId);
+							if (integration.pluginInstallationId !== null && !installation) {
 								return yield* badRequest(
 									`Backup integration '${integration.id}' references unavailable plugin installation`,
 								);
@@ -577,7 +533,9 @@ export class BackupExportSnapshot extends Context.Service<BackupExportSnapshot>(
 								updatedAt: integration.updatedAt.toISOString(),
 								lastFinishedAt: integration.lastFinishedAt?.toISOString() ?? null,
 								providerSpecifics: decodeArchiveJsonObject(integration.providerSpecifics),
-								packageKey: yield* requirePluginKey(pluginKeyById, installation.pluginId),
+								packageKey: installation
+									? yield* requirePluginKey(pluginKeyById, installation.pluginId)
+									: null,
 							};
 						}),
 				);
@@ -747,11 +705,16 @@ export class BackupExportSnapshot extends Context.Service<BackupExportSnapshot>(
 						});
 					}
 					for (const integration of data.integrations) {
-						const plugin = pluginByKey.get(integration.packageKey);
-						const provider = plugin?.integrationProviders.find(
-							(definition) =>
-								definition.slug === integration.provider && definition.lot === integration.lot,
-						);
+						const plugin =
+							integration.packageKey === null ? undefined : pluginByKey.get(integration.packageKey);
+						const provider =
+							integration.packageKey === null
+								? { settingsSchema: dataJsonIntegrationSettingsSchema }
+								: plugin?.integrationProviders.find(
+										(definition) =>
+											definition.slug === integration.provider &&
+											definition.lot === integration.lot,
+									);
 						if (!provider) {
 							return yield* badRequest("Backup references unavailable integration provider");
 						}
@@ -820,7 +783,7 @@ export class BackupExportSnapshot extends Context.Service<BackupExportSnapshot>(
 							redacted.redacted,
 							propertiesSchema,
 							archiveLocators,
-						);
+						).pipe(Effect.mapError(archiveReferenceError));
 					});
 					const exportedEntities: ArchiveUserEntity[] = [];
 					for (const entity of data.entities) {
@@ -947,11 +910,16 @@ export class BackupExportSnapshot extends Context.Service<BackupExportSnapshot>(
 					}
 					const restoredIntegrations: ArchiveIntegration[] = [];
 					for (const integration of data.integrations) {
-						const plugin = pluginByKey.get(integration.packageKey);
-						const provider = plugin?.integrationProviders.find(
-							(definition) =>
-								definition.slug === integration.provider && definition.lot === integration.lot,
-						);
+						const plugin =
+							integration.packageKey === null ? undefined : pluginByKey.get(integration.packageKey);
+						const provider =
+							integration.packageKey === null
+								? { settingsSchema: dataJsonIntegrationSettingsSchema }
+								: plugin?.integrationProviders.find(
+										(definition) =>
+											definition.slug === integration.provider &&
+											definition.lot === integration.lot,
+									);
 						if (!provider) {
 							return yield* badRequest("Backup references unavailable integration provider");
 						}

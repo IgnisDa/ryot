@@ -49,7 +49,7 @@ export const runHevyImportFixture = (client: Client, token: string) =>
 		);
 
 		const result = yield* client.call((c) =>
-			c.imports.createRun({ payload: { uploadToken, source: "hevy" } }),
+			c.imports.createRun({ payload: { uploadToken, source: "hevy", timezone: "UTC" } }),
 		);
 		const runId = requirePresent(result.id, "Import run id is missing");
 

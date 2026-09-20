@@ -23,7 +23,8 @@
 - Ryot is greenfield, with no deployments or user data to preserve. Do not add compatibility paths, bridges, fallbacks, adapters, or old code paths, and do not keep exports for outside consumers, including the plugin SDKs. Directories whose `AGENTS.md` declares them a legacy exception are exempt.
 - Keep artifact, backup, manifest, protocol, compiler, and API version constants at their current values. Outside legacy exceptions, do not name code after versions such as `V2` or `archive-v2`.
 - Import symbols from their defining module. Do not re-export or alias another module's symbols; package entry points and barrels documented in a child `AGENTS.md` are the only aggregation points.
-- Comment only a non-obvious reason or invariant. Do not restate code or refer to history, tasks, or plans.
+- Default to no comments. Add one only for a non-obvious reason, invariant, or external constraint that the code cannot express through naming or structure. Do not restate what the code does, narrate steps, label sections, echo names or types in JSDoc, or refer to history, tasks, plans, or the change being made. When editing, delete comments made stale or redundant by the change.
+- The project enforces `perfectionist` sorting rules. Write code that already follows them, so you don't have to go back and forth with the linter.
 - Lint suppressions and casts that bypass the type checker are a last resort; ask the user before adding one. The documented `effecttsgo/async-function` exemption is the only standing exception.
 - Derive types from schemas and existing types instead of writing mirrors. Use Effect Schema.
 - Build application-owned query documents with `@ryot-app/ryotql` and use named recipes when available.
@@ -50,3 +51,6 @@
 
 - Stay within the agreed scope. Ask before widening it, and do not start another review round once findings are addressed.
 - Work is done when `bun run check` and `bun turbo --filter='!@ryot-app/e2e' test` are clean. Run only the affected e2e files, never the whole e2e suite.
+- When a task's changes are complete, read and execute `.agents/skills/codebase-cleanup` in the main session before reporting done.
+
+Last two steps apply only when code changes have landed.

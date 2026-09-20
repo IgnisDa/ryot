@@ -11,6 +11,7 @@ import {
 import { KernelSavedViewRendererName } from "@ryot-app/contract/modules/saved-views/schemas";
 import type { AccountGeneration } from "@ryot-app/contract/schema/account-generation";
 import { PluginId, PluginSlug, UserId } from "@ryot-app/contract/schema/brands";
+import type { JsonValue } from "@ryot-app/contract/schema/json";
 import { readPluginArchiveStream, type PluginArchivePackage } from "@ryot-app/plugin-archive";
 import { sha256Hex } from "@ryot-app/ts-utils/crypto";
 import { and, eq, inArray } from "drizzle-orm";
@@ -46,6 +47,7 @@ import { PluginRepository } from "./repository";
 import { PluginSavedViewReferences } from "./saved-view-references";
 import { validateAdditiveSchemaEvolution } from "./schema-evolution";
 import type { StoredPlugin } from "./types";
+import { resolvePluginUserSettings } from "./user-settings";
 import {
 	PluginValidationError,
 	validatePluginExecutableScripts,
@@ -993,9 +995,59 @@ export class PluginInstallationService extends Context.Service<PluginInstallatio
 				return removed.result;
 			});
 
+			const saveUserSettings = Effect.fn("PluginInstallationService.saveUserSettings")(
+				(
+					userId: UserId,
+					installationId: string,
+					values: Record<string, JsonValue>,
+					reset = false,
+				) =>
+					transaction(
+						userId,
+						Effect.gen(function* () {
+							yield* repository.lockIngestion();
+							const row = yield* installations.findUserSettings(userId, installationId);
+							if (!row?.manifest.userSettingsSchema) {
+								return yield* new PluginNotFoundError({
+									reason: {
+										code: "plugin-not-found",
+										pluginSlug: PluginSlug.make(row?.slug ?? "unknown"),
+									},
+								});
+							}
+							yield* resolvePluginUserSettings(
+								row.manifest.userSettingsSchema,
+								reset ? {} : values,
+							).pipe(
+								Effect.catchTags({
+									SchemaError: Effect.die,
+									PropertyValidationError: (error) =>
+										new PluginRequestError({
+											reason: {
+												code: "validation-failed",
+												diagnostics: error.issues.map((issue) => ({
+													message: issue.message,
+													phase: "validate" as const,
+													severity: "error" as const,
+													code: "invalid-user-settings",
+												})),
+											},
+										}),
+								}),
+							);
+							return yield* installations.saveUserSettings(
+								userId,
+								installationId,
+								reset ? {} : values,
+							);
+						}),
+					).pipe(Effect.tap(() => invalidator.user(userId))),
+			);
+
 			return {
 				setHomeView,
 				uninstallPlugin,
+				saveUserSettings,
 				updateInstallation,
 				updatePrivatePlugin,
 				installPrivatePlugin,

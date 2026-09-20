@@ -131,6 +131,7 @@ export const MediaImportDispatchParserInput = Schema.Struct({
 	apiUrl: Schema.optional(Schema.String),
 	password: Schema.optional(Schema.String),
 	username: Schema.optional(Schema.String),
+	timezone: Schema.optional(Schema.String),
 	collection: Schema.optional(Schema.String),
 	profileName: Schema.optional(Schema.String),
 	hasAnimeFile: Schema.optional(Schema.Boolean),
@@ -170,6 +171,11 @@ export const JellyfinImportParserInput = Schema.Struct({
 export const NetflixImportParserInput = Schema.Struct({
 	...MediaImportParserInput.fields,
 	profileName: Schema.optional(Schema.String),
+});
+
+export const AnilistImportParserInput = Schema.Struct({
+	...MediaImportParserInput.fields,
+	timezone: Schema.String,
 });
 
 export const MyanimelistImportParserInput = Schema.Struct({

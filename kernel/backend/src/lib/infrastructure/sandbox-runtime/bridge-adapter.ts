@@ -148,10 +148,10 @@ export const bindSandboxHostFunctions = (
 		(...args) => implementations.getPluginConfig(input, ...args),
 		defaultFailure("getPluginConfig"),
 	),
-	getSystemConfig: bindHostFunction(
-		coreSandboxHostContracts.getSystemConfig,
-		(...args) => implementations.getSystemConfig(input, ...args),
-		defaultFailure("getSystemConfig"),
+	getUserSettings: bindHostFunction(
+		coreSandboxHostContracts.getUserSettings,
+		(...args) => implementations.getUserSettings(input, ...args),
+		defaultFailure("getUserSettings"),
 	),
 	getEntitySchemas: bindHostFunction(
 		domainSandboxHostContracts.getEntitySchemas,
@@ -177,6 +177,11 @@ export const bindSandboxHostFunctions = (
 		domainSandboxHostContracts.ensureUserEntities,
 		(...args) => implementations.ensureUserEntities(input, ...args),
 		defaultFailure("ensureUserEntities"),
+	),
+	getOAuthAccessToken: bindHostFunction(
+		domainSandboxHostContracts.getOAuthAccessToken,
+		(...args) => implementations.getOAuthAccessToken(input, ...args),
+		defaultFailure("getOAuthAccessToken"),
 	),
 	claimPersistentValue: bindHostFunction(
 		coreSandboxHostContracts.claimPersistentValue,

@@ -5,10 +5,13 @@ import getPort from "get-port";
 
 import {
 	createAuthenticatedClient,
+	createIntegration,
 	getImportRun,
 	installTestPluginBundle,
+	listImportedEntityNames,
 	pollImportRunUntilTerminal,
 	pollUntil,
+	sendDataWebhook,
 	type Client,
 } from "~/fixtures/kernel";
 import { describe, expect, it } from "~/support/effect-test";
@@ -26,6 +29,15 @@ const OLD_CONFIG_VALUE = "old-value";
 const NEW_CONFIG_VALUE = "new-value";
 const S3_BUCKET_NAME = "ryot-import-durability-test";
 
+const nativeEntities = (prefix: string) =>
+	Array.from({ length: 120 }, (_, index) => ({
+		properties: {},
+		key: `record-${index}`,
+		kind: "custom" as const,
+		entitySchemaSlug: "collection",
+		name: `${prefix} ${String(index).padStart(3, "0")}`,
+	}));
+
 const importWorkflowSource = (workflowScriptSlug: string, activityScriptSlug: string) => `
 import {
   genericImportKernelInputSchema,
@@ -40,7 +52,6 @@ export const manifest = defineManifest({
   capabilities: [],
   name: "E2E durable import",
   requiredPluginConfigKeys: [],
-  requiredSystemConfigKeys: [],
   slug: ${JSON.stringify(workflowScriptSlug)},
 });
 
@@ -88,7 +99,6 @@ import { genericImportWorkflowManifestSchema } from "@ryot-app/sandbox-sdk/impor
 
 export const manifest = defineManifest({
   kind: "script",
-  requiredSystemConfigKeys: [],
   capabilities: ["getPluginConfig"],
   name: "E2E durable import config check",
   slug: ${JSON.stringify(activityScriptSlug)},
@@ -198,13 +208,11 @@ describe("isolated import durability", () => {
 							slug: workflowScriptSlug,
 							name: "E2E durable import",
 							requiredPluginConfigKeys: [],
-							requiredSystemConfigKeys: [],
 						},
 						{
 							kind: "script",
 							entry: activityEntry,
 							slug: activityScriptSlug,
-							requiredSystemConfigKeys: [],
 							capabilities: ["getPluginConfig"],
 							requiredPluginConfigKeys: [CONFIG_KEY],
 							name: "E2E durable import config check",
@@ -247,9 +255,46 @@ describe("isolated import durability", () => {
 				yield* waitForRunningImport(client, oldRun.id);
 				yield* Effect.sleep(1_000);
 				expect((yield* getImportRun(client, oldRun.id, undefined, 10)).run?.status).toBe("running");
+				const nativeIntegration = yield* createIntegration(client, {
+					provider: "data-json",
+					providerSpecifics: {},
+				});
+				const nativeDocument = {
+					events: [],
+					relationships: [],
+					entities: nativeEntities("Native durable record"),
+				};
+				const nativeRunId = yield* sendDataWebhook(
+					client,
+					nativeIntegration,
+					nativeDocument,
+					"native-restart",
+				);
+				yield* pollUntil(
+					"native import to commit before restart",
+					Effect.gen(function* () {
+						const run = (yield* getImportRun(client, nativeRunId, undefined, 10)).run;
+						return run && run.processedItems > 0 ? run : null;
+					}),
+				);
+				expect((yield* getImportRun(client, nativeRunId, undefined, 10)).run?.status).toBe(
+					"running",
+				);
 
 				yield* stopApiProcess(processA);
 				const processB = yield* startApi("Import Durability API B", NEW_CONFIG_VALUE);
+				expect(yield* pollImportRunUntilTerminal(client, nativeRunId)).toMatchObject({
+					failedItems: 0,
+					importedItems: 120,
+					status: "completed",
+					processedItems: 120,
+				});
+				const nativeNames = yield* listImportedEntityNames(client, "collection");
+				expect(nativeNames).toHaveLength(100);
+				expect(new Set(nativeNames).size).toBe(100);
+				expect(
+					yield* sendDataWebhook(client, nativeIntegration, nativeDocument, "native-restart"),
+				).toBe(nativeRunId);
 				expect(yield* pollImportRunUntilTerminal(client, oldRun.id)).toMatchObject({
 					progress: 100,
 					importedItems: 0,
@@ -295,6 +340,27 @@ describe("isolated import durability", () => {
 					failureReason: null,
 				});
 				expect(cancelled.finishedAt).not.toBeNull();
+				const nativeCancelledRunId = yield* sendDataWebhook(
+					client,
+					nativeIntegration,
+					{ ...nativeDocument, entities: nativeEntities("Native cancelled record") },
+					"native-cancel",
+				);
+				yield* pollUntil(
+					"native import to commit before cancellation",
+					Effect.gen(function* () {
+						const run = (yield* getImportRun(client, nativeCancelledRunId, undefined, 10)).run;
+						return run && run.processedItems > 0 ? run : null;
+					}),
+				);
+				yield* client.call((c) =>
+					c.imports.cancelRun({ params: { runId: ImportRunId.make(nativeCancelledRunId) } }),
+				);
+				const nativeCancelled = yield* pollImportRunUntilTerminal(client, nativeCancelledRunId);
+				expect(nativeCancelled.status).toBe("cancelled");
+				expect(nativeCancelled.importedItems).toBeGreaterThan(0);
+				expect(nativeCancelled.importedItems).toBeLessThan(120);
+				expect(nativeCancelled.failedItems).toBe(0);
 			}),
 		180_000,
 	);

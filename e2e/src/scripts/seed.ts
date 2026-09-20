@@ -230,7 +230,6 @@ export const manifest = defineManifest({
   kind: "script",
   capabilities: [],
   requiredPluginConfigKeys: [],
-  requiredSystemConfigKeys: [],
   name: "Seed script",
   slug: ${JSON.stringify(value)},
 });
@@ -253,7 +252,6 @@ export default defineScript({
 				capabilities: [],
 				name: "Seed script",
 				requiredPluginConfigKeys: [],
-				requiredSystemConfigKeys: [],
 			},
 		],
 	});

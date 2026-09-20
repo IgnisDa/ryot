@@ -74,7 +74,9 @@ type AppPropertyBase<TValidation> = {
 export type AppStringPropertyFormat =
 	| { readonly kind: "url" }
 	| { readonly kind: "email" }
-	| { readonly kind: "upload"; readonly allowedFileExtensions: ReadonlyArray<string> };
+	| { readonly kind: "timezone" }
+	| { readonly kind: "upload"; readonly allowedFileExtensions: ReadonlyArray<string> }
+	| { readonly kind: "oauth-connection"; readonly provider: string };
 
 export type AppStringPropertyReference = {
 	readonly kind: "entity-id" | "relationship-id";
@@ -324,6 +326,7 @@ const fileExtensionSchema = Schema.String.pipe(
 const stringPropertyFormatSchema = Schema.Union([
 	strictStruct({ kind: Schema.Literal("url") }),
 	strictStruct({ kind: Schema.Literal("email") }),
+	strictStruct({ kind: Schema.Literal("timezone") }),
 	strictStruct({
 		kind: Schema.Literal("upload"),
 		allowedFileExtensions: Schema.Array(fileExtensionSchema).pipe(
@@ -333,6 +336,7 @@ const stringPropertyFormatSchema = Schema.Union([
 			),
 		),
 	}),
+	strictStruct({ provider: nonEmptyTrimmedString, kind: Schema.Literal("oauth-connection") }),
 ]);
 
 const stringPropertyReferenceSchema = strictStruct({
@@ -514,6 +518,14 @@ const stringPropertySchema = strictStruct({
 				value.format?.kind !== "upload" ||
 				value.defaultValue === undefined ||
 				"Upload string properties cannot define a default value",
+		),
+	),
+	Schema.check(
+		Schema.makeFilter(
+			(value) =>
+				value.format?.kind !== "oauth-connection" ||
+				value.defaultValue === undefined ||
+				"OAuth connection string properties cannot define a default value",
 		),
 	),
 );

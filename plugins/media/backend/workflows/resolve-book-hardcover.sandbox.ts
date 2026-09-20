@@ -10,7 +10,6 @@ import { resolve } from "../providers/book/hardcover/shared";
 
 export const manifest = defineManifest({
 	kind: "script",
-	requiredSystemConfigKeys: [],
 	name: "Resolve imported Hardcover book",
 	slug: "media-import-resolve.book.hardcover",
 	capabilities: ["httpCall", "getPluginConfig"],

@@ -5,7 +5,6 @@ import { search } from "./shared";
 
 export const manifest = defineManifest({
 	kind: "provider",
-	requiredSystemConfigKeys: [],
 	name: "IGDB Video Game Search",
 	slug: "video-game.igdb.search",
 	requiredPluginConfigKeys: ["twitchClientId", "twitchClientSecret"],

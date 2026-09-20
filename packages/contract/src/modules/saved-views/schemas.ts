@@ -68,7 +68,11 @@ export const SavedViewTableColumn = strictStruct({
 });
 export type SavedViewTableColumn = typeof SavedViewTableColumn.Type;
 
-export const KernelSavedViewRendererName = Schema.Literals(["entity-browser", "results-table"]);
+export const KernelSavedViewRendererName = Schema.Literals([
+	"collection-browser",
+	"entity-browser",
+	"results-table",
+]);
 export type KernelSavedViewRendererName = typeof KernelSavedViewRendererName.Type;
 
 export const AuthoredSavedViewRenderer = Schema.Union([

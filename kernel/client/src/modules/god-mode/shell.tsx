@@ -16,6 +16,7 @@ const invalidTokenMessage = "The admin access token is invalid or expired.";
 const sections = [
 	{ icon: "users", label: "Users", path: "/god-mode/users" },
 	{ icon: "file-text", label: "Migration report", path: "/god-mode/migration-report" },
+	{ icon: "file-text", label: "Server logs", path: "/god-mode/logs" },
 ] as const;
 
 type GodModeShellProps = { readonly server: ServerOrigin; readonly runtime: ClientRuntime };

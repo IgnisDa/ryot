@@ -9,6 +9,7 @@ import { useEffect, useEffectEvent, useRef, useState, type ReactNode } from "rea
 import { AuthService } from "#/modules/auth/service";
 import { DEMO_PROTECTION_MESSAGE } from "#/modules/demo-protection";
 import { IntegrationDetailView } from "#/modules/integrations/integration-detail-view";
+import { useOAuthConnect } from "#/modules/integrations/oauth-connect";
 import { storedIntegrationFormValues, updateIntegrationBody } from "#/modules/integrations/payload";
 import {
 	integrationDeleteConfirmation,
@@ -125,6 +126,10 @@ function StandardIntegrationDetail(props: { readonly integration: IntegrationCli
 	const [saveDetail, setSaveDetail] = useState<string | undefined>();
 	const { backInterceptors } = Route.useRouteContext();
 	const provider = findOwnedIntegrationProvider(providers.data ?? [], integration);
+	const oauth = useOAuthConnect({
+		integrationId: integration.id,
+		integrationProvider: integration.provider,
+	});
 
 	const save = (values: SchemaFormValues) => {
 		return Effect.runPromise(
@@ -267,8 +272,10 @@ function StandardIntegrationDetail(props: { readonly integration: IntegrationCli
 				saveDetail={saveDetail}
 				integration={integration}
 				saving={update.isPending}
+				connectOAuth={oauth.connect}
 				runs={runs.data?.items ?? []}
 				onSave={() => void form.handleSubmit()}
+				oauthDisabledReason={oauth.disabledReason}
 				onCopy={(value) => void navigator.clipboard.writeText(value)}
 			/>
 			{isConfirming && (

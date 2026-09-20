@@ -82,7 +82,7 @@ const createHost = (options: {
 		getEntitySchemas: () => hostSuccess([schema]),
 		log: options.log ?? (() => Effect.succeed(null)),
 		listIntegrations: () => hostSuccess(options.integrations ?? []),
-		getUserPreferences: () => hostSuccess({ allowNsfw: false, disableIntegrations: false }),
+		getUserPreferences: () => hostSuccess({ disableIntegrations: false }),
 		executeRyotql: () => {
 			return options.entity ? hostSuccess(ryotqlRows("entities", [options.entity])) : hostFailure();
 		},

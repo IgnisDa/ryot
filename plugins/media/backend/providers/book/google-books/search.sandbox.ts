@@ -6,7 +6,6 @@ import { search } from "./shared";
 export const manifest = defineManifest({
 	kind: "provider",
 	name: "Google Books Search",
-	requiredSystemConfigKeys: [],
 	slug: "book.google-books.search",
 	capabilities: ["httpCall", "getPluginConfig"],
 	requiredPluginConfigKeys: ["googleBooksApiKey"],

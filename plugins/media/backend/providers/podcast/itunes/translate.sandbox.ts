@@ -7,7 +7,6 @@ export const manifest = defineManifest({
 	kind: "provider",
 	capabilities: ["httpCall"],
 	requiredPluginConfigKeys: [],
-	requiredSystemConfigKeys: [],
 	slug: "podcast.itunes.translate",
 	name: "iTunes Podcast Translation",
 });

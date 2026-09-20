@@ -17,7 +17,7 @@ import { Effect } from "effect";
 import { useEffect, useRef, useState, type ReactNode } from "react";
 
 import type { AuthenticatedApiError } from "#/api/authenticated";
-import { backupArchiveFileName, BackupsApi } from "#/api/backups";
+import { BackupsApi } from "#/api/backups";
 import type { KernelHostServices } from "#/host-services";
 import { AuthService } from "#/modules/auth/service";
 import {
@@ -31,7 +31,6 @@ import {
 	liveBackupRun,
 } from "#/modules/backups/presentation";
 import { BackupRestoreWizard } from "#/modules/backups/restore-wizard";
-import { saveBackupArchive } from "#/modules/backups/save-archive";
 import { DEMO_PROTECTION_MESSAGE, useIsDemoSession } from "#/modules/demo-protection";
 import { SettingsFrame } from "#/modules/settings/settings-frame";
 import { LoadErrorState } from "#/modules/ui/load-error-state";
@@ -203,15 +202,14 @@ function BackupsStandard() {
 		runtime.runFork(
 			Effect.flatMap(BackupsApi, (api) => api.downloadArchive(scope, run.id)).pipe(
 				Effect.match({
+					onSuccess: () => {
+						downloading.current = undefined;
+						setDownloadingRunId(undefined);
+					},
 					onFailure: () => {
 						downloading.current = undefined;
 						setDownloadingRunId(undefined);
 						setDownloadFailed(true);
-					},
-					onSuccess: (blob) => {
-						downloading.current = undefined;
-						setDownloadingRunId(undefined);
-						saveBackupArchive(blob, backupArchiveFileName(run.id));
 					},
 				}),
 			),

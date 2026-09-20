@@ -9,7 +9,6 @@ export const manifest = defineManifest({
 	name: "VNDB Person Details",
 	slug: "person.vndb.details",
 	requiredPluginConfigKeys: [],
-	requiredSystemConfigKeys: [],
 });
 
 export default defineProvider({ manifest, run: details.run, operation: "details" });

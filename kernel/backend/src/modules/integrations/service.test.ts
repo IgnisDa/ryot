@@ -17,7 +17,9 @@ import {
 	type WorkflowEngineOverrides,
 } from "#lib/test-utils/effect";
 import { mutationAdmissionTestLayer } from "#lib/test-utils/mutation-admission";
+import { DataImportAdmission } from "#modules/imports/data-admission";
 import { ImportsService } from "#modules/imports/service";
+import { OAuthConnectionsService } from "#modules/oauth-connections/service";
 import {
 	IntegrationProviderCatalog,
 	type RegisteredIntegrationProvider,
@@ -32,7 +34,7 @@ const user: CurrentUserValue = {
 	name: "Test User",
 	email: "user@example.com",
 	id: UserId.make("user-id"),
-	preferences: { language: null, allowNsfw: false, disableIntegrations: false },
+	preferences: { language: null, disableIntegrations: false },
 	accountGeneration: { userId: UserId.make("user-id"), token: "test-account-generation" },
 };
 
@@ -114,6 +116,7 @@ type FakeTools = {
 const mockRepository = Layer.mock(IntegrationsRepository);
 const mockCatalog = Layer.mock(IntegrationProviderCatalog);
 const mockImports = Layer.mock(ImportsService);
+const mockOAuthConnections = Layer.mock(OAuthConnectionsService);
 
 const makeServiceLayer = (options: {
 	proKey?: boolean;
@@ -129,6 +132,7 @@ const makeServiceLayer = (options: {
 		Layer.provideMerge(
 			Layer.mergeAll(
 				mutationAdmissionTestLayer,
+				Layer.mock(DataImportAdmission)({}),
 				mockProKey(options.proKey ?? true),
 				Layer.unwrap(
 					Effect.gen(function* () {
@@ -145,6 +149,7 @@ const makeServiceLayer = (options: {
 								storedIntegration: Ref.get(stored),
 							}),
 							mockImports(dependencies.imports ?? {}),
+							mockOAuthConnections({ bindIntegrationSettings: () => Effect.void }),
 							mockCatalog(dependencies.catalog ?? {}),
 							mockRepository(dependencies.repository ?? {}),
 							Layer.succeed(WorkflowEngine, makeWorkflowEngine(dependencies.engine)),
@@ -685,9 +690,12 @@ describe("handleWebhook", () => {
 
 describe("integrationCommonSchema", () => {
 	it("only declares fields the manifest validator reserves", () => {
-		const declared = (["yank", "sink", "push"] as const).flatMap((lot) =>
-			Object.keys(integrationCommonSchema(lot).fields),
-		);
+		const declared = [
+			...Object.keys(integrationCommonSchema("yank", true).fields),
+			...(["yank", "sink", "push"] as const).flatMap((lot) =>
+				Object.keys(integrationCommonSchema(lot, false).fields),
+			),
+		];
 
 		expect(declared.filter((field) => !integrationCommonPropertyNames.has(field))).toEqual([]);
 	});

@@ -28,10 +28,9 @@ import {
 export const manifest = defineManifest({
 	kind: "operation",
 	name: "Metadata Lookup",
-	requiredSystemConfigKeys: [],
 	slug: "operation.metadata-lookup",
 	requiredPluginConfigKeys: ["tmdbAccessToken"],
-	capabilities: ["httpCall", "getCurrentIntegration", "getPluginConfig", "getUserPreferences"],
+	capabilities: ["httpCall", "getCurrentIntegration", "getPluginConfig", "getUserSettings"],
 });
 
 const searchProviders = [

@@ -301,6 +301,11 @@ const plugin: CatalogTable = {
 			physicalField("environment_config_revision_id", "text"),
 			"admin",
 		),
+		userSettingsSchema: pluginActiveRevisionField(
+			"revision.manifest -> 'userSettingsSchema'",
+			"json",
+			true,
+		),
 		scope: {
 			kind: "text",
 			nullable: false,
@@ -377,6 +382,7 @@ const pluginInstallation: CatalogTable = {
 		isHidden: physicalField("is_hidden", "boolean", false),
 		sortOrder: physicalField("sort_order", "number", false),
 		config: withAccess(physicalField("client_config", "json", false), "kernel"),
+		userSettings: withAccess(physicalField("user_settings", "json", false), "kernel"),
 		configuredSecrets: withAccess(textArrayField("configured_secret_paths"), "kernel"),
 	},
 };
@@ -460,7 +466,7 @@ const executableDefinitionFields = {
 	id: physicalField("id", "text", false),
 	slug: physicalField("slug", "text", false),
 	name: physicalField("name", "text", false),
-	pluginSlug: physicalField("plugin_slug", "text", false),
+	pluginSlug: physicalField("plugin_slug", "text"),
 	description: physicalField("description", "text", false),
 };
 
@@ -496,7 +502,7 @@ const importSource: CatalogTable = {
 			nullable: false,
 			resolve: ({ sqlAlias }) =>
 				sql.raw(
-					`(${sqlAlias}.workflow_script_id IS NOT NULL AND jsonb_array_length(${missingPluginConfigKeys(sqlAlias)}) = 0)`,
+					`(${sqlAlias}.plugin_id IS NULL OR (${sqlAlias}.workflow_script_id IS NOT NULL AND jsonb_array_length(${missingPluginConfigKeys(sqlAlias)}) = 0))`,
 				),
 		},
 	},
@@ -511,11 +517,14 @@ const integrationProvider: CatalogTable = {
 		lot: physicalField("lot", "text", false),
 		settingsSchema: physicalField("settings_schema", "json", false),
 		requiresProKey: physicalField("requires_pro_key", "boolean", false),
+		supportsOwnershipSync: physicalField("supports_ownership_sync", "boolean", false),
 		hasScript: {
 			kind: "boolean",
 			nullable: false,
 			resolve: ({ sqlAlias }) =>
-				sql.raw(`(${sqlAlias}.lot = 'push' OR ${sqlAlias}.script_id IS NOT NULL)`),
+				sql.raw(
+					`(${sqlAlias}.plugin_id IS NULL OR ${sqlAlias}.lot = 'push' OR ${sqlAlias}.script_id IS NOT NULL)`,
+				),
 		},
 	},
 };
@@ -617,7 +626,7 @@ const integration: CatalogTable = {
 		name: physicalField("name", "text"),
 		id: physicalField("id", "text", false),
 		lot: physicalField("lot", "text", false),
-		pluginSlug: installationPluginSlug(false),
+		pluginSlug: installationPluginSlug(true),
 		provider: physicalField("provider", "text", false),
 		createdAt: physicalField("created_at", "date", false),
 		updatedAt: physicalField("updated_at", "date", false),

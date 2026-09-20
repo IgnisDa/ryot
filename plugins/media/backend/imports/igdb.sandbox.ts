@@ -11,7 +11,6 @@ export const manifest = defineManifest({
 	slug: "import.igdb",
 	name: "Parse IGDB import",
 	requiredPluginConfigKeys: [],
-	requiredSystemConfigKeys: [],
 	capabilities: ["artifact-read"],
 });
 
