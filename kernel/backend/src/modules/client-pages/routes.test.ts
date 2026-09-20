@@ -1,118 +1,154 @@
-import { assert, expect, it } from "@effect/vitest";
+import { expect, layer } from "@effect/vitest";
 import {
 	AdminMiddleware,
 	AuthMiddleware,
 	AuthUnauthorized,
 } from "@ryot-app/contract/auth-middleware";
-import { ClientDocumentsGroup } from "@ryot-app/contract/modules/client-pages/contract";
-import { ClientDocumentGrantNotFound } from "@ryot-app/contract/modules/client-pages/schemas";
-import { UserId } from "@ryot-app/contract/schema/brands";
-import { Effect, Layer } from "effect";
-import { HttpRouter, HttpServer } from "effect/unstable/http";
-import { HttpApi, HttpApiBuilder } from "effect/unstable/httpapi";
+import { AppContract } from "@ryot-app/contract/contract";
+import {
+	type ClientCompositionDocument,
+	ClientPageDocumentStale,
+	type PreparedClientPage,
+} from "@ryot-app/contract/modules/client-pages/schemas";
+import { PluginSlug, UserId } from "@ryot-app/contract/schema/brands";
+import { Context, Effect, Layer, Ref } from "effect";
+import { HttpClientRequest, HttpRouter, HttpServer } from "effect/unstable/http";
+import { HttpApiMiddleware, HttpApiTest } from "effect/unstable/httpapi";
 
-import { ClientArtifactGrantService } from "#modules/client-artifacts/grant-service";
-import { ClientArtifactStore } from "#modules/client-artifacts/store";
+import { makeAuthMiddleware } from "#modules/auth/service";
 
-import { composeClientPage } from "./composition";
-import { ClientDocumentGrantService } from "./grant-service";
-import { ClientPagesRepository } from "./repository";
-import { ClientDocumentsRoutesLive } from "./routes";
-import { descriptions, identity } from "./test-fixtures";
+import { ClientPagesRoutesLive } from "./routes";
+import { ClientPagesService } from "./service";
 
-const contract = HttpApi.make("ryot").add(ClientDocumentsGroup);
+const user = {
+	image: null,
+	name: "User",
+	id: UserId.make("user-1"),
+	email: "user@example.com",
+	preferences: { language: null, disableIntegrations: false },
+	accountGeneration: { userId: UserId.make("user-1"), token: "test-account-generation" },
+};
 
-it.effect("serves a no-store document from a capability without HTTP authentication", () => {
-	const manifest = composeClientPage({
-		identity: identity(),
-		artifacts: descriptions(),
-		runtimeEntries: { sdk: "runtime.js", bootstrap: "bootstrap.js" },
-	});
-	const services = Layer.mergeAll(
-		Layer.succeed(
-			ClientDocumentGrantService,
-			ClientDocumentGrantService.of({
-				issue: () => Effect.die("unused"),
-				resolve: (token) =>
-					token === "valid"
-						? Effect.succeed({ userId: UserId.make("user-1"), compositionHash: "composition" })
-						: Effect.fail(
-								new ClientDocumentGrantNotFound({ reason: { code: "document-grant-not-found" } }),
-							),
+const identity = (compositionHash: string): PreparedClientPage["identity"] => ({
+	compositionHash,
+	contributors: [],
+	exportName: "main",
+	kind: "plugin-page",
+	operationTargets: [],
+	sourceHash: "source",
+	pluginId: "plugin-id",
+	installationId: "installation",
+	compositionKey: "composition-key",
+	target: { path: "/", search: "", kind: "plugin-route", pluginSlug: PluginSlug.make("fixture") },
+});
+
+const document: ClientCompositionDocument = {
+	preloads: [],
+	title: "Page",
+	stylesheets: [],
+	modulepreloads: [],
+	importMap: { imports: {} },
+	descriptor: { application: "page", automaticRegistry: [] },
+	bootstrap: `/api/client-assets/${"a".repeat(64)}/public/bootstrap.js`,
+	metadata: { format: 1, apiVersion: 1, hash: "current", bridgeVersion: 1, compilerVersion: 1 },
+};
+
+const client = HttpApiTest.groups(AppContract, ["clientPages"]);
+
+class RouteCredentials extends Context.Service<
+	RouteCredentials,
+	{
+		readonly requests: Effect.Effect<ReadonlyArray<string>>;
+		readonly sendToken: (token: string) => Effect.Effect<void>;
+	}
+>()("test/RouteCredentials") {}
+
+const routesLayer = Layer.unwrap(
+	Effect.gen(function* () {
+		const token = yield* Ref.make("user");
+		const requests = yield* Ref.make<ReadonlyArray<string>>([]);
+		const auth = makeAuthMiddleware(
+			{
+				apiKeyUser: () =>
+					Effect.fail(new AuthUnauthorized({ reason: { code: "authentication-required" } })),
+				oauthUser: (sent) =>
+					sent === ""
+						? Effect.fail(new AuthUnauthorized({ reason: { code: "authentication-required" } }))
+						: Effect.succeed({
+								user,
+								authorization: {
+									userId: user.id,
+									accessClass: "standard" as const,
+									credential: { clientId: "ryot-web", kind: "oauth" as const },
+								},
+							}),
+			},
+			{ isActive: () => Effect.succeed(false) },
+		);
+		const serviceLayer = Layer.succeed(
+			ClientPagesService,
+			ClientPagesService.of({
+				prepare: () => Effect.die("unused"),
+				isIdentityCurrent: () => Effect.die("unused"),
+				document: (current, requested) =>
+					Ref.update(requests, (all) => [
+						...all,
+						`${current.id}:${requested.compositionHash}`,
+					]).pipe(
+						Effect.andThen(
+							requested.compositionHash === "current"
+								? Effect.succeed(document)
+								: Effect.fail(
+										new ClientPageDocumentStale({ reason: { code: "client-page-document-stale" } }),
+									),
+						),
+					),
 			}),
-		),
-		Layer.succeed(
-			ClientPagesRepository,
-			ClientPagesRepository.of(
-				Object.assign(Object.create(null), {
-					findCompositionByHash: (hash: string) =>
-						Effect.succeed(hash === "composition" ? { manifest, compositionHash: hash } : null),
-				}),
+		);
+		return Layer.mergeAll(
+			ClientPagesRoutesLive,
+			HttpServer.layerServices,
+			Layer.succeed(AdminMiddleware, {
+				adminToken: () =>
+					Effect.fail(new AuthUnauthorized({ reason: { code: "admin-access-required" } })),
+			}),
+			HttpApiMiddleware.layerClient(AuthMiddleware, ({ next, request }) =>
+				Effect.flatMap(Ref.get(token), (sent) =>
+					next(HttpClientRequest.bearerToken(request, sent)),
+				),
 			),
-		),
-		Layer.succeed(
-			ClientArtifactStore,
-			ClientArtifactStore.of({
-				isPublic: () => true,
-				exists: () => Effect.succeed(true),
-				findFile: () => Effect.succeed(null),
-				describe: (hash) => {
-					const artifactDescriptions = descriptions();
-					if (!artifactDescriptions.has(hash)) {
-						return Effect.succeed(null);
-					}
-					const description = artifactDescriptions.get(hash);
-					assert(description);
-					return Effect.succeed({
-						...description,
-						hash,
-						format: 1,
-						apiVersion: 1,
-						bridgeVersion: 1,
-						compilerVersion: 1,
-					});
-				},
+			Layer.succeed(RouteCredentials, {
+				requests: Ref.get(requests),
+				sendToken: (sent) => Ref.set(token, sent),
 			}),
-		),
-		Layer.succeed(
-			ClientArtifactGrantService,
-			ClientArtifactGrantService.of({
-				resolve: () => Effect.succeed(null),
-				issue: () => Effect.die("public artifacts must not request grants"),
-			}),
-		),
-	);
-	const routes = HttpApiBuilder.layer(contract).pipe(
-		Layer.provide(
-			Layer.mergeAll(
-				ClientDocumentsRoutesLive,
-				HttpServer.layerServices,
-				Layer.succeed(AdminMiddleware, {
-					adminToken: () =>
-						Effect.fail(new AuthUnauthorized({ reason: { code: "admin-access-required" } })),
-				}),
-				Layer.succeed(AuthMiddleware, Object.create(null)),
-			),
-		),
-		Layer.provideMerge(services),
-		HttpRouter.provideRequest(services),
-	);
-	return Effect.acquireUseRelease(
-		Effect.sync(() => HttpRouter.toWebHandler(routes, { disableLogger: true })),
-		({ handler }) =>
-			Effect.gen(function* () {
-				const document = yield* Effect.promise(() =>
-					handler(new Request("http://server.test/client-pages/documents/valid")),
-				);
-				expect(document.status).toBe(200);
-				expect(document.headers.get("cache-control")).toBe("private, no-store");
-				expect(document.headers.get("content-security-policy")).toBe("sandbox allow-scripts");
-				expect(yield* Effect.promise(() => document.text())).toContain("/api/client-assets/");
-				const invalid = yield* Effect.promise(() =>
-					handler(new Request("http://server.test/client-pages/documents/expired")),
-				);
-				expect(invalid.status).toBe(404);
-			}),
-		({ dispose }) => Effect.promise(dispose),
+		).pipe(
+			Layer.provideMerge(serviceLayer),
+			HttpRouter.provideRequest(serviceLayer),
+			Layer.provideMerge(Layer.succeed(AuthMiddleware, auth)),
+		);
+	}),
+);
+
+layer(routesLayer)((test) => {
+	test.effect("serves the document of a current identity to its authenticated user", () =>
+		Effect.gen(function* () {
+			const api = yield* client;
+			const credentials = yield* RouteCredentials;
+			expect(
+				yield* api.clientPages.document({ payload: { identity: identity("current") } }),
+			).toEqual(document);
+
+			const stale = yield* Effect.flip(
+				api.clientPages.document({ payload: { identity: identity("superseded") } }),
+			);
+			expect(stale).toBeInstanceOf(ClientPageDocumentStale);
+
+			yield* credentials.sendToken("");
+			const unauthenticated = yield* Effect.flip(
+				api.clientPages.document({ payload: { identity: identity("current") } }),
+			);
+			expect(unauthenticated).toBeInstanceOf(AuthUnauthorized);
+			expect(yield* credentials.requests).toEqual(["user-1:current", "user-1:superseded"]);
+		}),
 	);
 });

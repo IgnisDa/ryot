@@ -2,11 +2,7 @@ import { HttpApi, OpenApi } from "effect/unstable/httpapi";
 
 import { AutomationHistoryGroup, AutomationsGroup } from "./modules/automations/contract";
 import { BackupDownloadsGroup, BackupsGroup } from "./modules/backups/contract";
-import {
-	ClientAssetsGroup,
-	ClientDocumentsGroup,
-	ClientPagesGroup,
-} from "./modules/client-pages/contract";
+import { ClientAssetsGroup, ClientPagesGroup } from "./modules/client-pages/contract";
 import { CollectionsGroup } from "./modules/collections/contract";
 import { EntitiesGroup } from "./modules/entities/contract";
 import { InterestGroup } from "./modules/entity-interest/contract";
@@ -45,7 +41,6 @@ export type AppGroups =
 	| typeof SavedViewsGroup
 	| typeof CollectionsGroup
 	| typeof ClientPagesGroup
-	| typeof ClientDocumentsGroup
 	| typeof ClientAssetsGroup
 	| typeof GodModeGroup
 	| typeof ServerLogsGroup
@@ -78,7 +73,6 @@ export const AppContract: HttpApi.HttpApi<"ryot", AppGroups> = HttpApi.make("ryo
 	.add(SavedViewsGroup)
 	.add(CollectionsGroup)
 	.add(ClientPagesGroup)
-	.add(ClientDocumentsGroup)
 	.add(ClientAssetsGroup)
 	.add(GodModeGroup)
 	.add(ServerLogsGroup)
