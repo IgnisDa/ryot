@@ -1,4 +1,3 @@
-import { ImportRunFailuresExport } from "@ryot-app/contract/modules/imports/schemas";
 import { pluginConfigEnvironmentKey } from "@ryot-app/contract/modules/plugins/plugin-config";
 import { ImportRunId } from "@ryot-app/contract/schema/brands";
 import { importSourcesRecipe } from "@ryot-app/ryotql-recipes/import-sources";
@@ -15,6 +14,7 @@ import {
 	installTestPartialResultCancellationImportPlugin,
 	installTestHarvestHandleImportPlugin,
 	getImportRun,
+	importIssuesExportSchema,
 	listImportedEntityNames,
 	listManualImportRuns,
 	pollImportRunUntilTerminal,
@@ -103,10 +103,7 @@ describe("Plugin Import Public Boundary", () => {
 			const completed = yield* pollImportRunUntilTerminal(client, created.id);
 			expect(completed.failureReason).toBeNull();
 			expect(completed).toMatchObject({
-				progress: 100,
-				failedItems: 0,
-				importedItems: 0,
-				processedItems: 0,
+				summary: [],
 				status: "completed",
 				source: FIXTURE_IMPORT_SOURCE,
 			});
@@ -128,14 +125,7 @@ describe("Plugin Import Public Boundary", () => {
 			yield* uninstallTestPluginStrict(plugin);
 
 			const completed = yield* pollImportRunUntilTerminal(client, created.id);
-			expect(completed).toMatchObject({
-				source,
-				progress: 0,
-				failedItems: 0,
-				status: "failed",
-				importedItems: 0,
-				processedItems: 0,
-			});
+			expect(completed).toMatchObject({ source, summary: [], status: "failed" });
 			expect(completed.finishedAt).not.toBeNull();
 		}),
 	);
@@ -175,12 +165,7 @@ describe("Plugin Import Public Boundary", () => {
 			expect(repeated.id).toBe(created.id);
 
 			const cancelled = yield* pollImportRunUntilTerminal(owner.client, created.id);
-			expect(cancelled).toMatchObject({
-				importedItems: 0,
-				processedItems: 0,
-				status: "cancelled",
-				failureReason: null,
-			});
+			expect(cancelled).toMatchObject({ summary: [], status: "cancelled", failureReason: null });
 			expect(cancelled.finishedAt).not.toBeNull();
 
 			yield* owner.client.call((c) =>
@@ -221,10 +206,13 @@ describe("Plugin Import Public Boundary", () => {
 				Effect.gen(function* () {
 					const run = (yield* getImportRun(client, created.id, undefined, 10)).run;
 					return run?.status === "running" &&
-						run.processedItems === 10 &&
-						run.importedItems === 10 &&
-						run.failedItems === 0 &&
-						run.progress === 83
+						run.summary.some(
+							({ unit, counts, recordKind }) =>
+								unit === "records" &&
+								recordKind === "record" &&
+								counts.created === 10 &&
+								counts.unsuccessful === 0,
+						)
 						? run
 						: null;
 				}),
@@ -237,10 +225,7 @@ describe("Plugin Import Public Boundary", () => {
 			expect(cancelled).toMatchObject({
 				status: "cancelled",
 				failureReason: null,
-				progress: checkpoint.progress,
-				failedItems: checkpoint.failedItems,
-				importedItems: checkpoint.importedItems,
-				processedItems: checkpoint.processedItems,
+				summary: checkpoint.summary,
 			});
 
 			const entityNames = yield* listImportedEntityNames(client, fixture.entitySchemaSlug);
@@ -262,12 +247,17 @@ describe("Plugin Import Public Boundary", () => {
 			);
 			const completed = yield* pollImportRunUntilTerminal(client, created.id);
 
-			expect(completed.failureReason).toEqual({ code: "input-transformation-failed" });
+			expect(completed.failureReason).toBeNull();
 			expect(completed).toMatchObject({
-				failedItems: 101,
-				status: "failed",
-				processedItems: 101,
+				status: "completed",
 				source: FIXTURE_HANDLE_IMPORT_SOURCE,
+				summary: [
+					{
+						unit: "records",
+						recordKind: "record",
+						counts: { created: 0, updated: 0, skipped: 0, unchanged: 0, unsuccessful: 101 },
+					},
+				],
 			});
 
 			const ticket = yield* client.call((c) =>
@@ -278,14 +268,16 @@ describe("Plugin Import Public Boundary", () => {
 			expect(response.status).toBe(200);
 			expect(response.headers.get("content-type")).toBe("application/json; charset=utf-8");
 			expect(response.headers.get("content-disposition")).toContain(
-				`ryot-import-failures-${created.id}.json`,
+				`ryot-import-issues-${created.id}.json`,
 			);
-			const report = yield* Schema.decodeUnknownEffect(ImportRunFailuresExport)(
+			const report = yield* Schema.decodeUnknownEffect(importIssuesExportSchema)(
 				yield* Effect.promise(() => response.json()),
 			);
 			expect(report.runId).toBe(created.id);
-			expect(report.failures).toHaveLength(101);
-			expect(report.failures[100]?.sourceLabel).toBe("Harvest fixture 101");
+			expect(report.issues).toHaveLength(101);
+			expect(report.issues.map(({ attribution }) => attribution?.sourceLabel)).toContain(
+				"Harvest fixture 101",
+			);
 
 			const other = yield* createAuthenticatedClient();
 			const foreignTicket = yield* Effect.flip(

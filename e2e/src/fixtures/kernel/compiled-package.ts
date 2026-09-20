@@ -1,7 +1,10 @@
 import { compileClientPluginModule } from "@ryot-app/client-plugin-compiler";
 import type { PluginManifest } from "@ryot-app/contract/modules/plugins/manifest";
 import type { PluginArchivePackage } from "@ryot-app/plugin-archive";
-import { compilePluginManifestScripts } from "@ryot-app/sandbox-compiler/plugin-manifest";
+import {
+	compilePluginManifestScripts,
+	derivePluginSandboxScripts,
+} from "@ryot-app/sandbox-compiler/plugin-manifest";
 import { Effect } from "effect";
 
 export type PluginPackageInput = Pick<PluginArchivePackage, "files" | "manifest"> &
@@ -44,9 +47,28 @@ const compileClient = (manifest: PluginManifest, files: PluginArchivePackage["fi
 
 export const compilePluginPackage = (input: PluginPackageInput) =>
 	Effect.gen(function* () {
+		const derived = input.compiledScripts
+			? undefined
+			: yield* derivePluginSandboxScripts(sandboxSources(input.files));
+		const byEntry = new Map(derived?.map(({ script }) => [script.entry, script]));
+		const manifest = {
+			...input.manifest,
+			scripts: input.manifest.scripts.map((script) => {
+				const generated = byEntry.get(script.entry);
+				return generated
+					? {
+							...script,
+							oauthConnectionFields: generated.oauthConnectionFields,
+							executableDependencies: generated.executableDependencies,
+							requiredPluginConfigKeys: generated.requiredPluginConfigKeys,
+							optionalPluginConfigKeys: generated.optionalPluginConfigKeys,
+						}
+					: script;
+			}),
+		};
 		const compiledScripts =
 			input.compiledScripts ??
-			(yield* compilePluginManifestScripts(input.manifest, sandboxSources(input.files))).map(
+			(yield* compilePluginManifestScripts(manifest, sandboxSources(input.files))).map(
 				({ script, source, compiled }) => ({
 					source,
 					entry: script.entry,
@@ -54,12 +76,11 @@ export const compilePluginPackage = (input: PluginPackageInput) =>
 					javascript: compiled.javascript,
 				}),
 			);
-		const compiledClient =
-			input.compiledClient ?? (yield* compileClient(input.manifest, input.files));
+		const compiledClient = input.compiledClient ?? (yield* compileClient(manifest, input.files));
 		return {
+			manifest,
 			compiledScripts,
 			files: input.files,
-			manifest: input.manifest,
 			...(compiledClient ? { compiledClient } : {}),
 		} satisfies PluginArchivePackage;
 	});

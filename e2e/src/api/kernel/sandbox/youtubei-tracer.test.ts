@@ -24,7 +24,6 @@ import { createYoutubeMusicClient } from "@ryot-app/sandbox-sdk/youtubei";
 export const manifest = defineManifest({
   kind: "script",
   capabilities: ["httpCall"],
-  requiredPluginConfigKeys: [],
   name: ${JSON.stringify(input.name)},
   slug: ${JSON.stringify(input.slug)},
 });
