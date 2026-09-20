@@ -1,4 +1,4 @@
-import { savedViewPath } from "@ryot-app/contract/modules/plugins/navigation";
+import { identityTupleKey } from "@ryot-app/contract/modules/plugins/references";
 import type { NavigationData, NavigationView } from "@ryot-app/ryotql-recipes/navigation";
 import type { PluginClientCatalog } from "@ryot-app/ryotql-recipes/plugin-client-catalog";
 
@@ -8,7 +8,6 @@ export type CustomizeSection = "workspaces" | "views" | "savedViews";
 
 export type CustomizeDraftItem = {
 	readonly id: string;
-	readonly slug: string;
 	readonly name: string;
 	readonly icon: string;
 	readonly isHidden: boolean;
@@ -32,26 +31,24 @@ const draftItems = (items: readonly NavigationView[], installationId: string | n
 	[...items]
 		.filter((item) => item.pluginInstallationId === installationId)
 		.sort((left, right) => left.sortOrder - right.sortOrder)
-		.map(({ icon, name, slug, isHidden, reference, pluginInstallationId }) => ({
+		.map(({ icon, name, isHidden, reference, pluginInstallationId }) => ({
 			icon,
-			slug,
 			name,
 			isHidden,
 			reference,
 			pluginInstallationId,
-			id: savedViewPath(reference),
+			id: identityTupleKey(reference),
 		}));
 
 const draftWorkspaces = (catalog: PluginClientCatalog) =>
 	sortWorkspaces(catalog).map(
-		({ icon, name, slug, scope, isHidden, pluginId, packageId, installationId }) => ({
+		({ icon, name, scope, isHidden, pluginId, packageId, installationId }) => ({
 			icon,
-			slug,
 			isHidden,
 			pluginId,
 			installationId,
 			id: installationId,
-			name: `${name} · ${scope === "system" ? "System" : "Private"} · ${packageId.slice(0, 8)}`,
+			name: `${name} · ${scope === "system" ? "System" : "Private"} · ${packageId}`,
 		}),
 	);
 

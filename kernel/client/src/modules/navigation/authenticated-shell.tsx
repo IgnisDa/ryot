@@ -1,6 +1,6 @@
 import { KERNEL_SHORTCUTS, type KernelShortcut } from "@ryot-app/client-plugin-contract";
 import { Button, Modal, useShortcut, useValueChange } from "@ryot-app/client-ui-sdk";
-import { savedViewPath } from "@ryot-app/contract/modules/plugins/navigation";
+import { pluginPath } from "@ryot-app/contract/modules/plugins/navigation";
 import type { NavigationData } from "@ryot-app/ryotql-recipes/navigation";
 import {
 	Outlet,
@@ -69,15 +69,13 @@ import { MobileDrawer } from "#/modules/navigation/mobile-drawer";
 import { useSafeAreaInsets } from "#/modules/navigation/safe-area";
 import {
 	activeSidebarKey,
+	sidebarItemHref,
 	sidebarSections,
 	type SidebarItem,
 } from "#/modules/navigation/sidebar-sections";
-import {
-	isWorkspaceRoot,
-	resolvePluginRouteWorkspace,
-	resolveRememberedWorkspace,
-} from "#/modules/navigation/workspace-state";
+import { isWorkspaceRoot, resolveRememberedWorkspace } from "#/modules/navigation/workspace-state";
 import { usePluginCatalog } from "#/modules/plugins/catalog-provider";
+import { catalogPackageId, effectiveCatalogPlugin } from "#/modules/plugins/plugin-location";
 import { useStableHandler } from "#/modules/ui/use-stable-handler";
 import { ClientStorage } from "#/persistence/storage";
 
@@ -112,13 +110,14 @@ export function AuthenticatedShell(props: {
 	const customizeSection = customizeSearchSection(search);
 	const workspaceChrome = hasWorkspaceChrome(pathname);
 	const committedPathname = pathname;
-	const routePluginId = committedPathname.startsWith("/p/")
-		? decodeURIComponent(committedPathname.split("/")[2] ?? "")
+	const routeSegments = committedPathname.split("/").map(decodeURIComponent);
+	const routePackageId = committedPathname.startsWith("/p/")
+		? `${routeSegments[2] ?? ""}/${routeSegments[3] ?? ""}`
 		: "";
-	const routeWorkspace = resolvePluginRouteWorkspace(catalog, routePluginId);
+	const routeWorkspace = effectiveCatalogPlugin(catalog, routePackageId) ?? null;
 	const activeKey = useMemo(() => activeSidebarKey(pathname), [pathname]);
 	const routeView = props.navigation.savedViews.find(
-		(view) => `view:${savedViewPath(view.reference)}` === activeKey,
+		(view) => `view:${sidebarItemHref(view)}` === activeKey,
 	);
 	const viewWorkspace = routeView?.pluginInstallationId
 		? catalog.find(({ installationId }) => installationId === routeView.pluginInstallationId)
@@ -209,32 +208,30 @@ export function AuthenticatedShell(props: {
 	}, [auth, impersonation, runtime, server]);
 	const selectWorkspace = (pluginId: string) => {
 		impactLight();
+		const packageId = catalogPackageId(catalog, pluginId);
 		return runtime.runPromise(
 			Effect.gen(function* () {
 				yield* Effect.flatMap(ClientStorage, (storage) =>
 					storage.setLastWorkspace(scope, pluginId),
 				);
 				setRememberedPluginId(pluginId);
-				yield* Effect.promise(() =>
-					navigate({ replace: true, to: "/p/$pluginId", params: { pluginId } }),
-				);
+				if (packageId === undefined) {
+					return;
+				}
+				yield* Effect.promise(() => navigate({ replace: true, href: pluginPath(packageId) }));
 			}),
 		);
 	};
 	const navigateHome = () =>
-		current === null
-			? undefined
-			: navigate({ to: "/p/$pluginId", params: { pluginId: current.pluginId } });
+		current === null ? undefined : navigate({ href: pluginPath(current.packageId) });
 	const navigateItem = (item: SidebarItem) => {
 		if (item.kind === "collection") {
 			return navigate({ to: "/e/$entityId", params: { entityId: item.slug } });
 		}
-		return item.reference === null
+		const href = sidebarItemHref(item);
+		return href === undefined
 			? undefined
-			: navigate({
-					href: savedViewPath(item.reference),
-					replace: activeKey?.startsWith("view:") === true,
-				});
+			: navigate({ href, replace: activeKey?.startsWith("view:") === true });
 	};
 	const interceptSearchBack = () => {
 		setSearchOpen(false);
@@ -273,7 +270,7 @@ export function AuthenticatedShell(props: {
 		}
 		void (current === null
 			? navigate({ to: "/", replace: true })
-			: navigate({ replace: true, to: "/p/$pluginId", params: { pluginId: current.pluginId } }));
+			: navigate({ replace: true, href: pluginPath(current.packageId) }));
 	};
 	const requestLeaveCustomize = useStableHandler(() => {
 		if (customize.isDirty) {
@@ -311,13 +308,10 @@ export function AuthenticatedShell(props: {
 						storage.setLastWorkspace(scope, nextWorkspace.pluginId),
 					);
 					setRememberedPluginId(nextWorkspace.pluginId);
-					yield* Effect.promise(() =>
-						navigate({
-							replace: true,
-							to: "/p/$pluginId",
-							params: { pluginId: nextWorkspace.pluginId },
-						}),
-					);
+					const packageId = catalogPackageId(catalog, nextWorkspace.pluginId);
+					if (packageId !== undefined) {
+						yield* Effect.promise(() => navigate({ replace: true, href: pluginPath(packageId) }));
+					}
 					return;
 				}
 				leaveCustomize();

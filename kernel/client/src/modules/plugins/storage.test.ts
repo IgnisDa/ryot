@@ -21,7 +21,7 @@ const contributors: PreparedClientPage["identity"]["contributors"] = [
 		revisionId: "revision-1",
 		sourceHash: "source-hash",
 		installationId: "installation-1",
-		packageId: PluginPackageId.make("860296ec-5559-4359-8fc6-7499507d235c"),
+		packageId: PluginPackageId.make("test/fixture"),
 	},
 	{ name: "table", kind: "kernel-renderer", sourceHash: "source-hash" },
 ];
@@ -83,7 +83,7 @@ describe("plugin storage outcome", () => {
 							revisionId: "revision-1",
 							sourceHash: "same-source-name",
 							installationId: "installation-2",
-							packageId: PluginPackageId.make("570e77e1-e450-40ea-b1cb-6e2ae3223bb3"),
+							packageId: PluginPackageId.make("ryot/fitness"),
 						},
 					];
 					yield* pluginStorageOutcome(scope, composed, {

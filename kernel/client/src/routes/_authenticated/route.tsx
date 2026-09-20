@@ -1,4 +1,5 @@
 import { RyotProvider } from "@ryot-app/client-sdk/react";
+import { pluginPath } from "@ryot-app/contract/modules/plugins/navigation";
 import { createFileRoute, redirect } from "@tanstack/react-router";
 import { Effect } from "effect";
 import { useEffect } from "react";
@@ -59,11 +60,7 @@ export const Route = createFileRoute("/_authenticated")({
 							);
 						}
 						// oxlint-disable-next-line typescript/only-throw-error
-						throw redirect({
-							replace: true,
-							to: "/p/$pluginId",
-							params: { pluginId: selected.pluginId },
-						});
+						throw redirect({ replace: true, href: pluginPath(selected.packageId) });
 					}
 				}
 				return { isPro, catalog, navigation, rememberedPluginId };

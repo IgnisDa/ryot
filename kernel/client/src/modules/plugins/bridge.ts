@@ -461,7 +461,7 @@ export function openPluginBridge(options: PluginBridgeOptions): PluginBridgeSess
 		runRequest(request.requestId, "operation", () =>
 			options.onOperation({
 				input: request.input,
-				pluginId: request.pluginId,
+				packageId: request.packageId,
 				operationSlug: request.operationSlug,
 			}),
 		);
