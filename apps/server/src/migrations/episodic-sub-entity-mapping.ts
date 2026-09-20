@@ -83,7 +83,7 @@ BEGIN
 		show_season.parent_entity_id,
 		show_season.provider_id,
 		show_season.user_id,
-		show_season.value AS season_value,
+		show_season.value ->> 'season_number' AS season_number,
 		episode.value AS episode_value,
 		show_season.parent_external_id,
 		show_season.parent_populated_at,
@@ -174,7 +174,7 @@ BEGIN
 	WITH candidates AS (
 		SELECT DISTINCT
 			parent_entity_id,
-			season_value ->> 'season_number' AS season_number,
+			season_number,
 			episode_value ->> 'episode_number' AS episode_number,
 			entity_id,
 			${quoteSqlString(input.showEpisodeEntitySchema.slug)} AS entity_schema_slug
@@ -357,7 +357,7 @@ BEGIN
 				THEN (show_episodes.episode_value ->> 'runtime')::int END,
 			'description',          show_episodes.episode_value ->> 'overview',
 			'publishDate',          show_episodes.episode_value ->> 'publish_date',
-			'seasonNumber',         (show_episodes.season_value ->> 'season_number')::int,
+			'seasonNumber',         show_episodes.season_number::int,
 			'episodeNumber',        (show_episodes.episode_value ->> 'episode_number')::int,
 			'parentShowExternalId', show_episodes.parent_external_id
 		)),
