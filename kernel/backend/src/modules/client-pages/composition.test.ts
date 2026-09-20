@@ -16,7 +16,7 @@ it("builds a structural manifest without copying compiled bytes or embedding gra
 		artifactHash: "b".repeat(64),
 	});
 	expect(manifest.descriptor.automaticRegistry[0]?.module).toEqual({
-		binding: "Export0",
+		binding: "card",
 		specifier: pluginExportSpecifier(presentationReference, "card"),
 	});
 	expect(manifest.descriptor.automaticRegistry[0]?.stylesheets).toEqual([

@@ -276,7 +276,8 @@ export default function Alpha() {
 				);
 				expect(imports).toContain("@ryot-app/plugin-kit/effect");
 				expect(imports).not.toContain("effect");
-				expect(javascript).toMatch(/export\{[^}]+as Export0,[^}]+as Export1\}/);
+				expect(javascript).toMatch(/export\{[^}]+as alpha,[^}]+as zulu\}/);
+				expect(javascript).toMatch(/import\{["']?show-card["']? as \w+\}from/);
 				expect(javascript).not.toContain("function Alpha");
 				expect(artifact.apiVersion).toBe(CLIENT_API_VERSION);
 				expect(artifact.bridgeVersion).toBe(CLIENT_BRIDGE_PROTOCOL_VERSION);
