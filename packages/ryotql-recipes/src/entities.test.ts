@@ -6,6 +6,7 @@ import { rowsResponse } from "./test-utils";
 
 const pageInfo = { limit: 2, hasMore: false, nextCursor: null };
 const item = {
+	userId: null,
 	id: "entity-1",
 	externalId: "external-1",
 	entitySchemaSlug: "book",
@@ -13,6 +14,7 @@ const item = {
 	populationStatus: "ready",
 	properties: { pages: 320 },
 	translationStatus: "ready",
+	entitySchemaPluginId: "plugin-media",
 };
 const provenanceResponse = (items: readonly unknown[]) => rowsResponse("entity", items, pageInfo);
 const responseWithItems = (items: readonly unknown[]) => rowsResponse("entities", items, pageInfo);
@@ -30,11 +32,13 @@ describe("entity recipes", () => {
 		).toEqual([
 			"id",
 			"properties",
+			"userId",
 			"externalId",
 			"entitySchemaSlug",
 			"populationStatus",
 			"translationStatus",
 			"providerId",
+			"entitySchemaPluginId",
 		]);
 		expect(query.where).toMatchObject({ values: [{ value: "entity-1" }, { value: "entity-2" }] });
 		expect(Result.getOrThrow(recipe.decode(responseWithItems([item])))).toEqual([item]);
@@ -44,9 +48,21 @@ describe("entity recipes", () => {
 		const recipe = entityInterestRecipe({ entityIds: ["entity-1"] });
 		expect(
 			Result.getOrThrow(
-				recipe.decode(responseWithItems([{ ...item, externalId: null, providerId: null }])),
+				recipe.decode(
+					responseWithItems([
+						{
+							...item,
+							userId: null,
+							externalId: null,
+							providerId: null,
+							entitySchemaPluginId: null,
+						},
+					]),
+				),
 			),
-		).toEqual([{ ...item, externalId: null, providerId: null }]);
+		).toEqual([
+			{ ...item, userId: null, externalId: null, providerId: null, entitySchemaPluginId: null },
+		]);
 	});
 
 	it("rejects malformed fields and non-rows results", () => {

@@ -144,6 +144,7 @@ it("exposes only approved relationship fields", () => {
 			"sourceEntityId",
 			"targetEntityId",
 			"relationshipSchemaSlug",
+			"relationshipSchemaPluginId",
 		]),
 	);
 });
@@ -156,6 +157,7 @@ it("exposes only approved application-table fields", () => {
 			"name",
 			"slug",
 			"scope",
+			"packageId",
 			"status",
 			"activationId",
 			"version",
@@ -173,11 +175,14 @@ it("exposes only approved application-table fields", () => {
 		new Set([
 			"id",
 			"health",
+			"isInitialized",
 			"pluginId",
-			"homeSavedViewSlug",
+			"homeSavedView",
 			"sortOrder",
 			"isHidden",
 			"healthReason",
+			"incompatibilityReason",
+			"conflictingSystemPluginId",
 			"config",
 			"configuredSecrets",
 			"userSettings",
@@ -192,6 +197,7 @@ it("exposes only approved application-table fields", () => {
 			"name",
 			"pluginId",
 			"rootEntitySchemaSlug",
+			"packageId",
 			"information",
 			"createdAt",
 			"updatedAt",
@@ -203,7 +209,7 @@ it("exposes only approved application-table fields", () => {
 		user: { type: "owned", column: "user_id", includeGlobal: false, pluginReadable: true },
 	});
 	expect(new Set(Object.keys(getCatalogTable("sandboxProviderOperation")?.fields ?? {}))).toEqual(
-		new Set(["providerId", "operation", "optionsSchema"]),
+		new Set(["providerId", "operation", "optionsSchema", "pluginId", "packageId"]),
 	);
 	expect(getCatalogTable("sandboxProviderOperation")?.name).toBe("user_sandbox_provider_operation");
 	expect(getCatalogTable("sandboxProviderOperation")?.primaryKey).toEqual([
@@ -226,6 +232,11 @@ it("exposes only approved application-table fields", () => {
 			"renderer",
 			"settings",
 			"dataSources",
+			"reference",
+			"revision",
+			"pluginId",
+			"packageId",
+			"pluginInstallationId",
 			"createdAt",
 			"updatedAt",
 		]),
@@ -255,6 +266,7 @@ it("exposes only approved application-table fields", () => {
 		updatedAt: "date",
 		isActive: "boolean",
 		signalSchemaSlug: "text",
+		signalSchemaPluginId: "text",
 	});
 	expect(notificationSubscription?.name).toBe("notification_subscription");
 	expect(notificationSubscription?.primaryKey).toEqual(["id"]);
@@ -271,6 +283,7 @@ it("exposes only approved application-table fields", () => {
 			"provider",
 			"pluginSlug",
 			"isDisabled",
+			"pluginId",
 			"syncOwnership",
 			"minimumProgress",
 			"maximumProgress",

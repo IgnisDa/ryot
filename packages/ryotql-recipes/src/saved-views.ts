@@ -1,7 +1,9 @@
+import { ClientPageTarget } from "@ryot-app/contract/modules/client-pages/schemas";
 import {
 	EntitySyncState,
 	type EntitySyncState as EntitySyncStateValue,
 } from "@ryot-app/contract/modules/entities/schemas";
+import type { PluginIdentityReference } from "@ryot-app/contract/modules/plugins/references";
 import {
 	JsonValue,
 	RyotQLDocument,
@@ -47,6 +49,7 @@ import {
 	rows,
 	selectedAggregate,
 	selectedMeasure,
+	schemaOwnerPredicate,
 	table,
 } from "@ryot-app/ryotql";
 import { DateTime, Option, Result, Schema } from "effect";
@@ -116,6 +119,7 @@ type SavedViewMapping = {
 };
 
 type SavedViewGeneratedSource = {
+	readonly owner: PluginIdentityReference | { readonly kind: "kernel" };
 	readonly type: "generated";
 	readonly after?: string | undefined;
 	readonly limit?: number | undefined;
@@ -159,13 +163,17 @@ export type SavedViewResult<Item> = {
 const generatedDocument = (input: SavedViewGeneratedSource) => {
 	const entity = table("entity", "entity");
 	const schema = column(entity, "entitySchemaSlug");
-	const schemaFilter =
+	const slugFilter =
 		input.entitySchemaSlugs.length === 1
 			? eq(schema, literal(input.entitySchemaSlugs[0]))
 			: inArray(
 					schema,
 					input.entitySchemaSlugs.map((slug) => literal(slug)),
 				);
+	const schemaFilter = and(
+		slugFilter,
+		schemaOwnerPredicate(entity, "entitySchemaPluginId", input.owner),
+	);
 
 	return document({
 		savedView: rows(entity, {
@@ -403,9 +411,9 @@ export const SavedViewPageIdentity = Schema.Struct({ icon: Schema.String, name: 
 
 export const EntityBrowserPageInput = Schema.Struct({
 	dataSources: RyotQLDocument,
+	target: ClientPageTarget.members[0],
 	settings: EntityBrowserSavedViewSettings,
 	view: Schema.NullOr(SavedViewPageIdentity),
-	target: Schema.Struct({ slug: Schema.String, kind: Schema.Literal("saved-view") }),
 });
 
 type RowsQuery = NamedQuery & { readonly output: RowsOutput };
@@ -650,9 +658,9 @@ export const entityBrowserCountRecipe = (
 
 export const ResultsTablePageInput = Schema.Struct({
 	dataSources: RyotQLDocument,
+	target: ClientPageTarget.members[0],
 	settings: ResultsTableSavedViewSettings,
 	view: Schema.NullOr(SavedViewPageIdentity),
-	target: Schema.Struct({ slug: Schema.String, kind: Schema.Literal("saved-view") }),
 });
 
 export type ResultsTableResultItem = {

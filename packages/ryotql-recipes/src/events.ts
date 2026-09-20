@@ -1,12 +1,14 @@
+import type { PluginIdentityReference } from "@ryot-app/contract/modules/plugins/references";
 import { JsonValue } from "@ryot-app/contract/modules/ryotql/language";
 import {
 	EntityId,
 	EntitySchemaSlug,
 	EventId,
 	EventSchemaSlug,
+	PluginId,
 } from "@ryot-app/contract/schema/brands";
-import type { Recipe } from "@ryot-app/ryotql";
 import {
+	schemaOwnerPredicate,
 	and,
 	column,
 	defineRecipe,
@@ -18,6 +20,7 @@ import {
 	selectedRows,
 	table,
 } from "@ryot-app/ryotql";
+import type { Recipe } from "@ryot-app/ryotql";
 import { Result, Schema } from "effect";
 
 import { IsoDateString } from "./codecs";
@@ -27,6 +30,7 @@ export { eventIsAfter, eventOrderDescending, latestEventField } from "./event-ex
 
 export const eventHistoryRecipe = defineRecipe(
 	(input: {
+		readonly owner: PluginIdentityReference | { readonly kind: "kernel" };
 		readonly after?: string | undefined;
 		readonly limit?: number | undefined;
 		readonly entityId?: string | undefined;
@@ -47,6 +51,8 @@ export const eventHistoryRecipe = defineRecipe(
 					orderBy: eventOrderDescending(event),
 					joins: [join("inner", entity, eq(column(event, "entityId"), column(entity, "id")))],
 					where: and(
+						schemaOwnerPredicate(entity, "entitySchemaPluginId", input.owner),
+						schemaOwnerPredicate(event, "eventSchemaPluginId", input.owner),
 						input.eventSchemaSlugs.length === 1
 							? eq(eventSchema, literal(input.eventSchemaSlugs[0]))
 							: inArray(
@@ -76,6 +82,10 @@ export const eventHistoryRecipe = defineRecipe(
 						sessionEntityId: selectedField(
 							column(event, "sessionEntityId"),
 							Schema.NullOr(EntityId),
+						),
+						eventSchemaPluginId: selectedField(
+							column(event, "eventSchemaPluginId"),
+							Schema.NullOr(PluginId),
 						),
 					},
 				}),

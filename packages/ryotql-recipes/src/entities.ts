@@ -1,6 +1,12 @@
 import { PopulationStatus, TranslationStatus } from "@ryot-app/contract/modules/entities/schemas";
 import { JsonValue } from "@ryot-app/contract/modules/ryotql/language";
-import { EntityId, EntitySchemaSlug, SandboxProviderId } from "@ryot-app/contract/schema/brands";
+import {
+	EntityId,
+	EntitySchemaSlug,
+	PluginId,
+	SandboxProviderId,
+	UserId,
+} from "@ryot-app/contract/schema/brands";
 import type { Recipe } from "@ryot-app/ryotql";
 import {
 	ascending,
@@ -32,6 +38,7 @@ export const entityInterestRecipe = defineRecipe(
 					selection: {
 						id: selectedField(column(entity, "id"), EntityId),
 						properties: selectedField(column(entity, "properties"), JsonValue),
+						userId: selectedField(column(entity, "userId"), Schema.NullOr(UserId)),
 						externalId: selectedField(column(entity, "externalId"), Schema.NullOr(Schema.String)),
 						entitySchemaSlug: selectedField(column(entity, "entitySchemaSlug"), EntitySchemaSlug),
 						populationStatus: selectedField(column(entity, "populationStatus"), PopulationStatus),
@@ -42,6 +49,10 @@ export const entityInterestRecipe = defineRecipe(
 						providerId: selectedField(
 							column(entity, "providerId"),
 							Schema.NullOr(SandboxProviderId),
+						),
+						entitySchemaPluginId: selectedField(
+							column(entity, "entitySchemaPluginId"),
+							Schema.NullOr(PluginId),
 						),
 					},
 				}),

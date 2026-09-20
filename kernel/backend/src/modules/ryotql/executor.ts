@@ -17,13 +17,19 @@ import type {
 	TimeSeriesResult,
 } from "@ryot-app/contract/modules/ryotql/language";
 import { isJsonValue } from "@ryot-app/contract/schema/json";
+import { sha256Hex } from "@ryot-app/ts-utils/crypto";
 import { sql } from "drizzle-orm";
 import type { EffectPgDatabase } from "drizzle-orm/effect-postgres";
 import { PgDialect } from "drizzle-orm/pg-core";
 import { DateTime, Effect, Option, Schema } from "effect";
 
 import { mapDatabaseErrors } from "#lib/infrastructure/db/errors";
+import {
+	type DefinitionReadContext,
+	pinnedDefinitionSource,
+} from "#modules/definition-registry/read-context";
 
+import { pluginIdentityReferences } from "./binding";
 import {
 	canAccessCatalogTable,
 	getCatalogTable,
@@ -56,6 +62,7 @@ type CursorValue =
 	| { readonly kind: "text"; readonly value: string };
 
 const CURSOR_VERSION = 1;
+const encodeJson = Schema.encodeSync(Schema.fromJsonString(Schema.Unknown));
 
 const identifier = (value: string): SqlFragment => sql`${sql.identifier(value)}`;
 
@@ -322,6 +329,12 @@ const compileArithmetic = (
 };
 
 const compileExpression = (expr: ScalarExpression, scope: CompileScope): SqlFragment => {
+	if (expr.type === "pluginId") {
+		if (expr.reference.kind !== "local") {
+			throw new Error("RyotQL compiler received an unresolved plugin reference");
+		}
+		return sql`${expr.reference.pluginId}::text`;
+	}
 	if (expr.type === "literal") {
 		return compileLiteral(expr);
 	}
@@ -407,6 +420,7 @@ const expressionNullable = (expr: ScalarExpression, scope: CompileScope): boolea
 		return expr.value === null;
 	}
 	if (
+		expr.type === "pluginId" ||
 		expr.type === "currentDate" ||
 		expr.type === "exists" ||
 		expr.type === "isNotNull" ||
@@ -552,6 +566,37 @@ const pluginVisibilityCondition = (
 	if (!policy) {
 		throw deniedTable(table);
 	}
+	if (policy.type === "schemaDefinition") {
+		let declared: readonly string[];
+		switch (policy.kind) {
+			case "entity":
+				declared = scope.entitySchemaSlugs;
+				break;
+			case "event":
+				if (scope.eventSchemas.length === 0) {
+					return sql`false`;
+				}
+				return sql`${identifier("plugin_id")} = ${scope.pluginId}::text AND (${sql.join(
+					scope.eventSchemas.map(
+						(event) =>
+							sql`(${identifier("slug")} = ${event.eventSchemaSlug}::text AND ${identifier("entity_schema_slug")} = ${event.entitySchemaSlug}::text)`,
+					),
+					sql` OR `,
+				)})`;
+			case "relationship":
+				declared = scope.relationshipSchemaSlugs;
+				break;
+			case "signal":
+				declared = scope.signalSchemaSlugs;
+				break;
+		}
+		return declared.length === 0
+			? sql`false`
+			: sql`${identifier("plugin_id")} = ${scope.pluginId}::text AND ${identifier("slug")} IN (${sql.join(
+					declared.map((slug) => sql`${slug}::text`),
+					sql`, `,
+				)})`;
+	}
 	if (policy.type === "eventDefinition") {
 		if (scope.eventSchemas.length === 0) {
 			return sql`false`;
@@ -563,6 +608,8 @@ const pluginVisibilityCondition = (
 		return sql`EXISTS (
 			SELECT 1 FROM entity event_scope_entity
 			WHERE event_scope_entity.id = ${qualifiedIdentifier(table.name, "entity_id")}
+			AND event_scope_entity.entity_schema_plugin_id = ${scope.pluginId}::text
+			AND ${qualifiedIdentifier(table.name, "event_schema_plugin_id")} = ${scope.pluginId}::text
 			AND (${sql.join(ownership, sql` OR `)})
 		)`;
 	}
@@ -570,16 +617,70 @@ const pluginVisibilityCondition = (
 	if (ownedSlugs.length === 0) {
 		return sql`false`;
 	}
-	const ownership = sql`${identifier(policy.column)} IN (${sql.join(
+	const ownership = sql`${identifier(policy.ownerColumn)} = ${scope.pluginId}::text AND ${identifier(policy.column)} IN (${sql.join(
 		ownedSlugs.map((slug) => sql`${slug}::text`),
 		sql`, `,
 	)})`;
+	if (policy.ownership === "relationshipSchemaSlugs") {
+		return sql`${ownership} AND EXISTS (
+			SELECT 1 FROM definition_relationship_schema declaration
+			JOIN entity relationship_source ON relationship_source.id = ${qualifiedIdentifier(table.name, "source_entity_id")}
+			JOIN entity relationship_target ON relationship_target.id = ${qualifiedIdentifier(table.name, "target_entity_id")}
+			WHERE declaration.plugin_revision_id = ${scope.pluginRevisionId}
+			AND declaration.slug = ${qualifiedIdentifier(table.name, "relationship_schema_slug")}
+			AND relationship_source.entity_schema_plugin_id = ${scope.pluginId}
+			AND relationship_target.entity_schema_plugin_id = ${scope.pluginId}
+			AND (declaration.source_entity_schema_slug IS NULL OR declaration.source_entity_schema_slug = relationship_source.entity_schema_slug)
+			AND (declaration.target_entity_schema_slug IS NULL OR declaration.target_entity_schema_slug = relationship_target.entity_schema_slug)
+		)`;
+	}
 	return policy.globalOnly ? sql`${identifier("user_id")} IS NULL AND ${ownership}` : ownership;
 };
 
 const authorizedTable = (table: CatalogTable, scope: RyotQLExecutionScope): SqlFragment => {
 	if (!canAccessCatalogTable(table, scope)) {
 		throw deniedTable(table);
+	}
+	const definition = table.visibility.plugin;
+	if (definition?.type === "schemaDefinition") {
+		let context:
+			| DefinitionReadContext
+			| Extract<RyotQLExecutionScope, { type: "plugin" }>
+			| undefined;
+		switch (scope.type) {
+			case "plugin":
+				context = scope;
+				break;
+			case "user":
+				context = scope.definitionContext;
+				break;
+			case "admin":
+				context = undefined;
+				break;
+		}
+		if (context) {
+			const pinned = pinnedDefinitionSource(
+				definition.kind,
+				context,
+				scope.type === "user" ? scope.userId : null,
+			);
+			if (scope.type === "plugin") {
+				return sql`(SELECT * FROM (${pinned}) ${identifier(table.name)} WHERE ${pluginVisibilityCondition(table, scope)})`;
+			}
+			if (scope.type === "user") {
+				const fields = sql.join(
+					Object.keys(table.fields).map((field) => {
+						const catalogField = table.fields[field];
+						if (!catalogField) {
+							throw new Error("Missing definition field");
+						}
+						return sql`${catalogField.resolve({ language: scope.language, sqlAlias: "definition_read" })} AS ${identifier(field.replace(/[A-Z]/g, (letter) => `_${letter.toLowerCase()}`))}`;
+					}),
+					sql`, `,
+				);
+				return sql`(SELECT ${fields} FROM ${identifier(table.name)} definition_read WHERE ${userVisibilityCondition(table, scope)} AND definition_read.plugin_id IS DISTINCT FROM ${context.pluginId}::text UNION ALL SELECT ${fields} FROM (${pinned}) definition_read WHERE EXISTS (SELECT 1 FROM user_plugin available WHERE available.user_id = ${scope.userId} AND available.plugin_id = ${context.pluginId} AND available.is_definition_effective))`;
+			}
+		}
 	}
 	let condition: SqlFragment | null = null;
 	if (scope.type === "user") {
@@ -767,6 +868,7 @@ const decodeCursor = Effect.fn("decodeRyotQLCursor")(function* (
 	cursor: string,
 	kinds: readonly ScalarKind[],
 	directions: readonly Order["direction"][],
+	ownerIdentity: string,
 ) {
 	if (!/^[A-Za-z0-9_-]+$/.test(cursor)) {
 		return yield* cursorError();
@@ -781,6 +883,7 @@ const decodeCursor = Effect.fn("decodeRyotQLCursor")(function* (
 	if (
 		!isRecord(decoded) ||
 		decoded["version"] !== CURSOR_VERSION ||
+		decoded["ownerIdentity"] !== ownerIdentity ||
 		!Array.isArray(decoded["directions"]) ||
 		!Array.isArray(decoded["values"])
 	) {
@@ -821,14 +924,14 @@ const decodeCursor = Effect.fn("decodeRyotQLCursor")(function* (
 	return values;
 });
 
-const encodeCursor = (values: readonly CursorValue[], directions: readonly Order["direction"][]) =>
-	Buffer.from(
-		Schema.encodeSync(Schema.fromJsonString(Schema.Unknown))({
-			values,
-			directions,
-			version: CURSOR_VERSION,
-		}),
-	).toString("base64url");
+const encodeCursor = (
+	values: readonly CursorValue[],
+	directions: readonly Order["direction"][],
+	ownerIdentity: string,
+) =>
+	Buffer.from(encodeJson({ values, directions, ownerIdentity, version: CURSOR_VERSION })).toString(
+		"base64url",
+	);
 
 const cursorSqlValue = (value: Exclude<CursorValue, { kind: "null" }>) => {
 	if (value.kind === "date") {
@@ -1427,8 +1530,21 @@ export const executeNamedQuery = Effect.fn("executeRyotQLNamedQuery")(function* 
 	const orders = appendPrimaryKeyOrders(rowsQuery, rowsQuery.output.orderBy);
 	const orderKinds = orders.map((order) => expressionKind(order.expr, scope));
 	const orderDirections = orders.map((order) => order.direction);
+	const ownerIdentity = sha256Hex(
+		encodeJson({
+			scope: executionScope,
+			references: pluginIdentityReferences({ queries: { query: rowsQuery } })
+				.map((reference) => encodeJson(reference))
+				.sort(),
+		}),
+	);
 	const cursor = rowsQuery.output.pagination.after
-		? yield* decodeCursor(rowsQuery.output.pagination.after, orderKinds, orderDirections)
+		? yield* decodeCursor(
+				rowsQuery.output.pagination.after,
+				orderKinds,
+				orderDirections,
+				ownerIdentity,
+			)
 		: undefined;
 	const raw = yield* executeSql(
 		compileRowsQuery(rowsQuery, executionScope, cursor),
@@ -1470,6 +1586,7 @@ export const executeNamedQuery = Effect.fn("executeRyotQLNamedQuery")(function* 
 					return cursorValue;
 				}),
 				orderDirections,
+				ownerIdentity,
 			)
 		: null;
 

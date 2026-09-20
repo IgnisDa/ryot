@@ -7,6 +7,7 @@ import { rowsResponse } from "./test-utils";
 
 const pageInfo = { limit: 2, hasMore: false, nextCursor: null };
 const recipe = providerEntityLinksRecipe({
+	reference: { kind: "self" },
 	librarySchemaSlug: "media-library",
 	relationshipSlug: "in-media-library",
 	externalIds: ["external-1", "external-2"],
@@ -26,7 +27,15 @@ describe("provider entity links recipe", () => {
 		expect(query.where).toMatchObject({
 			type: "and",
 			predicates: [
-				{ right: { value: "book" } },
+				{
+					predicates: [
+						{ right: { value: "book" } },
+						{
+							left: { field: "entitySchemaPluginId" },
+							right: { type: "pluginId", reference: { kind: "self" } },
+						},
+					],
+				},
 				{ right: { value: "provider-1" } },
 				{ values: [{ value: "external-1" }, { value: "external-2" }] },
 				{ type: "exists" },

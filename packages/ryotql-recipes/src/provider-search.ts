@@ -1,3 +1,4 @@
+import type { EntitySchemaReference } from "@ryot-app/contract/modules/plugins/references";
 import { EntitySchemaSlug, SandboxProviderId } from "@ryot-app/contract/schema/brands";
 import { AppSchema } from "@ryot-app/contract/schema/property-schema";
 import type { Recipe } from "@ryot-app/ryotql";
@@ -11,15 +12,13 @@ import {
 	literal,
 	selectedField,
 	selectedRows,
+	schemaOwnerPredicate,
 	table,
 } from "@ryot-app/ryotql";
 import { Result, Schema } from "effect";
 
 export const providerSearchRecipe = defineRecipe(
-	(input: {
-		readonly ownerPluginId?: string | undefined;
-		readonly rootEntitySchemaSlug: EntitySchemaSlug;
-	}) => {
+	(input: { readonly schema: EntitySchemaReference }) => {
 		const provider = table("sandboxProvider", "provider");
 		const operation = table("sandboxProviderOperation", "operation");
 		const plugin = table("plugin", "plugin");
@@ -39,10 +38,14 @@ export const providerSearchRecipe = defineRecipe(
 						join("inner", plugin, eq(column(provider, "pluginId"), column(plugin, "id"))),
 					],
 					where: and(
-						eq(column(provider, "rootEntitySchemaSlug"), literal(input.rootEntitySchemaSlug)),
-						...(input.ownerPluginId === undefined
-							? []
-							: [eq(column(provider, "pluginId"), literal(input.ownerPluginId))]),
+						eq(column(provider, "rootEntitySchemaSlug"), literal(input.schema.slug)),
+						schemaOwnerPredicate(
+							provider,
+							"pluginId",
+							input.schema.owner.kind === "kernel"
+								? input.schema.owner
+								: { kind: "local", pluginId: input.schema.owner.pluginId },
+						),
 						eq(column(operation, "operation"), literal("search")),
 						eq(column(plugin, "status"), literal("active")),
 					),

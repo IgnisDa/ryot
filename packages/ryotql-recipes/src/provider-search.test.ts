@@ -1,4 +1,4 @@
-import { EntitySchemaSlug } from "@ryot-app/contract/schema/brands";
+import { EntitySchemaSlug, PluginId } from "@ryot-app/contract/schema/brands";
 import { Result } from "effect";
 import { assert, describe, expect, it } from "vitest";
 
@@ -24,8 +24,10 @@ const provider = {
 	rootEntitySchemaSlug: "movie",
 };
 const recipe = providerSearchRecipe({
-	ownerPluginId: "stable-plugin-id",
-	rootEntitySchemaSlug: EntitySchemaSlug.make("movie"),
+	schema: {
+		slug: EntitySchemaSlug.make("movie"),
+		owner: { kind: "plugin", pluginId: PluginId.make("stable-plugin-id") },
+	},
 });
 const responseWithItems = (items: readonly unknown[]) => rowsResponse("providers", items, pageInfo);
 
@@ -52,8 +54,8 @@ describe("provider search recipe", () => {
 			predicates: [
 				{ right: { value: "movie" } },
 				{
-					right: { value: "stable-plugin-id" },
 					left: { field: "pluginId", tableAlias: "provider" },
+					right: { type: "pluginId", reference: { kind: "local", pluginId: "stable-plugin-id" } },
 				},
 				{ right: { value: "search" } },
 				{ right: { value: "active" } },
