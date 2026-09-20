@@ -37,6 +37,7 @@ export const CORE_SANDBOX_HOST_CAPABILITIES = [
 	"getPluginConfig",
 	"getSystemConfig",
 	"getUserPreferences",
+	"getUserSettings",
 	"claimPersistentValue",
 ] as const;
 
@@ -102,12 +103,11 @@ export const claimPersistentValueResultSchema = hostResultSchema(cacheClaimSchem
 export const configValuesSchema = Schema.Record(Schema.String, jsonValueSchema);
 export const getPluginConfigResultSchema = hostResultSchema(configValuesSchema);
 export const getSystemConfigResultSchema = hostResultSchema(configValuesSchema);
-export const userPreferencesSchema = strictStruct({
-	allowNsfw: Schema.Boolean,
-	disableIntegrations: Schema.Boolean,
-});
+export const userPreferencesSchema = strictStruct({ disableIntegrations: Schema.Boolean });
 export const getUserPreferencesArgsSchema = Schema.Tuple([]);
 export const getUserPreferencesResultSchema = hostResultSchema(userPreferencesSchema);
+export const getUserSettingsArgsSchema = Schema.Tuple([]);
+export const getUserSettingsResultSchema = hostResultSchema(configValuesSchema);
 export const logEntrySchema = strictStruct({
 	message: nonEmptyString,
 	level: Schema.Literals(["debug", "info", "warning", "error"]),
@@ -143,6 +143,11 @@ export const coreSandboxHostContracts = {
 		success: configValuesSchema,
 		args: getSystemConfigArgsSchema,
 		result: getSystemConfigResultSchema,
+	},
+	getUserSettings: {
+		success: configValuesSchema,
+		args: getUserSettingsArgsSchema,
+		result: getUserSettingsResultSchema,
 	},
 	getCachedValue: {
 		args: getCachedValueArgsSchema,

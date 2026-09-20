@@ -27,6 +27,7 @@ const allCapabilitiesManifest = defineManifest({
 		"getPluginConfig",
 		"getSystemConfig",
 		"getUserPreferences",
+		"getUserSettings",
 		"claimPersistentValue",
 	],
 });
@@ -70,12 +71,16 @@ defineScript({
 				"log-level",
 			]);
 			const preferences = yield* host.getUserPreferences();
-			const allowNsfw: boolean = preferences.allowNsfw;
+			const disableIntegrations: boolean = preferences.disableIntegrations;
+			const settings: Readonly<Record<string, JsonValue>> = yield* host.getUserSettings();
+			const allowNsfw: JsonValue | undefined = settings["allowNsfw"];
 			void cached;
 			void stored;
 			void pluginConfig;
 			void systemConfig;
+			void disableIntegrations;
 			void allowNsfw;
+			void settings;
 
 			const errorType: Expect<
 				Equal<Effect.Error<ReturnType<typeof host.httpCall>>, SandboxHostError>

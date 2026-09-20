@@ -149,6 +149,18 @@ const eventSchemas = (manifest: PluginManifest) =>
 export const validateAdditiveSchemaEvolution = (previous: PluginManifest, next: PluginManifest) =>
 	Effect.gen(function* () {
 		const issues: Array<SchemaEvolutionIssue> = [];
+		if (previous.userSettingsSchema) {
+			if (!next.userSettingsSchema) {
+				issues.push({ path: "userSettings", code: "schema_removed" });
+			} else {
+				compareAppSchema(
+					"userSettings",
+					previous.userSettingsSchema,
+					next.userSettingsSchema,
+					issues,
+				);
+			}
+		}
 		compareDefinitions("entity", previous.entitySchemas, next.entitySchemas, issues);
 		compareDefinitions("event", eventSchemas(previous), eventSchemas(next), issues);
 		compareDefinitions(

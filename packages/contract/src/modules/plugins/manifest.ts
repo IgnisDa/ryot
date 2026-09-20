@@ -133,6 +133,39 @@ const AppSchemaWithoutUploads = Schema.toType(AppSchema).pipe(
 
 const PluginAppSchema = AppSchemaWithoutUploads.pipe(Schema.check(rejectsOAuthConnectionFormats));
 
+const hasSecretField = (property: AppPropertyDefinition): boolean =>
+	property.secret === true ||
+	(property.type === "array" && hasSecretField(property.items)) ||
+	(property.type === "object" && Object.values(property.properties).some(hasSecretField));
+
+const isUserSettingsProperty = (property: AppPropertyDefinition): boolean => {
+	if (property.type === "object") {
+		return false;
+	}
+	if (property.type === "array") {
+		return ["boolean", "integer", "number", "string"].includes(property.items.type);
+	}
+	if (property.type === "enum" || property.type === "enum-array") {
+		return property.choices.kind === "static";
+	}
+	return true;
+};
+
+export const PluginUserSettingsSchema = PluginAppSchema.pipe(
+	Schema.check(
+		Schema.makeFilter(
+			(schema) =>
+				Object.values(schema.fields).every((property) => !hasSecretField(property)) ||
+				"Plugin user settings cannot contain secret fields",
+		),
+		Schema.makeFilter(
+			(schema) =>
+				Object.values(schema.fields).every(isUserSettingsProperty) ||
+				"Plugin user settings require primitive fields, primitive arrays, or static choices",
+		),
+	),
+);
+
 const IntegrationSettingsSchema = AppSchemaWithoutUploads.pipe(
 	Schema.check(
 		Schema.makeFilter(
@@ -765,6 +798,7 @@ const PluginManifestAuthoredFields = {
 	importSources: Schema.Array(PluginImportSource),
 	userBootstrap: Schema.Array(PluginUserBootstrap),
 	relationshipSchemas: Schema.Array(PluginRelationshipSchema),
+	userSettingsSchema: Schema.optional(PluginUserSettingsSchema),
 	integrationProviders: Schema.Array(PluginIntegrationProvider),
 	oauthProviders: Schema.optional(Schema.Array(PluginOAuthProvider)),
 };

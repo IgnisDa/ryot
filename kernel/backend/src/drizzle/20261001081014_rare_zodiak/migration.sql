@@ -638,6 +638,7 @@ CREATE TABLE "plugin_installation" (
 	"configured_secret_paths" text[] DEFAULT '{}'::text[] NOT NULL,
 	"created_at" timestamp with time zone DEFAULT now() NOT NULL,
 	"client_config" jsonb DEFAULT '{}' NOT NULL,
+	"user_settings" jsonb DEFAULT '{}' NOT NULL,
 	"user_id" text NOT NULL,
 	"active_config_revision_id" text,
 	"plugin_id" text NOT NULL,
