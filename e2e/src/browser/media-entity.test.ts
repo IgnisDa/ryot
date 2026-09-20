@@ -17,6 +17,7 @@ import { requirePresent } from "~/support/assertions";
 import { browserLayer, signInThroughHostedOAuth } from "~/support/browser";
 import { expect, it } from "~/support/effect-test";
 import { getApiUrl, getFrontendUrl } from "~/support/harness-target";
+import { webRequest } from "~/support/web-request";
 
 const SHOW_NAME = "Media Entity Tracer Show";
 const SHOW_COVER = `<svg xmlns="http://www.w3.org/2000/svg" width="60" height="90"><rect width="60" height="90" fill="#8b5cf6"/></svg>`;
@@ -100,13 +101,11 @@ it.live("opens a Media Show entity from the canonical saved-view route", () =>
 				payload: { kind: "permanent", fileName: "show-cover.svg", contentType: "image/svg+xml" },
 			}),
 		);
-		const upload = yield* Effect.promise(() =>
-			fetch(new URL(intent.uploadUrl, `${apiUrl}/`), {
-				body: SHOW_COVER,
-				method: intent.method,
-				headers: intent.headers,
-			}),
-		);
+		const upload = yield* webRequest(new URL(intent.uploadUrl, `${apiUrl}/`), {
+			body: SHOW_COVER,
+			method: intent.method,
+			headers: intent.headers,
+		});
 		expect([200, 204]).toContain(upload.status);
 		const cover = yield* client.call((c) =>
 			c.uploads.completeIntent({ params: { intentId: intent.intentId } }),

@@ -37,8 +37,8 @@ let fakeApprise: FakeHttpServer;
 let movieProvider: InstalledTestProvider;
 let personProvider: InstalledTestProvider;
 
-beforeAll(async () => {
-	await Effect.runPromise(
+beforeAll(() =>
+	Effect.runPromise(
 		Effect.gen(function* () {
 			const { client } = yield* createAuthenticatedClient();
 			const personSchemaId = yield* getBuiltinEntitySchemaSlug(client, "person");
@@ -82,14 +82,12 @@ beforeAll(async () => {
 				providerId: personProvider.providerId,
 			});
 			personEntityId = person.id;
+			fakeApprise = yield* startFakeAppriseServer;
 		}),
-	);
-	fakeApprise = await startFakeAppriseServer();
-});
+	),
+);
 
-afterAll(() => {
-	fakeApprise.stop();
-});
+afterAll(() => fakeApprise.stop());
 
 it.live("notifies only a credited person's monitor once per role on first media population", () =>
 	Effect.gen(function* () {

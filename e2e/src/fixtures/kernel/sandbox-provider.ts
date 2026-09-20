@@ -1,5 +1,3 @@
-import { randomUUID } from "node:crypto";
-
 import type { PluginManifest } from "@ryot-app/contract/modules/plugins/manifest";
 import type { SandboxProviderId, SandboxScriptId } from "@ryot-app/contract/schema/brands";
 import type { AppSchema } from "@ryot-app/contract/schema/property-schema";
@@ -67,7 +65,7 @@ export const installTestProvider = (input: {
 	Effect.gen(function* () {
 		const name = input.name ?? "E2E Provider Script";
 		const information = input.information ?? { source: "e2e" };
-		const providerSlug = input.slug ?? `e2e-provider-${randomUUID()}`;
+		const providerSlug = input.slug ?? `e2e-provider-${crypto.randomUUID()}`;
 		const operations: Array<{
 			delayMs?: number;
 			executionFailure?: string;

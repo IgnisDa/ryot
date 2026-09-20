@@ -1,4 +1,4 @@
-import { Effect, Option } from "effect";
+import { Effect, Option, Schema } from "effect";
 import { Playwright, PlaywrightSpawner } from "effect-playwright";
 
 import {
@@ -32,6 +32,7 @@ import { requirePresent } from "~/support/assertions";
 import { browserLayer, signInThroughHostedOAuth } from "~/support/browser";
 import { expect, it } from "~/support/effect-test";
 import { getApiUrl, getFrontendUrl } from "~/support/harness-target";
+import { webRequest } from "~/support/web-request";
 
 const expectVisibleText = (locator: Playwright.Locator, text: string) =>
 	Effect.gen(function* () {
@@ -46,7 +47,9 @@ const activeClientFrame = (page: Playwright.Page) =>
 const clientImportUrl = (frame: Playwright.Locator, specifier: string) =>
 	Effect.gen(function* () {
 		const text = yield* frame.contentFrame().locator("#ryot-client-importmap").textContent();
-		const map: unknown = JSON.parse(requirePresent(text, "Client import map is missing"));
+		const map = yield* Schema.decodeEffect(Schema.fromJsonString(Schema.Unknown))(
+			requirePresent(text, "Client import map is missing"),
+		);
 		if (typeof map !== "object" || map === null || !("imports" in map)) {
 			throw new Error("Client import map has no imports");
 		}
@@ -153,6 +156,7 @@ it.live("renders a saved view from an installed client plugin page", () =>
 		);
 		const runtimeUrl = yield* clientImportUrl(frame, "@ryot-app/client-sdk/plugin");
 		expect(runtimeUrl).toMatch(/^\/api\/client-assets\/[a-f0-9]{64}\/public\//);
+		// oxlint-disable-next-line effecttsgo/async-function -- effect-playwright page.use awaits a native Playwright request callback.
 		const runtimeCache = yield* page.use(async (nativePage) => {
 			const response = await nativePage.context().request.get(new URL(runtimeUrl, apiUrl).href);
 			const cache = response.headers()["cache-control"];
@@ -362,6 +366,7 @@ it.live("warms private Pokemon presentation files without evaluating them until 
 		expect(
 			warmedFiles.some((path) => path.startsWith(`${privateBase}asset-`) && path.endsWith(".png")),
 		).toBe(true);
+		// oxlint-disable-next-line effecttsgo/async-function -- effect-playwright page.use awaits native Playwright request events.
 		yield* page.use(async (nativePage) => {
 			await Promise.all(
 				warmedFiles.map((path) =>
@@ -383,6 +388,7 @@ it.live("warms private Pokemon presentation files without evaluating them until 
 
 		const blocked: string[] = [];
 		yield* page.use((nativePage) =>
+			// oxlint-disable-next-line effecttsgo/async-function -- Playwright route handlers require a Promise callback to abort a browser request.
 			nativePage.route(`**${privateBase}*`, async (route) => {
 				blocked.push(new URL(route.request().url()).pathname);
 				await route.abort();
@@ -484,13 +490,11 @@ it.live("keeps one rich mixed entity browser runtime across pagination and layou
 						payload: { fileName, kind: "permanent", contentType: "image/svg+xml" },
 					}),
 				);
-				const upload = yield* Effect.promise(() =>
-					fetch(new URL(intent.uploadUrl, `${apiUrl}/`), {
-						body: source,
-						method: intent.method,
-						headers: intent.headers,
-					}),
-				);
+				const upload = yield* webRequest(new URL(intent.uploadUrl, `${apiUrl}/`), {
+					body: source,
+					method: intent.method,
+					headers: intent.headers,
+				});
 				expect([200, 204]).toContain(upload.status);
 				const artwork = yield* client.call((c) =>
 					c.uploads.completeIntent({ params: { intentId: intent.intentId } }),
@@ -721,7 +725,9 @@ it.live("keeps one rich mixed entity browser runtime across pagination and layou
 		expect(fontRequests.length).toBeGreaterThan(0);
 		expect(fontRequests.every((path) => path.startsWith(runtimeBase))).toBe(true);
 		expect(yield* pokemonGrid.getAttribute("data-view-context")).toBe(
-			JSON.stringify({ savedViewId: viewRecord.slug }),
+			yield* Schema.encodeEffect(Schema.fromJsonString(Schema.Unknown))({
+				savedViewId: viewRecord.slug,
+			}),
 		);
 
 		yield* runtime.getByRole("radio", { name: "List view" }).click();
@@ -732,7 +738,9 @@ it.live("keeps one rich mixed entity browser runtime across pagination and layou
 		yield* expectRichEntities(showList, workoutList, pokemonList);
 		expect(yield* runtime.locator("article").count).toBe(5);
 		expect(yield* pokemonList.getAttribute("data-view-context")).toBe(
-			JSON.stringify({ savedViewId: viewRecord.slug }),
+			yield* Schema.encodeEffect(Schema.fromJsonString(Schema.Unknown))({
+				savedViewId: viewRecord.slug,
+			}),
 		);
 		expect(yield* runtime.locator("body").getAttribute("data-e2e-page")).toBe("stable");
 		expect(yield* frame.evaluate((current, initial) => current === initial, iframe)).toBe(true);

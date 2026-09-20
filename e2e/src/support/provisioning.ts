@@ -1,7 +1,4 @@
-import { spawn } from "node:child_process";
-import { EventEmitter, once } from "node:events";
 import { tmpdir } from "node:os";
-import { join } from "node:path";
 
 import { CreateBucketCommand, S3Client } from "@aws-sdk/client-s3";
 import {
@@ -9,7 +6,10 @@ import {
 	type StartedPostgresContainer,
 	stopPostgresContainer,
 } from "@ryot-app/testing/postgres-container";
+import { Effect } from "effect";
 import { GenericContainer, type StartedTestContainer, Wait } from "testcontainers";
+
+import { webRequest } from "./web-request";
 
 const S3_ACCESS_KEY = "rustfsadmin";
 const S3_SECRET_KEY = "rustfsadmin";
@@ -25,56 +25,68 @@ export type CoreTestInfrastructure = {
 	redisContainer: StartedTestContainer;
 };
 
-export async function startCoreTestInfrastructure(input: {
-	bucketName: string;
-}): Promise<CoreTestInfrastructure> {
-	const [postgres, redisContainer, s3Container] = await Promise.all([
-		startPostgresContainer({ label: "e2e" }),
-		new GenericContainer("redis:alpine")
-			.withExposedPorts(6379)
-			.withWaitStrategy(Wait.forLogMessage("Ready to accept connections"))
-			.start(),
-		new GenericContainer("rustfs/rustfs")
-			.withExposedPorts(9000)
-			.withWaitStrategy(Wait.forHttp("/health", 9000))
-			.start(),
-	]);
+export const startCoreTestInfrastructure = (input: { bucketName: string }) =>
+	Effect.gen(function* () {
+		const [postgres, redisContainer, s3Container] = yield* Effect.all(
+			[
+				Effect.promise(() => startPostgresContainer({ label: "e2e" })),
+				Effect.promise(() =>
+					new GenericContainer("redis:alpine")
+						.withExposedPorts(6379)
+						.withWaitStrategy(Wait.forLogMessage("Ready to accept connections"))
+						.start(),
+				),
+				Effect.promise(() =>
+					new GenericContainer("rustfs/rustfs")
+						.withExposedPorts(9000)
+						.withWaitStrategy(Wait.forHttp("/health", 9000))
+						.start(),
+				),
+			],
+			{ concurrency: "unbounded" },
+		);
 
-	const redisUrl = `redis://${redisContainer.getHost()}:${redisContainer.getMappedPort(6379)}`;
-	const s3Endpoint = `http://${s3Container.getHost()}:${s3Container.getMappedPort(9000)}`;
+		const redisUrl = `redis://${redisContainer.getHost()}:${redisContainer.getMappedPort(6379)}`;
+		const s3Endpoint = `http://${s3Container.getHost()}:${s3Container.getMappedPort(9000)}`;
 
-	const s3Client = new S3Client({
-		region: "us-east-1",
-		endpoint: s3Endpoint,
-		forcePathStyle: true,
-		credentials: { accessKeyId: S3_ACCESS_KEY, secretAccessKey: S3_SECRET_KEY },
+		const s3Client = new S3Client({
+			region: "us-east-1",
+			endpoint: s3Endpoint,
+			forcePathStyle: true,
+			credentials: { accessKeyId: S3_ACCESS_KEY, secretAccessKey: S3_SECRET_KEY },
+		});
+
+		yield* Effect.promise(() =>
+			s3Client.send(new CreateBucketCommand({ Bucket: input.bucketName })),
+		);
+
+		return {
+			postgres,
+			redisUrl,
+			s3Client,
+			s3Endpoint,
+			s3Container,
+			redisContainer,
+			dbUrl: postgres.url,
+			pgLogPath: postgres.logPath,
+		} satisfies CoreTestInfrastructure;
 	});
 
-	await s3Client.send(new CreateBucketCommand({ Bucket: input.bucketName }));
+export const stopCoreTestInfrastructure = (infrastructure?: CoreTestInfrastructure) =>
+	Effect.gen(function* () {
+		if (!infrastructure) {
+			return;
+		}
 
-	return {
-		postgres,
-		redisUrl,
-		s3Client,
-		s3Endpoint,
-		s3Container,
-		redisContainer,
-		dbUrl: postgres.url,
-		pgLogPath: postgres.logPath,
-	};
-}
-
-export async function stopCoreTestInfrastructure(infrastructure?: CoreTestInfrastructure) {
-	if (!infrastructure) {
-		return;
-	}
-
-	await Promise.all([
-		stopPostgresContainer(infrastructure.postgres),
-		infrastructure.s3Container.stop(),
-		infrastructure.redisContainer.stop(),
-	]);
-}
+		yield* Effect.all(
+			[
+				Effect.promise(() => stopPostgresContainer(infrastructure.postgres)),
+				Effect.promise(() => infrastructure.s3Container.stop()),
+				Effect.promise(() => infrastructure.redisContainer.stop()),
+			],
+			{ concurrency: "unbounded" },
+		);
+	});
 
 export function buildApiEnv(input: {
 	port: number;
@@ -87,7 +99,7 @@ export function buildApiEnv(input: {
 	extraEnv?: Record<string, string | undefined>;
 }): NodeJS.ProcessEnv {
 	const safeLabel = input.label.toLowerCase().replace(/[^a-z0-9]+/g, "-");
-	const logFile = join(tmpdir(), `ryot-e2e-${safeLabel}-${Date.now()}-${input.port}.log`);
+	const logFile = `${tmpdir()}/ryot-e2e-${safeLabel}-${Date.now()}-${input.port}.log`;
 	console.log(`[${input.label}] api logs -> ${logFile}`);
 
 	return {
@@ -115,51 +127,42 @@ export function buildApiEnv(input: {
 }
 
 export function spawnApiProcess(env: NodeJS.ProcessEnv, cwd = "../apps/server") {
-	return spawn("bun", ["run", "src/main.ts"], { env, cwd, stdio: "ignore" });
+	return Bun.spawn(["bun", "run", "src/main.ts"], {
+		env,
+		cwd,
+		stdin: "ignore",
+		stdout: "ignore",
+		stderr: "ignore",
+	});
 }
 
-export async function waitForHealthCheck(
+export const waitForHealthCheck = (
 	url: string,
 	label: string,
 	maxRetries = 30,
 	retryDelay = 1000,
-) {
-	const wait = () => new Promise((resolve) => setTimeout(resolve, retryDelay));
-
-	const attempt = async (remainingRetries: number): Promise<void> => {
-		try {
-			const response = await fetch(url);
-			if (response.ok) {
+) =>
+	Effect.gen(function* () {
+		for (let attempt = 0; attempt < maxRetries; attempt += 1) {
+			const healthy = yield* webRequest(url).pipe(
+				Effect.map((response) => response.ok),
+				Effect.orElseSucceed(() => false),
+			);
+			if (healthy) {
 				return;
 			}
-		} catch {}
-
-		if (remainingRetries <= 1) {
-			throw new Error(`[${label}] Health check failed for ${url} after ${maxRetries} retries`);
+			if (attempt < maxRetries - 1) {
+				yield* Effect.sleep(retryDelay);
+			}
 		}
+		throw new Error(`[${label}] Health check failed for ${url} after ${maxRetries} retries`);
+	});
 
-		await wait();
-		return attempt(remainingRetries - 1);
-	};
-
-	return attempt(maxRetries);
-}
-
-export async function stopApiProcess(proc?: ReturnType<typeof spawn>) {
-	return stopProcess(proc, "API");
-}
-
-async function stopProcess(proc: ReturnType<typeof spawn> | undefined, label: string) {
-	if (proc?.exitCode !== null || proc.killed) {
-		return;
-	}
-
-	if (!(proc instanceof EventEmitter)) {
-		throw new TypeError(`${label} process is not an event emitter`);
-	}
-
-	const exited = once(proc, "exit");
-	if (proc.kill("SIGINT")) {
-		await exited;
-	}
-}
+export const stopApiProcess = (proc?: ReturnType<typeof spawnApiProcess>) =>
+	Effect.gen(function* () {
+		if (proc?.exitCode !== null || proc.killed) {
+			return;
+		}
+		proc.kill("SIGINT");
+		yield* Effect.promise(() => proc.exited);
+	});

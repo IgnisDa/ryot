@@ -22,13 +22,15 @@ import type { FakeHttpServer } from "~/support/fake-http-server";
 
 let fakeApprise: FakeHttpServer;
 
-beforeAll(async () => {
-	fakeApprise = await startFakeAppriseServer();
-});
+beforeAll(() =>
+	Effect.runPromise(
+		Effect.gen(function* () {
+			fakeApprise = yield* startFakeAppriseServer;
+		}),
+	),
+);
 
-afterAll(() => {
-	fakeApprise.stop();
-});
+afterAll(() => fakeApprise.stop());
 
 function pollNotificationBodies(key: string, count: number) {
 	return pollUntil(

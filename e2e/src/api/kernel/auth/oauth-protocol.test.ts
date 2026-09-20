@@ -20,6 +20,7 @@ import {
 import { requirePresent } from "~/support/assertions";
 import { beforeAll, describe, expect, it } from "~/support/effect-test";
 import { getApiUrl } from "~/support/harness-target";
+import { webRequest } from "~/support/web-request";
 
 const OAUTH_REGISTER_PATH = "/api/auth/oauth2/register";
 const PLUGIN_EVENTS_PATH = "/plugins/events";
@@ -32,19 +33,20 @@ const callbackFrom = (response: Response, pending: PendingOAuth) =>
 		pending.serverOrigin,
 	);
 
-const authorize = async (cookie: string, configure?: (authorizationUrl: URL) => void) => {
-	const pending = await prepareOAuth(getApiUrl());
-	const authorizationUrl = new URL(pending.authorizationUrl);
-	configure?.(authorizationUrl);
-	const response = await fetch(authorizationUrl, {
-		redirect: "manual",
-		headers: { Cookie: cookie },
+const authorize = (cookie: string, configure?: (authorizationUrl: URL) => void) =>
+	Effect.gen(function* () {
+		const pending = yield* prepareOAuth(getApiUrl());
+		const authorizationUrl = new URL(pending.authorizationUrl);
+		configure?.(authorizationUrl);
+		const response = yield* webRequest(authorizationUrl, {
+			redirect: "manual",
+			headers: { Cookie: cookie },
+		});
+		return { pending, response, callback: callbackFrom(response, pending) };
 	});
-	return { pending, response, callback: callbackFrom(response, pending) };
-};
 
 const exchangeCode = (pending: PendingOAuth, code: string, codeVerifier: string) =>
-	fetch(getOAuthEndpoint(pending.serverOrigin, OAUTH_TOKEN_PATH), {
+	webRequest(getOAuthEndpoint(pending.serverOrigin, OAUTH_TOKEN_PATH), {
 		method: "POST",
 		headers: { "content-type": "application/x-www-form-urlencoded" },
 		body: new URLSearchParams({
@@ -57,20 +59,24 @@ const exchangeCode = (pending: PendingOAuth, code: string, codeVerifier: string)
 		}),
 	});
 
-beforeAll(async () => {
-	const user = await Effect.runPromise(createTestUser());
-	sessionCookie = user.sessionCookie;
-});
+beforeAll(() =>
+	Effect.runPromise(
+		Effect.gen(function* () {
+			const user = yield* createTestUser();
+			sessionCookie = user.sessionCookie;
+		}),
+	),
+);
 
 describe("OAuth protocol enforcement", () => {
 	it.live("rejects authorization without a PKCE challenge", () =>
 		Effect.gen(function* () {
-			const pending = yield* Effect.promise(() => prepareOAuth(getApiUrl()));
+			const pending = yield* prepareOAuth(getApiUrl());
 			const authorizationUrl = new URL(pending.authorizationUrl);
 			authorizationUrl.searchParams.delete("code_challenge");
 			authorizationUrl.searchParams.delete("code_challenge_method");
 
-			const response = yield* Effect.promise(() => fetch(authorizationUrl, { redirect: "manual" }));
+			const response = yield* webRequest(authorizationUrl, { redirect: "manual" });
 			const callback = callbackFrom(response, pending);
 
 			expect(response.status).toBe(302);
@@ -85,11 +91,11 @@ describe("OAuth protocol enforcement", () => {
 	it.live("rejects an unregistered redirect URI", () =>
 		Effect.gen(function* () {
 			const unregisteredRedirectUri = "https://unregistered.example/auth/callback";
-			const pending = yield* Effect.promise(() => prepareOAuth(getApiUrl()));
+			const pending = yield* prepareOAuth(getApiUrl());
 			const authorizationUrl = new URL(pending.authorizationUrl);
 			authorizationUrl.searchParams.set("redirect_uri", unregisteredRedirectUri);
 
-			const response = yield* Effect.promise(() => fetch(authorizationUrl, { redirect: "manual" }));
+			const response = yield* webRequest(authorizationUrl, { redirect: "manual" });
 			const callback = callbackFrom(response, pending);
 
 			expect(response.status).toBe(302);
@@ -102,12 +108,10 @@ describe("OAuth protocol enforcement", () => {
 	it.live("accepts both registered native callback URIs", () =>
 		Effect.gen(function* () {
 			for (const redirectUri of OAUTH_NATIVE_CALLBACK_URIS) {
-				const { callback, response } = yield* Effect.promise(() =>
-					authorize(sessionCookie, (authorizationUrl) => {
-						authorizationUrl.searchParams.set("client_id", OAUTH_NATIVE_CLIENT_ID);
-						authorizationUrl.searchParams.set("redirect_uri", redirectUri);
-					}),
-				);
+				const { callback, response } = yield* authorize(sessionCookie, (authorizationUrl) => {
+					authorizationUrl.searchParams.set("client_id", OAUTH_NATIVE_CLIENT_ID);
+					authorizationUrl.searchParams.set("redirect_uri", redirectUri);
+				});
 
 				expect(response.status).toBe(302);
 				expect(`${callback.protocol}${callback.pathname}`).toBe(redirectUri);
@@ -119,15 +123,13 @@ describe("OAuth protocol enforcement", () => {
 
 	it.live("rejects a valid code exchanged with the wrong verifier", () =>
 		Effect.gen(function* () {
-			const { pending, callback } = yield* Effect.promise(() => authorize(sessionCookie));
+			const { pending, callback } = yield* authorize(sessionCookie);
 			const code = requirePresent(
 				callback.searchParams.get("code"),
 				"OAuth authorization did not return a code",
 			);
 
-			const response = yield* Effect.promise(() =>
-				exchangeCode(pending, code, crypto.randomUUID()),
-			);
+			const response = yield* exchangeCode(pending, code, crypto.randomUUID());
 
 			expect(response.status).toBe(401);
 			expect(yield* Effect.promise(() => response.json())).toMatchObject({
@@ -139,18 +141,14 @@ describe("OAuth protocol enforcement", () => {
 
 	it.live("rejects replay of a successfully exchanged authorization code", () =>
 		Effect.gen(function* () {
-			const { pending, callback } = yield* Effect.promise(() => authorize(sessionCookie));
+			const { pending, callback } = yield* authorize(sessionCookie);
 			const code = requirePresent(
 				callback.searchParams.get("code"),
 				"OAuth authorization did not return a code",
 			);
 
-			const firstResponse = yield* Effect.promise(() =>
-				exchangeCode(pending, code, pending.codeVerifier),
-			);
-			const replayResponse = yield* Effect.promise(() =>
-				exchangeCode(pending, code, pending.codeVerifier),
-			);
+			const firstResponse = yield* exchangeCode(pending, code, pending.codeVerifier);
+			const replayResponse = yield* exchangeCode(pending, code, pending.codeVerifier);
 
 			expect(firstResponse.status).toBe(200);
 			expect(replayResponse.status).toBe(400);
@@ -164,16 +162,14 @@ describe("OAuth protocol enforcement", () => {
 	it.live("rotates a valid refresh token and accepts the new access token", () =>
 		Effect.gen(function* () {
 			const baseUrl = getApiUrl();
-			const { pending, response } = yield* Effect.promise(() => authorize(sessionCookie));
-			const initial = yield* Effect.promise(() => exchangeOAuthTokens(response, pending));
+			const { pending, response } = yield* authorize(sessionCookie);
+			const initial = yield* exchangeOAuthTokens(response, pending);
 			const initialRefreshToken = requirePresent(
 				initial.refresh_token,
 				"OAuth exchange did not return a refresh token",
 			);
 
-			const refreshResponse = yield* Effect.promise(() =>
-				refreshOAuthTokens(baseUrl, initialRefreshToken),
-			);
+			const refreshResponse = yield* refreshOAuthTokens(baseUrl, initialRefreshToken);
 			expect(refreshResponse.status).toBe(200);
 			const rotated = yield* Schema.decodeUnknownEffect(OAuthTokenResponse)(
 				yield* Effect.promise(() => refreshResponse.json()),
@@ -186,10 +182,10 @@ describe("OAuth protocol enforcement", () => {
 			expect(rotated.access_token).not.toBe(initial.access_token);
 			expect(rotatedRefreshToken).not.toBe(initialRefreshToken);
 
-			const apiResponse = yield* Effect.promise(() =>
-				fetch(`${baseUrl}${PLUGIN_EVENTS_PATH}`, {
-					headers: { Authorization: `Bearer ${rotated.access_token}` },
-				}),
+			const apiResponse = yield* webRequest(
+				`${baseUrl}${PLUGIN_EVENTS_PATH}`,
+				{ headers: { Authorization: `Bearer ${rotated.access_token}` } },
+				{ stream: true },
 			);
 			expect(apiResponse.status).toBe(200);
 			yield* Effect.promise(() => apiResponse.body?.cancel() ?? Promise.resolve());
@@ -199,15 +195,16 @@ describe("OAuth protocol enforcement", () => {
 	it.live("rejects refresh after the refresh token is revoked", () =>
 		Effect.gen(function* () {
 			const baseUrl = getApiUrl();
-			const { pending, response } = yield* Effect.promise(() => authorize(sessionCookie));
-			const tokens = yield* Effect.promise(() => exchangeOAuthTokens(response, pending));
+			const { pending, response } = yield* authorize(sessionCookie);
+			const tokens = yield* exchangeOAuthTokens(response, pending);
 			const refreshToken = requirePresent(
 				tokens.refresh_token,
 				"OAuth exchange did not return a refresh token",
 			);
 
-			const revocationResponse = yield* Effect.promise(() =>
-				fetch(getOAuthEndpoint(pending.serverOrigin, OAUTH_REVOKE_PATH), {
+			const revocationResponse = yield* webRequest(
+				getOAuthEndpoint(pending.serverOrigin, OAUTH_REVOKE_PATH),
+				{
 					method: "POST",
 					headers: { "content-type": "application/x-www-form-urlencoded" },
 					body: new URLSearchParams({
@@ -215,13 +212,11 @@ describe("OAuth protocol enforcement", () => {
 						client_id: OAUTH_WEB_CLIENT_ID,
 						token_type_hint: "refresh_token",
 					}),
-				}),
+				},
 			);
 			expect(revocationResponse.status).toBe(200);
 
-			const refreshResponse = yield* Effect.promise(() =>
-				refreshOAuthTokens(baseUrl, refreshToken),
-			);
+			const refreshResponse = yield* refreshOAuthTokens(baseUrl, refreshToken);
 			expect(refreshResponse.status).toBe(400);
 			expect(yield* Effect.promise(() => refreshResponse.json())).toMatchObject({
 				error: "invalid_grant",
@@ -232,15 +227,13 @@ describe("OAuth protocol enforcement", () => {
 	it.live("rejects an ID token at the application API boundary", () =>
 		Effect.gen(function* () {
 			const baseUrl = getApiUrl();
-			const { pending, response } = yield* Effect.promise(() => authorize(sessionCookie));
-			const tokens = yield* Effect.promise(() => exchangeOAuthTokens(response, pending));
+			const { pending, response } = yield* authorize(sessionCookie);
+			const tokens = yield* exchangeOAuthTokens(response, pending);
 			const idToken = requirePresent(tokens.id_token, "OAuth exchange did not return an ID token");
 
-			const apiResponse = yield* Effect.promise(() =>
-				fetch(`${baseUrl}${PLUGIN_EVENTS_PATH}`, {
-					headers: { Authorization: `Bearer ${idToken}` },
-				}),
-			);
+			const apiResponse = yield* webRequest(`${baseUrl}${PLUGIN_EVENTS_PATH}`, {
+				headers: { Authorization: `Bearer ${idToken}` },
+			});
 			expect(apiResponse.status).toBe(401);
 		}),
 	);
@@ -248,20 +241,23 @@ describe("OAuth protocol enforcement", () => {
 	it.live("does not advertise or permit dynamic registration", () =>
 		Effect.gen(function* () {
 			const apiUrl = getApiUrl();
-			const discoveryResponse = yield* Effect.promise(() =>
-				fetch(`${apiUrl}/auth/.well-known/openid-configuration`),
+			const discoveryResponse = yield* webRequest(
+				`${apiUrl}/auth/.well-known/openid-configuration`,
 			);
 			const discovery: unknown = yield* Effect.promise(() => discoveryResponse.json());
 
 			expect(discoveryResponse.status).toBe(200);
 			expect(discovery).not.toHaveProperty("registration_endpoint");
 
-			const registrationResponse = yield* Effect.promise(() =>
-				fetch(getOAuthEndpoint(new URL(apiUrl).origin, OAUTH_REGISTER_PATH), {
+			const registrationResponse = yield* webRequest(
+				getOAuthEndpoint(new URL(apiUrl).origin, OAUTH_REGISTER_PATH),
+				{
 					method: "POST",
 					headers: { "content-type": "application/json" },
-					body: JSON.stringify({ redirect_uris: ["https://client.example/callback"] }),
-				}),
+					body: yield* Schema.encodeEffect(Schema.fromJsonString(Schema.Unknown))({
+						redirect_uris: ["https://client.example/callback"],
+					}),
+				},
 			);
 			expect(registrationResponse.status).toBe(403);
 			expect(yield* Effect.promise(() => registrationResponse.json())).toMatchObject({

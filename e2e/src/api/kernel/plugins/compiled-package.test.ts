@@ -23,6 +23,7 @@ import {
 import { assertTaggedError } from "~/support/assertions";
 import { expect, it } from "~/support/effect-test";
 import { getApiUrl } from "~/support/harness-target";
+import { webRequest } from "~/support/web-request";
 
 it.live("rejects a system built-in slug already owned by another user's custom view", () =>
 	Effect.gen(function* () {
@@ -124,8 +125,8 @@ it.live(
 				{},
 			);
 			const page = yield* prepareClientPage(client, view.slug);
-			const documentResponse = yield* Effect.promise(() =>
-				fetch(new URL(page.composition.documentGrant.src, `${apiUrl}/`)),
+			const documentResponse = yield* webRequest(
+				new URL(page.composition.documentGrant.src, `${apiUrl}/`),
 			);
 			expect(documentResponse.status).toBe(200);
 			expect(documentResponse.headers.get("cache-control")).toBe("private, no-store");
@@ -137,13 +138,13 @@ it.live(
 			if (!assetPath) {
 				throw new Error("Installed system plugin asset URL is missing");
 			}
-			const assetResponse = yield* Effect.promise(() => fetch(new URL(assetPath, `${apiUrl}/`)));
+			const assetResponse = yield* webRequest(new URL(assetPath, `${apiUrl}/`));
 			expect(assetResponse.status).toBe(200);
 			expect(assetResponse.headers.get("cache-control")).toBe(
 				"private, max-age=31536000, immutable",
 			);
-			const publicResponse = yield* Effect.promise(() =>
-				fetch(new URL(`/api/client-assets/${artifactHash}/public/module.js`, `${apiUrl}/`)),
+			const publicResponse = yield* webRequest(
+				new URL(`/api/client-assets/${artifactHash}/public/module.js`, `${apiUrl}/`),
 			);
 			expect(publicResponse.status).toBe(404);
 			const removed = yield* getApiClient().call(

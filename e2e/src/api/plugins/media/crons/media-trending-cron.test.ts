@@ -47,8 +47,8 @@ let mediaTrendingSchemaId: string;
 let trendingPlugin: InstalledTestPlugin | undefined;
 
 describe("POST /test-support/cron/plugin (media-trending cron)", () => {
-	beforeAll(async () => {
-		await Effect.runPromise(
+	beforeAll(() =>
+		Effect.runPromise(
 			Effect.gen(function* () {
 				const { client } = yield* createAuthenticatedClient();
 				queryClient = client;
@@ -136,14 +136,10 @@ describe("POST /test-support/cron/plugin (media-trending cron)", () => {
 				trendingPluginSlug = installed.manifest.metadata.slug;
 				trendingPlugin = installed;
 			}),
-		);
-	});
+		),
+	);
 
-	afterAll(async () => {
-		if (trendingPlugin) {
-			await Effect.runPromise(uninstallTestPlugin(trendingPlugin));
-		}
-	});
+	afterAll(() => trendingPlugin && Effect.runPromise(uninstallTestPlugin(trendingPlugin)));
 
 	it.live("rejects the trigger without a valid admin token", () =>
 		Effect.gen(function* () {

@@ -1,4 +1,4 @@
-import { Effect } from "effect";
+import { Effect, Schema } from "effect";
 
 import {
 	createAuthenticatedClient,
@@ -28,7 +28,7 @@ describe("Watcharr Show Import E2E (episode resolution)", () => {
 				});
 
 				// One resolvable watched episode (S1E2) and one unresolvable locator (S1E99).
-				const watcharrExport = JSON.stringify([
+				const watcharrExport = yield* Schema.encodeEffect(Schema.fromJsonString(Schema.Unknown))([
 					{
 						rating: 0,
 						activity: [],
