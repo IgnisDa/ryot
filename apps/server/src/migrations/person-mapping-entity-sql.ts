@@ -1,3 +1,4 @@
+import { buildCaptureLegacyDescriptionsSql } from "./description-normalization";
 import {
 	type ResolvedEntityMigrationTarget,
 	buildEntityTargetValuesSql,
@@ -146,6 +147,25 @@ BEGIN
 			)
 		ON CONFLICT ("id") DO NOTHING;
 		GET DIAGNOSTICS batch_rows_inserted = ROW_COUNT;
+
+		${buildCaptureLegacyDescriptionsSql(`
+			WITH person_targets (source, entity_schema_slug, entity_schema_plugin_id, provider_id) AS (
+				VALUES ${buildEntityTargetValuesSql(targets)}
+			)
+			SELECT legacy_person.id::text AS "entityId", legacy_person.description AS "description",
+				legacy_person.source::text AS "source", legacy_person.source_url AS "baseUrl"
+			FROM "person" legacy_person
+			INNER JOIN person_targets target ON target.source = legacy_person.source
+			INNER JOIN "entity" entity ON entity.id = legacy_person.id
+				AND entity.entity_schema_slug = target.entity_schema_slug
+				AND entity.entity_schema_plugin_id IS NOT DISTINCT FROM target.entity_schema_plugin_id
+				AND entity.provider_id IS NOT DISTINCT FROM target.provider_id
+				AND entity.external_id IS NOT DISTINCT FROM legacy_person.identifier
+				AND entity.user_id IS NOT DISTINCT FROM legacy_person.created_by_user_id
+			WHERE ${isCompany ? companyFilterSql : `NOT ${companyFilterSql}`}
+				AND legacy_person.id::text > cursor_id AND legacy_person.id::text <= next_cursor_id
+				AND target.provider_id IS NULL AND entity.properties ? 'description'
+		`)}
 
 		rows_inserted := rows_inserted + batch_rows_inserted;
 		cursor_id := next_cursor_id;
