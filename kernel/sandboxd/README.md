@@ -24,6 +24,58 @@ slot (released while an isolate waits on host calls or timers) and for a memory 
 heap, external-memory, and run-frame bytes. After `--max-executions` runs or when RSS reaches
 `--max-rss`, the sidecar sends `draining`, rejects new runs, finishes admitted ones, and exits.
 
+### Linux syscall policy
+
+Linux x86_64 and aarch64 use a default-deny seccomp allowlist. Unlisted numbers, rejected arguments,
+and the x86_64 x32 ABI return `EPERM`; a mismatched architecture terminates the process. Newly
+encountered syscalls are denied without a denylist update. The filter is inherited by every worker.
+
+| Allowed syscalls | Runtime requirement |
+| --- | --- |
+| `read`, `write`, `close`, `pread64`, `recvfrom`, `sendto` | Descriptor I/O, framed protocol traffic, diagnostics, and RSS reads from the descriptor opened before lockdown |
+| `brk`, `mmap`, `mprotect`, `mremap`, `munmap`, `madvise` | Rust/glibc allocation, V8 heaps and JIT pages, thread stacks, reclamation, and isolate disposal |
+| `futex`, `set_robust_list`, `rseq` | Thread synchronization and glibc thread registration |
+| `clock_gettime`, `clock_nanosleep` | Worker CPU clocks, deadlines, timers, and watchdog sleeps |
+| `getpid`, `gettid`, `getrandom` | Process/thread identity, OS-backed entropy, and per-isolate reseeding |
+| `rt_sigaction`, `rt_sigprocmask`, `rt_sigreturn`, `sigaltstack`, `exit`, `exit_group` | Signal handling, thread startup/disposal, crash handling, and process termination |
+| `sched_getaffinity`, `sched_getparam`, `sched_getscheduler` | Pool sizing and glibc thread attributes |
+| `epoll_ctl`; x86_64 `epoll_wait`; aarch64 `epoll_pwait` | Tokio/Mio reactors for both execution lanes and per-isolate event loops |
+| x86_64 `pkey_alloc`, `pkey_mprotect`, `uname` | V8's existing protection-key/JIT mapping support and platform detection |
+
+The remaining allowed operations have argument restrictions:
+
+- `clone` flags must equal `CLONE_VM | CLONE_FS | CLONE_FILES | CLONE_SIGHAND | CLONE_THREAD |
+  CLONE_SYSVSEM | CLONE_SETTLS | CLONE_PARENT_SETTID | CLONE_CHILD_CLEARTID` across the full 64-bit
+  argument. This is the glibc pthread path used by Rust, Tokio, and V8. Missing sharing flags, exit
+  signals, namespace flags, `CLONE_PARENT`, `CLONE_VFORK`, and extra high bits are rejected.
+- `clone3` always returns `ENOSYS`, so glibc retries with the restricted `clone`. Its errno filter is
+  installed first; the allowlist then passes only this already-denied syscall through to that filter.
+  This keeps the errno effective under Docker's default outer filter without permitting `clone3`
+  execution or allowing another seccomp installation after lockdown.
+- `socketpair` permits only `AF_UNIX`, `SOCK_STREAM | SOCK_CLOEXEC | SOCK_NONBLOCK`, protocol 0.
+  These are internal runtime pairs; socket creation, connection, binding, and listening are denied.
+- `epoll_create1` requires `EPOLL_CLOEXEC`; `eventfd2` requires initial value 0 and
+  `EFD_CLOEXEC | EFD_NONBLOCK`; `fcntl` permits only `F_DUPFD_CLOEXEC`.
+- `openat` permits only read-only flags, optionally `O_CLOEXEC`. Landlock still denies these opens
+  with `EACCES`, including the mandatory post-lockdown `/` self-check. Write/create and `O_PATH`
+  opens are rejected by seccomp. No new filesystem descriptor is obtained.
+- `prctl` permits only `PR_SET_NAME` for worker names; changing dumpability, privilege settings, or
+  VMA annotations is denied. `setpriority` permits only `PRIO_PROCESS` with nice value 10 for the
+  background lane. `tgkill` permits only this sidecar's process ID for crash termination.
+
+The policy was informed by `strace -ff -tt` runs of the admission, execution, limits, protocol, and
+surface suites on native Linux x86_64 and Linux aarch64 under Docker defaults. Traces separate the
+successful filter installation from later calls and include descendant threads. Snapshot loading,
+environment and descriptor setup, process hardening, and RSS descriptor acquisition happen before
+that boundary. Trace presence alone does not grant access: optional VMA naming and executable-path
+lookups remain denied. The suites cover core/data/full snapshots, both lanes, host calls, asynchronous
+and inline waits, cancellation, termination, recycling, and disposal. Trace files stay outside the
+repository; acceptance results are in [S6](../../docs/sandbox-isolate-runtime-spike/s6.md).
+
+This tightens OS confinement. Source-built V8, its memory-corruption sandbox, pointer compression,
+and allocator replacement remain deferred; the syscall policy does not prevent every V8 exploit or
+guarantee isolation between users sharing one sidecar address space.
+
 ## Launcher
 
 On Linux the backend never runs `ryot-sandboxd` directly. The root-owned setuid
@@ -35,8 +87,8 @@ only a direct child of the caller that matches its root-owned launch attestation
 `provision.sh <launcher> <sidecar> <snapshots>` installs the release artifacts at the fixed paths and
 creates the 1001/1002 accounts; the image and Linux test setups run it as root.
 `tests/launcher/test-default-docker.sh` builds and runs the launcher suite as root under Docker's
-default seccomp profile. The root-only launcher tests are `#[ignore]`d, so plain `cargo test` skips
-them and the script runs them with `--ignored`.
+default seccomp profile, with serialized Cargo builds. The root-only launcher tests are `#[ignore]`d,
+so plain `cargo test` skips them and the script runs them with `--ignored`.
 
 ## Protocol
 
