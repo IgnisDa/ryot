@@ -179,36 +179,27 @@ describe("kernel Ryot client", () => {
 
 	it.live("sanitizes declared and unexpected collection failures", () =>
 		Effect.gen(function* () {
-			yield* Effect.promise(() =>
-				Promise.all(
-					(
-						[
-							[
-								new CollectionBadRequest({ reason: { field: "name", code: "name-required" } }),
-								"collection-failed",
-							],
-							[new TypeError("private network detail"), "transport"],
-						] as const
-					).map(([failure, reason]) => {
-						const runtime = ManagedRuntime.make(
-							Layer.mergeAll(
-								makeEntityInterestService(),
-								makeRyotQLApi(),
-								makeUploadsApi(),
-								makeCollectionsApi({ create: () => fails(failure) }),
-							),
-						);
-						const client = createKernelRyotClient(runtime, scope, theme);
-						return Effect.runPromise(
-							Effect.promise(() =>
-								expect(
-									Effect.runPromise(client.collections.create({ name: "Favorites" })),
-								).rejects.toMatchObject({ reason }),
-							).pipe(Effect.ensuring(Effect.promise(() => runtime.dispose()))),
-						);
-					}),
-				),
-			);
+			for (const [failure, reason] of [
+				[
+					new CollectionBadRequest({ reason: { field: "name", code: "name-required" } }),
+					"collection-failed",
+				],
+				[new TypeError("private network detail"), "transport"],
+			] as const) {
+				const runtime = ManagedRuntime.make(
+					Layer.mergeAll(
+						makeEntityInterestService(),
+						makeRyotQLApi(),
+						makeUploadsApi(),
+						makeCollectionsApi({ create: () => fails(failure) }),
+					),
+				);
+				const client = createKernelRyotClient(runtime, scope, theme);
+				const result = yield* Effect.result(client.collections.create({ name: "Favorites" })).pipe(
+					Effect.ensuring(Effect.promise(() => runtime.dispose())),
+				);
+				expect(result).toMatchObject({ failure: { reason } });
+			}
 		}),
 	);
 
