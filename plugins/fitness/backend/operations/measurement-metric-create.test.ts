@@ -1,20 +1,35 @@
 import { describe, expect, it } from "@effect/vitest";
-import type { ScriptHost } from "@ryot-app/sandbox-sdk/core";
+import type { ChangeUserRelationshipBatch, ScriptHost } from "@ryot-app/sandbox-sdk/core";
 import { Effect } from "@ryot-app/sandbox-sdk/effect";
 import { defineSandboxTestHost, runSandboxTestScript } from "@ryot-app/sandbox-sdk/testing";
 
 import createDefinition, { manifest } from "./measurement-metric-create.sandbox";
+import {
+	measurementRyotql,
+	measurementTables,
+	type MeasurementTables,
+} from "./measurement-readings.test-support";
 
 const execution = { metadata: {}, sandboxScriptId: "script-test" };
 
 type CreateUserEntityItem = Parameters<ScriptHost["createUserEntity"]>[0];
 
-const recordingHost = (writes: CreateUserEntityItem[]) =>
+const recordingHost = (
+	writes: CreateUserEntityItem[],
+	pins: ChangeUserRelationshipBatch[] = [],
+	tables: MeasurementTables = measurementTables,
+) =>
 	defineSandboxTestHost(manifest, {
+		executeRyotql: measurementRyotql(tables),
 		createUserEntity: (item) =>
 			Effect.sync(() => {
 				writes.push(item);
 				return { entityId: "metric-1" };
+			}),
+		changeUserRelationships: (batches) =>
+			Effect.sync(() => {
+				pins.push(...batches);
+				return batches.map(() => ({ created: 1, deleted: 0 }));
 			}),
 	});
 
@@ -142,6 +157,44 @@ describe("measurement metric create operation", () => {
 					name: "Constructor",
 					properties: { key: "constructor" },
 					entitySchemaSlug: "measurement-metric",
+				},
+			]);
+		}),
+	);
+
+	it.live("pins the new metric only while the user has fewer than two metrics", () =>
+		Effect.gen(function* () {
+			const pins: ChangeUserRelationshipBatch[] = [];
+			const oneMetric = {
+				...measurementTables,
+				entity: (measurementTables.entity ?? []).filter(({ id }) => id !== "waist"),
+			};
+
+			yield* runSandboxTestScript(
+				createDefinition,
+				{ name: "Hip" },
+				recordingHost([], pins, oneMetric),
+				execution,
+			);
+			yield* runSandboxTestScript(
+				createDefinition,
+				{ name: "Hip" },
+				recordingHost([], pins),
+				execution,
+			);
+
+			expect(pins).toEqual([
+				{
+					deletes: [],
+					creates: [
+						{
+							properties: {},
+							propertiesMode: "merge",
+							targetEntityId: "library",
+							sourceEntityId: "metric-1",
+							relationshipSchemaSlug: "measurement-metric-pinned",
+						},
+					],
 				},
 			]);
 		}),

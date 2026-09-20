@@ -4,12 +4,14 @@ import type { RyotQLDocument } from "@ryot-app/sandbox-sdk/ryotql";
 
 type StoredRow = Readonly<Record<string, string>>;
 type Rows = Readonly<Record<string, StoredRow>>;
+export type MeasurementTables = Readonly<Record<string, readonly StoredRow[]>>;
 
-const measurementTables: Readonly<Record<string, readonly StoredRow[]>> = {
+export const measurementTables: MeasurementTables = {
 	entity: [
 		{ id: "weight", entitySchemaSlug: "measurement-metric" },
 		{ id: "waist", entitySchemaSlug: "measurement-metric" },
 		{ id: "exercise-1", entitySchemaSlug: "exercise" },
+		{ id: "library", userId: "user-1", entitySchemaSlug: "fitness-library" },
 	],
 	event: [
 		{ id: "reading-1", entityId: "weight", eventSchemaSlug: "measurement-reading" },
@@ -27,6 +29,9 @@ const evaluate = (expression: unknown, rows: Rows): unknown => {
 	if (expression.type === "column" && "tableAlias" in expression && "field" in expression) {
 		assert(typeof expression.tableAlias === "string" && typeof expression.field === "string");
 		return rows[expression.tableAlias]?.[expression.field];
+	}
+	if (expression.type === "isNotNull" && "expr" in expression) {
+		return evaluate(expression.expr, rows) !== undefined;
 	}
 	if (expression.type === "and" && "predicates" in expression) {
 		assert(Array.isArray(expression.predicates));
@@ -49,18 +54,16 @@ const evaluate = (expression: unknown, rows: Rows): unknown => {
 	throw new Error("Unsupported RyotQL expression");
 };
 
-export const executeMeasurementRyotql = (document: RyotQLDocument) =>
+export const measurementRyotql = (tables: MeasurementTables) => (document: RyotQLDocument) =>
 	Effect.sync(() => {
 		const [[key, query] = []] = Object.entries(document.queries);
 		assert(key !== undefined && query?.output.type === "rows");
 		const { output } = query;
-		let rows: Rows[] = (measurementTables[query.from.table] ?? []).map((row) => ({
-			[query.from.alias]: row,
-		}));
+		let rows: Rows[] = (tables[query.from.table] ?? []).map((row) => ({ [query.from.alias]: row }));
 		for (const joined of query.joins ?? []) {
 			assert(joined.type === "inner");
 			rows = rows.flatMap((row) =>
-				(measurementTables[joined.table.table] ?? [])
+				(tables[joined.table.table] ?? [])
 					.map((candidate) => Object.assign({ [joined.table.alias]: candidate }, row))
 					.filter((candidate) => evaluate(joined.on, candidate) === true),
 			);
@@ -74,10 +77,13 @@ export const executeMeasurementRyotql = (document: RyotQLDocument) =>
 						return [selection.key, evaluate(selection.expr, row)];
 					}),
 				),
-			);
+			)
+			.slice(0, output.pagination.limit);
 		return {
 			data: {
 				[key]: { items, type: "rows", pageInfo: { limit: 100, hasMore: false, nextCursor: null } },
 			},
 		};
 	});
+
+export const executeMeasurementRyotql = measurementRyotql(measurementTables);

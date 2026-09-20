@@ -3,6 +3,9 @@ import { Schema } from "@ryot-app/plugin-kit/effect";
 import { measurementMetricKey, measurementMetricUnit } from "./measurement-metrics";
 
 export const measurementMetricCreateOperationSlug = "measurement-metric-create";
+export const measurementMetricPinOperationSlug = "measurement-metric-pin";
+
+export const MEASUREMENT_PIN_LIMIT = 3;
 
 export const MeasurementMetricCreateInput = Schema.Struct({
 	unit: Schema.optional(Schema.Trim),
@@ -26,3 +29,12 @@ export const MeasurementMetricCreateInput = Schema.Struct({
 export type MeasurementMetricCreateInput = typeof MeasurementMetricCreateInput.Type;
 
 export const MeasurementMetricCreateOutput = Schema.Struct({ entityId: Schema.String });
+
+export const MeasurementMetricPinInput = Schema.Struct({
+	pinned: Schema.Boolean,
+	metricId: Schema.String.pipe(Schema.check(Schema.isMinLength(1))),
+});
+
+export type MeasurementMetricPinInput = typeof MeasurementMetricPinInput.Type;
+
+export const MeasurementMetricPinOutput = Schema.Struct({ pinned: Schema.Boolean });
