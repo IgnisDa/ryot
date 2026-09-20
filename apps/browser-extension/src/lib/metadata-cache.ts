@@ -56,8 +56,7 @@ export class MetadataCache {
 						cacheKey,
 						responseData: response.data,
 					});
-					// oxlint-disable-next-line typescript/no-unsafe-type-assertion -- cross-process runtime message payload is typed any; runtime validation is disproportionate here
-					return response.data as MetadataLookupResult;
+					return response.data;
 				}
 
 				logger.debug("Metadata lookup failed", { error: response.error });
