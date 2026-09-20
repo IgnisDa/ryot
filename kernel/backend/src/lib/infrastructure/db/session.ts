@@ -40,9 +40,7 @@ export class DatabaseSession extends Context.Service<DatabaseSession>()("Databas
 		return { current, requireRoot, transaction, requireTransaction, isTransactionActive };
 	}),
 }) {
-	static readonly layer = Layer.effect(this, this.make).pipe(
-		Layer.provide(Layer.unwrap(Effect.sync(() => PgClientLive))),
-	);
+	static readonly layer = Layer.effect(this, this.make).pipe(Layer.provide(PgClientLive));
 }
 
 export const setLocalStatementTimeout = (timeoutMs: number) =>
