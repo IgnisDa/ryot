@@ -65,15 +65,16 @@ function mount(
 		freshnessCheckRevision = 0,
 		active = true,
 		pageKey = "page-1",
+		documentGrant = grant,
 	) => ({
 		theme,
 		active,
 		location,
+		documentGrant,
 		title: "Fixture",
 		backInterceptors,
 		mutationCompleted,
 		chromeLeading: null,
-		documentGrant: grant,
 		documentKey: pageKey,
 		freshnessCheckRevision,
 		onHeader: () => undefined,
@@ -140,6 +141,8 @@ function mount(
 		setActive: (active: boolean) => view.rerender(<PluginFrame {...props(home, 0, 0, active)} />),
 		replace: (pageKey: string) =>
 			view.rerender(<PluginFrame {...props(home, 0, 0, true, pageKey)} />),
+		grant: (documentGrant: typeof grant) =>
+			view.rerender(<PluginFrame {...props(home, 0, 0, true, "page-1", documentGrant)} />),
 		move: (location: PluginLogicalLocation, index: number, freshnessCheckRevision = 0) =>
 			view.rerender(<PluginFrame {...props(location, index, freshnessCheckRevision)} />),
 	};
@@ -243,6 +246,56 @@ describe("PluginFrame", () => {
 			);
 			expect(screen.getByTitle("Fixture plugin")).toBe(frame);
 			expect(host.backInterceptors.run()).toBe(false);
+		}),
+	);
+
+	it.live("keeps the live document when preparation returns the same grant", () =>
+		Effect.gen(function* () {
+			const host = mount();
+			const frame = screen.getByTitle<HTMLIFrameElement>("Fixture plugin");
+			const bridge = connect(frame);
+			bridge.port.postMessage(bridge.ready);
+			yield* Effect.promise(() => waitFor(() => expect(bridge.messages).toHaveLength(1)));
+
+			host.grant({ ...grant });
+			host.refresh();
+
+			yield* Effect.promise(() =>
+				waitFor(() => expect(bridge.messages).toContainEqual({ type: "page-refresh" })),
+			);
+			expect(screen.getByTitle("Fixture plugin")).toBe(frame);
+			expect(frame.getAttribute("src")).toBe(grant.src);
+			expect(screen.queryByText("Preparing this plugin...")).toBeNull();
+		}),
+	);
+
+	it.live("rebootstraps a live document from a rotated grant", () =>
+		Effect.gen(function* () {
+			const host = mount();
+			const frame = screen.getByTitle<HTMLIFrameElement>("Fixture plugin");
+			const expired = connect(frame);
+			expired.port.postMessage(expired.ready);
+			yield* Effect.promise(() => waitFor(() => expect(expired.messages).toHaveLength(1)));
+			const renewed = {
+				...grant,
+				grantId: "grant-2",
+				src: "https://artifacts.example/api/client-pages/documents/session-2",
+			};
+
+			host.grant(renewed);
+
+			expect(frame.getAttribute("src")).toBe(renewed.src);
+			expect(screen.getByText("Preparing this plugin...")).toBeTruthy();
+			yield* Effect.promise(() =>
+				waitFor(() =>
+					expect(expired.messages).toContainEqual({ reason: "disposed", type: "lifecycle-close" }),
+				),
+			);
+			const bridge = connect(frame);
+			bridge.port.postMessage(bridge.ready);
+			yield* Effect.promise(() =>
+				waitFor(() => expect(screen.queryByText("Preparing this plugin...")).toBeNull()),
+			);
 		}),
 	);
 

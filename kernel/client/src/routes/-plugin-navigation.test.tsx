@@ -763,6 +763,61 @@ describe("client page routes", () => {
 		}),
 	);
 
+	it.live("rebootstraps a retained composition from a grant renewed while away", () =>
+		Effect.gen(function* () {
+			let grants = 0;
+			const view = mount({
+				entry: "/fixture",
+				prepare: (_scope, request) => {
+					const target = request.payload.target;
+					if (target.kind !== "plugin-route") {
+						return Effect.die("not used");
+					}
+					grants++;
+					const prepared = preparedFor(target);
+					return Effect.succeed({
+						...prepared,
+						composition: {
+							...prepared.composition,
+							documentGrant: {
+								...prepared.composition.documentGrant,
+								grantId: `grant-${grants}`,
+								src: `/api/client-pages/documents/grant-${grants}`,
+							},
+						},
+					});
+				},
+			});
+			const frame = yield* Effect.promise(() =>
+				screen.findByTitle<HTMLIFrameElement>("fixture plugin"),
+			);
+			const expired = connectFrame(frame);
+			yield* Effect.promise(() => waitFor(() => expect(expired.messages).toHaveLength(1)));
+			expect(frame.getAttribute("src")).toContain("grant-1");
+
+			yield* Effect.promise(() => view.router.navigate({ href: "/customize-sidebar" }));
+			yield* Effect.promise(() =>
+				waitFor(() => expect(view.router.state.location.pathname).toBe("/customize-sidebar")),
+			);
+			expect(frame.isConnected).toBe(true);
+			expect(frame.getAttribute("src")).toContain("grant-1");
+
+			yield* Effect.promise(() => view.router.navigate({ href: "/fixture/details" }));
+			yield* Effect.promise(() => waitFor(() => expect(grants).toBe(2)));
+			yield* Effect.promise(() =>
+				waitFor(() => expect(frame.getAttribute("src")).toContain("grant-2")),
+			);
+			expect(screen.getByTitle<HTMLIFrameElement>("fixture plugin")).toBe(frame);
+			yield* Effect.promise(() =>
+				waitFor(() =>
+					expect(expired.messages).toContainEqual({ reason: "disposed", type: "lifecycle-close" }),
+				),
+			);
+			const renewed = connectFrame(frame);
+			yield* Effect.promise(() => waitFor(() => expect(renewed.messages).toHaveLength(1)));
+		}),
+	);
+
 	it.live("reprepares and replaces a failed iframe using the new document grant", () =>
 		Effect.gen(function* () {
 			let preparations = 0;
