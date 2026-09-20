@@ -2,6 +2,7 @@ import type {
 	PluginIntegrationProvider,
 	PluginManifest,
 } from "@ryot-app/contract/modules/plugins/manifest";
+import { identityTupleKey } from "@ryot-app/contract/modules/plugins/references";
 import { PluginPackageId } from "@ryot-app/contract/schema/brands";
 import type { AppSchema } from "@ryot-app/contract/schema/property-schema";
 import * as fitnessPluginIdentity from "@ryot-app/fitness-plugin/shared/plugin-identity";
@@ -32,13 +33,13 @@ export type LegacyPackageResolution = {
 	providers: Map<string, string>;
 	relationshipSchemas: Map<string, QualifiedSchema>;
 	savedViews: Map<string, QualifiedSchema>;
-	scripts: Map<string, { id: string; slug: string }>;
+	scripts: Map<string, { slug: string }>;
 };
 
-const qualifiedKey = (pluginId: string | null, slug: string) => JSON.stringify([pluginId, slug]);
+const qualifiedKey = (pluginId: string | null, slug: string) => identityTupleKey(pluginId, slug);
 const eventKey = (pluginId: string | null, entitySchemaSlug: string, slug: string) =>
-	JSON.stringify([pluginId, entitySchemaSlug, slug]);
-const installationKey = (userId: string, pluginId: string) => `${userId}\0${pluginId}`;
+	identityTupleKey(pluginId, entitySchemaSlug, slug);
+const installationKey = (userId: string, pluginId: string) => identityTupleKey(userId, pluginId);
 
 type ActivePackage = {
 	id: string;
@@ -272,7 +273,6 @@ export const buildLegacyPackageResolution = Effect.fn("buildLegacyPackageResolut
 	const persistedScripts = yield* session.run((database) =>
 		database
 			.select({
-				id: schema.sandboxScript.id,
 				slug: schema.sandboxScript.slug,
 				pluginRevisionId: schema.sandboxScript.pluginRevisionId,
 			})
@@ -344,7 +344,7 @@ export const buildLegacyPackageResolution = Effect.fn("buildLegacyPackageResolut
 	}
 
 	const integrationProviders = new Map<string, ResolvedIntegrationProvider>();
-	const scripts = new Map<string, { id: string; slug: string }>();
+	const scripts = new Map<string, { slug: string }>();
 	for (const plugin of [activeMedia, activeFitness]) {
 		for (const provider of plugin.manifest.integrationProviders) {
 			addUnique(
@@ -372,7 +372,7 @@ export const buildLegacyPackageResolution = Effect.fn("buildLegacyPackageResolut
 			addUnique(
 				scripts,
 				qualifiedKey(plugin.id, script.slug),
-				{ id: match.id, slug: script.slug },
+				{ slug: script.slug },
 				"script",
 			);
 		}

@@ -41,7 +41,7 @@ const decodeLegacyProgressCacheRows = Schema.decodeUnknownEffect(
 	Schema.Array(LegacyProgressCacheRow),
 );
 
-export const integrationProgressCacheRowsSql = `
+const integrationProgressCacheRowsSql = `
 WITH parsed AS (
 	SELECT
 		ac."id"::text AS cache_id,
@@ -86,7 +86,7 @@ SELECT
 	cr.common->'providers_consumed_on' AS "providersConsumedOn",
 	cr.valid_value AS "validValue"
 FROM cache_rows cr
-LEFT JOIN "entity" e ON e."id" = cr.metadata_id
+LEFT JOIN "entity" e ON e."id" = cr.metadata_id AND e."entity_schema_plugin_id" = $1
 LEFT JOIN _legacy_show_episode_resolution show_episode
 	ON e."entity_schema_slug" = 'show'
 	AND show_episode.parent_entity_id = cr.metadata_id
@@ -100,8 +100,8 @@ ORDER BY cr.user_id, cr.metadata_id, cr.cache_id;
 `;
 
 export const readLegacyIntegrationProgressCache = Effect.fn("readLegacyIntegrationProgressCache")(
-	function* (connection: SqlConnection.Connection) {
-		const rows = yield* connection.execute(integrationProgressCacheRowsSql, [], undefined);
+	function* (connection: SqlConnection.Connection, mediaPluginId: string) {
+		const rows = yield* connection.execute(integrationProgressCacheRowsSql, [mediaPluginId], undefined);
 		return yield* Effect.orDie(decodeLegacyProgressCacheRows(rows));
 	},
 );
@@ -134,7 +134,8 @@ export const migrateIntegrationProgressCache = (input: {
 	cacheRows: ReadonlyArray<LegacyProgressCacheRow>;
 	integrations: ReadonlyArray<{ id: string; provider: string; userId: string }>;
 	installationIdsByUserId: ReadonlyMap<string, string>;
-	scriptId: string;
+	pluginId: string;
+	scriptSlug: string;
 }) =>
 	Effect.gen(function* () {
 		const redis = yield* RedisService;
@@ -159,7 +160,12 @@ export const migrateIntegrationProgressCache = (input: {
 					if (ttlSeconds <= 0) {
 						return Effect.void;
 					}
-					const key = redisKeys.sandboxCache(userId, input.scriptId, claimKey);
+					const key = redisKeys.sandboxPersistentCache(
+						userId,
+						["plugin", input.pluginId],
+						["script", input.scriptSlug],
+						claimKey,
+					);
 					return Effect.tryPromise(() =>
 						redis.client.set(key, persistentClaimEnvelope, "EX", ttlSeconds, "NX"),
 					).pipe(

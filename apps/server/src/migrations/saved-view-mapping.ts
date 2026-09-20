@@ -133,7 +133,7 @@ BEGIN
 	INSERT INTO "saved_view_override" ("user_id", "slug", "plugin_id", "sort_order", "is_hidden")
 	SELECT user_id, slug, plugin_id, sort_order, true
 	FROM hidden
-	ON CONFLICT ("user_id", "slug") DO NOTHING;
+	ON CONFLICT DO NOTHING;
 	GET DIAGNOSTICS rows_inserted = ROW_COUNT;
 
 	WITH ${desiredCtes}
