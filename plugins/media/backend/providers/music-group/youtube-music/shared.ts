@@ -1,8 +1,8 @@
-import { load } from "@ryot-app/sandbox-sdk/cheerio";
 import { Effect } from "@ryot-app/sandbox-sdk/effect";
 
 import { MediaSandboxError } from "../../../lib/failures";
 import { type UnknownRecord, asRecord, stringValue } from "../../../lib/records";
+import { normalizeRichDescription } from "../../../lib/rich-description";
 import {
 	type AlbumClient,
 	coerceTrimmed,
@@ -58,12 +58,10 @@ export const buildAlbumDetails = (client: AlbumClient, externalId: string) =>
 		const headerRecord = asRecord(albumRecord?.["header"]);
 		const rawDescription =
 			albumRecord?.["description"] ?? asRecord(headerRecord?.["description"])?.["text"] ?? null;
-		let description: string | null = null;
-		if (rawDescription !== null) {
-			const $ = load(coerceTrimmed(rawDescription));
-			$("br").replaceWith("\n");
-			description = $.root().text().trim();
-		}
+		const description = yield* normalizeRichDescription(
+			rawDescription,
+			"https://music.youtube.com",
+		);
 
 		const rawTracks = albumRecord?.["contents"];
 		const tracks = Array.isArray(rawTracks) ? rawTracks : [];

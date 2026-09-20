@@ -86,7 +86,7 @@ describe("video-game-group.giant-bomb sandbox script", () => {
 					]);
 					expect(result.properties).toEqual({
 						parts: 2,
-						description: "Series.\n\n<p>d</p>",
+						description: "Series\\.\n\nd",
 						sourceUrl: "https://www.giantbomb.com/zelda/",
 						images: [{ type: "remote", purpose: "cover", url: "https://img/f.jpg" }],
 					});

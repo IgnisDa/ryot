@@ -3,6 +3,7 @@ import { Effect } from "@ryot-app/sandbox-sdk/effect";
 import { defineProvider } from "@ryot-app/sandbox-sdk/provider";
 
 import { MediaSandboxError } from "../../../lib/failures";
+import { normalizePlainDescription } from "../../../lib/plain-description";
 import { numberValue, recordsValue, stringValue } from "../../../lib/records";
 import {
 	collectImages,
@@ -115,7 +116,7 @@ export const details = defineProvider({
 				],
 				properties: {
 					parts: parts.length,
-					description: stringValue(collectionData["overview"]),
+					description: normalizePlainDescription(collectionData["overview"]),
 					sourceUrl: `https://www.themoviedb.org/collections/${input.externalId}-${name}`,
 					images: collectImages(
 						collectionData["poster_path"],
@@ -158,7 +159,9 @@ export const translate = defineProvider({
 				(data) => stringValue(data["title"]) ?? data["name"],
 			);
 			const name = translatedName ? stripCollectionSuffix(translatedName) : null;
-			const description = firstTranslationValue(candidates, (data) => data["overview"]);
+			const description = normalizePlainDescription(
+				firstTranslationValue(candidates, (data) => data["overview"]),
+			);
 			const imageUrl = getLocalizedImageUrl(imagesData, "posters", langCode);
 			const properties: Record<
 				string,

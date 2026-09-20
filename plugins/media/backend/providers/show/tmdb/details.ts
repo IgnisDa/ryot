@@ -9,6 +9,7 @@ import type { ShowEpisodeOrder } from "../../../../shared/show-episode-order";
 import { mediaFailureMessage } from "../../../lib/error-message";
 import { MediaSandboxError } from "../../../lib/failures";
 import { parsePublishYear } from "../../../lib/parse-publish-year";
+import { normalizePlainDescription } from "../../../lib/plain-description";
 import { type UnknownRecord, numberValue, recordsValue, stringValue } from "../../../lib/records";
 import {
 	collectCompanies,
@@ -47,7 +48,12 @@ const episodeOrderHeader = (listEntry: UnknownRecord) => {
 	if (!externalId || !name || type === undefined) {
 		return null;
 	}
-	return { name, type, externalId, description: stringValue(listEntry["description"]) };
+	return {
+		name,
+		type,
+		externalId,
+		description: normalizePlainDescription(listEntry["description"]),
+	};
 };
 
 const episodeOrderGroups = (orderData: UnknownRecord): ShowEpisodeOrder["groups"] =>
@@ -112,8 +118,8 @@ const buildSeason = (
 					seasonNumber,
 					episodeNumber,
 					parentShowExternalId,
-					description: stringValue(episode["overview"]),
 					publishDate: stringValue(episode["air_date"]),
+					description: normalizePlainDescription(episode["overview"]),
 					...(imageUrl
 						? { images: [{ url: imageUrl, type: "remote" as const, purpose: "still" as const }] }
 						: {}),
@@ -130,8 +136,8 @@ const buildSeason = (
 		properties: {
 			seasonNumber,
 			parentShowExternalId,
-			description: stringValue(seasonData["overview"]),
 			releaseDate: stringValue(seasonData["air_date"]),
+			description: normalizePlainDescription(seasonData["overview"]),
 			...(posterUrl
 				? { images: [{ url: posterUrl, type: "remote" as const, purpose: "cover" as const }] }
 				: {}),
@@ -179,11 +185,11 @@ const buildDetailsResult = (
 			unlinkedCreators,
 			totalSeasons: childEntities.length,
 			genres: collectGenres(showData["genres"]),
-			description: stringValue(showData["overview"]),
 			isNsfw: showData["adult"] === true ? true : null,
 			productionStatus: stringValue(showData["status"]),
 			publishYear: parsePublishYear(showData["first_air_date"]),
 			watchProviders: collectWatchProviders(watchProvidersData),
+			description: normalizePlainDescription(showData["overview"]),
 			sourceUrl: `https://www.themoviedb.org/tv/${input.externalId}`,
 			images: collectImages(
 				showData["poster_path"],

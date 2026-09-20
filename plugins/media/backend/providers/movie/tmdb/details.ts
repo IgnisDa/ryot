@@ -4,6 +4,7 @@ import type { ProviderDetailsInput, ProviderDetailsResult } from "@ryot-app/sand
 import { mediaFailureMessage } from "../../../lib/error-message";
 import { MediaSandboxError } from "../../../lib/failures";
 import { parsePublishYear } from "../../../lib/parse-publish-year";
+import { normalizePlainDescription } from "../../../lib/plain-description";
 import { type UnknownRecord, asRecord, numberValue, stringValue } from "../../../lib/records";
 import {
 	collectCompanies,
@@ -56,11 +57,11 @@ const buildDetailsResult = (
 			providerRating,
 			unlinkedCreators,
 			genres: collectGenres(movieData["genres"]),
-			description: stringValue(movieData["overview"]),
 			isNsfw: movieData["adult"] === true ? true : null,
 			productionStatus: stringValue(movieData["status"]),
 			publishYear: parsePublishYear(movieData["release_date"]),
 			watchProviders: collectWatchProviders(watchProvidersData),
+			description: normalizePlainDescription(movieData["overview"]),
 			sourceUrl: `https://www.themoviedb.org/movie/${input.externalId}`,
 			images: collectImages(
 				movieData["poster_path"],

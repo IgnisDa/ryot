@@ -7,6 +7,7 @@ import {
 	type PluginStorageState,
 } from "@ryot-app/client-sdk/react";
 import { Chip } from "@ryot-app/client-ui-sdk";
+import { markdownPlainText } from "@ryot-app/client-ui-sdk/markdown";
 import { fieldSyncState, isTitleProvisional, SyncPip } from "@ryot-app/client-ui-sdk/sync";
 import clsx from "clsx";
 import { useEffect, useState } from "react";
@@ -267,7 +268,9 @@ function ShowSeasonHeader(props: { readonly compact: boolean; readonly season: S
 			</div>
 			{percent === undefined ? null : <MediaProgressBar percent={percent} />}
 			{description === undefined ? null : (
-				<p className="line-clamp-2 font-ui text-[13px] leading-5 text-text">{description}</p>
+				<p className="line-clamp-2 font-ui text-[13px] leading-5 text-text">
+					{markdownPlainText(description)}
+				</p>
 			)}
 		</div>
 	);

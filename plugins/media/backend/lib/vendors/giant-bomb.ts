@@ -2,6 +2,7 @@ import type { ScriptHost } from "@ryot-app/sandbox-sdk/core";
 import { Effect } from "@ryot-app/sandbox-sdk/effect";
 
 import { MediaSandboxError } from "../failures";
+import { normalizePlainDescription } from "../plain-description";
 import {
 	asRecord,
 	decodeJsonResponse,
@@ -9,6 +10,7 @@ import {
 	stringValue,
 	type UnknownRecord,
 } from "../records";
+import { normalizeRichDescription } from "../rich-description";
 
 export type GiantBombHost = Pick<ScriptHost, "httpCall" | "getPluginConfig">;
 
@@ -94,14 +96,15 @@ export const extractYear = (dateStr: unknown) => {
 	return Number.isFinite(year) ? year : null;
 };
 
-export const combineDescription = (deck: unknown, description: unknown) => {
-	const deckTrimmed = typeof deck === "string" ? deck.trim() : null;
-	const descTrimmed = typeof description === "string" ? description.trim() : null;
-	if (deckTrimmed && descTrimmed) {
-		return `${deckTrimmed}\n\n${descTrimmed}`;
-	}
-	return deckTrimmed ?? descTrimmed ?? null;
-};
+export const combineDescription = Effect.fn("combineDescription")(function* (
+	deck: unknown,
+	description: unknown,
+) {
+	const plain = normalizePlainDescription(deck);
+	const rich = yield* normalizeRichDescription(description, "https://www.giantbomb.com");
+	const parts = [plain, rich].filter((part) => part !== null);
+	return parts.length > 0 ? parts.join("\n\n") : null;
+});
 
 export const extractGiantBombGuid = (apiDetailUrl: unknown) => {
 	const value = stringValue(apiDetailUrl);

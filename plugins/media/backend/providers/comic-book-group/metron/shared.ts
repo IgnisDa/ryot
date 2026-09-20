@@ -4,6 +4,7 @@ import { defineProvider } from "@ryot-app/sandbox-sdk/provider";
 
 import { MediaSandboxError } from "../../../lib/failures";
 import { asRecord, stringValue } from "../../../lib/records";
+import { normalizeRichDescription } from "../../../lib/rich-description";
 import { loadMetronJson, type MetronHost } from "../../../lib/vendors/metron";
 
 export const manifest = defineManifest({
@@ -83,7 +84,7 @@ export const details = defineProvider({
 			if (!title) {
 				return yield* new MediaSandboxError({ message: "Metron series is missing name" });
 			}
-			const description = stringValue(series?.["desc"]);
+			const description = yield* normalizeRichDescription(series?.["desc"], "https://metron.cloud");
 			const issueCount = series?.["issue_count"];
 			const parts = typeof issueCount === "number" ? issueCount : 0;
 			const issueListValue = yield* metronGet(

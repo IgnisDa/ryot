@@ -10,6 +10,7 @@ import {
 	numberValue,
 	stringValue,
 } from "../../../lib/records";
+import { normalizeRichDescription } from "../../../lib/rich-description";
 import { createRoleAccumulator } from "../../../lib/role-accumulator";
 import { toTitleCase } from "../../../lib/title-case";
 import {
@@ -261,8 +262,11 @@ export const details = defineProvider({
 					pages,
 					publishYear,
 					genres: [...genreSet],
-					description: parseDescription(workPayload?.["description"]),
 					sourceUrl: `https://openlibrary.org/works/${externalId}/${title}`,
+					description: yield* normalizeRichDescription(
+						parseDescription(workPayload?.["description"]),
+						"https://openlibrary.org",
+					),
 					images: [...coverIdSet].map((coverId) => ({
 						type: "remote" as const,
 						purpose: "cover" as const,

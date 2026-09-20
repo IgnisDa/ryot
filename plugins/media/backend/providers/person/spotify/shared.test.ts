@@ -186,7 +186,7 @@ describe("person.spotify sandbox script", () => {
 				]);
 				expect(result.properties).toEqual({
 					alternateNames: [],
-					description: "Genres: rock, indie",
+					description: "Genres\\: rock\\, indie",
 					sourceUrl: "https://open.spotify.com/artist/a1",
 					images: [{ type: "remote", purpose: "profile", url: "https://img/a.jpg" }],
 				});

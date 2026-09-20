@@ -90,12 +90,12 @@ describe("manga.anilist sandbox script", () => {
 						chapters: 90.5,
 						averageScore: 71,
 						bannerImage: null,
-						description: null,
 						status: "RELEASING",
 						recommendations: null,
 						startDate: { year: 2018 },
 						coverImage: { extraLarge: null },
 						title: { english: "Long Runner" },
+						description: 'Story <span class="markdown_spoiler"><strong>ending</strong></span>',
 					},
 				},
 			}),
@@ -108,6 +108,7 @@ describe("manga.anilist sandbox script", () => {
 						chapters: 90.5,
 						publishYear: 2018,
 						productionStatus: "Releasing",
+						description: "Story :spoiler[**ending**]",
 						sourceUrl: "https://anilist.co/manga/4/Long%20Runner",
 					});
 					const animeHost = makeHost(() =>

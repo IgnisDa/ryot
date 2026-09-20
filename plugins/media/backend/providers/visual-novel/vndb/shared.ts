@@ -12,6 +12,7 @@ import {
 	readTotalItems,
 	vndbPost,
 } from "../../../lib/vendors/vndb";
+import { normalizeVndbDescription } from "../../../lib/vndb-description";
 
 export const manifest = defineManifest({
 	name: "VNDB",
@@ -178,9 +179,9 @@ export const details = defineProvider({
 					publishDate: extractDate(vn["released"]),
 					publishYear: extractYear(vn["released"]),
 					providerRating: numberValue(vn["rating"]),
-					description: stringValue(vn["description"]),
 					sourceUrl: `https://vndb.org/${input.externalId}`,
 					productionStatus: devstatusToString(vn["devstatus"]),
+					description: yield* normalizeVndbDescription(vn["description"], "https://vndb.org"),
 				},
 			};
 		});

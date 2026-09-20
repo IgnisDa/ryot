@@ -6,6 +6,7 @@ import type {
 
 import { MediaSandboxError } from "../../../lib/failures";
 import { parsePublishYear } from "../../../lib/parse-publish-year";
+import { normalizePlainDescription } from "../../../lib/plain-description";
 import {
 	type UnknownRecord,
 	asRecord,
@@ -63,7 +64,7 @@ const buildSeason = (
 					parentShowExternalId,
 					episodeNumber: epNumber,
 					publishDate: stringValue(episode["aired"]),
-					description: stringValue(episode["overview"]),
+					description: normalizePlainDescription(episode["overview"]),
 					...(epImage
 						? { images: [{ url: epImage, type: "remote" as const, purpose: "still" as const }] }
 						: {}),
@@ -185,7 +186,7 @@ export const getTvdbShowDetails = (
 				unlinkedCreators,
 				totalSeasons: childEntities.length,
 				productionStatus: stringValue(asRecord(show["status"])?.["name"]),
-				description: translation.description ?? stringValue(show["overview"]),
+				description: normalizePlainDescription(translation.description ?? show["overview"]),
 			},
 			relatedEntityGroups: [
 				{

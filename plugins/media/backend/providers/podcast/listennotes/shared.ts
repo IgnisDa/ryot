@@ -5,6 +5,7 @@ import { defineProvider } from "@ryot-app/sandbox-sdk/provider";
 
 import { MediaSandboxError } from "../../../lib/failures";
 import { decodeJsonResponse, trimmedString } from "../../../lib/records";
+import { normalizeRichDescription } from "../../../lib/rich-description";
 
 export const manifest = defineManifest({
 	kind: "provider",
@@ -311,20 +312,27 @@ export const details = defineProvider({
 			const publisher = stringValue(firstPage?.["publisher"]);
 			const image = stringValue(firstPage?.["image"]);
 			const explicit = firstPage?.["explicit_content"];
-			const childEntities = episodes.map((episode) => ({
-				externalId: episode.id,
-				entitySchemaSlug: "podcast-episode",
-				name: episode.title || `Episode ${episode.number}`,
-				properties: {
-					runtime: episode.runtime,
-					description: episode.overview,
-					episodeNumber: episode.number,
-					publishDate: episode.publishDate,
-					...(episode.thumbnail
-						? { images: [{ type: "remote", purpose: "cover", url: episode.thumbnail }] }
-						: {}),
-				},
-			}));
+			const childEntities = yield* Effect.forEach(episodes, (episode) =>
+				Effect.gen(function* () {
+					return {
+						externalId: episode.id,
+						entitySchemaSlug: "podcast-episode",
+						name: episode.title || `Episode ${episode.number}`,
+						properties: {
+							runtime: episode.runtime,
+							episodeNumber: episode.number,
+							publishDate: episode.publishDate,
+							description: yield* normalizeRichDescription(
+								episode.overview,
+								"https://www.listennotes.com",
+							),
+							...(episode.thumbnail
+								? { images: [{ type: "remote", purpose: "cover", url: episode.thumbnail }] }
+								: {}),
+						},
+					};
+				}),
+			);
 			return {
 				name: title,
 				childEntities,
@@ -340,7 +348,6 @@ export const details = defineProvider({
 				properties: {
 					totalEpisodes: totalEpisodes ?? episodes.length,
 					sourceUrl: getSourceUrl(title, input.externalId),
-					description: stringValue(firstPage?.["description"]),
 					isNsfw: typeof explicit === "boolean" ? explicit : null,
 					providerRating: numberValue(firstPage?.["listen_score"]),
 					genres: collectGenres(firstPage?.["genre_ids"], genresById),
@@ -348,6 +355,10 @@ export const details = defineProvider({
 					unlinkedCreators: publisher ? [{ name: publisher, role: "Publisher" }] : [],
 					publishYear: getPublishYearFromTimestamp(firstPage?.["earliest_pub_date_ms"]),
 					images: image ? [{ url: image, type: "remote" as const, purpose: "cover" as const }] : [],
+					description: yield* normalizeRichDescription(
+						firstPage?.["description"],
+						"https://www.listennotes.com",
+					),
 				},
 			};
 		}),

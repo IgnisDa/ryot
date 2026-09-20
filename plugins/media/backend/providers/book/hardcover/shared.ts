@@ -4,6 +4,7 @@ import { defineProvider } from "@ryot-app/sandbox-sdk/provider";
 
 import { MediaSandboxError } from "../../../lib/failures";
 import { type UnknownRecord, asRecord, numberValue, stringValue } from "../../../lib/records";
+import { normalizeRichDescription } from "../../../lib/rich-description";
 import { createRoleAccumulator, type RoleRelatedEntity } from "../../../lib/role-accumulator";
 import { toTitleCase } from "../../../lib/title-case";
 import {
@@ -271,7 +272,10 @@ query GetHardcoverBookDetails($id: Int!) {
 					genres: collectGenres(bookData["cached_tags"]),
 					publishDate: stringValue(bookData["release_date"]),
 					pages: pages === null ? null : Math.max(0, Math.trunc(pages)),
-					description: typeof bookData["description"] === "string" ? bookData["description"] : null,
+					description: yield* normalizeRichDescription(
+						bookData["description"],
+						"https://hardcover.app",
+					),
 					images: collectImages(bookData["image"], bookData["images"]).map((url) => ({
 						url,
 						type: "remote" as const,
