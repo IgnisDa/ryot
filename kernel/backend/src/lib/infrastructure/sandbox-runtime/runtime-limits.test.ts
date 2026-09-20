@@ -1,14 +1,12 @@
 import { expect, layer } from "@effect/vitest";
 import { SandboxScriptId } from "@ryot-app/contract/schema/brands";
 import { hostSuccess } from "@ryot-app/sandbox-sdk/wire";
-import { Effect, Schema } from "effect";
+import { Effect } from "effect";
 
-import { hostCallArgs } from "./host-call-args.test-support";
+import { encodeJson, hostCallArgs } from "./host-call-args.test-support";
 import { SandboxHostCallGate } from "./host-call-gate";
-import { sandboxGateLayer } from "./host-call-gate.test-support";
 import { SANDBOX_LIMITS } from "./limits";
-
-const encodeJson = Schema.encodeSync(Schema.fromJsonString(Schema.Unknown));
+import { sandboxGateLayer } from "./sandbox-admission.test-support";
 
 layer(sandboxGateLayer())((test) => {
 	test.effect("enforces exact ASCII and multi-byte JSON request and response byte boundaries", () =>

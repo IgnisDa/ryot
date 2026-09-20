@@ -3,7 +3,7 @@ import { describe, expect, it } from "vitest";
 import { SANDBOX_JSON_GRAPH_FACTOR } from "./json-bytes";
 
 describe("json graph factor", () => {
-	it("json_graph_factor_bounds_pathological_decode_paths", () => {
+	it("bounds pathological decode paths with the JSON graph factor", () => {
 		// A fresh process keeps unrelated test-runner garbage out of the heap measurement.
 		const measured = Bun.spawnSync([
 			process.execPath,

@@ -24,112 +24,114 @@ const runLimits = {
 };
 
 layer(live, { excludeTestServices: true })((test) => {
-	test.effect("native_client_exchanges_chunked_calls_and_confirms_generation_exit", () =>
-		Effect.scoped(
-			Effect.gen(function* () {
-				const client = yield* SandboxSidecarClient;
-				const connection = yield* client.connect({
-					threads: 1,
-					tier: "core",
-					maxActive: 1,
-					trust: "user",
-					generation: 7,
-					maxRss: 256 * 1024 * 1024,
-					memoryBudget: 192 * 1024 * 1024,
-				});
-				expect(yield* connection.next).toEqual({
-					type: "ready",
-					generation: 7,
-					heapHeadroomBytes: SANDBOX_LIMITS.sidecar.heapHeadroomBytes,
-				});
-				yield* Effect.gen(function* () {
-					for (;;) {
-						const snapshots = yield* Metric.snapshot;
-						const sample = snapshots.find(
-							(metric) =>
-								metric.id === "ryot.sandbox.sidecar.rss" &&
-								metric.attributes?.["trust"] === "user" &&
-								metric.attributes["snapshot"] === "core",
-						);
-						if (
-							sample !== undefined &&
-							"value" in sample.state &&
-							typeof sample.state.value === "number" &&
-							sample.state.value > 0
-						) {
-							return;
+	test.effect(
+		"exchanges chunked calls and confirms generation exit through the native client",
+		() =>
+			Effect.scoped(
+				Effect.gen(function* () {
+					const client = yield* SandboxSidecarClient;
+					const connection = yield* client.connect({
+						threads: 1,
+						tier: "core",
+						maxActive: 1,
+						trust: "user",
+						generation: 7,
+						maxRss: 256 * 1024 * 1024,
+						memoryBudget: 192 * 1024 * 1024,
+					});
+					expect(yield* connection.next).toEqual({
+						type: "ready",
+						generation: 7,
+						heapHeadroomBytes: SANDBOX_LIMITS.sidecar.heapHeadroomBytes,
+					});
+					yield* Effect.gen(function* () {
+						for (;;) {
+							const snapshots = yield* Metric.snapshot;
+							const sample = snapshots.find(
+								(metric) =>
+									metric.id === "ryot.sandbox.sidecar.rss" &&
+									metric.attributes?.["trust"] === "user" &&
+									metric.attributes["snapshot"] === "core",
+							);
+							if (
+								sample !== undefined &&
+								"value" in sample.state &&
+								typeof sample.state.value === "number" &&
+								sample.state.value > 0
+							) {
+								return;
+							}
+							yield* Effect.sleep("10 millis");
 						}
-						yield* Effect.sleep("10 millis");
-					}
-				}).pipe(Effect.timeout("2 seconds"));
-				const source = "export default async (input, host) => await host.call('echo', input);";
-				const value = "🙂".repeat(90_000);
-				yield* connection.register("native-client-1", "interactive");
-				yield* connection.send({
-					seq: 0,
-					type: "run",
-					input: value,
-					tier: "core",
-					generation: 7,
-					lane: "interactive",
-					handle: "native-client-1",
-					module: { source, sha256: sha256Hex(source) },
-					limits: {
-						cpuMs: 30_000,
-						deadlineMs: 30_000,
-						heapBytes: 64 * 1024 * 1024,
-						externalBytes: 16 * 1024 * 1024,
-					},
-				});
-				const call = yield* connection.next;
-				expect(call.type).toBe("hostCall");
-				assert(call.type === "hostCall");
-				expect(decodedHostCallArgs(call.args)).toBe(value);
-				yield* connection.send({
-					generation: 7,
-					seq: call.seq,
-					type: "hostResult",
-					handle: call.handle,
-					result: { value, status: "success" },
-				});
-				const done = yield* connection.next;
-				expect(done.type).toBe("done");
-				assert(done.type === "done");
-				expect(done.outcome).toEqual({ value, status: "completed" });
-				yield* connection.retire("native-client-1");
-				yield* connection.close;
-				expect((yield* connection.exit).code).toBe(0);
-				const snapshots = yield* Metric.snapshot;
-				expect(
-					snapshots.find(
-						(metric) =>
-							metric.id === "ryot.sandbox.sidecar.live_processes" &&
-							metric.attributes?.["trust"] === "user" &&
-							metric.attributes["snapshot"] === "core",
-					)?.state,
-				).toMatchObject({ value: 0 });
-				for (const event of ["start", "stop"]) {
+					}).pipe(Effect.timeout("2 seconds"));
+					const source = "export default async (input, host) => await host.call('echo', input);";
+					const value = "🙂".repeat(90_000);
+					yield* connection.register("native-client-1", "interactive");
+					yield* connection.send({
+						seq: 0,
+						type: "run",
+						input: value,
+						tier: "core",
+						generation: 7,
+						lane: "interactive",
+						handle: "native-client-1",
+						module: { source, sha256: sha256Hex(source) },
+						limits: {
+							cpuMs: 30_000,
+							deadlineMs: 30_000,
+							heapBytes: 64 * 1024 * 1024,
+							externalBytes: 16 * 1024 * 1024,
+						},
+					});
+					const call = yield* connection.next;
+					expect(call.type).toBe("hostCall");
+					assert(call.type === "hostCall");
+					expect(decodedHostCallArgs(call.args)).toBe(value);
+					yield* connection.send({
+						generation: 7,
+						seq: call.seq,
+						type: "hostResult",
+						handle: call.handle,
+						result: { value, status: "success" },
+					});
+					const done = yield* connection.next;
+					expect(done.type).toBe("done");
+					assert(done.type === "done");
+					expect(done.outcome).toEqual({ value, status: "completed" });
+					yield* connection.retire("native-client-1");
+					yield* connection.close;
+					expect((yield* connection.exit).code).toBe(0);
+					const snapshots = yield* Metric.snapshot;
 					expect(
 						snapshots.find(
 							(metric) =>
-								metric.id === "ryot.sandbox.sidecar.events" &&
+								metric.id === "ryot.sandbox.sidecar.live_processes" &&
 								metric.attributes?.["trust"] === "user" &&
-								metric.attributes["snapshot"] === "core" &&
-								metric.attributes["event"] === event,
+								metric.attributes["snapshot"] === "core",
 						)?.state,
-					).toMatchObject({ count: 1 });
-				}
-				expect(
-					snapshots.find((metric) => metric.id === "ryot.sandbox.worker_rss")?.state,
-				).toMatchObject({ value: 0 });
-				expect(
-					snapshots.find((metric) => metric.id === "ryot.sandbox.rss_sampled_processes")?.state,
-				).toMatchObject({ value: 0 });
-			}),
-		).pipe(Effect.provideService(Metric.MetricRegistry, new Map())),
+					).toMatchObject({ value: 0 });
+					for (const event of ["start", "stop"]) {
+						expect(
+							snapshots.find(
+								(metric) =>
+									metric.id === "ryot.sandbox.sidecar.events" &&
+									metric.attributes?.["trust"] === "user" &&
+									metric.attributes["snapshot"] === "core" &&
+									metric.attributes["event"] === event,
+							)?.state,
+						).toMatchObject({ count: 1 });
+					}
+					expect(
+						snapshots.find((metric) => metric.id === "ryot.sandbox.worker_rss")?.state,
+					).toMatchObject({ value: 0 });
+					expect(
+						snapshots.find((metric) => metric.id === "ryot.sandbox.rss_sampled_processes")?.state,
+					).toMatchObject({ value: 0 });
+				}),
+			).pipe(Effect.provideService(Metric.MetricRegistry, new Map())),
 	);
 
-	test.effect("lane_outstanding_bound_keeps_host_results_and_cancels_flowing", () =>
+	test.effect("keeps host results and cancellations flowing at the lane outstanding bound", () =>
 		Effect.scoped(
 			Effect.gen(function* () {
 				const client = yield* SandboxSidecarClient;
@@ -226,7 +228,7 @@ layer(live, { excludeTestServices: true })((test) => {
 		),
 	);
 
-	test.effect("sidecar_diagnostics_are_bounded_and_oom_preferred", () =>
+	test.effect("bounds sidecar diagnostics and prefers the out-of-memory cause", () =>
 		Effect.scoped(
 			Effect.gen(function* () {
 				const client = yield* SandboxSidecarClient;
@@ -303,7 +305,7 @@ layer(live, { excludeTestServices: true })((test) => {
 		),
 	);
 
-	test.effect("live_process_gauge_totals_every_sidecar_sharing_its_labels", () =>
+	test.effect("totals the live process gauge across every sidecar sharing its labels", () =>
 		Effect.scoped(
 			Effect.gen(function* () {
 				const client = yield* SandboxSidecarClient;

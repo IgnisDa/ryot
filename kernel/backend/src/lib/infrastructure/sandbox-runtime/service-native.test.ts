@@ -19,13 +19,15 @@ import { redisKeys, RedisService } from "#lib/infrastructure/redis";
 import { ServerRun } from "#lib/infrastructure/server-run";
 import { makeAppConfigLayer } from "#lib/test-utils/effect";
 import { deleteRedisKeysOnExit, testExecutionId, testRedisUrl } from "#lib/test-utils/redis";
+import { unusedSandboxHostImplementations } from "#lib/test-utils/sandbox-host-implementations";
+import { makeUserSubject } from "#lib/test-utils/sandbox-run-input";
 import { makeUserPluginRevision } from "#lib/test-utils/sandbox-runtime";
 import { SandboxCompiler } from "#modules/sandbox/sandbox-compiler";
 
 import { SandboxExecutionAuthority, type SandboxExecutionPrincipal } from "./execution-principal";
+import { encodeJson } from "./host-call-args.test-support";
 import { SandboxHostCallGate } from "./host-call-gate";
 import { SandboxHostImplementations } from "./host-implementations";
-import { unusedSandboxHostImplementations } from "./runner-native.test-support";
 import { SandboxService } from "./service";
 import type { SandboxRunInput } from "./shared";
 import { SandboxSidecarAdmission } from "./sidecar-admission";
@@ -52,12 +54,6 @@ class NativeServiceControl extends Context.Service<
 class NativeServiceTempRoot extends Context.Service<NativeServiceTempRoot, string>()(
 	"test/SandboxNativeServiceTempRoot",
 ) {}
-
-const makeUserSubject = (userId: UserId): SandboxExecutionPrincipal["subject"] => ({
-	userId,
-	type: "user",
-	accountGeneration: { userId, token: `native-service-account-generation-${userId}` },
-});
 
 const withRecoveryCleanup = <A, E, R>(
 	executionIds: ReadonlyArray<string>,
@@ -228,7 +224,6 @@ const encodeContext = Schema.encodeSync(
 	),
 );
 
-const encodeJson = Schema.encodeSync(Schema.fromJsonString(Schema.Unknown));
 const encodedBytes = (value: string) => new TextEncoder().encode(value).byteLength;
 
 const grantedInlineDefinitionSource = `
@@ -320,63 +315,66 @@ const makeRunInput = (
 });
 
 layer(nativeServiceLayer, { excludeTestServices: true })((test) => {
-	test.effect("real_native_service_preserves_definition_results_and_host_dispatch", () => {
-		const ownerId = UserId.make(testExecutionId("native-service-owner"));
-		const successExecutionId = testExecutionId("native-service-success");
-		const invalidExecutionId = testExecutionId("native-service-invalid-input");
-		return withRecoveryCleanup(
-			[successExecutionId, invalidExecutionId],
-			Effect.gen(function* () {
-				const compiler = yield* SandboxCompiler;
-				const service = yield* SandboxService;
-				const control = yield* NativeServiceControl;
-				const compiled = yield* compiler.compile(hostDefinitionSource);
-				expect(compiled.manifest.capabilities).toContain("getCachedValue");
-				const input = makeRunInput(
-					compiled,
-					successExecutionId,
-					{ count: 7, key: "shared-key" },
-					ownerId,
-				);
-				const result = yield* service.run(input);
-				const invalid = yield* service.run(
-					makeRunInput(compiled, invalidExecutionId, { key: "unused", count: "wrong" }, ownerId),
-				);
+	test.effect(
+		"preserves definition results and host dispatch through the real native service",
+		() => {
+			const ownerId = UserId.make(testExecutionId("native-service-owner"));
+			const successExecutionId = testExecutionId("native-service-success");
+			const invalidExecutionId = testExecutionId("native-service-invalid-input");
+			return withRecoveryCleanup(
+				[successExecutionId, invalidExecutionId],
+				Effect.gen(function* () {
+					const compiler = yield* SandboxCompiler;
+					const service = yield* SandboxService;
+					const control = yield* NativeServiceControl;
+					const compiled = yield* compiler.compile(hostDefinitionSource);
+					expect(compiled.manifest.capabilities).toContain("getCachedValue");
+					const input = makeRunInput(
+						compiled,
+						successExecutionId,
+						{ count: 7, key: "shared-key" },
+						ownerId,
+					);
+					const result = yield* service.run(input);
+					const invalid = yield* service.run(
+						makeRunInput(compiled, invalidExecutionId, { key: "unused", count: "wrong" }, ownerId),
+					);
 
-				expect(result).toEqual({
-					logs: [],
-					inline: [],
-					error: null,
-					harvest: null,
-					success: true,
-					pendingInline: [],
-					executionId: input.executionId,
-					timing: { totalMs: expect.any(Number), executionMs: expect.any(Number) },
-					value: { count: 7, cached: { key: "shared-key", source: "native-host" } },
-					recovery: {
-						instance: "user/core",
-						pinHash: expect.any(String),
+					expect(result).toEqual({
+						logs: [],
+						inline: [],
+						error: null,
+						harvest: null,
+						success: true,
+						pendingInline: [],
 						executionId: input.executionId,
-					},
-				});
-				expect(result.timing.totalMs).toBeGreaterThan(0);
-				expect(result.timing.executionMs).toBeGreaterThanOrEqual(0);
-				expect(control.calls).toEqual([
-					{ args: ["shared-key"], subject: makeUserSubject(ownerId) },
-				]);
-				expect(invalid).toMatchObject({
-					success: false,
-					error: {
-						phase: "input",
-						message: expect.stringContaining("Definition input validation failed"),
-					},
-				});
-				expect(control.calls).toHaveLength(1);
-			}),
-		);
-	});
+						timing: { totalMs: expect.any(Number), executionMs: expect.any(Number) },
+						value: { count: 7, cached: { key: "shared-key", source: "native-host" } },
+						recovery: {
+							instance: "user/core",
+							pinHash: expect.any(String),
+							executionId: input.executionId,
+						},
+					});
+					expect(result.timing.totalMs).toBeGreaterThan(0);
+					expect(result.timing.executionMs).toBeGreaterThanOrEqual(0);
+					expect(control.calls).toEqual([
+						{ args: ["shared-key"], subject: makeUserSubject(ownerId) },
+					]);
+					expect(invalid).toMatchObject({
+						success: false,
+						error: {
+							phase: "input",
+							message: expect.stringContaining("Definition input validation failed"),
+						},
+					});
+					expect(control.calls).toHaveLength(1);
+				}),
+			);
+		},
+	);
 
-	test.effect("integration_rejects_module_and_snapshot_tampering", () => {
+	test.effect("rejects module and snapshot tampering", () => {
 		const ownerId = UserId.make(testExecutionId("native-service-owner"));
 		const tamperedExecutionId = testExecutionId("native-service-tampered-module");
 		const unsupportedExecutionId = testExecutionId("native-service-unsupported-format");
@@ -420,7 +418,7 @@ layer(nativeServiceLayer, { excludeTestServices: true })((test) => {
 		);
 	});
 
-	test.effect("files_and_http_require_execution_bound_grants", () => {
+	test.effect("requires execution-bound grants for files and HTTP", () => {
 		const ownerId = UserId.make(testExecutionId("native-service-owner"));
 		const grantedExecutionId = testExecutionId("native-service-granted-artifact");
 		const deniedExecutionId = testExecutionId("native-service-missing-artifact-grant");
@@ -458,7 +456,7 @@ layer(nativeServiceLayer, { excludeTestServices: true })((test) => {
 		);
 	});
 
-	test.effect("native_service_disposes_cancelled_isolates_and_preserves_neighbours", () => {
+	test.effect("disposes cancelled isolates and preserves neighbouring executions", () => {
 		const ownerId = UserId.make(testExecutionId("native-service-owner"));
 		const cancelledExecutionId = testExecutionId("native-service-cancelled");
 		const neighbourExecutionId = testExecutionId("native-service-neighbour");
@@ -521,7 +519,7 @@ layer(nativeServiceLayer, { excludeTestServices: true })((test) => {
 		);
 	});
 
-	test.effect("integration_enforces_invocation_context_and_result_caps", () => {
+	test.effect("enforces invocation context and result caps", () => {
 		const ownerId = UserId.make(testExecutionId("native-service-owner"));
 		const executionIds: string[] = [];
 		const nextExecutionId = () => {
@@ -567,7 +565,7 @@ layer(nativeServiceLayer, { excludeTestServices: true })((test) => {
 		);
 	});
 
-	test.effect("granted_executions_settle_inline_without_permission_elevation", () => {
+	test.effect("settles granted executions inline without elevating permissions", () => {
 		const ownerId = UserId.make(testExecutionId("native-service-owner"));
 		const executionIds = [
 			testExecutionId("native-service-granted-inline"),
@@ -638,7 +636,7 @@ layer(nativeServiceLayer, { excludeTestServices: true })((test) => {
 		);
 	});
 
-	test.effect("integrated_isolate_has_no_ambient_authority", () => {
+	test.effect("gives an integrated isolate no ambient authority", () => {
 		const ownerId = UserId.make(testExecutionId("native-service-owner"));
 		const executionId = testExecutionId("native-service-ambient-authority");
 		const fullExecutionId = testExecutionId("native-service-ambient-full");

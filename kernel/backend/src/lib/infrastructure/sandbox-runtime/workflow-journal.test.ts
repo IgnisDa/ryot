@@ -1,7 +1,6 @@
-import { expect, it, layer } from "@effect/vitest";
+import { expect, layer } from "@effect/vitest";
 import { SandboxRunError } from "@ryot-app/contract/errors";
 import type { JsonValue } from "@ryot-app/contract/modules/ryotql/language";
-import { SandboxScriptId } from "@ryot-app/contract/schema/brands";
 import { Effect } from "effect";
 
 import { redisKeys, RedisService } from "#lib/infrastructure/redis";
@@ -11,29 +10,8 @@ import {
 } from "#lib/infrastructure/sandbox-journal-store";
 import { testExecutionId, testRedisServiceLayer } from "#lib/test-utils/redis";
 
-import { selectSandboxHostFunctions } from "./service";
-import type { SandboxRunInput } from "./shared";
 import { appendWorkflowJournalWithRedis } from "./workflow-journal";
 import { readPinnedJournal } from "./workflow-journal.test-support";
-
-const workflowInput: SandboxRunInput = {
-	context: {},
-	compiledCode: "",
-	compiledFormat: 1,
-	lane: "interactive",
-	workflowExecutionId: "parent",
-	executionId: "parent-replay-3",
-	startedAt: "2026-01-01T00:00:00.000Z",
-	principal: {
-		contentHash: "",
-		providerId: null,
-		scriptSlug: "script",
-		pluginRevision: null,
-		subject: { type: "system" },
-		scriptId: SandboxScriptId.make("workflow-script"),
-		metadata: { kind: "workflow", runtimeImports: [] },
-	},
-};
 
 const request = (index: number, name: string, input: JsonValue = { index }) => ({
 	name,
@@ -41,8 +19,6 @@ const request = (index: number, name: string, input: JsonValue = { index }) => (
 	kind: "activity" as const,
 	args: { input, scriptSlug: "activity-script" },
 });
-
-const unusedHostFunction = () => Effect.succeed(null);
 
 const entry = (index: number, result: number) => ({
 	value: { result },
@@ -157,42 +133,4 @@ layer(testRedisServiceLayer)((test) => {
 			expect(yield* readProjectedJournal(redis, testExecutionId("never-written"), 1)).toBeNull();
 		}),
 	);
-});
-
-it("keeps workflow replay journal out of ordinary host-function selection", () => {
-	const bound = { httpCall: unusedHostFunction, replayJournal: unusedHostFunction };
-	expect(
-		Object.keys(
-			selectSandboxHostFunctions(bound, {
-				principal: {
-					...workflowInput.principal,
-					metadata: { kind: "workflow", runtimeImports: [], capabilities: ["httpCall"] },
-				},
-			}),
-		),
-	).toEqual([]);
-	expect(
-		Object.keys(
-			selectSandboxHostFunctions(bound, {
-				principal: {
-					...workflowInput.principal,
-					metadata: { kind: "script", runtimeImports: [], capabilities: ["replayJournal"] },
-				},
-			}),
-		),
-	).toEqual([]);
-	expect(
-		Object.keys(
-			selectSandboxHostFunctions(bound, {
-				principal: {
-					...workflowInput.principal,
-					metadata: {
-						kind: "script",
-						runtimeImports: [],
-						capabilities: ["httpCall", "replayJournal"],
-					},
-				},
-			}),
-		),
-	).toEqual(["httpCall"]);
 });

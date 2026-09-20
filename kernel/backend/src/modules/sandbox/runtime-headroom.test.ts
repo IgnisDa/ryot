@@ -31,7 +31,6 @@ import {
 	type SandboxExecutionPrincipal,
 } from "#lib/infrastructure/sandbox-runtime/execution-principal";
 import { SandboxHostImplementations } from "#lib/infrastructure/sandbox-runtime/host-implementations";
-import { unusedSandboxHostImplementations } from "#lib/infrastructure/sandbox-runtime/runner-native.test-support";
 import { SandboxService } from "#lib/infrastructure/sandbox-runtime/service";
 import { SandboxSidecarAdmission } from "#lib/infrastructure/sandbox-runtime/sidecar-admission";
 import { ServerRun } from "#lib/infrastructure/server-run";
@@ -44,6 +43,7 @@ import {
 import { testDatabaseUrl } from "#lib/test-utils/database";
 import { makeAppConfigLayer } from "#lib/test-utils/effect";
 import { testExecutionId, testRedisUrl } from "#lib/test-utils/redis";
+import { unusedSandboxHostImplementations } from "#lib/test-utils/sandbox-host-implementations";
 import { makeUserPluginRevision } from "#lib/test-utils/sandbox-runtime";
 import { SandboxCompiler } from "#modules/sandbox/sandbox-compiler";
 

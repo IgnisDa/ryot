@@ -18,6 +18,7 @@ import {
 	Option,
 	Path,
 } from "effect";
+import { Base64 } from "effect/encoding";
 import { assert, describe, expect } from "vitest";
 
 import { ServerRun } from "#lib/infrastructure/server-run";
@@ -26,11 +27,10 @@ import { makeAppConfigLayer } from "#lib/test-utils/effect";
 import { SandboxArtifactStore } from "./artifacts";
 import { SandboxFileService } from "./file-service";
 import { SANDBOX_HARVEST_DIRECTORY_PREFIX, measureSandboxScratchBytes } from "./filesystem-grants";
-import { SANDBOX_LIMITS } from "./limits";
+import { MiB, SANDBOX_LIMITS } from "./limits";
 import type { SandboxRunInput } from "./shared";
 
-const chunkBytes = 256 * 1024;
-const MiB = 1024 * 1024;
+const { chunkBytes } = SANDBOX_LIMITS.scratch;
 const parentExecutionId = "parent-workflow-execution";
 const scratchDirectoryPrefix = "ryot-sandbox-scratch-";
 
@@ -170,14 +170,6 @@ const makeInput = (
 	},
 });
 
-const encodeBase64 = (bytes: Uint8Array) => {
-	let binary = "";
-	for (let index = 0; index < bytes.length; index += 32_768) {
-		binary += String.fromCharCode(...bytes.subarray(index, index + 32_768));
-	}
-	return btoa(binary);
-};
-
 const scratchBytesIn = (root: string) =>
 	Effect.gen(function* () {
 		const fs = yield* FileSystem.FileSystem;
@@ -207,7 +199,7 @@ type SandboxFileAccess = Effect.Success<ReturnType<SandboxFileService["Service"]
 
 describe("sandbox file service", () => {
 	layer(fileServiceLayer)((test) => {
-		test.effect("scratch_entry_admission_caps_partial_uploads_and_allows_replacement", () =>
+		test.effect("caps partial scratch uploads at entry admission and allows replacement", () =>
 			Effect.gen(function* () {
 				const root = yield* FileServiceRoot;
 				const service = yield* ScratchEntryFileService;
@@ -236,7 +228,7 @@ describe("sandbox file service", () => {
 			}),
 		);
 
-		test.effect("file_service_enforces_write_time_quota_and_named_harvest", () =>
+		test.effect("enforces the write-time scratch quota and named harvest", () =>
 			Effect.gen(function* () {
 				const path = yield* Path.Path;
 				const root = yield* FileServiceRoot;
@@ -270,7 +262,7 @@ describe("sandbox file service", () => {
 							name,
 							offset,
 							final: final && last,
-							data: encodeBase64(contents.subarray(offset, end)),
+							data: Base64.encode(contents.subarray(offset, end)),
 						});
 						yield* recordScratchBytes();
 					}
@@ -304,7 +296,7 @@ describe("sandbox file service", () => {
 								offset: 0,
 								final: true,
 								name: "overflow.bin",
-								data: encodeBase64(new Uint8Array([1])),
+								data: Base64.encode(new Uint8Array([1])),
 							}),
 						);
 						expect(Exit.isFailure(overQuota)).toBe(true);
@@ -314,7 +306,7 @@ describe("sandbox file service", () => {
 							offset: 0,
 							final: false,
 							name: "large.bin",
-							data: encodeBase64(new Uint8Array(chunkBytes).fill(0x63)),
+							data: Base64.encode(new Uint8Array(chunkBytes).fill(0x63)),
 						});
 						yield* recordScratchBytes();
 						for (let offset = chunkBytes; offset < 4 * MiB; offset += chunkBytes) {
@@ -323,7 +315,7 @@ describe("sandbox file service", () => {
 								offset,
 								name: "large.bin",
 								final: end === 4 * MiB,
-								data: encodeBase64(new Uint8Array(end - offset).fill(0x63)),
+								data: Base64.encode(new Uint8Array(end - offset).fill(0x63)),
 							});
 							yield* recordScratchBytes();
 						}
@@ -442,7 +434,7 @@ describe("sandbox file service", () => {
 										name,
 										offset,
 										final: end === 4 * MiB,
-										data: encodeBase64(
+										data: Base64.encode(
 											new Uint8Array(chunkBytes).fill(name === "first.bin" ? 1 : 2),
 										),
 									});
@@ -469,7 +461,7 @@ describe("sandbox file service", () => {
 								offset: 0,
 								final: true,
 								name: "retry.bin",
-								data: encodeBase64(new Uint8Array([5, 6, 7])),
+								data: Base64.encode(new Uint8Array([5, 6, 7])),
 							}),
 						);
 						expect(Exit.isFailure(failed)).toBe(true);
@@ -478,7 +470,7 @@ describe("sandbox file service", () => {
 							offset: 0,
 							final: true,
 							name: "retry.bin",
-							data: encodeBase64(new Uint8Array([5, 6, 7])),
+							data: Base64.encode(new Uint8Array([5, 6, 7])),
 						});
 						expect(yield* scratchBytesIn(root)).toBe(3);
 					}),
@@ -493,7 +485,7 @@ describe("sandbox file service", () => {
 								offset: 0,
 								final: true,
 								name: "interrupted.bin",
-								data: encodeBase64(new Uint8Array([8, 9])),
+								data: Base64.encode(new Uint8Array([8, 9])),
 							}),
 						);
 						yield* Deferred.await(controls.writeStarted);
@@ -510,7 +502,7 @@ describe("sandbox file service", () => {
 			}),
 		);
 
-		test.effect("files_and_http_require_execution_bound_grants", () =>
+		test.effect("requires execution-bound grants for files and HTTP", () =>
 			Effect.gen(function* () {
 				const path = yield* Path.Path;
 				const root = yield* FileServiceRoot;
