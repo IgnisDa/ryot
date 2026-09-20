@@ -47,6 +47,14 @@ pub struct EntryState {
     pub finished: bool,
 }
 
+impl EntryState {
+    pub fn terminate_isolate(&self) {
+        if let Some(isolate) = &self.isolate {
+            isolate.terminate_execution();
+        }
+    }
+}
+
 pub struct Entry {
     pub handle: String,
     pub limits: Limits,
@@ -115,9 +123,7 @@ impl Entry {
         self.stopping.send_replace(true);
         self.pending.lock().expect("pending calls").clear();
         self.abort.notify_one();
-        if let Some(isolate) = &state.isolate {
-            isolate.terminate_execution();
-        }
+        state.terminate_isolate();
         true
     }
 

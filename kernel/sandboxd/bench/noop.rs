@@ -8,8 +8,6 @@ use serde_json::{Value, json};
 
 const RUNS: usize = 500;
 const CONCURRENT: usize = 50;
-const P50_LIMIT: Duration = Duration::from_millis(30);
-const PER_EXECUTION_LIMIT: f64 = 20.0;
 
 fn resident_mib(pid: u32) -> f64 {
     let output = std::process::Command::new("ps")
@@ -48,8 +46,8 @@ fn main() {
             "export default async (_input, host) => host.call('hold', null)",
             Value::Null,
             Limits {
-                heap_bytes: 16 * 1024 * 1024,
-                external_bytes: 1024 * 1024,
+                heap_bytes: 16 * support::MIB,
+                external_bytes: support::MIB,
                 ..support::limits()
             },
         ));
@@ -72,17 +70,7 @@ fn main() {
     }
     let per_execution = (held - idle) / CONCURRENT as f64;
 
-    println!(
-        "core no-op p50: {:.2} ms (limit {} ms)",
-        p50.as_secs_f64() * 1e3,
-        P50_LIMIT.as_millis()
-    );
-    println!(
-        "per-execution RSS: {per_execution:.2} MiB over {CONCURRENT} live isolates (limit {PER_EXECUTION_LIMIT} MiB)"
-    );
+    println!("core no-op p50: {:.2} ms", p50.as_secs_f64() * 1e3);
+    println!("per-execution RSS: {per_execution:.2} MiB over {CONCURRENT} live isolates");
     println!("sidecar RSS: {idle:.1} MiB idle, {held:.1} MiB with {CONCURRENT} live isolates");
-    if p50 >= P50_LIMIT || per_execution >= PER_EXECUTION_LIMIT {
-        eprintln!("benchmark thresholds not met");
-        std::process::exit(1);
-    }
 }

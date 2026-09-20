@@ -4,8 +4,8 @@ use std::time::Duration;
 
 use ryot_sandboxd::protocol::{DrainReason, Inbound, Lane, Limits, Outbound, Outcome, Phase, Tier};
 use serde_json::{Value, json};
+use support::MIB;
 
-const MIB: u64 = 1024 * 1024;
 const BUSY: &str = "export default () => { const start = Date.now(); while (Date.now() - start < 800) {} return 'busy'; }";
 const STARTS: &str = "export default async (_input, host) => host.call('started', null)";
 const BUSY_AFTER_START: &str = "export default async (_input, host) => { await host.call('started', null); const start = Date.now(); while (Date.now() - start < 800) {} return 'busy'; }";
@@ -46,21 +46,9 @@ fn v8_platform_pool_is_capped() {
 #[test]
 fn the_cpu_active_cap_queues_excess_runs_but_not_parked_ones() {
     let mut capped = support::spawn(Tier::Core, &["--max-active", "1"]);
-    capped.send(&support::run_frame(
-        "busy",
-        Tier::Core,
-        BUSY,
-        Value::Null,
-        support::limits(),
-    ));
+    capped.start("busy", BUSY);
     std::thread::sleep(Duration::from_millis(100));
-    capped.send(&support::run_frame(
-        "starts",
-        Tier::Core,
-        STARTS,
-        Value::Null,
-        support::limits(),
-    ));
+    capped.start("starts", STARTS);
     match capped.recv() {
         Outbound::Done { handle, .. } => assert_eq!(
             handle, "busy",
@@ -73,13 +61,7 @@ fn the_cpu_active_cap_queues_excess_runs_but_not_parked_ones() {
         json!("ok")
     );
 
-    capped.send(&support::run_frame(
-        "parked",
-        Tier::Core,
-        HOLDS,
-        Value::Null,
-        support::limits(),
-    ));
+    capped.start("parked", HOLDS);
     let Outbound::HostCall { seq, .. } = capped.recv() else {
         panic!("expected the parked run's host call");
     };
@@ -90,27 +72,12 @@ fn the_cpu_active_cap_queues_excess_runs_but_not_parked_ones() {
         "a parked isolate held the only CPU slot"
     );
     capped.reply("parked", seq, json!("released"));
-    assert_eq!(
-        capped.finish("parked", |_, _| unreachable!()).value(),
-        json!("released")
-    );
+    assert_eq!(capped.finish_plain("parked").value(), json!("released"));
 
     let mut uncapped = support::spawn(Tier::Core, &["--max-active", "2"]);
-    uncapped.send(&support::run_frame(
-        "busy",
-        Tier::Core,
-        BUSY,
-        Value::Null,
-        support::limits(),
-    ));
+    uncapped.start("busy", BUSY);
     std::thread::sleep(Duration::from_millis(100));
-    uncapped.send(&support::run_frame(
-        "starts",
-        Tier::Core,
-        STARTS,
-        Value::Null,
-        support::limits(),
-    ));
+    uncapped.start("starts", STARTS);
     match uncapped.recv() {
         Outbound::HostCall { handle, .. } => assert_eq!(handle, "starts"),
         other => panic!("expected the second run to start alongside the first, got {other:?}"),
@@ -118,11 +85,7 @@ fn the_cpu_active_cap_queues_excess_runs_but_not_parked_ones() {
 }
 
 fn lane_frame(handle: &str, lane: Lane, source: &str) -> Inbound {
-    let Inbound::Run(mut run) =
-        support::run_frame(handle, Tier::Core, source, Value::Null, support::limits())
-    else {
-        unreachable!("run_frame builds a run");
-    };
+    let mut run = support::run(handle, Tier::Core, source, Value::Null, support::limits());
     run.lane = lane;
     Inbound::Run(run)
 }
@@ -230,10 +193,7 @@ fn cpu_admission_preserves_lane_priority_on_resume() {
         }) => assert_eq!(handle, "cancelled"),
         other => panic!("cancellation did not wake the waiting inline resume: {other:?}"),
     }
-    assert_eq!(
-        sidecar.finish("busy-again", |_, _| unreachable!()).value(),
-        json!("busy")
-    );
+    assert_eq!(sidecar.finish_plain("busy-again").value(), json!("busy"));
 }
 
 #[test]
@@ -244,32 +204,17 @@ fn the_memory_budget_queues_excess_runs() {
         ..support::limits()
     };
     let mut sidecar = support::spawn(Tier::Core, &["--memory-budget", &(200 * MIB).to_string()]);
-    sidecar.send(&support::run_frame(
-        "first",
-        Tier::Core,
-        HOLDS,
-        Value::Null,
-        limits.clone(),
-    ));
+    sidecar.start_limited("first", HOLDS, limits.clone());
     let Outbound::HostCall { seq, .. } = sidecar.recv() else {
         panic!("expected the first run's host call");
     };
-    sidecar.send(&support::run_frame(
-        "second",
-        Tier::Core,
-        STARTS,
-        Value::Null,
-        limits.clone(),
-    ));
+    sidecar.start_limited("second", STARTS, limits.clone());
     assert!(
         sidecar.recv_within(Duration::from_millis(500)).is_none(),
         "the second run started without memory budget"
     );
     sidecar.reply("first", seq, json!("done"));
-    assert_eq!(
-        sidecar.finish("first", |_, _| unreachable!()).value(),
-        json!("done")
-    );
+    assert_eq!(sidecar.finish_plain("first").value(), json!("done"));
     assert_eq!(
         sidecar.finish("second", |_, _| json!("ok")).value(),
         json!("ok")
@@ -356,13 +301,7 @@ fn the_sidecar_drains_and_restarts_at_its_execution_count() {
 #[test]
 fn the_sidecar_drains_and_restarts_at_its_rss_threshold() {
     let mut sidecar = support::spawn(Tier::Core, &["--max-rss", "1"]);
-    sidecar.send(&support::run_frame(
-        "held",
-        Tier::Core,
-        HOLDS,
-        Value::Null,
-        support::limits(),
-    ));
+    sidecar.start("held", HOLDS);
     let Outbound::HostCall { seq, .. } = sidecar.recv() else {
         panic!("expected the held run's host call");
     };
@@ -375,10 +314,7 @@ fn the_sidecar_drains_and_restarts_at_its_rss_threshold() {
         "a draining sidecar admitted a new run"
     );
     sidecar.reply("held", seq, json!("finished"));
-    assert_eq!(
-        sidecar.finish("held", |_, _| unreachable!()).value(),
-        json!("finished")
-    );
+    assert_eq!(sidecar.finish_plain("held").value(), json!("finished"));
     let status = sidecar
         .wait(Duration::from_secs(10))
         .expect("drained sidecar exits");

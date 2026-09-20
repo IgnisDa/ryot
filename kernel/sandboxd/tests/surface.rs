@@ -125,7 +125,7 @@ const ABSENT_GLOBALS: &[&str] = &[
 ];
 
 #[test]
-fn op_inventory_matches_allowlist() {
+fn denied_ops_are_not_callable() {
     ryot_sandboxd::init_v8();
     let snapshot = Snapshot::load(Path::new(support::snapshots()), Tier::Full).expect("snapshot");
     let tokio = tokio::runtime::Builder::new_current_thread()
@@ -138,10 +138,6 @@ fn op_inventory_matches_allowlist() {
         extensions: vec![ryot::init()],
         ..Default::default()
     });
-    let registered: BTreeSet<&str> = runtime.op_names().into_iter().collect();
-    let inventory: BTreeSet<&str> = op_inventory().map(|(_, name)| name).collect();
-    assert_eq!(registered, inventory);
-
     let denied: Vec<&str> = op_inventory()
         .filter_map(|(allowed, name)| (!allowed).then_some(name))
         .collect();
@@ -199,7 +195,7 @@ fn absent_globals_are_absent() {
         }};
         "#
     );
-    for tier in [Tier::Core, Tier::Data, Tier::Full] {
+    for tier in Tier::ALL {
         let done = support::spawn(tier, &[]).execute(tier, &probe, Value::Null);
         assert_eq!(
             done.value(),

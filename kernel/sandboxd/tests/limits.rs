@@ -5,8 +5,8 @@ use std::time::Duration;
 
 use ryot_sandboxd::protocol::{LimitKind, Limits, Outbound, Outcome, Phase, Tier};
 use serde_json::{Value, json};
+use support::MIB;
 
-const MIB: u64 = 1024 * 1024;
 const NEIGHBOUR: &str = "export default async (input) => { await new Promise((resolve) => setTimeout(resolve, 20)); return input; }";
 
 fn tight() -> Limits {
@@ -207,10 +207,8 @@ fn execution_usage_reports_peak_heap_and_external_memory() {
     assert!(limited.usage.heap_bytes >= 24 * MIB, "{:?}", limited.usage);
 }
 
-/// Measurement for S6: with the counting allocator cap raised to its maximum, V8's own heap and
-/// external-memory accounting still stops retained ArrayBuffer growth.
 #[test]
-fn v8_accounting_stops_array_buffer_growth_without_the_allocator_cap() {
+fn v8_accounting_contains_array_buffer_growth_without_the_allocator_cap() {
     let outcomes = contain(
         Tier::Core,
         &[(
@@ -232,9 +230,6 @@ fn v8_accounting_stops_array_buffer_growth_without_the_allocator_cap() {
         ),
         "{outcome:?}"
     );
-    eprintln!(
-        "S6 measurement: retained ArrayBuffer growth without the allocator cap ended with {outcome:?}"
-    );
 }
 
 #[test]
@@ -252,13 +247,11 @@ fn ordinary_host_waits_count_toward_script_deadline() {
     );
     assert_eq!(idle.limit(), LimitKind::Deadline);
 
-    sidecar.send(&support::run_frame(
+    sidecar.start_limited(
         "waits",
-        Tier::Core,
         "export default async (_input, host) => host.call('slow', null)",
-        Value::Null,
         limits,
-    ));
+    );
     let done = sidecar.finish("waits", |_, _| {
         std::thread::sleep(Duration::from_millis(800));
         json!("answered")
@@ -295,13 +288,11 @@ fn termination_escalates_with_the_culprit_reported_before_exit() {
 #[test]
 fn uninterruptible_allocation_escalates_with_the_culprit_reported_before_exit() {
     let mut sidecar = support::spawn(Tier::Core, &[]);
-    sidecar.send(&support::run_frame(
+    sidecar.start_limited(
         "fill",
-        Tier::Core,
         "export default () => new Array(2 ** 32 - 1).fill(0)",
-        Value::Null,
         tight(),
-    ));
+    );
     match sidecar.recv() {
         Outbound::Fatal { handle, .. } => assert_eq!(handle, "fill"),
         other => panic!("expected the culprit to be reported, got {other:?}"),
@@ -316,13 +307,11 @@ fn uninterruptible_allocation_escalates_with_the_culprit_reported_before_exit() 
 fn fatal_host_disconnect_preserves_the_escalated_exit_status() {
     for _ in 0..8 {
         let mut sidecar = support::spawn(Tier::Core, &[]);
-        sidecar.send(&support::run_frame(
+        sidecar.start_limited(
             "fill",
-            Tier::Core,
             "export default () => new Array(2 ** 32 - 1).fill(0)",
-            Value::Null,
             tight(),
-        ));
+        );
         let fatal = sidecar.recv();
         sidecar
             .raw_socket()
@@ -417,13 +406,10 @@ fn ext_data_file_and_remote_imports_are_rejected_at_resolution() {
 #[test]
 fn a_stopped_run_waiting_for_a_cpu_slot_is_not_escalated() {
     let mut sidecar = support::spawn(Tier::Core, &["--max-active", "1", "--grace-ms", "200"]);
-    sidecar.send(&support::run_frame(
+    sidecar.start(
         "parked",
-        Tier::Core,
         "export default async (_input, host) => host.call('hold', null)",
-        Value::Null,
-        support::limits(),
-    ));
+    );
     assert!(matches!(sidecar.recv(), Outbound::HostCall { .. }));
     sidecar.send(&support::run_frame(
         "busy",
@@ -509,10 +495,7 @@ fn script_results_are_limited_to_four_mib_of_utf8_json() {
 #[test]
 fn script_errors_and_results_stay_bounded_before_reaching_rust() {
     let mut sidecar = support::spawn(Tier::Core, &[]);
-    let limits = Limits {
-        heap_bytes: 256 * MIB,
-        ..support::limits()
-    };
+    let limits = support::large_heap_limits();
     for (source, phase) in [
         (
             "throw new Error('\\u0100'.repeat(20_000_000)); export default () => 1;",
