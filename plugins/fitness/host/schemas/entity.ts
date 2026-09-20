@@ -1,7 +1,8 @@
 import { exerciseTargetKinds } from "../../shared/taxonomy";
 import {
 	exercisePropertiesSchema,
-	measurementPropertiesSchema,
+	measurementMetricPropertiesSchema,
+	measurementReadingPropertiesSchema,
 	workoutPropertiesSchema,
 	workoutSetPropertiesSchema,
 	workoutTemplatePropertiesSchema,
@@ -98,10 +99,16 @@ const fitnessEntitySchemaDefinitions = [
 	},
 	{
 		icon: "ruler",
-		eventSchemas: [],
-		slug: "measurement",
-		name: "Measurement",
-		propertiesSchema: measurementPropertiesSchema,
+		slug: "measurement-metric",
+		name: "Measurement Metric",
+		propertiesSchema: measurementMetricPropertiesSchema,
+		eventSchemas: [
+			{
+				name: "Measurement Reading",
+				slug: "measurement-reading",
+				propertiesSchema: measurementReadingPropertiesSchema,
+			},
+		],
 	},
 ] as const;
 

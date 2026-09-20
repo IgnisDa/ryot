@@ -2,10 +2,12 @@ import { Result, Schema } from "@ryot-app/plugin-kit/effect";
 import {
 	and,
 	ascending,
+	castDate,
 	column,
 	defineRecipe,
 	descending,
 	eq,
+	gte,
 	join,
 	JsonValue,
 	jsonPath,
@@ -21,7 +23,6 @@ import {
 import {
 	entityIdentitySelection,
 	property,
-	propertyDate,
 	propertyNumber,
 	workoutDatesSelection,
 } from "./entity-selections";
@@ -141,28 +142,48 @@ export const workoutListRecipe = defineRecipe((input: EntityListInput) => {
 	};
 });
 
-export const measurementListRecipe = defineRecipe((input: EntityListInput) => {
-	const entity = table("entity", "entity");
-	return {
-		map: ({ measurements }) => Result.succeed(measurements),
-		queries: {
-			measurements: selectedRows(entity, {
-				after: input.after,
-				limit: input.limit,
-				orderBy: [ascending(column(entity, "name"))],
-				where: entityWhere(entity, "measurement", input),
-				selection: {
-					...entityIdentitySelection(entity),
-					comment: selectedField(property(entity, "comment"), Schema.NullOr(Schema.String)),
-					recordedAt: selectedField(
-						propertyDate(entity, "recordedAt"),
-						Schema.NullOr(Schema.String),
-					),
-				},
-			}),
+export const measurementReadingListRecipe = defineRecipe(
+	(
+		input: Pick<Parameters<typeof selectedRows>[1], "after" | "limit"> & {
+			startAt?: string | undefined;
 		},
-	};
-});
+	) => {
+		const event = table("event", "reading");
+		const metric = table("entity", "metric");
+		return {
+			map: ({ readings }) => Result.succeed(readings),
+			queries: {
+				readings: selectedRows(event, {
+					after: input.after,
+					limit: input.limit,
+					joins: [join("inner", metric, eq(column(event, "entityId"), column(metric, "id")))],
+					orderBy: [
+						descending(column(event, "occurredAt")),
+						ascending(property(metric, "key")),
+						ascending(column(event, "id")),
+					],
+					where: and(
+						eq(column(event, "eventSchemaSlug"), literal("measurement-reading")),
+						eq(column(metric, "entitySchemaSlug"), literal("measurement-metric")),
+						...(input.startAt === undefined
+							? []
+							: [gte(column(event, "occurredAt"), castDate(literal(input.startAt)))]),
+					),
+					selection: {
+						id: selectedField(column(event, "id"), Schema.String),
+						metricId: selectedField(column(metric, "id"), Schema.String),
+						metricName: selectedField(column(metric, "name"), Schema.String),
+						value: selectedField(propertyNumber(event, "value"), Schema.Finite),
+						occurredAt: selectedField(column(event, "occurredAt"), Schema.String),
+						unit: selectedField(property(metric, "unit"), Schema.NullOr(Schema.String)),
+						metricKey: selectedField(property(metric, "key"), Schema.NullOr(Schema.String)),
+						comment: selectedField(property(event, "comment"), Schema.NullOr(Schema.String)),
+					},
+				}),
+			},
+		};
+	},
+);
 
 export const workoutTemplateListRecipe = defineRecipe((input: EntityListInput) => {
 	const entity = table("entity", "entity");
@@ -216,7 +237,7 @@ export const workoutTemplateDetailRecipe = defineRecipe(
 
 export type ExerciseListResult = Recipe.Success<typeof exerciseListRecipe>;
 export type WorkoutListResult = Recipe.Success<typeof workoutListRecipe>;
-export type MeasurementListResult = Recipe.Success<typeof measurementListRecipe>;
+export type MeasurementReadingListResult = Recipe.Success<typeof measurementReadingListRecipe>;
 export type WorkoutTemplateListResult = Recipe.Success<typeof workoutTemplateListRecipe>;
 export type WorkoutDetailResult = Recipe.Success<typeof workoutDetailRecipe>;
 export type WorkoutTemplateDetailResult = Recipe.Success<typeof workoutTemplateDetailRecipe>;

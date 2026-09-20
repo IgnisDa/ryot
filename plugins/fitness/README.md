@@ -44,6 +44,36 @@ collection schemas and the operation's RyotQL sees every event of the user. Upda
 `text` and `rating`. Note text is trimmed and limited to 2000 characters at the operation input;
 the stored schema stays unbounded for migrated notes.
 
+## Measurements
+
+A `measurement-metric` entity is one user-owned metric: its name is the display label, `key` is the
+stable identifier, and `unit` is optional. Each recorded value is a `measurement-reading` event on
+its metric with a required `value`, an optional `comment`, and `occurredAt` as the reading time.
+Values recorded together share `occurredAt`, and the comment is repeated on each of their events.
+`measurementReadingListRecipe` in `shared/query-recipes.ts` lists a user's readings with their
+metric key, name, and unit, newest first, optionally from a start time.
+
+The All Measurements saved view renders the `measurements` client page (`client/measurements/`),
+which takes only the view's name and icon from the page context and has no data sources or
+settings. It queries three recipes from `shared/`:
+
+- `measurementSummaryRecipe` returns up to 100 metrics with each one's latest value and time, first
+  reading time, and reading count since the range start.
+- `measurementSeriesRecipe` returns one `timeSeries` average of the reading value per metric, with a
+  paired `count` series because empty buckets are zero filled. The page batches
+  `MEASUREMENT_SERIES_BATCH_SIZE` metrics per document to stay within the ten-query limit, buckets by
+  day up to 1Y and by week for All, and clamps All to 900 weekly buckets.
+- `measurementReadingListRecipe` pages the log 100 readings at a time; the page groups readings that
+  share `occurredAt` into one row and groups rows by month.
+
+The page ranks the four metrics with the most readings in range as tiles and log columns. Trend
+lines and sparklines are a trailing rolling average of the bucket averages, over 7 points when there
+are more than 40 and 3 otherwise. Logging, editing, deleting, and pinning are not implemented and
+log a `TODO` to the console.
+
+Metric cards and rows show the latest reading, such as `73.6 kg · 8 Oct`, taken from the metric's
+newest `measurement-reading` event.
+
 ## Imports
 
 Fitness imports append history and cannot be reversed. A separate import can duplicate existing
@@ -51,6 +81,13 @@ activity. Run reports count workouts or measurements in their source-owned units
 chunks. Activities describe source reading, exercise resolution, and writing separately from actual
 created, updated, unchanged, skipped, or unsuccessful outcomes. Active recovery retains inputs and
 execution pins until terminal cleanup; cancelling keeps committed results.
+
+An OpenScale row becomes one write item: each non-empty numeric column finds or creates the user's
+`measurement-metric` matched by column label and normalized `key`, and gets one
+`measurement-reading` event at the row time carrying the row comment. Metrics created by the import
+take a unit for the known OpenScale keys (`weight`, `lbm`, `bone` in kg; `bmi` in kg/m²; `fat`, `water`,
+`muscle` in %; `waist`, `hip` in cm). Each row counts as one measurement, reported on its first reading. A row
+with a valid date and no numeric value is an unsuccessful measurement.
 
 ## Automations
 

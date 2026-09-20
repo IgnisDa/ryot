@@ -43,6 +43,17 @@ describe("adaptOpenScaleCsv", () => {
 		expect(failures[0]?.message).toMatch(/Could not parse numeric value/);
 	});
 
+	it("records a row-level failure for a dated row with only empty statistic cells", () => {
+		const csv = ["dateTime,weight,bmi,comment", "2026-04-01 08:00:00,,,Only a note"].join("\n");
+
+		const { items, failures } = adaptOpenScaleCsv(csv);
+
+		expect(items).toHaveLength(0);
+		expect(failures).toMatchObject([
+			{ itemIndex: 0, message: "OpenScale row has no measurement values" },
+		]);
+	});
+
 	it("supports separate date and time columns", () => {
 		const csv = ["date,time,weight", "2026-04-01,08:00:00,80.5"].join("\n");
 

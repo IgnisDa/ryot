@@ -3,19 +3,37 @@ import { Effect } from "effect";
 import type { Client } from "~/fixtures/kernel/auth";
 import { createEntity } from "~/fixtures/kernel/entities";
 import { findBuiltinSchemaBySlug } from "~/fixtures/kernel/entity-schemas";
+import { listEventSchemas, requireEventSchemaBySlug } from "~/fixtures/kernel/event-schemas";
+import { waitForCreateEvents } from "~/fixtures/kernel/events";
 
-export const createMeasurementEntityFixture = (client: Client) =>
+export const createMeasurementReadingFixture = (client: Client) =>
 	Effect.gen(function* () {
-		const { schema: measurementSchema } = yield* findBuiltinSchemaBySlug(client, "measurement");
+		const { schema: metricSchema } = yield* findBuiltinSchemaBySlug(client, "measurement-metric");
+		const readingSchema = requireEventSchemaBySlug(
+			yield* listEventSchemas(client, metricSchema.id),
+			"measurement-reading",
+		);
 
-		const measurement = yield* createEntity(client, {
-			name: "Measurement - 2026-04-27 08:00",
-			entitySchemaSlug: measurementSchema.id,
-			properties: {
-				recordedAt: "2026-04-27T08:00:00Z",
-				statistics: [{ value: 75.5, key: "weight", label: "Weight" }],
-			},
+		const metric = yield* createEntity(client, {
+			name: "Weight",
+			entitySchemaSlug: metricSchema.id,
+			properties: { unit: "kg", key: "weight" },
 		});
+		yield* waitForCreateEvents(
+			client,
+			yield* client.call((c) =>
+				c.events.create({
+					payload: [
+						{
+							entityId: metric.id,
+							eventSchemaSlug: readingSchema.id,
+							occurredAt: "2026-04-27T08:00:00Z",
+							properties: { value: 75.5, comment: "Morning" },
+						},
+					],
+				}),
+			),
+		);
 
-		return { measurementId: measurement.id };
+		return { metricId: metric.id };
 	});

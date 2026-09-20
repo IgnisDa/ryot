@@ -180,6 +180,15 @@ export const adaptOpenScaleRows = (
 		if (hasBadNumeric) {
 			continue;
 		}
+		if (statistics.length === 0) {
+			failures.push({
+				sourceLabel,
+				sourceIdentifier,
+				itemIndex: rowIdx,
+				message: "OpenScale row has no measurement values",
+			});
+			continue;
+		}
 		items.push({
 			sourceLabel,
 			sourceIdentifier,
