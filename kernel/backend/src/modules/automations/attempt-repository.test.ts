@@ -437,11 +437,10 @@ describe("AutomationAttemptRepository (PostgreSQL)", () => {
 						Effect.gen(function* () {
 							yield* db
 								.insert(plugin)
-								.values({ id: "plugin", slug: "fixture", scope: "system", status: "inactive" });
+								.values({ id: "plugin", slug: "fixture", status: "inactive" });
 							yield* db
 								.insert(pluginRevision)
 								.values({
-									version: "1",
 									id: "revision",
 									pluginId: "plugin",
 									sourceHash: "source",
@@ -453,7 +452,6 @@ describe("AutomationAttemptRepository (PostgreSQL)", () => {
 								.values({
 									id: "config",
 									configuredKeys: [],
-									scope: "environment",
 									encryptionKeyId: "key",
 									nonce: Buffer.alloc(12),
 									pluginRevisionId: "revision",
@@ -462,7 +460,7 @@ describe("AutomationAttemptRepository (PostgreSQL)", () => {
 								});
 							yield* db
 								.update(sandboxScript)
-								.set({ pluginRevisionId: "revision" })
+								.set({ source: null, pluginRevisionId: "revision" })
 								.where(eq(sandboxScript.id, "script"));
 							yield* db
 								.update(automationRun)

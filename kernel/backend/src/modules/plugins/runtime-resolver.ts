@@ -11,7 +11,7 @@ import {
 } from "@ryot-app/contract/schema/brands";
 import { sha256Base64Url } from "@ryot-app/ts-utils/crypto";
 import { stableStringify } from "@ryot-app/ts-utils/json";
-import { and, asc, eq, exists, inArray, sql, type SQL } from "drizzle-orm";
+import { and, asc, eq, exists, inArray, isNull, sql, type SQL } from "drizzle-orm";
 import { Context, Data, Effect, Layer, Schema } from "effect";
 
 import * as schema from "#lib/infrastructure/db/schema/tables/combined";
@@ -75,10 +75,7 @@ export const pluginConfigContextFor = (plugin: AvailablePlugin) => ({
 const manifestField = <Key extends keyof PluginManifest>(key: Key) =>
 	sql<PluginManifest[Key]>`${schema.pluginRevision.manifest} -> ${sql.raw(`'${key}'`)}`;
 
-const activeSystemPlugin = and(
-	eq(schema.plugin.status, "active"),
-	eq(schema.plugin.scope, "system"),
-);
+const activeSystemPlugin = and(eq(schema.plugin.status, "active"), isNull(schema.plugin.ownerId));
 
 const declaresProvider = exists(
 	sql`(select 1 from jsonb_array_elements(${schema.pluginRevision.manifest} -> 'providers') m where m ->> 'slug' = ${schema.sandboxProvider.slug})`,
@@ -381,9 +378,11 @@ export class PluginRuntimeResolver extends Context.Service<PluginRuntimeResolver
 				const [active] = yield* database.run((db) =>
 					db
 						.select({
-							scope: schema.plugin.scope,
 							revisionId: schema.pluginRevision.id,
 							userBootstrap: manifestField("userBootstrap"),
+							scope: sql<
+								"system" | "user"
+							>`case when ${schema.plugin.ownerId} is null then 'system' else 'user' end`,
 						})
 						.from(schema.plugin)
 						.innerJoin(

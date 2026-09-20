@@ -1,7 +1,4 @@
-import type {
-	PluginManifest,
-	PluginProviderOperation,
-} from "@ryot-app/contract/modules/plugins/manifest";
+import type { PluginManifest } from "@ryot-app/contract/modules/plugins/manifest";
 import type {
 	ProviderInformation,
 	SandboxScriptMetadata,
@@ -50,10 +47,9 @@ export const plugin = snakeCase.table(
 	{
 		slug: text().notNull(),
 		status: text().notNull(),
+		activeRevisionId: text(),
 		environmentConfigRevisionId: text(),
-		scope: text().$type<"system" | "user">().notNull(),
 		createdAt: timestamp({ withTimezone: true }).defaultNow().notNull(),
-		activeRevisionId: text().references((): AnyPgColumn => pluginRevision.id),
 		ownerId: text("owner_user_id").references(() => user.id, { onDelete: "cascade" }),
 		id: text()
 			.notNull()
@@ -77,18 +73,12 @@ export const plugin = snakeCase.table(
 		}),
 		check(
 			"plugin_environment_config_scope_check",
-			sql`${table.scope} = 'system' or ${table.environmentConfigRevisionId} is null`,
+			sql`${table.ownerId} is null or ${table.environmentConfigRevisionId} is null`,
 		),
 		index("plugin_owner_id_idx").on(table.ownerId),
-		uniqueIndex("plugin_system_slug_unique")
-			.on(table.slug)
-			.where(sql`${table.scope} = 'system'`),
-		uniqueIndex("plugin_owner_slug_unique")
-			.on(table.ownerId, table.slug)
-			.where(sql`${table.scope} = 'user'`),
-		check(
-			"plugin_scope_owner_check",
-			sql`(${table.scope} = 'system' and ${table.ownerId} is null) or (${table.scope} = 'user' and ${table.ownerId} is not null)`,
+		uniqueIndex("plugin_owner_slug_unique").on(
+			table.slug,
+			sql`(case when ${table.ownerId} is null then '0' else '1' || ${table.ownerId} end)`,
 		),
 	],
 );
@@ -96,7 +86,6 @@ export const plugin = snakeCase.table(
 export const pluginRevision = snakeCase.table(
 	"plugin_revision",
 	{
-		version: text().notNull(),
 		clientArtifactHash: text(),
 		sourceHash: text().notNull(),
 		manifest: jsonb().$type<PluginManifest>().notNull(),
@@ -183,7 +172,6 @@ export const pluginConfigRevision = snakeCase.table(
 		id: text()
 			.primaryKey()
 			.$defaultFn(() => generateId()),
-		scope: text().$type<"environment" | "installation">().notNull(),
 		createdAt: timestamp({ withTimezone: true }).defaultNow().notNull(),
 		ownerUserId: text().references(() => user.id, { onDelete: "cascade" }),
 		pluginRevisionId: text()
@@ -200,7 +188,7 @@ export const pluginConfigRevision = snakeCase.table(
 		index("plugin_config_revision_package_idx").on(table.pluginRevisionId),
 		check(
 			"plugin_config_revision_scope_check",
-			sql`(${table.scope} = 'environment' and ${table.ownerUserId} is null and ${table.pluginInstallationId} is null) or (${table.scope} = 'installation' and ${table.ownerUserId} is not null)`,
+			sql`${table.ownerUserId} is not null or ${table.pluginInstallationId} is null`,
 		),
 		check(
 			"plugin_config_revision_payload_check",
@@ -243,9 +231,9 @@ export const sandboxProvider = snakeCase.table(
 export const sandboxScript = snakeCase.table(
 	"sandbox_script",
 	{
+		source: text(),
 		slug: text().notNull(),
 		name: text().notNull(),
-		source: text().notNull(),
 		contentHash: text().notNull(),
 		compiledCode: text().notNull(),
 		compiledFormat: smallint().notNull().default(1),
@@ -259,14 +247,14 @@ export const sandboxScript = snakeCase.table(
 			.$defaultFn(() => /* @__PURE__ */ generateId()),
 	},
 	(table) => [
+		check(
+			"sandbox_script_source_owner_check",
+			sql`(${table.pluginRevisionId} is null) = (${table.source} is not null)`,
+		),
 		index("sandbox_script_provider_id_idx").on(table.providerId),
 		unique("sandbox_script_id_revision_unique").on(table.id, table.pluginRevisionId),
 		index("sandbox_script_plugin_revision_id_idx").on(table.pluginRevisionId),
-		unique("sandbox_script_revision_content_hash_unique").on(
-			table.pluginRevisionId,
-			table.slug,
-			table.contentHash,
-		),
+		unique("sandbox_script_revision_slug_unique").on(table.pluginRevisionId, table.slug),
 		uniqueIndex("sandbox_script_kernel_slug_content_hash_unique")
 			.on(table.slug, table.contentHash)
 			.where(sql`${table.pluginRevisionId} is null`),
@@ -281,53 +269,16 @@ export const kernelScript = snakeCase.table("kernel_script", {
 		.references(() => sandboxScript.id, { onDelete: "restrict" }),
 });
 
-export const sandboxProviderOperation = snakeCase.table(
-	"sandbox_provider_operation",
-	{
-		optionsSchema: jsonb().$type<AppSchema | null>(),
-		operation: text().$type<PluginProviderOperation>().notNull(),
-		createdAt: timestamp({ withTimezone: true }).defaultNow().notNull(),
-		id: text()
-			.notNull()
-			.primaryKey()
-			.$defaultFn(() => /* @__PURE__ */ generateId()),
-		scriptId: text()
-			.notNull()
-			.references(() => sandboxScript.id, { onDelete: "restrict" }),
-		providerId: text()
-			.notNull()
-			.references(() => sandboxProvider.id, { onDelete: "cascade" }),
-		updatedAt: timestamp({ withTimezone: true })
-			.defaultNow()
-			.$onUpdate(() => /* @__PURE__ */ new Date())
-			.notNull(),
-	},
-	(table) => [
-		index("sandbox_provider_operation_provider_id_idx").on(table.providerId),
-		index("sandbox_provider_operation_script_id_idx").on(table.scriptId),
-		unique("sandbox_provider_operation_provider_operation_unique").on(
-			table.providerId,
-			table.operation,
-		),
-		unique("sandbox_provider_operation_script_id_unique").on(table.scriptId),
-	],
-);
-
 export const sandboxWorkflowReference = snakeCase.table(
 	"sandbox_workflow_reference",
 	{
-		contentHash: text().notNull(),
 		executionId: text().primaryKey(),
-		pluginId: text()
-			.notNull()
-			.references(() => plugin.id, { onDelete: "cascade" }),
 		pluginInstallationId: text().references(() => pluginInstallation.id, { onDelete: "restrict" }),
 		scriptId: text()
 			.notNull()
 			.references(() => sandboxScript.id, { onDelete: "cascade" }),
 	},
 	(table) => [
-		index("sandbox_workflow_reference_plugin_id_idx").on(table.pluginId),
 		index("sandbox_workflow_reference_script_id_idx").on(table.scriptId),
 		index("sandbox_workflow_reference_plugin_installation_id_idx").on(table.pluginInstallationId),
 	],
