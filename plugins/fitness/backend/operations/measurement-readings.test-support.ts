@@ -8,16 +8,41 @@ export type MeasurementTables = Readonly<Record<string, readonly StoredRow[]>>;
 
 export const measurementTables: MeasurementTables = {
 	entity: [
-		{ id: "weight", entitySchemaSlug: "measurement-metric" },
-		{ id: "waist", entitySchemaSlug: "measurement-metric" },
-		{ id: "exercise-1", entitySchemaSlug: "exercise" },
-		{ id: "library", userId: "user-1", entitySchemaSlug: "fitness-library" },
+		{ id: "weight", entitySchemaPluginId: "fitness-owner", entitySchemaSlug: "measurement-metric" },
+		{ id: "waist", entitySchemaPluginId: "fitness-owner", entitySchemaSlug: "measurement-metric" },
+		{ id: "exercise-1", entitySchemaSlug: "exercise", entitySchemaPluginId: "fitness-owner" },
+		{
+			id: "library",
+			userId: "user-1",
+			entitySchemaSlug: "fitness-library",
+			entitySchemaPluginId: "fitness-owner",
+		},
 	],
 	event: [
-		{ id: "reading-1", entityId: "weight", eventSchemaSlug: "measurement-reading" },
-		{ id: "reading-2", entityId: "waist", eventSchemaSlug: "measurement-reading" },
-		{ id: "note-1", entityId: "exercise-1", eventSchemaSlug: "review" },
-		{ id: "fake-reading", entityId: "exercise-1", eventSchemaSlug: "measurement-reading" },
+		{
+			id: "reading-1",
+			entityId: "weight",
+			eventSchemaPluginId: "fitness-owner",
+			eventSchemaSlug: "measurement-reading",
+		},
+		{
+			id: "reading-2",
+			entityId: "waist",
+			eventSchemaPluginId: "fitness-owner",
+			eventSchemaSlug: "measurement-reading",
+		},
+		{
+			id: "note-1",
+			entityId: "exercise-1",
+			eventSchemaSlug: "review",
+			eventSchemaPluginId: "fitness-owner",
+		},
+		{
+			id: "fake-reading",
+			entityId: "exercise-1",
+			eventSchemaPluginId: "fitness-owner",
+			eventSchemaSlug: "measurement-reading",
+		},
 	],
 };
 
@@ -25,6 +50,9 @@ const evaluate = (expression: unknown, rows: Rows): unknown => {
 	assert(typeof expression === "object" && expression !== null && "type" in expression);
 	if (expression.type === "literal" && "value" in expression) {
 		return expression.value;
+	}
+	if (expression.type === "pluginId") {
+		return "fitness-owner";
 	}
 	if (expression.type === "column" && "tableAlias" in expression && "field" in expression) {
 		assert(typeof expression.tableAlias === "string" && typeof expression.field === "string");

@@ -39,7 +39,7 @@ const noteMutation = <A, I>(slug: string, schema: Schema.Codec<A, I>) =>
 						slug,
 						input: payload,
 						output: ExerciseNoteOutput,
-						pluginId: client.pluginIdentity(PluginPackageId.make(PLUGIN_PACKAGE_ID)).pluginId,
+						packageId: PluginPackageId.make(PLUGIN_PACKAGE_ID),
 					}),
 				),
 				Effect.tap(() => Effect.sync(onSuccess)),

@@ -29,7 +29,6 @@ const fitnessEntitySchemaDefinitions = [
 	{
 		icon: "library",
 		eventSchemas: [],
-		pluginSlug: "fitness",
 		slug: "fitness-library",
 		name: "Fitness Library",
 		propertiesSchema: { fields: {} },
@@ -112,11 +111,4 @@ const fitnessEntitySchemaDefinitions = [
 	},
 ] as const;
 
-export const fitnessEntitySchemas = () =>
-	fitnessEntitySchemaDefinitions.map((schema) => {
-		if (!("pluginSlug" in schema)) {
-			return schema;
-		}
-		const { pluginSlug: _pluginSlug, ...withoutPluginSlug } = schema;
-		return withoutPluginSlug;
-	});
+export const fitnessEntitySchemas = () => [...fitnessEntitySchemaDefinitions];

@@ -291,12 +291,11 @@ const smoke = Effect.gen(function* () {
 								scope: "user",
 								workflowScripts: {},
 								userBootstrapScriptSlugs: [],
-								slug: "production-runtime-smoke",
 								id: PluginId.make("production-runtime-smoke"),
 								configSchema: { fields: {}, unknownKeys: "strict" },
 								compiledHashes: { [smokeSourceManifest.slug]: contentHash },
+								packageId: PluginPackageId.make("ryot/production-runtime-smoke"),
 								revisionId: PluginRevisionId.make("production-runtime-smoke-revision"),
-								packageId: PluginPackageId.make("2eed98ed-dcb6-4aa1-aa43-c09d481e4cbe"),
 								configRevisionId: PluginConfigRevisionId.make("production-runtime-smoke-config"),
 								schemaScope: {
 									eventSchemas: [],

@@ -68,8 +68,8 @@ export const fixtureClientPluginCatalogRecipe = defineRecipe(() => ({
 	queries: {
 		installations: selectedRows(installation, {
 			limit: 100,
-			selection: { slug: selectedField(column(plugin, "slug"), Schema.String) },
-			orderBy: [ascending(column(plugin, "slug")), ascending(column(installation, "id"))],
+			selection: { packageId: selectedField(column(plugin, "packageId"), Schema.String) },
+			orderBy: [ascending(column(plugin, "packageId")), ascending(column(installation, "id"))],
 			joins: [join("inner", plugin, eq(column(plugin, "id"), column(installation, "pluginId")))],
 			where: and(
 				eq(column(plugin, "status"), literal("active")),

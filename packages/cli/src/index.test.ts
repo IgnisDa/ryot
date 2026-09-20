@@ -6,7 +6,7 @@ import { Data, Effect, FileSystem, Path, Schema, Stream } from "effect";
 import { ChildProcess, ChildProcessSpawner } from "effect/process";
 
 const decoder = new TextDecoder();
-const packageId = "ee8040dd-5a40-42a1-916d-58190c1a06e8";
+const packageId = "test/cli";
 const archiveName = `${packageId}.zip`;
 
 const createPlugin = Effect.fn("createPlugin")(function* () {
@@ -59,51 +59,29 @@ const waitFor = Effect.fn("waitFor")(function* <E>(check: Effect.Effect<boolean,
 });
 
 it.layer(BunServices.layer)("ryot plugin build", (test) => {
-	test.effect("creates identity exclusively without requiring a shared directory", () =>
+	test.effect("keeps package outputs independent", () =>
 		Effect.gen(function* () {
 			const fs = yield* FileSystem.FileSystem;
 			const path = yield* Path.Path;
-			const root = yield* fs.makeTempDirectoryScoped({ prefix: "ryot-identity-" });
-			const first = yield* run(root, ["plugin", "init-identity"]);
-			expect(first.exitCode, first.stderr + first.stdout).toBe(0);
-			const identityPath = path.join(root, "shared", "plugin-identity.ts");
-			const identity = yield* fs.readFileString(identityPath);
-			expect(identity).toMatch(
-				/^export const PLUGIN_PACKAGE_ID = "[a-f0-9]{8}-[a-f0-9]{4}-4[a-f0-9]{3}-[89ab][a-f0-9]{3}-[a-f0-9]{12}";\n$/,
+			const plugin = yield* createPlugin();
+			const first = yield* run(plugin, ["plugin", "build"]);
+			expect(first.exitCode, first.stdout + first.stderr).toBe(0);
+			const firstBytes = yield* fs.readFile(path.join(plugin, "dist", archiveName));
+			const nextPackageId = "test/other";
+			const manifestPath = path.join(plugin, "manifest.ts");
+			const manifest = yield* fs.readFileString(manifestPath);
+			yield* fs.writeFileString(manifestPath, manifest.replace(packageId, nextPackageId));
+			const second = yield* run(plugin, ["plugin", "build"]);
+			expect(second.exitCode, second.stdout + second.stderr).toBe(0);
+			expect(yield* fs.readFile(path.join(plugin, "dist", archiveName))).toEqual(firstBytes);
+			const firstArchive = yield* readPluginArchive(firstBytes);
+			const secondArchive = yield* readPluginArchive(
+				yield* fs.readFile(path.join(plugin, "dist", `${nextPackageId}.zip`)),
 			);
-			const second = yield* run(root, ["plugin", "init-identity"]);
-			expect(second.exitCode).not.toBe(0);
-			expect(yield* fs.readFileString(identityPath)).toBe(identity);
-			expect(yield* fs.readDirectory(root)).toEqual(["shared"]);
+			expect(firstArchive.compiledClient?.packageId).toBe(packageId);
+			expect(secondArchive.compiledClient?.packageId).toBe(nextPackageId);
+			expect(firstArchive.compiledClient?.hash).not.toBe(secondArchive.compiledClient?.hash);
 		}),
-	);
-	test.effect(
-		"keeps same-slug package outputs independent and builds without generating identity",
-		() =>
-			Effect.gen(function* () {
-				const fs = yield* FileSystem.FileSystem;
-				const path = yield* Path.Path;
-				const plugin = yield* createPlugin();
-				const first = yield* run(plugin, ["plugin", "build"]);
-				expect(first.exitCode, first.stdout + first.stderr).toBe(0);
-				const firstBytes = yield* fs.readFile(path.join(plugin, "dist", archiveName));
-				const nextPackageId = "97887987-a15b-452b-bfdc-633028850ad9";
-				const manifestPath = path.join(plugin, "manifest.ts");
-				const manifest = yield* fs.readFileString(manifestPath);
-				yield* fs.writeFileString(manifestPath, manifest.replace(packageId, nextPackageId));
-				const second = yield* run(plugin, ["plugin", "build"]);
-				expect(second.exitCode, second.stdout + second.stderr).toBe(0);
-				expect(yield* fs.readFile(path.join(plugin, "dist", archiveName))).toEqual(firstBytes);
-				const firstArchive = yield* readPluginArchive(firstBytes);
-				const secondArchive = yield* readPluginArchive(
-					yield* fs.readFile(path.join(plugin, "dist", `${nextPackageId}.zip`)),
-				);
-				expect(firstArchive.manifest.metadata.slug).toBe(secondArchive.manifest.metadata.slug);
-				expect(firstArchive.compiledClient?.packageId).toBe(packageId);
-				expect(secondArchive.compiledClient?.packageId).toBe(nextPackageId);
-				expect(firstArchive.compiledClient?.hash).not.toBe(secondArchive.compiledClient?.hash);
-				expect(yield* fs.exists(path.join(plugin, "shared", "plugin-identity.ts"))).toBe(false);
-			}),
 	);
 	test.effect("preserves generated configuration, OAuth, and executable facts in the archive", () =>
 		Effect.gen(function* () {
@@ -269,7 +247,7 @@ export default ${helper}({ manifest, run: () => Effect.succeed(${automationType 
 				expect(compiledClient).toBeDefined();
 				expect(compiledClient?.files.map(({ name }) => name)).toContain("module.js");
 				expect(compiledClient?.files.map(({ name }) => name)).toContain("module.css");
-				expect(yield* fs.readDirectory(path.join(plugin, "dist"))).toEqual([archiveName]);
+				expect(yield* fs.readDirectory(path.join(plugin, "dist", "test"))).toEqual(["cli.zip"]);
 				expect(yield* fs.readFile(output)).toEqual(first);
 				expect(pluginPackage.manifest).toMatchObject({
 					httpRateLimits: [{ origins: ["https://example.com"] }],
@@ -370,8 +348,8 @@ export default ${helper}({ manifest, run: () => Effect.succeed(${automationType 
 			expect(result.exitCode, result.stderr).toBe(0);
 			expect(
 				(yield* readPluginArchive(yield* fs.readFile(path.join(plugin, "artifacts", "plugin.zip"))))
-					.manifest.metadata.slug,
-			).toBe("cli-test");
+					.manifest.metadata.packageId,
+			).toBe(packageId);
 			expect(yield* fs.exists(path.join(plugin, "dist", archiveName))).toBe(false);
 		}),
 	);
@@ -519,7 +497,7 @@ export default ${helper}({ manifest, run: () => Effect.succeed(${automationType 
 				manifestPath,
 				manifest.replace(
 					"client: {",
-					`client: {\n\t\tpluginDependencies: { media: { packageId: "97887987-a15b-452b-bfdc-633028850ad9", scope: "system" } },`,
+					`client: {\n\t\tpluginDependencies: { media: { packageId: "test/other", scope: "system" } },`,
 				),
 			);
 			yield* fs.writeFileString(
@@ -534,10 +512,7 @@ export default ${helper}({ manifest, run: () => Effect.succeed(${automationType 
 				yield* fs.readFile(path.join(plugin, "dist", archiveName)),
 			);
 			expect(archive.compiledClient?.imports).toEqual([
-				{
-					exportName: "show-card",
-					reference: { scope: "system", packageId: "97887987-a15b-452b-bfdc-633028850ad9" },
-				},
+				{ exportName: "show-card", reference: { scope: "system", packageId: "test/other" } },
 			]);
 			expect(yield* fs.exists(path.join(plugin, "dist", archiveName))).toBe(true);
 		}),

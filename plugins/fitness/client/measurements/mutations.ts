@@ -31,7 +31,7 @@ const readingMutation = <A, I>(slug: string, schema: Schema.Codec<A, I>) =>
 					slug,
 					input,
 					output: MeasurementReadingOutput,
-					pluginId: client.pluginIdentity(PluginPackageId.make(PLUGIN_PACKAGE_ID)).pluginId,
+					packageId: PluginPackageId.make(PLUGIN_PACKAGE_ID),
 				}),
 			),
 			Effect.tap(() => Effect.sync(onSuccess)),
@@ -61,7 +61,7 @@ export const pinMetricMutation = createRyotMutation<
 		input,
 		output: MeasurementMetricPinOutput,
 		slug: measurementMetricPinOperationSlug,
-		pluginId: client.pluginIdentity(PluginPackageId.make(PLUGIN_PACKAGE_ID)).pluginId,
+		packageId: PluginPackageId.make(PLUGIN_PACKAGE_ID),
 	}),
 );
 

@@ -1,5 +1,5 @@
 import { defineOperationRecipe } from "@ryot-app/plugin-kit/operations";
-import type { PluginId } from "@ryot-app/plugin-kit/schema";
+import { PluginPackageId } from "@ryot-app/plugin-kit/schema";
 
 import {
 	ExerciseNoteCreateInput,
@@ -25,67 +25,62 @@ import {
 	measurementReadingLogOperationSlug,
 	measurementReadingUpdateOperationSlug,
 } from "../../shared/measurement-reading-operations";
+import { PLUGIN_PACKAGE_ID } from "../../shared/plugin-identity";
 
-export const measurementMetricCreateRecipe = (pluginId: PluginId) =>
-	defineOperationRecipe({
-		pluginId,
-		input: MeasurementMetricCreateInput,
-		output: MeasurementMetricCreateOutput,
-		operationSlug: measurementMetricCreateOperationSlug,
-	});
+const packageId = PluginPackageId.make(PLUGIN_PACKAGE_ID);
 
-export const measurementMetricPinRecipe = (pluginId: PluginId) =>
-	defineOperationRecipe({
-		pluginId,
-		input: MeasurementMetricPinInput,
-		output: MeasurementMetricPinOutput,
-		operationSlug: measurementMetricPinOperationSlug,
-	});
+export const measurementMetricCreateRecipe = defineOperationRecipe({
+	packageId,
+	input: MeasurementMetricCreateInput,
+	output: MeasurementMetricCreateOutput,
+	operationSlug: measurementMetricCreateOperationSlug,
+});
 
-export const measurementReadingLogRecipe = (pluginId: PluginId) =>
-	defineOperationRecipe({
-		pluginId,
-		output: MeasurementReadingOutput,
-		input: MeasurementReadingLogInput,
-		operationSlug: measurementReadingLogOperationSlug,
-	});
+export const measurementMetricPinRecipe = defineOperationRecipe({
+	packageId,
+	input: MeasurementMetricPinInput,
+	output: MeasurementMetricPinOutput,
+	operationSlug: measurementMetricPinOperationSlug,
+});
 
-export const measurementReadingUpdateRecipe = (pluginId: PluginId) =>
-	defineOperationRecipe({
-		pluginId,
-		output: MeasurementReadingOutput,
-		input: MeasurementReadingUpdateInput,
-		operationSlug: measurementReadingUpdateOperationSlug,
-	});
+export const measurementReadingLogRecipe = defineOperationRecipe({
+	packageId,
+	output: MeasurementReadingOutput,
+	input: MeasurementReadingLogInput,
+	operationSlug: measurementReadingLogOperationSlug,
+});
 
-export const measurementReadingDeleteRecipe = (pluginId: PluginId) =>
-	defineOperationRecipe({
-		pluginId,
-		output: MeasurementReadingOutput,
-		input: MeasurementReadingDeleteInput,
-		operationSlug: measurementReadingDeleteOperationSlug,
-	});
+export const measurementReadingUpdateRecipe = defineOperationRecipe({
+	packageId,
+	output: MeasurementReadingOutput,
+	input: MeasurementReadingUpdateInput,
+	operationSlug: measurementReadingUpdateOperationSlug,
+});
 
-export const exerciseNoteCreateRecipe = (pluginId: PluginId) =>
-	defineOperationRecipe({
-		pluginId,
-		output: ExerciseNoteOutput,
-		input: ExerciseNoteCreateInput,
-		operationSlug: exerciseNoteOperationSlugs.create,
-	});
+export const measurementReadingDeleteRecipe = defineOperationRecipe({
+	packageId,
+	output: MeasurementReadingOutput,
+	input: MeasurementReadingDeleteInput,
+	operationSlug: measurementReadingDeleteOperationSlug,
+});
 
-export const exerciseNoteUpdateRecipe = (pluginId: PluginId) =>
-	defineOperationRecipe({
-		pluginId,
-		output: ExerciseNoteOutput,
-		input: ExerciseNoteUpdateInput,
-		operationSlug: exerciseNoteOperationSlugs.update,
-	});
+export const exerciseNoteCreateRecipe = defineOperationRecipe({
+	packageId,
+	output: ExerciseNoteOutput,
+	input: ExerciseNoteCreateInput,
+	operationSlug: exerciseNoteOperationSlugs.create,
+});
 
-export const exerciseNoteDeleteRecipe = (pluginId: PluginId) =>
-	defineOperationRecipe({
-		pluginId,
-		output: ExerciseNoteOutput,
-		input: ExerciseNoteDeleteInput,
-		operationSlug: exerciseNoteOperationSlugs.delete,
-	});
+export const exerciseNoteUpdateRecipe = defineOperationRecipe({
+	packageId,
+	output: ExerciseNoteOutput,
+	input: ExerciseNoteUpdateInput,
+	operationSlug: exerciseNoteOperationSlugs.update,
+});
+
+export const exerciseNoteDeleteRecipe = defineOperationRecipe({
+	packageId,
+	output: ExerciseNoteOutput,
+	input: ExerciseNoteDeleteInput,
+	operationSlug: exerciseNoteOperationSlugs.delete,
+});

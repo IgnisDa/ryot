@@ -8,7 +8,6 @@ import {
 	useRyotMutation,
 	useRyotQuery,
 	useRyotTheme,
-	usePluginIdentity,
 } from "@ryot-app/client-sdk/react";
 import { PluginScreenFrame } from "@ryot-app/client-sdk/screen";
 import { Button, StatusMessage } from "@ryot-app/client-ui-sdk";
@@ -47,7 +46,7 @@ const greetingMutation = createRyotMutation<GreetingInput, typeof Greeting.Type>
 			input,
 			slug: "greet",
 			output: Greeting,
-			pluginId: client.pluginIdentity(PluginPackageId.make(PLUGIN_PACKAGE_ID)).pluginId,
+			packageId: PluginPackageId.make(PLUGIN_PACKAGE_ID),
 		}),
 );
 
@@ -63,7 +62,6 @@ const uploadMutation = createRyotMutation<File, TemporaryUploadToken>(({ input, 
 );
 
 export const Home = () => {
-	const identity = usePluginIdentity(PluginPackageId.make(PLUGIN_PACKAGE_ID));
 	const ryot = useRyot();
 	const theme = useRyotTheme();
 	const [greetings, setGreetings] = useState(0);
@@ -77,12 +75,12 @@ export const Home = () => {
 		greeting.status === "error" &&
 		greeting.error instanceof RyotClientError &&
 		greeting.error.reason === "operation-failed";
-	const installedPluginSlugs = catalog.data?.map(({ slug }) => slug).join(", ") ?? "";
+	const installedPackageIds = catalog.data?.map(({ packageId }) => packageId).join(", ") ?? "";
 	let catalogMessage = "Client plugin catalog is unavailable.";
 	if (catalog.status === "pending") {
 		catalogMessage = "Fetching installed client plugins...";
 	} else if (catalog.status === "success") {
-		catalogMessage = `Installed client plugins: ${installedPluginSlugs}`;
+		catalogMessage = `Installed client plugins: ${installedPackageIds}`;
 	}
 	let greetingMessage = "";
 	if (greeting.status === "pending") {
@@ -222,18 +220,16 @@ export const Home = () => {
 						/>
 					</label>
 				</section>
-				<PluginLink to={fixtureRoute(identity.pluginId, "/details/item-1", { tab: "stats" })}>
+				<PluginLink to={fixtureRoute("/details/item-1", { tab: "stats" })}>
 					Item 1 details
 				</PluginLink>
 				<Button
 					variant="secondary"
-					onClick={() => ryot.navigation.push(fixtureRoute(identity.pluginId, "/details/item-2"))}
+					onClick={() => ryot.navigation.push(fixtureRoute("/details/item-2"))}
 				>
 					Open item 2
 				</Button>
-				<PluginLink to={fixtureRoute(identity.pluginId, "/full-bleed")}>
-					Full-bleed screen
-				</PluginLink>
+				<PluginLink to={fixtureRoute("/full-bleed")}>Full-bleed screen</PluginLink>
 				<PluginLink to={{ kind: "entity", entityId: "fixture-entity" }}>
 					Open fixture entity
 				</PluginLink>
