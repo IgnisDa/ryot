@@ -1,4 +1,7 @@
-import { SavedViewReference } from "@ryot-app/contract/modules/plugins/references";
+import {
+	PluginPackageReference,
+	SavedViewReference,
+} from "@ryot-app/contract/modules/plugins/references";
 import { PluginInstallationHealth } from "@ryot-app/contract/modules/plugins/schemas";
 import { PluginPackageId } from "@ryot-app/contract/schema/brands";
 import {
@@ -47,7 +50,7 @@ export const pluginClientCatalogRecipe = defineRecipe(
 					isHidden: selectedField(column(installation, "isHidden"), Schema.Boolean),
 					sortOrder: selectedField(column(installation, "sortOrder"), Schema.Finite),
 					health: selectedField(column(installation, "health"), PluginInstallationHealth),
-					scope: selectedField(column(plugin, "scope"), Schema.Literals(["system", "user"])),
+					scope: selectedField(column(plugin, "scope"), PluginPackageReference.fields.scope),
 					clientApiVersion: selectedField(column(plugin, "clientApiVersion"), Schema.Literal(1)),
 					homeSavedView: selectedField(
 						column(installation, "homeSavedView"),

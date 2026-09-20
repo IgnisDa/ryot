@@ -1,6 +1,6 @@
 import type { CurrentUserValue } from "@ryot-app/contract/auth-middleware";
 import {
-	identityTupleKey,
+	savedViewReferenceKey,
 	type SavedViewReference,
 } from "@ryot-app/contract/modules/plugins/references";
 import {
@@ -32,15 +32,6 @@ const missing = (reference: SavedViewReference) =>
 
 const immutable = (reference: SavedViewReference) =>
 	new SavedViewBadRequest({ reason: { reference, code: "builtin-view-immutable" } });
-
-const referenceKey = (reference: SavedViewReference) =>
-	reference.kind === "custom"
-		? identityTupleKey(reference.kind, reference.savedViewId)
-		: identityTupleKey(
-				reference.kind,
-				reference.kind === "plugin" ? reference.pluginId : null,
-				reference.slug,
-			);
 
 export class SavedViewsService extends Context.Service<SavedViewsService>()("SavedViewsService", {
 	make: Effect.gen(function* () {
@@ -306,7 +297,8 @@ export class SavedViewsService extends Context.Service<SavedViewsService>()("Sav
 							pluginInstallationId: pluginInstallationId ?? undefined,
 						})).filter((view) => view.pluginInstallationId === pluginInstallationId);
 						const requested = payload.references;
-						const keys = requested.map(referenceKey);
+						const keys = new Set(requested.map(savedViewReferenceKey));
+						const viewKeys = new Set(views.map((view) => savedViewReferenceKey(view.reference)));
 						const invalid = (issue: "empty" | "duplicate" | "unknown-view" | "update-failed") =>
 							new SavedViewBadRequest({
 								reason: { issue, references: requested, code: "invalid-reorder" },
@@ -314,21 +306,17 @@ export class SavedViewsService extends Context.Service<SavedViewsService>()("Sav
 						if (requested.length === 0) {
 							return yield* invalid("empty");
 						}
-						if (new Set(keys).size !== requested.length) {
+						if (keys.size !== requested.length) {
 							return yield* invalid("duplicate");
 						}
-						if (
-							requested.some(
-								(reference) => !views.some((view) => Bun.deepEquals(view.reference, reference)),
-							)
-						) {
+						if (!requested.every((reference) => viewKeys.has(savedViewReferenceKey(reference)))) {
 							return yield* invalid("unknown-view");
 						}
 						const references = [
 							...requested,
 							...views
 								.map((view) => view.reference)
-								.filter((reference) => !keys.includes(referenceKey(reference))),
+								.filter((reference) => !keys.has(savedViewReferenceKey(reference))),
 						];
 						if (
 							(yield* repository.reorderByReferences(user.id, pluginInstallationId, references)) !==

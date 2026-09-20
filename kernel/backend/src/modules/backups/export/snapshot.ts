@@ -7,11 +7,11 @@ import {
 	definitionKey,
 	definitionOwner,
 	pluginPackageKey,
+	savedViewReferenceKey,
 } from "@ryot-app/contract/modules/plugins/references";
 import type { AssetLocator, ManagedAssetLocator } from "@ryot-app/contract/modules/uploads/schemas";
 import { EntityId, EventId, type UserId } from "@ryot-app/contract/schema/brands";
 import type { AppSchema } from "@ryot-app/contract/schema/property-schema";
-import { stableStringify } from "@ryot-app/ts-utils/json";
 import { Context, Effect, FileSystem, Layer, Schema } from "effect";
 
 import {
@@ -398,7 +398,7 @@ export class BackupExportSnapshot extends Context.Service<BackupExportSnapshot>(
 				);
 				const homeSavedViews = new Set(
 					allStoredInstallations.flatMap(({ homeSavedView }) =>
-						homeSavedView === null ? [] : [stableStringify(homeSavedView)],
+						homeSavedView === null ? [] : [savedViewReferenceKey(homeSavedView)],
 					),
 				);
 				const portablePackages = new Map(
@@ -406,6 +406,21 @@ export class BackupExportSnapshot extends Context.Service<BackupExportSnapshot>(
 						plugin.id,
 						{ scope: plugin.scope, packageId: plugin.packageId },
 					]),
+				);
+				const storedBuiltinViewKeys = new Set(
+					storedViews.flatMap((view) =>
+						view.isBuiltin
+							? [
+									definitionKey(
+										"saved-view",
+										definitionOwner(
+											view.reference.kind === "plugin" ? view.reference.pluginId : null,
+										),
+										view.slug,
+									),
+								]
+							: [],
+					),
 				);
 				const viewRecords: ArchiveSavedView[] = (yield* Effect.forEach(storedViews, (view) =>
 					Effect.gen(function* () {
@@ -459,13 +474,7 @@ export class BackupExportSnapshot extends Context.Service<BackupExportSnapshot>(
 						return viewDefinition &&
 							view.sortOrder === viewDefinition.sortOrder &&
 							!view.isHidden &&
-							!homeSavedViews.has(
-								stableStringify(
-									definitionPluginId === null
-										? { kind: "kernel", slug: view.slug }
-										: { kind: "plugin", slug: view.slug, pluginId: definitionPluginId },
-								),
-							)
+							!homeSavedViews.has(savedViewReferenceKey(view.reference))
 							? []
 							: [
 									{
@@ -486,19 +495,7 @@ export class BackupExportSnapshot extends Context.Service<BackupExportSnapshot>(
 						definitionOwner(override.pluginId),
 						override.slug,
 					);
-					if (
-						storedViews.some(
-							(view) =>
-								view.isBuiltin &&
-								definitionKey(
-									"saved-view",
-									view.reference.kind === "plugin"
-										? definitionOwner(view.reference.pluginId)
-										: definitionOwner(null),
-									view.slug,
-								) === key,
-						)
-					) {
+					if (storedBuiltinViewKeys.has(key)) {
 						continue;
 					}
 					if (!context.savedView(override.slug, override.pluginId)) {

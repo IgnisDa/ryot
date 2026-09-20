@@ -23,7 +23,7 @@ import tailwindcss from "@tailwindcss/vite";
 import { Effect, type FileSystem, Path, Result } from "effect";
 
 import { validateClientPluginPackage } from "./compile";
-import { isNeutralPluginModule, isTrustedClientModule } from "./dependencies";
+import { isNeutralPluginModule, isTrustedClientModule, PLUGIN_IMPORT } from "./dependencies";
 import { clientPluginCompilationFailure, clientPluginCompilerDiagnostic } from "./diagnostics";
 import type { ClientPluginCompilerDiagnostic, ClientPluginCompilerFailure } from "./diagnostics";
 import { compilerStylesheet } from "./generated-source";
@@ -34,8 +34,6 @@ import { isCompiledTextSource } from "./planning";
 import { isExternalReference, referencePath } from "./reference-path";
 import { clientTypeScriptProject } from "./semantic-check";
 
-const PLUGIN_IMPORT =
-	/^@ryot-app\/plugins\/([a-z0-9]+(?:[._-][a-z0-9]+)*)\/([a-z0-9]+(?:[._-][a-z0-9]+)*)$/;
 const OUTPUT_FILE =
 	/^(?:module\.(?:js|css)|chunk-[A-Za-z0-9_-]+\.js|asset-[A-Za-z0-9_-]+\.(?:svg|png|jpe?g|gif|webp|avif|ico|woff2|wasm))$/;
 
@@ -108,9 +106,6 @@ const outputReferenceIssue = (
 
 type PluginInput = Extract<ClientPluginCompilerPackageInput, { readonly kind: "plugin" }>;
 type KernelInput = Extract<ClientPluginCompilerPackageInput, { readonly kind: "kernel" }>;
-type CompilationOutput =
-	| { readonly kind: "plugin"; readonly artifact: PluginClientArtifact }
-	| { readonly kind: "kernel"; readonly artifact: ClientRuntimeArtifact };
 type Compilation<Output> = Effect.Effect<
 	Output,
 	ClientPluginCompilerFailure,
@@ -119,16 +114,13 @@ type Compilation<Output> = Effect.Effect<
 
 export function compileClientPluginModule(
 	input: PluginInput,
-): Compilation<Extract<CompilationOutput, { kind: "plugin" }>>;
+): Compilation<{ readonly artifact: PluginClientArtifact }>;
 export function compileClientPluginModule(
 	input: KernelInput,
-): Compilation<Extract<CompilationOutput, { kind: "kernel" }>>;
+): Compilation<{ readonly artifact: ClientRuntimeArtifact }>;
 export function compileClientPluginModule(
 	input: ClientPluginCompilerPackageInput,
-): Compilation<CompilationOutput>;
-export function compileClientPluginModule(
-	input: ClientPluginCompilerPackageInput,
-): Compilation<CompilationOutput> {
+): Compilation<{ readonly artifact: PluginClientArtifact | ClientRuntimeArtifact }> {
 	return Effect.gen(function* () {
 		const { dependencies, compiledFiles: sourceEntries } =
 			yield* validateClientPluginPackage(input);
@@ -349,7 +341,6 @@ export function compileClientPluginModule(
 		const imports = [...pluginDependencies.values()];
 		if (input.kind === "plugin") {
 			return {
-				kind: "plugin" as const,
 				artifact: {
 					...clientArtifactMetadata(input.name, input.packageId, files, {
 						imports,
@@ -360,7 +351,6 @@ export function compileClientPluginModule(
 			};
 		}
 		return {
-			kind: "kernel" as const,
 			artifact: {
 				...clientRuntimeArtifactMetadata(input.name, files, imports),
 				files: sortedFiles,

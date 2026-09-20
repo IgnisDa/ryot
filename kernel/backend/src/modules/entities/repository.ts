@@ -2,7 +2,7 @@ import { DbError } from "@ryot-app/contract/errors";
 import {
 	definitionKey,
 	type EntitySchemaReference,
-	type ProviderReference,
+	type DeclarationReference,
 } from "@ryot-app/contract/modules/plugins/references";
 import {
 	EntityId,
@@ -569,7 +569,7 @@ export class EntitiesRepository extends Context.Service<EntitiesRepository>()(
 					externalId: string;
 					entitySchemaSlug: EntitySchemaSlug;
 					entitySchemaPluginId: string | null;
-					provider: ProviderReference | null;
+					provider: DeclarationReference | null;
 				}) {
 					const [row] = yield* session.run((db) =>
 						db
@@ -661,7 +661,7 @@ export class EntitiesRepository extends Context.Service<EntitiesRepository>()(
 
 			const findEntitySchemaProviderByReference = Effect.fn(
 				"EntitiesRepository.findEntitySchemaProviderByReference",
-			)(function* (reference: ProviderReference) {
+			)(function* (reference: DeclarationReference) {
 				const resolved = yield* pluginRuntime.findSchemaProviderByReference(reference);
 				if (!resolved) {
 					return null;

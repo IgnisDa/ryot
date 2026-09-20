@@ -11,6 +11,7 @@ import {
 import { JsonValue } from "../../schema/json";
 import { AppSchema } from "../../schema/property-schema";
 import { strictStruct } from "../../schema/utils";
+import { PluginClientDependencies } from "../plugins/manifest";
 import { PluginPackageReference, SavedViewReference } from "../plugins/references";
 import { RyotQLDocument } from "../ryotql/language";
 
@@ -21,29 +22,31 @@ export const ClientRendererDefinition = strictStruct({
 	settingsSchema: AppSchema,
 	files: Schema.Array(ClientRendererFile),
 	automaticEntityPresentations: Schema.Boolean,
-	pluginDependencies: Schema.Record(Schema.String, PluginPackageReference),
+	pluginDependencies: PluginClientDependencies,
 });
 export type ClientRendererDefinition = typeof ClientRendererDefinition.Type;
 
-const SavedViewClientPageTarget = strictStruct({
+export const SavedViewClientPageTarget = strictStruct({
 	reference: SavedViewReference,
 	kind: Schema.Literal("saved-view"),
 });
-const PluginClientPageTarget = Schema.Union([
-	strictStruct({ entityId: EntityId, kind: Schema.Literal("entity") }),
-	strictStruct({
-		path: Schema.String,
-		search: Schema.String,
-		packageId: PluginPackageId,
-		kind: Schema.Literal("plugin-route"),
-	}),
+const EntityClientPageTarget = strictStruct({ entityId: EntityId, kind: Schema.Literal("entity") });
+const PluginRouteClientPageTarget = strictStruct({
+	path: Schema.String,
+	search: Schema.String,
+	packageId: PluginPackageId,
+	kind: Schema.Literal("plugin-route"),
+});
+const PluginClientPageTarget = Schema.Union([EntityClientPageTarget, PluginRouteClientPageTarget]);
+const SavedViewOrRouteClientPageTarget = Schema.Union([
+	SavedViewClientPageTarget,
+	PluginRouteClientPageTarget,
 ]);
 export const ClientPageTarget = Schema.Union([SavedViewClientPageTarget, PluginClientPageTarget]);
 export type ClientPageTarget = typeof ClientPageTarget.Type;
 
 const PreparedClientPageTarget = Schema.Union([
-	SavedViewClientPageTarget,
-	PluginClientPageTarget.members[1],
+	...SavedViewOrRouteClientPageTarget.members,
 	strictStruct({
 		entityId: EntityId,
 		kind: Schema.Literal("entity"),
@@ -193,7 +196,7 @@ export const ClientPageCompositionIdentity = strictStruct({
 				artifactHash: Schema.String,
 				kind: Schema.Literal("kernel-renderer"),
 				automaticEntityPresentations: Schema.Boolean,
-				pluginDependencies: Schema.Record(Schema.String, PluginPackageReference),
+				pluginDependencies: PluginClientDependencies,
 			}),
 			strictStruct({
 				pluginId: PluginId,
@@ -204,8 +207,8 @@ export const ClientPageCompositionIdentity = strictStruct({
 				kind: Schema.Literal("plugin"),
 				clientArtifactHash: Schema.String,
 				scope: PluginPackageReference.fields.scope,
+				pluginDependencies: PluginClientDependencies,
 				exports: Schema.Array(ClientPagePublicExportIdentity),
-				pluginDependencies: Schema.Record(Schema.String, PluginPackageReference),
 			}),
 		]),
 	),
@@ -247,8 +250,8 @@ export const PreparedClientPageIdentity = Schema.Union([
 		viewRevision: Schema.Int,
 		sourceHash: Schema.String,
 		rendererName: Schema.String,
+		target: SavedViewOrRouteClientPageTarget,
 		kind: Schema.Literal("kernel-saved-view"),
-		target: Schema.Union([SavedViewClientPageTarget, PluginClientPageTarget.members[1]]),
 	}),
 	strictStruct({
 		...PreparedClientPageIdentityBase,
@@ -258,8 +261,8 @@ export const PreparedClientPageIdentity = Schema.Union([
 		sourceHash: Schema.String,
 		exportName: Schema.String,
 		installationId: Schema.String,
+		target: SavedViewOrRouteClientPageTarget,
 		kind: Schema.Literal("plugin-saved-view"),
-		target: Schema.Union([SavedViewClientPageTarget, PluginClientPageTarget.members[1]]),
 	}),
 	strictStruct({
 		...PreparedClientPageIdentityBase,
@@ -274,8 +277,8 @@ export const PreparedClientPageIdentity = Schema.Union([
 		...PreparedClientPageIdentityBase,
 		sourceHash: Schema.String,
 		rendererName: Schema.String,
+		target: EntityClientPageTarget,
 		entitySchemaSlug: EntitySchemaSlug,
-		target: PluginClientPageTarget.members[0],
 		kind: Schema.Literal("kernel-entity-page"),
 	}),
 ]);

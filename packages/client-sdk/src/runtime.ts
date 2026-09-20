@@ -86,6 +86,11 @@ const normalizeHeaderTitle = (title: string) => {
 		: trimmed;
 };
 
+type PluginCodeContributor = Extract<
+	ClientPageContext["contributors"][number],
+	{ readonly kind: "plugin" }
+>;
+
 export const createPluginRuntime = (
 	port: MessagePort,
 	init: PluginBridgeInit,
@@ -98,6 +103,10 @@ export const createPluginRuntime = (
 ) => {
 	let hasLocation = false;
 	let contributors = init.page?.contributors ?? [];
+	const pluginContributors = () =>
+		contributors.filter(
+			(contributor): contributor is PluginCodeContributor => contributor.kind === "plugin",
+		);
 	let theme: PluginThemeSnapshot = { resolvedMode: init.mode };
 	let nextRequestId = 0;
 	let state: PluginRuntimeState = "ready";
@@ -318,9 +327,7 @@ export const createPluginRuntime = (
 		);
 
 	const accessStorage = (entry: StorageAdapterRequest) =>
-		!contributors.some(
-			(contributor) => contributor.kind === "plugin" && contributor.pluginId === entry.pluginId,
-		)
+		!pluginContributors().some((contributor) => contributor.pluginId === entry.pluginId)
 			? Effect.fail(new RyotClientError("invalid-request"))
 			: sendRequest(
 					"storage",
@@ -453,11 +460,11 @@ export const createPluginRuntime = (
 			if (state === "closing" || state === "failed" || state === "disposed") {
 				throw new RyotClientError(terminalReason ?? "disposed");
 			}
-			const matches = contributors.filter(
-				(contributor) => contributor.kind === "plugin" && contributor.packageId === packageId,
+			const matches = pluginContributors().filter(
+				(contributor) => contributor.packageId === packageId,
 			);
 			const contributor = matches[0];
-			if (matches.length !== 1 || contributor?.kind !== "plugin") {
+			if (matches.length !== 1 || contributor === undefined) {
 				throw new RyotClientError("invalid-request");
 			}
 			return { kind: "local", pluginId: contributor.pluginId };

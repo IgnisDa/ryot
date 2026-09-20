@@ -12,14 +12,16 @@ import {
 import type { JsonValue } from "../../schema/json";
 import { strictStruct } from "../../schema/utils";
 
+export const KernelDefinitionOwner = strictStruct({ kind: Schema.Literal("kernel") });
+
 export const DefinitionOwner = Schema.Union([
-	strictStruct({ kind: Schema.Literal("kernel") }),
+	KernelDefinitionOwner,
 	strictStruct({ pluginId: PluginId, kind: Schema.Literal("plugin") }),
 ]);
 export type DefinitionOwner = typeof DefinitionOwner.Type;
 
 export const AuthoredDefinitionOwner = Schema.Union([
-	strictStruct({ kind: Schema.Literal("kernel") }),
+	KernelDefinitionOwner,
 	strictStruct({ kind: Schema.Literal("self") }),
 ]);
 export type AuthoredDefinitionOwner = typeof AuthoredDefinitionOwner.Type;
@@ -42,6 +44,8 @@ export const PluginIdentityReference = Schema.Union([
 	strictStruct({ kind: Schema.Literal("package"), ...PluginPackageReference.fields }),
 ]);
 export type PluginIdentityReference = typeof PluginIdentityReference.Type;
+
+export type QueryOwnerReference = PluginIdentityReference | typeof KernelDefinitionOwner.Type;
 
 export const EntitySchemaReference = strictStruct({
 	owner: DefinitionOwner,
@@ -71,12 +75,6 @@ export type SignalSchemaReference = typeof SignalSchemaReference.Type;
 export const DeclarationReference = strictStruct({ slug: Schema.String, owner: DefinitionOwner });
 export type DeclarationReference = typeof DeclarationReference.Type;
 
-export const ProviderReference = strictStruct({ slug: Schema.String, owner: DefinitionOwner });
-export type ProviderReference = typeof ProviderReference.Type;
-
-export const OperationReference = strictStruct({ slug: Schema.String, owner: DefinitionOwner });
-export type OperationReference = typeof OperationReference.Type;
-
 export const SavedViewReference = Schema.Union([
 	strictStruct({ savedViewId: SavedViewId, kind: Schema.Literal("custom") }),
 	strictStruct({ slug: Schema.String, kind: Schema.Literal("kernel") }),
@@ -87,17 +85,38 @@ export type SavedViewReference = typeof SavedViewReference.Type;
 export const definitionOwner = (pluginId: string | null): DefinitionOwner =>
 	pluginId === null ? { kind: "kernel" } : { kind: "plugin", pluginId: PluginId.make(pluginId) };
 
+export const definitionOwnerPluginId = (owner: DefinitionOwner): PluginId | null =>
+	owner.kind === "plugin" ? owner.pluginId : null;
+
+export const ownerIdentityReference = (owner: DefinitionOwner): QueryOwnerReference =>
+	owner.kind === "kernel" ? owner : { kind: "local", pluginId: owner.pluginId };
+
 export const definitionKey = (
 	kind: string,
 	owner: DefinitionOwner,
 	...localSlugs: readonly string[]
-) =>
-	identityTupleKey(
-		kind,
-		owner.kind,
-		owner.kind === "plugin" ? owner.pluginId : null,
-		...localSlugs,
-	);
+) => identityTupleKey(kind, owner.kind, definitionOwnerPluginId(owner), ...localSlugs);
+
+export const sameDeclaration = (left: DeclarationReference, right: DeclarationReference) =>
+	definitionKey("declaration", left.owner, left.slug) ===
+	definitionKey("declaration", right.owner, right.slug);
+
+export const builtinSavedViewReference = (
+	pluginId: string | null,
+	slug: string,
+): SavedViewReference =>
+	pluginId === null
+		? { slug, kind: "kernel" }
+		: { slug, kind: "plugin", pluginId: PluginId.make(pluginId) };
+
+export const savedViewReferenceKey = (reference: SavedViewReference) =>
+	reference.kind === "custom"
+		? identityTupleKey(reference.kind, reference.savedViewId)
+		: identityTupleKey(
+				reference.kind,
+				reference.kind === "plugin" ? reference.pluginId : null,
+				reference.slug,
+			);
 
 export const identityTupleKey = (...components: readonly JsonValue[]) => JSON.stringify(components);
 
@@ -106,7 +125,7 @@ export const pluginPackageKey = (reference: PluginPackageReference) =>
 
 export const builtinSavedViewId = (userId: string, owner: DefinitionOwner, slug: string) =>
 	SavedViewId.make(
-		`builtin:${[userId, owner.kind, owner.kind === "plugin" ? owner.pluginId : "", slug]
+		`builtin:${[userId, owner.kind, definitionOwnerPluginId(owner) ?? "", slug]
 			.map((component) => `${Array.from(component).length}:${component}`)
 			.join("")}`,
 	);

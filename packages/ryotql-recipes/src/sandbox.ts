@@ -1,4 +1,4 @@
-import type { PluginIdentityReference } from "@ryot-app/contract/modules/plugins/references";
+import type { QueryOwnerReference } from "@ryot-app/contract/modules/plugins/references";
 import { JsonValue } from "@ryot-app/contract/modules/ryotql/language";
 import {
 	EntityId,
@@ -60,7 +60,7 @@ export const entityReadRecipe = defineRecipe(
 );
 
 export const eventReadRecipe = (input: {
-	readonly owner: PluginIdentityReference | { readonly kind: "kernel" };
+	readonly owner: QueryOwnerReference;
 	readonly eventSchemaSlug: string;
 	readonly entitySchemaSlug: string;
 	readonly after?: string | undefined;
