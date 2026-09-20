@@ -1,45 +1,58 @@
 ---
 name: codebase-cleanup
-description: Reviews code changed in the current task for cleanup, polish, deduplication, and final-pass removal of verified dead, redundant, speculative, or temporary leftovers. Use when requested or after substantive feature or refactor work.
+description: Removes leftovers of the current work - obsolete, dead, duplicated, and temporary code, comments, tests, and docs. Use only when the user asks, or once in the main session after a whole task is complete. Never load it in subagents, mechanical agents, or read-only or planning work.
 ---
 
 # Codebase Cleanup
 
-Clean up only code changed for the current task and directly affected call sites. Preserve unrelated work. Keep cleanup behavior-preserving unless the user explicitly requests behavior changes.
+Run this pass yourself in the main session; do not delegate it. The root `AGENTS.md` rules are the standard. This pass finds and removes what violates them or outlived its purpose.
 
-## Guardrails
+## Scope
 
-- Treat every item below as a candidate, not an automatic deletion
-- Remove code only after verifying relevant callers, package exports, scripts, configuration, code generation, runtime registration, migrations, persisted data, and external consumers
-- Do not infer that an exported symbol is unused from static in-repository references alone
-- Preserve wrappers and boundaries that provide domain meaning, adaptation, instrumentation, test seams, or a stable public API
-- Consolidate repetition only when it represents the same invariant and should evolve together; leave coincidental similarity alone
-- Do not hand-edit generated artifacts; update their source and regenerate them
-- If evidence is inconclusive, leave the code in place and report the candidate
-- If no justified cleanup exists, make no changes
+- State the base commit before starting: the commit before the task, or the plan's commits as marked by their messages.
+- Cover `git diff <base>`, untracked files the work created, and code anywhere in the repository that this work made obsolete. Leave unrelated work alone.
+
+## Rules
+
+- This pass must remove more lines than it adds. Do not add comments, suppressions, casts, tests, abstractions, or documentation.
+- Do not reverse a decision the user or the approved plan made, and do not revert the user's formatting.
+- Start only after other agents stop writing, and re-read each file before editing it.
+- Before deleting, check callers, runtime registrations, manifests, compiler import allowlists, generated outputs, and e2e usage. Leave a candidate that is still used and report it.
+- Update generated files by regenerating them from their source.
 
 ## Candidates
 
-- Dead code: unreachable branches and verified-unused imports, variables, functions, exports, modules, files, dependencies, scripts, or assets
-- Parallel hand-written types that duplicate a schema or canonical type; derive or import the source-of-truth type instead
-- Aliases, wrappers, one-line helpers, re-exports, or barrels that add no semantic value or boundary
-- Repeated logic, validation, normalization, defaults, conversions, fallback paths, or error handling that express the same rule
-- Unnecessary casts, non-null assertions, lint disables, type suppressions, coverage ignores, or other bypasses whose underlying need is gone
-- Tests that assert identical behavior or merely prove library or TypeScript behavior; preserve distinct branches, contracts, regressions, and diagnostic value
-- Stale comments, commented-out code, orphaned notes, resolved TODO or FIXME comments, and documentation that no longer describes the code; retain rationale and non-obvious invariants
-- Temporary logging, debugger statements, instrumentation, diagnostics, assertions, test `.only`, resolved `.skip`, sleeps, retries, or enlarged timeouts
-- Completed migration scaffolding, compatibility paths, feature flags, fallback implementations, or rollback code after verifying rollout and data obligations are complete
-- Stale fixtures, mocks, snapshots, configuration knobs, and temporary implementation scaffolding
-- YAGNI violations: speculative abstractions, extension points, configuration, or indirection without a current consumer
+- Compatibility paths, bridges, fallbacks, adapters, version-labelled names, and old code paths the work replaced.
+- Comments that restate code, narrate history ("now", "previously", "moved from"), or refer to tasks or plans, including task-tagged TODOs.
+- Lint suppressions, casts, and non-null assertions that a real fix removes.
+- Re-exports and aliases of another module's symbols, and exports used only inside their own module.
+- Hand-written types that mirror a schema, recipe result, or contract type.
+- Consumers that parse `RowItem` values instead of using recipe decoders.
+- Duplicated helpers, predicates, validation, and test fixtures that express the same rule.
+- Functions, endpoints, repository methods, files, and package dependencies left unused.
+- Test-only accessors on production code, mocks and spies, tests of old behavior, redundant negative cases, and schema checks.
+- Temporary logging, diagnostics, `.only` or `.skip`, sleeps, enlarged timeouts, scratch files, and benchmark output.
+- Documentation and `AGENTS.md` text that names removed or renamed code or records history.
 
 ## Process
 
-1. Inspect the current-task diff and directly affected call sites.
-2. Identify candidates and verify actual use, ownership, runtime entry points, and API or migration obligations.
-3. Make the smallest deletion or simplification that preserves behavior. Avoid broad renames, formatting churn, or adjacent redesign.
-4. Run repository-prescribed formatting, checks, and focused tests for affected packages.
-5. Inspect the final diff for behavior changes, lost coverage, and unrelated churn.
+1. Establish the base commit and the obsolete code outside the diff.
+2. List added comments, suppressions, casts, non-null assertions, re-exports, and TODOs mechanically, then review each hit and the rest of the diff:
 
-## Output
+   ```bash
+   { git diff <base> -U0; git ls-files -o --exclude-standard | while read -r f; do git diff --no-index -U0 /dev/null "$f"; done; } |
+     grep -E '^\+\+\+ |^\+(\s*(//|/\*|\*\s)|.*(oxlint-disable|@ts-|[^A-Za-z_]as [A-Za-z{(]|[A-Za-z0-9_)\]]!(\.|\)|;|,|\[|$)|export (type )?(\*|\{[^}]*\} from)|TODO))'
+   ```
 
-Report concrete code removed or simplified, verification commands and results, and candidates retained because evidence was insufficient. If nothing warranted cleanup, say so explicitly.
+3. Verify each candidate, then make the smallest removal or simplification.
+4. Run formatting, the affected e2e files, and the done commands from the root `AGENTS.md`.
+5. Check the final diff for behavior changes, lost coverage, and net growth.
+
+## Report
+
+Keep it short:
+
+- Removed or simplified, by file.
+- Kept, with a one-line reason each.
+- Net lines changed, and any remaining suppressions or casts.
+- Commands run and their results.
