@@ -99,6 +99,7 @@ describe("AppSchema presentation metadata", () => {
 	it.each([
 		{ kind: "url" },
 		{ kind: "email" },
+		{ kind: "timezone" },
 		{ kind: "upload", allowedFileExtensions: ["csv", "json"] },
 		{ provider: "spotify", kind: "oauth-connection" },
 	])("accepts the $kind string format", (format) => {

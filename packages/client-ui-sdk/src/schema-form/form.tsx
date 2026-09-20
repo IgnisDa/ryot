@@ -8,6 +8,7 @@ import { Button } from "../index";
 import { MultiSelect } from "../multi-select";
 import { RadioGroup } from "../radio-group";
 import { SegmentedControl } from "../segmented-control";
+import { Select } from "../select";
 import { Switch } from "../switch";
 import { FieldMessage, TextField } from "../text-field";
 import { pickBrowserUploadFile } from "./file/browser-file";
@@ -32,6 +33,14 @@ export type SchemaFormIcons = SchemaFileIcons & {
 	readonly close: ReactNode;
 	readonly search: ReactNode;
 	readonly chevron: ReactNode;
+};
+
+const timeZoneChoices = (current: string) => {
+	const zones = Intl.supportedValuesOf("timeZone");
+	return (current === "" || zones.includes(current) ? zones : [current, ...zones]).map((zone) => ({
+		value: zone,
+		label: zone,
+	}));
 };
 
 const emptySchemaFormValues: SchemaFormValues = {};
@@ -315,6 +324,18 @@ function SchemaFieldControl(props: {
 				/>
 			),
 		),
+		Match.when("timezone", () => (
+			<Select
+				label={props.field.label}
+				onChange={props.onChange}
+				checkIcon={props.icons.check}
+				searchIcon={props.icons.search}
+				placeholder={props.description}
+				value={schemaText(props.value)}
+				chevronIcon={props.icons.chevron}
+				choices={timeZoneChoices(schemaText(props.value))}
+			/>
+		)),
 		Match.when("multi-select", () => (
 			<MultiSelect
 				choices={choices}
