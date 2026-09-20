@@ -61,7 +61,7 @@ pub fn lower_thread_priority() {
     #[cfg(target_os = "linux")]
     // SAFETY: setpriority on the calling thread id has no memory-safety preconditions.
     unsafe {
-        libc::setpriority(libc::PRIO_PROCESS, libc::gettid() as libc::id_t, 19);
+        libc::setpriority(libc::PRIO_PROCESS, libc::gettid() as libc::id_t, 10);
     }
     #[cfg(target_os = "macos")]
     // SAFETY: PRIO_DARWIN_THREAD with id 0 targets the calling thread.
