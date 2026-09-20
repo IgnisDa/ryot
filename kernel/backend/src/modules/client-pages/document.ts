@@ -128,8 +128,8 @@ export const renderClientDocument = (
 		<meta name="viewport" content="width=device-width, initial-scale=1" />
 		<meta name="referrer" content="no-referrer" />
 		<title>${escapeHtml(manifest.identity.name)}</title>
-		${links}
 		<script type="importmap" id="ryot-client-importmap">${htmlJson({ imports })}</script>
+		${links}
 		<script type="application/json" id="${CLIENT_COMPOSITION_METADATA_ELEMENT_ID}">${htmlJson(metadata)}</script>
 		<script type="application/json" id="ryot-client-composition">${htmlJson(descriptor)}</script>
 	</head>
