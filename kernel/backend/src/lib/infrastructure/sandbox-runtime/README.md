@@ -158,7 +158,6 @@ Runtime and compiler limits are set by their owners, not environment settings.
 | Journal / entry / chunk / maximum reads / fetched data             | 100 MiB / 12 MiB / 1 MiB / 2,048 / 200 MiB |
 | Host-call request / response / durable response                    |                    1 MiB / 10 MiB / 12 MiB |
 | HTTP request / streamed response / attempt timeout                 |                 1 MiB / 10 MiB / 8 seconds |
-| Startup diagnostics                                                |                                     64 KiB |
 | Console logs                                                       |     500 entries, 8 KiB each, 256 KiB total |
 | `log` and `span` observability                                     |     500 entries, 8 KiB each, 256 KiB total |
 | Cache key / value / maximum TTL                                    |              256 bytes / 256 KiB / 30 days |

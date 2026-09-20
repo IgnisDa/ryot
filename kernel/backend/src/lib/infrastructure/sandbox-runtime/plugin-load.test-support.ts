@@ -234,12 +234,7 @@ const verifyTier = (tier: SnapshotTier, outputs: ReadonlyArray<PluginScriptOutpu
 				Effect.mapError((error) => pluginLoadFailure(tier, errorText(error))),
 			);
 			if (ready.type !== "ready" || ready.generation !== generation) {
-				return yield* pluginLoadFailure(
-					tier,
-					boundedText(
-						`Sidecar did not become ready${connection.diagnostics() ? `: ${connection.diagnostics()}` : ""}`,
-					),
-				);
+				return yield* pluginLoadFailure(tier, "Sidecar did not become ready");
 			}
 
 			for (const [index, output] of outputs.entries()) {
