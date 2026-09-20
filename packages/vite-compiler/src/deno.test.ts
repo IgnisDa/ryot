@@ -211,6 +211,25 @@ describe("Deno ESM build", () => {
 				expect(result.javascript).toContain("//# sourceMappingURL=data:application/json;base64,");
 			}),
 		);
+		test.effect("omits trusted dependency maps while preserving their executable exports", () =>
+			Effect.gen(function* () {
+				const result = yield* buildDenoEsm({
+					sourceMap: false,
+					outputFile: "runtime.mjs",
+					approvedExternalSpecifiers: new Set(),
+					entry: fileURLToPath(new URL("./fixtures/default-entry.mjs", import.meta.url)),
+				});
+				expect(result.javascript).not.toContain("sourceMappingURL");
+				const module = yield* Effect.promise(
+					() =>
+						import(
+							`data:text/javascript;base64,${Buffer.from(result.javascript).toString("base64")}`
+						),
+				);
+				expect(module.named).toBe("named");
+				expect(module.default()).toBe("default");
+			}),
+		);
 	});
 });
 

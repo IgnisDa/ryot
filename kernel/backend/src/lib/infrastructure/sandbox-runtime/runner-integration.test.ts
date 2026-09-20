@@ -8,8 +8,14 @@ import { SANDBOX_RUNTIME_REGISTRY } from "@ryot-app/sandbox-sdk/runtime-registry
 import { sha256Hex } from "@ryot-app/ts-utils/crypto";
 import { isObjectRecord } from "@ryot-app/ts-utils/predicates";
 import type { Cause } from "effect";
-import { Context, Effect, FileSystem, Layer, Path, Queue, Schema, Stream } from "effect";
-import { HttpEffect, HttpServer } from "effect/unstable/http";
+import { Clock, Context, Effect, FileSystem, Layer, Path, Queue, Schema, Stream } from "effect";
+import {
+	FetchHttpClient,
+	HttpBody,
+	HttpClient,
+	HttpEffect,
+	HttpServer,
+} from "effect/unstable/http";
 import { ChildProcess } from "effect/unstable/process";
 
 import { materializeSandboxCompiledModule } from "#lib/infrastructure/sandbox-runtime/compiled-modules";
@@ -20,6 +26,8 @@ import {
 import { SANDBOX_LIMITS, SANDBOX_RUNNER_LIMITS } from "#lib/infrastructure/sandbox-runtime/limits";
 import type { SandboxRunnerLimits } from "#lib/infrastructure/sandbox-runtime/runner-utilities.sandbox";
 import { sandboxRunnerSource } from "#lib/infrastructure/sandbox-runtime/runner.generated";
+import { BridgeService } from "#lib/infrastructure/sandbox-runtime/runtime";
+import { makeWorkflowReplayJournalHostFunction } from "#lib/infrastructure/sandbox-runtime/workflow-journal";
 import { kernelScripts } from "#modules/definition-registry/kernel-source";
 import { SandboxCompiler } from "#modules/sandbox/sandbox-compiler";
 
@@ -45,7 +53,9 @@ const runnerRuntimeLayer = Layer.effect(
 );
 
 const runnerIntegrationLayer = Layer.merge(runnerRuntimeLayer, SandboxCompiler.layer).pipe(
-	Layer.provideMerge(Layer.merge(BunServices.layer, sandboxCompilerPlatformLayer)),
+	Layer.provideMerge(
+		Layer.mergeAll(BunServices.layer, FetchHttpClient.layer, sandboxCompilerPlatformLayer),
+	),
 );
 
 const source = `
@@ -383,14 +393,14 @@ const manifest = {
 
 export default {
   manifest,
-  input: Schema.Struct({}),
+  input: Schema.Struct({ args: Schema.optional(Schema.Array(Schema.Unknown)) }),
   definitionType: "ryot:sandbox-script",
   output: Schema.Struct({
     keys: Schema.Array(Schema.String),
     journal: Schema.Array(Schema.Unknown),
   }),
-  run: (_input, host) => Effect.gen(function* () {
-    const journal = yield* host.replayJournal();
+  run: (input, host) => Effect.gen(function* () {
+    const journal = yield* host.replayJournal(...(input.args ?? []));
     return { journal, keys: Object.keys(host).sort() };
   }),
 };
@@ -692,6 +702,21 @@ const runInDenoRequest = ({ context, compiled, options = {} }: RunnerRequest) =>
 							() => "",
 							(response, line) => {
 								const message = decodeRunnerResponse(line);
+								if (isObjectRecord(message) && typeof message["bootstrap"] === "string") {
+									return HttpClient.post(
+										`${apiBase}/rpc/${encodeURIComponent(options.executionId ?? "execution-1")}/replayJournal`,
+										{
+											body: HttpBody.text(message["bootstrap"]),
+											headers: { authorization: "Bearer unused" },
+										},
+									).pipe(
+										Effect.flatMap((reply) => reply.text),
+										Effect.flatMap((reply) =>
+											Queue.offer(stdin, new TextEncoder().encode(`${reply}\n`)),
+										),
+										Effect.as(response),
+									);
+								}
 								if (isObjectRecord(message) && isObjectRecord(message["inline"])) {
 									const requests = message["inline"]["requests"];
 									assert(Array.isArray(requests));
@@ -1743,6 +1768,62 @@ layer(runnerIntegrationLayer, { timeout: 120_000, excludeTestServices: true })((
 					]);
 				}),
 			),
+	);
+
+	test.effect(
+		"preserves bootstrap arguments and charges rejected calls without reading the journal",
+		() =>
+			Effect.gen(function* () {
+				const bridge = yield* BridgeService.make;
+				let reads = 0;
+				const replayJournal = makeWorkflowReplayJournalHostFunction("bootstrap-parent", {
+					client: {
+						hgetall: (_key: string) => {
+							reads += 1;
+							return Promise.resolve({ "high-water": "0" });
+						},
+					},
+				});
+				yield* bridge.addSession("bootstrap-arguments", {
+					token: "unused",
+					hostCallLimit: 2,
+					apiFunctions: { replayJournal },
+					parentSpan: yield* Effect.currentSpan,
+					expiresAt: (yield* Clock.currentTimeMillis) + 60_000,
+				});
+				const compiled = {
+					format: 1,
+					javascript: workflowHostSource,
+					manifest: {
+						name: "Workflow host",
+						slug: "workflow-host",
+						kind: "workflow" as const,
+						capabilities: [] as const,
+						requiredPluginConfigKeys: [] as const,
+						requiredSystemConfigKeys: [] as const,
+					},
+				};
+				const options = {
+					apiFunctions: ["replayJournal"],
+					executionId: "bootstrap-arguments",
+					apiBase: `http://127.0.0.1:${bridge.port}`,
+				};
+				expect(yield* runInDeno(compiled, { args: ["unexpected"] }, options)).toMatchObject({
+					success: false,
+					error: { phase: "execute", message: "replayJournal does not accept arguments" },
+				});
+				expect(reads).toBe(0);
+				expect(yield* runInDeno(compiled, {}, options)).toMatchObject({
+					success: true,
+					value: { journal: [], keys: ["replayJournal"] },
+				});
+				expect(reads).toBe(1);
+				expect(yield* runInDeno(compiled, {}, options)).toMatchObject({
+					success: false,
+					error: { phase: "execute", message: "Sandbox execution exceeds 2 host calls" },
+				});
+				expect(reads).toBe(1);
+			}).pipe(Effect.scoped, Effect.withSpan("bootstrap-arguments-test")),
 	);
 
 	test.effect(

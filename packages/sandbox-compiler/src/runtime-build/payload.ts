@@ -23,6 +23,8 @@ export const buildSandboxRuntimePayload = (resolveFrom: string) =>
 		const effectSpecifiers = new Set([effectDependency.sdkImport, ...effectDependency.aliases]);
 		const moduleFiles = yield* Effect.forEach(dependencies, (dependency) =>
 			buildDenoEsm({
+				// Dependency frames are hidden; loading their maps on first Error.stack stalls every process.
+				sourceMap: false,
 				entry: dependency.entrypoint,
 				outputFile: dependency.runtimeFile,
 				approvedExternalSpecifiers:

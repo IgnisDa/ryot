@@ -64,7 +64,11 @@ export class AutomationRetention extends Context.Service<AutomationRetention>()(
 				const clearedScriptPins = yield* runs.clearExpiredScriptPins({ now, limit });
 				const deletedRuns = yield* runs.deleteExpired({ now, limit, before: historyBefore });
 				const deletedTriggers = yield* triggers.deleteExpired({ limit, before: historyBefore });
-				const garbageCollection = yield* scriptGarbageCollector.collect({ now, limit });
+				const garbageCollection = yield* scriptGarbageCollector.collect({
+					now,
+					limit,
+					scheduled: true,
+				});
 
 				return {
 					garbageCollection,

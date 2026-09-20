@@ -126,7 +126,14 @@ const activityEngineLayer = (executionId: string, overrides?: WorkflowEngineOver
 			const instance = WorkflowInstance.initial(SandboxScriptWorkflow, executionId);
 			return Layer.merge(
 				Layer.succeed(WorkflowInstance, instance),
-				Layer.succeed(WorkflowEngine, makeWorkflowActivityEngine(instance, overrides)),
+				Layer.succeed(
+					WorkflowEngine,
+					makeWorkflowActivityEngine(instance, {
+						deferredDone: () => Effect.void,
+						deferredResult: () => Effect.succeedNone,
+						...overrides,
+					}),
+				),
 			);
 		}),
 	);
@@ -709,6 +716,8 @@ layer(
 					Layer.succeed(RestartingEngine, {
 						engineFor: (instance) =>
 							makeWorkflowActivityEngine(instance, {
+								deferredDone: () => Effect.void,
+								deferredResult: () => Effect.succeedNone,
 								activityExecute: (activity) =>
 									Effect.gen(function* () {
 										if (

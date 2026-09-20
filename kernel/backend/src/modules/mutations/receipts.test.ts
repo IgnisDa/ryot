@@ -40,6 +40,96 @@ const Result = Schema.Struct({ entityId: EntityId });
 layer(
 	MutationReceipts.layer.pipe(Layer.provideMerge(isolatedDatabaseLayer("mutation_receipt_test"))),
 )((test) => {
+	test.effect("rechecks admission and ownership when a workflow owner is already recorded", () =>
+		Effect.gen(function* () {
+			const session = yield* DatabaseSession;
+			const receipts = yield* MutationReceipts;
+			const account = { token: "original", userId: UserId.make("registered-workflow-owner") };
+			yield* session.run((db) =>
+				db
+					.insert(tables.user)
+					.values({
+						id: account.userId,
+						name: "Workflow owner",
+						accountGeneration: account.token,
+						email: "registered-workflow-owner@example.test",
+					}),
+			);
+			yield* receipts.registerWorkflow(account, "ReplayWorkflow", "registered-workflow");
+			yield* receipts.registerWorkflow(account, "ReplayWorkflow", "registered-workflow");
+			yield* session.run((db) =>
+				db
+					.update(tables.user)
+					.set({ accountGeneration: "replacement" })
+					.where(eq(tables.user.id, account.userId)),
+			);
+			expect(
+				(yield* Effect.flip(
+					receipts.registerWorkflow(account, "ReplayWorkflow", "registered-workflow"),
+				)).message,
+			).toBe("Mutation command belongs to a retired account");
+			expect(
+				(yield* Effect.flip(
+					receipts.registerWorkflow(
+						{ ...account, token: "replacement" },
+						"ReplayWorkflow",
+						"registered-workflow",
+					),
+				)).message,
+			).toBe("Workflow belongs to another account generation");
+		}),
+	);
+
+	test.effect("allows only one account to own concurrent registrations of a workflow", () =>
+		Effect.gen(function* () {
+			const session = yield* DatabaseSession;
+			const receipts = yield* MutationReceipts;
+			const accounts = [
+				{ token: "first", userId: UserId.make("workflow-race-first") },
+				{ token: "second", userId: UserId.make("workflow-race-second") },
+			];
+			yield* session.run((db) =>
+				db
+					.insert(tables.user)
+					.values(
+						accounts.map((account) => ({
+							id: account.userId,
+							name: account.token,
+							accountGeneration: account.token,
+							email: `${account.userId}@example.test`,
+						})),
+					),
+			);
+			const exits = yield* Effect.forEach(
+				accounts,
+				(account) =>
+					Effect.exit(
+						receipts.registerWorkflow(account, "ConcurrentWorkflow", "workflow-owner-race"),
+					),
+				{ concurrency: "unbounded" },
+			);
+			expect(exits.filter((exit) => exit._tag === "Success")).toHaveLength(1);
+			expect(exits.filter((exit) => exit._tag === "Failure")).toHaveLength(1);
+			const rows = yield* session.run((db) =>
+				db
+					.select({ userId: tables.mutationReceipt.ownerUserId })
+					.from(tables.mutationReceipt)
+					.where(eq(tables.mutationReceipt.executionId, "workflow-owner-race")),
+			);
+			expect(rows).toHaveLength(1);
+			const winner = accounts.find((_account, index) => exits[index]?._tag === "Success");
+			const loser = accounts.find((_account, index) => exits[index]?._tag === "Failure");
+			assert(winner !== undefined && loser !== undefined);
+			expect(rows[0]?.userId).toBe(winner.userId);
+			yield* receipts.registerWorkflow(winner, "ConcurrentWorkflow", "workflow-owner-race");
+			expect(
+				(yield* Effect.flip(
+					receipts.registerWorkflow(loser, "ConcurrentWorkflow", "workflow-owner-race"),
+				)).message,
+			).toBe("Workflow belongs to another account generation");
+		}),
+	);
+
 	test.effect("commits source and receipt together and replays after the source is deleted", () =>
 		Effect.gen(function* () {
 			const session = yield* DatabaseSession;

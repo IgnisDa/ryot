@@ -9,9 +9,10 @@ import {
 } from "@ryot-app/contract/schema/brands";
 import { Context, Effect, Layer, Ref } from "effect";
 
-import { RedisService } from "#lib/infrastructure/redis";
+import type { DatabaseSession } from "#lib/infrastructure/db/session";
+import { RedisService, redisKeys } from "#lib/infrastructure/redis";
 import { assertExitFails } from "#lib/test-utils/assertions";
-import { makeRedisService } from "#lib/test-utils/effect";
+import { fakeDatabaseSession, makeRedisService } from "#lib/test-utils/effect";
 import { mutationAdmissionTestLayer } from "#lib/test-utils/mutation-admission";
 import { ImportsService } from "#modules/imports/service";
 import { PluginRuntimeResolver } from "#modules/plugins/runtime-resolver";
@@ -79,7 +80,9 @@ class FakeWorkflowLoad extends Context.Service<
 	}
 >()("test/FakeWorkflowLoad") {}
 
-const workflowLoadLayer = () =>
+const workflowLoadLayer = (
+	options: { database?: Layer.Layer<DatabaseSession>; redis?: RedisService["Service"] } = {},
+) =>
 	Layer.unwrap(
 		Effect.gen(function* () {
 			const enqueued = yield* Ref.make<ReadonlyArray<unknown>>([]);
@@ -89,7 +92,7 @@ const workflowLoadLayer = () =>
 			return OperationalGateService.layer.pipe(
 				Layer.provideMerge(
 					Layer.mergeAll(
-						mutationAdmissionTestLayer,
+						options.database ?? mutationAdmissionTestLayer,
 						mockImports({
 							createManualRun: () => Effect.succeed(importRun),
 							updateProgress: (input) =>
@@ -127,7 +130,7 @@ const workflowLoadLayer = () =>
 						Layer.mock(PluginRuntimeResolver)({
 							listPluginsAvailableToUser: () => Effect.succeed([availablePlugin]),
 						}),
-						Layer.succeed(RedisService, makeRedisService()),
+						Layer.succeed(RedisService, options.redis ?? makeRedisService()),
 						Layer.succeed(FakeWorkflowLoad, {
 							updates: Ref.get(updates),
 							enqueued: Ref.get(enqueued),
@@ -181,6 +184,75 @@ layer(workflowLoadLayer())((test) => {
 						],
 					},
 				},
+			]);
+		}),
+	);
+});
+
+const journalReads: string[] = [];
+const projections = new Map<string, Record<string, string>>([
+	[redisKeys.sandboxWorkflowJournal("valid"), { "0": "first", "1": "second", "high-water": "2" }],
+	[redisKeys.sandboxWorkflowJournal("empty"), { "high-water": "0" }],
+	[redisKeys.sandboxWorkflowJournal("hole"), { "0": "first", "high-water": "2" }],
+	[redisKeys.sandboxWorkflowJournal("negative"), { "high-water": "-1" }],
+	[redisKeys.sandboxWorkflowJournal("fraction"), { "high-water": "1.5" }],
+	[redisKeys.sandboxWorkflowJournal("unsafe"), { "high-water": "9007199254740992" }],
+	[redisKeys.sandboxWorkflowJournal("non-numeric"), { "high-water": "invalid" }],
+	[redisKeys.sandboxWorkflowJournal("missing-header"), { "0": "first" }],
+	[`${redisKeys.sandboxWorkflowJournal("valid")}:unrelated`, { "high-water": "99" }],
+]);
+
+layer(
+	workflowLoadLayer({
+		redis: makeRedisService({
+			client: Object.assign(Object.create(null), {
+				hgetall: (key: string) => {
+					journalReads.push(key);
+					return Promise.resolve(projections.get(key) ?? {});
+				},
+			}),
+		}),
+		database: fakeDatabaseSession({
+			execute: () =>
+				Effect.succeed([
+					{
+						deadlocks: 0,
+						advisory_locks: 0,
+						total_connections: 1,
+						active_connections: 1,
+						waiting_advisory_locks: 0,
+						lock_waiting_connections: 0,
+					},
+				]),
+		}),
+	}),
+)((test) => {
+	test.effect("reads exact journal keys and detects holes and corrupt high-water marks", () =>
+		Effect.gen(function* () {
+			const service = yield* OperationalGateService;
+			const pressure = yield* service.samplePressure([
+				"valid",
+				"empty",
+				"hole",
+				"negative",
+				"fraction",
+				"unsafe",
+				"non-numeric",
+				"missing-header",
+				"absent",
+			]);
+
+			expect(pressure.redis).toEqual({ maxHighWater: 2, projectionCount: 8, projectionErrors: 6 });
+			expect(journalReads).toEqual([
+				"ryot:sandbox:workflow:valid:journal",
+				"ryot:sandbox:workflow:empty:journal",
+				"ryot:sandbox:workflow:hole:journal",
+				"ryot:sandbox:workflow:negative:journal",
+				"ryot:sandbox:workflow:fraction:journal",
+				"ryot:sandbox:workflow:unsafe:journal",
+				"ryot:sandbox:workflow:non-numeric:journal",
+				"ryot:sandbox:workflow:missing-header:journal",
+				"ryot:sandbox:workflow:absent:journal",
 			]);
 		}),
 	);
