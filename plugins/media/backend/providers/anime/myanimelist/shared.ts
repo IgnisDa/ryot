@@ -22,7 +22,7 @@ export const manifest = defineManifest({
 	slug: "anime.myanimelist",
 	requiredSystemConfigKeys: [],
 	requiredPluginConfigKeys: ["malClientId"],
-	capabilities: ["httpCall", "getPluginConfig", "getUserPreferences"],
+	capabilities: ["httpCall", "getPluginConfig", "getUserSettings"],
 });
 
 export const search = defineProvider({

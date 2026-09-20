@@ -33,7 +33,7 @@ const userRecord = {
 	disabledAt: null,
 	email: "user@example.com",
 	bootstrapCompletedAt: new Date("2026-08-31T00:00:00.000Z"),
-	preferences: { language: null, allowNsfw: false, disableIntegrations: false },
+	preferences: { language: null, disableIntegrations: false },
 };
 
 const resolvedOAuth = {
