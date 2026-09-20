@@ -103,13 +103,13 @@ const Browser = ({
 			query={query}
 			name={() => viewName}
 			renderResults={renderResults}
-			identityKey={input.target.slug}
 			layouts={input.settings.layouts}
 			errorTitle="Saved view unavailable"
 			icon={input.view?.icon ?? "library"}
 			tableColumns={input.settings.tableColumns}
-			viewContext={{ savedViewId: input.target.slug }}
 			canSearch={input.settings.searchFields.length > 0}
+			viewContext={{ savedView: input.target.reference }}
+			identityKey={JSON.stringify(input.target.reference)}
 			errorMessage="The saved view results could not be loaded."
 			sortChoices={input.settings.sortChoices.map(({ name, label }) => ({ label, value: name }))}
 			defaultLayout={
@@ -123,7 +123,7 @@ const Browser = ({
 					input={input}
 					onTotal={onTotal}
 					searchText={search}
-					key={JSON.stringify([input.target.slug, search])}
+					key={JSON.stringify([input.target.reference, search])}
 				/>
 			)}
 			add={
@@ -133,8 +133,7 @@ const Browser = ({
 							label: "Add to this view",
 							open: (initialQuery) =>
 								ryot.screens.openProviderSearch({
-									ownerPluginId: addAction.ownerPluginId,
-									entitySchemaSlug: addAction.entitySchemaSlug,
+									schema: addAction.schema,
 									...(initialQuery === undefined || initialQuery === "" ? {} : { initialQuery }),
 								}),
 						}

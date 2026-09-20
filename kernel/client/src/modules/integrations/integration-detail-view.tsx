@@ -124,7 +124,7 @@ export function IntegrationDetailView(props: {
 						{(values) =>
 							props.provider === undefined ? null : (
 								<SelectedIntegrationReadiness
-									slug={props.provider.slug}
+									reference={props.provider.reference}
 									integrationId={props.integration.id}
 									settings={toSchemaFormPayload(props.provider.settingsSchema, values)}
 								>

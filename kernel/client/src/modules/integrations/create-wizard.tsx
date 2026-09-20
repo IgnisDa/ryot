@@ -16,6 +16,7 @@ import {
 	createIntegrationBody,
 	initialIntegrationFormValues,
 } from "#/modules/integrations/payload";
+import { integrationProviderKey } from "#/modules/integrations/presentation";
 import {
 	integrationLotDetail,
 	integrationLotLabel,
@@ -30,7 +31,6 @@ import type { IntegrationProviderItem } from "#/modules/integrations/service";
 import { createIntegrationMutation } from "#/modules/integrations/service";
 import { IntegrationSettingsForm } from "#/modules/integrations/settings-form";
 import { CatalogPicker, type CatalogPickerState } from "#/modules/ui/catalog/picker";
-import { findBySlug } from "#/modules/ui/catalog/selection";
 import { schemaReviewRows } from "#/modules/ui/review-rows";
 import { useSchemaFileUpload } from "#/modules/ui/schema-form-upload";
 import { useFormSeed } from "#/modules/ui/use-form-seed";
@@ -78,7 +78,7 @@ function SettingsStep(props: {
 	readonly failureDetail: string | undefined;
 	readonly provider: IntegrationProviderItem;
 }) {
-	const oauth = useOAuthConnect({ integrationProvider: props.provider.slug });
+	const oauth = useOAuthConnect({ integrationProvider: props.provider.reference });
 	return (
 		<div className="flex flex-col gap-4">
 			<div className="flex flex-col gap-1">
@@ -96,7 +96,7 @@ function SettingsStep(props: {
 			<props.form.Subscribe selector={(state) => state.values}>
 				{(values) => (
 					<SelectedIntegrationReadiness
-						slug={props.provider.slug}
+						reference={props.provider.reference}
 						settings={toSchemaFormPayload(props.provider.settingsSchema, values)}
 					>
 						{() => null}
@@ -165,7 +165,7 @@ function ReviewStep(props: {
 			)}
 			<div className="flex flex-col gap-2 sm:flex-row-reverse sm:justify-end">
 				<SelectedIntegrationReadiness
-					slug={props.provider.slug}
+					reference={props.provider.reference}
 					settings={toSchemaFormPayload(props.provider.settingsSchema, props.values)}
 				>
 					{(ready) => (
@@ -200,7 +200,10 @@ export function IntegrationCreateWizard(props: CreateWizardProps) {
 	const [failure, setFailure] = useState<IntegrationSaveFailure | undefined>();
 	const [state, dispatch] = useReducer(wizardReducer, undefined, createWizardState);
 	const listed = props.providers.status === "ready" ? props.providers.sources : [];
-	const provider = findBySlug(listed, state.slug);
+	const provider = listed.find(
+		(item) =>
+			integrationProviderKey({ provider: item.slug, pluginId: item.pluginId }) === state.slug,
+	);
 
 	const connect = (values: SchemaFormValues) => {
 		return Effect.runPromise(

@@ -32,7 +32,7 @@ import {
 import { createRyotClient } from "@ryot-app/client-sdk";
 import { createTestRyotAdapter } from "@ryot-app/client-sdk/testing";
 import { MembershipResponse } from "@ryot-app/contract/modules/collections/schemas";
-import { EntityId, EntitySchemaSlug, PluginSlug } from "@ryot-app/contract/schema/brands";
+import { EntityId, EntitySchemaSlug, PluginId } from "@ryot-app/contract/schema/brands";
 import { waitFor } from "@testing-library/dom";
 import { Effect, Schema } from "effect";
 
@@ -74,6 +74,7 @@ const membership = Schema.decodeSync(MembershipResponse)({
 		id: "relationship-1",
 		sourceEntityId: "entity-1",
 		targetEntityId: "collection-1",
+		relationshipSchemaPluginId: null,
 		relationshipSchemaSlug: "member-of",
 		createdAt: "2026-09-07T00:00:00.000Z",
 	},
@@ -99,7 +100,7 @@ const capabilityRequests = {
 		source: new Blob(["data"]),
 	},
 
-	storage: { key: "order", action: "get", pluginSlug: "media", type: "storage-request" },
+	storage: { key: "order", action: "get", pluginId: "media", type: "storage-request" },
 
 	operation: { input: null, operationSlug: "greet", type: "operation-request" },
 
@@ -169,7 +170,7 @@ const connect = (
 	const pageShortcuts: (readonly PageShortcutKey[])[] = [];
 	const operationCalls: Array<{
 		readonly input: unknown;
-		readonly pluginSlug: string;
+		readonly pluginId: string;
 		readonly operationSlug: string;
 	}> = [];
 
@@ -206,7 +207,7 @@ const connect = (
 			((request) => {
 				operationCalls.push({
 					input: request.input,
-					pluginSlug: request.pluginSlug,
+					pluginId: request.pluginId,
 					operationSlug: request.operationSlug,
 				});
 				return Effect.never;
@@ -243,8 +244,8 @@ const connect = (
 				message !== null &&
 				"type" in message &&
 				message.type === "operation-request" &&
-				!("pluginSlug" in message)
-					? { ...message, pluginSlug: PluginSlug.make("fixture") }
+				!("pluginId" in message)
+					? { ...message, pluginId: PluginId.make("fixture") }
 					: message;
 			rawPort.postMessage(value);
 		},
@@ -361,6 +362,7 @@ describe("bridge page screens", () => {
 			const page = {
 				view: null,
 				settings: {},
+				contributors: [],
 				dataSources: null,
 				route: { params: {} },
 				renderer: { name: "fixture", kind: "kernel" as const },
@@ -368,7 +370,7 @@ describe("bridge page screens", () => {
 					search: "",
 					path: "/music",
 					kind: "plugin-route" as const,
-					pluginSlug: PluginSlug.make("fixture"),
+					pluginId: PluginId.make("fixture"),
 				},
 			};
 			session.sendDocument("music", page, nav(detail, 1));
@@ -408,6 +410,7 @@ describe("bridge page screens", () => {
 			const page = {
 				view: null,
 				settings: {},
+				contributors: [],
 				dataSources: null,
 				route: { params: {} },
 				renderer: { name: "fixture", kind: "kernel" as const },
@@ -415,7 +418,7 @@ describe("bridge page screens", () => {
 					search: "",
 					path: "/music",
 					kind: "plugin-route" as const,
-					pluginSlug: PluginSlug.make("fixture"),
+					pluginId: PluginId.make("fixture"),
 				},
 			};
 			session.sendDocument("music", page, nav());
@@ -442,9 +445,8 @@ describe("bridge page screens", () => {
 
 			pluginPort.postMessage({
 				initialQuery: "Dune",
-				entitySchemaSlug: "movie",
 				type: "provider-search-screen",
-				ownerPluginId: "media-installation",
+				schema: { slug: "movie", owner: { kind: "plugin", pluginId: "media-installation" } },
 			});
 			yield* Effect.promise(() => waitFor(() => expect(providerSearches).toHaveLength(1)));
 			session.sendPageRefresh();
@@ -455,9 +457,8 @@ describe("bridge page screens", () => {
 			expect(providerSearches).toEqual([
 				{
 					initialQuery: "Dune",
-					entitySchemaSlug: "movie",
 					type: "provider-search-screen",
-					ownerPluginId: "media-installation",
+					schema: { slug: "movie", owner: { kind: "plugin", pluginId: "media-installation" } },
 				},
 			]);
 		}),
@@ -1005,7 +1006,7 @@ describe("plugin bridge", () => {
 					path: "/details/1",
 					search: "tab=stats",
 					kind: "plugin-route",
-					pluginSlug: PluginSlug.make("fixture"),
+					pluginId: PluginId.make("fixture"),
 				},
 			} satisfies PluginBridgeNavigate;
 
@@ -1285,11 +1286,7 @@ describe("plugin bridge", () => {
 				),
 			);
 			expect(calls).toEqual([
-				{
-					operationSlug: "greet",
-					input: { greeting: "hi" },
-					pluginSlug: PluginSlug.make("fixture"),
-				},
+				{ operationSlug: "greet", input: { greeting: "hi" }, pluginId: PluginId.make("fixture") },
 			]);
 		}),
 	);
@@ -1360,7 +1357,7 @@ describe("plugin bridge", () => {
 			pluginPort.postMessage(readyFor(init));
 			yield* Effect.promise(() => waitFor(() => expect(received).toHaveLength(1)));
 
-			const request = { key: "order", pluginSlug: "media", type: "storage-request" as const };
+			const request = { key: "order", pluginId: "media", type: "storage-request" as const };
 			pluginPort.postMessage({ ...request, action: "get", requestId: "storage-1" });
 			yield* Effect.promise(() => waitFor(() => expect(received).toHaveLength(2)));
 			expect(received[1]).toEqual({
@@ -1388,9 +1385,9 @@ describe("plugin bridge", () => {
 				type: "storage-result",
 			});
 			expect(calls).toEqual([
-				{ key: "order", action: "get", pluginSlug: "media" },
-				{ value: 1, key: "order", action: "set", pluginSlug: "media" },
-				{ key: "order", action: "remove", pluginSlug: "media" },
+				{ key: "order", action: "get", pluginId: "media" },
+				{ value: 1, key: "order", action: "set", pluginId: "media" },
+				{ key: "order", action: "remove", pluginId: "media" },
 			]);
 			expect(failures).toEqual([]);
 		}),

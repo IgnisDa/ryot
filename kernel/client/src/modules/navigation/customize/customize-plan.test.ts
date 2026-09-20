@@ -1,21 +1,31 @@
+import { SavedViewId } from "@ryot-app/contract/schema/brands";
 import { describe, expect, it } from "vitest";
 
 import { buildCustomizePlan } from "#/modules/navigation/customize/customize-plan";
 import type { CustomizeDraft } from "#/modules/navigation/customize/customize-state";
 
-const item = (slug: string, pluginSlug: string | null, isHidden = false) => ({
+const reference = (slug: string) => ({
+	kind: "custom" as const,
+	savedViewId: SavedViewId.make(slug),
+});
+const item = (slug: string, pluginInstallationId: string | null, isHidden = false) => ({
 	slug,
 	isHidden,
-	pluginSlug,
 	icon: "list",
+	id: `/v/c/${slug}`,
+	pluginInstallationId,
 	name: slug.toUpperCase(),
+	reference: reference(slug),
 });
 
 const workspace = (slug: string, isHidden = false) => ({
 	slug,
+	id: slug,
 	isHidden,
 	icon: "plugin",
+	installationId: slug,
 	name: slug.toUpperCase(),
+	pluginId: `plugin-${slug}`,
 });
 
 const initial: CustomizeDraft = {
@@ -25,7 +35,7 @@ const initial: CustomizeDraft = {
 };
 
 const build = (draft: CustomizeDraft) =>
-	buildCustomizePlan({ draft, initial, workspaceSlug: "media" });
+	buildCustomizePlan({ draft, initial, workspaceInstallationId: "media" });
 
 describe("buildCustomizePlan", () => {
 	it("plans nothing for an untouched draft", () => {
@@ -38,7 +48,7 @@ describe("buildCustomizePlan", () => {
 			views: [item("shows", "media", true), item("movies", "media")],
 		});
 
-		expect(plan.updates).toEqual([{ viewSlug: "shows", payload: { isHidden: true } }]);
+		expect(plan.updates).toEqual([{ payload: { isHidden: true }, reference: reference("shows") }]);
 		expect(plan.reorders).toEqual([]);
 		expect(plan.workspaceUpdates).toEqual([]);
 	});
@@ -49,7 +59,9 @@ describe("buildCustomizePlan", () => {
 			workspaces: [workspace("media", true), workspace("fitness")],
 		});
 
-		expect(plan.workspaceUpdates).toEqual([{ pluginSlug: "media", payload: { isHidden: true } }]);
+		expect(plan.workspaceUpdates).toEqual([
+			{ installationId: "media", payload: { isHidden: true } },
+		]);
 		expect(plan.updates).toEqual([]);
 		expect(plan.reorders).toEqual([]);
 	});
@@ -61,15 +73,15 @@ describe("buildCustomizePlan", () => {
 		});
 
 		expect(plan.workspaceUpdates).toEqual([
-			{ pluginSlug: "fitness", payload: { sortOrder: 0 } },
-			{ pluginSlug: "media", payload: { sortOrder: 1, isHidden: true } },
+			{ installationId: "fitness", payload: { sortOrder: 0 } },
+			{ installationId: "media", payload: { sortOrder: 1, isHidden: true } },
 		]);
 	});
 
 	it("toggles a global saved view without sending definition content", () => {
 		const plan = build({ ...initial, savedViews: [item("recent", null), item("all", null)] });
 
-		expect(plan.updates).toEqual([{ viewSlug: "all", payload: { isHidden: false } }]);
+		expect(plan.updates).toEqual([{ reference: reference("all"), payload: { isHidden: false } }]);
 	});
 
 	it("scopes a workspace reorder to the workspace and a global reorder to no plugin", () => {
@@ -80,8 +92,8 @@ describe("buildCustomizePlan", () => {
 		});
 
 		expect(plan.reorders).toEqual([
-			{ pluginSlug: "media", viewSlugs: ["movies", "shows"] },
-			{ viewSlugs: ["all", "recent"] },
+			{ installationId: "media", references: [reference("movies"), reference("shows")] },
+			{ references: [reference("all"), reference("recent")] },
 		]);
 		expect(plan.workspaceUpdates).toEqual([]);
 	});
@@ -89,14 +101,14 @@ describe("buildCustomizePlan", () => {
 	it("reorders hidden views alongside visible ones", () => {
 		const plan = build({ ...initial, savedViews: [item("all", null, true), item("recent", null)] });
 
-		expect(plan.reorders).toEqual([{ viewSlugs: ["all", "recent"] }]);
+		expect(plan.reorders).toEqual([{ references: [reference("all"), reference("recent")] }]);
 		expect(plan.workspaceUpdates).toEqual([]);
 	});
 
 	it("skips the workspace reorder when no workspace is selected", () => {
 		const plan = buildCustomizePlan({
 			initial,
-			workspaceSlug: undefined,
+			workspaceInstallationId: undefined,
 			draft: { ...initial, views: [item("movies", "media"), item("shows", "media")] },
 		});
 

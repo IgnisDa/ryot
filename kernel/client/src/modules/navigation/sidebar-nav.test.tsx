@@ -1,4 +1,5 @@
 import { assert, describe, expect, it } from "@effect/vitest";
+import { PluginId, PluginPackageId } from "@ryot-app/contract/schema/brands";
 import type { NavigationData } from "@ryot-app/ryotql-recipes/navigation";
 import type { PluginClientCatalogEntry } from "@ryot-app/ryotql-recipes/plugin-client-catalog";
 import { fireEvent, render, screen, within } from "@testing-library/react";
@@ -15,11 +16,13 @@ const current: PluginClientCatalogEntry = {
 	slug: "media",
 	health: "ready",
 	isHidden: false,
+	scope: "system",
 	clientApiVersion: 1,
-	homeSavedViewSlug: null,
+	homeSavedView: null,
 	pluginId: "plugin-media",
 	sourceHash: "source-media",
 	installationId: "installation-media",
+	packageId: PluginPackageId.make("ff9c9ec6-5774-42ef-881b-dc6a84ad3ba6"),
 };
 
 const navigation: NavigationData = {
@@ -29,9 +32,11 @@ const navigation: NavigationData = {
 			icon: "list",
 			sortOrder: 1,
 			isHidden: false,
-			name: "Media Queue",
 			slug: "media-queue",
+			name: "Media Queue",
 			pluginSlug: "media",
+			pluginInstallationId: "installation-media",
+			reference: { kind: "plugin", slug: "media-queue", pluginId: PluginId.make("plugin-media") },
 		},
 	],
 };
@@ -47,7 +52,9 @@ const sections: SidebarSections = {
 			sortOrder: 0,
 			icon: "house",
 			isHidden: false,
+			reference: null,
 			pluginSlug: null,
+			pluginInstallationId: null,
 		},
 		{
 			kind: "view",
@@ -57,6 +64,8 @@ const sections: SidebarSections = {
 			name: "Media Queue",
 			slug: "media-queue",
 			pluginSlug: "media",
+			pluginInstallationId: "installation-media",
+			reference: { kind: "plugin", slug: "media-queue", pluginId: PluginId.make("plugin-media") },
 		},
 	],
 };
@@ -75,7 +84,6 @@ const renderSidebar = (
 			catalog={[current]}
 			sections={sections}
 			navigation={navigation}
-			activeKey="view:media-queue"
 			workspaceSwitcherOpen={false}
 			onOpenSearch={() => undefined}
 			onNavigateHome={() => undefined}
@@ -84,6 +92,7 @@ const renderSidebar = (
 			onCustomize={customize?.onCustomize}
 			showSearchShortcut={showSearchShortcut}
 			onEditSection={customize?.onEditSection}
+			activeKey="view:/v/p/plugin-media/media-queue"
 			onWorkspaceSwitcherOpenChange={() => undefined}
 		/>,
 	);

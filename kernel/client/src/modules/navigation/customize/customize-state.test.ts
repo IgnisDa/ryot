@@ -1,3 +1,4 @@
+import { PluginPackageId, SavedViewId } from "@ryot-app/contract/schema/brands";
 import type { NavigationData } from "@ryot-app/ryotql-recipes/navigation";
 import type {
 	PluginClientCatalog,
@@ -22,6 +23,8 @@ const view = (slug: string, pluginSlug: string | null, sortOrder: number, isHidd
 	pluginSlug,
 	icon: "list",
 	name: slug.toUpperCase(),
+	reference: { kind: "custom" as const, savedViewId: SavedViewId.make(slug) },
+	pluginInstallationId: pluginSlug === null ? null : `installation-${pluginSlug}`,
 });
 
 const workspace = (
@@ -33,13 +36,15 @@ const workspace = (
 	isHidden,
 	sortOrder,
 	icon: "plugin",
+	scope: "system",
 	health: "ready",
 	clientApiVersion: 1,
-	homeSavedViewSlug: null,
+	homeSavedView: null,
 	name: slug.toUpperCase(),
 	pluginId: `plugin-${slug}`,
 	sourceHash: `source-${slug}`,
 	installationId: `installation-${slug}`,
+	packageId: PluginPackageId.make("ff9c9ec6-5774-42ef-881b-dc6a84ad3ba6"),
 });
 
 const catalog: PluginClientCatalog = [
@@ -58,19 +63,19 @@ const data: NavigationData = {
 	],
 };
 
-const draft = initCustomizeDraft({ data, catalog, workspaceSlug: "media" });
+const draft = initCustomizeDraft({ data, catalog, workspaceInstallationId: "installation-media" });
 
 describe("initCustomizeDraft", () => {
 	it("initializes all workspaces in catalog order, including hidden ones", () => {
 		expect(draft.workspaces.map((item) => item.slug)).toEqual(["disabled", "fitness", "media"]);
 		expect(draft.workspaces.map((item) => item.isHidden)).toEqual([true, false, false]);
-		expect(draft.workspaces[0]).toEqual({
+		expect(draft.workspaces[0]).toMatchObject({
 			icon: "plugin",
 			isHidden: true,
 			slug: "disabled",
-			name: "DISABLED",
+			name: "DISABLED · System · ff9c9ec6",
 		});
-		expect(draft.views[0]?.pluginSlug).toBe("media");
+		expect(draft.views[0]?.pluginInstallationId).toBe("installation-media");
 	});
 
 	it("splits workspace views from global saved views and sorts each by sort order", () => {
@@ -83,7 +88,9 @@ describe("initCustomizeDraft", () => {
 	});
 
 	it("leaves the views section empty when no workspace is selected", () => {
-		expect(initCustomizeDraft({ data, catalog, workspaceSlug: undefined }).views).toEqual([]);
+		expect(initCustomizeDraft({ data, catalog, workspaceInstallationId: undefined }).views).toEqual(
+			[],
+		);
 	});
 });
 
@@ -114,14 +121,14 @@ describe("moveCustomizeItem", () => {
 
 describe("toggleCustomizeItem", () => {
 	it("flips visibility without moving the item", () => {
-		const toggled = toggleCustomizeItem({ draft, slug: "shows", section: "views" });
+		const toggled = toggleCustomizeItem({ draft, id: "/v/c/shows", section: "views" });
 
 		expect(toggled.views.map((item) => item.slug)).toEqual(["movies", "shows"]);
 		expect(toggled.views.map((item) => item.isHidden)).toEqual([true, true]);
 	});
 
 	it("ignores a slug that is not in the section", () => {
-		expect(toggleCustomizeItem({ draft, slug: "all", section: "views" })).toBe(draft);
+		expect(toggleCustomizeItem({ draft, id: "/v/c/all", section: "views" })).toBe(draft);
 	});
 
 	it("refuses to hide the final visible workspace", () => {
@@ -133,18 +140,26 @@ describe("toggleCustomizeItem", () => {
 		};
 
 		expect(
-			toggleCustomizeItem({ slug: "fitness", draft: onlyEnabled, section: "workspaces" }),
+			toggleCustomizeItem({
+				draft: onlyEnabled,
+				section: "workspaces",
+				id: "installation-fitness",
+			}),
 		).toBe(onlyEnabled);
 	});
 
 	it("allows a hidden workspace to be shown", () => {
-		const toggled = toggleCustomizeItem({ draft, slug: "disabled", section: "workspaces" });
+		const toggled = toggleCustomizeItem({
+			draft,
+			section: "workspaces",
+			id: "installation-disabled",
+		});
 
 		expect(toggled.workspaces[0]?.isHidden).toBe(false);
 	});
 
 	it("leaves the draft it was given untouched", () => {
-		toggleCustomizeItem({ draft, slug: "shows", section: "views" });
+		toggleCustomizeItem({ draft, id: "/v/c/shows", section: "views" });
 
 		expect(draft.views.map((item) => item.isHidden)).toEqual([true, false]);
 	});
@@ -158,7 +173,7 @@ describe("isCustomizeDraftDirty", () => {
 	});
 
 	it("reports a visibility change", () => {
-		const toggled = toggleCustomizeItem({ draft, slug: "all", section: "savedViews" });
+		const toggled = toggleCustomizeItem({ draft, id: "/v/c/all", section: "savedViews" });
 
 		expect(isCustomizeDraftDirty({ draft: toggled, initial: draft })).toBe(true);
 	});

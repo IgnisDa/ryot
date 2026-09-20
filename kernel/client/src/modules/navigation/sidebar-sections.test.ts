@@ -1,3 +1,4 @@
+import { SavedViewId } from "@ryot-app/contract/schema/brands";
 import type { NavigationData, NavigationView } from "@ryot-app/ryotql-recipes/navigation";
 import { describe, expect, it } from "vitest";
 
@@ -17,17 +18,26 @@ const view = (overrides: Partial<NavigationView> = {}): NavigationView => ({
 	isHidden: false,
 	pluginSlug: null,
 	...overrides,
+	reference: overrides.reference ?? {
+		kind: "custom",
+		savedViewId: SavedViewId.make(overrides.slug ?? "view"),
+	},
+	pluginInstallationId:
+		overrides.pluginInstallationId ??
+		(overrides.pluginSlug ? `installation-${overrides.pluginSlug}` : null),
 });
 
 type NavigationCollection = NavigationData["collections"][number];
 
 const collection = (overrides: Partial<NavigationCollection> = {}): NavigationCollection => ({
 	sortOrder: 0,
+	reference: null,
 	isHidden: false,
 	icon: "layers-3",
 	pluginSlug: null,
 	name: "Collection",
 	slug: "collection",
+	pluginInstallationId: null,
 	...overrides,
 });
 
@@ -48,7 +58,7 @@ describe("sidebar sections", () => {
 			],
 		};
 
-		const sections = sidebarSections({ data, workspaceSlug: "media" });
+		const sections = sidebarSections({ data, workspaceInstallationId: "installation-media" });
 
 		expect(sections.views.map((item) => [item.name, item.kind])).toEqual([
 			["Home", "home"],
@@ -65,7 +75,7 @@ describe("sidebar sections", () => {
 
 	it("pluralizes a Home-only workspace summary", () => {
 		const sections = sidebarSections({
-			workspaceSlug: undefined,
+			workspaceInstallationId: undefined,
 			data: { savedViews: [], collections: [] },
 		});
 
@@ -91,8 +101,8 @@ describe("sidebar sections", () => {
 			],
 		};
 
-		expect(workspacePickerSummary(data, "media")).toBe("First, Second, Fourth");
-		expect(workspacePickerSummary(data, "fitness")).toBe("Other");
+		expect(workspacePickerSummary(data, "installation-media")).toBe("First, Second, Fourth");
+		expect(workspacePickerSummary(data, "installation-fitness")).toBe("Other");
 	});
 
 	it("adds the remaining count and handles empty workspaces", () => {
@@ -106,13 +116,13 @@ describe("sidebar sections", () => {
 			],
 		};
 
-		expect(workspacePickerSummary(data, "media")).toBe("First, Second, Third +1");
-		expect(workspacePickerSummary(data, "fitness")).toBe("Custom workspace · 0 views");
+		expect(workspacePickerSummary(data, "installation-media")).toBe("First, Second, Third +1");
+		expect(workspacePickerSummary(data, "installation-fitness")).toBe("Custom workspace · 0 views");
 	});
 
 	it.each([
-		["/v/recent", "view:recent"],
-		["/v/recent/details", "view:recent"],
+		["/v/c/recent", "view:/v/c/recent"],
+		["/v/c/recent/details", "view:/v/c/recent"],
 		["/e/collection-1", "collection:collection-1"],
 		["/media", null],
 		["/settings", null],

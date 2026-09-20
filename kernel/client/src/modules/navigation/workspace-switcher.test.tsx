@@ -1,4 +1,5 @@
 import { describe, expect, it } from "@effect/vitest";
+import { SavedViewId, PluginPackageId } from "@ryot-app/contract/schema/brands";
 import type { NavigationData } from "@ryot-app/ryotql-recipes/navigation";
 import type {
 	PluginClientCatalog,
@@ -31,11 +32,13 @@ const workspace = (
 	health: "ready",
 	isHidden: false,
 	clientApiVersion: 1,
-	pluginId: "plugin-media",
 	sourceHash: "source-media",
 	installationId: "installation-media",
 	...overrides,
-	homeSavedViewSlug: overrides.homeSavedViewSlug ?? null,
+	scope: overrides.scope ?? "system",
+	homeSavedView: overrides.homeSavedView ?? null,
+	pluginId: overrides.pluginId ?? `plugin-${overrides.slug ?? "media"}`,
+	packageId: overrides.packageId ?? PluginPackageId.make("ff9c9ec6-5774-42ef-881b-dc6a84ad3ba6"),
 });
 
 const navigation: NavigationData = { savedViews: [], collections: [] };
@@ -47,10 +50,12 @@ const view = (name: string, sortOrder: number): NavigationData["savedViews"][num
 	isHidden: false,
 	pluginSlug: null,
 	slug: name.toLowerCase(),
+	pluginInstallationId: null,
+	reference: { kind: "custom", savedViewId: SavedViewId.make(name.toLowerCase()) },
 });
 
 describe("workspace switcher", () => {
-	it("shows enabled workspaces in deterministic order without hiding unavailable entries", () => {
+	it("shows only executable workspaces and excludes hidden or unavailable entries", () => {
 		const current = workspace();
 		const catalog: PluginClientCatalog = [
 			workspace({
@@ -87,21 +92,15 @@ describe("workspace switcher", () => {
 		);
 		expect(screen.getByText("2 views")).toBeTruthy();
 
-		fireEvent.click(screen.getByRole("button", { name: "Media workspace, media" }));
+		fireEvent.click(screen.getByRole("button", { name: /^Media workspace,/ }));
 
 		const menu = screen.getByRole("menu", { name: "Workspaces" });
 		expect(
 			within(menu)
 				.getAllByRole("menuitemradio")
 				.map((item) => item.getAttribute("aria-label")),
-		).toEqual([
-			"Switch to Media workspace",
-			"Switch to Incompatible workspace",
-			"Switch to Failed workspace",
-		]);
-		expect(
-			within(menu).queryByRole("menuitemradio", { name: "Switch to Hidden workspace" }),
-		).toBeNull();
+		).toEqual(["Switch to Media · System · ff9c9ec6 workspace"]);
+		expect(within(menu).queryByRole("menuitemradio", { name: /^Switch to Hidden / })).toBeNull();
 	});
 
 	it("renders sorted workspace view summaries and keeps the trigger summary", () => {
@@ -121,18 +120,18 @@ describe("workspace switcher", () => {
 				navigation={{
 					collections: [],
 					savedViews: [
-						{ ...view("Fourth", 4), pluginSlug: "media" },
-						{ ...view("Hidden", 0), isHidden: true, pluginSlug: "media" },
-						{ ...view("Second", 2), pluginSlug: "media" },
-						{ ...view("First", 1), pluginSlug: "media" },
-						{ ...view("Third", 3), pluginSlug: "media" },
+						{ ...view("Fourth", 4), pluginInstallationId: "installation-media" },
+						{ ...view("Hidden", 0), isHidden: true, pluginInstallationId: "installation-media" },
+						{ ...view("Second", 2), pluginInstallationId: "installation-media" },
+						{ ...view("First", 1), pluginInstallationId: "installation-media" },
+						{ ...view("Third", 3), pluginInstallationId: "installation-media" },
 					],
 				}}
 			/>,
 		);
 
 		expect(screen.getByText("3 views")).toBeTruthy();
-		fireEvent.click(screen.getByRole("button", { name: "Media workspace, media" }));
+		fireEvent.click(screen.getByRole("button", { name: /^Media workspace,/ }));
 
 		const menu = screen.getByRole("menu", { name: "Workspaces" });
 		expect(within(menu).getByText("First, Second, Third +1")).toBeTruthy();
@@ -152,9 +151,9 @@ describe("workspace switcher", () => {
 				/>,
 			);
 
-			fireEvent.click(screen.getByRole("button", { name: "Media workspace, media" }));
+			fireEvent.click(screen.getByRole("button", { name: /^Media workspace,/ }));
 
-			const item = screen.getByRole("menuitemradio", { name: "Switch to Media workspace" });
+			const item = screen.getByRole("menuitemradio", { name: /^Switch to Media / });
 			yield* Effect.promise(() => waitFor(() => expect(document.activeElement).toBe(item)));
 			expect(item.getAttribute("aria-checked")).toBe("true");
 		}),
@@ -179,14 +178,12 @@ describe("workspace switcher", () => {
 					catalog={[current, fitness]}
 				/>,
 			);
-			const trigger = screen.getByRole("button", { name: "Media workspace, media" });
+			const trigger = screen.getByRole("button", { name: /^Media workspace,/ });
 
 			fireEvent.keyDown(document, { key: " ", ctrlKey: true, shiftKey: true });
 
-			const media = screen.getByRole("menuitemradio", { name: "Switch to Media workspace" });
-			const fitnessItem = screen.getByRole("menuitemradio", {
-				name: "Switch to Fitness workspace",
-			});
+			const media = screen.getByRole("menuitemradio", { name: /^Switch to Media / });
+			const fitnessItem = screen.getByRole("menuitemradio", { name: /^Switch to Fitness / });
 			yield* Effect.promise(() => waitFor(() => expect(document.activeElement).toBe(media)));
 			fireEvent.keyDown(screen.getByRole("menu"), { key: "ArrowDown" });
 			yield* Effect.promise(() => waitFor(() => expect(document.activeElement).toBe(fitnessItem)));
@@ -211,7 +208,7 @@ describe("workspace switcher", () => {
 		};
 		const rendered = render(<WorkspaceSwitcherView {...props} open />);
 
-		fireEvent.click(screen.getByRole("button", { name: "Media workspace, media" }));
+		fireEvent.click(screen.getByRole("button", { name: /^Media workspace,/ }));
 
 		expect(changes).toEqual([false]);
 		expect(screen.getByRole("menu", { name: "Workspaces" })).toBeTruthy();
@@ -244,10 +241,8 @@ describe("workspace switcher", () => {
 				catalog: [current, fitness, journal],
 			};
 			const rendered = render(<WorkspaceSwitcherView {...props} open />);
-			const media = screen.getByRole("menuitemradio", { name: "Switch to Media workspace" });
-			const fitnessItem = screen.getByRole("menuitemradio", {
-				name: "Switch to Fitness workspace",
-			});
+			const media = screen.getByRole("menuitemradio", { name: /^Switch to Media / });
+			const fitnessItem = screen.getByRole("menuitemradio", { name: /^Switch to Fitness / });
 			yield* Effect.promise(() => waitFor(() => expect(document.activeElement).toBe(media)));
 
 			fireEvent.keyDown(screen.getByRole("menu"), { key: "ArrowDown" });
@@ -256,9 +251,7 @@ describe("workspace switcher", () => {
 			rendered.rerender(<WorkspaceSwitcherView {...props} open={false} />);
 			rendered.rerender(<WorkspaceSwitcherView {...props} open current={journal} />);
 
-			const journalItem = screen.getByRole("menuitemradio", {
-				name: "Switch to Journal workspace",
-			});
+			const journalItem = screen.getByRole("menuitemradio", { name: /^Switch to Journal / });
 			yield* Effect.promise(() => waitFor(() => expect(document.activeElement).toBe(journalItem)));
 		}),
 	);
@@ -279,9 +272,7 @@ describe("workspace switcher", () => {
 
 		expect(screen.queryByRole("menu")).toBeNull();
 		expect(
-			screen
-				.getByRole("button", { name: "Media workspace, media" })
-				.getAttribute("aria-keyshortcuts"),
+			screen.getByRole("button", { name: /^Media workspace,/ }).getAttribute("aria-keyshortcuts"),
 		).toBe(null);
 	});
 
@@ -298,12 +289,12 @@ describe("workspace switcher", () => {
 					onSelect={() => undefined}
 				/>,
 			);
-			const trigger = screen.getByRole("button", { name: "Media workspace, media" });
+			const trigger = screen.getByRole("button", { name: /^Media workspace,/ });
 			fireEvent.click(trigger);
 			yield* Effect.promise(() =>
 				waitFor(() =>
 					expect(document.activeElement).toBe(
-						screen.getByRole("menuitemradio", { name: "Switch to Media workspace" }),
+						screen.getByRole("menuitemradio", { name: /^Switch to Media / }),
 					),
 				),
 			);
@@ -330,12 +321,12 @@ describe("workspace switcher", () => {
 					<button type="button">Outside</button>
 				</>,
 			);
-			const trigger = screen.getByRole("button", { name: "Media workspace, media" });
+			const trigger = screen.getByRole("button", { name: /^Media workspace,/ });
 			fireEvent.click(trigger);
 			yield* Effect.promise(() =>
 				waitFor(() =>
 					expect(document.activeElement).toBe(
-						screen.getByRole("menuitemradio", { name: "Switch to Media workspace" }),
+						screen.getByRole("menuitemradio", { name: /^Switch to Media / }),
 					),
 				),
 			);
@@ -364,10 +355,10 @@ describe("workspace switcher", () => {
 					}}
 				/>,
 			);
-			const trigger = screen.getByRole("button", { name: "Media workspace, media" });
+			const trigger = screen.getByRole("button", { name: /^Media workspace,/ });
 			fireEvent.click(trigger);
 
-			fireEvent.click(screen.getByRole("menuitemradio", { name: "Switch to Media workspace" }));
+			fireEvent.click(screen.getByRole("menuitemradio", { name: /^Switch to Media / }));
 
 			yield* Effect.promise(() => waitFor(() => expect(document.activeElement).toBe(trigger)));
 			expect(screen.queryByRole("menu")).toBeNull();
@@ -397,14 +388,14 @@ describe("workspace switcher", () => {
 					}}
 				/>,
 			);
-			const trigger = screen.getByRole("button", { name: "Media workspace, media" });
+			const trigger = screen.getByRole("button", { name: /^Media workspace,/ });
 			fireEvent.click(trigger);
 
-			fireEvent.click(screen.getByRole("menuitemradio", { name: "Switch to Fitness workspace" }));
+			fireEvent.click(screen.getByRole("menuitemradio", { name: /^Switch to Fitness / }));
 
 			yield* Effect.promise(() =>
 				waitFor(() =>
-					expect(observations).toEqual([{ open: false, focused: true, slug: "fitness" }]),
+					expect(observations).toEqual([{ open: false, focused: true, slug: "plugin-fitness" }]),
 				),
 			);
 		}),
@@ -422,7 +413,7 @@ describe("workspace switcher", () => {
 					onSelect={() => undefined}
 				/>,
 			);
-			const trigger = screen.getByRole("button", { name: "Media workspace, media" });
+			const trigger = screen.getByRole("button", { name: /^Media workspace,/ });
 			fireEvent.click(trigger);
 
 			fireEvent.keyDown(screen.getByRole("menu"), { key: "Escape" });
@@ -458,11 +449,11 @@ describe("workspace switcher", () => {
 					]}
 				/>,
 			);
-			fireEvent.click(screen.getByRole("button", { name: "Media workspace, media" }));
+			fireEvent.click(screen.getByRole("button", { name: /^Media workspace,/ }));
 			const menu = screen.getByRole("menu");
-			const media = screen.getByRole("menuitemradio", { name: "Switch to Media workspace" });
-			const fitness = screen.getByRole("menuitemradio", { name: "Switch to Fitness workspace" });
-			const journal = screen.getByRole("menuitemradio", { name: "Switch to Journal workspace" });
+			const media = screen.getByRole("menuitemradio", { name: /^Switch to Media / });
+			const fitness = screen.getByRole("menuitemradio", { name: /^Switch to Fitness / });
+			const journal = screen.getByRole("menuitemradio", { name: /^Switch to Journal / });
 			yield* Effect.promise(() => waitFor(() => expect(document.activeElement).toBe(media)));
 
 			fireEvent.keyDown(menu, { key: "ArrowDown" });
@@ -494,11 +485,11 @@ describe("workspace switcher", () => {
 					<button type="button">After switcher</button>
 				</>,
 			);
-			fireEvent.click(screen.getByRole("button", { name: "Media workspace, media" }));
+			fireEvent.click(screen.getByRole("button", { name: /^Media workspace,/ }));
 			yield* Effect.promise(() =>
 				waitFor(() =>
 					expect(document.activeElement).toBe(
-						screen.getByRole("menuitemradio", { name: "Switch to Media workspace" }),
+						screen.getByRole("menuitemradio", { name: /^Switch to Media / }),
 					),
 				),
 			);
@@ -522,7 +513,7 @@ describe("workspace switcher", () => {
 			/>,
 		);
 
-		fireEvent.click(screen.getByRole("button", { name: "Media workspace, media" }));
+		fireEvent.click(screen.getByRole("button", { name: /^Media workspace,/ }));
 
 		expect(screen.queryByRole("menuitem", { name: "Customize sidebar" })).toBeNull();
 	});
@@ -541,7 +532,7 @@ describe("workspace switcher", () => {
 			/>,
 		);
 
-		fireEvent.click(screen.getByRole("button", { name: "Media workspace, media" }));
+		fireEvent.click(screen.getByRole("button", { name: /^Media workspace,/ }));
 		fireEvent.click(screen.getByRole("menuitem", { name: "Customize sidebar" }));
 
 		return waitFor(() => expect(events).toEqual(["closed"]));
@@ -561,7 +552,7 @@ describe("workspace switcher", () => {
 				/>,
 			);
 
-			fireEvent.click(screen.getByRole("button", { name: "Media workspace, media" }));
+			fireEvent.click(screen.getByRole("button", { name: /^Media workspace,/ }));
 			const menu = screen.getByRole("menu", { name: "Workspaces" });
 			fireEvent.keyDown(menu, { key: "ArrowDown" });
 

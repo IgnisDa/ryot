@@ -1,3 +1,4 @@
+import { PluginPackageId } from "@ryot-app/contract/schema/brands";
 import type {
 	PluginClientCatalog,
 	PluginClientCatalogEntry,
@@ -22,14 +23,37 @@ const workspace = (
 	health: "ready",
 	isHidden: false,
 	clientApiVersion: 1,
-	pluginId: "plugin-media",
 	sourceHash: "source-media",
 	installationId: "installation-media",
 	...overrides,
-	homeSavedViewSlug: overrides.homeSavedViewSlug ?? null,
+	scope: overrides.scope ?? "system",
+	homeSavedView: overrides.homeSavedView ?? null,
+	pluginId: overrides.pluginId ?? `plugin-${overrides.slug ?? "media"}`,
+	packageId: overrides.packageId ?? PluginPackageId.make("ff9c9ec6-5774-42ef-881b-dc6a84ad3ba6"),
 });
 
 describe("workspace state", () => {
+	it("does not substitute a same-name system record for a quarantined local route", () => {
+		const system = workspace({
+			name: "Whiskey",
+			slug: "whiskey",
+			pluginId: "system-owner",
+			installationId: "system-installation",
+		});
+		const retained = workspace({
+			scope: "user",
+			name: "Whiskey",
+			slug: "whiskey",
+			health: "incompatible",
+			pluginId: "private-owner",
+			packageId: system.packageId,
+			installationId: "private-installation",
+		});
+		const catalog = [retained, system];
+		expect(visibleWorkspaces(catalog)).toEqual([system]);
+		expect(resolvePluginRouteWorkspace(catalog, retained.pluginId)).toBe(retained);
+		expect(resolvePluginRouteWorkspace(catalog, system.pluginId)).toBe(system);
+	});
 	it("sorts deterministically by sort order, slug, and installation ID", () => {
 		const catalog = [
 			workspace({ slug: "beta", sortOrder: 1, installationId: "installation-b" }),
@@ -52,14 +76,14 @@ describe("workspace state", () => {
 		]);
 	});
 
-	it("filters only hidden workspaces and sorts all other catalog states", () => {
+	it("keeps unavailable and hidden records out of executable workspaces", () => {
 		const catalog: PluginClientCatalog = [
 			workspace({ sortOrder: 0, isHidden: true, slug: "disabled" }),
 			workspace({ sortOrder: 3, slug: "failed", health: "failed" }),
 			workspace({ sortOrder: 2, slug: "incompatible", health: "incompatible" }),
 		];
 
-		expect(visibleWorkspaces(catalog).map(({ slug }) => slug)).toEqual(["incompatible", "failed"]);
+		expect(visibleWorkspaces(catalog)).toEqual([]);
 	});
 
 	it("falls back from a hidden remembered workspace to the first enabled workspace", () => {
@@ -70,8 +94,8 @@ describe("workspace state", () => {
 			first,
 		];
 
-		expect(resolveRememberedWorkspace(catalog, "remembered")).toBe(first);
-		expect(resolveRememberedWorkspace(catalog, "second")?.slug).toBe("second");
+		expect(resolveRememberedWorkspace(catalog, "plugin-remembered")).toBe(first);
+		expect(resolveRememberedWorkspace(catalog, "plugin-second")?.slug).toBe("second");
 	});
 
 	it("derives plugin-route workspace context", () => {
@@ -81,8 +105,8 @@ describe("workspace state", () => {
 			workspace({ isHidden: true, slug: "disabled" }),
 		];
 
-		expect(resolvePluginRouteWorkspace(catalog, "fitness")?.slug).toBe("fitness");
-		expect(resolvePluginRouteWorkspace(catalog, "disabled")?.slug).toBe("disabled");
+		expect(resolvePluginRouteWorkspace(catalog, "plugin-fitness")?.slug).toBe("fitness");
+		expect(resolvePluginRouteWorkspace(catalog, "plugin-disabled")?.slug).toBe("disabled");
 		expect(resolvePluginRouteWorkspace(catalog, "missing")).toBeNull();
 	});
 
@@ -90,24 +114,24 @@ describe("workspace state", () => {
 		const catalog = [workspace({ isHidden: true })];
 
 		expect(visibleWorkspaces(catalog)).toEqual([]);
-		expect(resolveRememberedWorkspace(catalog, "media")).toBeNull();
-		expect(resolvePluginRouteWorkspace(catalog, "media")?.slug).toBe("media");
+		expect(resolveRememberedWorkspace(catalog, "plugin-media")).toBeNull();
+		expect(resolvePluginRouteWorkspace(catalog, "plugin-media")?.slug).toBe("media");
 	});
 
 	it("recognizes a workspace root with or without a trailing slash", () => {
 		const media = workspace();
 
-		expect(isWorkspaceRoot("/media", media)).toBe(true);
-		expect(isWorkspaceRoot("/media/", media)).toBe(true);
+		expect(isWorkspaceRoot("/p/plugin-media", media)).toBe(true);
+		expect(isWorkspaceRoot("/p/plugin-media/", media)).toBe(true);
 	});
 
 	it("rejects child routes, other workspaces, and an absent workspace", () => {
 		const media = workspace();
 
-		expect(isWorkspaceRoot("/media/workouts/1", media)).toBe(false);
+		expect(isWorkspaceRoot("/p/plugin-media/workouts/1", media)).toBe(false);
 		expect(isWorkspaceRoot("/mediation", media)).toBe(false);
-		expect(isWorkspaceRoot("/fitness", media)).toBe(false);
-		expect(isWorkspaceRoot("/v/all-movies", media)).toBe(false);
-		expect(isWorkspaceRoot("/media", null)).toBe(false);
+		expect(isWorkspaceRoot("/p/plugin-fitness", media)).toBe(false);
+		expect(isWorkspaceRoot("/v/k/all-movies", media)).toBe(false);
+		expect(isWorkspaceRoot("/p/plugin-media", null)).toBe(false);
 	});
 });

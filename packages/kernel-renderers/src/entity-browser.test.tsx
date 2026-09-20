@@ -229,9 +229,8 @@ describe("entity browser", () => {
 			yield* Effect.promise(() =>
 				waitFor(() =>
 					expect(page.clientMessages()).toContainEqual({
-						ownerPluginId: "media",
-						entitySchemaSlug: "book",
 						type: "provider-search-screen",
+						schema: { slug: "book", owner: { kind: "plugin", pluginId: "media" } },
 					}),
 				),
 			);
@@ -306,10 +305,9 @@ describe("entity browser", () => {
 			yield* Effect.promise(() =>
 				waitFor(() =>
 					expect(page.clientMessages()).toContainEqual({
-						ownerPluginId: "media",
 						initialQuery: "piranesi",
-						entitySchemaSlug: "book",
 						type: "provider-search-screen",
+						schema: { slug: "book", owner: { kind: "plugin", pluginId: "media" } },
 					}),
 				),
 			);
@@ -331,9 +329,8 @@ describe("entity browser", () => {
 			yield* Effect.promise(() =>
 				waitFor(() =>
 					expect(page.clientMessages()).toContainEqual({
-						ownerPluginId: "media",
-						entitySchemaSlug: "book",
 						type: "provider-search-screen",
+						schema: { slug: "book", owner: { kind: "plugin", pluginId: "media" } },
 					}),
 				),
 			);

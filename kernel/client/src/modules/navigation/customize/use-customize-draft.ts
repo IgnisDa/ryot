@@ -29,7 +29,7 @@ export function useCustomizeDraft(props: {
 	readonly active: boolean;
 	readonly data: NavigationData;
 	readonly catalog: PluginClientCatalog;
-	readonly workspaceSlug: string | undefined;
+	readonly workspaceInstallationId: string | undefined;
 }) {
 	const { scope } = useRouteContext({ from: "/_authenticated" });
 	const [error, setError] = useState<string | null>(null);
@@ -53,8 +53,8 @@ export function useCustomizeDraft(props: {
 	const move = (section: CustomizeSection, fromIndex: number, toIndex: number) =>
 		setDraft((draft) => moveCustomizeItem({ draft, section, toIndex, fromIndex }));
 
-	const toggle = (section: CustomizeSection, slug: string) =>
-		setDraft((draft) => toggleCustomizeItem({ slug, draft, section }));
+	const toggle = (section: CustomizeSection, id: string) =>
+		setDraft((draft) => toggleCustomizeItem({ id, draft, section }));
 
 	const isDirty = isCustomizeDraftDirty(session);
 
@@ -67,7 +67,10 @@ export function useCustomizeDraft(props: {
 		}
 		setError(null);
 		setIsSaving(true);
-		const plan = buildCustomizePlan({ ...session, workspaceSlug: props.workspaceSlug });
+		const plan = buildCustomizePlan({
+			...session,
+			workspaceInstallationId: props.workspaceInstallationId,
+		});
 		return Effect.flatMap(CustomizeSidebarService, (service) => service.save(scope, plan)).pipe(
 			Effect.match({
 				onSuccess: () => {

@@ -3,7 +3,11 @@ import type { IntegrationLot } from "@ryot-app/contract/modules/integrations/typ
 import { ingestionReadinessRequirement } from "#/modules/imports/readiness-presentation";
 import { integrationProviderKey } from "#/modules/integrations/presentation";
 import type { IntegrationProviderItem } from "#/modules/integrations/service";
-import { pluginCatalogGroup, type CatalogEntry } from "#/modules/ui/catalog/selection";
+import {
+	pluginCatalogGroup,
+	pluginHeading,
+	type CatalogEntry,
+} from "#/modules/ui/catalog/selection";
 
 export const PRO_REQUIRED_INTEGRATION_MESSAGE = "Ryot Pro is required to use this integration.";
 
@@ -33,16 +37,21 @@ const integrationProviderRequirement = (provider: IntegrationProviderItem) => {
 };
 
 export const integrationProviderEntry = (provider: IntegrationProviderItem): CatalogEntry => ({
-	slug: provider.slug,
 	name: provider.name,
 	description: provider.description,
 	badge: integrationLotLabel(provider.lot),
 	requirement: integrationProviderRequirement(provider),
 	isAvailable: provider.isCreatable && provider.readiness.ready,
+	slug: integrationProviderKey({ provider: provider.slug, pluginId: provider.pluginId }),
 	group:
-		provider.pluginSlug === null
+		provider.reference.owner.kind === "kernel"
 			? { key: "kernel", heading: "Ryot" }
-			: pluginCatalogGroup(provider.pluginSlug),
+			: pluginCatalogGroup({
+					scope: provider.pluginScope,
+					reference: provider.reference,
+					packageId: provider.packageId,
+					name: provider.pluginSlug === null ? provider.name : pluginHeading(provider.pluginSlug),
+				}),
 });
 
 export const integrationProviderChooseLabel = (entry: CatalogEntry) =>
@@ -51,17 +60,17 @@ export const integrationProviderChooseLabel = (entry: CatalogEntry) =>
 export const integrationProviderNames = (providers: readonly IntegrationProviderItem[]) =>
 	new Map(
 		providers.map((provider) => [
-			integrationProviderKey({ provider: provider.slug, pluginSlug: provider.pluginSlug }),
+			integrationProviderKey({ provider: provider.slug, pluginId: provider.pluginId }),
 			provider.name,
 		]),
 	);
 
 export const findOwnedIntegrationProvider = (
 	providers: readonly IntegrationProviderItem[],
-	owner: { readonly provider: string; readonly pluginSlug: string | null } | undefined,
+	owner: { readonly provider: string; readonly pluginId: string | null } | undefined,
 ) =>
 	owner === undefined
 		? undefined
 		: providers.find(
-				(provider) => provider.slug === owner.provider && provider.pluginSlug === owner.pluginSlug,
+				(provider) => provider.slug === owner.provider && provider.pluginId === owner.pluginId,
 			);

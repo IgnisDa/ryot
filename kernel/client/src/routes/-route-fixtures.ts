@@ -8,7 +8,13 @@ import type {
 	ClientCompositionDocument,
 	PreparedClientPage,
 } from "@ryot-app/contract/modules/client-pages/schemas";
-import { EntitySchemaSlug, PluginSlug, UserId } from "@ryot-app/contract/schema/brands";
+import {
+	EntitySchemaSlug,
+	PluginId,
+	PluginPackageId,
+	SavedViewId,
+	UserId,
+} from "@ryot-app/contract/schema/brands";
 import type { NavigationData } from "@ryot-app/ryotql-recipes/navigation";
 import type { PluginClientCatalog } from "@ryot-app/ryotql-recipes/plugin-client-catalog";
 import type { UserSettingsResult } from "@ryot-app/ryotql-recipes/user-settings";
@@ -61,15 +67,17 @@ export const catalog: PluginClientCatalog = [
 	{
 		sortOrder: 0,
 		icon: "puzzle",
+		scope: "system",
 		name: "Fixture",
 		health: "ready",
 		slug: "fixture",
 		isHidden: false,
 		clientApiVersion: 1,
+		homeSavedView: null,
 		pluginId: "plugin-1",
-		homeSavedViewSlug: null,
 		sourceHash: "source-hash",
 		installationId: "installation-1",
+		packageId: PluginPackageId.make("ff9c9ec6-5774-42ef-881b-dc6a84ad3ba6"),
 	},
 ];
 
@@ -77,10 +85,12 @@ export const navigationData: NavigationData = {
 	collections: [
 		{
 			sortOrder: 0,
+			reference: null,
 			isHidden: false,
 			pluginSlug: null,
 			icon: "layers-3",
 			slug: "collection-1",
+			pluginInstallationId: null,
 			name: "Fixture Collection",
 		},
 	],
@@ -92,6 +102,8 @@ export const navigationData: NavigationData = {
 			name: "Fixture View",
 			slug: "fixture-view",
 			pluginSlug: "fixture",
+			pluginInstallationId: "installation-1",
+			reference: { kind: "plugin", slug: "fixture-view", pluginId: PluginId.make("plugin-1") },
 		},
 		{
 			sortOrder: 0,
@@ -100,6 +112,8 @@ export const navigationData: NavigationData = {
 			pluginSlug: null,
 			name: "Global View",
 			slug: "global-view",
+			pluginInstallationId: null,
+			reference: { kind: "custom", savedViewId: SavedViewId.make("global-view") },
 		},
 	],
 };
@@ -350,16 +364,19 @@ export const ProviderAddRouteStubs = makeProviderAddStub();
 export const preparePluginPage = (
 	target: Exclude<PreparedClientPage["identity"]["target"], { readonly kind: "saved-view" }>,
 ): PreparedClientPage => {
-	const pluginId =
-		target.kind === "plugin-route" && target.pluginSlug === "journal" ? "plugin-2" : "plugin-1";
-	const pluginSlug = pluginId === "plugin-2" ? "journal" : "fixture";
-	const operationTargets = [
+	const pluginId = PluginId.make(target.kind === "plugin-route" ? target.pluginId : "plugin-1");
+	const contributors: PreparedClientPage["identity"]["contributors"] = [
 		{
 			pluginId,
+			kind: "plugin",
+			revisionId: "revision",
 			sourceHash: "source-hash",
 			installationId: "installation-1",
-			pluginSlug: PluginSlug.make(pluginSlug),
+			packageId: PluginPackageId.make("ff9c9ec6-5774-42ef-881b-dc6a84ad3ba6"),
 		},
+	];
+	const operationTargets = [
+		{ pluginId, sourceHash: "source-hash", installationId: "installation-1" },
 	];
 	return {
 		composition: {
@@ -369,8 +386,21 @@ export const preparePluginPage = (
 			compilerVersion: CLIENT_COMPILER_VERSION,
 			bridgeVersion: CLIENT_BRIDGE_PROTOCOL_VERSION,
 		},
+		identity: {
+			target,
+			pluginId,
+			contributors,
+			operationTargets,
+			exportName: "page",
+			kind: "plugin-page",
+			sourceHash: "source-hash",
+			installationId: "installation-1",
+			compositionKey: "composition-key-1",
+			compositionHash: "composition-hash",
+		},
 		context: {
 			view: null,
+			contributors,
 			settings: {},
 			dataSources: null,
 			route: { params: {} },
@@ -383,26 +413,6 @@ export const preparePluginPage = (
 							entitySchemaSlug: EntitySchemaSlug.make("book"),
 						}
 					: target,
-		},
-		identity: {
-			target,
-			pluginId,
-			operationTargets,
-			exportName: "page",
-			kind: "plugin-page",
-			sourceHash: "source-hash",
-			installationId: "installation-1",
-			compositionKey: "composition-key-1",
-			compositionHash: "composition-hash",
-			contributors: [
-				{
-					pluginId,
-					kind: "plugin",
-					sourceHash: "source-hash",
-					installationId: "installation-1",
-					pluginSlug: PluginSlug.make(pluginSlug),
-				},
-			],
 		},
 	};
 };

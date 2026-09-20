@@ -1,5 +1,6 @@
 import { useRyotQuery } from "@ryot-app/client-sdk/react";
 import { Button } from "@ryot-app/client-ui-sdk";
+import type { DeclarationReference } from "@ryot-app/contract/modules/plugins/references";
 import type { ReactNode } from "react";
 
 import { selectedIntegrationReadinessQuery } from "#/modules/integrations/service";
@@ -8,7 +9,7 @@ import { IngestionReadinessNotice } from "./readiness-presentation";
 import { selectedImportReadinessQuery } from "./service";
 
 type SelectedReadinessProps = {
-	readonly slug: string;
+	readonly reference: DeclarationReference;
 	readonly settings: Readonly<Record<string, unknown>>;
 	readonly integrationId?: string;
 	readonly children: (ready: boolean) => ReactNode;
@@ -16,8 +17,8 @@ type SelectedReadinessProps = {
 
 export function SelectedImportReadiness(props: SelectedReadinessProps) {
 	const query = useRyotQuery(selectedImportReadinessQuery, {
-		slug: props.slug,
 		settings: props.settings,
+		reference: props.reference,
 	});
 	const statusLabel =
 		query.status === "success" ? "This source is no longer available." : "Checking setup...";
@@ -51,8 +52,8 @@ export function SelectedImportReadiness(props: SelectedReadinessProps) {
 
 export function SelectedIntegrationReadiness(props: SelectedReadinessProps) {
 	const query = useRyotQuery(selectedIntegrationReadinessQuery, {
-		slug: props.slug,
 		settings: props.settings,
+		reference: props.reference,
 		...(props.integrationId === undefined ? {} : { integrationId: props.integrationId }),
 	});
 	const statusLabel =

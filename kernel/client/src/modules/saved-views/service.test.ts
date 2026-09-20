@@ -24,8 +24,10 @@ describe("SavedViewsService", () => {
 			isHidden: false,
 			pluginSlug: null,
 			dataSources: null,
+			pluginInstallationId: null,
 			createdAt: "2026-01-01T00:00:00.000Z",
 			updatedAt: "2026-01-01T00:00:00.000Z",
+			reference: { slug: "books", kind: "kernel" },
 			renderer: { kind: "kernel", name: "results-table" },
 		};
 		const client = createRyotClient(
@@ -38,7 +40,9 @@ describe("SavedViewsService", () => {
 			expect(
 				yield* Effect.promise(() =>
 					runtime.runPromise(
-						Effect.flatMap(SavedViewsService, (service) => service.loadRecord(client, "books")),
+						Effect.flatMap(SavedViewsService, (service) =>
+							service.loadRecord(client, { slug: "books", kind: "kernel" }),
+						),
 					),
 				),
 			).toMatchObject({ name: "Books", renderer: record.renderer });
@@ -56,7 +60,9 @@ describe("SavedViewsService", () => {
 			expect(
 				yield* Effect.promise(() =>
 					runtime.runPromise(
-						Effect.flatMap(SavedViewsService, (service) => service.loadRecord(client, "missing")),
+						Effect.flatMap(SavedViewsService, (service) =>
+							service.loadRecord(client, { kind: "kernel", slug: "missing" }),
+						),
 					),
 				),
 			).toBeUndefined();
