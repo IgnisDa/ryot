@@ -291,28 +291,33 @@ export default function Index() {
 
 	useEffect(() => {
 		if (!paddle) {
-			void initializePaddleForApplication(
-				loaderData.clientToken,
-				loaderData.isSandbox,
-				loaderData.customerDetails.paddleCustomerId,
-			).then((paddleInstance) => {
-				if (paddleInstance) {
-					paddleInstance.Update({
-						eventCallback: (event) => {
-							if (event.name === CheckoutEventNames.CHECKOUT_COMPLETED) {
-								paddleInstance.Checkout.close();
-								const formData = new FormData();
-								void fetcher.submit(formData, {
-									method: "POST",
-									action: withQuery(".", { intent: "checkoutPaddle" }),
-								});
-							}
-						},
-					});
-					setPaddle(paddleInstance);
-				}
-				return;
-			});
+			Effect.runFork(
+				Effect.promise(() =>
+					initializePaddleForApplication(
+						loaderData.clientToken,
+						loaderData.isSandbox,
+						loaderData.customerDetails.paddleCustomerId,
+					),
+				).pipe(
+					Effect.map((paddleInstance) => {
+						if (paddleInstance) {
+							paddleInstance.Update({
+								eventCallback: (event) => {
+									if (event.name === CheckoutEventNames.CHECKOUT_COMPLETED) {
+										paddleInstance.Checkout.close();
+										const formData = new FormData();
+										void fetcher.submit(formData, {
+											method: "POST",
+											action: withQuery(".", { intent: "checkoutPaddle" }),
+										});
+									}
+								},
+							});
+							setPaddle(paddleInstance);
+						}
+					}),
+				),
+			);
 		}
 	}, [
 		paddle,

@@ -279,10 +279,9 @@ describe("API observability", () => {
 			const logLine = yield* pollUntil(
 				"correlated workflow completion log",
 				Effect.gen(function* () {
-					const contents = yield* Effect.promise(() =>
-						Bun.file(requireLogFile())
-							.text()
-							.catch(() => ""),
+					const logPath = requireLogFile();
+					const contents = yield* Effect.tryPromise(() => Bun.file(logPath).text()).pipe(
+						Effect.orElseSucceed(() => ""),
 					);
 					return (
 						contents
@@ -299,10 +298,9 @@ describe("API observability", () => {
 			const requestLogLine = yield* pollUntil(
 				"correlated HTTP response log",
 				Effect.gen(function* () {
-					const contents = yield* Effect.promise(() =>
-						Bun.file(requireLogFile())
-							.text()
-							.catch(() => ""),
+					const logPath = requireLogFile();
+					const contents = yield* Effect.tryPromise(() => Bun.file(logPath).text()).pipe(
+						Effect.orElseSucceed(() => ""),
 					);
 					return (
 						contents

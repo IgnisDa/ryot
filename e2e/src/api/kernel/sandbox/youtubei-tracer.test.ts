@@ -1,4 +1,4 @@
-import { Effect } from "effect";
+import { Deferred, Effect } from "effect";
 
 import {
 	createAuthenticatedClient,
@@ -60,14 +60,13 @@ export default defineScript({
 describe("Youtubei durable tracer", () => {
 	it.live("replays sequential internal fetches without repeating completed HTTP", () =>
 		Effect.gen(function* () {
-			const { resolve: releaseSecondRequest, promise: secondRequestReleased } =
-				Promise.withResolvers<void>();
+			const secondRequestReleased = yield* Deferred.make<void>();
 			const http = yield* startFakeHttpServerScoped((url) =>
 				url.pathname === "/second"
-					? secondRequestReleased.then(() => Response.json({ ok: true }))
+					? Deferred.await(secondRequestReleased).pipe(Effect.as(Response.json({ ok: true })))
 					: Response.json({ ok: true }),
 			);
-			yield* Effect.addFinalizer(() => Effect.sync(releaseSecondRequest));
+			yield* Effect.addFinalizer(() => Deferred.succeed(secondRequestReleased, undefined));
 			const scriptSlug = `youtubei-tracer-${crypto.randomUUID()}`;
 			const entry = "backend/scripts/youtubei-tracer.sandbox.ts";
 			const plugin = yield* Effect.acquireRelease(
@@ -110,7 +109,7 @@ describe("Youtubei durable tracer", () => {
 				),
 			);
 			expect((yield* deleteSandboxReplayProjection(executionId)).deleted).toBe(true);
-			yield* Effect.sync(releaseSecondRequest);
+			yield* Deferred.succeed(secondRequestReleased, undefined);
 
 			const value = requireArray(
 				requireCompletedSandboxValue(yield* pollSandboxResult(userId, jobId), "Youtubei tracer"),
