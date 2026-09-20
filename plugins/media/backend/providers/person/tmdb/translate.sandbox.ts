@@ -5,7 +5,6 @@ import { translate } from "./shared";
 
 export const manifest = defineManifest({
 	kind: "provider",
-	requiredSystemConfigKeys: [],
 	name: "TMDB Person Translate",
 	slug: "person.tmdb.translate",
 	requiredPluginConfigKeys: ["tmdbAccessToken"],

@@ -32,7 +32,7 @@ import {
 	runLifecycleWriteInline,
 	type LifecyclePreparedStep,
 } from "#lib/infrastructure/lifecycle-workflow-step";
-import { getPluginConfig, getSystemConfig } from "#lib/infrastructure/sandbox-runtime/app-config";
+import { getPluginConfig } from "#lib/infrastructure/sandbox-runtime/app-config";
 import { SANDBOX_LIMITS } from "#lib/infrastructure/sandbox-runtime/limits";
 import {
 	type AdditionalSandboxHostImplementationMap,
@@ -169,20 +169,19 @@ const requireUniqueNonEmptyStrings = (values: ReadonlyArray<unknown>, message: s
 	);
 
 const normalizeConfigKeys = (
-	fnName: string,
 	rawKeys: ReadonlyArray<string>,
 ): Effect.Effect<ReadonlyArray<string>, string> => {
 	const keys = rawKeys.map((key) => key.trim());
 	return keys.some((key) => !key)
-		? Effect.fail(`${fnName} expects non-empty key strings`)
+		? Effect.fail("getPluginConfig expects non-empty key strings")
 		: Effect.succeed(keys);
 };
 
-const encodeConfigValues = (label: string, values: Readonly<Record<string, unknown>>) =>
+const encodeConfigValues = (values: Readonly<Record<string, unknown>>) =>
 	Effect.forEach(Object.entries(values), ([key, value]) =>
 		isJsonValue(value)
 			? Effect.succeed([key, value] as const)
-			: Effect.fail(`${label} config key "${key}" is not JSON-compatible`),
+			: Effect.fail(`Plugin config key "${key}" is not JSON-compatible`),
 	).pipe(Effect.map(Object.fromEntries));
 
 export const normalizePreferences = (value: unknown) => {
@@ -508,16 +507,6 @@ export const makeAdditionalSandboxApiFunctions: Effect.Effect<
 				),
 				sandboxHostEffect,
 			),
-		getSystemConfig: (input, rawKeys) =>
-			sandboxHostEffect(
-				normalizeConfigKeys("getSystemConfig", rawKeys).pipe(
-					Effect.flatMap((keys) =>
-						getSystemConfig(keys, input.principal.metadata).pipe(
-							Effect.flatMap((values) => encodeConfigValues("System", values)),
-						),
-					),
-				),
-			),
 		listIntegrations: (rawInput, rawOptions) =>
 			Effect.gen(function* () {
 				const input = yield* requireSandboxCapabilityInput(rawInput, "listIntegrations");
@@ -602,6 +591,33 @@ export const makeAdditionalSandboxApiFunctions: Effect.Effect<
 				}),
 				sandboxHostEffect,
 			),
+		getPluginConfig: (input, rawKeys) =>
+			sandboxHostEffect(
+				normalizeConfigKeys(rawKeys).pipe(
+					Effect.flatMap((keys) => {
+						const revision = input.principal.pluginRevision;
+						if (!revision) {
+							return Effect.fail("Plugin config is available only to active plugin scripts");
+						}
+						return pluginRuntime
+							.resolvePluginConfigContext({
+								id: revision.configRevisionId,
+								ownerUserId: revision.ownerId,
+								pluginRevisionId: revision.revisionId,
+							})
+							.pipe(
+								Effect.flatMap((config) =>
+									getPluginConfig({
+										keys,
+										metadata: input.principal.metadata,
+										context: { config, kind: "installation", configSchema: revision.configSchema },
+									}),
+								),
+								Effect.flatMap(encodeConfigValues),
+							);
+					}),
+				),
+			),
 		getOAuthAccessToken: (rawInput, options) =>
 			sandboxHostEffect(
 				Effect.gen(function* () {
@@ -626,33 +642,6 @@ export const makeAdditionalSandboxApiFunctions: Effect.Effect<
 						})
 						.pipe(Effect.mapError((error) => error.message));
 				}),
-			),
-		getPluginConfig: (input, rawKeys) =>
-			sandboxHostEffect(
-				normalizeConfigKeys("getPluginConfig", rawKeys).pipe(
-					Effect.flatMap((keys) => {
-						const revision = input.principal.pluginRevision;
-						if (!revision) {
-							return Effect.fail("Plugin config is available only to active plugin scripts");
-						}
-						return pluginRuntime
-							.resolvePluginConfigContext({
-								id: revision.configRevisionId,
-								ownerUserId: revision.ownerId,
-								pluginRevisionId: revision.revisionId,
-							})
-							.pipe(
-								Effect.flatMap((config) =>
-									getPluginConfig({
-										keys,
-										metadata: input.principal.metadata,
-										context: { config, kind: "installation", configSchema: revision.configSchema },
-									}),
-								),
-								Effect.flatMap((values) => encodeConfigValues("Plugin", values)),
-							);
-					}),
-				),
 			),
 		executeRyotql: (rawInput, query) =>
 			requireSandboxCapabilityInput(rawInput, "executeRyotql").pipe(

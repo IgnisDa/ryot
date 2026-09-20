@@ -24,7 +24,6 @@ const script = {
 	automationType: "policy",
 	name: "Validate progress",
 	requiredPluginConfigKeys: [],
-	requiredSystemConfigKeys: [],
 	capabilities: ["executeRyotql"],
 	entry: "backend/policy.sandbox.ts",
 	inputProjection: {

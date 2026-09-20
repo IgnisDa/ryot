@@ -5,7 +5,6 @@ import { translate } from "./shared";
 
 export const manifest = defineManifest({
 	kind: "provider",
-	requiredSystemConfigKeys: [],
 	name: "TVDB Movie Group Translate",
 	slug: "movie-group.tvdb.translate",
 	requiredPluginConfigKeys: ["tvdbApiKey"],

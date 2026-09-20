@@ -7,7 +7,6 @@ export const manifest = defineManifest({
 	kind: "automation",
 	automationType: "automation",
 	requiredPluginConfigKeys: [],
-	requiredSystemConfigKeys: [],
 	name: "Ensure fitness library membership",
 	slug: "automation.ensure-fitness-library-membership",
 	capabilities: ["executeRyotql", "changeUserRelationships"],

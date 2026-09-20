@@ -22,7 +22,6 @@ import {
 export const manifest = defineManifest({
 	kind: "script",
 	name: "Plex sink",
-	requiredSystemConfigKeys: [],
 	slug: "integration.plex-sink",
 	requiredPluginConfigKeys: ["tmdbAccessToken"],
 	capabilities: [

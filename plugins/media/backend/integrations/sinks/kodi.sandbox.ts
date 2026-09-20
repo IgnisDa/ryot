@@ -17,7 +17,6 @@ export const manifest = defineManifest({
 	name: "Kodi sink",
 	slug: "integration.kodi",
 	requiredPluginConfigKeys: [],
-	requiredSystemConfigKeys: [],
 	capabilities: ["getCurrentIntegration"],
 });
 

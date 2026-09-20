@@ -8,7 +8,6 @@ export const manifest = defineManifest({
 	capabilities: ["httpCall"],
 	name: "MangaUpdates Search",
 	requiredPluginConfigKeys: [],
-	requiredSystemConfigKeys: [],
 	slug: "manga.manga-updates.search",
 });
 

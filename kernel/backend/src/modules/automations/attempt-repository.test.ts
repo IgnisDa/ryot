@@ -92,7 +92,6 @@ const seed = (stage: "after" | "before" = "after", maxAttempts = 2) =>
 							kind: "automation",
 							slug: "kernel.notify",
 							requiredPluginConfigKeys: [],
-							requiredSystemConfigKeys: [],
 						},
 					});
 				yield* db

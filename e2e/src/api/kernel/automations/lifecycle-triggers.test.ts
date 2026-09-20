@@ -110,7 +110,6 @@ const automationScript = (
 	capabilities: [],
 	kind: "automation",
 	requiredPluginConfigKeys: [],
-	requiredSystemConfigKeys: [],
 });
 
 const policySource = `
@@ -125,7 +124,6 @@ export const manifest = defineManifest({
   name: "E2E lifecycle policy",
   capabilities: [],
   requiredPluginConfigKeys: [],
-  requiredSystemConfigKeys: [],
   inputProjection: { event: { properties: ["marker"] } },
 });
 
@@ -173,7 +171,6 @@ export const manifest = defineManifest({
   name: ${JSON.stringify(input.name)},
   capabilities: [],
   requiredPluginConfigKeys: [],
-  requiredSystemConfigKeys: [],
   inputProjection: {
     entity: { properties: [], compareProperties: [], parentEntityProperties: [] },
     event: { properties: [], compareProperties: [] },
@@ -198,7 +195,6 @@ export const manifest = defineManifest({
   name: "E2E lifecycle replay operation",
   capabilities: ["createEvents"],
   requiredPluginConfigKeys: [],
-  requiredSystemConfigKeys: [],
 });
 
 export default defineOperation({
@@ -238,7 +234,6 @@ export const manifest = defineManifest({
   name: "E2E lifecycle replay pause",
   capabilities: [],
   requiredPluginConfigKeys: [],
-  requiredSystemConfigKeys: [],
 });
 
 export default defineWorkflow({
@@ -300,7 +295,6 @@ const scripts = [
 		kind: "operation",
 		slug: slugs.replayOperation,
 		requiredPluginConfigKeys: [],
-		requiredSystemConfigKeys: [],
 		entry: entries.replayOperation,
 		capabilities: ["createEvents"],
 		name: "E2E lifecycle replay operation",
@@ -311,7 +305,6 @@ const scripts = [
 		slug: slugs.replayPause,
 		entry: entries.replayPause,
 		requiredPluginConfigKeys: [],
-		requiredSystemConfigKeys: [],
 		name: "E2E lifecycle replay pause",
 	},
 ] satisfies PluginManifest["scripts"];

@@ -11,7 +11,6 @@ export const manifest = defineManifest({
 	kind: "script",
 	slug: "import.myanimelist",
 	requiredPluginConfigKeys: [],
-	requiredSystemConfigKeys: [],
 	capabilities: ["artifact-read"],
 	name: "Parse MyAnimeList import",
 });

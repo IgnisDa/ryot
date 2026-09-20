@@ -78,6 +78,16 @@ export const privatePluginPackage = (
 		pluginSlug,
 		savedViews: input.savedViews,
 		configSchema: input.configSchema ?? privatePluginConfigSchema,
+		scripts: [
+			{
+				name,
+				entry,
+				slug: scriptSlug,
+				kind: "operation",
+				capabilities: ["getPluginConfig"],
+				requiredPluginConfigKeys: [configKey],
+			},
+		],
 		operations: [
 			{
 				scriptSlug,
@@ -85,17 +95,6 @@ export const privatePluginPackage = (
 				slug: operationSlug,
 				demoAccess: "allowed",
 				description: "Returns a value derived from the caller's own plugin config",
-			},
-		],
-		scripts: [
-			{
-				name,
-				entry,
-				slug: scriptSlug,
-				kind: "operation",
-				requiredSystemConfigKeys: [],
-				capabilities: ["getPluginConfig"],
-				requiredPluginConfigKeys: [configKey],
 			},
 		],
 	});
@@ -191,7 +190,6 @@ export const privateBootstrapPluginPackage = (): PrivateBootstrapPluginPackage =
 				entry: bootstrapEntry,
 				slug: bootstrapScriptSlug,
 				requiredPluginConfigKeys: [],
-				requiredSystemConfigKeys: [],
 			},
 			{
 				name,
@@ -200,7 +198,6 @@ export const privateBootstrapPluginPackage = (): PrivateBootstrapPluginPackage =
 				entry: operationEntry,
 				slug: operationScriptSlug,
 				requiredPluginConfigKeys: [],
-				requiredSystemConfigKeys: [],
 			},
 		],
 	});
@@ -272,7 +269,6 @@ export const manifest = defineManifest({
   capabilities: [],
   name: "E2E private import",
   requiredPluginConfigKeys: [],
-  requiredSystemConfigKeys: [],
   slug: ${JSON.stringify(scriptSlug)},
 });
 
@@ -307,7 +303,6 @@ export const manifest = defineManifest({
   capabilities: [],
   kind: "operation",
   requiredPluginConfigKeys: [],
-  requiredSystemConfigKeys: [],
   name: "E2E private integration operation",
   slug: ${JSON.stringify(scriptSlug)},
 });
@@ -358,16 +353,6 @@ export const privateImportPluginPackage = (
 	const manifest = testPluginManifest({
 		pluginSlug,
 		workflows: [{ scriptSlug, slug: workflowSlug }],
-		importSources: [
-			{
-				name,
-				workflowSlug,
-				slug: sourceSlug,
-				description: name,
-				requiredPluginConfigKeys: [],
-				inputSchema: { fields: {}, unknownKeys: "strict" },
-			},
-		],
 		scripts: [
 			{
 				entry,
@@ -376,7 +361,16 @@ export const privateImportPluginPackage = (
 				capabilities: [],
 				name: "E2E private import",
 				requiredPluginConfigKeys: [],
-				requiredSystemConfigKeys: [],
+			},
+		],
+		importSources: [
+			{
+				name,
+				workflowSlug,
+				slug: sourceSlug,
+				description: name,
+				requiredPluginConfigKeys: [],
+				inputSchema: { fields: {}, unknownKeys: "strict" },
 			},
 		],
 	});
@@ -424,7 +418,6 @@ export const privateIntegrationPluginPackage = (
 				capabilities: [],
 				kind: "operation",
 				requiredPluginConfigKeys: [],
-				requiredSystemConfigKeys: [],
 				name: "E2E private integration operation",
 			},
 		],

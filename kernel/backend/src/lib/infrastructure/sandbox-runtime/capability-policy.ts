@@ -30,7 +30,6 @@ export const SANDBOX_CAPABILITY_REQUIREMENTS = {
 	getCachedValue: { bridge: true, subjects: ["user", "automation-run", "system"] as const },
 	setCachedValue: { bridge: true, subjects: ["user", "automation-run", "system"] as const },
 	getPluginConfig: { bridge: true, subjects: ["user", "automation-run", "system"] as const },
-	getSystemConfig: { bridge: true, subjects: ["user", "automation-run", "system"] as const },
 	claimPersistentValue: { bridge: true, subjects: ["user", "automation-run", "system"] as const },
 	ensureUserEntities: {
 		bridge: true,

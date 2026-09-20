@@ -12,7 +12,6 @@ export const manifest = defineManifest({
 	kind: "script",
 	slug: "import.open-scale",
 	requiredPluginConfigKeys: [],
-	requiredSystemConfigKeys: [],
 	name: "Parse OpenScale import",
 	capabilities: ["artifact-read", "scratch"],
 });
