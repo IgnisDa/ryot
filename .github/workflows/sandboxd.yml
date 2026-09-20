@@ -3,20 +3,9 @@ name: Sandbox Sidecar
 on:
   push:
     paths: &paths
-      - "kernel/sandboxd/**"
-      - "kernel/backend/src/lib/infrastructure/sandbox-runtime/**"
-      - "kernel/backend/src/modules/sandbox/**"
-      - "kernel/backend/tooling/**"
-      - "ci/sandbox-backend.Dockerfile"
-      - "packages/contract/**"
-      - "packages/plugin-kit/**"
-      - "packages/ryotql/**"
-      - "packages/sandbox-compiler/**"
-      - "packages/sandbox-sdk/**"
-      - "packages/typescript-compiler/**"
-      - "packages/vite-compiler/**"
-      - "plugins/media/**"
-      - "plugins/fitness/**"
+      - "kernel/**"
+      - "packages/**"
+      - "plugins/**"
       - "apps/server/**"
       - "Dockerfile"
       - ".dockerignore"
@@ -31,45 +20,19 @@ permissions:
   contents: read
 
 jobs:
-  test:
+  linux:
     strategy:
       fail-fast: false
       matrix:
-        runner: [ubuntu-24.04, ubuntu-24.04-arm, macos-14]
+        include:
+          - runner: ubuntu-24.04
+            arch: amd64
+          - runner: ubuntu-24.04-arm
+            arch: arm64
     runs-on: ${{ matrix.runner }}
-    steps:
-      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
-        with:
-          persist-credentials: false
-      - name: Set up Bun
-        uses: oven-sh/setup-bun@0c5077e51419868618aeaa5fe8019c62421857d6 # v2.2.0
-        with:
-          bun-version: "1.4.3"
-      - name: Install the pinned Rust toolchain
-        working-directory: kernel/sandboxd
-        run: rustup toolchain install
-      - name: Cache Rust dependencies and build artifacts
-        uses: Swatinem/rust-cache@63fed3e2fecf6f7b51dc6f043341b79ef82a9ae7 # v2.9.2
-        with:
-          key: ${{ matrix.runner }}
-          workspaces: kernel/sandboxd -> target
-          cache-on-failure: true
-      - name: Install dependencies
-        run: bun install --frozen-lockfile
-      - name: Build the runtime payload, snapshots, and release executables
-        run: bun turbo build --filter=@ryot-app/sandboxd
-      - name: Check the sidecar, launcher, and protocol fixtures
-        working-directory: kernel/sandboxd
-        run: bun run check
-      - name: Test the sidecar
-        working-directory: kernel/sandboxd
-        run: bun run test
-      - name: Test explicit provisioning and launcher confinement under Docker defaults
-        if: runner.os == 'Linux'
-        run: bash kernel/sandboxd/tests/launcher/test-default-docker.sh
-
-  backend:
-    runs-on: ubuntu-24.04
+    env:
+      TEST_DATABASE_URL: postgres://test_user:test_password@127.0.0.1:5432/test_db
+      TEST_REDIS_URL: redis://127.0.0.1:6379
     services:
       postgres:
         image: postgres:18-alpine
@@ -97,34 +60,41 @@ jobs:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           persist-credentials: false
-      - name: Build the backend dependency image from source
-        run: docker build --target builder-base --tag ryot-sandbox-backend-builder-base .
-      - name: Build the confined backend test image
-        run: docker build --file ci/sandbox-backend.Dockerfile --tag ryot-sandbox-backend-tests .
-      - name: Test the sandbox backend under Docker confinement
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@37fe631027851001ddb9b187196cc803df7f5f0e # v4.3.0
+      - name: Build the sandbox test image
+        run: >-
+          docker buildx build --target sandbox-test --load --tag ryot-sandbox-test
+          --cache-from type=gha,scope=sandbox-${{ matrix.arch }}
+          --cache-to type=gha,mode=max,scope=sandbox-${{ matrix.arch }}
+          .
+      - name: Build the release image
+        run: >-
+          docker buildx build --target runner --load --tag ryot-image
+          --cache-from type=gha,scope=sandbox-${{ matrix.arch }}
+          --cache-to type=gha,mode=max,scope=sandbox-${{ matrix.arch }}
+          .
+      - name: Check the sidecar, launcher, and protocol fixtures
+        if: matrix.arch == 'amd64'
+        run: docker run --rm --user 1001 --workdir /app/kernel/sandboxd ryot-sandbox-test bun run check
+      - name: Test the sidecar
+        run: docker run --rm --user 1001 --workdir /app/kernel/sandboxd ryot-sandbox-test cargo test
+      - name: Test the launcher under Docker defaults
         run: |
-          docker run --rm --network host \
-            --env TEST_DATABASE_URL=postgres://test_user:test_password@127.0.0.1:5432/test_db \
-            --env TEST_REDIS_URL=redis://127.0.0.1:6379 \
-            ryot-sandbox-backend-tests
+          docker run --rm --user 0 --workdir /app/kernel/sandboxd ryot-sandbox-test \
+            cargo test --bin ryot-sandbox-launcher -- --test-threads=1
+          docker run --rm --user 0 --workdir /app/kernel/sandboxd ryot-sandbox-test \
+            cargo test --test launcher -- --ignored --test-threads=1
+      - name: Test the kernel backend under Docker confinement
+        run: >-
+          docker run --rm --user 1001 --network host
+          --env TEST_DATABASE_URL --env TEST_REDIS_URL
+          --workdir /app/kernel/backend
+          ryot-sandbox-test bun --bun run vitest run --no-file-parallelism
       - name: Test the sandbox SDK workflow
         run: >-
-          docker run --rm --network host --workdir /app/packages/sandbox-sdk
-          ryot-sandbox-backend-tests bun --bun run vitest run tests/workflow.test.ts
-
-  image:
-    strategy:
-      fail-fast: false
-      matrix:
-        runner: [ubuntu-24.04, ubuntu-24.04-arm]
-    runs-on: ${{ matrix.runner }}
-    steps:
-      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
-        with:
-          persist-credentials: false
-      - name: Build the release image from source
-        run: docker build --tag ryot-sandbox-image .
+          docker run --rm --user 1001 --network host
+          --workdir /app/packages/sandbox-sdk
+          ryot-sandbox-test bun --bun run vitest run --no-file-parallelism tests/workflow.test.ts
       - name: Run all six confined sandbox keys in the release image
-        run: |
-          docker run --rm --network none \
-            ryot-sandbox-image bun run dist/prepare-sandbox-runtime.js
+        run: docker run --rm --network none ryot-image bun run dist/prepare-sandbox-runtime.js
