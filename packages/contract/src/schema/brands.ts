@@ -86,10 +86,13 @@ export type NotificationSubscriptionId = typeof NotificationSubscriptionId.Type;
 
 export const PluginId = Schema.String.pipe(Schema.brand("PluginId"));
 export type PluginId = typeof PluginId.Type;
+export const PLUGIN_PACKAGE_ID_PATTERN =
+	"^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$";
+const pluginPackageIdPattern = new RegExp(PLUGIN_PACKAGE_ID_PATTERN);
 export const PluginPackageId = Schema.String.pipe(
 	Schema.check(
 		Schema.makeFilter((value) =>
-			/^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/.test(value)
+			pluginPackageIdPattern.test(value)
 				? true
 				: "Expected a canonical lowercase UUIDv4 package identity",
 		),
