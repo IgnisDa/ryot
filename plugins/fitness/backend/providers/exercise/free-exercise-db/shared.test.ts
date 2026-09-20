@@ -95,41 +95,49 @@ describe("exercise.free-exercise-db sandbox script", () => {
 		const { host, setCalls, httpCallCount } = makeStatefulHost();
 
 		return Effect.runPromise(
-			search.run({ page: 1, pageSize: 20, query: "bench" }, host, execution),
-		).then((result) => {
-			expect(httpCallCount()).toBe(1);
-			expect(result.items).toEqual([
-				{
-					title: "Bench Press",
-					externalId: "Bench Press",
-					imageUrl: `${IMAGES_PREFIX_URL}/Bench_Press/0.jpg`,
-				},
-			]);
-			expect(result.details).toEqual({ totalItems: 1, nextPage: null });
+			Effect.gen(function* () {
+				const result = yield* search.run(
+					{ page: 1, pageSize: 20, query: "bench" },
+					host,
+					execution,
+				);
+				expect(httpCallCount()).toBe(1);
+				expect(result.items).toEqual([
+					{
+						title: "Bench Press",
+						externalId: "Bench Press",
+						imageUrl: `${IMAGES_PREFIX_URL}/Bench_Press/0.jpg`,
+					},
+				]);
+				expect(result.details).toEqual({ totalItems: 1, nextPage: null });
 
-			const metadataCall = setCalls.find((call) => call.key === CACHE_KEY);
-			assert(metadataCall !== undefined);
-			const metadata = metadataCall.value;
-			assertJsonRecord(metadata);
-			expect(metadataCall.ttlSeconds).toBe(86400);
-			expect(metadata["chunkCount"]).toBe(1);
-			expect(metadata["version"]).toBe(execution.startedAt);
+				const metadataCall = setCalls.find((call) => call.key === CACHE_KEY);
+				assert(metadataCall !== undefined);
+				const metadata = metadataCall.value;
+				assertJsonRecord(metadata);
+				expect(metadataCall.ttlSeconds).toBe(86400);
+				expect(metadata["chunkCount"]).toBe(1);
+				expect(metadata["version"]).toBe(execution.startedAt);
 
-			const chunkKeys = setCalls.map((call) => call.key).filter((key) => key !== CACHE_KEY);
-			expect(chunkKeys).toEqual([`${CACHE_KEY}:${execution.startedAt}:chunk:0`]);
-			return undefined;
-		});
+				const chunkKeys = setCalls.map((call) => call.key).filter((key) => key !== CACHE_KEY);
+				expect(chunkKeys).toEqual([`${CACHE_KEY}:${execution.startedAt}:chunk:0`]);
+			}),
+		);
 	});
 
 	it("omits absent image and metadata fields", () => {
 		const { host } = makeStatefulHost();
 
 		return Effect.runPromise(
-			search.run({ page: 1, pageSize: 20, query: "crunch" }, host, execution),
-		).then((result) => {
-			expect(result.items).toEqual([{ title: "Ab Crunch", externalId: "Ab Crunch" }]);
-			return undefined;
-		});
+			Effect.gen(function* () {
+				const result = yield* search.run(
+					{ page: 1, pageSize: 20, query: "crunch" },
+					host,
+					execution,
+				);
+				expect(result.items).toEqual([{ title: "Ab Crunch", externalId: "Ab Crunch" }]);
+			}),
+		);
 	});
 
 	it("distinguishes invalid JSON from an unexpected exercise payload", () => {
@@ -241,19 +249,23 @@ describe("exercise.free-exercise-db sandbox script", () => {
 		});
 
 		return Effect.runPromise(
-			search.run({ page: 1, pageSize: 20, query: "bench" }, host, execution),
-		).then((result) => {
-			expect(httpCallCount()).toBe(0);
-			expect(result.items).toEqual([
-				{
-					title: "Bench Press",
-					externalId: "Bench Press",
-					imageUrl: `${IMAGES_PREFIX_URL}/Bench_Press/0.jpg`,
-				},
-			]);
-			expect(result.details).toEqual({ totalItems: 1, nextPage: null });
-			return undefined;
-		});
+			Effect.gen(function* () {
+				const result = yield* search.run(
+					{ page: 1, pageSize: 20, query: "bench" },
+					host,
+					execution,
+				);
+				expect(httpCallCount()).toBe(0);
+				expect(result.items).toEqual([
+					{
+						title: "Bench Press",
+						externalId: "Bench Press",
+						imageUrl: `${IMAGES_PREFIX_URL}/Bench_Press/0.jpg`,
+					},
+				]);
+				expect(result.details).toEqual({ totalItems: 1, nextPage: null });
+			}),
+		);
 	});
 });
 

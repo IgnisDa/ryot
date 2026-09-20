@@ -445,7 +445,9 @@ export function ShowEpisodes(props: {
 	);
 }
 
-const persistOrder = (write: Promise<void>) => void write.catch(() => undefined);
+const persistOrder = (write: Promise<void>) => {
+	Effect.runFork(Effect.ignore(Effect.tryPromise(() => write)));
+};
 
 function ShowEpisodesWithOrder(props: {
 	readonly compact: boolean;
