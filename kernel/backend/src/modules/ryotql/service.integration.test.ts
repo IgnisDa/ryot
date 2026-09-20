@@ -1,4 +1,4 @@
-import { expect, it } from "@effect/vitest";
+import { expect, layer } from "@effect/vitest";
 import { DEFAULT_AUTOMATION_RETRY_POLICY } from "@ryot-app/contract/modules/automations/lifecycle";
 import {
 	CLIENT_API_VERSION,
@@ -15,7 +15,7 @@ import { godModeUsersRecipe, migrationReportRecipe } from "@ryot-app/ryotql-reci
 import { importSourcesRecipe } from "@ryot-app/ryotql-recipes/import-sources";
 import { pluginInstallationsRecipe } from "@ryot-app/ryotql-recipes/plugin-installations";
 import { eq, sql } from "drizzle-orm";
-import { Effect, Layer, Redacted, Result, Option } from "effect";
+import { Effect, Layer, Result, Option } from "effect";
 import { assert } from "vitest";
 
 import { account, user } from "#lib/infrastructure/db/schema/tables/auth";
@@ -46,12 +46,8 @@ import {
 import { migrationReport } from "#lib/infrastructure/db/schema/tables/migration-reports";
 import { savedView, savedViewOverride } from "#lib/infrastructure/db/schema/tables/views";
 import { DatabaseSession } from "#lib/infrastructure/db/session";
-import {
-	applyBaselineMigration,
-	baselineMigrationStatements,
-} from "#lib/test-utils/baseline-migration";
-import { testDatabaseUrl, withIsolatedDatabase } from "#lib/test-utils/database";
-import { makeAppConfigLayer, makeConfigProviderLayer } from "#lib/test-utils/effect";
+import { makeConfigProviderLayer } from "#lib/test-utils/effect";
+import { isolatedDatabaseLayer } from "#lib/test-utils/isolated-database";
 import { fixtureManifest } from "#modules/plugins/test-support";
 
 import type { RyotQLAudience } from "./catalog";
@@ -568,37 +564,13 @@ const seedCatalog = Effect.gen(function* () {
 		});
 });
 
-const withCatalogDatabase = <E>(test: Effect.Effect<void, E, RyotQLService>) => {
-	const name = `ryotql_test_${crypto.randomUUID().replaceAll("-", "")}`;
-	const url = testDatabaseUrl();
-	const root = DatabaseSession.layer.pipe(
-		Layer.provide(makeAppConfigLayer({ database: { url: Redacted.make(url) } })),
-	);
-	return Effect.gen(function* () {
-		const statements = yield* baselineMigrationStatements();
-		yield* withIsolatedDatabase(name, url, (isolatedUrl) =>
-			Effect.gen(function* () {
-				const db = yield* (yield* DatabaseSession).current;
-				yield* applyBaselineMigration(statements, (statement) => db.execute(sql.raw(statement)));
-				yield* seedCatalog;
-				yield* test;
-			}).pipe(
-				Effect.provide(
-					RyotQLService.layer.pipe(
-						Layer.provideMerge(
-							DatabaseSession.layer.pipe(
-								Layer.provide(
-									makeAppConfigLayer({ database: { url: Redacted.make(isolatedUrl) } }),
-								),
-								Layer.fresh,
-							),
-						),
-					),
-				),
-			),
-		);
-	}).pipe(Effect.provide(root.pipe(Layer.provideMerge(makeConfigProviderLayer()))));
-};
+const catalogDatabaseLayer = Layer.merge(
+	RyotQLService.layer,
+	Layer.effectDiscard(seedCatalog),
+).pipe(
+	Layer.provideMerge(isolatedDatabaseLayer("ryotql_test")),
+	Layer.provide(makeConfigProviderLayer()),
+);
 
 const rowsOf = (response: RyotQLResponse) => {
 	const result = response.data["rows"];
@@ -655,8 +627,8 @@ const collectPages = (query: ReturnType<typeof rows>, reader: Reader = "admin") 
 		return items;
 	});
 
-it.effect("executes recipe documents and decodes correlated includes and admin totals", () =>
-	withCatalogDatabase(
+layer(catalogDatabaseLayer)((test) => {
+	test.effect("executes recipe documents and decodes correlated includes and admin totals", () =>
 		Effect.gen(function* () {
 			const service = yield* RyotQLService;
 			const userRecipe = entityDefinitionsRecipe({ limit: 20 });
@@ -717,11 +689,11 @@ it.effect("executes recipe documents and decodes correlated includes and admin t
 			);
 			expect(report.items.map(({ level }) => level)).toEqual(["warning", "warning", "info"]);
 		}),
-	),
-);
+	);
+});
 
-it.effect("pages numeric primary keys with admin cursors and derives detail totals", () =>
-	withCatalogDatabase(
+layer(catalogDatabaseLayer)((test) => {
+	test.effect("pages numeric primary keys with admin cursors and derives detail totals", () =>
 		Effect.gen(function* () {
 			const report = table("migrationReport", "report");
 			const items = yield* collectPages(
@@ -743,11 +715,11 @@ it.effect("pages numeric primary keys with admin cursors and derives detail tota
 				{ seq: 5, totalDetails: 5, message: "counted" },
 			]);
 		}),
-	),
-);
+	);
+});
 
-it.effect("pages timestamps that share a millisecond at full database precision", () =>
-	withCatalogDatabase(
+layer(catalogDatabaseLayer)((test) => {
+	test.effect("pages timestamps that share a millisecond at full database precision", () =>
 		Effect.gen(function* () {
 			const runs = table("automationRun", "runs");
 			const queuedAt = column(runs, "queuedAt");
@@ -767,11 +739,11 @@ it.effect("pages timestamps that share a millisecond at full database precision"
 				yield* collectPages(rows(runs, { fields, orderBy: [descending(queuedAt)] }), owner),
 			).toEqual(microsecondOrder.toReversed());
 		}),
-	),
-);
+	);
+});
 
-it.effect("pages composite primary keys with every key column as a tie breaker", () =>
-	withCatalogDatabase(
+layer(catalogDatabaseLayer)((test) => {
+	test.effect("pages composite primary keys with every key column as a tie breaker", () =>
 		Effect.gen(function* () {
 			const recipient = table("automationTriggerRecipient", "recipient");
 			const fields = [star(recipient)];
@@ -791,11 +763,11 @@ it.effect("pages composite primary keys with every key column as a tie breaker",
 				{ userId: "other", triggerId: "trigger-a" },
 			]);
 		}),
-	),
-);
+	);
+});
 
-it.effect("hides uninstalled installations from users but not from admins", () =>
-	withCatalogDatabase(
+layer(catalogDatabaseLayer)((test) => {
+	test.effect("hides uninstalled installations from users but not from admins", () =>
 		Effect.gen(function* () {
 			for (const audience of ["kernel", "plugin"] as const) {
 				expect(
@@ -817,11 +789,11 @@ it.effect("hides uninstalled installations from users but not from admins", () =
 				{ id: "uninstalled" },
 			]);
 		}),
-	),
-);
+	);
+});
 
-it.effect("expands admin-only fields only for admin wildcards", () =>
-	withCatalogDatabase(
+layer(catalogDatabaseLayer)((test) => {
+	test.effect("expands admin-only fields only for admin wildcards", () =>
 		Effect.gen(function* () {
 			const service = yield* RyotQLService;
 			const subscription = table("notificationSubscription", "subscription");
@@ -835,11 +807,11 @@ it.effect("expands admin-only fields only for admin wildcards", () =>
 			expect(userItem).not.toHaveProperty("userId");
 			expect(adminItem).toMatchObject({ userId: "owner", id: "subscription" });
 		}),
-	),
-);
+	);
+});
 
-it.effect("shows users only themselves and classifies auth state for admins", () =>
-	withCatalogDatabase(
+layer(catalogDatabaseLayer)((test) => {
+	test.effect("shows users only themselves and classifies auth state for admins", () =>
 		Effect.gen(function* () {
 			const service = yield* RyotQLService;
 			const users = table("user", "users");
@@ -864,11 +836,11 @@ it.effect("shows users only themselves and classifies auth state for admins", ()
 				{ id: "plain", authState: "none" },
 			]);
 		}),
-	),
-);
+	);
+});
 
-it.effect("scopes backups and saved views to their owner without artifact keys", () =>
-	withCatalogDatabase(
+layer(catalogDatabaseLayer)((test) => {
+	test.effect("scopes backups and saved views to their owner without artifact keys", () =>
 		Effect.gen(function* () {
 			const service = yield* RyotQLService;
 			const backups = table("backupRun", "backups");
@@ -894,11 +866,11 @@ it.effect("scopes backups and saved views to their owner without artifact keys",
 				{ id: "builtin:other:system-home" },
 			]);
 		}),
-	),
-);
+	);
+});
 
-it.effect("reads plugin revision metadata and redacted installation projections", () =>
-	withCatalogDatabase(
+layer(catalogDatabaseLayer)((test) => {
+	test.effect("reads plugin revision metadata and redacted installation projections", () =>
 		Effect.gen(function* () {
 			expect(
 				(yield* readRows(owner, "plugin", [
@@ -932,11 +904,11 @@ it.effect("reads plugin revision metadata and redacted installation projections"
 				configuredSecrets: ["token"],
 			});
 		}),
-	),
-);
+	);
+});
 
-it.effect("derives the effective home view from usable selections and manifest defaults", () =>
-	withCatalogDatabase(
+layer(catalogDatabaseLayer)((test) => {
+	test.effect("derives the effective home view from usable selections and manifest defaults", () =>
 		Effect.gen(function* () {
 			const expected = [
 				{ id: "installed", homeSavedViewSlug: null },
@@ -958,11 +930,11 @@ it.effect("derives the effective home view from usable selections and manifest d
 				]),
 			).toEqual(expected.filter(({ id }) => id === "installed" || id.startsWith("owner-")));
 		}),
-	),
-);
+	);
+});
 
-it.effect("exposes only effective definitions to their user in every audience", () =>
-	withCatalogDatabase(
+layer(catalogDatabaseLayer)((test) => {
+	test.effect("exposes only effective definitions to their user in every audience", () =>
 		Effect.gen(function* () {
 			for (const audience of ["kernel", "plugin"] as const) {
 				expect(
@@ -997,11 +969,11 @@ it.effect("exposes only effective definitions to their user in every audience", 
 				{ id: "system.signal", catalogState: "active", pluginSlug: systemPluginSlug },
 			]);
 		}),
-	),
-);
+	);
+});
 
-it.effect("derives import source readiness and integration provider scripts", () =>
-	withCatalogDatabase(
+layer(catalogDatabaseLayer)((test) => {
+	test.effect("derives import source readiness and integration provider scripts", () =>
 		Effect.gen(function* () {
 			expect(
 				yield* readRows(owner, "importSource", ["id", "missingPluginConfigKeys", "isStartable"]),
@@ -1024,11 +996,11 @@ it.effect("derives import source readiness and integration provider scripts", ()
 				{ lot: "yank", hasScript: true, id: "provider-yank" },
 			]);
 		}),
-	),
-);
+	);
+});
 
-it.effect("scopes automation history to the executing user and derives retry eligibility", () =>
-	withCatalogDatabase(
+layer(catalogDatabaseLayer)((test) => {
+	test.effect("scopes automation history to the executing user and derives retry eligibility", () =>
 		Effect.gen(function* () {
 			expect(
 				yield* readRows(owner, "automationRun", ["id", "pluginName", "retryEligibility"]),
@@ -1056,11 +1028,11 @@ it.effect("scopes automation history to the executing user and derives retry eli
 				{ id: "attempt-owner", logs: [{ level: "info", message: "raw" }] },
 			]);
 		}),
-	),
-);
+	);
+});
 
-it.effect("never returns sandbox script bodies to admins", () =>
-	withCatalogDatabase(
+layer(catalogDatabaseLayer)((test) => {
+	test.effect("never returns sandbox script bodies to admins", () =>
 		Effect.gen(function* () {
 			const service = yield* RyotQLService;
 			const scripts = table("sandboxScript", "scripts");
@@ -1076,5 +1048,5 @@ it.effect("never returns sandbox script bodies to admins", () =>
 				expect(Object.values(item)).not.toContain("private-code");
 			}
 		}),
-	),
-);
+	);
+});
