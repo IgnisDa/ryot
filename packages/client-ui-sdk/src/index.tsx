@@ -1,6 +1,7 @@
 import clsx from "clsx";
 import type { ComponentProps } from "react";
 
+export { ActionForm } from "./action-form";
 export { Menu } from "./menu";
 export { Chip } from "./chips";
 export { Badge } from "./badge";
