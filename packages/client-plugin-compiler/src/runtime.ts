@@ -5,7 +5,7 @@ import {
 } from "@ryot-app/client-plugin-contract";
 import { decodeExecutableText } from "@ryot-app/ts-utils/executable-text";
 import { sortBy } from "@ryot-app/ts-utils/lodash";
-import { posixDirname, posixJoin } from "@ryot-app/ts-utils/path";
+import { posixPath } from "@ryot-app/ts-utils/path";
 import { inspectJavaScriptReferences } from "@ryot-app/typescript-compiler/javascript-references";
 import {
 	acquireCompilerWorkspace,
@@ -153,7 +153,7 @@ const localReferencePath = (from: string, reference: string) => {
 	if (target.startsWith("/")) {
 		return undefined;
 	}
-	const path = posixJoin(posixDirname(from), target);
+	const path = posixPath.join(posixPath.dirname(from), target);
 	return path === ".." || path.startsWith("../") ? undefined : path;
 };
 

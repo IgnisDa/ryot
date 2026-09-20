@@ -29,6 +29,7 @@ import { SandboxSidecarClient } from "@ryot-app/kernel-backend/lib/infrastructur
 import { SandboxSidecarQuarantine } from "@ryot-app/kernel-backend/lib/infrastructure/sandbox-runtime/sidecar-quarantine";
 import { SandboxSidecarSupervisor } from "@ryot-app/kernel-backend/lib/infrastructure/sandbox-runtime/sidecar-supervisor";
 import { ServerRun } from "@ryot-app/kernel-backend/lib/infrastructure/server-run";
+import { unusedSandboxHostImplementations } from "@ryot-app/kernel-backend/lib/test-utils/sandbox-host-implementations";
 import { SANDBOX_COMPILED_FORMAT } from "@ryot-app/sandbox-compiler/protocol";
 import {
 	ConfigProvider,
@@ -55,6 +56,10 @@ const startedAt = "2026-01-01T00:00:00.000Z";
 const scriptId = SandboxScriptId.make("production-runtime-smoke");
 const ownerId = UserId.make("production-runtime-smoke-user");
 const trusts = ["system", "user"] as const;
+const expectedKeyCount = trusts.length * smokeTiers.length;
+// Must match SIDECAR_UID, SIDECAR_GID, and the OOM score adjustment in ryot-sandbox-launcher.rs
+const sidecarId = 1002;
+const sidecarOomScore = 1000;
 
 type SmokeTier = (typeof smokeTiers)[number];
 type SmokeTrust = (typeof trusts)[number];
@@ -165,20 +170,11 @@ const SandboxSidecarSupervisorSmokeLive = Layer.effect(
 	Layer.provide(SandboxRecoveryStoreSmokeLive),
 );
 
-const unusedHostEffect = () => Effect.die("Unused native sandbox smoke host implementation");
-const unusedHostValue = (): never => {
-	throw new Error("Unused native sandbox smoke host implementation");
-};
-
 const recordedHostCalls: string[] = [];
 
-const SandboxHostImplementationsSmokeLive = Layer.succeed(SandboxHostImplementations, {
-	automation: { emitSignal: unusedHostEffect, sendNotification: unusedHostEffect },
-	runtime: {
-		httpCall: unusedHostEffect,
-		setCachedValue: unusedHostEffect,
-		getPersistentValue: unusedHostEffect,
-		claimPersistentValue: unusedHostEffect,
+const SandboxHostImplementationsSmokeLive = Layer.succeed(
+	SandboxHostImplementations,
+	unusedSandboxHostImplementations({
 		getCachedValue: (_input, key) =>
 			key === smokeHostCallKey
 				? Effect.sync(() => {
@@ -186,49 +182,8 @@ const SandboxHostImplementationsSmokeLive = Layer.succeed(SandboxHostImplementat
 						return smokeHostCallValue;
 					})
 				: Effect.fail({ message: "Unexpected native sandbox smoke host call" }),
-	},
-	lifecycle: {
-		updateEvents: { commit: unusedHostEffect, validate: unusedHostEffect },
-		deleteEvents: { commit: unusedHostEffect, validate: unusedHostEffect },
-		changeUserRelationships: {
-			value: unusedHostValue,
-			itemWrite: unusedHostValue,
-			validate: unusedHostEffect,
-		},
-		upsertGlobalRelationships: {
-			value: unusedHostValue,
-			itemWrite: unusedHostValue,
-			validate: unusedHostEffect,
-		},
-		upsertGlobalEntities: {
-			value: unusedHostValue,
-			commit: unusedHostEffect,
-			prepare: unusedHostEffect,
-			validate: unusedHostEffect,
-			applyPolicies: unusedHostEffect,
-		},
-	},
-	additional: {
-		deleteEvents: unusedHostEffect,
-		createEvents: unusedHostEffect,
-		updateEvents: unusedHostEffect,
-		executeRyotql: unusedHostEffect,
-		getPluginConfig: unusedHostEffect,
-		getUserSettings: unusedHostEffect,
-		listIntegrations: unusedHostEffect,
-		listEventSchemas: unusedHostEffect,
-		getEntitySchemas: unusedHostEffect,
-		getUserPreferences: unusedHostEffect,
-		ensureUserEntities: unusedHostEffect,
-		getOAuthAccessToken: unusedHostEffect,
-		upsertGlobalEntities: unusedHostEffect,
-		getCurrentIntegration: unusedHostEffect,
-		requestEventStreamWork: unusedHostEffect,
-		changeUserRelationships: unusedHostEffect,
-		upsertGlobalRelationships: unusedHostEffect,
-		invalidateOAuthAccessToken: unusedHostEffect,
-	},
-});
+	}),
+);
 
 const SandboxServiceSmokeLive = Layer.effect(SandboxService, SandboxService.make).pipe(
 	Layer.provideMerge(SandboxHostCallGate.layer),
@@ -240,6 +195,44 @@ const SandboxServiceSmokeLive = Layer.effect(SandboxService, SandboxService.make
 const RuntimeSmokeLive = SandboxServiceSmokeLive.pipe(
 	Layer.provideMerge(Layer.mergeAll(BunServices.layer, AppConfigSmokeLive, ServerRunSmokeLive)),
 );
+
+const verifyConfinedSidecars = Effect.gen(function* () {
+	const fs = yield* FileSystem.FileSystem;
+	const sidecars: string[] = [];
+	for (const entry of yield* fs.readDirectory("/proc")) {
+		if (!/^\d+$/.test(entry)) {
+			continue;
+		}
+		const status = yield* fs
+			.readFileString(`/proc/${entry}/status`)
+			.pipe(Effect.orElseSucceed(() => ""));
+		const lines = status.split("\n");
+		if (!lines.includes("Name:\tryot-sandboxd") || !lines.includes(`PPid:\t${process.pid}`)) {
+			continue;
+		}
+		const oomScore = yield* fs.readFileString(`/proc/${entry}/oom_score_adj`);
+		if (
+			!lines.includes(`Uid:\t${sidecarId}\t${sidecarId}\t${sidecarId}\t${sidecarId}`) ||
+			!lines.includes(`Gid:\t${sidecarId}\t${sidecarId}\t${sidecarId}\t${sidecarId}`) ||
+			!lines.includes("NoNewPrivs:\t1") ||
+			!lines.includes("Seccomp:\t2") ||
+			oomScore.trim() !== String(sidecarOomScore)
+		) {
+			return yield* new SandboxRunError({
+				kind: "infrastructure",
+				message: "Native sandbox sidecar process is not confined",
+			});
+		}
+		sidecars.push(entry);
+	}
+	if (sidecars.length !== expectedKeyCount) {
+		return yield* new SandboxRunError({
+			kind: "infrastructure",
+			message: "Native sandbox smoke did not find all confined sidecar processes",
+		});
+	}
+	return undefined;
+});
 
 const smoke = Effect.gen(function* () {
 	const crypto = yield* Crypto.Crypto;
@@ -384,49 +377,14 @@ const smoke = Effect.gen(function* () {
 		completedKeys.push(expectedKey);
 	}
 
-	if (completedKeys.length !== 6 || recordedHostCalls.length !== 6) {
+	if (completedKeys.length !== expectedKeyCount || recordedHostCalls.length !== expectedKeyCount) {
 		return yield* new SandboxRunError({
 			kind: "script-failure",
-			message: "Native sandbox smoke did not complete all six fixture keys",
+			message: "Native sandbox smoke did not complete all fixture keys",
 		});
 	}
 	if (process.platform === "linux") {
-		const sidecars: string[] = [];
-		for (const entry of yield* fs.readDirectory("/proc")) {
-			if (!/^\d+$/.test(entry)) {
-				continue;
-			}
-			const status = yield* fs
-				.readFileString(`/proc/${entry}/status`)
-				.pipe(Effect.orElseSucceed(() => ""));
-			if (
-				!status.split("\n").includes("Name:\tryot-sandboxd") ||
-				!status.split("\n").includes(`PPid:\t${process.pid}`)
-			) {
-				continue;
-			}
-			const oomScore = yield* fs.readFileString(`/proc/${entry}/oom_score_adj`);
-			const lines = status.split("\n");
-			if (
-				!lines.includes("Uid:\t1002\t1002\t1002\t1002") ||
-				!lines.includes("Gid:\t1002\t1002\t1002\t1002") ||
-				!lines.includes("NoNewPrivs:\t1") ||
-				!lines.includes("Seccomp:\t2") ||
-				oomScore.trim() !== "1000"
-			) {
-				return yield* new SandboxRunError({
-					kind: "infrastructure",
-					message: "Native sandbox sidecar process is not confined",
-				});
-			}
-			sidecars.push(entry);
-		}
-		if (sidecars.length !== 6) {
-			return yield* new SandboxRunError({
-				kind: "infrastructure",
-				message: "Native sandbox smoke did not find six confined sidecar processes",
-			});
-		}
+		yield* verifyConfinedSidecars;
 	}
 	yield* Effect.logInfo("Native sandbox smoke passed").pipe(
 		Effect.annotateLogs({ keys: completedKeys.join(",") }),

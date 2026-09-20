@@ -1,5 +1,5 @@
 import type { CompilerWorkspaceOptions } from "@ryot-app/vite-compiler";
-import { Effect, Result } from "effect";
+import { Effect } from "effect";
 import { DiagnosticCategory } from "typescript/unstable/async";
 
 import { bundleUserScript } from "./compiler-bundle";
@@ -12,9 +12,8 @@ import {
 	toTypeScriptDiagnostic,
 } from "./compiler-diagnostics";
 import { extractSandboxManifest } from "./compiler-manifest";
-import { finalizeCompiledManifest, validateSandboxCapabilities } from "./compiler-metadata";
+import { finalizeCompiledModule, validateSandboxCapabilities } from "./compiler-metadata";
 import { createTypeScriptSourcesProject } from "./compiler-project";
-import { type CompiledSandboxModule, SANDBOX_COMPILED_FORMAT } from "./compiler-protocol";
 import { inspectSandboxSource, sandboxDefinitionMismatch } from "./compiler-source";
 import { SANDBOX_COMPILER_LIMITS, utf8ByteLength } from "./limits";
 
@@ -92,25 +91,10 @@ export const compileSandboxSource = (source: string, workspaceOptions?: Compiler
 		}
 
 		const compiled = yield* bundleUserScript(source, dependencies.sdkEntries, workspaceOptions);
-		if (utf8ByteLength(compiled.javascript) > SANDBOX_COMPILER_LIMITS.javascriptBytes) {
-			return yield* sandboxCompilationFailure([
-				sandboxCompilerDiagnostic(
-					"RYOT_COMPILED_SIZE",
-					`Compiled sandbox module exceeds ${SANDBOX_COMPILER_LIMITS.javascriptBytes} UTF-8 bytes`,
-				),
-			]);
-		}
-		const finalManifest = finalizeCompiledManifest(extracted.manifest, {
-			...project.execution.metadata,
+		return yield* finalizeCompiledModule({
+			manifest: extracted.manifest,
+			javascript: compiled.javascript,
+			metadata: project.execution.metadata,
 			runtimeImports: compiled.runtimeImports,
 		});
-		if (Result.isFailure(finalManifest)) {
-			return yield* sandboxCompilationFailure([finalManifest.failure]);
-		}
-
-		return {
-			manifest: finalManifest.success,
-			javascript: compiled.javascript,
-			format: SANDBOX_COMPILED_FORMAT,
-		} satisfies CompiledSandboxModule;
 	});

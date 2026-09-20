@@ -127,11 +127,7 @@ export const bundleSandboxPackage = (
 		Effect.flatMap((modules) =>
 			Effect.forEach(modules, (module) =>
 				compiledJavaScript(module).pipe(
-					Effect.map(({ javascript, runtimeImports }) => ({
-						javascript,
-						runtimeImports,
-						entry: module.entry,
-					})),
+					Effect.map((compiled) => Object.assign({ entry: module.entry }, compiled)),
 				),
 			),
 		),

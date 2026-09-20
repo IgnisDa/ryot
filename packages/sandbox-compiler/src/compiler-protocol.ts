@@ -20,13 +20,15 @@ export const CompilerWorkerRequest = Schema.Struct({
 
 export type CompilerWorkerRequest = Schema.Schema.Type<typeof CompilerWorkerRequest>;
 
+export const CompilerWorkerSuccessValue = Schema.Struct({
+	manifest: Schema.Unknown,
+	javascript: Schema.String,
+	format: Schema.Literal(SANDBOX_COMPILED_FORMAT),
+});
+
 const CompilerWorkerSuccess = Schema.Struct({
 	success: Schema.Literal(true),
-	value: Schema.Struct({
-		manifest: Schema.Unknown,
-		javascript: Schema.String,
-		format: Schema.Literal(SANDBOX_COMPILED_FORMAT),
-	}),
+	value: CompilerWorkerSuccessValue,
 });
 
 const CompilerWorkerFailure = Schema.Struct({
