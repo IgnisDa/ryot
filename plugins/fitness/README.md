@@ -102,13 +102,31 @@ settings. It queries three recipes from `shared/`:
 
 The page ranks the four metrics with the most readings in range as tiles and log columns. Trend
 lines and sparklines are a trailing rolling average of the bucket averages, over 7 points when there
-are more than 40 and 3 otherwise. Logging, editing, and pinning are not implemented and log a `TODO`
-to the console.
+are more than 40 and 3 otherwise. Pinning is not implemented and logs a `TODO` to the console.
+
+`client/measurements/reading-composer.tsx` exports `MeasurementComposer`, a page-independent form for
+one timestamp, per-metric values, and an optional comment, so the workout logger can embed it.
+Empty value fields are skipped, at least one finite value (zero included) is required, and an
+unchanged timestamp keeps the original seconds. Input stays after validation or save failures; the
+dialogs close only on success, and the mutation completion refreshes the page queries.
+`client/measurements/mutations.ts` owns the log, update, and delete mutations.
+
+Log measurement prefills the tile metrics (or the first metric when there are none) and offers the
+rest through Add metric value. `measurement-reading-log` checks every metric ID is a
+`measurement-metric` visible to the caller, then writes all readings in one `createEvents` call.
+Retrying after a lost response writes the readings again; operations have no replay identity yet.
+
+Edit on a log row opens the composer with the row's loaded values and sends its reading IDs to
+`measurement-reading-update`. The operation verifies the readings and any newly added metrics, then
+patches kept readings' time, value, and comment (removing a cleared comment), creates readings for
+added metrics, and deletes readings whose value was cleared. These are separate `updateEvents`,
+`createEvents`, and `deleteEvents` calls in that order, so a failure can leave an edit partly applied.
 
 Delete on a log row confirms, then sends every reading ID in that row to
-`measurement-reading-delete`. The operation rejects the whole request unless every ID is a
-`measurement-reading` event on a `measurement-metric` entity visible to the caller, then deletes them
-in one `deleteEvents` call. A row split across a page boundary deletes only its loaded readings.
+`measurement-reading-delete`. Update and delete reject the whole request unless every reading ID is
+a `measurement-reading` event on a `measurement-metric` entity visible to the caller; delete removes
+them in one `deleteEvents` call. A row split across a page boundary edits or deletes
+only its loaded readings.
 
 Add metric opens a name and optional unit form. `measurement-metric-create` creates only a user-owned
 metric through the sandbox `createUserEntity` capability. Shared rules in
