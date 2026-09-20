@@ -78,6 +78,13 @@ const compileRunner = (sandboxRuntimeDirectory: string) =>
 			sources: Object.entries(sources).map(([path, contents]) => ({ path, contents })),
 			aliases: [
 				{
+					find: "@ryot-app/contract/modules/sandbox/boundary-reason",
+					replacement: Bun.resolveSync(
+						"@ryot-app/contract/modules/sandbox/boundary-reason",
+						import.meta.dir,
+					),
+				},
+				{
 					find: "@ryot-app/contract/modules/plugins/execution-metadata",
 					replacement: Bun.resolveSync(
 						"@ryot-app/contract/modules/plugins/execution-metadata",

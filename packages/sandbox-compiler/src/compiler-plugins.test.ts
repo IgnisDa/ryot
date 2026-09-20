@@ -583,7 +583,7 @@ export const rowSlug = "shared-row";
 					"shared/row.ts": `
 import { Effect } from "@ryot-app/sandbox-sdk/effect";
 
-export const rowSlug = Effect.runSync(Effect.succeed("shared-row"));
+export const rowSlug = "shared-row";
 `,
 				},
 				[{ kind: "operation", entry: "backend/operation.sandbox.ts" }],
