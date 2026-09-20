@@ -1,19 +1,21 @@
 import { integrationWebhookUrl } from "@ryot-app/contract/modules/integrations/schemas";
-import { Effect, Option } from "effect";
+import { DateTime, Effect, Option } from "effect";
 
 import {
 	createAuthenticatedClient,
 	createIntegration,
 	createKodiIntegration,
+	findBuiltinSchemaBySlug,
 	getIntegration,
 	listEventSlugs,
 	listEventsForEntity,
 	pollImportRunUntilTerminal,
 	postIntegrationWebhookAndWait,
+	setEntityPopulatedAt,
 	waitForEventSlugs,
 	waitForEventWithSchema,
 } from "~/fixtures/kernel";
-import { seedGlobalShowEpisodeTree } from "~/fixtures/plugins/media";
+import { seedGlobalShowEpisodeTree, seedMediaEntity } from "~/fixtures/plugins/media";
 import { requireObjectRecord, requirePresent, requireString } from "~/support/assertions";
 import { describe, expect, it } from "~/support/effect-test";
 import { webRequest } from "~/support/web-request";
@@ -66,9 +68,20 @@ describe("Webhook routes", () => {
 				providerSpecifics: { kind: "plex_sink" },
 			});
 
-			const { tmdbId, episodeId } = yield* seedGlobalShowEpisodeTree(client, {
-				showName: "Plex Multipart Sink Show",
+			const { schema } = yield* findBuiltinSchemaBySlug(client, "movie");
+			const provider = requirePresent(
+				schema.providers.find((candidate) => candidate.name === "TMDB"),
+				"Expected TMDB movie provider",
+			);
+			const tmdbId = String(Math.floor(Math.random() * 1_000_000_000));
+			const movie = yield* seedMediaEntity({
+				properties: {},
+				externalId: tmdbId,
+				entitySchemaSlug: schema.id,
+				providerId: provider.providerId,
+				name: "Plex Multipart Sink Movie",
 			});
+			yield* setEntityPopulatedAt(movie.id, DateTime.formatIso(yield* DateTime.now));
 
 			const boundary = "----RyotPlexBoundary";
 			const detail = requirePresent(
@@ -86,11 +99,9 @@ describe("Webhook routes", () => {
 				body: plexMultipartBody(boundary, {
 					event: "media.scrobble",
 					Metadata: {
-						index: 2,
-						parentIndex: 1,
-						type: "episode",
+						type: "movie",
 						Guid: [{ id: `tmdb://${tmdbId}` }],
-						grandparentTitle: "Plex Multipart Sink Show",
+						title: "Plex Multipart Sink Movie",
 					},
 				}),
 			});
@@ -107,7 +118,7 @@ describe("Webhook routes", () => {
 
 			expect(run).toMatchObject({ status: "completed", failureReason: null });
 			expect(run.failedItems).toBe(0);
-			expect(yield* waitForEventSlugs(client, episodeId, "progress")).toContain("progress");
+			expect(yield* waitForEventSlugs(client, movie.id, "progress")).toContain("progress");
 		}),
 	);
 });
