@@ -85,31 +85,32 @@ function Onboarding() {
 		connectionController.current?.abort();
 		const controller = new AbortController();
 		connectionController.current = controller;
-		return runtime
-			.runPromise(serverService.connect(result.origin), { signal: controller.signal })
-			.then(
-				() => true,
-				() => false,
-			)
-			.then((connected) => {
+		return runtime.runPromiseExit(
+			Effect.gen(function* () {
+				const connected = yield* serverService
+					.connect(result.origin)
+					.pipe(Effect.matchCause({ onSuccess: () => true, onFailure: () => false }));
 				if (controller.signal.aborted) {
-					return undefined;
+					return;
 				}
 				if (!connected) {
 					dispatch({ type: "failed" });
-					return undefined;
+					return;
 				}
 				dispatch({ type: "succeeded" });
 				const decision = decideOnboardingCompletion(search.redirect);
-				if (decision.action === "enter-god-mode") {
-					return navigate({ replace: true, href: decision.to, search: { redirect: undefined } });
-				}
-				return navigate({
-					replace: true,
-					to: decision.to,
-					search: { redirect: decision.redirectTo },
-				});
-			});
+				yield* Effect.promise(() =>
+					decision.action === "enter-god-mode"
+						? navigate({ replace: true, href: decision.to, search: { redirect: undefined } })
+						: navigate({
+								replace: true,
+								to: decision.to,
+								search: { redirect: decision.redirectTo },
+							}),
+				);
+			}),
+			{ signal: controller.signal },
+		);
 	}
 
 	return (

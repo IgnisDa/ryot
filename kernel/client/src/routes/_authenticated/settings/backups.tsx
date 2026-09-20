@@ -196,58 +196,59 @@ function BackupsStandard() {
 
 	const startDownload = (run: BackupRunItem) => {
 		if (downloading.current !== undefined) {
-			return Promise.resolve();
+			return;
 		}
 		downloading.current = run.id;
 		setDownloadFailed(false);
 		setDownloadingRunId(run.id);
-		return runtime
-			.runPromise(
-				Effect.flatMap(BackupsApi, (api) => api.downloadArchive(scope, run.id)).pipe(
-					Effect.match({ onFailure: () => undefined, onSuccess: (archive) => archive }),
-				),
-				{ signal: controller.current.signal },
-			)
-			.then((blob) => {
-				downloading.current = undefined;
-				setDownloadingRunId(undefined);
-				if (blob === undefined) {
-					setDownloadFailed(true);
-					return undefined;
-				}
-				saveBackupArchive(blob, backupArchiveFileName(run.id));
-				return undefined;
-			});
+		runtime.runFork(
+			Effect.flatMap(BackupsApi, (api) => api.downloadArchive(scope, run.id)).pipe(
+				Effect.match({
+					onFailure: () => {
+						downloading.current = undefined;
+						setDownloadingRunId(undefined);
+						setDownloadFailed(true);
+					},
+					onSuccess: (blob) => {
+						downloading.current = undefined;
+						setDownloadingRunId(undefined);
+						saveBackupArchive(blob, backupArchiveFileName(run.id));
+					},
+				}),
+			),
+			{ signal: controller.current.signal },
+		);
 	};
 
 	const loadMore = () => {
 		if (cursor === null || cursor === undefined || loadingMore) {
-			return Promise.resolve();
+			return;
 		}
 		setLoadingMore(true);
 		setLoadMoreFailed(false);
-		return Effect.runPromise(
-			client.data.query(backupRunsRecipe({ after: cursor, limit: PAGE_SIZE })),
+		Effect.runFork(
+			client.data.query(backupRunsRecipe({ after: cursor, limit: PAGE_SIZE })).pipe(
+				Effect.matchCause({
+					onFailure: () => {
+						if (!controller.current.signal.aborted) {
+							setLoadMoreFailed(true);
+						}
+					},
+					onSuccess: (page) => {
+						setOlderRuns((current) => [...current, ...page.items]);
+						setNextCursor(page.pageInfo.nextCursor);
+					},
+				}),
+				Effect.ensuring(
+					Effect.sync(() => {
+						if (!controller.current.signal.aborted) {
+							setLoadingMore(false);
+						}
+					}),
+				),
+			),
 			{ signal: controller.current.signal },
-		)
-			.then(
-				(page) => {
-					setOlderRuns((current) => [...current, ...page.items]);
-					setNextCursor(page.pageInfo.nextCursor);
-					return undefined;
-				},
-				() => {
-					if (!controller.current.signal.aborted) {
-						setLoadMoreFailed(true);
-					}
-					return undefined;
-				},
-			)
-			.finally(() => {
-				if (!controller.current.signal.aborted) {
-					setLoadingMore(false);
-				}
-			});
+		);
 	};
 
 	useRunPolling({
@@ -265,11 +266,11 @@ function BackupsStandard() {
 			<BackupsView
 				state={state}
 				nowMs={nowMs}
+				onDownload={startDownload}
 				onOpenRestore={wizard.open}
 				downloadingRunId={downloadingRunId}
 				isCreating={createMutation.isPending}
 				onCreateExport={() => void startExport()}
-				onDownload={(run) => void startDownload(run)}
 				downloadFailureDetail={downloadFailed ? DOWNLOAD_FAILURE_DETAIL : undefined}
 				createFailureDetail={createMutation.error === null ? undefined : CREATE_FAILURE_DETAIL}
 				onRequestDelete={(run, trigger) => {
@@ -285,12 +286,7 @@ function BackupsStandard() {
 							Could not load more backups. Try again.
 						</p>
 					)}
-					<Button
-						type="button"
-						variant="secondary"
-						disabled={loadingMore}
-						onClick={() => void loadMore()}
-					>
+					<Button type="button" onClick={loadMore} variant="secondary" disabled={loadingMore}>
 						{loadingMore ? "Loading..." : "Load more backups"}
 					</Button>
 				</div>

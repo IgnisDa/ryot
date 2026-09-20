@@ -1,10 +1,13 @@
 import { OAUTH_NATIVE_APPLICATION_IDS } from "@ryot-app/contract/oauth";
+import { type Cause, Effect } from "effect";
 
 export type NativeAppSource = {
 	readonly exitApp: () => void;
-	readonly getLaunchUrl: () => Promise<string | null>;
-	readonly onBackButton: (handler: () => void) => Promise<() => void>;
-	readonly onUrlOpen: (handler: (url: string) => void) => Promise<() => void>;
+	readonly getLaunchUrl: () => Effect.Effect<string | null, Cause.UnknownError>;
+	readonly onBackButton: (handler: () => void) => Effect.Effect<() => void, Cause.UnknownError>;
+	readonly onUrlOpen: (
+		handler: (url: string) => void,
+	) => Effect.Effect<() => void, Cause.UnknownError>;
 };
 
 export type DeepLinkNavigator = {
@@ -58,23 +61,27 @@ export function createDeepLinkBridge(source: NativeAppSource, navigator: DeepLin
 		}
 	};
 
-	void source.onUrlOpen((url) => open(url, { replace: false })).then(register);
-	void source
-		.onBackButton(() => {
-			if (isDisposed) {
-				return;
-			}
-			if (navigator.dismissOverlay()) {
-				return;
-			}
-			if (navigator.canGoBack()) {
-				navigator.back();
-				return;
-			}
-			source.exitApp();
-		})
-		.then(register);
-	void source.getLaunchUrl().then((url) => open(url, { replace: true }));
+	Effect.runFork(
+		source.onUrlOpen((url) => open(url, { replace: false })).pipe(Effect.map(register)),
+	);
+	Effect.runFork(
+		source
+			.onBackButton(() => {
+				if (isDisposed) {
+					return;
+				}
+				if (navigator.dismissOverlay()) {
+					return;
+				}
+				if (navigator.canGoBack()) {
+					navigator.back();
+					return;
+				}
+				source.exitApp();
+			})
+			.pipe(Effect.map(register)),
+	);
+	Effect.runFork(source.getLaunchUrl().pipe(Effect.map((url) => open(url, { replace: true }))));
 
 	return {
 		destroy: () => {

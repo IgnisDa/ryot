@@ -340,9 +340,15 @@ export function ClientPageDocumentHost() {
 				navigationKey: before.navigation.key,
 			};
 			setReloadRequest(request);
-			void router
-				.invalidate()
-				.catch(() => setReloadRequest((current) => (current === request ? undefined : current)));
+			Effect.runFork(
+				Effect.tryPromise(() => router.invalidate()).pipe(
+					Effect.catch(() =>
+						Effect.sync(() =>
+							setReloadRequest((current) => (current === request ? undefined : current)),
+						),
+					),
+				),
+			);
 		},
 		[document, entries, router],
 	);
@@ -436,11 +442,7 @@ function ClientPageFrame(props: {
 	);
 
 	const checkFreshness = useCallback(
-		(signal: AbortSignal) =>
-			props.runtime.runPromise(
-				Effect.flatMap(ClientPageFreshness, (freshness) => freshness.check(props.scope, identity)),
-				{ signal },
-			),
+		() => props.runtime.runSync(ClientPageFreshness).check(props.scope, identity),
 		[identity, props.runtime, props.scope],
 	);
 	const watchEntities = useCallback<WatchEntities>(
