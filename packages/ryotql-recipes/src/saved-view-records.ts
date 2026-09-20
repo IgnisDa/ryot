@@ -25,7 +25,7 @@ const selection = {
 	slug: selectedField(column(savedView, "slug"), Schema.String),
 	name: selectedField(column(savedView, "name"), Schema.String),
 	icon: selectedField(column(savedView, "icon"), Schema.String),
-	sortOrder: selectedField(column(savedView, "sortOrder"), Schema.Number),
+	sortOrder: selectedField(column(savedView, "sortOrder"), Schema.Finite),
 	isBuiltin: selectedField(column(savedView, "isBuiltin"), Schema.Boolean),
 	renderer: selectedField(column(savedView, "renderer"), SavedViewRenderer),
 	isDisabled: selectedField(column(savedView, "isDisabled"), Schema.Boolean),

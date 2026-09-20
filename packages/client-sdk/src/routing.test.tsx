@@ -132,12 +132,7 @@ const routeLocation = (path: string, search = ""): PluginRouteLocation => ({
 	kind: "route",
 });
 const entityLocation = (entityId: string, entitySchemaSlug: string, search = "") =>
-	Schema.decodeUnknownSync(PluginEntityLocation)({
-		search,
-		entityId,
-		kind: "entity",
-		entitySchemaSlug,
-	});
+	Schema.decodeSync(PluginEntityLocation)({ search, entityId, kind: "entity", entitySchemaSlug });
 
 let observedSearch: URLSearchParams | undefined;
 let observedParams: Record<string, string> | undefined;

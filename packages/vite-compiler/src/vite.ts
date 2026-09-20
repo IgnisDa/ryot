@@ -162,8 +162,9 @@ export const buildWithVite = Effect.fn("buildWithVite")(function* ({
 	typeScriptProject,
 }: ViteCompilerOptions): Effect.fn.Return<ViteCompilerResult, ViteCompilerError, ViteBuildService> {
 	if (root !== undefined && root !== workspace.generatedPath) {
-		return yield* Effect.fail(
-			viteCompilerError("invalid-input", "Vite root must be the compiler workspace generated path"),
+		return yield* viteCompilerError(
+			"invalid-input",
+			"Vite root must be the compiler workspace generated path",
 		);
 	}
 	const viteRoot = root ?? workspace.rootPath;
@@ -218,9 +219,7 @@ export const buildWithVite = Effect.fn("buildWithVite")(function* ({
 		}),
 	);
 	if (Predicate.isObject(result) && "close" in result) {
-		return yield* Effect.fail(
-			viteCompilerError("vite-build", "Vite unexpectedly returned a build watcher"),
-		);
+		return yield* viteCompilerError("vite-build", "Vite unexpectedly returned a build watcher");
 	}
 	const files = yield* Effect.fromResult(collectViteOutputs(result));
 	return { files, diagnostics };

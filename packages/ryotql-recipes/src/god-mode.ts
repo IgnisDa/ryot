@@ -42,7 +42,7 @@ export const godModeUsersRecipe = defineRecipe(
 			queries: {
 				total: selectedAggregate(user, {
 					where,
-					measures: { count: selectedMeasure({ function: "count" }, Schema.Number) },
+					measures: { count: selectedMeasure({ function: "count" }, Schema.Finite) },
 				}),
 				users: selectedRows(user, {
 					where,
@@ -90,23 +90,23 @@ export const migrationReportRecipe = defineRecipe(
 						orderBy: [ascending(column(detail, "seq"))],
 						where: eq(column(detail, "reportSeq"), column(report, "seq")),
 						selection: {
-							seq: selectedField(column(detail, "seq"), Schema.Number),
+							seq: selectedField(column(detail, "seq"), Schema.Finite),
 							detail: selectedField(column(detail, "detail"), MigrationReportDetail),
 						},
 					}),
 				},
 				selection: {
-					seq: selectedField(column(report, "seq"), Schema.Number),
+					seq: selectedField(column(report, "seq"), Schema.Finite),
 					phase: selectedField(column(report, "phase"), Schema.String),
 					message: selectedField(column(report, "message"), Schema.String),
 					level: selectedField(column(report, "level"), MigrationReportLevel),
 					createdAt: selectedField(column(report, "createdAt"), IsoDateString),
-					count: selectedField(column(report, "count"), Schema.NullOr(Schema.Number)),
+					count: selectedField(column(report, "count"), Schema.NullOr(Schema.Finite)),
 					code: selectedField(column(report, "code"), Schema.NullOr(MigrationReportAnomalyCode)),
-					totalDetails: selectedField(column(report, "totalDetails"), Schema.NullOr(Schema.Number)),
+					totalDetails: selectedField(column(report, "totalDetails"), Schema.NullOr(Schema.Finite)),
 					elapsedSeconds: selectedField(
 						column(report, "elapsedSeconds"),
-						Schema.NullOr(Schema.Number),
+						Schema.NullOr(Schema.Finite),
 					),
 				},
 			}),
