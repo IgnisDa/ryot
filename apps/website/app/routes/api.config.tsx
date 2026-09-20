@@ -1,5 +1,6 @@
 import { Effect } from "effect";
 
+import type { ConfigData } from "~/lib/config";
 import { getPrices, getServerVariables } from "~/lib/config.server";
 import { runPromise } from "~/lib/runtime.server";
 import { getCustomerFromCookie } from "~/lib/utilities.server";
@@ -17,6 +18,6 @@ export const loader = ({ request }: Route.LoaderArgs) =>
 				isSandbox: !!serverVariables.PADDLE_SANDBOX,
 				clientToken: serverVariables.PADDLE_CLIENT_TOKEN,
 				turnstileSiteKey: serverVariables.TURNSTILE_SITE_KEY,
-			};
+			} satisfies ConfigData;
 		}),
 	);
