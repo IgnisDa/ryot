@@ -11,15 +11,15 @@ import * as tables from "#lib/infrastructure/db/schema/tables/combined";
 import { DatabaseSession } from "#lib/infrastructure/db/session";
 import { PackageCacheManager } from "#lib/infrastructure/sandbox-runtime/runtime";
 import { databaseLayer, makeAppConfigLayer } from "#lib/test-utils/effect";
-import { SandboxWorkflowReferenceRepository } from "#modules/sandbox/workflow-reference-repository";
-
-import { PluginRepository } from "./repository";
+import { PluginRepository } from "#modules/plugins/repository";
 import {
 	installRevisionPackage,
 	revisionDatabaseLayer,
 	revisionPackage,
-} from "./revision.test-support";
-import { ScriptGarbageCollector } from "./script-garbage-collector";
+} from "#modules/plugins/revision.test-support";
+import { SandboxWorkflowReferenceRepository } from "#modules/sandbox/workflow-reference-repository";
+
+import { ScriptGarbageCollector } from "./scripts";
 
 const hash = sha256Hex;
 const scheduledCollection = { limit: 500, scheduled: true, now: new Date(0) };
