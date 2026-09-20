@@ -16,7 +16,7 @@ const QueryInput = Schema.Tuple([
 	Schema.String,
 	Schema.String,
 	Schema.NullOr(Schema.String),
-	Schema.Number,
+	Schema.Finite,
 ]);
 const decodeQueryInput = Schema.decodeUnknownSync(Schema.fromJsonString(QueryInput));
 
