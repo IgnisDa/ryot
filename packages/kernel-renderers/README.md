@@ -1,7 +1,7 @@
 # Kernel Renderers
 
-The saved-view and collection renderers the kernel ships: `entity-browser`, `results-table`, and
-`collection-detail`. They are ordinary
+The saved-view and collection renderers the kernel ships: `entity-browser`, `collection-browser`,
+`results-table`, and `collection-detail`. They are ordinary
 client-plugin sources — typechecked, formatted, linted, and unit-tested here — not string literals
 embedded in backend code.
 
@@ -19,8 +19,10 @@ messages the renderer actually puts on the port.
 
 The browser owns its own screen chrome inside the iframe: the saved view's name and icon, search,
 layout, the Filters dialog (sort lives inside it when configured, otherwise it is empty), the
-result and sync count line, and the compact search row, options sheet, and add FAB. Cards come from registered entity presentations; the browser
-renders entity art itself only in the table layout, from a `managed-asset` table column.
+result and sync count line, and the compact search row, options sheet, and add FAB. Entity-browser
+cards come from registered entity presentations, and the table renders entity art from a
+`managed-asset` table column. Collection-browser reuses the shared controller and renders kernel
+collection cards with batched member counts.
 
 `entity-browser-controller.tsx` owns the shared browser controls, URL state, refresh replay, chrome,
 states, and result layouts. Saved views adapt their configured recipe and optional provider Add flow;

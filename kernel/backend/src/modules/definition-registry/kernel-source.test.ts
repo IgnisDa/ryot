@@ -10,7 +10,7 @@ it("keeps source zero limited to generic kernel definitions", () => {
 	expect(source.savedViews.map(({ slug }) => slug)).toEqual(["collections"]);
 	const savedView = source.savedViews[0];
 	assert(savedView);
-	expect(savedView.renderer).toEqual({ kind: "kernel", name: "entity-browser" });
+	expect(savedView.renderer).toEqual({ kind: "kernel", name: "collection-browser" });
 	expect(savedView.settings).toMatchObject({
 		sourceName: "savedView",
 		layouts: ["grid", "list", "table"],

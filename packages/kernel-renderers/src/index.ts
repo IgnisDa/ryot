@@ -15,6 +15,12 @@ const BROWSER_PATHS = [
 	"client/entity-browser-controller.tsx",
 ] as const satisfies readonly KernelRendererPath[];
 
+const COLLECTION_BROWSER_PATHS = [
+	...BROWSER_PATHS,
+	"client/collection-card-results.tsx",
+	"client/entity-browser.tsx",
+] as const satisfies readonly KernelRendererPath[];
+
 const definition = (entry: KernelRendererPath, automaticEntityPresentations: boolean) =>
 	({
 		entry,
@@ -51,6 +57,13 @@ export const kernelEntityBrowserRenderer = renderer(
 	"Entity browser",
 	"client/entity-browser.tsx",
 	BROWSER_PATHS,
+	true,
+);
+
+export const kernelCollectionBrowserRenderer = renderer(
+	"Collection browser",
+	"client/collection-browser.tsx",
+	COLLECTION_BROWSER_PATHS,
 	true,
 );
 
