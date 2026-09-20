@@ -46,7 +46,7 @@ const formatDateLabel = (value: string) =>
 	});
 
 export const isTerminalRunStatus = (status: PresentedRunStatus) =>
-	status === "completed" || status === "failed" || status === "cancelled";
+	status === "completed" || status === "failed" || status === "cancelled" || status === "expired";
 
 export const formatRunCount = (value: number) =>
 	Math.max(Math.round(value), 0).toLocaleString("en-US");
@@ -54,6 +54,11 @@ export const formatRunCount = (value: number) =>
 export const runStatusPill = (status: PresentedRunStatus) =>
 	Match.value(status).pipe(
 		Match.when("pending", () => ({ icon: "clock", tone: "muted", label: "Queued" }) as const),
+		Match.when(
+			"blocked",
+			() => ({ icon: "clock", tone: "muted", label: "Setup required" }) as const,
+		),
+		Match.when("expired", () => ({ tone: "muted", icon: "circle-x", label: "Expired" }) as const),
 		Match.when("running", () => ({ tone: "info", label: "Running", icon: "rotate-ccw" }) as const),
 		Match.when(
 			"cancelling",
