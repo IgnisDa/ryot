@@ -175,7 +175,7 @@ export class SandboxRepository extends Context.Service<SandboxRepository>()("San
 					);
 					if (
 						!state ||
-						state.isDisabled ||
+						state.isHidden ||
 						state.uninstalledAt ||
 						!["ready", "installing"].includes(state.health)
 					) {

@@ -281,7 +281,7 @@ export const buildLegacyPackageResolution = Effect.fn("buildLegacyPackageResolut
 					userId: schema.pluginInstallation.userId,
 					health: schema.pluginInstallation.health,
 					pluginId: schema.pluginInstallation.pluginId,
-					isDisabled: schema.pluginInstallation.isDisabled,
+					isHidden: schema.pluginInstallation.isHidden,
 					uninstalledAt: schema.pluginInstallation.uninstalledAt,
 					activeConfigRevisionId: schema.pluginInstallation.activeConfigRevisionId,
 				})
@@ -299,7 +299,7 @@ export const buildLegacyPackageResolution = Effect.fn("buildLegacyPackageResolut
 				.digest("hex");
 			if (
 				row.health !== "ready" ||
-				row.isDisabled ||
+				row.isHidden ||
 				row.uninstalledAt !== null ||
 				row.activeConfigRevisionId !== null ||
 				row.id !== expectedId

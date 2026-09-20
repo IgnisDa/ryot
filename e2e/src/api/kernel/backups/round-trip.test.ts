@@ -388,10 +388,10 @@ describe("backup export and restore round trip", () => {
 			assert(newerOutcome?.status === "written");
 
 			const builtinView = yield* findBuiltinSavedView(source.client);
-			expect((yield* getSavedView(target.client, builtinView.slug)).isDisabled).toBe(false);
+			expect((yield* getSavedView(target.client, builtinView.slug)).isHidden).toBe(false);
 			yield* source.client.call((c) =>
 				c.savedViews.update({
-					payload: { isDisabled: true },
+					payload: { isHidden: true },
 					params: { viewSlug: builtinView.slug },
 				}),
 			);
@@ -412,7 +412,7 @@ describe("backup export and restore round trip", () => {
 					"Source notification subscription is missing",
 				).isActive,
 			).toBe(false);
-			yield* updatePluginState(source.client, "media", { sortOrder: 73, isDisabled: true });
+			yield* updatePluginState(source.client, "media", { sortOrder: 73, isHidden: true });
 
 			const { bytes } = yield* exportAndDownloadBackup(source.client, source.token);
 			yield* deleteUserAndWait(source.userId);
@@ -492,7 +492,7 @@ describe("backup export and restore round trip", () => {
 			});
 
 			const restoredView = yield* getSavedView(target.client, builtinView.slug);
-			expect(restoredView).toMatchObject({ isDisabled: true, slug: builtinView.slug });
+			expect(restoredView).toMatchObject({ isHidden: true, slug: builtinView.slug });
 			const restoredPluginView = yield* getSavedView(target.client, clonedPluginViewRecord.slug);
 			expect(restoredPluginView).toMatchObject({
 				settings: {},
@@ -520,7 +520,7 @@ describe("backup export and restore round trip", () => {
 			expect(yield* findBuiltinPluginBySlug(target.client, "media")).toMatchObject({
 				slug: "media",
 				sortOrder: 73,
-				isDisabled: true,
+				isHidden: true,
 			});
 
 			const rejected = yield* Effect.flip(restoreBackup(target.client, bytes));

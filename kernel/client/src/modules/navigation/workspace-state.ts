@@ -19,7 +19,7 @@ export const sortWorkspaces = (catalog: PluginClientCatalog) =>
 	);
 
 export const visibleWorkspaces = (catalog: PluginClientCatalog) =>
-	sortWorkspaces(catalog.filter(({ isDisabled }) => !isDisabled));
+	sortWorkspaces(catalog.filter(({ isHidden }) => !isHidden));
 
 export const resolveRememberedWorkspace = (
 	catalog: PluginClientCatalog,

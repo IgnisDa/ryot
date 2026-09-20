@@ -15,10 +15,10 @@ import {
 	type CustomizeDraft,
 } from "#/modules/navigation/customize/customize-state";
 
-const view = (slug: string, pluginSlug: string | null, sortOrder: number, isDisabled = false) => ({
+const view = (slug: string, pluginSlug: string | null, sortOrder: number, isHidden = false) => ({
 	slug,
+	isHidden,
 	sortOrder,
-	isDisabled,
 	pluginSlug,
 	icon: "list",
 	name: slug.toUpperCase(),
@@ -27,11 +27,11 @@ const view = (slug: string, pluginSlug: string | null, sortOrder: number, isDisa
 const workspace = (
 	slug: string,
 	sortOrder: number,
-	isDisabled = false,
+	isHidden = false,
 ): PluginClientCatalogEntry => ({
 	slug,
+	isHidden,
 	sortOrder,
-	isDisabled,
 	icon: "plugin",
 	health: "ready",
 	clientApiVersion: 1,
@@ -61,14 +61,14 @@ const data: NavigationData = {
 const draft = initCustomizeDraft({ data, catalog, workspaceSlug: "media" });
 
 describe("initCustomizeDraft", () => {
-	it("initializes all workspaces in catalog order, including disabled ones", () => {
+	it("initializes all workspaces in catalog order, including hidden ones", () => {
 		expect(draft.workspaces.map((item) => item.slug)).toEqual(["disabled", "fitness", "media"]);
-		expect(draft.workspaces.map((item) => item.isDisabled)).toEqual([true, false, false]);
+		expect(draft.workspaces.map((item) => item.isHidden)).toEqual([true, false, false]);
 		expect(draft.workspaces[0]).toEqual({
 			icon: "plugin",
+			isHidden: true,
 			slug: "disabled",
 			name: "DISABLED",
-			isDisabled: true,
 		});
 		expect(draft.views[0]?.pluginSlug).toBe("media");
 	});
@@ -78,8 +78,8 @@ describe("initCustomizeDraft", () => {
 		expect(draft.savedViews.map((item) => item.slug)).toEqual(["recent", "all"]);
 	});
 
-	it("keeps disabled items so they can be switched back on", () => {
-		expect(draft.views.map((item) => item.isDisabled)).toEqual([true, false]);
+	it("keeps hidden items so they can be shown again", () => {
+		expect(draft.views.map((item) => item.isHidden)).toEqual([true, false]);
 	});
 
 	it("leaves the views section empty when no workspace is selected", () => {
@@ -117,18 +117,18 @@ describe("toggleCustomizeItem", () => {
 		const toggled = toggleCustomizeItem({ draft, slug: "shows", section: "views" });
 
 		expect(toggled.views.map((item) => item.slug)).toEqual(["movies", "shows"]);
-		expect(toggled.views.map((item) => item.isDisabled)).toEqual([true, true]);
+		expect(toggled.views.map((item) => item.isHidden)).toEqual([true, true]);
 	});
 
 	it("ignores a slug that is not in the section", () => {
 		expect(toggleCustomizeItem({ draft, slug: "all", section: "views" })).toBe(draft);
 	});
 
-	it("refuses to disable the final enabled workspace", () => {
+	it("refuses to hide the final visible workspace", () => {
 		const onlyEnabled = {
 			...draft,
 			workspaces: draft.workspaces.map((item) =>
-				item.slug === "fitness" ? item : { ...item, isDisabled: true },
+				item.slug === "fitness" ? item : { ...item, isHidden: true },
 			),
 		};
 
@@ -137,16 +137,16 @@ describe("toggleCustomizeItem", () => {
 		).toBe(onlyEnabled);
 	});
 
-	it("allows a disabled workspace to be enabled", () => {
+	it("allows a hidden workspace to be shown", () => {
 		const toggled = toggleCustomizeItem({ draft, slug: "disabled", section: "workspaces" });
 
-		expect(toggled.workspaces[0]?.isDisabled).toBe(false);
+		expect(toggled.workspaces[0]?.isHidden).toBe(false);
 	});
 
 	it("leaves the draft it was given untouched", () => {
 		toggleCustomizeItem({ draft, slug: "shows", section: "views" });
 
-		expect(draft.views.map((item) => item.isDisabled)).toEqual([true, false]);
+		expect(draft.views.map((item) => item.isHidden)).toEqual([true, false]);
 	});
 });
 

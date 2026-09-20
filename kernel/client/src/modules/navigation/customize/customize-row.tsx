@@ -13,7 +13,7 @@ export function CustomizeRow(props: {
 	readonly toggleDisabled?: boolean;
 	readonly onToggle: (slug: string) => void;
 }) {
-	const muted = props.item.isDisabled ? "text-text-subtle" : "text-text";
+	const muted = props.item.isHidden ? "text-text-subtle" : "text-text";
 	const handle =
 		props.readOnly === true && isValidElement<ComponentProps<"button">>(props.handle)
 			? cloneElement(props.handle, { disabled: true })
@@ -29,7 +29,7 @@ export function CustomizeRow(props: {
 			<AppIcon size={17} name={props.item.icon} className={clsx("shrink-0", muted)} />
 			<span className={clsx("min-w-0 flex-1 truncate text-sm", muted)}>{props.item.name}</span>
 			<Switch
-				checked={!props.item.isDisabled}
+				checked={!props.item.isHidden}
 				label={`Show ${props.item.name} in sidebar`}
 				onChange={() => props.onToggle(props.item.slug)}
 				disabled={props.readOnly === true || props.toggleDisabled}

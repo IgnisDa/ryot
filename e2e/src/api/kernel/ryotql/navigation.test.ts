@@ -33,7 +33,7 @@ describe("RyotQL navigation", () => {
 			const firstView = yield* findSavedViewById(first.client, firstCreated.id);
 			const orderedView = yield* findSavedViewById(first.client, orderedCreated.id);
 			yield* updateSavedView(first.client, firstView.slug, {
-				isDisabled: true,
+				isHidden: true,
 				name: firstViewName,
 				workspacePluginSlug: PluginSlug.make("media"),
 			});
@@ -58,7 +58,7 @@ describe("RyotQL navigation", () => {
 			if (!firstViewRow) {
 				throw new Error("Expected first user's saved view");
 			}
-			expect(firstViewRow.isDisabled).toBe(true);
+			expect(firstViewRow.isHidden).toBe(true);
 			const workspaceRows = data.savedViews.filter(
 				(item) => item.slug === orderedView.slug || item.slug === firstView.slug,
 			);

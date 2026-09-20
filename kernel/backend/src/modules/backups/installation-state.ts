@@ -3,6 +3,6 @@ import type { PluginInstallationHydratedState } from "#modules/plugins/installat
 export const isDefaultSystemInstallation = (installation: PluginInstallationHydratedState) =>
 	installation.pluginScope === "system" &&
 	(installation.health === "ready" || installation.health === "installing") &&
-	!installation.isDisabled &&
+	!installation.isHidden &&
 	installation.sortOrder === 0 &&
 	Object.keys(installation.config).length === 0;

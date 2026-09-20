@@ -10,7 +10,7 @@ const entry = {
 	name: "Fixture",
 	slug: "fixture",
 	health: "ready",
-	isDisabled: false,
+	isHidden: false,
 	clientApiVersion: 1,
 	pluginId: "plugin-1",
 	homeSavedViewSlug: null,
@@ -60,12 +60,12 @@ describe("plugin client catalog recipe", () => {
 		});
 	});
 
-	it("retains disabled and incompatible installations", () => {
-		const disabled = { ...entry, isDisabled: true };
+	it("retains hidden and incompatible installations", () => {
+		const hidden = { ...entry, isHidden: true };
 		const incompatible = { ...entry, health: "incompatible", installationId: "installation-2" };
 		const decoded = pluginClientCatalogRecipe().decode({
 			data: {
-				installations: rowsResult([disabled, incompatible], {
+				installations: rowsResult([hidden, incompatible], {
 					limit: 100,
 					hasMore: false,
 					nextCursor: null,
@@ -73,7 +73,7 @@ describe("plugin client catalog recipe", () => {
 			},
 		});
 
-		expect(Result.getOrThrow(decoded).items).toEqual([disabled, incompatible]);
+		expect(Result.getOrThrow(decoded).items).toEqual([hidden, incompatible]);
 	});
 
 	it("rejects an unknown installation health", () => {

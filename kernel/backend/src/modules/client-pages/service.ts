@@ -479,7 +479,7 @@ export class ClientPagesService extends Context.Service<ClientPagesService>()(
 								manifest,
 								id: row.id,
 								slug: row.slug,
-								isDisabled: false,
+								isHidden: false,
 								health: "ready" as const,
 								sourceHash: row.sourceHash,
 								pluginRevisionId: row.pluginRevisionId,

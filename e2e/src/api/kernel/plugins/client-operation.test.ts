@@ -71,7 +71,7 @@ describe("client plugin operations", () => {
 			const { client } = yield* createAuthenticatedClient();
 			const installation = yield* installFixtureClientPlugin(client);
 
-			expect(installation).toMatchObject({ health: "ready", isDisabled: false });
+			expect(installation).toMatchObject({ health: "ready", isHidden: false });
 
 			const { result } = yield* client.call((c) =>
 				c.plugins.invoke({

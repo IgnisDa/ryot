@@ -10,25 +10,25 @@ import { collectRyotQLRecipeItems } from "./ryotql";
 
 export const createPluginScope = (slug = `plugin-${crypto.randomUUID()}`) => PluginSlug.make(slug);
 
-export const listInstalledPlugins = (client: Client, options: { includeDisabled?: boolean } = {}) =>
+export const listInstalledPlugins = (client: Client, options: { includeHidden?: boolean } = {}) =>
 	collectRyotQLRecipeItems(client, (after) =>
 		pluginInstallationsRecipe({ after, limit: 100 }),
 	).pipe(
 		Effect.map((plugins) =>
-			options.includeDisabled ? plugins : plugins.filter((plugin) => !plugin.isDisabled),
+			options.includeHidden ? plugins : plugins.filter((plugin) => !plugin.isHidden),
 		),
 	);
 
 export const findBuiltinPluginBySlug = (client: Client, slug: string) =>
 	Effect.gen(function* () {
-		const plugins = yield* listInstalledPlugins(client, { includeDisabled: true });
+		const plugins = yield* listInstalledPlugins(client, { includeHidden: true });
 		const plugin = plugins.find((entry) => entry.slug === slug);
 		return requirePresent(plugin, `Built-in plugin '${slug}' not found`);
 	});
 
 export const findPluginInstallationBySlug = (client: Client, slug: string) =>
 	Effect.gen(function* () {
-		const installations = yield* listInstalledPlugins(client, { includeDisabled: true });
+		const installations = yield* listInstalledPlugins(client, { includeHidden: true });
 		return requirePresent(
 			installations.find((installation) => installation.slug === slug),
 			`Plugin installation '${slug}' not found`,
