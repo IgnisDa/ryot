@@ -123,9 +123,9 @@ Provider tokens and client secrets must use `secretEnv` or `secretEnvFrom`, not 
 
 ```yaml
 secretEnv:
-  RYOT_PLUGIN_BCAD4408A7E7465EACCBC1A553C78090_TMDB_ACCESS_TOKEN: "xxxx"
+  RYOT_PLUGIN__RYOT__MEDIA__TMDB_ACCESS_TOKEN: "xxxx"
 secretEnvFrom:
-  RYOT_PLUGIN_BCAD4408A7E7465EACCBC1A553C78090_TWITCH_CLIENT_SECRET:
+  RYOT_PLUGIN__RYOT__MEDIA__TWITCH_CLIENT_SECRET:
     existingSecret: ryot-providers
     key: twitch-client-secret
 ```

@@ -43,7 +43,7 @@ history and uploaded files.
 A restore requires a new or reset account with no personal data or custom settings. Records that
 plugins create during account setup are allowed and matched by schema ownership.
 
-The destination must have each required system package, identified by its permanent UUID. An exact
+The destination must have each required system package, identified by its permanent `publisher/name` package ID. An exact
 source-hash match is accepted; a newer revision must pass the archived schema and value checks.
 Restore does not install, replace, downgrade, or configure system plugins for other users.
 Hashes check archive consistency, not the publisher's identity. Private packages include their
@@ -51,7 +51,7 @@ manifests and compiled archives; restore validates them without compiling them.
 
 Typed plugin references bind to the destination's local plugin IDs with their system or private
 scope preserved. Equal plugin names do not merge data. A retained private package that conflicts
-with a system UUID stays private and quarantined, with its data intact. It needs explicit validation
+with a system package ID stays private and quarantined, with its data intact. It needs explicit validation
 before it can run again. Removing the conflict does not enable it automatically.
 
 Arbitrary entity IDs or ID-like strings in plugin JSON are not made portable or rewritten. Use the
