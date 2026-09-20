@@ -29,6 +29,23 @@ describe("workout presentation recipe", () => {
 			}),
 		);
 		expect(workouts.output.pagination).toEqual({ limit: 100 });
+		expect(workouts.output.fields).toEqual(
+			expect.arrayContaining([
+				{ key: "name", expr: { field: "name", type: "column", tableAlias: "presentationWorkout" } },
+				{
+					key: "startedAt",
+					expr: {
+						type: "cast",
+						target: "date",
+						expr: {
+							type: "jsonPath",
+							path: ["startedAt"],
+							expr: { type: "column", field: "properties", tableAlias: "presentationWorkout" },
+						},
+					},
+				},
+			]),
+		);
 		expect(workouts.output.include).toEqual([
 			expect.objectContaining({
 				limit: 100,

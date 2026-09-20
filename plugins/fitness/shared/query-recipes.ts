@@ -1,17 +1,13 @@
-import { JsonValue } from "@ryot-app/contract/modules/ryotql/language";
-import { EntityId, EntitySchemaSlug } from "@ryot-app/contract/schema/brands";
-import type { Recipe } from "@ryot-app/ryotql";
+import { Result, Schema } from "@ryot-app/plugin-kit/effect";
 import {
 	and,
 	ascending,
-	castDate,
-	castNumber,
-	castText,
 	column,
 	defineRecipe,
 	descending,
 	eq,
 	join,
+	JsonValue,
 	jsonPath,
 	literal,
 	selectedField,
@@ -19,16 +15,18 @@ import {
 	selectedOptionalRow,
 	selectedRows,
 	table,
-} from "@ryot-app/ryotql";
-import { Result, Schema } from "effect";
+	type Recipe,
+} from "@ryot-app/plugin-kit/ryotql";
+
+import {
+	entityIdentitySelection,
+	property,
+	propertyDate,
+	propertyNumber,
+	workoutDatesSelection,
+} from "./entity-selections";
 
 type Table = ReturnType<typeof table>;
-
-const entityIdentitySelection = (entity: Table) => ({
-	id: selectedField(column(entity, "id"), EntityId),
-	name: selectedField(column(entity, "name"), Schema.String),
-	schemaSlug: selectedField(column(entity, "entitySchemaSlug"), EntitySchemaSlug),
-});
 
 const entityWhere = (
 	entity: Table,
@@ -41,20 +39,10 @@ const entityWhere = (
 		...(input.name ? [eq(column(entity, "name"), literal(input.name))] : []),
 	);
 
-const property = (entity: Table, path: string) =>
-	castText(jsonPath(column(entity, "properties"), path));
-
-const propertyDate = (entity: Table, path: string) =>
-	castDate(jsonPath(column(entity, "properties"), path));
-
-const propertyNumber = (entity: Table, path: string) =>
-	castNumber(jsonPath(column(entity, "properties"), path));
-
 const workoutSelection = (entity: Table) => ({
 	...entityIdentitySelection(entity),
+	...workoutDatesSelection(entity),
 	comment: selectedField(property(entity, "comment"), Schema.NullOr(Schema.String)),
-	endedAt: selectedField(propertyDate(entity, "endedAt"), Schema.NullOr(Schema.String)),
-	startedAt: selectedField(propertyDate(entity, "startedAt"), Schema.NullOr(Schema.String)),
 	caloriesBurnt: selectedField(
 		propertyNumber(entity, "caloriesBurnt"),
 		Schema.NullOr(Schema.Finite),

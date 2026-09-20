@@ -2,7 +2,6 @@ import { Result, Schema } from "@ryot-app/client-sdk/effect";
 import {
 	and,
 	ascending,
-	castDate,
 	castNumber,
 	castText,
 	column,
@@ -19,11 +18,12 @@ import {
 	type Recipe,
 } from "@ryot-app/client-sdk/ryotql";
 
+import { workoutDatesSelection } from "../shared/entity-selections";
+
 export const workoutPresentationRecipe = defineRecipe((entityIds: readonly string[]) => {
 	const workout = table("entity", "presentationWorkout");
 	const event = table("event", "presentationSet");
 	const exercise = table("entity", "presentationExercise");
-	const workoutProperty = (key: string) => jsonPath(column(workout, "properties"), key);
 	const setProperty = (key: string) => jsonPath(column(event, "properties"), key);
 	const nullableNumber = Schema.NullOr(Schema.Finite);
 	return {
@@ -56,6 +56,11 @@ export const workoutPresentationRecipe = defineRecipe((entityIds: readonly strin
 			workouts: selectedRows(workout, {
 				limit: 100,
 				orderBy: [ascending(column(workout, "id"))],
+				selection: {
+					id: selectedField(column(workout, "id"), Schema.String),
+					name: selectedField(column(workout, "name"), Schema.String),
+					...workoutDatesSelection(workout),
+				},
 				where: and(
 					eq(column(workout, "entitySchemaSlug"), literal("workout")),
 					inArray(
@@ -63,18 +68,6 @@ export const workoutPresentationRecipe = defineRecipe((entityIds: readonly strin
 						entityIds.map((entityId) => literal(entityId)),
 					),
 				),
-				selection: {
-					id: selectedField(column(workout, "id"), Schema.String),
-					name: selectedField(column(workout, "name"), Schema.String),
-					endedAt: selectedField(
-						castDate(workoutProperty("endedAt")),
-						Schema.NullOr(Schema.String),
-					),
-					startedAt: selectedField(
-						castDate(workoutProperty("startedAt")),
-						Schema.NullOr(Schema.String),
-					),
-				},
 				include: {
 					sets: selectedInclude(event, {
 						limit: 100,

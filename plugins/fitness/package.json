@@ -7,8 +7,8 @@
 			"default": "./host/plugin.ts"
 		},
 		"./query-recipes": {
-			"types": "./host/query-recipes.ts",
-			"default": "./host/query-recipes.ts"
+			"types": "./shared/query-recipes.ts",
+			"default": "./shared/query-recipes.ts"
 		},
 		"./import-sources": {
 			"types": "./host/import-sources.ts",

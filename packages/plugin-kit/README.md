@@ -286,7 +286,12 @@ blocked post-write planning retains the source mutation.
 `getPluginConfig` reads only the pinned configuration revision and declared keys. Configuration is
 never copied into automation input or history. `emitSignal` returns `{ triggerId, wasCreated }`.
 Notification subscriptions remain portable user configuration; triggers, runs, attempts, retry
-state, logs, and encryption keys are not account-backup data.
+state, logs, mutation receipts, pending batch evidence, and encryption keys are not account-backup data.
+
+Commands with no matching hooks still commit and replay from a mutation receipt; they do not create
+automation trigger history. Batch hooks pin their script and configuration before the first item
+write and receive committed changes in stable chunks after the batch seals. A later plugin change
+does not add hooks to an already committed command.
 
 ## HTTP Rate Limits
 
