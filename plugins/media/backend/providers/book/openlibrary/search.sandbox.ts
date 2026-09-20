@@ -6,7 +6,6 @@ import { search } from "./shared";
 export const manifest = defineManifest({
 	kind: "provider",
 	name: "OpenLibrary Search",
-	capabilities: ["httpCall"],
 	slug: "book.openlibrary.search",
 });
 

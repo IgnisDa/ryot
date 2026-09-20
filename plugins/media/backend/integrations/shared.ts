@@ -1,4 +1,4 @@
-import type { CoreSandboxHostMethodMap, ExecutionMetadata } from "@ryot-app/sandbox-sdk/core";
+import type { ExecutionMetadata, ScriptHost } from "@ryot-app/sandbox-sdk/core";
 import { Effect, Schema } from "@ryot-app/sandbox-sdk/effect";
 
 import type {
@@ -153,7 +153,7 @@ export const truthy = (value: unknown) =>
 export const specifics = (value: unknown) => (isRecord(value) ? value : null);
 
 export const requestJson = (
-	host: { readonly httpCall: CoreSandboxHostMethodMap["httpCall"] },
+	host: Pick<ScriptHost, "httpCall">,
 	method: string,
 	url: string,
 	options?: { body?: string; headers?: Record<string, string> },

@@ -1,6 +1,6 @@
 import type { AutomationInput } from "@ryot-app/sandbox-sdk/automation";
 import { defineAutomation } from "@ryot-app/sandbox-sdk/automation";
-import type { SandboxHost } from "@ryot-app/sandbox-sdk/core";
+import type { ScriptHost } from "@ryot-app/sandbox-sdk/core";
 import { defineManifest } from "@ryot-app/sandbox-sdk/driver";
 import { Effect } from "@ryot-app/sandbox-sdk/effect";
 import type { JsonValue } from "@ryot-app/sandbox-sdk/wire";
@@ -21,7 +21,6 @@ export const manifest = defineManifest({
 	automationType: "automation",
 	name: "Auto-Complete Episodic Parent",
 	slug: "automation.media-auto-complete-episodic-parent",
-	capabilities: ["executeRyotql", "createEvents", "claimPersistentValue"],
 	inputProjection: {
 		event: { properties: [], compareProperties: [] },
 		signal: { properties: ["entitySchemaSlug", "oldStatus", "newStatus"] },
@@ -30,7 +29,7 @@ export const manifest = defineManifest({
 
 export const PARENT_COMPLETION_CLAIM_TTL_SECONDS = 3600;
 
-type AutomationHost = SandboxHost<typeof manifest.capabilities>;
+type AutomationHost = Pick<ScriptHost, "executeRyotql" | "createEvents" | "claimPersistentValue">;
 type Payload = AutomationInput["automation"]["payload"];
 type AutomationEventSnapshot = Extract<
 	Payload,

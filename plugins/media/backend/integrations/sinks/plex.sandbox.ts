@@ -1,4 +1,4 @@
-import type { SandboxHost } from "@ryot-app/sandbox-sdk/core";
+import type { ScriptHost } from "@ryot-app/sandbox-sdk/core";
 import { defineManifest, defineScript } from "@ryot-app/sandbox-sdk/driver";
 import { Effect } from "@ryot-app/sandbox-sdk/effect";
 
@@ -24,14 +24,6 @@ export const manifest = defineManifest({
 	kind: "script",
 	name: "Plex sink",
 	slug: "integration.plex-sink",
-	capabilities: [
-		"scratch",
-		"getCurrentIntegration",
-		"httpCall",
-		"getPluginConfig",
-		"getCachedValue",
-		"setCachedValue",
-	],
 });
 
 const multipartPayload = (rawBody: string, contentType: string) => {
@@ -113,7 +105,10 @@ const searchTmdbShow = Effect.fnUntraced(function* (
 });
 
 const findTmdbShow = Effect.fnUntraced(function* (
-	host: SandboxHost<typeof manifest.capabilities>,
+	host: Pick<
+		ScriptHost,
+		"getCurrentIntegration" | "httpCall" | "getPluginConfig" | "getCachedValue" | "setCachedValue"
+	>,
 	episode: PlexEpisode,
 ) {
 	const cacheKey = `tmdb-episode-show:${episode.episodeId}`;

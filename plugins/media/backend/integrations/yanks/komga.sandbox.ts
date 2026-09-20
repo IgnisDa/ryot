@@ -12,7 +12,6 @@ export const manifest = defineManifest({
 	kind: "script",
 	name: "Komga yank",
 	slug: "integration.komga",
-	capabilities: ["httpCall", "getCurrentIntegration", "scratch", "artifact-read"],
 });
 
 const Link = Schema.Struct({ url: Schema.String, label: Schema.String });

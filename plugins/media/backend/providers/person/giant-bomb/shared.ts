@@ -20,7 +20,6 @@ export const manifest = defineManifest({
 	kind: "provider",
 	name: "GiantBomb",
 	slug: "person.giant-bomb",
-	capabilities: ["httpCall", "getPluginConfig"],
 });
 
 const lastNonEmptySegment = (value: unknown) => {

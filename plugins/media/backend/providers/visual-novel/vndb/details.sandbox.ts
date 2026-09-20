@@ -5,7 +5,6 @@ import { details } from "./shared";
 
 export const manifest = defineManifest({
 	kind: "provider",
-	capabilities: ["httpCall"],
 	name: "VNDB Visual Novel Details",
 	slug: "visual-novel.vndb.details",
 });

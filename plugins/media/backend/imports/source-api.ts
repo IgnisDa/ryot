@@ -1,7 +1,7 @@
-import type { CoreSandboxHostMethodMap } from "@ryot-app/sandbox-sdk/core";
+import type { ScriptHost } from "@ryot-app/sandbox-sdk/core";
 import { Effect, Schema } from "@ryot-app/sandbox-sdk/effect";
 
-export type HttpHost = { readonly httpCall: CoreSandboxHostMethodMap["httpCall"] };
+export type HttpHost = Pick<ScriptHost, "httpCall">;
 type QueryValue = boolean | number | string | undefined;
 
 export const withSourceRequestOptions = (

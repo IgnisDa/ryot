@@ -5,7 +5,6 @@ export const manifest = defineManifest({
 	kind: "script",
 	slug: "bootstrap.fitness-workspace",
 	name: "Initialize Fitness Workspace",
-	capabilities: ["ensureUserEntities"],
 });
 
 export default defineScript({

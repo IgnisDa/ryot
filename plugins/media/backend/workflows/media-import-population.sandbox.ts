@@ -15,7 +15,6 @@ import {
 
 export const manifest = defineManifest({
 	kind: "workflow",
-	capabilities: [],
 	name: "Media import population",
 	slug: "workflow.media-import-population",
 });

@@ -1,4 +1,4 @@
-import type { SandboxHost } from "@ryot-app/sandbox-sdk/core";
+import type { ScriptHost } from "@ryot-app/sandbox-sdk/core";
 import { Effect } from "@ryot-app/sandbox-sdk/effect";
 import type { JsonValue } from "@ryot-app/sandbox-sdk/wire";
 
@@ -10,7 +10,7 @@ import {
 	type UnknownRecord,
 } from "../records";
 
-export type MangaUpdatesHost = SandboxHost<readonly ["httpCall"]>;
+export type MangaUpdatesHost = Pick<ScriptHost, "httpCall">;
 
 const MANGA_UPDATES_API_BASE_URL = "https://api.mangaupdates.com/v1";
 

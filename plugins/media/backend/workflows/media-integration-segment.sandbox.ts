@@ -18,7 +18,6 @@ import { collectMediaIntegrationWindows } from "../integrations/collection";
 
 export const manifest = defineManifest({
 	kind: "workflow",
-	capabilities: [],
 	slug: "workflow.media-integration-segment",
 	name: "Collect and apply bounded media integration windows",
 });

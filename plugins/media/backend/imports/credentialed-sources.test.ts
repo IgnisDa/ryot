@@ -1,28 +1,29 @@
 import { afterEach, expect, it } from "@effect/vitest";
 import { Effect } from "@ryot-app/sandbox-sdk/effect";
+import { defineSandboxTestHost } from "@ryot-app/sandbox-sdk/testing";
 
 import { stubHttpHost } from "../../tests/backend/imports/source-test-utils";
 import { collectTraktApi } from "./api-collection";
-import audiobookshelf from "./audiobookshelf.sandbox";
+import audiobookshelf, { manifest as audiobookshelfManifest } from "./audiobookshelf.sandbox";
 import { compareMediaRecords, serializeMediaRecords } from "./collection";
 import type { MediaSourceInput, MediaSourceOutput, MediaSourceRecord } from "./collection-schemas";
 import { mediaFilesystem, mediaFilesystemKey, mediaStageInput } from "./ingestion.test-support";
-import jellyfin from "./jellyfin.sandbox";
+import jellyfin, { manifest as jellyfinManifest } from "./jellyfin.sandbox";
 import { collectMediaTracker } from "./media-tracker-collection";
-import plex from "./plex.sandbox";
+import plex, { manifest as plexManifest } from "./plex.sandbox";
 import type { HttpHost } from "./source-api";
 
 afterEach(() => Reflect.deleteProperty(globalThis, mediaFilesystemKey));
-const runSource = Effect.fn(function* (
+const runSource = Effect.fn(function* <Host extends HttpHost>(
 	collect: (
 		input: MediaSourceInput,
-		host: HttpHost,
+		host: Host,
 	) => Effect.Effect<
 		typeof MediaSourceOutput.Type,
 		Effect.Error<ReturnType<typeof collectTraktApi>>
 	>,
 	settings: MediaSourceInput["settings"],
-	host: HttpHost,
+	host: Host,
 ) {
 	const fs = mediaFilesystem({});
 	let input = mediaStageInput({ settings });
@@ -120,7 +121,7 @@ it.live.each([
 it.live("collects Plex movies and bounded show leaves without refetching a section", () =>
 	Effect.gen(function* () {
 		const calls: string[] = [];
-		const host = stubHttpHost(({ path }) => {
+		const httpHost = stubHttpHost(({ path }) => {
 			calls.push(path);
 			if (path === "/library/sections") {
 				return {
@@ -184,6 +185,7 @@ it.live("collects Plex movies and bounded show leaves without refetching a secti
 				},
 			};
 		});
+		const host = defineSandboxTestHost(plexManifest, { httpCall: httpHost.httpCall });
 		const records = yield* runSource(
 			plex.run,
 			{ apiKey: "key", apiUrl: "https://plex.example" },
@@ -203,7 +205,7 @@ it.live("collects Plex movies and bounded show leaves without refetching a secti
 it.live("collects Jellyfin movies and series episodes using the admitted connection options", () =>
 	Effect.gen(function* () {
 		const calls: string[] = [];
-		const host = stubHttpHost(({ url, path, options }) => {
+		const httpHost = stubHttpHost(({ url, path, options }) => {
 			expect(options?.allowInsecureConnections).toBe(true);
 			calls.push(path + url.search);
 			if (path.endsWith("AuthenticateByName")) {
@@ -240,6 +242,7 @@ it.live("collects Jellyfin movies and series episodes using the admitted connect
 				},
 			};
 		});
+		const host = defineSandboxTestHost(jellyfinManifest, { httpCall: httpHost.httpCall });
 		const records = yield* runSource(
 			jellyfin.run,
 			{ username: "user", allowInsecureConnections: true, apiUrl: "https://jellyfin.example" },
@@ -264,7 +267,7 @@ it.live(
 	"keeps source failures while collecting Audiobookshelf audiobook and ebook identifiers",
 	() =>
 		Effect.gen(function* () {
-			const host = stubHttpHost(({ path }) =>
+			const httpHost = stubHttpHost(({ path }) =>
 				path.endsWith("/libraries")
 					? { body: { libraries: [{ id: "books", name: "Books", mediaType: "book" }] } }
 					: {
@@ -283,6 +286,7 @@ it.live(
 							},
 						},
 			);
+			const host = defineSandboxTestHost(audiobookshelfManifest, { httpCall: httpHost.httpCall });
 			const records = yield* runSource(
 				audiobookshelf.run,
 				{ apiKey: "key", apiUrl: "https://abs.example" },

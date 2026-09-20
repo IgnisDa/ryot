@@ -25,7 +25,6 @@ export const manifest = defineManifest({
 	name: "Anilist",
 	kind: "provider",
 	slug: "manga.anilist",
-	capabilities: ["httpCall", "getUserSettings"],
 });
 
 export const search = defineProvider({

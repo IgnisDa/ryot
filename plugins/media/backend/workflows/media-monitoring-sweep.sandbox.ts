@@ -16,7 +16,6 @@ import {
 
 export const manifest = defineManifest({
 	kind: "workflow",
-	capabilities: [],
 	name: "Media monitoring sweep",
 	slug: "workflow.media-monitoring-sweep",
 });

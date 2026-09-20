@@ -7,7 +7,6 @@ import { buildTrackDetails } from "./shared";
 
 export const manifest = defineManifest({
 	kind: "provider",
-	capabilities: ["httpCall"],
 	name: "YouTube Music details",
 	slug: "music.youtube-music.details",
 });

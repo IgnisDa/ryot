@@ -8,7 +8,6 @@ export const manifest = defineManifest({
 	kind: "script",
 	slug: "import.movary",
 	name: "Collect Movary export",
-	capabilities: ["artifact-read", "scratch"],
 });
 export default defineScript({
 	manifest,

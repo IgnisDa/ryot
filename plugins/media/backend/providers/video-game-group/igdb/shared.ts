@@ -16,7 +16,6 @@ export const manifest = defineManifest({
 	name: "IGDB",
 	kind: "provider",
 	slug: "video-game-group.igdb",
-	capabilities: ["httpCall", "getPluginConfig", "getCachedValue", "setCachedValue"],
 });
 
 const IMAGE_BASE_URL = "https://images.igdb.com/igdb/image/upload/t_cover_big";

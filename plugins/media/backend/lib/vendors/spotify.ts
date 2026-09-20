@@ -1,12 +1,13 @@
-import type { SandboxHost } from "@ryot-app/sandbox-sdk/core";
+import type { ScriptHost } from "@ryot-app/sandbox-sdk/core";
 import { Effect } from "@ryot-app/sandbox-sdk/effect";
 import type { SandboxHostError } from "@ryot-app/sandbox-sdk/wire";
 
 import { MediaSandboxError } from "../failures";
 import { asRecord, decodeJsonResponse, numberValue, stringValue } from "../records";
 
-export type SpotifyHost = SandboxHost<
-	readonly ["httpCall", "getPluginConfig", "getCachedValue", "setCachedValue"]
+export type SpotifyHost = Pick<
+	ScriptHost,
+	"httpCall" | "getPluginConfig" | "getCachedValue" | "setCachedValue"
 >;
 
 const SPOTIFY_TOKEN_URL = "https://accounts.spotify.com/api/token";

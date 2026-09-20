@@ -1,6 +1,6 @@
 import { describe, expect, it } from "@effect/vitest";
 import type { JsonValue } from "@ryot-app/contract/modules/ryotql/language";
-import type { SandboxHost } from "@ryot-app/sandbox-sdk/core";
+import type { ScriptHost } from "@ryot-app/sandbox-sdk/core";
 import { Effect, Schema } from "@ryot-app/sandbox-sdk/effect";
 import { defineSandboxTestHost } from "@ryot-app/sandbox-sdk/testing";
 
@@ -412,7 +412,10 @@ describe("Jellyfin official webhook plugin", () => {
 
 const notFound = Symbol("notFound");
 type Route = JsonValue | typeof notFound;
-type PlexHost = SandboxHost<typeof plexManifest.capabilities>;
+type PlexHost = Pick<
+	ScriptHost,
+	"getCurrentIntegration" | "httpCall" | "getPluginConfig" | "getCachedValue" | "setCachedValue"
+>;
 
 const tmdbRoutes =
 	(routes: Record<string, Route>): PlexHost["httpCall"] =>

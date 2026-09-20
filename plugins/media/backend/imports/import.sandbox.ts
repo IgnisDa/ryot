@@ -27,7 +27,6 @@ import { classifyTraktExportName } from "./trakt-files";
 
 export const manifest = defineManifest({
 	kind: "workflow",
-	capabilities: [],
 	name: "Media import",
 	slug: "workflow.media-import",
 });

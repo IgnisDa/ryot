@@ -21,7 +21,6 @@ import { mediaSources } from "../imports/references";
 
 export const manifest = defineManifest({
 	kind: "workflow",
-	capabilities: [],
 	name: "Collect media source steps",
 	slug: "workflow.media-import-collection",
 });

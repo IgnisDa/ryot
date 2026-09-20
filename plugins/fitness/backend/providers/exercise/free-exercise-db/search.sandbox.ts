@@ -7,7 +7,6 @@ export const manifest = defineManifest({
 	kind: "provider",
 	name: "Free Exercise DB Search",
 	slug: "exercise.free-exercise-db.search",
-	capabilities: ["httpCall", "getCachedValue", "setCachedValue"],
 });
 
 export default defineProvider({

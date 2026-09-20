@@ -1,6 +1,6 @@
 import { describe, expect, it } from "@effect/vitest";
 import type { JsonValue } from "@ryot-app/contract/modules/ryotql/language";
-import type { LogEntry, SandboxHost } from "@ryot-app/sandbox-sdk/core";
+import type { LogEntry, ScriptHost } from "@ryot-app/sandbox-sdk/core";
 import { Effect } from "@ryot-app/sandbox-sdk/effect";
 import { defineSandboxTestHost } from "@ryot-app/sandbox-sdk/testing";
 
@@ -18,7 +18,15 @@ import {
 } from "../../tests/backend/automations/automation-test-utils";
 import definition, { manifest } from "./jellyfin-push.sandbox";
 
-type JellyfinHost = SandboxHost<typeof manifest.capabilities>;
+type JellyfinHost = Pick<
+	ScriptHost,
+	| "log"
+	| "httpCall"
+	| "executeRyotql"
+	| "getEntitySchemas"
+	| "listIntegrations"
+	| "getUserPreferences"
+>;
 type HttpCall = { url: string; method: string; options: Record<string, unknown> };
 
 const movieEntity = entityRecord({

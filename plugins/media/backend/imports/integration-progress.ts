@@ -1,4 +1,4 @@
-import type { SandboxHost } from "@ryot-app/sandbox-sdk/core";
+import type { ScriptHost } from "@ryot-app/sandbox-sdk/core";
 import { DateTime, Effect, Schema } from "@ryot-app/sandbox-sdk/effect";
 import { eventReadRecipe, executeRyotqlRecipe } from "@ryot-app/sandbox-sdk/ryotql";
 import type { JsonValue } from "@ryot-app/sandbox-sdk/wire";
@@ -6,9 +6,8 @@ import type { JsonValue } from "@ryot-app/sandbox-sdk/wire";
 import { MediaSandboxError } from "../lib/failures";
 import type { MediaProgressEvent } from "../lib/ryotql";
 import type { MediaImportWriteChunkInput } from "./schemas";
-import type { manifest } from "./write-chunks.sandbox";
 
-type Host = SandboxHost<typeof manifest.capabilities>;
+type Host = Pick<ScriptHost, "getPluginConfig" | "executeRyotql" | "getCurrentIntegration" | "log">;
 type Properties = Readonly<Record<string, JsonValue>>;
 type ProgressEvent = Pick<MediaProgressEvent, "properties" | "occurredAt" | "createdAt">;
 const encodeProgressIdentity = Schema.encodeSync(

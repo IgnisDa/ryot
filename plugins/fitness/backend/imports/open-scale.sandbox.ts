@@ -7,7 +7,6 @@ export const manifest = defineManifest({
 	kind: "script",
 	slug: "import.open-scale",
 	name: "Collect OpenScale import",
-	capabilities: ["artifact-read", "scratch"],
 });
 
 export default defineScript({

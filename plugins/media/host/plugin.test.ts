@@ -668,7 +668,6 @@ it("declares the complete media-owned source", () => {
 	});
 	expect(monitoringTargetsManifest).toMatchObject({
 		kind: "script",
-		capabilities: ["executeRyotql"],
 		slug: "media-monitoring-targets",
 	});
 	expect(mediaPlugin.savedViews.every(({ pluginSlug }) => pluginSlug === "media")).toBe(true);

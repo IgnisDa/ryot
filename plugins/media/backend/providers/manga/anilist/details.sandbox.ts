@@ -7,7 +7,6 @@ export const manifest = defineManifest({
 	kind: "provider",
 	name: "Anilist Details",
 	slug: "manga.anilist.details",
-	capabilities: ["httpCall", "getUserSettings"],
 });
 
 export default defineProvider({ manifest, run: details.run, operation: "details" });

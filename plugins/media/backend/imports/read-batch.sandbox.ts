@@ -11,7 +11,6 @@ import { MediaImportAdapterBatch } from "./schemas";
 export const manifest = defineManifest({
 	kind: "script",
 	slug: "import.read-batch",
-	capabilities: ["artifact-read", "scratch"],
 	name: "Prepare captured media application batch",
 });
 export default defineScript({

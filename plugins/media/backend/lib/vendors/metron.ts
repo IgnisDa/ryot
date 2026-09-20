@@ -1,10 +1,10 @@
-import type { SandboxHost } from "@ryot-app/sandbox-sdk/core";
+import type { ScriptHost } from "@ryot-app/sandbox-sdk/core";
 import { Effect } from "@ryot-app/sandbox-sdk/effect";
 
 import { MediaSandboxError } from "../failures";
 import { decodeJsonResponse, numberValue, stringValue } from "../records";
 
-export type MetronHost = SandboxHost<readonly ["httpCall", "getPluginConfig"]>;
+export type MetronHost = Pick<ScriptHost, "httpCall" | "getPluginConfig">;
 
 export const getIdentifier = (value: unknown) => {
 	const numeric = numberValue(value);

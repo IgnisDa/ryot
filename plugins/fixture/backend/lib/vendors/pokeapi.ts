@@ -1,10 +1,10 @@
-import type { SandboxHost } from "@ryot-app/sandbox-sdk/core";
+import type { ScriptHost } from "@ryot-app/sandbox-sdk/core";
 import { Effect, Schema } from "@ryot-app/sandbox-sdk/effect";
 
 export const INDEX_LIMIT = 10_000;
 export const API_BASE_URL = "https://pokeapi.co/api/v2";
 
-export type PokeApiHost = SandboxHost<readonly ["httpCall"]>;
+export type PokeApiHost = Pick<ScriptHost, "httpCall">;
 export type PokeApiEntry = { readonly id: number; readonly name: string };
 
 export class PokeApiError extends Error {

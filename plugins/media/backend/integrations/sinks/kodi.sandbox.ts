@@ -17,7 +17,6 @@ export const manifest = defineManifest({
 	kind: "script",
 	name: "Kodi sink",
 	slug: "integration.kodi",
-	capabilities: ["getCurrentIntegration", "scratch"],
 });
 
 export const parseKodi = (rawBody: string, occurredAt: string) =>

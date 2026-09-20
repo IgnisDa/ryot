@@ -5,7 +5,6 @@ import { Effect, Schema } from "@ryot-app/sandbox-sdk/effect";
 export const manifest = defineManifest({
 	kind: "automation",
 	automationType: "automation",
-	capabilities: ["sendNotification"],
 	name: "Fitness Signal Notification",
 	slug: "automation.fitness-notification",
 	inputProjection: { signal: { properties: ["workoutName"] } },

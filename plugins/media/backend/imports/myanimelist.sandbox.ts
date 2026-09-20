@@ -8,7 +8,6 @@ export const manifest = defineManifest({
 	kind: "script",
 	slug: "import.myanimelist",
 	name: "Collect MyAnimeList export",
-	capabilities: ["artifact-read", "scratch"],
 });
 export default defineScript({
 	manifest,

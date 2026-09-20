@@ -7,7 +7,6 @@ export const manifest = defineManifest({
 	kind: "provider",
 	name: "IGDB Video Game Search",
 	slug: "video-game.igdb.search",
-	capabilities: ["httpCall", "getPluginConfig", "getCachedValue", "setCachedValue"],
 	searchOptionsSchema: {
 		unknownKeys: "strict",
 		fields: {

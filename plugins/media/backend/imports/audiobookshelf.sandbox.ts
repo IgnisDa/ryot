@@ -9,7 +9,6 @@ export const manifest = defineManifest({
 	kind: "script",
 	slug: "import.audiobookshelf",
 	name: "Collect Audiobookshelf history",
-	capabilities: ["artifact-read", "scratch", "httpCall"],
 });
 export default defineScript({
 	manifest,

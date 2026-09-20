@@ -1,4 +1,4 @@
-import type { SandboxHost } from "@ryot-app/sandbox-sdk/core";
+import type { ScriptHost } from "@ryot-app/sandbox-sdk/core";
 import { Effect } from "@ryot-app/sandbox-sdk/effect";
 import type {
 	ProviderDetailsRelatedEntity,
@@ -16,9 +16,9 @@ import {
 	type UnknownRecord,
 } from "../records";
 
-export type AnilistHost = SandboxHost<readonly ["httpCall"]>;
+export type AnilistHost = Pick<ScriptHost, "httpCall">;
 
-export type AnilistUserHost = SandboxHost<readonly ["httpCall", "getUserSettings"]>;
+export type AnilistUserHost = Pick<ScriptHost, "httpCall" | "getUserSettings">;
 
 export type AnilistMediaType = "ANIME" | "MANGA";
 

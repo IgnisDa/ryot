@@ -19,7 +19,6 @@ export const manifest = defineManifest({
 	kind: "script",
 	slug: "import.trakt-export",
 	name: "Collect Trakt export",
-	capabilities: ["artifact-read", "scratch"],
 });
 const encoder = new TextEncoder();
 const ListMetadata = Schema.Array(

@@ -1,9 +1,9 @@
-import type { SandboxHost } from "@ryot-app/sandbox-sdk/core";
+import type { ScriptHost } from "@ryot-app/sandbox-sdk/core";
 import { Effect } from "@ryot-app/sandbox-sdk/effect";
 
 import { asRecord, decodeJsonResponse } from "../records";
 
-export type OpenLibraryHost = SandboxHost<readonly ["httpCall"]>;
+export type OpenLibraryHost = Pick<ScriptHost, "httpCall">;
 
 export const getKeySegment = (value: unknown) => {
 	if (typeof value !== "string") {

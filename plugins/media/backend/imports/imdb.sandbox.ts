@@ -8,7 +8,6 @@ export const manifest = defineManifest({
 	kind: "script",
 	slug: "import.imdb",
 	name: "Parse IMDb import",
-	capabilities: ["artifact-read", "scratch"],
 });
 
 export default defineScript({

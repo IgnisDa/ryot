@@ -1,4 +1,4 @@
-import type { SandboxHost } from "@ryot-app/sandbox-sdk/core";
+import type { ScriptHost } from "@ryot-app/sandbox-sdk/core";
 import { defineManifest } from "@ryot-app/sandbox-sdk/driver";
 import { DateTime, Effect, Option } from "@ryot-app/sandbox-sdk/effect";
 import { defineProvider } from "@ryot-app/sandbox-sdk/provider";
@@ -11,9 +11,8 @@ export const manifest = defineManifest({
 	name: "iTunes",
 	kind: "provider",
 	slug: "podcast.itunes",
-	capabilities: ["httpCall"],
 });
-type ItunesHost = SandboxHost<typeof manifest.capabilities>;
+type ItunesHost = Pick<ScriptHost, "httpCall">;
 type UnknownRecord = Record<string, unknown>;
 const isRecord = (value: unknown): value is UnknownRecord =>
 	value !== null && typeof value === "object" && !Array.isArray(value);

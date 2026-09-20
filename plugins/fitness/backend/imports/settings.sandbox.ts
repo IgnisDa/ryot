@@ -8,7 +8,6 @@ import { FitnessSettingsInput, FitnessSettingsOutput } from "./settings";
 export const manifest = defineManifest({
 	kind: "script",
 	slug: "import.settings",
-	capabilities: ["artifact-read"],
 	name: "Read admitted Fitness settings",
 });
 

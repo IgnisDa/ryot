@@ -12,7 +12,6 @@ export const manifest = defineManifest({
 	kind: "operation",
 	name: "Disable media monitoring",
 	slug: "operation.media-monitoring-disable",
-	capabilities: ["executeRyotql", "changeUserRelationships"],
 });
 
 export default defineOperation({

@@ -9,7 +9,6 @@ export const manifest = defineManifest({
 	name: "Audible",
 	kind: "provider",
 	slug: "person.audible",
-	capabilities: ["httpCall"],
 });
 
 const AUTHORS_URL = "https://api.audnex.us/authors";

@@ -7,7 +7,6 @@ export const manifest = defineManifest({
 	kind: "provider",
 	name: "Hardcover Person Details",
 	slug: "person.hardcover.details",
-	capabilities: ["httpCall", "getPluginConfig"],
 });
 
 export default defineProvider({ manifest, run: details.run, operation: "details" });

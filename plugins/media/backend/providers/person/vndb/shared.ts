@@ -5,12 +5,7 @@ import { defineProvider } from "@ryot-app/sandbox-sdk/provider";
 import { asRecord, stringValue } from "../../../lib/records";
 import { readNextPage, readResults, readTotalItems, vndbPost } from "../../../lib/vendors/vndb";
 
-export const manifest = defineManifest({
-	name: "VNDB",
-	kind: "provider",
-	slug: "person.vndb",
-	capabilities: ["httpCall"],
-});
+export const manifest = defineManifest({ name: "VNDB", kind: "provider", slug: "person.vndb" });
 
 const PAGE_SIZE = 20;
 

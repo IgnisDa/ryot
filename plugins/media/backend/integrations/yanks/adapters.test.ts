@@ -1,6 +1,6 @@
 import { describe, expect, it } from "@effect/vitest";
 import type { JsonValue } from "@ryot-app/contract/modules/ryotql/language";
-import type { SandboxHost } from "@ryot-app/sandbox-sdk/core";
+import type { ScriptHost } from "@ryot-app/sandbox-sdk/core";
 import { Effect } from "@ryot-app/sandbox-sdk/effect";
 import { defineSandboxTestHost } from "@ryot-app/sandbox-sdk/testing";
 import { TestClock } from "effect/testing";
@@ -33,7 +33,10 @@ import {
 
 const failure = Symbol("failure");
 type Route = JsonValue | typeof failure;
-type HttpCall = SandboxHost<typeof plexManifest.capabilities>["httpCall"];
+type HttpCall = Pick<
+	ScriptHost,
+	"getCurrentIntegration" | "httpCall" | "getPluginConfig" | "getCachedValue" | "setCachedValue"
+>["httpCall"];
 type EntityGroup = MediaIntegrationAdapterResult["entityGroups"][number];
 
 const routeKey = (url: string) => {

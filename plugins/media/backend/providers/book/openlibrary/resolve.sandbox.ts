@@ -5,7 +5,6 @@ import { resolve } from "./shared";
 
 export const manifest = defineManifest({
 	kind: "provider",
-	capabilities: ["httpCall"],
 	name: "OpenLibrary Resolve",
 	slug: "book.openlibrary.resolve",
 });

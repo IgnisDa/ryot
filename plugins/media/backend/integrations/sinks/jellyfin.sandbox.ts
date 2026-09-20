@@ -10,7 +10,6 @@ export const manifest = defineManifest({
 	kind: "script",
 	name: "Jellyfin sink",
 	slug: "integration.jellyfin-sink",
-	capabilities: ["getCurrentIntegration", "scratch"],
 });
 
 export default defineScript({

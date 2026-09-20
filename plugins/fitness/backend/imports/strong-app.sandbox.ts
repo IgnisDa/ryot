@@ -7,7 +7,6 @@ export const manifest = defineManifest({
 	kind: "script",
 	slug: "import.strong-app",
 	name: "Collect Strong import",
-	capabilities: ["artifact-read", "scratch"],
 });
 
 export default defineScript({

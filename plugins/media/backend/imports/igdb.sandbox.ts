@@ -9,7 +9,6 @@ export const manifest = defineManifest({
 	kind: "script",
 	slug: "import.igdb",
 	name: "Parse IGDB import",
-	capabilities: ["artifact-read", "scratch"],
 });
 
 export default defineScript({

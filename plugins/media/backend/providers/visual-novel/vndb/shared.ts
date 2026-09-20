@@ -17,7 +17,6 @@ export const manifest = defineManifest({
 	name: "VNDB",
 	kind: "provider",
 	slug: "visual-novel.vndb",
-	capabilities: ["httpCall"],
 });
 
 const SEARCH_FIELDS = "title,image.url,released";

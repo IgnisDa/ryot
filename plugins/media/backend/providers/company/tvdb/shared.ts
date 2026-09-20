@@ -5,12 +5,7 @@ import { defineProvider } from "@ryot-app/sandbox-sdk/provider";
 import { asRecord, numberValue, recordsValue, stringValue } from "../../../lib/records";
 import { searchTvdb, tvdbGet } from "../../../lib/vendors/tvdb";
 
-export const manifest = defineManifest({
-	name: "TVDB",
-	kind: "provider",
-	slug: "company.tvdb",
-	capabilities: ["httpCall", "getCachedValue", "setCachedValue", "getPluginConfig"],
-});
+export const manifest = defineManifest({ name: "TVDB", kind: "provider", slug: "company.tvdb" });
 
 export const search = defineProvider({
 	manifest,

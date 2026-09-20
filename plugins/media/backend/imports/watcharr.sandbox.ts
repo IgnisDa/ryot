@@ -8,7 +8,6 @@ export const manifest = defineManifest({
 	kind: "script",
 	slug: "import.watcharr",
 	name: "Collect Watcharr export",
-	capabilities: ["artifact-read", "scratch"],
 });
 export default defineScript({
 	manifest,

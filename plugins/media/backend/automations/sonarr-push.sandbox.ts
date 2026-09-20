@@ -23,14 +23,6 @@ export const manifest = defineManifest({
 	inputProjection: {
 		event: { compareProperties: [], properties: ["entitySchemaSlug", "entityId"] },
 	},
-	capabilities: [
-		"log",
-		"httpCall",
-		"executeRyotql",
-		"getEntitySchemas",
-		"listIntegrations",
-		"getUserPreferences",
-	],
 });
 
 const pushShowToSonarr = (

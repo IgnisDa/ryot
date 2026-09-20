@@ -7,7 +7,6 @@ export const manifest = defineManifest({
 	kind: "provider",
 	name: "IGDB Video Game Search Options",
 	slug: "video-game.igdb.search-options",
-	capabilities: ["httpCall", "getPluginConfig", "getCachedValue", "setCachedValue"],
 });
 
 export default defineProvider({ manifest, run: searchOptions.run, operation: "search-options" });

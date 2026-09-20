@@ -19,12 +19,7 @@ import {
 	type PokeApiHost,
 } from "../../../lib/vendors/pokeapi";
 
-export const manifest = defineManifest({
-	name: "PokeAPI",
-	kind: "provider",
-	slug: "move.pokeapi",
-	capabilities: ["httpCall"],
-});
+export const manifest = defineManifest({ name: "PokeAPI", kind: "provider", slug: "move.pokeapi" });
 
 const searchOptionsSchema = strictStruct({
 	generation: Schema.optional(Schema.String),

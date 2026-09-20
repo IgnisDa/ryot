@@ -29,7 +29,6 @@ export const manifest = defineManifest({
 	kind: "operation",
 	name: "Metadata Lookup",
 	slug: "operation.metadata-lookup",
-	capabilities: ["httpCall", "getCurrentIntegration", "getPluginConfig", "getUserSettings"],
 });
 
 const searchProviders = [

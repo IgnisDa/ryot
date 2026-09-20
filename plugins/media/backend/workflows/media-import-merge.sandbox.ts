@@ -6,7 +6,6 @@ import { mediaMerge } from "../imports/references";
 
 export const manifest = defineManifest({
 	kind: "workflow",
-	capabilities: [],
 	slug: "workflow.media-import-merge",
 	name: "Merge media source captures",
 });

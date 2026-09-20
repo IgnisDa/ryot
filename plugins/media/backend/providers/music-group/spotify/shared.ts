@@ -14,7 +14,6 @@ export const manifest = defineManifest({
 	name: "Spotify",
 	kind: "provider",
 	slug: "music-group.spotify",
-	capabilities: ["httpCall", "getPluginConfig", "getCachedValue", "setCachedValue"],
 });
 
 export const search = defineProvider({

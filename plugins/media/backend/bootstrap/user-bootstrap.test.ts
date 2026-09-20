@@ -1,7 +1,8 @@
 import { describe, expect, it } from "@effect/vitest";
 import { Effect } from "@ryot-app/sandbox-sdk/effect";
+import { defineSandboxTestHost } from "@ryot-app/sandbox-sdk/testing";
 
-import script from "./user-bootstrap.sandbox";
+import script, { manifest } from "./user-bootstrap.sandbox";
 
 describe("media user bootstrap", () => {
 	it.live("ensures the empty Media Library entity through one batch call", () =>
@@ -9,12 +10,12 @@ describe("media user bootstrap", () => {
 			const calls: Array<unknown> = [];
 			const result = yield* script.run(
 				{},
-				{
+				defineSandboxTestHost(manifest, {
 					ensureUserEntities: (items) => {
 						calls.push(items);
 						return Effect.succeed([{ wasInserted: true, entityId: "library-id" }]);
 					},
-				},
+				}),
 			);
 
 			expect(calls).toEqual([

@@ -6,7 +6,6 @@ import { getTaxonomyDetails } from "../../taxonomy";
 
 export const manifest = defineManifest({
 	kind: "provider",
-	capabilities: [],
 	name: "Exercise Equipment Fitness Catalog Details",
 	slug: "exercise-equipment.fitness-catalog.details",
 });

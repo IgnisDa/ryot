@@ -7,7 +7,6 @@ export const manifest = defineManifest({
 	kind: "provider",
 	name: "Hardcover Resolve",
 	slug: "book.hardcover.resolve",
-	capabilities: ["httpCall", "getPluginConfig"],
 });
 
 export default defineProvider({ manifest, run: resolve.run, operation: "resolve" });

@@ -1,4 +1,4 @@
-import type { SandboxHost } from "@ryot-app/sandbox-sdk/core";
+import type { ScriptHost } from "@ryot-app/sandbox-sdk/core";
 import { Effect, Schema } from "@ryot-app/sandbox-sdk/effect";
 import type { ProviderSearchInput } from "@ryot-app/sandbox-sdk/provider";
 
@@ -13,8 +13,9 @@ import {
 } from "../records";
 import type { RoleRelatedEntity } from "../role-accumulator";
 
-export type TvdbHost = SandboxHost<
-	readonly ["httpCall", "getCachedValue", "setCachedValue", "getPluginConfig"]
+export type TvdbHost = Pick<
+	ScriptHost,
+	"httpCall" | "getCachedValue" | "setCachedValue" | "getPluginConfig"
 >;
 
 export type TvdbImagePurpose = "cover" | "backdrop" | "profile" | "logo" | "still" | "artwork";

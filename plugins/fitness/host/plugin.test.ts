@@ -254,18 +254,17 @@ it("declares the complete fitness-owned source", () => {
 	}
 	expect(
 		[hevyManifest, openScaleManifest, strongAppManifest, settingsManifest].map(
-			({ kind, slug, capabilities }) => ({ kind, slug, capabilities }),
+			({ kind, slug }) => ({ kind, slug }),
 		),
 	).toEqual([
-		{ kind: "script", slug: "import.hevy", capabilities: ["artifact-read", "scratch"] },
-		{ kind: "script", slug: "import.open-scale", capabilities: ["artifact-read", "scratch"] },
-		{ kind: "script", slug: "import.strong-app", capabilities: ["artifact-read", "scratch"] },
-		{ kind: "script", slug: "import.settings", capabilities: ["artifact-read"] },
+		{ kind: "script", slug: "import.hevy" },
+		{ kind: "script", slug: "import.open-scale" },
+		{ kind: "script", slug: "import.strong-app" },
+		{ kind: "script", slug: "import.settings" },
 	]);
 	expect(userBootstrapManifest).toMatchObject({
 		kind: "script",
 		slug: "bootstrap.fitness-workspace",
-		capabilities: ["ensureUserEntities"],
 	});
 	expect(fitnessPlugin.savedViews.every(({ pluginSlug }) => pluginSlug === "fitness")).toBe(true);
 	expect(

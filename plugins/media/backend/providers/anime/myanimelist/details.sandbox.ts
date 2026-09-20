@@ -7,7 +7,6 @@ export const manifest = defineManifest({
 	kind: "provider",
 	name: "MyAnimeList Details",
 	slug: "anime.myanimelist.details",
-	capabilities: ["httpCall", "getPluginConfig", "getUserSettings"],
 });
 
 export default defineProvider({ manifest, run: details.run, operation: "details" });

@@ -7,7 +7,6 @@ export const manifest = defineManifest({
 	kind: "provider",
 	name: "GiantBomb Person Search",
 	slug: "person.giant-bomb.search",
-	capabilities: ["httpCall", "getPluginConfig"],
 });
 
 export default defineProvider({ manifest, run: search.run, operation: "search" });

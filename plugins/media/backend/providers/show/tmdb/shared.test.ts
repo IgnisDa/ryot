@@ -1,4 +1,4 @@
-import type { SandboxHost } from "@ryot-app/sandbox-sdk/core";
+import type { ScriptHost } from "@ryot-app/sandbox-sdk/core";
 import { Effect } from "@ryot-app/sandbox-sdk/effect";
 import { defineSandboxTestHost, runSandboxTestScript } from "@ryot-app/sandbox-sdk/testing";
 import { describe, expect, it } from "vitest";
@@ -10,7 +10,7 @@ import { manifest } from "./shared";
 import translate, { manifest as translateManifest } from "./translate.sandbox";
 import trending, { manifest as trendingManifest } from "./trending.sandbox";
 
-type TmdbHost = SandboxHost<typeof manifest.capabilities>;
+type TmdbHost = Pick<ScriptHost, "httpCall" | "getPluginConfig" | "getUserSettings">;
 const httpSuccess = (body: unknown) =>
 	Effect.succeed({
 		status: 200,
@@ -27,17 +27,17 @@ const makeHost = (httpCall: TmdbHost["httpCall"]) =>
 const execution = { metadata: {}, sandboxScriptId: "script_test" };
 
 describe("show.tmdb sandbox script", () => {
-	it("declares one narrowly scoped script per operation", () => {
+	it("declares a script for each operation", () => {
 		expect([
-			[searchManifest.slug, search.operation, searchManifest.capabilities],
-			[detailsManifest.slug, details.operation, detailsManifest.capabilities],
-			[resolveManifest.slug, resolve.operation, resolveManifest.capabilities],
-			[translateManifest.slug, translate.operation, translateManifest.capabilities],
+			[searchManifest.slug, search.operation],
+			[detailsManifest.slug, details.operation],
+			[resolveManifest.slug, resolve.operation],
+			[translateManifest.slug, translate.operation],
 		]).toEqual([
-			["show.tmdb.search", "search", ["httpCall", "getPluginConfig", "getUserSettings"]],
-			["show.tmdb.details", "details", ["httpCall", "getPluginConfig"]],
-			["show.tmdb.resolve", "resolve", ["httpCall", "getPluginConfig"]],
-			["show.tmdb.translate", "translate", ["httpCall", "getPluginConfig"]],
+			["show.tmdb.search", "search"],
+			["show.tmdb.details", "details"],
+			["show.tmdb.resolve", "resolve"],
+			["show.tmdb.translate", "translate"],
 		]);
 	});
 
@@ -45,14 +45,8 @@ describe("show.tmdb sandbox script", () => {
 		expect({
 			kind: trendingManifest.kind,
 			slug: trendingManifest.slug,
-			capabilities: trendingManifest.capabilities,
 			operation: "operation" in trending ? trending.operation : null,
-		}).toEqual({
-			kind: "script",
-			operation: null,
-			slug: "show.tmdb.trending",
-			capabilities: ["httpCall", "getPluginConfig"],
-		});
+		}).toEqual({ kind: "script", operation: null, slug: "show.tmdb.trending" });
 	});
 
 	it("builds the TMDB show search endpoint", () => {

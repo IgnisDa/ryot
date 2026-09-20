@@ -5,7 +5,6 @@ import { search } from "./shared";
 
 export const manifest = defineManifest({
 	kind: "provider",
-	capabilities: ["httpCall"],
 	name: "MusicBrainz Music Group Search",
 	slug: "music-group.music-brainz.search",
 });

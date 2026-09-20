@@ -5,7 +5,6 @@ import { details } from "./shared";
 
 export const manifest = defineManifest({
 	kind: "provider",
-	capabilities: ["httpCall"],
 	name: "MusicBrainz Music Details",
 	slug: "music.music-brainz.details",
 });
