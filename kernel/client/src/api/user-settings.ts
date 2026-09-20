@@ -10,6 +10,8 @@ export class UserSettingsApi extends Context.Service<UserSettingsApi>()("UserSet
 		return {
 			refreshAvatar: (scope: ApiScope) =>
 				api.run(scope, (client) => client.userSettings.refreshAvatar()),
+			twoFactorStatus: (scope: ApiScope) =>
+				api.run(scope, (client) => client.userSettings.getTwoFactorStatus()),
 			updatePreferences: (
 				scope: ApiScope,
 				request: ContractRequest<"userSettings", "updatePreferences">,

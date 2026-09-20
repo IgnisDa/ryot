@@ -2,11 +2,14 @@ import { Effect } from "effect";
 
 import {
 	createAuthenticatedClient,
+	enableTwoFactorForSessionEffect,
+	getTwoFactorStatus,
 	getUserSettings,
 	refreshUserAvatar,
 	updateUserSettingsPreferences,
 } from "~/fixtures/kernel";
 import { describe, expect, it } from "~/support/effect-test";
+import { getApiUrl } from "~/support/harness-target";
 
 describe("user settings", () => {
 	it.live("reads and updates the current user's preferences", () =>
@@ -42,6 +45,23 @@ describe("user settings", () => {
 
 			expect(image?.startsWith("data:image/svg+xml;base64,")).toBe(true);
 			expect(image).not.toBe(before);
+		}),
+	);
+
+	it.live("reports two-factor status for a password account", () =>
+		Effect.gen(function* () {
+			const { token, client, password, sessionCookie } = yield* createAuthenticatedClient();
+
+			expect(yield* getTwoFactorStatus(client)).toEqual({ enabled: false, available: true });
+
+			yield* enableTwoFactorForSessionEffect({
+				token,
+				password,
+				sessionCookie,
+				baseUrl: getApiUrl(),
+			});
+
+			expect(yield* getTwoFactorStatus(client)).toEqual({ enabled: true, available: true });
 		}),
 	);
 });
