@@ -8,8 +8,7 @@ import { makeUploadsApi } from "#/api/ports.test-layer";
 import type { UploadsApi } from "#/api/uploads";
 import {
 	classifyTemporaryUploadFailure,
-	temporaryUpload,
-	temporaryUploadOutcome,
+	TemporaryUploads,
 } from "#/modules/assets/temporary-uploads";
 
 const scope = { userId: "user-1", serverUrl: decodeServerOrigin("https://ryot.example") };
@@ -27,9 +26,17 @@ const intent = {
 	headers: { "content-type": "text/csv" },
 };
 
+const temporaryUpload = (uploadScope: typeof scope, uploadRequest: typeof request) =>
+	Effect.flatMap(TemporaryUploads, (uploads) => uploads.upload(uploadScope, uploadRequest));
+
+const temporaryUploadOutcome = (uploadScope: typeof scope, uploadRequest: typeof request) =>
+	Effect.flatMap(TemporaryUploads, (uploads) => uploads.outcome(uploadScope, uploadRequest));
+
 const withUploads = <A>(
 	overrides: Parameters<typeof makeUploadsApi>[0],
-	body: (run: <B, E>(effect: Effect.Effect<B, E, UploadsApi>) => Promise<B>) => Promise<A>,
+	body: (
+		run: <B, E>(effect: Effect.Effect<B, E, UploadsApi | TemporaryUploads>) => Promise<B>,
+	) => Promise<A>,
 ) => {
 	const runtime = ManagedRuntime.make(makeUploadsApi(overrides));
 	return Effect.runPromise(
