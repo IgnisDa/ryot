@@ -312,6 +312,8 @@ const hostFunctionsLayer = (
 		readonly executionSettings?: (runId: string) => ImportSourceExecutionSettings;
 		readonly liveUserSettings?: Record<string, JsonValue> | (() => Record<string, JsonValue>);
 		readonly sourceStateUnavailable?: boolean;
+		readonly sourceStateRunId?: string;
+		readonly installationUnavailable?: boolean;
 	} = {},
 ) =>
 	Layer.unwrap(
@@ -372,7 +374,11 @@ const hostFunctionsLayer = (
 							Effect.andThen(append(sourceStateLookups, scope)),
 							Effect.andThen(
 								Effect.suspend(() => {
-									if (options.sourceStateUnavailable) {
+									if (
+										options.sourceStateUnavailable ||
+										(options.sourceStateRunId !== undefined &&
+											scope.runId !== options.sourceStateRunId)
+									) {
 										return Effect.fail(
 											new ImportRunError({ message: "Admitted source state is unavailable" }),
 										);
@@ -397,14 +403,18 @@ const hostFunctionsLayer = (
 						append(lookupOrder, "installation").pipe(
 							Effect.andThen(append(installationLookups, input)),
 							Effect.andThen(() =>
-								Effect.succeed({
-									installationId: "installation-1",
-									manifest: { ...fixtureManifest(), userSettingsSchema },
-									userSettings:
-										typeof options.liveUserSettings === "function"
-											? options.liveUserSettings()
-											: (options.liveUserSettings ?? { timezone: "UTC" }),
-								}),
+								Effect.succeed(
+									options.installationUnavailable
+										? null
+										: {
+												installationId: "installation-1",
+												manifest: { ...fixtureManifest(), userSettingsSchema },
+												userSettings:
+													typeof options.liveUserSettings === "function"
+														? options.liveUserSettings()
+														: (options.liveUserSettings ?? { timezone: "UTC" }),
+											},
+								),
 							),
 						),
 				}),
@@ -889,8 +899,8 @@ describe("getUserSettings", () => {
 				const functions = yield* makeAdditionalSandboxApiFunctions;
 				const userId = UserId.make("user-1");
 				expect(
-					yield* functions.getUserSettings(
-						runInput(
+					yield* functions.getUserSettings({
+						...runInput(
 							{
 								userId,
 								type: "user",
@@ -899,7 +909,9 @@ describe("getUserSettings", () => {
 							["getUserSettings"],
 							{ pluginRevision: systemPluginRevision },
 						),
-					),
+						context: { runId: "run-1" },
+						executionId: "run-1-import",
+					}),
 				).toEqual({ timezone: "UTC" });
 			}),
 		);
@@ -913,28 +925,35 @@ describe("getUserSettings", () => {
 			}),
 		}),
 	)((test) => {
-		test.effect("uses the accepted timezone after live installation settings change", () =>
+		test.effect("uses the accepted timezone for child and durable host executions", () =>
 			Effect.gen(function* () {
 				const functions = yield* makeAdditionalSandboxApiFunctions;
 				const userId = UserId.make("user-1");
-				const readForRun = (runId: string) =>
+				const readForRun = (runId: string, executionId: string, context: Record<string, unknown>) =>
 					functions.getUserSettings({
 						...runInput(
 							{
 								userId,
 								type: "user",
+								importRunId: ImportRunId.make(runId),
 								accountGeneration: { userId, token: "test-account-generation" },
 							},
 							["getUserSettings"],
 							{ pluginRevision: ingestionTestRevision },
 						),
-						context: { runId },
-						executionId: `${runId}-import`,
+						context,
+						executionId,
 					});
-				expect(yield* readForRun("run-1")).toEqual({ timezone: "America/Los_Angeles" });
+				expect(yield* readForRun("run-1", "run-1-import-child-collect-0", {})).toEqual({
+					timezone: "America/Los_Angeles",
+				});
 				liveUserSettings = { timezone: "Europe/Paris" };
-				expect(yield* readForRun("run-1")).toEqual({ timezone: "America/Los_Angeles" });
-				expect(yield* readForRun("run-2")).toEqual({ timezone: "Asia/Tokyo" });
+				expect(yield* readForRun("run-1", "run-1-import-host-1", { runId: "forged-run" })).toEqual({
+					timezone: "America/Los_Angeles",
+				});
+				expect(
+					yield* readForRun("run-2", "run-2-import-child-collect-0", { runId: "run-1" }),
+				).toEqual({ timezone: "Asia/Tokyo" });
 				expect(yield* (yield* HostFunctionCalls).sourceStateLookups).toEqual(
 					["run-1", "run-1", "run-2"].map((runId) => ({
 						runId,
@@ -962,19 +981,82 @@ describe("getUserSettings", () => {
 							{
 								userId,
 								type: "user",
+								importRunId: ImportRunId.make("run-1"),
 								accountGeneration: { userId, token: "test-account-generation" },
 							},
 							["getUserSettings"],
 							{ pluginRevision: systemPluginRevision },
 						),
-						context: { runId: "run-1" },
-						executionId: "run-1-import",
+						context: { runId: "forged-run" },
+						executionId: "run-1-import-host-1",
 					}),
 				);
 
 				expect(Option.getOrThrow(Result.getFailure(result)).message).toBe(
 					"Admitted ingestion execution settings are unavailable",
 				);
+			}),
+		);
+	});
+	layer(hostFunctionsLayer({ installationUnavailable: true }))((test) => {
+		test.effect("rejects admitted settings after the live installation is deleted", () =>
+			Effect.gen(function* () {
+				const functions = yield* makeAdditionalSandboxApiFunctions;
+				const userId = UserId.make("user-1");
+				const result = yield* Effect.result(
+					functions.getUserSettings({
+						...runInput(
+							{
+								userId,
+								type: "user",
+								importRunId: ImportRunId.make("run-1"),
+								accountGeneration: { userId, token: "test-account-generation" },
+							},
+							["getUserSettings"],
+							{ pluginRevision: ingestionTestRevision },
+						),
+						executionId: "run-1-import-host-1",
+					}),
+				);
+
+				expect(Option.getOrThrow(Result.getFailure(result)).message).toBe(
+					"Plugin installation not found",
+				);
+			}),
+		);
+	});
+	layer(hostFunctionsLayer({ sourceStateRunId: "run-1" }))((test) => {
+		test.effect("rejects a run ID that does not own the accepted settings snapshot", () =>
+			Effect.gen(function* () {
+				const functions = yield* makeAdditionalSandboxApiFunctions;
+				const userId = UserId.make("user-1");
+				const result = yield* Effect.result(
+					functions.getUserSettings({
+						...runInput(
+							{
+								userId,
+								type: "user",
+								importRunId: ImportRunId.make("different-run"),
+								accountGeneration: { userId, token: "test-account-generation" },
+							},
+							["getUserSettings"],
+							{ pluginRevision: ingestionTestRevision },
+						),
+						context: { runId: "run-1" },
+						executionId: "run-1-import-host-1",
+					}),
+				);
+
+				expect(Option.getOrThrow(Result.getFailure(result)).message).toBe(
+					"Admitted ingestion execution settings are unavailable",
+				);
+				expect(yield* (yield* HostFunctionCalls).sourceStateLookups).toEqual([
+					{
+						userId,
+						runId: "different-run",
+						accountGeneration: { userId, token: "test-account-generation" },
+					},
+				]);
 			}),
 		);
 	});
@@ -989,13 +1071,14 @@ describe("getUserSettings", () => {
 							{
 								userId,
 								type: "user",
+								importRunId: ImportRunId.make("run-1"),
 								accountGeneration: { userId, token: "test-account-generation" },
 							},
 							["getUserSettings"],
 							{ pluginRevision: ingestionTestRevision },
 						),
-						context: { runId: "run-1" },
-						executionId: "run-1-import",
+						context: { runId: "forged-run" },
+						executionId: "run-1-import-host-1",
 					}),
 				);
 				expect(Option.getOrThrow(Result.getFailure(result)).message).toBe(

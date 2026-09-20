@@ -6,6 +6,7 @@ import {
 	AutomationRunId,
 	AutomationTriggerId,
 	AutomationExecutionId,
+	ImportRunId,
 	PluginId,
 	PluginRevisionId,
 	PluginConfigRevisionId,
@@ -1387,37 +1388,48 @@ layer(
 )((test) => {
 	test.effect("dispatches migrated script activity requests as child workflows", () =>
 		Effect.gen(function* () {
+			const importRunId = ImportRunId.make("run-1");
+			const subject = {
+				importRunId,
+				type: "user" as const,
+				userId: UserId.make("user-1"),
+				accountGeneration: { userId: UserId.make("user-1"), token: "test-account-generation" },
+			};
 			const result = yield* performSandboxWorkflowRequest(
 				{
 					index: 0,
-					name: "parse",
+					name: "collect",
 					kind: "activity",
-					args: { input: {}, scriptSlug: "import.kappa" },
+					args: { input: {}, scriptSlug: "import.collect" },
 				},
 				SandboxScriptId.make("import-script"),
 				{
+					subject,
 					input: {},
-					executionId: "parent",
 					resolutionMode: "exact",
-					subject: { type: "system" },
+					executionId: `${importRunId}-import`,
 					scriptId: SandboxScriptId.make("workflow-script"),
 				},
 				{
+					subject,
 					providerId: null,
 					pluginRevision: null,
 					scriptSlug: "workflow",
-					subject: { type: "system" },
 					contentHash: "workflow-hash",
 					metadata: { kind: "workflow", capabilities: [] },
 					scriptId: SandboxScriptId.make("workflow-script"),
 				},
-				"parent",
+				`${importRunId}-import`,
 			);
 
 			expect(result).toEqual({ child: true });
 			expect((yield* (yield* WorkflowTestCalls).entries("execute-options")).at(-1)).toMatchObject({
-				executionId: "parent-child-parse-0",
-				payload: { resolutionMode: "exact", scriptId: "import-script" },
+				executionId: "run-1-import-child-collect-0",
+				payload: {
+					resolutionMode: "exact",
+					scriptId: "import-script",
+					subject: { type: "user", userId: "user-1", importRunId: "run-1" },
+				},
 			});
 		}),
 	);

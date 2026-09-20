@@ -5,6 +5,7 @@ import {
 	AutomationExecutionId,
 	AutomationRunId,
 	AutomationTriggerId,
+	ImportRunId,
 	SandboxProviderId,
 	PluginConfigRevisionId,
 	PluginId,
@@ -304,6 +305,89 @@ layer(childOwnerDispatchLayer)((test) => {
 					},
 				]);
 			}),
+	);
+});
+
+class RecordedImportHostInputs extends Context.Service<
+	RecordedImportHostInputs,
+	{ readonly inputs: Effect.Effect<ReadonlyArray<unknown>> }
+>()("test/RecordedImportHostInputs") {}
+
+const importHostDispatchLayer = Layer.unwrap(
+	Effect.gen(function* () {
+		const inputs = yield* Ref.make<ReadonlyArray<unknown>>([]);
+		const instance = WorkflowInstance.initial(SandboxScriptWorkflow, "run-1-import");
+		const engine = makeWorkflowActivityEngine(instance, {
+			activityExecute: (activity) =>
+				Effect.map(Effect.exit(activity.execute), (exit) => new Workflow.Complete({ exit })),
+		});
+		const hostImplementations: SandboxHostImplementations["Service"] = {
+			...implementations,
+			additional: {
+				...implementations.additional,
+				getUserSettings: (input) =>
+					append(inputs, {
+						context: input.context,
+						executionId: input.executionId,
+						subject: input.principal.subject,
+					}).pipe(Effect.as({ timezone: "America/Los_Angeles" })),
+			},
+		};
+		return Layer.mergeAll(
+			dispatcherLayer({
+				engine,
+				instance,
+				implementations: hostImplementations,
+				script: { ...script, metadata: { ...script.metadata, capabilities: ["getUserSettings"] } },
+			}),
+			Layer.succeed(RecordedImportHostInputs, { inputs: Ref.get(inputs) }),
+		);
+	}),
+);
+
+layer(importHostDispatchLayer)((test) => {
+	test.effect("dispatches durable import host calls with their trusted run subject", () =>
+		Effect.gen(function* () {
+			const importRunId = ImportRunId.make("run-1");
+			const importSubject = {
+				importRunId,
+				type: "user" as const,
+				userId: UserId.make("user-1"),
+				accountGeneration: { userId: UserId.make("user-1"), token: "test-account-generation" },
+			};
+			const importedPrincipal: SandboxExecutionPrincipal = {
+				...principal,
+				subject: importSubject,
+				metadata: { ...principal.metadata, capabilities: ["getUserSettings"] },
+			};
+			const context = { runId: "forged-run" };
+			const executionId = `${importRunId}-import`;
+			const dispatcher = yield* SandboxDurableHostDispatcher;
+
+			expect(
+				yield* dispatcher.dispatch(
+					{
+						index: 1,
+						kind: "host",
+						name: "getUserSettings",
+						args: { args: [], capability: "getUserSettings" },
+					},
+					{
+						scriptId,
+						executionId,
+						input: context,
+						subject: importSubject,
+						resolutionMode: "exact",
+						startedAt: "2026-08-06T00:00:00.000Z",
+					},
+					importedPrincipal,
+					executionId,
+				),
+			).toEqual({ state: "success", value: { timezone: "America/Los_Angeles" } });
+			expect(yield* (yield* RecordedImportHostInputs).inputs).toEqual([
+				{ context, subject: importSubject, executionId: "run-1-import-host-1" },
+			]);
+		}),
 	);
 });
 

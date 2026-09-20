@@ -135,7 +135,12 @@ export const runPluginImportWorkflow = Effect.fn("runPluginImportWorkflow")(func
 			executionId: owner,
 			scriptId: state.workflowScriptId,
 			pluginRevision: state.pluginRevision,
-			subject: { type: "user", accountGeneration, userId: payload.userId },
+			subject: {
+				type: "user",
+				accountGeneration,
+				userId: payload.userId,
+				importRunId: payload.runId,
+			},
 		});
 		const current = yield* repository.getIngestionRun(scope);
 		if (current?.status === "cancelling") {

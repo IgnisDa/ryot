@@ -143,6 +143,12 @@ it.effect(
 						sourcePayloadHandle: "staged-input-handle",
 						plan: { selection: {}, operation: "fixture" },
 					},
+					subject: {
+						type: "user",
+						userId: ingestionTestScope.userId,
+						importRunId: ingestionTestScope.runId,
+						accountGeneration: ingestionTestScope.accountGeneration,
+					},
 				}),
 			]);
 			expect(result.settlements).toEqual(["completed"]);
