@@ -1,4 +1,4 @@
-# Server Assembly
+# Server Tooling
 
 `assemble.ts` copies the archives named in `shipped-plugins.json`, verifies their client artifact
 hashes, compiles the client runtime and kernel renderers, and writes `plugins/client-image.json`.
