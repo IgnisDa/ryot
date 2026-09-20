@@ -88,26 +88,3 @@ export const groupImportFailuresByStage = (
 					},
 				];
 	});
-
-export const buildImportFailureClipboardText = (input: {
-	readonly runId: string;
-	readonly sourceName: string;
-	readonly failures: readonly ImportRunFailure[];
-}) => {
-	const lines = [
-		"Ryot import failures",
-		`Source: ${input.sourceName}`,
-		`Run: ${input.runId}`,
-		`Failures listed: ${input.failures.length}`,
-	];
-	for (const group of groupImportFailuresByStage(input.failures)) {
-		lines.push("", `${group.heading} (${group.stage})`);
-		for (const failure of group.failures) {
-			lines.push(`- ${importFailureRowLabel(failure)}: ${importFailureReasonDetail(failure)}`);
-			for (const entry of importFailureProvenanceEntries(failure)) {
-				lines.push(`    ${entry.key}: ${entry.value}`);
-			}
-		}
-	}
-	return lines.join("\n");
-};
