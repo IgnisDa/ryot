@@ -1,5 +1,5 @@
 import { BunServices } from "@effect/platform-bun";
-import { Effect, Layer } from "effect";
+import { Layer } from "effect";
 import { PersistedQueue } from "effect/persistence";
 
 import { AppConfig } from "#lib/infrastructure/config/service";
@@ -16,7 +16,6 @@ import { RedisService } from "#lib/infrastructure/redis";
 import { S3Service } from "#lib/infrastructure/s3";
 import { SandboxArtifactStore } from "#lib/infrastructure/sandbox-runtime/artifacts";
 import { SandboxDurableHostServicesLive } from "#lib/infrastructure/sandbox-runtime/layer";
-import { serverRole } from "#lib/infrastructure/server-role";
 import { ServerRun } from "#lib/infrastructure/server-run";
 import { WorkflowEngineLive } from "#lib/infrastructure/workflow";
 import { AuthServiceLive } from "#modules/auth/layer";
@@ -318,19 +317,7 @@ const RuntimeWorkLive = Layer.merge(
 	FrequentCronWorkflowDefinitionsLive,
 );
 
-const RuntimeLive = Layer.unwrap(
-	Effect.gen(function* () {
-		const config = yield* AppConfig;
-		const role = yield* serverRole(config.server);
-		if (role === "interactive") {
-			return Layer.merge(RuntimeWorkLive, ServerLive);
-		}
-		if (role === "background") {
-			return Layer.merge(RuntimeWorkLive, RuntimeSchedulersLive);
-		}
-		return Layer.mergeAll(RuntimeWorkLive, ServerLive, RuntimeSchedulersLive);
-	}),
-);
+const RuntimeLive = Layer.mergeAll(RuntimeWorkLive, ServerLive, RuntimeSchedulersLive);
 
 const MigrationBootstrapServicesLive = Layer.mergeAll(
 	NotificationSubscriptionsServiceLive,

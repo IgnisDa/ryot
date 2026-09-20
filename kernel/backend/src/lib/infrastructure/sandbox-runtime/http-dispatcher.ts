@@ -792,11 +792,7 @@ const makeSandboxHttpDispatcher = Effect.gen(function* () {
 						Scope.close(resource, Exit.void),
 					);
 					// This view supplies only the persisted parent interrupt lookup; live calls do not run workflow activities.
-					const identity = WorkflowInstance.initial(
-						SandboxScriptWorkflow.forLane(payload.lane),
-						executionId,
-						scope,
-					);
+					const identity = WorkflowInstance.initial(SandboxScriptWorkflow, executionId, scope);
 					let latest: SandboxHttpProgress | undefined;
 					return yield* run(request, payload, principal, executionId, startedAt, undefined, {
 						wait,

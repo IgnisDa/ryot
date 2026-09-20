@@ -143,7 +143,7 @@ describe("provider import admission", () => {
 				);
 				yield* notifications.publish({
 					executionId: "wake-a1",
-					workflowName: EntityImportWorkflow.interactive._tag,
+					workflowName: EntityImportWorkflow._tag,
 				});
 				expect(yield* workflows.nextStarted).toBe("wake-a3");
 				expect(yield* status("wake-a1", alice)).toBeNull();
@@ -158,7 +158,7 @@ describe("provider import admission", () => {
 				const notifications = yield* WorkflowExecutionNotifications;
 				const hint = yield* notifications.listen({
 					executionId: "admission-hint",
-					workflowName: EntityImportWorkflow.interactive._tag,
+					workflowName: EntityImportWorkflow._tag,
 				});
 				yield* submit("admission-hint", alice);
 				yield* reconcile;

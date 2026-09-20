@@ -28,8 +28,7 @@ import { applyLifecyclePolicyPatches } from "#lib/domain/lifecycle-policy-patch"
 import { pluginRevision } from "#lib/infrastructure/db/schema/tables/core";
 import { DatabaseSession } from "#lib/infrastructure/db/session";
 import { SANDBOX_LIMITS } from "#lib/infrastructure/sandbox-runtime/limits";
-import { implementLaneWorkflow } from "#lib/infrastructure/workflow-lane";
-import { makeActivity } from "#lib/infrastructure/workflow-scope";
+import { implementWorkflow, makeActivity } from "#lib/infrastructure/workflow-scope";
 import { MutationReceipts } from "#modules/mutations/receipts";
 import type { SandboxExecutionResult } from "#modules/sandbox/execution-result";
 import { SandboxRepository } from "#modules/sandbox/repository";
@@ -443,7 +442,7 @@ export const runAutomationRunWorkflow = Effect.fn("AutomationRunWorkflow")(funct
 	return completion(finalized, policyOutput);
 });
 
-export const AutomationRunWorkflowDefinitionsLive = implementLaneWorkflow(
+export const AutomationRunWorkflowDefinitionsLive = implementWorkflow(
 	AutomationRunWorkflow,
 	runAutomationRunWorkflow,
 );

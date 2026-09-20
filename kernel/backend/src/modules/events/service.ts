@@ -288,17 +288,12 @@ export class EventsService extends Context.Service<EventsService>()("EventsServi
 		});
 		const operationState = Effect.fn("EventsService.operationState")(function* (
 			userId: UserId,
-			job: WorkflowJob,
-			totalItems: number,
+			job: Required<WorkflowJob>,
 		): Effect.fn.Return<Schema.Schema.Type<typeof EventCreateOperation>, DbError> {
-			const { lane, executionId } = job;
-			const operationId = createWorkflowJobId(
-				operationSecret,
-				{ lane, executionId: `${executionId}:${totalItems}` },
-				userId,
-			);
+			const { itemCount, executionId } = job;
+			const operationId = createWorkflowJobId(operationSecret, job, userId);
 			const result = toWorkflowRunResult(
-				Option.getOrUndefined(yield* engine.poll(EventCreateWorkflow.forLane(lane), executionId)),
+				Option.getOrUndefined(yield* engine.poll(EventCreateWorkflow, executionId)),
 				{ onSuccess: (value) => ({ result: value }) },
 			);
 			if (result.status === "failed") {
@@ -313,7 +308,7 @@ export class EventsService extends Context.Service<EventsService>()("EventsServi
 						operationId,
 						writtenCount: progress.writtenCount,
 						status: "committed-follow-up-pending",
-						writesPending: result.status !== "completed" && progress.writtenCount < totalItems,
+						writesPending: result.status !== "completed" && progress.writtenCount < itemCount,
 					}
 				: { operationId, writtenCount: 0, status: "accepted", writesPending: true };
 		});
@@ -326,11 +321,11 @@ export class EventsService extends Context.Service<EventsService>()("EventsServi
 			}
 			yield* verifyCreateBatchInput(input, command);
 			const started = yield* Clock.currentTimeMillis;
-			const job = { lane: command.causation.lane, executionId: command.causation.executionId };
+			const job = { itemCount: input.payload.length, executionId: command.causation.executionId };
 			yield* dispatchAdmittedWorkflow(
 				receipts,
 				engine,
-				EventCreateWorkflow.forLane(job.lane),
+				EventCreateWorkflow,
 				command.accountGeneration,
 				{ discard: true, executionId: job.executionId, payload: { ...input, command } },
 				(admission) => admission,
@@ -339,7 +334,7 @@ export class EventsService extends Context.Service<EventsService>()("EventsServi
 			const remaining = Math.max(0, 35_000 - ((yield* Clock.currentTimeMillis) - started));
 			const observed = yield* Effect.gen(function* () {
 				for (;;) {
-					const state = yield* operationState(input.userId, job, input.payload.length);
+					const state = yield* operationState(input.userId, job);
 					if (state.status === "completed" || state.status === "failed") {
 						return state;
 					}
@@ -348,7 +343,7 @@ export class EventsService extends Context.Service<EventsService>()("EventsServi
 			}).pipe(Effect.timeoutOption(Duration.millis(remaining)));
 			const state = Option.isSome(observed)
 				? observed.value
-				: yield* operationState(input.userId, job, input.payload.length);
+				: yield* operationState(input.userId, job);
 			yield* verifyCreateBatchInput(input, command);
 			if (state.status === "completed") {
 				return state.result;
@@ -363,13 +358,10 @@ export class EventsService extends Context.Service<EventsService>()("EventsServi
 			operationId: string,
 		) {
 			const identity = resolveWorkflowJob(operationSecret, userId, operationId);
-			const separator = identity?.executionId.lastIndexOf(":") ?? -1;
-			const executionId = identity?.executionId.slice(0, separator);
-			const totalItems = Number(identity?.executionId.slice(separator + 1));
-			if (!identity || !executionId || !Number.isSafeInteger(totalItems) || totalItems < 1) {
+			if (identity?.itemCount === undefined) {
 				return yield* new EventOperationNotFound({ reason: { code: "operation-not-found" } });
 			}
-			return yield* operationState(userId, { executionId, lane: identity.lane }, totalItems);
+			return yield* operationState(userId, { ...identity, itemCount: identity.itemCount });
 		});
 
 		const lookupEditReceipt = (

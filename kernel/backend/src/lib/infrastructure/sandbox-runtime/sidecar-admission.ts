@@ -8,7 +8,6 @@ import { Reactivity } from "effect/reactivity";
 import { AppConfig, databaseConnectionBudget } from "../config/service";
 import { DatabaseConnectionLimit } from "../db/session";
 import { recordSandboxAdmissionWait } from "../runtime-metrics";
-import { servedLanes, serverRole } from "../server-role";
 import {
 	interactiveHeadroomBytes,
 	isolateBytes,
@@ -56,9 +55,8 @@ export class SandboxSidecarAdmission extends Context.Service<SandboxSidecarAdmis
 		make: Effect.gen(function* () {
 			const config = yield* AppConfig;
 			const concurrency = config.sandbox.workerConcurrency;
-			const served = servedLanes(yield* serverRole(config.server));
 			const plan = yield* Effect.fromResult(
-				sandboxMemoryPlan(config.sandbox.memoryBudgetMiB, process.constrainedMemory(), served),
+				sandboxMemoryPlan(config.sandbox.memoryBudgetMiB, process.constrainedMemory()),
 			);
 			const budget = plan.budget;
 			yield* Effect.logInfo("Sandbox memory admission planned").pipe(

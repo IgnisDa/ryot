@@ -251,7 +251,7 @@ layer(
 )((test) => {
 	test.effect("dispatches each population write between activities and logs blocked hooks", () => {
 		const instance = WorkflowInstance.initial(
-			ProviderEntityPopulationWorkflow.background,
+			ProviderEntityPopulationWorkflow,
 			payload.executionId,
 		);
 
@@ -285,7 +285,7 @@ layer(populationLayer({ dispatch: () => ({ warnings: [], entry: "dispatch" }) })
 	test.effect("replays the population body without re-running committed write activities", () => {
 		const activityRuns: string[] = [];
 		const instance = WorkflowInstance.initial(
-			ProviderEntityPopulationWorkflow.background,
+			ProviderEntityPopulationWorkflow,
 			payload.executionId,
 		);
 		const engine = makeMemoizingWorkflowEngine(instance, activityRuns);
@@ -334,10 +334,7 @@ layer(
 )((test) => {
 	test.effect("fails when the root entity schema is missing from the catalog", () => {
 		const executionId = "population-missing-root-schema";
-		const instance = WorkflowInstance.initial(
-			ProviderEntityPopulationWorkflow.background,
-			executionId,
-		);
+		const instance = WorkflowInstance.initial(ProviderEntityPopulationWorkflow, executionId);
 		return Effect.gen(function* () {
 			const error = yield* Effect.flip(
 				runProviderEntityPopulationWorkflow({ ...payload, executionId }, executionId),
