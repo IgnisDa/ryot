@@ -114,6 +114,18 @@ pub struct SpotifyService {
     client: Client,
 }
 
+async fn parse_spotify_response<T>(response: reqwest::Response) -> Result<T>
+where
+    T: for<'de> Deserialize<'de>,
+{
+    let status = response.status();
+    if !status.is_success() {
+        let body = response.text().await.unwrap_or_default();
+        bail!("Spotify API returned status {status}: {body}");
+    }
+    Ok(response.json().await?)
+}
+
 async fn fetch_artist_albums(client: &Client, artist_id: &str) -> Result<Vec<SpotifyAlbum>> {
     let mut all_albums = vec![];
     let mut offset = 0;
@@ -130,7 +142,8 @@ async fn fetch_artist_albums(client: &Client, artist_id: &str) -> Result<Vec<Spo
             .send()
             .await?;
 
-        let albums_response: SpotifyResponse<SpotifyAlbum> = response.json().await?;
+        let albums_response: SpotifyResponse<SpotifyAlbum> =
+            parse_spotify_response(response).await?;
 
         if albums_response.items.is_empty() {
             break;
@@ -155,7 +168,8 @@ async fn fetch_artist_top_tracks(client: &Client, artist_id: &str) -> Result<Vec
         .send()
         .await?;
 
-    let top_tracks_response: SpotifyArtistTopTracksResponse = response.json().await?;
+    let top_tracks_response: SpotifyArtistTopTracksResponse =
+        parse_spotify_response(response).await?;
     Ok(top_tracks_response.tracks)
 }
 
@@ -179,7 +193,8 @@ async fn get_spotify_access_token(ss: &Arc<SupportingService>) -> Result<String>
                 .send()
                 .await?;
 
-            let token_response: SpotifyTokenResponse = response.json().await?;
+            let token_response: SpotifyTokenResponse =
+                parse_spotify_response(response).await?;
 
             Ok(token_response.access_token)
         },
@@ -237,7 +252,7 @@ impl SpotifyService {
             .send()
             .await?;
 
-        let search_response: T = response.json().await?;
+        let search_response: T = parse_spotify_response(response).await?;
         Ok((search_response, page))
     }
 }
@@ -251,7 +266,7 @@ impl MediaProvider for SpotifyService {
             .send()
             .await?;
 
-        let track: SpotifyTrack = track_response.json().await?;
+        let track: SpotifyTrack = parse_spotify_response(track_response).await?;
 
         let artists = track.artists.unwrap_or_default();
         let by_various_artists = artists.len() > 1;
@@ -368,7 +383,7 @@ impl MediaProvider for SpotifyService {
             .send()
             .await?;
 
-        let album: SpotifyAlbum = response.json().await?;
+        let album: SpotifyAlbum = parse_spotify_response(response).await?;
 
         let publish_year = album
             .release_date
@@ -456,7 +471,7 @@ impl MediaProvider for SpotifyService {
                     .get(format!("{SPOTIFY_API_URL}/artists/{identifier}"))
                     .send()
                     .await?;
-                let artist: SpotifyArtist = response.json().await?;
+                let artist: SpotifyArtist = parse_spotify_response(response).await?;
                 Ok(artist)
             },
             fetch_artist_albums(&self.client, identifier),
