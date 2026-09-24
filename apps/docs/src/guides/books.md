@@ -12,13 +12,8 @@ API key expires after a year or on January 1st, so you will need to renew it acc
 You can use the following steps to obtain your own API keys:
 
 1. Create a [Hardcover](https://hardcover.app) account.
-2. Go to the [API Access](https://hardcover.app/account/api) settings page and copy the
-   header.
-3. Set the environment variable as described in the [configuration](../configuration.md)
-   docs.
-   ```bash
-   BOOKS_HARDCOVER_API_KEY=Bearer eyJhbGciOiJIUzI1NiIsCJ9.5MDIyfQ.SflKxwRJSMeKKF2QT4fwpMeJf36Pw5c
-   ```
+2. Open [API Access](https://hardcover.app/account/api) and create an API key using the `Read-Only Stats / Export` preset.
+3. Set it as `BOOKS_HARDCOVER_API_KEY`.
 
 ## Google Books
 
@@ -34,6 +29,6 @@ Books.
    "Enable".
 5. Click on "Credentials" on the left sidebar. Click on "Create Credentials" and select
    "API key".
-6.  Click on "Create" and copy the API key.
+6. Click on "Create" and copy the API key.
 7. Set the `BOOKS_GOOGLE_BOOKS_API_KEY` environment variable as described in the
    [configuration](../configuration.md) docs.
