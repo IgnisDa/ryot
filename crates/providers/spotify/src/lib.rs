@@ -4,8 +4,7 @@ use anyhow::{Result, bail};
 use async_trait::async_trait;
 use common_models::{EntityAssets, PersonSourceSpecifics, SearchDetails};
 use common_utils::{
-    PAGE_SIZE, compute_next_page, convert_date_to_year, convert_string_to_date,
-    get_base_http_client,
+    compute_next_page_with_size, convert_date_to_year, convert_string_to_date, get_base_http_client,
 };
 use data_encoding::BASE64;
 use database_models::metadata_group::MetadataGroupWithoutId;
@@ -31,6 +30,7 @@ use traits::MediaProvider;
 
 static SPOTIFY_TOKEN_URL: &str = "https://accounts.spotify.com/api/token";
 static SPOTIFY_API_URL: &str = "https://api.spotify.com/v1";
+static SPOTIFY_SEARCH_PAGE_SIZE: u64 = 10;
 
 #[derive(Debug, Serialize, Deserialize, Clone)]
 struct SpotifyTokenResponse {
@@ -168,6 +168,10 @@ async fn fetch_artist_top_tracks(client: &Client, artist_id: &str) -> Result<Vec
         .send()
         .await?;
 
+    if response.status() == reqwest::StatusCode::FORBIDDEN {
+        return Ok(vec![]);
+    }
+
     let top_tracks_response: SpotifyArtistTopTracksResponse =
         parse_spotify_response(response).await?;
     Ok(top_tracks_response.tracks)
@@ -193,8 +197,7 @@ async fn get_spotify_access_token(ss: &Arc<SupportingService>) -> Result<String>
                 .send()
                 .await?;
 
-            let token_response: SpotifyTokenResponse =
-                parse_spotify_response(response).await?;
+            let token_response: SpotifyTokenResponse = parse_spotify_response(response).await?;
 
             Ok(token_response.access_token)
         },
@@ -238,7 +241,9 @@ impl SpotifyService {
         T: for<'de> Deserialize<'de>,
     {
         let page = page.unwrap_or(1);
-        let offset = page.saturating_sub(1) * PAGE_SIZE;
+        let offset = page
+            .saturating_sub(1)
+            .saturating_mul(SPOTIFY_SEARCH_PAGE_SIZE);
 
         let response = self
             .client
@@ -247,7 +252,7 @@ impl SpotifyService {
                 ("q", query),
                 ("type", search_type),
                 ("offset", &offset.to_string()),
-                ("limit", &PAGE_SIZE.to_string()),
+                ("limit", &SPOTIFY_SEARCH_PAGE_SIZE.to_string()),
             ])
             .send()
             .await?;
@@ -343,7 +348,11 @@ impl MediaProvider for SpotifyService {
         let (search_response, page): (SpotifySearchResponse, u64) =
             self.search_spotify(query, "track", Some(page)).await?;
 
-        let next_page = compute_next_page(page, search_response.tracks.total);
+        let next_page = compute_next_page_with_size(
+            page,
+            search_response.tracks.total,
+            SPOTIFY_SEARCH_PAGE_SIZE,
+        );
 
         let items = search_response
             .tracks
@@ -436,7 +445,11 @@ impl MediaProvider for SpotifyService {
         let (search_response, page): (SpotifyAlbumSearchResponse, u64) =
             self.search_spotify(query, "album", Some(page)).await?;
 
-        let next_page = compute_next_page(page, search_response.albums.total);
+        let next_page = compute_next_page_with_size(
+            page,
+            search_response.albums.total,
+            SPOTIFY_SEARCH_PAGE_SIZE,
+        );
 
         let items = search_response
             .albums
@@ -560,7 +573,11 @@ impl MediaProvider for SpotifyService {
         let (search_response, page): (SpotifyArtistSearchResponse, u64) =
             self.search_spotify(query, "artist", Some(page)).await?;
 
-        let next_page = compute_next_page(page, search_response.artists.total);
+        let next_page = compute_next_page_with_size(
+            page,
+            search_response.artists.total,
+            SPOTIFY_SEARCH_PAGE_SIZE,
+        );
 
         let items = search_response
             .artists
