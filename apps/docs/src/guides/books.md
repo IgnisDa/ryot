@@ -13,7 +13,7 @@ You can use the following steps to obtain your own API keys:
 
 1. Create a [Hardcover](https://hardcover.app) account.
 2. Open [API Access](https://hardcover.app/account/api) and create an API key using the `Read-Only Stats / Export` preset.
-3. Set it as `RYOT_PLUGIN_MEDIA_HARDCOVER_API_KEY`.
+3. Set it as `BOOKS_HARDCOVER_API_KEY`.
 
 ## Google Books
 
