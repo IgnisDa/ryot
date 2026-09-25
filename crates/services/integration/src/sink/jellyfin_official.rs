@@ -227,22 +227,24 @@ fn bool_field(root: &Value, flat_keys: &[&str], item_keys: &[&str]) -> Option<bo
         })
 }
 
-/// Extract a provider id from flat keys, falling back to nested item objects.
-fn provider_id(root: &Value, provider: &str) -> Option<String> {
+/// Extract a provider id, preferring series-level ids for episodes.
+fn provider_id(root: &Value, provider: &str, item_type: &str) -> Option<String> {
+    if item_type.eq_ignore_ascii_case("Episode") {
+        let sp = format!("SeriesProvider_{provider}");
+        if let Some(id) = root.as_object().and_then(|m| first_flat(m, &[&sp])).and_then(as_string) {
+            return Some(id);
+        }
+        if let Some(id) = child(root, "Series").and_then(|s| child(s, "ProviderIds")).and_then(Value::as_object).and_then(|m| first_flat(m, &[provider])).and_then(as_string) {
+            return Some(id);
+        }
+    }
     let prefixed = format!("Provider_{provider}");
-    let flat = root
-        .as_object()
-        .and_then(|m| first_flat(m, &[&prefixed, provider]))
-        .and_then(as_string);
+    let flat = root.as_object().and_then(|m| first_flat(m, &[&prefixed, provider])).and_then(as_string);
     if flat.is_some() {
         return flat;
     }
     ["Item", "Series"].iter().find_map(|section| {
-        child(root, section)
-            .and_then(|i| child(i, "ProviderIds"))
-            .and_then(Value::as_object)
-            .and_then(|m| first_flat(m, &[provider]))
-            .and_then(as_string)
+        child(root, section).and_then(|i| child(i, "ProviderIds")).and_then(Value::as_object).and_then(|m| first_flat(m, &[provider])).and_then(as_string)
     })
 }
 
@@ -281,13 +283,13 @@ pub fn parse_official_payload(value: &Value) -> Result<OfficialPlayback> {
         .unwrap_or(false);
     Ok(OfficialPlayback {
         username,
-        item_type,
+        item_type: item_type.clone(),
         event_name,
         runtime_ticks,
         position_ticks,
-        tmdb_id: provider_id(value, "tmdb"),
-        tvdb_id: provider_id(value, "tvdb"),
-        imdb_id: provider_id(value, "imdb"),
+        tmdb_id: provider_id(value, "tmdb", &item_type),
+        tvdb_id: provider_id(value, "tvdb", &item_type),
+        imdb_id: provider_id(value, "imdb", &item_type),
         played_to_completion: played_to_completion || played_flag,
         episode_number: integer_field(
             value,
@@ -321,14 +323,12 @@ pub fn resolve(
     if info.event_name.eq_ignore_ascii_case(MARK_UNPLAYED_EVENT) {
         return Ok(None);
     }
-    let completed =
-        info.event_name.eq_ignore_ascii_case(MARK_PLAYED_EVENT) || info.played_to_completion;
-    let supported = OFFICIAL_PROGRESS_EVENTS
-        .iter()
-        .any(|e| info.event_name.eq_ignore_ascii_case(e));
-    if !completed && !supported {
+    let is_mark_played = info.event_name.eq_ignore_ascii_case(MARK_PLAYED_EVENT);
+    let supported = OFFICIAL_PROGRESS_EVENTS.iter().any(|e| info.event_name.eq_ignore_ascii_case(e));
+    if !supported && !is_mark_played {
         return Ok(None);
     }
+    let completed = is_mark_played || info.played_to_completion;
     if !is_username_allowed(username, info.username.as_deref()) {
         return Ok(None);
     }
@@ -426,7 +426,9 @@ mod tests {
         let payload = json!({
             "NotificationType": "PlaybackStart",
             "ItemType": "Episode",
-            "Provider_tmdb": "101",
+            "Provider_tmdb": "999",
+            "SeriesProvider_tmdb": "101",
+            "Series": {"ProviderIds": {"Tmdb": "101"}},
             "SeasonNumber": 1,
             "EpisodeNumber": 2,
             "PlaybackPositionTicks": 500,
@@ -435,10 +437,7 @@ mod tests {
         });
         let result = run_official(payload, None, None).unwrap();
         assert_eq!(seen_progress(&result), Some(dec!(25)));
-        assert_eq!(
-            first_details(&result).unwrap(),
-            ("101".to_owned(), Some(1), Some(2))
-        );
+        assert_eq!(first_details(&result).unwrap(), ("101".to_owned(), Some(1), Some(2)));
     }
 
     #[test]

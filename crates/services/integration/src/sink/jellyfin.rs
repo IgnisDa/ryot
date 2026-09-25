@@ -197,9 +197,7 @@ pub async fn sink_progress(
         }
         if is_mark_played || played {
             let user = nested_username(&value);
-            if let Some(expected) = jellyfin_sink_username.as_deref()
-                && user.as_deref() != Some(expected)
-            {
+            if !jellyfin_official::is_username_allowed(jellyfin_sink_username.as_deref(), user.as_deref()) {
                 return Ok(None);
             }
             let use_tvdb = jellyfin_sink_metadata_provider.as_deref() == Some("tvdb");

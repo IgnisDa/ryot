@@ -13,15 +13,6 @@ Both webhook plugins are supported and detected automatically:
 Generate a slug in the integration settings page and copy the newly generated webhook
 URL. It looks like `https://<instance_url>/_i/<slug>`.
 
-## Unofficial plugin
-
-1. In the Jellyfin webhook plugin settings, add a new webhook using the following
-   settings:
-    - Webhook URL => `<paste_url_copied>`
-    - Payload format => `Default`
-    - Listen to events only for => Choose your user
-    - Events => `Play`, `Pause`, `Resume`, `Stop` and `Progress`
-
 ## Official plugin
 
 1. Install the `Webhook` plugin from the Jellyfin plugin catalog and restart Jellyfin.
@@ -42,10 +33,12 @@ URL. It looks like `https://<instance_url>/_i/<slug>`.
 Enable the `Send all properties` option on the destination. Ryot reads the flat
 payload (`NotificationType`, `ItemType`, `Provider_tmdb`, ticks, ...) directly.
 
-### Option B: Custom template
+### Option B: Custom template (movies only)
 
 Disable `Send all properties` and paste the following template into the
-`Custom message template` field:
+`Custom message template` field. This option supports movie notifications only
+and should not be used for episode notifications because it omits the series
+provider ID.
 
 ```json
 {
@@ -63,6 +56,15 @@ Disable `Send all properties` and paste the following template into the
   "Session": { "PlayState": { "PositionTicks": {{PlaybackPositionTicks}} } }
 }
 ```
+
+## Unofficial plugin
+
+1. In the Jellyfin webhook plugin settings, add a new webhook using the following
+   settings:
+    - Webhook URL => `<paste_url_copied>`
+    - Payload format => `Default`
+    - Listen to events only for => Choose your user
+    - Events => `Play`, `Pause`, `Resume`, `Stop` and `Progress`
 
 ## Behavior notes
 
