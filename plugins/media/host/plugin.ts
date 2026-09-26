@@ -392,13 +392,17 @@ const integrationProviders = [
 		scriptSlug: "integration.youtube-music",
 		description: "Import listening history from YouTube Music",
 		settingsSchema: providerSettings("youtube_music", {
-			timezone: stringSetting("Timezone", "Timezone used for daily history synchronization"),
 			authCookie: stringSetting(
 				"Authentication cookie",
 				"YouTube Music authentication cookie",
 				true,
 				true,
 			),
+			timezone: {
+				...stringSetting("Timezone", "Timezone used for daily history synchronization"),
+				position: 0,
+				format: { kind: "timezone" as const },
+			},
 		}),
 	},
 	{
