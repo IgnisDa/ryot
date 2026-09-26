@@ -9,6 +9,7 @@ import {
 import { fireEvent, screen, waitFor } from "@testing-library/dom";
 import { Effect, Schema } from "effect";
 
+import CollectionBrowserPage from "./collection-browser";
 import EntityBrowserPage from "./entity-browser";
 import {
 	browserDataSources,
@@ -41,6 +42,20 @@ const openBrowser = (
 	return page;
 };
 
+const openCollectionBrowser = () => {
+	views += 1;
+	return mountPluginPage(CollectionBrowserPage, {
+		location: routeLocation("/v/collections"),
+		page: savedViewPageContext({
+			settings: browserSettings,
+			dataSources: browserDataSources,
+			rendererName: "collection-browser",
+			savedViewId: `collection-view-${views}`,
+			view: { icon: "library", name: "All Collections" },
+		}),
+	});
+};
+
 const testClock = () => {
 	const clock = createTestRyotClock();
 	clocks.push(clock);
@@ -71,6 +86,12 @@ const replyBrowser = (
 		outcome: "success",
 		response: browserPage(items, hasMore, nextCursor),
 	});
+
+const collectionBrowserRow = (entityId: string, name: string) => ({
+	...browserRow(entityId, name),
+	ownerPluginId: null,
+	entitySchemaSlug: "collection",
+});
 
 const answerBrowser = (
 	page: ReturnType<typeof mountPluginPage>,
@@ -189,6 +210,50 @@ describe("entity browser", () => {
 			});
 			yield* Effect.promise(() =>
 				waitFor(() => expect(page.container?.textContent).toContain("1 of 42 results")),
+			);
+		}),
+	);
+
+	it.live("shows each collection card's total member count", () =>
+		Effect.gen(function* () {
+			const answered = new Set<string>();
+			const page = openCollectionBrowser();
+			yield* Effect.promise(() =>
+				answerBrowser(page, answered, [
+					collectionBrowserRow("collection-1", "Favorites"),
+					collectionBrowserRow("collection-2", "Empty"),
+				]),
+			);
+			const countRequest = yield* Effect.promise(() =>
+				waitFor(() => {
+					const request = page.queryRequests("collectionMembersCounts")[0];
+					expect(request).toBeDefined();
+					return request;
+				}),
+			);
+			if (!countRequest) {
+				throw new Error("The collection member count query was not issued");
+			}
+			page.replyQuery(countRequest.requestId, {
+				outcome: "success",
+				response: {
+					data: {
+						collectionMembersCounts: {
+							type: "aggregate",
+							items: [{ total: 2, collectionId: "collection-1" }],
+						},
+					},
+				},
+			});
+			yield* Effect.promise(() =>
+				waitFor(() => {
+					expect(
+						page.container?.querySelector('[data-entity-id="collection-1"]')?.textContent,
+					).toContain("2 items");
+					expect(
+						page.container?.querySelector('[data-entity-id="collection-2"]')?.textContent,
+					).toContain("0 items");
+				}),
 			);
 		}),
 	);
