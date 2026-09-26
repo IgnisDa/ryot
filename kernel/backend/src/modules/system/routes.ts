@@ -7,6 +7,7 @@ import { sql } from "drizzle-orm";
 import { Effect, Option } from "effect";
 import { HttpApiBuilder } from "effect/unstable/httpapi";
 
+import { RYOT_VERSION } from "#lib/infrastructure/build-info";
 import {
 	AppConfig,
 	type AppConfigValue,
@@ -35,6 +36,7 @@ const umamiAnalytics = (config: AppConfigValue) => {
 
 export const publicSystemConfig = (config: AppConfigValue, isServerKeyValidated: boolean) =>
 	({
+		version: RYOT_VERSION,
 		pro: { isServerKeyValidated },
 		frontendOrigin: config.frontendUrl,
 		analytics: { umami: umamiAnalytics(config) },

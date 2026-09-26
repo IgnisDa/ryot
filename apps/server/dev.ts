@@ -4,7 +4,7 @@ import { BunRuntime, BunServices } from "@effect/platform-bun";
 import { clientPluginCompilerPlatformLayer } from "@ryot-app/client-plugin-compiler";
 import dotenv from "dotenv";
 import { Effect, FileSystem, Layer, Path, Stream } from "effect";
-import { ChildProcess } from "effect/unstable/process";
+import { ChildProcess, ChildProcessSpawner } from "effect/unstable/process";
 
 import { assemble, readShippedSlugs } from "./assembly/assemble";
 
@@ -21,9 +21,15 @@ const rendererSourceRoot = `${repositoryRoot}/packages/kernel-renderers/src`;
 
 const sandboxRuntimeGenerator = `${repositoryRoot}/kernel/backend/tooling/sandbox-runtime.ts`;
 
-const runCommand = ([executable, ...args]: ProcessCommand, cwd?: string) =>
+const runCommand = (
+	[executable, ...args]: ProcessCommand,
+	cwd?: string,
+	env?: Record<string, string>,
+) =>
 	ChildProcess.make(executable, args, {
 		cwd,
+		env,
+		extendEnv: true,
 		stdin: "inherit",
 		stdout: "inherit",
 		stderr: "inherit",
@@ -57,6 +63,12 @@ const program = Effect.gen(function* () {
 	const path = yield* Path.Path;
 	const slugs = yield* readShippedSlugs;
 	const fs = yield* FileSystem.FileSystem;
+	const spawner = yield* ChildProcessSpawner.ChildProcessSpawner;
+	const version = yield* spawner.string(
+		ChildProcess.make("git", ["describe", "--tags", "--always", "--dirty"], {
+			cwd: repositoryRoot,
+		}),
+	);
 
 	const generated = yield* runCommand(
 		turboBuild("@ryot-app/kernel-backend", "@ryot-app/kernel-renderers"),
@@ -95,9 +107,9 @@ const program = Effect.gen(function* () {
 		let outerExitCode = 0;
 		while (restart) {
 			const result = yield* Effect.raceFirst(
-				runCommand([process.execPath, "run", "--watch", "src/main.ts"], serverRoot).pipe(
-					Effect.map((exitCode) => ({ exitCode, restart: false as const })),
-				),
+				runCommand([process.execPath, "run", "--watch", "src/main.ts"], serverRoot, {
+					RYOT_VERSION: version.trim(),
+				}).pipe(Effect.map((exitCode) => ({ exitCode, restart: false as const }))),
 				archiveAssembled.pipe(Effect.as({ restart: true as const })),
 			);
 			restart = result.restart;
