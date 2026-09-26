@@ -24,7 +24,7 @@ import {
 	type PropertyValidationError,
 	type PropertyValidationIssue,
 } from "@ryot-app/contract/schema/property-schema";
-import { Email, HttpUrl } from "@ryot-app/contract/schema/utils";
+import { Email, HttpUrl, isNamedTimeZone } from "@ryot-app/contract/schema/utils";
 import { Result, Effect, Schema, SchemaGetter } from "effect";
 
 import {
@@ -384,6 +384,12 @@ const datetimeValueSchema = Schema.String.pipe(
 	),
 );
 
+const timeZoneValueSchema = Schema.String.pipe(
+	Schema.check(
+		Schema.makeFilter((value) => isNamedTimeZone(value) || "Expected an IANA time zone"),
+	),
+);
+
 const applyStringValidation = (
 	schema: StringValueSchema,
 	validation?: AppStringPropertyValidation,
@@ -413,6 +419,9 @@ const createStringValueSchema = (property: Extract<AppPropertyDefinition, { type
 	}
 	if (property.format?.kind === "email") {
 		return applyStringValidation(Email, property.validation);
+	}
+	if (property.format?.kind === "timezone") {
+		return applyStringValidation(timeZoneValueSchema, property.validation);
 	}
 	return applyStringValidation(Schema.String, property.validation);
 };

@@ -74,6 +74,7 @@ type AppPropertyBase<TValidation> = {
 export type AppStringPropertyFormat =
 	| { readonly kind: "url" }
 	| { readonly kind: "email" }
+	| { readonly kind: "timezone" }
 	| { readonly kind: "upload"; readonly allowedFileExtensions: ReadonlyArray<string> }
 	| { readonly kind: "oauth-connection"; readonly provider: string };
 
@@ -325,6 +326,7 @@ const fileExtensionSchema = Schema.String.pipe(
 const stringPropertyFormatSchema = Schema.Union([
 	strictStruct({ kind: Schema.Literal("url") }),
 	strictStruct({ kind: Schema.Literal("email") }),
+	strictStruct({ kind: Schema.Literal("timezone") }),
 	strictStruct({
 		kind: Schema.Literal("upload"),
 		allowedFileExtensions: Schema.Array(fileExtensionSchema).pipe(
