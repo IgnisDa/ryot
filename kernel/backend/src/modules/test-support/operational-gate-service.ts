@@ -150,6 +150,12 @@ export class OperationalGateService extends Context.Service<OperationalGateServi
 							.getPluginWorkflowResult(executionId)
 							.pipe(Effect.map((result) => ({ executionId, ...result }))),
 					);
+					const failures = executions.filter((execution) => execution.status === "failed");
+					if (failures.length > 0) {
+						yield* Effect.logError("Operational workflow load failed").pipe(
+							Effect.annotateLogs({ failures, runId: input.runId }),
+						);
+					}
 					if (executions.every(({ status }) => status === "completed" || status === "failed")) {
 						const failed = executions.some(({ status }) => status === "failed");
 						const finishedAt = yield* DateTime.nowAsDate;
@@ -202,37 +208,25 @@ export class OperationalGateService extends Context.Service<OperationalGateServi
 				let projectionErrors = 0;
 				let maxHighWater = 0;
 				for (const executionId of executionIds) {
-					let cursor = "0";
-					do {
-						const [nextCursor, keys] = yield* Effect.tryPromise(() =>
-							redis.client.scan(
-								cursor,
-								"MATCH",
-								`${redisKeys.sandboxWorkflowJournal(executionId)}*`,
-								"COUNT",
-								100,
-							),
-						).pipe(Effect.orDie);
-						cursor = nextCursor;
-						for (const key of keys) {
-							projectionCount += 1;
-							const fields = yield* Effect.tryPromise(() => redis.client.hgetall(key)).pipe(
-								Effect.orDie,
-							);
-							const highWater = Number(fields["high-water"]);
-							if (
-								!Number.isSafeInteger(highWater) ||
-								highWater < 0 ||
-								Array.from({ length: highWater }, (_, index) => fields[index]).some(
-									(value) => value === undefined,
-								)
-							) {
-								projectionErrors += 1;
-							} else {
-								maxHighWater = Math.max(maxHighWater, highWater);
-							}
-						}
-					} while (cursor !== "0");
+					const fields = yield* Effect.tryPromise(() =>
+						redis.client.hgetall(redisKeys.sandboxWorkflowJournal(executionId)),
+					).pipe(Effect.orDie);
+					if (Object.keys(fields).length === 0) {
+						continue;
+					}
+					projectionCount += 1;
+					const highWater = Number(fields["high-water"]);
+					if (
+						!Number.isSafeInteger(highWater) ||
+						highWater < 0 ||
+						Array.from({ length: highWater }, (_, index) => fields[index]).some(
+							(value) => value === undefined,
+						)
+					) {
+						projectionErrors += 1;
+					} else {
+						maxHighWater = Math.max(maxHighWater, highWater);
+					}
 				}
 
 				return {
