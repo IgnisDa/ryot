@@ -1,4 +1,5 @@
 import { describe, expect, it } from "@effect/vitest";
+import { EventId } from "@ryot-app/contract/schema/brands";
 import type {
 	DomainSandboxHostMethodMap,
 	CreateEventItem,
@@ -24,7 +25,14 @@ const recordingHost = (
 			Effect.sync(() => {
 				creates.push(items);
 				createOptions.push(options);
-				return { count: items.length };
+				return {
+					count: items.length,
+					outcomes: items.map((_, index) => ({
+						index,
+						status: "written" as const,
+						eventId: EventId.make(`created-event-${index}`),
+					})),
+				};
 			}),
 	});
 
@@ -33,7 +41,7 @@ describe("measurement reading log operation", () => {
 		Effect.gen(function* () {
 			const host = defineSandboxTestHost(manifest, {
 				executeRyotql: executeMeasurementRyotql,
-				createEvents: () => Effect.succeed({ count: 0 }),
+				createEvents: () => Effect.succeed({ count: 0, outcomes: [] }),
 			});
 			expect(
 				yield* runSandboxTestScript(
@@ -66,7 +74,14 @@ describe("measurement reading log operation", () => {
 										message: "Event creation failed",
 										data: { count: 1, partial: true },
 									})
-								: Effect.succeed({ count: items.length });
+								: Effect.succeed({
+										count: items.length,
+										outcomes: items.map((_, index) => ({
+											index,
+											status: "written" as const,
+											eventId: EventId.make(`created-event-${index}`),
+										})),
+									});
 						}),
 				});
 				const input = {

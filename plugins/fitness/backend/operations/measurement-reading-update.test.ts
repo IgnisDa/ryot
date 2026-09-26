@@ -1,4 +1,5 @@
 import { describe, expect, it } from "@effect/vitest";
+import { EventId } from "@ryot-app/contract/schema/brands";
 import type { CreateEventItem, UpdateEventItem } from "@ryot-app/plugin-backend-sdk/core";
 import { Effect } from "@ryot-app/plugin-backend-sdk/effect";
 import { defineSandboxTestHost, runSandboxTestScript } from "@ryot-app/plugin-backend-sdk/testing";
@@ -27,15 +28,22 @@ const recordingHost = (writes: Writes) =>
 				writes.deletes.push(ids);
 				return { count: ids.length };
 			}),
-		createEvents: (items) =>
-			Effect.sync(() => {
-				writes.creates.push(items);
-				return { count: items.length };
-			}),
 		updateEvents: (items) =>
 			Effect.sync(() => {
 				writes.updates.push(items);
 				return { count: items.length };
+			}),
+		createEvents: (items) =>
+			Effect.sync(() => {
+				writes.creates.push(items);
+				return {
+					count: items.length,
+					outcomes: items.map((_, index) => ({
+						index,
+						status: "written" as const,
+						eventId: EventId.make(`created-event-${index}`),
+					})),
+				};
 			}),
 	});
 

@@ -28,6 +28,9 @@ import {
 	upsertGlobalEntitiesArgsSchema,
 	upsertGlobalEntitiesDataSchema,
 	upsertGlobalEntitiesResultSchema,
+	updateUserEntityArgsSchema,
+	updateUserEntityDataSchema,
+	updateUserEntityResultSchema,
 } from "./entities";
 import {
 	createEventsArgsSchema,
@@ -201,6 +204,11 @@ export const domainSandboxHostContracts = {
 		args: createUserEntityArgsSchema,
 		success: createUserEntityDataSchema,
 		result: createUserEntityResultSchema,
+	},
+	updateUserEntity: {
+		args: updateUserEntityArgsSchema,
+		success: updateUserEntityDataSchema,
+		result: updateUserEntityResultSchema,
 	},
 	getOAuthAccessToken: {
 		success: oauthAccessTokenSchema,

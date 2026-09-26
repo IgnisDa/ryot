@@ -14,6 +14,7 @@ import type { WorkflowDurableCallRequest } from "@ryot-app/plugin-backend-sdk/wo
 import { sandboxHostEffect } from "@ryot-app/sandbox/host/invocation";
 import { Effect, Schema } from "effect";
 
+import { PluginRuntimeResolver } from "#modules/plugins/catalog/runtime-resolver";
 import {
 	type AdditionalScriptHostImplementationMap,
 	requireSandboxCapabilityInput,
@@ -32,6 +33,7 @@ import {
 	userLifecycleSource,
 	type LifecycleHostInput,
 } from "#modules/scripts/host/lifecycle-host";
+import { sandboxSubmissionCommand } from "#modules/scripts/host/submission-command";
 import { SandboxRepository } from "#modules/scripts/registry/repository";
 
 import { EventsService } from "./service";
@@ -47,86 +49,104 @@ export const toSandboxCreateEventsResult = (result: CreateEventsResponse) =>
 						message: `Event creation failed: ${result.failure.reason.code}`,
 						data: {
 							count: result.count,
+							outcomes: result.outcomes,
 							code: result.failure.reason.code,
 							partial: result.failure.reason.code !== "mutation-conflict",
 						},
 					} satisfies SandboxHostError)
-				: Effect.succeed({ count: result.count }),
+				: Effect.succeed({ count: result.count, outcomes: result.outcomes }),
 		),
 	);
 
-export const eventLifecycleHostSteps = (events: EventsService["Service"]) => ({
-	deleteEvents: {
-		commit: (input: LifecycleHostInput<"DeleteEvents">) =>
-			events.deleteBatch(input.eventIds, input.userId, input.command).pipe(
-				Effect.flatMap(({ count, warnings }) =>
-					reportSandboxLifecycleWarnings("deleteEvents", warnings).pipe(Effect.as({ count })),
+export const eventLifecycleHostSteps = (
+	events: EventsService["Service"],
+	runtime: PluginRuntimeResolver["Service"],
+) => {
+	const findInstallation = (
+		userId: UserId,
+		pluginId: Parameters<typeof runtime.findPluginAvailableToUser>[1],
+	) =>
+		runtime
+			.findPluginAvailableToUser(userId, pluginId)
+			.pipe(Effect.map((plugin) => plugin?.installationId ?? null));
+	return {
+		updateEvents: {
+			commit: (input: LifecycleHostInput<"UpdateEvents">) =>
+				events.updateBatch(input.items, input.userId, input.command).pipe(
+					Effect.flatMap(({ count, warnings }) =>
+						reportSandboxLifecycleWarnings("updateEvents", warnings).pipe(Effect.as({ count })),
+					),
+					Effect.mapError(lifecycleHostFailure),
 				),
-				Effect.mapError(lifecycleHostFailure),
-			),
-		validate: (
-			rawInput: ScriptRunInput,
-			eventIds: ReadonlyArray<string>,
-		): Effect.Effect<LifecycleHostInput<"DeleteEvents">, SandboxHostError> =>
-			sandboxHostEffect(
-				Effect.gen(function* () {
-					const input = yield* requireSandboxCapabilityInput(rawInput, "deleteEvents");
-					if (eventIds.length > EVENT_MUTATION_SANDBOX_LIMITS.items) {
-						return yield* Effect.fail(
-							`deleteEvents exceeds ${EVENT_MUTATION_SANDBOX_LIMITS.items} items`,
+			validate: (
+				rawInput: ScriptRunInput,
+				items: ReadonlyArray<unknown>,
+				options?: Parameters<AdditionalScriptHostImplementationMap["updateEvents"]>[2],
+			): Effect.Effect<LifecycleHostInput<"UpdateEvents">, SandboxHostError> =>
+				sandboxHostEffect(
+					Effect.gen(function* () {
+						const input = yield* requireSandboxCapabilityInput(rawInput, "updateEvents");
+						if (items.length > EVENT_MUTATION_SANDBOX_LIMITS.items) {
+							return yield* Effect.fail(
+								`updateEvents exceeds ${EVENT_MUTATION_SANDBOX_LIMITS.items} items`,
+							);
+						}
+						const decoded = yield* Schema.decodeUnknownEffect(Schema.Array(UpdateEventItem))(items);
+						const command = yield* sandboxSubmissionCommand(
+							input,
+							yield* sandboxLifecycleCommand(input, userLifecycleSource(input), "updateEvents"),
+							options,
+							findInstallation,
 						);
-					}
-					const decoded = yield* Schema.decodeEffect(Schema.Array(EventId))(eventIds);
-					const command = yield* sandboxLifecycleCommand(
-						input,
-						userLifecycleSource(input),
-						"deleteEvents",
-					);
-					return {
-						command,
-						eventIds: decoded,
-						_tag: "DeleteEvents",
-						userId: UserId.make(userSandboxRunUserId(input)),
-					} as const;
-				}),
-			),
-	},
-	updateEvents: {
-		commit: (input: LifecycleHostInput<"UpdateEvents">) =>
-			events.updateBatch(input.items, input.userId, input.command).pipe(
-				Effect.flatMap(({ count, warnings }) =>
-					reportSandboxLifecycleWarnings("updateEvents", warnings).pipe(Effect.as({ count })),
+						return {
+							command,
+							items: decoded,
+							_tag: "UpdateEvents",
+							userId: UserId.make(userSandboxRunUserId(input)),
+						} as const;
+					}),
 				),
-				Effect.mapError(lifecycleHostFailure),
-			),
-		validate: (
-			rawInput: ScriptRunInput,
-			items: ReadonlyArray<unknown>,
-		): Effect.Effect<LifecycleHostInput<"UpdateEvents">, SandboxHostError> =>
-			sandboxHostEffect(
-				Effect.gen(function* () {
-					const input = yield* requireSandboxCapabilityInput(rawInput, "updateEvents");
-					if (items.length > EVENT_MUTATION_SANDBOX_LIMITS.items) {
-						return yield* Effect.fail(
-							`updateEvents exceeds ${EVENT_MUTATION_SANDBOX_LIMITS.items} items`,
+		},
+		deleteEvents: {
+			commit: (input: LifecycleHostInput<"DeleteEvents">) =>
+				events.deleteBatch(input.eventIds, input.userId, input.command, input.expected).pipe(
+					Effect.flatMap(({ count, warnings }) =>
+						reportSandboxLifecycleWarnings("deleteEvents", warnings).pipe(Effect.as({ count })),
+					),
+					Effect.mapError(lifecycleHostFailure),
+				),
+			validate: (
+				rawInput: ScriptRunInput,
+				eventIds: ReadonlyArray<string>,
+				options?: Parameters<AdditionalScriptHostImplementationMap["deleteEvents"]>[2],
+			): Effect.Effect<LifecycleHostInput<"DeleteEvents">, SandboxHostError> =>
+				sandboxHostEffect(
+					Effect.gen(function* () {
+						const input = yield* requireSandboxCapabilityInput(rawInput, "deleteEvents");
+						if (eventIds.length > EVENT_MUTATION_SANDBOX_LIMITS.items) {
+							return yield* Effect.fail(
+								`deleteEvents exceeds ${EVENT_MUTATION_SANDBOX_LIMITS.items} items`,
+							);
+						}
+						const decoded = yield* Schema.decodeEffect(Schema.Array(EventId))(eventIds);
+						const command = yield* sandboxSubmissionCommand(
+							input,
+							yield* sandboxLifecycleCommand(input, userLifecycleSource(input), "deleteEvents"),
+							options,
+							findInstallation,
 						);
-					}
-					const decoded = yield* Schema.decodeUnknownEffect(Schema.Array(UpdateEventItem))(items);
-					const command = yield* sandboxLifecycleCommand(
-						input,
-						userLifecycleSource(input),
-						"updateEvents",
-					);
-					return {
-						command,
-						items: decoded,
-						_tag: "UpdateEvents",
-						userId: UserId.make(userSandboxRunUserId(input)),
-					} as const;
-				}),
-			),
-	},
-});
+						return {
+							command,
+							eventIds: decoded,
+							_tag: "DeleteEvents",
+							expected: options?.expected,
+							userId: UserId.make(userSandboxRunUserId(input)),
+						} as const;
+					}),
+				),
+		},
+	};
+};
 
 export type EventLifecycleHostSteps = ReturnType<typeof eventLifecycleHostSteps>;
 
@@ -134,12 +154,12 @@ export const makeEventScriptHost = Effect.gen(function* () {
 	const events = yield* EventsService;
 	const eventStreamWork = yield* EventStreamWorkService;
 	const sandboxRepository = yield* SandboxRepository;
-	const lifecycle = eventLifecycleHostSteps(events);
+	const lifecycle = eventLifecycleHostSteps(events, yield* PluginRuntimeResolver);
 
 	const createEvents = (input: UserSandboxRunInput, payload: ReadonlyArray<CreateEventItem>) =>
 		Effect.gen(function* () {
 			if (payload.length === 0) {
-				return { count: 0 };
+				return { count: 0, outcomes: [] };
 			}
 			const command = yield* sandboxLifecycleCommand(
 				input,
@@ -202,22 +222,6 @@ export const makeEventScriptHost = Effect.gen(function* () {
 
 	return {
 		requestEventStreamWork,
-		updateEvents: (rawInput, items) =>
-			sandboxHostEffect(
-				Effect.gen(function* () {
-					const [decoded] = yield* Schema.decodeEffect(updateEventsArgsSchema)([items]);
-					const input = yield* lifecycle.updateEvents.validate(rawInput, decoded);
-					return yield* lifecycle.updateEvents.commit(input);
-				}),
-			),
-		deleteEvents: (rawInput, eventIds) =>
-			sandboxHostEffect(
-				Effect.gen(function* () {
-					const [decoded] = yield* Schema.decodeEffect(deleteEventsArgsSchema)([eventIds]);
-					const input = yield* lifecycle.deleteEvents.validate(rawInput, decoded);
-					return yield* lifecycle.deleteEvents.commit(input);
-				}),
-			),
 		createEvents: (rawInput, body, options) =>
 			options !== undefined
 				? sandboxHostEffect(Effect.fail("Idempotent createEvents requires durable event dispatch"))
@@ -229,6 +233,36 @@ export const makeEventScriptHost = Effect.gen(function* () {
 						),
 						sandboxHostEffect,
 					),
+		updateEvents: (
+			rawInput,
+			items,
+			options?: Parameters<AdditionalScriptHostImplementationMap["updateEvents"]>[2],
+		) =>
+			sandboxHostEffect(
+				Effect.gen(function* () {
+					const [decoded, submission] = yield* Schema.decodeEffect(updateEventsArgsSchema)([
+						items,
+						options,
+					]);
+					const input = yield* lifecycle.updateEvents.validate(rawInput, decoded, submission);
+					return yield* lifecycle.updateEvents.commit(input);
+				}),
+			),
+		deleteEvents: (
+			rawInput,
+			eventIds,
+			options?: Parameters<AdditionalScriptHostImplementationMap["deleteEvents"]>[2],
+		) =>
+			sandboxHostEffect(
+				Effect.gen(function* () {
+					const [decoded, submission] = yield* Schema.decodeEffect(deleteEventsArgsSchema)([
+						eventIds,
+						options,
+					]);
+					const input = yield* lifecycle.deleteEvents.validate(rawInput, decoded, submission);
+					return yield* lifecycle.deleteEvents.commit(input);
+				}),
+			),
 	} satisfies Pick<
 		AdditionalScriptHostImplementationMap,
 		"createEvents" | "deleteEvents" | "updateEvents" | "requestEventStreamWork"

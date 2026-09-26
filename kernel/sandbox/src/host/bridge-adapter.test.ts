@@ -28,6 +28,7 @@ const makeImplementations = (
 	listIntegrations: () => Effect.fail({ message: "unused" }),
 	sendNotification: () => Effect.fail({ message: "unused" }),
 	createUserEntity: () => Effect.fail({ message: "unused" }),
+	updateUserEntity: () => Effect.fail({ message: "unused" }),
 	getPersistentValue: () => Effect.fail({ message: "unused" }),
 	getUserPreferences: () => Effect.fail({ message: "unused" }),
 	ensureUserEntities: () => Effect.fail({ message: "unused" }),
@@ -363,6 +364,42 @@ describe("bindSandboxHostFunctions", () => {
 			expect(yield* bound.createUserEntity([{ ...item, scope: "caller-selected" }])).toEqual({
 				success: false,
 				error: "0.scope: Expected no excess property",
+			});
+			expect(calls).toHaveLength(1);
+		}),
+	);
+
+	it.effect("preserves typed write conflicts and rejects caller-selected update authority", () =>
+		Effect.gen(function* () {
+			const calls: unknown[] = [];
+			const bound = bindSandboxHostFunctions(
+				makeImplementations({
+					updateUserEntity: (runInput, item, options) => {
+						calls.push({ item, options, runInput });
+						return Effect.fail({
+							message: "changed",
+							data: { message: "changed", code: "mutation-conflict" },
+						});
+					},
+				}),
+				input,
+			);
+			const item = {
+				properties: {},
+				name: "Changed",
+				entityId: "entity",
+				expected: { properties: {}, name: "Original", updatedAt: "2026-10-15T00:00:00Z" },
+			};
+			const options = { idempotencyKey: "submission", submittedAt: "2026-10-15T00:00:00Z" };
+			expect(yield* bound.updateUserEntity([item, options])).toEqual({
+				success: false,
+				error: "changed",
+				data: { message: "changed", code: "mutation-conflict" },
+			});
+			expect(calls).toEqual([{ item, options, runInput: input }]);
+			expect(yield* bound.updateUserEntity([{ ...item, userId: "other" }, options])).toEqual({
+				success: false,
+				error: "0.userId: Expected no excess property",
 			});
 			expect(calls).toHaveLength(1);
 		}),
