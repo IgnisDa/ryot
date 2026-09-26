@@ -363,12 +363,12 @@ export class BackupRestorePersistence extends Context.Service<BackupRestorePersi
 						}
 						const [packageRevision] = yield* session.run((db) =>
 							db
-								.select({ manifest: schema.pluginRevision.manifest })
+								.select({ configSchema: schema.pluginRevision.configSchema })
 								.from(schema.pluginRevision)
 								.where(eq(schema.pluginRevision.id, revision.pluginRevisionId))
 								.limit(1),
 						);
-						revisionSchema = packageRevision?.manifest.configSchema ?? null;
+						revisionSchema = packageRevision?.configSchema ?? null;
 					} else if (plugin.ownerId !== null) {
 						if (plugin.ownerId !== row.userId) {
 							return yield* new DbError({ message: "Invalid installation owner" });
@@ -396,18 +396,18 @@ export class BackupRestorePersistence extends Context.Service<BackupRestorePersi
 						);
 						const [revision] = yield* session.run((db) =>
 							db
-								.select({ manifest: schema.pluginRevision.manifest })
+								.select({ configSchema: schema.pluginRevision.configSchema })
 								.from(schema.pluginRevision)
 								.where(eq(schema.pluginRevision.id, pluginRevisionId))
 								.limit(1),
 						);
-						revisionSchema = revision?.manifest.configSchema ?? null;
+						revisionSchema = revision?.configSchema ?? null;
 					} else {
 						properties = {};
 					}
 					const [active] = yield* session.run((db) =>
 						db
-							.select({ manifest: schema.pluginRevision.manifest })
+							.select({ configSchema: schema.pluginRevision.configSchema })
 							.from(schema.pluginRevision)
 							.where(eq(schema.pluginRevision.id, pluginRevisionId))
 							.limit(1),
@@ -415,11 +415,7 @@ export class BackupRestorePersistence extends Context.Service<BackupRestorePersi
 					const projection =
 						plugin.ownerId === null || !active
 							? { config: {}, configuredSecrets: [] }
-							: redactPluginConfig(
-									active.manifest.configSchema,
-									properties,
-									revisionSchema ?? undefined,
-								);
+							: redactPluginConfig(active.configSchema, properties, revisionSchema ?? undefined);
 					yield* session.run((db) =>
 						db
 							.update(schema.pluginInstallation)

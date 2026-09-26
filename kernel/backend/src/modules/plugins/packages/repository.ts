@@ -8,6 +8,7 @@ import {
 } from "@ryot-app/contract/schema/brands";
 import { PluginClientArtifact } from "@ryot-app/plugin-client-contract";
 import { stableStringify } from "@ryot-app/ts-utils/json";
+import { generateId } from "better-auth";
 import {
 	and,
 	asc,
@@ -32,6 +33,7 @@ import {
 	PLUGIN_INGESTION_ADVISORY_LOCK_KEY,
 } from "#modules/plugins/packages/ingestion-fence";
 import { pluginSandboxAuthority } from "#modules/scripts/authorization/plugin-authority";
+import { pluginRevisionSections } from "#platform/db/immutable-revisions";
 import { DatabaseSession } from "#platform/db/session";
 import * as schema from "#schema/tables/combined";
 
@@ -80,15 +82,18 @@ type LoadedPluginRevision = PluginRevision & {
 const revisionFields = {
 	id: schema.pluginRevision.id,
 	packageId: schema.plugin.packageId,
-	manifest: schema.pluginRevision.manifest,
 	pluginId: schema.pluginRevision.pluginId,
 	contentHash: schema.pluginRevision.contentHash,
+	manifest: schema.pluginRevisionManifest.manifest,
 };
 
 type RevisionRow = Pick<
 	typeof schema.pluginRevision.$inferSelect,
-	"id" | "manifest" | "pluginId" | "contentHash"
-> & { readonly packageId: PluginPackageId };
+	"id" | "pluginId" | "contentHash"
+> &
+	Pick<typeof schema.pluginRevisionManifest.$inferSelect, "manifest"> & {
+		readonly packageId: PluginPackageId;
+	};
 
 const decodeStoredManifest = (manifest: unknown, packageId: string) =>
 	Schema.decodeUnknownEffect(PluginManifest)(manifest).pipe(
@@ -134,6 +139,10 @@ const loadRevisionsForSession = (database: DatabaseSession["Service"]) =>
 				.select(revisionFields)
 				.from(schema.pluginRevision)
 				.innerJoin(schema.plugin, eq(schema.plugin.id, schema.pluginRevision.pluginId))
+				.innerJoin(
+					schema.pluginRevisionManifest,
+					eq(schema.pluginRevisionManifest.pluginRevisionId, schema.pluginRevision.id),
+				)
 				.where(inArray(schema.pluginRevision.id, ids)),
 		);
 		const scripts = yield* database.run((db) =>
@@ -622,11 +631,14 @@ export class PluginRepository extends Context.Service<PluginRepository>()("Plugi
 			if (removedExports.length > 0 || removedOperations.length > 0) {
 				const consumers = yield* database.run((db) =>
 					db
-						.select({ ownerId: schema.plugin.ownerId, manifest: schema.pluginRevision.manifest })
+						.select({
+							ownerId: schema.plugin.ownerId,
+							manifest: schema.pluginRevisionManifest.manifest,
+						})
 						.from(schema.plugin)
 						.innerJoin(
-							schema.pluginRevision,
-							eq(schema.pluginRevision.id, schema.plugin.activeRevisionId),
+							schema.pluginRevisionManifest,
+							eq(schema.pluginRevisionManifest.pluginRevisionId, schema.plugin.activeRevisionId),
 						)
 						.where(and(eq(schema.plugin.status, "active"), not(eq(schema.plugin.id, previous.id)))),
 				);
@@ -791,14 +803,18 @@ export class PluginRepository extends Context.Service<PluginRepository>()("Plugi
 						.select({
 							id: schema.pluginRevision.id,
 							packageId: schema.plugin.packageId,
-							manifest: schema.pluginRevision.manifest,
 							contentHash: schema.pluginRevision.contentHash,
+							manifest: schema.pluginRevisionManifest.manifest,
 							clientArtifactHash: schema.pluginRevision.clientArtifactHash,
 						})
 						.from(schema.plugin)
 						.innerJoin(
 							schema.pluginRevision,
 							eq(schema.pluginRevision.id, schema.plugin.activeRevisionId),
+						)
+						.innerJoin(
+							schema.pluginRevisionManifest,
+							eq(schema.pluginRevisionManifest.pluginRevisionId, schema.pluginRevision.id),
 						)
 						.where(and(eq(schema.plugin.id, pluginId), eq(schema.plugin.status, "active")))
 						.limit(1),
@@ -891,11 +907,15 @@ export class PluginRepository extends Context.Service<PluginRepository>()("Plugi
 					db
 						.select({
 							packageId: schema.plugin.packageId,
-							manifest: schema.pluginRevision.manifest,
+							manifest: schema.pluginRevisionManifest.manifest,
 							clientArtifactHash: schema.pluginRevision.clientArtifactHash,
 						})
 						.from(schema.pluginRevision)
 						.innerJoin(schema.plugin, eq(schema.plugin.id, schema.pluginRevision.pluginId))
+						.innerJoin(
+							schema.pluginRevisionManifest,
+							eq(schema.pluginRevisionManifest.pluginRevisionId, schema.pluginRevision.id),
+						)
 						.where(eq(schema.pluginRevision.id, revisionId))
 						.limit(1),
 				);
@@ -1037,8 +1057,16 @@ export class PluginRepository extends Context.Service<PluginRepository>()("Plugi
 			const pluginId = persisted.id;
 			const [existingRevision] = yield* database.run((db) =>
 				db
-					.select()
+					.select({
+						id: schema.pluginRevision.id,
+						manifest: schema.pluginRevisionManifest.manifest,
+						clientArtifactHash: schema.pluginRevision.clientArtifactHash,
+					})
 					.from(schema.pluginRevision)
+					.innerJoin(
+						schema.pluginRevisionManifest,
+						eq(schema.pluginRevisionManifest.pluginRevisionId, schema.pluginRevision.id),
+					)
 					.where(
 						and(
 							eq(schema.pluginRevision.pluginId, pluginId),
@@ -1079,16 +1107,28 @@ export class PluginRepository extends Context.Service<PluginRepository>()("Plugi
 				: yield* database.run((db) =>
 						db
 							.insert(schema.pluginRevision)
-							.values({
-								pluginId,
-								clientArtifactHash,
-								manifest: plugin.manifest,
-								contentHash: plugin.contentHash,
-								sandboxAuthority: pluginSandboxAuthority(plugin.manifest),
-								clientConfigSchema: redactPluginConfig(plugin.manifest.configSchema, {})
-									.configSchema,
-							})
-							.returning(),
+							.select((qb) =>
+								qb
+									.select({
+										...pluginRevisionSections(sql`source.manifest`),
+										id: sql`${generateId()}`.as("id"),
+										pluginId: sql`${pluginId}`.as("plugin_id"),
+										contentHash: sql`${plugin.contentHash}`.as("content_hash"),
+										clientArtifactHash: sql`${clientArtifactHash}`.as("client_artifact_hash"),
+										sandboxAuthority:
+											sql`${JSON.stringify(pluginSandboxAuthority(plugin.manifest))}::jsonb`.as(
+												"sandbox_authority",
+											),
+										clientConfigSchema:
+											sql`${JSON.stringify(redactPluginConfig(plugin.manifest.configSchema, {}).configSchema)}::jsonb`.as(
+												"client_config_schema",
+											),
+									})
+									.from(
+										sql`(select ${JSON.stringify(plugin.manifest)}::jsonb as manifest) as source`,
+									),
+							)
+							.returning({ id: schema.pluginRevision.id }),
 					);
 			const revision = existingRevision ?? insertedRevision;
 			if (!revision) {
@@ -1096,6 +1136,11 @@ export class PluginRepository extends Context.Service<PluginRepository>()("Plugi
 			}
 			const pluginRevisionId = revision.id;
 			if (insertedRevision) {
+				yield* database.run((db) =>
+					db
+						.insert(schema.pluginRevisionManifest)
+						.values({ pluginRevisionId, manifest: plugin.manifest }),
+				);
 				yield* definitions.writeRevisionDefinitions({
 					pluginRevisionId,
 					definitions: yield* Effect.try({

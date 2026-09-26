@@ -138,7 +138,7 @@ export const buildLegacyPackageResolution = Effect.fn("buildLegacyPackageResolut
 				id: schema.plugin.id,
 				packageId: schema.plugin.packageId,
 				revisionId: schema.pluginRevision.id,
-				manifest: schema.pluginRevision.manifest,
+				manifest: schema.pluginRevisionManifest.manifest,
 				configRevisionId: schema.plugin.environmentConfigRevisionId,
 			})
 			.from(schema.plugin)
@@ -148,6 +148,10 @@ export const buildLegacyPackageResolution = Effect.fn("buildLegacyPackageResolut
 					eq(schema.pluginRevision.id, schema.plugin.activeRevisionId),
 					eq(schema.pluginRevision.pluginId, schema.plugin.id),
 				),
+			)
+			.innerJoin(
+				schema.pluginRevisionManifest,
+				eq(schema.pluginRevisionManifest.pluginRevisionId, schema.pluginRevision.id),
 			)
 			.where(
 				and(

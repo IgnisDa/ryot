@@ -25,6 +25,7 @@ import {
 	rows,
 	table,
 } from "@ryot-app/ryotql";
+import { stableStringify } from "@ryot-app/ts-utils/json";
 import { count, eq, sql } from "drizzle-orm";
 import { Context, Effect, FileSystem, Layer, Ref, Schema, Stream } from "effect";
 
@@ -76,6 +77,10 @@ import {
 	resolveRequiredPluginIds,
 	selectTranslationsForRestore,
 } from "./writer";
+
+const manifestsByKey = (
+	records: ReadonlyArray<{ readonly key: string; readonly manifest: PluginManifest }>,
+) => Object.fromEntries(records.map(({ key, manifest }) => [key, stableStringify(manifest)]));
 
 const fixedDate = new Date("2026-10-01T00:00:00.000Z");
 
@@ -1805,6 +1810,20 @@ describe("account backup restore in PostgreSQL", () => {
 							),
 						);
 						expect(reexported.records.privatePlugins).toHaveLength(2);
+						expect(manifestsByKey(exported.records.privatePlugins)).toEqual(
+							Object.fromEntries(
+								sources.map(({ packageValue }) => [
+									pluginPackageKey({
+										scope: "user",
+										packageId: packageValue.manifest.metadata.packageId,
+									}),
+									stableStringify(packageValue.manifest),
+								]),
+							),
+						);
+						expect(manifestsByKey(reexported.records.privatePlugins)).toEqual(
+							manifestsByKey(exported.records.privatePlugins),
+						);
 						expect(
 							reexported.records.savedViews.filter((view) => view.kind === "builtin-override"),
 						).toHaveLength(2);
