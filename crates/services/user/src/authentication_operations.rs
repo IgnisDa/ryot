@@ -66,6 +66,11 @@ pub async fn login_user(ss: &Arc<SupportingService>, input: AuthUserInput) -> Re
     if ss.config.users.disable_local_auth {
         bail!("Local authentication is disabled");
     }
+    if input.password.is_empty() {
+        return Ok(LoginResult::Error(LoginError {
+            error: LoginErrorVariant::CredentialsMismatch,
+        }));
+    }
     let Some(user) = User::find()
         .filter(user::Column::Name.eq(input.username))
         .one(&ss.db)
