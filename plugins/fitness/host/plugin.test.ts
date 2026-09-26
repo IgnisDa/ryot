@@ -55,42 +55,7 @@ it("declares the complete fitness-owned source", () => {
 		"workout-repeated-from",
 		"workout-to-workout-template",
 	]);
-	expect(fitnessPlugin.signalSchemas.map(({ slug }) => slug)).toEqual([
-		"workout.created",
-		"exercise.context-changed",
-		"workout.context-changed",
-	]);
-	expect(
-		fitnessPlugin.signalSchemas
-			.filter(({ slug }) => slug !== "workout.created")
-			.map(({ catalogState, audiencePolicy, propertiesSchema, notificationHookSlug }) => ({
-				catalogState,
-				audiencePolicy,
-				propertiesSchema,
-				notificationHookSlug,
-			})),
-	).toEqual([
-		{
-			catalogState: "hidden",
-			notificationHookSlug: "fitness.notification",
-			propertiesSchema: { fields: {}, unknownKeys: "strict" },
-			audiencePolicy: {
-				role: "entity",
-				kind: "dependent_event_owners",
-				eventSchemaSlug: "workout-set",
-			},
-		},
-		{
-			catalogState: "hidden",
-			notificationHookSlug: "fitness.notification",
-			propertiesSchema: { fields: {}, unknownKeys: "strict" },
-			audiencePolicy: {
-				role: "session",
-				kind: "dependent_event_owners",
-				eventSchemaSlug: "workout-set",
-			},
-		},
-	]);
+	expect(fitnessPlugin.signalSchemas.map(({ slug }) => slug)).toEqual(["workout.created"]);
 	expect(fitnessPlugin.client).toEqual({
 		homeView: null,
 		apiVersion: CLIENT_API_VERSION,
@@ -331,9 +296,6 @@ it("binds workout context and set policies before stream-based record recomputat
 	const contextPolicy = fitnessPlugin.hooks.find(({ slug }) => slug === "fitness.workout-context");
 	const setPolicy = fitnessPlugin.hooks.find(({ slug }) => slug === "fitness.workout-set");
 	const recordsHook = fitnessPlugin.hooks.find(({ slug }) => slug === "fitness.workout-records");
-	const contextChangeHook = fitnessPlugin.hooks.find(
-		({ slug }) => slug === "fitness.workout-context-changed",
-	);
 	const contextRecordsHook = fitnessPlugin.hooks.find(
 		({ slug }) => slug === "fitness.workout-context-records",
 	);
@@ -343,11 +305,15 @@ it("binds workout context and set policies before stream-based record recomputat
 		position: 100,
 		stage: "before",
 		scriptSlug: "policy.workout-context",
-		targets: expect.arrayContaining([
-			{ resource: "entity", operation: "update", entitySchemaSlug: "exercise" },
-			{ resource: "entity", operation: "update", entitySchemaSlug: "workout" },
-		]),
 	});
+	expect(contextPolicy?.targets).toEqual(
+		(["create", "update"] as const).map((operation) => ({
+			operation,
+			resource: "event",
+			entitySchemaSlug: "exercise",
+			eventSchemaSlug: "workout-set",
+		})),
+	);
 	expect(setPolicy).toMatchObject({
 		position: 110,
 		stage: "before",
@@ -369,31 +335,15 @@ it("binds workout context and set policies before stream-based record recomputat
 			eventSchemaSlug: "workout-set",
 		})),
 	);
-	expect(contextChangeHook).toMatchObject({
-		stage: "after",
-		delivery: "async",
-		scriptSlug: "automation.workout-context-changed",
-		targets: [
-			{ resource: "entity", operation: "update", entitySchemaSlug: "exercise" },
-			{ resource: "entity", operation: "update", entitySchemaSlug: "workout" },
-		],
-	});
-	expect(contextChangeHook).not.toHaveProperty("executionScope");
-	expect(contextChangeHook).not.toHaveProperty("frequency");
 	expect(contextRecordsHook).toMatchObject({
 		stage: "after",
 		delivery: "async",
 		executionScope: "user",
 		scriptSlug: "automation.workout-records",
-		targets: [
-			{ operation: "emit", resource: "signal", signalSchemaSlug: "exercise.context-changed" },
-			{ operation: "emit", resource: "signal", signalSchemaSlug: "workout.context-changed" },
-		],
+		targets: [{ resource: "entity", operation: "update", entitySchemaSlug: "workout" }],
 	});
 	expect(contextRecordsHook).not.toHaveProperty("frequency");
 	expect(notificationHook?.targets).toEqual([
 		{ operation: "emit", resource: "signal", signalSchemaSlug: "workout.created" },
-		{ operation: "emit", resource: "signal", signalSchemaSlug: "exercise.context-changed" },
-		{ operation: "emit", resource: "signal", signalSchemaSlug: "workout.context-changed" },
 	]);
 });

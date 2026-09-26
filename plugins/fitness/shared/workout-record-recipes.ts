@@ -79,19 +79,13 @@ export const existingExerciseIdsRecipe = defineRecipe(
 );
 
 export const workoutSetExerciseIdsRecipe = defineRecipe(
-	(input: {
-		readonly after?: string | undefined;
-		readonly role: "entity" | "session";
-		readonly subjectEntityId: string;
-	}) => {
+	(input: { readonly after?: string | undefined; readonly workoutId: string }) => {
 		const event = table("event", "workoutSetContextEvent");
 		const exercise = table("entity", "workoutSetContextExercise");
 		const workout = table("entity", "workoutSetContextWorkout");
 		const eventPluginId = column(event, "eventSchemaPluginId");
 		const exercisePluginId = column(exercise, "entitySchemaPluginId");
 		const workoutPluginId = column(workout, "entitySchemaPluginId");
-		const subjectColumn =
-			input.role === "entity" ? column(event, "entityId") : column(event, "sessionEntityId");
 		return {
 			map: ({ workoutSetExerciseIds }) => Result.succeed(workoutSetExerciseIds),
 			queries: {
@@ -105,7 +99,7 @@ export const workoutSetExerciseIdsRecipe = defineRecipe(
 						join("inner", workout, eq(column(event, "sessionEntityId"), column(workout, "id"))),
 					],
 					where: and(
-						eq(subjectColumn, literal(input.subjectEntityId)),
+						eq(column(event, "sessionEntityId"), literal(input.workoutId)),
 						eq(column(event, "eventSchemaSlug"), literal("workout-set")),
 						eq(column(exercise, "entitySchemaSlug"), literal("exercise")),
 						eq(column(workout, "entitySchemaSlug"), literal("workout")),
@@ -161,7 +155,7 @@ export const workoutRecordRowsRecipe = defineRecipe(
 						id: selectedField(column(event, "id"), EventId),
 						workoutStartedAt: selectedField(workoutStartedAt, IsoDateString),
 						occurredAt: selectedField(column(event, "occurredAt"), IsoDateString),
-						exerciseKind: selectedField(property(exercise, "kind"), exerciseKindSchema),
+						exerciseKind: selectedField(property(event, "exerciseKind"), exerciseKindSchema),
 						reps: selectedField(propertyNumber(event, "reps"), Schema.NullOr(Schema.Finite)),
 						pace: selectedField(propertyNumber(event, "pace"), Schema.NullOr(Schema.Finite)),
 						oneRm: selectedField(propertyNumber(event, "oneRm"), Schema.NullOr(Schema.Finite)),

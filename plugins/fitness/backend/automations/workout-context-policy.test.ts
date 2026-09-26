@@ -65,38 +65,6 @@ const contextResponse = (
 	},
 });
 
-const entityUpdate = (
-	entitySchemaSlug: "exercise" | "workout",
-	property: "kind" | "startedAt",
-	value?: unknown,
-	dependentEvents: ReadonlyArray<Record<string, unknown>> = [],
-) => ({
-	dependentEvents,
-	resource: "entity",
-	category: "request",
-	operation: "update",
-	changedProperties: [property],
-	draft: {
-		name: "Entity",
-		entitySchemaSlug,
-		externalId: null,
-		providerId: null,
-		populatedAt: null,
-		properties: value === undefined ? {} : { [property]: value },
-	},
-	before: {
-		id: "entity-1",
-		name: "Entity",
-		entitySchemaSlug,
-		externalId: null,
-		providerId: null,
-		populatedAt: null,
-		createdAt: timestamp,
-		updatedAt: timestamp,
-		properties: { [property]: property === "kind" ? "reps_and_weight" : timestamp },
-	},
-});
-
 const run = (input: ReturnType<typeof policyInput>, response: unknown, calls: unknown[] = []) =>
 	definition.run(
 		input,
@@ -107,13 +75,6 @@ const run = (input: ReturnType<typeof policyInput>, response: unknown, calls: un
 			},
 		}),
 	);
-
-const invalidContextCases: ReadonlyArray<
-	readonly ["exercise" | "workout", "kind" | "startedAt", string, "entity" | "session"]
-> = [
-	["exercise", "kind", "exercise_kind_has_workout_sets", "entity"],
-	["workout", "startedAt", "workout_start_has_workout_sets", "session"],
-];
 
 describe("workout context policy", () => {
 	it("sets unconfirmed event time to the session start without changing other properties", () => {
@@ -143,12 +104,6 @@ describe("workout context policy", () => {
 			operation: "create",
 			draft: eventDraft({ confirmedAt: "2026-01-01T08:45:00.000Z" }),
 		});
-		const missingKind = policyInput({
-			resource: "event",
-			category: "request",
-			operation: "create",
-			draft: eventDraft({}),
-		});
 		const missingStart = policyInput({
 			resource: "event",
 			category: "request",
@@ -168,10 +123,6 @@ describe("workout context policy", () => {
 					action: "transform",
 					patch: { resource: "event", draft: { occurredAt: "2026-01-01T08:45:00.000Z" } },
 				});
-				expect(yield* run(missingKind, contextResponse({ kind: null }))).toEqual({
-					action: "reject",
-					reason: "workout_set_context_missing",
-				});
 				expect(yield* run(missingStart, contextResponse({ startedAt: null }))).toEqual({
 					action: "reject",
 					reason: "workout_set_context_missing",
@@ -180,83 +131,6 @@ describe("workout context policy", () => {
 					action: "reject",
 					reason: "workout_set_context_missing",
 				});
-			}),
-		);
-	});
-
-	it.each(invalidContextCases)(
-		"rejects invalid %s context when dependent sets reference its %s role",
-		(entitySchemaSlug, property, reason, role) => {
-			const dependencies = [{ role, eventSchemaPluginId: null, eventSchemaSlug: "workout-set" }];
-			const value = entitySchemaSlug === "exercise" ? "invalid-kind" : "not-a-date";
-			const input = policyInput(entityUpdate(entitySchemaSlug, property, value, dependencies));
-			const calls: unknown[] = [];
-
-			return Effect.runPromise(
-				Effect.gen(function* () {
-					expect(yield* run(input, undefined, calls)).toEqual({ reason, action: "reject" });
-					expect(calls).toEqual([]);
-				}),
-			);
-		},
-	);
-
-	it.each(invalidContextCases)(
-		"rejects removing %s context when dependent sets reference its %s role",
-		(entitySchemaSlug, property, reason, role) => {
-			const input = policyInput(
-				entityUpdate(entitySchemaSlug, property, undefined, [
-					{ role, eventSchemaPluginId: null, eventSchemaSlug: "workout-set" },
-				]),
-			);
-			return Effect.runPromise(
-				Effect.map(run(input, undefined), (result) =>
-					expect(result).toEqual({ reason, action: "reject" }),
-				),
-			);
-		},
-	);
-
-	it("allows missing or invalid context when no matching workout-set dependency exists", () => {
-		const userInput = policyInput(entityUpdate("exercise", "kind"));
-		const globalInput = policyInput(
-			entityUpdate("workout", "startedAt", null, [
-				{ role: "entity", eventSchemaPluginId: null, eventSchemaSlug: "workout-set" },
-			]),
-			null,
-		);
-		const calls: unknown[] = [];
-
-		return Effect.runPromise(
-			Effect.gen(function* () {
-				expect(yield* run(userInput, undefined, calls)).toEqual({ action: "allow" });
-				expect(yield* run(globalInput, undefined, calls)).toEqual({ action: "allow" });
-				expect(calls).toEqual([]);
-			}),
-		);
-	});
-
-	it("allows valid required context changes for user and global entities with dependent sets", () => {
-		const exerciseDependencies = [
-			{ role: "entity", eventSchemaPluginId: null, eventSchemaSlug: "workout-set" },
-		];
-		const workoutDependencies = [
-			{ role: "session", eventSchemaPluginId: null, eventSchemaSlug: "workout-set" },
-		];
-		const userInput = policyInput(
-			entityUpdate("exercise", "kind", "duration", exerciseDependencies),
-		);
-		const globalInput = policyInput(
-			entityUpdate("workout", "startedAt", "2026-01-01T09:00:00.000Z", workoutDependencies),
-			null,
-		);
-		const calls: unknown[] = [];
-
-		return Effect.runPromise(
-			Effect.gen(function* () {
-				expect(yield* run(userInput, undefined, calls)).toEqual({ action: "allow" });
-				expect(yield* run(globalInput, undefined, calls)).toEqual({ action: "allow" });
-				expect(calls).toEqual([]);
 			}),
 		);
 	});
