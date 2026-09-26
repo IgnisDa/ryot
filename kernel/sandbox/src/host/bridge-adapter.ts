@@ -3,16 +3,12 @@ import {
 	automationSandboxHostContracts,
 	coreSandboxHostContracts,
 	domainSandboxHostContracts,
-	type SandboxHostImplementationMap as SdkSandboxHostImplementationMap,
+	type SandboxHostImplementationMap,
 } from "@ryot-app/plugin-backend-sdk/core";
 import { hostFailure, hostSuccess, type SandboxHostError } from "@ryot-app/plugin-backend-sdk/wire";
 import { Effect, Schema, SchemaIssue } from "effect";
 
-import type {
-	BoundHostFunction,
-	SandboxHostImplementationMap,
-	SandboxRunInput,
-} from "./invocation";
+import type { BoundHostFunction, SandboxRunInput } from "./invocation";
 
 const formatIssue = SchemaIssue.makeFormatterStandardSchemaV1();
 const formatArgumentCountIssue = SchemaIssue.makeFormatterStandardSchemaV1({
@@ -115,7 +111,7 @@ const bindHostFunction =
 		);
 
 export const bindObservabilityHostFunctions = (
-	implementations: Pick<SandboxHostImplementationMap, "log" | "span">,
+	implementations: Pick<SandboxHostImplementationMap<SandboxRunInput>, "log" | "span">,
 	input: SandboxRunInput,
 ) => ({
 	log: bindHostFunction("log", coreSandboxHostContracts.log, (...args) =>
@@ -127,10 +123,10 @@ export const bindObservabilityHostFunctions = (
 });
 
 export const bindSandboxHostFunctions = <Input>(
-	implementations: Omit<SdkSandboxHostImplementationMap<Input>, "log" | "span">,
+	implementations: Omit<SandboxHostImplementationMap<Input>, "log" | "span">,
 	input: Input,
 ): Record<
-	Exclude<keyof SdkSandboxHostImplementationMap<Input>, "log" | "span">,
+	Exclude<keyof SandboxHostImplementationMap<Input>, "log" | "span">,
 	BoundHostFunction
 > => {
 	const bind = <Args extends ReadonlyArray<unknown>, Result, Success>(
