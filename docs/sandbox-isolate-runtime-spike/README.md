@@ -1,7 +1,13 @@
 # Sandbox Isolate Runtime Spike
 
-Throwaway reference code behind the evidence in [`../sandbox-isolate-runtime.md`](../sandbox-isolate-runtime.md).
-It is not production code: it skips the op allowlist, OS confinement, protocol framing, the backend
+The isolate runtime plan and its records:
+
+- [`plan.md`](plan.md): outcome, decisions, architecture, and slices.
+- [`s1.md`](s1.md) and [`s2.md`](s2.md): slice contracts, acceptance, and results.
+- [`security-review.md`](security-review.md): pre-approval security findings and their owners.
+- [`evidence.md`](evidence.md): spike measurements and pitfalls.
+
+The rest of this directory is throwaway spike code behind that evidence. It is not production code: it skips the op allowlist, OS confinement, protocol framing, the backend
 host-call gate, and every other hardening the plan requires. Use it to see working `deno_core` API
 usage and to reproduce measurements, not as a starting point to copy.
 
