@@ -1,36 +1,9 @@
 import { assert, expect, it } from "@effect/vitest";
-import type { JsonValue } from "@ryot-app/contract/modules/ryotql/language";
-import { makeWorkflowReplayHost } from "@ryot-app/sandbox-sdk/testing";
-import type {
-	WorkflowReplayEnvelope,
-	WorkflowReplayJournalEntry,
-} from "@ryot-app/sandbox-sdk/workflow";
+import { driveWorkflowReplay } from "@ryot-app/sandbox-sdk/testing";
+import type { WorkflowReplayEnvelope } from "@ryot-app/sandbox-sdk/workflow";
 import { Effect, Schema } from "effect";
 
 import workflow from "./media-monitoring-sweep.sandbox";
-
-const completeReplay = (
-	resolve: (request: WorkflowReplayEnvelope["requests"][number]) => JsonValue,
-) =>
-	Effect.gen(function* () {
-		const journal: WorkflowReplayJournalEntry[] = [];
-		for (;;) {
-			const envelope = yield* workflow.run({}, makeWorkflowReplayHost(journal), {
-				metadata: {},
-				sandboxScriptId: "workflow-test",
-			});
-			if (envelope.state === "completed") {
-				return { output: envelope.output, requests: envelope.requests };
-			}
-			expect(envelope.state).toBe("pending");
-			if (envelope.state === "failed") {
-				throw new Error(envelope.error);
-			}
-			const request = envelope.requests[journal.length];
-			assert(request);
-			journal.push({ request, value: resolve(request) });
-		}
-	});
 
 const target = (index: number) => ({
 	entitySchemaSlug: "movie",
@@ -61,7 +34,7 @@ it.live("deduplicates paged targets and orchestrates bounded provider refresh ba
 			target(99),
 			...Array.from({ length: 105 }, (_, index) => target(index + 100)),
 		];
-		const result = yield* completeReplay((request) => {
+		const result = yield* driveWorkflowReplay(workflow.run, {}, (request) => {
 			if (request.kind === "activity") {
 				return request.name === "targets-0"
 					? { items: firstPage, nextCursor: "targets-cursor" }
@@ -69,7 +42,7 @@ it.live("deduplicates paged targets and orchestrates bounded provider refresh ba
 			}
 			return [];
 		});
-
+		assert(result.state === "completed");
 		expect(result.output).toEqual({ batchCount: 3, targetCount: 205 });
 		const activities = result.requests.filter(
 			(request): request is ActivityRequest => request.kind === "activity",

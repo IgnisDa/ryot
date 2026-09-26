@@ -8,6 +8,7 @@ import {
 } from "@ryot-app/contract/modules/plugins/schemas";
 import { UploadBadRequest } from "@ryot-app/contract/modules/uploads/schemas";
 import { UserId } from "@ryot-app/contract/schema/brands";
+import { emptySandboxExecutionMetadata } from "@ryot-app/contract/testing";
 import { PLUGIN_ARCHIVE_LIMITS, writePluginArchive } from "@ryot-app/plugin-archive";
 import { sha256Hex } from "@ryot-app/ts-utils/crypto";
 import { Cause, Context, Effect, Exit, Layer, Option, Ref, Stream } from "effect";
@@ -484,14 +485,9 @@ const makeLayer = (options: FakeInstallationOptions = {}) => {
 };
 
 const bootstrapScript = {
-	capabilities: [],
-	runtimeImports: [],
+	...emptySandboxExecutionMetadata,
 	kind: "script" as const,
-	oauthConnectionFields: [],
 	name: "Fixture Bootstrap",
-	executableDependencies: [],
-	requiredPluginConfigKeys: [],
-	optionalPluginConfigKeys: [],
 	slug: "script.fixture-bootstrap",
 	entry: "backend/bootstrap/bootstrap.sandbox.ts",
 };
@@ -659,14 +655,9 @@ layer(makeLayer())((test) => {
 const manyScriptsManifest = privateManifest({
 	scripts: Array.from({ length: 33 }, (_unused, index) => ({
 		kind: "script",
-		capabilities: [],
-		runtimeImports: [],
+		...emptySandboxExecutionMetadata,
 		slug: `task-${index}`,
 		name: `Task ${index}`,
-		oauthConnectionFields: [],
-		executableDependencies: [],
-		requiredPluginConfigKeys: [],
-		optionalPluginConfigKeys: [],
 		entry: `backend/task-${index}.sandbox.ts`,
 	})),
 });
@@ -1335,15 +1326,10 @@ layer(
 });
 
 const operationScript = {
-	capabilities: [],
-	runtimeImports: [],
+	...emptySandboxExecutionMetadata,
 	name: "Fixture Operation",
 	slug: "operation.fixture",
-	oauthConnectionFields: [],
 	kind: "operation" as const,
-	executableDependencies: [],
-	requiredPluginConfigKeys: [],
-	optionalPluginConfigKeys: [],
 	entry: "backend/operations/operation.sandbox.ts",
 };
 

@@ -4,6 +4,7 @@ import {
 	AutomationTriggerId,
 	SignalSchemaSlug,
 } from "@ryot-app/contract/schema/brands";
+import { emptySandboxExecutionMetadata } from "@ryot-app/contract/testing";
 import { eq, sql } from "drizzle-orm";
 import { Context, Deferred, Effect, Fiber, Layer, Redacted, type Tracer } from "effect";
 import { assert, describe } from "vitest";
@@ -177,14 +178,9 @@ describe("LifecyclePlanner independent PostgreSQL transactions", () => {
 									slug: "automation.notification",
 									metadata: {
 										name: "Notify",
-										capabilities: [],
+										...emptySandboxExecutionMetadata,
 										kind: "automation",
-										runtimeImports: [],
-										oauthConnectionFields: [],
-										executableDependencies: [],
 										automationType: "automation",
-										requiredPluginConfigKeys: [],
-										optionalPluginConfigKeys: [],
 										slug: "automation.notification",
 										inputProjection: {
 											entity: { properties: [], compareProperties: [], parentEntityProperties: [] },

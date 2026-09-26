@@ -9,6 +9,7 @@ import {
 import type { PluginManifest } from "@ryot-app/contract/modules/plugins/manifest";
 import { PluginId, UserId } from "@ryot-app/contract/schema/brands";
 import type { AppSchema } from "@ryot-app/contract/schema/property-schema";
+import { emptySandboxExecutionMetadata } from "@ryot-app/contract/testing";
 import { and, eq } from "drizzle-orm";
 import { DateTime, Effect, Layer, Schema } from "effect";
 import { TestClock } from "effect/testing";
@@ -393,14 +394,9 @@ describe("AutomationRunRepository", () => {
 									slug: "kernel.notify",
 									metadata: {
 										name: "Notify",
-										capabilities: [],
+										...emptySandboxExecutionMetadata,
 										kind: "automation",
-										runtimeImports: [],
 										slug: "kernel.notify",
-										oauthConnectionFields: [],
-										executableDependencies: [],
-										requiredPluginConfigKeys: [],
-										optionalPluginConfigKeys: [],
 									},
 								});
 							const now = DateTime.toDate(DateTime.makeUnsafe(trigger.createdAt));

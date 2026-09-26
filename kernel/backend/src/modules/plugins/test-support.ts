@@ -1,4 +1,5 @@
 import type { PluginManifest } from "@ryot-app/contract/modules/plugins/manifest";
+import { emptySandboxExecutionMetadata } from "@ryot-app/contract/testing";
 
 export const fixturePackageRoot = (kind: "diagnostic" | "valid" = "valid") =>
 	new URL(`./test-fixtures/${kind}`, import.meta.url).pathname;
@@ -44,6 +45,20 @@ export const fixtureManifest = () =>
 				notificationHookSlug: "fixture.automation",
 			},
 		],
+		scripts: [
+			{
+				...emptySandboxExecutionMetadata,
+				kind: "automation",
+				name: "Fixture Automation",
+				slug: "fixture.automation",
+				automationType: "automation",
+				entry: "backend/automations/fixture.sandbox.ts",
+				inputProjection: {
+					signal: { properties: [] },
+					entity: { properties: [], compareProperties: [], parentEntityProperties: [] },
+				},
+			},
+		],
 		hooks: [
 			{
 				stage: "after",
@@ -57,25 +72,6 @@ export const fixtureManifest = () =>
 				],
 			},
 		] as PluginManifest["hooks"],
-		scripts: [
-			{
-				capabilities: [],
-				kind: "automation",
-				runtimeImports: [],
-				oauthConnectionFields: [],
-				name: "Fixture Automation",
-				slug: "fixture.automation",
-				executableDependencies: [],
-				automationType: "automation",
-				requiredPluginConfigKeys: [],
-				optionalPluginConfigKeys: [],
-				entry: "backend/automations/fixture.sandbox.ts",
-				inputProjection: {
-					signal: { properties: [] },
-					entity: { properties: [], compareProperties: [], parentEntityProperties: [] },
-				},
-			},
-		],
 		entitySchemas: [
 			{
 				icon: "box",
