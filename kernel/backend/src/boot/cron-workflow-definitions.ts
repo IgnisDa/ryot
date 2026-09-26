@@ -8,6 +8,8 @@ import { automationsFrequentTask } from "#modules/automations/reconciliation";
 import { AutomationRetention } from "#modules/automations/retention";
 import { BackupsService } from "#modules/backups/service";
 import { integrationsFrequentTask } from "#modules/integrations/frequent-task";
+import { oauthConnectionsFrequentTask } from "#modules/oauth-connections/frequent-task";
+import type { OAuthConnectionsService } from "#modules/oauth-connections/service";
 import type { PluginCatalogInvalidator } from "#modules/plugins/catalog-events";
 import { pluginCatalogFrequentTask } from "#modules/plugins/frequent-task";
 import type { PluginInstallationService } from "#modules/plugins/installation-service";
@@ -32,6 +34,7 @@ const frequentCronTasks: ReadonlyArray<
 		| AutomationRetention
 		| BackupsService
 		| DatabaseSession
+		| OAuthConnectionsService
 		| UploadIntentsService
 		| PluginCatalogInvalidator
 		| PluginInstallationService
@@ -62,6 +65,7 @@ const frequentCronTasks: ReadonlyArray<
 			),
 	},
 	integrationsFrequentTask,
+	oauthConnectionsFrequentTask,
 	uploadsFrequentTask,
 	userBootstrapFrequentTask,
 	userLifecycleFrequentTask,

@@ -9,6 +9,7 @@ import {
 	AutomationTriggerId,
 	EntityId,
 	EntitySchemaSlug,
+	ImportRunId,
 	IntegrationId,
 	PluginConfigRevisionId,
 	PluginId,
@@ -38,6 +39,7 @@ import { EntitiesRepository } from "#modules/entities/repository";
 import { EntitiesService } from "#modules/entities/service";
 import { EventsService } from "#modules/events/service";
 import { IntegrationsRepository, type IntegrationRecord } from "#modules/integrations/repository";
+import { OAuthConnectionsService } from "#modules/oauth-connections/service";
 import { PluginRuntimeResolver } from "#modules/plugins/runtime-resolver";
 import { RelationshipMutationPipeline } from "#modules/relationships/mutation-pipeline";
 import { RelationshipsRepository } from "#modules/relationships/repository";
@@ -245,6 +247,7 @@ class HostFunctionCalls extends Context.Service<
 		readonly createdRelationships: Effect.Effect<ReadonlyArray<unknown>>;
 		readonly deletedRelationships: Effect.Effect<ReadonlyArray<unknown>>;
 		readonly integrationLookups: Effect.Effect<ReadonlyArray<GetForUserInput>>;
+		readonly oauthTokenRequests: Effect.Effect<ReadonlyArray<unknown>>;
 		readonly useDefinitions: (source: DefinitionSource) => Effect.Effect<void>;
 	}
 >()("test/HostFunctionCalls") {}
@@ -259,6 +262,7 @@ const hostFunctionsLayer = (
 		readonly entityScope?: typeof builtinEntityScope;
 		readonly integration?: (input: GetForUserInput) => Effect.Effect<IntegrationRecord | null>;
 		readonly pluginConfig?: PluginRuntimeResolver["Service"]["resolvePluginConfigContext"];
+		readonly oauthAccessToken?: OAuthConnectionsService["Service"]["accessTokenForIntegrationRun"];
 	} = {},
 ) =>
 	Layer.unwrap(
@@ -270,6 +274,7 @@ const hostFunctionsLayer = (
 			const createdRelationships = yield* Ref.make<ReadonlyArray<unknown>>([]);
 			const deletedRelationships = yield* Ref.make<ReadonlyArray<unknown>>([]);
 			const integrationLookups = yield* Ref.make<ReadonlyArray<GetForUserInput>>([]);
+			const oauthTokenRequests = yield* Ref.make<ReadonlyArray<unknown>>([]);
 			const snapshot = yield* Ref.make(
 				buildDefinitionSnapshot(options.definitions ?? kernelDefinitionSource()),
 			);
@@ -283,6 +288,7 @@ const hostFunctionsLayer = (
 					ryotqlUserCalls: Ref.get(ryotqlUserCalls),
 					ryotqlPluginCalls: Ref.get(ryotqlPluginCalls),
 					integrationLookups: Ref.get(integrationLookups),
+					oauthTokenRequests: Ref.get(oauthTokenRequests),
 					pluginConfigLookups: Ref.get(pluginConfigLookups),
 					createdRelationships: Ref.get(createdRelationships),
 					deletedRelationships: Ref.get(deletedRelationships),
@@ -300,6 +306,16 @@ const hostFunctionsLayer = (
 						append(integrationLookups, input).pipe(
 							Effect.andThen(
 								options.integration ? options.integration(input) : Effect.die("unused"),
+							),
+						),
+				}),
+				Layer.mock(OAuthConnectionsService)({
+					accessTokenForIntegrationRun: (input) =>
+						append(oauthTokenRequests, input).pipe(
+							Effect.andThen(
+								options.oauthAccessToken
+									? options.oauthAccessToken(input)
+									: Effect.die("unused OAuth access token"),
 							),
 						),
 				}),
@@ -375,6 +391,94 @@ const runGetCurrentIntegration = (subject: SandboxExecutionSubject) =>
 	);
 
 const executeRyotql = () => Effect.void;
+
+const runGetOAuthAccessToken = (
+	subject: SandboxExecutionSubject,
+	principalFacts: Partial<SandboxExecutionPrincipal> = { pluginRevision: systemPluginRevision },
+) =>
+	makeAdditionalSandboxApiFunctions.pipe(
+		Effect.flatMap((functions) =>
+			Effect.result(
+				functions.getOAuthAccessToken(
+					runInput(subject, SANDBOX_HOST_CAPABILITIES, principalFacts),
+					{ field: "account" },
+				),
+			),
+		),
+	);
+
+describe("getOAuthAccessToken", () => {
+	const integrationRunSubject = {
+		type: "user",
+		userId: UserId.make("user-1"),
+		integrationId: IntegrationId.make("int-trusted"),
+		integrationRunId: ImportRunId.make("run-trusted"),
+	} satisfies SandboxExecutionSubject;
+
+	layer(
+		hostFunctionsLayer({
+			oauthAccessToken: () =>
+				Effect.succeed({ accessToken: "access-1", expiresAt: "2026-01-01T01:00:00.000Z" }),
+		}),
+	)((test) => {
+		test.effect("forwards the trusted integration run scope to the connection owner", () =>
+			Effect.gen(function* () {
+				const result = yield* runGetOAuthAccessToken(integrationRunSubject);
+
+				expect(Result.getOrThrow(result)).toEqual({
+					accessToken: "access-1",
+					expiresAt: "2026-01-01T01:00:00.000Z",
+				});
+				expect(yield* (yield* HostFunctionCalls).oauthTokenRequests).toEqual([
+					{
+						field: "account",
+						userId: "user-1",
+						pluginId: "plugin-id",
+						integrationId: "int-trusted",
+						integrationRunId: "run-trusted",
+					},
+				]);
+			}),
+		);
+	});
+
+	layer(hostFunctionsLayer())((test) => {
+		test.effect("rejects executions that are not a running integration's plugin run", () =>
+			Effect.gen(function* () {
+				const cases = [
+					{
+						message: "getOAuthAccessToken is available only to integration run executions",
+						subject: {
+							type: "user",
+							userId: UserId.make("user-1"),
+							integrationId: IntegrationId.make("int-trusted"),
+						} satisfies SandboxExecutionSubject,
+					},
+					{
+						subject: integrationRunSubject,
+						principalFacts: { pluginRevision: null },
+						message: "getOAuthAccessToken is available only to integration run executions",
+					},
+					{
+						message: "getOAuthAccessToken is available only to user executions",
+						subject: automationSubject({
+							kind: "integration",
+							integrationId: IntegrationId.make("int-trusted"),
+						}),
+					},
+				];
+				for (const { message, subject, principalFacts } of cases) {
+					const result = yield* runGetOAuthAccessToken(
+						subject,
+						principalFacts ?? { pluginRevision: systemPluginRevision },
+					);
+					expect(Result.getFailure(result)).toEqual(Option.some({ message }));
+				}
+				expect(yield* (yield* HostFunctionCalls).oauthTokenRequests).toEqual([]);
+			}),
+		);
+	});
+});
 
 describe("getCurrentIntegration", () => {
 	layer(hostFunctionsLayer({ integration: (input) => Effect.succeed(ownedIntegration(input)) }))(

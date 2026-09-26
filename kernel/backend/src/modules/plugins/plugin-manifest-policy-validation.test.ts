@@ -64,3 +64,31 @@ it.effect("applies system and user manifest policy", () =>
 		]);
 	}),
 );
+
+it.effect("reserves OAuth providers for system plugins", () =>
+	Effect.gen(function* () {
+		const manifest = {
+			...fixtureManifest(),
+			oauthProviders: [
+				{
+					slug: "account",
+					name: "Account",
+					scopes: ["read"],
+					clientIdConfigKey: "clientId",
+					clientSecretConfigKey: "clientSecret",
+					tokenUrl: "https://accounts.example.test/token",
+					tokenEndpointAuth: "client_secret_post" as const,
+					authorizeUrl: "https://accounts.example.test/authorize",
+				},
+			],
+		};
+		yield* validatePluginManifestPolicy(manifest, { scope: "system" });
+		const rejected = yield* Effect.exit(
+			validatePluginManifestPolicy(manifest, { scope: "user", systemSlugs: new Set() }),
+		);
+		assert(Exit.isFailure(rejected));
+		const failure = Option.getOrThrow(Cause.findErrorOption(rejected.cause));
+		assert(failure instanceof PluginSurfaceError);
+		expect(failure.surfaces).toEqual(["oauthProviders"]);
+	}),
+);

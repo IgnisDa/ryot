@@ -95,6 +95,7 @@ The manifest declares an exact capability tuple. The backend intersects it with 
 | System-plugin user-bootstrap script | `ensureUserEntities` for that plugin's entity schemas                                                                                                                 |
 | Pinned system-scope plugin script   | `executeRyotql`, `upsertGlobalEntities`, `upsertGlobalRelationships` within plugin ownership                                                                          |
 | User or system automation run       | `emitSignal`; `sendNotification` is available only to user automation runs                                                                                            |
+| Integration run of its own plugin   | `getOAuthAccessToken` for an OAuth connection field the integration's current settings schema declares                                                                |
 
 `scratch` and `artifact-read` are non-bridge permissions. System elevation requires a persisted pinned system-scope plugin principal. User capabilities require a trusted user subject. `getEntitySchemas` uses that user's effective ready, enabled plugin catalog. Entity and event data reads use RyotQL; schema calls expose metadata only.
 

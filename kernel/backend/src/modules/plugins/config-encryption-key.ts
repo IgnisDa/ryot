@@ -7,6 +7,7 @@ import {
 	pluginConfigEncryptionKey,
 	pluginConfigRevision,
 } from "#lib/infrastructure/db/schema/tables/core";
+import { oauthConnection } from "#lib/infrastructure/db/schema/tables/oauth-connections";
 import { DatabaseSession } from "#lib/infrastructure/db/session";
 
 class PluginConfigEncryptionKeyStateError extends Data.TaggedError(
@@ -35,11 +36,30 @@ export class PluginConfigEncryptionKeyRepository extends Context.Service<PluginC
 					database.run((db) =>
 						db.insert(pluginConfigEncryptionKey).values(key).pipe(Effect.as(key)),
 					),
-				retainedKeyIds: database.run((db) =>
-					db
-						.selectDistinct({ id: pluginConfigRevision.encryptionKeyId })
-						.from(pluginConfigRevision)
-						.where(isNotNull(pluginConfigRevision.encryptedPayload)),
+				retainedKeyIds: Effect.all([
+					database.run((db) =>
+						db
+							.selectDistinct({ id: pluginConfigRevision.encryptionKeyId })
+							.from(pluginConfigRevision)
+							.where(isNotNull(pluginConfigRevision.encryptedPayload)),
+					),
+					database.run((db) =>
+						db
+							.selectDistinct({
+								code: sql<string | null>`${oauthConnection.code} ->> 'keyId'`,
+								accessToken: sql<string | null>`${oauthConnection.accessToken} ->> 'keyId'`,
+								codeVerifier: sql<string | null>`${oauthConnection.codeVerifier} ->> 'keyId'`,
+								refreshToken: sql<string | null>`${oauthConnection.refreshToken} ->> 'keyId'`,
+							})
+							.from(oauthConnection),
+					),
+				]).pipe(
+					Effect.map(([configKeys, oauthKeys]) => [
+						...configKeys,
+						...oauthKeys.flatMap((row) =>
+							Object.values(row).flatMap((id) => (id === null ? [] : [{ id }])),
+						),
+					]),
 				),
 			};
 		}),

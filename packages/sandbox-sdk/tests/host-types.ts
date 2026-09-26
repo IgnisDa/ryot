@@ -133,6 +133,7 @@ const allDomainManifest = defineManifest({
 		"ensureUserEntities",
 		"upsertGlobalEntities",
 		"getCurrentIntegration",
+		"getOAuthAccessToken",
 		"changeUserRelationships",
 		"upsertGlobalRelationships",
 	],
@@ -144,6 +145,9 @@ defineScript({
 	run: (_input, host) =>
 		Effect.gen(function* () {
 			const integration = yield* host.getCurrentIntegration();
+			const token: { readonly accessToken: string; readonly expiresAt: string } =
+				yield* host.getOAuthAccessToken({ field: "account" });
+			void token;
 			const [entitySchema] = yield* host.getEntitySchemas(["schema-1"]);
 			if (!entitySchema) {
 				return false;

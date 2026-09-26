@@ -125,9 +125,12 @@ export const validatePluginPackageLimits = (
 const userRejectedCollections = [
 	"userBootstrap",
 	"httpRateLimits",
+	"oauthProviders",
 ] as const satisfies ReadonlyArray<
 	{
-		[Key in keyof PluginManifestValue]: PluginManifestValue[Key] extends ReadonlyArray<unknown>
+		[Key in keyof PluginManifestValue]-?: NonNullable<
+			PluginManifestValue[Key]
+		> extends ReadonlyArray<unknown>
 			? Key
 			: never;
 	}[keyof PluginManifestValue]
@@ -147,7 +150,7 @@ export const validatePluginManifestPolicy = (
 		if (policy.scope === "system") {
 			return yield* Effect.void;
 		}
-		const surfaces = userRejectedCollections.filter((field) => manifest[field].length > 0);
+		const surfaces = userRejectedCollections.filter((field) => (manifest[field] ?? []).length > 0);
 		if (surfaces.length > 0) {
 			return yield* new PluginSurfaceError({ surfaces });
 		}

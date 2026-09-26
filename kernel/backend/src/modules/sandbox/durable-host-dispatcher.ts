@@ -75,6 +75,7 @@ export const SANDBOX_DURABLE_HOST_DISPATCH = {
 	createEvents: "event-workflow",
 	emitSignal: "service-workflow",
 	getUserPreferences: "activity",
+	getOAuthAccessToken: "activity",
 	claimPersistentValue: "activity",
 	getCurrentIntegration: "activity",
 	ensureUserEntities: "service-workflow",
