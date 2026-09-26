@@ -242,6 +242,22 @@ const mountView = (
 	return { ...view, router };
 };
 
+const savedFailureDownloads: string[] = [];
+
+URL.createObjectURL = () => "blob:ryot-import-failures";
+URL.revokeObjectURL = () => undefined;
+
+document.addEventListener(
+	"click",
+	(event) => {
+		if (event.target instanceof HTMLAnchorElement) {
+			savedFailureDownloads.push(event.target.download);
+			event.preventDefault();
+		}
+	},
+	true,
+);
+
 describe("import data list", () => {
 	it.live("names each run by its source and opens the one that was clicked", () =>
 		Effect.gen(function* () {
@@ -617,6 +633,39 @@ describe("import run detail", () => {
 			expect(screen.queryByText("row-5")).toBeNull();
 			fireEvent.click(row);
 			expect(screen.getByText("row-5")).not.toBeNull();
+		}),
+	);
+
+	it.live("offers the full failure download when no failures are loaded and retries errors", () =>
+		Effect.gen(function* () {
+			const downloads: string[] = [];
+			mountView(
+				"/settings/import-data/run_1",
+				makeImportsApi({
+					downloadFailures: (_scope, runId) => {
+						downloads.push(runId);
+						return downloads.length === 1
+							? Effect.fail(new AuthenticatedApiError({ cause: 500 }))
+							: Effect.succeed(new Blob(["report"], { type: "application/json" }));
+					},
+				}),
+				makeImportsStub({
+					loadRun: () => Effect.succeed(decodeRun([makeRun({ failedItems: 1 })])),
+				}),
+			);
+
+			yield* Effect.promise(() => screen.findByRole("heading", { level: 1, name: "Hevy" }));
+			const downloadButton = screen.getByRole("button", { name: "Download errors" });
+			fireEvent.click(downloadButton);
+			yield* Effect.promise(() => screen.findByRole("alert"));
+			expect(screen.getByRole("alert").textContent).toBe(
+				"Could not download these errors. Try again.",
+			);
+
+			fireEvent.click(screen.getByRole("button", { name: "Download errors" }));
+			yield* Effect.promise(() => waitFor(() => expect(downloads).toEqual(["run_1", "run_1"])));
+			expect(savedFailureDownloads.at(-1)).toBe("ryot-import-failures-run_1.json");
+			expect(screen.queryByRole("alert")).toBeNull();
 		}),
 	);
 
