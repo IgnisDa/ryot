@@ -120,6 +120,10 @@ captured clock and returns a synchronous cancel; a throw inside the callback is 
 microtask so the plugin fatal path still sees it. `run` executes refresh Effects on that same scoped
 runtime and returns an interrupt function. Disposing a refresh interrupts in-flight work.
 
+`makeRyotPluginLayer` assembles client, navigation, and an explicit schedule layer for both live
+and test runtimes. Construction stays synchronous. Each page builds its own schedule scope against
+the harness clock; per-screen React contexts remain separate from these runtime services.
+
 The test clock governs SDK scheduling only. It does **not** drive `AtomRegistry` idle-TTL sweeps
 (raw `setTimeout`, 5 min default TTL) or `Atom.swr` staleness (`Date.now()` against a 30 s
 `staleTime`), and interested queries never get `Atom.swr` at all. Advancing the test clock past
