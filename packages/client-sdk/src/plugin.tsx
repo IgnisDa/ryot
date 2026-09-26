@@ -23,8 +23,10 @@ import {
 	EntityPresentationRegistryProvider,
 	type EntityPresentationRegistration,
 } from "./entity-results";
+import type { RyotClient } from "./index";
 import type { ResolvePluginScreen } from "./navigation/stack";
 import { createPluginNavigationStore } from "./navigation/store";
+import type { PluginRouterNavigation } from "./navigation/store";
 import { RyotProvider, usePageRefresh } from "./react";
 import {
 	createClientPageRouteResolver,
@@ -33,7 +35,7 @@ import {
 	type PluginRouterDefinition,
 } from "./routing";
 import { createPluginRuntime } from "./runtime";
-import { createBootstrapRyotRuntime, type RyotPluginRuntime } from "./schedule";
+import { makeRyotPluginRuntime, type RyotPluginRuntime } from "./schedule";
 
 export { loadStylesheet } from "./stylesheets";
 
@@ -97,6 +99,7 @@ const KernelShortcutForwarder = ({
 const bootstrapClientApplication = (
 	createResolver: (page: ClientPageContext | undefined) => ResolvePluginScreen,
 	registrations: readonly EntityPresentationRegistration[],
+	createRuntime: (client: RyotClient, navigation: PluginRouterNavigation) => RyotPluginRuntime,
 ) => {
 	let root: Root | undefined;
 	const listener = new AbortController();
@@ -210,6 +213,9 @@ const bootstrapClientApplication = (
 					sessionListener?.abort();
 					sessionListener = undefined;
 					unmount();
+					const activeSdkRuntime = sdkRuntime;
+					sdkRuntime = undefined;
+					void activeSdkRuntime?.dispose();
 				},
 				(nextKey, page) => {
 					currentPage = page;
@@ -221,7 +227,12 @@ const bootstrapClientApplication = (
 					renderPage();
 				},
 			);
-			sdkRuntime = createBootstrapRyotRuntime(pluginRuntime.client, pluginRuntime.navigation);
+			try {
+				sdkRuntime = createRuntime(pluginRuntime.client, pluginRuntime.navigation);
+			} catch {
+				pluginRuntime.fatal();
+				return;
+			}
 			runtime = pluginRuntime;
 		},
 		{ signal: listener.signal },
@@ -234,26 +245,32 @@ type ClientApplicationOptions = {
 	readonly entityPresentations?: readonly EntityPresentationRegistration[];
 };
 
-export const bootstrapClientPlugin = (
-	definition: ClientPluginDefinition,
-	options: ClientApplicationOptions = {},
-) =>
-	bootstrapClientApplication(
-		() => createPluginRouteResolver(definition),
-		options.entityPresentations ?? [],
-	);
+export const createClientBootstrap = (
+	createRuntime: (client: RyotClient, navigation: PluginRouterNavigation) => RyotPluginRuntime,
+) => ({
+	bootstrapClientPlugin: (
+		definition: ClientPluginDefinition,
+		options: ClientApplicationOptions = {},
+	) =>
+		bootstrapClientApplication(
+			() => createPluginRouteResolver(definition),
+			options.entityPresentations ?? [],
+			createRuntime,
+		),
 
-export const bootstrapClientPage = (
-	component: ComponentType,
-	options: ClientApplicationOptions = {},
-) =>
-	bootstrapClientApplication(
-		(page) =>
-			page === undefined
-				? createPluginRouteResolver({ home: { component } })
-				: createClientPageRouteResolver(component, page),
-		options.entityPresentations ?? [],
-	);
+	bootstrapClientPage: (component: ComponentType, options: ClientApplicationOptions = {}) =>
+		bootstrapClientApplication(
+			(page) =>
+				page === undefined
+					? createPluginRouteResolver({ home: { component } })
+					: createClientPageRouteResolver(component, page),
+			options.entityPresentations ?? [],
+			createRuntime,
+		),
+});
+
+export const { bootstrapClientPage, bootstrapClientPlugin } =
+	createClientBootstrap(makeRyotPluginRuntime);
 
 export {
 	EntityResults,

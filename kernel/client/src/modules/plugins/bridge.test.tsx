@@ -26,6 +26,7 @@ import {
 	type PluginRyotQLRequest,
 	type PluginStorageOutcome,
 	type PluginStorageRequest,
+	type PluginUploadOutcome,
 	type PluginUploadRequest,
 } from "@ryot-app/client-plugin-contract";
 import { createRyotClient } from "@ryot-app/client-sdk";
@@ -86,6 +87,37 @@ const document = {
 	},
 } as const;
 
+const capabilityRequests = {
+	asset: { type: "asset-request", assets: [{ type: "local", key: "picture.png" }] },
+
+	ryotql: { document, type: "ryotql-request" },
+
+	upload: {
+		fileName: "items.csv",
+		type: "upload-request",
+		contentType: "text/csv",
+		source: new Blob(["data"]),
+	},
+
+	storage: { key: "order", action: "get", pluginSlug: "media", type: "storage-request" },
+
+	operation: { input: null, operationSlug: "greet", type: "operation-request" },
+
+	collection: {
+		type: "collection-request",
+		action: "upsert-membership",
+		input: { entityId: "entity-1", collectionId: "collection-1" },
+	},
+};
+const capabilities: ReadonlyArray<keyof typeof capabilityRequests> = [
+	"asset",
+	"collection",
+	"operation",
+	"storage",
+	"upload",
+	"ryotql",
+];
+
 const ports: MessagePort[] = [];
 const sessions: PluginBridgeSession[] = [];
 
@@ -115,6 +147,7 @@ const connect = (
 		readonly onOperation?: Parameters<typeof openPluginBridge>[0]["onOperation"];
 		readonly onRyotQL?: Parameters<typeof openPluginBridge>[0]["onRyotQL"];
 		readonly onStorage?: Parameters<typeof openPluginBridge>[0]["onStorage"];
+		readonly onDiagnostic?: Parameters<typeof openPluginBridge>[0]["onDiagnostic"];
 	} = {},
 ) => {
 	const backs: null[] = [];
@@ -147,6 +180,7 @@ const connect = (
 		documentKey: "page-1",
 		timeoutMs: options.timeoutMs,
 		onReady: () => readies.push(null),
+		onDiagnostic: options.onDiagnostic,
 		onFailure: () => failures.push(null),
 		onNavigateBack: () => backs.push(null),
 		onOpenDrawer: () => drawers.push(null),
@@ -1323,6 +1357,143 @@ describe("plugin bridge", () => {
 			expect(yield* Effect.promise(() => uploaded.source.text())).toBe("id,title");
 		}),
 	);
+
+	for (const capability of capabilities) {
+		it.live(`rejects a malformed ${capability} success without sending private fields`, () =>
+			Effect.gen(function* () {
+				const diagnostics: unknown[] = [];
+				const asset: PluginAssetOutcome = { resolutions: [], outcome: "success" };
+				const collection: PluginCollectionOutcome = { outcome: "success", response: membership };
+				const operation: PluginOperationOutcome = { value: null, outcome: "success" };
+				const storage: PluginStorageOutcome = { value: null, outcome: "success" };
+				const upload: PluginUploadOutcome = {
+					outcome: "success",
+					token: { token: "upload", expiresAt: "2026-01-01T00:00:00.000Z" },
+				};
+				const ryotql: PluginRyotQLOutcome = { outcome: "success", response: { data: {} } };
+				const badValue = { credential: "private", invalid: () => undefined };
+				Reflect.set(asset, "resolutions", badValue);
+				Reflect.set(collection, "response", badValue);
+				Reflect.set(operation, "value", badValue);
+				Reflect.set(storage, "value", badValue);
+				Reflect.set(upload, "token", badValue);
+				Reflect.set(ryotql, "response", badValue);
+				const { init, received, failures, pluginPort } = connect({
+					onAssets: () => Effect.succeed(asset),
+					onUpload: () => Effect.succeed(upload),
+					onRyotQL: () => Effect.succeed(ryotql),
+					onStorage: () => Effect.succeed(storage),
+					onOperation: () => Effect.succeed(operation),
+					onCollection: () => Effect.succeed(collection),
+					onDiagnostic: (diagnostic) => diagnostics.push(diagnostic),
+				});
+				pluginPort.postMessage(readyFor(init));
+				yield* Effect.promise(() => waitFor(() => expect(received).toHaveLength(1)));
+				pluginPort.postMessage({ ...capabilityRequests[capability], requestId: "bad" });
+				yield* Effect.promise(() => waitFor(() => expect(received).toHaveLength(2)));
+				expect(received[1]).toEqual({
+					requestId: "bad",
+					outcome: "failure",
+					type: `${capability}-result`,
+					reason:
+						capability === "storage" || capability === "ryotql" ? "transport" : "malformed-result",
+				});
+				expect(failures).toEqual([]);
+				expect(diagnostics).toHaveLength(1);
+			}),
+		);
+	}
+
+	for (const capability of capabilities) {
+		it.live(`preserves a classified ${capability} failure and diagnoses an unexpected defect`, () =>
+			Effect.gen(function* () {
+				const diagnostics: unknown[] = [];
+				let defects = false;
+				const reply = <A,>(value: A) =>
+					defects ? Effect.die(new Error("private defect")) : Effect.succeed(value);
+				const { init, received, failures, pluginPort } = connect({
+					onDiagnostic: (diagnostic) => diagnostics.push(diagnostic),
+					onStorage: () => reply<PluginStorageOutcome>({ reason: "quota", outcome: "failure" }),
+					onAssets: () => reply<PluginAssetOutcome>({ outcome: "failure", reason: "asset-failed" }),
+					onRyotQL: () =>
+						reply<PluginRyotQLOutcome>({ outcome: "failure", reason: "query-failed" }),
+					onUpload: () =>
+						reply<PluginUploadOutcome>({ outcome: "failure", reason: "operation-failed" }),
+					onOperation: () =>
+						reply<PluginOperationOutcome>({ outcome: "failure", reason: "operation-failed" }),
+					onCollection: () =>
+						reply<PluginCollectionOutcome>({ outcome: "failure", reason: "collection-failed" }),
+				});
+				pluginPort.postMessage(readyFor(init));
+				yield* Effect.promise(() => waitFor(() => expect(received).toHaveLength(1)));
+				pluginPort.postMessage({ ...capabilityRequests[capability], requestId: "classified" });
+				yield* Effect.promise(() => waitFor(() => expect(received).toHaveLength(2)));
+				expect(received[1]).toEqual({
+					outcome: "failure",
+					requestId: "classified",
+					type: `${capability}-result`,
+					reason: {
+						storage: "quota",
+						asset: "asset-failed",
+						ryotql: "query-failed",
+						upload: "operation-failed",
+						operation: "operation-failed",
+						collection: "collection-failed",
+					}[capability],
+				});
+				expect(diagnostics).toEqual([]);
+				defects = true;
+				pluginPort.postMessage({ ...capabilityRequests[capability], requestId: "defect" });
+				yield* Effect.promise(() => waitFor(() => expect(received).toHaveLength(3)));
+				expect(received[2]).toEqual({
+					outcome: "failure",
+					requestId: "defect",
+					reason: "transport",
+					type: `${capability}-result`,
+				});
+				expect(diagnostics).toHaveLength(1);
+				expect(failures).toEqual([]);
+			}),
+		);
+	}
+
+	for (const capability of capabilities) {
+		it.live(`interrupts ${capability} work without a late result or defect diagnostic`, () =>
+			Effect.gen(function* () {
+				const diagnostics: unknown[] = [];
+				const started: string[] = [];
+				const interrupted: string[] = [];
+				const pendingWork = () =>
+					Effect.sync(() => {
+						started.push(capability);
+					}).pipe(
+						Effect.andThen(Effect.never),
+						Effect.ensuring(
+							Effect.sync(() => {
+								interrupted.push(capability);
+							}),
+						),
+					);
+				const { init, session, received, pluginPort } = connect({
+					onAssets: pendingWork,
+					onRyotQL: pendingWork,
+					onUpload: pendingWork,
+					onStorage: pendingWork,
+					onOperation: pendingWork,
+					onCollection: pendingWork,
+					onDiagnostic: (diagnostic) => diagnostics.push(diagnostic),
+				});
+				pluginPort.postMessage(readyFor(init));
+				yield* Effect.promise(() => waitFor(() => expect(received).toHaveLength(1)));
+				pluginPort.postMessage({ ...capabilityRequests[capability], requestId: "pending" });
+				yield* Effect.promise(() => waitFor(() => expect(started).toEqual([capability])));
+				session.close();
+				yield* Effect.promise(() => waitFor(() => expect(interrupted).toEqual([capability])));
+				expect(received).toEqual([at(), { reason: "disposed", type: "lifecycle-close" }]);
+				expect(diagnostics).toEqual([]);
+			}),
+		);
+	}
 
 	it.live("reports upload failures and rejects a source that is not a Blob", () =>
 		Effect.gen(function* () {
