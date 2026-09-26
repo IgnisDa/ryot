@@ -23,6 +23,7 @@ import { Route as AuthCallbackRouteImport } from './routes/auth_.callback'
 import { Route as GodModeIndexRouteImport } from './routes/god-mode/index'
 import { Route as GodModeMigrationReportRouteImport } from './routes/god-mode/migration-report'
 import { Route as GodModeUsersRouteImport } from './routes/god-mode/users'
+import { Route as OauthInitializingRouteImport } from './routes/oauth.initializing'
 import { Route as OauthLoginRouteImport } from './routes/oauth.login'
 import { Route as AuthenticatedPluginSlugIndexRouteImport } from './routes/_authenticated/$pluginSlug/index'
 import { Route as AuthenticatedPluginSlugSplatRouteImport } from './routes/_authenticated/$pluginSlug/$'
@@ -113,6 +114,11 @@ const GodModeUsersRoute = GodModeUsersRouteImport.update({
   id: '/users',
   path: '/users',
   getParentRoute: () => GodModeRouteRoute,
+} as any)
+const OauthInitializingRoute = OauthInitializingRouteImport.update({
+  id: '/oauth/initializing',
+  path: '/oauth/initializing',
+  getParentRoute: () => rootRouteImport,
 } as any)
 const OauthLoginRoute = OauthLoginRouteImport.update({
   id: '/oauth/login',
@@ -232,6 +238,7 @@ export interface FileRoutesByFullPath {
   '/auth/callback': typeof AuthCallbackRoute
   '/god-mode/migration-report': typeof GodModeMigrationReportRoute
   '/god-mode/users': typeof GodModeUsersRoute
+  '/oauth/initializing': typeof OauthInitializingRoute
   '/oauth/login': typeof OauthLoginRoute
   '/god-mode/': typeof GodModeIndexRoute
   '/$pluginSlug/$': typeof AuthenticatedPluginSlugSplatRoute
@@ -261,6 +268,7 @@ export interface FileRoutesByTo {
   '/auth/callback': typeof AuthCallbackRoute
   '/god-mode/migration-report': typeof GodModeMigrationReportRoute
   '/god-mode/users': typeof GodModeUsersRoute
+  '/oauth/initializing': typeof OauthInitializingRoute
   '/oauth/login': typeof OauthLoginRoute
   '/': typeof AuthenticatedIndexRoute
   '/god-mode': typeof GodModeIndexRoute
@@ -296,6 +304,7 @@ export interface FileRoutesById {
   '/auth_/callback': typeof AuthCallbackRoute
   '/god-mode/migration-report': typeof GodModeMigrationReportRoute
   '/god-mode/users': typeof GodModeUsersRoute
+  '/oauth/initializing': typeof OauthInitializingRoute
   '/oauth/login': typeof OauthLoginRoute
   '/_authenticated/': typeof AuthenticatedIndexRoute
   '/god-mode/': typeof GodModeIndexRoute
@@ -332,6 +341,7 @@ export interface FileRouteTypes {
     | '/auth/callback'
     | '/god-mode/migration-report'
     | '/god-mode/users'
+    | '/oauth/initializing'
     | '/oauth/login'
     | '/god-mode/'
     | '/$pluginSlug/$'
@@ -361,6 +371,7 @@ export interface FileRouteTypes {
     | '/auth/callback'
     | '/god-mode/migration-report'
     | '/god-mode/users'
+    | '/oauth/initializing'
     | '/oauth/login'
     | '/'
     | '/god-mode'
@@ -395,6 +406,7 @@ export interface FileRouteTypes {
     | '/auth_/callback'
     | '/god-mode/migration-report'
     | '/god-mode/users'
+    | '/oauth/initializing'
     | '/oauth/login'
     | '/_authenticated/'
     | '/god-mode/'
@@ -425,6 +437,7 @@ export interface RootRouteChildren {
   OnboardingRoute: typeof OnboardingRoute
   ResetPasswordRoute: typeof ResetPasswordRoute
   AuthCallbackRoute: typeof AuthCallbackRoute
+  OauthInitializingRoute: typeof OauthInitializingRoute
   OauthLoginRoute: typeof OauthLoginRoute
   AuthLogoutCallbackRoute: typeof AuthLogoutCallbackRoute
 }
@@ -528,6 +541,13 @@ declare module '@tanstack/react-router' {
       fullPath: '/god-mode/users'
       preLoaderRoute: typeof GodModeUsersRouteImport
       parentRoute: typeof GodModeRouteRoute
+    }
+    '/oauth/initializing': {
+      id: '/oauth/initializing'
+      path: '/oauth/initializing'
+      fullPath: '/oauth/initializing'
+      preLoaderRoute: typeof OauthInitializingRouteImport
+      parentRoute: typeof rootRouteImport
     }
     '/oauth/login': {
       id: '/oauth/login'
@@ -764,6 +784,7 @@ const rootRouteChildren: RootRouteChildren = {
   OnboardingRoute: OnboardingRoute,
   ResetPasswordRoute: ResetPasswordRoute,
   AuthCallbackRoute: AuthCallbackRoute,
+  OauthInitializingRoute: OauthInitializingRoute,
   OauthLoginRoute: OauthLoginRoute,
   AuthLogoutCallbackRoute: AuthLogoutCallbackRoute,
 }

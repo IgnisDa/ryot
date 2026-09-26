@@ -13,7 +13,7 @@ import {
 import { UserId } from "@ryot-app/contract/schema/brands";
 import { createAuthClient } from "better-auth/client";
 import { twoFactorClient } from "better-auth/client/plugins";
-import { Effect, Schema } from "effect";
+import { Clock, Effect, Schema } from "effect";
 
 import { requirePresent, requireString } from "~/support/assertions";
 import { getApiUrl } from "~/support/harness-target";
@@ -41,6 +41,8 @@ export type PendingOAuth = {
 const frontendOrigins = new Map<string, string>();
 
 const pendingTwoFactor = new Map<string, PendingOAuth>();
+const InitializationStatus = Schema.Struct({ status: Schema.Literals(["initializing", "ready"]) });
+const OAuthContinuation = Schema.Struct({ url: Schema.String });
 
 const randomValue = () =>
 	Buffer.from(crypto.getRandomValues(new Uint8Array(32))).toString("base64url");
@@ -108,6 +110,59 @@ export const prepareOAuth = (baseUrl: string) =>
 
 export const continueOAuthAuthorization = (pending: PendingOAuth, sessionCookie: string) =>
 	webRequest(pending.authorizationUrl, { redirect: "manual", headers: { Cookie: sessionCookie } });
+
+const continueAfterInitialization = (
+	response: Response,
+	pending: PendingOAuth,
+	sessionCookie: string,
+) =>
+	Effect.gen(function* () {
+		const location = response.headers.get("location");
+		if (!location) {
+			return response;
+		}
+		const initializationUrl = new URL(location, pending.serverOrigin);
+		if (initializationUrl.pathname !== "/oauth/initializing") {
+			return response;
+		}
+
+		const deadline = (yield* Clock.currentTimeMillis) + 120_000;
+		while ((yield* Clock.currentTimeMillis) < deadline) {
+			const statusResponse = yield* webRequest(
+				`${pending.serverOrigin}/api/auth/initialization-status`,
+				{ headers: { Cookie: sessionCookie } },
+			);
+			if (!statusResponse.ok) {
+				throw new Error(`Initialization status failed: ${statusResponse.status}`);
+			}
+			const status = yield* Schema.decodeUnknownEffect(InitializationStatus)(
+				yield* Effect.promise(() => statusResponse.json()),
+			);
+			if (status.status === "ready") {
+				const continuation = yield* webRequest(`${pending.serverOrigin}/api/auth/oauth2/continue`, {
+					method: "POST",
+					headers: {
+						Cookie: sessionCookie,
+						Origin: pending.frontendOrigin,
+						"content-type": "application/json",
+					},
+					body: yield* Schema.encodeEffect(Schema.fromJsonString(Schema.Unknown))({
+						postLogin: true,
+						oauth_query: initializationUrl.search.slice(1),
+					}),
+				});
+				if (!continuation.ok) {
+					throw new Error(`OAuth continuation failed: ${continuation.status}`);
+				}
+				const payload = yield* Schema.decodeUnknownEffect(OAuthContinuation)(
+					yield* Effect.promise(() => continuation.json()),
+				);
+				return new Response(null, { status: 302, headers: { location: payload.url } });
+			}
+			yield* Effect.sleep("200 millis");
+		}
+		throw new Error("Account initialization did not complete within 120 seconds");
+	});
 
 export const exchangeOAuthTokens = (response: Response, pending: PendingOAuth) =>
 	Effect.gen(function* () {
@@ -191,8 +246,9 @@ export const createTestAuthClient = (baseUrl = getApiUrl(), options: TestAuthCli
 export const signInWithPassword = (email: string, password: string, baseUrl = getApiUrl()) =>
 	Effect.gen(function* () {
 		const pending = yield* prepareOAuth(baseUrl);
-		const completed = Effect.fnUntraced(function* (source: Response) {
-			const tokens = yield* exchangeOAuthTokens(source, pending);
+		const completed = Effect.fnUntraced(function* (source: Response, sessionCookie: string) {
+			const continued = yield* continueAfterInitialization(source, pending, sessionCookie);
+			const tokens = yield* exchangeOAuthTokens(continued, pending);
 			return { token: tokens.access_token, refreshToken: tokens.refresh_token };
 		});
 		const response = yield* webRequest(`${pending.serverOrigin}/api/auth/sign-in/email`, {
@@ -236,6 +292,7 @@ export const signInWithPassword = (email: string, password: string, baseUrl = ge
 					twoFactorToken: undefined,
 					...(yield* completed(
 						new Response(null, { status: 302, headers: { location: redirectUrl } }),
+						sessionCookie,
 					)),
 				};
 			}
@@ -249,7 +306,10 @@ export const signInWithPassword = (email: string, password: string, baseUrl = ge
 					error: null,
 					sessionCookie,
 					twoFactorToken: undefined,
-					...(yield* completed(yield* continueOAuthAuthorization(pending, sessionCookie))),
+					...(yield* completed(
+						yield* continueOAuthAuthorization(pending, sessionCookie),
+						sessionCookie,
+					)),
 				};
 			}
 			if (sessionCookie) {
@@ -269,7 +329,7 @@ export const signInWithPassword = (email: string, password: string, baseUrl = ge
 			error: null,
 			sessionCookie,
 			twoFactorToken: undefined,
-			...(yield* completed(response)),
+			...(yield* completed(response, sessionCookie)),
 		};
 	});
 
@@ -310,7 +370,11 @@ export const completeTwoFactorSignIn = (
 					sessionCookie,
 					token: sessionCookie
 						? yield* exchangeOAuthCallback(
-								yield* continueOAuthAuthorization(pending, sessionCookie),
+								yield* continueAfterInitialization(
+									yield* continueOAuthAuthorization(pending, sessionCookie),
+									pending,
+									sessionCookie,
+								),
 								pending,
 							)
 						: undefined,
@@ -320,17 +384,29 @@ export const completeTwoFactorSignIn = (
 				data,
 				response,
 				sessionCookie,
-				token: yield* exchangeOAuthCallback(
-					new Response(null, { status: 302, headers: { location: redirectUrl } }),
-					pending,
-				),
+				token: sessionCookie
+					? yield* exchangeOAuthCallback(
+							yield* continueAfterInitialization(
+								new Response(null, { status: 302, headers: { location: redirectUrl } }),
+								pending,
+								sessionCookie,
+							),
+							pending,
+						)
+					: undefined,
 			};
 		}
+		const sessionCookie = responseCookie(response) || undefined;
 		return {
 			response,
 			data: null,
-			sessionCookie: responseCookie(response) || undefined,
-			token: yield* exchangeOAuthCallback(response, pending),
+			sessionCookie,
+			token: sessionCookie
+				? yield* exchangeOAuthCallback(
+						yield* continueAfterInitialization(response, pending, sessionCookie),
+						pending,
+					)
+				: undefined,
 		};
 	});
 

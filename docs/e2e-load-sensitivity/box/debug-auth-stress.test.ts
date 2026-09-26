@@ -2,7 +2,7 @@ import { Effect } from "effect";
 
 import { createAuthenticatedClient } from "~/fixtures/kernel";
 import { updateUserSettingsPreferences } from "~/fixtures/kernel/user-settings";
-import { describe, it } from "~/support/effect-test";
+import { describe, expect, it } from "~/support/effect-test";
 
 const WORKERS = Number(process.env.DEBUG_WORKERS ?? 16);
 const DURATION_MS = Number(process.env.DEBUG_DURATION_MS ?? 120000);
@@ -42,6 +42,8 @@ describe("debug auth stress", () => {
 				);
 				console.log(`DEBUG-STRESS ${JSON.stringify(stats)}`);
 				for (const failure of failures.slice(0, 40)) console.log(`DEBUG-STRESS-FAIL ${failure}`);
+				expect(stats.signups).toBeGreaterThan(0);
+				expect(failures).toEqual([]);
 			}),
 		DURATION_MS + 120000,
 	);
