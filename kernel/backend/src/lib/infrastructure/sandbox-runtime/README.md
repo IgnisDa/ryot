@@ -88,14 +88,14 @@ Backend and browser plugin compilers remain separate engines.
 
 The manifest declares an exact capability tuple. The backend intersects it with an exhaustive policy and implementation registry; domain services still enforce user, schema, provider, and integration ownership.
 
-| Principal or role                   | Available bridge capabilities                                                                                                                                         |
-| ----------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| All valid subjects                  | `log`, `span`, `httpCall`, `getCachedValue`, `setCachedValue`, `getPluginConfig`, `getSystemConfig`, `claimPersistentValue`                                           |
-| User or user automation run         | `createEvents`, `getEntitySchemas`, `listEventSchemas`, `listIntegrations`, `getUserPreferences`, `getCurrentIntegration`, `changeUserRelationships`, `executeRyotql` |
-| System-plugin user-bootstrap script | `ensureUserEntities` for that plugin's entity schemas                                                                                                                 |
-| Pinned system-scope plugin script   | `executeRyotql`, `upsertGlobalEntities`, `upsertGlobalRelationships` within plugin ownership                                                                          |
-| User or system automation run       | `emitSignal`; `sendNotification` is available only to user automation runs                                                                                            |
-| Integration run of its own plugin   | `getOAuthAccessToken` for an OAuth connection field the integration's current settings schema declares                                                                |
+| Principal or role                   | Available bridge capabilities                                                                                                                                                            |
+| ----------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| All valid subjects                  | `log`, `span`, `httpCall`, `getCachedValue`, `setCachedValue`, `getPluginConfig`, `getSystemConfig`, `claimPersistentValue`                                                              |
+| User or user automation run         | `createEvents`, `getEntitySchemas`, `listEventSchemas`, `listIntegrations`, `getUserPreferences`, `getUserSettings`, `getCurrentIntegration`, `changeUserRelationships`, `executeRyotql` |
+| System-plugin user-bootstrap script | `ensureUserEntities` for that plugin's entity schemas                                                                                                                                    |
+| Pinned system-scope plugin script   | `executeRyotql`, `upsertGlobalEntities`, `upsertGlobalRelationships` within plugin ownership                                                                                             |
+| User or system automation run       | `emitSignal`; `sendNotification` is available only to user automation runs                                                                                                               |
+| Integration run of its own plugin   | `getOAuthAccessToken` for an OAuth connection field the integration's current settings schema declares                                                                                   |
 
 `scratch` and `artifact-read` are non-bridge permissions. System elevation requires a persisted pinned system-scope plugin principal. User capabilities require a trusted user subject. `getEntitySchemas` uses that user's effective ready, enabled plugin catalog. Entity and event data reads use RyotQL; schema calls expose metadata only.
 
