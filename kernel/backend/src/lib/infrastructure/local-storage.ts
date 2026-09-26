@@ -1,8 +1,9 @@
 import { BadRequest, badRequest } from "@ryot-app/contract/errors";
 import { UPLOAD_MAX_FILE_BYTES } from "@ryot-app/contract/modules/uploads/upload-policy";
-import { Context, Effect, FileSystem, Layer, Path, PlatformError, Redacted, Stream } from "effect";
+import { Context, Effect, FileSystem, Layer, Path, PlatformError, Stream } from "effect";
 
 import { AppConfig } from "./config/service";
+import { HmacSigner } from "./hmac-signer";
 
 const UPLOAD_URL_EXPIRY_SECONDS = 15 * 60;
 const localUploadPath = (intentId: string) => `/uploads/local/${intentId}`;
@@ -12,30 +13,6 @@ const hasSystemErrorReason = (error: unknown, reason: "AlreadyExists") =>
 	error instanceof PlatformError.PlatformError &&
 	error.reason instanceof PlatformError.SystemError &&
 	error.reason._tag === reason;
-
-const base64UrlEncode = (bytes: Uint8Array) => {
-	let value = "";
-	for (const byte of bytes) {
-		value += String.fromCharCode(byte);
-	}
-	return btoa(value).replaceAll("+", "-").replaceAll("/", "_").replaceAll("=", "");
-};
-
-const base64UrlDecode = (value: string) => {
-	if (!/^[A-Za-z0-9_-]+$/.test(value)) {
-		return null;
-	}
-	const padded = value
-		.replaceAll("-", "+")
-		.replaceAll("_", "/")
-		.padEnd(Math.ceil(value.length / 4) * 4, "=");
-	try {
-		const decoded = atob(padded);
-		return Uint8Array.from(decoded, (character) => character.charCodeAt(0));
-	} catch {
-		return null;
-	}
-};
 
 const isContained = (paths: Path.Path, root: string, target: string) => {
 	const relative = paths.relative(root, target);
@@ -59,19 +36,10 @@ export class LocalStorageService extends Context.Service<LocalStorageService>()(
 		make: Effect.gen(function* () {
 			const paths = yield* Path.Path;
 			const config = yield* AppConfig;
+			const signer = yield* HmacSigner;
 			const fs = yield* FileSystem.FileSystem;
 			const localDir = config.fileStorage.localDir;
 			const localTempDir = config.fileStorage.localTempDir;
-			const signingSecret = Redacted.value(config.server.adminAccessToken);
-			const signingKey = yield* Effect.tryPromise(() =>
-				crypto.subtle.importKey(
-					"raw",
-					new TextEncoder().encode(signingSecret),
-					{ name: "HMAC", hash: "SHA-256" },
-					false,
-					["sign", "verify"],
-				),
-			).pipe(Effect.orDie);
 			const resolveRoot = (directory: string) =>
 				Effect.gen(function* () {
 					yield* fs.makeDirectory(directory, { recursive: true });
@@ -130,16 +98,7 @@ export class LocalStorageService extends Context.Service<LocalStorageService>()(
 				});
 
 			const sign = (method: string, pathname: string, expiresAt: number) =>
-				Effect.tryPromise(() =>
-					crypto.subtle.sign(
-						"HMAC",
-						signingKey,
-						new TextEncoder().encode(`${method}\n${pathname}\n${expiresAt}`),
-					),
-				).pipe(
-					Effect.map((value) => base64UrlEncode(new Uint8Array(value))),
-					Effect.orDie,
-				);
+				signer.sign(`${method}\n${pathname}\n${expiresAt}`);
 
 			const createUploadTarget = Effect.fn("LocalStorageService.createUploadTarget")(function* (
 				intentId: string,
@@ -178,18 +137,10 @@ export class LocalStorageService extends Context.Service<LocalStorageService>()(
 				) {
 					return yield* badRequest("Local upload target is invalid or expired");
 				}
-				const actualBytes = base64UrlDecode(signature);
-				if (actualBytes === null) {
-					return yield* badRequest("Local upload target is invalid or expired");
-				}
-				const valid = yield* Effect.tryPromise(() =>
-					crypto.subtle.verify(
-						"HMAC",
-						signingKey,
-						actualBytes,
-						new TextEncoder().encode(`${method}\n${parsed.pathname}\n${expiresAt}`),
-					),
-				).pipe(Effect.orDie);
+				const valid = yield* signer.verify(
+					`${method}\n${parsed.pathname}\n${expiresAt}`,
+					signature,
+				);
 				if (!valid) {
 					return yield* badRequest("Local upload target is invalid or expired");
 				}
@@ -247,20 +198,10 @@ export class LocalStorageService extends Context.Service<LocalStorageService>()(
 				) {
 					return yield* badRequest("Local download target is invalid or expired");
 				}
-				const actualBytes = base64UrlDecode(signature);
-				if (actualBytes === null) {
-					return yield* badRequest("Local download target is invalid or expired");
-				}
-				const valid = yield* Effect.tryPromise(() =>
-					crypto.subtle.verify(
-						"HMAC",
-						signingKey,
-						actualBytes,
-						new TextEncoder().encode(
-							`GET,HEAD\n${parsed.pathname}\n${key}\n${contentType}\n${expiresAt}`,
-						),
-					),
-				).pipe(Effect.orDie);
+				const valid = yield* signer.verify(
+					`GET,HEAD\n${parsed.pathname}\n${key}\n${contentType}\n${expiresAt}`,
+					signature,
+				);
 				if (!valid) {
 					return yield* badRequest("Local download target is invalid or expired");
 				}

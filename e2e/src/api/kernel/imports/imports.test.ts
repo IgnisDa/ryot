@@ -255,7 +255,7 @@ describe("Plugin Import Public Boundary", () => {
 			yield* Effect.acquireRelease(installTestHarvestHandleImportPlugin(101), (installed) =>
 				uninstallWhenReleased(installed).pipe(Effect.asVoid, Effect.orDie),
 			);
-			const { token, client } = yield* createAuthenticatedClient();
+			const { client } = yield* createAuthenticatedClient();
 
 			const created = yield* client.call((c) =>
 				c.imports.createRun({ payload: { source: FIXTURE_HANDLE_IMPORT_SOURCE } }),
@@ -270,10 +270,11 @@ describe("Plugin Import Public Boundary", () => {
 				source: FIXTURE_HANDLE_IMPORT_SOURCE,
 			});
 
-			const downloadUrl = `${getApiUrl()}/imports/runs/${encodeURIComponent(created.id)}/failures/download`;
-			const response = yield* webRequest(downloadUrl, {
-				headers: { Authorization: `Bearer ${token}` },
-			});
+			const ticket = yield* client.call((c) =>
+				c.imports.createFailuresDownloadTicket({ params: { runId: ImportRunId.make(created.id) } }),
+			);
+			const downloadUrl = `${getApiUrl()}${ticket.url}`;
+			const response = yield* webRequest(downloadUrl);
 			expect(response.status).toBe(200);
 			expect(response.headers.get("content-type")).toBe("application/json; charset=utf-8");
 			expect(response.headers.get("content-disposition")).toContain(
@@ -287,10 +288,18 @@ describe("Plugin Import Public Boundary", () => {
 			expect(report.failures[100]?.sourceLabel).toBe("Harvest fixture 101");
 
 			const other = yield* createAuthenticatedClient();
-			const foreignResponse = yield* webRequest(downloadUrl, {
-				headers: { Authorization: `Bearer ${other.token}` },
-			});
-			expect(foreignResponse.status).toBe(404);
+			const foreignTicket = yield* Effect.flip(
+				other.client.call((c) =>
+					c.imports.createFailuresDownloadTicket({
+						params: { runId: ImportRunId.make(created.id) },
+					}),
+				),
+			);
+			assertTaggedError(foreignTicket, "ImportNotFoundError");
+			const invalidTicket = yield* webRequest(
+				`${getApiUrl()}/imports/runs/${encodeURIComponent(created.id)}/failures/download?ticket=invalid`,
+			);
+			expect(invalidTicket.status).toBe(404);
 		}),
 	);
 

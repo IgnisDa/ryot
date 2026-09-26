@@ -2,8 +2,10 @@ import { AppContract } from "@ryot-app/contract/contract";
 import { DbError } from "@ryot-app/contract/errors";
 import { GodModeInternalFailure } from "@ryot-app/contract/modules/god-mode/contract";
 import { Effect } from "effect";
-import { HttpServerResponse } from "effect/unstable/http";
 import { HttpApiBuilder } from "effect/unstable/httpapi";
+
+import { streamDownloadResponse } from "#lib/infrastructure/download-response";
+import { downloadTicketUrl } from "#lib/infrastructure/download-tickets";
 
 import { ServerLogs } from "./logs";
 import { GodModeService } from "./service";
@@ -57,33 +59,53 @@ export const ServerLogsRoutesLive = HttpApiBuilder.group(AppContract, "serverLog
 		.handle("list", ({ query }) =>
 			Effect.flatMap(ServerLogs, (service) => service.list(query.after, query.limit)),
 		)
-		.handleRaw("downloadFile", ({ params }) =>
+		.handle("createFileDownloadTicket", ({ params }) =>
 			Effect.gen(function* () {
 				const service = yield* ServerLogs;
-				const download = yield* service.downloadFile(params.id);
-				return HttpServerResponse.stream(download.stream, {
-					contentLength: download.size,
-					headers: {
-						"cache-control": "no-store",
-						"content-disposition": `attachment; filename*=UTF-8''${encodeURIComponent(download.fileName)}`,
-						"content-type": download.fileName.endsWith(".gz")
-							? "application/gzip"
-							: "text/plain; charset=utf-8",
-					},
-				});
+				const ticket = yield* service.createFileDownloadTicket(params.id);
+				return {
+					url: downloadTicketUrl(
+						`/god-mode/logs/files/${encodeURIComponent(params.id)}/download`,
+						ticket,
+					),
+				};
 			}),
 		)
-		.handleRaw("downloadAll", () =>
+		.handle("createAllDownloadTicket", () =>
 			Effect.gen(function* () {
 				const service = yield* ServerLogs;
-				const download = yield* service.downloadAll();
-				return HttpServerResponse.stream(download.stream, {
-					headers: {
-						"cache-control": "no-store",
-						"content-type": "application/zip",
-						"content-disposition": `attachment; filename="${download.fileName}"`,
-					},
-				});
+				const ticket = yield* service.createAllDownloadTicket();
+				return { url: downloadTicketUrl("/god-mode/logs/download", ticket) };
 			}),
 		),
+);
+
+export const ServerLogDownloadsRoutesLive = HttpApiBuilder.group(
+	AppContract,
+	"serverLogDownloads",
+	(handlers) =>
+		handlers
+			.handleRaw("downloadFile", ({ query, params }) =>
+				Effect.gen(function* () {
+					const service = yield* ServerLogs;
+					const download = yield* service.downloadFileWithTicket(params.id, query.ticket);
+					return streamDownloadResponse(download.stream, {
+						fileName: download.fileName,
+						contentLength: download.size,
+						contentType: download.fileName.endsWith(".gz")
+							? "application/gzip"
+							: "text/plain; charset=utf-8",
+					});
+				}),
+			)
+			.handleRaw("downloadAll", ({ query }) =>
+				Effect.gen(function* () {
+					const service = yield* ServerLogs;
+					const download = yield* service.downloadAllWithTicket(query.ticket);
+					return streamDownloadResponse(download.stream, {
+						fileName: download.fileName,
+						contentType: "application/zip",
+					});
+				}),
+			),
 );

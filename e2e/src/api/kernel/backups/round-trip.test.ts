@@ -161,7 +161,7 @@ describe("backup export and restore round trip", () => {
 			const sourceView = yield* findSavedViewById(source.client, view.id);
 			yield* setPluginHomeView(source.client, PluginSlug.make("media"), sourceView.slug);
 
-			const { bytes } = yield* exportAndDownloadBackup(source.client, source.token);
+			const { bytes } = yield* exportAndDownloadBackup(source.client);
 			const restored = yield* restoreBackup(target.client, bytes);
 			assertCompleted(restored.run, "coexisting-account backup restore");
 
@@ -488,7 +488,7 @@ describe("backup export and restore round trip", () => {
 			).toBe(false);
 			yield* updatePluginState(source.client, "media", { sortOrder: 73, isHidden: true });
 
-			const { bytes } = yield* exportAndDownloadBackup(source.client, source.token);
+			const { bytes } = yield* exportAndDownloadBackup(source.client);
 			yield* deleteUserAndWait(source.userId);
 			const restored = yield* restoreBackup(target.client, bytes);
 			assertCompleted(restored.run, "backup restore");
@@ -696,7 +696,7 @@ describe("backup export and restore round trip", () => {
 				relationshipSchemaSlug: "in-media-library",
 				properties: { owned: true, ownershipSources: ["backup-round-trip"] },
 			});
-			const { bytes } = yield* exportAndDownloadBackup(source.client, source.token);
+			const { bytes } = yield* exportAndDownloadBackup(source.client);
 			yield* deleteUserAndWait(source.userId);
 
 			const existingBeforeRestore = yield* getEntity(updater.client, archivedResult.data.id);
@@ -732,7 +732,7 @@ describe("backup export and restore round trip", () => {
 				providerSpecifics: {},
 				name: "Native backup webhook",
 			});
-			const { bytes } = yield* exportAndDownloadBackup(source.client, source.token);
+			const { bytes } = yield* exportAndDownloadBackup(source.client);
 			yield* deleteUserAndWait(source.userId);
 			const restored = yield* restoreBackup(target.client, bytes);
 			assertCompleted(restored.run, "Data webhook restore");
