@@ -3,6 +3,10 @@
 	"type": "module",
 	"sideEffects": false,
 	"exports": {
+		"./dependency-runtime": {
+			"types": "./src/dependency-runtime.ts",
+			"default": "./src/dependency-runtime.ts"
+		},
 		"./core": {
 			"types": "./src/core.ts",
 			"default": "./src/core.ts"

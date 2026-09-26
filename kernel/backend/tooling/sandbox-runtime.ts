@@ -5,12 +5,12 @@ import { compilePluginSandboxSourceEntries } from "@ryot-app/sandbox-compiler/pl
 import { sandboxRuntimeInputs } from "@ryot-app/sandbox-compiler/runtime-build/inputs";
 import { buildSandboxRuntimePayload } from "@ryot-app/sandbox-compiler/runtime-build/payload";
 import { walkSourceFiles } from "@ryot-app/sandbox-compiler/runtime-build/source-tree";
+import { SANDBOX_RUNTIME_REGISTRY } from "@ryot-app/sandbox-sdk/runtime-registry";
 import { canonicalFileSetHash } from "@ryot-app/ts-utils/crypto";
 import { encodeJsonString } from "@ryot-app/ts-utils/json";
-import { buildDenoEsm, ViteBuildService } from "@ryot-app/vite-compiler";
+import { buildSandboxEsm, ViteBuildService } from "@ryot-app/vite-compiler";
 import { Data, Effect, FileSystem, Layer, Path, Ref, Schema } from "effect";
 
-import type { SandboxRuntimePayload } from "../src/lib/infrastructure/sandbox-runtime/payload";
 import { kernelScripts } from "../src/modules/definition-registry/kernel-source";
 
 class RunnerGenerationError extends Data.TaggedError("RunnerGenerationError")<{
@@ -57,73 +57,93 @@ const embedKernelScripts = (kernelDirectory: string) =>
 				kernelDirectory,
 				"src/modules/definition-registry/kernel-scripts.compiled.generated.ts",
 			),
-			`// oxlint-disable perfectionist/sort-objects -- generated compiler metadata preserves authored field order.\nexport const kernelScriptCompiledOutputs = ${encodeJson(outputs)} as const;\n`,
+			`export const kernelScriptCompiledOutputs = ${encodeJson(outputs)} as const;\n`,
 		);
 		yield* Effect.logInfo("Embedded kernel sandbox scripts");
 	});
 
-const compileRunner = (sandboxRuntimeDirectory: string) =>
+const compileTrustedRunner = (kernelDirectory: string, sandboxRuntimeDirectory: string) =>
 	Effect.gen(function* () {
 		const fs = yield* FileSystem.FileSystem;
+		const path = yield* Path.Path;
+		const sourceNames = new Set([
+			"isolate-invocation.ts",
+			"isolate-bootstrap.ts",
+			"isolate-utilities.ts",
+			"limits.ts",
+			"sidecar-protocol.ts",
+		]);
 		const sources = yield* walkSourceFiles(
 			sandboxRuntimeDirectory,
 			sandboxRuntimeDirectory,
-			sandboxSource,
+			(file) => sourceNames.has(path.basename(file)),
 		);
-		const { javascript } = yield* buildDenoEsm({
+		const externalSpecifiers = new Set<string>();
+		for (const dependency of SANDBOX_RUNTIME_REGISTRY) {
+			if (
+				dependency.name !== "effect" &&
+				dependency.name !== "ryotql" &&
+				dependency.name !== "dependency-runtime" &&
+				dependency.name !== "filesystem"
+			) {
+				continue;
+			}
+			externalSpecifiers.add(dependency.sdkImport);
+			for (const alias of dependency.aliases) {
+				externalSpecifiers.add(alias);
+			}
+		}
+		const { javascript } = yield* buildSandboxEsm({
 			outputFile: "runner.mjs",
-			entry: "runner-source.sandbox.ts",
-			approvedDynamicImportExpressions: new Set(["payload.moduleUrl"]),
-			approvedExternalSpecifiers: new Set(["effect", "@ryot-app/sandbox-sdk/effect"]),
-			sources: Object.entries(sources).map(([path, contents]) => ({ path, contents })),
+			entry: "isolate-invocation.ts",
+			approvedExternalSpecifiers: externalSpecifiers,
+			approvedDynamicImportExpressions: new Set(["specifier"]),
+			sources: Object.entries(sources).map(([sourcePath, contents]) => ({
+				contents,
+				path: sourcePath,
+			})),
 			aliases: [
 				{
-					find: "@ryot-app/contract/modules/sandbox/boundary-reason",
-					replacement: Bun.resolveSync(
-						"@ryot-app/contract/modules/sandbox/boundary-reason",
-						import.meta.dir,
-					),
+					find: "@ryot-app/sandbox-sdk/core",
+					replacement: Bun.resolveSync("@ryot-app/sandbox-sdk/core", import.meta.dir),
 				},
 				{
-					find: "@ryot-app/contract/modules/plugins/execution-metadata",
-					replacement: Bun.resolveSync(
-						"@ryot-app/contract/modules/plugins/execution-metadata",
-						import.meta.dir,
-					),
+					find: "@ryot-app/sandbox-sdk/workflow",
+					replacement: Bun.resolveSync("@ryot-app/sandbox-sdk/workflow", import.meta.dir),
+				},
+				{
+					find: "@ryot-app/sandbox-compiler/limits",
+					replacement: Bun.resolveSync("@ryot-app/sandbox-compiler/limits", import.meta.dir),
+				},
+				{
+					find: /^@ryot-app\/contract\/(.+)$/,
+					replacement: `${path.resolve(kernelDirectory, "../..", "packages/contract/src")}/$1`,
 				},
 			],
 		}).pipe(
 			Effect.mapError(
 				(error) =>
-					new RunnerGenerationError({ message: `Sandbox runner build failed: ${error.message}` }),
+					new RunnerGenerationError({
+						message: `Trusted sandbox runner build failed: ${error.message}`,
+					}),
 			),
 		);
-		yield* fs.writeFileString(
-			`${sandboxRuntimeDirectory}/runner.generated.ts`,
-			`export const sandboxRunnerSource = ${encodeJsonString(javascript)};\n`,
-		);
-		yield* Effect.logInfo("Compiled Deno sandbox runner");
+		const sidecarPayloadDirectory = path.resolve(kernelDirectory, "../sandboxd/payload");
+		yield* fs.writeFileString(path.join(sidecarPayloadDirectory, "runner.mjs"), javascript);
+		yield* Effect.logInfo("Compiled trusted native sandbox runner");
 	});
 
-const compileRuntimePayload = (kernelDirectory: string, sandboxRuntimeDirectory: string) =>
+const compileRuntimePayload = (kernelDirectory: string) =>
 	Effect.gen(function* () {
 		const fs = yield* FileSystem.FileSystem;
 		const path = yield* Path.Path;
-		const payload: SandboxRuntimePayload = yield* buildSandboxRuntimePayload(kernelDirectory).pipe(
+		const payload = yield* buildSandboxRuntimePayload(kernelDirectory).pipe(
 			Effect.mapError(
 				(error) =>
 					new RunnerGenerationError({
 						message: `Trusted sandbox runtime build failed: ${error.message}`,
 					}),
 			),
-		);
-		yield* fs.writeFileString(
-			`${sandboxRuntimeDirectory}/runtime-payload.generated.ts`,
-			`export const sandboxRuntimePayload = ${encodeJson(payload)} as const;\n`,
-		);
-		yield* fs.writeFileString(
-			`${sandboxRuntimeDirectory}/runtime-payload-metadata.generated.ts`,
-			`export const sandboxRuntimePayloadMetadata = ${encodeJson({ metadata: payload.metadata, contentHash: payload.contentHash })} as const;\n`,
 		);
 		const sidecarPayloadDirectory = path.resolve(kernelDirectory, "../sandboxd/payload");
 		yield* fs.remove(sidecarPayloadDirectory, { force: true, recursive: true });
@@ -133,8 +153,13 @@ const compileRuntimePayload = (kernelDirectory: string, sandboxRuntimeDirectory:
 			(file) => fs.writeFileString(path.join(sidecarPayloadDirectory, file.path), file.contents),
 			{ discard: true },
 		);
-		yield* Effect.logInfo("Compiled trusted Deno runtime payload");
+		yield* Effect.logInfo("Compiled trusted sandbox runtime payload");
 	});
+
+const generateRuntime = (kernelDirectory: string, sandboxRuntimeDirectory: string) =>
+	Effect.all([compileRuntimePayload(kernelDirectory), embedKernelScripts(kernelDirectory)], {
+		discard: true,
+	}).pipe(Effect.andThen(compileTrustedRunner(kernelDirectory, sandboxRuntimeDirectory)));
 
 const fingerprintOf = (files: Readonly<Record<string, string>>) =>
 	canonicalFileSetHash(Object.entries(files).map(([path, contents]) => ({ path, contents })));
@@ -151,14 +176,7 @@ const program = Effect.gen(function* () {
 		"sandbox-runtime",
 	);
 	if (!process.argv.includes("--skip-initial")) {
-		yield* Effect.all(
-			[
-				compileRunner(sandboxRuntimeDirectory),
-				compileRuntimePayload(kernelDirectory, sandboxRuntimeDirectory),
-				embedKernelScripts(kernelDirectory),
-			],
-			{ discard: true },
-		);
+		yield* generateRuntime(kernelDirectory, sandboxRuntimeDirectory);
 	}
 	if (!process.argv.includes("--watch")) {
 		return yield* Effect.void;
@@ -172,14 +190,7 @@ const program = Effect.gen(function* () {
 		const nextFingerprint = fingerprintOf(nextSources);
 		if (nextFingerprint !== (yield* Ref.get(currentFingerprint))) {
 			const compiled = yield* Effect.result(
-				Effect.all(
-					[
-						compileRunner(sandboxRuntimeDirectory),
-						compileRuntimePayload(kernelDirectory, sandboxRuntimeDirectory),
-						embedKernelScripts(kernelDirectory),
-					],
-					{ discard: true },
-				),
+				generateRuntime(kernelDirectory, sandboxRuntimeDirectory),
 			);
 			if (compiled._tag === "Success") {
 				yield* Ref.set(currentFingerprint, nextFingerprint);
@@ -191,6 +202,11 @@ const program = Effect.gen(function* () {
 }).pipe(Effect.tapError((error) => Effect.logError(JSON.stringify(error, null, 2))));
 
 BunRuntime.runMain(
-	// oxlint-disable-next-line effecttsgo/strict-effect-provide -- The sandbox runtime generator is a command-line entrypoint
-	program.pipe(Effect.provide(Layer.mergeAll(BunServices.layer, ViteBuildService.layer))),
+	Effect.scoped(
+		Layer.build(
+			Layer.effectDiscard(program).pipe(
+				Layer.provide(Layer.mergeAll(BunServices.layer, ViteBuildService.layer)),
+			),
+		),
+	),
 );
