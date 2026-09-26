@@ -14,10 +14,10 @@
 		"**/android/**",
 		"**/.vitepress/**",
 		"**/.react-router/**",
+		"kernel/sandbox/native/**",
 		"apps/frontend/app/styles/*.css",
 		"kernel/client/src/routeTree.gen.ts",
-		"apps/docs/src/includes/app-backend-config-schema.md",
-		"kernel/sandbox/native/**",
-		"kernel/sandbox/protocol-fixtures/**"
+		"kernel/sandbox/protocol-fixtures/**",
+		"apps/docs/src/includes/app-backend-config-schema.md"
 	]
 }
