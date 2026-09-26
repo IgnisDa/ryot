@@ -152,7 +152,12 @@
 					{
 						"patterns": [
 							{
-								"group": ["@ryot-app/kernel-backend", "@ryot-app/kernel-backend/**"],
+								"group": [
+									"@ryot-app/kernel-backend",
+									"@ryot-app/kernel-backend/**",
+									"**/backend",
+									"**/backend/**"
+								],
 								"message": "The sandbox receives product capabilities through its ports and never imports the backend."
 							}
 						]
@@ -168,7 +173,14 @@
 					{
 						"patterns": [
 							{
-								"group": ["#modules/**", "#boot/**"],
+								"group": [
+									"#modules/**",
+									"#boot/**",
+									"../**/modules",
+									"../**/modules/**",
+									"../**/boot",
+									"../**/boot/**"
+								],
 								"message": "Platform code provides mechanisms to features and never imports feature implementations or composition."
 							}
 						]
@@ -204,7 +216,8 @@
 						]
 					}
 				]
-			}
+			},
+			"excludeFiles": ["plugins/*/manifest/**/*.test.ts"]
 		},
 		{
 			"files": ["plugins/*/shared/**"],
@@ -234,11 +247,8 @@
 						]
 					}
 				]
-			}
-		},
-		{
-			"rules": { "no-restricted-imports": "off" },
-			"files": ["plugins/*/manifest/**/*.test.ts", "plugins/*/shared/**/*.test.ts"]
+			},
+			"excludeFiles": ["plugins/*/shared/**/*.test.ts"]
 		}
 	]
 }
