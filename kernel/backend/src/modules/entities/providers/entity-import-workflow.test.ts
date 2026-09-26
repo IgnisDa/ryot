@@ -127,7 +127,7 @@ const definitionsWithoutChildRelationship = {
 		),
 	),
 } satisfies EntityRelationshipDefinitions;
-const definitionsLayer = Layer.mock(DefinitionRepository)({
+const definitionMethods = {
 	getGlobalEntityRelationshipDefinitions: Effect.succeed(definitions),
 	getUserEntityRelationshipDefinitions: () => Effect.succeed(definitions),
 	findGlobalRelationshipSchema: (reference) =>
@@ -136,7 +136,8 @@ const definitionsLayer = Layer.mock(DefinitionRepository)({
 				definitionKey("relationship", reference.owner, reference.slug)
 			] ?? null,
 		),
-});
+} satisfies Partial<DefinitionRepository["Service"]>;
+const definitionsLayer = Layer.mock(DefinitionRepository)(definitionMethods);
 
 const population = {
 	rootPreviouslyPopulated: true,
@@ -591,6 +592,7 @@ const rootPopulationLayer = Layer.unwrap(
 		if (!pin?.pluginRevision) {
 			return yield* Effect.die("Missing provider fixture pin");
 		}
+		const { readPinnedRows } = yield* DefinitionRepository.make;
 		const principal = yield* Schema.decodeEffect(ScriptExecutionPrincipal)({ ...pin, subject });
 		const payload: ProviderEntityPopulationPayload = {
 			mode: "refresh",
@@ -608,7 +610,7 @@ const rootPopulationLayer = Layer.unwrap(
 		return Layer.mergeAll(
 			transaction.database,
 			DomainWriteChecksLive.pipe(Layer.provide(transaction.database)),
-			definitionsLayer,
+			Layer.mock(DefinitionRepository)({ ...definitionMethods, readPinnedRows }),
 			Layer.succeed(WorkflowInstance, instance),
 			Layer.succeed(WorkflowEngine, makeWorkflowActivityEngine(instance)),
 			Layer.succeed(RedisService, makeRedisService({ publish: () => Effect.succeed(1) })),

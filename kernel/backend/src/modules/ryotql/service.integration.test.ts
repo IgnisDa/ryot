@@ -35,6 +35,7 @@ import { Effect, Layer, Result, Option } from "effect";
 import { assert } from "vitest";
 
 import { fixtureManifest, testPluginPackageId } from "#modules/plugins/test-support";
+import { pluginSandboxAuthority } from "#modules/scripts/authorization/plugin-authority";
 import { DatabaseSession } from "#platform/db/session";
 import { account, user } from "#schema/tables/auth";
 import {
@@ -171,6 +172,7 @@ const insertPlugin = Effect.fn(function* (input: {
 	const revisionId = `${input.id}-revision`;
 	const packageId =
 		input.slug === systemPluginName ? systemPackageId : PluginPackageId.make(`test/${input.slug}`);
+	const revisionManifest = manifest(input.slug, input.homeView, packageId);
 	const session = yield* DatabaseSession;
 	yield* session.run((db) =>
 		Effect.gen(function* () {
@@ -182,9 +184,10 @@ const insertPlugin = Effect.fn(function* (input: {
 				.values({
 					id: revisionId,
 					pluginId: input.id,
+					manifest: revisionManifest,
 					contentHash: `${input.id}-hash`,
-					manifest: manifest(input.slug, input.homeView, packageId),
 					clientConfigSchema: { fields: {}, unknownKeys: "strict" },
+					sandboxAuthority: pluginSandboxAuthority(revisionManifest),
 				});
 			yield* db
 				.update(plugin)

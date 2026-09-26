@@ -18,7 +18,6 @@ import {
 	type UpdateEventItem,
 	type EventCreateOperation,
 } from "@ryot-app/contract/modules/events/schemas";
-import type { PluginManifest } from "@ryot-app/contract/modules/plugins/manifest";
 import { definitionOwner } from "@ryot-app/contract/modules/plugins/references";
 import type {
 	AutomationTriggerId,
@@ -63,6 +62,7 @@ import {
 	DomainWriteConflict,
 	assertStableUnder,
 	DomainWriteChecks,
+	type DomainWritePin,
 	writerPropertiesSchema,
 } from "#modules/entities/write-context";
 import { MutationReceiptIdentityConflict, MutationReceipts } from "#modules/mutations/receipts";
@@ -276,14 +276,14 @@ export class EventsService extends Context.Service<EventsService>()("EventsServi
 		});
 		const validateEventDeleteValue = Effect.fnUntraced(function* (
 			before: AutomationEventSnapshot,
-			manifest: PluginManifest | null,
+			pin: DomainWritePin | null,
 		) {
-			if (!manifest || before.eventSchemaPluginId === null) {
+			if (!pin || before.eventSchemaPluginId === null) {
 				return yield* Effect.void;
 			}
 			const { pinned, active } = yield* writeChecks.resolvePinnedDeclaration(
 				"event",
-				manifest,
+				pin,
 				definitionOwner(before.eventSchemaPluginId),
 				{ eventSchemaSlug: before.eventSchemaSlug, entitySchemaSlug: before.entitySchemaSlug },
 			);
@@ -849,9 +849,9 @@ export class EventsService extends Context.Service<EventsService>()("EventsServi
 					if (!before) {
 						return inline ? yield* recordNoopWork : null;
 					}
-					const manifest = yield* authorizeEventDelete(command, input, before, cascadeEntityIds);
+					const pin = yield* authorizeEventDelete(command, input, before, cascadeEntityIds);
 					if (!move) {
-						yield* validateEventDeleteValue(before, manifest);
+						yield* validateEventDeleteValue(before, pin);
 					}
 					const expectedRevision = yield* repository.getEventRevision(input);
 					if (expectedRevision === null) {
@@ -1192,7 +1192,7 @@ export class EventsService extends Context.Service<EventsService>()("EventsServi
 		) {
 			yield* assertActiveTransaction;
 			if (prepared.operation === "delete") {
-				const manifest = yield* authorizeEventDelete(
+				const pin = yield* authorizeEventDelete(
 					prepared.command,
 					prepared.input,
 					prepared.before,
@@ -1201,7 +1201,7 @@ export class EventsService extends Context.Service<EventsService>()("EventsServi
 				);
 				const current = yield* repository.getEventSnapshot(prepared.input);
 				if (current) {
-					yield* validateEventDeleteValue(current, manifest);
+					yield* validateEventDeleteValue(current, pin);
 				}
 			} else {
 				yield* writeChecks

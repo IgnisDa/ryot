@@ -104,6 +104,15 @@ const namespacePackage = (packageId = testPluginPackageId(), version = "one") =>
 	};
 };
 
+const entityDeclaration = (slug: string) => ({
+	slug,
+	name: slug,
+	icon: "box",
+	eventSchemas: [],
+	propertiesSchema: titleProperties,
+});
+const retiredAt = new Date("2026-10-13T00:00:00.000Z");
+
 const admittedCommand = Effect.fnUntraced(function* (
 	installed: Effect.Success<ReturnType<typeof installRevisionPackage>>,
 	userId: UserId,
@@ -954,6 +963,211 @@ layer(relationshipDatabaseLayer())((test) => {
 					),
 				).toMatchObject({ reason: { code: "mutation-conflict" } });
 			}),
+	);
+
+	test.effect("rejects pinned declarations missing from the pinned or active revision", () =>
+		Effect.gen(function* () {
+			const original = namespacePackage();
+			const installed = yield* installRevisionPackage(
+				{
+					...original,
+					manifest: {
+						...original.manifest,
+						entitySchemas: [...original.manifest.entitySchemas, entityDeclaration("retired")],
+					},
+				},
+				firstUser,
+			);
+			const { command } = yield* admittedCommand(installed, firstUser, "declaration-gaps");
+			const newer = namespacePackage(original.manifest.metadata.packageId, "two");
+			const [newerBottle, ...newerEntities] = newer.manifest.entitySchemas;
+			assert(newerBottle?.slug === bottle);
+			yield* installRevisionPackage(
+				{
+					...newer,
+					manifest: {
+						...newer.manifest,
+						relationshipSchemas: [
+							...newer.manifest.relationshipSchemas,
+							{
+								name: "Added",
+								slug: "added-link",
+								sourceEntitySchemaSlug: null,
+								targetEntitySchemaSlug: null,
+								propertiesSchema: { fields: {} },
+							},
+						],
+						entitySchemas: [
+							{
+								...newerBottle,
+								eventSchemas: [
+									...newerBottle.eventSchemas,
+									{ slug: "opened", name: "Opened", propertiesSchema: titleProperties },
+								],
+							},
+							...newerEntities,
+							entityDeclaration("added"),
+						],
+					},
+				},
+				firstUser,
+			);
+			const entities = yield* EntitiesService;
+			const relationships = yield* RelationshipsService;
+			const owner = definitionOwner(installed.pluginId);
+			const create = (slug: string, itemIdentity: string) =>
+				Effect.flip(
+					entities.create({
+						name: slug,
+						scope: "user",
+						userId: firstUser,
+						properties: { title: slug },
+						lifecycle: nextCommand(command, itemIdentity),
+						entitySchema: { owner, slug: EntitySchemaSlug.make(slug) },
+					}),
+				);
+			expect(yield* create("retired", "retired-entity")).toMatchObject({
+				reason: {
+					code: "mutation-conflict",
+					message: "Pinned entity declaration has no active storage definition",
+				},
+			});
+			expect(yield* create("added", "added-entity")).toMatchObject({
+				reason: {
+					code: "mutation-conflict",
+					message: "Entity schema is not declared by the pinned writer",
+				},
+			});
+			const own = yield* entities.create({
+				name: "Own",
+				scope: "user",
+				userId: firstUser,
+				properties: { title: "Own" },
+				entitySchema: { owner, slug: bottle },
+				lifecycle: nextCommand(command, "own-entity"),
+			});
+			const eventSchemaSlug = EventSchemaSlug.make("opened");
+			const denied = yield* createEvents(
+				nextCommand(command, "added-event"),
+				firstUser,
+				[{ eventSchemaSlug, entityId: own.entity.id, properties: { title: "Opened" } }],
+				"added-event-workflow",
+			);
+			expect(denied.count).toBe(0);
+			expect(denied.failure).toEqual({
+				index: 0,
+				reason: { eventSchemaSlug, code: "event-schema-not-found" },
+			});
+			expect(
+				yield* Effect.flip(
+					relationships.create(
+						{
+							scope: "user",
+							properties: {},
+							userId: firstUser,
+							sourceEntityId: own.entity.id,
+							targetEntityId: own.entity.id,
+							relationshipSchema: { owner, slug: RelationshipSchemaSlug.make("added-link") },
+						},
+						nextCommand(command, "added-link"),
+					),
+				),
+			).toMatchObject({ reason: { code: "concurrent-relationship-change" } });
+		}),
+	);
+
+	test.effect("rejects pinned writes after session, plugin, installation, or account changes", () =>
+		Effect.gen(function* () {
+			const installed = yield* installRevisionPackage(namespacePackage(), firstUser);
+			const foreignPlugin = yield* installRevisionPackage(namespacePackage(), firstUser);
+			const { command } = yield* admittedCommand(installed, firstUser, "authority-changes");
+			const foreignCommand = (yield* admittedCommand(foreignPlugin, firstUser, "foreign-session"))
+				.command;
+			const session = yield* DatabaseSession;
+			const entities = yield* EntitiesService;
+			const own = yield* entities.create({
+				name: "Own",
+				scope: "user",
+				userId: firstUser,
+				properties: { title: "Own" },
+				lifecycle: nextCommand(command, "own-entity"),
+				entitySchema: { slug: bottle, owner: definitionOwner(installed.pluginId) },
+			});
+			const foreign = yield* entities.create({
+				scope: "user",
+				name: "Foreign",
+				userId: firstUser,
+				lifecycle: foreignCommand,
+				properties: { title: "Foreign" },
+				entitySchema: { slug: bottle, owner: definitionOwner(foreignPlugin.pluginId) },
+			});
+			const denied = yield* createEvents(
+				nextCommand(command, "foreign-session-event"),
+				firstUser,
+				[
+					{
+						entityId: own.entity.id,
+						properties: { title: "Tasted" },
+						sessionEntityId: foreign.entity.id,
+						eventSchemaSlug: EventSchemaSlug.make("tasted"),
+					},
+				],
+				"foreign-session-workflow",
+			);
+			expect(denied.count).toBe(0);
+			expect(denied.failure).toEqual({
+				index: 0,
+				reason: { entityId: foreign.entity.id, code: "session-entity-not-found" },
+			});
+			const rejected = (itemIdentity: string, message: string) =>
+				Effect.gen(function* () {
+					expect(
+						yield* Effect.flip(
+							entities.create({
+								scope: "user",
+								userId: firstUser,
+								name: itemIdentity,
+								properties: { title: itemIdentity },
+								lifecycle: nextCommand(command, itemIdentity),
+								entitySchema: { slug: bottle, owner: definitionOwner(installed.pluginId) },
+							}),
+						),
+					).toMatchObject({ reason: { message, code: "mutation-conflict" } });
+				});
+			const installationUnavailable = "Current domain write installation authority is unavailable";
+			const setInstallation = (values: Partial<typeof tables.pluginInstallation.$inferInsert>) =>
+				session.run((db) =>
+					db
+						.update(tables.pluginInstallation)
+						.set(values)
+						.where(eq(tables.pluginInstallation.id, installed.installation.id)),
+				);
+			yield* setInstallation({ ingestionRetiring: true });
+			yield* rejected("retiring", installationUnavailable);
+			yield* setInstallation({ ingestionRetiring: false, uninstalledAt: retiredAt });
+			yield* rejected("uninstalled", installationUnavailable);
+			yield* setInstallation({ uninstalledAt: null });
+			yield* session.run((db) =>
+				db
+					.update(tables.user)
+					.set({ accountGeneration: "rotated-account-generation" })
+					.where(eq(tables.user.id, firstUser)),
+			);
+			yield* rejected("rotated-account", "Current domain write account authority is unavailable");
+			yield* session.run((db) =>
+				db
+					.update(tables.user)
+					.set({ accountGeneration: "test-account-generation" })
+					.where(eq(tables.user.id, firstUser)),
+			);
+			yield* session.run((db) =>
+				db
+					.update(tables.plugin)
+					.set({ status: "disabled" })
+					.where(eq(tables.plugin.id, installed.pluginId)),
+			);
+			yield* rejected("disabled-plugin", "Pinned domain write authority is unavailable");
+		}),
 	);
 
 	test.effect(

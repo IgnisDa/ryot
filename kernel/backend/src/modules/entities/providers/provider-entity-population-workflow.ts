@@ -3,7 +3,13 @@ import type { AutomationPopulationContext } from "@ryot-app/contract/modules/aut
 import { ListedEntity } from "@ryot-app/contract/modules/entities/schemas";
 import { encodeEntityUpdatedMessage } from "@ryot-app/contract/modules/entity-watches/messages";
 import { definitionKey, definitionOwner } from "@ryot-app/contract/modules/plugins/references";
-import { EntityId, type EntitySchemaSlug, type UserId } from "@ryot-app/contract/schema/brands";
+import {
+	EntityId,
+	PluginId,
+	PluginRevisionId,
+	type EntitySchemaSlug,
+	type UserId,
+} from "@ryot-app/contract/schema/brands";
 import {
 	providerDetailsChildEntitySchema,
 	providerDetailsRelatedEntityGroupSchema,
@@ -96,7 +102,7 @@ const resolveProviderEntityDefinitions = (
 		execute: Effect.gen(function* () {
 			const definitions = yield* DefinitionRepository;
 			const checks = yield* DomainWriteChecks;
-			const manifest = yield* checks
+			const pin = yield* checks
 				.check(
 					payload.command,
 					definitionOwner(payload.pluginId),
@@ -107,19 +113,32 @@ const resolveProviderEntityDefinitions = (
 						(error) => new SandboxRunError({ kind: "script-failure", message: error.message }),
 					),
 				);
-			if (manifest) {
+			if (pin) {
 				const owner = definitionOwner(payload.pluginId);
+				const rows = yield* definitions
+					.readPinnedRows({
+						pluginId: PluginId.make(payload.pluginId),
+						pluginRevisionId: PluginRevisionId.make(pin.id),
+					})
+					.pipe(mapDbErrorToSandbox);
 				return {
 					entitySchemas: Object.fromEntries(
-						manifest.entitySchemas.map(({ slug }) => [
+						rows.entitySchemas.map(({ slug }) => [
 							definitionKey("entity", owner, slug),
 							{ slug, pluginId: payload.pluginId },
 						]),
 					),
 					relationshipSchemas: Object.fromEntries(
-						manifest.relationshipSchemas.map((definition) => [
+						rows.relationshipSchemas.map((definition) => [
 							definitionKey("relationship", owner, definition.slug),
-							{ ...definition, pluginId: payload.pluginId },
+							{
+								name: definition.name,
+								slug: definition.slug,
+								pluginId: payload.pluginId,
+								propertiesSchema: definition.propertiesSchema,
+								sourceEntitySchemaSlug: definition.sourceEntitySchemaSlug,
+								targetEntitySchemaSlug: definition.targetEntitySchemaSlug,
+							},
 						]),
 					),
 				};

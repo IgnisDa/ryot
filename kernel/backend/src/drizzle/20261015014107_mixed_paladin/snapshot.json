@@ -1,7 +1,7 @@
 {
 	"version": "8",
 	"dialect": "postgres",
-	"id": "b903e83d-0b49-4a0c-bcdf-7c745d4719fd",
+	"id": "e8467672-a037-4952-a1dd-b73134166b54",
 	"prevIds": ["00000000-0000-0000-0000-000000000000"],
 	"ddl": [
 		{ "isRlsEnabled": false, "name": "account", "entityType": "tables", "schema": "public" },
@@ -7662,6 +7662,19 @@
 			"table": "plugin_revision"
 		},
 		{
+			"type": "jsonb",
+			"typeSchema": null,
+			"notNull": true,
+			"dimensions": 0,
+			"default": null,
+			"generated": null,
+			"identity": null,
+			"name": "sandbox_authority",
+			"entityType": "columns",
+			"schema": "public",
+			"table": "plugin_revision"
+		},
+		{
 			"type": "text",
 			"typeSchema": null,
 			"notNull": false,
@@ -7709,6 +7722,19 @@
 			"generated": { "as": "manifest -> 'metadata' ->> 'description'", "type": "stored" },
 			"identity": null,
 			"name": "description",
+			"entityType": "columns",
+			"schema": "public",
+			"table": "plugin_revision"
+		},
+		{
+			"type": "jsonb",
+			"typeSchema": null,
+			"notNull": true,
+			"dimensions": 0,
+			"default": null,
+			"generated": { "as": "manifest -> 'providers'", "type": "stored" },
+			"identity": null,
+			"name": "providers",
 			"entityType": "columns",
 			"schema": "public",
 			"table": "plugin_revision"
@@ -14919,17 +14945,6 @@
 			"tablespace": null,
 			"materialized": false,
 			"name": "global_signal_schema",
-			"entityType": "views",
-			"schema": "public"
-		},
-		{
-			"definition": "\n\t\tselect id, case\n\t\t\twhen jsonb_typeof(manifest->'scripts') is distinct from 'array'\n\t\t\t\tor jsonb_typeof(manifest->'workflows') is distinct from 'array'\n\t\t\t\tor jsonb_typeof(manifest->'userBootstrap') is distinct from 'array'\n\t\t\t\tor jsonb_typeof(manifest->'entitySchemas') is distinct from 'array'\n\t\t\t\tor jsonb_typeof(manifest->'relationshipSchemas') is distinct from 'array'\n\t\t\t\tor jsonb_typeof(manifest->'signalSchemas') is distinct from 'array'\n\t\t\tthen 'null'::jsonb\n\t\t\twhen exists (\n\t\t\t\tselect 1\n\t\t\t\tfrom jsonb_array_elements(manifest->'entitySchemas') as entities(entity_schema)\n\t\t\t\twhere jsonb_typeof(entity_schema->'eventSchemas') is distinct from 'array'\n\t\t\t)\n\t\t\tthen 'null'::jsonb\n\t\t\telse jsonb_build_object(\n\t\t\t\t'packageId', manifest->'metadata'->'packageId',\n\t\t\t\t'configSchema', manifest->'configSchema',\n\t\t\t\t'workflowScripts', coalesce(\n\t\t\t\t\t(\n\t\t\t\t\t\tselect jsonb_object_agg(workflow->>'slug', workflow->'scriptSlug')\n\t\t\t\t\t\tfrom jsonb_array_elements(manifest->'workflows') as workflows(workflow)\n\t\t\t\t\t),\n\t\t\t\t\t'{}'::jsonb\n\t\t\t\t),\n\t\t\t\t'userBootstrapScriptSlugs', coalesce(\n\t\t\t\t\t(\n\t\t\t\t\t\tselect jsonb_agg(bootstrap->'scriptSlug' order by bootstrap_position)\n\t\t\t\t\t\tfrom jsonb_array_elements(manifest->'userBootstrap')\n\t\t\t\t\t\t\twith ordinality as bootstraps(bootstrap, bootstrap_position)\n\t\t\t\t\t),\n\t\t\t\t\t'[]'::jsonb\n\t\t\t\t),\n\t\t\t\t'schemaScope', jsonb_build_object(\n\t\t\t\t\t'signalSchemaSlugs', coalesce(\n\t\t\t\t\t\t(\n\t\t\t\t\t\t\tselect jsonb_agg(signal_schema->'slug' order by signal_position)\n\t\t\t\t\t\t\tfrom jsonb_array_elements(manifest->'signalSchemas')\n\t\t\t\t\t\t\t\twith ordinality as signals(signal_schema, signal_position)\n\t\t\t\t\t\t),\n\t\t\t\t\t\t'[]'::jsonb\n\t\t\t\t\t),\n\t\t\t\t\t'entitySchemaSlugs', coalesce(\n\t\t\t\t\t\t(\n\t\t\t\t\t\t\tselect jsonb_agg(entity_schema->'slug' order by entity_position)\n\t\t\t\t\t\t\tfrom jsonb_array_elements(manifest->'entitySchemas')\n\t\t\t\t\t\t\t\twith ordinality as entities(entity_schema, entity_position)\n\t\t\t\t\t\t),\n\t\t\t\t\t\t'[]'::jsonb\n\t\t\t\t\t),\n\t\t\t\t\t'relationshipSchemaSlugs', coalesce(\n\t\t\t\t\t\t(\n\t\t\t\t\t\t\tselect jsonb_agg(relationship_schema->'slug' order by relationship_position)\n\t\t\t\t\t\t\tfrom jsonb_array_elements(manifest->'relationshipSchemas')\n\t\t\t\t\t\t\t\twith ordinality as relationships(relationship_schema, relationship_position)\n\t\t\t\t\t\t),\n\t\t\t\t\t\t'[]'::jsonb\n\t\t\t\t\t),\n\t\t\t\t\t'eventSchemas', coalesce(\n\t\t\t\t\t\t(\n\t\t\t\t\t\t\tselect jsonb_agg(\n\t\t\t\t\t\t\t\tjsonb_build_object(\n\t\t\t\t\t\t\t\t\t'eventSchemaSlug', event_schema->'slug',\n\t\t\t\t\t\t\t\t\t'entitySchemaSlug', entity_schema->'slug'\n\t\t\t\t\t\t\t\t)\n\t\t\t\t\t\t\t\torder by entity_position, event_position\n\t\t\t\t\t\t\t)\n\t\t\t\t\t\t\tfrom jsonb_array_elements(manifest->'entitySchemas')\n\t\t\t\t\t\t\t\twith ordinality as entities(entity_schema, entity_position)\n\t\t\t\t\t\t\tcross join lateral jsonb_array_elements(entity_schema->'eventSchemas')\n\t\t\t\t\t\t\t\twith ordinality as events(event_schema, event_position)\n\t\t\t\t\t\t),\n\t\t\t\t\t\t'[]'::jsonb\n\t\t\t\t\t)\n\t\t\t\t),\n\t\t\t\t'scriptKinds', coalesce(\n\t\t\t\t\t(\n\t\t\t\t\t\tselect jsonb_object_agg(script->>'slug', script->'kind')\n\t\t\t\t\t\tfrom jsonb_array_elements(manifest->'scripts') as scripts(script)\n\t\t\t\t\t),\n\t\t\t\t\t'{}'::jsonb\n\t\t\t\t)\n\t\t\t)\n\t\tend as sandbox_authority\n\t\tfrom \"plugin_revision\"\n\t",
-			"with": null,
-			"withNoData": null,
-			"using": null,
-			"tablespace": null,
-			"materialized": false,
-			"name": "plugin_revision_sandbox_authority",
 			"entityType": "views",
 			"schema": "public"
 		},

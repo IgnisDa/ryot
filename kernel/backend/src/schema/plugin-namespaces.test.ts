@@ -14,6 +14,7 @@ import {
 	revisionPackage,
 } from "#modules/plugins/packages/revision.test-support";
 import { testPluginPackageId } from "#modules/plugins/test-support";
+import { pluginSandboxAuthority } from "#modules/scripts/authorization/plugin-authority";
 import { DatabaseSession } from "#platform/db/session";
 
 import * as tables from "./tables/combined";
@@ -100,6 +101,7 @@ describe("plugin namespaces in the generated migration baseline", () => {
 									manifest: otherPackage.manifest,
 									clientConfigSchema: { fields: {} },
 									contentHash: otherPackage.contentHash,
+									sandboxAuthority: pluginSandboxAuthority(otherPackage.manifest),
 								}),
 						),
 					),
@@ -248,9 +250,9 @@ describe("plugin namespaces in the generated migration baseline", () => {
 					);
 					const [authority] = yield* session.run((db) =>
 						db
-							.select()
-							.from(tables.pluginRevisionSandboxAuthority)
-							.where(eq(tables.pluginRevisionSandboxAuthority.id, privateA.revisionId)),
+							.select({ sandboxAuthority: tables.pluginRevision.sandboxAuthority })
+							.from(tables.pluginRevision)
+							.where(eq(tables.pluginRevision.id, privateA.revisionId)),
 					);
 					assert(authority);
 					expect(authority.sandboxAuthority.packageId).toBe(a.manifest.metadata.packageId);
