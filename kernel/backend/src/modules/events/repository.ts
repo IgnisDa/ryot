@@ -329,12 +329,44 @@ export class EventsRepository extends Context.Service<EventsRepository>()("Event
 			}).pipe(Effect.mapError(() => new DbError({ message: "Invalid persisted event snapshot" })));
 			return { event, eventSchemaPluginId: row.eventSchemaPluginId };
 		});
+		const getCreateProgress = Effect.fn("EventsRepository.getCreateProgress")(function* (
+			userId: UserId,
+			executionId: string,
+		) {
+			const rows = yield* session.run((db) =>
+				db
+					.select({ status: schema.automationRun.status, triggerId: schema.automationTrigger.id })
+					.from(schema.automationTrigger)
+					.leftJoin(
+						schema.automationRun,
+						and(
+							eq(schema.automationRun.triggerId, schema.automationTrigger.id),
+							eq(schema.automationRun.stage, "after"),
+							eq(schema.automationRun.delivery, "required"),
+						),
+					)
+					.where(
+						and(
+							eq(schema.automationTrigger.scopeUserId, userId),
+							eq(schema.automationTrigger.executionId, executionId),
+							eq(schema.automationTrigger.category, "change"),
+							eq(schema.automationTrigger.resourceKind, "event"),
+							eq(schema.automationTrigger.operation, "create"),
+						),
+					),
+			);
+			return {
+				writtenCount: new Set(rows.map((row) => row.triggerId)).size,
+				requiredPending: rows.some((row) => row.status === "queued" || row.status === "running"),
+			};
+		});
 
 		return {
 			deleteEvent,
 			createEvent,
 			hasUserEvents,
 			getEventSnapshot,
+			getCreateProgress,
 			deletePreparedEvent,
 			getEventCreateReplay,
 			listUserEventsForBackup,
