@@ -9,10 +9,15 @@ import {
 } from "@ryot-app/contract/schema/brands";
 import { Effect, Layer, Redacted } from "effect";
 
-import { redisKeys, RedisService } from "#lib/infrastructure/redis";
+import { RedisService } from "#lib/infrastructure/redis";
 import { assertExitFails } from "#lib/test-utils/assertions";
 import { makeAppConfigLayer } from "#lib/test-utils/effect";
-import { testExecutionId, testRedisUrl } from "#lib/test-utils/redis";
+import {
+	deleteRedisKeysOnExit,
+	sandboxProtectionKeys,
+	testExecutionId,
+	testRedisUrl,
+} from "#lib/test-utils/redis";
 
 import type { SandboxExecutionPrincipal } from "./execution-principal";
 import { SandboxSidecarQuarantine } from "./sidecar-quarantine";
@@ -60,20 +65,8 @@ const testHash = () => crypto.randomUUID().replaceAll("-", "").padEnd(64, "0");
 
 const sessions = Effect.gen(function* () {
 	const quarantine = yield* SandboxSidecarQuarantine;
-	const redis = yield* RedisService;
 	const identities = new Set<string>();
-	yield* Effect.addFinalizer(() =>
-		identities.size === 0
-			? Effect.void
-			: redis.del(
-					...[...identities].flatMap((identity) => [
-						redisKeys.sandboxCrashWindow(identity),
-						redisKeys.sandboxQuarantine(identity),
-						redisKeys.sandboxProbation(identity),
-						redisKeys.sandboxProbationLease(identity),
-					]),
-				),
-	);
+	yield* deleteRedisKeysOnExit(() => [...identities].flatMap(sandboxProtectionKeys));
 	return Effect.fnUntraced(function* (
 		principal: SandboxExecutionPrincipal,
 		trust: "user" | "system",

@@ -96,11 +96,11 @@ describe("system log config", () => {
 	});
 
 	layer(systemEnvironmentLayer())((test) => {
-		test.effect("defaults the sandbox memory budget to 1536 MiB", () =>
+		test.effect("leaves the sandbox memory budget unset for derivation", () =>
 			Effect.gen(function* () {
 				const result = yield* loaded;
 				assert(Exit.isSuccess(result));
-				expect(result.value.sandbox.memoryBudgetMiB).toBe(1536);
+				expect(result.value.sandbox.memoryBudgetMiB).toEqual(Option.none());
 			}),
 		);
 	});
@@ -110,7 +110,7 @@ describe("system log config", () => {
 			Effect.gen(function* () {
 				const result = yield* loaded;
 				assert(Exit.isSuccess(result));
-				expect(result.value.sandbox.memoryBudgetMiB).toBe(2048);
+				expect(result.value.sandbox.memoryBudgetMiB).toEqual(Option.some(2048));
 			}),
 		);
 	});
@@ -246,18 +246,20 @@ describe("validateSystemConfig sandbox capacity", () => {
 	}
 
 	for (const memoryBudgetMiB of [0, -1, 1.5]) {
-		layer(makeAppConfigLayer({ sandbox: { memoryBudgetMiB } }))((test) => {
-			test.effect(`rejects sandbox memory budget ${memoryBudgetMiB}`, () =>
-				Effect.gen(function* () {
-					const result = yield* validated;
-					assert(Exit.isFailure(result));
-					const failure = Cause.findErrorOption(result.cause);
-					assert(Option.isSome(failure));
-					expect(failure.value).toMatchObject({ _tag: "ConfigError" });
-					expect(Cause.pretty(result.cause)).toContain("SANDBOX_MEMORY_BUDGET_MIB");
-				}),
-			);
-		});
+		layer(makeAppConfigLayer({ sandbox: { memoryBudgetMiB: Option.some(memoryBudgetMiB) } }))(
+			(test) => {
+				test.effect(`rejects sandbox memory budget ${memoryBudgetMiB}`, () =>
+					Effect.gen(function* () {
+						const result = yield* validated;
+						assert(Exit.isFailure(result));
+						const failure = Cause.findErrorOption(result.cause);
+						assert(Option.isSome(failure));
+						expect(failure.value).toMatchObject({ _tag: "ConfigError" });
+						expect(Cause.pretty(result.cause)).toContain("SANDBOX_MEMORY_BUDGET_MIB");
+					}),
+				);
+			},
+		);
 	}
 });
 

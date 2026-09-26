@@ -11,6 +11,7 @@ import {
 	Fiber,
 	Layer,
 	Metric,
+	Option,
 	Queue,
 	Scope,
 	Schema,
@@ -307,7 +308,7 @@ const makeRecordingHarness = Effect.gen(function* () {
 	} satisfies HarnessService;
 });
 
-const configLayer = makeAppConfigLayer({ sandbox: { memoryBudgetMiB: 2048 } });
+const configLayer = makeAppConfigLayer({ sandbox: { memoryBudgetMiB: Option.some(2048) } });
 const harnessLayer = Layer.effect(SupervisorTestHarness, makeRecordingHarness);
 const clientLayer = Layer.effect(
 	SandboxSidecarClient,

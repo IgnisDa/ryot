@@ -10,19 +10,21 @@ import {
 	USER_RELATIONSHIP_WRITE_SANDBOX_LIMITS,
 } from "@ryot-app/sandbox-sdk/core";
 
-const KiB = 1024;
-const MiB = 1024 * KiB;
+export const KiB = 1024;
+export const MiB = 1024 * KiB;
 
 export const SANDBOX_LIMITS = {
 	journalBytes: 100 * MiB,
 	compiler: SANDBOX_COMPILER_LIMITS,
 	hostCalls: { http: 50, total: 1_000 },
+	diagnostics: { messageBytes: 64 * KiB },
 	globalWrites: GLOBAL_WRITE_SANDBOX_LIMITS,
-	diagnostics: { stderrLines: 20, stderrBytes: 64 * KiB },
 	userRelationshipWrites: USER_RELATIONSHIP_WRITE_SANDBOX_LIMITS,
-	scratch: { maxDepth: 32, maxEntries: 4_096, totalBytes: 5 * MiB },
 	logs: { entryCount: 500, entryBytes: 8 * KiB, totalBytes: 256 * KiB },
 	http: { timeoutMs: 8_000, requestBytes: MiB, responseBytes: 10 * MiB },
+	journalReads: { count: 2_048, sliceBytes: MiB, totalBytes: 200 * MiB },
+	isolate: { cpuMs: 30_000, heapBytes: 256 * MiB, externalBytes: 64 * MiB },
+	scratch: { maxEntries: 4_096, totalBytes: 5 * MiB, chunkBytes: 256 * KiB },
 	cache: { keyBytes: 256, valueBytes: 256 * KiB, ttlSeconds: 30 * 24 * 60 * 60 },
 	observability: { entryCount: 500, entryBytes: 8 * KiB, totalBytes: 256 * KiB },
 	execution: {
@@ -30,6 +32,13 @@ export const SANDBOX_LIMITS = {
 		resultBytes: 4 * MiB,
 		requestBytes: 2 * MiB,
 		contextBytes: 64 * KiB,
+	},
+	sidecar: {
+		idleMs: 60_000,
+		startupMs: 10_000,
+		disposalMs: 2_000,
+		absoluteMs: 300_000,
+		settlementMs: 30_000,
 	},
 	bridge: {
 		requestBytes: MiB,
@@ -121,11 +130,6 @@ export const sandboxCacheValueError = (fnName: string, serialized: string, label
 export const sandboxHttpRequestBodyError = (body: string | undefined) =>
 	body !== undefined && utf8ByteLength(body) > SANDBOX_LIMITS.http.requestBytes
 		? `httpCall request body exceeds ${SANDBOX_LIMITS.http.requestBytes} UTF-8 bytes`
-		: null;
-
-export const sandboxScratchQuotaError = (usedBytes: number) =>
-	usedBytes > SANDBOX_LIMITS.scratch.totalBytes
-		? `Sandbox scratch directory uses ${usedBytes} bytes and exceeds the ${SANDBOX_LIMITS.scratch.totalBytes} byte quota`
 		: null;
 
 export const sandboxRunnerRequestError = (request: string) =>

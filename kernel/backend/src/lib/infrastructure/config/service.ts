@@ -314,9 +314,14 @@ export const validateSystemConfig = (config: AppConfigValue) =>
 		}
 
 		const memoryBudgetMiB = config.sandbox.memoryBudgetMiB;
-		if (!Number.isInteger(memoryBudgetMiB) || memoryBudgetMiB < 1) {
+		if (
+			Option.isSome(memoryBudgetMiB) &&
+			!(Number.isInteger(memoryBudgetMiB.value) && memoryBudgetMiB.value >= 1)
+		) {
 			return yield* Effect.fail(
-				configError(`SANDBOX_MEMORY_BUDGET_MIB (${memoryBudgetMiB}) must be a positive integer.`),
+				configError(
+					`SANDBOX_MEMORY_BUDGET_MIB (${memoryBudgetMiB.value}) must be a positive integer.`,
+				),
 			);
 		}
 

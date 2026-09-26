@@ -1,21 +1,34 @@
 import { PgClient } from "@effect/sql-pg";
 import { SandboxRunError } from "@ryot-app/contract/errors";
-import { Clock, Context, Deferred, Effect, Layer, Pool, Schema, Semaphore } from "effect";
+import {
+	Clock,
+	Context,
+	Deferred,
+	Effect,
+	Layer,
+	Option,
+	Pool,
+	Result,
+	Schema,
+	Semaphore,
+} from "effect";
 import type { Scope } from "effect";
 import { Reactivity } from "effect/reactivity";
 
 import { AppConfig } from "../config/service";
 import { DatabaseConnectionLimit } from "../db/session";
 import { recordSandboxAdmissionWait } from "../runtime-metrics";
-import { SANDBOX_LIMITS } from "./limits";
+import { MiB, SANDBOX_LIMITS } from "./limits";
 import { SIDECAR_PROTOCOL_LIMITS, SidecarLane } from "./sidecar-protocol";
 
-const MiB = 1024 * 1024;
 const processBytes = 128 * MiB;
+const defaultMemoryBudgetBytes = 1536 * MiB;
+const isolateBytes = SANDBOX_LIMITS.isolate.heapBytes + SANDBOX_LIMITS.isolate.externalBytes;
 const resident = (instance: string) => instance === "system/core" || instance === "user/core";
 const journalCopies = 3;
 const runBytes =
-	(256 + 64 + 8 + 4 + 1 + 2) * MiB +
+	isolateBytes +
+	(8 + 4 + 1 + 2) * MiB +
 	3 * SIDECAR_PROTOCOL_LIMITS.messageBytes.run +
 	4 * SANDBOX_LIMITS.execution.requestBytes +
 	3 * SANDBOX_LIMITS.compiler.javascriptBytes +
@@ -56,26 +69,38 @@ type LeaseState = {
 const limitError = (message: string) =>
 	new SandboxRunError({ message, kind: "resource-unavailable" });
 
+export const sandboxMemoryBudgetBytes = (
+	configuredMiB: Option.Option<number>,
+	effectiveMemory: number,
+): Result.Result<number, SandboxRunError> => {
+	if (!Number.isSafeInteger(effectiveMemory) || effectiveMemory <= 0) {
+		return Result.fail(limitError("Sandbox effective host memory is unavailable"));
+	}
+	const halfMemory = Math.floor(effectiveMemory / 2);
+	const budget = Option.match(configuredMiB, {
+		onSome: (mebibytes) => mebibytes * MiB,
+		onNone: () => Math.min(defaultMemoryBudgetBytes, halfMemory),
+	});
+	if (budget > halfMemory) {
+		return Result.fail(limitError("Sandbox memory budget exceeds half the effective host memory"));
+	}
+	if (2 * processBytes + runBytes > budget) {
+		return Result.fail(
+			limitError("Sandbox memory budget cannot fit resident core processes and a run"),
+		);
+	}
+	return Result.succeed(budget);
+};
+
 export class SandboxSidecarAdmission extends Context.Service<SandboxSidecarAdmission>()(
 	"SandboxSidecarAdmission",
 	{
 		make: Effect.gen(function* () {
 			const config = yield* AppConfig;
 			const concurrency = config.sandbox.workerConcurrency;
-			const budget = config.sandbox.memoryBudgetMiB * MiB;
-			const effectiveMemory = process.constrainedMemory();
-			if (
-				!Number.isSafeInteger(effectiveMemory) ||
-				effectiveMemory <= 0 ||
-				budget > Math.floor(effectiveMemory / 2)
-			) {
-				return yield* limitError("Sandbox memory budget exceeds half the effective host memory");
-			}
-			if (2 * processBytes + runBytes > budget) {
-				return yield* limitError(
-					"Sandbox memory budget cannot fit resident core processes and a run",
-				);
-			}
+			const budget = yield* Effect.fromResult(
+				sandboxMemoryBudgetBytes(config.sandbox.memoryBudgetMiB, process.constrainedMemory()),
+			);
 			const global = yield* Semaphore.make(concurrency);
 			const reactivity = yield* Reactivity.make;
 			const database = yield* Pool.makeWithTTL({
@@ -247,35 +272,31 @@ export class SandboxSidecarAdmission extends Context.Service<SandboxSidecarAdmis
 					},
 					() => !lease.closed,
 				);
-				const retainJournal = (retainedBytes: number) =>
-					Effect.try({
-						catch: (error) =>
-							error instanceof SandboxRunError
-								? error
-								: limitError("Sandbox journal reservation is invalid"),
-						try: () => {
-							if (
-								!Number.isSafeInteger(retainedBytes) ||
-								retainedBytes < 0 ||
-								retainedBytes > SANDBOX_LIMITS.journalBytes
-							) {
-								throw limitError("Sandbox retained journal exceeds its reservation");
-							}
-							const next = journalCopies * retainedBytes;
-							if (
-								lease.closed ||
-								lease.entering ||
-								lease.lane !== undefined ||
-								next > lease.journalBytes
-							) {
-								throw limitError("Sandbox journal reservation cannot grow after loading");
-							}
-							state.bytes -= lease.journalBytes - next;
-							lease.bytes -= lease.journalBytes - next;
-							lease.journalBytes = next;
-							notify();
-						},
-					});
+				const retainJournal = Effect.fnUntraced(function* (
+					retainedBytes: number,
+				): Effect.fn.Return<void, SandboxRunError> {
+					if (
+						!Number.isSafeInteger(retainedBytes) ||
+						retainedBytes < 0 ||
+						retainedBytes > SANDBOX_LIMITS.journalBytes
+					) {
+						return yield* limitError("Sandbox retained journal exceeds its reservation");
+					}
+					const next = journalCopies * retainedBytes;
+					if (
+						lease.closed ||
+						lease.entering ||
+						lease.lane !== undefined ||
+						next > lease.journalBytes
+					) {
+						return yield* limitError("Sandbox journal reservation cannot grow after loading");
+					}
+					state.bytes -= lease.journalBytes - next;
+					lease.bytes -= lease.journalBytes - next;
+					lease.journalBytes = next;
+					notify();
+					return undefined;
+				});
 				const enter = Effect.fnUntraced(function* (lane: typeof laneSchema.Type) {
 					const key = encodeLane(lane);
 					const instance = instances.get(lane.instance);
@@ -317,7 +338,7 @@ export class SandboxSidecarAdmission extends Context.Service<SandboxSidecarAdmis
 				reservePrefix,
 				reserveProcess,
 				maximumActive: concurrency,
-				isolateMemoryBytes: concurrency * (320 * MiB + SIDECAR_PROTOCOL_LIMITS.messageBytes.run),
+				isolateMemoryBytes: concurrency * (isolateBytes + SIDECAR_PROTOCOL_LIMITS.messageBytes.run),
 				snapshot: () => ({
 					...state,
 					budget,

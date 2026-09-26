@@ -9,7 +9,7 @@ import { makeAppConfigLayer } from "#lib/test-utils/effect";
 import { sandboxRuntimeDirectory } from "#lib/test-utils/sandbox-runtime";
 import { loadPluginSandboxScripts } from "#modules/plugins/source.test-support";
 
-import { SANDBOX_RUNNER_LIMITS } from "./limits";
+import { MiB, SANDBOX_LIMITS } from "./limits";
 import { SandboxSidecarClient } from "./sidecar-client";
 import {
 	SandboxInvocationResponseSchema,
@@ -29,7 +29,6 @@ class PluginLoadVerificationSlots extends Context.Service<
 	Semaphore.Semaphore
 >()("PluginLoadVerificationSlots") {}
 
-const bytesPerMiB = 1024 * 1024;
 const maximumDiagnosticLength = 2_048;
 const fixedStartedAt = "2026-08-06T00:00:00.000Z";
 const internalControlNames = new Set([
@@ -178,7 +177,6 @@ const verifyScript = (
 				mode: "definition",
 				startedAt: fixedStartedAt,
 				metadata: compiled.manifest,
-				limits: SANDBOX_RUNNER_LIMITS,
 				compiledFormat: compiled.format,
 			}).pipe(Effect.mapError((error) => pluginLoadFailure(slug, errorText(error))));
 			const input = yield* Schema.decodeUnknownEffect(Schema.Json)(invocation).pipe(
@@ -194,12 +192,7 @@ const verifyScript = (
 					type: "run",
 					lane: "interactive",
 					module: { sha256: moduleHash, source: compiled.javascript },
-					limits: {
-						cpuMs: 30_000,
-						deadlineMs: 30_000,
-						heapBytes: 256 * bytesPerMiB,
-						externalBytes: 64 * bytesPerMiB,
-					},
+					limits: { ...SANDBOX_LIMITS.isolate, deadlineMs: SANDBOX_LIMITS.execution.timeoutMs },
 				})
 				.pipe(Effect.mapError((error) => pluginLoadFailure(slug, errorText(error))));
 			runSent = true;
@@ -237,8 +230,8 @@ const verifyTier = (tier: SnapshotTier, outputs: ReadonlyArray<PluginScriptOutpu
 					threads: 1,
 					maxActive: 1,
 					trust: "user",
-					maxRss: 450 * bytesPerMiB,
-					memoryBudget: 324 * bytesPerMiB,
+					maxRss: 450 * MiB,
+					memoryBudget: 324 * MiB,
 				})
 				.pipe(Effect.mapError((error) => pluginLoadFailure(tier, errorText(error))));
 			const ready = yield* connection.next.pipe(
