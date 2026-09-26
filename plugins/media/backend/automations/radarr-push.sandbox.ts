@@ -20,18 +20,9 @@ export const manifest = defineManifest({
 	name: "Radarr Push",
 	slug: "trigger.radarr-push",
 	automationType: "automation",
-	requiredPluginConfigKeys: [],
 	inputProjection: {
 		event: { compareProperties: [], properties: ["entitySchemaSlug", "entityId"] },
 	},
-	capabilities: [
-		"log",
-		"httpCall",
-		"executeRyotql",
-		"getEntitySchemas",
-		"listIntegrations",
-		"getUserPreferences",
-	],
 });
 
 const pushMovieToRadarr = (

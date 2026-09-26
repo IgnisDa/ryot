@@ -7,8 +7,6 @@ export const manifest = defineManifest({
 	kind: "provider",
 	name: "TMDB Show Resolve",
 	slug: "show.tmdb.resolve",
-	capabilities: ["httpCall", "getPluginConfig"],
-	requiredPluginConfigKeys: ["tmdbAccessToken"],
 });
 
 export default defineProvider({ manifest, run: resolve.run, operation: "resolve" });

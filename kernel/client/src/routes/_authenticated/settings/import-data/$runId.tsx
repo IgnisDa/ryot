@@ -16,7 +16,6 @@ import {
 	importSourceName,
 } from "#/modules/imports/run-presentation";
 import {
-	IMPORT_FAILURES_PAGE_SIZE,
 	ImportsService,
 	cancelImportRunMutation,
 	deleteImportRunMutation,
@@ -36,14 +35,7 @@ import { StatusState } from "#/modules/ui/status-state";
 import { useNowMs } from "#/modules/ui/use-now-ms";
 
 const detailState = (detail: ImportRunDetail): ImportRunDetailState | undefined =>
-	detail.run === undefined
-		? undefined
-		: {
-				status: "ready",
-				run: detail.run,
-				failures: detail.failures.items,
-				hasMoreFailures: detail.failures.pageInfo.hasMore,
-			};
+	detail.run === undefined ? undefined : { status: "ready", run: detail.run };
 
 export const Route = createFileRoute("/_authenticated/settings/import-data/$runId")({
 	component: ImportRunRoute,
@@ -59,7 +51,7 @@ export const Route = createFileRoute("/_authenticated/settings/import-data/$runI
 					throw notFound();
 				}
 				const detail = yield* Effect.flatMap(ImportsService, (service) =>
-					service.loadRun(context.ryot, { runId, failureLimit: IMPORT_FAILURES_PAGE_SIZE }),
+					service.loadRun(context.ryot, { runId }),
 				);
 				if (detail.run === undefined) {
 					// oxlint-disable-next-line typescript/only-throw-error
@@ -98,13 +90,12 @@ function ImportRunRoute() {
 	const [menuOpen, setMenuOpen] = useState(false);
 	const [activeIndex, setActiveIndex] = useState(0);
 	const [confirmation, setConfirmation] = useState<"cancel" | "delete" | null>(null);
-	const [failureLimit, setFailureLimit] = useState(IMPORT_FAILURES_PAGE_SIZE);
-	const [failureDownload, setFailureDownload] = useState<{
+	const [issueDownload, setIssueDownload] = useState<{
 		readonly runId: string;
 		readonly status: "downloading" | "failed";
 	}>();
-	const failureDownloadController = useRef<AbortController | undefined>(undefined);
-	const detail = useRyotQuery(importRunQuery, { runId, failureLimit });
+	const issueDownloadController = useRef<AbortController | undefined>(undefined);
+	const detail = useRyotQuery(importRunQuery, { runId });
 	const sources = useRyotQuery(importSourcesQuery);
 	const deletion = useRyotMutation(deleteImportRunMutation);
 	const cancellation = useRyotMutation(cancelImportRunMutation);
@@ -147,7 +138,7 @@ function ImportRunRoute() {
 		});
 	}, [backInterceptors, cancellation.isPending, confirmation, deletion.isPending, menuOpen]);
 
-	useEffect(() => () => failureDownloadController.current?.abort(), []);
+	useEffect(() => () => issueDownloadController.current?.abort(), []);
 
 	const confirmDelete = () => {
 		deletion.reset();
@@ -187,18 +178,18 @@ function ImportRunRoute() {
 			),
 		);
 	};
-	const downloadFailures = () => {
-		failureDownloadController.current?.abort();
-		failureDownloadController.current = new AbortController();
-		setFailureDownload({ runId, status: "downloading" });
+	const downloadIssues = () => {
+		issueDownloadController.current?.abort();
+		issueDownloadController.current = new AbortController();
+		setIssueDownload({ runId, status: "downloading" });
 		runtime.runFork(
-			Effect.flatMap(ImportsApi, (api) => api.downloadFailures(scope, runId)).pipe(
+			Effect.flatMap(ImportsApi, (api) => api.downloadIssues(scope, runId)).pipe(
 				Effect.match({
-					onSuccess: () => setFailureDownload(undefined),
-					onFailure: () => setFailureDownload({ runId, status: "failed" }),
+					onSuccess: () => setIssueDownload(undefined),
+					onFailure: () => setIssueDownload({ runId, status: "failed" }),
 				}),
 			),
-			{ signal: failureDownloadController.current.signal },
+			{ signal: issueDownloadController.current.signal },
 		);
 	};
 
@@ -234,14 +225,10 @@ function ImportRunRoute() {
 			<ImportRunView
 				state={state}
 				onRetry={detail.refetch}
-				isLoadingMore={detail.isFetching}
-				onDownloadFailures={downloadFailures}
-				onShowMore={() => setFailureLimit((current) => current + IMPORT_FAILURES_PAGE_SIZE)}
-				downloadFailuresFailed={
-					failureDownload?.runId === runId && failureDownload.status === "failed"
-				}
-				isDownloadingFailures={
-					failureDownload?.runId === runId && failureDownload.status === "downloading"
+				onDownloadIssues={downloadIssues}
+				downloadIssuesFailed={issueDownload?.runId === runId && issueDownload.status === "failed"}
+				isDownloadingIssues={
+					issueDownload?.runId === runId && issueDownload.status === "downloading"
 				}
 			/>
 		);
@@ -306,7 +293,7 @@ function ImportRunRoute() {
 					pending={deletion.isPending}
 					title="Delete this import record?"
 					onConfirm={() => void confirmDelete()}
-					detail={importRunDeleteConfirmation(run)}
+					detail={importRunDeleteConfirmation()}
 					onClose={() => {
 						deletion.reset();
 						setConfirmation(null);

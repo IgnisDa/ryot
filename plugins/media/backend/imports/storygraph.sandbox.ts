@@ -1,27 +1,27 @@
 import { defineManifest, defineScript } from "@ryot-app/sandbox-sdk/driver";
-import { Effect } from "@ryot-app/sandbox-sdk/effect";
 
-import { batchMediaImportResult } from "./helpers";
-import { MediaImportAdapterBatch, MediaImportParserInput } from "./schemas";
-import { readImportArtifactText } from "./shared";
+import { collectMediaCsv } from "./collection";
+import { MediaSourceInput, MediaSourceOutput } from "./collection-schemas";
+import { parseCsvText } from "./csv";
+import { normalizeReadCount } from "./helpers";
 import { adaptStorygraphCsv } from "./storygraph";
 
 export const manifest = defineManifest({
 	kind: "script",
 	slug: "import.storygraph",
-	requiredPluginConfigKeys: [],
 	name: "Parse StoryGraph import",
-	capabilities: ["artifact-read"],
 });
 
 export default defineScript({
 	manifest,
-	input: MediaImportParserInput,
-	output: MediaImportAdapterBatch,
+	input: MediaSourceInput,
+	output: MediaSourceOutput,
 	run: (input) =>
-		readImportArtifactText.pipe(
-			Effect.map((text) =>
-				batchMediaImportResult(adaptStorygraphCsv(text), input.start, input.limit),
-			),
-		),
+		collectMediaCsv("storygraph", input, (text, eventOffset) => ({
+			...adaptStorygraphCsv(text, input.importedAt, eventOffset, 128),
+			nextEventOffset:
+				eventOffset + 128 < normalizeReadCount(parseCsvText(text).rows[0]?.["Read Count"] ?? "")
+					? eventOffset + 128
+					: 0,
+		})),
 });

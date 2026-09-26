@@ -1,25 +1,25 @@
-import type { SandboxHost } from "@ryot-app/sandbox-sdk/core";
+import type { ScriptHost } from "@ryot-app/sandbox-sdk/core";
 import { Effect } from "@ryot-app/sandbox-sdk/effect";
 import { defineSandboxTestHost, runSandboxTestScript } from "@ryot-app/sandbox-sdk/testing";
 import { describe, expect, it } from "vitest";
 
 import { details, manifest, search } from "./shared";
 
-type SpotifyGroupHost = SandboxHost<typeof manifest.capabilities>;
+type SpotifyGroupHost = Pick<
+	ScriptHost,
+	"httpCall" | "getPluginConfig" | "getCachedValue" | "setCachedValue"
+>;
 
 const httpSuccess = (body: unknown) =>
 	Effect.succeed({ status: 200, headers: {}, body: JSON.stringify(body) });
 
 type Route = { match: (url: string) => boolean; body: unknown };
 
-const makeHost = (
-	routes: readonly Route[],
-	overrides: Partial<SpotifyGroupHost> = {},
-): SpotifyGroupHost =>
+const makeHost = (routes: readonly Route[], overrides: Partial<SpotifyGroupHost> = {}) =>
 	defineSandboxTestHost(manifest, {
 		setCachedValue: () => Effect.succeed(null),
 		getCachedValue: () => Effect.succeed("cached-token"),
-		getPluginConfig: (keys) =>
+		getPluginConfig: ({ required: keys = [] }) =>
 			Effect.succeed(
 				Object.fromEntries(keys.map((key) => [key, key.endsWith("Secret") ? "secret" : "id"])),
 			),

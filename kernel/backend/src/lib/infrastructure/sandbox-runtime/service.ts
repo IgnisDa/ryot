@@ -33,6 +33,7 @@ import {
 	type SandboxProcessOutcome,
 } from "../runtime-metrics";
 import { ServerRun } from "../server-run";
+import { SandboxArtifactStaging } from "./artifact-staging";
 import { SandboxArtifactStore } from "./artifacts";
 import { bindSandboxHostFunctions } from "./bridge-adapter";
 import { isSandboxCapability } from "./capability-policy";
@@ -238,6 +239,7 @@ export class SandboxService extends Context.Service<SandboxService>()("SandboxSe
 		const bridge = yield* BridgeService;
 		const fs = yield* FileSystem.FileSystem;
 		const artifacts = yield* SandboxArtifactStore;
+		const staging = yield* Effect.serviceOption(SandboxArtifactStaging);
 		const processes = yield* SandboxProcessManager;
 		const hostImplementations = yield* SandboxHostImplementations;
 		const localTempRoot = yield* fs.realPath(config.fileStorage.localTempDir).pipe(Effect.orDie);
@@ -538,13 +540,17 @@ export class SandboxService extends Context.Service<SandboxService>()("SandboxSe
 										),
 									)
 								: [];
-						const chunkHandles =
-							harvest && input.workflowExecutionId
-								? yield* artifacts.materializeOutputs(
-										input.grants?.artifactOwnerExecutionId ?? input.workflowExecutionId,
-										chunkPaths,
-									)
-								: [];
+						const stageOutputs =
+							harvest && Option.isSome(staging) ? yield* staging.value.prepare(input) : null;
+						let chunkHandles: string[] = [];
+						if (stageOutputs && harvest) {
+							chunkHandles = yield* stageOutputs(chunkPaths);
+						} else if (harvest && input.workflowExecutionId) {
+							chunkHandles = yield* artifacts.materializeOutputs(
+								input.grants?.artifactOwnerExecutionId ?? input.workflowExecutionId,
+								chunkPaths,
+							);
+						}
 						if (harvest) {
 							yield* fs.remove(harvest.directory, { force: true, recursive: true });
 						}

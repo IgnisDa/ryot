@@ -1,11 +1,11 @@
-import type { SandboxHost } from "@ryot-app/sandbox-sdk/core";
+import type { ScriptHost } from "@ryot-app/sandbox-sdk/core";
 import { Effect } from "@ryot-app/sandbox-sdk/effect";
 import type { JsonValue } from "@ryot-app/sandbox-sdk/wire";
 
 import { MediaSandboxError } from "../failures";
 import { asRecord, decodeJsonResponse, stringValue, type UnknownRecord } from "../records";
 
-export type HardcoverHost = SandboxHost<readonly ["httpCall", "getPluginConfig"]>;
+export type HardcoverHost = Pick<ScriptHost, "httpCall" | "getPluginConfig">;
 
 const HARDCOVER_GQL_URL = "https://api.hardcover.app/v1/graphql";
 
@@ -21,7 +21,7 @@ export const idValue = (value: unknown) => {
 };
 
 export const getHardcoverApiKey = (host: HardcoverHost) =>
-	host.getPluginConfig(["hardcoverApiKey"]).pipe(
+	host.getPluginConfig({ required: ["hardcoverApiKey"] }).pipe(
 		Effect.map(({ hardcoverApiKey }) => hardcoverApiKey),
 		Effect.mapError((error) => ({
 			...error,

@@ -5,8 +5,6 @@ import { search } from "./shared";
 
 export const manifest = defineManifest({
 	kind: "provider",
-	capabilities: ["httpCall"],
-	requiredPluginConfigKeys: [],
 	name: "Anilist Company Search",
 	slug: "company.anilist.search",
 });

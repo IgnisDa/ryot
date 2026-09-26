@@ -5,8 +5,6 @@ import { search } from "./shared";
 
 export const manifest = defineManifest({
 	kind: "provider",
-	capabilities: ["httpCall"],
-	requiredPluginConfigKeys: [],
 	name: "PokeAPI Pokémon Search",
 	slug: "pokemon.pokeapi.search",
 	searchOptionsSchema: {

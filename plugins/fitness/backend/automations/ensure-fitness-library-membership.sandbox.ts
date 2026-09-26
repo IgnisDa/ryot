@@ -8,10 +8,8 @@ import { userFitnessLibraryRecipe } from "../../shared/library-recipes";
 export const manifest = defineManifest({
 	kind: "automation",
 	automationType: "automation",
-	requiredPluginConfigKeys: [],
 	name: "Ensure fitness library membership",
 	slug: "automation.ensure-fitness-library-membership",
-	capabilities: ["executeRyotql", "changeUserRelationships"],
 	inputProjection: {
 		providerEntityImport: true,
 		entity: { properties: [], compareProperties: [], parentEntityProperties: [] },

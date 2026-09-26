@@ -1,115 +1,148 @@
-import { expect, layer } from "@effect/vitest";
-import {
-	PluginConfigRevisionId,
-	PluginId,
-	PluginRevisionId,
-	SandboxScriptId,
-} from "@ryot-app/contract/schema/brands";
-import { Context, Effect, Layer, Ref, Schema } from "effect";
-import { assert } from "vitest";
+import { BunServices } from "@effect/platform-bun";
+import { assert, expect, it } from "@effect/vitest";
+import type { IngestionCapture } from "@ryot-app/contract/modules/imports/ingestion";
+import { Effect, FileSystem, Layer } from "effect";
 
+import { createPluginConfigEncryption } from "#lib/infrastructure/config/plugin-config-encryption";
+import { assertExitFails } from "#lib/test-utils/assertions";
+import { makeAppConfigLayer } from "#lib/test-utils/effect";
+import { PluginConfigEncryptionKey } from "#modules/plugins/config-encryption-key";
 import {
-	IMPORT_SOURCE_STATE_CLAIMED_TTL_SECONDS,
-	IMPORT_SOURCE_STATE_PENDING_TTL_SECONDS,
-	ImportSourceStateFromJson,
-	RedisService,
-	redisKeys,
-} from "#lib/infrastructure/redis";
-import { makeRedisService } from "#lib/test-utils/effect";
+	IngestionPayloadError,
+	IngestionPayloads,
+	ingestionPayloadDigest,
+} from "#modules/uploads/object-storage/ingestion-payloads";
 
+import { IngestionCaptures } from "../capture-service";
+import { ingestionTestScope, ingestionTestSource } from "../ingestion.test-support";
+import { ImportsRepository } from "../repository";
 import { ImportSourceStateStore } from "./source-state-store";
+import { ImportRunError } from "./workflow-errors";
 
-const state = {
-	source: "beta",
-	pluginId: "example-plugin-id",
-	uploadIntentIds: ["intent-1"],
-	pluginInstallationId: "example-installation",
-	namedArtifactPaths: { file: "/tmp/export.csv" },
-	sourcePayload: { file: "file", apiKey: "secret" },
-	workflowScriptId: SandboxScriptId.make("script-1"),
-	pluginRevision: {
-		ownerId: null,
-		slug: "example",
-		compiledHashes: {},
-		workflowScripts: {},
-		scope: "system" as const,
-		userBootstrapScriptSlugs: [],
-		id: PluginId.make("example-plugin-id"),
-		revisionId: PluginRevisionId.make("example-revision"),
-		configSchema: { fields: {}, unknownKeys: "strict" as const },
-		configRevisionId: PluginConfigRevisionId.make("example-config-revision"),
-		schemaScope: { eventSchemas: [], entitySchemaSlugs: [], relationshipSchemaSlugs: [] },
-	},
-};
+const temporaryRoot = "/var/folders/x2/4ldmcvss5wlg5f5sfly3bqwm0000gn/T/opencode";
 
-type PendingWrite = { key: string; value: string; ttlSeconds: number | undefined };
-type ClaimInput = { key: string; claimKey: string; ttlSeconds: number };
-
-class FakeSourceStateRedis extends Context.Service<
-	FakeSourceStateRedis,
-	{
-		readonly pending: Effect.Effect<PendingWrite | undefined>;
-		readonly claimInput: Effect.Effect<ClaimInput | undefined>;
-		readonly deleted: Effect.Effect<ReadonlyArray<ReadonlyArray<string>>>;
-	}
->()("test/FakeSourceStateRedis") {}
-
-const recordingRedisLayer = Layer.unwrap(
+const runStateCase = (changeInput: boolean) =>
 	Effect.gen(function* () {
-		const pending = yield* Ref.make<PendingWrite | undefined>(undefined);
-		const claimInput = yield* Ref.make<ClaimInput | undefined>(undefined);
-		const deleted = yield* Ref.make<ReadonlyArray<ReadonlyArray<string>>>([]);
-		return Layer.merge(
-			Layer.succeed(FakeSourceStateRedis, {
-				pending: Ref.get(pending),
-				deleted: Ref.get(deleted),
-				claimInput: Ref.get(claimInput),
+		const fs = yield* FileSystem.FileSystem;
+		const directory = yield* fs.makeTempDirectoryScoped({ directory: temporaryRoot });
+		const original = `${directory}/source.csv`;
+		yield* fs.writeFileString(original, "record,value\n1,example\n");
+		const captures = new Map<string, IngestionCapture>();
+		const bytes = new Map<string, Uint8Array>();
+		const dependencies = Layer.mergeAll(
+			Layer.mock(ImportsRepository)({
+				getCapture: (_scope, id) => Effect.sync(() => captures.get(id) ?? null),
 			}),
-			Layer.succeed(
-				RedisService,
-				makeRedisService({
-					set: (key, value, ttlSeconds) => Ref.set(pending, { key, value, ttlSeconds }),
-					del: (...keys) =>
-						Ref.update(deleted, (all) => [...all, [...keys]]).pipe(Effect.as(keys.length)),
-					claim: (key, claimKey, ttlSeconds) =>
-						Ref.set(claimInput, { key, claimKey, ttlSeconds }).pipe(
-							Effect.andThen(Ref.get(pending)),
-							Effect.map((write) => write?.value ?? null),
-						),
-				}),
+			Layer.mock(IngestionCaptures)({
+				read: (_scope, id) =>
+					Effect.sync(() => {
+						const value = bytes.get(id);
+						if (!value) {
+							throw new Error("capture unavailable");
+						}
+						return Buffer.from(value);
+					}),
+				publish: (input) =>
+					Effect.sync(() => {
+						const payload = {
+							locator: input.id,
+							byteSize: input.bytes.byteLength,
+							checksum: ingestionPayloadDigest(input.bytes),
+						};
+						const capture: IngestionCapture = {
+							payload,
+							id: input.id,
+							phase: input.phase,
+							state: input.state,
+							ordinal: input.ordinal,
+							checkpoint: input.checkpoint,
+						};
+						captures.set(input.id, capture);
+						bytes.set(input.id, input.bytes);
+						return capture;
+					}),
+			}),
+			Layer.mock(IngestionPayloads)({
+				materialize: (payload) =>
+					Effect.gen(function* () {
+						const value = bytes.get(payload.locator);
+						if (!value) {
+							return yield* new IngestionPayloadError({
+								kind: "unavailable",
+								message: "capture unavailable",
+							});
+						}
+						const path = yield* fs.makeTempFileScoped({ directory });
+						yield* fs.writeFile(path, value);
+						return path;
+					}),
+			}),
+			Layer.mock(PluginConfigEncryptionKey)({
+				load: Effect.succeed(
+					createPluginConfigEncryption({ id: "test-key", key: new Uint8Array(32).fill(7) }),
+				),
+			}),
+		);
+		yield* Effect.gen(function* () {
+			const store = yield* ImportSourceStateStore;
+			const state = {
+				...ingestionTestSource,
+				namedArtifactPaths: { history: original },
+				executionSettings: { userSettings: { timezone: "Pacific/Auckland" } },
+			};
+			yield* store.store({ state, scope: ingestionTestScope });
+			const envelope = bytes.get("admitted-source");
+			expect(envelope).toBeDefined();
+			expect(new TextDecoder().decode(envelope)).not.toContain("private-credential");
+			expect(new TextDecoder().decode(envelope)).not.toContain("Pacific/Auckland");
+			expect(new TextDecoder().decode(envelope)).not.toContain(original);
+			if (changeInput) {
+				const exit = yield* store
+					.store({
+						scope: ingestionTestScope,
+						state: { ...state, sourcePayload: { apiKey: "changed-credential" } },
+					})
+					.pipe(Effect.exit);
+				assertExitFails(
+					exit,
+					new ImportRunError({ message: "Ingestion admitted input identity changed" }),
+				);
+				return;
+			}
+			yield* fs.remove(original);
+			const recovered = yield* store.materialize(ingestionTestScope);
+			expect(recovered.sourcePayload).toEqual({ apiKey: "private-credential" });
+			expect(recovered.executionSettings.userSettings).toEqual({ timezone: "Pacific/Auckland" });
+			expect(recovered.namedArtifactPaths["history"]).not.toBe(original);
+			assert(recovered.namedArtifactPaths["history"]);
+			expect(yield* fs.readFileString(recovered.namedArtifactPaths["history"])).toBe(
+				"record,value\n1,example\n",
+			);
+		}).pipe(
+			Effect.provideContext(
+				yield* Layer.build(
+					Layer.effect(ImportSourceStateStore, ImportSourceStateStore.make).pipe(
+						Layer.provide(dependencies),
+					),
+				),
 			),
 		);
-	}),
+	});
+
+const platform = Layer.mergeAll(
+	BunServices.layer,
+	makeAppConfigLayer({ fileStorage: { localTempDir: temporaryRoot } }),
 );
 
-layer(ImportSourceStateStore.layer.pipe(Layer.provideMerge(recordingRedisLayer)))((test) => {
-	test.effect("stores, claims, and deletes import source state with bounded lifecycle keys", () =>
+it.effect(
+	"recovers admitted files after the original temporary file is deleted and keeps credentials encrypted",
+	() =>
 		Effect.gen(function* () {
-			const redis = yield* FakeSourceStateRedis;
-			const sourceStates = yield* ImportSourceStateStore;
-			yield* sourceStates.store({ state, stateId: "state-1" });
-			const pending = yield* redis.pending;
-			expect(pending).toMatchObject({
-				key: redisKeys.importSourceState("state-1"),
-				ttlSeconds: IMPORT_SOURCE_STATE_PENDING_TTL_SECONDS,
-			});
-			assert(pending);
-			expect(yield* Schema.decodeEffect(ImportSourceStateFromJson)(pending.value)).toEqual(state);
-
-			expect(yield* sourceStates.claim("state-1", "execution-1")).toEqual(state);
-			expect(yield* redis.claimInput).toEqual({
-				key: redisKeys.importSourceState("state-1"),
-				ttlSeconds: IMPORT_SOURCE_STATE_CLAIMED_TTL_SECONDS,
-				claimKey: redisKeys.importSourceStateClaim("state-1", "execution-1"),
-			});
-
-			yield* sourceStates.remove("state-1", "execution-1");
-			expect(yield* redis.deleted).toEqual([
-				[
-					redisKeys.importSourceState("state-1"),
-					redisKeys.importSourceStateClaim("state-1", "execution-1"),
-				],
-			]);
+			return yield* runStateCase(false).pipe(Effect.provideContext(yield* Layer.build(platform)));
 		}),
-	);
-});
+);
+it.effect("rejects changed admitted credentials on replay", () =>
+	Effect.gen(function* () {
+		return yield* runStateCase(true).pipe(Effect.provideContext(yield* Layer.build(platform)));
+	}),
+);

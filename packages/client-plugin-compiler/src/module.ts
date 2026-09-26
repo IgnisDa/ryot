@@ -161,6 +161,7 @@ export const compileClientPluginModule = (
 				define: { "import.meta.env": "{}", "process.env.NODE_ENV": '"production"' },
 				build: {
 					minify: true,
+					sourcemap: false,
 					target: "es2022",
 					cssCodeSplit: false,
 					assetsInlineLimit: 0,

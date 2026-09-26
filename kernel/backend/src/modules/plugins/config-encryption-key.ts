@@ -7,6 +7,7 @@ import {
 	pluginConfigEncryptionKey,
 	pluginConfigRevision,
 } from "#lib/infrastructure/db/schema/tables/core";
+import { importRun } from "#lib/infrastructure/db/schema/tables/imports";
 import { oauthConnection } from "#lib/infrastructure/db/schema/tables/oauth-connections";
 import { DatabaseSession } from "#lib/infrastructure/db/session";
 
@@ -20,46 +21,61 @@ export class PluginConfigEncryptionKeyRepository extends Context.Service<PluginC
 		make: Effect.gen(function* () {
 			const database = yield* DatabaseSession;
 			return {
-				lock: database.run((db) =>
-					db
-						.execute(sql`lock table ${pluginConfigEncryptionKey} in exclusive mode`)
-						.pipe(Effect.asVoid),
+				lock: Effect.suspend(() =>
+					database.run((db) =>
+						db
+							.execute(sql`lock table ${pluginConfigEncryptionKey} in exclusive mode`)
+							.pipe(Effect.asVoid),
+					),
 				),
-				load: database.run((db) =>
-					db
-						.select()
-						.from(pluginConfigEncryptionKey)
-						.limit(1)
-						.pipe(Effect.map(([key]) => key)),
+				load: Effect.suspend(() =>
+					database.run((db) =>
+						db
+							.select()
+							.from(pluginConfigEncryptionKey)
+							.limit(1)
+							.pipe(Effect.map(([key]) => key)),
+					),
 				),
 				insert: (key: Pick<typeof pluginConfigEncryptionKey.$inferInsert, "id" | "key">) =>
 					database.run((db) =>
 						db.insert(pluginConfigEncryptionKey).values(key).pipe(Effect.as(key)),
 					),
-				retainedKeyIds: Effect.all([
-					database.run((db) =>
-						db
-							.selectDistinct({ id: pluginConfigRevision.encryptionKeyId })
-							.from(pluginConfigRevision)
-							.where(isNotNull(pluginConfigRevision.encryptedPayload)),
-					),
-					database.run((db) =>
-						db
-							.selectDistinct({
-								code: sql<string | null>`${oauthConnection.code} ->> 'keyId'`,
-								accessToken: sql<string | null>`${oauthConnection.accessToken} ->> 'keyId'`,
-								codeVerifier: sql<string | null>`${oauthConnection.codeVerifier} ->> 'keyId'`,
-								refreshToken: sql<string | null>`${oauthConnection.refreshToken} ->> 'keyId'`,
-							})
-							.from(oauthConnection),
-					),
-				]).pipe(
-					Effect.map(([configKeys, oauthKeys]) => [
-						...configKeys,
-						...oauthKeys.flatMap((row) =>
-							Object.values(row).flatMap((id) => (id === null ? [] : [{ id }])),
+				retainedKeyIds: Effect.suspend(() =>
+					Effect.all([
+						database.run((db) =>
+							db
+								.selectDistinct({ id: pluginConfigRevision.encryptionKeyId })
+								.from(pluginConfigRevision)
+								.where(isNotNull(pluginConfigRevision.encryptedPayload)),
 						),
-					]),
+						database.run((db) =>
+							db
+								.selectDistinct({
+									code: sql<string | null>`${oauthConnection.code} ->> 'keyId'`,
+									accessToken: sql<string | null>`${oauthConnection.accessToken} ->> 'keyId'`,
+									codeVerifier: sql<string | null>`${oauthConnection.codeVerifier} ->> 'keyId'`,
+									refreshToken: sql<string | null>`${oauthConnection.refreshToken} ->> 'keyId'`,
+								})
+								.from(oauthConnection),
+						),
+						database.run((db) =>
+							db
+								.selectDistinct({
+									id: sql<string | null>`${importRun.preparedRelease} -> 'state' ->> 'keyId'`,
+								})
+								.from(importRun)
+								.where(isNotNull(importRun.preparedRelease)),
+						),
+					]).pipe(
+						Effect.map(([configKeys, oauthKeys, preparedReleaseKeys]) => [
+							...configKeys,
+							...oauthKeys.flatMap((row) =>
+								Object.values(row).flatMap((id) => (id === null ? [] : [{ id }])),
+							),
+							...preparedReleaseKeys.flatMap(({ id }) => (id === null ? [] : [{ id }])),
+						]),
+					),
 				),
 			};
 		}),

@@ -1,8 +1,11 @@
+import type { LifecycleCommand, ingestionArtifactsSchema } from "@ryot-app/sandbox-sdk/imports";
 import {
-	genericImportWorkflowManifestSchema,
-	LifecycleCommand,
-} from "@ryot-app/sandbox-sdk/imports";
-import { Effect, Schema, type WorkflowReplay } from "@ryot-app/sandbox-sdk/workflow";
+	defineScriptReference,
+	defineWorkflowReference,
+	Effect,
+	Schema,
+	type WorkflowReplay,
+} from "@ryot-app/sandbox-sdk/workflow";
 
 import { ResolveEpisodesInput, ResolveEpisodesOutput } from "../contracts/operations";
 import {
@@ -12,14 +15,17 @@ import {
 	MediaImportResolutionWorkflowOutput,
 } from "../contracts/workflows";
 import { importEntityRefIdentifier } from "./groups";
-import type { MediaImportAdapterFailure, UnresolvedEpisodeRef } from "./schemas";
-import {
+import type {
+	MediaImportAdapterFailure,
+	UnresolvedEpisodeRef,
 	MediaImportAdapterBatch,
-	MediaImportDispatchParserInput,
 	MediaImportWriteChunkInput,
 } from "./schemas";
-
-export const BATCH_SIZE = 25;
+import {
+	MediaImportWriteChunkActivityInput,
+	NetflixResolutionInput,
+	NetflixResolutionOutput,
+} from "./schemas";
 
 export class MediaWorkflowError extends Error {
 	readonly _tag = "MediaWorkflowError";
@@ -33,12 +39,6 @@ const mediaImportResolutionActivitySlugByProvider = {
 	"book.google-books": "media-import-resolve.book.google-books",
 } as const;
 
-export const mediaImportParser = (source: string) => ({
-	scriptSlug: `import.${source}`,
-	output: MediaImportAdapterBatch,
-	input: MediaImportDispatchParserInput,
-});
-
 type FinalizedEntityGroup = MediaImportWriteChunkInput["entityGroups"][number];
 type FinalizedEvent = FinalizedEntityGroup["events"][number];
 
@@ -51,29 +51,29 @@ const unresolvedEpisodeMessage = (episode: UnresolvedEpisodeRef) => {
 		: `Could not resolve podcast episode ${episode.episodeNumber}`;
 };
 
-const resolution = {
+const resolution = defineWorkflowReference({
 	workflowSlug: "media-import-resolution",
 	input: MediaImportResolutionWorkflowInput,
 	output: MediaImportResolutionWorkflowOutput,
-};
+});
 
-const population = {
+const population = defineWorkflowReference({
 	workflowSlug: "media-import-population",
 	input: MediaImportPopulationWorkflowInput,
 	output: MediaImportPopulationWorkflowOutput,
-};
+});
 
-const episodes = {
+const episodes = defineScriptReference({
 	input: ResolveEpisodesInput,
 	output: ResolveEpisodesOutput,
 	scriptSlug: "import.resolve-episodes",
-};
+});
 
-const chunkWriter = {
-	input: MediaImportWriteChunkInput,
+const chunkWriter = defineScriptReference({
 	scriptSlug: "import.write-chunks",
-	output: genericImportWorkflowManifestSchema,
-};
+	input: MediaImportWriteChunkActivityInput,
+	output: Schema.Struct({ chunkHandles: Schema.Array(Schema.String) }),
+});
 
 const resolutionCandidates = (entitySchemaSlug: string) =>
 	Object.entries(mediaImportResolutionActivitySlugByProvider).flatMap(
@@ -81,20 +81,10 @@ const resolutionCandidates = (entitySchemaSlug: string) =>
 			providerSlug.startsWith(`${entitySchemaSlug}.`) ? [{ scriptSlug, providerSlug }] : [],
 	);
 
-export const MediaImportSegmentInput = Schema.Struct({
-	start: Schema.Finite,
-	runId: Schema.String,
-	source: Schema.String,
-	command: LifecycleCommand,
-	parserInput: MediaImportDispatchParserInput,
-});
-
-export const MediaImportSegmentOutput = Schema.Struct({
-	totalItems: Schema.Finite,
-	failureCount: Schema.Finite,
-	writeItemCount: Schema.Finite,
-	nextStart: Schema.NullOr(Schema.Finite),
-	chunkHandles: Schema.Array(Schema.String),
+const netflixResolution = defineScriptReference({
+	input: NetflixResolutionInput,
+	output: NetflixResolutionOutput,
+	scriptSlug: "import.netflix-resolution",
 });
 
 type BatchStep =
@@ -109,11 +99,32 @@ export function* runMediaImportBatch(
 		integrationId?: string;
 		command: LifecycleCommand;
 		batch: typeof MediaImportAdapterBatch.Type;
+		ingestionArtifacts?: typeof ingestionArtifactsSchema.Type;
 	},
-): Generator<BatchStep, typeof genericImportWorkflowManifestSchema.Type, unknown> {
+): Generator<BatchStep, { readonly chunkHandles: readonly string[] }, unknown> {
 	const { batch, batchIndex, integrationId } = input;
+	const netflixItems = batch.entityGroups.flatMap((group, index) =>
+		group.entityRef.kind === "unresolved" && group.entityRef.identifierType === "netflix-title"
+			? [
+					{
+						index,
+						title: group.entityRef.identifierValue,
+						entitySchemaSlug: group.entityRef.entitySchemaSlug,
+					},
+				]
+			: [],
+	);
+	const netflixOutput = netflixItems.length
+		? yield* replay.activity(`netflix-resolution-${batchIndex}`, netflixResolution, {
+				items: netflixItems,
+			})
+		: { results: [] };
+	const netflixByIndex = new Map(
+		netflixOutput.results.map((result) => [result.index, result.entityRef]),
+	);
+	const netflixFailures: MediaImportAdapterFailure[] = [];
 	const resolutionItems = batch.entityGroups.flatMap((group, index) =>
-		group.entityRef.kind === "unresolved"
+		group.entityRef.kind === "unresolved" && group.entityRef.identifierType !== "netflix-title"
 			? [
 					{
 						index,
@@ -131,24 +142,48 @@ export function* runMediaImportBatch(
 	const resolutionByIndex = new Map(
 		resolutionOutput.results.map((result) => [result.index, result]),
 	);
-	const resolvedGroups = batch.entityGroups.map((group, index) => {
-		if (group.entityRef.kind === "resolved") {
-			return group;
-		}
-		const result = resolutionByIndex.get(index);
-		return result?.status === "resolved"
-			? {
-					...group,
-					entityRef: {
-						kind: "resolved" as const,
-						externalId: result.externalId,
-						providerSlug: result.providerSlug,
-						sourceLabel: group.entityRef.sourceLabel,
-						entitySchemaSlug: group.entityRef.entitySchemaSlug,
-					},
-				}
-			: group;
-	});
+	const resolvedGroups = batch.entityGroups
+		.map((group, index) => {
+			const netflix = netflixByIndex.get(index);
+			if (netflix) {
+				const events = group.events.filter((event) => {
+					if (netflix.entitySchemaSlug !== "show" || event.eventSchemaSlug !== "complete") {
+						return true;
+					}
+					netflixFailures.push({
+						unit: "events",
+						recordKind: "complete",
+						stage: "provider_resolution",
+						itemIndex: event.sourceItemIndex ?? group.itemIndex,
+						sourceLabel: event.attribution?.sourceLabel ?? group.entityRef.sourceLabel,
+						message: "Viewing activity matched a show but no season or episode could be extracted",
+						sourceIdentifier:
+							event.attribution?.sourceIdentifier ?? importEntityRefIdentifier(group.entityRef),
+					});
+					return false;
+				});
+				return events.length || group.collectionMemberships.length
+					? { ...group, events, entityRef: netflix }
+					: null;
+			}
+			if (group.entityRef.kind === "resolved") {
+				return group;
+			}
+			const result = resolutionByIndex.get(index);
+			return result?.status === "resolved"
+				? {
+						...group,
+						entityRef: {
+							kind: "resolved" as const,
+							externalId: result.externalId,
+							providerSlug: result.providerSlug,
+							sourceLabel: group.entityRef.sourceLabel,
+							entitySchemaSlug: group.entityRef.entitySchemaSlug,
+						},
+					}
+				: group;
+		})
+		.flatMap((group) => (group ? [group] : []));
 	const populationItems = resolvedGroups.flatMap((group, index) =>
 		group.entityRef.kind === "resolved"
 			? [
@@ -159,7 +194,11 @@ export function* runMediaImportBatch(
 						entitySchemaSlug: group.entityRef.entitySchemaSlug,
 						command: {
 							...input.command,
-							itemIdentity: JSON.stringify([input.command.itemIdentity, "population", index]),
+							itemIdentity: JSON.stringify([
+								input.command.itemIdentity,
+								"population",
+								group.itemIndex,
+							]),
 						},
 					},
 				]
@@ -251,6 +290,9 @@ export function* runMediaImportBatch(
 			const finalized = {
 				occurredAt: event.occurredAt,
 				properties: event.properties,
+				attribution: event.attribution,
+				operationId: event.operationId,
+				sourceItemIndex: event.sourceItemIndex,
 				eventSchemaSlug: event.eventSchemaSlug,
 			};
 			if (!event.unresolvedEpisode) {
@@ -264,12 +306,15 @@ export function* runMediaImportBatch(
 			const subjectEntityId = episodeEntityIdByEvent.get(eventKey);
 			if (!subjectEntityId) {
 				episodeFailures.push({
-					itemIndex: group.itemIndex,
+					unit: "events",
 					stage: "provider_resolution",
-					sourceLabel: group.entityRef.sourceLabel,
+					recordKind: event.eventSchemaSlug,
 					entitySchemaSlug: group.entityRef.entitySchemaSlug,
+					itemIndex: event.sourceItemIndex ?? group.itemIndex,
 					message: unresolvedEpisodeMessage(event.unresolvedEpisode),
-					sourceIdentifier: importEntityRefIdentifier(group.entityRef),
+					sourceLabel: event.attribution?.sourceLabel ?? group.entityRef.sourceLabel,
+					sourceIdentifier:
+						event.attribution?.sourceIdentifier ?? importEntityRefIdentifier(group.entityRef),
 				});
 				continue;
 			}
@@ -286,12 +331,14 @@ export function* runMediaImportBatch(
 		finalizedGroups.push({ ...group, events });
 	}
 	const chunk = yield* replay.activity(`chunks-${batchIndex}`, chunkWriter, {
+		ownershipSyncedAt: input.command.occurredAt,
+		...(input.ingestionArtifacts ? { ingestionArtifacts: input.ingestionArtifacts } : {}),
 		...(integrationId === undefined
 			? {}
 			: { integration: { integrationId, importRunId: input.runId } }),
 		entityGroups: finalizedGroups,
 		populationResults: populationOutput.results,
-		failures: [...batch.failures, ...episodeFailures],
+		failures: [...batch.failures, ...netflixFailures, ...episodeFailures],
 	});
 	return chunk;
 }

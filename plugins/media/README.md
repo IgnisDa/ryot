@@ -349,6 +349,14 @@ deterministic and provider calls use concurrency four.
 
 ## Imports
 
+The `import` workflow runs `workflow.media-import` with the admitted `source-parser` selection.
+Its executable closure contains source collection and ordinary application segments.
+
+Manual imports append history and cannot be reversed. A separate import can duplicate history from
+an earlier import or integration. Reports distinguish source/provider activities from committed
+outcomes and keep source-owned units. Spotify's six-play groups are transport partitions, not tracks
+or listening-event counts; result summaries count actual listening events.
+
 The IMDb importer reads watchlist and ratings CSV exports. A rating or rated date creates a
 completion event with `consumedOn: "imdb"`; ratings from 1 to 10 become review ratings from 10 to 100.
 Rated dates accept `YYYY-MM-DD` and `YYYY/MM/DD`. Without a rated date, the completion time is unknown.
@@ -364,9 +372,15 @@ User and list modes require `traktClientId`; export does not. List URLs allow on
 `www.trakt.tv` with `/users/{username}/lists/{slug}`. Export ratings and comments can target movies,
 shows, seasons, or episodes.
 
-Every upload or credentialed import runs its parser loop in `media-import-segment` child workflows of
-up to 100 batches each, so a long import stays within the kernel's per-execution journal limits.
-Integration runs process their single batch inline.
+The source plan selects `import.trakt` for API modes and `import.trakt-export` for export mode through
+the finite `source-parser` alternatives. Their compiler-generated configuration requirements are
+separate. Provider-resolution alternatives use the record stage for later refinement.
+
+Setup evaluates the selected source mode against the exact plugin installation. Configuration
+presence does not validate remote credentials. Run reports show each activity independently and use
+an exact denominator only when it matches the activity's unit. Issue reports retain source-record
+and operation identity; expected skips remain in the outcome summary. Downloads exclude captured
+payloads, credentials, and execution pins.
 
 The Spotify importer reads an extended streaming history ZIP and records each `trackdone` play of a
 `spotify:track:` URI once per `(track, ts)`. A track's plays are cut into items of six so a batch fits the
@@ -374,16 +388,48 @@ write-chunks context limit.
 
 ## Integrations
 
+Sink and yank providers run the `integration` workflow, `workflow.media-integration`, with an
+admitted `integration-adapter` selection. Collection and confirmed-result callbacks use that same
+adapter. Integration application segments share the bounded writer and merge logic with imports;
+their executable closure contains no manual source collectors. Adapter script identities, including
+`integration.spotify` and `integration.youtube-music`, retain their persistent cache namespaces.
+Collection windows publish sorted record artifacts and captured continuation state before another
+window starts. Application reads these captures without fetching source data again. Each integration
+holds its run guard from source collection through terminal settlement; independent
+sink deliveries remain admitted while their execution waits for that guard.
+
+Setup reports structured configuration, OAuth-client, and account-connection prerequisites for the
+selected settings and installation. Scheduled integrations wait for readiness before admission.
+Accepted webhook deliveries can wait blocked for setup and resume automatically; their fixed
+seven-day deadline does not extend. Expiry releases captured inputs and is not a source error for
+continuous-error disabling. At release, runs freeze `providerSpecifics`, `minimumProgress`,
+`maximumProgress`, and `syncOwnership` alongside plugin `userSettings` and the selected plugin and
+configuration revisions for replay. OAuth token validity and refresh remain live. The
+[Imports reference](../../kernel/backend/src/modules/imports/README.md) describes encrypted capture
+and blocked-release behavior.
+
+Collector-wide parsing or fetch failures report an unattributed source error and fail the run with
+its source failure reason. Attributed record errors remain partial results, and expected skips do
+not fail integration health. Disabled integrations, account-disabled integrations, and deliveries
+without a required valid Pro key terminate at ingress without becoming recoverable source work.
+
 The Spotify yank declares the `spotify` OAuth provider over `spotifyClientId` and
 `spotifyClientSecret`, and its `account` setting holds the OAuth connection. Each sync reads the 50
 most recent plays with the connection's access token, sent only as a bearer header. When the
 integration has a `lastFinishedAt`, plays at or before one hour before it are ignored and that bound
 is sent as Spotify's `after` cursor; the first sync considers every returned play. Each remaining play
-is claimed once for 30 days under `["media.spotify-play", integrationId, trackId, playedAt]` and
 becomes a `complete` event on the `music.spotify` track with `completedOn` and `occurredAt` set to the
 play time, `custom_timestamps`, `timeSpent` from the track duration in minutes, and
 `consumedOn: "spotify"`. Plays without a track ID are skipped and logged. Spotify request failures
 report only the HTTP status.
+Only receipt-confirmed created plays claim `["media.spotify-play", integrationId, trackId, playedAt]`.
+These exact-play claims expire 30 days after collection started; confirmation replay does not extend
+retention. Collection and failed or policy-skipped writes do not mark plays saved.
+
+YouTube Music records 35-percent progress on the first confirmed local-day observation and
+100-percent progress on the next. The final ten minutes of the local day produce 100 percent
+directly. Only created outcomes advance the original `:seen` and `:completed` claims, which expire
+at local midnight. Confirmation parts replay safely without source requests or renewed retention.
 
 ## Lifecycle
 
@@ -531,14 +577,9 @@ resolved episode events carry `subjectEntitySchemaSlug` alongside `subjectEntity
 the latest matching progress event by entity, schema, `consumedOn`, and anime/manga subitem, including
 events already admitted in this batch. Failed population remains an import failure.
 
-Completion claims use the JSON-encoded array
-`["media.integration-progress.v1", integrationId, entityId, entitySchemaSlug, "progress", consumedOn, subitemSignature]`.
-The subitem signature keeps `animeEpisode`, `mangaVolume`, `mangaChapter` order with `key=value`
-comma joining, and missing consumption or subitem values use empty strings. The stable integration ID
-keeps debounce across import runs; import-run IDs are not claim-key parts. Persistent claims are
-host-scoped by user and provider-or-script ID, so the user-scoped Redis key is
-`ryot:sandbox:cache:user:<userId>:<writeChunksScriptId>:<JSON-encoded claim array>`. A denied claim
-suppresses only when matching recent 100-percent history exists.
+Completion debounce reads committed matching 100-percent history. The integration run guard
+serializes this decision through application, so a competing delivery sees committed history and a
+failed write cannot leave a completion claim that suppresses later delivery.
 
 Media population carries the import's canonical lifecycle command and derives a deterministic
 population item identity from the import command and group index. The kernel generic-import writer

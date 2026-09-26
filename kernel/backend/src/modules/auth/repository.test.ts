@@ -11,10 +11,11 @@ import { assertExitFails } from "#lib/test-utils/assertions";
 import { isolatedDatabaseLayer } from "#lib/test-utils/isolated-database";
 import { TranslationsRepository } from "#modules/entity-translation/repository";
 import { IntegrationsRepository } from "#modules/integrations/repository";
+import { PluginConfigEncryptionKey } from "#modules/plugins/config-encryption-key";
 
 import { AuthRepository } from "./repository";
 
-const testLayer = AuthRepository.layer.pipe(
+const testLayer = Layer.mergeAll(AuthRepository.layer, PluginConfigEncryptionKey.layer).pipe(
 	Layer.provideMerge(isolatedDatabaseLayer("auth_prefs_test")),
 );
 

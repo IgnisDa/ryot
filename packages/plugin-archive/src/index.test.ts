@@ -27,15 +27,6 @@ const compareNames = (left: string, right: string) => {
 
 const fixture = {
 	compiledScripts: [],
-	files: {
-		"client/d.svg": new Uint8Array([0xff, 0x00, 0x7f]),
-		"client/a.ts": encoder.encode("export const a = 'a';\n"),
-		"shared/a.ts": encoder.encode("export const a = 'a';\n"),
-		"backend/z.ts": encoder.encode("export const z = 'z';\n"),
-		"backend/a.ts": encoder.encode("export const a = 'a';\n"),
-		"client/b.tsx": encoder.encode("export const b = 'b';\n"),
-		"client/c.css": encoder.encode(".fixture { color: red; }\n"),
-	},
 	manifest: {
 		hooks: [],
 		crons: [],
@@ -63,7 +54,6 @@ const fixture = {
 } satisfies PluginArchivePackage;
 
 const scriptEntry = "backend/main.sandbox.ts";
-const scriptSource = 'export const manifest = "fixture";\n';
 const scriptJavascript = 'const manifest = "fixture";\n';
 const scriptManifest: PluginArchivePackage["manifest"] = {
 	...fixture.manifest,
@@ -74,21 +64,18 @@ const scriptManifest: PluginArchivePackage["manifest"] = {
 			capabilities: [],
 			entry: scriptEntry,
 			name: "Fixture script",
+			oauthConnectionFields: [],
+			executableDependencies: [],
 			requiredPluginConfigKeys: [],
+			optionalPluginConfigKeys: [],
 		},
 	],
 };
-const compiledScriptFixture = {
-	format: 1,
-	entry: scriptEntry,
-	source: scriptSource,
-	javascript: scriptJavascript,
-};
+const compiledScriptFixture = { format: 1, entry: scriptEntry, javascript: scriptJavascript };
 const scriptFixture: PluginArchivePackage = {
 	...fixture,
 	manifest: scriptManifest,
 	compiledScripts: [compiledScriptFixture],
-	files: { ...fixture.files, [scriptEntry]: encoder.encode(scriptSource) },
 };
 
 const compiledClientFixture: PluginClientArtifact = {
@@ -147,19 +134,17 @@ const scriptArchiveMetadata = encoder.encode(
 );
 
 const pathAtBytes = (bytes: number) =>
-	`backend/${"a".repeat(bytes - encoder.encode("backend/.ts").byteLength)}.ts`;
+	`compiled-client/files/${"a".repeat(bytes - encoder.encode("compiled-client/files/.svg").byteLength)}.svg`;
 
-const filesWithTotalBytes = (totalBytes: number) => {
-	const files: Record<string, Uint8Array> = {};
+const metadataWithTotalBytes = (totalBytes: number) => {
+	const entries: Array<readonly [string, Uint8Array]> = [];
 	let remaining = totalBytes;
-	let index = 0;
 	while (remaining > 0) {
-		const size = Math.min(remaining, PLUGIN_ARCHIVE_LIMITS.maxSourceBytes);
-		files[`client/${index}.wasm`] = new Uint8Array(size);
+		const size = Math.min(remaining, PLUGIN_ARCHIVE_LIMITS.maxCompiledBackendMetadataBytes);
+		entries.push(["compiled-backend/metadata.json", new Uint8Array(size)]);
 		remaining -= size;
-		index += 1;
 	}
-	return files;
+	return entries;
 };
 
 const manifestWithBytes = (bytes: number): PluginArchivePackage["manifest"] => {
@@ -185,13 +170,10 @@ const artifactFile = (artifact: PluginClientArtifact, name: string) => {
 const writeArchiveInTimezone = (timezone: string) => {
 	const entry = new URL("./index.ts", import.meta.url).href;
 	const serialized = JSON.stringify({
-		manifest: fixture.manifest,
-		compiledScripts: fixture.compiledScripts,
-		files: Object.fromEntries(
-			Object.entries(fixture.files).map(([path, bytes]) => [path, [...bytes]]),
-		),
+		manifest: scriptFixture.manifest,
+		compiledScripts: scriptFixture.compiledScripts,
 	});
-	const script = `import { writePluginArchive } from ${JSON.stringify(entry)}; const value = ${serialized}; process.stdout.write(writePluginArchive({ manifest: value.manifest, files: Object.fromEntries(Object.entries(value.files).map(([path, bytes]) => [path, new Uint8Array(bytes)])), compiledScripts: value.compiledScripts }));`;
+	const script = `import { writePluginArchive } from ${JSON.stringify(entry)}; process.stdout.write(writePluginArchive(${serialized}));`;
 	const result = Bun.spawnSync([process.execPath, "--eval", script], {
 		stderr: "pipe",
 		stdout: "pipe",
@@ -271,22 +253,10 @@ const mutateHeaders = (
 describe("plugin archive", () => {
 	it("writes byte-identical deterministic archives in canonical order", () => {
 		const first = writePluginArchive(fixture);
-		const second = writePluginArchive({
-			manifest: fixture.manifest,
-			files: Object.fromEntries(Object.entries(fixture.files).toReversed()),
-		});
+		const second = writePluginArchive({ manifest: fixture.manifest });
 		expect(first).toEqual(second);
 		const files = unzipSync(first);
-		expect(Object.keys(files)).toEqual([
-			"manifest.json",
-			"backend/a.ts",
-			"backend/z.ts",
-			"shared/a.ts",
-			"client/a.ts",
-			"client/b.tsx",
-			"client/c.css",
-			"client/d.svg",
-		]);
+		expect(Object.keys(files)).toEqual(["manifest.json"]);
 		expect(new TextDecoder().decode(files["manifest.json"])).toBe(
 			`${JSON.stringify(fixture.manifest, null, "\t")}\n`,
 		);
@@ -298,21 +268,12 @@ describe("plugin archive", () => {
 			const second = writePluginArchive({
 				...scriptFixture,
 				compiledScripts: scriptFixture.compiledScripts.toReversed(),
-				files: Object.fromEntries(Object.entries(scriptFixture.files).toReversed()),
 			});
 			expect(first).toEqual(second);
 
 			const entries = unzipSync(first);
 			expect(Object.keys(entries)).toEqual([
 				"manifest.json",
-				"backend/a.ts",
-				"backend/main.sandbox.ts",
-				"backend/z.ts",
-				"shared/a.ts",
-				"client/a.ts",
-				"client/b.tsx",
-				"client/c.css",
-				"client/d.svg",
 				`compiled-backend/files/${scriptJavascriptHash}.js`,
 				"compiled-backend/metadata.json",
 			]);
@@ -352,13 +313,99 @@ describe("plugin archive", () => {
 		return expectReason(
 			archive([
 				["manifest.json", scriptRawManifest],
-				[scriptEntry, encoder.encode(scriptSource)],
 				["compiled-backend/metadata.json", metadata],
 				[`compiled-backend/files/${hash}.js`, bytes],
 			]),
 			"compiled-script-invalid",
 		);
 	});
+
+	it("includes the BOM in the compiled script hash", () => {
+		const hash = sha256Hex(encoder.encode(`\ufeff${scriptJavascript}`));
+		return expectReason(
+			archive([
+				["manifest.json", scriptRawManifest],
+				[
+					"compiled-backend/metadata.json",
+					encoder.encode(JSON.stringify({ scripts: [{ hash, format: 1, entry: scriptEntry }] })),
+				],
+				[`compiled-backend/files/${hash}.js`, scriptJavascriptBytes],
+			]),
+			"compiled-script-invalid",
+		);
+	});
+
+	it.live("preserves a compiled client JavaScript BOM", () =>
+		Effect.gen(function* () {
+			const contents = encoder.encode("\ufeffexport const plugin = true;\n");
+			const compiledClient = {
+				...compiledClientFixture,
+				files: compiledClientFixture.files.map((file) =>
+					file.name === "plugin.js" ? { ...file, contents } : file,
+				),
+			};
+			const bytes = writePluginArchive({ ...fixture, compiledClient });
+			expect(unzipSync(bytes)["compiled-client/files/plugin.js"]).toEqual(contents);
+			expect(
+				artifactFile(
+					(yield* readPluginArchive(bytes)).compiledClient ?? compiledClientFixture,
+					"plugin.js",
+				).contents,
+			).toEqual(contents);
+		}),
+	);
+
+	it.live(
+		"sorts backend and shared script labels and deduplicates identical executable bytes",
+		() =>
+			Effect.gen(function* () {
+				const entries = ["shared/main.sandbox.ts", "backend/a.sandbox.ts", "backend/B.sandbox.ts"];
+				const pluginPackage = {
+					compiledScripts: entries.map((entry) => ({ ...compiledScriptFixture, entry })),
+					manifest: {
+						...scriptManifest,
+						scripts: scriptManifest.scripts.flatMap((script) =>
+							entries.map((entry, index) =>
+								Object.assign({}, script, { entry, slug: `script-${index}` }),
+							),
+						),
+					},
+				};
+				const bytes = writePluginArchive(pluginPackage);
+				expect(
+					writePluginArchive({
+						...pluginPackage,
+						compiledScripts: pluginPackage.compiledScripts.toReversed(),
+					}),
+				).toEqual(bytes);
+				expect(Object.keys(unzipSync(bytes))).toEqual([
+					"manifest.json",
+					`compiled-backend/files/${scriptJavascriptHash}.js`,
+					"compiled-backend/metadata.json",
+				]);
+				expect((yield* readPluginArchive(bytes)).compiledScripts.map(({ entry }) => entry)).toEqual(
+					["backend/B.sandbox.ts", "backend/a.sandbox.ts", "shared/main.sandbox.ts"],
+				);
+			}),
+	);
+
+	it.each([
+		"client/main.sandbox.ts",
+		"backend/main.ts",
+		"backend/main.test.sandbox.ts",
+		"shared/main.sandbox.tsx",
+	])("rejects unsupported compiled script label %s", (entry) =>
+		expectWriteReason(
+			{
+				compiledScripts: [{ ...compiledScriptFixture, entry }],
+				manifest: {
+					...scriptManifest,
+					scripts: scriptManifest.scripts.map((script) => Object.assign({}, script, { entry })),
+				},
+			},
+			"compiled-script-invalid",
+		),
+	);
 
 	it.live("requires every manifest script and rejects duplicate, extra, and missing outputs", () =>
 		Effect.gen(function* () {
@@ -378,13 +425,7 @@ describe("plugin archive", () => {
 				"compiled-script-invalid",
 			);
 			yield* Effect.promise(() =>
-				expectReason(
-					archive([
-						["manifest.json", scriptRawManifest],
-						[scriptEntry, encoder.encode(scriptSource)],
-					]),
-					"compiled-script-invalid",
-				),
+				expectReason(archive([["manifest.json", scriptRawManifest]]), "compiled-script-invalid"),
 			);
 		}),
 	);
@@ -426,7 +467,6 @@ describe("plugin archive", () => {
 		return expectReason(
 			archive([
 				["manifest.json", scriptRawManifest],
-				[scriptEntry, encoder.encode(scriptSource)],
 				["compiled-backend/metadata.json", scriptArchiveMetadata],
 				[`compiled-backend/files/${scriptJavascriptHash}.js`, tamperedJavascript],
 			]),
@@ -440,7 +480,6 @@ describe("plugin archive", () => {
 			const first = writePluginArchive({ ...fixture, compiledClient });
 			const second = writePluginArchive({
 				...fixture,
-				files: Object.fromEntries(Object.entries(fixture.files).toReversed()),
 				compiledClient: { ...compiledClient, files: compiledClient.files.toReversed() },
 			});
 			expect(first).toEqual(second);
@@ -448,13 +487,6 @@ describe("plugin archive", () => {
 			const entries = unzipSync(first);
 			expect(Object.keys(entries)).toEqual([
 				"manifest.json",
-				"backend/a.ts",
-				"backend/z.ts",
-				"shared/a.ts",
-				"client/a.ts",
-				"client/b.tsx",
-				"client/c.css",
-				"client/d.svg",
 				"compiled-client/files/assets/icon.svg",
 				"compiled-client/files/index.html",
 				"compiled-client/files/plugin.js",
@@ -496,26 +528,33 @@ describe("plugin archive", () => {
 		expect(writeArchiveInTimezone("Asia/Kolkata")).toEqual(utc);
 	});
 
-	it("orders paths by code units", () => {
+	it("orders compiled client paths by code units", () => {
+		const names = ["a.svg", "B.svg", "_x.svg", "index.html"];
 		const bytes = writePluginArchive({
-			manifest: fixture.manifest,
-			files: {
-				"backend/a.ts": new Uint8Array(0),
-				"backend/B.ts": new Uint8Array(0),
-				"backend/_x.ts": new Uint8Array(0),
+			...fixture,
+			compiledClient: {
+				...compiledClientFixture,
+				files: names.map((name) => ({
+					name,
+					contents: new Uint8Array(0),
+					contentType: name.endsWith(".html") ? "text/html; charset=utf-8" : "image/svg+xml",
+				})),
 			},
 		});
 		expect(Object.keys(unzipSync(bytes))).toEqual([
 			"manifest.json",
-			"backend/B.ts",
-			"backend/_x.ts",
-			"backend/a.ts",
+			"compiled-client/files/B.svg",
+			"compiled-client/files/_x.svg",
+			"compiled-client/files/a.svg",
+			"compiled-client/files/index.html",
+			"compiled-client/metadata.json",
 		]);
 	});
 
-	it.live("round trips exact backend, shared, client text, and invalid UTF-8 asset bytes", () =>
+	it.live("streams exact compiled scripts and client asset bytes", () =>
 		Effect.gen(function* () {
-			const pluginBytes = writePluginArchive(fixture);
+			const pluginPackage = { ...scriptFixture, compiledClient: compiledClientFixture };
+			const pluginBytes = writePluginArchive(pluginPackage);
 			const chunks: AsyncIterable<Uint8Array> = {
 				[Symbol.asyncIterator]() {
 					let offset = 0;
@@ -534,9 +573,18 @@ describe("plugin archive", () => {
 				},
 			};
 			const result = yield* readPluginArchive(chunks);
-			expect(result.manifest).toEqual(fixture.manifest);
-			for (const [path, bytes] of Object.entries(fixture.files)) {
-				expect(result.files[path]).toEqual(bytes);
+			expect(result.manifest).toEqual(scriptFixture.manifest);
+			expect(result.compiledScripts).toEqual(scriptFixture.compiledScripts);
+			expect(result.compiledClient?.files).toEqual(
+				compiledClientFixture.files
+					.slice()
+					.sort((left, right) => compareNames(left.name, right.name)),
+			);
+			const rewrittenEntries = unzipSync(writePluginArchive(result));
+			for (const [path, bytes] of Object.entries(unzipSync(pluginBytes))) {
+				if (path !== "manifest.json") {
+					expect(rewrittenEntries[path]).toEqual(bytes);
+				}
 			}
 		}),
 	);
@@ -570,92 +618,78 @@ describe("plugin archive", () => {
 		() =>
 			Effect.gen(function* () {
 				const path = pathAtBytes(PLUGIN_ARCHIVE_LIMITS.maxPathBytes);
-				const bytes = new Uint8Array(PLUGIN_ARCHIVE_LIMITS.maxSourceBytes);
+				const bytes = new Uint8Array(PLUGIN_ARCHIVE_LIMITS.maxCompiledClientBytes);
 				const pluginBytes = writePluginArchive({
-					files: { [path]: bytes },
 					manifest: fixture.manifest,
+					compiledClient: {
+						...compiledClientFixture,
+						files: [
+							{
+								contents: bytes,
+								contentType: "image/svg+xml",
+								name: path.slice("compiled-client/files/".length),
+							},
+						],
+					},
 				});
 				const result = yield* readPluginArchive(pluginBytes);
 
-				expect(result.files[path]).toEqual(bytes);
+				expect(sha256Hex(result.compiledClient?.files[0]?.contents ?? new Uint8Array(0))).toBe(
+					sha256Hex(bytes),
+				);
 			}),
 		20_000,
 	);
-
-	it("rejects one entry over the writer file-count limit", () => {
-		const files: Record<string, Uint8Array> = {};
-		for (let index = 0; index < PLUGIN_ARCHIVE_LIMITS.maxEntryCount; index += 1) {
-			files[`backend/${index}.ts`] = new Uint8Array(0);
-		}
-		expectWriteReason({ files, manifest: fixture.manifest }, "entry-count-exceeded");
-	});
 
 	it("rejects a writer path one byte over the limit", () =>
 		expectWriteReason(
 			{
 				manifest: fixture.manifest,
-				files: { [pathAtBytes(PLUGIN_ARCHIVE_LIMITS.maxPathBytes + 1)]: new Uint8Array(0) },
+				compiledClient: {
+					...compiledClientFixture,
+					files: [
+						{
+							contents: new Uint8Array(0),
+							contentType: "image/svg+xml",
+							name: pathAtBytes(PLUGIN_ARCHIVE_LIMITS.maxPathBytes + 1).slice(
+								"compiled-client/files/".length,
+							),
+						},
+					],
+				},
 			},
 			"path-bytes-exceeded",
 		));
 
 	it("rejects a writer manifest one byte over the limit", () =>
 		expectWriteReason(
-			{ files: {}, manifest: manifestWithBytes(PLUGIN_ARCHIVE_LIMITS.maxManifestBytes + 1) },
+			{ manifest: manifestWithBytes(PLUGIN_ARCHIVE_LIMITS.maxManifestBytes + 1) },
 			"manifest-bytes-exceeded",
 		));
 
-	it("rejects a writer source one byte over the limit", () =>
-		expectWriteReason(
-			{
-				manifest: fixture.manifest,
-				files: { "client/source.wasm": new Uint8Array(PLUGIN_ARCHIVE_LIMITS.maxSourceBytes + 1) },
-			},
-			"source-bytes-exceeded",
-		));
-
-	it("rejects writer input one byte over the total uncompressed limit", () =>
-		expectWriteReason(
-			{
-				manifest: fixture.manifest,
-				files: filesWithTotalBytes(
-					PLUGIN_ARCHIVE_LIMITS.maxTotalUncompressedBytes - rawManifest.byteLength + 1,
-				),
-			},
-			"total-uncompressed-bytes-exceeded",
-		));
-
 	it.each([
-		["source-non-utf8", { "backend/a.ts": new Uint8Array([0xff]) }],
-		["path-noncanonical", { "backend\\a.ts": new Uint8Array(0) }],
-		["duplicate-manifest", { "manifest.json": rawManifest }],
-	] as const)("rejects writer input with %s", (reason, files) =>
-		expectWriteReason({ files, manifest: fixture.manifest }, reason),
-	);
-
-	it.live.each([
+		"backend/main.sandbox.ts",
+		"backend/a.ts",
+		"shared/a.ts",
+		"shared/main.sandbox.ts",
+		"client/home.tsx",
+		"client/styles.css",
+		"client/logo.svg",
+		"client/data.wasm",
 		"backend/data.json",
 		"backend/ignored.test.ts",
 		"shared/unsupported.tsx",
 		"shared/ignored.test.ts",
 		"client/unsupported.js",
 		"client/ignored.test.tsx",
-	])("rejects unsupported source path %s in the writer and reader", (path) =>
-		Effect.gen(function* () {
-			expectWriteReason(
-				{ manifest: fixture.manifest, files: { [path]: new Uint8Array(0) } },
-				"unexpected-entry",
-			);
-			yield* Effect.promise(() =>
-				expectReason(
-					archive([
-						["manifest.json", rawManifest],
-						[path, new Uint8Array(0)],
-					]),
-					"unexpected-entry",
-				),
-			);
-		}),
+	])("rejects raw source and asset entry %s", (path) =>
+		expectReason(
+			archive([
+				["manifest.json", rawManifest],
+				[path, new Uint8Array([0xff])],
+			]),
+			"unexpected-entry",
+		),
 	);
 
 	it.live("rejects a compiled client with a non-canonical file path", () =>
@@ -807,7 +841,10 @@ describe("plugin archive", () => {
 	it("rejects the entry count limit", () => {
 		const entries: Array<readonly [string, Uint8Array]> = [["manifest.json", rawManifest]];
 		for (let index = 0; index < PLUGIN_ARCHIVE_LIMITS.maxEntryCount; index += 1) {
-			entries.push([`backend/${index}.ts`, new Uint8Array(0)]);
+			entries.push([
+				`compiled-backend/files/${index.toString(16).padStart(64, "0")}.js`,
+				new Uint8Array(0),
+			]);
 		}
 		return expectReason(archive(entries), "entry-count-exceeded");
 	});
@@ -827,22 +864,55 @@ describe("plugin archive", () => {
 			"manifest-bytes-exceeded",
 		));
 
-	it("rejects the source byte limit", () =>
+	it("rejects the compiled backend byte limit while streaming", () =>
 		expectReason(
 			archive([
 				["manifest.json", rawManifest],
-				["backend/a.ts", new Uint8Array(PLUGIN_ARCHIVE_LIMITS.maxSourceBytes + 1)],
+				[
+					`compiled-backend/files/${scriptJavascriptHash}.js`,
+					new Uint8Array(PLUGIN_ARCHIVE_LIMITS.maxCompiledBackendJavascriptBytes + 1),
+				],
 			]),
-			"source-bytes-exceeded",
+			"compiled-script-bytes-exceeded",
 		));
+
+	it.each([
+		[
+			"compiled-backend/metadata.json",
+			PLUGIN_ARCHIVE_LIMITS.maxCompiledBackendMetadataBytes,
+			"compiled-script-metadata-bytes-exceeded",
+		],
+		[
+			"compiled-client/metadata.json",
+			PLUGIN_ARCHIVE_LIMITS.maxCompiledClientMetadataBytes,
+			"compiled-client-metadata-bytes-exceeded",
+		],
+	] as const)("rejects oversized metadata %s while streaming", (path, limit, reason) =>
+		expectReason(
+			archive([
+				["manifest.json", rawManifest],
+				[path, new Uint8Array(limit + 1)],
+			]),
+			reason,
+		),
+	);
+
+	it("rejects aggregate compiled backend bytes while streaming", () => {
+		const entries: Array<readonly [string, Uint8Array]> = [["manifest.json", rawManifest]];
+		for (let index = 0; index < 33; index++) {
+			entries.push([
+				`compiled-backend/files/${index.toString(16).padStart(64, "0")}.js`,
+				new Uint8Array(PLUGIN_ARCHIVE_LIMITS.maxCompiledBackendJavascriptBytes),
+			]);
+		}
+		return expectReason(archive(entries), "compiled-script-bytes-exceeded");
+	});
 
 	it("rejects the total uncompressed byte limit", () => {
 		const entries: Array<readonly [string, Uint8Array]> = [
 			["manifest.json", rawManifest],
-			...Object.entries(
-				filesWithTotalBytes(
-					PLUGIN_ARCHIVE_LIMITS.maxTotalUncompressedBytes - rawManifest.byteLength + 1,
-				),
+			...metadataWithTotalBytes(
+				PLUGIN_ARCHIVE_LIMITS.maxTotalUncompressedBytes - rawManifest.byteLength + 1,
 			),
 		];
 		return expectReason(archive(entries), "total-uncompressed-bytes-exceeded");
@@ -864,64 +934,22 @@ describe("plugin archive", () => {
 			],
 		],
 		[
-			"unexpected-entry",
-			[
-				["manifest.json", rawManifest],
-				["client/a.js", new Uint8Array(0)],
-			],
-		],
-		[
-			"unexpected-entry",
-			[
-				["manifest.json", rawManifest],
-				["shared/a.tsx", new Uint8Array(0)],
-			],
-		],
-		[
-			"unexpected-entry",
-			[
-				["manifest.json", rawManifest],
-				["shared/a.css", new Uint8Array(0)],
-			],
-		],
-		[
 			"path-noncanonical",
 			[
 				["manifest.json", rawManifest],
 				["backend\\a.ts", new Uint8Array(0)],
 			],
 		],
-		["missing-manifest", [["backend/a.ts", new Uint8Array(0)]]],
+		["missing-manifest", []],
 		["manifest-invalid", [["manifest.json", encoder.encode("{}")]]],
-		[
-			"source-non-utf8",
-			[
-				["manifest.json", rawManifest],
-				["backend/a.ts", new Uint8Array([0xff])],
-			],
-		],
-		[
-			"source-non-utf8",
-			[
-				["manifest.json", rawManifest],
-				["client/a.css", new Uint8Array([0xff])],
-			],
-		],
-		[
-			"source-non-utf8",
-			[
-				["manifest.json", rawManifest],
-				["shared/a.ts", new Uint8Array([0xff])],
-			],
-		],
 	] as const)("rejects %s", (reason, entries) => expectReason(archive(entries), reason));
 
-	it("rejects duplicate source entries", () =>
+	it("rejects duplicate compiled entries", () =>
 		expectReason(
 			archive([
 				["manifest.json", rawManifest],
-				["backend/a.ts", new Uint8Array(0)],
-				["backend/a.ts", new Uint8Array(0)],
+				[`compiled-backend/files/${scriptJavascriptHash}.js`, new Uint8Array(0)],
+				[`compiled-backend/files/${scriptJavascriptHash}.js`, new Uint8Array(0)],
 			]),
 			"duplicate-entry",
 		));

@@ -7,9 +7,7 @@ import { buildTrackSearch } from "./shared";
 
 export const manifest = defineManifest({
 	kind: "provider",
-	capabilities: ["httpCall"],
 	name: "YouTube Music search",
-	requiredPluginConfigKeys: [],
 	slug: "music.youtube-music.search",
 });
 

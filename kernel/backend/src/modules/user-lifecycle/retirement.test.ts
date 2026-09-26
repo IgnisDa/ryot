@@ -4,8 +4,11 @@ import { Effect, Layer, Schema } from "effect";
 import { Workflow } from "effect/unstable/workflow";
 import { WorkflowEngine } from "effect/unstable/workflow/WorkflowEngine";
 
-import { databaseLayer, makeWorkflowEngine } from "#lib/test-utils/effect";
+import { makeWorkflowEngine } from "#lib/test-utils/effect";
+import { ingestionRetirementTestLayer } from "#lib/test-utils/ingestion-retirement";
+import { isolatedDatabaseLayer } from "#lib/test-utils/isolated-database";
 import { AuthService } from "#modules/auth/service";
+import { ImportsRepository } from "#modules/imports/repository";
 import { AdmittedWorkflowCatalogue } from "#modules/mutations/workflow-catalogue";
 import { ObjectStorageService } from "#modules/uploads/object-storage/service";
 
@@ -57,6 +60,7 @@ const runRetirement = Effect.fnUntraced(function* (workflowName: string, calls: 
 		},
 	};
 	const engine = makeWorkflowEngine({
+		poll: () => Effect.succeedNone,
 		interrupt: (workflow, executionId) =>
 			Effect.sync(() => {
 				expect(workflow).toBe(ownerWorkflow);
@@ -66,6 +70,7 @@ const runRetirement = Effect.fnUntraced(function* (workflowName: string, calls: 
 	});
 	const context = yield* Layer.build(
 		UserLifecycleWorkflowOperationsLive.pipe(
+			Layer.provide(ingestionRetirementTestLayer),
 			Layer.provide(
 				Layer.mergeAll(
 					Layer.succeed(WorkflowEngine, engine),
@@ -91,11 +96,15 @@ const runRetirement = Effect.fnUntraced(function* (workflowName: string, calls: 
 		),
 	);
 	return yield* Effect.flatMap(UserLifecycleWorkflowOperations, (operations) =>
-		operations.deleteDatabaseUser("operation"),
+		operations
+			.cleanupObjects("operation")
+			.pipe(Effect.andThen(operations.deleteDatabaseUser("operation"))),
 	).pipe(Effect.provide(context), Effect.result);
 }, Effect.scoped);
 
-layer(databaseLayer)((test) => {
+layer(
+	ImportsRepository.layer.pipe(Layer.provideMerge(isolatedDatabaseLayer("lifecycle_retirement"))),
+)((test) => {
 	test.effect(
 		"retires a boot-injected owner before deleting receipts even when no source write occurred",
 		() =>

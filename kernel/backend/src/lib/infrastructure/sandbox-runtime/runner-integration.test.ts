@@ -1,11 +1,13 @@
 import { BunServices, BunHttpServer } from "@effect/platform-bun";
 import { assert, expect, layer } from "@effect/vitest";
 import { SandboxRunError, unknownToMessage } from "@ryot-app/contract/errors";
+import type { SandboxExecutionMetadata } from "@ryot-app/contract/modules/plugins/execution-metadata";
 import { sandboxCompilerPlatformLayer } from "@ryot-app/sandbox-compiler/platform";
 import { compilePluginSandboxSourceEntries } from "@ryot-app/sandbox-compiler/plugins";
 import type { SandboxManifest } from "@ryot-app/sandbox-sdk/core";
 import { SANDBOX_RUNTIME_REGISTRY } from "@ryot-app/sandbox-sdk/runtime-registry";
 import { sha256Hex } from "@ryot-app/ts-utils/crypto";
+import { stableStringify } from "@ryot-app/ts-utils/json";
 import { isObjectRecord } from "@ryot-app/ts-utils/predicates";
 import type { Cause } from "effect";
 import { Clock, Context, Effect, FileSystem, Layer, Path, Queue, Schema, Stream } from "effect";
@@ -64,10 +66,8 @@ import { Effect, Schema } from "@ryot-app/sandbox-sdk/effect";
 
 export const manifest = defineManifest({
   kind: "script",
-  capabilities: [],
   name: "Runner validation",
   slug: "runner-validation",
-  requiredPluginConfigKeys: [],
 });
 
 export default defineScript({
@@ -87,10 +87,8 @@ import { table as pluginKitTable } from "@ryot-app/plugin-kit/ryotql";
 
 const manifest = {
   kind: "script",
-  capabilities: [],
   name: "Runtime alias identity",
   slug: "runtime-alias-identity",
-  requiredPluginConfigKeys: [],
 };
 
 export default {
@@ -108,10 +106,8 @@ import { Effect, Schema } from "@ryot-app/sandbox-sdk/effect";
 
 export const manifest = defineManifest({
   kind: "script",
-  capabilities: [],
   name: "Runner failure",
   slug: "runner-failure",
-  requiredPluginConfigKeys: [],
 });
 
 export default defineScript({
@@ -130,10 +126,8 @@ import { Effect, Schema } from "@ryot-app/sandbox-sdk/effect";
 
 export const manifest = defineManifest({
   kind: "script",
-  capabilities: [],
   name: "Runner limits",
   slug: "runner-limits",
-  requiredPluginConfigKeys: [],
 });
 
 export default defineScript({
@@ -158,22 +152,20 @@ export default defineScript({
 const filesystemSource = `
 import { defineManifest, defineScript } from "@ryot-app/sandbox-sdk/driver";
 import { Effect, Schema } from "@ryot-app/sandbox-sdk/effect";
-import { readArtifact, readNamedArtifact, sandboxScratchManifestSchema, writeScratchChunks } from "@ryot-app/sandbox-sdk/filesystem";
+import { readArtifact, readArtifactRange, readNamedArtifact, sandboxScratchManifestSchema, writeScratchChunks } from "@ryot-app/sandbox-sdk/filesystem";
 
 export const manifest = defineManifest({
   kind: "script",
   name: "Filesystem",
   slug: "filesystem",
-  requiredPluginConfigKeys: [],
-  capabilities: ["artifact-read", "scratch"],
 });
 
 export default defineScript({
   manifest,
   output: sandboxScratchManifestSchema,
-  input: Schema.Struct({ chunkName: Schema.String, artifactKey: Schema.optional(Schema.String) }),
+  input: Schema.Struct({ chunkName: Schema.String, artifactKey: Schema.optional(Schema.String), offset: Schema.optional(Schema.Number), length: Schema.optional(Schema.Number) }),
   run: (input) => Effect.gen(function* () {
-    const artifact = yield* input.artifactKey ? readNamedArtifact(input.artifactKey) : readArtifact;
+    const artifact = input.offset === undefined ? yield* input.artifactKey ? readNamedArtifact(input.artifactKey) : readArtifact : (yield* readArtifactRange(input.offset, input.length ?? 1024, input.artifactKey)).bytes;
     return yield* writeScratchChunks([{ name: input.chunkName, contents: artifact }]);
   }),
 });
@@ -193,15 +185,6 @@ export const manifest = defineManifest({
   kind: "script",
   name: "Core host execution",
   slug: "core-host-execution",
-  requiredPluginConfigKeys: [],
-  capabilities: [
-    "httpCall",
-    "getCachedValue",
-    "setCachedValue",
-    "claimPersistentValue",
-    "getPluginConfig",
-    "getUserPreferences",
-  ],
 });
 
 export default defineScript({
@@ -228,7 +211,7 @@ export default defineScript({
         body: "payload",
         headers: { Accept: "application/json" },
       });
-    const config = yield* host.getPluginConfig(["timezone"]);
+    const config = yield* host.getPluginConfig({ required: ["timezone"] });
     const preferences = yield* host.getUserPreferences();
     return { after, before, claim, config, http, preferences };
   }),
@@ -244,8 +227,6 @@ export const manifest = defineManifest({
   kind: "script",
   name: "Filtered host",
   slug: "filtered-host",
-  requiredPluginConfigKeys: [],
-  capabilities: ["getCachedValue"],
 });
 
 export default defineScript({
@@ -254,7 +235,11 @@ export default defineScript({
   output: Schema.Struct({ keys: Schema.Array(Schema.String), value: Schema.NullOr(jsonValueSchema) }),
   run: (_input, host) => Effect.gen(function* () {
     const value = yield* host.getCachedValue("redirect-check");
-    return { keys: Object.keys(host).sort(), value };
+    const keys: string[] = [];
+    for (const key in host) {
+      keys.push(key);
+    }
+    return { keys: keys.sort(), value };
   }),
 });
 `;
@@ -267,8 +252,6 @@ export const manifest = defineManifest({
   kind: "script",
   name: "Host budgets",
   slug: "host-budgets",
-  requiredPluginConfigKeys: [],
-  capabilities: ["getCachedValue", "httpCall"],
 });
 
 export default defineScript({
@@ -279,11 +262,15 @@ export default defineScript({
 		let result: unknown = null;
 		if (input.kind === "host") {
 			for (let index = 0; index <= ${SANDBOX_LIMITS.hostCalls.total}; index += 1) {
-				result = yield* host.getCachedValue("budget");
+				result = yield* host.getCachedValue("budget").pipe(
+					Effect.catch((error) => Effect.succeed({ message: error.message, data: error.data })),
+				);
 			}
 		} else {
 			for (let index = 0; index <= ${SANDBOX_LIMITS.hostCalls.http}; index += 1) {
-				result = yield* host.httpCall("GET", "https://example.com/budget");
+				result = yield* host.httpCall("GET", "https://example.com/budget").pipe(
+					Effect.catch((error) => Effect.succeed({ message: error.message, data: error.data })),
+				);
 			}
 		}
 		return result;
@@ -304,16 +291,8 @@ import { entityReadRecipe, executeRyotqlRecipe } from "@ryot-app/sandbox-sdk/ryo
 
 export const manifest = defineManifest({
   kind: "script",
-  requiredPluginConfigKeys: [],
   name: "Domain host execution",
   slug: "domain-host-execution",
-  capabilities: [
-    "createEvents",
-    "getEntitySchemas",
-    "listEventSchemas",
-    "executeRyotql",
-    "getCurrentIntegration",
-  ],
 });
 
 export default defineScript({
@@ -355,8 +334,6 @@ import { Effect, Schema } from "@ryot-app/sandbox-sdk/effect";
 
 export const manifest = defineManifest({
   kind: "script",
-  capabilities: [],
-  requiredPluginConfigKeys: [],
   name: "${name} dependency load",
   slug: "${name}-dependency-load",
 });
@@ -374,10 +351,8 @@ import { Effect, Schema } from "@ryot-app/sandbox-sdk/effect";
 
 const manifest = {
   kind: "workflow",
-  capabilities: [],
   name: "Workflow host",
   slug: "workflow-host",
-  requiredPluginConfigKeys: [],
 };
 
 export default {
@@ -406,8 +381,6 @@ const Effect = {
 
 const manifest = {
   kind: "workflow",
-  capabilities: [],
-  requiredPluginConfigKeys: [],
   name: "Workflow nondeterminism",
   slug: "workflow-nondeterminism",
 };
@@ -459,10 +432,8 @@ import { Effect, Schema } from "@ryot-app/sandbox-sdk/effect";
 
 const manifest = {
   kind: "script",
-  capabilities: [],
   name: "Ambient script",
   slug: "ambient-script",
-  requiredPluginConfigKeys: [],
 };
 
 export default {
@@ -481,8 +452,6 @@ import { createYoutubeMusicClient } from "@ryot-app/sandbox-sdk/youtubei";
 
 export const manifest = defineManifest({
   kind: "script",
-  capabilities: ["httpCall"],
-  requiredPluginConfigKeys: [],
   name: "Approved Youtubei determinism",
   slug: "approved-youtubei-determinism",
 });
@@ -504,10 +473,8 @@ import { Effect, Schema } from "@ryot-app/sandbox-sdk/effect";
 
 export const manifest = defineManifest({
   kind: "script",
-  capabilities: [],
   name: "Generated npm import",
   slug: "generated-npm-import",
-  requiredPluginConfigKeys: [],
 });
 
 export default defineScript({
@@ -529,8 +496,6 @@ export const manifest = {
   kind: "operation",
   name: "Durable role",
   slug: "durable-role",
-  requiredPluginConfigKeys: [],
-  capabilities: ["getCachedValue"],
 };
 
 export default {
@@ -561,12 +526,30 @@ export default {
 };
 `;
 
+const invalidWorkflowTargetSource = `
+import { Effect, Schema } from "@ryot-app/sandbox-sdk/effect";
+
+const manifest = { kind: "operation", name: "Invalid workflow target", slug: "invalid-target" };
+
+export default {
+  manifest,
+  definitionType: "ryot:sandbox-script",
+  input: Schema.Struct({}),
+  output: Schema.Unknown,
+  run: (_input, host) => host.executeWorkflow(
+    "",
+    { workflowSlug: "workflow", input: Schema.Struct({}), output: Schema.Unknown },
+    {},
+  ).pipe(Effect.catch((error) => Effect.succeed({ message: error.message, data: error.data }))),
+};
+`;
+
 const encodeRunnerRequest = Schema.encodeSync(Schema.fromJsonString(Schema.Unknown));
 const decodeRunnerResponse = Schema.decodeUnknownSync(Schema.fromJsonString(Schema.Unknown));
 type RunnerCompiledModule = {
 	readonly format: number;
 	readonly javascript: string;
-	readonly manifest: SandboxManifest;
+	readonly manifest: SandboxManifest & SandboxExecutionMetadata;
 };
 
 type RunnerOptions = {
@@ -820,7 +803,11 @@ const startCoreHostBridge = (
 								},
 							};
 						} else if (fnName === "getPluginConfig") {
-							const keys = Array.isArray(args[0]) ? args[0] : [];
+							const access = args[0];
+							const keys =
+								isObjectRecord(access) && Array.isArray(access["required"])
+									? access["required"]
+									: [];
 							result = {
 								success: true,
 								data: Object.fromEntries(
@@ -857,7 +844,10 @@ const startCoreHostBridge = (
 const durableRoleManifest = {
 	name: "Durable role",
 	slug: "durable-role",
+	oauthConnectionFields: [],
 	kind: "operation" as const,
+	executableDependencies: [],
+	optionalPluginConfigKeys: [],
 	requiredPluginConfigKeys: [] as const,
 	capabilities: ["getCachedValue"] as const,
 };
@@ -984,6 +974,90 @@ const startDomainHostBridge = () =>
 	});
 
 layer(runnerIntegrationLayer, { timeout: 120_000, excludeTestServices: true })((test) => {
+	test.effect(
+		"matches only authored manifest fields and rejects source-authored capabilities",
+		() =>
+			Effect.gen(function* () {
+				const manifest: SandboxManifest & SandboxExecutionMetadata = {
+					kind: "script",
+					capabilities: [],
+					oauthConnectionFields: [],
+					executableDependencies: [],
+					name: "Manifest comparison",
+					slug: "manifest-comparison",
+					requiredPluginConfigKeys: [],
+					optionalPluginConfigKeys: [],
+				};
+				const authoredManifests = [
+					{ kind: "operation", name: manifest.name, slug: manifest.slug },
+					{ kind: manifest.kind, slug: manifest.slug, name: "Different name" },
+					{ kind: manifest.kind, name: manifest.name, slug: "different-slug" },
+					{ capabilities: [], kind: manifest.kind, name: manifest.name, slug: manifest.slug },
+				] as const;
+
+				for (const authoredManifest of authoredManifests) {
+					const result = yield* runInDeno(
+						{
+							manifest,
+							format: 1,
+							javascript: `import { Effect, Schema } from "@ryot-app/sandbox-sdk/effect";
+const manifest = ${stableStringify(authoredManifest)};
+export default {
+	manifest,
+	definitionType: "ryot:sandbox-script",
+	input: Schema.Struct({}),
+	output: Schema.Null,
+	run: () => Effect.succeed(null),
+};`,
+						},
+						{},
+					);
+					expect(result).toMatchObject({
+						success: false,
+						error: {
+							phase: "load",
+							message: "Compiled sandbox manifest does not match persisted metadata",
+						},
+					});
+				}
+			}),
+	);
+
+	test.effect("preserves script sleeps and monotonic time with a pinned wall clock", () =>
+		Effect.gen(function* () {
+			const compiler = yield* SandboxCompiler;
+			const compiled = yield* compiler.compile(`
+import { defineManifest, defineScript } from "@ryot-app/sandbox-sdk/driver";
+import { Clock, Effect, Schema } from "@ryot-app/sandbox-sdk/effect";
+
+export const manifest = defineManifest({
+  kind: "script",
+  name: "Pinned script clock",
+  slug: "pinned-script-clock",
+});
+
+export default defineScript({
+  manifest,
+  input: Schema.Struct({}),
+  output: Schema.Struct({ before: Schema.Number, after: Schema.Number, elapsed: Schema.Boolean }),
+  run: () => Effect.gen(function* () {
+    const clock = yield* Clock.Clock;
+    const before = yield* Clock.currentTimeMillis;
+    const started = clock.monotonicTimeNanosUnsafe();
+    yield* Effect.sleep("1 millis");
+    const finished = yield* Clock.monotonicTimeNanos;
+    return { before, after: yield* Clock.currentTimeMillis, elapsed: finished > started };
+  }),
+});
+`);
+			const result = yield* runInDeno(compiled, {}, { startedAt: "2026-08-06T00:00:00.000Z" });
+			expect(result).toMatchObject({
+				success: true,
+				value: { elapsed: true, after: 1_785_974_400_000, before: 1_785_974_400_000 },
+			});
+		}),
+	);
+
 	test.effect("loads compiled ESM in Deno and validates definition input and output", () =>
 		Effect.gen(function* () {
 			const compiler = yield* SandboxCompiler;
@@ -1004,23 +1078,24 @@ layer(runnerIntegrationLayer, { timeout: 120_000, excludeTestServices: true })((
 			const promiseManifest = {
 				kind: "script",
 				capabilities: [],
+				oauthConnectionFields: [],
+				executableDependencies: [],
 				requiredPluginConfigKeys: [],
+				optionalPluginConfigKeys: [],
 				name: "Promise definition rejection",
 				slug: "promise-definition-rejection",
 			} as const;
-			const promiseManifestSource = yield* Schema.encodeUnknownEffect(
-				Schema.fromJsonString(Schema.Unknown),
-			)(promiseManifest);
 			const promiseOutput = yield* runInDeno(
 				{
 					format: 1,
 					manifest: promiseManifest,
 					javascript: `import { Schema } from "@ryot-app/sandbox-sdk/effect";
+	const manifest = { kind: "script", name: "Promise definition rejection", slug: "promise-definition-rejection" };
 	export default {
 		output: Schema.Boolean,
 		input: Schema.Struct({}),
 		run: () => Promise.resolve(true),
-	  manifest: ${promiseManifestSource},
+	  manifest,
 	  definitionType: "ryot:sandbox-script",
 	};`,
 				},
@@ -1139,6 +1214,7 @@ layer(runnerIntegrationLayer, { timeout: 120_000, excludeTestServices: true })((
 				expect(Reflect.get(unavailable, "error")).toMatchObject({
 					phase: "execute",
 					message: "Sandbox artifact grant is unavailable",
+					data: { operation: "readArtifact", code: "missing-artifact-grant" },
 				});
 
 				const options = { filesystem: { artifactPath, scratchDirectory } };
@@ -1159,6 +1235,31 @@ layer(runnerIntegrationLayer, { timeout: 120_000, excludeTestServices: true })((
 				);
 				expect(named).toMatchObject({ success: true, value: { chunkFiles: ["named.json"] } });
 				expect(yield* fs.readFileString(`${scratchDirectory}/named.json`)).toBe("[3,4]");
+				yield* fs.writeFile(namedArtifactPath, new Uint8Array(50 * 1024 * 1024).fill(97));
+				const ranged = yield* runInDeno(
+					compiled,
+					{
+						length: 1024,
+						chunkName: "range.txt",
+						offset: 49 * 1024 * 1024,
+						artifactKey: "historyFilePath",
+					},
+					namedOptions,
+				);
+				expect(ranged).toMatchObject({ success: true, value: { chunkFiles: ["range.txt"] } });
+				expect(yield* fs.readFileString(`${scratchDirectory}/range.txt`)).toBe("a".repeat(1024));
+				const unavailableRange = yield* runInDeno(
+					compiled,
+					{ offset: 0, chunkName: "range.txt", artifactKey: "another-capture" },
+					namedOptions,
+				);
+				expect(unavailableRange).toMatchObject({
+					success: false,
+					error: {
+						message: "Sandbox artifact grant is unavailable",
+						data: { operation: "readArtifactRange", code: "missing-artifact-grant" },
+					},
+				});
 				const missingNamed = yield* runInDeno(
 					compiled,
 					{ chunkName: "missing.json", artifactKey: "ratingsFilePath" },
@@ -1168,6 +1269,7 @@ layer(runnerIntegrationLayer, { timeout: 120_000, excludeTestServices: true })((
 				expect(Reflect.get(missingNamed, "error")).toMatchObject({
 					phase: "execute",
 					message: 'Sandbox named artifact grant "ratingsFilePath" is unavailable',
+					data: { operation: "readNamedArtifact", code: "missing-artifact-grant" },
 				});
 
 				const traversal = yield* runInDeno(compiled, { chunkName: "../outside.json" }, options);
@@ -1208,7 +1310,10 @@ layer(runnerIntegrationLayer, { timeout: 120_000, excludeTestServices: true })((
 					manifest: {
 						kind: "script",
 						capabilities: [],
+						oauthConnectionFields: [],
+						executableDependencies: [],
 						requiredPluginConfigKeys: [],
+						optionalPluginConfigKeys: [],
 						name: "Runtime alias identity",
 						slug: "runtime-alias-identity",
 					},
@@ -1243,6 +1348,16 @@ layer(runnerIntegrationLayer, { timeout: 120_000, excludeTestServices: true })((
 					const approved = yield* compiler.compile(approvedHostSource);
 					const apiBase = `http://127.0.0.1:${bridge.port}`;
 					const apiFunctions = compiled.manifest.capabilities;
+					expect(new Set(apiFunctions)).toEqual(
+						new Set([
+							"claimPersistentValue",
+							"getCachedValue",
+							"getPluginConfig",
+							"getUserPreferences",
+							"httpCall",
+							"setCachedValue",
+						]),
+					);
 
 					bridge.register("execution-a-1", "script-a");
 					const first = yield* runInDeno(
@@ -1404,7 +1519,10 @@ layer(runnerIntegrationLayer, { timeout: 120_000, excludeTestServices: true })((
 					const manifest = {
 						name: "Durable role",
 						slug: "durable-role",
+						oauthConnectionFields: [],
 						kind: "operation" as const,
+						executableDependencies: [],
+						optionalPluginConfigKeys: [],
 						requiredPluginConfigKeys: [] as const,
 						capabilities: ["getCachedValue"] as const,
 					};
@@ -1457,6 +1575,47 @@ layer(runnerIntegrationLayer, { timeout: 120_000, excludeTestServices: true })((
 			),
 	);
 
+	test.effect("returns a structured boundary reason for an invalid workflow target", () =>
+		Effect.scoped(
+			Effect.gen(function* () {
+				const bridge = yield* startCoreHostBridge({ replayJournalResult: [] });
+				const result = yield* runInDeno(
+					{
+						format: 1,
+						javascript: invalidWorkflowTargetSource,
+						manifest: {
+							capabilities: [],
+							kind: "operation",
+							slug: "invalid-target",
+							oauthConnectionFields: [],
+							executableDependencies: [],
+							requiredPluginConfigKeys: [],
+							optionalPluginConfigKeys: [],
+							name: "Invalid workflow target",
+						},
+					},
+					{},
+					{
+						apiFunctions: ["replayJournal"],
+						apiBase: `http://127.0.0.1:${bridge.port}`,
+						workflowExecutionId: "invalid-target-parent",
+					},
+				);
+
+				expect(result).toMatchObject({
+					success: true,
+					value: {
+						state: "completed",
+						output: {
+							message: expect.stringContaining("workflow reference"),
+							data: { operation: "executeWorkflow", code: "invalid-executable-target" },
+						},
+					},
+				});
+			}),
+		),
+	);
+
 	test.effect("replays durable host successes and typed failures without bridge redispatch", () =>
 		Effect.scoped(
 			Effect.gen(function* () {
@@ -1472,15 +1631,18 @@ layer(runnerIntegrationLayer, { timeout: 120_000, excludeTestServices: true })((
 							},
 						},
 						{
-							value: {
-								state: "failure",
-								error: { data: { code: 7 }, message: "recorded failure" },
-							},
 							request: {
 								index: 1,
 								kind: "host",
 								name: "getCachedValue",
 								args: { args: ["second"], capability: "getCachedValue" },
+							},
+							value: {
+								state: "failure",
+								error: {
+									message: "A required configuration value is not configured",
+									data: { keys: ["apiToken"], code: "missing-required-config" },
+								},
 							},
 						},
 					],
@@ -1488,7 +1650,10 @@ layer(runnerIntegrationLayer, { timeout: 120_000, excludeTestServices: true })((
 				const manifest = {
 					name: "Durable role",
 					slug: "durable-role",
+					oauthConnectionFields: [],
 					kind: "operation" as const,
+					executableDependencies: [],
+					optionalPluginConfigKeys: [],
 					requiredPluginConfigKeys: [] as const,
 					capabilities: ["getCachedValue"] as const,
 				};
@@ -1510,7 +1675,10 @@ layer(runnerIntegrationLayer, { timeout: 120_000, excludeTestServices: true })((
 						output: {
 							first: "recorded",
 							startedAt: "2026-08-06T00:00:00.000Z",
-							second: { data: { code: 7 }, error: "recorded failure" },
+							second: {
+								error: expect.stringContaining("not configured"),
+								data: { keys: ["apiToken"], code: "missing-required-config" },
+							},
 						},
 					},
 				});
@@ -1543,7 +1711,10 @@ layer(runnerIntegrationLayer, { timeout: 120_000, excludeTestServices: true })((
 											? { state: "success", value: "inline-first" }
 											: {
 													state: "failure",
-													error: { data: { code: 9 }, message: "inline failure" },
+													error: {
+														message: "Sandbox artifact grant is unavailable",
+														data: { operation: "readArtifact", code: "missing-artifact-grant" },
+													},
 												},
 									),
 								};
@@ -1557,14 +1728,17 @@ layer(runnerIntegrationLayer, { timeout: 120_000, excludeTestServices: true })((
 						value: {
 							journalLength: 0,
 							state: "completed",
-							output: {
-								first: "inline-first",
-								second: { data: { code: 9 }, error: "inline failure" },
-							},
 							requests: [
 								{ index: 0, args: { args: ["first"] } },
 								{ index: 1, args: { args: ["second"] } },
 							],
+							output: {
+								first: "inline-first",
+								second: {
+									error: expect.stringContaining("grant is unavailable"),
+									data: { operation: "readArtifact", code: "missing-artifact-grant" },
+								},
+							},
 						},
 					});
 					expect(bridge.calls.map(({ fnName }) => fnName)).toEqual(["replayJournal"]);
@@ -1679,7 +1853,10 @@ layer(runnerIntegrationLayer, { timeout: 120_000, excludeTestServices: true })((
 				const manifest = {
 					name: "Durable role",
 					slug: "durable-role",
+					oauthConnectionFields: [],
 					kind: "operation" as const,
+					executableDependencies: [],
+					optionalPluginConfigKeys: [],
 					requiredPluginConfigKeys: [] as const,
 					capabilities: ["getCachedValue"] as const,
 				};
@@ -1716,6 +1893,9 @@ layer(runnerIntegrationLayer, { timeout: 120_000, excludeTestServices: true })((
 						slug: "workflow-host",
 						kind: "workflow" as const,
 						capabilities: [] as const,
+						oauthConnectionFields: [],
+						executableDependencies: [],
+						optionalPluginConfigKeys: [],
 						requiredPluginConfigKeys: [] as const,
 					};
 					const result = yield* runInDeno(
@@ -1764,6 +1944,9 @@ layer(runnerIntegrationLayer, { timeout: 120_000, excludeTestServices: true })((
 						slug: "workflow-host",
 						kind: "workflow" as const,
 						capabilities: [] as const,
+						oauthConnectionFields: [],
+						executableDependencies: [],
+						optionalPluginConfigKeys: [],
 						requiredPluginConfigKeys: [] as const,
 						requiredSystemConfigKeys: [] as const,
 					},
@@ -1809,6 +1992,9 @@ layer(runnerIntegrationLayer, { timeout: 120_000, excludeTestServices: true })((
 						const manifest = {
 							kind: "workflow" as const,
 							capabilities: [] as const,
+							oauthConnectionFields: [],
+							executableDependencies: [],
+							optionalPluginConfigKeys: [],
 							name: "Workflow nondeterminism",
 							slug: "workflow-nondeterminism",
 							requiredPluginConfigKeys: [] as const,
@@ -1833,6 +2019,9 @@ layer(runnerIntegrationLayer, { timeout: 120_000, excludeTestServices: true })((
 				const manifest = {
 					kind: "workflow" as const,
 					capabilities: [] as const,
+					oauthConnectionFields: [],
+					executableDependencies: [],
+					optionalPluginConfigKeys: [],
 					name: "Workflow nondeterminism",
 					slug: "workflow-nondeterminism",
 					requiredPluginConfigKeys: [] as const,
@@ -1852,6 +2041,9 @@ layer(runnerIntegrationLayer, { timeout: 120_000, excludeTestServices: true })((
 			const workflowManifest = {
 				kind: "workflow" as const,
 				capabilities: [] as const,
+				oauthConnectionFields: [],
+				executableDependencies: [],
+				optionalPluginConfigKeys: [],
 				name: "Workflow nondeterminism",
 				slug: "workflow-nondeterminism",
 				requiredPluginConfigKeys: [] as const,
@@ -1861,6 +2053,9 @@ layer(runnerIntegrationLayer, { timeout: 120_000, excludeTestServices: true })((
 				slug: "ambient-script",
 				kind: "script" as const,
 				capabilities: [] as const,
+				oauthConnectionFields: [],
+				executableDependencies: [],
+				optionalPluginConfigKeys: [],
 				requiredPluginConfigKeys: [] as const,
 			};
 			const workflowResult = yield* runInDeno(
@@ -1910,6 +2105,9 @@ layer(runnerIntegrationLayer, { timeout: 120_000, excludeTestServices: true })((
 			const manifest = {
 				kind: "workflow" as const,
 				capabilities: [] as const,
+				oauthConnectionFields: [],
+				executableDependencies: [],
+				optionalPluginConfigKeys: [],
 				name: "Workflow nondeterminism",
 				slug: "workflow-nondeterminism",
 				requiredPluginConfigKeys: [] as const,
@@ -1939,10 +2137,12 @@ layer(runnerIntegrationLayer, { timeout: 120_000, excludeTestServices: true })((
 
 				const hostResult = yield* runInDeno(compiled, { kind: "host" }, options);
 				assert(hostResult !== null && typeof hostResult === "object");
-				expect(Reflect.get(hostResult, "error")).toEqual({
-					phase: "execute",
-					kind: "script-failure",
-					message: `Sandbox execution exceeds ${SANDBOX_LIMITS.hostCalls.total} host calls`,
+				expect(hostResult).toMatchObject({
+					success: true,
+					value: {
+						data: { code: "execution-limit", operation: "getCachedValue" },
+						message: expect.stringContaining(`${SANDBOX_LIMITS.hostCalls.total} host calls`),
+					},
 				});
 				expect(bridge.calls.filter((call) => call.fnName === "getCachedValue")).toHaveLength(
 					SANDBOX_LIMITS.hostCalls.total,
@@ -1950,10 +2150,12 @@ layer(runnerIntegrationLayer, { timeout: 120_000, excludeTestServices: true })((
 
 				const httpResult = yield* runInDeno(compiled, { kind: "http" }, options);
 				assert(httpResult !== null && typeof httpResult === "object");
-				expect(Reflect.get(httpResult, "error")).toEqual({
-					phase: "execute",
-					kind: "script-failure",
-					message: `Sandbox execution exceeds ${SANDBOX_LIMITS.hostCalls.http} httpCall calls`,
+				expect(httpResult).toMatchObject({
+					success: true,
+					value: {
+						data: { operation: "httpCall", code: "execution-limit" },
+						message: expect.stringContaining(`${SANDBOX_LIMITS.hostCalls.http} httpCall calls`),
+					},
 				});
 				expect(bridge.calls.filter((call) => call.fnName === "httpCall")).toHaveLength(
 					SANDBOX_LIMITS.hostCalls.http,

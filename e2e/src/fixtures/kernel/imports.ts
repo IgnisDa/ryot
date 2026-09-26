@@ -1,4 +1,7 @@
+import { IngestionIssue } from "@ryot-app/contract/modules/imports/ingestion";
+import { ImportRunFailureReason } from "@ryot-app/contract/modules/imports/schemas";
 import { TemporaryUploadToken } from "@ryot-app/contract/modules/uploads/schemas";
+import { ImportRunId } from "@ryot-app/contract/schema/brands";
 import {
 	ascending,
 	column,
@@ -11,6 +14,7 @@ import {
 } from "@ryot-app/ryotql";
 import {
 	importRunRecipe,
+	importIssuesRecipe,
 	integrationImportRunsRecipe,
 	manualImportRunsRecipe,
 } from "@ryot-app/ryotql-recipes/import-runs";
@@ -29,6 +33,13 @@ import { providerSandboxSource } from "./sandbox-provider";
 import { installTestPluginBundle } from "./test-plugin";
 
 export const FIXTURE_IMPORT_SOURCE = "e2e_archive_import_v2";
+
+export const importIssuesExportSchema = Schema.Struct({
+	runId: ImportRunId,
+	source: Schema.String,
+	issues: Schema.Array(IngestionIssue),
+	failureReason: Schema.NullOr(ImportRunFailureReason),
+});
 export const FIXTURE_CONFIG_IMPORT_SOURCE = "e2e_archive_import_config_v2";
 export const FIXTURE_HANDLE_IMPORT_SOURCE = "e2e_harvest_handle_import_v1";
 
@@ -36,31 +47,23 @@ const PARTIAL_RESULT_COMMITTED_ITEM_COUNT = 10;
 
 const FIXTURE_IMPORT_WORKFLOW_SOURCE = `
 import {
-  genericImportKernelInputSchema,
+  genericImportSealReference,
   genericImportWorkflowInputSchema,
   genericImportWorkflowResultSchema,
 } from "@ryot-app/sandbox-sdk/imports";
-import { Effect, Schema, defineManifest, defineWorkflow } from "@ryot-app/sandbox-sdk/workflow";
+import { Effect, Schema, defineExecutableAlternatives, defineManifest, defineScriptReference, defineWorkflow, defineWorkflowReference, selectExecutable } from "@ryot-app/sandbox-sdk/workflow";
 
 export const manifest = defineManifest({
   kind: "workflow",
-  capabilities: [],
   name: "E2E archive import",
-  requiredPluginConfigKeys: [],
   slug: "workflow.e2e-archive-import",
 });
 
-const kernelImport = {
-  input: genericImportKernelInputSchema,
-  output: genericImportWorkflowResultSchema,
-  workflowSlug: "kernel:process-import-chunks",
-};
-
-const validateArchive = {
+const validateArchive = defineExecutableAlternatives({ id: "archive-validator", stage: "settings", references: { archive: defineScriptReference({
   input: Schema.Struct({}),
   output: Schema.Number,
   scriptSlug: "import.e2e-validate-archive",
-};
+}), configured: defineScriptReference({ input: Schema.Struct({}), output: Schema.Number, scriptSlug: "import.e2e-configured" }) } });
 
 export default defineWorkflow({
   manifest,
@@ -68,18 +71,16 @@ export default defineWorkflow({
   output: genericImportWorkflowResultSchema,
   run: (input, replay) =>
     Effect.gen(function* () {
-      const archiveByteLength = yield* replay.activity("validate-archive", validateArchive, {});
+      const archiveByteLength = yield* replay.activity("validate-archive", selectExecutable(validateArchive, input.source === "${FIXTURE_CONFIG_IMPORT_SOURCE}" ? "configured" : "archive"), {});
       if (archiveByteLength === 0) {
         throw new Error("E2E archive is empty");
       }
-      return yield* replay.child("complete-import", kernelImport, {
-        totalItems: 0,
-        failureCount: 0,
-        chunkHandles: [],
-        writeItemCount: 0,
-        runId: input.runId,
-        command: input.command,
-      });
+       const sealed = yield* replay.child("complete-import", genericImportSealReference, {
+         operation: { action: "seal" },
+         runId: input.runId,
+         command: input.command,
+       });
+       return { summary: sealed.summary, issues: [] };
     }),
 });
 `;
@@ -91,9 +92,7 @@ import { readNamedArtifact } from "@ryot-app/sandbox-sdk/filesystem";
 
 export const manifest = defineManifest({
   kind: "script",
-  capabilities: ["artifact-read"],
   name: "E2E validate archive",
-  requiredPluginConfigKeys: [],
   slug: "import.e2e-validate-archive",
 });
 
@@ -111,10 +110,6 @@ export const installTestImportPlugin = Effect.suspend(() => {
 	return installTestPluginBundle({
 		scope: "system",
 		workflows: [{ slug: "import", scriptSlug: "workflow.e2e-archive-import" }],
-		files: {
-			[entry]: FIXTURE_IMPORT_WORKFLOW_SOURCE,
-			[validateEntry]: FIXTURE_IMPORT_VALIDATE_SOURCE,
-		},
 		configSchema: {
 			unknownKeys: "strict",
 			fields: {
@@ -125,7 +120,25 @@ export const installTestImportPlugin = Effect.suspend(() => {
 				},
 			},
 		},
+		files: {
+			[entry]: FIXTURE_IMPORT_WORKFLOW_SOURCE,
+			[validateEntry]: FIXTURE_IMPORT_VALIDATE_SOURCE,
+			"backend/scripts/configured.sandbox.ts": `
+import { defineManifest, defineScript } from "@ryot-app/sandbox-sdk/driver";
+import { Effect, Schema } from "@ryot-app/sandbox-sdk/effect";
+export const manifest = defineManifest({ kind: "script", slug: "import.e2e-configured", name: "Configured import" });
+export default defineScript({ manifest, input: Schema.Struct({}), output: Schema.Number, run: (_input, host) => host.getPluginConfig({ required: ["fixtureToken"] }).pipe(Effect.as(1)) });
+`,
+		},
 		scripts: [
+			{
+				kind: "script",
+				name: "Configured import",
+				requiredPluginConfigKeys: [],
+				slug: "import.e2e-configured",
+				capabilities: ["getPluginConfig"],
+				entry: "backend/scripts/configured.sandbox.ts",
+			},
 			{
 				entry,
 				kind: "workflow",
@@ -148,8 +161,8 @@ export const installTestImportPlugin = Effect.suspend(() => {
 				name: "E2E archive",
 				workflowSlug: "import",
 				slug: FIXTURE_IMPORT_SOURCE,
-				requiredPluginConfigKeys: [],
 				description: "Import an E2E archive",
+				plan: { selections: { "archive-validator": { value: "archive" } } },
 				inputSchema: {
 					unknownKeys: "strict",
 					fields: {
@@ -167,9 +180,9 @@ export const installTestImportPlugin = Effect.suspend(() => {
 				workflowSlug: "import",
 				name: "E2E configured archive",
 				slug: FIXTURE_CONFIG_IMPORT_SOURCE,
-				requiredPluginConfigKeys: ["fixtureToken"],
 				inputSchema: { fields: {}, unknownKeys: "strict" },
 				description: "Import an E2E archive with required configuration",
+				plan: { selections: { "archive-validator": { value: "configured" } } },
 			},
 		],
 	});
@@ -177,8 +190,9 @@ export const installTestImportPlugin = Effect.suspend(() => {
 
 const FIXTURE_HANDLE_IMPORT_WORKFLOW_SOURCE = `
 import {
-  genericImportKernelInputSchema,
-  genericImportWorkflowManifestSchema,
+  genericImportApplyReference,
+  genericImportCaptureReference,
+  genericImportSealReference,
   genericImportWorkflowInputSchema,
   genericImportWorkflowResultSchema,
 } from "@ryot-app/sandbox-sdk/imports";
@@ -186,22 +200,15 @@ import { defineManifest, defineWorkflow, Effect, Schema } from "@ryot-app/sandbo
 
 export const manifest = defineManifest({
   kind: "workflow",
-  capabilities: [],
-  requiredPluginConfigKeys: [],
   name: "E2E harvest handle import",
   slug: "workflow.e2e-harvest-handle-import",
 });
 
 const writeChunk = {
+  referenceKind: "script" as const,
   input: Schema.Struct({}),
-  output: genericImportWorkflowManifestSchema,
+   output: Schema.Struct({ chunkHandles: Schema.Array(Schema.String) }),
   scriptSlug: "import.e2e-write-harvest-chunk",
-};
-
-const kernelImport = {
-  input: genericImportKernelInputSchema,
-  output: genericImportWorkflowResultSchema,
-  workflowSlug: "kernel:process-import-chunks",
 };
 
 export default defineWorkflow({
@@ -210,20 +217,29 @@ export default defineWorkflow({
   output: genericImportWorkflowResultSchema,
   run: (input, replay) =>
     Effect.gen(function* () {
-      const manifest = yield* replay.activity("write-chunk", writeChunk, {});
-      return yield* replay.child("process-chunk", kernelImport, {
-        ...manifest,
-        failRun: true,
-        runId: input.runId,
-        command: input.command,
-      });
+       const { chunkHandles: handles } = yield* replay.activity("write-chunk", writeChunk, {});
+       const attribution = { runId: input.runId, command: input.command };
+       for (const [ordinal, handle] of handles.entries()) {
+         const captured = yield* replay.child("capture-" + ordinal, genericImportCaptureReference, {
+           ...attribution,
+           operation: { action: "capture", phase: "application", ordinal, handle, captureId: "chunk-" + ordinal, checkpoint: {} },
+         });
+         yield* replay.child("apply-" + ordinal, genericImportApplyReference, {
+           ...attribution,
+           operation: { action: "apply", ordinal, batchId: "batch-" + ordinal, captureId: captured.captureId, inputFingerprint: captured.inputFingerprint },
+         });
+       }
+       const sealed = yield* replay.child("seal", genericImportSealReference, { ...attribution, operation: { action: "seal" } });
+       return { summary: sealed.summary, issues: [] };
     }),
 });
 `;
 
 const fixtureHandleImportChunkSource = (failureCount: number) => {
 	const failures = Array.from({ length: failureCount }, (_, index) => ({
+		unit: "records",
 		itemIndex: index,
+		recordKind: "record",
 		stage: "input_transformation",
 		sourceIdentifier: `fixture-${index}`,
 		message: "harvest handle fixture failure",
@@ -232,13 +248,10 @@ const fixtureHandleImportChunkSource = (failureCount: number) => {
 	return `
 import { defineManifest, defineScript } from "@ryot-app/sandbox-sdk/driver";
 import { Effect, Schema } from "@ryot-app/sandbox-sdk/effect";
-import { writeScratchChunks } from "@ryot-app/sandbox-sdk/filesystem";
-import { genericImportAdapterManifestSchema } from "@ryot-app/sandbox-sdk/imports";
+import { sandboxScratchManifestSchema, writeScratchChunks } from "@ryot-app/sandbox-sdk/filesystem";
 
 export const manifest = defineManifest({
   kind: "script",
-  capabilities: ["scratch"],
-  requiredPluginConfigKeys: [],
   name: "E2E write harvest chunk",
   slug: "import.e2e-write-harvest-chunk",
 });
@@ -246,24 +259,16 @@ export const manifest = defineManifest({
 export default defineScript({
   manifest,
   input: Schema.Struct({}),
-  output: genericImportAdapterManifestSchema,
+   output: sandboxScratchManifestSchema,
   run: () =>
-    writeScratchChunks([
-      {
-        name: "fixture.json",
-        contents: JSON.stringify({
-          failures: ${JSON.stringify(failures)},
-          items: [],
-        }),
-      },
-    ]).pipe(
-      Effect.map(({ chunkFiles }) => ({
-        chunkFiles,
-        totalItems: ${failureCount},
-        failureCount: ${failureCount},
-        writeItemCount: 0,
-      })),
-    ),
+     Effect.gen(function* () {
+       const failures = ${JSON.stringify(failures)};
+       const chunks: { name: string; contents: string }[] = [];
+       for (let offset = 0; offset < failures.length; offset += 100) {
+         chunks.push({ name: "fixture-" + offset + ".json", contents: JSON.stringify({ failures: failures.slice(offset, offset + 100), items: [] }) });
+       }
+       return yield* writeScratchChunks(chunks);
+     }),
 });
 `;
 };
@@ -284,7 +289,6 @@ export const installTestHarvestHandleImportPlugin = (
 				{
 					slug: sourceSlug,
 					workflowSlug: "import",
-					requiredPluginConfigKeys: [],
 					name: "E2E harvest handle import",
 					inputSchema: { fields: {}, unknownKeys: "strict" },
 					description: "Import fixture for opaque harvest handles",
@@ -316,31 +320,25 @@ const partialResultCancellationWorkflowSource = (
 	chunkScriptSlug: string,
 ) => `
 import {
-  genericImportKernelInputSchema,
+  genericImportApplyReference,
+  genericImportCaptureReference,
+  genericImportSealReference,
   genericImportWorkflowInputSchema,
-  genericImportWorkflowManifestSchema,
   genericImportWorkflowResultSchema,
 } from "@ryot-app/sandbox-sdk/imports";
 import { defineManifest, defineWorkflow, Effect, Schema } from "@ryot-app/sandbox-sdk/workflow";
 
 export const manifest = defineManifest({
   kind: "workflow",
-  capabilities: [],
-  requiredPluginConfigKeys: [],
   name: "E2E partial-result cancellation import",
   slug: ${JSON.stringify(workflowScriptSlug)},
 });
 
 const writeChunk = {
+  referenceKind: "script" as const,
   input: Schema.Struct({}),
-  output: genericImportWorkflowManifestSchema,
+   output: Schema.Struct({ chunkHandles: Schema.Array(Schema.String) }),
   scriptSlug: ${JSON.stringify(chunkScriptSlug)},
-};
-
-const kernelImport = {
-  input: genericImportKernelInputSchema,
-  output: genericImportWorkflowResultSchema,
-  workflowSlug: "kernel:process-import-chunks",
 };
 
 export default defineWorkflow({
@@ -349,12 +347,20 @@ export default defineWorkflow({
   output: genericImportWorkflowResultSchema,
   run: (input, replay) =>
     Effect.gen(function* () {
-      const chunk = yield* replay.activity("write-chunk", writeChunk, {});
-      return yield* replay.child("process-chunk", kernelImport, {
-        ...chunk,
-        runId: input.runId,
-        command: input.command,
-      });
+       const written = yield* replay.activity("write-chunk", writeChunk, {});
+       const attribution = { runId: input.runId, command: input.command };
+       for (const [ordinal, handle] of written.chunkHandles.entries()) {
+       const captured = yield* replay.child("capture-" + ordinal, genericImportCaptureReference, {
+         ...attribution,
+         operation: { action: "capture", phase: "application", ordinal, handle, captureId: "chunk-" + ordinal, checkpoint: {} },
+       });
+       yield* replay.child("apply-" + ordinal, genericImportApplyReference, {
+         ...attribution,
+         operation: { action: "apply", ordinal, batchId: "batch-" + ordinal, captureId: captured.captureId, inputFingerprint: captured.inputFingerprint },
+       });
+       }
+       const sealed = yield* replay.child("seal", genericImportSealReference, { ...attribution, operation: { action: "seal" } });
+       return { summary: sealed.summary, issues: [] };
     }),
 });
 `;
@@ -365,13 +371,10 @@ const partialResultCancellationChunkSource = (
 ) => `
 import { defineManifest, defineScript } from "@ryot-app/sandbox-sdk/driver";
 import { Effect, Schema } from "@ryot-app/sandbox-sdk/effect";
-import { writeScratchChunks } from "@ryot-app/sandbox-sdk/filesystem";
-import { genericImportAdapterManifestSchema } from "@ryot-app/sandbox-sdk/imports";
+import { sandboxScratchManifestSchema, writeScratchChunks } from "@ryot-app/sandbox-sdk/filesystem";
 
 export const manifest = defineManifest({
   kind: "script",
-  capabilities: ["scratch"],
-  requiredPluginConfigKeys: [],
   name: "E2E partial-result cancellation chunk",
   slug: ${JSON.stringify(chunkScriptSlug)},
 });
@@ -379,21 +382,24 @@ export const manifest = defineManifest({
 export default defineScript({
   manifest,
   input: Schema.Struct({}),
-  output: genericImportAdapterManifestSchema,
+   output: sandboxScratchManifestSchema,
   run: () =>
-    writeScratchChunks([
-      {
-        name: "partial-result-cancellation.json",
-        contents: ${JSON.stringify(JSON.stringify({ items, failures: [] }))},
-      },
-    ]).pipe(
-      Effect.map(({ chunkFiles }) => ({
-        chunkFiles,
-        totalItems: ${items.length},
-        failureCount: 0,
-        writeItemCount: ${items.length},
-      })),
-    ),
+     writeScratchChunks(${JSON.stringify([
+				{
+					name: "committed.json",
+					contents: JSON.stringify({
+						failures: [],
+						items: items.slice(0, PARTIAL_RESULT_COMMITTED_ITEM_COUNT),
+					}),
+				},
+				{
+					name: "blocked.json",
+					contents: JSON.stringify({
+						failures: [],
+						items: items.slice(PARTIAL_RESULT_COMMITTED_ITEM_COUNT),
+					}),
+				},
+			])}),
 });
 `;
 
@@ -423,9 +429,19 @@ export const installTestPartialResultCancellationImportPlugin = Effect.suspend((
 		events: [],
 		relationships: [],
 		sourceLabel: name,
+		recordId: String(itemIndex),
 		subjectEntityAlias: "record",
 		sourceIdentifier: String(itemIndex),
-		entities: [{ name, properties: {}, alias: "record", entitySchemaSlug }],
+		entities: [
+			{
+				name,
+				properties: {},
+				alias: "record",
+				entitySchemaSlug,
+				operationId: `entity-${itemIndex}`,
+				outcome: { unit: "records", recordKind: "record" },
+			},
+		],
 	});
 	const items: GenericImportWriteItem[] = [
 		...committedNames.map(directItem),
@@ -437,6 +453,8 @@ export const installTestPartialResultCancellationImportPlugin = Effect.suspend((
 					alias: "record",
 					entitySchemaSlug,
 					name: blockedName,
+					outcome: { unit: "records", recordKind: "record" },
+					operationId: `entity-${PARTIAL_RESULT_COMMITTED_ITEM_COUNT}`,
 					providerResolution: { providerSlug, value: "blocked", identifierType: "source-id" },
 				},
 			],
@@ -469,6 +487,15 @@ export const installTestPartialResultCancellationImportPlugin = Effect.suspend((
 				propertiesSchema: { fields: {}, unknownKeys: "strict" },
 			},
 		],
+		importSources: [
+			{
+				slug: source,
+				workflowSlug,
+				name: "E2E partial-result cancellation import",
+				inputSchema: { fields: {}, unknownKeys: "strict" },
+				description: "Block after a durable generic-import progress checkpoint",
+			},
+		],
 		files: {
 			[detailsEntry]: detailsSource,
 			[resolveEntry]: resolveSource,
@@ -482,16 +509,6 @@ export const installTestPartialResultCancellationImportPlugin = Effect.suspend((
 				rootEntitySchemaSlug: entitySchemaSlug,
 				name: "E2E partial-result cancellation provider",
 				operations: { details: detailsScriptSlug, resolve: resolveScriptSlug },
-			},
-		],
-		importSources: [
-			{
-				slug: source,
-				workflowSlug,
-				requiredPluginConfigKeys: [],
-				name: "E2E partial-result cancellation import",
-				inputSchema: { fields: {}, unknownKeys: "strict" },
-				description: "Block after a durable generic-import progress checkpoint",
 			},
 		],
 		scripts: [
@@ -546,7 +563,7 @@ export const installTestPartialResultCancellationImportPlugin = Effect.suspend((
 
 const testImportPinningWorkflowSource = (scriptSlug: string) => `
 import {
-  genericImportKernelInputSchema,
+  genericImportSealReference,
   genericImportWorkflowInputSchema,
   genericImportWorkflowResultSchema,
 } from "@ryot-app/sandbox-sdk/imports";
@@ -554,17 +571,9 @@ import { Effect, defineManifest, defineWorkflow } from "@ryot-app/sandbox-sdk/wo
 
 export const manifest = defineManifest({
   kind: "workflow",
-  capabilities: [],
   name: "E2E import pinning",
-  requiredPluginConfigKeys: [],
   slug: ${JSON.stringify(scriptSlug)},
 });
-
-const kernelImport = {
-  input: genericImportKernelInputSchema,
-  output: genericImportWorkflowResultSchema,
-  workflowSlug: "kernel:process-import-chunks",
-};
 
 export default defineWorkflow({
   manifest,
@@ -573,14 +582,12 @@ export default defineWorkflow({
   run: (input, replay) =>
     Effect.gen(function* () {
       yield* replay.sleep("hold-plugin-pin", 30_000);
-      return yield* replay.child("complete-import", kernelImport, {
-        totalItems: 0,
-        failureCount: 0,
-        chunkHandles: [],
-        writeItemCount: 0,
-        runId: input.runId,
-        command: input.command,
-      });
+       const sealed = yield* replay.child("complete-import", genericImportSealReference, {
+         operation: { action: "seal" },
+         runId: input.runId,
+         command: input.command,
+       });
+       return { summary: sealed.summary, issues: [] };
     }),
 });
 `;
@@ -596,24 +603,26 @@ export const installTestImportPinningPlugin = Effect.suspend(() => {
 		scope: "system",
 		workflows: [{ scriptSlug, slug: workflowSlug }],
 		files: { [entry]: testImportPinningWorkflowSource(scriptSlug) },
+		importSources: [
+			{
+				slug: source,
+				workflowSlug,
+				name: "E2E import pinning",
+				inputSchema: { fields: {}, unknownKeys: "strict" },
+				description: "Hold an accepted import open for plugin pinning coverage",
+			},
+		],
 		scripts: [
 			{
 				entry,
 				slug: scriptSlug,
 				kind: "workflow",
 				capabilities: [],
+				oauthConnectionFields: [],
 				name: "E2E import pinning",
+				executableDependencies: [],
 				requiredPluginConfigKeys: [],
-			},
-		],
-		importSources: [
-			{
-				slug: source,
-				workflowSlug,
-				name: "E2E import pinning",
-				requiredPluginConfigKeys: [],
-				inputSchema: { fields: {}, unknownKeys: "strict" },
-				description: "Hold an accepted import open for plugin pinning coverage",
+				optionalPluginConfigKeys: [],
 			},
 		],
 	}).pipe(Effect.map((plugin) => ({ plugin, source })));
@@ -664,9 +673,17 @@ export const listIntegrationImportRuns = (
 export const getImportRun = (
 	client: Client,
 	runId: string,
-	failureAfter: string | undefined,
-	failureLimit: number,
-) => executeRyotQLRecipe(client, importRunRecipe({ runId, failureAfter, failureLimit }));
+	issueAfter: string | undefined,
+	issueLimit: number,
+) =>
+	Effect.gen(function* () {
+		const detail = yield* executeRyotQLRecipe(client, importRunRecipe({ runId }));
+		const issues = yield* executeRyotQLRecipe(
+			client,
+			importIssuesRecipe({ runId, after: issueAfter, limit: issueLimit }),
+		);
+		return { ...detail, issues };
+	});
 
 const importedEntity = table("entity", "importedEntity");
 const importedEntityNamesRecipe = defineRecipe((entitySchemaSlug: string) => ({

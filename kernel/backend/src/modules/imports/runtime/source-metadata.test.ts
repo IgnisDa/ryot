@@ -60,6 +60,21 @@ const registeredSource = (
 			profileName: { type: "string", label: "Profile name", description: "Profile name" },
 		},
 	},
+	readinessMetadata: {
+		oauthProviders: [],
+		workflows: [{ slug: "nu-import", scriptSlug: "nu-script" }],
+		availableConfigKeys: overrides.configuredPluginConfigKeys ?? [],
+		scripts: [
+			{
+				capabilities: [],
+				slug: "nu-script",
+				oauthConnectionFields: [],
+				executableDependencies: [],
+				optionalPluginConfigKeys: [],
+				requiredPluginConfigKeys: overrides.requiredPluginConfigKeys ?? [],
+			},
+		],
+	},
 	...overrides,
 });
 
@@ -289,7 +304,7 @@ it("returns every required key when a private config revision is unavailable", (
 	]);
 });
 
-it("accepts a private plugin config revision without configured key checks", () => {
+it("reports missing keys even when a private plugin config revision exists", () => {
 	const source = registeredSource({
 		pluginScope: "user",
 		pluginSlug: "my-example",
@@ -304,5 +319,8 @@ it("accepts a private plugin config revision without configured key checks", () 
 			pluginConfigRevisionId: "private-config-revision",
 		},
 	});
-	expect(registryImportSourceMissingConfigKeys(source)).toEqual([]);
+	expect(registryImportSourceMissingConfigKeys(source)).toEqual([
+		"alphaAccessToken",
+		"deltaApiKey",
+	]);
 });

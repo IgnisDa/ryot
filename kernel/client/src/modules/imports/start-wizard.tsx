@@ -28,6 +28,8 @@ import {
 	type WizardStepHeadings,
 } from "#/modules/ui/wizard/wizard-state";
 
+import { SelectedImportReadiness } from "./selected-readiness";
+
 export const IMPORT_WIZARD_TITLE = "Start an import";
 
 export type ImportSourcePickerState = CatalogPickerState<ImportSourceItem>;
@@ -137,14 +139,25 @@ export function ImportStartWizard(props: {
 		)),
 		Match.when("configure", () =>
 			source === undefined ? null : (
-				<ImportInputStep
-					form={form}
-					onBack={goBack}
-					source={source}
-					uploadFile={uploadFile}
-					failureDetail={inputFailure}
-					onContinue={() => void form.handleSubmit()}
-				/>
+				<form.Subscribe selector={(formState) => formState.values}>
+					{(values) => (
+						<SelectedImportReadiness
+							slug={source.slug}
+							settings={toSchemaFormPayload(source.inputSchema, values)}
+						>
+							{() => (
+								<ImportInputStep
+									form={form}
+									onBack={goBack}
+									source={source}
+									uploadFile={uploadFile}
+									failureDetail={inputFailure}
+									onContinue={() => void form.handleSubmit()}
+								/>
+							)}
+						</SelectedImportReadiness>
+					)}
+				</form.Subscribe>
 			),
 		),
 		Match.when("review", () =>

@@ -2,22 +2,21 @@ import type {
 	EntityRecord,
 	IntegrationRecord,
 	ListIntegrationsOptions,
-	SandboxHost,
+	ScriptHost,
 } from "@ryot-app/sandbox-sdk/core";
 import { Effect } from "@ryot-app/sandbox-sdk/effect";
 import { entityReadRecipe, executeRyotqlRecipe } from "@ryot-app/sandbox-sdk/ryotql";
 
 import { MediaSandboxError } from "./failures";
 
-export type IntegrationPushHost = SandboxHost<
-	readonly [
-		"log",
-		"httpCall",
-		"executeRyotql",
-		"getEntitySchemas",
-		"listIntegrations",
-		"getUserPreferences",
-	]
+export type IntegrationPushHost = Pick<
+	ScriptHost,
+	| "log"
+	| "httpCall"
+	| "executeRyotql"
+	| "getEntitySchemas"
+	| "listIntegrations"
+	| "getUserPreferences"
 >;
 
 const isObject = (value: unknown): value is Readonly<Record<string, unknown>> =>

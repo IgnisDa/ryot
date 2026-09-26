@@ -1,4 +1,4 @@
-import type { SandboxHost } from "@ryot-app/sandbox-sdk/core";
+import type { ScriptHost } from "@ryot-app/sandbox-sdk/core";
 import { defineManifest } from "@ryot-app/sandbox-sdk/driver";
 import { DateTime, Effect, Option, Schema } from "@ryot-app/sandbox-sdk/effect";
 import { defineProvider } from "@ryot-app/sandbox-sdk/provider";
@@ -8,7 +8,7 @@ import { MediaSandboxError } from "../../../lib/failures";
 import { decodeJsonResponse } from "../../../lib/records";
 import { toTitleCase } from "../../../lib/title-case";
 
-type GoogleBooksHost = SandboxHost<readonly ["httpCall", "getPluginConfig"]>;
+type GoogleBooksHost = Pick<ScriptHost, "httpCall" | "getPluginConfig">;
 
 type UnknownRecord = Record<string, unknown>;
 
@@ -29,7 +29,7 @@ const numberValue = (value: unknown) =>
 	typeof value === "number" && Number.isFinite(value) ? value : null;
 
 const getGoogleBooksApiKey = (host: GoogleBooksHost) =>
-	host.getPluginConfig(["googleBooksApiKey"]).pipe(
+	host.getPluginConfig({ required: ["googleBooksApiKey"] }).pipe(
 		Effect.map(({ googleBooksApiKey }) => googleBooksApiKey),
 		Effect.flatMap((value) => {
 			const apiKey = stringValue(value);
@@ -156,8 +156,6 @@ export const manifest = defineManifest({
 	kind: "provider",
 	name: "Google Books",
 	slug: "book.google-books",
-	capabilities: ["httpCall", "getPluginConfig"],
-	requiredPluginConfigKeys: ["googleBooksApiKey"],
 });
 
 export const search = defineProvider({

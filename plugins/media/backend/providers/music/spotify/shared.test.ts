@@ -1,4 +1,4 @@
-import type { SandboxHost } from "@ryot-app/sandbox-sdk/core";
+import type { ScriptHost } from "@ryot-app/sandbox-sdk/core";
 import { Effect } from "@ryot-app/sandbox-sdk/effect";
 import { defineSandboxTestHost, runSandboxTestScript } from "@ryot-app/sandbox-sdk/testing";
 import { describe, expect, it } from "vitest";
@@ -7,18 +7,18 @@ import details, { manifest as detailsManifest } from "./details.sandbox";
 import search, { manifest as searchManifest } from "./search.sandbox";
 import { manifest } from "./shared";
 
-type SpotifyMusicHost = SandboxHost<typeof manifest.capabilities>;
+type SpotifyMusicHost = Pick<
+	ScriptHost,
+	"httpCall" | "getPluginConfig" | "getCachedValue" | "setCachedValue"
+>;
 const httpSuccess = (body: unknown) =>
 	Effect.succeed({ status: 200, headers: {}, body: JSON.stringify(body) });
 type Route = { match: (url: string) => boolean; body: unknown };
-const makeHost = (
-	routes: readonly Route[],
-	overrides: Partial<SpotifyMusicHost> = {},
-): SpotifyMusicHost =>
+const makeHost = (routes: readonly Route[], overrides: Partial<SpotifyMusicHost> = {}) =>
 	defineSandboxTestHost(manifest, {
 		setCachedValue: () => Effect.succeed(null),
 		getCachedValue: () => Effect.succeed("cached-token"),
-		getPluginConfig: (keys) =>
+		getPluginConfig: ({ required: keys = [] }) =>
 			Effect.succeed(
 				Object.fromEntries(keys.map((key) => [key, key.endsWith("Secret") ? "secret" : "id"])),
 			),
@@ -30,21 +30,13 @@ const makeHost = (
 	});
 const execution = { metadata: {}, sandboxScriptId: "script_test" };
 describe("music.spotify sandbox script", () => {
-	it("declares one narrowly scoped script per operation", () => {
+	it("declares a script for each operation", () => {
 		expect([
-			[searchManifest.slug, search.operation, searchManifest.capabilities],
-			[detailsManifest.slug, details.operation, detailsManifest.capabilities],
+			[searchManifest.slug, search.operation],
+			[detailsManifest.slug, details.operation],
 		]).toEqual([
-			[
-				"music.spotify.search",
-				"search",
-				["httpCall", "getPluginConfig", "getCachedValue", "setCachedValue"],
-			],
-			[
-				"music.spotify.details",
-				"details",
-				["httpCall", "getPluginConfig", "getCachedValue", "setCachedValue"],
-			],
+			["music.spotify.search", "search"],
+			["music.spotify.details", "details"],
 		]);
 	});
 

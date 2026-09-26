@@ -1,12 +1,13 @@
-import type { SandboxHost } from "@ryot-app/sandbox-sdk/core";
+import type { ScriptHost } from "@ryot-app/sandbox-sdk/core";
 import { Effect } from "@ryot-app/sandbox-sdk/effect";
 import type { SandboxHostError } from "@ryot-app/sandbox-sdk/wire";
 
 import { MediaSandboxError } from "../failures";
 import { asRecord, decodeJsonResponse, numberValue, stringValue } from "../records";
 
-export type SpotifyHost = SandboxHost<
-	readonly ["httpCall", "getPluginConfig", "getCachedValue", "setCachedValue"]
+export type SpotifyHost = Pick<
+	ScriptHost,
+	"httpCall" | "getPluginConfig" | "getCachedValue" | "setCachedValue"
 >;
 
 const SPOTIFY_TOKEN_URL = "https://accounts.spotify.com/api/token";
@@ -80,7 +81,7 @@ export const getImagesSortedBySize = (images: unknown): string[] => {
 export const getFirstImage = (images: unknown) => getImagesSortedBySize(images)[0] ?? null;
 
 export const getCredentials = (host: SpotifyHost) =>
-	host.getPluginConfig(["spotifyClientId", "spotifyClientSecret"]).pipe(
+	host.getPluginConfig({ required: ["spotifyClientId", "spotifyClientSecret"] }).pipe(
 		Effect.mapError((error) => ({
 			...error,
 			message: error.message || "Failed to retrieve Spotify credentials",

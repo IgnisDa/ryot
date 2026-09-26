@@ -2,7 +2,6 @@ import {
 	clientArtifactMetadata,
 	PluginClientArtifact as PluginClientArtifactSchema,
 	isPluginClientArtifactContentType,
-	isPluginClientTextSource,
 	type PluginClientArtifact,
 } from "@ryot-app/client-plugin-contract";
 import type { BadRequest, DbError } from "@ryot-app/contract/errors";
@@ -34,7 +33,6 @@ import type {
 } from "./types";
 import {
 	decodePluginManifest,
-	type PluginPackageLimitError,
 	type PluginSlugReservedError,
 	type PluginSurfaceError,
 	PluginValidationError,
@@ -64,23 +62,18 @@ export const toPluginScriptDescriptor = (
 
 export const pluginSourceHash = (
 	manifest: PluginManifest,
-	files: Readonly<Record<string, Uint8Array>>,
 	compiledScripts: ReadonlyArray<PluginArchiveCompiledScript> = [],
 	compiledClient?: PluginClientArtifact,
 ) =>
 	digest(
 		stableStringify({
 			manifest,
-			files: Object.entries(files)
-				.sort(([left], [right]) => compareCodeUnits(left, right))
-				.map(([path, contents]) => [path, digest(contents)]),
 			compiledScripts: compiledScripts
 				.slice()
 				.sort((left, right) => compareCodeUnits(left.entry, right.entry))
-				.map(({ entry, format, source, javascript }) => ({
+				.map(({ entry, format, javascript }) => ({
 					entry,
 					format,
-					sourceHash: digest(source),
 					javascriptHash: digest(javascript),
 				})),
 			compiledClient: compiledClient
@@ -103,25 +96,10 @@ export const pluginSourceHash = (
 		}),
 	);
 
-export const decodePluginSourceTextFiles = (files: Readonly<Record<string, Uint8Array>>) =>
-	Effect.try({
-		catch: () => new PluginValidationError({ issues: ["Plugin source text is not valid UTF-8"] }),
-		try: () =>
-			Object.fromEntries(
-				Object.entries(files)
-					.filter(([path]) => !path.startsWith("client/") || isPluginClientTextSource(path))
-					.map(([path, contents]) => [
-						path,
-						new TextDecoder("utf-8", { fatal: true }).decode(contents),
-					]),
-			),
-	});
-
 export const normalizePluginSource = Effect.fn("PluginPipeline.normalizePluginSource")(function* (
 	source: PluginSource,
 ) {
 	const manifest = yield* decodePluginManifest(source.manifest);
-	yield* decodePluginSourceTextFiles(source.files);
 	if (!Array.isArray(source.compiledScripts)) {
 		return yield* new PluginValidationError({ issues: ["Plugin compiled scripts are missing"] });
 	}
@@ -138,22 +116,9 @@ export const normalizePluginSource = Effect.fn("PluginPipeline.normalizePluginSo
 		});
 	}
 	for (const script of source.compiledScripts) {
-		const sourceBytes = source.files[script.entry];
-		if (!Number.isSafeInteger(script.format) || script.format < 1 || sourceBytes === undefined) {
+		if (!Number.isSafeInteger(script.format) || script.format < 1) {
 			return yield* new PluginValidationError({
 				issues: [`Plugin compiled script is invalid: ${script.entry}`],
-			});
-		}
-		const sourceText = yield* Effect.try({
-			try: () => new TextDecoder("utf-8", { fatal: true }).decode(sourceBytes),
-			catch: () =>
-				new PluginValidationError({
-					issues: [`Plugin script source is not valid UTF-8: ${script.entry}`],
-				}),
-		});
-		if (sourceText !== script.source) {
-			return yield* new PluginValidationError({
-				issues: [`Plugin compiled script source does not match file: ${script.entry}`],
 			});
 		}
 		yield* Effect.try({
@@ -221,15 +186,9 @@ export const normalizePluginSource = Effect.fn("PluginPipeline.normalizePluginSo
 			});
 		}
 	}
-	const sourceHash = pluginSourceHash(
-		manifest,
-		source.files,
-		source.compiledScripts,
-		compiledClient,
-	);
+	const sourceHash = pluginSourceHash(manifest, source.compiledScripts, compiledClient);
 	return {
 		manifest,
-		files: source.files,
 		compiledScripts: source.compiledScripts,
 		...(compiledClient ? { compiledClient } : {}),
 		sourceHash,
@@ -257,7 +216,6 @@ export const normalizePluginPackage = Effect.fn("PluginPipeline.normalizePluginP
 						slug: script.slug,
 						name: script.name,
 						entry: script.entry,
-						source: compiled.source,
 						compiledFormat: compiled.format,
 						compiledCode: compiled.javascript,
 						contentHash: digest(compiled.javascript),
@@ -267,7 +225,6 @@ export const normalizePluginPackage = Effect.fn("PluginPipeline.normalizePluginP
 			);
 			return {
 				scripts,
-				files: input.files,
 				manifest: input.manifest,
 				sourceHash: input.sourceHash,
 				...(input.compiledClient ? { compiledClient: input.compiledClient } : {}),
@@ -304,7 +261,6 @@ type StructurablePluginFailure =
 	| PluginConflictError
 	| SchemaEvolutionError
 	| PluginValidationError
-	| PluginPackageLimitError
 	| PluginSlugReservedError;
 
 export const structurePluginFailure = <A, R>(
@@ -320,12 +276,6 @@ export const structurePluginFailure = <A, R>(
 				Effect.fail(
 					new PluginRequestError({
 						reason: { issue: error.reason, code: "package-archive-invalid" },
-					}),
-				),
-			PluginPackageLimitError: (error: PluginPackageLimitError) =>
-				Effect.fail(
-					new PluginRequestError({
-						reason: { limit: error.limit, code: "package-limit-exceeded" },
 					}),
 				),
 			PluginSurfaceError: (error: PluginSurfaceError) =>

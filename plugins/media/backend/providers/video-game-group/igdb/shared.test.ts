@@ -1,21 +1,24 @@
-import type { SandboxHost } from "@ryot-app/sandbox-sdk/core";
+import type { ScriptHost } from "@ryot-app/sandbox-sdk/core";
 import { Effect } from "@ryot-app/sandbox-sdk/effect";
 import { defineSandboxTestHost, runSandboxTestScript } from "@ryot-app/sandbox-sdk/testing";
 import { describe, expect, it } from "vitest";
 
 import { details, manifest, search } from "./shared";
 
-type IgdbGroupHost = SandboxHost<typeof manifest.capabilities>;
+type IgdbGroupHost = Pick<
+	ScriptHost,
+	"httpCall" | "getPluginConfig" | "getCachedValue" | "setCachedValue"
+>;
 
 const httpSuccess = (body: unknown, headers: Record<string, string> = {}) =>
 	Effect.succeed({ headers, status: 200, body: JSON.stringify(body) });
 
-const makeHost = (overrides: Partial<IgdbGroupHost>): IgdbGroupHost =>
+const makeHost = (overrides: Partial<IgdbGroupHost>) =>
 	defineSandboxTestHost(manifest, {
 		getCachedValue: () => Effect.succeed(null),
 		setCachedValue: () => Effect.succeed(null),
 		httpCall: () => Effect.fail({ message: "no route" }),
-		getPluginConfig: (keys) =>
+		getPluginConfig: ({ required: keys = [] }) =>
 			Effect.succeed(
 				Object.fromEntries(
 					keys.map((key) => [key, key === "twitchClientId" ? "client-id" : "client-secret"]),

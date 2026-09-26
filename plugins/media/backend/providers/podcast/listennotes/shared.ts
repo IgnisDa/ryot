@@ -1,4 +1,4 @@
-import type { SandboxHost } from "@ryot-app/sandbox-sdk/core";
+import type { ScriptHost } from "@ryot-app/sandbox-sdk/core";
 import { defineManifest } from "@ryot-app/sandbox-sdk/driver";
 import { DateTime, Effect, Option } from "@ryot-app/sandbox-sdk/effect";
 import { defineProvider } from "@ryot-app/sandbox-sdk/provider";
@@ -10,10 +10,11 @@ export const manifest = defineManifest({
 	kind: "provider",
 	name: "Listen Notes",
 	slug: "podcast.listennotes",
-	requiredPluginConfigKeys: ["listennotesApiKey"],
-	capabilities: ["httpCall", "getPluginConfig", "getCachedValue", "setCachedValue"],
 });
-type ListennotesHost = SandboxHost<typeof manifest.capabilities>;
+type ListennotesHost = Pick<
+	ScriptHost,
+	"httpCall" | "getPluginConfig" | "getCachedValue" | "setCachedValue"
+>;
 type UnknownRecord = Record<string, unknown>;
 const GENRE_CACHE_KEY = "genres";
 const GENRE_CACHE_TTL_SECONDS = 60 * 60 * 24;
@@ -56,7 +57,7 @@ const getIsoDateFromTimestamp = (value: unknown) => {
 const getSourceUrl = (title: string, externalId: string) =>
 	`https://www.listennotes.com/podcasts/${trimmedString(title)}-${externalId}`;
 const getApiKey = (host: ListennotesHost) =>
-	host.getPluginConfig(["listennotesApiKey"]).pipe(
+	host.getPluginConfig({ required: ["listennotesApiKey"] }).pipe(
 		Effect.map(({ listennotesApiKey }) => listennotesApiKey),
 		Effect.flatMap((value) => {
 			const apiKey = typeof value === "string" ? value.trim() : "";

@@ -1,31 +1,24 @@
 import { defineManifest, defineScript } from "@ryot-app/sandbox-sdk/driver";
-import { Effect } from "@ryot-app/sandbox-sdk/effect";
+import { Schema } from "@ryot-app/sandbox-sdk/effect";
 
-import { batchMediaImportResult } from "./helpers";
+import { collectMediaCsv } from "./collection";
+import { MediaSourceInput, MediaSourceOutput } from "./collection-schemas";
 import { adaptIgdbCsv } from "./igdb";
-import { IgdbImportParserInput, MediaImportAdapterBatch } from "./schemas";
-import { readImportArtifactText } from "./shared";
 
 export const manifest = defineManifest({
 	kind: "script",
 	slug: "import.igdb",
 	name: "Parse IGDB import",
-	requiredPluginConfigKeys: [],
-	capabilities: ["artifact-read"],
 });
 
 export default defineScript({
 	manifest,
-	input: IgdbImportParserInput,
-	output: MediaImportAdapterBatch,
+	input: MediaSourceInput,
+	output: MediaSourceOutput,
 	run: (input) =>
-		readImportArtifactText.pipe(
-			Effect.map((text) =>
-				batchMediaImportResult(
-					adaptIgdbCsv(text, { collection: input.collection }),
-					input.start,
-					input.limit,
-				),
-			),
+		collectMediaCsv("igdb", input, (text) =>
+			adaptIgdbCsv(text, {
+				collection: Schema.decodeUnknownSync(Schema.String)(input.settings["collection"]),
+			}),
 		),
 });

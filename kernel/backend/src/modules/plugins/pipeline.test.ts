@@ -8,11 +8,8 @@ import {
 } from "@ryot-app/client-plugin-contract";
 import { Effect } from "effect";
 
-import { assertExitFails } from "#lib/test-utils/assertions";
-
-import { decodePluginSourceTextFiles, normalizePluginSource, pluginSourceHash } from "./pipeline";
+import { normalizePluginSource, pluginSourceHash } from "./pipeline";
 import { fixtureManifest } from "./test-support";
-import { PluginValidationError } from "./validation";
 
 const encoder = new TextEncoder();
 
@@ -21,12 +18,10 @@ it.effect("rejects lossy compiled JavaScript before package identity is accepted
 		const manifest = fixtureManifest();
 		const entry = manifest.scripts[0]?.entry;
 		assert(entry);
-		const source = "export default {};";
 		for (const javascript of ['export default "\ud800";', 'export default "\udfff";']) {
 			const error = yield* normalizePluginSource({
 				manifest,
-				files: { [entry]: encoder.encode(source) },
-				compiledScripts: [{ entry, source, format: 1, javascript }],
+				compiledScripts: [{ entry, format: 1, javascript }],
 			}).pipe(Effect.flip);
 			expect(error.issues).toEqual([
 				`Plugin compiled script JavaScript is not valid UTF-8: ${entry}`,
@@ -35,43 +30,42 @@ it.effect("rejects lossy compiled JavaScript before package identity is accepted
 	}),
 );
 
-it("hashes sorted source paths and exact source bytes", () => {
+it("hashes compiled scripts in canonical entry order", () => {
 	const manifest = fixtureManifest();
-	const first = {
-		"backend/a.ts": encoder.encode("same"),
-		"client/image.png": new Uint8Array([0, 255, 1]),
-	};
-	const reordered = {
-		"backend/a.ts": encoder.encode("same"),
-		"client/image.png": new Uint8Array([0, 255, 1]),
-	};
-	const changed = { ...reordered, "client/image.png": new Uint8Array([0, 254, 1]) };
+	const first = [
+		{ format: 1, entry: "backend/z.ts", javascript: "export const z = 1;" },
+		{ format: 1, entry: "backend/a.ts", javascript: "export const a = 1;" },
+	];
+	const reordered = first.toReversed();
 
 	expect(pluginSourceHash(manifest, first)).toBe(pluginSourceHash(manifest, reordered));
-	expect(pluginSourceHash(manifest, changed)).not.toBe(pluginSourceHash(manifest, first));
 });
 
-it("hashes compiled script source, JavaScript, and format into package identity", () => {
+it("hashes manifest metadata, compiled JavaScript, entries, and format into package identity", () => {
 	const manifest = fixtureManifest();
-	const files = {
-		[manifest.scripts[0]?.entry ?? "backend/script.sandbox.ts"]: encoder.encode("source"),
-	};
-	const entry = Object.keys(files)[0];
+	const entry = manifest.scripts[0]?.entry;
 	assert(entry);
-	const script = { entry, format: 1, source: "source", javascript: "export {};" };
+	const script = { entry, format: 1, javascript: "export {};" };
 	const scripts = [script];
-	const sourceHash = pluginSourceHash(manifest, files, scripts);
+	const sourceHash = pluginSourceHash(manifest, scripts);
 
 	expect(
-		pluginSourceHash(manifest, files, [{ ...script, javascript: "export const value = 1;" }]),
+		pluginSourceHash(manifest, [{ ...script, javascript: "export const value = 1;" }]),
 	).not.toBe(sourceHash);
-	expect(pluginSourceHash(manifest, files, [{ ...script, source: "other" }])).not.toBe(sourceHash);
-	expect(pluginSourceHash(manifest, files, [{ ...script, format: 2 }])).not.toBe(sourceHash);
+	expect(pluginSourceHash(manifest, [{ ...script, entry: "backend/other.sandbox.ts" }])).not.toBe(
+		sourceHash,
+	);
+	expect(pluginSourceHash(manifest, [{ ...script, format: 2 }])).not.toBe(sourceHash);
+	expect(
+		pluginSourceHash(
+			{ ...manifest, metadata: { ...manifest.metadata, version: "changed" } },
+			scripts,
+		),
+	).not.toBe(sourceHash);
 });
 
 it("hashes client artifact identity and file contents into package identity", () => {
 	const manifest = fixtureManifest();
-	const files = {};
 	const artifact: PluginClientArtifact = {
 		hash: "artifact-hash",
 		format: CLIENT_ARTIFACT_FORMAT,
@@ -79,6 +73,7 @@ it("hashes client artifact identity and file contents into package identity", ()
 		compilerVersion: CLIENT_COMPILER_VERSION,
 		bridgeVersion: CLIENT_BRIDGE_PROTOCOL_VERSION,
 		files: [
+			{ name: "image.png", contentType: "image/png", contents: new Uint8Array([0, 255, 1]) },
 			{
 				name: "plugin.js",
 				contents: encoder.encode("export {};"),
@@ -86,17 +81,32 @@ it("hashes client artifact identity and file contents into package identity", ()
 			},
 		],
 	};
-	const packageHash = pluginSourceHash(manifest, files, [], artifact);
+	const packageHash = pluginSourceHash(manifest, [], artifact);
+	expect(pluginSourceHash(manifest, [], { ...artifact, files: artifact.files.toReversed() })).toBe(
+		packageHash,
+	);
 
-	expect(pluginSourceHash(manifest, files, [], { ...artifact, hash: "other-artifact" })).not.toBe(
+	expect(pluginSourceHash(manifest, [], { ...artifact, hash: "other-artifact" })).not.toBe(
 		packageHash,
 	);
 	const firstArtifactFile = artifact.files[0];
 	assert(firstArtifactFile);
 	expect(
-		pluginSourceHash(manifest, files, [], {
+		pluginSourceHash(manifest, [], {
 			...artifact,
-			files: [{ ...firstArtifactFile, contents: encoder.encode("export const changed = true;") }],
+			files: artifact.files.map((file) =>
+				file.name === firstArtifactFile.name
+					? { ...file, contents: new Uint8Array([0, 254, 1]) }
+					: file,
+			),
+		}),
+	).not.toBe(packageHash);
+	expect(
+		pluginSourceHash(manifest, [], {
+			...artifact,
+			files: artifact.files.map((file) =>
+				Object.assign({}, file, { contentType: "application/octet-stream" }),
+			),
 		}),
 	).not.toBe(packageHash);
 });
@@ -109,14 +119,7 @@ it.effect("requires compiled scripts to exactly match manifest entries", () =>
 		if (!entry) {
 			return;
 		}
-		const source = "export default {};";
-		const error = yield* Effect.flip(
-			normalizePluginSource({
-				manifest,
-				compiledScripts: [],
-				files: { [entry]: encoder.encode(source) },
-			}),
-		);
+		const error = yield* Effect.flip(normalizePluginSource({ manifest, compiledScripts: [] }));
 
 		expect(error.issues).toEqual([
 			"Plugin compiled scripts must exactly match manifest script entries",
@@ -124,7 +127,7 @@ it.effect("requires compiled scripts to exactly match manifest entries", () =>
 	}),
 );
 
-it.effect("rejects a source package with no compiled script collection", () =>
+it.effect("rejects a package with no compiled script collection", () =>
 	Effect.gen(function* () {
 		const manifest = {
 			...fixtureManifest(),
@@ -134,26 +137,8 @@ it.effect("rejects a source package with no compiled script collection", () =>
 			signalSchemas: [],
 			relationshipSchemas: [],
 		};
-		const error = yield* Effect.flip(normalizePluginSource({ manifest, files: {} }));
+		const error = yield* Effect.flip(normalizePluginSource({ manifest }));
 
 		expect(error.issues).toEqual(["Plugin compiled scripts are missing"]);
-	}),
-);
-
-it.effect("fatally rejects non-UTF-8 plugin source text before normalization", () =>
-	Effect.gen(function* () {
-		const manifest = fixtureManifest();
-		const entry = manifest.scripts[0]?.entry;
-		expect(entry).toBeDefined();
-		if (!entry) {
-			return;
-		}
-		const exit = yield* Effect.exit(
-			decodePluginSourceTextFiles({ [entry]: new Uint8Array([0xff]) }),
-		);
-		assertExitFails(
-			exit,
-			new PluginValidationError({ issues: ["Plugin source text is not valid UTF-8"] }),
-		);
 	}),
 );

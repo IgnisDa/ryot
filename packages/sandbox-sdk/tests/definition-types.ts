@@ -11,8 +11,6 @@ const scriptManifest = defineManifest({
 	kind: "script",
 	name: "Typed script",
 	slug: "typed-script",
-	requiredPluginConfigKeys: [],
-	capabilities: ["getCachedValue"],
 });
 const script = defineScript({
 	manifest: scriptManifest,
@@ -28,11 +26,9 @@ const script = defineScript({
 });
 
 const operationManifest = defineManifest({
-	capabilities: [],
 	kind: "operation",
 	name: "Typed operation",
 	slug: "typed-operation",
-	requiredPluginConfigKeys: [],
 });
 const operation = defineOperation({
 	output: Schema.String,
@@ -51,11 +47,9 @@ const failingOperation = defineOperation({
 });
 
 const automationManifest = defineManifest({
-	capabilities: [],
 	kind: "automation",
 	name: "Typed automation",
 	slug: "typed-automation",
-	requiredPluginConfigKeys: [],
 	automationType: "automation",
 	inputProjection: { event: { properties: [], compareProperties: [] } },
 });
@@ -74,10 +68,8 @@ const policy = defineAutomationPolicy({
 
 const workflowManifest = defineManifest({
 	kind: "workflow",
-	capabilities: [],
 	name: "Typed workflow",
 	slug: "typed-workflow",
-	requiredPluginConfigKeys: [],
 });
 const workflow = defineWorkflow({
 	output: Schema.String,
@@ -88,6 +80,7 @@ const workflow = defineWorkflow({
 			"format",
 			{
 				output: Schema.String,
+				referenceKind: "script",
 				scriptSlug: "format-value",
 				input: Schema.Struct({ value: Schema.Finite }),
 			},
@@ -141,6 +134,7 @@ defineWorkflow({
 			"invalid",
 			{
 				output: Schema.String,
+				referenceKind: "script",
 				scriptSlug: "typed-activity",
 				input: Schema.Struct({ value: Schema.Finite }),
 			},
