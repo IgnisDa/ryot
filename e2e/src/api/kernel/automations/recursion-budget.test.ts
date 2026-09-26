@@ -45,10 +45,13 @@ const automationScript = (
 	entry: `backend/scripts/${slug}.sandbox.ts`,
 });
 
-const sandboxManifest = (script: AutomationScript) => {
-	const { entry: _entry, ...manifest } = script;
-	return manifest;
-};
+const sandboxManifest = ({
+	kind,
+	name,
+	slug,
+	automationType,
+	inputProjection,
+}: AutomationScript) => ({ kind, name, slug, automationType, inputProjection });
 
 const noOpAutomationSource = (script: AutomationScript) => `
 import { defineAutomation } from "@ryot-app/sandbox-sdk/automation";
