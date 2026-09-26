@@ -14,8 +14,9 @@
 			"dependsOn": ["^build"],
 			"inputs": ["src/**/*.ts", "!src/**/*.generated.ts", "tooling/**/*.ts", "package.json"],
 			"outputs": [
-				"src/lib/infrastructure/sandbox-runtime/*.generated.ts",
-				"src/modules/definition-registry/*.generated.ts"
+				"$TURBO_ROOT$/kernel/sandboxd/payload/**",
+				"src/modules/definition-registry/*.generated.ts",
+				"src/lib/infrastructure/sandbox-runtime/*.generated.ts"
 			]
 		},
 		"@ryot-app/kernel-backend#check": {
