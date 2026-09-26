@@ -55,7 +55,7 @@ import { RelationshipsService } from "#modules/relationships/service";
 
 import { PROGRESS_UPDATE_INTERVAL, recordImportRunFailure } from "./runtime/import-run-status";
 import { ImportRunError, toWorkflowError } from "./runtime/workflow-errors";
-import { ImportsService, type UpdateImportRunInput } from "./service";
+import { ImportsService, type UpdateImportRunProgressInput } from "./service";
 
 export const ProcessGenericImportChunksPayload = Schema.Struct({
 	userId: UserId,
@@ -634,13 +634,31 @@ const artifactReference = (
 		}).pipe(Effect.mapError(toWorkflowError)),
 	});
 
-const updateRun = (name: string, input: UpdateImportRunInput) =>
+const updateProgress = (name: string, input: UpdateImportRunProgressInput) =>
 	makeActivity({
 		name,
 		error: ImportRunError,
 		execute: Effect.gen(function* () {
 			const imports = yield* ImportsService;
-			yield* imports.update(input);
+			yield* imports.updateProgress(input);
+		}).pipe(Effect.mapError(toWorkflowError)),
+	});
+
+const finalizeRun = (
+	name: string,
+	input: UpdateImportRunProgressInput & {
+		finishedAt: Date;
+		failureReason?: ImportRunFailureReason;
+	},
+) =>
+	makeActivity({
+		name,
+		error: ImportRunError,
+		execute: Effect.gen(function* () {
+			const imports = yield* ImportsService;
+			return input.failureReason
+				? yield* imports.finishFailed({ ...input, failureReason: input.failureReason })
+				: yield* imports.finishCompleted(input);
 		}).pipe(Effect.mapError(toWorkflowError)),
 	});
 
@@ -668,7 +686,7 @@ export const runProcessGenericImportChunksWorkflow = Effect.fn(
 	const definitions = definitionLookup(snapshot);
 
 	const process = Effect.gen(function* () {
-		yield* updateRun("record-generic-import-total", { runId, totalItems: payload.totalItems });
+		yield* updateProgress("record-generic-import-total", { runId, totalItems: payload.totalItems });
 		for (let chunkIndex = 0; chunkIndex < payload.chunkHandles.length; chunkIndex += 1) {
 			const handle = payload.chunkHandles[chunkIndex];
 			if (!handle) {
@@ -785,7 +803,7 @@ export const runProcessGenericImportChunksWorkflow = Effect.fn(
 					processedItems % PROGRESS_UPDATE_INTERVAL === 0 ||
 					processedItems === payload.totalItems
 				) {
-					yield* updateRun(`report-generic-import-progress-${processedItems}`, {
+					yield* updateProgress(`report-generic-import-progress-${processedItems}`, {
 						runId,
 						failedItems,
 						importedItems,
@@ -822,15 +840,21 @@ export const runProcessGenericImportChunksWorkflow = Effect.fn(
 		yield* retain;
 		yield* process;
 		const finishedAt = yield* DateTime.nowAsDate;
-		yield* updateRun("finalize-generic-import", {
+		yield* finalizeRun("finalize-generic-import", {
 			runId,
 			finishedAt,
 			failedItems,
 			importedItems,
 			progress: 100,
 			processedItems,
-			status: payload.failRun ? "failed" : "completed",
-			...(payload.failRun && failureReason ? { failureReason } : {}),
+			...(payload.failRun
+				? {
+						failureReason: failureReason ?? {
+							operation: "generic-import",
+							code: "unexpected-failure" as const,
+						},
+					}
+				: {}),
 		});
 		return { failedItems, importedItems, processedItems };
 	}).pipe(
