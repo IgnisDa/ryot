@@ -102,6 +102,7 @@ const demoProtectedAuthPaths = new Set([
 	"/list-sessions",
 	"/refresh-token",
 	"/two-factor/get-totp-uri",
+	"/two-factor/verify-totp",
 ]);
 
 export const isDemoProtectedAuthRequest = (path: string, accessClass: unknown, clientId?: string) =>

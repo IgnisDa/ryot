@@ -542,6 +542,95 @@ describe("account settings", () => {
 		}),
 	);
 
+	it.live("hides two-factor management from accounts without a password", () =>
+		Effect.gen(function* () {
+			mountView("/settings/account");
+			yield* Effect.promise(() => screen.findByRole("button", { name: "New avatar" }));
+
+			expect(screen.queryByRole("heading", { name: "Two-factor authentication" })).toBeNull();
+		}),
+	);
+
+	it.live("hides two-factor management from the shared demo", () =>
+		Effect.gen(function* () {
+			mountView(
+				"/settings/account",
+				undefined,
+				undefined,
+				makeAuthStub({}, { ...authenticated, accessClass: "demo" }),
+				undefined,
+				undefined,
+				makeUserSettingsStub({
+					twoFactorStatus: () => Effect.succeed({ enabled: true, available: true }),
+				}),
+			);
+			yield* Effect.promise(() => screen.findByRole("button", { name: "New avatar" }));
+
+			expect(screen.queryByRole("heading", { name: "Two-factor authentication" })).toBeNull();
+		}),
+	);
+
+	it.live("links web users to the hosted two-factor page with the current status", () =>
+		Effect.gen(function* () {
+			mountView(
+				"/settings/account",
+				undefined,
+				undefined,
+				undefined,
+				undefined,
+				undefined,
+				makeUserSettingsStub({
+					twoFactorStatus: () => Effect.succeed({ enabled: true, available: true }),
+				}),
+			);
+
+			const heading = yield* Effect.promise(() =>
+				screen.findByRole("heading", { name: "Two-factor authentication" }),
+			);
+			const section = heading.closest("section");
+			if (section === null) {
+				throw new Error("Two-factor heading must be inside a section");
+			}
+			yield* Effect.promise(() => within(section).findByText("On"));
+			expect(within(section).getByRole("link", { name: "Manage" }).getAttribute("href")).toBe(
+				"/oauth/two-factor?from=settings",
+			);
+		}),
+	);
+
+	it.live("opens the hosted two-factor page natively and refreshes the status when it closes", () =>
+		Effect.gen(function* () {
+			const opened: string[] = [];
+			mountView(
+				"/settings/account",
+				undefined,
+				undefined,
+				undefined,
+				undefined,
+				undefined,
+				makeUserSettingsStub({
+					twoFactorStatus: () => Effect.succeed({ available: true, enabled: opened.length > 0 }),
+				}),
+				makeOAuthRouteStubs(
+					{},
+					{
+						openTwoFactorManagement: (origin) =>
+							Effect.sync(() => {
+								opened.push(origin);
+							}),
+					},
+					{ isNative: true },
+				),
+			);
+
+			yield* Effect.promise(() => screen.findByText("Off"));
+			fireEvent.click(screen.getByRole("button", { name: "Manage" }));
+
+			yield* Effect.promise(() => screen.findByText("On"));
+			expect(opened).toEqual([server]);
+		}),
+	);
+
 	it.live("generates a new avatar and forces the session to refresh", () =>
 		Effect.gen(function* () {
 			const refreshes: boolean[] = [];
