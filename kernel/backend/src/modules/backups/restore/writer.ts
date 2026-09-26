@@ -77,6 +77,36 @@ export class RequiredBackupPluginUnavailable extends Data.TaggedError(
 const archiveReferenceError = (error: DataReferenceError) =>
 	archiveError(error.code, error.message);
 
+const unavailable = (plugin: ArchiveRequiredPlugin) =>
+	new RequiredBackupPluginUnavailable({
+		packageId: plugin.packageId,
+		requiredVersion: plugin.version,
+	});
+
+const archivedManifest = (target: StoredPlugin, plugin: ArchiveRequiredPlugin) => ({
+	...target.manifest,
+	...plugin.definitionContract,
+});
+
+const notSystemOwned =
+	(systemIds: ReadonlySet<string>) =>
+	({ pluginId }: { readonly pluginId: string | null }) =>
+		pluginId === null || !systemIds.has(pluginId);
+
+const mappedPluginId = Effect.fn(function* (
+	pluginIdByKey: ReadonlyMap<string, string>,
+	key: string | null,
+) {
+	if (key === null) {
+		return null;
+	}
+	const pluginId = pluginIdByKey.get(key);
+	return pluginId ?? (yield* badRequest(`Backup references unmapped plugin key '${key}'`));
+});
+
+const mappedOwner = (pluginIdByKey: ReadonlyMap<string, string>, key: string | null) =>
+	Effect.map(mappedPluginId(pluginIdByKey, key), definitionOwner);
+
 export const resolveRequiredPluginIds = Effect.fn(function* (
 	required: ReadonlyArray<ArchiveRequiredPlugin>,
 	installedPlugins: ReadonlyArray<StoredPlugin>,
@@ -90,47 +120,27 @@ export const resolveRequiredPluginIds = Effect.fn(function* (
 	for (const plugin of required) {
 		const key = pluginPackageKey({ scope: "system", packageId: plugin.packageId });
 		const target = installed.get(plugin.packageId);
-		if (!target || pluginIdByKey.has(key)) {
-			return yield* new RequiredBackupPluginUnavailable({
-				packageId: plugin.packageId,
-				requiredVersion: plugin.version,
-			});
-		}
 		if (
-			target.sourceHash === plugin.sourceHash &&
-			stableStringify(plugin.definitionContract) !==
-				stableStringify(archivePluginDefinitionContract(target.manifest))
+			!target ||
+			pluginIdByKey.has(key) ||
+			(target.sourceHash === plugin.sourceHash &&
+				stableStringify(plugin.definitionContract) !==
+					stableStringify(archivePluginDefinitionContract(target.manifest)))
 		) {
-			return yield* new RequiredBackupPluginUnavailable({
-				packageId: plugin.packageId,
-				requiredVersion: plugin.version,
-			});
+			return yield* unavailable(plugin);
 		}
 		yield* Effect.try({
-			catch: () =>
-				new RequiredBackupPluginUnavailable({
-					packageId: plugin.packageId,
-					requiredVersion: plugin.version,
-				}),
+			catch: () => unavailable(plugin),
 			try: () =>
 				buildDefinitionSnapshot(
 					mergeManifestDefinitions(
 						{ savedViews: [], entitySchemas: [], signalSchemas: [], relationshipSchemas: [] },
-						[{ id: target.id, manifest: { ...target.manifest, ...plugin.definitionContract } }],
+						[{ id: target.id, manifest: archivedManifest(target, plugin) }],
 					),
 				),
 		});
-		yield* validateAdditiveSchemaEvolution(
-			{ ...target.manifest, ...plugin.definitionContract },
-			target.manifest,
-		).pipe(
-			Effect.mapError(
-				() =>
-					new RequiredBackupPluginUnavailable({
-						packageId: plugin.packageId,
-						requiredVersion: plugin.version,
-					}),
-			),
+		yield* validateAdditiveSchemaEvolution(archivedManifest(target, plugin), target.manifest).pipe(
+			Effect.mapError(() => unavailable(plugin)),
 		);
 		pluginIdByKey.set(key, target.id);
 	}
@@ -169,7 +179,7 @@ export const resolveRestoredInstallationLifecycle = (
 	>,
 	schema: AppSchema,
 	redactedConfigNeedsConfiguration: boolean,
-	systemIdentityConflict = false,
+	systemIdentityConflict: boolean,
 ) => {
 	if (systemIdentityConflict || state.lifecycleIntent === "incompatible") {
 		return {
@@ -346,25 +356,14 @@ export const preflightProvenance = Effect.fn(function* (
 	archivedEvents: ValidatedArchiveEvents,
 	pluginIdByKey: ReadonlyMap<string, string>,
 	definitions: DefinitionSnapshot,
-	requiredPlugins: ReadonlyArray<ArchiveRequiredPlugin> = [],
+	requiredPlugins: ReadonlyArray<ArchiveRequiredPlugin>,
 ) {
 	const privateKeys = new Set(records.privatePlugins.map(({ key }) => key));
 	const entitiesById = new Map(
 		[...records.entities, ...records.entityDependencies].map((entity) => [entity.id, entity]),
 	);
 	const definition = (kind: string, slug: string, key: string | null) =>
-		definitionKey(
-			kind,
-			definitionOwner(key === null ? null : (pluginIdByKey.get(key) ?? key)),
-			slug,
-		);
-	const mappedPluginId = Effect.fn(function* (key: string | null) {
-		if (key === null) {
-			return null;
-		}
-		const pluginId = pluginIdByKey.get(key);
-		return pluginId ?? (yield* badRequest(`Backup references unmapped plugin key '${key}'`));
-	});
+		Effect.map(mappedOwner(pluginIdByKey, key), (owner) => definitionKey(kind, owner, slug));
 	const assertOwner = Effect.fn(function* (
 		key: string | null,
 		schemaDefinition: { readonly pluginId?: string | null | undefined } | undefined,
@@ -373,7 +372,7 @@ export const preflightProvenance = Effect.fn(function* (
 		if (!schemaDefinition) {
 			return yield* badRequest(`Backup references an unavailable ${kind}`);
 		}
-		if ((yield* mappedPluginId(key)) !== (schemaDefinition.pluginId ?? null)) {
+		if ((yield* mappedPluginId(pluginIdByKey, key)) !== (schemaDefinition.pluginId ?? null)) {
 			return yield* badRequest(`Backup ${kind} provenance has the wrong plugin owner`);
 		}
 		return yield* Effect.void;
@@ -391,7 +390,7 @@ export const preflightProvenance = Effect.fn(function* (
 	for (const plugin of records.privatePlugins) {
 		for (const imported of plugin.compiledClient?.imports ?? []) {
 			const key = pluginPackageKey(imported.reference);
-			yield* mappedPluginId(key);
+			yield* mappedPluginId(pluginIdByKey, key);
 			if (!contracts.get(key)?.client?.exports?.[imported.exportName]) {
 				return yield* badRequest("Backup client dependency references an unavailable export");
 			}
@@ -403,7 +402,7 @@ export const preflightProvenance = Effect.fn(function* (
 		schemaSlug: string,
 	) {
 		if (provider) {
-			yield* mappedPluginId(provider.pluginKey);
+			yield* mappedPluginId(pluginIdByKey, provider.pluginKey);
 			if (
 				provider.pluginKey !== schemaKey ||
 				!contracts
@@ -419,7 +418,7 @@ export const preflightProvenance = Effect.fn(function* (
 	});
 
 	for (const installation of records.installations) {
-		yield* mappedPluginId(installation.packageKey);
+		yield* mappedPluginId(pluginIdByKey, installation.packageKey);
 		const privatePlugin = records.privatePlugins.find(({ key }) => key === installation.packageKey);
 		if (privatePlugin) {
 			yield* validateRestoredProperties(
@@ -439,14 +438,14 @@ export const preflightProvenance = Effect.fn(function* (
 			const key = home.kind === "plugin" ? home.pluginKey : null;
 			yield* assertOwner(
 				key,
-				definitions.savedViews[definition("saved-view", home.slug, key)],
+				definitions.savedViews[yield* definition("saved-view", home.slug, key)],
 				"home saved view",
 			);
 		}
 	}
 	for (const integration of records.integrations) {
 		if (integration.packageKey !== null) {
-			yield* mappedPluginId(integration.packageKey);
+			yield* mappedPluginId(pluginIdByKey, integration.packageKey);
 		}
 		const provider =
 			integration.packageKey === null
@@ -471,7 +470,7 @@ export const preflightProvenance = Effect.fn(function* (
 	for (const entity of records.entities) {
 		const schema =
 			definitions.entitySchemas[
-				definition("entity", entity.entitySchemaSlug, entity.entitySchemaPluginKey)
+				yield* definition("entity", entity.entitySchemaSlug, entity.entitySchemaPluginKey)
 			];
 		yield* assertOwner(entity.entitySchemaPluginKey, schema, "entity schema");
 		yield* assertProvider(entity.provider, entity.entitySchemaPluginKey, entity.entitySchemaSlug);
@@ -488,7 +487,7 @@ export const preflightProvenance = Effect.fn(function* (
 		}
 		const schema =
 			definitions.entitySchemas[
-				definition("entity", dependency.entitySchemaSlug, dependency.entitySchemaPluginKey)
+				yield* definition("entity", dependency.entitySchemaSlug, dependency.entitySchemaPluginKey)
 			];
 		yield* assertOwner(dependency.entitySchemaPluginKey, schema, "entity schema");
 		yield* assertProvider(
@@ -514,7 +513,7 @@ export const preflightProvenance = Effect.fn(function* (
 			}
 		}
 		if (dependency.identity.kind !== "unmanaged") {
-			yield* mappedPluginId(dependency.identity.pluginKey);
+			yield* mappedPluginId(pluginIdByKey, dependency.identity.pluginKey);
 		}
 	}
 	for (const relationship of records.relationships) {
@@ -523,7 +522,7 @@ export const preflightProvenance = Effect.fn(function* (
 		}
 		const schema =
 			definitions.relationshipSchemas[
-				definition(
+				yield* definition(
 					"relationship",
 					relationship.relationshipSchemaSlug,
 					relationship.relationshipSchemaPluginKey,
@@ -536,8 +535,6 @@ export const preflightProvenance = Effect.fn(function* (
 				schema.propertiesSchema,
 				"Relationship properties",
 			);
-		}
-		if (schema) {
 			for (const [id, slug] of [
 				[relationship.sourceEntityId, schema.sourceEntitySchemaSlug],
 				[relationship.targetEntityId, schema.targetEntitySchemaSlug],
@@ -562,12 +559,12 @@ export const preflightProvenance = Effect.fn(function* (
 		if (view.kind === "builtin-override") {
 			yield* assertOwner(
 				view.pluginKey,
-				definitions.savedViews[definition("saved-view", view.slug, view.pluginKey)],
+				definitions.savedViews[yield* definition("saved-view", view.slug, view.pluginKey)],
 				"saved view",
 			);
 		} else {
 			if (view.pluginKey !== null) {
-				yield* mappedPluginId(view.pluginKey);
+				yield* mappedPluginId(pluginIdByKey, view.pluginKey);
 			}
 			const dataSources = yield* importQueryPluginReferences(view.dataSources, pluginIdByKey);
 			const settings = yield* importRendererSettings(view.renderer, view.settings, pluginIdByKey);
@@ -590,7 +587,7 @@ export const preflightProvenance = Effect.fn(function* (
 							kind: "plugin",
 							exportName: view.renderer.exportName,
 							pluginId:
-								(yield* mappedPluginId(view.renderer.pluginKey)) ??
+								(yield* mappedPluginId(pluginIdByKey, view.renderer.pluginKey)) ??
 								(yield* badRequest("Backup renderer owner is unavailable")),
 						}
 					: view.renderer;
@@ -606,14 +603,15 @@ export const preflightProvenance = Effect.fn(function* (
 				page?.kind === "page" ? page : null,
 			).pipe(Effect.mapError(() => badRequest("Backup saved view definition is invalid")));
 		}
-		if (view.kind === "custom" && view.renderer.kind === "plugin") {
-			yield* mappedPluginId(view.renderer.pluginKey);
-		}
 	}
 	for (const subscription of records.notificationSubscriptions) {
 		const schema =
 			definitions.signalSchemas[
-				definition("signal", subscription.signalSchemaSlug, subscription.signalSchemaPluginKey)
+				yield* definition(
+					"signal",
+					subscription.signalSchemaSlug,
+					subscription.signalSchemaPluginKey,
+				)
 			];
 		yield* assertOwner(subscription.signalSchemaPluginKey, schema, "signal schema");
 		if (schema && isArchiveJsonObject(subscription.metadata)) {
@@ -624,26 +622,13 @@ export const preflightProvenance = Effect.fn(function* (
 			);
 		}
 	}
-	const entitySchemaById = new Map(
-		[...records.entities, ...records.entityDependencies].map(
-			({ id, entitySchemaSlug, entitySchemaPluginKey }) => [
-				id,
-				definition("entity", entitySchemaSlug, entitySchemaPluginKey),
-			],
-		),
-	);
-	const entityIds = new Set(entitySchemaById.keys());
-	for (const relationship of records.relationships) {
-		if (
-			!entityIds.has(relationship.sourceEntityId) ||
-			!entityIds.has(relationship.targetEntityId)
-		) {
-			return yield* badRequest("Backup relationship references an unknown entity");
-		}
+	const entitySchemaById = new Map<string, string>();
+	for (const { id, entitySchemaSlug, entitySchemaPluginKey } of entitiesById.values()) {
+		entitySchemaById.set(id, yield* definition("entity", entitySchemaSlug, entitySchemaPluginKey));
 	}
 	yield* Stream.runForEach(archivedEvents.read(), (event) =>
 		Effect.gen(function* () {
-			if (event.sessionEntityId !== null && !entityIds.has(event.sessionEntityId)) {
+			if (event.sessionEntityId !== null && !entitiesById.has(event.sessionEntityId)) {
 				return yield* badRequest("Backup event session references an unknown entity");
 			}
 			const schemaKey = entitySchemaById.get(event.entityId);
@@ -707,20 +692,14 @@ export class BackupRestoreWriter extends Context.Service<BackupRestoreWriter>()(
 							pluginPackageKey({ scope: "system", packageId: plugin.packageId }),
 						) !== target.id
 					) {
-						return yield* new RequiredBackupPluginUnavailable({
-							packageId: plugin.packageId,
-							requiredVersion: plugin.version,
-						});
+						return yield* unavailable(plugin);
 					}
 					currentContracts.push({
 						...plugin,
 						definitionContract: archivePluginDefinitionContract(target.manifest),
 					});
 					systemIds.add(target.id);
-					archivedCandidates.push({
-						id: target.id,
-						manifest: { ...target.manifest, ...plugin.definitionContract },
-					});
+					archivedCandidates.push({ id: target.id, manifest: archivedManifest(target, plugin) });
 				}
 				const source = definitionSourceFromSnapshot(definitions);
 				const archivedDefinitions = yield* Effect.try({
@@ -729,18 +708,10 @@ export class BackupRestoreWriter extends Context.Service<BackupRestoreWriter>()(
 						buildDefinitionSnapshot(
 							mergeManifestDefinitions(
 								{
-									savedViews: source.savedViews.filter(
-										({ pluginId }) => pluginId === null || !systemIds.has(pluginId),
-									),
-									entitySchemas: source.entitySchemas.filter(
-										({ pluginId }) => pluginId === null || !systemIds.has(pluginId),
-									),
-									signalSchemas: source.signalSchemas.filter(
-										({ pluginId }) => pluginId === null || !systemIds.has(pluginId),
-									),
-									relationshipSchemas: source.relationshipSchemas.filter(
-										({ pluginId }) => pluginId === null || !systemIds.has(pluginId),
-									),
+									savedViews: source.savedViews.filter(notSystemOwned(systemIds)),
+									entitySchemas: source.entitySchemas.filter(notSystemOwned(systemIds)),
+									signalSchemas: source.signalSchemas.filter(notSystemOwned(systemIds)),
+									relationshipSchemas: source.relationshipSchemas.filter(notSystemOwned(systemIds)),
 								},
 								archivedCandidates,
 							),
@@ -910,12 +881,16 @@ export class BackupRestoreWriter extends Context.Service<BackupRestoreWriter>()(
 						updatedAt: parseDate(state.updatedAt),
 					});
 				}
-				const mappedOwner = (key: string | null) =>
-					definitionOwner(key === null ? null : (pluginIdByKey.get(key) ?? key));
 				const getEntitySchema = (slug: string, key: string | null) =>
-					definitions.entitySchemas[definitionKey("entity", mappedOwner(key), slug)];
+					Effect.map(
+						mappedOwner(pluginIdByKey, key),
+						(owner) => definitions.entitySchemas[definitionKey("entity", owner, slug)],
+					);
 				const getRelationshipSchema = (slug: string, key: string | null) =>
-					definitions.relationshipSchemas[definitionKey("relationship", mappedOwner(key), slug)];
+					Effect.map(
+						mappedOwner(pluginIdByKey, key),
+						(owner) => definitions.relationshipSchemas[definitionKey("relationship", owner, slug)],
+					);
 				for (const integration of records.integrations) {
 					const pluginId =
 						integration.packageKey === null ? undefined : pluginIdByKey.get(integration.packageKey);
@@ -1006,12 +981,6 @@ export class BackupRestoreWriter extends Context.Service<BackupRestoreWriter>()(
 					Effect.Success<ReturnType<typeof entities.findGlobalEntityForRestore>>
 				>();
 				for (const dependency of records.entityDependencies) {
-					if (
-						dependency.entitySchemaPluginKey !== null &&
-						privateKeys.has(dependency.entitySchemaPluginKey)
-					) {
-						return yield* badRequest("Backup private entity cannot request global scope");
-					}
 					const pluginId =
 						dependency.entitySchemaPluginKey === null
 							? null
@@ -1064,7 +1033,7 @@ export class BackupRestoreWriter extends Context.Service<BackupRestoreWriter>()(
 					entityIdMap.set(dependency.id, target?.id ?? EntityId.make(dependency.id));
 				}
 				for (const dependency of records.entityDependencies) {
-					const schemaDefinition = getEntitySchema(
+					const schemaDefinition = yield* getEntitySchema(
 						dependency.entitySchemaSlug,
 						dependency.entitySchemaPluginKey,
 					);
@@ -1151,10 +1120,10 @@ export class BackupRestoreWriter extends Context.Service<BackupRestoreWriter>()(
 						continue;
 					}
 					const provider = yield* resolveProvider(pluginIdByKey, entity.provider);
-					const propertiesSchema = getEntitySchema(
+					const propertiesSchema = (yield* getEntitySchema(
 						entity.entitySchemaSlug,
 						entity.entitySchemaPluginKey,
-					)?.propertiesSchema;
+					))?.propertiesSchema;
 					if (!propertiesSchema) {
 						return yield* badRequest("Backup references an unavailable entity schema");
 					}
@@ -1186,10 +1155,10 @@ export class BackupRestoreWriter extends Context.Service<BackupRestoreWriter>()(
 					const rewritten = yield* rewriteRelationshipReferences(relationship, entityIdMap);
 					const sourceEntityId = EntityId.make(rewritten.sourceEntityId);
 					const targetEntityId = EntityId.make(rewritten.targetEntityId);
-					const propertiesSchema = getRelationshipSchema(
+					const propertiesSchema = (yield* getRelationshipSchema(
 						relationship.relationshipSchemaSlug,
 						relationship.relationshipSchemaPluginKey,
-					)?.propertiesSchema;
+					))?.propertiesSchema;
 					if (!propertiesSchema) {
 						return yield* badRequest("Backup references an unavailable relationship schema");
 					}
@@ -1223,8 +1192,10 @@ export class BackupRestoreWriter extends Context.Service<BackupRestoreWriter>()(
 						if (!entitySchemaSlug) {
 							return yield* badRequest("Backup event references an unknown entity schema");
 						}
-						const propertiesSchema = getEntitySchema(entitySchemaSlug, event.eventSchemaPluginKey)
-							?.eventSchemas[event.eventSchemaSlug]?.propertiesSchema;
+						const propertiesSchema = (yield* getEntitySchema(
+							entitySchemaSlug,
+							event.eventSchemaPluginKey,
+						))?.eventSchemas[event.eventSchemaSlug]?.propertiesSchema;
 						if (!propertiesSchema) {
 							return yield* badRequest("Backup references an unavailable event schema");
 						}
@@ -1269,19 +1240,20 @@ export class BackupRestoreWriter extends Context.Service<BackupRestoreWriter>()(
 				}
 				for (const view of records.savedViews) {
 					if (view.kind === "builtin-override") {
+						const pluginId = yield* mappedPluginId(pluginIdByKey, view.pluginKey);
 						if (
 							!definitions.savedViews[
-								definitionKey("saved-view", mappedOwner(view.pluginKey), view.slug)
+								definitionKey("saved-view", definitionOwner(pluginId), view.slug)
 							]
 						) {
 							return yield* badRequest("Backup references an unavailable built-in saved view");
 						}
 						yield* persistence.restoreBuiltinOverride({
 							userId,
+							pluginId,
 							slug: view.slug,
 							isHidden: view.isHidden,
 							sortOrder: view.sortOrder,
-							pluginId: view.pluginKey === null ? null : pluginIdByKey.get(view.pluginKey),
 						});
 						continue;
 					}
@@ -1368,10 +1340,14 @@ export class BackupRestoreWriter extends Context.Service<BackupRestoreWriter>()(
 					}
 				}
 				for (const definition of Object.values(definitions.signalSchemas)) {
+					const pluginKey = definition.pluginId
+						? pluginKeyById.get(definition.pluginId)
+						: undefined;
 					if (
 						definition.catalogState === "active" &&
 						definition.pluginId &&
-						privateKeys.has(pluginKeyById.get(definition.pluginId) ?? "")
+						pluginKey !== undefined &&
+						privateKeys.has(pluginKey)
 					) {
 						yield* automations.insertNotificationSubscription({
 							userId,
@@ -1387,7 +1363,7 @@ export class BackupRestoreWriter extends Context.Service<BackupRestoreWriter>()(
 						definitions.signalSchemas[
 							definitionKey(
 								"signal",
-								mappedOwner(subscription.signalSchemaPluginKey),
+								yield* mappedOwner(pluginIdByKey, subscription.signalSchemaPluginKey),
 								subscription.signalSchemaSlug,
 							)
 						];

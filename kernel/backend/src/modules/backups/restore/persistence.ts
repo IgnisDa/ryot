@@ -161,7 +161,11 @@ export class BackupRestorePersistence extends Context.Service<BackupRestorePersi
 				return row ?? null;
 			});
 			const restoreBuiltinOverride = Effect.fn("BackupRestorePersistence.restoreBuiltinOverride")(
-				function* (input: typeof schema.savedViewOverride.$inferInsert) {
+				function* (
+					input: typeof schema.savedViewOverride.$inferInsert & {
+						readonly pluginId: string | null;
+					},
+				) {
 					yield* session.run((db) =>
 						upsertSavedViewOverride(db, input, {
 							isHidden: input.isHidden,
