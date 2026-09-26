@@ -1,0 +1,264 @@
+import {
+	claimPersistentValueResultSchema,
+	changeUserRelationshipsArgsSchema,
+	ensureUserEntitiesArgsSchema,
+	httpCallArgsSchema,
+	httpCallResultSchema,
+	logArgsSchema,
+	spanArgsSchema,
+	upsertGlobalEntitiesArgsSchema,
+	upsertGlobalRelationshipsArgsSchema,
+} from "@ryot-app/sandbox-sdk/core";
+import { Effect, Schema } from "@ryot-app/sandbox-sdk/effect";
+import { defineSandboxTestHost, runSandboxTestScript } from "@ryot-app/sandbox-sdk/testing";
+import { describe, expect, test } from "vitest";
+
+import { SANDBOX_SCRIPT_DEFINITION, defineManifest, defineScript } from "../src/driver";
+import { jsonValueSchema } from "../src/wire";
+
+const decode = <A, I>(schema: Schema.Codec<A, I>) => Schema.decodeUnknownSync(schema);
+
+describe("generic script definitions", () => {
+	test("preserves the manifest, schemas, and inferred implementation", async () => {
+		const manifest = defineManifest({
+			kind: "script",
+			capabilities: [],
+			name: "Increment",
+			slug: "increment",
+			requiredPluginConfigKeys: [],
+			requiredSystemConfigKeys: [],
+		});
+		const definition = defineScript({
+			manifest,
+			output: Schema.Number,
+			input: Schema.Struct({ value: Schema.Number }),
+			run: (input) => Effect.succeed(input.value + 1),
+		});
+
+		expect(definition.definitionType).toBe(SANDBOX_SCRIPT_DEFINITION);
+		expect(definition.manifest).toBe(manifest);
+		expect(
+			await Effect.runPromise(
+				definition.run({ value: 41 }, {}, { metadata: {}, sandboxScriptId: "script-1" }),
+			),
+		).toBe(42);
+	});
+});
+
+describe("shared value contracts", () => {
+	test("accepts nested JSON and discriminates host failures", () => {
+		expect(decode(jsonValueSchema)({ nested: [true, 2, null] })).toEqual({
+			nested: [true, 2, null],
+		});
+		expect(() => decode(jsonValueSchema)(Number.NaN)).toThrow();
+		expect(() => decode(jsonValueSchema)(Number.POSITIVE_INFINITY)).toThrow();
+		const cyclic: Record<string, unknown> = {};
+		cyclic["self"] = cyclic;
+		expect(() => decode(jsonValueSchema)(cyclic)).toThrow();
+		expect(() => decode(jsonValueSchema)(Array(1))).toThrow();
+	});
+
+	test("preserves core host result variants", () => {
+		expect(
+			decode(httpCallArgsSchema)([
+				"GET",
+				"https://example.com",
+				{ allowInsecureConnections: true },
+			]),
+		).toEqual(["GET", "https://example.com", { allowInsecureConnections: true }]);
+		expect(
+			decode(httpCallResultSchema)({
+				success: false,
+				error: "HTTP 429",
+				data: { status: 429, body: "rate limited", headers: { "retry-after": "10" } },
+			}),
+		).toEqual({
+			success: false,
+			error: "HTTP 429",
+			data: { status: 429, body: "rate limited", headers: { "retry-after": "10" } },
+		});
+		expect(
+			decode(claimPersistentValueResultSchema)({
+				success: true,
+				data: { claimed: false, value: { owner: "other" } },
+			}),
+		).toEqual({ success: true, data: { claimed: false, value: { owner: "other" } } });
+	});
+
+	test("accepts valid log and span batches", () => {
+		expect(
+			decode(logArgsSchema)([
+				[
+					{
+						level: "info",
+						message: "Imported entities",
+						attributes: { count: 2, context: { source: "provider" } },
+					},
+				],
+			]),
+		).toEqual([
+			[
+				{
+					level: "info",
+					message: "Imported entities",
+					attributes: { count: 2, context: { source: "provider" } },
+				},
+			],
+		]);
+		expect(decode(spanArgsSchema)([[{ name: "provider.import" }]])).toEqual([
+			[{ name: "provider.import" }],
+		]);
+	});
+
+	test("rejects malformed or excess log and span entries", () => {
+		expect(() => decode(logArgsSchema)([[{ level: "notice", message: "message" }]])).toThrow();
+		expect(() => decode(logArgsSchema)([[{ message: "", level: "error" }]])).toThrow();
+		expect(() =>
+			decode(logArgsSchema)([[{ extra: true, level: "debug", message: "message" }]]),
+		).toThrow();
+		expect(() => decode(spanArgsSchema)([[{ name: "", attributes: {} }]])).toThrow();
+		expect(() => decode(spanArgsSchema)([[{ extra: true, name: "span" }]])).toThrow();
+	});
+
+	test("validates global write batches and reconciliation selectors", () => {
+		expect(
+			decode(upsertGlobalEntitiesArgsSchema)([
+				[
+					{
+						name: "Cooper",
+						populatedAt: null,
+						externalId: "person-1",
+						entitySchemaSlug: "person",
+						properties: { role: "actor" },
+					},
+				],
+				{ maximumTotal: 100 },
+			]),
+		).toHaveLength(2);
+		expect(() => decode(upsertGlobalEntitiesArgsSchema)([[], { maximumTotal: -1 }])).toThrow();
+		expect(() => decode(upsertGlobalEntitiesArgsSchema)([[], { maximumTotal: 1.5 }])).toThrow();
+		expect(
+			decode(upsertGlobalRelationshipsArgsSchema)([
+				[
+					{
+						relationshipSchemaSlug: "acted-in",
+						selector: { type: "anchored", direction: "outgoing", anchorEntityId: "person-1" },
+						relationships: [
+							{ properties: { order: 1 }, targetEntityId: "movie-1", sourceEntityId: "person-1" },
+						],
+					},
+				],
+			]),
+		).toHaveLength(1);
+		expect(() =>
+			decode(upsertGlobalRelationshipsArgsSchema)([
+				[{ relationships: [], selector: { type: "all" }, relationshipSchemaSlug: "acted-in" }],
+			]),
+		).toThrow();
+	});
+
+	test("validates generic user relationship change batches", () => {
+		const identity = {
+			sourceEntityId: "entity-1",
+			targetEntityId: "collection-1",
+			relationshipSchemaSlug: "member-of",
+		};
+		expect(
+			decode(changeUserRelationshipsArgsSchema)([
+				[{ deletes: [], creates: [{ ...identity, properties: {} }] }],
+			]),
+		).toHaveLength(1);
+		expect(() =>
+			decode(changeUserRelationshipsArgsSchema)([
+				[{ creates: [], deletes: [], userId: "caller-selected" }],
+			]),
+		).toThrow();
+		expect(() =>
+			decode(changeUserRelationshipsArgsSchema)([
+				[
+					{
+						deletes: Array.from({ length: 50 }, () => identity),
+						creates: Array.from({ length: 51 }, () => ({ ...identity, properties: {} })),
+					},
+				],
+			]),
+		).toThrow();
+	});
+
+	test("validates user entity ensure batches without accepting caller-owned subject", () => {
+		const item = { properties: {}, name: "Library", entitySchemaSlug: "media-library" };
+		expect(decode(ensureUserEntitiesArgsSchema)([[item]])).toEqual([[item]]);
+		expect(() =>
+			decode(ensureUserEntitiesArgsSchema)([[{ ...item, userId: "caller-selected" }]]),
+		).toThrow();
+		expect(() =>
+			decode(ensureUserEntitiesArgsSchema)([[{ ...item, pluginSlug: "caller-selected" }]]),
+		).toThrow();
+		expect(() =>
+			decode(ensureUserEntitiesArgsSchema)([Array.from({ length: 501 }, () => item)]),
+		).toThrow();
+	});
+});
+
+describe("sandbox test hosts", () => {
+	test("invokes a script with capability-checked host stubs", async () => {
+		const manifest = defineManifest({
+			kind: "script",
+			name: "Cache reader",
+			slug: "cache-reader",
+			requiredPluginConfigKeys: [],
+			requiredSystemConfigKeys: [],
+			capabilities: ["getCachedValue"],
+		});
+		const definition = defineScript({
+			manifest,
+			output: Schema.NullOr(Schema.Number),
+			input: Schema.Struct({ key: Schema.String }),
+			run: (input, host) =>
+				host
+					.getCachedValue(input.key)
+					.pipe(Effect.map((value) => (typeof value === "number" ? value : null))),
+		});
+		const host = defineSandboxTestHost(manifest, { getCachedValue: () => Effect.succeed(42) });
+
+		expect(
+			await Effect.runPromise(
+				runSandboxTestScript(definition, { key: "answer" }, host, {
+					metadata: {},
+					sandboxScriptId: "script-1",
+				}),
+			),
+		).toBe(42);
+	});
+});
+
+describe("domain host contracts", () => {
+	test("invokes domain host stubs and keeps RyotQL output unparsed", async () => {
+		const manifest = defineManifest({
+			kind: "script",
+			name: "Domain reader",
+			slug: "domain-reader",
+			requiredPluginConfigKeys: [],
+			requiredSystemConfigKeys: [],
+			capabilities: ["executeRyotql"],
+		});
+		const definition = defineScript({
+			manifest,
+			input: Schema.Struct({}),
+			output: Schema.Struct({ rows: Schema.Number }),
+			run: (_input, host) =>
+				host
+					.executeRyotql({ queries: {} })
+					.pipe(Effect.map((result) => ({ rows: Array.isArray(result) ? result.length : 0 }))),
+		});
+		const host = defineSandboxTestHost(manifest, {
+			executeRyotql: () => Effect.succeed([{ id: "a" }, { id: "b" }]),
+		});
+
+		expect(
+			await Effect.runPromise(
+				runSandboxTestScript(definition, {}, host, { metadata: {}, sandboxScriptId: "script-1" }),
+			),
+		).toEqual({ rows: 2 });
+	});
+});

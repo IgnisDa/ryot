@@ -1,6 +1,8 @@
+import type { MetadataLookupResult } from "@ryot-app/media-plugin/contracts/operations";
+
 import { storage } from "#imports";
+
 import { MESSAGE_TYPES, STORAGE_KEYS } from "./constants";
-import type { MetadataLookupData } from "./extension-types";
 import { logger } from "./logger";
 import { extractMetadataTitle } from "./metadata-extractor";
 
@@ -24,14 +26,16 @@ export class MetadataCache {
 	async getMetadataForCurrentPage() {
 		const title = extractMetadataTitle();
 
-		if (!title) return null;
+		if (!title) {
+			return null;
+		}
 
 		await this.setCurrentPageTitle(title);
 
 		const cacheKey = this.getCacheKey(title);
-		const cachedData = await storage.getItem<MetadataLookupData>(cacheKey);
+		const cachedData = await storage.getItem<MetadataLookupResult>(cacheKey);
 
-		return cachedData || null;
+		return cachedData ?? null;
 	}
 
 	async lookupAndCacheMetadata() {
@@ -52,13 +56,14 @@ export class MetadataCache {
 
 			if (response.success && response.data) {
 				const cacheKey = this.getCacheKey(title);
-				await storage.setItem(cacheKey, response.data.response);
+				await storage.setItem(cacheKey, response.data);
 				logger.debug("Metadata lookup successful", {
 					title,
 					cacheKey,
 					responseData: response.data,
 				});
-				return response.data.response as MetadataLookupData;
+				// oxlint-disable-next-line typescript/no-unsafe-type-assertion -- cross-process runtime message payload is typed any; runtime validation is disproportionate here
+				return response.data as MetadataLookupResult;
 			}
 
 			logger.debug("Metadata lookup failed", { error: response.error });

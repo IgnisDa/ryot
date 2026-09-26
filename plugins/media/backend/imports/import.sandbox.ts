@@ -1,0 +1,459 @@
+import {
+	genericImportKernelInputSchema,
+	genericImportWorkflowManifestSchema,
+	genericImportWorkflowInputSchema,
+	genericImportWorkflowResultSchema,
+} from "@ryot-app/sandbox-sdk/imports";
+import { defineManifest, defineWorkflow, Effect, Schema } from "@ryot-app/sandbox-sdk/workflow";
+
+import { ResolveEpisodesInput, ResolveEpisodesOutput } from "../contracts/operations";
+import {
+	MediaImportPopulationWorkflowInput,
+	MediaImportPopulationWorkflowOutput,
+	MediaImportResolutionWorkflowInput,
+	MediaImportResolutionWorkflowOutput,
+} from "../contracts/workflows";
+import { importEntityRefIdentifier } from "./groups";
+import type { MediaImportAdapterFailure, UnresolvedEpisodeRef } from "./schemas";
+import {
+	MediaImportAdapterBatch,
+	MediaImportDispatchParserInput,
+	MediaIntegrationAdapterResult,
+	MediaImportWriteChunkInput,
+	TraktImportTarget,
+	TraktImportUrl,
+} from "./schemas";
+
+export const manifest = defineManifest({
+	kind: "workflow",
+	capabilities: [],
+	name: "Media import",
+	requiredPluginConfigKeys: [],
+	requiredSystemConfigKeys: [],
+	slug: "workflow.media-import",
+});
+
+const BATCH_SIZE = 25;
+
+const mediaImportResolutionActivitySlugByProvider = {
+	"show.tmdb": "media-import-resolve.show.tmdb",
+	"movie.tmdb": "media-import-resolve.movie.tmdb",
+	"book.hardcover": "media-import-resolve.book.hardcover",
+	"book.openlibrary": "media-import-resolve.book.openlibrary",
+	"book.google-books": "media-import-resolve.book.google-books",
+} as const;
+
+export const mediaImportParser = (source: string) => ({
+	scriptSlug: `import.${source}`,
+	output: MediaImportAdapterBatch,
+	input: MediaImportDispatchParserInput,
+});
+
+const integrationAdapter = (scriptSlug: string) => ({
+	scriptSlug,
+	input: Schema.Unknown,
+	output: MediaIntegrationAdapterResult,
+});
+
+type FinalizedEntityGroup = (typeof MediaImportWriteChunkInput.Type)["entityGroups"][number];
+type FinalizedEvent = FinalizedEntityGroup["events"][number];
+
+const unresolvedEpisodeMessage = (episode: UnresolvedEpisodeRef) => {
+	if (episode.type === "show-season") {
+		return `Could not resolve show season ${episode.seasonNumber}`;
+	}
+	return episode.type === "show"
+		? `Could not resolve show episode S${episode.seasonNumber}E${episode.episodeNumber}`
+		: `Could not resolve podcast episode ${episode.episodeNumber}`;
+};
+
+const resolution = {
+	workflowSlug: "media-import-resolution",
+	input: MediaImportResolutionWorkflowInput,
+	output: MediaImportResolutionWorkflowOutput,
+};
+
+const population = {
+	workflowSlug: "media-import-population",
+	input: MediaImportPopulationWorkflowInput,
+	output: MediaImportPopulationWorkflowOutput,
+};
+
+const episodes = {
+	input: ResolveEpisodesInput,
+	output: ResolveEpisodesOutput,
+	scriptSlug: "import.resolve-episodes",
+};
+
+const chunkWriter = {
+	input: MediaImportWriteChunkInput,
+	scriptSlug: "import.write-chunks",
+	output: genericImportWorkflowManifestSchema,
+};
+
+const kernelImport = {
+	input: genericImportKernelInputSchema,
+	output: genericImportWorkflowResultSchema,
+	workflowSlug: "kernel:process-import-chunks",
+};
+
+const resolutionCandidates = (entitySchemaSlug: string) =>
+	Object.entries(mediaImportResolutionActivitySlugByProvider).flatMap(
+		([providerSlug, scriptSlug]) =>
+			providerSlug.startsWith(`${entitySchemaSlug}.`) ? [{ scriptSlug, providerSlug }] : [],
+	);
+
+export default defineWorkflow({
+	manifest,
+	input: genericImportWorkflowInputSchema,
+	output: genericImportWorkflowResultSchema,
+	run: (input, replay) =>
+		Effect.gen(function* () {
+			const integrationId = input.sourcePayload?.["integrationId"];
+			const integrationScriptSlug = input.sourcePayload?.["integrationScriptSlug"];
+			const isIntegration =
+				typeof integrationId === "string" && typeof integrationScriptSlug === "string";
+			let parserInput: typeof MediaImportDispatchParserInput.Type = { start: 0, limit: BATCH_SIZE };
+			if (!isIntegration) {
+				if (input.source === "igdb") {
+					const collection = input.sourcePayload?.["collection"];
+					if (typeof collection !== "string" || !collection.trim()) {
+						return yield* Effect.fail(new Error("Import job is missing IGDB collection"));
+					}
+					parserInput = { ...parserInput, collection: collection.trim() };
+				}
+				if (input.source === "netflix") {
+					const profileName = input.sourcePayload?.["profileName"];
+					if (typeof profileName === "string") {
+						parserInput = { ...parserInput, profileName };
+					}
+				}
+				if (input.source === "myanimelist") {
+					const hasAnimeFile = typeof input.sourcePayload?.["animeUploadToken"] === "string";
+					const hasMangaFile = typeof input.sourcePayload?.["mangaUploadToken"] === "string";
+					if (!hasAnimeFile && !hasMangaFile) {
+						return yield* Effect.fail(new Error("Import job is missing MyAnimeList export files"));
+					}
+					parserInput = { ...parserInput, hasAnimeFile, hasMangaFile };
+				}
+				if (input.source === "trakt") {
+					const target = input.sourcePayload ?? {};
+					const mode = target["mode"];
+					if (!Schema.is(TraktImportTarget)(target)) {
+						if (
+							mode === "user" &&
+							(!Schema.is(Schema.NonEmptyString)(target["username"]) ||
+								!String(target["username"]).trim())
+						) {
+							return yield* Effect.fail(new Error("Import job is missing Trakt username"));
+						}
+						if (mode === "user") {
+							return yield* Effect.fail(new Error("Import job has invalid Trakt user fields"));
+						}
+						if (mode === "list") {
+							if (!Schema.is(TraktImportUrl)(target["url"])) {
+								return yield* Effect.fail(
+									new Error("Import job is missing or invalid Trakt list URL"),
+								);
+							}
+							if (
+								!Schema.is(Schema.NonEmptyString)(target["collection"]) ||
+								!String(target["collection"]).trim()
+							) {
+								return yield* Effect.fail(new Error("Import job is missing Trakt collection"));
+							}
+							return yield* Effect.fail(new Error("Import job has invalid Trakt list fields"));
+						}
+						if (mode === "export") {
+							return yield* Effect.fail(new Error("Import job is missing Trakt export ZIP"));
+						}
+						return yield* Effect.fail(new Error("Import job is missing or invalid Trakt mode"));
+					}
+					if (target.mode === "user" && !target.username.trim()) {
+						return yield* Effect.fail(new Error("Import job is missing Trakt username"));
+					}
+					if (target.mode === "list" && !target.collection.trim()) {
+						return yield* Effect.fail(new Error("Import job is missing Trakt collection"));
+					}
+					parserInput =
+						target.mode === "export"
+							? { ...parserInput, mode: "export", hasExportFile: true }
+							: {
+									...parserInput,
+									...target,
+									...(target.mode === "user"
+										? { username: target.username.trim() }
+										: { url: target.url.trim(), collection: target.collection.trim() }),
+								};
+				}
+				if (["plex", "audiobookshelf", "media_tracker"].includes(input.source)) {
+					const apiKey = input.sourcePayload?.["apiKey"];
+					const apiUrl = input.sourcePayload?.["apiUrl"];
+					if (typeof apiKey !== "string" || !apiKey || typeof apiUrl !== "string" || !apiUrl) {
+						return yield* Effect.fail(
+							new Error(`Import job is missing ${input.source} credentials`),
+						);
+					}
+					parserInput = {
+						...parserInput,
+						apiKey,
+						apiUrl,
+						...(typeof input.sourcePayload["allowInsecureConnections"] === "boolean"
+							? { allowInsecureConnections: input.sourcePayload["allowInsecureConnections"] }
+							: {}),
+					};
+				}
+				if (input.source === "jellyfin") {
+					const apiUrl = input.sourcePayload?.["apiUrl"];
+					const username = input.sourcePayload?.["username"];
+					if (typeof apiUrl !== "string" || !apiUrl || typeof username !== "string" || !username) {
+						return yield* Effect.fail(
+							new Error("Import job is missing Jellyfin connection details"),
+						);
+					}
+					parserInput = {
+						...parserInput,
+						apiUrl,
+						username,
+						...(typeof input.sourcePayload["password"] === "string"
+							? { password: input.sourcePayload["password"] }
+							: {}),
+						...(typeof input.sourcePayload["allowInsecureConnections"] === "boolean"
+							? { allowInsecureConnections: input.sourcePayload["allowInsecureConnections"] }
+							: {}),
+					};
+				}
+			}
+			let start = 0;
+			let totalItems = 0;
+			let failRun = false;
+			let failureCount = 0;
+			let writeItemCount = 0;
+			const chunkHandles: string[] = [];
+
+			for (;;) {
+				const batchIndex = start / BATCH_SIZE;
+				let batch: typeof MediaImportAdapterBatch.Type;
+				if (typeof integrationScriptSlug === "string" && typeof integrationId === "string") {
+					const result = yield* replay.activity(
+						"integration-adapter",
+						integrationAdapter(integrationScriptSlug),
+						input.sourcePayload?.["integrationContext"] ?? {},
+					);
+					batch = { ...result, totalItems: result.failures.length + result.entityGroups.length };
+					failRun = result.entityGroups.length === 0 && result.failures.length > 0;
+				} else {
+					batch = yield* replay.activity(`parse-${batchIndex}`, mediaImportParser(input.source), {
+						...parserInput,
+						start,
+					});
+				}
+				const resolutionItems = batch.entityGroups.flatMap((group, index) =>
+					group.entityRef.kind === "unresolved"
+						? [
+								{
+									index,
+									value: group.entityRef.identifierValue,
+									identifierType: group.entityRef.identifierType,
+									candidates: resolutionCandidates(group.entityRef.entitySchemaSlug),
+								},
+							]
+						: [],
+				);
+				const resolutionOutput =
+					resolutionItems.length > 0
+						? yield* replay.child(`resolve-${batchIndex}`, resolution, { items: resolutionItems })
+						: { results: [] };
+				const resolutionByIndex = new Map(
+					resolutionOutput.results.map((result) => [result.index, result]),
+				);
+				const resolvedGroups = batch.entityGroups.map((group, index) => {
+					if (group.entityRef.kind === "resolved") {
+						return group;
+					}
+					const result = resolutionByIndex.get(index);
+					return result?.status === "resolved"
+						? {
+								...group,
+								entityRef: {
+									kind: "resolved" as const,
+									externalId: result.externalId,
+									providerSlug: result.providerSlug,
+									sourceLabel: group.entityRef.sourceLabel,
+									entitySchemaSlug: group.entityRef.entitySchemaSlug,
+								},
+							}
+						: group;
+				});
+				const populationItems = resolvedGroups.flatMap((group, index) =>
+					group.entityRef.kind === "resolved"
+						? [
+								{
+									index,
+									externalId: group.entityRef.externalId,
+									providerSlug: group.entityRef.providerSlug,
+									entitySchemaSlug: group.entityRef.entitySchemaSlug,
+									command: {
+										...input.command,
+										itemIdentity: JSON.stringify([input.command.itemIdentity, "population", index]),
+									},
+								},
+							]
+						: [],
+				);
+				const populationOutput =
+					populationItems.length > 0
+						? yield* replay.child(`populate-${batchIndex}`, population, { items: populationItems })
+						: { results: [] };
+				const populationByIndex = new Map(
+					populationOutput.results.map((result) => [result.index, result]),
+				);
+				const episodeRequests = resolvedGroups.flatMap((group, groupIndex) => {
+					const populated = populationByIndex.get(groupIndex);
+					if (populated?.status !== "completed") {
+						return [];
+					}
+					return group.events.flatMap((event, eventIndex) =>
+						event.unresolvedEpisode
+							? [
+									{
+										eventIndex,
+										groupIndex,
+										parentEntityId: populated.entityId,
+										unresolvedEpisode: event.unresolvedEpisode,
+									},
+								]
+							: [],
+					);
+				});
+				const episodeRefs = episodeRequests.map(({ parentEntityId, unresolvedEpisode }, index) => {
+					if (unresolvedEpisode.type === "show-season") {
+						return {
+							index,
+							kind: "show-season" as const,
+							showEntityId: parentEntityId,
+							seasonNumber: unresolvedEpisode.seasonNumber,
+						};
+					}
+					return unresolvedEpisode.type === "show"
+						? {
+								index,
+								kind: "show" as const,
+								showEntityId: parentEntityId,
+								seasonNumber: unresolvedEpisode.seasonNumber,
+								episodeNumber: unresolvedEpisode.episodeNumber,
+							}
+						: {
+								index,
+								kind: "podcast" as const,
+								podcastEntityId: parentEntityId,
+								episodeNumber: unresolvedEpisode.episodeNumber,
+							};
+				});
+				const episodeOutput =
+					episodeRefs.length > 0
+						? yield* replay.activity(`episodes-${batchIndex}`, episodes, { refs: episodeRefs })
+						: { results: [] };
+				const answeredRequests = new Set<number>();
+				const episodeEntityIdByEvent = new Map<string, string | null>();
+				for (const result of episodeOutput.results) {
+					const request = episodeRequests[result.index];
+					if (!request) {
+						return yield* Effect.fail(
+							new Error(`Episode resolution returned an unexpected index ${result.index}`),
+						);
+					}
+					if (answeredRequests.has(result.index)) {
+						return yield* Effect.fail(
+							new Error(`Episode resolution returned a duplicate index ${result.index}`),
+						);
+					}
+					answeredRequests.add(result.index);
+					episodeEntityIdByEvent.set(
+						`${request.groupIndex}:${request.eventIndex}`,
+						result.entityId,
+					);
+				}
+				const unansweredRequests = episodeRequests.flatMap((_, index) =>
+					answeredRequests.has(index) ? [] : [index],
+				);
+				if (unansweredRequests.length > 0) {
+					return yield* Effect.fail(
+						new Error(`Episode resolution omitted indices ${unansweredRequests.join(", ")}`),
+					);
+				}
+				const episodeFailures: MediaImportAdapterFailure[] = [];
+				const finalizedGroups: FinalizedEntityGroup[] = [];
+				for (const [groupIndex, group] of resolvedGroups.entries()) {
+					const events: FinalizedEvent[] = [];
+					for (const [eventIndex, event] of group.events.entries()) {
+						const finalized = {
+							occurredAt: event.occurredAt,
+							properties: event.properties,
+							eventSchemaSlug: event.eventSchemaSlug,
+						};
+						if (!event.unresolvedEpisode) {
+							events.push(finalized);
+							continue;
+						}
+						const eventKey = `${groupIndex}:${eventIndex}`;
+						if (!episodeEntityIdByEvent.has(eventKey)) {
+							continue;
+						}
+						const subjectEntityId = episodeEntityIdByEvent.get(eventKey);
+						if (!subjectEntityId) {
+							episodeFailures.push({
+								itemIndex: group.itemIndex,
+								stage: "provider_resolution",
+								sourceLabel: group.entityRef.sourceLabel,
+								entitySchemaSlug: group.entityRef.entitySchemaSlug,
+								message: unresolvedEpisodeMessage(event.unresolvedEpisode),
+								sourceIdentifier: importEntityRefIdentifier(group.entityRef),
+							});
+							continue;
+						}
+						events.push({
+							...finalized,
+							subjectEntityId,
+							subjectEntitySchemaSlug: {
+								show: "show-episode",
+								podcast: "podcast-episode",
+								"show-season": "show-season",
+							}[event.unresolvedEpisode.type],
+						});
+					}
+					finalizedGroups.push({ ...group, events });
+				}
+				const chunk = yield* replay.activity(`chunks-${batchIndex}`, chunkWriter, {
+					...(isIntegration ? { integration: { integrationId, importRunId: input.runId } } : {}),
+					entityGroups: finalizedGroups,
+					populationResults: populationOutput.results,
+					failures: [...batch.failures, ...episodeFailures],
+				});
+				chunkHandles.push(...chunk.chunkHandles);
+				totalItems += chunk.totalItems;
+				failureCount += chunk.failureCount;
+				writeItemCount += chunk.writeItemCount;
+				start += BATCH_SIZE;
+				if (isIntegration) {
+					break;
+				}
+				if (batch.totalItems === 0) {
+					break;
+				}
+				if (start >= batch.totalItems) {
+					break;
+				}
+			}
+
+			return yield* replay.child("write-import", kernelImport, {
+				totalItems,
+				chunkHandles,
+				failureCount,
+				writeItemCount,
+				runId: input.runId,
+				command: input.command,
+				...(failRun ? { failRun: true } : {}),
+			});
+		}),
+});

@@ -1,0 +1,414 @@
+import { EntityId } from "@ryot-app/contract/schema/brands";
+import { Effect } from "effect";
+
+import {
+	adminHeaders,
+	createAuthenticatedClient,
+	createNotificationChannel,
+	fakeProviderDetailsResult,
+	getApiClient,
+	getBuiltinEntitySchemaSlug,
+	getEntity,
+	providerSandboxSource,
+	replaceSandboxScriptCompiledRepresentation,
+	installTestProvider,
+	startFakeAppriseServer,
+	type Client,
+	pollUntil,
+} from "~/fixtures/kernel";
+import {
+	countMediaMonitoringRelationships,
+	disableMediaMonitoring,
+	enableMediaMonitoring,
+	getMediaMonitoringStatus,
+	queryInMediaLibraryRelationship,
+	seedMediaEntity,
+	triggerCronAndWaitForEntity,
+} from "~/fixtures/plugins/media";
+import { assertTaggedError, requireObjectRecord } from "~/support/assertions";
+import { afterAll, beforeAll, describe, expect, it } from "~/support/effect-test";
+import type { FakeHttpServer } from "~/support/fake-http-server";
+
+const providerName = "Media Monitoring E2E Provider";
+const apiExternalId = `media-monitoring-api-${crypto.randomUUID()}`;
+const cronExternalId = `media-monitoring-cron-${crypto.randomUUID()}`;
+const discoveryExternalId = `media-monitoring-discovery-${crypto.randomUUID()}`;
+
+const providerDetails = (productionStatus: string) =>
+	fakeProviderDetailsResult({
+		name: "Media Monitoring Cron Target",
+		properties: { productionStatus, publishYear: 2026 },
+	});
+
+const discoveryProviderDetails = (episodeCount: number) =>
+	fakeProviderDetailsResult({
+		name: "Media Monitoring Discovery Target",
+		properties: { publishYear: 2026, productionStatus: "Continuing" },
+		childEntities:
+			episodeCount === 0
+				? []
+				: [
+						{
+							name: "Season 1",
+							properties: { seasonNumber: 1 },
+							entitySchemaSlug: "show-season",
+							externalId: "discovery-season-1",
+							childEntities: Array.from({ length: episodeCount }, (_, index) => ({
+								name: `Episode ${index + 1}`,
+								entitySchemaSlug: "show-episode",
+								externalId: `discovery-episode-${index + 1}`,
+								properties: { seasonNumber: 1, episodeNumber: index + 1 },
+							})),
+						},
+					],
+	});
+
+let apiEntityId: string;
+let cronEntityId: string;
+let movieSchemaId: string;
+let discoveryEntityId: string;
+let fakeApprise: FakeHttpServer;
+let providerCompilerClient: Client;
+const extraEntityIds: string[] = [];
+let provider: Effect.Success<ReturnType<typeof installTestProvider>>;
+let discoveryProvider: Effect.Success<ReturnType<typeof installTestProvider>>;
+
+beforeAll(async () => {
+	await Effect.runPromise(
+		Effect.gen(function* () {
+			const { client } = yield* createAuthenticatedClient();
+			providerCompilerClient = client;
+			movieSchemaId = yield* getBuiltinEntitySchemaSlug(client, "movie");
+			provider = yield* installTestProvider({
+				client,
+				scope: "system",
+				name: providerName,
+				rootEntitySchemaSlug: movieSchemaId,
+				details: providerDetails("Continuing"),
+				slug: `movie.media-monitoring-e2e-${crypto.randomUUID()}`,
+			});
+			const showSchemaId = yield* getBuiltinEntitySchemaSlug(client, "show");
+			discoveryProvider = yield* installTestProvider({
+				client,
+				scope: "system",
+				name: `${providerName} Discovery`,
+				rootEntitySchemaSlug: showSchemaId,
+				details: discoveryProviderDetails(0),
+				slug: `show.media-monitoring-discovery-e2e-${crypto.randomUUID()}`,
+			});
+			const apiEntity = yield* seedMediaEntity({
+				properties: {},
+				externalId: apiExternalId,
+				entitySchemaSlug: movieSchemaId,
+				providerId: provider.providerId,
+				name: "Media Monitoring API Target",
+			});
+			const cronEntity = yield* seedMediaEntity({
+				properties: {},
+				externalId: cronExternalId,
+				entitySchemaSlug: movieSchemaId,
+				providerId: provider.providerId,
+				name: "Media Monitoring Cron Target",
+			});
+			const discoveryEntity = yield* seedMediaEntity({
+				properties: {},
+				entitySchemaSlug: showSchemaId,
+				externalId: discoveryExternalId,
+				providerId: discoveryProvider.providerId,
+				name: "Media Monitoring Discovery Target",
+			});
+			apiEntityId = apiEntity.id;
+			cronEntityId = cronEntity.id;
+			discoveryEntityId = discoveryEntity.id;
+			yield* getApiClient().call(
+				(c) =>
+					c.testSupport.setEntityPopulatedAt({
+						params: { entityId: EntityId.make(apiEntityId) },
+						payload: { populatedAt: new Date().toISOString() },
+					}),
+				adminHeaders(),
+			);
+		}),
+	);
+
+	fakeApprise = await startFakeAppriseServer();
+});
+
+afterAll(async () => {
+	fakeApprise.stop();
+	await Effect.runPromise(
+		Effect.gen(function* () {
+			const [firstExtraEntityId, ...remainingExtraEntityIds] = extraEntityIds;
+			if (firstExtraEntityId) {
+				yield* getApiClient().call(
+					(c) =>
+						c.testSupport.deleteGlobalEntities({
+							payload: {
+								ids: [
+									EntityId.make(firstExtraEntityId),
+									...remainingExtraEntityIds.map((id) => EntityId.make(id)),
+								],
+							},
+						}),
+					adminHeaders(),
+				);
+			}
+		}),
+	);
+});
+
+describe("media monitoring endpoints", () => {
+	it.live("requires authentication", () =>
+		Effect.gen(function* () {
+			const error = yield* Effect.flip(getMediaMonitoringStatus(getApiClient(), apiEntityId));
+			assertTaggedError(error, "AuthUnauthorized");
+		}),
+	);
+
+	it.live("keeps media monitoring status and relationships scoped to each user", () =>
+		Effect.gen(function* () {
+			const owner = yield* createAuthenticatedClient();
+			const other = yield* createAuthenticatedClient();
+
+			expect(yield* getMediaMonitoringStatus(owner.client, apiEntityId)).toEqual({
+				status: "found",
+				entityId: apiEntityId,
+				isMediaMonitored: false,
+			});
+			yield* enableMediaMonitoring(owner.client, apiEntityId);
+			yield* enableMediaMonitoring(owner.client, apiEntityId);
+			expect(
+				yield* countMediaMonitoringRelationships({
+					client: owner.client,
+					entityId: apiEntityId,
+					entitySchemaSlug: "movie",
+				}),
+			).toBe(1);
+			expect(yield* getMediaMonitoringStatus(owner.client, apiEntityId)).toEqual({
+				status: "found",
+				entityId: apiEntityId,
+				isMediaMonitored: true,
+			});
+			expect(yield* getMediaMonitoringStatus(other.client, apiEntityId)).toEqual({
+				status: "found",
+				entityId: apiEntityId,
+				isMediaMonitored: false,
+			});
+
+			yield* disableMediaMonitoring(owner.client, apiEntityId);
+			yield* disableMediaMonitoring(owner.client, apiEntityId);
+			expect(
+				yield* countMediaMonitoringRelationships({
+					client: owner.client,
+					entityId: apiEntityId,
+					entitySchemaSlug: "movie",
+				}),
+			).toBe(0);
+			const inMediaLibraryRelationship = yield* queryInMediaLibraryRelationship(
+				owner.client,
+				apiEntityId,
+				"movie",
+			);
+			expect(
+				inMediaLibraryRelationship.data.entity?.type === "rows"
+					? inMediaLibraryRelationship.data.entity.items
+					: [],
+			).toHaveLength(1);
+		}),
+	);
+
+	it.live("rejects invisible and unsupported media monitoring targets", () =>
+		Effect.gen(function* () {
+			const owner = yield* createAuthenticatedClient();
+			const other = yield* createAuthenticatedClient();
+			const [seasonSchemaId, episodeSchemaId, groupSchemaId] = yield* Effect.all([
+				getBuiltinEntitySchemaSlug(owner.client, "show-season"),
+				getBuiltinEntitySchemaSlug(owner.client, "show-episode"),
+				getBuiltinEntitySchemaSlug(owner.client, "movie-group"),
+			]);
+			const unsupported = yield* Effect.all([
+				seedMediaEntity({
+					name: "Season",
+					properties: { seasonNumber: 1 },
+					providerId: provider.providerId,
+					entitySchemaSlug: seasonSchemaId,
+					externalId: `media-monitoring-season-${crypto.randomUUID()}`,
+				}),
+				seedMediaEntity({
+					name: "Episode",
+					providerId: provider.providerId,
+					entitySchemaSlug: episodeSchemaId,
+					properties: { seasonNumber: 1, episodeNumber: 1 },
+					externalId: `media-monitoring-episode-${crypto.randomUUID()}`,
+				}),
+				seedMediaEntity({
+					name: "Group",
+					properties: {},
+					entitySchemaSlug: groupSchemaId,
+					providerId: provider.providerId,
+					externalId: `media-monitoring-group-${crypto.randomUUID()}`,
+				}),
+				seedMediaEntity({
+					properties: {},
+					name: "Custom Movie",
+					userId: owner.userId,
+					client: owner.client,
+					entitySchemaSlug: movieSchemaId,
+					providerId: provider.providerId,
+					externalId: `media-monitoring-custom-${crypto.randomUUID()}`,
+				}),
+				seedMediaEntity({
+					properties: {},
+					userId: other.userId,
+					client: other.client,
+					name: "Other User Movie",
+					entitySchemaSlug: movieSchemaId,
+					providerId: provider.providerId,
+					externalId: `media-monitoring-invisible-${crypto.randomUUID()}`,
+				}),
+				seedMediaEntity({
+					properties: {},
+					providerId: null,
+					name: "Incomplete Movie",
+					entitySchemaSlug: movieSchemaId,
+					externalId: `media-monitoring-incomplete-${crypto.randomUUID()}`,
+				}),
+			]);
+			extraEntityIds.push(...unsupported.map((entity) => entity.id));
+
+			const unsupportedResults = yield* Effect.all(
+				unsupported.map((entity) => enableMediaMonitoring(owner.client, entity.id)),
+			);
+			for (const [index, result] of unsupportedResults.entries()) {
+				expect(result).toEqual({ status: "notFound", entityId: unsupported[index]?.id });
+			}
+			expect(yield* getMediaMonitoringStatus(owner.client, unsupported[4].id)).toEqual({
+				status: "notFound",
+				entityId: unsupported[4].id,
+			});
+		}),
+	);
+});
+
+describe("media monitoring infrequent refresh", () => {
+	it.live(
+		"refreshes each target once and delivers changed metadata through signal subscriptions",
+		() =>
+			Effect.gen(function* () {
+				fakeApprise.requests.length = 0;
+				const first = yield* createAuthenticatedClient();
+				const second = yield* createAuthenticatedClient();
+				yield* Effect.all([
+					createNotificationChannel(first.client, {
+						channel: "apprise",
+						channelSpecifics: { key: "first", kind: "apprise", baseUrl: fakeApprise.url },
+					}),
+					createNotificationChannel(second.client, {
+						channel: "apprise",
+						channelSpecifics: { key: "second", kind: "apprise", baseUrl: fakeApprise.url },
+					}),
+				]);
+				yield* Effect.all([
+					enableMediaMonitoring(first.client, cronEntityId),
+					enableMediaMonitoring(second.client, cronEntityId),
+				]);
+
+				yield* triggerCronAndWaitForEntity(first, cronEntityId);
+				yield* pollUntil(
+					"media monitoring baseline population",
+					Effect.gen(function* () {
+						const entity = yield* getEntity(first.client, cronEntityId);
+						const properties = requireObjectRecord(entity.properties, "Missing entity properties");
+						return entity.populatedAt && properties.productionStatus === "Continuing"
+							? entity
+							: null;
+					}),
+				);
+				expect(fakeApprise.requests).toEqual([]);
+
+				yield* replaceSandboxScriptCompiledRepresentation(
+					providerCompilerClient,
+					provider.detailsScriptId,
+					providerSandboxSource({
+						name: providerName,
+						operation: "details",
+						result: providerDetails("Ended"),
+						slug: `${provider.providerSlug}.details`,
+					}),
+				);
+				yield* triggerCronAndWaitForEntity(first, cronEntityId);
+				yield* pollUntil(
+					"media monitoring changed provider refresh",
+					Effect.gen(function* () {
+						const entity = yield* getEntity(first.client, cronEntityId);
+						const properties = requireObjectRecord(entity.properties, "Missing entity properties");
+						return properties.productionStatus === "Ended" ? true : null;
+					}),
+				);
+				const delivered = yield* pollUntil(
+					"media monitoring status notification delivery",
+					Effect.sync(() => {
+						const paths = new Set(fakeApprise.requests.map((request) => request.path));
+						return paths.has("/notify/first") && paths.has("/notify/second")
+							? fakeApprise.requests
+							: null;
+					}),
+				);
+				expect(delivered).toHaveLength(2);
+				for (const request of delivered) {
+					const body = requireObjectRecord(request.body, "Missing notification body");
+					expect(body.body).toBe(
+						"Status of Media Monitoring Cron Target changed from Continuing to Ended",
+					);
+				}
+			}),
+	);
+
+	it.live(
+		"keeps the baseline silent and independently notifies for a new season and its episode",
+		() =>
+			Effect.gen(function* () {
+				fakeApprise.requests.length = 0;
+				const owner = yield* createAuthenticatedClient();
+				yield* createNotificationChannel(owner.client, {
+					channel: "apprise",
+					channelSpecifics: { kind: "apprise", key: "discovery", baseUrl: fakeApprise.url },
+				});
+				yield* enableMediaMonitoring(owner.client, discoveryEntityId);
+
+				yield* triggerCronAndWaitForEntity(owner, discoveryEntityId);
+				expect(fakeApprise.requests.filter(({ path }) => path === "/notify/discovery")).toEqual([]);
+
+				yield* replaceSandboxScriptCompiledRepresentation(
+					providerCompilerClient,
+					discoveryProvider.detailsScriptId,
+					providerSandboxSource({
+						operation: "details",
+						name: `${providerName} Discovery`,
+						result: discoveryProviderDetails(1),
+						slug: `${discoveryProvider.providerSlug}.details`,
+					}),
+				);
+				yield* triggerCronAndWaitForEntity(owner, discoveryEntityId);
+				const expectedEpisodeBody =
+					"1 new episode discovered in season 1 for Media Monitoring Discovery Target";
+				const expectedSeasonBody =
+					"Number of seasons changed from 0 to 1 for Media Monitoring Discovery Target";
+				yield* pollUntil(
+					"season and episode notification delivery",
+					Effect.sync(() => {
+						const requests = fakeApprise.requests.filter(
+							({ path }) => path === "/notify/discovery",
+						);
+						const bodies = requests.map(({ body }) =>
+							requireObjectRecord(body, "Missing notification body"),
+						);
+						return bodies.some(({ body }) => body === expectedEpisodeBody) &&
+							bodies.some(({ body }) => body === expectedSeasonBody)
+							? bodies
+							: null;
+					}),
+				);
+			}),
+	);
+});

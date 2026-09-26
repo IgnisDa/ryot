@@ -1,0 +1,97 @@
+import { Effect, FileSystem } from "effect";
+
+import {
+	type CompiledBuiltInSandboxEntry,
+	compileSandboxPackageEntries,
+	type SandboxEntryDeclaration,
+} from "./compiler-builtins";
+import { sandboxCompilationFailure, sandboxCompilerDiagnostic } from "./compiler-diagnostics";
+import { sandboxCompilerPlatformLayer } from "./compiler-platform";
+import type { SandboxTypeScriptSources } from "./compiler-project";
+
+export type CompiledPluginSandboxEntry = CompiledBuiltInSandboxEntry;
+
+export type PluginSandboxScriptEntry = SandboxEntryDeclaration & { readonly entry: string };
+
+const sortedEntries = (scripts: ReadonlyArray<PluginSandboxScriptEntry>) =>
+	scripts.map(({ entry }) => entry).sort();
+
+export const compilePluginSandboxEntryPaths = (
+	files: SandboxTypeScriptSources["files"],
+	entries: ReadonlyArray<string>,
+	declarations: ReadonlyMap<string, SandboxEntryDeclaration> = new Map(),
+) => {
+	if (new Set(entries).size !== entries.length) {
+		return sandboxCompilationFailure([
+			sandboxCompilerDiagnostic("RYOT_PLUGIN_ENTRY", "Plugin script entries must be unique"),
+		]);
+	}
+	return compileSandboxPackageEntries({ files, entry: entries[0] ?? "" }, entries, declarations);
+};
+
+export const compilePluginSandboxSourceEntries = (
+	files: SandboxTypeScriptSources["files"],
+	scripts: ReadonlyArray<PluginSandboxScriptEntry>,
+) =>
+	compilePluginSandboxEntryPaths(
+		files,
+		sortedEntries(scripts),
+		new Map(
+			scripts.map(
+				({ kind, entry, providerOperation }) =>
+					[entry, providerOperation ? { kind, providerOperation } : { kind }] as const,
+			),
+		),
+	);
+
+const loadPluginSources = (packageRoot: string) =>
+	Effect.gen(function* () {
+		const fs = yield* FileSystem.FileSystem;
+		const paths = yield* fs
+			.glob("**/*.ts", { root: packageRoot, exclude: ["node_modules/**"] })
+			.pipe(
+				Effect.mapError((error) =>
+					sandboxCompilationFailure([
+						sandboxCompilerDiagnostic(
+							"RYOT_PLUGIN_SOURCE",
+							`Plugin sources could not be read: ${String(error)}`,
+						),
+					]),
+				),
+			);
+		const files: Record<string, string> = {};
+		for (const path of paths) {
+			if (!path.endsWith(".test.ts")) {
+				files[path] = yield* fs
+					.readFileString(`${packageRoot}/${path}`)
+					.pipe(
+						Effect.mapError((error) =>
+							sandboxCompilationFailure([
+								sandboxCompilerDiagnostic(
+									"RYOT_PLUGIN_SOURCE",
+									`Plugin sources could not be read: ${String(error)}`,
+								),
+							]),
+						),
+					);
+			}
+		}
+		return files;
+	});
+
+const compilePluginSandboxEntriesInternal = (
+	packageRoot: string,
+	scripts: ReadonlyArray<PluginSandboxScriptEntry>,
+) =>
+	Effect.gen(function* () {
+		const files = yield* loadPluginSources(packageRoot);
+		return yield* compilePluginSandboxSourceEntries(files, scripts);
+	});
+
+export const compilePluginSandboxEntries = (
+	packageRoot: string,
+	scripts: ReadonlyArray<PluginSandboxScriptEntry>,
+) =>
+	compilePluginSandboxEntriesInternal(packageRoot, scripts).pipe(
+		Effect.provide(sandboxCompilerPlatformLayer),
+	);

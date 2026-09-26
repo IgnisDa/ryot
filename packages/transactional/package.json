@@ -1,0 +1,17 @@
+{
+	"name": "@ryot-app/transactional",
+	"private": true,
+	"scripts": {
+		"dev": "email dev --port 6200",
+		"check": "tsc && oxfmt . --write && oxlint . --type-aware --fix"
+	},
+	"dependencies": {
+		"@react-email/components": "1.0.7",
+		"react": "19.2.4",
+		"react-dom": "19.2.4",
+		"react-email": "5.2.8"
+	},
+	"devDependencies": {
+		"@types/react": "19.2.14"
+	}
+}

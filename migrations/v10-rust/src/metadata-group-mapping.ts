@@ -1,0 +1,346 @@
+import {
+	Database,
+	mapDatabaseErrors,
+} from "@ryot-app/kernel-backend/lib/infrastructure/db/service";
+import { sql } from "drizzle-orm";
+import { Effect } from "effect";
+
+import {
+	type LotEntityMigrationTarget,
+	type ResolvedLotEntityMigrationTarget,
+	type ResolvedRelationshipTarget,
+	buildLotEntityTargetValuesSql,
+	buildRelationshipTargetValuesSql,
+	buildAbortOnRowsSql,
+	buildReportSql,
+} from "./shared";
+
+type MetadataGroupRelationshipTarget = { lot: string; relationshipSchemaSlug: string };
+
+export const metadataGroupEntityTargets = [
+	{
+		lot: "audio_book",
+		source: "audible",
+		entitySchemaSlug: "audiobook-group",
+		providerSlug: "audiobook-group.audible",
+	},
+	{ source: "custom", lot: "audio_book", providerSlug: null, entitySchemaSlug: "audiobook-group" },
+	{ lot: "book", source: "custom", providerSlug: null, entitySchemaSlug: "book-group" },
+	{ lot: "book", providerSlug: null, source: "google_books", entitySchemaSlug: "book-group" },
+	{
+		lot: "book",
+		source: "hardcover",
+		entitySchemaSlug: "book-group",
+		providerSlug: "book-group.hardcover",
+	},
+	{ lot: "book", providerSlug: null, source: "openlibrary", entitySchemaSlug: "book-group" },
+	{ source: "custom", lot: "comic_book", providerSlug: null, entitySchemaSlug: "comic-book-group" },
+	{
+		source: "metron",
+		lot: "comic_book",
+		entitySchemaSlug: "comic-book-group",
+		providerSlug: "comic-book-group.metron",
+	},
+	{ lot: "movie", source: "custom", providerSlug: null, entitySchemaSlug: "movie-group" },
+	{
+		lot: "movie",
+		source: "tmdb",
+		entitySchemaSlug: "movie-group",
+		providerSlug: "movie-group.tmdb",
+	},
+	{
+		lot: "movie",
+		source: "tvdb",
+		entitySchemaSlug: "movie-group",
+		providerSlug: "movie-group.tvdb",
+	},
+	{ lot: "music", source: "custom", providerSlug: null, entitySchemaSlug: "music-group" },
+	{
+		lot: "music",
+		source: "music_brainz",
+		entitySchemaSlug: "music-group",
+		providerSlug: "music-group.music-brainz",
+	},
+	{
+		lot: "music",
+		source: "spotify",
+		entitySchemaSlug: "music-group",
+		providerSlug: "music-group.spotify",
+	},
+	{
+		lot: "music",
+		source: "youtube_music",
+		entitySchemaSlug: "music-group",
+		providerSlug: "music-group.youtube-music",
+	},
+	{ source: "custom", lot: "video_game", providerSlug: null, entitySchemaSlug: "video-game-group" },
+	{
+		lot: "video_game",
+		source: "giant_bomb",
+		entitySchemaSlug: "video-game-group",
+		providerSlug: "video-game-group.giant-bomb",
+	},
+	{
+		source: "igdb",
+		lot: "video_game",
+		entitySchemaSlug: "video-game-group",
+		providerSlug: "video-game-group.igdb",
+	},
+] as const satisfies readonly LotEntityMigrationTarget[];
+
+export const metadataGroupRelationshipTargets = [
+	{ lot: "audio_book", relationshipSchemaSlug: "audiobook-group-to-audiobook" },
+	{ lot: "book", relationshipSchemaSlug: "book-group-to-book" },
+	{ lot: "comic_book", relationshipSchemaSlug: "comic-book-group-to-comic-book" },
+	{ lot: "movie", relationshipSchemaSlug: "movie-group-to-movie" },
+	{ lot: "music", relationshipSchemaSlug: "music-group-to-music" },
+	{ lot: "video_game", relationshipSchemaSlug: "video-game-group-to-video-game" },
+] as const satisfies readonly MetadataGroupRelationshipTarget[];
+
+const supportedGroupLots = [...new Set(metadataGroupEntityTargets.map((t) => t.lot))];
+
+const metadataGroupEntityTargetValuesSql = sql.join(
+	metadataGroupEntityTargets.map(
+		(t) => sql`(${t.lot}, ${t.source}, ${t.entitySchemaSlug}, ${t.providerSlug})`,
+	),
+	sql`, `,
+);
+
+const buildLegacyImageArraySql = (tableAlias: string) => `(
+	COALESCE(
+		(
+			SELECT jsonb_agg(
+				jsonb_build_object('type', 'remote', 'url', remote_image)
+				ORDER BY ordinality
+			)
+			FROM jsonb_array_elements_text(COALESCE(${tableAlias}.assets -> 'remote_images', '[]'::jsonb))
+				WITH ORDINALITY AS remote(remote_image, ordinality)
+		),
+		'[]'::jsonb
+	)
+	||
+	COALESCE(
+		(
+			SELECT jsonb_agg(
+				jsonb_build_object('type', 's3', 'key', s3_image)
+				ORDER BY ordinality
+			)
+			FROM jsonb_array_elements_text(COALESCE(${tableAlias}.assets -> 's3_images', '[]'::jsonb))
+				WITH ORDINALITY AS s3(s3_image, ordinality)
+		),
+		'[]'::jsonb
+	)
+)`;
+
+const buildMetadataGroupPropertiesSql = (
+	tableAlias: string,
+) => `jsonb_strip_nulls(jsonb_build_object(
+	'parts', ${tableAlias}.parts,
+	'images', ${buildLegacyImageArraySql(tableAlias)},
+	'description', ${tableAlias}.description,
+	'sourceUrl', ${tableAlias}.source_url
+))`;
+
+export const buildMetadataGroupEntityMigrationSql = (
+	targets: ResolvedLotEntityMigrationTarget[],
+) => `
+DO $$
+DECLARE
+	batch_size constant int := 10000;
+	batch_rows_inserted int;
+	cursor_id text := '';
+	next_cursor_id text;
+	rows_inserted int := 0;
+	started_at timestamptz := clock_timestamp();
+BEGIN
+	LOOP
+		WITH metadata_group_targets (lot, source, entity_schema_slug, entity_schema_plugin_id, provider_id) AS (
+			VALUES ${buildLotEntityTargetValuesSql(targets)}
+		), batch AS (
+			SELECT mg.id::text AS id
+			FROM "metadata_group" mg
+			INNER JOIN metadata_group_targets mgt ON mgt.lot = mg.lot AND mgt.source = mg.source
+			WHERE mg.id::text > cursor_id
+				AND (
+					mgt.provider_id IS NULL
+					OR EXISTS (SELECT 1 FROM _referenced_global_entity_ids r WHERE r.id = mg.id::text)
+				)
+			ORDER BY mg.id::text
+			LIMIT batch_size
+		)
+		SELECT MAX(batch.id) INTO next_cursor_id FROM batch;
+
+		EXIT WHEN next_cursor_id IS NULL;
+
+		WITH metadata_group_targets (lot, source, entity_schema_slug, entity_schema_plugin_id, provider_id) AS (
+			VALUES ${buildLotEntityTargetValuesSql(targets)}
+		)
+		INSERT INTO entity (
+			"id",
+			"external_id",
+			"name",
+			"created_at",
+			"populated_at",
+			"user_id",
+			"properties",
+			"entity_schema_slug",
+			"entity_schema_plugin_id",
+			"provider_id",
+			"updated_at"
+		)
+		SELECT
+			mg.id,
+			mg.identifier,
+			mg.title,
+			mg.last_updated_on,
+			NULL,
+			mg.created_by_user_id,
+			CASE
+				WHEN mgt.provider_id IS NULL THEN ${buildMetadataGroupPropertiesSql("mg")}
+				ELSE '{}'::jsonb
+			END,
+			mgt.entity_schema_slug,
+			mgt.entity_schema_plugin_id,
+			mgt.provider_id,
+			mg.last_updated_on
+		FROM "metadata_group" mg
+		INNER JOIN metadata_group_targets mgt ON mgt.lot = mg.lot AND mgt.source = mg.source
+		WHERE mg.id::text > cursor_id AND mg.id::text <= next_cursor_id
+			AND (
+				mgt.provider_id IS NULL
+				OR EXISTS (SELECT 1 FROM _referenced_global_entity_ids r WHERE r.id = mg.id::text)
+			)
+		ON CONFLICT ("id") DO UPDATE
+			SET
+				"properties" = CASE
+					WHEN entity."properties" = '{}'::jsonb THEN EXCLUDED."properties"
+					ELSE entity."properties"
+				END,
+				"user_id" = COALESCE(entity."user_id", EXCLUDED."user_id")
+			WHERE entity."properties" = '{}'::jsonb OR entity."user_id" IS NULL;
+		GET DIAGNOSTICS batch_rows_inserted = ROW_COUNT;
+
+		rows_inserted := rows_inserted + batch_rows_inserted;
+		cursor_id := next_cursor_id;
+	END LOOP;
+
+	${buildReportSql("metadata_group -> entity", [{ count: "rows_inserted", message: "row(s) migrated total" }])}
+END $$;
+`;
+
+// Provider group membership (rebuilt by V2 on population) is not migrated; only user-authored
+// memberships (an endpoint owned by a user) are. See "Slim Migration Strategy" in AGENTS.md.
+export const buildMetadataGroupRelationshipMigrationSql = (
+	targets: ResolvedRelationshipTarget[],
+) => `
+DO $$
+DECLARE
+	cross_owner_rows int := 0;
+	cross_owner_sample text;
+	rows_inserted int;
+	started_at timestamptz := clock_timestamp();
+BEGIN
+	${buildAbortOnRowsSql({
+		countVariable: "cross_owner_rows",
+		sampleVariable: "cross_owner_sample",
+		message:
+			"metadata_group -> relationship: % user-authored link(s) join a group and a media item owned by different users, and a V2 relationship has a single owner, so there is no correct owner to give them: %. Keep the dump and report it; this migration needs an ownership rule before it can run on this data.",
+		source: `
+			WITH lot_to_relationship_schema (lot, relationship_schema_slug, relationship_schema_plugin_id) AS (
+				VALUES ${buildRelationshipTargetValuesSql(targets)}
+			)
+			SELECT mg.title || ' (owner ' || mg.created_by_user_id || ') -> ' || metadata.title
+				|| ' (owner ' || metadata.created_by_user_id || ')' AS label
+			FROM "metadata_to_metadata_group" m2mg
+			INNER JOIN "metadata_group" mg ON mg.id = m2mg.metadata_group_id
+			INNER JOIN "metadata" metadata ON metadata.id = m2mg.metadata_id
+			INNER JOIN lot_to_relationship_schema lrs ON lrs.lot = mg.lot
+			WHERE mg.created_by_user_id IS NOT NULL
+				AND metadata.created_by_user_id IS NOT NULL
+				AND mg.created_by_user_id <> metadata.created_by_user_id
+		`,
+	})}
+
+	WITH lot_to_relationship_schema (lot, relationship_schema_slug, relationship_schema_plugin_id) AS (
+		VALUES ${buildRelationshipTargetValuesSql(targets)}
+	), legacy_relationships AS (
+		SELECT
+			m2mg.part,
+			m2mg.metadata_id,
+			m2mg.metadata_group_id,
+			lrs.relationship_schema_slug,
+			lrs.relationship_schema_plugin_id,
+			CASE
+				WHEN mg.created_by_user_id IS NULL THEN metadata.created_by_user_id
+				WHEN metadata.created_by_user_id IS NULL THEN mg.created_by_user_id
+				WHEN mg.created_by_user_id = metadata.created_by_user_id THEN mg.created_by_user_id
+			END AS user_id
+		FROM "metadata_to_metadata_group" m2mg
+		INNER JOIN "metadata_group" mg ON mg.id = m2mg.metadata_group_id
+		INNER JOIN "metadata" metadata ON metadata.id = m2mg.metadata_id
+		INNER JOIN lot_to_relationship_schema lrs ON lrs.lot = mg.lot
+		WHERE mg.created_by_user_id IS NOT NULL OR metadata.created_by_user_id IS NOT NULL
+	)
+	INSERT INTO relationship (
+		"id",
+		"source_entity_id",
+		"target_entity_id",
+		"relationship_schema_slug",
+		"relationship_schema_plugin_id",
+		"properties",
+		"user_id",
+		"created_at"
+	)
+	SELECT
+		gen_random_uuid()::text,
+		legacy_relationships.metadata_group_id,
+		legacy_relationships.metadata_id,
+		legacy_relationships.relationship_schema_slug,
+		legacy_relationships.relationship_schema_plugin_id,
+		CASE
+			WHEN legacy_relationships.part IS NULL THEN '{}'::jsonb
+			WHEN legacy_relationships.part <= 0 THEN jsonb_build_object('order', 1)
+			ELSE jsonb_build_object('order', legacy_relationships.part)
+		END,
+		legacy_relationships.user_id,
+		NOW()
+	FROM legacy_relationships
+	INNER JOIN "entity" src ON src.id = legacy_relationships.metadata_group_id
+	INNER JOIN "entity" tgt ON tgt.id = legacy_relationships.metadata_id
+	WHERE legacy_relationships.user_id IS NOT NULL
+	ON CONFLICT ("user_id", "source_entity_id", "target_entity_id", "relationship_schema_slug", "relationship_schema_plugin_id") DO NOTHING;
+	GET DIAGNOSTICS rows_inserted = ROW_COUNT;
+
+	${buildReportSql("metadata_group -> relationship", [{ count: "rows_inserted", message: "user-authored row(s) migrated" }])}
+END $$;
+`;
+
+export const getUnsupportedMetadataGroupSources = Effect.gen(function* () {
+	const database = yield* Database;
+	const result = yield* mapDatabaseErrors(
+		database.execute<{ lot: string; source: string }>(
+			sql`
+			WITH metadata_group_targets (lot, source, entity_schema_slug, provider_slug) AS (
+				VALUES ${metadataGroupEntityTargetValuesSql}
+			),
+			supported_lots (lot) AS (
+				VALUES ${sql.join(
+					supportedGroupLots.map((lot) => sql`(${lot})`),
+					sql`, `,
+				)}
+			)
+			SELECT DISTINCT
+				mg.lot AS lot,
+				mg.source AS source
+			FROM "metadata_group" mg
+			INNER JOIN supported_lots sl ON sl.lot = mg.lot
+			LEFT JOIN metadata_group_targets mgt ON mgt.lot = mg.lot AND mgt.source = mg.source
+			WHERE mgt.lot IS NULL
+			ORDER BY mg.lot, mg.source
+		`,
+			"objects",
+		),
+	);
+
+	return result;
+});

@@ -1,0 +1,46 @@
+{
+	"name": "@ryot-app/testing",
+	"private": true,
+	"type": "module",
+	"exports": {
+		"./vitest.shared": {
+			"types": "./src/vitest.shared.ts",
+			"default": "./src/vitest.shared.ts"
+		},
+		"./vitest.client": {
+			"types": "./src/vitest.client.ts",
+			"default": "./src/vitest.client.ts"
+		},
+		"./postgres-container": {
+			"types": "./src/postgres-container.ts",
+			"default": "./src/postgres-container.ts"
+		},
+		"./jsdom-blob-clone": {
+			"types": "./src/jsdom-blob-clone.ts",
+			"default": "./src/jsdom-blob-clone.ts"
+		}
+	},
+	"scripts": {
+		"check": "tsc && oxfmt . --write && oxlint . --type-aware --fix"
+	},
+	"dependencies": {
+		"vitest": "4.1.9"
+	},
+	"devDependencies": {
+		"@testcontainers/postgresql": "11.14.0",
+		"bun-types": "1.4.0",
+		"testcontainers": "11.14.0"
+	},
+	"peerDependencies": {
+		"@testcontainers/postgresql": "11.14.0",
+		"testcontainers": "11.14.0"
+	},
+	"peerDependenciesMeta": {
+		"@testcontainers/postgresql": {
+			"optional": true
+		},
+		"testcontainers": {
+			"optional": true
+		}
+	}
+}

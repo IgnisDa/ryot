@@ -1,0 +1,459 @@
+export interface SandboxRunnerLimits {
+	readonly resultBytes: number;
+	readonly hostCallCount: number;
+	readonly httpCallCount: number;
+	readonly logEntryBytes: number;
+	readonly logEntryCount: number;
+	readonly logTotalBytes: number;
+	readonly bridgeRequestBytes: number;
+	readonly logTruncationMarker: string;
+	readonly bridgeResponseBytes: number;
+	readonly hostCallLimitMessage: string;
+	readonly httpCallLimitMessage: string;
+	readonly durableBridgeResponseBytes: number;
+}
+
+export interface SandboxRunnerPayload {
+	readonly token: string;
+	readonly apiBase: string;
+	readonly scriptId: string;
+	readonly context?: unknown;
+	readonly moduleUrl: string;
+	readonly startedAt: string;
+	readonly executionId: string;
+	readonly apiFunctions?: unknown;
+	readonly compiledFormat: number;
+	readonly limits: SandboxRunnerLimits;
+	readonly workflowExecutionId?: string;
+	readonly inlineDurableCapabilities?: readonly string[];
+	readonly metadata?: Record<string, unknown>;
+	readonly filesystem?: {
+		readonly artifactPath?: string;
+		readonly scratchDirectory?: string;
+		readonly namedArtifactPaths?: Readonly<Record<string, string>>;
+	};
+}
+
+export interface SandboxRunnerError {
+	readonly line?: number;
+	readonly kind: string;
+	readonly phase: string;
+	readonly stack?: string;
+	readonly column?: number;
+	readonly message: string;
+}
+
+export interface SandboxLogCollector {
+	readonly logs: string[];
+	readonly console: {
+		readonly log: (...args: unknown[]) => void;
+		readonly info: (...args: unknown[]) => void;
+		readonly warn: (...args: unknown[]) => void;
+		readonly debug: (...args: unknown[]) => void;
+		readonly error: (...args: unknown[]) => void;
+	};
+}
+
+const mathMax = Math.max;
+const mathMin = Math.min;
+const decoder = new TextDecoder();
+const encoder = new TextEncoder();
+const reflectApply = Reflect.apply;
+const arrayIsArray = Array.isArray;
+const nativeError = globalThis.Error;
+const nativeNumber = globalThis.Number;
+const nativeString = globalThis.String;
+const decodeComponent = globalThis.decodeURIComponent;
+const failureKinds = new WeakMap<object, string>();
+const failurePhases = new WeakMap<object, string>();
+const jsonStringify = JSON.stringify.bind(JSON);
+const encodeText = encoder.encode.bind(encoder);
+const decodeText = decoder.decode.bind(decoder);
+const getFailureKind = failureKinds.get.bind(failureKinds);
+const setFailureKind = failureKinds.set.bind(failureKinds);
+const getFailurePhase = failurePhases.get.bind(failurePhases);
+const setFailurePhase = failurePhases.set.bind(failurePhases);
+const truncationDecoder = new TextDecoder("utf-8", { fatal: true });
+const typedArrayPrototype = Object.getPrototypeOf(Uint8Array.prototype) as object;
+const decodeTruncatedText = truncationDecoder.decode.bind(truncationDecoder);
+const stackFramePattern = /(?:^|[\s(])([^\s()]+):(\d+):(\d+)\)?$/;
+
+const ownMethod = <T>(prototype: object, name: string): T => {
+	const descriptor = Object.getOwnPropertyDescriptor(prototype, name);
+	if (!descriptor) {
+		throw new nativeError(`Sandbox runner could not resolve ${name}`);
+	}
+	return descriptor.value as T;
+};
+
+const arrayJoin = ownMethod<(this: readonly unknown[], separator?: string) => string>(
+	Array.prototype,
+	"join",
+);
+const arrayPush = ownMethod<(this: unknown[], value: unknown) => number>(Array.prototype, "push");
+const regexpExec = ownMethod<(this: RegExp, value: string) => RegExpExecArray | null>(
+	RegExp.prototype,
+	"exec",
+);
+const stringTrim = ownMethod<(this: string) => string>(String.prototype, "trim");
+const stringSplit = ownMethod<(this: string, separator: string | RegExp) => string[]>(
+	String.prototype,
+	"split",
+);
+const stringSlice = ownMethod<(this: string, start?: number, end?: number) => string>(
+	String.prototype,
+	"slice",
+);
+const stringStartsWith = ownMethod<(this: string, search: string) => boolean>(
+	String.prototype,
+	"startsWith",
+);
+const stringLastIndexOf = ownMethod<(this: string, search: string) => number>(
+	String.prototype,
+	"lastIndexOf",
+);
+const typedArraySet = ownMethod<
+	(this: Uint8Array, array: ArrayLike<number>, offset?: number) => void
+>(typedArrayPrototype, "set");
+const stringReplace = ownMethod<
+	(this: string, pattern: string | RegExp, replacement: string) => string
+>(String.prototype, "replace");
+const typedArraySubarray = ownMethod<
+	(this: Uint8Array, begin?: number, end?: number) => Uint8Array
+>(typedArrayPrototype, "subarray");
+
+const join = (values: readonly unknown[], separator: string): string =>
+	reflectApply(arrayJoin, values, [separator]);
+const push = <T>(values: T[], value: T): number => reflectApply(arrayPush, values, [value]);
+const replace = (value: string, pattern: string | RegExp, replacement: string): string =>
+	reflectApply(stringReplace, value, [pattern, replacement]);
+const split = (value: string, separator: string | RegExp): string[] =>
+	reflectApply(stringSplit, value, [separator]);
+const slice = (value: string, start?: number, end?: number): string =>
+	reflectApply(stringSlice, value, [start, end]);
+const startsWith = (value: string, search: string): boolean =>
+	reflectApply(stringStartsWith, value, [search]);
+const lastIndexOf = (value: string, search: string): number =>
+	reflectApply(stringLastIndexOf, value, [search]);
+const trim = (value: string): string => reflectApply(stringTrim, value, []);
+
+export const isRecord = (value: unknown): value is Record<string, unknown> =>
+	value !== null && typeof value === "object" && !arrayIsArray(value);
+
+const formatArg = (value: unknown): string => {
+	if (typeof value === "string") {
+		return value;
+	}
+	try {
+		return nativeString(jsonStringify(value));
+	} catch {
+		try {
+			return nativeString(value);
+		} catch {
+			return "[unprintable]";
+		}
+	}
+};
+
+const truncateUtf8 = (value: string, maximumBytes: number): string => {
+	const encoded = encodeText(value);
+	if (encoded.byteLength <= maximumBytes) {
+		return value;
+	}
+
+	for (let end = maximumBytes; end >= mathMax(0, maximumBytes - 3); end -= 1) {
+		try {
+			return decodeTruncatedText(reflectApply(typedArraySubarray, encoded, [0, end]));
+		} catch {
+			continue;
+		}
+	}
+	return "";
+};
+
+export const createLogCollector = (limits: SandboxRunnerLimits): SandboxLogCollector => {
+	const logs: string[] = [];
+	let totalBytes = 0;
+	let truncated = false;
+	const marker = limits.logTruncationMarker;
+	const markerBytes = encodeText(marker).byteLength;
+
+	const appendMarker = () => {
+		if (!truncated) {
+			push(logs, marker);
+			totalBytes += markerBytes;
+			truncated = true;
+		}
+	};
+
+	const append = (entry: string) => {
+		if (truncated) {
+			return;
+		}
+		if (logs.length >= limits.logEntryCount - 1) {
+			appendMarker();
+			return;
+		}
+
+		const entryBytes = encodeText(entry).byteLength;
+		if (
+			entryBytes <= limits.logEntryBytes &&
+			totalBytes + entryBytes + markerBytes <= limits.logTotalBytes
+		) {
+			push(logs, entry);
+			totalBytes += entryBytes;
+			return;
+		}
+
+		const availableBytes = mathMax(
+			0,
+			mathMin(limits.logEntryBytes, limits.logTotalBytes - totalBytes - markerBytes),
+		);
+		const prefix = truncateUtf8(entry, availableBytes);
+		if (prefix) {
+			push(logs, prefix);
+			totalBytes += encodeText(prefix).byteLength;
+		}
+		appendMarker();
+	};
+
+	const write = (prefix: string, args: unknown[]) => {
+		let entry = prefix;
+		for (let index = 0; index < args.length; index += 1) {
+			entry += (index === 0 ? "" : " ") + formatArg(args[index]);
+		}
+		append(entry);
+	};
+
+	return {
+		logs,
+		console: {
+			log: (...args) => write("", args),
+			info: (...args) => write("", args),
+			warn: (...args) => write("[warn] ", args),
+			debug: (...args) => write("", args),
+			error: (...args) => write("[error] ", args),
+		},
+	};
+};
+
+type BridgeResponse = { body: string; oversized: boolean };
+type BridgeReader = {
+	cancel: () => Promise<void>;
+	read: () => Promise<
+		{ done: true; value?: Uint8Array | undefined } | { done: false; value: Uint8Array }
+	>;
+};
+
+const readBridgeChunks = (
+	reader: BridgeReader,
+	maximumBytes: number,
+	chunks: Uint8Array[],
+	bytes: number,
+): Promise<BridgeResponse> =>
+	reader.read().then((next) => {
+		if (next.done) {
+			const body = new Uint8Array(bytes);
+			let offset = 0;
+			for (let index = 0; index < chunks.length; index += 1) {
+				const chunk = chunks[index];
+				if (!chunk) {
+					continue;
+				}
+				reflectApply(typedArraySet, body, [chunk, offset]);
+				offset += chunk.byteLength;
+			}
+			return { body: decodeText(body), oversized: false };
+		}
+
+		const nextBytes = bytes + next.value.byteLength;
+		if (nextBytes > maximumBytes) {
+			return reader.cancel().then(() => ({ body: "", oversized: true }));
+		}
+		push(chunks, next.value);
+		return readBridgeChunks(reader, maximumBytes, chunks, nextBytes);
+	});
+
+export const readBridgeResponse = (
+	response: Response,
+	maximumBytes: number,
+): Promise<BridgeResponse> => {
+	if (!response.body) {
+		return Promise.resolve({ body: "", oversized: false });
+	}
+	return readBridgeChunks(response.body.getReader(), maximumBytes, [], 0);
+};
+
+export const throwPhase = (phase: string, error: unknown, kind?: string): never => {
+	const failure = isRecord(error) ? error : new nativeError(nativeString(error));
+	setFailurePhase(failure, phase);
+	if (kind !== undefined) {
+		setFailureKind(failure, kind);
+	}
+	throw failure;
+};
+
+export const failurePhase = (error: unknown, fallback: string): string =>
+	isRecord(error) ? (getFailurePhase(error) ?? fallback) : fallback;
+
+export const failureKind = (error: unknown, fallback: string): string =>
+	isRecord(error) ? (getFailureKind(error) ?? fallback) : fallback;
+
+const safeErrorProperty = (error: unknown, property: string): string | undefined => {
+	try {
+		const value = isRecord(error) ? error[property] : undefined;
+		return typeof value === "string" ? value : undefined;
+	} catch {
+		return undefined;
+	}
+};
+
+const decodeUrlPath = (value: string): string => {
+	try {
+		return decodeComponent(value);
+	} catch {
+		return value;
+	}
+};
+
+const moduleUrlDirectory = (payload: SandboxRunnerPayload | undefined): string | undefined => {
+	const moduleUrl = payload?.moduleUrl;
+	return moduleUrl ? slice(moduleUrl, 0, lastIndexOf(moduleUrl, "/") + 1) : undefined;
+};
+
+const sanitizeMessage = (
+	message: string,
+	payload: SandboxRunnerPayload | undefined,
+	phase: string,
+	hasMappedFrames: boolean,
+): string => {
+	let sanitized = message;
+	sanitized = replace(sanitized, /file:\/\/\/[^\s)]*/g, "[internal]");
+	const moduleUrl = payload?.moduleUrl;
+	const modulePath =
+		moduleUrl && startsWith(moduleUrl, "file://")
+			? decodeComponent(slice(moduleUrl, "file://".length))
+			: undefined;
+	const moduleDirectory = modulePath
+		? slice(modulePath, 0, lastIndexOf(modulePath, "/") + 1)
+		: undefined;
+	const secrets = [
+		moduleUrl,
+		moduleUrlDirectory(payload),
+		modulePath,
+		moduleDirectory,
+		payload?.token,
+		payload?.apiBase,
+		payload?.executionId,
+	];
+	for (let index = 0; index < secrets.length; index += 1) {
+		const secret = secrets[index];
+		if (typeof secret === "string" && secret) {
+			sanitized = join(split(sanitized, secret), "[redacted]");
+		}
+	}
+	sanitized = replace(sanitized, /data:text\/javascript[^\s)]*/g, "script.ts");
+	sanitized = replace(sanitized, /https?:\/\/127\.0\.0\.1:\d+\/rpc\/[^\s)]*/g, "[bridge]");
+	if (phase === "load" && !hasMappedFrames) {
+		const lines = split(sanitized, "\n");
+		for (let index = 0; index < lines.length; index += 1) {
+			const line = lines[index];
+			if (line && trim(line)) {
+				return line;
+			}
+		}
+		return "Sandbox module failed to load";
+	}
+	return sanitized;
+};
+
+export const executionError = (
+	error: unknown,
+	phase: string,
+	payload: SandboxRunnerPayload | undefined,
+	kind: string,
+): SandboxRunnerError => {
+	const rawStack = safeErrorProperty(error, "stack") ?? "";
+	const moduleDirectoryUrl = moduleUrlDirectory(payload);
+	const moduleFile =
+		payload?.moduleUrl && moduleDirectoryUrl
+			? slice(payload.moduleUrl, moduleDirectoryUrl.length)
+			: undefined;
+	const frames: Array<{ path: string; line: number; column: number }> = [];
+	const lines = split(rawStack, "\n");
+	for (let index = 0; index < lines.length; index += 1) {
+		const line = lines[index];
+		if (!line || !moduleDirectoryUrl) {
+			continue;
+		}
+		const match = reflectApply(regexpExec, stackFramePattern, [trim(line)]);
+		if (!match?.[1] || !match[2] || !match[3]) {
+			continue;
+		}
+		const source = match[1];
+		if (!startsWith(source, moduleDirectoryUrl)) {
+			continue;
+		}
+		const path = decodeUrlPath(slice(source, moduleDirectoryUrl.length));
+		const mappedLine = nativeNumber(match[2]);
+		const mappedColumn = nativeNumber(match[3]);
+		if (path && path !== moduleFile && mappedLine > 0 && mappedColumn > 0) {
+			push(frames, { path, line: mappedLine, column: mappedColumn });
+		}
+	}
+
+	let rawMessage = safeErrorProperty(error, "message");
+	if (!rawMessage) {
+		try {
+			rawMessage = nativeString(error);
+		} catch {
+			rawMessage = "Sandbox execution failed";
+		}
+	}
+	const firstFrame = frames[0];
+	let sanitizedStack = "";
+	for (let index = 0; index < frames.length; index += 1) {
+		const frame = frames[index];
+		if (!frame) {
+			continue;
+		}
+		sanitizedStack += `${sanitizedStack ? "\n" : ""}    at ${frame.path}:${frame.line}:${frame.column}`;
+	}
+	return {
+		kind,
+		phase,
+		message: sanitizeMessage(rawMessage, payload, phase, frames.length > 0),
+		...(firstFrame ? { line: firstFrame.line, column: firstFrame.column } : {}),
+		...(sanitizedStack ? { stack: sanitizedStack } : {}),
+	};
+};
+
+export const validateLimits = (limits: unknown): limits is SandboxRunnerLimits => {
+	if (!isRecord(limits)) {
+		return false;
+	}
+	for (const key of [
+		"resultBytes",
+		"hostCallCount",
+		"httpCallCount",
+		"logEntryBytes",
+		"logEntryCount",
+		"logTotalBytes",
+		"bridgeRequestBytes",
+		"bridgeResponseBytes",
+		"durableBridgeResponseBytes",
+	]) {
+		const value = limits[key];
+		if (!Number.isSafeInteger(value) || (typeof value === "number" && value <= 0)) {
+			return false;
+		}
+	}
+	return (
+		typeof limits["hostCallLimitMessage"] === "string" &&
+		limits["hostCallLimitMessage"].length > 0 &&
+		typeof limits["httpCallLimitMessage"] === "string" &&
+		limits["httpCallLimitMessage"].length > 0 &&
+		typeof limits["logTruncationMarker"] === "string" &&
+		limits["logTruncationMarker"].length > 0
+	);
+};

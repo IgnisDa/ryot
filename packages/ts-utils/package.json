@@ -1,0 +1,19 @@
+{
+	"name": "@ryot-app/ts-utils",
+	"exports": {
+		"./*": {
+			"types": "./src/*.ts",
+			"default": "./src/*.ts"
+		}
+	},
+	"scripts": {
+		"check": "tsc && oxfmt . --write && oxlint . --type-aware --fix"
+	},
+	"dependencies": {
+		"lodash": "4.18.1",
+		"slugify": "1.6.9"
+	},
+	"devDependencies": {
+		"@types/lodash": "4.17.24"
+	}
+}

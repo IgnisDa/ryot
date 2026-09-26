@@ -1,0 +1,145 @@
+{
+	"name": "@ryot-app/media-plugin",
+	"private": true,
+	"exports": {
+		".": {
+			"types": "./host/plugin.ts",
+			"default": "./host/plugin.ts"
+		},
+		"./shared/anime-recipes": {
+			"types": "./shared/anime-recipes.ts",
+			"default": "./shared/anime-recipes.ts"
+		},
+		"./shared/audiobook-recipes": {
+			"types": "./shared/audiobook-recipes.ts",
+			"default": "./shared/audiobook-recipes.ts"
+		},
+		"./shared/comic-book-recipes": {
+			"types": "./shared/comic-book-recipes.ts",
+			"default": "./shared/comic-book-recipes.ts"
+		},
+		"./shared/visual-novel-recipes": {
+			"types": "./shared/visual-novel-recipes.ts",
+			"default": "./shared/visual-novel-recipes.ts"
+		},
+		"./shared/show-recipes": {
+			"types": "./shared/show-recipes.ts",
+			"default": "./shared/show-recipes.ts"
+		},
+		"./shared/podcast-recipes": {
+			"types": "./shared/podcast-recipes.ts",
+			"default": "./shared/podcast-recipes.ts"
+		},
+		"./shared/episodic-recipes": {
+			"types": "./shared/episodic-recipes.ts",
+			"default": "./shared/episodic-recipes.ts"
+		},
+		"./shared/lifecycle-expressions": {
+			"types": "./shared/lifecycle-expressions.ts",
+			"default": "./shared/lifecycle-expressions.ts"
+		},
+		"./shared/lifecycle-list-recipes": {
+			"types": "./shared/lifecycle-list-recipes.ts",
+			"default": "./shared/lifecycle-list-recipes.ts"
+		},
+		"./shared/discovery-recipes": {
+			"types": "./shared/discovery-recipes.ts",
+			"default": "./shared/discovery-recipes.ts"
+		},
+		"./shared/airing-recipes": {
+			"types": "./shared/airing-recipes.ts",
+			"default": "./shared/airing-recipes.ts"
+		},
+		"./shared/activity-recipes": {
+			"types": "./shared/activity-recipes.ts",
+			"default": "./shared/activity-recipes.ts"
+		},
+		"./shared/movie-recipes": {
+			"types": "./shared/movie-recipes.ts",
+			"default": "./shared/movie-recipes.ts"
+		},
+		"./shared/music-recipes": {
+			"types": "./shared/music-recipes.ts",
+			"default": "./shared/music-recipes.ts"
+		},
+		"./shared/book-recipes": {
+			"types": "./shared/book-recipes.ts",
+			"default": "./shared/book-recipes.ts"
+		},
+		"./shared/manga-recipes": {
+			"types": "./shared/manga-recipes.ts",
+			"default": "./shared/manga-recipes.ts"
+		},
+		"./shared/video-game-recipes": {
+			"types": "./shared/video-game-recipes.ts",
+			"default": "./shared/video-game-recipes.ts"
+		},
+		"./shared/creator-recipes": {
+			"types": "./shared/creator-recipes.ts",
+			"default": "./shared/creator-recipes.ts"
+		},
+		"./shared/person-recipes": {
+			"types": "./shared/person-recipes.ts",
+			"default": "./shared/person-recipes.ts"
+		},
+		"./shared/company-recipes": {
+			"types": "./shared/company-recipes.ts",
+			"default": "./shared/company-recipes.ts"
+		},
+		"./import-sources": {
+			"types": "./host/import-sources.ts",
+			"default": "./host/import-sources.ts"
+		},
+		"./contracts/workflows": {
+			"types": "./backend/contracts/workflows.ts",
+			"default": "./backend/contracts/workflows.ts"
+		},
+		"./contracts/operations": {
+			"types": "./backend/contracts/operations.ts",
+			"default": "./backend/contracts/operations.ts"
+		},
+		"./contracts/schema-slugs": {
+			"types": "./backend/contracts/schema-slugs.ts",
+			"default": "./backend/contracts/schema-slugs.ts"
+		},
+		"./contracts/operation-recipes": {
+			"types": "./backend/contracts/operation-recipes.ts",
+			"default": "./backend/contracts/operation-recipes.ts"
+		}
+	},
+	"scripts": {
+		"build": "ryot plugin build",
+		"test": "bun --bun run vitest run",
+		"check": "tsc && oxfmt . --write && oxlint . --type-aware --fix"
+	},
+	"dependencies": {
+		"@ryot-app/config": "workspace:*",
+		"@ryot-app/contract": "workspace:*",
+		"@ryot-app/plugin-kit": "workspace:*",
+		"@ryot-app/ryotql": "workspace:*",
+		"@ryot-app/ryotql-recipes": "workspace:*",
+		"@ryot-app/sandbox-sdk": "workspace:*",
+		"@ryot-app/ts-utils": "workspace:*",
+		"effect": "4.0.0-rc.117"
+	},
+	"devDependencies": {
+		"@effect/platform-bun": "4.0.0-rc.117",
+		"@effect/vitest": "4.0.0-rc.117",
+		"@ryot-app/cli": "workspace:*",
+		"@ryot-app/client-plugin-contract": "workspace:*",
+		"@ryot-app/client-sdk": "workspace:*",
+		"@ryot-app/client-ui-sdk": "workspace:*",
+		"@ryot-app/kernel-backend": "workspace:*",
+		"@ryot-app/sandbox-compiler": "workspace:*",
+		"@ryot-app/testing": "workspace:*",
+		"@testing-library/dom": "^10.4.1",
+		"@types/react": "^19.2.0",
+		"@types/react-dom": "^19.2.0",
+		"bun-types": "1.4.0",
+		"clsx": "2.1.1",
+		"jsdom": "^30.0.1",
+		"react": "^19.2.0",
+		"react-dom": "^19.2.0",
+		"vitest": "4.1.9"
+	}
+}

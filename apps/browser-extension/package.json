@@ -1,14 +1,26 @@
 {
+	"name": "@ryot-app/browser-extension",
+	"version": "0.1.0",
 	"private": true,
 	"type": "module",
-	"version": "0.1.0",
-	"name": "@ryot/browser-extension",
 	"scripts": {
-		"typecheck": "tsc",
-		"lint": "biome check .",
 		"build-chrome": "wxt zip -b chrome",
 		"build-firefox": "wxt zip -b firefox",
-		"build": "yarn run build-chrome && yarn run build-firefox"
+		"build": "bun run build-chrome && bun run build-firefox",
+		"check": "wxt prepare && tsc && oxfmt . --write && oxlint . --type-aware --fix"
+	},
+	"dependencies": {
+		"@ryot-app/contract": "workspace:*",
+		"@ryot-app/media-plugin": "workspace:*",
+		"@ryot-app/plugin-kit": "workspace:*",
+		"@ryot-app/ts-utils": "workspace:*",
+		"@tailwindcss/vite": "4.1.18",
+		"effect": "4.0.0-rc.117",
+		"lucide-react": "0.563.0",
+		"react": "19.2.4",
+		"react-dom": "19.2.4",
+		"tailwindcss": "4.1.18",
+		"ts-pattern": "5.9.0"
 	},
 	"devDependencies": {
 		"@types/react": "19.2.14",
@@ -17,17 +29,5 @@
 		"@wxt-dev/module-react": "1.1.5",
 		"vite-tsconfig-paths": "6.1.1",
 		"wxt": "0.20.17"
-	},
-	"dependencies": {
-		"@ryot/generated": "workspace:*",
-		"@ryot/ts-utils": "workspace:*",
-		"@tailwindcss/vite": "4.1.18",
-		"graphql": "16.12.0",
-		"graphql-request": "7.4.0",
-		"lucide-react": "0.563.0",
-		"react": "19.2.4",
-		"react-dom": "19.2.4",
-		"tailwindcss": "4.1.18",
-		"ts-pattern": "5.9.0"
 	}
 }

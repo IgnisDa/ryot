@@ -1,0 +1,42 @@
+{
+	"$schema": "../node_modules/oxlint/configuration_schema.json",
+	"extends": ["../.oxlintrc.json"],
+	"rules": {
+		"effecttsgo/new-promise": "off",
+		"effecttsgo/async-function": "off",
+		"effecttsgo/node-builtin-import": "off",
+		"effecttsgo/global-fetch-in-effect": "off",
+		"effecttsgo/prefer-schema-over-json": "off",
+		"effecttsgo/global-date-in-effect": "error",
+		"effecttsgo/process-env-in-effect": "error",
+		"effecttsgo/global-timers-in-effect": "error",
+		"effecttsgo/global-console-in-effect": "error",
+		"effecttsgo/global-error-in-effect-failure": "error"
+	},
+	"overrides": [
+		{
+			"files": ["src/api/**"],
+			"rules": {
+				"no-restricted-imports": [
+					"error",
+					{
+						"paths": [
+							{
+								"name": "vitest",
+								"message": "Import the runner surface from ~/support/effect-test."
+							},
+							{
+								"name": "bun:test",
+								"message": "bun:test is removed; import from ~/support/effect-test."
+							},
+							{
+								"name": "@effect/vitest",
+								"message": "Import the runner surface from ~/support/effect-test."
+							}
+						]
+					}
+				]
+			}
+		}
+	]
+}

@@ -1,0 +1,47 @@
+import {
+	AutomationEntitySnapshot,
+	AutomationWarning,
+} from "@ryot-app/contract/modules/automations/lifecycle";
+import { ListedEntity } from "@ryot-app/contract/modules/entities/schemas";
+import { EntityId } from "@ryot-app/contract/schema/brands";
+import { Schema } from "effect";
+
+export const EntityReferenceSnapshot = Schema.Struct({
+	id: EntityId,
+	name: Schema.String,
+	entitySchemaSlug: Schema.String,
+});
+
+export const EntityMutationSnapshot = AutomationEntitySnapshot;
+
+export type EntityReferenceSnapshot = typeof EntityReferenceSnapshot.Type;
+
+export type EntityMutationSnapshot = typeof EntityMutationSnapshot.Type;
+
+export const EntityMutationOutcome = Schema.Union([
+	Schema.Struct({
+		before: Schema.Null,
+		after: EntityMutationSnapshot,
+		operation: Schema.Literal("create"),
+	}),
+	Schema.Struct({
+		after: EntityMutationSnapshot,
+		before: EntityMutationSnapshot,
+		operation: Schema.Literal("update"),
+	}),
+	Schema.Struct({
+		after: EntityMutationSnapshot,
+		before: EntityMutationSnapshot,
+		operation: Schema.Literal("noop"),
+	}),
+]);
+
+export type EntityMutationOutcome = typeof EntityMutationOutcome.Type;
+
+export const ProviderEntitySaveResult = Schema.Struct({
+	entity: ListedEntity,
+	outcome: EntityMutationOutcome,
+	warnings: Schema.Array(AutomationWarning),
+});
+
+export type ProviderEntitySaveResult = typeof ProviderEntitySaveResult.Type;

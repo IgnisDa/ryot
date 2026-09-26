@@ -1,11 +1,10 @@
 import { and, eq, inArray, isNull } from "drizzle-orm";
 import { migrate } from "drizzle-orm/postgres-js/migrator";
+
 import * as schema from "~/drizzle/schema.server";
+
 import { getDb, getServerVariables } from "./config.server";
-import {
-	getLegacyPaymentCatalog,
-	getPaymentEnvironment,
-} from "./payment-catalog";
+import { getLegacyPaymentCatalog, getPaymentEnvironment } from "./payment-catalog";
 
 const MIGRATIONS_FOLDER = "app/drizzle/migrations";
 
@@ -17,46 +16,50 @@ const backfillLegacyPurchaseProviderIdentity = async () => {
 		paddle: getPaymentEnvironment(serverVariables.PADDLE_SANDBOX),
 	};
 
-	let backfilledPurchases = 0;
+	const backfillOperations: Array<Promise<unknown[]>> = [];
 	for (const paymentProvider of schema.paymentProviders.enumValues) {
 		const providerCustomerIds = db
-			.select({ id: schema.customers.id })
-			.from(schema.customers)
-			.where(eq(schema.customers.paymentProvider, paymentProvider));
-		const catalog = getLegacyPaymentCatalog(
-			paymentProvider,
-			environments[paymentProvider],
-		);
+			.select({ id: schema.customer.id })
+			.from(schema.customer)
+			.where(eq(schema.customer.paymentProvider, paymentProvider));
+		const catalog = getLegacyPaymentCatalog(paymentProvider, environments[paymentProvider]);
 
-		for (const product of catalog)
+		for (const product of catalog) {
 			for (const price of product.prices) {
-				if (!price.priceId) continue;
-				if (paymentProvider === "polar" && !price.productId) continue;
+				if (!price.priceId) {
+					continue;
+				}
+				if (paymentProvider === "polar" && !price.productId) {
+					continue;
+				}
 
-				const backfilled = await db
-					.update(schema.customerPurchases)
-					.set({
-						paymentProvider,
-						providerPriceId: price.priceId,
-						providerProductId: price.productId ?? null,
-					})
-					.where(
-						and(
-							eq(schema.customerPurchases.planType, price.name),
-							eq(schema.customerPurchases.productType, product.type),
-							isNull(schema.customerPurchases.paymentProvider),
-							inArray(schema.customerPurchases.customerId, providerCustomerIds),
-						),
-					)
-					.returning({ id: schema.customerPurchases.id });
-				backfilledPurchases += backfilled.length;
+				backfillOperations.push(
+					db
+						.update(schema.customerPurchase)
+						.set({
+							paymentProvider,
+							providerPriceId: price.priceId,
+							providerProductId: price.productId ?? null,
+						})
+						.where(
+							and(
+								eq(schema.customerPurchase.planType, price.name),
+								eq(schema.customerPurchase.productType, product.type),
+								isNull(schema.customerPurchase.paymentProvider),
+								inArray(schema.customerPurchase.customerId, providerCustomerIds),
+							),
+						)
+						.returning({ id: schema.customerPurchase.id }),
+				);
 			}
+		}
 	}
 
-	if (backfilledPurchases > 0)
-		console.log(
-			`Backfilled provider identity for ${backfilledPurchases} purchases`,
-		);
+	const backfilled = await Promise.all(backfillOperations);
+	const backfilledPurchases = backfilled.reduce((total, rows) => total + rows.length, 0);
+	if (backfilledPurchases > 0) {
+		console.log(`Backfilled provider identity for ${backfilledPurchases} purchases`);
+	}
 };
 
 export const runMigrations = async () => {

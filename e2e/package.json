@@ -1,0 +1,43 @@
+{
+	"name": "@ryot-app/e2e",
+	"private": true,
+	"type": "module",
+	"scripts": {
+		"test": "bun --bun run vitest run",
+		"check": "tsc && oxfmt . --write && oxlint . --type-aware --fix"
+	},
+	"devDependencies": {
+		"@aws-sdk/client-s3": "3.1032.0",
+		"@better-auth/api-key": "1.7.2",
+		"@effect/platform-bun": "4.0.0-rc.117",
+		"@effect/vitest": "4.0.0-rc.117",
+		"@faker-js/faker": "10.4.0",
+		"@ryot-app/client-plugin-compiler": "workspace:*",
+		"@ryot-app/client-plugin-contract": "workspace:*",
+		"@ryot-app/contract": "workspace:*",
+		"@ryot-app/fitness-plugin": "workspace:*",
+		"@ryot-app/fixture-plugin": "workspace:*",
+		"@ryot-app/media-plugin": "workspace:*",
+		"@ryot-app/plugin-archive": "workspace:*",
+		"@ryot-app/plugin-kit": "workspace:*",
+		"@ryot-app/ryotql": "workspace:*",
+		"@ryot-app/ryotql-recipes": "workspace:*",
+		"@ryot-app/sandbox-compiler": "workspace:*",
+		"@ryot-app/sandbox-sdk": "workspace:*",
+		"@ryot-app/server": "workspace:*",
+		"@ryot-app/testing": "workspace:*",
+		"@ryot-app/ts-utils": "workspace:*",
+		"@testcontainers/postgresql": "11.14.0",
+		"better-auth": "1.7.2",
+		"dotenv": "17.3.1",
+		"effect": "4.0.0-rc.117",
+		"effect-playwright": "0.8.0-2",
+		"fflate": "^0.8.3",
+		"get-port": "7.2.0",
+		"oauth2-mock-server": "9.1.0",
+		"playwright": "1.62.1",
+		"rfc4648": "1.5.4",
+		"testcontainers": "11.14.0",
+		"vitest": "4.1.9"
+	}
+}

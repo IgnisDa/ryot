@@ -1,0 +1,272 @@
+import type { SandboxHost } from "@ryot-app/sandbox-sdk/core";
+import { Effect } from "@ryot-app/sandbox-sdk/effect";
+import { defineSandboxTestHost, runSandboxTestScript } from "@ryot-app/sandbox-sdk/testing";
+import { describe, expect, it } from "vitest";
+
+import details, { manifest as detailsManifest } from "./details.sandbox";
+import search, { manifest as searchManifest } from "./search.sandbox";
+import { manifest } from "./shared";
+import translate, { manifest as translateManifest } from "./translate.sandbox";
+
+type TvdbHost = SandboxHost<typeof manifest.capabilities>;
+const httpSuccess = (body: unknown) =>
+	Effect.succeed({
+		status: 200,
+		headers: {},
+		body: typeof body === "string" ? body : JSON.stringify(body),
+	});
+const makeHost = (httpCall: TvdbHost["httpCall"]) =>
+	defineSandboxTestHost(manifest, {
+		httpCall,
+		setCachedValue: () => Effect.succeed(null),
+		getCachedValue: () => Effect.succeed("Bearer test-token"),
+		getPluginConfig: (keys) =>
+			Effect.succeed(Object.fromEntries(keys.map((key) => [key, "test-api-key"]))),
+	});
+const execution = { metadata: {}, sandboxScriptId: "script_test" };
+describe("movie.tvdb sandbox script", () => {
+	it("declares one narrowly scoped script per operation", () => {
+		expect([
+			[searchManifest.slug, search.operation],
+			[detailsManifest.slug, details.operation],
+			[translateManifest.slug, translate.operation],
+		]).toEqual([
+			["movie.tvdb.search", "search"],
+			["movie.tvdb.details", "details"],
+			["movie.tvdb.translate", "translate"],
+		]);
+	});
+	it("maps only official lists, merges duplicate person roles, and preserves group order", () => {
+		const host = makeHost((_method, url) =>
+			url.includes("/translations/")
+				? httpSuccess({})
+				: httpSuccess({
+						data: {
+							name: "Movie",
+							companies: { studio: [{ id: 5, name: "Studio X" }] },
+							characters: [
+								{ peopleId: 1, peopleType: "Actor", personName: "Actor A" },
+								{ peopleId: 1, personName: "Actor A", peopleType: "Director" },
+								{ peopleType: "Writer", personName: "Unlinked Person" },
+							],
+							lists: [
+								{ id: 10, is_official: true, name: "Official List" },
+								{ id: "20", isOfficial: true, name: "String Id List" },
+								{ id: 30, name: "Unofficial", is_official: false },
+								{ name: "No Id", is_official: true },
+							],
+						},
+					}),
+		);
+		return Effect.runPromise(
+			runSandboxTestScript(details, { externalId: "1" }, host, execution).pipe(
+				Effect.map((result) => {
+					expect(result.relatedEntityGroups).toEqual([
+						{
+							direction: "incoming",
+							synchronization: "additive",
+							relationshipSchemaSlug: "person-to-movie",
+							entities: [
+								{
+									name: "Actor A",
+									externalId: "1",
+									providerSlug: "person.tvdb",
+									relationshipProperties: { roles: ["Actor", "Director"] },
+								},
+							],
+						},
+						{
+							direction: "incoming",
+							synchronization: "additive",
+							relationshipSchemaSlug: "company-to-movie",
+							entities: [
+								{
+									externalId: "5",
+									name: "Studio X",
+									providerSlug: "company.tvdb",
+									relationshipProperties: { roles: ["Studio"] },
+								},
+							],
+						},
+						{
+							direction: "incoming",
+							synchronization: "additive",
+							relationshipSchemaSlug: "movie-group-to-movie",
+							entities: [
+								{
+									externalId: "10",
+									name: "Official List",
+									providerSlug: "movie-group.tvdb",
+									relationshipProperties: { roles: ["Member"] },
+								},
+								{
+									externalId: "20",
+									name: "String Id List",
+									providerSlug: "movie-group.tvdb",
+									relationshipProperties: { roles: ["Member"] },
+								},
+							],
+						},
+					]);
+					expect(result.properties).toMatchObject({
+						unlinkedCreators: [{ role: "Writer", name: "Unlinked Person" }],
+					});
+					return undefined;
+				}),
+			),
+		);
+	});
+	it("applies translation name and description over the base movie fields", () => {
+		const host = makeHost((_method, url) =>
+			url.includes("/translations/")
+				? httpSuccess({ data: { name: "Translated Name", overview: "Translated overview" } })
+				: httpSuccess({ data: { year: "2020", name: "Base Name", overview: "Base overview" } }),
+		);
+		return Effect.runPromise(
+			runSandboxTestScript(details, { externalId: "1" }, host, execution).pipe(
+				Effect.map((result) => {
+					expect(result.name).toBe("Translated Name");
+					expect(result.properties).toMatchObject({
+						publishYear: 2020,
+						description: "Translated overview",
+					});
+					return undefined;
+				}),
+			),
+		);
+	});
+	it("falls back to the movie title key and firstAired year, and omits runtime and sourceUrl", () => {
+		const host = makeHost((_method, url) =>
+			url.includes("/translations/")
+				? httpSuccess({})
+				: httpSuccess({
+						data: { averageRuntime: 0, title: "Only Title Key", firstAired: "2019-05-01" },
+					}),
+		);
+		return Effect.runPromise(
+			runSandboxTestScript(details, { externalId: "1" }, host, execution).pipe(
+				Effect.map((result) => {
+					expect(result.name).toBe("Only Title Key");
+					expect(result.properties).toMatchObject({
+						runtime: null,
+						sourceUrl: null,
+						publishYear: 2019,
+						description: null,
+					});
+					return undefined;
+				}),
+			),
+		);
+	});
+	it("deduplicates images across image, image_url, and artworks", () => {
+		const host = makeHost((_method, url) =>
+			url.includes("/translations/")
+				? httpSuccess({})
+				: httpSuccess({
+						data: {
+							name: "Movie",
+							image: "http://a",
+							image_url: "http://a",
+							artworks: [
+								{ image: "http://b" },
+								{ image: "http://a" },
+								{ type: "backdrop", image: "http://c" },
+								{ type: "poster", image: "http://d" },
+							],
+						},
+					}),
+		);
+		return Effect.runPromise(
+			runSandboxTestScript(details, { externalId: "1" }, host, execution).pipe(
+				Effect.map((result) => {
+					expect(result.properties).toMatchObject({
+						images: [
+							{ type: "remote", url: "http://a", purpose: "cover" },
+							{ type: "remote", url: "http://b", purpose: "artwork" },
+							{ type: "remote", url: "http://c", purpose: "backdrop" },
+							{ type: "remote", url: "http://d", purpose: "cover" },
+						],
+					});
+					return undefined;
+				}),
+			),
+		);
+	});
+	it("translate uses the localized artwork from the extended payload", () => {
+		const host = makeHost((_method, url) =>
+			url.includes("/translations/")
+				? httpSuccess({ data: { name: "Nombre", overview: "Descripción" } })
+				: httpSuccess({
+						data: {
+							artworks: [
+								{ language: "spa", image: "http://poster-es" },
+								{ language: "eng", image: "http://poster-en" },
+							],
+						},
+					}),
+		);
+		return Effect.runPromise(
+			runSandboxTestScript(
+				translate,
+				{ language: "es", externalId: "1", entitySchemaSlug: "movie" },
+				host,
+				execution,
+			).pipe(
+				Effect.map((result) => {
+					expect(result).toEqual({
+						name: "Nombre",
+						properties: {
+							description: "Descripción",
+							images: [{ type: "remote", purpose: "cover", url: "http://poster-es" }],
+						},
+					});
+					return undefined;
+				}),
+			),
+		);
+	});
+	it("translate still returns the translation when the details fetch fails", () => {
+		const host = makeHost((_method, url) =>
+			url.includes("/extended")
+				? Effect.fail(new Error("boom"))
+				: httpSuccess({ data: { name: "Nombre", overview: "Descripción" } }),
+		);
+		return Effect.runPromise(
+			runSandboxTestScript(
+				translate,
+				{ language: "es", externalId: "1", entitySchemaSlug: "movie" },
+				host,
+				execution,
+			).pipe(
+				Effect.map((result) => {
+					expect(result).toEqual({ name: "Nombre", properties: { description: "Descripción" } });
+					return undefined;
+				}),
+			),
+		);
+	});
+	it("search maps items from tvdb_id with totalItems fallback and links.next", () => {
+		const host = makeHost(() =>
+			httpSuccess({
+				data: [{ name: "Batman", tvdb_id: "movie-1" }],
+				links: { total_items: null, next: "http://next" },
+			}),
+		);
+		return Effect.runPromise(
+			runSandboxTestScript(
+				search,
+				{ page: 1, pageSize: 20, query: "batman" },
+				host,
+				execution,
+			).pipe(
+				Effect.map((result) => {
+					expect(result).toEqual({
+						details: { nextPage: 2, totalItems: 1 },
+						items: [{ title: "Batman", externalId: "movie-1" }],
+					});
+					return undefined;
+				}),
+			),
+		);
+	});
+});

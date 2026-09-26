@@ -1,17 +1,16 @@
 import { CheckoutEventNames, type Paddle } from "@paddle/paddle-js";
-import PurchaseCompleteEmail from "@ryot/transactional/emails/purchase-complete";
-import { changeCase, getActionIntent } from "@ryot/ts-utils";
+import { UserId } from "@ryot-app/contract/schema/brands";
+import PurchaseCompleteEmail from "@ryot-app/transactional/emails/purchase-complete";
 import dayjs from "dayjs";
 import { eq } from "drizzle-orm";
 import { useEffect, useState } from "react";
 import { data, Form, redirect, useFetcher, useLoaderData } from "react-router";
+import { toast } from "sonner";
 import { match } from "ts-pattern";
 import { withQuery } from "ufo";
-import {
-	customers,
-	type TPlanTypes,
-	type TProductTypes,
-} from "~/drizzle/schema.server";
+
+import * as schema from "~/drizzle/schema.server";
+import { resetUserPassword } from "~/lib/api.server";
 import {
 	getCancellation,
 	getPurchaseInProgress,
@@ -36,24 +35,29 @@ import {
 import { initializePaddleForApplication, startUrl } from "~/lib/general";
 import {
 	createUnkeyKey,
+	getActionIntent,
 	getCustomerWithActivePurchase,
 	getPaddleServerClient,
 	sendEmail,
 } from "~/lib/utilities.server";
+import { changeCase } from "~/lib/utils";
+
 import type { Route } from "./+types/me";
 
 export const loader = async ({ request }: Route.LoaderArgs) => {
 	const customerDetails = await getCustomerWithActivePurchase(request);
-	if (!customerDetails) return redirect(startUrl);
+	if (!customerDetails) {
+		return redirect(startUrl);
+	}
 
 	const serverVariables = getServerVariables();
 	const isCancelling = getCancellation(customerDetails.id);
 	const isPurchaseInProgress = getPurchaseInProgress(customerDetails.id);
 	return {
 		isCancelling,
-		isPurchaseInProgress,
 		customerDetails,
 		prices: getPrices(),
+		isPurchaseInProgress,
 		renewOn: customerDetails.renewOn,
 		isSandbox: !!serverVariables.PADDLE_SANDBOX,
 		clientToken: serverVariables.PADDLE_CLIENT_TOKEN,
@@ -68,9 +72,7 @@ export const meta = () => {
 const getAllSubscriptionsForCustomer = async (customerId: string) => {
 	const paddleClient = getPaddleServerClient();
 	const allSubscriptions = [];
-	const subscriptionsQuery = paddleClient.subscriptions.list({
-		customerId: [customerId],
-	});
+	const subscriptionsQuery = paddleClient.subscriptions.list({ customerId: [customerId] });
 
 	for await (const subscription of subscriptionsQuery) {
 		allSubscriptions.push(subscription);
@@ -82,12 +84,11 @@ const getAllSubscriptionsForCustomer = async (customerId: string) => {
 const getAllPolarSubscriptionsForCustomer = async (customerId: string) => {
 	const allSubscriptions = [];
 	const polar = getPolarClient();
-	const subscriptionsIterator = await polar.subscriptions.list({
-		externalCustomerId: customerId,
-	});
+	const subscriptionsIterator = await polar.subscriptions.list({ externalCustomerId: customerId });
 
-	for await (const page of subscriptionsIterator)
+	for await (const page of subscriptionsIterator) {
 		allSubscriptions.push(...page.result.items);
+	}
 
 	return allSubscriptions;
 };
@@ -98,30 +99,31 @@ export const action = async ({ request }: Route.ActionArgs) => {
 	const serverVariables = getServerVariables();
 	return await match(intent)
 		.with("regenerateUnkeyKey", async () => {
-			if (!customer || !customer.planType) throw new Error("No customer found");
-			if (!customer.unkeyKeyId) throw new Error("No unkey key found");
+			if (!customer?.planType) {
+				throw new Error("No customer found");
+			}
+			if (!customer.unkeyKeyId) {
+				throw new Error("No unkey key found");
+			}
 			const unkey = getUnkeyClient();
-			await unkey.keys.updateKey({
-				enabled: false,
-				keyId: customer.unkeyKeyId,
-			});
-			const renewOnDayjs = customer.renewOn
-				? dayjs(customer.renewOn)
-				: undefined;
+			await unkey.keys.updateKey({ enabled: false, keyId: customer.unkeyKeyId });
+			const renewOnDayjs = customer.renewOn ? dayjs(customer.renewOn) : undefined;
 			const created = await createUnkeyKey(
 				customer,
 				renewOnDayjs ? renewOnDayjs.add(GRACE_PERIOD, "days") : undefined,
 			);
 			await getDb()
-				.update(customers)
+				.update(schema.customer)
 				.set({ unkeyKeyId: created.keyId })
-				.where(eq(customers.id, customer.id));
+				.where(eq(schema.customer.id, customer.id));
 			const emailElement = PurchaseCompleteEmail({
 				planType: customer.planType,
-				renewOn: customer.renewOn || undefined,
-				details: { __typename: "self_hosted", key: created.key },
+				renewOn: customer.renewOn ?? undefined,
+				details: { key: created.key, kind: "self_hosted" },
 			});
-			if (!emailElement) throw new Error("Failed to create email element");
+			if (!emailElement) {
+				throw new Error("Failed to create email element");
+			}
 			await sendEmail({
 				element: emailElement,
 				recipient: customer.email,
@@ -130,22 +132,24 @@ export const action = async ({ request }: Route.ActionArgs) => {
 			return data({});
 		})
 		.with("cancelSubscription", async () => {
-			if (!customer) throw new Error("No customer found");
+			if (!customer) {
+				throw new Error("No customer found");
+			}
 
 			if (customer.paymentProvider === "polar") {
-				if (!customer.polarCustomerId)
+				if (!customer.polarCustomerId) {
 					throw new Error("No Polar customer ID found");
+				}
 
-				const subscriptionsResponse = await getAllPolarSubscriptionsForCustomer(
-					customer.id,
-				);
+				const subscriptionsResponse = await getAllPolarSubscriptionsForCustomer(customer.id);
 
 				const activeSubscription = subscriptionsResponse.find((sub) =>
 					["active", "trialing"].includes(sub.status),
 				);
 
-				if (!activeSubscription)
+				if (!activeSubscription) {
 					throw new Error("No active subscription found");
+				}
 
 				console.log("Active Polar Subscription:", {
 					customerId: customer.id,
@@ -156,25 +160,23 @@ export const action = async ({ request }: Route.ActionArgs) => {
 				await polar.subscriptions.revoke({ id: activeSubscription.id });
 				setCancellation(customer.id);
 
-				return data({
-					success: true,
-					message: "Subscription cancelled successfully",
-				});
+				return data({ success: true, message: "Subscription cancelled successfully" });
 			}
 
-			if (!customer.paddleCustomerId)
+			if (!customer.paddleCustomerId) {
 				throw new Error("No Paddle customer ID found");
+			}
 			const paddleClient = getPaddleServerClient();
 
-			const subscriptionsResponse = await getAllSubscriptionsForCustomer(
-				customer.paddleCustomerId,
-			);
+			const subscriptionsResponse = await getAllSubscriptionsForCustomer(customer.paddleCustomerId);
 
 			const activeSubscription = subscriptionsResponse.find((sub) =>
 				["active", "trialing"].includes(sub.status),
 			);
 
-			if (!activeSubscription) throw new Error("No active subscription found");
+			if (!activeSubscription) {
+				throw new Error("No active subscription found");
+			}
 
 			console.log("Active Paddle Subscription:", {
 				customerId: customer.id,
@@ -186,28 +188,25 @@ export const action = async ({ request }: Route.ActionArgs) => {
 			});
 			setCancellation(customer.id);
 
-			return data({
-				success: true,
-				message: "Subscription cancelled successfully",
-			});
+			return data({ success: true, message: "Subscription cancelled successfully" });
 		})
 		.with("checkoutPolar", async () => {
-			if (!customer) throw new Error("No customer found");
-			if (customer.paymentProvider !== "polar")
+			if (!customer) {
+				throw new Error("No customer found");
+			}
+			if (customer.paymentProvider !== "polar") {
 				throw new Error("Customer is not on Polar");
+			}
 
 			const formData = await request.formData();
-			const productType = formData
-				.get("productType")
-				?.toString() as TProductTypes;
-			const planType = formData.get("planType")?.toString() as TPlanTypes;
-
-			if (!productType || !planType)
-				throw new Error("Product type and plan type are required");
+			const productType = schema.ProductTypes.parse(formData.get("productType"));
+			const planType = schema.PlanTypes.parse(formData.get("planType"));
 
 			const productId = findPolarProductId(productType, planType);
 
-			if (!productId) throw new Error("Polar product not found");
+			if (!productId) {
+				throw new Error("Polar product not found");
+			}
 
 			setPurchaseInProgress(customer.id);
 
@@ -222,15 +221,30 @@ export const action = async ({ request }: Route.ActionArgs) => {
 
 			return redirect(checkout.url);
 		})
-		.with("checkoutPaddle", async () => {
-			if (!customer) throw new Error("No customer found");
+		.with("checkoutPaddle", () => {
+			if (!customer) {
+				throw new Error("No customer found");
+			}
 			setPurchaseInProgress(customer.id);
 			return data({});
 		})
+		.with("generateResetLink", async () => {
+			if (!customer?.ryotUserId) {
+				return data({ error: "No associated app user found" });
+			}
+			if (customer.oidcIssuerId) {
+				return data({ error: "Password reset is not available for OIDC accounts" });
+			}
+
+			try {
+				const reset = await resetUserPassword(UserId.make(customer.ryotUserId));
+				return data({ email: reset.email, resetUrl: reset.resetUrl });
+			} catch {
+				return data({ error: "Failed to reach the backend server" });
+			}
+		})
 		.with("logout", async () => {
-			const cookies = await websiteAuthCookie.serialize("", {
-				expires: new Date(0),
-			});
+			const cookies = await websiteAuthCookie.serialize("", { expires: new Date(0) });
 			return data({}, { headers: { "set-cookie": cookies } });
 		})
 		.run();
@@ -238,6 +252,7 @@ export const action = async ({ request }: Route.ActionArgs) => {
 
 export default function Index() {
 	const fetcher = useFetcher();
+	const resetFetcher = useFetcher();
 	const [paddle, setPaddle] = useState<Paddle>();
 	const loaderData = useLoaderData<typeof loader>();
 
@@ -245,19 +260,19 @@ export default function Index() {
 	const paddleCustomerId = loaderData.customerDetails.paddleCustomerId;
 
 	useEffect(() => {
-		if (!paddle)
-			initializePaddleForApplication(
+		if (!paddle) {
+			void initializePaddleForApplication(
 				loaderData.clientToken,
 				loaderData.isSandbox,
 				loaderData.customerDetails.paddleCustomerId,
 			).then((paddleInstance) => {
 				if (paddleInstance) {
 					paddleInstance.Update({
-						eventCallback: (data) => {
-							if (data.name === CheckoutEventNames.CHECKOUT_COMPLETED) {
+						eventCallback: (event) => {
+							if (event.name === CheckoutEventNames.CHECKOUT_COMPLETED) {
 								paddleInstance.Checkout.close();
 								const formData = new FormData();
-								fetcher.submit(formData, {
+								void fetcher.submit(formData, {
 									method: "POST",
 									action: withQuery(".", { intent: "checkoutPaddle" }),
 								});
@@ -266,9 +281,12 @@ export default function Index() {
 					});
 					setPaddle(paddleInstance);
 				}
+				return;
 			});
+		}
 	}, [
 		paddle,
+		fetcher,
 		loaderData.isSandbox,
 		loaderData.clientToken,
 		loaderData.customerDetails.paddleCustomerId,
@@ -281,7 +299,8 @@ export default function Index() {
 					role="alert"
 					className="mx-auto mt-6 w-full max-w-md rounded-md border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-900"
 				>
-					Cancellation in progress. This can take a minute to sync. Please refresh the page after a minute to see the updated status.
+					Cancellation in progress. This can take a minute to sync. Please refresh the page after a
+					minute to see the updated status.
 				</div>
 			) : null}
 			{loaderData.isPurchaseInProgress ? (
@@ -289,7 +308,8 @@ export default function Index() {
 					role="alert"
 					className="mx-auto mt-6 w-full max-w-md rounded-md border border-blue-200 bg-blue-50 px-4 py-3 text-sm text-blue-900"
 				>
-					Purchase in progress. This can take a minute to sync. Please refresh the page after a minute to see the updated status.
+					Purchase in progress. This can take a minute to sync. Please refresh the page after a
+					minute to see the updated status.
 				</div>
 			) : null}
 			{!loaderData.customerDetails.hasCancelled &&
@@ -299,9 +319,7 @@ export default function Index() {
 					<div className="grid grid-cols-2 gap-4">
 						<div className="col-span-2">
 							<Label>Email</Label>
-							<p className="text-muted-foreground">
-								{loaderData.customerDetails.email}
-							</p>
+							<p className="text-muted-foreground">{loaderData.customerDetails.email}</p>
 						</div>
 						<div>
 							<Label>Product Type</Label>
@@ -318,27 +336,65 @@ export default function Index() {
 						{loaderData.renewOn ? (
 							<div>
 								<Label>Renewal Status</Label>
-								<p className="text-muted-foreground">
-									Renews on {loaderData.renewOn}
-								</p>
+								<p className="text-muted-foreground">Renews on {loaderData.renewOn}</p>
 							</div>
 						) : null}
 						{loaderData.customerDetails.ryotUserId ? (
 							<div>
 								<Label>User ID</Label>
-								<p className="text-muted-foreground">
-									{loaderData.customerDetails.ryotUserId}
-								</p>
+								<p className="text-muted-foreground">{loaderData.customerDetails.ryotUserId}</p>
+							</div>
+						) : null}
+						{loaderData.customerDetails.ryotUserId && !loaderData.customerDetails.oidcIssuerId ? (
+							<div className="col-span-2">
+								<div className="flex items-center justify-between">
+									<Label>Password Reset</Label>
+									<resetFetcher.Form
+										method="POST"
+										action={withQuery(".", { intent: "generateResetLink" })}
+									>
+										<Button
+											size="sm"
+											type="submit"
+											variant="outline"
+											disabled={resetFetcher.state !== "idle"}
+										>
+											{resetFetcher.state !== "idle" ? "Generating..." : "Generate Reset Link"}
+										</Button>
+									</resetFetcher.Form>
+								</div>
+								{resetFetcher.data?.error ? (
+									<p className="text-red-500 text-sm mt-1">{resetFetcher.data.error}</p>
+								) : null}
+								{resetFetcher.data?.resetUrl ? (
+									<div className="mt-2 space-y-1">
+										<p className="text-xs text-muted-foreground">
+											Login email: {resetFetcher.data.email}
+										</p>
+										<div className="flex items-center gap-2">
+											<p className="text-xs text-muted-foreground break-all">
+												{resetFetcher.data.resetUrl}
+											</p>
+											<button
+												type="button"
+												className="text-xs underline cursor-pointer shrink-0"
+												onClick={() => {
+													void navigator.clipboard.writeText(resetFetcher.data.resetUrl);
+													toast.success("Reset link copied to clipboard");
+												}}
+											>
+												Copy
+											</button>
+										</div>
+									</div>
+								) : null}
 							</div>
 						) : null}
 						{loaderData.customerDetails.unkeyKeyId ? (
 							<div className="col-span-2">
 								<div className="flex items-center justify-between">
 									<Label>Key ID</Label>
-									<Form
-										method="POST"
-										action={withQuery(".", { intent: "regenerateUnkeyKey" })}
-									>
+									<Form method="POST" action={withQuery(".", { intent: "regenerateUnkeyKey" })}>
 										<button
 											type="submit"
 											className="text-xs underline text-right cursor-pointer"
@@ -346,16 +402,16 @@ export default function Index() {
 												const yes = confirm(
 													"Are you sure you want to regenerate the unkey key? All old unkey keys will be invalidated.",
 												);
-												if (!yes) e.preventDefault();
+												if (!yes) {
+													e.preventDefault();
+												}
 											}}
 										>
 											Regenerate
 										</button>
 									</Form>
 								</div>
-								<p className="text-muted-foreground">
-									{loaderData.customerDetails.unkeyKeyId}
-								</p>
+								<p className="text-muted-foreground">{loaderData.customerDetails.unkeyKeyId}</p>
 								<p className="text-xs text-gray-500">
 									(This is the key ID; the pro key has been sent to your email)
 								</p>
@@ -372,7 +428,7 @@ export default function Index() {
 							const formData = new FormData();
 							formData.append("planType", planType);
 							formData.append("productType", productType);
-							fetcher.submit(formData, {
+							void fetcher.submit(formData, {
 								method: "POST",
 								action: withQuery(".", { intent: "checkoutPolar" }),
 							});
@@ -382,9 +438,7 @@ export default function Index() {
 						paddle?.Checkout.open({
 							items: [{ priceId, quantity: 1 }],
 							settings: paddleCustomerId ? { allowLogout: false } : undefined,
-							customData: {
-								customerId: loaderData.customerDetails.id,
-							} as PaddleCustomData,
+							customData: { customerId: loaderData.customerDetails.id } satisfies PaddleCustomData,
 							customer: paddleCustomerId
 								? { id: paddleCustomerId }
 								: { email: loaderData.customerDetails.email },
@@ -405,19 +459,17 @@ export default function Index() {
 								const yes = confirm(
 									"Are you sure you want to cancel your subscription? You will lose access to the pro features immediately.",
 								);
-								if (!yes) e.preventDefault();
+								if (!yes) {
+									e.preventDefault();
+								}
 							}}
 						>
-							<Button variant="outline" type="submit">
+							<Button type="submit" variant="outline">
 								{isCancelLoading ? "Cancelling..." : "Cancel Subscription"}
 							</Button>
 						</fetcher.Form>
 					)}
-				<Form
-					method="POST"
-					className="pb-6"
-					action={withQuery(".", { intent: "logout" })}
-				>
+				<Form method="POST" className="pb-6" action={withQuery(".", { intent: "logout" })}>
 					<Button type="submit">Sign out</Button>
 				</Form>
 			</div>

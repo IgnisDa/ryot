@@ -1,0 +1,958 @@
+import { DbError } from "@ryot-app/contract/errors";
+import { AutomationTriggerPayload } from "@ryot-app/contract/modules/automations/lifecycle";
+import {
+	type AutomationTriggerId,
+	EntityId,
+	EntitySchemaSlug,
+	type SandboxProviderId,
+	UserId,
+} from "@ryot-app/contract/schema/brands";
+import { decodeStoredSchema } from "@ryot-app/contract/schema/core";
+import { and, asc, count, eq, exists, inArray, isNull, or, sql } from "drizzle-orm";
+import { Context, Effect, Layer } from "effect";
+
+import * as schema from "#lib/infrastructure/db/schema/tables/combined";
+import { Database, mapDatabaseErrors } from "#lib/infrastructure/db/service";
+import { DefinitionRepository } from "#modules/definition-registry/repository";
+import { PluginRuntimeResolver } from "#modules/plugins/runtime-resolver";
+
+import {
+	entitySelection,
+	entityVisibleToUserClause,
+	toListedEntity,
+	type EntitySchemaProviderDetailsScope,
+	type EntitySchemaScope,
+} from "./repository-support";
+
+export type InsertEntityInputBase = {
+	id?: EntityId;
+	createdAt?: Date;
+	name: string;
+	entitySchemaSlug: EntitySchemaSlug;
+	entitySchemaPluginId?: string | null | undefined;
+} & (
+	| {
+			scope: "global";
+			populatedAt: Date | null;
+			externalId?: string | undefined;
+			providerId?: SandboxProviderId | undefined;
+	  }
+	| {
+			scope: "user";
+			userId: UserId;
+			populatedAt?: Date | null;
+			externalId?: string | undefined;
+			providerId?: SandboxProviderId | undefined;
+	  }
+);
+
+export type InsertEntityInput = InsertEntityInputBase & { properties: Record<string, unknown> };
+
+export type UpdateEntityInput = {
+	name: string;
+	entityId: EntityId;
+	populatedAt: Date | null;
+	properties: Record<string, unknown>;
+};
+
+export type GlobalEntityProvenanceScopeInput = {
+	providerId: SandboxProviderId;
+	entitySchemaSlug: EntitySchemaSlug;
+	entitySchemaPluginId: string | null;
+};
+
+export type ProviderEntityMutationLockInput = {
+	externalId: string;
+	providerId: SandboxProviderId;
+	entitySchemaSlug: EntitySchemaSlug;
+} & ({ scope: "global" } | { scope: "user"; userId: UserId });
+
+export const providerEntityMutationLockKey = (input: ProviderEntityMutationLockInput) =>
+	JSON.stringify([
+		"provider-entity",
+		input.scope,
+		input.scope === "user" ? input.userId : "global",
+		input.entitySchemaSlug,
+		input.providerId,
+		input.externalId,
+	]);
+
+export type PortableEntityRecord = Pick<
+	typeof schema.entity.$inferSelect,
+	| "id"
+	| "name"
+	| "createdAt"
+	| "updatedAt"
+	| "properties"
+	| "externalId"
+	| "populatedAt"
+	| "entitySchemaPluginId"
+	| "entitySchemaSlug"
+> & {
+	readonly provider: {
+		readonly pluginId: string;
+		readonly pluginSlug: string;
+		readonly providerSlug: string;
+	} | null;
+};
+
+type RestoreEntityInput = Pick<
+	typeof schema.entity.$inferInsert,
+	| "id"
+	| "name"
+	| "userId"
+	| "createdAt"
+	| "updatedAt"
+	| "properties"
+	| "externalId"
+	| "populatedAt"
+	| "providerId"
+	| "entitySchemaPluginId"
+	| "entitySchemaSlug"
+>;
+
+const portableEntitySelection = {
+	id: schema.entity.id,
+	name: schema.entity.name,
+	pluginSlug: schema.plugin.slug,
+	providerPluginId: schema.plugin.id,
+	createdAt: schema.entity.createdAt,
+	updatedAt: schema.entity.updatedAt,
+	properties: schema.entity.properties,
+	externalId: schema.entity.externalId,
+	populatedAt: schema.entity.populatedAt,
+	providerSlug: schema.sandboxProvider.slug,
+	entitySchemaSlug: schema.entity.entitySchemaSlug,
+	entitySchemaPluginId: schema.entity.entitySchemaPluginId,
+};
+
+const toPortableEntity = (
+	row: Omit<PortableEntityRecord, "provider"> & {
+		readonly providerPluginId: string | null;
+		readonly pluginSlug: string | null;
+		readonly providerSlug: string | null;
+	},
+): PortableEntityRecord => {
+	const { pluginSlug, providerSlug, providerPluginId, ...entity } = row;
+	return {
+		...entity,
+		provider:
+			pluginSlug === null || providerSlug === null || providerPluginId === null
+				? null
+				: { pluginSlug, providerSlug, pluginId: providerPluginId },
+	};
+};
+
+const entitySchemaPluginWhere = (pluginId: string | null | undefined) =>
+	pluginId == null
+		? isNull(schema.entity.entitySchemaPluginId)
+		: eq(schema.entity.entitySchemaPluginId, pluginId);
+
+const providerWhere = (providerId: SandboxProviderId | null | undefined) =>
+	providerId == null ? isNull(schema.entity.providerId) : eq(schema.entity.providerId, providerId);
+
+const findEntityByExternalId = (
+	input: {
+		externalId: string;
+		providerId: SandboxProviderId;
+		entitySchemaSlug: EntitySchemaSlug;
+		entitySchemaPluginId: string | null;
+	} & ({ scope: "global" } | { scope: "user"; userId: UserId }),
+) =>
+	Effect.gen(function* () {
+		const db = yield* Database;
+		const [row] = yield* mapDatabaseErrors(
+			db
+				.select(entitySelection)
+				.from(schema.entity)
+				.where(
+					and(
+						input.scope === "user"
+							? eq(schema.entity.userId, input.userId)
+							: isNull(schema.entity.userId),
+						eq(schema.entity.externalId, input.externalId),
+						eq(schema.entity.entitySchemaSlug, input.entitySchemaSlug),
+						eq(schema.entity.providerId, input.providerId),
+						entitySchemaPluginWhere(input.entitySchemaPluginId),
+					),
+				)
+				.limit(1),
+		);
+
+		return row ? toListedEntity(row) : null;
+	});
+
+export class EntitiesRepository extends Context.Service<EntitiesRepository>()(
+	"EntitiesRepository",
+	{
+		make: Effect.gen(function* () {
+			const pluginRuntime = yield* PluginRuntimeResolver;
+			const definitions = yield* DefinitionRepository;
+			const lockSchemaCatalog = pluginRuntime.lockCatalog;
+			const findUserEntitySchema = Effect.fn(function* (userId: UserId, slug: EntitySchemaSlug) {
+				return (yield* definitions.findUserEntitySchemas(userId, [slug]))[slug] ?? null;
+			});
+			const lockProviderEntityMutations = Effect.fn(
+				"EntitiesRepository.lockProviderEntityMutations",
+			)(function* (inputs: ReadonlyArray<ProviderEntityMutationLockInput>) {
+				const db = yield* Database;
+				const keys = [...new Set(inputs.map(providerEntityMutationLockKey))].sort();
+				for (const key of keys) {
+					yield* mapDatabaseErrors(
+						db.execute(sql`select pg_advisory_xact_lock(hashtextextended(${key}, 0))`),
+					);
+				}
+			});
+			const lockEntityReferencesByIds = Effect.fn("EntitiesRepository.lockEntityReferencesByIds")(
+				function* (entityIds: ReadonlyArray<EntityId>) {
+					const ids = [...new Set(entityIds)].sort();
+					if (ids.length === 0) {
+						return;
+					}
+					const db = yield* Database;
+					yield* mapDatabaseErrors(
+						db
+							.select({ id: schema.entity.id })
+							.from(schema.entity)
+							.where(inArray(schema.entity.id, ids))
+							.orderBy(asc(schema.entity.id))
+							.for("key share"),
+					);
+				},
+			);
+			const listMatchCandidatesBySchema = Effect.fn(
+				"EntitiesRepository.listMatchCandidatesBySchema",
+			)(function* (input: { userId: UserId; entitySchemaSlug: EntitySchemaSlug }) {
+				const definition = yield* findUserEntitySchema(input.userId, input.entitySchemaSlug);
+				if (!definition) {
+					return [];
+				}
+				const db = yield* Database;
+				const rows = yield* mapDatabaseErrors(
+					db
+						.select(entitySelection)
+						.from(schema.entity)
+						.where(
+							and(
+								entityVisibleToUserClause(input.userId),
+								eq(schema.entity.entitySchemaSlug, input.entitySchemaSlug),
+								entitySchemaPluginWhere(definition.pluginId),
+							),
+						)
+						.orderBy(
+							sql`case when ${schema.entity.userId} = ${input.userId} then 0 else 1 end`,
+							asc(schema.entity.name),
+							asc(schema.entity.createdAt),
+						),
+				);
+				return rows.map(toListedEntity);
+			});
+
+			const listEntityReferencesByIds = Effect.fn("EntitiesRepository.listEntityReferencesByIds")(
+				function* (entityIds: ReadonlyArray<EntityId>) {
+					if (entityIds.length === 0) {
+						return [];
+					}
+
+					const db = yield* Database;
+					const rows = yield* mapDatabaseErrors(
+						db
+							.select({
+								id: schema.entity.id,
+								name: schema.entity.name,
+								entitySchemaSlug: schema.entity.entitySchemaSlug,
+							})
+							.from(schema.entity)
+							.where(inArray(schema.entity.id, [...entityIds]))
+							.orderBy(asc(schema.entity.id)),
+					);
+
+					return rows.map((row) => ({
+						name: row.name,
+						id: EntityId.make(row.id),
+						entitySchemaSlug: row.entitySchemaSlug,
+					}));
+				},
+			);
+
+			const listUserEntitiesForBackup = Effect.fn("EntitiesRepository.listUserEntitiesForBackup")(
+				function* (userId: UserId) {
+					const db = yield* Database;
+					const rows = yield* mapDatabaseErrors(
+						db
+							.select(portableEntitySelection)
+							.from(schema.entity)
+							.leftJoin(
+								schema.sandboxProvider,
+								eq(schema.entity.providerId, schema.sandboxProvider.id),
+							)
+							.leftJoin(schema.plugin, eq(schema.plugin.id, schema.sandboxProvider.pluginId))
+							.where(eq(schema.entity.userId, userId))
+							.orderBy(asc(schema.entity.id)),
+					);
+					return rows.map(toPortableEntity);
+				},
+			);
+
+			const listReferencedGlobalEntitiesForBackup = Effect.fn(
+				"EntitiesRepository.listReferencedGlobalEntitiesForBackup",
+			)(function* (userId: UserId) {
+				const db = yield* Database;
+				const rows = yield* mapDatabaseErrors(
+					db
+						.select(portableEntitySelection)
+						.from(schema.entity)
+						.leftJoin(
+							schema.sandboxProvider,
+							eq(schema.entity.providerId, schema.sandboxProvider.id),
+						)
+						.leftJoin(schema.plugin, eq(schema.plugin.id, schema.sandboxProvider.pluginId))
+						.where(
+							and(
+								isNull(schema.entity.userId),
+								or(
+									exists(
+										db
+											.select({ id: schema.relationship.id })
+											.from(schema.relationship)
+											.where(
+												and(
+													eq(schema.relationship.userId, userId),
+													or(
+														eq(schema.relationship.sourceEntityId, schema.entity.id),
+														eq(schema.relationship.targetEntityId, schema.entity.id),
+													),
+												),
+											),
+									),
+									exists(
+										db
+											.select({ id: schema.event.id })
+											.from(schema.event)
+											.where(
+												and(
+													eq(schema.event.userId, userId),
+													or(
+														eq(schema.event.entityId, schema.entity.id),
+														eq(schema.event.sessionEntityId, schema.entity.id),
+													),
+												),
+											),
+									),
+								),
+							),
+						)
+						.orderBy(asc(schema.entity.id)),
+				);
+				return rows.map(toPortableEntity);
+			});
+
+			const listGlobalEntitiesByIdsForBackup = Effect.fn(
+				"EntitiesRepository.listGlobalEntitiesByIdsForBackup",
+			)(function* (entityIds: ReadonlyArray<EntityId>) {
+				if (entityIds.length === 0) {
+					return [];
+				}
+				const db = yield* Database;
+				const rows = yield* mapDatabaseErrors(
+					db
+						.select(portableEntitySelection)
+						.from(schema.entity)
+						.leftJoin(
+							schema.sandboxProvider,
+							eq(schema.entity.providerId, schema.sandboxProvider.id),
+						)
+						.leftJoin(schema.plugin, eq(schema.plugin.id, schema.sandboxProvider.pluginId))
+						.where(and(isNull(schema.entity.userId), inArray(schema.entity.id, [...entityIds])))
+						.orderBy(asc(schema.entity.id)),
+				);
+				return rows.map(toPortableEntity);
+			});
+
+			const findEntitySchemaForUser: (input: {
+				userId: UserId;
+				entitySchemaSlug: EntitySchemaSlug;
+			}) => Effect.Effect<EntitySchemaScope | null, DbError, Database> = Effect.fn(
+				"EntitiesRepository.findEntitySchemaForUser",
+			)(function* (input: { userId: UserId; entitySchemaSlug: EntitySchemaSlug }) {
+				const definition = yield* findUserEntitySchema(input.userId, input.entitySchemaSlug);
+				const scope: EntitySchemaScope | null = definition
+					? {
+							userId: null,
+							isBuiltin: true,
+							slug: definition.slug,
+							pluginId: definition.pluginId,
+							id: EntitySchemaSlug.make(definition.slug),
+							propertiesSchema: definition.propertiesSchema,
+						}
+					: null;
+				return scope;
+			});
+
+			const findUserEntityWithoutProvenance = Effect.fn(
+				"EntitiesRepository.findUserEntityWithoutProvenance",
+			)(function* (input: { userId: UserId; entitySchemaSlug: EntitySchemaSlug }) {
+				const definition = yield* findUserEntitySchema(input.userId, input.entitySchemaSlug);
+				if (!definition) {
+					return null;
+				}
+				const db = yield* Database;
+				const [row] = yield* mapDatabaseErrors(
+					db
+						.select(entitySelection)
+						.from(schema.entity)
+						.where(
+							and(
+								eq(schema.entity.userId, input.userId),
+								eq(schema.entity.entitySchemaSlug, input.entitySchemaSlug),
+								entitySchemaPluginWhere(definition.pluginId),
+								isNull(schema.entity.externalId),
+								isNull(schema.entity.providerId),
+							),
+						)
+						.orderBy(asc(schema.entity.createdAt), asc(schema.entity.id))
+						.limit(1),
+				);
+				return row ? toListedEntity(row) : null;
+			});
+
+			const lockUserEntityEnsureScopes = Effect.fn("EntitiesRepository.lockUserEntityEnsureScopes")(
+				function* (input: { userId: UserId; entitySchemaSlugs: ReadonlyArray<EntitySchemaSlug> }) {
+					const effective = yield* definitions.findUserEntitySchemas(
+						input.userId,
+						input.entitySchemaSlugs,
+					);
+					const db = yield* Database;
+					const scopes = [
+						...new Map(
+							input.entitySchemaSlugs.flatMap((entitySchemaSlug) => {
+								const definition = effective[entitySchemaSlug];
+								if (!definition) {
+									return [];
+								}
+								const pluginId = definition.pluginId ?? null;
+								return [
+									[`${entitySchemaSlug}:${pluginId ?? "kernel"}`, { pluginId, entitySchemaSlug }],
+								];
+							}),
+						).values(),
+					].sort((left, right) => left.entitySchemaSlug.localeCompare(right.entitySchemaSlug));
+					for (const { pluginId, entitySchemaSlug } of scopes) {
+						yield* mapDatabaseErrors(
+							db.execute(
+								sql`select pg_advisory_xact_lock(hashtext(${`user-entity:ensure:${input.userId}:${entitySchemaSlug}:${pluginId ?? "kernel"}`}))`,
+							),
+						);
+					}
+				},
+			);
+
+			const getEntityScopeForUser = Effect.fn("EntitiesRepository.getEntityScopeForUser")(
+				function* (input: { userId: UserId; entityId: EntityId }) {
+					const db = yield* Database;
+					const [row] = yield* mapDatabaseErrors(
+						db
+							.select({
+								entityId: schema.entity.id,
+								entityName: schema.entity.name,
+								entityUserId: schema.entity.userId,
+								entitySchemaSlug: schema.entity.entitySchemaSlug,
+								entitySchemaPluginId: schema.entity.entitySchemaPluginId,
+							})
+							.from(schema.entity)
+							.where(
+								and(eq(schema.entity.id, input.entityId), entityVisibleToUserClause(input.userId)),
+							)
+							.limit(1),
+					);
+
+					if (!row) {
+						return null;
+					}
+
+					return {
+						...row,
+						isBuiltin: true,
+						entityId: EntityId.make(row.entityId),
+						entitySchemaSlug: EntitySchemaSlug.make(row.entitySchemaSlug),
+						entityUserId: row.entityUserId ? UserId.make(row.entityUserId) : null,
+					};
+				},
+			);
+
+			const getEntityMergeScopeForUser = Effect.fn("EntitiesRepository.getEntityMergeScopeForUser")(
+				function* (input: { userId: UserId; entityId: EntityId }) {
+					const db = yield* Database;
+					const [row] = yield* mapDatabaseErrors(
+						db
+							.select({
+								entityId: schema.entity.id,
+								entityUserId: schema.entity.userId,
+								properties: schema.entity.properties,
+								entitySchemaSlug: schema.entity.entitySchemaSlug,
+							})
+							.from(schema.entity)
+							.where(
+								and(eq(schema.entity.id, input.entityId), entityVisibleToUserClause(input.userId)),
+							)
+							.limit(1),
+					);
+
+					return row
+						? {
+								...row,
+								isBuiltin: true,
+								entityId: EntityId.make(row.entityId),
+								entitySchemaSlug: EntitySchemaSlug.make(row.entitySchemaSlug),
+								entityUserId: row.entityUserId ? UserId.make(row.entityUserId) : null,
+							}
+						: null;
+				},
+			);
+
+			const getByIdForUser = Effect.fn("EntitiesRepository.getByIdForUser")(function* (input: {
+				userId: UserId;
+				entityId: EntityId;
+			}) {
+				const db = yield* Database;
+				const [row] = yield* mapDatabaseErrors(
+					db
+						.select(entitySelection)
+						.from(schema.entity)
+						.where(
+							and(eq(schema.entity.id, input.entityId), entityVisibleToUserClause(input.userId)),
+						)
+						.limit(1),
+				);
+
+				return row ? toListedEntity(row) : null;
+			});
+
+			const getClientPageEntityForUser = Effect.fn("EntitiesRepository.getClientPageEntityForUser")(
+				function* (input: { userId: UserId; entityId: EntityId }) {
+					const db = yield* Database;
+					const [row] = yield* mapDatabaseErrors(
+						db
+							.select({
+								entityId: schema.entity.id,
+								entitySchemaSlug: schema.entity.entitySchemaSlug,
+								entitySchemaPluginId: schema.entity.entitySchemaPluginId,
+							})
+							.from(schema.entity)
+							.where(
+								and(eq(schema.entity.id, input.entityId), entityVisibleToUserClause(input.userId)),
+							)
+							.limit(1),
+					);
+					return row
+						? {
+								...row,
+								entityId: EntityId.make(row.entityId),
+								entitySchemaSlug: EntitySchemaSlug.make(row.entitySchemaSlug),
+							}
+						: null;
+				},
+			);
+
+			const getById = Effect.fn("EntitiesRepository.getById")(function* (entityId: EntityId) {
+				const db = yield* Database;
+				const [row] = yield* mapDatabaseErrors(
+					db
+						.select(entitySelection)
+						.from(schema.entity)
+						.where(eq(schema.entity.id, entityId))
+						.limit(1),
+				);
+				return row ? toListedEntity(row) : null;
+			});
+
+			const findGlobalEntityById = Effect.fn("EntitiesRepository.findGlobalEntityById")(function* (
+				entityId: EntityId,
+			) {
+				const db = yield* Database;
+				const [row] = yield* mapDatabaseErrors(
+					db
+						.select({ id: schema.entity.id, entitySchemaSlug: schema.entity.entitySchemaSlug })
+						.from(schema.entity)
+						.where(and(eq(schema.entity.id, entityId), isNull(schema.entity.userId)))
+						.limit(1),
+				);
+				return row
+					? {
+							id: EntityId.make(row.id),
+							entitySchemaSlug: EntitySchemaSlug.make(row.entitySchemaSlug),
+						}
+					: null;
+			});
+
+			const findGlobalEntityForRestore = Effect.fn("EntitiesRepository.findGlobalEntityForRestore")(
+				function* (input: {
+					externalId: string;
+					entitySchemaSlug: EntitySchemaSlug;
+					entitySchemaPluginId: string | null;
+					provider: { readonly pluginSlug: string; readonly providerSlug: string } | null;
+				}) {
+					const db = yield* Database;
+					const [row] = yield* mapDatabaseErrors(
+						db
+							.select({ id: schema.entity.id, entitySchemaSlug: schema.entity.entitySchemaSlug })
+							.from(schema.entity)
+							.leftJoin(
+								schema.sandboxProvider,
+								eq(schema.entity.providerId, schema.sandboxProvider.id),
+							)
+							.leftJoin(schema.plugin, eq(schema.plugin.id, schema.sandboxProvider.pluginId))
+							.where(
+								and(
+									isNull(schema.entity.userId),
+									eq(schema.entity.externalId, input.externalId),
+									eq(schema.entity.entitySchemaSlug, input.entitySchemaSlug),
+									entitySchemaPluginWhere(input.entitySchemaPluginId),
+									input.provider === null
+										? isNull(schema.entity.providerId)
+										: and(
+												eq(schema.plugin.slug, input.provider.pluginSlug),
+												eq(schema.plugin.scope, "system"),
+												eq(schema.sandboxProvider.slug, input.provider.providerSlug),
+											),
+								),
+							)
+							.limit(1),
+					);
+					return row
+						? {
+								id: EntityId.make(row.id),
+								entitySchemaSlug: EntitySchemaSlug.make(row.entitySchemaSlug),
+							}
+						: null;
+				},
+			);
+
+			const restoreEntity = Effect.fn("EntitiesRepository.restoreEntity")(function* (
+				input: RestoreEntityInput,
+			) {
+				const db = yield* Database;
+				const [row] = yield* mapDatabaseErrors(
+					db.insert(schema.entity).values(input).returning({ id: schema.entity.id }),
+				);
+				return row
+					? EntityId.make(row.id)
+					: yield* new DbError({ message: "Entity restore returned no row" });
+			});
+
+			const lockGlobalEntityProvenanceScope = Effect.fn(
+				"EntitiesRepository.lockGlobalEntityProvenanceScope",
+			)(function* (input: GlobalEntityProvenanceScopeInput) {
+				const db = yield* Database;
+				const lockKey = `global-entities:${input.entitySchemaSlug}:${input.entitySchemaPluginId ?? "kernel"}:${input.providerId}`;
+				yield* mapDatabaseErrors(
+					db.execute(sql`select pg_advisory_xact_lock(hashtext(${lockKey}))`),
+				);
+			});
+
+			const countGlobalEntitiesByProvenanceScope = Effect.fn(
+				"EntitiesRepository.countGlobalEntitiesByProvenanceScope",
+			)(function* (input: GlobalEntityProvenanceScopeInput) {
+				const db = yield* Database;
+				const [row] = yield* mapDatabaseErrors(
+					db
+						.select({ count: count() })
+						.from(schema.entity)
+						.where(
+							and(
+								isNull(schema.entity.userId),
+								eq(schema.entity.entitySchemaSlug, input.entitySchemaSlug),
+								eq(schema.entity.providerId, input.providerId),
+								entitySchemaPluginWhere(input.entitySchemaPluginId),
+							),
+						),
+				);
+				return row?.count ?? 0;
+			});
+
+			const findSystemEntitySchemaById = (entitySchemaSlug: EntitySchemaSlug) =>
+				definitions.findGlobalEntitySchema(entitySchemaSlug).pipe(
+					Effect.map((definition) => {
+						return definition
+							? {
+									slug: definition.slug,
+									propertiesSchema: definition.propertiesSchema,
+									...(definition.pluginId == null ? {} : { pluginId: definition.pluginId }),
+								}
+							: null;
+					}),
+				);
+
+			const findEntitySchemaProviderBySlug = Effect.fn(
+				"EntitiesRepository.findEntitySchemaProviderBySlug",
+			)(function* (providerSlug: string) {
+				const resolved = yield* pluginRuntime.findSchemaProviderBySlug(providerSlug);
+				if (!resolved) {
+					return null;
+				}
+
+				const detailsScript = yield* pluginRuntime.findDetailsScript(resolved.provider.id);
+				return detailsScript
+					? ({
+							providerId: resolved.provider.id,
+							detailsScriptId: detailsScript.id,
+							entitySchemaSlug: resolved.entitySchemaSlug,
+						} satisfies EntitySchemaProviderDetailsScope)
+					: null;
+			});
+
+			const insertEntity = Effect.fn("EntitiesRepository.insertEntity")(function* (
+				input: InsertEntityInput,
+			) {
+				const db = yield* Database;
+
+				if (input.scope === "global") {
+					const externalId = input.externalId;
+					const providerId = input.providerId;
+					const values = {
+						id: input.id,
+						userId: null,
+						name: input.name,
+						createdAt: input.createdAt,
+						updatedAt: input.createdAt,
+						properties: input.properties,
+						externalId: externalId ?? null,
+						providerId: providerId ?? null,
+						populatedAt: input.populatedAt,
+						entitySchemaSlug: input.entitySchemaSlug,
+						entitySchemaPluginId: input.entitySchemaPluginId ?? null,
+					};
+
+					if (!externalId) {
+						const [row] = yield* mapDatabaseErrors(
+							db.insert(schema.entity).values(values).returning(entitySelection),
+						);
+						if (!row) {
+							return yield* new DbError({ message: "Global entity insert returned no row" });
+						}
+						return { wasInserted: true, entity: toListedEntity(row) };
+					}
+
+					const inserted = yield* mapDatabaseErrors(
+						db
+							.insert(schema.entity)
+							.values(values)
+							.onConflictDoNothing()
+							.returning(entitySelection),
+					);
+
+					if (inserted[0]) {
+						return { wasInserted: true, entity: toListedEntity(inserted[0]) };
+					}
+
+					const [existing] = yield* mapDatabaseErrors(
+						db
+							.select(entitySelection)
+							.from(schema.entity)
+							.where(
+								and(
+									isNull(schema.entity.userId),
+									eq(schema.entity.externalId, externalId),
+									eq(schema.entity.entitySchemaSlug, input.entitySchemaSlug),
+									providerWhere(providerId),
+									entitySchemaPluginWhere(input.entitySchemaPluginId),
+								),
+							)
+							.limit(1)
+							.for("update"),
+					);
+
+					if (!existing) {
+						return yield* new DbError({ message: "Global entity insert conflict but not found" });
+					}
+
+					return { wasInserted: false, entity: toListedEntity(existing) };
+				}
+
+				const externalId = input.externalId;
+				const providerId = input.providerId;
+				const values = {
+					id: input.id,
+					name: input.name,
+					userId: input.userId,
+					createdAt: input.createdAt,
+					updatedAt: input.createdAt,
+					properties: input.properties,
+					externalId: externalId ?? null,
+					providerId: providerId ?? null,
+					populatedAt: input.populatedAt ?? null,
+					entitySchemaSlug: input.entitySchemaSlug,
+					entitySchemaPluginId: input.entitySchemaPluginId ?? null,
+				};
+
+				if (externalId && providerId) {
+					const rows = yield* mapDatabaseErrors(
+						db
+							.insert(schema.entity)
+							.values(values)
+							.onConflictDoNothing()
+							.returning(entitySelection),
+					);
+
+					const created = rows[0];
+					if (created) {
+						return { wasInserted: true, entity: toListedEntity(created) };
+					}
+
+					const [row] = yield* mapDatabaseErrors(
+						db
+							.select(entitySelection)
+							.from(schema.entity)
+							.where(
+								and(
+									eq(schema.entity.userId, input.userId),
+									eq(schema.entity.externalId, externalId),
+									eq(schema.entity.entitySchemaSlug, input.entitySchemaSlug),
+									eq(schema.entity.providerId, providerId),
+									entitySchemaPluginWhere(input.entitySchemaPluginId),
+								),
+							)
+							.limit(1)
+							.for("update"),
+					);
+
+					const existing = row ? toListedEntity(row) : null;
+
+					if (existing) {
+						return { entity: existing, wasInserted: false };
+					}
+
+					return yield* new DbError({ message: "Entity insert returned no row" });
+				}
+
+				const [row] = yield* mapDatabaseErrors(
+					db.insert(schema.entity).values(values).returning(entitySelection),
+				);
+
+				if (!row) {
+					return yield* new DbError({ message: "Entity insert returned no row" });
+				}
+
+				return { wasInserted: true, entity: toListedEntity(row) };
+			});
+
+			const updateEntity = Effect.fn("EntitiesRepository.updateEntity")(function* (
+				input: UpdateEntityInput,
+			) {
+				const db = yield* Database;
+				const [updated] = yield* mapDatabaseErrors(
+					db
+						.update(schema.entity)
+						.set({ name: input.name, properties: input.properties, populatedAt: input.populatedAt })
+						.where(eq(schema.entity.id, input.entityId))
+						.returning(entitySelection),
+				);
+
+				if (!updated) {
+					return yield* new DbError({ message: "Entity update returned no row" });
+				}
+
+				return toListedEntity(updated);
+			});
+
+			const deleteByIds = Effect.fn("EntitiesRepository.deleteByIds")(function* (
+				ids: readonly [EntityId, ...EntityId[]],
+			) {
+				const db = yield* Database;
+				const rows = yield* mapDatabaseErrors(
+					db
+						.delete(schema.entity)
+						.where(inArray(schema.entity.id, [...ids]))
+						.returning({ id: schema.entity.id }),
+				);
+				return rows.length;
+			});
+
+			const findLifecyclePayload = Effect.fn("EntitiesRepository.findLifecyclePayload")(function* (
+				id: AutomationTriggerId,
+			) {
+				const db = yield* Database;
+				const [row] = yield* mapDatabaseErrors(
+					db
+						.select({ payload: schema.automationTrigger.payload })
+						.from(schema.automationTrigger)
+						.where(eq(schema.automationTrigger.id, id)),
+				);
+				if (!row) {
+					return null;
+				}
+				return yield* decodeStoredSchema(
+					row.payload,
+					AutomationTriggerPayload,
+					"Entity command payload is invalid or pruned",
+				);
+			});
+
+			const lockMutationKeys = Effect.fn("EntitiesRepository.lockMutationKeys")(function* (
+				keys: ReadonlyArray<string>,
+			) {
+				const db = yield* Database;
+				for (const key of [...new Set(keys)].sort()) {
+					yield* mapDatabaseErrors(
+						db.execute(
+							sql`select pg_advisory_xact_lock(hashtextextended(${`entity-mutation:${key}`}, 0))`,
+						),
+					);
+				}
+			});
+			const getMutationEntity = Effect.fn("EntitiesRepository.getMutationEntity")(function* (
+				entityId: EntityId,
+				lock = false,
+			) {
+				const db = yield* Database;
+				const query = db
+					.select({ ...entitySelection, userId: schema.entity.userId })
+					.from(schema.entity)
+					.where(eq(schema.entity.id, entityId))
+					.limit(1);
+				const [row] = yield* mapDatabaseErrors(lock ? query.for("update") : query);
+				return row
+					? {
+							entity: toListedEntity(row),
+							userId: row.userId === null ? null : UserId.make(row.userId),
+						}
+					: null;
+			});
+
+			return {
+				getById,
+				deleteByIds,
+				insertEntity,
+				updateEntity,
+				restoreEntity,
+				getByIdForUser,
+				lockMutationKeys,
+				getMutationEntity,
+				lockSchemaCatalog,
+				findLifecyclePayload,
+				findGlobalEntityById,
+				getEntityScopeForUser,
+				findEntityByExternalId,
+				findEntitySchemaForUser,
+				listEntityReferencesByIds,
+				listUserEntitiesForBackup,
+				lockEntityReferencesByIds,
+				getClientPageEntityForUser,
+				lockUserEntityEnsureScopes,
+				getEntityMergeScopeForUser,
+				findGlobalEntityForRestore,
+				findSystemEntitySchemaById,
+				lockProviderEntityMutations,
+				listMatchCandidatesBySchema,
+				findEntitySchemaProviderBySlug,
+				findUserEntityWithoutProvenance,
+				lockGlobalEntityProvenanceScope,
+				listGlobalEntitiesByIdsForBackup,
+				countGlobalEntitiesByProvenanceScope,
+				listReferencedGlobalEntitiesForBackup,
+			};
+		}),
+	},
+) {
+	static readonly layer = Layer.effect(this, this.make);
+}

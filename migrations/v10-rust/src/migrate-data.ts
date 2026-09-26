@@ -1,0 +1,598 @@
+import {
+	Database,
+	mapDatabaseErrors,
+} from "@ryot-app/kernel-backend/lib/infrastructure/db/service";
+import {
+	formatPropertyIssues,
+	parseAppSchemaProperties,
+} from "@ryot-app/kernel-backend/lib/property-schema/property-schema-runtime";
+import { IntegrationsRepository } from "@ryot-app/kernel-backend/modules/integrations/repository";
+import { bootstrapNewUser } from "@ryot-app/kernel-backend/modules/user-bootstrap/bootstrap";
+import { PluginUserBootstrapDispatcher } from "@ryot-app/kernel-backend/modules/user-bootstrap/plugin-dispatch";
+import { Clock, Effect } from "effect";
+
+import {
+	buildCollectionEntityMigrationSql,
+	buildCollectionToEntityRelationshipMigrationSql,
+	buildMonitoringCollectionMigrationSql,
+	buildOwnedCollectionOwnershipMigrationSql,
+} from "./collection-mapping";
+import { buildLegacyEpisodicSubEntityMigrationSql } from "./episodic-sub-entity-mapping";
+import {
+	buildExerciseMigrationSql,
+	exerciseEntityTargets,
+	getInvalidExerciseGithubOwnership,
+	getUnsupportedExerciseLots,
+	getUnsupportedExerciseSources,
+} from "./exercise-mapping";
+import { buildHistoricalAutomationCheckSql } from "./historical-automation-check";
+import { buildIntegrationMigrationSql, readLegacyIntegrationSettings } from "./integration-mapping";
+import {
+	migrateIntegrationProgressCache,
+	readLegacyIntegrationProgressCache,
+} from "./integration-progress-cache-mapping";
+import { buildLegacyS3AssetReportSql, migrateLegacyS3Assets } from "./legacy-asset-migration";
+import { builtinMediaEntitySchemaSlugs } from "./media-schema-slugs";
+import {
+	buildMetadataGroupEntityMigrationSql,
+	buildMetadataGroupRelationshipMigrationSql,
+	getUnsupportedMetadataGroupSources,
+	metadataGroupEntityTargets,
+	metadataGroupRelationshipTargets,
+} from "./metadata-group-mapping";
+import {
+	buildMetadataMigrationSql,
+	buildMetadataToMetadataRelationshipMigrationSql,
+	getUnsupportedMetadataSources,
+} from "./metadata-mapping";
+import { metadataMigrationTargets } from "./metadata-mapping-targets";
+import {
+	buildUniqueLotEntitySchemaSlugMap,
+	buildLegacyPackageResolution,
+	requireEventSchema,
+	requireInstallation,
+	requireMapped,
+	requireSchema,
+	resolveEntityMigrationTargets,
+	resolveRelationshipMigrationTargets,
+} from "./migration-resolution";
+import { buildNotificationPlatformMigrationSql } from "./notification-platform-mapping";
+import {
+	buildCompanyEntityMigrationSql,
+	buildCompanyRelationshipMigrationSql,
+	buildGroupPersonRelationshipMigrationSql,
+	buildPersonEntityMigrationSql,
+	buildPersonRelationshipMigrationSql,
+	companyEntityTargets,
+	getUnsupportedPersonSources,
+	personEntityTargets,
+} from "./person-mapping";
+import { buildReviewMigrationSql } from "./review-mapping";
+import {
+	buildLegacySavedViewStateMigrationSql,
+	legacySavedViewTargets,
+} from "./saved-view-mapping";
+import { buildSeenEpisodicCompletionMigrationSql } from "./seen-completion-mapping";
+import { buildSeenMigrationSql } from "./seen-mapping";
+import {
+	buildReferencedGlobalEntityIdsSql,
+	getLatestReportSequence,
+	legacyBootstrapGate,
+	logReportRows,
+	withReservedConnection,
+} from "./shared";
+import {
+	buildLegacyUserAuthMigrationSql,
+	buildLegacyUserLibraryMigrationSql,
+} from "./user-auth-mapping";
+import { buildMeasurementMigrationSql } from "./user-measurement-mapping";
+import { buildUserToEntityInLibraryMigrationSql } from "./user-to-entity-mapping";
+import {
+	buildWorkoutMigrationSql,
+	buildWorkoutRepeatedFromRelationshipMigrationSql,
+	buildWorkoutSetEventMigrationSql,
+	buildWorkoutTemplateMigrationSql,
+	buildWorkoutToTemplateRelationshipMigrationSql,
+} from "./workout-mapping";
+import { migrateYoutubeMusicCache } from "./youtube-music-cache-mapping";
+
+const abortSampleLimit = 20;
+
+const formatAbortSample = (labels: ReadonlyArray<string>) => {
+	const shown = labels.slice(0, abortSampleLimit);
+	const suffix = labels.length > shown.length ? ` (${shown.length} of ${labels.length} shown)` : "";
+	return `${shown.join(", ")}${suffix}`;
+};
+
+const abortOnUnsupported = (input: {
+	phase: string;
+	remedy: string;
+	subject: string;
+	labels: ReadonlyArray<string>;
+}) =>
+	input.labels.length === 0
+		? Effect.void
+		: Effect.die(
+				new Error(
+					`${input.phase}: ${input.labels.length} legacy ${input.subject}(s) are not available in this build, so the data using them would be silently dropped: ${formatAbortSample(input.labels)}. ${input.remedy}`,
+				),
+			);
+
+export const migrateLegacyTables = Effect.gen(function* () {
+	const gate = yield* legacyBootstrapGate;
+	const startedAtMs = yield* Clock.currentTimeMillis;
+	if (!gate) {
+		return yield* Effect.void;
+	}
+
+	let reportSequence = yield* withReservedConnection(getLatestReportSequence);
+	const migratedUserRows = yield* withReservedConnection((connection) =>
+		Effect.gen(function* () {
+			yield* connection.executeRaw(buildLegacyUserAuthMigrationSql(), []);
+			const rows: ReadonlyArray<{ id: string }> = yield* connection.execute(
+				`SELECT "id" FROM "old_user" ORDER BY "created_on", "id"`,
+				[],
+				undefined,
+			);
+			return rows;
+		}),
+	);
+	const userIds = migratedUserRows.map(({ id }) => id);
+	const resolution = yield* buildLegacyPackageResolution(userIds);
+	const mediaPluginId = resolution.mediaPluginId;
+	const fitnessPluginId = resolution.fitnessPluginId;
+	const entitySchema = (pluginId: string | null, slug: string) =>
+		requireSchema(resolution.entitySchemas, pluginId, slug, "entity schema");
+	const relationshipSchema = (pluginId: string | null, slug: string) =>
+		requireSchema(resolution.relationshipSchemas, pluginId, slug, "relationship schema");
+	const metadataEntitySchemaSlugByLot = buildUniqueLotEntitySchemaSlugMap(
+		metadataMigrationTargets.map(({ lot, entitySchemaSlug }) => ({ lot, entitySchemaSlug })),
+	);
+	const resolvedMetadataTargets = resolveEntityMigrationTargets(
+		metadataMigrationTargets,
+		resolution,
+		mediaPluginId,
+	);
+	const resolvedMetadataGroupEntityTargets = resolveEntityMigrationTargets(
+		metadataGroupEntityTargets,
+		resolution,
+		mediaPluginId,
+	);
+	const resolvedMetadataGroupRelationshipTargets = metadataGroupRelationshipTargets.map(
+		(target) => {
+			const resolved = relationshipSchema(mediaPluginId, target.relationshipSchemaSlug);
+			return {
+				lot: target.lot,
+				relationshipSchemaSlug: resolved.slug,
+				relationshipSchemaPluginId: resolved.pluginId,
+			};
+		},
+	);
+	const resolvedPersonEntityTargets = resolveEntityMigrationTargets(
+		personEntityTargets,
+		resolution,
+		mediaPluginId,
+	);
+	const resolvedCompanyEntityTargets = resolveEntityMigrationTargets(
+		companyEntityTargets,
+		resolution,
+		mediaPluginId,
+	);
+	const resolvedPersonRelationshipTargets = resolveRelationshipMigrationTargets({
+		resolution,
+		pluginId: mediaPluginId,
+		sourceEntitySchemaSlug: "person",
+		lotToEntitySchemaSlug: metadataEntitySchemaSlugByLot,
+	});
+	const resolvedCompanyRelationshipTargets = resolveRelationshipMigrationTargets({
+		resolution,
+		pluginId: mediaPluginId,
+		sourceEntitySchemaSlug: "company",
+		lotToEntitySchemaSlug: metadataEntitySchemaSlugByLot,
+	});
+	const resolvedGroupPersonRelationshipTargets = [
+		{ lot: "music", slug: "person-to-music-group" },
+		{ lot: "video_game", slug: "person-to-video-game-group" },
+	].map(({ lot, slug }) => {
+		const resolved = relationshipSchema(mediaPluginId, slug);
+		return {
+			lot,
+			relationshipSchemaSlug: resolved.slug,
+			relationshipSchemaPluginId: resolved.pluginId,
+		};
+	});
+	const collectionEntitySchema = entitySchema(null, "collection");
+	const libraryEntitySchema = entitySchema(mediaPluginId, "media-library");
+	const memberOfRelationshipSchema = relationshipSchema(null, "member-of");
+	const inLibraryRelationshipSchema = relationshipSchema(mediaPluginId, "in-media-library");
+	for (const slug of legacySavedViewTargets.kernel) {
+		requireSchema(resolution.savedViews, null, slug, "saved view");
+	}
+	for (const slug of legacySavedViewTargets.media) {
+		requireSchema(resolution.savedViews, mediaPluginId, slug, "saved view");
+	}
+	for (const slug of legacySavedViewTargets.fitness) {
+		requireSchema(resolution.savedViews, fitnessPluginId, slug, "saved view");
+	}
+	const addEntityToCollectionEventSchema = requireEventSchema(
+		resolution,
+		null,
+		"collection",
+		"add-entity-to-collection",
+	);
+	const measurementEntitySchema = entitySchema(fitnessPluginId, "measurement");
+	const workoutEntitySchema = entitySchema(fitnessPluginId, "workout");
+	const workoutTemplateEntitySchema = entitySchema(fitnessPluginId, "workout-template");
+	const workoutSetEventSchema = requireEventSchema(
+		resolution,
+		fitnessPluginId,
+		"exercise",
+		"workout-set",
+	);
+	const workoutToWorkoutTemplateRelationshipSchema = relationshipSchema(
+		fitnessPluginId,
+		"workout-to-workout-template",
+	);
+	const workoutRepeatedFromRelationshipSchema = relationshipSchema(
+		fitnessPluginId,
+		"workout-repeated-from",
+	);
+	const mediaMonitoringRelationshipSchema = relationshipSchema(mediaPluginId, "media-monitoring");
+	const monitorableEntitySchemaSlugs = ["company", "person", ...builtinMediaEntitySchemaSlugs].map(
+		(slug) => entitySchema(mediaPluginId, slug).slug,
+	);
+	const libraryEligibleEntitySchemaSlugs = [
+		...monitorableEntitySchemaSlugs,
+		...new Set(
+			metadataGroupEntityTargets.map(
+				({ entitySchemaSlug }) => entitySchema(mediaPluginId, entitySchemaSlug).slug,
+			),
+		),
+	];
+	const showSeasonEntitySchema = entitySchema(mediaPluginId, "show-season");
+	const showEpisodeEntitySchema = entitySchema(mediaPluginId, "show-episode");
+	const podcastEpisodeEntitySchema = entitySchema(mediaPluginId, "podcast-episode");
+	const showToSeasonRelationshipSchema = relationshipSchema(mediaPluginId, "show-to-show-season");
+	const seasonToEpisodeRelationshipSchema = relationshipSchema(
+		mediaPluginId,
+		"show-season-to-show-episode",
+	);
+	const podcastToEpisodeRelationshipSchema = relationshipSchema(
+		mediaPluginId,
+		"podcast-to-podcast-episode",
+	);
+	const integrationProviderSlugs = [
+		"audiobookshelf",
+		"komga",
+		"plex_yank",
+		"youtube_music",
+		"kodi",
+		"emby",
+		"plex_sink",
+		"jellyfin_sink",
+		"ryot_browser_extension",
+		"radarr",
+		"sonarr",
+		"jellyfin_push",
+	] as const;
+	for (const slug of integrationProviderSlugs) {
+		requireMapped(resolution.integrationProviders, mediaPluginId, slug, "integration provider");
+	}
+	const mediaInstallations = migratedUserRows.map(({ id: userId }) => ({
+		userId,
+		installationId: requireInstallation(resolution, userId, mediaPluginId),
+	}));
+	const mediaInstallationIdsByUserId = new Map(
+		mediaInstallations.map(({ userId, installationId }) => [userId, installationId]),
+	);
+	const integrationProgressScript = requireMapped(
+		resolution.scripts,
+		mediaPluginId,
+		"import.write-chunks",
+		"script",
+	);
+	const youtubeMusicScript = requireMapped(
+		resolution.scripts,
+		mediaPluginId,
+		"integration.youtube-music",
+		"script",
+	);
+
+	const unsupportedMetadataSources = yield* getUnsupportedMetadataSources;
+	yield* abortOnUnsupported({
+		subject: "media source",
+		phase: "metadata -> entity",
+		labels: unsupportedMetadataSources.map(({ lot, source }) => `${lot}|${source}`),
+		remedy:
+			"Use a build whose media plugin provides these sources, or delete the rows that use them in the V1 database, then start the server again.",
+	});
+
+	const unsupportedMetadataGroupSources = yield* getUnsupportedMetadataGroupSources;
+	yield* abortOnUnsupported({
+		subject: "media group source",
+		phase: "metadata_group -> entity",
+		labels: unsupportedMetadataGroupSources.map(({ lot, source }) => `${lot}|${source}`),
+		remedy:
+			"Use a build whose media plugin provides these sources, or delete the groups that use them in the V1 database, then start the server again.",
+	});
+
+	const unsupportedPersonSources = yield* getUnsupportedPersonSources;
+	yield* abortOnUnsupported({
+		phase: "person -> entity",
+		subject: "person or company source",
+		labels: unsupportedPersonSources.map(({ source, entity_kind }) => `${entity_kind}|${source}`),
+		remedy:
+			"Use a build whose media plugin provides these sources, or delete the people and companies that use them in the V1 database, then start the server again.",
+	});
+
+	const unsupportedExerciseSources = yield* getUnsupportedExerciseSources;
+	yield* abortOnUnsupported({
+		subject: "exercise source",
+		phase: "exercise -> entity",
+		labels: unsupportedExerciseSources.map(({ source }) => source),
+		remedy:
+			"Use a build whose fitness plugin provides these sources, or delete the exercises that use them in the V1 database, then start the server again.",
+	});
+
+	const unsupportedExerciseLots = yield* getUnsupportedExerciseLots;
+	yield* abortOnUnsupported({
+		subject: "exercise type",
+		phase: "exercise -> entity",
+		labels: unsupportedExerciseLots.map(({ lot }) => lot),
+		remedy:
+			"Use a build whose fitness plugin supports these types, or delete the exercises that use them in the V1 database, then start the server again.",
+	});
+
+	const invalidExerciseGithubOwnership = yield* getInvalidExerciseGithubOwnership;
+	yield* invalidExerciseGithubOwnership.length > 0
+		? Effect.die(
+				new Error(
+					`exercise -> entity: ${invalidExerciseGithubOwnership.length} catalog exercise row(s) from GitHub carry a creator user id, which only custom exercises may have, so migrating them would attribute catalog data to a user: ${formatAbortSample(invalidExerciseGithubOwnership.map(({ id }) => id))}. Clear created_by_user_id on those rows in the V1 database, then start the server again.`,
+				),
+			)
+		: Effect.void;
+
+	const resolvedExerciseTargets = resolveEntityMigrationTargets(
+		exerciseEntityTargets,
+		resolution,
+		fitnessPluginId,
+	);
+	yield* withReservedConnection((connection) =>
+		connection.executeRaw(buildLegacyUserLibraryMigrationSql(libraryEntitySchema), []),
+	);
+	reportSequence = yield* withReservedConnection((connection) =>
+		logReportRows(connection, reportSequence),
+	);
+
+	// Phase 2: Backfill bootstrap data for migrated users
+	if (migratedUserRows.length > 0) {
+		yield* Effect.logInfo("legacy user bootstrap backfill started").pipe(
+			Effect.annotateLogs({ userCount: migratedUserRows.length }),
+		);
+
+		for (const user of migratedUserRows) {
+			yield* bootstrapNewUser(user.id).pipe(
+				Effect.provideService(PluginUserBootstrapDispatcher, {
+					dispatchAll: () => Effect.sync((): undefined => undefined),
+				}),
+				Effect.tapError((error) =>
+					Effect.logError("legacy user bootstrap failed", error).pipe(
+						Effect.annotateLogs({ userId: user.id }),
+					),
+				),
+				Effect.orDie,
+			);
+		}
+
+		const savedViewInstallations = migratedUserRows.map(({ id: userId }) => ({
+			userId,
+			mediaInstallationId: requireInstallation(resolution, userId, mediaPluginId),
+			fitnessInstallationId: requireInstallation(resolution, userId, fitnessPluginId),
+		}));
+		yield* withReservedConnection((connection) =>
+			connection.executeRaw(buildLegacySavedViewStateMigrationSql(savedViewInstallations), []),
+		);
+
+		yield* Effect.logInfo("legacy user bootstrap backfill finished").pipe(
+			Effect.annotateLogs({ userCount: migratedUserRows.length }),
+		);
+	}
+	reportSequence = yield* withReservedConnection((connection) =>
+		logReportRows(connection, reportSequence),
+	);
+
+	// Phase 3: Migrate entities, events, and relationships
+	//
+	// Slim migration: provider-sourced ("global") entities are reconstructed on demand by V2's
+	// entity population workflow, so we materialize only the subset referenced by user data (plus
+	// all user-authored custom entities). The referenced-id set is collected up front and consumed
+	// by the metadata / person / company / metadata_group entity migrations.
+	const legacyIntegrationProgressCache = yield* withReservedConnection((connection) =>
+		Effect.gen(function* () {
+			yield* connection.executeRaw(buildReferencedGlobalEntityIdsSql(), []);
+			yield* connection.executeRaw(buildMetadataMigrationSql(resolvedMetadataTargets), []);
+			yield* connection.executeRaw(
+				buildLegacyEpisodicSubEntityMigrationSql({
+					showSeasonEntitySchema,
+					showEpisodeEntitySchema,
+					podcastEpisodeEntitySchema,
+					showToSeasonRelationshipSchema,
+					seasonToEpisodeRelationshipSchema,
+					podcastToEpisodeRelationshipSchema,
+				}),
+				[],
+			);
+			yield* connection.executeRaw(
+				buildMetadataGroupEntityMigrationSql(resolvedMetadataGroupEntityTargets),
+				[],
+			);
+			yield* connection.executeRaw(
+				buildMetadataGroupRelationshipMigrationSql(resolvedMetadataGroupRelationshipTargets),
+				[],
+			);
+			yield* connection.executeRaw(buildPersonEntityMigrationSql(resolvedPersonEntityTargets), []);
+			yield* connection.executeRaw(
+				buildCompanyEntityMigrationSql(resolvedCompanyEntityTargets),
+				[],
+			);
+			yield* connection.executeRaw(buildCollectionEntityMigrationSql(collectionEntitySchema), []);
+			yield* connection.executeRaw(buildExerciseMigrationSql(resolvedExerciseTargets), []);
+			yield* connection.executeRaw(buildMeasurementMigrationSql(measurementEntitySchema), []);
+			yield* connection.executeRaw(
+				buildWorkoutTemplateMigrationSql(workoutTemplateEntitySchema),
+				[],
+			);
+			yield* connection.executeRaw(buildWorkoutMigrationSql(workoutEntitySchema), []);
+			yield* connection.executeRaw(buildWorkoutSetEventMigrationSql(workoutSetEventSchema), []);
+			yield* connection.executeRaw(
+				buildWorkoutToTemplateRelationshipMigrationSql(workoutToWorkoutTemplateRelationshipSchema),
+				[],
+			);
+			yield* connection.executeRaw(
+				buildWorkoutRepeatedFromRelationshipMigrationSql(workoutRepeatedFromRelationshipSchema),
+				[],
+			);
+			yield* connection.executeRaw(buildReviewMigrationSql(), []);
+			yield* connection.executeRaw(buildSeenMigrationSql(mediaPluginId), []);
+			yield* connection.executeRaw(buildSeenEpisodicCompletionMigrationSql(mediaPluginId), []);
+			yield* connection.executeRaw(
+				`
+					DO $$
+					DECLARE
+						rec RECORD;
+					BEGIN
+						FOR rec IN
+							SELECT schemaname, tablename
+							FROM pg_tables
+							WHERE schemaname = ANY (current_schemas(false))
+							ORDER BY schemaname, tablename
+						LOOP
+							EXECUTE format('ANALYZE %I.%I', rec.schemaname, rec.tablename);
+						END LOOP;
+					END $$;
+				`,
+				[],
+			);
+			yield* connection.executeRaw(
+				buildPersonRelationshipMigrationSql(resolvedPersonRelationshipTargets),
+				[],
+			);
+			yield* connection.executeRaw(
+				buildCompanyRelationshipMigrationSql(resolvedCompanyRelationshipTargets),
+				[],
+			);
+			yield* connection.executeRaw(
+				buildGroupPersonRelationshipMigrationSql(resolvedGroupPersonRelationshipTargets),
+				[],
+			);
+			yield* connection.executeRaw(
+				buildCollectionToEntityRelationshipMigrationSql(
+					addEntityToCollectionEventSchema,
+					memberOfRelationshipSchema,
+				),
+				[],
+			);
+			yield* connection.executeRaw(buildMetadataToMetadataRelationshipMigrationSql(), []);
+			yield* connection.executeRaw(
+				buildUserToEntityInLibraryMigrationSql({
+					libraryEntitySchema,
+					inLibraryRelationshipSchema,
+					libraryEligibleEntitySchemaSlugs,
+				}),
+				[],
+			);
+			yield* connection.executeRaw(
+				buildOwnedCollectionOwnershipMigrationSql(inLibraryRelationshipSchema),
+				[],
+			);
+			yield* connection.executeRaw(
+				buildMonitoringCollectionMigrationSql({
+					libraryEntitySchema,
+					monitorableEntitySchemaSlugs,
+					mediaMonitoringRelationshipSchema,
+				}),
+				[],
+			);
+			return yield* readLegacyIntegrationProgressCache(connection);
+		}),
+	);
+	const legacyS3AssetMigration = yield* migrateLegacyS3Assets;
+	yield* withReservedConnection((connection) =>
+		connection.executeRaw(buildLegacyS3AssetReportSql(legacyS3AssetMigration), []),
+	);
+	reportSequence = yield* withReservedConnection((connection) =>
+		logReportRows(connection, reportSequence),
+	);
+	const integrationSettings = yield* withReservedConnection(readLegacyIntegrationSettings);
+	for (const row of integrationSettings) {
+		const provider = requireMapped(
+			resolution.integrationProviders,
+			mediaPluginId,
+			row.provider,
+			"integration provider",
+		);
+		if (provider.lot !== row.lot) {
+			return yield* Effect.die(
+				new Error(
+					`Legacy integration lot does not match the current resolved provider for ${row.id}: ${row.lot}/${provider.lot}`,
+				),
+			);
+		}
+		yield* parseAppSchemaProperties({
+			properties: row.settings,
+			propertiesSchema: provider.settingsSchema,
+			kind: `${row.provider} legacy integration`,
+		}).pipe(
+			Effect.mapError(
+				(error) =>
+					new Error(
+						`Legacy integration settings failed current schema validation for ${row.id}: ${formatPropertyIssues(error.issues)}`,
+					),
+			),
+			Effect.orDie,
+		);
+	}
+	yield* withReservedConnection((connection) =>
+		connection.executeRaw(
+			buildIntegrationMigrationSql({
+				installations: mediaInstallations,
+				providerSlugs: integrationProviderSlugs,
+			}),
+			[],
+		),
+	);
+	const integrations = yield* IntegrationsRepository;
+	const database = yield* Database;
+	yield* mapDatabaseErrors(
+		database.transaction((transaction) =>
+			integrations
+				.refreshClientProviderSpecificsForPlugin(mediaPluginId)
+				.pipe(Effect.provideService(Database, transaction)),
+		),
+	);
+	yield* migrateIntegrationProgressCache({
+		scriptId: integrationProgressScript.id,
+		cacheRows: legacyIntegrationProgressCache,
+		installationIdsByUserId: mediaInstallationIdsByUserId,
+		integrations: integrationSettings.map(({ id, userId, provider }) => ({ id, userId, provider })),
+	});
+	yield* migrateYoutubeMusicCache({
+		scriptId: youtubeMusicScript.id,
+		installationIds: mediaInstallations.map(({ installationId }) => installationId),
+	});
+	yield* withReservedConnection((connection) =>
+		Effect.gen(function* () {
+			yield* connection.executeRaw(buildNotificationPlatformMigrationSql(), []);
+			yield* connection.executeRaw(buildHistoricalAutomationCheckSql(), []);
+		}),
+	);
+	reportSequence = yield* withReservedConnection((connection) =>
+		logReportRows(connection, reportSequence),
+	);
+
+	const elapsedSeconds = Math.round(((yield* Clock.currentTimeMillis) - startedAtMs) / 1000);
+	yield* Effect.logInfo("legacy data migration finished").pipe(
+		Effect.annotateLogs({ elapsedSeconds }),
+	);
+	return yield* Effect.void;
+});

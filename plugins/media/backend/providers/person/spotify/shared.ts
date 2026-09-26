@@ -1,0 +1,179 @@
+import { defineManifest } from "@ryot-app/sandbox-sdk/driver";
+import { Effect } from "@ryot-app/sandbox-sdk/effect";
+import { defineProvider } from "@ryot-app/sandbox-sdk/provider";
+
+import { asRecord, numberValue, stringValue, trimmedString } from "../../../lib/records";
+import {
+	getFirstImage,
+	getImagesSortedBySize,
+	getSpotifyErrorStatus,
+	SPOTIFY_SEARCH_PAGE_SIZE,
+	type SpotifyHost,
+	spotifyGet,
+} from "../../../lib/vendors/spotify";
+
+export const manifest = defineManifest({
+	name: "Spotify",
+	kind: "provider",
+	slug: "person.spotify",
+	requiredSystemConfigKeys: [],
+	requiredPluginConfigKeys: ["spotifyClientId", "spotifyClientSecret"],
+	capabilities: ["httpCall", "getPluginConfig", "getCachedValue", "setCachedValue"],
+});
+
+const ALBUM_PAGE_LIMIT = 50;
+
+export const search = defineProvider({
+	manifest,
+	operation: "search",
+	run: (input, host) => {
+		const offset = (input.page - 1) * SPOTIFY_SEARCH_PAGE_SIZE;
+		return spotifyGet(host, "/search", {
+			type: "artist",
+			q: input.query,
+			offset: String(offset),
+			limit: String(SPOTIFY_SEARCH_PAGE_SIZE),
+		}).pipe(
+			Effect.map((dataValue) => {
+				const artists = asRecord(asRecord(dataValue)?.["artists"]);
+				const totalItems = numberValue(artists?.["total"]) ?? 0;
+				const artistItems = Array.isArray(artists?.["items"]) ? artists["items"] : [];
+				const items = artistItems.flatMap((artist) => {
+					const record = asRecord(artist);
+					const externalId = stringValue(record?.["id"]);
+					if (!externalId) {
+						return [];
+					}
+					const name = stringValue(record?.["name"]) ?? externalId;
+					const imageUrl = getFirstImage(record?.["images"]);
+					return [{ externalId, title: name, ...(imageUrl === null ? {} : { imageUrl }) }];
+				});
+				return {
+					items,
+					details: {
+						totalItems,
+						nextPage: offset + artistItems.length < totalItems ? input.page + 1 : null,
+					},
+				};
+			}),
+		);
+	},
+});
+
+const fetchArtistAlbums = (
+	host: SpotifyHost,
+	externalId: string,
+	offset: number,
+	collected: readonly unknown[],
+): Effect.Effect<readonly unknown[], unknown> =>
+	spotifyGet(host, `/artists/${encodeURIComponent(externalId)}/albums`, {
+		offset: String(offset),
+		include_groups: "album,single",
+		limit: String(ALBUM_PAGE_LIMIT),
+	}).pipe(
+		Effect.flatMap((dataValue) => {
+			const data = asRecord(dataValue);
+			const items = Array.isArray(data?.["items"]) ? data["items"] : [];
+			if (items.length === 0) {
+				return Effect.succeed(collected);
+			}
+			const next = [...collected, ...items];
+			const total = numberValue(data?.["total"]) ?? 0;
+			if (next.length >= total) {
+				return Effect.succeed(next);
+			}
+			return fetchArtistAlbums(host, externalId, offset + ALBUM_PAGE_LIMIT, next);
+		}),
+	);
+
+export const details = defineProvider({
+	manifest,
+	operation: "details",
+	run: (input, host) =>
+		spotifyGet(host, `/artists/${encodeURIComponent(input.externalId)}`).pipe(
+			Effect.flatMap((artistValue) => {
+				const artist = asRecord(artistValue);
+				const name = stringValue(artist?.["name"]);
+				if (!name) {
+					throw new Error("Spotify artist is missing name");
+				}
+
+				const genres = Array.isArray(artist?.["genres"])
+					? artist["genres"].flatMap((genre) => (typeof genre === "string" ? [genre] : []))
+					: [];
+				const description = genres.length > 0 ? `Genres: ${genres.join(", ")}` : null;
+				const sourceUrl = stringValue(asRecord(artist?.["external_urls"])?.["spotify"]);
+
+				return fetchArtistAlbums(host, input.externalId, 0, []).pipe(
+					Effect.flatMap((albums) => {
+						const groupEntities = albums.map((album) => {
+							const record = asRecord(album);
+							const albumId = trimmedString(record?.["id"]);
+							const albumName = trimmedString(record?.["name"]);
+							return {
+								externalId: albumId,
+								providerSlug: "music-group.spotify",
+								relationshipProperties: { roles: ["Artist"] },
+								name: albumName.length > 0 ? albumName : albumId,
+							};
+						});
+						return spotifyGet(host, `/artists/${encodeURIComponent(input.externalId)}/top-tracks`, {
+							market: "US",
+						}).pipe(
+							Effect.catch((error) =>
+								getSpotifyErrorStatus(error) === 403
+									? Effect.succeed({ tracks: [] })
+									: Effect.fail(error),
+							),
+							Effect.map((topTracksValue) => {
+								const tracks = asRecord(topTracksValue)?.["tracks"];
+								const mediaEntities = (Array.isArray(tracks) ? tracks : []).flatMap((track) => {
+									const record = asRecord(track);
+									const trackId = trimmedString(record?.["id"]);
+									if (!trackId) {
+										return [];
+									}
+									const trackName = trimmedString(record?.["name"]);
+									return [
+										{
+											externalId: trackId,
+											providerSlug: "music.spotify",
+											relationshipProperties: { roles: ["Artist"] },
+											name: trackName.length > 0 ? trackName : trackId,
+										},
+									];
+								});
+								return {
+									name,
+									properties: {
+										sourceUrl,
+										description,
+										alternateNames: [],
+										images: getImagesSortedBySize(artist?.["images"]).map((url) => ({
+											url,
+											type: "remote" as const,
+											purpose: "profile" as const,
+										})),
+									},
+									relatedEntityGroups: [
+										{
+											entities: mediaEntities,
+											direction: "outgoing" as const,
+											synchronization: "authoritative" as const,
+											relationshipSchemaSlug: "person-to-music",
+										},
+										{
+											entities: groupEntities,
+											direction: "outgoing" as const,
+											synchronization: "authoritative" as const,
+											relationshipSchemaSlug: "person-to-music-group",
+										},
+									],
+								};
+							}),
+						);
+					}),
+				);
+			}),
+		),
+});

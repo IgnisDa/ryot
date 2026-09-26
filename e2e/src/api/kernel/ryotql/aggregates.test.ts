@@ -1,0 +1,441 @@
+import type { AggregateResult, RyotQLResult } from "@ryot-app/contract/modules/ryotql/language";
+import {
+	aggregate,
+	and,
+	castBoolean,
+	castNumber,
+	column,
+	dateBucket,
+	document,
+	eq,
+	field,
+	groupAscending,
+	groupDescending,
+	inArray,
+	join,
+	jsonPath,
+	literal,
+	measure,
+	measureAscending,
+	measureDescending,
+	table,
+} from "@ryot-app/ryotql";
+import { Effect } from "effect";
+
+import {
+	createAuthenticatedClient,
+	createEventFixture,
+	createEventSchema,
+	createEntityFixture,
+	createPluginEntitySchema,
+	createRelationship,
+	createRelationshipSchema,
+	executeRyotQL,
+	requireRyotQLValue,
+} from "~/fixtures/kernel";
+import { assertPresent } from "~/support/assertions";
+import { describe, expect, it } from "~/support/effect-test";
+
+const requireAggregate = (result: RyotQLResult | undefined, key: string): AggregateResult => {
+	if (result?.type !== "aggregate") {
+		throw new Error(`Expected '${key}' aggregate`);
+	}
+	return result;
+};
+
+describe("RyotQL aggregate outputs", () => {
+	it.live("groups joined metadata by timezone-aware local dates across DST", () =>
+		Effect.gen(function* () {
+			const { client } = yield* createAuthenticatedClient();
+			const { slug, schemaId } = yield* createPluginEntitySchema(client, {
+				schemaName: "RyotQLDateBucketEpisode",
+			});
+			const eventSchema = yield* createEventSchema(client, {
+				entitySchemaSlug: schemaId,
+				name: "RyotQL Date Bucket Watch",
+				slug: `ryotql-date-bucket-watch-${crypto.randomUUID()}`,
+				propertiesSchema: {
+					fields: {
+						timeSpent: { type: "integer", label: "Time spent", description: "Minutes watched" },
+					},
+				},
+			});
+			const [episodeOne, episodeTwo] = yield* Effect.all([
+				createEntityFixture(client, { name: "Episode One", entitySchemaSlug: schemaId }),
+				createEntityFixture(client, { name: "Episode Two", entitySchemaSlug: schemaId }),
+			]);
+			for (const [entityId, occurredAt, timeSpent] of [
+				[episodeOne.id, "2026-03-08T04:30:00.000Z", 20],
+				[episodeOne.id, "2026-03-08T04:45:00.000Z", 20],
+				[episodeTwo.id, "2026-03-08T05:30:00.000Z", 57],
+				[episodeTwo.id, "2026-03-09T04:30:00.000Z", 10],
+			] as const) {
+				yield* createEventFixture(client, {
+					entityId,
+					occurredAt,
+					properties: { timeSpent },
+					eventSchemaSlug: eventSchema.slug,
+				});
+			}
+
+			const event = table("event", "watch");
+			const episode = table("entity", "episode");
+			const timeSpent = castNumber(jsonPath(column(event, "properties"), "timeSpent"));
+			const query = (timeZone: string) =>
+				aggregate(event, {
+					limit: 20,
+					orderBy: [groupDescending("day"), groupAscending("episodeName")],
+					measures: [measure("minutes", { expr: timeSpent, function: "sum" })],
+					joins: [join("inner", episode, eq(column(event, "entityId"), column(episode, "id")))],
+					where: and(
+						eq(column(event, "eventSchemaSlug"), literal(eventSchema.slug)),
+						eq(column(episode, "entitySchemaSlug"), literal(slug)),
+					),
+					groupBy: [
+						field("day", dateBucket(column(event, "occurredAt"), { timeZone, bucket: "day" })),
+						field("episodeId", column(episode, "id")),
+						field("episodeName", column(episode, "name")),
+					],
+				});
+			const result = yield* executeRyotQL(
+				client,
+				document({ utc: query("UTC"), newYork: query("America/New_York") }),
+			);
+
+			expect(requireAggregate(result.data["newYork"], "newYork").items).toEqual([
+				{
+					minutes: 10,
+					episodeId: episodeTwo.id,
+					episodeName: "Episode Two",
+					day: "2026-03-09T04:00:00.000Z",
+				},
+				{
+					minutes: 57,
+					episodeId: episodeTwo.id,
+					episodeName: "Episode Two",
+					day: "2026-03-08T05:00:00.000Z",
+				},
+				{
+					minutes: 40,
+					episodeId: episodeOne.id,
+					episodeName: "Episode One",
+					day: "2026-03-07T05:00:00.000Z",
+				},
+			]);
+			expect(requireAggregate(result.data["utc"], "utc").items).toEqual([
+				{
+					minutes: 10,
+					episodeId: episodeTwo.id,
+					episodeName: "Episode Two",
+					day: "2026-03-09T00:00:00.000Z",
+				},
+				{
+					minutes: 40,
+					episodeId: episodeOne.id,
+					episodeName: "Episode One",
+					day: "2026-03-08T00:00:00.000Z",
+				},
+				{
+					minutes: 57,
+					episodeId: episodeTwo.id,
+					episodeName: "Episode Two",
+					day: "2026-03-08T00:00:00.000Z",
+				},
+			]);
+		}),
+	);
+
+	it.live("returns grouped, ungrouped, empty, null, and typed aggregate values", () =>
+		Effect.gen(function* () {
+			const { client } = yield* createAuthenticatedClient();
+			const { slug, schemaId } = yield* createPluginEntitySchema(client, {
+				schemaName: "RyotQLAggregateLesson",
+				propertiesSchema: {
+					unknownKeys: "passthrough",
+					fields: {
+						featured: { type: "boolean", label: "Featured", description: "Featured" },
+						difficulty: { type: "string", label: "Difficulty", description: "Difficulty" },
+						durationMinutes: { type: "integer", label: "Duration", description: "Duration" },
+					},
+				},
+			});
+			const lessons = yield* Effect.all([
+				createEntityFixture(client, {
+					name: "Advanced One",
+					entitySchemaSlug: schemaId,
+					properties: {
+						featured: true,
+						durationMinutes: 30,
+						difficulty: "advanced",
+						metadata: { format: "video" },
+					},
+				}),
+				createEntityFixture(client, {
+					name: "Advanced Two",
+					entitySchemaSlug: schemaId,
+					properties: { featured: false, durationMinutes: 60, difficulty: "advanced" },
+				}),
+				createEntityFixture(client, {
+					name: "Beginner",
+					entitySchemaSlug: schemaId,
+					properties: { featured: false, durationMinutes: 90, difficulty: "beginner" },
+				}),
+				createEntityFixture(client, {
+					name: "Unclassified",
+					entitySchemaSlug: schemaId,
+					properties: { featured: false },
+				}),
+			]);
+
+			const lesson = table("entity", "lesson");
+			const properties = column(lesson, "properties");
+			const duration = castNumber(jsonPath(properties, "durationMinutes"));
+			const difficulty = jsonPath(properties, "difficulty");
+			const measures = [
+				measure("count", { function: "count" }),
+				measure("difficultyCount", { expr: difficulty, function: "countDistinct" }),
+				measure("totalDuration", { expr: duration, function: "sum" }),
+				measure("averageDuration", { expr: duration, function: "average" }),
+				measure("minimumDuration", { expr: duration, function: "minimum" }),
+				measure("maximumDuration", { expr: duration, function: "maximum" }),
+			] as const;
+			const schemaFilter = eq(column(lesson, "entitySchemaSlug"), literal(slug));
+			const result = yield* executeRyotQL(
+				client,
+				document({
+					allLessons: aggregate(lesson, { measures, where: schemaFilter }),
+					emptyLessons: aggregate(lesson, {
+						measures,
+						where: eq(
+							column(lesson, "entitySchemaSlug"),
+							literal(`missing-${crypto.randomUUID()}`),
+						),
+					}),
+					difficultyGroups: aggregate(lesson, {
+						limit: 10,
+						where: schemaFilter,
+						orderBy: [measureDescending("count")],
+						groupBy: [field("difficulty", difficulty)],
+						measures: [measure("count", { function: "count" })],
+					}),
+					limitedDifficultyGroups: aggregate(lesson, {
+						limit: 1,
+						where: schemaFilter,
+						orderBy: [measureDescending("count")],
+						groupBy: [field("difficulty", difficulty)],
+						measures: [measure("count", { function: "count" })],
+					}),
+					nullMeasureAscending: aggregate(lesson, {
+						limit: 10,
+						where: schemaFilter,
+						groupBy: [field("difficulty", difficulty)],
+						orderBy: [measureAscending("totalDuration")],
+						measures: [measure("totalDuration", { expr: duration, function: "sum" })],
+					}),
+					nullMeasureDescending: aggregate(lesson, {
+						limit: 10,
+						where: schemaFilter,
+						groupBy: [field("difficulty", difficulty)],
+						orderBy: [measureDescending("totalDuration")],
+						measures: [measure("totalDuration", { expr: duration, function: "sum" })],
+					}),
+					kindGroup: aggregate(lesson, {
+						limit: 10,
+						orderBy: [measureDescending("count")],
+						measures: [measure("count", { function: "count" })],
+						where: eq(column(lesson, "id"), literal(lessons[0].id)),
+						groupBy: [
+							field("text", column(lesson, "name")),
+							field("number", duration),
+							field("boolean", castBoolean(jsonPath(properties, "featured"))),
+							field("date", column(lesson, "createdAt")),
+							field("json", jsonPath(properties, "metadata")),
+							field("missing", jsonPath(properties, "missing")),
+						],
+					}),
+				}),
+			);
+
+			const allLessons = requireAggregate(result.data["allLessons"], "allLessons");
+			expect(allLessons.pageInfo).toBeUndefined();
+			const all = allLessons.items[0];
+			assertPresent(all, "Expected ungrouped aggregate item");
+			expect(requireRyotQLValue(all, "count")).toBe(4);
+			expect(requireRyotQLValue(all, "difficultyCount")).toBe(2);
+			expect(requireRyotQLValue(all, "totalDuration")).toBe(180);
+			expect(requireRyotQLValue(all, "averageDuration")).toBe(60);
+			expect(requireRyotQLValue(all, "minimumDuration")).toBe(30);
+			expect(requireRyotQLValue(all, "maximumDuration")).toBe(90);
+
+			const empty = requireAggregate(result.data["emptyLessons"], "emptyLessons").items[0];
+			assertPresent(empty, "Expected empty aggregate item");
+			expect(requireRyotQLValue(empty, "count")).toBe(0);
+			expect(requireRyotQLValue(empty, "difficultyCount")).toBe(0);
+			for (const key of [
+				"totalDuration",
+				"averageDuration",
+				"minimumDuration",
+				"maximumDuration",
+			]) {
+				expect(requireRyotQLValue(empty, key)).toBeNull();
+			}
+
+			const grouped = requireAggregate(result.data["difficultyGroups"], "difficultyGroups");
+			expect(grouped.pageInfo).toEqual({ limit: 10, hasMore: false });
+			expect(grouped.items).toHaveLength(3);
+			const advanced = grouped.items.find(
+				(item) => requireRyotQLValue(item, "difficulty") === "advanced",
+			);
+			const nullGroup = grouped.items.find(
+				(item) => requireRyotQLValue(item, "difficulty") === null,
+			);
+			assertPresent(advanced, "Expected advanced group");
+			assertPresent(nullGroup, "Expected null group");
+			expect(requireRyotQLValue(advanced, "count")).toBe(2);
+			expect(requireRyotQLValue(nullGroup, "count")).toBe(1);
+			const limited = requireAggregate(
+				result.data["limitedDifficultyGroups"],
+				"limitedDifficultyGroups",
+			);
+			expect(limited.pageInfo).toEqual({ limit: 1, hasMore: true });
+			expect(limited.items).toHaveLength(1);
+			const limitedItem = limited.items[0];
+			assertPresent(limitedItem, "Expected limited difficulty group");
+			expect(requireRyotQLValue(limitedItem, "difficulty")).toBe("advanced");
+			for (const key of ["nullMeasureAscending", "nullMeasureDescending"]) {
+				const ordered = requireAggregate(result.data[key], key);
+				const last = ordered.items.at(-1);
+				assertPresent(last, `Expected '${key}' group`);
+				expect(requireRyotQLValue(last, "totalDuration")).toBeNull();
+			}
+
+			const kindItem = requireAggregate(result.data["kindGroup"], "kindGroup").items[0];
+			assertPresent(kindItem, "Expected typed aggregate group");
+			expect(requireRyotQLValue(kindItem, "text")).toBe("Advanced One");
+			expect(requireRyotQLValue(kindItem, "number")).toBe(30);
+			expect(requireRyotQLValue(kindItem, "boolean")).toBe(true);
+			expect(requireRyotQLValue(kindItem, "date")).toBe(lessons[0].createdAt);
+			expect(requireRyotQLValue(kindItem, "json")).toEqual({ format: "video" });
+			expect(requireRyotQLValue(kindItem, "missing")).toBeNull();
+		}),
+	);
+
+	it.live("uses visible rows and ordinary join multiplicity for measures", () =>
+		Effect.gen(function* () {
+			const [owner, other] = yield* Effect.all([
+				createAuthenticatedClient(),
+				createAuthenticatedClient(),
+			]);
+			const ownerSchema = yield* createPluginEntitySchema(owner.client, {
+				schemaName: "RyotQLAggregateVisible",
+			});
+			const otherSchema = yield* createPluginEntitySchema(other.client, {
+				schemaName: "RyotQLAggregateHidden",
+			});
+			const ownerRelationship = yield* createRelationshipSchema(owner.client, {
+				name: "RyotQL Aggregate Visible Link",
+				targetEntitySchemaSlug: ownerSchema.schemaId,
+				sourceEntitySchemaSlug: ownerSchema.schemaId,
+				slug: `ryotql-aggregate-visible-${crypto.randomUUID()}`,
+			});
+			const otherRelationship = yield* createRelationshipSchema(other.client, {
+				name: "RyotQL Aggregate Hidden Link",
+				targetEntitySchemaSlug: otherSchema.schemaId,
+				sourceEntitySchemaSlug: otherSchema.schemaId,
+				slug: `ryotql-aggregate-hidden-${crypto.randomUUID()}`,
+			});
+			const ownerEntities = yield* Effect.forEach(
+				["Visible Source", "Visible Target One", "Visible Target Two"],
+				(name) =>
+					createEntityFixture(owner.client, { name, entitySchemaSlug: ownerSchema.schemaId }),
+			);
+			const otherEntities = yield* Effect.forEach(["Hidden Source", "Hidden Target"], (name) =>
+				createEntityFixture(other.client, { name, entitySchemaSlug: otherSchema.schemaId }),
+			);
+			const [ownerSource, ownerTargetOne, ownerTargetTwo] = ownerEntities;
+			const [otherSource, otherTarget] = otherEntities;
+			assertPresent(ownerSource, "Expected visible source");
+			assertPresent(ownerTargetOne, "Expected first visible target");
+			assertPresent(ownerTargetTwo, "Expected second visible target");
+			assertPresent(otherSource, "Expected hidden source");
+			assertPresent(otherTarget, "Expected hidden target");
+			const createdRelationships = yield* Effect.all([
+				createRelationship(owner.client, {
+					sourceEntityId: ownerSource.id,
+					targetEntityId: ownerTargetOne.id,
+					relationshipSchemaSlug: ownerRelationship.id,
+				}),
+				createRelationship(owner.client, {
+					sourceEntityId: ownerSource.id,
+					targetEntityId: ownerTargetTwo.id,
+					relationshipSchemaSlug: ownerRelationship.id,
+				}),
+				createRelationship(other.client, {
+					sourceEntityId: otherSource.id,
+					targetEntityId: otherTarget.id,
+					relationshipSchemaSlug: otherRelationship.id,
+				}),
+			]);
+			const hiddenRelationship = createdRelationships[2];
+			assertPresent(hiddenRelationship, "Expected hidden relationship");
+
+			const entity = table("entity", "entity");
+			const relationship = table("relationship", "relationship");
+			const result = yield* executeRyotQL(
+				owner.client,
+				document({
+					hiddenLeftJoin: aggregate(entity, {
+						where: eq(column(entity, "id"), literal(ownerSource.id)),
+						joins: [
+							join(
+								"left",
+								relationship,
+								eq(column(relationship, "id"), literal(hiddenRelationship.id)),
+							),
+						],
+						measures: [
+							measure("rootCount", { function: "count" }),
+							measure("hiddenRelationshipCount", {
+								function: "countDistinct",
+								expr: column(relationship, "id"),
+							}),
+						],
+					}),
+					joined: aggregate(entity, {
+						joins: [
+							join(
+								"inner",
+								relationship,
+								eq(column(entity, "id"), column(relationship, "sourceEntityId")),
+							),
+						],
+						measures: [
+							measure("count", { function: "count" }),
+							measure("distinctEntities", {
+								function: "countDistinct",
+								expr: column(entity, "id"),
+							}),
+						],
+						where: and(
+							inArray(column(entity, "id"), [literal(ownerSource.id), literal(otherSource.id)]),
+							inArray(column(relationship, "relationshipSchemaSlug"), [
+								literal(ownerRelationship.id),
+								literal(otherRelationship.id),
+							]),
+						),
+					}),
+				}),
+			);
+
+			const item = requireAggregate(result.data["joined"], "joined").items[0];
+			assertPresent(item, "Expected joined aggregate item");
+			expect(requireRyotQLValue(item, "count")).toBe(2);
+			expect(requireRyotQLValue(item, "distinctEntities")).toBe(1);
+			const hiddenLeftJoin = requireAggregate(result.data["hiddenLeftJoin"], "hiddenLeftJoin")
+				.items[0];
+			assertPresent(hiddenLeftJoin, "Expected secured left-join aggregate item");
+			expect(requireRyotQLValue(hiddenLeftJoin, "rootCount")).toBe(1);
+			expect(requireRyotQLValue(hiddenLeftJoin, "hiddenRelationshipCount")).toBe(0);
+		}),
+	);
+});

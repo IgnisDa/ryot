@@ -1,0 +1,64 @@
+import type { SandboxHost } from "@ryot-app/sandbox-sdk/core";
+import { DateTime, Effect, Option } from "@ryot-app/sandbox-sdk/effect";
+
+import {
+	asRecord,
+	numberValue,
+	parseJsonResponse,
+	stringValue,
+	type UnknownRecord,
+} from "../records";
+
+export type VndbHost = SandboxHost<readonly ["httpCall"]>;
+
+const BASE_URL = "https://api.vndb.org/kana";
+
+// VNDB partial dates are "YYYY-MM-DD", "YYYY-MM", or "YYYY".
+export const extractYear = (value: unknown) => {
+	const released = stringValue(value);
+	if (!released) {
+		return null;
+	}
+	const parsed = DateTime.make(released);
+	if (Option.isNone(parsed)) {
+		return null;
+	}
+	return DateTime.toDateUtc(parsed.value).getFullYear();
+};
+
+export const extractDate = (value: unknown) => {
+	const released = stringValue(value);
+	if (!released || !/^\d{4}-\d{2}-\d{2}$/.test(released)) {
+		return null;
+	}
+	return released;
+};
+
+export const vndbPost = (
+	host: VndbHost,
+	path: string,
+	body: Readonly<UnknownRecord>,
+	failureMessage: string,
+): Effect.Effect<unknown, unknown> =>
+	host
+		.httpCall("POST", `${BASE_URL}/${path}`, {
+			body: JSON.stringify(body),
+			headers: { Accept: "application/json", "Content-Type": "application/json" },
+		})
+		.pipe(
+			Effect.mapError((error) => new Error(error.message || failureMessage)),
+			Effect.map((response) => parseJsonResponse(response.body, "VNDB")),
+		);
+
+export const readResults = (payload: unknown) => {
+	const results = asRecord(payload)?.["results"];
+	return Array.isArray(results) ? results : [];
+};
+
+export const readTotalItems = (payload: unknown) => {
+	const count = numberValue(asRecord(payload)?.["count"]);
+	return count === null ? 0 : Math.max(0, Math.trunc(count));
+};
+
+export const readNextPage = (payload: unknown, currentPage: number) =>
+	asRecord(payload)?.["more"] === true ? currentPage + 1 : null;

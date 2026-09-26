@@ -1,0 +1,26 @@
+import type { SandboxRunError } from "@ryot-app/contract/errors";
+import type { JsonValue } from "@ryot-app/contract/modules/ryotql/language";
+import type { SandboxExecutionSubject } from "@ryot-app/contract/modules/sandbox/schemas";
+import type { SandboxScriptId } from "@ryot-app/contract/schema/brands";
+import { Context, type Effect } from "effect";
+import type { WorkflowEngine } from "effect/unstable/workflow/WorkflowEngine";
+
+export const KERNEL_EVENT_CREATE_WORKFLOW = "kernel:event-create";
+export const KERNEL_PROCESS_IMPORT_CHUNKS_WORKFLOW = "kernel:process-import-chunks";
+export const KERNEL_ENTITY_IMPORT_WORKFLOW = "kernel:entity-import";
+export const KERNEL_PROVIDER_ENTITY_POPULATION_WORKFLOW = "kernel:provider-entity-population";
+
+export class KernelWorkflowReferences extends Context.Service<
+	KernelWorkflowReferences,
+	{
+		readonly execute: (
+			workflowSlug: string,
+			input: JsonValue,
+			subject: SandboxExecutionSubject,
+			executionId: string,
+			parentExecutionId: string,
+			callerScriptId: SandboxScriptId,
+			artifactOwnerExecutionId?: string,
+		) => Effect.Effect<JsonValue, SandboxRunError, WorkflowEngine>;
+	}
+>()("KernelWorkflowReferences") {}

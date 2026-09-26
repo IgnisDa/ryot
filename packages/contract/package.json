@@ -1,0 +1,22 @@
+{
+	"name": "@ryot-app/contract",
+	"exports": {
+		"./*": {
+			"types": "./src/*.ts",
+			"default": "./src/*.ts"
+		}
+	},
+	"scripts": {
+		"test": "bun --bun run vitest run",
+		"check": "tsc && oxfmt . --write && oxlint . --type-aware --fix"
+	},
+	"dependencies": {
+		"@ryot-app/ts-utils": "workspace:*",
+		"effect": "4.0.0-rc.117"
+	},
+	"devDependencies": {
+		"@ryot-app/testing": "workspace:*",
+		"bun-types": "1.4.0",
+		"vitest": "4.1.9"
+	}
+}

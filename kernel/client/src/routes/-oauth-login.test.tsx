@@ -1,0 +1,135 @@
+import { RouterProvider, createMemoryHistory } from "@tanstack/react-router";
+import { render, screen } from "@testing-library/react";
+import { Effect, Layer, ManagedRuntime } from "effect";
+import { describe, expect, it } from "vitest";
+
+import { KernelApiTestLayer } from "#/api/ports.test-layer";
+import { PublicApi } from "#/api/public";
+import { createBackInterceptors } from "#/modules/navigation/back-interceptors";
+import { makePluginCatalogEventsTestLayer } from "#/modules/plugins/events.test-layer";
+import {
+	makePluginCatalog,
+	makePluginOperations,
+	makePluginQueries,
+} from "#/modules/plugins/services.test-layer";
+import { getRouter } from "#/router";
+import {
+	theme,
+	catalog,
+	ServerStub,
+	makeAuthStub,
+	makeStorageStubLayer,
+	GodModeRouteStubs,
+	CustomizeRouteStubs,
+	SavedViewRouteStubs,
+	EntityRouteStubs,
+	makeOAuthRouteStubs,
+	NavigationRouteStubs,
+	ProviderAddRouteStubs,
+	ImportsRouteStubs,
+	IntegrationRouteStubs,
+	ClientPagesApiRouteStubs,
+	ClientPageSessionsRouteStubs,
+	NotificationChannelRouteStubs,
+} from "#/routes/-route-fixtures";
+
+const systemConfig = (
+	frontendOrigin: string,
+	auth: { readonly localAuthDisabled: boolean; readonly oidcEnabled: boolean },
+) => ({
+	analytics: {},
+	frontendOrigin,
+	pro: { isServerKeyValidated: false },
+	notifications: { smtpEnabled: false },
+	auth: { ...auth, signupAllowed: true },
+	fileStorage: {
+		temporaryUploadProvider: "local" as const,
+		preferredPermanentUploadProvider: "local" as const,
+	},
+});
+
+const mountLogin = (config: ReturnType<typeof systemConfig>) => {
+	let authCalls = 0;
+	const requestedOrigins: string[] = [];
+	const oauth = makeOAuthRouteStubs(
+		{},
+		{
+			signInWithOidc: () =>
+				Effect.sync(() => {
+					authCalls += 1;
+				}),
+		},
+	);
+	const runtime = ManagedRuntime.make(
+		Layer.mergeAll(
+			ProviderAddRouteStubs,
+			ImportsRouteStubs,
+			IntegrationRouteStubs,
+			NotificationChannelRouteStubs,
+			NotificationChannelRouteStubs,
+			makeAuthStub(),
+			GodModeRouteStubs,
+			ServerStub,
+			SavedViewRouteStubs,
+			EntityRouteStubs,
+			Layer.succeed(PublicApi, {
+				checkHealth: () => Effect.void,
+				getSystemConfig: (origin) =>
+					Effect.sync(() => {
+						requestedOrigins.push(origin);
+						return config;
+					}),
+			}),
+			makePluginCatalog(catalog),
+			NavigationRouteStubs,
+			CustomizeRouteStubs,
+			makePluginQueries(),
+			makePluginOperations(),
+			makePluginCatalogEventsTestLayer().layer,
+			KernelApiTestLayer,
+			ClientPagesApiRouteStubs,
+			ClientPageSessionsRouteStubs,
+		).pipe(Layer.provideMerge(oauth), Layer.provideMerge(makeStorageStubLayer())),
+	);
+	const router = getRouter(
+		{ theme, runtime, backInterceptors: createBackInterceptors() },
+		createMemoryHistory({ initialEntries: ["/oauth/login"] }),
+	);
+	render(<RouterProvider router={router} />);
+	return { requestedOrigins, authCallCount: () => authCalls };
+};
+
+describe("Hosted OAuth login", () => {
+	it("shows a configured frontend mismatch without starting authentication", async () => {
+		const mounted = mountLogin(
+			systemConfig("https://configured.example", { oidcEnabled: true, localAuthDisabled: true }),
+		);
+
+		await screen.findByText("Server configuration mismatch");
+		expect(
+			screen.getByText(
+				"This server is configured for https://configured.example. Open that address to sign in.",
+			),
+		).not.toBeNull();
+		expect(mounted.authCallCount()).toBe(0);
+	});
+
+	it("uses the browser origin as a fixed server", async () => {
+		const mounted = mountLogin(
+			systemConfig(window.location.origin, { oidcEnabled: false, localAuthDisabled: false }),
+		);
+
+		await screen.findByText(`Server: ${window.location.hostname}`);
+		expect(mounted.requestedOrigins).toEqual([window.location.origin]);
+		expect(screen.queryByRole("button", { name: "Change server" })).toBeNull();
+	});
+
+	it("shows an unavailable state when no authentication method is configured", async () => {
+		mountLogin(
+			systemConfig(window.location.origin, { oidcEnabled: false, localAuthDisabled: true }),
+		);
+
+		await screen.findByText("Authentication unavailable");
+		expect(screen.getByText("This server has no browser sign-in method enabled.")).not.toBeNull();
+	});
+});

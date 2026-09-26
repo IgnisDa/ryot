@@ -2,32 +2,23 @@
 	"files": [],
 	"extends": "./tsconfig.options.json",
 	"references": [
-		{
-			"path": "apps/browser-extension"
-		},
-		{
-			"path": "apps/docs"
-		},
-		{
-			"path": "apps/frontend"
-		},
-		{
-			"path": "apps/website"
-		},
-		{
-			"path": "libs/generated"
-		},
-		{
-			"path": "libs/graphql"
-		},
-		{
-			"path": "libs/transactional"
-		},
-		{
-			"path": "libs/ts-utils"
-		},
-		{
-			"path": "tests"
-		}
+		{ "path": "apps/browser-extension" },
+		{ "path": "apps/docs" },
+		{ "path": "apps/frontend" },
+		{ "path": "apps/server" },
+		{ "path": "apps/website" },
+		{ "path": "kernel/backend" },
+		{ "path": "kernel/client" },
+		{ "path": "packages/contract" },
+		{ "path": "packages/graphql" },
+		{ "path": "packages/plugin-archive" },
+		{ "path": "packages/plugin-kit" },
+		{ "path": "packages/sandbox-compiler" },
+		{ "path": "packages/sandbox-sdk" },
+		{ "path": "packages/testing" },
+		{ "path": "packages/transactional" },
+		{ "path": "packages/ts-utils" },
+		{ "path": "packages/typescript-compiler" },
+		{ "path": "e2e" }
 	]
 }

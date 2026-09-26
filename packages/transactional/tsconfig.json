@@ -1,0 +1,11 @@
+{
+	"include": ["**/*"],
+	"extends": "../../tsconfig.options.json",
+	"compilerOptions": {
+		"noEmit": true,
+		"outDir": "dist",
+		"module": "ESNext",
+		"jsx": "react-jsx",
+		"moduleResolution": "bundler"
+	}
+}

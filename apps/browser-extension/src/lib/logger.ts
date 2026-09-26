@@ -1,4 +1,5 @@
 import { storage } from "#imports";
+
 import { STORAGE_KEYS } from "./constants";
 
 type LogLevel = "debug" | "info" | "warn" | "error";
@@ -30,6 +31,7 @@ class Logger {
 			.getItem<boolean>(STORAGE_KEYS.DEBUG_MODE)
 			.then((enabled) => {
 				this.debugMode = enabled ?? false;
+				return;
 			})
 			.catch(() => {
 				this.debugMode = false;

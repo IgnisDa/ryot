@@ -1,0 +1,37 @@
+# Media Plugin
+
+- Read `README.md` before changing operation contracts, monitoring, or lifecycle behavior.
+- Keep operation input/output schemas in `backend/contracts/operations.ts`, outside sandbox entrypoints. Workflow consumers import `Schema` from `@ryot-app/sandbox-sdk/workflow`.
+- Media signal definitions own notification message vocabulary and select `automation.media-notification`; do not move either into kernel.
+- Keep `backend/lib/title-parsing.ts` and `backend/lib/title-matching.ts` within sandbox compiler ES2022 support; do not use `toReversed`.
+- Contract or lifecycle changes must update `README.md`, manifest hooks, scripts, and focused tests together.
+- Sandbox scripts report non-fatal failures through the `log` host capability, never `console.warn`.
+- Entity-presentation recipes and RyotQL lifecycle expression builders live in `shared/`. `shared/media-recipes.ts` owns the schema-agnostic selections, query shapes, and `mediaFlatRecipes`; `shared/episodic-recipes.ts` owns the episodic counterpart; `shared/creator-recipes.ts` owns the person and company counterpart; `shared/<slug>-recipes.ts` composes its own recipes over them.
+- Flat schemas are a `mediaFlatRecipes` config in `shared/<slug>-recipes.ts` and a `defineFlatMediaSchema` descriptor in `client/<slug>/schema.tsx`. Engine behaviour is tested in `client/media/` and `shared/media-recipes.test.ts`; schema tests cover only descriptor output.
+- Episodic schemas are a `mediaEpisodicRecipes` config in `shared/<slug>-recipes.ts` and a `defineEpisodicMediaSchema` descriptor in `client/<slug>/schema.tsx`. Engine behaviour is tested in `client/media/` and `shared/episodic-recipes.test.ts`; schema tests cover only descriptor output.
+- Groups are a `mediaGroupRecipes` config in `shared/<slug>-recipes.ts` and a `defineGroupMediaSchema` descriptor in `client/<slug>/schema.tsx`. Engine behaviour is tested in `client/media/` and `shared/group-recipes.test.ts`; schema tests cover only descriptor output.
+- Person and company are a `mediaCreatorRecipes` config in `shared/<slug>-recipes.ts` and a `defineCreatorMediaSchema` descriptor in `client/<slug>/schema.tsx`; credit-section titles and order live in `client/creator/credit-sections.ts`. Engine behaviour is tested in `client/media/` and `shared/creator-recipes.test.ts`; schema tests cover only descriptor output.
+- Creator credits of a group target (`creatorGroupTargetSlugs`) never select or sort by `publishYear`, which groups do not declare. `character` is selected only on `person-to-<media>` credits.
+- A flat schema whose entity schema has no group omits `groupSlug` from its `mediaFlatRecipes` config and `group` from its descriptor; never point it at a group that does not exist.
+- Schema-specific activity event fields go through `activityEventFields` on the `mediaFlatRecipes` config and reach the descriptor through the progress row label; never add them to the shared event selection.
+- A recipe factory that needs a query beyond the shared overview set declares `extraOverviewQueries`; never re-wrap `overviewRecipe` in the slug file.
+- Unlinked creators come from `mediaUnlinkedCreatorsOverviewQueries` on the recipe config, and both engines read `overview.creators`; a descriptor never maps them.
+- Flat measures use `mediaTimeSpentMeasure` or `mediaEntityCountMeasure`.
+- `mediaSummaryHeaderDetail` frames every flat and episodic descriptor's facts with `mediaRatingFact` first and `mediaProductionStatusFact` last; a descriptor returns only its own facts. Creator headers carry neither fact.
+- Activity copy comes from `mediaFlatActivityCopy` and `mediaEpisodicActivityCopy` in `client/media/activity-copy.ts`, which hold the per-verb vocabulary. The verb table also owns the row and card `progressVerb`. A descriptor passes only what the verb table cannot say, such as a schema's own progress row label.
+- Show episode orders are presentation-only; next up, coverage, and lifecycle keep default seasons.
+- Episode lists are cursor-paged top-level row queries, never includes; only a top-level rows query exposes `pageInfo.nextCursor`. Container-level counts come from the container query's aggregates, never from a loaded episode page.
+- A schema selects only fields its own entity schema declares. `watchProviders` belongs to `movie` and `show` alone, so it lives in `mediaWatchProviderSelection` rather than `mediaSummarySelection`.
+- Overview sections sourced from the summary are descriptor-provided through `overviewTrailing`; `client/media/` owns no schema-specific section. "Where to watch" is `mediaWatchProvidersTrailing`, not a `MediaOverview` prop.
+- A schema declares its hero backdrop purposes rather than assuming `backdrop`. `backdropPurposes` is an ordered list, defaults to `["backdrop"]`, and drives both the hero image and its managed-asset set.
+- One shared card and row presentation covers every media schema except `show`, `anime`, `movie`, `music`, `book`, `manga`, `podcast`, `audiobook`, `comic-book`, `visual-novel`, `video-game`, and the six `*-group` schemas; its loader takes the schema slug from the batch's references. `person` and `company` keep it and add only a detail page.
+- The artwork aspect of a media or group schema comes only from `mediaSchemaAspects` in `client/schema-aspects.ts`; its descriptor's header art, recommendation tiles, and creator credit tiles all read it.
+- `mediaPluginSlug`, `builtinMediaEntitySchemaSlugs`, `mediaGroupMemberSlugs`, and `creatorGroupTargetSlugs` live in `shared/media-schema-slugs.ts`.
+- Import media and schema recipes straight from `shared/media-recipes` and `shared/<slug>-recipes`. Cross-schema home recipes live in `shared/lifecycle-list-recipes.ts`, `shared/discovery-recipes.ts`, `shared/airing-recipes.ts`, and `shared/activity-recipes.ts`; `host/query-recipes.ts` owns only the saved-view recipe.
+- `client/` must not restate schemas that `shared/` owns.
+- `client/media/` holds the schema-agnostic client layer every detail screen composes; it carries no schema symbol and no schema copy. Nouns, row and beat labels, credit-section titles, group copy, and artwork aspect are descriptor or caller input; never hardcode poster geometry there.
+- Track length uses `mediaTrackLengthLabel` (`m:ss`) for the seconds-valued `duration` field. Time totals stay in minutes, so a seconds-based schema divides by 60 in its measure.
+- Take every sync mark - art wells, pips, the settle ring, the translation chip, the count line - from `@ryot-app/client-ui-sdk/sync`. Use `ManagedAssetProvider`, `managedAssetKey`, and `useManagedAssetUrl` from `@ryot-app/client-sdk/react`; media code only adapts domain image values and forwards display state to `EntityArtWell`.
+- Select sync state through `entitySyncSelection` in `shared/entity-selections.ts`, which `entityIdentitySelection` already spreads. A selection that builds its own identity fields, such as the credit and recommendation selections, spreads it too; no recipe writes those two columns by hand.
+- Fill the hero box the frame sizes: declare the art height below the bar and draw with `absolute inset-0`, never a safe-area inset or bar height of the plugin's own.
+- Take every layout decision in `client/` from the `compact` boolean `useRyotViewport()` reports, threaded down as a prop from the screen. Never write a `md:`, `sm:`, or `lg:` utility here: a media query inside the plugin document measures the iframe, not the viewport the kernel resolved `compact` from.

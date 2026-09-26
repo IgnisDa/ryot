@@ -206,3 +206,57 @@ tests:
     asserts:
       - hasDocuments:
           count: 0
+
+  # ---- bundled redis toggles the StatefulSet ----
+  - it: deploys a redis StatefulSet when bundled Redis is enabled
+    templates:
+      - templates/redis-statefulset.yaml
+    set:
+      secret.adminAccessToken.value: tok
+      postgres.auth.password: pw
+    asserts:
+      - isKind:
+          of: StatefulSet
+      - equal:
+          path: metadata.name
+          value: ryot-redis
+      - equal:
+          path: spec.template.spec.containers[0].image
+          value: redis:7-alpine
+      - contains:
+          path: spec.template.spec.containers[0].volumeMounts
+          content:
+            name: data
+            mountPath: /data
+
+  - it: configures Redis authentication from the chart secret
+    templates:
+      - templates/redis-statefulset.yaml
+    set:
+      secret.adminAccessToken.value: tok
+      postgres.auth.password: pw
+      redis.auth.password: redis-password
+    asserts:
+      - contains:
+          path: spec.template.spec.containers[0].env
+          content:
+            name: REDIS_PASSWORD
+            valueFrom:
+              secretKeyRef:
+                name: ryot-redis
+                key: redis-password
+      - contains:
+          path: spec.template.spec.containers[0].args
+          content: "$(REDIS_PASSWORD)"
+
+  - it: renders no redis StatefulSet when bundled Redis is disabled
+    templates:
+      - templates/redis-statefulset.yaml
+    set:
+      secret.adminAccessToken.value: tok
+      postgres.auth.password: pw
+      redis.enabled: false
+      externalRedis.url: redis://redis.example.com:6379
+    asserts:
+      - hasDocuments:
+          count: 0
