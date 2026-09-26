@@ -142,3 +142,11 @@ for the full list of configurable values.
 
 Install Ryot from the [Cosmos marketplace](https://cosmos-cloud.io/proxy#cosmos-ui/market-listing/cosmos-cloud/Ryot).
 Review the generated URL before installation. Cosmos creates the database and credentials.
+
+## Cloudzy
+
+[![Deploy Ryot on Cloudzy](https://design.cloudzy.com/logo/cloudzy-light-marketplace-badge-147x32.svg)](https://cloudzy.com/marketplace/ryot/)
+
+Deploy Ryot on a Cloudzy VPS with the one-click installer, which runs Ryot with Docker Compose on
+Ubuntu Server 24.04 LTS. See the [Cloudzy Marketplace page](https://cloudzy.com/marketplace/ryot/)
+for Docker management commands, configuration files, and installation paths.
