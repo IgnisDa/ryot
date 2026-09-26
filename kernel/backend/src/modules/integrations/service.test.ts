@@ -18,6 +18,7 @@ import {
 	type WorkflowEngineOverrides,
 } from "#lib/test-utils/effect";
 import { ImportsService } from "#modules/imports/service";
+import { OAuthConnectionsService } from "#modules/oauth-connections/service";
 import {
 	IntegrationProviderCatalog,
 	type RegisteredIntegrationProvider,
@@ -113,6 +114,7 @@ type FakeTools = {
 const mockRepository = Layer.mock(IntegrationsRepository);
 const mockCatalog = Layer.mock(IntegrationProviderCatalog);
 const mockImports = Layer.mock(ImportsService);
+const mockOAuthConnections = Layer.mock(OAuthConnectionsService);
 
 const makeServiceLayer = (options: {
 	proKey?: boolean;
@@ -144,6 +146,7 @@ const makeServiceLayer = (options: {
 								storedIntegration: Ref.get(stored),
 							}),
 							mockImports(dependencies.imports ?? {}),
+							mockOAuthConnections({ bindIntegrationSettings: () => Effect.void }),
 							mockCatalog(dependencies.catalog ?? {}),
 							mockRepository(dependencies.repository ?? {}),
 							Layer.succeed(WorkflowEngine, makeWorkflowEngine(dependencies.engine)),

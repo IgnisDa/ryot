@@ -44,7 +44,7 @@ export type PluginConfigContext =
 			readonly config: Readonly<Record<string, unknown>>;
 	  };
 
-const resolveContextConfig = (context: PluginConfigContext) =>
+export const resolveContextConfig = (context: PluginConfigContext) =>
 	Match.value(context).pipe(
 		Match.when({ kind: "environment" }, resolvePluginConfig),
 		Match.when({ kind: "installation" }, (installation) =>

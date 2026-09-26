@@ -2,6 +2,7 @@ import { Schema } from "effect";
 
 import { SandboxFailureKind } from "../../errors";
 import {
+	ImportRunId,
 	IntegrationId,
 	PluginId,
 	PluginRevisionId,
@@ -113,12 +114,14 @@ const automationRunSubjectFields = {
 
 export const SandboxExecutionSubject = Schema.Union([
 	strictStruct({ type: Schema.Literal("system") }),
-	// `integrationId` is the integration the execution belongs to. Only trusted kernel dispatch sets
-	// it, so a script can never widen its own credential scope by supplying an id.
+	// `integrationId` is the integration the execution belongs to and `integrationRunId` is the
+	// integration run executing it. Only trusted kernel dispatch sets them, so a script can never
+	// widen its own credential scope by supplying an id.
 	strictStruct({
 		userId: UserId,
 		type: Schema.Literal("user"),
 		integrationId: Schema.optional(IntegrationId),
+		integrationRunId: Schema.optional(ImportRunId),
 	}),
 	strictStruct({
 		...automationRunSubjectFields,

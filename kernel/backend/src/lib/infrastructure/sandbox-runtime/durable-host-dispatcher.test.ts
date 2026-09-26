@@ -87,6 +87,7 @@ const implementations: SandboxHostImplementations["Service"] = {
 		listIntegrations: unused,
 		getUserPreferences: unused,
 		ensureUserEntities: unused,
+		getOAuthAccessToken: unused,
 		upsertGlobalEntities: unused,
 		getCurrentIntegration: unused,
 		changeUserRelationships: unused,

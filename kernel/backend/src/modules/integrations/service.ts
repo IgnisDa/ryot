@@ -27,6 +27,7 @@ import {
 	parseAppSchemaProperties,
 } from "#lib/property-schema/property-schema-runtime";
 import { ImportsService } from "#modules/imports/service";
+import { OAuthConnectionsService } from "#modules/oauth-connections/service";
 import { IntegrationProviderCatalog } from "#modules/plugins/integration-provider-catalog";
 import type { RegisteredIntegrationProvider } from "#modules/plugins/integration-provider-catalog";
 
@@ -107,6 +108,7 @@ export class IntegrationsService extends Context.Service<IntegrationsService>()(
 			const importsService = yield* ImportsService;
 			const repository = yield* IntegrationsRepository;
 			const providerCatalog = yield* IntegrationProviderCatalog;
+			const oauthConnections = yield* OAuthConnectionsService;
 			const failCreatedRun = (runId: ImportRunId, reason: ImportRunFailureReason) =>
 				importsService.failRunForIntegration(runId, reason);
 
@@ -122,6 +124,31 @@ export class IntegrationsService extends Context.Service<IntegrationsService>()(
 									),
 						)
 					: Effect.void;
+
+			const bindOAuthConnections = (input: {
+				readonly userId: UserId;
+				readonly integrationId: IntegrationId;
+				readonly registered: RegisteredIntegrationProvider;
+				readonly settings: IntegrationProviderSettings;
+			}) =>
+				oauthConnections
+					.bindIntegrationSettings({
+						userId: input.userId,
+						settings: input.settings,
+						integrationId: input.integrationId,
+						integrationProvider: input.registered.slug,
+						settingsSchema: input.registered.settingsSchema,
+						pluginInstallationId: input.registered.installationId,
+					})
+					.pipe(
+						Effect.catchTag("OAuthConnectionBindingError", () =>
+							Effect.fail(
+								new IntegrationRequestError({
+									reason: { provider: input.registered.slug, code: "invalid-provider-settings" },
+								}),
+							),
+						),
+					);
 
 			const requireIntegration = Effect.fn("IntegrationsService.requireIntegration")(function* (
 				userId: UserId,
@@ -158,18 +185,27 @@ export class IntegrationsService extends Context.Service<IntegrationsService>()(
 				}
 
 				const created = yield* transaction(
-					repository.createForUser({
-						lot,
-						userId: user.id,
-						name: body.name ?? null,
-						provider: body.provider,
-						isDisabled: body.isDisabled ?? false,
-						minimumProgress: String(minimumProgress),
-						maximumProgress: String(maximumProgress),
-						providerSpecifics: body.providerSpecifics,
-						syncOwnership: body.syncOwnership ?? false,
-						pluginInstallationId: registered.installationId,
-						extraSettings: body.extraSettings ?? defaultExtraSettings,
+					Effect.gen(function* () {
+						const inserted = yield* repository.createForUser({
+							lot,
+							userId: user.id,
+							name: body.name ?? null,
+							provider: body.provider,
+							isDisabled: body.isDisabled ?? false,
+							minimumProgress: String(minimumProgress),
+							maximumProgress: String(maximumProgress),
+							providerSpecifics: body.providerSpecifics,
+							syncOwnership: body.syncOwnership ?? false,
+							pluginInstallationId: registered.installationId,
+							extraSettings: body.extraSettings ?? defaultExtraSettings,
+						});
+						yield* bindOAuthConnections({
+							registered,
+							userId: user.id,
+							integrationId: inserted.id,
+							settings: body.providerSpecifics,
+						});
+						return inserted;
 					}),
 				);
 
@@ -207,20 +243,32 @@ export class IntegrationsService extends Context.Service<IntegrationsService>()(
 					}
 				}
 
+				const settingsPatch = body.providerSpecifics;
 				const updated = yield* transaction(
-					repository.updateForUser({
-						userId,
-						integrationId,
-						name: body.name,
-						providerSpecifics,
-						isDisabled: body.isDisabled,
-						extraSettings: body.extraSettings,
-						syncOwnership: body.syncOwnership,
-						lastFinishedAt: body.lastFinishedAt,
-						minimumProgress:
-							body.minimumProgress !== undefined ? String(body.minimumProgress) : undefined,
-						maximumProgress:
-							body.maximumProgress !== undefined ? String(body.maximumProgress) : undefined,
+					Effect.gen(function* () {
+						const written = yield* repository.updateForUser({
+							userId,
+							integrationId,
+							name: body.name,
+							providerSpecifics,
+							isDisabled: body.isDisabled,
+							extraSettings: body.extraSettings,
+							syncOwnership: body.syncOwnership,
+							lastFinishedAt: body.lastFinishedAt,
+							minimumProgress:
+								body.minimumProgress !== undefined ? String(body.minimumProgress) : undefined,
+							maximumProgress:
+								body.maximumProgress !== undefined ? String(body.maximumProgress) : undefined,
+						});
+						if (written && registered && settingsPatch !== undefined) {
+							yield* bindOAuthConnections({
+								userId,
+								registered,
+								integrationId,
+								settings: settingsPatch,
+							});
+						}
+						return written;
 					}),
 				);
 

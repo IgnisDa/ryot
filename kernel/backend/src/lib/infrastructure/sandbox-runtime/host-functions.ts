@@ -57,6 +57,7 @@ import {
 } from "#modules/entities/service";
 import { EventsService } from "#modules/events/service";
 import { IntegrationsRepository, type IntegrationRecord } from "#modules/integrations/repository";
+import { OAuthConnectionsService } from "#modules/oauth-connections/service";
 import { PluginRuntimeResolver } from "#modules/plugins/runtime-resolver";
 import {
 	reconciliationSummary,
@@ -76,6 +77,7 @@ type SandboxHostFunctionContext =
 	| DefinitionRepository
 	| PluginRuntimeResolver
 	| IntegrationsRepository
+	| OAuthConnectionsService
 	| RelationshipMutationPipeline
 	| LifecycleExecution;
 
@@ -423,6 +425,7 @@ export const makeAdditionalSandboxApiFunctions: Effect.Effect<
 	const pluginRuntime = yield* PluginRuntimeResolver;
 	const definitions = yield* DefinitionRepository;
 	const integrationsRepository = yield* IntegrationsRepository;
+	const oauthConnections = yield* OAuthConnectionsService;
 	const lifecycle = yield* makeSandboxLifecycleHostApi;
 	const writeInlineLifecycleItems = Effect.fnUntraced(function* <Item, Result>(options: {
 		readonly items: ReadonlyArray<Item>;
@@ -600,6 +603,31 @@ export const makeAdditionalSandboxApiFunctions: Effect.Effect<
 						);
 				}),
 				sandboxHostEffect,
+			),
+		getOAuthAccessToken: (rawInput, options) =>
+			sandboxHostEffect(
+				Effect.gen(function* () {
+					const input = yield* requireSandboxCapabilityInput(rawInput, "getOAuthAccessToken");
+					const { subject, pluginRevision } = input.principal;
+					if (
+						subject.integrationId === undefined ||
+						subject.integrationRunId === undefined ||
+						pluginRevision === null
+					) {
+						return yield* Effect.fail(
+							"getOAuthAccessToken is available only to integration run executions",
+						);
+					}
+					return yield* oauthConnections
+						.accessTokenForIntegrationRun({
+							field: options.field,
+							userId: subject.userId,
+							pluginId: pluginRevision.id,
+							integrationId: subject.integrationId,
+							integrationRunId: subject.integrationRunId,
+						})
+						.pipe(Effect.mapError((error) => error.message));
+				}),
 			),
 		getPluginConfig: (input, rawKeys) =>
 			sandboxHostEffect(

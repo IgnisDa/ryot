@@ -6,6 +6,7 @@ import { WorkflowEngine } from "effect/unstable/workflow/WorkflowEngine";
 import { ProKeyService } from "#lib/infrastructure/pro-key";
 import { databaseLayer, makeWorkflowEngine, type MockOverrides } from "#lib/test-utils/effect";
 import { ImportsService } from "#modules/imports/service";
+import { OAuthConnectionsService } from "#modules/oauth-connections/service";
 import { IntegrationProviderCatalog } from "#modules/plugins/integration-provider-catalog";
 import { PluginRuntimeResolver } from "#modules/plugins/runtime-resolver";
 
@@ -36,6 +37,7 @@ const makeLayer = (
 				IntegrationProviderCatalog.layer.pipe(Layer.provide(databaseLayer)),
 				Layer.mock(PluginRuntimeResolver)({}),
 				Layer.mock(ImportsService, {}),
+				Layer.mock(OAuthConnectionsService, {}),
 				Layer.succeed(WorkflowEngine, makeWorkflowEngine()),
 				Layer.unwrap(
 					Effect.gen(function* () {
