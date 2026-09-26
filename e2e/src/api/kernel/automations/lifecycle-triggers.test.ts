@@ -206,10 +206,7 @@ export default defineOperation({
       properties: { marker: "replayed" },
       occurredAt: "2026-09-16T06:00:00.000Z",
     }]);
-    if (!host.executeWorkflow) {
-      return yield* Effect.fail(new Error("executeWorkflow is unavailable"));
-    }
-    yield* host.executeWorkflow(
+    yield* (host.executeWorkflow?.(
       ${JSON.stringify(slugs.replayPause)},
       {
         workflowSlug: ${JSON.stringify(slugs.replayPause)},
@@ -218,7 +215,7 @@ export default defineOperation({
         output: Schema.String,
       },
       { value: input.entityId },
-    );
+    ) ?? Effect.fail(new Error("executeWorkflow is unavailable")));
     return result;
   }),
 });
@@ -651,12 +648,19 @@ describe("automation lifecycle triggers", () => {
 					occurredAt: `2026-10-01T00:0${index}:00.000Z`,
 				})),
 			});
-			expect(run).toMatchObject({
-				failedItems: 1,
-				importedItems: 3,
-				processedItems: 4,
-				status: "completed",
-			});
+			expect(run.status).toBe("completed");
+			expect(run.summary).toEqual([
+				{
+					unit: "entities",
+					recordKind: "entity",
+					counts: { created: 0, updated: 0, skipped: 0, unchanged: 1, unsuccessful: 0 },
+				},
+				{
+					unit: "events",
+					recordKind: "event",
+					counts: { created: 1, updated: 0, skipped: 1, unchanged: 0, unsuccessful: 1 },
+				},
+			]);
 			const events = yield* listEventsForEntity(user.client, entity.id, undefined, 100);
 			expect(events).toHaveLength(1);
 			const event = requirePresent(events[0], "Expected the policy-transformed event");
