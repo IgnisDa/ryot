@@ -19,12 +19,14 @@ type ExecutableManifest = {
 const name = Schema.String.pipe(Schema.check(Schema.isMinLength(1)));
 
 export const KERNEL_EVENT_CREATE_WORKFLOW = "kernel:event-create";
+export const KERNEL_EVENT_STREAM_WORKFLOW = "kernel:event-stream-work";
 export const KERNEL_PROCESS_IMPORT_CHUNKS_WORKFLOW = "kernel:process-import-chunks";
 export const KERNEL_ENTITY_IMPORT_WORKFLOW = "kernel:entity-import";
 export const KERNEL_PROVIDER_ENTITY_POPULATION_WORKFLOW = "kernel:provider-entity-population";
 
 export const kernelWorkflowTargets = [
 	KERNEL_EVENT_CREATE_WORKFLOW,
+	KERNEL_EVENT_STREAM_WORKFLOW,
 	KERNEL_PROCESS_IMPORT_CHUNKS_WORKFLOW,
 	KERNEL_ENTITY_IMPORT_WORKFLOW,
 	KERNEL_PROVIDER_ENTITY_POPULATION_WORKFLOW,

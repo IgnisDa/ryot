@@ -217,6 +217,7 @@ describe("lifecycle hook declarations", () => {
 			{ delivery: "async" },
 			{ retry: DEFAULT_AUTOMATION_RETRY_POLICY },
 			{ position: 1.5 },
+			{ batchMaxItems: 50 },
 		]) {
 			expect(() =>
 				Schema.decodeSync(PluginManifest)({ ...manifest, hooks: [{ ...hook, ...addition }] }),
@@ -232,12 +233,39 @@ describe("lifecycle hook declarations", () => {
 			{ position: 1 },
 			{ batchFrequency: "item" },
 			{ batchFrequency: "once-per-subject" },
+			{ batchMaxItems: 50 },
 		]) {
 			expect(() =>
 				Schema.decodeUnknownSync(PluginManifest)({
 					...after,
 					hooks: [{ ...after.hooks[0], ...addition }],
 				}),
+			).toThrow();
+		}
+	});
+
+	it("allows a safe per-hook item cap only on after batch hooks", () => {
+		const after = {
+			...manifest,
+			hooks: [{ ...hook, stage: "after", delivery: "async", frequency: "batch" }],
+			scripts: [{ ...script, automationType: "automation", inputProjection: afterInputProjection }],
+		};
+		for (const batchMaxItems of [1, 50, 1_000]) {
+			const decoded = Schema.decodeUnknownSync(PluginManifest)({
+				...after,
+				hooks: [{ ...after.hooks[0], batchMaxItems }],
+			});
+			expect(decoded.hooks[0]).toMatchObject({ batchMaxItems, frequency: "batch" });
+		}
+		for (const invalidHook of [
+			{ ...after.hooks[0], frequency: "item", batchMaxItems: 50 },
+			{ ...after.hooks[0], batchMaxItems: 0 },
+			{ ...after.hooks[0], batchMaxItems: 1.5 },
+			{ ...after.hooks[0], batchMaxItems: 1_001 },
+			{ ...after.hooks[0], batchMaxItems: Number.MAX_SAFE_INTEGER + 1 },
+		]) {
+			expect(() =>
+				Schema.decodeUnknownSync(PluginManifest)({ ...after, hooks: [invalidHook] }),
 			).toThrow();
 		}
 	});

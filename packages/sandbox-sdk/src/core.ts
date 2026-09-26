@@ -2,6 +2,10 @@ import {
 	AutomationAfterInputProjection,
 	AutomationPolicyInputProjection,
 } from "@ryot-app/contract/modules/automations/lifecycle";
+import {
+	EventStreamProcessorReference,
+	EventStreamWorkRequest,
+} from "@ryot-app/contract/modules/events/stream-work";
 import type { SandboxExecutionMetadata } from "@ryot-app/contract/modules/plugins/execution-metadata";
 import type { RyotQLDocument } from "@ryot-app/contract/modules/ryotql/language";
 import type {
@@ -206,6 +210,9 @@ export type CoreSandboxHostImplementationMap<Context> = {
 
 export const DOMAIN_SANDBOX_HOST_CAPABILITIES = [
 	"createEvents",
+	"requestEventStreamWork",
+	"updateEvents",
+	"deleteEvents",
 	"getEntitySchemas",
 	"listEventSchemas",
 	"listIntegrations",
@@ -231,6 +238,7 @@ export const GLOBAL_WRITE_SANDBOX_LIMITS = {
 	relationshipsTotal: 1_000,
 	relationshipsPerGroup: 500,
 } as const;
+export const EVENT_MUTATION_SANDBOX_LIMITS = { items: 100 } as const;
 export const USER_RELATIONSHIP_WRITE_SANDBOX_LIMITS = {
 	batches: 50,
 	changesTotal: 500,
@@ -449,6 +457,44 @@ export const changeUserRelationshipResultSchema = strictStruct({
 export const createEventsResultDataSchema = strictStruct({
 	count: Schema.Number.pipe(Schema.check(Schema.isInt())),
 });
+const eventPropertiesPatchSchema = strictStruct({
+	remove: Schema.Array(Schema.String),
+	set: Schema.Record(Schema.String, jsonValueSchema),
+}).pipe(
+	Schema.check(
+		Schema.makeFilter(
+			(patch) =>
+				(patch.remove.length > 0 || Object.keys(patch.set).length > 0) &&
+				new Set(patch.remove).size === patch.remove.length &&
+				patch.remove.every((key) => !Object.hasOwn(patch.set, key)),
+		),
+	),
+);
+const eventUpdatePatchSchema = strictStruct({
+	entityId: Schema.optional(sandboxIdSchema),
+	occurredAt: Schema.optional(Schema.String),
+	properties: Schema.optional(eventPropertiesPatchSchema),
+	sessionEntityId: Schema.optional(Schema.NullOr(sandboxIdSchema)),
+}).pipe(Schema.check(Schema.makeFilter((patch) => Object.keys(patch).length > 0)));
+export const updateEventItemSchema = strictStruct({
+	eventId: sandboxIdSchema,
+	patch: eventUpdatePatchSchema,
+});
+export type UpdateEventItem = Schema.Schema.Type<typeof updateEventItemSchema>;
+export const updateEventsArgsSchema = Schema.Tuple([
+	Schema.Array(updateEventItemSchema).pipe(
+		Schema.check(Schema.isMaxLength(EVENT_MUTATION_SANDBOX_LIMITS.items)),
+	),
+]);
+export const deleteEventsArgsSchema = Schema.Tuple([
+	Schema.Array(sandboxIdSchema).pipe(
+		Schema.check(Schema.isMaxLength(EVENT_MUTATION_SANDBOX_LIMITS.items)),
+	),
+]);
+export const updateEventsResultDataSchema = createEventsResultDataSchema;
+export const deleteEventsResultDataSchema = createEventsResultDataSchema;
+export const updateEventsResultSchema = hostResultSchema(updateEventsResultDataSchema);
+export const deleteEventsResultSchema = hostResultSchema(deleteEventsResultDataSchema);
 export const listIntegrationsOptionsSchema = strictStruct({
 	isDisabled: Schema.optional(Schema.Boolean),
 	provider: Schema.optional(integrationProviderSchema),
@@ -480,6 +526,14 @@ export const getEntitySchemasResultSchema = hostResultSchema(
 );
 export const createEventsResultSchema = hostResultSchema(createEventsResultDataSchema);
 export const createEventsArgsSchema = Schema.Tuple([Schema.Array(createEventItemSchema)]);
+export const requestEventStreamWorkArgsSchema = Schema.Tuple([
+	EventStreamWorkRequest,
+	EventStreamProcessorReference,
+]);
+export const requestEventStreamWorkDataSchema = strictStruct({ workId: nonEmptyString });
+export const requestEventStreamWorkResultSchema = hostResultSchema(
+	requestEventStreamWorkDataSchema,
+);
 export const listEventSchemasArgsSchema = Schema.Tuple([sandboxEntitySchemaSlugListSchema]);
 export const listEventSchemasResultSchema = hostResultSchema(listEventSchemasDataSchema);
 export const listIntegrationsResultSchema = hostResultSchema(listIntegrationsDataSchema);
@@ -534,6 +588,16 @@ export const domainSandboxHostContracts = {
 		result: createEventsResultSchema,
 		success: createEventsResultDataSchema,
 	},
+	updateEvents: {
+		args: updateEventsArgsSchema,
+		result: updateEventsResultSchema,
+		success: updateEventsResultDataSchema,
+	},
+	deleteEvents: {
+		args: deleteEventsArgsSchema,
+		result: deleteEventsResultSchema,
+		success: deleteEventsResultDataSchema,
+	},
 	listEventSchemas: {
 		args: listEventSchemasArgsSchema,
 		success: listEventSchemasDataSchema,
@@ -568,6 +632,11 @@ export const domainSandboxHostContracts = {
 		args: upsertGlobalEntitiesArgsSchema,
 		success: upsertGlobalEntitiesDataSchema,
 		result: upsertGlobalEntitiesResultSchema,
+	},
+	requestEventStreamWork: {
+		args: requestEventStreamWorkArgsSchema,
+		success: requestEventStreamWorkDataSchema,
+		result: requestEventStreamWorkResultSchema,
 	},
 	changeUserRelationships: {
 		args: changeUserRelationshipsArgsSchema,

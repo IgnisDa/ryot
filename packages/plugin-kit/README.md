@@ -92,6 +92,8 @@ re-export `@ryot-app/ryotql-recipes`, which brings in the contract runtime. The 
 only `DateTime`, `Option`, `Result`, `Schema`, and `SchemaGetter`. Backend compilation aliases these
 neutral shims to existing runtime modules where possible to avoid charging duplicate libraries to
 each script's 1 MiB budget.
+The `schema` shim exports shared contract schemas and brands, plus `roundHalfUp` for canonical
+decimal-scale rounding.
 
 Only sources reachable from a declared client or sandbox entry are checked. A plugin with no client
 entry can therefore leave otherwise unreachable shared files unchecked.
@@ -209,10 +211,27 @@ including items in projected batches. A `json` comparison uses canonical JSON eq
 array order and multiplicity. `unordered-array` compares arrays as sets of canonical JSON elements,
 ignoring order and duplicate multiplicity; non-arrays use JSON equality. Missing and present values,
 including `null`, remain distinct. Compared properties need not also be selected into snapshots.
+Entity update policy inputs also include `dependentEvents`, an immutable sorted, unique summary of
+event schema plugin ID, event schema slug, and reference role (`entity` or `session`). It does not
+expose event IDs, users, or counts. The kernel captures it before policy execution and rechecks it
+before commit; projections do not remove it.
 
 Do not query omitted or historical invocation data back through RyotQL. RyotQL describes current
 state under the trusted principal, which can differ from the complete trigger-time evidence.
 Plugins never own database tables or direct persistence; writes use kernel host functions.
+User-scoped event writes use `host.updateEvents(items)` and `host.deleteEvents(eventIds)`. Each call
+accepts at most 100 items and commits as one atomic batch. An update item is `{ eventId, patch }`;
+the patch may set `properties` with `{ remove, set }`, `occurredAt`, `entityId`, or
+`sessionEntityId` (use `null` to clear the session reference).
+
+User scripts and automations can register event-stream work with
+`host.requestEventStreamWork({ entityId, eventSchemaSlug, outputProperties }, processorReference)`.
+The processor reference must name a script in the same plugin revision, and the event schema must
+belong to that plugin. Export `EventStreamStepInput` and `EventStreamStepOutput` from
+`@ryot-app/sandbox-sdk/event-streams` to type the processor. Registration only persists work; dispatch
+it with `host.executeWorkflow("event-stream-work", kernelDispatch, { id: workId })`, where
+`kernelDispatch` is the reference from that SDK entry. The kernel checks event ownership and only
+allows updates to the declared output properties.
 
 Exact host-function and filesystem limits are in the
 [sandbox runtime reference](../../kernel/backend/src/lib/infrastructure/sandbox-runtime/README.md).
@@ -264,8 +283,9 @@ No domain writes, HTTP, signals, notifications, cache writes, persistent claims,
 are allowed. Outputs are `{ action: "allow" }`, `{ action: "reject", reason }`, or
 `{ action: "transform", patch }`. A patch must name the current resource and contain a non-empty
 draft patch. Entity create/update may patch `name` and properties; relationship create/update may
-patch properties; event create may patch `sessionEntityId` and properties. Delete transforms and
-event update transforms are rejected. A properties patch is `{ remove: string[], set: Record<string,
+patch properties; event create/update may patch properties, `sessionEntityId`, and `occurredAt`.
+Event identity and schema fields are immutable, and delete transforms are rejected. A properties
+patch is `{ remove: string[], set: Record<string,
 JsonValue> }`: names are unique, set/remove cannot overlap, removal runs before set, and an empty
 patch is invalid. The kernel applies accepted patches in hook order, projects that updated request for
 the next policy, keeps operation, scope, and target identity fixed, and validates the final draft with
@@ -298,8 +318,11 @@ evidence; a batch run receives its script's projection of every item as `payload
 `operation: "batch"` and must filter those items itself. The batch matches the hook when any item
 matches a declared target. Batch frequency requires entity, event, or relationship targets. Large
 writes are split into deterministic retained chunks by item count, so a batch hook can run more than
-once for one write and must stay idempotent per item. The runtime separately enforces the 64 KiB
-invocation limit after projection; it does not rechunk retained evidence for a specific hook.
+once for one write and must stay idempotent per item. A batch hook may set `batchMaxItems` to a positive
+safe integer up to 1000. For a source write, the kernel uses the lower of the global item limit and the
+declared limits of pinned batch hooks that match at least one committed item; a non-matching hook does
+not lower the limit. The runtime separately enforces the 64 KiB invocation limit after projection and
+may use smaller chunks to fit it.
 
 Omitted `retry` means `{ maxAttempts: 1, initialDelayMs: 1000, maxDelayMs: 60000,
 externalIdempotency: "none" }`. Attempts include the first attempt and are bounded to 1–10.

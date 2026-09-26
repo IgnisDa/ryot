@@ -133,6 +133,7 @@ export const createSandboxExecutionAnalyzer = (project: TypeScriptProjectAccess)
 			"child",
 			"executeWorkflow",
 			"getOAuthAccessToken",
+			"requestEventStreamWork",
 		]);
 		const fail = (node: ts.Node, message: string) => {
 			const diagnostic = sandboxDiagnosticAt(node, "RYOT_DEPENDENCY", message);
@@ -542,6 +543,9 @@ export const createSandboxExecutionAnalyzer = (project: TypeScriptProjectAccess)
 						yield* configAccess(node);
 					}
 					if (symbol.name === "activity") {
+						yield* executableAccess(node, "script");
+					}
+					if (symbol.name === "requestEventStreamWork") {
 						yield* executableAccess(node, "script");
 					}
 					if (symbol.name === "child" || symbol.name === "executeWorkflow") {

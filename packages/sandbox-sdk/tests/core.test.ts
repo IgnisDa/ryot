@@ -6,6 +6,8 @@ import {
 	httpCallResultSchema,
 	logArgsSchema,
 	spanArgsSchema,
+	updateEventsArgsSchema,
+	deleteEventsArgsSchema,
 	upsertGlobalEntitiesArgsSchema,
 	upsertGlobalRelationshipsArgsSchema,
 } from "@ryot-app/sandbox-sdk/core";
@@ -176,6 +178,29 @@ describe("shared value contracts", () => {
 				],
 			]),
 		).toThrow();
+	});
+
+	test("validates bounded event mutation batches and property patches", () => {
+		const update = {
+			eventId: "event-1",
+			patch: { properties: { remove: ["old"], set: { rating: 5 } } },
+		};
+		expect(decode(updateEventsArgsSchema)([[update]])).toEqual([[update]]);
+		expect(decode(deleteEventsArgsSchema)([["event-1"]])).toEqual([["event-1"]]);
+		expect(() =>
+			decode(updateEventsArgsSchema)([Array.from({ length: 101 }, () => update)]),
+		).toThrow();
+		expect(() =>
+			decode(deleteEventsArgsSchema)([Array.from({ length: 101 }, (_, index) => `event-${index}`)]),
+		).toThrow();
+		expect(() =>
+			decode(updateEventsArgsSchema)([
+				[{ ...update, patch: { properties: { remove: ["rating"], set: { rating: 5 } } } }],
+			]),
+		).toThrow();
+		expect(() =>
+			decode(updateEventsArgsSchema)([[{ ...update, patch: { entityId: "entity-1" } }]]),
+		).not.toThrow();
 	});
 
 	test("validates user entity ensure batches without accepting caller-owned subject", () => {
