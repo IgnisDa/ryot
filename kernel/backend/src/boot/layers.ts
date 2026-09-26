@@ -146,9 +146,6 @@ import { KernelWorkflowReferencesLive } from "./kernel-workflow-references";
 import { RuntimeSandboxExecutorLive, SandboxDurableHostServicesLive } from "./script-host";
 import { ServerLive } from "./server";
 
-export { InternalOAuthProvisioningLive } from "#modules/accounts/auth/layer";
-export { SystemPluginIngestionLive } from "#modules/plugins/layer";
-
 const ConfigLive = Layer.mergeAll(AppConfig.layer, BunServices.layer);
 
 const SignedUrlInfrastructureLive = Layer.provideMerge(

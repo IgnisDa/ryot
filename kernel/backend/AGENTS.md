@@ -7,6 +7,7 @@
 - Each table has one writing repository for runtime writes. Cross-module writes go through the owning service, except repository access required for one shared transaction and backup-owned historical restore persistence.
 - Importers, jobs, sandbox callbacks, bootstrap code, and HTTP handlers use the same write paths.
 - Modules depend only on more generic modules. Invert upward effects through a generic `DurableQueue` hook, its worker, and layer wiring.
+- `package.json` `exports` lists each file consumed outside the backend explicitly; add an entry only for a real external consumer and never a wildcard or barrel.
 - Provider search, resolution, details, and population use sandbox provider scripts. Source connectors may fetch user data but must not call provider enrichment APIs.
 - Resolve foreign identifiers through sandbox resolve operations; pass provider-native identifiers only as resolved inputs.
 - Follow `packages/contract/AGENTS.md` for HTTP boundary changes.
