@@ -24,7 +24,7 @@ export const installationExecutionGate = (input: {
 		!installation.isInitialized;
 	return (
 		(initialization === undefined || initializer) &&
-		!(installation.isHidden && !initializer && !input.exactPin) &&
+		!(installation.isHidden && !initializer) &&
 		!installation.uninstalledAt &&
 		installation.incompatibilityReason === null &&
 		(installation.health === "ready" ||
