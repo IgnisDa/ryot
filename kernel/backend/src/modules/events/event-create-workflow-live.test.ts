@@ -601,6 +601,84 @@ layer(harnessLayer({ replayWriteAfterSchemaDisable: true }))((test) => {
 	);
 });
 
+layer(harnessLayer())((test) => {
+	test.effect(
+		"replays committed items across attempts after a partial failure and a lost response",
+		() =>
+			Effect.gen(function* () {
+				const h = yield* EventCreateHarness;
+				const secondEntity = EntityId.make("second-subject");
+				const writeCommand = {
+					...command,
+					causation: {
+						...command.causation,
+						executionId: AutomationExecutionId.make("stable-submission"),
+						rootExecutionId: AutomationExecutionId.make("stable-submission"),
+					},
+				};
+				const input = {
+					...payload,
+					writeCommand,
+					payload: [
+						...payload.payload,
+						{ eventSchemaSlug, entityId: secondEntity, properties: { rating: 0 } },
+					],
+				};
+				yield* h.reset({ unreadableEntity: secondEntity });
+				expect(yield* run(input)).toMatchObject({ count: 1, failure: { index: 1 } });
+				expect(yield* h.created).toHaveLength(1);
+				yield* h.reset({});
+				const retry = {
+					...input,
+					command: {
+						...command,
+						causation: {
+							...command.causation,
+							executionId: AutomationExecutionId.make("retry-attempt"),
+							rootExecutionId: AutomationExecutionId.make("retry-attempt"),
+						},
+					},
+				};
+				expect(yield* run(retry)).toMatchObject({ count: 2, failure: null });
+				expect((yield* h.created).map(({ entityId: createdEntityId }) => createdEntityId)).toEqual([
+					secondEntity,
+				]);
+				const triggerCount = (yield* h.triggers).filter(
+					({ kind }) => kind.operation !== "batch",
+				).length;
+				const replay = {
+					...retry,
+					command: {
+						...command,
+						causation: {
+							...command.causation,
+							executionId: AutomationExecutionId.make("lost-response-attempt"),
+							rootExecutionId: AutomationExecutionId.make("lost-response-attempt"),
+						},
+					},
+				};
+				expect(yield* run(replay)).toMatchObject({ count: 2, failure: null });
+				expect(yield* h.created).toHaveLength(1);
+				expect((yield* h.triggers).filter(({ kind }) => kind.operation !== "batch")).toHaveLength(
+					triggerCount,
+				);
+				const changed = {
+					...replay,
+					payload: input.payload.map((item, index) =>
+						index === 1
+							? { eventSchemaSlug, entityId: secondEntity, properties: { rating: 2 } }
+							: item,
+					),
+				};
+				expect(yield* run(changed)).toMatchObject({
+					count: 0,
+					failure: { index: 0, reason: { code: "mutation-conflict" } },
+				});
+				expect(yield* h.created).toHaveLength(1);
+			}),
+	);
+});
+
 layer(
 	harnessLayer({
 		policies: [

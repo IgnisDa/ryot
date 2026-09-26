@@ -2081,7 +2081,10 @@ describe("toSandboxCreateEventsResult", () => {
 			);
 
 			expect(Result.getFailure(result)).toEqual(
-				Option.some("Event creation failed: policy-execution-failed"),
+				Option.some({
+					message: "Event creation failed: policy-execution-failed",
+					data: { count: 0, partial: true, code: "policy-execution-failed" },
+				}),
 			);
 		}),
 	);

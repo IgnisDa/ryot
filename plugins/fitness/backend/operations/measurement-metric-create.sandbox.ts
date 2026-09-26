@@ -7,6 +7,7 @@ import {
 	MeasurementMetricCreateOutput,
 } from "../../shared/measurement-metric-operations";
 import { measurementMetricKey, measurementMetricUnit } from "../../shared/measurement-metrics";
+import { measurementMetricProperties } from "../../shared/measurement-properties";
 import { changeMeasurementMetricPin, measurementMetricIds } from "./measurement-pins";
 
 const AUTO_PINNED_METRICS = 2;
@@ -29,7 +30,7 @@ export default defineOperation({
 			const created = yield* host.createUserEntity({
 				name,
 				entitySchemaSlug: "measurement-metric",
-				properties: { key, ...(storedUnit ? { unit: storedUnit } : {}) },
+				properties: measurementMetricProperties(key, storedUnit),
 			});
 			if (existing.length < AUTO_PINNED_METRICS) {
 				yield* changeMeasurementMetricPin({ pinned: true, metricId: created.entityId }, host);

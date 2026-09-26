@@ -34,6 +34,76 @@ const fitnessReference = (client: Client) =>
 	);
 
 describe("Measurements E2E", () => {
+	it.live(
+		"retries lost-response and concurrent submissions without duplicates and rejects changed content",
+		() =>
+			Effect.gen(function* () {
+				const { client } = yield* createAuthenticatedClient();
+				const reference = yield* fitnessReference(client);
+				const weight = yield* createMeasurementMetric(client, { name: "Weight" });
+				const waist = yield* createMeasurementMetric(client, { name: "Waist" });
+				const input = {
+					comment: "Fasted",
+					submissionId: crypto.randomUUID(),
+					occurredAt: "2026-10-01T07:30:00.000Z",
+					submittedAt: "2026-10-15T08:00:00.000Z",
+					values: [
+						{ value: 0, metricId: weight.entityId },
+						{ value: 80.5, metricId: waist.entityId },
+					],
+				};
+				yield* logMeasurementReadings(client, input);
+				const original = yield* executeRyotQLRecipe(
+					client,
+					measurementReadingListRecipe({ reference }),
+				);
+				expect(original.items).toHaveLength(2);
+				const retries = yield* Effect.all(
+					[logMeasurementReadings(client, input), logMeasurementReadings(client, input)],
+					{ concurrency: "unbounded" },
+				);
+				expect(retries).toEqual([
+					{ count: 2, status: "saved" },
+					{ count: 2, status: "saved" },
+				]);
+				expect(
+					(yield* executeRyotQLRecipe(client, measurementReadingListRecipe({ reference }))).items,
+				).toEqual(original.items);
+				const conflict = yield* Effect.flip(
+					logMeasurementReadings(client, { ...input, comment: "Changed" }),
+				);
+				assertTaggedError(conflict, "PluginInvocationError");
+				expect(conflict.reason.code).toBe("runtime-failed");
+				expect(
+					(yield* executeRyotQLRecipe(client, measurementReadingListRecipe({ reference }))).items,
+				).toEqual(original.items);
+				const concurrent = { ...input, submissionId: crypto.randomUUID() };
+				expect(
+					yield* Effect.all(
+						[
+							logMeasurementReadings(client, concurrent),
+							logMeasurementReadings(client, concurrent),
+						],
+						{ concurrency: "unbounded" },
+					),
+				).toEqual([
+					{ count: 2, status: "saved" },
+					{ count: 2, status: "saved" },
+				]);
+				expect(
+					(yield* executeRyotQLRecipe(client, measurementReadingListRecipe({ reference }))).items,
+				).toHaveLength(4);
+				const { client: other } = yield* createAuthenticatedClient();
+				const otherMetric = yield* createMeasurementMetric(other, { name: "Weight" });
+				expect(
+					yield* logMeasurementReadings(other, {
+						...input,
+						values: [{ value: 0, metricId: otherMetric.entityId }],
+					}),
+				).toEqual({ count: 1, status: "saved" });
+			}),
+	);
+
 	it.live("links the built-in metric schema to the fitness plugin and drops the old schema", () =>
 		Effect.gen(function* () {
 			const { client } = yield* createAuthenticatedClient();
@@ -178,7 +248,7 @@ describe("Measurements E2E", () => {
 			expect(foreignLog.reason).toMatchObject({
 				diagnostics: [{ message: expect.stringContaining("Measurement metric not found") }],
 			});
-			expect(yield* logMeasurementReadings(client, logged)).toEqual({ count: 2 });
+			expect(yield* logMeasurementReadings(client, logged)).toEqual({ count: 2, status: "saved" });
 			expect(yield* listReadings()).toEqual([
 				{
 					value: 80,
