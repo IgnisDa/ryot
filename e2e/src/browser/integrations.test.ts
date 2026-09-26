@@ -123,3 +123,28 @@ it.live("keeps the wizard in the URL so closing it returns to the list", () =>
 		}),
 	).pipe(PlaywrightSpawner.withBrowser),
 );
+
+it.live("pauses integrations for the account and keeps the choice after a reload", () =>
+	withIntegrationsBrowser((page) =>
+		Effect.gen(function* () {
+			yield* openIntegrations(page);
+			const pause = page.getByRole("switch", { name: "Pause integrations" });
+			yield* pause.waitFor({ state: "visible" });
+			expect(yield* pause.getAttribute("aria-checked")).toBe("false");
+
+			yield* pause.click();
+			yield* page
+				.locator('[role="switch"][aria-label="Pause integrations"][aria-checked="true"]:enabled')
+				.waitFor({ state: "visible" });
+
+			yield* page.reload;
+			yield* pause.waitFor({ state: "visible" });
+			expect(yield* pause.getAttribute("aria-checked")).toBe("true");
+
+			yield* pause.click();
+			yield* page
+				.locator('[role="switch"][aria-label="Pause integrations"][aria-checked="false"]:enabled')
+				.waitFor({ state: "visible" });
+		}),
+	).pipe(PlaywrightSpawner.withBrowser),
+);

@@ -3,7 +3,7 @@ import { Button, StatusMessage } from "@ryot-app/client-ui-sdk";
 import { SettingsSection } from "#/modules/settings/settings-section";
 import { versionUrl } from "#/modules/settings/version-url";
 
-type AccountVersionsProps = {
+type AboutVersionsProps = {
 	readonly serverVersion: string | undefined;
 	readonly isLoading: boolean;
 	readonly onRetry: () => void;
@@ -30,7 +30,7 @@ function VersionRow(props: { readonly label: string; readonly version: string })
 	);
 }
 
-function ServerVersion(props: AccountVersionsProps) {
+function ServerVersion(props: AboutVersionsProps) {
 	if (props.serverVersion !== undefined) {
 		return <VersionRow label="Server" version={props.serverVersion} />;
 	}
@@ -47,7 +47,7 @@ function ServerVersion(props: AccountVersionsProps) {
 	);
 }
 
-export function AccountVersions(props: AccountVersionsProps) {
+export function AboutVersions(props: AboutVersionsProps) {
 	return (
 		<SettingsSection title="Version" detail="The builds of this app and its server.">
 			<div className="flex flex-col gap-3 rounded-xl border border-border bg-surface p-4">
