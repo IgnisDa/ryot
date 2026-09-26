@@ -4,7 +4,7 @@ import type { PluginManifest } from "@ryot-app/contract/modules/plugins/manifest
 import { EntityId, UserId } from "@ryot-app/contract/schema/brands";
 import type { AppSchema } from "@ryot-app/contract/schema/property-schema";
 import { ascending, column, document, field, rows, table } from "@ryot-app/ryotql";
-import { count, eq } from "drizzle-orm";
+import { count, eq, sql } from "drizzle-orm";
 import { Context, Effect, Layer, Ref, Stream } from "effect";
 
 import * as tables from "#lib/infrastructure/db/schema/tables/combined";
@@ -39,6 +39,7 @@ import {
 	resolveBootstrapEntityMappings,
 	resolveRestoredIntegrationDisabled,
 	resolveRestoredInstallationLifecycle,
+	resolveRestoredPluginUserSettings,
 	resolveRequiredPluginIds,
 	selectTranslationsForRestore,
 } from "./writer";
@@ -63,6 +64,32 @@ it("keeps restored installations inactive when required secrets were redacted", 
 		),
 	).toEqual({ isHidden: true, health: "needs-configuration" });
 });
+
+it.effect(
+	"validates restored plugin user settings and permits empty settings without a schema",
+	() =>
+		Effect.gen(function* () {
+			const settingsSchema: AppSchema = {
+				unknownKeys: "strict",
+				fields: {
+					enabled: { type: "boolean", label: "Enabled", description: "Enable the preference" },
+				},
+			};
+			expect(yield* resolveRestoredPluginUserSettings({ enabled: true }, settingsSchema)).toEqual({
+				enabled: true,
+			});
+			expect(yield* resolveRestoredPluginUserSettings({}, undefined)).toEqual({});
+			const invalid = yield* resolveRestoredPluginUserSettings({ enabled: true }, undefined).pipe(
+				Effect.flip,
+			);
+			expect(invalid._tag).toBe("BadRequest");
+			const invalidValue = yield* resolveRestoredPluginUserSettings(
+				{ enabled: "yes" },
+				settingsSchema,
+			).pipe(Effect.flip);
+			expect(invalidValue._tag).toBe("BadRequest");
+		}),
+);
 
 it("preserves needs-configuration health when the secret was already absent", () => {
 	expect(
@@ -141,6 +168,32 @@ it("detects nested required installation secrets in objects and arrays", () => {
 	}
 });
 
+it("restores integrations with OAuth connection settings disabled", () => {
+	const schema = {
+		fields: {
+			endpoint: { type: "string", label: "Endpoint", description: "Endpoint" },
+			account: {
+				type: "string",
+				label: "Account",
+				description: "Linked account",
+				format: { provider: "account", kind: "oauth-connection" },
+			},
+		},
+	} satisfies AppSchema;
+	expect(
+		resolveRestoredIntegrationDisabled(
+			{ isDisabled: false, configuredSecretPaths: ["/account"] },
+			schema,
+		),
+	).toBe(true);
+	expect(
+		resolveRestoredIntegrationDisabled(
+			{ isDisabled: false, configuredSecretPaths: [] },
+			{ fields: { endpoint: schema.fields.endpoint } },
+		),
+	).toBe(false);
+});
+
 it.effect("rejects a crafted provider dependency whose schema belongs to another plugin", () =>
 	assertDependencySchemaOwnership(
 		{
@@ -190,7 +243,7 @@ const provenanceRecords = (
 	profile: {
 		image: null,
 		name: "User",
-		preferences: { language: null, allowNsfw: false, disableIntegrations: false },
+		preferences: { language: null, disableIntegrations: false },
 	},
 	notificationSubscriptions: [
 		{
@@ -537,7 +590,7 @@ const restoreArchivedEvents = (events: ReadonlyArray<ArchiveEvent>) =>
 				profile: {
 					image: null,
 					name: "User",
-					preferences: { language: null, allowNsfw: false, disableIntegrations: false },
+					preferences: { language: null, disableIntegrations: false },
 				},
 				entities: [
 					{
@@ -572,6 +625,7 @@ const restoreWriterLayer = (options: { readonly eventInsertFails?: boolean } = {
 			Layer.mergeAll(
 				Layer.mock(PluginRepository, {
 					listPrivateForUser: () => Effect.succeed([]),
+					listActiveSystemPlugins: () => Effect.succeed([]),
 					listPortablePluginMetadata: () => Effect.succeed([]),
 				}),
 				Layer.unwrap(
@@ -754,7 +808,7 @@ describe("account backup restore in PostgreSQL", () => {
 								yield* persistence.restorePortableProfile(userId, {
 									image: null,
 									name: "Archived",
-									preferences: { language: null, allowNsfw: false, disableIntegrations: false },
+									preferences: { language: null, disableIntegrations: false },
 								}),
 							).toBe(true);
 							expect(
@@ -814,6 +868,11 @@ describe("account backup restore in PostgreSQL", () => {
 					const session = yield* DatabaseSession;
 					const plugins = yield* PluginRepository;
 					const installations = yield* PluginInstallationRepository;
+					yield* session.run((db) =>
+						db.execute(
+							sql`alter table plugin_installation add column if not exists user_settings jsonb not null default '{}'::jsonb`,
+						),
+					);
 					const basePackage = revisionPackage("portable", "v1", "portable-entity");
 					const primarySignal = basePackage.manifest.signalSchemas[0];
 					assert(primarySignal);
@@ -823,6 +882,16 @@ describe("account backup restore in PostgreSQL", () => {
 							primarySignal,
 							{ ...primarySignal, name: "Other signal", slug: "portable.other-signal" },
 						],
+						userSettingsSchema: {
+							unknownKeys: "strict",
+							fields: {
+								preference: {
+									type: "boolean",
+									label: "Preference",
+									description: "Portable plugin preference",
+								},
+							},
+						},
 						configSchema: {
 							unknownKeys: "strict",
 							fields: {
@@ -888,7 +957,7 @@ describe("account backup restore in PostgreSQL", () => {
 						profile: {
 							image: null,
 							name: "Restored",
-							preferences: { language: null, allowNsfw: false, disableIntegrations: false },
+							preferences: { language: null, disableIntegrations: false },
 						},
 						notificationSubscriptions: [
 							{
@@ -936,6 +1005,7 @@ describe("account backup restore in PostgreSQL", () => {
 								config: { unit: "metric" },
 								id: "restored-installation",
 								configuredSecretPaths: ["/token"],
+								userSettings: { preference: true },
 							},
 						],
 					};
@@ -975,6 +1045,13 @@ describe("account backup restore in PostgreSQL", () => {
 						health: "needs-configuration",
 					});
 					expect(restoredInstallation.config).toEqual({ unit: "metric" });
+					const [restoredUserSettings] = yield* session.run((db) =>
+						db
+							.select({ userSettings: tables.pluginInstallation.userSettings })
+							.from(tables.pluginInstallation)
+							.where(eq(tables.pluginInstallation.id, restoredInstallation.id)),
+					);
+					expect(restoredUserSettings?.userSettings).toEqual({ preference: true });
 					const [configRevision] = yield* session.run((db) =>
 						db
 							.select()

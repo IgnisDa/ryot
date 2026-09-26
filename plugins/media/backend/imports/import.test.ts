@@ -4,7 +4,9 @@ import type { JsonValue } from "@ryot-app/contract/modules/ryotql/language";
 import type { WorkflowReplayEnvelope, WorkflowReplayHost } from "@ryot-app/sandbox-sdk/workflow";
 import { Effect, Schema } from "effect";
 
-import workflow, { mediaImportParser } from "./import.sandbox";
+import segmentWorkflow from "../workflows/media-import-segment.sandbox";
+import { mediaImportParser, MediaImportSegmentInput } from "./batch";
+import workflow from "./import.sandbox";
 
 const encodeJson = Schema.encodeSync(Schema.fromJsonString(Schema.Unknown));
 const importCommand = (runId: string, integrationId?: string) =>
@@ -29,6 +31,31 @@ const importCommand = (runId: string, integrationId?: string) =>
 		},
 	});
 
+const emptyJournal = { replayJournal: () => Effect.succeed([]) } satisfies WorkflowReplayHost;
+const execution = { metadata: {}, sandboxScriptId: "media-import" };
+
+const parserRequest = (input: {
+	runId: string;
+	source: string;
+	sourcePayload?: Record<string, JsonValue>;
+}) =>
+	Effect.gen(function* () {
+		const parent = yield* workflow.run(
+			{ ...input, command: importCommand(input.runId) },
+			emptyJournal,
+			execution,
+		);
+		const child = parent.requests[0];
+		assert(child?.kind === "child");
+		expect(child.args.workflowSlug).toBe("media-import-segment");
+		const segment = yield* segmentWorkflow.run(
+			yield* Schema.decodeUnknownEffect(MediaImportSegmentInput)(child.args.input),
+			emptyJournal,
+			execution,
+		);
+		return segment.requests[0];
+	});
+
 it("dispatches every declared source to its matching parser activity", () => {
 	for (const source of [
 		"goodreads",
@@ -41,6 +68,7 @@ it("dispatches every declared source to its matching parser activity", () => {
 		"grouvee",
 		"watcharr",
 		"netflix",
+		"spotify",
 		"movary",
 		"myanimelist",
 		"jellyfin",
@@ -54,28 +82,50 @@ it("dispatches every declared source to its matching parser activity", () => {
 
 it.live("passes Netflix profile selection from source payload to its parser activity", () =>
 	Effect.gen(function* () {
+		const request = yield* parserRequest({
+			source: "netflix",
+			runId: "run-netflix",
+			sourcePayload: { profileName: "Kids" },
+		});
+		expect(request).toMatchObject({
+			kind: "activity",
+			args: { scriptSlug: "import.netflix", input: { start: 0, limit: 25, profileName: "Kids" } },
+		});
+	}),
+);
+
+it.live("passes the AniList timezone from source payload to its parser activity", () =>
+	Effect.gen(function* () {
+		const request = yield* parserRequest({
+			source: "anilist",
+			runId: "run-anilist",
+			sourcePayload: { timezone: " Asia/Kolkata " },
+		});
+		expect(request).toMatchObject({
+			kind: "activity",
+			args: {
+				scriptSlug: "import.anilist",
+				input: { start: 0, limit: 25, timezone: "Asia/Kolkata" },
+			},
+		});
+	}),
+);
+
+it.live("fails the AniList workflow when the timezone is missing", () =>
+	Effect.gen(function* () {
 		const envelope = yield* workflow.run(
 			{
-				source: "netflix",
-				runId: "run-netflix",
-				command: importCommand("run-netflix"),
-				sourcePayload: { profileName: "Kids" },
+				source: "anilist",
+				sourcePayload: {},
+				runId: "run-anilist-missing",
+				command: importCommand("run-anilist-missing"),
 			},
 			{ replayJournal: () => Effect.succeed([]) } satisfies WorkflowReplayHost,
 			{ metadata: {}, sandboxScriptId: "media-import" },
 		);
-		expect(envelope).toMatchObject({
-			state: "pending",
-			requests: [
-				{
-					kind: "activity",
-					args: {
-						scriptSlug: "import.netflix",
-						input: { start: 0, limit: 25, profileName: "Kids" },
-					},
-				},
-			],
-		});
+		assert(envelope.state === "failed");
+		expect(envelope.error).toContain("Import job is missing AniList timezone");
+		expect(envelope.requests).toEqual([]);
 	}),
 );
 
@@ -93,86 +143,58 @@ it.live.each([
 	],
 ] as const)("passes Trakt $0 fields to its parser activity", ([_, sourcePayload, input]) =>
 	Effect.gen(function* () {
-		const envelope = yield* workflow.run(
-			{
-				sourcePayload,
-				source: "trakt",
-				runId: `run-trakt-${_}`,
-				command: importCommand(`run-trakt-${_}`),
-			},
-			{ replayJournal: () => Effect.succeed([]) } satisfies WorkflowReplayHost,
-			{ metadata: {}, sandboxScriptId: "media-import" },
-		);
-		expect(envelope).toMatchObject({
-			state: "pending",
-			requests: [
-				{
-					kind: "activity",
-					args: { scriptSlug: "import.trakt", input: { start: 0, limit: 25, ...input } },
-				},
-			],
+		const request = yield* parserRequest({
+			sourcePayload,
+			source: "trakt",
+			runId: `run-trakt-${_}`,
+		});
+		expect(request).toMatchObject({
+			kind: "activity",
+			args: { scriptSlug: "import.trakt", input: { start: 0, limit: 25, ...input } },
 		});
 	}),
 );
 
 it.live("passes credentialed source payload fields to its parser activity", () =>
 	Effect.gen(function* () {
-		const envelope = yield* workflow.run(
-			{
-				source: "plex",
-				runId: "run-plex",
-				command: importCommand("run-plex"),
-				sourcePayload: {
+		const request = yield* parserRequest({
+			source: "plex",
+			runId: "run-plex",
+			sourcePayload: {
+				apiKey: "token",
+				apiUrl: "https://plex.example",
+				allowInsecureConnections: true,
+			},
+		});
+		expect(request).toMatchObject({
+			kind: "activity",
+			args: {
+				scriptSlug: "import.plex",
+				input: {
+					start: 0,
+					limit: 25,
 					apiKey: "token",
 					apiUrl: "https://plex.example",
 					allowInsecureConnections: true,
 				},
 			},
-			{ replayJournal: () => Effect.succeed([]) } satisfies WorkflowReplayHost,
-			{ metadata: {}, sandboxScriptId: "media-import" },
-		);
-		expect(envelope).toMatchObject({
-			requests: [
-				{
-					kind: "activity",
-					args: {
-						scriptSlug: "import.plex",
-						input: {
-							start: 0,
-							limit: 25,
-							apiKey: "token",
-							apiUrl: "https://plex.example",
-							allowInsecureConnections: true,
-						},
-					},
-				},
-			],
 		});
 	}),
 );
 
 it.live("selects optional MyAnimeList artifacts from source payload field markers", () =>
 	Effect.gen(function* () {
-		const envelope = yield* workflow.run(
-			{
-				runId: "run-mal",
-				source: "myanimelist",
-				command: importCommand("run-mal"),
-				sourcePayload: { mangaUploadToken: "mangaUploadToken" },
+		const request = yield* parserRequest({
+			runId: "run-mal",
+			source: "myanimelist",
+			sourcePayload: { mangaUploadToken: "mangaUploadToken" },
+		});
+		expect(request).toMatchObject({
+			kind: "activity",
+			args: {
+				scriptSlug: "import.myanimelist",
+				input: { start: 0, limit: 25, hasMangaFile: true, hasAnimeFile: false },
 			},
-			{ replayJournal: () => Effect.succeed([]) } satisfies WorkflowReplayHost,
-			{ metadata: {}, sandboxScriptId: "media-import" },
-		);
-		expect(envelope).toMatchObject({
-			requests: [
-				{
-					kind: "activity",
-					args: {
-						scriptSlug: "import.myanimelist",
-						input: { start: 0, limit: 25, hasMangaFile: true, hasAnimeFile: false },
-					},
-				},
-			],
 		});
 	}),
 );
@@ -225,6 +247,12 @@ it.live("marks adapter-only integration failures as failed kernel runs", () =>
 			input: { failRun: true },
 			workflowSlug: "kernel:process-import-chunks",
 		});
+		expect(
+			envelope.requests.some(
+				(request) =>
+					request.kind === "child" && request.args.workflowSlug === "media-import-segment",
+			),
+		).toBe(false);
 	}),
 );
 
@@ -275,19 +303,48 @@ const showEpisode = (seasonNumber: number, episodeNumber: number) => ({
 	episodeNumber,
 });
 
+const watcharrSegmentInput = Schema.decodeSync(MediaImportSegmentInput)({
+	start: 0,
+	runId: "run-1",
+	source: "watcharr",
+	command: importCommand("run-1"),
+	parserInput: { start: 0, limit: 25 },
+});
+
 const driveWatcharrImport = (input: {
 	episodeResults: JsonValue;
 	entityGroups: ReadonlyArray<JsonValue>;
 	populationResults: ReadonlyArray<JsonValue>;
 }) => {
-	const journal: JsonValue[] = [];
 	const requests: Array<WorkflowReplayEnvelope["requests"][number]> = [];
-	const replay = Effect.fnUntraced(function* () {
+	const parentRequests: Array<WorkflowReplayEnvelope["requests"][number]> = [];
+	const resolveSegmentRequest = (
+		request: WorkflowReplayEnvelope["requests"][number],
+	): JsonValue => {
+		if (request.kind === "activity" && request.args.scriptSlug === "import.watcharr") {
+			return { failures: [], totalItems: 1, entityGroups: [...input.entityGroups] };
+		}
+		if (request.kind === "child" && request.args.workflowSlug === "media-import-population") {
+			return { results: [...input.populationResults] };
+		}
+		if (request.kind === "activity" && request.args.scriptSlug === "import.resolve-episodes") {
+			return input.episodeResults;
+		}
+		assert(request.kind === "activity" && request.args.scriptSlug === "import.write-chunks");
+		return {
+			totalItems: 1,
+			failureCount: 1,
+			writeItemCount: 1,
+			chunkHandles: ["harvest-handle-0"],
+		};
+	};
+	const replaySegment = Effect.fnUntraced(function* () {
+		const journal: JsonValue[] = [];
 		for (;;) {
-			const envelope = yield* workflow.run(
-				{ runId: "run-1", source: "watcharr", command: importCommand("run-1") },
+			const envelope = yield* segmentWorkflow.run(
+				watcharrSegmentInput,
 				{ replayJournal: () => Effect.succeed(journal) } satisfies WorkflowReplayHost,
-				{ metadata: {}, sandboxScriptId: "media-import" },
+				execution,
 			);
 			requests.splice(0, requests.length, ...envelope.requests);
 			if (envelope.state !== "pending") {
@@ -295,32 +352,34 @@ const driveWatcharrImport = (input: {
 			}
 			const request = envelope.requests[journal.length];
 			assert(request);
-			if (request.kind === "activity" && request.args.scriptSlug === "import.watcharr") {
-				journal.push({ failures: [], totalItems: 1, entityGroups: [...input.entityGroups] });
-			} else if (
-				request.kind === "child" &&
-				request.args.workflowSlug === "media-import-population"
-			) {
-				journal.push({ results: [...input.populationResults] });
-			} else if (
-				request.kind === "activity" &&
-				request.args.scriptSlug === "import.resolve-episodes"
-			) {
-				journal.push(input.episodeResults);
-			} else if (request.kind === "activity" && request.args.scriptSlug === "import.write-chunks") {
-				journal.push({
-					totalItems: 1,
-					failureCount: 1,
-					writeItemCount: 1,
-					chunkHandles: ["harvest-handle-0"],
-				});
+			journal.push(resolveSegmentRequest(request));
+		}
+	});
+	const replay = Effect.fnUntraced(function* () {
+		const journal: JsonValue[] = [];
+		for (;;) {
+			const envelope = yield* workflow.run(
+				{ runId: "run-1", source: "watcharr", command: importCommand("run-1") },
+				{ replayJournal: () => Effect.succeed(journal) } satisfies WorkflowReplayHost,
+				execution,
+			);
+			parentRequests.splice(0, parentRequests.length, ...envelope.requests);
+			if (envelope.state !== "pending") {
+				return envelope;
+			}
+			const request = envelope.requests[journal.length];
+			assert(request?.kind === "child");
+			if (request.args.workflowSlug === "media-import-segment") {
+				const segment = yield* replaySegment();
+				assert(segment.state === "completed");
+				journal.push(segment.output);
 			} else {
 				journal.push({ failedItems: 1, importedItems: 1, processedItems: 2 });
 			}
 		}
 	});
 
-	return { replay, requests };
+	return { replay, requests, replaySegment, parentRequests };
 };
 
 it.live("fails the workflow rather than dying when a source payload is incomplete", () =>
@@ -460,7 +519,7 @@ it.live(
 	"deterministically composes Watcharr parsing, population, episode resolution, and kernel writes",
 	() =>
 		Effect.gen(function* () {
-			const { replay, requests } = driveWatcharrImport({
+			const { replay, requests, parentRequests } = driveWatcharrImport({
 				populationResults: completedShowPopulation,
 				episodeResults: { results: [{ index: 0, entityId: null }] },
 				entityGroups: singleShowGroup([
@@ -473,12 +532,12 @@ it.live(
 				state: "completed",
 				output: { failedItems: 1, importedItems: 1, processedItems: 2 },
 			});
+			expect(parentRequests.map(({ kind }) => kind)).toEqual(["child", "child"]);
 			expect(requests.map(({ kind }) => kind)).toEqual([
 				"activity",
 				"child",
 				"activity",
 				"activity",
-				"child",
 			]);
 			expect(requests[1]).toMatchObject({
 				args: {
@@ -520,7 +579,7 @@ it.live(
 	"subjects resolved episodes, omits unresolved ones as failures, and keeps sibling events",
 	() =>
 		Effect.gen(function* () {
-			const { replay, requests } = driveWatcharrImport({
+			const { requests, replaySegment } = driveWatcharrImport({
 				populationResults: completedShowPopulation,
 				episodeResults: {
 					results: [
@@ -537,7 +596,7 @@ it.live(
 				]),
 			});
 
-			yield* replay();
+			yield* replaySegment();
 			expect(requests[2]).toMatchObject({
 				args: {
 					input: {
@@ -603,7 +662,7 @@ it.live(
 
 it.live("reports the podcast episode that could not be resolved", () =>
 	Effect.gen(function* () {
-		const { replay, requests } = driveWatcharrImport({
+		const { requests, replaySegment } = driveWatcharrImport({
 			episodeResults: { results: [{ index: 0, entityId: null }] },
 			populationResults: [{ index: 0, status: "completed", entityId: "podcast-1" }],
 			entityGroups: [
@@ -624,7 +683,7 @@ it.live("reports the podcast episode that could not be resolved", () =>
 			],
 		});
 
-		yield* replay();
+		yield* replaySegment();
 		expect(requests[2]).toMatchObject({
 			args: { input: { refs: [{ index: 0, kind: "podcast", podcastEntityId: "podcast-1" }] } },
 		});
@@ -670,7 +729,7 @@ it.live.each([
 	},
 ])("fails the workflow on $label episode result indices", ({ error, results }) =>
 	Effect.gen(function* () {
-		const { replay, requests } = driveWatcharrImport({
+		const { requests, replaySegment } = driveWatcharrImport({
 			episodeResults: { results },
 			populationResults: completedShowPopulation,
 			entityGroups: singleShowGroup([
@@ -679,7 +738,7 @@ it.live.each([
 			]),
 		});
 
-		const envelope = yield* replay();
+		const envelope = yield* replaySegment();
 		assert(envelope.state === "failed");
 		expect(envelope.error).toContain(error);
 		expect(envelope.requests.map(({ kind }) => kind)).toEqual(["activity", "child", "activity"]);

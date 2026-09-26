@@ -3,10 +3,15 @@ import { Effect } from "effect";
 
 import {
 	createDeepLinkBridge,
+	makeDeepLinkClaims,
 	resolveDeepLinkHref,
 	type DeepLinkNavigator,
 	type NativeAppSource,
 } from "#/modules/navigation/deep-link";
+
+const RETURN_PATH = "/settings/oauth-return";
+
+const RETURN_URL = "io.ryot.app:/settings/oauth-return#connection=connection-1&secret=secret-1";
 
 type Recorded = { readonly href: string; readonly replace: boolean };
 
@@ -59,6 +64,7 @@ const makeHarness = (launchUrl: string | null = null) => {
 		removed,
 		navigator,
 		navigated,
+		claims: makeDeepLinkClaims(),
 		pressBack: () => backButton?.(),
 		openUrl: (url: string) => urlOpen?.(url),
 		allowBack: () => {
@@ -118,7 +124,7 @@ describe("createDeepLinkBridge", () => {
 	it.live("replaces the current entry for a launch URL and pushes for a later one", () =>
 		Effect.gen(function* () {
 			const harness = makeHarness("io.ryot.app://e/entity123");
-			const bridge = createDeepLinkBridge(harness.source, harness.navigator);
+			const bridge = createDeepLinkBridge(harness.source, harness.navigator, harness.claims);
 			yield* Effect.promise(() => Promise.resolve());
 
 			harness.openUrl("io.ryot.app.dev://media/search");
@@ -134,7 +140,7 @@ describe("createDeepLinkBridge", () => {
 	it.live("ignores a link that does not resolve to an application route", () =>
 		Effect.gen(function* () {
 			const harness = makeHarness();
-			const bridge = createDeepLinkBridge(harness.source, harness.navigator);
+			const bridge = createDeepLinkBridge(harness.source, harness.navigator, harness.claims);
 			yield* Effect.promise(() => Promise.resolve());
 
 			harness.openUrl("other://media");
@@ -147,7 +153,7 @@ describe("createDeepLinkBridge", () => {
 	it.live("navigates back while history remains and exits at the root", () =>
 		Effect.gen(function* () {
 			const harness = makeHarness();
-			const bridge = createDeepLinkBridge(harness.source, harness.navigator);
+			const bridge = createDeepLinkBridge(harness.source, harness.navigator, harness.claims);
 			yield* Effect.promise(() => Promise.resolve());
 
 			harness.allowBack();
@@ -161,7 +167,7 @@ describe("createDeepLinkBridge", () => {
 	it.live("dismisses an open overlay before it pops history", () =>
 		Effect.gen(function* () {
 			const harness = makeHarness();
-			const bridge = createDeepLinkBridge(harness.source, harness.navigator);
+			const bridge = createDeepLinkBridge(harness.source, harness.navigator, harness.claims);
 			yield* Effect.promise(() => Promise.resolve());
 
 			harness.allowBack();
@@ -179,7 +185,7 @@ describe("createDeepLinkBridge", () => {
 	it.live("exits the application when there is nothing to go back to", () =>
 		Effect.gen(function* () {
 			const harness = makeHarness();
-			const bridge = createDeepLinkBridge(harness.source, harness.navigator);
+			const bridge = createDeepLinkBridge(harness.source, harness.navigator, harness.claims);
 			yield* Effect.promise(() => Promise.resolve());
 
 			harness.pressBack();
@@ -192,7 +198,7 @@ describe("createDeepLinkBridge", () => {
 	it.live("removes every listener once and ignores events after disposal", () =>
 		Effect.gen(function* () {
 			const harness = makeHarness();
-			const bridge = createDeepLinkBridge(harness.source, harness.navigator);
+			const bridge = createDeepLinkBridge(harness.source, harness.navigator, harness.claims);
 			yield* Effect.promise(() => Promise.resolve());
 
 			bridge.destroy();
@@ -203,6 +209,67 @@ describe("createDeepLinkBridge", () => {
 			expect(harness.removed).toEqual(["appUrlOpen", "backButton"]);
 			expect(harness.navigated).toEqual([]);
 			expect(harness.counts()).toEqual({ exited: 0, backCount: 0, dismissed: 0 });
+		}),
+	);
+
+	it.live("hands a claimed return URL to its claim instead of navigating", () =>
+		Effect.gen(function* () {
+			const harness = makeHarness();
+			const claimed: string[] = [];
+			harness.claims.claim(RETURN_PATH, (url) => claimed.push(url));
+			const bridge = createDeepLinkBridge(harness.source, harness.navigator, harness.claims);
+			yield* Effect.promise(() => Promise.resolve());
+
+			harness.openUrl(RETURN_URL);
+			harness.openUrl("io.ryot.app://media");
+			bridge.destroy();
+
+			expect(claimed).toEqual([RETURN_URL]);
+			expect(harness.navigated).toEqual([{ replace: false, href: "/media" }]);
+		}),
+	);
+
+	it.live("routes a return URL through the router once its claim is released", () =>
+		Effect.gen(function* () {
+			const harness = makeHarness();
+			const claimed: string[] = [];
+			const release = harness.claims.claim(RETURN_PATH, (url) => claimed.push(url));
+			const bridge = createDeepLinkBridge(harness.source, harness.navigator, harness.claims);
+			yield* Effect.promise(() => Promise.resolve());
+
+			release();
+			harness.openUrl(RETURN_URL);
+			bridge.destroy();
+
+			expect(claimed).toEqual([]);
+			expect(harness.navigated).toEqual([{ replace: false, href: RETURN_PATH }]);
+		}),
+	);
+
+	it.live("navigates an unclaimed return URL without its fragment", () =>
+		Effect.gen(function* () {
+			const harness = makeHarness();
+			const bridge = createDeepLinkBridge(harness.source, harness.navigator, harness.claims);
+			yield* Effect.promise(() => Promise.resolve());
+
+			harness.openUrl(RETURN_URL);
+			bridge.destroy();
+
+			expect(harness.navigated).toEqual([{ replace: false, href: RETURN_PATH }]);
+		}),
+	);
+
+	it.live("hands a claimed launch URL to its claim instead of navigating", () =>
+		Effect.gen(function* () {
+			const harness = makeHarness(RETURN_URL);
+			const claimed: string[] = [];
+			harness.claims.claim(RETURN_PATH, (url) => claimed.push(url));
+			const bridge = createDeepLinkBridge(harness.source, harness.navigator, harness.claims);
+			yield* Effect.promise(() => Promise.resolve());
+			bridge.destroy();
+
+			expect(claimed).toEqual([RETURN_URL]);
+			expect(harness.navigated).toEqual([]);
 		}),
 	);
 });

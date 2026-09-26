@@ -1,4 +1,4 @@
-import { Polar } from "@polar-sh/sdk";
+import { createPolar } from "@polar-sh/sdk/2026-04";
 import { sha256Hex } from "@ryot-app/ts-utils/crypto";
 import { memoize } from "@ryot-app/ts-utils/lodash";
 import { Unkey } from "@unkey/api";
@@ -96,7 +96,7 @@ export const getUnkeyClient = memoize(() => {
 
 export const getPolarClient = memoize(() => {
 	const accessToken = getPolarAccessToken();
-	return new Polar({ accessToken, server: isPolarSandbox() ? "sandbox" : "production" });
+	return createPolar({ accessToken, environment: isPolarSandbox() ? "sandbox" : "production" });
 });
 
 export const paddleCustomDataSchema = z.object({ customerId: z.string() });

@@ -5,6 +5,7 @@ import {
 	getOAuthEndpoint,
 	getOAuthResource,
 	OAUTH_END_SESSION_PATH,
+	OAUTH_IMPERSONATION_CLIENT_IDS,
 	OAUTH_REVOKE_PATH,
 	OAUTH_TOKEN_PATH,
 	OAUTH_USERINFO_PATH,
@@ -24,21 +25,10 @@ import {
 } from "#/modules/auth/oauth-endpoint";
 import { OAuthStorage, type OAuthStorageError } from "#/modules/auth/oauth-storage";
 import { makeOriginSingleFlight } from "#/modules/auth/single-flight";
+import { decodeOAuthTokenClaims } from "#/modules/auth/token-claims";
 
 const REFRESH_WINDOW_MS = 60_000;
 const IdTokenClaims = Schema.Struct({ nonce: Schema.String });
-
-const decodeIdTokenNonce = (token: string) => {
-	const payload = token.split(".")[1];
-	if (!payload) {
-		throw new Error("ID token payload is missing");
-	}
-	const base64 = payload
-		.replace(/-/g, "+")
-		.replace(/_/g, "/")
-		.padEnd(Math.ceil(payload.length / 4) * 4, "=");
-	return Schema.decodeUnknownSync(IdTokenClaims)(JSON.parse(atob(base64))).nonce;
-};
 
 const storedTokenSet = (
 	response: OAuthTokenResponse,
@@ -234,7 +224,7 @@ const makeTokenService = (
 			try: () => storedTokenSet(response, pending.clientId),
 		}).pipe(Effect.catch(terminalFailure));
 		const nonce = yield* Effect.try({
-			try: () => decodeIdTokenNonce(tokens.idToken),
+			try: () => decodeOAuthTokenClaims(tokens.idToken, IdTokenClaims).nonce,
 			catch: (cause) => new OAuthTokenError({ cause, reason: "invalid-nonce" }),
 		}).pipe(Effect.catch(terminalFailure));
 		if (nonce !== pending.nonce) {
@@ -268,33 +258,41 @@ const makeTokenService = (
 			yield* clearLocal;
 			return null;
 		}
-		yield* Effect.all(
-			(
-				[
-					[current.refreshToken, "refresh_token"],
-					[current.accessToken, "access_token"],
-				] as const
-			).map(([token, tokenTypeHint]) =>
-				postOAuthFormRequest(
-					fetcher,
-					origin,
-					OAUTH_REVOKE_PATH,
-					new URLSearchParams({
-						token,
-						client_id: current.clientId,
-						token_type_hint: tokenTypeHint,
-					}),
-				).pipe(Effect.catch(() => Effect.void)),
-			),
-			{ discard: true },
+		const impersonating = OAUTH_IMPERSONATION_CLIENT_IDS.some(
+			(clientId) => clientId === current.clientId,
 		);
+		if (!impersonating) {
+			yield* Effect.all(
+				(
+					[
+						[current.refreshToken, "refresh_token"],
+						[current.accessToken, "access_token"],
+					] as const
+				).map(([token, tokenTypeHint]) =>
+					postOAuthFormRequest(
+						fetcher,
+						origin,
+						OAUTH_REVOKE_PATH,
+						new URLSearchParams({
+							token,
+							client_id: current.clientId,
+							token_type_hint: tokenTypeHint,
+						}),
+					).pipe(Effect.catch(() => Effect.void)),
+				),
+				{ discard: true },
+			);
+		}
 		const url = new URL(getOAuthEndpoint(origin, OAUTH_END_SESSION_PATH));
 		url.search = new URLSearchParams({
 			client_id: current.clientId,
 			id_token_hint: current.idToken,
 			post_logout_redirect_uri: postLogoutRedirectUri,
+			...(impersonating ? { state: "impersonation" } : {}),
 		}).toString();
-		yield* clearLocal;
+		if (!impersonating) {
+			yield* clearLocal;
+		}
 		return url.toString();
 	});
 

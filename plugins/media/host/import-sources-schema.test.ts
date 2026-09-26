@@ -186,11 +186,17 @@ it("accepts either MyAnimeList export and rejects an empty pair", () => {
 	).toThrow();
 });
 
+it("requires a timezone for AniList", () => {
+	expect(() =>
+		Schema.decodeUnknownSync(MediaCreateImportRunBody)({ uploadToken, source: "anilist" }),
+	).toThrow();
+});
+
 it("keeps every manifest source aligned with a strict plugin-owned guard", () => {
 	const validBodies = {
 		imdb: { uploadToken, source: "imdb" },
-		anilist: { uploadToken, source: "anilist" },
 		grouvee: { uploadToken, source: "grouvee" },
+		spotify: { uploadToken, source: "spotify" },
 		watcharr: { uploadToken, source: "watcharr" },
 		hardcover: { uploadToken, source: "hardcover" },
 		goodreads: { uploadToken, source: "goodreads" },
@@ -198,6 +204,7 @@ it("keeps every manifest source aligned with a strict plugin-owned guard", () =>
 		trakt: { mode: "user", source: "trakt", username: "alice" },
 		igdb: { uploadToken, source: "igdb", collection: "Favorites" },
 		netflix: { uploadToken, source: "netflix", profileName: "Kids" },
+		anilist: { uploadToken, source: "anilist", timezone: "Asia/Kolkata" },
 		myanimelist: { source: "myanimelist", animeUploadToken: uploadToken },
 		plex: { source: "plex", apiKey: "secret", apiUrl: "https://plex.example" },
 		jellyfin: { username: "alice", source: "jellyfin", apiUrl: "https://jellyfin.example" },

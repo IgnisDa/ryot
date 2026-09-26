@@ -88,11 +88,15 @@ const progressCommonFields = {
 	},
 } satisfies AppSchema["fields"];
 
-export const integrationCommonSchema = (lot: (typeof integrationLots)[number]): AppSchema => ({
+export const integrationCommonSchema = (
+	lot: (typeof integrationLots)[number],
+	supportsOwnershipSync: boolean,
+	supportsProgress = true,
+): AppSchema => ({
 	fields: {
 		...baseCommonFields,
-		...(lot === "push" ? {} : progressCommonFields),
-		...(lot === "yank"
+		...(lot === "push" || !supportsProgress ? {} : progressCommonFields),
+		...(lot === "yank" && supportsOwnershipSync
 			? {
 					syncOwnership: {
 						defaultValue: false,
@@ -111,7 +115,7 @@ export const integrationCommonSchema = (lot: (typeof integrationLots)[number]): 
  * validation rejects those names.
  */
 export const integrationCommonPropertyNames: ReadonlySet<string> = new Set(
-	Object.keys(integrationCommonSchema("yank").fields),
+	Object.keys(integrationCommonSchema("yank", true).fields),
 );
 
 export const IntegrationSnapshot = Schema.Struct({
@@ -119,7 +123,6 @@ export const IntegrationSnapshot = Schema.Struct({
 	lot: IntegrationLot,
 	createdAt: Schema.String,
 	updatedAt: Schema.String,
-	pluginSlug: Schema.String,
 	isDisabled: Schema.Boolean,
 	provider: IntegrationProvider,
 	syncOwnership: Schema.Boolean,
@@ -127,6 +130,7 @@ export const IntegrationSnapshot = Schema.Struct({
 	maximumProgress: Schema.Finite,
 	name: Schema.NullOr(Schema.String),
 	extraSettings: IntegrationExtraSettings,
+	pluginSlug: Schema.NullOr(Schema.String),
 	lastFinishedAt: Schema.NullOr(Schema.String),
 	providerSpecifics: IntegrationProviderSettings,
 });

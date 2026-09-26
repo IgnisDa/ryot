@@ -874,7 +874,7 @@ layer(catalogDatabaseLayer)((test) => {
 					name: "Owner",
 					email: "owner@example.test",
 					createdAt: expect.any(String),
-					preferences: { language: null, allowNsfw: false, disableIntegrations: false },
+					preferences: { language: null, disableIntegrations: false },
 				},
 			]);
 			expect(yield* readRows("admin", "user", ["id", "authState"])).toEqual([
@@ -1034,11 +1034,13 @@ layer(catalogDatabaseLayer)((test) => {
 				},
 				{ isStartable: false, id: "import-sys-no-script", missingPluginConfigKeys: [] },
 				{ isStartable: true, id: "import-sys-ready", missingPluginConfigKeys: [] },
+				{ isStartable: true, missingPluginConfigKeys: [], id: `kernel:data-json:${owner.userId}` },
 			]);
 			expect(yield* readRows(other, "importSource", ["id"])).not.toContainEqual({
 				id: "import-private",
 			});
 			expect(yield* readRows(owner, "integrationProvider", ["id", "lot", "hasScript"])).toEqual([
+				{ lot: "sink", hasScript: true, id: `kernel:data-json:${owner.userId}` },
 				{ lot: "yank", hasScript: false, id: "provider-missing" },
 				{ lot: "push", hasScript: true, id: "provider-push" },
 				{ lot: "yank", hasScript: true, id: "provider-yank" },

@@ -18,7 +18,7 @@ import {
 
 export type AnilistHost = SandboxHost<readonly ["httpCall"]>;
 
-export type AnilistUserHost = SandboxHost<readonly ["httpCall", "getUserPreferences"]>;
+export type AnilistUserHost = SandboxHost<readonly ["httpCall", "getUserSettings"]>;
 
 export type AnilistMediaType = "ANIME" | "MANGA";
 

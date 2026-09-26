@@ -82,7 +82,6 @@ const installShippedPlugin = (
 				capabilities: [],
 				kind: "script" as const,
 				requiredPluginConfigKeys: [],
-				requiredSystemConfigKeys: [],
 			},
 		],
 	});

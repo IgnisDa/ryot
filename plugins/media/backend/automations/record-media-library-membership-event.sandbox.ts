@@ -11,7 +11,6 @@ export const manifest = defineManifest({
 	kind: "automation",
 	automationType: "automation",
 	requiredPluginConfigKeys: [],
-	requiredSystemConfigKeys: [],
 	name: "Record media library membership event",
 	slug: "automation.record-media-library-membership-event",
 	capabilities: ["executeRyotql", "createEvents", "listEventSchemas"],

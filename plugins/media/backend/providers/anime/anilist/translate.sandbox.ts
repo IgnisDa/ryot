@@ -7,9 +7,8 @@ export const manifest = defineManifest({
 	kind: "provider",
 	name: "Anilist Translate",
 	requiredPluginConfigKeys: [],
-	requiredSystemConfigKeys: [],
 	slug: "anime.anilist.translate",
-	capabilities: ["httpCall", "getUserPreferences"],
+	capabilities: ["httpCall", "getUserSettings"],
 });
 
 export default defineProvider({ manifest, run: translate.run, operation: "translate" });

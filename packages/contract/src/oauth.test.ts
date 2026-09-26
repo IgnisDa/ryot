@@ -22,7 +22,11 @@ describe("OAuth access and client classes", () => {
 	});
 
 	it("distinguishes web clients from the native client", () => {
-		expect(OAUTH_WEB_CLIENT_IDS).toEqual(["ryot-web", OAUTH_DEMO_WEB_CLIENT_ID]);
+		expect(OAUTH_WEB_CLIENT_IDS).toEqual([
+			"ryot-web",
+			OAUTH_DEMO_WEB_CLIENT_ID,
+			"ryot-impersonation-web",
+		]);
 		expect(Schema.decodeSync(WebOAuthClientId)(OAUTH_DEMO_WEB_CLIENT_ID)).toBe(
 			OAUTH_DEMO_WEB_CLIENT_ID,
 		);

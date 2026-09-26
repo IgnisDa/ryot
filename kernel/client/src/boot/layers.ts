@@ -9,6 +9,7 @@ import { EntityInterestLive } from "#/modules/entity-interest/layer";
 import { GodModeLive } from "#/modules/god-mode/layer";
 import { ImportsService } from "#/modules/imports/service";
 import { IntegrationsLive } from "#/modules/integrations/layer";
+import { DeepLinkClaims } from "#/modules/navigation/deep-link";
 import { NavigationLive } from "#/modules/navigation/layer";
 import { NotificationChannelsService } from "#/modules/notifications/service";
 import { PluginsLive } from "#/modules/plugins/layer";
@@ -23,7 +24,7 @@ export const ClientLive = Layer.mergeAll(
 	EntityInterestLive,
 	GodModeLive,
 	ImportsService.layer,
-	IntegrationsLive,
+	IntegrationsLive.pipe(Layer.provideMerge(DeepLinkClaims.layer)),
 	NavigationLive,
 	NotificationChannelsService.layer,
 	PluginsLive.pipe(Layer.provideMerge(AuthLive)),

@@ -20,9 +20,8 @@ export const manifest = defineManifest({
 	kind: "script",
 	slug: "import.netflix",
 	name: "Parse Netflix import",
-	requiredSystemConfigKeys: [],
 	requiredPluginConfigKeys: ["tmdbAccessToken"],
-	capabilities: ["artifact-read", "httpCall", "getPluginConfig", "getUserPreferences"],
+	capabilities: ["artifact-read", "httpCall", "getPluginConfig", "getUserSettings"],
 });
 
 const csvEntry = (archive: ReturnType<typeof unzipSync>, baseName: string) => {

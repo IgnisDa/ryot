@@ -535,7 +535,6 @@ layer(makeLayer({}))((test) => {
 						providerSlug: "fixture.provider",
 						providerOperation: "details" as const,
 						requiredPluginConfigKeys: [] as const,
-						requiredSystemConfigKeys: [] as const,
 						entry: "backend/providers/fixture/provider/details.sandbox.ts",
 					},
 					{
@@ -547,7 +546,6 @@ layer(makeLayer({}))((test) => {
 						providerSlug: "fixture.provider",
 						providerOperation: "search" as const,
 						requiredPluginConfigKeys: [] as const,
-						requiredSystemConfigKeys: [] as const,
 						entry: "backend/providers/fixture/provider/search.sandbox.ts",
 					},
 				],
@@ -602,7 +600,6 @@ const userBootstrapManifest = () => {
 				name: "Fixture User Bootstrap",
 				slug: "fixture.user-bootstrap",
 				requiredPluginConfigKeys: [] as const,
-				requiredSystemConfigKeys: [] as const,
 				entry: "backend/bootstrap/user-bootstrap.sandbox.ts",
 			},
 		],

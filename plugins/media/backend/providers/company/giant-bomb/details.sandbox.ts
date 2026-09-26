@@ -5,7 +5,6 @@ import { details } from "./shared";
 
 export const manifest = defineManifest({
 	kind: "provider",
-	requiredSystemConfigKeys: [],
 	name: "GiantBomb Company Details",
 	slug: "company.giant-bomb.details",
 	capabilities: ["httpCall", "getPluginConfig"],

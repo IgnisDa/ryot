@@ -1,3 +1,4 @@
+import { BackupRunId } from "@ryot-app/contract/schema/brands";
 import { backupRunRecipe } from "@ryot-app/ryotql-recipes/backups";
 import { Effect, Option } from "effect";
 
@@ -30,11 +31,12 @@ export const startBackupExport = (client: Client) =>
 		return requirePresent(result.id, "Backup export run id is missing");
 	});
 
-export const downloadBackupArchive = (token: string, runId: string) =>
+export const downloadBackupArchive = (client: Client, runId: string) =>
 	Effect.gen(function* () {
-		const response = yield* webRequest(`${getApiUrl()}/backups/runs/${runId}/download`, {
-			headers: { Authorization: `Bearer ${token}` },
-		});
+		const ticket = yield* client.call((c) =>
+			c.backups.createDownloadTicket({ params: { id: BackupRunId.make(runId) } }),
+		);
+		const response = yield* webRequest(`${getApiUrl()}${ticket.url}`);
 		if (response.status !== 200) {
 			throw new Error(`Could not download backup archive (${response.status})`);
 		}
@@ -57,7 +59,7 @@ export const downloadBackupArchive = (token: string, runId: string) =>
 		return { bytes, headers: response.headers };
 	});
 
-export const exportAndDownloadBackup = (client: Client, token: string) =>
+export const exportAndDownloadBackup = (client: Client) =>
 	Effect.gen(function* () {
 		const id = yield* startBackupExport(client);
 		const run = yield* pollBackupRunUntilTerminal(client, id);
@@ -65,7 +67,7 @@ export const exportAndDownloadBackup = (client: Client, token: string) =>
 			throw new Error(`Backup export '${id}' failed with ${run.failure?.code ?? "unknown"}`);
 		}
 
-		const { bytes } = yield* downloadBackupArchive(token, id);
+		const { bytes } = yield* downloadBackupArchive(client, id);
 		return { id, run, bytes };
 	});
 

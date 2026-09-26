@@ -10,7 +10,6 @@ import { resolve } from "../providers/show/tmdb/shared";
 
 export const manifest = defineManifest({
 	kind: "script",
-	requiredSystemConfigKeys: [],
 	name: "Resolve imported TMDB show",
 	slug: "media-import-resolve.show.tmdb",
 	capabilities: ["httpCall", "getPluginConfig"],

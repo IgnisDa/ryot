@@ -63,7 +63,6 @@ it.live(
 						capabilities: [],
 						slug: scriptSlug,
 						requiredPluginConfigKeys: [],
-						requiredSystemConfigKeys: [],
 						name: "Compiled package fixture",
 					},
 				],

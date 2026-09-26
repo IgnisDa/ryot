@@ -8,7 +8,6 @@ export const manifest = defineManifest({
 	capabilities: ["httpCall"],
 	name: "OpenLibrary Resolve",
 	requiredPluginConfigKeys: [],
-	requiredSystemConfigKeys: [],
 	slug: "book.openlibrary.resolve",
 });
 

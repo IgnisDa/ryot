@@ -64,7 +64,6 @@ const afterScript = {
 	name: "Hook script",
 	automationType: "automation",
 	requiredPluginConfigKeys: [],
-	requiredSystemConfigKeys: [],
 	inputProjection: { signal: { properties: ["nested"] } },
 } as const;
 const policyScript = {

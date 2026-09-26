@@ -8,6 +8,7 @@ import { GodModeApi } from "#/api/god-mode";
 import { ImportsApi } from "#/api/imports";
 import { IntegrationsApi } from "#/api/integrations";
 import { NotificationsApi } from "#/api/notifications";
+import { OAuthConnectionsApi } from "#/api/oauth-connections";
 import { PluginInstallationsApi } from "#/api/plugin-installations";
 import { PluginsApi } from "#/api/plugins";
 import { ProviderEntitiesApi } from "#/api/provider-entities";
@@ -71,7 +72,12 @@ export const makeUploadsApi = (overrides: Partial<UploadsApi["Service"]> = {}) =
 	);
 
 export const makePluginsApi = (overrides: Partial<PluginsApi["Service"]> = {}) =>
-	Layer.succeed(PluginsApi, { invoke: unused, ...overrides });
+	Layer.succeed(PluginsApi, {
+		invoke: unused,
+		saveUserSettings: unused,
+		resetUserSettings: unused,
+		...overrides,
+	});
 
 export const makeProviderEntitiesApi = (overrides: Partial<ProviderEntitiesApi["Service"]> = {}) =>
 	Layer.succeed(ProviderEntitiesApi, {
@@ -87,6 +93,7 @@ export const makeImportsApi = (overrides: Partial<ImportsApi["Service"]> = {}) =
 		createRun: unused,
 		cancelRun: unused,
 		deleteRun: unused,
+		downloadFailures: unused,
 		...overrides,
 	});
 
@@ -117,9 +124,18 @@ export const makeNotificationsApi = (overrides: Partial<NotificationsApi["Servic
 		...overrides,
 	});
 
+export const makeOAuthConnectionsApi = (overrides: Partial<OAuthConnectionsApi["Service"]> = {}) =>
+	Layer.succeed(OAuthConnectionsApi, {
+		create: unused,
+		status: unused,
+		complete: unused,
+		...overrides,
+	});
+
 export const makeUserSettingsApi = (overrides: Partial<UserSettingsApi["Service"]> = {}) =>
 	Layer.succeed(UserSettingsApi, {
 		refreshAvatar: unused,
+		twoFactorStatus: unused,
 		updatePreferences: unused,
 		...overrides,
 	});
@@ -127,10 +143,13 @@ export const makeUserSettingsApi = (overrides: Partial<UserSettingsApi["Service"
 export const makeGodModeApi = (overrides: Partial<GodModeApi["Service"]> = {}) =>
 	Layer.succeed(GodModeApi, {
 		query: unused,
+		listLogs: unused,
 		resetUser: unused,
 		deleteUser: unused,
+		downloadLogs: unused,
 		setUserDisabled: unused,
 		resetUserPassword: unused,
+		startUserImpersonation: unused,
 		...overrides,
 	});
 
@@ -146,6 +165,7 @@ export const KernelApiTestLayer = Layer.mergeAll(
 	makeUserSettingsApi(),
 	makeIntegrationsApi(),
 	makeNotificationsApi(),
+	makeOAuthConnectionsApi(),
 	makeEntityInterestApi(),
 	makeProviderEntitiesApi(),
 	makeEntityInterestService(),

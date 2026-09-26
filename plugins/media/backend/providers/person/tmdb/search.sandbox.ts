@@ -7,9 +7,8 @@ export const manifest = defineManifest({
 	kind: "provider",
 	name: "TMDB Person Search",
 	slug: "person.tmdb.search",
-	requiredSystemConfigKeys: [],
 	requiredPluginConfigKeys: ["tmdbAccessToken"],
-	capabilities: ["httpCall", "getPluginConfig", "getUserPreferences"],
+	capabilities: ["httpCall", "getPluginConfig", "getUserSettings"],
 });
 
 export default defineProvider({ manifest, run: search.run, operation: "search" });

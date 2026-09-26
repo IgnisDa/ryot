@@ -11,7 +11,6 @@ export const manifest = defineManifest({
 	slug: "person.vndb",
 	capabilities: ["httpCall"],
 	requiredPluginConfigKeys: [],
-	requiredSystemConfigKeys: [],
 });
 
 const PAGE_SIZE = 20;

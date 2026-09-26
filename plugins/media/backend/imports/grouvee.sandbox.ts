@@ -11,7 +11,6 @@ export const manifest = defineManifest({
 	slug: "import.grouvee",
 	name: "Parse Grouvee import",
 	requiredPluginConfigKeys: [],
-	requiredSystemConfigKeys: [],
 	capabilities: ["artifact-read"],
 });
 

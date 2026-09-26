@@ -1,4 +1,4 @@
-import { Result, Schema } from "effect";
+import { DateTime, Option, Result, Schema } from "effect";
 
 const excessProperty = Schema.Never.annotate({ identifier: "no excess property" });
 
@@ -37,3 +37,6 @@ const isHttpUrl = (value: string): true | string => {
 export const Email = Schema.String.pipe(Schema.check(Schema.makeFilter(isEmail)));
 
 export const HttpUrl = Schema.String.pipe(Schema.check(Schema.makeFilter(isHttpUrl)));
+
+export const isNamedTimeZone = (value: string) =>
+	!/^[-+]\d{2}(?::?\d{2})?$/.test(value) && Option.isSome(DateTime.zoneMakeNamed(value));

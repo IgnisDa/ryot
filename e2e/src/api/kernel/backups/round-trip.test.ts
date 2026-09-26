@@ -1,3 +1,4 @@
+import type { PluginManifest } from "@ryot-app/contract/modules/plugins/manifest";
 import {
 	EntitySchemaSlug,
 	EventSchemaSlug,
@@ -5,17 +6,23 @@ import {
 	RelationshipSchemaSlug,
 } from "@ryot-app/contract/schema/brands";
 import { column, document, eq, field, literal, rows, table } from "@ryot-app/ryotql";
+import {
+	pluginUserSettingsRecipe,
+	type PluginUserSettingsPage,
+} from "@ryot-app/ryotql-recipes/plugin-user-settings";
 import { Effect } from "effect";
 
 import {
 	type Client,
 	cloneSavedView,
 	createAuthenticatedClient,
+	createIntegration,
 	createEntity,
 	createPluginScope,
 	createPluginSavedView,
 	findPluginIdBySlug,
 	createRelationship,
+	collectRyotQLRecipeItems,
 	deleteUserAndWait,
 	enqueueProviderEntityImport,
 	executeRyotQL,
@@ -25,6 +32,9 @@ import {
 	findBuiltinSavedView,
 	findSavedViewById,
 	findPluginInstallationBySlug,
+	installPrivatePluginPackage,
+	settledPrivateInstallation,
+	testPluginManifest,
 	getEntity,
 	getEntitySchema,
 	getNotificationSubscription,
@@ -34,16 +44,20 @@ import {
 	literalSandboxSource,
 	listEventSchemas,
 	listEventsForEntity,
+	listIntegrations,
+	listImportedEntityNames,
 	waitForCreateEvents,
 	listNotificationSubscriptions,
 	listRelationshipSchemas,
 	listSavedViews,
 	pollProviderEntityImportResult,
 	providerSandboxSource,
+	pollImportRunUntilTerminal,
 	requireRows,
 	requireRyotQLText,
 	requireRyotQLValue,
 	restoreBackup,
+	sendDataWebhook,
 	setPluginHomeView,
 	setNotificationRuleActive,
 	updatePluginState,
@@ -51,6 +65,7 @@ import {
 	installFixtureClientPlugin,
 	FIXTURE_CLIENT_PLUGIN_SLUG,
 } from "~/fixtures/kernel";
+import { compilePluginPackage } from "~/fixtures/kernel/compiled-package";
 import {
 	getGlobalEntityByProvenance,
 	queryInMediaLibraryRelationship,
@@ -113,6 +128,20 @@ const getRelationship = (client: Client, relationshipId: string) =>
 		};
 	});
 
+type PluginUserSettingsRecord = PluginUserSettingsPage["items"][number];
+
+const getPluginUserSettings = (client: Client) =>
+	collectRyotQLRecipeItems(client, (after) => pluginUserSettingsRecipe({ after, limit: 100 }));
+
+const requireSettingsForField = (
+	settings: ReadonlyArray<PluginUserSettingsRecord>,
+	fieldName: string,
+) =>
+	requirePresent(
+		settings.find(({ settingsSchema }) => Object.hasOwn(settingsSchema.fields, fieldName)),
+		`Missing plugin user settings field '${fieldName}'`,
+	);
+
 describe("backup export and restore round trip", () => {
 	it.live("maps plugin and saved-view identities while the source account still exists", () =>
 		Effect.gen(function* () {
@@ -132,7 +161,7 @@ describe("backup export and restore round trip", () => {
 			const sourceView = yield* findSavedViewById(source.client, view.id);
 			yield* setPluginHomeView(source.client, PluginSlug.make("media"), sourceView.slug);
 
-			const { bytes } = yield* exportAndDownloadBackup(source.client, source.token);
+			const { bytes } = yield* exportAndDownloadBackup(source.client);
 			const restored = yield* restoreBackup(target.client, bytes);
 			assertCompleted(restored.run, "coexisting-account backup restore");
 
@@ -230,6 +259,16 @@ describe("backup export and restore round trip", () => {
 				installTestPluginBundle({
 					pluginSlug,
 					scope: "system",
+					scripts: [
+						{
+							entry,
+							kind: "script",
+							slug: scriptSlug,
+							capabilities: [],
+							requiredPluginConfigKeys: [],
+							name: "Backup round trip fixture",
+						},
+					],
 					files: {
 						"client/page.tsx": "export default function BackupPage() { return null; }",
 						[entry]: literalSandboxSource({
@@ -238,17 +277,6 @@ describe("backup export and restore round trip", () => {
 							name: "Backup round trip fixture",
 						}),
 					},
-					scripts: [
-						{
-							entry,
-							kind: "script",
-							slug: scriptSlug,
-							capabilities: [],
-							requiredPluginConfigKeys: [],
-							requiredSystemConfigKeys: [],
-							name: "Backup round trip fixture",
-						},
-					],
 					relationshipSchemas: [
 						{
 							slug: relationshipSchemaSlug,
@@ -313,6 +341,48 @@ describe("backup export and restore round trip", () => {
 			};
 			const source = yield* createAuthenticatedClient();
 			const target = yield* createAuthenticatedClient();
+			const privatePluginSlug = `backup-settings-${suffix}`;
+			const privateSettingKey = `backupPreference${suffix.replaceAll("-", "")}`;
+			const privateSettingsSchema: NonNullable<PluginManifest["userSettingsSchema"]> = {
+				unknownKeys: "strict",
+				fields: {
+					[privateSettingKey]: {
+						type: "boolean",
+						label: "Backup preference",
+						description: "Private plugin backup preference",
+					},
+				},
+			};
+			const basePrivateSettingsManifest = testPluginManifest({ pluginSlug: privatePluginSlug });
+			const privateSettingsManifest: PluginManifest = {
+				...basePrivateSettingsManifest,
+				userSettingsSchema: privateSettingsSchema,
+				metadata: {
+					...basePrivateSettingsManifest.metadata,
+					name: "Backup private settings fixture",
+				},
+			};
+			const pluginPackage = yield* compilePluginPackage({
+				files: {},
+				manifest: privateSettingsManifest,
+			});
+			yield* installPrivatePluginPackage({ config: {}, pluginPackage, client: source.client });
+			yield* settledPrivateInstallation(source.client, PluginSlug.make(privatePluginSlug));
+			const sourcePluginSettings = yield* getPluginUserSettings(source.client);
+			const mediaSettings = requireSettingsForField(sourcePluginSettings, "allowNsfw");
+			yield* source.client.call((c) =>
+				c.plugins.saveUserSettings({
+					payload: { allowNsfw: true },
+					params: { installationId: mediaSettings.id },
+				}),
+			);
+			const privateSettings = requireSettingsForField(sourcePluginSettings, privateSettingKey);
+			yield* source.client.call((c) =>
+				c.plugins.saveUserSettings({
+					payload: { [privateSettingKey]: true },
+					params: { installationId: privateSettings.id },
+				}),
+			);
 			const pluginOwnedView = requirePresent(
 				(yield* listSavedViews(source.client, { pluginSlug })).find(
 					({ slug }) => slug === pluginViewSlug,
@@ -418,10 +488,17 @@ describe("backup export and restore round trip", () => {
 			).toBe(false);
 			yield* updatePluginState(source.client, "media", { sortOrder: 73, isHidden: true });
 
-			const { bytes } = yield* exportAndDownloadBackup(source.client, source.token);
+			const { bytes } = yield* exportAndDownloadBackup(source.client);
 			yield* deleteUserAndWait(source.userId);
 			const restored = yield* restoreBackup(target.client, bytes);
 			assertCompleted(restored.run, "backup restore");
+			const restoredPluginSettings = yield* getPluginUserSettings(target.client);
+			expect(requireSettingsForField(restoredPluginSettings, "allowNsfw").settings).toEqual({
+				allowNsfw: true,
+			});
+			expect(requireSettingsForField(restoredPluginSettings, privateSettingKey).settings).toEqual({
+				[privateSettingKey]: true,
+			});
 
 			const restoredMediaLibraryId = yield* getMediaLibraryId(target.client);
 			expect(restoredMediaLibraryId).toBe(targetMediaLibraryId);
@@ -572,7 +649,6 @@ describe("backup export and restore round trip", () => {
 							slug: detailsScriptSlug,
 							kind: "provider" as const,
 							requiredPluginConfigKeys: [],
-							requiredSystemConfigKeys: [],
 							providerOperation: "details" as const,
 						},
 					],
@@ -620,7 +696,7 @@ describe("backup export and restore round trip", () => {
 				relationshipSchemaSlug: "in-media-library",
 				properties: { owned: true, ownershipSources: ["backup-round-trip"] },
 			});
-			const { bytes } = yield* exportAndDownloadBackup(source.client, source.token);
+			const { bytes } = yield* exportAndDownloadBackup(source.client);
 			yield* deleteUserAndWait(source.userId);
 
 			const existingBeforeRestore = yield* getEntity(updater.client, archivedResult.data.id);
@@ -644,6 +720,52 @@ describe("backup export and restore round trip", () => {
 				entitySchemaSlug,
 			);
 			expect(requireRows(inMediaLibrary.data.entity, "entity").items).toHaveLength(1);
+		}),
+	);
+
+	it.live("restores a kernel-owned Data webhook and accepts new submissions", () =>
+		Effect.gen(function* () {
+			const source = yield* createAuthenticatedClient();
+			const target = yield* createAuthenticatedClient();
+			const integration = yield* createIntegration(source.client, {
+				provider: "data-json",
+				providerSpecifics: {},
+				name: "Native backup webhook",
+			});
+			const { bytes } = yield* exportAndDownloadBackup(source.client);
+			yield* deleteUserAndWait(source.userId);
+			const restored = yield* restoreBackup(target.client, bytes);
+			assertCompleted(restored.run, "Data webhook restore");
+			const integrations = yield* listIntegrations(target.client, { provider: "data-json" });
+			expect(integrations).toHaveLength(1);
+			expect(integrations[0]).toMatchObject({
+				pluginSlug: null,
+				isDisabled: false,
+				id: integration.id,
+				name: "Native backup webhook",
+			});
+			const name = `Restored data collection ${crypto.randomUUID()}`;
+			const runId = yield* sendDataWebhook(
+				target.client,
+				integration,
+				{
+					events: [],
+					relationships: [],
+					entities: [
+						{
+							name,
+							kind: "custom",
+							properties: {},
+							key: "collection",
+							entitySchemaSlug: "collection",
+						},
+					],
+				},
+				"after-restore",
+			);
+			const run = yield* pollImportRunUntilTerminal(target.client, runId);
+			expect(run).toMatchObject({ failedItems: 0, importedItems: 1, status: "completed" });
+			expect(yield* listImportedEntityNames(target.client, "collection")).toContain(name);
 		}),
 	);
 });

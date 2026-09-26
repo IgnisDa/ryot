@@ -1,4 +1,4 @@
-import { validateEvent, WebhookVerificationError } from "@polar-sh/sdk/webhooks";
+import { webhooks } from "@polar-sh/sdk/2026-04";
 import { Effect } from "effect";
 import type { HttpClient } from "effect/unstable/http";
 import { data } from "react-router";
@@ -18,6 +18,8 @@ import { getProductAndPlanTypeByPolarIds } from "~/lib/utilities.server";
 
 import type { Route } from "./+types/polar-webhook";
 
+type PolarWebhookEvent = Awaited<ReturnType<typeof webhooks.validateEvent>>;
+
 function findCustomer(polarCustomerId: string | undefined, externalCustomerId: string | undefined) {
 	return findCustomerWithFallback(
 		polarCustomerId,
@@ -28,7 +30,7 @@ function findCustomer(polarCustomerId: string | undefined, externalCustomerId: s
 }
 
 function handleOrderPaid(
-	event: ReturnType<typeof validateEvent>,
+	event: PolarWebhookEvent,
 ): Effect.Effect<{ error?: string; message?: string }, WebsiteFailure, HttpClient.HttpClient> {
 	return Effect.gen(function* () {
 		if (event.type !== "order.paid") {
@@ -37,7 +39,7 @@ function handleOrderPaid(
 
 		const { data: order } = event;
 		const polarCustomerId = order.customer.id;
-		const externalCustomerId = order.customer.externalId ?? undefined;
+		const externalCustomerId = order.customer.external_id ?? undefined;
 
 		yield* Effect.log("Received order.paid event", { polarCustomerId, externalCustomerId });
 
@@ -46,12 +48,12 @@ function handleOrderPaid(
 			return { error: `No customer found for Polar customer ID: ${polarCustomerId}` };
 		}
 
-		const productId = order.productId;
+		const productId = order.product_id;
 		if (!productId) {
 			return { error: "Product ID not found in order" };
 		}
 
-		const priceId = order.items[0]?.productPriceId;
+		const priceId = order.items[0]?.product_price_id;
 		const planAndProduct = getProductAndPlanTypeByPolarIds(productId, priceId);
 		if (!planAndProduct) {
 			return { error: `No matching product found for product ID: ${productId}` };
@@ -71,7 +73,7 @@ function handleOrderPaid(
 }
 
 function handleSubscriptionRevoked(
-	event: ReturnType<typeof validateEvent>,
+	event: PolarWebhookEvent,
 ): Effect.Effect<{ error?: string; message?: string }, WebsiteFailure, HttpClient.HttpClient> {
 	return Effect.gen(function* () {
 		if (event.type !== "subscription.revoked") {
@@ -80,7 +82,7 @@ function handleSubscriptionRevoked(
 
 		const { data: subscription } = event;
 		const polarCustomerId = subscription.customer.id;
-		const externalCustomerId = subscription.customer.externalId ?? undefined;
+		const externalCustomerId = subscription.customer.external_id ?? undefined;
 
 		yield* Effect.log("Received subscription.revoked event", {
 			polarCustomerId,
@@ -109,16 +111,16 @@ export const action = ({ request }: Route.ActionArgs) =>
 				headers[key] = value;
 			});
 
-			const validated = yield* Effect.try({
+			const validated = yield* Effect.tryPromise({
 				catch: (cause) => new WebsiteFailure({ cause }),
-				try: () => validateEvent(body, headers, webhookSecret),
+				try: () => webhooks.validateEvent(body, headers, webhookSecret),
 			}).pipe(
 				Effect.map((event) => ({ event })),
 				Effect.catch((failure) =>
 					Effect.gen(function* () {
 						const error = failure.cause;
 						yield* Effect.logError("Polar webhook validation failed:", error);
-						const isInvalidSignature = error instanceof WebhookVerificationError;
+						const isInvalidSignature = error instanceof webhooks.PolarWebhookVerificationError;
 						return {
 							response: data(
 								{

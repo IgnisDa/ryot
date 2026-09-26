@@ -6,8 +6,8 @@
 		"test": { "outputLogs": "errors-only", "dependsOn": ["^build", "^check", "^test"] },
 		"build": {
 			"dependsOn": ["^build"],
-			"env": ["UNKEY_ROOT_KEY"],
 			"outputLogs": "errors-only",
+			"env": ["UNKEY_ROOT_KEY", "RYOT_VERSION"],
 			"outputs": ["out/**", "dist/**", "build/**", ".vitepress/dist/**"]
 		},
 		"@ryot-app/kernel-backend#build": {
@@ -29,8 +29,8 @@
 		"@ryot-app/server#build": {
 			"outputs": ["dist/**"],
 			"dependsOn": ["^build"],
-			"env": ["UNKEY_ROOT_KEY"],
-			"outputLogs": "errors-only"
+			"outputLogs": "errors-only",
+			"env": ["UNKEY_ROOT_KEY", "RYOT_VERSION"]
 		},
 		"@ryot-app/kernel-renderers#build": {
 			"dependsOn": ["^build"],
@@ -39,7 +39,7 @@
 				"src/**/*.ts",
 				"src/**/*.tsx",
 				"!src/**/*.generated.ts",
-				"scripts/**/*.ts",
+				"tooling/**/*.ts",
 				"package.json"
 			]
 		},

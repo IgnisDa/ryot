@@ -97,7 +97,6 @@ const hotSwapScript = (id: typeof historicalScriptId, compiledCode: string) => (
 		slug: "workflow",
 		kind: "workflow" as const,
 		requiredPluginConfigKeys: [],
-		requiredSystemConfigKeys: [],
 	},
 });
 const historical = hotSwapScript(historicalScriptId, historicalContent);

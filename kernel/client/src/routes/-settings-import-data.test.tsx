@@ -620,6 +620,38 @@ describe("import run detail", () => {
 		}),
 	);
 
+	it.live("offers the full failure download when no failures are loaded and retries errors", () =>
+		Effect.gen(function* () {
+			const downloads: string[] = [];
+			mountView(
+				"/settings/import-data/run_1",
+				makeImportsApi({
+					downloadFailures: (_scope, runId) => {
+						downloads.push(runId);
+						return downloads.length === 1
+							? Effect.fail(new AuthenticatedApiError({ cause: 500 }))
+							: Effect.void;
+					},
+				}),
+				makeImportsStub({
+					loadRun: () => Effect.succeed(decodeRun([makeRun({ failedItems: 1 })])),
+				}),
+			);
+
+			yield* Effect.promise(() => screen.findByRole("heading", { level: 1, name: "Hevy" }));
+			const downloadButton = screen.getByRole("button", { name: "Download errors" });
+			fireEvent.click(downloadButton);
+			yield* Effect.promise(() => screen.findByRole("alert"));
+			expect(screen.getByRole("alert").textContent).toBe(
+				"Could not download these errors. Try again.",
+			);
+
+			fireEvent.click(screen.getByRole("button", { name: "Download errors" }));
+			yield* Effect.promise(() => waitFor(() => expect(downloads).toEqual(["run_1", "run_1"])));
+			expect(screen.queryByRole("alert")).toBeNull();
+		}),
+	);
+
 	it.live("explains why a failed run stopped", () =>
 		Effect.gen(function* () {
 			mountView(

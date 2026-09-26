@@ -50,9 +50,12 @@ export const importSourceEntry = (source: ImportSourceItem): CatalogEntry => ({
 	name: source.name,
 	description: source.description,
 	isAvailable: source.isStartable,
-	group: pluginCatalogGroup(source.pluginSlug),
 	requirement: importSourceRequirement(source),
 	badge: importSourceInputShape(source.inputSchema),
+	group:
+		source.pluginSlug === null
+			? { key: "kernel", heading: "Ryot" }
+			: pluginCatalogGroup(source.pluginSlug),
 });
 
 export const importSourceChooseLabel = (entry: CatalogEntry) =>

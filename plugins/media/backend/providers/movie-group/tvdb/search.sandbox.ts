@@ -5,7 +5,6 @@ import { search } from "./shared";
 
 export const manifest = defineManifest({
 	kind: "provider",
-	requiredSystemConfigKeys: [],
 	name: "TVDB Movie Group Search",
 	slug: "movie-group.tvdb.search",
 	requiredPluginConfigKeys: ["tvdbApiKey"],

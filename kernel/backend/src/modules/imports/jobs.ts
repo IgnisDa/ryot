@@ -7,6 +7,7 @@ export const ImportRunJobData = Schema.Struct({
 	runId: ImportRunId,
 	command: LifecycleCommand,
 	sourceStateId: Schema.String,
+	dataJson: Schema.optional(Schema.Boolean),
 	uploadIntentIds: Schema.Array(Schema.String),
 });
 

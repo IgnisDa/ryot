@@ -207,8 +207,9 @@ export class AuthRepository extends Context.Service<AuthRepository>()("AuthRepos
 			);
 		});
 
-		const revokeUserOAuthTokens = Effect.fn("AuthRepository.revokeUserOAuthTokens")(function* (
-			userId: UserId,
+		const revokeOAuthTokens = Effect.fn("AuthRepository.revokeOAuthTokens")(function* (
+			field: "userId" | "sessionId",
+			id: string,
 		) {
 			const revoked = yield* DateTime.nowAsDate;
 			yield* database.run((db) =>
@@ -219,7 +220,7 @@ export class AuthRepository extends Context.Service<AuthRepository>()("AuthRepos
 							.set({ revoked })
 							.where(
 								and(
-									eq(schema.oauthRefreshToken.userId, userId),
+									eq(schema.oauthRefreshToken[field], id),
 									isNull(schema.oauthRefreshToken.revoked),
 								),
 							),
@@ -228,7 +229,7 @@ export class AuthRepository extends Context.Service<AuthRepository>()("AuthRepos
 							.set({ revoked })
 							.where(
 								and(
-									eq(schema.oauthAccessToken.userId, userId),
+									eq(schema.oauthAccessToken[field], id),
 									isNull(schema.oauthAccessToken.revoked),
 								),
 							),
@@ -238,11 +239,65 @@ export class AuthRepository extends Context.Service<AuthRepository>()("AuthRepos
 			);
 		});
 
+		const revokeUserOAuthTokens = Effect.fn("AuthRepository.revokeUserOAuthTokens")(function* (
+			userId: UserId,
+		) {
+			yield* revokeOAuthTokens("userId", userId);
+		});
+
+		const findSession = Effect.fn("AuthRepository.findSession")(function* (sessionId: string) {
+			const [row] = yield* database.run((db) =>
+				db
+					.select({
+						id: schema.session.id,
+						userId: schema.session.userId,
+						disabledAt: schema.user.disabledAt,
+						expiresAt: schema.session.expiresAt,
+						bootstrapCompletedAt: schema.user.bootstrapCompletedAt,
+						impersonationExpiresAt: schema.session.impersonationExpiresAt,
+					})
+					.from(schema.session)
+					.innerJoin(schema.user, eq(schema.user.id, schema.session.userId))
+					.where(eq(schema.session.id, sessionId))
+					.limit(1),
+			);
+			return row ?? null;
+		});
+
+		const findUserById = Effect.fn("AuthRepository.findUserById")(function* (userId: string) {
+			const [user] = yield* database.run((db) =>
+				db
+					.select({
+						id: schema.user.id,
+						name: schema.user.name,
+						email: schema.user.email,
+						image: schema.user.image,
+						disabledAt: schema.user.disabledAt,
+						preferences: schema.user.preferences,
+						accountGeneration: schema.user.accountGeneration,
+						bootstrapCompletedAt: schema.user.bootstrapCompletedAt,
+					})
+					.from(schema.user)
+					.where(eq(schema.user.id, userId))
+					.limit(1),
+			);
+			return user ?? null;
+		});
+
+		const revokeSessionOAuthTokens = Effect.fn("AuthRepository.revokeSessionOAuthTokens")(
+			function* (sessionId: string) {
+				yield* revokeOAuthTokens("sessionId", sessionId);
+			},
+		);
+
 		return {
+			findSession,
+			findUserById,
 			getUserPreferences,
 			getPortableProfile,
 			patchUserPreferences,
 			revokeUserOAuthTokens,
+			revokeSessionOAuthTokens,
 			upsertInternalOAuthClient,
 			upsertInternalOAuthResource,
 			upsertInternalOAuthClientResource,

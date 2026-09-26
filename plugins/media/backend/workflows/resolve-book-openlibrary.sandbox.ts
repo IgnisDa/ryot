@@ -12,7 +12,6 @@ export const manifest = defineManifest({
 	kind: "script",
 	capabilities: ["httpCall"],
 	requiredPluginConfigKeys: [],
-	requiredSystemConfigKeys: [],
 	name: "Resolve imported OpenLibrary book",
 	slug: "media-import-resolve.book.openlibrary",
 });

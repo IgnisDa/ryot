@@ -262,6 +262,9 @@ Translation UI does not name the preferred language because the bridge does not 
 
 ## Images And Providers
 
+The per-user Media plugin preference `allowNsfw` controls whether providers include adult metadata
+and search results. Entity language is a global setting owned by the kernel.
+
 Media images use `{ type, url/key, purpose }`. Remote images use `url`; local and S3 images use `key`.
 Purpose is one of `cover`, `backdrop`, `profile`, `logo`, `still`, `screenshot`, or `artwork`.
 
@@ -339,6 +342,27 @@ The Trakt importer has three tagged modes:
 User and list modes require `traktClientId`; export does not. List URLs allow only `trakt.tv` or
 `www.trakt.tv` with `/users/{username}/lists/{slug}`. Export ratings and comments can target movies,
 shows, seasons, or episodes.
+
+Every upload or credentialed import runs its parser loop in `media-import-segment` child workflows of
+up to 100 batches each, so a long import stays within the kernel's per-execution journal limits.
+Integration runs process their single batch inline.
+
+The Spotify importer reads an extended streaming history ZIP and records each `trackdone` play of a
+`spotify:track:` URI once per `(track, ts)`. A track's plays are cut into items of six so a batch fits the
+write-chunks context limit.
+
+## Integrations
+
+The Spotify yank declares the `spotify` OAuth provider over `spotifyClientId` and
+`spotifyClientSecret`, and its `account` setting holds the OAuth connection. Each sync reads the 50
+most recent plays with the connection's access token, sent only as a bearer header. When the
+integration has a `lastFinishedAt`, plays at or before one hour before it are ignored and that bound
+is sent as Spotify's `after` cursor; the first sync considers every returned play. Each remaining play
+is claimed once for 30 days under `["media.spotify-play", integrationId, trackId, playedAt]` and
+becomes a `complete` event on the `music.spotify` track with `completedOn` and `occurredAt` set to the
+play time, `custom_timestamps`, `timeSpent` from the track duration in minutes, and
+`consumedOn: "spotify"`. Plays without a track ID are skipped and logged. Spotify request failures
+report only the HTTP status.
 
 ## Lifecycle
 

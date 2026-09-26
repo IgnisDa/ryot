@@ -49,10 +49,14 @@ import { AppConfig, type AppConfigValue, isOidcEnabled } from "#lib/infrastructu
 import * as authSchema from "#lib/infrastructure/db/schema/tables/auth";
 import { DatabaseSession } from "#lib/infrastructure/db/session";
 import { logHttpResponse } from "#lib/infrastructure/http-response-logger";
-import { redisKeys, RedisService } from "#lib/infrastructure/redis";
+import { ImpersonationEndedMessage, redisKeys, RedisService } from "#lib/infrastructure/redis";
 
 import { demoAccessPlugin } from "./demo-access-plugin";
 import { effectPostgresAuthAdapter } from "./effect-postgres-adapter";
+import { ImpersonationHandoffs } from "./impersonation-handoffs";
+import { impersonationOAuthExtension, isImpersonationClient } from "./impersonation-oauth";
+import { impersonationPlugin } from "./impersonation-plugin";
+import { ImpersonationSessions } from "./impersonation-sessions";
 import { LifecycleWriteGuard } from "./lifecycle-write-guard";
 import { AuthRepository } from "./repository";
 import { captureResetLink, deliverResetLink, type ResetCaptureTransport } from "./reset-capture";
@@ -103,6 +107,7 @@ const demoProtectedAuthPaths = new Set([
 	"/list-sessions",
 	"/refresh-token",
 	"/two-factor/get-totp-uri",
+	"/two-factor/verify-totp",
 ]);
 
 export const isDemoProtectedAuthRequest = (path: string, accessClass: unknown, clientId?: string) =>
@@ -208,6 +213,7 @@ export class AuthBootstrapScheduleError extends Schema.TaggedError<AuthBootstrap
 const makeOAuthProviderPlugin = (
 	frontendUrl: string,
 	requiresUserInitialization: (userId: string) => Promise<boolean>,
+	impersonationSessions: ImpersonationSessions["Service"],
 ) => {
 	const { endpoints, ...plugin } = oauthProvider({
 		disableJwtPlugin: false,
@@ -220,6 +226,7 @@ const makeOAuthProviderPlugin = (
 		resources: [getOAuthResource(frontendUrl)],
 		allowUnauthenticatedClientRegistration: false,
 		grantTypes: ["authorization_code", "refresh_token"],
+		extensions: [impersonationOAuthExtension(impersonationSessions)],
 		postLogin: {
 			page: "/oauth/initializing",
 			consentReferenceId: () => undefined,
@@ -243,6 +250,9 @@ const makeAuthInstance = (args: {
 	readonly lifecycle: LifecycleWriteGuard["Service"];
 	readonly sessionGate: SessionCreationGate["Service"];
 	readonly revokeOAuthTokens: (userId: UserId) => Effect.Effect<void, DbError>;
+	readonly repository: AuthRepository["Service"];
+	readonly impersonationSessions: ImpersonationSessions["Service"];
+	readonly handoffs: ImpersonationHandoffs["Service"];
 }) => {
 	const oidcEnabled = isOidcEnabled(args.config);
 
@@ -269,40 +279,17 @@ const makeAuthInstance = (args: {
 		secondaryStorage: redisStorage({ client: args.redis }),
 		secret: Redacted.value(args.config.server.adminAccessToken),
 		disabledPaths: args.config.users.disableLocalAuth ? ["/sign-in/email"] : [],
-		session: {
-			storeSessionInDatabase: true,
-			additionalFields: {
-				accessClass: { input: false, type: "string", required: true, defaultValue: "standard" },
-			},
-		},
 		user: {
 			additionalFields: {
 				disabledAt: { type: "date", input: false, required: false },
 				bootstrapCompletedAt: { type: "date", input: false, required: false },
 			},
 		},
-		databaseHooks: {
-			session: {
-				create: {
-					before: (session, context) =>
-						database.runInCurrentContext(context, args.sessionGate.gate(session.userId)),
-				},
-			},
-			user: {
-				create: {
-					after: (user) =>
-						Effect.runPromiseWith(args.runtime)(
-							args
-								.scheduleUserBootstrap(user.id)
-								.pipe(
-									Effect.catchCause((cause) =>
-										Effect.logError("user bootstrap scheduling failed", cause).pipe(
-											Effect.annotateLogs({ userId: user.id }),
-										),
-									),
-								),
-						),
-				},
+		session: {
+			storeSessionInDatabase: true,
+			additionalFields: {
+				impersonationExpiresAt: { input: false, type: "date", required: false },
+				accessClass: { input: false, type: "string", required: true, defaultValue: "standard" },
 			},
 		},
 		emailAndPassword: {
@@ -334,8 +321,13 @@ const makeAuthInstance = (args: {
 		plugins: [
 			jwt(),
 			demoAccessPlugin(Option.getOrNull(args.config.users.demoAccountId)),
+			impersonationPlugin(args.handoffs),
 			userInitializationPlugin(),
-			makeOAuthProviderPlugin(args.config.frontendUrl, requiresUserInitialization),
+			makeOAuthProviderPlugin(
+				args.config.frontendUrl,
+				requiresUserInitialization,
+				args.impersonationSessions,
+			),
 			twoFactor({ allowPasswordless: true }),
 			apiKey({
 				fallbackToDatabase: true,
@@ -367,6 +359,70 @@ const makeAuthInstance = (args: {
 					]
 				: []),
 		],
+		databaseHooks: {
+			user: {
+				create: {
+					after: (user) =>
+						Effect.runPromiseWith(args.runtime)(
+							args
+								.scheduleUserBootstrap(user.id)
+								.pipe(
+									Effect.catchCause((cause) =>
+										Effect.logError("user bootstrap scheduling failed", cause).pipe(
+											Effect.annotateLogs({ userId: user.id }),
+										),
+									),
+								),
+						),
+				},
+			},
+			session: {
+				create: {
+					before: (session, context) =>
+						database.runInCurrentContext(context, args.sessionGate.gate(session.userId)),
+				},
+				update: {
+					before: (update, context) => {
+						const current = context?.context.session?.session;
+						const deadline = current ? Reflect.get(current, "impersonationExpiresAt") : undefined;
+						if (!(deadline instanceof Date)) {
+							return Promise.resolve({ data: update });
+						}
+						const requested =
+							update.expiresAt instanceof Date ? update.expiresAt.getTime() : deadline.getTime();
+						return Promise.resolve({
+							data: { ...update, expiresAt: new Date(Math.min(requested, deadline.getTime())) },
+						});
+					},
+				},
+				delete: {
+					before: (session, context) =>
+						database.runInCurrentContext(
+							context,
+							Effect.gen(function* () {
+								if (!Reflect.get(session, "impersonationExpiresAt")) {
+									return;
+								}
+								yield* args.repository.revokeSessionOAuthTokens(session.id);
+							}),
+						),
+					after: (session) =>
+						Effect.runPromiseWith(args.runtime)(
+							Effect.gen(function* () {
+								if (!Reflect.get(session, "impersonationExpiresAt")) {
+									return;
+								}
+								const message = yield* Schema.encodeEffect(ImpersonationEndedMessage)({
+									sessionId: session.id,
+								});
+								yield* Effect.tryPromise(() =>
+									args.redis.publish(redisKeys.impersonationEndedChannel, message),
+								);
+							}),
+						),
+				},
+			},
+		},
 		hooks: {
 			before: createAuthMiddleware((ctx) =>
 				Effect.runPromiseWith(args.runtime)(
@@ -374,15 +430,53 @@ const makeAuthInstance = (args: {
 						const needsSession =
 							demoProtectedAuthPaths.has(ctx.path) ||
 							ctx.path === "/oauth2/authorize" ||
-							ctx.path === "/oauth2/continue";
+							ctx.path === "/oauth2/continue" ||
+							ctx.path === "/get-session" ||
+							ctx.path === "/initialization-status";
 						if (!needsSession) {
 							return undefined;
 						}
 						const session = yield* Effect.promise(() =>
-							getSessionFromCtx(ctx, { disableCookieCache: true }),
+							getSessionFromCtx(ctx, { disableRefresh: true, disableCookieCache: true }),
 						);
 						if (!session) {
+							if (
+								isImpersonationClient(requestClientId(ctx) ?? "") &&
+								ctx.path === "/oauth2/authorize"
+							) {
+								return yield* Effect.fail(
+									APIError.from("FORBIDDEN", {
+										code: "IMPERSONATION_REQUIRED",
+										message: "An impersonation session is required.",
+									}),
+								);
+							}
 							return undefined;
+						}
+						const marked =
+							Reflect.get(session.session, "impersonationExpiresAt") !== null &&
+							Reflect.get(session.session, "impersonationExpiresAt") !== undefined;
+						if (
+							marked &&
+							!(yield* args.impersonationSessions.getActive(session.session.id, session.user.id))
+						) {
+							return yield* Effect.fail(
+								APIError.from("UNAUTHORIZED", {
+									code: "IMPERSONATION_ENDED",
+									message: "The impersonation session has ended.",
+								}),
+							);
+						}
+						if (
+							ctx.path === "/oauth2/authorize" &&
+							marked !== isImpersonationClient(requestClientId(ctx) ?? "")
+						) {
+							return yield* Effect.fail(
+								APIError.from("FORBIDDEN", {
+									code: "IMPERSONATION_CLIENT_MISMATCH",
+									message: "This session cannot authorize the requested client.",
+								}),
+							);
 						}
 						if (
 							isDemoProtectedAuthRequest(
@@ -511,12 +605,22 @@ const resolveOAuthCredential = (
 ): Effect.Effect<VerifiedCredential, AuthUnauthorized> =>
 	Effect.tryPromise({ try: () => verifyOAuth(token), catch: authenticationRequired }).pipe(
 		Effect.flatMap(
-			Schema.decodeUnknownEffect(Schema.Struct({ sub: Schema.String, client_id: Schema.String })),
+			Schema.decodeUnknownEffect(
+				Schema.Struct({
+					sub: Schema.String,
+					client_id: Schema.String,
+					sid: Schema.optional(Schema.String),
+				}),
+			),
 		),
 		Effect.mapError(authenticationRequired),
-		Effect.map(({ sub, client_id }) => ({
+		Effect.map(({ sub, sid, client_id }) => ({
 			userId: sub,
-			credential: { kind: "oauth", clientId: client_id },
+			credential: {
+				kind: "oauth",
+				clientId: client_id,
+				...(sid === undefined ? {} : { sessionId: sid }),
+			},
 		})),
 	);
 
@@ -549,6 +653,7 @@ export const resolveCredential = <E>(
 	verifyApiKey: (key: string) => Promise<ApiKeyVerification>,
 	findUserById: (userId: string) => Effect.Effect<AuthUserRecord | null, E>,
 	demoAccountId: string | null = null,
+	impersonationSessions?: ImpersonationSessions["Service"],
 ) =>
 	Effect.gen(function* () {
 		let verified: VerifiedCredential;
@@ -570,12 +675,29 @@ export const resolveCredential = <E>(
 			),
 			Effect.orDie,
 		);
+		let impersonation;
+		if (
+			verified.credential.kind === "oauth" &&
+			isImpersonationClient(verified.credential.clientId)
+		) {
+			const sessionId = verified.credential.sessionId;
+			impersonation =
+				sessionId && impersonationSessions
+					? yield* impersonationSessions
+							.getActive(sessionId, user.id)
+							.pipe(Effect.mapError(authenticationRequired))
+					: null;
+			if (!impersonation) {
+				return yield* authenticationRequired();
+			}
+		}
 		let accessClass: AccessClass = "standard";
 		if (
 			verified.credential.kind === "oauth" &&
 			(verified.credential.clientId === OAUTH_DEMO_WEB_CLIENT_ID ||
 				(verified.credential.clientId !== OAUTH_WEB_CLIENT_ID &&
 					verified.credential.clientId !== OAUTH_NATIVE_CLIENT_ID &&
+					!isImpersonationClient(verified.credential.clientId) &&
 					user.id === demoAccountId))
 		) {
 			accessClass = "demo";
@@ -583,7 +705,12 @@ export const resolveCredential = <E>(
 			accessClass = "demo";
 		}
 		return {
-			authorization: { accessClass, userId: user.id, credential: verified.credential },
+			authorization: {
+				accessClass,
+				userId: user.id,
+				credential: verified.credential,
+				...(impersonation ? { impersonation } : {}),
+			},
 			user: {
 				preferences,
 				name: user.name,
@@ -605,43 +732,31 @@ export class AuthService extends Context.Service<AuthService>()("AuthService", {
 		const userBootstrap = yield* AuthUserBootstrapScheduler;
 		const lifecycle = yield* LifecycleWriteGuard;
 		const sessionGate = yield* SessionCreationGate;
+		const impersonationSessions = yield* ImpersonationSessions;
+		const handoffs = yield* ImpersonationHandoffs;
 		const runtime = yield* Effect.context<DatabaseSession | RedisService>();
 		const auth = makeAuthInstance({
 			config,
 			session,
 			runtime,
+			handoffs,
 			lifecycle,
+			repository,
 			sessionGate,
 			resetTransport,
 			redis: redis.client,
+			impersonationSessions,
 			scheduleUserBootstrap: userBootstrap.schedule,
 			revokeOAuthTokens: repository.revokeUserOAuthTokens,
 		});
-		const findUserById = (userId: string) =>
-			session.run((db) =>
-				db
-					.select({
-						id: authSchema.user.id,
-						name: authSchema.user.name,
-						email: authSchema.user.email,
-						image: authSchema.user.image,
-						disabledAt: authSchema.user.disabledAt,
-						preferences: authSchema.user.preferences,
-						accountGeneration: authSchema.user.accountGeneration,
-						bootstrapCompletedAt: authSchema.user.bootstrapCompletedAt,
-					})
-					.from(authSchema.user)
-					.where(eq(authSchema.user.id, userId))
-					.limit(1)
-					.pipe(Effect.map((users) => users[0] ?? null)),
-			);
 		const authenticate = (credential: CredentialInput) =>
 			resolveCredential(
 				credential,
 				(token) => verifyBearerToken(token, getOAuthVerificationOptions(config.frontendUrl)),
 				(key) => withoutAsyncContext(() => auth.api.verifyApiKey({ body: { key } })),
-				findUserById,
+				repository.findUserById,
 				Option.getOrNull(config.users.demoAccountId),
+				impersonationSessions,
 			);
 		const withInternalAdapter = <A>(operation: (context: AuthContextValue) => Promise<A>) =>
 			Effect.tryPromise({ catch: unknownToDbError, try: () => auth.$context }).pipe(
@@ -666,6 +781,7 @@ export class AuthService extends Context.Service<AuthService>()("AuthService", {
 
 		return {
 			requestPasswordResetLink,
+			startUserImpersonation: handoffs.create,
 			apiKeyUser: (key: string) => authenticate({ key, kind: "api-key" }),
 			oauthUser: (token: string) => authenticate({ token, kind: "oauth" }),
 			handler: (request: Request) => withoutAsyncContext(() => auth.handler(request)),

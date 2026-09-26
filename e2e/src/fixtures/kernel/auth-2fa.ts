@@ -30,7 +30,7 @@ function decodeBase32(value: string) {
 	return Buffer.from(base32.parse(normalized, { loose: true }));
 }
 
-function generateTotpCode(secret: string, timeOffset = 0) {
+export function generateTotpCode(secret: string, timeOffset = 0) {
 	const counter = Math.floor(Date.now() / 1000 / 30) + timeOffset;
 	const counterBuffer = Buffer.alloc(8);
 	const key = decodeBase32(secret);

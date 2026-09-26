@@ -6,7 +6,6 @@ export const manifest = defineManifest({
 	kind: "provider",
 	capabilities: [],
 	requiredPluginConfigKeys: [],
-	requiredSystemConfigKeys: [],
 	name: "Fixture Provider Search",
 	slug: "fixture.provider.search",
 	searchOptionsSchema: {

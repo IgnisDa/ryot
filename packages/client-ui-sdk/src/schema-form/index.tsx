@@ -8,6 +8,7 @@ export type {
 	SchemaFileUpload,
 	SchemaFileUploadOutcome,
 } from "./file/upload";
+export type { SchemaOAuthConnect, SchemaOAuthConnectOutcome } from "./oauth/connect";
 export {
 	describeSchemaFormFields,
 	initialSchemaFormValues,

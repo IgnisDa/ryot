@@ -25,6 +25,7 @@ import {
 	descending,
 	eq,
 	groupAscending,
+	inArray,
 	isNull,
 	join,
 	jsonPath,
@@ -383,6 +384,42 @@ export const collectionMembersCountRecipe = defineRecipe(
 );
 
 export type CollectionMembersCountResult = Recipe.Success<typeof collectionMembersCountRecipe>;
+
+export const collectionMembersCountsRecipe = defineRecipe(
+	(input: { readonly collectionIds: readonly string[] }) => {
+		const membership = table("relationship", "collectionMembershipCounts");
+		return {
+			map: ({ collectionMembersCounts }) =>
+				Result.succeed(
+					Object.fromEntries(
+						collectionMembersCounts.items.map(({ total, collectionId }) => [collectionId, total]),
+					),
+				),
+			queries: {
+				collectionMembersCounts: selectedAggregate(membership, {
+					groupBy: {
+						collectionId: selectedField(column(membership, "targetEntityId"), Schema.String),
+					},
+					measures: {
+						total: selectedMeasure(
+							{ function: "countDistinct", expr: column(membership, "sourceEntityId") },
+							Schema.Finite,
+						),
+					},
+					where: and(
+						eq(column(membership, "relationshipSchemaSlug"), literal("member-of")),
+						inArray(
+							column(membership, "targetEntityId"),
+							input.collectionIds.map((collectionId) => literal(collectionId)),
+						),
+					),
+				}),
+			},
+		};
+	},
+);
+
+export type CollectionMembersCountsResult = Recipe.Success<typeof collectionMembersCountsRecipe>;
 
 export const collectionMembersAggregateRecipe = defineRecipe(
 	(input: { readonly collectionId: string }) => {

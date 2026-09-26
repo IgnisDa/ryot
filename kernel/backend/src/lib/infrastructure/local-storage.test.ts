@@ -8,6 +8,7 @@ import { expect } from "vitest";
 import { assertExitFails } from "#lib/test-utils/assertions";
 import { makeAppConfigLayer } from "#lib/test-utils/effect";
 
+import { HmacSigner } from "./hmac-signer";
 import { LocalStorageService } from "./local-storage";
 
 const key = "permanent/object.txt";
@@ -15,6 +16,7 @@ const ROOT = "/tmp/ryot-local-storage-test";
 const TEMP_ROOT = "/tmp/ryot-local-storage-temp-test";
 
 const localStorageLayer = LocalStorageService.layer.pipe(
+	Layer.provideMerge(HmacSigner.layer),
 	Layer.provide(
 		makeAppConfigLayer({
 			fileStorage: { localDir: ROOT, localTempDir: TEMP_ROOT },

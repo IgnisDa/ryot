@@ -29,7 +29,6 @@ export const manifest = defineManifest({
   name: "Automation",
   slug: "automation.test",
   requiredPluginConfigKeys: [],
-  requiredSystemConfigKeys: [],
 });
 
 export default defineAutomation({
@@ -47,7 +46,6 @@ export const manifest = defineManifest({
   name: "Workflow",
   slug: "workflow.test",
   requiredPluginConfigKeys: [],
-  requiredSystemConfigKeys: [],
 });
 
 export default defineWorkflow({
@@ -75,7 +73,6 @@ layer(SandboxCompiler.layer)((test) => {
 				name: "Plain value",
 				slug: "plain-value",
 				requiredPluginConfigKeys: [],
-				requiredSystemConfigKeys: [],
 			});
 			expect(compiled.javascript).toContain("export {");
 			expect(compiled.javascript).toContain("sourceMappingURL=data:application/json;base64,");

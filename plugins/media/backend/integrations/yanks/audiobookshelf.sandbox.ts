@@ -10,7 +10,6 @@ export const manifest = defineManifest({
 	kind: "script",
 	name: "Audiobookshelf yank",
 	requiredPluginConfigKeys: [],
-	requiredSystemConfigKeys: [],
 	slug: "integration.audiobookshelf",
 	capabilities: ["httpCall", "getCurrentIntegration"],
 });

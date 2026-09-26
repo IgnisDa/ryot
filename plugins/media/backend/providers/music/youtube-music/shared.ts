@@ -1,4 +1,4 @@
-import { Effect } from "@ryot-app/sandbox-sdk/effect";
+import { DateTime, Effect, Option, Schema } from "@ryot-app/sandbox-sdk/effect";
 
 import { MediaSandboxError } from "../../../lib/failures";
 import { type UnknownRecord, asRecord, numberValue, stringValue } from "../../../lib/records";
@@ -203,6 +203,20 @@ export const buildTrackTranslate = (client: TrackQueueClient, externalId: string
 			}),
 		),
 	);
+
+export const YoutubeMusicSettings = Schema.Struct({
+	authCookie: Schema.Trim.pipe(
+		Schema.check(Schema.isMinLength(1, { message: "authCookie is required" })),
+	),
+	timezone: Schema.Trim.pipe(
+		Schema.check(
+			Schema.makeFilter(
+				(value) =>
+					Option.isSome(DateTime.zoneMakeNamed(value)) || "timezone must be an IANA time zone",
+			),
+		),
+	),
+});
 
 export const buildHistory = (client: HistoryClient, timezone: string, startedAt: string) => {
 	const isTodayHeader = (title: string) => {

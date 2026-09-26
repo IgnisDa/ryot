@@ -14,8 +14,10 @@ import {
 	listSavedViews,
 	mergeUserState,
 	pollUntil,
+	requireRyotQLText,
 	requireRyotQLValue,
 	requireRows,
+	waitForCreateEvents,
 } from "~/fixtures/kernel";
 import {
 	createExerciseEntityFixture,
@@ -186,22 +188,103 @@ describe("Exercises E2E", () => {
 		}),
 	);
 
-	it.live("scopes the built-in All Exercises view to fitness library members", () =>
+	it.live(
+		"lists created exercises in the built-in All Exercises view through fitness library membership",
+		() =>
+			Effect.gen(function* () {
+				const { client } = yield* createAuthenticatedClient();
+				const exerciseName = `Listed Exercise ${crypto.randomUUID()}`;
+				yield* createExerciseEntityFixture(client, { name: exerciseName, kind: "reps_and_weight" });
+				const exercise = requirePresent(
+					(yield* executeRyotQLRecipe(client, exerciseListRecipe({ limit: 1, name: exerciseName })))
+						.items[0],
+					"Expected the created exercise in the exercise list",
+				);
+
+				expect(exercise.name).toBe(exerciseName);
+				expect(exercise.image).toEqual({ type: "remote", url: "https://example.com/exercise.jpg" });
+				expect(exercise.level).toBe("beginner");
+				expect(exercise.kind).toBe("reps_and_weight");
+				expect(exercise.equipment).toBe("body_only");
+
+				const savedView = yield* getSavedView(client, "all-exercises");
+				const dataSources = requirePresent(
+					savedView.dataSources,
+					"All Exercises saved view has no data sources",
+				);
+				const sourceName = savedView.settings["sourceName"];
+				assertCondition(typeof sourceName === "string", "Expected a named saved-view source");
+				const savedViewResult = requireRows(
+					(yield* executeRyotQL(client, dataSources)).data[sourceName],
+					sourceName,
+				);
+				const savedViewExercise = savedViewResult.items.find(
+					(item) => requireRyotQLValue(item, "column0") === exerciseName,
+				);
+				expect(savedViewExercise).toBeDefined();
+			}),
+	);
+
+	it.live("sorts All Exercises by workout sessions and then name", () =>
 		Effect.gen(function* () {
 			const { client } = yield* createAuthenticatedClient();
-			const exerciseName = `Listed Exercise ${crypto.randomUUID()}`;
-			yield* createExerciseEntityFixture(client, { name: exerciseName, kind: "reps_and_weight" });
-			const exercise = requirePresent(
-				(yield* executeRyotQLRecipe(client, exerciseListRecipe({ limit: 1, name: exerciseName })))
-					.items[0],
-				"Expected the created exercise in the exercise list",
+			const { exerciseId: alphaExerciseId } = yield* createExerciseEntityFixture(client, {
+				name: "Alpha",
+			});
+			const { exerciseId: betaExerciseId } = yield* createExerciseEntityFixture(client, {
+				name: "Beta",
+			});
+			const { exerciseId: zuluExerciseId } = yield* createExerciseEntityFixture(client, {
+				name: "Zulu",
+			});
+			const { workoutId: alphaWorkoutId } = yield* createWorkoutEntityFixture(client);
+			const { workoutId: betaWorkoutId } = yield* createWorkoutEntityFixture(client);
+			const { workoutId: zuluFirstWorkoutId } = yield* createWorkoutEntityFixture(client);
+			const { workoutId: zuluSecondWorkoutId } = yield* createWorkoutEntityFixture(client);
+			const { workoutSetEventSchema } = yield* findWorkoutSetEventSchema(client);
+			const createResult = yield* client.call((c) =>
+				c.events.create({
+					payload: [
+						{
+							entityId: alphaExerciseId,
+							sessionEntityId: alphaWorkoutId,
+							eventSchemaSlug: workoutSetEventSchema.id,
+							properties: { reps: 10, setOrder: 0, exerciseOrder: 0 },
+						},
+						{
+							entityId: alphaExerciseId,
+							sessionEntityId: alphaWorkoutId,
+							eventSchemaSlug: workoutSetEventSchema.id,
+							properties: { reps: 8, setOrder: 1, exerciseOrder: 0 },
+						},
+						{
+							entityId: alphaExerciseId,
+							sessionEntityId: alphaWorkoutId,
+							eventSchemaSlug: workoutSetEventSchema.id,
+							properties: { reps: 6, setOrder: 2, exerciseOrder: 0 },
+						},
+						{
+							entityId: betaExerciseId,
+							sessionEntityId: betaWorkoutId,
+							eventSchemaSlug: workoutSetEventSchema.id,
+							properties: { reps: 10, setOrder: 0, exerciseOrder: 0 },
+						},
+						{
+							entityId: zuluExerciseId,
+							sessionEntityId: zuluFirstWorkoutId,
+							eventSchemaSlug: workoutSetEventSchema.id,
+							properties: { reps: 10, setOrder: 0, exerciseOrder: 0 },
+						},
+						{
+							entityId: zuluExerciseId,
+							sessionEntityId: zuluSecondWorkoutId,
+							eventSchemaSlug: workoutSetEventSchema.id,
+							properties: { reps: 8, setOrder: 0, exerciseOrder: 0 },
+						},
+					],
+				}),
 			);
-
-			expect(exercise.name).toBe(exerciseName);
-			expect(exercise.image).toEqual({ type: "remote", url: "https://example.com/exercise.jpg" });
-			expect(exercise.level).toBe("beginner");
-			expect(exercise.kind).toBe("reps_and_weight");
-			expect(exercise.equipment).toBe("body_only");
+			expect((yield* waitForCreateEvents(client, createResult)).count).toBe(6);
 
 			const savedView = yield* getSavedView(client, "all-exercises");
 			const dataSources = requirePresent(
@@ -210,14 +293,16 @@ describe("Exercises E2E", () => {
 			);
 			const sourceName = savedView.settings["sourceName"];
 			assertCondition(typeof sourceName === "string", "Expected a named saved-view source");
-			const savedViewResult = requireRows(
+			const result = requireRows(
 				(yield* executeRyotQL(client, dataSources)).data[sourceName],
 				sourceName,
 			);
-			const savedViewExercise = savedViewResult.items.find(
-				(item) => requireRyotQLValue(item, "column0") === exerciseName,
-			);
-			expect(savedViewExercise).toBeUndefined();
+
+			expect(result.items.map((item) => requireRyotQLText(item, "entityId"))).toEqual([
+				zuluExerciseId,
+				alphaExerciseId,
+				betaExerciseId,
+			]);
 		}),
 	);
 

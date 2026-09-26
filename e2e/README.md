@@ -35,7 +35,7 @@ rather than exact upstream text.
 
 ## Harness
 
-`global-setup.ts` builds required artifacts, provisions PostgreSQL, Redis, and object storage, then starts one shared backend serving the SPA and `/api` from one origin. It publishes that backend through `E2E_API_URL`, `E2E_FRONTEND_URL`, and `E2E_ADMIN_ACCESS_TOKEN`, which worker processes inherit.
+`global-setup.ts` builds required artifacts, provisions PostgreSQL, Redis, and object storage, then starts one shared backend serving the SPA and `/api` from one origin. It publishes that backend through `E2E_API_URL`, `E2E_FRONTEND_URL`, and `E2E_ADMIN_ACCESS_TOKEN`, which worker processes inherit. The shared server uses an isolated log directory; `E2E_SERVER_LOG_FILE` lets scoped fixtures add retained log files without changing the active log.
 Testcontainers' Ryuk reaper removes the containers if the test process exits unexpectedly; normal teardown also stops the backend process.
 
 The PostgreSQL container enables lock-wait and failed-statement logging with PID and transaction ID

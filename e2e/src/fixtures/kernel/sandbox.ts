@@ -20,12 +20,7 @@ type SandboxResult = Exclude<
 >;
 type GenericTestPluginScript = Extract<TestPluginScript, { kind: "script" }>;
 type InstallSandboxScriptInput = Pick<GenericTestPluginScript, "name" | "slug"> &
-	Partial<
-		Pick<
-			GenericTestPluginScript,
-			"capabilities" | "requiredPluginConfigKeys" | "requiredSystemConfigKeys"
-		>
-	> & {
+	Partial<Pick<GenericTestPluginScript, "capabilities" | "requiredPluginConfigKeys">> & {
 		client: Client;
 		source: string;
 		scope?: "system" | "user";
@@ -49,7 +44,6 @@ const installSandboxScript = (input: InstallSandboxScriptInput) =>
 						slug: input.slug,
 						capabilities: input.capabilities ?? [],
 						requiredPluginConfigKeys: input.requiredPluginConfigKeys ?? [],
-						requiredSystemConfigKeys: input.requiredSystemConfigKeys ?? [],
 					},
 				}
 			: {
@@ -64,7 +58,6 @@ const installSandboxScript = (input: InstallSandboxScriptInput) =>
 						slug: input.slug,
 						capabilities: input.capabilities ?? [],
 						requiredPluginConfigKeys: input.requiredPluginConfigKeys ?? [],
-						requiredSystemConfigKeys: input.requiredSystemConfigKeys ?? [],
 					},
 				},
 	);

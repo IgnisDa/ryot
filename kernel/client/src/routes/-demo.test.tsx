@@ -80,6 +80,7 @@ const mountDemo = (
 					_tag: "Ready" as const,
 					plan: {
 						client,
+						codeChallenge: "challenge",
 						authorizationUrl: `${server}/api/auth/oauth2/authorize`,
 						pending: {
 							createdAt: 1,

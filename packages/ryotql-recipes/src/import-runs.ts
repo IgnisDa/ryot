@@ -1,9 +1,8 @@
 import {
-	ImportRunFailureReason,
+	ImportRunFailureSchema,
 	ListedImportRun,
 } from "@ryot-app/contract/modules/imports/schemas";
-import { importRunFailureStages } from "@ryot-app/contract/modules/imports/types";
-import { EntitySchemaSlug, EventSchemaSlug, ImportRunId } from "@ryot-app/contract/schema/brands";
+import { ImportRunId } from "@ryot-app/contract/schema/brands";
 import {
 	ascending,
 	column,
@@ -26,7 +25,6 @@ const importRun = table("importRun", "importRun");
 const run = table("importRun", "run");
 const failure = table("importRunFailure", "failure");
 const inputSummary = ListedImportRun.fields.inputSummary;
-const failureStage = Schema.Literals([...importRunFailureStages]);
 const runSelection = (source: typeof importRun) => ({
 	id: selectedField(column(source, "id"), ImportRunId),
 	source: selectedField(column(source, "source"), Schema.String),
@@ -47,24 +45,27 @@ const runSelection = (source: typeof importRun) => ({
 	),
 });
 const failureSelection = {
-	id: selectedField(column(failure, "id"), Schema.String),
-	runId: selectedField(column(failure, "runId"), ImportRunId),
-	stage: selectedField(column(failure, "stage"), failureStage),
 	createdAt: selectedField(column(failure, "createdAt"), IsoDateString),
-	itemIndex: selectedField(column(failure, "itemIndex"), Schema.Finite),
-	reason: selectedField(column(failure, "reason"), ImportRunFailureReason),
-	sourceLabel: selectedField(column(failure, "sourceLabel"), Schema.NullOr(Schema.String)),
+	id: selectedField(column(failure, "id"), ImportRunFailureSchema.fields.id),
+	runId: selectedField(column(failure, "runId"), ImportRunFailureSchema.fields.runId),
+	stage: selectedField(column(failure, "stage"), ImportRunFailureSchema.fields.stage),
+	reason: selectedField(column(failure, "reason"), ImportRunFailureSchema.fields.reason),
+	itemIndex: selectedField(column(failure, "itemIndex"), ImportRunFailureSchema.fields.itemIndex),
+	sourceLabel: selectedField(
+		column(failure, "sourceLabel"),
+		ImportRunFailureSchema.fields.sourceLabel,
+	),
 	eventSchemaSlug: selectedField(
 		column(failure, "eventSchemaSlug"),
-		Schema.NullOr(EventSchemaSlug),
+		ImportRunFailureSchema.fields.eventSchemaSlug,
 	),
 	sourceIdentifier: selectedField(
 		column(failure, "sourceIdentifier"),
-		Schema.NullOr(Schema.String),
+		ImportRunFailureSchema.fields.sourceIdentifier,
 	),
 	entitySchemaSlug: selectedField(
 		column(failure, "entitySchemaSlug"),
-		Schema.NullOr(EntitySchemaSlug),
+		ImportRunFailureSchema.fields.entitySchemaSlug,
 	),
 };
 

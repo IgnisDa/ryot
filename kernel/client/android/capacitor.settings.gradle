@@ -11,6 +11,12 @@ project(':capacitor-app').projectDir = new File('../../../node_modules/.bun/@cap
 include ':capacitor-browser'
 project(':capacitor-browser').projectDir = new File('../../../node_modules/.bun/@capacitor+browser@8.0.4+6139e07751574bda/node_modules/@capacitor/browser/android')
 
+include ':capacitor-file-transfer'
+project(':capacitor-file-transfer').projectDir = new File('../../../node_modules/.bun/@capacitor+file-transfer@2.0.5+6139e07751574bda/node_modules/@capacitor/file-transfer/android')
+
+include ':capacitor-filesystem'
+project(':capacitor-filesystem').projectDir = new File('../../../node_modules/.bun/@capacitor+filesystem@8.1.3+6139e07751574bda/node_modules/@capacitor/filesystem/android')
+
 include ':capacitor-haptics'
 project(':capacitor-haptics').projectDir = new File('../../../node_modules/.bun/@capacitor+haptics@8.0.2+6139e07751574bda/node_modules/@capacitor/haptics/android')
 

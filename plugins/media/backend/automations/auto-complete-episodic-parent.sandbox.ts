@@ -20,7 +20,6 @@ export const manifest = defineManifest({
 	kind: "automation",
 	automationType: "automation",
 	requiredPluginConfigKeys: [],
-	requiredSystemConfigKeys: [],
 	name: "Auto-Complete Episodic Parent",
 	slug: "automation.media-auto-complete-episodic-parent",
 	capabilities: ["executeRyotql", "createEvents", "claimPersistentValue"],

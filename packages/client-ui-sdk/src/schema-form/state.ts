@@ -10,7 +10,7 @@ import {
 	isAppSchemaPathHidden,
 	isMissingAppSchemaRequiredValue,
 } from "@ryot-app/contract/schema/property-schema";
-import { Email, HttpUrl } from "@ryot-app/contract/schema/utils";
+import { Email, HttpUrl, isNamedTimeZone } from "@ryot-app/contract/schema/utils";
 import { Match, Result, Schema } from "effect";
 
 export type SchemaFormArrayValue = boolean | number | string;
@@ -35,7 +35,9 @@ export type SchemaFormControl =
 	| "chips"
 	| "switch"
 	| "segmented"
-	| "multi-select";
+	| "timezone"
+	| "multi-select"
+	| "oauth-connection";
 
 export type SchemaFormArrayItem = Extract<
 	AppPropertyDefinition,
@@ -63,6 +65,7 @@ export type SchemaFormField = {
 	readonly control: SchemaFormControl;
 	readonly format: SchemaFormTextFormat | undefined;
 	readonly choices: readonly AppChoice[] | undefined;
+	readonly oauthProvider: string | undefined;
 	readonly arrayItem: SchemaFormArrayItem | undefined;
 	readonly allowedFileExtensions: readonly string[] | undefined;
 	readonly arrayValidation: AppArrayPropertyValidation | undefined;
@@ -107,13 +110,17 @@ const schemaFieldChoices = (property: AppPropertyDefinition) => {
 };
 
 const schemaFieldFormat = (property: AppPropertyDefinition): SchemaFormTextFormat | undefined =>
-	property.type === "string" && property.format !== undefined && property.format.kind !== "upload"
+	property.type === "string" &&
+	(property.format?.kind === "url" || property.format?.kind === "email")
 		? property.format.kind
 		: undefined;
 
 const hasDynamicChoices = (property: AppPropertyDefinition) =>
 	(property.type === "enum" || property.type === "enum-array") &&
 	property.choices.kind === "dynamic";
+
+const isTimeZoneProperty = (property: AppPropertyDefinition) =>
+	property.type === "string" && property.format?.kind === "timezone";
 
 const isUploadProperty = (property: AppPropertyDefinition) =>
 	property.type === "string" && property.format?.kind === "upload";
@@ -133,6 +140,11 @@ const schemaFieldFileExtensions = (property: AppPropertyDefinition) =>
 		? property.format.allowedFileExtensions
 		: undefined;
 
+const schemaFieldOAuthProvider = (property: AppPropertyDefinition) =>
+	property.type === "string" && property.format?.kind === "oauth-connection"
+		? property.format.provider
+		: undefined;
+
 const isSupportedProperty = (property: AppPropertyDefinition) =>
 	schemaFieldType(property) !== undefined && !hasDynamicChoices(property);
 
@@ -145,6 +157,12 @@ const schemaFieldControl = (
 	}
 	if (isUploadProperty(property)) {
 		return "file";
+	}
+	if (schemaFieldOAuthProvider(property) !== undefined) {
+		return "oauth-connection";
+	}
+	if (isTimeZoneProperty(property)) {
+		return "timezone";
 	}
 	if (property.type === "enum-array") {
 		return "multi-select";
@@ -243,6 +261,7 @@ const describeSchemaFormFieldsWithInput = (
 			format: schemaFieldFormat(property),
 			arrayItem: schemaArrayItem(property),
 			control: schemaFieldControl(property, choices),
+			oauthProvider: schemaFieldOAuthProvider(property),
 			allowedFileExtensions: schemaFieldFileExtensions(property),
 			required: isAppSchemaPathEffectivelyRequired(schema, [key], input),
 			arrayValidation: property.type === "array" ? property.validation : undefined,
@@ -299,6 +318,9 @@ const stringValidationMessage = (
 		return `${label} has an invalid format`;
 	}
 	if (property.format?.kind === "email" && Result.isFailure(Schema.decodeResult(Email)(value))) {
+		return `${label} has an invalid format`;
+	}
+	if (property.format?.kind === "timezone" && !isNamedTimeZone(value)) {
 		return `${label} has an invalid format`;
 	}
 	return undefined;
@@ -421,12 +443,15 @@ const propertyValueValidationMessage = (
 		Match.exhaustive,
 	);
 
-const schemaFieldDefaultValue = (property: AppPropertyDefinition): SchemaFormValue => {
+const schemaFieldDefaultValue = (
+	property: AppPropertyDefinition,
+	browserTimeZone: string,
+): SchemaFormValue => {
 	if (property.type === "object") {
 		return undefined;
 	}
 	if (property.type !== "array") {
-		return property.defaultValue;
+		return property.defaultValue ?? (isTimeZoneProperty(property) ? browserTimeZone : undefined);
 	}
 	const item = schemaArrayItem(property);
 	return item !== undefined &&
@@ -435,10 +460,15 @@ const schemaFieldDefaultValue = (property: AppPropertyDefinition): SchemaFormVal
 		: undefined;
 };
 
-export const initialSchemaFormValues = (schema: AppSchema): SchemaFormValues =>
+export const initialSchemaFormValues = (
+	schema: AppSchema,
+	browserTimeZone: string = Intl.DateTimeFormat().resolvedOptions().timeZone,
+): SchemaFormValues =>
 	Object.fromEntries(
 		getOrderedAppSchemaFieldEntries(schema.fields).flatMap(([key, property]) =>
-			isSupportedProperty(property) ? [[key, schemaFieldDefaultValue(property)]] : [],
+			isSupportedProperty(property)
+				? [[key, schemaFieldDefaultValue(property, browserTimeZone)]]
+				: [],
 		),
 	);
 

@@ -6,8 +6,9 @@ Entity interest lets authenticated clients declare which entities are visible an
 
 - `POST /api/entity-interest/socket-ticket` uses normal OAuth or API-key authentication and returns `{ ticket, expiresAt }` or a typed `ticket-store-unavailable` failure.
 - `GET /api/entity-interest/ws` is a raw WebSocket. Credentials never appear in its URL; the first JSON text frame must be `{ type: "authenticate", ticket }`.
-- A ticket is 32 random bytes encoded as an opaque value. Redis stores only its SHA-256 hash with `{ userId, preferredLanguage, accountGeneration }` for 30 seconds. It is single-use. Population requests retain this account generation, so an old session cannot write after account reset.
+- A ticket is 32 random bytes encoded as an opaque value. Redis stores only its SHA-256 hash with `{ userId, preferredLanguage, accountGeneration }` and, for impersonated OAuth credentials, the auth session ID and expiry for 30 seconds. It is single-use. Population requests retain this account generation, so an old session cannot write after account reset.
 - Missing, expired, reused, or malformed tickets close as `1008 Authentication failed`; ticket-store failures close as `1011 Internal error`.
+- Ticket consumption and socket registration recheck active impersonation. Revoking the auth session closes its local impersonated sockets as `4001 Session expired`.
 
 ## Frames
 
@@ -43,12 +44,12 @@ IDs are deduplicated. `update` must be non-empty and its `add` and `remove` sets
 | Ticket TTL                 | 30 seconds                                                 |
 | Session and membership TTL | 15 minutes                                                 |
 | Renewal interval           | 5 minutes                                                  |
-| Fixed socket lease         | 15 minutes, then `4001 Session expired`                    |
+| Fixed socket lease         | Up to 15 min; capped at auth-session expiry                |
 | Heartbeat                  | `ping` every 25 seconds; matching `pong` within 10 seconds |
 | Heartbeat failure          | `4000 Heartbeat timeout`                                   |
 | Malformed protocol         | `1002 Protocol error`                                      |
 
-Redis owns session metadata, revision, membership, reverse entity-to-session indexes, and progression leases. Every backend receives the non-durable `ryot:entity:updated` Pub/Sub stream, resolves interested sessions in Redis, and writes only to local socket mailboxes. Reconnect plus reconciliation recovers missed publications without sticky routing.
+Redis owns session metadata, revision, membership, reverse entity-to-session indexes, and progression leases. Every backend receives the non-durable `ryot:entity:updated` Pub/Sub stream, resolves interested sessions in Redis, and writes only to local socket mailboxes. Backends also receive auth-session invalidations and close matching local impersonated sockets; heartbeat checks recover from missed invalidations. Reconnect plus reconciliation recovers missed entity publications without sticky routing.
 
 Normal close removes local routing before Redis membership and indexes. Process crashes rely on TTLs and reverse-index expiry pruning.
 

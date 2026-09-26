@@ -5,6 +5,12 @@ export class PluginConfigCryptoError extends Data.TaggedError("PluginConfigCrypt
 	readonly message: string;
 }> {}
 
+export type SubkeyCiphertext = {
+	readonly keyId: string;
+	readonly nonce: string;
+	readonly ciphertext: string;
+};
+
 const encode = (value: unknown) => new TextEncoder().encode(stableStringify(value));
 
 const operation = <A>(run: () => Promise<A>) =>
@@ -26,6 +32,26 @@ export const createPluginConfigEncryption = (entry: { id: string; key: Uint8Arra
 		}
 		return keyMaterial;
 	};
+	const deriveSubkey = (info: string, usage: "decrypt" | "encrypt") =>
+		Effect.gen(function* () {
+			const material = yield* operation(() =>
+				crypto.subtle.importKey("raw", new Uint8Array(keyMaterial), "HKDF", false, ["deriveKey"]),
+			);
+			return yield* operation(() =>
+				crypto.subtle.deriveKey(
+					{
+						name: "HKDF",
+						hash: "SHA-256",
+						salt: new Uint8Array(),
+						info: new TextEncoder().encode(info),
+					},
+					material,
+					{ length: 256, name: "AES-GCM" },
+					false,
+					[usage],
+				),
+			);
+		});
 	const fingerprint = (value: unknown) =>
 		Effect.gen(function* () {
 			const material = yield* operation(() =>
@@ -53,6 +79,23 @@ export const createPluginConfigEncryption = (entry: { id: string; key: Uint8Arra
 		fingerprint,
 		activeKeyId,
 		hasKey: (id: string) => id === activeKeyId,
+		encryptWithSubkey: (info: string, plaintext: string, attribution: unknown) =>
+			Effect.gen(function* () {
+				const nonce = crypto.getRandomValues(new Uint8Array(12));
+				const key = yield* deriveSubkey(info, "encrypt");
+				const ciphertext = yield* operation(() =>
+					crypto.subtle.encrypt(
+						{ iv: nonce, tagLength: 128, name: "AES-GCM", additionalData: encode(attribution) },
+						key,
+						new TextEncoder().encode(plaintext),
+					),
+				);
+				return {
+					keyId: activeKeyId,
+					nonce: Buffer.from(nonce).toString("base64"),
+					ciphertext: Buffer.from(ciphertext).toString("base64"),
+				} satisfies SubkeyCiphertext;
+			}),
 		encrypt: (value: unknown, attribution: unknown) =>
 			Effect.gen(function* () {
 				const nonce = crypto.getRandomValues(new Uint8Array(12));
@@ -71,6 +114,30 @@ export const createPluginConfigEncryption = (entry: { id: string; key: Uint8Arra
 					),
 				);
 				return { encryptedPayload, nonce: Buffer.from(nonce), encryptionKeyId: activeKeyId };
+			}),
+		decryptWithSubkey: (info: string, envelope: SubkeyCiphertext, attribution: unknown) =>
+			Effect.gen(function* () {
+				const nonce = Buffer.from(envelope.nonce, "base64");
+				const ciphertext = Buffer.from(envelope.ciphertext, "base64");
+				if (envelope.keyId !== activeKeyId || nonce.length !== 12 || ciphertext.length < 16) {
+					return yield* new PluginConfigCryptoError({
+						message: "Subkey ciphertext authentication failed",
+					});
+				}
+				const key = yield* deriveSubkey(info, "decrypt");
+				const plaintext = yield* operation(() =>
+					crypto.subtle.decrypt(
+						{
+							tagLength: 128,
+							name: "AES-GCM",
+							iv: new Uint8Array(nonce),
+							additionalData: encode(attribution),
+						},
+						key,
+						new Uint8Array(ciphertext),
+					),
+				);
+				return new TextDecoder().decode(plaintext);
 			}),
 		decrypt: (
 			envelope: { encryptionKeyId: string; nonce: Uint8Array; encryptedPayload: Uint8Array | null },
