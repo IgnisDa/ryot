@@ -2,10 +2,7 @@ import { Schema } from "@ryot-app/sandbox-sdk/effect";
 import type { JsonValue } from "@ryot-app/sandbox-sdk/wire";
 
 import { exerciseKinds, type ExerciseKind } from "../../shared/exercise-kinds";
-import {
-	calculateWorkoutSetStatistics,
-	normalizeWorkoutMeasurements,
-} from "../../shared/workout-records";
+import { calculateWorkoutSetStatistics } from "../../shared/workout-records";
 
 const WorkoutImportSetSchema = Schema.Struct({
 	note: Schema.mutableKey(Schema.optional(Schema.String)),
@@ -117,9 +114,7 @@ export const buildWorkoutSetEventProperties = (input: {
 	if (input.set.restTimerStartedAt !== undefined) {
 		properties["restTimerStartedAt"] = input.set.restTimerStartedAt;
 	}
-	const measurements = normalizeWorkoutMeasurements(
-		cleanWorkoutSetStats(input.exerciseKind, input.set),
-	);
+	const measurements = cleanWorkoutSetStats(input.exerciseKind, input.set);
 	addNumberProperty(properties, "reps", measurements.reps);
 	addNumberProperty(properties, "weight", measurements.weight);
 	addNumberProperty(properties, "duration", measurements.duration);
