@@ -26,6 +26,12 @@ can send data to the integration.
 Ryot passes `multipart/form-data` and `application/json` bodies to the integration without changes.
 It rejects other content types.
 
+If an integration still needs setup when a webhook arrives, Ryot holds the delivery for up to seven
+days and processes it once setup is complete. The import report lists what is missing. If the seven
+days pass, finish setup and send the webhook again. Held deliveries do not count as failures.
+
+Use a [Data webhook](../importing/data-json.md#send-a-webhook) to send Ryot's own import format.
+
 - [Ryot Browser Extension](./ryot-browser-extension.md) - Automatically scrobble media from
   streaming services <Badge type="warning" text="PRO" />
 - [Jellyfin Sink](./jellyfin-sink.md) - Automatically add new Jellyfin movie and show plays
@@ -38,7 +44,8 @@ It rejects other content types.
 Use **Sync all** under **Settings > Integrations** to run active Yank integrations now. Sink and
 Push integrations respond to external events instead.
 
-Set `SCHEDULER_FREQUENT_CRON_JOBS_SCHEDULE` to change the default five-minute interval.
+Set `SCHEDULER_FREQUENT_CRON_JOBS_SCHEDULE` to change the default five-minute interval. Scheduled
+syncs skip an integration until its setup is complete.
 
 With **Sync ownership** enabled, scheduled and manual checks add matching media to `Owned`.
 
