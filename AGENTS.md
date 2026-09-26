@@ -24,6 +24,7 @@
 - Keep artifact, backup, manifest, protocol, compiler, and API version constants at their current values. Outside legacy exceptions, do not name code after versions such as `V2` or `archive-v2`.
 - Import symbols from their defining module. Do not re-export or alias another module's symbols; package entry points and barrels documented in a child `AGENTS.md` are the only aggregation points.
 - Default to no comments. Add one only for a non-obvious reason, invariant, or external constraint that the code cannot express through naming or structure. Do not restate what the code does, narrate steps, label sections, echo names or types in JSDoc, or refer to history, tasks, plans, or the change being made. When editing, delete comments made stale or redundant by the change.
+- The project enforces `perfectionist` sorting rules. Write code that already follows them, so you don't have to go back and forth with the linter.
 - Lint suppressions and casts that bypass the type checker are a last resort; ask the user before adding one. The documented `effecttsgo/async-function` exemption is the only standing exception.
 - Derive types from schemas and existing types instead of writing mirrors. Use Effect Schema.
 - Build application-owned query documents with `@ryot-app/ryotql` and use named recipes when available.
