@@ -1,4 +1,5 @@
 import { integrationWebhookUrl } from "@ryot-app/contract/modules/integrations/schemas";
+import { definitionOwner } from "@ryot-app/contract/modules/plugins/references";
 import { DateTime, Effect, Option } from "effect";
 
 import {
@@ -16,6 +17,7 @@ import {
 } from "~/fixtures/kernel";
 import {
 	findMediaEntitySchema,
+	mediaFixtureInstallation,
 	seedGlobalShowEpisodeTree,
 	seedMediaEntity,
 } from "~/fixtures/plugins/media";
@@ -68,7 +70,10 @@ describe("Webhook routes", () => {
 			const { client } = yield* createAuthenticatedClient();
 			const integration = yield* createIntegration(client, {
 				providerSpecifics: { kind: "plex_sink" },
-				provider: { slug: "plex_sink", owner: { kind: "kernel" } },
+				provider: {
+					slug: "plex_sink",
+					owner: definitionOwner((yield* mediaFixtureInstallation).id),
+				},
 			});
 
 			const { schema } = yield* findMediaEntitySchema(client, "movie");
@@ -135,7 +140,7 @@ describe("Progress normalization", () => {
 				const integration = yield* createIntegration(client, {
 					maximumProgress: 90,
 					providerSpecifics: { kind: "kodi" },
-					provider: { slug: "kodi", owner: { kind: "kernel" } },
+					provider: { slug: "kodi", owner: definitionOwner((yield* mediaFixtureInstallation).id) },
 				});
 
 				const { tmdbId, episodeId } = yield* seedGlobalShowEpisodeTree(client, {
@@ -179,7 +184,7 @@ describe("Progress normalization", () => {
 				const integration = yield* createIntegration(client, {
 					minimumProgress: 10,
 					providerSpecifics: { kind: "kodi" },
-					provider: { slug: "kodi", owner: { kind: "kernel" } },
+					provider: { slug: "kodi", owner: definitionOwner((yield* mediaFixtureInstallation).id) },
 				});
 
 				const { tmdbId, episodeId } = yield* seedGlobalShowEpisodeTree(client, {
