@@ -1,14 +1,15 @@
 import type { CurrentUserValue } from "@ryot-app/contract/auth-middleware";
-import type { AutomationWarning } from "@ryot-app/contract/modules/automations/lifecycle";
 import type {
-	CreateCollectionBody,
-	CreateMembershipBody,
-	DeleteMembershipBody,
-} from "@ryot-app/contract/modules/collections/schemas";
+	AutomationWarning,
+	LifecycleCommand,
+} from "@ryot-app/contract/modules/automations/lifecycle";
 import {
 	CollectionBadRequest,
 	CollectionNotFound,
 	MembershipResponse,
+	type CreateCollectionBody,
+	type CreateMembershipBody,
+	type DeleteMembershipBody,
 } from "@ryot-app/contract/modules/collections/schemas";
 import { ListedEntity } from "@ryot-app/contract/modules/entities/schemas";
 import type { RelationshipBadRequest } from "@ryot-app/contract/modules/relationships/schemas";
@@ -28,7 +29,7 @@ import { generateId } from "better-auth";
 import { Context, DateTime, Effect, Layer, Schema, Struct } from "effect";
 import { WorkflowEngine } from "effect/unstable/workflow/WorkflowEngine";
 
-import { type LifecycleCommand, rootLifecycleCommand } from "#lib/domain/lifecycle-command";
+import { rootLifecycleCommand, childLifecycleCommand } from "#lib/domain/lifecycle-command";
 import type {
 	LifecycleCommittedStep,
 	LifecyclePreparedStep,
@@ -38,10 +39,11 @@ import {
 	parseLabeledPropertySchemaInput,
 } from "#lib/property-schema/property-schema-runtime";
 import { trimToNull } from "#lib/shared/validation";
-import type { EntitySaveResult } from "#modules/entities/mutation-outcomes";
+import type { EntitySnapshotResult } from "#modules/entities/mutation-outcomes";
 import { EntitiesService, type PendingEntityMutation } from "#modules/entities/service";
 import { EventsService } from "#modules/events/service";
 import { MutationReceipts } from "#modules/mutations/receipts";
+import { dispatchAdmittedWorkflow } from "#modules/mutations/workflow-dispatch";
 import { RelationshipSchemasRepository } from "#modules/relationship-schemas/repository";
 import {
 	PendingRelationshipMutations,
@@ -80,7 +82,7 @@ const invalidMembership = (error: RelationshipBadRequest) =>
 	});
 
 const collectionStep = (
-	prepared: LifecyclePreparedStep<EntitySaveResult, PendingEntityMutation>,
+	prepared: LifecyclePreparedStep<EntitySnapshotResult, PendingEntityMutation>,
 ): LifecyclePreparedStep<CollectionEntityResult, PendingEntityMutation> =>
 	prepared._tag === "Committed"
 		? { ...prepared, result: { id: prepared.result.entity.id } }
@@ -93,11 +95,6 @@ const requireBuiltinOrDie =
 	<T>(message: string) =>
 	(found: T | null | undefined): Effect.Effect<T> =>
 		found != null ? Effect.succeed(found) : Effect.die(message);
-
-const childCommand = (command: LifecycleCommand, itemIdentity: string): LifecycleCommand => ({
-	...command,
-	itemIdentity: stableStringify([command.itemIdentity, itemIdentity]),
-});
 
 const userCommand = Effect.fnUntraced(function* (
 	accountGeneration: AccountGeneration,
@@ -271,7 +268,7 @@ export class CollectionsService extends Context.Service<CollectionsService>()(
 						result: { id: existing.id },
 					} satisfies LifecycleCommittedStep<CollectionEntityResult>;
 				}
-				const lifecycle = childCommand(
+				const lifecycle = childLifecycleCommand(
 					command,
 					stableStringify(["collection:get-or-create", name]),
 				);
@@ -431,22 +428,25 @@ export class CollectionsService extends Context.Service<CollectionsService>()(
 					"api",
 					executionId,
 				);
-				yield* receipts.registerWorkflow(
+				return yield* dispatchAdmittedWorkflow(
+					receipts,
+					engine,
+					AddEntityToCollectionWorkflow,
 					command.accountGeneration,
-					AddEntityToCollectionWorkflow._tag,
-					executionId,
-				);
-				return yield* engine.execute(AddEntityToCollectionWorkflow, {
-					executionId,
-					payload: {
-						command,
+					{
 						executionId,
-						userId: user.id,
-						entityId: payload.entityId,
-						properties: payload.properties,
-						collectionId: payload.collectionId,
+						payload: {
+							command,
+							executionId,
+							userId: user.id,
+							entityId: payload.entityId,
+							properties: payload.properties,
+							collectionId: payload.collectionId,
+						},
 					},
-				});
+					(admission) => admission,
+					(execution) => execution,
+				);
 			});
 
 			const prepareCompensation = (
@@ -540,7 +540,7 @@ export class CollectionsService extends Context.Service<CollectionsService>()(
 						userId: user.id,
 						entityId: payload.collectionId,
 						eventSchemaSlug: removeEvent.id,
-						command: childCommand(command, `event:${deleted.id}`),
+						command: childLifecycleCommand(command, `event:${deleted.id}`),
 						properties: {
 							entityId: entity.id,
 							relationshipId: deleted.id,

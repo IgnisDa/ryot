@@ -17,7 +17,9 @@ import {
 	SandboxScriptId,
 	UserId,
 } from "@ryot-app/contract/schema/brands";
+import { defaultUserPreferences } from "@ryot-app/contract/schema/user-preferences";
 import type { ChangeUserRelationshipBatch } from "@ryot-app/sandbox-sdk/core";
+import { sql } from "drizzle-orm";
 import { Context, Effect, Layer, Option, Ref, Result } from "effect";
 
 import { LifecyclePlanner } from "#lib/domain/lifecycle";
@@ -28,8 +30,10 @@ import { RedisService } from "#lib/infrastructure/redis";
 import type { SandboxExecutionPrincipal } from "#lib/infrastructure/sandbox-runtime/execution-principal";
 import { selectSandboxHostFunctions } from "#lib/infrastructure/sandbox-runtime/service";
 import type { SandboxRunInput } from "#lib/infrastructure/sandbox-runtime/shared";
+import { assertExitFails } from "#lib/test-utils/assertions";
 import { makeAppConfigLayer, makeRedisService } from "#lib/test-utils/effect";
 import { isolatedDatabaseLayer } from "#lib/test-utils/isolated-database";
+import { AuthRepository } from "#modules/auth/repository";
 import { withLifecycleBatchPlanning } from "#modules/automations/lifecycle.test-support";
 import { kernelDefinitionSource } from "#modules/definition-registry/kernel-source";
 import { DefinitionRepository } from "#modules/definition-registry/repository";
@@ -293,6 +297,7 @@ const hostFunctionsLayer = (
 			);
 			const dependencies = Layer.mergeAll(
 				hostDatabaseLayer,
+				AuthRepository.layer.pipe(Layer.provide(hostDatabaseLayer)),
 				makeAppConfigLayer(),
 				Layer.succeed(RedisService, makeRedisService()),
 				Layer.mock(EventsService)({}),
@@ -392,6 +397,107 @@ const runGetCurrentIntegration = (subject: SandboxExecutionSubject) =>
 	);
 
 const executeRyotql = () => Effect.void;
+
+describe("getUserPreferences", () => {
+	layer(hostFunctionsLayer())((test) => {
+		test.effect("reads authoritative preferences and preserves missing-user failures", () =>
+			Effect.gen(function* () {
+				const auth = yield* AuthRepository;
+				const functions = yield* makeAdditionalSandboxApiFunctions;
+				const userId = UserId.make("user-1");
+				yield* auth.patchUserPreferences(userId, { allowNsfw: true, disableIntegrations: true });
+				expect(
+					yield* functions.getUserPreferences(
+						runInput({
+							userId,
+							type: "user",
+							accountGeneration: { userId, token: "test-account-generation" },
+						}),
+					),
+				).toEqual({ allowNsfw: true, disableIntegrations: true });
+				expect(
+					yield* Effect.flip(
+						functions.getUserPreferences(
+							runInput({
+								type: "user",
+								userId: UserId.make("missing"),
+								accountGeneration: {
+									userId: UserId.make("missing"),
+									token: "test-account-generation",
+								},
+							}),
+						),
+					),
+				).toEqual({ message: "User not found" });
+			}),
+		);
+
+		test.effect("reports malformed preferences through the host boundary", () =>
+			Effect.gen(function* () {
+				const session = yield* DatabaseSession;
+				const functions = yield* makeAdditionalSandboxApiFunctions;
+				const exit = yield* Effect.exit(
+					session.transaction(
+						Effect.gen(function* () {
+							yield* session.run((db) =>
+								db.execute(sql`alter table "user" drop constraint user_preferences_check`),
+							);
+							yield* session.run((db) =>
+								db.execute(
+									sql`update "user" set preferences = '{"allowNsfw":"yes"}'::jsonb where id = 'user-1'`,
+								),
+							);
+							expect(
+								yield* Effect.flip(
+									functions.getUserPreferences(
+										runInput({
+											type: "user",
+											userId: UserId.make("user-1"),
+											accountGeneration: {
+												userId: UserId.make("user-1"),
+												token: "test-account-generation",
+											},
+										}),
+									),
+								).pipe(Effect.orDie),
+							).toEqual({ message: "Invalid stored user preferences" });
+							return yield* new DbError({ message: "roll back malformed preferences" });
+						}),
+					),
+				);
+				assertExitFails(exit, new DbError({ message: "roll back malformed preferences" }));
+			}),
+		);
+
+		test.effect("captures preference reads from a replacement constructor dependency", () =>
+			Effect.gen(function* () {
+				const auth = yield* AuthRepository;
+				const functions = yield* makeAdditionalSandboxApiFunctions.pipe(
+					Effect.provideService(
+						AuthRepository,
+						AuthRepository.of({
+							...auth,
+							getUserPreferences: () =>
+								Effect.succeed({ ...defaultUserPreferences, allowNsfw: true }),
+						}),
+					),
+				);
+				expect(
+					yield* functions.getUserPreferences(
+						runInput({
+							type: "user",
+							userId: UserId.make("not-in-database"),
+							accountGeneration: {
+								token: "test-account-generation",
+								userId: UserId.make("not-in-database"),
+							},
+						}),
+					),
+				).toEqual({ allowNsfw: true, disableIntegrations: false });
+			}),
+		);
+	});
+});
 
 describe("getCurrentIntegration", () => {
 	layer(hostFunctionsLayer({ integration: (input) => Effect.succeed(ownedIntegration(input)) }))(

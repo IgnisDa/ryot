@@ -1,12 +1,11 @@
 import {
 	AutomationEventDraft,
 	AutomationEventCreateRequestPayload,
+	AutomationHookIdentity,
 	type AutomationEventRequestPayload,
 	type AutomationPolicyPatch,
-	type AutomationRun,
 } from "@ryot-app/contract/modules/automations/lifecycle";
 import { EventCreateItemError } from "@ryot-app/contract/modules/events/schemas";
-import { AutomationHookSlug, PluginId } from "@ryot-app/contract/schema/brands";
 import type { AppSchema } from "@ryot-app/contract/schema/property-schema";
 import { Effect, Schema } from "effect";
 
@@ -27,24 +26,18 @@ export type EventRequest = Extract<
 	AutomationEventRequestPayload,
 	{ resource: "event"; operation: "create" }
 >;
-export type PolicyIdentity = Pick<AutomationRun, "pluginId" | "hookSlug">;
-
-export const PolicyIdentity = Schema.Struct({
-	hookSlug: AutomationHookSlug,
-	pluginId: Schema.NullOr(PluginId),
-});
 const EventPolicyOutcome = Schema.Union([
 	Schema.TaggedStruct("Accepted", {
-		processed: Schema.Array(PolicyIdentity),
 		request: AutomationEventCreateRequestPayload,
+		processed: Schema.Array(AutomationHookIdentity),
 	}),
 	Schema.TaggedStruct("Skipped", {
 		reason: Schema.String,
-		processed: Schema.Array(PolicyIdentity),
+		processed: Schema.Array(AutomationHookIdentity),
 	}),
 	Schema.TaggedStruct("Failed", {
 		error: EventCreateItemError,
-		processed: Schema.Array(PolicyIdentity),
+		processed: Schema.Array(AutomationHookIdentity),
 	}),
 ]);
 
@@ -53,7 +46,7 @@ export const runEventCreatePolicies = Effect.fn("runEventCreatePolicies")(functi
 	itemIndex: number,
 	plan: LifecyclePlan,
 	propertiesSchema: AppSchema,
-	processed: PolicyIdentity[],
+	processed: AutomationHookIdentity[],
 ) {
 	const execution = yield* LifecycleExecution;
 	const source = plan.trigger.payload;
@@ -65,7 +58,7 @@ export const runEventCreatePolicies = Effect.fn("runEventCreatePolicies")(functi
 		return yield* Effect.die("Expected event-create request trigger");
 	}
 	const skipQueuedPolicies = execution.skipQueuedPolicies({ triggerId: plan.trigger.id });
-	const reached: PolicyIdentity[] = [];
+	const reached: AutomationHookIdentity[] = [];
 	let request: EventRequest = source;
 	const acceptedPatches: AutomationPolicyPatch[] = [];
 	const outcome = yield* Effect.gen(function* () {

@@ -3,10 +3,9 @@ import { Layer } from "effect";
 import { ReusableCapabilityGrantStoreLive } from "#lib/infrastructure/reusable-capability-grants";
 import { ImageClientArtifacts } from "#modules/client-artifacts/image-artifacts";
 import { ClientArtifactStoreLive } from "#modules/client-artifacts/layer";
-import { ClientArtifactsRepository } from "#modules/client-artifacts/repository";
 import { DefinitionRepository } from "#modules/definition-registry/repository";
 import { EntitiesRepository } from "#modules/entities/repository";
-import { PluginRepository } from "#modules/plugins/repository";
+import { PluginRepositoryLive } from "#modules/plugins/repository-layer";
 import { PluginRuntimeResolverLive } from "#modules/plugins/runtime-resolver";
 
 import { ClientPageCompositionService } from "./composition-service";
@@ -36,7 +35,7 @@ export const ClientPagesServiceLive = ClientPagesService.layer.pipe(
 			composition,
 			ClientDocumentGrantServiceLive,
 			ImageClientArtifacts.layer,
-			PluginRepository.layer.pipe(Layer.provide(ClientArtifactsRepository.layer)),
+			PluginRepositoryLive,
 			PluginRuntimeResolverLive,
 		),
 	),

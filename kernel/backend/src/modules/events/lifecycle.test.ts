@@ -36,6 +36,7 @@ import {
 import { EntitiesRepository } from "#modules/entities/repository";
 import { EventSchemasRepository } from "#modules/event-schemas/repository";
 import { MutationReceipts, MutationReceiptIdentity } from "#modules/mutations/receipts";
+import { AdmittedWorkflowCatalogue } from "#modules/mutations/workflow-catalogue";
 import { ObjectStorageService } from "#modules/uploads/object-storage/service";
 import { UserLifecycleRepository } from "#modules/user-lifecycle/repository";
 import { UserLifecycleService } from "#modules/user-lifecycle/service";
@@ -918,6 +919,68 @@ describe("Event lifecycle PostgreSQL", () => {
 	});
 
 	layer(Layer.merge(lifecycleDatabaseLayer(true), workflowLayer))((test) => {
+		test.effect("measures only no-policy event source activities", () =>
+			Effect.gen(function* () {
+				const session = yield* DatabaseSession;
+				const measuring = Context.Reference<boolean>("test/EventSourceMeasurement", {
+					defaultValue: () => false,
+				});
+				const counts = yield* Ref.make({ operations: 0, transactions: 0 });
+				const record = (key: "transactions" | "operations") =>
+					Effect.flatMap(measuring, (active) =>
+						active
+							? Ref.update(counts, (value) => ({ ...value, [key]: value[key] + 1 }))
+							: Effect.void,
+					);
+				const measuredSession = DatabaseSession.of({
+					...session,
+					run: (operation) => record("operations").pipe(Effect.andThen(session.run(operation))),
+					transaction: (work) =>
+						record("transactions").pipe(Effect.andThen(session.transaction(work))),
+				});
+				const repository = yield* EventsRepository.make.pipe(
+					Effect.provideService(DatabaseSession, measuredSession),
+				);
+				const noHooks = yield* Layer.build(
+					planner(yield* Ref.make(false), true, yield* Ref.make<ReadonlyArray<string>>([])),
+				).pipe(Effect.provideService(DatabaseSession, measuredSession));
+				const measuredEngine = makeWorkflowEngine({
+					activityExecute: (activity) =>
+						Effect.map(
+							Effect.exit(
+								activity.execute.pipe(
+									Effect.provideService(
+										measuring,
+										activity.name.startsWith("prepare-item-") ||
+											activity.name.startsWith("write-event-"),
+									),
+								),
+							),
+							(exit) => new Workflow.Complete({ exit }),
+						),
+				});
+				const input = {
+					userId,
+					command: command("source-operation-fixture"),
+					payload: [{ entityId, eventSchemaSlug, properties: { rating: 1 } }],
+				};
+				const result = yield* runEventCreateWorkflow(input, "source-operation-fixture").pipe(
+					Effect.provide(noHooks),
+					Effect.provideService(DatabaseSession, measuredSession),
+					Effect.provideService(EventsRepository, repository),
+					Effect.provideService(WorkflowEngine, measuredEngine),
+					Effect.provideService(
+						WorkflowInstance,
+						WorkflowInstance.initial(EventCreateWorkflow, "source-operation-fixture"),
+					),
+				);
+				expect(result.count).toBe(1);
+				expect(result.failure).toBeNull();
+				expect(yield* Ref.get(counts)).toEqual({ operations: 10, transactions: 1 });
+			}),
+		);
+	});
+	layer(Layer.merge(lifecycleDatabaseLayer(true), workflowLayer))((test) => {
 		test.effect(
 			"retires a suspended event owner before reset deletes receipts and fences its replay after same-ID recreation",
 			() =>
@@ -1082,6 +1145,10 @@ describe("Event lifecycle PostgreSQL", () => {
 					);
 					const operations = Context.get(
 						yield* Layer.build(UserLifecycleWorkflowOperationsLive).pipe(
+							Effect.provideService(
+								AdmittedWorkflowCatalogue,
+								Object.freeze([EventCreateWorkflow]),
+							),
 							Effect.provideService(AuthService, auth),
 							Effect.provideService(UserLifecycleRepository, repository),
 							Effect.provideService(ObjectStorageService, storage),

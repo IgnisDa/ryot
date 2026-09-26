@@ -1,10 +1,13 @@
 import { badRequest, DbError, notFound } from "@ryot-app/contract/errors";
-import { AutomationSignalPayload } from "@ryot-app/contract/modules/automations/lifecycle";
+import {
+	AutomationSignalPayload,
+	LifecycleCommand,
+} from "@ryot-app/contract/modules/automations/lifecycle";
 import type { EntityId, UserId } from "@ryot-app/contract/schema/brands";
 import { Context, Effect, Layer, Schema } from "effect";
 
 import { LifecyclePlanner, toLifecycleDispatchPlan } from "#lib/domain/lifecycle";
-import { LifecycleCommand, lifecycleTrigger } from "#lib/domain/lifecycle-command";
+import { lifecycleTrigger } from "#lib/domain/lifecycle-command";
 import { LifecycleExecution } from "#lib/domain/lifecycle-execution";
 import { DatabaseSession } from "#lib/infrastructure/db/session";
 import { parseAppSchemaProperties } from "#lib/property-schema/property-schema-runtime";

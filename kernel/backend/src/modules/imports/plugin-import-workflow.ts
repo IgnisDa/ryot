@@ -11,6 +11,7 @@ import { ImportSourceState } from "#lib/infrastructure/redis";
 import { SandboxArtifactStore } from "#lib/infrastructure/sandbox-runtime/artifacts";
 import { makeActivity } from "#lib/infrastructure/workflow-scope";
 import { MutationReceipts } from "#modules/mutations/receipts";
+import { admitWorkflow } from "#modules/mutations/workflow-dispatch";
 import { SandboxExecutionService } from "#modules/sandbox/service";
 
 import { ProcessImportRunWorkflow } from "./import-run-workflow";
@@ -30,9 +31,9 @@ export const runPluginImportWorkflow = Effect.fn("runPluginImportWorkflow")(func
 		return yield* new ImportRunError({ message: "Import account generation is missing" });
 	}
 	const receipts = yield* MutationReceipts.make;
-	yield* receipts
-		.registerWorkflow(accountGeneration, ProcessImportRunWorkflow._tag, executionId)
-		.pipe(Effect.mapError(toWorkflowError));
+	yield* admitWorkflow(receipts, ProcessImportRunWorkflow, accountGeneration, executionId).pipe(
+		Effect.mapError(toWorkflowError),
+	);
 	const sandbox = yield* SandboxExecutionService;
 	const artifactOwnerExecutionId = `${executionId}-import`;
 	const artifactReferenceExecutionId = `${executionId}-import-orchestrator`;

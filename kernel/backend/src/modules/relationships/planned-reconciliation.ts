@@ -1,7 +1,7 @@
-import {
-	AutomationRelationshipDraft,
-	type AutomationRelationshipRequestPayload,
-	type AutomationRelationshipSnapshot,
+import type {
+	AutomationRelationshipRequestPayload,
+	AutomationRelationshipSnapshot,
+	LifecycleCommand,
 } from "@ryot-app/contract/modules/automations/lifecycle";
 import {
 	RelationshipBadRequest,
@@ -11,24 +11,22 @@ import { Effect, Schema } from "effect";
 
 import {
 	LifecyclePersistenceError,
-	toLifecycleDispatchPlan,
 	type CommittedLifecycleWork,
 	type LifecycleDispatchPlan,
 } from "#lib/domain/lifecycle";
-import { lifecycleTrigger, type LifecycleCommand } from "#lib/domain/lifecycle-command";
-import {
-	mutationReceiptIdentity,
-	mutationReceiptOwner,
-	MutationReceiptIdentityConflict,
-} from "#modules/mutations/receipts";
+import { lifecycleTrigger } from "#lib/domain/lifecycle-command";
+import { mutationReceiptIdentity, mutationReceiptOwner } from "#modules/mutations/receipts";
+import { catalogDefinitionFingerprint } from "#modules/plugins/runtime-resolver";
 
 import {
+	classifyRelationshipReceiptConflict,
+	makeRelationshipMutationPrimitives,
+	relationshipPopulation,
+} from "./mutation-primitives";
+import {
 	activeTransactionGuard,
-	badProperties,
-	equal,
 	itemCommand,
 	parseProperties,
-	relationshipChange,
 	relationshipReceiptIdentity,
 	RelationshipRecordedResult,
 	relationshipKey,
@@ -46,15 +44,11 @@ import {
 } from "./repository";
 
 /** Provider population reconciliation, persisted inside the caller's active transaction. */
-export const makePlannedRelationshipReconciliation = ({
-	session,
-	planner,
-	runtime,
-	entities,
-	receipts,
-	repository,
-	definitions,
-}: Omit<RelationshipMutationDependencies, "execution">) => {
+export const makePlannedRelationshipReconciliation = (
+	dependencies: RelationshipMutationDependencies,
+) => {
+	const { session, planner, runtime, entities, receipts, repository, definitions } = dependencies;
+	const primitives = makeRelationshipMutationPrimitives(dependencies);
 	const GroupResult = Schema.Struct({
 		created: Schema.Finite,
 		updated: Schema.Finite,
@@ -83,13 +77,7 @@ export const makePlannedRelationshipReconciliation = ({
 		const recorded = yield* Effect.forEach(groupReceipts, (identity) =>
 			receipts
 				.lookup(identity, GroupResult)
-				.pipe(
-					Effect.mapError((error) =>
-						error instanceof MutationReceiptIdentityConflict
-							? new RelationshipBadRequest({ reason: { code: "lifecycle-command-conflict" } })
-							: error,
-					),
-				),
+				.pipe(Effect.mapError(classifyRelationshipReceiptConflict)),
 		);
 		if (recorded.every((entry) => entry !== null)) {
 			return {
@@ -192,6 +180,8 @@ export const makePlannedRelationshipReconciliation = ({
 						input,
 						mode: change.mode,
 						properties: change.properties,
+						propertiesSchema: definition.propertiesSchema,
+						schemaFingerprint: catalogDefinitionFingerprint(definition),
 						command: itemCommand(command, input, `group:${groupIndex}:${change.mode}`),
 					};
 				})
@@ -210,18 +200,9 @@ export const makePlannedRelationshipReconciliation = ({
 			const itemReplays = yield* Effect.forEach(itemReceipts, (identity) =>
 				receipts
 					.lookup(identity, RelationshipRecordedResult)
-					.pipe(
-						Effect.mapError((error) =>
-							error instanceof MutationReceiptIdentityConflict
-								? new RelationshipBadRequest({ reason: { code: "lifecycle-command-conflict" } })
-								: error,
-						),
-					),
+					.pipe(Effect.mapError(classifyRelationshipReceiptConflict)),
 			);
-			yield* entities.lockEntityReferencesByIds(
-				mutations.flatMap(({ input }) => [input.sourceEntityId, input.targetEntityId]),
-			);
-			yield* repository.lockRelationshipMutations(mutations.map(({ input }) => input));
+			yield* primitives.lockMutations(mutations);
 			const prepared: Array<{
 				input: RelationshipIdentityInput;
 				mode: "upsert" | "delete";
@@ -237,32 +218,13 @@ export const makePlannedRelationshipReconciliation = ({
 				}
 				const row = yield* repository.findRelationship(mutation.input);
 				const before = row ? yield* snapshot(row) : null;
-				let request: AutomationRelationshipRequestPayload;
-				if (mutation.mode === "delete") {
-					if (before === null) {
-						prepared.push({ ...mutation, before, request: null, requestId: null });
-						continue;
-					}
-					request = {
-						draft: before,
-						category: "request",
-						operation: "delete",
-						resource: "relationship",
-					};
-				} else {
-					if (before !== null && equal(before.properties, mutation.properties)) {
-						prepared.push({ ...mutation, before, request: null, requestId: null });
-						continue;
-					}
-					const draft = yield* Schema.decodeUnknownEffect(AutomationRelationshipDraft)({
-						properties: mutation.properties,
-						sourceEntityId: mutation.input.sourceEntityId,
-						targetEntityId: mutation.input.targetEntityId,
-						relationshipSchemaSlug: mutation.input.relationshipSchemaSlug,
-					}).pipe(Effect.mapError(() => badProperties([])));
-					request = before
-						? { draft, before, category: "request", operation: "update", resource: "relationship" }
-						: { draft, category: "request", operation: "create", resource: "relationship" };
+				const request = yield* primitives.prepareRequest(
+					{ ...mutation, propertiesSchema: definition.propertiesSchema },
+					before,
+				);
+				if (!request) {
+					prepared.push({ ...mutation, before, request: null, requestId: null });
+					continue;
 				}
 				const requestPlan = yield* planner.plan({
 					trigger: lifecycleTrigger(mutation.command, scopeUserId, request),
@@ -294,88 +256,41 @@ export const makePlannedRelationshipReconciliation = ({
 					groupDispatch.push(...replay.dispatch);
 					continue;
 				}
-				if (item.request === null) {
-					const row = yield* repository.findRelationship(item.input);
-					const noop = {
-						operation: "noop" as const,
-						relationship: row ? { ...row, wasInserted: false } : null,
-					};
-					yield* receipts.insert({
-						result: noop,
+				const { payload, ...itemResult } = yield* primitives.persistSource(
+					item,
+					item.request,
+					item.before,
+				);
+				if (!payload) {
+					yield* primitives.recordResult({
+						index,
 						dispatch: [],
+						batch: decision,
 						identity: receipt,
-						batchIndex: index,
-						batchId: decision.id,
+						result: itemResult,
 					});
 					continue;
 				}
-				let saved;
-				if (item.request.operation === "delete") {
-					saved = yield* repository.deleteRelationship(item.input);
-				} else if (item.request.operation === "create") {
-					saved = yield* repository.createRelationship({
-						...item.input,
-						properties: { ...item.request.draft.properties },
-					});
-				} else {
-					saved = yield* repository.updateRelationship({
-						...item.input,
-						properties: { ...item.request.draft.properties },
-					});
-				}
-				if (!saved) {
-					return yield* new RelationshipNotFound({ reason: { code: "relationship-not-found" } });
-				}
-				const persistedSnapshot = yield* snapshot(saved);
-				const population = item.command.population
-					? {
-							...item.command.population,
-							...(item.command.population.batch
-								? {
-										batch: {
-											...item.command.population.batch,
-											...counts,
-											beforeCount: existing.length,
-											isLeader: changedIndex === 0,
-											afterCount: existing.length + counts.createdCount - counts.deletedCount,
-										},
-									}
-								: {}),
-						}
-					: undefined;
+				const population = relationshipPopulation(
+					item.command,
+					counts,
+					existing.length,
+					changedIndex === 0,
+				);
 				changedIndex += 1;
-				const changePlan = yield* planner.plan({
-					trigger: lifecycleTrigger(
-						{
-							...item.command,
-							causation: {
-								...item.command.causation,
-								parentTriggerId: item.requestId ?? item.command.causation.parentTriggerId,
-							},
-						},
-						scopeUserId,
-						{
-							...relationshipChange(item.request, persistedSnapshot),
-							...(population === undefined ? {} : { population }),
-						},
-					),
+				const { change, dispatch: itemDispatch } = yield* primitives.planChange({
+					payload,
+					population,
+					mutation: item,
+					requestId: item.requestId,
 				});
-				const itemDispatch =
-					changePlan.trigger === null ? [] : [toLifecycleDispatchPlan(changePlan)];
-				const change = {
-					...relationshipChange(item.request, persistedSnapshot),
-					...(population === undefined ? {} : { population }),
-				};
-				yield* receipts.insert({
+				yield* primitives.recordResult({
+					index,
+					batch: decision,
+					evidence: change,
 					identity: receipt,
-					batchIndex: index,
-					batchId: decision.id,
+					result: itemResult,
 					dispatch: itemDispatch,
-					result: {
-						operation: item.request.operation,
-						relationship: { ...saved, wasInserted: item.request.operation === "create" },
-					},
-					...(decision.hasCandidates ? { evidence: change } : {}),
 				});
 				groupDispatch.push(...itemDispatch);
 			}

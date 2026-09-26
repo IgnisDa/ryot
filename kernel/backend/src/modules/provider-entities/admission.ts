@@ -5,6 +5,7 @@ import { WorkflowEngine } from "effect/unstable/workflow/WorkflowEngine";
 import { AppConfig } from "#lib/infrastructure/config/service";
 import { DatabaseSession } from "#lib/infrastructure/db/session";
 import { MutationReceipts } from "#modules/mutations/receipts";
+import { dispatchAdmittedWorkflow } from "#modules/mutations/workflow-dispatch";
 
 import { ProviderImportAdmissionRepository } from "./admission-repository";
 import { EntityImportWorkflow } from "./entity-import-workflow";
@@ -35,21 +36,15 @@ export class ProviderImportAdmission extends Context.Service<ProviderImportAdmis
 			const start = (row: { id: string; payload: unknown }) =>
 				decodePayload(row.payload).pipe(
 					Effect.flatMap((payload) =>
-						receipts
-							.registerWorkflow(
-								payload.command.accountGeneration,
-								EntityImportWorkflow._tag,
-								row.id,
-							)
-							.pipe(
-								Effect.andThen(
-									engine.execute(EntityImportWorkflow, {
-										payload,
-										discard: true,
-										executionId: row.id,
-									}),
-								),
-							),
+						dispatchAdmittedWorkflow(
+							receipts,
+							engine,
+							EntityImportWorkflow,
+							payload.command.accountGeneration,
+							{ payload, discard: true, executionId: row.id },
+							(admission) => admission,
+							(execution) => execution,
+						),
 					),
 				);
 

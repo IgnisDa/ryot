@@ -1,4 +1,5 @@
-import { expect, layer } from "@effect/vitest";
+import { assert, expect, layer } from "@effect/vitest";
+import type { LifecycleCommand } from "@ryot-app/contract/modules/automations/lifecycle";
 import {
 	AutomationExecutionId,
 	AutomationRunId,
@@ -10,8 +11,11 @@ import {
 } from "@ryot-app/contract/schema/brands";
 import { Context, Effect, Layer, Ref } from "effect";
 
-import type { LifecycleCommand } from "#lib/domain/lifecycle-command";
-import type { SandboxRunInput } from "#lib/infrastructure/sandbox-runtime/shared";
+import {
+	requireSandboxCapabilityInput,
+	sandboxLifecycleCommand,
+	type SandboxRunInput,
+} from "#lib/infrastructure/sandbox-runtime/shared";
 import { databaseLayer } from "#lib/test-utils/effect";
 import { SignalEmissionService } from "#modules/automations/signal-service";
 import { NotificationsService } from "#modules/notifications/service";
@@ -35,7 +39,10 @@ const causation = {
 	initiator: { kind: "integration" as const, id: IntegrationId.make("integration-1") },
 };
 
-const runInput = (executionUserId: UserId | null = userId): SandboxRunInput => ({
+const runInput = (
+	executionUserId: UserId | null = userId,
+	parentCausation: LifecycleCommand["causation"] = causation,
+): SandboxRunInput => ({
 	compiledCode: "",
 	compiledFormat: 1,
 	hostCallDiscriminator: 4,
@@ -45,10 +52,10 @@ const runInput = (executionUserId: UserId | null = userId): SandboxRunInput => (
 	context: {
 		automation: {
 			runId,
-			causation,
 			triggerId,
 			occurredAt,
 			executionUserId,
+			causation: parentCausation,
 			hookSlug: "review-created",
 			payload: {
 				operation: "emit",
@@ -70,13 +77,13 @@ const runInput = (executionUserId: UserId | null = userId): SandboxRunInput => (
 		metadata: { kind: "automation", capabilities: ["emitSignal", "sendNotification"] },
 		subject: {
 			runId,
-			causation,
 			triggerId,
 			stage: "after",
 			pluginId: null,
 			executionUserId,
 			type: "automation-run",
 			pluginRevisionId: null,
+			causation: parentCausation,
 			pluginConfigRevisionId: null,
 			accountGeneration:
 				executionUserId === null
@@ -151,6 +158,82 @@ layer(automationHostLayer)((test) => {
 				},
 			]);
 		}),
+	);
+});
+
+layer(automationHostLayer)((test) => {
+	test.effect(
+		"retains user attribution for a trusted system automation without elevating its grants",
+		() =>
+			Effect.gen(function* () {
+				const input = runInput(null, { ...causation, initiator: { id: userId, kind: "user" } });
+				const command = yield* sandboxLifecycleCommand(input, "api", "emitSignal:part-1");
+				expect(command.accountGeneration).toBeNull();
+				expect(command.causation).toEqual({
+					...causation,
+					depth: 3,
+					parentRunId: runId,
+					source: "automation",
+					parentTriggerId: triggerId,
+					executionId: "run-1-host-4",
+					initiator: { id: userId, kind: "user" },
+				});
+				const error = yield* Effect.flip(requireSandboxCapabilityInput(input, "emitSignal"));
+				expect(error.message).toBe(
+					"emitSignal system access requires a pinned system plugin script",
+				);
+			}),
+	);
+});
+
+layer(automationHostLayer)((test) => {
+	test.effect(
+		"owns an automation signal by its executing user while retaining another initiator",
+		() =>
+			Effect.gen(function* () {
+				const executor = UserId.make("recipient");
+				const host = yield* makeAutomationSandboxApiFunctions;
+				yield* host.emitSignal(
+					runInput(executor, { ...causation, initiator: { id: userId, kind: "user" } }),
+					{ discriminator: "part-1", schemaSlug: "review.created", properties: { title: "Dune" } },
+				);
+				expect(yield* (yield* AutomationHostCalls).signalCommands).toMatchObject([
+					{
+						causation: { initiator: { id: userId, kind: "user" } },
+						accountGeneration: { userId: executor, token: "test-account-generation" },
+					},
+				]);
+			}),
+	);
+});
+
+layer(automationHostLayer)((test) => {
+	test.effect(
+		"rejects missing and mismatched executing-user generations before emitting a signal",
+		() =>
+			Effect.gen(function* () {
+				const host = yield* makeAutomationSandboxApiFunctions;
+				const input = runInput();
+				const subject = input.principal.subject;
+				assert(subject.type === "automation-run");
+				for (const accountGeneration of [null, { token: "token", userId: UserId.make("other") }]) {
+					const error = yield* Effect.flip(
+						host.emitSignal(
+							{
+								...input,
+								principal: { ...input.principal, subject: { ...subject, accountGeneration } },
+							},
+							{
+								discriminator: "part-1",
+								schemaSlug: "review.created",
+								properties: { title: "Dune" },
+							},
+						),
+					);
+					expect(error.message).toBe("Invalid lifecycle execution subject");
+				}
+				expect(yield* (yield* AutomationHostCalls).signalCommands).toEqual([]);
+			}),
 	);
 });
 
