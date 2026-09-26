@@ -205,16 +205,28 @@ export function ImportRunView(props: ImportRunViewProps) {
 	const provenance = importRunProvenanceLabel(run.inputSummary);
 	const sourceName = importSourceName(run.source, props.sourceNames);
 	const notice = run.status === "failed" ? importRunFailureNotice(run.failureReason) : undefined;
+	const wasCancelled = run.status === "cancelled";
 	return (
 		<div className="flex flex-col gap-6 pb-4">
 			{provenance === undefined ? null : (
 				<p className="line-clamp-2 text-sm text-text-muted">{provenance}</p>
 			)}
 			<RunCounts run={run} />
-			{run.status === "running" || run.status === "pending" ? (
+			{run.status === "running" || run.status === "pending" || run.status === "cancelling" ? (
 				<p className="text-xs text-text-muted">
-					This runs on your server and can&apos;t be stopped once started.
+					This keeps running on your server, even if you close Ryot or the server restarts.
 				</p>
+			) : null}
+			{wasCancelled ? (
+				<div className="flex gap-3 rounded-xl border border-border bg-surface p-4">
+					<AppIcon size={18} name="circle-x" className="shrink-0 text-text-muted" />
+					<div className="flex min-w-0 flex-1 flex-col gap-0.5">
+						<span className="text-sm font-medium text-text">Import cancelled</span>
+						<span className="text-sm leading-5 text-text-muted">
+							Future work stopped. Items already added remain in your library.
+						</span>
+					</div>
+				</div>
 			) : null}
 			{notice === undefined ? null : (
 				<div className="flex gap-3 rounded-xl border border-border bg-surface p-4">

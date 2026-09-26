@@ -1,5 +1,7 @@
-import type { ImportRunFailureReason } from "@ryot-app/contract/modules/imports/schemas";
-import type { RunStatus } from "@ryot-app/contract/schema/run-status";
+import type {
+	ImportRunFailureReason,
+	ImportRunStatus,
+} from "@ryot-app/contract/modules/imports/schemas";
 import type { ImportRunSummary } from "@ryot-app/ryotql-recipes/import-runs";
 import { Match } from "effect";
 
@@ -22,8 +24,14 @@ const stoppedEarly = {
 	detail: "This import stopped before it finished. Nothing further was added.",
 } as const;
 
-export const canDeleteImportRun = (status: RunStatus) =>
-	status === "completed" || status === "failed";
+export const canDeleteImportRun = (status: ImportRunStatus) =>
+	status === "completed" || status === "failed" || status === "cancelled";
+
+export const canCancelImportRun = (status: ImportRunStatus) =>
+	status === "pending" || status === "running";
+
+export const importRunCancelConfirmation =
+	'This stops future work. Items already added stay in your library. Type "Cancel this import" to continue.';
 
 export const importRunProgress = (run: RunCounts): RunProgress => {
 	if (run.totalItems === null) {
@@ -100,6 +108,9 @@ export const importRunOutcomeLabel = (
 ) => {
 	if (run.status === "failed") {
 		return importRunFailureNotice(run.failureReason).label;
+	}
+	if (run.status === "cancelled") {
+		return "Imported items remain";
 	}
 	return run.failedItems === 0
 		? `${formatRunCount(run.importedItems)} added`

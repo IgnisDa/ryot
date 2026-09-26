@@ -78,7 +78,7 @@ function LiveImportRunCard(props: {
 			</span>
 			<span className="text-xs text-text-subtle">{runStartedLabel(props.run, props.nowMs)}</span>
 			<span className="text-xs text-text-muted">
-				This keeps running on your server, even if you close Ryot.
+				This keeps running on your server, even if you close Ryot or the server restarts.
 			</span>
 		</Link>
 	);
