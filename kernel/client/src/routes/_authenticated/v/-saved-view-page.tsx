@@ -1,7 +1,6 @@
 import type { PluginBridgeProviderSearchScreen } from "@ryot-app/client-plugin-contract";
 import { Button } from "@ryot-app/client-ui-sdk";
 import type { PreparedClientPage } from "@ryot-app/contract/modules/client-pages/schemas";
-import { savedViewPath } from "@ryot-app/contract/modules/plugins/navigation";
 import {
 	sameDeclaration,
 	type SavedViewReference,
@@ -10,18 +9,12 @@ import {
 	EntityBrowserLayout,
 	EntityBrowserSavedViewSettings,
 } from "@ryot-app/contract/modules/saved-views/schemas";
-import { PluginId, SavedViewId } from "@ryot-app/contract/schema/brands";
-import {
-	createFileRoute,
-	notFound,
-	useNavigate,
-	useRouter,
-	useRouterState,
-} from "@tanstack/react-router";
+import { useNavigate, useRouteContext, useRouter, useRouterState } from "@tanstack/react-router";
 import { Effect, Result, Schema } from "effect";
 import { useEffect, useRef } from "react";
 
 import { ClientPagesApi } from "#/api/client-pages";
+import type { ApiScope } from "#/api/scope";
 import {
 	useClearClientPageDocument,
 	useClientPageDocument,
@@ -30,8 +23,6 @@ import {
 import { mergePageSearch } from "#/modules/client-pages/page-host";
 import { usePageTitle } from "#/modules/navigation/page-title";
 import { mainContentProps } from "#/modules/navigation/skip-link";
-import { PluginCatalogService } from "#/modules/plugins/catalog";
-import { effectiveCatalogPlugin } from "#/modules/plugins/plugin-location";
 import { ProviderAddModal } from "#/modules/provider-add/modal";
 import { ClientStorage } from "#/persistence/storage";
 
@@ -45,90 +36,62 @@ const entityBrowserSettings = (prepared: PreparedClientPage) => {
 	return Result.isSuccess(decoded) ? decoded.success : null;
 };
 
-export const Route = createFileRoute("/_authenticated/v/$")({
-	staleTime: 30_000,
-	shouldReload: true,
-	component: SavedViewPage,
-	errorComponent: SavedViewError,
-	pendingComponent: SavedViewPending,
-	loaderDeps: ({ search }) => search,
-	notFoundComponent: SavedViewNotFound,
-	validateSearch: (search: Record<string, unknown>) => ({
-		add: search.add === true || search.add === "true" ? true : undefined,
-		q: typeof search.q === "string" && search.q !== "" ? search.q : undefined,
-		sort: typeof search.sort === "string" && search.sort !== "" ? search.sort : undefined,
-		layout: typeof search.layout === "string" && search.layout !== "" ? search.layout : undefined,
-		search: typeof search.search === "string" && search.search !== "" ? search.search : undefined,
-		dialog: typeof search.dialog === "string" && search.dialog !== "" ? search.dialog : undefined,
-		entityId:
-			typeof search.entityId === "string" && search.entityId !== "" ? search.entityId : undefined,
-	}),
-	loader: ({ context, location, abortController }) =>
-		context.runtime.runPromise(
-			Effect.gen(function* () {
-				const segments = location.pathname.split("/").filter(Boolean).map(decodeURIComponent);
-				const plugin =
-					segments[1] === "p" && segments.length === 5
-						? effectiveCatalogPlugin(
-								yield* Effect.flatMap(PluginCatalogService, (service) =>
-									service.load(context.ryot),
-								),
-								`${segments[2]}/${segments[3]}`,
-							)
-						: undefined;
-				let reference: SavedViewReference;
-				let viewPath: string;
-				if (segments[1] === "c" && segments[2] && segments.length === 3) {
-					reference = { kind: "custom", savedViewId: SavedViewId.make(segments[2]) };
-					viewPath = savedViewPath(reference);
-				} else if (segments[1] === "k" && segments[2] && segments.length === 3) {
-					reference = { kind: "kernel", slug: segments[2] };
-					viewPath = savedViewPath(reference);
-				} else if (plugin && segments[4]) {
-					reference = {
-						kind: "plugin",
-						slug: segments[4],
-						pluginId: PluginId.make(plugin.pluginId),
-					};
-					viewPath = savedViewPath({
-						kind: "plugin",
-						slug: segments[4],
-						packageId: plugin.packageId,
-					});
-				} else {
-					// oxlint-disable-next-line typescript/only-throw-error
-					throw notFound();
-				}
-				let prepared = yield* Effect.flatMap(ClientPagesApi, (api) =>
-					api.prepare(context.scope, { payload: { target: { reference, kind: "saved-view" } } }),
-				);
-				const settings = entityBrowserSettings(prepared);
-				if (settings !== null) {
-					const storedLayout = yield* Effect.flatMap(ClientStorage, (storage) =>
-						storage.getSavedViewLayout(context.scope, viewPath),
-					);
-					if (settings.layouts.includes(storedLayout)) {
-						prepared = {
-							...prepared,
-							context: {
-								...prepared.context,
-								settings: { ...settings, defaultLayout: storedLayout },
-							},
-						};
-					}
-				}
-				return { prepared, viewPath };
-			}),
-			{ signal: abortController.signal },
-		),
+export type SavedViewSearch = ReturnType<typeof validateSavedViewSearch>;
+
+const validateSavedViewSearch = (search: Record<string, unknown>) => ({
+	add: search.add === true || search.add === "true" ? true : undefined,
+	q: typeof search.q === "string" && search.q !== "" ? search.q : undefined,
+	sort: typeof search.sort === "string" && search.sort !== "" ? search.sort : undefined,
+	layout: typeof search.layout === "string" && search.layout !== "" ? search.layout : undefined,
+	search: typeof search.search === "string" && search.search !== "" ? search.search : undefined,
+	dialog: typeof search.dialog === "string" && search.dialog !== "" ? search.dialog : undefined,
+	entityId:
+		typeof search.entityId === "string" && search.entityId !== "" ? search.entityId : undefined,
 });
 
-function SavedViewPage() {
+export const savedViewRouteOptions = {
+	staleTime: 30_000,
+	shouldReload: true,
+	errorComponent: SavedViewError,
+	pendingComponent: SavedViewPending,
+	notFoundComponent: SavedViewNotFound,
+	validateSearch: validateSavedViewSearch,
+	loaderDeps: ({ search }: { readonly search: SavedViewSearch }) => search,
+};
+
+export const loadSavedView = Effect.fn("loadSavedView")(function* (
+	scope: ApiScope,
+	reference: SavedViewReference,
+	viewPath: string,
+) {
+	let prepared = yield* Effect.flatMap(ClientPagesApi, (api) =>
+		api.prepare(scope, { payload: { target: { reference, kind: "saved-view" } } }),
+	);
+	const settings = entityBrowserSettings(prepared);
+	if (settings !== null) {
+		const storedLayout = yield* Effect.flatMap(ClientStorage, (storage) =>
+			storage.getSavedViewLayout(scope, viewPath),
+		);
+		if (settings.layouts.includes(storedLayout)) {
+			prepared = {
+				...prepared,
+				context: { ...prepared.context, settings: { ...settings, defaultLayout: storedLayout } },
+			};
+		}
+	}
+	return { prepared, viewPath };
+});
+
+export function SavedViewPage({
+	loaded,
+	search: { q, add, layout },
+}: {
+	readonly search: SavedViewSearch;
+	readonly loaded: Effect.Success<ReturnType<typeof loadSavedView>>;
+}) {
 	const router = useRouter();
 	const navigate = useNavigate();
-	const loaded = Route.useLoaderData();
-	const { q, add, layout } = Route.useSearch();
-	const { scope, runtime } = Route.useRouteContext();
+	const { scope, runtime } = useRouteContext({ from: "/_authenticated" });
 	const location = useRouterState({
 		select: (current) => current.resolvedLocation ?? current.location,
 	});

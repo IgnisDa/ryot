@@ -1,10 +1,15 @@
 import { KERNEL_SHORTCUTS, type KernelShortcut } from "@ryot-app/client-plugin-contract";
 import { Button, Modal, useShortcut, useValueChange } from "@ryot-app/client-ui-sdk";
-import { pluginPath } from "@ryot-app/contract/modules/plugins/navigation";
-import type { PluginId } from "@ryot-app/contract/schema/brands";
+import { pluginPath, savedViewPath } from "@ryot-app/contract/modules/plugins/navigation";
+import {
+	type PluginId,
+	pluginPackageIdFromSegments,
+	SavedViewId,
+} from "@ryot-app/contract/schema/brands";
 import type { NavigationData } from "@ryot-app/ryotql-recipes/navigation";
 import {
 	Outlet,
+	useMatch,
 	useNavigate,
 	useRouteContext,
 	useRouter,
@@ -69,7 +74,6 @@ import { historyEntry } from "#/modules/navigation/history-entry";
 import { MobileDrawer } from "#/modules/navigation/mobile-drawer";
 import { useSafeAreaInsets } from "#/modules/navigation/safe-area";
 import {
-	activeSidebarKey,
 	navigationViewHref,
 	sidebarSections,
 	type SidebarEntry,
@@ -83,6 +87,40 @@ import { usePluginCatalog } from "#/modules/plugins/catalog-provider";
 import { effectiveCatalogPlugin } from "#/modules/plugins/plugin-location";
 import { useStableHandler } from "#/modules/ui/use-stable-handler";
 import { ClientStorage } from "#/persistence/storage";
+
+function useActiveSidebarKey() {
+	const customViewPath = useMatch({
+		shouldThrow: false,
+		from: "/_authenticated/v/c/$savedViewId",
+		select: ({ params }) =>
+			savedViewPath({ kind: "custom", savedViewId: SavedViewId.make(params.savedViewId) }),
+	});
+	const kernelViewPath = useMatch({
+		shouldThrow: false,
+		from: "/_authenticated/v/k/$slug",
+		select: ({ params }) => savedViewPath({ kind: "kernel", slug: params.slug }),
+	});
+	const pluginViewPath = useMatch({
+		shouldThrow: false,
+		from: "/_authenticated/v/p/$publisher/$name/$slug",
+		select: ({ params }) =>
+			savedViewPath({
+				kind: "plugin",
+				slug: params.slug,
+				packageId: pluginPackageIdFromSegments(params),
+			}),
+	});
+	const collectionSlug = useMatch({
+		shouldThrow: false,
+		from: "/_authenticated/e/$entityId",
+		select: ({ params }) => params.entityId,
+	});
+	const viewPath = customViewPath ?? kernelViewPath ?? pluginViewPath;
+	if (viewPath !== undefined) {
+		return `view:${viewPath}`;
+	}
+	return collectionSlug === undefined ? null : `collection:${collectionSlug}`;
+}
 
 export function AuthenticatedShell(props: {
 	readonly isPro: boolean;
@@ -115,12 +153,14 @@ export function AuthenticatedShell(props: {
 	const customizeSection = customizeSearchSection(search);
 	const workspaceChrome = hasWorkspaceChrome(pathname);
 	const committedPathname = pathname;
-	const routeSegments = committedPathname.split("/").map(decodeURIComponent);
-	const routePackageId = committedPathname.startsWith("/p/")
-		? `${routeSegments[2] ?? ""}/${routeSegments[3] ?? ""}`
-		: "";
-	const routeWorkspace = effectiveCatalogPlugin(catalog, routePackageId) ?? null;
-	const activeKey = useMemo(() => activeSidebarKey(pathname), [pathname]);
+	const routePackageId = useMatch({
+		shouldThrow: false,
+		from: "/_authenticated/p/$publisher/$name",
+		select: ({ params }) => pluginPackageIdFromSegments(params),
+	});
+	const routeWorkspace =
+		routePackageId === undefined ? null : (effectiveCatalogPlugin(catalog, routePackageId) ?? null);
+	const activeKey = useActiveSidebarKey();
 	const routeView = props.navigation.savedViews.find(
 		(view) => `view:${navigationViewHref(view)}` === activeKey,
 	);

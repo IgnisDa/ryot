@@ -3,7 +3,6 @@ import type { NavigationData, NavigationView } from "@ryot-app/ryotql-recipes/na
 import { describe, expect, it } from "vitest";
 
 import {
-	activeSidebarKey,
 	sidebarItemKey,
 	sidebarSections,
 	workspacePickerSummary,
@@ -117,15 +116,5 @@ describe("sidebar sections", () => {
 		expect(workspacePickerSummary(data, "installation-ryot/fitness")).toBe(
 			"Custom workspace · 0 views",
 		);
-	});
-
-	it.each([
-		["/v/c/recent", "view:/v/c/recent"],
-		["/v/c/recent/details", "view:/v/c/recent"],
-		["/e/collection-1", "collection:collection-1"],
-		["/media", null],
-		["/settings", null],
-	])("derives the active item from %s", (pathname, key) => {
-		expect(activeSidebarKey(pathname)).toBe(key);
 	});
 });

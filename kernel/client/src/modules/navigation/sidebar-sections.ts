@@ -87,12 +87,3 @@ export const sidebarItemKey = (item: SidebarItem) => {
 	}
 	return item.kind === "view" ? `view:${navigationViewHref(item)}` : `collection:${item.slug}`;
 };
-
-export function activeSidebarKey(pathname: string) {
-	const view = pathname.match(/^\/v\/(?:[ck]\/[^/]+|p\/[^/]+\/[^/]+\/[^/]+)(?:\/|$)/)?.[0];
-	if (view !== undefined) {
-		return `view:${view.replace(/\/$/, "")}`;
-	}
-	const collection = pathname.match(/^\/e\/([^/]+)(?:\/|$)/)?.[1];
-	return collection === undefined ? null : `collection:${collection}`;
-}
