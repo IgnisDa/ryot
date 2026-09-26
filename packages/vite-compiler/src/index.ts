@@ -19,13 +19,13 @@ export type { ViteCompilerErrorReason, ViteDiagnostic, ViteDiagnosticLocation } 
 export { buildWithVite, ViteBuildService } from "./vite";
 export type { ViteCompilerOptions, ViteCompilerResult } from "./vite";
 
-export { auditDenoEsmOutput, buildDenoEsm, buildDenoEsmPackage } from "./deno";
+export { auditSandboxEsmOutput, buildSandboxEsm, buildSandboxEsmPackage } from "./sandbox";
 export type {
-	DenoEsmAlias,
-	DenoEsmBuildOptions,
-	DenoEsmBuildResult,
-	DenoEsmExternalBuildOptions,
-	DenoEsmPackageBuildOptions,
-	DenoEsmPackageModule,
-	DenoEsmStagedBuildOptions,
-} from "./deno";
+	SandboxEsmAlias,
+	SandboxEsmBuildOptions,
+	SandboxEsmBuildResult,
+	SandboxEsmExternalBuildOptions,
+	SandboxEsmPackageBuildOptions,
+	SandboxEsmPackageModule,
+	SandboxEsmStagedBuildOptions,
+} from "./sandbox";

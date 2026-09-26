@@ -293,7 +293,7 @@ const validateSandboxPackageEntries = (
 					),
 				]);
 			}
-			const manifest = { ...extracted.manifest, ...execution.metadata };
+			const manifest = { ...extracted.manifest, ...execution.metadata, runtimeImports: [] };
 			const capabilityDiagnostic = validateCompiledSandboxManifest(manifest);
 			if (capabilityDiagnostic) {
 				return yield* sandboxCompilationFailure([capabilityDiagnostic]);
@@ -327,15 +327,15 @@ const compileValidatedSandboxEntries = (
 			dependencies.sdkEntries,
 			SANDBOX_COMPILER_LIMITS.concurrency,
 		);
-		const javascriptByEntry = new Map(bundled.map(({ entry, javascript }) => [entry, javascript]));
+		const outputByEntry = new Map(bundled.map((output) => [output.entry, output]));
 		return yield* Effect.forEach(entries, ({ entry, source, manifest, inspection }) => {
-			const javascript = javascriptByEntry.get(entry);
-			if (javascript === undefined) {
+			const output = outputByEntry.get(entry);
+			if (!output) {
 				return sandboxCompilationFailure([
 					sandboxCompilerDiagnostic("RYOT_BUNDLE", `Compiler returned no output for ${entry}`),
 				]);
 			}
-			if (utf8ByteLength(javascript) > SANDBOX_COMPILER_LIMITS.javascriptBytes) {
+			if (utf8ByteLength(output.javascript) > SANDBOX_COMPILER_LIMITS.javascriptBytes) {
 				return sandboxCompilationFailure([
 					sandboxCompilerDiagnostic(
 						"RYOT_COMPILED_SIZE",
@@ -343,11 +343,31 @@ const compileValidatedSandboxEntries = (
 					),
 				]);
 			}
+			const finalManifest = { ...manifest, runtimeImports: output.runtimeImports };
+			const manifestDiagnostic = validateCompiledSandboxManifest(finalManifest);
+			if (manifestDiagnostic) {
+				return sandboxCompilationFailure([manifestDiagnostic]);
+			}
+			if (
+				(jsonByteLength(finalManifest) ?? Number.POSITIVE_INFINITY) >
+				SANDBOX_COMPILER_LIMITS.manifestBytes
+			) {
+				return sandboxCompilationFailure([
+					sandboxCompilerDiagnostic(
+						"RYOT_MANIFEST_SIZE",
+						`Sandbox manifest exceeds ${SANDBOX_COMPILER_LIMITS.manifestBytes} UTF-8 bytes`,
+					),
+				]);
+			}
 			return Effect.succeed({
 				entry,
 				source,
 				providerOperation: inspection.providerOperation,
-				compiled: { manifest, javascript, format: SANDBOX_COMPILED_FORMAT },
+				compiled: {
+					manifest: finalManifest,
+					javascript: output.javascript,
+					format: SANDBOX_COMPILED_FORMAT,
+				},
 			} satisfies CompiledBuiltInSandboxEntry);
 		});
 	});
