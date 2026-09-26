@@ -217,15 +217,15 @@ layer(workflowLoadLayer())((test) => {
 
 const journalReads: string[] = [];
 const projections = new Map<string, Record<string, string>>([
-	[redisKeys.sandboxWorkflowJournal("valid"), { "0": "first", "1": "second", "high-water": "2" }],
-	[redisKeys.sandboxWorkflowJournal("empty"), { "high-water": "0" }],
-	[redisKeys.sandboxWorkflowJournal("hole"), { "0": "first", "high-water": "2" }],
-	[redisKeys.sandboxWorkflowJournal("negative"), { "high-water": "-1" }],
-	[redisKeys.sandboxWorkflowJournal("fraction"), { "high-water": "1.5" }],
-	[redisKeys.sandboxWorkflowJournal("unsafe"), { "high-water": "9007199254740992" }],
-	[redisKeys.sandboxWorkflowJournal("non-numeric"), { "high-water": "invalid" }],
-	[redisKeys.sandboxWorkflowJournal("missing-header"), { "0": "first" }],
-	[`${redisKeys.sandboxWorkflowJournal("valid")}:unrelated`, { "high-water": "99" }],
+	[redisKeys.sandboxWorkflowJournal("valid"), { "0": "first", "1": "second" }],
+	[redisKeys.sandboxWorkflowJournal("longest"), { "0": "a", "1": "b", "2": "c" }],
+	[redisKeys.sandboxWorkflowJournal("hole"), { "0": "first", "2": "third" }],
+	[redisKeys.sandboxWorkflowJournal("missing-first"), { "1": "second" }],
+	[redisKeys.sandboxWorkflowJournal("stray"), { "0": "first", other: "value" }],
+	[
+		`${redisKeys.sandboxWorkflowJournal("valid")}:unrelated`,
+		{ "0": "a", "1": "b", "2": "c", "3": "d" },
+	],
 ]);
 
 layer(
@@ -253,34 +253,34 @@ layer(
 		}),
 	}),
 )((test) => {
-	test.effect("reads exact journal keys and detects holes and corrupt high-water marks", () =>
-		Effect.gen(function* () {
-			const service = yield* OperationalGateService;
-			const pressure = yield* service.samplePressure([
-				"valid",
-				"empty",
-				"hole",
-				"negative",
-				"fraction",
-				"unsafe",
-				"non-numeric",
-				"missing-header",
-				"absent",
-			]);
+	test.effect(
+		"reads exact journal keys and counts contiguous entries and detects holes and stray fields",
+		() =>
+			Effect.gen(function* () {
+				const service = yield* OperationalGateService;
+				const pressure = yield* service.samplePressure([
+					"valid",
+					"longest",
+					"hole",
+					"missing-first",
+					"stray",
+					"absent",
+				]);
 
-			expect(pressure.redis).toEqual({ maxHighWater: 2, projectionCount: 8, projectionErrors: 6 });
-			expect(journalReads).toEqual([
-				"ryot:sandbox:workflow:valid:journal",
-				"ryot:sandbox:workflow:empty:journal",
-				"ryot:sandbox:workflow:hole:journal",
-				"ryot:sandbox:workflow:negative:journal",
-				"ryot:sandbox:workflow:fraction:journal",
-				"ryot:sandbox:workflow:unsafe:journal",
-				"ryot:sandbox:workflow:non-numeric:journal",
-				"ryot:sandbox:workflow:missing-header:journal",
-				"ryot:sandbox:workflow:absent:journal",
-			]);
-		}),
+				expect(pressure.redis).toEqual({
+					projectionCount: 5,
+					projectionErrors: 3,
+					maxJournalEntries: 3,
+				});
+				expect(journalReads).toEqual([
+					"ryot:sandbox:workflow:valid:journal",
+					"ryot:sandbox:workflow:longest:journal",
+					"ryot:sandbox:workflow:hole:journal",
+					"ryot:sandbox:workflow:missing-first:journal",
+					"ryot:sandbox:workflow:stray:journal",
+					"ryot:sandbox:workflow:absent:journal",
+				]);
+			}),
 	);
 });
 

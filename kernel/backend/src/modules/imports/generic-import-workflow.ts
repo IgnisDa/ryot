@@ -21,6 +21,8 @@ import {
 	UserId,
 } from "@ryot-app/contract/schema/brands";
 import {
+	genericImportChunkOperationIds,
+	genericImportItemIntents,
 	genericImportChunkSchema,
 	genericImportApplyResultSchema,
 	type GenericImportWriteItem,
@@ -64,6 +66,7 @@ import { RelationshipsService } from "#modules/relationships/service";
 
 import {
 	genericIngestionBatchResult,
+	genericIngestionFailureOperation,
 	genericIngestionOperations,
 	reconcileGenericIngestionBatch,
 	type IngestionOperation,
@@ -731,24 +734,10 @@ export const runProcessGenericImportChunksWorkflow = Effect.fn(
 			execute: database
 				.transaction(
 					Effect.gen(function* () {
-						yield* repository.registerBatch(
-							scope,
-							batch,
-							[
-								...chunk.items.flatMap((item) =>
-									[
-										...item.entities,
-										...item.relationships,
-										...item.events,
-										...(item.collectionMemberships ?? []),
-									].map((intent) => intent.operationId),
-								),
-								...chunk.failures.map((failure) =>
-									stableStringify(["source", failure.sourceIdentifier, failure.itemIndex]),
-								),
-							],
-							{ executionId, workflowName: ProcessGenericImportChunksWorkflow._tag },
-						);
+						yield* repository.registerBatch(scope, batch, genericImportChunkOperationIds(chunk), {
+							executionId,
+							workflowName: ProcessGenericImportChunksWorkflow._tag,
+						});
 						yield* repository.advanceBatch(scope, batch.id, "preparing");
 						yield* repository.advanceBatch(scope, batch.id, "applying");
 					}),
@@ -796,17 +785,7 @@ export const runProcessGenericImportChunksWorkflow = Effect.fn(
 		for (const failure of chunk.failures) {
 			const stage = failure.stage ?? "input_transformation";
 			yield* record(
-				{
-					unit: failure.unit,
-					recordKind: failure.recordKind,
-					operationId: stableStringify(["source", failure.sourceIdentifier, failure.itemIndex]),
-					itemIdentity: stableStringify(["source", failure.sourceIdentifier, failure.itemIndex]),
-					attribution: {
-						sourceLabel: failure.sourceLabel,
-						recordId: String(failure.itemIndex),
-						sourceIdentifier: failure.sourceIdentifier,
-					},
-				},
+				genericIngestionFailureOperation(failure, scope.runId),
 				"unsuccessful",
 				failureReasonByStage[stage].code,
 			);
@@ -913,12 +892,9 @@ export const runProcessGenericImportChunksWorkflow = Effect.fn(
 				(yield* repository.getIngestionRun(scope))?.status === "running"
 			) {
 				const candidates = operations.filter((operation) =>
-					[
-						...item.entities,
-						...item.events,
-						...item.relationships,
-						...(item.collectionMemberships ?? []),
-					].some((intent) => intent.operationId === operation.operationId),
+					genericImportItemIntents(item).some(
+						(intent) => intent.operationId === operation.operationId,
+					),
 				);
 				const committed = yield* receipts.getCommittedItems({
 					userId: scope.userId,

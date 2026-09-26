@@ -92,6 +92,15 @@ export const ImportMediaEntityGroup = Schema.Struct({
 
 export type ImportMediaEntityGroup = typeof ImportMediaEntityGroup.Type;
 
+export const MediaImportBatchEntityGroup = Schema.Struct({
+	...mediaEntityGroupFields,
+	events: Schema.Array(
+		Schema.Struct({ ...ImportMediaEvent.fields, operationId: Schema.NonEmptyString }),
+	),
+});
+
+export type MediaImportBatchEntityGroup = typeof MediaImportBatchEntityGroup.Type;
+
 export const MediaImportAdapterFailure = Schema.Struct({
 	message: Schema.String,
 	itemIndex: Schema.Finite,
@@ -106,6 +115,13 @@ export const MediaImportAdapterFailure = Schema.Struct({
 
 export type MediaImportAdapterFailure = typeof MediaImportAdapterFailure.Type;
 
+export const MediaImportFailure = Schema.Struct({
+	...MediaImportAdapterFailure.fields,
+	operationId: genericImportFailureSchema.fields.operationId,
+});
+
+export type MediaImportFailure = typeof MediaImportFailure.Type;
+
 export const MediaIntegrationAdapterResult = Schema.Struct({
 	failures: Schema.Array(MediaImportAdapterFailure),
 	entityGroups: Schema.Array(ImportMediaEntityGroup),
@@ -119,6 +135,8 @@ export type MediaIntegrationAdapterResult = typeof MediaIntegrationAdapterResult
 export const MediaImportAdapterBatch = Schema.Struct({
 	...MediaIntegrationAdapterResult.fields,
 	totalItems: Schema.Finite,
+	failures: Schema.Array(MediaImportFailure),
+	entityGroups: Schema.Array(MediaImportBatchEntityGroup),
 });
 
 const traktUserTarget = strictStruct({
@@ -147,6 +165,7 @@ export type TraktImportTarget = typeof TraktImportTarget.Type;
 
 const MediaImportFinalizedEvent = Schema.Struct({
 	...mediaEventFields,
+	operationId: Schema.NonEmptyString,
 	subjectEntityId: Schema.optional(Schema.NonEmptyString),
 	subjectEntitySchemaSlug: Schema.optional(Schema.NonEmptyString),
 });
@@ -157,7 +176,7 @@ const MediaImportFinalizedEntityGroup = Schema.Struct({
 });
 
 export const MediaImportWriteChunkInput = Schema.Struct({
-	failures: Schema.Array(MediaImportAdapterFailure),
+	failures: Schema.Array(MediaImportFailure),
 	entityGroups: Schema.Array(MediaImportFinalizedEntityGroup),
 	ingestionArtifacts: Schema.optional(ingestionArtifactsSchema),
 	populationResults: MediaImportPopulationWorkflowOutput.fields.results,
