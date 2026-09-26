@@ -1,20 +1,8 @@
-import { EntityId } from "@ryot-app/contract/schema/brands";
 import { Effect } from "effect";
 
-import { adminHeaders } from "~/fixtures/kernel/admin";
-import { getApiClient } from "~/fixtures/kernel/contract-client";
+import { markEntityPopulated } from "~/fixtures/kernel/entities";
 
 import { seedMediaEntity } from "./media";
-
-const markEntityPopulated = (entityId: string) =>
-	getApiClient().call(
-		(c) =>
-			c.testSupport.setEntityPopulatedAt({
-				params: { entityId: EntityId.make(entityId) },
-				payload: { populatedAt: new Date().toISOString() },
-			}),
-		adminHeaders(),
-	);
 
 export const seedPopulatedProviderEntity = (input: {
 	name: string;

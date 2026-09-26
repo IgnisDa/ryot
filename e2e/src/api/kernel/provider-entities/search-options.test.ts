@@ -13,7 +13,6 @@ import {
 	uninstallTestProvider,
 } from "~/fixtures/kernel";
 import type { InstalledTestProvider } from "~/fixtures/kernel/sandbox-provider";
-import { findMediaEntitySchema } from "~/fixtures/plugins/media";
 import { assertCondition, assertPresent, assertTaggedError } from "~/support/assertions";
 import { afterAll, beforeAll, describe, expect, it, runPromise } from "~/support/effect-test";
 
@@ -67,12 +66,11 @@ beforeAll(() =>
 		Effect.gen(function* () {
 			const { client } = yield* createAuthenticatedClient();
 			providerClient = client;
-			const { schema } = yield* findMediaEntitySchema(client, "book");
 			dynamicProvider = yield* installTestProvider({
 				client,
 				slug: DYNAMIC_PROVIDER_SLUG,
+				rootEntitySchemaSlug: "book",
 				pluginSlug: DYNAMIC_PLUGIN_SLUG,
-				rootEntitySchemaSlug: schema.id,
 				searchOptions: SEARCH_OPTIONS_RESULT,
 				searchOptionsSchema: DYNAMIC_SEARCH_OPTIONS_SCHEMA,
 				details: fakeProviderDetailsResult({ name: "Dynamic Search Options Provider" }),
@@ -83,8 +81,8 @@ beforeAll(() =>
 			failingProvider = yield* installTestProvider({
 				client,
 				slug: FAILING_PROVIDER_SLUG,
+				rootEntitySchemaSlug: "book",
 				pluginSlug: FAILING_PLUGIN_SLUG,
-				rootEntitySchemaSlug: schema.id,
 				searchOptionsSchema: DYNAMIC_SEARCH_OPTIONS_SCHEMA,
 				searchOptionsFailure: "search options fixture failure",
 				details: fakeProviderDetailsResult({ name: "Failing Search Options Provider" }),
@@ -95,8 +93,8 @@ beforeAll(() =>
 			staticProvider = yield* installTestProvider({
 				client,
 				slug: STATIC_PROVIDER_SLUG,
+				rootEntitySchemaSlug: "book",
 				pluginSlug: STATIC_PLUGIN_SLUG,
-				rootEntitySchemaSlug: schema.id,
 				searchOptionsSchema: STATIC_SEARCH_OPTIONS_SCHEMA,
 				details: fakeProviderDetailsResult({ name: "Static Search Options Provider" }),
 				search: fakeProviderSearchResult([

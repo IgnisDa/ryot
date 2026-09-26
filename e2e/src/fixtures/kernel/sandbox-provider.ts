@@ -1,5 +1,10 @@
 import type { PluginManifest } from "@ryot-app/contract/modules/plugins/manifest";
-import type { SandboxProviderId, SandboxScriptId } from "@ryot-app/contract/schema/brands";
+import { definitionOwner } from "@ryot-app/contract/modules/plugins/references";
+import {
+	EntitySchemaSlug,
+	type SandboxProviderId,
+	type SandboxScriptId,
+} from "@ryot-app/contract/schema/brands";
 import type { AppSchema } from "@ryot-app/contract/schema/property-schema";
 import type {
 	ProviderDetailsResult,
@@ -8,13 +13,16 @@ import type {
 	ProviderSearchOptionsResult,
 	ProviderTranslateResult,
 } from "@ryot-app/sandbox-sdk/provider";
-import { Effect } from "effect";
+import { Effect, Record } from "effect";
+
+import { requirePresent } from "~/support/assertions";
 
 import { listAdminSandboxScripts } from "./admin-sandbox-scripts";
 import type { Client } from "./auth";
 import {
 	installTestPluginBundle,
 	reinstallTestPluginScript,
+	testPluginEntitySchema,
 	type InstalledTestPlugin,
 	type TestPluginScript,
 	uninstallTestPlugin,
@@ -42,12 +50,9 @@ export type InstalledTestProvider = Omit<InstalledTestPlugin, "scriptId" | "slug
 	searchOptionsScriptId?: SandboxScriptId;
 };
 
-export const installTestProvider = (input: {
+type TestProviderSpec = {
 	slug?: string;
 	name?: string;
-	client: Client;
-	scope?: "system";
-	pluginSlug?: string;
 	detailsDelayMs?: number;
 	rootEntitySchemaSlug: string;
 	search?: ProviderSearchResult;
@@ -56,78 +61,89 @@ export const installTestProvider = (input: {
 	resolve?: ProviderResolveResult;
 	searchOptionsSchema?: AppSchema;
 	information?: PluginProviderInformation;
-	savedViews?: PluginManifest["savedViews"];
 	searchOptions?: ProviderSearchOptionsResult;
+	translations?: Readonly<Record<string, ProviderTranslateResult>>;
+};
+
+type TestProviderPlugin = {
+	client: Client;
+	scope?: "system";
+	pluginSlug?: string;
+	savedViews?: PluginManifest["savedViews"];
 	entitySchemas?: PluginManifest["entitySchemas"];
 	relationshipSchemas?: PluginManifest["relationshipSchemas"];
-	translations?: Readonly<Record<string, ProviderTranslateResult>>;
-}) =>
-	Effect.gen(function* () {
-		const name = input.name ?? "E2E Provider Script";
-		const information = input.information ?? { source: "e2e" };
-		const providerSlug = input.slug ?? `e2e-provider-${crypto.randomUUID()}`;
-		const operations: Array<{
-			delayMs?: number;
-			executionFailure?: string;
-			operation: ProviderOperation;
-			result: ProviderOperationResult;
-		}> = [{ operation: "details", result: input.details, delayMs: input.detailsDelayMs }];
-		if (input.search) {
-			operations.push({ operation: "search", result: input.search });
-		}
-		if (input.searchOptions !== undefined || input.searchOptionsFailure !== undefined) {
-			operations.push({
-				operation: "search-options",
-				executionFailure: input.searchOptionsFailure,
-				result: input.searchOptions ?? { sources: {} },
-			});
-		}
-		if (input.resolve) {
-			operations.push({ operation: "resolve", result: input.resolve });
-		}
-		if (input.translations) {
-			operations.push({ operation: "translate", result: input.translations });
-		}
-		const scripts = operations.map(({ operation }) => {
-			const slug = `${providerSlug}.${operation}`;
-			return {
-				slug,
-				providerSlug,
-				capabilities: [],
-				kind: "provider" as const,
-				providerOperation: operation,
-				requiredPluginConfigKeys: [],
-				name: `${name} ${operation}`,
-				entry: `backend/providers/${providerSlug}/${operation}.sandbox.ts`,
-				...(operation === "search" && input.searchOptionsSchema !== undefined
-					? { searchOptionsSchema: input.searchOptionsSchema }
-					: {}),
-			};
+};
+
+const testProviderDeclaration = (input: TestProviderSpec) => {
+	const name = input.name ?? "E2E Provider Script";
+	const providerSlug = input.slug ?? `e2e-provider-${crypto.randomUUID()}`;
+	const operations: Array<{
+		delayMs?: number;
+		executionFailure?: string;
+		operation: ProviderOperation;
+		result: ProviderOperationResult;
+	}> = [{ operation: "details", result: input.details, delayMs: input.detailsDelayMs }];
+	if (input.search) {
+		operations.push({ operation: "search", result: input.search });
+	}
+	if (input.searchOptions !== undefined || input.searchOptionsFailure !== undefined) {
+		operations.push({
+			operation: "search-options",
+			executionFailure: input.searchOptionsFailure,
+			result: input.searchOptions ?? { sources: {} },
 		});
-		const files = Object.fromEntries(
-			scripts.map((script) => {
-				const operationDefinition = operations.find(
-					({ operation }) => operation === script.providerOperation,
-				);
-				return [
-					script.entry,
-					providerSandboxSource({
-						name: script.name,
-						slug: script.slug,
-						operation: script.providerOperation,
-						delayMs: operationDefinition?.delayMs,
-						result: operationDefinition?.result ?? input.details,
-						...(operationDefinition?.executionFailure !== undefined
-							? { executionFailure: operationDefinition.executionFailure }
-							: {}),
-						...(script.providerOperation === "search" && input.searchOptionsSchema !== undefined
-							? { searchOptionsSchema: input.searchOptionsSchema }
-							: {}),
-					}),
-				];
-			}),
-		);
-		const providerOperations = {
+	}
+	if (input.resolve) {
+		operations.push({ operation: "resolve", result: input.resolve });
+	}
+	if (input.translations) {
+		operations.push({ operation: "translate", result: input.translations });
+	}
+	const scripts = operations.map(({ operation }) => {
+		const slug = `${providerSlug}.${operation}`;
+		return {
+			slug,
+			providerSlug,
+			capabilities: [],
+			kind: "provider" as const,
+			providerOperation: operation,
+			requiredPluginConfigKeys: [],
+			name: `${name} ${operation}`,
+			entry: `backend/providers/${providerSlug}/${operation}.sandbox.ts`,
+			...(operation === "search" && input.searchOptionsSchema !== undefined
+				? { searchOptionsSchema: input.searchOptionsSchema }
+				: {}),
+		};
+	});
+	const files = Object.fromEntries(
+		scripts.map((script) => {
+			const operationDefinition = operations.find(
+				({ operation }) => operation === script.providerOperation,
+			);
+			return [
+				script.entry,
+				providerSandboxSource({
+					name: script.name,
+					slug: script.slug,
+					operation: script.providerOperation,
+					delayMs: operationDefinition?.delayMs,
+					result: operationDefinition?.result ?? input.details,
+					...(operationDefinition?.executionFailure !== undefined
+						? { executionFailure: operationDefinition.executionFailure }
+						: {}),
+					...(script.providerOperation === "search" && input.searchOptionsSchema !== undefined
+						? { searchOptionsSchema: input.searchOptionsSchema }
+						: {}),
+				}),
+			];
+		}),
+	);
+	const provider = {
+		name,
+		slug: providerSlug,
+		rootEntitySchemaSlug: input.rootEntitySchemaSlug,
+		information: input.information ?? { source: "e2e" },
+		operations: {
 			details: `${providerSlug}.details`,
 			...(input.search ? { search: `${providerSlug}.search` } : {}),
 			...(input.resolve ? { resolve: `${providerSlug}.resolve` } : {}),
@@ -135,59 +151,95 @@ export const installTestProvider = (input: {
 			...(input.searchOptions !== undefined || input.searchOptionsFailure !== undefined
 				? { searchOptions: `${providerSlug}.search-options` }
 				: {}),
-		};
+		},
+	};
+	return { files, scripts, provider };
+};
+
+const resolveTestProviders = <Key extends string>(
+	declarations: Readonly<Record<Key, ReturnType<typeof testProviderDeclaration>>>,
+	installed: {
+		readonly activePluginRevisionId: string;
+		readonly scriptIds: Readonly<Record<string, SandboxScriptId>>;
+	},
+) =>
+	listAdminSandboxScripts(installed.activePluginRevisionId).pipe(
+		Effect.map((storedScripts) =>
+			Record.map(declarations, ({ provider: { slug: providerSlug } }) => {
+				const scriptId = (operation: string) => installed.scriptIds[`${providerSlug}.${operation}`];
+				const detailsScriptId = requirePresent(
+					scriptId("details"),
+					`Provider '${providerSlug}' details script was not installed`,
+				);
+				const providerScripts = storedScripts.filter(({ slug }) =>
+					slug.startsWith(`${providerSlug}.`),
+				);
+				const providerId = requirePresent(
+					providerScripts.find(({ id }) => id === detailsScriptId)?.providerId,
+					`Provider '${providerSlug}' ID was not returned by test support`,
+				);
+				if (providerScripts.some((script) => script.providerId !== providerId)) {
+					throw new Error(`Provider '${providerSlug}' scripts do not share one provider ID`);
+				}
+				return {
+					providerId,
+					providerSlug,
+					detailsScriptId,
+					searchScriptId: scriptId("search"),
+					resolveScriptId: scriptId("resolve"),
+					translateScriptId: scriptId("translate"),
+					searchOptionsScriptId: scriptId("search-options"),
+				};
+			}),
+		),
+	);
+
+export const installTestProviders = <Key extends string>(
+	input: TestProviderPlugin & { providers: Readonly<Record<Key, TestProviderSpec>> },
+) =>
+	Effect.gen(function* () {
+		const declarations = Record.map(input.providers, testProviderDeclaration);
 		const common = {
-			files,
-			scripts,
 			pluginSlug: input.pluginSlug,
 			savedViews: input.savedViews,
-			entitySchemas: input.entitySchemas,
 			relationshipSchemas: input.relationshipSchemas,
-			providers: [
-				{
-					name,
-					information,
-					slug: providerSlug,
-					operations: providerOperations,
-					rootEntitySchemaSlug: input.rootEntitySchemaSlug,
-				},
-			],
+			scripts: Record.values(declarations).flatMap(({ scripts }) => scripts),
+			providers: Record.values(declarations).map(({ provider }) => provider),
+			files: Object.assign({}, ...Record.values(declarations).map(({ files }) => files)),
+			entitySchemas:
+				input.entitySchemas ??
+				[
+					...new Set(
+						Record.values(declarations).map(({ provider }) => provider.rootEntitySchemaSlug),
+					),
+				].map((slug) => testPluginEntitySchema({ slug })),
 		};
 		const installed = yield* installTestPluginBundle(
 			input.scope === "system"
 				? { scope: "system", ...common }
 				: { client: input.client, ...common },
 		);
-		const detailsScriptId = installed.scriptIds[`${providerSlug}.details`];
-		if (!detailsScriptId) {
-			return yield* Effect.die(new Error("Installed provider details script was not found"));
-		}
-		const storedScripts = (yield* listAdminSandboxScripts(installed.activePluginRevisionId)).filter(
-			(script) => Object.values(installed.scriptIds).includes(script.id),
-		);
-		if (storedScripts.length !== Object.values(installed.scriptIds).length) {
-			return yield* Effect.die(new Error("Installed provider operation script was not found"));
-		}
-		const providerId = storedScripts.find((script) => script.id === detailsScriptId)?.providerId;
-		if (!providerId) {
-			return yield* Effect.die(new Error("Installed provider ID was not returned by test support"));
-		}
-		if (storedScripts.some((script) => script.providerId !== providerId)) {
-			return yield* Effect.die(
-				new Error("Installed provider operation scripts do not share one provider ID"),
-			);
-		}
-		return {
+		const providers = yield* resolveTestProviders(declarations, installed);
+		return Record.map(providers, (provider): InstalledTestProvider => ({
 			...installed,
-			providerId,
-			providerSlug,
-			detailsScriptId,
-			searchScriptId: installed.scriptIds[`${providerSlug}.search`],
-			resolveScriptId: installed.scriptIds[`${providerSlug}.resolve`],
-			translateScriptId: installed.scriptIds[`${providerSlug}.translate`],
-			searchOptionsScriptId: installed.scriptIds[`${providerSlug}.search-options`],
-		};
+			...provider,
+		}));
 	});
+
+export const installTestProvider = (input: TestProviderPlugin & TestProviderSpec) =>
+	installTestProviders({ ...input, providers: { provider: input } }).pipe(
+		Effect.map(({ provider }) => provider),
+	);
+
+export const testProviderEntitySchema = (provider: InstalledTestProvider) => ({
+	owner: definitionOwner(provider.pluginId),
+	slug: EntitySchemaSlug.make(
+		requirePresent(
+			provider.manifest.providers.find(({ slug }) => slug === provider.providerSlug),
+			`Provider '${provider.providerSlug}' is missing from its manifest`,
+		).rootEntitySchemaSlug,
+	),
+});
 
 export const uninstallTestProvider = (seeded: InstalledTestProvider) =>
 	uninstallTestPlugin({ ...seeded, slug: seeded.providerSlug, scriptId: seeded.detailsScriptId });

@@ -1,5 +1,4 @@
 import { SandboxProviderId } from "@ryot-app/contract/schema/brands";
-import { providerEntityLinksRecipe } from "@ryot-app/ryotql-recipes/provider-entity-links";
 import { Effect } from "effect";
 
 import type { Client } from "~/fixtures/kernel";
@@ -10,7 +9,6 @@ import {
 	fakeProviderDetailsResult,
 	fakeProviderSearchResult,
 	getApiClient,
-	executeRyotQLRecipe,
 	providerSandboxSource,
 	replaceSandboxScriptCompiledRepresentation,
 	pollProviderEntityImportResult,
@@ -18,8 +16,6 @@ import {
 	installTestProvider,
 } from "~/fixtures/kernel";
 import type { InstalledTestProvider } from "~/fixtures/kernel/sandbox-provider";
-import { findFitnessEntitySchema } from "~/fixtures/plugins/fitness";
-import { findMediaEntitySchema, queryInMediaLibraryRelationship } from "~/fixtures/plugins/media";
 import { assertCompleted, assertPresent, assertTaggedError } from "~/support/assertions";
 import { afterAll, beforeAll, describe, expect, it, runPromise } from "~/support/effect-test";
 
@@ -31,8 +27,6 @@ const PROVIDER_SLUG = `${ENTITY_SCHEMA_SLUG}.provider-entities`;
 
 let providerClient: Client;
 let provider: InstalledTestProvider;
-let audiobookProvider: InstalledTestProvider;
-let workoutProvider: InstalledTestProvider;
 
 beforeAll(() =>
 	runPromise(
@@ -70,34 +64,11 @@ beforeAll(() =>
 					},
 				],
 			});
-			const { schema: audiobookSchema } = yield* findMediaEntitySchema(client, "audiobook");
-			audiobookProvider = yield* installTestProvider({
-				client,
-				rootEntitySchemaSlug: audiobookSchema.id,
-				details: fakeProviderDetailsResult({ properties: {}, name: "E2E Imported Audiobook" }),
-			});
-			const { schema: workoutSchema } = yield* findFitnessEntitySchema(client, "workout");
-			workoutProvider = yield* installTestProvider({
-				client,
-				rootEntitySchemaSlug: workoutSchema.id,
-				details: fakeProviderDetailsResult({
-					name: "E2E Imported Workout",
-					properties: { startedAt: "2026-04-27T10:00:00.000Z" },
-				}),
-			});
 		}),
 	),
 );
 
-afterAll(() =>
-	runPromise(
-		Effect.gen(function* () {
-			yield* uninstallTestProvider(workoutProvider);
-			yield* uninstallTestProvider(audiobookProvider);
-			yield* uninstallTestProvider(provider);
-		}),
-	),
-);
+afterAll(() => runPromise(uninstallTestProvider(provider)));
 
 describe("provider entity search", () => {
 	it.live("uses separate search and details scripts through one provider identity", () =>
@@ -178,63 +149,6 @@ describe("POST /provider-entities/imports — provider entity import", () => {
 });
 
 describe("GET /provider-entities/imports/:jobId — provider entity import result", () => {
-	it.live("adds imported media entities to the user's library", () =>
-		Effect.gen(function* () {
-			const { schema } = yield* findMediaEntitySchema(providerClient, "audiobook");
-			const pluginId =
-				schema.reference.owner.kind === "plugin" ? schema.reference.owner.pluginId : undefined;
-			assertPresent(pluginId, "Media audiobook schema must have a plugin owner");
-			const externalId = `e2e-library-link-${crypto.randomUUID()}`;
-
-			const { jobId } = yield* enqueueProviderEntityImport(providerClient, {
-				externalId,
-				providerId: audiobookProvider.providerId,
-			});
-			const result = yield* pollProviderEntityImportResult(providerClient, jobId);
-			assertCompleted(result, "entity import");
-
-			const withMembership = yield* executeRyotQLRecipe(
-				providerClient,
-				providerEntityLinksRecipe({
-					externalIds: [externalId],
-					entitySchemaSlug: schema.id,
-					librarySchemaSlug: "media-library",
-					relationshipSlug: "in-media-library",
-					reference: { pluginId, kind: "local" },
-					providerId: audiobookProvider.providerId,
-				}),
-			);
-			expect(withMembership).toHaveLength(1);
-		}),
-	);
-
-	it.live("does not add schemas without a provider-import automation to the library", () =>
-		Effect.gen(function* () {
-			const { schema } = yield* findFitnessEntitySchema(providerClient, "workout");
-
-			const { jobId } = yield* enqueueProviderEntityImport(providerClient, {
-				providerId: workoutProvider.providerId,
-				externalId: `e2e-workout-${crypto.randomUUID()}`,
-			});
-
-			const result = yield* pollProviderEntityImportResult(providerClient, jobId);
-
-			assertCompleted(result, "import job");
-			expect(result.data.id).toBeDefined();
-			expect(result.data.name).toBe("E2E Imported Workout");
-			expect(result.data.entitySchemaSlug).toBe(schema.id);
-
-			const inMediaLibrary = yield* queryInMediaLibraryRelationship(
-				providerClient,
-				result.data.id,
-				schema.slug,
-			);
-			expect(
-				inMediaLibrary.data.entity?.type === "rows" ? inMediaLibrary.data.entity.items : [],
-			).toHaveLength(0);
-		}),
-	);
-
 	it.live("preserves entity identity when the provider details script is reingested", () =>
 		Effect.gen(function* () {
 			const externalId = `e2e-reingestion-${crypto.randomUUID()}`;

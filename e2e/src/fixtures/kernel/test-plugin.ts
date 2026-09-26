@@ -223,6 +223,20 @@ export const testPluginManifest = (input: TestPluginManifestInput): TestPluginMa
 	},
 });
 
+export const testPluginEntitySchema = (input: {
+	readonly slug: string;
+	readonly name?: string;
+	readonly propertiesSchema?: TestPluginManifest["entitySchemas"][number]["propertiesSchema"];
+}): TestPluginManifest["entitySchemas"][number] => ({
+	icon: "box",
+	slug: input.slug,
+	eventSchemas: [],
+	name: input.name ?? "E2E Entity",
+	propertiesSchema: input.propertiesSchema ?? {
+		fields: { description: { type: "string", label: "Description", description: "Description" } },
+	},
+});
+
 export const testPluginSavedView = (input: {
 	readonly slug: string;
 	readonly name?: string;
