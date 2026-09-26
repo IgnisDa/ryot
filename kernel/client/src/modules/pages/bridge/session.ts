@@ -37,7 +37,6 @@ import {
 	type PluginBridgeOverlayState,
 	type PluginBridgeRyotQLCancel,
 	type PluginBridgeRyotQLRequest,
-	type PluginBridgeScreenState,
 	type PluginBridgeStorageRequest,
 	type PluginBridgeUploadRequest,
 	type PluginOperationOutcome,
@@ -56,6 +55,7 @@ import type { EntityWatchSubscription } from "@ryot-app/plugin-client-sdk";
 import { Cause, Effect, Fiber, Match, Result, Schema } from "effect";
 
 import type { WatchEntities } from "#/modules/entity-watches/service";
+import type { PageScreenReadiness } from "#/modules/shell/page-presentation";
 
 const HANDSHAKE_TIMEOUT_MS = 15_000;
 const OVERLAY_DISMISS_TIMEOUT_MS = 1_000;
@@ -64,7 +64,6 @@ type PluginBridgeTarget = {
 	readonly postMessage: (message: unknown, targetOrigin: string, transfer: Transferable[]) => void;
 };
 
-export type PluginScreenReadiness = Omit<PluginBridgeScreenState, "type">;
 export type PluginBridgeViewportInsets = Omit<PluginBridgeViewport, "type">;
 export type PluginBridgeNavigationState = Omit<PluginBridgeLocation, "type">;
 
@@ -115,7 +114,7 @@ type PluginBridgeOptions = {
 	readonly onHeader: (request: PluginBridgeHeader) => void;
 	readonly onNavigate: (request: PluginBridgeNavigate) => void;
 	readonly onKernelShortcut: (shortcut: KernelShortcut) => void;
-	readonly onScreenState: (state: PluginScreenReadiness) => void;
+	readonly onScreenState: (state: PageScreenReadiness) => void;
 	readonly onPageSearch: (request: PluginBridgePageSearch) => void;
 	readonly onPageShortcuts: (shortcuts: readonly PageShortcutKey[]) => void;
 	readonly scheduleOverlayDismissTimeout?: (onTimeout: () => void) => () => void;

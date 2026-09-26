@@ -17,6 +17,7 @@ import { PluginsLive } from "#/modules/plugins/layer";
 import { ProviderAddLive } from "#/modules/provider-add/layer";
 import { SavedViewsService } from "#/modules/saved-views/service";
 import { ServerLive } from "#/modules/server/layer";
+import { ShellLive } from "#/modules/shell/layer";
 
 export const ClientLive = Layer.mergeAll(
 	AssetsLive,
@@ -27,6 +28,7 @@ export const ClientLive = Layer.mergeAll(
 	ImportsService.layer,
 	IntegrationsLive.pipe(Layer.provideMerge(DeepLinkClaims.layer)),
 	NavigationLive,
+	ShellLive,
 	NotificationChannelsService.layer,
 	PagesLive,
 	PluginsLive.pipe(Layer.provideMerge(AuthLive)),

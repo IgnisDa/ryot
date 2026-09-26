@@ -6,8 +6,8 @@ import { fireEvent, render, screen, within } from "@testing-library/react";
 import { Effect } from "effect";
 import { axe } from "vitest-axe";
 
-import { SidebarNav } from "#/modules/navigation/sidebar-nav";
-import type { SidebarSections } from "#/modules/navigation/sidebar-sections";
+import { SidebarNav } from "#/modules/shell/sidebar-nav";
+import type { SidebarSections } from "#/modules/shell/sidebar-sections";
 
 const current: PluginClientCatalogEntry = {
 	icon: "film",

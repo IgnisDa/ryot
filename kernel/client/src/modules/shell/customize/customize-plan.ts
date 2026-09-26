@@ -10,7 +10,7 @@ import type {
 	CustomizeDraftItem,
 	CustomizeDraftViewItem,
 	CustomizeSection,
-} from "#/modules/navigation/customize/customize-state";
+} from "#/modules/shell/customize/customize-state";
 
 export type CustomizeUpdate = {
 	readonly reference: SavedViewReference;

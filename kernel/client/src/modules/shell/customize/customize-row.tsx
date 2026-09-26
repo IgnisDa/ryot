@@ -3,7 +3,7 @@ import { AppIcon } from "@ryot-app/plugin-ui-sdk/icon";
 import clsx from "clsx";
 import { cloneElement, isValidElement, type ComponentProps, type ReactNode } from "react";
 
-import type { CustomizeDraftItem } from "#/modules/navigation/customize/customize-state";
+import type { CustomizeDraftItem } from "#/modules/shell/customize/customize-state";
 
 export function CustomizeRow(props: {
 	readonly isLast: boolean;
