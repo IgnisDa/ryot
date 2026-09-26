@@ -129,7 +129,6 @@ const lockedSource: ImportSourceItem = {
 			{
 				slug: "import",
 				capabilities: [],
-				runtimeImports: [],
 				oauthConnectionFields: [],
 				executableDependencies: [],
 				optionalPluginConfigKeys: [],
