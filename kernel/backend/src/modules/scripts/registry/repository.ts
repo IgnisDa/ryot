@@ -14,6 +14,7 @@ import {
 } from "@ryot-app/contract/schema/brands";
 import type { WorkflowDurableCallRequest } from "@ryot-app/plugin-backend-sdk/workflow";
 import { and, eq, sql } from "drizzle-orm";
+import { alias } from "drizzle-orm/pg-core";
 import { Context, Effect, Layer, Option, Schema } from "effect";
 
 import { PluginSandboxAuthority } from "#modules/scripts/authorization/plugin-authority";
@@ -28,6 +29,10 @@ import * as schema from "#schema/tables/combined";
 import { installationExecutionGate } from "../authorization/installation-gate";
 
 type SandboxScriptPin = Omit<ScriptExecutionPrincipal, "subject">;
+
+const executionUser = alias(schema.user, "execution_user");
+
+const installationUser = alias(schema.user, "installation_user");
 
 const sandboxScriptPin = <T extends SandboxScriptPin>(pin: T) => pin;
 
@@ -90,47 +95,45 @@ export class SandboxRepository extends Context.Service<SandboxRepository>()("San
 			if (initialization && subject?.type !== "user") {
 				return null;
 			}
-			let accountDisabled = false;
-			if (executionUserId !== null && subject !== undefined && subject.type !== "system") {
-				const [account] = yield* database.run((db) =>
-					db
-						.select({
-							disabledAt: schema.user.disabledAt,
-							accountGeneration: schema.user.accountGeneration,
-						})
-						.from(schema.user)
-						.where(eq(schema.user.id, executionUserId))
-						.limit(1),
-				);
-				if (
-					!account ||
-					subject.accountGeneration?.userId !== executionUserId ||
-					account.accountGeneration !== subject.accountGeneration.token
-				) {
-					return null;
-				}
-				accountDisabled = account.disabledAt !== null;
-			}
 			const [row] = yield* database.run((db) =>
 				db
 					.select({
 						id: schema.sandboxScript.id,
+						accountId: executionUser.id,
 						slug: schema.sandboxScript.slug,
 						pluginStatus: schema.plugin.status,
 						pluginOwnerId: schema.plugin.ownerId,
 						kernelSlug: schema.kernelScript.slug,
 						metadata: schema.sandboxScript.metadata,
+						installationUserId: installationUser.id,
+						configId: schema.pluginConfigRevision.id,
 						pluginPackageId: schema.plugin.packageId,
 						activationId: schema.plugin.activationId,
 						pluginId: schema.pluginRevision.pluginId,
+						accountDisabledAt: executionUser.disabledAt,
 						providerId: schema.sandboxScript.providerId,
+						installationId: schema.pluginInstallation.id,
 						contentHash: schema.sandboxScript.contentHash,
 						activeRevisionId: schema.plugin.activeRevisionId,
 						providerPluginId: schema.sandboxProvider.pluginId,
+						accountGeneration: executionUser.accountGeneration,
+						installationDisabledAt: installationUser.disabledAt,
+						installationHealth: schema.pluginInstallation.health,
 						pluginRevisionId: schema.sandboxScript.pluginRevisionId,
 						sandboxAuthority: schema.pluginRevision.sandboxAuthority,
+						installationIsHidden: schema.pluginInstallation.isHidden,
+						configOwnerUserId: schema.pluginConfigRevision.ownerUserId,
+						installationIsInitialized: schema.pluginInstallation.isInitialized,
+						installationUninstalledAt: schema.pluginInstallation.uninstalledAt,
+						configPluginRevisionId: schema.pluginConfigRevision.pluginRevisionId,
 						environmentConfigRevisionId: schema.plugin.environmentConfigRevisionId,
 						sourcePresent: sql<boolean>`${schema.sandboxScript.source} is not null`,
+						installationIncompatibilityReason: schema.pluginInstallation.incompatibilityReason,
+						installationActiveConfigRevisionId: schema.pluginInstallation.activeConfigRevisionId,
+						configPayloadPresent: sql<boolean>`${schema.pluginConfigRevision.encryptedPayload} is not null`,
+						compiledHashes: sql<
+							Record<string, string>
+						>`coalesce((select jsonb_object_agg(s.slug, s.content_hash) from ${schema.sandboxScript} s where s.plugin_revision_id = ${schema.sandboxScript.pluginRevisionId}), '{}'::jsonb)`,
 					})
 					.from(schema.sandboxScript)
 					.leftJoin(schema.kernelScript, eq(schema.kernelScript.scriptId, schema.sandboxScript.id))
@@ -143,11 +146,41 @@ export class SandboxRepository extends Context.Service<SandboxRepository>()("San
 						schema.sandboxProvider,
 						eq(schema.sandboxProvider.id, schema.sandboxScript.providerId),
 					)
+					.leftJoin(executionUser, sql`${executionUser.id} = ${executionUserId}`)
+					.leftJoin(
+						schema.pluginInstallation,
+						and(
+							eq(schema.pluginInstallation.pluginId, schema.pluginRevision.pluginId),
+							eq(
+								schema.pluginInstallation.userId,
+								sql`coalesce(${executionUserId}, ${schema.plugin.ownerId})`,
+							),
+						),
+					)
+					.leftJoin(installationUser, eq(installationUser.id, schema.pluginInstallation.userId))
+					.leftJoin(
+						schema.pluginConfigRevision,
+						eq(
+							schema.pluginConfigRevision.id,
+							sql`coalesce(${expectedRevision?.configRevisionId ?? null}, case when ${schema.plugin.ownerId} is null then ${schema.plugin.environmentConfigRevisionId} else ${schema.pluginInstallation.activeConfigRevisionId} end)`,
+						),
+					)
 					.where(eq(schema.sandboxScript.id, scriptId))
 					.limit(1),
 			);
 			if (!row) {
 				return null;
+			}
+			let accountDisabled = false;
+			if (executionUserId !== null && subject !== undefined && subject.type !== "system") {
+				if (
+					row.accountId === null ||
+					subject.accountGeneration?.userId !== executionUserId ||
+					row.accountGeneration !== subject.accountGeneration.token
+				) {
+					return null;
+				}
+				accountDisabled = row.accountDisabledAt !== null;
 			}
 			if (row.pluginId === null) {
 				if (expectedRevision || initialization || accountDisabled) {
@@ -197,17 +230,8 @@ export class SandboxRepository extends Context.Service<SandboxRepository>()("San
 			) {
 				return null;
 			}
-			const { pluginId, pluginRevisionId } = row;
+			const { pluginId } = row;
 			const pluginScope = row.pluginOwnerId === null ? "system" : "user";
-			const scripts = yield* database.run((db) =>
-				db
-					.select({
-						slug: schema.sandboxScript.slug,
-						contentHash: schema.sandboxScript.contentHash,
-					})
-					.from(schema.sandboxScript)
-					.where(eq(schema.sandboxScript.pluginRevisionId, pluginRevisionId)),
-			);
 			let configRevisionId: string | undefined = expectedRevision?.configRevisionId;
 			if (pluginScope === "system") {
 				if (!expectedRevision) {
@@ -215,30 +239,9 @@ export class SandboxRepository extends Context.Service<SandboxRepository>()("San
 				}
 			}
 			if (pluginScope === "user" || executionUserId !== null) {
-				const [state] = yield* database.run((db) =>
-					db
-						.select({
-							id: schema.pluginInstallation.id,
-							disabledAt: schema.user.disabledAt,
-							health: schema.pluginInstallation.health,
-							isHidden: schema.pluginInstallation.isHidden,
-							isInitialized: schema.pluginInstallation.isInitialized,
-							uninstalledAt: schema.pluginInstallation.uninstalledAt,
-							incompatibilityReason: schema.pluginInstallation.incompatibilityReason,
-							activeConfigRevisionId: schema.pluginInstallation.activeConfigRevisionId,
-						})
-						.from(schema.pluginInstallation)
-						.innerJoin(schema.user, eq(schema.user.id, schema.pluginInstallation.userId))
-						.where(
-							and(
-								eq(schema.pluginInstallation.pluginId, pluginId),
-								eq(schema.pluginInstallation.userId, executionUserId ?? row.pluginOwnerId ?? ""),
-							),
-						)
-						.limit(1),
-				);
 				if (
-					!state ||
+					row.installationId === null ||
+					row.installationUserId === null ||
 					(pluginScope === "user" &&
 						executionUserId !== null &&
 						executionUserId !== row.pluginOwnerId)
@@ -249,48 +252,45 @@ export class SandboxRepository extends Context.Service<SandboxRepository>()("San
 					!installationExecutionGate({
 						initialization,
 						bootstrapScript,
-						installation: state,
 						activationId: row.activationId,
 						exactPin: expectedRevision !== undefined,
+						installation: {
+							id: row.installationId,
+							health: row.installationHealth,
+							isHidden: row.installationIsHidden,
+							isInitialized: row.installationIsInitialized,
+							uninstalledAt: row.installationUninstalledAt,
+							incompatibilityReason: row.installationIncompatibilityReason,
+						},
 					}) ||
 					(pluginScope === "user" && row.pluginStatus !== "active") ||
-					(state.disabledAt !== null && !bootstrapScript)
+					(row.installationDisabledAt !== null && !bootstrapScript)
 				) {
 					return yield* new SandboxRunError({
 						kind: "script-failure",
 						message: "Sandbox installation is unavailable",
 						data: {
-							installationId: state.id,
 							pluginId: PluginId.make(pluginId),
+							installationId: row.installationId,
 							code:
-								state.incompatibilityReason === "package-identity-conflict"
+								row.installationIncompatibilityReason === "package-identity-conflict"
 									? "package-identity-conflict"
 									: "installation-unavailable",
 						},
 					});
 				}
 				if (!expectedRevision && pluginScope === "user") {
-					configRevisionId = state.activeConfigRevisionId ?? undefined;
+					configRevisionId = row.installationActiveConfigRevisionId ?? undefined;
 				}
 			}
 			if (!configRevisionId) {
 				return null;
 			}
-			const [config] = yield* database.run((db) =>
-				db
-					.select({
-						ownerUserId: schema.pluginConfigRevision.ownerUserId,
-						encryptedPayload: schema.pluginConfigRevision.encryptedPayload,
-						pluginRevisionId: schema.pluginConfigRevision.pluginRevisionId,
-					})
-					.from(schema.pluginConfigRevision)
-					.where(eq(schema.pluginConfigRevision.id, configRevisionId))
-					.limit(1),
-			);
 			if (
-				!config?.encryptedPayload ||
-				config.pluginRevisionId !== row.pluginRevisionId ||
-				config.ownerUserId !== row.pluginOwnerId
+				row.configId !== configRevisionId ||
+				!row.configPayloadPresent ||
+				row.configPluginRevisionId !== row.pluginRevisionId ||
+				row.configOwnerUserId !== row.pluginOwnerId
 			) {
 				return null;
 			}
@@ -305,6 +305,7 @@ export class SandboxRepository extends Context.Service<SandboxRepository>()("San
 					scope: pluginScope,
 					id: PluginId.make(row.pluginId),
 					schemaScope: authority.schemaScope,
+					compiledHashes: row.compiledHashes,
 					configSchema: authority.configSchema,
 					workflowScripts: authority.workflowScripts,
 					packageId: PluginPackageId.make(authority.packageId),
@@ -312,9 +313,6 @@ export class SandboxRepository extends Context.Service<SandboxRepository>()("San
 					userBootstrapScriptSlugs: authority.userBootstrapScriptSlugs,
 					configRevisionId: PluginConfigRevisionId.make(configRevisionId),
 					ownerId: row.pluginOwnerId ? UserId.make(row.pluginOwnerId) : null,
-					compiledHashes: Object.fromEntries(
-						scripts.map(({ slug, contentHash }) => [slug, contentHash]),
-					),
 				},
 			});
 		});
