@@ -3,6 +3,7 @@
 ## Documentation
 
 - Keep `AGENTS.md` to stable, non-obvious rules that affect changes. Put architecture, protocols, runbooks, and rationale in `README.md`; child files must not restate parent guidance.
+- Keep documentation lean and describe only the current state. Do not record history, superseded designs, or task progress.
 
 ## Ownership
 
@@ -19,6 +20,11 @@
 ## Engineering
 
 - Make the smallest correct change. Do not add unrequested functionality, abstractions, or generalization.
+- Ryot is greenfield, with no deployments or user data to preserve. Do not add compatibility paths, bridges, fallbacks, adapters, or old code paths, and do not keep exports for outside consumers, including the plugin SDKs. Directories whose `AGENTS.md` declares them a legacy exception are exempt.
+- Keep artifact, backup, manifest, protocol, compiler, and API version constants at their current values. Outside legacy exceptions, do not name code after versions such as `V2` or `archive-v2`.
+- Import symbols from their defining module. Do not re-export or alias another module's symbols; package entry points and barrels documented in a child `AGENTS.md` are the only aggregation points.
+- Comment only a non-obvious reason or invariant. Do not restate code or refer to history, tasks, or plans.
+- Lint suppressions and casts that bypass the type checker are a last resort; ask the user before adding one. The documented `effecttsgo/async-function` exemption is the only standing exception.
 - Derive types from schemas and existing types instead of writing mirrors. Use Effect Schema.
 - Build application-owned query documents with `@ryot-app/ryotql` and use named recipes when available.
 - Colocate app-owned RyotQL result schemas, decoders, and decoded types with their recipes. Consumers must not parse generic `RowItem` values directly; reusable wire codecs belong in `@ryot-app/contract`, while presentation-only transformations remain consumer-owned.
@@ -37,3 +43,8 @@
 - Do not test schema libraries, TypeScript assignments, or passthrough type checks.
 - Name a test `.test.tsx` when it needs a DOM and `.test.ts` when it must keep node semantics; `@ryot-app/testing/vitest.client` maps those extensions onto the `node` and `dom` vitest projects, so never reach for a `@vitest-environment` docblock.
 - Do not use module mocks, spies, mock functions, or fake timers. Inject dependencies instead: deterministic Effect `Layer` implementations, `TestClock` for time, plain recording functions, and the harnesses on each package's own test surface.
+
+## Workflow
+
+- Stay within the agreed scope. Ask before widening it, and do not start another review round once findings are addressed.
+- Work is done when `bun run check` and `bun turbo --filter='!@ryot-app/e2e' --output-logs=full test` are clean. Run only the affected e2e files, never the whole e2e suite.
