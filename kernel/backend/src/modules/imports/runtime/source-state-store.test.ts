@@ -1,3 +1,5 @@
+import { tmpdir } from "node:os";
+
 import { BunServices } from "@effect/platform-bun";
 import { assert, expect, it } from "@effect/vitest";
 import type { IngestionCapture } from "@ryot-app/contract/modules/imports/ingestion";
@@ -19,7 +21,7 @@ import { ImportsRepository } from "../repository";
 import { ImportSourceStateStore } from "./source-state-store";
 import { ImportRunError } from "./workflow-errors";
 
-const temporaryRoot = "/var/folders/x2/4ldmcvss5wlg5f5sfly3bqwm0000gn/T/opencode";
+const temporaryRoot = tmpdir();
 
 const runStateCase = (changeInput: boolean) =>
 	Effect.gen(function* () {

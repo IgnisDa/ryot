@@ -35,9 +35,7 @@ layer(Layer.mergeAll(BunServices.layer, isolatedDatabaseLayer("capture_restart")
 							email: "capture-restart@example.test",
 						}),
 				);
-				const directory = yield* fs.makeTempDirectoryScoped({
-					directory: "/var/folders/x2/4ldmcvss5wlg5f5sfly3bqwm0000gn/T/opencode",
-				});
+				const directory = yield* fs.makeTempDirectoryScoped();
 				const working = `${directory}/working`;
 				yield* fs.makeDirectory(working);
 				const dependencies = Layer.mergeAll(

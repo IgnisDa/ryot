@@ -1,3 +1,5 @@
+import { tmpdir } from "node:os";
+
 import { BunFileSystem } from "@effect/platform-bun";
 import { expect, it } from "@effect/vitest";
 import { SandboxRunError } from "@ryot-app/contract/errors";
@@ -61,9 +63,7 @@ const rootCase = (
 		const dependencies = Layer.mergeAll(
 			mutationAdmissionTestLayer,
 			BunFileSystem.layer,
-			makeAppConfigLayer({
-				fileStorage: { localTempDir: "/var/folders/x2/4ldmcvss5wlg5f5sfly3bqwm0000gn/T/opencode" },
-			}),
+			makeAppConfigLayer({ fileStorage: { localTempDir: tmpdir() } }),
 			Layer.succeed(WorkflowInstance, instance),
 			Layer.succeed(
 				WorkflowEngine,
