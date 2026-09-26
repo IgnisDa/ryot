@@ -15,7 +15,7 @@ import {
 import type { Scope } from "effect";
 import { Reactivity } from "effect/reactivity";
 
-import { AppConfig } from "../config/service";
+import { AppConfig, databaseConnectionBudget } from "../config/service";
 import { DatabaseConnectionLimit } from "../db/session";
 import { recordSandboxAdmissionWait } from "../runtime-metrics";
 import { MiB, SANDBOX_LIMITS } from "./limits";
@@ -106,7 +106,7 @@ export class SandboxSidecarAdmission extends Context.Service<SandboxSidecarAdmis
 			const database = yield* Pool.makeWithTTL({
 				min: 0,
 				timeToLive: "60 seconds",
-				max: config.database.poolMax - 4 - concurrency,
+				max: databaseConnectionBudget(config).sandboxDispatch,
 				acquire: PgClient.makeClient({
 					url: config.database.url,
 					connectTimeout: config.database.connectionTimeoutMs,
