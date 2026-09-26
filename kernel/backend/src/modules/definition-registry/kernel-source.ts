@@ -183,7 +183,7 @@ export const kernelDefinitionSource = (): DefinitionSource => ({
 			name: "All Collections",
 			icon: collectionSchema.icon,
 			dataSources: collectionDataSources,
-			renderer: { kind: "kernel", name: "entity-browser" },
+			renderer: { kind: "kernel", name: "collection-browser" },
 			settings: {
 				pageSize: 20,
 				addAction: null,
