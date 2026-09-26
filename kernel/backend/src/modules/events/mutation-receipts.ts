@@ -98,7 +98,10 @@ export const eventMutationReceiptIdentity = (
 		};
 	} else {
 		commandKind = "event:delete";
-		receiptInput = { eventId: input.eventId };
+		receiptInput = {
+			eventId: input.eventId,
+			...(input.expected === undefined ? {} : { expected: input.expected }),
+		};
 	}
 	return mutationReceiptIdentity({
 		command,
