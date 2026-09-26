@@ -1,10 +1,10 @@
 import type { SandboxHostCapability } from "@ryot-app/contract/modules/scripts/wire";
+import { isSandboxHostCapability } from "@ryot-app/contract/modules/scripts/wire";
 import type { sandboxHostContracts } from "@ryot-app/plugin-backend-sdk/core";
 
 import { KiB, SANDBOX_LIMITS } from "../protocol/limits";
-import type { ScriptExecutionPrincipal } from "../protocol/principal";
-import { isSandboxCapability } from "./capability-policy";
 import { SANDBOX_JSON_GRAPH_FACTOR } from "./json-bytes";
+import type { SandboxPrincipal } from "./principal";
 
 export const SANDBOX_HOST_EXECUTION_POLICY = {
 	getPluginConfig: { resultBytes: null, dispatch: "activity" },
@@ -86,10 +86,10 @@ export const sandboxHostPermit = (capability: SandboxHostCapability) => {
 	return policy !== null && "permit" in policy ? policy.permit : "ordinary";
 };
 
-export const sandboxInlineDurableCapabilities = (principal: ScriptExecutionPrincipal) =>
+export const sandboxInlineDurableCapabilities = (principal: SandboxPrincipal) =>
 	(principal.metadata.capabilities ?? []).filter(
 		(capability): capability is SandboxHostCapability =>
-			isSandboxCapability(capability) &&
+			isSandboxHostCapability(capability) &&
 			sandboxDurableHostDispatchStrategy(capability) === "activity" &&
 			sandboxHostResultBytes(capability) !== null,
 	);

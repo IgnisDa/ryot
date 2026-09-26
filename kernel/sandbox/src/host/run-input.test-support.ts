@@ -9,11 +9,10 @@ import {
 	AutomationTriggerId,
 	SandboxScriptId,
 	UserId,
-	type SandboxProviderId,
 } from "@ryot-app/contract/schema/brands";
 
-import type { ScriptExecutionPrincipal } from "../protocol/principal";
 import type { SandboxRunInput } from "./invocation";
+import type { SandboxPrincipal } from "./principal";
 
 export const testAccountGeneration = (userId: UserId) => ({
 	userId,
@@ -26,12 +25,8 @@ export const makeUserSubject = (userId = UserId.make("user-1")) => ({
 	accountGeneration: testAccountGeneration(userId),
 });
 
-export const makeUserPrincipal = (
-	overrides: Partial<ScriptExecutionPrincipal> = {},
-): ScriptExecutionPrincipal => ({
+export const makeUserPrincipal = (overrides: Partial<SandboxPrincipal> = {}): SandboxPrincipal => ({
 	contentHash: "",
-	providerId: null,
-	scriptSlug: "script",
 	pluginRevision: null,
 	subject: makeUserSubject(),
 	metadata: { runtimeImports: [] },
@@ -43,7 +38,7 @@ export const makeUserRunInput = ({
 	principal,
 	...overrides
 }: Partial<Omit<SandboxRunInput, "principal">> & {
-	readonly principal?: Partial<ScriptExecutionPrincipal>;
+	readonly principal?: Partial<SandboxPrincipal>;
 } = {}): SandboxRunInput => ({
 	context: {},
 	compiledCode: "",
@@ -57,9 +52,8 @@ export const makeUserRunInput = ({
 
 export const makeSubjectRunInput = (
 	subject: SandboxExecutionSubject,
-	providerId: SandboxProviderId | null = null,
 	metadata: Omit<SandboxScriptMetadata, "runtimeImports"> = {},
-	principalFacts: Partial<ScriptExecutionPrincipal> = {},
+	principalFacts: Partial<SandboxPrincipal> = {},
 ): SandboxRunInput => ({
 	context: {},
 	compiledCode: "",
@@ -69,9 +63,7 @@ export const makeSubjectRunInput = (
 	startedAt: "2026-01-01T00:00:00.000Z",
 	principal: {
 		subject,
-		providerId,
 		contentHash: "",
-		scriptSlug: "script",
 		pluginRevision: null,
 		scriptId: SandboxScriptId.make("script_1"),
 		metadata: { runtimeImports: [], capabilities: [...SANDBOX_HOST_CAPABILITIES], ...metadata },

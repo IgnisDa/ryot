@@ -174,6 +174,13 @@ export const SandboxExecutionSubject = Schema.Union([
 
 export type SandboxExecutionSubject = Schema.Schema.Type<typeof SandboxExecutionSubject>;
 
+export const sandboxSubjectUserId = (subject: SandboxExecutionSubject) => {
+	if (subject.type === "user") {
+		return subject.userId;
+	}
+	return subject.type === "automation-run" ? subject.executionUserId : null;
+};
+
 export const SandboxExecutionGrants = strictStruct({
 	artifactPath: Schema.optional(Schema.String),
 	artifactOwnerExecutionId: Schema.optional(Schema.String),

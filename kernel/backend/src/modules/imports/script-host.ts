@@ -1,7 +1,8 @@
 import type { ImportRunId } from "@ryot-app/contract/schema/brands";
-import type { UserSandboxRunInput } from "@ryot-app/sandbox/host/invocation";
-import { sameRevisionPin } from "@ryot-app/sandbox/protocol/principal";
 import { Effect } from "effect";
+
+import type { UserSandboxRunInput } from "#modules/scripts/authorization/capabilities";
+import { sameRevisionPin } from "#modules/scripts/authorization/principal";
 
 import { ImportSourceStateStore } from "./runtime/source-state-store";
 

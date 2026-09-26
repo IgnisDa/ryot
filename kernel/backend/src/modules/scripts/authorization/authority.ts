@@ -1,10 +1,11 @@
 import { SandboxRunError } from "@ryot-app/contract/errors";
 import { SandboxExecutionAuthority } from "@ryot-app/sandbox/host/authority";
-import { ScriptExecutionPrincipal } from "@ryot-app/sandbox/protocol/principal";
+import type { SandboxPrincipal } from "@ryot-app/sandbox/host/principal";
 import { stableStringify } from "@ryot-app/ts-utils/json";
 import { Effect, Layer, Schema } from "effect";
 
 import { SandboxRepository } from "../registry/repository";
+import { ScriptExecutionPrincipal } from "./principal";
 
 const invalidPin = (error?: unknown) =>
 	error instanceof SandboxRunError
@@ -19,9 +20,9 @@ export const SandboxExecutionAuthorityLive = Layer.effect(
 	Effect.gen(function* () {
 		const repository = yield* SandboxRepository;
 		const resolve = Effect.fn("SandboxExecutionAuthority.resolve")(function* (
-			principal: ScriptExecutionPrincipal,
+			principal: SandboxPrincipal,
 		) {
-			const validated = yield* Schema.decodeEffect(ScriptExecutionPrincipal)(principal).pipe(
+			const validated = yield* Schema.decodeUnknownEffect(ScriptExecutionPrincipal)(principal).pipe(
 				Effect.mapError(invalidPin),
 			);
 			const pinned = yield* repository

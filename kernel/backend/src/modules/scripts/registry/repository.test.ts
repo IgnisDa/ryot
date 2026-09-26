@@ -1,12 +1,12 @@
 import { assert, describe, expect, it, layer } from "@effect/vitest";
 import { PluginPackageId, SandboxScriptId, UserId } from "@ryot-app/contract/schema/brands";
 import type { WorkflowDurableCallRequest } from "@ryot-app/plugin-backend-sdk/workflow";
-import { ScriptPluginRevision } from "@ryot-app/sandbox/protocol/principal";
 import type { SQL } from "drizzle-orm";
 import { PgDialect } from "drizzle-orm/pg-core";
 import { Context, Effect, Layer, Ref, Schema } from "effect";
 
 import type { PluginSandboxAuthority } from "#modules/scripts/authorization/plugin-authority";
+import { ScriptPluginRevision } from "#modules/scripts/authorization/principal";
 import * as tables from "#schema/tables/combined";
 import { fakeDatabaseSession } from "#testing/effect";
 

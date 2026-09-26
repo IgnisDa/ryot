@@ -4,7 +4,6 @@ import { SandboxScriptId, UserId } from "@ryot-app/contract/schema/brands";
 import { assertExitFails } from "@ryot-app/testing/effect-assertions";
 import { Effect, Layer } from "effect";
 
-import type { ScriptExecutionPrincipal } from "../protocol/principal";
 import { sandboxProtectionKeys } from "./crash-store";
 import { makeUserPluginRevision } from "./executor.test-support";
 import {
@@ -13,6 +12,7 @@ import {
 	testExecutionId,
 	testSandboxRedisLayer,
 } from "./host.test-support";
+import type { SandboxPrincipal } from "./principal";
 import { SandboxSidecarQuarantine } from "./quarantine";
 import { makeUserPrincipal, makeUserSubject } from "./run-input.test-support";
 
@@ -29,18 +29,13 @@ const makePrincipal = (
 	ownerId: UserId,
 	contentHash: string,
 	compiledHashes: Readonly<Record<string, string>>,
-): ScriptExecutionPrincipal =>
+): SandboxPrincipal =>
 	makeUserPrincipal({
 		contentHash,
-		scriptSlug: "entry",
 		subject: makeUserSubject(ownerId),
 		metadata: { kind: "script", runtimeImports: [] },
 		scriptId: SandboxScriptId.make(testExecutionId("script")),
-		pluginRevision: makeUserPluginRevision({
-			ownerId,
-			compiledHashes,
-			slug: testExecutionId("plugin"),
-		}),
+		pluginRevision: makeUserPluginRevision({ ownerId, compiledHashes }),
 	});
 
 const testHash = () => crypto.randomUUID().replaceAll("-", "").padEnd(64, "0");
@@ -49,10 +44,7 @@ const sessions = Effect.gen(function* () {
 	const quarantine = yield* SandboxSidecarQuarantine;
 	const identities = new Set<string>();
 	yield* deleteRedisKeysOnExit(() => [...identities].flatMap(sandboxProtectionKeys));
-	return Effect.fnUntraced(function* (
-		principal: ScriptExecutionPrincipal,
-		trust: "user" | "system",
-	) {
+	return Effect.fnUntraced(function* (principal: SandboxPrincipal, trust: "user" | "system") {
 		const session = yield* quarantine.open(principal, trust);
 		for (const identity of session.identities) {
 			identities.add(identity);
@@ -95,11 +87,7 @@ layer(quarantineLayer)((test) => {
 			const owner = UserId.make(testExecutionId("owner"));
 			const hash = testHash();
 			const principal = makePrincipal(owner, hash, { entry: hash });
-			const revision = makeUserPluginRevision({
-				ownerId: owner,
-				slug: testExecutionId("plugin"),
-				compiledHashes: { entry: hash },
-			});
+			const revision = makeUserPluginRevision({ ownerId: owner, compiledHashes: { entry: hash } });
 			for (const rejected of [
 				{ ...principal, pluginRevision: null },
 				{ ...principal, pluginRevision: { ...revision, ownerId: null } },

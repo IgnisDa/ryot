@@ -1,8 +1,9 @@
 import { SandboxScriptId } from "@ryot-app/contract/schema/brands";
 import { JsonValue } from "@ryot-app/contract/schema/json";
 import { configValuesSchema, integrationRecordSchema } from "@ryot-app/plugin-backend-sdk/core";
-import { ScriptPluginRevision } from "@ryot-app/sandbox/protocol/principal";
 import { Schema } from "effect";
+
+import { ScriptPluginRevision } from "#modules/scripts/authorization/principal";
 
 export const ImportIntegrationExecutionSettings = Schema.Struct({
 	syncOwnership: integrationRecordSchema.fields.syncOwnership,

@@ -4,12 +4,7 @@ import { isJsonValue } from "@ryot-app/contract/schema/json";
 import type { httpCallOptionsSchema } from "@ryot-app/plugin-backend-sdk/core";
 import { httpCallResponseSchema } from "@ryot-app/plugin-backend-sdk/core";
 import type { SandboxHostError } from "@ryot-app/plugin-backend-sdk/wire";
-import {
-	sandboxHostEffect,
-	sandboxHostFailure,
-	type SandboxHostImplementationMap,
-	type SandboxRunInput,
-} from "@ryot-app/sandbox/host/invocation";
+import { sandboxHostEffect, sandboxHostFailure } from "@ryot-app/sandbox/host/invocation";
 import {
 	sandboxCacheKeyError,
 	sandboxCacheTtlError,
@@ -27,6 +22,10 @@ import {
 	type HttpClientResponse,
 } from "effect/http";
 
+import type {
+	ScriptHostImplementationMap,
+	ScriptRunInput,
+} from "#modules/scripts/authorization/capabilities";
 import { sandboxRunUserId } from "#modules/scripts/host/execution-context";
 import { EgressDenied } from "#platform/egress/http-client";
 import { redisKeys, RedisService } from "#platform/redis";
@@ -39,7 +38,7 @@ const insecureRequestInit: BunRequestInit = { tls: { rejectUnauthorized: false }
 const defaultHeaders = { "User-Agent": "Ryot ( https://github.com/ignisda/ryot )" };
 
 export type RuntimeSandboxHostImplementationMap = Pick<
-	SandboxHostImplementationMap,
+	ScriptHostImplementationMap,
 	"claimPersistentValue" | "getPersistentValue" | "getCachedValue" | "httpCall" | "setCachedValue"
 >;
 
@@ -308,7 +307,7 @@ export const executeSandboxHttp = (
 		}),
 	);
 
-const cacheScope = (input: SandboxRunInput) => {
+const cacheScope = (input: ScriptRunInput) => {
 	const pluginScope = input.principal.pluginRevision
 		? (["plugin", input.principal.pluginRevision.id] as const)
 		: (["kernel"] as const);
@@ -323,7 +322,7 @@ const cacheScope = (input: SandboxRunInput) => {
 	return [sandboxRunUserId(input), pluginScope, operationScope] as const;
 };
 
-const persistentKey = (input: SandboxRunInput, key: string) =>
+const persistentKey = (input: ScriptRunInput, key: string) =>
 	redisKeys.sandboxPersistentCache(...cacheScope(input), key);
 
 export const makeRuntimeSandboxApiFunctions = (
@@ -337,7 +336,7 @@ export const makeRuntimeSandboxApiFunctions = (
 		const redis = yield* RedisService;
 		const serverRun = yield* ServerRun;
 		const httpClient = yield* HttpClient.HttpClient;
-		const runKey = (input: SandboxRunInput, key: string) =>
+		const runKey = (input: ScriptRunInput, key: string) =>
 			redisKeys.sandboxRunCacheNamespace(
 				serverRun.id,
 				identityTupleKey(

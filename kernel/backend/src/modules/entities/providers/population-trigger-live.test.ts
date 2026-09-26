@@ -6,7 +6,6 @@ import {
 	EntitySchemaSlug,
 	UserId,
 } from "@ryot-app/contract/schema/brands";
-import { ScriptExecutionPrincipal } from "@ryot-app/sandbox/protocol/principal";
 import { eq } from "drizzle-orm";
 import { Context, Effect, Exit, Layer, Ref, Schema } from "effect";
 import { WorkflowEngine } from "effect/workflow/WorkflowEngine";
@@ -24,6 +23,7 @@ import {
 	revisionDatabaseLayer,
 	revisionPackage,
 } from "#modules/plugins/packages/revision.test-support";
+import { ScriptExecutionPrincipal } from "#modules/scripts/authorization/principal";
 import { ScriptExecutionServiceLive } from "#modules/scripts/layer";
 import { SandboxRepository } from "#modules/scripts/registry/repository";
 import { DatabaseSession } from "#platform/db/session";

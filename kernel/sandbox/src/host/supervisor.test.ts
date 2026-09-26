@@ -30,7 +30,6 @@ import {
 	SidecarHostResultFrame,
 	type SidecarInboundFrame,
 } from "../protocol/messages";
-import type { ScriptExecutionPrincipal } from "../protocol/principal";
 import { SandboxSidecarAdmission } from "./admission";
 import { SandboxExecutionAuthority } from "./authority";
 import { SandboxSidecarClient } from "./client";
@@ -43,6 +42,7 @@ import { SandboxHostCallGate, type SandboxHostCallGateRegistration } from "./hos
 import { makeSandboxHostConfigLayer } from "./host.test-support";
 import type { SandboxRunInput } from "./invocation";
 import { memoryPinnedJournal } from "./pinned-journal.test-support";
+import type { SandboxPrincipal } from "./principal";
 import { SandboxSidecarQuarantine } from "./quarantine";
 import { SandboxRecoveryStore, type SandboxRecoveryIdentity } from "./recovery-store";
 import { makeUserPrincipal, makeUserSubject } from "./run-input.test-support";
@@ -69,7 +69,7 @@ type RecoveryCall = RecoveryState & {
 	readonly healthyEpoch?: string;
 };
 type ProtectionEvent = {
-	readonly principal: ScriptExecutionPrincipal;
+	readonly principal: SandboxPrincipal;
 	readonly trust: "system" | "user";
 	readonly type: "open" | "strike" | "survived";
 };
@@ -330,7 +330,7 @@ const admissionLayer = Layer.effect(SandboxSidecarAdmission, SandboxSidecarAdmis
 	Layer.provideMerge(configLayer),
 );
 const authorityLayer = Layer.succeed(SandboxExecutionAuthority, {
-	resolve: (_principal: ScriptExecutionPrincipal) => Effect.succeed("user"),
+	resolve: (_principal: SandboxPrincipal) => Effect.succeed("user"),
 });
 const recoveryKey = (executionId: string, instance: string, pinHash: string) =>
 	JSON.stringify([executionId, instance, pinHash]);
@@ -367,7 +367,7 @@ const publishRecoveryCall = (
 const quarantineLayer = Layer.effect(
 	SandboxSidecarQuarantine,
 	Effect.map(SupervisorTestHarness, (harness) => ({
-		open: (principal: ScriptExecutionPrincipal, trust: "system" | "user") =>
+		open: (principal: SandboxPrincipal, trust: "system" | "user") =>
 			Effect.sync(() => {
 				harness.protectionEvents.push({ trust, principal, type: "open" });
 				return {
@@ -505,9 +505,8 @@ const sentRunFrames = (connection: RecordedConnection) =>
 const makePrincipal = (
 	runtimeImports: ReadonlyArray<string>,
 	scriptSlug = "supervisor-script",
-): ScriptExecutionPrincipal =>
+): SandboxPrincipal =>
 	makeUserPrincipal({
-		scriptSlug,
 		subject: makeUserSubject(userId),
 		contentHash: sha256Hex(moduleSource),
 		scriptId: SandboxScriptId.make(scriptSlug),
@@ -603,7 +602,7 @@ const startRun = (
 		readonly runLane?: ExecutionLane;
 		readonly executionId?: string;
 		readonly pinHash?: string;
-		readonly principal?: ScriptExecutionPrincipal;
+		readonly principal?: SandboxPrincipal;
 		readonly prepare?: SandboxSidecarRun["prepare"];
 	} = {},
 ) =>
@@ -1448,8 +1447,8 @@ supervisorTest("bounds all tiers, grants, and recovery with global admission", (
 		}),
 	).pipe(
 		Effect.provideService(SandboxExecutionAuthority, {
-			resolve: (principal: ScriptExecutionPrincipal) =>
-				Effect.succeed(principal.scriptSlug.startsWith("system-") ? "system" : "user"),
+			resolve: (principal: SandboxPrincipal) =>
+				Effect.succeed(principal.scriptId.startsWith("system-") ? "system" : "user"),
 		}),
 	),
 );
@@ -1714,12 +1713,11 @@ supervisorTest("admits honest maximum concurrency under per-handle bounds", () =
 	).pipe(Effect.withSpan("sandbox.supervisor.pending-bound-test")),
 );
 
-const owned = (owner: string | null, scriptSlug: string): ScriptExecutionPrincipal => {
+const owned = (owner: string | null, scriptSlug: string): SandboxPrincipal => {
 	const principal = makePrincipal([], scriptSlug);
 	return {
 		...principal,
 		pluginRevision: makeUserPluginRevision({
-			slug: `${scriptSlug}-plugin`,
 			ownerId: owner === null ? null : UserId.make(owner),
 			compiledHashes: { [scriptSlug]: principal.contentHash },
 		}),
@@ -1787,8 +1785,8 @@ supervisorTest("shards the user tier into per-user sidecars by owner", () =>
 			}),
 		).pipe(
 			Effect.provideService(SandboxExecutionAuthority, {
-				resolve: (principal: ScriptExecutionPrincipal) =>
-					Effect.succeed(principal.scriptSlug.startsWith("system-") ? "system" : "user"),
+				resolve: (principal: SandboxPrincipal) =>
+					Effect.succeed(principal.scriptId.startsWith("system-") ? "system" : "user"),
 			}),
 			Effect.provideService(SandboxHostConfig, { ...config, perUserSidecars: true }),
 		);

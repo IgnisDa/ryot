@@ -9,14 +9,14 @@ import {
 	SandboxScriptId,
 	UserId,
 } from "@ryot-app/contract/schema/brands";
-import {
-	requireSandboxCapabilityInput,
-	type SandboxRunInput,
-} from "@ryot-app/sandbox/host/invocation";
 import { Context, Effect, Layer, Ref } from "effect";
 
 import { SignalEmissionService } from "#modules/automations/signal-service";
 import { NotificationsService } from "#modules/notifications/service";
+import {
+	requireSandboxCapabilityInput,
+	type ScriptRunInput,
+} from "#modules/scripts/authorization/capabilities";
 import { sandboxLifecycleCommand } from "#modules/scripts/host/execution-context";
 import { databaseLayer } from "#testing/effect";
 
@@ -43,7 +43,7 @@ const causation = {
 const runInput = (
 	executionUserId: UserId | null = userId,
 	parentCausation: LifecycleCommand["causation"] = causation,
-): SandboxRunInput => ({
+): ScriptRunInput => ({
 	compiledCode: "",
 	compiledFormat: 1,
 	lane: "interactive",

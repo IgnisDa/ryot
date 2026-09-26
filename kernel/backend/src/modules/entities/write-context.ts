@@ -2,13 +2,9 @@ import { DbError } from "@ryot-app/contract/errors";
 import { LifecycleCommand } from "@ryot-app/contract/modules/automations/lifecycle";
 import type { PluginManifest } from "@ryot-app/contract/modules/plugins/manifest";
 import { DefinitionOwner, definitionOwner } from "@ryot-app/contract/modules/plugins/references";
+import { sandboxSubjectUserId } from "@ryot-app/contract/modules/scripts/schemas";
 import type { AppPropertyDefinition, AppSchema } from "@ryot-app/contract/schema/property-schema";
 import { SandboxExecutionAuthority } from "@ryot-app/sandbox/host/authority";
-import {
-	isUserBootstrapPrincipal,
-	ScriptExecutionPrincipal,
-	sandboxSubjectUserId,
-} from "@ryot-app/sandbox/protocol/principal";
 import { stableStringify } from "@ryot-app/ts-utils/json";
 import { and, eq, isNull, sql } from "drizzle-orm";
 import { Context, Effect, Layer, Schema, Struct } from "effect";
@@ -16,6 +12,10 @@ import { Context, Effect, Layer, Schema, Struct } from "effect";
 import { parseAppSchemaProperties } from "#modules/definitions/properties/runtime";
 import { lockPluginIngestionShared } from "#modules/plugins/packages/ingestion-fence";
 import { SandboxExecutionAuthorityLive } from "#modules/scripts/authorization/authority";
+import {
+	isUserBootstrapPrincipal,
+	ScriptExecutionPrincipal,
+} from "#modules/scripts/authorization/principal";
 import { SandboxRepository } from "#modules/scripts/registry/repository";
 import { ownerWhere } from "#platform/db/definition-owner";
 import { DatabaseSession } from "#platform/db/session";

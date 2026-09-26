@@ -3,6 +3,7 @@ import {
 	automationSandboxHostContracts,
 	coreSandboxHostContracts,
 	domainSandboxHostContracts,
+	type SandboxHostImplementationMap as SdkSandboxHostImplementationMap,
 } from "@ryot-app/plugin-backend-sdk/core";
 import { hostFailure, hostSuccess, type SandboxHostError } from "@ryot-app/plugin-backend-sdk/wire";
 import { Effect, Schema, SchemaIssue } from "effect";
@@ -113,23 +114,33 @@ const bindHostFunction =
 			Effect.flatMap(Schema.encodeUnknownEffect(contract.result)),
 		);
 
-export const bindSandboxHostFunctions = (
-	implementations: SandboxHostImplementationMap,
+export const bindObservabilityHostFunctions = (
+	implementations: Pick<SandboxHostImplementationMap, "log" | "span">,
 	input: SandboxRunInput,
-): Record<keyof SandboxHostImplementationMap, BoundHostFunction> => {
+) => ({
+	log: bindHostFunction("log", coreSandboxHostContracts.log, (...args) =>
+		implementations.log(input, ...args),
+	),
+	span: bindHostFunction("span", coreSandboxHostContracts.span, (...args) =>
+		implementations.span(input, ...args),
+	),
+});
+
+export const bindSandboxHostFunctions = <Input>(
+	implementations: Omit<SdkSandboxHostImplementationMap<Input>, "log" | "span">,
+	input: Input,
+): Record<
+	Exclude<keyof SdkSandboxHostImplementationMap<Input>, "log" | "span">,
+	BoundHostFunction
+> => {
 	const bind = <Args extends ReadonlyArray<unknown>, Result, Success>(
 		fnName: string,
 		contract: HostContract<Args, Result>,
-		implementation: (
-			context: SandboxRunInput,
-			...args: Args
-		) => Effect.Effect<Success, SandboxHostError>,
+		implementation: (context: Input, ...args: Args) => Effect.Effect<Success, SandboxHostError>,
 		options?: BindOptions,
 	) =>
 		bindHostFunction(fnName, contract, (...args: Args) => implementation(input, ...args), options);
 	return {
-		log: bind("log", coreSandboxHostContracts.log, implementations.log),
-		span: bind("span", coreSandboxHostContracts.span, implementations.span),
 		emitSignal: bind(
 			"emitSignal",
 			automationSandboxHostContracts.emitSignal,

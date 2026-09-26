@@ -26,7 +26,6 @@ import {
 	type SidecarRunFrame,
 	type SidecarTier,
 } from "../protocol/messages";
-import type { ScriptExecutionPrincipal } from "../protocol/principal";
 import { SandboxSidecarAdmission, type SandboxAdmissionLease } from "./admission";
 import { SandboxExecutionAuthority, type SandboxTrust } from "./authority";
 import { catchNonInterrupt } from "./catch-non-interrupt";
@@ -44,6 +43,7 @@ import {
 	recordSandboxSidecarHostCall,
 	sandboxMetricKind,
 } from "./metrics";
+import type { SandboxPrincipal } from "./principal";
 import { SandboxSidecarQuarantine } from "./quarantine";
 import { SandboxRecoveryStore, type SandboxRecoveryIdentity } from "./recovery-store";
 import { selectSnapshotTier } from "./snapshot-tier";
@@ -123,7 +123,7 @@ export type SandboxSidecarRun<A = void> = {
 	readonly lane: ExecutionLane;
 	readonly executionId: string;
 	readonly pinHash: string;
-	readonly principal: ScriptExecutionPrincipal;
+	readonly principal: SandboxPrincipal;
 	readonly lease: SandboxAdmissionLease["Service"];
 	readonly prepare: (identity: {
 		readonly instance: string;
@@ -185,7 +185,7 @@ export class SandboxSidecarSupervisor extends Context.Service<SandboxSidecarSupe
 			let shuttingDown = false;
 			const executions = { totalExecutions: 0, activeExecutions: 0, maxActiveExecutions: 0 };
 			const locate = Effect.fn("SandboxSidecarSupervisor.locate")(function* (
-				principal: ScriptExecutionPrincipal,
+				principal: SandboxPrincipal,
 			) {
 				const trust = yield* authority.resolve(principal);
 				const tier = selectSnapshotTier(principal.metadata.runtimeImports);
@@ -833,7 +833,7 @@ export class SandboxSidecarSupervisor extends Context.Service<SandboxSidecarSupe
 				);
 			});
 			const reserve = Effect.fn("SandboxSidecarSupervisor.reserve")(function* (
-				principal: ScriptExecutionPrincipal,
+				principal: SandboxPrincipal,
 				lane: ExecutionLane,
 			) {
 				const key = yield* locate(principal);

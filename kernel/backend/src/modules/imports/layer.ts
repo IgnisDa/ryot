@@ -1,5 +1,4 @@
 import { SandboxRunError } from "@ryot-app/contract/errors";
-import { samePluginPin } from "@ryot-app/sandbox/protocol/principal";
 import { Effect, Layer } from "effect";
 
 import { AuthRepository } from "#modules/accounts/auth/repository";
@@ -11,6 +10,7 @@ import { ImportSourceCatalog } from "#modules/plugins/catalog/import-sources";
 import { IngestionReadinessService } from "#modules/plugins/catalog/readiness-service";
 import { PluginRuntimeResolverLive } from "#modules/plugins/catalog/runtime-resolver";
 import { PluginInstallationRepository } from "#modules/plugins/installations/repository";
+import { samePluginPin } from "#modules/scripts/authorization/principal";
 import { ScriptExecutionService } from "#modules/scripts/executions/service";
 import { ScriptExecutionServiceLive } from "#modules/scripts/layer";
 

@@ -1,13 +1,13 @@
 import { EntityId, SignalSchemaSlug, UserId } from "@ryot-app/contract/schema/brands";
 import type { AutomationSandboxHostImplementationMap } from "@ryot-app/plugin-backend-sdk/core";
-import {
-	requireSandboxCapabilityInput,
-	sandboxHostEffect,
-	type SandboxRunInput,
-} from "@ryot-app/sandbox/host/invocation";
-import { principalOwner } from "@ryot-app/sandbox/protocol/principal";
+import { sandboxHostEffect } from "@ryot-app/sandbox/host/invocation";
 import { Effect } from "effect";
 
+import {
+	requireSandboxCapabilityInput,
+	type ScriptRunInput,
+} from "#modules/scripts/authorization/capabilities";
+import { principalOwner } from "#modules/scripts/authorization/principal";
 import {
 	reportSandboxLifecycleWarnings,
 	sandboxLifecycleCommand,
@@ -51,5 +51,5 @@ export const makeSignalScriptHost = Effect.gen(function* () {
 					}),
 				),
 			),
-	} satisfies Pick<AutomationSandboxHostImplementationMap<SandboxRunInput>, "emitSignal">;
+	} satisfies Pick<AutomationSandboxHostImplementationMap<ScriptRunInput>, "emitSignal">;
 });

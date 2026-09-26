@@ -1,5 +1,4 @@
 import { SandboxExecutor } from "@ryot-app/sandbox/host/executor";
-import type { AdditionalSandboxHostImplementationMap } from "@ryot-app/sandbox/host/invocation";
 import { Effect, Layer } from "effect";
 
 import { AuthRepository } from "#modules/accounts/auth/repository";
@@ -36,6 +35,7 @@ import {
 import { makeRyotQLScriptHost } from "#modules/ryotql/script-host";
 import { RyotQLService } from "#modules/ryotql/service";
 import { SandboxExecutionAuthorityLive } from "#modules/scripts/authorization/authority";
+import type { AdditionalScriptHostImplementationMap } from "#modules/scripts/authorization/capabilities";
 import { EventStreamProcessorLive } from "#modules/scripts/executions/event-stream-processor";
 import { sandboxHttpRedirectClassifier } from "#modules/scripts/host/durable-dispatcher";
 import {
@@ -64,7 +64,7 @@ export const makeAdditionalScriptHostFunctions = Effect.gen(function* () {
 		...(yield* makePluginScriptHost),
 		...(yield* makeRelationshipScriptHost),
 		...(yield* makeRyotQLScriptHost),
-	} satisfies AdditionalSandboxHostImplementationMap;
+	} satisfies AdditionalScriptHostImplementationMap;
 });
 
 const makeScriptLifecycleHostSteps = Effect.gen(function* () {

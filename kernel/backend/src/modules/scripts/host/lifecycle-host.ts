@@ -8,7 +8,7 @@ import {
 	upsertGlobalRelationshipGroupSchema,
 } from "@ryot-app/plugin-backend-sdk/core";
 import { jsonValueSchema } from "@ryot-app/plugin-backend-sdk/wire";
-import { toSandboxHostError, type UserSandboxRunInput } from "@ryot-app/sandbox/host/invocation";
+import { toSandboxHostError } from "@ryot-app/sandbox/host/invocation";
 import { Effect, Schema } from "effect";
 
 import type { LifecycleExecution } from "#modules/automations/lifecycle/execution";
@@ -18,6 +18,7 @@ import {
 } from "#modules/automations/lifecycle/write-step";
 import { DomainLifecycleCommand } from "#modules/entities/write-context";
 import type { PendingRelationshipMutations } from "#modules/relationships/mutation-pipeline";
+import type { UserSandboxRunInput } from "#modules/scripts/authorization/capabilities";
 
 import { reportSandboxLifecycleWarnings } from "./execution-context";
 
