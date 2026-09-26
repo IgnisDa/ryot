@@ -9,6 +9,7 @@ import type { LifecycleCommand } from "#lib/domain/lifecycle-command";
 import { runLifecycleWriteStep } from "#lib/infrastructure/lifecycle-workflow-step";
 import { implementWorkflow } from "#lib/infrastructure/workflow-scope";
 import { EventCreateWorkflow } from "#modules/events/event-create-workflow";
+import { MutationReceipts } from "#modules/mutations/receipts";
 import {
 	PendingRelationshipMutations,
 	RelationshipSingleResult,
@@ -59,6 +60,12 @@ export const AddEntityToCollectionWorkflowOperationsLive = Layer.effect(
 
 export const runAddEntityToCollectionWorkflow = Effect.fn("AddEntityToCollectionWorkflow")(
 	function* (payload: AddEntityToCollectionWorkflowPayload, executionId: string) {
+		const receipts = yield* MutationReceipts.make;
+		yield* receipts.registerWorkflow(
+			payload.command.accountGeneration,
+			AddEntityToCollectionWorkflow._tag,
+			executionId,
+		);
 		yield* Effect.annotateCurrentSpan({
 			executionId,
 			userId: payload.userId,
@@ -107,6 +114,11 @@ export const runAddEntityToCollectionWorkflow = Effect.fn("AddEntityToCollection
 		let eventWarnings: ReadonlyArray<AutomationWarning> = [];
 		if (result.addEventSchemaSlug) {
 			const eventExecutionId = `collection-membership-added-${result.memberOf.id}`;
+			yield* receipts.registerWorkflow(
+				payload.command.accountGeneration,
+				EventCreateWorkflow._tag,
+				eventExecutionId,
+			);
 			const eventAttempt = yield* engine
 				.execute(EventCreateWorkflow, {
 					executionId: eventExecutionId,

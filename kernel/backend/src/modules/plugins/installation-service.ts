@@ -9,6 +9,7 @@ import {
 	type UpdatePluginInstallationBody,
 } from "@ryot-app/contract/modules/plugins/schemas";
 import { KernelSavedViewRendererName } from "@ryot-app/contract/modules/saved-views/schemas";
+import type { AccountGeneration } from "@ryot-app/contract/schema/account-generation";
 import { PluginId, PluginSlug, UserId } from "@ryot-app/contract/schema/brands";
 import { readPluginArchiveStream, type PluginArchivePackage } from "@ryot-app/plugin-archive";
 import { sha256Hex } from "@ryot-app/ts-utils/crypto";
@@ -28,6 +29,7 @@ import {
 	type DefinitionSnapshot,
 } from "#modules/definition-registry/snapshot";
 import { mergeManifestDefinitions } from "#modules/definition-registry/source";
+import { MutationReceipts } from "#modules/mutations/receipts";
 import { UploadIntentsService } from "#modules/uploads/intents/service";
 import { ObjectStorageService } from "#modules/uploads/object-storage/service";
 
@@ -229,6 +231,7 @@ export class PluginInstallationService extends Context.Service<PluginInstallatio
 	{
 		make: Effect.gen(function* () {
 			const database = yield* DatabaseSession;
+			const receipts = yield* MutationReceipts.make;
 			const assertUnclaimedSavedViewSlugs = assertUnclaimedSavedViewSlugsForSession(database);
 			const repository = yield* PluginRepository;
 			const definitions = yield* DefinitionRepository;
@@ -306,7 +309,24 @@ export class PluginInstallationService extends Context.Service<PluginInstallatio
 
 			const provisionSystemInstallations = Effect.fn(
 				"PluginInstallationService.provisionSystemInstallations",
-			)((userId: UserId) => installations.provisionSystemInstallationsForUser(userId));
+			)((accountGeneration: AccountGeneration) =>
+				database
+					.transaction(
+						receipts
+							.admitAccount(accountGeneration)
+							.pipe(
+								Effect.andThen(
+									installations.provisionSystemInstallationsForUser(accountGeneration.userId),
+								),
+							),
+					)
+					.pipe(
+						Effect.catchTag(
+							"DatabaseSessionStateError",
+							() => new DbError({ message: "Plugin provisioning requires a root transaction" }),
+						),
+					),
+			);
 
 			const reconcilePrivateConflicts = Effect.fn(
 				"PluginInstallationService.reconcilePrivateConflicts",

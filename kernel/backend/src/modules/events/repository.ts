@@ -4,11 +4,12 @@ import type { ListedEvent } from "@ryot-app/contract/modules/events/schemas";
 import type { UserId } from "@ryot-app/contract/schema/brands";
 import { EntityId, EventId, EventSchemaSlug } from "@ryot-app/contract/schema/brands";
 import { stableStringify } from "@ryot-app/ts-utils/json";
-import { and, asc, eq, gt, isNull, or, sql } from "drizzle-orm";
+import { and, asc, eq, gt, inArray, isNull, or, sql } from "drizzle-orm";
 import { Context, DateTime, Effect, Layer, Schema } from "effect";
 
 import * as schema from "#lib/infrastructure/db/schema/tables/combined";
 import { DatabaseSession } from "#lib/infrastructure/db/session";
+import { MutationReceipts } from "#modules/mutations/receipts";
 
 type EventRow = Pick<
 	typeof schema.event.$inferSelect,
@@ -60,6 +61,7 @@ const toListedEvent = (row: EventRow): ListedEvent => ({
 export class EventsRepository extends Context.Service<EventsRepository>()("EventsRepository", {
 	make: Effect.gen(function* () {
 		const session = yield* DatabaseSession;
+		const receipts = yield* MutationReceipts.make;
 		const listUserEventsForBackup = Effect.fn("EventsRepository.listUserEventsForBackup")(
 			function* (input: { userId: UserId; afterId?: EventId | undefined }) {
 				return yield* session.run((db) =>
@@ -290,32 +292,6 @@ export class EventsRepository extends Context.Service<EventsRepository>()("Event
 			if (!row) {
 				return null;
 			}
-			return yield* Schema.decodeUnknownEffect(AutomationEventSnapshot)({
-				id: row.id,
-				entityId: row.entityId,
-				properties: row.properties,
-				eventSchemaSlug: row.eventSchemaSlug,
-				sessionEntityId: row.sessionEntityId,
-				entitySchemaSlug: row.entitySchemaSlug,
-				createdAt: row.createdAt.toISOString(),
-				updatedAt: row.updatedAt.toISOString(),
-				occurredAt: row.occurredAt.toISOString(),
-			}).pipe(Effect.mapError(() => new DbError({ message: "Invalid persisted event snapshot" })));
-		});
-		const getEventCreateReplay = Effect.fn("EventsRepository.getEventCreateReplay")(function* (
-			input: EventIdentityInput,
-		) {
-			const [row] = yield* session.run((db) =>
-				db
-					.select({ ...createdEventSelection, entitySchemaSlug: schema.entity.entitySchemaSlug })
-					.from(schema.event)
-					.innerJoin(schema.entity, eq(schema.entity.id, schema.event.entityId))
-					.where(and(eq(schema.event.id, input.eventId), eq(schema.event.userId, input.userId)))
-					.for("update", { of: schema.event }),
-			);
-			if (!row) {
-				return null;
-			}
 			const event = yield* Schema.decodeUnknownEffect(AutomationEventSnapshot)({
 				id: row.id,
 				entityId: row.entityId,
@@ -327,36 +303,26 @@ export class EventsRepository extends Context.Service<EventsRepository>()("Event
 				updatedAt: row.updatedAt.toISOString(),
 				occurredAt: row.occurredAt.toISOString(),
 			}).pipe(Effect.mapError(() => new DbError({ message: "Invalid persisted event snapshot" })));
-			return { event, eventSchemaPluginId: row.eventSchemaPluginId };
+			return event;
 		});
 		const getCreateProgress = Effect.fn("EventsRepository.getCreateProgress")(function* (
 			userId: UserId,
 			executionId: string,
 		) {
-			const rows = yield* session.run((db) =>
-				db
-					.select({ status: schema.automationRun.status, triggerId: schema.automationTrigger.id })
-					.from(schema.automationTrigger)
-					.leftJoin(
-						schema.automationRun,
-						and(
-							eq(schema.automationRun.triggerId, schema.automationTrigger.id),
-							eq(schema.automationRun.stage, "after"),
-							eq(schema.automationRun.delivery, "required"),
-						),
-					)
-					.where(
-						and(
-							eq(schema.automationTrigger.scopeUserId, userId),
-							eq(schema.automationTrigger.executionId, executionId),
-							eq(schema.automationTrigger.category, "change"),
-							eq(schema.automationTrigger.resourceKind, "event"),
-							eq(schema.automationTrigger.operation, "create"),
-						),
-					),
+			const progress = yield* receipts.countWrittenEvents(userId, executionId);
+			const requiredIds = progress.dispatch.flatMap(({ runs }) =>
+				runs.flatMap((run) => (run.delivery === "required" ? [run.id] : [])),
 			);
+			const rows = requiredIds.length
+				? yield* session.run((db) =>
+						db
+							.select({ status: schema.automationRun.status })
+							.from(schema.automationRun)
+							.where(inArray(schema.automationRun.id, requiredIds)),
+					)
+				: [];
 			return {
-				writtenCount: new Set(rows.map((row) => row.triggerId)).size,
+				writtenCount: progress.writtenCount,
 				requiredPending: rows.some((row) => row.status === "queued" || row.status === "running"),
 			};
 		});
@@ -368,7 +334,6 @@ export class EventsRepository extends Context.Service<EventsRepository>()("Event
 			getEventSnapshot,
 			getCreateProgress,
 			deletePreparedEvent,
-			getEventCreateReplay,
 			listUserEventsForBackup,
 			listUserEventIdsForEntity,
 			updateEventEntityReferences,

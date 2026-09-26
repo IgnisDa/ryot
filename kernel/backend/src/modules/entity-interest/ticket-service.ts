@@ -1,5 +1,6 @@
 import { EntityInterestTicketFailure } from "@ryot-app/contract/modules/entity-interest/contract";
 import type { EntityInterestSocketTicketResponse } from "@ryot-app/contract/modules/entity-interest/messages";
+import { AccountGeneration } from "@ryot-app/contract/schema/account-generation";
 import { UserId } from "@ryot-app/contract/schema/brands";
 import { sha256Hex } from "@ryot-app/ts-utils/crypto";
 import { Clock, Context, Data, DateTime, Effect, Layer, Schema } from "effect";
@@ -23,6 +24,7 @@ const storeUnavailable = () =>
 	new EntityInterestTicketFailure({ reason: { code: "ticket-store-unavailable" } });
 const TicketValue = Schema.Struct({
 	userId: UserId,
+	accountGeneration: AccountGeneration,
 	preferredLanguage: Schema.NullOr(Schema.String),
 });
 
@@ -41,6 +43,7 @@ export class EntityInterestTicketService extends Context.Service<EntityInterestT
 
 			const create = Effect.fn("EntityInterestTicketService.create")(function* (input: {
 				readonly userId: UserId;
+				readonly accountGeneration: AccountGeneration;
 				readonly preferredLanguage: string | null;
 			}) {
 				const ticket = makeTicket();

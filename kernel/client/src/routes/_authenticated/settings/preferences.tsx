@@ -6,10 +6,8 @@ import {
 	useRyotQuery,
 } from "@ryot-app/client-sdk/react";
 import { StatusMessage } from "@ryot-app/client-ui-sdk";
-import type {
-	UpdateUserPreferencesBody,
-	UserPreferences,
-} from "@ryot-app/contract/modules/user-settings/schemas";
+import type { UpdateUserPreferencesBody } from "@ryot-app/contract/modules/user-settings/schemas";
+import type { UserPreferences } from "@ryot-app/contract/schema/user-preferences";
 import { userSettingsRecipe } from "@ryot-app/ryotql-recipes/user-settings";
 import { createFileRoute } from "@tanstack/react-router";
 import { Effect } from "effect";

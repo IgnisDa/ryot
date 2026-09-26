@@ -12,6 +12,7 @@ import {
 } from "@ryot-app/contract/modules/collections/schemas";
 import { ListedEntity } from "@ryot-app/contract/modules/entities/schemas";
 import type { RelationshipBadRequest } from "@ryot-app/contract/modules/relationships/schemas";
+import type { AccountGeneration } from "@ryot-app/contract/schema/account-generation";
 import {
 	AutomationExecutionId,
 	EntityId,
@@ -37,12 +38,10 @@ import {
 	parseLabeledPropertySchemaInput,
 } from "#lib/property-schema/property-schema-runtime";
 import { trimToNull } from "#lib/shared/validation";
-import {
-	EntitiesService,
-	type EntitySaveResult,
-	type PendingEntityMutation,
-} from "#modules/entities/service";
+import type { EntitySaveResult } from "#modules/entities/mutation-outcomes";
+import { EntitiesService, type PendingEntityMutation } from "#modules/entities/service";
 import { EventsService } from "#modules/events/service";
+import { MutationReceipts } from "#modules/mutations/receipts";
 import { RelationshipSchemasRepository } from "#modules/relationship-schemas/repository";
 import {
 	PendingRelationshipMutations,
@@ -101,7 +100,7 @@ const childCommand = (command: LifecycleCommand, itemIdentity: string): Lifecycl
 });
 
 const userCommand = Effect.fnUntraced(function* (
-	userId: UserId,
+	accountGeneration: AccountGeneration,
 	itemIdentity: string,
 	source: "api" | "import" = "api",
 	executionId = AutomationExecutionId.make(generateId()),
@@ -110,7 +109,8 @@ const userCommand = Effect.fnUntraced(function* (
 		source,
 		executionId,
 		itemIdentity,
-		initiator: { id: userId, kind: "user" },
+		accountGeneration,
+		initiator: { kind: "user", id: accountGeneration.userId },
 		occurredAt: IsoUtcString.make((yield* DateTime.nowAsDate).toISOString()),
 	});
 });
@@ -124,6 +124,7 @@ export class CollectionsService extends Context.Service<CollectionsService>()(
 			const entities = yield* EntitiesService;
 			const repository = yield* CollectionsRepository;
 			const relationships = yield* RelationshipsService;
+			const receipts = yield* MutationReceipts.make;
 			const relationshipSchemasRepository = yield* RelationshipSchemasRepository;
 			const memberOfSchema = yield* Effect.cached(
 				relationshipSchemasRepository
@@ -201,7 +202,7 @@ export class CollectionsService extends Context.Service<CollectionsService>()(
 						reason: { field: "name", code: "name-required" },
 					});
 				}
-				const lifecycle = yield* userCommand(user.id, "collection:create");
+				const lifecycle = yield* userCommand(user.accountGeneration, "collection:create");
 
 				if (payload.membershipPropertiesSchema !== undefined) {
 					yield* parseLabeledPropertySchemaInput(
@@ -256,7 +257,7 @@ export class CollectionsService extends Context.Service<CollectionsService>()(
 
 			const prepareGetOrCreateCollection = Effect.fn(
 				"CollectionsService.prepareGetOrCreateCollection",
-			)(function* (userId: UserId, name: string) {
+			)(function* (userId: UserId, name: string, command: LifecycleCommand) {
 				const entitySchema = yield* collectionEntitySchema;
 				const existing = yield* repository.findCollectionByNameForUser({
 					name,
@@ -270,10 +271,9 @@ export class CollectionsService extends Context.Service<CollectionsService>()(
 						result: { id: existing.id },
 					} satisfies LifecycleCommittedStep<CollectionEntityResult>;
 				}
-				const lifecycle = yield* userCommand(
-					userId,
+				const lifecycle = childCommand(
+					command,
 					stableStringify(["collection:get-or-create", name]),
-					"import",
 				);
 				return yield* entities
 					.prepareCreateStep({
@@ -426,9 +426,14 @@ export class CollectionsService extends Context.Service<CollectionsService>()(
 			) {
 				const executionId = AutomationExecutionId.make(generateId());
 				const command = yield* userCommand(
-					user.id,
+					user.accountGeneration,
 					"collection:add-membership",
 					"api",
+					executionId,
+				);
+				yield* receipts.registerWorkflow(
+					command.accountGeneration,
+					AddEntityToCollectionWorkflow._tag,
 					executionId,
 				);
 				return yield* engine.execute(AddEntityToCollectionWorkflow, {
@@ -477,7 +482,7 @@ export class CollectionsService extends Context.Service<CollectionsService>()(
 				user: CurrentUserValue,
 				payload: DeleteMembershipBody,
 			) {
-				const command = yield* userCommand(user.id, "collection:remove-membership");
+				const command = yield* userCommand(user.accountGeneration, "collection:remove-membership");
 				const collection = yield* repository.getCollectionById(payload.collectionId, user.id);
 				if (!collection) {
 					return yield* new CollectionNotFound({

@@ -18,7 +18,11 @@ Both require Authorization Code with S256 PKCE, skip consent, use `openid profil
 
 Access tokens expire after 15 minutes and refresh tokens after 30 days. API middleware verifies the JWT signature, issuer `<FRONTEND_URL>/api/auth`, audience `<FRONTEND_URL>/api`, expiry, and `ryot:api` scope, then loads the authoritative user. Disabled or deleted users fail immediately. API keys retain Better Auth expiry, rate limiting, cache, database fallback, and ownership checks.
 
+User preferences are application data on the user row, not Better Auth user fields or session claims. Authenticated application reads decode the full canonical JSONB value. Preference commands validate a partial body, normalize language at the write boundary, and merge supplied fields in one row update; omitted fields remain unchanged. The database supplies complete defaults and rejects malformed stored values.
+
 Disable, deletion, and password reset revoke browser sessions and OAuth token records; disable and deletion also clear API-key caches. Issued access tokens remain valid until expiry because verification does not read token records.
+
+God-mode password reset capture reserves a random ID for each email, subscribes before initiating an internal Better Auth request, and carries that ID in the internal request header. The reset callback delivers only if that request's ID still owns the Redis reservation. The capture scope releases its subscriber and its own reservation on success, failure, timeout, or interruption. A late Better Auth Promise cannot deliver into a later reservation.
 
 ## External OIDC
 

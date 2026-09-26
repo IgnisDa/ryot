@@ -1,12 +1,13 @@
 import { DbError } from "@ryot-app/contract/errors";
 import {
 	AutomationRelationshipSnapshot,
-	AutomationRequestPayload,
+	type AutomationRelationshipRequestPayload,
 	type AutomationRelationshipChangePayload,
 } from "@ryot-app/contract/modules/automations/lifecycle";
 import {
 	RelationshipBadRequest,
 	RelationshipNotFound,
+	RelationshipScope,
 } from "@ryot-app/contract/modules/relationships/schemas";
 import type { EntityId, RelationshipSchemaSlug, UserId } from "@ryot-app/contract/schema/brands";
 import { AppSchema } from "@ryot-app/contract/schema/property-schema";
@@ -23,6 +24,12 @@ import { parseAppSchemaProperties } from "#lib/property-schema/property-schema-r
 import type { DefinitionRepository } from "#modules/definition-registry/repository";
 import type { RelationshipSchemaDefinition } from "#modules/definition-registry/snapshot";
 import type { EntitiesRepository } from "#modules/entities/repository";
+import {
+	mutationReceiptIdentity,
+	mutationReceiptOwner,
+	MutationReceiptIdentity,
+	type MutationReceipts,
+} from "#modules/mutations/receipts";
 import type { PluginRuntimeResolver } from "#modules/plugins/runtime-resolver";
 import { CatalogDefinitionFingerprint } from "#modules/plugins/runtime-resolver";
 
@@ -69,19 +76,47 @@ export const RelationshipMutation = Schema.Struct({
 	input: RelationshipIdentityInput,
 	properties: Schema.optional(Schema.Unknown),
 	propertiesSchema: Schema.optional(AppSchema),
+	receipt: Schema.optional(MutationReceiptIdentity),
 	mode: Schema.Literals(["upsert", "update", "delete", "merge"]),
 	schemaFingerprint: Schema.optional(CatalogDefinitionFingerprint),
 });
 export type Mutation = typeof RelationshipMutation.Type;
-export const RelationshipRequest = Schema.Union([
-	AutomationRequestPayload.members[6],
-	AutomationRequestPayload.members[7],
-	AutomationRequestPayload.members[8],
-]);
-export type RelationshipRequest = typeof RelationshipRequest.Type;
+
+export const RelationshipRecordedResult = Schema.Struct({
+	operation: Schema.Literals(["create", "update", "delete", "noop"]),
+	relationship: Schema.NullOr(
+		Schema.Struct({
+			...RelationshipScope.fields,
+			updatedAt: Schema.String,
+			properties: Schema.Record(Schema.String, Schema.Unknown),
+		}),
+	),
+});
+
+export const relationshipReceiptIdentity = (
+	mutation: Pick<Mutation, "command" | "input" | "mode" | "properties" | "receipt">,
+) =>
+	mutation.receipt ??
+	mutationReceiptIdentity({
+		command: mutation.command,
+		commandKind: `relationship:${mutation.mode}`,
+		scopeUserId: mutation.input.scope === "user" ? mutation.input.userId : null,
+		ownerUserId: mutationReceiptOwner(
+			mutation.command,
+			mutation.input.scope === "user" ? mutation.input.userId : null,
+		),
+		input: {
+			scope: mutation.input.scope,
+			...(mutation.input.scope === "user" ? { userId: mutation.input.userId } : {}),
+			properties: mutation.properties ?? null,
+			sourceEntityId: mutation.input.sourceEntityId,
+			targetEntityId: mutation.input.targetEntityId,
+			relationshipSchemaSlug: mutation.input.relationshipSchemaSlug,
+		},
+	});
 
 export const relationshipChange = (
-	request: RelationshipRequest,
+	request: AutomationRelationshipRequestPayload,
 	persisted: AutomationRelationshipSnapshot,
 ): AutomationRelationshipChangePayload => {
 	if (request.operation === "create") {
@@ -98,8 +133,6 @@ export const relationshipChange = (
 	}
 	return { before: persisted, category: "change", operation: "delete", resource: "relationship" };
 };
-export const populationIdentity = (value: LifecycleCommand["population"]) =>
-	value ? { ...value, batch: value.batch ? { id: value.batch.id } : undefined } : undefined;
 export const equal = (left: unknown, right: unknown) =>
 	stableStringify(left) === stableStringify(right);
 export const relationshipKey = (input: { sourceEntityId: EntityId; targetEntityId: EntityId }) =>
@@ -228,6 +261,7 @@ export type RelationshipMutationDependencies = {
 	readonly session: DatabaseSession["Service"];
 	readonly execution: LifecycleExecution["Service"];
 	readonly planner: LifecyclePlanner["Service"];
+	readonly receipts: MutationReceipts["Service"];
 	readonly repository: RelationshipsRepository["Service"];
 	readonly runtime: PluginRuntimeResolver["Service"];
 	readonly definitions: DefinitionRepository["Service"];

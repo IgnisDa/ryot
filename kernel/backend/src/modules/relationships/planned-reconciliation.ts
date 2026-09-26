@@ -1,5 +1,6 @@
 import {
 	AutomationRelationshipDraft,
+	type AutomationRelationshipRequestPayload,
 	type AutomationRelationshipSnapshot,
 } from "@ryot-app/contract/modules/automations/lifecycle";
 import {
@@ -10,10 +11,16 @@ import { Effect, Schema } from "effect";
 
 import {
 	LifecyclePersistenceError,
+	toLifecycleDispatchPlan,
 	type CommittedLifecycleWork,
-	type LifecyclePlan,
+	type LifecycleDispatchPlan,
 } from "#lib/domain/lifecycle";
 import { lifecycleTrigger, type LifecycleCommand } from "#lib/domain/lifecycle-command";
+import {
+	mutationReceiptIdentity,
+	mutationReceiptOwner,
+	MutationReceiptIdentityConflict,
+} from "#modules/mutations/receipts";
 
 import {
 	activeTransactionGuard,
@@ -22,13 +29,14 @@ import {
 	itemCommand,
 	parseProperties,
 	relationshipChange,
+	relationshipReceiptIdentity,
+	RelationshipRecordedResult,
 	relationshipKey,
 	snapshot,
 	validateUserRelationshipEntities,
 	type PlannedRelationshipReconciliationResult,
 	type ReconcileGlobalRelationshipGroup,
 	type RelationshipMutationDependencies,
-	type RelationshipRequest,
 	type RelationshipReconciliationScope,
 } from "./mutation-support";
 import {
@@ -43,9 +51,16 @@ export const makePlannedRelationshipReconciliation = ({
 	planner,
 	runtime,
 	entities,
+	receipts,
 	repository,
 	definitions,
 }: Omit<RelationshipMutationDependencies, "execution">) => {
+	const GroupResult = Schema.Struct({
+		created: Schema.Finite,
+		updated: Schema.Finite,
+		deleted: Schema.Finite,
+		upserted: Schema.Finite,
+	});
 	const assertActiveTransaction = activeTransactionGuard(session);
 	const persistPlannedReconciliation = Effect.fn(
 		"RelationshipsService.persistPlannedReconciliation",
@@ -55,16 +70,52 @@ export const makePlannedRelationshipReconciliation = ({
 		scope: RelationshipReconciliationScope,
 	) {
 		yield* assertActiveTransaction;
+		const scopeUserId = scope.scope === "user" ? scope.userId : null;
+		const groupReceipts = groups.map((_, groupIndex) =>
+			mutationReceiptIdentity({
+				scopeUserId,
+				input: { scope, groups },
+				commandKind: "relationship:reconcile",
+				ownerUserId: mutationReceiptOwner(command, scopeUserId),
+				command: { ...command, itemIdentity: `${command.itemIdentity}:group:${groupIndex}` },
+			}),
+		);
+		const recorded = yield* Effect.forEach(groupReceipts, (identity) =>
+			receipts
+				.lookup(identity, GroupResult)
+				.pipe(
+					Effect.mapError((error) =>
+						error instanceof MutationReceiptIdentityConflict
+							? new RelationshipBadRequest({ reason: { code: "lifecycle-command-conflict" } })
+							: error,
+					),
+				),
+		);
+		if (recorded.every((entry) => entry !== null)) {
+			return {
+				result: recorded.map((entry) => entry.result),
+				dispatch: recorded.flatMap((entry) => entry.dispatch),
+			} satisfies CommittedLifecycleWork<PlannedRelationshipReconciliationResult>;
+		}
 		yield* runtime.lockCatalog();
 		const slugs = groups.map(({ relationshipSchemaSlug }) => relationshipSchemaSlug);
 		const schemas =
 			scope.scope === "user"
 				? yield* definitions.findUserRelationshipSchemas(scope.userId, slugs)
 				: (yield* definitions.getGlobalSnapshot).relationshipSchemas;
-		const scopeUserId = scope.scope === "user" ? scope.userId : null;
-		const plans: LifecyclePlan[] = [];
+		const dispatch: LifecycleDispatchPlan[] = [];
 		const result: Array<PlannedRelationshipReconciliationResult[number]> = [];
 		for (const [groupIndex, group] of groups.entries()) {
+			const groupReceipt = groupReceipts[groupIndex];
+			if (!groupReceipt) {
+				return yield* Effect.die("Missing relationship reconciliation group identity");
+			}
+			const previous = recorded[groupIndex];
+			if (previous) {
+				result.push(previous.result);
+				dispatch.push(...previous.dispatch);
+				continue;
+			}
 			const definition = schemas[group.relationshipSchemaSlug];
 			if (!definition) {
 				return yield* new RelationshipNotFound({
@@ -149,6 +200,24 @@ export const makePlannedRelationshipReconciliation = ({
 						relationshipMutationLockKey(right.input),
 					),
 				);
+			const batchScope = {
+				command,
+				resource: "relationship" as const,
+				identity: [`group:${groupIndex}`],
+			};
+			const decision = yield* planner.prepareBatch({ ...batchScope, scopes: [scopeUserId] });
+			const itemReceipts = mutations.map(relationshipReceiptIdentity);
+			const itemReplays = yield* Effect.forEach(itemReceipts, (identity) =>
+				receipts
+					.lookup(identity, RelationshipRecordedResult)
+					.pipe(
+						Effect.mapError((error) =>
+							error instanceof MutationReceiptIdentityConflict
+								? new RelationshipBadRequest({ reason: { code: "lifecycle-command-conflict" } })
+								: error,
+						),
+					),
+			);
 			yield* entities.lockEntityReferencesByIds(
 				mutations.flatMap(({ input }) => [input.sourceEntityId, input.targetEntityId]),
 			);
@@ -158,16 +227,20 @@ export const makePlannedRelationshipReconciliation = ({
 				mode: "upsert" | "delete";
 				command: LifecycleCommand;
 				before: AutomationRelationshipSnapshot | null;
-				request: RelationshipRequest | null;
-				requestPlan: LifecyclePlan | null;
+				request: AutomationRelationshipRequestPayload | null;
+				requestId: LifecycleCommand["causation"]["parentTriggerId"];
 			}> = [];
-			for (const mutation of mutations) {
+			for (const [index, mutation] of mutations.entries()) {
+				if (itemReplays[index]) {
+					prepared.push({ ...mutation, before: null, request: null, requestId: null });
+					continue;
+				}
 				const row = yield* repository.findRelationship(mutation.input);
 				const before = row ? yield* snapshot(row) : null;
-				let request: RelationshipRequest;
+				let request: AutomationRelationshipRequestPayload;
 				if (mutation.mode === "delete") {
 					if (before === null) {
-						prepared.push({ ...mutation, before, request: null, requestPlan: null });
+						prepared.push({ ...mutation, before, request: null, requestId: null });
 						continue;
 					}
 					request = {
@@ -178,7 +251,7 @@ export const makePlannedRelationshipReconciliation = ({
 					};
 				} else {
 					if (before !== null && equal(before.properties, mutation.properties)) {
-						prepared.push({ ...mutation, before, request: null, requestPlan: null });
+						prepared.push({ ...mutation, before, request: null, requestId: null });
 						continue;
 					}
 					const draft = yield* Schema.decodeUnknownEffect(AutomationRelationshipDraft)({
@@ -194,7 +267,7 @@ export const makePlannedRelationshipReconciliation = ({
 				const requestPlan = yield* planner.plan({
 					trigger: lifecycleTrigger(mutation.command, scopeUserId, request),
 				});
-				if (requestPlan.trigger.blockedReason !== null) {
+				if (requestPlan.trigger?.blockedReason) {
 					return yield* new RelationshipBadRequest({
 						reason: { code: "automation-limit-reached" },
 					});
@@ -202,7 +275,7 @@ export const makePlannedRelationshipReconciliation = ({
 				if (requestPlan.policies.length > 0) {
 					return yield* new LifecyclePersistenceError({ code: "before-policy-requires-owner" });
 				}
-				prepared.push({ ...mutation, before, request, requestPlan });
+				prepared.push({ ...mutation, before, request, requestId: requestPlan.trigger?.id ?? null });
 			}
 			const counts = {
 				createdCount: prepared.filter(({ request }) => request?.operation === "create").length,
@@ -210,13 +283,31 @@ export const makePlannedRelationshipReconciliation = ({
 				deletedCount: prepared.filter(({ request }) => request?.operation === "delete").length,
 			};
 			let changedIndex = 0;
-			const groupPlans: LifecyclePlan[] = [];
-			for (const item of prepared) {
-				if (item.request === null) {
+			const groupDispatch: LifecycleDispatchPlan[] = [];
+			for (const [index, item] of prepared.entries()) {
+				const receipt = itemReceipts[index];
+				if (!receipt) {
+					return yield* Effect.die("Missing relationship reconciliation identity");
+				}
+				const replay = itemReplays[index];
+				if (replay) {
+					groupDispatch.push(...replay.dispatch);
 					continue;
 				}
-				if (item.requestPlan === null) {
-					return yield* Effect.die("Planned relationship request is missing its plan");
+				if (item.request === null) {
+					const row = yield* repository.findRelationship(item.input);
+					const noop = {
+						operation: "noop" as const,
+						relationship: row ? { ...row, wasInserted: false } : null,
+					};
+					yield* receipts.insert({
+						result: noop,
+						dispatch: [],
+						identity: receipt,
+						batchIndex: index,
+						batchId: decision.id,
+					});
+					continue;
 				}
 				let saved;
 				if (item.request.operation === "delete") {
@@ -259,7 +350,7 @@ export const makePlannedRelationshipReconciliation = ({
 							...item.command,
 							causation: {
 								...item.command.causation,
-								parentTriggerId: item.requestPlan.trigger.id,
+								parentTriggerId: item.requestId ?? item.command.causation.parentTriggerId,
 							},
 						},
 						scopeUserId,
@@ -269,27 +360,43 @@ export const makePlannedRelationshipReconciliation = ({
 						},
 					),
 				});
-				groupPlans.push(changePlan);
+				const itemDispatch =
+					changePlan.trigger === null ? [] : [toLifecycleDispatchPlan(changePlan)];
+				const change = {
+					...relationshipChange(item.request, persistedSnapshot),
+					...(population === undefined ? {} : { population }),
+				};
+				yield* receipts.insert({
+					identity: receipt,
+					batchIndex: index,
+					batchId: decision.id,
+					dispatch: itemDispatch,
+					result: {
+						operation: item.request.operation,
+						relationship: { ...saved, wasInserted: item.request.operation === "create" },
+					},
+					...(decision.hasCandidates ? { evidence: change } : {}),
+				});
+				groupDispatch.push(...itemDispatch);
 			}
-			plans.push(
-				...groupPlans,
-				...(yield* planner.planBatch({
-					command,
-					plans: groupPlans,
-					resource: "relationship",
-					identity: [`group:${groupIndex}`],
-				})),
-			);
-			result.push({
+			groupDispatch.push(...(yield* planner.planBatch(batchScope)));
+			const groupResult = {
 				upserted: desired.length,
 				created: counts.createdCount,
 				updated: counts.updatedCount,
 				deleted: counts.deletedCount,
+			};
+			yield* receipts.insert({
+				result: groupResult,
+				identity: groupReceipt,
+				dispatch: groupDispatch,
 			});
+			result.push(groupResult);
+			dispatch.push(...groupDispatch);
 		}
 		return {
-			plans,
 			result,
+			dispatch,
 		} satisfies CommittedLifecycleWork<PlannedRelationshipReconciliationResult>;
 	});
 	return { persistPlannedReconciliation };

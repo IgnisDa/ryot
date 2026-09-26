@@ -1,10 +1,10 @@
-import { defaultUserPreferences } from "@ryot-app/contract/auth-middleware";
 import {
 	EntitySchemaSlug,
 	NotificationSubscriptionId,
 	SignalSchemaSlug,
 	UserId,
 } from "@ryot-app/contract/schema/brands";
+import { defaultUserPreferences } from "@ryot-app/contract/schema/user-preferences";
 import { describe, expect, it } from "vitest";
 
 import { type AccountCleanlinessState, classifyAccountCleanliness } from "./account-cleanliness";
@@ -99,7 +99,16 @@ describe("classifyAccountCleanliness", () => {
 	});
 
 	it.each([
-		["preferences", { profile: { image: null, name: "User", preferences: { allowNsfw: true } } }],
+		[
+			"preferences",
+			{
+				profile: {
+					image: null,
+					name: "User",
+					preferences: { ...defaultUserPreferences, allowNsfw: true },
+				},
+			},
+		],
 		["events", { hasEvents: true }],
 		["managed-assets", { hasManagedAssets: true }],
 		[

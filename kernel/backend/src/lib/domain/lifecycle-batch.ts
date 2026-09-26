@@ -8,17 +8,10 @@ import { Schema } from "effect";
 
 import { SANDBOX_LIMITS } from "#lib/infrastructure/sandbox-runtime/limits";
 
-import type { LifecycleBatchInput, LifecyclePlan } from "./lifecycle";
+import type { LifecycleBatchChange, LifecycleBatchInput } from "./lifecycle";
 import { lifecycleTrigger } from "./lifecycle-command";
 
 const batchPayload = Schema.decodeUnknownSync(AutomationBatchChangePayload);
-
-const changeItems = (plans: ReadonlyArray<LifecyclePlan>) =>
-	plans.flatMap(({ trigger }) =>
-		trigger.payload?.category === "change" && trigger.payload.operation !== "batch"
-			? [trigger.payload]
-			: [],
-	);
 
 // Half the sandbox context limit leaves room for the invocation envelope and hook metadata.
 const BATCH_PAYLOAD_BYTES = SANDBOX_LIMITS.execution.contextBytes / 2;
@@ -45,17 +38,18 @@ const chunkItems = <Item>(
 };
 
 /**
- * Builds one batch trigger per scope and chunk covering the item plans one write produced. Chunks
+ * Builds one batch trigger per scope and chunk covering committed changes. Chunks
  * respect both the item cap and the sandbox input budget; boundaries follow the caller's plan
  * order, so a replayed command reuses the same trigger ids.
  */
 export const lifecycleBatchTriggers = (
 	input: LifecycleBatchInput,
 	maxItems: number,
+	changes: ReadonlyArray<LifecycleBatchChange>,
 ): ReadonlyArray<AutomationTrigger> => {
 	const triggers: AutomationTrigger[] = [];
-	const scopes = [...new Set(input.plans.map(({ trigger }) => trigger.scopeUserId))].sort(
-		(left, right) => (left ?? "").localeCompare(right ?? ""),
+	const scopes = [...new Set(changes.map(({ scopeUserId }) => scopeUserId))].sort((left, right) =>
+		(left ?? "").localeCompare(right ?? ""),
 	);
 	for (const scopeUserId of scopes) {
 		const command = {
@@ -67,9 +61,10 @@ export const lifecycleBatchTriggers = (
 			]),
 		};
 		const base = { category: "change", operation: "batch", resource: input.resource } as const;
-		const items = changeItems(
-			input.plans.filter(({ trigger }) => trigger.scopeUserId === scopeUserId),
-		).filter(({ resource }) => resource === input.resource);
+		const items = changes
+			.filter((change) => change.scopeUserId === scopeUserId)
+			.map((change) => change.payload)
+			.filter(({ resource }) => resource === input.resource);
 		const chunks = chunkItems(items, maxItems, jsonByteLength({ ...base, items: [] }) ?? 0);
 		for (const [chunkIndex, chunk] of chunks.entries()) {
 			triggers.push(

@@ -35,6 +35,7 @@ import { installRevisionPackage, revisionPackage } from "#modules/plugins/revisi
 import {
 	baseInput,
 	command,
+	propertiesSchema,
 	relationshipSchemaSlug,
 	sourceEntityId,
 	targetEntityId,
@@ -45,6 +46,68 @@ import {
 } from "./lifecycle.test-support";
 import { RelationshipsRepository } from "./repository";
 import { RelationshipsService } from "./service";
+
+const installPolicyFixture = Effect.fn(function* (owner: UserId | null = userId) {
+	const fixture = revisionPackage(
+		"relationship-policy-scope",
+		"v1",
+		owner === null ? "global-policy-entity" : "fixture",
+	);
+	const script = fixture.scripts.find(({ metadata }) => metadata.kind === "automation");
+	const schema = fixture.manifest.relationshipSchemas[0];
+	assert(script?.metadata.kind === "automation" && schema);
+	const policy = {
+		...script,
+		slug: "relationship-policy-scope.policy",
+		contentHash: "relationship-policy-scope-hash",
+		metadata: {
+			...script.metadata,
+			capabilities: [],
+			automationType: "policy" as const,
+			slug: "relationship-policy-scope.policy",
+			inputProjection: { relationship: { properties: ["rank"] } },
+		},
+	};
+	const installed = yield* installRevisionPackage(
+		{
+			...fixture,
+			scripts: [...fixture.scripts, policy],
+			manifest: {
+				...fixture.manifest,
+				scripts: [
+					...fixture.manifest.scripts,
+					{ ...policy.metadata, entry: "backend/policy.sandbox.ts" },
+				],
+				relationshipSchemas: [
+					{
+						...schema,
+						propertiesSchema,
+						sourceEntitySchemaSlug: null,
+						targetEntitySchemaSlug: null,
+					},
+				],
+				hooks: [
+					...fixture.manifest.hooks,
+					...(["create", "update", "delete"] as const).map((operation) => ({
+						scriptSlug: policy.slug,
+						stage: "before" as const,
+						slug: `policy-${operation}`,
+						name: `Policy ${operation}`,
+						targets: [
+							{ operation, resource: "relationship" as const, relationshipSchemaSlug: schema.slug },
+						],
+					})),
+				],
+			},
+		},
+		owner,
+	);
+	return {
+		...baseInput,
+		relationshipSchemaPluginId: installed.pluginId,
+		relationshipSchemaSlug: RelationshipSchemaSlug.make(schema.slug),
+	};
+});
 
 describe("Relationships lifecycle owner", () => {
 	layer(relationshipDatabaseLayer())((test) => {
@@ -61,63 +124,22 @@ describe("Relationships lifecycle owner", () => {
 	});
 
 	layer(relationshipDatabaseLayer())((test) => {
-		test.effect(
-			"commits relationship writes in prepare and after policies with the same rows",
-			() =>
-				Effect.gen(function* () {
-					const service = yield* RelationshipsService;
-					const planner = yield* LifecyclePlanner;
-					const execution = yield* LifecycleExecution;
-					const session = yield* DatabaseSession;
-					const fast = yield* service.prepareCreate(baseInput, command("step-fast"));
-					assert(fast._tag === "Committed");
-					expect(fast.result.relationship?.wasInserted).toBe(true);
-					expect(fast.dispatch).toHaveLength(2);
-					expect(yield* session.run((db) => db.select().from(tables.relationship))).toHaveLength(1);
-
-					const policyRunId = AutomationRunId.make("step-policy");
-					const executed: string[] = [];
-					const policyService = yield* relationshipsServiceWith({
-						execution: withLifecycleDispatch({
-							...execution,
-							executePolicy: ({ runId }) =>
-								Effect.sync(() => {
-									executed.push(runId);
-									return { action: "allow" as const };
-								}),
-						}),
-						planner: withLifecycleBatchPlanning({
-							plan: (input) =>
-								planner
-									.plan(input)
-									.pipe(
-										Effect.map((plan) => ({
-											...plan,
-											policies:
-												plan.trigger.kind.category === "request"
-													? [{ position: 1, runId: policyRunId }]
-													: [],
-										})),
-									),
-						}),
-					});
-					const prepared = yield* policyService.prepareCreate(
-						{ ...baseInput, properties: { rank: 5 } },
-						command("step-policies"),
-					);
-					assert(prepared._tag === "PoliciesRequired");
-					expect(executed).toEqual([]);
-					const accepted = yield* policyService.applyPolicies(prepared.pending);
-					expect(executed).toEqual([policyRunId]);
-					const committed = yield* policyService.commitSingle(accepted);
-					assert(committed._tag === "Committed");
-					expect(committed.result.relationship?.properties).toEqual({ rank: 5 });
-					expect(
-						(yield* session.run((db) => db.select().from(tables.relationship))).map(
-							({ properties }) => properties,
-						),
-					).toEqual([{ rank: 5 }]);
-				}),
+		test.effect("commits a no-hook relationship and receipt in the prepare transaction", () =>
+			Effect.gen(function* () {
+				const service = yield* RelationshipsService;
+				const session = yield* DatabaseSession;
+				const fast = yield* service.prepareCreate(baseInput, command("step-fast"));
+				assert(fast._tag === "Committed");
+				expect(fast.result.relationship?.wasInserted).toBe(true);
+				expect(fast.dispatch).toEqual([]);
+				expect(yield* session.run((db) => db.select().from(tables.relationship))).toHaveLength(1);
+				expect(yield* session.run((db) => db.select().from(tables.automationTrigger))).toEqual([]);
+				expect(
+					(yield* session.run((db) => db.select().from(tables.mutationReceipt))).filter(
+						({ receiptType }) => receiptType === "item",
+					),
+				).toHaveLength(1);
+			}),
 		);
 	});
 
@@ -190,96 +212,93 @@ describe("Relationships lifecycle owner", () => {
 					]),
 				);
 				expect(relationships).toHaveLength(1);
-				expect(triggers).toHaveLength(3);
+				expect(triggers).toEqual([]);
 			}),
 		);
 	});
 
 	layer(relationshipDatabaseLayer())((test) => {
-		test.effect(
-			"uses lifecycle snapshots and warning results for merge, update, and delete by ID",
-			() =>
-				Effect.gen(function* () {
-					const session = yield* DatabaseSession;
-					const execution = yield* LifecycleExecution;
-					const warning = {
-						code: "required-hook-pending" as const,
-						runId: AutomationRunId.make("pending-merge"),
-						hookSlug: AutomationHookSlug.make("required"),
-					};
-					const service = yield* relationshipsServiceWith({
-						execution: withLifecycleDispatch({
-							...execution,
-							after: () => Effect.succeed([warning]),
-						}),
-					});
-					const input = { ...baseInput, properties: { rank: 1, labels: ["a"] } };
-					const created = yield* service.mergeUserProperties(input, command("merge-create"));
-					assert(created.relationship);
-					expect(created.warnings).toEqual([warning, warning]);
-					const merged = yield* service.mergeUserProperties(
+		test.effect("replays no-hook merge, update, and delete by ID without automation history", () =>
+			Effect.gen(function* () {
+				const session = yield* DatabaseSession;
+				const execution = yield* LifecycleExecution;
+				const warning = {
+					code: "required-hook-pending" as const,
+					runId: AutomationRunId.make("pending-merge"),
+					hookSlug: AutomationHookSlug.make("required"),
+				};
+				const service = yield* relationshipsServiceWith({
+					execution: withLifecycleDispatch({
+						...execution,
+						after: () => Effect.succeed([warning]),
+					}),
+				});
+				const input = { ...baseInput, properties: { rank: 1, labels: ["a"] } };
+				const created = yield* service.mergeUserProperties(input, command("merge-create"));
+				assert(created.relationship);
+				expect(created.warnings).toEqual([]);
+				const merged = yield* service.mergeUserProperties(
+					{ ...input, properties: { labels: ["a", "b"] } },
+					command("merge-update"),
+				);
+				expect(merged).toMatchObject({
+					warnings: [],
+					relationship: {
+						wasInserted: false,
+						id: created.relationship.id,
+						properties: { rank: 1, labels: ["a", "b"] },
+					},
+				});
+				expect(
+					yield* service.mergeUserProperties(
 						{ ...input, properties: { labels: ["a", "b"] } },
 						command("merge-update"),
-					);
-					expect(merged).toMatchObject({
-						warnings: [warning, warning],
-						relationship: {
-							wasInserted: false,
-							id: created.relationship.id,
-							properties: { rank: 1, labels: ["a", "b"] },
-						},
-					});
-					expect(
-						yield* service.mergeUserProperties(
-							{ ...input, properties: { labels: ["a", "b"] } },
-							command("merge-update"),
-						),
-					).toEqual(merged);
-					const noop = yield* service.mergeUserProperties(
-						{ ...input, properties: { labels: ["a", "b"] } },
-						command("merge-noop"),
-					);
-					expect(noop.warnings).toEqual([]);
-					expect(
-						yield* session.run((db) => db.select().from(tables.automationTrigger)),
-					).toHaveLength(6);
-					const updated = yield* service.update(
-						{ ...input, properties: { rank: 3, labels: ["b"] } },
-						command("explicit-update"),
-					);
-					expect(updated.warnings).toEqual([warning, warning]);
-					expect(
-						yield* service.deleteUserRelationshipById(
-							UserId.make("other-owner"),
-							created.relationship.id,
-							command("foreign-delete"),
-						),
-					).toEqual({ warnings: [], relationship: null });
-					const deleted = yield* service.deleteUserRelationshipById(
-						userId,
+					),
+				).toEqual(merged);
+				const noop = yield* service.mergeUserProperties(
+					{ ...input, properties: { labels: ["a", "b"] } },
+					command("merge-noop"),
+				);
+				expect(noop.warnings).toEqual([]);
+				expect(yield* session.run((db) => db.select().from(tables.automationTrigger))).toEqual([]);
+				const updated = yield* service.update(
+					{ ...input, properties: { rank: 3, labels: ["b"] } },
+					command("explicit-update"),
+				);
+				expect(updated.warnings).toEqual([]);
+				yield* session.run((db) =>
+					db
+						.insert(tables.user)
+						.values({
+							name: "Other",
+							id: "other-owner",
+							accountGeneration: "test-account-generation",
+							email: "other-relationship-owner@example.test",
+						}),
+				);
+				expect(
+					yield* service.deleteUserRelationshipById(
+						UserId.make("other-owner"),
 						created.relationship.id,
-						command("delete-id"),
-					);
-					expect(deleted).toEqual(updated);
-					const [relationships, triggers] = yield* session.run((db) =>
-						Effect.all([
-							db.select().from(tables.relationship),
-							db.select().from(tables.automationTrigger),
-						]),
-					);
-					expect(relationships).toEqual([]);
-					const changes = triggers.filter(({ category }) => category === "change");
-					expect(changes.map(({ operation }) => operation).sort()).toEqual([
-						"batch",
-						"batch",
-						"batch",
-						"batch",
-						"create",
-						"delete",
-						"update",
-						"update",
-					]);
-				}),
+						command("foreign-delete", UserId.make("other-owner")),
+					),
+				).toEqual({ warnings: [], relationship: null });
+				const deleted = yield* service.deleteUserRelationshipById(
+					userId,
+					created.relationship.id,
+					command("delete-id"),
+				);
+				expect(deleted).toEqual(updated);
+				const [relationships, triggers] = yield* session.run((db) =>
+					Effect.all([
+						db.select().from(tables.relationship),
+						db.select().from(tables.automationTrigger),
+					]),
+				);
+				expect(relationships).toEqual([]);
+				const changes = triggers.filter(({ category }) => category === "change");
+				expect(changes).toEqual([]);
+			}),
 		);
 	});
 	layer(relationshipDatabaseLayer())((test) => {
@@ -606,7 +625,7 @@ describe("Relationships lifecycle owner", () => {
 								}),
 						}),
 					})).create(input, command("runs"));
-					expect(runCounts).toEqual([2, 0]);
+					expect(runCounts).toEqual([2]);
 					const [relationships, runs] = yield* session.run((db) =>
 						Effect.all([
 							db.select().from(tables.relationship),
@@ -650,197 +669,134 @@ describe("Relationships lifecycle owner", () => {
 		);
 	});
 	layer(relationshipDatabaseLayer())((test) => {
-		test.effect(
-			"persists exact create/update/delete snapshots, suppresses identical upserts, and verifies command replay",
-			() =>
-				Effect.gen(function* () {
-					const service = yield* RelationshipsService;
-					const session = yield* DatabaseSession;
-					const created = yield* service.create(baseInput, command("create"));
-					assert(created.relationship);
-					const [stored] = yield* session.run((db) => db.select().from(tables.relationship));
-					assert(stored);
-					const expected = {
-						id: stored.id,
-						sourceEntityId,
-						targetEntityId,
-						relationshipSchemaSlug,
-						properties: { rank: 1 },
-						createdAt: stored.createdAt.toISOString(),
-						updatedAt: stored.updatedAt.toISOString(),
-					};
-					expect(created).toMatchObject({
-						warnings: [],
-						relationship: { ...expected, wasInserted: true },
-					});
-					const noop = yield* service.create(baseInput, command("noop"));
-					expect(noop.relationship?.wasInserted).toBe(false);
-					expect(
-						yield* session.run((db) => db.select().from(tables.automationTrigger)),
-					).toHaveLength(3);
-					expect(yield* service.create(baseInput, command("create"))).toEqual(created);
-					const conflict = yield* Effect.exit(
-						service.create({ ...baseInput, properties: { rank: 3 } }, command("create")),
-					);
-					assertExitFails(
-						conflict,
-						new RelationshipBadRequest({ reason: { code: "lifecycle-command-conflict" } }),
-					);
-					const updated = yield* service.create(
-						{ ...baseInput, properties: { rank: 2 } },
-						command("update"),
-					);
-					expect(updated.relationship).toMatchObject({
-						id: stored.id,
-						wasInserted: false,
-						properties: { rank: 2 },
-					});
-					const [updatedRow] = yield* session.run((db) => db.select().from(tables.relationship));
-					assert(updatedRow);
-					const updatedSnapshot = {
-						...expected,
-						properties: { rank: 2 },
-						updatedAt: updatedRow.updatedAt.toISOString(),
-					};
-					expect(
-						yield* service.create({ ...baseInput, properties: { rank: 2 } }, command("update")),
-					).toEqual(updated);
-					const deleted = yield* service.delete(baseInput, command("delete"));
-					expect(yield* service.delete(baseInput, command("delete"))).toEqual(deleted);
-					expect(yield* service.delete(baseInput, command("absent"))).toEqual({
-						warnings: [],
-						relationship: null,
-					});
-					const [relationships, triggers] = yield* session.run((db) =>
-						Effect.all([
-							db.select().from(tables.relationship),
-							db.select().from(tables.automationTrigger),
-						]),
-					);
-					expect(relationships).toEqual([]);
-					const changes = triggers.filter(
-						({ category, operation }) => category === "change" && operation !== "batch",
-					);
-					for (const change of changes) {
-						expect(triggers.find(({ id }) => id === change.parentTriggerId)).toMatchObject({
-							category: "request",
-							operation: change.operation,
-						});
-					}
-					expect(changes.find(({ operation }) => operation === "create")?.payload).toEqual({
-						after: expected,
-						category: "change",
-						operation: "create",
-						resource: "relationship",
-					});
-					expect(changes).toHaveLength(3);
-					expect(changes.find(({ operation }) => operation === "update")?.payload).toEqual({
-						before: expected,
-						category: "change",
-						operation: "update",
-						after: updatedSnapshot,
-						resource: "relationship",
-					});
-					expect(changes.find(({ operation }) => operation === "delete")?.payload).toEqual({
-						category: "change",
-						operation: "delete",
-						before: updatedSnapshot,
-						resource: "relationship",
-					});
-				}),
+		test.effect("replays create, update, delete, and no-op results without hook snapshots", () =>
+			Effect.gen(function* () {
+				const service = yield* RelationshipsService;
+				const session = yield* DatabaseSession;
+				const created = yield* service.create(baseInput, command("create"));
+				assert(created.relationship);
+				const [stored] = yield* session.run((db) => db.select().from(tables.relationship));
+				assert(stored);
+				const expected = {
+					id: stored.id,
+					sourceEntityId,
+					targetEntityId,
+					relationshipSchemaSlug,
+					properties: { rank: 1 },
+					createdAt: stored.createdAt.toISOString(),
+					updatedAt: stored.updatedAt.toISOString(),
+				};
+				expect(created).toMatchObject({
+					warnings: [],
+					relationship: { ...expected, wasInserted: true },
+				});
+				const noop = yield* service.create(baseInput, command("noop"));
+				expect(noop.relationship?.wasInserted).toBe(false);
+				expect(yield* session.run((db) => db.select().from(tables.automationTrigger))).toEqual([]);
+				expect(yield* service.create(baseInput, command("create"))).toEqual(created);
+				const conflict = yield* Effect.exit(
+					service.create({ ...baseInput, properties: { rank: 3 } }, command("create")),
+				);
+				assertExitFails(
+					conflict,
+					new RelationshipBadRequest({ reason: { code: "lifecycle-command-conflict" } }),
+				);
+				const updated = yield* service.create(
+					{ ...baseInput, properties: { rank: 2 } },
+					command("update"),
+				);
+				expect(updated.relationship).toMatchObject({
+					id: stored.id,
+					wasInserted: false,
+					properties: { rank: 2 },
+				});
+				expect(
+					yield* service.create({ ...baseInput, properties: { rank: 2 } }, command("update")),
+				).toEqual(updated);
+				const deleted = yield* service.delete(baseInput, command("delete"));
+				expect(yield* service.delete(baseInput, command("delete"))).toEqual(deleted);
+				expect(yield* service.delete(baseInput, command("absent"))).toEqual({
+					warnings: [],
+					relationship: null,
+				});
+				const [relationships, triggers] = yield* session.run((db) =>
+					Effect.all([
+						db.select().from(tables.relationship),
+						db.select().from(tables.automationTrigger),
+					]),
+				);
+				expect(relationships).toEqual([]);
+				expect(triggers).toEqual([]);
+				expect(
+					(yield* session.run((db) => db.select().from(tables.mutationReceipt))).some(
+						({ receiptType }) => receiptType === "item",
+					),
+				).toBe(true);
+			}),
 		);
 	});
 
 	layer(relationshipDatabaseLayer())((test) => {
-		test.effect(
-			"rolls back the whole batch and change triggers on planning failure, retaining request history",
-			() =>
-				Effect.gen(function* () {
-					const planner = yield* LifecyclePlanner;
-					const session = yield* DatabaseSession;
-					let changes = 0;
-					const exit = yield* Effect.exit(
-						(yield* relationshipsServiceWith({
-							planner: withLifecycleBatchPlanning({
-								plan: (input) =>
-									Effect.gen(function* () {
-										const result = yield* planner.plan(input);
-										if (input.trigger.kind.category === "change" && ++changes === 2) {
-											return yield* new DbError({ message: "Injected planning failure" });
-										}
-										return result;
-									}),
-							}),
-						})).changeUser(
-							userId,
-							[
-								{
-									deletes: [],
-									creates: [
-										baseInput,
-										{
-											...baseInput,
-											sourceEntityId: targetEntityId,
-											targetEntityId: sourceEntityId,
-										},
-									],
-								},
-							],
-							command("batch-failure"),
-						),
-					);
-					assertExitFails(exit, new DbError({ message: "Injected planning failure" }));
-					expect(yield* session.run((db) => db.select().from(tables.relationship))).toEqual([]);
-					expect(
-						(yield* session.run((db) => db.select().from(tables.automationTrigger))).map(
-							({ category }) => category,
-						),
-					).toEqual(["request", "request"]);
-				}),
-		);
-	});
-
-	layer(relationshipDatabaseLayer())((test) => {
-		test.effect(
-			"calls after only after another connection sees committed source and trigger rows",
-			() =>
-				Effect.gen(function* () {
-					const { observer } = yield* RelationshipFixture;
-					const service = yield* RelationshipsService;
-					const session = yield* DatabaseSession;
-					const calls: string[] = [];
-					const execution = yield* LifecycleExecution;
-					yield* (yield* relationshipsServiceWith({
-						execution: withLifecycleDispatch({
-							...execution,
-							executePolicy: () => Effect.die("Unexpected policy"),
-							after: ({ triggerId }) =>
+		test.effect("rolls back the no-policy batch and receipts on planning failure", () =>
+			Effect.gen(function* () {
+				const planner = yield* LifecyclePlanner;
+				const session = yield* DatabaseSession;
+				let changes = 0;
+				const exit = yield* Effect.exit(
+					(yield* relationshipsServiceWith({
+						planner: withLifecycleBatchPlanning({
+							plan: (input) =>
 								Effect.gen(function* () {
-									expect(!(yield* session.isTransactionActive)).toBe(true);
-									const observed = yield* Effect.tryPromise(() =>
-										observer.query(
-											"select (select count(*)::int from relationship) as relationships, (select count(*)::int from automation_trigger where id = $1) as triggers",
-											[triggerId],
-										),
-									).pipe(Effect.mapError(() => new DbError({ message: "Observer failed" })));
-									expect(observed.rows).toEqual([{ triggers: 1, relationships: 1 }]);
-									calls.push(triggerId);
-									return [];
+									const result = yield* planner.plan(input);
+									if (input.trigger.kind.category === "change" && ++changes === 2) {
+										return yield* new DbError({ message: "Injected planning failure" });
+									}
+									return result;
 								}),
 						}),
-					})).create(baseInput, command("commit"));
-					expect(calls).toHaveLength(2);
-					const nested = yield* Effect.exit(
-						session.transaction(service.delete(baseInput, command("nested"))),
-					);
-					assertExitFails(
-						nested,
-						new DbError({
-							message: "Relationship lifecycle mutations require a root transaction boundary",
-						}),
-					);
-					expect(yield* session.run((db) => db.select().from(tables.relationship))).toHaveLength(1);
-				}),
+					})).changeUser(
+						userId,
+						[
+							{
+								deletes: [],
+								creates: [
+									baseInput,
+									{ ...baseInput, sourceEntityId: targetEntityId, targetEntityId: sourceEntityId },
+								],
+							},
+						],
+						command("batch-failure"),
+					),
+				);
+				assertExitFails(exit, new DbError({ message: "Injected planning failure" }));
+				expect(yield* session.run((db) => db.select().from(tables.relationship))).toEqual([]);
+				expect(
+					(yield* session.run((db) => db.select().from(tables.automationTrigger))).map(
+						({ category }) => category,
+					),
+				).toEqual([]);
+			}),
+		);
+	});
+
+	layer(relationshipDatabaseLayer())((test) => {
+		test.effect("does not dispatch no-hook writes and rejects a nested transaction", () =>
+			Effect.gen(function* () {
+				const service = yield* RelationshipsService;
+				const session = yield* DatabaseSession;
+				yield* service.create(baseInput, command("commit"));
+				expect(yield* session.run((db) => db.select().from(tables.automationTrigger))).toEqual([]);
+				const nested = yield* Effect.exit(
+					session.transaction(service.delete(baseInput, command("nested"))),
+				);
+				assertExitFails(
+					nested,
+					new DbError({
+						message: "Relationship lifecycle mutations require a root transaction boundary",
+					}),
+				);
+				expect(yield* session.run((db) => db.select().from(tables.relationship))).toHaveLength(1);
+			}),
 		);
 	});
 
@@ -851,23 +807,26 @@ describe("Relationships lifecycle owner", () => {
 				Effect.gen(function* () {
 					const planner = yield* LifecyclePlanner;
 					const session = yield* DatabaseSession;
+					const policyInput = yield* installPolicyFixture();
 					const seen: unknown[] = [];
 					const execution = yield* LifecycleExecution;
 					const result = yield* (yield* relationshipsServiceWith({
 						planner: withLifecycleBatchPlanning({
 							plan: (input) =>
 								planner.plan(input).pipe(
-									Effect.map((plan) =>
-										input.trigger.kind.category === "request"
-											? {
-													...plan,
-													policies: [
-														{ position: 1, runId: AutomationRunId.make("first") },
-														{ position: 2, runId: AutomationRunId.make("second") },
-													],
-												}
-											: plan,
-									),
+									Effect.map((plan) => {
+										if (input.trigger.kind.category !== "request") {
+											return plan;
+										}
+										assert(plan.trigger);
+										return {
+											...plan,
+											policies: [
+												{ position: 1, runId: AutomationRunId.make("first") },
+												{ position: 2, runId: AutomationRunId.make("second") },
+											],
+										};
+									}),
 								),
 						}),
 						execution: withLifecycleDispatch({
@@ -888,7 +847,7 @@ describe("Relationships lifecycle owner", () => {
 									};
 								}),
 						}),
-					})).create(baseInput, command("policies"));
+					})).create(policyInput, command("policies"));
 					expect(seen).toEqual([
 						[],
 						[{ resource: "relationship", draft: { properties: { remove: [], set: { rank: 2 } } } }],
@@ -905,11 +864,11 @@ describe("Relationships lifecycle owner", () => {
 	layer(relationshipDatabaseLayer())((test) => {
 		test.effect("detects writes made during policy execution without overwriting them", () =>
 			Effect.gen(function* () {
-				const service = yield* RelationshipsService;
 				const repository = yield* RelationshipsRepository;
 				const planner = yield* LifecyclePlanner;
 				const execution = yield* LifecycleExecution;
-				yield* service.create(baseInput, command("seed"));
+				const policyInput = yield* installPolicyFixture();
+				yield* repository.createRelationship({ ...policyInput, properties: { rank: 1 } });
 				const exit = yield* Effect.exit(
 					(yield* relationshipsServiceWith({
 						execution: withLifecycleDispatch({
@@ -917,37 +876,37 @@ describe("Relationships lifecycle owner", () => {
 							after: () => Effect.succeed([]),
 							executePolicy: () =>
 								repository
-									.updateRelationship({ ...baseInput, properties: { rank: 9 } })
+									.updateRelationship({ ...policyInput, properties: { rank: 9 } })
 									.pipe(Effect.as({ action: "allow" as const }), Effect.orDie),
 						}),
 						planner: withLifecycleBatchPlanning({
 							plan: (input) =>
-								planner
-									.plan(input)
-									.pipe(
-										Effect.map((plan) =>
-											input.trigger.kind.category === "request"
-												? {
-														...plan,
-														policies: [{ position: 1, runId: AutomationRunId.make("concurrent") }],
-													}
-												: plan,
-										),
-									),
+								planner.plan(input).pipe(
+									Effect.map((plan) => {
+										if (input.trigger.kind.category !== "request") {
+											return plan;
+										}
+										assert(plan.trigger);
+										return {
+											...plan,
+											policies: [{ position: 1, runId: AutomationRunId.make("concurrent") }],
+										};
+									}),
+								),
 						}),
-					})).update({ ...baseInput, properties: { rank: 2 } }, command("stale")),
+					})).update({ ...policyInput, properties: { rank: 2 } }, command("stale")),
 				);
 				assertExitFails(
 					exit,
 					new RelationshipBadRequest({ reason: { code: "concurrent-relationship-change" } }),
 				);
-				expect((yield* repository.findRelationship(baseInput))?.properties).toEqual({ rank: 9 });
+				expect((yield* repository.findRelationship(policyInput))?.properties).toEqual({ rank: 9 });
 			}),
 		);
 	});
 
 	layer(relationshipDatabaseLayer())((test) => {
-		test.effect("preserves batch counts and warnings through the host-owned mutation path", () =>
+		test.effect("replays host-owned batch counts without dummy triggers", () =>
 			Effect.gen(function* () {
 				const service = yield* RelationshipsService;
 				const session = yield* DatabaseSession;
@@ -986,9 +945,7 @@ describe("Relationships lifecycle owner", () => {
 						executePolicy: () => Effect.die("Unexpected policy"),
 					}),
 				})).changeUser(userId, batches, child);
-				expect(result).toEqual([
-					{ created: 1, updated: 1, deleted: 0, warnings: [warning, warning, warning] },
-				]);
+				expect(result).toEqual([{ created: 1, updated: 1, deleted: 0, warnings: [] }]);
 				expect(
 					yield* (yield* relationshipsServiceWith({
 						execution: withLifecycleDispatch({
@@ -996,67 +953,27 @@ describe("Relationships lifecycle owner", () => {
 							after: () => Effect.succeed([warning]),
 						}),
 					})).changeUser(userId, batches, child),
-				).toEqual([{ created: 0, updated: 0, deleted: 0, warnings: [warning, warning, warning] }]);
+				).toEqual(result);
 				const changes = yield* session.run((db) =>
 					db
 						.select()
 						.from(tables.automationTrigger)
 						.where(eq(tables.automationTrigger.category, "change")),
 				);
-				expect(changes.map(({ operation }) => operation).sort()).toEqual([
-					"batch",
-					"batch",
-					"create",
-					"create",
-					"update",
-				]);
-				expect(changes.every(({ payload }) => payload?.resource === "relationship")).toBe(true);
-				const hostRequests = (yield* session.run((db) =>
-					db
-						.select()
-						.from(tables.automationTrigger)
-						.where(eq(tables.automationTrigger.category, "request")),
-				)).filter(({ executionId }) => executionId === "host");
-				expect(
-					hostRequests.map(({ depth, source, parentRunId, parentTriggerId, rootExecutionId }) => ({
-						depth,
-						source,
-						parentRunId,
-						parentTriggerId,
-						rootExecutionId,
-					})),
-				).toEqual(
-					Array.from({ length: 2 }, () => ({
-						depth: 1,
-						source: "automation",
-						parentRunId: "parent-run",
-						parentTriggerId: "parent-trigger",
-						rootExecutionId: "root-execution",
-					})),
+				expect(changes).toEqual([]);
+				const receipts = yield* session.run((db) => db.select().from(tables.mutationReceipt));
+				const hostReceipts = receipts.filter(
+					({ receiptType, executionId }) => receiptType === "item" && executionId === "host",
 				);
+				expect(hostReceipts).toHaveLength(3);
 				expect(
-					changes
-						.filter(({ operation, executionId }) => executionId === "host" && operation !== "batch")
-						.map(
-							({ depth, source, occurredAt, parentRunId, parentTriggerId, rootExecutionId }) => ({
-								depth,
-								source,
-								parentRunId,
-								rootExecutionId,
-								occurredAt: occurredAt.toISOString(),
-								parentIsOwnRequest: hostRequests.some(({ id }) => id === parentTriggerId),
-							}),
-						),
-				).toEqual(
-					Array.from({ length: 2 }, () => ({
-						depth: 1,
-						source: "automation",
-						parentIsOwnRequest: true,
-						parentRunId: "parent-run",
-						occurredAt: child.occurredAt,
-						rootExecutionId: "root-execution",
-					})),
-				);
+					hostReceipts.every(
+						({ dispatch, rootExecutionId }) =>
+							rootExecutionId === "root-execution" &&
+							Array.isArray(dispatch) &&
+							dispatch.length === 0,
+					),
+				).toBe(true);
 			}),
 		);
 	});
@@ -1068,6 +985,7 @@ describe("Relationships lifecycle owner", () => {
 				Effect.gen(function* () {
 					const planner = yield* LifecyclePlanner;
 					const session = yield* DatabaseSession;
+					const policyInput = yield* installPolicyFixture();
 					for (const mode of ["reject", "invalid", "limit"] as const) {
 						const execution = yield* LifecycleExecution;
 						const exit = yield* Effect.exit(
@@ -1091,10 +1009,10 @@ describe("Relationships lifecycle owner", () => {
 								}),
 								planner: withLifecycleBatchPlanning({
 									plan: (input) =>
-										planner
-											.plan(input)
-											.pipe(
-												Effect.map((plan) => ({
+										planner.plan(input).pipe(
+											Effect.map((plan) => {
+												assert(plan.trigger);
+												return {
 													...plan,
 													policies: [{ position: 1, runId: AutomationRunId.make(mode) }],
 													trigger:
@@ -1108,10 +1026,11 @@ describe("Relationships lifecycle owner", () => {
 																	},
 																}
 															: plan.trigger,
-												})),
-											),
+												};
+											}),
+										),
 								}),
-							})).create(baseInput, command(mode)),
+							})).create(policyInput, command(mode)),
 						);
 						switch (mode) {
 							case "reject":
@@ -1150,7 +1069,7 @@ describe("Relationships lifecycle owner", () => {
 
 	layer(relationshipDatabaseLayer())((test) => {
 		test.effect(
-			"uses immutable row-specific population batches and preserves reconciliation counts",
+			"preserves reconciliation counts without retaining no-hook population batches",
 			() =>
 				Effect.gen(function* () {
 					const service = yield* RelationshipsService;
@@ -1186,30 +1105,7 @@ describe("Relationships lifecycle owner", () => {
 					const changes = (yield* session.run((db) =>
 						db.select().from(tables.automationTrigger),
 					)).filter(({ category, operation }) => category === "change" && operation !== "batch");
-					expect(
-						changes.map(({ payload }) =>
-							payload && "population" in payload ? payload.population?.batch : null,
-						),
-					).toEqual([
-						{
-							afterCount: 2,
-							beforeCount: 0,
-							isLeader: true,
-							createdCount: 2,
-							updatedCount: 0,
-							deletedCount: 0,
-							id: "population-batch",
-						},
-						{
-							afterCount: 2,
-							beforeCount: 0,
-							createdCount: 2,
-							updatedCount: 0,
-							deletedCount: 0,
-							isLeader: false,
-							id: "population-batch",
-						},
-					]);
+					expect(changes).toEqual([]);
 					expect(population.batch.createdCount).toBe(99);
 					expect(
 						yield* service.reconcileGlobal(
@@ -1236,22 +1132,33 @@ describe("Relationships lifecycle owner", () => {
 					const session = yield* DatabaseSession;
 					const planner = yield* LifecyclePlanner;
 					const service = yield* RelationshipsService;
+					yield* session.run((db) =>
+						db
+							.insert(tables.user)
+							.values({
+								id: "owner",
+								name: "Plugin owner",
+								email: "global-policy-owner@example.test",
+							}),
+					);
+					const globalPolicyInput = yield* installPolicyFixture(null);
 					const policyService = yield* relationshipsServiceWith({
 						planner: withLifecycleBatchPlanning({
 							plan: (input) =>
-								planner
-									.plan(input)
-									.pipe(
-										Effect.map((plan) => ({
+								planner.plan(input).pipe(
+									Effect.map((plan) => {
+										assert(plan.trigger);
+										return {
 											...plan,
 											policies: [{ position: 1, runId: AutomationRunId.make("policy") }],
-										})),
-									),
+										};
+									}),
+								),
 						}),
 					});
 					const groups = [
 						{
-							relationshipSchemaSlug,
+							relationshipSchemaSlug: globalPolicyInput.relationshipSchemaSlug,
 							relationships: [{ sourceEntityId, targetEntityId, properties: { rank: 1 } }],
 							selector: {
 								type: "anchored" as const,
@@ -1304,12 +1211,7 @@ describe("Relationships lifecycle owner", () => {
 					yield* session.run((db) =>
 						db
 							.insert(tables.user)
-							.values({
-								id: "owner",
-								preferences: {},
-								name: "Plugin owner",
-								email: "plugin-owner@example.test",
-							}),
+							.values({ id: "owner", name: "Plugin owner", email: "plugin-owner@example.test" }),
 					);
 					yield* installRevisionPackage({
 						...fixture,
@@ -1396,7 +1298,7 @@ describe("Relationships lifecycle owner", () => {
 										{ scope: "global" },
 									);
 									expect(yield* tx.select().from(tables.relationship)).toHaveLength(1);
-									expect(yield* tx.select().from(tables.automationTrigger)).toHaveLength(6);
+									expect(yield* tx.select().from(tables.automationTrigger)).toHaveLength(2);
 									expect(yield* tx.select().from(tables.automationRun)).toHaveLength(2);
 									const invisible = yield* Effect.tryPromise(() =>
 										observer.query(
@@ -1408,8 +1310,8 @@ describe("Relationships lifecycle owner", () => {
 										return yield* new DbError({ message: "Rollback provider group" });
 									}
 									return {
-										entityPlans: entityWork.plans,
-										relationshipPlans: relationshipWork.plans,
+										entityDispatch: entityWork.dispatch,
+										relationshipDispatch: relationshipWork.dispatch,
 									};
 								}),
 							),
@@ -1440,8 +1342,8 @@ describe("Relationships lifecycle owner", () => {
 							"select (select count(*)::int from entity) as entities, (select count(*)::int from relationship) as relationships, (select count(*)::int from automation_trigger) as triggers, (select count(*)::int from automation_run) as runs",
 						),
 					).pipe(Effect.mapError(() => new DbError({ message: "Observer failed" })));
-					expect(visible.rows).toEqual([{ runs: 2, entities: 3, triggers: 6, relationships: 1 }]);
-					expect([...work.entityPlans, ...work.relationshipPlans]).toHaveLength(4);
+					expect(visible.rows).toEqual([{ runs: 2, entities: 3, triggers: 2, relationships: 1 }]);
+					expect([...work.entityDispatch, ...work.relationshipDispatch]).toHaveLength(2);
 				}),
 		);
 	});
@@ -1460,9 +1362,9 @@ describe("Relationships lifecycle owner", () => {
 						.insert(tables.user)
 						.values({
 							id: otherUserId,
-							preferences: {},
 							name: "Other owner",
 							email: "other-relationship@example.test",
+							accountGeneration: "test-account-generation",
 						}),
 				);
 				yield* session.run((db) =>
@@ -1539,7 +1441,7 @@ describe("Relationships lifecycle owner", () => {
 									command("private-rollback"),
 									{ userId, scope: "user" },
 								);
-								expect(yield* tx.select().from(tables.automationTrigger)).toHaveLength(3);
+								expect(yield* tx.select().from(tables.automationTrigger)).toHaveLength(1);
 								expect(yield* tx.select().from(tables.automationRun)).toHaveLength(1);
 								return yield* new DbError({ message: "Rollback private reconciliation" });
 							}),
@@ -1586,15 +1488,24 @@ describe("Relationships lifecycle owner", () => {
 					}),
 				);
 				expect(work.result).toEqual([{ created: 1, updated: 0, deleted: 0, upserted: 1 }]);
-				expect(work.plans.map(({ trigger }) => trigger.kind.operation)).toEqual([
-					"create",
-					"batch",
-				]);
+				const triggers = yield* session.run((db) =>
+					db
+						.select({
+							id: tables.automationTrigger.id,
+							operation: tables.automationTrigger.operation,
+						})
+						.from(tables.automationTrigger),
+				);
+				expect(
+					work.dispatch.map(
+						({ triggerId }) => triggers.find(({ id }) => id === triggerId)?.operation,
+					),
+				).toEqual(["create"]);
 				expect(
 					(yield* session.run((db) => db.select().from(tables.automationTrigger))).map(
 						({ scopeUserId }) => scopeUserId,
 					),
-				).toEqual([userId, userId, userId]);
+				).toEqual([userId]);
 				expect(
 					(yield* session.run((db) => db.select().from(tables.automationRun))).map(
 						({ executionUserId }) => executionUserId,
@@ -1602,10 +1513,11 @@ describe("Relationships lifecycle owner", () => {
 				).toEqual([userId]);
 				const foreignOwner = yield* session
 					.transaction(
-						relationships.persistPlannedReconciliation([group], command("private-other-owner"), {
-							scope: "user",
-							userId: otherUserId,
-						}),
+						relationships.persistPlannedReconciliation(
+							[group],
+							command("private-other-owner", otherUserId),
+							{ scope: "user", userId: otherUserId },
+						),
 					)
 					.pipe(Effect.flip);
 				expect(foreignOwner).toMatchObject({ reason: { code: "relationship-schema-not-found" } });
@@ -1672,7 +1584,7 @@ describe("Relationships lifecycle owner", () => {
 									const changes = (yield* tx.select().from(tables.automationTrigger)).filter(
 										({ category }) => category === "change",
 									);
-									expect(changes).toHaveLength(2);
+									expect(changes).toEqual([]);
 									return yield* new DbError({ message: "Rollback prepared relationships" });
 								}),
 							),
@@ -1688,9 +1600,13 @@ describe("Relationships lifecycle owner", () => {
 				).toEqual([]);
 
 				const work = yield* session.transaction(service.persistPreparedUserCreate(creation));
-				expect(work.plans).toHaveLength(1);
+				expect(work.dispatch).toEqual([]);
 
-				const rejectedInput = { ...baseInput, targetEntityId, sourceEntityId: targetEntityId };
+				const rejectedInput = {
+					...(yield* installPolicyFixture()),
+					targetEntityId,
+					sourceEntityId: targetEntityId,
+				};
 				yield* repository.createRelationship(rejectedInput);
 				const rejectingService = yield* relationshipsServiceWith({
 					execution: withLifecycleDispatch({
@@ -1703,14 +1619,15 @@ describe("Relationships lifecycle owner", () => {
 					}),
 					planner: withLifecycleBatchPlanning({
 						plan: (input) =>
-							planner
-								.plan(input)
-								.pipe(
-									Effect.map((plan) => ({
+							planner.plan(input).pipe(
+								Effect.map((plan) => {
+									assert(plan.trigger);
+									return {
 										...plan,
 										policies: [{ position: 1, runId: AutomationRunId.make("reject-relationship") }],
-									})),
-								),
+									};
+								}),
+							),
 					}),
 				});
 				const rejected = yield* rejectingService

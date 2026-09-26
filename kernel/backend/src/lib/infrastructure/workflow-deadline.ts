@@ -1,5 +1,4 @@
 import { Clock, Duration, Effect, Schema } from "effect";
-import { DurableClock } from "effect/unstable/workflow";
 
 import { makeActivity } from "./workflow-scope";
 
@@ -11,12 +10,11 @@ export const startWorkflowDeadline = (name: string, durationMs: number) =>
 	});
 
 export const observeWorkflowDeadline = Effect.fnUntraced(function* <A, E, R>(options: {
-	readonly name: string;
 	readonly deadline: number;
 	readonly poll: Effect.Effect<A | null, E, R>;
 	readonly completedAt: (value: A) => number | null;
 }) {
-	for (let pollNumber = 0; ; pollNumber += 1) {
+	for (;;) {
 		const result = yield* options.poll;
 		if (result !== null) {
 			const completedAt = options.completedAt(result);
@@ -29,10 +27,7 @@ export const observeWorkflowDeadline = Effect.fnUntraced(function* <A, E, R>(opt
 		if (remaining <= 0) {
 			return { status: "expired" as const };
 		}
-		yield* DurableClock.sleep({
-			inMemoryThreshold: Duration.zero,
-			name: `deadline-poll-${options.name}-${pollNumber}`,
-			duration: Duration.millis(Math.min(1000, remaining)),
-		});
+		// The deadline is journaled; a replay can poll again without persisting each wait.
+		yield* Effect.sleep(Duration.millis(Math.min(1000, remaining)));
 	}
 });

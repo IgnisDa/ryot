@@ -3,7 +3,8 @@ import { SandboxScriptId, UserId } from "@ryot-app/contract/schema/brands";
 import { Context, Effect, Layer, Ref } from "effect";
 import { WorkflowEngine, WorkflowInstance } from "effect/unstable/workflow/WorkflowEngine";
 
-import { databaseLayer, makeWorkflowActivityEngine } from "#lib/test-utils/effect";
+import { makeWorkflowActivityEngine } from "#lib/test-utils/effect";
+import { mutationAdmissionTestLayer } from "#lib/test-utils/mutation-admission";
 import { SandboxExecutionService } from "#modules/sandbox/service";
 
 import { PluginCatalogInvalidator } from "./catalog-events";
@@ -169,7 +170,7 @@ const workflowLayer = (input: {
 	return PluginInstallationWorkflowOperationsLive.pipe(
 		Layer.provide(mocks),
 		Layer.provideMerge(fakes),
-		Layer.provideMerge(databaseLayer),
+		Layer.provideMerge(mutationAdmissionTestLayer),
 	);
 };
 
@@ -184,21 +185,29 @@ layer(workflowLayer({ bootstrap: resolved() }))((test) => {
 			expect(yield* fake.executions).toEqual([
 				{
 					scriptId: "first-id",
-					subject: { userId, type: "user" },
 					executionId: pluginInstallationBootstrapExecutionId(
 						installationId,
 						activationId,
 						"first",
 					),
+					subject: {
+						userId,
+						type: "user",
+						accountGeneration: { userId, token: "test-account-generation" },
+					},
 				},
 				{
 					scriptId: "second-id",
-					subject: { userId, type: "user" },
 					executionId: pluginInstallationBootstrapExecutionId(
 						installationId,
 						activationId,
 						"second",
 					),
+					subject: {
+						userId,
+						type: "user",
+						accountGeneration: { userId, token: "test-account-generation" },
+					},
 				},
 			]);
 			expect(yield* fake.healthUpdates).toEqual([

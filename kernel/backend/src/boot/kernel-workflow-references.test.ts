@@ -11,7 +11,8 @@ import {
 import { Context, Effect, Layer, Ref } from "effect";
 import { WorkflowEngine } from "effect/unstable/workflow/WorkflowEngine";
 
-import { databaseLayer, makeWorkflowEngine } from "#lib/test-utils/effect";
+import { makeWorkflowEngine } from "#lib/test-utils/effect";
+import { mutationAdmissionTestLayer } from "#lib/test-utils/mutation-admission";
 import { ImportsRepository } from "#modules/imports/repository";
 import { IntegrationsRepository } from "#modules/integrations/repository";
 import { PluginRuntimeResolver } from "#modules/plugins/runtime-resolver";
@@ -35,7 +36,7 @@ const unownedRepositories = Layer.mergeAll(
 const referencesLayer = (repositories: Layer.Layer<ImportsRepository | IntegrationsRepository>) =>
 	Layer.provide(
 		KernelWorkflowReferencesLive,
-		Layer.mergeAll(databaseLayer, repositories, Layer.mock(PluginRuntimeResolver)({})),
+		Layer.mergeAll(mutationAdmissionTestLayer, repositories, Layer.mock(PluginRuntimeResolver)({})),
 	);
 
 const populationReferencesLayer = (
@@ -44,7 +45,7 @@ const populationReferencesLayer = (
 	Layer.provide(
 		KernelWorkflowReferencesLive,
 		Layer.mergeAll(
-			databaseLayer,
+			mutationAdmissionTestLayer,
 			unownedRepositories,
 			Layer.mock(PluginRuntimeResolver)({
 				findAuthorizedSchemaProviderById: ({ providerId }) =>
@@ -147,7 +148,14 @@ layer(
 	test.effect("binds kernel workflow user ids to the trusted execution subject", () =>
 		Effect.gen(function* () {
 			const references = yield* KernelWorkflowReferences;
-			const subject = { type: "user" as const, userId: UserId.make("trusted-user") };
+			const subject = {
+				type: "user" as const,
+				userId: UserId.make("trusted-user"),
+				accountGeneration: {
+					token: "test-account-generation",
+					userId: UserId.make("trusted-user"),
+				},
+			};
 			yield* references.execute(
 				KERNEL_ENTITY_IMPORT_WORKFLOW,
 				{
@@ -188,7 +196,7 @@ layer(
 const slugResolvingReferencesLayer = Layer.provide(
 	KernelWorkflowReferencesLive,
 	Layer.mergeAll(
-		databaseLayer,
+		mutationAdmissionTestLayer,
 		unownedRepositories,
 		Layer.mock(PluginRuntimeResolver)({
 			findSchemaProviderBySlug: () =>
@@ -225,7 +233,14 @@ layer(
 					providerSlug: "group.alpha",
 					entitySchemaSlug: "attacker-selected-schema",
 				},
-				{ type: "user", userId: UserId.make("trusted-user") },
+				{
+					type: "user",
+					userId: UserId.make("trusted-user"),
+					accountGeneration: {
+						token: "test-account-generation",
+						userId: UserId.make("trusted-user"),
+					},
+				},
 				"entity-import-execution",
 				"parent-execution",
 				SandboxScriptId.make("caller-script"),
@@ -286,7 +301,14 @@ layer(
 					writeItemCount: 0,
 					chunkHandles: ["harvest-handle-0"],
 				},
-				{ type: "user", userId: UserId.make("trusted-user") },
+				{
+					type: "user",
+					userId: UserId.make("trusted-user"),
+					accountGeneration: {
+						token: "test-account-generation",
+						userId: UserId.make("trusted-user"),
+					},
+				},
 				"child-execution",
 				"parent/execution",
 				SandboxScriptId.make("caller-script"),
@@ -345,7 +367,14 @@ layer(referencesLayer(unownedRepositories).pipe(Layer.provideMerge(unusedEngineL
 						runId: "victim-run",
 						chunkHandles: ["harvest-handle-0"],
 					},
-					{ type: "user", userId: UserId.make("trusted-user") },
+					{
+						type: "user",
+						userId: UserId.make("trusted-user"),
+						accountGeneration: {
+							token: "test-account-generation",
+							userId: UserId.make("trusted-user"),
+						},
+					},
 					"entity-import-execution",
 					"parent-execution",
 					SandboxScriptId.make("caller-script"),
@@ -371,6 +400,10 @@ layer(referencesLayer(unownedRepositories).pipe(Layer.provideMerge(unusedEngineL
 						type: "user",
 						userId: UserId.make("trusted-user"),
 						integrationId: IntegrationId.make("victim-integration"),
+						accountGeneration: {
+							token: "test-account-generation",
+							userId: UserId.make("trusted-user"),
+						},
 					},
 					"event-create-execution",
 					"parent-execution",
@@ -514,7 +547,11 @@ layer(
 				references.execute(
 					KERNEL_PROVIDER_ENTITY_POPULATION_WORKFLOW,
 					populationInput,
-					{ type: "user", userId: UserId.make("user-1") },
+					{
+						type: "user",
+						userId: UserId.make("user-1"),
+						accountGeneration: { userId: UserId.make("user-1"), token: "test-account-generation" },
+					},
 					"user-call",
 					"parent-execution",
 					SandboxScriptId.make("caller-script"),

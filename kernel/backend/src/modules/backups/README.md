@@ -12,6 +12,8 @@ A backup is a non-Zip64 ZIP with entries in this order:
 
 The manifest contains `format: "ryot-backup"`, version 1, archive/application identity, creation time, redaction paths, required plugins, ordered section `{ path, count, sha256 }` records, and asset `{ path, size, sha256, contentType }` records. Other versions are rejected as unsupported. Export and restore use the same current archive schema and validate paths, digests, references, and ordering.
 
+`profile.json` contains complete canonical user preferences. Export decodes the stored value; archive validation and historical restore reject malformed or incomplete preferences instead of filling missing fields.
+
 ## Streaming
 
 `events.ndjson` is the only usage-sized section and is a leaf: manifest construction, plugin resolution, and ID-remapping maps never depend on reading all events. Therefore:

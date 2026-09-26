@@ -32,6 +32,8 @@ const userRecord = {
 	id: "user-1",
 	disabledAt: null,
 	email: "user@example.com",
+	accountGeneration: "test-account-generation",
+	createdAt: new Date("2026-08-30T00:00:00.000Z"),
 	bootstrapCompletedAt: new Date("2026-08-31T00:00:00.000Z"),
 	preferences: { language: null, allowNsfw: false, disableIntegrations: false },
 };
@@ -48,6 +50,7 @@ const resolvedOAuth = {
 		email: userRecord.email,
 		id: UserId.make(userRecord.id),
 		preferences: userRecord.preferences,
+		accountGeneration: { userId: UserId.make(userRecord.id), token: userRecord.accountGeneration },
 	},
 };
 const disabledUserRecord = { ...userRecord, disabledAt: new Date("2026-08-31T00:00:00.000Z") };

@@ -15,10 +15,11 @@
 ## Persistence
 
 - Keep runtime schemas, persisted JSON, and TypeScript types aligned. Store timezone-aware timestamps and emit ISO 8601 UTC dates.
+- Auth owns preference persistence. Decode stored preferences; apply validated partial updates on the user row without copying values from an authenticated session.
 - Validate schema-backed entity, event, and relationship properties before writes.
 - Services own transaction boundaries; repositories capture `DatabaseSession` and run operations through `session.run`, which uses the active executor and maps native database failures. Raw executors stay inside the `run` callback. Shared writes participate in the owner's transaction without manual injection; owning services reject an already active transaction where required.
 - Lifecycle planning may invert module dependencies through the generic `LifecyclePlanner` transaction-scoped persistence port. Source writes, immutable triggers, recipients, and pinned runs share the caller's transaction; the port must not execute sandbox code or start workflows. Start execution only after commit.
-- Every change-producing write also plans batch change triggers through `LifecyclePlanner.planBatch`, in the same transaction as its item plans, and dispatches item plans before batch plans. A single-item write emits a batch of one; batch identity and chunk boundaries must stay replay-stable.
+- Mutation receipts, not automation history, prove committed writes and provide replay results. Record only matching automation evidence; batch candidates are pinned before the first write, committed item evidence is retained only for candidate batches, and sealing releases that evidence after persisting actual batch runs. Dispatch item runs before batch runs.
 - Historical backup writes belong to `modules/backups/restore/persistence.ts`; ordinary repositories do not expose restore methods. Runtime callers use owning services.
 - Never hold a transaction across sandbox execution, network I/O, workflow boundaries, sleeps, or fan-out.
 - Provider population composes the import workflow. External event creation runs before-stage policy hooks, then plans pinned after-hook runs in the committing transaction.

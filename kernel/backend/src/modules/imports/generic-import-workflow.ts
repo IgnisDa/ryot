@@ -43,6 +43,7 @@ import { DefinitionSnapshot, definitionLookup } from "#modules/definition-regist
 import { EntitiesRepository } from "#modules/entities/repository";
 import { EntitiesService, PendingEntityMutation } from "#modules/entities/service";
 import { EventsService } from "#modules/events/service";
+import { MutationReceipts } from "#modules/mutations/receipts";
 import { PluginRuntimeResolver } from "#modules/plugins/runtime-resolver";
 import type { EntityImportError } from "#modules/provider-entities/entity-import-workflow";
 import { EntityImportWorkflow } from "#modules/provider-entities/entity-import-workflow";
@@ -288,6 +289,7 @@ const resolveProviderEntity = Effect.fn("imports.resolveProviderEntity")(functio
 				providerId: provider.id,
 				value: descriptor.value,
 				identifierType: descriptor.identifierType,
+				accountGeneration: command.accountGeneration,
 				userId: provider.pluginScope === "user" ? userId : null,
 			},
 			`${executionId}-resolve`,
@@ -324,6 +326,15 @@ const resolveProviderEntity = Effect.fn("imports.resolveProviderEntity")(functio
 		return undefined;
 	}
 	const engine = yield* WorkflowEngine;
+	const receipts = yield* MutationReceipts.make;
+	yield* receipts
+		.registerWorkflow(command.accountGeneration, EntityImportWorkflow._tag, executionId)
+		.pipe(
+			Effect.mapError(
+				(error) =>
+					new GenericImportProviderError({ message: error.message, stage: "provider_details" }),
+			),
+		);
 	const providerEntity = yield* engine
 		.execute(EntityImportWorkflow, {
 			executionId,
@@ -583,7 +594,11 @@ const writeGenericItem = Effect.fn("imports.writeGenericItem")(function* (
 				commit: collections.commitCollection,
 				applyPolicies: collections.applyCollectionPolicies,
 				name: `generic-import-item-${index}-collection-${membershipIndex}`,
-				prepare: collections.prepareGetOrCreateCollection(userId, membership.collectionName),
+				prepare: collections.prepareGetOrCreateCollection(
+					userId,
+					membership.collectionName,
+					command,
+				),
 			});
 			warnings.push(...collection.warnings);
 			collectionMemberships.push({ entityId, collectionId: collection.result.id });
@@ -675,6 +690,14 @@ const resolveGenericImportDefinitions = (userId: UserId) =>
 export const runProcessGenericImportChunksWorkflow = Effect.fn(
 	"ProcessGenericImportChunksWorkflow",
 )(function* (payload: typeof ProcessGenericImportChunksPayload.Type, executionId: string) {
+	const receipts = yield* MutationReceipts.make;
+	yield* receipts
+		.registerWorkflow(
+			payload.command.accountGeneration,
+			ProcessGenericImportChunksWorkflow._tag,
+			executionId,
+		)
+		.pipe(Effect.mapError(toWorkflowError));
 	let failedItems = 0;
 	let importedItems = 0;
 	let processedItems = 0;
@@ -732,6 +755,13 @@ export const runProcessGenericImportChunksWorkflow = Effect.fn(
 					const engine = yield* WorkflowEngine;
 					for (const [membershipIndex, membership] of outcome.collectionMemberships.entries()) {
 						const collectionExecutionId = `${executionId}-item-${processedItems}-collection-${membershipIndex}`;
+						yield* receipts
+							.registerWorkflow(
+								payload.command.accountGeneration,
+								AddEntityToCollectionWorkflow._tag,
+								collectionExecutionId,
+							)
+							.pipe(Effect.mapError(toWorkflowError));
 						const collectionResult = yield* engine
 							.execute(AddEntityToCollectionWorkflow, {
 								executionId: collectionExecutionId,

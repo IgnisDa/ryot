@@ -27,10 +27,15 @@ export class EntityInterestProgression extends Context.Service<EntityInterestPro
 					const sessionIds = yield* store.listInterestedSessions(entityId);
 					const metadata = yield* store.getSessionMetadata(sessionIds);
 					const interests = new Map(
-						metadata.flatMap(({ userId, preferredLanguage }) =>
+						metadata.flatMap(({ userId, preferredLanguage, accountGeneration }) =>
 							preferredLanguage === null
 								? []
-								: [[`${userId}\0${preferredLanguage}`, { userId, preferredLanguage }] as const],
+								: [
+										[
+											`${userId}\0${preferredLanguage}`,
+											{ userId, preferredLanguage, accountGeneration },
+										] as const,
+									],
 						),
 					).values();
 					if (metadata.length === 0) {
@@ -46,7 +51,7 @@ export class EntityInterestProgression extends Context.Service<EntityInterestPro
 						return;
 					}
 					const requestedLanguages = new Set<string>();
-					for (const { userId, preferredLanguage } of interests) {
+					for (const { userId, preferredLanguage, accountGeneration } of interests) {
 						if (requestedLanguages.has(preferredLanguage)) {
 							continue;
 						}
@@ -59,6 +64,7 @@ export class EntityInterestProgression extends Context.Service<EntityInterestPro
 							yield* translations.requestFill({
 								userId,
 								entityId,
+								accountGeneration,
 								language: preferredLanguage,
 								externalId: entity.externalId,
 								properties: entity.properties,

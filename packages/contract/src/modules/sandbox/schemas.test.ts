@@ -11,6 +11,7 @@ const subject = {
 	type: "automation-run",
 	triggerId: "trigger-1",
 	pluginRevisionId: null,
+	accountGeneration: null,
 	pluginConfigRevisionId: null,
 	causation: {
 		depth: 0,
@@ -33,6 +34,7 @@ it("accepts source-zero and complete plugin automation ownership, but rejects pa
 		executionUserId: "user-1",
 		pluginRevisionId: "revision-1",
 		pluginConfigRevisionId: "config-1",
+		accountGeneration: { userId: "user-1", token: "generation-1" },
 	};
 	expect(decode(plugin)).toEqual(plugin);
 	for (const key of ["pluginId", "pluginRevisionId", "pluginConfigRevisionId"] as const) {
@@ -43,10 +45,18 @@ it("accepts source-zero and complete plugin automation ownership, but rejects pa
 it("rejects legacy automation subjects and retains direct user integration scope", () => {
 	const decode = Schema.decodeUnknownSync(SandboxExecutionSubject);
 	expect(decode({ type: "system" })).toEqual({ type: "system" });
-	expect(decode({ type: "user", userId: "user-1", integrationId: "integration-1" })).toEqual({
+	expect(
+		decode({
+			type: "user",
+			userId: "user-1",
+			integrationId: "integration-1",
+			accountGeneration: { userId: "user-1", token: "generation-1" },
+		}),
+	).toEqual({
 		type: "user",
 		userId: "user-1",
 		integrationId: "integration-1",
+		accountGeneration: { userId: "user-1", token: "generation-1" },
 	});
 	for (const legacy of [
 		{ type: "system", automationRunId: "run-1" },

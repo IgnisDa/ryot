@@ -1,7 +1,6 @@
 import { assert, expect, layer } from "@effect/vitest";
 import { DbError } from "@ryot-app/contract/errors";
 import {
-	AutomationEventSnapshot,
 	type AutomationPolicyOutput,
 	AutomationRun,
 	type AutomationRequestPayload,
@@ -34,9 +33,11 @@ import {
 	LifecycleExecution,
 } from "#lib/domain/lifecycle-execution";
 import { applyLifecyclePolicyPatches } from "#lib/domain/lifecycle-policy-patch";
+import { user } from "#lib/infrastructure/db/schema/tables/auth";
 import { DatabaseSession } from "#lib/infrastructure/db/session";
 import { assertExitFails } from "#lib/test-utils/assertions";
-import { databaseLayer, makeWorkflowEngine } from "#lib/test-utils/effect";
+import { makeWorkflowEngine } from "#lib/test-utils/effect";
+import { isolatedDatabaseLayer } from "#lib/test-utils/isolated-database";
 import {
 	withLifecycleBatchPlanning,
 	withLifecycleDispatch,
@@ -59,6 +60,7 @@ const command = rootLifecycleCommand({
 	itemIdentity: "events",
 	initiator: { id: userId, kind: "user" },
 	executionId: AutomationExecutionId.make("batch"),
+	accountGeneration: { userId, token: "test-account-generation" },
 });
 const payload: EventCreateWorkflowPayload = {
 	userId,
@@ -155,14 +157,34 @@ const harnessLayer = (initialOptions: HarnessOptions = {}) =>
 				DatabaseSession,
 				Effect.gen(function* () {
 					const session = yield* DatabaseSession;
+					yield* session.run((db) =>
+						db
+							.insert(user)
+							.values({
+								id: userId,
+								name: "User",
+								email: "event-workflow@example.test",
+								accountGeneration: "test-account-generation",
+							}),
+					);
 					return DatabaseSession.of({
 						...session,
 						transaction: (work) =>
 							Effect.gen(function* () {
 								const before = yield* current;
-								expect(before.activeActivity).toBe(true);
 								expect(before.activeTransaction).toBe(false);
 								const saved = { created: before.created.length, triggers: before.triggers.length };
+								if (!before.activeActivity) {
+									return yield* session.transaction(work).pipe(
+										Effect.tap(() =>
+											Effect.gen(function* () {
+												const after = yield* current;
+												expect(after.created).toHaveLength(saved.created);
+												expect(after.triggers).toHaveLength(saved.triggers);
+											}),
+										),
+									);
+								}
 								yield* update(({ calls }) => ({
 									activeTransaction: true,
 									calls: [...calls, "begin"],
@@ -181,7 +203,7 @@ const harnessLayer = (initialOptions: HarnessOptions = {}) =>
 							}),
 					});
 				}),
-			).pipe(Layer.provide(databaseLayer));
+			).pipe(Layer.provide(isolatedDatabaseLayer("event_create_workflow")));
 			const planner = Layer.effect(
 				LifecyclePlanner,
 				Effect.map(DatabaseSession, (session) =>
@@ -441,26 +463,6 @@ const harnessLayer = (initialOptions: HarnessOptions = {}) =>
 						),
 				}),
 				Layer.mock(EventsRepository)({
-					getEventCreateReplay: ({ eventId }) =>
-						read(({ created }) => {
-							const event = created.find(({ id }) => id === eventId);
-							return event
-								? {
-										eventSchemaPluginId: event.eventSchemaPluginId,
-										event: Schema.decodeUnknownSync(AutomationEventSnapshot)({
-											id: event.id,
-											createdAt: now,
-											updatedAt: now,
-											entitySchemaSlug,
-											entityId: event.entityId,
-											properties: event.properties,
-											eventSchemaSlug: event.eventSchemaSlug,
-											occurredAt: event.occurredAt.toISOString(),
-											sessionEntityId: event.sessionEntityId ?? null,
-										}),
-									}
-								: null;
-						}),
 					createEvent: (input) =>
 						Effect.gen(function* () {
 							const { activeActivity, activeTransaction } = yield* current;
@@ -943,14 +945,32 @@ layer(harnessLayer({ blocked: "request" }))((test) => {
 					hookSlug: AutomationHookSlug.make("required"),
 				};
 				yield* h.reset({ warnings: [warning] });
-				expect(yield* run()).toMatchObject({
-					count: 1,
-					failure: null,
-					warnings: [warning, warning],
-				});
+				expect(
+					yield* run({
+						...payload,
+						command: {
+							...command,
+							causation: {
+								...command.causation,
+								executionId: AutomationExecutionId.make("required-warning"),
+							},
+						},
+					}),
+				).toMatchObject({ count: 1, failure: null, warnings: [warning, warning] });
 				expect(yield* h.created).toHaveLength(1);
 				yield* h.reset({ blocked: "change" });
-				expect(yield* run()).toMatchObject({
+				expect(
+					yield* run({
+						...payload,
+						command: {
+							...command,
+							causation: {
+								...command.causation,
+								executionId: AutomationExecutionId.make("blocked-change"),
+							},
+						},
+					}),
+				).toMatchObject({
 					count: 1,
 					failure: null,
 					warnings: [{ code: "automation-limit-reached" }, { code: "automation-limit-reached" }],

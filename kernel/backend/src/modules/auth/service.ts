@@ -11,15 +11,11 @@ import {
 	AuthMiddleware,
 	AuthUnauthorized,
 	AuthorizationContext,
-	type CachedUserPreferences,
 	CurrentUser,
 	DemoOperationProtected,
-	defaultUserPreferences,
-	normalizeUserPreferences,
 	UserInitializing,
 } from "@ryot-app/contract/auth-middleware";
-import type { DbError } from "@ryot-app/contract/errors";
-import { badRequest, internalError, unknownToDbError } from "@ryot-app/contract/errors";
+import { DbError, unknownToDbError } from "@ryot-app/contract/errors";
 import { DemoAccessPolicy } from "@ryot-app/contract/http-annotations";
 import {
 	type AccessClass,
@@ -35,12 +31,16 @@ import {
 	type AuthorizationContext as AuthorizationContextValue,
 } from "@ryot-app/contract/oauth";
 import { UserId } from "@ryot-app/contract/schema/brands";
+import {
+	UserPreferences,
+	type UserPreferencesPatch,
+} from "@ryot-app/contract/schema/user-preferences";
 import { betterAuth, type BetterAuthPlugin } from "better-auth";
 import { APIError, createAuthMiddleware, getSessionFromCtx } from "better-auth/api";
 import { verifyBearerToken } from "better-auth/oauth2";
 import { genericOAuth, jwt, twoFactor } from "better-auth/plugins";
 import { eq } from "drizzle-orm";
-import { Cause, Context, Effect, Layer, Option, Redacted, Result, Schema } from "effect";
+import { Cause, Context, Effect, Layer, Option, Redacted, Schema } from "effect";
 import { HttpServerRequest, type HttpServerResponse } from "effect/unstable/http";
 import type { HttpApiEndpoint } from "effect/unstable/httpapi";
 import type Redis from "ioredis";
@@ -55,6 +55,7 @@ import { demoAccessPlugin } from "./demo-access-plugin";
 import { effectPostgresAuthAdapter } from "./effect-postgres-adapter";
 import { LifecycleWriteGuard } from "./lifecycle-write-guard";
 import { AuthRepository } from "./repository";
+import { captureResetLink, deliverResetLink, type ResetCaptureTransport } from "./reset-capture";
 import { SessionCreationGate } from "./session-gate";
 import { userInitializationPlugin } from "./user-initialization-plugin";
 
@@ -129,21 +130,70 @@ const requestClientId = (ctx: {
 		: undefined;
 };
 
-const parseResetLinkMessage = (message: string) => {
-	const parsed = Result.try(() => JSON.parse(message));
-	if (Result.isFailure(parsed)) {
-		return null;
-	}
-	const value = parsed.success;
-	if (value !== null && typeof value === "object") {
-		const email = Reflect.get(value, "email");
-		const resetUrl = Reflect.get(value, "resetUrl");
-		if (typeof email === "string" && typeof resetUrl === "string") {
-			return { email, resetUrl };
-		}
-	}
-	return null;
-};
+const makeResetCaptureTransport = (redis: Redis): ResetCaptureTransport => ({
+	reserve: (email, id) =>
+		Effect.tryPromise({
+			catch: unknownToDbError,
+			try: () => redis.set(redisKeys.godModePendingReset(email), id, "EX", 60, "NX"),
+		}).pipe(Effect.map((value) => value === "OK")),
+	release: (email, id) =>
+		Effect.tryPromise({
+			catch: unknownToDbError,
+			try: () =>
+				redis.eval(
+					"if redis.call('get', KEYS[1]) == ARGV[1] then return redis.call('del', KEYS[1]) else return 0 end",
+					1,
+					redisKeys.godModePendingReset(email),
+					id,
+				),
+		}),
+	deliver: (email, id, message) =>
+		Effect.tryPromise({
+			catch: unknownToDbError,
+			try: () =>
+				redis.eval(
+					"if redis.call('get', KEYS[1]) == ARGV[1] then redis.call('publish', ARGV[2], ARGV[3]); return redis.call('del', KEYS[1]) else return 0 end",
+					1,
+					redisKeys.godModePendingReset(email),
+					id,
+					redisKeys.godModeResetChannel(id),
+					message,
+				),
+		}),
+	subscriber: () => {
+		const subscriber = redis.duplicate();
+		let onMessage: ((channel: string, message: string) => void) | undefined;
+		let activeId = "";
+		return {
+			quit: () => Effect.tryPromise({ catch: unknownToDbError, try: () => subscriber.quit() }),
+			offMessage: () => {
+				if (onMessage) {
+					subscriber.off("message", onMessage);
+				}
+			},
+			unsubscribe: (id) =>
+				Effect.tryPromise({
+					catch: unknownToDbError,
+					try: () => subscriber.unsubscribe(redisKeys.godModeResetChannel(id)),
+				}),
+			subscribe: (id) => {
+				activeId = id;
+				return Effect.tryPromise({
+					catch: unknownToDbError,
+					try: () => subscriber.subscribe(redisKeys.godModeResetChannel(id)),
+				});
+			},
+			onMessage: (listener) => {
+				onMessage = (channel, message) =>
+					listener(
+						channel === redisKeys.godModeResetChannel(activeId) ? activeId : channel,
+						message,
+					);
+				subscriber.on("message", onMessage);
+			},
+		};
+	},
+});
 
 export class AuthUserBootstrapScheduler extends Context.Service<
 	AuthUserBootstrapScheduler,
@@ -183,6 +233,7 @@ const makeOAuthProviderPlugin = (
 
 const makeAuthInstance = (args: {
 	readonly redis: Redis;
+	readonly resetTransport: ResetCaptureTransport;
 	readonly config: AppConfigValue;
 	readonly session: DatabaseSession["Service"];
 	readonly runtime: Context.Context<DatabaseSession | RedisService>;
@@ -228,7 +279,6 @@ const makeAuthInstance = (args: {
 			additionalFields: {
 				disabledAt: { type: "date", input: false, required: false },
 				bootstrapCompletedAt: { type: "date", input: false, required: false },
-				preferences: { type: "json", required: true, defaultValue: defaultUserPreferences },
 			},
 		},
 		databaseHooks: {
@@ -254,6 +304,32 @@ const makeAuthInstance = (args: {
 						),
 				},
 			},
+		},
+		emailAndPassword: {
+			enabled: true,
+			autoSignIn: true,
+			revokeSessionsOnPasswordReset: true,
+			disableSignUp: !args.config.users.allowRegistration || args.config.users.disableLocalAuth,
+			onPasswordReset: ({ user }) =>
+				Effect.runPromiseWith(args.runtime)(args.revokeOAuthTokens(UserId.make(user.id))),
+			sendResetPassword: ({ user, token }, request) =>
+				Effect.runPromiseWith(args.runtime)(
+					deliverResetLink({
+						token,
+						request,
+						email: user.email,
+						transport: args.resetTransport,
+						frontendUrl: args.config.frontendUrl,
+					}).pipe(
+						Effect.catchCauseIf(
+							(cause) => !Cause.hasInterruptsOnly(cause),
+							() =>
+								Effect.logError("reset password delivery failed").pipe(
+									Effect.annotateLogs({ email: user.email }),
+								),
+						),
+					),
+				),
 		},
 		plugins: [
 			jwt(),
@@ -291,46 +367,6 @@ const makeAuthInstance = (args: {
 					]
 				: []),
 		],
-		emailAndPassword: {
-			enabled: true,
-			autoSignIn: true,
-			revokeSessionsOnPasswordReset: true,
-			disableSignUp: !args.config.users.allowRegistration || args.config.users.disableLocalAuth,
-			onPasswordReset: ({ user }) =>
-				Effect.runPromiseWith(args.runtime)(args.revokeOAuthTokens(UserId.make(user.id))),
-			sendResetPassword: ({ user, token }) =>
-				Effect.runPromiseWith(args.runtime)(
-					Effect.gen(function* () {
-						const pendingKey = redisKeys.godModePendingReset(user.email);
-						const correlationId = yield* Effect.tryPromise(() => args.redis.get(pendingKey));
-						if (!correlationId) {
-							return;
-						}
-						const resetUrl = `${args.config.frontendUrl}/reset-password?token=${token}`;
-						const channel = redisKeys.godModeResetChannel(correlationId);
-						const message = yield* Schema.encodeUnknownEffect(
-							Schema.fromJsonString(Schema.Unknown),
-						)({ resetUrl, email: user.email });
-						yield* Effect.tryPromise(() => args.redis.publish(channel, message));
-						yield* Effect.tryPromise(() =>
-							args.redis.eval(
-								"if redis.call('get', KEYS[1]) == ARGV[1] then return redis.call('del', KEYS[1]) else return 0 end",
-								1,
-								pendingKey,
-								correlationId,
-							),
-						);
-					}).pipe(
-						Effect.catchCauseIf(
-							(cause) => !Cause.hasInterruptsOnly(cause),
-							(cause) =>
-								Effect.logError("reset password delivery failed", cause).pipe(
-									Effect.annotateLogs({ email: user.email }),
-								),
-						),
-					),
-				),
-		},
 		hooks: {
 			before: createAuthMiddleware((ctx) =>
 				Effect.runPromiseWith(args.runtime)(
@@ -404,7 +440,14 @@ type AuthInstance = ReturnType<typeof makeAuthInstance>;
 type AuthContextValue = Awaited<AuthInstance["$context"]>;
 type AuthUserRecord = Pick<
 	typeof authSchema.user.$inferSelect,
-	"id" | "name" | "email" | "image" | "disabledAt" | "bootstrapCompletedAt" | "preferences"
+	| "id"
+	| "name"
+	| "email"
+	| "image"
+	| "disabledAt"
+	| "bootstrapCompletedAt"
+	| "preferences"
+	| "accountGeneration"
 >;
 export type AuthUserInput = {
 	id: string;
@@ -412,7 +455,6 @@ export type AuthUserInput = {
 	email: string;
 	emailVerified: boolean;
 	disabledAt?: Date | null;
-	preferences: Record<string, unknown>;
 };
 
 const authenticationRequired = () =>
@@ -522,6 +564,12 @@ export const resolveCredential = <E>(
 		if (!user.bootstrapCompletedAt) {
 			return yield* new UserInitializing({ reason: { code: "user-initializing" } });
 		}
+		const preferences = yield* Schema.decodeEffect(UserPreferences)(user.preferences).pipe(
+			Effect.mapError(
+				(error) => new DbError({ message: `Invalid stored user preferences: ${error.message}` }),
+			),
+			Effect.orDie,
+		);
 		let accessClass: AccessClass = "standard";
 		if (
 			verified.credential.kind === "oauth" &&
@@ -537,11 +585,12 @@ export const resolveCredential = <E>(
 		return {
 			authorization: { accessClass, userId: user.id, credential: verified.credential },
 			user: {
+				preferences,
 				name: user.name,
 				email: user.email,
 				image: user.image,
 				id: UserId.make(user.id),
-				preferences: normalizeUserPreferences(user.preferences),
+				accountGeneration: { userId: UserId.make(user.id), token: user.accountGeneration },
 			},
 		};
 	});
@@ -551,6 +600,7 @@ export class AuthService extends Context.Service<AuthService>()("AuthService", {
 		const session = yield* DatabaseSession;
 		const config = yield* AppConfig;
 		const redis = yield* RedisService;
+		const resetTransport = makeResetCaptureTransport(redis.client);
 		const repository = yield* AuthRepository;
 		const userBootstrap = yield* AuthUserBootstrapScheduler;
 		const lifecycle = yield* LifecycleWriteGuard;
@@ -562,6 +612,7 @@ export class AuthService extends Context.Service<AuthService>()("AuthService", {
 			runtime,
 			lifecycle,
 			sessionGate,
+			resetTransport,
 			redis: redis.client,
 			scheduleUserBootstrap: userBootstrap.schedule,
 			revokeOAuthTokens: repository.revokeUserOAuthTokens,
@@ -576,6 +627,7 @@ export class AuthService extends Context.Service<AuthService>()("AuthService", {
 						image: authSchema.user.image,
 						disabledAt: authSchema.user.disabledAt,
 						preferences: authSchema.user.preferences,
+						accountGeneration: authSchema.user.accountGeneration,
 						bootstrapCompletedAt: authSchema.user.bootstrapCompletedAt,
 					})
 					.from(authSchema.user)
@@ -603,81 +655,13 @@ export class AuthService extends Context.Service<AuthService>()("AuthService", {
 		const requestPasswordResetLink = Effect.fn("AuthService.requestPasswordResetLink")(function* (
 			email: string,
 		) {
-			const correlationId = crypto.randomUUID();
-			const pendingKey = redisKeys.godModePendingReset(email);
-			const channel = redisKeys.godModeResetChannel(correlationId);
-			const stored = yield* Effect.tryPromise(() =>
-				redis.client.set(pendingKey, correlationId, "EX", 60, "NX"),
-			).pipe(Effect.orDie);
-			if (stored !== "OK") {
-				return yield* badRequest(
-					"A password reset link is already being generated for this user. Please try again shortly.",
-				);
-			}
-
-			const resetResult = yield* Effect.acquireUseRelease(
-				Effect.sync(() => redis.client.duplicate()),
-				(subscriber) =>
-					Effect.callback<{ email: string; resetUrl: string }>((resume) => {
-						let settled = false;
-						const settle = (value: { email: string; resetUrl: string }) => {
-							if (settled) {
-								return;
-							}
-							settled = true;
-							subscriber.off("message", onMessage);
-							resume(Effect.succeed(value));
-						};
-						const onMessage = (_channel: string, message: string) => {
-							if (_channel !== channel) {
-								return;
-							}
-							const value = parseResetLinkMessage(message);
-							if (value !== null) {
-								settle(value);
-							}
-						};
-						subscriber.on("message", onMessage);
-						Effect.runForkWith(runtime)(
-							Effect.tryPromise(() => subscriber.subscribe(channel)).pipe(
-								Effect.andThen(
-									Effect.tryPromise(() =>
-										withoutAsyncContext(() => auth.api.requestPasswordReset({ body: { email } })),
-									),
-								),
-								Effect.ignore,
-							),
-						);
-						return Effect.sync(() => subscriber.off("message", onMessage));
-					}).pipe(
-						Effect.timeoutOrElse({
-							duration: RESET_LINK_TIMEOUT_MS,
-							orElse: () => Effect.succeed(null),
-						}),
-					),
-				(subscriber, _exit) =>
-					Effect.all(
-						[
-							Effect.tryPromise(() =>
-								redis.client.eval(
-									"if redis.call('get', KEYS[1]) == ARGV[1] then return redis.call('del', KEYS[1]) else return 0 end",
-									1,
-									pendingKey,
-									correlationId,
-								),
-							).pipe(Effect.catch(() => Effect.void)),
-							Effect.tryPromise(() => subscriber.unsubscribe(channel)).pipe(
-								Effect.catch(() => Effect.void),
-							),
-							Effect.tryPromise(() => subscriber.quit()).pipe(Effect.catch(() => Effect.void)),
-						],
-						{ discard: true },
-					),
-			);
-			if (!resetResult?.resetUrl) {
-				return yield* internalError("Reset link capture timed out - please try again");
-			}
-			return resetResult;
+			return yield* captureResetLink({
+				email,
+				transport: resetTransport,
+				frontendUrl: config.frontendUrl,
+				timeoutMs: RESET_LINK_TIMEOUT_MS,
+				initiate: (request) => withoutAsyncContext(() => auth.handler(request)),
+			});
 		});
 
 		return {
@@ -687,6 +671,8 @@ export class AuthService extends Context.Service<AuthService>()("AuthService", {
 			handler: (request: Request) => withoutAsyncContext(() => auth.handler(request)),
 			revokeUserOAuthTokens: (userId: UserId) =>
 				repository.revokeUserOAuthTokens(userId).pipe(Effect.orDie),
+			updateUserPreferences: (userId: UserId, patch: UserPreferencesPatch) =>
+				repository.patchUserPreferences(userId, patch).pipe(Effect.asVoid),
 			deleteUserSessions: (userId: UserId) =>
 				withInternalAdapter(({ internalAdapter }) =>
 					internalAdapter.deleteUserSessions(userId),
@@ -699,11 +685,6 @@ export class AuthService extends Context.Service<AuthService>()("AuthService", {
 				const credential = credentialFromHeaders(headers);
 				return credential ? authenticate(credential) : Effect.fail(authenticationRequired());
 			},
-			// Keep the hosted login session copies in secondary storage current.
-			updateUserPreferences: (userId: UserId, preferences: CachedUserPreferences) =>
-				withInternalAdapter(({ internalAdapter }) =>
-					internalAdapter.updateUser(userId, { preferences }),
-				).pipe(Effect.asVoid),
 			createAuthUser: (user: AuthUserInput) =>
 				withInternalAdapter(({ internalAdapter }) =>
 					internalAdapter.createUser(

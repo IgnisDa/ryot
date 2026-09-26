@@ -194,6 +194,7 @@ export const sandboxLifecycleCommand = (
 			return yield* Schema.decodeEffect(LifecycleCommand)({
 				itemIdentity,
 				occurredAt: automation.occurredAt,
+				accountGeneration: subject.accountGeneration,
 				...("population" in automation.payload && automation.payload.population !== undefined
 					? { population: automation.payload.population }
 					: {}),
@@ -224,6 +225,7 @@ export const sandboxLifecycleCommand = (
 		return yield* Schema.decodeUnknownEffect(LifecycleCommand)({
 			itemIdentity,
 			occurredAt: input.startedAt,
+			accountGeneration: subject.type === "user" ? subject.accountGeneration : null,
 			causation: {
 				source,
 				depth: 0,

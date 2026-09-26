@@ -187,7 +187,11 @@ const provenanceRecords = (
 	integrations: [],
 	installations: [],
 	privatePlugins: [],
-	profile: { image: null, name: "User", preferences: {} },
+	profile: {
+		image: null,
+		name: "User",
+		preferences: { language: null, allowNsfw: false, disableIntegrations: false },
+	},
 	notificationSubscriptions: [
 		{
 			metadata: null,
@@ -530,7 +534,11 @@ const restoreArchivedEvents = (events: ReadonlyArray<ArchiveEvent>) =>
 				privatePlugins: [],
 				entityDependencies: [],
 				notificationSubscriptions: [],
-				profile: { image: null, name: "User", preferences: {} },
+				profile: {
+					image: null,
+					name: "User",
+					preferences: { language: null, allowNsfw: false, disableIntegrations: false },
+				},
 				entities: [
 					{
 						properties: {},
@@ -745,8 +753,8 @@ describe("account backup restore in PostgreSQL", () => {
 							expect(
 								yield* persistence.restorePortableProfile(userId, {
 									image: null,
-									preferences: {},
 									name: "Archived",
+									preferences: { language: null, allowNsfw: false, disableIntegrations: false },
 								}),
 							).toBe(true);
 							expect(
@@ -877,7 +885,11 @@ describe("account backup restore in PostgreSQL", () => {
 						integrations: [],
 						privatePlugins: [],
 						entityDependencies: [],
-						profile: { image: null, preferences: {}, name: "Restored" },
+						profile: {
+							image: null,
+							name: "Restored",
+							preferences: { language: null, allowNsfw: false, disableIntegrations: false },
+						},
 						notificationSubscriptions: [
 							{
 								metadata: null,

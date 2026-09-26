@@ -14,9 +14,7 @@ import { isolatedDatabaseLayer } from "#lib/test-utils/isolated-database";
 
 import { effectPostgresAuthAdapter } from "./effect-postgres-adapter";
 
-const authOptions = {
-	user: { additionalFields: { preferences: { type: "json", required: true, defaultValue: {} } } },
-} satisfies BetterAuthOptions;
+const authOptions = {} satisfies BetterAuthOptions;
 
 const testLayer = Layer.mergeAll(
 	isolatedDatabaseLayer("auth_adapter_test"),
@@ -50,12 +48,7 @@ layer(testLayer)((test) => {
 									yield* Effect.promise(() =>
 										current.create({
 											model: "user",
-											data: {
-												preferences: {},
-												name: "Rollback",
-												emailVerified: false,
-												email: rollbackEmail,
-											},
+											data: { name: "Rollback", emailVerified: false, email: rollbackEmail },
 										}),
 									);
 									const visible = yield* session.run((db) =>
@@ -103,7 +96,7 @@ layer(testLayer)((test) => {
 									yield* Effect.promise(() =>
 										current.create({
 											model: "user",
-											data: { email, name: email, preferences: {}, emailVerified: false },
+											data: { email, name: email, emailVerified: false },
 										}),
 									);
 									yield* Deferred.succeed(inserted, undefined);

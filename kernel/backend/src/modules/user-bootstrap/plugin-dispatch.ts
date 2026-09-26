@@ -1,5 +1,6 @@
 import { SandboxRunError } from "@ryot-app/contract/errors";
 import type { SandboxExecutionPayload } from "@ryot-app/contract/modules/sandbox/schemas";
+import type { AccountGeneration } from "@ryot-app/contract/schema/account-generation";
 import type { UserId } from "@ryot-app/contract/schema/brands";
 import { Context, Effect, Layer } from "effect";
 
@@ -11,9 +12,10 @@ export const userBootstrapExecutionId = (
 	userId: string,
 	pluginSlug: string,
 	bootstrapSlug: string,
+	accountGeneration: AccountGeneration,
 	generation?: string,
 ) =>
-	`user-bootstrap-${userId.length}-${userId}-${pluginSlug.length}-${pluginSlug}-${bootstrapSlug.length}-${bootstrapSlug}${generation ? `-${generation.length}-${generation}` : ""}`;
+	`user-bootstrap-${userId.length}-${userId}-${pluginSlug.length}-${pluginSlug}-${bootstrapSlug.length}-${bootstrapSlug}-${accountGeneration.token}${generation ? `-${generation.length}-${generation}` : ""}`;
 
 export const makePluginUserBootstrapDispatcher = (
 	execute: (
@@ -26,6 +28,7 @@ export const makePluginUserBootstrapDispatcher = (
 
 		const dispatchAll = Effect.fn("PluginUserBootstrapDispatcher.dispatchAll")(function* (
 			userId: UserId,
+			accountGeneration: AccountGeneration,
 			generation?: string,
 		) {
 			const installed = new Set(
@@ -50,13 +53,14 @@ export const makePluginUserBootstrapDispatcher = (
 					userId,
 					entry.pluginSlug,
 					entry.bootstrap.slug,
+					accountGeneration,
 					generation,
 				);
 				const result = yield* execute({
 					context: {},
 					executionId,
 					scriptId: resolved.script.id,
-					subject: { userId, type: "user" },
+					subject: { userId, type: "user", accountGeneration },
 				}).pipe(
 					Effect.mapError(
 						(error) =>

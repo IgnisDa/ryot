@@ -152,7 +152,11 @@ const emptyRecords = {
 	privatePlugins: [],
 	entityDependencies: [],
 	notificationSubscriptions: [],
-	profile: { image: null, name: "User", preferences: {} },
+	profile: {
+		image: null,
+		name: "User",
+		preferences: { language: null, allowNsfw: false, disableIntegrations: false },
+	},
 };
 
 const archiveWithAsset = (asset: Uint8Array) => {
