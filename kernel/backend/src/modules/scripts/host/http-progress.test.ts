@@ -2,7 +2,7 @@ import { assert, expect, it } from "@effect/vitest";
 import { definitionOwner } from "@ryot-app/contract/modules/plugins/references";
 import { Effect, Schema } from "effect";
 
-import { buildHttpRateLimitLookups } from "#modules/plugins/http-rate-limits";
+import { buildHttpRateLimitLookups } from "#modules/plugins/catalog/http-rate-limits";
 
 import { SandboxHttpPolicy } from "./http-progress";
 

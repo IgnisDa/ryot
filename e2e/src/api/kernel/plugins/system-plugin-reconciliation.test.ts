@@ -245,7 +245,7 @@ describe("system plugin reconciliation", () => {
 				client,
 				baseUrl: apiUrl(),
 				installationId: plugin.installationId,
-				expectedSourceHash: quarantined.sourceHash,
+				expectedContentHash: quarantined.contentHash,
 				payload: { files: plugin.files, manifest: plugin.manifest },
 			});
 
