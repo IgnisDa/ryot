@@ -1,12 +1,15 @@
 // Vite consumes native absolute paths for the staged entry and workspace regions.
 // oxlint-disable-next-line effecttsgo/node-builtin-import
-import { basename, resolve } from "node:path";
+import { resolve } from "node:path";
 
 import {
+	clientArtifactFile,
+	clientArtifactMetadata,
 	isPluginClientArtifactContentType,
 	type PluginClientArtifact,
 } from "@ryot-app/client-plugin-contract";
 import { sortBy } from "@ryot-app/ts-utils/lodash";
+import { inspectJavaScriptReferences } from "@ryot-app/typescript-compiler/javascript-references";
 import type { ViteBuildService } from "@ryot-app/vite-compiler";
 import {
 	acquireCompilerWorkspace,
@@ -18,7 +21,6 @@ import {
 import tailwindcss from "@tailwindcss/vite";
 import { Effect, type FileSystem, Result } from "effect";
 
-import { clientArtifactFile, clientArtifactMetadata } from "./artifact";
 import { validateClientPluginPackage } from "./compile";
 import { isNeutralPluginModule, isTrustedClientModule } from "./dependencies";
 import { clientPluginCompilationFailure, clientPluginCompilerDiagnostic } from "./diagnostics";
@@ -26,6 +28,7 @@ import type { ClientPluginCompilerDiagnostic, ClientPluginCompilerFailure } from
 import { compilerStylesheet } from "./generated-source";
 import type { ClientPluginCompilerPackageInput } from "./input";
 import { CLIENT_PLUGIN_COMPILER_LIMITS } from "./limits";
+import { cssOutputReferences } from "./output-references";
 import { isCompiledTextSource } from "./planning";
 import { clientTypeScriptProject } from "./semantic-check";
 
@@ -33,26 +36,7 @@ const PLUGIN_IMPORT =
 	/^@ryot-app\/plugins\/([a-z0-9]+(?:[._-][a-z0-9]+)*)\/[a-z0-9]+(?:[._-][a-z0-9]+)*$/;
 const OUTPUT_FILE =
 	/^(?:module\.(?:js|css)|chunk-[A-Za-z0-9_-]+\.js|asset-[A-Za-z0-9_-]+\.(?:svg|png|jpe?g|gif|webp|avif|ico|woff2|wasm))$/;
-const STATIC_MODULE_IMPORT =
-	/(?:^|[;}])\s*(?:import\s*(?:[^;\n]*?\s*from\s*)?|export\s+[^;\n]*?\s+from\s*)["']([^"']+)["']/gm;
-const TEXT_DECODER = new TextDecoder("utf-8", { fatal: true });
-
-const normalizeWorkspaceRegions = (javascript: string, workspacePath: string) => {
-	const workspaceRegion = `${basename(workspacePath)}/`;
-	return javascript
-		.split("\n")
-		.map((line) => {
-			const regionPrefix = "//#region ";
-			if (!line.startsWith(regionPrefix)) {
-				return line;
-			}
-			const workspaceRegionIndex = line.indexOf(workspaceRegion, regionPrefix.length);
-			return workspaceRegionIndex < 0
-				? line
-				: `${regionPrefix}${line.slice(workspaceRegionIndex + workspaceRegion.length)}`;
-		})
-		.join("\n");
-};
+const TEXT_DECODER = new TextDecoder("utf-8", { fatal: true, ignoreBOM: true });
 
 const failure = (entry: string, code: string, message: string) =>
 	clientPluginCompilationFailure([clientPluginCompilerDiagnostic(code, entry, message)]);
@@ -95,12 +79,13 @@ const outputReferenceIssue = (
 ) => {
 	let references: string[];
 	if (contentType.startsWith("text/javascript")) {
-		references = [
-			...contents.matchAll(STATIC_MODULE_IMPORT),
-			...contents.matchAll(/(?:\bimport\s*\(\s*|\bnew\s+URL\s*\(\s*)["'`]([^"'`]+)["'`]/g),
-		].map((match) => match[1] ?? "");
+		const parsed = inspectJavaScriptReferences(contents);
+		if (parsed.dynamicExpressions.length > 0) {
+			return `Emitted file "${name}" contains a non-literal dynamic import`;
+		}
+		references = [...parsed.imports, ...parsed.assets];
 	} else if (contentType.startsWith("text/css")) {
-		references = [...contents.matchAll(/url\(\s*["']?([^"')]+)/g)].map((match) => match[1] ?? "");
+		references = cssOutputReferences(contents, name).map(({ reference }) => reference);
 	} else {
 		return null;
 	}
@@ -241,7 +226,6 @@ export const compileClientPluginModule = (
 			return yield* failure("client", "RYOT_CLIENT_ARTIFACT_FILE", "Vite did not emit module.js");
 		}
 
-		const normalizedFiles = [];
 		for (const file of bundled.files) {
 			if (Result.isFailure(validateRelativePath(file.path)) || !OUTPUT_FILE.test(file.path)) {
 				return yield* failure(
@@ -257,20 +241,9 @@ export const compileClientPluginModule = (
 					`Vite emitted unsupported MIME type "${file.contentType}"`,
 				);
 			}
-			let bytes = file.bytes;
-			if (file.path === "module.js") {
-				const javascript = yield* Effect.try({
-					try: () => TEXT_DECODER.decode(bytes),
-					catch: () =>
-						failure(file.path, "RYOT_CLIENT_UTF8", "Emitted module JavaScript is not valid UTF-8"),
-				});
-				bytes = new TextEncoder().encode(
-					normalizeWorkspaceRegions(javascript, workspace.rootPath).trimStart(),
-				);
-			}
 			if (
 				!file.contentType.startsWith("text/") &&
-				bytes.byteLength > CLIENT_PLUGIN_COMPILER_LIMITS.assetBytes
+				file.bytes.byteLength > CLIENT_PLUGIN_COMPILER_LIMITS.assetBytes
 			) {
 				return yield* failure(
 					file.path,
@@ -278,11 +251,10 @@ export const compileClientPluginModule = (
 					`Emitted client asset "${file.path}" exceeds ${CLIENT_PLUGIN_COMPILER_LIMITS.assetBytes} bytes`,
 				);
 			}
-			normalizedFiles.push({ ...file, bytes });
 		}
 
-		const names = new Set(normalizedFiles.map(({ path }) => path));
-		for (const file of normalizedFiles) {
+		const names = new Set(bundled.files.map(({ path }) => path));
+		for (const file of bundled.files) {
 			if (file.contentType.startsWith("text/")) {
 				const contents = yield* Effect.try({
 					try: () => TEXT_DECODER.decode(file.bytes),
@@ -293,21 +265,30 @@ export const compileClientPluginModule = (
 							`Emitted text file "${file.path}" is not valid UTF-8`,
 						),
 				});
-				const issue = outputReferenceIssue(
-					file.path,
-					contents,
-					file.contentType,
-					names,
-					trustedModules,
-					pluginDependencies,
-				);
+				const issue = yield* Effect.try({
+					catch: () =>
+						failure(
+							file.path,
+							"RYOT_CLIENT_ARTIFACT_FILE",
+							`Emitted file "${file.path}" could not be parsed`,
+						),
+					try: () =>
+						outputReferenceIssue(
+							file.path,
+							contents,
+							file.contentType,
+							names,
+							trustedModules,
+							pluginDependencies,
+						),
+				});
 				if (issue) {
 					return yield* failure("client", "RYOT_CLIENT_ARTIFACT_FILE", issue);
 				}
 			}
 		}
 
-		const files = normalizedFiles.map(({ path, bytes, contentType }) =>
+		const files = bundled.files.map(({ path, bytes, contentType }) =>
 			clientArtifactFile({ path, bytes, contentType }),
 		);
 		const artifactBytes = files.reduce((total, file) => total + file.contents.byteLength, 0);
