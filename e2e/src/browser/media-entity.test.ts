@@ -9,23 +9,40 @@ import {
 	fakeProviderDetailsResult,
 	fakeProviderTranslations,
 	getEntity,
-	installTestProvider,
+	shippedPluginTestProviders,
 	setUserLanguage,
-	uninstallTestProvider,
 } from "~/fixtures/kernel";
 import {
 	findMediaEntitySchema,
 	insertLibraryMembership,
+	seedMediaEntity,
 	seedGlobalShowEpisodeTree,
 } from "~/fixtures/plugins/media";
 import { requirePresent } from "~/support/assertions";
 import { signInThroughHostedOAuth } from "~/support/browser";
-import { expect, it } from "~/support/effect-test";
+import { afterAll, beforeAll, expect, it, runPromise } from "~/support/effect-test";
 import { getApiUrl, getFrontendUrl } from "~/support/harness-target";
+import { startIsolatedHarness } from "~/support/isolated-harness";
 import { webRequest } from "~/support/web-request";
 
 const SHOW_NAME = "Media Entity Tracer Show";
 const SHOW_COVER = `<svg xmlns="http://www.w3.org/2000/svg" width="60" height="90"><rect width="60" height="90" fill="#8b5cf6"/></svg>`;
+
+let harness: Effect.Success<ReturnType<typeof startIsolatedHarness>> | undefined;
+let mediaProviders: Effect.Success<ReturnType<typeof shippedPluginTestProviders>>;
+
+beforeAll(
+	() =>
+		runPromise(
+			Effect.gen(function* () {
+				harness = yield* startIsolatedHarness("Browser Media Entity");
+				mediaProviders = yield* shippedPluginTestProviders(mediaPlugin.metadata.packageId);
+			}),
+		),
+	300_000,
+);
+
+afterAll(() => runPromise(harness?.stop ?? Effect.void));
 
 const expectVisibleText = (locator: Playwright.Locator, text: string) =>
 	Effect.gen(function* () {
@@ -42,8 +59,7 @@ it.live("automatically populates and translates a partial Show in the compiled M
 		const { email, client, password } = yield* createAuthenticatedClient();
 		yield* setUserLanguage(client, "es");
 		const { schema } = yield* findMediaEntitySchema(client, "show");
-		const provider = yield* installTestProvider({
-			client,
+		const provider = yield* mediaProviders.attachProvider({
 			rootEntitySchemaSlug: schema.id,
 			information: { source: "e2e", canonicalLanguage: "en" },
 			translations: fakeProviderTranslations({
@@ -58,12 +74,12 @@ it.live("automatically populates and translates a partial Show in the compiled M
 				},
 			}),
 		});
-		yield* Effect.addFinalizer(() => uninstallTestProvider(provider));
-		const show = yield* createEntity(client, {
+		const show = yield* seedMediaEntity({
+			userId: null,
 			properties: {},
 			externalId: id,
 			name: `Partial Show ${id}`,
-			entitySchema: schema.reference,
+			entitySchemaSlug: schema.id,
 			providerId: provider.providerId,
 		});
 		expect((yield* getEntity(client, show.id)).populatedAt).toBeNull();
@@ -71,7 +87,7 @@ it.live("automatically populates and translates a partial Show in the compiled M
 		const page = yield* browser.newPage();
 		yield* signInThroughHostedOAuth(page, email, password);
 		yield* page.goto(`${getFrontendUrl()}/e/${show.id}`);
-		const frame = page.locator('iframe[title="media plugin"]');
+		const frame = page.locator('iframe[title="Media plugin"]');
 		yield* frame.waitFor({ state: "visible" });
 		const media = frame.contentFrame();
 		yield* media
@@ -146,7 +162,7 @@ it.live("opens a Media Show entity from the canonical saved-view route", () =>
 		expect(new URL(page.url()).pathname).toBe(`/e/${showId}`);
 		expect(page.url()).not.toContain("/media");
 
-		const frame = page.locator('iframe[title="media plugin"]');
+		const frame = page.locator('iframe[title="Media plugin"]');
 		yield* frame.waitFor({ state: "visible" });
 		const media = frame.contentFrame();
 		yield* media.getByRole("heading", { level: 1, name: SHOW_NAME }).waitFor({ state: "visible" });
@@ -240,6 +256,6 @@ it.live("shows a kernel notice for a Media schema with no detail renderer", () =
 		yield* page
 			.getByRole("heading", { level: 1, exact: true, name: "Entity page not registered" })
 			.waitFor({ state: "visible" });
-		expect(yield* page.locator('iframe[title="media plugin"]').count).toBe(0);
+		expect(yield* page.locator('iframe[title="Media plugin"]').count).toBe(0);
 	}).pipe(PlaywrightSpawner.withBrowser),
 );
