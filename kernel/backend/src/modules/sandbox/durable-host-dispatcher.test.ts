@@ -19,6 +19,7 @@ it("classifies every bridge host capability exactly once", () => {
 	expect(SANDBOX_DURABLE_HOST_DISPATCH).toMatchObject({
 		log: "diagnostic",
 		span: "diagnostic",
+		getUserSettings: "activity",
 		createEvents: "event-workflow",
 		emitSignal: "service-workflow",
 		ensureUserEntities: "service-workflow",

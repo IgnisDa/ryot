@@ -19,6 +19,7 @@ export const SANDBOX_CAPABILITY_REQUIREMENTS = {
 	createEvents: { bridge: true, subjects: ["user", "automation-run"] as const },
 	log: { bridge: true, subjects: ["user", "automation-run", "system"] as const },
 	span: { bridge: true, subjects: ["user", "automation-run", "system"] as const },
+	getUserSettings: { bridge: true, subjects: ["user", "automation-run"] as const },
 	listIntegrations: { bridge: true, subjects: ["user", "automation-run"] as const },
 	listEventSchemas: { bridge: true, subjects: ["user", "automation-run"] as const },
 	getEntitySchemas: { bridge: true, subjects: ["user", "automation-run"] as const },
