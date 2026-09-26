@@ -18,11 +18,11 @@ import { PluginRevisionActivation } from "#modules/plugins/revision-activation";
 import { redactIntegrationForClient } from "./client-redaction";
 
 type IntegrationRow = Omit<typeof schema.integration.$inferSelect, "clientProviderSpecifics">;
-type SelectedIntegrationRow = IntegrationRow & { readonly pluginSlug: string };
+type SelectedIntegrationRow = IntegrationRow & { readonly pluginSlug: string | null };
 
 export type IntegrationRecord = IntegrationSnapshot & {
 	readonly userId: UserId;
-	readonly pluginInstallationId: string;
+	readonly pluginInstallationId: string | null;
 };
 
 const integrationSelection = {
@@ -42,7 +42,7 @@ const integrationSelection = {
 	maximumProgress: schema.integration.maximumProgress,
 	providerSpecifics: schema.integration.providerSpecifics,
 	pluginInstallationId: schema.integration.pluginInstallationId,
-	pluginSlug: sql<string>`(
+	pluginSlug: sql<string | null>`(
 		select ${schema.plugin.slug}
 		from ${schema.pluginInstallation}
 		inner join ${schema.plugin} on ${schema.plugin.id} = ${schema.pluginInstallation.pluginId}
@@ -115,7 +115,10 @@ export class IntegrationsRepository extends Context.Service<IntegrationsReposito
 				return row !== undefined;
 			});
 
-			const lockInstallationPlugin = Effect.fn(function* (pluginInstallationId: string) {
+			const lockInstallationPlugin = Effect.fn(function* (pluginInstallationId: string | null) {
+				if (pluginInstallationId === null) {
+					return;
+				}
 				yield* database.run((db) =>
 					db
 						.select({ id: schema.plugin.id })
@@ -130,10 +133,14 @@ export class IntegrationsRepository extends Context.Service<IntegrationsReposito
 			});
 
 			const clientProviderSpecifics = Effect.fn(function* (input: {
-				pluginInstallationId: string;
+				pluginInstallationId: string | null;
 				provider: IntegrationProvider;
 				providerSpecifics: IntegrationProviderSettings;
 			}) {
+				if (input.pluginInstallationId === null) {
+					return input.providerSpecifics;
+				}
+				const installationId = input.pluginInstallationId;
 				const [row] = yield* database.run((db) =>
 					db
 						.select({ settingsSchema: providerSettingsSchema })
@@ -143,7 +150,7 @@ export class IntegrationsRepository extends Context.Service<IntegrationsReposito
 							schema.definitionIntegrationProvider,
 							activeProviderDefinition(input.provider),
 						)
-						.where(eq(schema.pluginInstallation.id, input.pluginInstallationId))
+						.where(eq(schema.pluginInstallation.id, installationId))
 						.limit(1),
 				);
 				return redactIntegrationForClient(row?.settingsSchema ?? null, input.providerSpecifics);
@@ -224,7 +231,7 @@ export class IntegrationsRepository extends Context.Service<IntegrationsReposito
 				syncOwnership: boolean;
 				minimumProgress: string;
 				maximumProgress: string;
-				pluginInstallationId: string;
+				pluginInstallationId: string | null;
 				provider: IntegrationProvider;
 				extraSettings: IntegrationExtraSettings;
 				providerSpecifics: IntegrationProviderSettings;

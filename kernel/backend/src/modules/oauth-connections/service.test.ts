@@ -26,6 +26,7 @@ import * as tables from "#lib/infrastructure/db/schema/tables/combined";
 import { DatabaseSession } from "#lib/infrastructure/db/session";
 import { ProKeyService } from "#lib/infrastructure/pro-key";
 import { makeAppConfigLayer, makeWorkflowEngine } from "#lib/test-utils/effect";
+import { DataImportAdmission } from "#modules/imports/data-admission";
 import { ImportsService } from "#modules/imports/service";
 import { IntegrationsRepository } from "#modules/integrations/repository";
 import { IntegrationsService } from "#modules/integrations/service";
@@ -123,6 +124,7 @@ const serviceLayer = Layer.mergeAll(
 		Layer.provide(
 			Layer.mergeAll(
 				IntegrationsRepository.layer,
+				Layer.mock(DataImportAdmission)({}),
 				Layer.mock(ImportsService)({}),
 				Layer.succeed(WorkflowEngine, makeWorkflowEngine()),
 				Layer.mock(ProKeyService)({ isValidated: Effect.succeed(true) }),

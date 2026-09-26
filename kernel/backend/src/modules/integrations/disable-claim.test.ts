@@ -5,6 +5,7 @@ import { WorkflowEngine } from "effect/unstable/workflow/WorkflowEngine";
 
 import { ProKeyService } from "#lib/infrastructure/pro-key";
 import { databaseLayer, makeWorkflowEngine, type MockOverrides } from "#lib/test-utils/effect";
+import { DataImportAdmission } from "#modules/imports/data-admission";
 import { ImportsService } from "#modules/imports/service";
 import { OAuthConnectionsService } from "#modules/oauth-connections/service";
 import { IntegrationProviderCatalog } from "#modules/plugins/integration-provider-catalog";
@@ -33,6 +34,7 @@ const makeLayer = (
 		Layer.provideMerge(
 			Layer.mergeAll(
 				databaseLayer,
+				Layer.mock(DataImportAdmission)({}),
 				mockProKey,
 				IntegrationProviderCatalog.layer.pipe(Layer.provide(databaseLayer)),
 				Layer.mock(PluginRuntimeResolver)({}),

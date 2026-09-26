@@ -1,6 +1,6 @@
 import { Layer } from "effect";
 
-import { ImportsServiceLive } from "#modules/imports/layer";
+import { DataImportAdmissionLive, ImportsServiceLive } from "#modules/imports/layer";
 import { OAuthConnectionsServiceLive } from "#modules/oauth-connections/layer";
 import { IntegrationProviderCatalog } from "#modules/plugins/integration-provider-catalog";
 
@@ -16,6 +16,7 @@ export const IntegrationsServiceLive = IntegrationsService.layer.pipe(
 			IntegrationProviderCatalog.layer,
 			IntegrationsRepository.layer,
 			OAuthConnectionsServiceLive,
+			DataImportAdmissionLive,
 		),
 	),
 );

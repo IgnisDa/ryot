@@ -61,6 +61,7 @@ import { ImportWorkflowDefinitionsLive } from "#modules/imports/import-run-workf
 import {
 	ImportsServiceLive,
 	ProcessGenericImportChunksWorkflowDefinitionsProvidedLive,
+	DataImportWorkflowDefinitionsProvidedLive,
 } from "#modules/imports/layer";
 import { ImportsRepository } from "#modules/imports/repository";
 import { IntegrationWorkflowDefinitionsLive } from "#modules/integrations/integration-workflow-live";
@@ -235,6 +236,7 @@ const RuntimeWorkflowDefinitionsLive = Layer.mergeAll(
 		Layer.provide(Layer.merge(ImportsRepository.layer, ImportRunExecutionControllerLive)),
 	),
 	ProcessGenericImportChunksWorkflowDefinitionsProvidedLive,
+	DataImportWorkflowDefinitionsProvidedLive,
 	ExportBackupWorkflowDefinitionsLive,
 	RestoreBackupWorkflowDefinitionsLive,
 	UserLifecycleWorkflowDefinitionsLive,
