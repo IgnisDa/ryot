@@ -74,7 +74,7 @@ ruleTester.run("no-app-service-provide", plugin.rules["no-app-service-provide"],
 		},
 		{
 			errors: [appServiceError],
-			filename: "/repo/migrations/v10-rust/src/service.ts",
+			filename: "/repo/apps/server/src/migrations/service.ts",
 			code: 'import * as Sdk from "@ryot-app/sandbox-sdk/effect"; import { Database } from "#database"; Sdk.Effect.provideService(Database, database);',
 		},
 		{
