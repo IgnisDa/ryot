@@ -629,9 +629,11 @@ export const PluginOAuthProvider = strictStruct({
 	name: sandboxManifestString,
 	scopes: Schema.Array(oauthScope),
 	issuer: Schema.optional(httpsUrl()),
+	pkce: Schema.Literals(["S256", "none"]),
 	clientIdConfigKey: sandboxManifestString,
 	clientSecretConfigKey: sandboxManifestString,
 	authorizeUrl: httpsUrl(reservedOAuthAuthorizeParameters),
+	accessTokenLifetimeSeconds: Schema.optional(safePositiveInteger),
 	tokenEndpointAuth: Schema.Literals(["client_secret_basic", "client_secret_post"]),
 });
 

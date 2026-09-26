@@ -431,6 +431,24 @@ YouTube Music records 35-percent progress on the first confirmed local-day obser
 directly. Only created outcomes advance the original `:seen` and `:completed` claims, which expire
 at local midnight. Confirmation parts replay safely without source requests or renewed retention.
 
+### AniList
+
+AniList is a Pro yank using `integration.anilist`. Its required `account` setting is an OAuth
+connection. `syncAnime` and `syncManga` both default to `true`. OAuth requests no scopes, uses no
+PKCE, and issues a 31,536,000-second access token without a refresh token. Expired or revoked
+connections require reconnecting. The optional `anilistClientId` and `anilistClientSecret` host
+configuration fields are required for authorization; the client secret is marked secret. Their
+environment names are `RYOT_PLUGIN_MEDIA_ANILIST_CLIENT_ID` and
+`RYOT_PLUGIN_MEDIA_ANILIST_CLIENT_SECRET`. Register exactly
+`<FRONTEND_URL>/api/oauth-connections/providers/media/anilist/callback` as the callback URL.
+
+The collector reads `MediaListCollection` in 100-entry chunks through the captured-window pipeline.
+Each window captures its list-state records and continuation; the records commit before the checkpoint
+advances to the next chunk. The `ingestionConfirmation` callback returns no source work. It makes no
+AniList HTTP request and does not advance the collection cursor or Redis checkpoint. The host limits
+requests to `https://graphql.anilist.co` to 30 per minute; AniList metadata requests share this origin
+budget.
+
 ## Lifecycle
 
 Media entities use `add-to-media-library`, `backlog`, `progress`, `complete`, `dropped`, `on_hold`, and
@@ -495,6 +513,16 @@ Shows and podcasts track progress on child episodes. Anime and manga store episo
 position on their own lifecycle events. Complete events represent the whole entity and carry no
 episode fields. Show-season completion is derived and not directly writable. Reviews do not affect
 lifecycle state.
+
+The AniList integration writes `list-state` snapshots for anime and manga, not ordinary `progress` or
+`complete` events. A snapshot carries the current list state, anime episode or manga volume and
+chapter, repeat count, and AniList's partial start and completion dates. Its `occurredAt` is the pinned
+integration observation time; AniList's `updatedAt` remains source metadata. The initial sync records
+only the current snapshot and does not infer past episode or completion history. A changed remote
+snapshot becomes the current lifecycle signal, while an unchanged poll adds no snapshot even if
+`updatedAt` alone changes, leaving later local lifecycle actions in place. An entry absent from a
+later AniList collection does not delete its Ryot entity or history. Ratings, notes, and custom lists
+are outside this integration.
 
 For shows and podcasts, current state means:
 

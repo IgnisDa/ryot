@@ -73,7 +73,7 @@ export class OAuthConnectionsRepository extends Context.Service<OAuthConnections
 					readonly pluginInstallationId: string;
 					readonly client: OAuthConnectionClient;
 					readonly integrationProviderSlug: string;
-					readonly codeVerifier: SubkeyCiphertext;
+					readonly codeVerifier?: SubkeyCiphertext;
 				}) {
 					yield* database.run((db) =>
 						db.insert(connection).values({ ...input, status: "pending" }),
@@ -473,8 +473,9 @@ export class OAuthConnectionsRepository extends Context.Service<OAuthConnections
 			const markExpired = Effect.fn("OAuthConnectionsRepository.markExpired")(function* (input: {
 				readonly tokenVersion: number;
 				readonly id: OAuthConnectionId;
+				readonly integrationId: IntegrationId;
 			}) {
-				yield* database.run((db) =>
+				const rows = yield* database.run((db) =>
 					db
 						.update(connection)
 						.set({
@@ -490,9 +491,12 @@ export class OAuthConnectionsRepository extends Context.Service<OAuthConnections
 								eq(connection.id, input.id),
 								eq(connection.status, "connected"),
 								eq(connection.tokenVersion, input.tokenVersion),
+								eq(connection.integrationId, input.integrationId),
 							),
-						),
+						)
+						.returning({ id: connection.id }),
 				);
+				return rows.length === 1;
 			});
 
 			const releaseRefreshLease = Effect.fn("OAuthConnectionsRepository.releaseRefreshLease")(

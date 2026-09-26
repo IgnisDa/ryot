@@ -11,6 +11,7 @@ import {
 	Cause,
 	ConfigProvider,
 	Context,
+	DateTime,
 	Deferred,
 	Effect,
 	Exit,
@@ -133,48 +134,52 @@ const fakeHttpClientLayer = Layer.effect(
 	),
 );
 
-const serviceLayer = Layer.mergeAll(
-	IntegrationsService.layer.pipe(
-		Layer.provide(
-			Layer.mergeAll(
-				IntegrationsRepository.layer,
-				ImportsRepository.layer,
-				integrationCrudIngestionLayer.pipe(
-					Layer.provideMerge(ingestionRetirementTestLayer),
-					Layer.provide(ObjectStorageService.layer),
-					Layer.provide(Layer.succeed(AdmittedWorkflowCatalogue, Object.freeze([]))),
-					Layer.provide(
-						Layer.mergeAll(
-							S3Service.layer,
-							LocalStorageService.layer.pipe(Layer.provide(HmacSigner.layer)),
+const serviceLayer = (isProKeyValidated = true) =>
+	Layer.mergeAll(
+		IntegrationsService.layer.pipe(
+			Layer.provide(
+				Layer.mergeAll(
+					IntegrationsRepository.layer,
+					ImportsRepository.layer,
+					integrationCrudIngestionLayer.pipe(
+						Layer.provideMerge(ingestionRetirementTestLayer),
+						Layer.provide(ObjectStorageService.layer),
+						Layer.provide(Layer.succeed(AdmittedWorkflowCatalogue, Object.freeze([]))),
+						Layer.provide(
+							Layer.mergeAll(
+								S3Service.layer,
+								LocalStorageService.layer.pipe(Layer.provide(HmacSigner.layer)),
+							),
 						),
+						Layer.provide(BunServices.layer),
+						Layer.provide(Layer.succeed(WorkflowEngine, makeWorkflowEngine())),
 					),
-					Layer.provide(BunServices.layer),
-					Layer.provide(Layer.succeed(WorkflowEngine, makeWorkflowEngine())),
+					Layer.mock(DataImportAdmission)({}),
+					Layer.mock(ImportsService)({}),
+					Layer.succeed(WorkflowEngine, makeWorkflowEngine()),
+					Layer.mock(ProKeyService)({ isValidated: Effect.succeed(true) }),
 				),
-				Layer.mock(DataImportAdmission)({}),
-				Layer.mock(ImportsService)({}),
-				Layer.succeed(WorkflowEngine, makeWorkflowEngine()),
-				Layer.mock(ProKeyService)({ isValidated: Effect.succeed(true) }),
 			),
 		),
-	),
-	IntegrationsRepository.layer,
-).pipe(
-	Layer.provideMerge(OAuthConnectionsService.layer),
-	Layer.provideMerge(Layer.effect(IngestionReadinessService, IngestionReadinessService.make)),
-	Layer.provideMerge(
-		Layer.mergeAll(
-			ImportSourceCatalog.layer,
-			IntegrationProviderCatalog.layer,
-			OAuthConnectionsRepository.layer,
-			OAuthTokenClient.layer.pipe(Layer.provide(fakeHttpClientLayer)),
+		IntegrationsRepository.layer,
+	).pipe(
+		Layer.provideMerge(OAuthConnectionsService.layer),
+		Layer.provideMerge(Layer.effect(IngestionReadinessService, IngestionReadinessService.make)),
+		Layer.provideMerge(
+			Layer.mergeAll(
+				ImportSourceCatalog.layer,
+				IntegrationProviderCatalog.layer,
+				OAuthConnectionsRepository.layer,
+				OAuthTokenClient.layer.pipe(Layer.provide(fakeHttpClientLayer)),
+			),
 		),
-	),
-	Layer.provideMerge(fakeTokenEndpointLayer),
-	Layer.provideMerge(makeAppConfigLayer()),
-	Layer.provideMerge(revisionDatabaseLayer),
-);
+		Layer.provideMerge(fakeTokenEndpointLayer),
+		Layer.provideMerge(
+			Layer.mock(ProKeyService)({ isValidated: Effect.succeed(isProKeyValidated) }),
+		),
+		Layer.provideMerge(makeAppConfigLayer()),
+		Layer.provideMerge(revisionDatabaseLayer),
+	);
 
 const environmentConfig = ConfigProvider.fromUnknown(
 	Object.fromEntries(
@@ -185,8 +190,12 @@ const environmentConfig = ConfigProvider.fromUnknown(
 	),
 );
 
-const installOAuthPlugin = (slug: string, integrationProviderSlug: string) =>
-	installRevisionPackage(oauthRevisionPackage(slug, integrationProviderSlug)).pipe(
+const installOAuthPlugin = (
+	slug: string,
+	integrationProviderSlug: string,
+	options: Parameters<typeof oauthRevisionPackage>[2] = {},
+) =>
+	installRevisionPackage(oauthRevisionPackage(slug, integrationProviderSlug, options)).pipe(
 		Effect.provideService(ConfigProvider.ConfigProvider, environmentConfig),
 	);
 
@@ -287,6 +296,7 @@ const connectionStatus = (user: UserId, id: OAuthConnectionId) =>
 	);
 
 const accessToken = (input: {
+	readonly connectionId: OAuthConnectionId;
 	readonly pluginId: string;
 	readonly integrationId: IntegrationId;
 	readonly integrationRunId: ImportRunId;
@@ -294,6 +304,18 @@ const accessToken = (input: {
 }) =>
 	Effect.flatMap(OAuthConnectionsService, (service) =>
 		service.accessTokenForIntegrationRun({ userId: owner, field: "account", ...input }),
+	);
+
+const invalidateAccessToken = (input: {
+	readonly connectionId: OAuthConnectionId;
+	readonly pluginId: string;
+	readonly integrationId: IntegrationId;
+	readonly integrationRunId: ImportRunId;
+	readonly accessToken: string;
+	readonly userId?: UserId;
+}) =>
+	Effect.flatMap(OAuthConnectionsService, (service) =>
+		service.invalidateAccessTokenForIntegrationRun({ userId: owner, field: "account", ...input }),
 	);
 
 const connectedIntegration = Effect.fn(function* (tokens: TokenResponse = issuedTokens()) {
@@ -306,8 +328,9 @@ const connectedIntegration = Effect.fn(function* (tokens: TokenResponse = issued
 
 const isolated = <A, E>(
 	name: string,
-	body: () => Effect.Effect<A, E, Layer.Success<typeof serviceLayer>>,
-) => layer(serviceLayer)((test) => test.effect(name, body));
+	body: () => Effect.Effect<A, E, Layer.Success<ReturnType<typeof serviceLayer>>>,
+	isProKeyValidated = true,
+) => layer(serviceLayer(isProKeyValidated))((test) => test.effect(name, body));
 
 describe("OAuth connections", () => {
 	isolated("connects private OAuth providers through their own installation configuration", () =>
@@ -331,19 +354,86 @@ describe("OAuth connections", () => {
 			const connectionId = yield* connect(owner);
 			const { id: integrationId } = yield* createIntegration(owner, { account: connectionId });
 			const integrationRunId = yield* startRun(integrationId);
-			expect(
-				(yield* accessToken({ integrationId, integrationRunId, pluginId: installed.pluginId }))
-					.accessToken,
-			).toBe("access-1");
+			const token = yield* accessToken({
+				connectionId,
+				integrationId,
+				integrationRunId,
+				pluginId: installed.pluginId,
+			});
+			expect(token.accessToken).toBe("access-1");
 			expect((yield* (yield* FakeTokenEndpoint).requests)[0]?.authorization).toBe(
 				`Basic ${Buffer.from("private-client:private-secret").toString("base64")}`,
 			);
 		}),
 	);
 
+	isolated(
+		"requires a validated Pro key before creating a pending OAuth connection",
+		() =>
+			Effect.gen(function* () {
+				yield* installOAuthPlugin("oauth-test", "oauth-yank", { requiresProKey: true });
+				const service = yield* OAuthConnectionsService;
+				const failure = yield* Effect.flip(
+					service.create(currentUser(owner), {
+						field: "account",
+						client: { kind: "web" },
+						integrationProvider: "oauth-yank",
+					}),
+				);
+				const connections = yield* (yield* DatabaseSession).run((db) =>
+					db.select().from(tables.oauthConnection),
+				);
+
+				assert(failure._tag === "OAuthConnectionRequestError");
+				expect(failure.reason).toEqual({ code: "pro-key-required" });
+				expect(connections).toEqual([]);
+			}),
+		false,
+	);
+
+	isolated("completes an OAuth exchange without PKCE and uses the provider token lifetime", () =>
+		Effect.gen(function* () {
+			yield* installOAuthPlugin("oauth-test", "oauth-yank", {
+				pkce: "none",
+				accessTokenLifetimeSeconds: 31_536_000,
+			});
+			const service = yield* OAuthConnectionsService;
+			const endpoint = yield* FakeTokenEndpoint;
+			yield* endpoint.respond(() =>
+				Effect.succeed({
+					status: 200,
+					body: { token_type: "Bearer", access_token: "long-lived-access" },
+				}),
+			);
+
+			const { state, authorizeUrl, connectionId } = yield* authorize(owner);
+			const authorizeParameters = new URL(authorizeUrl).searchParams;
+			expect(authorizeParameters.get("state")).toBe(state);
+			expect(authorizeParameters.has("code_challenge")).toBe(false);
+			expect(authorizeParameters.has("code_challenge_method")).toBe(false);
+			expect((yield* connectionRow(connectionId))?.codeVerifier).toBeNull();
+			const secret = fragmentOf(yield* callback(state)).get("secret");
+			assert(secret);
+			yield* service.complete(currentUser(owner), connectionId, secret);
+
+			const [exchange] = yield* endpoint.requests;
+			assert(exchange);
+			expect(Object.fromEntries(exchange.form)).toEqual({
+				code: "auth-code-1",
+				grant_type: "authorization_code",
+				redirect_uri: authorizeParameters.get("redirect_uri"),
+			});
+			expect((yield* connectionRow(connectionId))?.accessTokenExpiresAt?.toISOString()).toBe(
+				"1971-01-01T00:00:00.000Z",
+			);
+		}),
+	);
+
 	isolated("connects an account and hands its access token to the running integration", () =>
 		Effect.gen(function* () {
-			const installed = yield* installOAuthPlugin("oauth-test", "oauth-yank");
+			const installed = yield* installOAuthPlugin("oauth-test", "oauth-yank", {
+				accessTokenLifetimeSeconds: 31_536_000,
+			});
 			const service = yield* OAuthConnectionsService;
 			const endpoint = yield* FakeTokenEndpoint;
 
@@ -409,7 +499,12 @@ describe("OAuth connections", () => {
 			const integrationRunId = yield* startRun(integrationId);
 
 			expect(
-				yield* accessToken({ integrationId, integrationRunId, pluginId: installed.pluginId }),
+				yield* accessToken({
+					connectionId,
+					integrationId,
+					integrationRunId,
+					pluginId: installed.pluginId,
+				}),
 			).toEqual({ accessToken: "access-1", expiresAt: "1970-01-01T01:00:00.000Z" });
 
 			const client = yield* (yield* IntegrationsRepository).getClientForUser({
@@ -558,15 +653,31 @@ describe("OAuth connections", () => {
 		Effect.gen(function* () {
 			const installed = yield* installOAuthPlugin("oauth-test", "oauth-yank");
 			const other = yield* installOAuthPlugin("oauth-other", "oauth-other-yank");
-			const { integrationId, integrationRunId } = yield* connectedIntegration();
+			const { connectionId, integrationId, integrationRunId } = yield* connectedIntegration();
 			const { id: siblingIntegrationId } = yield* createIntegration(owner, {});
 			const siblingRunId = yield* startRun(siblingIntegrationId);
 			const finishedRunId = yield* startRun(integrationId, "completed");
 			for (const input of [
-				{ integrationId, integrationRunId, pluginId: other.pluginId },
-				{ integrationId, pluginId: installed.pluginId, integrationRunId: finishedRunId },
-				{ integrationId, pluginId: installed.pluginId, integrationRunId: siblingRunId },
-				{ integrationId, integrationRunId, userId: recipient, pluginId: installed.pluginId },
+				{ connectionId, integrationId, integrationRunId, pluginId: other.pluginId },
+				{
+					connectionId,
+					integrationId,
+					pluginId: installed.pluginId,
+					integrationRunId: finishedRunId,
+				},
+				{
+					connectionId,
+					integrationId,
+					pluginId: installed.pluginId,
+					integrationRunId: siblingRunId,
+				},
+				{
+					connectionId,
+					integrationId,
+					integrationRunId,
+					userId: recipient,
+					pluginId: installed.pluginId,
+				},
 			]) {
 				const exit = yield* Effect.exit(accessToken(input));
 				assert(Exit.isFailure(exit));
@@ -574,10 +685,13 @@ describe("OAuth connections", () => {
 					message: OAUTH_ACCESS_TOKEN_MESSAGES.unavailable,
 				});
 			}
-			expect(
-				(yield* accessToken({ integrationId, integrationRunId, pluginId: installed.pluginId }))
-					.accessToken,
-			).toBe("access-1");
+			const token = yield* accessToken({
+				connectionId,
+				integrationId,
+				integrationRunId,
+				pluginId: installed.pluginId,
+			});
+			expect(token.accessToken).toBe("access-1");
 			yield* (yield* DatabaseSession).run((db) =>
 				db
 					.update(tables.importRun)
@@ -586,7 +700,12 @@ describe("OAuth connections", () => {
 			);
 			expect(
 				(yield* Effect.flip(
-					accessToken({ integrationId, integrationRunId, pluginId: installed.pluginId }),
+					accessToken({
+						connectionId,
+						integrationId,
+						integrationRunId,
+						pluginId: installed.pluginId,
+					}),
 				)).message,
 			).toBe(OAUTH_ACCESS_TOKEN_MESSAGES.unavailable);
 		}),
@@ -676,6 +795,76 @@ describe("OAuth connections", () => {
 			expect((yield* accessToken({ ...run, pluginId: installed.pluginId })).accessToken).toBe(
 				"access-1",
 			);
+		}),
+	);
+
+	isolated("expires a connected token only when the current integration run submits it", () =>
+		Effect.gen(function* () {
+			const installed = yield* installOAuthPlugin("oauth-test", "oauth-yank");
+			const run = yield* connectedIntegration();
+			const input = { ...run, pluginId: installed.pluginId };
+
+			yield* invalidateAccessToken({ ...input, accessToken: "stale-access-token" });
+			expect(yield* connectionStatus(owner, run.connectionId)).toBe("connected");
+
+			const current = yield* accessToken(input);
+			yield* invalidateAccessToken({ ...input, accessToken: current.accessToken });
+			expect(yield* connectionStatus(owner, run.connectionId)).toBe("expired");
+			const stored = yield* connectionRow(run.connectionId);
+			expect(stored?.accessToken).toBeNull();
+			expect(stored?.refreshToken).toBeNull();
+		}),
+	);
+
+	isolated("pins OAuth access to the connection admitted for each integration run", () =>
+		Effect.gen(function* () {
+			const installed = yield* installOAuthPlugin("oauth-test", "oauth-yank");
+			const endpoint = yield* FakeTokenEndpoint;
+			const admittedRun = yield* connectedIntegration();
+			yield* endpoint.respond(() =>
+				Effect.succeed(issuedTokens({ access_token: "access-2", refresh_token: "refresh-2" })),
+			);
+			const replacementConnectionId = yield* connect(owner);
+			yield* (yield* IntegrationsService).update(owner, admittedRun.integrationId, {
+				providerSpecifics: { account: replacementConnectionId },
+			});
+			const requestsBeforeStaleRun = yield* endpoint.requests;
+
+			expect(yield* connectionRow(admittedRun.connectionId)).toBeUndefined();
+			expect(
+				(yield* Effect.flip(accessToken({ ...admittedRun, pluginId: installed.pluginId }))).message,
+			).toBe(OAUTH_ACCESS_TOKEN_MESSAGES.unavailable);
+			expect(
+				(yield* Effect.flip(
+					invalidateAccessToken({
+						...admittedRun,
+						accessToken: "access-1",
+						pluginId: installed.pluginId,
+					}),
+				)).message,
+			).toBe(OAUTH_ACCESS_TOKEN_MESSAGES.unavailable);
+			expect(yield* connectionStatus(owner, replacementConnectionId)).toBe("connected");
+			expect((yield* endpoint.requests).length).toBe(requestsBeforeStaleRun.length);
+
+			const settled = yield* (yield* ImportsRepository.make).settleIngestion({
+				status: "failed",
+				finishedAt: yield* DateTime.nowAsDate,
+				scope: {
+					userId: owner,
+					runId: admittedRun.integrationRunId,
+					accountGeneration: currentUser(owner).accountGeneration,
+				},
+			});
+			assert(settled);
+			const freshRunId = yield* startRun(admittedRun.integrationId);
+			const freshToken = yield* accessToken({
+				integrationRunId: freshRunId,
+				pluginId: installed.pluginId,
+				connectionId: replacementConnectionId,
+				integrationId: admittedRun.integrationId,
+			});
+			expect(freshToken.accessToken).toBe("access-2");
+			expect((yield* endpoint.requests).length).toBe(requestsBeforeStaleRun.length);
 		}),
 	);
 
