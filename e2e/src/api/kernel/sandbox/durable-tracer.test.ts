@@ -220,7 +220,7 @@ describe("universal durable sandbox tracer", () => {
 			expect(value.events).toEqual({ count: 1 });
 			expect(value.child).toBe(`child:${fixture.entityId}`);
 			expect(value.parallel).toEqual([null, null]);
-			expect(value.preferences).toEqual({ allowNsfw: false, disableIntegrations: false });
+			expect(value.preferences).toEqual({ disableIntegrations: false });
 			expect(value.http).toMatchObject({ status: 200 });
 			expect(value.failure).toMatchObject({
 				message: "HTTP 503",
