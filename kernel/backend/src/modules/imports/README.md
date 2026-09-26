@@ -1,9 +1,15 @@
 # Imports
 
 This module owns import admission, durable execution, progress, failures, cancellation, temporary
-artifacts, and generic domain writes. Source plugins normalize provider-specific input and emit
-generic write chunks; the kernel consumes those chunks and performs domain writes through the
-owning services.
+artifacts, and domain writes. Plugin sources normalize provider-specific input into generic write
+chunks for the kernel. The kernel-native `data-json` source accepts the shared data document without
+a plugin installation. Both paths write through the owning services.
+
+The `data-json` source validates records against definitions already available to the user. Its
+document-local keys resolve entity and relationship dependencies, including schema-declared nested
+property references. Provider entities use normal provider resolution; custom entities remain
+user-owned. Writes are append-only, use the normal lifecycle hooks, and commit incrementally, so
+failed records do not roll back earlier committed records.
 
 ## Root ownership and IDs
 
