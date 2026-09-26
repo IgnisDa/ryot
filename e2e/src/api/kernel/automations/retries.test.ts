@@ -1,4 +1,5 @@
 import type { PluginManifest } from "@ryot-app/contract/modules/plugins/manifest";
+import { definitionOwner } from "@ryot-app/contract/modules/plugins/references";
 import { AutomationHookSlug, EntitySchemaSlug } from "@ryot-app/contract/schema/brands";
 import { automationHistoryRunRecipe } from "@ryot-app/ryotql-recipes/automation-history";
 import { pluginInstallationsRecipe } from "@ryot-app/ryotql-recipes/plugin-installations";
@@ -218,7 +219,7 @@ const createTargetRun = (
 			properties: {},
 			entitySchema: {
 				slug: EntitySchemaSlug.make(RETRY_TARGET_SLUG),
-				owner: { kind: "plugin", pluginId: fixture.installed.pluginId },
+				owner: definitionOwner(fixture.installed.pluginId),
 			},
 		});
 		const runs = yield* pollAutomationRuns({
@@ -354,7 +355,7 @@ describe("automation retries", () => {
 		}),
 	);
 
-	it.live("manually retries retained pins after upgrade and while hidden", () =>
+	it.live("retries retained pins after upgrade and refuses them while hidden", () =>
 		Effect.gen(function* () {
 			const { client } = yield* createAuthenticatedClient();
 			const fixture = yield* installRetryFixtureScoped(client, {
@@ -419,26 +420,30 @@ describe("automation retries", () => {
 					const attempts = ascendingAttempts(
 						yield* pollTerminalAutomationRunAttempts({ runId: run.id }, 2),
 					);
-					const successfulAttempt = requirePresent(attempts[1], "Missing successful retry attempt");
-					expect(successfulAttempt.error).toBeNull();
-					expect(successfulAttempt).toMatchObject({ status: "succeeded" });
 					const retained = requirePresent(
 						(yield* listAutomationRuns({ triggerId: run.triggerId }))[0],
 						`Missing retained run '${run.id}'`,
 					);
-					expect(retained).toMatchObject({ attemptCount: 2, status: "succeeded" });
 					expectOriginalPins(retained, fixture.installed);
+					return { retained, attempt: requirePresent(attempts[1], "Missing retry attempt") };
 				});
 
-			const upgradeRun = requirePresent(runs[0], "Missing upgrade retry run");
-			const hiddenRun = requirePresent(runs[1], "Missing hidden retry run");
-			yield* retry(upgradeRun);
+			const upgraded = yield* retry(requirePresent(runs[0], "Missing upgrade retry run"));
+			expect(upgraded.attempt.error).toBeNull();
+			expect(upgraded.attempt).toMatchObject({ status: "succeeded" });
+			expect(upgraded.retained).toMatchObject({ attemptCount: 2, status: "succeeded" });
+
 			yield* updatePluginState(
 				client,
 				requirePresent(replacement.installationId, "Retry plugin installation is missing"),
 				{ isHidden: true },
 			);
-			yield* retry(hiddenRun);
+			const hidden = yield* retry(requirePresent(runs[1], "Missing hidden retry run"));
+			expect(hidden.attempt).toMatchObject({
+				status: "failed",
+				error: { code: "installation-unavailable" },
+			});
+			expect(hidden.retained).toMatchObject({ attemptCount: 2, status: "failed" });
 		}),
 	);
 
