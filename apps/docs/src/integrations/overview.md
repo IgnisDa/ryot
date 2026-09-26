@@ -45,6 +45,7 @@ With **Sync ownership** enabled, scheduled and manual checks add matching media 
 - [Audiobookshelf](./audiobookshelf.md) - Sync media from Audiobookshelf
 - [Komga](./komga.md) - Sync media from Komga
 - [Plex Yank](./plex-yank.md) - Add all media in your libraries to "Owned" collection
+- [Spotify](./spotify.md) - Sync recently played music from Spotify <Badge type="warning" text="PRO" />
 - [YouTube Music](./youtube-music.md) - Sync music from YouTube Music <Badge type="warning" text="PRO" />
 
 ## Push integrations
