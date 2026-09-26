@@ -14,8 +14,8 @@ function GodModeLogs() {
 	return (
 		<ServerLogsView
 			unauthorized={unauthorized}
-			load={() => Effect.exit(service.listLogs(sessionId))}
 			download={(file) => Effect.exit(service.downloadLogs(sessionId, file))}
+			load={(after, limit) => Effect.exit(service.listLogs(sessionId, after, limit))}
 		/>
 	);
 }
