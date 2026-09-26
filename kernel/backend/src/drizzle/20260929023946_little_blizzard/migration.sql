@@ -559,6 +559,7 @@ CREATE TABLE "plugin" (
 	"environment_config_revision_id" text,
 	"created_at" timestamp with time zone DEFAULT now() NOT NULL,
 	"owner_user_id" text,
+	"activation_id" text NOT NULL,
 	"id" text PRIMARY KEY,
 	CONSTRAINT "plugin_active_revision_check" CHECK ("status" <> 'active' or "active_revision_id" is not null),
 	CONSTRAINT "plugin_environment_config_scope_check" CHECK ("owner_user_id" is null or "environment_config_revision_id" is null)
@@ -633,6 +634,14 @@ CREATE TABLE "plugin_revision_source_file" (
 	"contents" bytea NOT NULL,
 	"plugin_revision_id" text,
 	CONSTRAINT "plugin_revision_source_file_pkey" PRIMARY KEY("plugin_revision_id","path")
+);
+--> statement-breakpoint
+CREATE TABLE "plugin_uninstall_receipt" (
+	"installation_id" text,
+	"slug" text NOT NULL,
+	"plugin_id" text NOT NULL,
+	"activation_id" text PRIMARY KEY,
+	"owner_user_id" text
 );
 --> statement-breakpoint
 CREATE TABLE "provider_import_admission" (
@@ -964,6 +973,7 @@ ALTER TABLE "plugin_installation" ADD CONSTRAINT "plugin_installation_plugin_id_
 ALTER TABLE "plugin_revision" ADD CONSTRAINT "plugin_revision_plugin_id_plugin_id_fkey" FOREIGN KEY ("plugin_id") REFERENCES "plugin"("id") ON DELETE CASCADE;--> statement-breakpoint
 ALTER TABLE "plugin_revision" ADD CONSTRAINT "plugin_revision_client_artifact_hash_fk" FOREIGN KEY ("client_artifact_hash") REFERENCES "client_artifact"("hash");--> statement-breakpoint
 ALTER TABLE "plugin_revision_source_file" ADD CONSTRAINT "plugin_revision_source_file_jXWqpu8aM8FE_fkey" FOREIGN KEY ("plugin_revision_id") REFERENCES "plugin_revision"("id") ON DELETE CASCADE;--> statement-breakpoint
+ALTER TABLE "plugin_uninstall_receipt" ADD CONSTRAINT "plugin_uninstall_receipt_owner_user_id_user_id_fkey" FOREIGN KEY ("owner_user_id") REFERENCES "user"("id") ON DELETE CASCADE;--> statement-breakpoint
 ALTER TABLE "provider_import_admission" ADD CONSTRAINT "provider_import_admission_user_id_user_id_fkey" FOREIGN KEY ("user_id") REFERENCES "user"("id") ON DELETE CASCADE;--> statement-breakpoint
 ALTER TABLE "relationship" ADD CONSTRAINT "relationship_user_id_user_id_fkey" FOREIGN KEY ("user_id") REFERENCES "user"("id") ON DELETE CASCADE;--> statement-breakpoint
 ALTER TABLE "relationship" ADD CONSTRAINT "relationship_relationship_schema_plugin_id_plugin_id_fkey" FOREIGN KEY ("relationship_schema_plugin_id") REFERENCES "plugin"("id") ON DELETE RESTRICT;--> statement-breakpoint

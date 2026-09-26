@@ -66,6 +66,7 @@ export type InstalledTestPlugin = {
 	client?: Client;
 	active: boolean;
 	pluginId: PluginId;
+	activationId: string;
 	pluginSlug: PluginSlug;
 	scope: "system" | "user";
 	sourceHash: string;
@@ -277,6 +278,7 @@ export const installTestPlugin = (
 			slug: input.script.slug,
 			pluginId: operationResult.pluginId,
 			pluginSlug: PluginSlug.make(pluginSlug),
+			activationId: operationResult.activationId,
 			installationId: operationResult.installationId,
 			configRevisionId: operationResult.configRevisionId,
 			scope: input.scope === "system" ? "system" : "user",
@@ -383,6 +385,7 @@ export const installTestPluginBundle = (
 			client: input.client,
 			pluginId: operationResult.pluginId,
 			pluginSlug: PluginSlug.make(pluginSlug),
+			activationId: operationResult.activationId,
 			installationId: operationResult.installationId,
 			configRevisionId: operationResult.configRevisionId,
 			scope: input.scope === "system" ? "system" : "user",
@@ -501,6 +504,7 @@ export const reinstallTestPluginScript = (
 			scriptIds: nextScriptIds,
 			pluginSlug: installed.pluginSlug,
 			pluginId: operationResult.pluginId,
+			activationId: operationResult.activationId,
 			installationId: operationResult.installationId,
 			configRevisionId: operationResult.configRevisionId,
 			scriptId: updatesPrimaryScript ? scriptId : installed.scriptId,
@@ -525,13 +529,17 @@ export const uninstallTestPluginStrict = (installed: InstalledTestPlugin) =>
 		if (installed.scope === "system") {
 			yield* getApiClient().call(
 				(c) =>
-					c.testSupport.uninstallSystemPlugin({ params: { pluginSlug: installed.pluginSlug } }),
+					c.testSupport.uninstallSystemPlugin({
+						params: { pluginSlug: installed.pluginSlug, activationId: installed.activationId },
+					}),
 				adminHeaders(),
 			);
 		} else {
 			const client = requirePresent(installed.client, "User test plugin has no client");
 			yield* client.call((c) =>
-				c.plugins.uninstall({ params: { pluginSlug: installed.pluginSlug } }),
+				c.plugins.uninstall({
+					params: { pluginSlug: installed.pluginSlug, activationId: installed.activationId },
+				}),
 			);
 		}
 		installed.active = false;

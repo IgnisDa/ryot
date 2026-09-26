@@ -33,13 +33,15 @@ describe("OpenAPI documentation", () => {
 			expect(spec.paths["/plugins/{pluginSlug}/state"]?.patch?.responses[status]).toBeDefined();
 		}
 		expect(spec.paths["/plugins"]?.post?.description).toContain("source file map");
-		expect(spec.paths["/plugins/{pluginSlug}"]?.delete?.responses["409"]).toBeDefined();
+		expect(
+			spec.paths["/plugins/{pluginSlug}/{activationId}"]?.delete?.responses["409"],
+		).toBeDefined();
 		const systemPlugins = spec.paths["/test-support/system-plugins"];
 		expect(systemPlugins?.post?.security).toEqual([{ adminToken: [] }]);
 		expect(systemPlugins?.get).toBeUndefined();
-		expect(spec.paths["/test-support/system-plugins/{pluginSlug}"]?.delete?.security).toEqual([
-			{ adminToken: [] },
-		]);
+		expect(
+			spec.paths["/test-support/system-plugins/{pluginSlug}/{activationId}"]?.delete?.security,
+		).toEqual([{ adminToken: [] }]);
 	});
 
 	it("documents OAuth and API-key authentication without Better Auth cookie internals", () => {
