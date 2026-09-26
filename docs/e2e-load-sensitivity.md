@@ -7,12 +7,11 @@ targeted experiments on the same host.
 ## Summary
 
 PostgreSQL is not the bottleneck: during loaded batches it showed at most one active query and no
-lock waits, and individual spans stayed in the low milliseconds. Failures come from three sources:
+lock waits, and individual spans stayed in the low milliseconds. Failures come from two sources:
 long serial chains of fast steps that no server timeout bounds, until they cross a test timeout or
-Bun's idle timeout; state shared across files (global entities, monitored entities, and the growing
-user count); and a Better Auth transaction adapter leaking into unrelated requests. Increasing
-`maxWorkers` lengthens the chains, grows the shared state faster, and creates more of the pool waits
-the leak needs.
+Bun's idle timeout; and state shared across files (global entities, monitored entities, and the
+growing user count). Increasing `maxWorkers` lengthens the chains and grows the shared state
+faster.
 
 ## Serial automation chains inside `POST /events`
 
@@ -119,32 +118,6 @@ finalizer uninstalled it again, receiving `PluginNotFoundError`. This produced t
 `e2e/src/api/kernel/integrations/plugin-provider-redaction.test.ts`, and matches the
 `PluginNotFoundError` failures in `imports.test.ts` and `integrations.test.ts` from other runs. Any
 post-commit work that runs inside a request fiber is exposed to the same interruption.
-
-## Better Auth transaction adapters leak across requests
-
-Status: measured; mechanism reproduced.
-
-Better Auth resolves its database adapter through an `AsyncLocalStorage` store
-(`getCurrentAdapter` in `@better-auth/core/context`): inside `runWithTransaction` the store holds
-the transaction adapter. Ryot's adapter (`kernel/backend/src/modules/auth/effect-postgres-adapter.ts`)
-runs that transaction as an Effect fiber, and Effect resumes waiting fibers from whichever
-asynchronous context wakes them. A fiber of an unrelated request that is woken while the store is
-set, for example by a pool connection released inside the transaction, keeps the store, including
-through its later promises. Its later Better Auth calls, such as `internalAdapter.updateUser`, then
-run through the other request's transaction adapter and its captured Effect context.
-
-In one full run a single Better Auth transaction committed at 11:08:47. Five later statements
-executed under that transaction's trace, each failing within 0.05 milliseconds on its closed
-connection, and each coincided with one 500: `PATCH /api/user-settings/preferences`
-(`DbError: Connection is closed`) and four god-mode requests (`/api/god-mode/users/provision` and
-`/disable/set`, mapped to `persistence-failed`). A standalone script shows a pool waiter woken
-inside `AsyncLocalStorage.run` keeps the store, and an instrumented server under concurrent sign-ups
-caught `updateUser` executing through a transaction adapter 433 milliseconds after that transaction
-ended. When the connection is still open, such a statement runs on a connection already returned to
-the pool, possibly inside another request's transaction, and succeeds silently.
-
-The god-mode routes map every `DbError` to `persistence-failed` without logging it
-(`kernel/backend/src/modules/god-mode/routes.ts`), which hid this cause.
 
 ## Sign-up holds a transaction while its hooks take more connections
 
