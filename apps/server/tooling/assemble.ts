@@ -25,6 +25,8 @@ import {
 import { readPluginArchive } from "@ryot-app/plugin-archive";
 import { Effect, FileSystem, Layer, Path, Schema } from "effect";
 
+import { SandboxSmokeFixturesBuildLive } from "./build-sandbox-smoke-fixtures";
+
 const ShippedPlugins = Schema.fromJsonString(Schema.Array(Schema.String));
 const serverRoot = Bun.fileURLToPath(new URL("..", import.meta.url));
 
@@ -53,6 +55,9 @@ export const assemble = Effect.gen(function* () {
 	const path = yield* Path.Path;
 	const slugs = yield* readShippedSlugs;
 	yield* prepareLayout;
+	yield* Effect.scoped(Layer.build(SandboxSmokeFixturesBuildLive));
+	yield* fs.remove("sandboxd", { force: true, recursive: true });
+	yield* fs.copy(path.resolve(serverRoot, "../../kernel/sandboxd/dist"), "sandboxd");
 	const shippedArtifacts: PluginClientArtifact[] = [];
 	for (const slug of slugs) {
 		const destination = path.join("plugins", `${slug}.zip`);

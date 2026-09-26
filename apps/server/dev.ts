@@ -67,7 +67,7 @@ const program = Effect.gen(function* () {
 	const version = yield* resolveVersion;
 
 	const generated = yield* runCommand(
-		turboBuild("@ryot-app/kernel-backend", "@ryot-app/kernel-renderers"),
+		turboBuild("@ryot-app/sandboxd", "@ryot-app/kernel-renderers"),
 	);
 	if (generated !== 0) {
 		yield* failWith(generated);
