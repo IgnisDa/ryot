@@ -1,17 +1,6 @@
 import { PgClient } from "@effect/sql-pg";
 import { SandboxRunError } from "@ryot-app/contract/errors";
-import {
-	Clock,
-	Context,
-	Deferred,
-	Effect,
-	Layer,
-	Option,
-	Pool,
-	Result,
-	Schema,
-	Semaphore,
-} from "effect";
+import { Clock, Context, Deferred, Effect, Layer, Option, Pool, Result, Schema } from "effect";
 import type { Scope } from "effect";
 import { Reactivity } from "effect/reactivity";
 
@@ -37,7 +26,7 @@ const runBytes =
 	8 * SANDBOX_LIMITS.bridge.responseBytes +
 	2 * SIDECAR_PROTOCOL_LIMITS.messageBytes.done;
 
-const reservationSchema = Schema.Struct({ journal: Schema.Boolean, instance: Schema.String });
+const reservationSchema = Schema.Struct({ instance: Schema.String, journalBytes: Schema.Int });
 const laneSchema = Schema.Struct({
 	lane: SidecarLane,
 	generation: Schema.Int,
@@ -101,7 +90,6 @@ export class SandboxSidecarAdmission extends Context.Service<SandboxSidecarAdmis
 			const budget = yield* Effect.fromResult(
 				sandboxMemoryBudgetBytes(config.sandbox.memoryBudgetMiB, process.constrainedMemory()),
 			);
-			const global = yield* Semaphore.make(concurrency);
 			const reactivity = yield* Reactivity.make;
 			const database = yield* Pool.makeWithTTL({
 				min: 0,
@@ -113,13 +101,15 @@ export class SandboxSidecarAdmission extends Context.Service<SandboxSidecarAdmis
 				}).pipe(Effect.provideService(Reactivity.Reactivity, reactivity)),
 			});
 			const changed = new Set<Deferred.Deferred<void>>();
+			const admissionChanged = new Set<Deferred.Deferred<void>>();
 			const instances = new Map<string, { bytes: number; generation: number }>();
 			const leases = new WeakMap<SandboxAdmissionLease["Service"], LeaseState>();
 			const lanes = new Map<string, number>();
-			const state = { runs: 0, waiting: 0, bytes: 2 * processBytes };
+			const state = { runs: 0, waiting: 0, reservations: 0, bytes: 2 * processBytes };
 			const notify = () => {
-				const waiting = [...changed];
+				const waiting = [...changed, ...admissionChanged];
 				changed.clear();
+				admissionChanged.clear();
 				for (const waiter of waiting) {
 					Deferred.doneUnsafe(waiter, Effect.void);
 				}
@@ -223,22 +213,20 @@ export class SandboxSidecarAdmission extends Context.Service<SandboxSidecarAdmis
 				input: typeof reservationSchema.Type,
 			) {
 				const waitingAt = yield* Clock.currentTimeMillis;
-				if (state.waiting >= concurrency) {
-					return yield* limitError("Sandbox ephemeral admission queue is full");
+				if (
+					!Number.isSafeInteger(input.journalBytes) ||
+					input.journalBytes < 2 ||
+					input.journalBytes > SANDBOX_LIMITS.journalBytes
+				) {
+					return yield* limitError("Sandbox journal reservation is invalid");
 				}
-				state.waiting++;
-				yield* Effect.uninterruptibleMask((restore) =>
-					Effect.gen(function* () {
-						yield* restore(global.take(1)).pipe(
-							Effect.ensuring(
-								Effect.sync(() => {
-									state.waiting--;
-								}),
-							),
-						);
-						yield* Effect.addFinalizer(() => global.release(1));
-					}),
-				);
+				const initialBytes = journalCopies * input.journalBytes;
+				if (
+					initialBytes + runBytes + (resident(input.instance) ? 0 : processBytes) >
+					budget - 2 * processBytes
+				) {
+					return yield* limitError("Sandbox execution cannot fit the required idle topology");
+				}
 				const lease: LeaseState = {
 					bytes: 0,
 					closed: false,
@@ -249,28 +237,62 @@ export class SandboxSidecarAdmission extends Context.Service<SandboxSidecarAdmis
 					startup: undefined,
 					instance: input.instance,
 				};
-				yield* Effect.addFinalizer(() =>
-					Effect.sync(() => {
-						lease.closed = true;
-						releaseRun(lease);
-						state.bytes -= lease.bytes;
-						lease.bytes = 0;
-						notify();
+				yield* Effect.uninterruptibleMask((restore) =>
+					Effect.gen(function* () {
+						let waiting = false;
+						yield* Effect.addFinalizer(() =>
+							Effect.sync(() => {
+								lease.closed = true;
+								releaseRun(lease);
+								if (lease.bytes > 0) {
+									state.reservations--;
+									state.bytes -= lease.bytes;
+									lease.bytes = 0;
+								}
+								notify();
+							}),
+						);
+						return yield* Effect.gen(function* () {
+							for (;;) {
+								if (lease.closed) {
+									return yield* limitError("Sandbox reservation owner closed while waiting");
+								}
+								const startupBytes =
+									resident(input.instance) || (instances.get(input.instance)?.bytes ?? 0) > 0
+										? 0
+										: processBytes;
+								const amount = initialBytes + runBytes + startupBytes;
+								if (state.reservations < concurrency && state.bytes + amount <= budget) {
+									state.reservations++;
+									state.bytes += amount;
+									lease.bytes = amount;
+									lease.journalBytes = initialBytes;
+									lease.startupBytes = startupBytes;
+									return undefined;
+								}
+								if (!waiting) {
+									if (state.waiting >= concurrency) {
+										return yield* limitError("Sandbox ephemeral admission queue is full");
+									}
+									waiting = true;
+									state.waiting++;
+								}
+								const waiter = yield* Deferred.make<void>();
+								admissionChanged.add(waiter);
+								yield* restore(Deferred.await(waiter)).pipe(
+									Effect.ensuring(Effect.sync(() => admissionChanged.delete(waiter))),
+								);
+							}
+						}).pipe(
+							Effect.ensuring(
+								Effect.sync(() => {
+									if (waiting) {
+										state.waiting--;
+									}
+								}),
+							),
+						);
 					}),
-				);
-				const initialBytes = journalCopies * (input.journal ? SANDBOX_LIMITS.journalBytes : 2);
-				const startupBytes =
-					resident(input.instance) || (instances.get(input.instance)?.bytes ?? 0) > 0
-						? 0
-						: processBytes;
-				yield* reserveBytes(
-					initialBytes + runBytes + startupBytes,
-					() => {
-						lease.bytes = initialBytes + runBytes + startupBytes;
-						lease.journalBytes = initialBytes;
-						lease.startupBytes = startupBytes;
-					},
-					() => !lease.closed,
 				);
 				const retainJournal = Effect.fnUntraced(function* (
 					retainedBytes: number,
