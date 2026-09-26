@@ -37,13 +37,37 @@ export const EventUpdatePatch = strictStruct({
 
 export type EventUpdatePatch = typeof EventUpdatePatch.Type;
 
-export const EventWritePrecondition = strictStruct({
+export const EventSnapshotPrecondition = strictStruct({
 	entityId: AutomationEventSnapshot.fields.entityId,
 	updatedAt: AutomationEventSnapshot.fields.updatedAt,
 	occurredAt: AutomationEventSnapshot.fields.occurredAt,
 	properties: AutomationEventSnapshot.fields.properties,
 	sessionEntityId: AutomationEventSnapshot.fields.sessionEntityId,
 });
+
+export const EventFieldPrecondition = strictStruct({
+	kind: Schema.Literal("fields"),
+	entityId: AutomationEventSnapshot.fields.entityId,
+	occurredAt: AutomationEventSnapshot.fields.occurredAt,
+	sessionEntityId: AutomationEventSnapshot.fields.sessionEntityId,
+	absentProperties: Schema.Array(Schema.String).pipe(Schema.check(Schema.isMaxLength(100))),
+	properties: Schema.Record(Schema.String, JsonValue).pipe(
+		Schema.check(Schema.makeFilter((properties) => Object.keys(properties).length <= 100)),
+	),
+}).pipe(
+	Schema.check(
+		Schema.makeFilter(
+			({ properties, absentProperties }) =>
+				new Set(absentProperties).size === absentProperties.length &&
+				absentProperties.every((key) => !Object.hasOwn(properties, key)),
+		),
+	),
+);
+
+export const EventWritePrecondition = Schema.Union([
+	EventSnapshotPrecondition,
+	EventFieldPrecondition,
+]);
 export type EventWritePrecondition = typeof EventWritePrecondition.Type;
 
 export const UpdateEventItem = strictStruct({
