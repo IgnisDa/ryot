@@ -230,6 +230,25 @@ describe("AppSchema rule semantics", () => {
 	});
 
 	it.each([
+		["__proto__", "toString"],
+		["constructor"],
+		["settings", "__proto__", "toString"],
+		["enabled", "toString"],
+	])("ignores inherited rule path segments %j", (...path) => {
+		expect(getAppPropertyDefinitionAtPath(schema.fields, path)).toBeUndefined();
+		expect(getAppSchemaValueAtPath({ settings: {}, enabled: true }, path)).toBeUndefined();
+	});
+
+	it("resolves explicitly declared prototype-named properties", () => {
+		const fields = { ["__proto__"]: schema.fields.settings };
+		const values = { ["__proto__"]: { secret: "value" } };
+		expect(getAppPropertyDefinitionAtPath(fields, ["__proto__", "secret"])).toBe(
+			schema.fields.settings.properties.secret,
+		);
+		expect(getAppSchemaValueAtPath(values, ["__proto__", "secret"])).toBe("value");
+	});
+
+	it.each([
 		["all", { operator: "all", conditions: [{ path: ["present"], operator: "exists" }] }, true],
 		[
 			"any",

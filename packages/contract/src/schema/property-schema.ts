@@ -709,6 +709,9 @@ export const getAppPropertyDefinitionAtPath = (
 	let property: AppPropertyDefinition | undefined;
 	let currentFields = fields;
 	for (const segment of path) {
+		if (!Object.hasOwn(currentFields, segment)) {
+			return undefined;
+		}
 		property = currentFields[segment];
 		if (property === undefined) {
 			return undefined;
@@ -721,7 +724,12 @@ export const getAppPropertyDefinitionAtPath = (
 export const getAppSchemaValueAtPath = (input: unknown, path: AppSchemaRulePath) => {
 	let value = input;
 	for (const segment of path) {
-		if (typeof value !== "object" || value === null || Array.isArray(value)) {
+		if (
+			typeof value !== "object" ||
+			value === null ||
+			Array.isArray(value) ||
+			!Object.hasOwn(value, segment)
+		) {
 			return undefined;
 		}
 		value = Reflect.get(value, segment);
