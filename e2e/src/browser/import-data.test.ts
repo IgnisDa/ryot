@@ -1,17 +1,21 @@
-import { Effect, Fiber, Option, Stream } from "effect";
+import { ImportRunFailuresExport } from "@ryot-app/contract/modules/imports/schemas";
+import { Effect, Fiber, FileSystem, Option, Schema, Stream } from "effect";
 import { Playwright, PlaywrightSpawner } from "effect-playwright";
 
 import {
 	createTestUser,
+	installTestHarvestHandleImportPlugin,
 	installTestImportPinningPlugin,
 	type InstalledTestPlugin,
 	uninstallTestPlugin,
 } from "~/fixtures/kernel";
 import { signInThroughHostedOAuth } from "~/support/browser";
-import { afterAll, beforeAll, expect, it, runPromise } from "~/support/effect-test";
+import { afterAll, assert, beforeAll, expect, it, runPromise } from "~/support/effect-test";
 import { getFrontendUrl } from "~/support/harness-target";
 
 const SUITE_ID = crypto.randomUUID();
+
+const HARVEST_IMPORT_SOURCE = `e2e_harvest_handle_import_${SUITE_ID.replaceAll("-", "_")}`;
 
 const SOURCE_NAME = "OpenScale";
 
@@ -26,6 +30,7 @@ const OPENSCALE_SAMPLE_CSV = `dateTime,weight,bmi,fat,water,muscle,comment
 let email: string;
 let password: string;
 let slowImport: { plugin: InstalledTestPlugin; source: string } | undefined;
+let harvestImport: InstalledTestPlugin | undefined;
 
 const settingsSidebar = (page: Playwright.Page) => page.getByTestId("settings-sidebar");
 
@@ -88,12 +93,14 @@ const startOpenScaleImport = (page: Playwright.Page) =>
 		yield* wizard(page).waitFor({ state: "hidden" });
 	});
 
-const startSlowImport = (page: Playwright.Page) =>
+const startImportFromSource = (page: Playwright.Page, sourceName: string) =>
 	Effect.gen(function* () {
 		yield* page.getByRole("button", { name: "Start an import" }).first().click();
 		yield* wizard(page).waitFor({ state: "visible" });
-		yield* wizard(page).getByLabel("Search services").fill("E2E import pinning");
-		yield* wizard(page).getByRole("button", { name: "Import from E2E import pinning" }).click();
+		yield* wizard(page).getByLabel("Search services").fill(sourceName);
+		yield* wizard(page)
+			.getByRole("button", { name: `Import from ${sourceName}` })
+			.click();
 		const continueButton = wizard(page).getByRole("button", { name: "Continue" });
 		if ((yield* continueButton.count) > 0) {
 			yield* continueButton.click();
@@ -101,6 +108,9 @@ const startSlowImport = (page: Playwright.Page) =>
 		yield* wizard(page).getByRole("button", { name: "Start import" }).click();
 		yield* wizard(page).waitFor({ state: "hidden" });
 	});
+
+const startSlowImport = (page: Playwright.Page) =>
+	startImportFromSource(page, "E2E import pinning");
 
 const withImportsBrowser = <E, R>(run: (page: Playwright.Page) => Effect.Effect<void, E, R>) =>
 	Effect.gen(function* () {
@@ -114,6 +124,7 @@ beforeAll(() =>
 	runPromise(
 		Effect.gen(function* () {
 			slowImport = yield* installTestImportPinningPlugin;
+			harvestImport = yield* installTestHarvestHandleImportPlugin(101, HARVEST_IMPORT_SOURCE);
 			const user = yield* createTestUser();
 			email = user.email;
 			password = user.password;
@@ -122,6 +133,7 @@ beforeAll(() =>
 );
 
 afterAll(() => slowImport && runPromise(uninstallTestPlugin(slowImport.plugin)));
+afterAll(() => harvestImport && runPromise(uninstallTestPlugin(harvestImport)));
 
 it.live("starts, follows and deletes an import from settings", () =>
 	withImportsBrowser((page) =>
@@ -151,6 +163,37 @@ it.live("starts, follows and deletes an import from settings", () =>
 			yield* page.waitForURL((url) => url.pathname === "/settings/import-data");
 			yield* page.getByText("No imports yet").waitFor({ state: "visible" });
 			expect(yield* importRow(page).count).toBe(0);
+		}),
+	).pipe(PlaywrightSpawner.withBrowser),
+);
+
+it.live("downloads failures beyond the first page from an import detail", () =>
+	withImportsBrowser((page) =>
+		Effect.gen(function* () {
+			const fs = yield* FileSystem.FileSystem;
+			yield* openImportData(page);
+			yield* startImportFromSource(page, "E2E harvest handle import");
+
+			const row = page.getByRole("link", { name: /Open the E2E harvest handle import import/ });
+			yield* row.waitFor({ state: "visible" });
+			yield* row.click();
+			yield* page.getByRole("heading", { level: 1, name: "E2E harvest handle import" }).waitFor();
+			yield* page.getByRole("button", { name: "Show more failures" }).waitFor();
+
+			const downloadFiber = yield* page
+				.eventStream("download")
+				.pipe(Stream.runHead, Effect.forkChild({ startImmediately: true }));
+			yield* page.getByRole("button", { name: "Download errors" }).click();
+			const download = Option.getOrThrow(yield* Fiber.join(downloadFiber));
+			expect(download.suggestedFilename()).toMatch(/^ryot-import-failures-.+\.json$/);
+			const path = Option.getOrThrow(yield* download.path);
+			assert.isNotNull(path);
+			const bytes = yield* fs.readFile(path);
+			const report = yield* Schema.decodeEffect(Schema.fromJsonString(ImportRunFailuresExport))(
+				new TextDecoder().decode(bytes),
+			);
+			expect(report.failures).toHaveLength(101);
+			expect(report.failures[100]?.sourceLabel).toBe("Harvest fixture 101");
 		}),
 	).pipe(PlaywrightSpawner.withBrowser),
 );
