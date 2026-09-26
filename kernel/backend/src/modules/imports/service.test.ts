@@ -34,6 +34,7 @@ import {
 } from "#modules/plugins/import-source-catalog";
 import { UploadIntentsService } from "#modules/uploads/intents/service";
 
+import { DataImportAdmission } from "./data-admission";
 import { ImportRunFailuresService } from "./failure-service";
 import { ImportsRepository } from "./repository";
 import { ImportSourceStateStore } from "./runtime/source-state-store";
@@ -205,6 +206,7 @@ const makeServiceLayer = (
 				databaseLayer,
 				makeAppConfigLayer(),
 				options.withConfigProvider ? makeConfigProviderLayer() : Layer.empty,
+				Layer.mock(DataImportAdmission)({}),
 				mockImportRunFailuresService({ create: () => Effect.void }),
 				makeImportSourceCatalog(options.source ?? null),
 				Layer.unwrap(

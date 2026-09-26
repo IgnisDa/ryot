@@ -49,6 +49,10 @@ export const lookupMetadata = (integrationUrl: string, title: string) =>
 export const postIntegrationWebhook = (integrationUrl: string, payload: unknown) => {
 	const { webhookToken } = resolveConnection(integrationUrl);
 	return runForIntegration(integrationUrl, (client) =>
-		client.integrations.webhook({ params: { webhookToken }, payload: JSON.stringify(payload) }),
+		client.integrations.webhook({
+			headers: {},
+			params: { webhookToken },
+			payload: JSON.stringify(payload),
+		}),
 	);
 };

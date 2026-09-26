@@ -21,7 +21,11 @@ export const integrationProvidersRecipe = defineRecipe(
 				...providers,
 				items: providers.items.map((item) => ({
 					...item,
-					commonSchema: integrationCommonSchema(item.lot, item.supportsOwnershipSync),
+					commonSchema: integrationCommonSchema(
+						item.lot,
+						item.supportsOwnershipSync,
+						item.pluginSlug !== null,
+					),
 				})),
 			}),
 		queries: {
@@ -34,11 +38,11 @@ export const integrationProvidersRecipe = defineRecipe(
 					slug: selectedField(column(provider, "slug"), Schema.String),
 					name: selectedField(column(provider, "name"), Schema.String),
 					hasScript: selectedField(column(provider, "hasScript"), Schema.Boolean),
-					pluginSlug: selectedField(column(provider, "pluginSlug"), Schema.String),
 					description: selectedField(column(provider, "description"), Schema.String),
 					settingsSchema: selectedField(column(provider, "settingsSchema"), AppSchema),
 					requiresProKey: selectedField(column(provider, "requiresProKey"), Schema.Boolean),
 					lot: selectedField(column(provider, "lot"), Schema.Literals([...integrationLots])),
+					pluginSlug: selectedField(column(provider, "pluginSlug"), Schema.NullOr(Schema.String)),
 					supportsOwnershipSync: selectedField(
 						column(provider, "supportsOwnershipSync"),
 						Schema.Boolean,

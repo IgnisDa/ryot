@@ -4,6 +4,7 @@ import { HttpApiEndpoint, HttpApiGroup, HttpApiSchema, OpenApi } from "effect/un
 import { AuthMiddleware } from "../../auth-middleware";
 import { AuthenticatedMutationEndpoint } from "../../authenticated-mutation-endpoint";
 import { ImportRunId, IntegrationId, IntegrationWebhookToken } from "../../schema/brands";
+import { ImportConflictError, ImportRequestError } from "../imports/schemas";
 import {
 	CreateIntegrationBody,
 	IntegrationNotFoundError,
@@ -50,16 +51,19 @@ export const IntegrationsGroup = HttpApiGroup.make("integrations")
 	.add(
 		HttpApiEndpoint.post("webhook", "/webhooks/integrations/:webhookToken", {
 			params: { webhookToken: IntegrationWebhookToken },
+			headers: { "idempotency-key": Schema.optional(Schema.NonEmptyString) },
 			success: Schema.Struct({ runId: ImportRunId }).pipe(HttpApiSchema.status(202)),
-			error: [
-				IntegrationRequestError.pipe(HttpApiSchema.status(400)),
-				IntegrationNotFoundError.pipe(HttpApiSchema.status(404)),
-			],
 			payload: integrationWebhookContentTypes.map((contentType) =>
 				IntegrationWebhookBody.pipe(HttpApiSchema.asText({ contentType })),
 			),
+			error: [
+				ImportRequestError.pipe(HttpApiSchema.status(400)),
+				ImportConflictError.pipe(HttpApiSchema.status(409)),
+				IntegrationRequestError.pipe(HttpApiSchema.status(400)),
+				IntegrationNotFoundError.pipe(HttpApiSchema.status(404)),
+			],
 		}).annotate(
 			OpenApi.Description,
-			"Receive an integration webhook payload using its secret capability token.",
+			"Receive an integration webhook payload using its secret capability token. Data webhooks require an Idempotency-Key header.",
 		),
 	);

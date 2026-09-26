@@ -58,31 +58,54 @@ const querySourcesForSession = (database: DatabaseSession["Service"]) =>
 				.where(and(eq(view.userId, userId), predicate)),
 		);
 		return rows
-			.map(
+			.flatMap(
 				({
 					script,
+					pluginId,
 					exportHelp,
+					pluginSlug,
+					pluginScope,
+					installationId,
 					configRevisionId,
 					pluginRevisionId,
 					...row
-				}): { readonly script: CatalogScript | null; readonly source: RegisteredImportSource } => ({
-					script: script && {
-						...script,
-						pluginId: row.pluginId,
-						id: SandboxScriptId.make(script.id),
-					},
-					source: {
-						...row,
-						...(exportHelp ? { exportHelp } : {}),
-						configContext: {
-							pluginRevisionId,
-							kind: "revision" as const,
-							configSchema: row.configSchema,
-							pluginConfigRevisionId: configRevisionId,
-							ownerUserId: row.pluginScope === "user" ? userId : null,
+				}): ReadonlyArray<{
+					readonly script: CatalogScript | null;
+					readonly source: RegisteredImportSource;
+				}> => {
+					if (
+						pluginId === null ||
+						pluginSlug === null ||
+						installationId === null ||
+						pluginRevisionId === null ||
+						pluginScope === null
+					) {
+						return [];
+					}
+
+					const result: {
+						readonly script: CatalogScript | null;
+						readonly source: RegisteredImportSource;
+					} = {
+						script: script && { ...script, pluginId, id: SandboxScriptId.make(script.id) },
+						source: {
+							...row,
+							pluginId,
+							pluginSlug,
+							pluginScope,
+							installationId,
+							...(exportHelp ? { exportHelp } : {}),
+							configContext: {
+								pluginRevisionId,
+								kind: "revision" as const,
+								configSchema: row.configSchema,
+								pluginConfigRevisionId: configRevisionId,
+								ownerUserId: pluginScope === "user" ? userId : null,
+							},
 						},
-					},
-				}),
+					};
+					return [result];
+				},
 			)
 			.sort(
 				(left, right) =>

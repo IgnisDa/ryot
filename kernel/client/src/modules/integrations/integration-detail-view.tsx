@@ -85,6 +85,13 @@ export function IntegrationDetailView(props: {
 			) : (
 				<IntegrationWebhookRow onCopy={props.onCopy} webhookUrl={props.integration.webhookUrl} />
 			)}
+			{props.integration.pluginSlug === null ? (
+				<p className="text-sm leading-6 text-text-muted">
+					Send a JSON data document with Content-Type: application/json and an Idempotency-Key
+					header. Reuse the key only when retrying the same submission. A new key appends new
+					records.
+				</p>
+			) : null}
 			{props.provider === undefined ? (
 				<p className="text-sm text-text-muted">
 					This service is no longer available on your server, so its settings cannot be edited.

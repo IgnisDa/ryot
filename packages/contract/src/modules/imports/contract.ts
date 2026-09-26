@@ -16,8 +16,11 @@ export const ImportsGroup = HttpApiGroup.make("imports")
 	.add(
 		AuthenticatedMutationEndpoint.post("allowed")("createRun", "/imports/runs", {
 			payload: CreateImportRunBody,
-			error: [ImportRequestError.pipe(HttpApiSchema.status(400))],
 			success: Schema.Struct({ id: Schema.String }).pipe(HttpApiSchema.status(201)),
+			error: [
+				ImportRequestError.pipe(HttpApiSchema.status(400)),
+				ImportConflictError.pipe(HttpApiSchema.status(409)),
+			],
 		}).annotate(OpenApi.Description, "Creates an import run"),
 	)
 	.add(

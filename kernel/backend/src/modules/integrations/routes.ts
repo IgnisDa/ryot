@@ -39,13 +39,14 @@ export const IntegrationsRoutesLive = HttpApiBuilder.group(
 					return yield* service.syncAll(user.id).pipe(dieOnDbError);
 				}),
 			)
-			.handle("webhook", ({ params, payload, request }) =>
+			.handle("webhook", ({ params, payload, request, headers }) =>
 				Effect.gen(function* () {
 					const service = yield* IntegrationsService;
 					return yield* service
 						.handleWebhook({
 							rawBody: payload,
 							webhookToken: params.webhookToken,
+							submissionKey: headers["idempotency-key"],
 							contentType: request.headers["content-type"] ?? "application/json",
 						})
 						.pipe(dieOnDbError);

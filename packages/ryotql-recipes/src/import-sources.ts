@@ -27,10 +27,10 @@ export const importSourcesRecipe = defineRecipe(
 				selection: {
 					id: selectedField(column(source, "id"), Schema.String),
 					exportHelp: selectedField(column(source, "exportHelp"), exportHelp),
-					pluginSlug: selectedField(column(source, "pluginSlug"), Schema.String),
 					isStartable: selectedField(column(source, "isStartable"), Schema.Boolean),
 					slug: selectedField(column(source, "slug"), PluginImportSource.fields.slug),
 					name: selectedField(column(source, "name"), PluginImportSource.fields.name),
+					pluginSlug: selectedField(column(source, "pluginSlug"), Schema.NullOr(Schema.String)),
 					inputSchema: selectedField(
 						column(source, "inputSchema"),
 						PluginImportSource.fields.inputSchema,
