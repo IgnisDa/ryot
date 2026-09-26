@@ -32,22 +32,24 @@ export const admissionDatabaseLayer = Layer.unwrap(
 		const schema = Layer.effectDiscard(
 			Effect.gen(function* () {
 				const session = yield* DatabaseSession;
-				const db = yield* session.current;
 				const statements = yield* baselineMigrationStatements();
-				yield* Effect.acquireRelease(db.execute(sql`create schema ${sql.identifier(name)}`), () =>
-					db.execute(sql`drop schema ${sql.identifier(name)} cascade`).pipe(Effect.orDie),
+				yield* session.run((db) =>
+					Effect.acquireRelease(db.execute(sql`create schema ${sql.identifier(name)}`), () =>
+						db.execute(sql`drop schema ${sql.identifier(name)} cascade`).pipe(Effect.orDie),
+					),
 				);
 				yield* session.transaction(
-					Effect.gen(function* () {
-						const transaction = yield* session.current;
-						yield* applyBaselineMigration(statements, (statement) =>
-							transaction.execute(sql.raw(statement)),
-						);
-						yield* transaction.insert(tables.user).values([
-							{ id: alice, name: "Alice", preferences: {}, email: "alice@example.test" },
-							{ id: bob, name: "Bob", preferences: {}, email: "bob@example.test" },
-						]);
-					}),
+					session.run((transaction) =>
+						Effect.gen(function* () {
+							yield* applyBaselineMigration(statements, (statement) =>
+								transaction.execute(sql.raw(statement)),
+							);
+							yield* transaction.insert(tables.user).values([
+								{ id: alice, name: "Alice", preferences: {}, email: "alice@example.test" },
+								{ id: bob, name: "Bob", preferences: {}, email: "bob@example.test" },
+							]);
+						}),
+					),
 				);
 			}),
 		);

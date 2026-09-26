@@ -27,23 +27,27 @@ const setInstallation = Effect.fn(function* (
 	installationId: string,
 	patch: Partial<typeof tables.pluginInstallation.$inferInsert>,
 ) {
-	const db = yield* (yield* DatabaseSession).current;
-	yield* db
-		.update(tables.pluginInstallation)
-		.set(patch)
-		.where(eq(tables.pluginInstallation.id, installationId));
+	const session = yield* DatabaseSession;
+	yield* session.run((db) =>
+		db
+			.update(tables.pluginInstallation)
+			.set(patch)
+			.where(eq(tables.pluginInstallation.id, installationId)),
+	);
 });
 
 const userPlugin = Effect.fn(function* (pluginId: string) {
-	const db = yield* (yield* DatabaseSession).current;
-	const [row] = yield* db
-		.select({
-			isListed: tables.userPlugin.isListed,
-			isExecutable: tables.userPlugin.isExecutable,
-			isDefinitionEffective: tables.userPlugin.isDefinitionEffective,
-		})
-		.from(tables.userPlugin)
-		.where(and(eq(tables.userPlugin.userId, owner), eq(tables.userPlugin.pluginId, pluginId)));
+	const session = yield* DatabaseSession;
+	const [row] = yield* session.run((db) =>
+		db
+			.select({
+				isListed: tables.userPlugin.isListed,
+				isExecutable: tables.userPlugin.isExecutable,
+				isDefinitionEffective: tables.userPlugin.isDefinitionEffective,
+			})
+			.from(tables.userPlugin)
+			.where(and(eq(tables.userPlugin.userId, owner), eq(tables.userPlugin.pluginId, pluginId))),
+	);
 	return row ?? null;
 });
 
@@ -169,7 +173,7 @@ describe("definition views", () => {
 	layer(revisionDatabaseLayer)((test) => {
 		test.effect("executes only plugins whose configuration is pinned to the active revision", () =>
 			Effect.gen(function* () {
-				const db = yield* (yield* DatabaseSession).current;
+				const session = yield* DatabaseSession;
 				const plugins = yield* PluginRepository;
 				const system = yield* installRevisionPackage(revisionPackage());
 				const alpha = yield* installRevisionPackage(revisionPackage("alpha"), owner);
@@ -183,23 +187,27 @@ describe("definition views", () => {
 				});
 				expect((yield* userPlugin(alpha.pluginId))?.isExecutable).toBe(false);
 
-				const [pinned] = yield* db
-					.select({ configRevisionId: tables.globalPlugin.configRevisionId })
-					.from(tables.globalPlugin)
-					.where(eq(tables.globalPlugin.pluginId, system.pluginId));
+				const [pinned] = yield* session.run((db) =>
+					db
+						.select({ configRevisionId: tables.globalPlugin.configRevisionId })
+						.from(tables.globalPlugin)
+						.where(eq(tables.globalPlugin.pluginId, system.pluginId)),
+				);
 				assert(pinned?.configRevisionId);
 				yield* plugins.persist(revisionPackage("fixture", "v2"), {
 					ownerId: null,
 					slug: "fixture",
 					scope: "system",
 				});
-				const [unpinned] = yield* db
-					.select({
-						isExecutable: tables.globalPlugin.isExecutable,
-						configRevisionId: tables.globalPlugin.configRevisionId,
-					})
-					.from(tables.globalPlugin)
-					.where(eq(tables.globalPlugin.pluginId, system.pluginId));
+				const [unpinned] = yield* session.run((db) =>
+					db
+						.select({
+							isExecutable: tables.globalPlugin.isExecutable,
+							configRevisionId: tables.globalPlugin.configRevisionId,
+						})
+						.from(tables.globalPlugin)
+						.where(eq(tables.globalPlugin.pluginId, system.pluginId)),
+				);
 				expect(unpinned).toEqual({ isExecutable: false, configRevisionId: null });
 				expect((yield* userPlugin(system.pluginId))?.isExecutable).toBe(false);
 
@@ -214,18 +222,21 @@ describe("definition views", () => {
 	layer(revisionDatabaseLayer)((test) => {
 		test.effect("upserts kernel definitions by slug and prunes removed rows", () =>
 			Effect.gen(function* () {
-				const db = yield* (yield* DatabaseSession).current;
+				const session = yield* DatabaseSession;
 				const definitions = yield* DefinitionRepository;
 				const source = kernelDefinitionSource();
 				yield* seedKernelDefinitions(source);
-				const kernelEntities = db
-					.select({
-						id: tables.definitionEntitySchema.id,
-						name: tables.definitionEntitySchema.name,
-					})
-					.from(tables.definitionEntitySchema)
-					.where(isNull(tables.definitionEntitySchema.pluginRevisionId));
-				const [seeded] = yield* kernelEntities;
+				const kernelEntities = () =>
+					session.run((db) =>
+						db
+							.select({
+								id: tables.definitionEntitySchema.id,
+								name: tables.definitionEntitySchema.name,
+							})
+							.from(tables.definitionEntitySchema)
+							.where(isNull(tables.definitionEntitySchema.pluginRevisionId)),
+					);
+				const [seeded] = yield* kernelEntities();
 				assert(seeded);
 
 				const [collection] = source.entitySchemas;
@@ -242,7 +253,7 @@ describe("definition views", () => {
 					],
 				});
 
-				expect(yield* kernelEntities).toEqual([{ id: seeded.id, name: "Renamed" }]);
+				expect(yield* kernelEntities()).toEqual([{ id: seeded.id, name: "Renamed" }]);
 				const snapshot = yield* definitions.getUserSnapshot(UserId.make("recipient"), effective);
 				expect(snapshot.relationshipSchemas).toEqual({});
 				expect(Object.keys(snapshot.entitySchemas["collection"]?.eventSchemas ?? {})).toEqual([

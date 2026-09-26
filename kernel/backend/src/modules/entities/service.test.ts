@@ -243,11 +243,12 @@ const entitiesLayer = (options: TestOptions = {}) =>
 							after: ({ triggerId }) =>
 								Effect.gen(function* () {
 									expect(yield* session.isTransactionActive).toBe(false);
-									const db = yield* session.current;
-									const [trigger] = yield* db
-										.select()
-										.from(tables.automationTrigger)
-										.where(eq(tables.automationTrigger.id, triggerId));
+									const [trigger] = yield* session.run((db) =>
+										db
+											.select()
+											.from(tables.automationTrigger)
+											.where(eq(tables.automationTrigger.id, triggerId)),
+									);
 									assert(trigger);
 									expect(trigger.category).toBe("change");
 									return options.warnings ?? [];
@@ -256,11 +257,13 @@ const entitiesLayer = (options: TestOptions = {}) =>
 								Effect.gen(function* () {
 									yield* Ref.update(policyCalls, (all) => [...all, runId]);
 									expect(yield* session.isTransactionActive).toBe(false);
-									const db = yield* session.current;
-									const requests = yield* db
-										.select()
-										.from(tables.automationTrigger)
-										.where(eq(tables.automationTrigger.category, "request"))
+									const requests = yield* session
+										.run((db) =>
+											db
+												.select()
+												.from(tables.automationTrigger)
+												.where(eq(tables.automationTrigger.category, "request")),
+										)
 										.pipe(Effect.orDie);
 									expect(requests.length).toBeGreaterThan(0);
 									const index = Number(runId.split("-")[1]);
@@ -301,17 +304,29 @@ const entitiesLayer = (options: TestOptions = {}) =>
 			);
 			const schema = Layer.effectDiscard(
 				Effect.gen(function* () {
-					const db = yield* (yield* DatabaseSession).current;
+					const session = yield* DatabaseSession;
 					const statements = yield* baselineMigrationStatements();
-					yield* Effect.acquireRelease(db.execute(sql`create schema ${sql.identifier(name)}`), () =>
-						db.execute(sql`drop schema ${sql.identifier(name)} cascade`).pipe(Effect.orDie),
+					yield* Effect.acquireRelease(
+						session.run((db) => db.execute(sql`create schema ${sql.identifier(name)}`)),
+						() =>
+							session
+								.run((db) => db.execute(sql`drop schema ${sql.identifier(name)} cascade`))
+								.pipe(Effect.orDie),
 					);
-					yield* db.execute(sql`set search_path to ${sql.identifier(name)}, public`);
-					yield* applyBaselineMigration(statements, (statement) => db.execute(sql.raw(statement)));
+					yield* session.run((db) =>
+						Effect.gen(function* () {
+							yield* db.execute(sql`set search_path to ${sql.identifier(name)}, public`);
+							yield* applyBaselineMigration(statements, (statement) =>
+								db.execute(sql.raw(statement)),
+							);
+						}),
+					);
 					yield* (yield* DefinitionRepository.make).replaceKernelDefinitions(source);
-					yield* db
-						.insert(tables.user)
-						.values({ id: owner, name: "Owner", preferences: {}, email: "owner@example.test" });
+					yield* session.run((db) =>
+						db
+							.insert(tables.user)
+							.values({ id: owner, name: "Owner", preferences: {}, email: "owner@example.test" }),
+					);
 				}),
 			);
 			return Layer.mergeAll(
@@ -339,15 +354,15 @@ describe("EntitiesService committed lifecycle", () => {
 			() =>
 				Effect.gen(function* () {
 					const service = yield* EntitiesService;
-					const db = yield* (yield* DatabaseSession).current;
+					const session = yield* DatabaseSession;
 					const result = yield* service.create({
 						...createInput("normalized"),
 						properties: { score: 25.555, title: "numeric" },
 					});
 					expect(result.entity.properties).toEqual({ score: 25.56, title: "numeric" });
-					const changes = (yield* db.select().from(tables.automationTrigger)).find(
-						(row) => row.category === "change",
-					);
+					const changes = (yield* session.run((db) =>
+						db.select().from(tables.automationTrigger),
+					)).find((row) => row.category === "change");
 					expect(changes?.payload).toMatchObject({
 						after: { properties: { score: 25.56, title: "numeric" } },
 					});
@@ -390,7 +405,7 @@ describe("EntitiesService committed lifecycle", () => {
 		test.effect("commits in prepare without policies and after policies with the same rows", () =>
 			Effect.gen(function* () {
 				const service = yield* EntitiesService;
-				const db = yield* (yield* DatabaseSession).current;
+				const session = yield* DatabaseSession;
 				const fast = yield* service.prepareCreateStep(createInput("step-fast"));
 				assert(fast._tag === "Committed");
 				expect(fast.result.wasInserted).toBe(true);
@@ -401,9 +416,9 @@ describe("EntitiesService committed lifecycle", () => {
 				const replay = yield* service.prepareCreateStep(createInput("step-fast"));
 				assert(replay._tag === "Committed");
 				expect(replay.result.entity.id).toBe(fast.result.entity.id);
-				expect((yield* db.select().from(tables.entity)).map(({ id }) => id)).toEqual([
-					fast.result.entity.id,
-				]);
+				expect(
+					(yield* session.run((db) => db.select().from(tables.entity))).map(({ id }) => id),
+				).toEqual([fast.result.entity.id]);
 			}),
 		);
 	});
@@ -412,18 +427,20 @@ describe("EntitiesService committed lifecycle", () => {
 		test.effect("runs prepared policies outside the commit and keeps the recorded rows", () =>
 			Effect.gen(function* () {
 				const service = yield* EntitiesService;
-				const db = yield* (yield* DatabaseSession).current;
+				const session = yield* DatabaseSession;
 				const prepared = yield* service.prepareCreateStep(createInput("step-policies"));
 				assert(prepared._tag === "PoliciesRequired");
-				expect(yield* db.select().from(tables.entity)).toEqual([]);
+				expect(yield* session.run((db) => db.select().from(tables.entity))).toEqual([]);
 				const accepted = yield* service.applyMutationPolicies(prepared.pending);
 				const committed = yield* service.commitMutation(accepted);
 				expect(committed.result.entity.name).toBe("Original");
-				expect((yield* db.select().from(tables.entity)).map(({ name }) => name)).toEqual([
-					"Original",
-				]);
 				expect(
-					(yield* db.select().from(tables.automationTrigger)).map(({ category }) => category),
+					(yield* session.run((db) => db.select().from(tables.entity))).map(({ name }) => name),
+				).toEqual(["Original"]);
+				expect(
+					(yield* session.run((db) => db.select().from(tables.automationTrigger))).map(
+						({ category }) => category,
+					),
 				).toEqual(["request", "change", "change"]);
 				expect(committed.dispatch).toHaveLength(2);
 			}),
@@ -434,11 +451,11 @@ describe("EntitiesService committed lifecycle", () => {
 		test.effect("revalidates the entity schema under the catalog lock before writing", () =>
 			Effect.gen(function* () {
 				const service = yield* EntitiesService;
-				const db = yield* (yield* DatabaseSession).current;
+				const session = yield* DatabaseSession;
 				expect(yield* service.create(createInput("schema-race")).pipe(Effect.flip)).toMatchObject({
 					reason: { code: "mutation-conflict" },
 				});
-				expect(yield* db.select().from(tables.entity)).toEqual([]);
+				expect(yield* session.run((db) => db.select().from(tables.entity))).toEqual([]);
 			}),
 		);
 	});
@@ -449,7 +466,7 @@ describe("EntitiesService committed lifecycle", () => {
 			() =>
 				Effect.gen(function* () {
 					const service = yield* EntitiesService;
-					const db = yield* (yield* DatabaseSession).current;
+					const session = yield* DatabaseSession;
 					expect(
 						yield* service.create({ ...createInput("name"), name: "   " }).pipe(Effect.flip),
 					).toMatchObject({ reason: { code: "name-required" } });
@@ -471,7 +488,9 @@ describe("EntitiesService committed lifecycle", () => {
 							.upsertGlobalEntities([], providerId, command("limit"), { maximumTotal: -1 })
 							.pipe(Effect.flip),
 					).toMatchObject({ reason: { code: "invalid-maximum-total" } });
-					expect(yield* db.select().from(tables.automationTrigger)).toEqual([]);
+					expect(yield* session.run((db) => db.select().from(tables.automationTrigger))).toEqual(
+						[],
+					);
 				}),
 		);
 	});
@@ -480,7 +499,7 @@ describe("EntitiesService committed lifecycle", () => {
 			Effect.gen(function* () {
 				yield* seedProvider;
 				const service = yield* EntitiesService;
-				const db = yield* (yield* DatabaseSession).current;
+				const session = yield* DatabaseSession;
 				const items = ["one", "two"].map((externalId) => ({
 					externalId,
 					name: externalId,
@@ -493,9 +512,11 @@ describe("EntitiesService committed lifecycle", () => {
 						.upsertGlobalEntities(items, providerId, command("bulk-rollback"))
 						.pipe(Effect.flip),
 				).toMatchObject({ _tag: "DbError" });
-				expect(yield* db.select().from(tables.entity)).toEqual([]);
+				expect(yield* session.run((db) => db.select().from(tables.entity))).toEqual([]);
 				expect(
-					(yield* db.select().from(tables.automationTrigger)).map((row) => row.category),
+					(yield* session.run((db) => db.select().from(tables.automationTrigger))).map(
+						(row) => row.category,
+					),
 				).toEqual(["request", "request"]);
 			}),
 		);
@@ -504,7 +525,7 @@ describe("EntitiesService committed lifecycle", () => {
 		test.effect("rolls a delete back with its change plan", () =>
 			Effect.gen(function* () {
 				const service = yield* EntitiesService;
-				const db = yield* (yield* DatabaseSession).current;
+				const session = yield* DatabaseSession;
 				const created = yield* service.create(createInput("before-delete"));
 				expect(
 					yield* service
@@ -513,7 +534,7 @@ describe("EntitiesService committed lifecycle", () => {
 				).toMatchObject({ _tag: "DbError" });
 				expect(yield* service.getByIdAnyScope(created.entity.id)).toEqual(created.entity);
 				expect(
-					(yield* db.select().from(tables.automationTrigger))
+					(yield* session.run((db) => db.select().from(tables.automationTrigger)))
 						.filter((row) => row.category === "change")
 						.map((row) => row.operation),
 				).toEqual(["create", "batch"]);
@@ -522,20 +543,24 @@ describe("EntitiesService committed lifecycle", () => {
 	});
 	const providerId = SandboxProviderId.make("fixture-provider");
 	const seedProvider = Effect.gen(function* () {
-		const db = yield* (yield* DatabaseSession).current;
-		yield* db
-			.insert(tables.plugin)
-			.values({ scope: "system", slug: "provider", status: "disabled", id: "provider-plugin" });
-		yield* db
-			.insert(tables.sandboxProvider)
-			.values({
-				id: providerId,
-				slug: "provider",
-				name: "Provider",
-				rootEntitySchemaSlug: slug,
-				pluginId: "provider-plugin",
-				information: { source: "fixture" },
-			});
+		const session = yield* DatabaseSession;
+		yield* session.run((db) =>
+			Effect.gen(function* () {
+				yield* db
+					.insert(tables.plugin)
+					.values({ scope: "system", slug: "provider", status: "disabled", id: "provider-plugin" });
+				yield* db
+					.insert(tables.sandboxProvider)
+					.values({
+						id: providerId,
+						slug: "provider",
+						name: "Provider",
+						rootEntitySchemaSlug: slug,
+						pluginId: "provider-plugin",
+						information: { source: "fixture" },
+					});
+			}),
+		);
 	});
 	layer(entitiesLayer())((test) => {
 		test.effect(
@@ -544,7 +569,7 @@ describe("EntitiesService committed lifecycle", () => {
 				Effect.gen(function* () {
 					yield* seedProvider;
 					const service = yield* EntitiesService;
-					const db = yield* (yield* DatabaseSession).current;
+					const session = yield* DatabaseSession;
 					const input = {
 						providerId,
 						name: "Global",
@@ -591,7 +616,7 @@ describe("EntitiesService committed lifecycle", () => {
 					expect(noop.outcome.operation).toBe("noop");
 					expect(noop.entity).toEqual(updated.entity);
 					expect(
-						(yield* db.select().from(tables.automationTrigger)).filter(
+						(yield* session.run((db) => db.select().from(tables.automationTrigger))).filter(
 							(row) => row.category === "change",
 						).length,
 					).toBe(4);
@@ -603,7 +628,7 @@ describe("EntitiesService committed lifecycle", () => {
 			Effect.gen(function* () {
 				yield* seedProvider;
 				const service = yield* EntitiesService;
-				const db = yield* (yield* DatabaseSession).current;
+				const session = yield* DatabaseSession;
 				const items = ["one", "two", "three"].map((externalId) => ({
 					externalId,
 					name: externalId,
@@ -628,9 +653,9 @@ describe("EntitiesService committed lifecycle", () => {
 					{ wasInserted: false },
 					{ status: "skipped" },
 				]);
-				expect((yield* db.select().from(tables.entity)).length).toBe(2);
+				expect(yield* session.run((db) => db.select().from(tables.entity))).toHaveLength(2);
 				expect(
-					(yield* db.select().from(tables.automationTrigger)).filter(
+					(yield* session.run((db) => db.select().from(tables.automationTrigger))).filter(
 						(row) => row.category === "change",
 					).length,
 				).toBe(3);
@@ -643,13 +668,18 @@ describe("EntitiesService committed lifecycle", () => {
 			() =>
 				Effect.gen(function* () {
 					const service = yield* EntitiesService;
-					const db = yield* (yield* DatabaseSession).current;
+					const session = yield* DatabaseSession;
 					expect(yield* service.create(createInput("rollback")).pipe(Effect.flip)).toMatchObject({
 						_tag: "DbError",
 						message: "Injected planning failure after insert",
 					});
-					expect(yield* db.select().from(tables.entity)).toEqual([]);
-					const triggers = yield* db.select().from(tables.automationTrigger);
+					const [entities, triggers] = yield* session.run((db) =>
+						Effect.all([
+							db.select().from(tables.entity),
+							db.select().from(tables.automationTrigger),
+						]),
+					);
+					expect(entities).toEqual([]);
 					expect(triggers.map((row) => row.category)).toEqual(["request"]);
 				}),
 		);
@@ -659,16 +689,15 @@ describe("EntitiesService committed lifecycle", () => {
 		test.effect("retries the entire source write and change plan after a deadlock", () =>
 			Effect.gen(function* () {
 				const service = yield* EntitiesService;
-				const db = yield* (yield* DatabaseSession).current;
+				const session = yield* DatabaseSession;
 				const saved = yield* service.create(createInput("deadlock-retry"));
-				expect((yield* db.select().from(tables.entity)).map(({ id }) => id)).toEqual([
-					saved.entity.id,
-				]);
 				expect(
-					(yield* db.select().from(tables.automationTrigger)).map(({ category, operation }) => ({
-						category,
-						operation,
-					})),
+					(yield* session.run((db) => db.select().from(tables.entity))).map(({ id }) => id),
+				).toEqual([saved.entity.id]);
+				expect(
+					(yield* session.run((db) => db.select().from(tables.automationTrigger))).map(
+						({ category, operation }) => ({ category, operation }),
+					),
 				).toEqual([
 					{ category: "request", operation: "create" },
 					{ category: "change", operation: "create" },
@@ -684,7 +713,7 @@ describe("EntitiesService committed lifecycle", () => {
 			() =>
 				Effect.gen(function* () {
 					const service = yield* EntitiesService;
-					const db = yield* (yield* DatabaseSession).current;
+					const session = yield* DatabaseSession;
 					const first = yield* service.create(createInput("replay"));
 					expect(first.warnings).toEqual([warning, warning]);
 					expect(first.entity.name).toBe("Original");
@@ -694,8 +723,13 @@ describe("EntitiesService committed lifecycle", () => {
 							.create({ ...createInput("replay"), properties: { title: "different" } })
 							.pipe(Effect.flip),
 					).toMatchObject({ _tag: "DbError" });
-					expect((yield* db.select().from(tables.entity)).length).toBe(1);
-					const triggers = yield* db.select().from(tables.automationTrigger);
+					const [entities, triggers] = yield* session.run((db) =>
+						Effect.all([
+							db.select().from(tables.entity),
+							db.select().from(tables.automationTrigger),
+						]),
+					);
+					expect(entities).toHaveLength(1);
 					expect(triggers.length).toBe(3);
 					const change = triggers.find(
 						(row) => row.category === "change" && row.operation === "create",
@@ -719,7 +753,7 @@ describe("EntitiesService committed lifecycle", () => {
 			() =>
 				Effect.gen(function* () {
 					const service = yield* EntitiesService;
-					const db = yield* (yield* DatabaseSession).current;
+					const session = yield* DatabaseSession;
 					const created = yield* service.create(createInput("create"));
 					const input = {
 						userId: owner,
@@ -739,9 +773,9 @@ describe("EntitiesService committed lifecycle", () => {
 						warnings: [],
 						deletedCount: 0,
 					});
-					const changes = (yield* db.select().from(tables.automationTrigger)).filter(
-						(row) => row.category === "change",
-					);
+					const changes = (yield* session.run((db) =>
+						db.select().from(tables.automationTrigger),
+					)).filter((row) => row.category === "change");
 					expect(changes.length).toBe(6);
 					expect(changes.find((row) => row.operation === "update")?.payload).toEqual({
 						category: "change",
@@ -756,7 +790,7 @@ describe("EntitiesService committed lifecycle", () => {
 						operation: "delete",
 						before: updated.entity,
 					});
-					expect(yield* db.select().from(tables.entity)).toEqual([]);
+					expect(yield* session.run((db) => db.select().from(tables.entity))).toEqual([]);
 				}),
 		);
 	});
@@ -783,7 +817,7 @@ describe("EntitiesService committed lifecycle", () => {
 			test.effect(`retains ${name} request without a source mutation`, () =>
 				Effect.gen(function* () {
 					const service = yield* EntitiesService;
-					const db = yield* (yield* DatabaseSession).current;
+					const session = yield* DatabaseSession;
 					const error = yield* service.create(createInput(name)).pipe(Effect.flip);
 					expect(error).toMatchObject({ reason: { code }, _tag: "EntityBadRequest" });
 					if (name === "rejected") {
@@ -792,11 +826,13 @@ describe("EntitiesService committed lifecycle", () => {
 					if (name === "failed") {
 						expect(error).toMatchObject({ reason: { runId: "policy-0" } });
 					}
-					expect(yield* db.select().from(tables.entity)).toEqual([]);
-					const [request] = yield* db
-						.select()
-						.from(tables.automationTrigger)
-						.where(eq(tables.automationTrigger.category, "request"));
+					expect(yield* session.run((db) => db.select().from(tables.entity))).toEqual([]);
+					const [request] = yield* session.run((db) =>
+						db
+							.select()
+							.from(tables.automationTrigger)
+							.where(eq(tables.automationTrigger.category, "request")),
+					);
 					assert(request);
 					const lifecycle = yield* FakeEntityLifecycle;
 					expect(yield* lifecycle.policyCalls).toEqual(name === "blocked" ? [] : ["policy-0"]);
@@ -849,11 +885,11 @@ describe("EntitiesService committed lifecycle", () => {
 		test.effect("revalidates transformed properties against AppSchema", () =>
 			Effect.gen(function* () {
 				const service = yield* EntitiesService;
-				const db = yield* (yield* DatabaseSession).current;
+				const session = yield* DatabaseSession;
 				expect(yield* service.create(createInput("invalid")).pipe(Effect.flip)).toMatchObject({
 					reason: { code: "invalid-properties" },
 				});
-				expect(yield* db.select().from(tables.entity)).toEqual([]);
+				expect(yield* session.run((db) => db.select().from(tables.entity))).toEqual([]);
 			}),
 		);
 	});
@@ -862,13 +898,12 @@ describe("EntitiesService committed lifecycle", () => {
 		test.effect("rejects enclosing caller transactions before request planning", () =>
 			Effect.gen(function* () {
 				const service = yield* EntitiesService;
-				const db = yield* (yield* DatabaseSession).current;
 				const session = yield* DatabaseSession;
 				const error = yield* session
 					.transaction(service.create(createInput("nested")))
 					.pipe(Effect.flip);
 				expect(error).toMatchObject({ reason: { code: "enclosing-transaction" } });
-				expect(yield* db.select().from(tables.automationTrigger)).toEqual([]);
+				expect(yield* session.run((db) => db.select().from(tables.automationTrigger))).toEqual([]);
 			}),
 		);
 	});
@@ -955,7 +990,6 @@ describe("EntitiesService committed lifecycle", () => {
 				Effect.gen(function* () {
 					yield* seedProvider;
 					const service = yield* EntitiesService;
-					const db = yield* (yield* DatabaseSession).current;
 					const session = yield* DatabaseSession;
 					const error = yield* session
 						.transaction(
@@ -973,8 +1007,14 @@ describe("EntitiesService committed lifecycle", () => {
 						)
 						.pipe(Effect.flip);
 					expect(error).toMatchObject({ code: "before-policy-requires-owner" });
-					expect(yield* db.select().from(tables.entity)).toEqual([]);
-					expect(yield* db.select().from(tables.automationTrigger)).toEqual([]);
+					const [entities, triggers] = yield* session.run((db) =>
+						Effect.all([
+							db.select().from(tables.entity),
+							db.select().from(tables.automationTrigger),
+						]),
+					);
+					expect(entities).toEqual([]);
+					expect(triggers).toEqual([]);
 				}),
 		);
 	});
@@ -983,7 +1023,7 @@ describe("EntitiesService committed lifecycle", () => {
 		test.effect("ensures bootstrap entities with warnings and no duplicate changes", () =>
 			Effect.gen(function* () {
 				const service = yield* EntitiesService;
-				const db = yield* (yield* DatabaseSession).current;
+				const session = yield* DatabaseSession;
 				const items = [
 					{ name: "Routine", entitySchemaSlug: slug, properties: { title: "routine" } },
 				];
@@ -992,9 +1032,9 @@ describe("EntitiesService committed lifecycle", () => {
 				expect(yield* service.ensureUserEntities(owner, items, command("ensure"))).toEqual([
 					{ warnings: [], wasInserted: false, entityId: first[0]?.entityId },
 				]);
-				expect((yield* db.select().from(tables.entity)).length).toBe(1);
+				expect(yield* session.run((db) => db.select().from(tables.entity))).toHaveLength(1);
 				expect(
-					(yield* db.select().from(tables.automationTrigger)).filter(
+					(yield* session.run((db) => db.select().from(tables.automationTrigger))).filter(
 						(row) => row.category === "change",
 					).length,
 				).toBe(2);
@@ -1006,7 +1046,7 @@ describe("EntitiesService committed lifecycle", () => {
 		test.effect("rolls the entire ensure batch back when its change plan fails", () =>
 			Effect.gen(function* () {
 				const service = yield* EntitiesService;
-				const db = yield* (yield* DatabaseSession).current;
+				const session = yield* DatabaseSession;
 				yield* service
 					.ensureUserEntities(
 						owner,
@@ -1014,9 +1054,11 @@ describe("EntitiesService committed lifecycle", () => {
 						command("ensure-rollback"),
 					)
 					.pipe(Effect.flip);
-				expect(yield* db.select().from(tables.entity)).toEqual([]);
+				expect(yield* session.run((db) => db.select().from(tables.entity))).toEqual([]);
 				expect(
-					(yield* db.select().from(tables.automationTrigger)).map((row) => row.category),
+					(yield* session.run((db) => db.select().from(tables.automationTrigger))).map(
+						(row) => row.category,
+					),
 				).toEqual(["request"]);
 			}),
 		);

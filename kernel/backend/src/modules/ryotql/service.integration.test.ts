@@ -112,31 +112,35 @@ const insertPlugin = Effect.fn(function* (input: {
 	readonly ownerId: string | null;
 	readonly homeView: string | null;
 }) {
-	const db = yield* (yield* DatabaseSession).current;
 	const revisionId = `${input.id}-revision`;
-	yield* db
-		.insert(plugin)
-		.values({
-			id: input.id,
-			slug: input.slug,
-			status: "disabled",
-			ownerId: input.ownerId,
-			scope: input.ownerId === null ? "system" : "user",
-		});
-	yield* db
-		.insert(pluginRevision)
-		.values({
-			id: revisionId,
-			version: "1.0.0",
-			pluginId: input.id,
-			sourceHash: `${input.id}-hash`,
-			manifest: manifest(input.slug, input.homeView),
-			clientConfigSchema: { fields: {}, unknownKeys: "strict" },
-		});
-	yield* db
-		.update(plugin)
-		.set({ status: "active", activeRevisionId: revisionId })
-		.where(eq(plugin.id, input.id));
+	const session = yield* DatabaseSession;
+	yield* session.run((db) =>
+		Effect.gen(function* () {
+			yield* db
+				.insert(plugin)
+				.values({
+					id: input.id,
+					slug: input.slug,
+					status: "disabled",
+					ownerId: input.ownerId,
+					scope: input.ownerId === null ? "system" : "user",
+				});
+			yield* db
+				.insert(pluginRevision)
+				.values({
+					id: revisionId,
+					version: "1.0.0",
+					pluginId: input.id,
+					sourceHash: `${input.id}-hash`,
+					manifest: manifest(input.slug, input.homeView),
+					clientConfigSchema: { fields: {}, unknownKeys: "strict" },
+				});
+			yield* db
+				.update(plugin)
+				.set({ status: "active", activeRevisionId: revisionId })
+				.where(eq(plugin.id, input.id));
+		}),
+	);
 });
 
 const configRevision = (
@@ -245,323 +249,332 @@ const run = (
 });
 
 const seedCatalog = Effect.gen(function* () {
-	const db = yield* (yield* DatabaseSession).current;
-	yield* db.insert(user).values([
-		{ id: "owner", name: "Owner", preferences: {}, email: "owner@example.test" },
-		{ id: "other", name: "Other", preferences: {}, email: "other@example.test" },
-		{ id: "mixed", name: "Mixed", preferences: {}, email: "mixed@example.test" },
-		{ id: "plain", name: "Plain", preferences: {}, email: "plain@example.test" },
-	]);
-	yield* db.insert(account).values(
-		[
-			{ userId: "owner", providerId: "credential" },
-			{ userId: "other", providerId: "oidc" },
-			{ userId: "mixed", providerId: "credential" },
-			{ userId: "mixed", providerId: "oidc" },
-		].map(({ userId, providerId }) => ({
-			userId,
-			providerId,
-			issuer: "issuer",
-			updatedAt: occurredAt,
-			id: `${userId}-${providerId}`,
-			accountId: `${userId}-${providerId}`,
-		})),
+	const session = yield* DatabaseSession;
+	yield* session.run((db) =>
+		Effect.gen(function* () {
+			yield* db.insert(user).values([
+				{ id: "owner", name: "Owner", preferences: {}, email: "owner@example.test" },
+				{ id: "other", name: "Other", preferences: {}, email: "other@example.test" },
+				{ id: "mixed", name: "Mixed", preferences: {}, email: "mixed@example.test" },
+				{ id: "plain", name: "Plain", preferences: {}, email: "plain@example.test" },
+			]);
+			yield* db.insert(account).values(
+				[
+					{ userId: "owner", providerId: "credential" },
+					{ userId: "other", providerId: "oidc" },
+					{ userId: "mixed", providerId: "credential" },
+					{ userId: "mixed", providerId: "oidc" },
+				].map(({ userId, providerId }) => ({
+					userId,
+					providerId,
+					issuer: "issuer",
+					updatedAt: occurredAt,
+					id: `${userId}-${providerId}`,
+					accountId: `${userId}-${providerId}`,
+				})),
+			);
+			yield* db.insert(plugin).values([
+				{ scope: "system", slug: "installed", status: "disabled", id: "installed-plugin" },
+				{ slug: "removed", scope: "system", status: "disabled", id: "removed-plugin" },
+			]);
+			yield* insertPlugin({
+				ownerId: null,
+				id: "system-plugin",
+				slug: systemPluginSlug,
+				homeView: "system-home",
+			});
+			yield* insertPlugin({
+				slug: "private",
+				ownerId: "owner",
+				id: "private-plugin",
+				homeView: "private-home",
+			});
+			yield* insertPlugin({
+				slug: "disabled",
+				ownerId: "owner",
+				id: "disabled-plugin",
+				homeView: "disabled-home",
+			});
+			yield* insertPlugin({ slug: "other", homeView: null, ownerId: "other", id: "other-plugin" });
+			yield* db
+				.insert(pluginConfigRevision)
+				.values(configRevision("system-env", "system-plugin-revision", ["apiKey"], null));
+			yield* db
+				.update(plugin)
+				.set({ environmentConfigRevisionId: "system-env" })
+				.where(eq(plugin.id, "system-plugin"));
+			yield* db.insert(pluginInstallation).values([
+				{ id: "installed", userId: "owner", pluginId: "installed-plugin" },
+				{
+					userId: "owner",
+					id: "uninstalled",
+					uninstalledAt: occurredAt,
+					pluginId: "removed-plugin",
+				},
+				{
+					userId: "owner",
+					id: "owner-system",
+					pluginId: "system-plugin",
+					homeSavedViewSlug: "kernel-view",
+				},
+				{
+					userId: "owner",
+					id: "owner-private",
+					pluginId: "private-plugin",
+					healthReason: "configured",
+					configuredSecretPaths: ["token"],
+					clientConfig: { visible: "yes" },
+					homeSavedViewSlug: "component-view",
+				},
+				{
+					userId: "owner",
+					isDisabled: true,
+					id: "owner-disabled",
+					pluginId: "disabled-plugin",
+					homeSavedViewSlug: "plugin-component",
+				},
+				{
+					userId: "other",
+					id: "other-system",
+					pluginId: "system-plugin",
+					homeSavedViewSlug: "kernel-view",
+				},
+				{ userId: "other", id: "other-private", pluginId: "other-plugin" },
+			]);
+			yield* db
+				.insert(pluginConfigRevision)
+				.values(
+					configRevision("private-config", "private-plugin-revision", ["token"], {
+						ownerUserId: "owner",
+						pluginInstallationId: "owner-private",
+					}),
+				);
+			yield* db
+				.update(pluginInstallation)
+				.set({ activeConfigRevisionId: "private-config" })
+				.where(eq(pluginInstallation.id, "owner-private"));
+			yield* db
+				.insert(sandboxScript)
+				.values([
+					script("kernel-script", "kernel.notify", null),
+					script("sys-yank-script", "sys.yank", "system-plugin-revision"),
+					script("sys-import-script", "sys.import", "system-plugin-revision"),
+					script("private-import-script", "private.import", "private-plugin-revision"),
+				]);
+			yield* db
+				.insert(definitionEntitySchema)
+				.values([
+					entitySchemaDefinition("kernel-entity", null),
+					entitySchemaDefinition("system-entity", "system-plugin"),
+					entitySchemaDefinition("private-entity", "private-plugin"),
+					entitySchemaDefinition("disabled-entity", "disabled-plugin"),
+					entitySchemaDefinition("other-entity", "other-plugin"),
+				]);
+			yield* db.insert(definitionEventSchema).values([
+				{
+					position: 0,
+					id: "kernel-event",
+					slug: "kernel-event",
+					name: "Kernel event",
+					entitySchemaId: "kernel-entity",
+					propertiesSchema: { fields: {} },
+				},
+				{
+					position: 0,
+					id: "system-event",
+					slug: "system-event",
+					name: "System event",
+					entitySchemaId: "system-entity",
+					propertiesSchema: { fields: {} },
+				},
+			]);
+			yield* db.insert(definitionRelationshipSchema).values([
+				{ ...definition("kernel-link", null), propertiesSchema: { fields: {} } },
+				{ ...definition("private-link", "private-plugin"), propertiesSchema: { fields: {} } },
+			]);
+			yield* db
+				.insert(definitionSignalSchema)
+				.values({
+					...definition("system.signal", "system-plugin"),
+					catalogState: "active",
+					propertiesSchema: { fields: {} },
+					audiencePolicy: { kind: "actor" },
+					notificationHookSlug: "fixture.automation",
+				});
+			yield* db
+				.insert(definitionImportSource)
+				.values([
+					importSourceDefinition("import-sys-ready", "system-plugin", ["apiKey"], "sys.import"),
+					importSourceDefinition(
+						"import-sys-missing",
+						"system-plugin",
+						["apiKey", "clientSecret"],
+						"sys.import",
+						1,
+					),
+					importSourceDefinition("import-sys-no-script", "system-plugin", [], "absent.import", 2),
+					importSourceDefinition("import-private", "private-plugin", ["token"], "private.import"),
+				]);
+			yield* db.insert(definitionIntegrationProvider).values([
+				{
+					...pluginDefinition("provider-push", "system-plugin"),
+					lot: "push",
+					scriptSlug: null,
+					description: "Push",
+					requiresProKey: false,
+					settingsSchema: { fields: {} },
+				},
+				{
+					...pluginDefinition("provider-yank", "system-plugin", 1),
+					lot: "yank",
+					description: "Yank",
+					requiresProKey: true,
+					scriptSlug: "sys.yank",
+					settingsSchema: { fields: {} },
+				},
+				{
+					...pluginDefinition("provider-missing", "system-plugin", 2),
+					lot: "yank",
+					requiresProKey: false,
+					description: "Missing",
+					scriptSlug: "absent.yank",
+					settingsSchema: { fields: {} },
+				},
+			]);
+			yield* db
+				.insert(savedView)
+				.values([
+					view("view-kernel", "owner", "kernel-view", { kind: "kernel", name: "entity-browser" }),
+					view("view-component", "owner", "component-view", {
+						kind: "plugin",
+						exportName: "widget",
+						pluginId: "system-plugin",
+					}),
+					view("view-plugin-component", "owner", "plugin-component", {
+						kind: "plugin",
+						exportName: "widget",
+						pluginId: "system-plugin",
+					}),
+				]);
+			yield* db.insert(definitionSavedView).values([
+				{
+					...definition("private-home", "private-plugin"),
+					icon: "box",
+					sortOrder: 0,
+					settings: {},
+					dataSources: null,
+					renderer: { kind: "plugin", exportName: "page", pluginId: "system-plugin" },
+				},
+				{
+					...definition("disabled-home", "disabled-plugin"),
+					icon: "box",
+					sortOrder: 0,
+					settings: {},
+					dataSources: null,
+					renderer: { kind: "kernel", name: "entity-browser" },
+				},
+				{
+					...definition("system-home", "system-plugin"),
+					icon: "box",
+					sortOrder: 0,
+					settings: {},
+					dataSources: null,
+					renderer: { kind: "plugin", exportName: "page", pluginId: "system-plugin" },
+				},
+			]);
+			yield* db
+				.insert(savedViewOverride)
+				.values({
+					sortOrder: 0,
+					userId: "owner",
+					isDisabled: true,
+					slug: "disabled-home",
+					pluginId: "disabled-plugin",
+				});
+			yield* db.insert(backupRun).values([
+				{
+					kind: "export",
+					userId: "owner",
+					id: "backup-owner",
+					status: "completed",
+					expiresAt: futureExpiry,
+					artifactKey: "secret-key",
+					artifactProvider: "local",
+				},
+				{ userId: "other", kind: "restore", status: "pending", id: "backup-other" },
+			]);
+			yield* db.insert(automationTrigger).values([trigger("trigger-a"), trigger("trigger-b")]);
+			yield* db.insert(automationTriggerRecipient).values([
+				{ userId: "owner", triggerId: "trigger-b" },
+				{ userId: "other", triggerId: "trigger-a" },
+				{ userId: "owner", triggerId: "trigger-a" },
+			]);
+			yield* db
+				.insert(automationRun)
+				.values([
+					run("run-eligible", { historyPayload: { shown: true } }),
+					run("run-before", { stage: "before", retryPolicy: null, delivery: "policy" }),
+					run("run-succeeded", { status: "succeeded" }),
+					run("run-expired", { artifactsExpireAt: occurredAt }),
+					run("run-missing", {
+						sandboxScriptId: null,
+						pluginId: "system-plugin",
+						pluginConfigRevisionId: "system-env",
+						pluginRevisionId: "system-plugin-revision",
+					}),
+					run("run-other", { triggerId: "trigger-b", executionUserId: "other" }),
+				]);
+			yield* db.execute(
+				sql`update automation_run set queued_at = queued_at + (case id when 'run-eligible' then 100 when 'run-missing' then 200 when 'run-before' then 300 when 'run-succeeded' then 400 when 'run-expired' then 500 else 0 end) * interval '1 microsecond'`,
+			);
+			yield* db.insert(automationRunAttempt).values(
+				[
+					{ id: "attempt-owner", runId: "run-eligible" },
+					{ runId: "run-other", id: "attempt-other" },
+				].map(({ id, runId }) => ({
+					id,
+					runId,
+					attemptNumber: 1,
+					retryable: false,
+					startedAt: occurredAt,
+					finishedAt: occurredAt,
+					status: "failed" as const,
+					workflowExecutionId: `workflow-${id}`,
+					logs: [{ message: "raw", level: "info" as const }],
+					historyLogs: [{ message: "projected", level: "info" as const }],
+				})),
+			);
+			yield* db
+				.insert(migrationReport)
+				.values([
+					...["first", "second", "third"].map((message) => ({
+						message,
+						phase: "import",
+						level: "info" as const,
+					})),
+					{
+						phase: "import",
+						message: "uncounted",
+						level: "warning" as const,
+						code: "seen-episode-absent" as const,
+					},
+					{
+						count: 5,
+						phase: "import",
+						message: "counted",
+						level: "warning" as const,
+						code: "seen-episode-absent" as const,
+					},
+				]);
+			yield* db
+				.insert(notificationSubscription)
+				.values({
+					userId: "owner",
+					signalSchemaSlug: "fixture.signal",
+					id: NotificationSubscriptionId.make("subscription"),
+				});
+		}),
 	);
-	yield* db.insert(plugin).values([
-		{ scope: "system", slug: "installed", status: "disabled", id: "installed-plugin" },
-		{ slug: "removed", scope: "system", status: "disabled", id: "removed-plugin" },
-	]);
-	yield* insertPlugin({
-		ownerId: null,
-		id: "system-plugin",
-		slug: systemPluginSlug,
-		homeView: "system-home",
-	});
-	yield* insertPlugin({
-		slug: "private",
-		ownerId: "owner",
-		id: "private-plugin",
-		homeView: "private-home",
-	});
-	yield* insertPlugin({
-		slug: "disabled",
-		ownerId: "owner",
-		id: "disabled-plugin",
-		homeView: "disabled-home",
-	});
-	yield* insertPlugin({ slug: "other", homeView: null, ownerId: "other", id: "other-plugin" });
-	yield* db
-		.insert(pluginConfigRevision)
-		.values(configRevision("system-env", "system-plugin-revision", ["apiKey"], null));
-	yield* db
-		.update(plugin)
-		.set({ environmentConfigRevisionId: "system-env" })
-		.where(eq(plugin.id, "system-plugin"));
-	yield* db.insert(pluginInstallation).values([
-		{ id: "installed", userId: "owner", pluginId: "installed-plugin" },
-		{ userId: "owner", id: "uninstalled", uninstalledAt: occurredAt, pluginId: "removed-plugin" },
-		{
-			userId: "owner",
-			id: "owner-system",
-			pluginId: "system-plugin",
-			homeSavedViewSlug: "kernel-view",
-		},
-		{
-			userId: "owner",
-			id: "owner-private",
-			pluginId: "private-plugin",
-			healthReason: "configured",
-			configuredSecretPaths: ["token"],
-			clientConfig: { visible: "yes" },
-			homeSavedViewSlug: "component-view",
-		},
-		{
-			userId: "owner",
-			isDisabled: true,
-			id: "owner-disabled",
-			pluginId: "disabled-plugin",
-			homeSavedViewSlug: "plugin-component",
-		},
-		{
-			userId: "other",
-			id: "other-system",
-			pluginId: "system-plugin",
-			homeSavedViewSlug: "kernel-view",
-		},
-		{ userId: "other", id: "other-private", pluginId: "other-plugin" },
-	]);
-	yield* db
-		.insert(pluginConfigRevision)
-		.values(
-			configRevision("private-config", "private-plugin-revision", ["token"], {
-				ownerUserId: "owner",
-				pluginInstallationId: "owner-private",
-			}),
-		);
-	yield* db
-		.update(pluginInstallation)
-		.set({ activeConfigRevisionId: "private-config" })
-		.where(eq(pluginInstallation.id, "owner-private"));
-	yield* db
-		.insert(sandboxScript)
-		.values([
-			script("kernel-script", "kernel.notify", null),
-			script("sys-yank-script", "sys.yank", "system-plugin-revision"),
-			script("sys-import-script", "sys.import", "system-plugin-revision"),
-			script("private-import-script", "private.import", "private-plugin-revision"),
-		]);
-	yield* db
-		.insert(definitionEntitySchema)
-		.values([
-			entitySchemaDefinition("kernel-entity", null),
-			entitySchemaDefinition("system-entity", "system-plugin"),
-			entitySchemaDefinition("private-entity", "private-plugin"),
-			entitySchemaDefinition("disabled-entity", "disabled-plugin"),
-			entitySchemaDefinition("other-entity", "other-plugin"),
-		]);
-	yield* db.insert(definitionEventSchema).values([
-		{
-			position: 0,
-			id: "kernel-event",
-			slug: "kernel-event",
-			name: "Kernel event",
-			entitySchemaId: "kernel-entity",
-			propertiesSchema: { fields: {} },
-		},
-		{
-			position: 0,
-			id: "system-event",
-			slug: "system-event",
-			name: "System event",
-			entitySchemaId: "system-entity",
-			propertiesSchema: { fields: {} },
-		},
-	]);
-	yield* db.insert(definitionRelationshipSchema).values([
-		{ ...definition("kernel-link", null), propertiesSchema: { fields: {} } },
-		{ ...definition("private-link", "private-plugin"), propertiesSchema: { fields: {} } },
-	]);
-	yield* db
-		.insert(definitionSignalSchema)
-		.values({
-			...definition("system.signal", "system-plugin"),
-			catalogState: "active",
-			propertiesSchema: { fields: {} },
-			audiencePolicy: { kind: "actor" },
-			notificationHookSlug: "fixture.automation",
-		});
-	yield* db
-		.insert(definitionImportSource)
-		.values([
-			importSourceDefinition("import-sys-ready", "system-plugin", ["apiKey"], "sys.import"),
-			importSourceDefinition(
-				"import-sys-missing",
-				"system-plugin",
-				["apiKey", "clientSecret"],
-				"sys.import",
-				1,
-			),
-			importSourceDefinition("import-sys-no-script", "system-plugin", [], "absent.import", 2),
-			importSourceDefinition("import-private", "private-plugin", ["token"], "private.import"),
-		]);
-	yield* db.insert(definitionIntegrationProvider).values([
-		{
-			...pluginDefinition("provider-push", "system-plugin"),
-			lot: "push",
-			scriptSlug: null,
-			description: "Push",
-			requiresProKey: false,
-			settingsSchema: { fields: {} },
-		},
-		{
-			...pluginDefinition("provider-yank", "system-plugin", 1),
-			lot: "yank",
-			description: "Yank",
-			requiresProKey: true,
-			scriptSlug: "sys.yank",
-			settingsSchema: { fields: {} },
-		},
-		{
-			...pluginDefinition("provider-missing", "system-plugin", 2),
-			lot: "yank",
-			requiresProKey: false,
-			description: "Missing",
-			scriptSlug: "absent.yank",
-			settingsSchema: { fields: {} },
-		},
-	]);
-	yield* db
-		.insert(savedView)
-		.values([
-			view("view-kernel", "owner", "kernel-view", { kind: "kernel", name: "entity-browser" }),
-			view("view-component", "owner", "component-view", {
-				kind: "plugin",
-				exportName: "widget",
-				pluginId: "system-plugin",
-			}),
-			view("view-plugin-component", "owner", "plugin-component", {
-				kind: "plugin",
-				exportName: "widget",
-				pluginId: "system-plugin",
-			}),
-		]);
-	yield* db.insert(definitionSavedView).values([
-		{
-			...definition("private-home", "private-plugin"),
-			icon: "box",
-			sortOrder: 0,
-			settings: {},
-			dataSources: null,
-			renderer: { kind: "plugin", exportName: "page", pluginId: "system-plugin" },
-		},
-		{
-			...definition("disabled-home", "disabled-plugin"),
-			icon: "box",
-			sortOrder: 0,
-			settings: {},
-			dataSources: null,
-			renderer: { kind: "kernel", name: "entity-browser" },
-		},
-		{
-			...definition("system-home", "system-plugin"),
-			icon: "box",
-			sortOrder: 0,
-			settings: {},
-			dataSources: null,
-			renderer: { kind: "plugin", exportName: "page", pluginId: "system-plugin" },
-		},
-	]);
-	yield* db
-		.insert(savedViewOverride)
-		.values({
-			sortOrder: 0,
-			userId: "owner",
-			isDisabled: true,
-			slug: "disabled-home",
-			pluginId: "disabled-plugin",
-		});
-	yield* db.insert(backupRun).values([
-		{
-			kind: "export",
-			userId: "owner",
-			id: "backup-owner",
-			status: "completed",
-			expiresAt: futureExpiry,
-			artifactKey: "secret-key",
-			artifactProvider: "local",
-		},
-		{ userId: "other", kind: "restore", status: "pending", id: "backup-other" },
-	]);
-	yield* db.insert(automationTrigger).values([trigger("trigger-a"), trigger("trigger-b")]);
-	yield* db.insert(automationTriggerRecipient).values([
-		{ userId: "owner", triggerId: "trigger-b" },
-		{ userId: "other", triggerId: "trigger-a" },
-		{ userId: "owner", triggerId: "trigger-a" },
-	]);
-	yield* db
-		.insert(automationRun)
-		.values([
-			run("run-eligible", { historyPayload: { shown: true } }),
-			run("run-before", { stage: "before", retryPolicy: null, delivery: "policy" }),
-			run("run-succeeded", { status: "succeeded" }),
-			run("run-expired", { artifactsExpireAt: occurredAt }),
-			run("run-missing", {
-				sandboxScriptId: null,
-				pluginId: "system-plugin",
-				pluginConfigRevisionId: "system-env",
-				pluginRevisionId: "system-plugin-revision",
-			}),
-			run("run-other", { triggerId: "trigger-b", executionUserId: "other" }),
-		]);
-	yield* db.execute(
-		sql`update automation_run set queued_at = queued_at + (case id when 'run-eligible' then 100 when 'run-missing' then 200 when 'run-before' then 300 when 'run-succeeded' then 400 when 'run-expired' then 500 else 0 end) * interval '1 microsecond'`,
-	);
-	yield* db.insert(automationRunAttempt).values(
-		[
-			{ id: "attempt-owner", runId: "run-eligible" },
-			{ runId: "run-other", id: "attempt-other" },
-		].map(({ id, runId }) => ({
-			id,
-			runId,
-			attemptNumber: 1,
-			retryable: false,
-			startedAt: occurredAt,
-			finishedAt: occurredAt,
-			status: "failed" as const,
-			workflowExecutionId: `workflow-${id}`,
-			logs: [{ message: "raw", level: "info" as const }],
-			historyLogs: [{ message: "projected", level: "info" as const }],
-		})),
-	);
-	yield* db
-		.insert(migrationReport)
-		.values([
-			...["first", "second", "third"].map((message) => ({
-				message,
-				phase: "import",
-				level: "info" as const,
-			})),
-			{
-				phase: "import",
-				message: "uncounted",
-				level: "warning" as const,
-				code: "seen-episode-absent" as const,
-			},
-			{
-				count: 5,
-				phase: "import",
-				message: "counted",
-				level: "warning" as const,
-				code: "seen-episode-absent" as const,
-			},
-		]);
-	yield* db
-		.insert(notificationSubscription)
-		.values({
-			userId: "owner",
-			signalSchemaSlug: "fixture.signal",
-			id: NotificationSubscriptionId.make("subscription"),
-		});
 });
 
 const catalogDatabaseLayer = Layer.merge(

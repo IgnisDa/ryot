@@ -18,18 +18,20 @@ export const isolatedDatabaseLayer = (prefix: string) =>
 	Layer.unwrap(
 		Effect.gen(function* () {
 			const name = `${prefix}_${crypto.randomUUID().replaceAll("-", "")}`;
-			const admin = yield* (yield* DatabaseSession).current;
-			yield* Effect.acquireRelease(
-				admin.execute(sql`create database ${sql.identifier(name)}`),
-				() =>
+			const session = yield* DatabaseSession;
+			yield* session.run((admin) =>
+				Effect.acquireRelease(admin.execute(sql`create database ${sql.identifier(name)}`), () =>
 					admin.execute(sql`drop database ${sql.identifier(name)} with (force)`).pipe(Effect.orDie),
+				),
 			);
 			const url = new URL(`/${name}`, testDatabaseUrl()).toString();
 			const statements = yield* baselineMigrationStatements();
 			const migrated = Layer.effectDiscard(
 				Effect.gen(function* () {
-					const db = yield* (yield* DatabaseSession).current;
-					yield* applyBaselineMigration(statements, (statement) => db.execute(sql.raw(statement)));
+					const database = yield* DatabaseSession;
+					yield* database.run((db) =>
+						applyBaselineMigration(statements, (statement) => db.execute(sql.raw(statement))),
+					);
 				}),
 			);
 			return migrated.pipe(

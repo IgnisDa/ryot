@@ -327,7 +327,7 @@ describe("private package backup restore in PostgreSQL", () => {
 	)((test) => {
 		test.effect("restores only the current package as a fresh destination revision", () =>
 			Effect.gen(function* () {
-				const db = yield* (yield* DatabaseSession).current;
+				const session = yield* DatabaseSession;
 				const plugins = yield* PluginRepository;
 				const sourceV1 = packageAt("1.0.0");
 				const sourceV2 = packageAt("2.0.0");
@@ -362,20 +362,24 @@ describe("private package backup restore in PostgreSQL", () => {
 				)).get(key);
 				expect(destinationPluginId).toBeDefined();
 				expect(destinationPluginId).not.toBe(sourcePluginId);
-				const sourceRevisions = yield* db
-					.select()
-					.from(tables.pluginRevision)
-					.where(eq(tables.pluginRevision.pluginId, sourcePluginId));
-				const destinationRevisions = yield* db
-					.select()
-					.from(tables.pluginRevision)
-					.innerJoin(tables.plugin, eq(tables.plugin.id, tables.pluginRevision.pluginId))
-					.where(
-						and(
-							eq(tables.plugin.ownerId, "recipient"),
-							eq(tables.pluginRevision.pluginId, destinationPluginId ?? ""),
-						),
-					);
+				const [sourceRevisions, destinationRevisions] = yield* session.run((db) =>
+					Effect.all([
+						db
+							.select()
+							.from(tables.pluginRevision)
+							.where(eq(tables.pluginRevision.pluginId, sourcePluginId)),
+						db
+							.select()
+							.from(tables.pluginRevision)
+							.innerJoin(tables.plugin, eq(tables.plugin.id, tables.pluginRevision.pluginId))
+							.where(
+								and(
+									eq(tables.plugin.ownerId, "recipient"),
+									eq(tables.pluginRevision.pluginId, destinationPluginId ?? ""),
+								),
+							),
+					]),
+				);
 				expect(sourceRevisions).toHaveLength(2);
 				expect(destinationRevisions).toHaveLength(1);
 				expect(destinationRevisions[0]?.plugin_revision.sourceHash).toBe(sourceV2.sourceHash);
