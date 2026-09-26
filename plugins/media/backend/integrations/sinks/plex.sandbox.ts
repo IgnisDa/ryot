@@ -15,6 +15,7 @@ import {
 	showEpisodeRef,
 	SinkInput,
 	specifics,
+	textValue,
 	executionStartedAt,
 } from "../shared";
 
@@ -53,16 +54,6 @@ const multipartPayload = (rawBody: string, contentType: string) => {
 	}
 	throw new Error("missing payload");
 };
-const stringValue = (value: unknown) => {
-	if (typeof value === "string") {
-		return value;
-	}
-	if (typeof value === "number") {
-		return String(value);
-	}
-	return undefined;
-};
-
 type PlexEpisode = {
 	episodeId: string;
 	seriesName: string | undefined;
@@ -158,7 +149,7 @@ export default defineScript({
 				if (username && specifics(payload["Account"])?.["title"] !== username) {
 					return emptyResult();
 				}
-				const event = (stringValue(payload["event"]) ?? "").toLowerCase().replace(/^media\./, "");
+				const event = (textValue(payload["event"]) ?? "").toLowerCase().replace(/^media\./, "");
 				if (!["play", "pause", "resume", "scrobble", "stop"].includes(event)) {
 					return emptyResult();
 				}
@@ -188,11 +179,11 @@ export default defineScript({
 					guids
 						.map((guid) => guid.match(new RegExp(`^${prefix}://(\\w+)`, "i"))?.[1])
 						.find(Boolean);
-				const id = guidId("tmdb") ?? stringValue(metadata["Provider_tmdb"]);
+				const id = guidId("tmdb") ?? textValue(metadata["Provider_tmdb"]);
 				if (!id) {
 					return failureResult("Plex webhook payload is missing a TMDB identifier");
 				}
-				const label = stringValue(metadata["title"]) ?? id;
+				const label = textValue(metadata["title"]) ?? id;
 				if (lot === "movie") {
 					return { id, lot, label, percent };
 				}
@@ -200,7 +191,7 @@ export default defineScript({
 				if (!locator) {
 					return failureResult("Plex webhook payload is missing show episode coordinates");
 				}
-				const seriesName = stringValue(metadata["grandparentTitle"]);
+				const seriesName = textValue(metadata["grandparentTitle"]);
 				const externalIds = (
 					[
 						["imdb", "imdb_id"],

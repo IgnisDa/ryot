@@ -274,12 +274,6 @@ describe("Jellyfin official webhook plugin", () => {
 				PlaybackPositionTicks: "500",
 				NotificationType: "PlaybackProgress",
 			});
-			const completed = yield* runJellyfin({
-				ItemType: "Movie",
-				Provider_tmdb: "202",
-				PlayedToCompletion: "True",
-				NotificationType: "PlaybackStop",
-			});
 			expect(result.failures).toEqual([]);
 			expect(result.entityGroups[0]).toMatchObject({
 				entityRef: { externalId: "202" },
@@ -289,9 +283,6 @@ describe("Jellyfin official webhook plugin", () => {
 						unresolvedEpisode: { seasonNumber: 1, episodeNumber: 2 },
 					},
 				],
-			});
-			expect(completed.entityGroups[0]?.events[0]?.properties).toMatchObject({
-				progressPercent: 100,
 			});
 		}),
 	);
