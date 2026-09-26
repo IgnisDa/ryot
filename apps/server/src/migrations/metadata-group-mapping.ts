@@ -225,8 +225,9 @@ BEGIN
 END $$;
 `;
 
-// Provider group membership (rebuilt by V2 on population) is not migrated; only user-authored
-// memberships (an endpoint owned by a user) are. See "Slim Migration Strategy" in AGENTS.md.
+// User-authored memberships (an endpoint owned by a user) migrate with that owner. Provider
+// memberships migrate as global rows only for metadata that migrates populated, because V2
+// population rebuilds them for every other provider entity.
 export const buildMetadataGroupRelationshipMigrationSql = (
 	targets: ResolvedRelationshipTarget[],
 ) => `
@@ -276,7 +277,9 @@ BEGIN
 		INNER JOIN "metadata_group" mg ON mg.id = m2mg.metadata_group_id
 		INNER JOIN "metadata" metadata ON metadata.id = m2mg.metadata_id
 		INNER JOIN lot_to_relationship_schema lrs ON lrs.lot = mg.lot
-		WHERE mg.created_by_user_id IS NOT NULL OR metadata.created_by_user_id IS NOT NULL
+		WHERE mg.created_by_user_id IS NOT NULL
+			OR metadata.created_by_user_id IS NOT NULL
+			OR EXISTS (SELECT 1 FROM _populated_metadata_ids p WHERE p.id = metadata.id::text)
 	)
 	INSERT INTO relationship (
 		"id",
@@ -305,10 +308,11 @@ BEGIN
 	INNER JOIN "entity" src ON src.id = legacy_relationships.metadata_group_id
 	INNER JOIN "entity" tgt ON tgt.id = legacy_relationships.metadata_id
 	WHERE legacy_relationships.user_id IS NOT NULL
+		OR EXISTS (SELECT 1 FROM _populated_metadata_ids p WHERE p.id = legacy_relationships.metadata_id::text)
 	ON CONFLICT ("user_id", "source_entity_id", "target_entity_id", "relationship_schema_slug", "relationship_schema_plugin_id") DO NOTHING;
 	GET DIAGNOSTICS rows_inserted = ROW_COUNT;
 
-	${buildReportSql("metadata_group -> relationship", [{ count: "rows_inserted", message: "user-authored row(s) migrated" }])}
+	${buildReportSql("metadata_group -> relationship", [{ count: "rows_inserted", message: "row(s) migrated" }])}
 END $$;
 `;
 

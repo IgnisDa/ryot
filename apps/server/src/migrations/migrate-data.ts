@@ -39,6 +39,7 @@ import {
 import {
 	buildMetadataMigrationSql,
 	buildMetadataToMetadataRelationshipMigrationSql,
+	buildPopulatedMetadataIdsSql,
 	getUnsupportedMetadataSources,
 } from "./metadata-mapping";
 import { metadataMigrationTargets } from "./metadata-mapping-targets";
@@ -415,13 +416,14 @@ export const migrateLegacyTables = Effect.gen(function* () {
 		logReportRows(connection, reportSequence),
 	);
 
-	// Slim migration: provider-sourced ("global") entities are reconstructed on demand by V2's
-	// entity population workflow, so we materialize only the subset referenced by user data (plus
-	// all user-authored custom entities). The referenced-id set is collected up front and consumed
-	// by the metadata / person / company / metadata_group entity migrations.
+	// Provider-sourced ("global") entities migrate only when user data references them (plus all
+	// user-authored custom entities). The referenced-id set and the populated-metadata gate, which
+	// adds credited people and groups to that set, are collected up front and consumed by the
+	// metadata / person / company / metadata_group entity migrations.
 	const legacyIntegrationProgressCache = yield* withReservedConnection((connection) =>
 		Effect.gen(function* () {
 			yield* connection.executeRaw(buildReferencedGlobalEntityIdsSql(), []);
+			yield* connection.executeRaw(buildPopulatedMetadataIdsSql(), []);
 			yield* connection.executeRaw(buildMetadataMigrationSql(resolvedMetadataTargets), []);
 			yield* connection.executeRaw(
 				buildLegacyEpisodicSubEntityMigrationSql({
