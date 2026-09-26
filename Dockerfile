@@ -60,6 +60,6 @@ COPY --from=runtime-deps --chown=ryot:ryot /app/node_modules ./node_modules
 COPY --from=runtime-deps --chown=ryot:ryot /app/packages ./packages
 USER ryot
 # Materialize and smoke-check the read-only sandbox runtime before startup.
-RUN bun run dist/sandbox-runtime-image.js
+RUN bun run dist/prepare-sandbox-runtime.js
 ENV NODE_ENV=production
 CMD ["bun", "run", "dist/main.js"]
