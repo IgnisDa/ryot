@@ -43,5 +43,15 @@ export const makeProviderExecutionReads = (session: DatabaseSession["Service"]) 
 			? { id: SandboxProviderId.make(row.id), rootEntitySchemaSlug: row.rootEntitySchemaSlug }
 			: null;
 	});
-	return { findPinnedProvider, findRevisionScript };
+	const findRevisionProviders = Effect.fnUntraced(function* (revisionId: string) {
+		const [row] = yield* session.run((db) =>
+			db
+				.select({ providers: tables.pluginRevision.providers })
+				.from(tables.pluginRevision)
+				.where(eq(tables.pluginRevision.id, revisionId))
+				.limit(1),
+		);
+		return row?.providers;
+	});
+	return { findPinnedProvider, findRevisionScript, findRevisionProviders };
 };

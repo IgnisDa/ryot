@@ -212,6 +212,56 @@ const seedRun = (
 		);
 	});
 
+const seedPinnedRevisions = (pinnedManifest: (base: PluginManifest) => PluginManifest) =>
+	Effect.gen(function* () {
+		const base = fixtureManifest();
+		const pinned = pinnedManifest(base);
+		yield* (yield* DatabaseSession).run((db) =>
+			Effect.gen(function* () {
+				yield* db
+					.insert(plugin)
+					.values({ id: "plugin", status: "inactive", packageId: base.metadata.packageId });
+				yield* db.insert(pluginRevision).values([
+					{
+						manifest: pinned,
+						contentHash: "old",
+						pluginId: "plugin",
+						id: "pinned-revision",
+						clientConfigSchema: { fields: {} },
+						sandboxAuthority: pluginSandboxAuthority(pinned),
+					},
+					{
+						manifest: base,
+						pluginId: "plugin",
+						contentHash: "current",
+						id: "current-revision",
+						clientConfigSchema: { fields: {} },
+						sandboxAuthority: pluginSandboxAuthority(base),
+					},
+				]);
+				yield* db
+					.update(plugin)
+					.set({ activeRevisionId: "current-revision" })
+					.where(eq(plugin.id, "plugin"));
+				yield* db
+					.insert(pluginConfigRevision)
+					.values({
+						id: "config",
+						configuredKeys: [],
+						encryptionKeyId: "key",
+						nonce: Buffer.alloc(12),
+						payloadFingerprint: "fingerprint",
+						encryptedPayload: Buffer.alloc(16),
+						pluginRevisionId: "pinned-revision",
+					});
+				yield* db
+					.update(sandboxScript)
+					.set({ source: null, pluginRevisionId: "pinned-revision" })
+					.where(eq(sandboxScript.id, "script"));
+			}),
+		);
+	});
+
 describe("automation retry persistence", () => {
 	layer(historyDatabaseLayer(() => Effect.die("Unauthorized retry dispatched")))((test) => {
 		test.effect("denies foreign retry before eligibility checks or queueing", () =>
@@ -315,11 +365,7 @@ describe("automation retry persistence", () => {
 			Effect.gen(function* () {
 				yield* (yield* DatabaseSession).run((db) =>
 					Effect.gen(function* () {
-						const base = fixtureManifest();
-						yield* db
-							.insert(plugin)
-							.values({ id: "plugin", status: "inactive", packageId: base.metadata.packageId });
-						const pinnedManifest: PluginManifest = {
+						yield* seedPinnedRevisions((base) => ({
 							...base,
 							metadata: { ...base.metadata, name: "Pinned name" },
 							signalSchemas: base.signalSchemas.map((signal) => ({
@@ -336,44 +382,7 @@ describe("automation retry persistence", () => {
 									},
 								},
 							})),
-						};
-						yield* db.insert(pluginRevision).values([
-							{
-								contentHash: "old",
-								pluginId: "plugin",
-								id: "pinned-revision",
-								manifest: pinnedManifest,
-								clientConfigSchema: { fields: {} },
-								sandboxAuthority: pluginSandboxAuthority(pinnedManifest),
-							},
-							{
-								manifest: base,
-								pluginId: "plugin",
-								contentHash: "current",
-								id: "current-revision",
-								clientConfigSchema: { fields: {} },
-								sandboxAuthority: pluginSandboxAuthority(base),
-							},
-						]);
-						yield* db
-							.update(plugin)
-							.set({ activeRevisionId: "current-revision" })
-							.where(eq(plugin.id, "plugin"));
-						yield* db
-							.insert(pluginConfigRevision)
-							.values({
-								id: "config",
-								configuredKeys: [],
-								encryptionKeyId: "key",
-								nonce: Buffer.alloc(12),
-								payloadFingerprint: "fingerprint",
-								encryptedPayload: Buffer.alloc(16),
-								pluginRevisionId: "pinned-revision",
-							});
-						yield* db
-							.update(sandboxScript)
-							.set({ source: null, pluginRevisionId: "pinned-revision" })
-							.where(eq(sandboxScript.id, "script"));
+						}));
 						yield* db
 							.update(automationTrigger)
 							.set({
@@ -434,8 +443,7 @@ describe("automation retry persistence", () => {
 			Effect.gen(function* () {
 				yield* (yield* DatabaseSession).run((db) =>
 					Effect.gen(function* () {
-						const base = fixtureManifest();
-						const pinnedManifest: PluginManifest = {
+						yield* seedPinnedRevisions((base) => ({
 							...base,
 							entitySchemas: base.entitySchemas.map((entity) =>
 								Object.assign({}, entity, {
@@ -452,47 +460,7 @@ describe("automation retry persistence", () => {
 									} satisfies AppSchema,
 								}),
 							),
-						};
-						yield* db
-							.insert(plugin)
-							.values({ id: "plugin", status: "inactive", packageId: base.metadata.packageId });
-						yield* db.insert(pluginRevision).values([
-							{
-								contentHash: "old",
-								pluginId: "plugin",
-								id: "pinned-revision",
-								manifest: pinnedManifest,
-								clientConfigSchema: { fields: {} },
-								sandboxAuthority: pluginSandboxAuthority(pinnedManifest),
-							},
-							{
-								manifest: base,
-								pluginId: "plugin",
-								contentHash: "current",
-								id: "current-revision",
-								clientConfigSchema: { fields: {} },
-								sandboxAuthority: pluginSandboxAuthority(base),
-							},
-						]);
-						yield* db
-							.update(plugin)
-							.set({ activeRevisionId: "current-revision" })
-							.where(eq(plugin.id, "plugin"));
-						yield* db
-							.insert(pluginConfigRevision)
-							.values({
-								id: "config",
-								configuredKeys: [],
-								encryptionKeyId: "key",
-								nonce: Buffer.alloc(12),
-								payloadFingerprint: "fingerprint",
-								encryptedPayload: Buffer.alloc(16),
-								pluginRevisionId: "pinned-revision",
-							});
-						yield* db
-							.update(sandboxScript)
-							.set({ source: null, pluginRevisionId: "pinned-revision" })
-							.where(eq(sandboxScript.id, "script"));
+						}));
 						const snapshot = {
 							id: "entity",
 							name: "Item",
