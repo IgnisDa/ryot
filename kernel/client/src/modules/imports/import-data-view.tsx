@@ -126,7 +126,7 @@ function ImportHistory(props: {
 						key={run.id}
 						nowMs={props.nowMs}
 						isFirst={index === 0}
-						sourceName={importSourceName(run.source, props.sourceNames)}
+						sourceName={importSourceName(run, props.sourceNames)}
 					/>
 				))}
 			</div>
@@ -182,7 +182,7 @@ export function ImportDataView(props: ImportDataViewProps) {
 				<LiveImportRunCard
 					run={live}
 					nowMs={props.nowMs}
-					sourceName={importSourceName(live.source, props.sourceNames)}
+					sourceName={importSourceName(live, props.sourceNames)}
 				/>
 			)}
 			{ready === undefined ? (

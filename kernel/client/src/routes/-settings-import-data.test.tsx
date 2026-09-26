@@ -160,6 +160,7 @@ const makeRun = (overrides: Partial<ImportRunSummary> = {}) => ({
 	blockDeadline: null,
 	failureReason: null,
 	status: "completed",
+	pluginInstallationId: null,
 	summary: outcomeSummary(12),
 	id: ImportRunId.make("run_1"),
 	createdAt: "2026-08-23T11:00:00.000Z",

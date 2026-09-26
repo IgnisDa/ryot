@@ -313,6 +313,7 @@ it("exposes only approved application-table fields", () => {
 			"failureReason",
 			"inputSummary",
 			"integrationId",
+			"pluginInstallationId",
 			"startedAt",
 			"finishedAt",
 			"createdAt",
