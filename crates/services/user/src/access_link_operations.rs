@@ -1,0 +1,134 @@
+use std::sync::Arc;
+
+use anyhow::{Result, bail};
+use chrono::{Duration, Utc};
+use common_models::StringIdObject;
+use database_models::{access_link, prelude::AccessLink, prelude::User, user};
+use database_utils::{get_enabled_users_query, server_key_validation_guard};
+use dependent_core_utils::is_server_key_validated;
+use media_models::{
+    CreateAccessLinkInput, GenerateUserImpersonationLinkInput,
+    GenerateUserImpersonationLinkResponse, ProcessAccessLinkError, ProcessAccessLinkErrorVariant,
+    ProcessAccessLinkInput, ProcessAccessLinkResponse, ProcessAccessLinkResult,
+};
+use sea_orm::{
+    ActiveModelTrait, ActiveValue, ColumnTrait, EntityTrait, IntoActiveModel, ModelTrait,
+    QueryFilter,
+};
+use supporting_service::SupportingService;
+
+pub async fn create_access_link(
+    ss: &Arc<SupportingService>,
+    input: CreateAccessLinkInput,
+    user_id: String,
+) -> Result<StringIdObject> {
+    server_key_validation_guard(is_server_key_validated(ss).await?).await?;
+    let new_link = access_link::ActiveModel {
+        user_id: ActiveValue::Set(user_id),
+        name: ActiveValue::Set(input.name),
+        expires_on: ActiveValue::Set(input.expires_on),
+        redirect_to: ActiveValue::Set(input.redirect_to),
+        maximum_uses: ActiveValue::Set(input.maximum_uses),
+        is_account_default: ActiveValue::Set(input.is_account_default),
+        is_mutation_allowed: ActiveValue::Set(input.is_mutation_allowed),
+        ..Default::default()
+    };
+    let link = new_link.insert(&ss.db).await?;
+    Ok(StringIdObject { id: link.id })
+}
+
+pub async fn process_access_link(
+    ss: &Arc<SupportingService>,
+    input: ProcessAccessLinkInput,
+) -> Result<ProcessAccessLinkResult> {
+    let maybe_link = match input {
+        ProcessAccessLinkInput::Id(id) => AccessLink::find_by_id(id).one(&ss.db).await?,
+        ProcessAccessLinkInput::Username(username) => {
+            let user = get_enabled_users_query()
+                .filter(user::Column::Name.eq(username))
+                .one(&ss.db)
+                .await?;
+            match user {
+                None => None,
+                Some(u) => {
+                    u.find_related(AccessLink)
+                        .filter(access_link::Column::IsAccountDefault.eq(true))
+                        .filter(access_link::Column::IsRevoked.is_null())
+                        .one(&ss.db)
+                        .await?
+                }
+            }
+        }
+    };
+    let link = match maybe_link {
+        None => {
+            return Ok(ProcessAccessLinkResult::Error(ProcessAccessLinkError {
+                error: ProcessAccessLinkErrorVariant::NotFound,
+            }));
+        }
+        Some(l) => l,
+    };
+    if let Some(expiration_time) = link.expires_on
+        && expiration_time < Utc::now()
+    {
+        return Ok(ProcessAccessLinkResult::Error(ProcessAccessLinkError {
+            error: ProcessAccessLinkErrorVariant::Expired,
+        }));
+    }
+    if let Some(max_uses) = link.maximum_uses
+        && link.times_used >= max_uses
+    {
+        return Ok(ProcessAccessLinkResult::Error(ProcessAccessLinkError {
+            error: ProcessAccessLinkErrorVariant::MaximumUsesReached,
+        }));
+    }
+    if let Some(true) = link.is_revoked {
+        return Ok(ProcessAccessLinkResult::Error(ProcessAccessLinkError {
+            error: ProcessAccessLinkErrorVariant::Revoked,
+        }));
+    }
+    let api_key = session_service::create_session(
+        ss,
+        link.user_id.clone(),
+        Some(link.id.clone()),
+        link.expires_on.map(|s| s - Utc::now()),
+    )
+    .await?;
+    let mut issued_tokens = link.issued_tokens.clone();
+    issued_tokens.push(api_key.clone());
+    let mut link = link.into_active_model();
+    link.issued_tokens = ActiveValue::Set(issued_tokens);
+    let link = link.update(&ss.db).await?;
+    Ok(ProcessAccessLinkResult::Ok(ProcessAccessLinkResponse {
+        api_key,
+        redirect_to: link.redirect_to,
+        token_valid_for_days: ss.config.users.token_valid_for_days,
+    }))
+}
+
+pub async fn generate_impersonation_link(
+    ss: &Arc<SupportingService>,
+    input: GenerateUserImpersonationLinkInput,
+) -> Result<GenerateUserImpersonationLinkResponse> {
+    if input.admin_access_token != ss.config.server.admin_access_token {
+        bail!("Invalid admin access token");
+    }
+    let user = User::find_by_id(&input.user_id).one(&ss.db).await?;
+    let Some(user) = user else {
+        bail!("User not found");
+    };
+    if user.is_disabled == Some(true) {
+        bail!("User is disabled");
+    }
+    let timestamp = Utc::now().format("%Y-%m-%d %H:%M:%S");
+    let access_link_input = CreateAccessLinkInput {
+        maximum_uses: Some(1),
+        is_mutation_allowed: Some(true),
+        expires_on: Some(Utc::now() + Duration::hours(6)),
+        name: format!("Admin Impersonation - {}", timestamp),
+        ..Default::default()
+    };
+    let result = create_access_link(ss, access_link_input, input.user_id).await?;
+    let impersonation_url = format!("{}/_s/{}", ss.config.frontend.url, result.id);
+    Ok(GenerateUserImpersonationLinkResponse { impersonation_url })
+}

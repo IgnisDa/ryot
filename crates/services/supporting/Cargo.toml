@@ -1,0 +1,20 @@
+[package]
+name = "supporting-service"
+version = "0.1.0"
+edition = "2024"
+
+[dependencies]
+anyhow = { workspace = true }
+apalis-core = { workspace = true }
+bon = { workspace = true }
+chrono = { workspace = true }
+chrono-tz = { workspace = true }
+futures = { workspace = true }
+sea-orm = { workspace = true }
+tracing = { workspace = true }
+
+background-models = { workspace = true }
+config-definition = { workspace = true }
+
+[package.metadata.cargo-machete]
+ignored = ["tracing"]

@@ -1,0 +1,13 @@
+[package]
+name = "external-models"
+version = "0.1.0"
+edition = "2024"
+
+[dependencies]
+rust_decimal = { workspace = true }
+sea-orm = { workspace = true }
+serde = { workspace = true }
+serde_with = { workspace = true }
+strum = { workspace = true }
+
+common-models = { workspace = true }

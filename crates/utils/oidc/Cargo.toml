@@ -1,0 +1,14 @@
+[package]
+name = "oidc-utils"
+version = "0.1.0"
+edition = "2024"
+
+[dependencies]
+openidconnect = { workspace = true }
+tracing = { workspace = true }
+
+common-utils = { workspace = true }
+config-definition = { workspace = true }
+
+[package.metadata.cargo-machete]
+ignored = ["tracing"]

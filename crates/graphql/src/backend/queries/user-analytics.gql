@@ -1,0 +1,56 @@
+query UserAnalytics($input: UserAnalyticsInput!) {
+	userAnalytics(input: $input) {
+		response {
+			hours {
+				hour
+				entities {
+					entityLot
+					metadataLot
+				}
+			}
+			activities {
+				groupedBy
+				totalCount
+				totalDuration
+				items {
+					...DailyUserActivityItemPart
+				}
+			}
+			fitness {
+				workoutReps
+				workoutCount
+				workoutWeight
+				workoutDistance
+				workoutDuration
+				workoutRestTime
+				measurementCount
+				workoutPersonalBests
+				workoutCaloriesBurnt
+				workoutExercises {
+					count
+					exercise
+				}
+				workoutMuscles {
+					count
+					muscle
+				}
+				workoutEquipments {
+					count
+					equipment
+				}
+			}
+		}
+	}
+}
+
+query MinimalUserAnalytics($input: UserAnalyticsInput!) {
+	userAnalytics(input: $input) {
+		response {
+			activities {
+				items {
+					...DailyUserActivityItemPart
+				}
+			}
+		}
+	}
+}
