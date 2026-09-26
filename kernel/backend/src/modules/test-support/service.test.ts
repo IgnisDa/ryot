@@ -268,11 +268,14 @@ layer(privatePluginOperations.layer)((test) => {
 });
 
 const translationUpserts = recordingServiceLayer<unknown>((record) => ({
-	translations: { upsert: (input) => record(input).pipe(Effect.as("translation-row-id")) },
+	translations: {
+		upsert: (input) =>
+			record(input).pipe(Effect.as({ entityId: input.entityId, language: input.language })),
+	},
 }));
 
 layer(translationUpserts.layer)((test) => {
-	test.effect("returns the persisted translation id from an upsert", () =>
+	test.effect("returns the translation identity from an upsert", () =>
 		Effect.gen(function* () {
 			const result = yield* (yield* TestSupportService).upsertEntityTranslation({
 				entityId,
@@ -280,7 +283,7 @@ layer(translationUpserts.layer)((test) => {
 				name: "Nombre",
 				properties: null,
 			});
-			expect(result).toEqual({ id: "translation-row-id" });
+			expect(result).toEqual({ entityId, language: "es" });
 			expect((yield* translationUpserts.recorded).at(-1)).toMatchObject({
 				entityId,
 				language: "es",

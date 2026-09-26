@@ -285,18 +285,27 @@ const plugin: CatalogTable = {
 		id: physicalField("id", "text", false),
 		clientApiVersion: pluginClientApiVersion,
 		slug: physicalField("slug", "text", false),
-		scope: physicalField("scope", "text", false),
 		status: physicalField("status", "text", false),
 		description: pluginMetadataField("description"),
 		activeRevisionId: physicalField("active_revision_id", "text"),
-		version: pluginActiveRevisionField("revision.version", "text", true),
 		ingestedAt: pluginActiveRevisionField("revision.created_at", "date", true),
 		sourceHash: pluginActiveRevisionField("revision.source_hash", "text", true),
 		configSchema: pluginActiveRevisionField("revision.client_config_schema", "json", true),
+		version: pluginActiveRevisionField(
+			"revision.manifest -> 'metadata' ->> 'version'",
+			"text",
+			true,
+		),
 		environmentConfigRevisionId: withAccess(
 			physicalField("environment_config_revision_id", "text"),
 			"admin",
 		),
+		scope: {
+			kind: "text",
+			nullable: false,
+			resolve: ({ sqlAlias }) =>
+				sql.raw(`CASE WHEN ${sqlAlias}.owner_user_id IS NULL THEN 'system' ELSE 'user' END`),
+		},
 	},
 };
 
@@ -335,7 +344,7 @@ const effectiveHomeSavedViewSlug: CatalogField = {
 				INNER JOIN user_saved_view_effective home_fallback ON home_fallback.slug = home_revision.manifest -> 'client' ->> 'homeView'
 				WHERE home_plugin.id = ${sqlAlias}.plugin_id
 					AND home_plugin.status = 'active'
-					AND (home_plugin.scope = 'system' OR home_plugin.owner_user_id = ${sqlAlias}.user_id)
+					AND (home_plugin.owner_user_id IS NULL OR home_plugin.owner_user_id = ${sqlAlias}.user_id)
 					AND home_fallback.user_id = ${sqlAlias}.user_id
 					AND home_fallback.is_builtin
 					AND home_fallback.plugin_installation_id = ${sqlAlias}.id
@@ -529,23 +538,13 @@ const sandboxProvider: CatalogTable = {
 };
 
 const sandboxProviderOperation: CatalogTable = {
-	primaryKey: ["id"],
-	name: "sandbox_provider_operation",
+	primaryKey: ["providerId", "operation"],
+	name: "user_sandbox_provider_operation",
 	visibility: {
-		user: {
-			parentColumn: "id",
-			type: "parentOwned",
-			pluginReadable: true,
-			column: "provider_id",
-			parentOwnerColumn: "user_id",
-			parentTable: "user_sandbox_provider",
-		},
+		user: { type: "owned", column: "user_id", includeGlobal: false, pluginReadable: true },
 	},
 	fields: {
-		id: physicalField("id", "text", false),
 		operation: physicalField("operation", "text", false),
-		createdAt: physicalField("created_at", "date", false),
-		updatedAt: physicalField("updated_at", "date", false),
 		optionsSchema: physicalField("options_schema", "json"),
 		providerId: physicalField("provider_id", "text", false),
 	},
@@ -895,12 +894,11 @@ const automationRunAttempt: CatalogTable = {
 };
 
 const entityTranslation: CatalogTable = {
-	primaryKey: ["id"],
 	name: "entity_translation",
+	primaryKey: ["entityId", "language"],
 	visibility: { admin: { type: "all" } },
 	fields: {
 		name: physicalField("name", "text"),
-		id: physicalField("id", "text", false),
 		properties: physicalField("properties", "json"),
 		populatedAt: physicalField("populated_at", "date"),
 		language: physicalField("language", "text", false),

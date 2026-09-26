@@ -627,7 +627,6 @@ export class BackupRestoreWriter extends Context.Service<BackupRestoreWriter>()(
 						dependency.translations,
 					)) {
 						yield* persistence.restoreTranslation({
-							id: translation.id,
 							entityId: target.id,
 							name: translation.name,
 							language: translation.language,

@@ -1,5 +1,5 @@
 import { DbError } from "@ryot-app/contract/errors";
-import type { EntityId, UserId } from "@ryot-app/contract/schema/brands";
+import { EntityId, type UserId } from "@ryot-app/contract/schema/brands";
 import { asc, eq, inArray, sql } from "drizzle-orm";
 import { Context, Effect, Layer } from "effect";
 
@@ -36,7 +36,10 @@ export class TranslationsRepository extends Context.Service<TranslationsReposito
 						.select()
 						.from(schema.entityTranslation)
 						.where(inArray(schema.entityTranslation.entityId, [...entityIds]))
-						.orderBy(asc(schema.entityTranslation.entityId), asc(schema.entityTranslation.id)),
+						.orderBy(
+							asc(schema.entityTranslation.entityId),
+							asc(schema.entityTranslation.language),
+						),
 				);
 			});
 
@@ -62,12 +65,15 @@ export class TranslationsRepository extends Context.Service<TranslationsReposito
 								populatedAt: sql`excluded.populated_at`,
 							},
 						})
-						.returning({ id: schema.entityTranslation.id }),
+						.returning({
+							entityId: schema.entityTranslation.entityId,
+							language: schema.entityTranslation.language,
+						}),
 				);
 				if (!row) {
 					return yield* new DbError({ message: "Translation overlay upsert returned no row" });
 				}
-				return row.id;
+				return { language: row.language, entityId: EntityId.make(row.entityId) };
 			});
 
 			const findUserLanguage = Effect.fn("TranslationsRepository.findUserLanguage")(function* (

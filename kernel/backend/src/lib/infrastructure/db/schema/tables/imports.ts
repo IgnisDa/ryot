@@ -91,7 +91,6 @@ export const importRun = snakeCase.table(
 		processedItems: integer().notNull().default(0),
 		source: text().notNull().$type<ImportRunSource>(),
 		failureReason: jsonb().$type<ImportRunFailureReason>(),
-		executionKind: text().notNull().$type<"source" | "integration">(),
 		createdAt: timestamp({ withTimezone: true }).defaultNow().notNull(),
 		status: text().notNull().$type<ImportRunStatus>().default("pending"),
 		inputSummary: jsonb().$type<Record<string, unknown>>().notNull().default({}),
@@ -126,8 +125,8 @@ export const importRun = snakeCase.table(
 			sql`${table.status} in ('pending', 'running', 'cancelling', 'completed', 'failed', 'cancelled')`,
 		),
 		check(
-			"import_run_execution_kind_check",
-			sql`(${table.executionKind} = 'source' and ${table.integrationId} is null and ${table.integrationLot} is null) or (${table.executionKind} = 'integration' and ${table.integrationId} is not null and ${table.integrationLot} is not null)`,
+			"import_run_integration_lot_check",
+			sql`(${table.integrationId} is null) = (${table.integrationLot} is null)`,
 		),
 	],
 );

@@ -487,7 +487,7 @@ layer(
 					/FROM \(SELECT \* FROM "user_sandbox_provider" WHERE "user_id" = \$\d+\)/,
 				);
 				expect(statements[2]).toMatch(
-					/INNER JOIN \(SELECT \* FROM "sandbox_provider_operation" WHERE EXISTS \(/,
+					/INNER JOIN \(SELECT \* FROM "user_sandbox_provider_operation" WHERE "user_id" = \$\d+\)/,
 				);
 				expect(statements[2]).toMatch(
 					/INNER JOIN \(SELECT \* FROM "plugin" WHERE \("owner_user_id" = \$\d+ OR "owner_user_id" IS NULL\)\)/,
