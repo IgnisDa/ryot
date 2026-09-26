@@ -161,7 +161,7 @@ describe("isolated import durability", () => {
 					Effect.acquireRelease(
 						Effect.gen(function* () {
 							const process = spawnApiProcess(apiEnv(label, configValue));
-							yield* waitForHealthCheck(`${baseUrl}/system/health`, label, 90).pipe(
+							yield* waitForHealthCheck(`${baseUrl}/system/health`, label, process, 90).pipe(
 								Effect.onError(() => stopApiProcess(process)),
 							);
 							return process;
