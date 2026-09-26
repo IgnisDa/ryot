@@ -8,6 +8,12 @@ export const settingsGroups = [
 				icon: "sliders-horizontal",
 				path: "/settings/preferences",
 			},
+			{
+				icon: "puzzle",
+				slug: "plugin-preferences",
+				label: "Plugin preferences",
+				path: "/settings/plugin-preferences",
+			},
 			{ icon: "user", slug: "account", label: "Account", path: "/settings/account" },
 		],
 	},

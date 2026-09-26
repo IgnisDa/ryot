@@ -123,7 +123,7 @@ export const userSettings: UserSettingsResult = {
 	name: "Test User",
 	id: UserId.make("user-1"),
 	email: "user@ryot.example",
-	preferences: { language: null, allowNsfw: false, disableIntegrations: false },
+	preferences: { language: null, disableIntegrations: false },
 };
 
 export const makeUserSettingsStub = (overrides: Partial<UserSettingsApi["Service"]> = {}) =>

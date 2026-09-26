@@ -3,10 +3,9 @@ import type {
 	UserPreferences,
 } from "@ryot-app/contract/modules/user-settings/schemas";
 
-export type PreferenceDraft = { readonly language: string; readonly allowNsfw: boolean };
+export type PreferenceDraft = { readonly language: string };
 
 export const makePreferenceDraft = (preferences: UserPreferences): PreferenceDraft => ({
-	allowNsfw: preferences.allowNsfw,
 	language: preferences.language ?? "",
 });
 
@@ -15,8 +14,5 @@ export const preferencePayload = (
 	draft: PreferenceDraft,
 ): UpdateUserPreferencesBody => {
 	const language = draft.language.trim() || null;
-	return {
-		...(language === initial.language ? {} : { language }),
-		...(draft.allowNsfw === initial.allowNsfw ? {} : { allowNsfw: draft.allowNsfw }),
-	};
+	return language === initial.language ? {} : { language };
 };
