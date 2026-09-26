@@ -439,8 +439,12 @@ export const clientCompositionDocument = (
 	stylesheets: [],
 	modulepreloads: [],
 	importMap: { imports: {} },
-	descriptor: { application: "page", automaticRegistry: [] },
 	bootstrap: `/api/page-bundles/${"a".repeat(64)}/public/bootstrap.js`,
+	descriptor: {
+		application: "page",
+		automaticRegistry: [],
+		entry: { binding: "default", specifier: "@ryot-app/kernel-renderers/fixture" },
+	},
 	metadata: {
 		hash,
 		format: CLIENT_ARTIFACT_FORMAT,

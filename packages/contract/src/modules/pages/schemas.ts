@@ -144,8 +144,8 @@ export const ClientArtifactFileReference = strictStruct({
 export type ClientArtifactFileReference = typeof ClientArtifactFileReference.Type;
 
 export const ClientCompositionModuleReference = strictStruct({
-	binding: Schema.String,
-	specifier: Schema.String,
+	binding: Schema.NonEmptyString,
+	specifier: Schema.NonEmptyString,
 });
 export type ClientCompositionModuleReference = typeof ClientCompositionModuleReference.Type;
 
@@ -215,24 +215,31 @@ export const ClientPageCompositionIdentity = strictStruct({
 });
 export type ClientPageCompositionIdentity = typeof ClientPageCompositionIdentity.Type;
 
-export const ClientPageCompositionManifest = strictStruct({
-	bootstrap: ClientArtifactFileReference,
-	identity: ClientPageCompositionIdentity,
-	imports: Schema.Record(Schema.String, ClientArtifactFileReference),
-	descriptor: strictStruct({
-		application: Schema.Literals(["page", "plugin-route"]),
-		entry: Schema.optional(ClientCompositionModuleReference),
-		automaticRegistry: Schema.Array(ClientCompositionPresentationRegistration),
-		routes: Schema.optional(
-			strictStruct({
+const clientCompositionDescriptor = <Registration extends Schema.Top>(registration: Registration) =>
+	Schema.Union([
+		strictStruct({
+			application: Schema.Literal("page"),
+			entry: ClientCompositionModuleReference,
+			automaticRegistry: Schema.Array(registration),
+		}),
+		strictStruct({
+			application: Schema.Literal("plugin-route"),
+			automaticRegistry: Schema.Array(registration),
+			routes: strictStruct({
 				home: ClientCompositionModuleReference,
 				notFound: Schema.optional(ClientCompositionModuleReference),
 				routes: Schema.Array(
 					strictStruct({ path: Schema.String, module: ClientCompositionModuleReference }),
 				),
 			}),
-		),
-	}),
+		}),
+	]);
+
+export const ClientPageCompositionManifest = strictStruct({
+	bootstrap: ClientArtifactFileReference,
+	identity: ClientPageCompositionIdentity,
+	imports: Schema.Record(Schema.String, ClientArtifactFileReference),
+	descriptor: clientCompositionDescriptor(ClientCompositionPresentationRegistration),
 });
 export type ClientPageCompositionManifest = typeof ClientPageCompositionManifest.Type;
 
@@ -343,18 +350,15 @@ export const ClientCompositionDocument = strictStruct({
 		bridgeVersion: Schema.Int,
 		compilerVersion: Schema.Int,
 	}),
-	descriptor: strictStruct({
-		...ClientPageCompositionManifest.fields.descriptor.fields,
-		automaticRegistry: Schema.Array(
-			strictStruct({
-				stylesheets: Schema.Array(Schema.String),
-				layout: ClientCompositionPresentationRegistration.fields.layout,
-				module: ClientCompositionPresentationRegistration.fields.module,
-				ownerPluginId: ClientCompositionPresentationRegistration.fields.ownerPluginId,
-				entitySchemaSlug: ClientCompositionPresentationRegistration.fields.entitySchemaSlug,
-			}),
-		),
-	}),
+	descriptor: clientCompositionDescriptor(
+		strictStruct({
+			stylesheets: Schema.Array(Schema.String),
+			layout: ClientCompositionPresentationRegistration.fields.layout,
+			module: ClientCompositionPresentationRegistration.fields.module,
+			ownerPluginId: ClientCompositionPresentationRegistration.fields.ownerPluginId,
+			entitySchemaSlug: ClientCompositionPresentationRegistration.fields.entitySchemaSlug,
+		}),
+	),
 });
 export type ClientCompositionDocument = typeof ClientCompositionDocument.Type;
 
