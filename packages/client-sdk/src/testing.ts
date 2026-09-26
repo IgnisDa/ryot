@@ -16,6 +16,7 @@ import {
 	type PluginRyotQLOutcome,
 } from "@ryot-app/client-plugin-contract";
 import type { JsonValue } from "@ryot-app/contract/schema/json";
+import * as Clock from "effect/Clock";
 import type * as Duration from "effect/Duration";
 import * as Effect from "effect/Effect";
 import * as Layer from "effect/Layer";
@@ -27,13 +28,8 @@ import { Fragment, act, createElement, type ComponentType } from "react";
 
 import { createRyotClient, type RyotClientAdapter } from "./index";
 import { createPluginNavigationStore, type PluginRouterNavigation } from "./navigation/store";
-import { bootstrapClientPage } from "./plugin";
-import {
-	RyotClientService,
-	RyotNavigationService,
-	RyotScheduleService,
-	setBootstrapRyotRuntimeFactory,
-} from "./schedule";
+import { bootstrapClientPage, createClientBootstrap } from "./plugin";
+import { RyotClientService, RyotNavigationService, RyotScheduleService } from "./schedule";
 
 // Fills only the required capabilities, so tests of a missing optional one still see
 // `unsupported-capability`.
@@ -100,9 +96,8 @@ const inertNavigation = (): PluginRouterNavigation => {
 
 /**
  * A `RyotSchedule` backed by a `TestClock`, plus the runtime `RyotProvider` needs. Pass `navigation`
- * to drive a mounted `PluginRouter`. While the harness is alive, `bootstrapClientPlugin` and
- * `bootstrapClientPage` also build their SDK runtime on this schedule, so `advance` drives
- * bootstrapped pages too.
+ * to drive a mounted `PluginRouter`. Pass `bootstrap` explicitly to bootstrapped pages that
+ * should use this clock; the page owns its runtime, while this harness owns the schedule.
  */
 export const createTestRyotClock = (
 	overrides: Partial<RyotClientAdapter> = {},
@@ -118,23 +113,21 @@ export const createTestRyotClock = (
 			Layer.provideMerge(RyotScheduleService.layer, TestClock.layer({ warningDelay: "1 hour" })),
 		),
 	);
-	const schedule = runtime.runSync(RyotScheduleService);
-	setBootstrapRyotRuntimeFactory((bootstrapClient, bootstrapNavigation) =>
+	const clock = runtime.runSync(Clock.Clock);
+	const bootstrap = createClientBootstrap((bootstrapClient, bootstrapNavigation) =>
 		ManagedRuntime.make(
 			Layer.mergeAll(
 				RyotClientService.layer(bootstrapClient),
 				RyotNavigationService.layer(bootstrapNavigation),
-				Layer.succeed(RyotScheduleService, schedule),
+				Layer.provide(RyotScheduleService.layer, Layer.succeed(Clock.Clock, clock)),
 			),
 		),
 	);
 	return {
 		client,
 		runtime,
-		dispose: () => {
-			setBootstrapRyotRuntimeFactory(undefined);
-			return runtime.dispose();
-		},
+		bootstrap,
+		dispose: () => runtime.dispose(),
 		advance: (millis: Duration.Input) => act(() => runtime.runPromise(advanceRyotSchedule(millis))),
 		setTime: (timestamp: number) =>
 			act(() =>
@@ -245,6 +238,7 @@ export const mountPluginPage = (
 	options: {
 		readonly page?: ClientPageContext | undefined;
 		readonly location?: PluginLogicalLocation | undefined;
+		readonly bootstrap?: ReturnType<typeof createClientBootstrap> | undefined;
 	} = {},
 ) => {
 	document.body.innerHTML = `<div id="${CLIENT_PAGE_ROOT_ELEMENT_ID}"></div>`;
@@ -254,7 +248,7 @@ export const mountPluginPage = (
 	metadataElement.textContent = JSON.stringify(compositionMetadata);
 	document.head.append(metadataElement);
 
-	const bootstrap = bootstrapClientPage(component);
+	const bootstrap = (options.bootstrap?.bootstrapClientPage ?? bootstrapClientPage)(component);
 	const channel = new MessageChannel();
 	const messages: unknown[] = [];
 	channel.port1.addEventListener("message", ({ data }) => messages.push(data));
