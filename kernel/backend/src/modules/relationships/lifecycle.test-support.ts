@@ -11,34 +11,30 @@ import { Workflow } from "effect/workflow";
 import { WorkflowEngine } from "effect/workflow/WorkflowEngine";
 import { Client } from "pg";
 
-import { LifecyclePlanner } from "#lib/domain/lifecycle";
-import { rootLifecycleCommand } from "#lib/domain/lifecycle-command";
-import { LifecycleExecution } from "#lib/domain/lifecycle-execution";
-import * as tables from "#lib/infrastructure/db/schema/tables/combined";
-import { DatabaseSession } from "#lib/infrastructure/db/session";
-import { WorkflowExecutionNotifications } from "#lib/infrastructure/workflow-execution-notifications";
-import {
-	makeAppConfigLayer,
-	makeConfigProviderLayer,
-	makeWorkflowEngine,
-} from "#lib/test-utils/effect";
-import { IsolatedDatabase, isolatedDatabaseLayer } from "#lib/test-utils/isolated-database";
 import { LifecyclePlannerServiceLive } from "#modules/automations/layer";
 import { withLifecycleDispatch } from "#modules/automations/lifecycle.test-support";
+import { rootLifecycleCommand } from "#modules/automations/lifecycle/command";
+import { LifecycleExecution } from "#modules/automations/lifecycle/execution";
+import { LifecyclePlanner } from "#modules/automations/lifecycle/planning";
 import { AutomationRunRepository } from "#modules/automations/run-repository";
-import { DefinitionRepository } from "#modules/definition-registry/repository";
-import type { DefinitionSource } from "#modules/definition-registry/snapshot";
+import { EventSchemaReader } from "#modules/definitions/event-schemas";
+import { DefinitionRepository } from "#modules/definitions/repository";
+import type { DefinitionSource } from "#modules/definitions/snapshot";
 import { EntitiesRepository } from "#modules/entities/repository";
 import { EntitiesService } from "#modules/entities/service";
 import { DomainWriteChecksLive } from "#modules/entities/write-context";
-import { EventSchemasRepository } from "#modules/event-schemas/repository";
 import { EventsRepository } from "#modules/events/repository";
 import { EventsService } from "#modules/events/service";
-import { PluginConfigEncryptionKey } from "#modules/plugins/config-encryption-key";
-import { PluginConfigRevisions } from "#modules/plugins/config-revisions";
-import { PluginInstallationRepository } from "#modules/plugins/installation-repository";
-import { PluginRepository } from "#modules/plugins/repository";
-import { PluginRuntimeResolver } from "#modules/plugins/runtime-resolver";
+import { PluginRuntimeResolver } from "#modules/plugins/catalog/runtime-resolver";
+import { PluginConfigEncryptionKey } from "#modules/plugins/configuration/encryption-key";
+import { PluginConfigRevisions } from "#modules/plugins/configuration/revisions";
+import { PluginInstallationRepository } from "#modules/plugins/installations/repository";
+import { PluginRepository } from "#modules/plugins/packages/repository";
+import { DatabaseSession } from "#platform/db/session";
+import { WorkflowExecutionNotifications } from "#platform/workflow/execution-notifications";
+import * as tables from "#schema/tables/combined";
+import { makeAppConfigLayer, makeConfigProviderLayer, makeWorkflowEngine } from "#testing/effect";
+import { IsolatedDatabase, isolatedDatabaseLayer } from "#testing/isolated-database";
 
 import { RelationshipMutationPipeline } from "./mutation-pipeline";
 import { RelationshipsRepository } from "./repository";
@@ -255,7 +251,7 @@ export const relationshipDatabaseLayer = (
 				),
 			);
 			const eventsRepository = EventsRepository.layer;
-			const eventSchemasRepository = EventSchemasRepository.layer.pipe(Layer.provide(runtime));
+			const eventSchemasRepository = EventSchemaReader.layer.pipe(Layer.provide(runtime));
 			const eventEngine = Layer.succeed(
 				WorkflowEngine,
 				makeWorkflowEngine({

@@ -4,19 +4,19 @@ import { IsoUtcString } from "@ryot-app/contract/schema/utils";
 import { eq, sql } from "drizzle-orm";
 import { DateTime, Effect, Layer } from "effect";
 
-import * as tables from "#lib/infrastructure/db/schema/tables/combined";
-import { DatabaseSession } from "#lib/infrastructure/db/session";
-import { isolatedDatabaseLayer } from "#lib/test-utils/isolated-database";
 import { IngestionCaptures } from "#modules/imports/capture-service";
 import { IngestionExecution } from "#modules/imports/execution-service";
 import { ImportsRepository } from "#modules/imports/repository";
 import type { IngestionRecoveryCursor } from "#modules/imports/runtime/recovery-cursor";
 import { ImportSourceStateStore } from "#modules/imports/runtime/source-state-store";
 import { ImportWorkflowPinning } from "#modules/imports/workflow-pinning";
-import { IngestionReadinessService } from "#modules/plugins/ingestion-readiness-service";
-import { PluginInstallationRepository } from "#modules/plugins/installation-repository";
+import { IngestionReadinessService } from "#modules/plugins/catalog/readiness-service";
+import { PluginInstallationRepository } from "#modules/plugins/installations/repository";
 import { ScriptExecutionService } from "#modules/scripts/executions/service";
 import { SandboxPluginScriptResolver } from "#modules/scripts/registry/plugin-script-resolver";
+import { DatabaseSession } from "#platform/db/session";
+import * as tables from "#schema/tables/combined";
+import { isolatedDatabaseLayer } from "#testing/isolated-database";
 
 import { IntegrationIngestion } from "./ingestion";
 import { makeIntegration } from "./test-support";

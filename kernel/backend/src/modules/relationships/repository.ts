@@ -9,9 +9,9 @@ import {
 import { and, asc, eq, isNotNull, isNull, or, sql } from "drizzle-orm";
 import { Context, Effect, Layer, Schema } from "effect";
 
-import { pluginIdWhere } from "#lib/infrastructure/db/definition-owner";
-import * as schema from "#lib/infrastructure/db/schema/tables/combined";
-import { DatabaseSession } from "#lib/infrastructure/db/session";
+import { pluginIdWhere } from "#platform/db/definition-owner";
+import { DatabaseSession } from "#platform/db/session";
+import * as schema from "#schema/tables/combined";
 
 type RelationshipSnapshotRow = Pick<
 	typeof schema.relationship.$inferSelect,

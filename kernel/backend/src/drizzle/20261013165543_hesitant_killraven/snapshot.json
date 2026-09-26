@@ -7617,7 +7617,7 @@
 			"default": null,
 			"generated": null,
 			"identity": null,
-			"name": "source_hash",
+			"name": "content_hash",
 			"entityType": "columns",
 			"schema": "public",
 			"table": "plugin_revision"
@@ -14360,9 +14360,9 @@
 		},
 		{
 			"nameExplicit": true,
-			"columns": ["plugin_id", "source_hash"],
+			"columns": ["plugin_id", "content_hash"],
 			"nullsNotDistinct": false,
-			"name": "plugin_revision_plugin_source_unique",
+			"name": "plugin_revision_plugin_content_unique",
 			"entityType": "uniques",
 			"schema": "public",
 			"table": "plugin_revision"

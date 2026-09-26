@@ -3,8 +3,8 @@ import { sha256Base64Url } from "@ryot-app/ts-utils/crypto";
 import { stableStringify } from "@ryot-app/ts-utils/json";
 import { Effect, Schema } from "effect";
 
-import { RedisService } from "#lib/infrastructure/redis";
 import { appendSandboxJournal } from "#modules/scripts/replay/journal-store";
+import { RedisService } from "#platform/redis";
 
 const encodeJson = Schema.encodeSync(Schema.fromJsonString(Schema.Unknown));
 

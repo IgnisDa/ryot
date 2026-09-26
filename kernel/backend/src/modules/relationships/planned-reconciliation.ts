@@ -9,15 +9,15 @@ import {
 } from "@ryot-app/contract/modules/relationships/schemas";
 import { Effect, Schema } from "effect";
 
+import { lifecycleTrigger } from "#modules/automations/lifecycle/command";
 import {
 	LifecyclePersistenceError,
 	type CommittedLifecycleWork,
 	type LifecycleDispatchPlan,
-} from "#lib/domain/lifecycle";
-import { lifecycleTrigger } from "#lib/domain/lifecycle-command";
+} from "#modules/automations/lifecycle/planning";
 import type { DomainLifecycleCommand } from "#modules/entities/write-context";
 import { mutationReceiptIdentity, mutationReceiptOwner } from "#modules/mutations/receipts";
-import { catalogDefinitionFingerprint } from "#modules/plugins/runtime-resolver";
+import { catalogDefinitionFingerprint } from "#modules/plugins/catalog/runtime-resolver";
 
 import {
 	classifyRelationshipReceiptConflict,

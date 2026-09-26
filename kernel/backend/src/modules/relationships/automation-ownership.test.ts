@@ -10,11 +10,14 @@ import {
 } from "@ryot-app/contract/schema/brands";
 import { Effect } from "effect";
 
-import { automationLifecycleCausation } from "#lib/domain/lifecycle-command";
-import * as tables from "#lib/infrastructure/db/schema/tables/combined";
-import { DatabaseSession } from "#lib/infrastructure/db/session";
+import { automationLifecycleCausation } from "#modules/automations/lifecycle/command";
 import { EntitiesRepository } from "#modules/entities/repository";
-import { installRevisionPackage, revisionPackage } from "#modules/plugins/revision.test-support";
+import {
+	installRevisionPackage,
+	revisionPackage,
+} from "#modules/plugins/packages/revision.test-support";
+import { DatabaseSession } from "#platform/db/session";
+import * as tables from "#schema/tables/combined";
 
 import {
 	baseInput,

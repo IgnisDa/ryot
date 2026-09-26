@@ -2,7 +2,7 @@ import { expect, layer } from "@effect/vitest";
 import { Context, Effect, Layer, Option, Redacted, Ref } from "effect";
 import { FetchHttpClient } from "effect/http";
 
-import { makeAppConfigLayer } from "#lib/test-utils/effect";
+import { makeAppConfigLayer } from "#testing/effect";
 
 import { NotificationDeliveryService, NotificationMailer } from "./delivery";
 

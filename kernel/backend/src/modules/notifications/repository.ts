@@ -7,8 +7,8 @@ import { NotificationChannelId, UserId } from "@ryot-app/contract/schema/brands"
 import { and, desc, eq } from "drizzle-orm";
 import { Context, Effect, Layer, Match, Option } from "effect";
 
-import * as schema from "#lib/infrastructure/db/schema/tables/combined";
-import { DatabaseSession } from "#lib/infrastructure/db/session";
+import { DatabaseSession } from "#platform/db/session";
+import * as schema from "#schema/tables/combined";
 
 type NotificationChannelRow = typeof schema.notificationChannel.$inferSelect;
 

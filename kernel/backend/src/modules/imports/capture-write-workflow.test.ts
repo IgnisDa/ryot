@@ -4,14 +4,14 @@ import { ImportRunId, UserId } from "@ryot-app/contract/schema/brands";
 import { eq } from "drizzle-orm";
 import { Effect, FileSystem, Layer, Redacted } from "effect";
 
-import * as tables from "#lib/infrastructure/db/schema/tables/combined";
-import { DatabaseSession } from "#lib/infrastructure/db/session";
-import { HmacSigner } from "#lib/infrastructure/hmac-signer";
-import { LocalStorageService } from "#lib/infrastructure/local-storage";
-import { S3Service } from "#lib/infrastructure/s3";
-import { makeAppConfigLayer } from "#lib/test-utils/effect";
-import { IsolatedDatabase, isolatedDatabaseLayer } from "#lib/test-utils/isolated-database";
-import { IngestionPayloads } from "#modules/uploads/object-storage/ingestion-payloads";
+import { IngestionPayloads } from "#modules/assets/storage/ingestion-payloads";
+import { DatabaseSession } from "#platform/db/session";
+import { HmacSigner } from "#platform/storage/hmac-signer";
+import { LocalStorageService } from "#platform/storage/local-storage";
+import { S3Service } from "#platform/storage/s3";
+import * as tables from "#schema/tables/combined";
+import { makeAppConfigLayer } from "#testing/effect";
+import { IsolatedDatabase, isolatedDatabaseLayer } from "#testing/isolated-database";
 
 import { captureWriteExecutionId, runIngestionCaptureWrite } from "./capture-write-workflow";
 import { ImportsRepository } from "./repository";

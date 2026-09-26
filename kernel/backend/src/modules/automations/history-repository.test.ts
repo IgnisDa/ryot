@@ -24,18 +24,18 @@ import { eq } from "drizzle-orm";
 import { Context, Effect, Layer, Ref, Schema } from "effect";
 import { assert, describe } from "vitest";
 
-import { user } from "#lib/infrastructure/db/schema/tables/auth";
-import { automationRun, automationTrigger } from "#lib/infrastructure/db/schema/tables/automations";
+import { fixtureManifest } from "#modules/plugins/test-support";
+import { DatabaseSession } from "#platform/db/session";
+import { user } from "#schema/tables/auth";
+import { automationRun, automationTrigger } from "#schema/tables/automations";
 import {
 	sandboxScript,
 	plugin,
 	pluginRevision,
 	pluginConfigRevision,
 	pluginConfigEncryptionKey,
-} from "#lib/infrastructure/db/schema/tables/core";
-import { DatabaseSession } from "#lib/infrastructure/db/session";
-import { isolatedDatabaseLayer } from "#lib/test-utils/isolated-database";
-import { fixtureManifest } from "#modules/plugins/test-support";
+} from "#schema/tables/core";
+import { isolatedDatabaseLayer } from "#testing/isolated-database";
 
 import { AutomationAttemptRepository } from "./attempt-repository";
 import { AutomationExecutionOperations } from "./execution";
@@ -317,7 +317,7 @@ describe("automation retry persistence", () => {
 							.values({ id: "plugin", status: "inactive", packageId: base.metadata.packageId });
 						yield* db.insert(pluginRevision).values([
 							{
-								sourceHash: "old",
+								contentHash: "old",
 								pluginId: "plugin",
 								id: "pinned-revision",
 								clientConfigSchema: { fields: {} },
@@ -343,7 +343,7 @@ describe("automation retry persistence", () => {
 							{
 								manifest: base,
 								pluginId: "plugin",
-								sourceHash: "current",
+								contentHash: "current",
 								id: "current-revision",
 								clientConfigSchema: { fields: {} },
 							},

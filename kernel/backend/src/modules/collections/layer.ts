@@ -1,9 +1,9 @@
 import { Layer } from "effect";
 
-import { DefinitionRepository } from "#modules/definition-registry/repository";
+import { RelationshipSchemaReaderLive } from "#modules/definitions/layer";
+import { DefinitionRepository } from "#modules/definitions/repository";
 import { EntitiesServiceRuntimeLive } from "#modules/entities/layer";
 import { EventsServiceLive } from "#modules/events/layer";
-import { RelationshipSchemasRepositoryLive } from "#modules/relationship-schemas/layer";
 import { RelationshipsServiceLive } from "#modules/relationships/layer";
 
 import { CollectionsRepository } from "./repository";
@@ -20,7 +20,7 @@ export const CollectionsServiceLive = CollectionsService.layer.pipe(
 			EntitiesServiceRuntimeLive,
 			EventsServiceLive,
 			RelationshipsServiceLive,
-			RelationshipSchemasRepositoryLive,
+			RelationshipSchemaReaderLive,
 		),
 	),
 );

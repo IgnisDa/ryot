@@ -8,7 +8,7 @@ import { EntityId, UserId } from "@ryot-app/contract/schema/brands";
 import { Schema } from "effect";
 import { Workflow } from "effect/workflow";
 
-import type { DurableSchema } from "#lib/infrastructure/workflow";
+import type { DurableSchema } from "#boot/workflow-engine";
 import { DomainLifecycleCommand } from "#modules/entities/write-context";
 import { RelationshipSingleResult } from "#modules/relationships/mutation-pipeline";
 

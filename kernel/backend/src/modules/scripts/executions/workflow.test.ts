@@ -30,19 +30,19 @@ import { ChildProcess, ChildProcessSpawner } from "effect/process";
 import { Workflow } from "effect/workflow";
 import { WorkflowEngine, WorkflowInstance } from "effect/workflow/WorkflowEngine";
 
-import { RedisService } from "#lib/infrastructure/redis";
-import { makeActivity } from "#lib/infrastructure/workflow-scope";
+import { mutationAdmissionTestLayer } from "#modules/mutations/admission.test-support";
+import { fixtureManifest } from "#modules/plugins/test-support";
+import { appendWorkflowJournalWithRedis } from "#modules/scripts/replay/journal";
+import { inspectSandboxJournal, pinSandboxJournal } from "#modules/scripts/replay/journal-store";
+import { RedisService } from "#platform/redis";
+import { makeActivity } from "#platform/workflow/scope";
 import {
 	makeRedisService,
 	makeWorkflowActivityEngine,
 	makeWorkflowEngine,
 	type WorkflowEngineOverrides,
-} from "#lib/test-utils/effect";
-import { mutationAdmissionTestLayer } from "#lib/test-utils/mutation-admission";
-import { testExecutionId, testRedisClient } from "#lib/test-utils/redis";
-import { fixtureManifest } from "#modules/plugins/test-support";
-import { appendWorkflowJournalWithRedis } from "#modules/scripts/replay/journal";
-import { inspectSandboxJournal, pinSandboxJournal } from "#modules/scripts/replay/journal-store";
+} from "#testing/effect";
+import { testExecutionId, testRedisClient } from "#testing/redis";
 
 import { SandboxDurableHostDispatcher } from "../host/durable-dispatcher";
 import { KernelWorkflowReferences } from "../registry/kernel-workflow-references";

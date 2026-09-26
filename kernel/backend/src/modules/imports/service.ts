@@ -27,20 +27,20 @@ import { stableStringify } from "@ryot-app/ts-utils/json";
 import { Context, Effect, Exit, Layer, Result } from "effect";
 import { WorkflowEngine } from "effect/workflow/WorkflowEngine";
 
-import { rootLifecycleCommand } from "#lib/domain/lifecycle-command";
-import { DatabaseSession } from "#lib/infrastructure/db/session";
-import { DownloadTickets } from "#lib/infrastructure/download-tickets";
-import { AuthRepository } from "#modules/auth/repository";
+import { AuthRepository } from "#modules/accounts/auth/repository";
+import { UploadIntentsService } from "#modules/assets/uploads/intents";
+import { rootLifecycleCommand } from "#modules/automations/lifecycle/command";
 import { MutationReceipts } from "#modules/mutations/receipts";
 import { dispatchAdmittedWorkflow } from "#modules/mutations/workflow-dispatch";
 import {
 	ImportSourceCatalog,
 	type RegisteredImportSource,
-} from "#modules/plugins/import-source-catalog";
-import { IngestionReadinessService } from "#modules/plugins/ingestion-readiness-service";
-import { PluginInstallationRepository } from "#modules/plugins/installation-repository";
-import { resolveStoredPluginUserSettings } from "#modules/plugins/user-settings";
-import { UploadIntentsService } from "#modules/uploads/intents/service";
+} from "#modules/plugins/catalog/import-sources";
+import { IngestionReadinessService } from "#modules/plugins/catalog/readiness-service";
+import { PluginInstallationRepository } from "#modules/plugins/installations/repository";
+import { resolveStoredPluginUserSettings } from "#modules/plugins/preferences/user-settings";
+import { DatabaseSession } from "#platform/db/session";
+import { DownloadTickets } from "#platform/storage/download-tickets";
 
 import { DataImportAdmission } from "./data-admission";
 import { IngestionExecution } from "./execution-service";

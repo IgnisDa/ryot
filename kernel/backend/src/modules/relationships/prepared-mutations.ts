@@ -7,10 +7,10 @@ import { definitionKey } from "@ryot-app/contract/modules/plugins/references";
 import { RelationshipBadRequest } from "@ryot-app/contract/modules/relationships/schemas";
 import { Cause, Effect, Schema } from "effect";
 
-import type { LifecycleDispatchPlan } from "#lib/domain/lifecycle";
-import { lifecycleTrigger } from "#lib/domain/lifecycle-command";
+import { lifecycleTrigger } from "#modules/automations/lifecycle/command";
+import type { LifecycleDispatchPlan } from "#modules/automations/lifecycle/planning";
 import { DomainLifecycleCommand } from "#modules/entities/write-context";
-import { catalogDefinitionFingerprint } from "#modules/plugins/runtime-resolver";
+import { catalogDefinitionFingerprint } from "#modules/plugins/catalog/runtime-resolver";
 
 import {
 	classifyRelationshipReceiptConflict,

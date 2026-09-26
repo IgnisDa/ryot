@@ -15,19 +15,9 @@ import { DurableClock, Workflow } from "effect/workflow";
 import { WorkflowEngine, WorkflowInstance } from "effect/workflow/WorkflowEngine";
 
 import {
-	PROVIDER_HTTP_TICKET_LIMITS,
-	ProviderHttpAdmissionBlockResult,
-	type ProviderHttpAdmissionDeclaration,
-	ProviderHttpAdmissionService,
-	type ProviderHttpTicket,
-	providerHttpTicketId,
-} from "#lib/infrastructure/provider-http-admission";
-import { workflowInterruptRequested } from "#lib/infrastructure/workflow-interruption";
-import { makeActivity } from "#lib/infrastructure/workflow-scope";
-import {
 	PluginHttpRateLimitAuthority,
 	type HttpRateLimitAuthorityResolution,
-} from "#modules/plugins/http-rate-limit-authority";
+} from "#modules/plugins/catalog/http-rate-limit-authority";
 import { sandboxSchedulingKey } from "#modules/scripts/executions/scheduling-key";
 import { ScriptExecutionWorkflow } from "#modules/scripts/executions/workflow";
 import type { ScriptExecutionWorkflowPayload } from "#modules/scripts/executions/workflow-payload";
@@ -37,7 +27,17 @@ import {
 	sandboxDurableHttpRequestUrl,
 	sandboxHttpRedirectClassifier,
 } from "#modules/scripts/host/durable-dispatcher";
+import {
+	PROVIDER_HTTP_TICKET_LIMITS,
+	ProviderHttpAdmissionBlockResult,
+	type ProviderHttpAdmissionDeclaration,
+	ProviderHttpAdmissionService,
+	type ProviderHttpTicket,
+	providerHttpTicketId,
+} from "#modules/scripts/host/http-admission";
 import { SandboxHttpRedirect } from "#modules/scripts/host/runtime-host-functions";
+import { workflowInterruptRequested } from "#platform/workflow/interruption";
+import { makeActivity } from "#platform/workflow/scope";
 
 import { SandboxHttpPolicy, type SandboxHttpProgress } from "./http-progress";
 

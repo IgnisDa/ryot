@@ -8,14 +8,14 @@ import { Deferred, Effect, Fiber, Layer } from "effect";
 import { TestClock } from "effect/testing";
 import { layerMemory, WorkflowEngine } from "effect/workflow/WorkflowEngine";
 
-import type { importPayloadReservation } from "#lib/infrastructure/db/schema/tables/imports";
-import { WorkflowExecutionNotifications } from "#lib/infrastructure/workflow-execution-notifications";
-import { makeAppConfigLayer } from "#lib/test-utils/effect";
 import {
 	IngestionPayloads,
 	IngestionPayloadError,
 	ingestionPayloadDigest,
-} from "#modules/uploads/object-storage/ingestion-payloads";
+} from "#modules/assets/storage/ingestion-payloads";
+import { WorkflowExecutionNotifications } from "#platform/workflow/execution-notifications";
+import type { importPayloadReservation } from "#schema/tables/imports";
+import { makeAppConfigLayer } from "#testing/effect";
 
 import { IngestionCaptures } from "./capture-service";
 import { IngestionCaptureWorkflowDefinitionsLive } from "./capture-write-workflow";

@@ -219,7 +219,7 @@ export type ClientPageRenderer = Schema.Schema.Type<typeof ClientPageRenderer>;
 
 export const ClientPageOperationTarget = strictStruct({
 	pluginId: PluginId,
-	sourceHash: Schema.String,
+	contentHash: Schema.String,
 	packageId: PluginPackageId,
 	installationId: Schema.String,
 });

@@ -1,8 +1,8 @@
 import { Effect, Layer } from "effect";
 import { MessageStorage, Snowflake, SqlMessageStorage } from "effect/cluster";
 
-import { DatabaseSession } from "#lib/infrastructure/db/session";
-import { WorkflowExecutionNotifications } from "#lib/infrastructure/workflow-execution-notifications";
+import { DatabaseSession } from "#platform/db/session";
+import { WorkflowExecutionNotifications } from "#platform/workflow/execution-notifications";
 
 import { WorkflowGarbageCollectionRepository } from "./workflow-repository";
 

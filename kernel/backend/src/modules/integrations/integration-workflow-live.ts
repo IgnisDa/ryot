@@ -16,10 +16,7 @@ import { Cause, DateTime, Effect, FileSystem, Layer, Schema } from "effect";
 import { DurableClock, Workflow } from "effect/workflow";
 import { WorkflowEngine, WorkflowInstance } from "effect/workflow/WorkflowEngine";
 
-import { rootLifecycleCommand } from "#lib/domain/lifecycle-command";
-import { AppConfig } from "#lib/infrastructure/config/service";
-import { DatabaseSession } from "#lib/infrastructure/db/session";
-import { implementWorkflow, makeActivity } from "#lib/infrastructure/workflow-scope";
+import { rootLifecycleCommand } from "#modules/automations/lifecycle/command";
 import { SignalEmissionService } from "#modules/automations/signal-service";
 import { ProcessDataImportWorkflow } from "#modules/imports/data-workflow";
 import { IngestionExecution } from "#modules/imports/execution-service";
@@ -28,6 +25,9 @@ import { ImportsRepository } from "#modules/imports/repository";
 import { MutationReceipts } from "#modules/mutations/receipts";
 import { admitWorkflow, dispatchAdmittedWorkflow } from "#modules/mutations/workflow-dispatch";
 import { ScriptExecutionService } from "#modules/scripts/executions/service";
+import { AppConfig } from "#platform/config/service";
+import { DatabaseSession } from "#platform/db/session";
+import { implementWorkflow, makeActivity } from "#platform/workflow/scope";
 
 import { toIntegrationWorkflowError } from "./failure-workflow";
 import { IntegrationIngestion } from "./ingestion";

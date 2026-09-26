@@ -11,16 +11,16 @@ import { TestClock } from "effect/testing";
 import { Workflow } from "effect/workflow";
 import { WorkflowEngine } from "effect/workflow/WorkflowEngine";
 
-import { LifecyclePlanner } from "#lib/domain/lifecycle";
-import { rootLifecycleCommand } from "#lib/domain/lifecycle-command";
-import { LifecycleExecution } from "#lib/domain/lifecycle-execution";
-import { WorkflowExecutionNotifications } from "#lib/infrastructure/workflow-execution-notifications";
-import { createWorkflowJobId, deriveJobIdSecret } from "#lib/shared/job-id";
-import { makeAppConfigLayer, makeWorkflowEngine } from "#lib/test-utils/effect";
-import { mutationAdmissionTestLayer } from "#lib/test-utils/mutation-admission";
+import { rootLifecycleCommand } from "#modules/automations/lifecycle/command";
+import { LifecycleExecution } from "#modules/automations/lifecycle/execution";
+import { LifecyclePlanner } from "#modules/automations/lifecycle/planning";
+import { EventSchemaReader } from "#modules/definitions/event-schemas";
 import { EntitiesRepository } from "#modules/entities/repository";
 import { DomainWriteChecks } from "#modules/entities/write-context";
-import { EventSchemasRepository } from "#modules/event-schemas/repository";
+import { mutationAdmissionTestLayer } from "#modules/mutations/admission.test-support";
+import { WorkflowExecutionNotifications } from "#platform/workflow/execution-notifications";
+import { createWorkflowJobId, deriveJobIdSecret } from "#platform/workflow/job-id";
+import { makeAppConfigLayer, makeWorkflowEngine } from "#testing/effect";
 
 import { EventCreateWorkflow } from "./event-create-workflow";
 import { EventsRepository } from "./repository";
@@ -56,7 +56,7 @@ const serviceLayer = EventsService.layer.pipe(
 			}),
 			Layer.mock(EntitiesRepository)({}),
 			Layer.mock(DomainWriteChecks)({}),
-			Layer.mock(EventSchemasRepository)({}),
+			Layer.mock(EventSchemaReader)({}),
 			mutationAdmissionTestLayer,
 			Layer.mock(LifecyclePlanner)({}),
 			Layer.mock(LifecycleExecution)({}),
@@ -159,7 +159,7 @@ const completedServiceLayer = EventsService.layer.pipe(
 			}),
 			Layer.mock(EntitiesRepository)({}),
 			Layer.mock(DomainWriteChecks)({}),
-			Layer.mock(EventSchemasRepository)({}),
+			Layer.mock(EventSchemaReader)({}),
 			mutationAdmissionTestLayer,
 			Layer.mock(LifecyclePlanner)({}),
 			Layer.mock(LifecycleExecution)({}),

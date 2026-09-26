@@ -5,7 +5,7 @@ import { Effect } from "effect";
 import { useGodMode } from "#/modules/god-mode/context";
 import { GodModeImpersonationService } from "#/modules/god-mode/impersonation";
 import { transferResetLink } from "#/modules/god-mode/reset-link-transfer";
-import { GodModeService } from "#/modules/god-mode/service";
+import { InstanceAdminService } from "#/modules/god-mode/service";
 import { UsersAdministration } from "#/modules/god-mode/users-administration";
 
 export const Route = createFileRoute("/god-mode/users")({ component: GodModeUsers });
@@ -13,7 +13,7 @@ export const Route = createFileRoute("/god-mode/users")({ component: GodModeUser
 function GodModeUsers() {
 	const { server, runtime, backInterceptors } = Route.useRouteContext();
 	const { sessionId, unauthorized } = useGodMode();
-	const service = runtime.runSync(GodModeService);
+	const service = runtime.runSync(InstanceAdminService);
 	const impersonation = runtime.runSync(GodModeImpersonationService);
 	const operations = {
 		resetUser: (userId: string) => Effect.exit(service.resetUser(sessionId, userId)),

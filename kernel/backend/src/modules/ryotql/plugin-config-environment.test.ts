@@ -4,8 +4,8 @@ import { PluginPackageId } from "@ryot-app/contract/schema/brands";
 import { sql } from "drizzle-orm";
 import { Effect } from "effect";
 
-import { DatabaseSession } from "#lib/infrastructure/db/session";
-import { isolatedDatabaseLayer } from "#lib/test-utils/isolated-database";
+import { DatabaseSession } from "#platform/db/session";
+import { isolatedDatabaseLayer } from "#testing/isolated-database";
 
 import { pluginConfigEnvironmentKeySql } from "./catalog";
 

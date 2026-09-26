@@ -8,7 +8,7 @@ import { encodeJsonString } from "@ryot-app/ts-utils/json";
 import { ViteBuildService } from "@ryot-app/vite-compiler";
 import { Effect, FileSystem, Layer, Path, Ref, Schema } from "effect";
 
-import { kernelScripts } from "../src/modules/definition-registry/kernel-source";
+import { kernelScripts } from "../src/modules/definitions/kernel-source";
 
 const encodeJson = Schema.encodeSync(Schema.fromJsonString(Schema.Unknown));
 
@@ -18,7 +18,7 @@ const readKernelScripts = (kernelDirectory: string) =>
 	Effect.gen(function* () {
 		const path = yield* Path.Path;
 		return yield* walkSourceFiles(
-			path.join(kernelDirectory, "src/modules/definition-registry/kernel-scripts"),
+			path.join(kernelDirectory, "src/modules/definitions/kernel-scripts"),
 			kernelDirectory,
 			sandboxSource,
 		);
@@ -28,7 +28,7 @@ const embedKernelScripts = (kernelDirectory: string, scripts: Readonly<Record<st
 	Effect.gen(function* () {
 		const fs = yield* FileSystem.FileSystem;
 		const path = yield* Path.Path;
-		const registryDirectory = path.join(kernelDirectory, "src/modules/definition-registry");
+		const registryDirectory = path.join(kernelDirectory, "src/modules/definitions");
 		const entries = Object.entries(scripts)
 			.sort(([left], [right]) => left.localeCompare(right))
 			.map(([entry, source]) => `\t${encodeJsonString(entry)}: ${encodeJsonString(source)},`)

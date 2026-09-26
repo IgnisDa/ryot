@@ -21,26 +21,26 @@ import { assertExitFails } from "@ryot-app/testing/effect-assertions";
 import { sql } from "drizzle-orm";
 import { Context, Effect, FileSystem, Layer, Ref } from "effect";
 
-import { collectManagedAssetLocators } from "#lib/domain/data-references";
-import { DatabaseSession } from "#lib/infrastructure/db/session";
-import { databaseLayer } from "#lib/test-utils/effect";
-import { AuthRepository } from "#modules/auth/repository";
+import { AuthRepository } from "#modules/accounts/auth/repository";
+import { ManagedAssetsService } from "#modules/assets/storage/managed-assets";
 import { AutomationsRepository } from "#modules/automations/repository";
-import { DefinitionRepository } from "#modules/definition-registry/repository";
-import { buildDefinitionSnapshot } from "#modules/definition-registry/snapshot";
-import { mergeManifestDefinitions } from "#modules/definition-registry/source";
+import { collectManagedAssetLocators } from "#modules/backups/data-references";
+import { DefinitionRepository } from "#modules/definitions/repository";
+import { buildDefinitionSnapshot } from "#modules/definitions/snapshot";
+import { mergeManifestDefinitions } from "#modules/definitions/source";
+import { TranslationsRepository } from "#modules/entities/localization/repository";
 import { EntitiesRepository } from "#modules/entities/repository";
-import { TranslationsRepository } from "#modules/entity-translation/repository";
 import { EventsRepository } from "#modules/events/repository";
 import { IntegrationsRepository } from "#modules/integrations/repository";
-import { PluginInstallationRepository } from "#modules/plugins/installation-repository";
-import { pluginSourceHash } from "#modules/plugins/pipeline";
-import { PluginRepository } from "#modules/plugins/repository";
+import { PluginInstallationRepository } from "#modules/plugins/installations/repository";
+import { pluginContentHash } from "#modules/plugins/packages/pipeline";
+import { PluginRepository } from "#modules/plugins/packages/repository";
 import { fixtureClientArtifact } from "#modules/plugins/source.test-support";
 import { fixtureManifest, testPluginPackageId } from "#modules/plugins/test-support";
 import { RelationshipsRepository } from "#modules/relationships/repository";
 import { SavedViewsRepository } from "#modules/saved-views/repository";
-import { ManagedAssetsService } from "#modules/uploads/managed-assets/service";
+import { DatabaseSession } from "#platform/db/session";
+import { databaseLayer } from "#testing/effect";
 
 import { BackupExportRepository } from "./repository";
 import {
@@ -430,7 +430,7 @@ const privateCompiledClient = {
 	),
 	files: privateCompiledFiles,
 };
-const privateSourceHash = pluginSourceHash(privateManifest, [], privateCompiledClient);
+const privateSourceHash = pluginContentHash(privateManifest, [], privateCompiledClient);
 const differentOwnerManifest = {
 	...privateManifest,
 	entitySchemas: privateManifest.entitySchemas.map((definition) => ({
@@ -476,10 +476,10 @@ const privateKey = pluginPackageKey({
 	packageId: privateManifest.metadata.packageId,
 });
 const systemKey = pluginPackageKey({ scope: "system", packageId: systemPackageId });
-const storedSystemPlugin = (id: string, packageId: PluginPackageId, sourceHash: string) => ({
+const storedSystemPlugin = (id: string, packageId: PluginPackageId, contentHash: string) => ({
 	id,
 	packageId,
-	sourceHash,
+	contentHash,
 	scripts: [],
 	ownerId: null,
 	status: "active",
@@ -627,7 +627,7 @@ const privateRecordsExportLayer = withExportReads((reads) =>
 								id: "private-plugin-id",
 								status: "active" as const,
 								manifest: privateManifest,
-								sourceHash: privateSourceHash,
+								contentHash: privateSourceHash,
 								activationId: "private-activation",
 								packageId: privateManifest.metadata.packageId,
 							},
@@ -667,7 +667,7 @@ layer(privateRecordsExportLayer)((test) => {
 					expect.objectContaining({
 						key: privateKey,
 						compiledScripts: [],
-						sourceHash: privateSourceHash,
+						contentHash: privateSourceHash,
 						compiledClient: privateCompiledClient,
 						packageId: privateManifest.metadata.packageId,
 					}),
@@ -731,7 +731,7 @@ layer(privateRecordsExportLayer)((test) => {
 					false,
 				);
 				expect(prepared.requiredPlugins).toMatchObject([
-					{ version: "1.0.0", packageId: systemPackageId, sourceHash: "a".repeat(64) },
+					{ version: "1.0.0", packageId: systemPackageId, contentHash: "a".repeat(64) },
 				]);
 			}),
 	);
@@ -787,7 +787,7 @@ const eventPagesManifest = {
 		},
 	],
 };
-const eventPagesSourceHash = pluginSourceHash(eventPagesManifest);
+const eventPagesSourceHash = pluginContentHash(eventPagesManifest);
 const eventRow = (id: string, note: string) => ({
 	id,
 	note,
@@ -903,7 +903,7 @@ const eventPagesExportLayer = withExportReads((reads) =>
 									id: "private-plugin-id",
 									status: "active" as const,
 									manifest: eventPagesManifest,
-									sourceHash: eventPagesSourceHash,
+									contentHash: eventPagesSourceHash,
 									activationId: "private-activation",
 									packageId: eventPagesManifest.metadata.packageId,
 								},

@@ -188,7 +188,7 @@ export const InstallPluginBody = Schema.Struct({
 export type InstallPluginBody = Schema.Schema.Type<typeof InstallPluginBody>;
 
 export const UpdatePrivatePluginBody = strictStruct({
-	sourceHash: Schema.String,
+	contentHash: Schema.String,
 	uploadToken: Schema.String,
 	unsetConfigKeys: Schema.optional(Schema.Array(Schema.String)),
 	config: Schema.optional(Schema.Record(Schema.String, JsonValue)),
@@ -239,7 +239,7 @@ export const PluginInstallResult = Schema.Struct({
 
 export const PluginInvokeBody = Schema.Struct({
 	payload: JsonValue,
-	sourceHash: Schema.optional(Schema.String),
+	contentHash: Schema.optional(Schema.String),
 });
 
 export type PluginInvokeBody = Schema.Schema.Type<typeof PluginInvokeBody>;

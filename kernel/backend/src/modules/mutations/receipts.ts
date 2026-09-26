@@ -12,11 +12,11 @@ import { stableStringify } from "@ryot-app/ts-utils/json";
 import { and, asc, eq, inArray, isNotNull, or, sql } from "drizzle-orm";
 import { Context, Effect, Layer, Schema } from "effect";
 
-import { LifecycleDispatchPlan } from "#lib/domain/lifecycle";
-import { user } from "#lib/infrastructure/db/schema/tables/auth";
-import { mutationReceipt } from "#lib/infrastructure/db/schema/tables/mutations";
-import { userLifecycleOperation } from "#lib/infrastructure/db/schema/tables/user-lifecycle";
-import { DatabaseSession, DatabaseSessionStateError } from "#lib/infrastructure/db/session";
+import { LifecycleDispatchPlan } from "#modules/automations/lifecycle/planning";
+import { DatabaseSession, DatabaseSessionStateError } from "#platform/db/session";
+import { user } from "#schema/tables/auth";
+import { mutationReceipt } from "#schema/tables/mutations";
+import { userLifecycleOperation } from "#schema/tables/user-lifecycle";
 
 export const mutationReceiptIdentity = (input: {
 	command: LifecycleCommand;

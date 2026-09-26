@@ -11,15 +11,14 @@ import { Cause, DateTime, Effect, Layer, Schema } from "effect";
 import { Workflow } from "effect/workflow";
 import { WorkflowEngine, WorkflowInstance } from "effect/workflow/WorkflowEngine";
 
+import { ManagedAssetsService } from "#modules/assets/storage/managed-assets";
 import {
 	collectManagedAssetLocators,
 	requiredReference,
 	rewritePropertyReferences,
-} from "#lib/domain/data-references";
-import { DatabaseSession } from "#lib/infrastructure/db/session";
-import { implementWorkflow, makeActivity } from "#lib/infrastructure/workflow-scope";
-import { DefinitionRepository } from "#modules/definition-registry/repository";
-import { DefinitionSnapshot, definitionLookup } from "#modules/definition-registry/snapshot";
+} from "#modules/backups/data-references";
+import { DefinitionRepository } from "#modules/definitions/repository";
+import { DefinitionSnapshot, definitionLookup } from "#modules/definitions/snapshot";
 import { EntitiesRepository } from "#modules/entities/repository";
 import { EntitiesService, PendingEntityMutation } from "#modules/entities/service";
 import { DomainLifecycleCommand } from "#modules/entities/write-context";
@@ -31,7 +30,8 @@ import {
 	RelationshipSingleResult,
 } from "#modules/relationships/mutation-pipeline";
 import { RelationshipsService } from "#modules/relationships/service";
-import { ManagedAssetsService } from "#modules/uploads/managed-assets/service";
+import { DatabaseSession } from "#platform/db/session";
+import { implementWorkflow, makeActivity } from "#platform/workflow/scope";
 
 import { IngestionOperation, reconcileIngestionBatch } from "./batch-results";
 import { IngestionCaptures } from "./capture-service";

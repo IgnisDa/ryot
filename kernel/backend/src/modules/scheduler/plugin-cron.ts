@@ -5,11 +5,11 @@ import type { PluginId } from "@ryot-app/contract/schema/brands";
 import { Cause, Clock, Context, Cron, Duration, Effect, Result, Layer } from "effect";
 import { WorkflowEngine } from "effect/workflow/WorkflowEngine";
 
-import { AppConfig } from "#lib/infrastructure/config/service";
 import { MutationReceipts } from "#modules/mutations/receipts";
 import { dispatchAdmittedWorkflow } from "#modules/mutations/workflow-dispatch";
-import { PluginRuntimeResolver } from "#modules/plugins/runtime-resolver";
+import { PluginRuntimeResolver } from "#modules/plugins/catalog/runtime-resolver";
 import { ScriptExecutionWorkflow } from "#modules/scripts/executions/workflow";
+import { AppConfig } from "#platform/config/service";
 
 type PluginCronTarget = {
 	readonly cronSlug: string;

@@ -3,22 +3,25 @@ import { ExecutionFileStore } from "@ryot-app/sandbox/host/execution-files";
 import { Layer } from "effect";
 import { PersistedQueue } from "effect/persistence";
 
-import { AppConfig } from "#lib/infrastructure/config/service";
-import { MigrationsComplete } from "#lib/infrastructure/db/migrate";
-import { PgClientLive } from "#lib/infrastructure/db/postgres";
-import { DatabaseSession } from "#lib/infrastructure/db/session";
-import { DownloadTickets } from "#lib/infrastructure/download-tickets";
-import { EgressHttpClientLive } from "#lib/infrastructure/egress/http-client";
-import { HmacSigner } from "#lib/infrastructure/hmac-signer";
-import { LocalStorageService } from "#lib/infrastructure/local-storage";
-import { ObservabilityLive } from "#lib/infrastructure/observability";
-import { ProKeyService } from "#lib/infrastructure/pro-key";
-import { RedisService } from "#lib/infrastructure/redis";
-import { S3Service } from "#lib/infrastructure/s3";
-import { ServerRun } from "#lib/infrastructure/server-run";
-import { WorkflowEngineLive } from "#lib/infrastructure/workflow";
-import { AuthServiceLive } from "#modules/auth/layer";
-import { LifecycleWriteGuard } from "#modules/auth/lifecycle-write-guard";
+import { WorkflowEngineLive } from "#boot/workflow-engine";
+import { AuthServiceLive } from "#modules/accounts/auth/layer";
+import { LifecycleWriteGuard } from "#modules/accounts/auth/lifecycle-write-guard";
+import {
+	UserLifecycleServiceLive,
+	UserLifecycleWorkflowOperationsProvidedLive,
+} from "#modules/accounts/lifecycle/layer";
+import { UserLifecycleWorkflowDefinitionsLive } from "#modules/accounts/lifecycle/workflow";
+import { UserSettingsServiceLive } from "#modules/accounts/preferences/layer";
+import {
+	UserBootstrapSchedulingLive,
+	UserBootstrapLive,
+} from "#modules/accounts/provisioning/layer";
+import {
+	UserBootstrapWorkflowDefinitionsLive,
+	UserBootstrapWorkflowOperationsLive,
+} from "#modules/accounts/provisioning/workflow";
+import { ObjectStorageServiceLive, UploadServicesLive } from "#modules/assets/layer";
+import { ManagedAssetsRepository } from "#modules/assets/storage/managed-assets-repository";
 import {
 	AutomationHistoryServiceLive,
 	AutomationReconciliationLive,
@@ -33,21 +36,24 @@ import { ExportBackupWorkflowDefinitionsLive } from "#modules/backups/export/wor
 import { BackupServicesLive, BackupWorkflowOperationsLive } from "#modules/backups/layer";
 import { RestoreBackupWorkflowDefinitionsLive } from "#modules/backups/restore/workflow";
 import {
-	ClientArtifactGrantServiceLive,
-	ClientArtifactStoreLive,
-} from "#modules/client-artifacts/layer";
-import { ClientPagesServiceLive } from "#modules/client-pages/layer";
-import {
 	AddEntityToCollectionWorkflowDefinitionsLive,
 	AddEntityToCollectionWorkflowOperationsLive,
 } from "#modules/collections/add-entity-to-collection-workflow-live";
 import { CollectionsServiceLive } from "#modules/collections/layer";
-import { DefinitionRepository } from "#modules/definition-registry/repository";
+import { DefinitionRepository } from "#modules/definitions/repository";
 import { EntitiesServiceMigrationLive, EntitiesServiceRuntimeLive } from "#modules/entities/layer";
-import { InterestServicesLive } from "#modules/entity-interest/layer";
-import { TranslateEntityWorkflowDefinitionsLive } from "#modules/entity-translation/entity-translation-workflow-live";
-import { TranslationsServiceLive } from "#modules/entity-translation/layer";
-import { TranslateEntityWorkflowOperationsLive } from "#modules/entity-translation/operations-workflow";
+import { TranslateEntityWorkflowDefinitionsLive } from "#modules/entities/localization/entity-translation-workflow-live";
+import { TranslationsServiceLive } from "#modules/entities/localization/layer";
+import { TranslateEntityWorkflowOperationsLive } from "#modules/entities/localization/operations-workflow";
+import { EntityImportWorkflowDefinitionsLive } from "#modules/entities/providers/entity-import-workflow";
+import {
+	EntityImportServiceLive,
+	EntityImportWorkflowOperationsProvidedLive,
+	ProviderEntityPopulationWorkflowDefinitionsProvidedLive,
+	ProviderEntitySearchServiceLive,
+} from "#modules/entities/providers/layer";
+import { EntityUserDataServiceLive } from "#modules/entities/user-data/layer";
+import { InterestServicesLive } from "#modules/entities/watches/layer";
 import {
 	EventCreateWorkflowDefinitionsProvidedLive,
 	EventStreamWorkServiceLive,
@@ -56,7 +62,6 @@ import {
 import { EventStreamRepository } from "#modules/events/stream-repository";
 import { EventStreamWorkflowDefinitionsLive } from "#modules/events/stream-work";
 import { WorkflowGarbageCollector } from "#modules/garbage-collection/workflows";
-import { GodModeServiceLive } from "#modules/god-mode/layer";
 import { CancelImportRunWorkflowDefinitionsLive } from "#modules/imports/cancel-workflow";
 import { ImportRunCancellationService } from "#modules/imports/cancellation-service";
 import { IngestionCaptures } from "#modules/imports/capture-service";
@@ -70,6 +75,7 @@ import {
 	DataImportWorkflowDefinitionsProvidedLive,
 } from "#modules/imports/layer";
 import { ImportsRepository } from "#modules/imports/repository";
+import { InstanceAdminServiceLive } from "#modules/instance-admin/layer";
 import { IntegrationWorkflowDefinitionsLive } from "#modules/integrations/integration-workflow-live";
 import {
 	IntegrationsServiceLive,
@@ -82,11 +88,17 @@ import {
 	NotificationsServiceLive,
 } from "#modules/notifications/layer";
 import { OAuthConnectionsServiceLive } from "#modules/oauth-connections/layer";
-import { PluginCatalogHub, PluginCatalogInvalidatorLive } from "#modules/plugins/catalog-events";
-import { PluginConfigEncryptionKey } from "#modules/plugins/config-encryption-key";
-import { PluginInstallationSweepDispatcherLive } from "#modules/plugins/installation-sweep";
-import { PluginInstallationWorkflowDefinitionsLive } from "#modules/plugins/installation-workflow";
-import { IntegrationProviderCatalog } from "#modules/plugins/integration-provider-catalog";
+import {
+	ClientArtifactGrantServiceLive,
+	ClientArtifactStoreLive,
+} from "#modules/pages/bundles/layer";
+import { ClientPagesServiceLive } from "#modules/pages/preparation/layer";
+import { PluginCatalogHub, PluginCatalogInvalidatorLive } from "#modules/plugins/catalog/events";
+import { IntegrationProviderCatalog } from "#modules/plugins/catalog/integration-providers";
+import { PluginRuntimeResolverLive } from "#modules/plugins/catalog/runtime-resolver";
+import { PluginConfigEncryptionKey } from "#modules/plugins/configuration/encryption-key";
+import { PluginInstallationSweepDispatcherLive } from "#modules/plugins/installations/sweep";
+import { PluginInstallationWorkflowDefinitionsLive } from "#modules/plugins/installations/workflow";
 import {
 	PluginInstallationMigrationLive,
 	PluginInstallationRuntimeLive,
@@ -96,16 +108,8 @@ import {
 import {
 	OperationsServiceLive,
 	PluginInstallationWorkflowOperationsProvidedLive,
-} from "#modules/plugins/operations-layer";
-import { PluginRepository } from "#modules/plugins/repository";
-import { PluginRuntimeResolverLive } from "#modules/plugins/runtime-resolver";
-import { EntityImportWorkflowDefinitionsLive } from "#modules/provider-entities/entity-import-workflow";
-import {
-	EntityImportServiceLive,
-	EntityImportWorkflowOperationsProvidedLive,
-	ProviderEntityPopulationWorkflowDefinitionsProvidedLive,
-	ProviderEntitySearchServiceLive,
-} from "#modules/provider-entities/layer";
+} from "#modules/plugins/operations/layer";
+import { PluginRepository } from "#modules/plugins/packages/repository";
 import { RelationshipsServiceLive } from "#modules/relationships/layer";
 import { RyotQLService } from "#modules/ryotql/service";
 import { SavedViewsServiceLive } from "#modules/saved-views/layer";
@@ -121,20 +125,19 @@ import { SandboxRepository } from "#modules/scripts/registry/repository";
 import { SandboxWorkflowReferenceRepository } from "#modules/scripts/registry/workflow-references";
 import { SignalSchemasServiceLive } from "#modules/signals/layer";
 import { TestSupportServicesLive } from "#modules/test-support/layer";
-import { ObjectStorageServiceLive, UploadServicesLive } from "#modules/uploads/layer";
-import { ManagedAssetsRepository } from "#modules/uploads/managed-assets/repository";
-import { UserBootstrapSchedulingLive, UserBootstrapLive } from "#modules/user-bootstrap/layer";
-import {
-	UserBootstrapWorkflowDefinitionsLive,
-	UserBootstrapWorkflowOperationsLive,
-} from "#modules/user-bootstrap/workflow";
-import {
-	UserLifecycleServiceLive,
-	UserLifecycleWorkflowOperationsProvidedLive,
-} from "#modules/user-lifecycle/layer";
-import { UserLifecycleWorkflowDefinitionsLive } from "#modules/user-lifecycle/workflow";
-import { UserSettingsServiceLive } from "#modules/user-settings/layer";
-import { UserStateServiceLive } from "#modules/user-state/layer";
+import { AppConfig } from "#platform/config/service";
+import { MigrationsComplete } from "#platform/db/migrate";
+import { PgClientLive } from "#platform/db/postgres";
+import { DatabaseSession } from "#platform/db/session";
+import { EgressHttpClientLive } from "#platform/egress/http-client";
+import { ObservabilityLive } from "#platform/observability/observability";
+import { ProKeyService } from "#platform/pro-key";
+import { RedisService } from "#platform/redis";
+import { ServerRun } from "#platform/server-run";
+import { DownloadTickets } from "#platform/storage/download-tickets";
+import { HmacSigner } from "#platform/storage/hmac-signer";
+import { LocalStorageService } from "#platform/storage/local-storage";
+import { S3Service } from "#platform/storage/s3";
 
 import { AdmittedWorkflowCatalogueLive } from "./admitted-workflows";
 import { FrequentCronWorkflowDefinitionsLive } from "./cron-workflow-definitions";
@@ -143,7 +146,7 @@ import { KernelWorkflowReferencesLive } from "./kernel-workflow-references";
 import { RuntimeSandboxExecutorLive, SandboxDurableHostServicesLive } from "./script-host";
 import { ServerLive } from "./server";
 
-export { InternalOAuthProvisioningLive } from "#modules/auth/layer";
+export { InternalOAuthProvisioningLive } from "#modules/accounts/auth/layer";
 export { SystemPluginIngestionLive } from "#modules/plugins/layer";
 
 const ConfigLive = Layer.mergeAll(AppConfig.layer, BunServices.layer);
@@ -202,7 +205,7 @@ const ServicesLive = Layer.mergeAll(
 	EventStreamWorkServiceLive.pipe(
 		Layer.provide(EventStreamProcessorLive.pipe(Layer.provide(ScriptExecutionServiceLive))),
 	),
-	GodModeServiceLive,
+	InstanceAdminServiceLive,
 	ImportsServiceLive,
 	ImportRunCancellationService.layer.pipe(Layer.provide(ImportsRepository.layer)),
 	IntegrationsServiceLive,
@@ -228,7 +231,7 @@ const ServicesLive = Layer.mergeAll(
 	UploadServicesLive,
 	UserLifecycleServiceLive,
 	UserSettingsServiceLive,
-	UserStateServiceLive,
+	EntityUserDataServiceLive,
 	UserBootstrapSchedulingLive,
 	ClientPagesServiceLive,
 	ClientArtifactGrantServiceLive,

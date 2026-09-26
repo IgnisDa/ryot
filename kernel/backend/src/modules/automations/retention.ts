@@ -1,9 +1,9 @@
 import { DbError } from "@ryot-app/contract/errors";
 import { Context, DateTime, Duration, Effect, Layer } from "effect";
 
-import { AppConfig } from "#lib/infrastructure/config/service";
-import { DatabaseSession } from "#lib/infrastructure/db/session";
 import { ScriptGarbageCollector } from "#modules/garbage-collection/scripts";
+import { AppConfig } from "#platform/config/service";
+import { DatabaseSession } from "#platform/db/session";
 
 import { AutomationAttemptRepository } from "./attempt-repository";
 import { AutomationRunRepository } from "./run-repository";

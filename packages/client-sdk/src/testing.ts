@@ -168,7 +168,7 @@ export const pluginContributor = (options: {
 		kind: "plugin",
 		pluginId: options.pluginId,
 		packageId: options.packageId,
-		sourceHash: `${options.name}-source`,
+		contentHash: `${options.name}-source`,
 		revisionId: `${options.name}-revision`,
 		installationId: `${options.name}-installation`,
 	});

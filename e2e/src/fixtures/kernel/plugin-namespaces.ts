@@ -59,7 +59,7 @@ export const namespaceInstallationsRecipe = defineRecipe(() => ({
 				version: selectedField(column(plugin, "version"), Schema.String),
 				id: selectedField(column(installationTable, "id"), Schema.String),
 				packageId: selectedField(column(plugin, "packageId"), PluginPackageId),
-				sourceHash: selectedField(column(plugin, "sourceHash"), Schema.String),
+				contentHash: selectedField(column(plugin, "contentHash"), Schema.String),
 				activationId: selectedField(column(plugin, "activationId"), Schema.String),
 				isHidden: selectedField(column(installationTable, "isHidden"), Schema.Boolean),
 				scope: selectedField(column(plugin, "scope"), Schema.Literals(["system", "user"])),
@@ -1008,11 +1008,11 @@ export const invokeNamespaceOperation = (
 	client: Client,
 	targetPackageId: PluginPackageId,
 	payload: NamespaceInvocation["payload"] = {},
-	sourceHash?: string,
+	contentHash?: string,
 ) =>
 	client.call((contract) =>
 		contract.plugins.invoke({
-			payload: { payload, ...(sourceHash ? { sourceHash } : {}) },
+			payload: { payload, ...(contentHash ? { contentHash } : {}) },
 			params: { ...pluginPackageSegments(targetPackageId), operationSlug: "inspect" },
 		}),
 	);
@@ -1020,7 +1020,7 @@ export const invokeNamespaceOperation = (
 export const updateNamespacePackage = (
 	client: Client,
 	installed: Pick<NamespaceInstallResult, "id"> & {
-		readonly installation: { readonly sourceHash: string };
+		readonly installation: { readonly contentHash: string };
 	},
 	pluginPackage: PluginPackageInput,
 	config?: ContractPayload<"plugins", "update">["config"],
@@ -1032,7 +1032,7 @@ export const updateNamespacePackage = (
 				params: { installationId: installed.id },
 				payload: {
 					uploadToken,
-					sourceHash: installed.installation.sourceHash,
+					contentHash: installed.installation.contentHash,
 					...(config === undefined ? {} : { config }),
 				},
 			}),

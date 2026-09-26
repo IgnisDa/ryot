@@ -3,7 +3,7 @@ import { Duration, Effect, Layer, Queue, Schema } from "effect";
 import { TestClock } from "effect/testing";
 import { WorkflowEngine } from "effect/workflow/WorkflowEngine";
 
-import { makeAppConfigLayer, makeWorkflowEngine } from "#lib/test-utils/effect";
+import { makeAppConfigLayer, makeWorkflowEngine } from "#testing/effect";
 
 import { CronRunPayload } from "./cron-workflow";
 import { frequentCronExecutionId, FrequentCronSchedulerLive } from "./frequent-cron";

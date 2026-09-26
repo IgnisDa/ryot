@@ -10,11 +10,11 @@ import type {
 import { genericImportChunkSchema, genericImportItemIntents } from "@ryot-app/sandbox-sdk/imports";
 import { Effect, Schema } from "effect";
 
-import { DatabaseSession } from "#lib/infrastructure/db/session";
 import { projectEntityIngestionReceipt } from "#modules/entities/mutation-outcomes";
 import { projectEventIngestionReceipt } from "#modules/events/mutation-receipts";
 import { MutationReceipts } from "#modules/mutations/receipts";
 import { projectRelationshipIngestionReceipt } from "#modules/relationships/mutation-pipeline";
+import { DatabaseSession } from "#platform/db/session";
 
 import { IngestionCaptures } from "./capture-service";
 import { ingestionItemIdentity, summarizeIngestionOutcomes } from "./outcomes";

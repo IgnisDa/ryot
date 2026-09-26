@@ -5,9 +5,9 @@ import { TestClock } from "effect/testing";
 import { Workflow } from "effect/workflow";
 import { WorkflowEngine } from "effect/workflow/WorkflowEngine";
 
-import { WorkflowExecutionNotifications } from "#lib/infrastructure/workflow-execution-notifications";
-import { makeWorkflowEngine } from "#lib/test-utils/effect";
 import { AdmittedWorkflowCatalogue } from "#modules/mutations/workflow-catalogue";
+import { WorkflowExecutionNotifications } from "#platform/workflow/execution-notifications";
+import { makeWorkflowEngine } from "#testing/effect";
 
 import { IngestionCaptures } from "./capture-service";
 import { IngestionExecution } from "./execution-service";

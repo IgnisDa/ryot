@@ -4,9 +4,9 @@ import type { JsonValue } from "@ryot-app/contract/modules/ryotql/language";
 import { readPinnedJournal } from "@ryot-app/sandbox/host/pinned-journal.test-support";
 import { Effect } from "effect";
 
-import { redisKeys, RedisService } from "#lib/infrastructure/redis";
-import { testExecutionId, testRedisServiceLayer } from "#lib/test-utils/redis";
 import { inspectSandboxJournal, pinSandboxJournal } from "#modules/scripts/replay/journal-store";
+import { redisKeys, RedisService } from "#platform/redis";
+import { testExecutionId, testRedisServiceLayer } from "#testing/redis";
 
 import { appendWorkflowJournalWithRedis } from "./journal";
 

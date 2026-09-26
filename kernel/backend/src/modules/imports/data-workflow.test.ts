@@ -15,18 +15,18 @@ import { Effect, Layer, Schema } from "effect";
 import { Workflow } from "effect/workflow";
 import { WorkflowEngine, WorkflowInstance } from "effect/workflow/WorkflowEngine";
 
-import { rootLifecycleCommand } from "#lib/domain/lifecycle-command";
-import { LifecycleExecution } from "#lib/domain/lifecycle-execution";
-import { makeWorkflowEngine } from "#lib/test-utils/effect";
-import { DefinitionRepository } from "#modules/definition-registry/repository";
-import { buildDefinitionSnapshot } from "#modules/definition-registry/snapshot";
+import { ManagedAssetsService } from "#modules/assets/storage/managed-assets";
+import { rootLifecycleCommand } from "#modules/automations/lifecycle/command";
+import { LifecycleExecution } from "#modules/automations/lifecycle/execution";
+import { DefinitionRepository } from "#modules/definitions/repository";
+import { buildDefinitionSnapshot } from "#modules/definitions/snapshot";
+import { EntityImportWorkflowOperations } from "#modules/entities/providers/operations-workflow";
 import { EntitiesRepository } from "#modules/entities/repository";
 import { EntitiesService } from "#modules/entities/service";
 import { EventsService } from "#modules/events/service";
-import { PluginRuntimeResolver } from "#modules/plugins/runtime-resolver";
-import { EntityImportWorkflowOperations } from "#modules/provider-entities/operations-workflow";
+import { PluginRuntimeResolver } from "#modules/plugins/catalog/runtime-resolver";
 import { RelationshipsService } from "#modules/relationships/service";
-import { ManagedAssetsService } from "#modules/uploads/managed-assets/service";
+import { makeWorkflowEngine } from "#testing/effect";
 
 import { IngestionCaptures } from "./capture-service";
 import { DataGraphRecordSchema, type DataGraphRecord } from "./data-graph";

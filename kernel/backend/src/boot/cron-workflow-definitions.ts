@@ -1,8 +1,12 @@
 import { DateTime, Effect } from "effect";
 import type { WorkflowEngine } from "effect/workflow/WorkflowEngine";
 
-import type { DatabaseSession } from "#lib/infrastructure/db/session";
-import { implementWorkflow } from "#lib/infrastructure/workflow-scope";
+import { userLifecycleFrequentTask } from "#modules/accounts/lifecycle/frequent-task";
+import type { UserLifecycleService } from "#modules/accounts/lifecycle/service";
+import { userBootstrapFrequentTask } from "#modules/accounts/provisioning/frequent-task";
+import type { UserBootstrapScheduling } from "#modules/accounts/provisioning/scheduling";
+import { uploadsFrequentTask } from "#modules/assets/frequent-task";
+import type { UploadIntentsService } from "#modules/assets/uploads/intents";
 import type { AutomationReconciliation } from "#modules/automations/reconciliation";
 import { automationsFrequentTask } from "#modules/automations/reconciliation";
 import { AutomationRetention } from "#modules/automations/retention";
@@ -14,22 +18,18 @@ import type { ImportsService } from "#modules/imports/service";
 import { integrationsFrequentTask } from "#modules/integrations/frequent-task";
 import { oauthConnectionsFrequentTask } from "#modules/oauth-connections/frequent-task";
 import type { OAuthConnectionsService } from "#modules/oauth-connections/service";
-import type { PluginCatalogInvalidator } from "#modules/plugins/catalog-events";
-import { pluginCatalogFrequentTask } from "#modules/plugins/frequent-task";
-import type { PluginInstallationService } from "#modules/plugins/installation-service";
-import { pluginInstallationFrequentTask } from "#modules/plugins/installation-sweep";
+import type { PluginCatalogInvalidator } from "#modules/plugins/catalog/events";
+import { pluginCatalogFrequentTask } from "#modules/plugins/catalog/frequent-task";
+import type { PluginInstallationService } from "#modules/plugins/installations/service";
+import { pluginInstallationFrequentTask } from "#modules/plugins/installations/sweep";
 import {
 	type CronRunPayload,
 	FrequentCronWorkflow,
 	runTasks,
 } from "#modules/scheduler/cron-workflow";
 import type { CronTask } from "#modules/scheduler/types";
-import { uploadsFrequentTask } from "#modules/uploads/frequent-task";
-import type { UploadIntentsService } from "#modules/uploads/intents/service";
-import { userBootstrapFrequentTask } from "#modules/user-bootstrap/frequent-task";
-import type { UserBootstrapScheduling } from "#modules/user-bootstrap/scheduling";
-import { userLifecycleFrequentTask } from "#modules/user-lifecycle/frequent-task";
-import type { UserLifecycleService } from "#modules/user-lifecycle/service";
+import type { DatabaseSession } from "#platform/db/session";
+import { implementWorkflow } from "#platform/workflow/scope";
 
 const frequentCronTasks: ReadonlyArray<
 	CronTask<

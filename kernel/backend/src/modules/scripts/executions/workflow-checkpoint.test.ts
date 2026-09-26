@@ -33,15 +33,15 @@ import {
 	WorkflowInstance,
 } from "effect/workflow/WorkflowEngine";
 
-import { user } from "#lib/infrastructure/db/schema/tables/auth";
-import { RedisService } from "#lib/infrastructure/redis";
-import { implementWorkflow } from "#lib/infrastructure/workflow-scope";
+import { SandboxHttpProgress } from "#modules/scripts/host/http-progress";
+import { RedisService } from "#platform/redis";
+import { implementWorkflow } from "#platform/workflow/scope";
+import { user } from "#schema/tables/auth";
 import {
 	fakeDatabaseSession,
 	makeRedisService,
 	makeSqlClusterWorkflowEngine,
-} from "#lib/test-utils/effect";
-import { SandboxHttpProgress } from "#modules/scripts/host/http-progress";
+} from "#testing/effect";
 
 import { SandboxDurableHostDispatcher } from "../host/durable-dispatcher";
 import type { ScriptInlineProgress } from "../host/http-progress";

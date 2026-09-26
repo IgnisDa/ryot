@@ -81,13 +81,13 @@ describe("Whiskey namespace workspaces", () => {
 							{
 								pluginId: a.pluginId,
 								installationId: a.id,
-								sourceHash: a.installation.sourceHash,
+								contentHash: a.installation.contentHash,
 								packageId: packages.a.manifest.metadata.packageId,
 							},
 							{
 								pluginId: b.pluginId,
 								installationId: b.id,
-								sourceHash: b.installation.sourceHash,
+								contentHash: b.installation.contentHash,
 								packageId: packages.b.manifest.metadata.packageId,
 							},
 						]),

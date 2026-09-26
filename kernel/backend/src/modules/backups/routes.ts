@@ -3,8 +3,8 @@ import { AppContract } from "@ryot-app/contract/contract";
 import { Effect } from "effect";
 import { HttpApiBuilder } from "effect/http-api";
 
-import { streamDownloadResponse } from "#lib/infrastructure/download-response";
-import { downloadTicketUrl } from "#lib/infrastructure/download-tickets";
+import { streamDownloadResponse } from "#platform/http/download-response";
+import { downloadTicketUrl } from "#platform/storage/download-tickets";
 
 import { BackupsService } from "./service";
 

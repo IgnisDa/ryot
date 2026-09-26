@@ -11,9 +11,9 @@ import {
 import { ImportsRepository } from "#modules/imports/repository";
 import { ImportSourceStateStore } from "#modules/imports/runtime/source-state-store";
 import { OAuthConnectionsServiceLive } from "#modules/oauth-connections/layer";
-import { IngestionReadinessService } from "#modules/plugins/ingestion-readiness-service";
-import { PluginInstallationRepository } from "#modules/plugins/installation-repository";
-import { IntegrationProviderCatalog } from "#modules/plugins/integration-provider-catalog";
+import { IntegrationProviderCatalog } from "#modules/plugins/catalog/integration-providers";
+import { IngestionReadinessService } from "#modules/plugins/catalog/readiness-service";
+import { PluginInstallationRepository } from "#modules/plugins/installations/repository";
 import {
 	ScriptExecutionServiceLive,
 	SandboxPluginScriptResolverLive,

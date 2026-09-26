@@ -209,7 +209,7 @@ const seedPluginManifests = new Map<
 		manifest: ReturnType<typeof testPluginManifest>;
 		pluginId: ContractSuccess<"testSupport", "installSystemPlugin">["pluginId"];
 		installationId: string;
-		sourceHash: string;
+		contentHash: string;
 	}
 >();
 
@@ -236,7 +236,7 @@ async function installSeedDefinitions(
 		? await apiClient.runAdmin((c) =>
 				c.testSupport.updateSystemPlugin({
 					params: { pluginId: current.pluginId },
-					payload: { manifest, compiledScripts: [], sourceHash: current.sourceHash },
+					payload: { manifest, compiledScripts: [], contentHash: current.contentHash },
 				}),
 			)
 		: await apiClient.runAdmin((c) =>
@@ -261,7 +261,7 @@ async function installSeedDefinitions(
 			installation.installationId,
 			`Installed seed plugin '${input.pluginSlug}' has no installation ID`,
 		),
-		sourceHash: installation.sourceHash,
+		contentHash: installation.contentHash,
 	};
 	seedPluginManifests.set(input.pluginSlug, registration);
 	return registration;

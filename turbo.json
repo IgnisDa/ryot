@@ -13,7 +13,7 @@
 		"@ryot-app/kernel-backend#build": {
 			"dependsOn": ["^build"],
 			"inputs": ["src/**/*.ts", "!src/**/*.generated.ts", "tooling/**/*.ts", "package.json"],
-			"outputs": ["src/modules/definition-registry/*.generated.ts"]
+			"outputs": ["src/modules/definitions/*.generated.ts"]
 		},
 		"@ryot-app/kernel-backend#check": {
 			"outputLogs": "errors-only",

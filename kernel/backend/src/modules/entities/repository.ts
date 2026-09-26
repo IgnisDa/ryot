@@ -14,15 +14,15 @@ import { stableStringify } from "@ryot-app/ts-utils/json";
 import { and, asc, count, eq, exists, inArray, isNull, or, sql } from "drizzle-orm";
 import { Context, Effect, Layer } from "effect";
 
-import { pluginIdWhere } from "#lib/infrastructure/db/definition-owner";
-import * as schema from "#lib/infrastructure/db/schema/tables/combined";
-import { DatabaseSession } from "#lib/infrastructure/db/session";
-import { DefinitionRepository } from "#modules/definition-registry/repository";
+import { DefinitionRepository } from "#modules/definitions/repository";
 import { EventStreamRepository } from "#modules/events/stream-repository";
 import {
 	PluginRuntimeResolver,
 	PluginRuntimeResolverLive,
-} from "#modules/plugins/runtime-resolver";
+} from "#modules/plugins/catalog/runtime-resolver";
+import { pluginIdWhere } from "#platform/db/definition-owner";
+import { DatabaseSession } from "#platform/db/session";
+import * as schema from "#schema/tables/combined";
 
 import {
 	entitySelection,

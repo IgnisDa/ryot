@@ -38,36 +38,36 @@ import { Effect, Schema } from "effect";
 import { Workflow } from "effect/workflow";
 import { WorkflowEngine } from "effect/workflow/WorkflowEngine";
 
-import { DatabaseSession } from "#lib/infrastructure/db/session";
+import type { DurableSchema } from "#boot/workflow-engine";
 import {
 	mapCommittedResult,
 	runLifecycleWriteStep,
 	type LifecyclePreparedStep,
-} from "#lib/infrastructure/lifecycle-workflow-step";
-import type { DurableSchema } from "#lib/infrastructure/workflow";
-import { implementWorkflow, makeActivity } from "#lib/infrastructure/workflow-scope";
-import { slugify } from "#lib/shared/slug";
+} from "#modules/automations/lifecycle/write-step";
 import { AddEntityToCollectionWorkflow } from "#modules/collections/add-entity-to-collection-workflow";
 import { CollectionEntityResult, CollectionsService } from "#modules/collections/service";
-import { DefinitionRepository } from "#modules/definition-registry/repository";
-import { DefinitionSnapshot, definitionLookup } from "#modules/definition-registry/snapshot";
+import { DefinitionRepository } from "#modules/definitions/repository";
+import { DefinitionSnapshot, definitionLookup } from "#modules/definitions/snapshot";
+import {
+	EntityImportWorkflow,
+	type EntityImportError,
+} from "#modules/entities/providers/entity-import-workflow";
+import { EntityImportWorkflowOperations } from "#modules/entities/providers/operations-workflow";
 import { EntitiesRepository } from "#modules/entities/repository";
 import { EntitiesService, PendingEntityMutation } from "#modules/entities/service";
 import { DomainLifecycleCommand } from "#modules/entities/write-context";
 import { EventsService } from "#modules/events/service";
 import { MutationReceipts } from "#modules/mutations/receipts";
 import { admitWorkflow, dispatchAdmittedWorkflow } from "#modules/mutations/workflow-dispatch";
-import { PluginRuntimeResolver } from "#modules/plugins/runtime-resolver";
-import {
-	EntityImportWorkflow,
-	type EntityImportError,
-} from "#modules/provider-entities/entity-import-workflow";
-import { EntityImportWorkflowOperations } from "#modules/provider-entities/operations-workflow";
+import { PluginRuntimeResolver } from "#modules/plugins/catalog/runtime-resolver";
 import {
 	PendingRelationshipMutations,
 	RelationshipSingleResult,
 } from "#modules/relationships/mutation-pipeline";
 import { RelationshipsService } from "#modules/relationships/service";
+import { DatabaseSession } from "#platform/db/session";
+import { slugify } from "#platform/slug";
+import { implementWorkflow, makeActivity } from "#platform/workflow/scope";
 
 import {
 	genericIngestionBatchResult,

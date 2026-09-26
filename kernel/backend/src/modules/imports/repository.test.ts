@@ -4,8 +4,8 @@ import { ImportRunId, IntegrationId, UserId } from "@ryot-app/contract/schema/br
 import { assertExitFails } from "@ryot-app/testing/effect-assertions";
 import { Effect, Layer, Ref } from "effect";
 
-import { DatabaseSession } from "#lib/infrastructure/db/session";
-import { fakeDatabaseSession } from "#lib/test-utils/effect";
+import { DatabaseSession } from "#platform/db/session";
+import { fakeDatabaseSession } from "#testing/effect";
 
 import { ImportsRepository } from "./repository";
 

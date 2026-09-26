@@ -152,7 +152,7 @@ describe("private plugins", () => {
 				healthReason: null,
 				packageId: plugin.manifest.metadata.packageId,
 			});
-			expect(plugin.installation.sourceHash).toMatch(/^[0-9a-f]{64}$/);
+			expect(plugin.installation.contentHash).toMatch(/^[0-9a-f]{64}$/);
 		}),
 	);
 
@@ -176,7 +176,7 @@ describe("private plugins", () => {
 			expect(listed).toMatchObject({
 				scope: "user",
 				health: "ready",
-				sourceHash: plugin.installation.sourceHash,
+				contentHash: plugin.installation.contentHash,
 				config: { [PRIVATE_PLUGIN_CONFIG_KEY]: "alpha" },
 			});
 			expect(listed.configuredSecrets).toEqual([PRIVATE_PLUGIN_SECRET_KEY]);
@@ -321,7 +321,7 @@ describe("private plugins", () => {
 			const updated = yield* updatePrivatePlugin({
 				client,
 				installationId: installed.installationId,
-				expectedSourceHash: installed.installation.sourceHash,
+				expectedContentHash: installed.installation.contentHash,
 				payload: {
 					files: next.files,
 					config: { [PRIVATE_PLUGIN_CONFIG_KEY]: "beta" },
@@ -349,13 +349,13 @@ describe("private plugins", () => {
 				configuredSecrets: [PRIVATE_PLUGIN_SECRET_KEY],
 				config: { [PRIVATE_PLUGIN_CONFIG_KEY]: "beta" },
 			});
-			expect(persisted.sourceHash).not.toBe(installed.installation.sourceHash);
+			expect(persisted.contentHash).not.toBe(installed.installation.contentHash);
 			const stale = yield* Effect.flip(
 				invokePrivatePluginOperation({
 					client,
 					prefix: "run",
 					operationSlug: installed.operationSlug,
-					sourceHash: installed.installation.sourceHash,
+					contentHash: installed.installation.contentHash,
 					packageId: installed.manifest.metadata.packageId,
 				}),
 			);
@@ -365,7 +365,7 @@ describe("private plugins", () => {
 				(yield* invokePrivatePluginOperation({
 					client,
 					prefix: "run",
-					sourceHash: persisted.sourceHash,
+					contentHash: persisted.contentHash,
 					operationSlug: installed.operationSlug,
 					packageId: installed.manifest.metadata.packageId,
 				})).result,
@@ -429,7 +429,7 @@ describe("private plugins", () => {
 				config: { [PRIVATE_PLUGIN_CONFIG_KEY]: "beta", [PRIVATE_PLUGIN_SECRET_KEY]: "token-b" },
 			});
 
-			expect(firstPlugin.installation.sourceHash).not.toBe(secondPlugin.installation.sourceHash);
+			expect(firstPlugin.installation.contentHash).not.toBe(secondPlugin.installation.contentHash);
 
 			const firstResult = yield* invokePrivatePluginOperation({
 				prefix: "run",

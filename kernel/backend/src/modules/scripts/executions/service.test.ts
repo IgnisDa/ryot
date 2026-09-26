@@ -13,13 +13,13 @@ import { Context, Effect, Exit, Layer, Ref, Schema } from "effect";
 import { Workflow } from "effect/workflow";
 import { WorkflowEngine, WorkflowInstance } from "effect/workflow/WorkflowEngine";
 
+import { mutationAdmissionTestLayer } from "#modules/mutations/admission.test-support";
+import { fixtureManifest } from "#modules/plugins/test-support";
 import {
 	makeAppConfigLayer,
 	makeWorkflowActivityEngine,
 	makeWorkflowEngine,
-} from "#lib/test-utils/effect";
-import { mutationAdmissionTestLayer } from "#lib/test-utils/mutation-admission";
-import { fixtureManifest } from "#modules/plugins/test-support";
+} from "#testing/effect";
 
 import {
 	SandboxPluginScriptResolver,

@@ -7,7 +7,7 @@ import {
 } from "@ryot-app/sandbox/protocol/principal";
 import { Effect, Schema } from "effect";
 
-import type { FairQueueFlow } from "#lib/infrastructure/fair-queue-store";
+import type { FairQueueFlow } from "#platform/workflow/fair-queue-store";
 
 const QueueElementScheduling = Schema.Struct({
 	payload: Schema.Struct({

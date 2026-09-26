@@ -10,8 +10,8 @@ import type { NotificationSubscriptionId, UserId } from "@ryot-app/contract/sche
 import { SignalSchemaSlug as SignalSchemaSlugBrand } from "@ryot-app/contract/schema/brands";
 import { Context, Effect, Layer } from "effect";
 
-import { DatabaseSession } from "#lib/infrastructure/db/session";
-import { DefinitionRepository } from "#modules/definition-registry/repository";
+import { DefinitionRepository } from "#modules/definitions/repository";
+import { DatabaseSession } from "#platform/db/session";
 
 import { AutomationsRepository, type StoredNotificationSubscription } from "./repository";
 

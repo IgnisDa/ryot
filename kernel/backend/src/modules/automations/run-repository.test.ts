@@ -15,21 +15,18 @@ import { DateTime, Duration, Effect, Layer, Schema } from "effect";
 import { TestClock } from "effect/testing";
 import { assert, describe, it as unit } from "vitest";
 
-import { lifecycleRunId, lifecycleTriggerId } from "#lib/domain/lifecycle";
-import { user } from "#lib/infrastructure/db/schema/tables/auth";
-import {
-	automationRun,
-	automationRunAttempt,
-} from "#lib/infrastructure/db/schema/tables/automations";
-import { sandboxScript } from "#lib/infrastructure/db/schema/tables/core";
-import { DatabaseSession } from "#lib/infrastructure/db/session";
-import { PluginConfigRevisions } from "#modules/plugins/config-revisions";
+import { lifecycleRunId, lifecycleTriggerId } from "#modules/automations/lifecycle/planning";
+import { PluginConfigRevisions } from "#modules/plugins/configuration/revisions";
 import {
 	installRevisionPackage,
 	revisionPackage,
 	revisionDatabaseLayer,
-} from "#modules/plugins/revision.test-support";
+} from "#modules/plugins/packages/revision.test-support";
 import { fixtureManifest } from "#modules/plugins/test-support";
+import { DatabaseSession } from "#platform/db/session";
+import { user } from "#schema/tables/auth";
+import { automationRun, automationRunAttempt } from "#schema/tables/automations";
+import { sandboxScript } from "#schema/tables/core";
 
 import { AutomationAttemptRepository } from "./attempt-repository";
 import { triggerFixture } from "./lifecycle.test-support";

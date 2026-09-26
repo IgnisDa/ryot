@@ -48,7 +48,7 @@ All database writes occur in one transaction: restore is atomic. Local event-fil
 `export/repository.ts` reads stored built-in overrides independently of executable saved-view catalogs. Export uses the retained private manifest to keep quarantined view state without exposing its client code.
 
 Export, restore, and Data import share property-reference and managed-asset handling from
-`kernel/backend/src/lib/domain/data-references.ts`. Archive values reuse the data JSON property and timestamp codecs. Archive schema ownership uses scoped package keys, not source-local database IDs.
+`data-references.ts`. Archive values reuse the data JSON property and timestamp codecs. Archive schema ownership uses scoped package keys, not source-local database IDs.
 
 Private packages and installation identities are mapped to destination-local records without lifecycle dispatch. Hidden intent and incompatible health are distinct. Exported quarantine remains incompatible even when its former system conflict is absent. A private package that conflicts with a destination system identity is retained privately with `package-identity-conflict`; its data never binds to the system owner. Missing redacted required secrets produce `needs-configuration`. Integrations missing required secrets are disabled. Private configuration never falls back to environment values.
 

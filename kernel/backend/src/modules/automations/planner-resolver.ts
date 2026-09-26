@@ -15,10 +15,10 @@ import { PluginId, type UserId } from "@ryot-app/contract/schema/brands";
 import { and, asc, eq, inArray, isNull, or, sql } from "drizzle-orm";
 import { Context, Effect, Layer } from "effect";
 
-import * as tables from "#lib/infrastructure/db/schema/tables/combined";
-import { DatabaseSession } from "#lib/infrastructure/db/session";
-import { DefinitionRepository } from "#modules/definition-registry/repository";
-import { PluginRepository } from "#modules/plugins/repository";
+import { DefinitionRepository } from "#modules/definitions/repository";
+import { PluginRepository } from "#modules/plugins/packages/repository";
+import { DatabaseSession } from "#platform/db/session";
+import * as tables from "#schema/tables/combined";
 
 import type { BatchHookPin } from "./batch-hook-pin";
 

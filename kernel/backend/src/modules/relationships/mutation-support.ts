@@ -22,13 +22,14 @@ import { stableStringify } from "@ryot-app/ts-utils/json";
 import { isObjectRecord } from "@ryot-app/ts-utils/predicates";
 import { Effect, Schema } from "effect";
 
-import { LifecyclePersistenceError, type LifecyclePlanner } from "#lib/domain/lifecycle";
-import type { LifecycleExecution } from "#lib/domain/lifecycle-execution";
-import { type DatabaseSession, DatabaseSessionStateError } from "#lib/infrastructure/db/session";
-import { runRootTransaction } from "#lib/infrastructure/db/transaction";
-import { parseAppSchemaProperties } from "#lib/property-schema/property-schema-runtime";
-import type { DefinitionRepository } from "#modules/definition-registry/repository";
-import type { RelationshipSchemaDefinition } from "#modules/definition-registry/snapshot";
+import type { LifecycleExecution } from "#modules/automations/lifecycle/execution";
+import {
+	LifecyclePersistenceError,
+	type LifecyclePlanner,
+} from "#modules/automations/lifecycle/planning";
+import { parseAppSchemaProperties } from "#modules/definitions/properties/runtime";
+import type { DefinitionRepository } from "#modules/definitions/repository";
+import type { RelationshipSchemaDefinition } from "#modules/definitions/snapshot";
 import type { EntitiesRepository } from "#modules/entities/repository";
 import {
 	DomainLifecycleCommand,
@@ -45,7 +46,9 @@ import {
 import {
 	CatalogDefinitionFingerprint,
 	type PluginRuntimeResolver,
-} from "#modules/plugins/runtime-resolver";
+} from "#modules/plugins/catalog/runtime-resolver";
+import { type DatabaseSession, DatabaseSessionStateError } from "#platform/db/session";
+import { runRootTransaction } from "#platform/db/transaction";
 
 import {
 	RelationshipIdentityInput,

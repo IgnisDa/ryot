@@ -13,10 +13,10 @@ import {
 import { PgDialect } from "drizzle-orm/pg-core";
 import { Context, Effect, Layer, Ref } from "effect";
 
-import { DatabaseSession } from "#lib/infrastructure/db/session";
-import { fakeDatabaseSession } from "#lib/test-utils/effect";
-import { DefinitionRepository } from "#modules/definition-registry/repository";
-import type { EntitySchemaSnapshot } from "#modules/definition-registry/snapshot";
+import { DefinitionRepository } from "#modules/definitions/repository";
+import type { EntitySchemaSnapshot } from "#modules/definitions/snapshot";
+import { DatabaseSession } from "#platform/db/session";
+import { fakeDatabaseSession } from "#testing/effect";
 
 import { CollectionsRepository } from "./repository";
 

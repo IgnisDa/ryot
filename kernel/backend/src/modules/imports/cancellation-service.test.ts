@@ -4,7 +4,7 @@ import { ImportRunId, UserId } from "@ryot-app/contract/schema/brands";
 import { Context, Effect, Layer, Ref } from "effect";
 import { WorkflowEngine } from "effect/workflow/WorkflowEngine";
 
-import { fakeDatabaseSession, makeWorkflowEngine } from "#lib/test-utils/effect";
+import { fakeDatabaseSession, makeWorkflowEngine } from "#testing/effect";
 
 import { ImportRunCancellationService } from "./cancellation-service";
 import { ImportsRepository } from "./repository";

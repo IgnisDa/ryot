@@ -21,17 +21,17 @@ import type { AppSchema } from "@ryot-app/contract/schema/property-schema";
 import { CryptoHasher } from "bun";
 import { Context, Data, DateTime, Duration, Effect, Layer, Option, Result, Schema } from "effect";
 
-import type { SubkeyCiphertext } from "#lib/infrastructure/config/plugin-config-encryption";
-import { AppConfig } from "#lib/infrastructure/config/service";
-import { DatabaseSession } from "#lib/infrastructure/db/session";
-import { ProKeyService } from "#lib/infrastructure/pro-key";
-import { resolveContextConfig } from "#modules/plugins/config-access";
-import { PluginConfigEncryptionKey } from "#modules/plugins/config-encryption-key";
-import { PluginConfigRevisions } from "#modules/plugins/config-revisions";
 import {
 	IntegrationProviderCatalog,
 	type RegisteredIntegrationProvider,
-} from "#modules/plugins/integration-provider-catalog";
+} from "#modules/plugins/catalog/integration-providers";
+import { resolveContextConfig } from "#modules/plugins/configuration/access";
+import { PluginConfigEncryptionKey } from "#modules/plugins/configuration/encryption-key";
+import { PluginConfigRevisions } from "#modules/plugins/configuration/revisions";
+import type { SubkeyCiphertext } from "#platform/config/plugin-config-encryption";
+import { AppConfig } from "#platform/config/service";
+import { DatabaseSession } from "#platform/db/session";
+import { ProKeyService } from "#platform/pro-key";
 
 import { OAuthConnectionsRepository } from "./repository";
 import { OAuthTokenClient } from "./token-client";

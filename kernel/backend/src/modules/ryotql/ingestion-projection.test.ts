@@ -3,17 +3,17 @@ import { importIssuesRecipe, manualImportRunsRecipe } from "@ryot-app/ryotql-rec
 import { Effect, Layer, Result } from "effect";
 import { assert } from "vitest";
 
-import { user } from "#lib/infrastructure/db/schema/tables/auth";
+import { DatabaseSession } from "#platform/db/session";
+import { user } from "#schema/tables/auth";
 import {
 	importActivity,
 	importBatch,
 	importCapture,
 	importIssue,
 	importRun,
-} from "#lib/infrastructure/db/schema/tables/imports";
-import { DatabaseSession } from "#lib/infrastructure/db/session";
-import { makeConfigProviderLayer } from "#lib/test-utils/effect";
-import { isolatedDatabaseLayer } from "#lib/test-utils/isolated-database";
+} from "#schema/tables/imports";
+import { makeConfigProviderLayer } from "#testing/effect";
+import { isolatedDatabaseLayer } from "#testing/isolated-database";
 
 import { RyotQLService } from "./service";
 

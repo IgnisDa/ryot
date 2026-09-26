@@ -2,7 +2,7 @@ import { badRequest, notFound } from "@ryot-app/contract/errors";
 import { IntegrationId, IntegrationWebhookToken } from "@ryot-app/contract/schema/brands";
 import { Effect, Layer, Schema } from "effect";
 
-import { IntegrationOperationScopeResolver } from "#modules/plugins/operations-service";
+import { IntegrationOperationScopeResolver } from "#modules/plugins/operations/service";
 
 import { IntegrationsRepository } from "./repository";
 

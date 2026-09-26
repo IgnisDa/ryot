@@ -11,7 +11,7 @@ import { Effect, Schema } from "effect";
 import { Workflow } from "effect/workflow";
 import { WorkflowEngine } from "effect/workflow/WorkflowEngine";
 
-import type { DurableSchema } from "#lib/infrastructure/workflow";
+import type { DurableSchema } from "#boot/workflow-engine";
 import { DomainLifecycleCommand } from "#modules/entities/write-context";
 import { MutationReceipts } from "#modules/mutations/receipts";
 import { dispatchAdmittedWorkflow } from "#modules/mutations/workflow-dispatch";

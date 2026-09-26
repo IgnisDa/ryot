@@ -15,11 +15,11 @@ import {
 import { and, asc, desc, eq, inArray, sql } from "drizzle-orm";
 import { Context, Effect, Layer } from "effect";
 
-import * as schema from "#lib/infrastructure/db/schema/tables/combined";
-import { DatabaseSession } from "#lib/infrastructure/db/session";
-import { AuthRepository } from "#modules/auth/repository";
+import { AuthRepository } from "#modules/accounts/auth/repository";
 import { ImportsRepository } from "#modules/imports/repository";
-import { PluginRevisionActivation } from "#modules/plugins/revision-activation";
+import { PluginRevisionActivation } from "#modules/plugins/packages/revision-activation";
+import { DatabaseSession } from "#platform/db/session";
+import * as schema from "#schema/tables/combined";
 
 import { redactIntegrationForClient } from "./client-redaction";
 import { integrationHealthExcludedFailureCodes } from "./health";

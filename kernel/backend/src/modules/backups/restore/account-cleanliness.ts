@@ -15,13 +15,14 @@ import { defaultUserPreferences } from "@ryot-app/contract/schema/user-preferenc
 import { isEqual } from "@ryot-app/ts-utils/lodash";
 import { Context, Effect, Layer } from "effect";
 
-import { AuthRepository, type PortableUserProfile } from "#modules/auth/repository";
+import { AuthRepository, type PortableUserProfile } from "#modules/accounts/auth/repository";
+import { ManagedAssetsService } from "#modules/assets/storage/managed-assets";
 import {
 	AutomationsRepository,
 	type StoredNotificationSubscription,
 } from "#modules/automations/repository";
-import { DefinitionRepository } from "#modules/definition-registry/repository";
-import type { SavedViewDefinition } from "#modules/definition-registry/snapshot";
+import { DefinitionRepository } from "#modules/definitions/repository";
+import type { SavedViewDefinition } from "#modules/definitions/snapshot";
 import { EntitiesRepository, type PortableEntityRecord } from "#modules/entities/repository";
 import { EventsRepository } from "#modules/events/repository";
 import { IntegrationsRepository } from "#modules/integrations/repository";
@@ -29,10 +30,9 @@ import { NotificationsRepository } from "#modules/notifications/repository";
 import {
 	PluginInstallationRepository,
 	type PluginInstallationHydratedState,
-} from "#modules/plugins/installation-repository";
+} from "#modules/plugins/installations/repository";
 import { RelationshipsRepository } from "#modules/relationships/repository";
 import { SavedViewsRepository } from "#modules/saved-views/repository";
-import { ManagedAssetsService } from "#modules/uploads/managed-assets/service";
 
 import { isDefaultSystemInstallation } from "../installation-state";
 

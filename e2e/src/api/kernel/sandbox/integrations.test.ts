@@ -106,7 +106,7 @@ describe("sandbox integration reads", () => {
 			const stale = yield* Effect.flip(
 				getApiClient().call((c) =>
 					c.plugins.invoke({
-						payload: { sourceHash: "stale-source-hash", payload: { integrationId: current.id } },
+						payload: { contentHash: "stale-source-hash", payload: { integrationId: current.id } },
 						params: {
 							...pluginPackageSegments(plugin.manifest.metadata.packageId),
 							operationSlug: "read",

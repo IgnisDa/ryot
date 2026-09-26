@@ -2,7 +2,7 @@ import {
 	AuthoredPluginManifest,
 	CLIENT_API_VERSION,
 } from "@ryot-app/contract/modules/plugins/manifest";
-import { parseAppSchemaPropertiesSafe } from "@ryot-app/kernel-backend/lib/property-schema/property-schema-runtime";
+import { parseAppSchemaPropertiesSafe } from "@ryot-app/kernel-backend/modules/definitions/properties/runtime";
 import { Schema } from "effect";
 import { assert, expect, it } from "vitest";
 

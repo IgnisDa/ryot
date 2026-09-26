@@ -5,7 +5,7 @@ import { assertExitFails } from "@ryot-app/testing/effect-assertions";
 import { Effect, Schema } from "effect";
 import { Workflow } from "effect/workflow";
 
-import { makeWorkflowEngine } from "#lib/test-utils/effect";
+import { makeWorkflowEngine } from "#testing/effect";
 
 import { dispatchAdmittedWorkflow } from "./workflow-dispatch";
 

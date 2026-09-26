@@ -8,8 +8,8 @@ import type { EntitySchemaReference } from "@ryot-app/contract/modules/plugins/r
 import type { AppSchema } from "@ryot-app/contract/schema/property-schema";
 import { Schema } from "effect";
 
-import { collectEmbeddedReferenceIds } from "#lib/domain/data-references";
-import { definitionLookup, type DefinitionSnapshot } from "#modules/definition-registry/snapshot";
+import { collectEmbeddedReferenceIds } from "#modules/backups/data-references";
+import { definitionLookup, type DefinitionSnapshot } from "#modules/definitions/snapshot";
 
 export const DataGraphRecordSchema = Schema.Union([
 	Schema.Struct({ record: DataJsonEntity, kind: Schema.Literal("entity") }),

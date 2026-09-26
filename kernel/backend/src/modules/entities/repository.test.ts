@@ -12,17 +12,17 @@ import {
 import { PgDialect } from "drizzle-orm/pg-core";
 import { Context, DateTime, Effect, Layer, Ref } from "effect";
 
-import * as tables from "#lib/infrastructure/db/schema/tables/combined";
-import { DatabaseSession } from "#lib/infrastructure/db/session";
-import { fakeDatabaseSession } from "#lib/test-utils/effect";
-import type { MockOverrides } from "#lib/test-utils/effect";
-import { isolatedDatabaseLayer } from "#lib/test-utils/isolated-database";
 import { BackupRestorePersistence } from "#modules/backups/restore/persistence";
 import { restorePersistenceWithDatabase } from "#modules/backups/restore/persistence.test-support";
-import { DefinitionRepository } from "#modules/definition-registry/repository";
+import { DefinitionRepository } from "#modules/definitions/repository";
 import { EventsRepository } from "#modules/events/repository";
 import { EventStreamRepository } from "#modules/events/stream-repository";
-import { PluginRuntimeResolver } from "#modules/plugins/runtime-resolver";
+import { PluginRuntimeResolver } from "#modules/plugins/catalog/runtime-resolver";
+import { DatabaseSession } from "#platform/db/session";
+import * as tables from "#schema/tables/combined";
+import { fakeDatabaseSession } from "#testing/effect";
+import type { MockOverrides } from "#testing/effect";
+import { isolatedDatabaseLayer } from "#testing/isolated-database";
 
 import { EntitiesRepository } from "./repository";
 

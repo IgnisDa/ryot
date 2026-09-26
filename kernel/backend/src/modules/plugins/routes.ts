@@ -6,9 +6,9 @@ import { Effect } from "effect";
 import { HttpServerRequest, HttpServerResponse } from "effect/http";
 import { HttpApiBuilder } from "effect/http-api";
 
-import { PluginCatalogHub } from "./catalog-events";
-import { PluginInstallationService } from "./installation-service";
-import { OperationsService } from "./operations-service";
+import { PluginCatalogHub } from "./catalog/events";
+import { PluginInstallationService } from "./installations/service";
+import { OperationsService } from "./operations/service";
 
 export const PluginsRoutesLive = HttpApiBuilder.group(AppContract, "plugins", (handlers) =>
 	handlers
@@ -47,7 +47,7 @@ export const PluginsRoutesLive = HttpApiBuilder.group(AppContract, "plugins", (h
 					.updatePrivatePlugin({
 						userId: user.id,
 						config: payload.config,
-						sourceHash: payload.sourceHash,
+						contentHash: payload.contentHash,
 						uploadToken: payload.uploadToken,
 						installationId: params.installationId,
 						unsetConfigKeys: payload.unsetConfigKeys,
@@ -108,7 +108,7 @@ export const PluginsRoutesLive = HttpApiBuilder.group(AppContract, "plugins", (h
 						headers: request.headers,
 						operationSlug: params.operationSlug,
 						packageId: pluginPackageIdFromSegments(params),
-						...(payload.sourceHash === undefined ? {} : { sourceHash: payload.sourceHash }),
+						...(payload.contentHash === undefined ? {} : { contentHash: payload.contentHash }),
 					})
 					.pipe(dieOnDbError);
 				return { result };

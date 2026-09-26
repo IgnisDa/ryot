@@ -13,16 +13,16 @@ import {
 import type { UserId } from "@ryot-app/contract/schema/brands";
 import { Context, Effect, Layer } from "effect";
 
-import { mapDatabaseErrors } from "#lib/infrastructure/db/errors";
-import { DatabaseSession } from "#lib/infrastructure/db/session";
-import { slugify } from "#lib/shared/slug";
-import { trimToNull } from "#lib/shared/validation";
-import { PluginCatalogInvalidator } from "#modules/plugins/catalog-events";
-import { PluginInstallationRepository } from "#modules/plugins/installation-repository";
-import { PluginRepository } from "#modules/plugins/repository";
-import { PluginRuntimeResolver } from "#modules/plugins/runtime-resolver";
-import { PluginSavedViewReferences } from "#modules/plugins/saved-view-references";
+import { PluginCatalogInvalidator } from "#modules/plugins/catalog/events";
+import { PluginRuntimeResolver } from "#modules/plugins/catalog/runtime-resolver";
+import { PluginSavedViewReferences } from "#modules/plugins/catalog/saved-view-references";
+import { PluginInstallationRepository } from "#modules/plugins/installations/repository";
+import { PluginRepository } from "#modules/plugins/packages/repository";
 import { bindRyotQLDocument } from "#modules/ryotql/binding";
+import { mapDatabaseErrors } from "#platform/db/errors";
+import { DatabaseSession } from "#platform/db/session";
+import { slugify } from "#platform/slug";
+import { trimToNull } from "#platform/validation";
 
 import { validateSavedViewDefinition } from "./definition-validation";
 import { SavedViewsRepository } from "./repository";
