@@ -340,6 +340,19 @@ User and list modes require `traktClientId`; export does not. List URLs allow on
 `www.trakt.tv` with `/users/{username}/lists/{slug}`. Export ratings and comments can target movies,
 shows, seasons, or episodes.
 
+## Integrations
+
+The Spotify yank declares the `spotify` OAuth provider over `spotifyClientId` and
+`spotifyClientSecret`, and its `account` setting holds the OAuth connection. Each sync reads the 50
+most recent plays with the connection's access token, sent only as a bearer header. When the
+integration has a `lastFinishedAt`, plays at or before one hour before it are ignored and that bound
+is sent as Spotify's `after` cursor; the first sync considers every returned play. Each remaining play
+is claimed once for 30 days under `["media.spotify-play", integrationId, trackId, playedAt]` and
+becomes a `complete` event on the `music.spotify` track with `completedOn` and `occurredAt` set to the
+play time, `custom_timestamps`, `timeSpent` from the track duration in minutes, and
+`consumedOn: "spotify"`. Plays without a track ID are skipped and logged. Spotify request failures
+report only the HTTP status.
+
 ## Lifecycle
 
 Media entities use `add-to-media-library`, `backlog`, `progress`, `complete`, `dropped`, `on_hold`, and

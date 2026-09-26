@@ -132,7 +132,7 @@
 | `media.metronUsername` | `RYOT_PLUGIN_MEDIA_METRON_USERNAME` | Metron username | Username used to access Metron metadata | No | No | — |
 | `media.twitchClientId` | `RYOT_PLUGIN_MEDIA_TWITCH_CLIENT_ID` | Twitch client ID | Client ID used to access IGDB metadata | No | No | — |
 | `media.traktClientId` | `RYOT_PLUGIN_MEDIA_TRAKT_CLIENT_ID` | Trakt client ID | Client ID used to import data from Trakt | No | No | — |
-| `media.spotifyClientId` | `RYOT_PLUGIN_MEDIA_SPOTIFY_CLIENT_ID` | Spotify client ID | Client ID used to access Spotify metadata | No | No | — |
+| `media.spotifyClientId` | `RYOT_PLUGIN_MEDIA_SPOTIFY_CLIENT_ID` | Spotify client ID | Client ID for Spotify metadata & accounts | No | No | — |
 | `media.tvdbApiKey` | `RYOT_PLUGIN_MEDIA_TVDB_API_KEY` | TVDB API key | API key used to access TVDB metadata | No | Yes | — |
 | `media.malClientId` | `RYOT_PLUGIN_MEDIA_MAL_CLIENT_ID` | MyAnimeList client ID | Client ID used to access MyAnimeList metadata | No | No | — |
 | `media.metronPassword` | `RYOT_PLUGIN_MEDIA_METRON_PASSWORD` | Metron password | Password used to access Metron metadata | No | Yes | — |
@@ -142,5 +142,5 @@
 | `media.twitchClientSecret` | `RYOT_PLUGIN_MEDIA_TWITCH_CLIENT_SECRET` | Twitch client secret | Client secret used to access IGDB metadata | No | Yes | — |
 | `media.googleBooksApiKey` | `RYOT_PLUGIN_MEDIA_GOOGLE_BOOKS_API_KEY` | Google Books API key | API key used to access Google Books metadata | No | Yes | — |
 | `media.listennotesApiKey` | `RYOT_PLUGIN_MEDIA_LISTENNOTES_API_KEY` | Listen Notes API key | API key used to access Listen Notes metadata | No | Yes | — |
-| `media.spotifyClientSecret` | `RYOT_PLUGIN_MEDIA_SPOTIFY_CLIENT_SECRET` | Spotify client secret | Client secret used to access Spotify metadata | No | Yes | — |
+| `media.spotifyClientSecret` | `RYOT_PLUGIN_MEDIA_SPOTIFY_CLIENT_SECRET` | Spotify client secret | Client secret for Spotify metadata & accounts | No | Yes | — |
 | `media.progressUpdateThresholdHours` | `RYOT_PLUGIN_MEDIA_PROGRESS_UPDATE_THRESHOLD_HOURS` | Progress update threshold | Hours used to debounce repeated completion updates | No | No | `2` |
