@@ -11,7 +11,6 @@ const input = {
 	name: "Archived",
 	properties: null,
 	populatedAt: null,
-	id: "translation-id",
 	createdAt: new Date(0),
 	updatedAt: new Date(0),
 	entityId: EntityId.make("entity-id"),
@@ -22,7 +21,7 @@ class TranslationInserts extends Context.Service<
 	{ readonly conflictSuppressionRequested: Effect.Effect<boolean> }
 >()("test/TranslationInserts") {}
 
-const translationInsertLayer = (rows: ReadonlyArray<{ id: string }>) =>
+const translationInsertLayer = (rows: ReadonlyArray<{ language: string }>) =>
 	Layer.unwrap(
 		Effect.gen(function* () {
 			const suppressed = yield* Ref.make(false);
@@ -43,11 +42,11 @@ const translationInsertLayer = (rows: ReadonlyArray<{ id: string }>) =>
 		}),
 	);
 
-layer(translationInsertLayer([{ id: input.id }]))((test) => {
+layer(translationInsertLayer([{ language: input.language }]))((test) => {
 	test.effect("inserts restored translations without suppressing conflicts", () =>
 		Effect.gen(function* () {
 			const persistence = yield* BackupRestorePersistence;
-			expect(yield* persistence.restoreTranslation(input)).toBe(input.id);
+			expect(yield* persistence.restoreTranslation(input)).toBe(input.language);
 			expect(yield* (yield* TranslationInserts).conflictSuppressionRequested).toBe(false);
 		}),
 	);
