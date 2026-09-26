@@ -61,7 +61,7 @@ describe("Saved views lifecycle E2E", () => {
 				isBuiltin: true,
 				name: "All Collections",
 			});
-			expect(collectionsView?.renderer).toEqual({ kind: "kernel", name: "entity-browser" });
+			expect(collectionsView?.renderer).toEqual({ kind: "kernel", name: "collection-browser" });
 			expect(collectionsView?.settings).toMatchObject({
 				sourceName: "savedView",
 				entityIdField: "entityId",
