@@ -3,7 +3,7 @@ import type { PreparedRecipe } from "@ryot-app/ryotql";
 import { Context, Data, Effect, Layer, Result } from "effect";
 
 import { AdminApi } from "#/api/admin";
-import type { ServerOrigin } from "#/api/origin";
+import { resolveApiUrl, type ServerOrigin } from "#/api/origin";
 
 export class GodModeQueryError extends Data.TaggedError("GodModeQueryError")<{
 	readonly cause: unknown;
@@ -53,16 +53,15 @@ export class GodModeApi extends Context.Service<GodModeApi>()("GodModeApi", {
 			) => {
 				const fileName =
 					file?.name ?? `ryot-server-logs-${new Date().toISOString().replaceAll(":", "-")}.zip`;
-				return api
-					.download(
-						origin,
-						token,
-						file === undefined
-							? "god-mode/logs/download"
-							: `god-mode/logs/files/${encodeURIComponent(file.id)}/download`,
-						fileName,
-					)
-					.pipe(Effect.map((blob) => ({ blob, fileName })));
+				const request =
+					file === undefined
+						? api.run(origin, token, (client) => client.serverLogs.createAllDownloadTicket())
+						: api.run(origin, token, (client) =>
+								client.serverLogs.createFileDownloadTicket({ params: { id: file.id } }),
+							);
+				return request.pipe(
+					Effect.flatMap(({ url }) => api.download(resolveApiUrl(origin, url), fileName)),
+				);
 			},
 		};
 	}),

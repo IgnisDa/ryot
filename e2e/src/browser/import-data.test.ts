@@ -174,7 +174,9 @@ it.live("downloads failures beyond the first page from an import detail", () =>
 			yield* openImportData(page);
 			yield* startImportFromSource(page, "E2E harvest handle import");
 
-			const row = page.getByRole("link", { name: /Open the E2E harvest handle import import/ });
+			const row = page.getByRole("link", {
+				name: /Open the E2E harvest handle import import from just now/,
+			});
 			yield* row.waitFor({ state: "visible" });
 			yield* row.click();
 			yield* page.getByRole("heading", { level: 1, name: "E2E harvest handle import" }).waitFor();
