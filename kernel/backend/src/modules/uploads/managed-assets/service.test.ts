@@ -7,7 +7,7 @@ import { CryptoHasher } from "bun";
 import type { FileSystem } from "effect";
 import { ByteSize, Clock, Context, DateTime, Effect, Layer, Option, Ref, Stream } from "effect";
 
-import { mapDatabaseErrors } from "#lib/infrastructure/db/service";
+import { mapDatabaseErrors } from "#lib/infrastructure/db/errors";
 import { LocalStorageService } from "#lib/infrastructure/local-storage";
 import { S3Service } from "#lib/infrastructure/s3";
 import { assertExitFails } from "#lib/test-utils/assertions";

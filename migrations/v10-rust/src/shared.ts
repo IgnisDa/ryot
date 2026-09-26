@@ -4,7 +4,7 @@ import {
 	MigrationReportDetail,
 	MigrationReportLevel,
 } from "@ryot-app/contract/modules/god-mode/migration-report";
-import { mapDatabaseErrors } from "@ryot-app/kernel-backend/lib/infrastructure/db/service";
+import { mapDatabaseErrors } from "@ryot-app/kernel-backend/lib/infrastructure/db/errors";
 import { DatabaseSession } from "@ryot-app/kernel-backend/lib/infrastructure/db/session";
 import { sql } from "drizzle-orm";
 import { Data, Effect, Match, Schema } from "effect";

@@ -7,7 +7,7 @@ import { Cause, Deferred, Effect, Exit, Fiber, Layer, Redacted } from "effect";
 
 import { testDatabaseUrl } from "#lib/test-utils/database";
 
-import { retryOnDeadlock } from "./service";
+import { retryOnDeadlock } from "./errors";
 import { DatabaseSession, DatabaseSessionStateError } from "./session";
 
 const entry = pgTable("database_session_test", {

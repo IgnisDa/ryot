@@ -3,7 +3,8 @@ import { sql } from "drizzle-orm";
 import * as PgDrizzle from "drizzle-orm/effect-postgres";
 import { Context, Data, Effect, Layer } from "effect";
 
-import { mapDatabaseErrors, PgClientLive } from "./service";
+import { mapDatabaseErrors } from "./errors";
+import { PgClientLive } from "./postgres";
 
 export class DatabaseSessionStateError extends Data.TaggedError("DatabaseSessionStateError")<{
 	readonly reason: "transaction-already-active" | "transaction-required";
