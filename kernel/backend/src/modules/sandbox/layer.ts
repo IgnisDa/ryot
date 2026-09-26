@@ -18,7 +18,7 @@ import { NotificationsServiceLive } from "#modules/notifications/layer";
 import { PluginRepository } from "#modules/plugins/repository";
 import { PluginRuntimeResolverLive } from "#modules/plugins/runtime-resolver";
 import { PluginSandboxScriptResolverLive } from "#modules/plugins/sandbox-plugin-script-resolver-live";
-import { RelationshipMutationsLive } from "#modules/relationships/layer";
+import { RelationshipMutationPipelineLive } from "#modules/relationships/layer";
 import { RyotQLService } from "#modules/ryotql/service";
 
 import { SandboxRepository } from "./repository";
@@ -58,7 +58,7 @@ export const SandboxHostImplementationsLive = Layer.effect(
 		Layer.mergeAll(
 			EventsServiceLive,
 			RyotQLService.layer,
-			RelationshipMutationsLive,
+			RelationshipMutationPipelineLive,
 			SignalEmissionServiceLive,
 			NotificationsServiceLive,
 		),
