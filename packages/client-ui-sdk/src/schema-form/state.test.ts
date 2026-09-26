@@ -809,3 +809,42 @@ describe("schema form state", () => {
 		);
 	});
 });
+
+describe("timezone format", () => {
+	const timezoneSchema = {
+		fields: {
+			timezone: {
+				...described("Timezone"),
+				type: "string",
+				format: { kind: "timezone" },
+				validation: { required: true },
+			},
+		},
+	} satisfies AppSchema;
+
+	it("renders a timezone control", () => {
+		expect(describeSchemaFormFields(timezoneSchema).fields).toEqual([
+			expect.objectContaining({ key: "timezone", control: "timezone" }),
+		]);
+	});
+
+	it("defaults to the browser zone unless the schema declares a default", () => {
+		expect(initialSchemaFormValues(timezoneSchema, "Europe/Paris")).toEqual({
+			timezone: "Europe/Paris",
+		});
+		const declared = {
+			fields: { timezone: { ...timezoneSchema.fields.timezone, defaultValue: "UTC" } },
+		} satisfies AppSchema;
+		expect(initialSchemaFormValues(declared, "Europe/Paris")).toEqual({ timezone: "UTC" });
+	});
+
+	it("accepts named zones and rejects other values", () => {
+		expect(validateSchemaFormValues(timezoneSchema, { timezone: "Asia/Calcutta" }).size).toBe(0);
+		expect(validateSchemaFormValues(timezoneSchema, { timezone: "UTC" }).size).toBe(0);
+		for (const timezone of ["Not/AZone", "+05:30"]) {
+			expect(validateSchemaFormValues(timezoneSchema, { timezone }).get("timezone")).toBe(
+				"Timezone has an invalid format",
+			);
+		}
+	});
+});

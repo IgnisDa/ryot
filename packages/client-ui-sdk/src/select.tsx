@@ -1,6 +1,7 @@
 import clsx from "clsx";
-import { useRef, useState, type ReactNode } from "react";
+import { useDeferredValue, useRef, useState, type ReactNode } from "react";
 
+import { useFieldEscape } from "./field-escape";
 import { Modal } from "./modal";
 import { RadioGroup } from "./radio-group";
 
@@ -17,6 +18,7 @@ type SelectProps = {
 	readonly className?: string;
 	readonly checkIcon: ReactNode;
 	readonly placeholder?: string;
+	readonly searchIcon?: ReactNode;
 	readonly chevronIcon: ReactNode;
 	readonly onInterceptBack?: () => boolean;
 	readonly onChange: (value: string) => void;
@@ -33,20 +35,38 @@ export function Select({
 	onChange,
 	checkIcon,
 	className,
+	searchIcon,
 	chevronIcon,
 	placeholder,
 	onInterceptBack,
 }: SelectProps) {
 	const [open, setOpen] = useState(false);
+	const [query, setQuery] = useState("");
 	const navigating = useRef(false);
+	const searchRef = useRef<HTMLInputElement>(null);
 	const triggerRef = useRef<HTMLButtonElement>(null);
+	useFieldEscape(searchRef, { hasValue: query !== "", onClear: () => setQuery("") });
+	const deferredQuery = useDeferredValue(query);
 	const selected = choices.find((choice) => choice.value === value);
 	const triggerText = selected?.label ?? placeholder ?? "Select an option";
+	const normalizedQuery = deferredQuery.trim().toLocaleLowerCase();
+	const visibleChoices =
+		searchIcon === undefined
+			? choices
+			: choices.filter(
+					(choice) =>
+						choice.value === value || choice.label.toLocaleLowerCase().includes(normalizedQuery),
+				);
+
+	const close = () => {
+		setOpen(false);
+		setQuery("");
+	};
 
 	const select = (next: string) => {
 		onChange(next);
 		if (!navigating.current) {
-			setOpen(false);
+			close();
 		}
 	};
 
@@ -81,9 +101,9 @@ export function Select({
 			{open && (
 				<Modal
 					label={label}
+					onClose={close}
 					triggerRef={triggerRef}
 					closeLabel="Close options"
-					onClose={() => setOpen(false)}
 					onInterceptBack={onInterceptBack ?? (() => false)}
 					containerClassName="items-center justify-center p-4"
 					className="flex max-h-[80%] w-full max-w-sm flex-col overflow-hidden rounded-xl border border-border bg-raised shadow-card"
@@ -91,6 +111,22 @@ export function Select({
 					<div className="border-b border-border px-4 py-3">
 						<span className="text-base font-semibold text-text">{label}</span>
 					</div>
+					{searchIcon !== undefined && (
+						<div className="mx-4 my-3 flex h-10 items-center gap-2 rounded-lg border border-border bg-surface px-3 focus-within:ring-2 focus-within:ring-focus">
+							<span aria-hidden="true" className="text-text-subtle">
+								{searchIcon}
+							</span>
+							<input
+								value={query}
+								ref={searchRef}
+								autoComplete="off"
+								placeholder="Search options"
+								aria-label={`Search ${label}`}
+								onChange={(event) => setQuery(event.currentTarget.value)}
+								className="min-w-0 flex-1 bg-transparent text-base text-text outline-none md:text-sm"
+							/>
+						</div>
+					)}
 					<div
 						className="min-h-0 flex-1 overflow-y-auto py-1"
 						onPointerDownCapture={() => {
@@ -103,8 +139,8 @@ export function Select({
 						<RadioGroup
 							label={label}
 							value={value}
-							options={choices}
 							onChange={select}
+							options={visibleChoices}
 							renderOption={(choice, isSelected) => ({
 								className: clsx(
 									"flex min-h-11 w-full items-center gap-3 px-4",
@@ -127,6 +163,9 @@ export function Select({
 								),
 							})}
 						/>
+						{visibleChoices.length === 0 && (
+							<p className="py-4 text-center text-sm text-text-muted">No matching options.</p>
+						)}
 					</div>
 				</Modal>
 			)}
