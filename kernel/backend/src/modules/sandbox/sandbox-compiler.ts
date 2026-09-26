@@ -98,7 +98,7 @@ export const makeSandboxCompiler = (configuredWorkspaceParentPath?: string) =>
 
 			const workspaceJobId = crypto.randomUUID();
 			const workspaceRoot = Effect.fromResult(
-				getCompilerWorkspaceRoot({ jobId: workspaceJobId, parentPath: workspaceParentPath }),
+				getCompilerWorkspaceRoot(path, { jobId: workspaceJobId, parentPath: workspaceParentPath }),
 			).pipe(Effect.orDie);
 			return Effect.acquireUseRelease(
 				workspaceRoot,

@@ -10,8 +10,7 @@
 		"test": "bun --bun run vitest run",
 		"build": "bun run tooling/sandbox-runtime.ts",
 		"db:generate": "bun --bun drizzle-kit generate",
-		"check": "bun run sandbox:check-runner && tsc && oxfmt . --write && oxlint . --fix",
-		"sandbox:check-runner": "deno check --config src/lib/infrastructure/sandbox-runtime/deno.json src/lib/infrastructure/sandbox-runtime/runner-source.sandbox.ts"
+		"check": "tsc && oxfmt . --write && oxlint . --fix"
 	},
 	"dependencies": {
 		"@better-auth/api-key": "1.7.2",

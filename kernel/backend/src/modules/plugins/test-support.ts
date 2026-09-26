@@ -61,6 +61,7 @@ export const fixtureManifest = () =>
 			{
 				capabilities: [],
 				kind: "automation",
+				runtimeImports: [],
 				oauthConnectionFields: [],
 				name: "Fixture Automation",
 				slug: "fixture.automation",

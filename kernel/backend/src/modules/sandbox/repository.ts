@@ -7,7 +7,7 @@ import {
 	UserId,
 } from "@ryot-app/contract/schema/brands";
 import type { WorkflowDurableCallRequest } from "@ryot-app/sandbox-sdk/workflow";
-import { and, eq } from "drizzle-orm";
+import { and, eq, sql } from "drizzle-orm";
 import { Context, Effect, Layer } from "effect";
 
 import * as schema from "#lib/infrastructure/db/schema/tables/combined";
@@ -82,17 +82,21 @@ export class SandboxRepository extends Context.Service<SandboxRepository>()("San
 						slug: schema.sandboxScript.slug,
 						pluginStatus: schema.plugin.status,
 						pluginOwnerId: schema.plugin.ownerId,
+						kernelSlug: schema.kernelScript.slug,
 						metadata: schema.sandboxScript.metadata,
 						pluginId: schema.pluginRevision.pluginId,
 						providerId: schema.sandboxScript.providerId,
+						uploaderId: schema.sandboxScript.uploaderId,
 						contentHash: schema.sandboxScript.contentHash,
 						pluginManifest: schema.pluginRevision.manifest,
 						activeRevisionId: schema.plugin.activeRevisionId,
 						providerPluginId: schema.sandboxProvider.pluginId,
 						pluginRevisionId: schema.sandboxScript.pluginRevisionId,
 						environmentConfigRevisionId: schema.plugin.environmentConfigRevisionId,
+						sourcePresent: sql<boolean>`${schema.sandboxScript.source} is not null`,
 					})
 					.from(schema.sandboxScript)
+					.leftJoin(schema.kernelScript, eq(schema.kernelScript.scriptId, schema.sandboxScript.id))
 					.leftJoin(
 						schema.pluginRevision,
 						eq(schema.pluginRevision.id, schema.sandboxScript.pluginRevisionId),
@@ -114,6 +118,12 @@ export class SandboxRepository extends Context.Service<SandboxRepository>()("San
 				}
 				return row.providerId === null
 					? sandboxScriptPin({
+							...(row.kernelSlug === row.slug && row.sourcePresent && row.uploaderId === null
+								? { kernelScript: true as const }
+								: {}),
+							...(row.uploaderId !== null
+								? { standaloneUploaderId: UserId.make(row.uploaderId) }
+								: {}),
 							providerId: null,
 							scriptSlug: row.slug,
 							pluginRevision: null,
