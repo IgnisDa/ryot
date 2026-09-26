@@ -1,5 +1,6 @@
 export * from "./auth";
 export * from "./auth-2fa";
+export * from "./auth-impersonation";
 export * from "./auth-oidc";
 export * from "./admin";
 export * from "./admin-global-relationships";
