@@ -1,5 +1,5 @@
 import { BunRuntime, BunServices } from "@effect/platform-bun";
-import { Effect, FileSystem, Layer, Path, Schema } from "effect";
+import { Effect, FileSystem, Path, Schema } from "effect";
 import { ChildProcess } from "effect/process";
 import sharp from "sharp";
 
@@ -100,5 +100,6 @@ const program = Effect.gen(function* () {
 });
 
 BunRuntime.runMain(
-	Effect.scoped(Layer.build(Layer.effectDiscard(program).pipe(Layer.provide(BunServices.layer)))),
+	// oxlint-disable-next-line effecttsgo/strict-effect-provide -- Native asset generation is a command-line entrypoint
+	program.pipe(Effect.scoped, Effect.provide(BunServices.layer)),
 );

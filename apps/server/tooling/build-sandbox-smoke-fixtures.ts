@@ -1,7 +1,5 @@
-import { SandboxScriptManifest } from "@ryot-app/contract/modules/sandbox/schemas";
-import { sandboxCompilerPlatformLayer } from "@ryot-app/sandbox-compiler/platform";
 import { compilePluginSandboxSourceEntries } from "@ryot-app/sandbox-compiler/plugins";
-import { Effect, FileSystem, Layer, Schema } from "effect";
+import { Data, Effect, FileSystem, Schema } from "effect";
 
 import {
 	SandboxSmokeFixturesJson,
@@ -93,34 +91,31 @@ export default defineScript({
 `;
 };
 
-export const SandboxSmokeFixturesBuildLive = Layer.effectDiscard(
-	Effect.gen(function* () {
-		const fs = yield* FileSystem.FileSystem;
-		const compiled = yield* compilePluginSandboxSourceEntries(
-			Object.fromEntries(
-				smokeTiers.map((tier) => [entryForTier(tier), makeDefinitionSource(tier)]),
-			),
-			smokeTiers.map((tier) => ({ entry: entryForTier(tier), kind: smokeSourceManifest.kind })),
-		);
-		const fixtureForTier = Effect.fnUntraced(function* (tier: (typeof smokeTiers)[number]) {
-			const fixture = compiled.find(({ entry }) => entry === entryForTier(tier));
-			if (fixture === undefined) {
-				throw new Error(`Sandbox compiler returned no smoke fixture for ${tier}`);
-			}
-			return {
-				...fixture.compiled,
-				manifest: yield* Schema.decodeUnknownEffect(SandboxScriptManifest)(
-					fixture.compiled.manifest,
-				),
-			};
-		});
-		const fixtures = {
-			core: yield* fixtureForTier("core"),
-			data: yield* fixtureForTier("data"),
-			full: yield* fixtureForTier("full"),
-		};
-		const encoded = yield* Schema.encodeEffect(SandboxSmokeFixturesJson)(fixtures);
-		yield* fs.makeDirectory(`${serverRoot}/dist`, { recursive: true });
-		yield* fs.writeFileString(`${serverRoot}/dist/sandbox-smoke-fixtures.json`, encoded);
-	}),
-).pipe(Layer.provide(sandboxCompilerPlatformLayer));
+class SandboxSmokeFixtureError extends Data.TaggedError("SandboxSmokeFixtureError")<{
+	readonly message: string;
+}> {}
+
+export const buildSandboxSmokeFixtures = Effect.gen(function* () {
+	const fs = yield* FileSystem.FileSystem;
+	const compiled = yield* compilePluginSandboxSourceEntries(
+		Object.fromEntries(smokeTiers.map((tier) => [entryForTier(tier), makeDefinitionSource(tier)])),
+		smokeTiers.map((tier) => ({ entry: entryForTier(tier), kind: smokeSourceManifest.kind })),
+	);
+	const fixtureForTier = Effect.fnUntraced(function* (tier: (typeof smokeTiers)[number]) {
+		const fixture = compiled.find(({ entry }) => entry === entryForTier(tier));
+		if (fixture === undefined) {
+			return yield* new SandboxSmokeFixtureError({
+				message: `Sandbox compiler returned no smoke fixture for ${tier}`,
+			});
+		}
+		return fixture.compiled;
+	});
+	const fixtures = {
+		core: yield* fixtureForTier("core"),
+		data: yield* fixtureForTier("data"),
+		full: yield* fixtureForTier("full"),
+	};
+	const encoded = yield* Schema.encodeUnknownEffect(SandboxSmokeFixturesJson)(fixtures);
+	yield* fs.makeDirectory(`${serverRoot}/dist`, { recursive: true });
+	yield* fs.writeFileString(`${serverRoot}/dist/sandbox-smoke-fixtures.json`, encoded);
+});
