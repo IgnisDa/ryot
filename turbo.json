@@ -12,8 +12,8 @@
 		},
 		"@ryot-app/kernel-backend#build": {
 			"dependsOn": ["^build"],
-			"inputs": ["src/**/*.ts", "!src/**/*.generated.ts", "tooling/**/*.ts", "package.json"],
-			"outputs": ["src/modules/definitions/*.generated.ts"]
+			"outputs": ["src/modules/definitions/*.generated.ts"],
+			"inputs": ["src/**/*.ts", "!src/**/*.generated.ts", "tooling/**/*.ts", "package.json"]
 		},
 		"@ryot-app/kernel-backend#check": {
 			"outputLogs": "errors-only",
@@ -26,6 +26,7 @@
 		"@ryot-app/sandbox#build": {
 			"dependsOn": ["^build"],
 			"outputLogs": "errors-only",
+			"outputs": ["native/payload/**", "dist/**"],
 			"inputs": [
 				"src/**/*.ts",
 				"tooling/**/*.ts",
@@ -33,8 +34,7 @@
 				"!native/target/**",
 				"!native/payload/**",
 				"package.json"
-			],
-			"outputs": ["native/payload/**", "dist/**"]
+			]
 		},
 		"@ryot-app/sandbox#check": {
 			"outputLogs": "errors-only",
