@@ -26,7 +26,7 @@ describe("Server log API", () => {
 	it.live("requires the admin token for listing and both downloads", () =>
 		Effect.gen(function* () {
 			for (const headers of [{}, adminAccessTokenHeaders(WRONG_TOKEN)]) {
-				const list = yield* webRequest(`${getApiUrl()}/god-mode/logs/files`, { headers });
+				const list = yield* webRequest(`${getApiUrl()}/god-mode/logs/files?limit=25`, { headers });
 				const fileDownload = yield* webRequest(downloadFileUrl("missing"), { headers });
 				const allDownload = yield* webRequest(`${getApiUrl()}/god-mode/logs/download`, { headers });
 				expect(list.status).toBe(401);
@@ -39,7 +39,22 @@ describe("Server log API", () => {
 	it.live("lists and downloads active and retained logs", () =>
 		Effect.gen(function* () {
 			const seeded = yield* seedServerLog();
-			const { files } = yield* getApiClient().call((api) => api.serverLogs.list(), adminHeaders());
+			const firstPage = yield* getApiClient().call(
+				(api) => api.serverLogs.list({ query: { limit: 1 } }),
+				adminHeaders(),
+			);
+			const nextCursor = firstPage.pageInfo.nextCursor;
+			assert(nextCursor);
+			expect(firstPage.pageInfo).toEqual({
+				limit: 1,
+				hasMore: true,
+				nextCursor: firstPage.files[0]?.name,
+			});
+			const secondPage = yield* getApiClient().call(
+				(api) => api.serverLogs.list({ query: { limit: 100, after: nextCursor } }),
+				adminHeaders(),
+			);
+			const files = [...firstPage.files, ...secondPage.files];
 			const active = files.find((file) => file.name === seeded.activeName);
 			const retained = files.find((file) => file.name === seeded.name);
 			assert(active);
