@@ -115,7 +115,7 @@ SELECT
 	w."id" AS "workoutId",
 	w."user_id" AS "workoutUserId",
 	ex."id" AS "exerciseId",
-	ex."properties" ->> 'kind' AS "kind",
+	ev."properties" ->> 'exerciseKind' AS "kind",
 	w."properties" ->> 'endedAt' AS "endedAt",
 	ev."properties" ->> 'confirmedAt' AS "confirmedAt",
 	CASE
@@ -192,7 +192,6 @@ const buildPropertyPatch = (
 ) => {
 	const recalculated: Record<string, unknown> = {
 		personalBests,
-		unitSystem: "metric",
 		pace: statistics.pace,
 		reps: measurements.reps,
 		oneRm: statistics.oneRm,
@@ -292,8 +291,7 @@ export const migrateWorkoutRecords = Effect.fn("migrateWorkoutRecords")(function
 
 		for (const stream of streams) {
 			let eventCursor: WorkoutRecordRow | undefined;
-			let maxima: WorkoutRecordMaxima = {};
-			let streamKind: ExerciseKind | undefined;
+			const maxima: Partial<Record<ExerciseKind, WorkoutRecordMaxima>> = {};
 			let eventsExhausted = false;
 
 			while (!eventsExhausted) {
@@ -348,12 +346,6 @@ export const migrateWorkoutRecords = Effect.fn("migrateWorkoutRecords")(function
 						),
 						Effect.orDie,
 					);
-					if (streamKind !== undefined && kind !== streamKind) {
-						return yield* Effect.die(
-							invalidWorkoutRecord(row, "changes exercise kind within its stream"),
-						);
-					}
-					streamKind = kind;
 
 					const measurements = yield* Schema.decodeUnknownEffect(WorkoutSetMeasurementsSchema)(
 						propertyValues(row.properties),
@@ -363,8 +355,8 @@ export const migrateWorkoutRecords = Effect.fn("migrateWorkoutRecords")(function
 					);
 					const normalized = normalizeWorkoutMeasurements(measurements);
 					const statistics = calculateWorkoutSetStatistics(kind, normalized);
-					const awarded = awardWorkoutPersonalBests(kind, normalized, maxima);
-					maxima = awarded.maxima;
+					const awarded = awardWorkoutPersonalBests(kind, normalized, maxima[kind] ?? {});
+					maxima[kind] = awarded.maxima;
 					const patch = buildPropertyPatch(row, normalized, statistics, awarded.personalBests);
 					if (patch) {
 						patches.push(patch);
