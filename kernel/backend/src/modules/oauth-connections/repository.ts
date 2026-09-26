@@ -279,9 +279,7 @@ export class OAuthConnectionsRepository extends Context.Service<OAuthConnections
 				function* (pluginRevisionId: string) {
 					const [row] = yield* database.run((db) =>
 						db
-							.select({
-								oauthProviders: sql<unknown>`${schema.pluginRevision.manifest} -> 'oauthProviders'`,
-							})
+							.select({ oauthProviders: schema.pluginRevision.oauthProviders })
 							.from(schema.pluginRevision)
 							.where(eq(schema.pluginRevision.id, pluginRevisionId))
 							.limit(1),
@@ -361,8 +359,9 @@ export class OAuthConnectionsRepository extends Context.Service<OAuthConnections
 								...connectionSelection,
 								pins: schema.importRun.pins,
 								pluginOwnerId: schema.plugin.ownerId,
-								manifest: schema.pluginRevision.manifest,
 								pluginId: schema.pluginInstallation.pluginId,
+								configSchema: schema.pluginRevision.configSchema,
+								integrationProviders: schema.pluginRevision.integrationProviders,
 							})
 							.from(connection)
 							.innerJoin(

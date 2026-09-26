@@ -854,6 +854,39 @@ describe("OAuth connections", () => {
 		}),
 	);
 
+	isolated("refreshes with the pinned provider and config schema after a plugin update", () =>
+		Effect.gen(function* () {
+			const installed = yield* installOAuthPlugin("oauth-test", "oauth-yank");
+			const endpoint = yield* FakeTokenEndpoint;
+			const run = yield* connectedIntegration(issuedTokens({ expires_in: 30 }));
+			const previous = yield* (yield* PluginRepository).findActiveSystemPluginById(
+				installed.pluginId,
+			);
+			assert(previous);
+			const next = oauthRevisionPackage("oauth-test", "oauth-yank");
+			yield* installRevisionPackage({
+				...next,
+				contentHash: "oauth-next",
+				manifest: {
+					...next.manifest,
+					oauthProviders: [],
+					integrationProviders: [],
+					configSchema: { fields: {}, unknownKeys: "strict" },
+					metadata: { ...next.manifest.metadata, version: "next", packageId: previous.packageId },
+				},
+			});
+			yield* endpoint.respond(() =>
+				Effect.succeed(issuedTokens({ access_token: "access-2", refresh_token: "refresh-2" })),
+			);
+			expect((yield* accessToken({ ...run, pluginId: installed.pluginId })).accessToken).toBe(
+				"access-2",
+			);
+			expect((yield* endpoint.requests).at(-1)?.authorization).toBe(
+				`Basic ${Buffer.from("client-1:client-secret-1").toString("base64")}`,
+			);
+		}),
+	);
+
 	isolated("expires a connected token only when the current integration run submits it", () =>
 		Effect.gen(function* () {
 			const installed = yield* installOAuthPlugin("oauth-test", "oauth-yank");

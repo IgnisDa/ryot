@@ -1051,15 +1051,12 @@ export class PluginInstallationService extends Context.Service<PluginInstallatio
 						Effect.gen(function* () {
 							yield* repository.lockIngestion();
 							const row = yield* installations.findUserSettings(userId, installationId);
-							if (!row?.manifest.userSettingsSchema) {
+							if (!row?.userSettingsSchema) {
 								return yield* new PluginNotFoundError({
 									reason: { installationId, code: "installation-not-found" },
 								});
 							}
-							yield* resolvePluginUserSettings(
-								row.manifest.userSettingsSchema,
-								reset ? {} : values,
-							).pipe(
+							yield* resolvePluginUserSettings(row.userSettingsSchema, reset ? {} : values).pipe(
 								Effect.catchTags({
 									SchemaError: Effect.die,
 									PropertyValidationError: (error) =>

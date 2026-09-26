@@ -94,7 +94,7 @@ export const makePluginScriptHost = Effect.gen(function* () {
 						}
 						return state.executionSettings.userSettings;
 					}
-					const settingsSchema = row.manifest.userSettingsSchema;
+					const settingsSchema = row.userSettingsSchema;
 					if (!settingsSchema) {
 						return {};
 					}

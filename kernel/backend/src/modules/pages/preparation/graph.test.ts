@@ -37,11 +37,7 @@ const plugin = (name: string, client: NonNullable<PluginManifest["client"]>): Gr
 		packageId: packageIdFor(name),
 		clientArtifactHash: `${name}-hash`,
 		pluginRevisionId: `${name}-revision`,
-		manifest: {
-			...manifest,
-			client,
-			metadata: { ...manifest.metadata, packageId: packageIdFor(name) },
-		},
+		manifest: { ...manifest, client, metadata: { name: manifest.metadata.name } },
 	};
 };
 

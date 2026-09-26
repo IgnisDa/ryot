@@ -18,7 +18,7 @@ import {
 	pluginExportSpecifier,
 	type PluginClientImport,
 } from "@ryot-app/plugin-client-contract";
-import { eq } from "drizzle-orm";
+import { and, eq, sql } from "drizzle-orm";
 import { Effect, Result } from "effect";
 import { assert, describe } from "vitest";
 
@@ -873,6 +873,47 @@ describe("catalog reads across revision boundaries", () => {
 		);
 	});
 	layer(revisionDatabaseLayer)((test) => {
+		test.effect("exposes only the catalog sections of the selected revision", () =>
+			Effect.gen(function* () {
+				const runtime = yield* PluginRuntimeResolver;
+				const client: PluginClientEntry = {
+					homeView: null,
+					apiVersion: CLIENT_API_VERSION,
+					exports: {
+						home: {
+							kind: "component",
+							entry: "client/home.tsx",
+							automaticEntityPresentations: false,
+						},
+					},
+				};
+				const withEntry = withClient(operationPackage("v1"), client, []);
+				const withoutEntry = revisionPackage("notes");
+				yield* installRevisionPackage(withEntry);
+				yield* installRevisionPackage(withoutEntry);
+				for (const listed of [false, true]) {
+					expect(
+						(yield* runtime.listPluginsAvailableToUser(owner, listed)).map(
+							({ manifest }) => manifest,
+						),
+					).toEqual(
+						[withEntry, withoutEntry]
+							.sort((left, right) =>
+								left.manifest.metadata.packageId.localeCompare(right.manifest.metadata.packageId),
+							)
+							.map(({ manifest }) => ({
+								client: manifest.client,
+								workflows: manifest.workflows,
+								operations: manifest.operations,
+								metadata: { name: manifest.metadata.name },
+							})),
+					);
+				}
+			}),
+		);
+	});
+
+	layer(revisionDatabaseLayer)((test) => {
 		test.effect("serves the upgraded manifest and the upgraded script rows after a reinstall", () =>
 			Effect.gen(function* () {
 				const plugins = yield* PluginRepository;
@@ -969,6 +1010,197 @@ describe("catalog reads across revision boundaries", () => {
 					}),
 				).toBeNull();
 				expect(yield* runtime.findActiveProviderById(provider.provider.id)).toBeNull();
+			}),
+		);
+	});
+});
+
+describe("provider eligibility", () => {
+	const eligibility = Effect.fn(function* (providerId: SandboxProviderId) {
+		const session = yield* DatabaseSession;
+		const runtime = yield* PluginRuntimeResolver;
+		const outcome = (resolved: ReturnType<typeof runtime.resolveDetailsScript>) =>
+			resolved.pipe(
+				Effect.map(({ slug }) => slug),
+				Effect.catchTag("UnsupportedProviderOperationError", ({ reason }) =>
+					Effect.succeed(reason),
+				),
+			);
+		const listed = yield* session.run((db) =>
+			db
+				.select({ id: tables.userSandboxProvider.id })
+				.from(tables.userSandboxProvider)
+				.where(
+					and(
+						eq(tables.userSandboxProvider.userId, owner),
+						eq(tables.userSandboxProvider.id, providerId),
+					),
+				),
+		);
+		const operations = yield* session.run((db) =>
+			db
+				.select({ operation: tables.userSandboxProviderOperation.operation })
+				.from(tables.userSandboxProviderOperation)
+				.where(
+					and(
+						eq(tables.userSandboxProviderOperation.userId, owner),
+						eq(tables.userSandboxProviderOperation.providerId, providerId),
+					),
+				),
+		);
+		return {
+			listed: listed.length === 1,
+			operations: operations.map(({ operation }) => operation).sort(),
+			details: yield* outcome(runtime.resolveDetailsScript(providerId)),
+			active: (yield* runtime.findActiveProviderById(providerId)) !== null,
+			userSearch: yield* outcome(runtime.resolveUserSearchScript(owner, providerId)),
+		};
+	});
+
+	const installProvider = Effect.fn(function* (packageValue = revisionPackage()) {
+		const runtime = yield* PluginRuntimeResolver;
+		const installed = yield* installRevisionPackage(packageValue);
+		const provider = yield* runtime.findSchemaProviderByReference({
+			slug: "fixture-provider",
+			owner: definitionOwner(installed.pluginId),
+		});
+		assert(provider);
+		return { ...installed, providerId: provider.provider.id };
+	});
+
+	layer(revisionDatabaseLayer)((test) => {
+		test.effect("exposes a declared provider with an effective root and matching scripts", () =>
+			Effect.gen(function* () {
+				const { providerId } = yield* installProvider();
+				expect(yield* eligibility(providerId)).toEqual({
+					listed: true,
+					active: true,
+					details: "fixture.details",
+					userSearch: "fixture.search",
+					operations: ["details", "search"],
+				});
+			}),
+		);
+	});
+
+	layer(revisionDatabaseLayer)((test) => {
+		test.effect("withdraws a provider slug removed in the new active revision", () =>
+			Effect.gen(function* () {
+				const original = revisionPackage("fixture", "v1");
+				const { providerId } = yield* installProvider(original);
+				const upgraded = revisionPackage(
+					"fixture",
+					"v2",
+					"fixture-entity",
+					original.manifest.metadata.packageId,
+				);
+				yield* installRevisionPackage({
+					...upgraded,
+					scripts: upgraded.scripts.filter(({ metadata }) => metadata.kind !== "provider"),
+					manifest: {
+						...upgraded.manifest,
+						providers: [],
+						scripts: upgraded.manifest.scripts.filter(({ kind }) => kind !== "provider"),
+					},
+				});
+				expect(yield* eligibility(providerId)).toEqual({
+					listed: false,
+					active: false,
+					operations: [],
+					details: "inactive_provider",
+					userSearch: "inactive_provider",
+				});
+			}),
+		);
+	});
+
+	layer(revisionDatabaseLayer)((test) => {
+		test.effect("withdraws a provider whose root differs from its declared root", () =>
+			Effect.gen(function* () {
+				const value = revisionPackage();
+				const [entity] = value.manifest.entitySchemas;
+				assert(entity);
+				const { pluginId, providerId } = yield* installProvider({
+					...value,
+					manifest: {
+						...value.manifest,
+						entitySchemas: [entity, { ...entity, slug: "other-entity" }],
+					},
+				});
+				yield* (yield* DatabaseSession).run((db) =>
+					db
+						.update(tables.sandboxProvider)
+						.set({ rootEntitySchemaSlug: "other-entity" })
+						.where(eq(tables.sandboxProvider.pluginId, pluginId)),
+				);
+				expect(yield* eligibility(providerId)).toEqual({
+					active: true,
+					listed: false,
+					operations: [],
+					details: "script_unavailable",
+					userSearch: "inactive_provider",
+				});
+			}),
+		);
+	});
+
+	layer(revisionDatabaseLayer)((test) => {
+		test.effect("withdraws a provider whose root entity schema is not effective", () =>
+			Effect.gen(function* () {
+				const { revisionId, providerId } = yield* installProvider();
+				yield* (yield* DatabaseSession).run((db) =>
+					db
+						.update(tables.definitionEntitySchema)
+						.set({ slug: "renamed-entity" })
+						.where(eq(tables.definitionEntitySchema.pluginRevisionId, revisionId)),
+				);
+				expect(yield* eligibility(providerId)).toEqual({
+					listed: false,
+					active: false,
+					operations: [],
+					details: "inactive_provider",
+					userSearch: "inactive_provider",
+				});
+			}),
+		);
+	});
+
+	layer(revisionDatabaseLayer)((test) => {
+		test.effect("drops operations whose script kind or provider does not match", () =>
+			Effect.gen(function* () {
+				const { revisionId, providerId } = yield* installProvider();
+				const session = yield* DatabaseSession;
+				yield* session.run((db) =>
+					db
+						.update(tables.sandboxScript)
+						.set({ providerId: null })
+						.where(
+							and(
+								eq(tables.sandboxScript.pluginRevisionId, revisionId),
+								eq(tables.sandboxScript.slug, "fixture.details"),
+							),
+						),
+				);
+				yield* session.run((db) =>
+					db
+						.update(tables.sandboxScript)
+						.set({
+							metadata: sql`jsonb_set(${tables.sandboxScript.metadata}, '{kind}', '"script"')`,
+						})
+						.where(
+							and(
+								eq(tables.sandboxScript.pluginRevisionId, revisionId),
+								eq(tables.sandboxScript.slug, "fixture.search"),
+							),
+						),
+				);
+				expect(yield* eligibility(providerId)).toEqual({
+					listed: true,
+					active: true,
+					operations: [],
+					details: "script_unavailable",
+					userSearch: "script_unavailable",
+				});
 			}),
 		);
 	});

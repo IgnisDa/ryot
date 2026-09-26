@@ -54,11 +54,14 @@ const querySourcesForSession = (database: DatabaseSession["Service"]) =>
 					inputSchema: view.inputSchema,
 					workflowSlug: view.workflowSlug,
 					installationId: view.installationId,
+					scripts: schema.pluginRevision.scripts,
 					pluginRevisionId: view.pluginRevisionId,
 					configRevisionId: view.configRevisionId,
-					manifest: schema.pluginRevision.manifest,
+					workflows: schema.pluginRevision.workflows,
+					packageId: schema.pluginRevision.packageId,
+					configSchema: schema.pluginRevision.configSchema,
+					oauthProviders: schema.pluginRevision.oauthProviders,
 					requiredPluginConfigKeys: view.requiredPluginConfigKeys,
-					configSchema: sql<PluginConfigSchema>`${schema.pluginRevision.manifest} -> 'configSchema'`,
 					configuredPluginConfigKeys: sql<
 						ReadonlyArray<string>
 					>`coalesce(${schema.pluginConfigRevision.configuredKeys}, '{}')`,
@@ -88,11 +91,13 @@ const querySourcesForSession = (database: DatabaseSession["Service"]) =>
 				({
 					plan,
 					script,
-					manifest,
+					scripts,
 					pluginId,
+					workflows,
 					exportHelp,
 					pluginScope,
 					installationId,
+					oauthProviders,
 					configRevisionId,
 					pluginRevisionId,
 					...row
@@ -116,7 +121,7 @@ const querySourcesForSession = (database: DatabaseSession["Service"]) =>
 						script: script && { ...script, pluginId, id: SandboxScriptId.make(script.id) },
 						source: {
 							readinessMetadata: ingestionReadinessMetadata(
-								manifest,
+								{ scripts, workflows, oauthProviders, configSchema: row.configSchema },
 								row.configuredPluginConfigKeys,
 								configRevisionId !== null,
 							),
@@ -125,7 +130,6 @@ const querySourcesForSession = (database: DatabaseSession["Service"]) =>
 							pluginId,
 							pluginScope,
 							installationId,
-							packageId: manifest.metadata.packageId,
 							reference: { slug: row.slug, owner: definitionOwner(pluginId) },
 							...(exportHelp ? { exportHelp } : {}),
 							configContext: {
