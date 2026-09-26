@@ -73,36 +73,27 @@ layer(serviceLayer())((test) => {
 	test.effect("persists only the supplied preference changes through better-auth", () =>
 		Effect.gen(function* () {
 			const service = yield* UserSettingsService;
-			const user = makeUser({ language: "es", allowNsfw: true, disableIntegrations: false });
+			const user = makeUser({ language: "es", disableIntegrations: false });
 			yield* service.updatePreferences(user, { disableIntegrations: true });
 			yield* service.updatePreferences(user, { language: null });
 
 			expect(yield* (yield* FakeAuthSettings).preferenceUpdates).toEqual([
-				{
-					userId: user.id,
-					preferences: { language: "es", allowNsfw: true, disableIntegrations: true },
-				},
-				{
-					userId: user.id,
-					preferences: { language: null, allowNsfw: true, disableIntegrations: false },
-				},
+				{ userId: user.id, preferences: { language: "es", disableIntegrations: true } },
+				{ userId: user.id, preferences: { language: null, disableIntegrations: false } },
 			]);
 		}),
 	);
 });
 
 layer(serviceLayer())((test) => {
-	test.effect("persists merged preferences through better-auth", () =>
+	test.effect("persists a language preference through better-auth", () =>
 		Effect.gen(function* () {
 			const service = yield* UserSettingsService;
 			const user = makeUser(defaultUserPreferences);
-			yield* service.updatePreferences(user, { allowNsfw: true });
+			yield* service.updatePreferences(user, { language: "es" });
 
 			expect(yield* (yield* FakeAuthSettings).preferenceUpdates).toEqual([
-				{
-					userId: user.id,
-					preferences: { language: null, allowNsfw: true, disableIntegrations: false },
-				},
+				{ userId: user.id, preferences: { language: "es", disableIntegrations: false } },
 			]);
 		}),
 	);

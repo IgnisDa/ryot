@@ -192,7 +192,7 @@ const makeLayer = (input: {
 										name: "User",
 										id: input.currentUserId,
 										email: "user@example.com",
-										preferences: { language: null, allowNsfw: false, disableIntegrations: false },
+										preferences: { language: null, disableIntegrations: false },
 									},
 								})
 							: Effect.fail(new AuthUnauthorized({ reason: { code: "authentication-required" } })),

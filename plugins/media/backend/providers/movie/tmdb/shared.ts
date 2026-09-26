@@ -26,7 +26,7 @@ export const manifest = defineManifest({
 	slug: "movie.tmdb",
 	requiredSystemConfigKeys: [],
 	requiredPluginConfigKeys: ["tmdbAccessToken"],
-	capabilities: ["httpCall", "getPluginConfig", "getUserPreferences"],
+	capabilities: ["httpCall", "getPluginConfig", "getUserSettings"],
 });
 
 const httpManifest = defineManifest({
