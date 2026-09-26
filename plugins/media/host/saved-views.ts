@@ -1,8 +1,25 @@
-import { column, field, table } from "@ryot-app/ryotql";
+import {
+	and,
+	castNumber,
+	coalesce,
+	column,
+	conditional,
+	countDistinct,
+	descending,
+	eq,
+	field,
+	gt,
+	inArray,
+	jsonPath,
+	literal,
+	maximum,
+	or,
+	table,
+} from "@ryot-app/ryotql";
 import { buildSavedViewLayoutProjections } from "@ryot-app/ryotql-recipes/saved-views";
 
 import { slugify } from "../backend/contracts/slug";
-import { mediaPluginSlug } from "../shared/media-schema-slugs";
+import { builtinMediaEntitySchemaSlugs, mediaPluginSlug } from "../shared/media-schema-slugs";
 import { defaultMediaSavedViewRecipe } from "./query-recipes";
 import { mediaEntitySchemas } from "./schemas/entity";
 import { buildViewExpressions } from "./view-helpers";
@@ -47,6 +64,44 @@ const mediaViewName: Record<(typeof mediaEntitySchemaSlugs)[number], string> = {
 	"video-game-group": "All Video Game Franchises",
 };
 
+const savedViewOrderBy = (slug: string) => {
+	const entity = table("entity", "entity");
+	if (slug === "person" || slug === "company") {
+		const credit = table("relationship", "savedViewCredit");
+		return [
+			descending(
+				countDistinct(credit, column(credit, "targetEntityId"), {
+					where: and(
+						eq(column(credit, "sourceEntityId"), column(entity, "id")),
+						inArray(
+							column(credit, "relationshipSchemaSlug"),
+							builtinMediaEntitySchemaSlugs.map((mediaSlug) => literal(`${slug}-to-${mediaSlug}`)),
+						),
+					),
+				}),
+			),
+		];
+	}
+	if (slug.endsWith("-group")) {
+		return [descending(castNumber(jsonPath(column(entity, "properties"), "parts")))];
+	}
+	const activity = table("event", "savedViewActivity");
+	const membership = table("relationship", "savedViewMembership");
+	const addedAt = maximum(membership, column(membership, "createdAt"), {
+		where: and(
+			eq(column(membership, "sourceEntityId"), column(entity, "id")),
+			eq(column(membership, "relationshipSchemaSlug"), literal("in-media-library")),
+		),
+	});
+	const updatedAt = maximum(activity, column(activity, "updatedAt"), {
+		where: or(
+			eq(column(activity, "entityId"), column(entity, "id")),
+			eq(column(activity, "sessionEntityId"), column(entity, "id")),
+		),
+	});
+	return [descending(conditional(gt(updatedAt, addedAt), updatedAt, coalesce(addedAt, updatedAt)))];
+};
+
 export const mediaSavedViews = () => {
 	const schemas = new Map(mediaEntitySchemas().map((schema) => [schema.slug, schema]));
 	const entity = table("entity", "entity");
@@ -84,6 +139,7 @@ export const mediaSavedViews = () => {
 			dataSources: defaultMediaSavedViewRecipe({
 				fields,
 				schemas: [view.entitySchemaSlug],
+				orderBy: savedViewOrderBy(view.entitySchemaSlug),
 				layout: { type: "table", mapping: projections.table.mappings },
 			}).document,
 			settings: {
