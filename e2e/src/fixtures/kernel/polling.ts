@@ -6,9 +6,12 @@ class PollIncomplete {
 
 export class PollTimeout extends Data.TaggedError("PollTimeout")<{ readonly message: string }> {}
 
-export const pollUntil = <A, E, R>(label: string, check: Effect.Effect<A | null, E, R>) => {
+export const pollUntil = <A, E, R>(
+	label: string,
+	check: Effect.Effect<A | null, E, R>,
+	timeoutMs = 180_000,
+) => {
 	const intervalMs = 500;
-	const timeoutMs = 180_000;
 	return check.pipe(
 		Effect.filterOrFail(
 			(result): result is A => result !== null,
