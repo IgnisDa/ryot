@@ -20,3 +20,5 @@ export const stableStringify = (value: unknown, options?: { sortArrays?: boolean
 	}
 	return JSON.stringify(value);
 };
+
+export const encodeJsonString = (value: string): string => JSON.stringify(value);
