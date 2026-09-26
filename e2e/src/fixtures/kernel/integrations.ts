@@ -67,7 +67,11 @@ export const postIntegrationWebhook = (
 			"Expected sink integration webhook token",
 		);
 		return yield* client.call((c) =>
-			c.integrations.webhook({ params: { webhookToken }, payload: JSON.stringify(body) }),
+			c.integrations.webhook({
+				headers: {},
+				params: { webhookToken },
+				payload: JSON.stringify(body),
+			}),
 		);
 	});
 
