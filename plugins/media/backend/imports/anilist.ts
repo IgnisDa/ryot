@@ -1,5 +1,6 @@
 import { Result, Schema, SchemaIssue } from "@ryot-app/sandbox-sdk/effect";
 
+import { anilistListState } from "../lib/anilist-list";
 import { nowIso, parseZonedDateTime } from "./dates";
 import { getOrCreateMediaEntityGroup, type ImportMediaEntityGroupBuilder } from "./groups";
 import {
@@ -84,23 +85,8 @@ const getFavoriteTarget = (favoriteType: number) => getSeriesTarget(favoriteType
 const parseAnilistDate = (value: string | null | undefined, timezone: string) =>
 	value ? parseZonedDateTime(value, ["YYYY-MM-DD HH:mm:ss"], timezone) : null;
 const getLifecycle = (status: string | undefined) => {
-	const normalized = status?.trim().toUpperCase();
-	if (normalized === "CURRENT" || normalized === "REPEATING") {
-		return "progress" as const;
-	}
-	if (normalized === "PLANNING") {
-		return "backlog" as const;
-	}
-	if (normalized === "COMPLETED") {
-		return "complete" as const;
-	}
-	if (normalized === "DROPPED") {
-		return "dropped" as const;
-	}
-	if (normalized === "PAUSED") {
-		return "on_hold" as const;
-	}
-	return undefined;
+	const state = anilistListState(status?.trim().toUpperCase() ?? "");
+	return state === "in_progress" ? "progress" : state;
 };
 const parseCustomListIds = (value: string | null | undefined) => {
 	const raw = value?.trim();

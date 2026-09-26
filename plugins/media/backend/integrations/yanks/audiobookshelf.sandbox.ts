@@ -4,6 +4,7 @@ import { Effect, Option, Schema } from "@ryot-app/sandbox-sdk/effect";
 import { readMediaCapture } from "../../imports/collection";
 import type { ImportEntityRef, MediaIntegrationAdapterResult } from "../../imports/schemas";
 import { sourceFetchFailure } from "../../imports/source-helpers";
+import { isValidIsbn } from "../../lib/isbn";
 import { captureIntegrationWindow } from "../artifacts";
 import { integrationRecordId } from "../identity";
 import { IntegrationWindowOutput, YankInput } from "../schemas";
@@ -85,24 +86,6 @@ const Cursor = Schema.Struct({
 });
 const cursorJson = Schema.fromJsonString(Cursor);
 
-const validIsbn = (value: string) => {
-	if (/^\d{13}$/.test(value)) {
-		const sum = value
-			.slice(0, 12)
-			.split("")
-			.reduce((total, digit, index) => total + Number(digit) * (index % 2 === 0 ? 1 : 3), 0);
-		return (sum + Number(value[12])) % 10 === 0;
-	}
-	if (/^\d{9}[\dX]$/.test(value)) {
-		const sum = value.split("").reduce((total, digit, index) => {
-			const number = digit === "X" ? 10 : Number(digit);
-			return total + number * (10 - index);
-		}, 0);
-		return sum % 11 === 0;
-	}
-	return false;
-};
-
 const itemRef = (item: typeof Item.Type): ImportEntityRef | null => {
 	const metadata = item.media?.metadata;
 	if (!metadata) {
@@ -110,7 +93,7 @@ const itemRef = (item: typeof Item.Type): ImportEntityRef | null => {
 	}
 	if (item.media.ebookFormat === "epub" && typeof metadata.isbn === "string") {
 		const isbn = metadata.isbn.replace(/[^0-9X]/gi, "").toUpperCase();
-		if (validIsbn(isbn)) {
+		if (isValidIsbn(isbn)) {
 			return {
 				kind: "unresolved",
 				identifierValue: isbn,

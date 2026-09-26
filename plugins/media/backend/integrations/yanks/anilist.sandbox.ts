@@ -10,6 +10,7 @@ import { readMediaCapture } from "../../imports/collection";
 import type { MediaIntegrationAdapterResult } from "../../imports/schemas";
 import { MediaSandboxError } from "../../lib/failures";
 import { captureIntegrationWindow } from "../artifacts";
+import { httpFailureStatus, integrationRequestFailure } from "../http";
 import { integrationRecordId } from "../identity";
 import { IntegrationWindowOutput, YankInput } from "../schemas";
 import { executionStartedAt } from "../shared";
@@ -38,9 +39,6 @@ const AniListSettings = Schema.Struct({
 	account: Schema.NonEmptyString,
 	syncAnime: Schema.optional(Schema.Boolean),
 	syncManga: Schema.optional(Schema.Boolean),
-});
-const HttpFailure = Schema.Struct({
-	data: Schema.optional(Schema.Struct({ status: Schema.optional(Schema.Finite) })),
 });
 
 const viewerQuery = "query { Viewer { id } }";
@@ -91,18 +89,7 @@ type AniListHost = Pick<
 	| "invalidateOAuthAccessToken"
 >;
 
-const httpFailureStatus = (error: unknown) => {
-	const decoded = Schema.decodeUnknownOption(HttpFailure)(error);
-	return Option.isSome(decoded) ? decoded.value.data?.status : undefined;
-};
-
-const requestFailure = (status?: number) =>
-	new MediaSandboxError({
-		message:
-			status === undefined
-				? "AniList GraphQL request failed"
-				: `AniList GraphQL request returned status ${status}`,
-	});
+const requestFailure = (status?: number) => integrationRequestFailure("AniList GraphQL", status);
 
 const requestAniList = Effect.fn("AniList.request")(function* (
 	host: AniListHost,
@@ -110,6 +97,12 @@ const requestAniList = Effect.fn("AniList.request")(function* (
 	query: string,
 	variables?: Record<string, string | number>,
 ) {
+	const failRequest = Effect.fn("AniList.failRequest")(function* (status?: number) {
+		if (status === 401) {
+			yield* host.invalidateOAuthAccessToken({ accessToken, field: "account" });
+		}
+		return yield* requestFailure(status);
+	});
 	const response = yield* host
 		.httpCall("POST", ANILIST_GRAPHQL_URL, {
 			body: encodeRequest({ query, ...(variables ? { variables } : {}) }),
@@ -119,22 +112,9 @@ const requestAniList = Effect.fn("AniList.request")(function* (
 				Authorization: `Bearer ${accessToken}`,
 			},
 		})
-		.pipe(
-			Effect.catch((error) =>
-				Effect.gen(function* () {
-					const status = httpFailureStatus(error);
-					if (status === 401) {
-						yield* host.invalidateOAuthAccessToken({ accessToken, field: "account" });
-					}
-					return yield* requestFailure(status);
-				}),
-			),
-		);
+		.pipe(Effect.catch((error) => failRequest(httpFailureStatus(error))));
 	if (response.status < 200 || response.status >= 300) {
-		if (response.status === 401) {
-			yield* host.invalidateOAuthAccessToken({ accessToken, field: "account" });
-		}
-		return yield* requestFailure(response.status);
+		return yield* failRequest(response.status);
 	}
 	const envelope = yield* Schema.decodeEffect(Schema.fromJsonString(AniListGraphQLResponse))(
 		response.body,
@@ -143,10 +123,7 @@ const requestAniList = Effect.fn("AniList.request")(function* (
 		const status =
 			envelope.errors.find((error) => error.status === 401)?.status ??
 			envelope.errors.find((error) => error.status !== undefined)?.status;
-		if (status === 401) {
-			yield* host.invalidateOAuthAccessToken({ accessToken, field: "account" });
-		}
-		return yield* requestFailure(status);
+		return yield* failRequest(status);
 	}
 	if (envelope.data === undefined || envelope.data === null) {
 		return yield* requestFailure();
