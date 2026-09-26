@@ -4,9 +4,9 @@ import {
 } from "@ryot-app/contract/modules/pages/schemas";
 import { CLIENT_COMPOSITION_DESCRIPTOR_ELEMENT_ID } from "@ryot-app/plugin-client-contract";
 import { Effect, Schema } from "effect";
-import type { ComponentType } from "react";
 
-import type { EntityPresentationDefinition } from "../presentations/entity-results";
+import { isComponentType } from "../component-type";
+import { isEntityPresentationDefinition } from "../presentations/entity-results";
 import { loadStylesheet } from "../stylesheets";
 import { bootstrapClientPage, bootstrapClientPlugin } from "./application";
 
@@ -28,16 +28,6 @@ const defaultDependencies: CompositionDependencies = {
 
 const decodeDescriptor = Schema.decodeUnknownSync(ClientCompositionDocument.fields.descriptor);
 
-const isComponent = (value: unknown): value is ComponentType =>
-	typeof value === "function" || (typeof value === "object" && value !== null);
-
-const isPresentation = (value: unknown): value is EntityPresentationDefinition =>
-	typeof value === "object" &&
-	value !== null &&
-	"loader" in value &&
-	"prepare" in value &&
-	"component" in value;
-
 const readDescriptor = () => {
 	const element = document.getElementById(CLIENT_COMPOSITION_DESCRIPTOR_ELEMENT_ID);
 	if (!(element instanceof HTMLScriptElement) || element.type !== "application/json") {
@@ -56,20 +46,17 @@ const readDescriptor = () => {
 	}
 };
 
-const missingExport = ({ binding, specifier }: ClientCompositionModuleReference) =>
-	new Error(`Client composition export is missing: ${specifier}#${binding}`);
-
 const exported = <Value>(
 	module: ClientModule | undefined,
-	reference: ClientCompositionModuleReference,
+	{ binding, specifier }: ClientCompositionModuleReference,
 	isValue: (value: unknown) => value is Value,
 ): Value => {
-	const value =
-		module !== undefined && Object.hasOwn(module, reference.binding)
-			? module[reference.binding]
-			: undefined;
+	if (module === undefined || !Object.hasOwn(module, binding)) {
+		throw new Error(`Client composition export is missing: ${specifier}#${binding}`);
+	}
+	const value = module[binding];
 	if (!isValue(value)) {
-		throw missingExport(reference);
+		throw new Error(`Client composition export is invalid: ${specifier}#${binding}`);
 	}
 	return value;
 };
@@ -85,7 +72,7 @@ const loadPresentation = (
 				Promise.all(registration.stylesheets.map(dependencies.loadStylesheet)),
 			);
 			const module = yield* Effect.promise(() => load(registration.module.specifier));
-			return exported(module, registration.module, isPresentation);
+			return exported(module, registration.module, isEntityPresentationDefinition);
 		}),
 	);
 
@@ -124,7 +111,7 @@ export const bootstrapComposition = (
 				),
 			);
 			const component = (reference: ClientCompositionModuleReference) =>
-				exported(modules.get(reference.specifier), reference, isComponent);
+				exported(modules.get(reference.specifier), reference, isComponentType);
 			const entityPresentations = descriptor.automaticRegistry.map((registration) => ({
 				layout: registration.layout,
 				ownerPluginId: registration.ownerPluginId,
