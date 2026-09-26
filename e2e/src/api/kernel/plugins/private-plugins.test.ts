@@ -35,6 +35,37 @@ const listPlugins = (client: Client) =>
 	collectRyotQLRecipeItems(client, (after) => pluginInstallationsRecipe({ after, limit: 100 }));
 
 describe("private plugins", () => {
+	it.live(
+		"retries an uninstall without targeting a private plugin reinstalled under the same slug",
+		() =>
+			Effect.gen(function* () {
+				const { client } = yield* createAuthenticatedClient();
+				const pluginSlug = PluginSlug.make(`e2e-private-uninstall-retry-${crypto.randomUUID()}`);
+				const install = () =>
+					installPrivatePlugin({
+						client,
+						pluginSlug,
+						config: {
+							[PRIVATE_PLUGIN_CONFIG_KEY]: "alpha",
+							[PRIVATE_PLUGIN_SECRET_KEY]: "token-alpha",
+						},
+					});
+				const uninstall = (activationId: string) =>
+					client.call((c) => c.plugins.uninstall({ params: { pluginSlug, activationId } }));
+				const first = yield* install();
+				let currentActivationId = first.activationId;
+				yield* Effect.addFinalizer(() => uninstall(currentActivationId).pipe(Effect.ignore));
+				const removed = yield* uninstall(first.activationId);
+				const replacement = yield* install();
+				currentActivationId = replacement.activationId;
+				expect(replacement.activationId).not.toBe(first.activationId);
+				expect(yield* uninstall(first.activationId)).toEqual(removed);
+				expect(
+					(yield* listPlugins(client)).find(({ slug }) => slug === pluginSlug)?.activationId,
+				).toBe(replacement.activationId);
+			}),
+	);
+
 	it.live("persists exactly one ready system installation row per shipped plugin", () =>
 		Effect.gen(function* () {
 			const { client } = yield* createAuthenticatedClient();
@@ -490,14 +521,20 @@ describe("private plugins", () => {
 
 			const foreign = yield* Effect.flip(
 				outsider.client.call((c) =>
-					c.plugins.uninstall({ params: { pluginSlug: plugin.pluginSlug } }),
+					c.plugins.uninstall({
+						params: { pluginSlug: plugin.pluginSlug, activationId: plugin.activationId },
+					}),
 				),
 			);
 			assertTaggedError(foreign, "PluginNotFoundError");
 			expect(foreign.reason).toEqual({ code: "plugin-not-found", pluginSlug: plugin.pluginSlug });
 
 			const system = yield* Effect.flip(
-				owner.client.call((c) => c.plugins.uninstall({ params: { pluginSlug: mediaSlug } })),
+				owner.client.call((c) =>
+					c.plugins.uninstall({
+						params: { pluginSlug: mediaSlug, activationId: plugin.activationId },
+					}),
+				),
 			);
 			assertTaggedError(system, "PluginConflictError");
 			expect(system.reason).toEqual({ code: "system-plugin", pluginSlug: mediaSlug });
@@ -515,7 +552,11 @@ describe("private plugins", () => {
 				},
 			});
 
-			yield* client.call((c) => c.plugins.uninstall({ params: { pluginSlug: plugin.pluginSlug } }));
+			yield* client.call((c) =>
+				c.plugins.uninstall({
+					params: { pluginSlug: plugin.pluginSlug, activationId: plugin.activationId },
+				}),
+			);
 			expect((yield* listPlugins(client)).map(({ slug }) => slug)).not.toContain(plugin.pluginSlug);
 			const failure = yield* Effect.flip(
 				invokePrivatePluginOperation({

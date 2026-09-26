@@ -86,6 +86,7 @@ const normalizedPlugin = (
 		scope: "system" as const,
 		manifest: normalizedManifest,
 		sourceHash: `${pluginSlug}-source`,
+		activationId: `${pluginSlug}-activation`,
 		scripts: [
 			{
 				entry,

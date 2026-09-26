@@ -18,6 +18,7 @@ import {
 	fakeProviderSearchResult,
 	getApiClient,
 	installPrivatePluginPackage,
+	installTestSupportSystemPlugin,
 	installTestPluginBundle,
 	pollProviderEntityImportResult,
 	pollUntil,
@@ -46,6 +47,33 @@ const listPlugins = (client: Client) =>
 	collectRyotQLRecipeItems(client, (after) => pluginInstallationsRecipe({ after, limit: 100 }));
 
 describe("plugins", () => {
+	it.live("retries a committed uninstall without removing a replacement under the same slug", () =>
+		Effect.gen(function* () {
+			const pluginSlug = PluginSlug.make(`e2e-uninstall-retry-${crypto.randomUUID()}`);
+			const pluginPackage = {
+				files: {},
+				manifest: testPluginManifest({ pluginSlug, entitySchemas: [] }),
+			};
+			const uninstall = (activationId: string) =>
+				getApiClient().call(
+					(c) => c.testSupport.uninstallSystemPlugin({ params: { pluginSlug, activationId } }),
+					adminHeaders(),
+				);
+			const first = yield* installTestSupportSystemPlugin(pluginPackage);
+			let current = first;
+			yield* Effect.addFinalizer(() => uninstall(current.activationId).pipe(Effect.ignore));
+			const removed = yield* uninstall(first.activationId);
+			expect(removed).toEqual({ pluginId: first.pluginId });
+			expect(yield* uninstall(first.activationId)).toEqual(removed);
+			const replacement = yield* installTestSupportSystemPlugin(pluginPackage);
+			current = replacement;
+			expect(replacement.pluginId).toBe(first.pluginId);
+			expect(replacement.activationId).not.toBe(first.activationId);
+			expect(yield* uninstall(first.activationId)).toEqual(removed);
+			expect((yield* listAdminSystemPlugins).some(({ slug }) => slug === pluginSlug)).toBe(true);
+		}),
+	);
+
 	it.live("runs a third-party plugin lifecycle without restarting", () =>
 		Effect.gen(function* () {
 			const suffix = crypto.randomUUID();
@@ -435,7 +463,9 @@ export default defineAutomation({
 			const refusal = yield* Effect.flip(
 				getApiClient().call(
 					(c) =>
-						c.testSupport.uninstallSystemPlugin({ params: { pluginSlug: provider.pluginSlug } }),
+						c.testSupport.uninstallSystemPlugin({
+							params: { pluginSlug: provider.pluginSlug, activationId: provider.activationId },
+						}),
 					adminHeaders(),
 				),
 			);
@@ -456,7 +486,9 @@ export default defineAutomation({
 				getApiClient()
 					.call(
 						(c) =>
-							c.testSupport.uninstallSystemPlugin({ params: { pluginSlug: provider.pluginSlug } }),
+							c.testSupport.uninstallSystemPlugin({
+								params: { pluginSlug: provider.pluginSlug, activationId: provider.activationId },
+							}),
 						adminHeaders(),
 					)
 					.pipe(
@@ -501,9 +533,11 @@ export default defineAutomation({
 				scope: "user",
 			});
 			const uninstalled = yield* client.call((c) =>
-				c.plugins.uninstall({ params: { pluginSlug: PluginSlug.make(pluginSlug) } }),
+				c.plugins.uninstall({
+					params: { activationId: installed.activationId, pluginSlug: PluginSlug.make(pluginSlug) },
+				}),
 			);
-			expect(uninstalled).toEqual(installed);
+			expect(uninstalled).toEqual({ id: installed.id, pluginId: installed.pluginId });
 			const failures = yield* Effect.all([
 				Effect.flip(
 					client.call((c) =>
@@ -520,7 +554,10 @@ export default defineAutomation({
 				Effect.flip(
 					client.call((c) =>
 						c.testSupport.uninstallSystemPlugin({
-							params: { pluginSlug: PluginSlug.make(`unauthorized-${crypto.randomUUID()}`) },
+							params: {
+								activationId: installed.activationId,
+								pluginSlug: PluginSlug.make(`unauthorized-${crypto.randomUUID()}`),
+							},
 						}),
 					),
 				),

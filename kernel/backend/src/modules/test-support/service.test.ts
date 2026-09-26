@@ -132,13 +132,18 @@ const testPluginManifest = () => {
 
 const persistedPluginResult = (revision: string) => ({
 	id: "plugin-id",
+	activationId: "activation-id",
 	installationId: "installation-id",
 	configRevisionId: `config-${revision}`,
 	activeRevisionId: `revision-${revision}`,
 	scripts: [{ slug: "fixture.script", id: `script-${revision}` }],
 });
 
-const pluginInstallationResult = { id: "installation-id", pluginId: PluginId.make("plugin-id") };
+const pluginInstallationResult = {
+	id: "installation-id",
+	activationId: "activation-id",
+	pluginId: PluginId.make("plugin-id"),
+};
 
 const systemPluginManifest = {
 	...testPluginManifest(),
@@ -215,6 +220,7 @@ layer(systemPluginIngestion.layer)((test) => {
 				installationId: null,
 				pluginId: "plugin-id",
 				configRevisionId: null,
+				activationId: "activation-id",
 				activePluginRevisionId: "revision-v1",
 				scripts: [{ id: "script-v1", slug: "fixture.script" }],
 			});
@@ -251,6 +257,7 @@ layer(privatePluginOperations.layer)((test) => {
 			expect(yield* privatePluginOperations.recorded).toEqual(["install", "update"]);
 			expect(installed).toEqual({
 				pluginId: "plugin-id",
+				activationId: "activation-id",
 				configRevisionId: "config-v1",
 				installationId: "installation-id",
 				activePluginRevisionId: "revision-v1",
@@ -258,6 +265,7 @@ layer(privatePluginOperations.layer)((test) => {
 			});
 			expect(updated).toEqual({
 				pluginId: installed.pluginId,
+				activationId: "activation-id",
 				configRevisionId: "config-v2",
 				activePluginRevisionId: "revision-v2",
 				installationId: installed.installationId,

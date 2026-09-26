@@ -104,7 +104,10 @@ it.live(
 							.call(
 								(c) =>
 									c.testSupport.uninstallSystemPlugin({
-										params: { pluginSlug: PluginSlug.make(pluginSlug) },
+										params: {
+											activationId: installed.activationId,
+											pluginSlug: PluginSlug.make(pluginSlug),
+										},
 									}),
 								adminHeaders(),
 							)
@@ -150,7 +153,10 @@ it.live(
 			const removed = yield* getApiClient().call(
 				(c) =>
 					c.testSupport.uninstallSystemPlugin({
-						params: { pluginSlug: PluginSlug.make(pluginSlug) },
+						params: {
+							activationId: installed.activationId,
+							pluginSlug: PluginSlug.make(pluginSlug),
+						},
 					}),
 				adminHeaders(),
 			);

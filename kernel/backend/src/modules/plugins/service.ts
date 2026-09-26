@@ -230,13 +230,18 @@ export class PluginIngestionService extends Context.Service<PluginIngestionServi
 
 			const uninstallPlugin = Effect.fn("PluginIngestionService.uninstallPlugin")(function* (
 				slug: string,
+				activationId: string,
 			) {
 				const pluginSlug = PluginSlug.make(slug);
 				const removed = yield* inTransaction(
 					Effect.gen(function* () {
+						const receipt = yield* repository.findUninstallReceipt(activationId);
+						if (receipt?.ownerId === null && receipt.slug === slug) {
+							return receipt.pluginId;
+						}
 						const installed = yield* repository.listActiveSystemPlugins();
 						const plugin = installed.find((candidate) => candidate.slug === slug);
-						if (!plugin) {
+						if (!plugin || plugin.activationId !== activationId) {
 							return yield* new PluginNotFoundError({
 								reason: { pluginSlug, code: "plugin-not-found" },
 							});
@@ -285,6 +290,13 @@ export class PluginIngestionService extends Context.Service<PluginIngestionServi
 							});
 						}
 						yield* repository.deactivate(plugin.id);
+						yield* repository.recordUninstallReceipt({
+							slug,
+							activationId,
+							ownerId: null,
+							pluginId: plugin.id,
+							installationId: null,
+						});
 						yield* invalidator.recordAll;
 						return plugin.id;
 					}),
