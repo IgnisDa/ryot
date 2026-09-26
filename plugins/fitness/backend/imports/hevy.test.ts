@@ -34,13 +34,13 @@ describe("adaptHevyCsv", () => {
 			{
 				name: "Run",
 				kind: "distance_and_duration",
-				sets: [{ distance: 5, duration: 30, setLot: "normal" }],
+				sets: [{ distance: 5, duration: 1800, setLot: "normal" }],
 			},
 			{ kind: "reps", name: "Push Up", sets: [{ reps: 12, setLot: "normal" }] },
 			{
 				name: "Timed Push Up",
 				kind: "reps_and_duration",
-				sets: [{ reps: 10, duration: 1, setLot: "normal" }],
+				sets: [{ reps: 10, duration: 60, setLot: "normal" }],
 			},
 		]);
 	});
@@ -128,6 +128,30 @@ describe("adaptHevyCsv", () => {
 		expect(result.items[0]?.exercises[0]?.sets[0]?.weight).toBeCloseTo(100, 5);
 	});
 
+	it("preserves explicit zero weights and converts labelled km distances", () => {
+		const csv = [
+			"title,start_time,end_time,exercise_title,set_order,Weight (kg),Reps,set_type,Distance (km),Duration (seconds)",
+			"Push Day,2026-01-01T10:00:00,2026-01-01T11:00:00,Bodyweight Squat,1,0,5,normal,,",
+			"Push Day,2026-01-01T10:00:00,2026-01-01T11:00:00,Run,1,,,normal,1.5,900",
+		].join("\n");
+
+		const result = adaptHevyCsv(csv, "Etc/GMT");
+
+		expect(result.failures).toEqual([]);
+		expect(result.items[0]?.exercises).toEqual([
+			{
+				kind: "reps_and_weight",
+				name: "Bodyweight Squat",
+				sets: [{ reps: 5, weight: 0, setLot: "normal" }],
+			},
+			{
+				name: "Run",
+				kind: "distance_and_duration",
+				sets: [{ distance: 1.5, duration: 900, setLot: "normal" }],
+			},
+		]);
+	});
+
 	it("omits a negative one-rep max from workout set events", () => {
 		const properties = buildWorkoutSetEventProperties({
 			setOrder: 0,
@@ -137,6 +161,28 @@ describe("adaptHevyCsv", () => {
 		});
 
 		expect(properties.weight).toBe(-100);
+		expect(properties).not.toHaveProperty("oneRm");
+	});
+
+	it("calculates event statistics only from normalized measurements for the exercise kind", () => {
+		const properties = buildWorkoutSetEventProperties({
+			setOrder: 0,
+			exerciseOrder: 0,
+			exerciseKind: "reps",
+			set: { reps: 5, weight: 100, distance: 2, duration: 60, setLot: "normal" },
+		});
+
+		expect(properties).toMatchObject({
+			reps: 5,
+			setOrder: 0,
+			exerciseOrder: 0,
+			unitSystem: "metric",
+		});
+		expect(properties).not.toHaveProperty("weight");
+		expect(properties).not.toHaveProperty("duration");
+		expect(properties).not.toHaveProperty("distance");
+		expect(properties).not.toHaveProperty("volume");
+		expect(properties).not.toHaveProperty("pace");
 		expect(properties).not.toHaveProperty("oneRm");
 	});
 

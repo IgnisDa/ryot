@@ -67,30 +67,7 @@ export const workoutSetPropertiesSchema: AppSchema = {
 	fields: {
 		images: imagesField("Images attached to this exercise in the workout"),
 		videos: videosField("Videos attached to this exercise in the workout"),
-		pace: { label: "Pace", type: "number", description: "Pace calculated for this set" },
 		note: { label: "Note", type: "string", description: "Optional note specific to this set" },
-		oneRm: { type: "number", label: "One Rm", description: "One-rep max calculated for this set" },
-		duration: { type: "number", label: "Duration", description: "Duration of this set in seconds" },
-		reps: {
-			label: "Reps",
-			type: "number",
-			description: "Number of repetitions performed in this set",
-		},
-		volume: {
-			type: "number",
-			label: "Volume",
-			description: "Volume (weight × reps) calculated for this set",
-		},
-		weight: {
-			type: "number",
-			label: "Weight",
-			description: "Weight used in this set in the user's preferred unit",
-		},
-		distance: {
-			type: "number",
-			label: "Distance",
-			description: "Distance covered in this set in the user's preferred unit",
-		},
 		confirmedAt: {
 			type: "datetime",
 			label: "Confirmed At",
@@ -101,6 +78,18 @@ export const workoutSetPropertiesSchema: AppSchema = {
 			label: "Rest Time",
 			validation: { minimum: 0 },
 			description: "Rest time after this set in seconds",
+		},
+		weight: {
+			type: "number",
+			label: "Weight",
+			validation: { minimum: 0 },
+			description: "Weight used in this set in kilograms (kg)",
+		},
+		distance: {
+			type: "number",
+			label: "Distance",
+			validation: { minimum: 0 },
+			description: "Distance covered in this set in kilometers (km)",
 		},
 		restTimerStartedAt: {
 			type: "datetime",
@@ -113,11 +102,24 @@ export const workoutSetPropertiesSchema: AppSchema = {
 			validation: { minimum: 0 },
 			description: "Zero-based position of this set within the exercise",
 		},
+		reps: {
+			label: "Reps",
+			type: "integer",
+			validation: { minimum: 0 },
+			description: "Nonnegative whole number of repetitions performed in this set",
+		},
 		exerciseOrder: {
 			type: "integer",
 			label: "Exercise Order",
 			validation: { minimum: 0 },
 			description: "Zero-based position of this exercise within the workout",
+		},
+		duration: {
+			type: "number",
+			label: "Duration",
+			validation: { minimum: 0 },
+			normalize: { round: { scale: 3 } },
+			description: "Duration of this set in seconds",
 		},
 		rpe: {
 			label: "Rpe",
@@ -125,11 +127,33 @@ export const workoutSetPropertiesSchema: AppSchema = {
 			validation: { minimum: 0, maximum: 10 },
 			description: "Rate of perceived exertion from 0 (no effort) to 10 (maximal effort)",
 		},
+		oneRm: {
+			type: "number",
+			label: "One Rm",
+			validation: { minimum: 0 },
+			normalize: { round: { scale: 6 } },
+			description: "One-rep max calculated for this set in kilograms (kg)",
+		},
+		volume: {
+			type: "number",
+			label: "Volume",
+			validation: { minimum: 0 },
+			normalize: { round: { scale: 6 } },
+			description: "Volume (kilograms × repetitions) calculated for this set",
+		},
+		pace: {
+			label: "Pace",
+			type: "number",
+			validation: { minimum: 0 },
+			normalize: { round: { scale: 12 } },
+			description: "Speed calculated as kilometers per second from canonical metric measurements",
+		},
 		unitSystem: {
 			type: "enum",
 			label: "Unit System",
-			description: "Unit system used for this exercise in the workout",
 			choices: { kind: "static", values: [{ value: "metric" }, { value: "imperial" }] },
+			description:
+				"Source input unit system; stored measurements and calculations use canonical metric units (kg, km, seconds)",
 		},
 		setLot: {
 			type: "enum",
@@ -239,23 +263,9 @@ const workoutTemplateSetProperties: Readonly<Record<string, AppPropertyDefinitio
 	note: { label: "Note", type: "string", description: "Optional note specific to this set" },
 	reps: {
 		label: "Reps",
-		type: "number",
-		description: "Number of repetitions planned for this set",
-	},
-	duration: {
-		type: "number",
-		label: "Duration",
-		description: "Duration planned for this set in seconds",
-	},
-	weight: {
-		type: "number",
-		label: "Weight",
-		description: "Weight planned for this set in the user's preferred unit",
-	},
-	distance: {
-		type: "number",
-		label: "Distance",
-		description: "Distance planned for this set in the user's preferred unit",
+		type: "integer",
+		validation: { minimum: 0 },
+		description: "Nonnegative whole number of repetitions planned for this set",
 	},
 	setOrder: {
 		type: "integer",
@@ -263,11 +273,32 @@ const workoutTemplateSetProperties: Readonly<Record<string, AppPropertyDefinitio
 		validation: { minimum: 0, required: true },
 		description: "Zero-based position of this set within the exercise",
 	},
+	duration: {
+		type: "number",
+		label: "Duration",
+		validation: { minimum: 0 },
+		normalize: { round: { scale: 3 } },
+		description: "Duration planned for this set in seconds",
+	},
+	weight: {
+		type: "number",
+		label: "Weight",
+		validation: { minimum: 0 },
+		normalize: { round: { scale: 6 } },
+		description: "Weight planned for this set in kilograms (kg)",
+	},
 	rpe: {
 		label: "Rpe",
 		type: "integer",
 		validation: { minimum: 0, maximum: 10 },
 		description: "Planned rate of perceived exertion from 0 (no effort) to 10 (maximal effort)",
+	},
+	distance: {
+		type: "number",
+		label: "Distance",
+		validation: { minimum: 0 },
+		normalize: { round: { scale: 9 } },
+		description: "Distance planned for this set in kilometers (km)",
 	},
 	setLot: {
 		type: "enum",
