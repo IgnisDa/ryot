@@ -77,9 +77,15 @@ the boot graph does not construct each dependency for them. Every `ClientLive` l
 synchronously constructible because `main.tsx` creates the runtime with `runSync`. Asynchronous
 setup belongs inside service operations.
 
-Server access normally goes through a contract group port. Backup archive download is the one
-exception: an authenticated byte stream cannot carry its bearer header through an `<a href>`, so
-`BackupsApi.downloadArchive` obtains the header and hands fetched bytes to a synthetic download link.
+File downloads share `modules/downloads/file.ts`: web clients fetch a Blob and save it through a
+synthetic download link; native clients download directly to a temporary cache file and open the
+system share sheet. The temporary directory is removed after completion or failure. Backup downloads
+obtain their bearer header inside `BackupsApi`; server-log downloads keep their admin-token header
+inside `AdminApi`.
+
+God Mode's Server logs section lists the active log and all retained gzip rotations. Administrators
+can download individual files or a ZIP containing all listed files. Active logs are bounded to the
+bytes written when the download starts; the logger's one-second batching can delay recent messages.
 
 `EntityInterestService` opens no socket when a client is constructed. The authenticated layout owns
 the active server/user session and releases it on logout, scope change, or unmount. Plugin documents
