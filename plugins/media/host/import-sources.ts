@@ -32,7 +32,6 @@ export const MediaCreateImportRunBody = Schema.Union([
 	uploadTokenInput("imdb"),
 	uploadTokenInput("grouvee"),
 	uploadTokenInput("spotify"),
-	uploadTokenInput("anilist"),
 	uploadTokenInput("watcharr"),
 	uploadTokenInput("hardcover"),
 	uploadTokenInput("goodreads"),
@@ -41,6 +40,11 @@ export const MediaCreateImportRunBody = Schema.Union([
 	urlAndKeyInput("audiobookshelf"),
 	traktUserInput,
 	traktListInput,
+	strictStruct({
+		timezone: Schema.NonEmptyString,
+		source: Schema.Literal("anilist"),
+		uploadToken: Schema.NonEmptyString,
+	}).pipe(Schema.annotate({ identifier: "MediaImportInput_anilist" })),
 	strictStruct({
 		source: Schema.Literal("igdb"),
 		collection: Schema.NonEmptyString,
