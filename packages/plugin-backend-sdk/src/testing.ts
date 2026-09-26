@@ -1,10 +1,6 @@
-import type {
-	CoreSandboxHostMethodMap,
-	ExecutionMetadata,
-	PolicyHost,
-	SandboxManifest,
-	ScriptHost,
-} from "./core";
+import type { CoreSandboxHostMethodMap } from "./core/host-contracts";
+import type { PolicyHost, ScriptHost } from "./core/script-host";
+import type { ExecutionMetadata, SandboxManifest } from "./core/script-manifest";
 import { Effect, Schema } from "./effect";
 import { configureSandboxFilesystem, type SandboxFilesystemBinding } from "./filesystem";
 import {
@@ -13,7 +9,7 @@ import {
 	type WorkflowReplayHost,
 	type WorkflowReplayJournal,
 	type WorkflowReplayJournalEntry,
-} from "./workflow";
+} from "./workflow/protocol";
 
 type HostForManifest<Manifest extends SandboxManifest> = Manifest extends {
 	readonly kind: "workflow";

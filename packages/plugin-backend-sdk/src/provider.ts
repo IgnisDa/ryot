@@ -7,7 +7,7 @@ import {
 	SchemaTransformation,
 } from "@ryot-app/plugin-backend-sdk/effect";
 
-import type { SandboxManifest } from "./core";
+import type { SandboxManifest } from "./core/script-manifest";
 import { type GenericScriptDefinition, SANDBOX_SCRIPT_DEFINITION } from "./driver";
 import { jsonValueSchema, strictStruct } from "./wire";
 
