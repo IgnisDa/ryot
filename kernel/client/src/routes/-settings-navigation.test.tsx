@@ -215,7 +215,7 @@ describe("settings navigation", () => {
 					.getAllByRole("link")
 					.map((link) => link.textContent);
 
-			expect(labels("You")).toEqual(["Preferences", "Account"]);
+			expect(labels("You")).toEqual(["Preferences", "Plugin preferences", "Account"]);
 			expect(labels("Server")).toEqual(["Administration", "About"]);
 		}),
 	);
@@ -894,11 +894,8 @@ describe("preferences settings", () => {
 				screen.findByText("This operation is unavailable while using the shared demo account."),
 			);
 			expect(
-				screen.getByRole("switch", { name: "Show NSFW content" }).hasAttribute("disabled"),
-			).toBe(true);
-			expect(
 				screen
-					.getByRole("button", { name: "Metadata language: Provider default" })
+					.getByRole("button", { name: "Entity language: Provider default" })
 					.hasAttribute("disabled"),
 			).toBe(true);
 			expect(screen.getByRole("button", { name: "Save changes" }).hasAttribute("disabled")).toBe(
@@ -915,13 +912,20 @@ describe("preferences settings", () => {
 	it.live("renders appearance beside the server-backed preferences", () =>
 		Effect.gen(function* () {
 			mountPreferences();
-			yield* Effect.promise(() => screen.findByRole("switch", { name: "Show NSFW content" }));
+			yield* Effect.promise(() =>
+				screen.findByRole("button", { name: "Entity language: Provider default" }),
+			);
 
 			expect(screen.getByRole("radiogroup", { name: "Appearance" })).not.toBeNull();
-			expect(screen.getByRole("switch", { name: "Show NSFW content" })).not.toBeNull();
-			expect(screen.queryByRole("switch", { name: "Pause integrations" })).toBeNull();
+			expect(screen.getByRole("heading", { name: "Language" })).not.toBeNull();
 			expect(
-				screen.getByRole("button", { name: "Metadata language: Provider default" }),
+				screen.getByText(
+					"Choose the preferred language for translated entity names and details. Availability depends on the provider.",
+				),
+			).not.toBeNull();
+			expect(screen.queryByRole("switch")).toBeNull();
+			expect(
+				screen.getByRole("button", { name: "Entity language: Provider default" }),
 			).not.toBeNull();
 		}),
 	);
@@ -950,21 +954,22 @@ describe("preferences settings", () => {
 			);
 			expect(submit.hasAttribute("disabled")).toBe(true);
 
-			fireEvent.click(screen.getByRole("switch", { name: "Show NSFW content" }));
+			fireEvent.click(screen.getByRole("button", { name: "Entity language: Provider default" }));
+			fireEvent.click(screen.getByRole("radio", { name: "Spanish" }));
 			expect(submit.hasAttribute("disabled")).toBe(false);
 			fireEvent.click(submit);
 
 			yield* Effect.promise(() => screen.findByText("Preferences saved."));
 			yield* Effect.promise(() => waitFor(() => expect(settingsReads).toBe(2)));
-			expect(saved).toEqual([{ allowNsfw: true }]);
-			expect(view.interestEvents).toEqual(["acquire"]);
+			expect(saved).toEqual([{ language: "es" }]);
+			expect(view.interestEvents).toEqual(["acquire", "reconnect"]);
 			expect(screen.getByRole("button", { name: "Save changes" }).hasAttribute("disabled")).toBe(
 				true,
 			);
 		}),
 	);
 
-	it.live("submits a metadata language picked from the options", () =>
+	it.live("submits a custom entity language code", () =>
 		Effect.gen(function* () {
 			const saved: UpdateUserPreferencesBody[] = [];
 			const view = mountPreferences(
@@ -977,12 +982,15 @@ describe("preferences settings", () => {
 			);
 			yield* Effect.promise(() => screen.findByRole("button", { name: "Save changes" }));
 
-			fireEvent.click(screen.getByRole("button", { name: "Metadata language: Provider default" }));
-			fireEvent.click(screen.getByRole("radio", { name: "Spanish" }));
+			fireEvent.click(screen.getByRole("button", { name: "Entity language: Provider default" }));
+			fireEvent.click(screen.getByRole("radio", { name: "Other language..." }));
+			fireEvent.change(screen.getByRole("textbox", { name: "Custom entity language code" }), {
+				target: { value: "sv" },
+			});
 			fireEvent.click(screen.getByRole("button", { name: "Save changes" }));
 
 			yield* Effect.promise(() => screen.findByText("Preferences saved."));
-			expect(saved).toEqual([{ language: "es" }]);
+			expect(saved).toEqual([{ language: "sv" }]);
 			expect(view.interestEvents).toEqual(["acquire", "reconnect"]);
 		}),
 	);
@@ -992,7 +1000,8 @@ describe("preferences settings", () => {
 			const gate = Deferred.makeUnsafe<void>();
 			mountPreferences(makeUserSettingsStub({ updatePreferences: () => Deferred.await(gate) }));
 			yield* Effect.promise(() => screen.findByRole("button", { name: "Save changes" }));
-			fireEvent.click(screen.getByRole("switch", { name: "Show NSFW content" }));
+			fireEvent.click(screen.getByRole("button", { name: "Entity language: Provider default" }));
+			fireEvent.click(screen.getByRole("radio", { name: "Spanish" }));
 			fireEvent.click(screen.getByRole("button", { name: "Save changes" }));
 
 			const savingButton = yield* Effect.promise(() =>
@@ -1000,12 +1009,7 @@ describe("preferences settings", () => {
 			);
 			expect(savingButton.hasAttribute("disabled")).toBe(true);
 			expect(
-				screen.getByRole("switch", { name: "Show NSFW content" }).hasAttribute("disabled"),
-			).toBe(true);
-			expect(
-				screen
-					.getByRole("button", { name: "Metadata language: Provider default" })
-					.hasAttribute("disabled"),
+				screen.getByRole("button", { name: "Entity language: Spanish" }).hasAttribute("disabled"),
 			).toBe(true);
 
 			yield* Deferred.succeed(gate, undefined);
@@ -1013,13 +1017,13 @@ describe("preferences settings", () => {
 		}),
 	);
 
-	it.live("does not reconnect when a metadata language save fails", () =>
+	it.live("does not reconnect when an entity language save fails", () =>
 		Effect.gen(function* () {
 			const view = mountPreferences(
 				makeUserSettingsStub({ updatePreferences: () => Effect.die("save failed") }),
 			);
 			yield* Effect.promise(() => screen.findByRole("button", { name: "Save changes" }));
-			fireEvent.click(screen.getByRole("button", { name: "Metadata language: Provider default" }));
+			fireEvent.click(screen.getByRole("button", { name: "Entity language: Provider default" }));
 			fireEvent.click(screen.getByRole("radio", { name: "Spanish" }));
 			fireEvent.click(screen.getByRole("button", { name: "Save changes" }));
 			yield* Effect.promise(() => screen.findByText("Could not save preferences. Try again."));
@@ -1034,13 +1038,14 @@ describe("preferences settings", () => {
 			);
 			yield* Effect.promise(() => screen.findByRole("button", { name: "Save changes" }));
 
-			fireEvent.click(screen.getByRole("switch", { name: "Show NSFW content" }));
+			fireEvent.click(screen.getByRole("button", { name: "Entity language: Provider default" }));
+			fireEvent.click(screen.getByRole("radio", { name: "Spanish" }));
 			fireEvent.click(screen.getByRole("button", { name: "Save changes" }));
 
 			yield* Effect.promise(() => screen.findByText("Could not save preferences. Try again."));
 			expect(
-				screen.getByRole("switch", { name: "Show NSFW content" }).getAttribute("aria-checked"),
-			).toBe("true");
+				screen.getByRole("button", { name: "Entity language: Spanish" }).hasAttribute("disabled"),
+			).toBe(false);
 			expect(screen.getByRole("button", { name: "Save changes" }).hasAttribute("disabled")).toBe(
 				false,
 			);
@@ -1061,16 +1066,18 @@ describe("preferences settings", () => {
 					return userSettings;
 				}),
 			);
-			const nsfw = yield* Effect.promise(() =>
-				screen.findByRole("switch", { name: "Show NSFW content" }),
+			yield* Effect.promise(() =>
+				screen.findByRole("button", { name: "Entity language: Provider default" }),
 			);
 
-			fireEvent.click(nsfw);
+			fireEvent.click(screen.getByRole("button", { name: "Entity language: Provider default" }));
+			fireEvent.click(screen.getByRole("radio", { name: "Spanish" }));
+			const language = screen.getByRole("button", { name: "Entity language: Spanish" });
 			fireEvent.click(screen.getByRole("button", { name: "Save changes" }));
 
 			yield* Effect.promise(() => screen.findByText("Preferences saved."));
 			yield* Effect.promise(() => waitFor(() => expect(settingsReads).toBe(2)));
-			expect(screen.getByRole("switch", { name: "Show NSFW content" })).toBe(nsfw);
+			expect(screen.getByRole("button", { name: "Entity language: Spanish" })).toBe(language);
 			expect(
 				screen.queryByText("Could not load your settings. Check the server and try again."),
 			).toBeNull();

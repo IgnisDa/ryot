@@ -47,6 +47,8 @@ import { Route as AuthenticatedSettingsImportDataIndexRouteImport } from './rout
 import { Route as AuthenticatedSettingsImportDataRunIdRouteImport } from './routes/_authenticated/settings/import-data/$runId'
 import { Route as AuthenticatedSettingsIntegrationsIndexRouteImport } from './routes/_authenticated/settings/integrations/index'
 import { Route as AuthenticatedSettingsIntegrationsIntegrationIdRouteImport } from './routes/_authenticated/settings/integrations/$integrationId'
+import { Route as AuthenticatedSettingsPluginPreferencesIndexRouteImport } from './routes/_authenticated/settings/plugin-preferences/index'
+import { Route as AuthenticatedSettingsPluginPreferencesInstallationIdRouteImport } from './routes/_authenticated/settings/plugin-preferences/$installationId'
 
 const AuthenticatedRouteRoute = AuthenticatedRouteRouteImport.update({
   id: '/_authenticated',
@@ -257,6 +259,18 @@ const AuthenticatedSettingsIntegrationsIntegrationIdRoute =
     path: '/integrations/$integrationId',
     getParentRoute: () => AuthenticatedSettingsRouteRoute,
   } as any)
+const AuthenticatedSettingsPluginPreferencesIndexRoute =
+  AuthenticatedSettingsPluginPreferencesIndexRouteImport.update({
+    id: '/plugin-preferences/',
+    path: '/plugin-preferences/',
+    getParentRoute: () => AuthenticatedSettingsRouteRoute,
+  } as any)
+const AuthenticatedSettingsPluginPreferencesInstallationIdRoute =
+  AuthenticatedSettingsPluginPreferencesInstallationIdRouteImport.update({
+    id: '/plugin-preferences/$installationId',
+    path: '/plugin-preferences/$installationId',
+    getParentRoute: () => AuthenticatedSettingsRouteRoute,
+  } as any)
 
 export interface FileRoutesByFullPath {
   '/': typeof AuthenticatedIndexRoute
@@ -293,9 +307,11 @@ export interface FileRoutesByFullPath {
   '/settings/automation-history/$runId': typeof AuthenticatedSettingsAutomationHistoryRunIdRoute
   '/settings/import-data/$runId': typeof AuthenticatedSettingsImportDataRunIdRoute
   '/settings/integrations/$integrationId': typeof AuthenticatedSettingsIntegrationsIntegrationIdRoute
+  '/settings/plugin-preferences/$installationId': typeof AuthenticatedSettingsPluginPreferencesInstallationIdRoute
   '/settings/automation-history/': typeof AuthenticatedSettingsAutomationHistoryIndexRoute
   '/settings/import-data/': typeof AuthenticatedSettingsImportDataIndexRoute
   '/settings/integrations/': typeof AuthenticatedSettingsIntegrationsIndexRoute
+  '/settings/plugin-preferences/': typeof AuthenticatedSettingsPluginPreferencesIndexRoute
 }
 export interface FileRoutesByTo {
   '/auth': typeof AuthRoute
@@ -329,9 +345,11 @@ export interface FileRoutesByTo {
   '/settings/automation-history/$runId': typeof AuthenticatedSettingsAutomationHistoryRunIdRoute
   '/settings/import-data/$runId': typeof AuthenticatedSettingsImportDataRunIdRoute
   '/settings/integrations/$integrationId': typeof AuthenticatedSettingsIntegrationsIntegrationIdRoute
+  '/settings/plugin-preferences/$installationId': typeof AuthenticatedSettingsPluginPreferencesInstallationIdRoute
   '/settings/automation-history': typeof AuthenticatedSettingsAutomationHistoryIndexRoute
   '/settings/import-data': typeof AuthenticatedSettingsImportDataIndexRoute
   '/settings/integrations': typeof AuthenticatedSettingsIntegrationsIndexRoute
+  '/settings/plugin-preferences': typeof AuthenticatedSettingsPluginPreferencesIndexRoute
 }
 export interface FileRoutesById {
   __root__: typeof rootRouteImport
@@ -370,9 +388,11 @@ export interface FileRoutesById {
   '/_authenticated/settings/automation-history/$runId': typeof AuthenticatedSettingsAutomationHistoryRunIdRoute
   '/_authenticated/settings/import-data/$runId': typeof AuthenticatedSettingsImportDataRunIdRoute
   '/_authenticated/settings/integrations/$integrationId': typeof AuthenticatedSettingsIntegrationsIntegrationIdRoute
+  '/_authenticated/settings/plugin-preferences/$installationId': typeof AuthenticatedSettingsPluginPreferencesInstallationIdRoute
   '/_authenticated/settings/automation-history/': typeof AuthenticatedSettingsAutomationHistoryIndexRoute
   '/_authenticated/settings/import-data/': typeof AuthenticatedSettingsImportDataIndexRoute
   '/_authenticated/settings/integrations/': typeof AuthenticatedSettingsIntegrationsIndexRoute
+  '/_authenticated/settings/plugin-preferences/': typeof AuthenticatedSettingsPluginPreferencesIndexRoute
 }
 export interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath
@@ -411,9 +431,11 @@ export interface FileRouteTypes {
     | '/settings/automation-history/$runId'
     | '/settings/import-data/$runId'
     | '/settings/integrations/$integrationId'
+    | '/settings/plugin-preferences/$installationId'
     | '/settings/automation-history/'
     | '/settings/import-data/'
     | '/settings/integrations/'
+    | '/settings/plugin-preferences/'
   fileRoutesByTo: FileRoutesByTo
   to:
     | '/auth'
@@ -447,9 +469,11 @@ export interface FileRouteTypes {
     | '/settings/automation-history/$runId'
     | '/settings/import-data/$runId'
     | '/settings/integrations/$integrationId'
+    | '/settings/plugin-preferences/$installationId'
     | '/settings/automation-history'
     | '/settings/import-data'
     | '/settings/integrations'
+    | '/settings/plugin-preferences'
   id:
     | '__root__'
     | '/_authenticated'
@@ -487,9 +511,11 @@ export interface FileRouteTypes {
     | '/_authenticated/settings/automation-history/$runId'
     | '/_authenticated/settings/import-data/$runId'
     | '/_authenticated/settings/integrations/$integrationId'
+    | '/_authenticated/settings/plugin-preferences/$installationId'
     | '/_authenticated/settings/automation-history/'
     | '/_authenticated/settings/import-data/'
     | '/_authenticated/settings/integrations/'
+    | '/_authenticated/settings/plugin-preferences/'
   fileRoutesById: FileRoutesById
 }
 export interface RootRouteChildren {
@@ -774,6 +800,20 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AuthenticatedSettingsIntegrationsIntegrationIdRouteImport
       parentRoute: typeof AuthenticatedSettingsRouteRoute
     }
+    '/_authenticated/settings/plugin-preferences/': {
+      id: '/_authenticated/settings/plugin-preferences/'
+      path: '/plugin-preferences'
+      fullPath: '/settings/plugin-preferences/'
+      preLoaderRoute: typeof AuthenticatedSettingsPluginPreferencesIndexRouteImport
+      parentRoute: typeof AuthenticatedSettingsRouteRoute
+    }
+    '/_authenticated/settings/plugin-preferences/$installationId': {
+      id: '/_authenticated/settings/plugin-preferences/$installationId'
+      path: '/plugin-preferences/$installationId'
+      fullPath: '/settings/plugin-preferences/$installationId'
+      preLoaderRoute: typeof AuthenticatedSettingsPluginPreferencesInstallationIdRouteImport
+      parentRoute: typeof AuthenticatedSettingsRouteRoute
+    }
   }
 }
 
@@ -806,9 +846,11 @@ interface AuthenticatedSettingsRouteRouteChildren {
   AuthenticatedSettingsAutomationHistoryRunIdRoute: typeof AuthenticatedSettingsAutomationHistoryRunIdRoute
   AuthenticatedSettingsImportDataRunIdRoute: typeof AuthenticatedSettingsImportDataRunIdRoute
   AuthenticatedSettingsIntegrationsIntegrationIdRoute: typeof AuthenticatedSettingsIntegrationsIntegrationIdRoute
+  AuthenticatedSettingsPluginPreferencesInstallationIdRoute: typeof AuthenticatedSettingsPluginPreferencesInstallationIdRoute
   AuthenticatedSettingsAutomationHistoryIndexRoute: typeof AuthenticatedSettingsAutomationHistoryIndexRoute
   AuthenticatedSettingsImportDataIndexRoute: typeof AuthenticatedSettingsImportDataIndexRoute
   AuthenticatedSettingsIntegrationsIndexRoute: typeof AuthenticatedSettingsIntegrationsIndexRoute
+  AuthenticatedSettingsPluginPreferencesIndexRoute: typeof AuthenticatedSettingsPluginPreferencesIndexRoute
 }
 
 const AuthenticatedSettingsRouteRouteChildren: AuthenticatedSettingsRouteRouteChildren =
@@ -832,12 +874,16 @@ const AuthenticatedSettingsRouteRouteChildren: AuthenticatedSettingsRouteRouteCh
       AuthenticatedSettingsImportDataRunIdRoute,
     AuthenticatedSettingsIntegrationsIntegrationIdRoute:
       AuthenticatedSettingsIntegrationsIntegrationIdRoute,
+    AuthenticatedSettingsPluginPreferencesInstallationIdRoute:
+      AuthenticatedSettingsPluginPreferencesInstallationIdRoute,
     AuthenticatedSettingsAutomationHistoryIndexRoute:
       AuthenticatedSettingsAutomationHistoryIndexRoute,
     AuthenticatedSettingsImportDataIndexRoute:
       AuthenticatedSettingsImportDataIndexRoute,
     AuthenticatedSettingsIntegrationsIndexRoute:
       AuthenticatedSettingsIntegrationsIndexRoute,
+    AuthenticatedSettingsPluginPreferencesIndexRoute:
+      AuthenticatedSettingsPluginPreferencesIndexRoute,
   }
 
 const AuthenticatedSettingsRouteRouteWithChildren =
