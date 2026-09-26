@@ -24,6 +24,7 @@ import { Route as GodModeIndexRouteImport } from './routes/god-mode/index'
 import { Route as GodModeLogsRouteImport } from './routes/god-mode/logs'
 import { Route as GodModeMigrationReportRouteImport } from './routes/god-mode/migration-report'
 import { Route as GodModeUsersRouteImport } from './routes/god-mode/users'
+import { Route as OauthImpersonateRouteImport } from './routes/oauth.impersonate'
 import { Route as OauthInitializingRouteImport } from './routes/oauth.initializing'
 import { Route as OauthLoginRouteImport } from './routes/oauth.login'
 import { Route as OauthTwoFactorRouteImport } from './routes/oauth.two-factor'
@@ -126,6 +127,11 @@ const GodModeUsersRoute = GodModeUsersRouteImport.update({
   id: '/users',
   path: '/users',
   getParentRoute: () => GodModeRouteRoute,
+} as any)
+const OauthImpersonateRoute = OauthImpersonateRouteImport.update({
+  id: '/oauth/impersonate',
+  path: '/oauth/impersonate',
+  getParentRoute: () => rootRouteImport,
 } as any)
 const OauthInitializingRoute = OauthInitializingRouteImport.update({
   id: '/oauth/initializing',
@@ -286,6 +292,7 @@ export interface FileRoutesByFullPath {
   '/god-mode/logs': typeof GodModeLogsRoute
   '/god-mode/migration-report': typeof GodModeMigrationReportRoute
   '/god-mode/users': typeof GodModeUsersRoute
+  '/oauth/impersonate': typeof OauthImpersonateRoute
   '/oauth/initializing': typeof OauthInitializingRoute
   '/oauth/login': typeof OauthLoginRoute
   '/oauth/two-factor': typeof OauthTwoFactorRoute
@@ -323,6 +330,7 @@ export interface FileRoutesByTo {
   '/god-mode/logs': typeof GodModeLogsRoute
   '/god-mode/migration-report': typeof GodModeMigrationReportRoute
   '/god-mode/users': typeof GodModeUsersRoute
+  '/oauth/impersonate': typeof OauthImpersonateRoute
   '/oauth/initializing': typeof OauthInitializingRoute
   '/oauth/login': typeof OauthLoginRoute
   '/oauth/two-factor': typeof OauthTwoFactorRoute
@@ -366,6 +374,7 @@ export interface FileRoutesById {
   '/god-mode/logs': typeof GodModeLogsRoute
   '/god-mode/migration-report': typeof GodModeMigrationReportRoute
   '/god-mode/users': typeof GodModeUsersRoute
+  '/oauth/impersonate': typeof OauthImpersonateRoute
   '/oauth/initializing': typeof OauthInitializingRoute
   '/oauth/login': typeof OauthLoginRoute
   '/oauth/two-factor': typeof OauthTwoFactorRoute
@@ -410,6 +419,7 @@ export interface FileRouteTypes {
     | '/god-mode/logs'
     | '/god-mode/migration-report'
     | '/god-mode/users'
+    | '/oauth/impersonate'
     | '/oauth/initializing'
     | '/oauth/login'
     | '/oauth/two-factor'
@@ -447,6 +457,7 @@ export interface FileRouteTypes {
     | '/god-mode/logs'
     | '/god-mode/migration-report'
     | '/god-mode/users'
+    | '/oauth/impersonate'
     | '/oauth/initializing'
     | '/oauth/login'
     | '/oauth/two-factor'
@@ -489,6 +500,7 @@ export interface FileRouteTypes {
     | '/god-mode/logs'
     | '/god-mode/migration-report'
     | '/god-mode/users'
+    | '/oauth/impersonate'
     | '/oauth/initializing'
     | '/oauth/login'
     | '/oauth/two-factor'
@@ -526,6 +538,7 @@ export interface RootRouteChildren {
   OnboardingRoute: typeof OnboardingRoute
   ResetPasswordRoute: typeof ResetPasswordRoute
   AuthCallbackRoute: typeof AuthCallbackRoute
+  OauthImpersonateRoute: typeof OauthImpersonateRoute
   OauthInitializingRoute: typeof OauthInitializingRoute
   OauthLoginRoute: typeof OauthLoginRoute
   OauthTwoFactorRoute: typeof OauthTwoFactorRoute
@@ -638,6 +651,13 @@ declare module '@tanstack/react-router' {
       fullPath: '/god-mode/users'
       preLoaderRoute: typeof GodModeUsersRouteImport
       parentRoute: typeof GodModeRouteRoute
+    }
+    '/oauth/impersonate': {
+      id: '/oauth/impersonate'
+      path: '/oauth/impersonate'
+      fullPath: '/oauth/impersonate'
+      preLoaderRoute: typeof OauthImpersonateRouteImport
+      parentRoute: typeof rootRouteImport
     }
     '/oauth/initializing': {
       id: '/oauth/initializing'
@@ -939,6 +959,7 @@ const rootRouteChildren: RootRouteChildren = {
   OnboardingRoute: OnboardingRoute,
   ResetPasswordRoute: ResetPasswordRoute,
   AuthCallbackRoute: AuthCallbackRoute,
+  OauthImpersonateRoute: OauthImpersonateRoute,
   OauthInitializingRoute: OauthInitializingRoute,
   OauthLoginRoute: OauthLoginRoute,
   OauthTwoFactorRoute: OauthTwoFactorRoute,

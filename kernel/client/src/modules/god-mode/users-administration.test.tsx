@@ -28,6 +28,10 @@ const makeUser = (index: number, authState: GodModeUser["authState"] = "credenti
 const makeOperations = (users: ReadonlyArray<GodModeUser>, calls: Array<unknown>) => {
 	let currentUsers = [...users];
 	return {
+		impersonateUser: (userId) => {
+			calls.push({ userId, kind: "impersonate" });
+			return Effect.succeed(Exit.succeed(undefined));
+		},
 		resetUserPassword: () =>
 			Effect.succeed(
 				Exit.succeed({ email: "reader-0@example.com", resetUrl: "https://example.com/reset" }),
@@ -244,6 +248,25 @@ describe("God Mode users administration", () => {
 			expect(view.backInterceptors.run()).toBe(true);
 			yield* Effect.promise(() => waitFor(() => expect(screen.queryByRole("menu")).toBeNull()));
 			yield* Effect.promise(() => waitFor(() => expect(document.activeElement).toBe(trigger)));
+		}),
+	);
+
+	it.live("starts impersonation for the selected account from its action menu", () =>
+		Effect.gen(function* () {
+			const user = userEvent.setup();
+			const view = renderUsers([makeUser(0)]);
+			yield* Effect.promise(() => screen.findByText("reader-0@example.com"));
+
+			yield* Effect.promise(() =>
+				user.click(screen.getByRole("button", { name: "Actions for reader-0@example.com" })),
+			);
+			yield* Effect.promise(() =>
+				user.click(screen.getByRole("menuitem", { name: "Impersonate user" })),
+			);
+			yield* Effect.promise(() =>
+				waitFor(() => expect(view.calls).toContainEqual({ userId: "user-0", kind: "impersonate" })),
+			);
+			expect(screen.queryByRole("alert")).toBeNull();
 		}),
 	);
 

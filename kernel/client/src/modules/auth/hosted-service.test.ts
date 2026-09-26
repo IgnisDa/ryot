@@ -4,23 +4,26 @@ import { Effect } from "effect";
 import {
 	parseTotpEnrollment,
 	requestDemoSignIn,
+	requestImpersonationRedeem,
 	requestInitializationStatus,
 } from "#/modules/auth/hosted-service";
+
+const requestUrl = (input: Parameters<typeof fetch>[0]) => {
+	if (typeof input === "string") {
+		return input;
+	}
+	if (input instanceof URL) {
+		return input.href;
+	}
+	return input.url;
+};
 
 describe("hosted auth service demo sign-in", () => {
 	it.live.each(["demo", "standard"] as const)("accepts the %s mode", (mode) =>
 		Effect.gen(function* () {
 			const requests: Array<{ init?: RequestInit; url: string }> = [];
 			const request = requestDemoSignIn((input, init) => {
-				let url: string;
-				if (typeof input === "string") {
-					url = input;
-				} else if (input instanceof URL) {
-					url = input.href;
-				} else {
-					url = input.url;
-				}
-				requests.push({ url, init });
+				requests.push({ init, url: requestUrl(input) });
 				return Promise.resolve(Response.json({ mode }));
 			}, "https://ryot.example");
 
@@ -69,15 +72,7 @@ describe("hosted auth initialization status", () => {
 		Effect.gen(function* () {
 			const requests: Array<{ init?: RequestInit; url: string }> = [];
 			const request = requestInitializationStatus((input, init) => {
-				let url: string;
-				if (typeof input === "string") {
-					url = input;
-				} else if (input instanceof URL) {
-					url = input.href;
-				} else {
-					url = input.url;
-				}
-				requests.push({ url, init });
+				requests.push({ init, url: requestUrl(input) });
 				return Promise.resolve(Response.json({ status }));
 			}, "https://ryot.example");
 
@@ -117,6 +112,54 @@ describe("hosted auth initialization status", () => {
 				_tag: "HostedAuthError",
 				message: "Your sign-in session has ended. Please sign in again.",
 			});
+		}),
+	);
+});
+
+describe("hosted impersonation redemption", () => {
+	it.live("redeems the one-use ticket with same-origin credentials", () =>
+		Effect.gen(function* () {
+			const requests: Array<{ readonly init?: RequestInit; readonly url: string }> = [];
+			let body: Promise<unknown> = Promise.resolve(undefined);
+			const result = yield* requestImpersonationRedeem(
+				(input, init) => {
+					body = new Request(input, init).json();
+					requests.push({ init, url: requestUrl(input) });
+					return Promise.resolve(
+						Response.json({ authorizationUrl: "https://identity.example/authorize" }),
+					);
+				},
+				"https://ryot.example",
+				"one-use-ticket",
+			);
+
+			expect(result).toEqual({ authorizationUrl: "https://identity.example/authorize" });
+			expect(requests).toHaveLength(1);
+			expect(requests[0]?.url).toBe("https://ryot.example/api/auth/impersonation/redeem");
+			expect(requests[0]?.init).toMatchObject({
+				method: "POST",
+				cache: "no-store",
+				credentials: "same-origin",
+				headers: { "content-type": "application/json" },
+			});
+			expect(yield* Effect.promise(() => body)).toEqual({ ticket: "one-use-ticket" });
+		}),
+	);
+
+	it.live.each([
+		{},
+		{ authorizationUrl: 4 },
+		{ extra: true, authorizationUrl: "https://idp.example/" },
+	])("rejects an invalid redemption response: %j", (payload) =>
+		Effect.gen(function* () {
+			const failure = yield* Effect.flip(
+				requestImpersonationRedeem(
+					() => Promise.resolve(Response.json(payload)),
+					"https://ryot.example",
+					"ticket",
+				),
+			);
+			expect(failure.message).toBe("The server returned an invalid impersonation response.");
 		}),
 	);
 });
