@@ -391,10 +391,11 @@ Each slice is approved separately. S3–S6 are outlines until their predecessor 
 
 #### S1 results
 
-Every acceptance item has a named, passing test in `kernel/sandboxd/tests/` (and
+Every acceptance item has a named, passing test in `kernel/sandboxd` (and
 `sidecar-protocol.test.ts` for the TypeScript side). `bun run check` and
-`bun turbo --filter='!@ryot-app/e2e' test` are clean; the sidecar suites pass on macOS arm64 and Linux
-arm64, where the confinement suite runs.
+`bun turbo --filter='!@ryot-app/e2e' test` are clean. [The `sandboxd.yml` CI run](https://github.com/IgnisDa/ryot/actions/runs/37474652008)
+passes on `ubuntu-24.04` (x86_64), `ubuntu-24.04-arm`, and `macos-14`; both Linux confinement suites pass
+all five tests, including x32 and namespace-clone denial and in-sidecar Landlock verification.
 
 | Area                    | Tests                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                               |
 | ----------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
@@ -429,8 +430,6 @@ arm64, where the confinement suite runs.
   - Each lane has its own worker pool, because an unprivileged thread cannot raise its priority back.
   - V8 builtins that never check for termination, such as `fill` on a huge sparse array or one giant
     `replaceAll`, cannot be stopped in-process; they end in the attributed exit (fatal frame, exit 70).
-- **Not yet verified:** the `sandboxd.yml` CI workflow has not run on GitHub, and the confinement suite has
-  not run on x86_64.
 
 ### S2 — Backend integration
 
