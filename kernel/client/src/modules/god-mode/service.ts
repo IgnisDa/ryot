@@ -10,6 +10,7 @@ import {
 import { Context, Data, Effect, Layer } from "effect";
 
 import { GodModeApi } from "#/api/god-mode";
+import { saveDownloadedFile } from "#/modules/downloads/file";
 import { GodModeSessionService } from "#/modules/god-mode/session";
 import {
 	type GodModeUserResetResult,
@@ -21,6 +22,7 @@ export type GodModeUser = GodModeUsers["items"][number];
 export type GodModeSetDisabledResult = ContractSuccess<"godMode", "setUserDisabled">;
 export type GodModeMigrationReport = MigrationReportPage;
 export type GodModePasswordResetResult = ContractSuccess<"godMode", "resetUserPassword">;
+export type GodModeLogs = ContractSuccess<"serverLogs", "list">;
 
 export class GodModeSessionNotFound extends Data.TaggedError("GodModeSessionNotFound")<{
 	readonly sessionId: string;
@@ -40,6 +42,20 @@ export class GodModeService extends Context.Service<GodModeService>()("GodModeSe
 				return yield* new GodModeSessionNotFound({ sessionId });
 			}
 			return session;
+		});
+		const listLogs = Effect.fn("GodModeService.listLogs")(function* (sessionId: string) {
+			const { token, origin } = yield* credentials(sessionId);
+			return yield* api.listLogs(origin, token);
+		});
+		const downloadLogs = Effect.fn("GodModeService.downloadLogs")(function* (
+			sessionId: string,
+			file?: GodModeLogs["files"][number],
+		) {
+			const { token, origin } = yield* credentials(sessionId);
+			const { blob, fileName } = yield* api.downloadLogs(origin, token, file);
+			if (blob !== undefined) {
+				yield* Effect.sync(() => saveDownloadedFile(blob, fileName));
+			}
 		});
 		const listUsers = Effect.fn("GodModeService.listUsers")(function* (
 			sessionId: string,
@@ -108,9 +124,11 @@ export class GodModeService extends Context.Service<GodModeService>()("GodModeSe
 		});
 
 		return {
+			listLogs,
 			listUsers,
 			resetUser,
 			deleteUser,
+			downloadLogs,
 			setUserDisabled,
 			resetUserPassword,
 			getMigrationReport,
