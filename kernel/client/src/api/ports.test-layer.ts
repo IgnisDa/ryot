@@ -8,6 +8,7 @@ import { GodModeApi } from "#/api/god-mode";
 import { ImportsApi } from "#/api/imports";
 import { IntegrationsApi } from "#/api/integrations";
 import { NotificationsApi } from "#/api/notifications";
+import { OAuthConnectionsApi } from "#/api/oauth-connections";
 import { PluginInstallationsApi } from "#/api/plugin-installations";
 import { PluginsApi } from "#/api/plugins";
 import { ProviderEntitiesApi } from "#/api/provider-entities";
@@ -117,6 +118,14 @@ export const makeNotificationsApi = (overrides: Partial<NotificationsApi["Servic
 		...overrides,
 	});
 
+export const makeOAuthConnectionsApi = (overrides: Partial<OAuthConnectionsApi["Service"]> = {}) =>
+	Layer.succeed(OAuthConnectionsApi, {
+		create: unused,
+		status: unused,
+		complete: unused,
+		...overrides,
+	});
+
 export const makeUserSettingsApi = (overrides: Partial<UserSettingsApi["Service"]> = {}) =>
 	Layer.succeed(UserSettingsApi, {
 		refreshAvatar: unused,
@@ -147,6 +156,7 @@ export const KernelApiTestLayer = Layer.mergeAll(
 	makeUserSettingsApi(),
 	makeIntegrationsApi(),
 	makeNotificationsApi(),
+	makeOAuthConnectionsApi(),
 	makeEntityInterestApi(),
 	makeProviderEntitiesApi(),
 	makeEntityInterestService(),

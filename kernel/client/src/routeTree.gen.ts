@@ -36,6 +36,7 @@ import { Route as AuthenticatedSettingsAccountRouteImport } from './routes/_auth
 import { Route as AuthenticatedSettingsAdministrationRouteImport } from './routes/_authenticated/settings/administration'
 import { Route as AuthenticatedSettingsBackupsRouteImport } from './routes/_authenticated/settings/backups'
 import { Route as AuthenticatedSettingsNotificationChannelsRouteImport } from './routes/_authenticated/settings/notification-channels'
+import { Route as AuthenticatedSettingsOauthReturnRouteImport } from './routes/_authenticated/settings/oauth-return'
 import { Route as AuthenticatedSettingsPreferencesRouteImport } from './routes/_authenticated/settings/preferences'
 import { Route as AuthenticatedVViewSlugRouteImport } from './routes/_authenticated/v/$viewSlug'
 import { Route as AuthLogoutCallbackRouteImport } from './routes/auth_.logout.callback'
@@ -192,6 +193,12 @@ const AuthenticatedSettingsNotificationChannelsRoute =
     path: '/notification-channels',
     getParentRoute: () => AuthenticatedSettingsRouteRoute,
   } as any)
+const AuthenticatedSettingsOauthReturnRoute =
+  AuthenticatedSettingsOauthReturnRouteImport.update({
+    id: '/oauth-return',
+    path: '/oauth-return',
+    getParentRoute: () => AuthenticatedSettingsRouteRoute,
+  } as any)
 const AuthenticatedSettingsPreferencesRoute =
   AuthenticatedSettingsPreferencesRouteImport.update({
     id: '/preferences',
@@ -270,6 +277,7 @@ export interface FileRoutesByFullPath {
   '/settings/administration': typeof AuthenticatedSettingsAdministrationRoute
   '/settings/backups': typeof AuthenticatedSettingsBackupsRoute
   '/settings/notification-channels': typeof AuthenticatedSettingsNotificationChannelsRoute
+  '/settings/oauth-return': typeof AuthenticatedSettingsOauthReturnRoute
   '/settings/preferences': typeof AuthenticatedSettingsPreferencesRoute
   '/v/$viewSlug': typeof AuthenticatedVViewSlugRoute
   '/auth/logout/callback': typeof AuthLogoutCallbackRoute
@@ -304,6 +312,7 @@ export interface FileRoutesByTo {
   '/settings/administration': typeof AuthenticatedSettingsAdministrationRoute
   '/settings/backups': typeof AuthenticatedSettingsBackupsRoute
   '/settings/notification-channels': typeof AuthenticatedSettingsNotificationChannelsRoute
+  '/settings/oauth-return': typeof AuthenticatedSettingsOauthReturnRoute
   '/settings/preferences': typeof AuthenticatedSettingsPreferencesRoute
   '/v/$viewSlug': typeof AuthenticatedVViewSlugRoute
   '/auth/logout/callback': typeof AuthLogoutCallbackRoute
@@ -343,6 +352,7 @@ export interface FileRoutesById {
   '/_authenticated/settings/administration': typeof AuthenticatedSettingsAdministrationRoute
   '/_authenticated/settings/backups': typeof AuthenticatedSettingsBackupsRoute
   '/_authenticated/settings/notification-channels': typeof AuthenticatedSettingsNotificationChannelsRoute
+  '/_authenticated/settings/oauth-return': typeof AuthenticatedSettingsOauthReturnRoute
   '/_authenticated/settings/preferences': typeof AuthenticatedSettingsPreferencesRoute
   '/_authenticated/v/$viewSlug': typeof AuthenticatedVViewSlugRoute
   '/auth_/logout/callback': typeof AuthLogoutCallbackRoute
@@ -382,6 +392,7 @@ export interface FileRouteTypes {
     | '/settings/administration'
     | '/settings/backups'
     | '/settings/notification-channels'
+    | '/settings/oauth-return'
     | '/settings/preferences'
     | '/v/$viewSlug'
     | '/auth/logout/callback'
@@ -416,6 +427,7 @@ export interface FileRouteTypes {
     | '/settings/administration'
     | '/settings/backups'
     | '/settings/notification-channels'
+    | '/settings/oauth-return'
     | '/settings/preferences'
     | '/v/$viewSlug'
     | '/auth/logout/callback'
@@ -454,6 +466,7 @@ export interface FileRouteTypes {
     | '/_authenticated/settings/administration'
     | '/_authenticated/settings/backups'
     | '/_authenticated/settings/notification-channels'
+    | '/_authenticated/settings/oauth-return'
     | '/_authenticated/settings/preferences'
     | '/_authenticated/v/$viewSlug'
     | '/auth_/logout/callback'
@@ -672,6 +685,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AuthenticatedSettingsNotificationChannelsRouteImport
       parentRoute: typeof AuthenticatedSettingsRouteRoute
     }
+    '/_authenticated/settings/oauth-return': {
+      id: '/_authenticated/settings/oauth-return'
+      path: '/oauth-return'
+      fullPath: '/settings/oauth-return'
+      preLoaderRoute: typeof AuthenticatedSettingsOauthReturnRouteImport
+      parentRoute: typeof AuthenticatedSettingsRouteRoute
+    }
     '/_authenticated/settings/preferences': {
       id: '/_authenticated/settings/preferences'
       path: '/preferences'
@@ -761,6 +781,7 @@ interface AuthenticatedSettingsRouteRouteChildren {
   AuthenticatedSettingsAdministrationRoute: typeof AuthenticatedSettingsAdministrationRoute
   AuthenticatedSettingsBackupsRoute: typeof AuthenticatedSettingsBackupsRoute
   AuthenticatedSettingsNotificationChannelsRoute: typeof AuthenticatedSettingsNotificationChannelsRoute
+  AuthenticatedSettingsOauthReturnRoute: typeof AuthenticatedSettingsOauthReturnRoute
   AuthenticatedSettingsPreferencesRoute: typeof AuthenticatedSettingsPreferencesRoute
   AuthenticatedSettingsIndexRoute: typeof AuthenticatedSettingsIndexRoute
   AuthenticatedSettingsAutomationHistoryRunIdRoute: typeof AuthenticatedSettingsAutomationHistoryRunIdRoute
@@ -781,6 +802,8 @@ const AuthenticatedSettingsRouteRouteChildren: AuthenticatedSettingsRouteRouteCh
     AuthenticatedSettingsBackupsRoute: AuthenticatedSettingsBackupsRoute,
     AuthenticatedSettingsNotificationChannelsRoute:
       AuthenticatedSettingsNotificationChannelsRoute,
+    AuthenticatedSettingsOauthReturnRoute:
+      AuthenticatedSettingsOauthReturnRoute,
     AuthenticatedSettingsPreferencesRoute:
       AuthenticatedSettingsPreferencesRoute,
     AuthenticatedSettingsIndexRoute: AuthenticatedSettingsIndexRoute,
