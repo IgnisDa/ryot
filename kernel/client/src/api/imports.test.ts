@@ -1,6 +1,6 @@
 import { describe, expect, it } from "@effect/vitest";
 import { Effect, Layer, ManagedRuntime } from "effect";
-import { HttpClient, HttpClientResponse, type HttpClientRequest } from "effect/unstable/http";
+import { HttpClient, HttpClientResponse, type HttpClientRequest } from "effect/http";
 
 import { AuthenticatedApi, makeAuthenticatedApi } from "#/api/authenticated";
 import { ImportsApi, importRunIssuesFileName } from "#/api/imports";

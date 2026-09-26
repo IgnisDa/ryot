@@ -2,8 +2,8 @@ import { CurrentUser } from "@ryot-app/contract/auth-middleware";
 import { AppContract } from "@ryot-app/contract/contract";
 import { dieOnDbError } from "@ryot-app/contract/errors";
 import { Effect } from "effect";
-import { HttpServerRequest, HttpServerResponse } from "effect/unstable/http";
-import { HttpApiBuilder } from "effect/unstable/httpapi";
+import { HttpServerRequest, HttpServerResponse } from "effect/http";
+import { HttpApiBuilder } from "effect/http-api";
 
 import { PluginCatalogHub } from "./catalog-events";
 import { PluginInstallationService } from "./installation-service";

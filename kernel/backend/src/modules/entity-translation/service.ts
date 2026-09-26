@@ -1,7 +1,7 @@
 import type { AccountGeneration } from "@ryot-app/contract/schema/account-generation";
 import type { EntityId, SandboxProviderId, UserId } from "@ryot-app/contract/schema/brands";
 import { Context, Effect, Layer } from "effect";
-import { WorkflowEngine } from "effect/unstable/workflow/WorkflowEngine";
+import { WorkflowEngine } from "effect/workflow/WorkflowEngine";
 
 import { TranslateEntityWorkflow, translateEntityExecutionId } from "./entity-translation-workflow";
 import { TranslationsRepository, type TranslationOverlayInput } from "./repository";

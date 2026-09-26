@@ -2,8 +2,8 @@ import { AppContract } from "@ryot-app/contract/contract";
 import { dieOnDbError } from "@ryot-app/contract/errors";
 import { ClientAssetNotFound } from "@ryot-app/contract/modules/client-pages/schemas";
 import { Effect } from "effect";
-import { HttpServerResponse } from "effect/unstable/http";
-import { HttpApiBuilder } from "effect/unstable/httpapi";
+import { HttpServerResponse } from "effect/http";
+import { HttpApiBuilder } from "effect/http-api";
 
 import { ClientArtifactGrantService } from "./grant-service";
 import { ClientArtifactStore } from "./store";

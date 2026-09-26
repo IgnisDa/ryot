@@ -1,5 +1,5 @@
 import { Context, Effect, type Schema } from "effect";
-import { Activity, type Workflow } from "effect/unstable/workflow";
+import { Activity, type Workflow } from "effect/workflow";
 
 export const ActivityBody = Context.Reference<boolean>("ryot/ActivityBody", {
 	defaultValue: () => false,

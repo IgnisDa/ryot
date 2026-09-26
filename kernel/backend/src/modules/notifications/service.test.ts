@@ -2,7 +2,7 @@ import { expect, layer } from "@effect/vitest";
 import type { CurrentUserValue } from "@ryot-app/contract/auth-middleware";
 import { UserId } from "@ryot-app/contract/schema/brands";
 import { Context, Effect, Layer, Ref, Schema } from "effect";
-import { WorkflowEngine } from "effect/unstable/workflow/WorkflowEngine";
+import { WorkflowEngine } from "effect/workflow/WorkflowEngine";
 
 import { databaseLayer, makeWorkflowEngine } from "#lib/test-utils/effect";
 

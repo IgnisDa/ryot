@@ -3,7 +3,7 @@ import { DbError } from "@ryot-app/contract/errors";
 import type { PluginCron, PluginManifest } from "@ryot-app/contract/modules/plugins/manifest";
 import { PluginSlug, SandboxScriptId, UserId } from "@ryot-app/contract/schema/brands";
 import { Context, Deferred, Effect, Fiber, Layer, Ref } from "effect";
-import { WorkflowEngine } from "effect/unstable/workflow/WorkflowEngine";
+import { WorkflowEngine } from "effect/workflow/WorkflowEngine";
 import { assert } from "vitest";
 
 import { assertExitFails } from "#lib/test-utils/assertions";

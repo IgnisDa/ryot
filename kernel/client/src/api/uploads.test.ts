@@ -5,7 +5,7 @@ import {
 	HttpClientError,
 	HttpClientResponse,
 	type HttpClientRequest,
-} from "effect/unstable/http";
+} from "effect/http";
 
 import { AuthenticatedApi, AuthenticatedApiError } from "#/api/authenticated";
 import { decodeServerOrigin } from "#/api/origin";

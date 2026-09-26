@@ -17,8 +17,8 @@ import {
 	FileSystem,
 	Semaphore,
 } from "effect";
-import { HttpServer, HttpServerRequest, HttpServerResponse } from "effect/unstable/http";
-import { ChildProcess, ChildProcessSpawner } from "effect/unstable/process";
+import { HttpServer, HttpServerRequest, HttpServerResponse } from "effect/http";
+import { ChildProcess, ChildProcessSpawner } from "effect/process";
 
 import { sandboxDenoDirConfig } from "../config/definition";
 import { AppConfig } from "../config/service";

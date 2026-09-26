@@ -3,7 +3,7 @@ import type { PluginCron } from "@ryot-app/contract/modules/plugins/manifest";
 import type { SandboxExecutionSubject } from "@ryot-app/contract/modules/sandbox/schemas";
 import type { PluginSlug } from "@ryot-app/contract/schema/brands";
 import { Cause, Clock, Context, Cron, Duration, Effect, Result, Layer } from "effect";
-import { WorkflowEngine } from "effect/unstable/workflow/WorkflowEngine";
+import { WorkflowEngine } from "effect/workflow/WorkflowEngine";
 
 import { AppConfig } from "#lib/infrastructure/config/service";
 import { MutationReceipts } from "#modules/mutations/receipts";

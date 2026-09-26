@@ -1,5 +1,5 @@
 import { Config, Effect, Option } from "effect";
-import { ChildProcess, ChildProcessSpawner } from "effect/unstable/process";
+import { ChildProcess, ChildProcessSpawner } from "effect/process";
 
 export const resolveVersion = Effect.gen(function* () {
 	const configured = yield* Config.option(Config.String("RYOT_VERSION"));

@@ -1,7 +1,7 @@
 import type { ListedEntity } from "@ryot-app/contract/modules/entities/schemas";
 import type { ImportEntityRunResult } from "@ryot-app/contract/modules/provider-entities/schemas";
 import { Cause, Exit, Option } from "effect";
-import type { Workflow } from "effect/unstable/workflow";
+import type { Workflow } from "effect/workflow";
 
 export const toEntityImportRunResult = <
 	E extends { readonly stage: "population" | "provider-import-automation" },

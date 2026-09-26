@@ -7,7 +7,7 @@ import {
 	TestSupportOperationFailure,
 } from "@ryot-app/contract/modules/test-support/schemas";
 import { Effect, Match } from "effect";
-import { HttpApiBuilder } from "effect/unstable/httpapi";
+import { HttpApiBuilder } from "effect/http-api";
 
 import { AutomationReconciliation } from "#modules/automations/reconciliation";
 

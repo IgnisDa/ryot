@@ -11,7 +11,7 @@ import type { AccessClass } from "@ryot-app/contract/oauth";
 import { IntegrationId, SandboxScriptId, UserId } from "@ryot-app/contract/schema/brands";
 import type { JsonValue } from "@ryot-app/contract/schema/json";
 import { Cause, Context, Effect, Exit, Layer, Option, Ref } from "effect";
-import { Headers } from "effect/unstable/http";
+import { Headers } from "effect/http";
 import { assert } from "vitest";
 
 import { mutationAdmissionTestLayer } from "#lib/test-utils/mutation-admission";

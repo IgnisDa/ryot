@@ -6,8 +6,8 @@ import { UserId } from "@ryot-app/contract/schema/brands";
 import { defaultUserPreferences } from "@ryot-app/contract/schema/user-preferences";
 import { eq } from "drizzle-orm";
 import { ConfigProvider, Effect, FileSystem, Layer, Schema, Stream } from "effect";
-import { HttpClient, HttpClientResponse } from "effect/unstable/http";
-import { WorkflowEngine } from "effect/unstable/workflow/WorkflowEngine";
+import { HttpClient, HttpClientResponse } from "effect/http";
+import { WorkflowEngine } from "effect/workflow/WorkflowEngine";
 
 import * as tables from "#lib/infrastructure/db/schema/tables/combined";
 import { DatabaseSession } from "#lib/infrastructure/db/session";
