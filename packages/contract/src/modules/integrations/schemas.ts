@@ -88,11 +88,14 @@ const progressCommonFields = {
 	},
 } satisfies AppSchema["fields"];
 
-export const integrationCommonSchema = (lot: (typeof integrationLots)[number]): AppSchema => ({
+export const integrationCommonSchema = (
+	lot: (typeof integrationLots)[number],
+	supportsOwnershipSync: boolean,
+): AppSchema => ({
 	fields: {
 		...baseCommonFields,
 		...(lot === "push" ? {} : progressCommonFields),
-		...(lot === "yank"
+		...(lot === "yank" && supportsOwnershipSync
 			? {
 					syncOwnership: {
 						defaultValue: false,
@@ -111,7 +114,7 @@ export const integrationCommonSchema = (lot: (typeof integrationLots)[number]): 
  * validation rejects those names.
  */
 export const integrationCommonPropertyNames: ReadonlySet<string> = new Set(
-	Object.keys(integrationCommonSchema("yank").fields),
+	Object.keys(integrationCommonSchema("yank", true).fields),
 );
 
 export const IntegrationSnapshot = Schema.Struct({

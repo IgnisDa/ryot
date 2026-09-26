@@ -529,6 +529,7 @@ const PluginIntegrationProviderFields = {
 	description: sandboxManifestString,
 	settingsSchema: IntegrationSettingsSchema,
 	requiresProKey: Schema.optional(Schema.Boolean),
+	supportsOwnershipSync: Schema.optional(Schema.Boolean),
 };
 
 export const PluginIntegrationProvider = Schema.Union([
@@ -538,7 +539,16 @@ export const PluginIntegrationProvider = Schema.Union([
 		lot: Schema.Literals(["yank", "sink"]),
 	}),
 	strictStruct({ ...PluginIntegrationProviderFields, lot: Schema.Literal("push") }),
-]);
+]).pipe(
+	Schema.check(
+		Schema.makeFilter(
+			(provider) =>
+				!provider.supportsOwnershipSync ||
+				provider.lot === "yank" ||
+				"Expected ownership sync support only on yank integrations",
+		),
+	),
+);
 
 export type PluginIntegrationProvider = Schema.Schema.Type<typeof PluginIntegrationProvider>;
 

@@ -67,7 +67,6 @@ const commonSchema = {
 	fields: {
 		name: { ...described("Name"), type: "string" },
 		isDisabled: { ...described("Disabled"), type: "boolean", defaultValue: false },
-		syncOwnership: { ...described("Sync ownership"), type: "boolean", defaultValue: false },
 		disableOnContinuousErrors: {
 			...described("Disable on continuous errors"),
 			type: "boolean",
@@ -88,14 +87,23 @@ const commonSchema = {
 	},
 } satisfies IntegrationProviderItem["commonSchema"];
 
+const ownershipSyncCommonSchema = {
+	...commonSchema,
+	fields: {
+		...commonSchema.fields,
+		syncOwnership: { ...described("Sync ownership"), type: "boolean", defaultValue: false },
+	},
+} satisfies IntegrationProviderItem["commonSchema"];
+
 const komgaProvider: IntegrationProviderItem = {
 	lot: "yank",
-	commonSchema,
 	slug: "komga",
 	name: "Komga",
 	isCreatable: true,
 	pluginSlug: "media",
 	requiresProKey: false,
+	supportsOwnershipSync: true,
+	commonSchema: ownershipSyncCommonSchema,
 	description: "Import progress and ownership from Komga",
 	settingsSchema: {
 		fields: {
@@ -118,6 +126,7 @@ const kodiProvider: IntegrationProviderItem = {
 	isCreatable: true,
 	pluginSlug: "media",
 	requiresProKey: false,
+	supportsOwnershipSync: false,
 	settingsSchema: { fields: {} },
 	description: "Receive Kodi playback webhooks",
 };

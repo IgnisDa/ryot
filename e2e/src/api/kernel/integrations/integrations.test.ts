@@ -100,11 +100,20 @@ describe("Integration CRUD", () => {
 				providers.find(({ slug }) => slug === "kodi"),
 				"Expected Kodi provider",
 			);
+			const komga = requirePresent(
+				providers.find(({ slug }) => slug === "komga"),
+				"Expected Komga provider",
+			);
+			const spotify = requirePresent(
+				providers.find(({ slug }) => slug === "spotify"),
+				"Expected Spotify provider",
+			);
 
 			expect(radarr.lot).toBe("push");
 			expect(radarr.hasScript).toBe(true);
 			expect(radarr.requiresProKey).toBe(false);
 			expect(radarr.commonSchema.fields).not.toHaveProperty("minimumProgress");
+			expect(radarr.commonSchema.fields).not.toHaveProperty("syncOwnership");
 			expect(kodi.lot).toBe("sink");
 			expect(kodi.hasScript).toBe(true);
 			expect(kodi.requiresProKey).toBe(false);
@@ -112,6 +121,11 @@ describe("Integration CRUD", () => {
 				type: "number",
 				defaultValue: 2,
 			});
+			expect(kodi.commonSchema.fields).not.toHaveProperty("syncOwnership");
+			expect(komga.supportsOwnershipSync).toBe(true);
+			expect(komga.commonSchema.fields).toHaveProperty("syncOwnership");
+			expect(spotify.supportsOwnershipSync).toBe(false);
+			expect(spotify.commonSchema.fields).not.toHaveProperty("syncOwnership");
 		}),
 	);
 

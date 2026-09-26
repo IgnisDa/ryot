@@ -1312,14 +1312,32 @@ describe("definePlugin", () => {
 		const [yank, push] = manifest.integrationProviders;
 		const decoded = Schema.decodeSync(PluginManifest)({
 			...manifest,
+			integrationProviders: [{ ...yank, supportsOwnershipSync: true }, push],
+		});
+		const sink = Schema.decodeSync(PluginManifest)({
+			...manifest,
 			integrationProviders: [{ ...yank, lot: "sink", slug: "integration.sink" }, push],
 		});
 
 		expect(decoded.integrationProviders[0]).toMatchObject({
+			lot: "yank",
+			supportsOwnershipSync: true,
+			scriptSlug: "automation.test",
+		});
+		expect(sink.integrationProviders[0]).toMatchObject({
 			lot: "sink",
 			scriptSlug: "automation.test",
 		});
-		expect(decoded.integrationProviders[1]).not.toHaveProperty("scriptSlug");
+		expect(sink.integrationProviders[1]).not.toHaveProperty("scriptSlug");
+		expect(() =>
+			Schema.decodeSync(PluginManifest)({
+				...manifest,
+				integrationProviders: [
+					{ ...yank, lot: "sink", slug: "integration.sink", supportsOwnershipSync: true },
+					push,
+				],
+			}),
+		).toThrow();
 		expect(() =>
 			Schema.decodeUnknownSync(PluginManifest)({
 				...manifest,
