@@ -145,6 +145,10 @@
 	},
 	"overrides": [
 		{
+			"rules": { "no-restricted-imports": "off" },
+			"files": ["plugins/*/manifest/**/*.test.ts", "plugins/*/shared/**/*.test.ts"]
+		},
+		{
 			"files": ["kernel/sandbox/**"],
 			"rules": {
 				"no-restricted-imports": [
@@ -184,6 +188,7 @@
 					{
 						"patterns": [
 							{
+								"message": "Manifest code reaches backend source only through backend/contracts and never imports environment-specific implementations.",
 								"group": [
 									"**/client/**",
 									"**/backend/**",
@@ -198,8 +203,7 @@
 									"@ryot-app/plugin-client-sdk/**",
 									"@ryot-app/plugin-ui-sdk",
 									"@ryot-app/plugin-ui-sdk/**"
-								],
-								"message": "Manifest code reaches backend source only through backend/contracts and never imports environment-specific implementations."
+								]
 							}
 						]
 					}
@@ -214,6 +218,7 @@
 					{
 						"patterns": [
 							{
+								"message": "Shared plugin code is environment-neutral and never imports environment-specific implementations.",
 								"group": [
 									"**/client/**",
 									"**/backend/**",
@@ -228,17 +233,12 @@
 									"@ryot-app/plugin-client-sdk/**",
 									"@ryot-app/plugin-ui-sdk",
 									"@ryot-app/plugin-ui-sdk/**"
-								],
-								"message": "Shared plugin code is environment-neutral and never imports environment-specific implementations."
+								]
 							}
 						]
 					}
 				]
 			}
-		},
-		{
-			"files": ["plugins/*/manifest/**/*.test.ts", "plugins/*/shared/**/*.test.ts"],
-			"rules": { "no-restricted-imports": "off" }
 		}
 	]
 }
