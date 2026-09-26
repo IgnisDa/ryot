@@ -461,7 +461,7 @@ fn plugin_archive_modules_evaluate_on_their_covering_tier() {
         std::collections::HashMap::new();
     let mut evaluated = 0;
     for plugin in ["media", "fitness"] {
-        let file = std::fs::File::open(plugins.join(format!("{plugin}/dist/{plugin}.zip")))
+        let file = std::fs::File::open(plugins.join(format!("{plugin}/dist/ryot/{plugin}.zip")))
             .expect("built plugin archive");
         let mut archive = zip::ZipArchive::new(file).expect("zip");
         for index in 0..archive.len() {

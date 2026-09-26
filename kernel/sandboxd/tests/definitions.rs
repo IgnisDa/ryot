@@ -20,7 +20,7 @@ fn read_archive_entry(archive: &mut zip::ZipArchive<std::fs::File>, path: &str) 
 
 fn compiled_plugin_script(plugin: &str, slug: &str) -> (String, Value) {
     let archive_path = Path::new(env!("CARGO_MANIFEST_DIR"))
-        .join(format!("../../plugins/{plugin}/dist/{plugin}.zip"));
+        .join(format!("../../plugins/{plugin}/dist/ryot/{plugin}.zip"));
     let file = std::fs::File::open(&archive_path)
         .unwrap_or_else(|error| panic!("{}: {error}", archive_path.display()));
     let mut archive = zip::ZipArchive::new(file).expect("plugin archive");
