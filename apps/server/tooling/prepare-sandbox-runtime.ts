@@ -18,14 +18,18 @@ class SandboxRuntimeSmokeError extends Data.TaggedError("SandboxRuntimeSmokeErro
 	readonly message: string;
 }> {}
 
-const manifest = {
+const sourceManifest = {
 	kind: "script",
+	name: "Production runtime smoke",
+	slug: "production-runtime-smoke",
+} as const;
+
+const metadata = {
+	...sourceManifest,
 	oauthConnectionFields: [],
 	executableDependencies: [],
 	requiredPluginConfigKeys: [],
 	optionalPluginConfigKeys: [],
-	name: "Production runtime smoke",
-	slug: "production-runtime-smoke",
 	capabilities: ["getCachedValue"],
 } as const;
 
@@ -34,9 +38,9 @@ import { Effect as SdkEffect, Schema } from "@ryot-app/sandbox-sdk/effect";
 import { Effect as PluginKitEffect } from "@ryot-app/plugin-kit/effect";
 
 export default {
-  manifest: ${JSON.stringify(manifest)},
-  definitionType: "ryot:sandbox-script",
   input: Schema.Struct({}),
+  definitionType: "ryot:sandbox-script",
+  manifest: ${JSON.stringify(sourceManifest)},
   output: Schema.Struct({ aliasIdentity: Schema.Boolean, hostValue: Schema.String }),
   run: (_input, host) => host.getCachedValue("production-smoke").pipe(
     SdkEffect.map((hostValue) => ({ aliasIdentity: SdkEffect === PluginKitEffect, hostValue })),
@@ -88,11 +92,11 @@ const program = Effect.gen(function* () {
 
 	const request = `${encodeRequest({
 		token,
+		metadata,
 		moduleUrl,
 		context: {},
 		executionId,
 		compiledFormat: 1,
-		metadata: manifest,
 		limits: SANDBOX_RUNNER_LIMITS,
 		apiFunctions: ["getCachedValue"],
 		scriptId: "production-runtime-smoke",
