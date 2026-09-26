@@ -81,7 +81,6 @@ const implementations: SandboxHostImplementations["Service"] = {
 		createEvents: unused,
 		executeRyotql: unused,
 		getPluginConfig: unused,
-		getSystemConfig: unused,
 		getUserSettings: unused,
 		getEntitySchemas: unused,
 		listEventSchemas: unused,
@@ -136,7 +135,6 @@ const script = {
 		slug: "dispatcher",
 		kind: "automation" as const,
 		requiredPluginConfigKeys: [],
-		requiredSystemConfigKeys: [],
 		capabilities: ["emitSignal", "httpCall", "sendNotification"],
 	},
 };

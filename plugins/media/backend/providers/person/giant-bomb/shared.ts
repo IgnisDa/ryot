@@ -20,7 +20,6 @@ export const manifest = defineManifest({
 	kind: "provider",
 	name: "GiantBomb",
 	slug: "person.giant-bomb",
-	requiredSystemConfigKeys: [],
 	capabilities: ["httpCall", "getPluginConfig"],
 	requiredPluginConfigKeys: ["giantBombApiKey"],
 });

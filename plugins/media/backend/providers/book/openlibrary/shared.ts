@@ -25,7 +25,6 @@ export const manifest = defineManifest({
 	slug: "book.openlibrary",
 	capabilities: ["httpCall"],
 	requiredPluginConfigKeys: [],
-	requiredSystemConfigKeys: [],
 });
 
 const coverImageUrl = (coverId: number) =>

@@ -23,7 +23,6 @@ describe("workflow definitions", () => {
 					kind: "workflow",
 					capabilities: [],
 					requiredPluginConfigKeys: [],
-					requiredSystemConfigKeys: [],
 				});
 				const workflow = defineWorkflow({
 					manifest,
@@ -120,7 +119,6 @@ describe("workflow definitions", () => {
 					name: "Parallel replay",
 					slug: "parallel-replay",
 					requiredPluginConfigKeys: [],
-					requiredSystemConfigKeys: [],
 				});
 				const workflow = defineWorkflow({
 					manifest,
@@ -182,7 +180,6 @@ describe("workflow definitions", () => {
 					slug: "complete",
 					capabilities: [],
 					requiredPluginConfigKeys: [],
-					requiredSystemConfigKeys: [],
 				});
 				const workflow = defineWorkflow({
 					manifest,
@@ -232,7 +229,6 @@ describe("workflow definitions", () => {
 						slug: "mismatch",
 						capabilities: [],
 						requiredPluginConfigKeys: [],
-						requiredSystemConfigKeys: [],
 					}),
 				});
 
@@ -274,7 +270,6 @@ describe("workflow definitions", () => {
 					name: "Invalid input",
 					slug: "invalid-input",
 					requiredPluginConfigKeys: [],
-					requiredSystemConfigKeys: [],
 				});
 				const workflow = defineWorkflow({
 					manifest,
@@ -336,7 +331,6 @@ describe("workflow definitions", () => {
 				name: "Workflow",
 				slug: "workflow",
 				requiredPluginConfigKeys: [],
-				requiredSystemConfigKeys: [],
 			}),
 		).toMatchObject({ kind: "workflow", capabilities: [] });
 		expect(() =>
@@ -346,7 +340,6 @@ describe("workflow definitions", () => {
 				slug: "workflow",
 				capabilities: ["httpCall"],
 				requiredPluginConfigKeys: [],
-				requiredSystemConfigKeys: [],
 			}),
 		).toThrow();
 	});
@@ -366,7 +359,6 @@ describe("workflow definitions", () => {
 					kind: "workflow",
 					capabilities: [],
 					requiredPluginConfigKeys: [],
-					requiredSystemConfigKeys: [],
 				});
 				const workflow = defineWorkflow({
 					manifest,

@@ -13,7 +13,6 @@ import { MediaImportWriteChunkInput } from "./schemas";
 export const manifest = defineManifest({
 	kind: "script",
 	slug: "import.write-chunks",
-	requiredSystemConfigKeys: [],
 	name: "Write media import chunks",
 	requiredPluginConfigKeys: ["progressUpdateThresholdHours"],
 	capabilities: [

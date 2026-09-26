@@ -81,7 +81,6 @@ const searchScript = {
 		slug: "records.search",
 		kind: "provider" as const,
 		requiredPluginConfigKeys: [],
-		requiredSystemConfigKeys: [],
 		providerSlug: "records.provider",
 		providerOperation: "search" as const,
 	},

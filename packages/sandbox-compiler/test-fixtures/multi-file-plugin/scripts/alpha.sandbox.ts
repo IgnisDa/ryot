@@ -9,7 +9,6 @@ export const manifest = defineManifest({
 	kind: "script",
 	capabilities: [],
 	requiredPluginConfigKeys: ["alpha-key"],
-	requiredSystemConfigKeys: ["system-key"],
 });
 
 export default defineScript({

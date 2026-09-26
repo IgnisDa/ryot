@@ -6,7 +6,6 @@ import { details } from "./shared";
 export const manifest = defineManifest({
 	kind: "provider",
 	name: "Metron Details",
-	requiredSystemConfigKeys: [],
 	slug: "comic-book.metron.details",
 	capabilities: ["httpCall", "getPluginConfig"],
 	requiredPluginConfigKeys: ["metronUsername", "metronPassword"],

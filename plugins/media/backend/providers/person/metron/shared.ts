@@ -9,7 +9,6 @@ export const manifest = defineManifest({
 	name: "Metron",
 	kind: "provider",
 	slug: "person.metron",
-	requiredSystemConfigKeys: [],
 	capabilities: ["httpCall", "getPluginConfig"],
 	requiredPluginConfigKeys: ["metronUsername", "metronPassword"],
 });

@@ -12,7 +12,6 @@ export const manifest = defineManifest({
   name: "Plain value",
   slug: "plain-value",
   requiredPluginConfigKeys: [],
-  requiredSystemConfigKeys: [],
 });
 
 export default defineScript({

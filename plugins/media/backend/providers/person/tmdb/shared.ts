@@ -25,7 +25,6 @@ export const manifest = defineManifest({
 	name: "TMDB",
 	kind: "provider",
 	slug: "person.tmdb",
-	requiredSystemConfigKeys: [],
 	requiredPluginConfigKeys: ["tmdbAccessToken"],
 	capabilities: ["httpCall", "getPluginConfig", "getUserSettings"],
 });

@@ -40,7 +40,6 @@ export const manifest = defineManifest({
   capabilities: [],
   name: "E2E durable import",
   requiredPluginConfigKeys: [],
-  requiredSystemConfigKeys: [],
   slug: ${JSON.stringify(workflowScriptSlug)},
 });
 
@@ -88,7 +87,6 @@ import { genericImportWorkflowManifestSchema } from "@ryot-app/sandbox-sdk/impor
 
 export const manifest = defineManifest({
   kind: "script",
-  requiredSystemConfigKeys: [],
   capabilities: ["getPluginConfig"],
   name: "E2E durable import config check",
   slug: ${JSON.stringify(activityScriptSlug)},
@@ -198,13 +196,11 @@ describe("isolated import durability", () => {
 							slug: workflowScriptSlug,
 							name: "E2E durable import",
 							requiredPluginConfigKeys: [],
-							requiredSystemConfigKeys: [],
 						},
 						{
 							kind: "script",
 							entry: activityEntry,
 							slug: activityScriptSlug,
-							requiredSystemConfigKeys: [],
 							capabilities: ["getPluginConfig"],
 							requiredPluginConfigKeys: [CONFIG_KEY],
 							name: "E2E durable import config check",

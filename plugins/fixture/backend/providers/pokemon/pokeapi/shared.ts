@@ -24,7 +24,6 @@ export const manifest = defineManifest({
 	slug: "pokemon.pokeapi",
 	capabilities: ["httpCall"],
 	requiredPluginConfigKeys: [],
-	requiredSystemConfigKeys: [],
 });
 
 const ALTERNATE_FORM_ID_START = 10_000;

@@ -5,7 +5,6 @@ import { details } from "./shared";
 
 export const manifest = defineManifest({
 	kind: "provider",
-	requiredSystemConfigKeys: [],
 	name: "IGDB Video Game Details",
 	slug: "video-game.igdb.details",
 	requiredPluginConfigKeys: ["twitchClientId", "twitchClientSecret"],

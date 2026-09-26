@@ -10,7 +10,6 @@ export const manifest = defineManifest({
 	name: "Spotify yank",
 	slug: "integration.spotify",
 	requiredPluginConfigKeys: [],
-	requiredSystemConfigKeys: [],
 	capabilities: [
 		"log",
 		"span",

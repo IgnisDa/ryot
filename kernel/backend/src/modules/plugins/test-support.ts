@@ -65,7 +65,6 @@ export const fixtureManifest = () =>
 				slug: "fixture.automation",
 				automationType: "automation",
 				requiredPluginConfigKeys: [],
-				requiredSystemConfigKeys: [],
 				entry: "backend/automations/fixture.sandbox.ts",
 				inputProjection: {
 					signal: { properties: [] },

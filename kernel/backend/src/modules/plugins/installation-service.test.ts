@@ -459,7 +459,6 @@ const bootstrapScript = {
 	kind: "script" as const,
 	name: "Fixture Bootstrap",
 	requiredPluginConfigKeys: [],
-	requiredSystemConfigKeys: [],
 	slug: "script.fixture-bootstrap",
 	entry: "backend/bootstrap/bootstrap.sandbox.ts",
 };
@@ -472,7 +471,6 @@ export const manifest = defineManifest({
 	capabilities: [],
 	name: "Fixture Bootstrap",
 	requiredPluginConfigKeys: [],
-	requiredSystemConfigKeys: [],
 	slug: "script.fixture-bootstrap",
 });
 
@@ -1289,7 +1287,6 @@ const operationScript = {
 	slug: "operation.fixture",
 	kind: "operation" as const,
 	requiredPluginConfigKeys: [],
-	requiredSystemConfigKeys: [],
 	entry: "backend/operations/operation.sandbox.ts",
 };
 
@@ -1303,7 +1300,6 @@ export const manifest = defineManifest({
 	name: "Fixture Operation",
 	slug: "operation.fixture",
 	requiredPluginConfigKeys: [],
-	requiredSystemConfigKeys: [],
 });
 
 export default defineOperation({

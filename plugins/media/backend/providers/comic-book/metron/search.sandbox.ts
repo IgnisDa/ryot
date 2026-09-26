@@ -6,7 +6,6 @@ import { search } from "./shared";
 export const manifest = defineManifest({
 	kind: "provider",
 	name: "Metron Search",
-	requiredSystemConfigKeys: [],
 	slug: "comic-book.metron.search",
 	capabilities: ["httpCall", "getPluginConfig"],
 	requiredPluginConfigKeys: ["metronUsername", "metronPassword"],

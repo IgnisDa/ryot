@@ -17,7 +17,6 @@ import {
 	ryotqlSandboxSource,
 	reinstallTestPluginScript,
 	requireCompletedSandboxValue,
-	systemConfigSandboxSource,
 	throwingSandboxSource,
 	userPreferencesSandboxSource,
 } from "~/fixtures/kernel";
@@ -100,7 +99,6 @@ describe("sandbox async flow", () => {
 				capabilities: [],
 				name: "Plain value",
 				requiredPluginConfigKeys: [],
-				requiredSystemConfigKeys: [],
 			});
 			const updatedJob = yield* enqueueSandboxScript(userId, { scriptId: reinstalled.scriptId });
 			expect(requireCompletedSandboxValue(yield* pollSandboxResult(userId, updatedJob.jobId))).toBe(
@@ -272,52 +270,6 @@ describe("sandbox async flow", () => {
 			expect(result.error).toMatchObject({
 				phase: "execute",
 				message: 'Plugin config key "fixtureValue" is not declared by this script',
-			});
-		}),
-	);
-
-	it.live("reads declared system config in a batch", () =>
-		Effect.gen(function* () {
-			const { client, userId } = yield* createAuthenticatedClient();
-			const declaredSlug = `declared-system-config-${crypto.randomUUID()}`;
-			const declared = yield* installSandboxScriptScoped({
-				client,
-				slug: declaredSlug,
-				name: "declared-system-config",
-				capabilities: ["getSystemConfig"],
-				requiredSystemConfigKeys: ["timezone"],
-				source: systemConfigSandboxSource({
-					keys: ["timezone"],
-					slug: declaredSlug,
-					name: "declared-system-config",
-				}),
-			});
-			const declaredJob = yield* enqueueSandboxScript(userId, { scriptId: declared.scriptId });
-			expect(
-				requireCompletedSandboxValue(yield* pollSandboxResult(userId, declaredJob.jobId)),
-			).toEqual({ timezone: "Etc/GMT" });
-
-			const undeclaredSlug = `undeclared-system-config-${crypto.randomUUID()}`;
-			const undeclared = yield* installSandboxScriptScoped({
-				client,
-				slug: undeclaredSlug,
-				requiredSystemConfigKeys: [],
-				name: "undeclared-system-config",
-				capabilities: ["getSystemConfig"],
-				source: systemConfigSandboxSource({
-					keys: ["timezone"],
-					slug: undeclaredSlug,
-					requiredSystemConfigKeys: [],
-					name: "undeclared-system-config",
-				}),
-			});
-			const undeclaredJob = yield* enqueueSandboxScript(userId, { scriptId: undeclared.scriptId });
-			const result = yield* pollSandboxResult(userId, undeclaredJob.jobId);
-
-			assertCompleted(result, "sandbox job");
-			expect(result.error).toMatchObject({
-				phase: "execute",
-				message: 'System config key "timezone" is not declared by this script',
 			});
 		}),
 	);

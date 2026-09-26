@@ -10,7 +10,6 @@ export const manifest = defineManifest({
 	slug: "import.jellyfin",
 	capabilities: ["httpCall"],
 	requiredPluginConfigKeys: [],
-	requiredSystemConfigKeys: [],
 	name: "Fetch Jellyfin import",
 });
 

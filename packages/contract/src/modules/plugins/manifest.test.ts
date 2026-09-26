@@ -176,7 +176,6 @@ const scripts = [
 		slug: "automation.test",
 		automationType: "automation",
 		requiredPluginConfigKeys: [],
-		requiredSystemConfigKeys: [],
 		capabilities: ["emitSignal"],
 		entry: "scripts/test.sandbox.ts",
 		inputProjection: {
@@ -193,7 +192,6 @@ const scripts = [
 		name: "Test operation",
 		slug: "operation.test",
 		requiredPluginConfigKeys: [],
-		requiredSystemConfigKeys: [],
 		entry: "scripts/operation.sandbox.ts",
 	},
 	{
@@ -201,7 +199,6 @@ const scripts = [
 		capabilities: [],
 		providerOperation: "details",
 		requiredPluginConfigKeys: [],
-		requiredSystemConfigKeys: [],
 		name: "Test provider details",
 		slug: "provider.test.details",
 		providerSlug: "provider.test",
@@ -212,7 +209,6 @@ const scripts = [
 		capabilities: [],
 		providerOperation: "search",
 		requiredPluginConfigKeys: [],
-		requiredSystemConfigKeys: [],
 		name: "Test provider search",
 		slug: "provider.test.search",
 		providerSlug: "provider.test",
@@ -232,7 +228,6 @@ const scripts = [
 		kind: "script",
 		capabilities: [],
 		requiredPluginConfigKeys: [],
-		requiredSystemConfigKeys: [],
 		name: "Test provider preload",
 		slug: "provider.test.preload",
 		providerSlug: "provider.test",
@@ -244,7 +239,6 @@ const scripts = [
 		name: "Test workflow",
 		slug: "workflow.test",
 		requiredPluginConfigKeys: [],
-		requiredSystemConfigKeys: [],
 		entry: "scripts/workflow.sandbox.ts",
 	},
 ] as const;
