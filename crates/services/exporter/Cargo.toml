@@ -1,0 +1,35 @@
+[package]
+name = "exporter-service"
+version = "0.1.0"
+edition = "2024"
+
+[dependencies]
+anyhow = { workspace = true }
+chrono = { workspace = true }
+itertools = { workspace = true }
+mime_guess = { workspace = true }
+nanoid = { workspace = true }
+reqwest = { workspace = true }
+sea-orm = { workspace = true }
+struson = { workspace = true }
+tokio = { workspace = true }
+tokio-util = { workspace = true }
+tracing = { workspace = true }
+
+background-models = { workspace = true }
+common-models = { workspace = true }
+common-utils = { workspace = true }
+database-models = { workspace = true }
+database-utils = { workspace = true }
+dependent-details-utils = { workspace = true }
+dependent-entity-list-utils = { workspace = true }
+dependent-models = { workspace = true }
+dependent-seen-utils = { workspace = true }
+enum-models = { workspace = true }
+file-storage-service = { workspace = true }
+fitness-models = { workspace = true }
+media-models = { workspace = true }
+supporting-service = { workspace = true }
+
+[package.metadata.cargo-machete]
+ignored = ["tracing"]

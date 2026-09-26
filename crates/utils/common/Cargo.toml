@@ -1,0 +1,17 @@
+[package]
+name = "common-utils"
+version = "0.1.0"
+edition = "2024"
+
+[dependencies]
+chrono = { workspace = true }
+const-str = { workspace = true }
+data-encoding = { workspace = true }
+rand = { workspace = true }
+reqwest = { workspace = true }
+sea-orm = { workspace = true }
+serde = { workspace = true }
+tokio = { workspace = true }
+
+enum-models = { workspace = true }
+env-utils = { workspace = true }

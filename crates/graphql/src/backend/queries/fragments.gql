@@ -1,0 +1,284 @@
+fragment SearchDetailsPart on SearchDetails {
+	nextPage
+	totalItems
+}
+
+fragment IdAndNamedObjectPart on IdAndNamedObject {
+	id
+	name
+}
+
+fragment StringIdAndNamedObjectPart on StringIdAndNamedObject {
+	id
+	name
+}
+
+fragment SeenPodcastExtraInformationPart on SeenPodcastExtraInformation {
+	episode
+}
+
+fragment SeenShowExtraInformationPart on SeenShowExtraInformation {
+	season
+	episode
+}
+
+fragment SeenAnimeExtraInformationPart on SeenAnimeExtraInformation {
+	episode
+}
+
+fragment SeenMangaExtraInformationPart on SeenMangaExtraInformation {
+	volume
+	chapter
+}
+
+fragment CalendarEventPart on GraphqlCalendarEvent {
+	date
+	metadataId
+	metadataImage
+	calendarEventId
+	showExtraInformation {
+		...SeenShowExtraInformationPart
+	}
+	podcastExtraInformation {
+		...SeenPodcastExtraInformationPart
+	}
+	animeExtraInformation {
+		...SeenAnimeExtraInformationPart
+	}
+}
+
+fragment SeenPart on Seen {
+	id
+	state
+	progress
+	reviewId
+	startedOn
+	finishedOn
+	lastUpdatedOn
+	manualTimeSpent
+	numTimesUpdated
+	providersConsumedOn
+	showExtraInformation {
+		...SeenShowExtraInformationPart
+	}
+	podcastExtraInformation {
+		...SeenPodcastExtraInformationPart
+	}
+	animeExtraInformation {
+		...SeenAnimeExtraInformationPart
+	}
+	mangaExtraInformation {
+		...SeenMangaExtraInformationPart
+	}
+}
+
+fragment WorkoutOrExerciseTotalsPart on WorkoutOrExerciseTotals {
+	reps
+	weight
+	distance
+	duration
+	restTime
+	personalBestsAchieved
+}
+
+fragment EntityAssetsPart on EntityAssets {
+	s3Images
+	s3Videos
+	remoteImages
+	remoteVideos {
+		url
+		source
+	}
+}
+
+fragment WorkoutSetStatisticPart on WorkoutSetStatistic {
+	reps
+	pace
+	oneRm
+	weight
+	volume
+	duration
+	distance
+}
+
+fragment WorkoutSetRecordPart on WorkoutSetRecord {
+	lot
+	personalBests
+	statistic {
+		...WorkoutSetStatisticPart
+	}
+}
+
+fragment WorkoutSummaryPart on WorkoutSummary {
+	total {
+		...WorkoutOrExerciseTotalsPart
+	}
+	exercises {
+		id
+		lot
+		numSets
+		unitSystem
+		bestSet {
+			...WorkoutSetRecordPart
+		}
+	}
+	focused {
+		lots {
+			lot
+			exercises
+		}
+		levels {
+			level
+			exercises
+		}
+		forces {
+			force
+			exercises
+		}
+		muscles {
+			muscle
+			exercises
+		}
+		equipments {
+			equipment
+			exercises
+		}
+	}
+}
+
+fragment CollectionToEntityDetailsPart on GraphqlCollectionToEntityDetails {
+	id
+	details {
+		createdOn
+		information
+		collectionId
+		lastUpdatedOn
+		creatorUserId
+		collectionName
+	}
+}
+
+fragment ReviewItemPart on ReviewItem {
+	id
+	rating
+	postedOn
+	isSpoiler
+	visibility
+	textOriginal
+	textRendered
+	seenItemsAssociatedWith
+	podcastExtraInformation {
+		episode
+	}
+	postedBy {
+		...StringIdAndNamedObjectPart
+	}
+	animeExtraInformation {
+		...SeenAnimeExtraInformationPart
+	}
+	mangaExtraInformation {
+		...SeenMangaExtraInformationPart
+	}
+	showExtraInformation {
+		season
+		episode
+	}
+	comments {
+		id
+		text
+		likedBy
+		createdOn
+		user {
+			...StringIdAndNamedObjectPart
+		}
+	}
+}
+
+fragment WorkoutInformationPart on WorkoutInformation {
+	comment
+	assets {
+		...EntityAssetsPart
+	}
+	supersets {
+		color
+		exercises
+	}
+	exercises {
+		id
+		lot
+		notes
+		unitSystem
+		total {
+			...WorkoutOrExerciseTotalsPart
+		}
+		assets {
+			...EntityAssetsPart
+		}
+		sets {
+			lot
+			rpe
+			note
+			restTime
+			confirmedAt
+			personalBests
+			statistic {
+				...WorkoutSetStatisticPart
+			}
+		}
+	}
+}
+
+fragment SetRestTimersPart on SetRestTimersSettings {
+	drop
+	warmup
+	normal
+	failure
+}
+
+fragment PersonDetailsGroupedByRolePart on PersonDetailsGroupedByRole {
+	name
+	items {
+		entityId
+		character
+	}
+}
+
+fragment DailyUserActivityItemPart on DailyUserActivityItem {
+	day
+	bookCount
+	showCount
+	movieCount
+	musicCount
+	animeCount
+	totalCount
+	mangaCount
+	workoutCount
+	podcastCount
+	totalDuration
+	audioBookCount
+	videoGameCount
+	comicBookCount
+	totalBookPages
+	totalReviewCount
+	visualNovelCount
+	totalWorkoutReps
+	totalShowDuration
+	totalMetadataCount
+	totalMovieDuration
+	totalMusicDuration
+	totalWorkoutWeight
+	totalComicBookPages
+	userMeasurementCount
+	totalWorkoutDistance
+	totalWorkoutRestTime
+	totalWorkoutDuration
+	totalPodcastDuration
+	totalVideoGameDuration
+	totalAudioBookDuration
+	totalPersonReviewCount
+	totalVisualNovelDuration
+	totalMetadataReviewCount
+	totalWorkoutPersonalBests
+	totalCollectionReviewCount
+	totalMetadataGroupReviewCount
+}

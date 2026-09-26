@@ -1,0 +1,13 @@
+[package]
+name = "session-service"
+version = "0.1.0"
+edition = "2024"
+
+[dependencies]
+anyhow = { workspace = true }
+chrono = { workspace = true }
+
+cache-service = { workspace = true }
+common-utils = { workspace = true }
+dependent-models = { workspace = true }
+supporting-service = { workspace = true }
