@@ -1,4 +1,4 @@
-import { Button, StatusMessage } from "@ryot-app/client-ui-sdk";
+import { Button, StatusMessage } from "@ryot-app/plugin-ui-sdk";
 
 import { SettingsSection } from "#/modules/settings/settings-section";
 import { versionUrl } from "#/modules/settings/version-url";

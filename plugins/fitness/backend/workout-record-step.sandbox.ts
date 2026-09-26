@@ -1,8 +1,11 @@
-import { defineManifest, defineScript } from "@ryot-app/sandbox-sdk/driver";
-import { Effect, Schema } from "@ryot-app/sandbox-sdk/effect";
-import { EventStreamStepInput, EventStreamStepOutput } from "@ryot-app/sandbox-sdk/event-streams";
-import { executeRyotqlRecipe, IsoDateString } from "@ryot-app/sandbox-sdk/ryotql";
-import type { JsonValue } from "@ryot-app/sandbox-sdk/wire";
+import { defineManifest, defineScript } from "@ryot-app/plugin-backend-sdk/driver";
+import { Effect, Schema } from "@ryot-app/plugin-backend-sdk/effect";
+import {
+	EventStreamStepInput,
+	EventStreamStepOutput,
+} from "@ryot-app/plugin-backend-sdk/event-streams";
+import { executeRyotqlRecipe, IsoDateString } from "@ryot-app/plugin-backend-sdk/ryotql";
+import type { JsonValue } from "@ryot-app/plugin-backend-sdk/wire";
 
 import {
 	workoutRecordRowsRecipe,

@@ -29,8 +29,8 @@ import {
 	genericImportChunkSchema,
 	genericImportApplyResultSchema,
 	type GenericImportWriteItem,
-} from "@ryot-app/sandbox-sdk/imports";
-import { providerResolveResultSchema } from "@ryot-app/sandbox-sdk/provider";
+} from "@ryot-app/plugin-backend-sdk/imports";
+import { providerResolveResultSchema } from "@ryot-app/plugin-backend-sdk/provider";
 import { sameRevisionPin, type ScriptPluginRevision } from "@ryot-app/sandbox/protocol/principal";
 import { stableStringify } from "@ryot-app/ts-utils/json";
 import { isObjectRecord } from "@ryot-app/ts-utils/predicates";

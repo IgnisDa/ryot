@@ -1,6 +1,6 @@
-import { Button, FieldMessage } from "@ryot-app/client-ui-sdk";
-import type { SchemaFormValues } from "@ryot-app/client-ui-sdk/schema-form";
-import { toSchemaFormPayload } from "@ryot-app/client-ui-sdk/schema-form";
+import { Button, FieldMessage } from "@ryot-app/plugin-ui-sdk";
+import type { SchemaFormValues } from "@ryot-app/plugin-ui-sdk/schema-form";
+import { toSchemaFormPayload } from "@ryot-app/plugin-ui-sdk/schema-form";
 
 import {
 	importSourceInputShape,

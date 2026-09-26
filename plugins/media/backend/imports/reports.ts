@@ -1,4 +1,4 @@
-import type { genericImportWorkflowResultSchema } from "@ryot-app/sandbox-sdk/imports";
+import type { genericImportWorkflowResultSchema } from "@ryot-app/plugin-backend-sdk/imports";
 
 type MediaIssue = (typeof genericImportWorkflowResultSchema.Type)["issues"][number];
 export const appendMediaIssues = (

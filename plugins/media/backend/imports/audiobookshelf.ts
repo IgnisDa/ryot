@@ -1,4 +1,4 @@
-import { Schema } from "@ryot-app/sandbox-sdk/effect";
+import { Schema } from "@ryot-app/plugin-backend-sdk/effect";
 
 import { isValidIsbn, normalizeIsbn } from "../lib/isbn";
 import type { ImportEntityRef } from "./schemas";

@@ -1,13 +1,13 @@
 import { expect, it, layer } from "@effect/vitest";
+import { DEFAULT_AUTOMATION_RETRY_POLICY } from "@ryot-app/contract/modules/automations/lifecycle";
+import { UserId } from "@ryot-app/contract/schema/brands";
 import {
 	CLIENT_API_VERSION,
 	CLIENT_ARTIFACT_FORMAT,
 	CLIENT_BRIDGE_PROTOCOL_VERSION,
 	CLIENT_COMPILER_VERSION,
 	clientDeclarationHash,
-} from "@ryot-app/client-plugin-contract";
-import { DEFAULT_AUTOMATION_RETRY_POLICY } from "@ryot-app/contract/modules/automations/lifecycle";
-import { UserId } from "@ryot-app/contract/schema/brands";
+} from "@ryot-app/plugin-client-contract";
 import { sha256Hex } from "@ryot-app/ts-utils/crypto";
 import { and, eq } from "drizzle-orm";
 import { Effect, Result } from "effect";

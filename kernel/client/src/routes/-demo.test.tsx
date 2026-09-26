@@ -8,13 +8,13 @@ import { KernelApiTestLayer } from "#/api/ports.test-layer";
 import { HostedAuthError } from "#/modules/auth/hosted-service";
 import type { ExplicitOAuthClientDescriptor, OAuthLaunchPlan } from "#/modules/auth/oauth-launcher";
 import { createBackInterceptors } from "#/modules/navigation/back-interceptors";
-import { makePluginCatalogEventsTestLayer } from "#/modules/plugins/events.test-layer";
 import {
-	makePluginCatalog,
 	makePluginOperations,
 	makePluginQueries,
 	makePluginStorage,
-} from "#/modules/plugins/services.test-layer";
+} from "#/modules/pages/bridge/services.test-layer";
+import { makePluginCatalogEventsTestLayer } from "#/modules/plugins/catalog/events.test-layer";
+import { makePluginCatalog } from "#/modules/plugins/catalog/service.test-layer";
 import { getRouter } from "#/router";
 import {
 	theme,

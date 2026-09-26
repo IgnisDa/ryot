@@ -2,7 +2,7 @@ import { assert, expect, layer } from "@effect/vitest";
 import { SandboxRunError } from "@ryot-app/contract/errors";
 import type { ExecutionLane } from "@ryot-app/contract/modules/automations/lifecycle";
 import { SandboxScriptId, UserId } from "@ryot-app/contract/schema/brands";
-import { hostSuccess } from "@ryot-app/sandbox-sdk/wire";
+import { hostSuccess } from "@ryot-app/plugin-backend-sdk/wire";
 import { assertExitFails } from "@ryot-app/testing/effect-assertions";
 import { sha256Hex } from "@ryot-app/ts-utils/crypto";
 import {
@@ -140,7 +140,7 @@ class SupervisorTestHarness extends Context.Service<SupervisorTestHarness, Harne
 
 const userId = UserId.make("gate-user");
 const moduleSource = "export default async () => null;";
-const dataRuntimeImports = ["@ryot-app/sandbox-sdk/fflate"];
+const dataRuntimeImports = ["@ryot-app/plugin-backend-sdk/fflate"];
 
 const makeRecordingHarness = Effect.gen(function* () {
 	const connections: Array<RecordedConnection> = [];
@@ -1384,7 +1384,7 @@ supervisorTest("bounds all tiers, grants, and recovery with global admission", (
 			const data = yield* awaitConnection(harness, "user/data");
 			const grantedRun = yield* Queue.take(data.nextRun);
 			const fullFiber = yield* startRun(supervisor, harness, [], {
-				principal: makePrincipal(["@ryot-app/sandbox-sdk/youtubei"], "system-full"),
+				principal: makePrincipal(["@ryot-app/plugin-backend-sdk/youtubei"], "system-full"),
 			}).pipe(Effect.forkScoped({ startImmediately: true }));
 			const full = yield* awaitConnection(harness, "system/full");
 			const fullRun = yield* Queue.take(full.nextRun);

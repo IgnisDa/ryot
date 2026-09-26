@@ -1,5 +1,5 @@
-import { Effect } from "@ryot-app/sandbox-sdk/effect";
-import { defineSandboxTestHost } from "@ryot-app/sandbox-sdk/testing";
+import { Effect } from "@ryot-app/plugin-backend-sdk/effect";
+import { defineSandboxTestHost } from "@ryot-app/plugin-backend-sdk/testing";
 import { describe, expect, it } from "vitest";
 
 import script, { manifest } from "./user-bootstrap.sandbox";

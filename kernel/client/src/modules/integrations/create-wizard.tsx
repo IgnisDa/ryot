@@ -1,12 +1,12 @@
-import { useRyotMutation } from "@ryot-app/client-sdk/react";
-import { Button, FieldMessage, StatusMessage } from "@ryot-app/client-ui-sdk";
+import { useRyotMutation } from "@ryot-app/plugin-client-sdk/react";
+import { Button, FieldMessage, StatusMessage } from "@ryot-app/plugin-ui-sdk";
 import {
 	useSchemaForm,
 	type SchemaFileUpload,
 	type SchemaFormApi,
 	type SchemaFormValues,
 	toSchemaFormPayload,
-} from "@ryot-app/client-ui-sdk/schema-form";
+} from "@ryot-app/plugin-ui-sdk/schema-form";
 import { Cause, Effect, Match } from "effect";
 import { useReducer, useState } from "react";
 

@@ -1,18 +1,18 @@
-import {
-	compileClientPluginModule,
-	type ClientPluginCompilerPackageInput,
-} from "@ryot-app/client-plugin-compiler";
-import { clientDeclarationHash } from "@ryot-app/client-plugin-contract";
 import { PluginScript, type PluginManifest } from "@ryot-app/contract/modules/plugins/manifest";
 import type { PluginArchivePackage } from "@ryot-app/plugin-archive";
 import {
 	compilePluginManifestScripts,
 	derivePluginSandboxScripts,
-} from "@ryot-app/sandbox-compiler/plugin-manifest";
+} from "@ryot-app/plugin-backend-compiler/plugin-manifest";
+import {
+	compileClientPluginModule,
+	type PluginClientCompilerPackageInput,
+} from "@ryot-app/plugin-client-compiler";
+import { clientDeclarationHash } from "@ryot-app/plugin-client-contract";
 import { Effect, Schema } from "effect";
 
 export type PluginPackageInput = Pick<PluginArchivePackage, "manifest"> &
-	Pick<ClientPluginCompilerPackageInput, "files"> &
+	Pick<PluginClientCompilerPackageInput, "files"> &
 	Partial<Pick<PluginArchivePackage, "compiledClient" | "compiledScripts">>;
 
 const decoder = new TextDecoder("utf-8", { fatal: true });

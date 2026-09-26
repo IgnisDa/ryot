@@ -1,8 +1,8 @@
 import {
 	managedAssetKey,
 	useManagedAssetUrl as useManagedLocatorUrl,
-} from "@ryot-app/client-sdk/react";
-import { EntityArtWell, type FieldSyncState } from "@ryot-app/client-ui-sdk/sync";
+} from "@ryot-app/plugin-client-sdk/react";
+import { EntityArtWell, type FieldSyncState } from "@ryot-app/plugin-ui-sdk/sync";
 
 import type { MediaImageAsset } from "./image";
 

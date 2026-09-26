@@ -1,4 +1,4 @@
-import { Button, FieldMessage } from "@ryot-app/client-ui-sdk";
+import { Button, FieldMessage } from "@ryot-app/plugin-ui-sdk";
 
 const PRECONDITIONS = [
 	"This account must be new and empty. If it already holds anything, the restore stops without changing it.",

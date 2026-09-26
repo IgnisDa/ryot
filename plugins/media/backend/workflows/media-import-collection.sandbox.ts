@@ -1,14 +1,14 @@
 import {
 	genericImportActivityReference,
 	genericImportCaptureReference,
-} from "@ryot-app/sandbox-sdk/imports";
+} from "@ryot-app/plugin-backend-sdk/imports";
 import {
 	defineManifest,
 	defineWorkflow,
 	defineWorkflowReference,
 	Effect,
 	selectExecutable,
-} from "@ryot-app/sandbox-sdk/workflow";
+} from "@ryot-app/plugin-backend-sdk/workflow";
 
 import type { MediaSortedRun } from "../imports/collection-schemas";
 import {

@@ -1,8 +1,8 @@
 #!/usr/bin/env bun
 
 import { BunRuntime, BunServices } from "@effect/platform-bun";
-import { compilePluginSandboxSourceEntries } from "@ryot-app/sandbox-compiler/plugins";
-import { walkSourceFiles } from "@ryot-app/sandbox-compiler/runtime-build/source-tree";
+import { compilePluginSandboxSourceEntries } from "@ryot-app/plugin-backend-compiler/plugins";
+import { walkSourceFiles } from "@ryot-app/plugin-backend-compiler/runtime-build/source-tree";
 import { canonicalFileSetHash } from "@ryot-app/ts-utils/crypto";
 import { encodeJsonString } from "@ryot-app/ts-utils/json";
 import { ViteBuildService } from "@ryot-app/vite-compiler";

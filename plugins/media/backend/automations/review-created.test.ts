@@ -1,8 +1,8 @@
 import { expect, it } from "@effect/vitest";
-import { Effect } from "@ryot-app/sandbox-sdk/effect";
-import { defineSandboxTestHost } from "@ryot-app/sandbox-sdk/testing";
+import { Effect } from "@ryot-app/plugin-backend-sdk/effect";
+import { defineSandboxTestHost } from "@ryot-app/plugin-backend-sdk/testing";
 
-import { mediaPlugin } from "../../host/plugin";
+import { mediaPlugin } from "../../manifest/plugin";
 import {
 	entityRecord,
 	eventAutomationContext,

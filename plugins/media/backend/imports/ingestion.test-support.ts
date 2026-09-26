@@ -1,6 +1,6 @@
 import { LifecycleCommand } from "@ryot-app/contract/modules/automations/lifecycle";
-import { Effect, Schema } from "@ryot-app/sandbox-sdk/effect";
-import { installSandboxTestFilesystem } from "@ryot-app/sandbox-sdk/testing";
+import { Effect, Schema } from "@ryot-app/plugin-backend-sdk/effect";
+import { installSandboxTestFilesystem } from "@ryot-app/plugin-backend-sdk/testing";
 
 import { MediaSourceRecord, type MediaSourceInput } from "./collection-schemas";
 

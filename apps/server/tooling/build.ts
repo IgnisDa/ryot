@@ -1,7 +1,7 @@
 #!/usr/bin/env bun
 
 import { BunRuntime, BunServices } from "@effect/platform-bun";
-import { sandboxCompilerPlatformLayer } from "@ryot-app/sandbox-compiler/platform";
+import { pluginBackendCompilerPlatformLayer } from "@ryot-app/plugin-backend-compiler/platform";
 import { Config, Effect, Layer, Schema } from "effect";
 
 import { buildSandboxSmokeFixtures } from "./build-sandbox-smoke-fixtures";
@@ -42,5 +42,5 @@ const build = Effect.gen(function* () {
 
 BunRuntime.runMain(
 	// oxlint-disable-next-line effecttsgo/strict-effect-provide -- The server build is a command-line entrypoint
-	build.pipe(Effect.provide(Layer.merge(BunServices.layer, sandboxCompilerPlatformLayer))),
+	build.pipe(Effect.provide(Layer.merge(BunServices.layer, pluginBackendCompilerPlatformLayer))),
 );

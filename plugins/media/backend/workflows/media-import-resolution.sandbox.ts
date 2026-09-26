@@ -5,7 +5,7 @@ import {
 	defineWorkflow,
 	Effect,
 	selectExecutable,
-} from "@ryot-app/sandbox-sdk/workflow";
+} from "@ryot-app/plugin-backend-sdk/workflow";
 
 import {
 	MediaImportResolutionActivityInput,

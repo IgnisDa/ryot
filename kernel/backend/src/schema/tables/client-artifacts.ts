@@ -1,5 +1,5 @@
-import type { PluginClientImport } from "@ryot-app/client-plugin-contract";
 import type { PluginPackageId } from "@ryot-app/contract/schema/brands";
+import type { PluginClientImport } from "@ryot-app/plugin-client-contract";
 import { sql } from "drizzle-orm";
 import {
 	bytea,

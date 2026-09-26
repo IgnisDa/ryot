@@ -3,8 +3,8 @@ import { PluginId, pluginPackageIdFromSegments } from "@ryot-app/contract/schema
 import { createFileRoute, notFound } from "@tanstack/react-router";
 import { Effect } from "effect";
 
-import { PluginCatalogService } from "#/modules/plugins/catalog";
-import { effectiveCatalogPlugin } from "#/modules/plugins/plugin-location";
+import { effectiveCatalogPlugin } from "#/modules/plugins/catalog/location";
+import { PluginCatalogService } from "#/modules/plugins/catalog/service";
 
 import { loadSavedView, SavedViewPage, savedViewRouteOptions } from "../../../-saved-view-page";
 

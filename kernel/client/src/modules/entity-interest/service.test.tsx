@@ -1,5 +1,5 @@
 import { afterEach, describe, expect, it } from "@effect/vitest";
-import type { EntityUpdate } from "@ryot-app/client-sdk";
+import type { EntityUpdate } from "@ryot-app/plugin-client-sdk";
 import { act, render } from "@testing-library/react";
 import { Effect, Layer, ManagedRuntime, Schema } from "effect";
 import { createElement, StrictMode, useEffect } from "react";

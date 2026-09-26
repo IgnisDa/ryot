@@ -17,13 +17,13 @@ import type { RyotQLApi } from "#/api/ryotql";
 import type { UserSettingsApi } from "#/api/user-settings";
 import type { AuthService } from "#/modules/auth/service";
 import { createBackInterceptors } from "#/modules/navigation/back-interceptors";
-import { makePluginCatalogEventsTestLayer } from "#/modules/plugins/events.test-layer";
 import {
-	makePluginCatalog,
 	makePluginOperations,
 	makePluginQueries,
 	makePluginStorage,
-} from "#/modules/plugins/services.test-layer";
+} from "#/modules/pages/bridge/services.test-layer";
+import { makePluginCatalogEventsTestLayer } from "#/modules/plugins/catalog/events.test-layer";
+import { makePluginCatalog } from "#/modules/plugins/catalog/service.test-layer";
 import { ClientStorage } from "#/persistence/storage";
 import { getRouter } from "#/router";
 import {

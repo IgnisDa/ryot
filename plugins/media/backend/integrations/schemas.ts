@@ -1,9 +1,9 @@
-import { sandboxScratchManifestSchema } from "@ryot-app/sandbox-sdk/filesystem";
+import { sandboxScratchManifestSchema } from "@ryot-app/plugin-backend-sdk/filesystem";
 import {
 	genericImportApplyResultSchema,
 	ingestionArtifactsSchema,
-} from "@ryot-app/sandbox-sdk/imports";
-import { Schema } from "@ryot-app/sandbox-sdk/workflow";
+} from "@ryot-app/plugin-backend-sdk/imports";
+import { Schema } from "@ryot-app/plugin-backend-sdk/workflow";
 
 import { MediaIntegrationAdapterResult } from "../imports/schemas";
 

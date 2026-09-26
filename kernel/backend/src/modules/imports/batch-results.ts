@@ -6,8 +6,11 @@ import {
 import type {
 	GenericImportFailure,
 	genericImportApplyResultSchema,
-} from "@ryot-app/sandbox-sdk/imports";
-import { genericImportChunkSchema, genericImportItemIntents } from "@ryot-app/sandbox-sdk/imports";
+} from "@ryot-app/plugin-backend-sdk/imports";
+import {
+	genericImportChunkSchema,
+	genericImportItemIntents,
+} from "@ryot-app/plugin-backend-sdk/imports";
 import { Effect, Schema } from "effect";
 
 import { projectEntityIngestionReceipt } from "#modules/entities/mutation-outcomes";

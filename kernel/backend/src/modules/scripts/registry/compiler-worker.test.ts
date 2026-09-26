@@ -1,6 +1,9 @@
 import { BunServices } from "@effect/platform-bun";
 import { assert, expect, layer } from "@effect/vitest";
-import { CompilerWorkerRequest, CompilerWorkerResponse } from "@ryot-app/sandbox-compiler/protocol";
+import {
+	CompilerWorkerRequest,
+	CompilerWorkerResponse,
+} from "@ryot-app/plugin-backend-compiler/protocol";
 import { Effect, Schema, Stream, FileSystem, Path } from "effect";
 import { ChildProcess, ChildProcessSpawner } from "effect/process";
 
@@ -23,13 +26,16 @@ layer(BunServices.layer, { excludeTestServices: true })((test) => {
 			);
 			const outputDirectory = yield* fs.makeTempDirectoryScoped({
 				directory: nodeModules,
-				prefix: "sandbox-compiler-worker-",
+				prefix: "plugin-backend-compiler-worker-",
 			});
 			const workspaceParentPath = yield* fs.makeTempDirectoryScoped({
-				prefix: "sandbox-compiler-workspace-",
+				prefix: "plugin-backend-compiler-workspace-",
 			});
 			const workspaceJobId = "worker-test";
-			const entrypoint = Bun.resolveSync("@ryot-app/sandbox-compiler/worker", import.meta.url);
+			const entrypoint = Bun.resolveSync(
+				"@ryot-app/plugin-backend-compiler/worker",
+				import.meta.url,
+			);
 			const build = yield* Effect.tryPromise(() =>
 				Bun.build({
 					target: "bun",
@@ -92,7 +98,7 @@ layer(BunServices.layer, { excludeTestServices: true })((test) => {
 			Effect.gen(function* () {
 				const fs = yield* FileSystem.FileSystem;
 				const workspaceParentPath = yield* fs.makeTempDirectoryScoped({
-					prefix: "sandbox-compiler-parent-",
+					prefix: "plugin-backend-compiler-parent-",
 				});
 				const compiler = yield* makeSandboxCompiler(workspaceParentPath);
 

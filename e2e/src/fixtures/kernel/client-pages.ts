@@ -273,12 +273,12 @@ export const buildNamedDataSources = (
 };
 
 export const collectionWorkflowRendererSource = `
-import { Effect, Result, Schema } from "@ryot-app/client-sdk/effect";
-import { EntityResults, PluginPackageId, usePageContext, usePageRefresh } from "@ryot-app/client-sdk/plugin";
-import { createRyotMutation, createRyotQuery, useRyotMutation, useRyotQuery } from "@ryot-app/client-sdk/react";
-import { and, ascending, column, defineRecipe, eq, groupAscending, join, literal, selectedAggregate, selectedField, selectedMeasure, selectedRows, table, type Recipe } from "@ryot-app/client-sdk/ryotql";
-import { PluginScreenFrame } from "@ryot-app/client-sdk/screen";
-import { Button, StatusMessage } from "@ryot-app/client-ui-sdk";
+import { Effect, Result, Schema } from "@ryot-app/plugin-client-sdk/effect";
+import { EntityResults, PluginPackageId, usePageContext, usePageRefresh } from "@ryot-app/plugin-client-sdk/plugin";
+import { createRyotMutation, createRyotQuery, useRyotMutation, useRyotQuery } from "@ryot-app/plugin-client-sdk/react";
+import { and, ascending, column, defineRecipe, eq, groupAscending, join, literal, selectedAggregate, selectedField, selectedMeasure, selectedRows, table, type Recipe } from "@ryot-app/plugin-client-sdk/ryotql";
+import { PluginScreenFrame } from "@ryot-app/plugin-client-sdk/screen";
+import { Button, StatusMessage } from "@ryot-app/plugin-ui-sdk";
 import PokemonPicker from "@ryot-app/plugins/fixture/pokemon-picker";
 import WorkoutRowPresentation from "@ryot-app/plugins/fitness/workout-row";
 import ShowProgress from "@ryot-app/plugins/media/show-progress";

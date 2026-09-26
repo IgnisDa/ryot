@@ -1,11 +1,11 @@
-import { DateTime, Effect, Schema } from "@ryot-app/sandbox-sdk/effect";
-import { readArtifactRange, writeScratchChunks } from "@ryot-app/sandbox-sdk/filesystem";
+import { DateTime, Effect, Schema } from "@ryot-app/plugin-backend-sdk/effect";
+import { readArtifactRange, writeScratchChunks } from "@ryot-app/plugin-backend-sdk/filesystem";
 import {
 	genericImportChunkSchema,
 	genericImportItemIntents,
 	genericImportWriteItemSchema,
 	type genericImportFailureSchema,
-} from "@ryot-app/sandbox-sdk/imports";
+} from "@ryot-app/plugin-backend-sdk/imports";
 
 import { parseCsvText, readCsvCell } from "./csv";
 import { adaptHevyRows } from "./hevy";

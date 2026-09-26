@@ -1,5 +1,5 @@
-import { PluginLink } from "@ryot-app/client-sdk/plugin";
-import { fieldSyncState } from "@ryot-app/client-ui-sdk/sync";
+import { PluginLink } from "@ryot-app/plugin-client-sdk/plugin";
+import { fieldSyncState } from "@ryot-app/plugin-ui-sdk/sync";
 import clsx from "clsx";
 import { useMemo, useRef, useState, type ReactNode } from "react";
 

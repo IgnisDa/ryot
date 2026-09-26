@@ -1,7 +1,7 @@
 import { BunServices } from "@effect/platform-bun";
 import { SandboxRunError, unknownToMessage } from "@ryot-app/contract/errors";
-import { sandboxCompilerPlatformLayer } from "@ryot-app/sandbox-compiler/platform";
-import { hostFailure } from "@ryot-app/sandbox-sdk/wire";
+import { pluginBackendCompilerPlatformLayer } from "@ryot-app/plugin-backend-compiler/platform";
+import { hostFailure } from "@ryot-app/plugin-backend-sdk/wire";
 import { SandboxSidecarClient } from "@ryot-app/sandbox/host/client";
 import { selectSnapshotTier } from "@ryot-app/sandbox/host/snapshot-tier";
 import { MiB, SANDBOX_LIMITS } from "@ryot-app/sandbox/protocol/limits";
@@ -47,7 +47,7 @@ const pluginLoadFailure = (script: string, reason: string) =>
 export const pluginLoadLayer = Layer.mergeAll(
 	SandboxSidecarClient.layer.pipe(
 		Layer.provideMerge(
-			Layer.mergeAll(BunServices.layer, sandboxCompilerPlatformLayer, makeAppConfigLayer()),
+			Layer.mergeAll(BunServices.layer, pluginBackendCompilerPlatformLayer, makeAppConfigLayer()),
 		),
 	),
 	Layer.effect(PluginLoadVerificationSlots, Semaphore.make(2)),

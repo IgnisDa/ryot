@@ -1,11 +1,11 @@
 import { assert, expect, layer } from "@effect/vitest";
-import { CLIENT_API_VERSION } from "@ryot-app/client-plugin-contract";
 import { encodePluginCatalogInvalidatedMessage } from "@ryot-app/contract/modules/plugins/contract";
 import type { PluginManifest } from "@ryot-app/contract/modules/plugins/manifest";
 import { PluginConflictError } from "@ryot-app/contract/modules/plugins/schemas";
 import { PluginId, type PluginPackageId, type UserId } from "@ryot-app/contract/schema/brands";
 import { emptySandboxExecutionMetadata } from "@ryot-app/contract/testing";
-import { sandboxCompilerPlatformLayer } from "@ryot-app/sandbox-compiler/platform";
+import { pluginBackendCompilerPlatformLayer } from "@ryot-app/plugin-backend-compiler/platform";
+import { CLIENT_API_VERSION } from "@ryot-app/plugin-client-contract";
 import { assertExitFails } from "@ryot-app/testing/effect-assertions";
 import { Cause, Context, Deferred, Effect, Exit, Fiber, Layer, Option, Ref } from "effect";
 
@@ -493,7 +493,7 @@ const makeLayer = (input?: {
 	return PluginIngestionService.layer.pipe(
 		Layer.provideMerge(fakesLayer),
 		Layer.provideMerge(stateLayer),
-		Layer.provideMerge(Layer.merge(databaseLayer, sandboxCompilerPlatformLayer)),
+		Layer.provideMerge(Layer.merge(databaseLayer, pluginBackendCompilerPlatformLayer)),
 	);
 };
 

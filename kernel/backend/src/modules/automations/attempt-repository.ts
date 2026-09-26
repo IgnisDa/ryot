@@ -13,7 +13,7 @@ import {
 	type AutomationRunId,
 } from "@ryot-app/contract/schema/brands";
 import { decodeStoredSchema } from "@ryot-app/contract/schema/core";
-import { utf8ByteLength } from "@ryot-app/sandbox-compiler/limits";
+import { utf8ByteLength } from "@ryot-app/plugin-backend-compiler/limits";
 import { makeSandboxObservabilityCollector } from "@ryot-app/sandbox/host/observability";
 import { SANDBOX_LIMITS } from "@ryot-app/sandbox/protocol/limits";
 import { sha256Base64Url } from "@ryot-app/ts-utils/crypto";

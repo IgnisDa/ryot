@@ -1,14 +1,14 @@
-import {
-	clientArtifactMetadata,
-	clientDeclarationHash,
-	type PluginClientArtifact,
-} from "@ryot-app/client-plugin-contract";
 import type {
 	PluginClientEntry,
 	PluginManifest,
 } from "@ryot-app/contract/modules/plugins/manifest";
 import type { PluginPackageId } from "@ryot-app/contract/schema/brands";
-import { derivePluginSandboxScripts } from "@ryot-app/sandbox-compiler/plugin-manifest";
+import { derivePluginSandboxScripts } from "@ryot-app/plugin-backend-compiler/plugin-manifest";
+import {
+	clientArtifactMetadata,
+	clientDeclarationHash,
+	type PluginClientArtifact,
+} from "@ryot-app/plugin-client-contract";
 import { Data, Effect, FileSystem, Stream } from "effect";
 
 import type { PluginSource } from "./packages/types";

@@ -1,6 +1,6 @@
-import type { ScriptHost } from "@ryot-app/sandbox-sdk/core";
-import { defineManifest, defineScript } from "@ryot-app/sandbox-sdk/driver";
-import { Effect } from "@ryot-app/sandbox-sdk/effect";
+import type { ScriptHost } from "@ryot-app/plugin-backend-sdk/core";
+import { defineManifest, defineScript } from "@ryot-app/plugin-backend-sdk/driver";
+import { Effect } from "@ryot-app/plugin-backend-sdk/effect";
 
 import { resolvedMediaRef } from "../../imports/source-helpers";
 import { asRecord, numberValue, recordsValue } from "../../lib/records";

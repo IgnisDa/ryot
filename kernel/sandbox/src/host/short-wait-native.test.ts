@@ -1,7 +1,7 @@
 import { assert, expect, layer } from "@effect/vitest";
 import { SandboxScriptManifest } from "@ryot-app/contract/modules/sandbox/schemas";
-import { compileBuiltInSandboxEntry } from "@ryot-app/sandbox-compiler/builtins";
-import type { WorkflowReplayJournalEntry } from "@ryot-app/sandbox-sdk/workflow";
+import { compileBuiltInSandboxEntry } from "@ryot-app/plugin-backend-compiler/builtins";
+import type { WorkflowReplayJournalEntry } from "@ryot-app/plugin-backend-sdk/workflow";
 import { Effect, Schema } from "effect";
 
 import type { SandboxInlineDurableHost } from "./invocation";
@@ -22,7 +22,7 @@ layer(runnerNativeLayer, { excludeTestServices: true })((test) => {
 	test.effect("continues a short sleep live before a long wait defers", () =>
 		Effect.gen(function* () {
 			const compiled = yield* compileFixture(`
-import { defineManifest, defineWorkflow, Effect, Schema } from "@ryot-app/sandbox-sdk/workflow";
+import { defineManifest, defineWorkflow, Effect, Schema } from "@ryot-app/plugin-backend-sdk/workflow";
 export const manifest = defineManifest({ kind: "workflow", name: "Short sleep", slug: "short-sleep" });
 export default defineWorkflow({ manifest, input: Schema.Struct({}), output: Schema.String,
   run: (_input, replay) => Effect.gen(function* () {
@@ -84,7 +84,7 @@ export default defineWorkflow({ manifest, input: Schema.Struct({}), output: Sche
 	test.effect("preserves partial settlement of a short sleep batch at the budget", () =>
 		Effect.gen(function* () {
 			const compiled = yield* compileFixture(`
-import { defineManifest, defineWorkflow, Effect, Schema } from "@ryot-app/sandbox-sdk/workflow";
+import { defineManifest, defineWorkflow, Effect, Schema } from "@ryot-app/plugin-backend-sdk/workflow";
 export const manifest = defineManifest({ kind: "workflow", name: "Parallel sleeps", slug: "parallel-sleeps" });
 export default defineWorkflow({ manifest, input: Schema.Struct({}), output: Schema.Array(Schema.Null),
   run: (_input, replay) => Effect.all([replay.sleep("first", 750), replay.sleep("second", 750)], { concurrency: "unbounded" }) });`);

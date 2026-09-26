@@ -1,6 +1,6 @@
-import { automationInputSchema } from "@ryot-app/sandbox-sdk/automation";
-import { Effect, Schema } from "@ryot-app/sandbox-sdk/effect";
-import { defineSandboxTestHost } from "@ryot-app/sandbox-sdk/testing";
+import { automationInputSchema } from "@ryot-app/plugin-backend-sdk/automation";
+import { Effect, Schema } from "@ryot-app/plugin-backend-sdk/effect";
+import { defineSandboxTestHost } from "@ryot-app/plugin-backend-sdk/testing";
 import { expect, it } from "vitest";
 
 import definition, { manifest } from "./notification.sandbox";

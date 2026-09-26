@@ -1,14 +1,14 @@
-import { useRyotMutation, useRyotQuery } from "@ryot-app/client-sdk/react";
-import { Button } from "@ryot-app/client-ui-sdk";
+import { useRyotMutation, useRyotQuery } from "@ryot-app/plugin-client-sdk/react";
+import { Button } from "@ryot-app/plugin-ui-sdk";
 import { createFileRoute } from "@tanstack/react-router";
 import { Effect } from "effect";
 
+import { PluginManagementPanel } from "#/modules/plugins/management/panel";
 import {
 	errorDetail,
 	pluginManagementMutation,
 	pluginManagementQuery,
-} from "#/modules/plugins/management";
-import { PluginManagementPanel } from "#/modules/plugins/management-panel";
+} from "#/modules/plugins/management/service";
 import { SettingsFrame } from "#/modules/settings/settings-frame";
 
 export const Route = createFileRoute("/_authenticated/settings/plugins")({

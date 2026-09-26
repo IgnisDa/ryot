@@ -1,8 +1,8 @@
 import { describe, expect, layer } from "@effect/vitest";
-import { createRyotClient, RyotClientError } from "@ryot-app/client-sdk";
-import { createTestRyotAdapter } from "@ryot-app/client-sdk/testing";
 import type { ContractSuccess } from "@ryot-app/contract/client";
 import { EntitySchemaSlug, PluginId, SandboxProviderId } from "@ryot-app/contract/schema/brands";
+import { createRyotClient, RyotClientError } from "@ryot-app/plugin-client-sdk";
+import { createTestRyotAdapter } from "@ryot-app/plugin-client-sdk/testing";
 import { Context, Effect, Layer, Ref } from "effect";
 
 import { AuthenticatedApiError } from "#/api/authenticated";

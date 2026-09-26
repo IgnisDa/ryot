@@ -1,5 +1,5 @@
-import { RyotClientError } from "@ryot-app/client-sdk";
-import type { RyotQueryResult } from "@ryot-app/client-sdk/react";
+import { RyotClientError } from "@ryot-app/plugin-client-sdk";
+import type { RyotQueryResult } from "@ryot-app/plugin-client-sdk/react";
 
 export type RyotQueryState<Value> =
 	| { readonly status: "loading" }

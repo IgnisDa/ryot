@@ -1,5 +1,5 @@
-import { load } from "@ryot-app/sandbox-sdk/cheerio";
-import { Effect } from "@ryot-app/sandbox-sdk/effect";
+import { load } from "@ryot-app/plugin-backend-sdk/cheerio";
+import { Effect } from "@ryot-app/plugin-backend-sdk/effect";
 
 import { MediaSandboxError } from "./failures";
 import { normalizeRichDescription } from "./rich-description";

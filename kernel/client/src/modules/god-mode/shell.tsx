@@ -1,5 +1,5 @@
-import { Button } from "@ryot-app/client-ui-sdk";
-import { AppIcon } from "@ryot-app/client-ui-sdk/icon";
+import { Button } from "@ryot-app/plugin-ui-sdk";
+import { AppIcon } from "@ryot-app/plugin-ui-sdk/icon";
 import { Link, Outlet, useLocation, useNavigate } from "@tanstack/react-router";
 import clsx from "clsx";
 import { Effect } from "effect";

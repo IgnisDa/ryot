@@ -1,4 +1,3 @@
-import { createRyotMutation, createRyotQuery } from "@ryot-app/client-sdk/react";
 import type { ContractSuccess } from "@ryot-app/contract/client";
 import { integrationWebhookUrl } from "@ryot-app/contract/modules/integrations/schemas";
 import type {
@@ -7,6 +6,7 @@ import type {
 } from "@ryot-app/contract/modules/integrations/schemas";
 import { sameDeclaration } from "@ryot-app/contract/modules/plugins/references";
 import { IntegrationId } from "@ryot-app/contract/schema/brands";
+import { createRyotMutation, createRyotQuery } from "@ryot-app/plugin-client-sdk/react";
 import { integrationImportRunsRecipe } from "@ryot-app/ryotql-recipes/import-runs";
 import type { ImportRunList } from "@ryot-app/ryotql-recipes/import-runs";
 import {

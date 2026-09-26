@@ -1,11 +1,11 @@
-import { Button, FieldMessage } from "@ryot-app/client-ui-sdk";
-import { AppIcon } from "@ryot-app/client-ui-sdk/icon";
+import { Button, FieldMessage } from "@ryot-app/plugin-ui-sdk";
+import { AppIcon } from "@ryot-app/plugin-ui-sdk/icon";
 import type {
 	SchemaFileUpload,
 	SchemaFormApi,
 	SchemaOAuthConnect,
-} from "@ryot-app/client-ui-sdk/schema-form";
-import { toSchemaFormPayload } from "@ryot-app/client-ui-sdk/schema-form";
+} from "@ryot-app/plugin-ui-sdk/schema-form";
+import { toSchemaFormPayload } from "@ryot-app/plugin-ui-sdk/schema-form";
 import type { ImportRunSummary } from "@ryot-app/ryotql-recipes/import-runs";
 import { Link } from "@tanstack/react-router";
 import clsx from "clsx";

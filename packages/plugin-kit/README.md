@@ -44,17 +44,17 @@ JSON are not rewritten.
 
 ## Package Layout
 
-| Root       | Archive output                             | Owner and allowed dependencies                                                       |
-| ---------- | ------------------------------------------ | ------------------------------------------------------------------------------------ |
-| `host/`    | None                                       | Manifest and code imported directly by the server or kernel client                   |
-| `backend/` | Compiled JavaScript                        | Sandbox entrypoints and libraries; may import siblings and `shared/`                 |
-| `client/`  | Emitted client assets                      | Optional client source; uses client SDK/UI SDK and may import siblings and `shared/` |
-| `shared/`  | Bundled when reachable into scripts/assets | Environment-neutral `.ts`; may import shared siblings and plugin-kit neutral shims   |
+| Root        | Archive output                             | Owner and allowed dependencies                                                       |
+| ----------- | ------------------------------------------ | ------------------------------------------------------------------------------------ |
+| `manifest/` | None                                       | Manifest and declarations imported directly by the server or kernel client           |
+| `backend/`  | Compiled JavaScript                        | Sandbox entrypoints and libraries; may import siblings and `shared/`                 |
+| `client/`   | Emitted client assets                      | Optional client source; uses client SDK/UI SDK and may import siblings and `shared/` |
+| `shared/`   | Bundled when reachable into scripts/assets | Environment-neutral `.ts`; may import shared siblings and plugin-kit neutral shims   |
 
-Backend, client, and shared authoring sources never import `host/`. Production host code reaches
-backend source only through `backend/contracts/**`, which holds sandbox-owned schemas, recipes, and
-helpers needed by host callers.
-Nothing host-only belongs under backend, client, or shared.
+Backend, client, and shared authoring sources never import `manifest/`. Manifest code reaches backend
+source only through `backend/contracts/**`, which holds sandbox-owned schemas, recipes, and helpers
+needed by server callers; environment-neutral values used by both belong in `shared/`.
+Nothing manifest-only belongs under backend, client, or shared.
 
 Client entries default-export components or presentation definitions. They do not mount or bootstrap
 an application. The compiler generates one application bootstrap and React root for plugin routes,
@@ -114,15 +114,15 @@ plugin ID, not installation ID.
 Sandbox definition helpers infer the `run` failure type from its implementation. Use typed/tagged
 failures for expected plugin errors; host capability calls contribute `SandboxHostError` to that
 type. Workflow body failures become failed replay envelopes. Import `Effect` from
-`@ryot-app/sandbox-sdk/effect` in ordinary backend scripts and the restricted
-`@ryot-app/sandbox-sdk/workflow` surface in workflows. The shared `@ryot-app/plugin-kit/effect`
+`@ryot-app/plugin-backend-sdk/effect` in ordinary backend scripts and the restricted
+`@ryot-app/plugin-backend-sdk/workflow` surface in workflows. The shared `@ryot-app/plugin-kit/effect`
 shim remains environment-neutral and does not export `Effect`.
 
 ## Shared Sources
 
 `shared/**` accepts `.ts`, not `.tsx`. Its only bare imports are
 `@ryot-app/plugin-kit/effect`, `/ryotql`, and `/schema`; relative imports remain inside `shared/`.
-Client and sandbox compilers enforce the same rule and reject client-only or sandbox-only SDK imports.
+The plugin client and backend compilers enforce the same rule and reject client-only or backend-only SDK imports.
 
 The `ryotql` shim exports RyotQL, `IsoDateString`, and the four event expression helpers. It must not
 re-export `@ryot-app/ryotql-recipes`, which brings in the contract runtime. The `effect` shim exports
@@ -267,7 +267,7 @@ User scripts and automations can register event-stream work with
 `host.requestEventStreamWork({ entityId, eventSchemaSlug, outputProperties }, processorReference)`.
 The processor reference must name a script in the same plugin revision, and the event schema must
 belong to that plugin. Export `EventStreamStepInput` and `EventStreamStepOutput` from
-`@ryot-app/sandbox-sdk/event-streams` to type the processor. Registration only persists work; dispatch
+`@ryot-app/plugin-backend-sdk/event-streams` to type the processor. Registration only persists work; dispatch
 it with `host.executeWorkflow("event-stream-work", kernelDispatch, { id: workId })`, where
 `kernelDispatch` is the reference from that SDK entry. The kernel checks event ownership and only
 allows updates to the declared output properties.
@@ -421,7 +421,7 @@ Notification subscriptions remain portable user configuration; triggers, runs, a
 state, logs, mutation receipts, pending batch evidence, and encryption keys are not account-backup data.
 
 Create executable references with `defineScriptReference` and `defineWorkflowReference` from
-`@ryot-app/sandbox-sdk/workflow`. `defineExecutableAlternatives({ id, stage, references })` and
+`@ryot-app/plugin-backend-sdk/workflow`. `defineExecutableAlternatives({ id, stage, references })` and
 `selectExecutable(alternatives, key)` constrain selection to registered targets. Use `stage: "settings"`
 for setup choices and `stage: "record"` for choices refined from collected records. Configuration and
 executable SDK methods must be called directly; method aliases are unsupported.

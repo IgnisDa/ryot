@@ -3,8 +3,8 @@ import { KERNEL_PROCESS_IMPORT_CHUNKS_WORKFLOW } from "@ryot-app/contract/module
 import type { JsonValue } from "@ryot-app/contract/modules/ryotql/language";
 import type { SandboxExecutionPayload } from "@ryot-app/contract/modules/sandbox/schemas";
 import { SandboxScriptId } from "@ryot-app/contract/schema/brands";
-import { jsonByteLength } from "@ryot-app/sandbox-compiler/limits";
-import { jsonValueSchema } from "@ryot-app/sandbox-sdk/wire";
+import { jsonByteLength } from "@ryot-app/plugin-backend-compiler/limits";
+import { jsonValueSchema } from "@ryot-app/plugin-backend-sdk/wire";
 import {
 	type WorkflowDurableResult,
 	type WorkflowReplayEnvelope,
@@ -14,7 +14,7 @@ import {
 	workflowReplayJournalEntrySchema,
 	type WorkflowDurableCallRequest,
 	type WorkflowReplayJournalEntry,
-} from "@ryot-app/sandbox-sdk/workflow";
+} from "@ryot-app/plugin-backend-sdk/workflow";
 import { ExecutionFileStore } from "@ryot-app/sandbox/host/execution-files";
 import { sanitizeSandboxExecutionSegment } from "@ryot-app/sandbox/host/filesystem-grants";
 import { sandboxMetricKind } from "@ryot-app/sandbox/host/metrics";

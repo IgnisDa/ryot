@@ -10,10 +10,10 @@
 - `kernel/backend` is domain-agnostic. `kernel/client` is the React DOM client kernel and Capacitor app.
 - `kernel/sandbox` owns script isolation: the Rust `ryot-sandboxd` daemon under `native/`, the trusted guest runner, the parent/daemon protocol, and the host that supervises daemons. It never imports `kernel/backend`; the backend supplies configuration, authority, and host functions through its ports.
 - `apps/server` assembles the backend kernel, owns one-time migrations, and ships plugin archives.
-- `plugins/*` own first-party plugins (`media`, `fitness`, `fixture`), each split into host-side `host/`, archived `backend/`, and archived `client/`.
-- `packages/contract` owns the client-safe HTTP boundary, generic shared wire schemas, and plugin manifests; `packages/client-plugin-contract` owns the client plugin bridge protocol, artifact model, source file policy, and shared client-plugin capability payloads. `packages/plugin-kit` documents the plugin authoring surface.
-- `packages/client-sdk` and `packages/client-ui-sdk` are the environment-neutral plugin-facing client surfaces; `packages/sandbox-sdk` is their backend counterpart.
-- `packages/sandbox-compiler` and `packages/client-plugin-compiler` are independent engines sharing generic infrastructure from `packages/typescript-compiler`.
+- `plugins/*` own first-party plugins (`media`, `fitness`, `fixture`), each split into `manifest/`, archived `backend/`, archived `client/`, and environment-neutral `shared/`.
+- `packages/contract` owns the client-safe HTTP boundary, generic shared wire schemas, and plugin manifests; `packages/plugin-client-contract` owns the client plugin bridge protocol, artifact model, source file policy, and shared client-plugin capability payloads. `packages/plugin-kit` documents the plugin authoring surface.
+- `packages/plugin-client-sdk` and `packages/plugin-ui-sdk` are the environment-neutral plugin-facing client surfaces; `packages/plugin-backend-sdk` is their backend counterpart.
+- `packages/plugin-backend-compiler` and `packages/plugin-client-compiler` are independent engines sharing generic infrastructure from `packages/typescript-compiler`.
 - `packages/cli` builds canonical plugin archives for first-party and third-party plugins; `packages/plugin-archive` owns the shared deterministic archive reader and writer.
 - `packages/ryotql` builds query documents; `packages/ryotql-recipes` owns application recipes, and plugins own their domain recipes under `shared/`.
 - `packages/kernel-renderers` owns the kernel-shipped saved-view renderers as real client plugin sources.

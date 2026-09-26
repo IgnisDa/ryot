@@ -25,7 +25,7 @@ import {
 import type { AccountGeneration } from "@ryot-app/contract/schema/account-generation";
 import { SandboxScriptId } from "@ryot-app/contract/schema/brands";
 import { JsonValue } from "@ryot-app/contract/schema/json";
-import { jsonByteLength } from "@ryot-app/sandbox-compiler/limits";
+import { jsonByteLength } from "@ryot-app/plugin-backend-compiler/limits";
 import { SANDBOX_LIMITS } from "@ryot-app/sandbox/protocol/limits";
 import { stableStringify } from "@ryot-app/ts-utils/json";
 import { eq } from "drizzle-orm";

@@ -3,13 +3,16 @@ import { SandboxExecutionMetadata } from "@ryot-app/contract/modules/plugins/exe
 import type { SandboxExecutionError } from "@ryot-app/contract/modules/sandbox/schemas";
 import { jsonValueSchema } from "@ryot-app/contract/modules/sandbox/wire";
 import type { JsonValue } from "@ryot-app/contract/schema/json";
-import { sandboxManifestSchema, type SandboxWorkflowReference } from "@ryot-app/sandbox-sdk/core";
-import { Clock, Effect, Schema } from "@ryot-app/sandbox-sdk/effect";
+import {
+	sandboxManifestSchema,
+	type SandboxWorkflowReference,
+} from "@ryot-app/plugin-backend-sdk/core";
+import { Clock, Effect, Schema } from "@ryot-app/plugin-backend-sdk/effect";
 import {
 	configureSandboxFilesystem,
 	type SandboxFilesystemBinding,
-} from "@ryot-app/sandbox-sdk/filesystem";
-import type { SandboxHostError } from "@ryot-app/sandbox-sdk/wire";
+} from "@ryot-app/plugin-backend-sdk/filesystem";
+import type { SandboxHostError } from "@ryot-app/plugin-backend-sdk/wire";
 import {
 	workflowDurableCallRequestSchema,
 	workflowDurableResultSchema,
@@ -17,7 +20,7 @@ import {
 	type workflowHostRequestSchema,
 	type WorkflowReplayJournal,
 	type WorkflowReplayJournalEntry,
-} from "@ryot-app/sandbox-sdk/workflow";
+} from "@ryot-app/plugin-backend-sdk/workflow";
 
 import {
 	chargeSandboxHostCall,

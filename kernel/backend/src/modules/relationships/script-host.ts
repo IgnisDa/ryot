@@ -1,6 +1,6 @@
 import { definitionOwner } from "@ryot-app/contract/modules/plugins/references";
 import { EntityId, RelationshipSchemaSlug, UserId } from "@ryot-app/contract/schema/brands";
-import type { SandboxHostError } from "@ryot-app/sandbox-sdk/wire";
+import type { SandboxHostError } from "@ryot-app/plugin-backend-sdk/wire";
 import {
 	requireSandboxCapabilityInput,
 	sandboxHostEffect,

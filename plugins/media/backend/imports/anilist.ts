@@ -1,4 +1,4 @@
-import { Result, Schema, SchemaIssue } from "@ryot-app/sandbox-sdk/effect";
+import { Result, Schema, SchemaIssue } from "@ryot-app/plugin-backend-sdk/effect";
 
 import { anilistListState } from "../lib/anilist-list";
 import { nowIso, parseZonedDateTime } from "./dates";

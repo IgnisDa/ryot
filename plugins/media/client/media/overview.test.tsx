@@ -1,5 +1,5 @@
 import { afterEach, describe, expect, it } from "@effect/vitest";
-import { Effect } from "@ryot-app/client-sdk/effect";
+import { Effect } from "@ryot-app/plugin-client-sdk/effect";
 import { fireEvent, waitFor } from "@testing-library/dom";
 import type { ReactNode } from "react";
 

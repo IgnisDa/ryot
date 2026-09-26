@@ -1,10 +1,10 @@
-import { zipEntrySchema } from "@ryot-app/sandbox-sdk/fflate";
-import { jsonValueSchema } from "@ryot-app/sandbox-sdk/wire";
+import { zipEntrySchema } from "@ryot-app/plugin-backend-sdk/fflate";
+import { jsonValueSchema } from "@ryot-app/plugin-backend-sdk/wire";
 import {
 	defineExecutableAlternatives,
 	defineScriptReference,
 	Schema,
-} from "@ryot-app/sandbox-sdk/workflow";
+} from "@ryot-app/plugin-backend-sdk/workflow";
 
 import { MediaSourceInput, MediaSourceResult } from "./collection-schemas";
 import { MediaIntegrationArtifactResult } from "./process";

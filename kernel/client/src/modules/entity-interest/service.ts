@@ -1,10 +1,10 @@
-import type { EntityInterest, RyotClient } from "@ryot-app/client-sdk";
 import {
 	MAX_INTEREST_ENTITY_IDS,
 	decodeEntityInterestServerMessage,
 	encodeEntityInterestClientMessage,
 	type EntityInterestClientMessage,
 } from "@ryot-app/contract/modules/entity-interest/messages";
+import type { EntityInterest, RyotClient } from "@ryot-app/plugin-client-sdk";
 import type { Fiber } from "effect";
 import { Context, Effect, FiberHandle, Layer, Match, Result } from "effect";
 

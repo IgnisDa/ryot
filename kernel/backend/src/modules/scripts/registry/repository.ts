@@ -9,7 +9,7 @@ import {
 	SandboxScriptId,
 	UserId,
 } from "@ryot-app/contract/schema/brands";
-import type { WorkflowDurableCallRequest } from "@ryot-app/sandbox-sdk/workflow";
+import type { WorkflowDurableCallRequest } from "@ryot-app/plugin-backend-sdk/workflow";
 import {
 	sandboxSubjectUserId,
 	type ScriptExecutionPrincipal,

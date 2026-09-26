@@ -1,4 +1,4 @@
-import { DateTime, Effect, Option, Schema } from "@ryot-app/sandbox-sdk/effect";
+import { DateTime, Effect, Option, Schema } from "@ryot-app/plugin-backend-sdk/effect";
 
 import { MediaSandboxError } from "../../../lib/failures";
 import { type UnknownRecord, asRecord, numberValue, stringValue } from "../../../lib/records";

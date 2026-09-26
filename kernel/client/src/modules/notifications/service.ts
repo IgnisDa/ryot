@@ -1,7 +1,7 @@
-import { createRyotMutation, createRyotQuery } from "@ryot-app/client-sdk/react";
 import type { ContractSuccess } from "@ryot-app/contract/client";
 import type { CreateNotificationChannelBody } from "@ryot-app/contract/modules/notifications/schemas";
 import { NotificationChannelId } from "@ryot-app/contract/schema/brands";
+import { createRyotMutation, createRyotQuery } from "@ryot-app/plugin-client-sdk/react";
 import { notificationChannelsRecipe } from "@ryot-app/ryotql-recipes/notification-channels";
 import type { NotificationChannelsResult } from "@ryot-app/ryotql-recipes/notification-channels";
 import { Context, Data, Effect, Layer } from "effect";

@@ -1,7 +1,7 @@
 import type { TimeoutError } from "@ryot-app/contract/errors";
 import { SandboxRunError } from "@ryot-app/contract/errors";
 import type { ExecutionLane } from "@ryot-app/contract/modules/automations/lifecycle";
-import type { WorkflowReplayJournalEntry } from "@ryot-app/sandbox-sdk/workflow";
+import type { WorkflowReplayJournalEntry } from "@ryot-app/plugin-backend-sdk/workflow";
 import { exponentialBackoffMs } from "@ryot-app/ts-utils/backoff";
 import { stableStringify } from "@ryot-app/ts-utils/json";
 import {

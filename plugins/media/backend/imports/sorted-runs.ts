@@ -1,4 +1,7 @@
-import { defineWorkflowReference, type WorkflowReplay } from "@ryot-app/sandbox-sdk/workflow";
+import {
+	defineWorkflowReference,
+	type WorkflowReplay,
+} from "@ryot-app/plugin-backend-sdk/workflow";
 
 import type { MediaSortedRun } from "./collection-schemas";
 import { MediaMergeInput, MediaMergeOutput } from "./process";

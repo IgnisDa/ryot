@@ -1,5 +1,5 @@
 import { assert, expect, layer } from "@effect/vitest";
-import { jsonByteLength, utf8ByteLength } from "@ryot-app/sandbox-compiler/limits";
+import { jsonByteLength, utf8ByteLength } from "@ryot-app/plugin-backend-compiler/limits";
 import { SANDBOX_LIMITS } from "@ryot-app/sandbox/protocol/limits";
 import { Effect, Schema } from "effect";
 
@@ -98,8 +98,8 @@ layer(SandboxCompiler.layer)((test) => {
 		Effect.gen(function* () {
 			const enumMembers = Array.from({ length: 25_000 }, (_, index) => `A${index},`).join("");
 			const source = `
-	import { defineManifest, defineScript } from "@ryot-app/sandbox-sdk/driver";
-	import { Effect, Schema } from "@ryot-app/sandbox-sdk/effect";
+	import { defineManifest, defineScript } from "@ryot-app/plugin-backend-sdk/driver";
+	import { Effect, Schema } from "@ryot-app/plugin-backend-sdk/effect";
 	export enum LargeCompiledValue { ${enumMembers} }
 	export const manifest = defineManifest({
 	  kind: "script",

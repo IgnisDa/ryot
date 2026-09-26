@@ -2,11 +2,6 @@ import { tmpdir } from "node:os";
 
 import { BunFileSystem } from "@effect/platform-bun";
 import { expect, it, layer } from "@effect/vitest";
-import {
-	CLIENT_API_VERSION,
-	clientArtifactMetadata,
-	clientDeclarationHash,
-} from "@ryot-app/client-plugin-contract";
 import { BadRequest } from "@ryot-app/contract/errors";
 import { pluginPackageKey } from "@ryot-app/contract/modules/plugins/references";
 import {
@@ -16,6 +11,11 @@ import {
 	PluginPackageId,
 } from "@ryot-app/contract/schema/brands";
 import type { AppSchema } from "@ryot-app/contract/schema/property-schema";
+import {
+	CLIENT_API_VERSION,
+	clientArtifactMetadata,
+	clientDeclarationHash,
+} from "@ryot-app/plugin-client-contract";
 import { column, document, field, rows, table } from "@ryot-app/ryotql";
 import { assertExitFails } from "@ryot-app/testing/effect-assertions";
 import { sql } from "drizzle-orm";

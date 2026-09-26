@@ -1,6 +1,6 @@
-import { ActiveScreenContext } from "@ryot-app/client-sdk/react";
-import { ScreenBarButton, ScreenFrame } from "@ryot-app/client-ui-sdk";
-import { AppIcon } from "@ryot-app/client-ui-sdk/icon";
+import { ActiveScreenContext } from "@ryot-app/plugin-client-sdk/react";
+import { ScreenBarButton, ScreenFrame } from "@ryot-app/plugin-ui-sdk";
+import { AppIcon } from "@ryot-app/plugin-ui-sdk/icon";
 import { useNavigate, useRouter } from "@tanstack/react-router";
 import { useRef, type ComponentProps, type ReactNode } from "react";
 

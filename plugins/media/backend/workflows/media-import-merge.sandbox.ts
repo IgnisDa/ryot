@@ -1,5 +1,5 @@
-import { genericImportCaptureReference } from "@ryot-app/sandbox-sdk/imports";
-import { defineManifest, defineWorkflow, Effect } from "@ryot-app/sandbox-sdk/workflow";
+import { genericImportCaptureReference } from "@ryot-app/plugin-backend-sdk/imports";
+import { defineManifest, defineWorkflow, Effect } from "@ryot-app/plugin-backend-sdk/workflow";
 
 import { MediaMergeInput, MediaMergeOutput } from "../imports/process";
 import { mediaMerge } from "../imports/references";

@@ -1,4 +1,4 @@
-import type { Recipe } from "@ryot-app/client-sdk/ryotql";
+import type { Recipe } from "@ryot-app/plugin-client-sdk/ryotql";
 
 import type { MediaPresentationDataOf, MediaSummaryOf } from "../../shared/media-recipes";
 import { videoGameRelationKinds } from "../../shared/video-game";

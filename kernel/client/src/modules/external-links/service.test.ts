@@ -1,5 +1,5 @@
 import { describe, expect, it } from "@effect/vitest";
-import { RyotClientError } from "@ryot-app/client-sdk";
+import { RyotClientError } from "@ryot-app/plugin-client-sdk";
 import { Effect } from "effect";
 
 import { ExternalLinkPlatform, ExternalLinks } from "#/modules/external-links/service";

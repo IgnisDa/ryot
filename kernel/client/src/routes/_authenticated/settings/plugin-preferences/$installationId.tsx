@@ -1,5 +1,5 @@
-import { useRyotMutation, useRyotQuery } from "@ryot-app/client-sdk/react";
-import { Button, DestructiveConfirmation, StatusMessage } from "@ryot-app/client-ui-sdk";
+import { useRyotMutation, useRyotQuery } from "@ryot-app/plugin-client-sdk/react";
+import { Button, DestructiveConfirmation, StatusMessage } from "@ryot-app/plugin-ui-sdk";
 import {
 	initialSchemaFormValues,
 	SchemaForm,
@@ -8,7 +8,7 @@ import {
 	type SchemaFormArrayValue,
 	type SchemaFormValue,
 	type SchemaFormValues,
-} from "@ryot-app/client-ui-sdk/schema-form";
+} from "@ryot-app/plugin-ui-sdk/schema-form";
 import type { PluginUserSettingsPage } from "@ryot-app/ryotql-recipes/plugin-user-settings";
 import { createFileRoute, useBlocker } from "@tanstack/react-router";
 import { Effect } from "effect";

@@ -8,9 +8,12 @@ import {
 } from "@ryot-app/contract/modules/sandbox/wire";
 import type { UserId } from "@ryot-app/contract/schema/brands";
 import { isJsonValue, type JsonValue } from "@ryot-app/contract/schema/json";
-import type { SandboxHostImplementationMap as SdkSandboxHostImplementationMap } from "@ryot-app/sandbox-sdk/core";
-import type { SandboxHostError } from "@ryot-app/sandbox-sdk/wire";
-import type { WorkflowDurableResult, WorkflowInlineRequest } from "@ryot-app/sandbox-sdk/workflow";
+import type { SandboxHostImplementationMap as SdkSandboxHostImplementationMap } from "@ryot-app/plugin-backend-sdk/core";
+import type { SandboxHostError } from "@ryot-app/plugin-backend-sdk/wire";
+import type {
+	WorkflowDurableResult,
+	WorkflowInlineRequest,
+} from "@ryot-app/plugin-backend-sdk/workflow";
 import { isObjectRecord } from "@ryot-app/ts-utils/predicates";
 import { Effect, PlatformError, type Schema } from "effect";
 

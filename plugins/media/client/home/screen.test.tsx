@@ -3,8 +3,8 @@ import {
 	RyotClientError,
 	type RyotClientAdapter,
 	type RyotNavigationTarget,
-} from "@ryot-app/client-sdk";
-import { DateTime, Effect } from "@ryot-app/client-sdk/effect";
+} from "@ryot-app/plugin-client-sdk";
+import { DateTime, Effect } from "@ryot-app/plugin-client-sdk/effect";
 import { getByRole, waitFor } from "@testing-library/dom";
 import { act } from "react";
 

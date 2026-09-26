@@ -1,6 +1,6 @@
 import { SandboxRunError, TimeoutError, unknownToMessage } from "@ryot-app/contract/errors";
-import { jsonByteLength, utf8ByteLength } from "@ryot-app/sandbox-compiler/limits";
-import { SANDBOX_COMPILED_FORMAT } from "@ryot-app/sandbox-compiler/protocol";
+import { jsonByteLength, utf8ByteLength } from "@ryot-app/plugin-backend-compiler/limits";
+import { SANDBOX_COMPILED_FORMAT } from "@ryot-app/plugin-backend-compiler/protocol";
 import { sha256Hex } from "@ryot-app/ts-utils/crypto";
 import { stableStringify } from "@ryot-app/ts-utils/json";
 import { isObjectRecord } from "@ryot-app/ts-utils/predicates";

@@ -5,9 +5,9 @@ import {
 	UserId,
 } from "@ryot-app/contract/schema/brands";
 import { AppSchema } from "@ryot-app/contract/schema/property-schema";
+import { entitySchemaRecordSchema } from "@ryot-app/plugin-backend-sdk/core";
+import { jsonValueSchema } from "@ryot-app/plugin-backend-sdk/wire";
 import { entityDefinitionsRecipe } from "@ryot-app/ryotql-recipes/definitions";
-import { entitySchemaRecordSchema } from "@ryot-app/sandbox-sdk/core";
-import { jsonValueSchema } from "@ryot-app/sandbox-sdk/wire";
 import { Deferred, Effect, Schema } from "effect";
 
 import {

@@ -1,4 +1,3 @@
-import { PluginClientArtifactFromBase64 } from "@ryot-app/client-plugin-contract";
 import type { ContractPayload, ContractSuccess } from "@ryot-app/contract/client";
 import type { EntitySchemaReference } from "@ryot-app/contract/modules/plugins/references";
 import {
@@ -9,6 +8,7 @@ import {
 	type SandboxScriptId,
 } from "@ryot-app/contract/schema/brands";
 import type { PluginArchivePackage } from "@ryot-app/plugin-archive";
+import { PluginClientArtifactFromBase64 } from "@ryot-app/plugin-client-contract";
 import { stableStringify } from "@ryot-app/ts-utils/json";
 import { Effect, Schema } from "effect";
 

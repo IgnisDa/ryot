@@ -1,8 +1,8 @@
 import { assert, describe, expect, it } from "@effect/vitest";
-import type { UpdateEventItem } from "@ryot-app/sandbox-sdk/core";
-import { Effect, Schema } from "@ryot-app/sandbox-sdk/effect";
-import type { RyotQLDocument } from "@ryot-app/sandbox-sdk/ryotql";
-import { defineSandboxTestHost, runSandboxTestScript } from "@ryot-app/sandbox-sdk/testing";
+import type { UpdateEventItem } from "@ryot-app/plugin-backend-sdk/core";
+import { Effect, Schema } from "@ryot-app/plugin-backend-sdk/effect";
+import type { RyotQLDocument } from "@ryot-app/plugin-backend-sdk/ryotql";
+import { defineSandboxTestHost, runSandboxTestScript } from "@ryot-app/plugin-backend-sdk/testing";
 
 import { ExerciseNoteCreateInput } from "../../shared/exercise-note-operations";
 import createDefinition, { manifest as createManifest } from "./exercise-note-create.sandbox";

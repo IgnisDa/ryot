@@ -5,6 +5,7 @@ import {
 	SignalSchemaSlug,
 	UserId,
 } from "@ryot-app/contract/schema/brands";
+import { genericImportSealInputSchema } from "@ryot-app/plugin-backend-sdk/imports";
 import {
 	ascending,
 	column,
@@ -15,7 +16,6 @@ import {
 	selectedRows,
 	table,
 } from "@ryot-app/ryotql";
-import { genericImportSealInputSchema } from "@ryot-app/sandbox-sdk/imports";
 import { Deferred, Effect, Result, Schema } from "effect";
 
 import {

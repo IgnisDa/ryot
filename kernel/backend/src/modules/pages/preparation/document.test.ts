@@ -17,7 +17,7 @@ const manifest = () =>
 	composeClientPage({
 		identity: identity(),
 		artifacts: descriptions(),
-		runtimeEntries: { bootstrap: "bootstrap.js", "@ryot-app/client-sdk": "runtime.js" },
+		runtimeEntries: { bootstrap: "bootstrap.js", "@ryot-app/plugin-client-sdk": "runtime.js" },
 	});
 const access = (privateHashes: readonly string[]) =>
 	new Map(

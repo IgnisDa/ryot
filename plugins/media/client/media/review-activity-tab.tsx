@@ -1,5 +1,5 @@
-import type { PluginIdentityReference } from "@ryot-app/client-sdk/plugin";
-import type { PreparedRecipe } from "@ryot-app/client-sdk/ryotql";
+import type { PluginIdentityReference } from "@ryot-app/plugin-client-sdk/plugin";
+import type { PreparedRecipe } from "@ryot-app/plugin-client-sdk/ryotql";
 
 import type { MediaReviewActivityResult } from "../../shared/media-recipes";
 import { mediaReviewActivityCopy } from "./activity-copy";

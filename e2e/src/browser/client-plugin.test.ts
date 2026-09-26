@@ -1,5 +1,5 @@
-import { CLIENT_API_VERSION } from "@ryot-app/client-plugin-contract";
 import { pluginPath } from "@ryot-app/contract/modules/plugins/navigation";
+import { CLIENT_API_VERSION } from "@ryot-app/plugin-client-contract";
 import { Effect, Option, Schema } from "effect";
 import { Playwright, PlaywrightSpawner } from "effect-playwright";
 
@@ -481,9 +481,9 @@ it.live("opens an external link from a sandbox click through host authority", ()
 				}),
 				files: encodePluginSourceFiles({
 					"client/home.tsx": `
-import { Effect } from "@ryot-app/client-sdk/effect";
-import { useRyot } from "@ryot-app/client-sdk/react";
-import { PluginScreenFrame } from "@ryot-app/client-sdk/screen";
+import { Effect } from "@ryot-app/plugin-client-sdk/effect";
+import { useRyot } from "@ryot-app/plugin-client-sdk/react";
+import { PluginScreenFrame } from "@ryot-app/plugin-client-sdk/screen";
 import { useState } from "react";
 
 export default function Home() {

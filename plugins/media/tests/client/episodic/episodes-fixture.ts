@@ -1,5 +1,5 @@
-import { Result } from "@ryot-app/client-sdk/effect";
-import { createRyotQuery } from "@ryot-app/client-sdk/react";
+import { Result } from "@ryot-app/plugin-client-sdk/effect";
+import { createRyotQuery } from "@ryot-app/plugin-client-sdk/react";
 
 import type { MediaCursorPage } from "../../../client/media/cursor-page-state";
 import type { MediaEpisodePageInput, MediaEpisodeRender } from "../../../client/media/episodes";

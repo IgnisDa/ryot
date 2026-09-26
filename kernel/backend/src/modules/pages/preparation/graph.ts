@@ -1,12 +1,4 @@
 import {
-	CLIENT_API_VERSION,
-	CLIENT_ARTIFACT_FORMAT,
-	CLIENT_BRIDGE_PROTOCOL_VERSION,
-	CLIENT_COMPILER_VERSION,
-	pluginExportSpecifier,
-	type PluginClientImport,
-} from "@ryot-app/client-plugin-contract";
-import {
 	ClientPagePreparationError,
 	type ClientPageCodeContributor,
 	type ClientPageCompositionIdentity,
@@ -19,6 +11,14 @@ import {
 	type PluginPackageReference,
 } from "@ryot-app/contract/modules/plugins/references";
 import { PluginId } from "@ryot-app/contract/schema/brands";
+import {
+	CLIENT_API_VERSION,
+	CLIENT_ARTIFACT_FORMAT,
+	CLIENT_BRIDGE_PROTOCOL_VERSION,
+	CLIENT_COMPILER_VERSION,
+	pluginExportSpecifier,
+	type PluginClientImport,
+} from "@ryot-app/plugin-client-contract";
 import { sha256Hex } from "@ryot-app/ts-utils/crypto";
 import { stableStringify } from "@ryot-app/ts-utils/json";
 import { sortBy } from "@ryot-app/ts-utils/lodash";

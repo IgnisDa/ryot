@@ -1,6 +1,6 @@
 import { describe, expect, it } from "@effect/vitest";
-import { Effect } from "@ryot-app/client-sdk/effect";
-import { createTestRyotClock } from "@ryot-app/client-sdk/testing";
+import { Effect } from "@ryot-app/plugin-client-sdk/effect";
+import { createTestRyotClock } from "@ryot-app/plugin-client-sdk/testing";
 
 import { loadMovePresentations } from "./move-presentation";
 import { loadPokemonPresentations } from "./pokemon-presentation";

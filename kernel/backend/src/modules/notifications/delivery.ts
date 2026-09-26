@@ -103,7 +103,7 @@ export class NotificationDeliveryService extends Context.Service<NotificationDel
 				const [{ render }, { default: GenericEmail }] = yield* Effect.promise(() =>
 					Promise.all([
 						import("@react-email/components"),
-						import("@ryot-app/transactional/emails/generic"),
+						import("@ryot-app/email-templates/emails/generic"),
 					]),
 				);
 				const email = GenericEmail({ message: input.message });

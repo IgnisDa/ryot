@@ -6,8 +6,8 @@ import {
 import { SandboxExecutionSubject } from "@ryot-app/contract/modules/sandbox/schemas";
 import type { SandboxHostCapability } from "@ryot-app/contract/modules/sandbox/wire";
 import { AutomationExecutionId } from "@ryot-app/contract/schema/brands";
-import { automationInputSchema } from "@ryot-app/sandbox-sdk/automation";
-import type { SandboxHostError } from "@ryot-app/sandbox-sdk/wire";
+import { automationInputSchema } from "@ryot-app/plugin-backend-sdk/automation";
+import type { SandboxHostError } from "@ryot-app/plugin-backend-sdk/wire";
 import {
 	sandboxHostFailure,
 	toSandboxHostError,

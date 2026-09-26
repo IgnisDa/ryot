@@ -1,9 +1,3 @@
-import {
-	CLIENT_API_VERSION,
-	CLIENT_ARTIFACT_FORMAT,
-	CLIENT_BRIDGE_PROTOCOL_VERSION,
-	CLIENT_COMPILER_VERSION,
-} from "@ryot-app/client-plugin-contract";
 import type {
 	ClientCompositionDocument,
 	PreparedClientPage,
@@ -15,6 +9,12 @@ import {
 	SavedViewId,
 	UserId,
 } from "@ryot-app/contract/schema/brands";
+import {
+	CLIENT_API_VERSION,
+	CLIENT_ARTIFACT_FORMAT,
+	CLIENT_BRIDGE_PROTOCOL_VERSION,
+	CLIENT_COMPILER_VERSION,
+} from "@ryot-app/plugin-client-contract";
 import type { NavigationData } from "@ryot-app/ryotql-recipes/navigation";
 import type { PluginClientCatalog } from "@ryot-app/ryotql-recipes/plugin-client-catalog";
 import type { UserSettingsResult } from "@ryot-app/ryotql-recipes/user-settings";
@@ -33,7 +33,6 @@ import { OAuthStorage } from "#/modules/auth/oauth-storage";
 import { RuntimeOAuthClientService } from "#/modules/auth/runtime-client";
 import { AuthService, type SettledAuthSession } from "#/modules/auth/service";
 import { OAuthTokenService } from "#/modules/auth/token-service";
-import { ClientPageFreshness } from "#/modules/client-pages/freshness";
 import { EntitiesService } from "#/modules/entities/service";
 import { GodModeImpersonationService } from "#/modules/god-mode/impersonation";
 import { InstanceAdminService } from "#/modules/god-mode/service";
@@ -46,6 +45,7 @@ import { CustomizeSidebarService } from "#/modules/navigation/customize/service"
 import { DeepLinkClaims } from "#/modules/navigation/deep-link";
 import { NavigationService } from "#/modules/navigation/service";
 import { NotificationChannelsService } from "#/modules/notifications/service";
+import { ClientPageFreshness } from "#/modules/pages/preparation/freshness";
 import { ProviderAddService } from "#/modules/provider-add/service";
 import { SavedViewsService } from "#/modules/saved-views/service";
 import { ServerService } from "#/modules/server/service";

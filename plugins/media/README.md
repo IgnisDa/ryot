@@ -11,7 +11,7 @@ notifications, and Radarr/Sonarr collection pushes.
 
 ## Client
 
-Client query definitions return Effects from `@ryot-app/client-sdk/effect`. RyotQL requests compose
+Client query definitions return Effects from `@ryot-app/plugin-client-sdk/effect`. RyotQL requests compose
 directly through `client.data.query`; query cancellation follows the query fiber. Media presentation
 loaders also return Effects; their batch requests are interrupted when the presentation is disposed.
 React storage callbacks remain the SDK's framework boundary.
@@ -239,7 +239,7 @@ the box sized by `ScreenFrame`; it declares art height below the bar and adds no
 offset.
 
 Managed artwork uses `ManagedAssetProvider` and `useManagedAssetUrl` from
-`@ryot-app/client-sdk/react`. The SDK deduplicates locators, resolves batches of at most 64, retains
+`@ryot-app/plugin-client-sdk/react`. The SDK deduplicates locators, resolves batches of at most 64, retains
 resolved URLs while refreshing, and renews them before expiry. Media code only collects domain image
 locators and adapts remote images, which load directly.
 
@@ -276,7 +276,7 @@ contract order and named alphabetically within a group. TMDB sources this data f
 the section credits.
 
 Rows select `populationStatus` and `translationStatus` through `entitySyncSelection`. Visual marks and
-the missing-artwork surface come from `@ryot-app/client-ui-sdk/sync`; media wrappers do not own asset
+the missing-artwork surface come from `@ryot-app/plugin-ui-sdk/sync`; media wrappers do not own asset
 batching, expiry, placeholders, or animations. Settle marks are committed after new query data renders.
 Translation UI does not name the preferred language because the bridge does not expose it.
 
@@ -328,8 +328,8 @@ the source syntax or provider.
 
 ## Operations
 
-Sandbox scripts and providers import Effect from `@ryot-app/sandbox-sdk/effect`; deterministic
-workflows use `@ryot-app/sandbox-sdk/workflow`. Media-authored provider and import failures use
+Sandbox scripts and providers import Effect from `@ryot-app/plugin-backend-sdk/effect`; deterministic
+workflows use `@ryot-app/plugin-backend-sdk/workflow`. Media-authored provider and import failures use
 `MediaSandboxError`; recipe response decoding fails with `RyotqlRecipeDecodeError`. Providers decode
 HTTP JSON at the Schema boundary, and Promise-native YouTube Music calls map external failures at
 their Effect boundary. Host capability failures retain `SandboxHostError`. Workflow import
@@ -468,7 +468,7 @@ budget.
 
 Media entities use `add-to-media-library`, `backlog`, `progress`, `complete`, `dropped`, `on_hold`, and
 `review` events.
-`host/schemas/entity.ts` defines support by entity type. State is derived from append-only history,
+`manifest/schemas/entity.ts` defines support by entity type. State is derived from append-only history,
 ordered by descending `occurredAt`, `createdAt`, then `id`; it is never stored separately.
 
 The manifest declares stable lifecycle hook identities, and every media automation script declares a

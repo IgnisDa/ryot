@@ -1,5 +1,5 @@
-import { RyotProvider } from "@ryot-app/client-sdk/react";
 import { pluginPath } from "@ryot-app/contract/modules/plugins/navigation";
+import { RyotProvider } from "@ryot-app/plugin-client-sdk/react";
 import { createFileRoute, redirect } from "@tanstack/react-router";
 import { Effect } from "effect";
 import { useEffect } from "react";
@@ -12,8 +12,8 @@ import { usePageTitle } from "#/modules/navigation/page-title";
 import { NavigationService } from "#/modules/navigation/service";
 import { mainContentProps } from "#/modules/navigation/skip-link";
 import { resolveRememberedWorkspace } from "#/modules/navigation/workspace-state";
-import { PluginCatalogService } from "#/modules/plugins/catalog";
-import { PluginCatalogProvider } from "#/modules/plugins/catalog-provider";
+import { PluginCatalogProvider } from "#/modules/plugins/catalog/provider";
+import { PluginCatalogService } from "#/modules/plugins/catalog/service";
 import { ClientStorage } from "#/persistence/storage";
 
 export const Route = createFileRoute("/_authenticated")({

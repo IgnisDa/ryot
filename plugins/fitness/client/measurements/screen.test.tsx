@@ -1,12 +1,12 @@
 import { afterEach, assert, describe, expect, it } from "@effect/vitest";
-import { Effect } from "@ryot-app/client-sdk/effect";
+import { Effect } from "@ryot-app/plugin-client-sdk/effect";
 import {
 	disposePluginBridges,
 	mountPluginPage,
 	routeLocation,
 	savedViewPageContext,
 	pluginContributor,
-} from "@ryot-app/client-sdk/testing";
+} from "@ryot-app/plugin-client-sdk/testing";
 import { fireEvent, waitFor, within } from "@testing-library/dom";
 
 import { PLUGIN_PACKAGE_ID } from "../../shared/plugin-identity";

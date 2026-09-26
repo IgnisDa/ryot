@@ -10,8 +10,8 @@ import {
 	integrationConfirmationWorkflowInputSchema,
 	integrationConfirmationWorkflowResultSchema,
 	genericImportChunkSchema,
-} from "@ryot-app/sandbox-sdk/imports";
-import { jsonValueSchema } from "@ryot-app/sandbox-sdk/wire";
+} from "@ryot-app/plugin-backend-sdk/imports";
+import { jsonValueSchema } from "@ryot-app/plugin-backend-sdk/wire";
 import { samePluginPin } from "@ryot-app/sandbox/protocol/principal";
 import { sha256Base64Url } from "@ryot-app/ts-utils/crypto";
 import { stableStringify } from "@ryot-app/ts-utils/json";

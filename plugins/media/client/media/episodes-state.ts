@@ -1,4 +1,4 @@
-import type { EntitySyncState } from "@ryot-app/client-ui-sdk/sync";
+import type { EntitySyncState } from "@ryot-app/plugin-ui-sdk/sync";
 
 import type { EpisodeLifecycleState } from "../../shared/lifecycle-expressions";
 import type { MediaImage } from "../../shared/media-image";

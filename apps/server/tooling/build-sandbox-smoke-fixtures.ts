@@ -1,4 +1,4 @@
-import { compilePluginSandboxSourceEntries } from "@ryot-app/sandbox-compiler/plugins";
+import { compilePluginSandboxSourceEntries } from "@ryot-app/plugin-backend-compiler/plugins";
 import { Data, Effect, FileSystem, Schema } from "effect";
 
 import {
@@ -33,7 +33,7 @@ const makeDefinitionSource = (tier: SmokeTier) => {
 	let dependencyImports = "";
 	let dependencyProbe = "";
 	if (tier === "data") {
-		dependencyImports = `import { gzipSync, gunzipSync, strFromU8 } from "@ryot-app/sandbox-sdk/fflate";`;
+		dependencyImports = `import { gzipSync, gunzipSync, strFromU8 } from "@ryot-app/plugin-backend-sdk/fflate";`;
 		dependencyProbe = `
 			const compressed = gzipSync(new TextEncoder().encode("production-smoke"));
 			if (strFromU8(gunzipSync(compressed)) !== "production-smoke") {
@@ -41,7 +41,7 @@ const makeDefinitionSource = (tier: SmokeTier) => {
 			}
 			`;
 	} else if (tier === "full") {
-		dependencyImports = `import { createYoutubeMusicClient } from "@ryot-app/sandbox-sdk/youtubei";`;
+		dependencyImports = `import { createYoutubeMusicClient } from "@ryot-app/plugin-backend-sdk/youtubei";`;
 		dependencyProbe = `
 			if (typeof createYoutubeMusicClient !== "function") {
 				throw new Error("The youtubei smoke import is unavailable");
@@ -50,8 +50,8 @@ const makeDefinitionSource = (tier: SmokeTier) => {
 	}
 
 	return `
-import { defineManifest, defineScript } from "@ryot-app/sandbox-sdk/driver";
-import { Effect as SdkEffect, Schema as SdkSchema } from "@ryot-app/sandbox-sdk/effect";
+import { defineManifest, defineScript } from "@ryot-app/plugin-backend-sdk/driver";
+import { Effect as SdkEffect, Schema as SdkSchema } from "@ryot-app/plugin-backend-sdk/effect";
 import { Schema as PluginKitSchema } from "@ryot-app/plugin-kit/effect";
 ${dependencyImports}
 

@@ -1,5 +1,5 @@
-import { useRyotQuery } from "@ryot-app/client-sdk/react";
-import { Button } from "@ryot-app/client-ui-sdk";
+import { useRyotQuery } from "@ryot-app/plugin-client-sdk/react";
+import { Button } from "@ryot-app/plugin-ui-sdk";
 import type { ImportIssuesPage } from "@ryot-app/ryotql-recipes/import-runs";
 import { useEffect, useRef, useState } from "react";
 

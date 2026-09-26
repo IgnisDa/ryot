@@ -1,4 +1,8 @@
-import { useRyotQuery, type RyotQuery, type RyotQueryResult } from "@ryot-app/client-sdk/react";
+import {
+	useRyotQuery,
+	type RyotQuery,
+	type RyotQueryResult,
+} from "@ryot-app/plugin-client-sdk/react";
 import clsx from "clsx";
 import type { ReactNode } from "react";
 

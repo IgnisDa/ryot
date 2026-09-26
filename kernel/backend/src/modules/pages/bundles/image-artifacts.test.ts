@@ -4,7 +4,7 @@ import {
 	CLIENT_ARTIFACT_FORMAT,
 	CLIENT_BRIDGE_PROTOCOL_VERSION,
 	CLIENT_COMPILER_VERSION,
-} from "@ryot-app/client-plugin-contract";
+} from "@ryot-app/plugin-client-contract";
 import { Effect } from "effect";
 
 import { parseClientImageManifest } from "./image-artifacts";

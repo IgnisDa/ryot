@@ -1,9 +1,3 @@
-import {
-	clientArtifactMetadata,
-	clientDeclarationHash,
-	PluginClientArtifact,
-	isPluginClientArtifactContentType,
-} from "@ryot-app/client-plugin-contract";
 import type { BadRequest, DbError } from "@ryot-app/contract/errors";
 import type { PluginManifest } from "@ryot-app/contract/modules/plugins/manifest";
 import {
@@ -16,8 +10,14 @@ import {
 	type PluginArchiveCompiledScript,
 	type PluginArchiveError,
 } from "@ryot-app/plugin-archive";
-import { declaredScriptMetadata } from "@ryot-app/sandbox-compiler/plugin-manifest";
-import { SANDBOX_RUNTIME_EXTERNAL_SPECIFIERS } from "@ryot-app/sandbox-sdk/imports";
+import { declaredScriptMetadata } from "@ryot-app/plugin-backend-compiler/plugin-manifest";
+import { SANDBOX_RUNTIME_EXTERNAL_SPECIFIERS } from "@ryot-app/plugin-backend-sdk/imports";
+import {
+	clientArtifactMetadata,
+	clientDeclarationHash,
+	PluginClientArtifact,
+	isPluginClientArtifactContentType,
+} from "@ryot-app/plugin-client-contract";
 import { sha256Hex } from "@ryot-app/ts-utils/crypto";
 import { decodeExecutableText, encodeExecutableText } from "@ryot-app/ts-utils/executable-text";
 import { stableStringify } from "@ryot-app/ts-utils/json";

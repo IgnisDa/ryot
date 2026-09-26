@@ -1,5 +1,5 @@
-import { Schema } from "@ryot-app/sandbox-sdk/effect";
-import { genericImportChunkSchema } from "@ryot-app/sandbox-sdk/imports";
+import { Schema } from "@ryot-app/plugin-backend-sdk/effect";
+import { genericImportChunkSchema } from "@ryot-app/plugin-backend-sdk/imports";
 import { expect, it } from "vitest";
 
 import { createMediaImportChunk } from "./chunks";

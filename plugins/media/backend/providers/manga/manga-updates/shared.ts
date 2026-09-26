@@ -1,7 +1,7 @@
-import { load } from "@ryot-app/sandbox-sdk/cheerio";
-import { defineManifest } from "@ryot-app/sandbox-sdk/driver";
-import { DateTime, Effect, Option } from "@ryot-app/sandbox-sdk/effect";
-import { defineProvider } from "@ryot-app/sandbox-sdk/provider";
+import { load } from "@ryot-app/plugin-backend-sdk/cheerio";
+import { defineManifest } from "@ryot-app/plugin-backend-sdk/driver";
+import { DateTime, Effect, Option } from "@ryot-app/plugin-backend-sdk/effect";
+import { defineProvider } from "@ryot-app/plugin-backend-sdk/provider";
 
 import {
 	type UnknownRecord,

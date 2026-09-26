@@ -1,5 +1,5 @@
 import { EntityId, SignalSchemaSlug, UserId } from "@ryot-app/contract/schema/brands";
-import type { AutomationSandboxHostImplementationMap } from "@ryot-app/sandbox-sdk/core";
+import type { AutomationSandboxHostImplementationMap } from "@ryot-app/plugin-backend-sdk/core";
 import {
 	requireSandboxCapabilityInput,
 	sandboxHostEffect,

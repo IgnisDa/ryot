@@ -1,7 +1,7 @@
 import { expect, it } from "@effect/vitest";
-import { configureApprovedDependencyRuntime } from "@ryot-app/sandbox-sdk/dependency-runtime";
-import { Effect, Schema } from "@ryot-app/sandbox-sdk/effect";
-import type { YoutubeiHost } from "@ryot-app/sandbox-sdk/youtubei";
+import { configureApprovedDependencyRuntime } from "@ryot-app/plugin-backend-sdk/dependency-runtime";
+import { Effect, Schema } from "@ryot-app/plugin-backend-sdk/effect";
+import type { YoutubeiHost } from "@ryot-app/plugin-backend-sdk/youtubei";
 
 import {
 	albumResponse,

@@ -1,5 +1,5 @@
 import type { SandboxHostCapability } from "@ryot-app/contract/modules/sandbox/wire";
-import type { sandboxHostContracts } from "@ryot-app/sandbox-sdk/core";
+import type { sandboxHostContracts } from "@ryot-app/plugin-backend-sdk/core";
 
 import { KiB, SANDBOX_LIMITS } from "../protocol/limits";
 import type { ScriptExecutionPrincipal } from "../protocol/principal";

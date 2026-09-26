@@ -1,7 +1,7 @@
 import { expect, it } from "@effect/vitest";
-import { pluginExportSpecifier } from "@ryot-app/client-plugin-contract";
 import type { PluginManifest } from "@ryot-app/contract/modules/plugins/manifest";
 import type { PluginPackageId } from "@ryot-app/contract/schema/brands";
+import { pluginExportSpecifier } from "@ryot-app/plugin-client-contract";
 import { Effect } from "effect";
 
 import { fixtureManifest, testPluginPackageId } from "#modules/plugins/test-support";

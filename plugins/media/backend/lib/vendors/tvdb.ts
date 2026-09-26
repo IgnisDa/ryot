@@ -1,6 +1,6 @@
-import type { ScriptHost } from "@ryot-app/sandbox-sdk/core";
-import { Effect, Schema } from "@ryot-app/sandbox-sdk/effect";
-import type { ProviderSearchInput } from "@ryot-app/sandbox-sdk/provider";
+import type { ScriptHost } from "@ryot-app/plugin-backend-sdk/core";
+import { Effect, Schema } from "@ryot-app/plugin-backend-sdk/effect";
+import type { ProviderSearchInput } from "@ryot-app/plugin-backend-sdk/provider";
 
 import { MediaSandboxError } from "../failures";
 import {

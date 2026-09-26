@@ -4,9 +4,9 @@ import { Result } from "effect";
 import { selectSnapshotTier } from "./snapshot-tier";
 
 it("routes imports to the smallest snapshot tier that covers them", () => {
-	const core = "@ryot-app/sandbox-sdk/effect";
-	const data = "@ryot-app/sandbox-sdk/cheerio";
-	const full = "@ryot-app/sandbox-sdk/youtubei";
+	const core = "@ryot-app/plugin-backend-sdk/effect";
+	const data = "@ryot-app/plugin-backend-sdk/cheerio";
+	const full = "@ryot-app/plugin-backend-sdk/youtubei";
 
 	expect(selectSnapshotTier([])).toEqual(Result.succeed("core"));
 	expect(selectSnapshotTier([core, "effect"])).toEqual(Result.succeed("core"));

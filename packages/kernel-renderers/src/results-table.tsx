@@ -1,10 +1,14 @@
-import { Effect, Result, Schema } from "@ryot-app/client-sdk/effect";
-import { PluginLink, usePageContext, usePageRefresh } from "@ryot-app/client-sdk/plugin";
-import { ManagedAssetProvider, createRyotQuery, useRyotQuery } from "@ryot-app/client-sdk/react";
-import { PluginScreenFrame } from "@ryot-app/client-sdk/screen";
-import { Button, StatusMessage } from "@ryot-app/client-ui-sdk";
-import { AppIcon } from "@ryot-app/client-ui-sdk/icon";
-import { DataTable, type DataTableColumn } from "@ryot-app/client-ui-sdk/table";
+import { Effect, Result, Schema } from "@ryot-app/plugin-client-sdk/effect";
+import { PluginLink, usePageContext, usePageRefresh } from "@ryot-app/plugin-client-sdk/plugin";
+import {
+	ManagedAssetProvider,
+	createRyotQuery,
+	useRyotQuery,
+} from "@ryot-app/plugin-client-sdk/react";
+import { PluginScreenFrame } from "@ryot-app/plugin-client-sdk/screen";
+import { Button, StatusMessage } from "@ryot-app/plugin-ui-sdk";
+import { AppIcon } from "@ryot-app/plugin-ui-sdk/icon";
+import { DataTable, type DataTableColumn } from "@ryot-app/plugin-ui-sdk/table";
 import {
 	ResultsTablePageInput,
 	resultsTableRecipe,

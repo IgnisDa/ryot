@@ -1,6 +1,6 @@
 import { assert, describe, expect, it, layer } from "@effect/vitest";
 import { PluginPackageId, SandboxScriptId, UserId } from "@ryot-app/contract/schema/brands";
-import type { WorkflowDurableCallRequest } from "@ryot-app/sandbox-sdk/workflow";
+import type { WorkflowDurableCallRequest } from "@ryot-app/plugin-backend-sdk/workflow";
 import { ScriptPluginRevision } from "@ryot-app/sandbox/protocol/principal";
 import type { SQL } from "drizzle-orm";
 import { PgDialect } from "drizzle-orm/pg-core";

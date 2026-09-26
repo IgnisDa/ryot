@@ -1,6 +1,6 @@
-import { RyotClientError } from "@ryot-app/client-sdk";
-import { createRyotMutation, createRyotQuery } from "@ryot-app/client-sdk/react";
 import type { ContractRequest } from "@ryot-app/contract/client";
+import { RyotClientError } from "@ryot-app/plugin-client-sdk";
+import { createRyotMutation, createRyotQuery } from "@ryot-app/plugin-client-sdk/react";
 import {
 	pluginUserSettingsRecipe,
 	type PluginUserSettingsPage,

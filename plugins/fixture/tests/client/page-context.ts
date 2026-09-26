@@ -1,4 +1,4 @@
-import { pluginContributor, type entityPageContext } from "@ryot-app/client-sdk/testing";
+import { pluginContributor, type entityPageContext } from "@ryot-app/plugin-client-sdk/testing";
 
 import { PLUGIN_PACKAGE_ID } from "../../shared/plugin-identity";
 

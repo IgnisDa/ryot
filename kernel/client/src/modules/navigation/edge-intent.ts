@@ -1,4 +1,4 @@
-import type { PluginLeadingIntent } from "@ryot-app/client-plugin-contract";
+import type { PluginLeadingIntent } from "@ryot-app/plugin-client-contract";
 
 export type EdgeOwner = "iframe-overlay" | "kernel" | "plugin";
 export type EdgeIntent = PluginLeadingIntent;

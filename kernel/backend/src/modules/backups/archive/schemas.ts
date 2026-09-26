@@ -1,4 +1,3 @@
-import { PluginClientArtifactFromBase64 } from "@ryot-app/client-plugin-contract";
 import {
 	DataRecordProperties,
 	DataRecordTimestamp,
@@ -17,6 +16,7 @@ import {
 import { PluginPackageId } from "@ryot-app/contract/schema/brands";
 import { UserPreferences } from "@ryot-app/contract/schema/user-preferences";
 import { strictStruct } from "@ryot-app/contract/schema/utils";
+import { PluginClientArtifactFromBase64 } from "@ryot-app/plugin-client-contract";
 import { Schema } from "effect";
 
 const nonNegativeInteger = Schema.Finite.pipe(

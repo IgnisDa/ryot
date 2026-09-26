@@ -8,8 +8,8 @@ import { IsoUtcString } from "@ryot-app/contract/schema/utils";
 import {
 	genericImportWorkflowInputSchema,
 	genericImportWorkflowResultSchema,
-} from "@ryot-app/sandbox-sdk/imports";
-import { jsonValueSchema } from "@ryot-app/sandbox-sdk/wire";
+} from "@ryot-app/plugin-backend-sdk/imports";
+import { jsonValueSchema } from "@ryot-app/plugin-backend-sdk/wire";
 import { ExecutionFileStore } from "@ryot-app/sandbox/host/execution-files";
 import { stableStringify } from "@ryot-app/ts-utils/json";
 import { Cause, DateTime, Effect, FileSystem, Layer, Schema } from "effect";

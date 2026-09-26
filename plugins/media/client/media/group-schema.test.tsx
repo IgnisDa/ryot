@@ -1,6 +1,6 @@
 import { afterEach, describe, expect, it } from "@effect/vitest";
-import type { RyotClientAdapter } from "@ryot-app/client-sdk";
-import { Effect } from "@ryot-app/client-sdk/effect";
+import type { RyotClientAdapter } from "@ryot-app/plugin-client-sdk";
+import { Effect } from "@ryot-app/plugin-client-sdk/effect";
 import { getByRole, waitFor } from "@testing-library/dom";
 
 import {

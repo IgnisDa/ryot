@@ -1,6 +1,6 @@
 import { jsonValueSchema } from "@ryot-app/contract/modules/sandbox/wire";
 import { SandboxScriptId } from "@ryot-app/contract/schema/brands";
-import { configValuesSchema, integrationRecordSchema } from "@ryot-app/sandbox-sdk/core";
+import { configValuesSchema, integrationRecordSchema } from "@ryot-app/plugin-backend-sdk/core";
 import { ScriptPluginRevision } from "@ryot-app/sandbox/protocol/principal";
 import { Schema } from "effect";
 

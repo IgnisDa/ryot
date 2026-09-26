@@ -1,4 +1,4 @@
-import { DateTime, Result, Option } from "@ryot-app/sandbox-sdk/effect";
+import { DateTime, Result, Option } from "@ryot-app/plugin-backend-sdk/effect";
 
 import { parseCsvText, readCsvCell, readOptionalCsvNumber, readRequiredCsvCell } from "./csv";
 import {

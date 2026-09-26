@@ -1,12 +1,12 @@
-import { sandboxScratchManifestSchema } from "@ryot-app/sandbox-sdk/filesystem";
+import { sandboxScratchManifestSchema } from "@ryot-app/plugin-backend-sdk/filesystem";
 import {
 	genericImportWriteItemSchema,
 	genericImportFailureSchema,
 	ingestionArtifactsSchema,
 	LifecycleCommand,
 	genericImportWorkflowResultSchema,
-} from "@ryot-app/sandbox-sdk/imports";
-import { Schema } from "@ryot-app/sandbox-sdk/workflow";
+} from "@ryot-app/plugin-backend-sdk/imports";
+import { Schema } from "@ryot-app/plugin-backend-sdk/workflow";
 
 const count = Schema.Int.check(Schema.isGreaterThanOrEqualTo(0));
 

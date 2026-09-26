@@ -1,5 +1,5 @@
-import { Chip, Modal, useShortcut } from "@ryot-app/client-ui-sdk";
-import { AppIcon } from "@ryot-app/client-ui-sdk/icon";
+import { Chip, Modal, useShortcut } from "@ryot-app/plugin-ui-sdk";
+import { AppIcon } from "@ryot-app/plugin-ui-sdk/icon";
 import clsx from "clsx";
 import { useEffect, useRef, useState, type RefObject } from "react";
 

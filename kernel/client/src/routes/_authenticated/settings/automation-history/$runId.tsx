@@ -1,5 +1,5 @@
-import { useRyotMutation, useRyotQuery } from "@ryot-app/client-sdk/react";
 import type { AutomationHistoryRetryResult } from "@ryot-app/contract/modules/automations/history-schemas";
+import { useRyotMutation, useRyotQuery } from "@ryot-app/plugin-client-sdk/react";
 import { createFileRoute } from "@tanstack/react-router";
 import { Effect } from "effect";
 import { useState } from "react";

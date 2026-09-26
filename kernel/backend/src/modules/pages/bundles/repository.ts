@@ -1,5 +1,5 @@
-import { ClientArtifact } from "@ryot-app/client-plugin-contract";
 import { DbError } from "@ryot-app/contract/errors";
+import { ClientArtifact } from "@ryot-app/plugin-client-contract";
 import { stableStringify } from "@ryot-app/ts-utils/json";
 import { eq, and, asc } from "drizzle-orm";
 import { Context, Effect, Layer, Schema } from "effect";

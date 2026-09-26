@@ -1,9 +1,9 @@
-import type { AutomationInput } from "@ryot-app/sandbox-sdk/automation";
-import { defineAutomation } from "@ryot-app/sandbox-sdk/automation";
-import type { ScriptHost } from "@ryot-app/sandbox-sdk/core";
-import { defineManifest } from "@ryot-app/sandbox-sdk/driver";
-import { Effect } from "@ryot-app/sandbox-sdk/effect";
-import type { JsonValue } from "@ryot-app/sandbox-sdk/wire";
+import type { AutomationInput } from "@ryot-app/plugin-backend-sdk/automation";
+import { defineAutomation } from "@ryot-app/plugin-backend-sdk/automation";
+import type { ScriptHost } from "@ryot-app/plugin-backend-sdk/core";
+import { defineManifest } from "@ryot-app/plugin-backend-sdk/driver";
+import { Effect } from "@ryot-app/plugin-backend-sdk/effect";
+import type { JsonValue } from "@ryot-app/plugin-backend-sdk/wire";
 
 import {
 	podcastEpisodicKindConfig,

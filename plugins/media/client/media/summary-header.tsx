@@ -1,13 +1,13 @@
-import type { EntitySettleReason } from "@ryot-app/client-sdk";
-import { Switch } from "@ryot-app/client-ui-sdk";
-import { AppIcon } from "@ryot-app/client-ui-sdk/icon";
-import { MarkdownContent, markdownPlainText } from "@ryot-app/client-ui-sdk/markdown";
+import type { EntitySettleReason } from "@ryot-app/plugin-client-sdk";
+import { Switch } from "@ryot-app/plugin-ui-sdk";
+import { AppIcon } from "@ryot-app/plugin-ui-sdk/icon";
+import { MarkdownContent, markdownPlainText } from "@ryot-app/plugin-ui-sdk/markdown";
 import {
 	fieldSyncState,
 	isTitleProvisional,
 	SettleHighlight,
 	TranslationChip,
-} from "@ryot-app/client-ui-sdk/sync";
+} from "@ryot-app/plugin-ui-sdk/sync";
 import clsx from "clsx";
 import { useState, type ReactNode } from "react";
 

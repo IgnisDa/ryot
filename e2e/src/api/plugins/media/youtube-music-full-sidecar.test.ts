@@ -88,11 +88,11 @@ const searchSource = (input: {
 	readonly slug: string;
 	readonly baseUrl: string;
 }) => `
-import type { ScriptHost } from "@ryot-app/sandbox-sdk/core";
-import { defineManifest } from "@ryot-app/sandbox-sdk/driver";
-import { Effect, Schema } from "@ryot-app/sandbox-sdk/effect";
-import { defineProvider } from "@ryot-app/sandbox-sdk/provider";
-import { createYoutubeMusicClient } from "@ryot-app/sandbox-sdk/youtubei";
+import type { ScriptHost } from "@ryot-app/plugin-backend-sdk/core";
+import { defineManifest } from "@ryot-app/plugin-backend-sdk/driver";
+import { Effect, Schema } from "@ryot-app/plugin-backend-sdk/effect";
+import { defineProvider } from "@ryot-app/plugin-backend-sdk/provider";
+import { createYoutubeMusicClient } from "@ryot-app/plugin-backend-sdk/youtubei";
 
 export const manifest = defineManifest({
   kind: "provider",

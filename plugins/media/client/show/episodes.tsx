@@ -1,4 +1,4 @@
-import { Effect, Schema } from "@ryot-app/client-sdk/effect";
+import { Effect, Schema } from "@ryot-app/plugin-client-sdk/effect";
 import {
 	createRyotQuery,
 	ManagedAssetProvider,
@@ -6,10 +6,10 @@ import {
 	usePluginIdentity,
 	useRyotQuery,
 	type PluginStorageState,
-} from "@ryot-app/client-sdk/react";
-import { Chip } from "@ryot-app/client-ui-sdk";
-import { markdownPlainText } from "@ryot-app/client-ui-sdk/markdown";
-import { fieldSyncState, isTitleProvisional, SyncPip } from "@ryot-app/client-ui-sdk/sync";
+} from "@ryot-app/plugin-client-sdk/react";
+import { Chip } from "@ryot-app/plugin-ui-sdk";
+import { markdownPlainText } from "@ryot-app/plugin-ui-sdk/markdown";
+import { fieldSyncState, isTitleProvisional, SyncPip } from "@ryot-app/plugin-ui-sdk/sync";
 import clsx from "clsx";
 import { useEffect, useState } from "react";
 

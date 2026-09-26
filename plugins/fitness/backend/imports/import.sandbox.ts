@@ -4,7 +4,7 @@ import {
 	genericImportSealReference,
 	genericImportWorkflowInputSchema,
 	genericImportWorkflowResultSchema,
-} from "@ryot-app/sandbox-sdk/imports";
+} from "@ryot-app/plugin-backend-sdk/imports";
 import {
 	defineManifest,
 	defineScriptReference,
@@ -12,7 +12,7 @@ import {
 	defineWorkflowReference,
 	Effect,
 	selectExecutable,
-} from "@ryot-app/sandbox-sdk/workflow";
+} from "@ryot-app/plugin-backend-sdk/workflow";
 
 import { fitnessParsers } from "./references";
 import {

@@ -1,7 +1,7 @@
-import { defineManifest, defineScript } from "@ryot-app/sandbox-sdk/driver";
-import { Effect, Schema } from "@ryot-app/sandbox-sdk/effect";
-import { sandboxScratchManifestSchema } from "@ryot-app/sandbox-sdk/filesystem";
-import { genericImportChunkSchema } from "@ryot-app/sandbox-sdk/imports";
+import { defineManifest, defineScript } from "@ryot-app/plugin-backend-sdk/driver";
+import { Effect, Schema } from "@ryot-app/plugin-backend-sdk/effect";
+import { sandboxScratchManifestSchema } from "@ryot-app/plugin-backend-sdk/filesystem";
+import { genericImportChunkSchema } from "@ryot-app/plugin-backend-sdk/imports";
 
 import { createMediaImportChunk } from "./chunks";
 import { readMediaCapture, writeMediaCapture } from "./collection";

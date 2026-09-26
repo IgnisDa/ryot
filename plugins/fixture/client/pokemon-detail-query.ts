@@ -1,6 +1,6 @@
-import { Result, Schema } from "@ryot-app/client-sdk/effect";
-import type { PluginIdentityReference } from "@ryot-app/client-sdk/plugin";
-import { createRyotQuery } from "@ryot-app/client-sdk/react";
+import { Result, Schema } from "@ryot-app/plugin-client-sdk/effect";
+import type { PluginIdentityReference } from "@ryot-app/plugin-client-sdk/plugin";
+import { createRyotQuery } from "@ryot-app/plugin-client-sdk/react";
 import {
 	and,
 	ascending,
@@ -14,7 +14,7 @@ import {
 	table,
 	type Recipe,
 	entitySchemaPredicate,
-} from "@ryot-app/client-sdk/ryotql";
+} from "@ryot-app/plugin-client-sdk/ryotql";
 
 import { PLUGIN_PACKAGE_ID } from "../shared/plugin-identity";
 import {
