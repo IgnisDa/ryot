@@ -1,3 +1,4 @@
+import { definitionOwner } from "@ryot-app/contract/modules/plugins/references";
 import { providerSearchRecipe } from "@ryot-app/ryotql-recipes/provider-search";
 import { Effect } from "effect";
 
@@ -35,12 +36,11 @@ const installFixture = (label: string) =>
 		const { client } = yield* createAuthenticatedClient();
 		const pluginSlug = `fixture-${label}-${crypto.randomUUID()}`;
 		const pluginPackage = yield* fixtureClientPluginPackage("A", "", pluginSlug);
-		const installation = yield* Effect.acquireRelease(
-			installPrivatePluginPackage({ client, config: {}, pluginPackage }).pipe(
-				Effect.andThen(settledPrivateInstallation(client, pluginSlug)),
-			),
-			() => releasePrivatePlugin(client, pluginSlug),
+		const installed = yield* Effect.acquireRelease(
+			installPrivatePluginPackage({ client, config: {}, pluginPackage }),
+			({ id }) => releasePrivatePlugin(client, id),
 		);
+		const installation = yield* settledPrivateInstallation(client, installed.id);
 		expect(installation.health).toBe("ready");
 		return { client, pluginSlug, pluginId: installation.pluginId };
 	});
@@ -143,8 +143,7 @@ describe.skipIf(!RUN_LIVE)("live fixture provider smoke (real external APIs)", (
 					entitySchemaSlugField: "entitySchemaSlug",
 					addAction: {
 						type: "provider-search",
-						ownerPluginId: pluginId,
-						entitySchemaSlug: schema.id,
+						schema: { slug: schema.id, owner: definitionOwner(pluginId) },
 					},
 				});
 				expect(source.output.fields).toEqual(
@@ -321,8 +320,7 @@ describe.skipIf(!RUN_LIVE)("live fixture provider smoke (real external APIs)", (
 					entitySchemaSlugField: "entitySchemaSlug",
 					addAction: {
 						type: "provider-search",
-						ownerPluginId: pluginId,
-						entitySchemaSlug: schema.id,
+						schema: { slug: schema.id, owner: definitionOwner(pluginId) },
 					},
 				});
 				expect(source.output.fields).toEqual(

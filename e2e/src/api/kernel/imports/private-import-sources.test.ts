@@ -1,3 +1,4 @@
+import { definitionOwner } from "@ryot-app/contract/modules/plugins/references";
 import { importSourcesRecipe } from "@ryot-app/ryotql-recipes/import-sources";
 import { Effect } from "effect";
 
@@ -39,10 +40,7 @@ describe("private import sources", () => {
 				isStartable: true,
 				slug: plugin.sourceSlug,
 				missingPluginConfigKeys: [],
-				reference: {
-					slug: plugin.sourceSlug,
-					owner: { kind: "plugin", pluginId: plugin.pluginId },
-				},
+				reference: { slug: plugin.sourceSlug, owner: definitionOwner(plugin.pluginId) },
 			});
 			expect(outsiderSources.map(({ slug }) => slug)).not.toContain(plugin.sourceSlug);
 
@@ -50,10 +48,7 @@ describe("private import sources", () => {
 				outsider.client.call((c) =>
 					c.imports.createRun({
 						payload: {
-							source: {
-								slug: plugin.sourceSlug,
-								owner: { kind: "plugin", pluginId: plugin.pluginId },
-							},
+							source: { slug: plugin.sourceSlug, owner: definitionOwner(plugin.pluginId) },
 						},
 					}),
 				),
@@ -104,19 +99,12 @@ describe("private import sources", () => {
 
 			const firstRun = yield* first.client.call((c) =>
 				c.imports.createRun({
-					payload: {
-						source: { slug: sourceSlug, owner: { kind: "plugin", pluginId: firstPlugin.pluginId } },
-					},
+					payload: { source: { slug: sourceSlug, owner: definitionOwner(firstPlugin.pluginId) } },
 				}),
 			);
 			const secondRun = yield* second.client.call((c) =>
 				c.imports.createRun({
-					payload: {
-						source: {
-							slug: sourceSlug,
-							owner: { kind: "plugin", pluginId: secondPlugin.pluginId },
-						},
-					},
+					payload: { source: { slug: sourceSlug, owner: definitionOwner(secondPlugin.pluginId) } },
 				}),
 			);
 
@@ -136,7 +124,7 @@ describe("private import sources", () => {
 			const { client } = yield* createAuthenticatedClient();
 			const plugin = yield* Effect.acquireRelease(
 				installPrivateImportPlugin({ client }),
-				({ pluginSlug }) => releasePrivatePlugin(client, pluginSlug),
+				({ installationId }) => releasePrivatePlugin(client, installationId),
 			);
 
 			yield* updatePluginState(client, plugin.installationId, { isHidden: true });
@@ -148,10 +136,7 @@ describe("private import sources", () => {
 				client.call((c) =>
 					c.imports.createRun({
 						payload: {
-							source: {
-								slug: plugin.sourceSlug,
-								owner: { kind: "plugin", pluginId: plugin.pluginId },
-							},
+							source: { slug: plugin.sourceSlug, owner: definitionOwner(plugin.pluginId) },
 						},
 					}),
 				),
