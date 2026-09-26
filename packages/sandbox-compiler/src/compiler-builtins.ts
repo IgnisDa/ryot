@@ -1,6 +1,7 @@
+import type { SandboxSourceExecutionMetadata } from "@ryot-app/contract/modules/plugins/execution-metadata";
 import type { SandboxManifest } from "@ryot-app/sandbox-sdk/core";
 import type { ProviderOperation } from "@ryot-app/sandbox-sdk/provider";
-import { Effect } from "effect";
+import { Effect, Result } from "effect";
 import * as ts from "typescript/unstable/ast";
 import { DiagnosticCategory } from "typescript/unstable/async";
 
@@ -13,7 +14,7 @@ import {
 	toTypeScriptDiagnostic,
 } from "./compiler-diagnostics";
 import { extractSandboxManifest } from "./compiler-manifest";
-import { validateCompiledSandboxManifest } from "./compiler-metadata";
+import { finalizeCompiledManifest, validateSandboxCapabilities } from "./compiler-metadata";
 import {
 	createTypeScriptSourcesProjectForEntries,
 	sandboxSourcePath,
@@ -27,7 +28,7 @@ import {
 	inspectWorkflowImports,
 	sandboxDefinitionMismatch,
 } from "./compiler-source";
-import { jsonByteLength, SANDBOX_COMPILER_LIMITS, utf8ByteLength } from "./limits";
+import { SANDBOX_COMPILER_LIMITS, utf8ByteLength } from "./limits";
 
 export type BuiltInSandboxEntry = SandboxTypeScriptSources;
 
@@ -56,7 +57,8 @@ type InspectedSandboxEntry = {
 	readonly inspection: ReturnType<typeof inspectSandboxSource>;
 };
 type ValidatedSandboxEntry = InspectedSandboxEntry & {
-	readonly manifest: CompiledSandboxModule["manifest"];
+	readonly manifest: SandboxManifest;
+	readonly metadata: SandboxSourceExecutionMetadata;
 };
 
 const relativeModulePath = (sourceFile: ts.SourceFile, specifier: string) => {
@@ -293,24 +295,22 @@ const validateSandboxPackageEntries = (
 					),
 				]);
 			}
-			const manifest = { ...extracted.manifest, ...execution.metadata, runtimeImports: [] };
-			const capabilityDiagnostic = validateCompiledSandboxManifest(manifest);
+			const capabilityDiagnostic = validateSandboxCapabilities({
+				...extracted.manifest,
+				...execution.metadata,
+			});
 			if (capabilityDiagnostic) {
 				return yield* sandboxCompilationFailure([capabilityDiagnostic]);
 			}
-			if (
-				(jsonByteLength(manifest) ?? Number.POSITIVE_INFINITY) >
-				SANDBOX_COMPILER_LIMITS.manifestBytes
-			) {
-				return yield* sandboxCompilationFailure([
-					sandboxCompilerDiagnostic(
-						"RYOT_MANIFEST_SIZE",
-						`Sandbox manifest exceeds ${SANDBOX_COMPILER_LIMITS.manifestBytes} UTF-8 bytes`,
-					),
-				]);
-			}
 
-			return { entry, source, manifest, sourceFile, inspection };
+			return {
+				entry,
+				source,
+				sourceFile,
+				inspection,
+				manifest: extracted.manifest,
+				metadata: execution.metadata,
+			};
 		}),
 	);
 };
@@ -328,7 +328,7 @@ const compileValidatedSandboxEntries = (
 			SANDBOX_COMPILER_LIMITS.concurrency,
 		);
 		const outputByEntry = new Map(bundled.map((output) => [output.entry, output]));
-		return yield* Effect.forEach(entries, ({ entry, source, manifest, inspection }) => {
+		return yield* Effect.forEach(entries, ({ entry, source, manifest, metadata, inspection }) => {
 			const output = outputByEntry.get(entry);
 			if (!output) {
 				return sandboxCompilationFailure([
@@ -343,29 +343,20 @@ const compileValidatedSandboxEntries = (
 					),
 				]);
 			}
-			const finalManifest = { ...manifest, runtimeImports: output.runtimeImports };
-			const manifestDiagnostic = validateCompiledSandboxManifest(finalManifest);
-			if (manifestDiagnostic) {
-				return sandboxCompilationFailure([manifestDiagnostic]);
-			}
-			if (
-				(jsonByteLength(finalManifest) ?? Number.POSITIVE_INFINITY) >
-				SANDBOX_COMPILER_LIMITS.manifestBytes
-			) {
-				return sandboxCompilationFailure([
-					sandboxCompilerDiagnostic(
-						"RYOT_MANIFEST_SIZE",
-						`Sandbox manifest exceeds ${SANDBOX_COMPILER_LIMITS.manifestBytes} UTF-8 bytes`,
-					),
-				]);
+			const finalManifest = finalizeCompiledManifest(manifest, {
+				...metadata,
+				runtimeImports: output.runtimeImports,
+			});
+			if (Result.isFailure(finalManifest)) {
+				return sandboxCompilationFailure([finalManifest.failure]);
 			}
 			return Effect.succeed({
 				entry,
 				source,
 				providerOperation: inspection.providerOperation,
 				compiled: {
-					manifest: finalManifest,
 					javascript: output.javascript,
+					manifest: finalManifest.success,
 					format: SANDBOX_COMPILED_FORMAT,
 				},
 			} satisfies CompiledBuiltInSandboxEntry);
