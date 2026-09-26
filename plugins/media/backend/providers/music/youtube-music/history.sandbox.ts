@@ -8,7 +8,7 @@ import {
 	type HistoryClient,
 	type YoutubeMusicHost,
 } from "../../../lib/vendors/youtube-music";
-import { buildHistory } from "./shared";
+import { buildHistory, YoutubeMusicSettings } from "./shared";
 
 export const manifest = defineManifest({
 	kind: "script",
@@ -24,7 +24,7 @@ type HistoryClientFactory = (
 ) => Effect.Effect<HistoryClient, Effect.Error<ReturnType<typeof createYoutubeHistoryClient>>>;
 
 export const runHistory = (
-	input: { timezone: string; authCookie: string },
+	input: typeof YoutubeMusicSettings.Type,
 	host: YoutubeMusicHost,
 	execution: ExecutionMetadata,
 	createClient: HistoryClientFactory = createYoutubeHistoryClient,
@@ -42,15 +42,8 @@ export const runHistory = (
 export default defineScript({
 	manifest,
 	run: runHistory,
+	input: YoutubeMusicSettings,
 	output: Schema.Struct({
 		songs: Schema.Array(Schema.Struct({ title: Schema.String, videoId: Schema.String })),
-	}),
-	input: Schema.Struct({
-		timezone: Schema.Trim.pipe(
-			Schema.check(Schema.isMinLength(1, { message: "timezone is required" })),
-		),
-		authCookie: Schema.Trim.pipe(
-			Schema.check(Schema.isMinLength(1, { message: "authCookie is required" })),
-		),
 	}),
 });
