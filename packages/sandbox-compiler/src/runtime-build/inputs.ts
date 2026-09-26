@@ -15,6 +15,14 @@ const defaultLimits: SourceWalkLimits = {
 	maxTotalBytes: 16 * 1024 * 1024,
 };
 
+export const SANDBOX_ISOLATE_SOURCE_FILES = [
+	"isolate-invocation.ts",
+	"isolate-bootstrap.ts",
+	"isolate-utilities.ts",
+	"limits.ts",
+	"sidecar-protocol.ts",
+] as const;
+
 const workspaceScope = "@ryot-app/";
 
 const toolchainPackages = ["sandbox-compiler", "typescript-compiler", "vite-compiler"];
@@ -79,14 +87,7 @@ export const sandboxRuntimeInputs = (
 			...(yield* walkSourceFiles(
 				sandboxRuntimeDirectory,
 				workspaceRoot,
-				(file) =>
-					[
-						"isolate-invocation.ts",
-						"isolate-bootstrap.ts",
-						"isolate-utilities.ts",
-						"limits.ts",
-						"sidecar-protocol.ts",
-					].some((name) => file.endsWith(`/${name}`)),
+				(file) => SANDBOX_ISOLATE_SOURCE_FILES.some((name) => file.endsWith(`/${name}`)),
 				options,
 			)),
 			...(yield* walkSourceFiles(
