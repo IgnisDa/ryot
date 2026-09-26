@@ -714,20 +714,32 @@ export namespace Recipe {
 		: never;
 }
 
-type RecipeDefinition<Queries extends RecipeQueries, Success> = {
-	readonly map?: (queries: QueryResults<Queries>) => Result.Result<Success, unknown>;
-	readonly queries: Queries;
-};
-
-export const defineRecipe =
-	<
-		const InputTuple extends readonly unknown[],
-		const Queries extends RecipeQueries,
-		Success = QueryResults<Queries>,
-	>(
-		builder: (...input: InputTuple) => RecipeDefinition<Queries, Success>,
-	) =>
-	(...input: InputTuple): PreparedRecipe<Success> => {
+export function defineRecipe<
+	const InputTuple extends readonly unknown[],
+	const Queries extends RecipeQueries,
+>(
+	builder: (...input: InputTuple) => { readonly queries: Queries; readonly map?: never },
+): (...input: InputTuple) => PreparedRecipe<QueryResults<Queries>>;
+export function defineRecipe<
+	const InputTuple extends readonly unknown[],
+	const Queries extends RecipeQueries,
+	Success,
+>(
+	builder: (...input: InputTuple) => {
+		readonly queries: Queries;
+		readonly map: (queries: QueryResults<Queries>) => Result.Result<Success, unknown>;
+	},
+): (...input: InputTuple) => PreparedRecipe<Success>;
+export function defineRecipe<
+	const InputTuple extends readonly unknown[],
+	const Queries extends RecipeQueries,
+>(
+	builder: (...input: InputTuple) => {
+		readonly queries: Queries;
+		readonly map?: (queries: QueryResults<Queries>) => Result.Result<unknown, unknown>;
+	},
+): (...input: InputTuple) => PreparedRecipe<unknown> {
+	return (...input: InputTuple) => {
 		const { map, queries } = builder(...input);
 		return {
 			document: document(
@@ -752,8 +764,7 @@ export const defineRecipe =
 							});
 							return Result.flatMap(Result.all(decodedQueries), (entries) => {
 								const decoded = fromEntries<QueryResults<Queries>>(entries);
-								// oxlint-disable-next-line typescript/no-unsafe-type-assertion
-								return map ? map(decoded) : Result.succeed(decoded as Success);
+								return map ? map(decoded) : Result.succeed(decoded);
 							});
 						},
 					),
@@ -761,6 +772,7 @@ export const defineRecipe =
 			},
 		};
 	};
+}
 
 export const aggregate = (
 	from: TableReference,
