@@ -50,7 +50,7 @@ import { makeRedisService, makeWorkflowActivityEngine } from "#testing/effect";
 
 import { EntitiesRepository } from "./repository";
 import { makeEntityScriptHost } from "./script-host";
-import { EntitiesService } from "./service";
+import { EntitiesService, type UpsertEntityInput } from "./service";
 import { kernelCollectionLifecycleCommand, type DomainLifecycleCommand } from "./write-context";
 
 const firstUser = UserId.make("relationship-owner");
@@ -1536,6 +1536,151 @@ layer(relationshipDatabaseLayer())((test) => {
 				);
 				expect(firstLinks).toEqual([]);
 				expect(secondLinks).toHaveLength(1);
+			}),
+	);
+});
+
+layer(relationshipDatabaseLayer())((test) => {
+	test.effect(
+		"checks every batch write authority key and reads provider rows only in the writer's scope",
+		() =>
+			Effect.gen(function* () {
+				const installed = yield* installRevisionPackage(namespacePackage(), firstUser);
+				const foreign = yield* installRevisionPackage(namespacePackage(), firstUser);
+				const { command, providerId } = yield* admittedCommand(
+					installed,
+					firstUser,
+					"batch-authority",
+				);
+				const entities = yield* EntitiesService;
+				const session = yield* DatabaseSession;
+				const otherUser = UserId.make("batch-scope-owner");
+				const ownSchema = { slug: bottle, owner: definitionOwner(installed.pluginId) };
+				const item = (externalId: string) => ({
+					providerId,
+					externalId,
+					name: externalId,
+					populatedAt: null,
+					userId: firstUser,
+					updateExisting: false,
+					scope: "user" as const,
+					entitySchema: ownSchema,
+					properties: { title: externalId },
+					lifecycle: nextCommand(command, externalId),
+				});
+				const write = (items: ReadonlyArray<UpsertEntityInput>) =>
+					session.transaction(
+						entities.persistPlannedProviderUpserts({
+							items,
+							batch: { command, identity: ["authority"] },
+						}),
+					);
+				const { userId: _userId, ...globalItem } = item("global");
+				const kernelSchema = { slug: bottle, owner: { kind: "kernel" as const } };
+				for (const [items, reason] of [
+					[
+						[
+							item("own"),
+							{
+								...item("foreign"),
+								entitySchema: { slug: bottle, owner: definitionOwner(foreign.pluginId) },
+							},
+						],
+						{ code: "owner-mismatch" },
+					],
+					[
+						[item("own"), { ...globalItem, scope: "global" as const }],
+						{ code: "global-scope-forbidden" },
+					],
+					[
+						[item("own"), { ...item("other-user"), userId: otherUser }],
+						{
+							code: "mutation-conflict",
+							message: "Domain write authority does not match the stored owner or scope",
+						},
+					],
+					[
+						[
+							{
+								...item("collection"),
+								entitySchema: kernelSchema,
+								lifecycle: kernelCollectionLifecycleCommand(nextCommand(command, "collection")),
+							},
+							{ ...item("kernel"), entitySchema: kernelSchema },
+						],
+						{ code: "owner-mismatch" },
+					],
+				] satisfies ReadonlyArray<[ReadonlyArray<UpsertEntityInput>, object]>) {
+					expect(yield* Effect.flip(write(items))).toMatchObject({ reason });
+				}
+				yield* session.run((db) =>
+					db
+						.update(tables.pluginInstallation)
+						.set({ ingestionRetiring: true })
+						.where(eq(tables.pluginInstallation.id, installed.installation.id)),
+				);
+				expect(yield* Effect.flip(write([item("retiring")]))).toMatchObject({
+					reason: {
+						code: "mutation-conflict",
+						message: "Current domain write installation authority is unavailable",
+					},
+				});
+				yield* session.run((db) =>
+					db
+						.update(tables.pluginInstallation)
+						.set({ ingestionRetiring: false })
+						.where(eq(tables.pluginInstallation.id, installed.installation.id)),
+				);
+				yield* session.run((db) =>
+					db
+						.insert(tables.user)
+						.values({
+							id: otherUser,
+							name: "Other",
+							email: "batch-scope@example.test",
+							accountGeneration: "test-account-generation",
+						}),
+				);
+				const shared = (id: string, userId: UserId | null) => ({
+					id,
+					userId,
+					name: id,
+					providerId,
+					externalId: "shared",
+					populatedAt: retiredAt,
+					entitySchemaSlug: bottle,
+					properties: { title: id },
+					entitySchemaPluginId: installed.pluginId,
+				});
+				yield* session.run((db) =>
+					db
+						.insert(tables.entity)
+						.values([shared("second-shared", otherUser), shared("global-shared", null)]),
+				);
+				const created = yield* write([item("shared")]);
+				const [result] = created.results;
+				assert(result);
+				expect(["second-shared", "global-shared"]).not.toContain(result.entity.id);
+				expect(yield* write([item("shared")])).toEqual(created);
+				const rows = yield* session.run((db) =>
+					db.select().from(tables.entity).where(eq(tables.entity.externalId, "shared")),
+				);
+				expect(rows.map(({ id }) => id).sort()).toEqual(
+					[result.entity.id, "global-shared", "second-shared"].sort(),
+				);
+				expect(
+					yield* session.run((db) =>
+						db
+							.select()
+							.from(tables.entity)
+							.where(
+								and(
+									eq(tables.entity.userId, firstUser),
+									eq(tables.entity.entitySchemaPluginId, installed.pluginId),
+								),
+							),
+					),
+				).toHaveLength(1);
 			}),
 	);
 });

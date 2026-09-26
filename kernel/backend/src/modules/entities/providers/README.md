@@ -33,17 +33,29 @@ transactions. Lifecycle dispatch and Redis publication happen after those transa
 
 ### Mutation lock order
 
-Concurrent populations can contain the same related entities and relationships. Every population
-transaction must acquire locks in this order before it mutates rows:
+Concurrent populations can contain the same related entities and relationships. Every entity
+commit transaction, batch or single writer (`persistSave`), acquires locks in this order before it
+mutates rows:
 
-1. Provider entity identities, sorted by scope, user, entity schema, provider, and external ID.
-2. Relationship identities, sorted by scope, user, relationship schema provenance, source entity,
-   and target entity.
-3. Entity rows followed by relationship rows in the same identity order.
+1. The schema catalog lock.
+2. Domain write authority checks with `lock=true`, once per distinct writer, kernel-collection
+   flag, definition owner, and scope.
+3. Mutation receipt locks, `hashtext('mutation-receipt:' || id)`.
+4. Provider entity identities, sorted by scope, user, entity schema, provider, and external ID
+   (`hashtextextended(key, 0)`).
+5. User ensure scopes or global provenance scopes (`hashtext(key)`).
+6. `entity-mutation:` keys of the known entity ids (`hashtextextended(key, 0)`).
+7. Entity rows `FOR UPDATE`, ordered by id.
 
-The repositories implement the first two steps with transaction-scoped PostgreSQL advisory locks.
-The lock keys use JSON arrays so field boundaries are unambiguous. Callers acquire all known locks
-before the first write; they must not lock one entity and then discover another mutation target.
+Population transactions then lock relationship identities, sorted by scope, user, relationship
+schema provenance, source entity, and target entity, and mutate entity rows before relationship
+rows in the same identity order.
+
+Steps 3 to 6 are transaction-scoped PostgreSQL advisory locks. Each step is one statement: keys are
+deduplicated, sorted in TypeScript by UTF-16 code unit, and locked through
+`unnest(...) with ordinality ... order by ordinality`. The lock keys use JSON arrays so field
+boundaries are unambiguous. Callers acquire all known locks before the first write; they must not
+lock one entity and then discover another mutation target.
 
 The locks are granular. Unrelated entity graphs continue concurrently, while transactions touching
 the same provider entity or relationship serialize their conflicting mutations.
