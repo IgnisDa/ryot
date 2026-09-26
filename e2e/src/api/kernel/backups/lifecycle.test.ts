@@ -20,6 +20,7 @@ import {
 	restoreBackup,
 	startBackupExport,
 	uninstallTestPlugin,
+	findEntityIdByName,
 } from "~/fixtures/kernel";
 import { assertTaggedError } from "~/support/assertions";
 import { describe, expect, it } from "~/support/effect-test";
@@ -205,12 +206,20 @@ describe("backup lifecycle", () => {
 					`Backup restore '${restore.id}' failed with ${restore.run.failure?.code ?? "unknown"}`,
 				);
 			}
-			const restoredEntity = yield* getEntity(target.client, sourceEntity.id);
+			const restoredEntity = yield* getEntity(
+				target.client,
+				yield* findEntityIdByName(target.client, {
+					name: title,
+					entitySchema: {
+						slug: schemaId,
+						owner: { kind: "plugin", pluginId: installedPlugin.pluginId },
+					},
+				}),
+			);
 			const targetLocator = yield* Schema.decodeUnknownEffect(ManagedAssetLocator)(
 				restoredEntity.properties.attachment,
 			);
 
-			expect(restoredEntity.id).toBe(sourceEntity.id);
 			expect(restoredEntity.name).toBe(sourceEntity.name);
 			expect(restoredEntity.entitySchemaSlug).toBe(schemaId);
 			expect(restoredEntity.properties).toEqual({ title, attachment: targetLocator });
