@@ -68,7 +68,7 @@ layer(BunServices.layer)((test) => {
 				);
 
 				const logs = yield* makeServerLogs(path.join(directory, activeName));
-				const { files } = yield* logs.list();
+				const { files } = yield* logs.list(undefined, 100);
 				expect(files.map((file) => file.name)).toEqual([activeName, rotatedName]);
 
 				const active = files[0];
@@ -87,6 +87,39 @@ layer(BunServices.layer)((test) => {
 		),
 	);
 
+	test.effect("lists log files in cursor pages without gaps or duplicates", () =>
+		withLogDirectory((fs, path, directory) =>
+			Effect.gen(function* () {
+				const rotatedNames = [
+					"20261001-1200-01-server.log.gz",
+					"20261001-1200-02-server.log.gz",
+					"20261001-1200-03-server.log.gz",
+				];
+				yield* fs.writeFileString(path.join(directory, activeName), "active");
+				for (const name of rotatedNames) {
+					yield* fs.writeFileString(path.join(directory, name), name);
+				}
+
+				const logs = yield* makeServerLogs(path.join(directory, activeName));
+				const firstPage = yield* logs.list(undefined, 2);
+				const nextCursor = firstPage.pageInfo.nextCursor;
+				assert(nextCursor);
+				const secondPage = yield* logs.list(nextCursor, 2);
+
+				expect(firstPage.files.map((file) => file.name)).toEqual([activeName, rotatedNames[2]]);
+				expect(firstPage.pageInfo).toEqual({
+					limit: 2,
+					hasMore: true,
+					nextCursor: rotatedNames[2],
+				});
+				expect(secondPage.files.map((file) => file.name)).toEqual(
+					rotatedNames.slice(0, 2).toReversed(),
+				);
+				expect(secondPage.pageInfo).toEqual({ limit: 2, hasMore: false, nextCursor: null });
+			}),
+		),
+	);
+
 	test.effect("downloads active and gzip files with their stored bytes and sizes", () =>
 		withLogDirectory((fs, path, directory) =>
 			Effect.gen(function* () {
@@ -96,7 +129,7 @@ layer(BunServices.layer)((test) => {
 				yield* fs.writeFile(path.join(directory, rotatedName), rotatedBytes);
 
 				const logs = yield* makeServerLogs(path.join(directory, activeName));
-				const { files } = yield* logs.list();
+				const { files } = yield* logs.list(undefined, 100);
 				const active = files.find((file) => file.name === activeName);
 				const rotated = files.find((file) => file.name === rotatedName);
 				assert(active !== undefined);
@@ -146,7 +179,7 @@ layer(BunServices.layer)((test) => {
 				const initialBytes = encoder.encode("initial bytes");
 				yield* fs.writeFile(path.join(directory, activeName), initialBytes);
 				const logs = yield* makeServerLogs(path.join(directory, activeName));
-				const { files } = yield* logs.list();
+				const { files } = yield* logs.list(undefined, 100);
 				const active = files[0];
 				assert(active !== undefined);
 				const snapshot = yield* logs.downloadFile(active.id);
@@ -166,7 +199,7 @@ layer(BunServices.layer)((test) => {
 				const activePath = path.join(directory, activeName);
 				yield* fs.writeFile(activePath, initialBytes);
 				const logs = yield* makeServerLogs(activePath);
-				const { files } = yield* logs.list();
+				const { files } = yield* logs.list(undefined, 100);
 				const active = files[0];
 				assert(active !== undefined);
 				const snapshot = yield* logs.downloadFile(active.id);
@@ -187,7 +220,7 @@ layer(BunServices.layer)((test) => {
 				const activePath = path.join(directory, activeName);
 				yield* fs.writeFile(activePath, encoder.encode("truncated snapshot"));
 				const logs = yield* makeServerLogs(activePath);
-				const { files } = yield* logs.list();
+				const { files } = yield* logs.list(undefined, 100);
 				const active = files[0];
 				assert(active !== undefined);
 
