@@ -68,10 +68,13 @@ describe("saved view definitions", () => {
 			});
 			const stored = yield* findSavedViewById(client, created.id);
 			const fetched = yield* getSavedView(client, stored.reference);
+			const { pluginId } = yield* findMediaEntitySchema(client, "book");
 
 			expect(stored.renderer).toEqual({ kind: "kernel", name: "entity-browser" });
 			expect(stored.settings).toEqual(entityBrowserSettings);
-			expect(stored.dataSources).toEqual(rowsDataSources);
+			expect(stored.dataSources).toEqual(
+				buildSavedViewDataSources(["book"], { pluginId, kind: "local" }),
+			);
 			expect(fetched).toMatchObject({
 				id: created.id,
 				renderer: stored.renderer,
