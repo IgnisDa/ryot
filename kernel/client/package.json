@@ -6,15 +6,15 @@
 		"#/*": "./src/*"
 	},
 	"scripts": {
-		"build": "vite build",
-		"dev": "vite dev --port 3005",
 		"generate-routes": "tsr generate",
 		"test": "bun --bun run vitest run",
 		"sync": "bun run build && cap sync",
 		"ios": "bun run sync && cap run ios",
 		"android": "bun run sync && cap run android",
+		"check": "tsc && oxfmt . --write && oxlint . --fix",
 		"generate-assets": "bun scripts/generate-assets.ts",
-		"check": "tsc && oxfmt . --write && oxlint . --fix"
+		"dev": "RYOT_VERSION=$(git describe --tags --always --dirty) vite dev --port 3005",
+		"build": "RYOT_VERSION=${RYOT_VERSION:-$(git describe --tags --always --dirty)} vite build"
 	},
 	"dependencies": {
 		"@aparajita/capacitor-secure-storage": "^8.0.0",
