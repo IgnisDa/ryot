@@ -50,6 +50,34 @@ const emittedInput = {
 	files: { "client/home.tsx": bytes("export default function Home() { return null; }") },
 };
 
+for (const [reference, accepted] of [
+	["./module.js?query#fragment", true],
+	["module.js#fragment", true],
+	["/module.js", false],
+	["./nested/../module.js", false],
+	["../module.js", false],
+	["./nested/module.js", false],
+	["#fragment", true],
+	["data:text/javascript,export default 1", true],
+	["https://example.com/module.js", true],
+	["custom:module", true],
+	["//example.com/module.js", true],
+	["react", true],
+	["undeclared-package", false],
+] satisfies readonly (readonly [string, boolean])[]) {
+	it.layer(emittedLayer(`export * from ${JSON.stringify(reference)};`))(
+		`plugin output policy: ${reference}`,
+		(test) => {
+			test.effect(accepted ? "accepts the reference" : "rejects the reference", () =>
+				Effect.gen(function* () {
+					const result = yield* compileClientPluginModule(emittedInput).pipe(Effect.result);
+					expect(result._tag).toBe(accepted ? "Success" : "Failure");
+				}),
+			);
+		},
+	);
+}
+
 it.layer(
 	emittedLayer(
 		'const text = `;import "missing.js"`; /* ;export * from "other.js" */ export { text };',

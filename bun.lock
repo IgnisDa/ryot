@@ -616,7 +616,9 @@
     "packages/typescript-compiler": {
       "name": "@ryot-app/typescript-compiler",
       "dependencies": {
+        "@oxc-project/types": "0.132.0",
         "effect": "4.0.0-rc.117",
+        "rolldown": "1.0.2",
         "typescript": "7.0.2",
       },
       "devDependencies": {
@@ -629,11 +631,9 @@
     "packages/vite-compiler": {
       "name": "@ryot-app/vite-compiler",
       "dependencies": {
-        "@oxc-project/types": "0.132.0",
         "@ryot-app/ts-utils": "workspace:*",
         "@ryot-app/typescript-compiler": "workspace:*",
         "effect": "4.0.0-rc.117",
-        "rolldown": "1.0.2",
         "vite": "8.0.14",
       },
       "devDependencies": {

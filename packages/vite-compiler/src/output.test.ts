@@ -8,6 +8,27 @@ const errorReason = <Value>(result: Result.Result<Value, ViteCompilerError>) =>
 	Result.isFailure(result) ? result.failure.reason : undefined;
 
 describe("Vite output", () => {
+	it("retains executable BOM, CRLF, and distinct Unicode encodings", () => {
+		const code = '\ufeffexport default "e\u0301 é \ufffd 😀";\r\n';
+		const result = collectViteOutputs({ output: [{ code, type: "chunk", fileName: "module.js" }] });
+		expect(Result.isSuccess(result)).toBe(true);
+		if (Result.isSuccess(result)) {
+			expect(result.success[0]?.bytes).toEqual(new TextEncoder().encode(code));
+		}
+	});
+
+	it("rejects unpaired surrogates before executable bytes can acquire a replacement identity", () => {
+		for (const surrogate of ["\ud800", "\udfff"]) {
+			for (const item of [
+				{ type: "chunk", fileName: "module.js", code: `export default "${surrogate}";` },
+				{ type: "asset", source: surrogate, fileName: "module.css" },
+				{ type: "asset", source: surrogate, fileName: "module.mjs" },
+			]) {
+				expect(errorReason(collectViteOutputs({ output: [item] }))).toBe("invalid-output");
+			}
+		}
+	});
+
 	it.effect("collects result arrays as copied bytes in deterministic path order", () =>
 		Effect.sync(() => {
 			const imageBytes = new Uint8Array([0x89, 0x50, 0x4e, 0x47]);
