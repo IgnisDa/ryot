@@ -36,6 +36,7 @@ import { sql } from "drizzle-orm";
 import { Context, Effect, Layer, Option, Ref, Result } from "effect";
 
 import { AuthRepository } from "#modules/accounts/auth/repository";
+import { ManagedAssetsService } from "#modules/assets/storage/managed-assets";
 import { withLifecycleBatchPlanning } from "#modules/automations/lifecycle.test-support";
 import { LifecycleExecution } from "#modules/automations/lifecycle/execution";
 import { LifecyclePlanner } from "#modules/automations/lifecycle/planning";
@@ -67,6 +68,7 @@ import type { ScriptRunInput } from "#modules/scripts/authorization/capabilities
 import type { ScriptExecutionPrincipal } from "#modules/scripts/authorization/principal";
 import { SandboxRepository } from "#modules/scripts/registry/repository";
 import { DatabaseSession } from "#platform/db/session";
+import { ProKeyService } from "#platform/pro-key";
 import { RedisService } from "#platform/redis";
 import { user } from "#schema/tables/auth";
 import { makeAppConfigLayer, makeRedisService } from "#testing/effect";
@@ -388,6 +390,21 @@ const hostFunctionsLayer = (
 				DomainWriteChecksLive.pipe(Layer.provide(hostDatabaseLayer)),
 				makeAppConfigLayer(),
 				Layer.succeed(RedisService, makeRedisService()),
+				Layer.succeed(
+					ManagedAssetsService,
+					ManagedAssetsService.of({
+						resolveDownloads: () => Effect.die("Unexpected download resolution"),
+						registerManagedAsset: () => Effect.die("Unexpected asset registration"),
+						listManagedAssetsForOwner: () => Effect.die("Unexpected asset listing"),
+						cleanupStagedPermanentAsset: () => Effect.die("Unexpected asset cleanup"),
+						stageContentAddressedPermanentAsset: () => Effect.die("Unexpected asset staging"),
+						verifyManagedAssetOwnership: () =>
+							Effect.die("Unexpected asset ownership verification"),
+						registerManagedAssetInLockedTransaction: () =>
+							Effect.die("Unexpected asset registration"),
+					}),
+				),
+				Layer.succeed(ProKeyService, ProKeyService.of({ isValidated: Effect.succeed(false) })),
 				Layer.mock(EventsService)({
 					updateBatch: (items, userId, command) =>
 						append(eventMutations, { items, userId, command, kind: "update" }).pipe(

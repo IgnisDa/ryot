@@ -3,6 +3,7 @@ import type { Effect } from "@ryot-app/plugin-backend-sdk/effect";
 import { Schema } from "@ryot-app/plugin-backend-sdk/effect";
 
 import { hostResultSchema, type JsonValue, type SandboxHostError } from "../wire";
+import { verifyManagedAssetsArgsSchema, verifyManagedAssetsResultSchema } from "./assets";
 import {
 	emitSignalArgsSchema,
 	emitSignalDataSchema,
@@ -64,6 +65,7 @@ import {
 	oauthAccessTokenSchema,
 } from "./integrations";
 import { logArgsSchema, logResultSchema, spanArgsSchema, spanResultSchema } from "./logging";
+import { getProAvailabilityArgsSchema, getProAvailabilityResultSchema } from "./pro";
 import {
 	changeUserRelationshipsArgsSchema,
 	changeUserRelationshipsDataSchema,
@@ -132,6 +134,16 @@ export const coreSandboxHostContracts = {
 		args: setCachedValueArgsSchema,
 		success: setCachedValueDataSchema,
 		result: setCachedValueResultSchema,
+	},
+	getProAvailability: {
+		success: Schema.Boolean,
+		args: getProAvailabilityArgsSchema,
+		result: getProAvailabilityResultSchema,
+	},
+	verifyManagedAssets: {
+		success: Schema.Null,
+		args: verifyManagedAssetsArgsSchema,
+		result: verifyManagedAssetsResultSchema,
 	},
 	getPersistentValue: {
 		args: getCachedValueArgsSchema,

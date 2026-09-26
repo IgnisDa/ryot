@@ -16,3 +16,4 @@ export const USER_ENTITY_WRITE_SANDBOX_LIMITS = {
 export const USER_ENTITY_READ_SANDBOX_LIMITS = {
 	ids: GLOBAL_WRITE_SANDBOX_LIMITS.entityItems,
 } as const;
+export const MANAGED_ASSET_VERIFY_SANDBOX_LIMITS = { locators: 500 } as const;
