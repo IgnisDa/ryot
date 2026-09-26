@@ -189,6 +189,7 @@ it.live("opens a Media Show entity from the canonical saved-view route", () =>
 		yield* page.keyboard.press(`${primaryModifier}+K`);
 		yield* commandCenter.waitFor({ state: "visible" });
 		expect(yield* commandCenter.isVisible()).toBe(true);
+		yield* commandCenter.waitForFunction((dialog) => dialog.contains(document.activeElement));
 		yield* page.keyboard.press("Escape");
 		yield* commandCenter.waitFor({ state: "hidden" });
 
