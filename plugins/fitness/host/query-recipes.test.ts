@@ -4,7 +4,7 @@ import {
 	exerciseListRecipe,
 	workoutDetailRecipe,
 	workoutTemplateDetailRecipe,
-} from "./query-recipes";
+} from "../shared/query-recipes";
 
 describe("fitness query recipes", () => {
 	it("builds typed filtered exercise rows", () => {
@@ -23,20 +23,34 @@ describe("fitness query recipes", () => {
 			expect.objectContaining({
 				predicates: expect.arrayContaining([
 					expect.objectContaining({
+						operator: "eq",
 						right: { type: "literal", value: "exercise" },
-						left: expect.objectContaining({ field: "entitySchemaSlug" }),
+						left: { type: "column", tableAlias: "entity", field: "entitySchemaSlug" },
 					}),
 					expect.objectContaining({
-						left: expect.objectContaining({ field: "id" }),
+						operator: "eq",
 						right: { type: "literal", value: "exercise-id" },
+						left: { field: "id", type: "column", tableAlias: "entity" },
 					}),
 					expect.objectContaining({
+						operator: "eq",
 						right: { type: "literal", value: "Push Up" },
-						left: expect.objectContaining({ field: "name" }),
+						left: { field: "name", type: "column", tableAlias: "entity" },
 					}),
 				]),
 			}),
 		);
+		expect(exerciseListRecipe({}).document.queries.exercises?.where).toEqual({
+			type: "and",
+			predicates: [
+				{
+					operator: "eq",
+					type: "comparison",
+					right: { type: "literal", value: "exercise" },
+					left: { type: "column", tableAlias: "entity", field: "entitySchemaSlug" },
+				},
+			],
+		});
 		expect(exercises.output).toEqual(
 			expect.objectContaining({
 				pagination: { limit: 5, after: "exercise-cursor" },
