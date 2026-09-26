@@ -2,32 +2,21 @@ import { Effect } from "effect";
 
 import {
 	createAuthenticatedClient,
-	createEventSchema,
-	createPluginSchema,
 	eventSchemasSandboxSource,
 	enqueueSandboxScript,
 	installSandboxScriptScoped,
 	pollSandboxResult,
+	testPluginEntitySchema,
 } from "~/fixtures/kernel";
 import { assertCompleted } from "~/support/assertions";
 import { describe, expect, it } from "~/support/effect-test";
+
+const eventSchema = (name: string) => ({ name, slug: "event", propertiesSchema: { fields: {} } });
 
 describe("sandbox event schema reads", () => {
 	it.live("reads deduplicated schemas in first-seen input order", () =>
 		Effect.gen(function* () {
 			const { client, userId } = yield* createAuthenticatedClient();
-			const first = yield* createPluginSchema(client, { name: "First schema" });
-			const second = yield* createPluginSchema(client, { name: "Second schema" });
-			const firstEvent = yield* createEventSchema(client, {
-				name: "First event",
-				entitySchema: first.reference,
-				slug: `first-event-${crypto.randomUUID()}`,
-			});
-			const secondEvent = yield* createEventSchema(client, {
-				name: "Second event",
-				entitySchema: second.reference,
-				slug: `second-event-${crypto.randomUUID()}`,
-			});
 			const slug = `list-event-schemas-${crypto.randomUUID()}`;
 			const { scriptId } = yield* installSandboxScriptScoped({
 				slug,
@@ -35,19 +24,29 @@ describe("sandbox event schema reads", () => {
 				name: "List event schemas",
 				capabilities: ["listEventSchemas"],
 				source: eventSchemasSandboxSource({ slug, name: "List event schemas" }),
+				entitySchemas: [
+					{
+						...testPluginEntitySchema({ slug: "first" }),
+						eventSchemas: [eventSchema("First event")],
+					},
+					{
+						...testPluginEntitySchema({ slug: "second" }),
+						eventSchemas: [eventSchema("Second event")],
+					},
+				],
 			});
 			const { jobId } = yield* enqueueSandboxScript(userId, {
 				scriptId,
 				lane: "interactive",
-				context: { slugs: [second.schemaId, first.schemaId, second.schemaId] },
+				context: { slugs: ["second", "first", "second"] },
 			});
 
 			const result = yield* pollSandboxResult(userId, jobId);
 			assertCompleted(result, "list event schemas sandbox job");
 			expect(result.error).toBeNull();
 			expect(result.value).toMatchObject([
-				{ id: secondEvent.id, entitySchemaSlug: second.schemaId },
-				{ id: firstEvent.id, entitySchemaSlug: first.schemaId },
+				{ id: "event", name: "Second event", entitySchemaSlug: "second" },
+				{ id: "event", name: "First event", entitySchemaSlug: "first" },
 			]);
 
 			const { jobId: emptyJobId } = yield* enqueueSandboxScript(userId, {
@@ -65,19 +64,19 @@ describe("sandbox event schema reads", () => {
 	it.live("fails entire batch when one schema does not exist", () =>
 		Effect.gen(function* () {
 			const { client, userId } = yield* createAuthenticatedClient();
-			const existing = yield* createPluginSchema(client, { name: "Existing schema" });
 			const slug = `list-event-schemas-missing-${crypto.randomUUID()}`;
 			const { scriptId } = yield* installSandboxScriptScoped({
 				slug,
 				client,
 				name: "List event schemas missing",
 				capabilities: ["listEventSchemas"],
+				entitySchemas: [testPluginEntitySchema({ slug: "existing" })],
 				source: eventSchemasSandboxSource({ slug, name: "List event schemas missing" }),
 			});
 			const { jobId } = yield* enqueueSandboxScript(userId, {
 				scriptId,
 				lane: "interactive",
-				context: { slugs: [existing.schemaId, "missing-schema"] },
+				context: { slugs: ["existing", "missing-schema"] },
 			});
 
 			const result = yield* pollSandboxResult(userId, jobId);

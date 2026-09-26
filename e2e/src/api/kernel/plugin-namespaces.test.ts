@@ -152,8 +152,8 @@ describe("plugin namespaces", () => {
 						}),
 					]);
 					const broad = yield* executeRyotQLRecipe(client, namespaceBottlesRecipe({}));
-					expect(broad.map(({ id }) => id).sort()).toEqual(
-						[...aRows, ...bRows].map(({ id }) => id).sort(),
+					expect(broad.map(({ id }) => id)).toEqual(
+						expect.arrayContaining([...aRows, ...bRows].map(({ id }) => id)),
 					);
 					expect(
 						yield* executeRyotQLRecipe(

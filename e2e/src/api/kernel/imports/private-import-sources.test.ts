@@ -39,7 +39,10 @@ describe("private import sources", () => {
 				isStartable: true,
 				slug: plugin.sourceSlug,
 				missingPluginConfigKeys: [],
-				pluginSlug: plugin.pluginSlug,
+				reference: {
+					slug: plugin.sourceSlug,
+					owner: { kind: "plugin", pluginId: plugin.pluginId },
+				},
 			});
 			expect(outsiderSources.map(({ slug }) => slug)).not.toContain(plugin.sourceSlug);
 
