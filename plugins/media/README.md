@@ -340,6 +340,14 @@ User and list modes require `traktClientId`; export does not. List URLs allow on
 `www.trakt.tv` with `/users/{username}/lists/{slug}`. Export ratings and comments can target movies,
 shows, seasons, or episodes.
 
+Every upload or credentialed import runs its parser loop in `media-import-segment` child workflows of
+up to 100 batches each, so a long import stays within the kernel's per-execution journal limits.
+Integration runs process their single batch inline.
+
+The Spotify importer reads an extended streaming history ZIP and records each `trackdone` play of a
+`spotify:track:` URI once per `(track, ts)`. A track's plays are cut into items of six so a batch fits the
+write-chunks context limit.
+
 ## Integrations
 
 The Spotify yank declares the `spotify` OAuth provider over `spotifyClientId` and
