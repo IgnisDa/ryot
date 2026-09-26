@@ -1,5 +1,6 @@
 import { Result, Schema } from "effect";
 
+import { JsonValue } from "../../schema/json";
 import type { AppSchema } from "../../schema/property-schema";
 import { strictStruct } from "../../schema/utils";
 import {
@@ -8,7 +9,6 @@ import {
 	KernelDefinitionOwner,
 	RelationshipSchemaReference,
 } from "../plugins/references";
-import { jsonValueSchema } from "../sandbox/wire";
 
 export const dataJsonSource = "data-json";
 export const dataJsonSourceReference: DeclarationReference = {
@@ -16,7 +16,7 @@ export const dataJsonSourceReference: DeclarationReference = {
 	owner: { kind: "kernel" },
 };
 
-export const DataRecordProperties = Schema.Record(Schema.String, jsonValueSchema);
+export const DataRecordProperties = Schema.Record(Schema.String, JsonValue);
 
 export const DataRecordTimestamp = Schema.String.pipe(
 	Schema.check(

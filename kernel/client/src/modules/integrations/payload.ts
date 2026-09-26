@@ -2,7 +2,7 @@ import type {
 	CreateIntegrationBody,
 	UpdateIntegrationBody,
 } from "@ryot-app/contract/modules/integrations/schemas";
-import type { JsonValue } from "@ryot-app/contract/modules/sandbox/wire";
+import type { JsonValue } from "@ryot-app/contract/schema/json";
 import type { AppSchema } from "@ryot-app/contract/schema/property-schema";
 import {
 	initialSchemaFormValues,

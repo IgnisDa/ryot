@@ -12,11 +12,11 @@ import { runPromise } from "~/support/e2e-runtime";
 import { getFrontendUrl } from "~/support/harness-target";
 
 import { createAuthenticatedClient } from "../fixtures/kernel/auth";
-import { createPluginSavedView } from "../fixtures/kernel/client-pages";
 import {
 	installFixtureClientPlugin,
 	updateFixtureClientPlugin,
 } from "../fixtures/kernel/client-plugin";
+import { createPluginSavedView } from "../fixtures/kernel/pages";
 import {
 	findBuiltinPluginByPackage,
 	findPluginInstallationById,

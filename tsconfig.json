@@ -4,11 +4,11 @@
 	"references": [
 		{ "path": "apps/browser-extension" },
 		{ "path": "apps/docs" },
-		{ "path": "apps/frontend" },
 		{ "path": "apps/server" },
 		{ "path": "apps/website" },
 		{ "path": "kernel/backend" },
 		{ "path": "kernel/client" },
+		{ "path": "kernel/sandbox" },
 		{ "path": "packages/contract" },
 		{ "path": "packages/plugin-archive" },
 		{ "path": "packages/plugin-kit" },

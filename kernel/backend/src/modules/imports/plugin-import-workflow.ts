@@ -1,6 +1,5 @@
 import type { ImportRunFailureReason } from "@ryot-app/contract/modules/imports/schemas";
-import type { JsonValue } from "@ryot-app/contract/modules/ryotql/language";
-import { jsonValueSchema } from "@ryot-app/contract/modules/sandbox/wire";
+import { JsonValue } from "@ryot-app/contract/schema/json";
 import { genericImportWorkflowInputSchema } from "@ryot-app/plugin-backend-sdk/imports";
 import { ExecutionFileStore } from "@ryot-app/sandbox/host/execution-files";
 import { stableStringify } from "@ryot-app/ts-utils/json";
@@ -128,7 +127,7 @@ export const runPluginImportWorkflow = Effect.fn("runPluginImportWorkflow")(func
 			runId: payload.runId,
 			source: state.source,
 			command: payload.command,
-		}).pipe(Effect.flatMap(Schema.decodeUnknownEffect(jsonValueSchema)));
+		}).pipe(Effect.flatMap(Schema.decodeUnknownEffect(JsonValue)));
 		yield* sandbox.executeWorkflow({
 			input,
 			grants,

@@ -1,8 +1,8 @@
 import {
-	GodModeInternalFailure,
-	GodModeNotFound,
-	GodModeRequestFailure,
-} from "@ryot-app/contract/modules/god-mode/contract";
+	InstanceAdminInternalFailure,
+	InstanceAdminNotFound,
+	InstanceAdminRequestFailure,
+} from "@ryot-app/contract/modules/instance-admin/contract";
 import {
 	buildOAuthAuthorizationUrl,
 	getNativeOAuthCallbackUri,
@@ -41,23 +41,23 @@ export class ImpersonationHandoffs extends Context.Service<ImpersonationHandoffs
 				ttlSeconds: IMPERSONATION_HANDOFF_TTL_SECONDS,
 				invalid: () => new ImpersonationHandoffInvalid(),
 				unavailable: () =>
-					new GodModeInternalFailure({ reason: { code: "impersonation-unavailable" } }),
+					new InstanceAdminInternalFailure({ reason: { code: "impersonation-unavailable" } }),
 			});
 			const requireTarget = Effect.fn("ImpersonationHandoffs.requireTarget")(function* (
 				userId: UserId,
 			) {
 				const user = yield* repository.findUserById(userId);
 				if (!user) {
-					return yield* new GodModeNotFound({ reason: { userId, code: "user-not-found" } });
+					return yield* new InstanceAdminNotFound({ reason: { userId, code: "user-not-found" } });
 				}
 				if (user.disabledAt) {
-					return yield* new GodModeRequestFailure({ reason: { code: "user-disabled" } });
+					return yield* new InstanceAdminRequestFailure({ reason: { code: "user-disabled" } });
 				}
 				if (!user.bootstrapCompletedAt) {
-					return yield* new GodModeRequestFailure({ reason: { code: "user-initializing" } });
+					return yield* new InstanceAdminRequestFailure({ reason: { code: "user-initializing" } });
 				}
 				if (yield* lifecycle.isActive(userId)) {
-					return yield* new GodModeRequestFailure({ reason: { code: "user-unavailable" } });
+					return yield* new InstanceAdminRequestFailure({ reason: { code: "user-unavailable" } });
 				}
 				return user;
 			});
@@ -77,7 +77,7 @@ export class ImpersonationHandoffs extends Context.Service<ImpersonationHandoffs
 						/^[A-Za-z0-9_-]{16,256}$/.test(value),
 					)
 				) {
-					return yield* new GodModeRequestFailure({
+					return yield* new InstanceAdminRequestFailure({
 						reason: { code: "invalid-impersonation-authorization" },
 					});
 				}

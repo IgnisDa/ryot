@@ -1,5 +1,5 @@
 import { SandboxRunError } from "@ryot-app/contract/errors";
-import type { SandboxExecutionSubject } from "@ryot-app/contract/modules/sandbox/schemas";
+import type { SandboxExecutionSubject } from "@ryot-app/contract/modules/scripts/schemas";
 import {
 	PluginId,
 	PluginPackageId,

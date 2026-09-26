@@ -1,4 +1,4 @@
-import { SandboxScriptManifest } from "@ryot-app/contract/modules/sandbox/schemas";
+import { SandboxScriptManifest } from "@ryot-app/contract/modules/scripts/schemas";
 import { compileSandboxSource } from "@ryot-app/plugin-backend-compiler/core";
 import { Effect, Schema } from "effect";
 

@@ -1,4 +1,4 @@
-import { SandboxBoundaryReason } from "@ryot-app/contract/modules/sandbox/boundary-reason";
+import { SandboxBoundaryReason } from "@ryot-app/contract/modules/scripts/boundary-reason";
 import { Effect, Option, Schema } from "@ryot-app/plugin-backend-sdk/effect";
 
 const encoder = new TextEncoder();

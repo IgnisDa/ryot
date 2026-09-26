@@ -1,5 +1,5 @@
-import type { JsonValue } from "@ryot-app/contract/modules/sandbox/wire";
-import type { AssetLocator, ManagedAssetLocator } from "@ryot-app/contract/modules/uploads/schemas";
+import type { AssetLocator, ManagedAssetLocator } from "@ryot-app/contract/modules/assets/schemas";
+import type { JsonValue } from "@ryot-app/contract/schema/json";
 import type { AppPropertyDefinition, AppSchema } from "@ryot-app/contract/schema/property-schema";
 import { isObjectRecord } from "@ryot-app/ts-utils/predicates";
 import { Effect, Schema } from "effect";

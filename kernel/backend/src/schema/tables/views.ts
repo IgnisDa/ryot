@@ -1,7 +1,7 @@
 import type {
 	ClientPageCompositionIdentity,
 	ClientPageCompositionManifest,
-} from "@ryot-app/contract/modules/client-pages/schemas";
+} from "@ryot-app/contract/modules/pages/schemas";
 import type { RyotQLDocument } from "@ryot-app/contract/modules/ryotql/language";
 import type { SavedViewRenderer } from "@ryot-app/contract/modules/saved-views/schemas";
 import type { JsonValue } from "@ryot-app/contract/schema/json";

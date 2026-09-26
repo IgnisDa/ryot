@@ -2,8 +2,8 @@ import { ExecutionLane } from "@ryot-app/contract/modules/automations/lifecycle"
 import {
 	SandboxExecutionError,
 	SandboxScriptMetadata,
-} from "@ryot-app/contract/modules/sandbox/schemas";
-import { jsonValueSchema } from "@ryot-app/contract/modules/sandbox/wire";
+} from "@ryot-app/contract/modules/scripts/schemas";
+import { JsonValue } from "@ryot-app/contract/schema/json";
 import { workflowInlineRequestSchema } from "@ryot-app/plugin-backend-sdk/workflow";
 import { Schema } from "effect";
 
@@ -105,7 +105,7 @@ export const SandboxInvocationSchema = Schema.Struct({
 	filesystem: Schema.optional(filesystemHintsSchema),
 	workflowExecutionId: Schema.optional(Schema.String),
 	inlineDurableCapabilities: Schema.optional(Schema.Array(Schema.String)),
-	context: jsonValueSchema.pipe(
+	context: JsonValue.pipe(
 		Schema.check(
 			Schema.makeFilter((value) => {
 				const serialized = jsonStringify(value);
@@ -185,12 +185,12 @@ export const InlineBatchSchema = Schema.Struct({
 
 export const InlineBatchReplySchema = Schema.Union([
 	Schema.Struct({ defer: Schema.Literal(true) }),
-	Schema.Struct({ results: Schema.Array(jsonValueSchema) }),
+	Schema.Struct({ results: Schema.Array(JsonValue) }),
 ]);
 
 export const SandboxInvocationResponseSchema = Schema.Union([
 	Schema.Struct({
-		value: jsonValueSchema,
+		value: JsonValue,
 		success: Schema.Literal(true),
 		logs: Schema.Array(Schema.String),
 		timing: Schema.Struct({ executionMs: Schema.Finite }),

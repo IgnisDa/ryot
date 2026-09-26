@@ -1,23 +1,23 @@
 import { Effect, Layer } from "effect";
 
+import { AccountApi } from "#/api/account";
 import { AutomationHistoryApi } from "#/api/automation-history";
 import { BackupsApi } from "#/api/backups";
 import { CollectionsApi } from "#/api/collections";
-import { EntityInterestApi } from "#/api/entity-interest";
-import { GodModeApi } from "#/api/god-mode";
+import { EntityProvidersApi } from "#/api/entity-providers";
+import { EntityWatchApi } from "#/api/entity-watches";
 import { ImportsApi } from "#/api/imports";
+import { InstanceAdminApi } from "#/api/instance-admin";
 import { IntegrationsApi } from "#/api/integrations";
 import { NotificationsApi } from "#/api/notifications";
 import { OAuthConnectionsApi } from "#/api/oauth-connections";
 import { PluginInstallationsApi } from "#/api/plugin-installations";
 import { PluginsApi } from "#/api/plugins";
-import { ProviderEntitiesApi } from "#/api/provider-entities";
 import { RyotQLApi } from "#/api/ryotql";
 import { SavedViewsApi } from "#/api/saved-views";
 import { UploadsApi } from "#/api/uploads";
-import { UserSettingsApi } from "#/api/user-settings";
 import { TemporaryUploads } from "#/modules/assets/temporary-uploads";
-import { EntityInterestService } from "#/modules/entity-interest/service";
+import { EntityWatchService } from "#/modules/entity-watches/service";
 import { ExternalLinks } from "#/modules/external-links/service";
 import { PluginManagementService } from "#/modules/plugins/management/service";
 
@@ -28,13 +28,11 @@ export const makeAutomationHistoryApi = (
 	overrides: Partial<AutomationHistoryApi["Service"]> = {},
 ) => Layer.succeed(AutomationHistoryApi, { retryRun: unused, ...overrides });
 
-export const makeEntityInterestApi = (overrides: Partial<EntityInterestApi["Service"]> = {}) =>
-	Layer.succeed(EntityInterestApi, { createSocketTicket: unused, ...overrides });
+export const makeEntityWatchApi = (overrides: Partial<EntityWatchApi["Service"]> = {}) =>
+	Layer.succeed(EntityWatchApi, { createSocketTicket: unused, ...overrides });
 
-export const makeEntityInterestService = (
-	overrides: Partial<EntityInterestService["Service"]> = {},
-) =>
-	Layer.succeed(EntityInterestService, {
+export const makeEntityWatchService = (overrides: Partial<EntityWatchService["Service"]> = {}) =>
+	Layer.succeed(EntityWatchService, {
 		refresh: () => {},
 		reconnect: () => {},
 		acquire: () => () => {},
@@ -87,8 +85,8 @@ export const makePluginsApi = (overrides: Partial<PluginsApi["Service"]> = {}) =
 		...overrides,
 	});
 
-export const makeProviderEntitiesApi = (overrides: Partial<ProviderEntitiesApi["Service"]> = {}) =>
-	Layer.succeed(ProviderEntitiesApi, {
+export const makeEntityProvidersApi = (overrides: Partial<EntityProvidersApi["Service"]> = {}) =>
+	Layer.succeed(EntityProvidersApi, {
 		search: unused,
 		import: unused,
 		searchOptions: unused,
@@ -140,16 +138,16 @@ export const makeOAuthConnectionsApi = (overrides: Partial<OAuthConnectionsApi["
 		...overrides,
 	});
 
-export const makeUserSettingsApi = (overrides: Partial<UserSettingsApi["Service"]> = {}) =>
-	Layer.succeed(UserSettingsApi, {
+export const makeAccountApi = (overrides: Partial<AccountApi["Service"]> = {}) =>
+	Layer.succeed(AccountApi, {
 		refreshAvatar: unused,
 		twoFactorStatus: unused,
 		updatePreferences: unused,
 		...overrides,
 	});
 
-export const makeGodModeApi = (overrides: Partial<GodModeApi["Service"]> = {}) =>
-	Layer.succeed(GodModeApi, {
+export const makeInstanceAdminApi = (overrides: Partial<InstanceAdminApi["Service"]> = {}) =>
+	Layer.succeed(InstanceAdminApi, {
 		query: unused,
 		listLogs: unused,
 		resetUser: unused,
@@ -175,12 +173,12 @@ export const KernelApiTestLayer = Layer.mergeAll(
 	makeUploadsApi(),
 	makePluginsApi(),
 	makeSavedViewsApi(),
-	makeUserSettingsApi(),
+	makeAccountApi(),
 	makeIntegrationsApi(),
 	makeNotificationsApi(),
 	makeOAuthConnectionsApi(),
-	makeEntityInterestApi(),
-	makeProviderEntitiesApi(),
-	makeEntityInterestService(),
+	makeEntityWatchApi(),
+	makeEntityProvidersApi(),
+	makeEntityWatchService(),
 	makePluginInstallationsApi(),
 );

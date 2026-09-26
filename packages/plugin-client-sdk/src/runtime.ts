@@ -1,9 +1,9 @@
-import { MAX_INTEREST_ENTITY_IDS } from "@ryot-app/contract/modules/entity-interest/messages";
+import type { ManagedAssetLocator } from "@ryot-app/contract/modules/assets/schemas";
+import { MAX_INTEREST_ENTITY_IDS } from "@ryot-app/contract/modules/entity-watches/messages";
 import {
 	EntitySchemaReference,
 	SavedViewReference,
 } from "@ryot-app/contract/modules/plugins/references";
-import type { ManagedAssetLocator } from "@ryot-app/contract/modules/uploads/schemas";
 import { EntityId, PluginPackageId } from "@ryot-app/contract/schema/brands";
 import {
 	CLIENT_BRIDGE_MAX_PENDING_REQUESTS,
@@ -49,7 +49,7 @@ import {
 	type RyotPageSearchUpdate,
 	type RyotProviderSearchScreenRequest,
 	type RyotNavigationTarget,
-	type EntityInterest,
+	type EntityWatch,
 	type EntityUpdate,
 	type TemporaryUploadRequest,
 } from "./index";
@@ -165,7 +165,7 @@ export const createPluginRuntime = (
 	const themeListeners = new Set<() => void>();
 	const pending = new Map<string, PendingCall>();
 	const interestOwners = new Set<{
-		interest: EntityInterest;
+		interest: EntityWatch;
 		onUpdate: (update: EntityUpdate) => void;
 	}>();
 	let postedInterest = JSON.stringify({ visible: [], foreground: [] });
@@ -180,7 +180,7 @@ export const createPluginRuntime = (
 		if (serialized === postedInterest) {
 			return;
 		}
-		if (!post({ visible, foreground, type: "entity-interest" })) {
+		if (!post({ visible, foreground, type: "entity-watches" })) {
 			throw new RyotClientError(terminalReason ?? "transport");
 		}
 		postedInterest = serialized;

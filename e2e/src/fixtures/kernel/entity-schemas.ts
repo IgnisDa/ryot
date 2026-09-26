@@ -26,8 +26,8 @@ import { pollUntil } from "./polling";
 import { collectRyotQLRecipeItems } from "./ryotql";
 import { installTestDefinitions } from "./test-plugin";
 
-type SearchProviderEntitiesBody = ContractPayload<"providerEntities", "search">;
-type ImportProviderEntityBody = ContractPayload<"providerEntities", "import">;
+type SearchProviderEntitiesBody = ContractPayload<"entityProviders", "search">;
+type ImportProviderEntityBody = ContractPayload<"entityProviders", "import">;
 type EntitySchemaInputSlug = ContractPayload<"entities", "create">["entitySchema"]["slug"];
 type PluginEntitySchema = PluginManifest["entitySchemas"][number];
 
@@ -170,11 +170,11 @@ export const listBuiltinEntitySchemas = (
 	});
 
 export const searchProviderEntities = (client: Client, body: SearchProviderEntitiesBody) =>
-	client.call((c) => c.providerEntities.search({ payload: body }));
+	client.call((c) => c.entityProviders.search({ payload: body }));
 
 export const enqueueProviderEntityImport = (client: Client, body: ImportProviderEntityBody) =>
 	Effect.gen(function* () {
-		const result = yield* client.call((c) => c.providerEntities.import({ payload: body }));
+		const result = yield* client.call((c) => c.entityProviders.import({ payload: body }));
 
 		return { jobId: requirePresent(result.jobId, "Failed to enqueue entity import") };
 	});
@@ -184,7 +184,7 @@ export const pollProviderEntityImportResult = (client: Client, jobId: string) =>
 		`entity import job '${jobId}'`,
 		Effect.gen(function* () {
 			const result = yield* client.call((c) =>
-				c.providerEntities.getImportResult({ params: { jobId } }),
+				c.entityProviders.getImportResult({ params: { jobId } }),
 			);
 			return result.status === "queued" || result.status === "running" ? null : result;
 		}),

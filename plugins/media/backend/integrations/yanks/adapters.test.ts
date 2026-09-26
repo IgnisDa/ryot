@@ -1,5 +1,5 @@
 import { describe, expect, it } from "@effect/vitest";
-import type { JsonValue } from "@ryot-app/contract/modules/ryotql/language";
+import type { JsonValue } from "@ryot-app/contract/schema/json";
 import type { ScriptHost } from "@ryot-app/plugin-backend-sdk/core";
 import { Effect, Schema } from "@ryot-app/plugin-backend-sdk/effect";
 import { genericImportChunkSchema } from "@ryot-app/plugin-backend-sdk/imports";

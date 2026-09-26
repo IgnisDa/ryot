@@ -1,5 +1,5 @@
 import type { DbError } from "@ryot-app/contract/errors";
-import type { PluginInstallationUnavailableReason } from "@ryot-app/contract/modules/sandbox/boundary-reason";
+import type { PluginInstallationUnavailableReason } from "@ryot-app/contract/modules/scripts/boundary-reason";
 import { PluginId, UserId, type PluginPackageId } from "@ryot-app/contract/schema/brands";
 import { Context, Effect } from "effect";
 

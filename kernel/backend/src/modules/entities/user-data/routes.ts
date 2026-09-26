@@ -11,38 +11,43 @@ import { rootLifecycleCommand } from "#modules/automations/lifecycle/command";
 
 import { EntityUserDataService } from "./service";
 
-export const EntityUserDataRoutesLive = HttpApiBuilder.group(AppContract, "userState", (handlers) =>
-	handlers
-		.handle("clearUserState", ({ params }) =>
-			Effect.gen(function* () {
-				const user = yield* CurrentUser;
-				const service = yield* EntityUserDataService;
-				const command = rootLifecycleCommand({
-					source: "api",
-					lane: "interactive",
-					itemIdentity: "user-state:clear",
-					initiator: { id: user.id, kind: "user" },
-					accountGeneration: user.accountGeneration,
-					executionId: AutomationExecutionId.make(generateId()),
-					occurredAt: IsoUtcString.make((yield* DateTime.nowAsDate).toISOString()),
-				});
-				return yield* service.clearUserState(user, params.entityId, command).pipe(dieOnDbError);
-			}),
-		)
-		.handle("mergeUserState", ({ payload }) =>
-			Effect.gen(function* () {
-				const user = yield* CurrentUser;
-				const service = yield* EntityUserDataService;
-				const command = rootLifecycleCommand({
-					source: "api",
-					lane: "interactive",
-					itemIdentity: "user-state:merge",
-					initiator: { id: user.id, kind: "user" },
-					accountGeneration: user.accountGeneration,
-					executionId: AutomationExecutionId.make(generateId()),
-					occurredAt: IsoUtcString.make((yield* DateTime.nowAsDate).toISOString()),
-				});
-				return yield* service.mergeUserState(user, payload, command).pipe(dieOnDbError);
-			}),
-		),
+export const EntityUserDataRoutesLive = HttpApiBuilder.group(
+	AppContract,
+	"entityUserData",
+	(handlers) =>
+		handlers
+			.handle("clearEntityUserData", ({ params }) =>
+				Effect.gen(function* () {
+					const user = yield* CurrentUser;
+					const service = yield* EntityUserDataService;
+					const command = rootLifecycleCommand({
+						source: "api",
+						lane: "interactive",
+						itemIdentity: "entity-user-data:clear",
+						initiator: { id: user.id, kind: "user" },
+						accountGeneration: user.accountGeneration,
+						executionId: AutomationExecutionId.make(generateId()),
+						occurredAt: IsoUtcString.make((yield* DateTime.nowAsDate).toISOString()),
+					});
+					return yield* service
+						.clearEntityUserData(user, params.entityId, command)
+						.pipe(dieOnDbError);
+				}),
+			)
+			.handle("mergeEntityUserData", ({ payload }) =>
+				Effect.gen(function* () {
+					const user = yield* CurrentUser;
+					const service = yield* EntityUserDataService;
+					const command = rootLifecycleCommand({
+						source: "api",
+						lane: "interactive",
+						itemIdentity: "entity-user-data:merge",
+						initiator: { id: user.id, kind: "user" },
+						accountGeneration: user.accountGeneration,
+						executionId: AutomationExecutionId.make(generateId()),
+						occurredAt: IsoUtcString.make((yield* DateTime.nowAsDate).toISOString()),
+					});
+					return yield* service.mergeEntityUserData(user, payload, command).pipe(dieOnDbError);
+				}),
+			),
 );

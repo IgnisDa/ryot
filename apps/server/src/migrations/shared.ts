@@ -3,7 +3,7 @@ import {
 	MigrationReportAnomalyCode,
 	MigrationReportDetail,
 	MigrationReportLevel,
-} from "@ryot-app/contract/modules/god-mode/migration-report";
+} from "@ryot-app/contract/modules/instance-admin/migration-report";
 import { mapDatabaseErrors } from "@ryot-app/kernel-backend/platform/db/errors";
 import { DatabaseSession } from "@ryot-app/kernel-backend/platform/db/session";
 import { sql } from "drizzle-orm";
@@ -258,7 +258,7 @@ const logReportRow = (row: typeof ReportRow.Type) => {
 };
 
 // Detail rows are unbounded, so only a sample reaches the terminal; the full set stays in
-// `migration_report_detail` and in the god-mode report.
+// `migration_report_detail` and in the instance-admin report.
 const logDetailSample = (
 	connection: SqlConnection.Connection,
 	row: typeof ReportRow.Type,
@@ -278,7 +278,7 @@ const logDetailSample = (
 		const remaining = (row.count ?? sampled.length) - sampled.length;
 		if (sampled.length > 0 && remaining > 0) {
 			yield* Effect.logWarning(
-				`  ...and ${remaining} more; open the god-mode Migration Report for the full list`,
+				`  ...and ${remaining} more; open the instance-admin Migration Report for the full list`,
 			).pipe(Effect.annotateLogs({ phase: row.phase }));
 		}
 	}).pipe(Effect.orDie);

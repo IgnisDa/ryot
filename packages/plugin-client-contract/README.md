@@ -28,7 +28,7 @@ grants inside the `srcdoc` document. No grant crosses the bridge in page context
 Installed plugin archive client executables are trusted. Archive validation checks integrity and
 compatibility, not provenance. Image-owned artifact hashes are public; all other hashes require a
 capability regardless of plugin scope. Compiled code uses one static URL form,
-`/api/client-assets/:artifactHash/:accessKey/*`. Compositions reference immutable artifacts; the
+`/api/page-bundles/:artifactHash/:accessKey/*`. Compositions reference immutable artifacts; the
 kernel renders each composition document into a sandboxed `srcdoc` frame from an authenticated
 request.
 

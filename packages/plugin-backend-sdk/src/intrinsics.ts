@@ -1,4 +1,4 @@
-import type { SandboxHostCapability } from "@ryot-app/contract/modules/sandbox/wire";
+import type { SandboxHostCapability } from "@ryot-app/contract/modules/scripts/wire";
 
 import type * as Filesystem from "./filesystem";
 import type * as Youtubei from "./youtubei";

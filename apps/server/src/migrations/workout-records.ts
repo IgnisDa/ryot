@@ -1,4 +1,4 @@
-import type { MigrationReportDetail } from "@ryot-app/contract/modules/god-mode/migration-report";
+import type { MigrationReportDetail } from "@ryot-app/contract/modules/instance-admin/migration-report";
 import { exerciseKindSchema, type ExerciseKind } from "@ryot-app/fitness-plugin/exercise-kinds";
 import {
 	WorkoutSetMeasurementsSchema,

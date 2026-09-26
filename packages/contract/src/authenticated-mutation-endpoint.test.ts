@@ -4,10 +4,10 @@ import { describe, expect, it } from "vitest";
 import { AuthMiddleware } from "./auth-middleware";
 import { AppContract } from "./contract";
 import { DemoAccessPolicy } from "./http-annotations";
+import { LocalUploadsGroup } from "./modules/assets/contract";
 import { IntegrationsGroup } from "./modules/integrations/contract";
 import { PluginsGroup } from "./modules/plugins/contract";
 import { AdminRyotQLGroup, RyotQLGroup } from "./modules/ryotql/contract";
-import { LocalUploadsGroup } from "./modules/uploads/contract";
 
 describe("authenticated mutation endpoints", () => {
 	it("carry an explicit demo policy through the assembled contract", () => {

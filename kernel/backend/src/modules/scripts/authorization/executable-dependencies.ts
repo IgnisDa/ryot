@@ -1,4 +1,4 @@
-import type { SandboxScriptMetadata } from "@ryot-app/contract/modules/sandbox/schemas";
+import type { SandboxScriptMetadata } from "@ryot-app/contract/modules/scripts/schemas";
 import type { WorkflowDurableCallRequest } from "@ryot-app/plugin-backend-sdk/workflow";
 
 export const isDeclaredExecutableCall = (

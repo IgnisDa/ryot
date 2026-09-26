@@ -19,7 +19,7 @@ import {
 	classifyTemporaryUploadFailure,
 	TemporaryUploads,
 } from "#/modules/assets/temporary-uploads";
-import { EntityInterestService } from "#/modules/entity-interest/service";
+import { EntityWatchService } from "#/modules/entity-watches/service";
 import { ExternalLinks } from "#/modules/external-links/service";
 import type { ThemeStore } from "#/modules/theme/store";
 import type { ClientRuntime } from "#/runtime";
@@ -29,7 +29,7 @@ type KernelApiRuntime = {
 		effect: Effect.Effect<
 			A,
 			never,
-			EntityInterestService | CollectionsApi | RyotQLApi | UploadsApi | TemporaryUploads
+			EntityWatchService | CollectionsApi | RyotQLApi | UploadsApi | TemporaryUploads
 		>,
 	) => A;
 };
@@ -45,7 +45,7 @@ export const createKernelRyotClient = (
 		openExternalLink,
 		watchEntities: (interest, onUpdate) =>
 			runtime.runSync(
-				Effect.map(EntityInterestService, (service) => service.watch(scope, interest, onUpdate)),
+				Effect.map(EntityWatchService, (service) => service.watch(scope, interest, onUpdate)),
 			),
 		query: (document) =>
 			runtime

@@ -1,5 +1,4 @@
 import type { QueryOwnerReference } from "@ryot-app/contract/modules/plugins/references";
-import { JsonValue } from "@ryot-app/contract/modules/ryotql/language";
 import {
 	EntityId,
 	EntitySchemaSlug,
@@ -7,6 +6,7 @@ import {
 	EventSchemaSlug,
 	PluginId,
 } from "@ryot-app/contract/schema/brands";
+import { JsonValue } from "@ryot-app/contract/schema/json";
 import {
 	schemaOwnerPredicate,
 	and,

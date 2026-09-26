@@ -143,7 +143,7 @@ const makeResetCaptureTransport = (redis: Redis): ResetCaptureTransport => ({
 	reserve: (email, id) =>
 		Effect.tryPromise({
 			catch: unknownToDbError,
-			try: () => redis.set(redisKeys.godModePendingReset(email), id, "EX", 60, "NX"),
+			try: () => redis.set(redisKeys.instanceAdminPendingReset(email), id, "EX", 60, "NX"),
 		}).pipe(Effect.map((value) => value === "OK")),
 	release: (email, id) =>
 		Effect.tryPromise({
@@ -152,7 +152,7 @@ const makeResetCaptureTransport = (redis: Redis): ResetCaptureTransport => ({
 				redis.eval(
 					"if redis.call('get', KEYS[1]) == ARGV[1] then return redis.call('del', KEYS[1]) else return 0 end",
 					1,
-					redisKeys.godModePendingReset(email),
+					redisKeys.instanceAdminPendingReset(email),
 					id,
 				),
 		}),
@@ -163,9 +163,9 @@ const makeResetCaptureTransport = (redis: Redis): ResetCaptureTransport => ({
 				redis.eval(
 					"if redis.call('get', KEYS[1]) == ARGV[1] then redis.call('publish', ARGV[2], ARGV[3]); return redis.call('del', KEYS[1]) else return 0 end",
 					1,
-					redisKeys.godModePendingReset(email),
+					redisKeys.instanceAdminPendingReset(email),
 					id,
-					redisKeys.godModeResetChannel(id),
+					redisKeys.instanceAdminResetChannel(id),
 					message,
 				),
 		}),
@@ -176,7 +176,7 @@ const makeResetCaptureTransport = (redis: Redis): ResetCaptureTransport => ({
 				redis.eval(
 					"if redis.call('get', KEYS[1]) ~= ARGV[1] then return 0 end; local previous = redis.call('set', KEYS[2], ARGV[2], 'EX', ARGV[3], 'GET'); if previous then return previous end; return 1",
 					2,
-					redisKeys.godModePendingReset(email),
+					redisKeys.instanceAdminPendingReset(email),
 					redisKeys.passwordResetToken(userId),
 					id,
 					token,
@@ -207,19 +207,19 @@ const makeResetCaptureTransport = (redis: Redis): ResetCaptureTransport => ({
 			unsubscribe: (id) =>
 				Effect.tryPromise({
 					catch: unknownToDbError,
-					try: () => subscriber.unsubscribe(redisKeys.godModeResetChannel(id)),
+					try: () => subscriber.unsubscribe(redisKeys.instanceAdminResetChannel(id)),
 				}),
 			subscribe: (id) => {
 				activeId = id;
 				return Effect.tryPromise({
 					catch: unknownToDbError,
-					try: () => subscriber.subscribe(redisKeys.godModeResetChannel(id)),
+					try: () => subscriber.subscribe(redisKeys.instanceAdminResetChannel(id)),
 				});
 			},
 			onMessage: (listener) => {
 				onMessage = (channel, message) =>
 					listener(
-						channel === redisKeys.godModeResetChannel(activeId) ? activeId : channel,
+						channel === redisKeys.instanceAdminResetChannel(activeId) ? activeId : channel,
 						message,
 					);
 				subscriber.on("message", onMessage);

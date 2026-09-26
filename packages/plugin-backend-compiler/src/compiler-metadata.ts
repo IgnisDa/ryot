@@ -2,7 +2,7 @@ import {
 	SandboxExecutionMetadata,
 	type SandboxSourceExecutionMetadata,
 } from "@ryot-app/contract/modules/plugins/execution-metadata";
-import { POLICY_SAFE_SANDBOX_CAPABILITIES } from "@ryot-app/contract/modules/sandbox/wire";
+import { POLICY_SAFE_SANDBOX_CAPABILITIES } from "@ryot-app/contract/modules/scripts/wire";
 import type { SandboxManifest } from "@ryot-app/plugin-backend-sdk/core";
 import { Effect, Result, Schema } from "effect";
 

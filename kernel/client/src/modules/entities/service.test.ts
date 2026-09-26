@@ -6,7 +6,7 @@ import { Effect, Layer, ManagedRuntime } from "effect";
 import { decodeServerOrigin } from "#/api/origin";
 import {
 	makeCollectionsApi,
-	makeEntityInterestService,
+	makeEntityWatchService,
 	makeRyotQLApi,
 	makeUploadsApi,
 } from "#/api/ports.test-layer";
@@ -45,7 +45,7 @@ describe("EntitiesService", () => {
 			Layer.mergeAll(
 				api,
 				makeCollectionsApi(),
-				makeEntityInterestService(),
+				makeEntityWatchService(),
 				makeUploadsApi(),
 				EntitiesService.layer,
 			),

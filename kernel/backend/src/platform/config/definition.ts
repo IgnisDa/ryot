@@ -319,7 +319,7 @@ const server = group(
 			label: "Admin access token",
 			validation: { required: true },
 			envKey: "SERVER_ADMIN_ACCESS_TOKEN",
-			description: "Bearer token required for god-mode admin endpoints",
+			description: "Bearer token required for instance-admin admin endpoints",
 		}),
 		proKeyVerificationUrl: stringField({
 			hidden: true,

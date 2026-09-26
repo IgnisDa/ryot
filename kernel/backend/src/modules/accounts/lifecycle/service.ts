@@ -1,9 +1,9 @@
 import {
-	GodModeInternalFailure,
-	GodModeNotFound,
-	GodModeRequestFailure,
-} from "@ryot-app/contract/modules/god-mode/contract";
-import type { UserLifecycleOperationKind } from "@ryot-app/contract/modules/god-mode/user-lifecycle";
+	InstanceAdminInternalFailure,
+	InstanceAdminNotFound,
+	InstanceAdminRequestFailure,
+} from "@ryot-app/contract/modules/instance-admin/contract";
+import type { UserLifecycleOperationKind } from "@ryot-app/contract/modules/instance-admin/user-lifecycle";
 import type { UserId } from "@ryot-app/contract/schema/brands";
 import { Cause, Context, DateTime, Effect, Layer, Result } from "effect";
 import { WorkflowEngine } from "effect/workflow/WorkflowEngine";
@@ -53,7 +53,9 @@ export class UserLifecycleService extends Context.Service<UserLifecycleService>(
 				yield* auth.revokePasswordResetLinks(claimed.operation.userId);
 				return (
 					(yield* repository.markAccessRevoked(operationId)) ??
-					(yield* new GodModeInternalFailure({ reason: { code: "access-revocation-failed" } }))
+					(yield* new InstanceAdminInternalFailure({
+						reason: { code: "access-revocation-failed" },
+					}))
 				);
 			});
 
@@ -62,7 +64,7 @@ export class UserLifecycleService extends Context.Service<UserLifecycleService>(
 			) {
 				const current = yield* repository.getInternalById(operationId);
 				if (!current) {
-					return yield* new GodModeInternalFailure({
+					return yield* new InstanceAdminInternalFailure({
 						reason: { code: "lifecycle-state-conflict" },
 					});
 				}
@@ -80,7 +82,7 @@ export class UserLifecycleService extends Context.Service<UserLifecycleService>(
 					if (refreshed?.accessRevokedAt) {
 						return refreshed;
 					}
-					return yield* new GodModeInternalFailure({
+					return yield* new InstanceAdminInternalFailure({
 						reason: { code: "lifecycle-state-conflict" },
 					});
 				}
@@ -97,7 +99,7 @@ export class UserLifecycleService extends Context.Service<UserLifecycleService>(
 										: Effect.logError("user lifecycle access revocation failed", cause).pipe(
 												Effect.annotateLogs({ operationId }),
 												Effect.andThen(
-													new GodModeInternalFailure({
+													new InstanceAdminInternalFailure({
 														reason: { code: "access-revocation-failed" },
 													}),
 												),
@@ -106,7 +108,8 @@ export class UserLifecycleService extends Context.Service<UserLifecycleService>(
 							),
 					),
 					Effect.mapError(
-						() => new GodModeInternalFailure({ reason: { code: "access-revocation-failed" } }),
+						() =>
+							new InstanceAdminInternalFailure({ reason: { code: "access-revocation-failed" } }),
 					),
 				);
 			});
@@ -126,7 +129,7 @@ export class UserLifecycleService extends Context.Service<UserLifecycleService>(
 					yield* Effect.logError("user lifecycle workflow enqueue failed", dispatched.failure).pipe(
 						Effect.annotateLogs({ operationId: operation.operation.id }),
 					);
-					return yield* new GodModeInternalFailure({
+					return yield* new InstanceAdminInternalFailure({
 						reason: { code: "lifecycle-dispatch-failed" },
 					});
 				}
@@ -143,7 +146,9 @@ export class UserLifecycleService extends Context.Service<UserLifecycleService>(
 							Effect.gen(function* () {
 								const preparation = yield* repository.loadPreparationForUpdate(userId, kind);
 								if (!preparation) {
-									return yield* new GodModeNotFound({ reason: { userId, code: "user-not-found" } });
+									return yield* new InstanceAdminNotFound({
+										reason: { userId, code: "user-not-found" },
+									});
 								}
 								if (preparation.active) {
 									return preparation.active;
@@ -151,7 +156,7 @@ export class UserLifecycleService extends Context.Service<UserLifecycleService>(
 								if (preparation.retryable) {
 									return (
 										(yield* repository.reactivateFailed(preparation.retryable.operation.id)) ??
-										(yield* new GodModeInternalFailure({
+										(yield* new InstanceAdminInternalFailure({
 											reason: { code: "lifecycle-state-conflict" },
 										}))
 									);
@@ -159,13 +164,13 @@ export class UserLifecycleService extends Context.Service<UserLifecycleService>(
 
 								const authState = classifyAuthState(preparation.metadata.accounts);
 								if (kind === "reset" && authState === "mixed") {
-									return yield* new GodModeRequestFailure({
+									return yield* new InstanceAdminRequestFailure({
 										reason: { code: "mixed-auth-reset-unsupported" },
 									});
 								}
 								const usesLocalAuth = authState === "credential" || authState === "none";
 								if (kind === "reset" && usesLocalAuth && config.users.disableLocalAuth) {
-									return yield* new GodModeRequestFailure({
+									return yield* new InstanceAdminRequestFailure({
 										reason: { code: "local-auth-disabled" },
 									});
 								}
@@ -185,7 +190,10 @@ export class UserLifecycleService extends Context.Service<UserLifecycleService>(
 						.pipe(
 							Effect.catchTag(
 								"DatabaseSessionStateError",
-								() => new GodModeInternalFailure({ reason: { code: "lifecycle-state-conflict" } }),
+								() =>
+									new InstanceAdminInternalFailure({
+										reason: { code: "lifecycle-state-conflict" },
+									}),
 							),
 						),
 				);

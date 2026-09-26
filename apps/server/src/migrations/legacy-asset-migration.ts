@@ -1,7 +1,7 @@
 import {
 	uploadContentTypeExtensions,
 	uploadContentTypes,
-} from "@ryot-app/contract/modules/uploads/upload-policy";
+} from "@ryot-app/contract/modules/assets/upload-policy";
 import { UserId } from "@ryot-app/contract/schema/brands";
 import { ManagedAssetsRepository } from "@ryot-app/kernel-backend/modules/assets/storage/managed-assets-repository";
 import { DatabaseSession } from "@ryot-app/kernel-backend/platform/db/session";

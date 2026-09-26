@@ -1,4 +1,4 @@
-import type { ClientCompositionDocument } from "@ryot-app/contract/modules/client-pages/schemas";
+import type { ClientCompositionDocument } from "@ryot-app/contract/modules/pages/schemas";
 import {
 	CLIENT_COMPOSITION_METADATA_ELEMENT_ID,
 	CLIENT_PAGE_ROOT_ELEMENT_ID,

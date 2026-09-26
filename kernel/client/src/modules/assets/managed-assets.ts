@@ -4,7 +4,7 @@ import {
 	type ManagedAssetLocator,
 	UploadBadRequest,
 	UploadInternalError,
-} from "@ryot-app/contract/modules/uploads/schemas";
+} from "@ryot-app/contract/modules/assets/schemas";
 import type {
 	PluginAssetBridgeErrorReason,
 	PluginAssetOutcome,

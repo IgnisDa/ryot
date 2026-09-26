@@ -1,4 +1,4 @@
-import type { TwoFactorStatus } from "@ryot-app/contract/modules/user-settings/schemas";
+import type { TwoFactorStatus } from "@ryot-app/contract/modules/account/schemas";
 import { RyotClientError } from "@ryot-app/plugin-client-sdk";
 import {
 	createRyotMutation,
@@ -9,7 +9,7 @@ import {
 import { createFileRoute } from "@tanstack/react-router";
 import { Effect } from "effect";
 
-import { UserSettingsApi } from "#/api/user-settings";
+import { AccountApi } from "#/api/account";
 import type { KernelHostServices } from "#/host-services";
 import { HostedAuthService } from "#/modules/auth/hosted-service";
 import { RuntimeOAuthClientService } from "#/modules/auth/runtime-client";
@@ -35,7 +35,7 @@ const accountIdentityQuery = createRyotQuery<void, SettledAuthSession, KernelHos
 const twoFactorStatusQuery = createRyotQuery<void, TwoFactorStatus, KernelHostServices>(
 	({ hostServices }) =>
 		hostServices.runtime
-			.runSync(UserSettingsApi)
+			.runSync(AccountApi)
 			.twoFactorStatus(hostServices.scope)
 			.pipe(Effect.mapError(() => new RyotClientError("transport"))),
 	{ cancelOnUnmount: true },
@@ -44,7 +44,7 @@ const twoFactorStatusQuery = createRyotQuery<void, TwoFactorStatus, KernelHostSe
 const refreshAvatarMutation = createRyotMutation<void, void, KernelHostServices>(
 	({ client, hostServices }) =>
 		hostServices.runtime
-			.runSync(UserSettingsApi)
+			.runSync(AccountApi)
 			.refreshAvatar(hostServices.scope)
 			.pipe(
 				Effect.flatMap(() =>

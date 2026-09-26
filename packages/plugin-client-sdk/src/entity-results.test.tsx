@@ -12,7 +12,7 @@ import {
 	type EntityPresentationSource,
 	type EntityReference,
 } from "./entity-results";
-import type { EntityInterest, EntityUpdate, RyotClientAdapter } from "./index";
+import type { EntityWatch, EntityUpdate, RyotClientAdapter } from "./index";
 import { createPluginNavigationStore } from "./navigation/store";
 import { RyotProvider, usePageRefresh } from "./react";
 import { createPluginRouteResolver, PluginRouter } from "./routing";
@@ -582,7 +582,7 @@ describe("EntityResults", () => {
 	it.live("tracks visible entities and requests a page refresh for entity updates", () =>
 		Effect.gen(function* () {
 			const observers = installIntersectionObserver();
-			const interests: EntityInterest[] = [];
+			const interests: EntityWatch[] = [];
 			let completion: ((update: EntityUpdate) => void) | undefined;
 			let disposals = 0;
 			let preparations = 0;

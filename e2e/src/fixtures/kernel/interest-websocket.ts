@@ -1,11 +1,11 @@
 import {
-	decodeEntityInterestServerMessage,
-	encodeEntityInterestClientMessage,
-	type EntityInterestAppliedMessage,
-	type EntityInterestEntityUpdatedMessage,
-	type EntityInterestReadyMessage,
-	type EntityInterestRejectedMessage,
-} from "@ryot-app/contract/modules/entity-interest/messages";
+	decodeEntityWatchServerMessage,
+	encodeEntityWatchClientMessage,
+	type EntityWatchAppliedMessage,
+	type EntityWatchEntityUpdatedMessage,
+	type EntityWatchReadyMessage,
+	type EntityWatchRejectedMessage,
+} from "@ryot-app/contract/modules/entity-watches/messages";
 import { Effect, Exit, Result, Semaphore } from "effect";
 
 import { getApiUrl } from "~/support/harness-target";
@@ -14,34 +14,34 @@ import type { ContractSession } from "./contract-client";
 
 type WaitOptions = { timeoutMs?: number };
 type SocketClose = { readonly code: number; readonly reason: string };
-type EntityInterestCommandResult = EntityInterestAppliedMessage | EntityInterestRejectedMessage;
+type EntityWatchCommandResult = EntityWatchAppliedMessage | EntityWatchRejectedMessage;
 type EntityUpdatedWaiter = {
 	reject: (error: Error) => void;
-	onMessage: (message: EntityInterestEntityUpdatedMessage) => void;
+	onMessage: (message: EntityWatchEntityUpdatedMessage) => void;
 };
 
 type InterestWebSocket = {
 	close: () => Effect.Effect<void>;
-	readonly ready: EntityInterestReadyMessage;
-	getEntityUpdatedMessages: () => readonly EntityInterestEntityUpdatedMessage[];
+	readonly ready: EntityWatchReadyMessage;
+	getEntityUpdatedMessages: () => readonly EntityWatchEntityUpdatedMessage[];
 	waitForClose: (options?: WaitOptions) => Effect.Effect<SocketClose>;
-	replaceInterest: (entityIds: readonly string[]) => Effect.Effect<EntityInterestCommandResult>;
+	replaceInterest: (entityIds: readonly string[]) => Effect.Effect<EntityWatchCommandResult>;
 	expectNoEntityUpdated: (entityId: string, options: { windowMs: number }) => Effect.Effect<void>;
 	updateInterest: (input: {
 		readonly add: readonly string[];
 		readonly remove: readonly string[];
-	}) => Effect.Effect<EntityInterestCommandResult>;
+	}) => Effect.Effect<EntityWatchCommandResult>;
 	waitForEntityUpdated: (
 		entityId: string,
-		reason?: EntityInterestEntityUpdatedMessage["reason"],
+		reason?: EntityWatchEntityUpdatedMessage["reason"],
 		options?: WaitOptions,
-	) => Effect.Effect<EntityInterestEntityUpdatedMessage>;
+	) => Effect.Effect<EntityWatchEntityUpdatedMessage>;
 };
 
 const isEntityUpdatedMatch = (
-	message: EntityInterestEntityUpdatedMessage,
+	message: EntityWatchEntityUpdatedMessage,
 	entityId: string,
-	reason?: EntityInterestEntityUpdatedMessage["reason"],
+	reason?: EntityWatchEntityUpdatedMessage["reason"],
 ) => message.entityId === entityId && (reason === undefined || message.reason === reason);
 
 export const openInterestWebSocket = (
@@ -50,9 +50,9 @@ export const openInterestWebSocket = (
 ) =>
 	Effect.gen(function* () {
 		const { ticket } = yield* auth.client.call((contract) =>
-			contract["entity-interest"].createSocketTicket(),
+			contract["entity-watches"].createSocketTicket(),
 		);
-		const url = `${getApiUrl()}/entity-interest/ws`;
+		const url = `${getApiUrl()}/entity-watches/ws`;
 		const socket = new WebSocket(url);
 		const timeoutMs = options.timeoutMs ?? 10_000;
 
@@ -61,15 +61,15 @@ export const openInterestWebSocket = (
 		let closed: SocketClose | undefined;
 		let revision = 0;
 		const commands = yield* Semaphore.make(1);
-		let receivedReady: EntityInterestReadyMessage | undefined;
-		let completeReady: ((result: Effect.Effect<EntityInterestReadyMessage>) => void) | undefined;
+		let receivedReady: EntityWatchReadyMessage | undefined;
+		let completeReady: ((result: Effect.Effect<EntityWatchReadyMessage>) => void) | undefined;
 		let completeClose: ((result: Effect.Effect<void>) => void) | undefined;
-		const messages: EntityInterestEntityUpdatedMessage[] = [];
+		const messages: EntityWatchEntityUpdatedMessage[] = [];
 		const listeners = new Set<EntityUpdatedWaiter>();
 		const closeListeners = new Set<(event: SocketClose) => void>();
 		const acknowledgements = new Map<
 			number,
-			{ reject: (error: Error) => void; resolve: (message: EntityInterestCommandResult) => void }
+			{ reject: (error: Error) => void; resolve: (message: EntityWatchCommandResult) => void }
 		>();
 
 		const fail = (error: Error) => {
@@ -89,7 +89,7 @@ export const openInterestWebSocket = (
 		};
 
 		socket.addEventListener("open", () => {
-			socket.send(encodeEntityInterestClientMessage({ ticket, type: "authenticate" }));
+			socket.send(encodeEntityWatchClientMessage({ ticket, type: "authenticate" }));
 		});
 		socket.addEventListener("error", () => {
 			fail(new Error("Entity interest WebSocket failed"));
@@ -118,7 +118,7 @@ export const openInterestWebSocket = (
 				socket.close(1002, "Protocol error");
 				return;
 			}
-			const decoded = decodeEntityInterestServerMessage(event.data);
+			const decoded = decodeEntityWatchServerMessage(event.data);
 			if (Result.isFailure(decoded)) {
 				fail(new Error("Entity interest WebSocket received a malformed server message"));
 				socket.close(1002, "Protocol error");
@@ -131,7 +131,7 @@ export const openInterestWebSocket = (
 				return;
 			}
 			if (message.type === "ping") {
-				socket.send(encodeEntityInterestClientMessage({ type: "pong", nonce: message.nonce }));
+				socket.send(encodeEntityWatchClientMessage({ type: "pong", nonce: message.nonce }));
 				return;
 			}
 			if (message.type === "entity-updated") {
@@ -154,7 +154,7 @@ export const openInterestWebSocket = (
 			acknowledgement.resolve(message);
 		});
 
-		const readyMessage = yield* Effect.callback<EntityInterestReadyMessage>((resume) => {
+		const readyMessage = yield* Effect.callback<EntityWatchReadyMessage>((resume) => {
 			completeReady = resume;
 			if (failure) {
 				resume(Effect.die(failure));
@@ -192,7 +192,7 @@ export const openInterestWebSocket = (
 			commands.withPermit(
 				Effect.gen(function* () {
 					let commandRevision = 0;
-					return yield* Effect.callback<EntityInterestCommandResult>((resume) => {
+					return yield* Effect.callback<EntityWatchCommandResult>((resume) => {
 						if (failure) {
 							resume(Effect.die(failure));
 							return Effect.void;
@@ -202,9 +202,7 @@ export const openInterestWebSocket = (
 							reject: (error) => resume(Effect.die(error)),
 							resolve: (value) => resume(Effect.succeed(value)),
 						});
-						socket.send(
-							encodeEntityInterestClientMessage({ ...message, revision: commandRevision }),
-						);
+						socket.send(encodeEntityWatchClientMessage({ ...message, revision: commandRevision }));
 						return Effect.sync(() => {
 							acknowledgements.delete(commandRevision);
 						});
@@ -225,10 +223,10 @@ export const openInterestWebSocket = (
 
 		const waitForEntityUpdated = (
 			entityId: string,
-			reason?: EntityInterestEntityUpdatedMessage["reason"],
+			reason?: EntityWatchEntityUpdatedMessage["reason"],
 			waitOptions: WaitOptions = {},
 		) =>
-			Effect.callback<EntityInterestEntityUpdatedMessage>((resume) => {
+			Effect.callback<EntityWatchEntityUpdatedMessage>((resume) => {
 				if (failure) {
 					resume(Effect.die(failure));
 					return Effect.void;
@@ -242,7 +240,7 @@ export const openInterestWebSocket = (
 				}
 				const waiter: EntityUpdatedWaiter = {
 					reject: (error) => resume(Effect.die(error)),
-					onMessage: (message: EntityInterestEntityUpdatedMessage) => {
+					onMessage: (message: EntityWatchEntityUpdatedMessage) => {
 						if (isEntityUpdatedMatch(message, entityId, reason)) {
 							listeners.delete(waiter);
 							resume(Effect.succeed(message));
@@ -277,7 +275,7 @@ export const openInterestWebSocket = (
 				}
 				const waiter: EntityUpdatedWaiter = {
 					reject: (error) => resume(Effect.die(error)),
-					onMessage: (message: EntityInterestEntityUpdatedMessage) => {
+					onMessage: (message: EntityWatchEntityUpdatedMessage) => {
 						if (isEntityUpdatedMatch(message, entityId)) {
 							listeners.delete(waiter);
 							resume(Effect.die(new Error(`Unexpected entity-updated for '${entityId}'`)));

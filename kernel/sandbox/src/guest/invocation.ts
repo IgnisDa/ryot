@@ -1,8 +1,7 @@
 import { SandboxFailureKind } from "@ryot-app/contract/errors";
 import { SandboxExecutionMetadata } from "@ryot-app/contract/modules/plugins/execution-metadata";
-import type { SandboxExecutionError } from "@ryot-app/contract/modules/sandbox/schemas";
-import { jsonValueSchema } from "@ryot-app/contract/modules/sandbox/wire";
-import type { JsonValue } from "@ryot-app/contract/schema/json";
+import type { SandboxExecutionError } from "@ryot-app/contract/modules/scripts/schemas";
+import { JsonValue } from "@ryot-app/contract/schema/json";
 import {
 	sandboxManifestSchema,
 	type SandboxWorkflowReference,
@@ -149,9 +148,9 @@ const hostResultSchema = Schema.Union([
 	Schema.Struct({
 		error: Schema.String,
 		success: Schema.Literal(false),
-		data: Schema.optional(jsonValueSchema),
+		data: Schema.optional(JsonValue),
 	}),
-	Schema.Struct({ data: jsonValueSchema, success: Schema.Literal(true) }),
+	Schema.Struct({ data: JsonValue, success: Schema.Literal(true) }),
 ]);
 const decodeHostResult = Schema.decodeUnknownEffect(hostResultSchema, strictOptions);
 const decodeJournalEntry = Schema.decodeUnknownEffect(
@@ -169,7 +168,7 @@ const decodeInvocationResponse = Schema.decodeUnknownSync(
 	SandboxInvocationResponseSchema,
 	strictOptions,
 );
-const decodeJsonValue = Schema.decodeUnknownEffect(jsonValueSchema, strictOptions);
+const decodeJsonValue = Schema.decodeUnknownEffect(JsonValue, strictOptions);
 const decodeManifest = Schema.decodeUnknownEffect(sandboxManifestSchema, strictOptions);
 const decodeExecutionMetadata = Schema.decodeUnknownEffect(SandboxExecutionMetadata, strictOptions);
 const durablePending = Symbol("sandbox-durable-call-pending");
@@ -271,7 +270,7 @@ const jsonClone = (value: unknown, label: string): JsonValue => {
 	if (typeof serialized !== "string") {
 		throw new nativeError(label + " must be JSON-serializable");
 	}
-	const decoded = Schema.decodeUnknownResult(jsonValueSchema, strictOptions)(jsonParse(serialized));
+	const decoded = Schema.decodeUnknownResult(JsonValue, strictOptions)(jsonParse(serialized));
 	if (decoded._tag === "Failure") {
 		throw new nativeError(label + " must be JSON-serializable");
 	}

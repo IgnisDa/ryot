@@ -3,7 +3,7 @@ import type { SavedViewReference } from "@ryot-app/contract/modules/plugins/refe
 import type {
 	ProviderInformation,
 	SandboxScriptMetadata,
-} from "@ryot-app/contract/modules/sandbox/schemas";
+} from "@ryot-app/contract/modules/scripts/schemas";
 import { PLUGIN_PACKAGE_ID_PATTERN, type PluginPackageId } from "@ryot-app/contract/schema/brands";
 import type { JsonValue } from "@ryot-app/contract/schema/json";
 import type { AppSchema } from "@ryot-app/contract/schema/property-schema";

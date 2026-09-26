@@ -14,11 +14,9 @@ layer(RequestLogUrl.layer)((test) => {
 	test.effect("uses route templates for every request method on protected paths", () =>
 		Effect.gen(function* () {
 			for (const fileName of ["module.js", "chunks/shared.js"]) {
-				const url = `http://server.test/api/client-assets/artifact-hash/private-token/${fileName}`;
-				expect(yield* resolve(url)).toBe("/api/client-assets/:artifactHash/:accessKey/*");
-				expect(yield* resolve(url, "OPTIONS")).toBe(
-					"/api/client-assets/:artifactHash/:accessKey/*",
-				);
+				const url = `http://server.test/api/page-bundles/artifact-hash/private-token/${fileName}`;
+				expect(yield* resolve(url)).toBe("/api/page-bundles/:artifactHash/:accessKey/*");
+				expect(yield* resolve(url, "OPTIONS")).toBe("/api/page-bundles/:artifactHash/:accessKey/*");
 			}
 		}),
 	);

@@ -61,14 +61,16 @@ describe("OpenAPI documentation", () => {
 
 	it("documents durable user lifecycle operations as admin-only asynchronous requests", () => {
 		const spec = OpenApi.fromApi(AppContract);
-		expect(spec.paths["/god-mode/users/{userId}"]?.delete?.responses["202"]).toBeDefined();
-		expect(spec.paths["/god-mode/users/{userId}/reset"]?.post?.responses["202"]).toBeDefined();
+		expect(spec.paths["/instance-admin/users/{userId}"]?.delete?.responses["202"]).toBeDefined();
+		expect(
+			spec.paths["/instance-admin/users/{userId}/reset"]?.post?.responses["202"],
+		).toBeDefined();
 		for (const path of [
-			"/god-mode/users/{userId}",
-			"/god-mode/users/{userId}/reset",
-			"/god-mode/users/{userId}/reset-password",
-			"/god-mode/users/{userId}/disable/set",
-			"/god-mode/users/provision",
+			"/instance-admin/users/{userId}",
+			"/instance-admin/users/{userId}/reset",
+			"/instance-admin/users/{userId}/reset-password",
+			"/instance-admin/users/{userId}/disable/set",
+			"/instance-admin/users/provision",
 		]) {
 			const operation = spec.paths[path]?.delete ?? spec.paths[path]?.post;
 			expect(operation?.security, path).toEqual([{ adminToken: [] }]);
@@ -81,7 +83,9 @@ describe("OpenAPI documentation", () => {
 			{ oauth: [] },
 			{ apiKey: [] },
 		]);
-		expect(spec.paths["/god-mode/ryotql/execute"]?.post?.security).toEqual([{ adminToken: [] }]);
+		expect(spec.paths["/instance-admin/ryotql/execute"]?.post?.security).toEqual([
+			{ adminToken: [] },
+		]);
 	});
 
 	it("omits retired row-read endpoints while keeping their command and stream routes", () => {
@@ -100,9 +104,9 @@ describe("OpenAPI documentation", () => {
 			"/automations/catalog/{signalSchemaSlug}",
 			"/automations/runs",
 			"/automations/runs/{runId}",
-			"/god-mode/users",
-			"/god-mode/migration-report",
-			"/god-mode/user-lifecycle-operations/{operationId}",
+			"/instance-admin/users",
+			"/instance-admin/migration-report",
+			"/instance-admin/user-lifecycle-operations/{operationId}",
 		]) {
 			expect(paths[path]?.get, `GET ${path}`).toBeUndefined();
 		}

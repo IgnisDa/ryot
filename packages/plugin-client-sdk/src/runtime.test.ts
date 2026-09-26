@@ -550,7 +550,7 @@ describe("plugin Effect request engine", () => {
 		}),
 	);
 
-	it.live("keeps theme, page refresh, and entity-interest subscriptions synchronous", () =>
+	it.live("keeps theme, page refresh, and entity-watches subscriptions synchronous", () =>
 		Effect.gen(function* () {
 			const { channel, runtime, messages } = yield* openRuntime();
 			let themes = 0;
@@ -574,18 +574,18 @@ describe("plugin Effect request engine", () => {
 			expect(themes).toBe(1);
 			expect(hints).toBe(1);
 			expect(updates).toEqual([{ entityId: "entity-1", reason: "translated" }]);
-			expect(sent(messages, "entity-interest")).toContainEqual({
+			expect(sent(messages, "entity-watches")).toContainEqual({
 				visible: [],
-				type: "entity-interest",
+				type: "entity-watches",
 				foreground: ["entity-1"],
 			});
 			subscription.dispose();
 			unsubscribe();
 			yield* waitForMessagePortMacrotask;
-			expect(sent(messages, "entity-interest").at(-1)).toEqual({
+			expect(sent(messages, "entity-watches").at(-1)).toEqual({
 				visible: [],
 				foreground: [],
-				type: "entity-interest",
+				type: "entity-watches",
 			});
 		}),
 	);

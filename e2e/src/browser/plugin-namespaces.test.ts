@@ -53,7 +53,7 @@ describe("Whiskey namespace workspaces", () => {
 						);
 					}
 					const originalView = yield* user.client.call((contract) =>
-						contract.clientPages.prepare({
+						contract.pages.prepare({
 							payload: { target: { reference: aView, kind: "saved-view" } },
 						}),
 					);
@@ -140,7 +140,7 @@ describe("Whiskey namespace workspaces", () => {
 					).toBe("B1");
 					yield* updateNamespacePackage(user.client, a, packages.a2);
 					const updatedView = yield* user.client.call((contract) =>
-						contract.clientPages.prepare({
+						contract.pages.prepare({
 							payload: { target: { reference: aView, kind: "saved-view" } },
 						}),
 					);
@@ -202,7 +202,7 @@ describe("Whiskey namespace workspaces", () => {
 					);
 					const contributor = yield* installNamespacePackage(user.client, packages.contributor);
 					const aliasComposition = yield* user.client.call((contract) =>
-						contract.clientPages.prepare({
+						contract.pages.prepare({
 							payload: {
 								target: {
 									path: "/",

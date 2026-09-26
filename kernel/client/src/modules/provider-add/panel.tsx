@@ -2,7 +2,7 @@ import type {
 	SearchProviderEntitiesBody,
 	SearchProviderEntitiesResponse,
 	SearchProviderOptionsResponse,
-} from "@ryot-app/contract/modules/provider-entities/schemas";
+} from "@ryot-app/contract/modules/entity-providers/schemas";
 import type {
 	EntityId,
 	EntitySchemaSlug,

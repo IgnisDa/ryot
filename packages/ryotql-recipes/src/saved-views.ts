@@ -1,16 +1,18 @@
-import { SavedViewClientPageTarget } from "@ryot-app/contract/modules/client-pages/schemas";
+import {
+	AssetLocator,
+	type AssetLocator as AssetLocatorType,
+} from "@ryot-app/contract/modules/assets/schemas";
 import {
 	EntitySyncState,
 	type EntitySyncState as EntitySyncStateValue,
 } from "@ryot-app/contract/modules/entities/schemas";
+import { SavedViewClientPageTarget } from "@ryot-app/contract/modules/pages/schemas";
 import type { QueryOwnerReference } from "@ryot-app/contract/modules/plugins/references";
 import {
-	JsonValue,
 	RyotQLDocument,
 	rowsResultSchema,
 	type FieldSelection,
 	type Include,
-	type JsonValue as JsonValueType,
 	type NamedQuery,
 	type OrderBy,
 	type Predicate,
@@ -27,10 +29,7 @@ import {
 	type SavedViewDisplayKind,
 	type SavedViewTableColumn,
 } from "@ryot-app/contract/modules/saved-views/schemas";
-import {
-	AssetLocator,
-	type AssetLocator as AssetLocatorType,
-} from "@ryot-app/contract/modules/uploads/schemas";
+import { JsonValue } from "@ryot-app/contract/schema/json";
 import {
 	and,
 	ascending,
@@ -203,7 +202,7 @@ const getOnlyRowsQuery = (queryDocument: RyotQLDocument) => {
 };
 
 const displayValue = (
-	value: JsonValueType,
+	value: JsonValue,
 	displayKind: SavedViewDisplayKind,
 	fieldName: string,
 ): Result.Result<SavedViewDisplayValue, Error> => {
@@ -236,9 +235,9 @@ const displayValue = (
 	return Result.fail(new Error(`Saved-view field '${fieldName}' must be ${displayKind}`));
 };
 
-type SavedViewRawRow = Readonly<Record<string, JsonValueType>>;
+type SavedViewRawRow = Readonly<Record<string, JsonValue>>;
 
-const rawField = (row: SavedViewRawRow, fieldName: string): Result.Result<JsonValueType, Error> => {
+const rawField = (row: SavedViewRawRow, fieldName: string): Result.Result<JsonValue, Error> => {
 	const value = row[fieldName];
 	return value === undefined
 		? Result.fail(new Error(`Saved-view row is missing field '${fieldName}'`))
@@ -681,10 +680,10 @@ type ResultsTableRecipeInput = {
 	readonly settings: ResultsTableSavedViewSettingsValue;
 };
 
-const isJsonRecord = (value: JsonValueType): value is Readonly<Record<string, JsonValueType>> =>
+const isJsonRecord = (value: JsonValue): value is Readonly<Record<string, JsonValue>> =>
 	typeof value === "object" && value !== null && !Array.isArray(value);
 
-const typedKeyPart = (value: JsonValueType): JsonValueType => {
+const typedKeyPart = (value: JsonValue): JsonValue => {
 	if (Array.isArray(value)) {
 		return { type: "array", value: value.map(typedKeyPart) };
 	}

@@ -1,26 +1,26 @@
 import {
-	decodeEntityInterestClientMessage,
-	encodeEntityInterestServerMessage,
+	decodeEntityWatchClientMessage,
+	encodeEntityWatchServerMessage,
 	MAX_INTEREST_ENTITY_IDS,
-	type EntityInterestClientMessage,
-	type EntityInterestEntityUpdatedMessage,
-	type EntityInterestServerMessage,
-} from "@ryot-app/contract/modules/entity-interest/messages";
+	type EntityWatchClientMessage,
+	type EntityWatchEntityUpdatedMessage,
+	type EntityWatchServerMessage,
+} from "@ryot-app/contract/modules/entity-watches/messages";
 import { OAUTH_ACCESS_TOKEN_TTL_SECONDS } from "@ryot-app/contract/oauth";
 import { Clock, Deferred, Duration, Effect, Fiber, Option, Queue, Result, Schedule } from "effect";
 import * as Socket from "effect/socket/Socket";
 
 import { ImpersonationSessions } from "#modules/accounts/auth/impersonation-sessions";
-import { ENTITY_INTEREST_SESSION_RENEWAL_INTERVAL_SECONDS } from "#platform/redis";
+import { ENTITY_WATCH_SESSION_RENEWAL_INTERVAL_SECONDS } from "#platform/redis";
 
 import { LocalInterestSessions } from "./connections";
 import { InterestService, type ReconciledCompletion } from "./service";
-import { EntityInterestStore, type PendingInterest } from "./store";
-import { EntityInterestInvalidTicket, EntityInterestTicketService } from "./ticket-service";
+import { EntityWatchStore, type PendingInterest } from "./store";
+import { EntityWatchInvalidTicket, EntityWatchTicketService } from "./ticket-service";
 
-const ENTITY_INTEREST_HEARTBEAT_TIMEOUT = Duration.seconds(10);
-const ENTITY_INTEREST_HEARTBEAT_INTERVAL = Duration.seconds(25);
-const ENTITY_INTEREST_AUTHENTICATION_TIMEOUT = Duration.seconds(5);
+const ENTITY_WATCH_HEARTBEAT_TIMEOUT = Duration.seconds(10);
+const ENTITY_WATCH_HEARTBEAT_INTERVAL = Duration.seconds(25);
+const ENTITY_WATCH_AUTHENTICATION_TIMEOUT = Duration.seconds(5);
 
 const INBOUND_QUEUE_CAPACITY = 16;
 const NORMAL_CLOSE = new Socket.CloseEvent(1000);
@@ -31,16 +31,16 @@ const HEARTBEAT_ERROR = new Socket.CloseEvent(4000, "Heartbeat timeout");
 const AUTHENTICATION_ERROR = new Socket.CloseEvent(1008, "Authentication failed");
 
 type Outbound = Effect.Success<ReturnType<typeof makeOutbound>>;
-type Completion = EntityInterestEntityUpdatedMessage | ReconciledCompletion;
+type Completion = EntityWatchEntityUpdatedMessage | ReconciledCompletion;
 type Control =
 	| Socket.CloseEvent
-	| { readonly message: EntityInterestServerMessage; readonly written?: Deferred.Deferred<void> };
+	| { readonly message: EntityWatchServerMessage; readonly written?: Deferred.Deferred<void> };
 
-const makeOutbound = Effect.fn("EntityInterestSocketSession.makeOutbound")(function* (
+const makeOutbound = Effect.fn("EntityWatchSocketSession.makeOutbound")(function* (
 	write: (
 		chunk: Uint8Array | string | Socket.CloseEvent,
 	) => Effect.Effect<void, Socket.SocketError>,
-	store: EntityInterestStore["Service"],
+	store: EntityWatchStore["Service"],
 	sessionId: string,
 ) {
 	let accepting = true;
@@ -52,14 +52,14 @@ const makeOutbound = Effect.fn("EntityInterestSocketSession.makeOutbound")(funct
 	const shutdown = yield* Deferred.make<void>();
 
 	const signal = () => Queue.offerUnsafe(wake, undefined);
-	const enqueue = (message: EntityInterestServerMessage) =>
+	const enqueue = (message: EntityWatchServerMessage) =>
 		accepting
 			? Queue.offer(controls, { message }).pipe(
 					Effect.tap(() => Effect.sync(signal)),
 					Effect.asVoid,
 				)
 			: Effect.void;
-	const enqueueAndWait = Effect.fn(function* (message: EntityInterestServerMessage) {
+	const enqueueAndWait = Effect.fn(function* (message: EntityWatchServerMessage) {
 		if (!accepting) {
 			return false;
 		}
@@ -114,7 +114,7 @@ const makeOutbound = Effect.fn("EntityInterestSocketSession.makeOutbound")(funct
 						yield* Deferred.succeed(stopped, undefined);
 						continue;
 					}
-					yield* write(encodeEntityInterestServerMessage(control.value.message));
+					yield* write(encodeEntityWatchServerMessage(control.value.message));
 					if (control.value.written !== undefined) {
 						yield* Deferred.succeed(control.value.written, undefined);
 					}
@@ -132,7 +132,7 @@ const makeOutbound = Effect.fn("EntityInterestSocketSession.makeOutbound")(funct
 						continue;
 					}
 				}
-				yield* write(encodeEntityInterestServerMessage("message" in value ? value.message : value));
+				yield* write(encodeEntityWatchServerMessage("message" in value ? value.message : value));
 			}
 		}
 	}).pipe(
@@ -177,11 +177,11 @@ const makeReconciliationSchedule = () =>
 		),
 	);
 
-const processCommand = Effect.fn("EntityInterestSocketSession.processCommand")(function* (
-	message: EntityInterestClientMessage,
+const processCommand = Effect.fn("EntityWatchSocketSession.processCommand")(function* (
+	message: EntityWatchClientMessage,
 	sessionId: string,
 	hasSnapshot: { value: boolean },
-	store: EntityInterestStore["Service"],
+	store: EntityWatchStore["Service"],
 	output: Outbound,
 	submitPending: (pending: readonly PendingInterest[]) => Effect.Effect<void>,
 ) {
@@ -222,15 +222,15 @@ const processCommand = Effect.fn("EntityInterestSocketSession.processCommand")(f
 	return true;
 });
 
-const runSocketSession = Effect.fn("EntityInterestSocketSession.run")(function* (
+const runSocketSession = Effect.fn("EntityWatchSocketSession.run")(function* (
 	socket: Socket.Socket,
 ) {
 	const { write } = yield* socket.writer;
 	const reader = yield* socket.reader;
 	const service = yield* InterestService;
-	const store = yield* EntityInterestStore;
+	const store = yield* EntityWatchStore;
 	const sessions = yield* LocalInterestSessions;
-	const tickets = yield* EntityInterestTicketService;
+	const tickets = yield* EntityWatchTicketService;
 	const impersonationSessions = yield* ImpersonationSessions;
 	const inbound = yield* Queue.dropping<string | Uint8Array>(INBOUND_QUEUE_CAPACITY);
 	const preAuthentication = { overflow: false };
@@ -252,7 +252,7 @@ const runSocketSession = Effect.fn("EntityInterestSocketSession.run")(function* 
 		Effect.forkScoped,
 	);
 	const first = yield* Queue.take(inbound).pipe(
-		Effect.timeoutOption(ENTITY_INTEREST_AUTHENTICATION_TIMEOUT),
+		Effect.timeoutOption(ENTITY_WATCH_AUTHENTICATION_TIMEOUT),
 	);
 	if (Option.isNone(first)) {
 		yield* closeBeforeAuthentication(write, AUTHENTICATION_ERROR);
@@ -262,7 +262,7 @@ const runSocketSession = Effect.fn("EntityInterestSocketSession.run")(function* 
 		yield* closeBeforeAuthentication(write, PROTOCOL_ERROR);
 		return;
 	}
-	const decodedAuthentication = decodeEntityInterestClientMessage(first.value);
+	const decodedAuthentication = decodeEntityWatchClientMessage(first.value);
 	if (
 		Result.isFailure(decodedAuthentication) ||
 		decodedAuthentication.success.type !== "authenticate"
@@ -274,7 +274,7 @@ const runSocketSession = Effect.fn("EntityInterestSocketSession.run")(function* 
 	if (Result.isFailure(ticket)) {
 		yield* closeBeforeAuthentication(
 			write,
-			ticket.failure instanceof EntityInterestInvalidTicket ? AUTHENTICATION_ERROR : INTERNAL_ERROR,
+			ticket.failure instanceof EntityWatchInvalidTicket ? AUTHENTICATION_ERROR : INTERNAL_ERROR,
 		);
 		return;
 	}
@@ -381,7 +381,7 @@ const runSocketSession = Effect.fn("EntityInterestSocketSession.run")(function* 
 		}),
 	);
 
-	const impersonationActive = Effect.fn("EntityInterestSocketSession.checkImpersonationSession")(
+	const impersonationActive = Effect.fn("EntityWatchSocketSession.checkImpersonationSession")(
 		function* () {
 			if (principal.impersonation === undefined || impersonationExpiresAt === undefined) {
 				return true;
@@ -405,7 +405,7 @@ const runSocketSession = Effect.fn("EntityInterestSocketSession.run")(function* 
 	);
 	let heartbeatNonce: string | null = null;
 	const heartbeatWorker = Effect.forever(
-		Effect.sleep(ENTITY_INTEREST_HEARTBEAT_INTERVAL).pipe(
+		Effect.sleep(ENTITY_WATCH_HEARTBEAT_INTERVAL).pipe(
 			Effect.andThen(
 				Effect.gen(function* () {
 					const isImpersonationActive = yield* impersonationActive().pipe(
@@ -422,7 +422,7 @@ const runSocketSession = Effect.fn("EntityInterestSocketSession.run")(function* 
 					const nonce = crypto.randomUUID();
 					heartbeatNonce = nonce;
 					yield* output.enqueue({ nonce, type: "ping" });
-					yield* Effect.sleep(ENTITY_INTEREST_HEARTBEAT_TIMEOUT).pipe(
+					yield* Effect.sleep(ENTITY_WATCH_HEARTBEAT_TIMEOUT).pipe(
 						Effect.andThen(
 							Effect.suspend(() =>
 								heartbeatNonce === nonce ? output.close(HEARTBEAT_ERROR) : Effect.void,
@@ -435,7 +435,7 @@ const runSocketSession = Effect.fn("EntityInterestSocketSession.run")(function* 
 		),
 	);
 	const renewalWorker = Effect.forever(
-		Effect.sleep(Duration.seconds(ENTITY_INTEREST_SESSION_RENEWAL_INTERVAL_SECONDS)).pipe(
+		Effect.sleep(Duration.seconds(ENTITY_WATCH_SESSION_RENEWAL_INTERVAL_SECONDS)).pipe(
 			Effect.andThen(store.renewSession(sessionId)),
 			Effect.flatMap((renewed) => (renewed ? Effect.void : output.close(INTERNAL_ERROR))),
 		),
@@ -462,7 +462,7 @@ const runSocketSession = Effect.fn("EntityInterestSocketSession.run")(function* 
 				yield* output.close(PROTOCOL_ERROR);
 				break;
 			}
-			const decoded = decodeEntityInterestClientMessage(frame);
+			const decoded = decodeEntityWatchClientMessage(frame);
 			if (Result.isFailure(decoded)) {
 				yield* output.close(PROTOCOL_ERROR);
 				break;
@@ -501,7 +501,7 @@ const runSocketSession = Effect.fn("EntityInterestSocketSession.run")(function* 
 		sessionId,
 		type: "ready",
 		maxEntityIds: MAX_INTEREST_ENTITY_IDS,
-		heartbeatIntervalMs: Duration.toMillis(ENTITY_INTEREST_HEARTBEAT_INTERVAL),
+		heartbeatIntervalMs: Duration.toMillis(ENTITY_WATCH_HEARTBEAT_INTERVAL),
 	});
 	if (!readyWritten) {
 		return;
@@ -528,5 +528,5 @@ const runSocketSession = Effect.fn("EntityInterestSocketSession.run")(function* 
 	);
 });
 
-export const runEntityInterestSocketSession = (socket: Socket.Socket) =>
+export const runEntityWatchSocketSession = (socket: Socket.Socket) =>
 	runSocketSession(socket).pipe(Effect.scoped);

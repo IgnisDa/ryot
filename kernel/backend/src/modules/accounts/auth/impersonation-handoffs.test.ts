@@ -1,8 +1,8 @@
 import { assert, expect, layer } from "@effect/vitest";
 import {
-	GodModeNotFound,
-	GodModeRequestFailure,
-} from "@ryot-app/contract/modules/god-mode/contract";
+	InstanceAdminNotFound,
+	InstanceAdminRequestFailure,
+} from "@ryot-app/contract/modules/instance-admin/contract";
 import {
 	getNativeOAuthCallbackUri,
 	IMPERSONATION_HANDOFF_TTL_SECONDS,
@@ -141,23 +141,23 @@ layer(makeLayer())((test) => {
 
 			yield* state.setUser(null);
 			expect(failure(yield* Effect.exit(service.create(userId, authorization())))).toEqual(
-				new GodModeNotFound({ reason: { userId, code: "user-not-found" } }),
+				new InstanceAdminNotFound({ reason: { userId, code: "user-not-found" } }),
 			);
 
 			yield* state.setUser({ ...targetUser, disabledAt: targetUser.bootstrapCompletedAt });
 			expect(failure(yield* Effect.exit(service.create(userId, authorization())))).toEqual(
-				new GodModeRequestFailure({ reason: { code: "user-disabled" } }),
+				new InstanceAdminRequestFailure({ reason: { code: "user-disabled" } }),
 			);
 
 			yield* state.setUser({ ...targetUser, bootstrapCompletedAt: null });
 			expect(failure(yield* Effect.exit(service.create(userId, authorization())))).toEqual(
-				new GodModeRequestFailure({ reason: { code: "user-initializing" } }),
+				new InstanceAdminRequestFailure({ reason: { code: "user-initializing" } }),
 			);
 
 			yield* state.setUser(targetUser);
 			yield* state.setLifecycleActive(true);
 			expect(failure(yield* Effect.exit(service.create(userId, authorization())))).toEqual(
-				new GodModeRequestFailure({ reason: { code: "user-unavailable" } }),
+				new InstanceAdminRequestFailure({ reason: { code: "user-unavailable" } }),
 			);
 			expect(yield* state.userReads).toEqual([
 				targetUser.id,
@@ -184,7 +184,9 @@ layer(makeLayer())((test) => {
 
 			for (const value of invalid) {
 				expect(failure(yield* Effect.exit(service.create(userId, value)))).toEqual(
-					new GodModeRequestFailure({ reason: { code: "invalid-impersonation-authorization" } }),
+					new InstanceAdminRequestFailure({
+						reason: { code: "invalid-impersonation-authorization" },
+					}),
 				);
 			}
 		}),
@@ -255,7 +257,7 @@ layer(makeLayer())((test) => {
 			yield* state.setUser({ ...targetUser, disabledAt: targetUser.bootstrapCompletedAt });
 
 			expect(failure(yield* Effect.exit(service.consume(ticket)))).toEqual(
-				new GodModeRequestFailure({ reason: { code: "user-disabled" } }),
+				new InstanceAdminRequestFailure({ reason: { code: "user-disabled" } }),
 			);
 			expect(yield* state.userReads).toEqual([targetUser.id, targetUser.id]);
 			expect(yield* state.values).toHaveLength(0);

@@ -36,7 +36,7 @@ const expectAccount = (page: Playwright.Page, email: string) =>
 	});
 
 for (const { label, viewport } of viewports) {
-	it.live(`impersonates a different user from God Mode on ${label}`, () =>
+	it.live(`impersonates a different user from Instance Admin on ${label}`, () =>
 		Effect.gen(function* () {
 			const operator = yield* createTestUser();
 			const target = yield* createTestUser();
@@ -54,9 +54,9 @@ for (const { label, viewport } of viewports) {
 			yield* siblingPage.goto(`${frontendUrl}/settings/account`);
 			yield* expectAccount(siblingPage, operator.email);
 
-			yield* page.goto(`${frontendUrl}/god-mode/users`);
+			yield* page.goto(`${frontendUrl}/instance-admin/users`);
 			yield* page.getByLabel("Admin access token").fill(getAdminAccessToken());
-			yield* page.getByRole("button", { name: "Unlock God Mode" }).click();
+			yield* page.getByRole("button", { name: "Unlock Instance Admin" }).click();
 			yield* page.getByRole("heading", { level: 1, name: "Users" }).waitFor({ state: "visible" });
 			yield* page.getByLabel("Search users by email").fill(target.email);
 			yield* page.getByRole("button", { exact: true, name: "Search" }).click();
@@ -152,7 +152,7 @@ for (const { label, viewport } of viewports) {
 			yield* siblingPage.getByTestId("impersonation-banner").waitFor({ state: "visible" });
 
 			yield* page.getByRole("button", { name: "Stop impersonating" }).click();
-			yield* page.waitForURL((url) => url.pathname === "/god-mode/users");
+			yield* page.waitForURL((url) => url.pathname === "/instance-admin/users");
 			yield* page.getByLabel("Admin access token").waitFor({ state: "visible" });
 			expect(yield* page.getByTestId("authenticated-shell").count).toBe(0);
 			expect(yield* page.getByTestId("impersonation-banner").count).toBe(0);

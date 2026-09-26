@@ -24,8 +24,11 @@ import {
 	automationHistoryRunsRecipe,
 } from "@ryot-app/ryotql-recipes/automation-history";
 import { entityDefinitionsRecipe } from "@ryot-app/ryotql-recipes/definitions";
-import { godModeUsersRecipe, migrationReportRecipe } from "@ryot-app/ryotql-recipes/god-mode";
 import { importSourcesRecipe } from "@ryot-app/ryotql-recipes/import-sources";
+import {
+	instanceAdminUsersRecipe,
+	migrationReportRecipe,
+} from "@ryot-app/ryotql-recipes/instance-admin";
 import { pluginInstallationsRecipe } from "@ryot-app/ryotql-recipes/plugin-installations";
 import { eq, sql } from "drizzle-orm";
 import { Effect, Layer, Result, Option } from "effect";
@@ -827,7 +830,7 @@ layer(catalogDatabaseLayer)((test) => {
 				]);
 			}
 
-			const usersRecipe = godModeUsersRecipe({ limit: 2, search: "example.test" });
+			const usersRecipe = instanceAdminUsersRecipe({ limit: 2, search: "example.test" });
 			const users = Result.getOrThrow(
 				usersRecipe.decode(yield* service.executeForAdmin(usersRecipe.document)),
 			);

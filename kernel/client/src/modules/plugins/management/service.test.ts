@@ -1,6 +1,6 @@
 import { expect, layer } from "@effect/vitest";
+import { TemporaryUploadToken } from "@ryot-app/contract/modules/assets/schemas";
 import { PluginConflictError } from "@ryot-app/contract/modules/plugins/schemas";
-import { TemporaryUploadToken } from "@ryot-app/contract/modules/uploads/schemas";
 import { createRyotClient } from "@ryot-app/plugin-client-sdk";
 import { createTestRyotAdapter } from "@ryot-app/plugin-client-sdk/testing";
 import { Context, Effect, Layer, Ref, Schema } from "effect";

@@ -24,7 +24,7 @@ import { getApiUrl, getFrontendUrl } from "~/support/harness-target";
 type BridgeObservation = { readonly serialized: string; readonly bridgeSessionId: string | null };
 
 const encodeJsonString = Schema.encodeSync(Schema.fromJsonString(Schema.String));
-const privateAccessKey = /\/api\/client-assets\/[a-f0-9]{64}\/([A-Za-z0-9_-]{43})\//g;
+const privateAccessKey = /\/api\/page-bundles\/[a-f0-9]{64}\/([A-Za-z0-9_-]{43})\//g;
 
 const observeBridgeMessages = (page: Playwright.Page, observations: BridgeObservation[]) =>
 	Effect.gen(function* () {

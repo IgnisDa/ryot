@@ -6,9 +6,9 @@ import { createTestRyotAdapter } from "@ryot-app/plugin-client-sdk/testing";
 import { Context, Effect, Layer, Ref } from "effect";
 
 import { AuthenticatedApiError } from "#/api/authenticated";
+import type { EntityProvidersApi } from "#/api/entity-providers";
 import { decodeServerOrigin } from "#/api/origin";
-import { makeProviderEntitiesApi } from "#/api/ports.test-layer";
-import type { ProviderEntitiesApi } from "#/api/provider-entities";
+import { makeEntityProvidersApi } from "#/api/ports.test-layer";
 import type { ApiScope } from "#/api/scope";
 import { ProviderAddService } from "#/modules/provider-add/service";
 
@@ -29,22 +29,22 @@ const providerRow = {
 	rootEntitySchemaSlug: entitySchemaSlug,
 };
 
-type ProviderEntitiesMethod = keyof ProviderEntitiesApi["Service"];
-type ContractCall = { readonly method: ProviderEntitiesMethod; readonly request: unknown };
+type EntityProvidersMethod = keyof EntityProvidersApi["Service"];
+type ContractCall = { readonly method: EntityProvidersMethod; readonly request: unknown };
 
-class FakeProviderEntitiesApi extends Context.Service<
-	FakeProviderEntitiesApi,
+class FakeEntityProvidersApi extends Context.Service<
+	FakeEntityProvidersApi,
 	{ readonly calls: Effect.Effect<ReadonlyArray<ContractCall>> }
->()("test/FakeProviderEntitiesApi") {}
+>()("test/FakeEntityProvidersApi") {}
 
 const providerAddLayer = (offline = false) =>
 	Layer.unwrap(
 		Effect.gen(function* () {
 			const calls = yield* Ref.make<ReadonlyArray<ContractCall>>([]);
 			const record =
-				<M extends ProviderEntitiesMethod>(
+				<M extends EntityProvidersMethod>(
 					method: M,
-					response: ContractSuccess<"providerEntities", M>,
+					response: ContractSuccess<"entityProviders", M>,
 				) =>
 				(_scope: ApiScope, request: unknown) =>
 					Ref.update(calls, (all) => [...all, { method, request }]).pipe(
@@ -57,7 +57,7 @@ const providerAddLayer = (offline = false) =>
 			return Layer.merge(
 				ProviderAddService.layer.pipe(
 					Layer.provide(
-						makeProviderEntitiesApi({
+						makeEntityProvidersApi({
 							import: record("import", { jobId: "job-1" }),
 							searchOptions: record("searchOptions", { schema: null }),
 							getImportResult: record("getImportResult", { status: "running" }),
@@ -70,7 +70,7 @@ const providerAddLayer = (offline = false) =>
 						}),
 					),
 				),
-				Layer.succeed(FakeProviderEntitiesApi, { calls: Ref.get(calls) }),
+				Layer.succeed(FakeEntityProvidersApi, { calls: Ref.get(calls) }),
 			);
 		}),
 	);
@@ -153,7 +153,7 @@ describe("ProviderAddService", () => {
 				yield* service.startImport(scope, { providerId, externalId: "ext-1" });
 				yield* service.pollImport(scope, "job-1");
 
-				expect(yield* (yield* FakeProviderEntitiesApi).calls).toEqual([
+				expect(yield* (yield* FakeEntityProvidersApi).calls).toEqual([
 					{ method: "searchOptions", request: { payload: { providerId } } },
 					{
 						method: "search",

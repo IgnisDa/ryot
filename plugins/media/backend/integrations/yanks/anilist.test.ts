@@ -1,5 +1,6 @@
 import { afterEach, assert, describe, expect, it } from "@effect/vitest";
-import type { JsonValue, RyotQLDocument } from "@ryot-app/contract/modules/ryotql/language";
+import type { RyotQLDocument } from "@ryot-app/contract/modules/ryotql/language";
+import type { JsonValue } from "@ryot-app/contract/schema/json";
 import { Effect, Schema } from "@ryot-app/plugin-backend-sdk/effect";
 import { defineSandboxTestHost, runSandboxTestScript } from "@ryot-app/plugin-backend-sdk/testing";
 import { selectExecutable } from "@ryot-app/plugin-backend-sdk/workflow";

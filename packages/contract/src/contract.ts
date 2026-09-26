@@ -1,28 +1,28 @@
 import { HttpApi, OpenApi } from "effect/http-api";
 
+import { AccountGroup } from "./modules/account/contract";
+import { LocalUploadsGroup, UploadsGroup } from "./modules/assets/contract";
 import { AutomationHistoryGroup, AutomationsGroup } from "./modules/automations/contract";
 import { BackupDownloadsGroup, BackupsGroup } from "./modules/backups/contract";
-import { ClientAssetsGroup, ClientPagesGroup } from "./modules/client-pages/contract";
 import { CollectionsGroup } from "./modules/collections/contract";
 import { EntitiesGroup } from "./modules/entities/contract";
-import { InterestGroup } from "./modules/entity-interest/contract";
+import { EntityProvidersGroup } from "./modules/entity-providers/contract";
+import { EntityUserDataGroup } from "./modules/entity-user-data/contract";
+import { EntityWatchesGroup } from "./modules/entity-watches/contract";
 import { EventsGroup } from "./modules/events/contract";
-import { GodModeGroup } from "./modules/god-mode/contract";
-import { ServerLogDownloadsGroup, ServerLogsGroup } from "./modules/god-mode/logs";
 import { ImportDownloadsGroup, ImportsGroup } from "./modules/imports/contract";
+import { InstanceAdminGroup } from "./modules/instance-admin/contract";
+import { ServerLogDownloadsGroup, ServerLogsGroup } from "./modules/instance-admin/logs";
 import { IntegrationsGroup } from "./modules/integrations/contract";
 import { NotificationsGroup } from "./modules/notifications/contract";
 import { OAuthConnectionsGroup } from "./modules/oauth-connections/contract";
+import { PageBundlesGroup, PagesGroup } from "./modules/pages/contract";
 import { PluginsGroup } from "./modules/plugins/contract";
-import { ProviderEntitiesGroup } from "./modules/provider-entities/contract";
 import { RelationshipsGroup } from "./modules/relationships/contract";
 import { AdminRyotQLGroup, RyotQLGroup } from "./modules/ryotql/contract";
 import { SavedViewsGroup } from "./modules/saved-views/contract";
 import { SystemGroup } from "./modules/system/contract";
 import { TestSupportGroup } from "./modules/test-support/contract";
-import { LocalUploadsGroup, UploadsGroup } from "./modules/uploads/contract";
-import { UserSettingsGroup } from "./modules/user-settings/contract";
-import { UserStateGroup } from "./modules/user-state/contract";
 
 export type AppGroups =
 	| typeof SystemGroup
@@ -32,17 +32,17 @@ export type AppGroups =
 	| typeof BackupDownloadsGroup
 	| typeof RelationshipsGroup
 	| typeof EntitiesGroup
-	| typeof ProviderEntitiesGroup
-	| typeof UserStateGroup
-	| typeof UserSettingsGroup
+	| typeof EntityProvidersGroup
+	| typeof EntityUserDataGroup
+	| typeof AccountGroup
 	| typeof EventsGroup
 	| typeof UploadsGroup
 	| typeof LocalUploadsGroup
 	| typeof SavedViewsGroup
 	| typeof CollectionsGroup
-	| typeof ClientPagesGroup
-	| typeof ClientAssetsGroup
-	| typeof GodModeGroup
+	| typeof PagesGroup
+	| typeof PageBundlesGroup
+	| typeof InstanceAdminGroup
 	| typeof ServerLogsGroup
 	| typeof ServerLogDownloadsGroup
 	| typeof TestSupportGroup
@@ -52,7 +52,7 @@ export type AppGroups =
 	| typeof OAuthConnectionsGroup
 	| typeof RyotQLGroup
 	| typeof AdminRyotQLGroup
-	| typeof InterestGroup
+	| typeof EntityWatchesGroup
 	| typeof NotificationsGroup
 	| typeof PluginsGroup;
 
@@ -64,17 +64,17 @@ export const AppContract: HttpApi.HttpApi<"ryot", AppGroups> = HttpApi.make("ryo
 	.add(BackupDownloadsGroup)
 	.add(RelationshipsGroup)
 	.add(EntitiesGroup)
-	.add(ProviderEntitiesGroup)
-	.add(UserStateGroup)
-	.add(UserSettingsGroup)
+	.add(EntityProvidersGroup)
+	.add(EntityUserDataGroup)
+	.add(AccountGroup)
 	.add(EventsGroup)
 	.add(UploadsGroup)
 	.add(LocalUploadsGroup)
 	.add(SavedViewsGroup)
 	.add(CollectionsGroup)
-	.add(ClientPagesGroup)
-	.add(ClientAssetsGroup)
-	.add(GodModeGroup)
+	.add(PagesGroup)
+	.add(PageBundlesGroup)
+	.add(InstanceAdminGroup)
 	.add(ServerLogsGroup)
 	.add(ServerLogDownloadsGroup)
 	.add(TestSupportGroup)
@@ -84,7 +84,7 @@ export const AppContract: HttpApi.HttpApi<"ryot", AppGroups> = HttpApi.make("ryo
 	.add(OAuthConnectionsGroup)
 	.add(RyotQLGroup)
 	.add(AdminRyotQLGroup)
-	.add(InterestGroup)
+	.add(EntityWatchesGroup)
 	.add(NotificationsGroup)
 	.add(PluginsGroup)
 	.annotate(OpenApi.Title, "Ryot API")

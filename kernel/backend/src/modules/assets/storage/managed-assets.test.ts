@@ -1,7 +1,7 @@
 import { expect, layer } from "@effect/vitest";
 import type { CurrentUserValue } from "@ryot-app/contract/auth-middleware";
 import { BadRequest } from "@ryot-app/contract/errors";
-import { UploadBadRequest } from "@ryot-app/contract/modules/uploads/schemas";
+import { UploadBadRequest } from "@ryot-app/contract/modules/assets/schemas";
 import { UserId } from "@ryot-app/contract/schema/brands";
 import { assertExitFails } from "@ryot-app/testing/effect-assertions";
 import { CryptoHasher } from "bun";

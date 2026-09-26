@@ -1,8 +1,8 @@
 import { SandboxFailureKind, SandboxRunError, unknownToMessage } from "@ryot-app/contract/errors";
 import { KERNEL_PROCESS_IMPORT_CHUNKS_WORKFLOW } from "@ryot-app/contract/modules/plugins/execution";
-import type { JsonValue } from "@ryot-app/contract/modules/ryotql/language";
-import type { SandboxExecutionPayload } from "@ryot-app/contract/modules/sandbox/schemas";
+import type { SandboxExecutionPayload } from "@ryot-app/contract/modules/scripts/schemas";
 import { SandboxScriptId } from "@ryot-app/contract/schema/brands";
+import type { JsonValue } from "@ryot-app/contract/schema/json";
 import { jsonByteLength } from "@ryot-app/plugin-backend-compiler/limits";
 import { jsonValueSchema } from "@ryot-app/plugin-backend-sdk/wire";
 import {

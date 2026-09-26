@@ -30,7 +30,7 @@ const exerciseDetailsQuery = createRyotQuery<
 				reference: client.pluginIdentity(PLUGIN_PACKAGE_ID),
 			}),
 		),
-	{ entityInterest: ({ input }) => ({ visible: [], foreground: [input.entityId] }) },
+	{ entityWatch: ({ input }) => ({ visible: [], foreground: [input.entityId] }) },
 );
 
 export function ExerciseDetailsView(props: {
