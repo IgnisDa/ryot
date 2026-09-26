@@ -63,6 +63,15 @@ export default defineWorkflow({
 					}
 					parserInput = { ...parserInput, collection: collection.trim() };
 				}
+				if (input.source === "anilist") {
+					const timezone = input.sourcePayload?.["timezone"];
+					if (typeof timezone !== "string" || !timezone.trim()) {
+						return yield* Effect.fail(
+							new MediaWorkflowError("Import job is missing AniList timezone"),
+						);
+					}
+					parserInput = { ...parserInput, timezone: timezone.trim() };
+				}
 				if (input.source === "netflix") {
 					const profileName = input.sourcePayload?.["profileName"];
 					if (typeof profileName === "string") {
