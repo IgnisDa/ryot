@@ -11,6 +11,7 @@ export * from "./client-plugin";
 export * from "./client-pages";
 export * from "./contract-client";
 export * from "./collections";
+export * from "./data-json";
 export * from "./integrations";
 export * from "./integration-provider-plugin";
 export * from "./entities";
