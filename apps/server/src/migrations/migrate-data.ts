@@ -95,6 +95,7 @@ import {
 	buildWorkoutTemplateMigrationSql,
 	buildWorkoutToTemplateRelationshipMigrationSql,
 } from "./workout-mapping";
+import { migrateWorkoutRecords } from "./workout-records";
 import { migrateYoutubeMusicCache } from "./youtube-music-cache-mapping";
 
 const abortSampleLimit = 20;
@@ -646,6 +647,11 @@ export const migrateLegacyTables = Effect.gen(function* () {
 	yield* withReservedConnection((connection) =>
 		Effect.gen(function* () {
 			yield* connection.executeRaw(buildNotificationPlatformMigrationSql(), []);
+			yield* migrateWorkoutRecords(connection, {
+				workoutEntitySchema,
+				exerciseEntitySchema,
+				eventSchema: workoutSetEventSchema,
+			});
 			yield* connection.executeRaw(buildHistoricalAutomationCheckSql(), []);
 		}),
 	);
