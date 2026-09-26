@@ -114,6 +114,7 @@ describe("immutable revisions in PostgreSQL (isolated schema)", () => {
 										{
 											kind: "workflow",
 											capabilities: [],
+											runtimeImports: [],
 											slug: "fixture.workflow",
 											name: "Fixture workflow",
 											oauthConnectionFields: [],
@@ -360,6 +361,7 @@ describe("immutable revisions in PostgreSQL (isolated schema)", () => {
 										metadata: {
 											capabilities: [],
 											kind: "automation",
+											runtimeImports: [],
 											slug: "kernel.notify",
 											oauthConnectionFields: [],
 											executableDependencies: [],

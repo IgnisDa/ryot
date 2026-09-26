@@ -7,9 +7,16 @@ import {
 	genericImportSealReference,
 	genericImportChunkSchema,
 } from "@ryot-app/sandbox-sdk/imports";
-import { defineSandboxTestHost, runSandboxTestScript } from "@ryot-app/sandbox-sdk/testing";
+import {
+	defineSandboxTestHost,
+	makeWorkflowReplayHost,
+	runSandboxTestScript,
+} from "@ryot-app/sandbox-sdk/testing";
 import { jsonValueSchema, type JsonValue } from "@ryot-app/sandbox-sdk/wire";
-import type { WorkflowReplayEnvelope } from "@ryot-app/sandbox-sdk/workflow";
+import type {
+	WorkflowReplayEnvelope,
+	WorkflowReplayJournalEntry,
+} from "@ryot-app/sandbox-sdk/workflow";
 import { TestClock } from "effect/testing";
 
 import {
@@ -21,7 +28,7 @@ import {
 import control from "../imports/control.sandbox";
 import {
 	mediaFilesystem,
-	mediaFilesystemKey,
+	resetMediaFilesystem,
 	mediaImportTestCommand,
 } from "../imports/ingestion.test-support";
 import root from "../imports/integration.sandbox";
@@ -39,7 +46,7 @@ type DriverError =
 	| Effect.Error<ReturnType<typeof reader.run>>
 	| Effect.Error<ReturnType<typeof writer.run>>;
 
-afterEach(() => Reflect.deleteProperty(globalThis, mediaFilesystemKey));
+afterEach(resetMediaFilesystem);
 it.effect(
 	"executes the admitted integration entrypoint through durable artifacts, generic receipt results, and the original adapter confirmation namespace",
 	() =>
@@ -96,9 +103,11 @@ it.effect(
 					return handle;
 				});
 			const drive = Effect.fnUntraced(function* (
-				run: (journal: JsonValue[]) => Effect.Effect<WorkflowReplayEnvelope, DriverError>,
+				run: (
+					journal: WorkflowReplayJournalEntry[],
+				) => Effect.Effect<WorkflowReplayEnvelope, DriverError>,
 			): Effect.fn.Return<JsonValue, DriverError> {
-				const journal: JsonValue[] = [];
+				const journal: WorkflowReplayJournalEntry[] = [];
 				for (;;) {
 					const envelope = yield* run(journal);
 					if (envelope.state === "completed") {
@@ -152,22 +161,14 @@ it.effect(
 								request.args.input,
 							);
 							result = yield* drive((childJournal) =>
-								segment.run(
-									input,
-									{ replayJournal: () => Effect.succeed(childJournal) },
-									execution,
-								),
+								segment.run(input, makeWorkflowReplayHost(childJournal), execution),
 							);
 						} else if (slug === "media-integration-segment") {
 							const input = yield* Schema.decodeUnknownEffect(MediaApplicationInput)(
 								request.args.input,
 							);
 							result = yield* drive((childJournal) =>
-								segment.run(
-									input,
-									{ replayJournal: () => Effect.succeed(childJournal) },
-									execution,
-								),
+								segment.run(input, makeWorkflowReplayHost(childJournal), execution),
 							);
 						} else if (slug === "media-import-population") {
 							result = { results: [{ index: 0, entityId: "music", status: "completed" }] };
@@ -223,10 +224,13 @@ it.effect(
 							}
 						}
 					}
-					journal.push(yield* Schema.decodeUnknownEffect(jsonValueSchema)(result));
+					journal.push({
+						request,
+						value: yield* Schema.decodeUnknownEffect(jsonValueSchema)(result),
+					});
 				}
 			});
-			const rootJournal: JsonValue[] = [];
+			const rootJournal: WorkflowReplayJournalEntry[] = [];
 			const input = {
 				runId: "run",
 				source: "spotify",
@@ -239,17 +243,16 @@ it.effect(
 			};
 			yield* drive((journal) => {
 				rootJournal.splice(0, rootJournal.length, ...journal);
-				return root.run(input, { replayJournal: () => Effect.succeed(journal) }, execution);
+				return root.run(input, makeWorkflowReplayHost(journal), execution);
 			});
 			expect(fetched).toBe(1);
 			expect(writes).toBe(2);
 			expect(confirms).toBe(1);
 			expect(saved.size).toBe(2);
 			expect(captures.has("integration-source-0-0")).toBe(true);
-			expect(
-				(yield* root.run(input, { replayJournal: () => Effect.succeed(rootJournal) }, execution))
-					.state,
-			).toBe("completed");
+			expect((yield* root.run(input, makeWorkflowReplayHost(rootJournal), execution)).state).toBe(
+				"completed",
+			);
 			expect(fetched).toBe(1);
 			expect(writes).toBe(2);
 		}),

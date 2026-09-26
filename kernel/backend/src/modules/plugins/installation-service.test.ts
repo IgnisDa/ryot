@@ -485,6 +485,7 @@ const makeLayer = (options: FakeInstallationOptions = {}) => {
 
 const bootstrapScript = {
 	capabilities: [],
+	runtimeImports: [],
 	kind: "script" as const,
 	oauthConnectionFields: [],
 	name: "Fixture Bootstrap",
@@ -659,6 +660,7 @@ const manyScriptsManifest = privateManifest({
 	scripts: Array.from({ length: 33 }, (_unused, index) => ({
 		kind: "script",
 		capabilities: [],
+		runtimeImports: [],
 		slug: `task-${index}`,
 		name: `Task ${index}`,
 		oauthConnectionFields: [],
@@ -1334,6 +1336,7 @@ layer(
 
 const operationScript = {
 	capabilities: [],
+	runtimeImports: [],
 	name: "Fixture Operation",
 	slug: "operation.fixture",
 	oauthConnectionFields: [],

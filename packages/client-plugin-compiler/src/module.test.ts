@@ -1,4 +1,4 @@
-import { BunFileSystem } from "@effect/platform-bun";
+import { BunFileSystem, BunPath } from "@effect/platform-bun";
 import { expect, it } from "@effect/vitest";
 import {
 	CLIENT_API_VERSION,
@@ -27,7 +27,8 @@ const requiredFile = (artifact: PluginClientArtifact, name: string) => {
 };
 
 const emittedLayer = (javascript: string, css = "") =>
-	Layer.merge(
+	Layer.mergeAll(
+		BunPath.layer,
 		BunFileSystem.layer,
 		Layer.succeed(
 			ViteBuildService,

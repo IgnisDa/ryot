@@ -144,8 +144,8 @@ layer(
 										scriptSlug: "collector",
 										contentHash: "collector-hash",
 										scriptId: SandboxScriptId.make("collector"),
-										metadata: { kind: "operation", capabilities: ["scratch"] },
 										subject: { userId, type: "user", accountGeneration: scope.accountGeneration },
+										metadata: { kind: "operation", runtimeImports: [], capabilities: ["scratch"] },
 									},
 								});
 								if (!harvest) {

@@ -1,3 +1,4 @@
+import { configureApprovedDependencyRuntime } from "@ryot-app/sandbox-sdk/dependency-runtime";
 import { Effect, Schema } from "@ryot-app/sandbox-sdk/effect";
 import {
 	createYoutubeHistoryClient,
@@ -6,30 +7,12 @@ import {
 } from "@ryot-app/sandbox-sdk/youtubei";
 import { describe, expect, test } from "vitest";
 
-const runtimeKey = Symbol.for("@ryot-app/sandbox-sdk/approved-dependency-runtime");
+let approvedDependencyRuntimeCalls = 0;
 
-const withRuntime = <A, E>(operation: Effect.Effect<A, E>, calls: { count: number }) =>
-	Effect.suspend(() => {
-		const previous = Object.getOwnPropertyDescriptor(globalThis, runtimeKey);
-		Object.defineProperty(globalThis, runtimeKey, {
-			configurable: true,
-			value: (callback: () => Promise<unknown>) => {
-				calls.count += 1;
-				return callback();
-			},
-		});
-		return operation.pipe(
-			Effect.ensuring(
-				Effect.sync(() => {
-					if (previous) {
-						Object.defineProperty(globalThis, runtimeKey, previous);
-					} else {
-						Reflect.deleteProperty(globalThis, runtimeKey);
-					}
-				}),
-			),
-		);
-	});
+configureApprovedDependencyRuntime(<A>(operation: () => Promise<A>) => {
+	approvedDependencyRuntimeCalls += 1;
+	return operation();
+});
 
 describe("Youtubei sandbox adapter", () => {
 	test("requests YouTube Music history", () =>
@@ -63,21 +46,18 @@ describe("Youtubei sandbox adapter", () => {
 	test("keeps the dependency runtime scope private to SDK calls", () =>
 		Effect.runPromise(
 			Effect.gen(function* () {
-				const calls = { count: 0 };
 				const host = {
 					httpCall: () => Effect.fail({ message: "unexpected network call" }),
-				} as YoutubeiHost;
+				} satisfies YoutubeiHost;
 
-				const client = yield* withRuntime(
-					createYoutubeMusicClient(host, undefined, {
-						retrievePlayer: false,
-						retrieveInnertubeConfig: false,
-					}),
-					calls,
-				);
+				const callsBefore = approvedDependencyRuntimeCalls;
+				const client = yield* createYoutubeMusicClient(host, undefined, {
+					retrievePlayer: false,
+					retrieveInnertubeConfig: false,
+				});
 
 				expect(client).toBeTruthy();
-				expect(calls.count).toBe(1);
+				expect(approvedDependencyRuntimeCalls - callsBefore).toBe(1);
 			}),
 		));
 

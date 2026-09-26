@@ -22,7 +22,7 @@ const systemEnvironmentLayer = (
 	options: {
 		readonly logFile?: string;
 		readonly logLevel?: string;
-		readonly processMode?: string;
+		readonly memoryBudgetMiB?: string;
 		readonly logRotationSize?: string;
 		readonly workerConcurrency?: string;
 		readonly logRotationInterval?: string;
@@ -40,7 +40,9 @@ const systemEnvironmentLayer = (
 		...(options.logRotationInterval === undefined
 			? {}
 			: { SERVER_LOG_ROTATION_INTERVAL: options.logRotationInterval }),
-		...(options.processMode === undefined ? {} : { SANDBOX_PROCESS_MODE: options.processMode }),
+		...(options.memoryBudgetMiB === undefined
+			? {}
+			: { SANDBOX_MEMORY_BUDGET_MIB: options.memoryBudgetMiB }),
 		...(options.workerConcurrency === undefined
 			? {}
 			: { SANDBOX_WORKER_CONCURRENCY: options.workerConcurrency }),
@@ -74,16 +76,6 @@ describe("system log config", () => {
 	});
 
 	layer(systemEnvironmentLayer())((test) => {
-		test.effect("defaults to on-demand sandbox processes", () =>
-			Effect.gen(function* () {
-				const result = yield* loaded;
-				assert(Exit.isSuccess(result));
-				expect(result.value.sandbox.processMode).toBe("on-demand");
-			}),
-		);
-	});
-
-	layer(systemEnvironmentLayer())((test) => {
 		test.effect("defaults sandbox worker concurrency to the two-vCPU baseline", () =>
 			Effect.gen(function* () {
 				const result = yield* loaded;
@@ -104,6 +96,38 @@ describe("system log config", () => {
 	});
 
 	layer(systemEnvironmentLayer())((test) => {
+		test.effect("defaults the sandbox memory budget to 1536 MiB", () =>
+			Effect.gen(function* () {
+				const result = yield* loaded;
+				assert(Exit.isSuccess(result));
+				expect(result.value.sandbox.memoryBudgetMiB).toBe(1536);
+			}),
+		);
+	});
+
+	layer(systemEnvironmentLayer({ memoryBudgetMiB: "2048" }))((test) => {
+		test.effect("reads the sandbox memory budget from the environment", () =>
+			Effect.gen(function* () {
+				const result = yield* loaded;
+				assert(Exit.isSuccess(result));
+				expect(result.value.sandbox.memoryBudgetMiB).toBe(2048);
+			}),
+		);
+	});
+
+	for (const memoryBudgetMiB of ["0", "-1", "1.5"]) {
+		layer(systemEnvironmentLayer({ memoryBudgetMiB }))((test) => {
+			test.effect(`rejects sandbox memory budget ${memoryBudgetMiB} from the environment`, () =>
+				Effect.gen(function* () {
+					const result = yield* loaded;
+					assert(Exit.isFailure(result));
+					expect(Cause.pretty(result.cause)).toContain("SANDBOX_MEMORY_BUDGET_MIB");
+				}),
+			);
+		});
+	}
+
+	layer(systemEnvironmentLayer())((test) => {
 		test.effect("defaults filesystem paths relative to the working directory", () =>
 			Effect.gen(function* () {
 				const result = yield* loaded;
@@ -112,17 +136,6 @@ describe("system log config", () => {
 				expect(result.value.server.pluginsSystemDir).toBe("./plugins");
 				expect(result.value.fileStorage.localDir).toBe("./storage");
 				expect(result.value.fileStorage.localTempDir).toBe("./work");
-				expect(result.value.sandbox.denoDir).toBe("./tmp");
-			}),
-		);
-	});
-
-	layer(systemEnvironmentLayer({ processMode: "warm" }))((test) => {
-		test.effect("accepts warm sandbox processes", () =>
-			Effect.gen(function* () {
-				const result = yield* loaded;
-				assert(Exit.isSuccess(result));
-				expect(result.value.sandbox.processMode).toBe("warm");
 			}),
 		);
 	});
@@ -164,56 +177,45 @@ describe("system log config", () => {
 	}
 });
 
-describe("validateSystemConfig shared application/workflow pool capacity", () => {
+describe("validateSystemConfig sandbox capacity", () => {
 	layer(makeAppConfigLayer())((test) => {
-		test.effect("passes with default shared application/workflow pool capacity", () =>
+		test.effect("passes with default sandbox capacity", () =>
 			Effect.gen(function* () {
 				expect(Exit.isSuccess(yield* validated)).toBe(true);
 			}),
 		);
 	});
 
-	layer(makeAppConfigLayer({ database: { poolMax: 5 }, sandbox: { workerConcurrency: 5 } }))(
-		(test) => {
+	for (const [poolMax, workerConcurrency, isValid] of [
+		[7, 2, true],
+		[6, 2, false],
+		[10, 5, true],
+		[9, 5, false],
+	] as const) {
+		layer(makeAppConfigLayer({ database: { poolMax }, sandbox: { workerConcurrency } }))((test) => {
 			test.effect(
-				"fails when shared application/workflow pool cannot support the configured sandbox workers",
+				`${isValid ? "accepts" : "rejects"} pool ${poolMax} with ${workerConcurrency} sandbox workers`,
 				() =>
 					Effect.gen(function* () {
 						const result = yield* validated;
-						expect(Exit.isFailure(result)).toBe(true);
-						if (Exit.isFailure(result)) {
+						expect(Exit.isSuccess(result)).toBe(isValid);
+						if (!isValid) {
+							assert(Exit.isFailure(result));
+							const failure = Cause.findErrorOption(result.cause);
+							assert(Option.isSome(failure));
+							expect(failure.value).toMatchObject({ _tag: "ConfigError" });
 							const message = Cause.pretty(result.cause);
-							expect(message).toContain("SANDBOX_WORKER_CONCURRENCY");
 							expect(message).toContain("DATABASE_POOL_MAX");
+							expect(message).toContain("SANDBOX_WORKER_CONCURRENCY");
+							expect(message).toContain("one cluster runner connection");
+							expect(message).toContain("two durable queue worker connections");
+							expect(message).toContain("one application connection");
+							expect(message).toContain("sandbox host database dispatch connection");
 						}
 					}),
 			);
-		},
-	);
-
-	layer(makeAppConfigLayer({ database: { poolMax: 6 }, sandbox: { workerConcurrency: 5 } }))(
-		(test) => {
-			test.effect(
-				"passes when shared application/workflow pool matches the configured sandbox workers",
-				() =>
-					Effect.gen(function* () {
-						const result = yield* validated;
-						expect(Exit.isSuccess(result)).toBe(true);
-					}),
-			);
-		},
-	);
-
-	layer(makeAppConfigLayer({ database: { poolMax: 5 }, sandbox: { workerConcurrency: 2 } }))(
-		(test) => {
-			test.effect("keeps a lowered sandbox worker concurrency within a small pool", () =>
-				Effect.gen(function* () {
-					const result = yield* validated;
-					expect(Exit.isSuccess(result)).toBe(true);
-				}),
-			);
-		},
-	);
+		});
+	}
 
 	for (const workerConcurrency of [0, -1, 1.5]) {
 		layer(makeAppConfigLayer({ sandbox: { workerConcurrency } }))((test) => {
@@ -238,6 +240,21 @@ describe("validateSystemConfig shared application/workflow pool capacity", () =>
 					if (Exit.isFailure(result)) {
 						expect(Cause.pretty(result.cause)).toContain("SANDBOX_IMPORT_CONCURRENCY");
 					}
+				}),
+			);
+		});
+	}
+
+	for (const memoryBudgetMiB of [0, -1, 1.5]) {
+		layer(makeAppConfigLayer({ sandbox: { memoryBudgetMiB } }))((test) => {
+			test.effect(`rejects sandbox memory budget ${memoryBudgetMiB}`, () =>
+				Effect.gen(function* () {
+					const result = yield* validated;
+					assert(Exit.isFailure(result));
+					const failure = Cause.findErrorOption(result.cause);
+					assert(Option.isSome(failure));
+					expect(failure.value).toMatchObject({ _tag: "ConfigError" });
+					expect(Cause.pretty(result.cause)).toContain("SANDBOX_MEMORY_BUDGET_MIB");
 				}),
 			);
 		});

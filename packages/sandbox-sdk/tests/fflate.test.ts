@@ -5,13 +5,26 @@ import {
 	readGzipRange,
 	readZipEntryRange,
 } from "@ryot-app/sandbox-sdk/fflate";
+import {
+	configureSandboxFilesystem,
+	type SandboxFilesystemBinding,
+} from "@ryot-app/sandbox-sdk/filesystem";
 import { zipSync } from "fflate";
 import { assert, afterEach, expect, test } from "vitest";
 
-const filesystemKey = Symbol.for("@ryot-app/sandbox-sdk/filesystem");
+let activeBinding: SandboxFilesystemBinding | undefined;
+configureSandboxFilesystem(() => activeBinding);
+
+const makeBinding = (overrides: Partial<SandboxFilesystemBinding>): SandboxFilesystemBinding => ({
+	readArtifact: () => Promise.reject(new Error("Unexpected artifact read")),
+	readArtifactRange: () => Promise.reject(new Error("Unexpected artifact range")),
+	writeScratchChunks: () => Promise.reject(new Error("Unexpected scratch write")),
+	readNamedArtifact: () => Promise.reject(new Error("Unexpected named artifact read")),
+	...overrides,
+});
 
 afterEach(() => {
-	Reflect.deleteProperty(globalThis, filesystemKey);
+	activeBinding = undefined;
 });
 
 test("pages a large admitted archive and replays expanded ranges without whole artifact reads", () =>
@@ -29,7 +42,7 @@ test("pages a large admitted archive and replays expanded ranges without whole a
 			expect(archive.length).toBeGreaterThan(49 * 1024 * 1024);
 			expect(archive.length).toBeLessThanOrEqual(50 * 1024 * 1024);
 			const requests: number[] = [];
-			Reflect.set(globalThis, filesystemKey, {
+			activeBinding = makeBinding({
 				readArtifactRange: (offset: number, length: number, key?: string) => {
 					expect(key).toBe("export");
 					requests.push(length);
@@ -103,7 +116,7 @@ test("bounds directory metadata even when entry names are large", () =>
 					]),
 				),
 			);
-			Reflect.set(globalThis, filesystemKey, {
+			activeBinding = makeBinding({
 				readArtifactRange: (offset: number, length: number) =>
 					Promise.resolve({ size: archive.length, bytes: archive.slice(offset, offset + length) }),
 			});
@@ -127,7 +140,7 @@ test("streams expanded gzip ranges, replays them, and uses exact artifact grants
 			const artifactKeys: Array<string | undefined> = [];
 			const readLengths: number[] = [];
 			const namedArtifacts = new Map<string, Uint8Array>([["myanimelist-export.gz", compressed]]);
-			Reflect.set(globalThis, filesystemKey, {
+			activeBinding = makeBinding({
 				readArtifactRange: (offset: number, length: number, key?: string) => {
 					artifactKeys.push(key);
 					readLengths.push(length);
@@ -177,7 +190,7 @@ test("rejects invalid gzip ranges and malformed gzip data", () =>
 		Effect.gen(function* () {
 			const compressed = gzipSync(new Uint8Array([1, 2, 3]));
 			let calls = 0;
-			Reflect.set(globalThis, filesystemKey, {
+			activeBinding = makeBinding({
 				readArtifactRange: (offset: number, length: number) => {
 					calls++;
 					return Promise.resolve({
@@ -212,7 +225,7 @@ test("rejects invalid gzip ranges and malformed gzip data", () =>
 test("rejects malformed archives and over-limit output pages", () =>
 	Effect.runPromise(
 		Effect.gen(function* () {
-			Reflect.set(globalThis, filesystemKey, {
+			activeBinding = makeBinding({
 				readArtifactRange: () => Promise.resolve({ size: 30, bytes: new Uint8Array(30) }),
 			});
 			expect((yield* Effect.flip(listZipEntries({}))).message).toBe("ZIP directory was not found");

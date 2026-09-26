@@ -523,11 +523,11 @@ layer(
 		}).pipe(
 			Effect.ensuring(
 				Effect.flatMap(DatabaseSession, (session) =>
-					session.run((db) =>
-						db
-							.execute(sql`drop schema if exists ${sql.identifier(rollbackSchema)} cascade`)
-							.pipe(Effect.orDie),
-					),
+					session
+						.run((db) =>
+							db.execute(sql`drop schema if exists ${sql.identifier(rollbackSchema)} cascade`),
+						)
+						.pipe(Effect.orDie),
 				),
 			),
 		),

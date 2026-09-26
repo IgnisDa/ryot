@@ -9,7 +9,7 @@ const principal = {
 	scriptId: "script-1",
 	scriptSlug: "script",
 	contentHash: "hash-1",
-	metadata: { kind: "automation" },
+	metadata: { kind: "automation", runtimeImports: [] },
 	pluginRevision: {
 		scope: "user",
 		id: "plugin-1",

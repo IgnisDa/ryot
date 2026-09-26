@@ -1,4 +1,5 @@
 import { expect, it } from "@effect/vitest";
+import { configureApprovedDependencyRuntime } from "@ryot-app/sandbox-sdk/dependency-runtime";
 import { Effect, Schema } from "@ryot-app/sandbox-sdk/effect";
 import type { YoutubeiHost } from "@ryot-app/sandbox-sdk/youtubei";
 
@@ -24,6 +25,8 @@ import {
 	buildArtistTranslate,
 } from "../../providers/person/youtube-music/shared";
 import { createYoutubeMusicClient } from "./youtube-music";
+
+configureApprovedDependencyRuntime((operation) => operation());
 
 const recordedClient = (path: string, responses: readonly unknown[], language = "en") => {
 	const requests: { method: string; path: string; body: unknown }[] = [];

@@ -57,7 +57,7 @@ it.effect("applies centralized capability authorization before durable host disp
 				pluginRevision: null,
 				scriptSlug: "script",
 				scriptId: SandboxScriptId.make("script-1"),
-				metadata: { capabilities: ["sendNotification"] },
+				metadata: { runtimeImports: [], capabilities: ["sendNotification"] },
 				subject: {
 					type: "user",
 					userId: UserId.make("user-1"),
@@ -99,7 +99,7 @@ it.effect("derives event root identity from the trusted workflow and host index"
 				pluginRevision: null,
 				scriptSlug: "script",
 				scriptId: SandboxScriptId.make("script-1"),
-				metadata: { capabilities: ["createEvents"] },
+				metadata: { runtimeImports: [], capabilities: ["createEvents"] },
 				subject: {
 					type: "user",
 					userId: UserId.make("user-1"),
@@ -166,12 +166,12 @@ it("derives service workflow identity from the parent and call index", () => {
 				scriptId: SandboxScriptId.make("script-1"),
 			},
 			principal: {
-				metadata: {},
 				providerId: null,
 				contentHash: "hash",
 				pluginRevision: null,
 				scriptSlug: "script",
 				subject: { type: "system" },
+				metadata: { runtimeImports: [] },
 				scriptId: SandboxScriptId.make("script-1"),
 			},
 		}),

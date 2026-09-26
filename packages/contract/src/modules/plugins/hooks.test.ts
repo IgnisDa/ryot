@@ -21,6 +21,7 @@ const hook = {
 const script = {
 	slug: "policy",
 	kind: "automation",
+	runtimeImports: [],
 	automationType: "policy",
 	name: "Validate progress",
 	oauthConnectionFields: [],
@@ -46,6 +47,7 @@ const registeredScript = (
 	slug,
 	name: slug,
 	capabilities,
+	runtimeImports: [],
 	executableDependencies,
 	kind: "script" as const,
 	oauthConnectionFields: [],

@@ -22,6 +22,7 @@ import {
 	reinstallTestPluginScript,
 	type Client,
 	type InstalledTestPlugin,
+	type TestPluginScript,
 	uninstallTestPlugin,
 	uninstallTestPluginStrict,
 	updatePluginState,
@@ -30,7 +31,10 @@ import { assertPresent, assertTaggedError, requirePresent } from "~/support/asse
 import { describe, expect, it } from "~/support/effect-test";
 
 type PluginScript = PluginManifest["scripts"][number];
-type AutomationScript = Extract<PluginScript, { kind: "automation"; automationType: "automation" }>;
+type AutomationScript = Extract<
+	TestPluginScript,
+	{ kind: "automation"; automationType: "automation" }
+> & { readonly entry: string };
 type RetryPolicy = Extract<PluginManifest["hooks"][number], { stage: "after" }>["retry"];
 
 const UNREACHABLE_URL = "http://127.0.0.1:1/e2e-retry";
@@ -43,7 +47,7 @@ const collectionProperties = {
 const automationScript = (
 	slug: string,
 	entry: string,
-	capabilities: ReadonlyArray<PluginScript["capabilities"][number]>,
+	capabilities: ReadonlyArray<NonNullable<PluginScript["capabilities"]>[number]>,
 ): AutomationScript => ({
 	slug,
 	entry,

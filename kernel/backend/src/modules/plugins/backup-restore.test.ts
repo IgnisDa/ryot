@@ -250,6 +250,7 @@ layer(makeLayer())((test) => {
 			scripts: [
 				{
 					entry,
+					runtimeImports: [],
 					name: "Broken script",
 					slug: "fixture.broken",
 					kind: "script" as const,
