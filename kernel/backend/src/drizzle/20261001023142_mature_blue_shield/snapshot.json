@@ -1,7 +1,7 @@
 {
 	"version": "8",
 	"dialect": "postgres",
-	"id": "ff731214-39fb-4082-9399-31ab412d6b8b",
+	"id": "14e816ca-d75c-4334-8abb-9a6ce798daf3",
 	"prevIds": ["00000000-0000-0000-0000-000000000000"],
 	"ddl": [
 		{ "isRlsEnabled": false, "name": "account", "entityType": "tables", "schema": "public" },
@@ -2324,6 +2324,19 @@
 			"generated": null,
 			"identity": null,
 			"name": "settings_schema",
+			"entityType": "columns",
+			"schema": "public",
+			"table": "definition_integration_provider"
+		},
+		{
+			"type": "boolean",
+			"typeSchema": null,
+			"notNull": true,
+			"dimensions": 0,
+			"default": "false",
+			"generated": null,
+			"identity": null,
+			"name": "supports_ownership_sync",
 			"entityType": "columns",
 			"schema": "public",
 			"table": "definition_integration_provider"
@@ -5022,6 +5035,19 @@
 		{
 			"type": "text",
 			"typeSchema": null,
+			"notNull": false,
+			"dimensions": 0,
+			"default": null,
+			"generated": null,
+			"identity": null,
+			"name": "integration_id",
+			"entityType": "columns",
+			"schema": "public",
+			"table": "oauth_connection"
+		},
+		{
+			"type": "text",
+			"typeSchema": null,
 			"notNull": true,
 			"dimensions": 0,
 			"default": null,
@@ -5048,12 +5074,12 @@
 		{
 			"type": "text",
 			"typeSchema": null,
-			"notNull": false,
+			"notNull": true,
 			"dimensions": 0,
 			"default": null,
 			"generated": null,
 			"identity": null,
-			"name": "integration_id",
+			"name": "state_hash",
 			"entityType": "columns",
 			"schema": "public",
 			"table": "oauth_connection"
@@ -5067,19 +5093,6 @@
 			"generated": null,
 			"identity": null,
 			"name": "plugin_slug",
-			"entityType": "columns",
-			"schema": "public",
-			"table": "oauth_connection"
-		},
-		{
-			"type": "text",
-			"typeSchema": null,
-			"notNull": true,
-			"dimensions": 0,
-			"default": null,
-			"generated": null,
-			"identity": null,
-			"name": "state_hash",
 			"entityType": "columns",
 			"schema": "public",
 			"table": "oauth_connection"
@@ -5137,19 +5150,6 @@
 			"table": "oauth_connection"
 		},
 		{
-			"type": "text",
-			"typeSchema": null,
-			"notNull": true,
-			"dimensions": 0,
-			"default": null,
-			"generated": null,
-			"identity": null,
-			"name": "integration_provider_slug",
-			"entityType": "columns",
-			"schema": "public",
-			"table": "oauth_connection"
-		},
-		{
 			"type": "jsonb",
 			"typeSchema": null,
 			"notNull": false,
@@ -5158,6 +5158,19 @@
 			"generated": null,
 			"identity": null,
 			"name": "code",
+			"entityType": "columns",
+			"schema": "public",
+			"table": "oauth_connection"
+		},
+		{
+			"type": "text",
+			"typeSchema": null,
+			"notNull": true,
+			"dimensions": 0,
+			"default": null,
+			"generated": null,
+			"identity": null,
+			"name": "integration_provider_slug",
 			"entityType": "columns",
 			"schema": "public",
 			"table": "oauth_connection"
@@ -5228,19 +5241,6 @@
 			"table": "oauth_connection"
 		},
 		{
-			"type": "jsonb",
-			"typeSchema": null,
-			"notNull": true,
-			"dimensions": 0,
-			"default": null,
-			"generated": null,
-			"identity": null,
-			"name": "client",
-			"entityType": "columns",
-			"schema": "public",
-			"table": "oauth_connection"
-		},
-		{
 			"type": "timestamp with time zone",
 			"typeSchema": null,
 			"notNull": false,
@@ -5275,6 +5275,19 @@
 			"generated": null,
 			"identity": null,
 			"name": "access_token_expires_at",
+			"entityType": "columns",
+			"schema": "public",
+			"table": "oauth_connection"
+		},
+		{
+			"type": "jsonb",
+			"typeSchema": null,
+			"notNull": true,
+			"dimensions": 0,
+			"default": null,
+			"generated": null,
+			"identity": null,
+			"name": "client",
 			"entityType": "columns",
 			"schema": "public",
 			"table": "oauth_connection"
@@ -12756,7 +12769,7 @@
 			"schema": "public"
 		},
 		{
-			"definition": "\n\t\t\tselect p.user_id, d.id, p.plugin_id, d.plugin_revision_id, p.slug as plugin_slug, p.scope as plugin_scope, p.installation_id, p.config_revision_id, d.slug, d.name, d.description, d.position, d.lot, d.script_slug, s.id as script_id, d.settings_schema, d.requires_pro_key\n\t\t\tfrom \"user_plugin\" p\n\t\t\tjoin definition_integration_provider d on d.plugin_revision_id = p.active_revision_id\n\t\t\tleft join sandbox_script s on s.plugin_revision_id = d.plugin_revision_id and s.slug = d.script_slug\n\t\t\twhere p.is_executable and not exists (select 1 from \"user_plugin\" sp join definition_integration_provider g on g.plugin_revision_id = sp.active_revision_id where sp.user_id = p.user_id and sp.plugin_id <> p.plugin_id and sp.scope = 'system' and sp.is_executable and g.slug = d.slug)\n\t\t",
+			"definition": "\n\t\t\tselect p.user_id, d.id, p.plugin_id, d.plugin_revision_id, p.slug as plugin_slug, p.scope as plugin_scope, p.installation_id, p.config_revision_id, d.slug, d.name, d.description, d.position, d.lot, d.script_slug, s.id as script_id, d.settings_schema, d.requires_pro_key, d.supports_ownership_sync\n\t\t\tfrom \"user_plugin\" p\n\t\t\tjoin definition_integration_provider d on d.plugin_revision_id = p.active_revision_id\n\t\t\tleft join sandbox_script s on s.plugin_revision_id = d.plugin_revision_id and s.slug = d.script_slug\n\t\t\twhere p.is_executable and not exists (select 1 from \"user_plugin\" sp join definition_integration_provider g on g.plugin_revision_id = sp.active_revision_id where sp.user_id = p.user_id and sp.plugin_id <> p.plugin_id and sp.scope = 'system' and sp.is_executable and g.slug = d.slug)\n\t\t",
 			"with": null,
 			"withNoData": null,
 			"using": null,

@@ -352,6 +352,7 @@ const integrationProviders = [
 		lot: "yank",
 		slug: "komga",
 		name: "Komga",
+		supportsOwnershipSync: true,
 		scriptSlug: "integration.komga",
 		description: "Import progress and ownership from Komga",
 		settingsSchema: providerSettings("komga", {
@@ -363,6 +364,7 @@ const integrationProviders = [
 		lot: "yank",
 		slug: "plex_yank",
 		name: "Plex yank",
+		supportsOwnershipSync: true,
 		scriptSlug: "integration.plex-yank",
 		description: "Import watched media and ownership from Plex",
 		settingsSchema: providerSettings("plex_yank", {
@@ -374,6 +376,7 @@ const integrationProviders = [
 		lot: "yank",
 		slug: "audiobookshelf",
 		name: "Audiobookshelf",
+		supportsOwnershipSync: true,
 		scriptSlug: "integration.audiobookshelf",
 		description: "Import finished media and ownership from Audiobookshelf",
 		settingsSchema: providerSettings("audiobookshelf", {
