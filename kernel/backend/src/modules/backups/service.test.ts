@@ -16,7 +16,7 @@ const user: CurrentUserValue = {
 	name: "Backup User",
 	id: UserId.make("user-1"),
 	email: "backup@example.com",
-	preferences: { language: null, allowNsfw: false, disableIntegrations: false },
+	preferences: { language: null, disableIntegrations: false },
 };
 const timestamp = "2026-08-23T12:00:00.000Z";
 const runId = BackupRunId.make("run-1");

@@ -116,6 +116,7 @@ export const ArchiveInstallation = strictStruct({
 	createdAt: isoTimestamp,
 	updatedAt: isoTimestamp,
 	sortOrder: Schema.Finite,
+	userSettings: jsonObject,
 	packageKey: Schema.String,
 	hiddenIntent: Schema.Boolean,
 	homeSavedViewSlug: Schema.NullOr(Schema.String),
