@@ -29,11 +29,13 @@ import * as Schema from "effect/Schema";
 import * as TestClock from "effect/testing/TestClock";
 import { Fragment, act, createElement, type ComponentType } from "react";
 
-import type { EntityPresentationRegistration } from "./entity-results";
-import { createRyotClient, type RyotClientAdapter } from "./index";
+import { bootstrapClientPage, createClientBootstrap } from "./bootstrap/application";
+import type { RyotClientAdapter } from "./client/adapter";
+import { createRyotClient } from "./client/client";
 import { createPluginNavigationStore, type PluginRouterNavigation } from "./navigation/store";
-import { bootstrapClientPage, createClientBootstrap } from "./plugin";
-import { makeRyotPluginLayer, RyotScheduleService } from "./schedule";
+import type { EntityPresentationRegistration } from "./presentations/entity-results";
+import { makeRyotPluginLayer } from "./runtime/runtime";
+import { RyotScheduleService } from "./schedule";
 
 // Fills only the required capabilities, so tests of a missing optional one still see
 // `unsupported-capability`.

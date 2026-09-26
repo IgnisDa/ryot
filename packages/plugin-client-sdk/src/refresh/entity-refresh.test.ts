@@ -1,10 +1,10 @@
 import { describe, expect, layer } from "@effect/vitest";
 import { Effect } from "effect";
 
+import type { EntityUpdate } from "../client/adapter";
+import { RyotScheduleService } from "../schedule";
+import { advanceRyotSchedule } from "../testing";
 import { createEntityRefresh } from "./entity-refresh";
-import type { EntityUpdate } from "./index";
-import { RyotScheduleService } from "./schedule";
-import { advanceRyotSchedule } from "./testing";
 
 const populated = (entityId: string): EntityUpdate => ({ entityId, reason: "populated" });
 

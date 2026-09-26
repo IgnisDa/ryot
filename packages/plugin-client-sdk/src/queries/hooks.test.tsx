@@ -5,18 +5,18 @@ import { Effect, Schema } from "effect";
 import { act, useEffect, type ReactNode } from "react";
 import { createRoot, type Root } from "react-dom/client";
 
-import { RyotClientError, type RyotClientAdapter } from "./index";
+import type { RyotClientAdapter } from "../client/adapter";
+import { RyotClientError } from "../client/errors";
+import { createTestPluginStorage, createTestRyotClock } from "../testing";
+import { createRyotMutation, createRyotQuery } from "./definitions";
 import {
-	createRyotMutation,
-	createRyotQuery,
-	RyotProvider,
 	useRyotMutation,
 	useRyotQuery,
-	usePluginStorage,
 	type RyotMutationResult,
 	type RyotQueryResult,
-} from "./react";
-import { createTestPluginStorage, createTestRyotClock } from "./testing";
+} from "./hooks";
+import { RyotProvider } from "./provider";
+import { usePluginStorage } from "./storage";
 
 (
 	globalThis as typeof globalThis & { IS_REACT_ACT_ENVIRONMENT?: boolean }

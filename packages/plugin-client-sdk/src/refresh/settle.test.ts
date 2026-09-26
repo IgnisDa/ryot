@@ -1,9 +1,9 @@
 import { describe, expect, layer } from "@effect/vitest";
 import { Effect } from "effect";
 
-import { RyotScheduleService } from "./schedule";
+import { RyotScheduleService } from "../schedule";
+import { advanceRyotSchedule } from "../testing";
 import { createSettleTracker } from "./settle";
-import { advanceRyotSchedule } from "./testing";
 
 describe("createSettleTracker", () => {
 	layer(RyotScheduleService.layer)((test) => {

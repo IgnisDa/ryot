@@ -1,7 +1,8 @@
 import * as Effect from "effect/Effect";
 
-import { RyotClientError, type EntityUpdate } from "./index";
-import type { RyotSchedule } from "./schedule";
+import type { EntityUpdate } from "../client/adapter";
+import { RyotClientError } from "../client/errors";
+import type { RyotSchedule } from "../schedule";
 
 export const entityTransport = <A>(run: () => A) => {
 	try {

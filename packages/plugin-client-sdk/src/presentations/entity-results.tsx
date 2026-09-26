@@ -25,15 +25,13 @@ import {
 	type ReactNode,
 } from "react";
 
-import { RyotClientError, type RyotClient } from "./index";
-import {
-	createRyotQuery,
-	useEntityRefresh,
-	usePageRefreshRequest,
-	useRyotQuery,
-	type RyotQuery,
-} from "./react";
-import { PluginLink, usePluginScreenSurface } from "./routing";
+import type { RyotClient } from "../client/client";
+import { RyotClientError } from "../client/errors";
+import { PluginLink, usePluginScreenSurface } from "../navigation/routing";
+import { createRyotQuery, type RyotQuery } from "../queries/definitions";
+import { useRyotQuery } from "../queries/hooks";
+import { useEntityRefresh } from "../refresh/entity-hooks";
+import { usePageRefreshRequest } from "../refresh/page-registry";
 
 export type EntityResultsLayout = "grid" | "list";
 

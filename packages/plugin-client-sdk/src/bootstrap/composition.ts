@@ -6,9 +6,9 @@ import { CLIENT_COMPOSITION_DESCRIPTOR_ELEMENT_ID } from "@ryot-app/plugin-clien
 import { Effect, Schema } from "effect";
 import type { ComponentType } from "react";
 
-import type { EntityPresentationDefinition } from "../entity-results";
-import { bootstrapClientPage, bootstrapClientPlugin } from "../plugin";
+import type { EntityPresentationDefinition } from "../presentations/entity-results";
 import { loadStylesheet } from "../stylesheets";
+import { bootstrapClientPage, bootstrapClientPlugin } from "./application";
 
 type ClientModule = Readonly<Record<string, unknown>>;
 
