@@ -26,7 +26,6 @@ import {
 import { Context, Effect, Layer, Schema } from "effect";
 
 import { PLUGIN_INGESTION_ADVISORY_LOCK_KEY } from "#lib/infrastructure/db/advisory-locks";
-import { mapDatabaseErrors } from "#lib/infrastructure/db/errors";
 import * as schema from "#lib/infrastructure/db/schema/tables/combined";
 import { DatabaseSession } from "#lib/infrastructure/db/session";
 import { ClientArtifactsRepository } from "#modules/client-artifacts/repository";
@@ -1345,52 +1344,51 @@ export class PluginRepository extends Context.Service<PluginRepository>()("Plugi
 
 		const deleteUnreferencedScripts = Effect.fn("PluginRepository.deleteUnreferencedScripts")(
 			function* (liveContentHashes: ReadonlySet<string>, input: { now: Date; limit: number }) {
-				const db = yield* database.current;
-				const executionReference = retainedScriptExecution(input.now);
-				const candidates = db
-					.select({ id: schema.sandboxScript.id })
-					.from(schema.sandboxScript)
-					.where(
-						and(
-							liveContentHashes.size > 0
-								? notInArray(schema.sandboxScript.contentHash, [...liveContentHashes])
-								: undefined,
-							not(executionReference),
-							notExists(
-								db
-									.select({ slug: schema.kernelScript.slug })
-									.from(schema.kernelScript)
-									.where(eq(schema.kernelScript.scriptId, schema.sandboxScript.id)),
-							),
-							notExists(
-								db
-									.select({ id: schema.plugin.id })
-									.from(schema.plugin)
-									.where(
-										and(
-											eq(schema.plugin.activeRevisionId, schema.sandboxScript.pluginRevisionId),
-											eq(schema.plugin.status, "active"),
+				return yield* database.run((db) => {
+					const executionReference = retainedScriptExecution(input.now);
+					const candidates = db
+						.select({ id: schema.sandboxScript.id })
+						.from(schema.sandboxScript)
+						.where(
+							and(
+								liveContentHashes.size > 0
+									? notInArray(schema.sandboxScript.contentHash, [...liveContentHashes])
+									: undefined,
+								not(executionReference),
+								notExists(
+									db
+										.select({ slug: schema.kernelScript.slug })
+										.from(schema.kernelScript)
+										.where(eq(schema.kernelScript.scriptId, schema.sandboxScript.id)),
+								),
+								notExists(
+									db
+										.select({ id: schema.plugin.id })
+										.from(schema.plugin)
+										.where(
+											and(
+												eq(schema.plugin.activeRevisionId, schema.sandboxScript.pluginRevisionId),
+												eq(schema.plugin.status, "active"),
+											),
 										),
-									),
+								),
 							),
-						),
-					)
-					.orderBy(asc(schema.sandboxScript.id))
-					.limit(input.limit);
-				yield* mapDatabaseErrors(
-					db
-						.delete(schema.sandboxProviderOperation)
-						.where(inArray(schema.sandboxProviderOperation.scriptId, candidates)),
-				);
-				return yield* mapDatabaseErrors(
-					db
-						.delete(schema.sandboxScript)
-						.where(inArray(schema.sandboxScript.id, candidates))
-						.returning({
-							id: schema.sandboxScript.id,
-							contentHash: schema.sandboxScript.contentHash,
-						}),
-				);
+						)
+						.orderBy(asc(schema.sandboxScript.id))
+						.limit(input.limit);
+					return Effect.gen(function* () {
+						yield* db
+							.delete(schema.sandboxProviderOperation)
+							.where(inArray(schema.sandboxProviderOperation.scriptId, candidates));
+						return yield* db
+							.delete(schema.sandboxScript)
+							.where(inArray(schema.sandboxScript.id, candidates))
+							.returning({
+								id: schema.sandboxScript.id,
+								contentHash: schema.sandboxScript.contentHash,
+							});
+					});
+				});
 			},
 		);
 

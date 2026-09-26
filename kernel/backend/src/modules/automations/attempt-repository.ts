@@ -21,7 +21,6 @@ import { alias } from "drizzle-orm/pg-core";
 import { Context, Effect, Layer, Schema } from "effect";
 
 import { automationRunRetryEligibility } from "#lib/infrastructure/db/automation-retry-eligibility";
-import { mapDatabaseErrors } from "#lib/infrastructure/db/errors";
 import { user } from "#lib/infrastructure/db/schema/tables/auth";
 import {
 	automationRun,
@@ -190,16 +189,19 @@ const atomic = <A, E, R>(session: DatabaseSession["Service"], effect: Effect.Eff
 		);
 
 const lockRun = Effect.fn(function* (session: DatabaseSession["Service"], runId: AutomationRunId) {
-	const db = yield* session.current;
-	const [run] = yield* db
-		.select()
-		.from(automationRun)
-		.where(eq(automationRun.id, runId))
-		.for("update");
-	if (!run) {
-		return yield* conflict(`Automation run not found: ${runId}`);
-	}
-	return run;
+	return yield* session.run((db) =>
+		Effect.gen(function* () {
+			const [run] = yield* db
+				.select()
+				.from(automationRun)
+				.where(eq(automationRun.id, runId))
+				.for("update");
+			if (!run) {
+				return yield* conflict(`Automation run not found: ${runId}`);
+			}
+			return run;
+		}),
+	);
 });
 
 const retryRun = alias(automationRun, "retry_run");
@@ -209,19 +211,24 @@ const lockedRetryEligibility = Effect.fn(function* (
 	runId: AutomationRunId,
 	now: Date,
 ) {
-	const db = yield* session.current;
-	const [row] = yield* db
-		.select({
-			reason: automationRunRetryEligibility("retry_run", sql`${now.toISOString()}::timestamptz`, {
-				lockArtifacts: true,
-			}),
-		})
-		.from(retryRun)
-		.where(eq(retryRun.id, runId));
-	if (!row) {
-		return yield* conflict(`Automation run not found: ${runId}`);
-	}
-	return row.reason;
+	return yield* session.run((db) =>
+		Effect.gen(function* () {
+			const [row] = yield* db
+				.select({
+					reason: automationRunRetryEligibility(
+						"retry_run",
+						sql`${now.toISOString()}::timestamptz`,
+						{ lockArtifacts: true },
+					),
+				})
+				.from(retryRun)
+				.where(eq(retryRun.id, runId));
+			if (!row) {
+				return yield* conflict(`Automation run not found: ${runId}`);
+			}
+			return row.reason;
+		}),
+	);
 });
 
 const retryEligibility = (session: DatabaseSession["Service"], runId: AutomationRunId, now: Date) =>
@@ -240,33 +247,34 @@ const queueRetry = (
 ) =>
 	atomic(
 		session,
-		Effect.gen(function* () {
-			yield* validateTime(input.now);
-			const run = yield* lockRun(session, input.runId);
-			if (run.attemptCount !== input.expectedAttemptCount || run.attemptCount < 1) {
-				return yield* conflict("Manual retry attempt count conflict");
-			}
-			const reason = yield* lockedRetryEligibility(session, input.runId, input.now);
-			if (reason) {
-				return yield* conflict(`Manual retry unavailable: ${reason}`);
-			}
-			const db = yield* session.current;
-			yield* db
-				.update(automationRun)
-				.set({ status: "queued", finishedAt: null, nextAttemptAt: input.now })
-				.where(
-					and(
-						eq(automationRun.id, run.id),
-						eq(automationRun.status, "failed"),
-						eq(automationRun.attemptCount, input.expectedAttemptCount),
-					),
-				);
-			return {
-				runId: input.runId,
-				attemptNumber: run.attemptCount + 1,
-				...automationAttemptIdentity(input.runId, run.attemptCount + 1),
-			};
-		}),
+		session.run((db) =>
+			Effect.gen(function* () {
+				yield* validateTime(input.now);
+				const run = yield* lockRun(session, input.runId);
+				if (run.attemptCount !== input.expectedAttemptCount || run.attemptCount < 1) {
+					return yield* conflict("Manual retry attempt count conflict");
+				}
+				const reason = yield* lockedRetryEligibility(session, input.runId, input.now);
+				if (reason) {
+					return yield* conflict(`Manual retry unavailable: ${reason}`);
+				}
+				yield* db
+					.update(automationRun)
+					.set({ status: "queued", finishedAt: null, nextAttemptAt: input.now })
+					.where(
+						and(
+							eq(automationRun.id, run.id),
+							eq(automationRun.status, "failed"),
+							eq(automationRun.attemptCount, input.expectedAttemptCount),
+						),
+					);
+				return {
+					runId: input.runId,
+					attemptNumber: run.attemptCount + 1,
+					...automationAttemptIdentity(input.runId, run.attemptCount + 1),
+				};
+			}),
+		),
 	);
 
 export class AutomationAttemptRepository extends Context.Service<AutomationAttemptRepository>()(
@@ -290,203 +298,204 @@ export class AutomationAttemptRepository extends Context.Service<AutomationAttem
 			}) =>
 				atomic(
 					session,
-					Effect.gen(function* () {
-						yield* validateTime(input.now);
-						const run = yield* lockRun(session, input.runId);
-						const existing = yield* findAttempt(input.runId, input.attemptNumber);
-						if (existing) {
-							return { claimed: false, attempt: existing };
-						}
-						if (
-							run.status === "skipped" &&
-							run.skipReason?.code === "user-disabled" &&
-							input.attemptNumber === run.attemptCount + 1
-						) {
-							return { attempt: null, claimed: false };
-						}
-						if (
-							run.status === "failed" &&
-							run.attemptCount > 0 &&
-							input.attemptNumber === run.attemptCount + 1 &&
-							run.artifactsExpireAt <= input.now
-						) {
-							return { attempt: null, claimed: false };
-						}
-						if (
-							!Number.isSafeInteger(input.attemptNumber) ||
-							input.attemptNumber !== run.attemptCount + 1 ||
-							run.status !== "queued" ||
-							run.queuedAt > input.now ||
-							(run.nextAttemptAt !== null && run.nextAttemptAt > input.now) ||
-							(run.stage === "before" && input.attemptNumber !== 1)
-						) {
-							return yield* conflict("Automation attempt claim conflict or not due");
-						}
-						const db = yield* session.current;
-						if (run.executionUserId !== null) {
-							const [executionUser] = yield* db
-								.select({ disabledAt: user.disabledAt })
-								.from(user)
-								.where(eq(user.id, run.executionUserId))
-								.for("share");
-							if (executionUser && executionUser.disabledAt !== null) {
+					session.run((db) =>
+						Effect.gen(function* () {
+							yield* validateTime(input.now);
+							const run = yield* lockRun(session, input.runId);
+							const existing = yield* findAttempt(input.runId, input.attemptNumber);
+							if (existing) {
+								return { claimed: false, attempt: existing };
+							}
+							if (
+								run.status === "skipped" &&
+								run.skipReason?.code === "user-disabled" &&
+								input.attemptNumber === run.attemptCount + 1
+							) {
+								return { attempt: null, claimed: false };
+							}
+							if (
+								run.status === "failed" &&
+								run.attemptCount > 0 &&
+								input.attemptNumber === run.attemptCount + 1 &&
+								run.artifactsExpireAt <= input.now
+							) {
+								return { attempt: null, claimed: false };
+							}
+							if (
+								!Number.isSafeInteger(input.attemptNumber) ||
+								input.attemptNumber !== run.attemptCount + 1 ||
+								run.status !== "queued" ||
+								run.queuedAt > input.now ||
+								(run.nextAttemptAt !== null && run.nextAttemptAt > input.now) ||
+								(run.stage === "before" && input.attemptNumber !== 1)
+							) {
+								return yield* conflict("Automation attempt claim conflict or not due");
+							}
+							if (run.executionUserId !== null) {
+								const [executionUser] = yield* db
+									.select({ disabledAt: user.disabledAt })
+									.from(user)
+									.where(eq(user.id, run.executionUserId))
+									.for("share");
+								if (executionUser && executionUser.disabledAt !== null) {
+									yield* db
+										.update(automationRun)
+										.set({
+											status: "skipped",
+											nextAttemptAt: null,
+											finishedAt: input.now,
+											skipReason: userDisabled,
+										})
+										.where(eq(automationRun.id, run.id));
+									return { attempt: null, claimed: false };
+								}
+							}
+							if (run.attemptCount > 0 && run.artifactsExpireAt <= input.now) {
 								yield* db
 									.update(automationRun)
-									.set({
-										status: "skipped",
-										nextAttemptAt: null,
-										finishedAt: input.now,
-										skipReason: userDisabled,
-									})
+									.set({ status: "failed", nextAttemptAt: null, finishedAt: input.now })
 									.where(eq(automationRun.id, run.id));
 								return { attempt: null, claimed: false };
 							}
-						}
-						if (run.attemptCount > 0 && run.artifactsExpireAt <= input.now) {
+							const [row] = yield* db
+								.insert(table)
+								.values({
+									...automationAttemptIdentity(input.runId, input.attemptNumber),
+									retryable: false,
+									status: "running",
+									runId: input.runId,
+									startedAt: input.now,
+									attemptNumber: input.attemptNumber,
+								})
+								.returning();
+							if (!row) {
+								return yield* conflict("Automation attempt insert failed");
+							}
 							yield* db
 								.update(automationRun)
-								.set({ status: "failed", nextAttemptAt: null, finishedAt: input.now })
-								.where(eq(automationRun.id, run.id));
-							return { attempt: null, claimed: false };
-						}
-						const [row] = yield* db
-							.insert(table)
-							.values({
-								...automationAttemptIdentity(input.runId, input.attemptNumber),
-								retryable: false,
-								status: "running",
-								runId: input.runId,
-								startedAt: input.now,
-								attemptNumber: input.attemptNumber,
-							})
-							.returning();
-						if (!row) {
-							return yield* conflict("Automation attempt insert failed");
-						}
-						yield* db
-							.update(automationRun)
-							.set({
-								finishedAt: null,
-								status: "running",
-								nextAttemptAt: null,
-								attemptCount: input.attemptNumber,
-								startedAt: run.startedAt ?? input.now,
-							})
-							.where(
-								and(
-									eq(automationRun.id, run.id),
-									eq(automationRun.status, "queued"),
-									eq(automationRun.attemptCount, run.attemptCount),
-								),
-							);
-						return { claimed: true, attempt: yield* decodeRow(row) };
-					}),
+								.set({
+									finishedAt: null,
+									status: "running",
+									nextAttemptAt: null,
+									attemptCount: input.attemptNumber,
+									startedAt: run.startedAt ?? input.now,
+								})
+								.where(
+									and(
+										eq(automationRun.id, run.id),
+										eq(automationRun.status, "queued"),
+										eq(automationRun.attemptCount, run.attemptCount),
+									),
+								);
+							return { claimed: true, attempt: yield* decodeRow(row) };
+						}),
+					),
 				);
 			const finalizeAttempt = (input: FinalizeAutomationAttempt, now: Date) =>
 				atomic(
 					session,
-					Effect.gen(function* () {
-						yield* validateTime(now);
-						const run = yield* lockRun(session, input.runId);
-						const attempt = yield* findAttempt(input.runId, input.attemptNumber);
-						if (!attempt) {
-							return yield* conflict("Automation attempt not found");
-						}
-						const outcome = {
-							...boundAutomationAttemptArtifacts(input),
-							timing: input.timing,
-							status: input.status,
-							failureKind: input.failureKind,
-							retryable:
-								input.status === "failed" &&
-								run.stage !== "before" &&
-								isRetryableAutomationFailure(input.failureKind, run.retryPolicy),
-						};
-						if (attempt.status !== "running") {
-							const stored = {
-								logs: attempt.logs,
-								error: attempt.error,
-								timing: attempt.timing,
-								status: attempt.status,
-								retryable: attempt.retryable,
-								failureKind: attempt.failureKind,
-								returnedValue: attempt.returnedValue,
-							};
-							if (
-								attempt.artifactsPrunedAt !== null ||
-								stableStringify(stored) !== stableStringify(outcome)
-							) {
-								return yield* conflict("Immutable automation attempt outcome conflict");
+					session.run((db) =>
+						Effect.gen(function* () {
+							yield* validateTime(now);
+							const run = yield* lockRun(session, input.runId);
+							const attempt = yield* findAttempt(input.runId, input.attemptNumber);
+							if (!attempt) {
+								return yield* conflict("Automation attempt not found");
 							}
-							return attempt;
-						}
-						if (
-							run.status !== "running" ||
-							run.attemptCount !== input.attemptNumber ||
-							now.getTime() < Date.parse(attempt.startedAt)
-						) {
-							return yield* conflict("Automation attempt finalize conflict");
-						}
-						const validated = yield* decodeStoredSchema(
-							{ ...attempt, ...outcome, finishedAt: now.toISOString() },
-							AutomationRunAttempt,
-							"Invalid automation attempt outcome",
-						);
-						const nextAttemptAt =
-							input.status === "failed"
-								? automaticRetryAt(
-										{ ...run, artifactsExpireAt: run.artifactsExpireAt.toISOString() },
-										input.failureKind,
-										now,
-									)
-								: null;
-						const db = yield* session.current;
-						yield* db
-							.update(table)
-							.set({ ...outcome, ...projectAutomationAttemptHistory(outcome), finishedAt: now })
-							.where(and(eq(table.id, attempt.id), eq(table.status, "running")));
-						const rejected =
-							run.stage === "before" &&
-							input.status === "succeeded" &&
-							input.returnedValue !== null &&
-							typeof input.returnedValue === "object" &&
-							"action" in input.returnedValue &&
-							input.returnedValue["action"] === "reject";
-						const terminalStatus = rejected ? "rejected" : input.status;
-						yield* db
-							.update(automationRun)
-							.set({
-								nextAttemptAt,
-								finishedAt: nextAttemptAt ? null : now,
-								status: nextAttemptAt ? "queued" : terminalStatus,
-							})
-							.where(eq(automationRun.id, run.id));
-						return validated;
-					}),
+							const outcome = {
+								...boundAutomationAttemptArtifacts(input),
+								timing: input.timing,
+								status: input.status,
+								failureKind: input.failureKind,
+								retryable:
+									input.status === "failed" &&
+									run.stage !== "before" &&
+									isRetryableAutomationFailure(input.failureKind, run.retryPolicy),
+							};
+							if (attempt.status !== "running") {
+								const stored = {
+									logs: attempt.logs,
+									error: attempt.error,
+									timing: attempt.timing,
+									status: attempt.status,
+									retryable: attempt.retryable,
+									failureKind: attempt.failureKind,
+									returnedValue: attempt.returnedValue,
+								};
+								if (
+									attempt.artifactsPrunedAt !== null ||
+									stableStringify(stored) !== stableStringify(outcome)
+								) {
+									return yield* conflict("Immutable automation attempt outcome conflict");
+								}
+								return attempt;
+							}
+							if (
+								run.status !== "running" ||
+								run.attemptCount !== input.attemptNumber ||
+								now.getTime() < Date.parse(attempt.startedAt)
+							) {
+								return yield* conflict("Automation attempt finalize conflict");
+							}
+							const validated = yield* decodeStoredSchema(
+								{ ...attempt, ...outcome, finishedAt: now.toISOString() },
+								AutomationRunAttempt,
+								"Invalid automation attempt outcome",
+							);
+							const nextAttemptAt =
+								input.status === "failed"
+									? automaticRetryAt(
+											{ ...run, artifactsExpireAt: run.artifactsExpireAt.toISOString() },
+											input.failureKind,
+											now,
+										)
+									: null;
+							yield* db
+								.update(table)
+								.set({ ...outcome, ...projectAutomationAttemptHistory(outcome), finishedAt: now })
+								.where(and(eq(table.id, attempt.id), eq(table.status, "running")));
+							const rejected =
+								run.stage === "before" &&
+								input.status === "succeeded" &&
+								input.returnedValue !== null &&
+								typeof input.returnedValue === "object" &&
+								"action" in input.returnedValue &&
+								input.returnedValue["action"] === "reject";
+							const terminalStatus = rejected ? "rejected" : input.status;
+							yield* db
+								.update(automationRun)
+								.set({
+									nextAttemptAt,
+									finishedAt: nextAttemptAt ? null : now,
+									status: nextAttemptAt ? "queued" : terminalStatus,
+								})
+								.where(eq(automationRun.id, run.id));
+							return validated;
+						}),
+					),
 				);
 			const pruneArtifacts = Effect.fn(function* (input: {
 				before: Date;
 				prunedAt: Date;
 				limit: number;
 			}) {
-				const db = yield* session.current;
-				const candidates = db
-					.select({ id: table.id })
-					.from(table)
-					.innerJoin(automationRun, eq(automationRun.id, table.runId))
-					.where(
-						and(
-							isNull(table.artifactsPrunedAt),
-							lte(table.startedAt, input.before),
-							lte(automationRun.artifactsExpireAt, input.prunedAt),
-							notInArray(table.status, ["running"]),
-							notInArray(automationRun.status, ["queued", "running"]),
-						),
-					)
-					.orderBy(asc(table.startedAt), asc(table.id))
-					.limit(input.limit);
-				return yield* mapDatabaseErrors(
-					db
+				return yield* session.run((db) => {
+					const candidates = db
+						.select({ id: table.id })
+						.from(table)
+						.innerJoin(automationRun, eq(automationRun.id, table.runId))
+						.where(
+							and(
+								isNull(table.artifactsPrunedAt),
+								lte(table.startedAt, input.before),
+								lte(automationRun.artifactsExpireAt, input.prunedAt),
+								notInArray(table.status, ["running"]),
+								notInArray(automationRun.status, ["queued", "running"]),
+							),
+						)
+						.orderBy(asc(table.startedAt), asc(table.id))
+						.limit(input.limit);
+					return db
 						.update(table)
 						.set({
 							logs: null,
@@ -498,8 +507,8 @@ export class AutomationAttemptRepository extends Context.Service<AutomationAttem
 							artifactsPrunedAt: input.prunedAt,
 						})
 						.where(inArray(table.id, candidates))
-						.returning({ id: table.id }),
-				);
+						.returning({ id: table.id });
+				});
 			});
 			return {
 				findAttempt,
