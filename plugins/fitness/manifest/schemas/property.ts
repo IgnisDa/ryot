@@ -3,6 +3,7 @@ import type { AppPropertyDefinition, AppSchema } from "@ryot-app/contract/schema
 
 import { exerciseKinds } from "../../shared/exercise-kinds";
 import { workoutSetScales } from "../../shared/workout-records";
+import { workoutSetLots } from "../../shared/workout-set";
 
 const workoutSupersetItemProperties: Readonly<Record<string, AppPropertyDefinition>> = {
 	color: {
@@ -110,6 +111,12 @@ export const workoutSetPropertiesSchema: AppSchema = {
 			validation: { minimum: 0, maximum: 10 },
 			description: "Rate of perceived exertion from 0 (no effort) to 10 (maximal effort)",
 		},
+		setLot: {
+			type: "enum",
+			label: "Set Lot",
+			description: "Set type: normal, warm_up, drop, or failure",
+			choices: { kind: "static", values: workoutSetLots.map((value) => ({ value })) },
+		},
 		duration: {
 			type: "number",
 			label: "Duration",
@@ -157,20 +164,6 @@ export const workoutSetPropertiesSchema: AppSchema = {
 			validation: { minimum: 0 },
 			normalize: { round: { scale: workoutSetScales.pace } },
 			description: "Speed calculated as kilometers per second from canonical metric measurements",
-		},
-		setLot: {
-			type: "enum",
-			label: "Set Lot",
-			description: "Set type: normal, warm_up, drop, or failure",
-			choices: {
-				kind: "static",
-				values: [
-					{ value: "normal" },
-					{ value: "warm_up" },
-					{ value: "drop" },
-					{ value: "failure" },
-				],
-			},
 		},
 		personalBests: {
 			type: "array",
@@ -322,10 +315,7 @@ const workoutTemplateSetProperties: Readonly<Record<string, AppPropertyDefinitio
 		label: "Set Lot",
 		validation: { required: true },
 		description: "Set type: normal, warm_up, drop, or failure",
-		choices: {
-			kind: "static",
-			values: [{ value: "normal" }, { value: "warm_up" }, { value: "drop" }, { value: "failure" }],
-		},
+		choices: { kind: "static", values: workoutSetLots.map((value) => ({ value })) },
 	},
 };
 

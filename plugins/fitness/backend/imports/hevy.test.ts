@@ -1,7 +1,7 @@
 import { describe, expect, it } from "vitest";
 
+import { buildWorkoutSetEventProperties } from "../../shared/workout-set";
 import { adaptHevyCsv } from "./hevy";
-import { buildWorkoutSetEventProperties } from "./workout-domain";
 
 const HEVY_HEADERS =
 	"title,start_time,end_time,description,exercise_title,superset_id,exercise_notes,set_order,weight_kg,reps,set_type,distance_m,duration_seconds";
@@ -155,10 +155,12 @@ describe("adaptHevyCsv", () => {
 
 	it("omits a negative one-rep max from workout set events", () => {
 		const properties = buildWorkoutSetEventProperties({
+			reps: 5,
 			setOrder: 0,
+			weight: -100,
+			setLot: "normal",
 			exerciseOrder: 0,
 			exerciseKind: "reps_and_weight",
-			set: { reps: 5, weight: -100, setLot: "normal" },
 		});
 
 		expect(properties.weight).toBe(-100);
@@ -167,10 +169,14 @@ describe("adaptHevyCsv", () => {
 
 	it("calculates event statistics only from normalized measurements for the exercise kind", () => {
 		const properties = buildWorkoutSetEventProperties({
+			reps: 5,
+			weight: 100,
+			distance: 2,
 			setOrder: 0,
+			duration: 60,
+			setLot: "normal",
 			exerciseOrder: 0,
 			exerciseKind: "reps",
-			set: { reps: 5, weight: 100, distance: 2, duration: 60, setLot: "normal" },
 		});
 
 		expect(properties).toMatchObject({ reps: 5, setOrder: 0, exerciseOrder: 0 });

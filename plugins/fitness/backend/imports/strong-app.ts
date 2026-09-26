@@ -1,5 +1,6 @@
 import { DateTime, Duration, Result, Option } from "@ryot-app/plugin-backend-sdk/effect";
 
+import { milesToKilometers, poundsToKilograms } from "../../shared/workout-units";
 import { parseCsvText, readCsvCell, readOptionalCsvNumber, readRequiredCsvCell } from "./csv";
 import {
 	determineWorkoutExerciseKind,
@@ -51,7 +52,8 @@ const parseStrongAppRow = (row: Record<string, string>, rowIdx: number): StrongA
 		workoutNotes: readCsvCell(row, ["Workout Notes", "WorkoutNotes"]),
 		workoutName: readRequiredCsvCell(row, ["Workout Name", "WorkoutName"], "Workout Name"),
 		exerciseName: readRequiredCsvCell(row, ["Exercise Name", "ExerciseName"], "Exercise Name"),
-		weight: weightKilograms ?? (weightPounds !== undefined ? weightPounds * 0.45359237 : undefined),
+		weight:
+			weightKilograms ?? (weightPounds !== undefined ? poundsToKilograms(weightPounds) : undefined),
 		workoutDuration: readRequiredCsvCell(
 			row,
 			["Duration (sec)", "Duration", "Workout Duration", "WorkoutDuration"],
@@ -61,7 +63,7 @@ const parseStrongAppRow = (row: Record<string, string>, rowIdx: number): StrongA
 			distanceMeters !== undefined
 				? distanceMeters / 1000
 				: (distanceKilometers ??
-					(distanceMiles !== undefined ? distanceMiles * 1.609344 : undefined)),
+					(distanceMiles !== undefined ? milesToKilometers(distanceMiles) : undefined)),
 	};
 };
 
