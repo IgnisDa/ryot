@@ -76,6 +76,12 @@ export const attachFitnessTaxonomyProvider = (
 					rootEntitySchemaSlug: "exercise",
 					operations: { details: detailsScriptSlug },
 				},
+				files: {
+					"shared/taxonomy.ts": taxonomySource,
+					"shared/exercise-kinds.ts": exerciseKindsSource,
+					"backend/providers/exercise/free-exercise-db/shared.ts": sharedSource,
+					[detailsEntry]: detailsSource({ exerciseName, slug: detailsScriptSlug }),
+				},
 				scripts: [
 					{
 						providerSlug,
@@ -88,12 +94,6 @@ export const attachFitnessTaxonomyProvider = (
 						name: "E2E Free Exercise DB details",
 					},
 				],
-				files: {
-					"shared/taxonomy.ts": taxonomySource,
-					"shared/exercise-kinds.ts": exerciseKindsSource,
-					"backend/providers/exercise/free-exercise-db/shared.ts": sharedSource,
-					[detailsEntry]: detailsSource({ exerciseName, slug: detailsScriptSlug }),
-				},
 			},
 		});
 		return { exerciseName, providerId: taxonomy.providerId };
