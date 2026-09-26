@@ -2,6 +2,7 @@ import { SandboxRunError, unknownToMessage } from "@ryot-app/contract/errors";
 import { LifecycleCommand } from "@ryot-app/contract/modules/automations/lifecycle";
 import {
 	KERNEL_EVENT_CREATE_WORKFLOW,
+	KERNEL_EVENT_STREAM_WORKFLOW,
 	KERNEL_ENTITY_IMPORT_WORKFLOW,
 	KERNEL_PROCESS_IMPORT_CHUNKS_WORKFLOW,
 	KERNEL_PROVIDER_ENTITY_POPULATION_WORKFLOW,
@@ -31,6 +32,8 @@ import {
 	EventCreateWorkflow,
 	EventCreateWorkflowPayload,
 } from "#modules/events/event-create-workflow";
+import { EventStreamRepository } from "#modules/events/stream-repository";
+import { EventStreamDispatchWorkflow } from "#modules/events/stream-work";
 import { ingestionArtifactGrants } from "#modules/imports/artifact-grants";
 import { IngestionCaptures } from "#modules/imports/capture-service";
 import {
@@ -69,6 +72,8 @@ const ProviderEntityPopulationReferenceInput = Schema.Struct({
 		Schema.check(Schema.isMaxLength(PROVIDER_ENTITY_POPULATION_MAX_ITEMS)),
 	),
 });
+
+const EventStreamDispatchReferenceInput = Schema.Struct({ id: Schema.String });
 
 const lifecycleCommand = (
 	subject: Parameters<KernelWorkflowReferences["Service"]["execute"]>[2],
@@ -116,6 +121,7 @@ export const KernelWorkflowReferencesLive = Layer.effect(
 	KernelWorkflowReferences,
 	Effect.gen(function* () {
 		const imports = yield* ImportsRepository;
+		const eventStreams = yield* EventStreamRepository;
 		const captures = yield* IngestionCaptures;
 		const database = yield* DatabaseSession;
 		const artifacts = yield* SandboxArtifactStore;
@@ -174,6 +180,7 @@ export const KernelWorkflowReferencesLive = Layer.effect(
 					const occurredAt = IsoUtcString.make((yield* DateTime.nowAsDate).toISOString());
 					if (
 						workflowSlug !== KERNEL_EVENT_CREATE_WORKFLOW &&
+						workflowSlug !== KERNEL_EVENT_STREAM_WORKFLOW &&
 						workflowSlug !== KERNEL_ENTITY_IMPORT_WORKFLOW &&
 						workflowSlug !== KERNEL_PROCESS_IMPORT_CHUNKS_WORKFLOW &&
 						workflowSlug !== KERNEL_PROVIDER_ENTITY_POPULATION_WORKFLOW
@@ -313,6 +320,65 @@ export const KernelWorkflowReferencesLive = Layer.effect(
 						});
 					}
 					const engine = yield* WorkflowEngine;
+					if (workflowSlug === KERNEL_EVENT_STREAM_WORKFLOW) {
+						const decoded = yield* Schema.decodeUnknownEffect(EventStreamDispatchReferenceInput)(
+							input,
+						).pipe(
+							Effect.mapError(
+								(error) =>
+									new SandboxRunError({
+										kind: "invalid-input",
+										message: `Invalid kernel workflow input: ${unknownToMessage(error)}`,
+									}),
+							),
+						);
+						const work = yield* eventStreams
+							.get(decoded.id)
+							.pipe(
+								Effect.mapError(
+									(error) =>
+										new SandboxRunError({
+											kind: "infrastructure",
+											message: unknownToMessage(error),
+										}),
+								),
+							);
+						if (!work || work.key.userId !== userId) {
+							return yield* new SandboxRunError({
+								kind: "script-failure",
+								message: "Event stream work does not belong to the executing user",
+							});
+						}
+						const accountGeneration =
+							subject.type === "user" || subject.type === "automation-run"
+								? subject.accountGeneration
+								: undefined;
+						if (!accountGeneration) {
+							return yield* new SandboxRunError({
+								kind: "script-failure",
+								message: "Event stream work dispatch requires a user execution",
+							});
+						}
+						yield* dispatchAdmittedWorkflow(
+							receipts,
+							engine,
+							EventStreamDispatchWorkflow,
+							accountGeneration,
+							{ executionId, payload: { id: decoded.id, requestId: executionId } },
+							admit,
+							(execution) =>
+								execution.pipe(
+									Effect.mapError(
+										(error) =>
+											new SandboxRunError({
+												kind: "infrastructure",
+												message: unknownToMessage(error),
+											}),
+									),
+								),
+						);
+						return null;
+					}
 					if (workflowSlug === KERNEL_PROCESS_IMPORT_CHUNKS_WORKFLOW) {
 						const rawInput = isObjectRecord(input) ? input : {};
 						const rawRunId = Reflect.get(rawInput, "runId");

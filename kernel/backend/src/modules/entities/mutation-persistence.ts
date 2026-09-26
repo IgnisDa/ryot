@@ -1,5 +1,6 @@
 import {
 	AutomationEntityDraft,
+	AutomationEntityEventDependency,
 	type AutomationEntityChangePayload,
 	AutomationEntitySnapshot,
 	AutomationTrigger,
@@ -32,6 +33,7 @@ export const PreparedEntityMutation = Schema.Struct({
 	requestId: Schema.NullOr(AutomationTrigger.fields.id),
 	entitySchemaFingerprint: CatalogDefinitionFingerprint,
 	operation: Schema.Literals(["create", "update", "delete"]),
+	dependentEvents: Schema.Array(AutomationEntityEventDependency),
 });
 export type PreparedMutation = typeof PreparedEntityMutation.Type;
 
@@ -107,6 +109,12 @@ export const makePersistMutation = <E, R, Result>({
 		const before = current ? snapshot(current.entity) : null;
 		if (current && current.userId !== input.scopeUserId) {
 			return yield* conflict("Entity scope changed");
+		}
+		if (input.operation === "update") {
+			const currentDependencies = yield* repository.listEventDependencies(input.entityId);
+			if (!same(input.dependentEvents, currentDependencies)) {
+				return yield* conflict("Entity event dependencies changed while policies ran; resubmit");
+			}
 		}
 		let entity: ListedEntity;
 		let evidence: AutomationEntityChangePayload | undefined;

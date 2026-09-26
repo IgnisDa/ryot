@@ -2,6 +2,9 @@ import { assert, expect, it } from "@effect/vitest";
 import {
 	AutomationEntityCreateRequestPayload,
 	AutomationEntityDeleteRequestPayload,
+	AutomationEventCreateRequestPayload,
+	AutomationEventDeleteRequestPayload,
+	AutomationEventUpdateRequestPayload,
 } from "@ryot-app/contract/modules/automations/lifecycle";
 import { Schema } from "effect";
 
@@ -23,6 +26,36 @@ const request = Schema.decodeSync(AutomationEntityCreateRequestPayload)({
 		entitySchemaSlug: "record",
 		properties: { removed: 2, retained: 3, removeAndReset: 1 },
 	},
+});
+const timestamp = "2026-09-18T00:00:00.000Z";
+const nextTimestamp = "2026-09-19T00:00:00.000Z";
+const eventDraft = {
+	entityId: "entity-1",
+	occurredAt: timestamp,
+	sessionEntityId: null,
+	entitySchemaSlug: "record",
+	eventSchemaSlug: "progress",
+	properties: { stale: true, progress: 25 },
+};
+const eventSnapshot = { ...eventDraft, id: "event-1", createdAt: timestamp, updatedAt: timestamp };
+const eventCreateRequest = Schema.decodeSync(AutomationEventCreateRequestPayload)({
+	resource: "event",
+	draft: eventDraft,
+	category: "request",
+	operation: "create",
+});
+const eventUpdateRequest = Schema.decodeSync(AutomationEventUpdateRequestPayload)({
+	resource: "event",
+	draft: eventDraft,
+	category: "request",
+	operation: "update",
+	before: eventSnapshot,
+});
+const eventDeleteRequest = Schema.decodeSync(AutomationEventDeleteRequestPayload)({
+	resource: "event",
+	category: "request",
+	operation: "delete",
+	draft: eventSnapshot,
 });
 
 it("applies removals before sets and preserves the retained request", () => {
@@ -118,4 +151,83 @@ it("omits canonical no-op patches for canonically equal properties", () => {
 		draft: { ...previous.draft, properties: { object: { b: 2, a: 1 } } },
 	});
 	expect(canonicalLifecyclePolicyPatch(previous, successor)).toBeNull();
+});
+
+it("applies event timestamp transforms and canonicalizes update property, time, and session changes", () => {
+	const createResult = applyLifecyclePolicyPatch(eventCreateRequest, {
+		resource: "event",
+		draft: { occurredAt: nextTimestamp },
+	});
+	expect(createResult).toEqual({
+		ok: true,
+		request: {
+			...eventCreateRequest,
+			draft: { ...eventCreateRequest.draft, occurredAt: nextTimestamp },
+		},
+	});
+
+	const successor = Schema.decodeSync(AutomationEventUpdateRequestPayload)({
+		...eventUpdateRequest,
+		draft: {
+			...eventUpdateRequest.draft,
+			occurredAt: nextTimestamp,
+			properties: { progress: 50 },
+			sessionEntityId: "entity-session",
+		},
+	});
+	const patch = canonicalLifecyclePolicyPatch(eventUpdateRequest, successor);
+	expect(patch).toEqual({
+		resource: "event",
+		draft: {
+			occurredAt: nextTimestamp,
+			sessionEntityId: "entity-session",
+			properties: { remove: ["stale"], set: { progress: 50 } },
+		},
+	});
+	assert(patch);
+	expect(applyLifecyclePolicyPatch(eventUpdateRequest, patch)).toEqual({
+		ok: true,
+		request: successor,
+	});
+});
+
+it("rejects event deletes and changes to event identity or schema", () => {
+	expect(
+		applyLifecyclePolicyPatch(eventDeleteRequest, {
+			resource: "event",
+			draft: { occurredAt: nextTimestamp },
+		}),
+	).toMatchObject({ ok: false });
+	for (const successor of [
+		Schema.decodeSync(AutomationEventUpdateRequestPayload)({
+			...eventUpdateRequest,
+			draft: { ...eventUpdateRequest.draft, entityId: "entity-2" },
+		}),
+		Schema.decodeSync(AutomationEventUpdateRequestPayload)({
+			...eventUpdateRequest,
+			draft: { ...eventUpdateRequest.draft, eventSchemaSlug: "another-progress" },
+		}),
+		Schema.decodeSync(AutomationEventUpdateRequestPayload)({
+			...eventUpdateRequest,
+			draft: { ...eventUpdateRequest.draft, entitySchemaSlug: "another-record" },
+		}),
+		Schema.decodeSync(AutomationEventUpdateRequestPayload)({
+			...eventUpdateRequest,
+			before: { ...eventUpdateRequest.before, id: "event-2" },
+		}),
+		Schema.decodeSync(AutomationEventUpdateRequestPayload)({
+			...eventUpdateRequest,
+			before: { ...eventUpdateRequest.before, entityId: "entity-2" },
+		}),
+		Schema.decodeSync(AutomationEventUpdateRequestPayload)({
+			...eventUpdateRequest,
+			before: { ...eventUpdateRequest.before, eventSchemaSlug: "another-progress" },
+		}),
+		Schema.decodeSync(AutomationEventUpdateRequestPayload)({
+			...eventUpdateRequest,
+			before: { ...eventUpdateRequest.before, entitySchemaSlug: "another-record" },
+		}),
+	]) {
+		expect(canonicalLifecyclePolicyPatch(eventUpdateRequest, successor)).toBeNull();
+	}
 });

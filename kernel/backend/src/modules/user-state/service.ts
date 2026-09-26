@@ -27,7 +27,7 @@ import { EventsRepository } from "#modules/events/repository";
 import {
 	EventsService,
 	type PreparedEventDelete,
-	type PreparedEventUpdate,
+	type PreparedEventMoveReferences,
 } from "#modules/events/service";
 import {
 	mutationReceiptIdentity,
@@ -360,9 +360,9 @@ export class UserStateService extends Context.Service<UserStateService>()("UserS
 				userId: user.id,
 				entityId: mergeFrom,
 			});
-			const preparedEvents: PreparedEventUpdate[] = [];
+			const preparedEvents: PreparedEventMoveReferences[] = [];
 			for (const eventId of eventIds) {
-				const prepared = yield* events.prepareUpdate(
+				const prepared = yield* events.prepareMoveReferences(
 					{ eventId, mergeFrom, mergeInto, userId: user.id },
 					itemCommand(command, `event:${eventId}:update`),
 				);
@@ -412,7 +412,7 @@ export class UserStateService extends Context.Service<UserStateService>()("UserS
 					const eventDispatch: LifecycleDispatchPlan[] = [];
 					for (const [index, prepared] of preparedEvents.entries()) {
 						eventDispatch.push(
-							...(yield* events.persistPreparedUpdate(prepared, {
+							...(yield* events.persistPreparedMoveReferences(prepared, {
 								index,
 								command,
 								identity: ["events"],

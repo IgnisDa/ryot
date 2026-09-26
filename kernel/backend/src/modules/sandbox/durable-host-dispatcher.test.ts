@@ -22,6 +22,8 @@ it("classifies every bridge host capability exactly once", () => {
 		getUserSettings: "activity",
 		createEvents: "event-workflow",
 		emitSignal: "service-workflow",
+		deleteEvents: "lifecycle-workflow",
+		updateEvents: "lifecycle-workflow",
 		ensureUserEntities: "service-workflow",
 		sendNotification: "notification-workflow",
 	});
