@@ -35,7 +35,8 @@ export type SchemaFormControl =
 	| "chips"
 	| "switch"
 	| "segmented"
-	| "multi-select";
+	| "multi-select"
+	| "oauth-connection";
 
 export type SchemaFormArrayItem = Extract<
 	AppPropertyDefinition,
@@ -63,6 +64,7 @@ export type SchemaFormField = {
 	readonly control: SchemaFormControl;
 	readonly format: SchemaFormTextFormat | undefined;
 	readonly choices: readonly AppChoice[] | undefined;
+	readonly oauthProvider: string | undefined;
 	readonly arrayItem: SchemaFormArrayItem | undefined;
 	readonly allowedFileExtensions: readonly string[] | undefined;
 	readonly arrayValidation: AppArrayPropertyValidation | undefined;
@@ -134,10 +136,13 @@ const schemaFieldFileExtensions = (property: AppPropertyDefinition) =>
 		? property.format.allowedFileExtensions
 		: undefined;
 
+const schemaFieldOAuthProvider = (property: AppPropertyDefinition) =>
+	property.type === "string" && property.format?.kind === "oauth-connection"
+		? property.format.provider
+		: undefined;
+
 const isSupportedProperty = (property: AppPropertyDefinition) =>
-	schemaFieldType(property) !== undefined &&
-	!hasDynamicChoices(property) &&
-	!(property.type === "string" && property.format?.kind === "oauth-connection");
+	schemaFieldType(property) !== undefined && !hasDynamicChoices(property);
 
 const schemaFieldControl = (
 	property: AppPropertyDefinition,
@@ -148,6 +153,9 @@ const schemaFieldControl = (
 	}
 	if (isUploadProperty(property)) {
 		return "file";
+	}
+	if (schemaFieldOAuthProvider(property) !== undefined) {
+		return "oauth-connection";
 	}
 	if (property.type === "enum-array") {
 		return "multi-select";
@@ -246,6 +254,7 @@ const describeSchemaFormFieldsWithInput = (
 			format: schemaFieldFormat(property),
 			arrayItem: schemaArrayItem(property),
 			control: schemaFieldControl(property, choices),
+			oauthProvider: schemaFieldOAuthProvider(property),
 			allowedFileExtensions: schemaFieldFileExtensions(property),
 			required: isAppSchemaPathEffectivelyRequired(schema, [key], input),
 			arrayValidation: property.type === "array" ? property.validation : undefined,

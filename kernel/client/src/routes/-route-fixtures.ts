@@ -29,8 +29,11 @@ import { EntitiesService } from "#/modules/entities/service";
 import { GodModeService } from "#/modules/god-mode/service";
 import { GodModeSessionService, makeGodModeSessionService } from "#/modules/god-mode/session";
 import { ImportsService } from "#/modules/imports/service";
+import { OAuthConnectService } from "#/modules/integrations/oauth-connect";
+import { makeOAuthReturnCapture, OAuthReturnCapture } from "#/modules/integrations/oauth-return";
 import { IntegrationsService } from "#/modules/integrations/service";
 import { CustomizeSidebarService } from "#/modules/navigation/customize/service";
+import { DeepLinkClaims } from "#/modules/navigation/deep-link";
 import { NavigationService } from "#/modules/navigation/service";
 import { NotificationChannelsService } from "#/modules/notifications/service";
 import { ProviderAddService } from "#/modules/provider-add/service";
@@ -146,6 +149,12 @@ export const ServerStub = Layer.succeed(ServerService, {
 	selected: Effect.succeed(server),
 });
 
+const OAuthConnectionRouteStubs = Layer.mergeAll(
+	DeepLinkClaims.layer,
+	Layer.succeed(OAuthConnectService, { connect: () => Effect.die("not used") }),
+	Layer.sync(OAuthReturnCapture, () => makeOAuthReturnCapture(() => undefined)),
+);
+
 export const makeOAuthRouteStubs = (
 	tokenOverrides: Partial<OAuthTokenService["Service"]> = {},
 	hostedOverrides: Partial<HostedAuthService["Service"]> = {},
@@ -153,6 +162,7 @@ export const makeOAuthRouteStubs = (
 	launcherOverrides: Partial<OAuthLauncher["Service"]> = {},
 ) =>
 	Layer.mergeAll(
+		OAuthConnectionRouteStubs,
 		Layer.succeed(HostedAuthService, {
 			signOutHosted: Effect.void,
 			signInWithOidc: Effect.void,

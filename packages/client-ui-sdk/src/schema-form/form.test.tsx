@@ -152,6 +152,32 @@ const unsupportedSchema = {
 	},
 } satisfies AppSchema;
 
+const oauthSchema = {
+	fields: {
+		name: { label: "Name", type: "string", description: "Name" },
+		account: {
+			type: "string",
+			label: "Account",
+			description: "Account",
+			format: { provider: "spotify", kind: "oauth-connection" },
+		},
+	},
+} satisfies AppSchema;
+
+function OAuthFormHarness() {
+	const form = useSchemaForm({ schemas: [oauthSchema], onSubmit: () => undefined });
+	return (
+		<SchemaForm
+			form={form}
+			icons={icons}
+			schema={oauthSchema}
+			uploadFile={uploadNothing}
+			onChange={() => undefined}
+			connectOAuth={() => Promise.resolve({ kind: "cancelled" })}
+		/>
+	);
+}
+
 function SchemaFormHarness(props: {
 	schema?: AppSchema;
 	mode?: SchemaFormMode;
@@ -376,6 +402,21 @@ describe("SchemaForm", () => {
 		expect(screen.getByLabelText("Name")).toBeTruthy();
 		expect(screen.queryByLabelText("Metadata")).toBeNull();
 		expect(screen.getByText("Some fields are not supported in this app version.")).toBeTruthy();
+	});
+
+	it("shows the unsupported note for an OAuth connection field without a connect transport", () => {
+		render(<SchemaFormHarness schema={oauthSchema} onSubmit={() => undefined} />);
+
+		expect(screen.getByLabelText("Name")).toBeTruthy();
+		expect(screen.queryByRole("button", { name: "Connect Account" })).toBeNull();
+		expect(screen.getByText("Some fields are not supported in this app version.")).toBeTruthy();
+	});
+
+	it("renders a connect control for an OAuth connection field given a connect transport", () => {
+		render(<OAuthFormHarness />);
+
+		expect(screen.getByRole("button", { name: "Connect Account" })).toBeTruthy();
+		expect(screen.queryByText("Some fields are not supported in this app version.")).toBeNull();
 	});
 
 	it("calls onChange for every edit", () => {

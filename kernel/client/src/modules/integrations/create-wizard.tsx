@@ -9,6 +9,7 @@ import {
 import { Cause, Effect, Match } from "effect";
 import { useReducer, useState } from "react";
 
+import { useOAuthConnect } from "#/modules/integrations/oauth-connect";
 import {
 	createIntegrationBody,
 	initialIntegrationFormValues,
@@ -75,6 +76,7 @@ function SettingsStep(props: {
 	readonly failureDetail: string | undefined;
 	readonly provider: IntegrationProviderItem;
 }) {
+	const oauth = useOAuthConnect({ integrationProvider: props.provider.slug });
 	return (
 		<div className="flex flex-col gap-4">
 			<div className="flex flex-col gap-1">
@@ -85,7 +87,9 @@ function SettingsStep(props: {
 				mode="create"
 				form={props.form}
 				provider={props.provider}
+				connectOAuth={oauth.connect}
 				uploadFile={props.uploadFile}
+				oauthDisabledReason={oauth.disabledReason}
 			/>
 			{props.failureDetail === undefined ? null : (
 				<FieldMessage>{props.failureDetail}</FieldMessage>
