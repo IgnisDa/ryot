@@ -354,16 +354,20 @@ invocation carries only the selected snapshot properties, parent properties, and
 Ordinary RyotQL queries read current user data only and cannot recover omitted or historical
 trigger-time values.
 
-`media.ensure-media-library-membership` is a required after hook bound to library-member entity creation,
-provider-entity-import completion, every media event except `add-to-media-library`, and
-`collection:add-entity-to-collection`,
-whose target comes from the event properties rather than its collection subject. The `media-library`
-entity schema is not a library member, so workspace bootstrap never links the library to itself. Its
-script upserts `in-media-library` with `changeUserRelationships`, which emits a child relationship trigger
-only when the upsert changes state. `media.record-media-library-membership-event` is a required after hook
-on new `in-media-library` relationships; it records `add-to-media-library` at the relationship creation time for
-each media library member. Repeated idempotent upserts and existing memberships do not create another
-event. Both declare `executionScope: "user"`, so global population plans no run for them at all.
+`media.ensure-media-library-membership` is a required after hook on library-member entity creation
+and provider-entity-import completion. `media.ensure-media-library-membership-on-events` is required
+once per event batch: it groups written events by target entity, including
+`collection:add-entity-to-collection` events whose target comes from their properties, and upserts
+each distinct membership once. It excludes `add-to-media-library` events. The `media-library`
+entity schema is not a library member, so workspace bootstrap never links the library to itself. Both
+hooks use the same script to upsert `in-media-library` with `changeUserRelationships`, which emits a
+child relationship trigger only when the upsert changes state. The event-batch hook runs after the
+written prefix, so later items in that request do not see memberships created by that hook.
+`media.record-media-library-membership-event` is a required after hook on new
+`in-media-library` relationships; it records `add-to-media-library` at the relationship creation time
+for each media library member. Repeated idempotent upserts and existing memberships do not create
+another event. All three hooks declare `executionScope: "user"`, so global population plans no run
+for them at all.
 
 `media.association` and `media.relationship-sync` declare `frequency: "batch"`. Each run receives one
 projected chunk of a write's relationship changes in `payload.items` and filters them itself:
@@ -468,6 +472,8 @@ or `Cancelled`, case-insensitively. Relationship changes recompute coverage but 
 completion by themselves. Parent completion time is the latest false-to-true coverage transition in
 the active cycle; repeated evaluation while covered does not move it. `consumedOn` is copied only when
 all required child completions agree on one non-empty value.
+Each full-progress batch submits its completion events in order with one event-create request per
+entity; distinct completion passes retain their individual events and timestamps.
 
 Integration progress admission runs in `import.write-chunks`, after provider population and episode
 resolution supply the event subject's entity ID and schema. It applies minimum filtering, maximum
