@@ -377,6 +377,31 @@ export const resolveProviderEntity = Effect.fn("imports.resolveProviderEntity")(
 	if (resolved.externalId === null) {
 		return undefined;
 	}
+	const importCommand =
+		command.writeContext === null
+			? {
+					...command,
+					writeContext: yield* operations
+						.preRegisterProviderImport(
+							{
+								userId,
+								providerId: provider.id,
+								pluginId: provider.pluginId,
+								accountGeneration: command.accountGeneration,
+							},
+							executionId,
+						)
+						.pipe(
+							Effect.mapError(
+								(error) =>
+									new GenericImportProviderError({
+										message: error.message,
+										stage: "provider_details",
+									}),
+							),
+						),
+				}
+			: command;
 	const engine = yield* WorkflowEngine;
 	const receipts = yield* MutationReceipts.make;
 	const providerEntity = yield* dispatchAdmittedWorkflow(
@@ -387,8 +412,8 @@ export const resolveProviderEntity = Effect.fn("imports.resolveProviderEntity")(
 		{
 			executionId,
 			payload: {
-				command,
 				executionId,
+				command: importCommand,
 				providerId: provider.id,
 				pluginId: provider.pluginId,
 				externalId: resolved.externalId,

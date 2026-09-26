@@ -93,6 +93,7 @@ const importWithoutMembership = (entitySchemaSlug: string) => {
 		Effect.provideService(EntityImportWorkflowOperations, {
 			processSandbox: () => Effect.die("unused"),
 			processProviderResolve: () => Effect.die("unused"),
+			preRegisterProviderImport: () => Effect.die("unused"),
 			completeProviderEntityImport: (_payload, _entity, hookExecutionId) =>
 				Effect.sync(() => {
 					calls.push({
@@ -159,6 +160,7 @@ layer(mutationAdmissionTestLayer)((it) => {
 			Effect.provideService(EntityImportWorkflowOperations, {
 				processSandbox: () => Effect.die("unused"),
 				processProviderResolve: () => Effect.die("unused"),
+				preRegisterProviderImport: () => Effect.die("unused"),
 				completeProviderEntityImport: () =>
 					Effect.fail(
 						new SandboxRunError({ kind: "script-failure", message: "membership hook failed" }),
@@ -209,6 +211,7 @@ layer(mutationAdmissionTestLayer)((it) => {
 						processSandbox: () => Effect.die("unused"),
 						completeProviderEntityImport: () => Effect.void,
 						processProviderResolve: () => Effect.die("unused"),
+						preRegisterProviderImport: () => Effect.die("unused"),
 					}),
 				);
 			};
