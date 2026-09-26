@@ -39,7 +39,6 @@ const workout: WorkoutPresentationData = {
 					exerciseOrder: 0,
 					confirmedAt: null,
 					personalBests: null,
-					unitSystem: "metric",
 					exerciseId: "exercise-1",
 					exerciseName: "Bench Press",
 					occurredAt: "2026-09-07T08:10:00.000Z",
