@@ -18,11 +18,11 @@ import { LifecyclePersistenceError, type LifecyclePlanner } from "#lib/domain/li
 import { LifecycleCommand } from "#lib/domain/lifecycle-command";
 import type { LifecycleExecution } from "#lib/domain/lifecycle-execution";
 import { retryOnDeadlock } from "#lib/infrastructure/db/service";
-import { DatabaseSession, DatabaseSessionStateError } from "#lib/infrastructure/db/session";
+import { type DatabaseSession, DatabaseSessionStateError } from "#lib/infrastructure/db/session";
 import { parseAppSchemaProperties } from "#lib/property-schema/property-schema-runtime";
-import { DefinitionRepository } from "#modules/definition-registry/repository";
+import type { DefinitionRepository } from "#modules/definition-registry/repository";
 import type { RelationshipSchemaDefinition } from "#modules/definition-registry/snapshot";
-import { EntitiesRepository } from "#modules/entities/repository";
+import type { EntitiesRepository } from "#modules/entities/repository";
 import type { PluginRuntimeResolver } from "#modules/plugins/runtime-resolver";
 import { CatalogDefinitionFingerprint } from "#modules/plugins/runtime-resolver";
 
@@ -146,10 +146,10 @@ export const mergeProperties = (existing: unknown, incoming: unknown) => {
 	return merged;
 };
 
-export const transaction = <A, E, R>(work: Effect.Effect<A, E, R>) =>
-	Effect.gen(function* () {
-		const session = yield* DatabaseSession;
-		return yield* retryOnDeadlock(
+export const rootTransaction =
+	(session: DatabaseSession["Service"]) =>
+	<A, E, R>(work: Effect.Effect<A, E, R>) =>
+		retryOnDeadlock(
 			session
 				.transaction(work)
 				.pipe(
@@ -162,11 +162,9 @@ export const transaction = <A, E, R>(work: Effect.Effect<A, E, R>) =>
 					),
 				),
 		);
-	});
 
-export const assertRootTransaction = Effect.gen(function* () {
-	const session = yield* DatabaseSession;
-	yield* session.requireRoot.pipe(
+export const rootTransactionGuard = (session: DatabaseSession["Service"]) =>
+	session.requireRoot.pipe(
 		Effect.mapError(
 			() =>
 				new DbError({
@@ -174,7 +172,6 @@ export const assertRootTransaction = Effect.gen(function* () {
 				}),
 		),
 	);
-});
 
 export const itemCommand = (
 	command: LifecycleCommand,
@@ -186,11 +183,11 @@ export const itemCommand = (
 });
 
 export const validateUserRelationshipEntities = Effect.fnUntraced(function* (
+	entities: EntitiesRepository["Service"],
 	userId: UserId,
 	input: Pick<UserRelationshipIdentity, "sourceEntityId" | "targetEntityId">,
 	definition: RelationshipSchemaDefinition,
 ) {
-	const entities = yield* EntitiesRepository;
 	const [source, target] = yield* Effect.all([
 		entities.getEntityScopeForUser({ userId, entityId: input.sourceEntityId }),
 		entities.getEntityScopeForUser({ userId, entityId: input.targetEntityId }),
@@ -227,26 +224,6 @@ export const validateUserRelationshipEntities = Effect.fnUntraced(function* (
 	return undefined;
 });
 
-export const validateUserIdentity = Effect.fnUntraced(function* (
-	userId: UserId,
-	input: UserRelationshipIdentity,
-) {
-	const definitions = yield* DefinitionRepository;
-	const definition = (yield* definitions.findUserRelationshipSchemas(userId, [
-		input.relationshipSchemaSlug,
-	]))[input.relationshipSchemaSlug];
-	if (!definition) {
-		return yield* new RelationshipNotFound({
-			reason: {
-				code: "relationship-schema-not-found",
-				relationshipSchemaSlug: input.relationshipSchemaSlug,
-			},
-		});
-	}
-	yield* validateUserRelationshipEntities(userId, input, definition);
-	return definition;
-});
-
 export type RelationshipMutationDependencies = {
 	readonly session: DatabaseSession["Service"];
 	readonly execution: LifecycleExecution["Service"];
@@ -254,6 +231,7 @@ export type RelationshipMutationDependencies = {
 	readonly repository: RelationshipsRepository["Service"];
 	readonly runtime: PluginRuntimeResolver["Service"];
 	readonly definitions: DefinitionRepository["Service"];
+	readonly entities: EntitiesRepository["Service"];
 };
 
 /** Persistence phases run inside the caller's transaction rather than opening their own. */

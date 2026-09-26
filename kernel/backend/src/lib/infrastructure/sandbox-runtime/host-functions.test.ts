@@ -39,6 +39,7 @@ import { EntitiesService } from "#modules/entities/service";
 import { EventsService } from "#modules/events/service";
 import { IntegrationsRepository, type IntegrationRecord } from "#modules/integrations/repository";
 import { PluginRuntimeResolver } from "#modules/plugins/runtime-resolver";
+import { RelationshipMutations } from "#modules/relationships/mutation-pipeline";
 import { RelationshipsRepository } from "#modules/relationships/repository";
 import { RyotQLService } from "#modules/ryotql/service";
 
@@ -272,7 +273,7 @@ const hostFunctionsLayer = (
 			const snapshot = yield* Ref.make(
 				buildDefinitionSnapshot(options.definitions ?? kernelDefinitionSource()),
 			);
-			return Layer.mergeAll(
+			const dependencies = Layer.mergeAll(
 				hostDatabaseLayer,
 				makeAppConfigLayer(),
 				Layer.succeed(RedisService, makeRedisService()),
@@ -362,6 +363,7 @@ const hostFunctionsLayer = (
 							}),
 				}),
 			);
+			return RelationshipMutations.layer.pipe(Layer.provideMerge(dependencies));
 		}),
 	);
 
