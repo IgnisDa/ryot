@@ -3,17 +3,17 @@ import { describe, expect, it } from "vitest";
 import { buildCustomizePlan } from "#/modules/navigation/customize/customize-plan";
 import type { CustomizeDraft } from "#/modules/navigation/customize/customize-state";
 
-const item = (slug: string, pluginSlug: string | null, isDisabled = false) => ({
+const item = (slug: string, pluginSlug: string | null, isHidden = false) => ({
 	slug,
-	isDisabled,
+	isHidden,
 	pluginSlug,
 	icon: "list",
 	name: slug.toUpperCase(),
 });
 
-const workspace = (slug: string, isDisabled = false) => ({
+const workspace = (slug: string, isHidden = false) => ({
 	slug,
-	isDisabled,
+	isHidden,
 	icon: "plugin",
 	name: slug.toUpperCase(),
 });
@@ -38,7 +38,7 @@ describe("buildCustomizePlan", () => {
 			views: [item("shows", "media", true), item("movies", "media")],
 		});
 
-		expect(plan.updates).toEqual([{ viewSlug: "shows", payload: { isDisabled: true } }]);
+		expect(plan.updates).toEqual([{ viewSlug: "shows", payload: { isHidden: true } }]);
 		expect(plan.reorders).toEqual([]);
 		expect(plan.workspaceUpdates).toEqual([]);
 	});
@@ -49,7 +49,7 @@ describe("buildCustomizePlan", () => {
 			workspaces: [workspace("media", true), workspace("fitness")],
 		});
 
-		expect(plan.workspaceUpdates).toEqual([{ pluginSlug: "media", payload: { isDisabled: true } }]);
+		expect(plan.workspaceUpdates).toEqual([{ pluginSlug: "media", payload: { isHidden: true } }]);
 		expect(plan.updates).toEqual([]);
 		expect(plan.reorders).toEqual([]);
 	});
@@ -62,14 +62,14 @@ describe("buildCustomizePlan", () => {
 
 		expect(plan.workspaceUpdates).toEqual([
 			{ pluginSlug: "fitness", payload: { sortOrder: 0 } },
-			{ pluginSlug: "media", payload: { sortOrder: 1, isDisabled: true } },
+			{ pluginSlug: "media", payload: { sortOrder: 1, isHidden: true } },
 		]);
 	});
 
 	it("toggles a global saved view without sending definition content", () => {
 		const plan = build({ ...initial, savedViews: [item("recent", null), item("all", null)] });
 
-		expect(plan.updates).toEqual([{ viewSlug: "all", payload: { isDisabled: false } }]);
+		expect(plan.updates).toEqual([{ viewSlug: "all", payload: { isHidden: false } }]);
 	});
 
 	it("scopes a workspace reorder to the workspace and a global reorder to no plugin", () => {

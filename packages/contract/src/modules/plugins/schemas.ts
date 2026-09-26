@@ -86,7 +86,7 @@ export const reservedPluginSlugs: ReadonlySet<string> = new Set([
 const PluginRequestFailureReason = Schema.Union([
 	Schema.Struct({ code: Schema.Literal("upload-unavailable") }),
 	Schema.Struct({ pluginSlug: PluginSlug, code: Schema.Literal("slug-reserved") }),
-	Schema.Struct({ savedViewSlug: Schema.String, code: Schema.Literal("home-view-disabled") }),
+	Schema.Struct({ savedViewSlug: Schema.String, code: Schema.Literal("home-view-hidden") }),
 	Schema.Struct({ savedViewSlug: Schema.String, code: Schema.Literal("home-view-not-found") }),
 	Schema.Struct({
 		issue: PluginPackageArchiveIssue,
@@ -200,7 +200,7 @@ export const UpdatePrivatePluginBody = strictStruct({
 export type UpdatePrivatePluginBody = typeof UpdatePrivatePluginBody.Type;
 
 export const UpdatePluginInstallationBody = strictStruct({
-	isDisabled: Schema.optional(Schema.Boolean),
+	isHidden: Schema.optional(Schema.Boolean),
 	unsetConfigKeys: Schema.optional(Schema.Array(Schema.String)),
 	config: Schema.optional(Schema.Record(Schema.String, JsonValue)),
 	sortOrder: Schema.optional(

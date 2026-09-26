@@ -82,9 +82,7 @@ export function CustomizePanel(props: CustomizePanelProps) {
 	const scrollRef = useRef<HTMLDivElement>(null);
 	const anchors = useRef(new Map<CustomizeSection, HTMLElement | null>());
 	const initialSection = props.initialSection;
-	const enabledWorkspaceCount = props.draft.workspaces.filter(
-		({ isDisabled }) => !isDisabled,
-	).length;
+	const enabledWorkspaceCount = props.draft.workspaces.filter(({ isHidden }) => !isHidden).length;
 
 	useEffect(() => {
 		const scroller = scrollRef.current;
@@ -109,7 +107,7 @@ export function CustomizePanel(props: CustomizePanelProps) {
 					anchorRef={anchorRef("workspaces")}
 					emptyMessage="No workspaces available."
 					onToggle={(slug) => props.onToggle("workspaces", slug)}
-					toggleDisabled={(item) => !item.isDisabled && enabledWorkspaceCount === 1}
+					toggleDisabled={(item) => !item.isHidden && enabledWorkspaceCount === 1}
 					counts={customizeSectionCounts({ draft: props.draft, section: "workspaces" })}
 					onMove={(fromIndex, toIndex) => props.onMove("workspaces", fromIndex, toIndex)}
 				/>

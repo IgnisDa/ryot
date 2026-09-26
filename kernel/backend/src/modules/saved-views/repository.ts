@@ -24,7 +24,7 @@ type CreateSavedViewInput = {
 type UpdateSavedViewData = {
 	readonly icon: string;
 	readonly name: string;
-	readonly isDisabled: boolean;
+	readonly isHidden: boolean;
 	readonly sortOrder?: number | undefined;
 	readonly pluginInstallationId: string | null;
 	readonly renderer: (typeof schema.savedView.$inferSelect)["renderer"];
@@ -39,8 +39,8 @@ const toListedSavedView = (row: ListedSavedViewRow): ListedSavedView => {
 		icon: row.icon,
 		renderer: row.renderer,
 		settings: row.settings,
+		isHidden: row.isHidden,
 		sortOrder: row.sortOrder,
-		isDisabled: row.isDisabled,
 		id: SavedViewId.make(row.id),
 		dataSources: row.dataSources,
 		pluginSlug: row.pluginSlug === null ? null : PluginSlug.make(row.pluginSlug),
@@ -104,12 +104,12 @@ export class SavedViewsRepository extends Context.Service<SavedViewsRepository>(
 
 			const listByUser = Effect.fn("SavedViewsRepository.listByUser")(function* (
 				userId: UserId,
-				input: { pluginInstallationId?: string | undefined; includeDisabled: boolean },
+				input: { pluginInstallationId?: string | undefined; includeHidden: boolean },
 			) {
 				const clauses = [eq(schema.userSavedViewEffective.userId, userId)];
 
-				if (!input.includeDisabled) {
-					clauses.push(eq(schema.userSavedViewEffective.isDisabled, false));
+				if (!input.includeHidden) {
+					clauses.push(eq(schema.userSavedViewEffective.isHidden, false));
 				}
 
 				if (input.pluginInstallationId) {
@@ -234,7 +234,7 @@ export class SavedViewsRepository extends Context.Service<SavedViewsRepository>(
 								name: data.name,
 								renderer: data.renderer,
 								settings: data.settings,
-								isDisabled: data.isDisabled,
+								isHidden: data.isHidden,
 								dataSources: data.dataSources,
 								revision: sql`${schema.savedView.revision} + 1`,
 								pluginInstallationId: data.pluginInstallationId,
@@ -251,14 +251,14 @@ export class SavedViewsRepository extends Context.Service<SavedViewsRepository>(
 			const setBuiltinState = Effect.fn("SavedViewsRepository.setBuiltinState")(function* (
 				userId: UserId,
 				viewSlug: string,
-				isDisabled: boolean,
+				isHidden: boolean,
 				sortOrder: number,
 			) {
 				const current = yield* findBySlug(userId, viewSlug);
 				if (!current?.isBuiltin) {
 					return null;
 				}
-				if (current.isDisabled === isDisabled && current.sortOrder === sortOrder) {
+				if (current.isHidden === isHidden && current.sortOrder === sortOrder) {
 					return current;
 				}
 				const [definition] = yield* session.run((db) =>
@@ -273,7 +273,7 @@ export class SavedViewsRepository extends Context.Service<SavedViewsRepository>(
 				if (!definition) {
 					return null;
 				}
-				if (!isDisabled && sortOrder === definition.sortOrder) {
+				if (!isHidden && sortOrder === definition.sortOrder) {
 					yield* session.run((db) =>
 						db
 							.delete(schema.savedViewOverride)
@@ -289,12 +289,12 @@ export class SavedViewsRepository extends Context.Service<SavedViewsRepository>(
 				yield* session.run((db) =>
 					db
 						.insert(schema.savedViewOverride)
-						.values({ userId, sortOrder, isDisabled, slug: viewSlug, pluginId: current.pluginId })
+						.values({ userId, isHidden, sortOrder, slug: viewSlug, pluginId: current.pluginId })
 						.onConflictDoUpdate({
 							target: [schema.savedViewOverride.userId, schema.savedViewOverride.slug],
 							set: {
+								isHidden,
 								sortOrder,
-								isDisabled,
 								pluginId: current.pluginId,
 								revision: sql`${schema.savedViewOverride.revision} + 1`,
 							},
@@ -315,7 +315,7 @@ export class SavedViewsRepository extends Context.Service<SavedViewsRepository>(
 						continue;
 					}
 					if (view.isBuiltin) {
-						if (yield* setBuiltinState(userId, slug, view.isDisabled, sortOrder)) {
+						if (yield* setBuiltinState(userId, slug, view.isHidden, sortOrder)) {
 							updated++;
 						}
 					} else {

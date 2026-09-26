@@ -106,7 +106,7 @@ describe("private import sources", () => {
 		}),
 	);
 
-	it.live("withdraws a private import source when its installation is disabled", () =>
+	it.live("withdraws a private import source when its installation is hidden", () =>
 		Effect.gen(function* () {
 			const { client } = yield* createAuthenticatedClient();
 			const plugin = yield* Effect.acquireRelease(
@@ -114,7 +114,7 @@ describe("private import sources", () => {
 				({ pluginSlug }) => releasePrivatePlugin(client, pluginSlug),
 			);
 
-			yield* updatePluginState(client, plugin.pluginSlug, { isDisabled: true });
+			yield* updatePluginState(client, plugin.pluginSlug, { isHidden: true });
 
 			const sources = yield* listSources(client);
 			expect(sources.map(({ slug }) => slug)).not.toContain(plugin.sourceSlug);
@@ -125,7 +125,7 @@ describe("private import sources", () => {
 			assertTaggedError(failure, "ImportRequestError");
 			expect(failure.reason).toEqual({ code: "source-not-found", source: plugin.sourceSlug });
 
-			yield* updatePluginState(client, plugin.pluginSlug, { isDisabled: false });
+			yield* updatePluginState(client, plugin.pluginSlug, { isHidden: false });
 			expect((yield* listSources(client)).map(({ slug }) => slug)).toContain(plugin.sourceSlug);
 		}),
 	);

@@ -43,7 +43,7 @@ export class ClientPagesRepository extends Context.Service<ClientPagesRepository
 						.where(
 							and(
 								eq(schema.userSavedViewEffective.userId, userId),
-								eq(schema.userSavedViewEffective.isDisabled, false),
+								eq(schema.userSavedViewEffective.isHidden, false),
 							),
 						),
 				);

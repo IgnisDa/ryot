@@ -106,7 +106,7 @@ describe("revision-backed runtime resolution", () => {
 
 	layer(revisionDatabaseLayer)((test) => {
 		test.effect(
-			"excludes disabled, unhealthy, and uninstalled installations from new resolution",
+			"excludes hidden, unhealthy, and uninstalled installations from new resolution",
 			() =>
 				Effect.gen(function* () {
 					const runtime = yield* PluginRuntimeResolver;
@@ -115,7 +115,7 @@ describe("revision-backed runtime resolution", () => {
 					yield* installations.updateState({
 						config: {},
 						sortOrder: 0,
-						isDisabled: true,
+						isHidden: true,
 						id: installed.installation.id,
 					});
 					expect(yield* runtime.listPluginsAvailableToUser(owner)).toEqual([]);
@@ -126,7 +126,7 @@ describe("revision-backed runtime resolution", () => {
 					yield* installations.updateState({
 						config: {},
 						sortOrder: 0,
-						isDisabled: false,
+						isHidden: false,
 						id: installed.installation.id,
 					});
 					yield* installations.updateHealth({
@@ -372,7 +372,7 @@ describe("revision-backed runtime resolution", () => {
 				yield* installations.updateState({
 					config: {},
 					sortOrder: 0,
-					isDisabled: true,
+					isHidden: true,
 					id: installed.installation.id,
 				});
 				expect(yield* runtime.listPrivateCronSchedules()).toEqual([]);

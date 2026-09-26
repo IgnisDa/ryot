@@ -87,7 +87,7 @@ const resolvedOperation = (available: AvailableOperation) => ({
 					description: "Fixture operation",
 				},
 	plugin: {
-		isDisabled: false,
+		isHidden: false,
 		scope: available.scope,
 		sourceHash: SOURCE_HASH,
 		health: "ready" as const,

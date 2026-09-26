@@ -20,7 +20,7 @@ const workspace = (
 	name: "Media",
 	slug: "media",
 	health: "ready",
-	isDisabled: false,
+	isHidden: false,
 	clientApiVersion: 1,
 	pluginId: "plugin-media",
 	sourceHash: "source-media",
@@ -52,9 +52,9 @@ describe("workspace state", () => {
 		]);
 	});
 
-	it("filters only disabled workspaces and sorts all other catalog states", () => {
+	it("filters only hidden workspaces and sorts all other catalog states", () => {
 		const catalog: PluginClientCatalog = [
-			workspace({ sortOrder: 0, slug: "disabled", isDisabled: true }),
+			workspace({ sortOrder: 0, isHidden: true, slug: "disabled" }),
 			workspace({ sortOrder: 3, slug: "failed", health: "failed" }),
 			workspace({ sortOrder: 2, slug: "incompatible", health: "incompatible" }),
 		];
@@ -62,10 +62,10 @@ describe("workspace state", () => {
 		expect(visibleWorkspaces(catalog).map(({ slug }) => slug)).toEqual(["incompatible", "failed"]);
 	});
 
-	it("falls back from a disabled remembered workspace to the first enabled workspace", () => {
+	it("falls back from a hidden remembered workspace to the first enabled workspace", () => {
 		const first = workspace({ sortOrder: 0, slug: "first" });
 		const catalog = [
-			workspace({ sortOrder: -1, isDisabled: true, slug: "remembered" }),
+			workspace({ sortOrder: -1, isHidden: true, slug: "remembered" }),
 			workspace({ sortOrder: 1, slug: "second" }),
 			first,
 		];
@@ -78,7 +78,7 @@ describe("workspace state", () => {
 		const catalog = [
 			workspace({ slug: "media" }),
 			workspace({ slug: "fitness" }),
-			workspace({ slug: "disabled", isDisabled: true }),
+			workspace({ isHidden: true, slug: "disabled" }),
 		];
 
 		expect(resolvePluginRouteWorkspace(catalog, "fitness")?.slug).toBe("fitness");
@@ -87,7 +87,7 @@ describe("workspace state", () => {
 	});
 
 	it("keeps direct routes resolvable when no workspace is enabled", () => {
-		const catalog = [workspace({ isDisabled: true })];
+		const catalog = [workspace({ isHidden: true })];
 
 		expect(visibleWorkspaces(catalog)).toEqual([]);
 		expect(resolveRememberedWorkspace(catalog, "media")).toBeNull();

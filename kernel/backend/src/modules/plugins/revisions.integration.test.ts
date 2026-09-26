@@ -152,7 +152,7 @@ describe("immutable revisions in PostgreSQL (isolated schema)", () => {
 									config: {},
 									sortOrder: 0,
 									health: "ready",
-									isDisabled: false,
+									isHidden: false,
 									userId: UserId.make("owner"),
 								});
 								assert(installation?.activeConfigRevisionId);
@@ -208,7 +208,7 @@ describe("immutable revisions in PostgreSQL (isolated schema)", () => {
 								expect(Result.isFailure(conflict)).toBe(true);
 								const configUpdate = yield* installations.updateState({
 									sortOrder: 0,
-									isDisabled: false,
+									isHidden: false,
 									id: installation.id,
 									config: { token: "private-config-token" },
 								});
@@ -253,7 +253,7 @@ describe("immutable revisions in PostgreSQL (isolated schema)", () => {
 								yield* installations.updateState({
 									config: {},
 									sortOrder: 0,
-									isDisabled: false,
+									isHidden: false,
 									id: installation.id,
 								});
 								expect(

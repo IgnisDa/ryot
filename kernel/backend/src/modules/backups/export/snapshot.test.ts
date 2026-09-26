@@ -130,7 +130,7 @@ const installationRow = (input: {
 	userId,
 	config: {},
 	sortOrder: 0,
-	isDisabled: false,
+	isHidden: false,
 	healthReason: null,
 	uninstalledAt: null,
 	homeSavedViewSlug: null,

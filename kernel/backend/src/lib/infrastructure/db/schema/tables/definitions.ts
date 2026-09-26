@@ -244,7 +244,7 @@ export const globalPlugin = snakeCase
 	.as(globalPluginQuery);
 
 const userPluginQuery = sql`
-	select i.user_id, p.id as plugin_id, i.id as installation_id, p.slug, p.scope, p.owner_user_id, p.active_revision_id, case when p.scope = 'system' then p.environment_config_revision_id else i.active_config_revision_id end as config_revision_id, i.health, i.is_disabled, i.sort_order, i.health <> 'incompatible' as is_listed, not i.is_disabled and (i.health = 'ready' or (p.scope = 'system' and i.health = 'installing')) as is_definition_effective, coalesce(not i.is_disabled and i.health = 'ready' and c.plugin_revision_id = p.active_revision_id and c.encrypted_payload is not null and case when p.scope = 'system' then c.scope = 'environment' else c.scope = 'installation' and c.owner_user_id = i.user_id and c.plugin_installation_id = i.id end, false) as is_executable
+	select i.user_id, p.id as plugin_id, i.id as installation_id, p.slug, p.scope, p.owner_user_id, p.active_revision_id, case when p.scope = 'system' then p.environment_config_revision_id else i.active_config_revision_id end as config_revision_id, i.health, i.is_hidden, i.sort_order, i.health <> 'incompatible' as is_listed, not i.is_hidden and (i.health = 'ready' or (p.scope = 'system' and i.health = 'installing')) as is_definition_effective, coalesce(not i.is_hidden and i.health = 'ready' and c.plugin_revision_id = p.active_revision_id and c.encrypted_payload is not null and case when p.scope = 'system' then c.scope = 'environment' else c.scope = 'installation' and c.owner_user_id = i.user_id and c.plugin_installation_id = i.id end, false) as is_executable
 	from plugin_installation i
 	join plugin p on p.id = i.plugin_id
 	left join plugin_config_revision c on c.id = case when p.scope = 'system' then p.environment_config_revision_id else i.active_config_revision_id end
@@ -259,8 +259,8 @@ export const userPlugin = snakeCase
 		configRevisionId: text(),
 		pluginId: text().notNull(),
 		isListed: boolean().notNull(),
+		isHidden: boolean().notNull(),
 		sortOrder: integer().notNull(),
-		isDisabled: boolean().notNull(),
 		installationId: text().notNull(),
 		isExecutable: boolean().notNull(),
 		activeRevisionId: text().notNull(),
@@ -466,9 +466,9 @@ export const userSavedViewEffective = snakeCase.view("user_saved_view_effective"
 	userId: text().notNull(),
 	pluginInstallationId: text(),
 	revision: integer().notNull(),
+	isHidden: boolean().notNull(),
 	sortOrder: integer().notNull(),
 	isBuiltin: boolean().notNull(),
-	isDisabled: boolean().notNull(),
 	dataSources: jsonb().$type<RyotQLDocument>(),
 	createdAt: timestamp({ withTimezone: true }),
 	updatedAt: timestamp({ withTimezone: true }),
@@ -478,7 +478,7 @@ export const userSavedViewEffective = snakeCase.view("user_saved_view_effective"
 	select s.id, null::text as plugin_id, custom_plugin.slug as plugin_slug,
 		s.user_id, s.slug, s.name, s.icon, s.plugin_installation_id,
 		s.revision, s.sort_order, s.data_sources, false as is_builtin,
-		s.is_disabled, s.renderer, s.created_at, s.settings, s.updated_at
+		s.is_hidden, s.renderer, s.created_at, s.settings, s.updated_at
 	from ${savedView} s
 	left join ${pluginInstallation} custom_installation on custom_installation.id = s.plugin_installation_id
 	left join ${plugin} custom_plugin on custom_plugin.id = custom_installation.plugin_id
@@ -487,7 +487,7 @@ export const userSavedViewEffective = snakeCase.view("user_saved_view_effective"
 		d.user_id, d.slug, d.name, d.icon, p.installation_id as plugin_installation_id,
 		hashtext(d.id || ':' || coalesce(o.revision, 0)::text) as revision,
 		coalesce(o.sort_order, d.sort_order) as sort_order, d.data_sources, true as is_builtin,
-		coalesce(o.is_disabled, false) as is_disabled, d.renderer,
+		coalesce(o.is_hidden, false) as is_hidden, d.renderer,
 		null::timestamptz as created_at, d.settings, null::timestamptz as updated_at
 	from ${userSavedView} d
 	left join ${userPlugin} p on p.user_id = d.user_id and p.plugin_id = d.plugin_id

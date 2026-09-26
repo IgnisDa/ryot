@@ -190,8 +190,8 @@ export class SavedViewsService extends Context.Service<SavedViewsService>()("Sav
 					settings,
 					dataSources,
 					pluginInstallationId,
+					isHidden: payload.isHidden,
 					sortOrder: payload.sortOrder,
-					isDisabled: payload.isDisabled,
 					icon: payload.icon ?? current.icon,
 				},
 				current.pluginInstallationId,
@@ -221,7 +221,7 @@ export class SavedViewsService extends Context.Service<SavedViewsService>()("Sav
 						reason: { viewSlug, code: "builtin-view-immutable" },
 					});
 				}
-				if (previous.isDisabled && !payload.isDisabled) {
+				if (previous.isHidden && !payload.isHidden) {
 					yield* surfaces.materializeRenderer(user.id, previous.renderer);
 				}
 				const updated = yield* mapDatabaseErrors(
@@ -235,7 +235,7 @@ export class SavedViewsService extends Context.Service<SavedViewsService>()("Sav
 								});
 							}
 							if (
-								current.isDisabled !== previous.isDisabled ||
+								current.isHidden !== previous.isHidden ||
 								!Bun.deepEquals(current.renderer, previous.renderer)
 							) {
 								return yield* new SavedViewBadRequest({
@@ -245,7 +245,7 @@ export class SavedViewsService extends Context.Service<SavedViewsService>()("Sav
 							const result = yield* repository.setBuiltinState(
 								user.id,
 								viewSlug,
-								payload.isDisabled,
+								payload.isHidden,
 								current.sortOrder,
 							);
 							if (!result) {
@@ -253,22 +253,22 @@ export class SavedViewsService extends Context.Service<SavedViewsService>()("Sav
 									reason: { viewSlug, code: "saved-view-not-found" },
 								});
 							}
-							if (payload.isDisabled && !current.isDisabled) {
+							if (payload.isHidden && !current.isHidden) {
 								yield* installations.clearHomeSavedViewReferences(user.id, viewSlug);
 							}
 							return result;
 						}),
 					),
 				);
-				if (previous.isDisabled !== payload.isDisabled) {
+				if (previous.isHidden !== payload.isHidden) {
 					yield* invalidator.user(user.id);
 				}
 				return { id: updated.id };
 			}
 			const nextRenderer = payload.renderer ?? previous.renderer;
 			if (
-				!payload.isDisabled &&
-				(previous.isDisabled || !Bun.deepEquals(nextRenderer, previous.renderer))
+				!payload.isHidden &&
+				(previous.isHidden || !Bun.deepEquals(nextRenderer, previous.renderer))
 			) {
 				yield* validateRendererSettings(
 					user.id,
@@ -289,7 +289,7 @@ export class SavedViewsService extends Context.Service<SavedViewsService>()("Sav
 							});
 						}
 						if (
-							current.isDisabled !== previous.isDisabled ||
+							current.isHidden !== previous.isHidden ||
 							!Bun.deepEquals(current.renderer, previous.renderer)
 						) {
 							return yield* new SavedViewBadRequest({
@@ -299,15 +299,15 @@ export class SavedViewsService extends Context.Service<SavedViewsService>()("Sav
 						const result = yield* updateUnlocked(user, viewSlug, payload, current);
 						const changedRenderer =
 							payload.renderer !== undefined && !Bun.deepEquals(payload.renderer, current.renderer);
-						const becameEnabled = current.isDisabled && !payload.isDisabled;
-						if (payload.isDisabled) {
+						const becameEnabled = current.isHidden && !payload.isHidden;
+						if (payload.isHidden) {
 							yield* installations.clearHomeSavedViewReferences(user.id, viewSlug);
 						}
 						return { updated: result, reenabled: becameEnabled, rendererChanged: changedRenderer };
 					}),
 				),
 			);
-			if (rendererChanged || reenabled || (payload.isDisabled && !previous.isDisabled)) {
+			if (rendererChanged || reenabled || (payload.isHidden && !previous.isHidden)) {
 				yield* invalidator.user(user.id);
 			}
 			return updated;
@@ -363,7 +363,7 @@ export class SavedViewsService extends Context.Service<SavedViewsService>()("Sav
 							? yield* resolvePluginInstallation(user.id, payload.pluginSlug)
 							: null;
 						const views = yield* repository.listByUser(user.id, {
-							includeDisabled: true,
+							includeHidden: true,
 							pluginInstallationId: pluginInstallationId ?? undefined,
 						});
 						const scoped = views.filter(
