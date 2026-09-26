@@ -66,16 +66,20 @@ export const createTestPluginStorage = (initial: Iterable<readonly [string, Json
 	return { entries, accessStorage };
 };
 
-// `TestClock.adjust` opens each due sleep's latch and yields once, which is enough for a
-// synchronous callback but not for the promise chain `createEntityRefresh` starts. One real
-// macrotask turn drains the whole microtask queue, including links enqueued while draining.
-const drainMicrotasks = Effect.promise(
-	// oxlint-disable-next-line effecttsgo/new-promise -- Test harness needs a real macrotask after TestClock adjustments.
-	() => new Promise<void>((resolve) => setTimeout(resolve, 0)),
-);
+// MessagePort delivery is a real macrotask, so it also drains promise chains queued by prior work.
+export const waitForMessagePortMacrotask = Effect.callback<void>((resume) => {
+	const channel = new MessageChannel();
+	channel.port1.addEventListener("message", () => resume(Effect.void), { once: true });
+	channel.port1.start();
+	channel.port2.postMessage(undefined);
+	return Effect.sync(() => {
+		channel.port1.close();
+		channel.port2.close();
+	});
+});
 
 export const advanceRyotSchedule = (millis: Duration.Input): Effect.Effect<void> =>
-	Effect.andThen(TestClock.adjust(millis), drainMicrotasks);
+	Effect.andThen(TestClock.adjust(millis), waitForMessagePortMacrotask);
 
 /** Used by runtimes whose test never mounts a `PluginRouter`. */
 const inertNavigation = (): PluginRouterNavigation => {
@@ -133,7 +137,11 @@ export const createTestRyotClock = (
 		},
 		advance: (millis: Duration.Input) => act(() => runtime.runPromise(advanceRyotSchedule(millis))),
 		setTime: (timestamp: number) =>
-			act(() => runtime.runPromise(Effect.andThen(TestClock.setTime(timestamp), drainMicrotasks))),
+			act(() =>
+				runtime.runPromise(
+					Effect.andThen(TestClock.setTime(timestamp), waitForMessagePortMacrotask),
+				),
+			),
 	};
 };
 

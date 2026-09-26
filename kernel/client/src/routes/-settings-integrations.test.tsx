@@ -506,11 +506,7 @@ describe("integration detail", () => {
 	it.live("uses loader data until the ID-keyed detail query succeeds", () =>
 		Effect.gen(function* () {
 			let gets = 0;
-			let resolveDetail!: (integration: IntegrationDetailRow) => void;
-			// oxlint-disable-next-line effecttsgo/new-promise -- This controllable test gate stays pending until the host callback or test releases it.
-			const pendingDetail = new Promise<IntegrationDetailRow>((resolve) => {
-				resolveDetail = resolve;
-			});
+			const pendingDetail = Promise.withResolvers<IntegrationDetailRow>();
 			mountView(
 				"/settings/integrations/int_1",
 				makeIntegrationsApi(),
@@ -519,7 +515,7 @@ describe("integration detail", () => {
 						gets += 1;
 						return gets === 1
 							? Effect.succeed(makeDetail({ name: "Loader integration" }))
-							: Effect.promise(() => pendingDetail);
+							: Effect.promise(() => pendingDetail.promise);
 					},
 				}),
 			);
@@ -527,7 +523,7 @@ describe("integration detail", () => {
 			yield* Effect.promise(() =>
 				screen.findByRole("heading", { level: 1, name: "Loader integration" }),
 			);
-			resolveDetail(makeDetail({ name: "Queried integration" }));
+			pendingDetail.resolve(makeDetail({ name: "Queried integration" }));
 			yield* Effect.promise(() =>
 				screen.findByRole("heading", { level: 1, name: "Queried integration" }),
 			);
