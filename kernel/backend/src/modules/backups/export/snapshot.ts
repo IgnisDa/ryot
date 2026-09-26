@@ -545,6 +545,7 @@ export class BackupExportSnapshot extends Context.Service<BackupExportSnapshot>(
 								createdAt: state.createdAt.toISOString(),
 								updatedAt: state.updatedAt.toISOString(),
 								homeSavedViewSlug: state.homeSavedViewSlug,
+								userSettings: decodeArchiveJsonObject(state.userSettings),
 								packageKey: yield* requirePluginKey(pluginKeyById, state.pluginId),
 								lifecycleIntent: installationLifecycleIntent(state.health, state.isHidden),
 								config: plugin?.scope === "system" ? {} : decodeArchiveJsonObject(state.config),
