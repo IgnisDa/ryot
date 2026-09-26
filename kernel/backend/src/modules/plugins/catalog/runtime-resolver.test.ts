@@ -2,6 +2,7 @@ import { expect, layer } from "@effect/vitest";
 import {
 	CLIENT_API_VERSION,
 	type PluginClientEntry,
+	type PluginManifest,
 } from "@ryot-app/contract/modules/plugins/manifest";
 import { definitionOwner } from "@ryot-app/contract/modules/plugins/references";
 import {
@@ -34,6 +35,7 @@ import {
 	revisionPackage,
 	revisionDatabaseLayer,
 } from "../packages/revision.test-support";
+import type { NormalizedPlugin } from "../packages/types";
 import { testPluginPackageId } from "../test-support";
 import { PluginRuntimeResolver } from "./runtime-resolver";
 
@@ -68,6 +70,92 @@ const operationPackage = (version: string, packageId?: PluginPackageId) => {
 				},
 			],
 		},
+	};
+};
+
+const providerScriptFields = {
+	runtimeImports: [],
+	kind: "provider" as const,
+	capabilities: [] as const,
+	oauthConnectionFields: [] as const,
+	executableDependencies: [] as const,
+	requiredPluginConfigKeys: [] as const,
+	optionalPluginConfigKeys: [] as const,
+};
+
+const providerScript = (
+	providerSlug: string,
+	providerOperation: "details" | "resolve" | "search-options" | "translate",
+) => ({
+	...providerScriptFields,
+	providerSlug,
+	providerOperation,
+	name: providerOperation,
+	slug: `${providerSlug}.${providerOperation}`,
+	entry: `backend/${providerSlug}-${providerOperation}.sandbox.ts`,
+});
+
+const multiProvider = (
+	slug: string,
+	operations: PluginManifest["providers"][number]["operations"],
+) => ({
+	slug,
+	operations,
+	name: slug,
+	information: { source: "fixture" },
+	rootEntitySchemaSlug: "multi-entity",
+});
+
+const multiProviderPackage = (
+	version: string,
+	retired: boolean,
+	packageId?: PluginPackageId,
+): NormalizedPlugin => {
+	const value = revisionPackage("multi", version, undefined, packageId);
+	const manifest: PluginManifest = {
+		...value.manifest,
+		providers: [
+			multiProvider("multi-provider", {
+				search: "multi-provider.search",
+				details: "multi-provider.details",
+				resolve: "multi-provider.resolve",
+				translate: "multi-provider.translate",
+				searchOptions: "multi-provider.search-options",
+			}),
+			multiProvider("multi-second", { details: "multi-second.details" }),
+			...(retired ? [multiProvider("multi-retired", { details: "multi-retired.details" })] : []),
+		],
+		scripts: [
+			...value.manifest.scripts.filter(({ kind }) => kind !== "provider"),
+			providerScript("multi-provider", "details"),
+			providerScript("multi-provider", "resolve"),
+			providerScript("multi-provider", "translate"),
+			providerScript("multi-provider", "search-options"),
+			{
+				...providerScriptFields,
+				name: "search",
+				providerOperation: "search",
+				slug: "multi-provider.search",
+				providerSlug: "multi-provider",
+				searchOptionsSchema: { fields: {} },
+				entry: "backend/multi-provider-search.sandbox.ts",
+			},
+			providerScript("multi-second", "details"),
+			...(retired ? [providerScript("multi-retired", "details")] : []),
+		],
+	};
+	return {
+		manifest,
+		contentHash: `multi-${version}`,
+		scripts: manifest.scripts.map(({ entry, ...metadata }) => ({
+			entry,
+			metadata,
+			compiledFormat: 1,
+			slug: metadata.slug,
+			name: metadata.name,
+			compiledCode: version,
+			contentHash: `${metadata.slug}-${version}`,
+		})),
 	};
 };
 
@@ -1201,6 +1289,201 @@ describe("provider eligibility", () => {
 					details: "script_unavailable",
 					userSearch: "script_unavailable",
 				});
+			}),
+		);
+	});
+});
+
+describe("normalized provider definitions", () => {
+	type ProviderRow = {
+		readonly id: string;
+		readonly slug: string;
+		readonly user_id: string;
+		readonly plugin_id: string;
+		readonly plugin_scope: string;
+		readonly root_entity_schema_slug: string;
+	};
+	type OperationRow = {
+		readonly user_id: string;
+		readonly plugin_id: string;
+		readonly operation: string;
+		readonly provider_id: string;
+		readonly options_schema: unknown;
+	};
+
+	const providerViews = Effect.fn(function* () {
+		const session = yield* DatabaseSession;
+		return {
+			providers: yield* session.run((db) =>
+				db.execute<ProviderRow>(
+					sql`select user_id, id, plugin_id, slug, plugin_scope, root_entity_schema_slug from user_sandbox_provider`,
+					"objects",
+				),
+			),
+			operations: yield* session.run((db) =>
+				db.execute<OperationRow>(
+					sql`select user_id, provider_id, plugin_id, operation, options_schema from user_sandbox_provider_operation`,
+					"objects",
+				),
+			),
+		};
+	});
+
+	const seedProviders = Effect.gen(function* () {
+		const session = yield* DatabaseSession;
+		const installations = yield* PluginInstallationRepository;
+		const original = multiProviderPackage("v1", true);
+		const multi = yield* installRevisionPackage(original);
+		yield* installRevisionPackage(
+			multiProviderPackage("v2", false, original.manifest.metadata.packageId),
+		);
+		const rootless = yield* installRevisionPackage(revisionPackage("rootless"));
+		yield* session.run((db) =>
+			db
+				.update(tables.definitionEntitySchema)
+				.set({ slug: "renamed-entity" })
+				.where(eq(tables.definitionEntitySchema.pluginRevisionId, rootless.revisionId)),
+		);
+		const unready = yield* installRevisionPackage(revisionPackage("unready"));
+		yield* installations.updateHealth({
+			healthReason: null,
+			id: unready.installation.id,
+			health: "needs-configuration",
+		});
+		const privatePlugin = yield* installRevisionPackage(revisionPackage("private"), other);
+		const providers = yield* session.run((db) =>
+			db
+				.select({
+					id: tables.sandboxProvider.id,
+					slug: tables.sandboxProvider.slug,
+					pluginId: tables.sandboxProvider.pluginId,
+					rootEntitySchemaSlug: tables.sandboxProvider.rootEntitySchemaSlug,
+				})
+				.from(tables.sandboxProvider),
+		);
+		const idOf = (slug: string) => {
+			const provider = providers.find((row) => row.slug === slug);
+			assert(provider);
+			return provider.id;
+		};
+		const slugOf = (id: string) => providers.find((row) => row.id === id)?.slug;
+		return { idOf, multi, slugOf, providers, privatePlugin };
+	});
+
+	layer(revisionDatabaseLayer)((test) => {
+		test.effect("exposes declared providers and their mapped operations", () =>
+			Effect.gen(function* () {
+				const { idOf, multi, slugOf, privatePlugin } = yield* seedProviders;
+				const { providers, operations } = yield* providerViews();
+				expect(
+					providers.sort((left, right) =>
+						`${left.user_id}:${left.slug}` < `${right.user_id}:${right.slug}` ? -1 : 1,
+					),
+				).toEqual([
+					{
+						user_id: owner,
+						slug: "multi-provider",
+						plugin_scope: "system",
+						plugin_id: multi.pluginId,
+						id: idOf("multi-provider"),
+						root_entity_schema_slug: "multi-entity",
+					},
+					{
+						user_id: owner,
+						slug: "multi-second",
+						plugin_scope: "system",
+						id: idOf("multi-second"),
+						plugin_id: multi.pluginId,
+						root_entity_schema_slug: "multi-entity",
+					},
+					{
+						user_id: other,
+						plugin_scope: "user",
+						slug: "private-provider",
+						id: idOf("private-provider"),
+						plugin_id: privatePlugin.pluginId,
+						root_entity_schema_slug: "private-entity",
+					},
+				]);
+				expect(
+					operations
+						.map(({ user_id, operation, provider_id, options_schema }) => ({
+							options_schema,
+							operation: `${user_id}:${slugOf(provider_id)}:${operation}`,
+						}))
+						.sort((left, right) => (left.operation < right.operation ? -1 : 1)),
+				).toEqual([
+					{ options_schema: null, operation: "owner:multi-provider:details" },
+					{ options_schema: null, operation: "owner:multi-provider:resolve" },
+					{ options_schema: { fields: {} }, operation: "owner:multi-provider:search" },
+					{ options_schema: null, operation: "owner:multi-provider:search-options" },
+					{ options_schema: null, operation: "owner:multi-provider:translate" },
+					{ options_schema: null, operation: "owner:multi-second:details" },
+					{ options_schema: null, operation: "recipient:private-provider:details" },
+					{ options_schema: { fields: {} }, operation: "recipient:private-provider:search" },
+				]);
+			}),
+		);
+	});
+
+	layer(revisionDatabaseLayer)((test) => {
+		test.effect("shows a private plugin's provider and operations only to its owner", () =>
+			Effect.gen(function* () {
+				const { privatePlugin } = yield* seedProviders;
+				const { providers, operations } = yield* providerViews();
+				const usersOf = (
+					rows: ReadonlyArray<{ readonly user_id: string; readonly plugin_id: string }>,
+				) =>
+					rows
+						.filter(({ plugin_id }) => plugin_id === privatePlugin.pluginId)
+						.map(({ user_id }) => user_id);
+				expect(usersOf(providers)).toEqual([other]);
+				expect(usersOf(operations)).toEqual([other, other]);
+				expect(providers.filter(({ user_id }) => user_id === owner).length).toBe(2);
+				expect(operations.filter(({ user_id }) => user_id === owner).length).toBe(6);
+			}),
+		);
+	});
+
+	layer(revisionDatabaseLayer)((test) => {
+		test.effect("resolves only providers the active system revision declares", () =>
+			Effect.gen(function* () {
+				const runtime = yield* PluginRuntimeResolver;
+				const { idOf, providers } = yield* seedProviders;
+				const active: Array<string> = [];
+				const authorized: Array<string> = [];
+				for (const provider of providers) {
+					const providerId = SandboxProviderId.make(provider.id);
+					if (yield* runtime.findActiveProviderById(providerId)) {
+						active.push(provider.id);
+					}
+					if (
+						yield* runtime.findAuthorizedSchemaProviderById({
+							providerId,
+							entitySchema: {
+								owner: definitionOwner(provider.pluginId),
+								slug: EntitySchemaSlug.make(provider.rootEntitySchemaSlug),
+							},
+						})
+					) {
+						authorized.push(provider.id);
+					}
+				}
+				const expected = [
+					idOf("multi-provider"),
+					idOf("multi-second"),
+					idOf("unready-provider"),
+				].sort();
+				expect(active.sort()).toEqual(expected);
+				expect(authorized.sort()).toEqual(expected);
+				expect(providers.map(({ slug }) => slug).sort()).toEqual([
+					"multi-provider",
+					"multi-retired",
+					"multi-second",
+					"private-provider",
+					"rootless-provider",
+					"unready-provider",
+				]);
 			}),
 		);
 	});
