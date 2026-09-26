@@ -1,5 +1,6 @@
 import { Layer } from "effect";
 
+import { ImpersonationSessions } from "#modules/auth/impersonation-sessions";
 import { DefinitionRepository } from "#modules/definition-registry/repository";
 import { EntitiesServiceRuntimeLive } from "#modules/entities/layer";
 import { TranslationsServiceLive } from "#modules/entity-translation/layer";
@@ -41,7 +42,7 @@ export const InterestServicesLive = Layer.mergeAll(
 	InterestService.layer.pipe(
 		Layer.provide(Layer.merge(EntityInterestStateLive, InterestReconcilerLive)),
 	),
-	EntityInterestTicketService.layer,
+	EntityInterestTicketService.layer.pipe(Layer.provideMerge(ImpersonationSessions.layer)),
 	EntityInterestProgressionLive,
 	EntityInterestSubscriber.layer.pipe(
 		Layer.provide(Layer.merge(EntityInterestStateLive, EntityInterestProgressionLive)),
