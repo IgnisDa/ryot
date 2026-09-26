@@ -1,5 +1,5 @@
 import { expect, layer } from "@effect/vitest";
-import { BadRequest, DbError } from "@ryot-app/contract/errors";
+import { DbError } from "@ryot-app/contract/errors";
 import type { PluginSignalAudiencePolicy } from "@ryot-app/contract/modules/plugins/manifest";
 import { AutomationExecutionId, EntityId, UserId } from "@ryot-app/contract/schema/brands";
 import { eq } from "drizzle-orm";
@@ -14,7 +14,6 @@ import { DatabaseSession } from "#lib/infrastructure/db/session";
 import { assertExitFails } from "#lib/test-utils/assertions";
 import { makeAppConfigLayer } from "#lib/test-utils/effect";
 import { EntitiesRepository } from "#modules/entities/repository";
-import { EventsRepository } from "#modules/events/repository";
 import { PluginInstallationRepository } from "#modules/plugins/installation-repository";
 import {
 	installRevisionPackage,
@@ -49,23 +48,6 @@ const input = {
 	properties: { value: "first" },
 	principal: { kind: "user", userId: owner },
 } as const;
-const dependentEventAudience = (role: "entity" | "session"): PluginSignalAudiencePolicy => ({
-	role,
-	eventSchemaSlug: "changed",
-	kind: "dependent_event_owners",
-});
-const eventRow = (
-	row: Pick<
-		typeof tables.event.$inferInsert,
-		"id" | "userId" | "entityId" | "eventSchemaPluginId" | "sessionEntityId"
-	>,
-) => ({
-	...row,
-	eventSchemaSlug: "changed",
-	sessionEntityId: row.sessionEntityId ?? null,
-	occurredAt: new Date("2026-09-15T00:00:00.000Z"),
-});
-
 const privateSignalPackage = (slug: string) => {
 	const value = revisionPackage(slug);
 	return {
@@ -174,7 +156,6 @@ const setup = (
 
 const dependencies = Layer.mergeAll(
 	EntitiesRepository.layer,
-	EventsRepository.layer,
 	RelationshipsRepository.layer,
 	RelationshipSchemasRepository.layer,
 	SignalSchemasRepository.layer,
@@ -275,232 +256,6 @@ describe("Signal emission PostgreSQL", () => {
 						expect(yield* db.select().from(tables.automationTrigger)).toHaveLength(1);
 						expect(yield* db.select().from(tables.automationTriggerRecipient)).toEqual([]);
 						expect(yield* db.select().from(tables.automationRun)).toEqual([]);
-					}),
-				);
-			}),
-		);
-	});
-	layer(signalLayer())((test) => {
-		test.effect(
-			"deduplicates enabled entity-event owners and excludes disabled or session-only owners",
-			() =>
-				Effect.gen(function* () {
-					const pluginId = yield* setup(dependentEventAudience("entity"));
-					const disabledOwner = UserId.make("disabled-event-owner");
-					const otherEntityId = EntityId.make("other-event-entity");
-					yield* (yield* DatabaseSession).run((db) =>
-						Effect.gen(function* () {
-							yield* db
-								.insert(tables.user)
-								.values({
-									id: disabledOwner,
-									name: "Disabled owner",
-									email: "disabled-event-owner@example.test",
-								});
-							yield* db
-								.insert(tables.entity)
-								.values({
-									id: otherEntityId,
-									name: "Other entity",
-									entitySchemaPluginId: pluginId,
-									entitySchemaSlug: "fixture-entity",
-								});
-							yield* db
-								.insert(tables.event)
-								.values([
-									eventRow({
-										userId: owner,
-										entityId: subjectEntityId,
-										id: "entity-owner-event-one",
-										eventSchemaPluginId: pluginId,
-									}),
-									eventRow({
-										userId: owner,
-										entityId: subjectEntityId,
-										id: "entity-owner-event-two",
-										eventSchemaPluginId: pluginId,
-									}),
-									eventRow({
-										userId: recipient,
-										entityId: otherEntityId,
-										id: "session-only-event",
-										eventSchemaPluginId: pluginId,
-										sessionEntityId: subjectEntityId,
-									}),
-									eventRow({
-										userId: disabledOwner,
-										entityId: subjectEntityId,
-										id: "disabled-entity-event",
-										eventSchemaPluginId: pluginId,
-									}),
-								]);
-							yield* db
-								.update(tables.user)
-								.set({ disabledAt: DateTime.toDate(yield* DateTime.now) })
-								.where(eq(tables.user.id, disabledOwner));
-
-							const result = yield* (yield* SignalEmissionService).emitSignal({
-								...input,
-								command: command("entity-event-audience"),
-							});
-
-							expect(result.wasCreated).toBe(true);
-							expect(
-								(yield* db.select().from(tables.automationTriggerRecipient)).map(
-									({ userId }) => userId,
-								),
-							).toEqual([owner]);
-						}),
-					);
-				}),
-		);
-	});
-	layer(signalLayer())((test) => {
-		test.effect("resolves owners whose event uses the subject as its session entity", () =>
-			Effect.gen(function* () {
-				const pluginId = yield* setup(dependentEventAudience("session"));
-				const otherEntityId = EntityId.make("session-event-entity");
-				yield* (yield* DatabaseSession).run((db) =>
-					Effect.gen(function* () {
-						yield* db
-							.insert(tables.entity)
-							.values({
-								id: otherEntityId,
-								name: "Session event entity",
-								entitySchemaPluginId: pluginId,
-								entitySchemaSlug: "fixture-entity",
-							});
-						yield* db
-							.insert(tables.event)
-							.values([
-								eventRow({
-									userId: owner,
-									id: "entity-only-event",
-									entityId: subjectEntityId,
-									eventSchemaPluginId: pluginId,
-								}),
-								eventRow({
-									userId: recipient,
-									entityId: otherEntityId,
-									id: "session-owner-event",
-									eventSchemaPluginId: pluginId,
-									sessionEntityId: subjectEntityId,
-								}),
-							]);
-
-						yield* (yield* SignalEmissionService).emitSignal({
-							...input,
-							command: command("session-event-audience"),
-						});
-
-						expect(
-							(yield* db.select().from(tables.automationTriggerRecipient))
-								.map(({ userId }) => userId)
-								.sort(),
-						).toEqual([owner, recipient]);
-					}),
-				);
-			}),
-		);
-	});
-	layer(signalLayer())((test) => {
-		test.effect("does not include owners of a same-slug event from another plugin", () =>
-			Effect.gen(function* () {
-				const pluginId = yield* setup(dependentEventAudience("entity"));
-				const otherPlugin = yield* installRevisionPackage(revisionPackage("other"), recipient);
-				yield* (yield* DatabaseSession).run((db) =>
-					Effect.gen(function* () {
-						yield* db
-							.insert(tables.event)
-							.values([
-								eventRow({
-									userId: owner,
-									id: "signal-plugin-event",
-									entityId: subjectEntityId,
-									eventSchemaPluginId: pluginId,
-								}),
-								eventRow({
-									userId: recipient,
-									id: "other-plugin-event",
-									entityId: subjectEntityId,
-									eventSchemaPluginId: otherPlugin.pluginId,
-								}),
-							]);
-
-						yield* (yield* SignalEmissionService).emitSignal({
-							...input,
-							command: command("same-event-slug"),
-						});
-
-						expect(
-							(yield* db.select().from(tables.automationTriggerRecipient)).map(
-								({ userId }) => userId,
-							),
-						).toEqual([owner]);
-					}),
-				);
-			}),
-		);
-	});
-	layer(signalLayer())((test) => {
-		test.effect("requires a subject for dependent-event audiences", () =>
-			Effect.gen(function* () {
-				yield* setup(dependentEventAudience("entity"));
-				const service = yield* SignalEmissionService;
-				assertExitFails(
-					yield* service
-						.emitSignal({
-							principal: input.principal,
-							schemaSlug: input.schemaSlug,
-							properties: input.properties,
-							command: command("event-audience-without-subject"),
-						})
-						.pipe(Effect.exit),
-					new BadRequest({ message: "Dependent-event-owners audience requires a subject entity" }),
-				);
-			}),
-		);
-	});
-	layer(signalLayer())((test) => {
-		test.effect("replays the recipient snapshot after dependent event ownership is removed", () =>
-			Effect.gen(function* () {
-				const pluginId = yield* setup(dependentEventAudience("entity"));
-				const service = yield* SignalEmissionService;
-				yield* (yield* DatabaseSession).run((db) =>
-					Effect.gen(function* () {
-						yield* db
-							.insert(tables.event)
-							.values([
-								eventRow({
-									userId: owner,
-									id: "replay-owner-event",
-									entityId: subjectEntityId,
-									eventSchemaPluginId: pluginId,
-								}),
-								eventRow({
-									userId: recipient,
-									entityId: subjectEntityId,
-									id: "replay-recipient-event",
-									eventSchemaPluginId: pluginId,
-								}),
-							]);
-						const signalInput = { ...input, command: command("event-audience-replay") };
-						const first = yield* service.emitSignal(signalInput);
-						expect(
-							(yield* db.select().from(tables.automationTriggerRecipient))
-								.map(({ userId }) => userId)
-								.sort(),
-						).toEqual([owner, recipient]);
-
-						yield* db.delete(tables.event);
-
-						expect(yield* service.emitSignal(signalInput)).toEqual({ ...first, wasCreated: false });
-						expect(
-							(yield* db.select().from(tables.automationTriggerRecipient))
-								.map(({ userId }) => userId)
-								.sort(),
-						).toEqual([owner, recipient]);
-						expect(yield* db.select().from(tables.automationRun)).toHaveLength(2);
 					}),
 				);
 			}),

@@ -250,35 +250,6 @@ export class EventsRepository extends Context.Service<EventsRepository>()("Event
 				return rows.map((row) => EventId.make(row.id));
 			},
 		);
-		const listEnabledOwnersForSubject = Effect.fn("EventsRepository.listEnabledOwnersForSubject")(
-			function* (input: {
-				subjectEntityId: EntityId;
-				role: "entity" | "session";
-				eventSchemaSlug: EventSchemaSlug;
-				eventSchemaPluginId: string | null;
-			}) {
-				const rows = yield* session.run((db) =>
-					db
-						.selectDistinct({ userId: schema.event.userId })
-						.from(schema.event)
-						.innerJoin(schema.user, eq(schema.user.id, schema.event.userId))
-						.where(
-							and(
-								isNull(schema.user.disabledAt),
-								input.role === "entity"
-									? eq(schema.event.entityId, input.subjectEntityId)
-									: eq(schema.event.sessionEntityId, input.subjectEntityId),
-								eq(schema.event.eventSchemaSlug, input.eventSchemaSlug),
-								input.eventSchemaPluginId === null
-									? isNull(schema.event.eventSchemaPluginId)
-									: eq(schema.event.eventSchemaPluginId, input.eventSchemaPluginId),
-							),
-						)
-						.orderBy(asc(schema.event.userId)),
-				);
-				return rows.map((row) => UserId.make(row.userId));
-			},
-		);
 		const listEventIdentitiesForEntities = Effect.fn(
 			"EventsRepository.listEventIdentitiesForEntities",
 		)(function* (entityIds: ReadonlyArray<EntityId>) {
@@ -591,7 +562,6 @@ export class EventsRepository extends Context.Service<EventsRepository>()("Event
 			updatePreparedEvent,
 			listUserEventsForBackup,
 			listUserEventIdsForEntity,
-			listEnabledOwnersForSubject,
 			updateEventEntityReferences,
 			listEventIdentitiesForEntities,
 		};

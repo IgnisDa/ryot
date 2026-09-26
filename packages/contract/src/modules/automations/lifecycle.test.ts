@@ -4,7 +4,6 @@ import { describe, expect, it } from "vitest";
 import {
 	AutomationCausation,
 	AutomationAfterInputProjection,
-	AutomationEntityRequestPayload,
 	AutomationInput,
 	AutomationPolicyInputProjection,
 	AutomationPolicyInput,
@@ -63,57 +62,6 @@ const drafts = [
 ];
 
 describe("lifecycle payload boundaries", () => {
-	it("requires canonical dependent-event summaries only on entity update requests", () => {
-		const before = {
-			...drafts[0]?.draft,
-			id: "entity-1",
-			createdAt: timestamp,
-			updatedAt: timestamp,
-		};
-		const dependentEvents = [
-			{ role: "entity", eventSchemaPluginId: null, eventSchemaSlug: "progress" },
-			{ role: "session", eventSchemaPluginId: null, eventSchemaSlug: "progress" },
-			{ role: "entity", eventSchemaSlug: "a-progress", eventSchemaPluginId: "plugin-a" },
-			{ role: "entity", eventSchemaSlug: "b-progress", eventSchemaPluginId: "plugin-a" },
-			{ role: "entity", eventSchemaSlug: "progress", eventSchemaPluginId: "plugin-b" },
-		];
-		const update = {
-			before,
-			dependentEvents,
-			resource: "entity",
-			category: "request",
-			operation: "update",
-			draft: drafts[0]?.draft,
-		};
-		expect(Schema.decodeUnknownSync(AutomationEntityRequestPayload)(update)).toEqual(update);
-		expect(() =>
-			Schema.decodeUnknownSync(AutomationEntityRequestPayload)({
-				...update,
-				dependentEvents: undefined,
-			}),
-		).toThrow();
-		for (const invalid of [
-			[...dependentEvents, dependentEvents[0]],
-			[dependentEvents[1], dependentEvents[0], ...dependentEvents.slice(2)],
-			[{ ...dependentEvents[0], extra: true }],
-		]) {
-			expect(() =>
-				Schema.decodeUnknownSync(AutomationEntityRequestPayload)({
-					...update,
-					dependentEvents: invalid,
-				}),
-			).toThrow();
-		}
-		expect(
-			Schema.decodeUnknownSync(AutomationEntityRequestPayload)({
-				resource: "entity",
-				category: "request",
-				operation: "create",
-				draft: drafts[0]?.draft,
-			}),
-		).toMatchObject({ operation: "create" });
-	});
-
 	it("records pinned run attribution without permitting delayed policy attempts", () => {
 		const run = {
 			id: "run-1",
@@ -448,7 +396,6 @@ describe("lifecycle payload boundaries", () => {
 			resource: "entity",
 			category: "request",
 			operation: "update",
-			dependentEvents: [],
 			changedProperties: ["count"],
 			draft: { ...drafts[0]?.draft, properties: { projected: true } },
 		};
@@ -483,14 +430,7 @@ describe("lifecycle payload boundaries", () => {
 			const after = { ...before, properties: { changed: true } };
 			for (const payload of [
 				{ draft, resource, category: "request", operation: "create" },
-				{
-					draft,
-					before,
-					resource,
-					category: "request",
-					operation: "update",
-					...(resource === "entity" ? { dependentEvents: [] } : {}),
-				},
+				{ draft, before, resource, category: "request", operation: "update" },
 				{ resource, draft: before, category: "request", operation: "delete" },
 				{ after, resource, category: "change", operation: "create" },
 				{ after, before, resource, category: "change", operation: "update" },

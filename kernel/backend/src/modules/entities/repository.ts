@@ -1,10 +1,7 @@
 import { DbError } from "@ryot-app/contract/errors";
-import type { AutomationEntityEventDependency } from "@ryot-app/contract/modules/automations/lifecycle";
 import {
 	EntityId,
 	EntitySchemaSlug,
-	EventSchemaSlug,
-	PluginId,
 	type SandboxProviderId,
 	UserId,
 } from "@ryot-app/contract/schema/brands";
@@ -141,14 +138,6 @@ const entitySchemaPluginWhere = (pluginId: string | null | undefined) =>
 const providerWhere = (providerId: SandboxProviderId | null | undefined) =>
 	providerId == null ? isNull(schema.entity.providerId) : eq(schema.entity.providerId, providerId);
 
-const compareEventDependencies = (
-	left: AutomationEntityEventDependency,
-	right: AutomationEntityEventDependency,
-) =>
-	(left.eventSchemaPluginId ?? "").localeCompare(right.eventSchemaPluginId ?? "") ||
-	left.eventSchemaSlug.localeCompare(right.eventSchemaSlug) ||
-	left.role.localeCompare(right.role);
-
 type FindEntityByExternalIdInput = {
 	externalId: string;
 	providerId: SandboxProviderId;
@@ -274,46 +263,6 @@ export class EntitiesRepository extends Context.Service<EntitiesRepository>()(
 					}));
 				},
 			);
-			const listEventDependencies = Effect.fn("EntitiesRepository.listEventDependencies")(
-				function* (entityId: EntityId) {
-					const [entityRows, sessionRows] = yield* Effect.all([
-						session.run((db) =>
-							db
-								.selectDistinct({
-									eventSchemaSlug: schema.event.eventSchemaSlug,
-									eventSchemaPluginId: schema.event.eventSchemaPluginId,
-								})
-								.from(schema.event)
-								.where(eq(schema.event.entityId, entityId)),
-						),
-						session.run((db) =>
-							db
-								.selectDistinct({
-									eventSchemaSlug: schema.event.eventSchemaSlug,
-									eventSchemaPluginId: schema.event.eventSchemaPluginId,
-								})
-								.from(schema.event)
-								.where(eq(schema.event.sessionEntityId, entityId)),
-						),
-					]);
-					const toDependencies = (
-						rows: typeof entityRows,
-						role: AutomationEntityEventDependency["role"],
-					) =>
-						rows.map((row) => ({
-							role,
-							eventSchemaSlug: EventSchemaSlug.make(row.eventSchemaSlug),
-							eventSchemaPluginId:
-								row.eventSchemaPluginId === null ? null : PluginId.make(row.eventSchemaPluginId),
-						}));
-
-					return [
-						...toDependencies(entityRows, "entity"),
-						...toDependencies(sessionRows, "session"),
-					].sort(compareEventDependencies);
-				},
-			);
-
 			const listUserEntitiesForBackup = Effect.fn("EntitiesRepository.listUserEntitiesForBackup")(
 				function* (userId: UserId) {
 					const rows = yield* session.run((db) =>
@@ -934,7 +883,6 @@ export class EntitiesRepository extends Context.Service<EntitiesRepository>()(
 				lockSchemaCatalog,
 				findGlobalEntityById,
 				getEntityScopeForUser,
-				listEventDependencies,
 				findEntityByExternalId,
 				findEntitySchemaForUser,
 				listEntityReferencesByIds,
