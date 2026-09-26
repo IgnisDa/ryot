@@ -201,6 +201,12 @@ export const migrateLegacyTables = Effect.gen(function* () {
 	const libraryEntitySchema = entitySchema(mediaPluginId, "media-library");
 	const memberOfRelationshipSchema = relationshipSchema(null, "member-of");
 	const inLibraryRelationshipSchema = relationshipSchema(mediaPluginId, "in-media-library");
+	const fitnessLibraryEntitySchema = entitySchema(fitnessPluginId, "fitness-library");
+	const inFitnessLibraryRelationshipSchema = relationshipSchema(
+		fitnessPluginId,
+		"in-fitness-library",
+	);
+	const exerciseEntitySchema = entitySchema(fitnessPluginId, "exercise");
 	for (const slug of legacySavedViewTargets.kernel) {
 		requireSchema(resolution.savedViews, null, slug, "saved view");
 	}
@@ -354,7 +360,16 @@ export const migrateLegacyTables = Effect.gen(function* () {
 		fitnessPluginId,
 	);
 	yield* withReservedConnection((connection) =>
-		connection.executeRaw(buildLegacyUserLibraryMigrationSql(libraryEntitySchema), []),
+		Effect.gen(function* () {
+			yield* connection.executeRaw(
+				buildLegacyUserLibraryMigrationSql(libraryEntitySchema, "Media Library"),
+				[],
+			);
+			yield* connection.executeRaw(
+				buildLegacyUserLibraryMigrationSql(fitnessLibraryEntitySchema, "Fitness Library"),
+				[],
+			);
+		}),
 	);
 	reportSequence = yield* withReservedConnection((connection) =>
 		logReportRows(connection, reportSequence),
@@ -495,6 +510,14 @@ export const migrateLegacyTables = Effect.gen(function* () {
 					libraryEntitySchema,
 					inLibraryRelationshipSchema,
 					libraryEligibleEntitySchemaSlugs,
+				}),
+				[],
+			);
+			yield* connection.executeRaw(
+				buildUserToEntityInLibraryMigrationSql({
+					libraryEntitySchema: fitnessLibraryEntitySchema,
+					libraryEligibleEntitySchemaSlugs: [exerciseEntitySchema.slug],
+					inLibraryRelationshipSchema: inFitnessLibraryRelationshipSchema,
 				}),
 				[],
 			);
