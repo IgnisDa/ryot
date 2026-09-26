@@ -1,13 +1,16 @@
 import type { DbError } from "@ryot-app/contract/errors";
-import type { PluginHttpRateLimit } from "@ryot-app/contract/modules/plugins/manifest";
 import { Context, Effect, Layer, Result } from "effect";
 
-import { buildHttpRateLimitLookups, canonicalOrigin } from "./http-rate-limits";
+import {
+	buildHttpRateLimitLookups,
+	canonicalOrigin,
+	type HttpRateLimitPolicyDeclaration,
+} from "./http-rate-limits";
 import { PluginRepository } from "./repository";
 import { PluginValidationError } from "./validation";
 
 export type HttpRateLimitAuthorityResolution =
-	| Readonly<{ hash: string; matched: true; origin: string; declaration: PluginHttpRateLimit }>
+	| Readonly<{ hash: string; matched: true; origin: string; declaration: HttpRateLimitPolicyDeclaration }>
 	| Readonly<{
 			matched: false;
 			origin?: string;
