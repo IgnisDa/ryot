@@ -6,7 +6,6 @@ import * as schema from "#lib/infrastructure/db/schema/tables/combined";
 import { DatabaseSession } from "#lib/infrastructure/db/session";
 import { generateUserAvatar } from "#modules/auth/user-avatar";
 import { NotificationSubscriptionsService } from "#modules/automations/notification-subscriptions-service";
-import { ClientSurfaceMaterializer } from "#modules/plugins/client-surface-materializer";
 import { PluginInstallationService } from "#modules/plugins/installation-service";
 
 import { PluginUserBootstrapDispatcher } from "./plugin-dispatch";
@@ -17,7 +16,6 @@ export class UserBootstrap extends Context.Service<UserBootstrap>()("UserBootstr
 		const pluginBootstrap = yield* PluginUserBootstrapDispatcher;
 		const pluginInstallations = yield* PluginInstallationService;
 		const notificationSubscriptions = yield* NotificationSubscriptionsService;
-		const materializer = yield* ClientSurfaceMaterializer;
 
 		const acquireBootstrapLock = (userId: string) =>
 			session.run((db) =>
@@ -77,7 +75,6 @@ export class UserBootstrap extends Context.Service<UserBootstrap>()("UserBootstr
 			}
 			yield* pluginInstallations.provisionSystemInstallations(user);
 			yield* pluginBootstrap.dispatchAll(user);
-			yield* materializer.materializeUserCompositions(user);
 			yield* session.transaction(
 				Effect.gen(function* () {
 					yield* acquireBootstrapLock(userId);

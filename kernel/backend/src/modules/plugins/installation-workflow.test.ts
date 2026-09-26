@@ -7,7 +7,6 @@ import { databaseLayer, makeWorkflowActivityEngine } from "#lib/test-utils/effec
 import { SandboxExecutionService } from "#modules/sandbox/service";
 
 import { PluginCatalogInvalidator } from "./catalog-events";
-import { ClientSurfaceMaterializer } from "./client-surface-materializer";
 import { PluginInstallationRepository } from "./installation-repository";
 import {
 	pluginInstallationBootstrapExecutionId,
@@ -72,15 +71,11 @@ const workflowLayer = (input: {
 			const instance = WorkflowInstance.initial(PluginInstallationWorkflow, installationId);
 			return Context.make(WorkflowInstance, instance).pipe(
 				Context.add(WorkflowEngine, makeWorkflowActivityEngine(instance)),
-				Context.add(ClientSurfaceMaterializer, {
-					materializeRenderer: () => Effect.void,
-					assertUserCompositions: () => Effect.void,
-					materializeSystemCompositions: Effect.void,
-					materializeUserCompositions: () => Effect.void,
-					materializePendingInstallation: (_owner, id) => pushOrder(`build:${id}`),
-				}),
 				Context.add(PluginCatalogInvalidator, {
 					all: Effect.void,
+					recordAll: Effect.void,
+					recordUser: () => Effect.void,
+					deliverPending: () => Effect.void,
 					user: () => pushOrder("invalidate"),
 				}),
 				Context.add(FakeInstallationWorkflow, {
@@ -167,7 +162,7 @@ layer(workflowLayer({ bootstrap: resolved() }))((test) => {
 		Effect.gen(function* () {
 			const fake = yield* FakeInstallationWorkflow;
 			yield* runWorkflow;
-			expect(yield* fake.order).toEqual([`build:${installationId}`, "health:ready", "invalidate"]);
+			expect(yield* fake.order).toEqual(["health:ready", "invalidate"]);
 			expect(yield* fake.executions).toEqual([
 				{
 					scriptId: "first-id",

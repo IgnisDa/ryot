@@ -1,10 +1,9 @@
 # Client pages and compositions
 
 Client-page preparation resolves a saved view, plugin route, or entity against the current authorized
-catalog. It looks up an already materialized composition and issues a reusable document grant; it
-does not compile code or rebuild the composition on navigation. System compositions are materialized
-at boot, and affected user compositions are materialized when their inputs change. A separate
-freshness check compares a prepared page with current catalog state.
+catalog. It reuses an immutable composition by key, materializes it on a miss, and issues a reusable
+document grant. A hit does not inspect artifacts or rebuild the manifest. Preparation does not
+compile plugin source. A separate freshness check compares a prepared page with current catalog state.
 
 Saved-view preparation reads `user_saved_view_effective`: custom views are user-owned rows,
 while built-in content comes from current definitions and optional per-user visibility and

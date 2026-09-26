@@ -37,7 +37,6 @@ import {
 import {
 	ClientDocumentGrantServiceLive,
 	ClientPagesServiceLive,
-	ClientSurfaceMaterializerLive,
 } from "#modules/client-pages/layer";
 import { ClientPagesRepository } from "#modules/client-pages/repository";
 import {
@@ -75,7 +74,7 @@ import {
 	NotificationDeliveryWorkflowDefinitionsProvidedLive,
 	NotificationsServiceLive,
 } from "#modules/notifications/layer";
-import { PluginCatalogHub } from "#modules/plugins/catalog-events";
+import { PluginCatalogHub, PluginCatalogInvalidatorLive } from "#modules/plugins/catalog-events";
 import { PluginConfigEncryptionKey } from "#modules/plugins/config-encryption-key";
 import { PluginInstallationSweepDispatcherLive } from "#modules/plugins/installation-sweep";
 import { PluginInstallationWorkflowDefinitionsLive } from "#modules/plugins/installation-workflow";
@@ -184,6 +183,7 @@ const ServicesLive = Layer.mergeAll(
 	NotificationsServiceLive,
 	OperationsServiceLive,
 	PluginIngestionServiceLive,
+	PluginCatalogInvalidatorLive,
 	PluginInvalidationSubscriberLive,
 	PluginInstallationRuntimeLive,
 	ProviderEntitySearchServiceLive,
@@ -289,7 +289,6 @@ export const MigrationInfrastructureLive = Layer.mergeAll(
 	PluginInstallationMigrationLive,
 	IntegrationsRepository.layer,
 ).pipe(
-	Layer.provideMerge(ClientSurfaceMaterializerLive),
 	Layer.provideMerge(PgClientLive),
 	// Legacy migration and system ingestion consume these repositories directly.
 	Layer.provideMerge(
@@ -319,10 +318,7 @@ const RuntimeWorkflowOperationsLive = Layer.mergeAll(
 );
 
 export const RuntimeDependenciesLive = Layer.provideMerge(
-	Layer.provideMerge(
-		Layer.provideMerge(RuntimeWorkflowOperationsLive, ServicesWithTestSupportLive),
-		ClientSurfaceMaterializerLive,
-	),
+	Layer.provideMerge(RuntimeWorkflowOperationsLive, ServicesWithTestSupportLive),
 	ApplicationInfrastructureLive,
 );
 

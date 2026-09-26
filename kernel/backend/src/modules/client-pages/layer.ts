@@ -1,4 +1,4 @@
-import { Effect, Layer } from "effect";
+import { Layer } from "effect";
 
 import { ReusableCapabilityGrantStoreLive } from "#lib/infrastructure/reusable-capability-grants";
 import { ImageClientArtifacts } from "#modules/client-artifacts/image-artifacts";
@@ -6,8 +6,6 @@ import { ClientArtifactStoreLive } from "#modules/client-artifacts/layer";
 import { ClientArtifactsRepository } from "#modules/client-artifacts/repository";
 import { DefinitionRepository } from "#modules/definition-registry/repository";
 import { EntitiesRepository } from "#modules/entities/repository";
-import { PluginCatalogInvalidatorLive } from "#modules/plugins/catalog-events";
-import { ClientSurfaceMaterializer } from "#modules/plugins/client-surface-materializer";
 import { PluginRepository } from "#modules/plugins/repository";
 import { PluginRuntimeResolverLive } from "#modules/plugins/runtime-resolver";
 
@@ -38,27 +36,9 @@ export const ClientPagesServiceLive = ClientPagesService.layer.pipe(
 			composition,
 			ClientDocumentGrantServiceLive,
 			ImageClientArtifacts.layer,
-			PluginCatalogInvalidatorLive,
 			PluginRepository.layer.pipe(Layer.provide(ClientArtifactsRepository.layer)),
 			PluginRuntimeResolverLive,
 		),
 	),
 	Layer.provide(DefinitionRepository.layer),
 );
-
-export const ClientSurfaceMaterializerLive = Layer.effect(
-	ClientSurfaceMaterializer,
-	Effect.gen(function* () {
-		const pages = yield* ClientPagesService;
-		return {
-			materializeSystemCompositions: pages.materializeSystemCompositions().pipe(Effect.orDie),
-			assertUserCompositions: (userId) => pages.assertUserCompositions(userId).pipe(Effect.orDie),
-			materializeUserCompositions: (userId) =>
-				pages.materializeUserCompositions(userId).pipe(Effect.orDie),
-			materializeRenderer: (userId, renderer) =>
-				pages.materializeRenderer(userId, renderer).pipe(Effect.orDie),
-			materializePendingInstallation: (userId, installationId) =>
-				pages.materializePendingInstallation(userId, installationId).pipe(Effect.orDie),
-		};
-	}),
-).pipe(Layer.provide(ClientPagesServiceLive));
