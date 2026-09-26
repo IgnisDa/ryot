@@ -12,6 +12,7 @@ import { EntitiesGroup } from "./modules/entities/contract";
 import { InterestGroup } from "./modules/entity-interest/contract";
 import { EventsGroup } from "./modules/events/contract";
 import { GodModeGroup } from "./modules/god-mode/contract";
+import { ServerLogsGroup } from "./modules/god-mode/logs";
 import { ImportsGroup } from "./modules/imports/contract";
 import { IntegrationsGroup } from "./modules/integrations/contract";
 import { NotificationsGroup } from "./modules/notifications/contract";
@@ -46,6 +47,7 @@ export type AppGroups =
 	| typeof ClientDocumentsGroup
 	| typeof ClientAssetsGroup
 	| typeof GodModeGroup
+	| typeof ServerLogsGroup
 	| typeof TestSupportGroup
 	| typeof ImportsGroup
 	| typeof IntegrationsGroup
@@ -75,6 +77,7 @@ export const AppContract: HttpApi.HttpApi<"ryot", AppGroups> = HttpApi.make("ryo
 	.add(ClientDocumentsGroup)
 	.add(ClientAssetsGroup)
 	.add(GodModeGroup)
+	.add(ServerLogsGroup)
 	.add(TestSupportGroup)
 	.add(ImportsGroup)
 	.add(IntegrationsGroup)

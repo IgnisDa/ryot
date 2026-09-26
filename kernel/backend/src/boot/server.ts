@@ -28,7 +28,7 @@ import { EntitiesRoutesLive } from "#modules/entities/routes";
 import { InterestRoutesLive } from "#modules/entity-interest/routes";
 import { InterestSocketRouteLive } from "#modules/entity-interest/socket-route";
 import { EventsRoutesLive } from "#modules/events/routes";
-import { GodModeRoutesLive } from "#modules/god-mode/routes";
+import { GodModeRoutesLive, ServerLogsRoutesLive } from "#modules/god-mode/routes";
 import { ImportsRoutesLive } from "#modules/imports/routes";
 import { IntegrationsRoutesLive } from "#modules/integrations/routes";
 import { NotificationsRoutesLive } from "#modules/notifications/routes";
@@ -111,7 +111,14 @@ const ApiLive = HttpApiBuilder.layer(AppContract).pipe(
 			ClientAssetsRoutesLive,
 		),
 	),
-	Layer.provide(Layer.mergeAll(GodModeRoutesLive, AdminRyotQLRoutesLive, TestSupportRoutesLive)),
+	Layer.provide(
+		Layer.mergeAll(
+			GodModeRoutesLive,
+			ServerLogsRoutesLive,
+			AdminRyotQLRoutesLive,
+			TestSupportRoutesLive,
+		),
+	),
 	Layer.provide(ImportsRoutesLive),
 	Layer.provide(
 		Layer.mergeAll(IntegrationsRoutesLive, NotificationsRoutesLive, OAuthConnectionsRoutesLive),
