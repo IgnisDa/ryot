@@ -70,28 +70,20 @@ impl CpuLease {
             }
         });
         let mut state = self.entry.state();
-        match permit {
-            Some(permit)
-                if !state.cancelled
-                    && state.limit.is_none()
-                    && state.terminating_since.is_none() =>
-            {
-                state.sync_waiting_since = None;
-                state.polling_since = Some(Instant::now());
-                drop(state);
-                self.install(permit);
-                true
-            }
-            Some(permit) => {
-                state.sync_waiting_since = None;
-                drop(permit);
-                false
-            }
-            None => {
-                state.sync_waiting_since = None;
-                false
-            }
-        }
+        state.sync_waiting_since = None;
+        let Some(permit) = permit.filter(|_| {
+            !state.cancelled && state.limit.is_none() && state.terminating_since.is_none()
+        }) else {
+            return false;
+        };
+        drop(state);
+        self.install(permit);
+        self.start_polling();
+        true
+    }
+
+    fn start_polling(&self) {
+        self.entry.state().polling_since = Some(Instant::now());
     }
 }
 
@@ -130,7 +122,7 @@ impl<F: Future> Future for Admitted<F> {
                 Poll::Pending => return Poll::Pending,
             }
         }
-        self.lease.entry.state().polling_since = Some(Instant::now());
+        self.lease.start_polling();
         let result = self.inner.as_mut().poll(context);
         self.lease.release_polling();
         result
@@ -192,12 +184,7 @@ mod tests {
         let slots = Arc::new(Semaphore::new(1));
         let entry = Arc::new(Entry::new(
             "cancelled-reacquisition".to_owned(),
-            Limits {
-                cpu_ms: 1,
-                heap_bytes: 1,
-                deadline_ms: 1,
-                external_bytes: 1,
-            },
+            Limits::minimal(),
         ));
         let lease = CpuLease::new(entry.clone(), slots.clone());
         lease.install(slots.clone().try_acquire_owned().expect("CPU permit"));
