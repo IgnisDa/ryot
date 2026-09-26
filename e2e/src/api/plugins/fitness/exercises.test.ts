@@ -1,3 +1,7 @@
+import {
+	builtinSavedViewReference,
+	definitionOwner,
+} from "@ryot-app/contract/modules/plugins/references";
 import { exerciseListRecipe } from "@ryot-app/fitness-plugin/query-recipes";
 import { Effect } from "effect";
 
@@ -84,7 +88,7 @@ describe("Exercises E2E", () => {
 				isBuiltin: true,
 				name: "All Exercises",
 				renderer: { kind: "kernel", name: "entity-browser" },
-				reference: { pluginId, kind: "plugin", slug: "all-exercises" },
+				reference: builtinSavedViewReference(pluginId, "all-exercises"),
 				settings: {
 					pageSize: 20,
 					defaultLayout: "grid",
@@ -100,7 +104,7 @@ describe("Exercises E2E", () => {
 					],
 					addAction: {
 						type: "provider-search",
-						schema: { slug: "exercise", owner: { pluginId, kind: "plugin" } },
+						schema: { slug: "exercise", owner: definitionOwner(pluginId) },
 					},
 				},
 			});
@@ -144,9 +148,7 @@ describe("Exercises E2E", () => {
 									expect.objectContaining({
 										right: { type: "literal", value: "in-fitness-library" },
 									}),
-									expect.objectContaining({
-										right: { type: "literal", value: "fitness-library" },
-									}),
+									expect.objectContaining({ right: { type: "literal", value: "fitness-library" } }),
 								]),
 							}),
 						}),
