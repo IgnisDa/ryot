@@ -23,12 +23,8 @@ import {
 	type ImportSourceState,
 } from "#lib/infrastructure/redis";
 import { SandboxArtifactStore } from "#lib/infrastructure/sandbox-runtime/artifacts";
-import {
-	databaseLayer,
-	makeAppConfigLayer,
-	makeRedisService,
-	makeWorkflowEngine,
-} from "#lib/test-utils/effect";
+import { makeAppConfigLayer, makeRedisService, makeWorkflowEngine } from "#lib/test-utils/effect";
+import { mutationAdmissionTestLayer } from "#lib/test-utils/mutation-admission";
 import { SandboxExecutionService } from "#modules/sandbox/service";
 
 import { ImportRunFailuresService } from "./failure-service";
@@ -47,6 +43,7 @@ const command = rootLifecycleCommand({
 	executionId: AutomationExecutionId.make("run-1"),
 	initiator: { kind: "user", id: UserId.make("user-1") },
 	occurredAt: IsoUtcString.make("2026-01-01T00:00:00.000Z"),
+	accountGeneration: { userId: UserId.make("user-1"), token: "test-account-generation" },
 });
 const payload = {
 	command,
@@ -160,7 +157,7 @@ const makeHarness = (
 					...(grants.namedArtifactPaths ? { namedArtifactPaths: grants.namedArtifactPaths } : {}),
 				}),
 		}),
-		databaseLayer,
+		mutationAdmissionTestLayer,
 		BunServices.layer,
 		ImportSourceStateStore.layer.pipe(
 			Layer.provide(
@@ -195,12 +192,16 @@ layer(makeHarness())((test) => {
 				input: {
 					executionId: `${executionId}-import`,
 					pluginRevision: sourceState.pluginRevision,
-					subject: { type: "user", userId: "user-1" },
 					input: { command, source: "nu", runId: "run-1" },
 					scriptId: SandboxScriptId.make("accepted.nu-import"),
 					grants: {
 						artifactOwnerExecutionId: `${executionId}-import`,
 						namedArtifactPaths: { uploadToken: "/tmp/nu.zip" },
+					},
+					subject: {
+						type: "user",
+						userId: "user-1",
+						accountGeneration: { userId: UserId.make("user-1"), token: "test-account-generation" },
 					},
 				},
 			});

@@ -21,6 +21,7 @@ export const UserStateRoutesLive = HttpApiBuilder.group(AppContract, "userState"
 					source: "api",
 					itemIdentity: "user-state:clear",
 					initiator: { id: user.id, kind: "user" },
+					accountGeneration: user.accountGeneration,
 					executionId: AutomationExecutionId.make(generateId()),
 					occurredAt: IsoUtcString.make((yield* DateTime.nowAsDate).toISOString()),
 				});
@@ -35,6 +36,7 @@ export const UserStateRoutesLive = HttpApiBuilder.group(AppContract, "userState"
 					source: "api",
 					itemIdentity: "user-state:merge",
 					initiator: { id: user.id, kind: "user" },
+					accountGeneration: user.accountGeneration,
 					executionId: AutomationExecutionId.make(generateId()),
 					occurredAt: IsoUtcString.make((yield* DateTime.nowAsDate).toISOString()),
 				});

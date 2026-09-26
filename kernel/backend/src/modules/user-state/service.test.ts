@@ -22,7 +22,12 @@ import { IsoUtcString } from "@ryot-app/contract/schema/utils";
 import { Context, Effect, Layer, Ref, Schema } from "effect";
 import { assert } from "vitest";
 
-import { LifecyclePlanner, type LifecyclePlan } from "#lib/domain/lifecycle";
+import {
+	LifecyclePlanner,
+	toLifecycleDispatchPlan,
+	type LifecyclePlan,
+} from "#lib/domain/lifecycle";
+import { lifecycleBatchTriggers } from "#lib/domain/lifecycle-batch";
 import { rootLifecycleCommand } from "#lib/domain/lifecycle-command";
 import { LifecycleExecution } from "#lib/domain/lifecycle-execution";
 import { DatabaseSession } from "#lib/infrastructure/db/session";
@@ -42,6 +47,7 @@ import {
 	type PreparedEventDelete,
 	type PreparedEventUpdate,
 } from "#modules/events/service";
+import { mutationReceiptIdentity, MutationReceipts } from "#modules/mutations/receipts";
 import type {
 	PreparedUserRelationshipCreate,
 	PreparedUserRelationshipDelete,
@@ -57,12 +63,14 @@ const user = {
 	email: "user@example.com",
 	id: UserId.make("user-id"),
 	preferences: { language: null, allowNsfw: false, disableIntegrations: false },
+	accountGeneration: { userId: UserId.make("user-id"), token: "test-account-generation" },
 } satisfies CurrentUserValue;
 
 const command = rootLifecycleCommand({
 	source: "api",
 	itemIdentity: "user-state",
 	initiator: { id: user.id, kind: "user" },
+	accountGeneration: user.accountGeneration,
 	occurredAt: IsoUtcString.make("2026-01-01T00:00:00.000Z"),
 	executionId: AutomationExecutionId.make("user-state-execution"),
 });
@@ -178,6 +186,19 @@ const makeServiceLayer = (
 				options.eventsService ?? makeEventsService(),
 				options.relationshipsRepository ?? makeRelationshipsRepository(),
 				options.relationshipsService ?? makeRelationshipsService(),
+				Layer.mock(MutationReceipts)({
+					insert: () => Effect.void,
+					peek: () => Effect.succeed(null),
+					lookup: () => Effect.succeed(null),
+					batchIdentity: (input) =>
+						mutationReceiptIdentity({
+							scopeUserId: null,
+							input: input.identity,
+							command: input.command,
+							ownerUserId: input.ownerUserId,
+							commandKind: `batch:${input.resource}`,
+						}),
+				}),
 			),
 		),
 	);
@@ -275,7 +296,7 @@ const deletedEvents = recordingServiceLayer<EventId>(({ record }) => ({
 	eventsService: makeEventsService({
 		prepareDelete: (input) => record(input.eventId).pipe(Effect.as(preparedEventDelete)),
 		persistPreparedDelete: () =>
-			Effect.succeed({ plans: [], result: EventId.make("deleted-event") }),
+			Effect.succeed({ dispatch: [], result: EventId.make("deleted-event") }),
 	}),
 }));
 
@@ -371,14 +392,6 @@ const clearPhases = recordingServiceLayer<ClearObservation>(({ record, session, 
 					Effect.as([eventWarning, relationshipWarning]),
 				),
 		}),
-		planner: Layer.mock(LifecyclePlanner)(
-			withLifecycleBatchPlanning({
-				plan: ({ trigger }) =>
-					record({ trigger, kind: "batch" }).pipe(
-						Effect.as({ trigger, runs: [], policies: [], wasCreated: true }),
-					),
-			}),
-		),
 		relationshipsService: makeRelationshipsService({
 			prepareUserDelete: () =>
 				call("prepare:relationship").pipe(Effect.as(preparedRelationshipDelete)),
@@ -386,19 +399,10 @@ const clearPhases = recordingServiceLayer<ClearObservation>(({ record, session, 
 				Effect.gen(function* () {
 					expect(yield* session.isTransactionActive).toBe(true);
 					yield* call("persist:relationship");
-					return { plans: [relationshipPlan], result: persistedRelationship };
-				}),
-		}),
-		eventsService: makeEventsService({
-			prepareDelete: () => call("prepare:event").pipe(Effect.as(preparedEventDelete)),
-			persistPreparedDelete: () =>
-				Effect.gen(function* () {
-					expect(yield* session.isTransactionActive).toBe(true);
-					yield* call("persist:event");
-					const persisted = callsOf(yield* recorded).filter((value) => value === "persist:event");
-					const plan = eventPlans[persisted.length - 1];
-					assert(plan);
-					return { plans: [plan], result: EventId.make("event-1") };
+					return {
+						result: persistedRelationship,
+						dispatch: [toLifecycleDispatchPlan(relationshipPlan)],
+					};
 				}),
 		}),
 		relationshipsRepository: makeRelationshipsRepository({
@@ -415,6 +419,48 @@ const clearPhases = recordingServiceLayer<ClearObservation>(({ record, session, 
 						relationshipSchemaSlug: RelationshipSchemaSlug.make("relationship-schema"),
 					},
 				]),
+		}),
+		eventsService: makeEventsService({
+			prepareDelete: () => call("prepare:event").pipe(Effect.as(preparedEventDelete)),
+			persistPreparedDelete: () =>
+				Effect.gen(function* () {
+					expect(yield* session.isTransactionActive).toBe(true);
+					yield* call("persist:event");
+					const persisted = callsOf(yield* recorded).filter((value) => value === "persist:event");
+					const plan = eventPlans[persisted.length - 1];
+					assert(plan);
+					return { result: EventId.make("event-1"), dispatch: [toLifecycleDispatchPlan(plan)] };
+				}),
+		}),
+		planner: Layer.mock(LifecyclePlanner)({
+			plan: () => Effect.die("unused"),
+			prepareBatch: () => Effect.succeed({ id: "prepared", hasCandidates: true }),
+			planBatch: (input) =>
+				Effect.gen(function* () {
+					const calls = callsOf(yield* recorded);
+					const plans =
+						input.resource === "event"
+							? eventPlans.slice(0, calls.filter((value) => value === "persist:event").length)
+							: [relationshipPlan].slice(
+									0,
+									calls.filter((value) => value === "persist:relationship").length,
+								);
+					const changes = plans.flatMap(({ trigger }) => {
+						const payload = trigger.payload;
+						return payload?.category === "change" &&
+							payload.operation !== "batch" &&
+							payload.resource === input.resource
+							? [{ payload, scopeUserId: trigger.scopeUserId }]
+							: [];
+					});
+					return yield* Effect.forEach(lifecycleBatchTriggers(input, 200, changes), (trigger) =>
+						record({ trigger, kind: "batch" }).pipe(
+							Effect.as(
+								toLifecycleDispatchPlan({ trigger, runs: [], policies: [], wasCreated: true }),
+							),
+						),
+					);
+				}),
 		}),
 	};
 });
@@ -465,7 +511,7 @@ const failedPreparation = recordingServiceLayer<string>(({ record }) => ({
 	}),
 	eventsService: makeEventsService({
 		persistPreparedDelete: () =>
-			record("persist").pipe(Effect.as({ plans: [], result: EventId.make("event-1") })),
+			record("persist").pipe(Effect.as({ dispatch: [], result: EventId.make("event-1") })),
 		prepareDelete: ({ eventId }) =>
 			record(`prepare:${eventId}`).pipe(
 				Effect.andThen(
@@ -695,7 +741,9 @@ const mergeMoves = recordingServiceLayer<string>(({ record }) => ({
 	}),
 	eventsService: makeEventsService({
 		persistPreparedUpdate: () =>
-			record("persist:event").pipe(Effect.as({ plans: [], result: EventId.make("updated-event") })),
+			record("persist:event").pipe(
+				Effect.as({ dispatch: [], result: EventId.make("updated-event") }),
+			),
 		prepareUpdate: (input, item) =>
 			record(
 				`prepare:${input.eventId}:${input.mergeFrom}->${input.mergeInto}:${item.itemIdentity}`,
@@ -704,11 +752,11 @@ const mergeMoves = recordingServiceLayer<string>(({ record }) => ({
 	relationshipsService: makeRelationshipsService({
 		persistPreparedUserCreate: () =>
 			record("persist:relationship:create").pipe(
-				Effect.as({ plans: [], result: persistedRelationship }),
+				Effect.as({ dispatch: [], result: persistedRelationship }),
 			),
 		persistPreparedUserDelete: () =>
 			record("persist:relationship:delete").pipe(
-				Effect.as({ plans: [], result: persistedRelationship }),
+				Effect.as({ dispatch: [], result: persistedRelationship }),
 			),
 		prepareUserDelete: (input, item) =>
 			record(

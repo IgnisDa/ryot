@@ -29,12 +29,12 @@ import { makeWorkflowReplayJournalHostFunction } from "#lib/infrastructure/sandb
 import { makeActivity } from "#lib/infrastructure/workflow-scope";
 import { assertExitFails } from "#lib/test-utils/assertions";
 import {
-	databaseLayer,
 	makeRedisService,
 	makeWorkflowActivityEngine,
 	makeWorkflowEngine,
 	type WorkflowEngineOverrides,
 } from "#lib/test-utils/effect";
+import { mutationAdmissionTestLayer } from "#lib/test-utils/mutation-admission";
 
 import { SandboxDurableHostDispatcher } from "./durable-host-dispatcher";
 import { executeSandboxExecution, type SandboxExecutionQueuePayload } from "./durable-queues";
@@ -83,6 +83,7 @@ const automationSubject = {
 	pluginRevisionId: pluginRevision.revisionId,
 	triggerId: AutomationTriggerId.make("trigger-1"),
 	pluginConfigRevisionId: pluginRevision.configRevisionId,
+	accountGeneration: { userId: UserId.make("user-1"), token: "test-account-generation" },
 	causation: {
 		depth: 0,
 		parentRunId: null,
@@ -143,7 +144,7 @@ layer(
 			Effect.gen(function* () {
 				const calls = yield* WorkflowTestCalls;
 				return Layer.mergeAll(
-					databaseLayer,
+					mutationAdmissionTestLayer,
 					Layer.mock(SandboxPluginScriptResolver)({
 						findActiveScriptById: () => Effect.die("Pinned runs must not resolve active scripts"),
 					}),
@@ -238,7 +239,7 @@ layer(
 			Effect.gen(function* () {
 				const calls = yield* WorkflowTestCalls;
 				return Layer.mergeAll(
-					databaseLayer,
+					mutationAdmissionTestLayer,
 					Layer.mock(SandboxPluginScriptResolver)({
 						findActiveScriptById: () =>
 							Effect.die("Source-zero runs must not resolve active scripts"),
@@ -305,7 +306,7 @@ const makeProjectionRedis = () =>
 	});
 
 const controlledWorkflowDependencies = Layer.mergeAll(
-	databaseLayer,
+	mutationAdmissionTestLayer,
 	Layer.succeed(RedisService, makeProjectionRedis()),
 	Layer.mock(SandboxArtifactStore)({ retain: () => Effect.void, release: () => Effect.void }),
 	Layer.mock(SandboxPluginScriptResolver)({ findActiveScriptById: () => Effect.die("unused") }),
@@ -424,7 +425,7 @@ const hotSwapLayer = recordingLayer(
 						metadata: { capabilities: [], kind: "workflow" as const },
 					};
 		return Layer.mergeAll(
-			databaseLayer,
+			mutationAdmissionTestLayer,
 			activityEngineLayer(hotSwapExecutionId),
 			Layer.succeed(RedisService, makeRedisService({ client: redisClient })),
 			Layer.mock(SandboxArtifactStore)({ retain: () => Effect.void, release: () => Effect.void }),
@@ -579,7 +580,7 @@ layer(
 			Effect.gen(function* () {
 				const calls = yield* WorkflowTestCalls;
 				return Layer.mergeAll(
-					databaseLayer,
+					mutationAdmissionTestLayer,
 					controlledWorkflowDependencies,
 					activityEngineLayer("suspended-workflow", {
 						activityExecute: (activity) =>
@@ -667,7 +668,7 @@ layer(
 				);
 				const suspendAfterWrite = yield* Ref.make(true);
 				return Layer.mergeAll(
-					databaseLayer,
+					mutationAdmissionTestLayer,
 					Layer.succeed(RedisService, makeProjectionRedis()),
 					Layer.mock(SandboxArtifactStore)({
 						retain: () => calls.record("artifact-retains", null),
@@ -749,7 +750,14 @@ layer(
 			executionId,
 			scriptId: interruptedScriptId,
 			resolutionMode: "exact" as const,
-			subject: { type: "user" as const, userId: UserId.make("interrupted-user") },
+			subject: {
+				type: "user" as const,
+				userId: UserId.make("interrupted-user"),
+				accountGeneration: {
+					token: "test-account-generation",
+					userId: UserId.make("interrupted-user"),
+				},
+			},
 		};
 		const processReplay = (sandboxPayload: SandboxExecutionQueuePayload) =>
 			Effect.succeed({
@@ -798,7 +806,7 @@ layer(
 			Effect.gen(function* () {
 				const calls = yield* WorkflowTestCalls;
 				return Layer.mergeAll(
-					databaseLayer,
+					mutationAdmissionTestLayer,
 					controlledWorkflowDependencies,
 					activityEngineLayer("failed-workflow"),
 					Layer.mock(SandboxRepository)({
@@ -866,7 +874,7 @@ layer(
 layer(
 	withWorkflowPinning(
 		Layer.mergeAll(
-			databaseLayer,
+			mutationAdmissionTestLayer,
 			controlledWorkflowDependencies,
 			activityEngineLayer("inactive-plugin-workflow"),
 			Layer.mock(SandboxRepository)({
@@ -1062,7 +1070,7 @@ layer(
 				const calls = yield* WorkflowTestCalls;
 				const services = yield* Effect.context();
 				return Layer.mergeAll(
-					databaseLayer,
+					mutationAdmissionTestLayer,
 					Layer.mock(SandboxArtifactStore)({
 						retain: () => Effect.void,
 						release: () => Effect.void,
@@ -1181,7 +1189,7 @@ layer(
 				const allActivitiesStarted = yield* Deferred.make<void>();
 				const activeActivities = yield* Ref.make(0);
 				return Layer.mergeAll(
-					databaseLayer,
+					mutationAdmissionTestLayer,
 					controlledWorkflowDependencies,
 					activityEngineLayer("batched-workflow", {
 						execute: (_workflow, options) =>
@@ -1443,7 +1451,14 @@ layer(
 					executionId: "parent",
 					resolutionMode: "active",
 					scriptId: SandboxScriptId.make("parent-script"),
-					subject: { type: "user", userId: UserId.make("trusted-user") },
+					subject: {
+						type: "user",
+						userId: UserId.make("trusted-user"),
+						accountGeneration: {
+							token: "test-account-generation",
+							userId: UserId.make("trusted-user"),
+						},
+					},
 				},
 				"parent",
 			);
@@ -1456,7 +1471,14 @@ layer(
 					input: { externalId: "record-1" },
 					executionId: "parent-child-import-3-4",
 					workflowSlug: KERNEL_ENTITY_IMPORT_WORKFLOW,
-					subject: { type: "user", userId: "trusted-user" },
+					subject: {
+						type: "user",
+						userId: "trusted-user",
+						accountGeneration: {
+							token: "test-account-generation",
+							userId: UserId.make("trusted-user"),
+						},
+					},
 				},
 			]);
 		}),

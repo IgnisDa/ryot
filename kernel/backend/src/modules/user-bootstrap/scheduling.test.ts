@@ -4,20 +4,32 @@ import { Context, Effect, Layer, Ref } from "effect";
 import { WorkflowEngine } from "effect/unstable/workflow/WorkflowEngine";
 
 import { makeWorkflowEngine } from "#lib/test-utils/effect";
+import { mutationAdmissionTestLayer } from "#lib/test-utils/mutation-admission";
 
 import { UserBootstrap } from "./bootstrap";
 import { UserBootstrapScheduling, userBootstrapWorkflowExecutionId } from "./scheduling";
 
 const userId = UserId.make("user-1");
+const accountFor = (accountUserId: UserId) => ({
+	userId: accountUserId,
+	token: "test-account-generation",
+});
 
 it("derives a stable and distinct workflow execution id", () => {
 	const otherUserId = UserId.make("user-2");
 
-	expect(userBootstrapWorkflowExecutionId(userId)).toBe(userBootstrapWorkflowExecutionId(userId));
-	expect(userBootstrapWorkflowExecutionId(userId)).not.toBe(
-		userBootstrapWorkflowExecutionId(otherUserId),
+	expect(userBootstrapWorkflowExecutionId(userId, accountFor(userId))).toBe(
+		userBootstrapWorkflowExecutionId(userId, accountFor(userId)),
 	);
-	expect(userBootstrapWorkflowExecutionId(userId)).toBe("user-bootstrap-6-user-1");
+	expect(userBootstrapWorkflowExecutionId(userId, accountFor(userId))).not.toBe(
+		userBootstrapWorkflowExecutionId(otherUserId, accountFor(otherUserId)),
+	);
+	expect(userBootstrapWorkflowExecutionId(userId, accountFor(userId))).toBe(
+		"user-bootstrap-6-user-1-test-account-generation",
+	);
+	expect(userBootstrapWorkflowExecutionId(userId, { userId, token: "next-generation" })).not.toBe(
+		userBootstrapWorkflowExecutionId(userId, accountFor(userId)),
+	);
 });
 
 class RecordedSchedules extends Context.Service<
@@ -50,7 +62,7 @@ const recordingSchedulingLayer = Layer.unwrap(
 	}),
 );
 
-layer(recordingSchedulingLayer)((test) => {
+layer(recordingSchedulingLayer.pipe(Layer.provideMerge(mutationAdmissionTestLayer)))((test) => {
 	test.effect("reuses one discarded execution for repeated and concurrent scheduling", () =>
 		Effect.gen(function* () {
 			const scheduling = yield* UserBootstrapScheduling;
@@ -66,8 +78,8 @@ layer(recordingSchedulingLayer)((test) => {
 			expect(options).toEqual(
 				Array.from({ length: 4 }, () => ({
 					discard: true,
-					payload: { userId },
-					executionId: userBootstrapWorkflowExecutionId(userId),
+					payload: { userId, accountGeneration: accountFor(userId) },
+					executionId: userBootstrapWorkflowExecutionId(userId, accountFor(userId)),
 				})),
 			);
 		}),
@@ -92,7 +104,8 @@ const reconciliationLayer = Layer.unwrap(
 			execute: (_workflow, options) =>
 				Ref.update(executionIds, (all) => [...all, options.executionId]).pipe(
 					Effect.andThen(
-						options.executionId === userBootstrapWorkflowExecutionId(failedUserId)
+						options.executionId ===
+							userBootstrapWorkflowExecutionId(failedUserId, accountFor(failedUserId))
 							? Effect.fail("workflow unavailable")
 							: Effect.succeed(options.executionId),
 					),
@@ -116,7 +129,7 @@ const reconciliationLayer = Layer.unwrap(
 	}),
 );
 
-layer(reconciliationLayer)((test) => {
+layer(reconciliationLayer.pipe(Layer.provideMerge(mutationAdmissionTestLayer)))((test) => {
 	test.effect("dispatches every incomplete user and contains one scheduling failure", () =>
 		Effect.gen(function* () {
 			const exit = yield* Effect.exit((yield* UserBootstrapScheduling).reconcile(25));
@@ -125,9 +138,9 @@ layer(reconciliationLayer)((test) => {
 			expect(exit._tag).toBe("Success");
 			expect(yield* recorded.limit).toBe(25);
 			expect(yield* recorded.executionIds).toEqual([
-				userBootstrapWorkflowExecutionId(userId),
-				userBootstrapWorkflowExecutionId(UserId.make("user-2")),
-				userBootstrapWorkflowExecutionId(UserId.make("user-3")),
+				userBootstrapWorkflowExecutionId(userId, accountFor(userId)),
+				userBootstrapWorkflowExecutionId(UserId.make("user-2"), accountFor(UserId.make("user-2"))),
+				userBootstrapWorkflowExecutionId(UserId.make("user-3"), accountFor(UserId.make("user-3"))),
 			]);
 		}),
 	);

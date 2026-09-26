@@ -1,11 +1,12 @@
 import { SandboxRunError, toSandboxRunError } from "@ryot-app/contract/errors";
 import type { ListedEntity } from "@ryot-app/contract/modules/entities/schemas";
+import type { AccountGeneration } from "@ryot-app/contract/schema/account-generation";
 import {
 	SandboxScriptId,
 	type SandboxProviderId,
 	type UserId,
 } from "@ryot-app/contract/schema/brands";
-import { Context, Effect, Layer } from "effect";
+import { Context, Effect, Layer, Schema } from "effect";
 import type { WorkflowEngine, WorkflowInstance } from "effect/unstable/workflow/WorkflowEngine";
 
 import {
@@ -26,8 +27,9 @@ import type { EntityImportPayload, ProviderEntityImportWorkflowPayload } from ".
 type ProviderResolveOperationInput = {
 	readonly value: string;
 	readonly userId: UserId | null;
-	readonly providerId: SandboxProviderId;
 	readonly identifierType: string;
+	readonly providerId: SandboxProviderId;
+	readonly accountGeneration: AccountGeneration | null;
 };
 
 export type EntityImportWorkflowOperationsValue = {
@@ -63,6 +65,13 @@ export const EntityImportWorkflowOperationsLive = Layer.effect(
 
 		const processSandboxEntityDetails = (payload: EntityImportPayload, executionId: string) =>
 			Effect.gen(function* () {
+				const accountGeneration = payload.command.accountGeneration;
+				if (payload.entityScope.userId !== null && accountGeneration === null) {
+					return yield* new SandboxRunError({
+						kind: "invalid-input",
+						message: "Provider account generation is missing",
+					});
+				}
 				const resolveScript = (
 					payload.entityScope.userId
 						? pluginRuntime.resolveUserDetailsScript(payload.entityScope.userId, payload.providerId)
@@ -81,8 +90,8 @@ export const EntityImportWorkflowOperationsLive = Layer.effect(
 					scriptId,
 					input: { externalId: payload.externalId },
 					executionId: `${executionId}-sandbox-details`,
-					subject: payload.entityScope.userId
-						? { type: "user", userId: payload.entityScope.userId }
+					subject: accountGeneration
+						? { type: "user", accountGeneration, userId: accountGeneration.userId }
 						: { type: "system" },
 				});
 			}).pipe(Effect.mapError((error) => toSandboxRunError(error, "infrastructure")));
@@ -92,6 +101,13 @@ export const EntityImportWorkflowOperationsLive = Layer.effect(
 			executionId: string,
 		) =>
 			Effect.gen(function* () {
+				const accountGeneration = input.accountGeneration;
+				if (input.userId !== null && accountGeneration === null) {
+					return yield* new SandboxRunError({
+						kind: "invalid-input",
+						message: "Provider account generation is missing",
+					});
+				}
 				const resolveScript = (
 					input.userId
 						? pluginRuntime.resolveUserResolveScript(input.userId, input.providerId)
@@ -110,7 +126,9 @@ export const EntityImportWorkflowOperationsLive = Layer.effect(
 					scriptId,
 					executionId: `${executionId}-sandbox-resolve`,
 					input: { value: input.value, identifierType: input.identifierType },
-					subject: input.userId ? { type: "user", userId: input.userId } : { type: "system" },
+					subject: accountGeneration
+						? { type: "user", accountGeneration, userId: accountGeneration.userId }
+						: { type: "system" },
 				});
 			}).pipe(Effect.mapError((error) => toSandboxRunError(error, "infrastructure")));
 
@@ -132,7 +150,7 @@ export const EntityImportWorkflowOperationsLive = Layer.effect(
 				};
 				const plan = yield* makeActivity({
 					error: SandboxRunError,
-					success: LifecycleDispatchPlan,
+					success: Schema.Array(LifecycleDispatchPlan),
 					name: `plan-provider-import-completion-${executionId}`,
 					execute: session
 						.transaction(
@@ -144,12 +162,16 @@ export const EntityImportWorkflowOperationsLive = Layer.effect(
 										completion,
 									),
 								})
-								.pipe(Effect.map(toLifecycleDispatchPlan)),
+								.pipe(
+									Effect.map((result) =>
+										result.trigger === null ? [] : [toLifecycleDispatchPlan(result)],
+									),
+								),
 						)
 						.pipe(Effect.mapError((error) => toSandboxRunError(error, "infrastructure"))),
 				});
 				const warnings = yield* execution
-					.dispatch([plan])
+					.dispatch(plan)
 					.pipe(Effect.mapError((error) => toSandboxRunError(error, "infrastructure")));
 				if (warnings.length > 0) {
 					yield* Effect.logWarning("provider import completed with automation warnings").pipe(

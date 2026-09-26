@@ -29,6 +29,7 @@ const command = rootLifecycleCommand({
 	initiator: { id: userId, kind: "user" },
 	occurredAt: IsoUtcString.make("2026-09-16T00:00:00.000Z"),
 	executionId: AutomationExecutionId.make("relationship-sync"),
+	accountGeneration: { userId, token: "test-account-generation" },
 });
 const support = Layer.mergeAll(
 	databaseLayer,
@@ -85,7 +86,7 @@ const synchronizationLayer = (options: {
 						Ref.update(reconciliations, (all) => [
 							...all,
 							{ scope, groups, command: receivedCommand },
-						]).pipe(Effect.as({ plans: [], result: options.result })),
+						]).pipe(Effect.as({ dispatch: [], result: options.result })),
 				}),
 				Layer.succeed(FakeRelationshipSynchronization, {
 					listings: Ref.get(listings),

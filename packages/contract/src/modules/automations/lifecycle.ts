@@ -1,5 +1,6 @@
 import { Schema } from "effect";
 
+import { AccountGeneration } from "../../schema/account-generation";
 import {
 	AutomationExecutionId,
 	AutomationHookSlug,
@@ -196,8 +197,18 @@ export const LifecycleCommand = strictStruct({
 	itemIdentity: nonEmpty,
 	occurredAt: IsoUtcString,
 	causation: AutomationCausation,
+	accountGeneration: Schema.NullOr(AccountGeneration),
 	population: Schema.optional(AutomationPopulationContext),
-});
+}).pipe(
+	Schema.check(
+		Schema.makeFilter(
+			(command) =>
+				command.causation.initiator.kind !== "user" ||
+				command.accountGeneration?.userId === command.causation.initiator.id ||
+				"User lifecycle commands require their account generation",
+		),
+	),
+);
 export type LifecycleCommand = typeof LifecycleCommand.Type;
 export const AutomationEventDraft = strictStruct({
 	properties,
@@ -286,6 +297,23 @@ const relationshipPayloads = mutationPayloads(
 	AutomationRelationshipDraft,
 	AutomationRelationshipSnapshot,
 );
+export const [
+	AutomationEntityCreateRequestPayload,
+	AutomationEntityUpdateRequestPayload,
+	AutomationEntityDeleteRequestPayload,
+] = entityPayloads;
+export const AutomationEntityRequestPayload = Schema.Union([
+	AutomationEntityCreateRequestPayload,
+	AutomationEntityUpdateRequestPayload,
+	AutomationEntityDeleteRequestPayload,
+]);
+export type AutomationEntityRequestPayload = typeof AutomationEntityRequestPayload.Type;
+export const AutomationRelationshipRequestPayload = Schema.Union([
+	relationshipPayloads[0],
+	relationshipPayloads[1],
+	relationshipPayloads[2],
+]);
+export type AutomationRelationshipRequestPayload = typeof AutomationRelationshipRequestPayload.Type;
 export const AutomationOmittedHook = strictStruct({
 	hookSlug: AutomationHookSlug,
 	pluginId: Schema.NullOr(PluginId),
@@ -295,16 +323,28 @@ export type AutomationOmittedHook = typeof AutomationOmittedHook.Type;
 const eventRequestPlanningFields = {
 	excludedOncePerSubjectPolicies: Schema.optional(Schema.Array(AutomationOmittedHook)),
 };
+export const AutomationEventCreateRequestPayload = strictStruct({
+	...eventPayloads[0].fields,
+	...eventRequestPlanningFields,
+});
+export const AutomationEventUpdateRequestPayload = strictStruct({
+	...eventPayloads[1].fields,
+	...eventRequestPlanningFields,
+});
+export const AutomationEventDeleteRequestPayload = strictStruct({
+	...eventPayloads[2].fields,
+	...eventRequestPlanningFields,
+});
+export const AutomationEventRequestPayload = Schema.Union([
+	AutomationEventCreateRequestPayload,
+	AutomationEventUpdateRequestPayload,
+	AutomationEventDeleteRequestPayload,
+]);
+export type AutomationEventRequestPayload = typeof AutomationEventRequestPayload.Type;
 export const AutomationRequestPayload = Schema.Union([
-	entityPayloads[0],
-	entityPayloads[1],
-	entityPayloads[2],
-	strictStruct({ ...eventPayloads[0].fields, ...eventRequestPlanningFields }),
-	strictStruct({ ...eventPayloads[1].fields, ...eventRequestPlanningFields }),
-	strictStruct({ ...eventPayloads[2].fields, ...eventRequestPlanningFields }),
-	relationshipPayloads[0],
-	relationshipPayloads[1],
-	relationshipPayloads[2],
+	...AutomationEntityRequestPayload.members,
+	...AutomationEventRequestPayload.members,
+	...AutomationRelationshipRequestPayload.members,
 ]);
 export type AutomationRequestPayload = typeof AutomationRequestPayload.Type;
 const withPopulation = <Fields extends Schema.Struct.Fields>(member: Schema.Struct<Fields>) =>
@@ -600,18 +640,18 @@ const runVariants = <Ownership extends Schema.Struct.Fields>(ownership: Ownershi
 			delivery: Schema.Literals(["required", "async"]),
 		}),
 	] as const;
-export const AutomationRun = Schema.Union([
-	...runVariants({
-		pluginId: PluginId,
-		pluginRevisionId: PluginRevisionId,
-		pluginConfigRevisionId: PluginConfigRevisionId,
-	}),
-	...runVariants({
-		pluginId: Schema.Null,
-		pluginRevisionId: Schema.Null,
-		pluginConfigRevisionId: Schema.Null,
-	}),
-]).pipe(
+const pluginRunVariants = runVariants({
+	pluginId: PluginId,
+	pluginRevisionId: PluginRevisionId,
+	pluginConfigRevisionId: PluginConfigRevisionId,
+});
+export const AutomationPluginAfterRun = pluginRunVariants[1];
+const kernelRunVariants = runVariants({
+	pluginId: Schema.Null,
+	pluginRevisionId: Schema.Null,
+	pluginConfigRevisionId: Schema.Null,
+});
+export const AutomationRun = Schema.Union([...pluginRunVariants, ...kernelRunVariants]).pipe(
 	Schema.check(
 		Schema.makeFilter(
 			(run) =>

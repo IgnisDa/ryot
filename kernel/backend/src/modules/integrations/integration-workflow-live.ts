@@ -14,6 +14,7 @@ import { implementWorkflow, makeActivity } from "#lib/infrastructure/workflow-sc
 import { SignalEmissionService } from "#modules/automations/signal-service";
 import { markImportRunStarted } from "#modules/imports/runtime/import-run-status";
 import { ImportsService } from "#modules/imports/service";
+import { MutationReceipts } from "#modules/mutations/receipts";
 import { IntegrationProviderCatalog } from "#modules/plugins/integration-provider-catalog";
 import { SandboxExecutionService } from "#modules/sandbox/service";
 
@@ -70,7 +71,12 @@ const runIntegrationImport = Effect.fn("runIntegrationImport")(function* (
 			input,
 			scriptId,
 			executionId: `${executionId}-import`,
-			subject: { type: "user", userId: integration.userId, integrationId: integration.id },
+			subject: {
+				type: "user",
+				userId: integration.userId,
+				integrationId: integration.id,
+				accountGeneration: payload.accountGeneration,
+			},
 		})
 		.pipe(Effect.mapError(toIntegrationWorkflowError));
 });
@@ -197,6 +203,10 @@ const runIntegrationRun = Effect.fn("runIntegrationRun")(function* (
 
 export const runIntegrationRunWorkflow = Effect.fn("ProcessIntegrationRunWorkflow")(
 	function* (payload: IntegrationRunJobData, executionId: string) {
+		const receipts = yield* MutationReceipts.make;
+		yield* receipts
+			.registerWorkflow(payload.accountGeneration, ProcessIntegrationRunWorkflow._tag, executionId)
+			.pipe(Effect.mapError(toIntegrationWorkflowError));
 		yield* Effect.annotateCurrentSpan({
 			executionId,
 			runId: payload.runId,
@@ -226,6 +236,7 @@ export const runIntegrationRunWorkflow = Effect.fn("ProcessIntegrationRunWorkflo
 			source: "integration",
 			importRunId: payload.runId,
 			integrationId: integration.id,
+			accountGeneration: payload.accountGeneration,
 			executionId: AutomationExecutionId.make(executionId),
 			initiator: { id: integration.id, kind: "integration" },
 			itemIdentity: stableStringify(["integration-run", payload.runId]),

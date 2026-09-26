@@ -609,28 +609,28 @@ const hookFields = {
 		Schema.Array(AutomationSource).pipe(Schema.check(Schema.isMinLength(1))),
 	),
 };
-export const PluginHook = Schema.Union([
-	strictStruct({
-		...hookFields,
-		stage: Schema.Literal("before"),
-		batchFrequency: Schema.optional(Schema.Literals(["item", "once-per-subject"])),
-		position: Schema.optional(
-			Schema.Finite.pipe(Schema.check(Schema.makeFilter((n) => Number.isSafeInteger(n)))),
-		),
-	}).pipe(
-		Schema.check(
-			Schema.makeFilter(
-				(hook) =>
-					(hook.targets.every(
-						(target) =>
-							target.resource !== "signal" && target.resource !== "provider-entity-import",
-					) &&
-						(hook.batchFrequency === undefined ||
-							hook.targets.every((target) => target.resource === "event"))) ||
-					"Before hooks require mutation targets; batch frequency requires only event targets",
-			),
+export const PluginBeforeHook = strictStruct({
+	...hookFields,
+	stage: Schema.Literal("before"),
+	batchFrequency: Schema.optional(Schema.Literals(["item", "once-per-subject"])),
+	position: Schema.optional(
+		Schema.Finite.pipe(Schema.check(Schema.makeFilter((n) => Number.isSafeInteger(n)))),
+	),
+}).pipe(
+	Schema.check(
+		Schema.makeFilter(
+			(hook) =>
+				(hook.targets.every(
+					(target) => target.resource !== "signal" && target.resource !== "provider-entity-import",
+				) &&
+					(hook.batchFrequency === undefined ||
+						hook.targets.every((target) => target.resource === "event"))) ||
+				"Before hooks require mutation targets; batch frequency requires only event targets",
 		),
 	),
+);
+export const PluginHook = Schema.Union([
+	PluginBeforeHook,
 	strictStruct({
 		...hookFields,
 		stage: Schema.Literal("after"),

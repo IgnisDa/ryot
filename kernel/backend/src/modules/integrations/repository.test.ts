@@ -86,9 +86,7 @@ const seedOwner = Layer.effectDiscard(
 	Effect.gen(function* () {
 		const session = yield* DatabaseSession;
 		yield* session.run((db) =>
-			db
-				.insert(tables.user)
-				.values({ id: owner, name: "Owner", preferences: {}, email: "owner@example.test" }),
+			db.insert(tables.user).values({ id: owner, name: "Owner", email: "owner@example.test" }),
 		);
 	}),
 );

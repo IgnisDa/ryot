@@ -329,8 +329,7 @@ export class IntegrationsRepository extends Context.Service<IntegrationsReposito
 						.where(eq(user.id, input.userId))
 						.limit(1),
 				);
-				const preferences = row?.preferences as { disableIntegrations?: boolean } | undefined;
-				return preferences?.disableIntegrations === true;
+				return row?.preferences.disableIntegrations === true;
 			});
 
 			const listEnabledYankIntegrations = Effect.fn(

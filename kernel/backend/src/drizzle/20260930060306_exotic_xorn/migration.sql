@@ -408,6 +408,34 @@ CREATE TABLE "migration_report_detail" (
 	"report_seq" integer NOT NULL
 );
 --> statement-breakpoint
+CREATE TABLE "mutation_receipt" (
+	"batch_id" text,
+	"workflow_name" text,
+	"batch_index" integer,
+	"id" text PRIMARY KEY,
+	"execution_id" text NOT NULL,
+	"command_kind" text NOT NULL,
+	"item_identity" text NOT NULL,
+	"root_execution_id" text NOT NULL,
+	"input_fingerprint" text NOT NULL,
+	"result" jsonb,
+	"dispatch" jsonb NOT NULL,
+	"evidence" jsonb,
+	"account_generation" jsonb,
+	"mutation_scope" text NOT NULL,
+	"recorded_at" timestamp with time zone DEFAULT now() NOT NULL,
+	"owner_user_id" text,
+	"scope_user_id" text,
+	"plugin_id" text,
+	"sandbox_script_id" text,
+	"plugin_revision_id" text,
+	"plugin_config_revision_id" text,
+	"receipt_type" text NOT NULL,
+	CONSTRAINT "mutation_receipt_scope_check" CHECK (("mutation_scope" = 'global' and "scope_user_id" is null) or ("mutation_scope" = 'user' and "scope_user_id" is not null and "owner_user_id" is not null)),
+	CONSTRAINT "mutation_receipt_type_check" CHECK ("receipt_type" in ('item', 'batch-decision', 'batch-candidate', 'workflow-owner')),
+	CONSTRAINT "mutation_receipt_workflow_owner_check" CHECK (("receipt_type" = 'workflow-owner' and "workflow_name" is not null and "owner_user_id" is not null and "account_generation" is not null) or ("receipt_type" <> 'workflow-owner' and "workflow_name" is null))
+);
+--> statement-breakpoint
 CREATE TABLE "notification_channel" (
 	"description" text NOT NULL,
 	"is_disabled" boolean DEFAULT false NOT NULL,
@@ -763,9 +791,24 @@ CREATE TABLE "user" (
 	"disabled_at" timestamp with time zone,
 	"email_verified" boolean DEFAULT false NOT NULL,
 	"bootstrap_completed_at" timestamp with time zone,
-	"preferences" jsonb NOT NULL,
 	"created_at" timestamp with time zone DEFAULT now() NOT NULL,
-	"updated_at" timestamp with time zone DEFAULT now() NOT NULL
+	"account_generation" text DEFAULT gen_random_uuid() NOT NULL,
+	"preferences" jsonb DEFAULT '{"language":null,"allowNsfw":false,"disableIntegrations":false}' NOT NULL,
+	"updated_at" timestamp with time zone DEFAULT now() NOT NULL,
+	CONSTRAINT "user_preferences_check" CHECK (
+		jsonb_typeof("preferences") = 'object'
+		and "preferences" ?& array['allowNsfw', 'disableIntegrations', 'language']
+		and "preferences" - 'allowNsfw' - 'disableIntegrations' - 'language' = '{}'::jsonb
+		and jsonb_typeof("preferences"->'allowNsfw') = 'boolean'
+		and jsonb_typeof("preferences"->'disableIntegrations') = 'boolean'
+		and (
+			jsonb_typeof("preferences"->'language') = 'null'
+			or (jsonb_typeof("preferences"->'language') = 'string'
+				and "preferences"->>'language' <> ''
+				and btrim("preferences"->>'language', E' 	
+') = "preferences"->>'language')
+		)
+	)
 );
 --> statement-breakpoint
 CREATE TABLE "user_lifecycle_operation" (
@@ -855,6 +898,13 @@ CREATE UNIQUE INDEX "integration_webhook_token_unique" ON "integration" ("webhoo
 CREATE INDEX "integration_auto_disable_claim_integration_id_idx" ON "integration_auto_disable_claim" ("integration_id");--> statement-breakpoint
 CREATE INDEX "managed_asset_owner_user_id_idx" ON "managed_asset" ("owner_user_id");--> statement-breakpoint
 CREATE INDEX "migration_report_detail_report_seq_seq_idx" ON "migration_report_detail" ("report_seq","seq");--> statement-breakpoint
+CREATE INDEX "mutation_receipt_execution_idx" ON "mutation_receipt" ("execution_id","receipt_type");--> statement-breakpoint
+CREATE INDEX "mutation_receipt_owner_idx" ON "mutation_receipt" ("owner_user_id","execution_id");--> statement-breakpoint
+CREATE INDEX "mutation_receipt_scope_idx" ON "mutation_receipt" ("scope_user_id","execution_id");--> statement-breakpoint
+CREATE INDEX "mutation_receipt_batch_idx" ON "mutation_receipt" ("batch_id","receipt_type");--> statement-breakpoint
+CREATE INDEX "mutation_receipt_revision_idx" ON "mutation_receipt" ("plugin_revision_id");--> statement-breakpoint
+CREATE INDEX "mutation_receipt_config_idx" ON "mutation_receipt" ("plugin_config_revision_id");--> statement-breakpoint
+CREATE INDEX "mutation_receipt_script_idx" ON "mutation_receipt" ("sandbox_script_id");--> statement-breakpoint
 CREATE INDEX "notification_channel_user_id_created_at_idx" ON "notification_channel" ("user_id","created_at" DESC NULLS LAST);--> statement-breakpoint
 CREATE INDEX "notification_channel_user_id_is_disabled_idx" ON "notification_channel" ("user_id","is_disabled");--> statement-breakpoint
 CREATE INDEX "notification_subscription_user_id_idx" ON "notification_subscription" ("user_id");--> statement-breakpoint
@@ -945,6 +995,12 @@ ALTER TABLE "integration_auto_disable_claim" ADD CONSTRAINT "integration_auto_di
 ALTER TABLE "kernel_script" ADD CONSTRAINT "kernel_script_script_id_sandbox_script_id_fkey" FOREIGN KEY ("script_id") REFERENCES "sandbox_script"("id") ON DELETE RESTRICT;--> statement-breakpoint
 ALTER TABLE "managed_asset" ADD CONSTRAINT "managed_asset_owner_user_id_user_id_fkey" FOREIGN KEY ("owner_user_id") REFERENCES "user"("id") ON DELETE CASCADE;--> statement-breakpoint
 ALTER TABLE "migration_report_detail" ADD CONSTRAINT "migration_report_detail_report_seq_migration_report_seq_fkey" FOREIGN KEY ("report_seq") REFERENCES "migration_report"("seq") ON DELETE CASCADE;--> statement-breakpoint
+ALTER TABLE "mutation_receipt" ADD CONSTRAINT "mutation_receipt_owner_user_id_user_id_fkey" FOREIGN KEY ("owner_user_id") REFERENCES "user"("id") ON DELETE CASCADE;--> statement-breakpoint
+ALTER TABLE "mutation_receipt" ADD CONSTRAINT "mutation_receipt_scope_user_id_user_id_fkey" FOREIGN KEY ("scope_user_id") REFERENCES "user"("id") ON DELETE CASCADE;--> statement-breakpoint
+ALTER TABLE "mutation_receipt" ADD CONSTRAINT "mutation_receipt_plugin_id_plugin_id_fkey" FOREIGN KEY ("plugin_id") REFERENCES "plugin"("id") ON DELETE RESTRICT;--> statement-breakpoint
+ALTER TABLE "mutation_receipt" ADD CONSTRAINT "mutation_receipt_sandbox_script_id_sandbox_script_id_fkey" FOREIGN KEY ("sandbox_script_id") REFERENCES "sandbox_script"("id") ON DELETE RESTRICT;--> statement-breakpoint
+ALTER TABLE "mutation_receipt" ADD CONSTRAINT "mutation_receipt_plugin_revision_id_plugin_revision_id_fkey" FOREIGN KEY ("plugin_revision_id") REFERENCES "plugin_revision"("id") ON DELETE RESTRICT;--> statement-breakpoint
+ALTER TABLE "mutation_receipt" ADD CONSTRAINT "mutation_receipt_gS9k6vz1aABe_fkey" FOREIGN KEY ("plugin_config_revision_id") REFERENCES "plugin_config_revision"("id") ON DELETE RESTRICT;--> statement-breakpoint
 ALTER TABLE "notification_channel" ADD CONSTRAINT "notification_channel_user_id_user_id_fkey" FOREIGN KEY ("user_id") REFERENCES "user"("id") ON DELETE CASCADE;--> statement-breakpoint
 ALTER TABLE "notification_subscription" ADD CONSTRAINT "notification_subscription_uHCTRrCak7Fg_fkey" FOREIGN KEY ("signal_schema_plugin_id") REFERENCES "plugin"("id") ON DELETE RESTRICT;--> statement-breakpoint
 ALTER TABLE "notification_subscription" ADD CONSTRAINT "notification_subscription_user_id_user_id_fkey" FOREIGN KEY ("user_id") REFERENCES "user"("id") ON DELETE CASCADE;--> statement-breakpoint

@@ -1,5 +1,4 @@
 import { expect, layer } from "@effect/vitest";
-import { defaultUserPreferences } from "@ryot-app/contract/auth-middleware";
 import { DbError } from "@ryot-app/contract/errors";
 import {
 	AUTOMATION_HISTORY_LIMITS,
@@ -17,6 +16,7 @@ import {
 	SignalSchemaSlug,
 	UserId,
 } from "@ryot-app/contract/schema/brands";
+import { defaultUserPreferences } from "@ryot-app/contract/schema/user-preferences";
 import { stableStringify } from "@ryot-app/ts-utils/json";
 import { eq } from "drizzle-orm";
 import { Context, Effect, Layer, Ref, Schema } from "effect";
@@ -50,6 +50,7 @@ const owner = {
 	id: UserId.make("owner"),
 	email: "owner@example.com",
 	preferences: defaultUserPreferences,
+	accountGeneration: { userId: UserId.make("owner"), token: "test-account-generation" },
 };
 const other = { ...owner, id: UserId.make("other") };
 
@@ -92,8 +93,8 @@ const seedHistory = Layer.effectDiscard(
 		yield* (yield* DatabaseSession).run((db) =>
 			Effect.gen(function* () {
 				yield* db.insert(user).values([
-					{ id: owner.id, preferences: {}, name: owner.name, email: owner.email },
-					{ id: other.id, name: "Other", preferences: {}, email: "other@example.com" },
+					{ id: owner.id, name: owner.name, email: owner.email },
+					{ id: other.id, name: "Other", email: "other@example.com" },
 				]);
 				yield* db
 					.insert(automationTrigger)

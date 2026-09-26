@@ -29,7 +29,11 @@ const records: ArchiveRecords = {
 	privatePlugins: [],
 	entityDependencies: [],
 	notificationSubscriptions: [],
-	profile: { image: null, preferences: {}, name: "Test User" },
+	profile: {
+		image: null,
+		name: "Test User",
+		preferences: { language: null, allowNsfw: false, disableIntegrations: false },
+	},
 	installations: [
 		{
 			config: {},

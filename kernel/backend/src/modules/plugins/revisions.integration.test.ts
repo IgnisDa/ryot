@@ -91,13 +91,8 @@ describe("immutable revisions in PostgreSQL (isolated schema)", () => {
 									transaction.execute(sql.raw(statement)),
 								);
 								yield* transaction.insert(tables.user).values([
-									{ id: "owner", name: "Owner", preferences: {}, email: "owner@example.test" },
-									{
-										id: "recipient",
-										preferences: {},
-										name: "Recipient",
-										email: "recipient@example.test",
-									},
+									{ id: "owner", name: "Owner", email: "owner@example.test" },
+									{ id: "recipient", name: "Recipient", email: "recipient@example.test" },
 								]);
 								const baseManifest = fixtureManifest();
 								const manifest: PluginManifest = {

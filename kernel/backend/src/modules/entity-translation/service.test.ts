@@ -71,6 +71,7 @@ layer(makeServiceLayer())((test) => {
 				properties: { title: "Record" },
 				entityId: EntityId.make("entity-1"),
 				providerId: SandboxProviderId.make("provider-1"),
+				accountGeneration: { userId: UserId.make("user-1"), token: "test-account-generation" },
 			});
 			expect(yield* (yield* FakeTranslationDependencies).executions).toMatchObject([
 				{
@@ -102,6 +103,7 @@ layer(makeServiceLayer(() => Effect.die("enqueue failed")))((test) => {
 					properties: { title: "Record" },
 					entityId: EntityId.make("entity-1"),
 					providerId: SandboxProviderId.make("provider-1"),
+					accountGeneration: { userId: UserId.make("user-1"), token: "test-account-generation" },
 				}),
 			);
 

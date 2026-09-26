@@ -1,3 +1,4 @@
+import type { AccountGeneration } from "@ryot-app/contract/schema/account-generation";
 import type {
 	EntityId,
 	EntitySchemaSlug,
@@ -8,6 +9,11 @@ import type { Effect } from "effect";
 import { Context } from "effect";
 
 import type { LifecycleCommand } from "#lib/domain/lifecycle-command";
+
+export const entityPopulationExecutionId = (
+	entityId: EntityId,
+	accountGeneration: AccountGeneration | null,
+) => `populate-${entityId}${accountGeneration === null ? "" : `-${accountGeneration.token}`}`;
 
 export type PopulationRequest = {
 	entityId: EntityId;

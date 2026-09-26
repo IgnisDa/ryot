@@ -121,6 +121,7 @@ const fakeAuthRepositoryLayer = Layer.effectContext(
 			AuthRepository,
 			AuthRepository.of({
 				getPortableProfile: () => Effect.die("unused"),
+				patchUserPreferences: () => Effect.die("unused"),
 				revokeUserOAuthTokens: () => Effect.die("unused"),
 				upsertInternalOAuthClient: (client) =>
 					Ref.update(clients, (all) => new Map(all).set(client.clientId, client)),
