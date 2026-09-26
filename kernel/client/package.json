@@ -23,6 +23,8 @@
 		"@capacitor/app": "^8.1.1",
 		"@capacitor/browser": "^8.0.4",
 		"@capacitor/core": "^8.5.0",
+		"@capacitor/file-transfer": "^2",
+		"@capacitor/filesystem": "^8",
 		"@capacitor/haptics": "^8.0.2",
 		"@capacitor/ios": "^8.5.0",
 		"@capacitor/share": "^8.0.1",
