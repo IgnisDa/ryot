@@ -219,7 +219,7 @@ export const RestoreBackupWorkflowOperationsLive = Layer.effect(
 						directory: config.fileStorage.localTempDir,
 					}).pipe(Effect.provideService(FileSystem.FileSystem, fs));
 					const stagedBySha = new Map<string, StagedPermanentAsset>();
-					yield* Effect.gen(function* () {
+					const stageAndRestore = Effect.fnUntraced(function* () {
 						const systemPluginIds = yield* writer.assertRequiredPlugins(
 							validated.manifest.requiredPlugins,
 						);
@@ -258,47 +258,47 @@ export const RestoreBackupWorkflowOperationsLive = Layer.effect(
 							assetLocators.set(`local:${sha256}`, staged.locator);
 							assetLocators.set(`s3:${sha256}`, staged.locator);
 						}
+						const restoreTransaction = Effect.fnUntraced(function* () {
+							yield* database.acquireUserWriteLock(payload.userId);
+							yield* cleanliness.assertAccountIsClean(payload.userId);
+							const pluginIdByKey = new Map(systemPluginIds);
+							const privatePluginIds = yield* pluginRestore.persist(
+								payload.userId,
+								preparedPlugins,
+							);
+							for (const [key, id] of privatePluginIds) {
+								pluginIdByKey.set(key, id);
+							}
+							const definitions = yield* pluginRestore.buildDefinitions(
+								preparedPlugins,
+								pluginIdByKey,
+							);
+							for (const staged of stagedBySha.values()) {
+								yield* managedAssets.registerManagedAssetInLockedTransaction(staged.metadata);
+							}
+							yield* writer.restoreRecords(
+								payload.userId,
+								validated.records,
+								assetLocators,
+								validated.events,
+								pluginIdByKey,
+								definitions,
+							);
+							if (!(yield* repository.updateProgress({ ...payload, progress: 90 }))) {
+								return yield* internalError("Backup restore checkpoint could not be recorded");
+							}
+							return yield* Effect.void;
+						});
 						yield* database
-							.transaction(
-								Effect.gen(function* () {
-									yield* database.acquireUserWriteLock(payload.userId);
-									yield* cleanliness.assertAccountIsClean(payload.userId);
-									const pluginIdByKey = new Map(systemPluginIds);
-									const privatePluginIds = yield* pluginRestore.persist(
-										payload.userId,
-										preparedPlugins,
-									);
-									for (const [key, id] of privatePluginIds) {
-										pluginIdByKey.set(key, id);
-									}
-									const definitions = yield* pluginRestore.buildDefinitions(
-										preparedPlugins,
-										pluginIdByKey,
-									);
-									for (const staged of stagedBySha.values()) {
-										yield* managedAssets.registerManagedAssetInLockedTransaction(staged.metadata);
-									}
-									yield* writer.restoreRecords(
-										payload.userId,
-										validated.records,
-										assetLocators,
-										validated.events,
-										pluginIdByKey,
-										definitions,
-									);
-									if (!(yield* repository.updateProgress({ ...payload, progress: 90 }))) {
-										return yield* internalError("Backup restore checkpoint could not be recorded");
-									}
-									return yield* Effect.void;
-								}),
-							)
+							.transaction(restoreTransaction())
 							.pipe(
 								Effect.retry({
 									times: 2,
 									while: (error) => error instanceof DbError && error.code === "40001",
 								}),
 							);
-					}).pipe(
+					});
+					yield* stageAndRestore().pipe(
 						Effect.catchCause((cause) =>
 							Effect.forEach(
 								stagedBySha.values(),
