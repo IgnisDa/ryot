@@ -285,7 +285,10 @@ export class SandboxSidecarClient extends Context.Service<SandboxSidecarClient>(
 					}
 					const stopped = yield* Deferred.await(exited).pipe(
 						Effect.as(true),
-						Effect.timeoutOrElse({ duration: "2 seconds", orElse: () => Effect.succeed(false) }),
+						Effect.timeoutOrElse({
+							orElse: () => Effect.succeed(false),
+							duration: SANDBOX_LIMITS.sidecar.disposalMs,
+						}),
 					);
 					if (!stopped) {
 						if (linux) {
@@ -351,7 +354,7 @@ export class SandboxSidecarClient extends Context.Service<SandboxSidecarClient>(
 					generation: settings.generation,
 					maximumAssemblies: settings.threads * 5,
 					isActive: (handle) => handles.has(handle),
-					maximumBufferedBytes: settings.threads * 14 * 1024 * 1024,
+					maximumBufferedBytes: settings.threads * SANDBOX_LIMITS.sidecar.bufferedBytesPerThread,
 					onFrame: (frame) => {
 						if (!Queue.offerUnsafe(frames, frame)) {
 							fail("Sidecar receive queue overflow");
@@ -366,8 +369,8 @@ export class SandboxSidecarClient extends Context.Service<SandboxSidecarClient>(
 				const writer = makeSidecarFrameWriter({
 					maximumRunMessages: settings.threads,
 					maximumControlMessages: settings.threads * 5 + 1,
-					maximumQueuedBytes: settings.threads * 52 * 1024 * 1024,
 					write: (bytes) => ({ written: bytes.byteLength, blocked: !socket.write(bytes) }),
+					maximumQueuedBytes: settings.threads * SANDBOX_LIMITS.sidecar.queuedBytesPerThread,
 				});
 				const guard = (operation: () => void) => {
 					try {
