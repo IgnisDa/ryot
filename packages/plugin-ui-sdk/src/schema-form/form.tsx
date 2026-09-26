@@ -3,8 +3,8 @@ import { useForm } from "@tanstack/react-form";
 import { Match } from "effect";
 import { useRef, useState, type ComponentProps, type ReactNode, type Ref } from "react";
 
+import { Button } from "../button";
 import { Chip } from "../chips";
-import { Button } from "../index";
 import { MultiSelect } from "../multi-select";
 import { RadioGroup } from "../radio-group";
 import { SegmentedControl } from "../segmented-control";
