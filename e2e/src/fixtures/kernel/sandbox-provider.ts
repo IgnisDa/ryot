@@ -97,7 +97,6 @@ export const installTestProvider = (input: {
 				kind: "provider" as const,
 				providerOperation: operation,
 				requiredPluginConfigKeys: [],
-				requiredSystemConfigKeys: [],
 				name: `${name} ${operation}`,
 				entry: `backend/providers/${providerSlug}/${operation}.sandbox.ts`,
 				...(operation === "search" && input.searchOptionsSchema !== undefined
@@ -290,7 +289,6 @@ export const manifest = defineManifest({
   kind: "provider",
   capabilities: [],
   requiredPluginConfigKeys: [],
-  requiredSystemConfigKeys: [],
   name: ${JSON.stringify(input.name)},
   slug: ${JSON.stringify(input.slug)},
 ${searchOptionsSchema}
@@ -310,7 +308,6 @@ export default defineProvider({
 		kind: "provider",
 		capabilities: [],
 		requiredPluginConfigKeys: [],
-		requiredSystemConfigKeys: [],
 		providerOperation: input.operation,
 		providerSlug: input.slug.slice(0, -(input.operation.length + 1)),
 	});

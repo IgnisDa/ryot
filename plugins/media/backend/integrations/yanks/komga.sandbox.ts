@@ -10,7 +10,6 @@ export const manifest = defineManifest({
 	name: "Komga yank",
 	slug: "integration.komga",
 	requiredPluginConfigKeys: [],
-	requiredSystemConfigKeys: [],
 	capabilities: ["httpCall", "getCurrentIntegration"],
 });
 

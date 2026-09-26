@@ -7,7 +7,6 @@ export const manifest = defineManifest({
 	kind: "script",
 	capabilities: [],
 	requiredPluginConfigKeys: [],
-	requiredSystemConfigKeys: [],
 });
 
 export default defineScript({

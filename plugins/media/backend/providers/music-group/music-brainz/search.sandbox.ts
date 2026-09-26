@@ -7,7 +7,6 @@ export const manifest = defineManifest({
 	kind: "provider",
 	capabilities: ["httpCall"],
 	requiredPluginConfigKeys: [],
-	requiredSystemConfigKeys: [],
 	name: "MusicBrainz Music Group Search",
 	slug: "music-group.music-brainz.search",
 });

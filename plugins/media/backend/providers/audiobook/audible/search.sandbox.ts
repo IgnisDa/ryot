@@ -8,7 +8,6 @@ export const manifest = defineManifest({
 	name: "Audible Search",
 	capabilities: ["httpCall"],
 	requiredPluginConfigKeys: [],
-	requiredSystemConfigKeys: [],
 	slug: "audiobook.audible.search",
 });
 

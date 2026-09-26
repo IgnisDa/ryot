@@ -10,7 +10,6 @@ export const manifest = defineManifest({
 	kind: "script",
 	slug: "import.goodreads",
 	requiredPluginConfigKeys: [],
-	requiredSystemConfigKeys: [],
 	name: "Parse Goodreads import",
 	capabilities: ["artifact-read"],
 });

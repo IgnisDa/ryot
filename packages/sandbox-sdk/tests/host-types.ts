@@ -17,7 +17,6 @@ const allCapabilitiesManifest = defineManifest({
 	name: "All core capabilities",
 	slug: "all-core-capabilities",
 	requiredPluginConfigKeys: ["timezone"],
-	requiredSystemConfigKeys: ["log-level"],
 	capabilities: [
 		"log",
 		"span",
@@ -25,7 +24,6 @@ const allCapabilitiesManifest = defineManifest({
 		"getCachedValue",
 		"setCachedValue",
 		"getPluginConfig",
-		"getSystemConfig",
 		"getUserPreferences",
 		"getUserSettings",
 		"claimPersistentValue",
@@ -67,9 +65,6 @@ defineScript({
 			const pluginConfig: Readonly<Record<string, JsonValue>> = yield* host.getPluginConfig([
 				"timezone",
 			]);
-			const systemConfig: Readonly<Record<string, JsonValue>> = yield* host.getSystemConfig([
-				"log-level",
-			]);
 			const preferences = yield* host.getUserPreferences();
 			const disableIntegrations: boolean = preferences.disableIntegrations;
 			const settings: Readonly<Record<string, JsonValue>> = yield* host.getUserSettings();
@@ -77,7 +72,6 @@ defineScript({
 			void cached;
 			void stored;
 			void pluginConfig;
-			void systemConfig;
 			void disableIntegrations;
 			void allowNsfw;
 			void settings;
@@ -102,7 +96,6 @@ defineScript({
 const narrowedManifest = defineManifest({
 	kind: "script",
 	requiredPluginConfigKeys: [],
-	requiredSystemConfigKeys: [],
 	name: "Narrowed capabilities",
 	slug: "narrowed-capabilities",
 	capabilities: ["getCachedValue"],
@@ -126,7 +119,6 @@ defineSandboxTestHost(narrowedManifest, {
 const allDomainManifest = defineManifest({
 	kind: "script",
 	requiredPluginConfigKeys: [],
-	requiredSystemConfigKeys: [],
 	name: "All domain capabilities",
 	slug: "all-domain-capabilities",
 	capabilities: [
@@ -236,7 +228,6 @@ const promiseScriptManifest = defineManifest({
 	kind: "script",
 	capabilities: [],
 	requiredPluginConfigKeys: [],
-	requiredSystemConfigKeys: [],
 	name: "Promise driver rejection",
 	slug: "promise-driver-rejection",
 });

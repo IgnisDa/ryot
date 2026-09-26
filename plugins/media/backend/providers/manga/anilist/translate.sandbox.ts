@@ -7,7 +7,6 @@ export const manifest = defineManifest({
 	kind: "provider",
 	name: "Anilist Translate",
 	requiredPluginConfigKeys: [],
-	requiredSystemConfigKeys: [],
 	slug: "manga.anilist.translate",
 	capabilities: ["httpCall", "getUserSettings"],
 });

@@ -418,7 +418,6 @@ const PluginScriptFields = {
 	slug: sandboxManifestSlug,
 	name: sandboxManifestString,
 	requiredPluginConfigKeys: Schema.Array(sandboxManifestString),
-	requiredSystemConfigKeys: Schema.Array(sandboxManifestString),
 };
 const PluginScriptCapabilities = Schema.Array(Schema.Literals([...SANDBOX_HOST_CAPABILITIES]));
 

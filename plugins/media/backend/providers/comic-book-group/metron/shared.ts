@@ -9,7 +9,6 @@ import { loadMetronJson, type MetronHost } from "../../../lib/vendors/metron";
 export const manifest = defineManifest({
 	name: "Metron",
 	kind: "provider",
-	requiredSystemConfigKeys: [],
 	slug: "comic-book-group.metron",
 	capabilities: ["httpCall", "getPluginConfig"],
 	requiredPluginConfigKeys: ["metronUsername", "metronPassword"],

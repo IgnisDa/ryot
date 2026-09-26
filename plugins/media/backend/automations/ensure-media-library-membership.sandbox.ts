@@ -11,7 +11,6 @@ export const manifest = defineManifest({
 	kind: "automation",
 	automationType: "automation",
 	requiredPluginConfigKeys: [],
-	requiredSystemConfigKeys: [],
 	name: "Ensure media library membership",
 	slug: "automation.ensure-media-library-membership",
 	capabilities: ["executeRyotql", "changeUserRelationships"],

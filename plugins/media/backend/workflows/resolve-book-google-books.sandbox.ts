@@ -10,7 +10,6 @@ import { resolve } from "../providers/book/google-books/shared";
 
 export const manifest = defineManifest({
 	kind: "script",
-	requiredSystemConfigKeys: [],
 	name: "Resolve imported Google Books book",
 	capabilities: ["httpCall", "getPluginConfig"],
 	slug: "media-import-resolve.book.google-books",

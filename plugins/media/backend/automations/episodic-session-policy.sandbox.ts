@@ -21,7 +21,6 @@ export const manifest = defineManifest({
 	kind: "automation",
 	automationType: "policy",
 	requiredPluginConfigKeys: [],
-	requiredSystemConfigKeys: [],
 	capabilities: ["executeRyotql"],
 	name: "Media Episodic Session Policy",
 	slug: "policy.media-episodic-session",

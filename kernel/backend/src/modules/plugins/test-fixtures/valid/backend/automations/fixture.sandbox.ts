@@ -9,7 +9,6 @@ export const manifest = defineManifest({
 	slug: "fixture.automation",
 	automationType: "automation",
 	requiredPluginConfigKeys: [],
-	requiredSystemConfigKeys: [],
 	inputProjection: {
 		signal: { properties: [] },
 		entity: { properties: [], compareProperties: [], parentEntityProperties: [] },

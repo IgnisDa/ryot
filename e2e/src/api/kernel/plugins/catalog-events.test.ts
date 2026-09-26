@@ -154,7 +154,6 @@ describe("plugin catalog events", () => {
 						capabilities: [],
 						slug: scriptSlug,
 						requiredPluginConfigKeys: [],
-						requiredSystemConfigKeys: [],
 					},
 				],
 			});

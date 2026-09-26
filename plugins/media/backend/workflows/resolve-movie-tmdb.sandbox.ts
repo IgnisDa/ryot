@@ -10,7 +10,6 @@ import { resolve } from "../providers/movie/tmdb/shared";
 
 export const manifest = defineManifest({
 	kind: "script",
-	requiredSystemConfigKeys: [],
 	name: "Resolve imported TMDB movie",
 	slug: "media-import-resolve.movie.tmdb",
 	capabilities: ["httpCall", "getPluginConfig"],

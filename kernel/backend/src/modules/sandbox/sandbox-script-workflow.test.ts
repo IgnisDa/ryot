@@ -360,7 +360,6 @@ const hotSwapScript = (id: typeof historicalScriptId, compiledCode: string) => (
 		capabilities: [],
 		kind: "workflow" as const,
 		requiredPluginConfigKeys: [],
-		requiredSystemConfigKeys: [],
 	},
 });
 const historicalScript = hotSwapScript(historicalScriptId, historicalContent);
