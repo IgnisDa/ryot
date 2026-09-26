@@ -13,6 +13,7 @@ import {
 	RelationshipScope,
 } from "@ryot-app/contract/modules/relationships/schemas";
 import { RelationshipId, type UserId } from "@ryot-app/contract/schema/brands";
+import { principalOwner } from "@ryot-app/sandbox/protocol/principal";
 import { Cause, Context, Effect, Layer, Schema, Struct } from "effect";
 
 import { LifecyclePlannedPolicy, LifecyclePlanner } from "#lib/domain/lifecycle";
@@ -25,7 +26,6 @@ import {
 	type LifecycleCommittedStep,
 	type LifecyclePreparedStep,
 } from "#lib/infrastructure/lifecycle-workflow-step";
-import { principalOwner } from "#lib/infrastructure/sandbox-runtime/execution-principal";
 import { DefinitionRepository } from "#modules/definition-registry/repository";
 import type { RelationshipSchemaDefinition } from "#modules/definition-registry/snapshot";
 import { EntitiesRepository } from "#modules/entities/repository";

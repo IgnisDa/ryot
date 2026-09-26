@@ -5,10 +5,10 @@ import {
 	PreparedClientPage,
 } from "@ryot-app/contract/modules/client-pages/schemas";
 import { EntityId, PluginId, UserId } from "@ryot-app/contract/schema/brands";
+import { assertExitFails } from "@ryot-app/testing/effect-assertions";
 import { Context, Effect, Layer, Ref, Schema } from "effect";
 
 import { DatabaseSession } from "#lib/infrastructure/db/session";
-import { assertExitFails } from "#lib/test-utils/assertions";
 import { ClientArtifactGrantService } from "#modules/client-artifacts/grant-service";
 import { ImageClientArtifacts } from "#modules/client-artifacts/image-artifacts";
 import { ClientArtifactStore } from "#modules/client-artifacts/store";

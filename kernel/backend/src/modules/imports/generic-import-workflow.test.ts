@@ -7,13 +7,13 @@ import type {
 import { AutomationExecutionId } from "@ryot-app/contract/schema/brands";
 import { IsoUtcString } from "@ryot-app/contract/schema/utils";
 import type { GenericImportChunk } from "@ryot-app/sandbox-sdk/imports";
+import type { ScriptPluginRevision } from "@ryot-app/sandbox/protocol/principal";
 import { Effect, Layer } from "effect";
 import { Workflow } from "effect/workflow";
 import { WorkflowEngine, WorkflowInstance } from "effect/workflow/WorkflowEngine";
 
 import { rootLifecycleCommand } from "#lib/domain/lifecycle-command";
 import { LifecycleExecution } from "#lib/domain/lifecycle-execution";
-import type { SandboxPluginRevision } from "#lib/infrastructure/sandbox-runtime/execution-principal";
 import { makeWorkflowEngine } from "#lib/test-utils/effect";
 import { CollectionsService } from "#modules/collections/service";
 import { kernelDefinitionSource } from "#modules/definition-registry/kernel-source";
@@ -71,7 +71,7 @@ const domainCommand = {
 const applyCase = (
 	chunk: GenericImportChunk,
 	cancelled = false,
-	pluginRevision: SandboxPluginRevision = ingestionTestSource.pluginRevision,
+	pluginRevision: ScriptPluginRevision = ingestionTestSource.pluginRevision,
 ) =>
 	Effect.gen(function* () {
 		const batches = new Map<string, IngestionBatch>();

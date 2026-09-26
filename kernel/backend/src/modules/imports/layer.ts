@@ -1,7 +1,7 @@
 import { SandboxRunError } from "@ryot-app/contract/errors";
+import { samePluginPin } from "@ryot-app/sandbox/protocol/principal";
 import { Effect, Layer } from "effect";
 
-import { samePluginPin } from "#lib/infrastructure/sandbox-runtime/execution-principal";
 import { AuthRepository } from "#modules/auth/repository";
 import { DefinitionRepository } from "#modules/definition-registry/repository";
 import { EntitiesRepositoryLive } from "#modules/entities/repository";
@@ -9,8 +9,8 @@ import { ImportSourceCatalog } from "#modules/plugins/import-source-catalog";
 import { IngestionReadinessService } from "#modules/plugins/ingestion-readiness-service";
 import { PluginInstallationRepository } from "#modules/plugins/installation-repository";
 import { PluginRuntimeResolverLive } from "#modules/plugins/runtime-resolver";
-import { SandboxExecutionServiceLive } from "#modules/sandbox/layer";
-import { SandboxExecutionService } from "#modules/sandbox/service";
+import { ScriptExecutionService } from "#modules/scripts/executions/service";
+import { ScriptExecutionServiceLive } from "#modules/scripts/layer";
 import { UploadServicesLive } from "#modules/uploads/layer";
 import { IngestionPayloads } from "#modules/uploads/object-storage/ingestion-payloads";
 
@@ -39,7 +39,7 @@ export const IngestionCaptureWorkflowDefinitionsProvidedLive =
 export const ImportWorkflowPinningLive = Layer.effect(
 	ImportWorkflowPinning,
 	Effect.gen(function* () {
-		const sandbox = yield* SandboxExecutionService;
+		const sandbox = yield* ScriptExecutionService;
 		const repository = yield* ImportsRepository;
 		return {
 			release: sandbox.releaseWorkflowRegistration,
@@ -87,7 +87,7 @@ export const ImportWorkflowPinningLive = Layer.effect(
 			}),
 		};
 	}),
-).pipe(Layer.provide(Layer.mergeAll(SandboxExecutionServiceLive, ImportsRepository.layer)));
+).pipe(Layer.provide(Layer.mergeAll(ScriptExecutionServiceLive, ImportsRepository.layer)));
 
 export const IngestionExecutionLive = IngestionExecution.layer.pipe(
 	Layer.provide(ImportWorkflowPinningLive),

@@ -18,6 +18,7 @@ import {
 } from "@ryot-app/contract/schema/brands";
 import { defaultUserPreferences } from "@ryot-app/contract/schema/user-preferences";
 import { emptySandboxExecutionMetadata } from "@ryot-app/contract/testing";
+import { assertExitFails } from "@ryot-app/testing/effect-assertions";
 import { stableStringify } from "@ryot-app/ts-utils/json";
 import { eq } from "drizzle-orm";
 import { Context, Effect, Layer, Ref, Schema } from "effect";
@@ -33,7 +34,6 @@ import {
 	pluginConfigEncryptionKey,
 } from "#lib/infrastructure/db/schema/tables/core";
 import { DatabaseSession } from "#lib/infrastructure/db/session";
-import { assertExitFails } from "#lib/test-utils/assertions";
 import { isolatedDatabaseLayer } from "#lib/test-utils/isolated-database";
 import { fixtureManifest } from "#modules/plugins/test-support";
 

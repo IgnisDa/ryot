@@ -1,15 +1,15 @@
 import { expect, it, layer } from "@effect/vitest";
 import { SandboxScriptId, UserId } from "@ryot-app/contract/schema/brands";
 import { emptySandboxExecutionMetadata } from "@ryot-app/contract/testing";
+import { makeUserPluginRevision } from "@ryot-app/sandbox/host/executor.test-support";
 import { Context, Effect, Layer, Ref } from "effect";
 import { WorkflowEngine, WorkflowInstance } from "effect/workflow/WorkflowEngine";
 
 import { makeWorkflowActivityEngine } from "#lib/test-utils/effect";
 import { mutationAdmissionTestLayer } from "#lib/test-utils/mutation-admission";
-import { makeUserPluginRevision } from "#lib/test-utils/sandbox-runtime";
-import { SandboxRepository } from "#modules/sandbox/repository";
-import { SandboxExecutionService } from "#modules/sandbox/service";
-import { SandboxWorkflowReferenceRepository } from "#modules/sandbox/workflow-reference-repository";
+import { ScriptExecutionService } from "#modules/scripts/executions/service";
+import { SandboxRepository } from "#modules/scripts/registry/repository";
+import { SandboxWorkflowReferenceRepository } from "#modules/scripts/registry/workflow-references";
 
 import { PluginCatalogInvalidator } from "./catalog-events";
 import { PluginInstallationRepository } from "./installation-repository";
@@ -63,7 +63,7 @@ type WorkflowRegistration = Parameters<
 	SandboxWorkflowReferenceRepository["Service"]["registerInTransaction"]
 >[0];
 type Execution = Pick<
-	Parameters<SandboxExecutionService["Service"]["executeScript"]>[0],
+	Parameters<ScriptExecutionService["Service"]["executeScript"]>[0],
 	"executionId" | "scriptId" | "subject" | "pluginRevision" | "initialization"
 >;
 
@@ -247,7 +247,7 @@ const workflowLayer = (input: {
 								isHidden: input.hiddenInstallation ?? false,
 							})),
 					}),
-					Layer.mock(SandboxExecutionService)({
+					Layer.mock(ScriptExecutionService)({
 						releaseWorkflowRegistration: () => Effect.void,
 						executeScript: (payload) => {
 							const message = input.scriptErrors?.[payload.scriptId];

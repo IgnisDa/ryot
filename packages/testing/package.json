@@ -22,6 +22,14 @@
 		"./jsdom-blob-clone": {
 			"types": "./src/jsdom-blob-clone.ts",
 			"default": "./src/jsdom-blob-clone.ts"
+		},
+		"./effect-assertions": {
+			"types": "./src/effect-assertions.ts",
+			"default": "./src/effect-assertions.ts"
+		},
+		"./recording-tracer": {
+			"types": "./src/recording-tracer.ts",
+			"default": "./src/recording-tracer.ts"
 		}
 	},
 	"scripts": {

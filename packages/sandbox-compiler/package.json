@@ -7,6 +7,10 @@
 			"types": "./src/compiler-builtins.ts",
 			"default": "./src/compiler-builtins.ts"
 		},
+		"./core": {
+			"types": "./src/compiler-core.ts",
+			"default": "./src/compiler-core.ts"
+		},
 		"./diagnostics": {
 			"types": "./src/compiler-diagnostics.ts",
 			"default": "./src/compiler-diagnostics.ts"

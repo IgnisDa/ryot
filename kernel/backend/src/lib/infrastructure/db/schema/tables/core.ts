@@ -27,7 +27,7 @@ import {
 	uniqueIndex,
 } from "drizzle-orm/pg-core";
 
-import type { PluginSandboxAuthority } from "#lib/infrastructure/sandbox-runtime/plugin-authority";
+import type { PluginSandboxAuthority } from "#modules/scripts/authorization/plugin-authority";
 
 import { user } from "./auth";
 import { clientArtifact } from "./client-artifacts";

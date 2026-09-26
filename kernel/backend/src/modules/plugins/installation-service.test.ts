@@ -17,7 +17,7 @@ import { DatabaseSession } from "#lib/infrastructure/db/session";
 import { databaseLayer } from "#lib/test-utils/effect";
 import { kernelDefinitionSource } from "#modules/definition-registry/kernel-source";
 import { DefinitionRepository } from "#modules/definition-registry/repository";
-import { SandboxWorkflowReferenceRepository } from "#modules/sandbox/workflow-reference-repository";
+import { SandboxWorkflowReferenceRepository } from "#modules/scripts/registry/workflow-references";
 import { UploadIntentsService } from "#modules/uploads/intents/service";
 import { ObjectStorageService } from "#modules/uploads/object-storage/service";
 

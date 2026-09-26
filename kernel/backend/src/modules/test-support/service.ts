@@ -41,8 +41,8 @@ import { PluginRepository } from "#modules/plugins/repository";
 import { PluginIngestionService } from "#modules/plugins/service";
 import { RelationshipSchemasRepository } from "#modules/relationship-schemas/repository";
 import { RelationshipsService } from "#modules/relationships/service";
-import { SandboxExecutionService } from "#modules/sandbox/service";
 import { PluginCronService } from "#modules/scheduler/plugin-cron";
+import { ScriptExecutionService } from "#modules/scripts/executions/service";
 
 type CreateGlobalEntityInput = {
 	readonly name: string;
@@ -122,7 +122,7 @@ export class TestSupportService extends Context.Service<TestSupportService>()(
 			const entities = yield* EntitiesService;
 			const interest = yield* InterestService;
 			const pluginCrons = yield* PluginCronService;
-			const sandbox = yield* SandboxExecutionService;
+			const sandbox = yield* ScriptExecutionService;
 			const translations = yield* TranslationsRepository;
 			const relationships = yield* RelationshipsService;
 			const pluginIngestion = yield* PluginIngestionService;

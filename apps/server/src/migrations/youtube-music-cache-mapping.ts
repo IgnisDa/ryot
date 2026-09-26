@@ -1,5 +1,5 @@
 import { redisKeys, RedisService } from "@ryot-app/kernel-backend/lib/infrastructure/redis";
-import { encodePersistentClaimEnvelope } from "@ryot-app/kernel-backend/lib/infrastructure/sandbox-runtime/runtime-host-functions";
+import { encodePersistentClaimEnvelope } from "@ryot-app/kernel-backend/modules/scripts/host/runtime-host-functions";
 import { Effect, Schema } from "effect";
 
 import { buildReportSql, quoteSqlString, withReservedConnection } from "./shared";

@@ -1,6 +1,7 @@
 import { DbError } from "@ryot-app/contract/errors";
 import type { AutomationWarning } from "@ryot-app/contract/modules/automations/lifecycle";
 import type { AutomationRunId } from "@ryot-app/contract/schema/brands";
+import { SANDBOX_LIMITS } from "@ryot-app/sandbox/protocol/limits";
 import { Cause, Clock, Context, Duration, Effect, Layer, Option, Schema } from "effect";
 import { DurableClock, DurableDeferred } from "effect/workflow";
 import { WorkflowEngine, WorkflowInstance } from "effect/workflow/WorkflowEngine";
@@ -11,7 +12,6 @@ import {
 	LifecycleExecution,
 } from "#lib/domain/lifecycle-execution";
 import { DatabaseSession } from "#lib/infrastructure/db/session";
-import { SANDBOX_LIMITS } from "#lib/infrastructure/sandbox-runtime/limits";
 import { startWorkflowDeadline } from "#lib/infrastructure/workflow-deadline";
 import {
 	awaitWorkflowSettled,

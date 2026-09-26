@@ -3,13 +3,13 @@ import { assert, expect, it } from "@effect/vitest";
 import { DbError } from "@ryot-app/contract/errors";
 import type { IngestionCapture, IngestionRun } from "@ryot-app/contract/modules/imports/ingestion";
 import { PluginId } from "@ryot-app/contract/schema/brands";
+import { assertExitFails } from "@ryot-app/testing/effect-assertions";
 import { Deferred, Effect, Fiber, Layer } from "effect";
 import { TestClock } from "effect/testing";
 import { layerMemory, WorkflowEngine } from "effect/workflow/WorkflowEngine";
 
 import type { importPayloadReservation } from "#lib/infrastructure/db/schema/tables/imports";
 import { WorkflowExecutionNotifications } from "#lib/infrastructure/workflow-execution-notifications";
-import { assertExitFails } from "#lib/test-utils/assertions";
 import { makeAppConfigLayer } from "#lib/test-utils/effect";
 import {
 	IngestionPayloads,

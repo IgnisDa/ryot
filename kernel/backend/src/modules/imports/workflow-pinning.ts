@@ -6,9 +6,8 @@ import type {
 } from "@ryot-app/contract/modules/imports/ingestion";
 import type { AccountGeneration } from "@ryot-app/contract/schema/account-generation";
 import type { SandboxScriptId, UserId } from "@ryot-app/contract/schema/brands";
+import type { ScriptPluginRevision } from "@ryot-app/sandbox/protocol/principal";
 import { Context, type Effect } from "effect";
-
-import type { SandboxPluginRevision } from "#lib/infrastructure/sandbox-runtime/execution-principal";
 
 import type { ImportSourceState } from "./runtime/source-state";
 
@@ -28,7 +27,7 @@ export type ImportWorkflowPinningValue = {
 		};
 	}) => Effect.Effect<
 		{
-			readonly pluginRevision: SandboxPluginRevision;
+			readonly pluginRevision: ScriptPluginRevision;
 			readonly registrationStatus: "registered" | "already-registered" | "not-required";
 		},
 		SandboxRunError

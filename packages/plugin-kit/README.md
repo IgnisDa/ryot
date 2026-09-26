@@ -273,7 +273,7 @@ it with `host.executeWorkflow("event-stream-work", kernelDispatch, { id: workId 
 allows updates to the declared output properties.
 
 Exact host-function and filesystem limits are in the
-[sandbox runtime reference](../../kernel/backend/src/lib/infrastructure/sandbox-runtime/README.md).
+[sandbox runtime reference](../../kernel/backend/src/modules/scripts/README.md).
 
 Prefer bounded batch host calls. Do not hide N+1 bridge traffic behind concurrency: each execution has
 a host-call budget and at most four calls may be in flight.
@@ -482,7 +482,7 @@ slugs, inputs, and app-owned child execution IDs must remain deterministic acros
 durable owner may create each execution. Move ambient time, randomness, network, filesystem, mutable
 state, and ordinary host functions into activity scripts. Use `Effect.fail` for expected failures.
 Runtime pinning and replay semantics are in the
-[sandbox runtime reference](../../kernel/backend/src/lib/infrastructure/sandbox-runtime/README.md#durable-state).
+[sandbox runtime reference](../../kernel/backend/src/modules/scripts/README.md#durable-ownership).
 
 ## Installation Lifecycle
 

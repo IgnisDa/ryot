@@ -44,7 +44,7 @@ export const assemble = Effect.gen(function* () {
 	const plugins = yield* readShippedPlugins;
 	yield* prepareLayout;
 	yield* fs.remove("sandboxd", { force: true, recursive: true });
-	yield* fs.copy(path.resolve(serverRoot, "../../kernel/sandboxd/dist"), "sandboxd");
+	yield* fs.copy(path.resolve(serverRoot, "../../kernel/sandbox/dist"), "sandboxd");
 	const shippedArtifacts: PluginClientArtifact[] = [];
 	for (const plugin of plugins) {
 		const destination = path.join("plugins", `${plugin.packageId}.zip`);

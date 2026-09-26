@@ -15,7 +15,7 @@ import {
 	PluginRuntimeResolver,
 	UnsupportedProviderOperationError,
 } from "#modules/plugins/runtime-resolver";
-import { SandboxExecutionService } from "#modules/sandbox/service";
+import { ScriptExecutionService } from "#modules/scripts/executions/service";
 
 import { ProviderEntitySearchService } from "./search-service";
 
@@ -104,7 +104,7 @@ const searchOptionsScript = {
 
 type ResolutionCounts = { provider: number; search: number; searchOptions: number };
 
-type Execute = SandboxExecutionService["Service"]["executeScript"];
+type Execute = ScriptExecutionService["Service"]["executeScript"];
 type ExecuteInput = Parameters<Execute>[0];
 
 class FakeProviderSearch extends Context.Service<
@@ -205,7 +205,7 @@ const makeLayer = (input?: {
 									),
 								),
 						}),
-						Layer.mock(SandboxExecutionService)({
+						Layer.mock(ScriptExecutionService)({
 							executeScript: (run) =>
 								Ref.update(executions, (all) => [...all, run]).pipe(
 									Effect.andThen(Ref.get(execute)),

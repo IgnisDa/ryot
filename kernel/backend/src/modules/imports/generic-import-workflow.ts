@@ -31,6 +31,7 @@ import {
 	type GenericImportWriteItem,
 } from "@ryot-app/sandbox-sdk/imports";
 import { providerResolveResultSchema } from "@ryot-app/sandbox-sdk/provider";
+import { sameRevisionPin, type ScriptPluginRevision } from "@ryot-app/sandbox/protocol/principal";
 import { stableStringify } from "@ryot-app/ts-utils/json";
 import { isObjectRecord } from "@ryot-app/ts-utils/predicates";
 import { Effect, Schema } from "effect";
@@ -43,10 +44,6 @@ import {
 	runLifecycleWriteStep,
 	type LifecyclePreparedStep,
 } from "#lib/infrastructure/lifecycle-workflow-step";
-import {
-	sameRevisionPin,
-	type SandboxPluginRevision,
-} from "#lib/infrastructure/sandbox-runtime/execution-principal";
 import type { DurableSchema } from "#lib/infrastructure/workflow";
 import { implementWorkflow, makeActivity } from "#lib/infrastructure/workflow-scope";
 import { slugify } from "#lib/shared/slug";
@@ -446,7 +443,7 @@ const validateGenericItem = (
 	userId: UserId,
 	index: number,
 	definitions: GenericImportDefinitions,
-	pluginRevision: SandboxPluginRevision,
+	pluginRevision: ScriptPluginRevision,
 ) =>
 	makeActivity({
 		error: ImportRunError,
@@ -584,7 +581,7 @@ const writeGenericItem = Effect.fn("imports.writeGenericItem")(function* (
 	index: number,
 	definitions: GenericImportDefinitions,
 	command: DomainLifecycleCommand,
-	pluginRevision: SandboxPluginRevision,
+	pluginRevision: ScriptPluginRevision,
 ) {
 	const entities = yield* EntitiesService;
 	const collections = yield* CollectionsService;
@@ -756,7 +753,7 @@ const writeGenericItem = Effect.fn("imports.writeGenericItem")(function* (
 	);
 });
 
-const resolveGenericImportDefinitions = (userId: UserId, pluginRevision: SandboxPluginRevision) =>
+const resolveGenericImportDefinitions = (userId: UserId, pluginRevision: ScriptPluginRevision) =>
 	makeActivity({
 		name: "resolve-generic-import-definitions",
 		error: ImportRunError satisfies DurableSchema,

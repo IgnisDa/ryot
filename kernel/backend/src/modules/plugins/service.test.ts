@@ -6,18 +6,18 @@ import { PluginConflictError } from "@ryot-app/contract/modules/plugins/schemas"
 import { PluginId, type PluginPackageId, type UserId } from "@ryot-app/contract/schema/brands";
 import { emptySandboxExecutionMetadata } from "@ryot-app/contract/testing";
 import { sandboxCompilerPlatformLayer } from "@ryot-app/sandbox-compiler/platform";
+import { assertExitFails } from "@ryot-app/testing/effect-assertions";
 import { Cause, Context, Deferred, Effect, Exit, Fiber, Layer, Option, Ref } from "effect";
 
 import { DatabaseSession } from "#lib/infrastructure/db/session";
 import { redisKeys, RedisService } from "#lib/infrastructure/redis";
-import { assertExitFails } from "#lib/test-utils/assertions";
 import { databaseLayer, makeRedisService, type MockOverrides } from "#lib/test-utils/effect";
 import { kernelDefinitionSource } from "#modules/definition-registry/kernel-source";
 import { DefinitionRepository } from "#modules/definition-registry/repository";
 import {
 	SandboxWorkflowReferenceRegistrationError,
 	SandboxWorkflowReferenceRepository,
-} from "#modules/sandbox/workflow-reference-repository";
+} from "#modules/scripts/registry/workflow-references";
 
 import { PluginCatalogInvalidator } from "./catalog-events";
 import { PluginIngestionRetirement } from "./ingestion-retirement";

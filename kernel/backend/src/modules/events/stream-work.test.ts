@@ -11,6 +11,11 @@ import {
 	UserId,
 } from "@ryot-app/contract/schema/brands";
 import { emptySandboxExecutionMetadata } from "@ryot-app/contract/testing";
+import {
+	ScriptExecutionPrincipal,
+	type ScriptPluginRevision,
+} from "@ryot-app/sandbox/protocol/principal";
+import { assertExitFails } from "@ryot-app/testing/effect-assertions";
 import { eq } from "drizzle-orm";
 import { Context, DateTime, Effect, Layer, Option, Ref, Schema } from "effect";
 import { TestClock } from "effect/testing";
@@ -21,12 +26,7 @@ import { rootLifecycleCommand } from "#lib/domain/lifecycle-command";
 import { LifecycleExecution } from "#lib/domain/lifecycle-execution";
 import * as tables from "#lib/infrastructure/db/schema/tables/combined";
 import { DatabaseSession } from "#lib/infrastructure/db/session";
-import {
-	SandboxExecutionPrincipal,
-	type SandboxPluginRevision,
-} from "#lib/infrastructure/sandbox-runtime/execution-principal";
 import { WorkflowExecutionNotifications } from "#lib/infrastructure/workflow-execution-notifications";
-import { assertExitFails } from "#lib/test-utils/assertions";
 import { makeAppConfigLayer, makeWorkflowEngine } from "#lib/test-utils/effect";
 import {
 	withLifecycleBatchPlanning,
@@ -50,7 +50,7 @@ import {
 import { PluginRuntimeResolver } from "#modules/plugins/runtime-resolver";
 import { fixtureManifest } from "#modules/plugins/test-support";
 import type { NormalizedPlugin } from "#modules/plugins/types";
-import { SandboxRepository } from "#modules/sandbox/repository";
+import { SandboxRepository } from "#modules/scripts/registry/repository";
 
 const userId = UserId.make("owner");
 const accountToken = "test-account-generation";
@@ -126,8 +126,8 @@ class StreamWorkFixture extends Context.Service<
 	StreamWorkFixture,
 	{
 		pluginId: PluginId;
-		pluginPin: SandboxPluginRevision;
-		principal: SandboxExecutionPrincipal;
+		pluginPin: ScriptPluginRevision;
+		principal: ScriptExecutionPrincipal;
 		processorScriptId: SandboxScriptId;
 		accountGeneration: { userId: UserId; token: string };
 		entitySchemaSlug: typeof entitySchemaSlug;
@@ -179,7 +179,7 @@ const fixtureLayer = Layer.effect(
 		};
 		const pin = yield* (yield* SandboxRepository).getScriptPin(script.id, undefined, subject);
 		assert(pin?.pluginRevision);
-		const principal = yield* Schema.decodeEffect(SandboxExecutionPrincipal)({ ...pin, subject });
+		const principal = yield* Schema.decodeEffect(ScriptExecutionPrincipal)({ ...pin, subject });
 		return {
 			pluginId,
 			principal,

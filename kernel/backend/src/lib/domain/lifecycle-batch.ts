@@ -3,10 +3,9 @@ import {
 	type AutomationTrigger,
 } from "@ryot-app/contract/modules/automations/lifecycle";
 import { jsonByteLength } from "@ryot-app/sandbox-compiler/limits";
+import { SANDBOX_LIMITS } from "@ryot-app/sandbox/protocol/limits";
 import { stableStringify } from "@ryot-app/ts-utils/json";
 import { Schema } from "effect";
-
-import { SANDBOX_LIMITS } from "#lib/infrastructure/sandbox-runtime/limits";
 
 import type { LifecycleBatchChange, LifecycleBatchInput } from "./lifecycle";
 import { lifecycleTrigger } from "./lifecycle-command";

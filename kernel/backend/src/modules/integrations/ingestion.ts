@@ -12,12 +12,12 @@ import {
 	genericImportChunkSchema,
 } from "@ryot-app/sandbox-sdk/imports";
 import { jsonValueSchema } from "@ryot-app/sandbox-sdk/wire";
+import { samePluginPin } from "@ryot-app/sandbox/protocol/principal";
 import { sha256Base64Url } from "@ryot-app/ts-utils/crypto";
 import { stableStringify } from "@ryot-app/ts-utils/json";
 import { Context, Data, DateTime, Effect, Exit, Layer, Schema } from "effect";
 
 import { DatabaseSession } from "#lib/infrastructure/db/session";
-import { samePluginPin } from "#lib/infrastructure/sandbox-runtime/execution-principal";
 import {
 	genericIngestionBatchResult,
 	reconcileGenericIngestionBatch,
@@ -35,8 +35,8 @@ import { MutationReceipts } from "#modules/mutations/receipts";
 import { IngestionReadinessService } from "#modules/plugins/ingestion-readiness-service";
 import { PluginInstallationRepository } from "#modules/plugins/installation-repository";
 import { resolveStoredPluginUserSettings } from "#modules/plugins/user-settings";
-import { SandboxPluginScriptResolver } from "#modules/sandbox/plugin-script-resolver";
-import { SandboxExecutionService } from "#modules/sandbox/service";
+import { ScriptExecutionService } from "#modules/scripts/executions/service";
+import { SandboxPluginScriptResolver } from "#modules/scripts/registry/plugin-script-resolver";
 
 import type { IntegrationWebhookDelivery } from "./jobs";
 import type { IntegrationRecord } from "./repository";
@@ -59,7 +59,7 @@ export class IntegrationIngestion extends Context.Service<IntegrationIngestion>(
 			const states = yield* ImportSourceStateStore;
 			const execution = yield* IngestionExecution;
 			const captures = yield* IngestionCaptures;
-			const sandbox = yield* SandboxExecutionService;
+			const sandbox = yield* ScriptExecutionService;
 			const inputReady = Effect.fn("IntegrationIngestion.inputReady")(function* (
 				scope: IngestionScope,
 			) {

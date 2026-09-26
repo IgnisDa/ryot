@@ -14,6 +14,11 @@ import {
 } from "@ryot-app/contract/schema/brands";
 import { JsonValue } from "@ryot-app/contract/schema/json";
 import { IsoUtcString } from "@ryot-app/contract/schema/utils";
+import {
+	sameRevisionPin,
+	ScriptExecutionPrincipal,
+	ScriptPluginRevision,
+} from "@ryot-app/sandbox/protocol/principal";
 import { stableStringify } from "@ryot-app/ts-utils/json";
 import { and, eq } from "drizzle-orm";
 import { Context, Effect, Layer, Schema } from "effect";
@@ -25,11 +30,6 @@ import { rootLifecycleCausation } from "#lib/domain/lifecycle-command";
 import { LifecycleExecution } from "#lib/domain/lifecycle-execution";
 import * as tables from "#lib/infrastructure/db/schema/tables/combined";
 import { DatabaseSession } from "#lib/infrastructure/db/session";
-import {
-	sameRevisionPin,
-	SandboxExecutionPrincipal,
-	SandboxPluginRevision,
-} from "#lib/infrastructure/sandbox-runtime/execution-principal";
 import { implementWorkflow, makeActivity } from "#lib/infrastructure/workflow-scope";
 import { EntitiesRepository } from "#modules/entities/repository";
 import { DomainLifecycleCommand, DomainWriteChecks } from "#modules/entities/write-context";
@@ -52,8 +52,8 @@ const EventStreamClaim = Schema.Struct({
 	accountGeneration: AccountGeneration,
 	outputProperties: Schema.Array(Schema.String),
 	pluginPin: Schema.Struct({
-		...SandboxPluginRevision.fields,
-		writeContext: SandboxExecutionPrincipal,
+		...ScriptPluginRevision.fields,
+		writeContext: ScriptExecutionPrincipal,
 	}),
 });
 
@@ -101,7 +101,7 @@ export class EventStreamWorkService extends Context.Service<EventStreamWorkServi
 			const request = Effect.fn("EventStreamWorkService.request")(function* (input: {
 				request: typeof EventStreamWorkRequest.Type;
 				processorScriptId: SandboxScriptId;
-				pluginPin: SandboxPluginRevision;
+				pluginPin: ScriptPluginRevision;
 				accountGeneration: AccountGeneration;
 				command: DomainLifecycleCommand;
 			}) {

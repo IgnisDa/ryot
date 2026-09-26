@@ -15,6 +15,7 @@ import {
 import { definitionOwner } from "@ryot-app/contract/modules/plugins/references";
 import { AutomationRunId, EventId } from "@ryot-app/contract/schema/brands";
 import { AppSchema } from "@ryot-app/contract/schema/property-schema";
+import { principalOwner } from "@ryot-app/sandbox/protocol/principal";
 import { sha256Base64Url } from "@ryot-app/ts-utils/crypto";
 import { stableStringify } from "@ryot-app/ts-utils/json";
 import { DateTime, Effect, Ref, Schema } from "effect";
@@ -29,7 +30,6 @@ import {
 import { lifecycleTrigger } from "#lib/domain/lifecycle-command";
 import { LifecycleExecution } from "#lib/domain/lifecycle-execution";
 import { DatabaseSession } from "#lib/infrastructure/db/session";
-import { principalOwner } from "#lib/infrastructure/sandbox-runtime/execution-principal";
 import type { DurableSchema } from "#lib/infrastructure/workflow";
 import { implementWorkflow, makeActivity } from "#lib/infrastructure/workflow-scope";
 import { parseAppSchemaProperties } from "#lib/property-schema/property-schema-runtime";

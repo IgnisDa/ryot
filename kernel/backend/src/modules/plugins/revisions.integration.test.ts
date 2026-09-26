@@ -21,7 +21,7 @@ import {
 } from "#lib/test-utils/baseline-migration";
 import { testDatabaseUrl } from "#lib/test-utils/database";
 import { makeAppConfigLayer } from "#lib/test-utils/effect";
-import { SandboxRepository } from "#modules/sandbox/repository";
+import { SandboxRepository } from "#modules/scripts/registry/repository";
 
 import { PluginConfigRevisions } from "./config-revisions";
 import { PluginInstallationRepository } from "./installation-repository";

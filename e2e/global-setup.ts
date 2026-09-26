@@ -46,7 +46,7 @@ export default async () => {
 					"--filter=@ryot-app/kernel-client",
 					"--filter=@ryot-app/fitness-plugin",
 					"--filter=@ryot-app/fixture-plugin",
-					"--filter=@ryot-app/sandboxd",
+					"--filter=@ryot-app/sandbox",
 				],
 				{ stdin: "inherit", stdout: "inherit", stderr: "inherit", cwd: repositoryRoot },
 			);

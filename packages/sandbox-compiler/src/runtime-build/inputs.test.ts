@@ -5,6 +5,8 @@ import type { PlatformError } from "effect/PlatformError";
 
 import { sandboxRuntimeInputs } from "./inputs";
 
+const runtimeSourceFiles = ["guest/invocation.ts", "guest/bootstrap.ts"];
+
 const limitedPreparation = (
 	fixture: (
 		root: string,
@@ -16,11 +18,13 @@ const limitedPreparation = (
 		const fs = yield* FileSystem.FileSystem;
 		const path = yield* Path.Path;
 		const root = yield* fs.makeTempDirectoryScoped({ prefix: "ryot-runtime-preparation-" });
-		const kernelDirectory = path.join(root, "kernel/backend");
-		const runtimeDirectory = path.join(kernelDirectory, "runtime");
+		const packageDirectory = path.join(root, "kernel/sandbox");
+		const runtimeDirectory = path.join(packageDirectory, "src/guest");
 		yield* fs.makeDirectory(runtimeDirectory, { recursive: true });
 		yield* fixture(root, runtimeDirectory);
-		return yield* sandboxRuntimeInputs(kernelDirectory, runtimeDirectory, limits).pipe(Effect.flip);
+		return yield* sandboxRuntimeInputs(packageDirectory, runtimeSourceFiles, limits).pipe(
+			Effect.flip,
+		);
 	});
 
 it.layer(BunServices.layer)("sandboxRuntimeInputs", (test) => {
@@ -28,21 +32,23 @@ it.layer(BunServices.layer)("sandboxRuntimeInputs", (test) => {
 		Effect.gen(function* () {
 			const path = yield* Path.Path;
 			const compilerDirectory = path.dirname(Bun.fileURLToPath(import.meta.url));
-			const kernelDirectory = path.resolve(compilerDirectory, "../../../../kernel/backend");
-			const runtimeDirectory = path.join(kernelDirectory, "src/lib/infrastructure/sandbox-runtime");
-			const inputs = yield* sandboxRuntimeInputs(kernelDirectory, runtimeDirectory);
+			const packageDirectory = path.resolve(compilerDirectory, "../../../../kernel/sandbox");
+			const inputs = yield* sandboxRuntimeInputs(packageDirectory, [
+				"guest/invocation.ts",
+				"protocol/messages.ts",
+			]);
 			for (const expected of [
 				"bun.lock",
 				"package.json",
-				"kernel/backend/package.json",
-				"kernel/backend/tooling/sandbox-runtime.ts",
+				"kernel/sandbox/package.json",
+				"kernel/sandbox/tooling/runtime.ts",
 				"packages/sandbox-compiler/package.json",
 				"packages/sandbox-compiler/src/runtime-build/payload.ts",
 				"packages/sandbox-compiler/src/runtime-build/inputs.ts",
 				"packages/sandbox-compiler/src/runtime-build/registry.ts",
 				"packages/sandbox-compiler/src/runtime-build/source-tree.ts",
-				"kernel/backend/src/lib/infrastructure/sandbox-runtime/isolate-invocation.ts",
-				"kernel/backend/src/lib/infrastructure/sandbox-runtime/sidecar-protocol.ts",
+				"kernel/sandbox/src/guest/invocation.ts",
+				"kernel/sandbox/src/protocol/messages.ts",
 				"packages/contract/src/modules/ryotql/language.ts",
 				"packages/ryotql/src/index.ts",
 				"packages/ryotql-recipes/src/codecs.ts",
@@ -70,12 +76,12 @@ it.layer(BunServices.layer)("sandboxRuntimeInputs", (test) => {
 						const fs = yield* FileSystem.FileSystem;
 						const target = `${root}/outside.ts`;
 						yield* fs.writeFileString(target, "export {};");
-						yield* fs.symlink(target, `${runtimeDirectory}/isolate-invocation.ts`);
+						yield* fs.symlink(target, `${runtimeDirectory}/invocation.ts`);
 					}),
 				{},
 			);
 			expect(failure).toMatchObject({ reason: "symbolic-link", _tag: "SourceWalkError" });
-			expect(String(failure)).toContain("isolate-invocation.ts");
+			expect(String(failure)).toContain("invocation.ts");
 		}).pipe(Effect.scoped),
 	);
 
@@ -95,8 +101,8 @@ it.layer(BunServices.layer)("sandboxRuntimeInputs", (test) => {
 			fixture: (_root: string, runtimeDirectory: string) =>
 				Effect.gen(function* () {
 					const fs = yield* FileSystem.FileSystem;
-					yield* fs.writeFileString(`${runtimeDirectory}/isolate-invocation.ts`, "a");
-					yield* fs.writeFileString(`${runtimeDirectory}/isolate-bootstrap.ts`, "b");
+					yield* fs.writeFileString(`${runtimeDirectory}/invocation.ts`, "a");
+					yield* fs.writeFileString(`${runtimeDirectory}/bootstrap.ts`, "b");
 				}),
 		},
 		{
@@ -105,7 +111,7 @@ it.layer(BunServices.layer)("sandboxRuntimeInputs", (test) => {
 			fixture: (_root: string, runtimeDirectory: string) =>
 				Effect.gen(function* () {
 					const fs = yield* FileSystem.FileSystem;
-					yield* fs.writeFileString(`${runtimeDirectory}/isolate-invocation.ts`, "ab");
+					yield* fs.writeFileString(`${runtimeDirectory}/invocation.ts`, "ab");
 				}),
 		},
 	] as const)("rejects preparation inputs at the $reason", ({ limits, reason, fixture }) =>

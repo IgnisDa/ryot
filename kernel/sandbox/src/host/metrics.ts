@@ -1,0 +1,392 @@
+import type { ExecutionLane } from "@ryot-app/contract/modules/automations/lifecycle";
+import { sandboxHostContracts } from "@ryot-app/sandbox-sdk/core";
+import { Effect, Metric } from "effect";
+
+import { SIDECAR_INTERNAL_HOST_CALLS, type SidecarTier } from "../protocol/messages";
+import type { SandboxTrust } from "./authority";
+import type { SandboxMemoryPlan } from "./memory-plan";
+
+// Effect metrics carry no dedicated unit field; `OtlpMetrics` reads the OTLP unit from a `unit`
+// attribute, so every declaration below states its unit exactly once and inherits it on export.
+const BYTES = "By";
+
+const MILLISECONDS = "ms";
+
+const DURATION_BOUNDARIES = [
+	1, 5, 10, 25, 50, 100, 250, 500, 1_000, 2_500, 5_000, 10_000, 30_000,
+] as const;
+
+const RESPONSE_SIZE_BOUNDARIES = [
+	1_024, 8_192, 65_536, 262_144, 1_048_576, 4_194_304, 10_485_760,
+] as const;
+
+const SANDBOX_METRIC_KINDS = [
+	"script",
+	"operation",
+	"workflow",
+	"provider",
+	"automation",
+	"unknown",
+] as const;
+
+export type SandboxMetricKind = (typeof SANDBOX_METRIC_KINDS)[number];
+
+export type SandboxHostCallOutcome = "success" | "failure";
+
+export type SandboxExecutionOutcome = "success" | "failure" | "timeout";
+
+export const sandboxMetricKind = (metadata: unknown): SandboxMetricKind => {
+	const kind =
+		typeof metadata === "object" && metadata !== null && "kind" in metadata
+			? metadata.kind
+			: undefined;
+	return SANDBOX_METRIC_KINDS.find((candidate) => candidate === kind) ?? "unknown";
+};
+
+const hostFunctionNames: ReadonlySet<string> = new Set([
+	...Object.keys(sandboxHostContracts),
+	...SIDECAR_INTERNAL_HOST_CALLS,
+]);
+
+export const sandboxMetricHostFunction = (name: string) =>
+	hostFunctionNames.has(name) ? name : "unknown";
+
+const sandboxExecutions = Metric.counter("ryot.sandbox.executions", {
+	incremental: true,
+	attributes: { unit: "{execution}" },
+	description: "Sandbox executions by terminal outcome",
+});
+
+const sandboxActiveExecutions = Metric.gauge("ryot.sandbox.active_executions", {
+	attributes: { unit: "{execution}" },
+	description: "Sandbox executions currently running",
+});
+
+const backendRss = Metric.gauge("ryot.backend.rss", {
+	attributes: { unit: BYTES },
+	description: "Resident set size of the backend process",
+});
+
+const backendHeapUsed = Metric.gauge("ryot.backend.heap_used", {
+	attributes: { unit: BYTES },
+	description: "Used JavaScript heap of the backend process",
+});
+
+const backendExternalMemory = Metric.gauge("ryot.backend.external_memory", {
+	attributes: { unit: BYTES },
+	description: "External memory of the backend process",
+});
+
+const sandboxExecutionDuration = Metric.histogram("ryot.sandbox.execution_duration", {
+	attributes: { unit: MILLISECONDS },
+	boundaries: [...DURATION_BOUNDARIES],
+	description: "Wall-clock duration of a sandbox execution",
+});
+
+const sandboxRunnerResponseSize = Metric.histogram("ryot.sandbox.runner_response_size", {
+	attributes: { unit: BYTES },
+	boundaries: [...RESPONSE_SIZE_BOUNDARIES],
+	description: "Serialized size of the response line returned by a sandbox worker",
+});
+
+const sandboxHostCalls = Metric.counter("ryot.sandbox.host_calls", {
+	incremental: true,
+	attributes: { unit: "{call}" },
+	description: "Sandbox host-function calls by function and outcome",
+});
+
+const sandboxSidecarEvents = Metric.counter("ryot.sandbox.sidecar.events", {
+	incremental: true,
+	attributes: { unit: "{event}" },
+	description: "Sandbox sidecar lifecycle events by trust, snapshot tier, event and reason",
+});
+
+const EXECUTION_MEMORY_BOUNDARIES = [
+	262_144, 1_048_576, 4_194_304, 8_388_608, 16_777_216, 33_554_432, 67_108_864, 134_217_728,
+	201_326_592, 268_435_456, 335_544_320,
+] as const;
+
+const sandboxExecutionPeakHeap = Metric.histogram("ryot.sandbox.execution.peak_heap", {
+	attributes: { unit: BYTES },
+	boundaries: [...EXECUTION_MEMORY_BOUNDARIES],
+	description: "Peak used V8 heap of one sandbox execution, sampled before each collection",
+});
+
+const sandboxExecutionPeakExternal = Metric.histogram("ryot.sandbox.execution.peak_external", {
+	attributes: { unit: BYTES },
+	boundaries: [...EXECUTION_MEMORY_BOUNDARIES],
+	description: "Peak ArrayBuffer and V8 external memory of one sandbox execution",
+});
+
+const sandboxExecutionCpuWait = Metric.histogram("ryot.sandbox.execution.cpu_wait", {
+	attributes: { unit: MILLISECONDS },
+	boundaries: [...DURATION_BOUNDARIES],
+	description: "Time one sandbox execution waited for a sidecar CPU slot, by lane",
+});
+
+const sandboxSidecarDuration = Metric.histogram("ryot.sandbox.sidecar.duration", {
+	attributes: { unit: MILLISECONDS },
+	boundaries: [...DURATION_BOUNDARIES],
+	description: "Duration of a sandbox sidecar lifecycle event that has one",
+});
+
+const sandboxSidecarGauges = {
+	restart_backoff: Metric.gauge("ryot.sandbox.sidecar.restart_backoff", {
+		attributes: { unit: MILLISECONDS },
+		description: "Current restart backoff of a sandbox sidecar",
+	}),
+	outstanding_runs: Metric.gauge("ryot.sandbox.sidecar.outstanding_runs", {
+		attributes: { unit: "{item}" },
+		description: "Runs currently outstanding on a sandbox sidecar",
+	}),
+	outstanding_host_calls: Metric.gauge("ryot.sandbox.sidecar.outstanding_host_calls", {
+		attributes: { unit: "{item}" },
+		description: "Host calls currently outstanding on a sandbox sidecar",
+	}),
+};
+
+const sandboxAdmissionWaiting = Metric.gauge("ryot.sandbox.admission.waiting", {
+	attributes: { unit: "{run}" },
+	description: "Sandbox runs waiting for memory admission",
+});
+
+const sandboxAdmissionBytes = Metric.gauge("ryot.sandbox.admission.bytes", {
+	attributes: { unit: BYTES },
+	description: "Memory currently admitted to sandbox runs",
+});
+
+const sandboxAdmissionPressure = Metric.gauge("ryot.sandbox.admission.pressure", {
+	attributes: { unit: "1" },
+	description: "Admitted sandbox memory as a fraction of the memory budget",
+});
+
+const sandboxAdmissionWaitDuration = Metric.histogram("ryot.sandbox.admission.wait_duration", {
+	attributes: { unit: MILLISECONDS },
+	boundaries: [...DURATION_BOUNDARIES],
+	description: "Time a sandbox run waited for memory admission",
+});
+
+const sandboxSidecarHostCalls = Metric.counter("ryot.sandbox.sidecar.host_calls", {
+	incremental: true,
+	attributes: { unit: "{call}" },
+	description: "Host-function calls made by sandbox sidecars by function and outcome",
+});
+
+const sandboxWorkerRss = Metric.gauge("ryot.sandbox.worker_rss", {
+	attributes: { unit: BYTES },
+	description: "Resident set size summed over sandbox worker processes",
+});
+
+const sandboxRssSampledProcesses = Metric.gauge("ryot.sandbox.rss_sampled_processes", {
+	attributes: { unit: "{process}" },
+	description: "Sandbox worker processes included in the sampled resident set size",
+});
+
+const sandboxSidecarLiveProcesses = Metric.gauge("ryot.sandbox.sidecar.live_processes", {
+	attributes: { unit: "{process}" },
+	description: "Live sandbox sidecar processes",
+});
+
+const sandboxSidecarRss = Metric.gauge("ryot.sandbox.sidecar.rss", {
+	attributes: { unit: BYTES },
+	description: "Resident set size of sandbox sidecar processes",
+});
+
+const observe = <Input>(
+	metric: Metric.Metric<Input, unknown>,
+	attributes: Metric.Metric.Attributes,
+	value: Input,
+) => Metric.update(Metric.withAttributes(metric, attributes), value);
+
+export const recordSandboxExecution = (input: {
+	readonly durationMs: number;
+	readonly responseBytes: number;
+	readonly kind: SandboxMetricKind;
+	readonly outcome: SandboxExecutionOutcome;
+}) => {
+	const attributes = { kind: input.kind, outcome: input.outcome };
+	return Effect.all(
+		[
+			observe(sandboxExecutions, attributes, 1),
+			observe(sandboxExecutionDuration, attributes, input.durationMs),
+			observe(sandboxRunnerResponseSize, attributes, input.responseBytes),
+		],
+		{ discard: true },
+	);
+};
+
+export const recordSandboxSidecarEvent = (input: {
+	readonly trust: typeof SandboxTrust.Type;
+	readonly tier: typeof SidecarTier.Type;
+	readonly event:
+		| "start"
+		| "stop"
+		| "ready"
+		| "released"
+		| "restart"
+		| "probe"
+		| "collateral"
+		| "quarantine"
+		| "probation"
+		| "limit"
+		| "disposal";
+	readonly reason: string;
+	readonly durationMs?: number;
+}) => {
+	const attributes = {
+		trust: input.trust,
+		event: input.event,
+		snapshot: input.tier,
+		reason: input.reason,
+	};
+	return Effect.all(
+		[
+			Metric.update(Metric.withAttributes(sandboxSidecarEvents, attributes), 1),
+			...(input.durationMs === undefined
+				? []
+				: [
+						Metric.update(
+							Metric.withAttributes(sandboxSidecarDuration, attributes),
+							input.durationMs,
+						),
+					]),
+		],
+		{ discard: true },
+	);
+};
+
+export const recordSandboxSidecarGauges = (input: {
+	readonly trust: typeof SandboxTrust.Type;
+	readonly tier: typeof SidecarTier.Type;
+	readonly runs: number;
+	readonly hostCalls: number;
+	readonly backoffMs: number;
+}) => {
+	const attributes = { trust: input.trust, snapshot: input.tier };
+	return Effect.forEach(
+		[
+			[sandboxSidecarGauges.outstanding_runs, input.runs],
+			[sandboxSidecarGauges.outstanding_host_calls, input.hostCalls],
+			[sandboxSidecarGauges.restart_backoff, input.backoffMs],
+		] as const,
+		([gauge, value]) => Metric.update(Metric.withAttributes(gauge, attributes), value),
+		{ discard: true },
+	);
+};
+
+export const recordSandboxAdmission = (input: {
+	readonly waiting: number;
+	readonly bytes: number;
+	readonly budget: number;
+	readonly mode: SandboxMemoryPlan["mode"];
+}) =>
+	Effect.all(
+		[
+			observe(sandboxAdmissionWaiting, { mode: input.mode }, input.waiting),
+			observe(sandboxAdmissionBytes, { mode: input.mode }, input.bytes),
+			observe(sandboxAdmissionPressure, { mode: input.mode }, input.bytes / input.budget),
+		],
+		{ discard: true },
+	);
+
+export const recordSandboxAdmissionWait = (durationMs: number) =>
+	Metric.update(sandboxAdmissionWaitDuration, durationMs);
+
+export const recordSandboxHostCall = (input: {
+	readonly function: string;
+	readonly outcome: SandboxHostCallOutcome;
+}) =>
+	Metric.update(
+		Metric.withAttributes(sandboxHostCalls, {
+			outcome: input.outcome,
+			function: sandboxMetricHostFunction(input.function),
+		}),
+		1,
+	);
+
+export const recordSandboxExecutionUsage = (input: {
+	readonly kind: SandboxMetricKind;
+	readonly trust: typeof SandboxTrust.Type;
+	readonly tier: typeof SidecarTier.Type;
+	readonly outcome: "completed" | "cancelled" | "limit" | "failed";
+	readonly lane: ExecutionLane;
+	readonly heapBytes: number;
+	readonly cpuWaitMs: number;
+	readonly externalBytes: number;
+}) => {
+	const attributes = {
+		kind: input.kind,
+		trust: input.trust,
+		snapshot: input.tier,
+		outcome: input.outcome,
+	};
+	return Effect.all(
+		[
+			observe(sandboxExecutionPeakHeap, attributes, input.heapBytes),
+			observe(sandboxExecutionPeakExternal, attributes, input.externalBytes),
+			observe(sandboxExecutionCpuWait, { lane: input.lane }, input.cpuWaitMs),
+		],
+		{ discard: true },
+	);
+};
+
+export const recordSandboxSidecarHostCall = (input: {
+	readonly trust: typeof SandboxTrust.Type;
+	readonly tier: typeof SidecarTier.Type;
+	readonly function: string;
+	readonly outcome: "success" | "failure" | "interrupted";
+}) =>
+	Metric.update(
+		Metric.withAttributes(sandboxSidecarHostCalls, {
+			trust: input.trust,
+			snapshot: input.tier,
+			outcome: input.outcome,
+			function: sandboxMetricHostFunction(input.function),
+		}),
+		1,
+	);
+
+export const recordSandboxRuntimeGauges = (input: {
+	readonly heapUsedBytes: number;
+	readonly backendRssBytes: number;
+	readonly externalMemoryBytes: number;
+}) =>
+	Effect.all(
+		[
+			Metric.update(backendRss, input.backendRssBytes),
+			Metric.update(backendHeapUsed, input.heapUsedBytes),
+			Metric.update(backendExternalMemory, input.externalMemoryBytes),
+		],
+		{ discard: true },
+	);
+
+export const recordSandboxActiveExecutions = (value: number) =>
+	Metric.update(sandboxActiveExecutions, value);
+
+export const recordSandboxAggregateRss = (bytes: number, sampledProcesses: number) =>
+	Effect.all(
+		[
+			Metric.update(sandboxWorkerRss, bytes),
+			Metric.update(sandboxRssSampledProcesses, sampledProcesses),
+		],
+		{ discard: true },
+	);
+
+export const recordSandboxSidecarProcesses = (input: {
+	readonly trust: typeof SandboxTrust.Type;
+	readonly tier: typeof SidecarTier.Type;
+	readonly processes: number;
+	readonly bytes: number;
+}) => {
+	const attributes = { trust: input.trust, snapshot: input.tier };
+	return Effect.all(
+		[
+			Metric.update(
+				Metric.withAttributes(sandboxSidecarLiveProcesses, attributes),
+				input.processes,
+			),
+			Metric.update(Metric.withAttributes(sandboxSidecarRss, attributes), input.bytes),
+		],
+		{ discard: true },
+	);
+};

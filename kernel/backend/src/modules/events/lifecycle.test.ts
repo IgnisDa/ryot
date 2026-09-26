@@ -11,6 +11,7 @@ import {
 	EventSchemaSlug,
 	UserId,
 } from "@ryot-app/contract/schema/brands";
+import { assertExitFails } from "@ryot-app/testing/effect-assertions";
 import { and, eq, sql } from "drizzle-orm";
 import { Context, DateTime, Effect, Layer, Redacted, Ref, Schema, Scope } from "effect";
 import { Workflow } from "effect/workflow";
@@ -23,7 +24,6 @@ import { LifecycleExecution } from "#lib/domain/lifecycle-execution";
 import * as tables from "#lib/infrastructure/db/schema/tables/combined";
 import { DatabaseSession } from "#lib/infrastructure/db/session";
 import { WorkflowExecutionNotifications } from "#lib/infrastructure/workflow-execution-notifications";
-import { assertExitFails } from "#lib/test-utils/assertions";
 import {
 	makeAppConfigLayer,
 	makeConfigProviderLayer,

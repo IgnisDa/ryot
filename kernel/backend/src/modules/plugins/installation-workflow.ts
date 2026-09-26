@@ -1,18 +1,18 @@
 import { InternalError, internalError } from "@ryot-app/contract/errors";
 import { AccountGeneration } from "@ryot-app/contract/schema/account-generation";
 import { SandboxScriptId, UserId } from "@ryot-app/contract/schema/brands";
+import { ScriptPluginRevision } from "@ryot-app/sandbox/protocol/principal";
 import { Cause, Context, Effect, Layer, Result, Schema } from "effect";
 import { Activity, Workflow } from "effect/workflow";
 import { WorkflowEngine, type WorkflowInstance } from "effect/workflow/WorkflowEngine";
 
 import { DatabaseSession } from "#lib/infrastructure/db/session";
-import { SandboxPluginRevision } from "#lib/infrastructure/sandbox-runtime/execution-principal";
 import type { DurableSchema } from "#lib/infrastructure/workflow";
 import { implementWorkflow, makeActivity } from "#lib/infrastructure/workflow-scope";
 import { MutationReceipts } from "#modules/mutations/receipts";
-import { SandboxRepository } from "#modules/sandbox/repository";
-import { SandboxExecutionService } from "#modules/sandbox/service";
-import { SandboxWorkflowReferenceRepository } from "#modules/sandbox/workflow-reference-repository";
+import { ScriptExecutionService } from "#modules/scripts/executions/service";
+import { SandboxRepository } from "#modules/scripts/registry/repository";
+import { SandboxWorkflowReferenceRepository } from "#modules/scripts/registry/workflow-references";
 
 import { PluginCatalogInvalidator } from "./catalog-events";
 import { PluginInstallationRepository } from "./installation-repository";
@@ -31,7 +31,7 @@ const PluginInstallationBootstrap = Schema.Struct({
 		Schema.Struct({
 			slug: Schema.String,
 			scriptId: SandboxScriptId,
-			pluginRevision: SandboxPluginRevision,
+			pluginRevision: ScriptPluginRevision,
 		}),
 	),
 });
@@ -82,7 +82,7 @@ type PluginInstallationWorkflowOperationsValue = {
 		readonly installationId: string;
 		readonly activationId: string;
 		readonly scriptId: SandboxScriptId;
-		readonly pluginRevision: SandboxPluginRevision;
+		readonly pluginRevision: ScriptPluginRevision;
 	}) => Effect.Effect<void, InternalError, WorkflowEngine | WorkflowInstance>;
 };
 
@@ -105,7 +105,7 @@ export const PluginInstallationWorkflowOperationsLive = Layer.effect(
 	PluginInstallationWorkflowOperations,
 	Effect.gen(function* () {
 		const runtime = yield* PluginRuntimeResolver;
-		const sandbox = yield* SandboxExecutionService;
+		const sandbox = yield* ScriptExecutionService;
 		const sandboxRepository = yield* SandboxRepository;
 		const workflowReferences = yield* SandboxWorkflowReferenceRepository;
 		const invalidator = yield* PluginCatalogInvalidator;

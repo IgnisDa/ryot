@@ -8,11 +8,11 @@ import {
 	UserId,
 } from "@ryot-app/contract/schema/brands";
 import { emptySandboxExecutionMetadata } from "@ryot-app/contract/testing";
+import { assertExitFails } from "@ryot-app/testing/effect-assertions";
 import { Context, Deferred, Effect, Fiber, Layer, Ref } from "effect";
 import { WorkflowEngine } from "effect/workflow/WorkflowEngine";
 import { assert } from "vitest";
 
-import { assertExitFails } from "#lib/test-utils/assertions";
 import { makeAppConfigLayer, makeWorkflowEngine } from "#lib/test-utils/effect";
 import { mutationAdmissionTestLayer } from "#lib/test-utils/mutation-admission";
 import { PluginRuntimeResolver } from "#modules/plugins/runtime-resolver";
