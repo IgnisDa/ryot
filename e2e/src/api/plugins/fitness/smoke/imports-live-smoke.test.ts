@@ -25,6 +25,5 @@ describe.skipIf(!RUN_LIVE)("live fitness import smoke (real external APIs)", () 
 				).toBeGreaterThan(0);
 				expect(completedRun.activities.every(({ state }) => state === "completed")).toBe(true);
 			}),
-		300_000,
 	);
 });

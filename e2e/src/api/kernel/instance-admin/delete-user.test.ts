@@ -66,7 +66,6 @@ beforeAll(
 				media = yield* shippedPluginTestProviders(mediaPlugin.metadata.packageId);
 			}),
 		),
-	300_000,
 );
 
 afterAll(() => runPromise(harness?.stop ?? Effect.void));

@@ -60,7 +60,6 @@ describe.skipIf(!RUN_LIVE)("live provider smoke (real external APIs)", () => {
 				expect(imported.data.name.length).toBeGreaterThan(0);
 				expect(imported.data.entitySchemaSlug).toBe(schema.id);
 			}),
-		300_000,
 	);
 
 	it.live(
@@ -97,6 +96,5 @@ describe.skipIf(!RUN_LIVE)("live provider smoke (real external APIs)", () => {
 				expect(localized.name.length).toBeGreaterThan(0);
 				expect(yield* countEntityTranslations(movie.id)).toBe(1);
 			}),
-		150_000,
 	);
 });

@@ -1,3 +1,3 @@
 import { defineClientConfig } from "@ryot-app/testing/vitest.client";
 
-export default defineClientConfig({ testTimeout: 30000 });
+export default defineClientConfig({ testTimeout: 120_000 });

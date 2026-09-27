@@ -172,7 +172,6 @@ describe("interest authorization", () => {
 					{ code: 1008, reason: "Authentication failed" },
 				]);
 			}),
-		60_000,
 	);
 
 	it.live("requires authentication as the first frame and before the deadline", () =>

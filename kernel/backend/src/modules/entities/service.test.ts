@@ -2152,7 +2152,6 @@ describe("EntitiesService committed lifecycle", () => {
 					);
 					expect(yield* session.run((db) => db.select().from(tables.entity))).toHaveLength(4_200);
 				}),
-			120_000,
 		);
 	});
 	layer(entitiesLayer({ noHooks: true }))((test) => {

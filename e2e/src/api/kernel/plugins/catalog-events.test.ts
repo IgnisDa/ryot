@@ -83,7 +83,6 @@ beforeAll(
 				),
 			),
 		),
-	180_000,
 );
 
 afterAll(() =>

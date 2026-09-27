@@ -41,7 +41,6 @@ beforeAll(
 				fitnessProviders = yield* shippedPluginTestProviders(fitnessPlugin.metadata.packageId);
 			}),
 		),
-	300_000,
 );
 
 afterAll(() => runPromise(harness?.stop ?? Effect.void));
