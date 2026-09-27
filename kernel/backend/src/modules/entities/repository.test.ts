@@ -11,6 +11,7 @@ import {
 } from "@ryot-app/contract/schema/brands";
 import { PgDialect } from "drizzle-orm/pg-core";
 import { Context, DateTime, Effect, Layer, Ref } from "effect";
+import { chunksOf } from "effect/Array";
 
 import { BackupRestorePersistence } from "#modules/backups/restore/persistence";
 import { restorePersistenceWithDatabase } from "#modules/backups/restore/persistence.test-support";
@@ -24,7 +25,7 @@ import { fakeDatabaseSession } from "#testing/effect";
 import type { MockOverrides } from "#testing/effect";
 import { isolatedDatabaseLayer } from "#testing/isolated-database";
 
-import { EntitiesRepository, provenanceScopeKey } from "./repository";
+import { EntitiesRepository, provenanceScopeKey, STATEMENT_CHUNK_SIZE } from "./repository";
 
 const mockPluginRuntime = Layer.mock(PluginRuntimeResolver);
 
@@ -221,7 +222,7 @@ layer(
 	);
 });
 
-layer(
+const lockRecordingLayer = () =>
 	recordingLayer(repositoryWithDatabase, (record) => ({
 		select: () => ({
 			from: () => {
@@ -242,8 +243,9 @@ layer(
 				return query;
 			},
 		}),
-	})),
-)((test) => {
+	}));
+
+layer(lockRecordingLayer())((test) => {
 	test.effect("locks unique entity references in canonical order", () =>
 		Effect.gen(function* () {
 			const repository = yield* EntitiesRepository;
@@ -256,6 +258,55 @@ layer(
 			expect(yield* recordedEntries).toEqual([
 				{ ordered: true, strength: "key share", predicateParams: ["alpha", "zeta"] },
 			]);
+		}),
+	);
+});
+
+layer(lockRecordingLayer())((test) => {
+	test.effect("locks references beyond the bind limit in globally sorted chunks", () =>
+		Effect.gen(function* () {
+			const repository = yield* EntitiesRepository;
+			const ids = Array.from({ length: 32_768 }, (_, index) =>
+				EntityId.make(`entity-${String(index).padStart(5, "0")}`),
+			);
+			yield* repository.lockEntityReferencesByIds(ids.toReversed());
+
+			expect(yield* recordedEntries).toEqual(
+				chunksOf(ids, STATEMENT_CHUNK_SIZE).map((predicateParams) => ({
+					ordered: true,
+					predicateParams,
+					strength: "key share",
+				})),
+			);
+		}),
+	);
+});
+
+layer(
+	recordingLayer(repositoryWithDatabase, (record) => ({
+		select: () => ({
+			from: () => ({
+				where: (condition: { getSQL: () => Statement }) => ({
+					groupBy: () =>
+						record(dialect.sqlToQuery(condition.getSQL()).params.length).pipe(Effect.as([])),
+				}),
+			}),
+		}),
+	})),
+)((test) => {
+	test.effect("counts unique provenance scopes beyond the bind limit in bounded statements", () =>
+		Effect.gen(function* () {
+			const repository = yield* EntitiesRepository;
+			const scopes = Array.from({ length: 12_000 }, (_, index) => ({
+				entitySchemaPluginId: "plugin-1",
+				entitySchemaSlug: EntitySchemaSlug.make("person"),
+				providerId: SandboxProviderId.make(`provider-${index}`),
+			}));
+			yield* repository.countGlobalEntitiesByProvenanceScopes([...scopes, ...scopes]);
+
+			expect(yield* recordedEntries).toEqual(
+				chunksOf(scopes, STATEMENT_CHUNK_SIZE).map(() => STATEMENT_CHUNK_SIZE * 3),
+			);
 		}),
 	);
 });
