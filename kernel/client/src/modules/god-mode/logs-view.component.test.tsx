@@ -9,23 +9,25 @@ import { FileDownloadError } from "#/modules/downloads/file";
 import { ServerLogsView } from "#/modules/god-mode/logs-view";
 import type { GodModeLogs } from "#/modules/god-mode/service";
 
+const activeFile = {
+	size: 1_234,
+	active: true,
+	id: "active-log",
+	name: "server.log",
+	modifiedAt: "2026-09-30T12:00:00.000Z",
+} satisfies GodModeLogs["files"][number];
+
+const compressedFile = {
+	size: 5_678,
+	active: false,
+	id: "compressed-log",
+	name: "server.log.1.gz",
+	modifiedAt: "2026-09-29T12:00:00.000Z",
+} satisfies GodModeLogs["files"][number];
+
 const logs = {
-	files: [
-		{
-			size: 1_234,
-			active: true,
-			id: "active-log",
-			name: "server.log",
-			modifiedAt: "2026-09-30T12:00:00.000Z",
-		},
-		{
-			size: 5_678,
-			active: false,
-			id: "compressed-log",
-			name: "server.log.1.gz",
-			modifiedAt: "2026-09-29T12:00:00.000Z",
-		},
-	],
+	files: [activeFile, compressedFile],
+	pageInfo: { limit: 25, hasMore: false, nextCursor: null },
 } satisfies GodModeLogs;
 
 describe("ServerLogsView", () => {
@@ -41,8 +43,54 @@ describe("ServerLogsView", () => {
 
 			yield* Effect.promise(() => screen.findByText("server.log"));
 			expect(screen.getByText("server.log.1.gz")).toBeTruthy();
-			expect(screen.getByText(/Active · 1,234 bytes/)).toBeTruthy();
-			expect(screen.getByText(/Compressed · 5,678 bytes/)).toBeTruthy();
+			expect(screen.getByRole("table")).toBeTruthy();
+			expect(screen.getByRole("columnheader", { name: "Log file" })).toBeTruthy();
+			expect(screen.getByText("Active")).toBeTruthy();
+			expect(screen.getByText("Compressed")).toBeTruthy();
+			expect(screen.getByText("1,234 bytes")).toBeTruthy();
+			expect(screen.getByText("5,678 bytes")).toBeTruthy();
+		}),
+	);
+
+	it.live("loads and appends the next server-side page", () =>
+		Effect.gen(function* () {
+			const user = userEvent.setup();
+			const requests: Array<{ readonly after: string | undefined; readonly limit: number }> = [];
+			render(
+				<ServerLogsView
+					unauthorized={() => undefined}
+					download={() => Effect.succeed(Exit.succeed(undefined))}
+					load={(after, limit) => {
+						requests.push({ after, limit });
+						return Effect.succeed(
+							Exit.succeed(
+								after === undefined
+									? {
+											files: [activeFile],
+											pageInfo: { limit, hasMore: true, nextCursor: "cursor-1" },
+										}
+									: {
+											files: [compressedFile],
+											pageInfo: { limit, hasMore: false, nextCursor: null },
+										},
+							),
+						);
+					}}
+				/>,
+			);
+
+			yield* Effect.promise(() => screen.findByText("server.log"));
+			yield* Effect.promise(() =>
+				user.click(screen.getByRole("button", { name: "Load more logs" })),
+			);
+			yield* Effect.promise(() => screen.findByText("server.log.1.gz"));
+
+			expect(requests).toEqual([
+				{ limit: 25, after: undefined },
+				{ limit: 25, after: "cursor-1" },
+			]);
+			expect(screen.getByText("server.log")).toBeTruthy();
+			expect(screen.queryByRole("button", { name: "Load more logs" })).toBeNull();
 		}),
 	);
 
@@ -87,8 +135,15 @@ describe("ServerLogsView", () => {
 			render(
 				<ServerLogsView
 					unauthorized={() => undefined}
-					load={() => Effect.succeed(Exit.succeed({ files: [] }))}
 					download={() => Effect.succeed(Exit.succeed(undefined))}
+					load={() =>
+						Effect.succeed(
+							Exit.succeed({
+								files: [],
+								pageInfo: { limit: 25, hasMore: false, nextCursor: null },
+							}),
+						)
+					}
 				/>,
 			);
 
@@ -157,7 +212,9 @@ describe("ServerLogsView", () => {
 			yield* Deferred.succeed(release, undefined);
 			yield* Effect.promise(() => waitFor(() => expect(refresh.disabled).toBe(false)));
 			expect(downloadAll.disabled).toBe(false);
-			expect(downloadFile.disabled).toBe(false);
+			expect(
+				screen.getByRole<HTMLButtonElement>("button", { name: "Download server.log" }).disabled,
+			).toBe(false);
 		}),
 	);
 
