@@ -166,6 +166,33 @@ describe("Reset user for credential user", () => {
 	);
 });
 
+describe("Reset user revokes outstanding reset links", () => {
+	it.live("rejects a reset link issued before the account reset", () =>
+		Effect.gen(function* () {
+			const { email } = yield* createTestUser();
+			const userId = yield* getUserIdByEmail(email);
+			const { resetUrl } = yield* getApiClient().call(
+				(c) => c.godMode.resetUserPassword({ params: { userId } }),
+				adminHeaders(),
+			);
+			const token = requirePresent(new URL(resetUrl).searchParams.get("token"), "missing token");
+
+			const accepted = yield* requestUserReset(userId);
+			const { error: duringReset } = yield* Effect.promise(() =>
+				createTestAuthClient().resetPassword({ token, newPassword: "stale-link-pw-123!" }),
+			);
+			expect(duringReset).not.toBeNull();
+
+			const reset = yield* pollUserLifecycleOperation(accepted.operationId);
+			expect(reset.status).toBe("completed");
+			const { error: afterReset } = yield* Effect.promise(() =>
+				createTestAuthClient().resetPassword({ token, newPassword: "stale-link-pw-123!" }),
+			);
+			expect(afterReset).not.toBeNull();
+		}),
+	);
+});
+
 describe("Reset user for no-account user", () => {
 	it.live("returns a working reset link and lands the user in a credential state", () =>
 		Effect.gen(function* () {

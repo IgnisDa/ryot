@@ -24,7 +24,7 @@ User preferences are application data on the user row, not Better Auth user fiel
 
 Preference-only consumers capture `AuthRepository` at construction and call `getUserPreferences`, which returns decoded preferences or `null` for a missing user. Its Layer requires only `DatabaseSession`; it does not load the auth runtime. Consumers retain their own missing-user behavior. Reads that already need user columns decode preferences from that same row.
 
-Disable, deletion, and password reset revoke browser sessions and OAuth token records; disable and deletion also clear API-key caches. Ordinary issued access tokens remain valid until expiry because verification does not read token records.
+Disable, deletion, and password reset revoke browser sessions and OAuth token records; disable and deletion also clear API-key caches, and password reset deletes the user's API keys. Ordinary issued access tokens remain valid until expiry because verification does not read token records.
 
 ## Impersonation
 
@@ -35,6 +35,8 @@ Impersonation token issuance, refresh, UserInfo, and application API authenticat
 The client replaces its previous login and shows an impersonation banner. Logout uses the existing end-session ceremony and returns to locked God Mode. Normal password and fresh-login checks still apply. Account changes, issued API keys, and started jobs retain their normal lifetimes.
 
 God-mode password reset capture reserves a random ID for each email, subscribes before initiating an internal Better Auth request, and carries that ID in the internal request header. The reset callback delivers only if that request's ID still owns the Redis reservation. The capture scope releases its subscriber and its own reservation on success, failure, timeout, or interruption. A late Better Auth Promise cannot deliver into a later reservation.
+
+Reset links expire after 30 minutes. Redis tracks the latest delivered link per user. Before publishing a link, delivery atomically records it only while the request's ID still owns the reservation and then revokes the link it replaced; failures abort delivery. Password reset and account reset or deletion revoke the tracked link.
 
 ## External OIDC
 
