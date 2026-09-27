@@ -8,6 +8,30 @@ import { integrationProvidersRecipe } from "./integration-providers";
 import { rowsResult } from "./test-utils";
 
 const date = "2026-09-23T10:00:00+02:00";
+const readinessFields = {
+	pluginScope: "system",
+	installationId: "installation",
+	readinessMetadata: {
+		oauthProviders: [],
+		availableConfigKeys: [],
+		workflows: [{ slug: "import", scriptSlug: "root" }],
+		scripts: [
+			{
+				slug: "root",
+				oauthConnectionFields: [],
+				executableDependencies: [],
+				requiredPluginConfigKeys: [],
+				optionalPluginConfigKeys: [],
+			},
+		],
+	},
+};
+const providerReadinessFields = {
+	plan: null,
+	...readinessFields,
+	scriptSlug: "root",
+	readinessConnections: [],
+};
 const page = (items: readonly unknown[], limit = 2, hasMore = false) =>
 	rowsResult(items, { limit, hasMore, nextCursor: hasMore ? "next" : null });
 
@@ -25,6 +49,8 @@ it("decodes executable import metadata and nullable export help", () => {
 			data: {
 				sources: page([
 					{
+						...readinessFields,
+						plan: null,
 						id: "source",
 						name: "Fixture",
 						exportHelp: null,
@@ -56,6 +82,7 @@ it("builds provider common fields from lot and ownership-sync support", () => {
 				providers: page(
 					[
 						{
+							...providerReadinessFields,
 							id: "a",
 							lot: "push",
 							slug: "push",
@@ -68,6 +95,7 @@ it("builds provider common fields from lot and ownership-sync support", () => {
 							settingsSchema: { fields: {} },
 						},
 						{
+							...providerReadinessFields,
 							id: "b",
 							lot: "yank",
 							slug: "yank",
@@ -80,6 +108,7 @@ it("builds provider common fields from lot and ownership-sync support", () => {
 							settingsSchema: { fields: {} },
 						},
 						{
+							...providerReadinessFields,
 							id: "c",
 							lot: "yank",
 							hasScript: true,

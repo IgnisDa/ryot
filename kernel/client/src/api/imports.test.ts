@@ -3,7 +3,7 @@ import { Effect, Layer, ManagedRuntime } from "effect";
 import { HttpClient, HttpClientResponse, type HttpClientRequest } from "effect/unstable/http";
 
 import { AuthenticatedApi, makeAuthenticatedApi } from "#/api/authenticated";
-import { ImportsApi, importRunFailuresFileName } from "#/api/imports";
+import { ImportsApi, importRunIssuesFileName } from "#/api/imports";
 import { decodeServerOrigin } from "#/api/origin";
 import type { ApiScope } from "#/api/scope";
 import type { OAuthTokenService } from "#/modules/auth/token-service";
@@ -22,7 +22,7 @@ const tokens: OAuthTokenService["Service"] = {
 	completeAuthorization: () => Effect.die("not used"),
 };
 
-const runDownload = Effect.flatMap(ImportsApi, (api) => api.downloadFailures(scope, runId));
+const runDownload = Effect.flatMap(ImportsApi, (api) => api.downloadIssues(scope, runId));
 
 describe("imports API", () => {
 	it.live("requests an authenticated ticket and starts a browser download with it", () => {
@@ -67,7 +67,7 @@ describe("imports API", () => {
 					});
 					expect(downloads).toEqual([
 						{
-							fileName: importRunFailuresFileName(runId),
+							fileName: importRunIssuesFileName(runId),
 							url: "https://ryot.example/api/imports/runs/run_1/failures/download?ticket=short-lived-ticket",
 						},
 					]);
