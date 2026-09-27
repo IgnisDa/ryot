@@ -126,25 +126,15 @@ describe("media podcast query recipes", () => {
 		});
 	});
 
-	it("builds one presentation query carrying the podcast's episode counts", () => {
-		const recipe = podcastRecipes.presentationRecipe(["podcast-2", "podcast-1"]);
-		const podcasts = recipe.document.queries["rows"];
-		if (podcasts?.output.type !== "rows" || podcasts.where?.type !== "and") {
-			throw new Error("Expected a filtered presentation rows query");
-		}
-
-		expect(podcasts.where.predicates[1]).toMatchObject({
-			type: "in",
-			values: [{ value: "podcast-2" }, { value: "podcast-1" }],
-		});
-		expect(podcasts.output.fields.map((field) => ("key" in field ? field.key : null))).toEqual([
+	it("selects the podcast episode counts for saved-view presentation", () => {
+		expect(podcastRecipes.presentationSource.fields.map(({ key }) => key)).toEqual([
 			"id",
 			"name",
 			"schemaSlug",
 			"populationStatus",
 			"translationStatus",
 			"state",
-			"images",
+			"image",
 			"publishDate",
 			"publishYear",
 			"productionStatus",

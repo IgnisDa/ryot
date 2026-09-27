@@ -173,27 +173,15 @@ const SHOW_SUMMARY_ROW = {
 	],
 };
 describe("media show query recipes", () => {
-	it("builds one presentation query for all requested show IDs", () => {
-		const recipe = showRecipes.presentationRecipe(["show-2", "show-1", "show-2"]);
-		const shows = recipe.document.queries["rows"];
-		if (shows?.output.type !== "rows" || shows.where?.type !== "and") {
-			throw new Error("Expected filtered presentation rows query");
-		}
-
-		expect(Object.keys(recipe.document.queries)).toEqual(["rows"]);
-		expect(shows.output.pagination).toMatchObject({ limit: 100 });
-		expect(shows.where.predicates[1]).toMatchObject({
-			type: "in",
-			values: [{ value: "show-2" }, { value: "show-1" }, { value: "show-2" }],
-		});
-		expect(shows.output.fields.map((field) => ("key" in field ? field.key : null))).toEqual([
+	it("selects the complete show presentation from the saved-view row", () => {
+		expect(showRecipes.presentationSource.fields.map(({ key }) => key)).toEqual([
 			"id",
 			"name",
 			"schemaSlug",
 			"populationStatus",
 			"translationStatus",
 			"state",
-			"images",
+			"image",
 			"publishDate",
 			"publishYear",
 			"productionStatus",
@@ -206,7 +194,6 @@ describe("media show query recipes", () => {
 	});
 
 	it("decodes stored show presentation progress and rejects malformed artwork", () => {
-		const recipe = showRecipes.presentationRecipe(["show-1"]);
 		const row = {
 			id: "show-1",
 			storedSeasons: 2,
@@ -222,24 +209,21 @@ describe("media show query recipes", () => {
 			populationStatus: "ready",
 			translationStatus: "none",
 			productionStatus: "Returning Series",
-			images: [{ type: "s3", purpose: "cover", key: "severance-cover" }],
+			image: { type: "s3", key: "severance-cover" },
 		};
 
-		expect(recipe.decode({ data: { rows: showRows([row]) } })).toMatchObject({
-			success: [
-				{
-					id: "show-1",
-					storedSeasons: 2,
-					airedEpisodes: 19,
-					upcomingEpisodes: 0,
-					watchedEpisodes: 11,
-					inProgressEpisodes: 1,
-				},
-			],
+		expect(showRecipes.presentationSource.decode(row)).toMatchObject({
+			success: {
+				id: "show-1",
+				storedSeasons: 2,
+				airedEpisodes: 19,
+				upcomingEpisodes: 0,
+				watchedEpisodes: 11,
+				inProgressEpisodes: 1,
+			},
 		});
 		expect(
-			recipe.decode({ data: { rows: showRows([{ ...row, images: [{ url: 12, type: "ftp" }] }]) } })
-				._tag,
+			showRecipes.presentationSource.decode({ ...row, image: { url: 12, type: "ftp" } })._tag,
 		).toBe("Failure");
 	});
 

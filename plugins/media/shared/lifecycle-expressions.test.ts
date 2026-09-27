@@ -26,8 +26,6 @@ describe("episodic lifecycle documents", () => {
 	it.each([
 		["show summary", showRecipes.summaryRecipe({ entityId: "show-1", collectionLimit: 5 })],
 		["podcast summary", podcastRecipes.summaryRecipe({ entityId: "pod-1", collectionLimit: 5 })],
-		["show presentation", showRecipes.presentationRecipe(["show-1"])],
-		["podcast presentation", podcastRecipes.presentationRecipe(["pod-1"])],
 		["show activity", showRecipes.activityRecipe(ACTIVITY_INPUT)],
 		["podcast activity", podcastRecipes.activityRecipe(ACTIVITY_INPUT)],
 		["show seasons", showSeasonsRecipe({ seasonLimit: 10, entityId: "show-1" })],

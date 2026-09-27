@@ -1,3 +1,4 @@
+import type { FieldSelection } from "@ryot-app/contract/modules/ryotql/language";
 import {
 	and,
 	castNumber,
@@ -19,7 +20,28 @@ import {
 import { buildSavedViewLayoutProjections } from "@ryot-app/ryotql-recipes/saved-views";
 
 import { slugify } from "../backend/contracts/slug";
+import { animeRecipes } from "../shared/anime-recipes";
+import { audiobookGroupRecipes } from "../shared/audiobook-group-recipes";
+import { audiobookRecipes } from "../shared/audiobook-recipes";
+import { bookGroupRecipes } from "../shared/book-group-recipes";
+import { bookRecipes } from "../shared/book-recipes";
+import { comicBookGroupRecipes } from "../shared/comic-book-group-recipes";
+import { comicBookRecipes } from "../shared/comic-book-recipes";
+import {
+	mediaPresentationSource,
+	type MediaPresentationSource,
+} from "../shared/entity-presentations";
+import { mangaRecipes } from "../shared/manga-recipes";
 import { builtinMediaEntitySchemaSlugs, mediaPluginSlug } from "../shared/media-schema-slugs";
+import { movieGroupRecipes } from "../shared/movie-group-recipes";
+import { movieRecipes } from "../shared/movie-recipes";
+import { musicGroupRecipes } from "../shared/music-group-recipes";
+import { musicRecipes } from "../shared/music-recipes";
+import { podcastRecipes } from "../shared/podcast-recipes";
+import { showRecipes } from "../shared/show-recipes";
+import { videoGameGroupRecipes } from "../shared/video-game-group-recipes";
+import { videoGameRecipes } from "../shared/video-game-recipes";
+import { visualNovelRecipes } from "../shared/visual-novel-recipes";
 import { defaultMediaSavedViewRecipe } from "./query-recipes";
 import { mediaEntitySchemas } from "./schemas/entity";
 import { buildViewExpressions } from "./view-helpers";
@@ -62,6 +84,53 @@ const mediaViewName: Record<(typeof mediaEntitySchemaSlugs)[number], string> = {
 	"audiobook-group": "All Audiobook Series",
 	"comic-book-group": "All Comic Book Series",
 	"video-game-group": "All Video Game Franchises",
+};
+
+type PresentationProjection = Pick<MediaPresentationSource<unknown>, "fields" | "include">;
+
+const schemaPresentationSources = new Map<string, PresentationProjection>([
+	["anime", animeRecipes.presentationSource],
+	["audiobook", audiobookRecipes.presentationSource],
+	["audiobook-group", audiobookGroupRecipes.presentationSource],
+	["book", bookRecipes.presentationSource],
+	["book-group", bookGroupRecipes.presentationSource],
+	["comic-book", comicBookRecipes.presentationSource],
+	["comic-book-group", comicBookGroupRecipes.presentationSource],
+	["manga", mangaRecipes.presentationSource],
+	["movie", movieRecipes.presentationSource],
+	["movie-group", movieGroupRecipes.presentationSource],
+	["music", musicRecipes.presentationSource],
+	["music-group", musicGroupRecipes.presentationSource],
+	["podcast", podcastRecipes.presentationSource],
+	["show", showRecipes.presentationSource],
+	["video-game", videoGameRecipes.presentationSource],
+	["video-game-group", videoGameGroupRecipes.presentationSource],
+	["visual-novel", visualNovelRecipes.presentationSource],
+]);
+
+const presentationProjection = (slug: string): PresentationProjection => {
+	if (slug === "person" || slug === "company") {
+		return mediaPresentationSource(slug);
+	}
+	const source = schemaPresentationSources.get(slug);
+	if (source === undefined) {
+		throw new Error(`Missing media presentation source: ${slug}`);
+	}
+	return source;
+};
+
+const mergePresentationFields = (
+	fields: readonly FieldSelection[],
+	presentation: PresentationProjection,
+) => {
+	const keys = new Set(fields.map(({ key }) => key));
+	const presentationFields = new Map(
+		presentation.fields.map((selection) => [selection.key, selection]),
+	);
+	return [
+		...fields.map((selection) => presentationFields.get(selection.key) ?? selection),
+		...presentation.fields.filter(({ key }) => !keys.has(key)),
+	];
 };
 
 const savedViewOrderBy = (slug: string) => {
@@ -124,11 +193,15 @@ export const mediaSavedViews = () => {
 		const projections = buildSavedViewLayoutProjections({
 			table: { ...expressions.table, entity },
 		});
-		const fields = [
-			...projections.table.fields,
-			field("ownerPluginId", column(entity, "entitySchemaPluginId")),
-			field("entitySchemaSlug", column(entity, "entitySchemaSlug")),
-		];
+		const presentation = presentationProjection(view.entitySchemaSlug);
+		const fields = mergePresentationFields(
+			[
+				...projections.table.fields,
+				field("ownerPluginId", column(entity, "entitySchemaPluginId")),
+				field("entitySchemaSlug", column(entity, "entitySchemaSlug")),
+			],
+			presentation,
+		);
 		return {
 			sortOrder,
 			name: view.name,
@@ -138,6 +211,7 @@ export const mediaSavedViews = () => {
 			renderer: { kind: "kernel", name: "entity-browser" } as const,
 			dataSources: defaultMediaSavedViewRecipe({
 				fields,
+				include: presentation.include,
 				schemas: [view.entitySchemaSlug],
 				orderBy: savedViewOrderBy(view.entitySchemaSlug),
 				layout: { type: "table", mapping: projections.table.mappings },
