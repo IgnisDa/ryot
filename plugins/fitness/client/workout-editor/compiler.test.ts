@@ -6,6 +6,8 @@ import { CLIENT_API_VERSION, clientDeclarationHash } from "@ryot-app/plugin-clie
 import { ViteBuildService } from "@ryot-app/vite-compiler";
 import { Effect, FileSystem, Layer } from "effect";
 
+import { fitnessPlugin } from "../../manifest/plugin";
+
 layer(Layer.mergeAll(BunFileSystem.layer, BunPath.layer, ViteBuildService.layer))((test) => {
 	test.effect("packages the shared editor and its audio through the real client compiler", () =>
 		Effect.gen(function* () {
@@ -20,21 +22,10 @@ layer(Layer.mergeAll(BunFileSystem.layer, BunPath.layer, ViteBuildService.layer)
 				name: "Fitness",
 				kind: "plugin" as const,
 				apiVersion: CLIENT_API_VERSION,
+				files: Object.fromEntries(sources),
+				publicExports: fitnessPlugin.client.exports,
 				packageId: PluginPackageId.make("ryot/fitness"),
-				publicExports: { editor: { kind: "component" as const, entry: "client/editor-entry.tsx" } },
-				clientDeclarationHash: clientDeclarationHash({
-					homeView: null,
-					apiVersion: CLIENT_API_VERSION,
-				}),
-				files: Object.fromEntries([
-					...sources,
-					[
-						"client/editor-entry.tsx",
-						new TextEncoder().encode(
-							'export { WorkoutEditorScreen as default } from "./workout-editor/screen";',
-						),
-					],
-				]),
+				clientDeclarationHash: clientDeclarationHash(fitnessPlugin.client),
 			};
 			const compiled = yield* compileClientPluginModule(input);
 			expect(compiled.artifact.files.some(({ name }) => name.endsWith(".js"))).toBe(true);

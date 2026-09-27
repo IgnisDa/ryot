@@ -140,9 +140,11 @@ const openEditor = (
 	clock: ReturnType<typeof createTestRyotClock>,
 	storage: EditorStorage,
 	metrics: readonly MeasurementSummary[] = [],
+	screenProps: Omit<Parameters<typeof WorkoutEditorScreen>[0], "target"> = {},
+	proAvailable = true,
 ) => {
 	let respond: (() => void) | undefined;
-	const page = mountPluginPage(() => <WorkoutEditorScreen target={target} />, {
+	const page = mountPluginPage(() => <WorkoutEditorScreen target={target} {...screenProps} />, {
 		page: pageContext,
 		bootstrap: clock.bootstrap,
 		onClientMessage: () => respond?.(),
@@ -199,7 +201,7 @@ const openEditor = (
 				let value: JsonValue = { sets: [], kind: "saved", entityId: "saved-workout" };
 				if (request.operationSlug === workoutEditorContextOperationSlug) {
 					value = {
-						proAvailable: true,
+						proAvailable,
 						settings: {
 							dropRestTime: 0,
 							muteSounds: true,
@@ -276,6 +278,131 @@ const dismissOverlay = (page: ReturnType<typeof mountPluginPage>, requestId: str
 afterEach(disposePluginBridges);
 
 describe("WorkoutEditorScreen", () => {
+	it.live("does not offer to discard an existing draft for unavailable template creation", () =>
+		Effect.gen(function* () {
+			const clock = createTestRyotClock();
+			try {
+				yield* Effect.promise(() => clock.setTime(startedAtMillis));
+				let prepared = 0;
+				const storage: EditorStorage = {
+					value: encodeWorkoutEditorDraft(editorDraft([editorOccurrence("reps_and_weight")])),
+				};
+				const { answerPending } = openEditor(
+					clock,
+					storage,
+					[],
+					{
+						requiresPro: true,
+						prepareDraft: () =>
+							Effect.sync(() => {
+								prepared += 1;
+								return editorDraft([]);
+							}),
+					},
+					false,
+				);
+				yield* waitForEditor(answerPending);
+				yield* Effect.promise(() =>
+					waitFor(() => expect(screen.getByRole("dialog", { name: "Pro required" })).toBeTruthy()),
+				);
+				expect(
+					screen.queryByRole("button", { name: "Discard and start requested action" }),
+				).toBeNull();
+				expect(prepared).toBe(0);
+				const decoded = decodeWorkoutEditorDraft(storage.value);
+				assert(decoded._tag === "Success");
+				expect(decoded.success.draftId).toBe("draft-workout-editor");
+			} finally {
+				yield* Effect.promise(() => clock.dispose());
+			}
+		}),
+	);
+	it.live(
+		"guards a requested action before preparing its source and resumes the stored draft",
+		() =>
+			Effect.gen(function* () {
+				const clock = createTestRyotClock();
+				try {
+					yield* Effect.promise(() => clock.setTime(startedAtMillis));
+					let prepared = 0;
+					let resumed = 0;
+					const storage: EditorStorage = {
+						value: encodeWorkoutEditorDraft(editorDraft([editorOccurrence("reps_and_weight")])),
+					};
+					const { answerPending } = openEditor(clock, storage, [], {
+						onStarted: () => {
+							resumed += 1;
+						},
+						prepareDraft: () =>
+							Effect.sync(() => {
+								prepared += 1;
+								return editorDraft([]);
+							}),
+					});
+					yield* waitForEditor(answerPending);
+					yield* Effect.promise(() =>
+						waitFor(() =>
+							expect(screen.getByRole("dialog", { name: "Existing draft" })).toBeTruthy(),
+						),
+					);
+					expect(prepared).toBe(0);
+					click(screen.getByRole("button", { name: "Resume draft" }));
+					expect(resumed).toBe(1);
+					expect(prepared).toBe(0);
+					expect(screen.queryByRole("dialog", { name: "Existing draft" })).toBeNull();
+				} finally {
+					yield* Effect.promise(() => clock.dispose());
+				}
+			}),
+	);
+	it.live("discards an existing draft before preparing and storing the requested action once", () =>
+		Effect.gen(function* () {
+			const clock = createTestRyotClock();
+			try {
+				yield* Effect.promise(() => clock.setTime(startedAtMillis));
+				let prepared = 0;
+				let started = 0;
+				const requested = editorDraft([editorOccurrence("reps_and_weight")], {
+					draftId: "requested",
+					name: "Requested workout",
+				});
+				const storage: EditorStorage = {
+					value: encodeWorkoutEditorDraft(editorDraft([editorOccurrence("reps_and_weight")])),
+				};
+				const { answerPending } = openEditor(clock, storage, [], {
+					onStarted: () => {
+						started += 1;
+					},
+					prepareDraft: () =>
+						Effect.sync(() => {
+							prepared += 1;
+							return requested;
+						}),
+				});
+				yield* waitForEditor(answerPending);
+				yield* Effect.promise(() =>
+					waitFor(() =>
+						expect(screen.getByRole("dialog", { name: "Existing draft" })).toBeTruthy(),
+					),
+				);
+				click(screen.getByRole("button", { name: "Discard and start requested action" }));
+				yield* waitForEditor(answerPending);
+				yield* Effect.promise(() =>
+					waitFor(() => {
+						answerPending();
+						expect(started).toBe(1);
+					}),
+				);
+				expect(prepared).toBe(1);
+				const decoded = decodeWorkoutEditorDraft(storage.value);
+				assert(decoded._tag === "Success");
+				expect(decoded.success.draftId).toBe("requested");
+				expect(screen.queryByRole("dialog", { name: "Existing draft" })).toBeNull();
+			} finally {
+				yield* Effect.promise(() => clock.dispose());
+			}
+		}),
+	);
 	it.live("saves zero and other measurements independently before discarding the workout", () =>
 		Effect.gen(function* () {
 			const clock = createTestRyotClock();

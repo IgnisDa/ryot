@@ -94,7 +94,12 @@ const startInitialDraft = (input: {
 	readonly controller: ReturnType<typeof useWorkoutEditor>["controller"];
 	readonly schedule: ReturnType<typeof useRyotSchedule>;
 	readonly setMessage: (message: string) => void;
-	readonly source: WorkoutEditorDraft;
+	readonly prepare: (
+		context: typeof WorkoutEditorContextOutputSchema.Type,
+	) => Effect.Effect<WorkoutEditorDraft, unknown>;
+	readonly onStarted: () => void;
+	readonly onPrepared: () => void;
+	readonly isActive: () => boolean;
 	readonly starting: { current: boolean };
 }) => {
 	if (input.starting.current) {
@@ -103,13 +108,14 @@ const startInitialDraft = (input: {
 	input.starting.current = true;
 	return input.schedule.run(
 		Effect.gen(function* () {
+			const source = yield* input.prepare(input.context);
 			const loaded = yield* readEditorExercises(input.client, [
-				...new Set(input.source.occurrences.map(({ exerciseId }) => exerciseId)),
+				...new Set(source.occurrences.map(({ exerciseId }) => exerciseId)),
 			]);
 			const initial = changeWorkoutEnergyUnit(
 				{
-					...input.source,
-					occurrences: input.source.occurrences.map((occurrence) =>
+					...source,
+					occurrences: source.occurrences.map((occurrence) =>
 						changeOccurrenceDisplay(
 							occurrence,
 							resolveWorkoutDisplay({
@@ -122,13 +128,23 @@ const startInitialDraft = (input: {
 				},
 				input.context.settings.energyUnit,
 			);
-			yield* input.controller.start(initial).pipe(Effect.uninterruptible);
+			if (!input.isActive()) {
+				return;
+			}
+			input.onPrepared();
+			yield* Effect.gen(function* () {
+				if ((yield* input.controller.start(initial)) && input.isActive()) {
+					input.onStarted();
+				}
+			}).pipe(Effect.uninterruptible);
 		}).pipe(
 			Effect.match({
 				onSuccess: () => undefined,
-				onFailure: () =>
+				onFailure: (error) =>
 					input.setMessage(
-						"The draft could not be loaded or stored. Retry before leaving this page.",
+						typeof error === "string"
+							? error
+							: "The draft could not be loaded or stored. Retry before leaving this page.",
 					),
 			}),
 			Effect.asVoid,
@@ -141,9 +157,14 @@ const startInitialDraft = (input: {
 
 export function WorkoutEditorScreen(props: {
 	readonly target: PluginNavigationTarget;
-	readonly initialDraft?: WorkoutEditorDraft;
+	readonly prepareDraft?: (
+		context: typeof WorkoutEditorContextOutputSchema.Type,
+	) => Effect.Effect<WorkoutEditorDraft, unknown>;
+	readonly onStarted?: () => void;
+	readonly requiresPro?: boolean;
 	readonly onSaved?: (entityId: SavedEntityId) => void;
 }) {
+	const { onStarted, prepareDraft } = props;
 	const client = useRyot();
 	const schedule = useRyotSchedule();
 	const { compact } = useRyotViewport();
@@ -154,8 +175,16 @@ export function WorkoutEditorScreen(props: {
 	const [message, setMessage] = useState<string>();
 	const [saved, setSaved] = useState<SavedEntityId>();
 	const [useExisting, setUseExisting] = useState(false);
+	const [requestHandled, setRequestHandled] = useState(false);
 	const [conflict, setConflict] = useState(false);
 	const starting = useRef(false);
+	const active = useRef(isActive);
+	useEffect(() => {
+		active.current = isActive;
+		return () => {
+			active.current = false;
+		};
+	}, [isActive]);
 	const editorRoot = useRef<HTMLDivElement>(null);
 	const submitting = useRef(false);
 	const editorDraft = snapshot.status === "ready" ? snapshot.draft : undefined;
@@ -172,6 +201,8 @@ export function WorkoutEditorScreen(props: {
 		{ refreshOnMutation: false },
 	);
 	const context = snapshot.context;
+	const requestBlocked =
+		props.requiresPro === true && context !== undefined && !context.proAvailable;
 	const run = (effect: Effect.Effect<unknown, unknown>) =>
 		schedule.run(
 			effect.pipe(
@@ -186,23 +217,47 @@ export function WorkoutEditorScreen(props: {
 		);
 	useEffect(() => {
 		if (
+			!isActive ||
+			requestBlocked ||
+			requestHandled ||
+			message !== undefined ||
 			snapshot.status !== "empty" ||
-			props.initialDraft === undefined ||
+			prepareDraft === undefined ||
 			context === undefined ||
 			saved !== undefined
 		) {
 			return undefined;
 		}
-		return startInitialDraft({
+		startInitialDraft({
 			client,
 			context,
 			schedule,
 			starting,
 			controller,
 			setMessage,
-			source: props.initialDraft,
+			prepare: prepareDraft,
+			isActive: () => active.current,
+			onPrepared: () => setUseExisting(true),
+			onStarted: () => {
+				setRequestHandled(true);
+				onStarted?.();
+			},
 		});
-	}, [client, context, controller, props.initialDraft, saved, schedule, snapshot.status]);
+		return undefined;
+	}, [
+		client,
+		context,
+		controller,
+		isActive,
+		message,
+		prepareDraft,
+		onStarted,
+		requestHandled,
+		requestBlocked,
+		saved,
+		schedule,
+		snapshot.status,
+	]);
 	const scrollToEditorTarget = useCallback(
 		(targetId: string) => {
 			const target = [...(editorRoot.current?.querySelectorAll<HTMLElement>("[id]") ?? [])].find(
@@ -263,8 +318,9 @@ export function WorkoutEditorScreen(props: {
 	}
 	const existingGuard =
 		editorDraft !== undefined &&
-		props.initialDraft !== undefined &&
-		editorDraft.draftId !== props.initialDraft.draftId &&
+		props.prepareDraft !== undefined &&
+		!requestBlocked &&
+		!requestHandled &&
 		!useExisting;
 	const local =
 		editorDraft !== undefined && context !== undefined
@@ -676,23 +732,11 @@ export function WorkoutEditorScreen(props: {
 				}
 			>
 				{message ? <StatusMessage tone="error">{message}</StatusMessage> : null}
-				{message && snapshot.status === "empty" && props.initialDraft !== undefined ? (
+				{message && snapshot.status === "empty" && props.prepareDraft !== undefined ? (
 					<Button
 						variant="secondary"
 						onClick={() => {
-							const source = props.initialDraft;
-							if (source === undefined || context === undefined) {
-								return;
-							}
-							startInitialDraft({
-								client,
-								source,
-								context,
-								schedule,
-								starting,
-								controller,
-								setMessage,
-							});
+							setMessage(undefined);
 						}}
 					>
 						Retry requested draft
@@ -721,6 +765,13 @@ export function WorkoutEditorScreen(props: {
 				{snapshot.status === "loading" ? (
 					<StatusMessage tone="pending">Recovering draft…</StatusMessage>
 				) : null}
+				{snapshot.status === "empty" &&
+				prepareDraft !== undefined &&
+				!requestHandled &&
+				message === undefined &&
+				!requestBlocked ? (
+					<StatusMessage tone="pending">Preparing workout editor…</StatusMessage>
+				) : null}
 				{snapshot.status === "recovery-error" ? (
 					<>
 						<StatusMessage tone="error">
@@ -733,7 +784,7 @@ export function WorkoutEditorScreen(props: {
 						</Button>
 					</>
 				) : null}
-				{snapshot.status === "empty" && saved === undefined ? (
+				{snapshot.status === "empty" && saved === undefined && props.prepareDraft === undefined ? (
 					<>
 						<p>No active draft.</p>
 						<Button
@@ -1018,6 +1069,28 @@ export function WorkoutEditorScreen(props: {
 			</div>
 			{isActive ? (
 				<>
+					{requestBlocked && !requestHandled ? (
+						<Modal
+							label="Pro required"
+							className={editorModalClass}
+							closeLabel="Return to editor"
+							onClose={() => {
+								setRequestHandled(true);
+								onStarted?.();
+							}}
+						>
+							<h2>Creating templates requires Pro</h2>
+							<p>Your existing draft has not been changed.</p>
+							<Button
+								onClick={() => {
+									setRequestHandled(true);
+									onStarted?.();
+								}}
+							>
+								{editorDraft === undefined ? "Return to editor" : "Resume draft"}
+							</Button>
+						</Modal>
+					) : null}
 					{mediaTarget !== undefined && editorDraft !== undefined && snapshot.status === "ready" ? (
 						<WorkoutMediaOverlay
 							label={mediaLabel}
@@ -1038,11 +1111,21 @@ export function WorkoutEditorScreen(props: {
 							label="Existing draft"
 							className={editorModalClass}
 							closeLabel="Resume existing draft"
-							onClose={() => setUseExisting(true)}
+							onClose={() => {
+								setRequestHandled(true);
+								onStarted?.();
+							}}
 						>
 							<h2>You already have a draft</h2>
 							{disabled ? <p>Finish the pending save before starting another action.</p> : null}
-							<Button onClick={() => setUseExisting(true)}>Resume draft</Button>
+							<Button
+								onClick={() => {
+									setRequestHandled(true);
+									onStarted?.();
+								}}
+							>
+								Resume draft
+							</Button>
 							<Button
 								variant="secondary"
 								disabled={disabled}

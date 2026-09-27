@@ -1,5 +1,4 @@
 import { exerciseDetailsRecipe } from "@ryot-app/fitness-plugin/exercise-details-recipes";
-import { workoutDetailsRecipe } from "@ryot-app/fitness-plugin/workout-details-recipes";
 import { Effect } from "effect";
 
 import {
@@ -12,6 +11,7 @@ import type { Client } from "~/fixtures/kernel/auth";
 import {
 	createExerciseEntityFixture,
 	createExerciseNote,
+	readWorkoutDetails,
 	seedExerciseWorkout,
 } from "~/fixtures/plugins/fitness";
 import { requirePresent } from "~/support/assertions";
@@ -38,16 +38,7 @@ const waitForReadySets = (client: Client, workoutId: string) =>
 	pollUntil(
 		`ready workout sets for ${workoutId}`,
 		Effect.gen(function* () {
-			const workoutEntity = yield* getEntity(client, workoutId);
-			const pluginId = requirePresent(
-				workoutEntity.entitySchemaPluginId,
-				"Expected a Fitness workout owner",
-			);
-			const reference: FitnessReference = { pluginId, kind: "local" };
-			const workout = requirePresent(
-				yield* executeRyotQLRecipe(client, workoutDetailsRecipe({ reference, workoutId })),
-				"Expected workout",
-			);
+			const workout = yield* readWorkoutDetails(client, workoutId);
 			const sets = workout.exercises.items.flatMap((exercise) => exercise.sets.items);
 			return sets.length > 0 && sets.every((set) => set.recordStatus === "ready") ? sets : null;
 		}),

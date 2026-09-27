@@ -1,11 +1,8 @@
 import type { CreateEventsResponse } from "@ryot-app/contract/modules/events/schemas";
-import { workoutDetailsRecipe } from "@ryot-app/fitness-plugin/workout-details-recipes";
 import { Effect } from "effect";
 
 import {
 	createAuthenticatedClient,
-	executeRyotQLRecipe,
-	getEntity,
 	listEventsForEntity,
 	pollUntil,
 	waitForCreateEvents,
@@ -15,27 +12,10 @@ import {
 	createExerciseEntityFixture,
 	createWorkoutEntityFixture,
 	findWorkoutSetEventSchema,
+	readWorkoutDetails,
 } from "~/fixtures/plugins/fitness";
 import { assertCondition, assertTaggedError, requirePresent } from "~/support/assertions";
 import { describe, expect, it } from "~/support/effect-test";
-
-const workoutDetails = (client: Client, workoutId: string) =>
-	Effect.gen(function* () {
-		const workoutEntity = yield* getEntity(client, workoutId);
-		const pluginId = requirePresent(
-			workoutEntity.entitySchemaPluginId,
-			"Expected a Fitness workout owner",
-		);
-		const reference: Parameters<typeof workoutDetailsRecipe>[0]["reference"] = {
-			pluginId,
-			kind: "local",
-		};
-		const workout = yield* executeRyotQLRecipe(
-			client,
-			workoutDetailsRecipe({ reference, workoutId }),
-		);
-		return requirePresent(workout, `Expected workout ${workoutId}`);
-	});
 
 const waitForReadyWorkoutSets = (
 	client: Client,
@@ -46,7 +26,7 @@ const waitForReadyWorkoutSets = (
 	pollUntil(
 		`${expectedCount} ready workout sets for ${workoutId}`,
 		Effect.gen(function* () {
-			const workout = yield* workoutDetails(client, workoutId);
+			const workout = yield* readWorkoutDetails(client, workoutId);
 			const items = workout.exercises.items.flatMap((exercise) => exercise.sets.items);
 			assertCondition(
 				!items.some((item) => item.recordStatus === "failed"),
@@ -394,6 +374,12 @@ describe("Workout records E2E", () => {
 
 				const earlier = yield* waitForReadyWorkoutSets(client, earlierWorkoutId, 51, 600_000);
 				const later = yield* waitForReadyWorkoutSets(client, laterWorkoutId, 50, 600_000);
+				const allSets = [
+					...earlier.workout.exercises.items.flatMap((exercise) => exercise.sets.items),
+					...later.workout.exercises.items.flatMap((exercise) => exercise.sets.items),
+				];
+				expect(allSets).toHaveLength(101);
+				expect(allSets.reduce((total, set) => total + (set.reps ?? 0), 0)).toBe(5050);
 
 				const zeroRepSet = requirePresent(
 					earlier.items.find((item) => item.reps === 0),

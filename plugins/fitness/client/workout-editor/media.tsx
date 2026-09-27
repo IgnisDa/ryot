@@ -1,88 +1,14 @@
 import { Effect } from "@ryot-app/plugin-client-sdk/effect";
 import { ManagedAssetProvider, useRyotSchedule } from "@ryot-app/plugin-client-sdk/react";
 import { Button, Modal, StatusMessage } from "@ryot-app/plugin-ui-sdk";
-import { useEffect, useRef, useState } from "react";
+import { useRef, useState } from "react";
 
 import type { WorkoutEditorDraft } from "../../shared/workout-editor-draft";
 import type { WorkoutSetAssetLocator } from "../../shared/workout-set";
-import { managedAssetBatch, useAssetUrl } from "../asset-urls";
+import { managedAssetBatch } from "../asset-urls";
+import { MediaPreview } from "../media-preview";
 import { editorModalClass } from "./controls";
 import { targetMedia, type WorkoutMediaKind, type WorkoutMediaTarget } from "./media-state";
-
-function MediaPreview(props: {
-	readonly asset: WorkoutSetAssetLocator;
-	readonly kind: WorkoutMediaKind;
-	readonly label: string;
-}) {
-	const url = useAssetUrl(props.asset);
-	const video = useRef<HTMLVideoElement>(null);
-	const [failed, setFailed] = useState<string>();
-	const [expanded, setExpanded] = useState(false);
-	useEffect(() => {
-		if (url === undefined) {
-			return undefined;
-		}
-		const player = video.current;
-		return () => {
-			if (player !== null && !player.paused) {
-				player.pause();
-			}
-		};
-	}, [url]);
-	if (url === undefined) {
-		return (
-			<StatusMessage tone="pending">
-				Loading attachment… If it stays unavailable, reopen this panel to retry.
-			</StatusMessage>
-		);
-	}
-	return (
-		<>
-			{props.kind === "videos" ? (
-				<video
-					controls
-					src={url}
-					ref={video}
-					playsInline
-					preload="metadata"
-					aria-label={props.label}
-					onLoadedData={() => setFailed(undefined)}
-					className="max-h-80 w-full rounded-lg bg-surface-2"
-					onError={() =>
-						setFailed(
-							"This video could not be played. Its codec may not be supported by this device.",
-						)
-					}
-				/>
-			) : (
-				<Button
-					variant="text"
-					onClick={() => setExpanded(true)}
-					aria-label={`Preview ${props.label}`}
-				>
-					<img
-						src={url}
-						alt={props.label}
-						onLoad={() => setFailed(undefined)}
-						className="h-28 w-28 rounded-lg object-contain"
-						onError={() => setFailed("This image could not be loaded.")}
-					/>
-				</Button>
-			)}
-			{failed === undefined ? null : <StatusMessage tone="error">{failed}</StatusMessage>}
-			{expanded ? (
-				<Modal
-					className={editorModalClass}
-					label={`Preview ${props.label}`}
-					closeLabel="Close image preview"
-					onClose={() => setExpanded(false)}
-				>
-					<img src={url} alt={props.label} className="max-h-[75vh] w-full object-contain" />
-				</Modal>
-			) : null}
-		</>
-	);
-}
 
 export function WorkoutMediaOverlay(props: {
 	readonly draft: WorkoutEditorDraft;

@@ -1,10 +1,14 @@
 import { PluginLink } from "@ryot-app/plugin-client-sdk/plugin";
+import { useRyot } from "@ryot-app/plugin-client-sdk/react";
 import { Button, Menu } from "@ryot-app/plugin-ui-sdk";
 import { AppIcon } from "@ryot-app/plugin-ui-sdk/icon";
 import clsx from "clsx";
 import { useRef, useState } from "react";
 
 import type { WorkoutDetails } from "../../shared/workout-details-recipes";
+import { fitnessRoute } from "../../shared/workout-editor-routes";
+import { kilogramsToPounds } from "../../shared/workout-units";
+import { AdjustWorkoutTime } from "./adjust-time";
 import type {
 	MuscleCount,
 	TimelineSegment,
@@ -20,7 +24,13 @@ import {
 	formatTimeRange,
 } from "./format";
 
-function WorkoutActions(props: { readonly compact: boolean }) {
+function WorkoutActions(props: {
+	readonly compact: boolean;
+	readonly entityId: string;
+	readonly proAvailable: boolean;
+}) {
+	const client = useRyot();
+	const [adjustingTime, setAdjustingTime] = useState(false);
 	const trigger = useRef<HTMLButtonElement>(null);
 	const [menuOpen, setMenuOpen] = useState(false);
 	const [activeIndex, setActiveIndex] = useState(0);
@@ -28,12 +38,18 @@ function WorkoutActions(props: { readonly compact: boolean }) {
 		setMenuOpen(false);
 		console.log(`TODO: ${action}`);
 	};
+	const openEditor = (action: string) => () => {
+		setMenuOpen(false);
+		client.navigation.push(
+			fitnessRoute(`/workouts/${encodeURIComponent(props.entityId)}/${action}`),
+		);
+	};
 	return (
 		<div className={clsx("flex gap-2", props.compact && "w-full")}>
-			<Button onClick={later("repeat workout")} className={clsx(props.compact && "flex-1")}>
+			<Button onClick={openEditor("repeat")} className={clsx(props.compact && "flex-1")}>
 				Repeat workout
 			</Button>
-			<Button variant="secondary" onClick={later("edit workout")}>
+			<Button variant="secondary" onClick={openEditor("edit")}>
 				Edit
 			</Button>
 			<Button
@@ -59,7 +75,19 @@ function WorkoutActions(props: { readonly compact: boolean }) {
 						}
 					}}
 					items={[
-						{ key: "adjust-time", label: "Adjust time", onSelect: later("adjust workout time") },
+						{
+							key: "adjust-time",
+							label: "Adjust time",
+							onSelect: () => {
+								setMenuOpen(false);
+								setAdjustingTime(true);
+							},
+						},
+						{
+							key: "create-template",
+							onSelect: openEditor("create-template"),
+							label: props.proAvailable ? "Create template" : "Create template (Pro)",
+						},
 						{
 							key: "collections",
 							label: "Add to collection",
@@ -73,6 +101,9 @@ function WorkoutActions(props: { readonly compact: boolean }) {
 						},
 					]}
 				/>
+			) : null}
+			{adjustingTime ? (
+				<AdjustWorkoutTime entityId={props.entityId} onClose={() => setAdjustingTime(false)} />
 			) : null}
 		</div>
 	);
@@ -101,6 +132,7 @@ function LinkedWorkout(props: {
 }
 
 export function WorkoutHeader(props: {
+	readonly proAvailable?: boolean;
 	readonly compact: boolean;
 	readonly workout: WorkoutDetails;
 }) {
@@ -141,7 +173,11 @@ export function WorkoutHeader(props: {
 					/>
 				</p>
 			</div>
-			<WorkoutActions compact={props.compact} />
+			<WorkoutActions
+				entityId={workout.id}
+				compact={props.compact}
+				proAvailable={props.proAvailable ?? false}
+			/>
 		</header>
 	);
 }
@@ -154,25 +190,34 @@ type Stat = {
 	readonly tone?: "accent" | "success" | undefined;
 };
 
-const summaryStats = (workout: WorkoutDetails, summary: WorkoutSummary) => {
+const summaryStats = (
+	workout: WorkoutDetails,
+	summary: WorkoutSummary,
+	imperial: boolean,
+	energyUnit: "kcal" | "kJ",
+) => {
 	const stats: ReadonlyArray<Stat | null> = [
+		{
+			label: "Active duration",
+			value: workout.activeDuration === null ? "Unknown" : formatDuration(workout.activeDuration),
+		},
 		summary.durationSeconds === null
 			? null
 			: {
-					label: "Duration",
+					label: "Elapsed duration",
 					value: formatDuration(summary.durationSeconds),
 					detail: formatTimeRange(workout.startedAt, workout.endedAt),
 				},
 		summary.volume > 0
 			? {
-					unit: "kg",
 					label: "Volume",
-					value: formatNumber(summary.volume),
+					unit: imperial ? "lb" : "kg",
+					value: formatNumber(imperial ? kilogramsToPounds(summary.volume) : summary.volume),
 					tone: summary.volumeDelta !== null && summary.volumeDelta > 0 ? "success" : undefined,
 					detail:
 						summary.volumeDelta === null
 							? null
-							: `${formatSignedMeasure(summary.volumeDelta, "kg")} vs previous sessions`,
+							: `${formatSignedMeasure(summary.volumeDelta, "kg", imperial)} vs previous sessions`,
 				}
 			: null,
 		{
@@ -182,14 +227,7 @@ const summaryStats = (workout: WorkoutDetails, summary: WorkoutSummary) => {
 		},
 		summary.reps > 0 ? { label: "Reps", value: formatNumber(summary.reps) } : null,
 		summary.restSeconds > 0
-			? {
-					label: "Rest",
-					value: formatDuration(summary.restSeconds),
-					detail:
-						summary.durationSeconds === null || summary.durationSeconds === 0
-							? null
-							: `${Math.round((summary.restSeconds / summary.durationSeconds) * 100)}% of the session`,
-				}
+			? { label: "Configured rest", value: formatDuration(summary.restSeconds) }
 			: null,
 		summary.records > 0
 			? {
@@ -199,14 +237,20 @@ const summaryStats = (workout: WorkoutDetails, summary: WorkoutSummary) => {
 					detail: `Across ${summary.recordSets} ${summary.recordSets === 1 ? "set" : "sets"}`,
 				}
 			: null,
-		workout.caloriesBurnt !== null && workout.caloriesBurnt > 0
-			? { label: "Calories", value: formatNumber(workout.caloriesBurnt) }
+		workout.caloriesBurnt !== null && workout.caloriesBurnt >= 0
+			? {
+					label: "Energy",
+					unit: energyUnit,
+					value: formatNumber(workout.caloriesBurnt * (energyUnit === "kJ" ? 4.184 : 1)),
+				}
 			: null,
 	];
 	return stats.filter((stat) => stat !== null);
 };
 
 export function WorkoutSummaryRow(props: {
+	readonly imperial?: boolean;
+	readonly energyUnit?: "kcal" | "kJ";
 	readonly compact: boolean;
 	readonly summary: WorkoutSummary;
 	readonly workout: WorkoutDetails;
@@ -219,7 +263,12 @@ export function WorkoutSummaryRow(props: {
 				props.compact ? "grid-cols-3" : "grid-cols-[repeat(auto-fit,minmax(9rem,1fr))]",
 			)}
 		>
-			{summaryStats(props.workout, props.summary).map((stat) => (
+			{summaryStats(
+				props.workout,
+				props.summary,
+				props.imperial ?? false,
+				props.energyUnit ?? "kcal",
+			).map((stat) => (
 				<div key={stat.label} className="flex flex-col gap-1 bg-surface p-4 font-ui">
 					<span className="text-[13px] text-text-muted">{stat.label}</span>
 					<span
@@ -265,8 +314,7 @@ function SessionTimeline(props: { readonly timeline: WorkoutTimeline }) {
 			<div className="flex flex-wrap items-baseline justify-between gap-2">
 				<h2 className="font-semibold text-[16px] text-text">Session flow</h2>
 				<span className="text-[13px] text-text-muted">
-					{formatDuration(timeline.workingSeconds)} working · {formatDuration(timeline.restSeconds)}{" "}
-					resting
+					{formatDuration(timeline.restSeconds)} configured rest
 				</span>
 			</div>
 			<ol className="flex h-10 gap-0.75" aria-label="Exercises over time">
