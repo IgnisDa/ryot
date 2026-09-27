@@ -27,9 +27,8 @@
 | `server.proKey` | `SERVER_PRO_KEY` | The key that can be used to enable Ryot Pro features | No | Yes | — |
 | `server.disableNotifications` | `SERVER_DISABLE_NOTIFICATIONS` | Disable delivery of all notifications | No | No | `false` |
 | `server.adminAccessToken` | `SERVER_ADMIN_ACCESS_TOKEN` | Bearer token required for god-mode admin endpoints | Yes | Yes | — |
-| `server.runnerSocketDir` | `SERVER_RUNNER_SOCKET_DIR` | Absolute path of the private directory holding the Unix sockets both roles use to deliver workflow messages to each other; required when SERVER_LANES is interactive, background, or split and rejected otherwise | No | No | — |
+| `server.lanes` | `SERVER_LANES` | Use all for one server process, or split for separate interactive and background processes managed by the server | No | No | `all` |
 | `server.egressAllowedNetworks` | `SERVER_EGRESS_ALLOWED_NETWORKS` | Comma-separated CIDR networks that outbound requests from plugins, notifications, and OAuth may reach although they are loopback, private, or otherwise special-purpose, such as 192.168.1.0/24; link-local, metadata, multicast, and unspecified ranges cannot be allowed | No | No | — |
-| `server.lanes` | `SERVER_LANES` | Work this process runs: all of it; one role of a two-process deployment on one host, where interactive serves HTTP and interactive-lane work and background runs everything else; or split, which supervises both roles as child processes of one entry point, running migrations first and starting the background role at the lowest CPU priority | No | No | `all` |
 
 #### OIDC provider
 

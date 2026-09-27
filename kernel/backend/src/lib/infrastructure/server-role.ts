@@ -3,15 +3,14 @@ import { Effect, type Path } from "effect";
 
 import type { AppConfigValue } from "./config/service";
 
-export type ServerLanes = AppConfigValue["server"]["lanes"];
+export type ServerRole = AppConfigValue["server"]["processRole"];
 
-/** What one server process runs; `split` is a supervisor and serves no work itself. */
-export type ServerRole = Exclude<ServerLanes, "split">;
-
-export const serverRole = (lanes: ServerLanes): Effect.Effect<ServerRole> =>
-	lanes === "split"
+export const serverRole = (
+	server: Pick<AppConfigValue["server"], "lanes" | "processRole">,
+): Effect.Effect<ServerRole> =>
+	server.lanes === "split"
 		? Effect.die(new Error("SERVER_LANES=split supervises the roles and serves no work itself"))
-		: Effect.succeed(lanes);
+		: Effect.succeed(server.processRole);
 
 export const servedLanes = (role: ServerRole): ReadonlyArray<ExecutionLane> =>
 	role === "all" ? ["interactive", "background"] : [role];

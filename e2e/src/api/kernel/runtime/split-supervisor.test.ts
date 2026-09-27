@@ -57,7 +57,6 @@ describe("split supervisor", () => {
 					startCoreTestInfrastructure({ bucketName: S3_BUCKET_NAME }),
 					stopCoreTestInfrastructure,
 				);
-				const socketDirectory = yield* fs.makeTempDirectoryScoped({ prefix: "ryot-split-" });
 				const port = yield* Effect.promise(() => getPort());
 				const origin = `http://127.0.0.1:${port}`;
 				const baseUrl = `${origin}/api`;
@@ -69,11 +68,7 @@ describe("split supervisor", () => {
 					s3BucketName: S3_BUCKET_NAME,
 					redisUrl: infrastructure.redisUrl,
 					s3Endpoint: infrastructure.s3Endpoint,
-					extraEnv: {
-						SERVER_LANES: "split",
-						SANDBOX_MEMORY_BUDGET_MIB: "1904",
-						SERVER_RUNNER_SOCKET_DIR: socketDirectory,
-					},
+					extraEnv: { SERVER_LANES: "split", SANDBOX_MEMORY_BUDGET_MIB: "1904" },
 				});
 				const baseLog = requirePresent(env.SERVER_LOG_FILE, "Log file is unset");
 				const supervisor = yield* Effect.acquireRelease(

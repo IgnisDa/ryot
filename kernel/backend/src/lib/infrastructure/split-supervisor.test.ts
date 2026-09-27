@@ -1,6 +1,19 @@
+import { BunServices } from "@effect/platform-bun";
 import { assert, describe, expect, it, layer } from "@effect/vitest";
 import { sortBy } from "@ryot-app/ts-utils/lodash";
-import { Cause, Deferred, Effect, Exit, Fiber, Option, Result, Sink, Stream } from "effect";
+import {
+	Cause,
+	Deferred,
+	Effect,
+	Exit,
+	Fiber,
+	FileSystem,
+	Layer,
+	Option,
+	Result,
+	Sink,
+	Stream,
+} from "effect";
 import { ChildProcess, ChildProcessSpawner } from "effect/process";
 
 import { makeAppConfigLayer } from "#lib/test-utils/effect";
@@ -14,30 +27,44 @@ type Started = {
 	readonly role: string;
 	readonly command: string;
 	readonly args: ReadonlyArray<string>;
+	readonly socketDirectory: string | undefined;
 	readonly options: ChildProcess.CommandOptions;
+	readonly socketDirectoryMode: number | undefined;
 };
 
-const makeSpawner = (exitsAfterStart: Readonly<Record<string, number>> = {}) => {
+const makeSpawner = (
+	exitsAfterStart: Readonly<Record<string, number>> = {},
+	failOnStart?: string,
+) => {
 	const started: Array<Started> = [];
 	const killed: Array<string> = [];
 	const spawner = ChildProcessSpawner.make((command) =>
 		Effect.gen(function* () {
 			assert(ChildProcess.isStandardCommand(command));
+			const fs = yield* FileSystem.FileSystem;
 			const env = command.options.env;
+			const socketDirectory = env?.["RYOT_RUNNER_SOCKET_DIR"];
+			const socketDirectoryMode =
+				socketDirectory === undefined ? undefined : (yield* fs.stat(socketDirectory)).mode & 0o777;
 			const role =
-				env?.["RUN_MIGRATION_ONLY"] === "true" ? "migration" : (env?.["SERVER_LANES"] ?? "");
+				env?.["RUN_MIGRATION_ONLY"] === "true" ? "migration" : (env?.["RYOT_SERVER_ROLE"] ?? "");
 			started.push({
 				role,
+				socketDirectory,
 				args: command.args,
+				socketDirectoryMode,
 				command: command.command,
 				options: command.options,
 			});
+			if (role === failOnStart) {
+				return yield* Effect.die(new Error(`Failed to spawn ${role}`));
+			}
 			const exit = yield* Deferred.make<ChildProcessSpawner.ExitCode>();
 			const configuredExit = exitsAfterStart[role] ?? (role === "migration" ? 0 : undefined);
 			if (configuredExit !== undefined) {
 				yield* Deferred.succeed(exit, ChildProcessSpawner.ExitCode(configuredExit));
 			}
-			return ChildProcessSpawner.makeHandle({
+			const handle = ChildProcessSpawner.makeHandle({
 				all: Stream.empty,
 				stdin: Sink.drain,
 				stderr: Stream.empty,
@@ -54,6 +81,7 @@ const makeSpawner = (exitsAfterStart: Readonly<Record<string, number>> = {}) => 
 						Effect.asVoid,
 					),
 			});
+			return yield* Effect.acquireRelease(Effect.succeed(handle), () => handle.kill());
 		}),
 	);
 	return { killed, spawner, started };
@@ -68,9 +96,10 @@ const supervise = (spawner: ChildProcessSpawner.ChildProcessSpawner["Service"]) 
 const configured = (memoryBudgetMiB: number) =>
 	makeAppConfigLayer({ sandbox: { memoryBudgetMiB: Option.some(memoryBudgetMiB) } });
 
-layer(configured(1904))("split supervisor", (test) => {
+layer(Layer.merge(configured(1904), BunServices.layer))("split supervisor", (test) => {
 	test.effect("runs migrations first and then starts both roles with their own environment", () =>
 		Effect.gen(function* () {
+			const fs = yield* FileSystem.FileSystem;
 			const { spawner, started } = makeSpawner({ background: 0 });
 			yield* supervise(spawner);
 
@@ -80,18 +109,45 @@ layer(configured(1904))("split supervisor", (test) => {
 			expect([migration.command, migration.args, migration.options.env]).toEqual([
 				entry.executable,
 				entry.args,
-				{ SERVER_LANES: "all", RUN_MIGRATION_ONLY: "true", SERVER_RUNNER_SOCKET_DIR: undefined },
+				{
+					SERVER_LANES: "all",
+					RUN_MIGRATION_ONLY: "true",
+					RYOT_SERVER_ROLE: undefined,
+					RYOT_RUNNER_SOCKET_DIR: undefined,
+				},
 			]);
+			const socketDirectory = interactive.socketDirectory;
+			assert(socketDirectory !== undefined);
 			expect([interactive.command, interactive.args, interactive.options.env]).toEqual([
 				entry.executable,
 				entry.args,
-				{ SERVER_LANES: "interactive", SANDBOX_MEMORY_BUDGET_MIB: "952" },
+				{
+					SERVER_LANES: "all",
+					RUN_MIGRATION_ONLY: undefined,
+					RYOT_SERVER_ROLE: "interactive",
+					SANDBOX_MEMORY_BUDGET_MIB: "952",
+					RYOT_RUNNER_SOCKET_DIR: socketDirectory,
+				},
 			]);
 			expect([background.command, background.args, background.options.env]).toEqual([
 				"nice",
 				["-n", "19", entry.executable, ...entry.args],
-				{ SERVER_LANES: "background", SANDBOX_MEMORY_BUDGET_MIB: "952" },
+				{
+					SERVER_LANES: "all",
+					RUN_MIGRATION_ONLY: undefined,
+					RYOT_SERVER_ROLE: "background",
+					SANDBOX_MEMORY_BUDGET_MIB: "952",
+					RYOT_RUNNER_SOCKET_DIR: socketDirectory,
+				},
 			]);
+			expect([interactive.socketDirectory, background.socketDirectory]).toEqual([
+				socketDirectory,
+				socketDirectory,
+			]);
+			expect([interactive.socketDirectoryMode, background.socketDirectoryMode]).toEqual([
+				0o700, 0o700,
+			]);
+			expect(yield* fs.exists(socketDirectory)).toBe(false);
 			expect([migration, interactive, background].map((spec) => spec.options.extendEnv)).toEqual([
 				true,
 				true,
@@ -117,12 +173,16 @@ layer(configured(1904))("split supervisor", (test) => {
 
 	test.effect("exits with the code of the first role that exits and terminates the other", () =>
 		Effect.gen(function* () {
+			const fs = yield* FileSystem.FileSystem;
 			const { killed, spawner, started } = makeSpawner({ background: 7 });
 			const exit = yield* Effect.exit(supervise(spawner));
 
 			assert(Exit.isFailure(exit));
 			expect(started.map(({ role }) => role)).toEqual(["migration", "interactive", "background"]);
-			expect(sortBy(killed)).toEqual(["background", "interactive"]);
+			expect(sortBy(killed)).toEqual(["background", "interactive", "migration"]);
+			const socketDirectory = started[1]?.socketDirectory;
+			assert(socketDirectory !== undefined);
+			expect(yield* fs.exists(socketDirectory)).toBe(false);
 			const failure = Cause.findErrorOption(exit.cause);
 			assert(Option.isSome(failure));
 			expect(failure.value).toEqual(
@@ -134,16 +194,36 @@ layer(configured(1904))("split supervisor", (test) => {
 		}),
 	);
 
+	test.effect("releases a started role when the next role fails to spawn", () =>
+		Effect.gen(function* () {
+			const fs = yield* FileSystem.FileSystem;
+			const { killed, spawner, started } = makeSpawner({}, "background");
+			const exit = yield* Effect.exit(supervise(spawner));
+
+			assert(Exit.isFailure(exit));
+			expect(started.map(({ role }) => role)).toEqual(["migration", "interactive", "background"]);
+			expect(sortBy(killed)).toEqual(["interactive", "migration"]);
+			const socketDirectory = started[1]?.socketDirectory;
+			assert(socketDirectory !== undefined);
+			expect(yield* fs.exists(socketDirectory)).toBe(false);
+			expect(Cause.pretty(exit.cause)).toContain("Failed to spawn background");
+		}),
+	);
+
 	test.effect("terminates both roles when interrupted", () =>
 		Effect.gen(function* () {
+			const fs = yield* FileSystem.FileSystem;
 			const { killed, spawner, started } = makeSpawner();
 			const fiber = yield* Effect.forkChild(supervise(spawner));
 			while (started.length < 3) {
 				yield* Effect.yieldNow;
 			}
+			const socketDirectory = started[1]?.socketDirectory;
+			assert(socketDirectory !== undefined);
 			yield* Fiber.interrupt(fiber);
 
-			expect(sortBy(killed)).toEqual(["background", "interactive"]);
+			expect(sortBy(killed)).toEqual(["background", "interactive", "migration"]);
+			expect(yield* fs.exists(socketDirectory)).toBe(false);
 		}),
 	);
 

@@ -232,7 +232,7 @@ export const sandboxLaneCapacity = (
 export const SandboxExecutionQueueStoreLive = Layer.unwrap(
 	Effect.gen(function* () {
 		const config = yield* AppConfig;
-		const lanes = servedLanes(yield* serverRole(config.server.lanes));
+		const lanes = servedLanes(yield* serverRole(config.server));
 		return fairQueueStoreLayer({
 			lanes,
 			prefix: "ryot:sq:",
