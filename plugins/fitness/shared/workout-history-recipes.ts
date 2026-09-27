@@ -24,6 +24,7 @@ import { EntityId, EventId, type PluginIdentityReference } from "@ryot-app/plugi
 
 import { property, propertyDate, propertyNumber } from "./entity-selections";
 import { exerciseKindSchema, type ExerciseKind } from "./exercise-kinds";
+import { WorkoutSetLotSchema } from "./workout-set";
 
 type Table = ReturnType<typeof table>;
 
@@ -40,17 +41,21 @@ const workoutSetWhere = (event: Table, reference: PluginIdentityReference) =>
 
 const workoutSetSelection = (event: Table) => ({
 	id: selectedField(column(event, "id"), EventId),
+	note: selectedField(property(event, "note"), nullableString),
 	exerciseId: selectedField(column(event, "entityId"), EntityId),
+	rpe: selectedField(propertyNumber(event, "rpe"), nullableNumber),
 	reps: selectedField(propertyNumber(event, "reps"), nullableNumber),
 	pace: selectedField(propertyNumber(event, "pace"), nullableNumber),
 	oneRm: selectedField(propertyNumber(event, "oneRm"), nullableNumber),
 	occurredAt: selectedField(column(event, "occurredAt"), IsoDateString),
 	weight: selectedField(propertyNumber(event, "weight"), nullableNumber),
 	volume: selectedField(propertyNumber(event, "volume"), nullableNumber),
+	restTime: selectedField(propertyNumber(event, "restTime"), nullableNumber),
 	setOrder: selectedField(propertyNumber(event, "setOrder"), nullableNumber),
 	duration: selectedField(propertyNumber(event, "duration"), nullableNumber),
 	distance: selectedField(propertyNumber(event, "distance"), nullableNumber),
 	recordedKind: selectedField(property(event, "exerciseKind"), nullableExerciseKind),
+	setLot: selectedField(property(event, "setLot"), Schema.NullOr(WorkoutSetLotSchema)),
 	exerciseOrder: selectedField(propertyNumber(event, "exerciseOrder"), nullableNumber),
 });
 

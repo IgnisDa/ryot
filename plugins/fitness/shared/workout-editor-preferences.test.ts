@@ -31,6 +31,9 @@ it("resolves rest from explicit choice, exercise override, global setting, then 
 	expect(
 		resolveWorkoutRestTime({ settings, lot: "normal", overrides: {}, explicitSeconds: "1.5" }),
 	).toEqual({ kind: "invalid" });
+	expect(
+		resolveWorkoutRestTime({ settings, lot: "normal", overrides: {}, explicitSeconds: " " }),
+	).toEqual({ kind: "invalid" });
 });
 
 it("resolves occurrence display choices before exercise overrides and global units", () => {

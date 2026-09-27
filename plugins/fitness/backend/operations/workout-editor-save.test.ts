@@ -97,6 +97,7 @@ const harness = (
 	options: {
 		pro?: boolean;
 		partial?: boolean;
+		lateConflict?: boolean;
 		baseline?: WorkoutEditorBaseline;
 		exercises?: readonly WorkoutEditorExercise[];
 	} = {},
@@ -105,6 +106,7 @@ const harness = (
 	const events = new Map<string, WorkoutEditorEvent>(
 		(options.baseline?.sets ?? []).map((set) => [set.id, set]),
 	);
+	let entityWritten = false;
 	let partial = options.partial ?? false;
 	const rowsFor = (key: string): readonly unknown[] => {
 		if (key === "entity") {
@@ -121,7 +123,7 @@ const harness = (
 			return [{ entityId: "library-1" }];
 		}
 		if (key === "sets") {
-			return [...events.values()];
+			return options.lateConflict && entityWritten ? [] : [...events.values()];
 		}
 		if (key === "identities") {
 			return [...events.values()].map((set) =>
@@ -141,16 +143,6 @@ const harness = (
 				calls.push({ args: [assets], method: "assets" });
 				return null;
 			}),
-		createUserEntity: (...args) =>
-			Effect.sync(() => {
-				calls.push({ args, method: "createEntity" });
-				return { entityId };
-			}),
-		updateUserEntity: (...args) =>
-			Effect.sync(() => {
-				calls.push({ args, method: "updateEntity" });
-				return { entityId };
-			}),
 		updateEvents: (...args) =>
 			Effect.sync(() => {
 				calls.push({ args, method: "updateSets" });
@@ -160,6 +152,18 @@ const harness = (
 			Effect.sync(() => {
 				calls.push({ args, method: "relationships" });
 				return [{ created: 1, deleted: 0 }];
+			}),
+		createUserEntity: (...args) =>
+			Effect.sync(() => {
+				entityWritten = true;
+				calls.push({ args, method: "createEntity" });
+				return { entityId };
+			}),
+		updateUserEntity: (...args) =>
+			Effect.sync(() => {
+				entityWritten = true;
+				calls.push({ args, method: "updateEntity" });
+				return { entityId };
 			}),
 		executeRyotql: (document) =>
 			Effect.succeed({
@@ -302,6 +306,7 @@ describe("workout editor save", () => {
 					),
 				};
 				expect(yield* definition.run({ ...source, data: changed }, denied.host)).toEqual({
+					canEdit: true,
 					kind: "pro-required",
 				});
 				expect(denied.calls).toEqual([]);
@@ -320,6 +325,18 @@ describe("workout editor save", () => {
 						}),
 				};
 				expect(yield* definition.run(input(), host)).toEqual({ kind: "conflict" });
+			}),
+		));
+	it("keeps conflicts after writes retry-only", () =>
+		Effect.runPromise(
+			Effect.gen(function* () {
+				const { host, calls } = harness({ lateConflict: true });
+				expect(yield* definition.run(input(), host)).toEqual({ kind: "conflict" });
+				expect(calls.map(({ method }) => method)).toEqual([
+					"createEntity",
+					"relationships",
+					"createSets",
+				]);
 			}),
 		));
 	it("retains historical set identity and completion when replacing with a same-kind exercise", () =>
@@ -341,7 +358,10 @@ describe("workout editor save", () => {
 					},
 				};
 				const free = harness({ baseline, exercises });
-				expect(yield* definition.run(submitted, free.host)).toEqual({ kind: "pro-required" });
+				expect(yield* definition.run(submitted, free.host)).toEqual({
+					canEdit: true,
+					kind: "pro-required",
+				});
 				expect(free.calls).toEqual([]);
 				const allowed = harness({ baseline, exercises, pro: true });
 				expect(yield* definition.run(submitted, allowed.host)).toMatchObject({
@@ -364,6 +384,7 @@ describe("workout editor save", () => {
 					],
 				});
 				expect(yield* definition.run(submitted, wrongKind.host)).toEqual({
+					canEdit: true,
 					kind: "invalid",
 					code: "invalid-exercise-kind",
 				});
@@ -408,7 +429,10 @@ describe("workout editor save", () => {
 					},
 				});
 				const free = harness();
-				expect(yield* definition.run(submitted, free.host)).toEqual({ kind: "pro-required" });
+				expect(yield* definition.run(submitted, free.host)).toEqual({
+					canEdit: true,
+					kind: "pro-required",
+				});
 				expect(free.calls).toEqual([]);
 				const allowed = harness({ pro: true });
 				expect(yield* definition.run(submitted, allowed.host)).toEqual({

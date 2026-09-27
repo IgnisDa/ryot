@@ -464,18 +464,22 @@ describe("Workout editor E2E", () => {
 			const { client } = yield* createAuthenticatedClient(apiUrl);
 			const { exerciseId } = yield* createExerciseEntityFixture(client);
 			expect(yield* saveWorkoutEditor(client, operationInput(templateData(exerciseId)))).toEqual({
+				canEdit: true,
 				kind: "pro-required",
 			});
 
 			const notedSet = workoutData({
 				occurrences: [workoutOccurrence(exerciseId, [workoutSet({ note: "New set note" })])],
 			});
-			expect(yield* workoutSave(client, notedSet)).toEqual({ kind: "pro-required" });
+			expect(yield* workoutSave(client, notedSet)).toEqual({ canEdit: true, kind: "pro-required" });
 
 			const mediaWorkout = workoutData({
 				images: [{ type: "remote", url: "https://example.com/workout.jpg" }],
 			});
-			expect(yield* workoutSave(client, mediaWorkout)).toEqual({ kind: "pro-required" });
+			expect(yield* workoutSave(client, mediaWorkout)).toEqual({
+				canEdit: true,
+				kind: "pro-required",
+			});
 		}),
 	);
 
@@ -514,7 +518,10 @@ describe("Workout editor E2E", () => {
 					),
 				],
 			});
-			expect(yield* workoutSave(client, replacement)).toEqual({ kind: "pro-required" });
+			expect(yield* workoutSave(client, replacement)).toEqual({
+				canEdit: true,
+				kind: "pro-required",
+			});
 
 			const unrelatedEvent = workoutData({
 				name: baseline.baseline.entity.name,
@@ -539,6 +546,7 @@ describe("Workout editor E2E", () => {
 				],
 			});
 			expect(yield* workoutSave(client, unrelatedEvent)).toEqual({
+				canEdit: true,
 				kind: "invalid",
 				code: "unrelated-event",
 			});
@@ -597,7 +605,7 @@ describe("Workout editor E2E", () => {
 					),
 				],
 			});
-			expect(yield* workoutSave(other, foreignEdit)).toEqual({ kind: "conflict" });
+			expect(yield* workoutSave(other, foreignEdit)).toEqual({ canEdit: true, kind: "conflict" });
 		}),
 	);
 

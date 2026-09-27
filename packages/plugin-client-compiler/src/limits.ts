@@ -5,11 +5,11 @@ const encoder = new TextEncoder();
 
 export const CLIENT_PLUGIN_COMPILER_LIMITS = {
 	concurrency: 2,
+	sourceBytes: MiB,
 	timeoutMs: 30_000,
 	diagnosticCount: 100,
 	assetBytes: 256 * KiB,
 	artifactFileCount: 128,
-	sourceBytes: 512 * KiB,
 	artifactBytes: 8 * MiB,
 	memoryPollIntervalMs: 5,
 	memoryBytes: 1024 * MiB,

@@ -203,6 +203,7 @@ export const replaceWorkoutOccurrence = (
 		kind: "replaced",
 		draft: {
 			...draft,
+			pendingRest: draft.pendingRest?.occurrenceId === occurrenceId ? undefined : draft.pendingRest,
 			restCountdown:
 				draft.restCountdown?.occurrenceId === occurrenceId ? undefined : draft.restCountdown,
 			executionCountdown:
@@ -261,11 +262,14 @@ export const cloneWorkoutForRepeat = (
 		comment: undefined,
 		endedAt: undefined,
 		submission: undefined,
+		pendingRest: undefined,
+		activeSetId: undefined,
 		draftId: input.draftId,
 		caloriesBurnt: undefined,
 		restCountdown: undefined,
 		startedAt: input.startedAt,
 		activeDurationIntent: "set",
+		activeOccurrenceId: undefined,
 		executionCountdown: undefined,
 		stopwatchStartedAt: undefined,
 		pausedStopwatchSeconds: undefined,
@@ -408,7 +412,7 @@ export const buildWorkoutEditorSaveInput = (
 				startedAt: draft.startedAt,
 				activeDuration: activeDurationChange(draft, input.submittedAt),
 				caloriesBurnt:
-					draft.caloriesBurnt === undefined
+					draft.caloriesBurnt === undefined || draft.caloriesBurnt.trim() === ""
 						? undefined
 						: Number(draft.caloriesBurnt.trim()) / (draft.displayEnergyUnit === "kJ" ? 4.184 : 1),
 				target:

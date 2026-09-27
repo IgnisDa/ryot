@@ -2,7 +2,7 @@ import { useHotkey, type RegisterableHotkey } from "@tanstack/react-hotkeys";
 import {
 	createContext,
 	useContext,
-	useEffect,
+	useLayoutEffect,
 	useEffectEvent,
 	useState,
 	useSyncExternalStore,
@@ -99,7 +99,7 @@ export function OverlayScope(props: {
 	});
 	const enabled = props.enabled ?? true;
 
-	useEffect(() => {
+	useLayoutEffect(() => {
 		if (!enabled) {
 			return undefined;
 		}
@@ -115,7 +115,7 @@ export function OverlayScope(props: {
 		};
 	}, [enabled, scope]);
 
-	useEffect(() => {
+	useLayoutEffect(() => {
 		if (!enabled || !(props.backEnabled ?? true) || back === undefined) {
 			return undefined;
 		}
