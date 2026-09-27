@@ -247,8 +247,8 @@ it.effect(
 				{ retained: "metadata" },
 			);
 			expect(prepared).toEqual({
-				lane: "background",
 				scriptId: "script-old",
+				lane: trigger.causation.lane,
 				input: {
 					automation: {
 						runId: run.id,
@@ -265,6 +265,7 @@ it.effect(
 					runId: run.id,
 					stage: "after",
 					pluginId: "plugin",
+					delivery: "required",
 					triggerId: trigger.id,
 					type: "automation-run",
 					executionUserId: "owner",
@@ -374,20 +375,26 @@ it.effect(
 );
 
 it.effect(
-	"scheduling_lane_survives_durable_boundaries: before runs keep the trigger lane and after runs are background",
+	"scheduling_lane_survives_durable_boundaries: before and required after runs keep the trigger lane and async after runs are background",
 	() =>
 		Effect.gen(function* () {
 			const interactive = {
 				...trigger,
 				causation: { ...trigger.causation, lane: "interactive" as const },
 			};
-			const after = yield* prepareAutomationInvocation(
-				run,
-				interactive,
-				payload,
-				afterScript,
-				accountGeneration,
-			);
+			const after = (delivery: "async" | "required") =>
+				prepareAutomationInvocation(
+					Schema.decodeUnknownSync(AutomationRun)({
+						...Schema.encodeSync(AutomationRun)(run),
+						delivery,
+					}),
+					interactive,
+					payload,
+					afterScript,
+					accountGeneration,
+				);
+			const required = yield* after("required");
+			const async = yield* after("async");
 			const before = yield* prepareAutomationInvocation(
 				beforeRun,
 				{ ...requestTrigger, causation: interactive.causation },
@@ -395,8 +402,15 @@ it.effect(
 				policyScript,
 				accountGeneration,
 			);
-			expect([after.lane, before.lane]).toEqual(["background", "interactive"]);
-			expect(after.subject).toMatchObject({ causation: { lane: "interactive" } });
+			expect([before.lane, required.lane, async.lane]).toEqual([
+				"interactive",
+				"interactive",
+				"background",
+			]);
+			expect(async.subject).toMatchObject({
+				delivery: "async",
+				causation: { lane: "interactive" },
+			});
 		}),
 );
 

@@ -153,12 +153,13 @@ export const prepareAutomationInvocation = (
 		return yield* Schema.decodeUnknownEffect(PreparedAutomationRun)({
 			input,
 			scriptId: run.sandboxScriptId,
-			lane: automationRunLane({ stage: run.stage, causation: trigger.causation }),
+			lane: automationRunLane({ delivery: run.delivery, causation: trigger.causation }),
 			subject: {
 				runId: run.id,
 				stage: run.stage,
 				accountGeneration,
 				triggerId: trigger.id,
+				delivery: run.delivery,
 				type: "automation-run",
 				pluginId: run.pluginId,
 				causation: trigger.causation,

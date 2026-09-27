@@ -7,6 +7,7 @@ const subject = {
 	runId: "run-1",
 	pluginId: null,
 	stage: "before",
+	delivery: "policy",
 	executionUserId: null,
 	type: "automation-run",
 	triggerId: "trigger-1",
@@ -31,6 +32,7 @@ it("accepts source-zero and complete plugin automation ownership, but rejects pa
 	const plugin = {
 		...subject,
 		stage: "after",
+		delivery: "required",
 		pluginId: "plugin-1",
 		executionUserId: "user-1",
 		pluginRevisionId: "revision-1",
