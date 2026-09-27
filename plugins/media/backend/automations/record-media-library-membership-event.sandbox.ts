@@ -10,7 +10,6 @@ import { MediaSandboxError } from "../lib/failures";
 export const manifest = defineManifest({
 	kind: "automation",
 	automationType: "automation",
-	requiredPluginConfigKeys: [],
 	name: "Record media library membership event",
 	slug: "automation.record-media-library-membership-event",
 	capabilities: ["executeRyotql", "createEvents", "listEventSchemas"],

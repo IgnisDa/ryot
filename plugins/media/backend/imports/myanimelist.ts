@@ -107,8 +107,10 @@ const addCoverage = (
 	group: ImportMediaEntityGroupBuilder,
 	count: number,
 	occurredAt: string,
+	start: number,
+	limit: number,
 ) => {
-	for (let progress = 1; progress <= count; progress++) {
+	for (let progress = start + 1; progress <= Math.min(count, start + limit); progress++) {
 		group.events.push({
 			occurredAt,
 			eventSchemaSlug: "progress",
@@ -123,7 +125,14 @@ const addCoverage = (
 const adaptLot = (
 	groups: Map<string, ImportMediaEntityGroupBuilder>,
 	failures: MediaImportAdapterFailure[],
-	input: { itemIndex: number; lot: MyanimelistLot; xmlText: string },
+	input: {
+		itemIndex: number;
+		lot: MyanimelistLot;
+		xmlText: string;
+		importedAt: string;
+		coverageStart: number;
+		coverageLimit: number;
+	},
 ) => {
 	let itemIndex = input.itemIndex;
 	for (const item of lotItems(input.xmlText, input.lot)) {
@@ -133,7 +142,7 @@ const adaptLot = (
 			const idTag = input.lot === "anime" ? "series_animedb_id" : "manga_mangadb_id";
 			const titleTag = input.lot === "anime" ? "series_title" : "manga_title";
 			const done = Number.parseInt(text(item, doneTag), 10);
-			if (!Number.isInteger(done) || done < 0) {
+			if (!Number.isSafeInteger(done) || done < 0) {
 				throw new Error(`${doneTag} is invalid`);
 			}
 			const score = Number.parseInt(text(item, "my_score"), 10);
@@ -146,7 +155,9 @@ const adaptLot = (
 			}
 			const title = text(item, titleTag);
 			const occurredAt =
-				malDate(text(item, "my_finish_date")) ?? malDate(text(item, "my_start_date")) ?? nowIso();
+				malDate(text(item, "my_finish_date")) ??
+				malDate(text(item, "my_start_date")) ??
+				input.importedAt;
 			const target =
 				input.lot === "anime"
 					? { entitySchemaSlug: "anime" as const, providerSlug: "anime.myanimelist" as const }
@@ -163,7 +174,10 @@ const adaptLot = (
 				index,
 			);
 			if (done > 0) {
-				addCoverage(input.lot, group, done, occurredAt);
+				addCoverage(input.lot, group, done, occurredAt, input.coverageStart, input.coverageLimit);
+			}
+			if (input.coverageStart + input.coverageLimit < done) {
+				return;
 			}
 			const status = lifecycle(text(item, "my_status"));
 			if (status === "progress") {
@@ -194,17 +208,45 @@ const adaptLot = (
 };
 
 export const adaptMyanimelistExports = (input: {
+	coverageStart?: number | undefined;
+	coverageLimit?: number | undefined;
+	importedAt?: string | undefined;
 	animeXml?: string | undefined;
 	mangaXml?: string | undefined;
 }) => {
 	const failures: MediaImportAdapterFailure[] = [];
 	const groups = new Map<string, ImportMediaEntityGroupBuilder>();
 	let itemIndex = 0;
+	const importedAt = input.importedAt ?? nowIso();
+	const coverageStart = input.coverageStart ?? 0;
+	const coverageLimit = input.coverageLimit ?? Number.MAX_SAFE_INTEGER;
 	if (input.animeXml) {
-		itemIndex = adaptLot(groups, failures, { itemIndex, lot: "anime", xmlText: input.animeXml });
+		itemIndex = adaptLot(groups, failures, {
+			itemIndex,
+			importedAt,
+			lot: "anime",
+			coverageStart,
+			coverageLimit,
+			xmlText: input.animeXml,
+		});
 	}
 	if (input.mangaXml) {
-		itemIndex = adaptLot(groups, failures, { itemIndex, lot: "manga", xmlText: input.mangaXml });
+		itemIndex = adaptLot(groups, failures, {
+			itemIndex,
+			importedAt,
+			lot: "manga",
+			coverageStart,
+			coverageLimit,
+			xmlText: input.mangaXml,
+		});
 	}
 	return { failures, totalItems: itemIndex, entityGroups: finalizeEntityGroups(groups.values()) };
+};
+
+export const myanimelistCoverageCount = (xml: string, lot: MyanimelistLot) => {
+	const item = lotItems(xml, lot)[0];
+	const count = item
+		? Number.parseInt(text(item, lot === "anime" ? "my_watched_episodes" : "my_read_chapters"), 10)
+		: 0;
+	return Number.isSafeInteger(count) && count >= 0 ? count : 0;
 };

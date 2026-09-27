@@ -8,7 +8,6 @@ export const manifest = defineManifest({
 	capabilities: ["httpCall"],
 	name: "PokeAPI Move Details",
 	slug: "move.pokeapi.details",
-	requiredPluginConfigKeys: [],
 });
 
 export default defineProvider({ manifest, run: details.run, operation: "details" });

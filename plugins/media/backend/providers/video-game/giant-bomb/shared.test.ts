@@ -13,7 +13,7 @@ const httpSuccess = (body: unknown) =>
 const makeHost = (httpCall: GiantBombHost["httpCall"]) =>
 	defineSandboxTestHost(manifest, {
 		httpCall,
-		getPluginConfig: (keys) =>
+		getPluginConfig: ({ required: keys = [] }) =>
 			Effect.succeed(Object.fromEntries(keys.map((key) => [key, "api-key"]))),
 	});
 const execution = { metadata: {}, sandboxScriptId: "script_test" };

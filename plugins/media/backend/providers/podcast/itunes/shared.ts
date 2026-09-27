@@ -12,7 +12,6 @@ export const manifest = defineManifest({
 	kind: "provider",
 	slug: "podcast.itunes",
 	capabilities: ["httpCall"],
-	requiredPluginConfigKeys: [],
 });
 type ItunesHost = SandboxHost<typeof manifest.capabilities>;
 type UnknownRecord = Record<string, unknown>;

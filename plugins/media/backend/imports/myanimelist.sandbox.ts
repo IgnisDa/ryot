@@ -1,46 +1,27 @@
 import { defineManifest, defineScript } from "@ryot-app/sandbox-sdk/driver";
-import { Effect } from "@ryot-app/sandbox-sdk/effect";
-import { gunzipSync, strFromU8 } from "@ryot-app/sandbox-sdk/fflate";
-import { readNamedArtifact } from "@ryot-app/sandbox-sdk/filesystem";
 
-import { batchMediaImportResult } from "./helpers";
-import { adaptMyanimelistExports } from "./myanimelist";
-import { MediaImportAdapterBatch, MyanimelistImportParserInput } from "./schemas";
+import { collectMediaXml } from "./collection";
+import { MediaSourceInput, MediaSourceOutput } from "./collection-schemas";
+import { adaptMyanimelistExports, myanimelistCoverageCount } from "./myanimelist";
 
 export const manifest = defineManifest({
 	kind: "script",
 	slug: "import.myanimelist",
-	requiredPluginConfigKeys: [],
-	capabilities: ["artifact-read"],
-	name: "Parse MyAnimeList import",
+	name: "Collect MyAnimeList export",
+	capabilities: ["artifact-read", "scratch"],
 });
-
-const decodeXml = (bytes: Uint8Array) => {
-	if (bytes[0] === 0x1f && bytes[1] === 0x8b) {
-		return strFromU8(gunzipSync(bytes));
-	}
-	return strFromU8(bytes);
-};
-
 export default defineScript({
 	manifest,
-	output: MediaImportAdapterBatch,
-	input: MyanimelistImportParserInput,
+	input: MediaSourceInput,
+	output: MediaSourceOutput,
 	run: (input) =>
-		Effect.gen(function* () {
-			if (!input.hasAnimeFile && !input.hasMangaFile) {
-				throw new Error("Import job is missing MyAnimeList export files");
-			}
-			const animeXml = input.hasAnimeFile
-				? decodeXml(yield* readNamedArtifact("animeUploadToken"))
-				: undefined;
-			const mangaXml = input.hasMangaFile
-				? decodeXml(yield* readNamedArtifact("mangaUploadToken"))
-				: undefined;
-			return batchMediaImportResult(
-				adaptMyanimelistExports({ animeXml, mangaXml }),
-				input.start,
-				input.limit,
-			);
-		}),
+		collectMediaXml(input, (xml, coverageStart) => ({
+			coverageTotal: myanimelistCoverageCount(xml, input.fileIndex === 0 ? "anime" : "manga"),
+			result: adaptMyanimelistExports({
+				coverageStart,
+				coverageLimit: 128,
+				importedAt: input.importedAt,
+				...(input.fileIndex === 0 ? { animeXml: xml } : { mangaXml: xml }),
+			}),
+		})),
 });

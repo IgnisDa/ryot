@@ -1,136 +1,129 @@
 import { defineManifest, defineScript } from "@ryot-app/sandbox-sdk/driver";
-import { Effect } from "@ryot-app/sandbox-sdk/effect";
-import { strFromU8, unzipSync } from "@ryot-app/sandbox-sdk/fflate";
-import { readNamedArtifact } from "@ryot-app/sandbox-sdk/filesystem";
+import { Effect, Schema } from "@ryot-app/sandbox-sdk/effect";
 
-import { mediaFailureMessage } from "../lib/error-message";
 import {
-	chooseBestMetadataLookupTitleMatch,
-	type MetadataLookupTitleMatchCandidate,
-} from "../lib/title-matching";
-import { extractMetadataLookupBaseTitle } from "../lib/title-parsing";
-import { manifest as movieManifest, search as movieSearch } from "../providers/movie/tmdb/shared";
-import { manifest as showManifest, search as showSearch } from "../providers/show/tmdb/shared";
-import { nowIso } from "./dates";
-import { batchMediaImportResult } from "./helpers";
-import { adaptNetflixExports } from "./netflix";
-import { MediaImportAdapterBatch, NetflixImportParserInput } from "./schemas";
+	collectMediaCsv,
+	compareMediaRecords,
+	mediaRecordReader,
+	normalizeMediaRecords,
+	serializeMediaRecords,
+	sourceOutput,
+	WINDOW_BYTES,
+	writeMediaCapture,
+} from "./collection";
+import { MediaSourceInput, MediaSourceOutput, type MediaSourceRecord } from "./collection-schemas";
+import { adaptNetflixCsv, netflixViewingContext } from "./netflix";
 
 export const manifest = defineManifest({
 	kind: "script",
 	slug: "import.netflix",
-	name: "Parse Netflix import",
-	requiredPluginConfigKeys: ["tmdbAccessToken"],
-	capabilities: ["artifact-read", "httpCall", "getPluginConfig", "getUserSettings"],
+	name: "Collect Netflix export",
+	capabilities: ["artifact-read", "scratch"],
 });
-
-const csvEntry = (archive: ReturnType<typeof unzipSync>, baseName: string) => {
-	for (const [name, bytes] of Object.entries(archive)) {
-		if ((name.split(/[\\/]/).pop() ?? "") === baseName) {
-			return strFromU8(bytes);
-		}
-	}
-	return undefined;
-};
-
+const TitleContext = Schema.Struct({
+	title: Schema.String,
+	preferred: Schema.Literals(["movie", "show"]),
+});
+const State = Schema.Struct({
+	key: Schema.String,
+	preferred: Schema.Literals(["movie", "show", ""]),
+});
 export default defineScript({
 	manifest,
-	input: NetflixImportParserInput,
-	output: MediaImportAdapterBatch,
-	run: (input, host) =>
+	input: MediaSourceInput,
+	output: MediaSourceOutput,
+	run: (input) =>
 		Effect.gen(function* () {
-			const archive = unzipSync(yield* readNamedArtifact("uploadToken"));
-			const myListCsv = csvEntry(archive, "MyList.csv");
-			const ratingsCsv = csvEntry(archive, "Ratings.csv");
-			const viewingActivityCsv = csvEntry(archive, "ViewingActivity.csv");
-			if (!myListCsv || !ratingsCsv || !viewingActivityCsv) {
-				throw new Error("Required Netflix CSV files were not found in the archive");
+			if (input.action !== "normalize") {
+				const file = input.entry?.name.split(/[\\/]/).pop() ?? "";
+				const profileName =
+					typeof input.settings["profileName"] === "string"
+						? input.settings["profileName"]
+						: undefined;
+				return yield* collectMediaCsv(
+					"netflix",
+					input,
+					() => ({ failures: [], entityGroups: [] }),
+					"uploadToken",
+					(text, itemIndex) => {
+						const records = normalizeMediaRecords(
+							adaptNetflixCsv({ text, file, profileName, importedAt: input.importedAt }),
+							itemIndex,
+							"netflix",
+						);
+						const context =
+							file === "ViewingActivity.csv" ? netflixViewingContext({ text, profileName }) : null;
+						if (context) {
+							records.push({
+								itemIndex,
+								raw: context,
+								eventIndex: 0,
+								section: "netflix-context",
+								key: JSON.stringify(["netflix-title", context.title]),
+							});
+						}
+						return records.sort(compareMediaRecords);
+					},
+				);
 			}
-			const result = yield* adaptNetflixExports(
-				{
-					myListCsv,
-					ratingsCsv,
-					viewingActivityCsv,
-					importedAt: nowIso(),
-					profileName: input.profileName,
-				},
-				({ title, preferredEntitySchemaSlug }) => {
-					const query = extractMetadataLookupBaseTitle(title);
-					if (!query) {
-						return Effect.fail("Metadata not found");
-					}
-					const movieResults =
-						preferredEntitySchemaSlug === "show"
-							? Effect.succeed<MetadataLookupTitleMatchCandidate[]>([])
-							: movieSearch
-									.run({ query, page: 1, pageSize: 20 }, host)
-									.pipe(
-										Effect.map(({ items }) =>
-											items.map((item): MetadataLookupTitleMatchCandidate => ({
-												title: item.title,
-												entitySchemaSlug: "movie",
-												externalId: item.externalId,
-												providerSlug: movieManifest.slug,
-												publishYear:
-													item.metadata?.find(
-														(value): value is number => typeof value === "number",
-													) ?? null,
-											})),
-										),
-									);
-					const showResults =
-						preferredEntitySchemaSlug === "movie"
-							? Effect.succeed<MetadataLookupTitleMatchCandidate[]>([])
-							: showSearch
-									.run({ query, page: 1, pageSize: 20 }, host)
-									.pipe(
-										Effect.map(({ items }) =>
-											items.map((item): MetadataLookupTitleMatchCandidate => ({
-												title: item.title,
-												entitySchemaSlug: "show",
-												externalId: item.externalId,
-												providerSlug: showManifest.slug,
-												publishYear:
-													item.metadata?.find(
-														(value): value is number => typeof value === "number",
-													) ?? null,
-											})),
-										),
-									);
-					return Effect.all([movieResults, showResults], { concurrency: 2 }).pipe(
-						Effect.flatMap((searched) => {
-							const results = searched.flat();
-							const match = chooseBestMetadataLookupTitleMatch({
-								title,
-								results,
-								preferredEntitySchemaSlug,
-							});
-							if (!match) {
-								if (results.length === 0) {
-									return Effect.fail("Metadata not found");
-								}
-								if (preferredEntitySchemaSlug) {
-									return Effect.fail(
-										`Title matched only ${preferredEntitySchemaSlug === "movie" ? "show" : "movie"} results`,
-									);
-								}
-								return Effect.fail("Could not match title to a supported movie or show");
-							}
-							return Effect.succeed({
-								matchedTitle: match.title,
-								entityRef: {
-									sourceLabel: match.title,
-									kind: "resolved" as const,
-									externalId: match.externalId,
-									providerSlug: match.providerSlug,
-									entitySchemaSlug: match.entitySchemaSlug,
+			const read = mediaRecordReader();
+			let offset = input.offset;
+			let itemIndex = input.itemIndex;
+			let done = false;
+			let state: typeof State.Type = input.header
+				? yield* Schema.decodeEffect(Schema.fromJsonString(State))(input.header)
+				: { key: "", preferred: "" };
+			const records: MediaSourceRecord[] = [];
+			let bytes = 0;
+			for (let count = 0; count < 100; count++) {
+				const next = yield* read("records", offset);
+				if (!next) {
+					done = true;
+					break;
+				}
+				offset = next.next;
+				itemIndex++;
+				const record = next.record;
+				if (record.key !== state.key) {
+					state = { preferred: "", key: record.key };
+				}
+				if (record.section === "netflix-context") {
+					const context = yield* Schema.decodeUnknownEffect(TitleContext)(record.raw);
+					state = { key: record.key, preferred: context.preferred };
+					continue;
+				}
+				const group = record.group;
+				const normalized =
+					group?.entityRef.kind === "unresolved" &&
+					group.events.some(
+						(event) => event.eventSchemaSlug === "review" || event.eventSchemaSlug === "backlog",
+					) &&
+					state.preferred
+						? {
+								...record,
+								group: {
+									...group,
+									entityRef: { ...group.entityRef, entitySchemaSlug: state.preferred },
 								},
-							});
-						}),
-						Effect.mapError(mediaFailureMessage),
-					);
-				},
-			);
-			return batchMediaImportResult(result, input.start, input.limit);
+							}
+						: record;
+				records.push(normalized);
+				bytes += new TextEncoder().encode(serializeMediaRecords([normalized])).length;
+				if (bytes >= WINDOW_BYTES) {
+					break;
+				}
+			}
+			return yield* sourceOutput({
+				...(yield* writeMediaCapture([
+					{
+						name: "records.jsonl",
+						contents: serializeMediaRecords(records.sort(compareMediaRecords)),
+					},
+				])),
+				done,
+				offset,
+				itemIndex,
+				header: yield* Schema.encodeEffect(Schema.fromJsonString(State))(state),
+			});
 		}),
 });

@@ -29,7 +29,7 @@ const numberValue = (value: unknown) =>
 	typeof value === "number" && Number.isFinite(value) ? value : null;
 
 const getGoogleBooksApiKey = (host: GoogleBooksHost) =>
-	host.getPluginConfig(["googleBooksApiKey"]).pipe(
+	host.getPluginConfig({ required: ["googleBooksApiKey"] }).pipe(
 		Effect.map(({ googleBooksApiKey }) => googleBooksApiKey),
 		Effect.flatMap((value) => {
 			const apiKey = stringValue(value);
@@ -157,7 +157,6 @@ export const manifest = defineManifest({
 	name: "Google Books",
 	slug: "book.google-books",
 	capabilities: ["httpCall", "getPluginConfig"],
-	requiredPluginConfigKeys: ["googleBooksApiKey"],
 });
 
 export const search = defineProvider({

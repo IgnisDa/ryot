@@ -20,7 +20,6 @@ export const manifest = defineManifest({
 	name: "Radarr Push",
 	slug: "trigger.radarr-push",
 	automationType: "automation",
-	requiredPluginConfigKeys: [],
 	inputProjection: {
 		event: { compareProperties: [], properties: ["entitySchemaSlug", "entityId"] },
 	},

@@ -2,10 +2,11 @@ import type { SandboxHost } from "@ryot-app/sandbox-sdk/core";
 import { defineManifest, defineScript } from "@ryot-app/sandbox-sdk/driver";
 import { Effect } from "@ryot-app/sandbox-sdk/effect";
 
-import { MediaIntegrationAdapterResult } from "../../imports/schemas";
 import { resolvedMediaRef } from "../../imports/source-helpers";
 import { asRecord, numberValue, recordsValue } from "../../lib/records";
 import { getTmdbAccessToken, tmdbGet, type TmdbHost } from "../../lib/vendors/tmdb";
+import { captureIntegrationRecords } from "../artifacts";
+import { IntegrationArtifactOutput } from "../schemas";
 import {
 	emptyResult,
 	failureResult,
@@ -23,8 +24,8 @@ export const manifest = defineManifest({
 	kind: "script",
 	name: "Plex sink",
 	slug: "integration.plex-sink",
-	requiredPluginConfigKeys: ["tmdbAccessToken"],
 	capabilities: [
+		"scratch",
 		"getCurrentIntegration",
 		"httpCall",
 		"getPluginConfig",
@@ -131,9 +132,12 @@ const findTmdbShow = Effect.fnUntraced(function* (
 export default defineScript({
 	manifest,
 	input: SinkInput,
-	output: MediaIntegrationAdapterResult,
+	output: IntegrationArtifactOutput,
 	run: (input, host, execution) =>
 		Effect.gen(function* () {
+			if ("ingestionConfirmation" in input) {
+				return { failures: [], entityGroups: [] };
+			}
 			const occurredAt = yield* executionStartedAt(execution);
 			const integration = yield* host.getCurrentIntegration();
 			const parsed = yield* Effect.try(() => {
@@ -244,5 +248,5 @@ export default defineScript({
 					),
 				),
 			);
-		}),
+		}).pipe(Effect.flatMap((result) => captureIntegrationRecords(manifest.slug, result))),
 });

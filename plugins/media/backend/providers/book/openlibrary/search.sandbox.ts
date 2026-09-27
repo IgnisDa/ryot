@@ -7,7 +7,6 @@ export const manifest = defineManifest({
 	kind: "provider",
 	name: "OpenLibrary Search",
 	capabilities: ["httpCall"],
-	requiredPluginConfigKeys: [],
 	slug: "book.openlibrary.search",
 });
 

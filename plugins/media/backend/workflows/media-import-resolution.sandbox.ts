@@ -1,4 +1,11 @@
-import { defineManifest, defineWorkflow, Effect } from "@ryot-app/sandbox-sdk/workflow";
+import {
+	defineExecutableAlternatives,
+	defineManifest,
+	defineScriptReference,
+	defineWorkflow,
+	Effect,
+	selectExecutable,
+} from "@ryot-app/sandbox-sdk/workflow";
 
 import {
 	MediaImportResolutionActivityInput,
@@ -10,9 +17,26 @@ import {
 export const manifest = defineManifest({
 	kind: "workflow",
 	capabilities: [],
-	requiredPluginConfigKeys: [],
 	name: "Media import resolution",
 	slug: "workflow.media-import-resolution",
+});
+
+const reference = <const Slug extends string>(scriptSlug: Slug) =>
+	defineScriptReference({
+		scriptSlug,
+		input: MediaImportResolutionActivityInput,
+		output: MediaImportResolutionActivityResult,
+	});
+const candidates = defineExecutableAlternatives({
+	stage: "record",
+	id: "record-resolution",
+	references: {
+		"media-import-resolve.show.tmdb": reference("media-import-resolve.show.tmdb"),
+		"media-import-resolve.movie.tmdb": reference("media-import-resolve.movie.tmdb"),
+		"media-import-resolve.book.hardcover": reference("media-import-resolve.book.hardcover"),
+		"media-import-resolve.book.openlibrary": reference("media-import-resolve.book.openlibrary"),
+		"media-import-resolve.book.google-books": reference("media-import-resolve.book.google-books"),
+	},
 });
 
 export default defineWorkflow({
@@ -29,11 +53,7 @@ export default defineWorkflow({
 				for (const [candidateIndex, candidate] of item.candidates.entries()) {
 					const result = yield* replay.activity(
 						`resolve-${item.index}-${candidateIndex}`,
-						{
-							scriptSlug: candidate.scriptSlug,
-							input: MediaImportResolutionActivityInput,
-							output: MediaImportResolutionActivityResult,
-						},
+						selectExecutable(candidates, candidate.scriptSlug),
 						{ value: item.value, identifierType: item.identifierType },
 					);
 					if (result.status === "failed") {

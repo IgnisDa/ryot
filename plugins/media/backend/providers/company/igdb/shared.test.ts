@@ -15,7 +15,7 @@ const makeHost = (overrides: Partial<IgdbCompanyHost>): IgdbCompanyHost =>
 		setCachedValue: () => Effect.succeed(null),
 		httpCall: () => Effect.fail({ message: "no route" }),
 		getCachedValue: () => Effect.succeed({ clientId: "client-id", accessToken: "Bearer cached" }),
-		getPluginConfig: (keys) =>
+		getPluginConfig: ({ required: keys = [] }) =>
 			Effect.succeed(
 				Object.fromEntries(
 					keys.map((key) => [key, key === "twitchClientId" ? "client-id" : "client-secret"]),

@@ -16,7 +16,7 @@ const makeHost = (httpCall: MyAnimeListAnimeHost["httpCall"], allowNsfw = false)
 	defineSandboxTestHost(manifest, {
 		httpCall,
 		getUserSettings: () => Effect.succeed({ allowNsfw }),
-		getPluginConfig: (keys) =>
+		getPluginConfig: ({ required: keys = [] }) =>
 			Effect.succeed(Object.fromEntries(keys.map((key) => [key, "client-id"]))),
 	});
 
@@ -39,7 +39,7 @@ describe("anime.myanimelist sandbox script", () => {
 		const configKeys: string[] = [];
 		const host = defineSandboxTestHost(manifest, {
 			getUserSettings: () => Effect.succeed({ allowNsfw: false }),
-			getPluginConfig: (keys) => {
+			getPluginConfig: ({ required: keys = [] }) => {
 				configKeys.push(...keys);
 				return Effect.succeed(Object.fromEntries(keys.map((key) => [key, "client-id"])));
 			},

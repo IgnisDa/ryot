@@ -29,7 +29,6 @@ export const manifest = defineManifest({
 	kind: "operation",
 	name: "Metadata Lookup",
 	slug: "operation.metadata-lookup",
-	requiredPluginConfigKeys: ["tmdbAccessToken"],
 	capabilities: ["httpCall", "getCurrentIntegration", "getPluginConfig", "getUserSettings"],
 });
 

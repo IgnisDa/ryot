@@ -7,7 +7,6 @@ export const manifest = defineManifest({
 	kind: "provider",
 	name: "Spotify Music Group Search",
 	slug: "music-group.spotify.search",
-	requiredPluginConfigKeys: ["spotifyClientId", "spotifyClientSecret"],
 	capabilities: ["httpCall", "getPluginConfig", "getCachedValue", "setCachedValue"],
 });
 

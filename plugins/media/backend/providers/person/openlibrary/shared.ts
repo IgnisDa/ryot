@@ -14,7 +14,6 @@ export const manifest = defineManifest({
 	name: "OpenLibrary",
 	slug: "person.openlibrary",
 	capabilities: ["httpCall"],
-	requiredPluginConfigKeys: [],
 });
 
 const trimmedOrNull = (value: unknown) => (typeof value === "string" ? value.trim() : null);

@@ -1,24 +1,22 @@
 import { defineManifest, defineScript } from "@ryot-app/sandbox-sdk/driver";
 import { Effect } from "@ryot-app/sandbox-sdk/effect";
 
-import { batchMediaImportResult } from "./helpers";
-import { adaptPlexData } from "./plex";
-import { MediaImportAdapterBatch, UrlAndKeyImportParserInput } from "./schemas";
+import { recoverMediaApiTask } from "./api-collection";
+import { MediaSourceInput, MediaSourceOutput } from "./collection-schemas";
+import { collectPlex } from "./plex-collection";
 
 export const manifest = defineManifest({
 	kind: "script",
 	slug: "import.plex",
-	name: "Fetch Plex import",
-	capabilities: ["httpCall"],
-	requiredPluginConfigKeys: [],
+	name: "Collect Plex history",
+	capabilities: ["artifact-read", "scratch", "httpCall"],
 });
-
 export default defineScript({
 	manifest,
-	output: MediaImportAdapterBatch,
-	input: UrlAndKeyImportParserInput,
+	input: MediaSourceInput,
+	output: MediaSourceOutput,
 	run: (input, host) =>
-		adaptPlexData(input, host).pipe(
-			Effect.map((result) => batchMediaImportResult(result, input.start, input.limit)),
+		collectPlex(input, host).pipe(
+			Effect.catch((error) => recoverMediaApiTask(input, error, "Plex")),
 		),
 });

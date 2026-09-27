@@ -134,23 +134,22 @@ export const admitIntegrationProgress = (input: MediaImportWriteChunkInput, host
 					}
 					const now = yield* DateTime.nowAsDate;
 					if (progressPercent >= 100) {
-						const config = yield* host.getPluginConfig(["progressUpdateThresholdHours"]);
+						const config = yield* host.getPluginConfig({
+							optional: ["progressUpdateThresholdHours"],
+						});
 						const hours = toFiniteNumber(config["progressUpdateThresholdHours"]);
 						const thresholdSeconds = hours !== null && hours > 0 ? Math.round(hours * 3600) : 7200;
-						const claim = yield* host.claimPersistentValue(claimKey, true, thresholdSeconds);
-						if (!claim.claimed) {
-							const completion = matchingEvents.find((item) => {
-								const properties = jsonObject(item.properties);
-								return (
-									properties !== null && parseProgressPercent(properties["progressPercent"]) === 100
-								);
-							});
-							if (
-								completion &&
-								now.getTime() - eventTimestamp(completion.occurredAt) <= thresholdSeconds * 1000
-							) {
-								return { reason: "completed_recently" };
-							}
+						const completion = matchingEvents.find((item) => {
+							const properties = jsonObject(item.properties);
+							return (
+								properties !== null && parseProgressPercent(properties["progressPercent"]) === 100
+							);
+						});
+						if (
+							completion &&
+							now.getTime() - eventTimestamp(completion.occurredAt) <= thresholdSeconds * 1000
+						) {
+							return { reason: "completed_recently" };
 						}
 					}
 					const admitted =

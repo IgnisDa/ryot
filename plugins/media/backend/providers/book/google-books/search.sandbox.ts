@@ -8,7 +8,6 @@ export const manifest = defineManifest({
 	name: "Google Books Search",
 	slug: "book.google-books.search",
 	capabilities: ["httpCall", "getPluginConfig"],
-	requiredPluginConfigKeys: ["googleBooksApiKey"],
 	searchOptionsSchema: {
 		unknownKeys: "strict",
 		fields: {

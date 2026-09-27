@@ -20,7 +20,6 @@ export const manifest = defineManifest({
 	name: "GiantBomb",
 	slug: "company.giant-bomb",
 	capabilities: ["httpCall", "getPluginConfig"],
-	requiredPluginConfigKeys: ["giantBombApiKey"],
 });
 
 const getGameGuid = (game: Record<string, unknown> | null) => {
