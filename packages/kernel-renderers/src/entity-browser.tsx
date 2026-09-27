@@ -138,6 +138,15 @@ const Browser = ({
 					: {
 							label: "Add to this view",
 							open: (initialQuery) => {
+								if (addAction.type === "plugin-route") {
+									ryot.navigation.push({
+										kind: "plugin-route",
+										path: addAction.path,
+										search: addAction.search,
+										packageId: addAction.packageId,
+									});
+									return;
+								}
 								schedule.run(
 									ryot.screens
 										.openProviderSearch({

@@ -1,6 +1,6 @@
 import { Schema } from "effect";
 
-import { SavedViewId } from "../../schema/brands";
+import { PluginPackageId, SavedViewId } from "../../schema/brands";
 import { JsonValue } from "../../schema/json";
 import { strictStruct } from "../../schema/utils";
 import { AssetLocator } from "../assets/schemas";
@@ -109,16 +109,43 @@ export const EntityBrowserSortChoice = strictStruct({
 });
 export type EntityBrowserSortChoice = typeof EntityBrowserSortChoice.Type;
 
-export const EntityBrowserAddAction = strictStruct({
+const EntityBrowserProviderSearchAddAction = strictStruct({
 	schema: EntitySchemaReference,
 	type: Schema.Literal("provider-search"),
 });
+
+const AuthoredEntityBrowserProviderSearchAddAction = strictStruct({
+	schema: AuthoredEntitySchemaReference,
+	type: Schema.Literal("provider-search"),
+});
+
+export const EntityBrowserPluginRouteAddAction = strictStruct({
+	packageId: PluginPackageId,
+	type: Schema.Literal("plugin-route"),
+	search: Schema.Record(Schema.String, Schema.String),
+	path: Schema.NonEmptyString.pipe(
+		Schema.check(
+			Schema.makeFilter(
+				(value) =>
+					value.startsWith("/") &&
+					!value.startsWith("//") &&
+					!value.includes("?") &&
+					!value.includes("#"),
+			),
+		),
+	),
+});
+
+export const EntityBrowserAddAction = Schema.Union([
+	EntityBrowserProviderSearchAddAction,
+	EntityBrowserPluginRouteAddAction,
+]);
 export type EntityBrowserAddAction = typeof EntityBrowserAddAction.Type;
 
-export const AuthoredEntityBrowserAddAction = strictStruct({
-	schema: AuthoredEntitySchemaReference,
-	type: EntityBrowserAddAction.fields.type,
-});
+export const AuthoredEntityBrowserAddAction = Schema.Union([
+	AuthoredEntityBrowserProviderSearchAddAction,
+	EntityBrowserPluginRouteAddAction,
+]);
 export type AuthoredEntityBrowserAddAction = typeof AuthoredEntityBrowserAddAction.Type;
 
 const SavedViewPageSize = Schema.Int.pipe(
