@@ -2,6 +2,7 @@ import { unknownToMessage } from "@ryot-app/contract/errors";
 import { LifecycleCommand } from "@ryot-app/contract/modules/automations/lifecycle";
 import {
 	CreateEventItem,
+	UpdateEventItem,
 	type CreateEventsResponse,
 } from "@ryot-app/contract/modules/events/schemas";
 import { RyotQLDocument } from "@ryot-app/contract/modules/ryotql/language";
@@ -9,6 +10,7 @@ import type { SandboxHostCapability } from "@ryot-app/contract/modules/sandbox/w
 import {
 	EntityId,
 	EntitySchemaSlug,
+	EventId,
 	type ImportRunId,
 	IntegrationId,
 	RelationshipSchemaSlug,
@@ -17,12 +19,16 @@ import {
 } from "@ryot-app/contract/schema/brands";
 import type { JsonValue } from "@ryot-app/contract/schema/json";
 import {
+	EVENT_MUTATION_SANDBOX_LIMITS,
 	changeUserRelationshipBatchSchema,
+	deleteEventsArgsSchema,
 	upsertGlobalEntitiesOptionsSchema,
 	upsertGlobalEntityItemSchema,
 	upsertGlobalRelationshipGroupSchema,
+	updateEventsArgsSchema,
 } from "@ryot-app/sandbox-sdk/core";
 import { jsonValueSchema, type SandboxHostError } from "@ryot-app/sandbox-sdk/wire";
+import type { WorkflowDurableCallRequest } from "@ryot-app/sandbox-sdk/workflow";
 import { Effect, Schema } from "effect";
 
 import { LifecycleExecution } from "#lib/domain/lifecycle-execution";
@@ -31,6 +37,7 @@ import {
 	type LifecyclePreparedStep,
 } from "#lib/infrastructure/lifecycle-workflow-step";
 import { getPluginConfig } from "#lib/infrastructure/sandbox-runtime/app-config";
+import { isDeclaredExecutableCall } from "#lib/infrastructure/sandbox-runtime/executable-dependencies";
 import { SANDBOX_LIMITS } from "#lib/infrastructure/sandbox-runtime/limits";
 import {
 	type AdditionalSandboxHostImplementationMap,
@@ -56,6 +63,7 @@ import {
 	type PendingGlobalEntityUpsert,
 } from "#modules/entities/service";
 import { EventsService } from "#modules/events/service";
+import { EventStreamWorkService } from "#modules/events/stream-work";
 import { ImportSourceStateStore } from "#modules/imports/runtime/source-state-store";
 import { IntegrationsRepository, type IntegrationRecord } from "#modules/integrations/repository";
 import { OAuthConnectionsService } from "#modules/oauth-connections/service";
@@ -71,11 +79,14 @@ import {
 	type RelationshipReconciliationSummary,
 } from "#modules/relationships/mutation-pipeline";
 import { RyotQLService } from "#modules/ryotql/service";
+import { SandboxRepository } from "#modules/sandbox/repository";
 
 type SandboxHostFunctionContext =
 	| AuthRepository
 	| RyotQLService
 	| EventsService
+	| EventStreamWorkService
+	| SandboxRepository
 	| EntitiesService
 	| DefinitionRepository
 	| PluginRuntimeResolver
@@ -104,6 +115,16 @@ export const SandboxLifecycleHostInput = Schema.Union([
 	Schema.TaggedStruct("UpsertGlobalRelationships", {
 		command: LifecycleCommand,
 		groups: Schema.Array(upsertGlobalRelationshipGroupSchema),
+	}),
+	Schema.TaggedStruct("UpdateEvents", {
+		userId: UserId,
+		command: LifecycleCommand,
+		items: Schema.Array(UpdateEventItem),
+	}),
+	Schema.TaggedStruct("DeleteEvents", {
+		userId: UserId,
+		command: LifecycleCommand,
+		eventIds: Schema.Array(EventId),
 	}),
 ]);
 export type SandboxLifecycleHostInput = typeof SandboxLifecycleHostInput.Type;
@@ -212,10 +233,11 @@ const hasInvalidPopulatedAt = (item: LifecycleHostInput<"UpsertGlobalEntities">[
 	item.populatedAt !== null && Number.isNaN(new Date(item.populatedAt).getTime());
 
 const makeSandboxLifecycleHostSteps = (dependencies: {
+	readonly events: EventsService["Service"];
 	readonly entities: EntitiesService["Service"];
 	readonly relationships: RelationshipMutationPipeline["Service"];
 }) => {
-	const { entities, relationships } = dependencies;
+	const { events, entities, relationships } = dependencies;
 	const applyRelationshipHostPolicies = (pending: PendingRelationshipMutations) =>
 		relationships.applyPolicies(pending).pipe(Effect.mapError(lifecycleHostFailure));
 	const upsertGlobalEntitiesStep = (
@@ -239,7 +261,79 @@ const makeSandboxLifecycleHostSteps = (dependencies: {
 				cursor,
 			)
 			.pipe(Effect.mapError(lifecycleHostFailure));
+	const deleteEvents = {
+		commit: (input: LifecycleHostInput<"DeleteEvents">) =>
+			events.deleteBatch(input.eventIds, input.userId, input.command).pipe(
+				Effect.flatMap(({ count, warnings }) =>
+					reportSandboxLifecycleWarnings("deleteEvents", warnings).pipe(Effect.as({ count })),
+				),
+				Effect.mapError(lifecycleHostFailure),
+			),
+		validate: (
+			rawInput: SandboxRunInput,
+			eventIds: ReadonlyArray<string>,
+		): Effect.Effect<LifecycleHostInput<"DeleteEvents">, SandboxHostError> =>
+			sandboxHostEffect(
+				Effect.gen(function* () {
+					const input = yield* requireSandboxCapabilityInput(rawInput, "deleteEvents");
+					if (eventIds.length > EVENT_MUTATION_SANDBOX_LIMITS.items) {
+						return yield* Effect.fail(
+							`deleteEvents exceeds ${EVENT_MUTATION_SANDBOX_LIMITS.items} items`,
+						);
+					}
+					const decoded = yield* Schema.decodeEffect(Schema.Array(EventId))(eventIds);
+					const command = yield* sandboxLifecycleCommand(
+						input,
+						userLifecycleSource(input),
+						"deleteEvents",
+					);
+					return {
+						command,
+						eventIds: decoded,
+						_tag: "DeleteEvents",
+						userId: UserId.make(userSandboxRunUserId(input)),
+					} as const;
+				}),
+			),
+	};
+	const updateEvents = {
+		commit: (input: LifecycleHostInput<"UpdateEvents">) =>
+			events.updateBatch(input.items, input.userId, input.command).pipe(
+				Effect.flatMap(({ count, warnings }) =>
+					reportSandboxLifecycleWarnings("updateEvents", warnings).pipe(Effect.as({ count })),
+				),
+				Effect.mapError(lifecycleHostFailure),
+			),
+		validate: (
+			rawInput: SandboxRunInput,
+			items: ReadonlyArray<unknown>,
+		): Effect.Effect<LifecycleHostInput<"UpdateEvents">, SandboxHostError> =>
+			sandboxHostEffect(
+				Effect.gen(function* () {
+					const input = yield* requireSandboxCapabilityInput(rawInput, "updateEvents");
+					if (items.length > EVENT_MUTATION_SANDBOX_LIMITS.items) {
+						return yield* Effect.fail(
+							`updateEvents exceeds ${EVENT_MUTATION_SANDBOX_LIMITS.items} items`,
+						);
+					}
+					const decoded = yield* Schema.decodeUnknownEffect(Schema.Array(UpdateEventItem))(items);
+					const command = yield* sandboxLifecycleCommand(
+						input,
+						userLifecycleSource(input),
+						"updateEvents",
+					);
+					return {
+						command,
+						items: decoded,
+						_tag: "UpdateEvents",
+						userId: UserId.make(userSandboxRunUserId(input)),
+					} as const;
+				}),
+			),
+	};
 	return {
+		deleteEvents,
+		updateEvents,
 		upsertGlobalEntities: {
 			prepare: upsertGlobalEntitiesStep,
 			applyPolicies: (pending: PendingGlobalEntityUpsert) =>
@@ -405,6 +499,7 @@ export type SandboxLifecycleHostSteps = ReturnType<typeof makeSandboxLifecycleHo
 
 export const makeSandboxLifecycleHostApi = Effect.gen(function* () {
 	return makeSandboxLifecycleHostSteps({
+		events: yield* EventsService,
 		entities: yield* EntitiesService,
 		relationships: yield* RelationshipMutationPipeline,
 	});
@@ -427,12 +522,14 @@ export const makeAdditionalSandboxApiFunctions: Effect.Effect<
 	SandboxHostFunctionContext
 > = Effect.gen(function* () {
 	const auth = yield* AuthRepository;
+	const eventStreamWork = yield* EventStreamWorkService;
 	const lifecycleExecution = yield* LifecycleExecution;
 	const events = yield* EventsService;
 	const entities = yield* EntitiesService;
 	const ryotqlService = yield* RyotQLService;
 	const pluginRuntime = yield* PluginRuntimeResolver;
 	const definitions = yield* DefinitionRepository;
+	const sandboxRepository = yield* SandboxRepository;
 	const integrationsRepository = yield* IntegrationsRepository;
 	const sourceStates = yield* ImportSourceStateStore;
 	const pluginInstallations = yield* PluginInstallationRepository;
@@ -529,8 +626,48 @@ export const makeAdditionalSandboxApiFunctions: Effect.Effect<
 				.create({ payload, userId: UserId.make(userSandboxRunUserId(input)) }, command)
 				.pipe(Effect.flatMap(toSandboxCreateEventsResult));
 		});
+	const requestEventStreamWork = (
+		rawInput: SandboxRunInput,
+		request: Parameters<AdditionalSandboxHostImplementationMap["requestEventStreamWork"]>[1],
+		reference: Parameters<AdditionalSandboxHostImplementationMap["requestEventStreamWork"]>[2],
+	) =>
+		sandboxHostEffect(
+			Effect.gen(function* () {
+				const input = yield* requireSandboxCapabilityInput(rawInput, "requestEventStreamWork");
+				const userId = sandboxRunUserId(input);
+				if (userId === null) {
+					return yield* Effect.fail("requestEventStreamWork requires a user execution");
+				}
+				const accountGeneration = input.principal.subject.accountGeneration;
+				if (!accountGeneration || accountGeneration.userId !== userId) {
+					return yield* Effect.fail("requestEventStreamWork requires an active user account");
+				}
+				const pluginPin = input.principal.pluginRevision;
+				if (!pluginPin) {
+					return yield* Effect.fail("requestEventStreamWork requires a pinned plugin script");
+				}
+				const targetRequest = {
+					index: 0,
+					kind: "activity",
+					name: "event-stream-processor",
+					args: { input: null, scriptSlug: reference.scriptSlug },
+				} satisfies WorkflowDurableCallRequest;
+				if (!isDeclaredExecutableCall(input.principal.metadata, targetRequest)) {
+					return yield* Effect.fail("Event stream processor is not a declared script dependency");
+				}
+				const target = yield* sandboxRepository.resolveWorkflowCallScript(pluginPin, targetRequest);
+				if (target?.kind !== "script") {
+					return yield* Effect.fail("Event stream processor script could not be resolved");
+				}
+				const workId = yield* eventStreamWork
+					.request({ request, pluginPin, accountGeneration, processorScriptId: target.scriptId })
+					.pipe(Effect.mapError((error) => error.message));
+				return { workId };
+			}),
+		);
 
 	return {
+		requestEventStreamWork,
 		getUserPreferences: (rawInput) =>
 			requireSandboxCapabilityInput(rawInput, "getUserPreferences").pipe(
 				Effect.flatMap((input) => readUserPreferences(UserId.make(userSandboxRunUserId(input)))),
@@ -544,6 +681,22 @@ export const makeAdditionalSandboxApiFunctions: Effect.Effect<
 					),
 				),
 				sandboxHostEffect,
+			),
+		updateEvents: (rawInput, items) =>
+			sandboxHostEffect(
+				Effect.gen(function* () {
+					const [decoded] = yield* Schema.decodeEffect(updateEventsArgsSchema)([items]);
+					const input = yield* lifecycle.updateEvents.validate(rawInput, decoded);
+					return yield* lifecycle.updateEvents.commit(input);
+				}),
+			),
+		deleteEvents: (rawInput, eventIds) =>
+			sandboxHostEffect(
+				Effect.gen(function* () {
+					const [decoded] = yield* Schema.decodeEffect(deleteEventsArgsSchema)([eventIds]);
+					const input = yield* lifecycle.deleteEvents.validate(rawInput, decoded);
+					return yield* lifecycle.deleteEvents.commit(input);
+				}),
 			),
 		listIntegrations: (rawInput, rawOptions) =>
 			Effect.gen(function* () {

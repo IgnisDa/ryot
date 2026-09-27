@@ -200,6 +200,8 @@ const retryAfterTimestamp = (
 };
 
 const lifecycleHostSuccessSchemas = {
+	DeleteEvents: sandboxHostContracts.deleteEvents.success,
+	UpdateEvents: sandboxHostContracts.updateEvents.success,
 	UpsertGlobalEntities: sandboxHostContracts.upsertGlobalEntities.success,
 	ChangeUserRelationships: sandboxHostContracts.changeUserRelationships.success,
 	UpsertGlobalRelationships: sandboxHostContracts.upsertGlobalRelationships.success,
@@ -626,6 +628,12 @@ export const SandboxDurableHostDispatcherLive = Layer.effect(
 						});
 						warnings.push(...outcome.warnings);
 						return { warnings, value: steps.upsertGlobalEntities.value(outcome.result) };
+					}
+					if (prepared._tag === "UpdateEvents") {
+						return { warnings, value: yield* steps.updateEvents.commit(prepared) };
+					}
+					if (prepared._tag === "DeleteEvents") {
+						return { warnings, value: yield* steps.deleteEvents.commit(prepared) };
 					}
 					if (prepared._tag === "ChangeUserRelationships") {
 						const summaries = yield* writeLifecycleItems({

@@ -17,6 +17,8 @@ export const SANDBOX_CAPABILITY_REQUIREMENTS = {
 	getOAuthAccessToken: { bridge: true, subjects: ["user"] as const },
 	sendNotification: { bridge: true, subjects: ["automation-run"] as const },
 	createEvents: { bridge: true, subjects: ["user", "automation-run"] as const },
+	updateEvents: { bridge: true, subjects: ["user", "automation-run"] as const },
+	deleteEvents: { bridge: true, subjects: ["user", "automation-run"] as const },
 	log: { bridge: true, subjects: ["user", "automation-run", "system"] as const },
 	span: { bridge: true, subjects: ["user", "automation-run", "system"] as const },
 	getUserSettings: { bridge: true, subjects: ["user", "automation-run"] as const },
@@ -36,6 +38,11 @@ export const SANDBOX_CAPABILITY_REQUIREMENTS = {
 		bridge: true,
 		subjects: ["user"] as const,
 		requiresSystemUserBootstrap: true,
+	},
+	requestEventStreamWork: {
+		bridge: true,
+		requiresSystemPlugin: true,
+		subjects: ["user", "automation-run"],
 	},
 	upsertGlobalRelationships: {
 		bridge: true,

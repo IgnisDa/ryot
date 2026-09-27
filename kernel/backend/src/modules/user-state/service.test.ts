@@ -45,7 +45,7 @@ import { EventsRepository } from "#modules/events/repository";
 import {
 	EventsService,
 	type PreparedEventDelete,
-	type PreparedEventUpdate,
+	type PreparedEventMoveReferences,
 } from "#modules/events/service";
 import { mutationReceiptIdentity, MutationReceipts } from "#modules/mutations/receipts";
 import type {
@@ -80,7 +80,7 @@ type PersistedRelationship = Effect.Success<
 >["result"];
 
 const preparedEventDelete: PreparedEventDelete = Object.create(null);
-const preparedEventUpdate: PreparedEventUpdate = Object.create(null);
+const preparedEventMoveReferences: PreparedEventMoveReferences = Object.create(null);
 const persistedRelationship: PersistedRelationship = Object.create(null);
 const preparedRelationshipCreate: PreparedUserRelationshipCreate = Object.create(null);
 const preparedRelationshipDelete: PreparedUserRelationshipDelete = Object.create(null);
@@ -740,14 +740,14 @@ const mergeMoves = recordingServiceLayer<string>(({ record }) => ({
 			Effect.succeed([EventId.make("event-1"), EventId.make("event-2")]),
 	}),
 	eventsService: makeEventsService({
-		persistPreparedUpdate: () =>
+		persistPreparedMoveReferences: () =>
 			record("persist:event").pipe(
 				Effect.as({ dispatch: [], result: EventId.make("updated-event") }),
 			),
-		prepareUpdate: (input, item) =>
+		prepareMoveReferences: (input, item) =>
 			record(
 				`prepare:${input.eventId}:${input.mergeFrom}->${input.mergeInto}:${item.itemIdentity}`,
-			).pipe(Effect.as(preparedEventUpdate)),
+			).pipe(Effect.as(preparedEventMoveReferences)),
 	}),
 	relationshipsService: makeRelationshipsService({
 		persistPreparedUserCreate: () =>

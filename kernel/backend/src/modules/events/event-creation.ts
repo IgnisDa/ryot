@@ -1,13 +1,77 @@
+import type { AutomationEventDraft } from "@ryot-app/contract/modules/automations/lifecycle";
 import {
 	EventCreateItemError,
 	type CreateEventItem,
 } from "@ryot-app/contract/modules/events/schemas";
-import { EntityId, EntitySchemaSlug, EventSchemaSlug } from "@ryot-app/contract/schema/brands";
-import type { UserId } from "@ryot-app/contract/schema/brands";
-import { DateTime, Effect, Option } from "effect";
+import {
+	EntityId,
+	EntitySchemaSlug,
+	EventSchemaSlug,
+	type UserId,
+} from "@ryot-app/contract/schema/brands";
+import { stableStringify } from "@ryot-app/ts-utils/json";
+import { DateTime, Effect, Option, Schema } from "effect";
 
 import { EntitiesRepository } from "#modules/entities/repository";
 import { EventSchemasRepository } from "#modules/event-schemas/repository";
+
+export const CapturedEventReferences = Schema.Record(EntityId, Schema.String);
+
+export type CapturedEventReferences = typeof CapturedEventReferences.Type;
+
+export const capturedEventReferences = Effect.fn("capturedEventReferences")(function* (
+	userId: UserId,
+	draft: Pick<AutomationEventDraft, "entityId" | "sessionEntityId">,
+	previous: CapturedEventReferences = {},
+) {
+	const entitiesRepository = yield* EntitiesRepository;
+	const referenceReasons = new Map<EntityId, "entity-not-found" | "session-entity-not-found">([
+		[draft.entityId, "entity-not-found"],
+	]);
+	if (draft.sessionEntityId !== null) {
+		referenceReasons.set(draft.sessionEntityId, "session-entity-not-found");
+	}
+	const captured: CapturedEventReferences = { ...previous };
+	for (const [entityId, code] of referenceReasons) {
+		if (Object.hasOwn(captured, entityId)) {
+			continue;
+		}
+		const entity = yield* entitiesRepository.getByIdForUser({ userId, entityId });
+		if (!entity) {
+			return yield* new EventCreateItemError({ reason: { code, entityId } });
+		}
+		Object.assign(captured, {
+			[entityId]: stableStringify({
+				properties: entity.properties,
+				entitySchemaSlug: entity.entitySchemaSlug,
+			}),
+		});
+	}
+	return captured;
+});
+
+export const validateCapturedEventReferences = Effect.fn("validateCapturedEventReferences")(
+	function* (
+		userId: UserId,
+		draft: Pick<AutomationEventDraft, "entityId" | "sessionEntityId">,
+		captured: CapturedEventReferences,
+	) {
+		const current = yield* capturedEventReferences(userId, draft);
+		const references: Array<{
+			entityId: EntityId;
+			code: "entity-not-found" | "session-entity-not-found";
+		}> = [{ entityId: draft.entityId, code: "entity-not-found" }];
+		if (draft.sessionEntityId !== null) {
+			references.push({ entityId: draft.sessionEntityId, code: "session-entity-not-found" });
+		}
+		for (const { code, entityId } of references) {
+			if (captured[entityId] !== current[entityId]) {
+				return yield* new EventCreateItemError({ reason: { code, entityId } });
+			}
+		}
+		return undefined;
+	},
+);
 
 const resolveOccurredAt = (occurredAt?: string) => {
 	if (!occurredAt) {

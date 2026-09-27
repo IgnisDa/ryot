@@ -4,6 +4,7 @@ import { PackageCacheManager } from "#lib/infrastructure/sandbox-runtime/runtime
 import { WorkflowEngineLive } from "#lib/infrastructure/workflow";
 import { DefinitionRepository } from "#modules/definition-registry/repository";
 import { EntitiesRepositoryLive } from "#modules/entities/repository";
+import { EventsRepository } from "#modules/events/repository";
 import { ScriptGarbageCollector } from "#modules/garbage-collection/scripts";
 import { PluginRepositoryLive } from "#modules/plugins/repository-layer";
 import { RelationshipSchemasRepositoryLive } from "#modules/relationship-schemas/layer";
@@ -118,6 +119,7 @@ export const SignalEmissionServiceLive = SignalEmissionService.layer.pipe(
 			AutomationTriggerRepository.layer,
 			SignalSchemasRepositoryLive,
 			EntitiesRepositoryLive,
+			EventsRepository.layer,
 			RelationshipsRepository.layer,
 			RelationshipSchemasRepositoryLive,
 		),
