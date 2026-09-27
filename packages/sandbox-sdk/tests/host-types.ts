@@ -17,7 +17,6 @@ const allCapabilitiesManifest = defineManifest({
 	name: "All core capabilities",
 	slug: "all-core-capabilities",
 	requiredPluginConfigKeys: ["timezone"],
-	requiredSystemConfigKeys: ["log-level"],
 	capabilities: [
 		"log",
 		"span",
@@ -25,8 +24,8 @@ const allCapabilitiesManifest = defineManifest({
 		"getCachedValue",
 		"setCachedValue",
 		"getPluginConfig",
-		"getSystemConfig",
 		"getUserPreferences",
+		"getUserSettings",
 		"claimPersistentValue",
 	],
 });
@@ -66,16 +65,16 @@ defineScript({
 			const pluginConfig: Readonly<Record<string, JsonValue>> = yield* host.getPluginConfig([
 				"timezone",
 			]);
-			const systemConfig: Readonly<Record<string, JsonValue>> = yield* host.getSystemConfig([
-				"log-level",
-			]);
 			const preferences = yield* host.getUserPreferences();
-			const allowNsfw: boolean = preferences.allowNsfw;
+			const disableIntegrations: boolean = preferences.disableIntegrations;
+			const settings: Readonly<Record<string, JsonValue>> = yield* host.getUserSettings();
+			const allowNsfw: JsonValue | undefined = settings["allowNsfw"];
 			void cached;
 			void stored;
 			void pluginConfig;
-			void systemConfig;
+			void disableIntegrations;
 			void allowNsfw;
+			void settings;
 
 			const errorType: Expect<
 				Equal<Effect.Error<ReturnType<typeof host.httpCall>>, SandboxHostError>
@@ -97,7 +96,6 @@ defineScript({
 const narrowedManifest = defineManifest({
 	kind: "script",
 	requiredPluginConfigKeys: [],
-	requiredSystemConfigKeys: [],
 	name: "Narrowed capabilities",
 	slug: "narrowed-capabilities",
 	capabilities: ["getCachedValue"],
@@ -121,7 +119,6 @@ defineSandboxTestHost(narrowedManifest, {
 const allDomainManifest = defineManifest({
 	kind: "script",
 	requiredPluginConfigKeys: [],
-	requiredSystemConfigKeys: [],
 	name: "All domain capabilities",
 	slug: "all-domain-capabilities",
 	capabilities: [
@@ -133,6 +130,7 @@ const allDomainManifest = defineManifest({
 		"ensureUserEntities",
 		"upsertGlobalEntities",
 		"getCurrentIntegration",
+		"getOAuthAccessToken",
 		"changeUserRelationships",
 		"upsertGlobalRelationships",
 	],
@@ -144,6 +142,9 @@ defineScript({
 	run: (_input, host) =>
 		Effect.gen(function* () {
 			const integration = yield* host.getCurrentIntegration();
+			const token: { readonly accessToken: string; readonly expiresAt: string } =
+				yield* host.getOAuthAccessToken({ field: "account" });
+			void token;
 			const [entitySchema] = yield* host.getEntitySchemas(["schema-1"]);
 			if (!entitySchema) {
 				return false;
@@ -227,7 +228,6 @@ const promiseScriptManifest = defineManifest({
 	kind: "script",
 	capabilities: [],
 	requiredPluginConfigKeys: [],
-	requiredSystemConfigKeys: [],
 	name: "Promise driver rejection",
 	slug: "promise-driver-rejection",
 });

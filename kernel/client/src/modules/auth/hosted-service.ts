@@ -1,8 +1,9 @@
 import { oauthProviderClient } from "@better-auth/oauth-provider/client";
+import { Browser } from "@capacitor/browser";
 import { strictStruct } from "@ryot-app/contract/schema/utils";
 import { createAuthClient } from "better-auth/client";
 import { twoFactorClient } from "better-auth/client/plugins";
-import { Context, Data, Effect, Layer, Schema } from "effect";
+import { Context, Data, Deferred, Effect, Layer, Schema } from "effect";
 
 import type { ServerOrigin } from "#/api/origin";
 import type { TwoFactorMethod } from "#/modules/auth/flow";
@@ -23,6 +24,8 @@ const DemoSignInResponse = strictStruct({ mode: Schema.Literals(["demo", "standa
 const InitializationStatusResponse = strictStruct({
 	status: Schema.Literals(["initializing", "ready"]),
 });
+const ImpersonationRedeemRequest = strictStruct({ ticket: Schema.String });
+const ImpersonationRedeemResponse = strictStruct({ authorizationUrl: Schema.String });
 
 export const requestDemoSignIn = (fetcher: typeof fetch, baseURL: string) =>
 	Effect.gen(function* () {
@@ -43,8 +46,8 @@ export const requestDemoSignIn = (fetcher: typeof fetch, baseURL: string) =>
 		if (!response.ok) {
 			return yield* new HostedAuthError({ message: "Could not open the shared demo." });
 		}
-		const payload = yield* Effect.tryPromise({
-			try: () => response.json() as Promise<unknown>,
+		const payload: unknown = yield* Effect.tryPromise({
+			try: () => response.json(),
 			catch: () => new HostedAuthError({ message: "Could not read the shared demo response." }),
 		});
 		return yield* Schema.decodeUnknownEffect(DemoSignInResponse)(payload).pipe(
@@ -88,6 +91,60 @@ export const requestInitializationStatus = (fetcher: typeof fetch, baseURL: stri
 			),
 		);
 	});
+
+export const requestImpersonationRedeem = (
+	fetcher: typeof fetch,
+	baseURL: string,
+	ticket: string,
+) =>
+	Effect.gen(function* () {
+		const body = yield* Schema.encodeEffect(Schema.fromJsonString(ImpersonationRedeemRequest))({
+			ticket,
+		}).pipe(
+			Effect.mapError(
+				() => new HostedAuthError({ message: "Could not prepare the impersonation request." }),
+			),
+		);
+		const response = yield* Effect.tryPromise({
+			catch: (cause) =>
+				new HostedAuthError({
+					message: cause instanceof Error ? cause.message : "Could not continue impersonation.",
+				}),
+			try: () =>
+				fetcher(new URL("/api/auth/impersonation/redeem", baseURL), {
+					body,
+					method: "POST",
+					cache: "no-store",
+					credentials: "same-origin",
+					headers: { "content-type": "application/json" },
+				}),
+		});
+		if (!response.ok) {
+			return yield* new HostedAuthError({ message: "Could not continue impersonation." });
+		}
+		const payload: unknown = yield* Effect.tryPromise({
+			try: () => response.json(),
+			catch: () => new HostedAuthError({ message: "Could not read the impersonation response." }),
+		});
+		return yield* Schema.decodeUnknownEffect(ImpersonationRedeemResponse)(payload).pipe(
+			Effect.mapError(
+				() =>
+					new HostedAuthError({
+						message: "The server returned an invalid impersonation response.",
+					}),
+			),
+		);
+	});
+
+const redeemImpersonation = (ticket: string) =>
+	requestImpersonationRedeem(globalThis.fetch, window.location.origin, ticket);
+
+// The URI becomes a link target and QR payload, so only a TOTP provisioning URI with a secret passes.
+export const parseTotpEnrollment = (totpURI: string) => {
+	const url = URL.parse(totpURI);
+	const secret = url?.searchParams.get("secret");
+	return url?.protocol === "otpauth:" && url.host === "totp" && secret ? { secret, totpURI } : null;
+};
 
 const makeHostedClient = (baseURL = window.location.origin) =>
 	createAuthClient({
@@ -170,6 +227,74 @@ export class HostedAuthService extends Context.Service<HostedAuthService>()("Hos
 		const signOutHosted = request(() => client().signOut(), "Could not sign out.").pipe(
 			Effect.asVoid,
 		);
+		const twoFactorSession = request(
+			() => client().getSession(),
+			"Could not read your sign-in session.",
+		).pipe(
+			Effect.flatMap((session) =>
+				session
+					? Effect.succeed({ twoFactorEnabled: session.user.twoFactorEnabled === true })
+					: Effect.fail(
+							new HostedAuthError({
+								message: "Your sign-in session has ended. Please sign in again.",
+							}),
+						),
+			),
+		);
+		const enableTwoFactor = (password: string) =>
+			request(
+				() => client().twoFactor.enable({ password, method: "totp" }),
+				"Could not start two-factor setup.",
+			).pipe(
+				Effect.flatMap((result) => {
+					const enrollment = result?.method === "totp" ? parseTotpEnrollment(result.totpURI) : null;
+					return enrollment && result?.method === "totp"
+						? Effect.succeed({ ...enrollment, backupCodes: result.backupCodes })
+						: Effect.fail(
+								new HostedAuthError({ message: "The server returned an invalid setup key." }),
+							);
+				}),
+			);
+		const confirmTwoFactor = (code: string) =>
+			request(() => client().twoFactor.verifyTotp({ code }), "Could not verify that code.").pipe(
+				Effect.asVoid,
+			);
+		const regenerateBackupCodes = (password: string) =>
+			request(
+				() => client().twoFactor.generateBackupCodes({ password }),
+				"Could not generate new backup codes.",
+			).pipe(
+				Effect.flatMap((result) =>
+					result
+						? Effect.succeed(result.backupCodes)
+						: Effect.fail(new HostedAuthError({ message: "The server returned no backup codes." })),
+				),
+			);
+		const disableTwoFactor = (password: string) =>
+			request(
+				() => client().twoFactor.disable({ password }),
+				"Could not turn off two-factor authentication.",
+			).pipe(Effect.asVoid);
+		const openTwoFactorManagement = Effect.fn("HostedAuthService.openTwoFactorManagement")(
+			function* (server: ServerOrigin) {
+				const finished = yield* Deferred.make<void>();
+				yield* Effect.acquireUseRelease(
+					Effect.tryPromise({
+						catch: () => new HostedAuthError({ message: "Could not open the browser." }),
+						try: () =>
+							Browser.addListener("browserFinished", () =>
+								Deferred.doneUnsafe(finished, Effect.void),
+							),
+					}),
+					() =>
+						Effect.tryPromise({
+							try: () => Browser.open({ url: `${server}/oauth/two-factor` }),
+							catch: () => new HostedAuthError({ message: "Could not open the browser." }),
+						}).pipe(Effect.andThen(Deferred.await(finished))),
+					(listener) => Effect.promise(() => listener.remove()),
+				);
+			},
+		);
 		const resetPassword = (server: ServerOrigin, token: string, newPassword: string) =>
 			request(
 				() => makeHostedClient(server).resetPassword({ token, newPassword }),
@@ -181,9 +306,16 @@ export class HostedAuthService extends Context.Service<HostedAuthService>()("Hos
 			resetPassword,
 			signOutHosted,
 			signInWithOidc,
+			enableTwoFactor,
 			verifyTwoFactor,
+			disableTwoFactor,
+			twoFactorSession,
+			confirmTwoFactor,
 			submitCredentials,
+			redeemImpersonation,
 			initializationStatus,
+			regenerateBackupCodes,
+			openTwoFactorManagement,
 			continueAfterInitialization,
 		};
 	}),

@@ -6,10 +6,17 @@ const uploadTokenInput = <const Source extends string>(source: Source) =>
 		Schema.annotate({ identifier: `FitnessImportInput_${source}` }),
 	);
 
+const timezoneUploadTokenInput = <const Source extends string>(source: Source) =>
+	strictStruct({
+		source: Schema.Literal(source),
+		timezone: Schema.NonEmptyString,
+		uploadToken: Schema.NonEmptyString,
+	}).pipe(Schema.annotate({ identifier: `FitnessImportInput_${source}` }));
+
 export const FitnessCreateImportRunBody = Schema.Union([
-	uploadTokenInput("hevy"),
 	uploadTokenInput("open_scale"),
-	uploadTokenInput("strong_app"),
+	timezoneUploadTokenInput("hevy"),
+	timezoneUploadTokenInput("strong_app"),
 ]);
 
 export type FitnessCreateImportRunBody = typeof FitnessCreateImportRunBody.Type;

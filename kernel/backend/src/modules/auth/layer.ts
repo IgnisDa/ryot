@@ -2,6 +2,8 @@ import { Layer } from "effect";
 
 import { AuthUserBootstrapSchedulerLive } from "#modules/user-bootstrap/layer";
 
+import { ImpersonationHandoffs } from "./impersonation-handoffs";
+import { ImpersonationSessions } from "./impersonation-sessions";
 import { LifecycleWriteGuard } from "./lifecycle-write-guard";
 import { InternalOAuthProvisioningComplete, OAuthProvisioningService } from "./oauth-provisioning";
 import { AuthRepository } from "./repository";
@@ -12,6 +14,8 @@ export const AuthServiceLive = AuthService.layer.pipe(
 	Layer.provide(
 		Layer.mergeAll(
 			AuthRepository.layer,
+			ImpersonationHandoffs.layer,
+			ImpersonationSessions.layer,
 			AuthUserBootstrapSchedulerLive,
 			SessionCreationGate.layer.pipe(Layer.provideMerge(LifecycleWriteGuard.layer)),
 		),

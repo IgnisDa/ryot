@@ -49,7 +49,7 @@ pub enum LpApplicationJob {
 #[derive(Debug, Deserialize, Serialize, Display, Clone)]
 pub enum SingleApplicationJob {
     ProcessIntegrationWebhook(String, String),
-    ImportFromExternalSource(String, Box<DeployImportJobInput>),
+    ImportFromExternalSource(String, String, Box<DeployImportJobInput>),
     BulkMetadataProgressUpdate(String, Vec<MetadataProgressUpdateInput>),
 }
 

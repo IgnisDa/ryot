@@ -41,7 +41,6 @@ const automationScript = (
 	kind: "automation",
 	automationType: "automation",
 	requiredPluginConfigKeys: [],
-	requiredSystemConfigKeys: [],
 	entry: `backend/scripts/${slug}.sandbox.ts`,
 });
 

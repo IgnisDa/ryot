@@ -1,10 +1,9 @@
 import { formatRelativeTime } from "#/modules/ui/run/run-status";
 
-/** Shared presentation shape for integration summary and detail recipe results. */
 type IntegrationIdentity = {
 	readonly provider: string;
-	readonly pluginSlug: string;
 	readonly name?: string | null;
+	readonly pluginSlug: string | null;
 };
 
 export type IntegrationProviderNames = ReadonlyMap<string, string>;
@@ -12,8 +11,8 @@ export type IntegrationProviderNames = ReadonlyMap<string, string>;
 /** Provider slugs are only unique within their plugin, so display names are keyed by both. */
 export const integrationProviderKey = (input: {
 	readonly provider: string;
-	readonly pluginSlug: string;
-}) => `${input.pluginSlug}:${input.provider}`;
+	readonly pluginSlug: string | null;
+}) => `${input.pluginSlug ?? ""}:${input.provider}`;
 
 export const integrationProviderName = (
 	integration: IntegrationIdentity,

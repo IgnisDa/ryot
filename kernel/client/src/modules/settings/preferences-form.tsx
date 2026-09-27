@@ -37,7 +37,7 @@ const languageChoices: readonly SelectChoice[] = [
 	{ value: CUSTOM_LANGUAGE, label: "Other language..." },
 ];
 
-function PreferenceRow(props: {
+export function PreferenceRow(props: {
 	title: string;
 	detail: string;
 	checked: boolean;
@@ -88,9 +88,9 @@ function LanguageField(props: {
 			<Select
 				value={selected}
 				onChange={select}
+				label="Entity language"
 				choices={languageChoices}
 				disabled={props.disabled}
-				label="Metadata language"
 				checkIcon={<AppIcon size={16} name="check" />}
 				chevronIcon={<AppIcon size={16} name="chevron-down" />}
 			/>
@@ -101,7 +101,7 @@ function LanguageField(props: {
 					value={props.value}
 					disabled={props.disabled}
 					placeholder="For example, sv or pt-BR"
-					aria-label="Custom metadata language code"
+					aria-label="Custom entity language code"
 					onChange={(event) => props.onChange(event.currentTarget.value)}
 				/>
 			)}
@@ -159,44 +159,7 @@ export function PreferencesForm(props: {
 			<form.Subscribe selector={(state) => state.isSubmitting}>
 				{(isSubmitting) => (
 					<div className="overflow-hidden rounded-xl border border-border bg-surface">
-						<form.Field name="allowNsfw">
-							{(field) => (
-								<PreferenceRow
-									checked={field.value}
-									title="Show NSFW content"
-									disabled={props.disabled === true || isSubmitting}
-									detail="Allow providers to include adult metadata and results."
-									onChange={(value) => {
-										field.handleChange(value);
-										changed();
-									}}
-								/>
-							)}
-						</form.Field>
-						<div className="h-px bg-border" />
-						<form.Field name="disableIntegrations">
-							{(field) => (
-								<PreferenceRow
-									checked={field.value}
-									title="Disable integrations"
-									disabled={props.disabled === true || isSubmitting}
-									detail="Pause all external integration processing for your account."
-									onChange={(value) => {
-										field.handleChange(value);
-										changed();
-									}}
-								/>
-							)}
-						</form.Field>
-						<div className="h-px bg-border" />
 						<div className="flex flex-col gap-2 px-4 py-3.5">
-							<div className="flex flex-col gap-0.5">
-								<span className="text-sm font-medium text-text">Metadata language</span>
-								<span className="text-xs leading-4 text-text-muted">
-									Used when translated metadata is available. Language availability varies by
-									provider.
-								</span>
-							</div>
 							<form.Field name="language">
 								{(field) => (
 									<LanguageField

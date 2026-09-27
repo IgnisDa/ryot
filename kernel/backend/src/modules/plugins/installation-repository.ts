@@ -78,6 +78,7 @@ const installationState = {
 	sortOrder: schema.pluginInstallation.sortOrder,
 	createdAt: schema.pluginInstallation.createdAt,
 	updatedAt: schema.pluginInstallation.updatedAt,
+	userSettings: schema.pluginInstallation.userSettings,
 	healthReason: schema.pluginInstallation.healthReason,
 	uninstalledAt: schema.pluginInstallation.uninstalledAt,
 	homeSavedViewSlug: schema.pluginInstallation.homeSavedViewSlug,
@@ -584,6 +585,51 @@ export class PluginInstallationRepository extends Context.Service<PluginInstalla
 				return rows satisfies ReadonlyArray<PluginPrivateInstallationRow>;
 			});
 
+			const findUserSettings = Effect.fn(function* (userId: UserId, id: string) {
+				const [row] = yield* database.run((db) =>
+					db
+						.select({
+							slug: schema.plugin.slug,
+							installation: schema.pluginInstallation,
+							manifest: schema.pluginRevision.manifest,
+						})
+						.from(schema.pluginInstallation)
+						.innerJoin(schema.plugin, eq(schema.plugin.id, schema.pluginInstallation.pluginId))
+						.innerJoin(
+							schema.pluginRevision,
+							eq(schema.pluginRevision.id, schema.plugin.activeRevisionId),
+						)
+						.where(
+							and(
+								eq(schema.pluginInstallation.id, id),
+								eq(schema.pluginInstallation.userId, userId),
+								isNull(schema.pluginInstallation.uninstalledAt),
+								eq(schema.plugin.status, "active"),
+							),
+						)
+						.limit(1),
+				);
+				return row;
+			});
+			const saveUserSettings = Effect.fn(function* (
+				userId: UserId,
+				id: string,
+				userSettings: typeof schema.pluginInstallation.$inferSelect.userSettings,
+			) {
+				yield* database.run((db) =>
+					db
+						.update(schema.pluginInstallation)
+						.set({ userSettings })
+						.where(
+							and(
+								eq(schema.pluginInstallation.id, id),
+								eq(schema.pluginInstallation.userId, userId),
+								isNull(schema.pluginInstallation.uninstalledAt),
+							),
+						),
+				);
+			});
+
 			return {
 				create,
 				remove,
@@ -592,6 +638,8 @@ export class PluginInstallationRepository extends Context.Service<PluginInstalla
 				updateState,
 				upsertState,
 				updateHealth,
+				findUserSettings,
+				saveUserSettings,
 				setHomeSavedView,
 				listSystemForUser,
 				findHomeSavedView,

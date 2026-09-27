@@ -1,4 +1,8 @@
 import type { CurrentUserValue } from "@ryot-app/contract/auth-middleware";
+import {
+	dataJsonSource,
+	dataJsonIntegrationSettingsSchema,
+} from "@ryot-app/contract/modules/imports/data-json";
 import type { ImportRunFailureReason } from "@ryot-app/contract/modules/imports/schemas";
 import {
 	type CreateIntegrationBody,
@@ -27,9 +31,11 @@ import {
 	formatPropertyIssues,
 	parseAppSchemaProperties,
 } from "#lib/property-schema/property-schema-runtime";
+import { DataImportAdmission } from "#modules/imports/data-admission";
 import { ImportsService } from "#modules/imports/service";
 import { MutationReceipts } from "#modules/mutations/receipts";
 import { admitWorkflow, dispatchAdmittedWorkflow } from "#modules/mutations/workflow-dispatch";
+import { OAuthConnectionsService } from "#modules/oauth-connections/service";
 import {
 	IntegrationProviderCatalog,
 	type RegisteredIntegrationProvider,
@@ -113,6 +119,8 @@ export class IntegrationsService extends Context.Service<IntegrationsService>()(
 			const importsService = yield* ImportsService;
 			const repository = yield* IntegrationsRepository;
 			const providerCatalog = yield* IntegrationProviderCatalog;
+			const oauthConnections = yield* OAuthConnectionsService;
+			const dataAdmission = yield* DataImportAdmission;
 			const failCreatedRun = (runId: ImportRunId, reason: ImportRunFailureReason) =>
 				importsService.failRunForIntegration(runId, reason);
 
@@ -128,6 +136,31 @@ export class IntegrationsService extends Context.Service<IntegrationsService>()(
 									),
 						)
 					: Effect.void;
+
+			const bindOAuthConnections = (input: {
+				readonly userId: UserId;
+				readonly integrationId: IntegrationId;
+				readonly registered: RegisteredIntegrationProvider;
+				readonly settings: IntegrationProviderSettings;
+			}) =>
+				oauthConnections
+					.bindIntegrationSettings({
+						userId: input.userId,
+						settings: input.settings,
+						integrationId: input.integrationId,
+						integrationProvider: input.registered.slug,
+						settingsSchema: input.registered.settingsSchema,
+						pluginInstallationId: input.registered.installationId,
+					})
+					.pipe(
+						Effect.catchTag("OAuthConnectionBindingError", () =>
+							Effect.fail(
+								new IntegrationRequestError({
+									reason: { provider: input.registered.slug, code: "invalid-provider-settings" },
+								}),
+							),
+						),
+					);
 
 			const requireIntegration = Effect.fn("IntegrationsService.requireIntegration")(function* (
 				userId: UserId,
@@ -146,6 +179,35 @@ export class IntegrationsService extends Context.Service<IntegrationsService>()(
 				user: CurrentUserValue,
 				body: CreateIntegrationBody,
 			) {
+				if (body.provider === dataJsonSource) {
+					yield* parseAppSchemaProperties({
+						kind: "Data webhook",
+						properties: body.providerSpecifics,
+						propertiesSchema: dataJsonIntegrationSettingsSchema,
+					}).pipe(
+						Effect.mapError(
+							() =>
+								new IntegrationRequestError({
+									reason: { provider: dataJsonSource, code: "invalid-provider-settings" },
+								}),
+						),
+					);
+					return yield* transaction(
+						repository.createForUser({
+							lot: "sink",
+							userId: user.id,
+							syncOwnership: false,
+							minimumProgress: "0",
+							providerSpecifics: {},
+							maximumProgress: "100",
+							name: body.name ?? null,
+							provider: dataJsonSource,
+							pluginInstallationId: null,
+							isDisabled: body.isDisabled ?? false,
+							extraSettings: body.extraSettings ?? defaultExtraSettings,
+						}),
+					);
+				}
 				const registered = yield* providerCatalog.findForUser(user.id, body.provider);
 				if (!registered) {
 					return yield* new IntegrationRequestError({
@@ -164,18 +226,27 @@ export class IntegrationsService extends Context.Service<IntegrationsService>()(
 				}
 
 				const created = yield* transaction(
-					repository.createForUser({
-						lot,
-						userId: user.id,
-						name: body.name ?? null,
-						provider: body.provider,
-						isDisabled: body.isDisabled ?? false,
-						minimumProgress: String(minimumProgress),
-						maximumProgress: String(maximumProgress),
-						providerSpecifics: body.providerSpecifics,
-						syncOwnership: body.syncOwnership ?? false,
-						pluginInstallationId: registered.installationId,
-						extraSettings: body.extraSettings ?? defaultExtraSettings,
+					Effect.gen(function* () {
+						const inserted = yield* repository.createForUser({
+							lot,
+							userId: user.id,
+							name: body.name ?? null,
+							provider: body.provider,
+							isDisabled: body.isDisabled ?? false,
+							minimumProgress: String(minimumProgress),
+							maximumProgress: String(maximumProgress),
+							providerSpecifics: body.providerSpecifics,
+							syncOwnership: body.syncOwnership ?? false,
+							pluginInstallationId: registered.installationId,
+							extraSettings: body.extraSettings ?? defaultExtraSettings,
+						});
+						yield* bindOAuthConnections({
+							registered,
+							userId: user.id,
+							integrationId: inserted.id,
+							settings: body.providerSpecifics,
+						});
+						return inserted;
 					}),
 				);
 
@@ -188,11 +259,14 @@ export class IntegrationsService extends Context.Service<IntegrationsService>()(
 				body: UpdateIntegrationInput,
 			) {
 				const existing = yield* requireIntegration(userId, integrationId);
-				const registered = yield* providerCatalog.findOwnedForUser(
-					userId,
-					existing.provider,
-					existing.pluginInstallationId,
-				);
+				const registered =
+					existing.pluginInstallationId === null
+						? null
+						: yield* providerCatalog.findOwnedForUser(
+								userId,
+								existing.provider,
+								existing.pluginInstallationId,
+							);
 				if (registered) {
 					yield* requireProKeyFor(registered);
 				}
@@ -200,7 +274,22 @@ export class IntegrationsService extends Context.Service<IntegrationsService>()(
 				let providerSpecifics: IntegrationProviderSettings | undefined;
 				if (body.providerSpecifics !== undefined) {
 					const merged = { ...existing.providerSpecifics, ...body.providerSpecifics };
-					yield* validateRegisteredSettings(existing.provider, registered, merged);
+					if (existing.pluginInstallationId === null) {
+						yield* parseAppSchemaProperties({
+							properties: merged,
+							kind: "Data webhook",
+							propertiesSchema: dataJsonIntegrationSettingsSchema,
+						}).pipe(
+							Effect.mapError(
+								() =>
+									new IntegrationRequestError({
+										reason: { provider: dataJsonSource, code: "invalid-provider-settings" },
+									}),
+							),
+						);
+					} else {
+						yield* validateRegisteredSettings(existing.provider, registered, merged);
+					}
 					providerSpecifics = merged;
 				}
 
@@ -213,20 +302,32 @@ export class IntegrationsService extends Context.Service<IntegrationsService>()(
 					}
 				}
 
+				const settingsPatch = body.providerSpecifics;
 				const updated = yield* transaction(
-					repository.updateForUser({
-						userId,
-						integrationId,
-						name: body.name,
-						providerSpecifics,
-						isDisabled: body.isDisabled,
-						extraSettings: body.extraSettings,
-						syncOwnership: body.syncOwnership,
-						lastFinishedAt: body.lastFinishedAt,
-						minimumProgress:
-							body.minimumProgress !== undefined ? String(body.minimumProgress) : undefined,
-						maximumProgress:
-							body.maximumProgress !== undefined ? String(body.maximumProgress) : undefined,
+					Effect.gen(function* () {
+						const written = yield* repository.updateForUser({
+							userId,
+							integrationId,
+							name: body.name,
+							providerSpecifics,
+							isDisabled: body.isDisabled,
+							extraSettings: body.extraSettings,
+							syncOwnership: body.syncOwnership,
+							lastFinishedAt: body.lastFinishedAt,
+							minimumProgress:
+								body.minimumProgress !== undefined ? String(body.minimumProgress) : undefined,
+							maximumProgress:
+								body.maximumProgress !== undefined ? String(body.maximumProgress) : undefined,
+						});
+						if (written && registered && settingsPatch !== undefined) {
+							yield* bindOAuthConnections({
+								userId,
+								registered,
+								integrationId,
+								settings: settingsPatch,
+							});
+						}
+						return written;
 					}),
 				);
 
@@ -271,6 +372,7 @@ export class IntegrationsService extends Context.Service<IntegrationsService>()(
 			const handleWebhook = Effect.fn("IntegrationsService.handleWebhook")(function* (input: {
 				rawBody: string;
 				contentType: string;
+				submissionKey?: string | undefined;
 				webhookToken: IntegrationWebhookToken;
 			}) {
 				const integration = yield* repository.getByWebhookToken(input.webhookToken);
@@ -280,6 +382,76 @@ export class IntegrationsService extends Context.Service<IntegrationsService>()(
 					});
 				}
 				const integrationId = integration.id;
+				if (integration.pluginInstallationId === null) {
+					if (
+						!input.submissionKey?.trim() ||
+						input.contentType.split(";")[0]?.trim() !== "application/json"
+					) {
+						return yield* new IntegrationRequestError({
+							reason: { provider: dataJsonSource, code: "invalid-provider-settings" },
+						});
+					}
+					const admitted = yield* dataAdmission.admit({
+						rawBody: input.rawBody,
+						userId: integration.userId,
+						integrationId: integration.id,
+						submissionKey: input.submissionKey,
+					});
+					if (!admitted.created) {
+						const control = yield* importsService.getRunControlForUser({
+							runId: admitted.runId,
+							userId: integration.userId,
+						});
+						if (control?.status !== "pending") {
+							return { runId: admitted.runId };
+						}
+					}
+					let disabled: "integration-disabled" | "integrations-disabled" | null = null;
+					if (integration.isDisabled) {
+						disabled = "integration-disabled";
+					} else if (yield* repository.getUserDisableIntegrations({ userId: integration.userId })) {
+						disabled = "integrations-disabled";
+					}
+					if (disabled) {
+						yield* failCreatedRun(admitted.runId, { code: disabled });
+						yield* dataAdmission.release(admitted.runId);
+						return { runId: admitted.runId };
+					}
+					const accountGeneration = yield* receipts.currentAccount(integration.userId);
+					yield* dispatchAdmittedWorkflow(
+						receipts,
+						engine,
+						ProcessIntegrationRunWorkflow,
+						accountGeneration,
+						{
+							discard: true,
+							executionId: admitted.runId,
+							payload: {
+								accountGeneration,
+								runId: admitted.runId,
+								userId: integration.userId,
+								integrationId: integration.id,
+							},
+						},
+						(admission) => admission,
+						(execution) => execution,
+					).pipe(
+						Effect.catch((cause) =>
+							Effect.gen(function* () {
+								yield* Effect.logError("Data webhook dispatch failed", cause);
+								yield* failCreatedRun(admitted.runId, {
+									code: "queue-unavailable",
+									operation: "data-webhook",
+								});
+								yield* dataAdmission.release(admitted.runId);
+								return yield* new IntegrationRequestError({
+									reason: { code: "queue-unavailable", operation: "data-webhook" },
+								});
+							}),
+						),
+					);
+					return { runId: admitted.runId };
+				}
 				const registered = yield* providerCatalog.findOwnedForUser(
 					integration.userId,
 					integration.provider,
@@ -376,6 +548,9 @@ export class IntegrationsService extends Context.Service<IntegrationsService>()(
 				>();
 
 				for (const integration of integrations) {
+					if (integration.pluginInstallationId === null) {
+						continue;
+					}
 					const disableIntegrations = yield* repository.getUserDisableIntegrations({
 						userId: integration.userId,
 					});

@@ -11,22 +11,17 @@ export const manifest = defineManifest({
 	slug: "import.hevy",
 	name: "Parse Hevy import",
 	requiredPluginConfigKeys: [],
-	requiredSystemConfigKeys: ["timezone"],
-	capabilities: ["artifact-read", "scratch", "getSystemConfig"],
+	capabilities: ["artifact-read", "scratch"],
 });
 
 export default defineScript({
 	manifest,
-	input: Schema.Struct({}),
 	output: genericImportAdapterManifestSchema,
-	run: (_input, host) =>
+	input: Schema.Struct({ timezone: Schema.String }),
+	run: (input) =>
 		Effect.gen(function* () {
 			const text = yield* readImportArtifactText;
-			const timezone = yield* host.getSystemConfig(["timezone"]).pipe(
-				Effect.map(({ timezone: timezoneValue }) => timezoneValue),
-				Effect.orElseSucceed(() => "Etc/GMT"),
-			);
-			const result = adaptHevyCsv(text, typeof timezone === "string" ? timezone : "UTC");
+			const result = adaptHevyCsv(text, input.timezone);
 			return yield* writeImportChunks(result.failures, result.items.map(toWorkoutWriteItem));
 		}),
 });

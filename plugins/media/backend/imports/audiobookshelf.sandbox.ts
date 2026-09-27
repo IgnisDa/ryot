@@ -9,7 +9,6 @@ export const manifest = defineManifest({
 	kind: "script",
 	capabilities: ["httpCall"],
 	requiredPluginConfigKeys: [],
-	requiredSystemConfigKeys: [],
 	slug: "import.audiobookshelf",
 	name: "Fetch Audiobookshelf import",
 });

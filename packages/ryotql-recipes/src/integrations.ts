@@ -28,7 +28,6 @@ import { IsoDateString } from "./codecs";
 const integration = table("integration", "integration");
 const selection = {
 	id: selectedField(column(integration, "id"), IntegrationId),
-	pluginSlug: selectedField(column(integration, "pluginSlug"), PluginSlug),
 	createdAt: selectedField(column(integration, "createdAt"), IsoDateString),
 	updatedAt: selectedField(column(integration, "updatedAt"), IsoDateString),
 	isDisabled: selectedField(column(integration, "isDisabled"), Schema.Boolean),
@@ -38,6 +37,7 @@ const selection = {
 	syncOwnership: selectedField(column(integration, "syncOwnership"), Schema.Boolean),
 	minimumProgress: selectedField(column(integration, "minimumProgress"), Schema.Finite),
 	maximumProgress: selectedField(column(integration, "maximumProgress"), Schema.Finite),
+	pluginSlug: selectedField(column(integration, "pluginSlug"), Schema.NullOr(PluginSlug)),
 	lastFinishedAt: selectedField(
 		column(integration, "lastFinishedAt"),
 		Schema.NullOr(IsoDateString),

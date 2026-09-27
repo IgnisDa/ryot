@@ -1,6 +1,10 @@
 import { Button, FieldMessage } from "@ryot-app/client-ui-sdk";
 import { AppIcon } from "@ryot-app/client-ui-sdk/icon";
-import type { SchemaFileUpload, SchemaFormApi } from "@ryot-app/client-ui-sdk/schema-form";
+import type {
+	SchemaFileUpload,
+	SchemaFormApi,
+	SchemaOAuthConnect,
+} from "@ryot-app/client-ui-sdk/schema-form";
 import type { ImportRunSummary } from "@ryot-app/ryotql-recipes/import-runs";
 import clsx from "clsx";
 
@@ -69,6 +73,8 @@ export function IntegrationDetailView(props: {
 	readonly onCopy: (value: string) => void;
 	readonly runs: readonly ImportRunSummary[];
 	readonly provider: IntegrationProviderItem | undefined;
+	readonly connectOAuth: SchemaOAuthConnect;
+	readonly oauthDisabledReason: string | undefined;
 }) {
 	return (
 		<div className="flex flex-col gap-6 pb-4">
@@ -79,6 +85,13 @@ export function IntegrationDetailView(props: {
 			) : (
 				<IntegrationWebhookRow onCopy={props.onCopy} webhookUrl={props.integration.webhookUrl} />
 			)}
+			{props.integration.pluginSlug === null ? (
+				<p className="text-sm leading-6 text-text-muted">
+					Send a JSON data document with Content-Type: application/json and an Idempotency-Key
+					header. Reuse the key only when retrying the same submission. A new key appends new
+					records.
+				</p>
+			) : null}
 			{props.provider === undefined ? (
 				<p className="text-sm text-text-muted">
 					This service is no longer available on your server, so its settings cannot be edited.
@@ -90,6 +103,8 @@ export function IntegrationDetailView(props: {
 						form={props.form}
 						provider={props.provider}
 						uploadFile={props.uploadFile}
+						connectOAuth={props.connectOAuth}
+						oauthDisabledReason={props.oauthDisabledReason}
 					/>
 					{props.saveDetail === undefined ? null : <FieldMessage>{props.saveDetail}</FieldMessage>}
 					<Button

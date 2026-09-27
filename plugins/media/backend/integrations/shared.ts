@@ -92,10 +92,13 @@ const nested = (input: unknown, keys: string[]) => {
 			continue;
 		}
 		if (isRecord(current)) {
+			const entries = Object.entries(current);
 			for (const key of keys) {
-				const value = current[key];
-				if (value != null) {
-					return value;
+				const match = entries.find(
+					([name, value]) => value != null && name.toLowerCase() === key.toLowerCase(),
+				);
+				if (match) {
+					return match[1];
 				}
 			}
 		}
@@ -104,8 +107,7 @@ const nested = (input: unknown, keys: string[]) => {
 	return undefined;
 };
 
-export const nestedString = (input: unknown, keys: string[]) => {
-	const value = nested(input, keys);
+export const textValue = (value: unknown) => {
 	if (typeof value === "string") {
 		return value.trim() || undefined;
 	}
@@ -114,6 +116,8 @@ export const nestedString = (input: unknown, keys: string[]) => {
 	}
 	return undefined;
 };
+
+export const nestedString = (input: unknown, keys: string[]) => textValue(nested(input, keys));
 
 export const nestedNumber = (input: unknown, keys: string[]) => {
 	const value = nested(input, keys);
@@ -126,6 +130,20 @@ export const nestedNumber = (input: unknown, keys: string[]) => {
 	}
 	return Number.isFinite(number) ? number : undefined;
 };
+
+export const pathValue = (input: unknown, path: string[]) =>
+	path.reduce<unknown>(
+		(current, key) =>
+			isRecord(current)
+				? Object.entries(current).find(([name]) => name.toLowerCase() === key.toLowerCase())?.[1]
+				: undefined,
+		input,
+	);
+
+export const truthy = (value: unknown) =>
+	value === true ||
+	(typeof value === "number" && value !== 0) ||
+	(typeof value === "string" && ["true", "1", "yes", "y"].includes(value.trim().toLowerCase()));
 
 export const specifics = (value: unknown) => (isRecord(value) ? value : null);
 

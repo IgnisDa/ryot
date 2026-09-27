@@ -153,14 +153,7 @@ const resolveFromCatalog =
 					contentHash: `${slug}-hash`,
 					id: SandboxScriptId.make(`${slug}-id`),
 					pluginRevisionId: `${pluginSlug}-revision-id`,
-					metadata: {
-						kind,
-						slug,
-						name: slug,
-						capabilities: [],
-						requiredPluginConfigKeys: [],
-						requiredSystemConfigKeys: [],
-					},
+					metadata: { kind, slug, name: slug, capabilities: [], requiredPluginConfigKeys: [] },
 				},
 			};
 		});
@@ -514,7 +507,6 @@ const privateCronScriptRow = (installationId: string) => ({
 		slug: "private-script",
 		kind: "automation" as const,
 		requiredPluginConfigKeys: [],
-		requiredSystemConfigKeys: [],
 	},
 });
 

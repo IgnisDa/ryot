@@ -22,6 +22,20 @@ const uploadInputSchema = (label: string, description: string) => ({
 	},
 });
 
+const timezoneInputField = {
+	position: 1,
+	label: "Timezone",
+	type: "string" as const,
+	format: { kind: "timezone" as const },
+	validation: { required: true as const },
+	description: "Timezone the export's dates were recorded in",
+};
+
+const timezoneUploadInputSchema = (...args: Parameters<typeof uploadInputSchema>) => {
+	const base = uploadInputSchema(...args);
+	return { ...base, fields: { ...base.fields, timezone: timezoneInputField } };
+};
+
 export const fitnessPlugin = definePlugin({
 	crons: [],
 	operations: [],
@@ -60,31 +74,6 @@ export const fitnessPlugin = definePlugin({
 			},
 		},
 	],
-	hooks: [
-		{
-			stage: "after",
-			delivery: "async",
-			name: "Workout created",
-			causationSources: ["api"],
-			slug: "fitness.workout-created",
-			scriptSlug: "automation.workout-created",
-			targets: [{ resource: "entity", operation: "create", entitySchemaSlug: "workout" }],
-		},
-		{
-			stage: "after",
-			delivery: "async",
-			slug: "fitness.notification",
-			name: "Fitness notification",
-			scriptSlug: "automation.fitness-notification",
-			targets: [{ operation: "emit", resource: "signal", signalSchemaSlug: "workout.created" }],
-			retry: {
-				maxAttempts: 1,
-				maxDelayMs: 60000,
-				initialDelayMs: 1000,
-				externalIdempotency: "none",
-			},
-		},
-	],
 	importSources: [
 		{
 			slug: "hevy",
@@ -93,7 +82,7 @@ export const fitnessPlugin = definePlugin({
 			requiredPluginConfigKeys: [],
 			exportHelp: importDocs("hevy"),
 			description: "Import workouts from a Hevy CSV export",
-			inputSchema: uploadInputSchema("Hevy export", "Hevy workout export CSV"),
+			inputSchema: timezoneUploadInputSchema("Hevy export", "Hevy workout export CSV"),
 		},
 		{
 			slug: "strong_app",
@@ -102,7 +91,7 @@ export const fitnessPlugin = definePlugin({
 			requiredPluginConfigKeys: [],
 			exportHelp: importDocs("strong-app"),
 			description: "Import workouts from a Strong CSV export",
-			inputSchema: uploadInputSchema("Strong App export", "Strong App workout export CSV"),
+			inputSchema: timezoneUploadInputSchema("Strong App export", "Strong App workout export CSV"),
 		},
 		{
 			name: "OpenScale",
@@ -146,6 +135,43 @@ export const fitnessPlugin = definePlugin({
 			},
 		},
 	},
+	hooks: [
+		{
+			stage: "after",
+			delivery: "required",
+			executionScope: "user",
+			name: "Ensure fitness library membership",
+			slug: "fitness.ensure-fitness-library-membership",
+			scriptSlug: "automation.ensure-fitness-library-membership",
+			targets: [
+				{ resource: "entity", operation: "create", entitySchemaSlug: "exercise" },
+				{ operation: "complete", entitySchemaSlug: "exercise", resource: "provider-entity-import" },
+			],
+		},
+		{
+			stage: "after",
+			delivery: "async",
+			name: "Workout created",
+			causationSources: ["api"],
+			slug: "fitness.workout-created",
+			scriptSlug: "automation.workout-created",
+			targets: [{ resource: "entity", operation: "create", entitySchemaSlug: "workout" }],
+		},
+		{
+			stage: "after",
+			delivery: "async",
+			slug: "fitness.notification",
+			name: "Fitness notification",
+			scriptSlug: "automation.fitness-notification",
+			targets: [{ operation: "emit", resource: "signal", signalSchemaSlug: "workout.created" }],
+			retry: {
+				maxAttempts: 1,
+				maxDelayMs: 60000,
+				initialDelayMs: 1000,
+				externalIdempotency: "none",
+			},
+		},
+	],
 });
 
 export default fitnessPlugin;

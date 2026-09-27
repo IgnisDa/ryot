@@ -11,7 +11,6 @@ export const manifest = defineManifest({
 	kind: "workflow",
 	capabilities: [],
 	requiredPluginConfigKeys: [],
-	requiredSystemConfigKeys: [],
 	name: "Media monitoring sweep",
 	slug: "workflow.media-monitoring-sweep",
 });

@@ -17,7 +17,7 @@ export function SettingsLayout(props: { readonly children: ReactNode }) {
 				<h2 className="mb-6 px-3 font-display text-2xl font-semibold text-text">Settings</h2>
 				<nav aria-label="Settings sections">
 					<SettingsSectionNav
-						showDisclosure={false}
+						variant="sidebar"
 						active={activeSettingsSection(pathname)}
 						onSelect={(section) => navigate({ replace: true, href: section.path })}
 					/>

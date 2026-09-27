@@ -13,3 +13,5 @@ export const getApiUrl = () => requireHarnessEnv("E2E_API_URL");
 export const getFrontendUrl = () => requireHarnessEnv("E2E_FRONTEND_URL");
 
 export const getAdminAccessToken = () => requireHarnessEnv("E2E_ADMIN_ACCESS_TOKEN");
+
+export const getServerLogFile = () => requireHarnessEnv("E2E_SERVER_LOG_FILE");

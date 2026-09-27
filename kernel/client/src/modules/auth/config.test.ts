@@ -6,6 +6,7 @@ import { deriveAuthMethods } from "#/modules/auth/config";
 const systemConfig = (auth: SystemConfigResponse["auth"]): SystemConfigResponse => ({
 	auth,
 	analytics: {},
+	version: "v1.0.0",
 	pro: { isServerKeyValidated: false },
 	notifications: { smtpEnabled: false },
 	frontendOrigin: "http://localhost:3000",

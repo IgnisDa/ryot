@@ -364,6 +364,12 @@ export const appConfigDefinition = defineConfig(
 			defaultValue: 8000,
 			description: "HTTP port the server listens on",
 		}),
+		timezone: stringField({
+			envKey: "TZ",
+			label: "Timezone",
+			defaultValue: "Etc/GMT",
+			description: "IANA timezone used for plugin cron schedules",
+		}),
 		redisUrl: stringField({
 			secret: true,
 			label: "Redis URL",
@@ -377,12 +383,6 @@ export const appConfigDefinition = defineConfig(
 			label: "Node environment",
 			defaultValue: "development",
 			description: "Runtime environment name",
-		}),
-		timezone: stringField({
-			envKey: "TZ",
-			label: "Timezone",
-			defaultValue: "Etc/GMT",
-			description: "IANA timezone used for interpreting timezone-less datetimes during imports",
 		}),
 		disableTelemetry: booleanField({
 			defaultValue: false,

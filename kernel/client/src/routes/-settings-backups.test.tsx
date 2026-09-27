@@ -175,29 +175,6 @@ const mountView = (
 	return { ...view, router };
 };
 
-const savedDownloads: string[] = [];
-
-const revokedUrls: string[] = [];
-
-/**
- * jsdom implements neither object URLs nor a download, and the anchor the archive rides on is
- * created, clicked, and removed inside one synchronous call, so the saved name is only observable
- * from a capturing listener.
- */
-URL.createObjectURL = () => "blob:ryot-archive";
-URL.revokeObjectURL = (value: string) => void revokedUrls.push(value);
-
-document.addEventListener(
-	"click",
-	(event) => {
-		if (event.target instanceof HTMLAnchorElement) {
-			savedDownloads.push(event.target.download);
-			event.preventDefault();
-		}
-	},
-	true,
-);
-
 const attachArchive = () => {
 	fireEvent.click(screen.getByRole("button", { name: "Choose a file for Backup archive" }));
 	return Effect.runPromise(
@@ -524,12 +501,16 @@ describe("backup records", () => {
 });
 
 describe("backup downloads", () => {
-	it.live("hands the archive to the browser as a named file", () =>
+	it.live("starts an archive download after the API returns a URL", () =>
 		Effect.gen(function* () {
+			const downloads: string[] = [];
 			mountView(
 				"/settings/backups",
 				makeBackupsApi({
-					downloadArchive: () => Effect.succeed(new Blob([new Uint8Array([1, 2])])),
+					downloadArchive: (_scope, runId) => {
+						downloads.push(runId);
+						return Effect.void;
+					},
 				}),
 				makeUploadsApi(),
 				makeAuthStub(),
@@ -542,10 +523,7 @@ describe("backup downloads", () => {
 				),
 			);
 
-			yield* Effect.promise(() =>
-				waitFor(() => expect(savedDownloads).toEqual(["ryot-backup-backup_1.zip"])),
-			);
-			expect(revokedUrls).toEqual(["blob:ryot-archive"]);
+			yield* Effect.promise(() => waitFor(() => expect(downloads).toEqual(["backup_1"])));
 		}),
 	);
 

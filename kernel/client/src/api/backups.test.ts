@@ -3,75 +3,73 @@ import { BackupRunId } from "@ryot-app/contract/schema/brands";
 import { Effect, Layer, ManagedRuntime } from "effect";
 import { HttpClient, HttpClientResponse, type HttpClientRequest } from "effect/unstable/http";
 
-import { AuthenticatedApi, AuthenticatedApiError } from "#/api/authenticated";
-import { BackupsApi } from "#/api/backups";
+import { AuthenticatedApi, makeAuthenticatedApi } from "#/api/authenticated";
+import { BackupsApi, backupArchiveFileName } from "#/api/backups";
 import { decodeServerOrigin } from "#/api/origin";
 import type { ApiScope } from "#/api/scope";
+import type { OAuthTokenService } from "#/modules/auth/token-service";
+import { FileDownloads, type FileDownloadRequest } from "#/modules/downloads/file";
 
 const scope: ApiScope = { userId: "user-1", serverUrl: decodeServerOrigin("https://ryot.example") };
 const runId = BackupRunId.make("backup_1");
-const archiveBytes = new Uint8Array([80, 75, 3, 4]);
+const accessToken = "test.eyJzdWIiOiJ1c2VyLTEifQ.signature";
 
-const stubAuth = Layer.succeed(AuthenticatedApi, {
-	run: () => Effect.die("not used"),
-	authorization: () => Effect.succeed({ Authorization: "Bearer token-1" }),
-});
-
-const stubHttp = (respond: (request: HttpClientRequest.HttpClientRequest) => Response) => {
-	const seen: Array<{
-		readonly url: string;
-		readonly request: HttpClientRequest.HttpClientRequest;
-	}> = [];
-	return {
-		seen,
-		layer: Layer.succeed(
-			HttpClient.HttpClient,
-			HttpClient.make((request, url) => {
-				seen.push({ request, url: url.toString() });
-				return Effect.succeed(HttpClientResponse.fromWeb(request, respond(request)));
-			}),
-		),
-	};
+const tokens: OAuthTokenService["Service"] = {
+	clear: () => Effect.void,
+	logout: () => Effect.succeed(null),
+	userInfo: () => Effect.succeed(null),
+	accessToken: () => Effect.succeed(accessToken),
+	rejectAuthorization: () => Effect.die("not used"),
+	completeAuthorization: () => Effect.die("not used"),
 };
 
 const runDownload = Effect.flatMap(BackupsApi, (api) => api.downloadArchive(scope, runId));
 
 describe("backups API", () => {
-	it.live(
-		"sends the bearer header to the resolved download URL and returns the archive bytes",
-		() => {
-			const http = stubHttp(
-				() => new Response(archiveBytes, { headers: { "content-type": "application/zip" } }),
+	it.live("requests an authenticated ticket and starts a browser download with it", () => {
+		const seen: Array<{
+			readonly url: string;
+			readonly request: HttpClientRequest.HttpClientRequest;
+		}> = [];
+		const downloads: Array<FileDownloadRequest> = [];
+		const http = HttpClient.make((request, url) => {
+			seen.push({ request, url: url.toString() });
+			return Effect.succeed(
+				HttpClientResponse.fromWeb(
+					request,
+					Response.json({ url: "/backups/runs/backup_1/download?ticket=short-lived-ticket" }),
+				),
 			);
-			const runtime = ManagedRuntime.make(
-				BackupsApi.layer.pipe(Layer.provide(Layer.mergeAll(stubAuth, http.layer))),
-			);
-			return Effect.gen(function* () {
-				const blob = yield* Effect.promise(() => runtime.runPromise(runDownload));
-
-				expect(http.seen).toHaveLength(1);
-				expect(http.seen[0].url).toBe("https://ryot.example/api/backups/runs/backup_1/download");
-				expect(http.seen[0].request.method).toBe("GET");
-				expect(http.seen[0].request.headers).toMatchObject({ authorization: "Bearer token-1" });
-				expect(blob).toBeInstanceOf(Blob);
-				expect(blob.type).toBe("application/zip");
-				expect(new Uint8Array(yield* Effect.promise(() => blob.arrayBuffer()))).toEqual(
-					archiveBytes,
-				);
-			}).pipe(Effect.ensuring(Effect.promise(() => runtime.dispose())));
-		},
-	);
-
-	it.live("maps a rejected download status to its numeric cause", () => {
-		const http = stubHttp(() => new Response(null, { status: 404 }));
+		});
 		const runtime = ManagedRuntime.make(
-			BackupsApi.layer.pipe(Layer.provide(Layer.mergeAll(stubAuth, http.layer))),
+			BackupsApi.layer.pipe(
+				Layer.provide(
+					Layer.mergeAll(
+						Layer.succeed(AuthenticatedApi, makeAuthenticatedApi(tokens, http)),
+						Layer.succeed(FileDownloads, {
+							download: (request) => Effect.sync(() => downloads.push(request)),
+						}),
+					),
+				),
+			),
 		);
-		return Effect.gen(function* () {
-			const error = yield* Effect.promise(() => runtime.runPromise(Effect.flip(runDownload)));
-
-			expect(error).toBeInstanceOf(AuthenticatedApiError);
-			expect(error.cause).toBe(404);
-		}).pipe(Effect.ensuring(Effect.promise(() => runtime.dispose())));
+		return Effect.promise(() => runtime.runPromise(runDownload)).pipe(
+			Effect.tap(() =>
+				Effect.sync(() => {
+					expect(seen).toHaveLength(1);
+					expect(seen[0]?.url).toBe("https://ryot.example/api/backups/runs/backup_1/download-url");
+					expect(seen[0]?.request.headers).toMatchObject({
+						authorization: `Bearer ${accessToken}`,
+					});
+					expect(downloads).toEqual([
+						{
+							fileName: backupArchiveFileName(runId),
+							url: "https://ryot.example/api/backups/runs/backup_1/download?ticket=short-lived-ticket",
+						},
+					]);
+				}),
+			),
+			Effect.ensuring(Effect.promise(() => runtime.dispose())),
+		);
 	});
 });

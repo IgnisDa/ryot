@@ -155,7 +155,7 @@ BEGIN
 		oi.user_id,
 		oi.lot,
 		oi.provider,
-		CASE WHEN oi.lot = 'sink' THEN gen_random_uuid()::text ELSE NULL END,
+		CASE WHEN oi.lot = 'sink' THEN oi.id ELSE NULL END,
 		installations.installation_id,
 		oi.name,
 		COALESCE(oi.is_disabled, false),

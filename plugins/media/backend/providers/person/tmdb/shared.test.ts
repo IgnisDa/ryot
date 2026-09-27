@@ -14,7 +14,7 @@ const httpSuccess = (body: unknown) =>
 const makeHost = (httpCall: TmdbHost["httpCall"]) =>
 	defineSandboxTestHost(manifest, {
 		httpCall,
-		getUserPreferences: () => Effect.succeed({ allowNsfw: false, disableIntegrations: false }),
+		getUserSettings: () => Effect.succeed({ allowNsfw: false }),
 		getPluginConfig: (keys) =>
 			Effect.succeed(Object.fromEntries(keys.map((key) => [key, "token"]))),
 	});

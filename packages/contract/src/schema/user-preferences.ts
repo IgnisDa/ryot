@@ -7,7 +7,6 @@ const StoredLanguage = Schema.String.pipe(
 );
 
 export const userPreferenceFields = {
-	allowNsfw: Schema.Boolean,
 	disableIntegrations: Schema.Boolean,
 	language: Schema.NullOr(Schema.String),
 };
@@ -20,13 +19,11 @@ export type UserPreferences = typeof UserPreferences.Type;
 
 export const UserPreferencesPatch = strictStruct({
 	language: Schema.optional(userPreferenceFields.language),
-	allowNsfw: Schema.optional(userPreferenceFields.allowNsfw),
 	disableIntegrations: Schema.optional(userPreferenceFields.disableIntegrations),
 });
 export type UserPreferencesPatch = typeof UserPreferencesPatch.Type;
 
 export const defaultUserPreferences: UserPreferences = {
 	language: null,
-	allowNsfw: false,
 	disableIntegrations: false,
 };

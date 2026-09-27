@@ -1,6 +1,6 @@
 import { fileURLToPath } from "node:url";
 
-import { Effect } from "effect";
+import { Effect, FileSystem, Path } from "effect";
 import getPort from "get-port";
 
 import { runPromise } from "./src/support/e2e-runtime";
@@ -64,6 +64,9 @@ export default async () => {
 				yield* stopCoreTestInfrastructure(coreInfrastructure);
 			});
 			const startup = Effect.gen(function* () {
+				const fs = yield* FileSystem.FileSystem;
+				const path = yield* Path.Path;
+				const logDirectory = yield* fs.makeTempDirectory({ prefix: "ryot-e2e-server-logs-" });
 				const apiEnv = buildApiEnv({
 					frontendUrl,
 					label: "API",
@@ -82,6 +85,7 @@ export default async () => {
 						SERVER_OIDC_CLIENT_SECRET: "",
 						SERVER_DISABLE_NOTIFICATIONS: "false",
 						SERVER_SMTP_MAILBOX: "Ryot <no-reply@ryot.io>",
+						SERVER_LOG_FILE: path.join(logDirectory, "ryot.log"),
 					},
 				});
 				apiProcess = spawnApiProcess(apiEnv, serverCwd);
@@ -94,6 +98,7 @@ export default async () => {
 					shutdown,
 					frontendUrl,
 					pgLogPath: coreInfrastructure.pgLogPath,
+					logFile: String(apiEnv.SERVER_LOG_FILE),
 					apiUrl: `http://127.0.0.1:${apiPort}/api`,
 					adminToken: String(apiEnv.SERVER_ADMIN_ACCESS_TOKEN),
 				};
@@ -104,6 +109,7 @@ export default async () => {
 	process.env.E2E_FRONTEND_URL = setup.frontendUrl;
 	process.env.E2E_API_URL = setup.apiUrl;
 	process.env.E2E_ADMIN_ACCESS_TOKEN = setup.adminToken;
+	process.env.E2E_SERVER_LOG_FILE = setup.logFile;
 	console.info(`PostgreSQL logs: ${setup.pgLogPath}`);
 	return () => runPromise(setup.shutdown);
 };

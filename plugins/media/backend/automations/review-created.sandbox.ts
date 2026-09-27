@@ -7,7 +7,6 @@ export const manifest = defineManifest({
 	kind: "automation",
 	automationType: "automation",
 	requiredPluginConfigKeys: [],
-	requiredSystemConfigKeys: [],
 	name: "Review Created Detector",
 	slug: "automation.review-created",
 	capabilities: ["executeRyotql", "emitSignal"],

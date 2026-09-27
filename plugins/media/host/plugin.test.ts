@@ -523,7 +523,33 @@ it("declares the complete media-owned source", () => {
 		"https://coverartarchive.org",
 	);
 	expect(mediaPlugin.providers).toHaveLength(51);
-	expect(mediaPlugin.integrationProviders).toHaveLength(12);
+	expect(mediaPlugin.integrationProviders).toHaveLength(13);
+	expect(mediaPlugin.oauthProviders).toEqual([
+		{
+			slug: "spotify",
+			name: "Spotify",
+			clientIdConfigKey: "spotifyClientId",
+			scopes: ["user-read-recently-played"],
+			tokenEndpointAuth: "client_secret_basic",
+			clientSecretConfigKey: "spotifyClientSecret",
+			tokenUrl: "https://accounts.spotify.com/api/token",
+			authorizeUrl: "https://accounts.spotify.com/authorize",
+		},
+	]);
+	expect(mediaPlugin.integrationProviders.find(({ slug }) => slug === "spotify")).toMatchObject({
+		lot: "yank",
+		requiresProKey: true,
+		scriptSlug: "integration.spotify",
+		settingsSchema: {
+			fields: {
+				account: {
+					type: "string",
+					validation: { required: true },
+					format: { provider: "spotify", kind: "oauth-connection" },
+				},
+			},
+		},
+	});
 	expect(googleBooksSearchManifest).toMatchObject({
 		searchOptionsSchema: { unknownKeys: "strict" },
 	});
@@ -599,6 +625,7 @@ it("declares the complete media-owned source", () => {
 		},
 	]);
 	expect(mediaPlugin.importSources.map(({ slug }) => slug)).toEqual([
+		"spotify",
 		"netflix",
 		"goodreads",
 		"storygraph",
@@ -633,6 +660,10 @@ it("declares the complete media-owned source", () => {
 	expect(mediaPlugin.workflows).toContainEqual({
 		slug: "media-monitoring-sweep",
 		scriptSlug: "workflow.media-monitoring-sweep",
+	});
+	expect(mediaPlugin.workflows).toContainEqual({
+		slug: "media-import-segment",
+		scriptSlug: "workflow.media-import-segment",
 	});
 	expect(monitoringTargetsManifest).toMatchObject({
 		kind: "script",
@@ -721,6 +752,14 @@ it("keeps entity and import membership immediate and groups event membership by 
 			},
 		],
 	});
+});
+
+it("declares ownership sync only for integrations that import ownership", () => {
+	expect(
+		mediaPlugin.integrationProviders
+			.filter((provider) => "supportsOwnershipSync" in provider && provider.supportsOwnershipSync)
+			.map(({ slug }) => slug),
+	).toEqual(["komga", "plex_yank", "audiobookshelf"]);
 });
 
 it("records newly-created media library memberships as events", () => {

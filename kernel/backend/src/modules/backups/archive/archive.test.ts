@@ -32,12 +32,13 @@ const records: ArchiveRecords = {
 	profile: {
 		image: null,
 		name: "Test User",
-		preferences: { language: null, allowNsfw: false, disableIntegrations: false },
+		preferences: { language: null, disableIntegrations: false },
 	},
 	installations: [
 		{
 			config: {},
 			sortOrder: 0,
+			userSettings: {},
 			hiddenIntent: false,
 			id: "installation-1",
 			createdAt: timestamp,
