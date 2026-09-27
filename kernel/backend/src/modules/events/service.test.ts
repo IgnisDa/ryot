@@ -6,7 +6,7 @@ import {
 	UserId,
 } from "@ryot-app/contract/schema/brands";
 import { IsoUtcString } from "@ryot-app/contract/schema/utils";
-import { Context, Effect, Fiber, Layer, Ref } from "effect";
+import { Context, Effect, Exit, Fiber, Layer, Ref } from "effect";
 import { TestClock } from "effect/testing";
 import { Workflow } from "effect/workflow";
 import { WorkflowEngine } from "effect/workflow/WorkflowEngine";
@@ -14,11 +14,13 @@ import { WorkflowEngine } from "effect/workflow/WorkflowEngine";
 import { LifecyclePlanner } from "#lib/domain/lifecycle";
 import { rootLifecycleCommand } from "#lib/domain/lifecycle-command";
 import { LifecycleExecution } from "#lib/domain/lifecycle-execution";
+import { createWorkflowJobId, deriveJobIdSecret } from "#lib/shared/job-id";
 import { makeAppConfigLayer, makeWorkflowEngine } from "#lib/test-utils/effect";
 import { mutationAdmissionTestLayer } from "#lib/test-utils/mutation-admission";
 import { EntitiesRepository } from "#modules/entities/repository";
 import { EventSchemasRepository } from "#modules/event-schemas/repository";
 
+import { EventCreateWorkflow } from "./event-create-workflow";
 import { EventsRepository } from "./repository";
 import { EventsService } from "./service";
 
@@ -136,5 +138,49 @@ layer(serviceLayer)((test) => {
 				);
 				expect(denied._tag).toBe("EventOperationNotFound");
 			}),
+	);
+});
+
+const completedServiceLayer = EventsService.layer.pipe(
+	Layer.provide(
+		Layer.mergeAll(
+			Layer.mock(EventsRepository)({
+				getCreateProgress: () => Effect.succeed({ writtenCount: 1, requiredPending: false }),
+			}),
+			Layer.mock(EntitiesRepository)({}),
+			Layer.mock(EventSchemasRepository)({}),
+			mutationAdmissionTestLayer,
+			Layer.mock(LifecyclePlanner)({}),
+			Layer.mock(LifecycleExecution)({}),
+		),
+	),
+	Layer.provide(makeAppConfigLayer()),
+	Layer.provide(
+		Layer.succeed(
+			WorkflowEngine,
+			makeWorkflowEngine({
+				poll: (workflow, executionId) =>
+					workflow._tag === EventCreateWorkflow.interactive._tag && executionId === "http-request"
+						? Effect.succeedSome(new Workflow.Complete({ exit: Exit.succeed(result) }))
+						: Effect.succeedNone,
+			}),
+		),
+	),
+);
+
+layer(completedServiceLayer)((test) => {
+	test.effect("reads an interactive operation from the interactive event workflow", () =>
+		Effect.gen(function* () {
+			const operationId = createWorkflowJobId(
+				deriveJobIdSecret("test-admin-token", "events-operation-id"),
+				{ lane: "interactive", executionId: "http-request:1" },
+				userId,
+			);
+			expect(yield* (yield* EventsService).getCreateOperation(userId, operationId)).toEqual({
+				result,
+				operationId,
+				status: "completed",
+			});
+		}),
 	);
 });

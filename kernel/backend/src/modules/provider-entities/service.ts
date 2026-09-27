@@ -19,11 +19,7 @@ import { WorkflowEngine } from "effect/workflow/WorkflowEngine";
 
 import { rootLifecycleCommand } from "#lib/domain/lifecycle-command";
 import { AppConfig } from "#lib/infrastructure/config/service";
-import {
-	createWorkflowJobId,
-	deriveJobIdSecret,
-	resolveWorkflowExecutionId,
-} from "#lib/shared/job-id";
+import { createWorkflowJobId, deriveJobIdSecret, resolveWorkflowJob } from "#lib/shared/job-id";
 import { trimToNull } from "#lib/shared/validation";
 import { EntitiesRepository } from "#modules/entities/repository";
 import { PluginRuntimeResolver } from "#modules/plugins/runtime-resolver";
@@ -117,7 +113,13 @@ export class EntityImportService extends Context.Service<EntityImportService>()(
 						},
 					});
 				}
-				return { jobId: createWorkflowJobId(jobIdSecret, admitted.id, user.id) };
+				return {
+					jobId: createWorkflowJobId(
+						jobIdSecret,
+						{ executionId: admitted.id, lane: workflowPayload.command.causation.lane },
+						user.id,
+					),
+				};
 			});
 
 			const resolveJob = Effect.fn("EntityImportService.resolveJob")(function* (
@@ -125,27 +127,27 @@ export class EntityImportService extends Context.Service<EntityImportService>()(
 				jobId: string,
 			) {
 				const resolvedJobId = trimToNull(jobId);
-				const executionId = resolvedJobId
-					? resolveWorkflowExecutionId(jobIdSecret, user.id, resolvedJobId)
-					: null;
-				if (!executionId) {
+				const job = resolvedJobId ? resolveWorkflowJob(jobIdSecret, user.id, resolvedJobId) : null;
+				if (!job) {
 					return yield* new ProviderEntityNotFound({
 						reason: { jobId, code: "import-job-not-found" },
 					});
 				}
-				return executionId;
+				return job;
 			});
 
 			const getImportResult = Effect.fn("EntityImportService.getImportResult")(function* (
 				user: CurrentUserValue,
 				jobId: string,
 			) {
-				const executionId = yield* resolveJob(user, jobId);
+				const { lane, executionId } = yield* resolveJob(user, jobId);
 				const admitted = yield* admission.status({ id: executionId, userId: user.id });
 				if (admitted === "queued") {
 					return { status: "queued" } satisfies ImportEntityRunResult;
 				}
-				const result = Option.getOrUndefined(yield* engine.poll(EntityImportWorkflow, executionId));
+				const result = Option.getOrUndefined(
+					yield* engine.poll(EntityImportWorkflow.forLane(lane), executionId),
+				);
 				// A signed job with neither a ledger row nor a workflow was cancelled before admission.
 				if (result === undefined && admitted === null) {
 					return { status: "cancelled" } satisfies ImportEntityRunResult;
@@ -157,7 +159,7 @@ export class EntityImportService extends Context.Service<EntityImportService>()(
 				user: CurrentUserValue,
 				jobId: string,
 			) {
-				const executionId = yield* resolveJob(user, jobId);
+				const { executionId } = yield* resolveJob(user, jobId);
 				yield* admission.cancel({ id: executionId, userId: user.id });
 				return { jobId };
 			});

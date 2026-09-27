@@ -244,12 +244,15 @@ const childOwnerExecutionId = "sandbox-parent";
 const childOwnerDispatchLayer = Layer.unwrap(
 	Effect.gen(function* () {
 		const executions = yield* Ref.make<ReadonlyArray<WorkflowExecution>>([]);
-		const instance = WorkflowInstance.initial(SandboxScriptWorkflow, childOwnerExecutionId);
+		const instance = WorkflowInstance.initial(
+			SandboxScriptWorkflow.background,
+			childOwnerExecutionId,
+		);
 		const engine = makeWorkflowActivityEngine(instance, {
 			execute: (workflow, options) =>
 				append(executions, { options, workflow }).pipe(
 					Effect.as(
-						workflow.name === SandboxDurableHostServiceWorkflow.name
+						workflow.name === SandboxDurableHostServiceWorkflow.background.name
 							? { state: "success", value: { wasCreated: true, triggerId: "signal-trigger-1" } }
 							: options.executionId,
 					),
@@ -324,7 +327,7 @@ layer(childOwnerDispatchLayer)((test) => {
 				).toEqual({ value: null, state: "success" });
 				expect(yield* (yield* RecordedWorkflowExecutions).executions).toMatchObject([
 					{
-						workflow: SandboxDurableHostServiceWorkflow,
+						workflow: SandboxDurableHostServiceWorkflow.background,
 						options: { executionId: "sandbox-parent-host-service-0" },
 					},
 					{
@@ -344,7 +347,7 @@ class RecordedImportHostInputs extends Context.Service<
 const importHostDispatchLayer = Layer.unwrap(
 	Effect.gen(function* () {
 		const inputs = yield* Ref.make<ReadonlyArray<unknown>>([]);
-		const instance = WorkflowInstance.initial(SandboxScriptWorkflow, "run-1-import");
+		const instance = WorkflowInstance.initial(SandboxScriptWorkflow.background, "run-1-import");
 		const engine = makeWorkflowActivityEngine(instance, {
 			activityExecute: (activity) =>
 				Effect.map(Effect.exit(activity.execute), (exit) => new Workflow.Complete({ exit })),
@@ -504,7 +507,7 @@ const httpDispatchLayer = (options: {
 					},
 				]),
 			);
-			const instance = WorkflowInstance.initial(SandboxScriptWorkflow, httpExecutionId);
+			const instance = WorkflowInstance.initial(SandboxScriptWorkflow.background, httpExecutionId);
 			let engine: WorkflowEngine["Service"];
 			engine = makeWorkflowActivityEngine(instance, {
 				deferredResult: () => Effect.succeedSome(Exit.void),
@@ -1113,7 +1116,10 @@ const interruptedExecutionId = "sandbox-http-interrupted";
 
 const interruptedDispatchLayer = Layer.unwrap(
 	Effect.sync(() => {
-		const instance = WorkflowInstance.initial(SandboxScriptWorkflow, interruptedExecutionId);
+		const instance = WorkflowInstance.initial(
+			SandboxScriptWorkflow.background,
+			interruptedExecutionId,
+		);
 		return dispatcherLayer({
 			instance,
 			resolve: () => Effect.succeed(unmatched()),
@@ -1190,7 +1196,7 @@ const lifecycleDispatchLayer = (options: {
 			const record = (entry: string) => append(recorded, entry);
 			const lifecycle = yield* Ref.make(options.lifecycle(record));
 			const instance = WorkflowInstance.initial(
-				SandboxScriptWorkflow,
+				SandboxScriptWorkflow.background,
 				lifecyclePayload.executionId,
 			);
 			let engine: WorkflowEngine["Service"];

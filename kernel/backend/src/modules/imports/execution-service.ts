@@ -81,6 +81,7 @@ export class IngestionExecution extends Context.Service<IngestionExecution>()(
 							error: Schema.Unknown,
 							success: Schema.Unknown,
 							payload: Schema.Struct({}),
+							annotations: workflow.annotations,
 							idempotencyKey: () => owner.executionId,
 						});
 						yield* engine.interrupt(workflow, owner.executionId);

@@ -510,8 +510,10 @@ layer(mutationCommands.layer)((test) => {
 
 const sandboxEnqueues = recordingServiceLayer<unknown>((record) => ({
 	sandbox: {
-		enqueue: (userId, payload) =>
-			record({ userId, payload }).pipe(Effect.as({ jobId: "job-id", executionId: "execution-id" })),
+		enqueue: (userId, payload, lane) =>
+			record({ lane, userId, payload }).pipe(
+				Effect.as({ jobId: "job-id", executionId: "execution-id" }),
+			),
 	},
 }));
 
@@ -524,8 +526,9 @@ layer(sandboxEnqueues.layer)((test) => {
 				yield* service.enqueueSandbox({ scriptId, executingUserId, lane: "interactive" }),
 			).toEqual({ jobId: "job-id", executionId: "execution-id" });
 			expect((yield* sandboxEnqueues.recorded).at(-1)).toEqual({
+				lane: "interactive",
+				payload: { scriptId },
 				userId: executingUserId,
-				payload: { scriptId, lane: "interactive" },
 			});
 		});
 	});

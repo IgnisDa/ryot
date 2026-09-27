@@ -90,6 +90,15 @@ const liveSubmissionLayer = Layer.unwrap(
 			Layer.provide(
 				Layer.mock(AutomationRunRepository)({
 					findById: (id) => Effect.succeed(queuedRunFixture(id)),
+					listDispatchStates: ([id]) =>
+						Effect.succeed([
+							{
+								attemptCount: 0,
+								status: "queued" as const,
+								id: AutomationRunId.make(id ?? ""),
+								lane: id === "missed" ? ("interactive" as const) : ("background" as const),
+							},
+						]),
 				}),
 			),
 			Layer.provide(AutomationAttemptRepository.layer),
@@ -116,7 +125,11 @@ layer(liveSubmissionLayer)((test) => {
 					),
 				};
 				expect(yield* (yield* ReconciliationCalls).reads).toEqual([read, read]);
-				const expected = [candidate("missed"), candidate("retry", 3)].map((run) => ({
+				const expected = [
+					{ ...candidate("missed"), workflowName: "AutomationRunWorkflowInteractive" },
+					{ ...candidate("retry", 3), workflowName: "AutomationRunWorkflow" },
+				].map(({ workflowName, ...run }) => ({
+					workflowName,
 					discard: true,
 					payload: { runId: run.id, acceptedPatches: [], attemptNumber: run.attemptCount + 1 },
 					executionId: automationAttemptIdentity(run.id, run.attemptCount + 1).workflowExecutionId,

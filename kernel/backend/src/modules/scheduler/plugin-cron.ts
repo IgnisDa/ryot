@@ -90,7 +90,7 @@ export class PluginCronService extends Context.Service<PluginCronService>()("Plu
 				dispatchAdmittedWorkflow(
 					receipts,
 					engine,
-					SandboxScriptWorkflow,
+					SandboxScriptWorkflow.background,
 					resolved.subject.type === "system" ? null : resolved.subject.accountGeneration,
 					{
 						executionId,
