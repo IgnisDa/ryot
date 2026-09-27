@@ -11,7 +11,6 @@ import { PluginManifest } from "@ryot-app/contract/modules/plugins/manifest";
 import { RyotQLDocument } from "@ryot-app/contract/modules/ryotql/language";
 import { jsonValueSchema, type JsonValue } from "@ryot-app/contract/modules/sandbox/wire";
 import { KernelSavedViewRendererName } from "@ryot-app/contract/modules/saved-views/schemas";
-import { CanonicalBase64 } from "@ryot-app/contract/schema/base64";
 import { UserPreferences } from "@ryot-app/contract/schema/user-preferences";
 import { strictStruct } from "@ryot-app/contract/schema/utils";
 import { Schema } from "effect";
@@ -93,7 +92,6 @@ export type ArchiveProfile = typeof ArchiveProfile.Type;
 
 export const ArchivePluginCompiledScript = strictStruct({
 	entry: Schema.String,
-	source: Schema.String,
 	format: positiveInteger,
 	javascript: Schema.String,
 });
@@ -105,7 +103,6 @@ export const ArchivePrivatePlugin = strictStruct({
 	slug: Schema.String,
 	version: Schema.String,
 	manifest: PluginManifest,
-	files: Schema.Record(Schema.String, CanonicalBase64),
 	compiledScripts: Schema.Array(ArchivePluginCompiledScript),
 	compiledClient: Schema.optional(PluginClientArtifactFromBase64),
 });

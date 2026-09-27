@@ -3,12 +3,12 @@ import { expect, layer } from "@effect/vitest";
 import { clientArtifactFile, clientArtifactMetadata } from "@ryot-app/client-plugin-contract";
 import type { PluginManifest } from "@ryot-app/contract/modules/plugins/manifest";
 import { readPluginArchive, writePluginArchive } from "@ryot-app/plugin-archive";
-import { Effect } from "effect";
+import { ViteBuildService } from "@ryot-app/vite-compiler";
+import { Effect, Layer } from "effect";
 
 import { normalizePluginSource } from "./pipeline";
 import { loadPluginSource } from "./source.test-support";
 import { fixtureManifest, fixturePackageRoot } from "./test-support";
-import { validatePluginSourcePaths } from "./validation";
 
 const manifest = () => ({
 	...fixtureManifest(),
@@ -25,24 +25,7 @@ const manifest = () => ({
 	},
 });
 
-layer(BunFileSystem.layer)((test) => {
-	test.effect("requires every advertised public client export to exist in the package", () =>
-		Effect.gen(function* () {
-			const error = yield* Effect.flip(
-				validatePluginSourcePaths(
-					{
-						"client/index.tsx": new Uint8Array(),
-						"backend/automations/fixture.sandbox.ts": new Uint8Array(),
-					},
-					manifest(),
-				),
-			);
-			expect(error.issues).toEqual([
-				"Plugin client public export card entry is missing from files: client/card.tsx",
-			]);
-		}),
-	);
-
+layer(Layer.merge(BunFileSystem.layer, ViteBuildService.layer))((test) => {
 	test.effect("accepts the precompiled client artifact when its content hash matches", () =>
 		Effect.gen(function* () {
 			const pluginManifest = {
@@ -106,7 +89,6 @@ layer(BunFileSystem.layer)((test) => {
 			const source = yield* loadPluginSource(fixturePackageRoot(), pluginManifest);
 			const error = yield* Effect.flip(
 				normalizePluginSource({
-					files: source.files,
 					manifest: pluginManifest,
 					compiledScripts: source.compiledScripts,
 				}),
