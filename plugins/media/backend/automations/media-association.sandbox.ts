@@ -11,7 +11,6 @@ export const manifest = defineManifest({
 	automationType: "automation",
 	name: "Media Association Detector",
 	slug: "automation.media-association",
-	capabilities: ["executeRyotql", "emitSignal"],
 	inputProjection: {
 		relationship: { properties: ["roles"], compareProperties: [], parentEntityProperties: [] },
 	},

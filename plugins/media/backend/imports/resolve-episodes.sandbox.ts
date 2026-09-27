@@ -7,7 +7,6 @@ import { resolveEpisodes } from "../operations/resolve-episodes";
 export const manifest = defineManifest({
 	kind: "script",
 	slug: "import.resolve-episodes",
-	capabilities: ["executeRyotql"],
 	name: "Resolve imported episodes",
 });
 

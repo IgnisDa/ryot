@@ -9,7 +9,6 @@ import { audibleFetchJson } from "../../../lib/vendors/audible";
 export const manifest = defineManifest({
 	name: "Audible",
 	kind: "provider",
-	capabilities: ["httpCall"],
 	slug: "audiobook-group.audible",
 });
 

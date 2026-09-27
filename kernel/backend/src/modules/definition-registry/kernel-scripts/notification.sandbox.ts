@@ -8,7 +8,6 @@ export const manifest = defineManifest({
 	name: "Signal Notification",
 	automationType: "automation",
 	slug: "automation.notification",
-	capabilities: ["sendNotification"],
 	inputProjection: { signal: { properties: ["providerName"] } },
 });
 

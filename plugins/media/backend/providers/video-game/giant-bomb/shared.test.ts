@@ -1,4 +1,4 @@
-import type { SandboxHost } from "@ryot-app/sandbox-sdk/core";
+import type { ScriptHost } from "@ryot-app/sandbox-sdk/core";
 import { Effect } from "@ryot-app/sandbox-sdk/effect";
 import { defineSandboxTestHost, runSandboxTestScript } from "@ryot-app/sandbox-sdk/testing";
 import { describe, expect, it } from "vitest";
@@ -7,7 +7,7 @@ import details, { manifest as detailsManifest } from "./details.sandbox";
 import search, { manifest as searchManifest } from "./search.sandbox";
 import { manifest } from "./shared";
 
-type GiantBombHost = SandboxHost<typeof manifest.capabilities>;
+type GiantBombHost = Pick<ScriptHost, "httpCall" | "getPluginConfig">;
 const httpSuccess = (body: unknown) =>
 	Effect.succeed({ status: 200, headers: {}, body: JSON.stringify(body) });
 const makeHost = (httpCall: GiantBombHost["httpCall"]) =>
@@ -18,13 +18,13 @@ const makeHost = (httpCall: GiantBombHost["httpCall"]) =>
 	});
 const execution = { metadata: {}, sandboxScriptId: "script_test" };
 describe("video-game.giant-bomb sandbox script", () => {
-	it("declares one narrowly scoped script per operation", () => {
+	it("declares a script for each operation", () => {
 		expect([
-			[searchManifest.slug, search.operation, searchManifest.capabilities],
-			[detailsManifest.slug, details.operation, detailsManifest.capabilities],
+			[searchManifest.slug, search.operation],
+			[detailsManifest.slug, details.operation],
 		]).toEqual([
-			["video-game.giant-bomb.search", "search", ["httpCall", "getPluginConfig"]],
-			["video-game.giant-bomb.details", "details", ["httpCall", "getPluginConfig"]],
+			["video-game.giant-bomb.search", "search"],
+			["video-game.giant-bomb.details", "details"],
 		]);
 	});
 	it("maps search hits from the GiantBomb search endpoint", () => {

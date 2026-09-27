@@ -5,7 +5,6 @@ export const manifest = defineManifest({
 	kind: "script",
 	slug: "bootstrap.media-workspace",
 	name: "Initialize Media Workspace",
-	capabilities: ["ensureUserEntities"],
 });
 
 export default defineScript({

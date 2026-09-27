@@ -1,16 +1,19 @@
-import type { SandboxHost } from "@ryot-app/sandbox-sdk/core";
+import type { ScriptHost } from "@ryot-app/sandbox-sdk/core";
 import { Effect } from "@ryot-app/sandbox-sdk/effect";
 import { defineSandboxTestHost, runSandboxTestScript } from "@ryot-app/sandbox-sdk/testing";
 import { describe, expect, it } from "vitest";
 
 import { details, manifest, search } from "./shared";
 
-type IgdbCompanyHost = SandboxHost<typeof manifest.capabilities>;
+type IgdbCompanyHost = Pick<
+	ScriptHost,
+	"httpCall" | "getPluginConfig" | "getCachedValue" | "setCachedValue"
+>;
 
 const httpSuccess = (body: unknown, headers: Record<string, string> = {}) =>
 	Effect.succeed({ headers, status: 200, body: JSON.stringify(body) });
 
-const makeHost = (overrides: Partial<IgdbCompanyHost>): IgdbCompanyHost =>
+const makeHost = (overrides: Partial<IgdbCompanyHost>) =>
 	defineSandboxTestHost(manifest, {
 		setCachedValue: () => Effect.succeed(null),
 		httpCall: () => Effect.fail({ message: "no route" }),

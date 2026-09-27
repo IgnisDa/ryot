@@ -27,7 +27,6 @@ import { mediaSortedRuns } from "./sorted-runs";
 
 export const manifest = defineManifest({
 	kind: "workflow",
-	capabilities: [],
 	slug: "workflow.media-integration",
 	name: "Media integration ingestion",
 });

@@ -13,7 +13,6 @@ export const manifest = defineManifest({
 	kind: "script",
 	name: "Plex yank",
 	slug: "integration.plex-yank",
-	capabilities: ["httpCall", "getCurrentIntegration", "scratch", "artifact-read"],
 });
 
 const StringOrNumber = Schema.Union([Schema.String, Schema.Finite]);

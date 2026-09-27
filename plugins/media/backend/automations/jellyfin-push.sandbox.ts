@@ -24,14 +24,6 @@ export const manifest = defineManifest({
 	automationType: "automation",
 	slug: "trigger.jellyfin-push",
 	inputProjection: { event: { properties: [], compareProperties: [] } },
-	capabilities: [
-		"log",
-		"httpCall",
-		"executeRyotql",
-		"getEntitySchemas",
-		"listIntegrations",
-		"getUserPreferences",
-	],
 });
 
 type JellyfinSession = { readonly userId: string; readonly accessToken: string };
