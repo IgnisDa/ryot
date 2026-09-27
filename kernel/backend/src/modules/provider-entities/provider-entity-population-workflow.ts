@@ -17,7 +17,7 @@ import { jsonValueSchema } from "@ryot-app/sandbox-sdk/wire";
 import { sha256Base64Url } from "@ryot-app/ts-utils/crypto";
 import { stableStringify } from "@ryot-app/ts-utils/json";
 import { Cause, DateTime, Effect, Schedule, Schema } from "effect";
-import { Workflow } from "effect/unstable/workflow";
+import { Workflow } from "effect/workflow";
 
 import { LifecycleDispatchPlan } from "#lib/domain/lifecycle";
 import { populationLifecycleCommand } from "#lib/domain/lifecycle-command";

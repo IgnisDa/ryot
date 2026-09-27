@@ -7,8 +7,8 @@ import {
 } from "@ryot-app/contract/modules/god-mode/user-lifecycle";
 import { UserId } from "@ryot-app/contract/schema/brands";
 import { Cause, Context, DateTime, Effect, Layer, Result, Schema } from "effect";
-import { Activity, Workflow } from "effect/unstable/workflow";
-import { WorkflowEngine } from "effect/unstable/workflow/WorkflowEngine";
+import { Activity, Workflow } from "effect/workflow";
+import { WorkflowEngine } from "effect/workflow/WorkflowEngine";
 
 import { DatabaseSession } from "#lib/infrastructure/db/session";
 import type { DurableSchema } from "#lib/infrastructure/workflow";

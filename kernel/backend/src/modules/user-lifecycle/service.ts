@@ -6,7 +6,7 @@ import {
 import type { UserLifecycleOperationKind } from "@ryot-app/contract/modules/god-mode/user-lifecycle";
 import type { UserId } from "@ryot-app/contract/schema/brands";
 import { Cause, Context, DateTime, Effect, Layer, Result } from "effect";
-import { WorkflowEngine } from "effect/unstable/workflow/WorkflowEngine";
+import { WorkflowEngine } from "effect/workflow/WorkflowEngine";
 
 import { AppConfig } from "#lib/infrastructure/config/service";
 import { mapDatabaseErrors } from "#lib/infrastructure/db/errors";

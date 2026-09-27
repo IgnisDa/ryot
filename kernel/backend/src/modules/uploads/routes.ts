@@ -3,8 +3,8 @@ import { AppContract } from "@ryot-app/contract/contract";
 import { BadRequest } from "@ryot-app/contract/errors";
 import { UploadBadRequest, UploadInternalError } from "@ryot-app/contract/modules/uploads/schemas";
 import { Effect, FileSystem } from "effect";
-import { HttpServerResponse } from "effect/unstable/http";
-import { HttpApiBuilder } from "effect/unstable/httpapi";
+import { HttpServerResponse } from "effect/http";
+import { HttpApiBuilder } from "effect/http-api";
 
 import { UploadIntentsService } from "./intents/service";
 import { ManagedAssetsService } from "./managed-assets/service";

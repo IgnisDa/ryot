@@ -1,7 +1,7 @@
 import { IngestionCapture, IngestionScope } from "@ryot-app/contract/modules/imports/ingestion";
 import { stableStringify } from "@ryot-app/ts-utils/json";
 import { Effect, FileSystem, Schema } from "effect";
-import { Workflow } from "effect/unstable/workflow";
+import { Workflow } from "effect/workflow";
 
 import { DatabaseSession } from "#lib/infrastructure/db/session";
 import { implementWorkflow } from "#lib/infrastructure/workflow-scope";

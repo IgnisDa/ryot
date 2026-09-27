@@ -6,7 +6,7 @@ import type {
 } from "@ryot-app/contract/modules/sandbox/schemas";
 import type { SandboxScriptId } from "@ryot-app/contract/schema/brands";
 import { Context, type Effect, type Scope } from "effect";
-import type { WorkflowEngine } from "effect/unstable/workflow/WorkflowEngine";
+import type { WorkflowEngine } from "effect/workflow/WorkflowEngine";
 
 export class KernelWorkflowReferences extends Context.Service<
 	KernelWorkflowReferences,

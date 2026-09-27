@@ -3,7 +3,7 @@ import { AppContract } from "@ryot-app/contract/contract";
 import { dieOnDbError } from "@ryot-app/contract/errors";
 import { PreparedClientPage } from "@ryot-app/contract/modules/client-pages/schemas";
 import { Effect, Schema } from "effect";
-import { HttpApiBuilder } from "effect/unstable/httpapi";
+import { HttpApiBuilder } from "effect/http-api";
 
 import { ClientPagesService } from "./service";
 

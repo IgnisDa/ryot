@@ -1,7 +1,7 @@
 import { AuthUnauthorized } from "@ryot-app/contract/auth-middleware";
 import { makeContractClient, type ContractProgram } from "@ryot-app/contract/client";
 import { Context, Data, Effect, Layer } from "effect";
-import { HttpClient } from "effect/unstable/http";
+import { HttpClient } from "effect/http";
 
 import { serverApiUrl, type ServerOrigin } from "#/api/origin";
 import { FileDownloads } from "#/modules/downloads/file";

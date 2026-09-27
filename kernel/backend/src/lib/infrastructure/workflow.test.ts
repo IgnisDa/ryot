@@ -1,6 +1,6 @@
 import { layer } from "@effect/vitest";
 import { Effect, Layer, Schema } from "effect";
-import { Workflow } from "effect/unstable/workflow";
+import { Workflow } from "effect/workflow";
 
 import { implementWorkflow } from "#lib/infrastructure/workflow-scope";
 import { workflowEngineTestLayer } from "#lib/test-utils/effect";

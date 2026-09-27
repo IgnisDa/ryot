@@ -4,8 +4,8 @@ import { SandboxRunError } from "@ryot-app/contract/errors";
 import { AutomationExecutionId } from "@ryot-app/contract/schema/brands";
 import { IsoUtcString } from "@ryot-app/contract/schema/utils";
 import { Effect, Layer } from "effect";
-import { Workflow } from "effect/unstable/workflow";
-import { WorkflowEngine, WorkflowInstance } from "effect/unstable/workflow/WorkflowEngine";
+import { Workflow } from "effect/workflow";
+import { WorkflowEngine, WorkflowInstance } from "effect/workflow/WorkflowEngine";
 
 import { rootLifecycleCommand } from "#lib/domain/lifecycle-command";
 import { SandboxArtifactStore } from "#lib/infrastructure/sandbox-runtime/artifacts";

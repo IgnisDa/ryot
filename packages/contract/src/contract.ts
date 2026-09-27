@@ -1,4 +1,4 @@
-import { HttpApi, OpenApi } from "effect/unstable/httpapi";
+import { HttpApi, OpenApi } from "effect/http-api";
 
 import { AutomationHistoryGroup, AutomationsGroup } from "./modules/automations/contract";
 import { BackupDownloadsGroup, BackupsGroup } from "./modules/backups/contract";

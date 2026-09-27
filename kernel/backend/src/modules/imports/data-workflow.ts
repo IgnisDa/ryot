@@ -13,8 +13,8 @@ import {
 import type { GenericImportWriteItem } from "@ryot-app/sandbox-sdk/imports";
 import { stableStringify } from "@ryot-app/ts-utils/json";
 import { Cause, DateTime, Effect, Layer, Schema } from "effect";
-import { Workflow } from "effect/unstable/workflow";
-import { WorkflowEngine, WorkflowInstance } from "effect/unstable/workflow/WorkflowEngine";
+import { Workflow } from "effect/workflow";
+import { WorkflowEngine, WorkflowInstance } from "effect/workflow/WorkflowEngine";
 
 import {
 	collectManagedAssetLocators,

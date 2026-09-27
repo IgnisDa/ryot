@@ -1,5 +1,5 @@
 import { Effect } from "effect";
-import { WorkflowEngine } from "effect/unstable/workflow/WorkflowEngine";
+import { WorkflowEngine } from "effect/workflow/WorkflowEngine";
 
 import type { DatabaseSession } from "#lib/infrastructure/db/session";
 import { MutationReceipts } from "#modules/mutations/receipts";

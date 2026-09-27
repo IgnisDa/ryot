@@ -5,7 +5,7 @@ import {
 } from "@paddle/paddle-node-sdk";
 import { desc, eq, type InferSelectModel } from "drizzle-orm";
 import { Effect } from "effect";
-import type { HttpClient } from "effect/unstable/http";
+import type { HttpClient } from "effect/http";
 import { data } from "react-router";
 
 import { customerPurchase, type customer } from "~/drizzle/schema.server";

@@ -1,6 +1,6 @@
 import { BunServices } from "@effect/platform-bun";
 import { Layer } from "effect";
-import { FetchHttpClient } from "effect/unstable/http";
+import { FetchHttpClient } from "effect/http";
 
 import { AppConfig } from "#lib/infrastructure/config/service";
 import { MigrationsComplete } from "#lib/infrastructure/db/migrate";

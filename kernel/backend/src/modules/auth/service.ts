@@ -42,8 +42,8 @@ import { verifyBearerToken } from "better-auth/oauth2";
 import { genericOAuth, jwt, twoFactor } from "better-auth/plugins";
 import { eq } from "drizzle-orm";
 import { Cause, Context, Effect, Layer, Option, Redacted, Schema } from "effect";
-import { HttpServerRequest, type HttpServerResponse } from "effect/unstable/http";
-import type { HttpApiEndpoint } from "effect/unstable/httpapi";
+import { HttpServerRequest, type HttpServerResponse } from "effect/http";
+import type { HttpApiEndpoint } from "effect/http-api";
 import type Redis from "ioredis";
 
 import { AppConfig, type AppConfigValue, isOidcEnabled } from "#lib/infrastructure/config/service";

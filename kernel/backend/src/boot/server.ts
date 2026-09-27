@@ -10,8 +10,8 @@ import {
 	HttpServerRequest,
 	HttpServerRespondable,
 	HttpServerResponse,
-} from "effect/unstable/http";
-import { HttpApiBuilder, HttpApiError, HttpApiScalar } from "effect/unstable/httpapi";
+} from "effect/http";
+import { HttpApiBuilder, HttpApiError, HttpApiScalar } from "effect/http-api";
 
 import { AppConfig } from "#lib/infrastructure/config/service";
 import { logHttpResponseAtRoot } from "#lib/infrastructure/http-response-logger";

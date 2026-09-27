@@ -859,7 +859,7 @@ export class PluginInstallationService extends Context.Service<PluginInstallatio
 								new PluginRequestError({
 									reason: {
 										code: "validation-failed",
-										diagnostics: error.issues.map((message) => ({
+										diagnostics: error.issues.map((message: string) => ({
 											message,
 											phase: "validate" as const,
 											severity: "error" as const,

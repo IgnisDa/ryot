@@ -1,5 +1,5 @@
 import { Cause, Exit, Option } from "effect";
-import type { Workflow } from "effect/unstable/workflow";
+import type { Workflow } from "effect/workflow";
 
 export type WorkflowRunResult<Completed extends object> =
 	| { readonly status: "pending" }

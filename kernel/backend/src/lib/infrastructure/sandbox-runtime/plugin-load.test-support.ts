@@ -3,7 +3,7 @@ import { SandboxRunError, unknownToMessage } from "@ryot-app/contract/errors";
 import { sandboxCompilerPlatformLayer } from "@ryot-app/sandbox-compiler/platform";
 import { sha256Hex } from "@ryot-app/ts-utils/crypto";
 import { Effect, FileSystem, Layer, Path, Schema, Stream } from "effect";
-import { ChildProcess } from "effect/unstable/process";
+import { ChildProcess } from "effect/process";
 
 import { loadPluginSandboxScripts } from "#modules/plugins/source.test-support";
 

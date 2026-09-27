@@ -12,7 +12,8 @@ import {
 import { sandboxRuntimePayload } from "@ryot-app/kernel-backend/lib/infrastructure/sandbox-runtime/runtime-payload.generated";
 import { runProcessCapturing } from "@ryot-app/sandbox-compiler/runtime-build/process";
 import { hostSuccess } from "@ryot-app/sandbox-sdk/wire";
-import { Clock, Crypto, Data, Effect, Encoding, FileSystem, Layer, Path, Schema } from "effect";
+import { Clock, Crypto, Data, Effect, FileSystem, Layer, Path, Schema } from "effect";
+import { Hex } from "effect/encoding";
 
 class SandboxRuntimeSmokeError extends Data.TaggedError("SandboxRuntimeSmokeError")<{
 	readonly message: string;
@@ -68,7 +69,7 @@ const program = Effect.gen(function* () {
 	const root = yield* fs.makeTempDirectoryScoped({ prefix: "ryot-production-runtime-smoke-" });
 	const runnerPath = `${root}/runner.mjs`;
 	yield* fs.writeFileString(runnerPath, sandboxRunnerSource);
-	const sourceHash = Encoding.encodeHex(
+	const sourceHash = Hex.encode(
 		yield* crypto.digest("SHA-256", new TextEncoder().encode(compiledSource)),
 	);
 	const modulePath = yield* materializeSandboxCompiledModule(runtime, sourceHash, compiledSource);

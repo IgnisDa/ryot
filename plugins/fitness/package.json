@@ -39,10 +39,10 @@
 		"@ryot-app/ryotql": "workspace:*",
 		"@ryot-app/ryotql-recipes": "workspace:*",
 		"@ryot-app/sandbox-sdk": "workspace:*",
-		"effect": "4.0.0-rc.117"
+		"effect": "4.0.0"
 	},
 	"devDependencies": {
-		"@effect/vitest": "4.0.0-rc.117",
+		"@effect/vitest": "4.0.0",
 		"@ryot-app/cli": "workspace:*",
 		"@ryot-app/client-sdk": "workspace:*",
 		"@ryot-app/client-ui-sdk": "workspace:*",

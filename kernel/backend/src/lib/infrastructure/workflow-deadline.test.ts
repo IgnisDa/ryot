@@ -1,9 +1,9 @@
 import { expect, it, layer } from "@effect/vitest";
 import { Clock, Effect, Fiber, Layer, Option, Schema } from "effect";
+import { PersistedQueue } from "effect/persistence";
 import { TestClock } from "effect/testing";
-import { PersistedQueue } from "effect/unstable/persistence";
-import { Workflow, DurableQueue } from "effect/unstable/workflow";
-import { WorkflowEngine, WorkflowInstance } from "effect/unstable/workflow/WorkflowEngine";
+import { Workflow, DurableQueue } from "effect/workflow";
+import { WorkflowEngine, WorkflowInstance } from "effect/workflow/WorkflowEngine";
 
 import { makeWorkflowEngine, workflowEngineTestLayer } from "#lib/test-utils/effect";
 

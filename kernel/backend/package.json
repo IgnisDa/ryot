@@ -20,8 +20,8 @@
 		"@better-auth/redis-storage": "1.7.2",
 		"@dicebear/core": "10.6.0",
 		"@dicebear/styles": "10.5.0",
-		"@effect/platform-bun": "4.0.0-rc.117",
-		"@effect/sql-pg": "4.0.0-rc.117",
+		"@effect/platform-bun": "4.0.0",
+		"@effect/sql-pg": "4.0.0",
 		"@react-email/components": "1.0.7",
 		"@ryot-app/client-plugin-contract": "workspace:*",
 		"@ryot-app/config": "workspace:*",
@@ -38,7 +38,7 @@
 		"@unkey/api": "2.3.5",
 		"better-auth": "1.7.2",
 		"drizzle-orm": "1.0.0-rc.5-169397b",
-		"effect": "4.0.0-rc.117",
+		"effect": "4.0.0",
 		"fflate": "0.8.3",
 		"ioredis": "5.11.1",
 		"nodemailer": "8.0.10",
@@ -48,7 +48,7 @@
 		"rotating-file-stream": "3.2.10"
 	},
 	"devDependencies": {
-		"@effect/vitest": "4.0.0-rc.117",
+		"@effect/vitest": "4.0.0",
 		"@ryot-app/ryotql": "workspace:*",
 		"@ryot-app/testing": "workspace:*",
 		"@testcontainers/postgresql": "11.14.0",

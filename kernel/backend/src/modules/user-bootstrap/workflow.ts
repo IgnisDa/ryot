@@ -2,7 +2,7 @@ import { InternalError, internalError, unknownToMessage } from "@ryot-app/contra
 import { AccountGeneration } from "@ryot-app/contract/schema/account-generation";
 import { UserId } from "@ryot-app/contract/schema/brands";
 import { Cause, Context, Duration, Effect, Layer, Result, Schema } from "effect";
-import { DurableClock, Workflow } from "effect/unstable/workflow";
+import { DurableClock, Workflow } from "effect/workflow";
 
 import type { DurableSchema } from "#lib/infrastructure/workflow";
 import { implementWorkflow, makeActivity } from "#lib/infrastructure/workflow-scope";
