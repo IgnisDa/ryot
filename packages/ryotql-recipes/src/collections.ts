@@ -305,6 +305,7 @@ export const collectionMembersRecipe = defineRecipe(
 								(cells) => ({
 									cells,
 									name: member.name,
+									presentation: null,
 									entityId: member.entityId,
 									ownerPluginId: member.ownerPluginId,
 									entitySchemaSlug: member.entitySchemaSlug,
