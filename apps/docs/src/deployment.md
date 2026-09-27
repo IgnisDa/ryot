@@ -134,3 +134,11 @@ with the URL chosen.
 The instance will be available under your newly created URL via HTTPS if it
 is enabled. You can then proceed with creating your first user via the web
 interface's registration page.
+
+## Cloudzy
+
+[![Deploy Ryot on Cloudzy](https://design.cloudzy.com/logo/cloudzy-light-marketplace-badge-147x32.svg)](https://cloudzy.com/marketplace/ryot/)
+
+Deploy Ryot on a Cloudzy VPS using the one-click installer. Cloudzy provides a preconfigured Ryot self-hosted tracker on Ubuntu Server 24.04 LTS using Docker Compose, so you can get started without setting up the server manually.
+
+See the [Ryot one-click deployment page on the Cloudzy Marketplace](https://cloudzy.com/marketplace/ryot/) for Docker management commands, configuration files, and Cloudzy-specific installation paths.
