@@ -19,7 +19,6 @@ import { automationInputSchema } from "@ryot-app/sandbox-sdk/automation";
 import type { SandboxHostImplementationMap as SdkSandboxHostImplementationMap } from "@ryot-app/sandbox-sdk/core";
 import type { SandboxHostError } from "@ryot-app/sandbox-sdk/wire";
 import type {
-	WorkflowReplayJournalEntry,
 	WorkflowDurableCallRequest,
 	WorkflowDurableResult,
 } from "@ryot-app/sandbox-sdk/workflow";
@@ -31,6 +30,7 @@ import {
 	automationLifecycleCausation,
 	rootLifecycleCausation,
 } from "#lib/domain/lifecycle-command";
+import type { SandboxPinnedJournal } from "#lib/infrastructure/sandbox-journal-store";
 
 import {
 	sandboxCapabilityRequirement,
@@ -60,7 +60,7 @@ export type SandboxRunInput = {
 	readonly compiledCode: string;
 	readonly compiledFormat: number;
 	readonly workflowExecutionId?: string;
-	readonly replayJournal?: ReadonlyArray<WorkflowReplayJournalEntry>;
+	readonly replayJournal?: SandboxPinnedJournal;
 	readonly hostCallDiscriminator?: number;
 	readonly grants?: SandboxExecutionGrants;
 	readonly principal: SandboxExecutionPrincipal;

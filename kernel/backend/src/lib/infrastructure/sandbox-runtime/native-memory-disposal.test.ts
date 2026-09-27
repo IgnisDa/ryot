@@ -298,10 +298,7 @@ layer(nativeMemoryLayer, { excludeTestServices: true })((test) => {
 					expect(new Set(offsets)).toEqual(new Set(gate.journal.offsets.slice(0, 3)));
 					yield* assertDisposed(input.executionId);
 				}
-				expect(
-					evidence.reservations.some((snapshot) => snapshot.runs === 1 && snapshot.waiting > 0),
-				).toBe(true);
-				expect(evidence.reservations.every((snapshot) => snapshot.runs <= 1)).toBe(true);
+				expect(evidence.reservations.some((snapshot) => snapshot.runs === 2)).toBe(true);
 				expect(evidence.reservations.every((snapshot) => snapshot.bytes <= snapshot.budget)).toBe(
 					true,
 				);

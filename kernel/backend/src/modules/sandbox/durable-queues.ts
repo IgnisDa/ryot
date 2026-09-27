@@ -7,13 +7,15 @@ import { DurableQueue } from "effect/workflow";
 
 import { AppConfig } from "#lib/infrastructure/config/service";
 import { RedisService } from "#lib/infrastructure/redis";
-import { inspectSandboxJournal } from "#lib/infrastructure/sandbox-journal-store";
+import {
+	inspectSandboxJournal,
+	pinSandboxJournal,
+} from "#lib/infrastructure/sandbox-journal-store";
 import { SandboxRecoveryIdentity } from "#lib/infrastructure/sandbox-recovery-store";
 import { SandboxExecutionPrincipal } from "#lib/infrastructure/sandbox-runtime/execution-principal";
 import { SandboxService as RuntimeSandboxService } from "#lib/infrastructure/sandbox-runtime/service";
 import { SandboxAdmissionLease } from "#lib/infrastructure/sandbox-runtime/sidecar-admission";
 import { SidecarRecoverySuspended } from "#lib/infrastructure/sandbox-runtime/sidecar-supervisor";
-import { readWorkflowJournal } from "#lib/infrastructure/sandbox-runtime/workflow-journal";
 
 import {
 	SandboxDurableHostDispatcher,
@@ -113,16 +115,8 @@ export const executeSandboxExecution = Effect.fn("executeSandboxExecution")(func
 			if (inspection === null) {
 				return { ...emptyReplayResult(), projectionMissing: true as const };
 			}
-			const lease = yield* sandbox.reserve(payload.principal, inspection.bytes);
-
-			const replayJournal = yield* readWorkflowJournal(
-				redis,
-				payload.workflowExecutionId,
-				inspection,
-			);
-			if (replayJournal === null) {
-				return { ...emptyReplayResult(), projectionMissing: true as const };
-			}
+			const lease = yield* sandbox.reserve(payload.principal);
+			const replayJournal = pinSandboxJournal(redis, payload.workflowExecutionId, inspection);
 
 			const script = yield* repository.getScript(payload.principal.scriptId);
 			if (!script || script.contentHash !== payload.principal.contentHash) {
@@ -146,7 +140,7 @@ export const executeSandboxExecution = Effect.fn("executeSandboxExecution")(func
 						)
 					: payload.grants;
 
-			const result = yield* sandbox
+			const exit = yield* sandbox
 				.run({
 					replayJournal,
 					context: payload.context,
@@ -173,7 +167,22 @@ export const executeSandboxExecution = Effect.fn("executeSandboxExecution")(func
 							}
 						: {}),
 				})
-				.pipe(Effect.provideService(SandboxAdmissionLease, lease));
+				.pipe(Effect.provideService(SandboxAdmissionLease, lease), Effect.exit);
+			// A lost or rewritten projection decides the replay, whatever the script made of the failed read.
+			const fault = replayJournal.fault();
+			if (fault === "missing") {
+				return { ...emptyReplayResult(), projectionMissing: true as const };
+			}
+			if (fault !== undefined) {
+				return yield* new SandboxRunError({
+					kind: "infrastructure",
+					message:
+						fault === "changed"
+							? "Sandbox workflow journal changed after inspection"
+							: "Sandbox workflow journal read failed",
+				});
+			}
+			const result = yield* exit;
 
 			return {
 				logs: result.logs,

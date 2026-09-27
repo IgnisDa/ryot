@@ -15,7 +15,6 @@ import {
 } from "@ryot-app/contract/schema/brands";
 import {
 	workflowDurableResultSchema,
-	workflowReplayJournalEntrySchema,
 	workflowReplayEnvelopeSchema,
 } from "@ryot-app/sandbox-sdk/workflow";
 import { sha256Hex } from "@ryot-app/ts-utils/crypto";
@@ -25,14 +24,14 @@ import { Workflow } from "effect/workflow";
 import { WorkflowEngine, WorkflowInstance } from "effect/workflow/WorkflowEngine";
 
 import { RedisService } from "#lib/infrastructure/redis";
-import { inspectSandboxJournal } from "#lib/infrastructure/sandbox-journal-store";
+import {
+	inspectSandboxJournal,
+	pinSandboxJournal,
+} from "#lib/infrastructure/sandbox-journal-store";
 import { SandboxArtifactStore } from "#lib/infrastructure/sandbox-runtime/artifacts";
 import { SandboxService as RuntimeSandboxService } from "#lib/infrastructure/sandbox-runtime/service";
-import {
-	appendWorkflowJournalWithRedis,
-	makeWorkflowReplayJournalHostFunction,
-	readWorkflowJournal,
-} from "#lib/infrastructure/sandbox-runtime/workflow-journal";
+import { appendWorkflowJournalWithRedis } from "#lib/infrastructure/sandbox-runtime/workflow-journal";
+import { readPinnedJournal } from "#lib/infrastructure/sandbox-runtime/workflow-journal.test-support";
 import { makeActivity } from "#lib/infrastructure/workflow-scope";
 import { assertExitFails } from "#lib/test-utils/assertions";
 import {
@@ -326,6 +325,7 @@ const makeProjectionRedis = () =>
 		client: Object.assign(Object.create(null), {
 			eval: () => Promise.resolve(1),
 			hgetall: () => Promise.resolve({}),
+			callBuffer: () => Promise.resolve(1),
 		}),
 	});
 
@@ -394,12 +394,6 @@ const hotSwapScript = (id: typeof historicalScriptId, compiledCode: string) => (
 const historicalScript = hotSwapScript(historicalScriptId, historicalContent);
 const replacementScript = hotSwapScript(replacementScriptId, replacementContent);
 const hotSwapExecutionId = testExecutionId("workflow-execution");
-const replayJournalResult = Schema.decodeUnknownEffect(
-	Schema.Struct({
-		success: Schema.Literal(true),
-		data: Schema.Array(workflowReplayJournalEntrySchema),
-	}),
-);
 const encodeJson = Schema.encodeSync(Schema.fromJsonString(Schema.Unknown));
 const decodeEnvelope = Schema.decodeUnknownEffect(
 	Schema.fromJsonString(workflowReplayEnvelopeSchema),
@@ -470,14 +464,15 @@ const hotSwapLayer = recordingLayer(
 				stubRuntimeSandboxService((input) =>
 					Effect.gen(function* () {
 						yield* calls.record("executed-content", input.compiledCode);
-						const replayJournal = makeWorkflowReplayJournalHostFunction(input.replayJournal);
-						const journal = yield* replayJournal([]).pipe(Effect.flatMap(replayJournalResult));
+						assert(input.replayJournal !== undefined);
+						const journal = yield* readPinnedJournal(input.replayJournal);
+						assert(journal !== null);
 						const output = yield* Effect.gen(function* () {
 							const process = yield* spawner.spawn(
 								ChildProcess.make("/bin/sh", ["-c", input.compiledCode], {
 									env: {
 										REQUEST: encodeJson(hotSwapRequest),
-										JOURNAL: encodeJson(journal.data.map(({ value }) => value)),
+										JOURNAL: encodeJson(journal.map(({ value }) => value)),
 									},
 								}),
 							);
@@ -1100,11 +1095,16 @@ const inlineWorkflowLayer = (executionId: string) =>
 							client: Object.assign(Object.create(null), {
 								hmget: (key: string, ...fields: string[]) => redisClient.hmget(key, ...fields),
 								eval: (script: string, keys: number, key: string, ...args: string[]) =>
+									redisClient.eval(script, keys, key, ...args),
+								callBuffer: (command: string, ...args: Array<string | Buffer>) =>
 									Effect.runPromiseWith(services)(
-										args.length > 1
-											? calls.record("appends", `${args[1]}:${args.length - 2}`)
+										args.some((arg) => typeof arg !== "string")
+											? calls.record(
+													"appends",
+													`${String(args[4])}:${args.slice(5).filter((arg) => typeof arg === "string").length}`,
+												)
 											: Effect.void,
-									).then(() => redisClient.eval(script, keys, key, ...args)),
+									).then(() => redisClient.callBuffer(command, ...args)),
 							}),
 						}),
 					),
@@ -1248,7 +1248,9 @@ layer(inlineWorkflowLayer(inlineIds.race))((test) => {
 						sandboxPayload.journalLength,
 					);
 					assert(inspection !== null);
-					const loaded = yield* readWorkflowJournal(redis, inlineIds.race, inspection);
+					const loaded = yield* readPinnedJournal(
+						pinSandboxJournal(redis, inlineIds.race, inspection),
+					);
 					yield* calls.record("loaded", loaded);
 					return {
 						...replayBase,
