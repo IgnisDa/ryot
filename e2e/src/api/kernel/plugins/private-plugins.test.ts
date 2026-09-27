@@ -13,6 +13,7 @@ import {
 	installPrivatePluginPackage,
 	installPrivatePlugin,
 	invokePrivatePluginOperation,
+	pollUntil,
 	PRIVATE_PLUGIN_CONFIG_KEY,
 	PRIVATE_PLUGIN_SECRET_KEY,
 	privateBootstrapPluginPackage,
@@ -72,27 +73,47 @@ describe("private plugins", () => {
 			const plugin = table("plugin", "plugin");
 			const installation = table("pluginInstallation", "installation");
 
-			const result = yield* executeRyotQL(
-				client,
-				document({
-					installations: rows(installation, {
-						where: eq(column(plugin, "scope"), literal("system")),
-						joins: [
-							join("inner", plugin, eq(column(installation, "pluginId"), column(plugin, "id"))),
-						],
-						fields: [
-							field("health", column(installation, "health")),
-							field("pluginSlug", column(plugin, "slug")),
-							field("sortOrder", column(installation, "sortOrder")),
-							field("isHidden", column(installation, "isHidden")),
-						],
+			const readShipped = Effect.gen(function* () {
+				const result = yield* executeRyotQL(
+					client,
+					document({
+						installations: rows(installation, {
+							where: eq(column(plugin, "scope"), literal("system")),
+							joins: [
+								join("inner", plugin, eq(column(installation, "pluginId"), column(plugin, "id"))),
+							],
+							fields: [
+								field("health", column(installation, "health")),
+								field("pluginSlug", column(plugin, "slug")),
+								field("sortOrder", column(installation, "sortOrder")),
+								field("isHidden", column(installation, "isHidden")),
+							],
+						}),
 					}),
-				}),
+				);
+				return requireRows(result.data.installations, "installations").items.filter((item) =>
+					["fitness", "media"].includes(requireRyotQLText(item, "pluginSlug")),
+				);
+			});
+			const items = yield* pollUntil(
+				"ready system installations for 'fitness' and 'media'",
+				readShipped.pipe(
+					Effect.map((candidates) => {
+						const settled = candidates.filter(
+							(item) =>
+								requireRyotQLText(item, "health") === "ready" &&
+								requireRyotQLValue(item, "sortOrder") === 0 &&
+								requireRyotQLValue(item, "isHidden") === false,
+						);
+						return sortBy(settled.map((item) => requireRyotQLText(item, "pluginSlug"))).join(
+							",",
+						) === "fitness,media"
+							? candidates
+							: null;
+					}),
+				),
 			);
 
-			const items = requireRows(result.data.installations, "installations").items.filter((item) =>
-				["fitness", "media"].includes(requireRyotQLText(item, "pluginSlug")),
-			);
 			const bySlug = items.map((item) => requireRyotQLText(item, "pluginSlug"));
 			expect(sortBy(bySlug)).toEqual(["fitness", "media"]);
 			for (const item of items) {
