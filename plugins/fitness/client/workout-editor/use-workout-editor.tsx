@@ -54,6 +54,8 @@ const createEditorSession = (
 		feedback,
 		now: Effect.sync(() => schedule.now()),
 		device: (request) => client.device(request),
+		cleanup: (asset) => client.uploads.cleanup(asset),
+		upload: (request) => client.uploads.uploadPermanent(request),
 		refreshContext: client.operations.invoke({
 			input: {},
 			refreshOnSuccess: false,

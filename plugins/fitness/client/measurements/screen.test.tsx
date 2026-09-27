@@ -10,6 +10,7 @@ import {
 import { fireEvent, waitFor, within } from "@testing-library/dom";
 
 import { PLUGIN_PACKAGE_ID } from "../../shared/plugin-identity";
+import { MeasurementLogger } from "./measurement-logger";
 import { formatDay, formatTime } from "./model";
 import { ReadingLog } from "./reading-log";
 import MeasurementsPage from "./screen";
@@ -110,15 +111,31 @@ function ReadingLogPage() {
 	);
 }
 
+function MeasurementLoggerPage() {
+	return <MeasurementLogger />;
+}
+
+function DisabledMeasurementLoggerPage() {
+	return <MeasurementLogger disabled />;
+}
+
 const openPage = (
 	metricRows = metrics,
 	options: {
 		readonly readingsOnly?: boolean;
-		readonly metricsPage?: (after: string | undefined) => ReturnType<typeof rows>;
+		readonly loggerOnly?: boolean;
+		readonly loggerDisabled?: boolean;
+		readonly metricsPage?: (after: string | undefined) => ReturnType<typeof rows> | null;
 		readonly readingsPage?: (after: string | undefined) => ReturnType<typeof rows> | null;
 	} = {},
 ) => {
-	const page = mountPluginPage(options.readingsOnly ? ReadingLogPage : MeasurementsPage, {
+	let pageComponent = MeasurementsPage;
+	if (options.readingsOnly) {
+		pageComponent = ReadingLogPage;
+	} else if (options.loggerOnly) {
+		pageComponent = options.loggerDisabled ? DisabledMeasurementLoggerPage : MeasurementLoggerPage;
+	}
+	const page = mountPluginPage(pageComponent, {
 		location: routeLocation("/v/all-measurements"),
 		page: {
 			...savedViewPageContext({
@@ -145,7 +162,12 @@ const openPage = (
 				const data = queryData(request.document.queries, metricRows);
 				const metricQuery = request.document.queries.metrics;
 				if (options.metricsPage !== undefined && metricQuery?.output.type === "rows") {
-					data.metrics = options.metricsPage(metricQuery.output.pagination.after);
+					const metricPage = options.metricsPage(metricQuery.output.pagination.after);
+					if (metricPage === null) {
+						page.replyQuery(request.requestId, { outcome: "failure", reason: "query-failed" });
+						continue;
+					}
+					data.metrics = metricPage;
 				}
 				const readingQuery = request.document.queries.readings;
 				if (options.readingsPage !== undefined && readingQuery?.output.type === "rows") {
@@ -434,6 +456,56 @@ describe("measurements page", () => {
 		}),
 	);
 
+	it.live("retries the logger metrics query and opens metric creation when none exist", () =>
+		Effect.gen(function* () {
+			let fail = true;
+			const { page, answerPending } = openPage(rows([]), {
+				loggerOnly: true,
+				metricsPage: () => (fail ? null : rows([])),
+			});
+			const body = within(document.body);
+			yield* Effect.promise(() =>
+				waitFor(() => expect(body.getByText("Loading measurements…")).toBeTruthy()),
+			);
+			yield* Effect.promise(() =>
+				waitFor(() => {
+					answerPending();
+					expect(body.getByText("Your measurements couldn't be loaded.")).toBeTruthy();
+				}),
+			);
+			const trigger = body.getByRole("button", { name: "Log measurement" });
+			expect(trigger.hasAttribute("disabled")).toBe(true);
+			fail = false;
+			fireEvent.click(body.getByRole("button", { name: "Try again" }));
+			yield* Effect.promise(() =>
+				waitFor(() => {
+					answerPending();
+					expect(trigger.hasAttribute("disabled")).toBe(false);
+				}),
+			);
+			fireEvent.click(trigger);
+			yield* Effect.promise(() =>
+				waitFor(() => expect(body.getByRole("dialog", { name: "Add metric" })).toBeTruthy()),
+			);
+			expect(page.queryRequests("metrics")).toHaveLength(2);
+		}),
+	);
+
+	it.live("disables the measurement logger when its caller disables it", () =>
+		Effect.gen(function* () {
+			const { answerPending } = openPage(rows([]), { loggerOnly: true, loggerDisabled: true });
+			const body = within(document.body);
+			yield* Effect.promise(() =>
+				waitFor(() => {
+					answerPending();
+					expect(
+						body.getByRole("button", { name: "Log measurement" }).hasAttribute("disabled"),
+					).toBe(true);
+				}),
+			);
+		}),
+	);
+
 	it.live("deletes every reading in a log row after confirmation and refreshes the log", () =>
 		Effect.gen(function* () {
 			let storedReadings = logRows;
@@ -667,12 +739,14 @@ describe("measurements page", () => {
 
 	it.live("logs entered values, including zero, at one time and keeps the form on failure", () =>
 		Effect.gen(function* () {
-			const { page, answerPending } = openPage();
+			const { page, answerPending } = openPage(metrics, { loggerOnly: true });
 			const body = within(document.body);
 			yield* Effect.promise(() =>
 				waitFor(() => {
 					answerPending();
-					expect(body.getByRole("region", { name: "All metrics" })).toBeTruthy();
+					expect(
+						body.getByRole("button", { name: "Log measurement" }).hasAttribute("disabled"),
+					).toBe(false);
 				}),
 			);
 			const trigger = body.getByRole("button", { name: "Log measurement" });
@@ -744,7 +818,7 @@ describe("measurements page", () => {
 				),
 			);
 			expect(dialog.getByLabelText("Weight (kg)").getAttribute("value")).toBe(" 0 ");
-			const readingQueries = page.queryRequests("readings").length;
+			const metricQueries = page.queryRequests("metrics").length;
 			fireEvent.click(dialog.getByRole("button", { name: "Retry save" }));
 			yield* Effect.promise(() => waitFor(() => expect(requests()).toHaveLength(2)));
 			const retried = requests()[1];
@@ -760,7 +834,7 @@ describe("measurements page", () => {
 				waitFor(() => {
 					answerPending();
 					expect(body.queryByRole("dialog")).toBeNull();
-					expect(page.queryRequests("readings").length).toBeGreaterThan(readingQueries);
+					expect(page.queryRequests("metrics").length).toBeGreaterThan(metricQueries);
 				}),
 			);
 			expect(document.activeElement).toBe(trigger);
@@ -769,12 +843,14 @@ describe("measurements page", () => {
 
 	it.live("cancels unsent input and retains partial submissions until retry completes", () =>
 		Effect.gen(function* () {
-			const { page, answerPending } = openPage();
+			const { page, answerPending } = openPage(metrics, { loggerOnly: true });
 			const body = within(document.body);
 			yield* Effect.promise(() =>
 				waitFor(() => {
 					answerPending();
-					expect(body.getByRole("region", { name: "All metrics" })).toBeTruthy();
+					expect(
+						body.getByRole("button", { name: "Log measurement" }).hasAttribute("disabled"),
+					).toBe(false);
 				}),
 			);
 			const trigger = body.getByRole("button", { name: "Log measurement" });

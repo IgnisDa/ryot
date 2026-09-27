@@ -38,6 +38,7 @@ import {
 	workoutHistoryRecipe,
 	type WorkoutHistorySetResult,
 } from "../../shared/workout-history-recipes";
+import { MeasurementLogger } from "../measurements/measurement-logger";
 import {
 	changeOccurrenceDisplay,
 	changeWorkoutEnergyUnit,
@@ -56,6 +57,8 @@ import { EditorField, editorModalClass } from "./controls";
 import { ExerciseCard } from "./exercise-card";
 import { ExercisePicker } from "./exercise-picker";
 import { historySetForOccurrence, previousSetIndex } from "./history-model";
+import { WorkoutMediaOverlay } from "./media";
+import { removeDraftMedia, type WorkoutMediaTarget } from "./media-state";
 import { BulkDeleteOverlay, HistoryOverlay, ReorderOverlay, SupersetOverlay } from "./overlays";
 import { ExerciseDefaultsOverlay } from "./preferences";
 import {
@@ -147,6 +150,7 @@ export function WorkoutEditorScreen(props: {
 	const { isActive, scrollRootRef } = usePluginScreenSurface();
 	const { sounds, snapshot, controller } = useWorkoutEditor(props.target);
 	const [overlay, setOverlay] = useState<EditorOverlay>();
+	const [mediaTarget, setMediaTarget] = useState<WorkoutMediaTarget>();
 	const [message, setMessage] = useState<string>();
 	const [saved, setSaved] = useState<SavedEntityId>();
 	const [useExisting, setUseExisting] = useState(false);
@@ -242,10 +246,21 @@ export function WorkoutEditorScreen(props: {
 			: undefined;
 	const currentExercise = exercises.data?.find(({ id }) => id === currentOccurrence?.exerciseId);
 	const names = new Map(exercises.data?.map(({ id, name }) => [id, name]));
+	const mediaExerciseId =
+		mediaTarget?.kind === "occurrence"
+			? editorDraft?.occurrences.find(({ clientId }) => clientId === mediaTarget.occurrenceId)
+					?.exerciseId
+			: undefined;
 	const disabled =
 		snapshot.status !== "ready" || snapshot.saving || editorDraft?.submission !== undefined;
+	const uploading = snapshot.status === "ready" && snapshot.uploading;
 	const template =
 		editorDraft?.mode.kind === "template-create" || editorDraft?.mode.kind === "template-edit";
+	let mediaLabel = template ? "template" : "workout";
+	if (mediaTarget?.kind === "occurrence") {
+		mediaLabel =
+			mediaExerciseId === undefined ? "exercise" : (names.get(mediaExerciseId) ?? "exercise");
+	}
 	const existingGuard =
 		editorDraft !== undefined &&
 		props.initialDraft !== undefined &&
@@ -264,6 +279,10 @@ export function WorkoutEditorScreen(props: {
 			"Editing a saved workout. Original timestamps and active duration are preserved.";
 	}
 	const save = () => {
+		if (snapshot.status === "ready" && snapshot.uploading) {
+			setMessage("Wait for the attachment upload to finish before saving.");
+			return;
+		}
 		if (submitting.current || context === undefined) {
 			return;
 		}
@@ -334,6 +353,7 @@ export function WorkoutEditorScreen(props: {
 					.pipe(Effect.ensuring(Effect.sync(() => controller.setSaving(false))));
 				if (result.kind === "saved") {
 					setSaved(result.entityId);
+					setMediaTarget(undefined);
 					client.mutationCompleted.hint();
 					setOverlay(undefined);
 					if (yield* controller.finish()) {
@@ -636,6 +656,7 @@ export function WorkoutEditorScreen(props: {
 						onClick={() => setOverlay("finish")}
 						disabled={
 							disabled ||
+							uploading ||
 							exercises.isPending ||
 							exercises.isError ||
 							editorDraft.occurrences.some((occurrence) => !names.has(occurrence.exerciseId))
@@ -765,6 +786,17 @@ export function WorkoutEditorScreen(props: {
 						{modeIntroduction !== undefined ? (
 							<p className="text-sm text-text-subtle">{modeIntroduction}</p>
 						) : null}
+						{snapshot.uploading ? (
+							<StatusMessage tone="pending">
+								Uploading attachment… Wait before saving or leaving.
+							</StatusMessage>
+						) : null}
+						{snapshot.uploadError !== undefined ? (
+							<StatusMessage tone="error">
+								An attachment could not be uploaded or stored. Your draft is retained. Reopen
+								attachments to retry, or retry draft storage if needed.
+							</StatusMessage>
+						) : null}
 						{snapshot.persistenceError !== undefined ? (
 							<>
 								<StatusMessage tone="error">
@@ -839,6 +871,13 @@ export function WorkoutEditorScreen(props: {
 								draft={editorDraft}
 								imperial={context.settings.unitSystem === "imperial"}
 							/>
+							<Button variant="secondary" onClick={() => setMediaTarget({ kind: "workout" })}>
+								{template ? "Template" : "Workout"} attachments (
+								{editorDraft.images.length + editorDraft.videos.length})
+							</Button>
+							{editorDraft.mode.kind === "live" ? (
+								<MeasurementLogger disabled={disabled || existingGuard} />
+							) : null}
 							<EditorClocks now={now} onChange={change} draft={editorDraft} disabled={disabled} />
 							{editorDraft.mode.kind === "live" ? (
 								<details>
@@ -925,6 +964,9 @@ export function WorkoutEditorScreen(props: {
 									onDelete={() =>
 										change((draft) => removeWorkoutItems(draft, [occurrence.clientId], []))
 									}
+									onMedia={() =>
+										setMediaTarget({ kind: "occurrence", occurrenceId: occurrence.clientId })
+									}
 									onSkipRest={() =>
 										change((draft) =>
 											resolvePendingRest(draft, schedule.now(), crypto.randomUUID(), true),
@@ -964,7 +1006,11 @@ export function WorkoutEditorScreen(props: {
 								/>
 							))}
 						</fieldset>
-						<Button variant="secondary" disabled={disabled} onClick={() => setOverlay("discard")}>
+						<Button
+							variant="secondary"
+							onClick={() => setOverlay("discard")}
+							disabled={disabled || snapshot.uploading}
+						>
 							Cancel and discard
 						</Button>
 					</>
@@ -972,6 +1018,21 @@ export function WorkoutEditorScreen(props: {
 			</div>
 			{isActive ? (
 				<>
+					{mediaTarget !== undefined && editorDraft !== undefined && snapshot.status === "ready" ? (
+						<WorkoutMediaOverlay
+							label={mediaLabel}
+							draft={editorDraft}
+							target={mediaTarget}
+							uploading={snapshot.uploading}
+							disabled={disabled || existingGuard}
+							onClose={() => setMediaTarget(undefined)}
+							onUpload={(kind, file) => controller.uploadMedia(mediaTarget, kind, file)}
+							canUpload={mediaTarget.kind !== "workout" || context?.proAvailable === true}
+							onRemove={(kind, asset) =>
+								change((draft) => removeDraftMedia(draft, mediaTarget, kind, asset))
+							}
+						/>
+					) : null}
 					{existingGuard ? (
 						<Modal
 							label="Existing draft"
@@ -1122,6 +1183,14 @@ export function WorkoutEditorScreen(props: {
 							dismissible={snapshot.status !== "ready" || !snapshot.saving}
 						>
 							<h2 className="text-xl font-semibold">Review {template ? "template" : "workout"}</h2>
+							{!template &&
+							editorDraft.occurrences.some(
+								(occurrence) =>
+									!occurrence.sets.some(({ included }) => included) &&
+									(occurrence.images.length > 0 || occurrence.videos.length > 0),
+							) ? (
+								<p>Attachments on exercises with no included sets will not be saved.</p>
+							) : null}
 							{template ? (
 								<p>
 									Exercise-only entries and partially specified plans are retained. Completely empty
@@ -1172,6 +1241,7 @@ export function WorkoutEditorScreen(props: {
 											Effect.tap((removed) =>
 												Effect.sync(() => {
 													if (removed) {
+														setMediaTarget(undefined);
 														close();
 													}
 												}),
