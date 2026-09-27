@@ -5,9 +5,17 @@ import type {
 } from "@ryot-app/sandbox-sdk/imports";
 
 import { importEntityRefIdentifier } from "./groups";
+import {
+	mediaCollectionOperationId,
+	mediaEntityOperationId,
+	mediaLibraryMembershipOperationId,
+	mediaLibraryOperationId,
+	mediaRecordId,
+	mediaSourceRecordId,
+} from "./identity";
 import type {
 	ImportMediaEntityGroup,
-	MediaImportAdapterFailure,
+	MediaImportFailure,
 	MediaImportWriteChunkInput,
 } from "./schemas";
 
@@ -23,13 +31,15 @@ const failureSource = (
 	itemIndex: group.itemIndex,
 	sourceLabel: group.entityRef.sourceLabel,
 	entitySchemaSlug: group.entityRef.entitySchemaSlug,
+	operationId: mediaEntityOperationId(group.itemIndex),
 	sourceIdentifier: importEntityRefIdentifier(group.entityRef),
 });
 
-const adapterFailure = (failure: MediaImportAdapterFailure): GenericImportFailure => ({
+const adapterFailure = (failure: MediaImportFailure): GenericImportFailure => ({
 	message: failure.message,
 	itemIndex: failure.itemIndex,
 	unit: failure.unit ?? "records",
+	operationId: failure.operationId,
 	recordKind: failure.recordKind ?? "media",
 	stage: failure.stage ?? "input_transformation",
 	sourceLabel: failure.sourceLabel ?? `Item ${failure.itemIndex + 1}`,
@@ -59,6 +69,7 @@ export const createMediaImportChunk = (
 				failures.push({
 					...failureSource(group, message, stage),
 					unit: "events",
+					operationId: event.operationId,
 					recordKind: event.eventSchemaSlug,
 					itemIndex: event.sourceItemIndex ?? group.itemIndex,
 					sourceLabel: event.attribution?.sourceLabel ?? group.entityRef.sourceLabel,
@@ -73,7 +84,7 @@ export const createMediaImportChunk = (
 			itemIndex: group.itemIndex,
 			subjectEntityAlias: "media",
 			sourceLabel: group.entityRef.sourceLabel,
-			recordId: JSON.stringify(["media", group.itemIndex]),
+			recordId: mediaRecordId(group.itemIndex),
 			sourceIdentifier: importEntityRefIdentifier(group.entityRef),
 			relationships: [
 				{
@@ -81,7 +92,7 @@ export const createMediaImportChunk = (
 					propertiesMode: "merge",
 					targetAlias: "media-library",
 					relationshipSchemaSlug: "in-media-library",
-					operationId: JSON.stringify(["media", group.itemIndex, "library-membership"]),
+					operationId: mediaLibraryMembershipOperationId(group.itemIndex),
 					properties: group.ownershipProvider
 						? { owned: true, ownershipSyncedAt, ownershipSources: [group.ownershipProvider] }
 						: {},
@@ -94,7 +105,7 @@ export const createMediaImportChunk = (
 					entityId: population.entityId,
 					name: group.entityRef.sourceLabel,
 					entitySchemaSlug: group.entityRef.entitySchemaSlug,
-					operationId: JSON.stringify(["media", group.itemIndex, "entity"]),
+					operationId: mediaEntityOperationId(group.itemIndex),
 				},
 				{
 					scope: "user",
@@ -104,20 +115,19 @@ export const createMediaImportChunk = (
 					alias: "media-library",
 					entitySchemaSlug: "media-library",
 					match: { properties: {}, name: "Media Library" },
-					operationId: JSON.stringify(["media", group.itemIndex, "library"]),
+					operationId: mediaLibraryOperationId(group.itemIndex),
 				},
 			],
-			events: group.events.map((event, eventIndex) => ({
+			events: group.events.map((event) => ({
 				entityAlias: "media",
 				occurredAt: event.occurredAt,
 				properties: event.properties,
+				operationId: event.operationId,
 				eventSchemaSlug: event.eventSchemaSlug,
 				outcome: { unit: "events", recordKind: event.eventSchemaSlug },
-				operationId:
-					event.operationId ?? JSON.stringify(["media", group.itemIndex, "event", eventIndex]),
 				attribution: event.attribution ?? {
 					sourceLabel: group.entityRef.sourceLabel,
-					recordId: JSON.stringify(["media-source", group.itemIndex]),
+					recordId: mediaSourceRecordId(group.itemIndex),
 					sourceIdentifier: importEntityRefIdentifier(group.entityRef),
 				},
 				...(event.subjectEntityId === undefined ? {} : { subjectEntityId: event.subjectEntityId }),
@@ -127,7 +137,7 @@ export const createMediaImportChunk = (
 						collectionMemberships: group.collectionMemberships.map(({ collectionName }) => ({
 							collectionName,
 							entityAlias: "media",
-							operationId: JSON.stringify(["media", group.itemIndex, "collection", collectionName]),
+							operationId: mediaCollectionOperationId(group.itemIndex, collectionName),
 						})),
 					}
 				: {}),

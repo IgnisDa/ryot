@@ -47,7 +47,7 @@ import {
 } from "#lib/infrastructure/sandbox-runtime/limits";
 import {
 	hashWorkflowCallArgs,
-	projectWorkflowJournal,
+	appendWorkflowJournal,
 } from "#lib/infrastructure/sandbox-runtime/workflow-journal";
 import type { DurableSchema } from "#lib/infrastructure/workflow";
 import { makeActivity } from "#lib/infrastructure/workflow-scope";
@@ -78,7 +78,7 @@ import {
 } from "./workflow-reference-repository";
 
 export const SANDBOX_WORKFLOW_MAX_STEPS = 1_000;
-const SANDBOX_WORKFLOW_MAX_PROJECTION_RETRIES = 3;
+const SANDBOX_WORKFLOW_MAX_PROJECTION_REBUILDS = 2;
 
 const SandboxWorkflowPin = Schema.Struct({
 	startedAt: Schema.String,
@@ -86,7 +86,6 @@ const SandboxWorkflowPin = Schema.Struct({
 });
 
 const ObservedWorkflowReplay = Schema.Union([
-	Schema.Struct({ state: Schema.Literal("projection-stale") }),
 	Schema.Struct({
 		error: Schema.String,
 		kind: SandboxFailureKind,
@@ -341,11 +340,11 @@ export const validateWorkflowReplayEnvelope = (
 	journal: ReadonlyArray<WorkflowReplayJournalEntry>,
 	inline: ReadonlyArray<WorkflowReplayJournalEntry>,
 ): Effect.Effect<ObservedWorkflowReplay, SandboxRunError> => {
-	if (inline.length > 0 && envelope.journalLength !== journal.length) {
+	if (envelope.journalLength !== journal.length) {
 		return Effect.fail(
 			sandboxFailure(
 				"infrastructure",
-				"Sandbox workflow inline results do not extend the recorded journal",
+				`Sandbox workflow replay loaded ${envelope.journalLength} journal entries; expected ${journal.length}`,
 			),
 		);
 	}
@@ -371,14 +370,6 @@ export const validateWorkflowReplayEnvelope = (
 		}
 	}
 
-	if (
-		envelope.state === "pending" &&
-		envelope.journalLength !== undefined &&
-		envelope.journalLength < journal.length &&
-		envelope.requests.length > envelope.journalLength
-	) {
-		return Effect.succeed({ state: "projection-stale" as const });
-	}
 	if (envelope.requests.length < recorded.length) {
 		const entry = recorded[envelope.requests.length];
 		return Effect.fail(
@@ -742,7 +733,8 @@ export const runSandboxScriptWorkflowBody = Effect.fn("SandboxScriptWorkflow")(f
 	const replayWorkflow = Effect.fnUntraced(function* () {
 		const journal: WorkflowReplayJournalEntry[] = [];
 		let journalBytes = 2;
-		let projectionRetries = 0;
+		let projected = 0;
+		let projectionRebuilds = 0;
 		let replayStartedAt = 0;
 		const appendJournalEntry = (request: WorkflowDurableCallRequest, value: unknown) =>
 			Effect.gen(function* () {
@@ -784,7 +776,8 @@ export const runSandboxScriptWorkflowBody = Effect.fn("SandboxScriptWorkflow")(f
 				}),
 			);
 		for (let step = 0; journal.length <= SANDBOX_WORKFLOW_MAX_STEPS; step += 1) {
-			yield* projectWorkflowJournal(executionId, journal);
+			yield* appendWorkflowJournal(executionId, projected, journal.slice(projected));
+			projected = journal.length;
 			const replayExecutionId = `${executionId}-replay-${step}`;
 			replayStartedAt = yield* Clock.currentTimeMillis;
 			const replay = yield* Effect.scoped(
@@ -798,6 +791,19 @@ export const runSandboxScriptWorkflowBody = Effect.fn("SandboxScriptWorkflow")(f
 					...(payload.grants ? { grants: payload.grants } : {}),
 				}),
 			);
+			if (replay.projectionMissing) {
+				yield* finishReplay("missing");
+				projectionRebuilds += 1;
+				if (projectionRebuilds > SANDBOX_WORKFLOW_MAX_PROJECTION_REBUILDS) {
+					return yield* sandboxFailure(
+						"resource-unavailable",
+						`Sandbox workflow projection remained missing after ${SANDBOX_WORKFLOW_MAX_PROJECTION_REBUILDS} consecutive rebuilds`,
+					);
+				}
+				projected = 0;
+				continue;
+			}
+			projectionRebuilds = 0;
 			yield* Effect.forEach(
 				replay.logs,
 				(message) =>
@@ -861,17 +867,6 @@ export const runSandboxScriptWorkflowBody = Effect.fn("SandboxScriptWorkflow")(f
 					return { ...output, chunkHandles: replay.harvest.chunkHandles };
 				}
 				return observed.output;
-			}
-			if (observed.state === "projection-stale") {
-				yield* finishReplay("stale");
-				projectionRetries += 1;
-				if (projectionRetries > SANDBOX_WORKFLOW_MAX_PROJECTION_RETRIES) {
-					return yield* sandboxFailure(
-						"resource-unavailable",
-						`Sandbox workflow projection remained stale after ${SANDBOX_WORKFLOW_MAX_PROJECTION_RETRIES} retries`,
-					);
-				}
-				continue;
 			}
 			yield* finishReplay("pending");
 			if (journal.length + observed.requests.length > SANDBOX_WORKFLOW_MAX_STEPS) {

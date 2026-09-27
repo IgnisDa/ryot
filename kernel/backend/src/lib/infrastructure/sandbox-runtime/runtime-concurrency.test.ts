@@ -24,6 +24,11 @@ import { SANDBOX_LIMITS } from "./limits";
 import { BridgeService, withSandboxHostCallPermit } from "./runtime";
 import { makeWorkflowReplayJournalHostFunction } from "./workflow-journal";
 
+const bootstrapEntryValue = {
+	value: null,
+	request: { index: 0, name: "pause", kind: "sleep" as const, args: { durationMs: 1 } },
+};
+
 const addSession = Effect.fnUntraced(function* (
 	bridge: BridgeService["Service"],
 	executionId: string,
@@ -124,53 +129,40 @@ describe("sandbox bridge host-call concurrency", () => {
 	});
 
 	layer(BridgeService.layer)((test) => {
-		test.effect(
-			"rejects stdin bootstrap arguments before journal reads and consumes the failed attempt",
-			() =>
-				Effect.gen(function* () {
-					const bridge = yield* BridgeService;
-					let reads = 0;
-					const replayJournal = makeWorkflowReplayJournalHostFunction("bootstrap-parent", {
-						client: {
-							hgetall: (_key: string) => {
-								reads += 1;
-								return Promise.resolve({ "high-water": "0" });
-							},
-						},
-					});
-					yield* bridge.addSession("bootstrap-arguments", {
-						token: "unused",
-						hostCallLimit: 2,
-						apiFunctions: { replayJournal },
-						parentSpan: yield* Effect.currentSpan,
-						expiresAt: (yield* Clock.currentTimeMillis) + 60_000,
-					});
-					const rejected = yield* bridge.bootstrap(
-						"bootstrap-arguments",
-						"unused",
-						'{"args":["unexpected"]}',
-					);
-					expect(yield* Effect.tryPromise(() => rejected.json())).toEqual({
-						result: { success: false, error: "replayJournal does not accept arguments" },
-					});
-					expect(reads).toBe(0);
-					const accepted = yield* bridge.bootstrap("bootstrap-arguments", "unused", '{"args":[]}');
-					expect(yield* Effect.tryPromise(() => accepted.json())).toEqual({
-						result: hostSuccess([]),
-					});
-					expect(reads).toBe(1);
-					const exhausted = yield* Effect.tryPromise(() =>
-						requestBridge(bridge, "bootstrap-arguments", "unused", "replayJournal"),
-					);
-					expect(yield* Effect.tryPromise(() => exhausted.json())).toMatchObject({
-						result: {
-							success: false,
-							data: { code: "execution-limit" },
-							error: expect.stringContaining("exceeds 2 host calls"),
-						},
-					});
-					expect(reads).toBe(1);
-				}).pipe(Effect.scoped, Effect.withSpan("bootstrap-argument-test")),
+		test.effect("rejects stdin bootstrap arguments and consumes the failed attempt", () =>
+			Effect.gen(function* () {
+				const bridge = yield* BridgeService;
+				const replayJournal = makeWorkflowReplayJournalHostFunction([bootstrapEntryValue]);
+				yield* bridge.addSession("bootstrap-arguments", {
+					token: "unused",
+					hostCallLimit: 2,
+					apiFunctions: { replayJournal },
+					parentSpan: yield* Effect.currentSpan,
+					expiresAt: (yield* Clock.currentTimeMillis) + 60_000,
+				});
+				const rejected = yield* bridge.bootstrap(
+					"bootstrap-arguments",
+					"unused",
+					'{"args":["unexpected"]}',
+				);
+				expect(yield* Effect.tryPromise(() => rejected.json())).toEqual({
+					result: { success: false, error: "replayJournal does not accept arguments" },
+				});
+				const accepted = yield* bridge.bootstrap("bootstrap-arguments", "unused", '{"args":[]}');
+				expect(yield* Effect.tryPromise(() => accepted.json())).toEqual({
+					result: hostSuccess([bootstrapEntryValue]),
+				});
+				const exhausted = yield* Effect.tryPromise(() =>
+					requestBridge(bridge, "bootstrap-arguments", "unused", "replayJournal"),
+				);
+				expect(yield* Effect.tryPromise(() => exhausted.json())).toMatchObject({
+					result: {
+						success: false,
+						data: { code: "execution-limit" },
+						error: expect.stringContaining("exceeds 2 host calls"),
+					},
+				});
+			}).pipe(Effect.scoped, Effect.withSpan("bootstrap-argument-test")),
 		);
 	});
 

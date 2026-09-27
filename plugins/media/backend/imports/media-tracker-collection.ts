@@ -3,7 +3,7 @@ import { Effect, Schema } from "@ryot-app/sandbox-sdk/effect";
 import { loadMediaApiState, type MediaApiTask, writeMediaApiState } from "./api-collection";
 import {
 	compareMediaRecords,
-	mediaRecordReader,
+	mediaRawRecordReader,
 	normalizeMediaRecords,
 	readMediaCapture,
 	serializeMediaRecords,
@@ -13,6 +13,7 @@ import {
 import type { MediaSourceInput, MediaSourceRecord } from "./collection-schemas";
 import { parseDateInput } from "./dates";
 import { createCompleteEvent, createReviewEvent, normalizeLifecycleStatus } from "./helpers";
+import { mediaEventOperationId } from "./identity";
 import {
 	Details,
 	entityRef,
@@ -50,7 +51,7 @@ export const collectMediaTracker = Effect.fn(function* (input: MediaSourceInput,
 			...(query ? { query } : {}),
 		});
 	if (input.action === "normalize") {
-		const read = mediaRecordReader();
+		const read = mediaRawRecordReader();
 		const next = yield* read("records", input.offset);
 		if (!next) {
 			return yield* sourceOutput({
@@ -151,9 +152,7 @@ export const collectMediaTracker = Effect.fn(function* (input: MediaSourceInput,
 				if (!occurredAt) {
 					continue;
 				}
-				const operationId = yield* Schema.encodeEffect(
-					Schema.fromJsonString(Schema.Array(Schema.Unknown)),
-				)(["media-event", index, seenOffset + localIndex]);
+				const operationId = mediaEventOperationId(index, seenOffset + localIndex);
 				if (type === "tv") {
 					const episode = details.seasons
 						.flatMap((season) => season.episodes)
@@ -191,9 +190,7 @@ export const collectMediaTracker = Effect.fn(function* (input: MediaSourceInput,
 			if (review && !nextSeenOffset) {
 				events.push({
 					...review,
-					operationId: yield* Schema.encodeEffect(
-						Schema.fromJsonString(Schema.Array(Schema.Unknown)),
-					)(["media-event", index, details.seenHistory.length]),
+					operationId: mediaEventOperationId(index, details.seenHistory.length),
 				});
 			}
 		}

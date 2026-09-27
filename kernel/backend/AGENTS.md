@@ -43,4 +43,4 @@
 - Authentication and proxy rules: `src/modules/auth/README.md`.
 - Public and service-owned event creates await `EventCreateWorkflow`; callers that use `discard: true` must poll for results.
 - Assert typed Effect failures with `assertExitFails` from `src/lib/test-utils/assertions.ts`; structural `Exit.fail` equality omits error messages.
-- `global-setup.ts` provisions one PostgreSQL for the whole run, reusing an externally supplied `TEST_DATABASE_URL` when present, and hands it to suites through vitest `provide`/`inject`. Database-backed suites read it with `testDatabaseUrl` and isolate themselves in a throwaway schema or database; they never skip when it is absent.
+- `global-setup.ts` provisions one PostgreSQL and one Redis for the whole run, reusing an externally supplied `TEST_DATABASE_URL` or `TEST_REDIS_URL` when present, and hands them to suites through vitest `provide`/`inject` as `databaseUrl` and `redisUrl`. Database-backed suites read theirs with `testDatabaseUrl` and isolate themselves in a throwaway schema or database; Redis-backed suites read theirs with `testRedisUrl` and namespace their keys. Neither skips when its URL is absent.

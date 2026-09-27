@@ -33,6 +33,11 @@ import { makeWorkflowReplayJournalHostFunction } from "#lib/infrastructure/sandb
 import { kernelScripts } from "#modules/definition-registry/kernel-source";
 import { SandboxCompiler } from "#modules/sandbox/sandbox-compiler";
 
+const bootstrapEntryValue = {
+	value: null,
+	request: { index: 0, name: "pause", kind: "sleep" as const, args: { durationMs: 1 } },
+};
+
 class RunnerRuntime extends Context.Service<
 	RunnerRuntime,
 	{ readonly runtime: SandboxRuntimePaths; readonly runnerPath: string }
@@ -1915,63 +1920,50 @@ export default defineScript({
 			),
 	);
 
-	test.effect(
-		"preserves bootstrap arguments and charges rejected calls without reading the journal",
-		() =>
-			Effect.gen(function* () {
-				const bridge = yield* BridgeService.make;
-				let reads = 0;
-				const replayJournal = makeWorkflowReplayJournalHostFunction("bootstrap-parent", {
-					client: {
-						hgetall: (_key: string) => {
-							reads += 1;
-							return Promise.resolve({ "high-water": "0" });
-						},
-					},
-				});
-				yield* bridge.addSession("bootstrap-arguments", {
-					token: "unused",
-					hostCallLimit: 2,
-					apiFunctions: { replayJournal },
-					parentSpan: yield* Effect.currentSpan,
-					expiresAt: (yield* Clock.currentTimeMillis) + 60_000,
-				});
-				const compiled = {
-					format: 1,
-					javascript: workflowHostSource,
-					manifest: {
-						name: "Workflow host",
-						slug: "workflow-host",
-						kind: "workflow" as const,
-						capabilities: [] as const,
-						oauthConnectionFields: [],
-						executableDependencies: [],
-						optionalPluginConfigKeys: [],
-						requiredPluginConfigKeys: [] as const,
-						requiredSystemConfigKeys: [] as const,
-					},
-				};
-				const options = {
-					apiFunctions: ["replayJournal"],
-					executionId: "bootstrap-arguments",
-					apiBase: `http://127.0.0.1:${bridge.port}`,
-				};
-				expect(yield* runInDeno(compiled, { args: ["unexpected"] }, options)).toMatchObject({
-					success: false,
-					error: { phase: "execute", message: "replayJournal does not accept arguments" },
-				});
-				expect(reads).toBe(0);
-				expect(yield* runInDeno(compiled, {}, options)).toMatchObject({
-					success: true,
-					value: { journal: [], keys: ["replayJournal"] },
-				});
-				expect(reads).toBe(1);
-				expect(yield* runInDeno(compiled, {}, options)).toMatchObject({
-					success: false,
-					error: { phase: "execute", message: "Sandbox execution exceeds 2 host calls" },
-				});
-				expect(reads).toBe(1);
-			}).pipe(Effect.scoped, Effect.withSpan("bootstrap-arguments-test")),
+	test.effect("preserves bootstrap arguments and charges rejected calls", () =>
+		Effect.gen(function* () {
+			const bridge = yield* BridgeService.make;
+			const replayJournal = makeWorkflowReplayJournalHostFunction([bootstrapEntryValue]);
+			yield* bridge.addSession("bootstrap-arguments", {
+				token: "unused",
+				hostCallLimit: 2,
+				apiFunctions: { replayJournal },
+				parentSpan: yield* Effect.currentSpan,
+				expiresAt: (yield* Clock.currentTimeMillis) + 60_000,
+			});
+			const compiled = {
+				format: 1,
+				javascript: workflowHostSource,
+				manifest: {
+					name: "Workflow host",
+					slug: "workflow-host",
+					kind: "workflow" as const,
+					capabilities: [] as const,
+					oauthConnectionFields: [],
+					executableDependencies: [],
+					optionalPluginConfigKeys: [],
+					requiredPluginConfigKeys: [] as const,
+					requiredSystemConfigKeys: [] as const,
+				},
+			};
+			const options = {
+				apiFunctions: ["replayJournal"],
+				executionId: "bootstrap-arguments",
+				apiBase: `http://127.0.0.1:${bridge.port}`,
+			};
+			expect(yield* runInDeno(compiled, { args: ["unexpected"] }, options)).toMatchObject({
+				success: false,
+				error: { phase: "execute", message: "replayJournal does not accept arguments" },
+			});
+			expect(yield* runInDeno(compiled, {}, options)).toMatchObject({
+				success: true,
+				value: { keys: ["replayJournal"], journal: [bootstrapEntryValue] },
+			});
+			expect(yield* runInDeno(compiled, {}, options)).toMatchObject({
+				success: false,
+				error: { phase: "execute", message: "Sandbox execution exceeds 2 host calls" },
+			});
+		}).pipe(Effect.scoped, Effect.withSpan("bootstrap-arguments-test")),
 	);
 
 	test.effect(

@@ -14,6 +14,8 @@ import { user } from "#lib/infrastructure/db/schema/tables/auth";
 import { mutationReceipt } from "#lib/infrastructure/db/schema/tables/mutations";
 import { fakeDatabaseSession } from "#lib/test-utils/effect";
 
+import { ingestionItemIdentity } from "./outcomes";
+
 export const ingestionTestScope = {
 	userId: UserId.make("user-1"),
 	runId: ImportRunId.make("run-1"),
@@ -97,7 +99,7 @@ export const ingestionTestReceipt = (
 	rootExecutionId: ingestionTestScope.runId,
 	inputFingerprint: `fingerprint:${operationId}`,
 	accountGeneration: ingestionTestScope.accountGeneration,
-	itemIdentity: JSON.stringify(["ingestion", ingestionTestScope.runId, operationId]),
+	itemIdentity: ingestionItemIdentity(ingestionTestScope.runId, operationId),
 });
 
 export const ingestionTestDatabase = (
