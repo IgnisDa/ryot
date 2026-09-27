@@ -31,6 +31,7 @@ import {
 	type PluginBridgePageRefresh,
 	type PluginBridgePageShortcutPress,
 	type PluginBridgeProviderSearchScreen,
+	type PluginBridgeProviderSearchScreenCancel,
 	type PluginBridgeTheme,
 	type PluginBridgeViewport,
 	type PluginBridgeOperationRequest,
@@ -52,6 +53,7 @@ import {
 	type PluginStorageRequest,
 	type PluginDeviceRequest,
 	type PluginDeviceOutcome,
+	type ProviderSearchScreenOutcome,
 } from "@ryot-app/plugin-client-contract";
 import type { EntityWatchSubscription } from "@ryot-app/plugin-client-sdk";
 import { Cause, Effect, Fiber, Match, Option, Result, Schema } from "effect";
@@ -95,6 +97,7 @@ type PendingRequest = {
 		| "collection"
 		| "external-link"
 		| "operation"
+		| "provider-search-screen"
 		| "ryotql"
 		| "storage"
 		| "upload";
@@ -123,7 +126,9 @@ type PluginBridgeOptions = {
 	readonly onPageSearch: (request: PluginBridgePageSearch) => void;
 	readonly onPageShortcuts: (shortcuts: readonly PageShortcutKey[]) => void;
 	readonly scheduleOverlayDismissTimeout?: (onTimeout: () => void) => () => void;
-	readonly onProviderSearch: (request: PluginBridgeProviderSearchScreen) => void;
+	readonly onProviderSearch: (
+		request: PluginBridgeProviderSearchScreen,
+	) => Effect.Effect<ProviderSearchScreenOutcome>;
 	readonly onAssets: (request: PluginAssetRequest) => Effect.Effect<PluginAssetOutcome>;
 	readonly onRyotQL: (request: PluginRyotQLRequest) => Effect.Effect<PluginRyotQLOutcome>;
 	readonly onOperation: (request: PluginOperationRequest) => Effect.Effect<PluginOperationOutcome>;
@@ -557,6 +562,14 @@ export function openPluginBridge(options: PluginBridgeOptions): PluginBridgeSess
 		Effect.runFork(Fiber.interrupt(current.fiber));
 	}
 
+	function handleProviderSearchCancel(request: PluginBridgeProviderSearchScreenCancel) {
+		const current = pending.get(request.requestId);
+		if (current?.type !== "provider-search-screen" || !pending.delete(request.requestId)) {
+			return;
+		}
+		Effect.runFork(Fiber.interrupt(current.fiber));
+	}
+
 	channel.port1.addEventListener(
 		"message",
 		(event) => {
@@ -610,6 +623,9 @@ export function openPluginBridge(options: PluginBridgeOptions): PluginBridgeSess
 							}
 						}),
 						Match.when({ type: "asset-cancel" }, (request) => handleAssetCancel(request)),
+						Match.when({ type: "provider-search-screen-cancel" }, (request) =>
+							handleProviderSearchCancel(request),
+						),
 						Match.when({ type: "asset-request" }, (request) => handleAssets(request)),
 						Match.when({ type: "navigate-back" }, () => {
 							if (!requestOverlayDismiss()) {
@@ -638,7 +654,9 @@ export function openPluginBridge(options: PluginBridgeOptions): PluginBridgeSess
 						Match.when({ type: "navigate" }, (request) => options.onNavigate(request)),
 						Match.when({ type: "page-search" }, (request) => options.onPageSearch(request)),
 						Match.when({ type: "provider-search-screen" }, (request) =>
-							options.onProviderSearch(request),
+							runRequest(request.requestId, "provider-search-screen", () =>
+								options.onProviderSearch(request).pipe(Effect.map((outcome) => ({ outcome }))),
+							),
 						),
 						Match.when({ type: "lifecycle-close" }, ({ reason }) => handleLifecycleClose(reason)),
 						Match.when({ type: "ryotql-cancel" }, (request) => handleRyotQLCancel(request)),

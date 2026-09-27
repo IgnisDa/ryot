@@ -41,10 +41,11 @@ const homeAdapter = (input: {
 		navigate: (_mode, target) => {
 			navigations.push(target);
 		},
-		openProviderSearch: (request) => {
-			providerSearches.push(request);
-		},
 		watchEntities: () => ({ update: () => undefined, dispose: () => undefined }),
+		openProviderSearch: (request) =>
+			Effect.sync(() => providerSearches.push(request)).pipe(
+				Effect.as({ kind: "cancelled" as const }),
+			),
 		query: (document) => {
 			const names = Object.keys(document.queries);
 			requested.push(names);

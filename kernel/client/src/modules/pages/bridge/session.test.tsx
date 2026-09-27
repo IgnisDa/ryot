@@ -147,6 +147,7 @@ const connect = (
 		readonly onOperation?: Parameters<typeof openPluginBridge>[0]["onOperation"];
 		readonly onRyotQL?: Parameters<typeof openPluginBridge>[0]["onRyotQL"];
 		readonly onStorage?: Parameters<typeof openPluginBridge>[0]["onStorage"];
+		readonly onProviderSearch?: Parameters<typeof openPluginBridge>[0]["onProviderSearch"];
 		readonly onDiagnostic?: Parameters<typeof openPluginBridge>[0]["onDiagnostic"];
 	} = {},
 ) => {
@@ -196,11 +197,14 @@ const connect = (
 		onPageSearch: (request) => pageSearches.push(request),
 		onKernelShortcut: (shortcut) => shortcuts.push(shortcut),
 		onCollection: options.onCollection ?? (() => Effect.never),
-		onProviderSearch: (request) => providerSearches.push(request),
 		onExternalLink: options.onExternalLink ?? (() => Effect.never),
 		onPageShortcuts: (registered) => pageShortcuts.push(registered),
 		scheduleOverlayDismissTimeout: options.scheduleOverlayDismissTimeout,
 		watchEntities: options.watchEntities ?? (() => ({ update: () => {}, dispose: () => {} })),
+		onProviderSearch: (request) => {
+			providerSearches.push(request);
+			return options.onProviderSearch?.(request) ?? Effect.succeed({ kind: "cancelled" as const });
+		},
 		onOperation:
 			options.onOperation ??
 			((request) => {
@@ -510,9 +514,19 @@ describe("bridge page screens", () => {
 			pluginPort.postMessage({
 				initialQuery: "Dune",
 				type: "provider-search-screen",
+				requestId: "provider-search-screen-1",
 				schema: { slug: "movie", owner: { kind: "plugin", pluginId: "media-installation" } },
 			});
 			yield* Effect.promise(() => waitFor(() => expect(providerSearches).toHaveLength(1)));
+			yield* Effect.promise(() =>
+				waitFor(() =>
+					expect(received).toContainEqual({
+						outcome: { kind: "cancelled" },
+						requestId: "provider-search-screen-1",
+						type: "provider-search-screen-result",
+					}),
+				),
+			);
 			session.sendPageRefresh();
 			yield* Effect.promise(() =>
 				waitFor(() => expect(received).toContainEqual({ type: "page-refresh" })),
@@ -522,9 +536,41 @@ describe("bridge page screens", () => {
 				{
 					initialQuery: "Dune",
 					type: "provider-search-screen",
+					requestId: "provider-search-screen-1",
 					schema: { slug: "movie", owner: { kind: "plugin", pluginId: "media-installation" } },
 				},
 			]);
+		}),
+	);
+
+	it.live("interrupts a pending provider search on cancel and suppresses its result", () =>
+		Effect.gen(function* () {
+			const interrupted: null[] = [];
+			const { init, received, pluginPort, providerSearches } = connect({
+				onProviderSearch: () =>
+					Effect.never.pipe(
+						Effect.onInterrupt(() =>
+							Effect.sync(() => {
+								interrupted.push(null);
+							}),
+						),
+					),
+			});
+			pluginPort.postMessage(readyFor(init));
+			yield* Effect.promise(() => waitFor(() => expect(received).toEqual([at()])));
+			pluginPort.postMessage({
+				initialQuery: "Dune",
+				type: "provider-search-screen",
+				requestId: "provider-search-screen-1",
+				schema: { slug: "movie", owner: { kind: "plugin", pluginId: "media-installation" } },
+			});
+			yield* Effect.promise(() => waitFor(() => expect(providerSearches).toHaveLength(1)));
+			pluginPort.postMessage({
+				requestId: "provider-search-screen-1",
+				type: "provider-search-screen-cancel",
+			});
+			yield* Effect.promise(() => waitFor(() => expect(interrupted).toHaveLength(1)));
+			expect(received).toEqual([at()]);
 		}),
 	);
 
@@ -787,11 +833,11 @@ describe("plugin bridge", () => {
 				onCollection: () => Effect.never,
 				onPageShortcuts: () => undefined,
 				onKernelShortcut: () => undefined,
-				onProviderSearch: () => undefined,
 				onExternalLink: () => Effect.never,
 				onFailure: () => failures.push(null),
 				viewport: { safeAreaTop: 0, safeAreaBottom: 0 },
 				watchEntities: () => ({ update: () => {}, dispose: () => {} }),
+				onProviderSearch: () => Effect.succeed({ kind: "cancelled" as const }),
 				target: {
 					postMessage: () => {
 						throw new Error("transfer failed");

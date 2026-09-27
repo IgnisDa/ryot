@@ -1,5 +1,9 @@
 import type { PreparedClientPage } from "@ryot-app/contract/modules/pages/schemas";
-import type { PluginBridgeProviderSearchScreen } from "@ryot-app/plugin-client-contract";
+import type {
+	PluginBridgeProviderSearchScreen,
+	ProviderSearchScreenOutcome,
+} from "@ryot-app/plugin-client-contract";
+import { Effect } from "effect";
 import {
 	createContext,
 	useCallback,
@@ -15,7 +19,9 @@ export type ClientPageDocument = {
 	readonly title: string;
 	readonly inert?: boolean;
 	readonly prepared: PreparedClientPage;
-	readonly onProviderSearch?: (request: PluginBridgeProviderSearchScreen) => void;
+	readonly onProviderSearch?: (
+		request: PluginBridgeProviderSearchScreen,
+	) => Effect.Effect<ProviderSearchScreenOutcome>;
 };
 
 type ClientPageDocumentState = {
@@ -55,7 +61,9 @@ export function useClientPageDocument(document: ClientPageDocument) {
 			title: document.title,
 			inert: document.inert,
 			prepared: document.prepared,
-			onProviderSearch: (request) => latest.current.onProviderSearch?.(request),
+			onProviderSearch: (request) =>
+				latest.current.onProviderSearch?.(request) ??
+				Effect.succeed({ kind: "cancelled" as const }),
 		}),
 		[document.inert, document.prepared, document.title],
 	);

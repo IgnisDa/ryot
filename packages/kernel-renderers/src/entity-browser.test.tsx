@@ -228,10 +228,12 @@ describe("entity browser", () => {
 			page.send({ shortcut: "A", type: "page-shortcut-press" });
 			yield* Effect.promise(() =>
 				waitFor(() =>
-					expect(page.clientMessages()).toContainEqual({
-						type: "provider-search-screen",
-						schema: { slug: "book", owner: { kind: "plugin", pluginId: "media" } },
-					}),
+					expect(page.clientMessages()).toContainEqual(
+						expect.objectContaining({
+							type: "provider-search-screen",
+							schema: { slug: "book", owner: { kind: "plugin", pluginId: "media" } },
+						}),
+					),
 				),
 			);
 		}),
@@ -304,11 +306,13 @@ describe("entity browser", () => {
 			fireEvent.click(screen.getByRole("button", { name: /Search online for/ }));
 			yield* Effect.promise(() =>
 				waitFor(() =>
-					expect(page.clientMessages()).toContainEqual({
-						initialQuery: "piranesi",
-						type: "provider-search-screen",
-						schema: { slug: "book", owner: { kind: "plugin", pluginId: "media" } },
-					}),
+					expect(page.clientMessages()).toContainEqual(
+						expect.objectContaining({
+							initialQuery: "piranesi",
+							type: "provider-search-screen",
+							schema: { slug: "book", owner: { kind: "plugin", pluginId: "media" } },
+						}),
+					),
 				),
 			);
 		}),
@@ -328,10 +332,12 @@ describe("entity browser", () => {
 			fireEvent.click(screen.getByRole("button", { name: "Search online" }));
 			yield* Effect.promise(() =>
 				waitFor(() =>
-					expect(page.clientMessages()).toContainEqual({
-						type: "provider-search-screen",
-						schema: { slug: "book", owner: { kind: "plugin", pluginId: "media" } },
-					}),
+					expect(page.clientMessages()).toContainEqual(
+						expect.objectContaining({
+							type: "provider-search-screen",
+							schema: { slug: "book", owner: { kind: "plugin", pluginId: "media" } },
+						}),
+					),
 				),
 			);
 		}),
