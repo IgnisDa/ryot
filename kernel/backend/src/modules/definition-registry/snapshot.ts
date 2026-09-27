@@ -176,7 +176,7 @@ const validateSavedViewDefinition = (savedView: SourceDefinition<SavedViewDefini
 		return;
 	}
 	const settingsSchema =
-		savedView.renderer.name === "entity-browser"
+		savedView.renderer.name === "entity-browser" || savedView.renderer.name === "collection-browser"
 			? EntityBrowserSavedViewSettings
 			: ResultsTableSavedViewSettings;
 	const decoded = Schema.decodeUnknownResult(settingsSchema)(savedView.settings);
