@@ -1,8 +1,9 @@
 import { oauthProviderClient } from "@better-auth/oauth-provider/client";
+import { Browser } from "@capacitor/browser";
 import { strictStruct } from "@ryot-app/contract/schema/utils";
 import { createAuthClient } from "better-auth/client";
 import { twoFactorClient } from "better-auth/client/plugins";
-import { Context, Data, Effect, Layer, Schema } from "effect";
+import { Context, Data, Deferred, Effect, Layer, Schema } from "effect";
 
 import type { ServerOrigin } from "#/api/origin";
 import type { TwoFactorMethod } from "#/modules/auth/flow";
@@ -89,6 +90,13 @@ export const requestInitializationStatus = (fetcher: typeof fetch, baseURL: stri
 		);
 	});
 
+// The URI becomes a link target and QR payload, so only a TOTP provisioning URI with a secret passes.
+export const parseTotpEnrollment = (totpURI: string) => {
+	const url = URL.parse(totpURI);
+	const secret = url?.searchParams.get("secret");
+	return url?.protocol === "otpauth:" && url.host === "totp" && secret ? { secret, totpURI } : null;
+};
+
 const makeHostedClient = (baseURL = window.location.origin) =>
 	createAuthClient({
 		baseURL,
@@ -170,6 +178,74 @@ export class HostedAuthService extends Context.Service<HostedAuthService>()("Hos
 		const signOutHosted = request(() => client().signOut(), "Could not sign out.").pipe(
 			Effect.asVoid,
 		);
+		const twoFactorSession = request(
+			() => client().getSession(),
+			"Could not read your sign-in session.",
+		).pipe(
+			Effect.flatMap((session) =>
+				session
+					? Effect.succeed({ twoFactorEnabled: session.user.twoFactorEnabled === true })
+					: Effect.fail(
+							new HostedAuthError({
+								message: "Your sign-in session has ended. Please sign in again.",
+							}),
+						),
+			),
+		);
+		const enableTwoFactor = (password: string) =>
+			request(
+				() => client().twoFactor.enable({ password, method: "totp" }),
+				"Could not start two-factor setup.",
+			).pipe(
+				Effect.flatMap((result) => {
+					const enrollment = result?.method === "totp" ? parseTotpEnrollment(result.totpURI) : null;
+					return enrollment && result?.method === "totp"
+						? Effect.succeed({ ...enrollment, backupCodes: result.backupCodes })
+						: Effect.fail(
+								new HostedAuthError({ message: "The server returned an invalid setup key." }),
+							);
+				}),
+			);
+		const confirmTwoFactor = (code: string) =>
+			request(() => client().twoFactor.verifyTotp({ code }), "Could not verify that code.").pipe(
+				Effect.asVoid,
+			);
+		const regenerateBackupCodes = (password: string) =>
+			request(
+				() => client().twoFactor.generateBackupCodes({ password }),
+				"Could not generate new backup codes.",
+			).pipe(
+				Effect.flatMap((result) =>
+					result
+						? Effect.succeed(result.backupCodes)
+						: Effect.fail(new HostedAuthError({ message: "The server returned no backup codes." })),
+				),
+			);
+		const disableTwoFactor = (password: string) =>
+			request(
+				() => client().twoFactor.disable({ password }),
+				"Could not turn off two-factor authentication.",
+			).pipe(Effect.asVoid);
+		const openTwoFactorManagement = Effect.fn("HostedAuthService.openTwoFactorManagement")(
+			function* (server: ServerOrigin) {
+				const finished = yield* Deferred.make<void>();
+				yield* Effect.acquireUseRelease(
+					Effect.tryPromise({
+						catch: () => new HostedAuthError({ message: "Could not open the browser." }),
+						try: () =>
+							Browser.addListener("browserFinished", () =>
+								Deferred.doneUnsafe(finished, Effect.void),
+							),
+					}),
+					() =>
+						Effect.tryPromise({
+							try: () => Browser.open({ url: `${server}/oauth/two-factor` }),
+							catch: () => new HostedAuthError({ message: "Could not open the browser." }),
+						}).pipe(Effect.andThen(Deferred.await(finished))),
+					(listener) => Effect.promise(() => listener.remove()),
+				);
+			},
+		);
 		const resetPassword = (server: ServerOrigin, token: string, newPassword: string) =>
 			request(
 				() => makeHostedClient(server).resetPassword({ token, newPassword }),
@@ -181,9 +257,15 @@ export class HostedAuthService extends Context.Service<HostedAuthService>()("Hos
 			resetPassword,
 			signOutHosted,
 			signInWithOidc,
+			enableTwoFactor,
 			verifyTwoFactor,
+			disableTwoFactor,
+			twoFactorSession,
+			confirmTwoFactor,
 			submitCredentials,
 			initializationStatus,
+			regenerateBackupCodes,
+			openTwoFactorManagement,
 			continueAfterInitialization,
 		};
 	}),
