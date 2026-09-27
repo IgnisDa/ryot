@@ -10,7 +10,9 @@ export const buildUserToEntityInLibraryMigrationSql = (input: {
 	inLibraryRelationshipSchema: QualifiedSchema;
 	libraryEntitySchema: QualifiedSchema;
 	libraryEligibleEntitySchemaSlugs: ReadonlyArray<string>;
-}) => `
+}) => {
+	const phase = `user_to_entity -> ${input.inLibraryRelationshipSchema.slug} relationship`;
+	return `
 DO $$
 DECLARE
 	batch_size          constant int := 10000;
@@ -20,7 +22,7 @@ DECLARE
 	rows_inserted       int          := 0;
 	started_at          timestamptz  := clock_timestamp();
 BEGIN
-	${buildRequireLegacyTableSql("user_to_entity -> in-media-library relationship", "user_to_entity")}
+	${buildRequireLegacyTableSql(phase, "user_to_entity")}
 
 	LOOP
 		WITH batch AS (
@@ -45,7 +47,7 @@ BEGIN
 			"created_at"
 		)
 		SELECT
-			md5(ute.entity_id || ':in-media-library:' || ute.user_id),
+			md5(ute.entity_id || ${quoteSqlString(`:${input.inLibraryRelationshipSchema.slug}:`)} || ute.user_id),
 			ute.user_id,
 			ute.entity_id,
 			lib.id,
@@ -68,6 +70,7 @@ BEGIN
 		cursor_id := next_cursor_id;
 	END LOOP;
 
-	${buildReportSql("user_to_entity -> in-media-library relationship", [{ count: "rows_inserted", message: "row(s) migrated total" }])}
+	${buildReportSql(phase, [{ count: "rows_inserted", message: "row(s) migrated total" }])}
 END $$;
 `;
+};

@@ -12,7 +12,10 @@ const legacyEmailRegex = quoteSqlString("^[a-z0-9._%+-]+@[a-z0-9.-]+\\.[a-z]{2,}
 const legacyOidcAccountIdPrefix = quoteSqlString("legacy-oidc-account:");
 const legacyOidcAccountIssuer = quoteSqlString(createOAuthAccountIssuer("oidc"));
 
-export const buildLegacyUserLibraryMigrationSql = (libraryEntitySchema: QualifiedSchema) => `
+export const buildLegacyUserLibraryMigrationSql = (
+	libraryEntitySchema: QualifiedSchema,
+	libraryName: string,
+) => `
 INSERT INTO "entity" (
 	"id",
 	"name",
@@ -22,8 +25,8 @@ INSERT INTO "entity" (
 	"entity_schema_plugin_id"
 )
 SELECT
-	md5('legacy-library:' || migrated_user.id),
-	'Media Library',
+	md5(${quoteSqlString(`legacy-${libraryEntitySchema.slug}:`)} || migrated_user.id),
+	${quoteSqlString(libraryName)},
 	migrated_user.id,
 	'{}'::jsonb,
 	${quoteSqlString(libraryEntitySchema.slug)},
