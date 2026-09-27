@@ -687,6 +687,19 @@ layer(httpDispatchLayer({ resolutions: matchedOnly, outcomes: [{ status: 200 }] 
 							sandboxWorkflowExecutionId: httpExecutionId,
 						}),
 					}),
+					expect.objectContaining({
+						logLevel: "Info",
+						message: "sandbox HTTP admission timing",
+						annotations: expect.objectContaining({
+							hop: 0,
+							attempt: 1,
+							requestIndex: 7,
+							ticketWaitMs: 0,
+							resumeDelayMs: 0,
+							policyKey: "provider",
+							sandboxWorkflowExecutionId: httpExecutionId,
+						}),
+					}),
 				]),
 			);
 			const serializedLogs = logs
