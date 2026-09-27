@@ -1,3 +1,4 @@
+import type { ExecutionLane } from "@ryot-app/contract/modules/automations/lifecycle";
 import { isJsonValue } from "@ryot-app/contract/schema/json";
 import { hostFailure, jsonValueSchema } from "@ryot-app/sandbox-sdk/wire";
 import {
@@ -27,9 +28,10 @@ import { recordSandboxHostCall, sandboxMetricHostFunction } from "../runtime-met
 import { SANDBOX_JOURNAL_CHUNK_BYTES } from "../sandbox-journal-store";
 import { isSandboxCapability } from "./capability-policy";
 import type { SandboxFileAccess } from "./file-service";
-import { encodedJsonBytes, SANDBOX_JSON_GRAPH_FACTOR } from "./json-bytes";
-import { consumeSandboxHostCall, MiB, SANDBOX_LIMITS } from "./limits";
+import { encodedJsonBytes } from "./json-bytes";
+import { consumeSandboxHostCall, SANDBOX_LIMITS } from "./limits";
 import { isSandboxCapabilityAllowed, type BoundHostFunction, type SandboxRunInput } from "./shared";
+import { SandboxSidecarAdmission } from "./sidecar-admission";
 import {
 	artifactReadRangeArgsSchema,
 	base64DecodedLength,
@@ -40,6 +42,7 @@ import {
 	type SidecarHostCallFrame,
 	type SidecarHostResultFrame,
 } from "./sidecar-protocol";
+import { SANDBOX_TRANSIENT_MEMORY, sandboxTransientPermitBytes } from "./transient-memory";
 
 const initialExpiryMs = SANDBOX_LIMITS.execution.timeoutMs + SANDBOX_LIMITS.sidecar.disposalMs;
 const maximumSequenceCount = SANDBOX_LIMITS.hostCalls.total + SANDBOX_LIMITS.journalReads.count + 4;
@@ -81,38 +84,6 @@ const decodeArgsJson = Schema.decodeUnknownOption(
 	Schema.fromJsonString(Schema.Json),
 	strictOptions,
 );
-// Each permit covers the decoded argument graph plus the unit's result term; inline batches also
-// cover their evidence until the run ends. The pool leaves 60 MiB of evidence beside one inline
-// batch and admits at most four maximum results, keeping Rust assemblies below 64 MiB.
-export const SANDBOX_TRANSIENT_MEMORY = {
-	evidenceCopies: 3,
-	smallBytes: 8 * MiB,
-	ordinaryBytes: 56 * MiB,
-	journalReadBytes: 8 * MiB,
-	inlineValueBytes: 80 * MiB,
-	inlineBatchBytes: 145 * MiB,
-	poolBytes: SANDBOX_JSON_GRAPH_FACTOR * SANDBOX_LIMITS.bridge.requestBytes + 205 * MiB,
-} as const;
-const smallCapabilities = new Set([
-	"log",
-	"span",
-	"scratchWrite",
-	"getCachedValue",
-	"setCachedValue",
-	"artifactReadRange",
-]);
-const permitBytes = (name: string, argsBytes: number) => {
-	let resultBytes: number = SANDBOX_TRANSIENT_MEMORY.ordinaryBytes;
-	if (name === "inlineBatch") {
-		resultBytes = SANDBOX_TRANSIENT_MEMORY.inlineBatchBytes;
-	} else if (name === "journalRead") {
-		resultBytes = SANDBOX_TRANSIENT_MEMORY.journalReadBytes;
-	} else if (smallCapabilities.has(name)) {
-		resultBytes = SANDBOX_TRANSIENT_MEMORY.smallBytes;
-	}
-	return SANDBOX_JSON_GRAPH_FACTOR * argsBytes + resultBytes;
-};
-
 type TransientPermit = { readonly release: () => void; readonly shrink: (bytes: number) => void };
 
 const makeTransientPool = (capacity: number) => {
@@ -150,6 +121,9 @@ const makeTransientPool = (capacity: number) => {
 		restore: <A, E, R>(effect: Effect.Effect<A, E, R>) => Effect.Effect<A, E, R>,
 	) =>
 		Effect.gen(function* () {
+			if (bytes > capacity) {
+				return undefined;
+			}
 			const immediate = tryAcquire(bytes);
 			if (immediate) {
 				return immediate;
@@ -171,7 +145,7 @@ const makeTransientPool = (capacity: number) => {
 			);
 			return permit(bytes);
 		});
-	return { acquire, tryAcquire, snapshot: () => ({ used, waiting: waiters.length }) };
+	return { acquire, tryAcquire, snapshot: () => ({ used, capacity, waiting: waiters.length }) };
 };
 
 const encoder = new TextEncoder();
@@ -323,13 +297,19 @@ const closeResult = (frame: SidecarHostCallFrameType) =>
 export class SandboxHostCallGate extends Context.Service<SandboxHostCallGate>()(
 	"SandboxHostCallGate",
 	{
-		make: Effect.sync(() => {
+		make: Effect.gen(function* () {
+			const { plan } = yield* SandboxSidecarAdmission;
 			const registrations = new Map<string, Effect.Effect<void>>();
-			const pool = makeTransientPool(SANDBOX_TRANSIENT_MEMORY.poolBytes);
+			const interactive = makeTransientPool(plan.pools.interactive);
+			const pools = {
+				interactive,
+				background: plan.mode === "lane" ? makeTransientPool(plan.pools.background) : interactive,
+			};
 
 			const register = Effect.fn("SandboxHostCallGate.register")(function* (
 				options: SandboxHostCallGateOptions,
 			): Effect.fn.Return<SandboxHostCallGateRegistration, GateError, Scope.Scope> {
+				const pool = pools[options.input.lane];
 				const journalSource = options.input.replayJournal;
 				const journal = journalSource === undefined ? undefined : yield* pinJournal(journalSource);
 				if (options.input.workflowExecutionId !== undefined && journal === undefined) {
@@ -789,21 +769,25 @@ export class SandboxHostCallGate extends Context.Service<SandboxHostCallGate>()(
 						} else if (frame.name === "artifactReadRange" || frame.name === "scratchWrite") {
 							action = fileControl;
 						}
-						const bytes = permitBytes(frame.name, argsBytes);
+						const bytes = sandboxTransientPermitBytes(frame.name, argsBytes);
 						const permits =
 							frame.name === "inlineBatch" ? SANDBOX_LIMITS.bridge.concurrentHostCalls : 1;
 						const response = yield* withPermits(
 							permits,
 							Effect.uninterruptibleMask((restore) =>
 								Effect.gen(function* () {
-									let permit: TransientPermit | undefined;
-									if (frame.name === "inlineBatch") {
-										permit = pool.tryAcquire(bytes);
-									} else {
-										permit = yield* pool.acquire(bytes, restore);
-									}
+									const permit =
+										frame.name === "inlineBatch"
+											? pool.tryAcquire(bytes)
+											: yield* pool.acquire(bytes, restore);
 									if (permit === undefined) {
-										const reply = hostResultFrame(frame, { defer: true });
+										const reply =
+											frame.name === "inlineBatch"
+												? hostResultFrame(frame, { defer: true })
+												: frameFailure(
+														frame,
+														"Sandbox host call exceeds its lane's transient memory",
+													);
 										yield* deliver(reply, () => undefined);
 										return reply;
 									}
@@ -922,7 +906,7 @@ export class SandboxHostCallGate extends Context.Service<SandboxHostCallGate>()(
 				return { close, extend, journal, dispatch, scriptBudget, inlineEntries };
 			});
 
-			return { register, transientMemory: pool.snapshot };
+			return { register, transientMemory: (lane: ExecutionLane) => pools[lane].snapshot() };
 		}),
 	},
 ) {

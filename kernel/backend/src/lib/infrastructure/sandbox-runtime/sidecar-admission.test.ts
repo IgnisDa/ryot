@@ -4,15 +4,29 @@ import { Deferred, Effect, Exit, Fiber, Layer, Option, Result, Scope } from "eff
 
 import { makeAppConfigLayer } from "#lib/test-utils/effect";
 
-import { SANDBOX_TRANSIENT_MEMORY } from "./host-call-gate";
+import { makeSandboxAdmission } from "./host-call-gate.test-support";
 import { MiB } from "./limits";
-import { SandboxSidecarAdmission, sandboxMemoryBudgetBytes } from "./sidecar-admission";
+import { SandboxSidecarAdmission, sandboxMemoryPlan } from "./sidecar-admission";
 
 const admissionLayer = Layer.effect(SandboxSidecarAdmission, SandboxSidecarAdmission.make).pipe(
 	Layer.provide(makeAppConfigLayer({ sandbox: { memoryBudgetMiB: Option.some(1100) } })),
 );
-const idleBytes = 2 * 128 * MiB + SANDBOX_TRANSIENT_MEMORY.poolBytes;
+const idleBytes = (admission: SandboxSidecarAdmission["Service"]) =>
+	admission.plan.budget - admission.plan.dynamicBytes;
 const acquireScope = Effect.acquireRelease(Scope.make(), (scope) => Scope.close(scope, Exit.void));
+const GiB = 1024 * MiB;
+const idleSnapshot = (admission: SandboxSidecarAdmission["Service"]) => ({
+	runs: 0,
+	waiting: 0,
+	processes: 0,
+	reservations: 0,
+	interactiveBytes: 0,
+	bytes: idleBytes(admission),
+});
+const planFailure = (result: Result.Result<unknown, SandboxRunError>) =>
+	Result.isFailure(result)
+		? { kind: result.failure.kind, message: result.failure.message }
+		: result;
 
 layer(admissionLayer)((test) => {
 	test.effect("atomic_admission_keeps_memory_waiters_from_holding_execution_slots", () =>
@@ -43,7 +57,10 @@ layer(admissionLayer)((test) => {
 				expect(admission.snapshot()).toMatchObject({ waiting: 0, reservations: 2 });
 				yield* Scope.close(firstScope, Exit.void);
 				yield* Scope.close(smallScope, Exit.void);
-				expect(admission.snapshot()).toMatchObject({ reservations: 0, bytes: idleBytes });
+				expect(admission.snapshot()).toMatchObject({
+					reservations: 0,
+					bytes: idleBytes(admission),
+				});
 			}),
 		),
 	);
@@ -81,7 +98,7 @@ layer(admissionLayer)((test) => {
 					yield* Fiber.join(second);
 					expect(admission.snapshot().runs).toBe(0);
 					yield* Scope.close(processScope, Exit.void);
-					expect(admission.snapshot().bytes).toBe(idleBytes);
+					expect(admission.snapshot().bytes).toBe(idleBytes(admission));
 				}),
 			),
 	);
@@ -95,7 +112,7 @@ layer(admissionLayer)((test) => {
 					.reserveRun("user/full", "interactive")
 					.pipe(Scope.provide(prefixScope));
 				const reservedBytes = admission.snapshot().bytes;
-				expect(reservedBytes).toBe(idleBytes + 298 * MiB + 128 * MiB);
+				expect(reservedBytes).toBe(idleBytes(admission) + 298 * MiB + 128 * MiB);
 				yield* admission.reserveProcess("user/full", 1, lease).pipe(Scope.provide(processScope));
 				const reserved = admission.snapshot();
 				expect(reserved).toMatchObject({ processes: 1, bytes: reservedBytes });
@@ -104,9 +121,9 @@ layer(admissionLayer)((test) => {
 				expect(admission.snapshot().runs).toBe(1);
 				yield* Scope.close(prefixScope, Exit.void);
 				expect(admission.snapshot().runs).toBe(0);
-				expect(admission.snapshot().bytes).toBe(idleBytes + 128 * MiB);
+				expect(admission.snapshot().bytes).toBe(idleBytes(admission) + 128 * MiB);
 				yield* Scope.close(processScope, Exit.void);
-				expect(admission.snapshot().bytes).toBe(idleBytes);
+				expect(admission.snapshot().bytes).toBe(idleBytes(admission));
 			}),
 		),
 	);
@@ -176,7 +193,7 @@ layer(admissionLayer)((test) => {
 					);
 					expect(closed).toBeInstanceOf(SandboxRunError);
 					yield* Scope.close(processScope, Exit.void);
-					expect(admission.snapshot().bytes).toBe(idleBytes);
+					expect(admission.snapshot().bytes).toBe(idleBytes(admission));
 					expect(admission.snapshot().runs).toBe(0);
 				}),
 			),
@@ -186,21 +203,14 @@ layer(admissionLayer)((test) => {
 			Effect.gen(function* () {
 				const measured = yield* SandboxSidecarAdmission;
 				const idle = measured.snapshot().bytes;
-				expect(idle).toBe(idleBytes);
+				expect(idle).toBe(idleBytes(measured));
 				const measureScope = yield* acquireScope;
 				yield* measured.reserveRun("system/core", "interactive").pipe(Scope.provide(measureScope));
 				const runBytes = measured.snapshot().bytes - idle;
 				expect(runBytes).toBe(298 * MiB);
 				yield* Scope.close(measureScope, Exit.void);
 
-				const tightConfig = yield* Layer.build(
-					makeAppConfigLayer({
-						sandbox: {
-							memoryBudgetMiB: Option.some(Math.ceil((idle + 128 * MiB + runBytes) / MiB)),
-						},
-					}),
-				);
-				const tight = yield* SandboxSidecarAdmission.make.pipe(Effect.provideContext(tightConfig));
+				const tight = yield* makeSandboxAdmission(Math.ceil((idle + 128 * MiB + runBytes) / MiB));
 				const leaseScope = yield* acquireScope;
 				const processScope = yield* acquireScope;
 				const lazy = yield* tight
@@ -236,30 +246,146 @@ layer(admissionLayer)((test) => {
 	);
 });
 
-const GiB = 1024 * MiB;
-const budgetFailure = (result: Result.Result<number, SandboxRunError>) =>
-	Result.isFailure(result)
-		? { kind: result.failure.kind, message: result.failure.message }
-		: result;
+const plannedBudget = (configured: Option.Option<number>, effectiveMemory: number) =>
+	Result.map(sandboxMemoryPlan(configured, effectiveMemory), (plan) => plan.budget);
+const plannedRegions = (budget: number) =>
+	Result.map(sandboxMemoryPlan(Option.some(budget), 8 * GiB), (plan) => ({
+		mode: plan.mode,
+		dynamic: plan.dynamicBytes / MiB,
+		pools: [plan.pools.interactive / MiB, plan.pools.background / MiB],
+	}));
+const closeTwice = (scope: Scope.Closeable) =>
+	Scope.close(scope, Exit.void).pipe(Effect.andThen(Scope.close(scope, Exit.void)));
 
 it("sandbox_memory_budget_derives_from_effective_memory", () => {
-	expect(sandboxMemoryBudgetBytes(Option.none(), 8 * GiB)).toEqual(Result.succeed(1536 * MiB));
-	expect(sandboxMemoryBudgetBytes(Option.none(), 2 * GiB)).toEqual(Result.succeed(GiB));
-	expect(sandboxMemoryBudgetBytes(Option.some(2048), 8 * GiB)).toEqual(Result.succeed(2 * GiB));
-	expect(budgetFailure(sandboxMemoryBudgetBytes(Option.some(2049), 4 * GiB))).toEqual({
+	expect(plannedBudget(Option.none(), 8 * GiB)).toEqual(Result.succeed(1536 * MiB));
+	expect(plannedBudget(Option.none(), 2 * GiB)).toEqual(Result.succeed(GiB));
+	expect(plannedBudget(Option.some(2048), 8 * GiB)).toEqual(Result.succeed(2 * GiB));
+	expect(planFailure(sandboxMemoryPlan(Option.some(2049), 4 * GiB))).toEqual({
 		kind: "resource-unavailable",
 		message: "Sandbox memory budget exceeds half the effective host memory",
 	});
-	expect(sandboxMemoryBudgetBytes(Option.some(914), 4 * GiB)).toEqual(Result.succeed(914 * MiB));
-	expect(budgetFailure(sandboxMemoryBudgetBytes(Option.some(913), 4 * GiB))).toEqual({
-		kind: "resource-unavailable",
-		message:
-			"Sandbox memory budget cannot fit resident core processes, transient memory and a lazy run",
-	});
 	for (const effectiveMemory of [0, -1, Number.NaN, Number.MAX_SAFE_INTEGER + 2, 1.5]) {
-		expect(budgetFailure(sandboxMemoryBudgetBytes(Option.none(), effectiveMemory))).toEqual({
+		expect(planFailure(sandboxMemoryPlan(Option.none(), effectiveMemory))).toEqual({
 			kind: "resource-unavailable",
 			message: "Sandbox effective host memory is unavailable",
 		});
 	}
 });
+
+it.effect("admission_mode_follows_budget_and_admits_background_work", () =>
+	Effect.scoped(
+		Effect.gen(function* () {
+			for (const budget of [800, 853]) {
+				expect(planFailure(plannedRegions(budget))).toEqual({
+					kind: "resource-unavailable",
+					message:
+						"Sandbox memory budget cannot fit resident core processes, transient memory and a lazy run",
+				});
+			}
+			expect([854, 964, 1094, 1362, 1363, 1536, 1904].map(plannedRegions)).toEqual([
+				Result.succeed({ dynamic: 426, mode: "shared", pools: [172, 172] }),
+				Result.succeed({ dynamic: 536, mode: "shared", pools: [172, 172] }),
+				Result.succeed({ dynamic: 666, mode: "shared", pools: [172, 172] }),
+				Result.succeed({ dynamic: 934, mode: "shared", pools: [172, 172] }),
+				Result.succeed({ mode: "lane", dynamic: 852, pools: [83, 172] }),
+				Result.succeed({ mode: "lane", dynamic: 965, pools: [83, 232] }),
+				Result.succeed({ mode: "lane", dynamic: 1333, pools: [83, 232] }),
+			]);
+
+			const admission = yield* makeSandboxAdmission(1094);
+			const processScope = yield* acquireScope;
+			const backgroundScope = yield* acquireScope;
+			const interactiveScope = yield* acquireScope;
+			yield* admission.reserveProcess("system/core", 1).pipe(Scope.provide(processScope));
+			const background = yield* admission
+				.reserveRun("system/core", "background")
+				.pipe(Scope.provide(backgroundScope));
+			yield* admission.reserveRun("user/core", "interactive").pipe(Scope.provide(interactiveScope));
+			expect(admission.snapshot()).toMatchObject({
+				reservations: 2,
+				bytes: idleBytes(admission) + 2 * 298 * MiB,
+			});
+			yield* Scope.close(interactiveScope, Exit.void);
+			const lazyAdmitted = yield* Deferred.make<void>();
+			const lazy = yield* Effect.scoped(
+				admission
+					.reserveRun("user/data", "interactive")
+					.pipe(Effect.andThen(Deferred.succeed(lazyAdmitted, undefined))),
+			).pipe(Effect.forkScoped({ startImmediately: true }));
+			yield* Effect.yieldNow;
+			expect(admission.snapshot()).toMatchObject({ waiting: 1, reservations: 1 });
+			expect(yield* Deferred.isDone(lazyAdmitted)).toBe(false);
+			yield* background.enter({ generation: 1, lane: "background", instance: "system/core" });
+			expect(admission.snapshot().runs).toBe(1);
+			yield* Scope.close(backgroundScope, Exit.void);
+			yield* Deferred.await(lazyAdmitted);
+			yield* Fiber.join(lazy);
+			yield* Scope.close(processScope, Exit.void);
+			expect(admission.snapshot()).toMatchObject(idleSnapshot(admission));
+		}),
+	),
+);
+
+it.effect("fair_admission_releases_tickets_and_reservations_exactly_once", () =>
+	Effect.scoped(
+		Effect.gen(function* () {
+			const admission = yield* makeSandboxAdmission(1363);
+			const idle = idleSnapshot(admission);
+
+			const held = yield* acquireScope;
+			yield* admission.reserveRun("system/core", "background").pipe(Scope.provide(held));
+			const waiters = yield* Effect.forEach([0, 1], () =>
+				Effect.scoped(admission.reserveRun("user/core", "background")).pipe(
+					Effect.forkScoped({ startImmediately: true }),
+				),
+			);
+			yield* Effect.yieldNow;
+			expect(admission.snapshot()).toMatchObject({ waiting: 2, reservations: 1 });
+			const overload = yield* Effect.flip(
+				Effect.scoped(admission.reserveRun("user/core", "background")),
+			);
+			expect(overload.message).toBe("Sandbox ephemeral admission queue is full");
+			yield* Effect.forEach(waiters, Fiber.interrupt);
+			yield* closeTwice(held);
+			expect(admission.snapshot()).toMatchObject(idle);
+
+			const leaseScope = yield* acquireScope;
+			const failedStartup = yield* acquireScope;
+			const lease = yield* admission
+				.reserveRun("user/data", "interactive")
+				.pipe(Scope.provide(leaseScope));
+			expect(admission.snapshot().interactiveBytes).toBe(426 * MiB);
+			yield* admission.reserveProcess("user/data", 1, lease).pipe(Scope.provide(failedStartup));
+			yield* closeTwice(failedStartup);
+			expect(admission.snapshot()).toMatchObject({
+				processes: 0,
+				interactiveBytes: 298 * MiB,
+				bytes: idle.bytes + 298 * MiB,
+			});
+
+			const crashed = yield* acquireScope;
+			const firstAttempt = yield* acquireScope;
+			yield* admission.reserveProcess("user/data", 2, lease).pipe(Scope.provide(crashed));
+			yield* lease
+				.enter({ generation: 2, lane: "interactive", instance: "user/data" })
+				.pipe(Scope.provide(firstAttempt));
+			expect(admission.snapshot()).toMatchObject({ runs: 1, interactiveBytes: 426 * MiB });
+			yield* closeTwice(firstAttempt);
+			yield* closeTwice(crashed);
+			expect(admission.snapshot()).toMatchObject({ runs: 0, interactiveBytes: 298 * MiB });
+
+			const recovered = yield* acquireScope;
+			const retry = yield* acquireScope;
+			yield* admission.reserveProcess("user/data", 3, lease).pipe(Scope.provide(recovered));
+			yield* lease
+				.enter({ generation: 3, lane: "interactive", instance: "user/data" })
+				.pipe(Scope.provide(retry));
+			yield* closeTwice(retry);
+			yield* closeTwice(leaseScope);
+			expect(admission.snapshot()).toMatchObject({ processes: 1, interactiveBytes: 128 * MiB });
+			yield* closeTwice(recovered);
+			expect(admission.snapshot()).toMatchObject(idle);
+		}),
+	),
+);
