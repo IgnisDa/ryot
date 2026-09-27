@@ -51,22 +51,6 @@ describe("Exercises E2E", () => {
 				name: "Free Exercise DB",
 				providerId: expect.any(String),
 			});
-			expect(exerciseSchema?.propertiesSchema.fields.muscles).toMatchObject({
-				label: "Muscles",
-				type: "enum-array",
-				choices: {
-					kind: "static",
-					values: expect.arrayContaining([{ value: "abdominals" }, { value: "lower_back" }]),
-				},
-			});
-			expect(exerciseSchema?.propertiesSchema.fields.equipment).toMatchObject({
-				type: "enum",
-				label: "Equipment",
-				choices: {
-					kind: "static",
-					values: expect.arrayContaining([{ value: "body_only" }, { value: "ez_curl_bar" }]),
-				},
-			});
 			expect(exerciseSchema?.propertiesSchema.fields.images).toMatchObject({
 				type: "array",
 				label: "Images",
@@ -111,16 +95,15 @@ describe("Exercises E2E", () => {
 					layouts: ["grid", "list", "table"],
 					ownerPluginIdField: "ownerPluginId",
 					entitySchemaSlugField: "entitySchemaSlug",
+					tableColumns: [
+						{ label: "Name", field: "column0" },
+						{ label: "Level", field: "column1" },
+					],
 					addAction: {
 						type: "provider-search",
 						entitySchemaSlug: "exercise",
 						ownerPluginId: expect.any(String),
 					},
-					tableColumns: [
-						{ label: "Name", field: "column0" },
-						{ label: "Level", field: "column1" },
-						{ field: "column2", label: "Equipment" },
-					],
 				},
 			});
 			expect(savedViewSource.output.fields).toEqual(
@@ -179,7 +162,6 @@ describe("Exercises E2E", () => {
 				"image",
 				"column0",
 				"column1",
-				"column2",
 				"populationStatus",
 				"translationStatus",
 				"ownerPluginId",
@@ -205,7 +187,7 @@ describe("Exercises E2E", () => {
 				expect(exercise.image).toEqual({ type: "remote", url: "https://example.com/exercise.jpg" });
 				expect(exercise.level).toBe("beginner");
 				expect(exercise.kind).toBe("reps_and_weight");
-				expect(exercise.equipment).toBe("body_only");
+				expect(exercise.equipment).toEqual([]);
 
 				const savedView = yield* getSavedView(client, "all-exercises");
 				const dataSources = requirePresent(
@@ -314,13 +296,13 @@ describe("Exercises E2E", () => {
 			const { workoutSetEventSchema } = yield* findWorkoutSetEventSchema(client);
 			const source = yield* createEntity(client, {
 				name: "Source Exercise",
+				properties: { kind: "reps" },
 				entitySchemaSlug: exerciseSchema.id,
-				properties: { kind: "reps", muscles: ["abdominals"] },
 			});
 			const target = yield* createEntity(client, {
 				name: "Target Exercise",
+				properties: { kind: "reps" },
 				entitySchemaSlug: exerciseSchema.id,
-				properties: { kind: "reps", muscles: ["abdominals"] },
 			});
 
 			yield* client.call((c) =>
@@ -359,14 +341,14 @@ describe("Exercises E2E", () => {
 			const { client } = yield* createAuthenticatedClient();
 			const { schema: exerciseSchema } = yield* findBuiltinSchemaBySlug(client, "exercise");
 			const source = yield* createEntity(client, {
+				properties: { kind: "reps" },
 				name: "Source Reps Exercise",
 				entitySchemaSlug: exerciseSchema.id,
-				properties: { kind: "reps", muscles: ["abdominals"] },
 			});
 			const target = yield* createEntity(client, {
 				name: "Target Duration Exercise",
+				properties: { kind: "duration" },
 				entitySchemaSlug: exerciseSchema.id,
-				properties: { kind: "duration", muscles: ["abdominals"] },
 			});
 
 			const error = yield* Effect.flip(
