@@ -1,7 +1,7 @@
 {
 	"version": "8",
 	"dialect": "postgres",
-	"id": "f5e1a80c-ce86-46e3-be01-972cfc407436",
+	"id": "cf90445a-4f52-49ea-b8dd-7b4f6beeea73",
 	"prevIds": ["00000000-0000-0000-0000-000000000000"],
 	"ddl": [
 		{ "isRlsEnabled": false, "name": "account", "entityType": "tables", "schema": "public" },
@@ -7556,6 +7556,19 @@
 			"generated": null,
 			"identity": null,
 			"name": "expires_at",
+			"entityType": "columns",
+			"schema": "public",
+			"table": "session"
+		},
+		{
+			"type": "timestamp with time zone",
+			"typeSchema": null,
+			"notNull": false,
+			"dimensions": 0,
+			"default": null,
+			"generated": null,
+			"identity": null,
+			"name": "impersonation_expires_at",
 			"entityType": "columns",
 			"schema": "public",
 			"table": "session"
