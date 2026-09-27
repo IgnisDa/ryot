@@ -11,6 +11,17 @@ export const mutationAdmissionTestLayer = Layer.unwrap(
 		const fingerprints = yield* Ref.make<ReadonlyMap<string, string>>(new Map());
 		const dialect = new PgDialect();
 		return fakeDatabaseSession({
+			execute: (query: Parameters<PgDialect["sqlToQuery"]>[0]) => {
+				const [id] = dialect.sqlToQuery(query).params;
+				return Ref.get(fingerprints).pipe(
+					Effect.map((stored) => [
+						{
+							retiring: false,
+							fingerprint: typeof id === "string" ? (stored.get(id) ?? null) : null,
+						},
+					]),
+				);
+			},
 			insert: () => ({
 				values: (input: Pick<typeof mutationReceipt.$inferInsert, "id" | "inputFingerprint">) => ({
 					onConflictDoNothing: () => ({
