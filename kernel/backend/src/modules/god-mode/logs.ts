@@ -14,6 +14,7 @@ import {
 import { Zip, ZipDeflate, ZipPassThrough } from "fflate";
 
 import { AppConfig } from "#lib/infrastructure/config/service";
+import { DownloadTickets } from "#lib/infrastructure/download-tickets";
 
 type LogFile = ContractSuccess<"serverLogs", "list">["files"][number];
 
@@ -149,6 +150,13 @@ export const makeServerLogs = Effect.fn("makeServerLogs")(function* (logPath: st
 		}
 		return yield* snapshot(file);
 	});
+	const assertFileAvailable = Effect.fn("ServerLogs.assertFileAvailable")(function* (id: string) {
+		const files = yield* listAllFiles();
+		if (!files.some((file) => file.id === id)) {
+			return yield* unavailable();
+		}
+		return yield* Effect.void;
+	});
 	const downloadAll = Effect.fn("ServerLogs.downloadAll")(function* () {
 		const now = yield* DateTime.now;
 		const files = yield* listAllFiles();
@@ -230,13 +238,47 @@ export const makeServerLogs = Effect.fn("makeServerLogs")(function* (logPath: st
 			fileName: `ryot-server-logs-${DateTime.formatIso(now).replaceAll(":", "-")}.zip`,
 		};
 	});
-	return { list, downloadAll, downloadFile };
+	return { list, downloadAll, downloadFile, assertFileAvailable };
 });
 
 export class ServerLogs extends Context.Service<ServerLogs>()("ServerLogs", {
 	make: Effect.gen(function* () {
 		const config = yield* AppConfig;
-		return yield* makeServerLogs(config.observability.logging.file.path);
+		const tickets = yield* DownloadTickets;
+		const logs = yield* makeServerLogs(config.observability.logging.file.path);
+		const createFileDownloadTicket = Effect.fn("ServerLogs.createFileDownloadTicket")(function* (
+			id: string,
+		) {
+			yield* logs.assertFileAvailable(id);
+			return yield* tickets.issue({ resource: id, subject: null, purpose: "server-log-file" });
+		});
+		const createAllDownloadTicket = Effect.fn("ServerLogs.createAllDownloadTicket")(() =>
+			tickets.issue({ subject: null, resource: "all", purpose: "server-logs-all" }),
+		);
+		const downloadFileWithTicket = Effect.fn("ServerLogs.downloadFileWithTicket")(function* (
+			id: string,
+			ticket: string,
+		) {
+			yield* tickets
+				.verify(ticket, { resource: id, purpose: "server-log-file" })
+				.pipe(Effect.catchTag("DownloadTicketInvalid", () => Effect.fail(unavailable())));
+			return yield* logs.downloadFile(id);
+		});
+		const downloadAllWithTicket = Effect.fn("ServerLogs.downloadAllWithTicket")(function* (
+			ticket: string,
+		) {
+			yield* tickets
+				.verify(ticket, { resource: "all", purpose: "server-logs-all" })
+				.pipe(Effect.catchTag("DownloadTicketInvalid", () => Effect.fail(unavailable())));
+			return yield* logs.downloadAll();
+		});
+		return {
+			list: logs.list,
+			downloadAllWithTicket,
+			downloadFileWithTicket,
+			createAllDownloadTicket,
+			createFileDownloadTicket,
+		};
 	}),
 }) {
 	static readonly layer = Layer.effect(this, this.make);
