@@ -1,9 +1,9 @@
-import { ImportRunFailuresExport } from "@ryot-app/contract/modules/imports/schemas";
 import { Effect, Fiber, FileSystem, Option, Schema, Stream } from "effect";
 import { Playwright, PlaywrightSpawner } from "effect-playwright";
 
 import {
 	createTestUser,
+	importIssuesExportSchema,
 	installTestHarvestHandleImportPlugin,
 	installTestImportPinningPlugin,
 	type InstalledTestPlugin,
@@ -149,10 +149,16 @@ it.live("starts, follows and deletes an import from settings", () =>
 			yield* page.waitForURL((url) => url.pathname.startsWith("/settings/import-data/"));
 			yield* page.getByRole("heading", { level: 1, name: SOURCE_NAME }).waitFor();
 
-			// The detail polls until the run leaves a non-terminal status.
-			yield* page.getByText("Completed").waitFor({ timeout: 60_000, state: "visible" });
-			expect(yield* page.getByText("3 of 3 read · 3 added · 0 failed").count).toBe(1);
-			yield* page.getByText("What could not be brought over").waitFor({ state: "hidden" });
+			yield* page
+				.getByText("Completed", { exact: true })
+				.waitFor({ timeout: 60_000, state: "visible" });
+			expect(
+				yield* page.getByText(
+					"measurements: 3 created · 0 updated · 0 unchanged · 0 skipped · 0 unsuccessful",
+					{ exact: true },
+				).count,
+			).toBe(1);
+			yield* page.getByRole("heading", { name: "Record issues" }).waitFor({ state: "hidden" });
 
 			yield* page.getByRole("button", { name: "Import actions" }).click();
 			yield* page.getByRole("menuitem", { name: "Delete record" }).click();
@@ -180,22 +186,24 @@ it.live("downloads failures beyond the first page from an import detail", () =>
 			yield* row.waitFor({ state: "visible" });
 			yield* row.click();
 			yield* page.getByRole("heading", { level: 1, name: "E2E harvest handle import" }).waitFor();
-			yield* page.getByRole("button", { name: "Show more failures" }).waitFor();
+			yield* page.getByRole("button", { name: "Show more record issues" }).waitFor();
 
 			const downloadFiber = yield* page
 				.eventStream("download")
 				.pipe(Stream.runHead, Effect.forkChild({ startImmediately: true }));
-			yield* page.getByRole("button", { name: "Download errors" }).click();
+			yield* page.getByRole("button", { name: "Download issues" }).click();
 			const download = Option.getOrThrow(yield* Fiber.join(downloadFiber));
-			expect(download.suggestedFilename()).toMatch(/^ryot-import-failures-.+\.json$/);
+			expect(download.suggestedFilename()).toMatch(/^ryot-import-issues-.+\.json$/);
 			const path = Option.getOrThrow(yield* download.path);
 			assert.isNotNull(path);
 			const bytes = yield* fs.readFile(path);
-			const report = yield* Schema.decodeEffect(Schema.fromJsonString(ImportRunFailuresExport))(
+			const report = yield* Schema.decodeEffect(Schema.fromJsonString(importIssuesExportSchema))(
 				new TextDecoder().decode(bytes),
 			);
-			expect(report.failures).toHaveLength(101);
-			expect(report.failures[100]?.sourceLabel).toBe("Harvest fixture 101");
+			expect(report.issues).toHaveLength(101);
+			expect(report.issues.map(({ attribution }) => attribution?.sourceLabel)).toContain(
+				"Harvest fixture 101",
+			);
 		}),
 	).pipe(PlaywrightSpawner.withBrowser),
 );

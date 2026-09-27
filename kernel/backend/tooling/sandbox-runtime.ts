@@ -74,8 +74,24 @@ const compileRunner = (sandboxRuntimeDirectory: string) =>
 			outputFile: "runner.mjs",
 			entry: "runner-source.sandbox.ts",
 			approvedDynamicImportExpressions: new Set(["payload.moduleUrl"]),
-			approvedExternalSpecifiers: new Set(["@ryot-app/sandbox-sdk/effect"]),
+			approvedExternalSpecifiers: new Set(["effect", "@ryot-app/sandbox-sdk/effect"]),
 			sources: Object.entries(sources).map(([path, contents]) => ({ path, contents })),
+			aliases: [
+				{
+					find: "@ryot-app/contract/modules/sandbox/boundary-reason",
+					replacement: Bun.resolveSync(
+						"@ryot-app/contract/modules/sandbox/boundary-reason",
+						import.meta.dir,
+					),
+				},
+				{
+					find: "@ryot-app/contract/modules/plugins/execution-metadata",
+					replacement: Bun.resolveSync(
+						"@ryot-app/contract/modules/plugins/execution-metadata",
+						import.meta.dir,
+					),
+				},
+			],
 		}).pipe(
 			Effect.mapError(
 				(error) =>

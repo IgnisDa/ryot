@@ -34,7 +34,12 @@ const selectLifecycleStatus = (shelves: string[]) => {
 	return undefined;
 };
 
-export const adaptGoodreadsCsv = (csvText: string) => {
+export const adaptGoodreadsCsv = (
+	csvText: string,
+	importedAt = nowIso(),
+	eventStart = 0,
+	eventLimit = Number.MAX_SAFE_INTEGER,
+) => {
 	const { rows, headers } = parseCsvText(csvText);
 	assertRequiredHeaders(headers, ["Title", "ISBN13", "Bookshelves"], "Goodreads");
 	const failures: MediaImportAdapterFailure[] = [];
@@ -109,12 +114,15 @@ export const adaptGoodreadsCsv = (csvText: string) => {
 				}
 			}
 		}
-		const fallbackOccurredAt = completedOn ?? nowIso();
+		const fallbackOccurredAt = completedOn ?? importedAt;
 		const readCount = normalizeReadCount(row["Read Count"] ?? "");
-		for (let index = 0; index < readCount; index++) {
+		for (let index = eventStart; index < Math.min(readCount, eventStart + eventLimit); index++) {
 			group.events.push(
 				createCompleteEvent({ completedOn, occurredAt: completedOn ?? fallbackOccurredAt }),
 			);
+		}
+		if (eventStart + eventLimit < readCount) {
+			continue;
 		}
 		if (lifecycleStatus === "complete" && readCount === 0) {
 			group.events.push(

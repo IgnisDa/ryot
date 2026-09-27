@@ -1,3 +1,4 @@
+import { SandboxBoundaryReason } from "@ryot-app/contract/modules/sandbox/boundary-reason";
 import {
 	automationSandboxHostContracts,
 	coreSandboxHostContracts,
@@ -89,7 +90,7 @@ const bindHostFunction =
 		implementation: (...args: Args) => Effect.Effect<Success, SandboxHostError>,
 		invalid: (error: Schema.SchemaError) => HostFailure,
 		normalize: (args: ReadonlyArray<unknown>) => ReadonlyArray<unknown> = (args) => args,
-		failure: (error: SandboxHostError) => unknown = (error) => hostFailure(error.message),
+		failure: (error: SandboxHostError) => unknown = preserveSandboxBoundaryFailure,
 	): BoundHostFunction =>
 	(args) =>
 		Schema.decodeEffect(contract.args)(normalize(args)).pipe(
@@ -105,6 +106,9 @@ const bindHostFunction =
 
 const defaultFailure = (fnName: string) => (error: Schema.SchemaError) =>
 	invalidArguments(fnName, error);
+
+const preserveSandboxBoundaryFailure = (error: SandboxHostError) =>
+	hostFailure(error.message, Schema.is(SandboxBoundaryReason)(error.data) ? error.data : undefined);
 
 const preserveHttpFailureDetails = (error: SandboxHostError) =>
 	hostFailure(error.message, error.data);
@@ -172,6 +176,11 @@ export const bindSandboxHostFunctions = (
 		coreSandboxHostContracts.getUserPreferences,
 		(...args) => implementations.getUserPreferences(input, ...args),
 		defaultFailure("getUserPreferences"),
+	),
+	getPersistentValue: bindHostFunction(
+		coreSandboxHostContracts.getPersistentValue,
+		(...args) => implementations.getPersistentValue(input, ...args),
+		defaultFailure("getPersistentValue"),
 	),
 	ensureUserEntities: bindHostFunction(
 		domainSandboxHostContracts.ensureUserEntities,

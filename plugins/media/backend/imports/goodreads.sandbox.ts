@@ -1,27 +1,27 @@
 import { defineManifest, defineScript } from "@ryot-app/sandbox-sdk/driver";
-import { Effect } from "@ryot-app/sandbox-sdk/effect";
 
+import { collectMediaCsv } from "./collection";
+import { MediaSourceInput, MediaSourceOutput } from "./collection-schemas";
+import { parseCsvText } from "./csv";
 import { adaptGoodreadsCsv } from "./goodreads";
-import { batchMediaImportResult } from "./helpers";
-import { MediaImportAdapterBatch, MediaImportParserInput } from "./schemas";
-import { readImportArtifactText } from "./shared";
+import { normalizeReadCount } from "./helpers";
 
 export const manifest = defineManifest({
 	kind: "script",
 	slug: "import.goodreads",
-	requiredPluginConfigKeys: [],
 	name: "Parse Goodreads import",
-	capabilities: ["artifact-read"],
 });
 
 export default defineScript({
 	manifest,
-	input: MediaImportParserInput,
-	output: MediaImportAdapterBatch,
+	input: MediaSourceInput,
+	output: MediaSourceOutput,
 	run: (input) =>
-		readImportArtifactText.pipe(
-			Effect.map((text) =>
-				batchMediaImportResult(adaptGoodreadsCsv(text), input.start, input.limit),
-			),
-		),
+		collectMediaCsv("goodreads", input, (text, eventOffset) => ({
+			...adaptGoodreadsCsv(text, input.importedAt, eventOffset, 128),
+			nextEventOffset:
+				eventOffset + 128 < normalizeReadCount(parseCsvText(text).rows[0]?.["Read Count"] ?? "")
+					? eventOffset + 128
+					: 0,
+		})),
 });

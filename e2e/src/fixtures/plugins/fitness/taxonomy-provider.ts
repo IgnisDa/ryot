@@ -13,8 +13,6 @@ import { getExerciseDetails } from "../free-exercise-db/shared";
 
 export const manifest = defineManifest({
   kind: "provider",
-  capabilities: [],
-  requiredPluginConfigKeys: [],
   name: "E2E Free Exercise DB details",
   slug: ${JSON.stringify(input.slug)},
 });

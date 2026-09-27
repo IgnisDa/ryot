@@ -505,8 +505,11 @@ const privateCronScriptRow = (installationId: string) => ({
 		capabilities: [],
 		name: "Private script",
 		slug: "private-script",
+		oauthConnectionFields: [],
+		executableDependencies: [],
 		kind: "automation" as const,
 		requiredPluginConfigKeys: [],
+		optionalPluginConfigKeys: [],
 	},
 });
 

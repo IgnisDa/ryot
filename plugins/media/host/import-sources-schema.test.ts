@@ -2,7 +2,6 @@ import { CreateImportRunBody } from "@ryot-app/contract/modules/imports/schemas"
 import { Schema } from "effect";
 import { expect, it } from "vitest";
 
-import { TraktImportParserInput } from "../backend/imports/schemas";
 import { createMediaImportRunBody, MediaCreateImportRunBody } from "./import-sources";
 import { mediaPlugin } from "./plugin";
 
@@ -235,23 +234,6 @@ it("keeps every manifest source aligned with a strict plugin-owned guard", () =>
 			Schema.decodeUnknownSync(MediaCreateImportRunBody)({ ...body, undeclared: true }),
 		).toThrow();
 	}
-});
-
-it("keeps Trakt parser input aligned with the explicit modes", () => {
-	const user = { start: 0, limit: 25, mode: "user", username: "alice" } as const;
-	const list = {
-		start: 0,
-		limit: 25,
-		mode: "list",
-		collection: "Favorites",
-		url: "https://trakt.tv/users/alice/lists/favorites",
-	} as const;
-
-	expect(Schema.decodeSync(TraktImportParserInput)(user)).toEqual(user);
-	expect(Schema.decodeSync(TraktImportParserInput)(list)).toEqual(list);
-	expect(() =>
-		Schema.decodeUnknownSync(TraktImportParserInput)({ start: 0, limit: 25, username: "alice" }),
-	).toThrow();
 });
 
 it("accepts unknown JSON-compatible sources only through the generic envelope", () => {

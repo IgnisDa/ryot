@@ -2,9 +2,12 @@ import {
 	AutomationAfterInputProjection,
 	AutomationPolicyInputProjection,
 } from "@ryot-app/contract/modules/automations/lifecycle";
+import type { SandboxExecutionMetadata } from "@ryot-app/contract/modules/plugins/execution-metadata";
 import type { RyotQLDocument } from "@ryot-app/contract/modules/ryotql/language";
-import type { SandboxHostCapability } from "@ryot-app/contract/modules/sandbox/wire";
-import { POLICY_SAFE_SANDBOX_CAPABILITIES } from "@ryot-app/contract/modules/sandbox/wire";
+import type {
+	SandboxHostCapability,
+	POLICY_SAFE_SANDBOX_CAPABILITIES,
+} from "@ryot-app/contract/modules/sandbox/wire";
 import type { AppSchema } from "@ryot-app/contract/schema/property-schema";
 import type { Effect } from "@ryot-app/sandbox-sdk/effect";
 import { Schema } from "@ryot-app/sandbox-sdk/effect";
@@ -24,9 +27,14 @@ const positiveInteger = Schema.Number.pipe(
 	Schema.check(Schema.isGreaterThan(0)),
 );
 
-type GetConfig = (
-	keys: ReadonlyArray<string>,
-) => Effect.Effect<Readonly<Record<string, JsonValue>>, SandboxHostError>;
+type GetPluginConfigArgs = Schema.Schema.Type<typeof getPluginConfigArgsSchema>[0];
+type GetPluginConfigResult<Keys extends GetPluginConfigArgs> = Readonly<
+	Record<NonNullable<Keys["required"]>[number], JsonValue> &
+		Partial<Record<NonNullable<Keys["optional"]>[number], JsonValue>>
+>;
+type GetConfig = <const Keys extends GetPluginConfigArgs>(
+	keys: Keys,
+) => Effect.Effect<GetPluginConfigResult<Keys>, SandboxHostError>;
 
 export const CORE_SANDBOX_HOST_CAPABILITIES = [
 	"log",
@@ -38,6 +46,7 @@ export const CORE_SANDBOX_HOST_CAPABILITIES = [
 	"getUserPreferences",
 	"getUserSettings",
 	"claimPersistentValue",
+	"getPersistentValue",
 ] as const;
 
 export const coreSandboxHostCapabilitySchema = Schema.Literals([...CORE_SANDBOX_HOST_CAPABILITIES]);
@@ -96,7 +105,12 @@ export const claimPersistentValueArgsSchema = Schema.Tuple([
 	cacheTtlSecondsSchema,
 ]);
 export const configKeysSchema = Schema.Array(nonEmptyString);
-export const getPluginConfigArgsSchema = Schema.Tuple([configKeysSchema]);
+export const getPluginConfigArgsSchema = Schema.Tuple([
+	strictStruct({
+		required: Schema.optional(configKeysSchema),
+		optional: Schema.optional(configKeysSchema),
+	}),
+]);
 export const claimPersistentValueResultSchema = hostResultSchema(cacheClaimSchema);
 export const configValuesSchema = Schema.Record(Schema.String, jsonValueSchema);
 export const getPluginConfigResultSchema = hostResultSchema(configValuesSchema);
@@ -150,6 +164,11 @@ export const coreSandboxHostContracts = {
 		args: setCachedValueArgsSchema,
 		success: setCachedValueDataSchema,
 		result: setCachedValueResultSchema,
+	},
+	getPersistentValue: {
+		args: getCachedValueArgsSchema,
+		success: getCachedValueDataSchema,
+		result: getCachedValueResultSchema,
 	},
 	getUserPreferences: {
 		success: userPreferencesSchema,
@@ -606,7 +625,10 @@ export const sandboxHostContracts = {
 	...coreSandboxHostContracts,
 	...domainSandboxHostContracts,
 	...automationSandboxHostContracts,
-} as const;
+} as const satisfies Record<
+	Exclude<SandboxHostCapability, FilesystemGrantSandboxCapability>,
+	SandboxHostContract
+>;
 export type AutomationSandboxHostMethodMap = SandboxHostMethodMapFromContracts<
 	typeof automationSandboxHostContracts
 >;
@@ -644,12 +666,7 @@ const manifestSlugSchema = Schema.String.pipe(
 	Schema.check(Schema.makeFilter((value) => /^[a-z0-9]+(?:[._-][a-z0-9]+)*$/.test(value))),
 );
 
-const sandboxManifestBaseFields = {
-	slug: manifestSlugSchema,
-	name: manifestStringSchema,
-	capabilities: Schema.Array(sandboxHostCapabilitySchema),
-	requiredPluginConfigKeys: Schema.Array(manifestStringSchema),
-};
+const sandboxManifestBaseFields = { slug: manifestSlugSchema, name: manifestStringSchema };
 
 export const sandboxManifestSchema = Schema.Union([
 	strictStruct({ ...sandboxManifestBaseFields, kind: Schema.Literal("script") }),
@@ -670,13 +687,8 @@ export const sandboxManifestSchema = Schema.Union([
 		kind: Schema.Literal("automation"),
 		automationType: Schema.Literal("policy"),
 		inputProjection: AutomationPolicyInputProjection,
-		capabilities: Schema.Array(Schema.Literals([...POLICY_SAFE_SANDBOX_CAPABILITIES])),
 	}),
-	strictStruct({
-		...sandboxManifestBaseFields,
-		capabilities: Schema.Tuple([]),
-		kind: Schema.Literal("workflow"),
-	}),
+	strictStruct({ ...sandboxManifestBaseFields, kind: Schema.Literal("workflow") }),
 ]);
 
 export type SandboxManifest = Schema.Schema.Type<typeof sandboxManifestSchema>;
@@ -692,12 +704,16 @@ export const executionMetadataSchema = strictStruct({
 
 export type ExecutionMetadata = Schema.Schema.Type<typeof executionMetadataSchema>;
 
-// Filesystem grants are per-execution Deno permissions, never callable host functions, so they are
-// excluded from the host surface a script sees.
 export type SandboxWorkflowReference<
 	Input extends Schema.Constraint,
 	Output extends Schema.ConstraintDecoder<unknown>,
-> = { readonly input: Input; readonly output: Output; readonly workflowSlug: string };
+> = {
+	readonly input: Input;
+	readonly output: Output;
+	readonly workflowSlug: string;
+	readonly referenceKind: "workflow";
+	readonly selection?: SandboxExecutionMetadata["executableDependencies"][number]["selection"];
+};
 
 export type SandboxWorkflowHost = {
 	readonly executeWorkflow?: <
@@ -710,7 +726,7 @@ export type SandboxWorkflowHost = {
 	) => Effect.Effect<Output["Type"], SandboxHostError>;
 };
 
-export type SandboxHost<Capabilities extends readonly SandboxHostCapability[]> = Readonly<
-	Pick<SandboxHostMethodMap, Exclude<Capabilities[number], FilesystemGrantSandboxCapability>> &
-		SandboxWorkflowHost
+export type ScriptHost = Readonly<SandboxHostMethodMap & SandboxWorkflowHost>;
+export type PolicyHost = Readonly<
+	Pick<SandboxHostMethodMap, (typeof POLICY_SAFE_SANDBOX_CAPABILITIES)[number]>
 >;

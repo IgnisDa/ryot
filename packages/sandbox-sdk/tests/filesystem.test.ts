@@ -1,6 +1,7 @@
 import { Effect } from "@ryot-app/sandbox-sdk/effect";
 import {
 	readArtifact,
+	readArtifactRange,
 	readNamedArtifact,
 	writeScratchChunks,
 } from "@ryot-app/sandbox-sdk/filesystem";
@@ -17,11 +18,67 @@ test("fails closed when filesystem grants are unavailable", () =>
 		Effect.gen(function* () {
 			const read = yield* Effect.flip(readArtifact);
 			const readNamed = yield* Effect.flip(readNamedArtifact("historyFilePath"));
+			const range = yield* Effect.flip(readArtifactRange(0, 1));
 			const write = yield* Effect.flip(writeScratchChunks([]));
 
 			expect(read.message).toBe("Sandbox artifact grant is unavailable");
 			expect(readNamed.message).toBe("Sandbox artifact grant is unavailable");
+			expect(range.message).toBe("Sandbox artifact grant is unavailable");
 			expect(write.message).toBe("Sandbox scratch grant is unavailable");
+			expect(read.data).toEqual({ operation: "readArtifact", code: "missing-artifact-grant" });
+			expect(readNamed.data).toEqual({
+				operation: "readNamedArtifact",
+				code: "missing-artifact-grant",
+			});
+			expect(range.data).toEqual({
+				operation: "readArtifactRange",
+				code: "missing-artifact-grant",
+			});
+			expect(write.data).toEqual({
+				code: "missing-artifact-grant",
+				operation: "writeScratchChunks",
+			});
+		}),
+	));
+
+test("preserves a structured runner grant reason without adding filesystem paths", () =>
+	Effect.runPromise(
+		Effect.gen(function* () {
+			const reason = { operation: "readArtifact", code: "missing-artifact-grant" } as const;
+			Reflect.set(globalThis, filesystemKey, {
+				readArtifact: () =>
+					Promise.reject(
+						Object.assign(new Error("Sandbox artifact grant is unavailable"), { data: reason }),
+					),
+			});
+
+			const failure = yield* Effect.flip(readArtifact);
+			expect(failure.message).toContain("grant is unavailable");
+			expect(failure.data).toEqual(reason);
+		}),
+	));
+
+test("rejects invalid byte ranges before calling the binding", () =>
+	Effect.runPromise(
+		Effect.gen(function* () {
+			let calls = 0;
+			Reflect.set(globalThis, filesystemKey, {
+				readArtifactRange: () => {
+					calls++;
+					return Promise.resolve({ size: 0, bytes: new Uint8Array() });
+				},
+			});
+			for (const [offset, length] of [
+				[-1, 1],
+				[0, 0],
+				[0, 1048577],
+				[0.5, 1],
+			]) {
+				expect((yield* Effect.flip(readArtifactRange(offset, length))).message).toContain(
+					"Artifact range requires",
+				);
+			}
+			expect(calls).toBe(0);
 		}),
 	));
 

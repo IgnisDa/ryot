@@ -51,7 +51,7 @@ describe("Webhook routes", () => {
 				});
 
 				expect(completedRun).toMatchObject({ status: "completed", failureReason: null });
-				expect(completedRun.failedItems).toBe(0);
+				expect(completedRun.summary.every(({ counts }) => counts.unsuccessful === 0)).toBe(true);
 
 				const episodeEvents = yield* waitForEventSlugs(client, episodeId, "progress");
 				const showEvents = yield* listEventSlugs(client, showId);
@@ -117,7 +117,7 @@ describe("Webhook routes", () => {
 			);
 
 			expect(run).toMatchObject({ status: "completed", failureReason: null });
-			expect(run.failedItems).toBe(0);
+			expect(run.summary.every(({ counts }) => counts.unsuccessful === 0)).toBe(true);
 			expect(yield* waitForEventSlugs(client, movie.id, "progress")).toContain("progress");
 		}),
 	);
@@ -148,7 +148,7 @@ describe("Progress normalization", () => {
 				});
 
 				expect(completedRun.status).toBe("completed");
-				expect(completedRun.failedItems).toBe(0);
+				expect(completedRun.summary.every(({ counts }) => counts.unsuccessful === 0)).toBe(true);
 
 				yield* waitForEventSlugs(client, episodeId, "progress");
 				const progressEvents = yield* listEventsForEntity(client, episodeId, undefined, 100, {
@@ -191,7 +191,7 @@ describe("Progress normalization", () => {
 					show_episode_number: 2,
 				});
 				expect(firstRun).toMatchObject({ status: "completed", failureReason: null });
-				expect(firstRun.failedItems).toBe(0);
+				expect(firstRun.summary.every(({ counts }) => counts.unsuccessful === 0)).toBe(true);
 
 				const { run: secondRun } = yield* postIntegrationWebhookAndWait(client, integration, {
 					lot: "show",
@@ -201,7 +201,7 @@ describe("Progress normalization", () => {
 					show_episode_number: 2,
 				});
 				expect(secondRun).toMatchObject({ status: "completed", failureReason: null });
-				expect(secondRun.failedItems).toBe(0);
+				expect(secondRun.summary.every(({ counts }) => counts.unsuccessful === 0)).toBe(true);
 
 				yield* waitForEventSlugs(client, episodeId, "progress");
 				const progressEvents = yield* listEventsForEntity(client, episodeId, undefined, 100, {

@@ -4,7 +4,7 @@ import type { PluginManifest } from "@ryot-app/contract/modules/plugins/manifest
 import type { AssetLocator, ManagedAssetLocator } from "@ryot-app/contract/modules/uploads/schemas";
 import { EntityId, EventId, type UserId } from "@ryot-app/contract/schema/brands";
 import type { AppSchema } from "@ryot-app/contract/schema/property-schema";
-import { Context, Effect, Encoding, FileSystem, Layer } from "effect";
+import { Context, Effect, FileSystem, Layer } from "effect";
 
 import {
 	collectEmbeddedEntityIds,
@@ -98,13 +98,6 @@ const locatorKey = (locator: { readonly type: "local" | "s3"; readonly key: stri
 
 const archivePluginKey = (scope: "system" | "user", slug: string, sourceHash: string) =>
 	`${scope}:${slug}:${sourceHash}`;
-
-const comparePaths = (left: string, right: string) => {
-	if (left < right) {
-		return -1;
-	}
-	return left > right ? 1 : 0;
-};
 
 export const requirePluginKey = Effect.fn("BackupExportSnapshot.requirePluginKey")(function* (
 	pluginKeyById: ReadonlyMap<string, string>,
@@ -581,7 +574,6 @@ export class BackupExportSnapshot extends Context.Service<BackupExportSnapshot>(
 					),
 					privatePlugins: yield* Effect.forEach(privatePlugins, (plugin) =>
 						Effect.gen(function* () {
-							const sourceFiles = yield* plugins.listSourceFiles(plugin.id);
 							const compiledArtifacts = yield* plugins.listCompiledPackageArtifacts(plugin.id);
 							return {
 								slug: plugin.slug,
@@ -589,11 +581,6 @@ export class BackupExportSnapshot extends Context.Service<BackupExportSnapshot>(
 								sourceHash: plugin.sourceHash,
 								version: plugin.manifest.metadata.version,
 								key: yield* requirePluginKey(pluginKeyById, plugin.id),
-								files: Object.fromEntries(
-									Object.entries(sourceFiles)
-										.sort(([left], [right]) => comparePaths(left, right))
-										.map(([path, contents]) => [path, Encoding.encodeBase64(contents)]),
-								),
 								...compiledArtifacts,
 							};
 						}),

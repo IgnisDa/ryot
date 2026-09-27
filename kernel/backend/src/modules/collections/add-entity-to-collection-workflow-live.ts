@@ -155,7 +155,11 @@ export const runAddEntityToCollectionWorkflow = Effect.fn("AddEntityToCollection
 			eventWarnings = eventAttempt.success.warnings;
 		}
 
-		return { memberOf: result.memberOf, warnings: [...warnings, ...eventWarnings] };
+		return {
+			memberOf: result.memberOf,
+			operation: result.operation,
+			warnings: [...warnings, ...eventWarnings],
+		};
 	},
 	(effect, _payload, executionId) =>
 		Effect.annotateLogs(effect, { executionId, workflow: "AddEntityToCollectionWorkflow" }),

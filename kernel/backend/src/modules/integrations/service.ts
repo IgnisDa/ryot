@@ -3,6 +3,7 @@ import {
 	dataJsonSource,
 	dataJsonIntegrationSettingsSchema,
 } from "@ryot-app/contract/modules/imports/data-json";
+import type { IngestionScope } from "@ryot-app/contract/modules/imports/ingestion";
 import type { ImportRunFailureReason } from "@ryot-app/contract/modules/imports/schemas";
 import {
 	type CreateIntegrationBody,
@@ -22,7 +23,7 @@ import type {
 	UserId,
 } from "@ryot-app/contract/schema/brands";
 import { generateId } from "better-auth";
-import { Context, Effect, Result, Layer } from "effect";
+import { Context, DateTime, Effect, Result, Layer } from "effect";
 import { WorkflowEngine } from "effect/unstable/workflow/WorkflowEngine";
 
 import { DatabaseSession } from "#lib/infrastructure/db/session";
@@ -32,15 +33,19 @@ import {
 	parseAppSchemaProperties,
 } from "#lib/property-schema/property-schema-runtime";
 import { DataImportAdmission } from "#modules/imports/data-admission";
+import { ImportsRepository } from "#modules/imports/repository";
+import { IngestionRetirement } from "#modules/imports/retirement-service";
 import { ImportsService } from "#modules/imports/service";
 import { MutationReceipts } from "#modules/mutations/receipts";
 import { admitWorkflow, dispatchAdmittedWorkflow } from "#modules/mutations/workflow-dispatch";
 import { OAuthConnectionsService } from "#modules/oauth-connections/service";
+import { IngestionReadinessService } from "#modules/plugins/ingestion-readiness-service";
 import {
 	IntegrationProviderCatalog,
 	type RegisteredIntegrationProvider,
 } from "#modules/plugins/integration-provider-catalog";
 
+import { IntegrationIngestion } from "./ingestion";
 import { ProcessIntegrationRunWorkflow } from "./integration-workflow";
 import type { IntegrationSyncRun } from "./jobs";
 import { IntegrationsRepository, type IntegrationRecord } from "./repository";
@@ -121,8 +126,17 @@ export class IntegrationsService extends Context.Service<IntegrationsService>()(
 			const providerCatalog = yield* IntegrationProviderCatalog;
 			const oauthConnections = yield* OAuthConnectionsService;
 			const dataAdmission = yield* DataImportAdmission;
-			const failCreatedRun = (runId: ImportRunId, reason: ImportRunFailureReason) =>
-				importsService.failRunForIntegration(runId, reason);
+			const readiness = yield* IngestionReadinessService;
+			const ingestion = yield* IntegrationIngestion;
+			const importRepository = yield* ImportsRepository;
+			const retirement = yield* IngestionRetirement;
+			const failCreatedRun = Effect.fnUntraced(function* (
+				scope: IngestionScope,
+				reason: ImportRunFailureReason,
+			) {
+				yield* importRepository.startIngestion({ scope, startedAt: yield* DateTime.nowAsDate });
+				yield* ingestion.settle(scope, "failed", reason);
+			});
 
 			const requireProKeyFor = (registered: RegisteredIntegrationProvider) =>
 				registered.requiresProKey
@@ -365,6 +379,8 @@ export class IntegrationsService extends Context.Service<IntegrationsService>()(
 				integrationId: IntegrationId,
 			) {
 				yield* requireIntegration(user.id, integrationId);
+				yield* transaction(repository.beginRetirement({ integrationId, userId: user.id }));
+				yield* retirement.retire({ integrationId, userId: user.id }).pipe(Effect.orDie);
 				yield* repository.deleteForUser({ integrationId, userId: user.id });
 				return { id: integrationId };
 			});
@@ -391,7 +407,9 @@ export class IntegrationsService extends Context.Service<IntegrationsService>()(
 							reason: { provider: dataJsonSource, code: "invalid-provider-settings" },
 						});
 					}
+					const accountGeneration = yield* receipts.currentAccount(integration.userId);
 					const admitted = yield* dataAdmission.admit({
+						accountGeneration,
 						rawBody: input.rawBody,
 						userId: integration.userId,
 						integrationId: integration.id,
@@ -406,6 +424,14 @@ export class IntegrationsService extends Context.Service<IntegrationsService>()(
 							return { runId: admitted.runId };
 						}
 					}
+					const scope = { accountGeneration, runId: admitted.runId, userId: integration.userId };
+					const release = dataAdmission
+						.release(scope)
+						.pipe(
+							Effect.catchCause((cause) =>
+								Effect.logError("Data webhook payload cleanup failed", cause),
+							),
+						);
 					let disabled: "integration-disabled" | "integrations-disabled" | null = null;
 					if (integration.isDisabled) {
 						disabled = "integration-disabled";
@@ -413,11 +439,10 @@ export class IntegrationsService extends Context.Service<IntegrationsService>()(
 						disabled = "integrations-disabled";
 					}
 					if (disabled) {
-						yield* failCreatedRun(admitted.runId, { code: disabled });
-						yield* dataAdmission.release(admitted.runId);
+						yield* failCreatedRun(scope, { code: disabled }).pipe(Effect.orDie);
+						yield* release;
 						return { runId: admitted.runId };
 					}
-					const accountGeneration = yield* receipts.currentAccount(integration.userId);
 					yield* dispatchAdmittedWorkflow(
 						receipts,
 						engine,
@@ -436,19 +461,7 @@ export class IntegrationsService extends Context.Service<IntegrationsService>()(
 						(admission) => admission,
 						(execution) => execution,
 					).pipe(
-						Effect.catch((cause) =>
-							Effect.gen(function* () {
-								yield* Effect.logError("Data webhook dispatch failed", cause);
-								yield* failCreatedRun(admitted.runId, {
-									code: "queue-unavailable",
-									operation: "data-webhook",
-								});
-								yield* dataAdmission.release(admitted.runId);
-								return yield* new IntegrationRequestError({
-									reason: { code: "queue-unavailable", operation: "data-webhook" },
-								});
-							}),
-						),
+						Effect.catchCause((cause) => Effect.logError("Data webhook dispatch deferred", cause)),
 					);
 					return { runId: admitted.runId };
 				}
@@ -457,12 +470,7 @@ export class IntegrationsService extends Context.Service<IntegrationsService>()(
 					integration.provider,
 					integration.pluginInstallationId,
 				);
-				if (!registered) {
-					return yield* new IntegrationNotFoundError({
-						reason: { integrationId, code: "integration-not-found" },
-					});
-				}
-				if (registered.lot !== "sink") {
+				if (integration.lot !== "sink") {
 					return yield* new IntegrationRequestError({
 						reason: {
 							integrationId,
@@ -473,34 +481,45 @@ export class IntegrationsService extends Context.Service<IntegrationsService>()(
 					});
 				}
 
-				const run = yield* importsService.createIntegrationRun({
-					integrationLot: "sink",
-					userId: integration.userId,
-					source: integration.provider,
-					integrationId: integration.id,
-					pluginInstallationId: integration.pluginInstallationId,
-					inputSummary: buildIntegrationInputSummary(integration),
-				});
-
+				let failureReason: ImportRunFailureReason | undefined;
 				if (integration.isDisabled) {
-					yield* failCreatedRun(run.id, { code: "integration-disabled" });
+					failureReason = { code: "integration-disabled" };
+				} else if (yield* repository.getUserDisableIntegrations({ userId: integration.userId })) {
+					failureReason = { code: "integrations-disabled" };
+				} else if (registered?.requiresProKey && !(yield* proKey.isValidated)) {
+					failureReason = { code: "pro-key-required" };
+				}
+				const scope = yield* ingestion
+					.admitWebhook(
+						integration,
+						{ rawBody: input.rawBody, contentType: input.contentType },
+						failureReason,
+					)
+					.pipe(
+						Effect.mapError(
+							() =>
+								new IntegrationRequestError({
+									reason: { code: "queue-unavailable", operation: "integration-webhook-admission" },
+								}),
+						),
+					);
+				const run = { id: scope.runId };
+
+				if (failureReason || !registered) {
 					return { runId: run.id };
 				}
 
-				const disableIntegrations = yield* repository.getUserDisableIntegrations({
-					userId: integration.userId,
-				});
-				if (disableIntegrations) {
-					yield* failCreatedRun(run.id, { code: "integrations-disabled" });
+				const released = yield* ingestion
+					.release(scope, integration)
+					.pipe(
+						Effect.catchCause((cause) =>
+							Effect.logError("integration release deferred", cause).pipe(Effect.as(false)),
+						),
+					);
+				if (!released) {
 					return { runId: run.id };
 				}
-
-				if (registered.requiresProKey && !(yield* proKey.isValidated)) {
-					yield* failCreatedRun(run.id, { code: "pro-key-required" });
-					return { runId: run.id };
-				}
-
-				const accountGeneration = yield* receipts.currentAccount(integration.userId);
+				const accountGeneration = scope.accountGeneration;
 				const started = yield* dispatchAdmittedWorkflow(
 					receipts,
 					engine,
@@ -514,7 +533,6 @@ export class IntegrationsService extends Context.Service<IntegrationsService>()(
 							accountGeneration,
 							userId: integration.userId,
 							integrationId: integration.id,
-							webhook: { rawBody: input.rawBody, contentType: input.contentType },
 						},
 					},
 					(admission) => admission,
@@ -523,13 +541,6 @@ export class IntegrationsService extends Context.Service<IntegrationsService>()(
 
 				if (Result.isFailure(started)) {
 					yield* Effect.logError("integration workflow enqueue failed", started.failure);
-					yield* failCreatedRun(run.id, {
-						code: "queue-unavailable",
-						operation: "integration-webhook",
-					});
-					return yield* new IntegrationRequestError({
-						reason: { code: "queue-unavailable", operation: "integration-webhook" },
-					});
 				}
 
 				return { runId: run.id };
@@ -569,6 +580,18 @@ export class IntegrationsService extends Context.Service<IntegrationsService>()(
 							provider.installationId === integration.pluginInstallationId,
 					)?.provider;
 					if (!registered || (registered.requiresProKey && !isPro)) {
+						continue;
+					}
+					const evaluated = yield* readiness
+						.evaluateIntegration({
+							userId: integration.userId,
+							integrationId: integration.id,
+							providerSlug: integration.provider,
+							settings: integration.providerSpecifics,
+							installationId: integration.pluginInstallationId,
+						})
+						.pipe(Effect.catchTag("IngestionReadinessError", () => Effect.succeed(null)));
+					if (!evaluated?.readiness.ready || !evaluated.readiness.plan) {
 						continue;
 					}
 
@@ -629,7 +652,57 @@ export class IntegrationsService extends Context.Service<IntegrationsService>()(
 				prepareYankRuns,
 				disableIfEnabled,
 				delete: deleteIntegration,
-				settleImportDispatchFailure: importsService.settleIntegrationDispatchFailure,
+				prepareRecoveryRuns: ingestion.recoverable,
+				recordRunFinished: repository.recordRunFinished,
+				releaseRecoveryRun: Effect.fnUntraced(function* (run: IntegrationSyncRun) {
+					const scope = {
+						runId: run.runId,
+						userId: run.userId,
+						accountGeneration: run.accountGeneration,
+					};
+					if (yield* ingestion.expire(scope)) {
+						return false;
+					}
+					const control = yield* importRepository.getIngestionRun(scope);
+					if (control?.status === "cancelling") {
+						yield* ingestion.settle(scope, "cancelled");
+						return false;
+					}
+					if (control?.status === "pending" && control.plan && control.pins) {
+						return yield* ingestion.inputReady(scope);
+					}
+					const integration = yield* repository.getForUser({
+						userId: run.userId,
+						integrationId: run.integrationId,
+					});
+					if (
+						!integration ||
+						integration.isDisabled ||
+						(yield* repository.getUserDisableIntegrations({ userId: run.userId }))
+					) {
+						return false;
+					}
+					const prepared = yield* importRepository.getPreparedRelease(scope);
+					if (prepared) {
+						if (prepared.requiresProKey && !(yield* proKey.isValidated)) {
+							return false;
+						}
+						return yield* ingestion.release(scope, integration);
+					}
+					const registered = integration.pluginInstallationId
+						? yield* providerCatalog.findOwnedForUser(
+								run.userId,
+								integration.provider,
+								integration.pluginInstallationId,
+							)
+						: null;
+					if (!registered || (registered.requiresProKey && !(yield* proKey.isValidated))) {
+						return false;
+					}
+					return yield* ingestion
+						.release(scope, integration)
+						.pipe(Effect.catchTag("IngestionReadinessError", () => Effect.succeed(false)));
+				}),
 			};
 		}),
 	},

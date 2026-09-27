@@ -1,5 +1,5 @@
 import { defineAutomation } from "@ryot-app/sandbox-sdk/automation";
-import type { EventSchemaRecord, SandboxHost } from "@ryot-app/sandbox-sdk/core";
+import type { EventSchemaRecord, ScriptHost } from "@ryot-app/sandbox-sdk/core";
 import { defineManifest } from "@ryot-app/sandbox-sdk/driver";
 import { Effect } from "@ryot-app/sandbox-sdk/effect";
 import { entityReadRecipe, executeRyotqlRecipe } from "@ryot-app/sandbox-sdk/ryotql";
@@ -10,10 +10,8 @@ import { MediaSandboxError } from "../lib/failures";
 export const manifest = defineManifest({
 	kind: "automation",
 	automationType: "automation",
-	requiredPluginConfigKeys: [],
 	name: "Record media library membership event",
 	slug: "automation.record-media-library-membership-event",
-	capabilities: ["executeRyotql", "createEvents", "listEventSchemas"],
 	inputProjection: {
 		relationship: { properties: [], compareProperties: [], parentEntityProperties: [] },
 	},
@@ -21,7 +19,7 @@ export const manifest = defineManifest({
 
 const libraryMemberEntitySchemaSlugs = new Set<string>(mediaLibraryMemberEntitySchemaSlugs);
 
-type AutomationHost = SandboxHost<typeof manifest.capabilities>;
+type AutomationHost = Pick<ScriptHost, "executeRyotql" | "createEvents" | "listEventSchemas">;
 
 const sourceEntity = (host: AutomationHost, entityId: string) =>
 	executeRyotqlRecipe(host.executeRyotql, entityReadRecipe({ entityIds: [entityId] })).pipe(

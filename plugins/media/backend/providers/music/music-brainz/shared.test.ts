@@ -18,13 +18,13 @@ const makeHost = (route: (url: string) => unknown) =>
 	});
 const execution = { metadata: {}, sandboxScriptId: "script_test" };
 describe("music.music-brainz sandbox script", () => {
-	it("declares one narrowly scoped script per operation", () => {
+	it("declares a script for each operation", () => {
 		expect([
-			[searchManifest.slug, search.operation, searchManifest.capabilities],
-			[detailsManifest.slug, details.operation, detailsManifest.capabilities],
+			[searchManifest.slug, search.operation],
+			[detailsManifest.slug, details.operation],
 		]).toEqual([
-			["music.music-brainz.search", "search", ["httpCall"]],
-			["music.music-brainz.details", "details", ["httpCall"]],
+			["music.music-brainz.search", "search"],
+			["music.music-brainz.details", "details"],
 		]);
 	});
 	it("maps recording search hits and drops entries missing an id", () => {

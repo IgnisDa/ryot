@@ -6,10 +6,8 @@ import { entityReadRecipe, executeRyotqlRecipe } from "@ryot-app/sandbox-sdk/ryo
 export const manifest = defineManifest({
 	kind: "automation",
 	automationType: "automation",
-	requiredPluginConfigKeys: [],
 	name: "Review Created Detector",
 	slug: "automation.review-created",
-	capabilities: ["executeRyotql", "emitSignal"],
 	inputProjection: { event: { properties: [], compareProperties: [] } },
 });
 

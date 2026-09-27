@@ -8,10 +8,12 @@ import { bundleSandboxPackage } from "./compiler-bundle";
 import { resolveSandboxCompilerDependencies } from "./compiler-dependencies";
 import {
 	sandboxCompilationFailure,
+	SandboxCompilerFailure,
 	sandboxCompilerDiagnostic,
 	toTypeScriptDiagnostic,
 } from "./compiler-diagnostics";
 import { extractSandboxManifest } from "./compiler-manifest";
+import { validateCompiledSandboxManifest } from "./compiler-metadata";
 import {
 	createTypeScriptSourcesProjectForEntries,
 	sandboxSourcePath,
@@ -53,7 +55,9 @@ type InspectedSandboxEntry = {
 	readonly sourceFile: ts.SourceFile;
 	readonly inspection: ReturnType<typeof inspectSandboxSource>;
 };
-type ValidatedSandboxEntry = InspectedSandboxEntry & { readonly manifest: SandboxManifest };
+type ValidatedSandboxEntry = InspectedSandboxEntry & {
+	readonly manifest: CompiledSandboxModule["manifest"];
+};
 
 const relativeModulePath = (sourceFile: ts.SourceFile, specifier: string) => {
 	const segments = sourceFile.fileName.split("/").slice(0, -1);
@@ -159,12 +163,14 @@ const createSandboxPackageProject = (
 			dependencies.tsserverPath,
 		).pipe(
 			Effect.mapError((error) =>
-				sandboxCompilationFailure([
-					sandboxCompilerDiagnostic(
-						"RYOT_COMPILER",
-						`TypeScript compiler failed: ${String(error)}`,
-					),
-				]),
+				error instanceof SandboxCompilerFailure
+					? error
+					: sandboxCompilationFailure([
+							sandboxCompilerDiagnostic(
+								"RYOT_COMPILER",
+								`TypeScript compiler failed: ${String(error)}`,
+							),
+						]),
 			),
 		);
 		const typeErrors = project.diagnostics.filter(
@@ -233,6 +239,15 @@ const validateSandboxPackageEntries = (
 	);
 	return Effect.forEach(entries, ({ entry, source, sourceFile, inspection }) =>
 		Effect.gen(function* () {
+			const execution = project.executionByEntry[entry];
+			if (!execution) {
+				return yield* sandboxCompilationFailure([
+					sandboxCompilerDiagnostic("RYOT_DEPENDENCY", "Executable analysis is missing"),
+				]);
+			}
+			if (execution.diagnostics.length) {
+				return yield* sandboxCompilationFailure(execution.diagnostics);
+			}
 			const moduleDiagnostics = project.sourceFiles
 				.filter((file) => file !== sourceFile)
 				.flatMap((file) => moduleDiagnosticsBySource.get(file) ?? []);
@@ -278,8 +293,13 @@ const validateSandboxPackageEntries = (
 					),
 				]);
 			}
+			const manifest = { ...extracted.manifest, ...execution.metadata };
+			const capabilityDiagnostic = validateCompiledSandboxManifest(manifest);
+			if (capabilityDiagnostic) {
+				return yield* sandboxCompilationFailure([capabilityDiagnostic]);
+			}
 			if (
-				(jsonByteLength(extracted.manifest) ?? Number.POSITIVE_INFINITY) >
+				(jsonByteLength(manifest) ?? Number.POSITIVE_INFINITY) >
 				SANDBOX_COMPILER_LIMITS.manifestBytes
 			) {
 				return yield* sandboxCompilationFailure([
@@ -290,7 +310,7 @@ const validateSandboxPackageEntries = (
 				]);
 			}
 
-			return { entry, source, sourceFile, inspection, manifest: extracted.manifest };
+			return { entry, source, manifest, sourceFile, inspection };
 		}),
 	);
 };

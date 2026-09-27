@@ -13,8 +13,6 @@ export const manifest = defineManifest({
   kind: "script",
   name: ${JSON.stringify(input.name)},
   slug: ${JSON.stringify(input.slug)},
-  capabilities: ["upsertGlobalEntities", "upsertGlobalRelationships"],
-  requiredPluginConfigKeys: [],
 });
 
 const trendingResultSchema = Schema.Struct({

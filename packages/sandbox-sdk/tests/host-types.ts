@@ -1,4 +1,5 @@
 import type { JsonValue } from "@ryot-app/contract/modules/ryotql/language";
+import { defineAutomationPolicy } from "@ryot-app/sandbox-sdk/automation";
 import { Effect, Schema } from "@ryot-app/sandbox-sdk/effect";
 import {
 	entityReadRecipe,
@@ -7,35 +8,24 @@ import {
 } from "@ryot-app/sandbox-sdk/ryotql";
 import { defineSandboxTestHost } from "@ryot-app/sandbox-sdk/testing";
 
-import type { LogEntry, SpanEntry } from "../src/core.js";
+import type { LogEntry, PolicyHost, ScriptHost, SpanEntry } from "../src/core.js";
 import { defineManifest, defineScript } from "../src/driver.js";
 import { type SandboxHostError, jsonValueSchema } from "../src/wire.js";
 import type { Equal, Expect } from "./type-assertions.js";
 
-const allCapabilitiesManifest = defineManifest({
-	kind: "script",
-	name: "All core capabilities",
-	slug: "all-core-capabilities",
-	requiredPluginConfigKeys: ["timezone"],
-	capabilities: [
-		"log",
-		"span",
-		"httpCall",
-		"getCachedValue",
-		"setCachedValue",
-		"getPluginConfig",
-		"getUserPreferences",
-		"getUserSettings",
-		"claimPersistentValue",
-	],
-});
+const scriptManifest = defineManifest({ kind: "script", name: "Script host", slug: "script-host" });
+const manifestWithCapabilities = { ...scriptManifest, capabilities: ["httpCall"] as const };
+// @ts-expect-error source manifests cannot declare generated capabilities.
+defineManifest(manifestWithCapabilities);
 
 defineScript({
 	output: Schema.Boolean,
 	input: Schema.Struct({}),
-	manifest: allCapabilitiesManifest,
+	manifest: scriptManifest,
 	run: (_input, host) =>
 		Effect.gen(function* () {
+			const scriptHostType: Expect<Equal<keyof typeof host, keyof ScriptHost>> = true;
+			void scriptHostType;
 			const logs: ReadonlyArray<LogEntry> = [
 				{ level: "info", message: "Started", attributes: { attempt: 1 } },
 			];
@@ -62,9 +52,14 @@ defineScript({
 				const value: JsonValue | null = claim.value;
 				void value;
 			}
-			const pluginConfig: Readonly<Record<string, JsonValue>> = yield* host.getPluginConfig([
-				"timezone",
-			]);
+			const pluginConfig = yield* host.getPluginConfig({
+				required: ["apiKey"],
+				optional: ["language"],
+			});
+			const requiredApiKey: JsonValue = pluginConfig.apiKey;
+			const optionalLanguage: JsonValue | undefined = pluginConfig.language;
+			// @ts-expect-error config reads do not expose unrequested keys.
+			const unrequestedApiToken: JsonValue | undefined = pluginConfig.apiToken;
 			const preferences = yield* host.getUserPreferences();
 			const disableIntegrations: boolean = preferences.disableIntegrations;
 			const settings: Readonly<Record<string, JsonValue>> = yield* host.getUserSettings();
@@ -72,6 +67,9 @@ defineScript({
 			void cached;
 			void stored;
 			void pluginConfig;
+			void requiredApiKey;
+			void optionalLanguage;
+			void unrequestedApiToken;
 			void disableIntegrations;
 			void allowNsfw;
 			void settings;
@@ -93,52 +91,35 @@ defineScript({
 		}),
 });
 
-const narrowedManifest = defineManifest({
+const ordinaryScriptManifest = defineManifest({
 	kind: "script",
-	requiredPluginConfigKeys: [],
-	name: "Narrowed capabilities",
-	slug: "narrowed-capabilities",
-	capabilities: ["getCachedValue"],
+	name: "Ordinary script",
+	slug: "ordinary-script",
 });
 defineScript({
 	input: Schema.Struct({}),
-	manifest: narrowedManifest,
+	manifest: ordinaryScriptManifest,
 	output: Schema.NullOr(jsonValueSchema),
 	run: (_input, host) => {
-		const capabilities: Expect<Equal<keyof typeof host, "executeWorkflow" | "getCachedValue">> =
-			true;
-		void capabilities;
+		const hostType: Expect<Equal<keyof typeof host, keyof ScriptHost>> = true;
+		void hostType;
 		return host.getCachedValue("key");
 	},
 });
-defineSandboxTestHost(narrowedManifest, {
+defineSandboxTestHost(ordinaryScriptManifest, {
 	// @ts-expect-error host methods must return Effect values, not wire Promises.
 	getCachedValue: () => Promise.resolve({ data: null, success: true }),
 });
 
-const allDomainManifest = defineManifest({
+const domainScriptManifest = defineManifest({
 	kind: "script",
-	requiredPluginConfigKeys: [],
-	name: "All domain capabilities",
-	slug: "all-domain-capabilities",
-	capabilities: [
-		"createEvents",
-		"getEntitySchemas",
-		"listEventSchemas",
-		"listIntegrations",
-		"executeRyotql",
-		"ensureUserEntities",
-		"upsertGlobalEntities",
-		"getCurrentIntegration",
-		"getOAuthAccessToken",
-		"changeUserRelationships",
-		"upsertGlobalRelationships",
-	],
+	name: "Domain script",
+	slug: "domain-script",
 });
 defineScript({
 	output: Schema.Boolean,
 	input: Schema.Struct({}),
-	manifest: allDomainManifest,
+	manifest: domainScriptManifest,
 	run: (_input, host) =>
 		Effect.gen(function* () {
 			const integration = yield* host.getCurrentIntegration();
@@ -224,10 +205,28 @@ defineScript({
 		}),
 });
 
+const policyManifest = defineManifest({
+	kind: "automation",
+	name: "Policy host",
+	slug: "policy-host",
+	automationType: "policy",
+	inputProjection: { event: { properties: [] } },
+});
+defineAutomationPolicy({
+	manifest: policyManifest,
+	run: (_input, host) => {
+		const hostType: Expect<Equal<keyof typeof host, keyof PolicyHost>> = true;
+		void hostType;
+		// @ts-expect-error policy hosts do not expose workflow execution.
+		void host.executeWorkflow;
+		// @ts-expect-error policy hosts expose only policy-safe methods.
+		host.httpCall("GET", "https://example.com");
+		return Effect.succeed({ action: "allow" as const });
+	},
+});
+
 const promiseScriptManifest = defineManifest({
 	kind: "script",
-	capabilities: [],
-	requiredPluginConfigKeys: [],
 	name: "Promise driver rejection",
 	slug: "promise-driver-rejection",
 });

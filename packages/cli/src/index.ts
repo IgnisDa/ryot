@@ -160,8 +160,7 @@ const deriveManifestScripts = Effect.fn("deriveManifestScripts")(function* (
 	);
 	return {
 		scripts: derived.map(({ script }) => script),
-		compiledScripts: derived.map(({ script, source, compiled }) => ({
-			source,
+		compiledScripts: derived.map(({ script, compiled }) => ({
 			entry: script.entry,
 			format: compiled.format,
 			javascript: compiled.javascript,
@@ -210,7 +209,6 @@ const compileClientArtifact = Effect.fn("compileClientArtifact")(function* (
 const writeOutput = Effect.fn("writeOutput")(function* (
 	output: string,
 	manifest: PluginManifest,
-	sources: ReadonlyArray<SourceFile>,
 	compiledScripts: PluginArchivePackage["compiledScripts"],
 	compiledClient: PluginClientArtifact | undefined,
 ) {
@@ -218,21 +216,18 @@ const writeOutput = Effect.fn("writeOutput")(function* (
 	const path = yield* Path.Path;
 	const temporary = path.join(path.dirname(output), `.${path.basename(output)}.tmp`);
 	const archive = yield* Effect.try({
+		try: () =>
+			writePluginArchive({
+				manifest,
+				compiledScripts,
+				...(compiledClient === undefined ? {} : { compiledClient }),
+			}),
 		catch: (error) =>
 			new BuildError({
 				message:
 					error instanceof PluginArchiveError
 						? `Invalid plugin archive: ${error.reason}`
 						: `Unable to create plugin archive: ${String(error)}`,
-			}),
-		try: () =>
-			writePluginArchive({
-				manifest,
-				compiledScripts,
-				files: Object.fromEntries(
-					sources.map(({ contents, path: sourcePath }) => [sourcePath, contents]),
-				),
-				...(compiledClient === undefined ? {} : { compiledClient }),
 			}),
 	});
 	yield* fs.makeDirectory(path.dirname(output), { recursive: true });
@@ -259,7 +254,6 @@ const buildPlugin = Effect.fn("buildPlugin")(function* ({ cwd, output }: BuildOp
 	yield* writeOutput(
 		path.resolve(cwd, output ?? `dist/${manifest.metadata.slug}.zip`),
 		manifest,
-		sources,
 		compiledScripts,
 		compiledClient,
 	);

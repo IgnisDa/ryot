@@ -62,7 +62,16 @@ export const adaptOpenScaleCsv = (csvText: string): OpenScaleAdapterResult => {
 	if (headers.length === 0) {
 		throw new Error("OpenScale CSV is empty or has no header row");
 	}
+	return adaptOpenScaleRows(
+		rows.map((row, itemIndex) => ({ row, itemIndex })),
+		headers,
+	);
+};
 
+export const adaptOpenScaleRows = (
+	rows: ReadonlyArray<{ row: Record<string, string>; itemIndex: number }>,
+	headers: ReadonlyArray<string>,
+): OpenScaleAdapterResult => {
 	const normalizedHeaders = headers.map((header) => header.toLowerCase().trim());
 	const datetimeColIdx =
 		DATETIME_COLUMN_NAMES.map((name) => normalizedHeaders.indexOf(name)).find(
@@ -90,12 +99,7 @@ export const adaptOpenScaleCsv = (csvText: string): OpenScaleAdapterResult => {
 
 	const items: OpenScaleNormalizedItem[] = [];
 	const failures: OpenScaleAdapterFailure[] = [];
-	for (let rowIdx = 0; rowIdx < rows.length; rowIdx++) {
-		const row = rows[rowIdx];
-		if (!row) {
-			continue;
-		}
-
+	for (const { row, itemIndex: rowIdx } of rows) {
 		let datetimeRaw: string | undefined;
 		if (hasDatetime) {
 			datetimeRaw = headers[datetimeColIdx] ? row[headers[datetimeColIdx]] : undefined;

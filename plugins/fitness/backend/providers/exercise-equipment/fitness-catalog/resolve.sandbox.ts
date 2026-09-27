@@ -6,8 +6,6 @@ import { resolveTaxonomyEntry } from "../../taxonomy";
 
 export const manifest = defineManifest({
 	kind: "provider",
-	capabilities: [],
-	requiredPluginConfigKeys: [],
 	name: "Exercise Equipment Fitness Catalog Resolve",
 	slug: "exercise-equipment.fitness-catalog.resolve",
 });
