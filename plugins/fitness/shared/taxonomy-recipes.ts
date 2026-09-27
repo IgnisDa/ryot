@@ -12,6 +12,7 @@ import {
 	not,
 	or,
 	selectedField,
+	selectedInclude,
 	selectedRows,
 	table,
 } from "@ryot-app/plugin-kit/ryotql";
@@ -52,6 +53,57 @@ const effectiveLink = (relationship: Table) => {
 			}),
 		),
 	);
+};
+
+const exerciseLinkSlugs = {
+	target: { entity: "exercise-target", relationship: "exercise-targets" },
+	equipment: { entity: "exercise-equipment", relationship: "exercise-uses-equipment" },
+} as const;
+
+const exerciseLink = (
+	kind: keyof typeof exerciseLinkSlugs,
+	relationship: Table,
+	linked: Table,
+	exerciseId: Parameters<typeof eq>[1],
+) => ({
+	joins: [join("inner", linked, eq(column(relationship, "targetEntityId"), column(linked, "id")))],
+	where: and(
+		effectiveLink(relationship),
+		eq(column(relationship, "sourceEntityId"), exerciseId),
+		eq(
+			column(relationship, "relationshipSchemaSlug"),
+			literal(exerciseLinkSlugs[kind].relationship),
+		),
+		eq(column(linked, "entitySchemaSlug"), literal(exerciseLinkSlugs[kind].entity)),
+	),
+});
+
+export const exerciseTargetInclude = (exercise: Table) => {
+	const relationship = table("relationship", "exerciseTargetRelationship");
+	const target = table("entity", "exerciseTarget");
+	return selectedInclude(relationship, {
+		limit: 100,
+		...exerciseLink("target", relationship, target, column(exercise, "id")),
+		orderBy: [ascending(column(target, "name")), ascending(column(relationship, "id"))],
+		selection: {
+			name: selectedField(column(target, "name"), Schema.String),
+			role: selectedField(property(relationship, "role"), Schema.NullOr(exerciseTargetRoleSchema)),
+		},
+	});
+};
+
+export const exerciseEquipmentInclude = (exercise: Table) => {
+	const relationship = table("relationship", "exerciseEquipmentRelationship");
+	const equipment = table("entity", "exerciseEquipment");
+	return selectedInclude(relationship, {
+		limit: 100,
+		...exerciseLink("equipment", relationship, equipment, column(exercise, "id")),
+		orderBy: [ascending(column(equipment, "name")), ascending(column(relationship, "id"))],
+		selection: {
+			id: selectedField(column(equipment, "id"), Schema.String),
+			name: selectedField(column(equipment, "name"), Schema.String),
+		},
+	});
 };
 
 export const targetListRecipe = defineRecipe((input: TaxonomyListInput) => {
@@ -105,15 +157,7 @@ export const exerciseTargetsRecipe = defineRecipe((input: ExerciseTaxonomyInput)
 				after: input.after,
 				limit: input.limit,
 				orderBy: [ascending(column(target, "name")), ascending(column(relationship, "id"))],
-				joins: [
-					join("inner", target, eq(column(relationship, "targetEntityId"), column(target, "id"))),
-				],
-				where: and(
-					effectiveLink(relationship),
-					eq(column(relationship, "sourceEntityId"), literal(input.exerciseId)),
-					eq(column(relationship, "relationshipSchemaSlug"), literal("exercise-targets")),
-					eq(column(target, "entitySchemaSlug"), literal("exercise-target")),
-				),
+				...exerciseLink("target", relationship, target, literal(input.exerciseId)),
 				selection: {
 					id: selectedField(column(target, "id"), EntityId),
 					name: selectedField(column(target, "name"), Schema.String),
@@ -140,19 +184,7 @@ export const exerciseEquipmentRecipe = defineRecipe((input: ExerciseTaxonomyInpu
 				after: input.after,
 				limit: input.limit,
 				orderBy: [ascending(column(equipmentTable, "name")), ascending(column(relationship, "id"))],
-				joins: [
-					join(
-						"inner",
-						equipmentTable,
-						eq(column(relationship, "targetEntityId"), column(equipmentTable, "id")),
-					),
-				],
-				where: and(
-					effectiveLink(relationship),
-					eq(column(relationship, "sourceEntityId"), literal(input.exerciseId)),
-					eq(column(relationship, "relationshipSchemaSlug"), literal("exercise-uses-equipment")),
-					eq(column(equipmentTable, "entitySchemaSlug"), literal("exercise-equipment")),
-				),
+				...exerciseLink("equipment", relationship, equipmentTable, literal(input.exerciseId)),
 				selection: {
 					id: selectedField(column(equipmentTable, "id"), EntityId),
 					name: selectedField(column(equipmentTable, "name"), Schema.String),
