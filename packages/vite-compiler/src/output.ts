@@ -2,6 +2,7 @@
 // oxlint-disable-next-line effecttsgo/node-builtin-import
 import { extname } from "node:path";
 
+import { encodeExecutableText } from "@ryot-app/ts-utils/executable-text";
 import { Predicate, Result } from "effect";
 
 import { viteCompilerError } from "./error";
@@ -72,15 +73,23 @@ export const collectViteOutputs = (
 			}
 			seen.add(path);
 			let bytes: Uint8Array;
-			if (item["type"] === "chunk" && typeof item["code"] === "string") {
-				bytes = new TextEncoder().encode(item["code"]);
-			} else if (item["type"] === "asset" && typeof item["source"] === "string") {
-				bytes = new TextEncoder().encode(item["source"]);
-			} else if (item["type"] === "asset" && item["source"] instanceof Uint8Array) {
-				bytes = item["source"].slice();
-			} else {
+			try {
+				if (item["type"] === "chunk" && typeof item["code"] === "string") {
+					bytes = encodeExecutableText(item["code"]);
+				} else if (item["type"] === "asset" && typeof item["source"] === "string") {
+					bytes = /\.(?:m?js|css)$/i.test(path)
+						? encodeExecutableText(item["source"])
+						: new TextEncoder().encode(item["source"]);
+				} else if (item["type"] === "asset" && item["source"] instanceof Uint8Array) {
+					bytes = item["source"].slice();
+				} else {
+					return Result.fail(
+						viteCompilerError("invalid-output", `Vite emitted unsupported output: ${path}`),
+					);
+				}
+			} catch {
 				return Result.fail(
-					viteCompilerError("invalid-output", `Vite emitted unsupported output: ${path}`),
+					viteCompilerError("invalid-output", `Vite emitted invalid executable text: ${path}`),
 				);
 			}
 			files.push({ path, bytes, contentType: inferContentType(path) });

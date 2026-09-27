@@ -52,7 +52,11 @@ const assertDefined: <Value>(value: Value | undefined) => asserts value is Value
 	expect(value).toBeDefined();
 };
 
-const emittedRuntime = (javascript: string, css = "") =>
+const emittedRuntime = (
+	javascript: string,
+	css = "",
+	chunks: readonly { readonly fileName: string; readonly code: string }[] = [],
+) =>
 	Layer.merge(
 		BunFileSystem.layer,
 		Layer.succeed(
@@ -68,11 +72,69 @@ const emittedRuntime = (javascript: string, css = "") =>
 							})),
 							{ type: "chunk", code: javascript, fileName: "entry-bootstrap.js" },
 							{ source: css, type: "asset", fileName: "runtime.css" },
+							...chunks.map((chunk) => ({ ...chunk, type: "chunk" })),
 						],
 					}),
 			}),
 		),
 	);
+
+for (const [reference, accepted] of [
+	["./entry-bootstrap.js?query#fragment", true],
+	["entry-bootstrap.js#fragment", true],
+	["/entry-bootstrap.js", false],
+	["./nested/../entry-bootstrap.js", true],
+	["../entry-bootstrap.js", false],
+	["./nested/module.js", false],
+	["#fragment", false],
+	["data:text/javascript,export default 1", true],
+	["https://example.com/module.js", false],
+	["custom:module", false],
+	["//example.com/module.js", false],
+	["react", false],
+	["./runtime.css", false],
+] satisfies readonly (readonly [string, boolean])[]) {
+	it.layer(emittedRuntime(`export * from ${JSON.stringify(reference)};`))(
+		`runtime output policy: ${reference}`,
+		(test) => {
+			test.effect(accepted ? "accepts the reference" : "rejects the reference", () =>
+				Effect.gen(function* () {
+					const result = yield* buildClientRuntime.pipe(Effect.result);
+					expect(result._tag).toBe(accepted ? "Success" : "Failure");
+				}),
+			);
+		},
+	);
+}
+
+it.layer(
+	emittedRuntime('export * from "./nested/module.js";', "", [
+		{ fileName: "nested/module.js", code: 'export * from "../entry-0.js?query#fragment";' },
+	]),
+)("runtime nested output", (test) => {
+	test.effect("resolves imports relative to the containing file", () =>
+		Effect.gen(function* () {
+			const runtime = yield* buildClientRuntime;
+			expect(runtime.artifact.files.some(({ name }) => name === "nested/module.js")).toBe(true);
+		}),
+	);
+});
+
+for (const [css, accepted] of [
+	['a { background: url("https://example.com/image.png"); }', true],
+	['a { background: url("data:image/png;base64,AA=="); }', true],
+	['a { background: url("#fragment"); }', true],
+	['@import "./entry-0.js";', false],
+] satisfies readonly (readonly [string, boolean])[]) {
+	it.layer(emittedRuntime("export default 1;", css))(`runtime CSS policy: ${css}`, (test) => {
+		test.effect(accepted ? "accepts the reference" : "rejects the reference", () =>
+			Effect.gen(function* () {
+				const result = yield* buildClientRuntime.pipe(Effect.result);
+				expect(result._tag).toBe(accepted ? "Success" : "Failure");
+			}),
+		);
+	});
+}
 
 it.layer(
 	emittedRuntime(
