@@ -67,7 +67,7 @@ export const scheduleNativeAlert = Effect.fn("scheduleNativeAlert")(function* (
 	const notification = {
 		id,
 		sound,
-		foreground: true,
+		foreground: false,
 		body: request.body,
 		title: request.title,
 		isExactMandatory: false,
