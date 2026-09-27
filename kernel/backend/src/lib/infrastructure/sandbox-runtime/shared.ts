@@ -114,6 +114,7 @@ export type AdditionalSandboxHostImplementationMap = Omit<
 	| "getCachedValue"
 	| "sendNotification"
 	| "claimPersistentValue"
+	| "getPersistentValue"
 >;
 
 export const toSandboxHostError = (error: unknown): SandboxHostError => {

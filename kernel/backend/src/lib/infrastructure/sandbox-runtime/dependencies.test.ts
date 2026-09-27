@@ -2,7 +2,8 @@ import { BunServices } from "@effect/platform-bun";
 import { assert, expect, layer } from "@effect/vitest";
 import { SANDBOX_RUNTIME_REGISTRY } from "@ryot-app/sandbox-sdk/runtime-registry";
 import { canonicalFileSetHash, sha256Hex } from "@ryot-app/ts-utils/crypto";
-import { Effect, FileSystem, Order, Schema } from "effect";
+import { auditDenoEsmOutput } from "@ryot-app/vite-compiler";
+import { Effect, FileSystem, Order, Result, Schema } from "effect";
 
 import { materializeShippedSandboxRuntime, materializeSandboxRuntimePayload } from "./dependencies";
 import { sandboxRuntimePayload } from "./runtime-payload.generated";
@@ -148,15 +149,21 @@ layer(BunServices.layer)((test) => {
 					);
 					expect(module.length).toBeGreaterThan(0);
 					expect(module).not.toContain("npm:");
-					if (dependency.name === "youtubei") {
-						expect(module).toContain('@ryot-app/sandbox-sdk/effect"');
-					} else if (dependency.name === "ryotql") {
-						expect(module).toContain('from "effect"');
-						expect(module.replaceAll("@ryot-app/sandbox-sdk/effect", "")).not.toContain(
-							"@ryot-app/sandbox-sdk",
-						);
-					} else {
-						expect(module).not.toContain("@ryot-app/sandbox-sdk");
+					const effectSpecifiers = new Set([
+						effectDependency.sdkImport,
+						...effectDependency.aliases,
+					]);
+					expect(
+						Result.isSuccess(
+							auditDenoEsmOutput(
+								module,
+								dependency.name === "effect" ? new Set() : effectSpecifiers,
+							),
+						),
+						dependency.name,
+					).toBe(true);
+					if (["fflate", "youtubei", "ryotql"].includes(dependency.name)) {
+						expect(module).toContain('from "@ryot-app/sandbox-sdk/effect"');
 					}
 					expect((yield* fs.stat(modulePath)).mode & 0o222).toBe(0);
 				}

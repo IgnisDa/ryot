@@ -1,5 +1,12 @@
+import { BunFileSystem } from "@effect/platform-bun";
 import { expect, layer } from "@effect/vitest";
 import { SandboxRunError } from "@ryot-app/contract/errors";
+import {
+	KERNEL_EVENT_CREATE_WORKFLOW,
+	KERNEL_ENTITY_IMPORT_WORKFLOW,
+	KERNEL_PROCESS_IMPORT_CHUNKS_WORKFLOW,
+	KERNEL_PROVIDER_ENTITY_POPULATION_WORKFLOW,
+} from "@ryot-app/contract/modules/plugins/execution";
 import {
 	EntitySchemaSlug,
 	ImportRunId,
@@ -11,32 +18,42 @@ import {
 import { Context, Effect, Layer, Ref } from "effect";
 import { WorkflowEngine } from "effect/unstable/workflow/WorkflowEngine";
 
+import { SandboxArtifactStore } from "#lib/infrastructure/sandbox-runtime/artifacts";
 import { makeWorkflowEngine } from "#lib/test-utils/effect";
 import { mutationAdmissionTestLayer } from "#lib/test-utils/mutation-admission";
+import { IngestionCaptures } from "#modules/imports/capture-service";
+import { ingestionTestRun } from "#modules/imports/ingestion.test-support";
 import { ImportsRepository } from "#modules/imports/repository";
 import { IntegrationsRepository } from "#modules/integrations/repository";
 import { PluginRuntimeResolver } from "#modules/plugins/runtime-resolver";
-import {
-	KERNEL_EVENT_CREATE_WORKFLOW,
-	KERNEL_ENTITY_IMPORT_WORKFLOW,
-	KERNEL_PROCESS_IMPORT_CHUNKS_WORKFLOW,
-	KERNEL_PROVIDER_ENTITY_POPULATION_WORKFLOW,
-	KernelWorkflowReferences,
-} from "#modules/sandbox/kernel-workflow-references";
+import { KernelWorkflowReferences } from "#modules/sandbox/kernel-workflow-references";
 
 import { KernelWorkflowReferencesLive } from "./kernel-workflow-references";
 
 const mockImportsRepository = Layer.mock(ImportsRepository);
+const captureDependencies = Layer.mergeAll(
+	Layer.mock(IngestionCaptures)({}),
+	Layer.mock(SandboxArtifactStore)({}),
+	BunFileSystem.layer,
+);
 const mockIntegrationsRepository = Layer.mock(IntegrationsRepository);
 const unownedRepositories = Layer.mergeAll(
-	mockImportsRepository({ getRunById: () => Effect.succeed(null) }),
+	mockImportsRepository({
+		getRunById: () => Effect.succeed(null),
+		getIngestionRun: () => Effect.succeed(null),
+	}),
 	mockIntegrationsRepository({ getForUser: () => Effect.succeed(null) }),
 );
 
 const referencesLayer = (repositories: Layer.Layer<ImportsRepository | IntegrationsRepository>) =>
 	Layer.provide(
 		KernelWorkflowReferencesLive,
-		Layer.mergeAll(mutationAdmissionTestLayer, repositories, Layer.mock(PluginRuntimeResolver)({})),
+		Layer.mergeAll(
+			mutationAdmissionTestLayer,
+			captureDependencies,
+			repositories,
+			Layer.mock(PluginRuntimeResolver)({}),
+		),
 	);
 
 const populationReferencesLayer = (
@@ -46,6 +63,7 @@ const populationReferencesLayer = (
 		KernelWorkflowReferencesLive,
 		Layer.mergeAll(
 			mutationAdmissionTestLayer,
+			captureDependencies,
 			unownedRepositories,
 			Layer.mock(PluginRuntimeResolver)({
 				findAuthorizedSchemaProviderById: ({ providerId }) =>
@@ -86,7 +104,10 @@ const populationReferencesLayer = (
 							capabilities: [],
 							name: "Catalog refresh",
 							slug: "catalog.refresh",
+							oauthConnectionFields: [],
+							executableDependencies: [],
 							requiredPluginConfigKeys: [],
+							optionalPluginConfigKeys: [],
 						},
 					}),
 			}),
@@ -134,6 +155,68 @@ const recordingEngineLayer = (
 	);
 
 const unusedEngineLayer = Layer.succeed(WorkflowEngine, makeWorkflowEngine());
+
+layer(
+	KernelWorkflowReferencesLive.pipe(
+		Layer.provideMerge(
+			Layer.mergeAll(
+				mutationAdmissionTestLayer,
+				BunFileSystem.layer,
+				unusedEngineLayer,
+				Layer.mock(PluginRuntimeResolver)({}),
+				mockIntegrationsRepository({}),
+				mockImportsRepository({ getIngestionRun: () => Effect.succeed(ingestionTestRun()) }),
+				Layer.mock(SandboxArtifactStore)({
+					resolveOutputs: () => Effect.die("Replay must not resolve a temporary handle"),
+				}),
+				Layer.mock(IngestionCaptures)({
+					resume: (input) =>
+						Effect.succeed({
+							id: input.id,
+							state: input.state,
+							phase: input.phase,
+							ordinal: input.ordinal,
+							checkpoint: input.checkpoint,
+							payload: { byteSize: 10, locator: "durable-object", checksum: "persisted-checksum" },
+						}),
+				}),
+			),
+		),
+	),
+)((test) => {
+	test.effect("replays capture publication without resolving the collector temporary handle", () =>
+		Effect.gen(function* () {
+			const references = yield* KernelWorkflowReferences;
+			const result = yield* references.execute(
+				KERNEL_PROCESS_IMPORT_CHUNKS_WORKFLOW,
+				{
+					runId: "run-1",
+					operation: {
+						ordinal: 0,
+						action: "capture",
+						phase: "collection",
+						captureId: "page-1",
+						checkpoint: { page: 1 },
+						handle: "deleted-temporary-handle",
+					},
+				},
+				{
+					type: "user",
+					userId: UserId.make("user-1"),
+					accountGeneration: { userId: UserId.make("user-1"), token: "test-account-generation" },
+				},
+				"capture-child",
+				"run-1-import",
+				SandboxScriptId.make("caller-script"),
+			);
+			expect(result).toEqual({
+				captureId: "page-1",
+				handle: "deleted-temporary-handle",
+				inputFingerprint: "persisted-checksum",
+			});
+		}),
+	);
+});
 
 layer(
 	referencesLayer(unownedRepositories).pipe(
@@ -196,6 +279,7 @@ const slugResolvingReferencesLayer = Layer.provide(
 	KernelWorkflowReferencesLive,
 	Layer.mergeAll(
 		mutationAdmissionTestLayer,
+		captureDependencies,
 		unownedRepositories,
 		Layer.mock(PluginRuntimeResolver)({
 			findSchemaProviderBySlug: () =>
@@ -258,6 +342,19 @@ layer(
 
 const ownedRepositories = Layer.mergeAll(
 	mockImportsRepository({
+		getIngestionRun: (scope) =>
+			Effect.succeed({
+				...ingestionTestRun(),
+				id: scope.runId,
+				userId: scope.userId,
+				accountGeneration: scope.accountGeneration,
+				pins: {
+					scriptId: "script",
+					pluginRevisionId: null,
+					pluginConfigRevisionId: null,
+					executionId: "parent/execution",
+				},
+			}),
 		getRunById: () =>
 			Effect.succeed({
 				progress: 0,
@@ -282,9 +379,7 @@ const ownedRepositories = Layer.mergeAll(
 layer(
 	referencesLayer(ownedRepositories).pipe(
 		Layer.provideMerge(
-			recordingEngineLayer(() =>
-				Effect.succeed({ failedItems: 0, importedItems: 0, processedItems: 0 }),
-			),
+			recordingEngineLayer(() => Effect.succeed({ issues: [], summary: [], confirmed: [] })),
 		),
 	),
 )((test) => {
@@ -294,11 +389,14 @@ layer(
 			yield* references.execute(
 				KERNEL_PROCESS_IMPORT_CHUNKS_WORKFLOW,
 				{
-					totalItems: 0,
 					runId: "run-1",
-					failureCount: 0,
-					writeItemCount: 0,
-					chunkHandles: ["harvest-handle-0"],
+					operation: {
+						ordinal: 0,
+						action: "apply",
+						batchId: "batch",
+						captureId: "capture",
+						inputFingerprint: "fingerprint",
+					},
 				},
 				{
 					type: "user",
@@ -315,9 +413,12 @@ layer(
 
 			expect(yield* (yield* RecordedWorkflowDispatches).payloads).toEqual([
 				expect.objectContaining({
+					ordinal: 0,
+					batchId: "batch",
+					captureId: "capture",
 					userId: "trusted-user",
 					executionId: "child-execution",
-					chunkHandles: ["harvest-handle-0"],
+					inputFingerprint: "fingerprint",
 					artifactOwnerExecutionId: "parent/execution",
 					artifactReferenceExecutionId: "child-execution",
 				}),

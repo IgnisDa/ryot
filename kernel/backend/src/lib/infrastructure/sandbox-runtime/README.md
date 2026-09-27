@@ -92,7 +92,7 @@ The manifest declares an exact capability tuple. The backend intersects it with 
 
 | Principal or role                   | Available bridge capabilities                                                                                                                                                            |
 | ----------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| All valid subjects                  | `log`, `span`, `httpCall`, `getCachedValue`, `setCachedValue`, `getPluginConfig`, `claimPersistentValue`                                                                                 |
+| All valid subjects                  | `log`, `span`, `httpCall`, `getCachedValue`, `setCachedValue`, `getPersistentValue`, `getPluginConfig`, `claimPersistentValue`                                                           |
 | User or user automation run         | `createEvents`, `getEntitySchemas`, `listEventSchemas`, `listIntegrations`, `getUserPreferences`, `getUserSettings`, `getCurrentIntegration`, `changeUserRelationships`, `executeRyotql` |
 | System-plugin user-bootstrap script | `ensureUserEntities` for that plugin's entity schemas                                                                                                                                    |
 | Pinned system-scope plugin script   | `executeRyotql`, `upsertGlobalEntities`, `upsertGlobalRelationships` within plugin ownership                                                                                             |
@@ -103,9 +103,9 @@ The manifest declares an exact capability tuple. The backend intersects it with 
 
 `upsertGlobalEntities` additionally requires provider association. `ensureUserEntities` is available only to the declared user-bootstrap script and remains scoped to entity schemas owned by that plugin.
 
-Plugin config reads are restricted to the owning plugin's declared `requiredPluginConfigKeys`. Batches reject any undeclared, unreadable, or missing key. Normalized environment-key collisions reject plugin loading.
+Plugin config reads use compiler-generated required and optional key allowlists against the pinned revision. Required reads fail when missing; optional reads omit unavailable values. Undeclared reads and promotion of an optional-only key to a required read are denied. Executable calls and OAuth connection fields are restricted to generated dependency facts. Normalized environment-key collisions reject plugin loading.
 
-Cache keys are isolated by executing user and logical provider ID, falling back to script ID only when no provider exists. Ordinary cache values are refreshed after backend restart; `claimPersistentValue` survives restart and writes only if absent.
+Cache keys are isolated by executing user and logical provider ID, falling back to script ID only when no provider exists. Ordinary cache values are refreshed after backend restart; `claimPersistentValue` survives restart and writes only if absent. `getPersistentValue` reads the value in that same persistent namespace without claiming it or extending its expiry.
 
 ## Global HTTP Admission
 

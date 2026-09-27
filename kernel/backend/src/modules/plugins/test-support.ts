@@ -61,10 +61,13 @@ export const fixtureManifest = () =>
 			{
 				capabilities: [],
 				kind: "automation",
+				oauthConnectionFields: [],
 				name: "Fixture Automation",
 				slug: "fixture.automation",
+				executableDependencies: [],
 				automationType: "automation",
 				requiredPluginConfigKeys: [],
+				optionalPluginConfigKeys: [],
 				entry: "backend/automations/fixture.sandbox.ts",
 				inputProjection: {
 					signal: { properties: [] },

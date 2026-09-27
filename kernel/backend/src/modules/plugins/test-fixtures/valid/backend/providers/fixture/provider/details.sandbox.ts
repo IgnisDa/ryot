@@ -5,7 +5,6 @@ import { defineProvider } from "@ryot-app/sandbox-sdk/provider";
 export const manifest = defineManifest({
 	kind: "provider",
 	capabilities: [],
-	requiredPluginConfigKeys: [],
 	name: "Fixture Provider Details",
 	slug: "fixture.provider.details",
 });
