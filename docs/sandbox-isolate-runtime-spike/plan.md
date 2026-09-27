@@ -1,7 +1,7 @@
 # Sandbox Isolate Runtime Plan
 
-**Status:** S1 and S2 are implemented (see [S1](s1.md) and [S2](s2.md)); S3–S6 are reviewed and
-approved one at a time before they start.
+**Status:** S1 and S2 are implemented (see [S1](s1.md) and [S2](s2.md)); S3 is in progress
+([s3.md](s3.md)); S4–S6 are reviewed and approved one at a time before they start.
 Replaces the single-use Deno process per replay with V8 isolates hosted by long-lived, OS-confined
 native sidecars.
 
@@ -17,8 +17,8 @@ Success means, on the canonical 2 vCPU / 4 GB host:
 - no-op execution under 30 ms p50 and under 20 MiB per concurrent execution;
 - every script is stopped at its CPU, wall-clock, heap, and external-memory limits without affecting
   neighbours, and no reachable API allocates memory outside those limits;
-- interactive executions stay within 10% of their unloaded latency while background work saturates
-  the CPU;
+- while background work saturates the CPU, interactive search and details p95 stay within 1.25× and
+  1.60× of their unloaded latency (E2, [s3.md](s3.md));
 - the standard provider import completes faster and with lower peak memory than today, with identical
   business rows;
 - every protection in [Carried Protections](#carried-protections) has a named test.
@@ -71,12 +71,18 @@ does not. Measurements and the pitfalls the spike found are in [evidence.md](evi
 - **Fairness unit is the human user.** System-plugin work on a user's behalf counts against that user;
   each plugin is capped within a user; user-less system work is its own capped tenant. Interactive
   work is admitted first, with a reserved background share.
+- **Lane-pinned backend processes.** CPU scheduling inside one backend process cannot keep interactive
+  latency near its unloaded level on 2 vCPU, so deployments that need it run interactive and background
+  work in separate backend processes, the background one at low CPU priority. One process serving both
+  lanes stays the default.
 
 ## Architecture
 
 ### Process topology
 
-One sidecar process runs per trust tier × snapshot tier, each with its own memory budget. A sidecar
+One sidecar process runs per trust tier × snapshot tier, each with its own memory budget. Each backend
+process owns its sidecars; a split deployment runs an interactive and a background backend process
+against one Postgres and Redis ([s3.md](s3.md#process-separation)). A sidecar
 loads exactly one snapshot and rejects runs for any other tier. `core` sidecars stay resident; `data`
 and `full` sidecars start lazily and stop after an idle period.
 
@@ -234,13 +240,14 @@ Each slice is approved separately. S3–S6 are outlines until their predecessor 
 
 ### S3 — Scheduling and fairness
 
-- **Status:** memory admission approved and in progress ([s3-memory.md](s3-memory.md)); scheduling
-  contract awaiting review and approval: [s3.md](s3.md).
+- **Status:** lanes, memory admission ([s3-memory.md](s3-memory.md)), fair execution and HTTP
+  admission are implemented and tenant fairness passes; lane-pinned backend processes are being
+  implemented, then E2 is measured. Contract, acceptance, and results: [s3.md](s3.md).
 - **Outcome:** interactive and background lanes, and per-user and per-plugin fairness for all
   executions and for global HTTP admission slots.
-- **Acceptance:** with background imports saturating the CPU, interactive search and details stay
-  within 10% of their unloaded latency end to end; one user's saturating plugins do not delay another
-  user's executions beyond their fair share.
+- **Acceptance:** with background imports saturating the CPU, interactive search and details meet E2
+  end to end; one user's saturating plugins do not delay another user's executions beyond their fair
+  share.
 
 ### S4 — Image and deployment
 
