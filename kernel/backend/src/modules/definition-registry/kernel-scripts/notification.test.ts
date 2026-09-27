@@ -17,6 +17,7 @@ const inputFor = (executionUserId: string | null) =>
 			causation: {
 				depth: 0,
 				parentRunId: null,
+				lane: "background",
 				source: "integration",
 				parentTriggerId: null,
 				executionId: "execution-1",

@@ -52,6 +52,7 @@ export const TranslateEntityWorkflowOperationsLive = Layer.effect(
 			return yield* sandbox
 				.executeScript({
 					scriptId,
+					lane: payload.lane,
 					executionId: `${executionId}-sandbox-translate`,
 					subject: {
 						type: "user",

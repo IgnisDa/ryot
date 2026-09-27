@@ -162,7 +162,10 @@ layer(
 				"metadata:session-1,session-2,session-3,session-4,session-5",
 				"release",
 			]);
-			expect((yield* effects.requests).map(({ language }) => language)).toEqual(["es", "fr"]);
+			expect((yield* effects.requests).map(({ lane, language }) => [lane, language])).toEqual([
+				["interactive", "es"],
+				["interactive", "fr"],
+			]);
 			expect(yield* effects.released).toEqual(["ryot:entity-interest:progress:entity-1"]);
 		}),
 	);

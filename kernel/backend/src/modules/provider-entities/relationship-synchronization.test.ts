@@ -25,6 +25,7 @@ const staleEntityId = EntityId.make("stale");
 const relationshipSchemaSlug = RelationshipSchemaSlug.make("credits");
 const command = rootLifecycleCommand({
 	source: "api",
+	lane: "interactive",
 	itemIdentity: "relationship-sync",
 	initiator: { id: userId, kind: "user" },
 	occurredAt: IsoUtcString.make("2026-09-16T00:00:00.000Z"),

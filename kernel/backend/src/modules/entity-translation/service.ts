@@ -1,21 +1,14 @@
-import type { AccountGeneration } from "@ryot-app/contract/schema/account-generation";
-import type { EntityId, SandboxProviderId, UserId } from "@ryot-app/contract/schema/brands";
 import { Context, Effect, Layer } from "effect";
 import { WorkflowEngine } from "effect/workflow/WorkflowEngine";
 
-import { TranslateEntityWorkflow, translateEntityExecutionId } from "./entity-translation-workflow";
+import {
+	TranslateEntityWorkflow,
+	translateEntityExecutionId,
+	type TranslateEntityWorkflowPayload,
+} from "./entity-translation-workflow";
 import { TranslationsRepository, type TranslationOverlayInput } from "./repository";
 
-export type RequestFillInput = {
-	accountGeneration: AccountGeneration;
-	userId: UserId;
-	language: string;
-	entityId: EntityId;
-	externalId: string;
-	properties: unknown;
-	entitySchemaSlug: string;
-	providerId: SandboxProviderId;
-};
+export type RequestFillInput = Omit<TranslateEntityWorkflowPayload, "executionId">;
 
 export class TranslationsService extends Context.Service<TranslationsService>()(
 	"TranslationsService",
@@ -37,17 +30,7 @@ export class TranslationsService extends Context.Service<TranslationsService>()(
 					.execute(TranslateEntityWorkflow, {
 						executionId,
 						discard: true,
-						payload: {
-							executionId,
-							userId: input.userId,
-							language: input.language,
-							entityId: input.entityId,
-							externalId: input.externalId,
-							providerId: input.providerId,
-							properties: input.properties,
-							entitySchemaSlug: input.entitySchemaSlug,
-							accountGeneration: input.accountGeneration,
-						},
+						payload: { ...input, executionId },
 					})
 					.pipe(
 						Effect.asVoid,

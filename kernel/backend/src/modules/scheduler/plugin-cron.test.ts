@@ -271,6 +271,7 @@ layer(makeLayer({ plugins: [normalizedPlugin("fixture")] }))((test) => {
 					executionId: "plugin-cron-7-fixture-12-fixture-cron-60000",
 					payload: {
 						input: {},
+						lane: "background",
 						resolutionMode: "exact",
 						subject: { type: "system" },
 						scriptId: SandboxScriptId.make("fixture-script-id"),
@@ -566,6 +567,7 @@ layer(
 					executionId: "private-plugin-cron-14-installation-1-12-private-cron-60000",
 					payload: {
 						input: {},
+						lane: "background",
 						resolutionMode: "exact",
 						scriptId: SandboxScriptId.make("installation-1-script-id"),
 						executionId: "private-plugin-cron-14-installation-1-12-private-cron-60000",
@@ -583,6 +585,7 @@ layer(
 					executionId: "private-plugin-cron-14-installation-2-12-private-cron-60000",
 					payload: {
 						input: {},
+						lane: "background",
 						resolutionMode: "exact",
 						scriptId: SandboxScriptId.make("installation-2-script-id"),
 						executionId: "private-plugin-cron-14-installation-2-12-private-cron-60000",

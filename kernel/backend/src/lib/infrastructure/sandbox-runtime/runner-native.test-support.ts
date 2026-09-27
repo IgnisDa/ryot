@@ -154,6 +154,7 @@ export const makeRunnerInput = (
 	const contentHash = sha256Hex(compiled.javascript);
 	return {
 		context,
+		lane: "interactive",
 		compiledFormat: compiled.format,
 		compiledCode: compiled.javascript,
 		startedAt: "2026-08-06T00:00:00.000Z",

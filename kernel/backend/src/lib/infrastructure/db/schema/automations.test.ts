@@ -22,6 +22,7 @@ const trigger = {
 	occurredAt: time,
 	operation: "emit",
 	category: "signal",
+	lane: "interactive",
 	payloadPrunedAt: time,
 	resourceKind: "signal",
 	executionId: "command",

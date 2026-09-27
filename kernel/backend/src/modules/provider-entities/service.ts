@@ -94,6 +94,7 @@ export class EntityImportService extends Context.Service<EntityImportService>()(
 					command: rootLifecycleCommand({
 						occurredAt,
 						source: "api",
+						lane: "interactive",
 						initiator: { id: user.id, kind: "user" },
 						accountGeneration: user.accountGeneration,
 						executionId: AutomationExecutionId.make(executionId),

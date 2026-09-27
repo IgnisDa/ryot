@@ -21,6 +21,7 @@ import { EntityPopulationTriggerLive } from "./population-trigger-live";
 const userId = UserId.make("user-1");
 const command = rootLifecycleCommand({
 	source: "api",
+	lane: "interactive",
 	itemIdentity: "populate-entity-1",
 	initiator: { id: userId, kind: "user" },
 	occurredAt: IsoUtcString.make("2026-09-16T00:00:00.000Z"),

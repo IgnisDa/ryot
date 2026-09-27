@@ -39,6 +39,7 @@ layer(SandboxHostCallGate.layer)((test) => {
 						context: {},
 						compiledCode: "",
 						compiledFormat: 1,
+						lane: "interactive",
 						executionId: "boundary",
 						principal: {
 							contentHash: "",

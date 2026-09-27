@@ -59,6 +59,7 @@ const makeInput = (
 	context: {},
 	compiledCode: "",
 	compiledFormat: 1,
+	lane: "interactive",
 	executionId: "gate-execution",
 	principal: {
 		contentHash: "",

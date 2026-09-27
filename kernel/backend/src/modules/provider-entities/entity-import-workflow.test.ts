@@ -54,6 +54,7 @@ const epoch = new Date(0);
 
 const command = rootLifecycleCommand({
 	occurredAt: now,
+	lane: "background",
 	source: "provider-refresh",
 	itemIdentity: "provider-population",
 	initiator: { id: userId, kind: "user" },

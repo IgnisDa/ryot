@@ -17,6 +17,7 @@ const importCommand = (runId: string) =>
 			depth: 0,
 			source: "import",
 			parentRunId: null,
+			lane: "background",
 			importRunId: runId,
 			parentTriggerId: null,
 			executionId: `execution-${runId}`,

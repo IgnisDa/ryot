@@ -101,6 +101,7 @@ const submit = (executionId: string, userId: UserId) =>
 				entitySchemaSlug: EntitySchemaSlug.make("book"),
 				command: rootLifecycleCommand({
 					source: "api",
+					lane: "interactive",
 					itemIdentity: executionId,
 					initiator: { id: userId, kind: "user" },
 					executionId: AutomationExecutionId.make(executionId),

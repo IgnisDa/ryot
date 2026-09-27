@@ -13,6 +13,7 @@ export const EventStreamProcessorLive = Layer.effect(
 			sandbox
 				.executeWorkflow({
 					executionId,
+					lane: "background",
 					input: claim.input,
 					pluginRevision: claim.pluginPin,
 					scriptId: claim.processorScriptId,

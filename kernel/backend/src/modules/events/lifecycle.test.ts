@@ -68,6 +68,7 @@ const command = (id: string) =>
 	rootLifecycleCommand({
 		source: "api",
 		occurredAt: now,
+		lane: "interactive",
 		itemIdentity: "event",
 		initiator: { id: userId, kind: "user" },
 		executionId: AutomationExecutionId.make(id),
@@ -152,6 +153,7 @@ const planner = (
 									.insert(tables.automationTrigger)
 									.values({
 										id: trigger.id,
+										lane: causation.lane,
 										depth: causation.depth,
 										category: kind.category,
 										payload: trigger.payload,
@@ -816,6 +818,7 @@ describe("Event lifecycle PostgreSQL", () => {
 					yield* service.delete(
 						{ eventId, userId: UserId.make("not-owner") },
 						rootLifecycleCommand({
+							lane: "interactive",
 							...command("not-owner"),
 							source: "api",
 							executionId: AutomationExecutionId.make("not-owner"),
