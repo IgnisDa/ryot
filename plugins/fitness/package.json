@@ -18,6 +18,14 @@
 			"types": "./shared/taxonomy-recipes.ts",
 			"default": "./shared/taxonomy-recipes.ts"
 		},
+		"./workout-records": {
+			"types": "./shared/workout-records.ts",
+			"default": "./shared/workout-records.ts"
+		},
+		"./workout-details-recipes": {
+			"types": "./shared/workout-details-recipes.ts",
+			"default": "./shared/workout-details-recipes.ts"
+		},
 		"./exercise-kinds": {
 			"types": "./shared/exercise-kinds.ts",
 			"default": "./shared/exercise-kinds.ts"

@@ -31,10 +31,10 @@ export const toWorkoutWriteItem = (workout: WorkoutImportItem): GenericImportWri
 		})),
 		events: workout.exercises.flatMap((exercise, exerciseOrder) =>
 			exercise.sets.map((set, setOrder) => ({
-				occurredAt: workout.startedAt,
 				sessionEntityAlias: "workout",
 				eventSchemaSlug: "workout-set",
 				entityAlias: `exercise-${exerciseOrder}`,
+				occurredAt: set.confirmedAt ?? workout.startedAt,
 				outcome: { unit: "sets", recordKind: "workout-sets" },
 				operationId: operationId("set", exerciseOrder, setOrder),
 				properties: buildWorkoutSetEventProperties({

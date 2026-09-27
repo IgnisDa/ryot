@@ -1,5 +1,6 @@
 import { DateTime, Duration, Result, Option } from "@ryot-app/sandbox-sdk/effect";
 
+import { normalizeWorkoutMeasurements } from "../../shared/workout-records";
 import { parseCsvText, readCsvCell, readOptionalCsvNumber, readRequiredCsvCell } from "./csv";
 import {
 	determineWorkoutExerciseKind,
@@ -24,24 +25,46 @@ type StrongAppRow = {
 	workoutNotes?: string | undefined;
 };
 
-const parseStrongAppRow = (row: Record<string, string>, rowIdx: number): StrongAppRow => ({
-	itemIndex: rowIdx,
-	notes: readCsvCell(row, ["Notes"]),
-	reps: readOptionalCsvNumber(row, ["Reps"]),
-	seconds: readOptionalCsvNumber(row, ["Seconds"]),
-	date: readRequiredCsvCell(row, ["Date"], "Date"),
-	weight: readOptionalCsvNumber(row, ["Weight (kg)", "Weight"]),
-	setOrder: readRequiredCsvCell(row, ["Set Order"], "Set Order"),
-	workoutNotes: readCsvCell(row, ["Workout Notes", "WorkoutNotes"]),
-	distance: readOptionalCsvNumber(row, ["Distance (m)", "Distance"]),
-	workoutName: readRequiredCsvCell(row, ["Workout Name", "WorkoutName"], "Workout Name"),
-	exerciseName: readRequiredCsvCell(row, ["Exercise Name", "ExerciseName"], "Exercise Name"),
-	workoutDuration: readRequiredCsvCell(
-		row,
-		["Duration (sec)", "Duration", "Workout Duration", "WorkoutDuration"],
-		"Duration",
-	),
-});
+const parseStrongAppRow = (row: Record<string, string>, rowIdx: number): StrongAppRow => {
+	const unlabelledWeight = readCsvCell(row, ["Weight"]);
+	if (unlabelledWeight !== undefined) {
+		throw new Error('Weight values need a unit label; use "Weight (kg)" or "Weight (lbs)"');
+	}
+	const unlabelledDistance = readCsvCell(row, ["Distance"]);
+	if (unlabelledDistance !== undefined) {
+		throw new Error(
+			'Distance values need a unit label; use "Distance (m)", "Distance (km)", or "Distance (mi)"',
+		);
+	}
+
+	const weightKilograms = readOptionalCsvNumber(row, ["Weight (kg)"]);
+	const weightPounds = readOptionalCsvNumber(row, ["Weight (lbs)"]);
+	const distanceMeters = readOptionalCsvNumber(row, ["Distance (m)"]);
+	const distanceKilometers = readOptionalCsvNumber(row, ["Distance (km)"]);
+	const distanceMiles = readOptionalCsvNumber(row, ["Distance (mi)"]);
+	return {
+		itemIndex: rowIdx,
+		notes: readCsvCell(row, ["Notes"]),
+		reps: readOptionalCsvNumber(row, ["Reps"]),
+		seconds: readOptionalCsvNumber(row, ["Seconds"]),
+		date: readRequiredCsvCell(row, ["Date"], "Date"),
+		setOrder: readRequiredCsvCell(row, ["Set Order"], "Set Order"),
+		workoutNotes: readCsvCell(row, ["Workout Notes", "WorkoutNotes"]),
+		workoutName: readRequiredCsvCell(row, ["Workout Name", "WorkoutName"], "Workout Name"),
+		exerciseName: readRequiredCsvCell(row, ["Exercise Name", "ExerciseName"], "Exercise Name"),
+		weight: weightKilograms ?? (weightPounds !== undefined ? weightPounds * 0.45359237 : undefined),
+		workoutDuration: readRequiredCsvCell(
+			row,
+			["Duration (sec)", "Duration", "Workout Duration", "WorkoutDuration"],
+			"Duration",
+		),
+		distance:
+			distanceMeters !== undefined
+				? distanceMeters / 1000
+				: (distanceKilometers ??
+					(distanceMiles !== undefined ? distanceMiles * 1.609344 : undefined)),
+	};
+};
 
 const parseWorkoutDurationSeconds = (value: string) => {
 	const trimmed = value.trim();
@@ -100,21 +123,17 @@ const toWorkoutSet = (row: StrongAppRow): WorkoutImportSet => {
 		W: "warm_up",
 		F: "failure",
 	};
-	const set: WorkoutImportSet = { setLot: setLots[row.setOrder] ?? "normal" };
+	const set: WorkoutImportSet = {
+		...normalizeWorkoutMeasurements({
+			reps: row.reps,
+			weight: row.weight,
+			duration: row.seconds,
+			distance: row.distance,
+		}),
+		setLot: setLots[row.setOrder] ?? "normal",
+	};
 	if (row.notes) {
 		set.note = row.notes;
-	}
-	if (row.reps !== undefined) {
-		set.reps = row.reps;
-	}
-	if (row.weight !== undefined) {
-		set.weight = row.weight || 1;
-	}
-	if (row.seconds !== undefined) {
-		set.duration = row.seconds / 60;
-	}
-	if (row.distance !== undefined) {
-		set.distance = row.distance / 1000;
 	}
 	return set;
 };
