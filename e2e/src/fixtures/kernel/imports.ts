@@ -282,10 +282,10 @@ export const installTestHarvestHandleImportPlugin = (
 			},
 			importSources: [
 				{
+					slug: sourceSlug,
 					workflowSlug: "import",
 					requiredPluginConfigKeys: [],
 					name: "E2E harvest handle import",
-					slug: sourceSlug,
 					inputSchema: { fields: {}, unknownKeys: "strict" },
 					description: "Import fixture for opaque harvest handles",
 				},
