@@ -7,7 +7,11 @@ import { Effect } from "effect";
 import type { AvailablePlugin } from "#modules/plugins/catalog/runtime-resolver";
 import { fixtureManifest } from "#modules/plugins/test-support";
 
-import { clientPageOperationTargets, resolvePluginPageTarget } from "./prepare";
+import {
+	clientPageOperationTargets,
+	operationTargetsCurrent,
+	resolvePluginPageTarget,
+} from "./prepare";
 
 const plugin = (input: {
 	id: string;
@@ -90,6 +94,27 @@ it("records hidden ready installations as operation targets without making them 
 			installationId: "operations-only-installation",
 		},
 	]);
+});
+
+it("keeps operation targets current when an unrelated plugin becomes available", () => {
+	const client = { exports: {}, homeView: null, apiVersion: 1 as const };
+	const recorded = plugin({ client, id: "recorded" });
+	const unrelated = plugin({ client, id: "unrelated" });
+	expect(
+		operationTargetsCurrent([recorded, unrelated], clientPageOperationTargets([recorded])),
+	).toBe(true);
+});
+
+it("invalidates operation targets whose recorded plugin changed, left, or stopped being ready", () => {
+	const client = { exports: {}, homeView: null, apiVersion: 1 as const };
+	const recorded = plugin({ client, id: "recorded" });
+	const targets = clientPageOperationTargets([recorded]);
+	expect(operationTargetsCurrent([{ ...recorded, contentHash: "changed" }], targets)).toBe(false);
+	expect(operationTargetsCurrent([{ ...recorded, installationId: "reinstalled" }], targets)).toBe(
+		false,
+	);
+	expect(operationTargetsCurrent([{ ...recorded, health: "incompatible" }], targets)).toBe(false);
+	expect(operationTargetsCurrent([], targets)).toBe(false);
 });
 
 it.effect("decodes dynamic route parameters", () => {
