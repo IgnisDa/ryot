@@ -43,6 +43,10 @@ export const DevicePlatformLive = Layer.effect(
 					catch: platformError,
 					try: () => localStorage.setItem(storageKey, encodeState(state)),
 				}),
+			cancel: (id) =>
+				native
+					? cancelNativeAlert(LocalNotifications, id).pipe(Effect.mapError(platformError))
+					: Effect.sync(() => cancelWeb(id)),
 			read: Effect.try({
 				catch: platformError,
 				try: () => {
@@ -50,13 +54,6 @@ export const DevicePlatformLive = Layer.effect(
 					return value === null ? { nextId: 1, alerts: [], shortcuts: [] } : decodeState(value);
 				},
 			}),
-			cancel: (id) =>
-				native
-					? cancelNativeAlert(LocalNotifications, id).pipe(
-							Effect.tap(() => Effect.logInfo("[device-alerts] cancelled", { id })),
-							Effect.mapError(platformError),
-						)
-					: Effect.sync(() => cancelWeb(id)),
 			awake: (enabled) =>
 				Effect.gen(function* () {
 					awakeWanted = enabled;
@@ -127,14 +124,7 @@ export const DevicePlatformLive = Layer.effect(
 						);
 						return { status: "inexact" } as const;
 					}
-					const result = yield* scheduleNativeAlert(LocalNotifications, android, id, request);
-					yield* Effect.logInfo("[device-alerts] scheduled", {
-						id,
-						status: result.status,
-						audible: request.audible,
-						deadline: request.deadline,
-					});
-					return result;
+					return yield* scheduleNativeAlert(LocalNotifications, android, id, request);
 				}).pipe(Effect.mapError(platformError)),
 			listen: (tap, foreground, receivedAlert) => {
 				let nativeActive = !native;
@@ -142,13 +132,7 @@ export const DevicePlatformLive = Layer.effect(
 					const active = nativeActive && document.visibilityState === "visible";
 					foreground(active);
 					if (native) {
-						runFork(
-							synchronizeNativeAlerts(LocalNotifications, active).pipe(
-								Effect.catch((cause) =>
-									Effect.logWarning("[device-alerts] app state failed", cause),
-								),
-							),
-						);
+						runFork(synchronizeNativeAlerts(LocalNotifications, active).pipe(Effect.ignore));
 					} else if (active) {
 						for (const notification of delivered.values()) {
 							notification.close();
