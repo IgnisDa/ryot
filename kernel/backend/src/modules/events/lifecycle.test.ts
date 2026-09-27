@@ -254,9 +254,32 @@ const planner = (
 		),
 	);
 
+const workflowEntity = (requestedId: EntityId) => ({
+	createdAt: now,
+	updatedAt: now,
+	properties: {},
+	id: requestedId,
+	name: "Subject",
+	externalId: null,
+	providerId: null,
+	populatedAt: null,
+	entitySchemaPluginId: null,
+	entitySchemaSlug: EntitySchemaSlug.make("record"),
+});
+const workflowEventSchema = {
+	slug: "rating",
+	pluginId: null,
+	name: "Rating",
+	id: eventSchemaSlug,
+	propertiesSchema: { fields: {} },
+	entitySchemaSlug: EntitySchemaSlug.make("record"),
+};
 const workflowLayer = Layer.mergeAll(
 	Layer.mock(EntitiesRepository)({
 		lockEntityReferencesByIds: () => Effect.void,
+		getByIdForUser: ({ entityId: requestedId }) => Effect.succeed(workflowEntity(requestedId)),
+		getByIdsForUser: ({ entityIds }) =>
+			Effect.succeed(new Map(entityIds.map((id) => [id, workflowEntity(id)] as const))),
 		getEntityScopeForUser: ({ entityId: requestedId }) =>
 			Effect.succeed({
 				isBuiltin: false,
@@ -267,31 +290,11 @@ const workflowLayer = Layer.mergeAll(
 				propertiesSchema: { fields: {} },
 				entitySchemaSlug: EntitySchemaSlug.make("record"),
 			}),
-		getByIdForUser: ({ entityId: requestedId }) =>
-			Effect.succeed({
-				createdAt: now,
-				updatedAt: now,
-				properties: {},
-				id: requestedId,
-				name: "Subject",
-				externalId: null,
-				providerId: null,
-				populatedAt: null,
-				entitySchemaPluginId: null,
-				entitySchemaSlug: EntitySchemaSlug.make("record"),
-			}),
 	}),
 	Layer.mock(EventSchemaReader)({
 		lockCatalog: () => Effect.void,
-		getScopeForUser: () =>
-			Effect.succeed({
-				slug: "rating",
-				pluginId: null,
-				name: "Rating",
-				id: eventSchemaSlug,
-				propertiesSchema: { fields: {} },
-				entitySchemaSlug: EntitySchemaSlug.make("record"),
-			}),
+		getScopeForUser: () => Effect.succeed(workflowEventSchema),
+		getScopesForUser: (_userId, inputs) => Effect.succeed(inputs.map(() => workflowEventSchema)),
 	}),
 );
 const engine = makeWorkflowEngine({
@@ -352,6 +355,20 @@ const lifecycleDatabaseLayer = (
 				entityName: "Subject",
 				entitySchemaPluginId: null,
 			});
+			const eventSchemaScope = (input: {
+				readonly eventSchemaSlug: string;
+				readonly entitySchemaSlug: string;
+			}) =>
+				input.eventSchemaSlug === eventSchemaSlug && input.entitySchemaSlug === entitySchemaSlug
+					? {
+							name: "Rating",
+							pluginId: null,
+							entitySchemaSlug,
+							id: eventSchemaSlug,
+							slug: eventSchemaSlug,
+							propertiesSchema: editPropertiesSchema,
+						}
+					: null;
 			const listedEntity = (requestedId: EntityId, properties: Record<string, unknown>) => ({
 				properties,
 				createdAt: now,
@@ -383,23 +400,21 @@ const lifecycleDatabaseLayer = (
 									}
 									return listedEntity(requestedEntityId, yield* Ref.get(entityProperties));
 								}),
+							getByIdsForUser: ({ entityIds }) =>
+								Effect.map(
+									Ref.get(entityProperties),
+									(properties) =>
+										new Map(
+											entityIds.flatMap((id) =>
+												id === "unreadable" ? [] : [[id, listedEntity(id, properties)] as const],
+											),
+										),
+								),
 						}),
 						Layer.mock(EventSchemaReader)({
 							lockCatalog: () => Effect.void,
-							getScopeForUser: (input) =>
-								Effect.succeed(
-									input.eventSchemaSlug === eventSchemaSlug &&
-										input.entitySchemaSlug === entitySchemaSlug
-										? {
-												name: "Rating",
-												pluginId: null,
-												entitySchemaSlug,
-												id: eventSchemaSlug,
-												slug: eventSchemaSlug,
-												propertiesSchema: editPropertiesSchema,
-											}
-										: null,
-								),
+							getScopeForUser: (input) => Effect.succeed(eventSchemaScope(input)),
+							getScopesForUser: (_userId, inputs) => Effect.succeed(inputs.map(eventSchemaScope)),
 						}),
 						ImportsRepository.layer.pipe(Layer.provideMerge(databaseSession)),
 						planner(failChange, noHooks, planTransactions, options.policyCount ?? 0).pipe(
@@ -1376,7 +1391,7 @@ describe("Event lifecycle PostgreSQL", () => {
 								activity.execute.pipe(
 									Effect.provideService(
 										measuring,
-										activity.name.startsWith("prepare-item-") ||
+										activity.name.startsWith("prepare-chunk-") ||
 											activity.name.startsWith("write-event-"),
 									),
 								),
@@ -1513,7 +1528,7 @@ describe("Event lifecycle PostgreSQL", () => {
 					);
 					expect(first._tag).toBe("Suspended");
 					expect(ownerExecutionId).not.toBe(payload.command.causation.executionId);
-					expect(yield* session.run((db) => db.select().from(tables.event))).toHaveLength(1);
+					expect(yield* session.run((db) => db.select().from(tables.event))).toHaveLength(2);
 					const [item] = yield* session.run((db) =>
 						db
 							.select()
