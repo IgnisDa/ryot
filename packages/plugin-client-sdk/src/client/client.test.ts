@@ -1,4 +1,5 @@
 import { describe, expect, it } from "@effect/vitest";
+import { PluginPackageId } from "@ryot-app/contract/schema/brands";
 import type { PreparedRecipe } from "@ryot-app/ryotql";
 import { Effect, Fiber, Result, Schema } from "effect";
 
@@ -23,6 +24,28 @@ const resolution = {
 };
 
 describe("Effect-native client capabilities", () => {
+	it.effect("does not publish mutation refresh for read-only context operations", () =>
+		Effect.gen(function* () {
+			let refreshes = 0;
+			const client = createRyotClient(
+				createTestRyotAdapter({ invokeOperation: () => Effect.succeed("result") }),
+			);
+			const unsubscribe = client.mutationCompleted.subscribe(() => {
+				refreshes++;
+			});
+			const request = {
+				input: null,
+				slug: "context",
+				output: Schema.String,
+				packageId: PluginPackageId.make("ryot/fitness"),
+			};
+			yield* client.operations.invoke({ ...request, refreshOnSuccess: false });
+			expect(refreshes).toBe(0);
+			yield* client.operations.invoke(request);
+			expect(refreshes).toBe(1);
+			unsubscribe();
+		}),
+	);
 	it.live("validates external links before adapter access and decodes launch results", () =>
 		Effect.gen(function* () {
 			const calls: unknown[] = [];

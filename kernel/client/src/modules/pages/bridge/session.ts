@@ -50,9 +50,11 @@ import {
 	type PluginCollectionRequest,
 	type PluginStorageOutcome,
 	type PluginStorageRequest,
+	type PluginDeviceRequest,
+	type PluginDeviceOutcome,
 } from "@ryot-app/plugin-client-contract";
 import type { EntityWatchSubscription } from "@ryot-app/plugin-client-sdk";
-import { Cause, Effect, Fiber, Match, Result, Schema } from "effect";
+import { Cause, Effect, Fiber, Match, Option, Result, Schema } from "effect";
 
 import type { WatchEntities } from "#/modules/entity-watches/service";
 import type { PageScreenReadiness } from "#/modules/shell/page-presentation";
@@ -68,6 +70,7 @@ export type PluginBridgeViewportInsets = Omit<PluginBridgeViewport, "type">;
 export type PluginBridgeNavigationState = Omit<PluginBridgeLocation, "type">;
 
 export type PluginBridgeSession = {
+	readonly requestFlush: () => Effect.Effect<boolean>;
 	readonly close: () => void;
 	readonly sendPageRefresh: () => void;
 	readonly requestOverlayDismiss: () => boolean;
@@ -87,6 +90,7 @@ type PluginBridgeState = "ready" | "active" | "closing" | "failed" | "disposed";
 type PendingRequest = {
 	readonly fiber: Fiber.Fiber<unknown, unknown>;
 	readonly type:
+		| "device"
 		| "asset"
 		| "collection"
 		| "external-link"
@@ -97,6 +101,7 @@ type PendingRequest = {
 };
 
 type PluginBridgeOptions = {
+	readonly onDevice?: (request: PluginDeviceRequest) => Effect.Effect<PluginDeviceOutcome>;
 	readonly timeoutMs?: number;
 	readonly onReady: () => void;
 	readonly compositionHash: string;
@@ -175,6 +180,9 @@ export function openPluginBridge(options: PluginBridgeOptions): PluginBridgeSess
 	let state: PluginBridgeState = "ready";
 	const listeners = new AbortController();
 	const pending = new Map<string, PendingRequest>();
+	const flushes = new Map<string, (flushed: boolean) => void>();
+	let nextFlushId = 0;
+	let needsFlush = false;
 	let interest: EntityWatchSubscription | undefined;
 	let overlayCount = 0;
 	let nextOverlayRequestId = 0;
@@ -188,6 +196,10 @@ export function openPluginBridge(options: PluginBridgeOptions): PluginBridgeSess
 			return;
 		}
 		state = "closing";
+		for (const complete of flushes.values()) {
+			complete(false);
+		}
+		flushes.clear();
 		try {
 			interest?.dispose();
 		} catch {
@@ -303,6 +315,26 @@ export function openPluginBridge(options: PluginBridgeOptions): PluginBridgeSess
 		if (state === "active") {
 			post({ type: "page-refresh" } satisfies PluginBridgePageRefresh);
 		}
+	}
+	function requestFlush(): Effect.Effect<boolean> {
+		return Effect.callback<boolean>((resume) => {
+			if (!needsFlush) {
+				resume(Effect.succeed(true));
+				return Effect.void;
+			}
+			if (state !== "active") {
+				resume(Effect.succeed(false));
+				return Effect.void;
+			}
+			const requestId = `flush-${++nextFlushId}`;
+			flushes.set(requestId, (flushed) => {
+				resume(Effect.succeed(flushed));
+			});
+			post({ requestId, type: "flush-request" });
+			return Effect.sync(() => {
+				flushes.delete(requestId);
+			});
+		}).pipe(Effect.timeoutOption("5 seconds"), Effect.map(Option.getOrElse(() => false)));
 	}
 
 	function sendShortcut(shortcut: PageShortcutKey) {
@@ -543,6 +575,23 @@ export function openPluginBridge(options: PluginBridgeOptions): PluginBridgeSess
 				}
 				Match.value(decoded.success)
 					.pipe(
+						Match.when({ type: "persistence-state" }, ({ enabled }) => {
+							needsFlush = enabled;
+						}),
+						Match.when({ type: "flush-result" }, ({ flushed, requestId }) => {
+							const complete = flushes.get(requestId);
+							flushes.delete(requestId);
+							complete?.(flushed);
+						}),
+						Match.when({ type: "device-request" }, ({ requestId, type: _type, ...request }) =>
+							runRequest(
+								requestId,
+								"device",
+								(): Effect.Effect<PluginDeviceOutcome> =>
+									options.onDevice?.(request) ??
+									Effect.succeed({ outcome: "failure", reason: "invalid-request" }),
+							),
+						),
 						Match.when({ type: "entity-watches" }, ({ visible, foreground }) => {
 							const declaration = { visible, foreground };
 							interestIds = new Set([...declaration.foreground, ...declaration.visible]);
@@ -656,6 +705,7 @@ export function openPluginBridge(options: PluginBridgeOptions): PluginBridgeSess
 	return {
 		close,
 		sendTheme,
+		requestFlush,
 		sendShortcut,
 		sendLocation,
 		sendDocument,

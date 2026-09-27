@@ -146,6 +146,20 @@ not-found, and plugin-ready branches. The root owns the skip link and route anno
 
 ## Native Builds
 
+`modules/device` owns scheduled alerts, screen-awake demand, foreground haptics, and scoped return
+shortcuts. The root registers native listeners once; the authenticated shell supplies the current
+server/user scope. Scope changes cancel departing alerts. Notification taps wait for matching
+authentication and navigate through semantic page targets. Frame disposal releases awake demand but
+does not cancel intentional alerts. Local metadata contains only scope, installation, key/native-ID
+mapping, and shortcut targets; Fitness owns all draft data and deadline reconciliation.
+
+Android scheduling first creates an inexact alert, then upgrades through the non-prompting update
+API when exact-alarm access is available. This avoids an automatic Settings redirect if permission
+changes during scheduling. Revocation and Doze can still delay or remove alerts. Audible alerts use
+the system sound. `res/raw/silent.wav` supplies silence on Android 7, where notification channels do
+not exist. Web alerts require notification permission and a running host; closed-browser delivery is
+unsupported. No alert availability result replaces a plugin's persisted deadline.
+
 Capacitor has no variant system, so platform build configuration owns app identity.
 `capacitor.config.ts` always records production identity and must not branch on environment.
 

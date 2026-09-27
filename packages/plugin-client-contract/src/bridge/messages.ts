@@ -21,6 +21,13 @@ import {
 	PluginBridgeUploadResult,
 } from "./capabilities";
 import {
+	PluginBridgeDeviceRequest,
+	PluginBridgeDeviceResult,
+	PluginBridgeFlushRequest,
+	PluginBridgeFlushResult,
+	PluginBridgePersistenceState,
+} from "./device";
+import {
 	PluginBridgeDismissOverlay,
 	PluginBridgeDismissOverlayResult,
 	PluginBridgeDocument,
@@ -43,6 +50,9 @@ import {
 } from "./lifecycle";
 
 export const PluginBridgeClientMessage = Schema.Union([
+	PluginBridgeDeviceRequest,
+	PluginBridgeFlushResult,
+	PluginBridgePersistenceState,
 	PluginBridgeExternalLinkRequest,
 	PluginBridgeHeader,
 	PluginBridgeNavigate,
@@ -70,6 +80,8 @@ export const PluginBridgeClientMessage = Schema.Union([
 export type PluginBridgeClientMessage = Schema.Schema.Type<typeof PluginBridgeClientMessage>;
 
 export const PluginBridgeHostMessage = Schema.Union([
+	PluginBridgeDeviceResult,
+	PluginBridgeFlushRequest,
 	PluginBridgeExternalLinkResult,
 	PluginBridgeDocument,
 	PluginBridgeTheme,

@@ -6,6 +6,7 @@ import type {
 	EntityWatch,
 	ExternalLinkRequest,
 	PluginCollectionRequest,
+	PluginDeviceRequest,
 	PluginManagedAssetResolution,
 	PluginOperationRequest,
 	PluginPageSearchUpdate,
@@ -45,7 +46,7 @@ export type RyotProviderSearchScreenRequest = Schema.Codec.Encoded<
 export type OperationInvocation<Output extends Schema.Codec<unknown, unknown>> = Omit<
 	OperationRequest,
 	"operationSlug"
-> & { readonly slug: string; readonly output: Output };
+> & { readonly slug: string; readonly output: Output; readonly refreshOnSuccess?: boolean };
 
 export type TemporaryUploadRequest = {
 	readonly source: Blob;
@@ -54,6 +55,8 @@ export type TemporaryUploadRequest = {
 };
 
 export type RyotClientAdapter = {
+	readonly registerFlush?: (flush: () => Effect.Effect<void, RyotClientError>) => () => void;
+	readonly device?: (request: PluginDeviceRequest) => Effect.Effect<unknown, RyotClientError>;
 	readonly pluginIdentity?: (
 		packageId: PluginPackageId,
 	) => Extract<PluginIdentityReference, { readonly kind: "local" }>;

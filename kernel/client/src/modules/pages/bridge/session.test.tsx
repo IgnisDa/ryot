@@ -34,7 +34,7 @@ import {
 import { createRyotClient } from "@ryot-app/plugin-client-sdk";
 import { createTestRyotAdapter } from "@ryot-app/plugin-client-sdk/testing";
 import { waitFor } from "@testing-library/dom";
-import { Effect, Schema } from "effect";
+import { Effect, Fiber, Schema } from "effect";
 
 import { openPluginBridge, type PluginBridgeSession } from "#/modules/pages/bridge/session";
 import type { PageScreenReadiness } from "#/modules/shell/page-presentation";
@@ -136,6 +136,7 @@ function deferred<T>(): PromiseWithResolvers<T> {
 
 const connect = (
 	options: {
+		readonly onDevice?: Parameters<typeof openPluginBridge>[0]["onDevice"];
 		readonly timeoutMs?: number;
 		readonly onAssets?: Parameters<typeof openPluginBridge>[0]["onAssets"];
 		readonly onUpload?: Parameters<typeof openPluginBridge>[0]["onUpload"];
@@ -177,6 +178,7 @@ const connect = (
 		theme: lightTheme,
 		onHeader: () => {},
 		documentKey: "page-1",
+		onDevice: options.onDevice,
 		timeoutMs: options.timeoutMs,
 		onReady: () => readies.push(null),
 		onDiagnostic: options.onDiagnostic,
@@ -279,6 +281,71 @@ const readyFor = (init: PluginBridgeInit): PluginBridgeReady => ({
 });
 
 describe("bridge page screens", () => {
+	it.live("correlates device outcomes without exposing native IDs", () =>
+		Effect.gen(function* () {
+			const calls: unknown[] = [];
+			const { init, received, pluginPort } = connect({
+				onDevice: (request) =>
+					Effect.sync(() => {
+						calls.push(request);
+						return { outcome: "success", value: { status: "inexact" } } as const;
+					}),
+			});
+			pluginPort.postMessage(readyFor(init));
+			yield* Effect.promise(() => waitFor(() => expect(received).toContainEqual(at(home, 0))));
+			pluginPort.postMessage({
+				key: "rest",
+				action: "cancel",
+				pluginId: "fitness",
+				requestId: "device-1",
+				type: "device-request",
+			});
+			yield* Effect.promise(() =>
+				waitFor(() =>
+					expect(received).toContainEqual({
+						outcome: "success",
+						type: "device-result",
+						requestId: "device-1",
+						value: { status: "inexact" },
+					}),
+				),
+			);
+			expect(calls).toEqual([{ key: "rest", action: "cancel", pluginId: "fitness" }]);
+		}),
+	);
+
+	it.live("awaits a correlated persistence flush and retains failure as a blocked transition", () =>
+		Effect.gen(function* () {
+			const { init, session, received, pluginPort, screenStates } = connect();
+			pluginPort.postMessage(readyFor(init));
+			yield* Effect.promise(() => waitFor(() => expect(received).toContainEqual(at(home, 0))));
+			pluginPort.postMessage({ enabled: true, type: "persistence-state" });
+			pluginPort.postMessage({
+				index: 0,
+				key: "k0",
+				type: "screen-state",
+				hasPreviousScreen: false,
+			});
+			yield* Effect.promise(() => waitFor(() => expect(screenStates).toHaveLength(1)));
+			const pending = yield* Effect.forkChild(session.requestFlush(), { startImmediately: true });
+			yield* Effect.promise(() =>
+				waitFor(() =>
+					expect(received).toContainEqual({ requestId: "flush-1", type: "flush-request" }),
+				),
+			);
+			pluginPort.postMessage({ flushed: true, requestId: "wrong", type: "flush-result" });
+			pluginPort.postMessage({ flushed: false, type: "flush-result", requestId: "flush-1" });
+			expect(yield* Fiber.join(pending)).toBe(false);
+			const retry = yield* Effect.forkChild(session.requestFlush(), { startImmediately: true });
+			yield* Effect.promise(() =>
+				waitFor(() =>
+					expect(received).toContainEqual({ requestId: "flush-2", type: "flush-request" }),
+				),
+			);
+			pluginPort.postMessage({ flushed: true, type: "flush-result", requestId: "flush-2" });
+			expect(yield* Fiber.join(retry)).toBe(true);
+		}),
+	);
 	it.live("validates external-link requests and correlates bounded launch outcomes", () =>
 		Effect.gen(function* () {
 			const calls: unknown[] = [];

@@ -44,6 +44,7 @@ import {
 	InstanceAdminRouteStubs,
 	ImportsRouteStubs,
 	IntegrationRouteStubs,
+	DeviceRouteStubs,
 	NavigationRouteStubs,
 	NotificationChannelRouteStubs,
 	OAuthRouteStubs,
@@ -224,6 +225,7 @@ function mount(options: {
 						return entries;
 					}),
 			}),
+			DeviceRouteStubs,
 			NavigationRouteStubs,
 			CustomizeRouteStubs,
 			Layer.succeed(PagesApi, {

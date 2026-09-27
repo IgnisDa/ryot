@@ -5,15 +5,31 @@ import { RyotClientError } from "@ryot-app/plugin-client-sdk";
 import { useRyot } from "@ryot-app/plugin-client-sdk/react";
 import { stableStringify } from "@ryot-app/ts-utils/json";
 import { sortBy } from "@ryot-app/ts-utils/lodash";
-import { useNavigate, useRouteContext, useRouter, useRouterState } from "@tanstack/react-router";
+import {
+	useBlocker,
+	useNavigate,
+	useRouteContext,
+	useRouter,
+	useRouterState,
+} from "@tanstack/react-router";
 import { Effect, Match } from "effect";
-import { useCallback, useLayoutEffect, useMemo, useRef, useState, type ReactNode } from "react";
+import {
+	useCallback,
+	useEffect,
+	useLayoutEffect,
+	useMemo,
+	useRef,
+	useState,
+	type ReactNode,
+} from "react";
 
 import { PagesApi } from "#/api/pages";
 import type { ApiScope } from "#/api/scope";
 import { ManagedAssetsService } from "#/modules/assets/managed-assets";
 import { TemporaryUploads } from "#/modules/assets/temporary-uploads";
+import { DeviceService } from "#/modules/device/service";
 import { EntityWatchService, type WatchEntities } from "#/modules/entity-watches/service";
+import { subscribeNativeResume } from "#/modules/entity-watches/transport";
 import { ExternalLinks } from "#/modules/external-links/service";
 import type { BackInterceptors } from "#/modules/navigation/back-interceptors";
 import { historyEntry } from "#/modules/navigation/history-entry";
@@ -431,6 +447,15 @@ function ClientPageFrame(props: {
 	const router = useRouter();
 	const navigate = useNavigate();
 	const active = useRef(props.active);
+	const frameKey = `${props.owner}:${props.navigation.key}`;
+	const flush = useRef<(() => Effect.Effect<boolean>) | undefined>(undefined);
+	useBlocker({
+		enableBeforeUnload: false,
+		shouldBlockFn: () =>
+			flush.current !== undefined
+				? props.runtime.runPromise(flush.current().pipe(Effect.map((flushed) => !flushed)))
+				: false,
+	});
 	const { catalog } = usePluginCatalog();
 	const { context, identity } = props.document.prepared;
 	const renderer = context.renderer;
@@ -442,6 +467,17 @@ function ClientPageFrame(props: {
 	const checkFreshness = useCallback(
 		() => props.runtime.runSync(ClientPageFreshness).check(props.scope, identity),
 		[identity, props.runtime, props.scope],
+	);
+	const subscribeResume = useCallback(
+		(resumed: () => void) => {
+			const removeNative = subscribeNativeResume(resumed);
+			const removeAlerts = props.runtime.runSync(DeviceService).subscribeAlerts(resumed);
+			return () => {
+				removeNative();
+				removeAlerts();
+			};
+		},
+		[props.runtime],
 	);
 	const watchEntities = useCallback<WatchEntities>(
 		(interest, onUpdate) =>
@@ -462,6 +498,16 @@ function ClientPageFrame(props: {
 		() => ({ safeAreaTop: props.chrome.safeAreaTop, safeAreaBottom: props.chrome.safeAreaBottom }),
 		[props.chrome.safeAreaBottom, props.chrome.safeAreaTop],
 	);
+	useEffect(() => {
+		props.runtime.runFork(
+			props.runtime.runSync(DeviceService).setFrameActive(frameKey, props.active),
+		);
+	}, [props.active, frameKey, props.runtime]);
+	useLayoutEffect(() => {
+		return () => {
+			props.runtime.runFork(props.runtime.runSync(DeviceService).releaseFrame(frameKey));
+		};
+	}, [frameKey, props.runtime]);
 
 	return (
 		<PageIframeHost
@@ -472,6 +518,7 @@ function ClientPageFrame(props: {
 			inert={props.document.inert}
 			navigation={props.navigation}
 			watchEntities={watchEntities}
+			subscribeResume={subscribeResume}
 			chromeLeading={props.edgeLeading}
 			onCheckFreshness={checkFreshness}
 			onReloadCurrent={props.onReloadCurrent}
@@ -485,6 +532,9 @@ function ClientPageFrame(props: {
 			documentKey={documentOwner(props.document.prepared)}
 			freshnessCheckRevision={props.freshnessCheckRevision}
 			compositionHash={props.document.prepared.composition.hash}
+			onFlushReady={(handler) => {
+				flush.current = handler;
+			}}
 			onScreenState={(state) => props.screen.publish(props.owner, state)}
 			onOverlayState={(count) => props.overlay.publish(props.owner, count)}
 			onHeader={(publication) => props.header.publish(props.owner, publication)}
@@ -497,8 +547,16 @@ function ClientPageFrame(props: {
 			onQuery={(request) =>
 				props.runtime.runSync(PluginQueriesService).query({ request, scope: props.scope })
 			}
+			onReleaseResources={() => {
+				props.runtime.runFork(props.runtime.runSync(DeviceService).releaseFrame(frameKey));
+			}}
 			onStorage={(request) =>
 				props.runtime.runSync(PluginStorage).outcome(props.scope, identity.contributors, request)
+			}
+			onDevice={(request) =>
+				props.runtime
+					.runSync(DeviceService)
+					.outcome(props.scope, identity.contributors, frameKey, active.current, request)
 			}
 			onNavigate={(request) =>
 				void navigate({

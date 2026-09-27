@@ -13,11 +13,13 @@ let package = Package(
     dependencies: [
         .package(url: "https://github.com/ionic-team/capacitor-swift-pm.git", exact: "8.5.0"),
         .package(name: "AparajitaCapacitorSecureStorage", path: "../../../../../node_modules/.bun/@aparajita+capacitor-secure-storage@8.0.0/node_modules/@aparajita/capacitor-secure-storage"),
+        .package(name: "CapacitorCommunityKeepAwake", path: "../../../../../node_modules/.bun/@capacitor-community+keep-awake@8.0.1+6139e07751574bda/node_modules/@capacitor-community/keep-awake"),
         .package(name: "CapacitorApp", path: "../../../../../node_modules/.bun/@capacitor+app@8.1.1+6139e07751574bda/node_modules/@capacitor/app"),
         .package(name: "CapacitorBrowser", path: "../../../../../node_modules/.bun/@capacitor+browser@8.0.4+6139e07751574bda/node_modules/@capacitor/browser"),
         .package(name: "CapacitorFileTransfer", path: "../../../../../node_modules/.bun/@capacitor+file-transfer@2.0.5+6139e07751574bda/node_modules/@capacitor/file-transfer"),
         .package(name: "CapacitorFilesystem", path: "../../../../../node_modules/.bun/@capacitor+filesystem@8.1.3+6139e07751574bda/node_modules/@capacitor/filesystem"),
         .package(name: "CapacitorHaptics", path: "../../../../../node_modules/.bun/@capacitor+haptics@8.0.2+6139e07751574bda/node_modules/@capacitor/haptics"),
+        .package(name: "CapacitorLocalNotifications", path: "../../../../../node_modules/.bun/@capacitor+local-notifications@8.3.1+6139e07751574bda/node_modules/@capacitor/local-notifications"),
         .package(name: "CapacitorShare", path: "../../../../../node_modules/.bun/@capacitor+share@8.0.1+6139e07751574bda/node_modules/@capacitor/share")
     ],
     targets: [
@@ -27,11 +29,13 @@ let package = Package(
                 .product(name: "Capacitor", package: "capacitor-swift-pm"),
                 .product(name: "Cordova", package: "capacitor-swift-pm"),
                 .product(name: "AparajitaCapacitorSecureStorage", package: "AparajitaCapacitorSecureStorage"),
+                .product(name: "CapacitorCommunityKeepAwake", package: "CapacitorCommunityKeepAwake"),
                 .product(name: "CapacitorApp", package: "CapacitorApp"),
                 .product(name: "CapacitorBrowser", package: "CapacitorBrowser"),
                 .product(name: "CapacitorFileTransfer", package: "CapacitorFileTransfer"),
                 .product(name: "CapacitorFilesystem", package: "CapacitorFilesystem"),
                 .product(name: "CapacitorHaptics", package: "CapacitorHaptics"),
+                .product(name: "CapacitorLocalNotifications", package: "CapacitorLocalNotifications"),
                 .product(name: "CapacitorShare", package: "CapacitorShare")
             ]
         )

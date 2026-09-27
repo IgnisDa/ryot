@@ -9,6 +9,7 @@ import {
 	CLIENT_BRIDGE_MAX_PENDING_REQUESTS,
 	PLUGIN_HEADER_TITLE_MAX,
 	PluginBridgeHostMessage,
+	type PluginDeviceRequest,
 	type PluginBridgeAssetCancel,
 	type PluginBridgeAssetRequest,
 	type PluginBridgeCollectionRequest,
@@ -58,6 +59,7 @@ import type { PluginNavigationController, PluginNavigationSnapshot } from "../na
 type PluginRuntimeState = "ready" | "active" | "closing" | "failed" | "disposed";
 
 type RequestType =
+	| "device"
 	| "asset"
 	| "collection"
 	| "external-link"
@@ -113,6 +115,7 @@ export const createPluginRuntime = (
 	let terminalReason: RyotClientErrorReason | undefined;
 	let dismissOverlay = noOverlayToDismiss;
 	let overlayCount = 0;
+	const flushHandlers = new Set<() => Effect.Effect<void, RyotClientError>>();
 	const listeners = new AbortController();
 	const navigation = {
 		subscribe: navigationStore.subscribe,
@@ -201,6 +204,8 @@ export const createPluginRuntime = (
 		}
 	};
 	const resetDocument = () => {
+		flushHandlers.clear();
+		post({ enabled: false, type: "persistence-state" });
 		rejectPending("disposed");
 		pageShortcuts.clear();
 		publishPageShortcuts();
@@ -218,6 +223,7 @@ export const createPluginRuntime = (
 		}
 		state = "closing";
 		terminalReason = reason;
+		flushHandlers.clear();
 		rejectPending(reason);
 		themeListeners.clear();
 		interestOwners.clear();
@@ -424,6 +430,8 @@ export const createPluginRuntime = (
 		mutateCollection,
 		navigatePageSearch,
 		openProviderSearch,
+		device: (request: PluginDeviceRequest) =>
+			sendRequest("device", (requestId) => ({ ...request, requestId, type: "device-request" })),
 		openExternalLink: (request) =>
 			sendRequest("external-link", (requestId) => ({
 				...request,
@@ -440,6 +448,16 @@ export const createPluginRuntime = (
 					post({ count, type: "overlay-state" } satisfies PluginBridgeOverlayState);
 				}
 			},
+		},
+		registerFlush: (flush) => {
+			flushHandlers.add(flush);
+			post({ enabled: true, type: "persistence-state" });
+			return () => {
+				flushHandlers.delete(flush);
+				if (state === "active") {
+					post({ type: "persistence-state", enabled: flushHandlers.size > 0 });
+				}
+			};
 		},
 		theme: {
 			getSnapshot: () => {
@@ -557,6 +575,23 @@ export const createPluginRuntime = (
 				return;
 			}
 			Match.value(decoded.success).pipe(
+				Match.when({ type: "flush-request" }, ({ requestId }) => {
+					Effect.runFork(
+						Effect.forEach([...flushHandlers], (flush) => flush(), { discard: true }).pipe(
+							Effect.matchCause({ onSuccess: () => true, onFailure: () => false }),
+							Effect.tap((flushed) =>
+								Effect.sync(() => {
+									if (state === "active") {
+										post({ flushed, requestId, type: "flush-result" });
+									}
+								}),
+							),
+						),
+					);
+				}),
+				Match.when({ type: "device-result" }, (result) =>
+					settle("device", result.requestId, result),
+				),
 				Match.when({ type: "document" }, ({ page, documentKey, navigation: nextNavigation }) => {
 					contributors = page?.contributors ?? [];
 					resetDocument();
