@@ -5,6 +5,11 @@ Generic package, manifest, and sandbox authoring rules belong to the
 
 ## Automations
 
+`fitness.ensure-fitness-library-membership` is a required, user-scoped after hook on exercise
+creation and exercise provider-entity-import completion; it upserts `in-fitness-library` to the
+user's `fitness-library`. Workout imports write the same relationship for each imported exercise in
+their write items. The All Exercises saved view lists only exercises with that relationship.
+
 `fitness.workout-created` is an async after hook for API-created workouts. The manifest's
 causation filter excludes imports and other sources. Its script reads the immutable entity snapshot
 from `automation.payload` and emits `workout.created`.
