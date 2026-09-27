@@ -7,7 +7,7 @@
 - User manifests may not declare `userBootstrap` or `httpRateLimits`. Validate all other declared surfaces and executable references like system packages.
 - Private configuration resolves only through the owner's exact installation and never falls back to `RYOT_PLUGIN_*` environment values.
 - Read system archives and private plugin uploads through the single reader from `@ryot-app/plugin-archive`; do not add a second archive reader in the kernel.
-- Archive container limits apply to both system and private packages. Keep `PLUGIN_PACKAGE_LIMITS` private-only; system plugins may exceed those package limits.
+- Archive container limits apply equally to system and private packages.
 - Resolve per-user catalogs from one `listPluginsAvailableToUser` snapshot and thread the resolved catalog through multi-row operations.
 - Key automation hooks by stable plugin ID and authored hook slug. Resolve scripts by immutable revision ID, script slug, and content hash.
 - Installation config pointer activation uses the ingestion transaction lock. Environment config is resolved at boot under the ingestion lock into `plugin.environment_config_revision_id`; nodes must share `RYOT_PLUGIN_*` values because the last booting node wins. Retained execution reads use exact revision/config pins and never resolve current environment values.
