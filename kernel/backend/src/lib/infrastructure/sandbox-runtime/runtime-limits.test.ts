@@ -3,6 +3,7 @@ import { SandboxScriptId } from "@ryot-app/contract/schema/brands";
 import { hostSuccess } from "@ryot-app/sandbox-sdk/wire";
 import { Effect, Schema } from "effect";
 
+import { hostCallArgs } from "./host-call-args.test-support";
 import { SandboxHostCallGate } from "./host-call-gate";
 import { SANDBOX_LIMITS } from "./limits";
 
@@ -66,11 +67,11 @@ layer(SandboxHostCallGate.layer)((test) => {
 					const dispatch = (value: string) =>
 						registration.dispatch({
 							seq: seq++,
-							args: [value],
 							generation: 1,
 							type: "hostCall",
 							handle: "boundary",
 							name: "getCachedValue",
+							args: hostCallArgs([value]),
 						});
 					expect((yield* dispatch(request)).result).toEqual({
 						status: "success",

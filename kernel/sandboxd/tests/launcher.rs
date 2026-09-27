@@ -122,7 +122,7 @@ fn launch_args_for(trust: &str, tier: &str) -> Vec<String> {
         "--max-active",
         "1",
         "--memory-budget",
-        "67108864",
+        "268435456",
         "--max-rss",
         "1073741824",
     ]
@@ -577,7 +577,7 @@ fn launcher_identity_probe_child() {
     };
     assert!(matches!(
         protocol::decode_outbound(&ready).expect("decode sidecar frame"),
-        Outbound::Ready { generation: 1 }
+        Outbound::Ready { generation: 1, .. }
     ));
 
     let pid = child.0.id();

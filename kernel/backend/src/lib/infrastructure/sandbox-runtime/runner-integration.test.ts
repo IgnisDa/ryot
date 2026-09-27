@@ -7,6 +7,7 @@ import { Base64 } from "effect/encoding";
 
 import { SandboxCompiler } from "#modules/sandbox/sandbox-compiler";
 
+import { decodedHostCallArgs } from "./host-call-args.test-support";
 import { SANDBOX_LIMITS } from "./limits";
 import { runNative, runnerNativeLayer, type RunnerCompiled } from "./runner-native.test-support";
 import type { SandboxInlineDurableHost } from "./shared";
@@ -468,7 +469,7 @@ export default defineWorkflow({
 						}
 						const args = Schema.decodeUnknownSync(
 							Schema.Struct({ length: Schema.Finite, offset: Schema.Finite }),
-						)(frame.args);
+						)(decodedHostCallArgs(frame.args));
 						return {
 							status: "success",
 							value: {
