@@ -686,9 +686,12 @@ describe("handleWebhook", () => {
 
 describe("integrationCommonSchema", () => {
 	it("only declares fields the manifest validator reserves", () => {
-		const declared = (["yank", "sink", "push"] as const).flatMap((lot) =>
-			Object.keys(integrationCommonSchema(lot).fields),
-		);
+		const declared = [
+			...Object.keys(integrationCommonSchema("yank", true).fields),
+			...(["yank", "sink", "push"] as const).flatMap((lot) =>
+				Object.keys(integrationCommonSchema(lot, false).fields),
+			),
+		];
 
 		expect(declared.filter((field) => !integrationCommonPropertyNames.has(field))).toEqual([]);
 	});

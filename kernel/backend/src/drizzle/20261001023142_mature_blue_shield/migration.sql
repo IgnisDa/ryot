@@ -216,6 +216,7 @@ CREATE TABLE "definition_integration_provider" (
 	"description" text NOT NULL,
 	"requires_pro_key" boolean NOT NULL,
 	"settings_schema" jsonb NOT NULL,
+	"supports_ownership_sync" boolean DEFAULT false NOT NULL,
 	"lot" text NOT NULL,
 	"plugin_revision_id" text NOT NULL,
 	CONSTRAINT "definition_integration_provider_revision_slug_unique" UNIQUE("plugin_revision_id","slug"),
@@ -503,26 +504,26 @@ CREATE TABLE "oauth_client_resource" (
 );
 --> statement-breakpoint
 CREATE TABLE "oauth_connection" (
+	"integration_id" text,
 	"id" text PRIMARY KEY,
 	"field" text NOT NULL,
-	"integration_id" text,
-	"plugin_slug" text NOT NULL,
 	"state_hash" text NOT NULL CONSTRAINT "oauth_connection_state_hash_unique" UNIQUE,
+	"plugin_slug" text NOT NULL,
 	"completion_secret_hash" text,
 	"token_url_origin" text NOT NULL,
 	"oauth_provider_slug" text NOT NULL,
 	"plugin_installation_id" text NOT NULL,
-	"integration_provider_slug" text NOT NULL,
 	"code" jsonb,
+	"integration_provider_slug" text NOT NULL,
 	"expires_at" timestamp with time zone,
 	"token_version" integer DEFAULT 0 NOT NULL,
 	"access_token" jsonb,
 	"code_verifier" jsonb,
 	"refresh_token" jsonb,
-	"client" jsonb NOT NULL,
 	"refresh_lease_until" timestamp with time zone,
 	"status" text NOT NULL,
 	"access_token_expires_at" timestamp with time zone,
+	"client" jsonb NOT NULL,
 	"created_at" timestamp with time zone DEFAULT now() NOT NULL,
 	"user_id" text NOT NULL,
 	"updated_at" timestamp with time zone DEFAULT now() NOT NULL,
@@ -1105,7 +1106,7 @@ CREATE VIEW "user_import_source" AS (
 			where p.is_executable and not exists (select 1 from "user_plugin" sp join definition_import_source g on g.plugin_revision_id = sp.active_revision_id where sp.user_id = p.user_id and sp.plugin_id <> p.plugin_id and sp.scope = 'system' and sp.is_executable and g.slug = d.slug)
 		);--> statement-breakpoint
 CREATE VIEW "user_integration_provider" AS (
-			select p.user_id, d.id, p.plugin_id, d.plugin_revision_id, p.slug as plugin_slug, p.scope as plugin_scope, p.installation_id, p.config_revision_id, d.slug, d.name, d.description, d.position, d.lot, d.script_slug, s.id as script_id, d.settings_schema, d.requires_pro_key
+			select p.user_id, d.id, p.plugin_id, d.plugin_revision_id, p.slug as plugin_slug, p.scope as plugin_scope, p.installation_id, p.config_revision_id, d.slug, d.name, d.description, d.position, d.lot, d.script_slug, s.id as script_id, d.settings_schema, d.requires_pro_key, d.supports_ownership_sync
 			from "user_plugin" p
 			join definition_integration_provider d on d.plugin_revision_id = p.active_revision_id
 			left join sandbox_script s on s.plugin_revision_id = d.plugin_revision_id and s.slug = d.script_slug
