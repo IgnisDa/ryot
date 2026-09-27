@@ -1,6 +1,5 @@
-import { RadioGroup } from "@ryot-app/plugin-ui-sdk";
+import { SegmentedControl } from "@ryot-app/plugin-ui-sdk";
 import { AppIcon } from "@ryot-app/plugin-ui-sdk/icon";
-import clsx from "clsx";
 import { useSyncExternalStore } from "react";
 
 import type { ThemePreference } from "#/modules/theme/preference";
@@ -25,26 +24,22 @@ export function Appearance(props: { readonly theme: ThemeStore }) {
 	);
 
 	return (
-		<RadioGroup
+		<SegmentedControl
 			value={preference}
 			label="Appearance"
-			options={THEME_OPTIONS}
+			optionClassName="px-3"
+			className="self-start"
 			onChange={props.theme.setPreference}
-			className="flex gap-2 rounded-xl border border-border bg-surface p-2"
-			renderOption={(option, selected) => ({
+			options={THEME_OPTIONS.map((option) => ({
+				value: option.value,
+				label: option.label,
 				content: (
 					<>
-						<AppIcon size={18} name={option.icon} />
-						<span className="text-xs font-medium">{option.text}</span>
+						<AppIcon size={15} name={option.icon} />
+						{option.text}
 					</>
 				),
-				className: clsx(
-					"flex flex-1 flex-col items-center justify-center gap-1.5 rounded-lg border py-3.5",
-					selected
-						? "border-accent-deep bg-accent-soft text-accent-text"
-						: "border-transparent text-text-muted",
-				),
-			})}
+			}))}
 		/>
 	);
 }

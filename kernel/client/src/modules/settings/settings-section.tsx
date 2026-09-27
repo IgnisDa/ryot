@@ -9,8 +9,8 @@ type SettingsSectionProps = {
 export function SettingsSection(props: SettingsSectionProps) {
 	return (
 		<section className="flex flex-col gap-3">
-			<div className="flex flex-col gap-0.5 px-1">
-				<h2 className="text-base font-semibold text-text">{props.title}</h2>
+			<div className="flex flex-col gap-0.5">
+				<h2 className="text-heading font-semibold text-text">{props.title}</h2>
 				<p className="text-sm text-text-muted">{props.detail}</p>
 			</div>
 			{props.children}
