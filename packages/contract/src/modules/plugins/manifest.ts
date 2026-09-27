@@ -296,6 +296,11 @@ export const PluginSignalAudiencePolicy = Schema.Union([
 		relationshipSchemaSlug: Schema.String,
 		subjectSide: Schema.Literals(["source", "target"]),
 	}),
+	strictStruct({
+		eventSchemaSlug: Schema.String,
+		role: Schema.Literals(["entity", "session"]),
+		kind: Schema.Literal("dependent_event_owners"),
+	}),
 ]);
 
 export type PluginSignalAudiencePolicy = Schema.Schema.Type<typeof PluginSignalAudiencePolicy>;
@@ -370,6 +375,7 @@ const safePositiveInteger = Schema.Finite.pipe(
 		),
 	),
 );
+const safeBatchMaxItems = safePositiveInteger.pipe(Schema.check(Schema.isLessThanOrEqualTo(1_000)));
 
 export const PluginHttpRateLimit = strictStruct({
 	key: sandboxManifestSlug,
@@ -758,20 +764,22 @@ export const PluginHook = Schema.Union([
 		stage: Schema.Literal("after"),
 		retry: Schema.optional(AutomationRetryPolicy),
 		delivery: Schema.Literals(["required", "async"]),
+		batchMaxItems: Schema.optional(safeBatchMaxItems),
 		frequency: Schema.optional(Schema.Literals(["item", "batch"])),
 		executionScope: Schema.optional(Schema.Literals(["user", "global"])),
 	}).pipe(
 		Schema.check(
-			Schema.makeFilter(
-				(hook) =>
-					hook.frequency !== "batch" ||
-					hook.targets.every(
-						(target) =>
-							target.resource === "entity" ||
-							target.resource === "event" ||
-							target.resource === "relationship",
-					) ||
-					"Batch hooks require entity, event or relationship targets",
+			Schema.makeFilter((hook) =>
+				hook.batchMaxItems !== undefined && hook.frequency !== "batch"
+					? "batchMaxItems requires batch frequency"
+					: hook.frequency !== "batch" ||
+						hook.targets.every(
+							(target) =>
+								target.resource === "entity" ||
+								target.resource === "event" ||
+								target.resource === "relationship",
+						) ||
+						"Batch hooks require entity, event or relationship targets",
 			),
 		),
 	),
@@ -882,6 +890,17 @@ const hasValidHookTargets = (manifest: typeof AuthoredPluginManifestFields.Type)
 	);
 };
 
+const hasValidSignalAudienceReferences = (
+	manifest: Pick<typeof AuthoredPluginManifestFields.Type, "entitySchemas" | "signalSchemas">,
+) =>
+	manifest.signalSchemas.every(
+		({ audiencePolicy }) =>
+			audiencePolicy.kind !== "dependent_event_owners" ||
+			manifest.entitySchemas.some((entitySchema) =>
+				entitySchema.eventSchemas.some(({ slug }) => slug === audiencePolicy.eventSchemaSlug),
+			),
+	);
+
 const hasValidClientManifestReferences = (
 	manifest: Pick<
 		typeof AuthoredPluginManifestFields.Type,
@@ -977,6 +996,7 @@ const hasValidAuthoredPluginManifestReferences = (
 	if (
 		!hasValidClientManifestReferences(manifest) ||
 		!hasValidHookTargets(manifest) ||
+		!hasValidSignalAudienceReferences(manifest) ||
 		!hasValidOAuthProviderReferences(manifest)
 	) {
 		return false;
@@ -1036,6 +1056,7 @@ const hasValidPluginManifestReferences = (manifest: typeof PluginManifestFields.
 	if (
 		!hasValidClientManifestReferences(manifest) ||
 		!hasValidHookTargets(manifest) ||
+		!hasValidSignalAudienceReferences(manifest) ||
 		!hasValidOAuthProviderReferences(manifest)
 	) {
 		return false;
