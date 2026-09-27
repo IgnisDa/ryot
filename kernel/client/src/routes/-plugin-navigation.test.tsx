@@ -737,6 +737,14 @@ describe("client page routes", () => {
 			const bridge = connectFrame(first);
 			yield* Effect.promise(() => waitFor(() => expect(bridge.messages).toHaveLength(1)));
 			const src = first.getAttribute("src");
+			const wrapper = first.closest("main > div");
+			const removed: Array<Node> = [];
+			const observer = new MutationObserver((records) => {
+				for (const record of records) {
+					removed.push(...record.removedNodes);
+				}
+			});
+			observer.observe(document.querySelector("main") ?? document.body, { childList: true });
 			yield* Effect.promise(() => view.router.navigate({ href: "/plugin-2" }));
 			yield* Effect.promise(() =>
 				waitFor(() => expect(document.querySelectorAll("iframe")).toHaveLength(2)),
@@ -748,6 +756,9 @@ describe("client page routes", () => {
 			);
 			expect(first.isConnected).toBe(true);
 			expect(first.getAttribute("src")).toBe(src);
+			observer.disconnect();
+			expect(wrapper).not.toBeNull();
+			expect(removed).not.toContain(wrapper);
 			yield* Effect.promise(() =>
 				waitFor(() =>
 					expect(bridge.messages).toContainEqual(
