@@ -24,7 +24,7 @@ const limits = { cpuMs: 2_000, deadlineMs: 30_000, heapBytes: 64 * MiB, external
 const envelope = { seq: 0, generation: 7, handle: "exec-1" };
 const encodedArgs = (value: unknown) =>
 	Base64.encode(new TextEncoder().encode(JSON.stringify(value)));
-const usage = { externalBytes: 0, heapBytes: 12 * MiB };
+const usage = { cpuWaitMs: 0, externalBytes: 0, heapBytes: 12 * MiB };
 const run = {
 	...envelope,
 	limits,
