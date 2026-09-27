@@ -13,7 +13,7 @@ const date = "2026-09-23T10:00:00+02:00";
 const page = (items: readonly unknown[], limit = 2, hasMore = false) =>
 	rowsResult(items, { limit, hasMore, nextCursor: hasMore ? "next" : null });
 
-it("normalizes persisted user preferences instead of rejecting old JSON", () => {
+it("normalizes malformed persisted user preferences", () => {
 	const decoded = Result.getOrThrow(
 		userSettingsRecipe().decode({
 			data: {
@@ -23,17 +23,13 @@ it("normalizes persisted user preferences instead of rejecting old JSON", () => 
 						image: null,
 						id: "user-1",
 						email: "a@example.com",
-						preferences: { language: "", allowNsfw: true, disableIntegrations: "yes" },
+						preferences: { language: "", disableIntegrations: "yes" },
 					},
 				]),
 			},
 		}),
 	);
-	expect(decoded.preferences).toEqual({
-		language: null,
-		allowNsfw: true,
-		disableIntegrations: false,
-	});
+	expect(decoded.preferences).toEqual({ language: null, disableIntegrations: false });
 });
 
 it("maps missing backup detail to None", () => {

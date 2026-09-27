@@ -49,7 +49,7 @@ const currentUser = (id: UserId): CurrentUserValue => ({
 	image: null,
 	name: "User",
 	email: `${id}@example.test`,
-	preferences: { language: null, allowNsfw: false, disableIntegrations: false },
+	preferences: { language: null, disableIntegrations: false },
 });
 
 type TokenResponse = { readonly status: number; readonly body: unknown };

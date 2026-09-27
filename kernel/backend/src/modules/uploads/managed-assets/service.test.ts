@@ -30,7 +30,7 @@ const user: CurrentUserValue = {
 	image: null,
 	name: "Test User",
 	email: "user@example.com",
-	preferences: { language: null, allowNsfw: false, disableIntegrations: false },
+	preferences: { language: null, disableIntegrations: false },
 };
 const managedAssetCreatedAt = new Date("2026-01-01T00:00:00.000Z");
 const localFileInfo = {

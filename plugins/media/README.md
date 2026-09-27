@@ -262,6 +262,9 @@ Translation UI does not name the preferred language because the bridge does not 
 
 ## Images And Providers
 
+The per-user Media plugin preference `allowNsfw` controls whether providers include adult metadata
+and search results. Entity language is a global setting owned by the kernel.
+
 Media images use `{ type, url/key, purpose }`. Remote images use `url`; local and S3 images use `key`.
 Purpose is one of `cover`, `backdrop`, `profile`, `logo`, `still`, `screenshot`, or `artwork`.
 
