@@ -63,7 +63,106 @@ describe("sandbox execution authority", () => {
 					const session = yield* DatabaseSession;
 					const slug = `runtime-authority-provider-${crypto.randomUUID()}`;
 					const owner = UserId.make("owner");
-					const installed = yield* installRevisionPackage(revisionPackage(slug), owner);
+					const sourcePackage = revisionPackage(slug);
+					const [entitySchema] = sourcePackage.manifest.entitySchemas;
+					assert(entitySchema);
+					const [relationshipSchema] = sourcePackage.manifest.relationshipSchemas;
+					assert(relationshipSchema);
+					const [eventSchema] = entitySchema.eventSchemas;
+					assert(eventSchema);
+					const secondEntitySlug = `${slug}-entity-second`;
+					const secondEventSlugs = [`${slug}-event-second-first`, `${slug}-event-second-second`];
+					const pluginPackage = {
+						...sourcePackage,
+						manifest: {
+							...sourcePackage.manifest,
+							relationshipSchemas: [
+								relationshipSchema,
+								{
+									...relationshipSchema,
+									slug: `${slug}-link-second`,
+									sourceEntitySchemaSlug: secondEntitySlug,
+									targetEntitySchemaSlug: secondEntitySlug,
+								},
+							],
+							providers: sourcePackage.manifest.providers.map((provider) =>
+								Object.assign({}, provider, {
+									information: Object.assign({}, provider.information, {
+										source: "large provider payload ".repeat(512),
+									}),
+								}),
+							),
+							entitySchemas: [
+								entitySchema,
+								{
+									...entitySchema,
+									name: "Second entity",
+									slug: secondEntitySlug,
+									eventSchemas: secondEventSlugs.map((eventSlug) =>
+										Object.assign({}, eventSchema, { slug: eventSlug }),
+									),
+								},
+							],
+							savedViews: [
+								{
+									sortOrder: 0,
+									icon: "bookmark",
+									pluginSlug: slug,
+									dataSources: null,
+									name: "Large saved view",
+									slug: `${slug}-saved-view`,
+									renderer: { kind: "kernel", name: "results-table" },
+									settings: { payload: "large saved view payload ".repeat(512) },
+								},
+							],
+						},
+					} satisfies typeof sourcePackage;
+					const installed = yield* installRevisionPackage(pluginPackage, owner);
+					const [revision] = yield* session.run((db) =>
+						db
+							.select({
+								manifest: tables.pluginRevision.manifest,
+								sandboxAuthority: tables.pluginRevision.sandboxAuthority,
+							})
+							.from(tables.pluginRevision)
+							.where(eq(tables.pluginRevision.id, installed.revisionId))
+							.limit(1),
+					);
+					assert(revision);
+					const expectedSandboxAuthority = {
+						userBootstrapScriptSlugs: [],
+						configSchema: pluginPackage.manifest.configSchema,
+						scriptKinds: Object.fromEntries(
+							pluginPackage.manifest.scripts.map(({ kind, slug: scriptSlug }) => [
+								scriptSlug,
+								kind,
+							]),
+						),
+						workflowScripts: Object.fromEntries(
+							pluginPackage.manifest.workflows.map(({ scriptSlug, slug: workflowSlug }) => [
+								workflowSlug,
+								scriptSlug,
+							]),
+						),
+						schemaScope: {
+							entitySchemaSlugs: [entitySchema.slug, secondEntitySlug],
+							relationshipSchemaSlugs: [relationshipSchema.slug, `${slug}-link-second`],
+							eventSchemas: [
+								{ eventSchemaSlug: eventSchema.slug, entitySchemaSlug: entitySchema.slug },
+								...secondEventSlugs.map((eventSchemaSlug) => ({
+									eventSchemaSlug,
+									entitySchemaSlug: secondEntitySlug,
+								})),
+							],
+						},
+					};
+					expect(revision.sandboxAuthority).toEqual(expectedSandboxAuthority);
+					expect(revision.manifest.providers[0]?.information.source.length).toBeGreaterThan(10_000);
+					const savedViewPayload = revision.manifest.savedViews[0]?.settings["payload"];
+					assert(typeof savedViewPayload === "string");
+					expect(savedViewPayload.length).toBeGreaterThan(10_000);
+					expect(revision.sandboxAuthority).not.toHaveProperty("providers");
+					expect(revision.sandboxAuthority).not.toHaveProperty("savedViews");
 					const [row] = yield* session.run((db) =>
 						db
 							.select()
@@ -78,6 +177,12 @@ describe("sandbox execution authority", () => {
 					const pin = yield* sandbox.getScriptPin(SandboxScriptId.make(row.id));
 					assert(pin?.pluginRevision);
 					expect(pin.pluginRevision.revisionId).toBe(installed.revisionId);
+					expect(pin.pluginRevision).toMatchObject({
+						userBootstrapScriptSlugs: [],
+						schemaScope: expectedSandboxAuthority.schemaScope,
+						configSchema: expectedSandboxAuthority.configSchema,
+						workflowScripts: expectedSandboxAuthority.workflowScripts,
+					});
 					const principal = yield* Schema.decodeEffect(SandboxExecutionPrincipal)({
 						...pin,
 						subject: {
@@ -126,6 +231,15 @@ describe("sandbox execution authority", () => {
 							.where(eq(tables.sandboxScript.id, row.id)),
 					);
 					assertExitFails(yield* Effect.exit(authority.resolve(principal)), missingArtifact());
+					yield* session.run((db) =>
+						db
+							.update(tables.sandboxScript)
+							.set({
+								metadata: sql`jsonb_set(${tables.sandboxScript.metadata}, '{kind}', '"script"'::jsonb)`,
+							})
+							.where(eq(tables.sandboxScript.id, row.id)),
+					);
+					expect(yield* sandbox.getScriptPin(SandboxScriptId.make(row.id))).toBeNull();
 				}),
 		);
 		test.effect("resolves stored kernel scripts as system-owned", () =>
@@ -153,6 +267,60 @@ describe("sandbox execution authority", () => {
 					expect(yield* authority.resolve(principal)).toBe("system");
 				}),
 			),
+		);
+
+		test.effect(
+			"rejects missing declarations and non-string workflow targets in persisted authority",
+			() =>
+				Effect.gen(function* () {
+					const authority = yield* SandboxExecutionAuthority;
+					const sandbox = yield* SandboxRepository;
+					const session = yield* DatabaseSession;
+					const owner = UserId.make("owner");
+					const pluginPackage = revisionPackage(`authority-declarations-${crypto.randomUUID()}`);
+					const installed = yield* installRevisionPackage(pluginPackage, owner);
+					const [script] = yield* session.run((db) =>
+						db
+							.select({ id: tables.sandboxScript.id })
+							.from(tables.sandboxScript)
+							.where(eq(tables.sandboxScript.pluginRevisionId, installed.revisionId))
+							.limit(1),
+					);
+					assert(script);
+					const pin = yield* sandbox.getScriptPin(SandboxScriptId.make(script.id));
+					assert(pin);
+					const principal = yield* Schema.decodeEffect(SandboxExecutionPrincipal)({
+						...pin,
+						subject: {
+							type: "user",
+							userId: owner,
+							accountGeneration: { userId: owner, token: "test-account-generation" },
+						},
+					});
+					for (const manifest of [
+						sql`${tables.pluginRevision.manifest} - 'scripts'`,
+						sql`${tables.pluginRevision.manifest} - 'workflows'`,
+						sql`${tables.pluginRevision.manifest} - 'userBootstrap'`,
+						sql`${tables.pluginRevision.manifest} - 'entitySchemas'`,
+						sql`${tables.pluginRevision.manifest} - 'relationshipSchemas'`,
+						sql`jsonb_set(${tables.pluginRevision.manifest}, '{entitySchemas,0}', (${tables.pluginRevision.manifest}->'entitySchemas'->0) - 'eventSchemas')`,
+						sql`jsonb_set(${tables.pluginRevision.manifest}, '{workflows,0,scriptSlug}', '42'::jsonb)`,
+					]) {
+						yield* session.run((db) =>
+							db
+								.update(tables.pluginRevision)
+								.set({ manifest: pluginPackage.manifest })
+								.where(eq(tables.pluginRevision.id, installed.revisionId)),
+						);
+						yield* session.run((db) =>
+							db
+								.update(tables.pluginRevision)
+								.set({ manifest })
+								.where(eq(tables.pluginRevision.id, installed.revisionId)),
+						);
+						assertExitFails(yield* Effect.exit(authority.resolve(principal)), missingArtifact());
+					}
+				}),
 		);
 
 		test.effect("authority_rejects_scripts_that_are_neither_plugin_nor_kernel", () =>
@@ -275,8 +443,25 @@ describe("sandbox execution authority", () => {
 					yield* locatesTo({ ...kernelPin, subject: { type: "system" } }, "system/core");
 
 					const firstPartySlug = `runtime-authority-first-party-${crypto.randomUUID()}`;
-					yield* installRevisionPackage(revisionPackage(firstPartySlug));
+					const firstPartyPackage = revisionPackage(firstPartySlug);
+					const bootstrapScriptSlug = `${firstPartySlug}.task`;
+					yield* installRevisionPackage({
+						...firstPartyPackage,
+						manifest: {
+							...firstPartyPackage.manifest,
+							userBootstrap: [
+								{
+									scriptSlug: bootstrapScriptSlug,
+									slug: `${firstPartySlug}-bootstrap`,
+									description: "First-party bootstrap",
+								},
+							],
+						},
+					});
 					const firstPartyPin = yield* scriptPin(`${firstPartySlug}.details`);
+					expect(firstPartyPin.pluginRevision?.userBootstrapScriptSlugs).toEqual([
+						bootstrapScriptSlug,
+					]);
 					yield* locatesTo({ ...firstPartyPin, subject: ownerSubject }, "system/core");
 				}),
 			),
