@@ -75,6 +75,24 @@ Passing coverage:
 - `atomic_admission_keeps_memory_waiters_from_holding_execution_slots`
 - `inspected_small_journals_can_reserve_two_replays_without_maximum_prefix_allowances`
 - `journal_read_cancellation_retains_memory_until_the_native_reply_finishes`
+- `sandbox_sidecar_recovers_mid_import`: a scoped system HTTP policy makes the uploaded provider's
+  checkpoint call durable before it parks. Generation replacement preserves that committed call
+  and the committed business row; the provider retains user-tier trust.
+
+Repository verification:
+
+- `bun run check`: passed.
+- `bun turbo --filter='!@ryot-app/e2e' test`: passed; backend coverage is 1,903 tests in 288 files.
+- Affected `enqueue.test.ts`: four tests passed.
+- Affected `sidecar-recovery.test.ts`: passed with the committed HTTP checkpoint.
+- Affected `async-flow.test.ts`: eight tests passed; `preserves the complete mapped stack for deep
+  script errors` fails because the stack has ten lines. The same failure reproduces on S2 commit
+  `35730c5832` in an isolated worktree. It remains unproved, rather than weakening the assertion.
+- Cleanup removed the duplicate journal-length test and the unused inspection-schema value export;
+  no suppressions or type-bypassing casts were added.
+
+S3 lane fairness, canonical-host latency, shared transient-buffer bounds, Linux launcher execution,
+and remote CI results are not proved by these checks.
 
 ## Remaining design for approval
 
