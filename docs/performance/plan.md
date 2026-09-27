@@ -84,7 +84,7 @@ Per statement, almost all of the cost is the round trip to Postgres. In PF-1's b
 
 ### PF-3: workflow garbage-collection admission cost
 
-**Status.** Done (`fb52fd4284`). Re-sent non-`run` envelopes skip admission: 0.18 admissions per message insert, down from 1.00. A trigger-based fence that also removes the transaction is proposed in `tmp/perf-audit/pf3/report.md`.
+**Status.** Done. Re-sent non-`run` envelopes skip admission, and the `ryot_cluster_message_fence` trigger (`platform/db/workflow-message-fence.ts`) fences other non-`run` workflow messages inside their insert, with no app transaction. Admissions fell from 133.6k to 7.0k, all workflow and clock `run` requests. Harness wall time fell from 530 s to 490 s (one quiet run each). Effect follow-ups: https://github.com/Effect-TS/effect/issues/9321 and https://github.com/Effect-TS/effect/issues/9335.
 
 **Outcome.** The garbage-collection layer's statements per cluster message fall by at least half, with the same fencing against tree expiry.
 
