@@ -44,7 +44,10 @@ import {
 const makeView = (
 	path = "/god-mode",
 	selected: typeof server | null = server,
-	adminService: AdminApiService = { run: () => Effect.die("not used") },
+	adminService: AdminApiService = {
+		run: () => Effect.die("not used"),
+		download: () => Effect.die("not used"),
+	},
 ) => {
 	const events = makePluginCatalogEventsTestLayer();
 	const sessions = makeGodModeSessionService(() => "god-session");
@@ -171,6 +174,7 @@ describe("God Mode route", () => {
 			Effect.gen(function* () {
 				const user = userEvent.setup();
 				const view = makeView("/god-mode/users", server, {
+					download: () => Effect.die("not used"),
 					run: () =>
 						Effect.fail(
 							new AdminApiError({
