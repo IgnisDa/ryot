@@ -61,5 +61,3 @@ export const firstGraphqlErrorMessage = (payload: UnknownRecord | null) => {
 	const message = firstError?.["message"];
 	return typeof message === "string" ? message : "unknown GraphQL error";
 };
-
-export const escapeGraphqlString = (value: string) => value.replace(/"/g, '\\"');
