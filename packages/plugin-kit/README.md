@@ -121,7 +121,8 @@ shim remains environment-neutral and does not export `Effect`.
 ## Shared Sources
 
 `shared/**` accepts `.ts`, not `.tsx`. Its only bare imports are
-`@ryot-app/plugin-kit/effect`, `/ryotql`, and `/schema`; relative imports remain inside `shared/`.
+`@ryot-app/plugin-kit/compression`, `@ryot-app/plugin-kit/effect`, `@ryot-app/plugin-kit/ryotql`, and
+`@ryot-app/plugin-kit/schema`; relative imports remain inside `shared/`.
 The plugin client and backend compilers enforce the same rule and reject client-only or backend-only SDK imports.
 
 The `ryotql` shim exports RyotQL, `IsoDateString`, and the four event expression helpers. It must not
@@ -131,6 +132,8 @@ neutral shims to existing runtime modules where possible to avoid charging dupli
 each script's 1 MiB budget.
 The `schema` shim exports shared contract schemas and brands, plus `roundHalfUp` for canonical
 decimal-scale rounding.
+The `compression` shim exports only `deflateSync` and `inflateSync` from `fflate` 0.8.3 as a pure,
+environment-neutral compression path.
 
 Only sources reachable from a declared client or sandbox entry are checked. A plugin with no client
 entry can therefore leave otherwise unreachable shared files unchecked.
