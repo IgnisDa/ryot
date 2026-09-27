@@ -1048,8 +1048,11 @@ export const mediaPlugin = definePlugin({
 			workflowSlug: "import",
 			exportHelp: importDocs("imdb"),
 			requiredPluginConfigKeys: ["tmdbAccessToken"],
-			description: "Import movie and show watchlist entries from IMDb",
-			inputSchema: uploadInputSchema("IMDb export", "IMDb watchlist export CSV", ["csv"]),
+			description:
+				"Import movie and show watchlist entries, watched history, and ratings from IMDb",
+			inputSchema: uploadInputSchema("IMDb export", "IMDb watchlist or ratings export CSV", [
+				"csv",
+			]),
 		},
 		{
 			slug: "igdb",
