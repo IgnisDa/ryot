@@ -71,7 +71,10 @@ export class NotificationDeliveryService extends Context.Service<NotificationDel
 		make: Effect.gen(function* () {
 			const config = yield* AppConfig;
 			const mailer = yield* NotificationMailer;
-			const httpClient = (yield* HttpClient.HttpClient).pipe(HttpClient.filterStatusOk);
+			const httpClient = (yield* HttpClient.HttpClient).pipe(
+				HttpClient.followRedirects(),
+				HttpClient.filterStatusOk,
+			);
 
 			const sendHttp = Effect.fn("NotificationDeliveryService.sendHttp")(function* (input: {
 				provider: string;
