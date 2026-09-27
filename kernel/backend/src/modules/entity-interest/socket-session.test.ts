@@ -5,9 +5,11 @@ import {
 	encodeEntityInterestClientMessage,
 } from "@ryot-app/contract/modules/entity-interest/messages";
 import { EntityId, UserId } from "@ryot-app/contract/schema/brands";
-import { Context, Deferred, Effect, Fiber, Layer, Option, Queue, Ref, Result } from "effect";
+import { Clock, Context, Deferred, Effect, Fiber, Layer, Option, Queue, Ref, Result } from "effect";
 import { TestClock } from "effect/testing";
 import * as Socket from "effect/unstable/socket/Socket";
+
+import { ImpersonationSessions } from "#modules/auth/impersonation-sessions";
 
 import { LocalInterestSessions } from "./connections";
 import { InterestService } from "./service";
@@ -101,12 +103,15 @@ class FakeSessionDependencies extends Context.Service<
 /** Reconciliation never finishes; `holdReplace` keeps every replacement waiting after it starts. */
 const makeLayer = (
 	options: {
+		readonly activeImpersonation?: "active" | "missing";
+		readonly impersonationExpiresInMs?: number;
 		readonly holdReplace?: boolean;
 		readonly replaceOutcome?: "applied" | "limit-exceeded" | "revision-mismatch";
 	} = {},
 ) =>
 	Layer.unwrap(
 		Effect.gen(function* () {
+			const impersonationExpiresAt = yield* Ref.make<number | null>(null);
 			const activity = yield* Ref.make<ReadonlyArray<string>>([]);
 			const replacements = yield* Ref.make(0);
 			const reconciliationGate = yield* Deferred.make<void>();
@@ -115,7 +120,27 @@ const makeLayer = (
 			const record = (entry: string) => Ref.update(activity, (all) => [...all, entry]);
 			return Layer.mergeAll(
 				Layer.mock(EntityInterestTicketService)({
-					consume: () => Effect.succeed({ preferredLanguage: "es", userId: UserId.make("user-1") }),
+					consume: () =>
+						Effect.gen(function* () {
+							const principal = { preferredLanguage: "es", userId: UserId.make("user-1") };
+							if (options.impersonationExpiresInMs === undefined) {
+								return principal;
+							}
+							const expiresAt = (yield* Clock.currentTimeMillis) + options.impersonationExpiresInMs;
+							yield* Ref.set(impersonationExpiresAt, expiresAt);
+							return { ...principal, impersonation: { expiresAt, sessionId: "auth-session-1" } };
+						}),
+				}),
+				Layer.mock(ImpersonationSessions)({
+					getActive: (sessionId, userId) =>
+						record(`auth-session-check:${sessionId}:${userId}`).pipe(
+							Effect.andThen(Ref.get(impersonationExpiresAt)),
+							Effect.map((expiresAt) =>
+								options.activeImpersonation === "missing" || expiresAt === null
+									? null
+									: { expiresAt },
+							),
+						),
 				}),
 				Layer.mock(EntityInterestStore)({
 					renewSession: () => Effect.succeed(true),
@@ -152,8 +177,13 @@ const makeLayer = (
 					reconcile: () => Deferred.await(reconciliationGate).pipe(Effect.as([])),
 				}),
 				Layer.mock(LocalInterestSessions)({
-					add: (sessionId) => record(`add:${sessionId}`),
 					remove: (sessionId) => record(`remove:${sessionId}`),
+					add: (sessionId, _enqueue, revocation) =>
+						record(
+							revocation === undefined
+								? `add:${sessionId}`
+								: `add:${sessionId}:auth:${revocation.authSessionId}`,
+						),
 				}),
 				Layer.succeed(FakeSessionDependencies, {
 					activity: Ref.get(activity),
@@ -176,6 +206,7 @@ const obsoleteTokenLayer = Layer.unwrap(
 			Layer.mock(EntityInterestTicketService)({
 				consume: () => Effect.succeed({ preferredLanguage: null, userId: UserId.make("user-1") }),
 			}),
+			Layer.mock(ImpersonationSessions)({ getActive: () => Effect.succeed(null) }),
 			Layer.mock(EntityInterestStore)({
 				closeSession: () => Effect.succeed(true),
 				renewSession: () => Effect.succeed(true),
@@ -261,11 +292,41 @@ describe("entity interest socket session", () => {
 		);
 	});
 
+	layer(makeLayer({ activeImpersonation: "missing", impersonationExpiresInMs: 60_000 }))((test) => {
+		test.effect("rechecks an impersonation session after local registration", () =>
+			Effect.scoped(
+				Effect.gen(function* () {
+					const fake = yield* FakeSessionDependencies;
+					const socket = yield* makeSocket();
+					const fiber = yield* runEntityInterestSocketSession(socket.socket).pipe(Effect.forkChild);
+					yield* Deferred.await(socket.opened);
+					yield* socket.send(
+						encodeEntityInterestClientMessage({ ticket: "ticket", type: "authenticate" }),
+					);
+
+					const close = yield* Queue.take(socket.writes);
+					assert(Socket.isCloseEvent(close));
+					expect(close.code).toBe(4001);
+					expect(close.reason).toBe("Session expired");
+					yield* Fiber.await(fiber);
+					expect(yield* fake.activity).toEqual([
+						expect.stringMatching(/^open:/),
+						expect.stringMatching(/^add:.*:auth:auth-session-1$/),
+						"auth-session-check:auth-session-1:user-1",
+						expect.stringMatching(/^remove:/),
+						expect.stringMatching(/^close:/),
+					]);
+				}),
+			),
+		);
+	});
+
 	layer(
 		Layer.mergeAll(
 			Layer.mock(EntityInterestTicketService)({
 				consume: () => Effect.fail(new EntityInterestInvalidTicket()),
 			}),
+			Layer.mock(ImpersonationSessions)({ getActive: () => Effect.succeed(null) }),
 			Layer.mock(EntityInterestStore)({}),
 			Layer.mock(InterestService)({}),
 			Layer.mock(LocalInterestSessions)({}),
@@ -301,6 +362,7 @@ describe("entity interest socket session", () => {
 						new EntityInterestTicketFailure({ reason: { code: "ticket-store-unavailable" } }),
 					),
 			}),
+			Layer.mock(ImpersonationSessions)({ getActive: () => Effect.succeed(null) }),
 			Layer.mock(EntityInterestStore)({}),
 			Layer.mock(InterestService)({}),
 			Layer.mock(LocalInterestSessions)({}),
@@ -569,6 +631,41 @@ describe("entity interest socket session", () => {
 		);
 	});
 
+	layer(makeLayer({ impersonationExpiresInMs: 5_000 }))((test) => {
+		test.effect(
+			"leases an impersonated socket only through the exact session expiry boundary",
+			() =>
+				Effect.scoped(
+					Effect.gen(function* () {
+						const socket = yield* makeSocket();
+						const fiber = yield* runEntityInterestSocketSession(socket.socket).pipe(
+							Effect.forkChild,
+						);
+						yield* Deferred.await(socket.opened);
+						yield* socket.send(
+							encodeEntityInterestClientMessage({ ticket: "ticket", type: "authenticate" }),
+						);
+						assert((yield* socket.nextMessage()).type === "ready");
+						yield* Effect.yieldNow;
+
+						yield* TestClock.adjust("4 seconds");
+						yield* Effect.yieldNow;
+						expect(yield* Queue.poll(socket.writes)).toEqual(Option.none());
+
+						yield* TestClock.adjust("1 second");
+						yield* Effect.yieldNow;
+						const atExpiry = yield* Queue.poll(socket.writes);
+						assert(Option.isSome(atExpiry));
+						assert(Socket.isCloseEvent(atExpiry.value));
+						const close = atExpiry.value;
+						expect(close.code).toBe(4001);
+						expect(close.reason).toBe("Session expired");
+						yield* Fiber.await(fiber);
+					}),
+				),
+		);
+	});
+
 	layer(makeLayer({ holdReplace: true }))((test) => {
 		test.effect("stops buffered commands when heartbeat shutdown interrupts the processor", () =>
 			Effect.scoped(
@@ -604,6 +701,7 @@ describe("entity interest socket session", () => {
 	layer(
 		Layer.mergeAll(
 			Layer.mock(EntityInterestTicketService)({}),
+			Layer.mock(ImpersonationSessions)({ getActive: () => Effect.succeed(null) }),
 			Layer.mock(EntityInterestStore)({}),
 			Layer.mock(InterestService)({}),
 			Layer.mock(LocalInterestSessions)({}),

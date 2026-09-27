@@ -20,6 +20,12 @@ const mapPersistenceFailure = <A, E, R>(effect: Effect.Effect<A, E, R>) =>
 
 export const GodModeRoutesLive = HttpApiBuilder.group(AppContract, "godMode", (handlers) =>
 	handlers
+		.handle("startUserImpersonation", ({ params, payload }) =>
+			Effect.gen(function* () {
+				const service = yield* GodModeService;
+				return yield* mapPersistenceFailure(service.startUserImpersonation(params.userId, payload));
+			}),
+		)
 		.handle("provisionUser", ({ payload }) =>
 			Effect.gen(function* () {
 				const service = yield* GodModeService;
