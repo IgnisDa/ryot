@@ -1,4 +1,4 @@
-import type { ContractRequest } from "@ryot-app/contract/client";
+import type { ContractRequest, ContractSuccess } from "@ryot-app/contract/client";
 import type { PreparedRecipe } from "@ryot-app/ryotql";
 import { Context, Data, Effect, Layer, Result } from "effect";
 
@@ -13,6 +13,8 @@ export class GodModeApi extends Context.Service<GodModeApi>()("GodModeApi", {
 	make: Effect.gen(function* () {
 		const api = yield* AdminApi;
 		return {
+			listLogs: (origin: ServerOrigin, token: string) =>
+				api.run(origin, token, (client) => client.serverLogs.list()),
 			resetUser: (
 				origin: ServerOrigin,
 				token: string,
@@ -44,6 +46,24 @@ export class GodModeApi extends Context.Service<GodModeApi>()("GodModeApi", {
 								: Effect.fail(new GodModeQueryError({ cause: decoded.failure }));
 						}),
 					),
+			downloadLogs: (
+				origin: ServerOrigin,
+				token: string,
+				file?: ContractSuccess<"serverLogs", "list">["files"][number],
+			) => {
+				const fileName =
+					file?.name ?? `ryot-server-logs-${new Date().toISOString().replaceAll(":", "-")}.zip`;
+				return api
+					.download(
+						origin,
+						token,
+						file === undefined
+							? "god-mode/logs/download"
+							: `god-mode/logs/files/${encodeURIComponent(file.id)}/download`,
+						fileName,
+					)
+					.pipe(Effect.map((blob) => ({ blob, fileName })));
+			},
 		};
 	}),
 }) {
