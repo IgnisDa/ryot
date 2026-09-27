@@ -379,28 +379,33 @@ export class SidecarProtocolError extends Schema.TaggedError<SidecarProtocolErro
 const parseOptions = { onExcessProperty: "error" } as const;
 const decoder = new TextDecoder("utf-8", { fatal: true });
 const sidecarInboundJson = Schema.fromJsonString(SidecarInboundFrame);
-const sidecarOutboundJson = Schema.fromJsonString(SidecarOutboundFrame);
 const encodeInboundJson = Schema.encodeSync(sidecarInboundJson, parseOptions);
-const decodeOutboundJson = Schema.decodeUnknownSync(sidecarOutboundJson, parseOptions);
+const decodeOutboundValue = Schema.decodeUnknownSync(SidecarOutboundFrame, parseOptions);
+
+const payloadError = (message: string) => new SidecarProtocolError({ message, reason: "payload" });
 
 export const encodeSidecarInboundLogicalMessage = (frame: SidecarInboundFrame) =>
 	encodeInboundJson(frame);
 
-export const decodeSidecarOutboundLogicalMessage = (bytes: Uint8Array) => {
+export const parseSidecarOutboundJson = (bytes: Uint8Array): unknown => {
 	if (bytes.byteLength > SIDECAR_PROTOCOL_LIMITS.messageBytes.done) {
-		throw new SidecarProtocolError({
-			reason: "payload",
-			message: `logical message exceeds ${SIDECAR_PROTOCOL_LIMITS.messageBytes.done} bytes`,
-		});
+		throw payloadError(
+			`logical message exceeds ${SIDECAR_PROTOCOL_LIMITS.messageBytes.done} bytes`,
+		);
 	}
+	try {
+		return JSON.parse(decoder.decode(bytes));
+	} catch (error) {
+		throw payloadError(error instanceof Error ? error.message : "invalid JSON payload");
+	}
+};
+
+export const decodeSidecarOutboundFrame = (value: unknown, byteLength: number) => {
 	let frame: SidecarOutboundFrame;
 	try {
-		frame = decodeOutboundJson(decoder.decode(bytes));
+		frame = decodeOutboundValue(value);
 	} catch (error) {
-		throw new SidecarProtocolError({
-			reason: "payload",
-			message: error instanceof Error ? error.message : "invalid logical message",
-		});
+		throw payloadError(error instanceof Error ? error.message : "invalid logical message");
 	}
 	let maximumBytes = SIDECAR_PROTOCOL_LIMITS.frameBytes;
 	if (frame.type === "hostCall") {
@@ -408,14 +413,14 @@ export const decodeSidecarOutboundLogicalMessage = (bytes: Uint8Array) => {
 	} else if (frame.type === "done") {
 		maximumBytes = SIDECAR_PROTOCOL_LIMITS.messageBytes.done;
 	}
-	if (bytes.byteLength > maximumBytes) {
-		throw new SidecarProtocolError({
-			reason: "payload",
-			message: `logical ${frame.type} message exceeds ${maximumBytes} bytes`,
-		});
+	if (byteLength > maximumBytes) {
+		throw payloadError(`logical ${frame.type} message exceeds ${maximumBytes} bytes`);
 	}
 	return frame;
 };
+
+export const decodeSidecarOutboundLogicalMessage = (bytes: Uint8Array) =>
+	decodeSidecarOutboundFrame(parseSidecarOutboundJson(bytes), bytes.byteLength);
 
 const sidecarFrameCodec = <Frame>(schema: Schema.Codec<Frame, Frame>) => {
 	const json = Schema.fromJsonString(schema);
