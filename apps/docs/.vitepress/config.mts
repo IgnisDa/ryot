@@ -6,7 +6,7 @@ import { defineConfig } from "vitepress";
 const getSourceFiles = (dir: string) =>
 	fs
 		.readdirSync(path.resolve(__dirname, `../src/${dir}`))
-		.filter((file) => file !== "overview.md" && file !== "community.md" && file.endsWith(".md"))
+		.filter((file) => !["community.md", "data-json.md", "overview.md"].includes(file) && file.endsWith(".md"))
 		.sort()
 		.map((file) => {
 			const name = file.replace(".md", "");
@@ -60,7 +60,7 @@ export default defineConfig({
 				link: "/importing/overview",
 				items: [
 					{ text: "Overview", link: "/importing/overview" },
-					{ text: "Data import and webhook", link: "/data-import" },
+					{ text: "Data JSON", link: "/importing/data-json" },
 					...importingSourceFiles,
 					{ text: "Community", link: "/importing/community" },
 				],
