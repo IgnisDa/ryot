@@ -1,5 +1,8 @@
 import { unknownToMessage } from "@ryot-app/contract/errors";
-import { Duration, Effect, Match, Schema } from "effect";
+import type { httpCallOptionsSchema } from "@ryot-app/sandbox-sdk/core";
+import { httpCallResponseSchema } from "@ryot-app/sandbox-sdk/core";
+import type { SandboxHostError } from "@ryot-app/sandbox-sdk/wire";
+import { Cause, Duration, Effect, Match, Option, Schema } from "effect";
 import {
 	FetchHttpClient,
 	HttpClient,
@@ -107,21 +110,279 @@ export const applySandboxHttpRequestInit = <A, E, R>(
 		? effect.pipe(Effect.provideService(FetchHttpClient.RequestInit, insecureRequestInit))
 		: effect;
 
-export const makeRuntimeSandboxApiFunctions: Effect.Effect<
+// Redirects are followed by hand so every hop is classified before it is requested.
+const withManualRedirects = <A, E, R>(effect: Effect.Effect<A, E, R>) =>
+	Effect.flatMap(Effect.serviceOption(FetchHttpClient.RequestInit), (init) =>
+		effect.pipe(
+			Effect.provideService(FetchHttpClient.RequestInit, {
+				...Option.getOrElse(init, () => ({})),
+				redirect: "manual",
+			}),
+		),
+	);
+
+export const SANDBOX_HTTP_REDIRECT_HOPS = 5;
+const REDIRECT_STATUSES: ReadonlySet<number> = new Set([301, 302, 303, 307, 308]);
+const CREDENTIAL_HEADERS: ReadonlySet<string> = new Set([
+	"cookie",
+	"authorization",
+	"proxy-authorization",
+]);
+const REQUEST_BODY_HEADERS: ReadonlySet<string> = new Set([
+	"content-type",
+	"content-location",
+	"content-encoding",
+	"content-language",
+]);
+
+export const SANDBOX_HTTP_REDIRECT_STOPPED_MESSAGE =
+	"httpCall redirect target requires durable rate-limit admission";
+
+export const SandboxHttpRequest = Schema.Struct({
+	url: Schema.String,
+	method: Schema.String,
+	body: Schema.optional(Schema.String),
+	headers: Schema.Record(Schema.String, Schema.String),
+});
+export type SandboxHttpRequest = typeof SandboxHttpRequest.Type;
+
+/** A hop the classifier stopped; it stays in the host and never reaches scripts. */
+export const SandboxHttpRedirect = Schema.TaggedStruct("redirected", {
+	...SandboxHttpRequest.fields,
+	hop: Schema.Int,
+});
+export type SandboxHttpRedirect = typeof SandboxHttpRedirect.Type;
+
+export const HttpHopResult = Schema.Union([
+	Schema.TaggedStruct("completed", { result: httpCallResponseSchema }),
+	SandboxHttpRedirect,
+]);
+export type HttpHopResult = typeof HttpHopResult.Type;
+
+/** `follow` only for a hop proven unmatched by rate-limit policy; `stop` otherwise. */
+export type SandboxHttpClassify = (url: string) => Effect.Effect<"follow" | "stop">;
+
+type SandboxHttpOptions = typeof httpCallOptionsSchema.Type;
+
+export const prepareSandboxHttpRequest = (
+	method: string,
+	url: string,
+	options: SandboxHttpOptions | undefined,
+): Effect.Effect<SandboxHttpRequest, SandboxHostError> => {
+	if (typeof method !== "string" || !method.trim()) {
+		return sandboxHostFailure("httpCall expects a non-empty method string");
+	}
+	if (typeof url !== "string" || !url.trim()) {
+		return sandboxHostFailure("httpCall expects a non-empty URL string");
+	}
+	const bodyError = sandboxHttpRequestBodyError(options?.body);
+	if (bodyError) {
+		return sandboxHostFailure(bodyError);
+	}
+	if (Object.keys(options?.headers ?? {}).some((name) => name.toLowerCase() === "host")) {
+		return sandboxHostFailure("httpCall may not set the Host header");
+	}
+	return sandboxHostEffect(
+		Effect.gen(function* () {
+			const requestUrl = yield* Effect.try({
+				try: () => new URL(url),
+				catch: () => "httpCall URL is invalid",
+			});
+			const httpMethod = yield* Match.value(method.trim().toUpperCase()).pipe(
+				Match.when(HttpMethod.isHttpMethod, (m) => Effect.succeed(m)),
+				Match.orElse(() => Effect.fail("httpCall method is not a valid HTTP method")),
+			);
+			return {
+				method: httpMethod,
+				url: requestUrl.toString(),
+				headers: { ...defaultHeaders, ...options?.headers },
+				...(options?.body === undefined ? {} : { body: options.body }),
+			};
+		}),
+	);
+};
+
+// Fetch redirect semantics: 303 and POST under 301/302 become GET without a body, and credentials
+// never cross origins.
+const redirectRequest = (
+	current: SandboxHttpRequest,
+	status: number,
+	location: string,
+): Effect.Effect<SandboxHttpRequest, SandboxHostError> =>
+	Effect.gen(function* () {
+		const target = yield* Effect.try({
+			try: () => new URL(location, current.url),
+			catch: () => "httpCall redirect location is invalid",
+		});
+		if (target.protocol !== "http:" && target.protocol !== "https:") {
+			return yield* Effect.fail("httpCall redirect location is not an HTTP(S) URL");
+		}
+		const method =
+			(status === 303 && current.method !== "GET" && current.method !== "HEAD") ||
+			((status === 301 || status === 302) && current.method === "POST")
+				? "GET"
+				: current.method;
+		const crossOrigin = target.origin !== new URL(current.url).origin;
+		const headers = Object.fromEntries(
+			Object.entries(current.headers).filter(([name]) => {
+				const lower = name.toLowerCase();
+				return (
+					!(crossOrigin && CREDENTIAL_HEADERS.has(lower)) &&
+					!(method !== current.method && REQUEST_BODY_HEADERS.has(lower))
+				);
+			}),
+		);
+		return {
+			method,
+			headers,
+			url: target.toString(),
+			...(method === current.method && current.body !== undefined ? { body: current.body } : {}),
+		};
+	}).pipe(sandboxHostEffect);
+
+/**
+ * Sends `request` as hop `hop`, following only redirects `classify` proves unmatched; a stopped
+ * hop is returned unrequested so the caller can admit it.
+ */
+export const executeSandboxHttp = (
+	request: SandboxHttpRequest,
+	options: {
+		readonly hop: number;
+		readonly classify: SandboxHttpClassify;
+		readonly allowInsecureConnections: boolean | undefined;
+	},
+): Effect.Effect<HttpHopResult, SandboxHostError, HttpClient.HttpClient> =>
+	Effect.gen(function* () {
+		const httpClient = yield* HttpClient.HttpClient;
+		let current = request;
+		let hop = options.hop;
+		for (;;) {
+			const method = current.method;
+			if (!HttpMethod.isHttpMethod(method)) {
+				return yield* sandboxHostFailure("httpCall method is not a valid HTTP method");
+			}
+			let outgoing = HttpClientRequest.make(method)(current.url);
+			if (current.body !== undefined) {
+				outgoing = HttpClientRequest.bodyText(current.body)(outgoing);
+			}
+			outgoing = outgoing.pipe(HttpClientRequest.setHeaders(current.headers));
+			const response = yield* applySandboxHttpRequestInit(
+				withManualRedirects(httpClient.execute(outgoing)),
+				options.allowInsecureConnections,
+			).pipe(Effect.mapError(httpRequestFailure));
+			const location = response.headers["location"];
+			if (REDIRECT_STATUSES.has(response.status) && location !== undefined) {
+				if (hop >= SANDBOX_HTTP_REDIRECT_HOPS) {
+					return yield* sandboxHostFailure(
+						`httpCall exceeded ${SANDBOX_HTTP_REDIRECT_HOPS} redirects`,
+					);
+				}
+				hop += 1;
+				current = yield* redirectRequest(current, response.status, location);
+				if ((yield* options.classify(current.url)) === "stop") {
+					return { ...current, hop, _tag: "redirected" as const };
+				}
+				continue;
+			}
+			const body = yield* readSandboxHttpResponseText(response).pipe(
+				Effect.mapError(httpRequestFailure),
+			);
+			const result = { body, status: response.status, headers: { ...response.headers } };
+			if (response.status < 200 || response.status >= 300) {
+				return yield* Effect.fail({ data: result, message: `HTTP ${response.status}` });
+			}
+			return { result, _tag: "completed" as const };
+		}
+	}).pipe(
+		Effect.timeoutOrElse({
+			duration: Duration.millis(SANDBOX_LIMITS.http.timeoutMs),
+			orElse: () => Effect.fail(httpRequestFailure(new Cause.TimeoutError())),
+		}),
+	);
+
+export const makeRuntimeSandboxApiFunctions = (
+	classify: SandboxHttpClassify,
+): Effect.Effect<
 	RuntimeSandboxHostImplementationMap,
 	never,
 	RedisService | ServerRun | HttpClient.HttpClient
-> = Effect.gen(function* () {
-	const redis = yield* RedisService;
-	const serverRun = yield* ServerRun;
-	const httpClient = yield* HttpClient.HttpClient;
+> =>
+	Effect.gen(function* () {
+		const redis = yield* RedisService;
+		const serverRun = yield* ServerRun;
+		const httpClient = yield* HttpClient.HttpClient;
 
-	return {
-		setCachedValue: (input, key, value, expiry) => {
-			return sandboxCacheInputGuard(
-				"setCachedValue",
-				key,
-				() => {
+		return {
+			// Inline and live calls cannot wait for admission, so a stopped redirect fails the call.
+			httpCall: (_input, method, url, options) =>
+				prepareSandboxHttpRequest(method, url, options).pipe(
+					Effect.flatMap((request) =>
+						executeSandboxHttp(request, {
+							hop: 0,
+							classify,
+							allowInsecureConnections: options?.allowInsecureConnections,
+						}),
+					),
+					Effect.provideService(HttpClient.HttpClient, httpClient),
+					Effect.flatMap((outcome) =>
+						outcome._tag === "completed"
+							? Effect.succeed(outcome.result)
+							: sandboxHostFailure(SANDBOX_HTTP_REDIRECT_STOPPED_MESSAGE),
+					),
+				),
+			setCachedValue: (input, key, value, expiry) => {
+				return sandboxCacheInputGuard(
+					"setCachedValue",
+					key,
+					() => {
+						const redisKey = redisKeys.sandboxRunCache(
+							serverRun.id,
+							sandboxRunUserId(input),
+							input.principal.providerId ?? input.principal.scriptId,
+							key.trim(),
+						);
+
+						return encodeSandboxCacheValue("setCachedValue", value).pipe(
+							Effect.flatMap((serialized) =>
+								redis.set(redisKey, serialized, expiry).pipe(Effect.as(null)),
+							),
+							sandboxHostEffect,
+						);
+					},
+					expiry,
+					"expiry",
+				);
+			},
+			getPersistentValue: (input, key) =>
+				sandboxCacheInputGuard("getPersistentValue", key, () =>
+					Effect.uninterruptible(
+						redis.get(
+							redisKeys.sandboxCache(
+								sandboxRunUserId(input),
+								input.principal.providerId ?? input.principal.scriptId,
+								key.trim(),
+							),
+						),
+					).pipe(
+						Effect.flatMap((stored) =>
+							stored === null
+								? Effect.succeed(null)
+								: decodePersistentClaimEnvelope(stored).pipe(
+										Effect.flatMap(({ value }) =>
+											isJsonValue(value)
+												? encodeSandboxCacheValue("getPersistentValue", value).pipe(
+														Effect.as(value),
+													)
+												: Effect.fail("getPersistentValue: stored value is not valid JSON"),
+										),
+										Effect.mapError(() => "getPersistentValue: stored claim is invalid"),
+									),
+						),
+						sandboxHostEffect,
+					),
+				),
+			getCachedValue: (input, key) => {
+				return sandboxCacheInputGuard("getCachedValue", key, () => {
 					const redisKey = redisKeys.sandboxRunCache(
 						serverRun.id,
 						sandboxRunUserId(input),
@@ -129,171 +390,80 @@ export const makeRuntimeSandboxApiFunctions: Effect.Effect<
 						key.trim(),
 					);
 
-					return encodeSandboxCacheValue("setCachedValue", value).pipe(
-						Effect.flatMap((serialized) =>
-							redis.set(redisKey, serialized, expiry).pipe(Effect.as(null)),
-						),
+					return Effect.uninterruptible(redis.get(redisKey)).pipe(
+						Effect.flatMap((cached) => {
+							if (cached === null) {
+								return Effect.succeed(null);
+							}
+							const valueError = sandboxCacheValueError("getCachedValue", cached, "stored value");
+							if (valueError) {
+								return Effect.fail(valueError);
+							}
+							return Schema.decodeEffect(Schema.fromJsonString(Schema.Unknown))(cached).pipe(
+								Effect.filterOrFail(
+									isJsonValue,
+									() => "getCachedValue: stored value is not valid JSON",
+								),
+								Effect.mapError(() => "getCachedValue: stored value is not valid JSON"),
+							);
+						}),
 						sandboxHostEffect,
 					);
-				},
-				expiry,
-				"expiry",
-			);
-		},
-		getPersistentValue: (input, key) =>
-			sandboxCacheInputGuard("getPersistentValue", key, () =>
-				Effect.uninterruptible(
-					redis.get(
-						redisKeys.sandboxCache(
+				});
+			},
+			claimPersistentValue: (input, key, value, ttlSeconds) => {
+				return sandboxCacheInputGuard(
+					"claimPersistentValue",
+					key,
+					() => {
+						const redisKey = redisKeys.sandboxCache(
 							sandboxRunUserId(input),
 							input.principal.providerId ?? input.principal.scriptId,
 							key.trim(),
-						),
-					),
-				).pipe(
-					Effect.flatMap((stored) =>
-						stored === null
-							? Effect.succeed(null)
-							: decodePersistentClaimEnvelope(stored).pipe(
-									Effect.flatMap(({ value }) =>
-										isJsonValue(value)
-											? encodeSandboxCacheValue("getPersistentValue", value).pipe(Effect.as(value))
-											: Effect.fail("getPersistentValue: stored value is not valid JSON"),
-									),
-									Effect.mapError(() => "getPersistentValue: stored claim is invalid"),
+						);
+
+						return Effect.gen(function* () {
+							yield* encodeSandboxCacheValue("claimPersistentValue", value);
+							const serialized = yield* encodePersistentClaimEnvelope({
+								value,
+								owner: input.workflowExecutionId ? input.executionId : null,
+							}).pipe(
+								Effect.mapError(() => "claimPersistentValue value must be JSON-serializable"),
+							);
+
+							const setResult = yield* Effect.tryPromise({
+								catch: unknownToMessage,
+								try: () => redis.client.set(redisKey, serialized, "EX", ttlSeconds, "NX"),
+							});
+							if (setResult !== null) {
+								return { claimed: true as const };
+							}
+
+							const existing = yield* Effect.uninterruptible(
+								Effect.tryPromise({
+									catch: unknownToMessage,
+									try: () => redis.client.get(redisKey),
+								}),
+							);
+							if (existing === null) {
+								return { value: null, claimed: false };
+							}
+							return yield* decodePersistentClaimEnvelope(existing).pipe(
+								Effect.map(({ owner, value: storedValue }) =>
+									owner !== null && owner === input.executionId
+										? ({ claimed: true as const } as const)
+										: ({
+												claimed: false as const,
+												value: isJsonValue(storedValue) ? storedValue : null,
+											} as const),
 								),
-					),
-					sandboxHostEffect,
-				),
-			),
-		getCachedValue: (input, key) => {
-			return sandboxCacheInputGuard("getCachedValue", key, () => {
-				const redisKey = redisKeys.sandboxRunCache(
-					serverRun.id,
-					sandboxRunUserId(input),
-					input.principal.providerId ?? input.principal.scriptId,
-					key.trim(),
+								Effect.orElseSucceed(() => ({ value: null, claimed: false as const })),
+							);
+						}).pipe(sandboxHostEffect);
+					},
+					ttlSeconds,
+					"TTL",
 				);
-
-				return Effect.uninterruptible(redis.get(redisKey)).pipe(
-					Effect.flatMap((cached) => {
-						if (cached === null) {
-							return Effect.succeed(null);
-						}
-						const valueError = sandboxCacheValueError("getCachedValue", cached, "stored value");
-						if (valueError) {
-							return Effect.fail(valueError);
-						}
-						return Schema.decodeEffect(Schema.fromJsonString(Schema.Unknown))(cached).pipe(
-							Effect.filterOrFail(
-								isJsonValue,
-								() => "getCachedValue: stored value is not valid JSON",
-							),
-							Effect.mapError(() => "getCachedValue: stored value is not valid JSON"),
-						);
-					}),
-					sandboxHostEffect,
-				);
-			});
-		},
-		claimPersistentValue: (input, key, value, ttlSeconds) => {
-			return sandboxCacheInputGuard(
-				"claimPersistentValue",
-				key,
-				() => {
-					const redisKey = redisKeys.sandboxCache(
-						sandboxRunUserId(input),
-						input.principal.providerId ?? input.principal.scriptId,
-						key.trim(),
-					);
-
-					return Effect.gen(function* () {
-						yield* encodeSandboxCacheValue("claimPersistentValue", value);
-						const serialized = yield* encodePersistentClaimEnvelope({
-							value,
-							owner: input.workflowExecutionId ? input.executionId : null,
-						}).pipe(Effect.mapError(() => "claimPersistentValue value must be JSON-serializable"));
-
-						const setResult = yield* Effect.tryPromise({
-							catch: unknownToMessage,
-							try: () => redis.client.set(redisKey, serialized, "EX", ttlSeconds, "NX"),
-						});
-						if (setResult !== null) {
-							return { claimed: true as const };
-						}
-
-						const existing = yield* Effect.uninterruptible(
-							Effect.tryPromise({ catch: unknownToMessage, try: () => redis.client.get(redisKey) }),
-						);
-						if (existing === null) {
-							return { value: null, claimed: false };
-						}
-						return yield* decodePersistentClaimEnvelope(existing).pipe(
-							Effect.map(({ owner, value: storedValue }) =>
-								owner !== null && owner === input.executionId
-									? ({ claimed: true as const } as const)
-									: ({
-											claimed: false as const,
-											value: isJsonValue(storedValue) ? storedValue : null,
-										} as const),
-							),
-							Effect.orElseSucceed(() => ({ value: null, claimed: false as const })),
-						);
-					}).pipe(sandboxHostEffect);
-				},
-				ttlSeconds,
-				"TTL",
-			);
-		},
-		httpCall: (_input, method, url, options) => {
-			if (typeof method !== "string" || !method.trim()) {
-				return sandboxHostFailure("httpCall expects a non-empty method string");
-			}
-			if (typeof url !== "string" || !url.trim()) {
-				return sandboxHostFailure("httpCall expects a non-empty URL string");
-			}
-			const bodyError = sandboxHttpRequestBodyError(options?.body);
-			if (bodyError) {
-				return sandboxHostFailure(bodyError);
-			}
-
-			return sandboxHostEffect(
-				Effect.gen(function* () {
-					const requestUrl = yield* Effect.try({
-						try: () => new URL(url),
-						catch: () => "httpCall URL is invalid",
-					});
-					const httpMethod = yield* Match.value(method.trim().toUpperCase()).pipe(
-						Match.when(HttpMethod.isHttpMethod, (m) => Effect.succeed(m)),
-						Match.orElse(() => Effect.fail("httpCall method is not a valid HTTP method")),
-					);
-					let request = HttpClientRequest.make(httpMethod)(requestUrl.toString());
-					if (options?.body !== undefined) {
-						request = HttpClientRequest.bodyText(options.body)(request);
-					}
-					request = request.pipe(
-						HttpClientRequest.setHeaders({ ...defaultHeaders, ...options?.headers }),
-					);
-
-					const [response, body] = yield* httpClient.execute(request).pipe(
-						(effect) => applySandboxHttpRequestInit(effect, options?.allowInsecureConnections),
-						Effect.flatMap((res) =>
-							Effect.map(readSandboxHttpResponseText(res), (text) => [res, text] as const),
-						),
-						Effect.timeout(Duration.millis(SANDBOX_LIMITS.http.timeoutMs)),
-						Effect.mapError(httpRequestFailure),
-					);
-
-					if (response.status < 200 || response.status >= 300) {
-						return yield* Effect.fail({
-							message: `HTTP ${response.status}`,
-							data: { body, status: response.status, headers: response.headers },
-						});
-					}
-
-					return { body, status: response.status, headers: response.headers };
-				}),
-			);
-		},
-	};
-});
+			},
+		};
+	});
