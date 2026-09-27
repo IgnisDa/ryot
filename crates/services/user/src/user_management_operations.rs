@@ -144,13 +144,23 @@ pub async fn register_user(
     input: RegisterUserInput,
 ) -> Result<RegisterResult> {
     match &input.data {
-        AuthUserInput::Oidc(_) => bail!("OIDC registration requires a verified authorization flow"),
-        AuthUserInput::Password(data) => {
+        AuthUserInput::Oidc(data) => {
+            if !can_manage_users(
+                ss,
+                requester_user_id.as_ref(),
+                input.admin_access_token.as_deref(),
+            )
+            .await?
+            {
+                bail!("OIDC registration requires a verified authorization flow");
+            }
+            if data.issuer_id.trim().is_empty() || data.email.trim().is_empty() {
+                bail!("OIDC issuer ID and email must not be empty");
+            }
+        }
+        AuthUserInput::Password(_) => {
             if ss.config.users.disable_local_auth {
                 bail!("Local authentication is disabled");
-            }
-            if data.password.is_empty() {
-                bail!("Password must not be empty");
             }
         }
     }
@@ -174,6 +184,12 @@ pub(crate) async fn register_verified_user(
     if (input.lot.is_some() || requester_user_id.is_some()) && !can_manage {
         bail!("Administrator authorization required");
     }
+    if let AuthUserInput::Password(data) = &input.data
+        && data.password.is_empty()
+        && !can_manage
+    {
+        bail!("Password must not be empty");
+    }
     if !ss.config.users.allow_registration && !can_manage {
         return Ok(RegisterResult::Error(RegisterError {
             error: RegisterErrorVariant::Disabled,
@@ -188,7 +204,7 @@ pub(crate) async fn register_verified_user(
         AuthUserInput::Password(data) => (
             user::Column::Name.eq(&data.username),
             data.username,
-            Some(data.password),
+            Some(data.password).filter(|password| !password.is_empty()),
         ),
     };
     let txn = ss.db.begin().await?;

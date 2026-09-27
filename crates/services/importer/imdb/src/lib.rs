@@ -107,10 +107,10 @@ fn map_item_to_metadata(
     source: MediaSource,
     identifier: String,
 ) -> Result<ImportOrExportMetadataItem, String> {
-    if let Some(r) = record.your_rating {
-        if r < dec!(1) || r > dec!(10) {
-            return Err(format!("Invalid rating '{r}', must be between 1 and 10"));
-        }
+    if let Some(r) = record.your_rating
+        && (r < dec!(1) || r > dec!(10))
+    {
+        return Err(format!("Invalid rating '{r}', must be between 1 and 10"));
     }
     let ended_on = if let Some(ref d) = record.date_rated {
         let trimmed = d.trim();
