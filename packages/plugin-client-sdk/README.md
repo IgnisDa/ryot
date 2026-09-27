@@ -57,7 +57,8 @@ handler does not trigger itself again. Writes retain the default mutation-refres
 and cleanup. `uploadTemporary({ source, fileName, contentType })` returns a `TemporaryUploadToken`;
 `uploadPermanent` with the same request shape returns a `ManagedAssetLocator`; `cleanup(asset)` returns
 `{ status: "deleted" | "referenced" }` and fails with `asset-forbidden` for a missing or foreign
-asset. Bridge payloads are structured-clone values, so file uploads send a `Blob` or `File` with a
+asset. Only a record owned by the caller or by no one that holds that exact locator keeps it
+`referenced`. Bridge payloads are structured-clone values, so file uploads send a `Blob` or `File` with a
 file name and content type, while cleanup sends only the managed locator. The host keeps the intent, upload URL, headers, and credential. A non-`Blob` source
 fails with `invalid-input`. There is no cancellation; disposal aborts an in-flight request.
 

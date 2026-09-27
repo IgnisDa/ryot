@@ -146,7 +146,7 @@ export class ManagedAssetsService extends Context.Service<ManagedAssetsService>(
 						if (managed.retiredAt !== null) {
 							return "retired" as const;
 						}
-						if (yield* references.hasReference(locator)) {
+						if (yield* references.hasReference(managed.ownerUserId, locator)) {
 							return "referenced" as const;
 						}
 						if (!(yield* repository.retireOwned(user.id, locator))) {
