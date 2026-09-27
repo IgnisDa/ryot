@@ -29,72 +29,65 @@ function schemaProvider(
 }
 
 describe.skipIf(!RUN_LIVE)("live provider smoke (real external APIs)", () => {
-	it.live(
-		"searches OpenLibrary and imports a real result",
-		() =>
-			Effect.gen(function* () {
-				const { client } = yield* createAuthenticatedClient();
-				const { schema } = yield* findMediaEntitySchema(client, "book");
-				const provider = schemaProvider(schema, "OpenLibrary");
-				const search = yield* searchProviderEntities(client, {
-					page: 1,
-					pageSize: 5,
-					query: "The Hobbit",
-					providerId: provider.providerId,
-				});
-				expect(search.providerId).toBe(provider.providerId);
-				assertCondition(
-					search.items.length > 0,
-					"OpenLibrary returned no results for 'The Hobbit'",
-				);
-				const firstItem = search.items[0];
-				assertPresent(firstItem, "Expected the first OpenLibrary search item");
-				const externalId = firstItem.externalId;
+	it.live("searches OpenLibrary and imports a real result", () =>
+		Effect.gen(function* () {
+			const { client } = yield* createAuthenticatedClient();
+			const { schema } = yield* findMediaEntitySchema(client, "book");
+			const provider = schemaProvider(schema, "OpenLibrary");
+			const search = yield* searchProviderEntities(client, {
+				page: 1,
+				pageSize: 5,
+				query: "The Hobbit",
+				providerId: provider.providerId,
+			});
+			expect(search.providerId).toBe(provider.providerId);
+			assertCondition(search.items.length > 0, "OpenLibrary returned no results for 'The Hobbit'");
+			const firstItem = search.items[0];
+			assertPresent(firstItem, "Expected the first OpenLibrary search item");
+			const externalId = firstItem.externalId;
 
-				const { jobId: importJobId } = yield* enqueueProviderEntityImport(client, {
-					externalId,
-					providerId: search.providerId,
-				});
-				const imported = yield* pollProviderEntityImportResult(client, importJobId);
-				assertCompleted(imported, "OpenLibrary import");
-				expect(imported.data.name.length).toBeGreaterThan(0);
-				expect(imported.data.entitySchemaSlug).toBe(schema.id);
-			}),
+			const { jobId: importJobId } = yield* enqueueProviderEntityImport(client, {
+				externalId,
+				providerId: search.providerId,
+			});
+			const imported = yield* pollProviderEntityImportResult(client, importJobId);
+			assertCompleted(imported, "OpenLibrary import");
+			expect(imported.data.name.length).toBeGreaterThan(0);
+			expect(imported.data.entitySchemaSlug).toBe(schema.id);
+		}),
 	);
 
-	it.live(
-		"translates a real TMDB movie on interest (requires tmdbAccessToken)",
-		() =>
-			Effect.gen(function* () {
-				const auth = yield* createAuthenticatedClient();
-				const { client } = auth;
-				const { schema } = yield* findMediaEntitySchema(client, "movie");
-				const provider = schemaProvider(schema, "TMDB");
+	it.live("translates a real TMDB movie on interest (requires tmdbAccessToken)", () =>
+		Effect.gen(function* () {
+			const auth = yield* createAuthenticatedClient();
+			const { client } = auth;
+			const { schema } = yield* findMediaEntitySchema(client, "movie");
+			const provider = schemaProvider(schema, "TMDB");
 
-				const movie = yield* seedPopulatedProviderEntity({
-					externalId: "550",
-					entitySchemaSlug: schema.id,
-					name: "Canonical Fight Club",
-					providerId: provider.providerId,
-					properties: { description: "Canonical overview of Fight Club." },
-				});
+			const movie = yield* seedPopulatedProviderEntity({
+				externalId: "550",
+				entitySchemaSlug: schema.id,
+				name: "Canonical Fight Club",
+				providerId: provider.providerId,
+				properties: { description: "Canonical overview of Fight Club." },
+			});
 
-				yield* setUserLanguage(client, "es");
-				const beforeInterest = yield* getEntity(client, movie.id);
-				expect(beforeInterest.translationStatus).toBe("pending");
+			yield* setUserLanguage(client, "es");
+			const beforeInterest = yield* getEntity(client, movie.id);
+			expect(beforeInterest.translationStatus).toBe("pending");
 
-				const socket = yield* openInterestWebSocketScoped(auth);
-				yield* socket.replaceInterest([movie.id]);
+			const socket = yield* openInterestWebSocketScoped(auth);
+			yield* socket.replaceInterest([movie.id]);
 
-				const event = yield* socket.waitForEntityUpdated(movie.id, "translated", {
-					timeoutMs: 90_000,
-				});
-				expect(event.reason).toBe("translated");
+			const event = yield* socket.waitForEntityUpdated(movie.id, "translated", {
+				timeoutMs: 90_000,
+			});
+			expect(event.reason).toBe("translated");
 
-				const localized = yield* pollEntityUntilTranslationStatus(client, movie.id, "ready");
-				expect(localized.name).not.toBe("Canonical Fight Club");
-				expect(localized.name.length).toBeGreaterThan(0);
-				expect(yield* countEntityTranslations(movie.id)).toBe(1);
-			}),
+			const localized = yield* pollEntityUntilTranslationStatus(client, movie.id, "ready");
+			expect(localized.name).not.toBe("Canonical Fight Club");
+			expect(localized.name.length).toBeGreaterThan(0);
+			expect(yield* countEntityTranslations(movie.id)).toBe(1);
+		}),
 	);
 });

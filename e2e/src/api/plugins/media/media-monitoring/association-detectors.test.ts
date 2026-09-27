@@ -39,55 +39,54 @@ let personProvider: AttachedTestProvider;
 let harness: Effect.Success<ReturnType<typeof startIsolatedHarness>> | undefined;
 let media: Effect.Success<ReturnType<typeof shippedPluginTestProviders>>;
 
-beforeAll(
-	() =>
-		runPromise(
-			Effect.gen(function* () {
-				fakeApprise = yield* startFakeAppriseServer;
-				harness = yield* startIsolatedHarness("Association Detectors");
-				media = yield* shippedPluginTestProviders(mediaPlugin.metadata.packageId);
-				const { client } = yield* createAuthenticatedClient();
-				const { schema: personSchema } = yield* findMediaEntitySchema(client, "person");
-				const { schema: movieSchema } = yield* findMediaEntitySchema(client, "movie");
-				const personSchemaId = personSchema.id;
-				movieSchemaId = movieSchema.id;
-				personProvider = yield* media.attachProvider({
-					rootEntitySchemaSlug: personSchemaId,
-					slug: `person.association-e2e-${crypto.randomUUID()}`,
-					details: fakeProviderDetailsResult({ name: personName }),
-				});
-				movieProvider = yield* media.attachProvider({
-					rootEntitySchemaSlug: movieSchemaId,
-					slug: `movie.association-e2e-${crypto.randomUUID()}`,
-					details: fakeProviderDetailsResult({
-						name: movieName,
-						relatedEntityGroups: [
-							{
-								direction: "incoming",
-								synchronization: "additive",
-								relationshipSchemaSlug: "person-to-movie",
-								entities: [
-									{
-										name: personName,
-										externalId: personExternalId,
-										providerSlug: personProvider.providerSlug,
-										relationshipProperties: { roles: ["Actor", "Director"] },
-									},
-								],
-							},
-						],
-					}),
-				});
-				const person = yield* seedMediaEntity({
-					properties: {},
-					name: personName,
-					externalId: personExternalId,
-					entitySchemaSlug: personSchemaId,
-					providerId: personProvider.providerId,
-				});
-				personEntityId = person.id;
-			}),
-		),
+beforeAll(() =>
+	runPromise(
+		Effect.gen(function* () {
+			fakeApprise = yield* startFakeAppriseServer;
+			harness = yield* startIsolatedHarness("Association Detectors");
+			media = yield* shippedPluginTestProviders(mediaPlugin.metadata.packageId);
+			const { client } = yield* createAuthenticatedClient();
+			const { schema: personSchema } = yield* findMediaEntitySchema(client, "person");
+			const { schema: movieSchema } = yield* findMediaEntitySchema(client, "movie");
+			const personSchemaId = personSchema.id;
+			movieSchemaId = movieSchema.id;
+			personProvider = yield* media.attachProvider({
+				rootEntitySchemaSlug: personSchemaId,
+				slug: `person.association-e2e-${crypto.randomUUID()}`,
+				details: fakeProviderDetailsResult({ name: personName }),
+			});
+			movieProvider = yield* media.attachProvider({
+				rootEntitySchemaSlug: movieSchemaId,
+				slug: `movie.association-e2e-${crypto.randomUUID()}`,
+				details: fakeProviderDetailsResult({
+					name: movieName,
+					relatedEntityGroups: [
+						{
+							direction: "incoming",
+							synchronization: "additive",
+							relationshipSchemaSlug: "person-to-movie",
+							entities: [
+								{
+									name: personName,
+									externalId: personExternalId,
+									providerSlug: personProvider.providerSlug,
+									relationshipProperties: { roles: ["Actor", "Director"] },
+								},
+							],
+						},
+					],
+				}),
+			});
+			const person = yield* seedMediaEntity({
+				properties: {},
+				name: personName,
+				externalId: personExternalId,
+				entitySchemaSlug: personSchemaId,
+				providerId: personProvider.providerId,
+			});
+			personEntityId = person.id;
+		}),
+	),
 );
 
 afterAll(() =>
