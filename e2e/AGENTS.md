@@ -12,3 +12,4 @@
 - Use `assertCompleted` and `requireCompletedSandboxValue` for async job results.
 - Do not refactor `src/scripts/seed.ts` unless explicitly requested.
 - Change worker, sandbox, or database pool settings only with fresh load evidence.
+- `src/api/kernel/user-settings.test.ts` verifies application preference reads after updates with a warm authentication session and checks that malformed patch bodies and direct Better Auth user updates cannot modify preferences.
