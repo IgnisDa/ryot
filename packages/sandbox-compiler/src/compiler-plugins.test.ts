@@ -552,6 +552,50 @@ export const rowSlug = "shared-row";
 		}),
 	);
 
+	test.effect("compiles shared workout normalization imported by a backend entry", () =>
+		Effect.gen(function* () {
+			const compiled = yield* compilePluginSandboxSourceEntries(
+				{
+					"shared/exercise-kinds.ts": 'export type ExerciseKind = "reps";',
+					"shared/workout-records.ts": `
+import { roundHalfUp } from "@ryot-app/plugin-kit/schema";
+import type { ExerciseKind } from "./exercise-kinds";
+
+export const normalizeWorkoutMeasurement = (kind: ExerciseKind, value: number) =>
+	kind === "reps" ? roundHalfUp(value, 2) : value;
+`,
+					"backend/operation.sandbox.ts": `
+import { defineManifest } from "@ryot-app/sandbox-sdk/driver";
+import { Effect } from "@ryot-app/sandbox-sdk/effect";
+import { defineOperation } from "@ryot-app/sandbox-sdk/operation";
+import { Schema } from "@ryot-app/plugin-kit/effect";
+
+import { normalizeWorkoutMeasurement } from "../shared/workout-records";
+
+export const manifest = defineManifest({
+	name: "Operation",
+	slug: "operation",
+	kind: "operation",
+});
+
+export default defineOperation({
+	manifest,
+	input: Schema.Struct({}),
+	output: Schema.Number,
+	run: () => Effect.succeed(normalizeWorkoutMeasurement("reps", 1.23456)),
+});
+`,
+				},
+				[{ kind: "operation", entry: "backend/operation.sandbox.ts" }],
+			);
+
+			const javascript = compiled[0]?.compiled.javascript ?? "";
+			expect(javascript).toContain("Number.EPSILON");
+			expect(javascript).not.toContain('from "../shared/workout-records"');
+			expect(javascript).not.toContain('from "./exercise-kinds"');
+		}),
+	);
+
 	test.effect("resolves extensionless, JavaScript-to-TypeScript, and type-only local imports", () =>
 		Effect.gen(function* () {
 			const compiled = yield* compilePluginSandboxSourceEntries(

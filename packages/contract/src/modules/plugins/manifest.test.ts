@@ -263,6 +263,50 @@ const scripts = [
 const manifest = { ...authoredManifest, scripts };
 
 describe("definePlugin", () => {
+	it("requires dependent-event audiences to reference an authored event schema", () => {
+		const value = {
+			...manifest,
+			signalSchemas: [
+				{
+					...manifest.signalSchemas[0],
+					audiencePolicy: {
+						role: "entity",
+						eventSchemaSlug: "changed",
+						kind: "dependent_event_owners",
+					},
+				},
+			],
+			entitySchemas: [
+				{
+					icon: "box",
+					name: "Test entity",
+					slug: "entity.test",
+					propertiesSchema: { fields: {} },
+					eventSchemas: [{ name: "Changed", slug: "changed", propertiesSchema: { fields: {} } }],
+				},
+			],
+		};
+
+		expect(Result.isSuccess(Schema.decodeUnknownResult(PluginManifest)(value))).toBe(true);
+		expect(
+			Result.isFailure(
+				Schema.decodeUnknownResult(PluginManifest)({
+					...value,
+					signalSchemas: [
+						{
+							...value.signalSchemas[0],
+							audiencePolicy: {
+								role: "entity",
+								eventSchemaSlug: "missing",
+								kind: "dependent_event_owners",
+							},
+						},
+					],
+				}),
+			),
+		).toBe(true);
+	});
+
 	it("accepts media-style after hooks on source-zero collection reviews and membership", () => {
 		const decoded = Schema.decodeUnknownSync(PluginManifest)({
 			...manifest,

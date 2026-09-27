@@ -23,6 +23,10 @@
 			"types": "./src/effect.ts",
 			"default": "./src/effect.ts"
 		},
+		"./event-streams": {
+			"types": "./src/event-streams.ts",
+			"default": "./src/event-streams.ts"
+		},
 		"./fast-xml-parser": {
 			"types": "./src/fast-xml-parser.ts",
 			"default": "./src/fast-xml-parser.ts"
