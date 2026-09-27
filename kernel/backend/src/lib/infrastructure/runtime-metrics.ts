@@ -1,3 +1,4 @@
+import type { ExecutionLane } from "@ryot-app/contract/modules/automations/lifecycle";
 import { sandboxHostContracts } from "@ryot-app/sandbox-sdk/core";
 import { Effect, Metric } from "effect";
 
@@ -187,6 +188,18 @@ const sandboxAdmissionWaitDuration = Metric.histogram("ryot.sandbox.admission.wa
 	boundaries: [...DURATION_BOUNDARIES],
 });
 
+const durableQueueWaitDuration = Metric.histogram("ryot.durable_queue.wait_duration", {
+	attributes: { unit: MILLISECONDS },
+	boundaries: [...PHASE_DURATION_BOUNDARIES],
+	description: "Time a durable queue item waited from offer to its first take, by lane",
+});
+
+const durableQueueDispatches = Metric.counter("ryot.durable_queue.dispatches", {
+	incremental: true,
+	attributes: { unit: "{dispatch}" },
+	description: "Durable queue items handed to a worker, by lane",
+});
+
 const sandboxSidecarHostCalls = Metric.counter("ryot.sandbox.sidecar.host_calls", {
 	incremental: true,
 	attributes: { unit: "{call}" },
@@ -333,6 +346,22 @@ export const recordSandboxAdmission = (input: {
 
 export const recordSandboxAdmissionWait = (durationMs: number) =>
 	Metric.update(sandboxAdmissionWaitDuration, durationMs);
+
+export const recordDurableQueueDispatch = (input: {
+	readonly lane: ExecutionLane;
+	readonly waitMs: number | undefined;
+}) => {
+	const attributes = { lane: input.lane };
+	return Effect.all(
+		[
+			Metric.update(Metric.withAttributes(durableQueueDispatches, attributes), 1),
+			input.waitMs === undefined
+				? Effect.void
+				: Metric.update(Metric.withAttributes(durableQueueWaitDuration, attributes), input.waitMs),
+		],
+		{ discard: true },
+	);
+};
 
 export const recordSandboxHostCall = (input: {
 	readonly function: string;
