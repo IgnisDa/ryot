@@ -10,6 +10,7 @@ import {
 import { PluginsGroup } from "@ryot-app/contract/modules/plugins/contract";
 import {
 	OAUTH_DEMO_WEB_CLIENT_ID,
+	OAUTH_IMPERSONATION_WEB_CLIENT_ID,
 	OAUTH_NATIVE_CLIENT_ID,
 	OAUTH_WEB_CLIENT_ID,
 } from "@ryot-app/contract/oauth";
@@ -226,6 +227,70 @@ it.effect("classifies credential authority from provenance and demo configuratio
 		expect((yield* apiKey("user-1", "user-1")).authorization.accessClass).toBe("demo");
 		expect((yield* apiKey("other-user", "user-1")).authorization.accessClass).toBe("standard");
 		expect((yield* apiKey("user-1", null)).authorization.accessClass).toBe("standard");
+	}),
+);
+
+const verifyApiKey = () => Promise.resolve({ key: null, error: null, valid: false });
+const findUser = (userId: string) => Effect.succeed({ ...userRecord, id: userId });
+const verifyWithoutSession = () =>
+	Promise.resolve({ sub: "user-1", client_id: OAUTH_IMPERSONATION_WEB_CLIENT_ID });
+
+it.effect("requires active impersonation sessions without changing standard OAuth access", () =>
+	Effect.gen(function* () {
+		const sessionReads: Array<readonly [string, string]> = [];
+		const impersonationSessions = {
+			getActive: (sessionId: string, userId: string) => {
+				sessionReads.push([sessionId, userId]);
+				return Effect.succeed({ expiresAt: 1_800_000_000_000 });
+			},
+		};
+		const withoutSession = yield* Effect.flip(
+			resolveCredential(
+				{ kind: "oauth", token: "token" },
+				verifyWithoutSession,
+				verifyApiKey,
+				findUser,
+				"user-1",
+				impersonationSessions,
+			),
+		);
+		expect(withoutSession).toBeInstanceOf(AuthUnauthorized);
+		expect(sessionReads).toEqual([]);
+
+		const impersonated = yield* resolveCredential(
+			{ kind: "oauth", token: "token" },
+			() =>
+				Promise.resolve({
+					sub: "user-1",
+					sid: "session-1",
+					client_id: OAUTH_IMPERSONATION_WEB_CLIENT_ID,
+				}),
+			verifyApiKey,
+			findUser,
+			"user-1",
+			impersonationSessions,
+		);
+		expect(impersonated.authorization).toEqual({
+			userId: "user-1",
+			accessClass: "standard",
+			impersonation: { expiresAt: 1_800_000_000_000 },
+			credential: {
+				kind: "oauth",
+				sessionId: "session-1",
+				clientId: OAUTH_IMPERSONATION_WEB_CLIENT_ID,
+			},
+		});
+
+		const standard = yield* resolveCredential(
+			{ kind: "oauth", token: "token" },
+			() => Promise.resolve({ sub: "user-1", client_id: OAUTH_WEB_CLIENT_ID }),
+			verifyApiKey,
+			findUser,
+			"user-1",
+			impersonationSessions,
+		);
+		expect(standard.authorization.accessClass).toBe("standard");
+		expect(sessionReads).toEqual([["session-1", "user-1"]]);
 	}),
 );
 

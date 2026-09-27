@@ -7,10 +7,11 @@ import {
 	type EntityInterestServerMessage,
 } from "@ryot-app/contract/modules/entity-interest/messages";
 import { OAUTH_ACCESS_TOKEN_TTL_SECONDS } from "@ryot-app/contract/oauth";
-import { Deferred, Duration, Effect, Fiber, Option, Queue, Result, Schedule } from "effect";
+import { Clock, Deferred, Duration, Effect, Fiber, Option, Queue, Result, Schedule } from "effect";
 import * as Socket from "effect/unstable/socket/Socket";
 
 import { ENTITY_INTEREST_SESSION_RENEWAL_INTERVAL_SECONDS } from "#lib/infrastructure/redis";
+import { ImpersonationSessions } from "#modules/auth/impersonation-sessions";
 
 import { LocalInterestSessions } from "./connections";
 import { InterestService, type ReconciledCompletion } from "./service";
@@ -230,6 +231,7 @@ const runSocketSession = Effect.fn("EntityInterestSocketSession.run")(function* 
 	const store = yield* EntityInterestStore;
 	const sessions = yield* LocalInterestSessions;
 	const tickets = yield* EntityInterestTicketService;
+	const impersonationSessions = yield* ImpersonationSessions;
 	const inbound = yield* Queue.dropping<string | Uint8Array>(INBOUND_QUEUE_CAPACITY);
 	const preAuthentication = { overflow: false };
 	let closeForOverflow = () => closeBeforeAuthentication(write, PROTOCOL_ERROR);
@@ -280,6 +282,7 @@ const runSocketSession = Effect.fn("EntityInterestSocketSession.run")(function* 
 	const sessionId = crypto.randomUUID();
 	const principal = ticket.success;
 	const output = yield* makeOutbound(write, store, sessionId);
+	let impersonationExpiresAt = principal.impersonation?.expiresAt;
 	closeForOverflow = () => output.close(PROTOCOL_ERROR);
 	if (preAuthentication.overflow) {
 		return;
@@ -290,7 +293,16 @@ const runSocketSession = Effect.fn("EntityInterestSocketSession.run")(function* 
 		preferredLanguage: principal.preferredLanguage,
 	});
 	yield* sessions
-		.add(sessionId, output.enqueueCompletion)
+		.add(
+			sessionId,
+			output.enqueueCompletion,
+			principal.impersonation === undefined
+				? undefined
+				: {
+						close: () => output.close(SESSION_EXPIRED),
+						authSessionId: principal.impersonation.sessionId,
+					},
+		)
 		.pipe(
 			Effect.catchCause((cause) =>
 				store.closeSession(sessionId).pipe(Effect.ignore, Effect.andThen(Effect.failCause(cause))),
@@ -312,6 +324,31 @@ const runSocketSession = Effect.fn("EntityInterestSocketSession.run")(function* 
 			),
 		),
 	);
+	yield* output.run.pipe(Effect.forkScoped);
+	if (principal.impersonation !== undefined) {
+		const activeSession = yield* impersonationSessions
+			.getActive(principal.impersonation.sessionId, principal.userId)
+			.pipe(Effect.result);
+		if (Result.isFailure(activeSession)) {
+			yield* output.close(INTERNAL_ERROR);
+			yield* output.awaitClosed;
+			return;
+		}
+		const now = yield* Clock.currentTimeMillis;
+		if (
+			activeSession.success === null ||
+			activeSession.success.expiresAt <= now ||
+			principal.impersonation.expiresAt <= now
+		) {
+			yield* output.close(SESSION_EXPIRED);
+			yield* output.awaitClosed;
+			return;
+		}
+		impersonationExpiresAt = Math.min(
+			principal.impersonation.expiresAt,
+			activeSession.success.expiresAt,
+		);
+	}
 
 	const reconciliation = yield* Queue.unbounded<readonly PendingInterest[]>();
 	const reconciliationKeys = new Set<string>();
@@ -343,11 +380,44 @@ const runSocketSession = Effect.fn("EntityInterestSocketSession.run")(function* 
 		}),
 	);
 
+	const impersonationActive = Effect.fn("EntityInterestSocketSession.checkImpersonationSession")(
+		function* () {
+			if (principal.impersonation === undefined || impersonationExpiresAt === undefined) {
+				return true;
+			}
+			const now = yield* Clock.currentTimeMillis;
+			if (impersonationExpiresAt <= now) {
+				yield* output.close(SESSION_EXPIRED);
+				return false;
+			}
+			const activeSession = yield* impersonationSessions.getActive(
+				principal.impersonation.sessionId,
+				principal.userId,
+			);
+			if (activeSession === null || activeSession.expiresAt <= now) {
+				yield* output.close(SESSION_EXPIRED);
+				return false;
+			}
+			impersonationExpiresAt = Math.min(impersonationExpiresAt, activeSession.expiresAt);
+			return true;
+		},
+	);
 	let heartbeatNonce: string | null = null;
 	const heartbeatWorker = Effect.forever(
 		Effect.sleep(ENTITY_INTEREST_HEARTBEAT_INTERVAL).pipe(
 			Effect.andThen(
 				Effect.gen(function* () {
+					const isImpersonationActive = yield* impersonationActive().pipe(
+						Effect.catchCause((cause) =>
+							Effect.logError("entity interest impersonation check failed", cause).pipe(
+								Effect.andThen(output.close(INTERNAL_ERROR)),
+								Effect.as(false),
+							),
+						),
+					);
+					if (!isImpersonationActive) {
+						return;
+					}
 					const nonce = crypto.randomUUID();
 					heartbeatNonce = nonce;
 					yield* output.enqueue({ nonce, type: "ping" });
@@ -369,9 +439,20 @@ const runSocketSession = Effect.fn("EntityInterestSocketSession.run")(function* 
 			Effect.flatMap((renewed) => (renewed ? Effect.void : output.close(INTERNAL_ERROR))),
 		),
 	);
-	const leaseWorker = Effect.sleep(Duration.seconds(OAUTH_ACCESS_TOKEN_TTL_SECONDS)).pipe(
-		Effect.andThen(output.close(SESSION_EXPIRED)),
-	);
+	const leaseWorker = Effect.gen(function* () {
+		const now = yield* Clock.currentTimeMillis;
+		const accessTokenLeaseMs = OAUTH_ACCESS_TOKEN_TTL_SECONDS * 1_000;
+		const remainingLeaseMs =
+			impersonationExpiresAt === undefined
+				? accessTokenLeaseMs
+				: Math.min(accessTokenLeaseMs, impersonationExpiresAt - now);
+		if (remainingLeaseMs <= 0) {
+			yield* output.close(SESSION_EXPIRED);
+			return;
+		}
+		yield* Effect.sleep(Duration.millis(remainingLeaseMs));
+		yield* output.close(SESSION_EXPIRED);
+	});
 	const hasSnapshot = { value: false };
 	const commandWorker = Effect.gen(function* () {
 		for (;;) {
@@ -415,7 +496,6 @@ const runSocketSession = Effect.fn("EntityInterestSocketSession.run")(function* 
 		),
 	);
 
-	yield* output.run.pipe(Effect.forkScoped);
 	const readyWritten = yield* output.enqueueAndWait({
 		sessionId,
 		type: "ready",
