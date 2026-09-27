@@ -31,7 +31,9 @@ describe("RelationshipsRepository PostgreSQL", () => {
 					.transaction(
 						Effect.gen(function* () {
 							yield* repository.lockRelationshipMutations([baseInput]);
-							yield* repository.updateRelationship({ ...baseInput, properties: { rank: 5 } });
+							yield* repository.updateRelationshipsById([
+								{ id: created.id, properties: { rank: 5 } },
+							]);
 							expect((yield* repository.findRelationship(baseInput))?.properties).toEqual({
 								rank: 5,
 							});

@@ -415,20 +415,6 @@ export class RelationshipsRepository extends Context.Service<RelationshipsReposi
 				},
 			);
 
-			const updateRelationship = Effect.fn("RelationshipsRepository.updateRelationship")(function* (
-				input: UpdateRelationshipInput,
-			) {
-				const [row] = yield* session.run((db) =>
-					db
-						.update(schema.relationship)
-						.set({ properties: input.properties })
-						.where(relationshipIdentityWhere(input))
-						.returning(relationshipSnapshotSelection),
-				);
-
-				return row ? toSavedRelationship({ ...row, wasInserted: false }) : null;
-			});
-
 			const updatePreparedRelationship = Effect.fn(
 				"RelationshipsRepository.updatePreparedRelationship",
 			)(function* (input: UpdateRelationshipInput & { before: ReturnType<typeof toRelationship> }) {
@@ -441,19 +427,6 @@ export class RelationshipsRepository extends Context.Service<RelationshipsReposi
 				);
 
 				return row ? toSavedRelationship({ ...row, wasInserted: false }) : null;
-			});
-
-			const deleteRelationship = Effect.fn("RelationshipsRepository.deleteRelationship")(function* (
-				input: RelationshipIdentityInput,
-			) {
-				const [row] = yield* session.run((db) =>
-					db
-						.delete(schema.relationship)
-						.where(relationshipIdentityWhere(input))
-						.returning(relationshipSnapshotSelection),
-				);
-
-				return row ? toRelationship(row) : null;
 			});
 
 			const deletePreparedRelationship = Effect.fn(
@@ -588,8 +561,6 @@ export class RelationshipsRepository extends Context.Service<RelationshipsReposi
 				findRelationship,
 				findRelationships,
 				createRelationship,
-				updateRelationship,
-				deleteRelationship,
 				createRelationships,
 				updateRelationshipsById,
 				deleteRelationshipsById,

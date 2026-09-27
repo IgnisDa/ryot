@@ -149,12 +149,17 @@ const installGlobalHooks = Effect.fn(function* () {
 		entitySchemaPluginId: installed.pluginId,
 		entitySchemaSlug: EntitySchemaSlug.make("ownership-fixture"),
 	};
-	const source = yield* entities.insertEntity({ ...identity, name: "Source" });
-	const target = yield* entities.insertEntity({ ...identity, name: "Target" });
+	const [source, target] = yield* entities.insertEntities([
+		{ ...identity, name: "Source" },
+		{ ...identity, name: "Target" },
+	]);
+	if (!source || !target) {
+		return yield* Effect.die("Fixture entities were not inserted");
+	}
 	return {
 		...globalInput,
-		sourceEntityId: source.entity.id,
-		targetEntityId: target.entity.id,
+		sourceEntityId: source.id,
+		targetEntityId: target.id,
 		relationshipSchemaPluginId: installed.pluginId,
 		relationshipSchemaSlug: RelationshipSchemaSlug.make(schema.slug),
 		relationshipSchema: {
