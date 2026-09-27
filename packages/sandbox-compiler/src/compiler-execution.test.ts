@@ -23,6 +23,132 @@ export default defineWorkflow({ manifest, input: Schema.Struct({}), output: Sche
 `;
 
 it.layer(sandboxCompilerPlatformLayer)("execution dependency analysis", (test) => {
+	test.effect.each(["policy", "workflow"])(
+		"compiles a pure $0 helper without unused sibling effects through source and package paths",
+		(kind) =>
+			Effect.gen(function* () {
+				const sourceEntry =
+					kind === "policy"
+						? `
+import { defineAutomationPolicy, type AutomationPolicyResult } from "@ryot-app/sandbox-sdk/automation";
+import { defineManifest } from "@ryot-app/sandbox-sdk/driver";
+import { Effect } from "@ryot-app/sandbox-sdk/effect";
+import { readArtifact } from "@ryot-app/sandbox-sdk/filesystem";
+import type { ScriptHost } from "@ryot-app/sandbox-sdk/core";
+
+const allowed: AutomationPolicyResult = { action: "allow" };
+export const manifest = defineManifest({ kind: "automation", slug: "pure-policy", name: "Pure policy", automationType: "policy", inputProjection: { event: { properties: [] } } });
+export default defineAutomationPolicy({ manifest, run: () => {
+  const helpers = {
+    nested: {
+      pure: () => Effect.succeed(allowed),
+      unusedHttp: (host: Pick<ScriptHost, "httpCall">) => host.httpCall("GET", "https://unused.example.com").pipe(Effect.as(allowed)),
+    },
+    filesystem: () => readArtifact.pipe(Effect.as(allowed)),
+  };
+  const { nested } = helpers;
+  return nested.pure();
+} });
+`
+						: `
+import { defineManifest, defineScriptReference, defineWorkflow, Effect, Schema, type WorkflowReplay } from "@ryot-app/sandbox-sdk/workflow";
+import { readArtifact } from "@ryot-app/sandbox-sdk/filesystem";
+import type { ScriptHost } from "@ryot-app/sandbox-sdk/core";
+
+export const manifest = defineManifest({ kind: "workflow", slug: "pure-workflow", name: "Pure workflow" });
+const reference = defineScriptReference({ scriptSlug: "unused", input: Schema.Unknown, output: Schema.Null });
+export default defineWorkflow({ manifest, input: Schema.Struct({}), output: Schema.Null, run: () => {
+  const helpers = {
+    nested: {
+      pure: () => Effect.succeed(null),
+      unusedHttp: (host: Pick<ScriptHost, "httpCall">) => host.httpCall("GET", "https://unused.example.com"),
+    },
+    filesystem: () => readArtifact.pipe(Effect.as(null)),
+    executable: (replay: WorkflowReplay) => replay.activity("unused", reference, {}).pipe(Effect.as(null)),
+  };
+  const { nested } = helpers;
+  return nested.pure();
+} });
+`;
+				const packageEntry =
+					kind === "policy"
+						? `
+import { defineAutomationPolicy } from "@ryot-app/sandbox-sdk/automation";
+import { defineManifest } from "@ryot-app/sandbox-sdk/driver";
+import { helpers } from "./helpers";
+
+export const manifest = defineManifest({ kind: "automation", slug: "pure-policy", name: "Pure policy", automationType: "policy", inputProjection: { event: { properties: [] } } });
+export default defineAutomationPolicy({ manifest, run: () => {
+  const { nested } = helpers;
+  return nested.pure();
+} });
+`
+						: `
+import { defineManifest, defineWorkflow, Effect, Schema } from "@ryot-app/sandbox-sdk/workflow";
+import { helpers } from "./helpers";
+
+export const manifest = defineManifest({ kind: "workflow", slug: "pure-workflow", name: "Pure workflow" });
+export default defineWorkflow({ manifest, input: Schema.Struct({}), output: Schema.Null, run: () => {
+  const { nested } = helpers;
+  return nested.pure();
+} });
+`;
+				const packageHelper =
+					kind === "policy"
+						? `
+import { Effect } from "@ryot-app/sandbox-sdk/effect";
+import { readArtifact } from "@ryot-app/sandbox-sdk/filesystem";
+import type { ScriptHost } from "@ryot-app/sandbox-sdk/core";
+import type { AutomationPolicyResult } from "@ryot-app/sandbox-sdk/automation";
+
+const allowed: AutomationPolicyResult = { action: "allow" };
+export const helpers = {
+  nested: {
+    pure: () => Effect.succeed(allowed),
+    unusedHttp: (host: Pick<ScriptHost, "httpCall">) => host.httpCall("GET", "https://unused.example.com").pipe(Effect.as(allowed)),
+  },
+  filesystem: () => readArtifact.pipe(Effect.as(allowed)),
+};
+`
+						: `
+import { defineScriptReference, Effect, Schema, type WorkflowReplay } from "@ryot-app/sandbox-sdk/workflow";
+import { readArtifact } from "@ryot-app/sandbox-sdk/filesystem";
+import type { ScriptHost } from "@ryot-app/sandbox-sdk/core";
+
+const reference = defineScriptReference({ scriptSlug: "unused", input: Schema.Unknown, output: Schema.Null });
+export const helpers = {
+  nested: {
+    pure: () => Effect.succeed(null),
+    unusedHttp: (host: Pick<ScriptHost, "httpCall">) => host.httpCall("GET", "https://unused.example.com"),
+  },
+  filesystem: () => readArtifact.pipe(Effect.as(null)),
+  executable: (replay: WorkflowReplay) => replay.activity("unused", reference, {}).pipe(Effect.as(null)),
+};
+`;
+				const sourceCompiled = yield* compileSandboxSource(sourceEntry);
+				const [packageCompiled] = yield* compileSandboxPackageEntries(
+					{
+						entry: "backend/entry.sandbox.ts",
+						files: {
+							"backend/helpers.ts": packageHelper,
+							"backend/entry.sandbox.ts": packageEntry,
+						},
+					},
+					["backend/entry.sandbox.ts"],
+				);
+
+				const emptyFacts = {
+					capabilities: [],
+					oauthConnectionFields: [],
+					executableDependencies: [],
+					requiredPluginConfigKeys: [],
+					optionalPluginConfigKeys: [],
+				};
+				expect(sourceCompiled.manifest).toMatchObject(emptyFacts);
+				expect(packageCompiled?.compiled.manifest).toMatchObject(emptyFacts);
+			}),
+	);
+
 	test.effect("rejects an automation policy capability inferred through a host helper", () =>
 		Effect.gen(function* () {
 			const compiled = yield* compileSandboxSource(`
