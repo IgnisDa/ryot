@@ -1,6 +1,8 @@
 import { expect, it } from "vitest";
 
 import {
+	KERNEL_EVENT_CREATE_WORKFLOW,
+	hasReachableExternalEffects,
 	hasValidExecutableDependencies,
 	selectSourcePlan,
 	sourcePlanConfigKeys,
@@ -14,10 +16,10 @@ const script = (
 ) => ({
 	slug,
 	name: slug,
-	capabilities: [],
 	executableDependencies,
 	kind: "script" as const,
 	requiredPluginConfigKeys,
+	capabilities: [] as const,
 	oauthConnectionFields: [],
 	optionalPluginConfigKeys: [],
 	entry: `backend/${slug}.sandbox.ts`,
@@ -62,6 +64,76 @@ const manifest = {
 		script("record", ["recordToken"]),
 	],
 };
+
+it("finds effects through nested scripts, workflows, and every declared alternative", () => {
+	const graph = {
+		workflows: [{ slug: "nested", scriptSlug: "nested-workflow" }],
+		scripts: [
+			script(
+				"root",
+				[],
+				[
+					{
+						kind: "script",
+						slug: "delegate",
+						selection: { id: "path", key: "delegated", stage: "settings" },
+					},
+					{
+						slug: "safe",
+						kind: "script",
+						selection: { id: "path", key: "local", stage: "settings" },
+					},
+				],
+			),
+			script("delegate", [], [{ slug: "nested", kind: "workflow" }]),
+			script("safe", []),
+			{
+				...script("nested-workflow", [], [{ slug: "effect", kind: "script" }]),
+				kind: "workflow" as const,
+			},
+			{ ...script("effect", []), capabilities: ["httpCall"] as const },
+		],
+	};
+
+	expect(hasReachableExternalEffects(graph, "root")).toBe(true);
+	expect(graph.scripts[0]?.capabilities).toEqual([]);
+});
+
+it("terminates executable cycles and reports effects found within them", () => {
+	const root = script("root", [], [{ slug: "child", kind: "script" }]);
+	const child = script("child", [], [{ slug: "root", kind: "script" }]);
+	const cycle = [root, child];
+	expect(hasReachableExternalEffects({ workflows: [], scripts: cycle }, "root")).toBe(false);
+	expect(
+		hasReachableExternalEffects(
+			{ workflows: [], scripts: [root, { ...child, capabilities: ["sendNotification"] }] },
+			"root",
+		),
+	).toBe(true);
+});
+
+it("treats unresolved dependency targets as invalid and skips only known kernel workflows", () => {
+	for (const dependency of [
+		{ kind: "script", slug: "missing-script" },
+		{ kind: "workflow", slug: "missing-workflow" },
+	] as const) {
+		expect(
+			hasReachableExternalEffects(
+				{ workflows: [], scripts: [script("root", [], [dependency])] },
+				"root",
+			),
+		).toBeUndefined();
+	}
+	expect(
+		hasReachableExternalEffects(
+			{
+				workflows: [],
+				scripts: [script("root", [], [{ kind: "workflow", slug: KERNEL_EVENT_CREATE_WORKFLOW }])],
+			},
+			"root",
+		),
+	).toBe(false);
+});
 
 it("selects API and file plans without source effects or record prerequisites", () => {
 	const source = {

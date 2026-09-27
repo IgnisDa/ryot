@@ -17,12 +17,7 @@ describe("workflow definitions", () => {
 	test("bootstraps once for value-dependent recorded steps and a pending next step", () =>
 		RuntimeEffect.runPromise(
 			RuntimeEffect.gen(function* () {
-				const manifest = defineManifest({
-					name: "Replay",
-					slug: "replay",
-					kind: "workflow",
-					capabilities: [],
-				});
+				const manifest = defineManifest({ name: "Replay", slug: "replay", kind: "workflow" });
 				const workflow = defineWorkflow({
 					manifest,
 					output: Schema.Array(Schema.String),
@@ -114,7 +109,6 @@ describe("workflow definitions", () => {
 			RuntimeEffect.gen(function* () {
 				const manifest = defineManifest({
 					kind: "workflow",
-					capabilities: [],
 					name: "Parallel replay",
 					slug: "parallel-replay",
 				});
@@ -172,12 +166,7 @@ describe("workflow definitions", () => {
 	test("returns a completed replay envelope with validated output", () =>
 		RuntimeEffect.runPromise(
 			RuntimeEffect.gen(function* () {
-				const manifest = defineManifest({
-					kind: "workflow",
-					name: "Complete",
-					slug: "complete",
-					capabilities: [],
-				});
+				const manifest = defineManifest({ kind: "workflow", name: "Complete", slug: "complete" });
 				const workflow = defineWorkflow({
 					manifest,
 					input: Schema.Null,
@@ -220,12 +209,7 @@ describe("workflow definitions", () => {
 					input: Schema.Null,
 					output: Schema.Null,
 					run: (_input, replay) => replay.sleep("expected", 10),
-					manifest: defineManifest({
-						kind: "workflow",
-						name: "Mismatch",
-						slug: "mismatch",
-						capabilities: [],
-					}),
+					manifest: defineManifest({ kind: "workflow", name: "Mismatch", slug: "mismatch" }),
 				});
 
 				const envelope = yield* workflow.run(
@@ -262,7 +246,6 @@ describe("workflow definitions", () => {
 			RuntimeEffect.gen(function* () {
 				const manifest = defineManifest({
 					kind: "workflow",
-					capabilities: [],
 					name: "Invalid input",
 					slug: "invalid-input",
 				});
@@ -317,11 +300,16 @@ describe("workflow definitions", () => {
 		).toThrow();
 	});
 
-	test("requires workflow manifests to declare no normal capabilities", () => {
+	test("rejects authored capabilities in workflow manifests", () => {
 		const decode = Schema.decodeUnknownSync(sandboxManifestSchema);
-		expect(
+		expect(decode({ kind: "workflow", name: "Workflow", slug: "workflow" })).toEqual({
+			kind: "workflow",
+			name: "Workflow",
+			slug: "workflow",
+		});
+		expect(() =>
 			decode({ kind: "workflow", capabilities: [], name: "Workflow", slug: "workflow" }),
-		).toMatchObject({ kind: "workflow", capabilities: [] });
+		).toThrow();
 		expect(() =>
 			decode({ kind: "workflow", name: "Workflow", slug: "workflow", capabilities: ["httpCall"] }),
 		).toThrow();
@@ -347,12 +335,7 @@ describe("workflow definitions", () => {
 		({ failure, message }) =>
 			RuntimeEffect.runPromise(
 				RuntimeEffect.gen(function* () {
-					const manifest = defineManifest({
-						name: "Failing",
-						slug: "failing",
-						kind: "workflow",
-						capabilities: [],
-					});
+					const manifest = defineManifest({ name: "Failing", slug: "failing", kind: "workflow" });
 					const workflow = defineWorkflow({
 						manifest,
 						output: Schema.String,

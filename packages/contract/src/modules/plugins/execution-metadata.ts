@@ -1,6 +1,7 @@
 import { Schema } from "effect";
 
 import { strictStruct } from "../../schema/utils";
+import { SANDBOX_HOST_CAPABILITIES } from "../sandbox/wire";
 
 const name = Schema.String.pipe(Schema.check(Schema.isMinLength(1)));
 
@@ -17,6 +18,7 @@ export const SandboxExecutionMetadata = strictStruct({
 	requiredPluginConfigKeys: Schema.Array(name),
 	optionalPluginConfigKeys: Schema.Array(name),
 	executableDependencies: Schema.Array(ExecutableDependency),
+	capabilities: Schema.Array(Schema.Literals([...SANDBOX_HOST_CAPABILITIES])),
 });
 
 export type SandboxExecutionMetadata = Schema.Schema.Type<typeof SandboxExecutionMetadata>;

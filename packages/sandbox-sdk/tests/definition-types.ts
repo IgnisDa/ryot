@@ -11,7 +11,6 @@ const scriptManifest = defineManifest({
 	kind: "script",
 	name: "Typed script",
 	slug: "typed-script",
-	capabilities: ["getCachedValue"],
 });
 const script = defineScript({
 	manifest: scriptManifest,
@@ -27,7 +26,6 @@ const script = defineScript({
 });
 
 const operationManifest = defineManifest({
-	capabilities: [],
 	kind: "operation",
 	name: "Typed operation",
 	slug: "typed-operation",
@@ -49,7 +47,6 @@ const failingOperation = defineOperation({
 });
 
 const automationManifest = defineManifest({
-	capabilities: [],
 	kind: "automation",
 	name: "Typed automation",
 	slug: "typed-automation",
@@ -71,7 +68,6 @@ const policy = defineAutomationPolicy({
 
 const workflowManifest = defineManifest({
 	kind: "workflow",
-	capabilities: [],
 	name: "Typed workflow",
 	slug: "typed-workflow",
 });
