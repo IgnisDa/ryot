@@ -1,141 +1,327 @@
-# S3 memory-admission design review
+# S3 memory admission
 
-**Status:** bounded prefix inspection and atomic resource admission are approved and implemented.
-Transient pooling and lazy backend prefixes remain proposals requiring approval.
+**Status:** approved. Bounded prefix inspection and atomic resource admission are implemented; slices
+M-M and M-S0 to M-S4 below implement the rest in order. Lanes, durable fair selection, CPU admission,
+HTTP tickets and benchmark statistics are separate S3 decisions ([s3.md](s3.md)). Units are MiB;
+G = `SANDBOX_WORKER_CONCURRENCY` = 2 on the canonical host.
 
-## Established constraints
+## Decisions
 
-The admission calculation in
-`kernel/backend/src/lib/infrastructure/sandbox-runtime/sidecar-admission.ts` reserves these MiB per run:
+- Non-workflow executions bind no lifecycle-write capability; those run only through durable workflow
+  dispatch (M9).
+- The workflow body's decoded journal and inline entries stay outside the sandbox budget. This is an
+  accepted residual: S3 bounds the sandbox path, not whole-backend memory.
+- The canonical benchmark sets `SANDBOX_MEMORY_BUDGET_MIB` to half of effective memory (≈1,904 MiB on
+  the measured 3,809 MiB host). The default stays the smaller of 1,536 MiB and half.
+- The replay journal is served lazily from chunked Redis entries (M4).
+- Per-script heap and external limits stay at 256/64 MiB until M-M's measurements support a separate
+  limit decision, taken after M-S1 and before M-S2.
 
-| Ownership                                            | Reservation |
-| ---------------------------------------------------- | ----------: |
-| V8 heap and external memory                          |         320 |
-| Other fixed execution allowances                     |          15 |
-| Three run-message copies                             |          12 |
-| Four execution requests                              |           8 |
-| Three compiled-module copies                         |           3 |
-| Host-result copies                                   |         144 |
-| Buffer/reassembly allowances                         |          42 |
-| Host response values/copies                          |          80 |
-| Two done-message copies                              |          12 |
-| **Run total, excluding journal and process startup** |     **636** |
+## 1. Defects in the S2 accounting
 
-The resident process reservation is 256 MiB. Each lazy process adds 128 MiB. Durable journal
-loading reserves three copies of the inspected prefix size before fetching values.
-The journal limit is 100 MiB; the default aggregate budget is 1,536 MiB.
+| ID  | Gap                                                                                                                                                                                                                                                                                                                                                                      | Evidence                                                                                                                                                                             |
+| --- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| A1  | Near-heap-limit callback adds 2 × 32 MiB heap headroom; not in backend reservation, Rust `MemoryBudget`, or `maxRss`                                                                                                                                                                                                                                                     | `sandboxd/src/execute.rs:38-39,474-484`; `server.rs:140-142`; `sidecar-admission.ts:15,363`; `sidecar-supervisor.ts:512-517`                                                         |
+| A2  | Decoded untrusted JSON charged at byte size (≈10–25× real). Reader parses raw frames twice (`sidecar-framing.ts:244`, `:281`); prefix decoded twice (`workflow-journal.ts:120`, `host-call-gate.ts:141`) and serialized twice more (`service.ts:124,145-153`); args decoded, re-serialized and contract-decoded (`host-call-gate.ts:612,617`, `bridge-adapter.ts:83,96`) | as listed                                                                                                                                                                            |
+| A3  | Strings 2 bytes/char; JSON escaping expands control chars 6× (`\u00XX`) and serialization happens before the size check (`host-call-gate.ts:167-176,206-214`)                                                                                                                                                                                                            | as listed                                                                                                                                                                            |
+| A4  | Inline evidence grows to ≤100 MiB unreserved; decoded again at done                                                                                                                                                                                                                                                                                                      | `host-call-gate.ts:566-597`; `service.ts:131`; `sidecar-supervisor.ts:401`                                                                                                           |
+| A5  | Host-result chain: value, two serializations, Schema.Json copy, logical JSON, payload, all base64 parts at enqueue, `.slice` per write; Rust preallocated assembly + `RawValue` + `String`                                                                                                                                                                               | `host-call-gate.ts:206-238`; `sidecar-framing.ts:405-430,542,575-582`; `protocol.rs:817`; `execute.rs:284`                                                                           |
+| A6  | Backend accepts 8 pending calls per run (4 active + 4 waiting); honest maximum is 4 slotted + 1 inline                                                                                                                                                                                                                                                                   | `sidecar-supervisor.ts:404`; `host-call-gate.ts:358`; `execute.rs:36,311,323-345`                                                                                                    |
+| A7  | Retire purges only run frames; queued host results still written, then assembled/decoded by Rust                                                                                                                                                                                                                                                                         | `sidecar-framing.ts:489-514`; `server.rs:237-286`                                                                                                                                    |
+| A8  | Before `drop(runtime)`, Rust filters the done string by UTF-16 length (≤ RESULT_BYTES + 1), converts it lossily to UTF-8 (≤3 bytes/unit, ≈18 MiB) and copies it again (`payload.to_owned()`); the byte check runs after the drop. Several more copies follow after the drop; backend done decode charged 2 × 6 only                                                      | `execute.rs:536,550,610-620`; `server.rs:49-69`                                                                                                                                      |
+| A11 | An inline batch has no request-count cap and `settleInline` holds every settled result until the batch ends; the 10 MiB reply check runs after settlement (50 maximum `httpCall`s ≈ 1,000 MiB held)                                                                                                                                                                      | `sidecar-protocol.ts:188-190`; `durable-host-dispatcher.ts:901-916`; `host-call-gate.ts:515,549-555`; `limits.ts:19`                                                                 |
+| A9  | Live lifecycle writes wait for nested sandbox runs: `createEvents` → `EventCreateWorkflow` (awaited) → before-policy `executePolicy` → `AutomationRunWorkflow` → sandbox execution, while the caller holds its slot and memory                                                                                                                                           | `host-functions.ts:615-627`; `modules/events/event-create-workflow.ts:52-66`; `event-policy-engine.ts:91-101`; `modules/automations/execution.ts:233-248`; `run-workflow-live.ts:33` |
+| A10 | Honest host-result assemblies can exceed Rust `ASSEMBLY_BYTES` (64 MiB/connection) under round-robin writes; failed non-run assemblies are dropped silently                                                                                                                                                                                                              | `sidecar-framing.ts:552-562`; `sandboxd/src/server.rs:28,244-246,294-298`                                                                                                            |
 
-| Two-run topology             | Minimum reservation, excluding journal contents |
-| ---------------------------- | ----------------------------------------------: |
-| Resident core processes only |                                       1,528 MiB |
-| Core plus one lazy process   |                                       1,656 MiB |
-| Core plus two lazy processes |                                       1,784 MiB |
+Accepted residual: the workflow body keeps decoded journal and inline entries for the
+workflow's lifetime (`sandbox-script-workflow.ts:747-779,850-852`), and queue results persist inline
+entries (`durable-queues.ts:43-49`). Plugin-shaped values can make this large. It is outside the
+sandbox budget; S3 does not claim whole-backend memory safety. Follow-up: workflow-body admission
+or encoded retention.
 
-These are reservation bounds, not observed resident memory. They exclude temporary journal loading
-and assume zero journal content. The canonical host's half-memory ceiling is below the 2,128 MiB
-needed for two maximum-journal runs even without a lazy process.
+## 2. Accounting basis (M1)
 
-## Allocation and retention paths
+- Every term is a reachable-bytes upper bound for the worst legal input: strings at 2 bytes/char,
+  byte arrays at length, JSON text at its escaped length, decoded untrusted graphs at a calibrated
+  factor `k` per JSON byte covering the whole decode path (every copy from text to the host-function
+  call or to the decoded done response), never JSON.parse alone. Initial working value k = 24; the
+  calibration test fixes it.
+- Escaped length is computed by a non-allocating walk before any serialization, aborting at the cap.
+  The existing caps keep their meaning (they are already measured on serialized UTF-8).
+- Unreachable memory counts as released (GC timing not modelled). Reservations are admission bounds;
+  S4 adds cgroups.
+- A1 charged: isolate term 256 + 64 + 64 = 384. Rust reports its heap headroom in `ready`; the backend
+  rejects a generation whose heap + external + headroom exceeds the reserved term. Rust `MemoryBudget`
+  per isolate and `maxRss` include the headroom.
 
-1. `sidecar-admission.ts:reservePrefix` grants concurrency, memory, and process-start capacity
-   atomically. A memory waiter owns no execution permit or partial reservation.
-2. `modules/sandbox/durable-queues.ts:executeSandboxExecution` inspects the exact enqueued prefix,
-   reserves its bytes, then loads values and the script.
-3. `sandbox-journal-store.ts` checks presence and aggregate lengths before reading values in Redis.
-   Inspection returns bounded length/fingerprint pins; the read atomically verifies them. Missing
-   entries preserve projection-missing behavior, and changed entries fail without returning values.
-   `workflow-journal.ts:readWorkflowJournal` retains returned strings while decoding entries; its
-   native Redis reply remains reserved through cancellation.
-4. `service.ts:run` serializes the decoded journal to calculate its retained reservation.
-5. `host-call-gate.ts:encodeJournalPrefix` creates encoded copies of every entry. The run input
-   also contains the decoded journal; the gate retains it for inline request indexing and dispatch.
-6. `host-call-gate.ts:journalRead` serves bounded ranges from the complete encoded prefix. The
-   isolate-side journal is lazy, but the backend-side journal is not.
-7. Host results coexist as decoded values, serialized JSON, encoded logical frames, queued writer
-   messages, and Rust reassembly. Inline settlement additionally retains host-owned journal evidence.
-   The gate clears its encoded buffers on close; reservation release also depends on run disposal.
+## 3. Capability exposure (M9)
 
-The existing `memory_admission_counts_journals_frames_startups_and_buffers` test covers the current
-reservation lifecycle. It does not establish that smaller reservations cover the same allocations.
+- Non-workflow executions bind live only capabilities whose `SANDBOX_DURABLE_HOST_DISPATCH` strategy is
+  `activity` or `diagnostic`, plus file grants (`scratch`, `artifact-read`). Strategies
+  `event-workflow`, `lifecycle-workflow`, `service-workflow` and `notification-workflow`
+  (`createEvents`, `updateEvents`, `deleteEvents`, `upsertGlobalEntities`, `changeUserRelationships`,
+  `upsertGlobalRelationships`, `emitSignal`, `ensureUserEntities`, `sendNotification`) are available
+  only to workflow executions, which dispatch them durably after ending the replay and so hold no
+  execution resources while they wait.
+- `selectSandboxHostFunctions` (`service.ts:52-75`) applies the rule; manifests declaring a
+  workflow-only capability on a non-workflow script kind are rejected at install/compile validation
+  with a typed reason, not silently dropped.
+- Prerequisite inventory: list non-workflow script kinds whose first-party or fixture scripts declare
+  these capabilities. If a non-workflow kind requires one for its product behaviour, stop and report
+  instead of converting the kind.
+- Test inventory: every live (`activity`/`diagnostic`/file) implementation is checked not to await a
+  workflow or sandbox admission (`requestEventStreamWork` included).
 
-## Current admission
+## 4. Representation changes (M2)
 
-Bounded prefix inspection avoids the maximum loading allowance for small journals. **It is
-insufficient alone:** two runs with a lazy process still exceed the default budget.
+1. Host-call args travel base64-encoded (UTF-8 JSON bytes) in the frame. Bound: 1 MiB args → 1.34 MiB,
+   within the unchanged 2 MiB host-call cap. The reader holds bytes/base64 text only; args are decoded
+   once, under the call's transient permit. Done values stay as raw JSON (decoded after isolate drop,
+   §6) so the 6 MiB done cap and 4 MiB result limit are unchanged.
+2. The reader parses each raw frame once.
+3. Host results: escaped-length walk → reject over cap without allocating → serialize the result frame
+   once to UTF-8 bytes (no Schema.Json copy, no re-serialization) → drop the value. The writer keeps
+   payload bytes and base64-encodes one part at flush time; writes use `subarray`, not `slice`.
+4. `retire(handle)` purges unstarted host-result messages; an in-progress chunked message completes
+   (never abandons a Rust assembly) and its completion is observable.
+5. Rust delivers a host result with one native copy: the assembled buffer becomes the V8-bound string
+   (borrowed `RawValue` validation).
+6. Rust measures the done string's UTF-8 length without allocating (V8 UTF-8 length) and rejects it above
+   `RESULT_BYTES` before materializing; it materializes once (no `payload.to_owned()` copy).
+7. Before `settle`, the gate computes Σ Vmax over the batch's requests; a batch whose sum exceeds the
+   inline value allowance (80) defers before any activity runs. Legal larger batches take the durable
+   path, which already handles every request.
+8. Per-handle inbound bound: 5 outstanding host calls (4 slotted + 1 inline) and 1 done. The supervisor
+   decrements `pending` before enqueueing the reply (fixes the send-before-decrement race at
+   `sidecar-supervisor.ts:440-466`). Excess marks that run invalid and cancels it; only framing-level
+   violations restart the generation.
 
-Passing coverage:
+## 5. Ownership table
 
-- `journal_inspection_pins_exact_prefix_bytes_without_returning_values`
-- `journal_inspection_bounds_reply_before_loading_values`
-- `journal_reads_reject_changed_inspected_prefix`
-- `journal_inspection_preserves_missing_prefix_and_immutable_appends`
-- `journal_inspection_rejects_invalid_lengths_and_unavailable_state`
-- `durable_replay_reserves_inspected_journal_bytes_before_loading_values`
-- `durable_replay_rejects_prefix_growth_during_admission_before_loading_or_running`
-- `atomic_admission_keeps_memory_waiters_from_holding_execution_slots`
-- `inspected_small_journals_can_reserve_two_replays_without_maximum_prefix_allowances`
-- `journal_read_cancellation_retains_memory_until_the_native_reply_finishes`
-- `sandbox_sidecar_recovers_mid_import`: a scoped system HTTP policy makes the uploaded provider's
-  checkpoint call durable before it parks. Generation replacement preserves that committed call
-  and the committed business row; the provider retains user-tier trust.
+### 5.1 Per-run execution reservation E = 538 (M3)
 
-Repository verification:
+Acquired atomically with the execution slot and any process start (approved `reservePrefix`); held
+until disposal is confirmed.
 
-- `bun run check`: passed.
-- `bun turbo --filter='!@ryot-app/e2e' test`: passed; backend coverage is 1,903 tests in 288 files.
-- Affected `enqueue.test.ts`: four tests passed.
-- Affected `sidecar-recovery.test.ts`: passed with the committed HTTP checkpoint.
-- Affected `async-flow.test.ts`: eight tests passed; `preserves the complete mapped stack for deep
-  script errors` fails because the stack has ten lines. The same failure reproduces on S2 commit
-  `35730c5832` in an isolated worktree. It remains unproved, rather than weakening the assertion.
-- Cleanup removed the duplicate journal-length test and the unused inspection-schema value export;
-  no suppressions or type-bypassing casts were added.
+| Term                                           | MiB | Allocation                                                                                                                                        | Peak simultaneous copies                                                                                                                          | Handoff                                                                                                                                                                                    | Release                         |
+| ---------------------------------------------- | --: | ------------------------------------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ | ------------------------------- |
+| Isolate heap + external + headroom             | 384 | Rust `execute.rs:434-484`                                                                                                                         | heap ≤ 320, ArrayBuffers ≤ 64                                                                                                                     | At done receipt (runtime dropped at `execute.rs:536` before `finish`): covers Rust post-drop done copies and backend done decode (done ≤ 6 MiB raw ×2 bytes/char + k × 4 MiB result ≈ 110) | Run finalizer after disposal    |
+| S2 fixed (stack, diagnostics, scratch staging) |  15 | S2                                                                                                                                                | as S2                                                                                                                                             | —                                                                                                                                                                                          | finalizer                       |
+| Run start                                      |  28 | Backend invocation + module (≤2) + logical JSON (≤8) + payload (4) + queued frames (≤6); Rust `Box<Run>` (4) + input clone (2) + loader clone (1) | Backend ≤ 20 until the last frame is written; Rust ≤ 8 until `execute` returns                                                                    | —                                                                                                                                                                                          | finalizer                       |
+| Inbound host-call frames                       |  20 | Frame bytes (≤2) + base64 args text (≤1.4) + envelope, per outstanding call                                                                       | 5 outstanding                                                                                                                                     | Args bytes → gate (decoded under the transient permit)                                                                                                                                     | Per call, when dispatch returns |
+| Rust host-call encode/outbox                   |  25 | `outbox.rs:135-156`                                                                                                                               | 4 slotted + 1 inline × ≈5                                                                                                                         | —                                                                                                                                                                                          | Chunk written                   |
+| Rust host-result delivery                      |  60 | Assembly preallocated at part 0 (`protocol.rs:817`), moved into the V8-bound string                                                               | 4 slotted results parked in oneshots while the isolate blocks in `inlineBatch` (`execute.rs:323-345`, `server.rs:283-285`) + 1 inline reply, × 12 | —                                                                                                                                                                                          | Op returns (V8 copy made)       |
+| Rust done text before drop                     |   6 | One UTF-8 copy after the non-allocating length check (M2.7)                                                                                       | 1 × 6                                                                                                                                             | —                                                                                                                                                                                          | `drop(runtime)` / finish        |
 
-S3 lane fairness, canonical-host latency, shared transient-buffer bounds, Linux launcher execution,
-and remote CI results are not proved by these checks.
+### 5.2 Lane transient pool
 
-## Remaining design for approval
+Acquired by the gate after sequence/budget checks and before args decode or host invocation, for the
+whole amount at once, FIFO within the lane partition. Released only after the host function's native
+work settles (non-abortable operations awaited uninterruptibly, like the approved ioredis read) and
+after the result's last frame is written or purged.
 
-### Separate persistent execution memory from transient buffer ownership
+| Unit                       |            MiB | Contents                                                                                                                                                                                                                                                                 |
+| -------------------------- | -------------: | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| H (ordinary call, default) |             80 | Args graph k × 1 (24) + value ≤ Vmax (default 20) + one frame serialization ≤ 10.1 escaped MiB as string (21) + payload (11) + margin                                                                                                                                    |
+| J (`journalRead`)          |              8 | One 1 MiB chunk string (2) + slice bytes (1) + base64 (1.4) + frame string/payload (≈3.4)                                                                                                                                                                                |
+| I (`inlineBatch`)          |            170 | Batch args graph (24) + Σ Vmax ≤ 80 (enforced before settle, M2.8) + reply serialization (21) + payload (11) + evidence upper bound 3 × 11 (33), reserved before `settle`; afterwards it shrinks to 3 × actual evidence, which stays charged to the run's lane partition |
+| Declared small units       | per capability | `log`, `span`, cache (≤256 KiB), scratch (≤256 KiB), artifact slice (≤1 MiB)                                                                                                                                                                                             |
 
-Keep heap, external-memory, stack, module, and retained evidence reservations tied to the execution.
-Give journal decoding, host response construction, serialization, transport queues, and reassembly
-explicit reservation owners. Transfer ownership with the buffer; release only after its last live
-reference and native copy are gone.
+Dependence on k (M1): E does not depend on k (args graphs are charged in permits). H(k) = k + 56 and
+I(k) = k + 145 (rounded: H = 80, I = 170 at k = 24–25). The approved contract allows k ≤ 40; §8 shows
+the canonical arithmetic for that range. If calibration yields k > 40, M-S1 stops and returns recomputed
+arithmetic for re-approval before M-S2 starts.
 
-A bounded shared transient pool can replace per-execution allowances only where allocation is
-actually gated before it occurs. Ordinary host dispatch, inline settlement, journal reads, and both
-transport directions must all participate. Fair, lane-aware acquisition must leave interactive
-capacity; a background allocation cannot borrow it without an approved recall mechanism.
+Vmax (M3): each live capability declares a retained-result bound enforced before materialization (for
+example, `httpCall` reads ≤10 MiB raw, which decodes to ≤10 M chars, ≤20 MiB). A capability that cannot
+bound its result before materialization cannot use the default H; implementation either adds a
+pre-materialization bound with a test or stops and reports (`executeRyotql` with fan-out is the first
+item to verify).
 
-The pool capacity and concurrency policy are unresolved. A shared permit changes possible host-call
-parallelism, even while preserving the existing per-execution maximum of four calls. It needs an
-explicit decision and throughput/deadlock tests. Do not subtract any of the current allowances
-until an allocation-lifetime proof identifies the replaced ownership.
+### 5.3 Inline evidence (M5)
 
-### Avoid retaining an entire decoded backend journal if required
+I is reserved from the run's lane partition before `settle`. If it cannot be reserved, the batch
+defers before any activity runs (no duplicated side effects). After validation, the reservation
+shrinks to 3 × actual encoded evidence (retained bytes, done-time text, queue-result serialization),
+which stays charged to the same lane partition until the queue result is returned. The handoff never
+needs new capacity after side effects, so it cannot fail. Accumulated evidence reduces the room for the
+next batch's I; once it does not fit, later batches defer before settlement. Legal inline evidence held
+at once per background run is therefore (P_bg − I) / 3; at 1,904 and k = 24 that is (236 − 170) / 3 =
+22 MiB. Interactive runs in lane mode (P_int = H < I) never settle inline; their batches defer. The queue result carries inline entries as encoded
+JSON text; the workflow body decodes them as before (accepted residual).
 
-If the verified budget still cannot fit, use the committed Redis projection as the pinned backing
-store and serve bounded ranges through the existing `journalRead` path. Retain bounded prefix
-metadata and host-owned inline evidence, not a second full decoded prefix. Preserve schema
-validation, exact request indices, immutable committed values, missing-entry behavior, and crash
-replay evidence. Do not add an unmetered native store.
+### 5.4 Processes and per-connection transport
 
-This is a larger change than preflight sizing. Its validation and buffer strategy, including a
-single legal large entry, needs approval before implementation. Merely moving the current `HMGET`
-behind a lazy callback does not make the allocation bounded.
+Resident core 2 × 128; lazy 128 each (values unchanged). The lane pools bound concurrent maximum host
+results to about one per lane (⌊236/80⌋ = 2 ordinary in the background lane, 1 interactive, or one inline reply), so Rust assemblies stay ≤ 2 × 12 MiB
+plus small results per connection (≤ 3 × 12 + small), below `ASSEMBLY_BYTES` (fixes A10's dependency; tested).
 
-## Required proof before adopting smaller bounds
+## 6. Acquisition, handoff and release sequence
 
-- An ownership table for every reservation term, including maximum simultaneous copies, allocation
-  sites, handoff sites, and release sites.
-- A feasible budget for both interactive and background execution with the required snapshot
-  processes, small journals, maximum journals, and legal maximum response sizes.
-- Cancellation and crash tests showing that tickets, transport buffers, inline evidence, and native
-  reassembly release their reservations once, after disposal.
-- Tests showing interactive progress while background work waits on journal or response capacity,
-  including synchronous inline settlement and independent socket control traffic.
-- Fresh-host end-to-end latency and import progress measurements at the approved configuration.
+1. Durable worker: inspect pins (approved) → ticket {slot, E, process start} atomically; waiters hold
+   nothing (approved) → script load → run.
+2. Lazy processes: background-started processes never consume interactive headroom. At most one
+   interactive-started lazy process holds the interactive headroom's process share; a second interactive tier waits for
+   reclaim of an idle one (drained, exit confirmed, bounded by the 2 s disposal limit). Idle processes
+   are reclaimed only when an admission cannot otherwise fit (M7).
+3. Host call: permit → decode args → host function → escaped-length check → one serialization →
+   enqueue → release on last frame written or purge, after native settlement.
+4. Inline batch: reserve I → settle → validate → shrink to evidence → append.
+5. Done: the isolate share is reused for done decode. E is released by the finalizer after done (or
+   generation exit confirmation), gate close, writer completion for the handle, and release of every
+   call permit of the run.
+6. Journal: no per-run journal term (§7).
 
-Approve a transient-pool/lazy-prefix design only after its ownership table establishes a feasible
-bound. Prefix inspection and atomic admission alone do not prove S3 latency acceptance.
+## 7. Lazy chunked journal (M4)
+
+- Redis layout per execution key: metadata field `m:<i>` = byte length, chunk count, SHA-256 of the
+  entry text (computed by the backend at append); chunk fields `c:<i>:<n>` of exactly 1 MiB except the
+  last. Append Lua writes metadata and chunks atomically and never overwrites differing content
+  (divergence error, as today). Keys, schemas and Lua stay in Redis infrastructure.
+- Inspection reads metadata only (≤1,000 entries, approved bounds) and pins it. Each `journalRead`
+  returns at most the remainder of one chunk; Lua re-checks the entry's pinned metadata and that
+  chunk's length on every read. Missing metadata/chunk → `projectionMissing`; changed metadata →
+  fail closed. The read budget charges fetched bytes.
+- Authority: the backend validates entries at append (they are the workflow body's validated journal).
+  The isolate bootstrap validates schema and index on read (`isolate-invocation.ts:533-551`). The
+  workflow body stays authoritative by checking replay envelopes against its own journal
+  (`sandbox-script-workflow.ts:352-385`). The gate records a run-level `projectionMissing`/`changed`
+  flag that overrides the isolate's outcome, so these cannot be reported as plugin-catchable script
+  failures.
+- The backend never decodes or retains the prefix; `pinHash` uses the pins and inline `firstIndex` uses
+  the pinned count. `SandboxRunInput.replayJournal` becomes a pinned journal source.
+- Existing behaviour retained: entries are reassembled in the isolate through 1 MiB reads (2,048
+  reads, 200 MiB). The reassembly buffer is external memory, so an entry above ≈64 MiB cannot be read
+  inside one isolate (pre-existing; self-limiting; not changed by S3).
+
+## 8. Admission predicate, modes and budget arithmetic (G = 2)
+
+**Static carve-outs** (fixed at boot): resident core processes 256 and the transient pools. Lane mode
+has P_int = H and P_bg; shared mode has one pool P = I. Pools are caps on concurrent permit holdings
+(including inline evidence), checked FIFO within each pool; they are never lent across lanes.
+
+**Dynamic region** D = budget − 256 − pools. It holds every admitted run's E and every started lazy
+process's 128 (charged at start, kept while running or idle, released after exit confirmation; idle
+processes are reclaimed only when an admission cannot otherwise fit, M7). Let `usedD` be the current
+sum of those holdings.
+
+**Predicate** (one atomic check in `reservePrefix`, together with the execution slot):
+
+- interactive request of size a (E, plus 128 if its process must start): `usedD + a ≤ D`;
+- background request: `usedD + a ≤ D − max(0, (E + 128) − heldInt)`, where `heldInt` is the E of
+  admitted interactive runs plus the bytes of lazy processes started for interactive work
+  (lane mode only; in shared mode the subtracted term is 0).
+  Because the pools are static and each pool is at least its largest unit, every admitted run can always
+  obtain any permit eventually (§10).
+
+**Modes (M10)**, selected at boot and recorded in metrics and startup logs:
+
+- Lane mode when D ≥ 2 × (E + 128) with P_bg ≥ I, that is budget ≥ 256 + H + I + 1,332. Then
+  P_bg = budget − 256 − H − 1,332.
+- Shared mode when budget is below that and ≥ 256 + I + E + 128; P = I; no interactive reservation.
+  The S3 latency guarantee is claimed only in lane mode.
+- Typed boot failure below 256 + I + E + 128.
+
+At k = 24 (H 80, I 170, E 538):
+
+|            Budget | Mode                   |                          D | Outcomes (every admitted state ≤ budget)                                                                                                                              |
+| ----------------: | ---------------------- | -------------------------: | --------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+|               964 | boot failure (< 1,092) |                          — | typed configuration error                                                                                                                                             |
+|             1,092 | shared                 |                        666 | one run with a lazy process, or one run on a resident core; never two                                                                                                 |
+|   1,536 (default) | shared                 |                      1,110 | two runs on resident cores (1,076); one lazy-process run plus a core run does not fit (1,204), so it waits; no interactive reservation                                |
+|             1,710 | shared                 |                      1,284 | two core runs, or one lazy + one core run (1,204); two lazy runs (1,332) wait                                                                                         |
+|             1,838 | lane                   | 1,332 (P_int 80, P_bg 170) | background run with lazy (666) plus interactive headroom (666) always held; inline evidence capacity 0 (each batch's evidence must be released before the next batch) |
+| 1,904 (canonical) | lane                   | 1,332 (P_int 80, P_bg 236) | as 1,838, with 22 MiB of concurrent inline evidence                                                                                                                   |
+
+As functions of k (k ≤ 40 allowed): lane threshold = 1,789 + 2k (1,837 at k = 24, 1,869 at k = 40);
+canonical P_bg = 260 − k; canonical evidence capacity = (115 − 2k) / 3 MiB (22 at k = 24, 11 at k = 40).
+Lane mode at 1,904 holds for all k ≤ 57; the k ≤ 40 ceiling keeps at least 11 MiB of inline evidence.
+
+Shared mode remains a lower-throughput configuration under honest accounting: at the 1,536 default, two
+executions run concurrently only when both use resident core processes. Maximum legal journals do not
+change any row. In lane mode with G = 2, background admits one run at a time; one tenant's long replay
+then occupies background capacity until fair scheduling bounds it.
+
+## 9. Cancellation and crash
+
+| Event                                        | Behaviour                                                                                                                                                                                      |
+| -------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Admission waiter interrupted                 | Holds nothing; counters released once (approved).                                                                                                                                              |
+| Journal inspection/read interrupted          | Held until the ioredis reply settles (approved); per-read J the same.                                                                                                                          |
+| Host call interrupted                        | Abortable work aborted; non-abortable native work awaited uninterruptibly; unstarted result messages purged and an in-progress message completed; permit released after both.                  |
+| Inline batch interrupted before/after settle | I held until settlement finishes; evidence account released with the run.                                                                                                                      |
+| Done / cancel / limit                        | Isolate share reused for done decode; E released by the finalizer once all conditions in §6.5 hold.                                                                                            |
+| Sidecar crash or backstop                    | Generation close waits exit confirmation (existing); runs' E and the process reservation are released only after that; reader/writer cleared.                                                  |
+| Per-handle bound exceeded                    | That run marked invalid and cancelled; framing desync restarts the generation (existing).                                                                                                      |
+| Backend restart                              | In-memory reservations vanish with the process; Redis projection and durable queue unaffected.                                                                                                 |
+| Compromised sidecar                          | Sidecar-process memory is unbounded until S4 cgroups. Backend-side memory per run stays within E + permits; an early done adds at most one done decode (≈110) while the run's E is still held. |
+
+## 10. Deadlock prevention
+
+Order: L0 durable worker slot → L1 admission ticket (slot + E + process) → L2 lane transient permit
+→ L3 database dispatch permit (S2).
+
+- No wait on a lower-numbered resource while holding a higher-numbered one.
+- With M9, live L2 holders run only `activity`/`diagnostic`/file implementations, inventoried and
+  tested not to await workflows or sandbox admission. Workflow-only writes run after the replay has
+  ended and released L1/L2.
+- Inline reservation is try-only and taken before side effects; deferral never waits.
+- Each partition ≥ its largest single request (boot check); holders finish independently of same-lane
+  waiters, so every waiter proceeds.
+- Lazy reclaim stops only processes with no runs; admitted runs are never preempted.
+- Not solved by memory admission (prerequisites for the S3 goal, owned by the scheduling decision):
+  L0 capture by one tenant's durable backlog, and tenant fairness inside a lane (one user can hold
+  the interactive headroom and the bounded waiter positions).
+
+## 11. Acceptance tests (memory)
+
+| Requirement                                                                                                                                                                                                                                                                                                                                    | Test                                                                                                    |
+| ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------- |
+| Interactive run admitted while background holds E, its lazy process, a maximum response and a maximum journal                                                                                                                                                                                                                                  | `interactive_memory_headroom_preserves_existing_execution_limits`                                       |
+| Non-workflow executions bind no workflow-only capability; workflow executions dispatch them durably                                                                                                                                                                                                                                            | `non_workflow_executions_expose_only_resource_free_capabilities`                                        |
+| Live capability implementations never await workflows or sandbox admission                                                                                                                                                                                                                                                                     | `live_host_capabilities_do_not_await_nested_sandbox_admission`                                          |
+| Permits cover maximum results and 4 concurrent calls; release after the last frame is written                                                                                                                                                                                                                                                  | `host_call_permits_cover_maximum_results_until_written`                                                 |
+| Escape-heavy and invalid-UTF-8 `httpCall` bodies rejected or charged without exceeding H                                                                                                                                                                                                                                                       | `escaped_host_results_stay_within_transient_permits`                                                    |
+| Cancelled calls keep permits until native completion; results purged or completed                                                                                                                                                                                                                                                              | `cancelled_host_calls_release_permits_after_native_completion`                                          |
+| Inline reservation before settle; deferral causes no repeated external call                                                                                                                                                                                                                                                                    | `inline_batches_reserve_before_settlement_and_defer_without_side_effects`                               |
+| Lazy journal: pinned chunks, single large entry, changed/missing chunk, ignored suffix, fetched-byte budget, gate override flag                                                                                                                                                                                                                | `lazy_journal_reads_serve_pinned_chunks_without_backend_prefix`                                         |
+| Divergent chunk/metadata appends rejected                                                                                                                                                                                                                                                                                                      | `journal_projection_rejects_divergent_chunk_appends`                                                    |
+| Args decoded only under permit; whole decode path within k                                                                                                                                                                                                                                                                                     | `host_call_args_decode_under_transient_permit`                                                          |
+| `k` calibration over pathological shapes across the whole decode path (forced-GC heap measurement in a dedicated test); asserts calibrated k ≤ 40                                                                                                                                                                                              | `json_graph_factor_bounds_pathological_decode_paths`                                                    |
+| Done decoded only after isolate drop; per-handle bounds; honest maximum concurrency under cancellation does not trip them                                                                                                                                                                                                                      | `done_decode_reuses_disposed_isolate_reservation`, `per_handle_bounds_admit_honest_maximum_concurrency` |
+| Rust single-copy delivery; assemblies stay below `ASSEMBLY_BYTES` with lane pools                                                                                                                                                                                                                                                              | `host_result_delivery_keeps_one_native_copy`, `lane_pools_keep_rust_assemblies_within_connection_bound` |
+| Writer purges unstarted results on retire and reports completion                                                                                                                                                                                                                                                                               | `writer_retire_purges_unstarted_results`                                                                |
+| Heap headroom included in backend, Rust budget and `maxRss`; boot rejects mismatch                                                                                                                                                                                                                                                             | `isolate_reservation_includes_near_heap_limit_headroom`                                                 |
+| Idle lazy reclaim; background starts never consume the interactive headroom                                                                                                                                                                                                                                                                    | `lazy_processes_preserve_interactive_headroom`                                                          |
+| Lock order                                                                                                                                                                                                                                                                                                                                     | `memory_lock_order_prevents_admission_deadlock`                                                         |
+| Exactly-once release across cancel/overload/startup/disposal/recovery                                                                                                                                                                                                                                                                          | `fair_admission_releases_tickets_and_reservations_exactly_once`                                         |
+| Per-execution peak heap and external memory reported in done and recorded by kind/tier, including for limit, cancel and termination outcomes                                                                                                                                                                                                   | `execution_usage_reports_peak_heap_and_external_memory`                                                 |
+| Oversized inline batches (50 maximum `httpCall`s; maximum `executeRyotql`) defer before any activity; accepted batches never exceed I                                                                                                                                                                                                          | `inline_batches_bound_held_results_before_settlement`                                                   |
+| Evidence accumulates in the lane partition; the next batch defers before settlement once I no longer fits                                                                                                                                                                                                                                      | `inline_evidence_exhaustion_defers_before_settlement`                                                   |
+| Rust done text: 6 Mi BMP 3-byte characters and lone surrogates rejected or held within the 6 MiB term before drop                                                                                                                                                                                                                              | `done_text_is_measured_before_materialization` (Rust)                                                   |
+| Rust delivery with 4 parked slotted results plus an inline reply stays within the 60 MiB term                                                                                                                                                                                                                                                  | `parked_results_and_inline_reply_fit_delivery_term` (Rust)                                              |
+| Boot mode and predicate at budgets 964, 1,092, 1,536, 1,710, 1,838, 1,904 match §8, including two core-process runs at 1,536 and a waiting lazy-plus-core pair; background work is admitted and completes in shared mode                                                                                                                       | `admission_mode_follows_budget_and_admits_background_work`                                              |
+| Interactive permit acquisition, host call, journal read and result delivery complete while background holds all of P_bg, an inline settlement is in progress and maximum background results are queued on the same connection; fails if interactive permits come from P_bg or wait behind background writer traffic beyond one frame per round | `interactive_host_calls_progress_while_background_transient_capacity_is_exhausted`                      |
+
+Plus `bun run check`, `bun turbo --filter='!@ryot-app/e2e' test`, affected e2e files (`enqueue`,
+`sidecar-recovery`, `async-flow`, and the inline/journal and lifecycle e2e files touched by M9), Rust
+tests and the Linux launcher suite.
+
+## 12. Implementation slices
+
+Order: M-M, M-S0, M-S1, the per-script limit decision, M-S2, M-S3, M-S4.
+
+Each slice ends with check/test/affected e2e and a `[v8-isolates-s3]` commit. Every item is owned by
+exactly one slice. The canonical budget configuration lands in M-S4.
+
+| Slice | Owns                                                                                                                                                                                                                                                                                                                                            | Prerequisites                                                   | Stops                                                                             |
+| ----- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | --------------------------------------------------------------- | --------------------------------------------------------------------------------- |
+| M-M   | M11 usage measurement: Rust records per-execution peak V8 heap and peak external (ArrayBuffer high-water) memory and reports them in the done frame; backend histograms by script kind, trust tier and snapshot tier; a benchmark-host run of real workloads (media search/details per tier, import population, fixtures) reporting p50/p99/max | none                                                            | none (measurement only; any limit change is a separate user decision before M-S2) |
+| M-S0  | M9 capability exposure and manifest rejection                                                                                                                                                                                                                                                                                                   | none                                                            | a non-workflow script kind needs a workflow-only write                            |
+| M-S1  | M1 (basis, escaped-length walk, A1 headroom in backend/Rust budget/`maxRss`, k calibration); M2.1–M2.7 (args base64, single parse, single serialization and lazy base64, retire purge, Rust single-copy delivery, per-handle bounds and pending race, Rust done measurement)                                                                    | none                                                            | calibrated k > 40 (return recomputed arithmetic for re-approval)                  |
+| M-S2  | M3 (E = 538, lane pools H/J/I, Vmax inventory and enforcement); M2.8 (inline Σ Vmax cap); M5 (inline reserve before settle, evidence in the partition)                                                                                                                                                                                          | M-S0 (M9 must land before any L2 permit or E change, §10), M-S1 | a live capability cannot bound its result before materialization                  |
+| M-S3  | M4 (lazy chunked journal, fetched-byte budget, gate override flag)                                                                                                                                                                                                                                                                              | M-S2 (J permits)                                                | chunked reads cannot stay fail-closed and immutable                               |
+| M-S4  | M7 (lazy reclaim), M8 (interactive headroom predicate), M10 (modes), canonical budget configuration, memory acceptance                                                                                                                                                                                                                          | M-S2, M-S3                                                      | lane mode cannot hold the canonical topology at the configured budget             |
+
+Scheduling (lanes, durable fair selection, CPU, HTTP tickets, benchmark statistics) follows with its own
+approvals; the tenant-fairness prerequisites in §10 belong there.
