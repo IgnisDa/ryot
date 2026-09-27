@@ -5004,6 +5004,7 @@ dependencies = [
  "database-models",
  "database-utils",
  "dependent-utility-utils",
+ "enum-models",
  "media-models",
  "nanoid",
  "rust_decimal",
