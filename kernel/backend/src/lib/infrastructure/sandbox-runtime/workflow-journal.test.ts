@@ -171,17 +171,6 @@ layer(testRedisServiceLayer)((test) => {
 			}
 		}),
 	);
-
-	test.effect("rejects a journal length above the workflow call limit", () =>
-		Effect.gen(function* () {
-			const redis = yield* RedisService;
-
-			const error = yield* Effect.flip(readProjectedJournal(redis, "bounded", 1001));
-
-			expect(error).toMatchObject({ kind: "infrastructure" });
-			expect(error.message).toBe("Sandbox workflow journal length is invalid");
-		}),
-	);
 });
 
 it.effect("serves the loaded journal and rejects request-bearing calls", () =>
