@@ -156,7 +156,10 @@ export const appendSandboxJournal = Effect.fn("appendSandboxJournal")(function* 
 				String(firstIndex),
 				...texts.flatMap((text) => {
 					const { pin, chunks } = chunkSandboxJournalEntry(text);
-					return [encodePin(pin), ...chunks.map((chunk) => Buffer.from(chunk))];
+					return [
+						encodePin(pin),
+						...chunks.map((chunk) => Buffer.from(chunk.buffer, chunk.byteOffset, chunk.byteLength)),
+					];
 				}),
 			),
 	}).pipe(

@@ -24,6 +24,7 @@ import {
 	sandboxHostResultBytes,
 } from "./host-execution-policy";
 import { SandboxHostImplementations } from "./host-implementations";
+import { encodedJsonBytes } from "./json-bytes";
 import { sandboxContextError, SANDBOX_LIMITS, SANDBOX_RUNNER_LIMITS } from "./limits";
 import {
 	makeObservabilitySandboxApiFunctions,
@@ -49,7 +50,6 @@ import {
 	SidecarRecoverySuspended,
 } from "./sidecar-supervisor";
 
-const encodeJson = Schema.encodeSync(Schema.fromJsonString(Schema.Json));
 const decodeResponse = Schema.decodeUnknownEffect(SandboxInvocationResponseSchema, {
 	onExcessProperty: "error",
 });
@@ -212,7 +212,10 @@ export class SandboxService extends Context.Service<SandboxService>()("SandboxSe
 											}),
 									),
 								);
-								if (utf8ByteLength(encodeJson(json)) > SANDBOX_LIMITS.execution.requestBytes) {
+								if (
+									encodedJsonBytes(json, SANDBOX_LIMITS.execution.requestBytes) >
+									SANDBOX_LIMITS.execution.requestBytes
+								) {
 									return yield* new SandboxRunError({
 										kind: "invalid-input",
 										message: "Sandbox invocation exceeds its byte limit",
