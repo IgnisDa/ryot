@@ -22,6 +22,20 @@ const uploadInputSchema = (label: string, description: string) => ({
 	},
 });
 
+const timezoneInputField = {
+	position: 1,
+	label: "Timezone",
+	type: "string" as const,
+	format: { kind: "timezone" as const },
+	validation: { required: true as const },
+	description: "Timezone the export's dates were recorded in",
+};
+
+const timezoneUploadInputSchema = (...args: Parameters<typeof uploadInputSchema>) => {
+	const base = uploadInputSchema(...args);
+	return { ...base, fields: { ...base.fields, timezone: timezoneInputField } };
+};
+
 export const fitnessPlugin = definePlugin({
 	crons: [],
 	operations: [],
@@ -68,7 +82,7 @@ export const fitnessPlugin = definePlugin({
 			requiredPluginConfigKeys: [],
 			exportHelp: importDocs("hevy"),
 			description: "Import workouts from a Hevy CSV export",
-			inputSchema: uploadInputSchema("Hevy export", "Hevy workout export CSV"),
+			inputSchema: timezoneUploadInputSchema("Hevy export", "Hevy workout export CSV"),
 		},
 		{
 			slug: "strong_app",
@@ -77,7 +91,7 @@ export const fitnessPlugin = definePlugin({
 			requiredPluginConfigKeys: [],
 			exportHelp: importDocs("strong-app"),
 			description: "Import workouts from a Strong CSV export",
-			inputSchema: uploadInputSchema("Strong App export", "Strong App workout export CSV"),
+			inputSchema: timezoneUploadInputSchema("Strong App export", "Strong App workout export CSV"),
 		},
 		{
 			name: "OpenScale",
