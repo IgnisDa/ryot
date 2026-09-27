@@ -402,7 +402,11 @@ Setup reports structured configuration, OAuth-client, and account-connection pre
 selected settings and installation. Scheduled integrations wait for readiness before admission.
 Accepted webhook deliveries can wait blocked for setup and resume automatically; their fixed
 seven-day deadline does not extend. Expiry releases captured inputs and is not a source error for
-continuous-error disabling. Started runs retain their selected configuration revisions through recovery.
+continuous-error disabling. At release, runs freeze `providerSpecifics`, `minimumProgress`,
+`maximumProgress`, and `syncOwnership` alongside plugin `userSettings` and the selected plugin and
+configuration revisions for replay. OAuth token validity and refresh remain live. The
+[Imports reference](../../kernel/backend/src/modules/imports/README.md) describes encrypted capture
+and blocked-release behavior.
 
 Collector-wide parsing or fetch failures report an unattributed source error and fail the run with
 its source failure reason. Attributed record errors remain partial results, and expected skips do
