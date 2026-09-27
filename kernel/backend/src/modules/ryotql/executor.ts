@@ -771,6 +771,7 @@ const querySetSql = (
 	executionScope: RyotQLExecutionScope,
 	scope: CompileScope,
 	additionalConditions: readonly SqlFragment[] = [],
+	rootSource?: SqlFragment,
 ): SqlFragment => {
 	const root = requireCompileTable(scope, query.from.alias);
 	const joins = (query.joins ?? []).map((join) => {
@@ -783,7 +784,7 @@ const querySetSql = (
 		...additionalConditions,
 	];
 	return sql`
-		FROM ${authorizedTable(root.table, executionScope)} ${sql.raw(root.alias)}
+		FROM ${rootSource ?? authorizedTable(root.table, executionScope)} ${sql.raw(root.alias)}
 		${sql.join(joins, sql` `)}
 		${conditions.length > 0 ? sql`WHERE ${sql.join(conditions, sql` AND `)}` : sql``}
 	`;
@@ -1092,8 +1093,15 @@ const compileInclude = (
 	executionScope: RyotQLExecutionScope,
 	ancestors: CompileScope,
 	path: readonly number[],
+	hoisted: SqlFragment[],
 ): SqlFragment => {
 	const scope = buildScope(include, executionScope, `i${path.join("_")}`, ancestors);
+	const root = requireCompileTable(scope, include.from.alias);
+	let rootSource: SqlFragment | undefined;
+	if (root.table.materializedInIncludes) {
+		rootSource = identifier(`i${path.join("_")}source`);
+		hoisted.push(sql`${rootSource} AS MATERIALIZED ${authorizedTable(root.table, executionScope)}`);
+	}
 	const orders = appendPrimaryKeyOrders(include, include.orderBy);
 	const orderMetadata = orders.map((order) => ({
 		direction: order.direction,
@@ -1107,7 +1115,7 @@ const compileInclude = (
 			: [compileExpression(field.expr, scope)],
 	);
 	const nestedValues = (include.include ?? []).map((nested, index) =>
-		compileInclude(nested, executionScope, scope, [...path, index]),
+		compileInclude(nested, executionScope, scope, [...path, index], hoisted),
 	);
 	const itemValues = [...fieldValues, ...nestedValues];
 	const item = sql`jsonb_build_array(${sql.join(itemValues, sql`, `)})`;
@@ -1129,7 +1137,7 @@ const compileInclude = (
 			SELECT "orderedIncludeRows".*, ROW_NUMBER() OVER (ORDER BY ${ordering}) AS "includeIndex"
 			FROM (
 				SELECT ${sql.join(columns, sql`, `)}
-				${querySetSql(include, executionScope, scope)}
+				${querySetSql(include, executionScope, scope, [], rootSource)}
 				ORDER BY ${queryOrdering}
 				LIMIT ${include.limit + 1}
 			) "orderedIncludeRows"
@@ -1157,9 +1165,10 @@ const compileRowsQuery = (
 	const orderColumns = orders.map(
 		(order, index) => sql`${compileCursorColumn(order.expr, scope)} AS ${identifier(`o${index}`)}`,
 	);
+	const hoisted: SqlFragment[] = [];
 	const includeColumns = (query.output.include ?? []).map(
 		(include, index) =>
-			sql`${compileInclude(include, executionScope, scope, [index])} AS ${identifier(`i${index}`)}`,
+			sql`${compileInclude(include, executionScope, scope, [index], hoisted)} AS ${identifier(`i${index}`)}`,
 	);
 	const columns = [...fieldColumns, ...includeColumns, ...orderColumns];
 	const pagination = query.output.pagination;
@@ -1167,6 +1176,7 @@ const compileRowsQuery = (
 	const cursorCondition = cursor ? [compileCursorPredicate(orders, cursor, scope)] : [];
 
 	return sql`
+		${hoisted.length > 0 ? sql`WITH ${sql.join(hoisted, sql`, `)}` : sql``}
 		SELECT ${sql.join(columns, sql`, `)}
 		${querySetSql(query, executionScope, scope, cursorCondition)}
 		ORDER BY ${queryOrdering}
