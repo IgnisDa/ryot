@@ -5,6 +5,19 @@ import type {
 } from "@ryot-app/contract/modules/god-mode/migration-report";
 import { Match } from "effect";
 
+export const migrationReportDetailKey = (detail: MigrationReportDetail) => {
+	if (detail.code === "workout-set-completion-outside-session") {
+		return `${detail.workoutId}:${detail.exerciseOrder}:${detail.setOrder}`;
+	}
+	if (
+		detail.code === "integration-cache-provider-unmapped" ||
+		detail.code === "integration-cache-entity-unresolved"
+	) {
+		return detail.legacyCacheId;
+	}
+	return detail.legacyRecordId;
+};
+
 export const migrationReportLevelPresentation = (level: MigrationReportLevel) =>
 	Match.value(level).pipe(
 		Match.when("info", () => ({ icon: "info", label: "Info", tone: "text-info" }) as const),
@@ -48,6 +61,11 @@ export const migrationReportDetailLabel = (detail: MigrationReportDetail) =>
 			(value) => value.parentName ?? `Progress marker ${value.legacyCacheId}`,
 		),
 		Match.when({ code: "exercise-ownerless-unreferenced" }, (value) => value.name),
+		Match.when(
+			{ code: "workout-set-completion-outside-session" },
+			(value) =>
+				`Workout ${value.workoutId} — exercise ${value.exerciseOrder ?? "unknown"}, set ${value.setOrder ?? "unknown"}`,
+		),
 		Match.orElse((value) => `${value.parentName} — ${positionLabel(value)}`),
 	);
 
@@ -86,6 +104,11 @@ export const migrationReportDetailSentence = (detail: MigrationReportDetail) =>
 			{ code: "exercise-ownerless-unreferenced" },
 			() => "This custom exercise had no creator and no V1 references, so it was omitted.",
 		),
+		Match.when(
+			{ code: "workout-set-completion-outside-session" },
+			() =>
+				"This set's completion timestamp falls outside the recorded workout interval. Its original completion time was kept unchanged.",
+		),
 		Match.exhaustive,
 	);
 
@@ -107,6 +130,15 @@ export const migrationReportDetailProvenance = (detail: MigrationReportDetail) =
 				["Legacy row", value.legacyRecordId],
 				["Source", value.source],
 				["Creator", value.creatorUserId],
+			]),
+			Match.when({ code: "workout-set-completion-outside-session" }, (value) => [
+				["Workout", value.workoutId],
+				["User", value.userId],
+				["Exercise order", value.exerciseOrder === null ? null : `${value.exerciseOrder}`],
+				["Set order", value.setOrder === null ? null : `${value.setOrder}`],
+				["Confirmed at", value.confirmedAt],
+				["Started at", value.startedAt],
+				["Ended at", value.endedAt],
 			]),
 			Match.orElse((value) => [
 				["Title", value.parentName],
