@@ -1,0 +1,122 @@
+query MetadataDetails($metadataId: String!) {
+	metadataDetails(metadataId: $metadataId) {
+		response {
+			id
+			lot
+			title
+			source
+			isNsfw
+			isPartial
+			sourceUrl
+			identifier
+			description
+			suggestions
+			publishYear
+			publishDate
+			providerRating
+			createdByUserId
+			productionStatus
+			originalLanguage
+			animeSpecifics {
+				episodes
+			}
+			audioBookSpecifics {
+				runtime
+			}
+			movieSpecifics {
+				runtime
+			}
+			genres {
+				id
+				name
+			}
+			groups {
+				id
+				part
+			}
+			watchProviders {
+				name
+				image
+				languages
+			}
+			bookSpecifics {
+				pages
+				isCompilation
+			}
+			mangaSpecifics {
+				volumes
+				chapters
+			}
+			comicBookSpecifics {
+				pageCount
+			}
+			assets {
+				...EntityAssetsPart
+			}
+			creators {
+				name
+				items {
+					isFree
+					idOrName
+					character
+				}
+			}
+			podcastSpecifics {
+				episodes {
+					id
+					title
+					overview
+					thumbnail
+					number
+					runtime
+					publishDate
+				}
+				totalEpisodes
+			}
+			showSpecifics {
+				totalSeasons
+				totalEpisodes
+				runtime
+				seasons {
+					id
+					seasonNumber
+					name
+					overview
+					backdropImages
+					posterImages
+					episodes {
+						id
+						name
+						runtime
+						overview
+						publishDate
+						posterImages
+						episodeNumber
+					}
+				}
+			}
+			visualNovelSpecifics {
+				length
+			}
+			videoGameSpecifics {
+				platformReleases {
+					name
+					releaseDate
+					releaseRegion
+				}
+				timeToBeat {
+					hastily
+					normally
+					completely
+				}
+			}
+			musicSpecifics {
+				duration
+				viewCount
+				discNumber
+				trackNumber
+				byVariousArtists
+			}
+		}
+	}
+}

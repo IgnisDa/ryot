@@ -1,0 +1,34 @@
+query PersonDetails($personId: String!) {
+	personDetails(personId: $personId) {
+		response {
+			associatedMetadata {
+				...PersonDetailsGroupedByRolePart
+			}
+			associatedMetadataGroups {
+				...PersonDetailsGroupedByRolePart
+			}
+			details {
+				id
+				name
+				place
+				source
+				gender
+				website
+				deathDate
+				birthDate
+				isPartial
+				sourceUrl
+				identifier
+				description
+				alternateNames
+				createdByUserId
+				associatedEntityCount
+				associatedMetadataCount
+				associatedMetadataGroupsCount
+				assets {
+					...EntityAssetsPart
+				}
+			}
+		}
+	}
+}

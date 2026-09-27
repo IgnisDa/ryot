@@ -1,0 +1,90 @@
+query UserDetails {
+	userDetails {
+		__typename
+		... on UserDetails {
+			id
+			lot
+			name
+			isDisabled
+			oidcIssuerId
+			accessLinkId
+			timesTwoFactorBackupCodesUsed
+			extraInformation {
+				isOnboardingTourCompleted
+				scheduledForWorkoutRevision
+			}
+			preferences {
+				languages {
+					providers {
+						source
+						preferredLanguage
+					}
+				}
+				general {
+					reviewScale
+					displayNsfw
+					landingPath
+					listPageSize
+					disableVideos
+					disableReviews
+					disableIntegrations
+					disableWatchProviders
+					disableNavigationAnimation
+					dashboard {
+						hidden
+						section
+						numElements
+						numDaysAhead
+						deduplicateMedia
+					}
+					watchProviders {
+						lot
+						values
+					}
+				}
+				fitness {
+					exercises {
+						unitSystem
+						setRestTimers {
+							...SetRestTimersPart
+						}
+					}
+					logging {
+						muteSounds
+						caloriesBurntUnit
+						promptForRestTimer
+						startTimerForDurationExercises
+					}
+					measurements {
+						statistics {
+							name
+							unit
+						}
+					}
+				}
+				featuresEnabled {
+					analytics {
+						enabled
+					}
+					others {
+						calendar
+						collections
+					}
+					fitness {
+						enabled
+						workouts
+						templates
+						measurements
+					}
+					media {
+						enabled
+						groups
+						people
+						genres
+						specific
+					}
+				}
+			}
+		}
+	}
+}
