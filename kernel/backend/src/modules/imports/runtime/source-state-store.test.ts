@@ -85,11 +85,16 @@ const runStateCase = (changeInput: boolean) =>
 		);
 		yield* Effect.gen(function* () {
 			const store = yield* ImportSourceStateStore;
-			const state = { ...ingestionTestSource, namedArtifactPaths: { history: original } };
+			const state = {
+				...ingestionTestSource,
+				namedArtifactPaths: { history: original },
+				executionSettings: { userSettings: { timezone: "Pacific/Auckland" } },
+			};
 			yield* store.store({ state, scope: ingestionTestScope });
 			const envelope = bytes.get("admitted-source");
 			expect(envelope).toBeDefined();
 			expect(new TextDecoder().decode(envelope)).not.toContain("private-credential");
+			expect(new TextDecoder().decode(envelope)).not.toContain("Pacific/Auckland");
 			expect(new TextDecoder().decode(envelope)).not.toContain(original);
 			if (changeInput) {
 				const exit = yield* store
@@ -107,6 +112,7 @@ const runStateCase = (changeInput: boolean) =>
 			yield* fs.remove(original);
 			const recovered = yield* store.materialize(ingestionTestScope);
 			expect(recovered.sourcePayload).toEqual({ apiKey: "private-credential" });
+			expect(recovered.executionSettings.userSettings).toEqual({ timezone: "Pacific/Auckland" });
 			expect(recovered.namedArtifactPaths["history"]).not.toBe(original);
 			assert(recovered.namedArtifactPaths["history"]);
 			expect(yield* fs.readFileString(recovered.namedArtifactPaths["history"])).toBe(

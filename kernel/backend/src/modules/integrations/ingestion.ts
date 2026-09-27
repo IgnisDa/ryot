@@ -26,11 +26,14 @@ import { reconcileDataIngestionBatch } from "#modules/imports/data-workflow";
 import { IngestionExecution } from "#modules/imports/execution-service";
 import { ImportsRepository } from "#modules/imports/repository";
 import type { IngestionRecoveryCursor } from "#modules/imports/runtime/recovery-cursor";
+import { ImportIntegrationExecutionSettings } from "#modules/imports/runtime/source-state";
 import { ImportSourceStateStore } from "#modules/imports/runtime/source-state-store";
 import { ImportRunError } from "#modules/imports/runtime/workflow-errors";
 import { ImportWorkflowPinning } from "#modules/imports/workflow-pinning";
 import { MutationReceipts } from "#modules/mutations/receipts";
 import { IngestionReadinessService } from "#modules/plugins/ingestion-readiness-service";
+import { PluginInstallationRepository } from "#modules/plugins/installation-repository";
+import { resolveStoredPluginUserSettings } from "#modules/plugins/user-settings";
 import { SandboxPluginScriptResolver } from "#modules/sandbox/plugin-script-resolver";
 import { SandboxExecutionService } from "#modules/sandbox/service";
 
@@ -49,6 +52,7 @@ export class IntegrationIngestion extends Context.Service<IntegrationIngestion>(
 			const database = yield* DatabaseSession;
 			const receipts = yield* MutationReceipts.make;
 			const readiness = yield* IngestionReadinessService;
+			const pluginInstallations = yield* PluginInstallationRepository;
 			const scripts = yield* SandboxPluginScriptResolver;
 			const pinning = yield* ImportWorkflowPinning;
 			const states = yield* ImportSourceStateStore;
@@ -280,6 +284,27 @@ export class IntegrationIngestion extends Context.Service<IntegrationIngestion>(
 						scriptId: script.id,
 						executionId: `${scope.runId}-import`,
 					};
+					const installation = yield* pluginInstallations.findUserSettingsForRevision({
+						userId: scope.userId,
+						pluginId: evaluated.provider.pluginId,
+						installationId: integration.pluginInstallationId,
+						pluginRevisionId: evaluated.pins.pluginRevisionId,
+					});
+					if (!installation) {
+						return yield* new ImportRunError({ message: "Plugin installation not found" });
+					}
+					const settingsSchema = installation.manifest.userSettingsSchema;
+					const userSettings = settingsSchema
+						? yield* resolveStoredPluginUserSettings(settingsSchema, installation.userSettings)
+						: {};
+					const integrationSettings = yield* Schema.decodeUnknownEffect(
+						ImportIntegrationExecutionSettings,
+					)({
+						syncOwnership: integration.syncOwnership,
+						minimumProgress: integration.minimumProgress,
+						maximumProgress: integration.maximumProgress,
+						providerSpecifics: integration.providerSpecifics,
+					});
 					yield* pinning.preRegister({
 						scope,
 						expectedPins: pins,
@@ -297,6 +322,7 @@ export class IntegrationIngestion extends Context.Service<IntegrationIngestion>(
 								source: integration.provider,
 								pluginId: evaluated.provider.pluginId,
 								pluginInstallationId: integration.pluginInstallationId,
+								executionSettings: { userSettings, integration: integrationSettings },
 								sourcePayload: { integrationScriptSlug, integrationId: integration.id },
 							},
 						},

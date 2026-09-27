@@ -237,13 +237,13 @@ const lifecycleDatabaseLayer = (noHooks = false) =>
 			const failChange = yield* Ref.make(false);
 			const planTransactions = yield* Ref.make<ReadonlyArray<string>>([]);
 			const config = makeAppConfigLayer({ database: { url: Redacted.make(database.url) } });
+			const databaseSession = DatabaseSession.layer;
 			return EventsService.layer.pipe(
 				Layer.provideMerge(
 					Layer.mergeAll(
-						EventsRepository.layer.pipe(Layer.provideMerge(DatabaseSession.layer)),
-						planner(failChange, noHooks, planTransactions).pipe(
-							Layer.provide(DatabaseSession.layer),
-						),
+						EventsRepository.layer.pipe(Layer.provideMerge(databaseSession)),
+						ImportsRepository.layer.pipe(Layer.provideMerge(databaseSession)),
+						planner(failChange, noHooks, planTransactions).pipe(Layer.provide(databaseSession)),
 						execution,
 						Layer.succeed(WorkflowEngine, engine),
 					),
@@ -1127,7 +1127,7 @@ describe("Event lifecycle PostgreSQL", () => {
 						AuthService,
 					);
 					const repository = yield* UserLifecycleRepository.make.pipe(
-						Effect.provideService(ImportsRepository, yield* ImportsRepository.make),
+						Effect.provideService(ImportsRepository, yield* ImportsRepository),
 					);
 					const lifecycle = yield* UserLifecycleService.make.pipe(
 						Effect.provideService(AuthService, auth),

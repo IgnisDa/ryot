@@ -66,6 +66,7 @@ const registeredSource = (
 		availableConfigKeys: overrides.configuredPluginConfigKeys ?? [],
 		scripts: [
 			{
+				capabilities: [],
 				slug: "nu-script",
 				oauthConnectionFields: [],
 				executableDependencies: [],
