@@ -55,7 +55,6 @@ import { Effect, Schema, defineExecutableAlternatives, defineManifest, defineScr
 
 export const manifest = defineManifest({
   kind: "workflow",
-  capabilities: [],
   name: "E2E archive import",
   slug: "workflow.e2e-archive-import",
 });
@@ -93,7 +92,6 @@ import { readNamedArtifact } from "@ryot-app/sandbox-sdk/filesystem";
 
 export const manifest = defineManifest({
   kind: "script",
-  capabilities: ["artifact-read"],
   name: "E2E validate archive",
   slug: "import.e2e-validate-archive",
 });
@@ -154,7 +152,7 @@ export const installTestImportPlugin = Effect.suspend(() => {
 			"backend/scripts/configured.sandbox.ts": `
 import { defineManifest, defineScript } from "@ryot-app/sandbox-sdk/driver";
 import { Effect, Schema } from "@ryot-app/sandbox-sdk/effect";
-export const manifest = defineManifest({ kind: "script", slug: "import.e2e-configured", name: "Configured import", capabilities: ["getPluginConfig"] });
+export const manifest = defineManifest({ kind: "script", slug: "import.e2e-configured", name: "Configured import" });
 export default defineScript({ manifest, input: Schema.Struct({}), output: Schema.Number, run: (_input, host) => host.getPluginConfig({ required: ["fixtureToken"] }).pipe(Effect.as(1)) });
 `,
 		},
@@ -202,7 +200,6 @@ import { defineManifest, defineWorkflow, Effect, Schema } from "@ryot-app/sandbo
 
 export const manifest = defineManifest({
   kind: "workflow",
-  capabilities: [],
   name: "E2E harvest handle import",
   slug: "workflow.e2e-harvest-handle-import",
 });
@@ -255,7 +252,6 @@ import { sandboxScratchManifestSchema, writeScratchChunks } from "@ryot-app/sand
 
 export const manifest = defineManifest({
   kind: "script",
-  capabilities: ["scratch"],
   name: "E2E write harvest chunk",
   slug: "import.e2e-write-harvest-chunk",
 });
@@ -334,7 +330,6 @@ import { defineManifest, defineWorkflow, Effect, Schema } from "@ryot-app/sandbo
 
 export const manifest = defineManifest({
   kind: "workflow",
-  capabilities: [],
   name: "E2E partial-result cancellation import",
   slug: ${JSON.stringify(workflowScriptSlug)},
 });
@@ -380,7 +375,6 @@ import { sandboxScratchManifestSchema, writeScratchChunks } from "@ryot-app/sand
 
 export const manifest = defineManifest({
   kind: "script",
-  capabilities: ["scratch"],
   name: "E2E partial-result cancellation chunk",
   slug: ${JSON.stringify(chunkScriptSlug)},
 });
@@ -577,7 +571,6 @@ import { Effect, defineManifest, defineWorkflow } from "@ryot-app/sandbox-sdk/wo
 
 export const manifest = defineManifest({
   kind: "workflow",
-  capabilities: [],
   name: "E2E import pinning",
   slug: ${JSON.stringify(scriptSlug)},
 });

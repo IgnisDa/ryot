@@ -128,6 +128,7 @@ const lockedSource: ImportSourceItem = {
 		scripts: [
 			{
 				slug: "import",
+				capabilities: [],
 				oauthConnectionFields: [],
 				executableDependencies: [],
 				optionalPluginConfigKeys: [],

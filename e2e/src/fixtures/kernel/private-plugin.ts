@@ -266,7 +266,6 @@ import { Effect, defineManifest, defineWorkflow } from "@ryot-app/sandbox-sdk/wo
 
 export const manifest = defineManifest({
   kind: "workflow",
-  capabilities: [],
   name: "E2E private import",
   slug: ${JSON.stringify(scriptSlug)},
 });
@@ -293,7 +292,6 @@ import { defineOperation } from "@ryot-app/sandbox-sdk/operation";
 import { Effect, Schema } from "@ryot-app/sandbox-sdk/effect";
 
 export const manifest = defineManifest({
-  capabilities: [],
   kind: "operation",
   name: "E2E private integration operation",
   slug: ${JSON.stringify(scriptSlug)},
