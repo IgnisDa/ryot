@@ -284,16 +284,18 @@ The subsequent phases reuse this slice's contracts, helpers, submission handling
 
 ### Phase 5 — Shared editor and picker UX
 
+**Status:** complete. Shared editor and picker UX are implemented; media and entry-point integration remain in later phases.
+
 **Files:** `plugins/fitness/client/workout-editor/`, shared recipes/contracts from earlier phases.
 
-- [ ] Build the compact/wide editor using `PluginScreenFrame`, SDK overlays/Back handling, registered icons, and bridged viewport/safe areas. Preserve 16px touch inputs, focus behavior, reduced-motion support, and accessible controls.
-- [ ] Implement name/comment/energy, live summary, active duration pause/resume, Finish/Save/Cancel, and local preference controls.
-- [ ] Implement all six exercise-kind input layouts, set types, add/delete, notes, RPE instructions, rest display/editing, confirmation/unconfirmation, execution countdown, and independent stopwatch.
-- [ ] Implement exercise notes/collapse, inline details/history, all three copy operations, and the approved Fitness Library picker with multi-selection, taxonomy/collection filters, sort, and saved picker presets.
-- [ ] Extend only the generic provider-add completion capability in the kernel/SDK. Implement the return-to-picker, automatic checking, eligibility, selection order, and same-kind single-selection replacement in Fitness.
-- [ ] Use `ReorderableList` for pointer/keyboard reordering. Implement superset create/edit/delete and cycling, plus bulk per-set/exercise deletion with group repair.
-- [ ] Keep inline prompted rest with explicit Start/Skip; zero rest progresses immediately.
-- [ ] Ensure historical/template modes share presentation but do not start live clocks or alert schedules.
+- [x] Build the compact/wide editor using `PluginScreenFrame`, SDK overlays/Back handling, registered icons, and bridged viewport/safe areas. Preserve 16px touch inputs, focus behavior, reduced-motion support, and accessible controls.
+- [x] Implement name/comment/energy, live summary, active duration pause/resume, Finish/Save/Cancel, and local preference controls.
+- [x] Implement all six exercise-kind input layouts, set types, add/delete, notes, RPE instructions, rest display/editing, confirmation/unconfirmation, execution countdown, and independent stopwatch.
+- [x] Implement exercise notes/collapse, inline details/history, all three copy operations, and the approved Fitness Library picker with multi-selection, taxonomy/collection filters, sort, and saved picker presets.
+- [x] Extend only the generic provider-add completion capability in the kernel/SDK. Implement the return-to-picker, automatic checking, eligibility, selection order, and same-kind single-selection replacement in Fitness.
+- [x] Use `ReorderableList` for pointer/keyboard reordering. Implement superset create/edit/delete and cycling, plus bulk per-set/exercise deletion with group repair.
+- [x] Keep inline prompted rest with explicit Start/Skip; zero rest progresses immediately.
+- [x] Ensure historical/template modes share presentation but do not start live clocks or alert schedules.
 
 **Exit:** DOM tests cover the user-facing inventory and the settled corrections, including immediate editing followed by Finish, reload recovery, repeated occurrences, and Back from nested overlays.
 
