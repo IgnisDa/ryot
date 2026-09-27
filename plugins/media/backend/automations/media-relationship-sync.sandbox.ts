@@ -9,7 +9,6 @@ export const manifest = defineManifest({
 	kind: "automation",
 	automationType: "automation",
 	requiredPluginConfigKeys: [],
-	requiredSystemConfigKeys: [],
 	capabilities: ["emitSignal"],
 	name: "Media Relationship Sync Detector",
 	slug: "automation.media-relationship-sync",

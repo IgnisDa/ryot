@@ -99,11 +99,7 @@ export const revisionPackage = (
 	const fixture = fixtureManifest();
 	const entity = fixture.entitySchemas[0];
 	assert(entity);
-	const common = {
-		capabilities: [] as const,
-		requiredPluginConfigKeys: [] as const,
-		requiredSystemConfigKeys: [] as const,
-	};
+	const common = { capabilities: [] as const, requiredPluginConfigKeys: [] as const };
 	const manifest: PluginManifest = {
 		...fixture,
 		metadata: { ...fixture.metadata, slug, version },

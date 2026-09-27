@@ -26,7 +26,6 @@ import { entityReadRecipe, executeRyotqlRecipe } from "@ryot-app/sandbox-sdk/ryo
 export const manifest = defineManifest({
   kind: "operation",
   requiredPluginConfigKeys: [],
-  requiredSystemConfigKeys: [],
   name: ${JSON.stringify(input.name)},
   slug: ${JSON.stringify(input.slug)},
   capabilities: [
@@ -109,7 +108,6 @@ export const manifest = defineManifest({
   kind: "workflow",
   capabilities: [],
   requiredPluginConfigKeys: [],
-  requiredSystemConfigKeys: [],
   name: ${JSON.stringify(input.name)},
   slug: ${JSON.stringify(input.slug)},
 });
@@ -163,7 +161,6 @@ describe("universal durable sandbox tracer", () => {
 							entry: operationEntry,
 							name: "Durable tracer",
 							requiredPluginConfigKeys: [],
-							requiredSystemConfigKeys: [],
 							capabilities: [
 								"log",
 								"span",
@@ -182,7 +179,6 @@ describe("universal durable sandbox tracer", () => {
 							entry: childEntry,
 							name: "Durable tracer child",
 							requiredPluginConfigKeys: [],
-							requiredSystemConfigKeys: [],
 						},
 					],
 				}),

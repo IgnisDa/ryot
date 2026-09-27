@@ -5,7 +5,6 @@ import { search } from "./shared";
 
 export const manifest = defineManifest({
 	kind: "provider",
-	requiredSystemConfigKeys: [],
 	name: "Spotify Person Search",
 	slug: "person.spotify.search",
 	requiredPluginConfigKeys: ["spotifyClientId", "spotifyClientSecret"],

@@ -9,7 +9,6 @@ export const manifest = defineManifest({
 	kind: "provider",
 	capabilities: ["httpCall"],
 	requiredPluginConfigKeys: [],
-	requiredSystemConfigKeys: [],
 	name: "YouTube Music translation",
 	slug: "music.youtube-music.translate",
 });

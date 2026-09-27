@@ -168,7 +168,6 @@ describe("POST /collections/memberships", () => {
 						slug: scriptSlug,
 						capabilities: [],
 						requiredPluginConfigKeys: [],
-						requiredSystemConfigKeys: [],
 						name: "Global fixture schema",
 					},
 				],

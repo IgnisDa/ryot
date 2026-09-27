@@ -9,7 +9,6 @@ export const manifest = defineManifest({
 	kind: "script",
 	name: "Jellyfin sink",
 	requiredPluginConfigKeys: [],
-	requiredSystemConfigKeys: [],
 	slug: "integration.jellyfin-sink",
 	capabilities: ["getCurrentIntegration"],
 });

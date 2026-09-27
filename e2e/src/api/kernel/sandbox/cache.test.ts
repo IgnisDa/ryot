@@ -32,7 +32,6 @@ export const manifest = defineManifest({
   slug: ${JSON.stringify(input.slug)},
   capabilities: [${JSON.stringify(input.operation === "details" ? "setCachedValue" : "getCachedValue")}],
   requiredPluginConfigKeys: [],
-  requiredSystemConfigKeys: [],
 });
 
 export default defineProvider({
@@ -109,7 +108,6 @@ const installCacheProviderScoped = (client: Client, key: string, value: string) 
 					entry: writerEntry,
 					name: "Cache writer",
 					requiredPluginConfigKeys: [],
-					requiredSystemConfigKeys: [],
 					providerOperation: "details",
 					capabilities: ["setCachedValue"],
 				},
@@ -121,7 +119,6 @@ const installCacheProviderScoped = (client: Client, key: string, value: string) 
 					name: "Cache reader",
 					providerOperation: "search",
 					requiredPluginConfigKeys: [],
-					requiredSystemConfigKeys: [],
 					capabilities: ["getCachedValue"],
 				},
 			],

@@ -5,7 +5,6 @@ export const manifest = defineManifest({
 	kind: "script",
 	capabilities: [],
 	requiredPluginConfigKeys: [],
-	requiredSystemConfigKeys: [],
 	name: "Fixture User Bootstrap",
 	slug: "fixture.user-bootstrap",
 });

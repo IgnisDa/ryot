@@ -12,7 +12,6 @@ export const manifest = defineManifest({
 	kind: "script",
 	slug: "import.spotify",
 	name: "Parse Spotify import",
-	requiredSystemConfigKeys: [],
 	requiredPluginConfigKeys: [],
 	capabilities: ["artifact-read"],
 });

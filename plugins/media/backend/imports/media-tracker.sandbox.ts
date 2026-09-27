@@ -10,7 +10,6 @@ export const manifest = defineManifest({
 	capabilities: ["httpCall"],
 	slug: "import.media_tracker",
 	requiredPluginConfigKeys: [],
-	requiredSystemConfigKeys: [],
 	name: "Fetch MediaTracker import",
 });
 

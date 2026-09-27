@@ -143,7 +143,6 @@ describe("backup lifecycle", () => {
 							capabilities: [],
 							name: "Backup asset fixture",
 							requiredPluginConfigKeys: [],
-							requiredSystemConfigKeys: [],
 						},
 					],
 				}),

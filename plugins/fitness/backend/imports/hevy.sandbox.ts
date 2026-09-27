@@ -11,7 +11,6 @@ export const manifest = defineManifest({
 	slug: "import.hevy",
 	name: "Parse Hevy import",
 	requiredPluginConfigKeys: [],
-	requiredSystemConfigKeys: [],
 	capabilities: ["artifact-read", "scratch"],
 });
 

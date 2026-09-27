@@ -96,7 +96,6 @@ describe("plugins", () => {
 				entry: detailsEntry,
 				kind: "provider" as const,
 				requiredPluginConfigKeys: [],
-				requiredSystemConfigKeys: [],
 				providerOperation: "details" as const,
 				name: "E2E Lifecycle Provider details",
 			} satisfies PluginScript;
@@ -107,7 +106,6 @@ describe("plugins", () => {
 				entry: searchEntry,
 				kind: "provider" as const,
 				requiredPluginConfigKeys: [],
-				requiredSystemConfigKeys: [],
 				providerOperation: "search" as const,
 				name: "E2E Lifecycle Provider search",
 			} satisfies PluginScript;
@@ -116,7 +114,6 @@ describe("plugins", () => {
 				entry: automationEntry,
 				kind: "automation" as const,
 				requiredPluginConfigKeys: [],
-				requiredSystemConfigKeys: [],
 				capabilities: ["createEvents"],
 				automationType: "automation" as const,
 				name: "E2E Lifecycle Event Automation",
@@ -150,7 +147,6 @@ export const manifest = defineManifest({
   kind: "automation",
   automationType: "automation",
   requiredPluginConfigKeys: [],
-  requiredSystemConfigKeys: [],
   name: "E2E Lifecycle Event Automation",
   slug: ${yield* Schema.encodeEffect(Schema.fromJsonString(Schema.String))(automationSlug)},
   capabilities: ["createEvents"],
