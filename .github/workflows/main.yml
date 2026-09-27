@@ -44,7 +44,7 @@ jobs:
               `${ghcrRegistry}/${owner}/${repositoryName}`,
               `${dockerUsername}/${repositoryName}-pro`,
               `${ghcrRegistry}/${owner}/${repositoryName}-pro`,
-            ];
+            ].map((repository) => repository.toLowerCase());
 
             let shouldRun = 'false';
             if (context.eventName === "push") {
