@@ -35,12 +35,12 @@ RUN rm -rf /app/packages/client-plugin-compiler
 FROM base AS runner
 RUN useradd -m -u 1001 ryot
 ARG TARGETARCH
-ARG DENO_VERSION=2.8.1
+ARG DENO_VERSION=2.9.7
 RUN apt-get update && apt-get install -y --no-install-recommends ca-certificates curl unzip && \
     DENO_ARCH="${TARGETARCH:-$(dpkg --print-architecture)}" && \
     case "$DENO_ARCH" in \
-    amd64) DENO_TARGET=x86_64-unknown-linux-gnu; DENO_SHA256=2d7bb6195226ac832e0bf7109a115f0af65ee69ac797a4bbde5b27a06cc242d9 ;; \
-    arm64) DENO_TARGET=aarch64-unknown-linux-gnu; DENO_SHA256=67e9df91870fd0af700df924173e3009ea7ff6956e2c3c3bb86065d6070d0fd6 ;; \
+    amd64) DENO_TARGET=x86_64-unknown-linux-gnu; DENO_SHA256=c6527f24f4b16031d3ae4fa9f658d5f11534c8d84ce7dc8502420280919c3490 ;; \
+    arm64) DENO_TARGET=aarch64-unknown-linux-gnu; DENO_SHA256=c832298b1ad4422481334855f6003e0f54145762c5a134f20a489511d2f65bbf ;; \
     *) echo "Unsupported architecture: $DENO_ARCH" >&2; exit 1 ;; \
     esac && \
     curl -fsSL "https://github.com/denoland/deno/releases/download/v${DENO_VERSION}/deno-${DENO_TARGET}.zip" -o /tmp/deno.zip && \
