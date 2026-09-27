@@ -6,11 +6,13 @@ import { decodeServerOrigin } from "#/api/origin";
 import {
 	ClientStorage,
 	pluginStorageKey,
+	PluginStorageAccessError,
 	PluginStorageQuotaError,
 	rememberedProviderKey,
 	SERVER_SELECTION_KEY,
 	savedViewLayoutKey,
 	THEME_PREFERENCE_KEY,
+	clientStorageLayer,
 } from "#/persistence/storage";
 import { FakeBrowserStorage, fakeClientStorageLayer } from "#/persistence/storage.test-layer";
 
@@ -255,18 +257,66 @@ describe("browser persistence", () => {
 	});
 
 	layer(fakeClientStorageLayer())((test) => {
-		test.effect("reads missing or unparseable plugin values as null", () => {
+		test.effect(
+			"returns null for missing values and rejects malformed data without deleting it",
+			() => {
+				const scope = { userId: "user-1", serverUrl: oneOrigin };
+				const media = PluginId.make("media");
+
+				return Effect.gen(function* () {
+					const service = yield* ClientStorage;
+					const storage = yield* FakeBrowserStorage;
+					expect(yield* service.getPluginValue(scope, media, "order")).toBeNull();
+					yield* storage.seed(pluginStorageKey(scope, media, "order"), "{not json");
+					const error = yield* Effect.flip(service.getPluginValue(scope, media, "order"));
+					expect(error).toBeInstanceOf(PluginStorageAccessError);
+					expect((yield* storage.values).get(pluginStorageKey(scope, media, "order"))).toBe(
+						"{not json",
+					);
+				});
+			},
+		);
+	});
+
+	layer(
+		fakeClientStorageLayer({
+			getItem: () => {
+				throw new Error("blocked read");
+			},
+			removeItem: () => {
+				throw new Error("blocked remove");
+			},
+		}),
+	)((test) => {
+		test.effect("reports plugin read and remove access errors", () => {
 			const scope = { userId: "user-1", serverUrl: oneOrigin };
 			const media = PluginId.make("media");
 
 			return Effect.gen(function* () {
 				const service = yield* ClientStorage;
-				const storage = yield* FakeBrowserStorage;
-				expect(yield* service.getPluginValue(scope, media, "order")).toBeNull();
-				yield* storage.seed(pluginStorageKey(scope, media, "order"), "{not json");
-				expect(yield* service.getPluginValue(scope, media, "order")).toBeNull();
+				const readError = yield* Effect.flip(service.getPluginValue(scope, media, "order"));
+				const removeError = yield* Effect.flip(service.removePluginValue(scope, media, "order"));
+				expect(readError).toBeInstanceOf(PluginStorageAccessError);
+				expect(removeError).toBeInstanceOf(PluginStorageAccessError);
 			});
 		});
+	});
+
+	layer(clientStorageLayer(undefined))((test) => {
+		test.effect("rejects plugin writes when browser storage is unavailable", () =>
+			Effect.gen(function* () {
+				const service = yield* ClientStorage;
+				const error = yield* Effect.flip(
+					service.setPluginValue(
+						{ userId: "user-1", serverUrl: oneOrigin },
+						PluginId.make("media"),
+						"order",
+						1,
+					),
+				);
+				expect(error).toBeInstanceOf(PluginStorageAccessError);
+			}),
+		);
 	});
 
 	layer(
@@ -274,6 +324,16 @@ describe("browser persistence", () => {
 			setItem: () => {
 				throw new DOMException("full", "QuotaExceededError");
 			},
+			entries: [
+				[
+					pluginStorageKey(
+						{ userId: "user-1", serverUrl: oneOrigin },
+						PluginId.make("media"),
+						"order",
+					),
+					'"existing"',
+				],
+			],
 		}),
 	)((test) => {
 		test.effect("surfaces a rejected plugin value write as a quota failure", () => {
@@ -285,6 +345,9 @@ describe("browser persistence", () => {
 					service.setPluginValue(scope, PluginId.make("media"), "order", 1),
 				);
 				expect(error).toBeInstanceOf(PluginStorageQuotaError);
+				expect(yield* service.getPluginValue(scope, PluginId.make("media"), "order")).toBe(
+					"existing",
+				);
 			});
 		});
 	});

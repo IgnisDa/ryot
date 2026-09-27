@@ -31,12 +31,24 @@ export class PluginStorage extends Context.Service<PluginStorage>()("PluginStora
 					return invalidRequest;
 				}
 				if (request.action === "get") {
-					const value = yield* storage.getPluginValue(scope, request.pluginId, request.key);
-					return { value, outcome: "success" } as const;
+					return yield* storage
+						.getPluginValue(scope, request.pluginId, request.key)
+						.pipe(
+							Effect.match({
+								onSuccess: (value) => ({ value, outcome: "success" }) as const,
+								onFailure: () => ({ outcome: "failure", reason: "transport" }) as const,
+							}),
+						);
 				}
 				if (request.action === "remove") {
-					yield* storage.removePluginValue(scope, request.pluginId, request.key);
-					return { value: null, outcome: "success" } as const;
+					return yield* storage
+						.removePluginValue(scope, request.pluginId, request.key)
+						.pipe(
+							Effect.match({
+								onSuccess: () => ({ value: null, outcome: "success" }) as const,
+								onFailure: () => ({ outcome: "failure", reason: "transport" }) as const,
+							}),
+						);
 				}
 				if (
 					new TextEncoder().encode(encodeValue(request.value)).byteLength >
@@ -49,7 +61,11 @@ export class PluginStorage extends Context.Service<PluginStorage>()("PluginStora
 					.pipe(
 						Effect.match({
 							onSuccess: () => ({ value: null, outcome: "success" }) as const,
-							onFailure: () => ({ reason: "quota", outcome: "failure" }) as const,
+							onFailure: (error) =>
+								({
+									outcome: "failure",
+									reason: error._tag === "PluginStorageQuotaError" ? "quota" : "transport",
+								}) as const,
 						}),
 					);
 			});
