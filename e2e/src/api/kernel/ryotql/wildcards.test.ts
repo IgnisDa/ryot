@@ -112,6 +112,7 @@ describe("RyotQL wildcard projections", () => {
 					"createdAt",
 					"entityId",
 					"entityName",
+					"eventSchemaPluginId",
 					"eventSchemaSlug",
 					"id",
 					"occurredAt",
@@ -188,6 +189,7 @@ describe("RyotQL wildcard projections", () => {
 				[
 					"createdAt",
 					"entityId",
+					"eventSchemaPluginId",
 					"eventSchemaSlug",
 					"id",
 					"occurredAt",
