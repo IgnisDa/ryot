@@ -36,11 +36,7 @@ import {
 	ClientArtifactGrantServiceLive,
 	ClientArtifactStoreLive,
 } from "#modules/client-artifacts/layer";
-import {
-	ClientDocumentGrantServiceLive,
-	ClientPagesServiceLive,
-} from "#modules/client-pages/layer";
-import { ClientPagesRepository } from "#modules/client-pages/repository";
+import { ClientPagesServiceLive } from "#modules/client-pages/layer";
 import {
 	AddEntityToCollectionWorkflowDefinitionsLive,
 	AddEntityToCollectionWorkflowOperationsLive,
@@ -214,7 +210,6 @@ const ServicesLive = Layer.mergeAll(
 	UserStateServiceLive,
 	UserBootstrapSchedulingLive,
 	ClientPagesServiceLive,
-	ClientDocumentGrantServiceLive,
 	ClientArtifactGrantServiceLive,
 	ClientArtifactStoreLive,
 	AutomationReconciliationLive,
@@ -224,7 +219,6 @@ const ServicesLive = Layer.mergeAll(
 	PluginCronServiceLive,
 	LifecycleServicesLive,
 	// HTTP routes consume these ports directly.
-	ClientPagesRepository.layer,
 	LifecycleWriteGuard.layer,
 	ObjectStorageServiceLive,
 	PluginCatalogHub.layer,

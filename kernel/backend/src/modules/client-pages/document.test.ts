@@ -28,27 +28,27 @@ const access = (privateHashes: readonly string[]) =>
 	);
 
 it("preloads all eager code and leaves public presentation-only artifacts unfetched", () => {
-	const html = renderClientDocument(manifest(), descriptions(), access([]), "composition-hash");
-	expect(html).toContain(`/api/client-assets/${"a".repeat(64)}/public/runtime.js`);
-	expect(html).toContain('"hash":"composition-hash"');
-	expect(html).toContain(
-		`<link rel="modulepreload" href="/api/client-assets/${"b".repeat(64)}/public/module.js"`,
+	const document = renderClientDocument(manifest(), descriptions(), access([]), "composition-hash");
+	expect(document.bootstrap).toBe(`/api/client-assets/${"a".repeat(64)}/public/bootstrap.js`);
+	expect(Object.values(document.importMap.imports)).toContain(
+		`/api/client-assets/${"a".repeat(64)}/public/runtime.js`,
 	);
-	expect(html).not.toContain(
-		`<link rel="modulepreload" href="/api/client-assets/${"c".repeat(64)}/public/module.js"`,
+	expect(document.metadata.hash).toBe("composition-hash");
+	expect(document.modulepreloads).toContain(
+		`/api/client-assets/${"b".repeat(64)}/public/module.js`,
 	);
-	expect(html).not.toContain(
-		`<link rel="stylesheet" href="/api/client-assets/${"c".repeat(64)}/public/module.css"`,
+	expect(document.modulepreloads).not.toContain(
+		`/api/client-assets/${"c".repeat(64)}/public/module.js`,
 	);
-	expect(html).toContain(
-		`"stylesheets":["/api/client-assets/${"c".repeat(64)}/public/module.css"]`,
+	expect(document.stylesheets).not.toContain(
+		`/api/client-assets/${"c".repeat(64)}/public/module.css`,
 	);
-	expect(html).toContain('<script type="importmap"');
-	expect(html.indexOf('<script type="importmap"')).toBeLessThan(
-		html.indexOf('<link rel="modulepreload"'),
-	);
-	expect(renderClientDocument(manifest(), descriptions(), access([]), "composition-hash")).toBe(
-		html,
+	expect(document.descriptor.automaticRegistry[0]?.stylesheets).toEqual([
+		`/api/client-assets/${"c".repeat(64)}/public/module.css`,
+	]);
+	expect(document.descriptor.automaticRegistry[0]).not.toHaveProperty("artifactClosure");
+	expect(renderClientDocument(manifest(), descriptions(), access([]), "composition-hash")).toEqual(
+		document,
 	);
 });
 
@@ -64,14 +64,10 @@ it("warms every supported file of an authorized lazy artifact without importing 
 			{ as: "fetch", type: "application/wasm", href: `${prefix}helper.wasm` },
 		]),
 	);
-	const html = renderClientDocument(
-		manifest(),
-		descriptions(),
-		access(["c".repeat(64)]),
-		"composition-hash",
-	);
-	expect(html).toContain(`<link rel="modulepreload" href="${prefix}module.js"`);
-	expect(html).not.toContain('import("@ryot-app/plugins/presentation/card")');
+	expect(
+		renderClientDocument(manifest(), descriptions(), access(["c".repeat(64)]), "composition-hash")
+			.modulepreloads,
+	).toContain(`${prefix}module.js`);
 });
 
 it("warms a private dependency of a public lazy presentation without preloading the public owner", () => {
@@ -205,7 +201,7 @@ layer(documentDependenciesLayer)((test) => {
 				},
 			};
 			return Effect.gen(function* () {
-				const html = yield* generateClientDocument(
+				const document = yield* generateClientDocument(
 					UserId.make("user-1"),
 					"composition-hash",
 					pageManifest,
@@ -214,9 +210,10 @@ layer(documentDependenciesLayer)((test) => {
 					"b".repeat(64),
 					"c".repeat(64),
 				]);
-				expect(html).toContain(`/api/client-assets/${"a".repeat(64)}/public/bootstrap.js`);
-				expect(html).toContain(`/api/client-assets/${"b".repeat(64)}/${"x".repeat(43)}/module.js`);
-				expect(html).toContain('"@ryot-app/plugins/page/alias"');
+				expect(document.bootstrap).toBe(`/api/client-assets/${"a".repeat(64)}/public/bootstrap.js`);
+				expect(document.importMap.imports["@ryot-app/plugins/page/alias"]).toBe(
+					`/api/client-assets/${"b".repeat(64)}/${"x".repeat(43)}/module.js`,
+				);
 			});
 		},
 	);
