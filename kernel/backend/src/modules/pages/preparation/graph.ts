@@ -195,11 +195,12 @@ export const resolveClientPageGraph = Effect.fn("Pages.resolve-composition-graph
 					([left], [right]) => comparePluginRoutePaths(left, right),
 				)
 			: [];
+	const homeExport = routes.find(([path]) => path === "/")?.[1];
 	let primaryExport: string | null | undefined = null;
 	if (!isKernel) {
 		primaryExport =
 			input.application === "plugin-route"
-				? routes.find(([path]) => path === "/")?.[1]
+				? (homeExport ?? routes[0]?.[1] ?? input.exportName)
 				: input.exportName;
 	}
 	if (!isKernel && input.plugin.manifest.client?.exports?.[primaryExport ?? ""]?.kind !== "page") {
@@ -211,7 +212,9 @@ export const resolveClientPageGraph = Effect.fn("Pages.resolve-composition-graph
 	const routeRegistry =
 		!isKernel && input.application === "plugin-route"
 			? {
-					home: pluginExportSpecifier(input.plugin, primaryExport ?? ""),
+					...(homeExport === undefined
+						? {}
+						: { home: pluginExportSpecifier(input.plugin, homeExport) }),
 					routes: routes
 						.filter(([path]) => path !== "/")
 						.map(([path, name]) => ({
