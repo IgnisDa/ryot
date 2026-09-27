@@ -3,8 +3,8 @@ import { Effect } from "@ryot-app/client-sdk/effect";
 import { disposePluginBridges, mountPluginPage, routeLocation } from "@ryot-app/client-sdk/testing";
 import { waitFor } from "@testing-library/dom";
 
+import type { WorkoutPresentationData } from "../shared/entity-presentations";
 import { WorkoutPresentation } from "./workout-presentation";
-import type { WorkoutPresentationData } from "./workout-presentation-query";
 
 const reference = {
 	name: "Push day",
@@ -16,9 +16,7 @@ const reference = {
 };
 
 const workout: WorkoutPresentationData = {
-	id: "workout-1",
 	name: "Push day",
-	setsHasMore: false,
 	endedAt: "2026-09-07T09:30:00.000Z",
 	startedAt: "2026-09-07T08:00:00.000Z",
 	exercises: [
@@ -33,15 +31,11 @@ const workout: WorkoutPresentationData = {
 					weight: 60,
 					id: "set-1",
 					setOrder: 0,
-					restTime: null,
 					duration: null,
 					distance: null,
 					exerciseOrder: 0,
-					confirmedAt: null,
-					personalBests: null,
 					exerciseId: "exercise-1",
 					exerciseName: "Bench Press",
-					occurredAt: "2026-09-07T08:10:00.000Z",
 				},
 			],
 		},
