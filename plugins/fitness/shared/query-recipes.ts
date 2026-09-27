@@ -27,12 +27,11 @@ import {
 } from "./entity-selections";
 
 type Table = ReturnType<typeof table>;
+type EntityFilterInput = { entityId?: string | undefined; name?: string | undefined };
+type EntityListInput = Pick<Parameters<typeof selectedRows>[1], "after" | "limit"> &
+	Pick<EntityFilterInput, "entityId">;
 
-const entityWhere = (
-	entity: Table,
-	schemaSlug: string,
-	input: { entityId?: string | undefined; name?: string | undefined },
-) =>
+const entityWhere = (entity: Table, schemaSlug: string, input: EntityFilterInput) =>
 	and(
 		eq(column(entity, "entitySchemaSlug"), literal(schemaSlug)),
 		...(input.entityId ? [eq(column(entity, "id"), literal(input.entityId))] : []),
@@ -92,12 +91,7 @@ const workoutInclude = (parent: Table, limit: number) => {
 };
 
 export const exerciseListRecipe = defineRecipe(
-	(input: {
-		name?: string | undefined;
-		after?: string | undefined;
-		limit?: number | undefined;
-		entityId?: string | undefined;
-	}) => {
+	(input: EntityListInput & Pick<EntityFilterInput, "name">) => {
 		const entity = table("entity", "entity");
 		return {
 			map: ({ exercises }) => Result.succeed(exercises),
@@ -123,78 +117,60 @@ export const exerciseListRecipe = defineRecipe(
 	},
 );
 
-export const workoutListRecipe = defineRecipe(
-	(input: {
-		after?: string | undefined;
-		limit?: number | undefined;
-		entityId?: string | undefined;
-	}) => {
-		const entity = table("entity", "entity");
-		return {
-			map: ({ workouts }) => Result.succeed(workouts),
-			queries: {
-				workouts: selectedRows(entity, {
-					after: input.after,
-					limit: input.limit,
-					selection: workoutSelection(entity),
-					where: entityWhere(entity, "workout", input),
-					orderBy: [ascending(column(entity, "name"))],
-				}),
-			},
-		};
-	},
-);
+export const workoutListRecipe = defineRecipe((input: EntityListInput) => {
+	const entity = table("entity", "entity");
+	return {
+		map: ({ workouts }) => Result.succeed(workouts),
+		queries: {
+			workouts: selectedRows(entity, {
+				after: input.after,
+				limit: input.limit,
+				selection: workoutSelection(entity),
+				where: entityWhere(entity, "workout", input),
+				orderBy: [ascending(column(entity, "name"))],
+			}),
+		},
+	};
+});
 
-export const measurementListRecipe = defineRecipe(
-	(input: {
-		after?: string | undefined;
-		limit?: number | undefined;
-		entityId?: string | undefined;
-	}) => {
-		const entity = table("entity", "entity");
-		return {
-			map: ({ measurements }) => Result.succeed(measurements),
-			queries: {
-				measurements: selectedRows(entity, {
-					after: input.after,
-					limit: input.limit,
-					orderBy: [ascending(column(entity, "name"))],
-					where: entityWhere(entity, "measurement", input),
-					selection: {
-						...entityIdentitySelection(entity),
-						comment: selectedField(property(entity, "comment"), Schema.NullOr(Schema.String)),
-						recordedAt: selectedField(
-							propertyDate(entity, "recordedAt"),
-							Schema.NullOr(Schema.String),
-						),
-					},
-				}),
-			},
-		};
-	},
-);
+export const measurementListRecipe = defineRecipe((input: EntityListInput) => {
+	const entity = table("entity", "entity");
+	return {
+		map: ({ measurements }) => Result.succeed(measurements),
+		queries: {
+			measurements: selectedRows(entity, {
+				after: input.after,
+				limit: input.limit,
+				orderBy: [ascending(column(entity, "name"))],
+				where: entityWhere(entity, "measurement", input),
+				selection: {
+					...entityIdentitySelection(entity),
+					comment: selectedField(property(entity, "comment"), Schema.NullOr(Schema.String)),
+					recordedAt: selectedField(
+						propertyDate(entity, "recordedAt"),
+						Schema.NullOr(Schema.String),
+					),
+				},
+			}),
+		},
+	};
+});
 
-export const workoutTemplateListRecipe = defineRecipe(
-	(input: {
-		after?: string | undefined;
-		limit?: number | undefined;
-		entityId?: string | undefined;
-	}) => {
-		const entity = table("entity", "entity");
-		return {
-			map: ({ workoutTemplates }) => Result.succeed(workoutTemplates),
-			queries: {
-				workoutTemplates: selectedRows(entity, {
-					after: input.after,
-					limit: input.limit,
-					selection: workoutTemplateSelection(entity),
-					orderBy: [descending(column(entity, "createdAt"))],
-					where: entityWhere(entity, "workout-template", input),
-				}),
-			},
-		};
-	},
-);
+export const workoutTemplateListRecipe = defineRecipe((input: EntityListInput) => {
+	const entity = table("entity", "entity");
+	return {
+		map: ({ workoutTemplates }) => Result.succeed(workoutTemplates),
+		queries: {
+			workoutTemplates: selectedRows(entity, {
+				after: input.after,
+				limit: input.limit,
+				selection: workoutTemplateSelection(entity),
+				orderBy: [descending(column(entity, "createdAt"))],
+				where: entityWhere(entity, "workout-template", input),
+			}),
+		},
+	};
+});
 
 export const workoutDetailRecipe = defineRecipe(
 	(input: { entityId: string; templateLimit: number }) => {
