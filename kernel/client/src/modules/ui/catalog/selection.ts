@@ -40,7 +40,7 @@ const pluginScopeLabel = (scope: PluginPackageReference["scope"] | null) =>
 		Match.exhaustive,
 	);
 
-export const pluginInstallationLabel = (input: {
+const pluginInstallationLabel = (input: {
 	readonly name: string;
 	readonly packageId: PluginPackageId | null;
 	readonly scope: PluginPackageReference["scope"] | null;
