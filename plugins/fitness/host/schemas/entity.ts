@@ -1,3 +1,4 @@
+import { exerciseTargetKinds } from "../../shared/taxonomy";
 import {
 	exercisePropertiesSchema,
 	measurementPropertiesSchema,
@@ -47,6 +48,43 @@ const fitnessEntitySchemaDefinitions = [
 			{ name: "Workout Set", slug: "workout-set", propertiesSchema: workoutSetPropertiesSchema },
 			{ name: "Review", slug: "review", propertiesSchema: reviewPropertiesSchema },
 		],
+	},
+	{
+		icon: "target",
+		eventSchemas: [],
+		slug: "exercise-target",
+		name: "Exercise Target",
+		propertiesSchema: {
+			fields: {
+				description: {
+					type: "string",
+					label: "Description",
+					description: "Optional description of this exercise target",
+				},
+				kind: {
+					type: "enum",
+					label: "Kind",
+					validation: { required: true },
+					description: "Type of anatomical target",
+					choices: { kind: "static", values: exerciseTargetKinds.map((value) => ({ value })) },
+				},
+			},
+		},
+	},
+	{
+		icon: "dumbbell",
+		eventSchemas: [],
+		slug: "exercise-equipment",
+		name: "Exercise Equipment",
+		propertiesSchema: {
+			fields: {
+				description: {
+					type: "string",
+					label: "Description",
+					description: "Optional description of this exercise equipment",
+				},
+			},
+		},
 	},
 	{
 		slug: "workout",

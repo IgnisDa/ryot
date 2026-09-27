@@ -1,7 +1,13 @@
 import { parseCsvText } from "./csv";
-import { nowIso } from "./dates";
+import { nowIso, parseDateWithFormat } from "./dates";
 import { getOrCreateMediaEntityGroup, type ImportMediaEntityGroupBuilder } from "./groups";
-import { assertRequiredHeaders, createBacklogEvent, finalizeEntityGroups } from "./helpers";
+import {
+	assertRequiredHeaders,
+	createBacklogEvent,
+	createCompleteEvent,
+	createReviewEvent,
+	finalizeEntityGroups,
+} from "./helpers";
 import type { MediaImportAdapterFailure } from "./schemas";
 
 const getEntitySchemaSlug = (titleType: string) => {
@@ -41,6 +47,34 @@ export const adaptImdbCsv = (csvText: string, importedAt = nowIso()) => {
 			});
 			continue;
 		}
+		const ratingText = row["Your Rating"]?.trim() ?? "";
+		const rating = ratingText ? Number(ratingText) : null;
+		if (
+			rating !== null &&
+			(!/^[+-]?\d+(?:\.\d+)?$/.test(ratingText) || rating < 1 || rating > 10)
+		) {
+			failures.push({
+				itemIndex,
+				sourceLabel,
+				sourceIdentifier: imdbId,
+				message: `Invalid rating '${ratingText}', must be between 1 and 10`,
+			});
+			continue;
+		}
+		const dateRated = row["Date Rated"]?.trim() ?? "";
+		const completedOn = dateRated
+			? (parseDateWithFormat(dateRated, "YYYY-MM-DD") ??
+				parseDateWithFormat(dateRated, "YYYY/MM/DD"))
+			: null;
+		if (dateRated && (!completedOn || completedOn.slice(0, 10) !== dateRated.replace(/\//g, "-"))) {
+			failures.push({
+				itemIndex,
+				sourceLabel,
+				sourceIdentifier: imdbId,
+				message: `Invalid date rated '${dateRated}'`,
+			});
+			continue;
+		}
 		const group = getOrCreateMediaEntityGroup(
 			groupMap,
 			{
@@ -52,7 +86,23 @@ export const adaptImdbCsv = (csvText: string, importedAt = nowIso()) => {
 			},
 			itemIndex,
 		);
-		group.events.push(createBacklogEvent(importedAt));
+		if (rating !== null || completedOn !== null) {
+			const occurredAt = completedOn ?? importedAt;
+			const complete = createCompleteEvent({ occurredAt, completedOn });
+			group.events.push({
+				...complete,
+				properties: { ...complete.properties, consumedOn: "imdb" },
+			});
+			const review = createReviewEvent({
+				occurredAt,
+				rating: rating === null ? null : rating * 10,
+			});
+			if (review) {
+				group.events.push(review);
+			}
+		} else {
+			group.events.push(createBacklogEvent(importedAt));
+		}
 	}
 	return {
 		failures,

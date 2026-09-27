@@ -36,11 +36,7 @@ import {
 	ClientArtifactGrantServiceLive,
 	ClientArtifactStoreLive,
 } from "#modules/client-artifacts/layer";
-import {
-	ClientDocumentGrantServiceLive,
-	ClientPagesServiceLive,
-} from "#modules/client-pages/layer";
-import { ClientPagesRepository } from "#modules/client-pages/repository";
+import { ClientPagesServiceLive } from "#modules/client-pages/layer";
 import {
 	AddEntityToCollectionWorkflowDefinitionsLive,
 	AddEntityToCollectionWorkflowOperationsLive,
@@ -56,6 +52,7 @@ import {
 	EventCreateWorkflowDefinitionsProvidedLive,
 	EventsServiceLive,
 } from "#modules/events/layer";
+import { WorkflowGarbageCollector } from "#modules/garbage-collection/workflows";
 import { GodModeServiceLive } from "#modules/god-mode/layer";
 import { CancelImportRunWorkflowDefinitionsLive } from "#modules/imports/cancel-workflow";
 import { ImportRunCancellationService } from "#modules/imports/cancellation-service";
@@ -217,16 +214,15 @@ const ServicesLive = Layer.mergeAll(
 	UserStateServiceLive,
 	UserBootstrapSchedulingLive,
 	ClientPagesServiceLive,
-	ClientDocumentGrantServiceLive,
 	ClientArtifactGrantServiceLive,
 	ClientArtifactStoreLive,
 	AutomationReconciliationLive,
 	AutomationRetentionLive,
+	WorkflowGarbageCollector.layer,
 	PluginConfigEncryptionKey.layer,
 	PluginCronServiceLive,
 	LifecycleServicesLive,
 	// HTTP routes consume these ports directly.
-	ClientPagesRepository.layer,
 	LifecycleWriteGuard.layer,
 	ObjectStorageServiceLive,
 	PluginCatalogHub.layer,

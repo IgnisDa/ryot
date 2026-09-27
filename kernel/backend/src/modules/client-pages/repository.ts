@@ -46,19 +46,6 @@ export class ClientPagesRepository extends Context.Service<ClientPagesRepository
 				return row ?? null;
 			});
 
-			const findCompositionByHash = Effect.fn("ClientPagesRepository.findCompositionByHash")(
-				function* (compositionHash: string) {
-					const [row] = yield* session.run((db) =>
-						db
-							.select()
-							.from(schema.clientPageComposition)
-							.where(eq(schema.clientPageComposition.compositionHash, compositionHash))
-							.limit(1),
-					);
-					return row ?? null;
-				},
-			);
-
 			const createComposition = Effect.fn("ClientPagesRepository.createComposition")(
 				function* (input: {
 					readonly compositionKey: string;
@@ -86,7 +73,7 @@ export class ClientPagesRepository extends Context.Service<ClientPagesRepository
 					return row?.compositionKey ?? existing?.compositionKey ?? input.compositionKey;
 				},
 			);
-			return { findComposition, createComposition, findPreparedTarget, findCompositionByHash };
+			return { findComposition, createComposition, findPreparedTarget };
 		}),
 	},
 ) {
