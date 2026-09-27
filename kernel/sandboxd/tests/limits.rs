@@ -167,6 +167,46 @@ fn array_buffers_and_external_memory_are_contained() {
     }
 }
 
+#[test]
+fn execution_usage_reports_peak_heap_and_external_memory() {
+    let mut sidecar = support::spawn(Tier::Core, &[]);
+    let idle = sidecar.execute(Tier::Core, "export default () => 1", Value::Null);
+    let allocating = sidecar.execute(
+        Tier::Core,
+        "export default () => { let kept = Array.from({ length: 400000 }, (_, i) => ({ i, text: 'x' + i })); let buffer = new ArrayBuffer(24 * 1024 * 1024); const size = kept.length + buffer.byteLength; kept = null; buffer = null; return size; }",
+        Value::Null,
+    );
+    let limited = sidecar.execute_with(
+        Tier::Core,
+        "export default () => { const kept = []; for (;;) kept.push({ value: kept.length, text: 'x' + kept.length }); }",
+        Value::Null,
+        Limits {
+            cpu_ms: 30_000,
+            ..tight()
+        },
+    );
+    assert_eq!(idle.value(), json!(1));
+    assert!(
+        idle.usage.heap_bytes > 0 && idle.usage.heap_bytes < 32 * MIB,
+        "{:?}",
+        idle.usage
+    );
+    assert!(idle.usage.external_bytes < MIB, "{:?}", idle.usage);
+    assert_eq!(allocating.value(), json!(400_000 + 24 * MIB));
+    assert!(
+        allocating.usage.heap_bytes >= idle.usage.heap_bytes + 16 * MIB,
+        "{:?}",
+        allocating.usage
+    );
+    assert!(
+        allocating.usage.external_bytes >= 24 * MIB,
+        "{:?}",
+        allocating.usage
+    );
+    assert_eq!(limit_of(&limited.outcome), Some(LimitKind::Heap));
+    assert!(limited.usage.heap_bytes >= 24 * MIB, "{:?}", limited.usage);
+}
+
 /// Measurement for S6: with the counting allocator cap raised to its maximum, V8's own heap and
 /// external-memory accounting still stops retained ArrayBuffer growth.
 #[test]
