@@ -14,6 +14,7 @@ import { databaseLayer } from "#lib/test-utils/effect";
 import { testExecutionId, testRedisServiceLayer } from "#lib/test-utils/redis";
 import { stubRuntimeSandboxService } from "#lib/test-utils/sandbox-runtime";
 
+import { SandboxCompiledArtifacts } from "./compiled-artifacts";
 import { SandboxDurableHostDispatcher } from "./durable-host-dispatcher";
 import { executeSandboxExecution, SandboxExecutionQueue } from "./durable-queues";
 import { KernelWorkflowReferences } from "./kernel-workflow-references";
@@ -116,6 +117,8 @@ case "$EXECUTION_ID" in
 esac
 `;
 const replacementContent = "printf 'completed:active-v2'";
+const historicalContentHash = sha256Hex(historicalContent);
+const replacementContentHash = sha256Hex(replacementContent);
 const hotSwapScript = (id: typeof historicalScriptId, compiledCode: string) => ({
 	id,
 	compiledCode,
@@ -127,7 +130,7 @@ const hotSwapScript = (id: typeof historicalScriptId, compiledCode: string) => (
 	source: compiledCode,
 	createdAt: new Date(0),
 	updatedAt: new Date(0),
-	contentHash: id === historicalScriptId ? "historical-hash" : "active-hash",
+	contentHash: id === historicalScriptId ? historicalContentHash : replacementContentHash,
 	metadata: {
 		...emptySandboxExecutionMetadata,
 		name: "Workflow",
@@ -137,6 +140,15 @@ const hotSwapScript = (id: typeof historicalScriptId, compiledCode: string) => (
 });
 const historical = hotSwapScript(historicalScriptId, historicalContent);
 const replacement = hotSwapScript(activeScriptId, replacementContent);
+const hotSwapRepositoryLayer = Layer.mock(SandboxRepository)({
+	isPluginScript: () => Effect.succeed(true),
+	getScript: (scriptId) =>
+		Effect.succeed(scriptId === historicalScriptId ? historical : replacement),
+});
+const hotSwapArtifactsLayer = Layer.effect(
+	SandboxCompiledArtifacts,
+	SandboxCompiledArtifacts.make,
+).pipe(Layer.provideMerge(hotSwapRepositoryLayer));
 
 class ActiveScript extends Context.Service<
 	ActiveScript,
@@ -172,8 +184,8 @@ it("uses the sandbox execution id as the durable queue identity", () => {
 			providerId: null,
 			pluginRevision: null,
 			scriptSlug: "workflow",
-			contentHash: "historical-hash",
 			metadata: { runtimeImports: [] },
+			contentHash: historicalContentHash,
 			subject: { type: "system" as const },
 			scriptId: SandboxScriptId.make("historical-script-id"),
 		},
@@ -191,11 +203,7 @@ layer(
 				dispatcherLayer,
 				kernelReferencesLayer,
 				Layer.mock(SandboxWorkflowReferenceRepository)({}),
-				Layer.mock(SandboxRepository)({
-					isPluginScript: () => Effect.succeed(true),
-					getScript: (scriptId) =>
-						Effect.succeed(scriptId === historicalScriptId ? historical : replacement),
-				}),
+				hotSwapArtifactsLayer,
 				hotSwapResolverLayer,
 				runtimeSandboxLayer((input) => {
 					let value = "completed:active-v2";
@@ -262,9 +270,10 @@ layer(
 				expect(replayed.value).toBe("completed:pinned-v1");
 				expect(executedContent).toEqual([historicalContent, historicalContent]);
 				expect(runs.map((run) => run.principal.contentHash)).toEqual([
-					"historical-hash",
-					"historical-hash",
+					historicalContentHash,
+					historicalContentHash,
 				]);
+				expect(yield* (yield* RecordedRuns).reserved).toEqual(["interactive", "interactive"]);
 				expect(replayed).toMatchObject({ recovery: recoveryIdentity("execution-id-replay-1") });
 				expect(executedContent).not.toContain(replacementContent);
 			});
@@ -274,6 +283,25 @@ layer(
 
 const queuedScriptId = SandboxScriptId.make("queued-script-id");
 const kernelScriptId = SandboxScriptId.make("kernel-script-id");
+const queuedCode = "queued-version";
+const kernelCode = "kernel-version";
+const queuedContentHash = sha256Hex(queuedCode);
+const kernelContentHash = sha256Hex(kernelCode);
+const queuedRepositoryLayer = Layer.mock(SandboxRepository)({
+	getScript: (scriptId) =>
+		Effect.succeed({
+			id: scriptId,
+			compiledFormat: 1,
+			metadata: { runtimeImports: [] },
+			providerId: scriptId === queuedScriptId ? "provider-id" : null,
+			compiledCode: scriptId === queuedScriptId ? queuedCode : kernelCode,
+			contentHash: scriptId === queuedScriptId ? queuedContentHash : kernelContentHash,
+		}),
+});
+const queuedArtifactsLayer = Layer.effect(
+	SandboxCompiledArtifacts,
+	SandboxCompiledArtifacts.make,
+).pipe(Layer.provideMerge(queuedRepositoryLayer));
 
 layer(
 	Layer.mergeAll(
@@ -281,17 +309,7 @@ layer(
 		testRedisServiceLayer,
 		dispatcherLayer,
 		kernelReferencesLayer,
-		Layer.mock(SandboxRepository)({
-			getScript: (scriptId) =>
-				Effect.succeed({
-					id: scriptId,
-					compiledFormat: 1,
-					compiledCode: "queued-version",
-					metadata: { runtimeImports: [] },
-					providerId: scriptId === queuedScriptId ? "provider-id" : null,
-					contentHash: scriptId === queuedScriptId ? "queued-hash" : "kernel-hash",
-				}),
-		}),
+		queuedArtifactsLayer,
 		runtimeSandboxLayer((input) =>
 			Effect.succeed({
 				logs: [],
@@ -317,8 +335,8 @@ layer(
 					scriptSlug: "queued",
 					pluginRevision: null,
 					scriptId: queuedScriptId,
-					contentHash: "queued-hash",
 					subject: { type: "system" },
+					contentHash: queuedContentHash,
 					metadata: { runtimeImports: [] },
 					providerId: SandboxProviderId.make("provider-id"),
 				},
@@ -333,29 +351,49 @@ layer(
 					scriptSlug: "kernel",
 					pluginRevision: null,
 					scriptId: kernelScriptId,
-					contentHash: "kernel-hash",
 					subject: { type: "system" },
+					contentHash: kernelContentHash,
 					metadata: { runtimeImports: [] },
 				},
 			});
 			const runs = yield* (yield* RecordedRuns).runs;
 
-			expect(runs.at(-1)?.compiledCode).toBe("queued-version");
+			expect(runs.map((run) => run.compiledCode)).toEqual([queuedCode, kernelCode]);
 			expect(runs.map((run) => run.principal.scriptId)).toEqual([queuedScriptId, kernelScriptId]);
 			expect(runs.map((run) => run.principal.providerId)).toEqual(["provider-id", null]);
-			expect(runs.map((run) => run.principal.contentHash)).toEqual(["queued-hash", "kernel-hash"]);
+			expect(runs.map((run) => run.principal.contentHash)).toEqual([
+				queuedContentHash,
+				kernelContentHash,
+			]);
 			expect(result.value).toBe("queued-result");
 		}),
 	);
 });
 
 const inlineScriptId = SandboxScriptId.make("inline-script-id");
+const inlineCode = "code";
+const inlineContentHash = sha256Hex(inlineCode);
+const inlineRepositoryLayer = Layer.mock(SandboxRepository)({
+	getScript: () =>
+		Effect.succeed({
+			providerId: null,
+			compiledFormat: 1,
+			id: inlineScriptId,
+			compiledCode: inlineCode,
+			contentHash: inlineContentHash,
+			metadata: { runtimeImports: [] },
+		}),
+});
+const inlineArtifactsLayer = Layer.effect(
+	SandboxCompiledArtifacts,
+	SandboxCompiledArtifacts.make,
+).pipe(Layer.provideMerge(inlineRepositoryLayer));
 const inlinePrincipal = (capabilities: ReadonlyArray<string>) => ({
 	providerId: null,
 	pluginRevision: null,
 	scriptSlug: "inline",
 	scriptId: inlineScriptId,
-	contentHash: "inline-hash",
+	contentHash: inlineContentHash,
 	subject: { type: "system" as const },
 	metadata: { runtimeImports: [], capabilities: [...capabilities] },
 });
@@ -373,17 +411,7 @@ layer(
 		testRedisServiceLayer,
 		settlingDispatcherLayer,
 		kernelReferencesLayer,
-		Layer.mock(SandboxRepository)({
-			getScript: () =>
-				Effect.succeed({
-					providerId: null,
-					compiledFormat: 1,
-					id: inlineScriptId,
-					compiledCode: "code",
-					contentHash: "inline-hash",
-					metadata: { runtimeImports: [] },
-				}),
-		}),
+		inlineArtifactsLayer,
 		runtimeSandboxLayer((input) =>
 			Effect.gen(function* () {
 				const inline = input.inlineDurableHost;
@@ -540,7 +568,11 @@ layer(
 		testRedisServiceLayer,
 		dispatcherLayer,
 		kernelReferencesLayer,
-		Layer.mock(SandboxRepository)({ getScript: () => Effect.die("script must not load") }),
+		Layer.effect(SandboxCompiledArtifacts, SandboxCompiledArtifacts.make).pipe(
+			Layer.provideMerge(
+				Layer.mock(SandboxRepository)({ getScript: () => Effect.die("script must not load") }),
+			),
+		),
 		runtimeSandboxLayer(() => Effect.die("sandbox must not start")),
 	),
 )((test) => {
