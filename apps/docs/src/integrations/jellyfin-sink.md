@@ -4,7 +4,7 @@ Automatically add new [Jellyfin](https://jellyfin.org) movie and show plays to R
 will work for all the media that have a valid TMDb ID (or TVDB ID, if selected in the
 integration settings) attached to their metadata.
 
-Both webhook plugins are supported and detected automatically:
+Two kinds of webhook plugins are supported and detected automatically:
 
 - [Official webhook plugin](https://github.com/jellyfin/jellyfin-plugin-webhook)
   (available in the Jellyfin plugin catalog)
