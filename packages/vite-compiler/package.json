@@ -22,7 +22,7 @@
 		"@effect/platform-bun": "4.0.0",
 		"@effect/vitest": "4.0.0",
 		"@ryot-app/testing": "workspace:*",
-		"bun-types": "1.4.2",
+		"bun-types": "1.4.3",
 		"typescript": "7.0.2",
 		"vitest": "4.1.9"
 	}
