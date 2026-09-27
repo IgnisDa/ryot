@@ -124,9 +124,9 @@ describe("workout set policy", () => {
 									set: {
 										oneRm: 6.047899,
 										volume: 45.35924,
-										weight: 4.535924,
-										distance: 4.02336,
 										unitSystem: "metric",
+										weight: 10 * 0.45359237,
+										distance: 2.5 * 1.609344,
 									},
 								},
 							},
