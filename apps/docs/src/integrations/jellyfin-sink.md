@@ -30,8 +30,7 @@ URL. It looks like `https://<instance_url>/_i/<slug>`.
 
 ### Option A: Send all properties (no template needed)
 
-Enable the `Send all properties` option on the destination. Ryot reads the flat
-payload (`NotificationType`, `ItemType`, `Provider_tmdb`, ticks, ...) directly.
+Enable the `Send all properties` option on the destination.
 
 ### Option B: Custom template (movies only)
 
