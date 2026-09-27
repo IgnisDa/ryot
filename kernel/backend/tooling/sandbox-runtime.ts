@@ -6,6 +6,7 @@ import { sandboxRuntimeInputs } from "@ryot-app/sandbox-compiler/runtime-build/i
 import { buildSandboxRuntimePayload } from "@ryot-app/sandbox-compiler/runtime-build/payload";
 import { walkSourceFiles } from "@ryot-app/sandbox-compiler/runtime-build/source-tree";
 import { canonicalFileSetHash } from "@ryot-app/ts-utils/crypto";
+import { encodeJsonString } from "@ryot-app/ts-utils/json";
 import { buildDenoEsm, ViteBuildService } from "@ryot-app/vite-compiler";
 import { Data, Effect, FileSystem, Layer, Path, Ref, Schema } from "effect";
 
@@ -16,7 +17,6 @@ class RunnerGenerationError extends Data.TaggedError("RunnerGenerationError")<{
 	message: string;
 }> {}
 
-const encodeGeneratedString = Schema.encodeSync(Schema.fromJsonString(Schema.String));
 const encodeJson = Schema.encodeSync(Schema.fromJsonString(Schema.Unknown));
 
 const sandboxSource = (file: string) => file.endsWith(".sandbox.ts");
@@ -32,9 +32,7 @@ const embedKernelScripts = (kernelDirectory: string) =>
 		);
 		const entries = Object.entries(scripts)
 			.sort(([left], [right]) => left.localeCompare(right))
-			.map(
-				([entry, source]) => `\t${encodeGeneratedString(entry)}: ${encodeGeneratedString(source)},`,
-			)
+			.map(([entry, source]) => `\t${encodeJsonString(entry)}: ${encodeJsonString(source)},`)
 			.join("\n");
 		yield* fs.writeFileString(
 			path.join(kernelDirectory, "src/modules/definition-registry/kernel-scripts.generated.ts"),
@@ -86,7 +84,7 @@ const compileRunner = (sandboxRuntimeDirectory: string) =>
 		);
 		yield* fs.writeFileString(
 			`${sandboxRuntimeDirectory}/runner.generated.ts`,
-			`export const sandboxRunnerSource = ${encodeGeneratedString(javascript)};\n`,
+			`export const sandboxRunnerSource = ${encodeJsonString(javascript)};\n`,
 		);
 		yield* Effect.logInfo("Compiled Deno sandbox runner");
 	});

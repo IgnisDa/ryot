@@ -1,8 +1,7 @@
 #!/usr/bin/env bun
 
-import { Effect, Schema } from "effect";
-
-const encodeGeneratedString = Schema.encodeSync(Schema.fromJsonString(Schema.String));
+import { encodeJsonString } from "@ryot-app/ts-utils/json";
+import { Effect } from "effect";
 
 const sourceRoot = new URL("../src/", import.meta.url);
 
@@ -18,7 +17,7 @@ const entries = await Effect.runPromise(
 	Effect.forEach(paths, (path) =>
 		Effect.map(
 			Effect.promise(() => Bun.file(new URL(path, sourceRoot)).text()),
-			(source) => `\t${encodeGeneratedString(`client/${path}`)}: ${encodeGeneratedString(source)},`,
+			(source) => `\t${encodeJsonString(`client/${path}`)}: ${encodeJsonString(source)},`,
 		),
 	),
 );
