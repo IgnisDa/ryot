@@ -81,6 +81,21 @@ export type PersistItem = {
 };
 export type MutationReceiptRecord = Parameters<MutationReceipts["Service"]["insert"]>[0];
 
+export const mutationReceiptRecord = (input: {
+	readonly index: number;
+	readonly result: unknown;
+	readonly identity: MutationReceiptIdentity;
+	readonly batch: PersistBatch | null | undefined;
+	readonly dispatch: ReadonlyArray<LifecycleDispatchPlan>;
+	readonly evidence?: MutationReceiptRecord["evidence"];
+}): MutationReceiptRecord => ({
+	result: input.result,
+	identity: input.identity,
+	dispatch: input.dispatch,
+	...(input.batch ? { batchId: input.batch.id, batchIndex: input.index } : {}),
+	...(input.batch?.hasCandidates && input.evidence ? { evidence: input.evidence } : {}),
+});
+
 // Above one statement's bind budget, chunks follow id order so receipt locks stay globally sorted.
 const receiptChunks = <T>(items: ReadonlyArray<T>, idOf: (item: T) => string) => {
 	const indexed = items.map((item, index) => ({ item, index, id: idOf(item) }));
@@ -305,13 +320,16 @@ export const makePersistMutation = <E, R, Result>({
 			const dispatch = plan?.trigger ? [toLifecycleDispatchPlan(plan)] : [];
 			const result = resultOf(entity, input.operation === "create" && before === null);
 			results.push({ result, dispatch });
-			records.push({
-				result,
-				dispatch,
-				identity: input.receipt,
-				...(batch ? { batchId: batch.id, batchIndex: item.batchIndex } : {}),
-				...(batch?.hasCandidates && evidence ? { evidence } : {}),
-			});
+			records.push(
+				mutationReceiptRecord({
+					batch,
+					result,
+					evidence,
+					dispatch,
+					index: item.batchIndex,
+					identity: input.receipt,
+				}),
+			);
 		}
 		return { results, records };
 	});

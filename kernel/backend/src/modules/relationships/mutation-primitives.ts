@@ -18,14 +18,12 @@ import { lifecycleTrigger } from "#modules/automations/lifecycle/command";
 import {
 	toLifecycleDispatchPlan,
 	type LifecyclePlannedPolicy,
-	type LifecycleDispatchPlan,
 } from "#modules/automations/lifecycle/planning";
 import {
 	applyLifecyclePolicyPatch,
 	canonicalLifecyclePolicyPatch,
 } from "#modules/automations/lifecycle/policy-patch";
 import type { RelationshipSchemaDefinition } from "#modules/definitions/snapshot";
-import type { MutationReceiptRecord } from "#modules/entities/mutation-persistence";
 import type { MutationEntity } from "#modules/entities/repository";
 import {
 	assertStableUnder,
@@ -34,10 +32,7 @@ import {
 	type DomainWritePin,
 	writerPropertiesSchema,
 } from "#modules/entities/write-context";
-import {
-	MutationReceiptIdentityConflict,
-	type MutationReceiptIdentity,
-} from "#modules/mutations/receipts";
+import { MutationReceiptIdentityConflict } from "#modules/mutations/receipts";
 import { catalogDefinitionFingerprint } from "#modules/plugins/catalog/runtime-resolver";
 
 import {
@@ -51,7 +46,6 @@ import {
 	validateUserRelationshipEntities,
 	type Mutation,
 	type RelationshipMutationDependencies,
-	type RelationshipRecordedResult,
 	relationshipWriteFailure,
 	type UserEntityScopes,
 } from "./mutation-support";
@@ -568,23 +562,6 @@ export const makeRelationshipMutationPrimitives = ({
 		persistPreparedSource,
 	};
 };
-
-export const relationshipReceiptRecord = (input: {
-	identity: MutationReceiptIdentity;
-	result: typeof RelationshipRecordedResult.Type;
-	dispatch: ReadonlyArray<LifecycleDispatchPlan>;
-	batch: Effect.Success<
-		ReturnType<RelationshipMutationDependencies["planner"]["prepareBatch"]>
-	> | null;
-	index: number;
-	evidence?: ReturnType<typeof relationshipChange>;
-}): MutationReceiptRecord => ({
-	result: input.result,
-	identity: input.identity,
-	dispatch: input.dispatch,
-	...(input.batch ? { batchId: input.batch.id, batchIndex: input.index } : {}),
-	...(input.batch?.hasCandidates && input.evidence ? { evidence: input.evidence } : {}),
-});
 
 export const relationshipPopulation = (
 	command: DomainLifecycleCommand,
