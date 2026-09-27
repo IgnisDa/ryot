@@ -15,10 +15,7 @@ import {
 	classifyManagedAssetFailure,
 	mapManagedAssetResolutions,
 } from "#/modules/assets/managed-assets";
-import {
-	classifyTemporaryUploadFailure,
-	TemporaryUploads,
-} from "#/modules/assets/temporary-uploads";
+import { classifyUploadFailure, Uploads } from "#/modules/assets/uploads";
 import { EntityWatchService } from "#/modules/entity-watches/service";
 import { ExternalLinks } from "#/modules/external-links/service";
 import type { ThemeStore } from "#/modules/theme/store";
@@ -29,7 +26,7 @@ type KernelApiRuntime = {
 		effect: Effect.Effect<
 			A,
 			never,
-			EntityWatchService | CollectionsApi | RyotQLApi | UploadsApi | TemporaryUploads
+			EntityWatchService | CollectionsApi | RyotQLApi | UploadsApi | Uploads
 		>,
 	) => A;
 };
@@ -52,13 +49,6 @@ export const createKernelRyotClient = (
 				.runSync(RyotQLApi)
 				.execute(scope, { payload: document })
 				.pipe(Effect.mapError((error) => new RyotClientError(classifyRyotQLFailure(error)))),
-		uploadTemporary: (request) =>
-			runtime
-				.runSync(TemporaryUploads)
-				.upload(scope, request)
-				.pipe(
-					Effect.mapError((error) => new RyotClientError(classifyTemporaryUploadFailure(error))),
-				),
 		resolveAssets: (assets) =>
 			runtime
 				.runSync(UploadsApi)
@@ -66,6 +56,22 @@ export const createKernelRyotClient = (
 				.pipe(
 					Effect.map((response) => mapManagedAssetResolutions(scope, response)),
 					Effect.mapError((error) => new RyotClientError(classifyManagedAssetFailure(error))),
+				),
+		upload: (request) =>
+			runtime
+				.runSync(Uploads)
+				.upload(scope, request)
+				.pipe(
+					Effect.map((result) => {
+						if (result.action === "temporary") {
+							return result.token;
+						}
+						if (result.action === "permanent") {
+							return result.asset;
+						}
+						return { status: result.status };
+					}),
+					Effect.mapError((error) => new RyotClientError(classifyUploadFailure(error))),
 				),
 		mutateCollection: (request) => {
 			const api = runtime.runSync(CollectionsApi);

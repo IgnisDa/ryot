@@ -12,6 +12,7 @@ import type {
 	PluginPageSearchUpdate,
 	PluginStorageRequest,
 	PluginThemeSnapshot,
+	PluginUploadRequest,
 	ProviderSearchScreenRequest,
 } from "@ryot-app/plugin-client-contract";
 import type { PreparedRecipe } from "@ryot-app/ryotql";
@@ -48,11 +49,17 @@ export type OperationInvocation<Output extends Schema.Codec<unknown, unknown>> =
 	"operationSlug"
 > & { readonly slug: string; readonly output: Output; readonly refreshOnSuccess?: boolean };
 
-export type TemporaryUploadRequest = {
-	readonly source: Blob;
-	readonly fileName: string;
-	readonly contentType: string;
-};
+export type TemporaryUploadRequest = Omit<
+	Extract<PluginUploadRequest, { readonly action: "temporary" }>,
+	"action"
+>;
+
+export type PermanentUploadRequest = Omit<
+	Extract<PluginUploadRequest, { readonly action: "permanent" }>,
+	"action"
+>;
+
+export type UploadAdapterRequest = PluginUploadRequest;
 
 export type RyotClientAdapter = {
 	readonly registerFlush?: (flush: () => Effect.Effect<void, RyotClientError>) => () => void;
@@ -63,9 +70,7 @@ export type RyotClientAdapter = {
 	readonly openExternalLink?: (
 		request: ExternalLinkRequest,
 	) => Effect.Effect<unknown, RyotClientError>;
-	readonly uploadTemporary: (
-		request: TemporaryUploadRequest,
-	) => Effect.Effect<unknown, RyotClientError>;
+	readonly upload: (request: UploadAdapterRequest) => Effect.Effect<unknown, RyotClientError>;
 	readonly invokeOperation?: (
 		request: OperationAdapterRequest,
 	) => Effect.Effect<unknown, RyotClientError>;

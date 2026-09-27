@@ -605,3 +605,35 @@ describe("kernel temporary uploads", () => {
 		}).pipe(Effect.ensuring(Effect.promise(() => runtime.dispose())));
 	});
 });
+
+describe("kernel permanent uploads and cleanup", () => {
+	it.live("returns a managed locator and forwards cleanup through the uploads API", () => {
+		const events: unknown[] = [];
+		const asset = { type: "local" as const, key: "permanent/items.csv" };
+		const runtime = ManagedRuntime.make(
+			Layer.mergeAll(
+				makeCollectionsApi(),
+				makeEntityWatchService(),
+				makeRyotQLApi(),
+				makeUploadsApi({
+					putBytes: () => Effect.void,
+					completeIntent: () => Effect.succeed(asset),
+					cleanup: (_scope, request) => {
+						events.push({ cleanupAsset: request.payload.asset });
+						return Effect.succeed({ status: "referenced" });
+					},
+					createIntent: (_scope, request) => {
+						events.push({ kind: request.payload.kind, name: request.payload.fileName });
+						return Effect.succeed(intent);
+					},
+				}),
+			),
+		);
+		return Effect.gen(function* () {
+			const client = createKernelRyotClient(runtime, scope, theme);
+			expect(yield* client.uploads.uploadPermanent(uploadRequest)).toEqual(asset);
+			expect(yield* client.uploads.cleanup(asset)).toEqual({ status: "referenced" });
+			expect(events).toEqual([{ kind: "permanent", name: "items.csv" }, { cleanupAsset: asset }]);
+		}).pipe(Effect.ensuring(Effect.promise(() => runtime.dispose())));
+	});
+});

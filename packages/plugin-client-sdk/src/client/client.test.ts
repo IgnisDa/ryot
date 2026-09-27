@@ -130,6 +130,12 @@ describe("Effect-native client capabilities", () => {
 				}),
 			);
 			const output = Schema.Struct({ greeting: Schema.String });
+			const invalidUpload = {
+				fileName: "x",
+				contentType: "text/plain",
+				// oxlint-disable-next-line typescript/no-unsafe-type-assertion -- The test feeds a non-Blob to exercise runtime input validation
+				source: "not a Blob" as unknown as Blob,
+			};
 			expect(
 				yield* Effect.flip(
 					client.operations.invoke({
@@ -150,16 +156,12 @@ describe("Effect-native client capabilities", () => {
 			expect(yield* Effect.flip(client.collections.create({ name: "Favorites" }))).toMatchObject({
 				reason: "unsupported-capability",
 			});
-			expect(
-				yield* Effect.flip(
-					client.uploads.uploadTemporary({
-						fileName: "x",
-						contentType: "text/plain",
-						// oxlint-disable-next-line typescript/no-unsafe-type-assertion -- The test feeds a non-Blob to exercise runtime input validation
-						source: "not a Blob" as unknown as Blob,
-					}),
-				),
-			).toMatchObject({ reason: "invalid-input" });
+			expect(yield* Effect.flip(client.uploads.uploadTemporary(invalidUpload))).toMatchObject({
+				reason: "invalid-input",
+			});
+			expect(yield* Effect.flip(client.uploads.uploadPermanent(invalidUpload))).toMatchObject({
+				reason: "invalid-input",
+			});
 		}),
 	);
 
@@ -235,17 +237,26 @@ describe("Effect-native client capabilities", () => {
 		}),
 	);
 
-	it.live("keeps upload bytes and validates asset correlation", () =>
+	it.live("keeps upload bytes and validates upload results", () =>
 		Effect.gen(function* () {
 			const source = new Blob(["id,title"], { type: "text/csv" });
+			const uploads: Array<{ readonly action: string }> = [];
 			const client = createRyotClient(
 				createTestRyotAdapter({
 					resolveAssets: () =>
 						Effect.succeed([{ ...resolution, asset: { type: "local", key: "other.png" } }]),
-					uploadTemporary: (request) =>
+					upload: (request) =>
 						Effect.sync(() => {
-							expect(request.source).toBe(source);
-							return { token: "temporary-1", expiresAt: "2026-01-01T00:00:00.000Z" };
+							uploads.push(request);
+							if (request.action === "temporary") {
+								expect(request.source).toBe(source);
+								return { token: "temporary-1", expiresAt: "2026-01-01T00:00:00.000Z" };
+							}
+							if (request.action === "permanent") {
+								expect(request.source).toBe(source);
+								return asset;
+							}
+							return { status: "deleted" };
 						}),
 				}),
 			);
@@ -256,6 +267,22 @@ describe("Effect-native client capabilities", () => {
 					contentType: "text/csv",
 				}),
 			).toMatchObject({ token: "temporary-1" });
+			expect(
+				yield* client.uploads.uploadPermanent({
+					source,
+					fileName: "items.csv",
+					contentType: "text/csv",
+				}),
+			).toEqual(asset);
+			expect(yield* client.uploads.cleanup(asset)).toEqual({ status: "deleted" });
+			expect(uploads.map(({ action }) => action)).toEqual(["temporary", "permanent", "cleanup"]);
+			expect(
+				yield* Effect.flip(
+					createRyotClient(
+						createTestRyotAdapter({ upload: () => Effect.succeed({ status: "unknown" }) }),
+					).uploads.cleanup(asset),
+				),
+			).toMatchObject({ reason: "malformed-result" });
 			expect(yield* Effect.flip(client.assets.resolve([asset]))).toMatchObject({
 				reason: "malformed-result",
 			});

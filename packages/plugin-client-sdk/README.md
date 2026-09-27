@@ -53,10 +53,13 @@ integration boundary.
 Read-only context operations set `refreshOnSuccess: false` on `operations.invoke` so a page-refresh
 handler does not trigger itself again. Writes retain the default mutation-refresh notification.
 
-`uploads` is one capability on every adapter that hides intent creation, byte transfer, and
-completion. Bridge payloads are structured-clone values, so a plugin sends a `Blob` or `File` with a
-file name and content type, and the host keeps the intent, upload URL, headers, and credential. A
-non-`Blob` source fails with `invalid-input`. There is no cancellation; disposal aborts the transfer.
+`uploads` is one capability on every adapter that hides intent creation, byte transfer, completion,
+and cleanup. `uploadTemporary({ source, fileName, contentType })` returns a `TemporaryUploadToken`;
+`uploadPermanent` with the same request shape returns a `ManagedAssetLocator`; `cleanup(asset)` returns
+`{ status: "deleted" | "referenced" | "missing" }`. Bridge payloads are structured-clone values, so
+file uploads send a `Blob` or `File` with a file name and content type, while cleanup sends only the
+managed locator. The host keeps the intent, upload URL, headers, and credential. A non-`Blob` source
+fails with `invalid-input`. There is no cancellation; disposal aborts an in-flight request.
 
 `storage.get(pluginId, key)`, `storage.set(pluginId, key, value)`, and
 `storage.remove(pluginId, key)` keep JSON values on this device through the kernel, because the
@@ -88,6 +91,10 @@ Remote images do not use it. `ManagedAssetProvider` owns stable sorting, dedupli
 most 64, retained URLs during refresh, and renewal before the earliest expiry; kernel and plugin
 renderers are callers of this SDK behavior. Disposing a bridge session aborts pending resolution, but
 an issued URL remains valid until expiry.
+
+Browser uploads to S3 require bucket CORS rules that allow `PUT` with `Content-Type` and enabled tracing
+headers from the application's origin. Signed downloads used by browser code also need the appropriate `GET` and
+`HEAD` rules. Configure these on the bucket; the SDK does not change storage policies.
 
 `screens.openProviderSearch` is the only provider-add screen capability. It returns an Effect with
 either imported entity IDs or a cancellation outcome. It carries the configured entity-schema owner

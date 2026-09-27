@@ -1,7 +1,7 @@
 import { tmpdir } from "node:os";
 import { fileURLToPath } from "node:url";
 
-import { CreateBucketCommand, S3Client } from "@aws-sdk/client-s3";
+import { CreateBucketCommand, PutBucketCorsCommand, S3Client } from "@aws-sdk/client-s3";
 import {
 	startPostgresContainer,
 	type StartedPostgresContainer,
@@ -59,6 +59,22 @@ export const startCoreTestInfrastructure = (input: { bucketName: string }) =>
 
 		yield* Effect.promise(() =>
 			s3Client.send(new CreateBucketCommand({ Bucket: input.bucketName })),
+		);
+		yield* Effect.promise(() =>
+			s3Client.send(
+				new PutBucketCorsCommand({
+					Bucket: input.bucketName,
+					CORSConfiguration: {
+						CORSRules: [
+							{
+								AllowedOrigins: ["*"],
+								AllowedHeaders: ["*"],
+								AllowedMethods: ["GET", "HEAD", "PUT"],
+							},
+						],
+					},
+				}),
+			),
 		);
 
 		return {

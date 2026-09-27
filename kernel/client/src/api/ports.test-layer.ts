@@ -16,7 +16,7 @@ import { PluginsApi } from "#/api/plugins";
 import { RyotQLApi } from "#/api/ryotql";
 import { SavedViewsApi } from "#/api/saved-views";
 import { UploadsApi } from "#/api/uploads";
-import { TemporaryUploads } from "#/modules/assets/temporary-uploads";
+import { Uploads } from "#/modules/assets/uploads";
 import { EntityWatchService } from "#/modules/entity-watches/service";
 import { ExternalLinks } from "#/modules/external-links/service";
 import { PluginManagementService } from "#/modules/plugins/management/service";
@@ -65,9 +65,10 @@ export const makePluginInstallationsApi = (
 	});
 
 export const makeUploadsApi = (overrides: Partial<UploadsApi["Service"]> = {}) =>
-	Layer.fresh(TemporaryUploads.layer).pipe(
+	Layer.fresh(Uploads.layer).pipe(
 		Layer.provideMerge(
 			Layer.succeed(UploadsApi, {
+				cleanup: unused,
 				putBytes: unused,
 				createIntent: unused,
 				completeIntent: unused,
