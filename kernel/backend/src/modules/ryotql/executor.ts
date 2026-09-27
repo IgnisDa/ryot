@@ -1145,16 +1145,36 @@ const TIME_SERIES_BUCKET_STEPS: Record<TimeSeriesOutput["time"]["bucket"], strin
 
 const pgDialect = new PgDialect();
 
+export type RyotQLResultBudget = { readonly limitBytes: number; remainingBytes: number };
+
+// PostgreSQL measures the result as JSON text and withholds every row once the budget is exceeded,
+// so oversized results never reach the backend.
+const boundedQuery = (query: SqlFragment, remainingBytes: number) =>
+	sql`WITH "ryotqlRows" AS MATERIALIZED (SELECT "ryotqlQuery".*, row_number() OVER () AS "ryotqlOrdinal" FROM (${query}) AS "ryotqlQuery"), "ryotqlSize" AS (SELECT coalesce(sum(octet_length(to_jsonb("ryotqlRows")::text)), 0) AS "ryotqlBytes" FROM "ryotqlRows") SELECT "ryotqlRows".*, "ryotqlSize"."ryotqlBytes" FROM "ryotqlSize" LEFT JOIN "ryotqlRows" ON "ryotqlSize"."ryotqlBytes" <= ${remainingBytes} ORDER BY "ryotqlRows"."ryotqlOrdinal"`;
+
 const executeSql = Effect.fn("executeRyotQLSql")(function* (
 	query: SqlFragment,
 	queryName: string,
 	db: EffectPgDatabase,
+	budget: RyotQLResultBudget | undefined,
 ) {
-	const { sql: statement } = pgDialect.sqlToQuery(query);
+	const statementQuery = budget === undefined ? query : boundedQuery(query, budget.remainingBytes);
+	const { sql: statement } = pgDialect.sqlToQuery(statementQuery);
 	yield* Effect.logTrace("RyotQL SQL generated").pipe(
 		Effect.annotateLogs({ queryName, sql: statement }),
 	);
-	return yield* mapDatabaseErrors(db.execute(query, "objects"));
+	const rows = yield* mapDatabaseErrors(db.execute(statementQuery, "objects"));
+	if (budget === undefined) {
+		return rows;
+	}
+	const bytes = Number(rows[0]?.["ryotqlBytes"] ?? 0);
+	if (bytes > budget.remainingBytes) {
+		return yield* new RyotQLBadRequest({
+			reason: { code: "result-too-large", limitBytes: budget.limitBytes },
+		});
+	}
+	budget.remainingBytes -= bytes;
+	return rows.filter((row) => row["ryotqlOrdinal"] !== null);
 });
 
 const timeSeriesBucketStart = (bucket: TimeSeriesOutput["time"]["bucket"], value: SqlFragment) =>
@@ -1324,8 +1344,14 @@ const executeAggregateQuery = Effect.fn("executeRyotQLAggregateQuery")(function*
 	query: AggregateQuery,
 	queryName: string,
 	db: EffectPgDatabase,
+	budget: RyotQLResultBudget | undefined,
 ) {
-	const raw = yield* executeSql(compileAggregateQuery(query, executionScope), queryName, db);
+	const raw = yield* executeSql(
+		compileAggregateQuery(query, executionScope),
+		queryName,
+		db,
+		budget,
+	);
 	const rows = raw;
 	const groups = query.output.groupBy ?? [];
 	const scope = buildScope(query, executionScope, "");
@@ -1352,8 +1378,14 @@ const executeTimeSeriesQuery = Effect.fn("executeRyotQLTimeSeriesQuery")(functio
 	query: TimeSeriesQuery,
 	queryName: string,
 	db: EffectPgDatabase,
+	budget: RyotQLResultBudget | undefined,
 ) {
-	const raw = yield* executeSql(compileTimeSeriesQuery(query, executionScope), queryName, db);
+	const raw = yield* executeSql(
+		compileTimeSeriesQuery(query, executionScope),
+		queryName,
+		db,
+		budget,
+	);
 	const buckets = raw.map((row) => {
 		const startAt = normalizeValue(row["startAt"], "date");
 		const endAt = normalizeValue(row["endAt"], "date");
@@ -1370,6 +1402,7 @@ export const executeNamedQuery = Effect.fn("executeRyotQLNamedQuery")(function* 
 	query: NormalizedNamedQuery,
 	queryName: string,
 	db: EffectPgDatabase,
+	budget?: RyotQLResultBudget,
 ) {
 	if (query.output.type === "aggregate") {
 		return yield* executeAggregateQuery(
@@ -1377,6 +1410,7 @@ export const executeNamedQuery = Effect.fn("executeRyotQLNamedQuery")(function* 
 			{ ...query, output: query.output },
 			queryName,
 			db,
+			budget,
 		);
 	}
 	if (query.output.type === "timeSeries") {
@@ -1385,6 +1419,7 @@ export const executeNamedQuery = Effect.fn("executeRyotQLNamedQuery")(function* 
 			{ ...query, output: query.output },
 			queryName,
 			db,
+			budget,
 		);
 	}
 	const rowsQuery = { ...query, output: query.output };
@@ -1395,7 +1430,12 @@ export const executeNamedQuery = Effect.fn("executeRyotQLNamedQuery")(function* 
 	const cursor = rowsQuery.output.pagination.after
 		? yield* decodeCursor(rowsQuery.output.pagination.after, orderKinds, orderDirections)
 		: undefined;
-	const raw = yield* executeSql(compileRowsQuery(rowsQuery, executionScope, cursor), queryName, db);
+	const raw = yield* executeSql(
+		compileRowsQuery(rowsQuery, executionScope, cursor),
+		queryName,
+		db,
+		budget,
+	);
 	const rows = raw;
 	const { limit } = rowsQuery.output.pagination;
 	const hasMore = rows.length > limit;

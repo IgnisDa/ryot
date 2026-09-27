@@ -5,14 +5,15 @@ import { Deferred, Effect, Exit, Fiber, Layer, Option, Result, Schema, Scope } f
 
 import { makeAppConfigLayer } from "#lib/test-utils/effect";
 
+import { SANDBOX_TRANSIENT_MEMORY } from "./host-call-gate";
 import { MiB, SANDBOX_LIMITS } from "./limits";
 import { SandboxSidecarAdmission, sandboxMemoryBudgetBytes } from "./sidecar-admission";
-import { SIDECAR_PROTOCOL_LIMITS } from "./sidecar-protocol";
 import { readWorkflowJournal } from "./workflow-journal";
 
 const admissionLayer = Layer.effect(SandboxSidecarAdmission, SandboxSidecarAdmission.make).pipe(
 	Layer.provide(makeAppConfigLayer({ sandbox: { memoryBudgetMiB: Option.some(1300) } })),
 );
+const idleBytes = 2 * 128 * MiB + SANDBOX_TRANSIENT_MEMORY.poolBytes;
 const acquireScope = Effect.acquireRelease(Scope.make(), (scope) => Scope.close(scope, Exit.void));
 const encodeJson = Schema.encodeSync(Schema.fromJsonString(Schema.Unknown));
 
@@ -58,7 +59,7 @@ layer(admissionLayer)((test) => {
 				expect(admission.snapshot()).toMatchObject({ reservations: 1, bytes: reserved });
 				pending.resolve(["read", [raw]]);
 				yield* Fiber.join(cancelling);
-				expect(admission.snapshot()).toMatchObject({ reservations: 0, bytes: 256 * MiB });
+				expect(admission.snapshot()).toMatchObject({ reservations: 0, bytes: idleBytes });
 			}),
 		),
 	);
@@ -95,7 +96,7 @@ layer(admissionLayer)((test) => {
 				expect(admission.snapshot()).toMatchObject({ waiting: 0, reservations: 2 });
 				yield* Scope.close(firstScope, Exit.void);
 				yield* Scope.close(smallScope, Exit.void);
-				expect(admission.snapshot()).toMatchObject({ reservations: 0, bytes: 256 * MiB });
+				expect(admission.snapshot()).toMatchObject({ reservations: 0, bytes: idleBytes });
 			}),
 		),
 	);
@@ -166,7 +167,7 @@ layer(admissionLayer)((test) => {
 					yield* Fiber.join(second);
 					expect(admission.snapshot().runs).toBe(0);
 					yield* Scope.close(processScope, Exit.void);
-					expect(admission.snapshot().bytes).toBe(256 * 1024 * 1024);
+					expect(admission.snapshot().bytes).toBe(idleBytes);
 				}),
 			),
 	);
@@ -196,9 +197,9 @@ layer(admissionLayer)((test) => {
 					expect(admission.snapshot().runs).toBe(1);
 					yield* Scope.close(prefixScope, Exit.void);
 					expect(admission.snapshot().runs).toBe(0);
-					expect(admission.snapshot().bytes).toBe(384 * 1024 * 1024);
+					expect(admission.snapshot().bytes).toBe(idleBytes + 128 * MiB);
 					yield* Scope.close(processScope, Exit.void);
-					expect(admission.snapshot().bytes).toBe(256 * 1024 * 1024);
+					expect(admission.snapshot().bytes).toBe(idleBytes);
 				}),
 			),
 	);
@@ -276,7 +277,7 @@ layer(admissionLayer)((test) => {
 					);
 					expect(closed).toBeInstanceOf(SandboxRunError);
 					yield* Scope.close(processScope, Exit.void);
-					expect(admission.snapshot().bytes).toBe(256 * 1024 * 1024);
+					expect(admission.snapshot().bytes).toBe(idleBytes);
 					expect(admission.snapshot().runs).toBe(0);
 				}),
 			),
@@ -286,19 +287,13 @@ layer(admissionLayer)((test) => {
 			Effect.gen(function* () {
 				const measured = yield* SandboxSidecarAdmission;
 				const idle = measured.snapshot().bytes;
-				expect(idle).toBe(2 * 128 * MiB);
+				expect(idle).toBe(idleBytes);
 				const measureScope = yield* acquireScope;
 				yield* measured
 					.reservePrefix({ journalBytes: 2, instance: "system/core" })
 					.pipe(Scope.provide(measureScope));
 				const runBytes = measured.snapshot().bytes - idle;
-				expect(runBytes).toBeGreaterThan(
-					SANDBOX_LIMITS.isolate.heapBytes +
-						SANDBOX_LIMITS.isolate.externalBytes +
-						3 * SIDECAR_PROTOCOL_LIMITS.messageBytes.run +
-						12 * SIDECAR_PROTOCOL_LIMITS.messageBytes.hostResult +
-						8 * SANDBOX_LIMITS.bridge.responseBytes,
-				);
+				expect(runBytes).toBe(298 * MiB + 3 * "[]".length);
 				yield* Scope.close(measureScope, Exit.void);
 
 				const journalScope = yield* acquireScope;
@@ -382,9 +377,11 @@ it("sandbox_memory_budget_derives_from_effective_memory", () => {
 		kind: "resource-unavailable",
 		message: "Sandbox memory budget exceeds half the effective host memory",
 	});
-	expect(budgetFailure(sandboxMemoryBudgetBytes(Option.none(), 256 * MiB))).toEqual({
+	expect(sandboxMemoryBudgetBytes(Option.some(914), 4 * GiB)).toEqual(Result.succeed(914 * MiB));
+	expect(budgetFailure(sandboxMemoryBudgetBytes(Option.some(913), 4 * GiB))).toEqual({
 		kind: "resource-unavailable",
-		message: "Sandbox memory budget cannot fit resident core processes and a run",
+		message:
+			"Sandbox memory budget cannot fit resident core processes, transient memory and a lazy run",
 	});
 	for (const effectiveMemory of [0, -1, Number.NaN, Number.MAX_SAFE_INTEGER + 2, 1.5]) {
 		expect(budgetFailure(sandboxMemoryBudgetBytes(Option.none(), effectiveMemory))).toEqual({
