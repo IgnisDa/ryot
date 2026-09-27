@@ -16,6 +16,7 @@ import { readPluginArchiveStream, type PluginArchivePackage } from "@ryot-app/pl
 import { sha256Hex } from "@ryot-app/ts-utils/crypto";
 import { Context, Effect, Layer, Result, Schema } from "effect";
 
+import { makeManagedAssetReferenceLocker } from "#lib/domain/managed-asset-writes";
 import { ObjectStorageService } from "#modules/assets/storage/object-storage";
 import { UploadIntentsService } from "#modules/assets/uploads/intents";
 import {
@@ -117,6 +118,7 @@ export class PluginInstallationService extends Context.Service<PluginInstallatio
 	{
 		make: Effect.gen(function* () {
 			const database = yield* DatabaseSession;
+			const lockAssetReferences = makeManagedAssetReferenceLocker(database);
 			const receipts = yield* MutationReceipts.make;
 			const repository = yield* PluginRepository;
 			const definitions = yield* DefinitionRepository;
@@ -552,6 +554,15 @@ export class PluginInstallationService extends Context.Service<PluginInstallatio
 							input.userId,
 							Effect.gen(function* () {
 								yield* repository.lockIngestion();
+								if (
+									yield* lockAssetReferences([
+										{ properties: config, propertiesSchema: manifest.configSchema },
+									])
+								) {
+									return yield* new PluginValidationError({
+										issues: ["Plugin config references a retired managed asset"],
+									});
+								}
 								yield* assertPackageAvailable(manifest);
 								const currentClaim = yield* repository.findPrivateByPackageIdForUser(
 									packageId,
@@ -734,6 +745,18 @@ export class PluginInstallationService extends Context.Service<PluginInstallatio
 											});
 											return { id: currentInstallation.id };
 										}
+										if (
+											yield* lockAssetReferences([
+												{
+													properties: configResult.success,
+													propertiesSchema: manifest.configSchema,
+												},
+											])
+										) {
+											return yield* new PluginValidationError({
+												issues: ["Plugin config references a retired managed asset"],
+											});
+										}
 										return yield* savePrivateInstallation(
 											input.userId,
 											current,
@@ -799,6 +822,16 @@ export class PluginInstallationService extends Context.Service<PluginInstallatio
 					plugin.scope === "system"
 						? {}
 						: yield* validateConfigPatch(plugin.manifest, state.config, payload);
+				if (
+					plugin.scope === "user" &&
+					(yield* lockAssetReferences([
+						{ properties: config, propertiesSchema: plugin.manifest.configSchema },
+					]))
+				) {
+					return yield* new PluginValidationError({
+						issues: ["Plugin config references a retired managed asset"],
+					});
+				}
 				const saved = yield* Effect.uninterruptible(
 					installations.updateState({
 						config,
@@ -868,6 +901,15 @@ export class PluginInstallationService extends Context.Service<PluginInstallatio
 								});
 							}
 							yield* validateClientDependencies(normalized, userId);
+							if (
+								yield* lockAssetReferences([
+									{ properties: config, propertiesSchema: normalized.manifest.configSchema },
+								])
+							) {
+								return yield* new PluginValidationError({
+									issues: ["Plugin config references a retired managed asset"],
+								});
+							}
 							return yield* savePrivateInstallation(userId, current.plugin, current.installation, {
 								config,
 								isHidden: false,
@@ -1056,7 +1098,10 @@ export class PluginInstallationService extends Context.Service<PluginInstallatio
 									reason: { installationId, code: "installation-not-found" },
 								});
 							}
-							yield* resolvePluginUserSettings(row.userSettingsSchema, reset ? {} : values).pipe(
+							const settings = yield* resolvePluginUserSettings(
+								row.userSettingsSchema,
+								reset ? {} : values,
+							).pipe(
 								Effect.catchTags({
 									SchemaError: Effect.die,
 									PropertyValidationError: (error) =>
@@ -1073,6 +1118,15 @@ export class PluginInstallationService extends Context.Service<PluginInstallatio
 										}),
 								}),
 							);
+							if (
+								yield* lockAssetReferences([
+									{ properties: settings, propertiesSchema: row.userSettingsSchema },
+								])
+							) {
+								return yield* new PluginValidationError({
+									issues: ["Plugin settings reference a retired managed asset"],
+								});
+							}
 							return yield* installations.saveUserSettings(
 								userId,
 								installationId,

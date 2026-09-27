@@ -22,6 +22,10 @@ import { Workflow } from "effect/workflow";
 import { WorkflowInstance } from "effect/workflow/WorkflowEngine";
 
 import type { DurableSchema } from "#boot/workflow-engine";
+import {
+	makeManagedAssetReferenceLocker,
+	type ManagedAssetReferenceLocker,
+} from "#lib/domain/managed-asset-writes";
 import { lifecycleTrigger } from "#modules/automations/lifecycle/command";
 import { LifecycleExecution } from "#modules/automations/lifecycle/execution";
 import {
@@ -132,10 +136,15 @@ const commitEvent = Effect.fnUntraced(function* (
 	},
 	draft: AutomationEventDraft,
 	entitySchemaPluginId: string | null,
+	propertiesSchema: AppSchema,
+	lockAssetReferences: ManagedAssetReferenceLocker,
 ) {
 	const repository = yield* EventsRepository;
 	const planner = yield* LifecyclePlanner;
 	const command = eventCreateWriteCommand(payload, index);
+	if (yield* lockAssetReferences([{ propertiesSchema, properties: draft.properties }])) {
+		return yield* new EventCreateItemError({ reason: { code: "invalid-properties" } });
+	}
 	const event = yield* repository.createEvent({
 		...draft,
 		userId: payload.userId,
@@ -208,6 +217,7 @@ const prepareChunk = Effect.fn("prepareEventCreateChunk")(function* (
 ) {
 	const planner = yield* LifecyclePlanner;
 	const session = yield* DatabaseSession;
+	const lockAssetReferences = makeManagedAssetReferenceLocker(session);
 	const writes = yield* DomainWriteChecks;
 	const eventSchemas = yield* EventSchemaReader;
 	const receipts = yield* MutationReceipts.make;
@@ -359,6 +369,8 @@ const prepareChunk = Effect.fn("prepareEventCreateChunk")(function* (
 					},
 					validated,
 					current.entityScope.entitySchemaPluginId,
+					current.activePropertiesSchema,
+					lockAssetReferences,
 				);
 				records.push({
 					identity,
@@ -424,6 +436,7 @@ const writeEvent = Effect.fn("writeEventCreateItem")(function* (
 	const planner = yield* LifecyclePlanner;
 	const session = yield* DatabaseSession;
 	const writes = yield* DomainWriteChecks;
+	const lockAssetReferences = makeManagedAssetReferenceLocker(session);
 	const receipts = yield* MutationReceipts.make;
 	const command = eventCreateWriteCommand(payload, index);
 	const item = payload.payload[index];
@@ -496,6 +509,8 @@ const writeEvent = Effect.fn("writeEventCreateItem")(function* (
 					{ ...prepared, parentTriggerId: prepared.plan.trigger.id },
 					draft,
 					currentScope.entityScope.entitySchemaPluginId,
+					currentScope.activePropertiesSchema,
+					lockAssetReferences,
 				);
 				yield* receipts.insert({
 					identity,

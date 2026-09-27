@@ -26,6 +26,7 @@ import { generateId } from "better-auth";
 import { Context, DateTime, Effect, Result, Layer } from "effect";
 import { WorkflowEngine } from "effect/workflow/WorkflowEngine";
 
+import { makeManagedAssetReferenceLocker } from "#lib/domain/managed-asset-writes";
 import {
 	formatPropertyIssues,
 	parseAppSchemaProperties,
@@ -116,6 +117,7 @@ export class IntegrationsService extends Context.Service<IntegrationsService>()(
 	{
 		make: Effect.gen(function* () {
 			const database = yield* DatabaseSession;
+			const lockAssetReferences = makeManagedAssetReferenceLocker(database);
 			const transaction = <A, E, R>(work: Effect.Effect<A, E, R>) =>
 				database.transaction(work).pipe(Effect.catchTag("DatabaseSessionStateError", Effect.die));
 			const proKey = yield* ProKeyService;
@@ -241,6 +243,15 @@ export class IntegrationsService extends Context.Service<IntegrationsService>()(
 
 				const created = yield* transaction(
 					Effect.gen(function* () {
+						if (
+							yield* lockAssetReferences([
+								{ properties: body.providerSpecifics, propertiesSchema: registered.settingsSchema },
+							])
+						) {
+							return yield* new IntegrationRequestError({
+								reason: { provider: body.provider.slug, code: "invalid-provider-settings" },
+							});
+						}
 						const inserted = yield* repository.createForUser({
 							lot,
 							userId: user.id,
@@ -319,6 +330,20 @@ export class IntegrationsService extends Context.Service<IntegrationsService>()(
 				const settingsPatch = body.providerSpecifics;
 				const updated = yield* transaction(
 					Effect.gen(function* () {
+						if (providerSpecifics !== undefined) {
+							const propertiesSchema =
+								existing.pluginInstallationId === null
+									? dataJsonIntegrationSettingsSchema
+									: registered?.settingsSchema;
+							if (
+								!propertiesSchema ||
+								(yield* lockAssetReferences([{ propertiesSchema, properties: providerSpecifics }]))
+							) {
+								return yield* new IntegrationRequestError({
+									reason: { provider: existing.provider, code: "invalid-provider-settings" },
+								});
+							}
+						}
 						const written = yield* repository.updateForUser({
 							userId,
 							integrationId,

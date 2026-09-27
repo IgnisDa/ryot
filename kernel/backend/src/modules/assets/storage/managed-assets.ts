@@ -1,5 +1,6 @@
 import type { CurrentUserValue } from "@ryot-app/contract/auth-middleware";
 import {
+	type CleanupManagedAssetOutput,
 	type ManagedAssetLocator,
 	UploadBadRequest,
 } from "@ryot-app/contract/modules/assets/schemas";
@@ -17,6 +18,7 @@ import { DatabaseSession } from "#platform/db/session";
 import { LocalStorageService } from "#platform/storage/local-storage";
 import { S3Service } from "#platform/storage/s3";
 
+import { ManagedAssetReferencesRepository } from "./managed-asset-references-repository";
 import {
 	type RegisterManagedAssetInput,
 	ManagedAssetsRepository,
@@ -87,6 +89,7 @@ export class ManagedAssetsService extends Context.Service<ManagedAssetsService>(
 			const localStorage = yield* LocalStorageService;
 			const objectStorage = yield* ObjectStorageService;
 			const repository = yield* ManagedAssetsRepository;
+			const references = yield* ManagedAssetReferencesRepository;
 			const session = yield* DatabaseSession;
 
 			const registerManagedAsset = Effect.fn("ManagedAssetsService.registerManagedAsset")(
@@ -128,6 +131,38 @@ export class ManagedAssetsService extends Context.Service<ManagedAssetsService>(
 					return yield* new UploadBadRequest({ reason: { code: "asset-forbidden" } });
 				}
 				return assets;
+			});
+
+			const cleanupManagedAsset = Effect.fn("ManagedAssetsService.cleanupManagedAsset")(function* (
+				user: CurrentUserValue,
+				locator: ManagedAssetLocator,
+			) {
+				const retirement = yield* session.transaction(
+					Effect.gen(function* () {
+						const managed = yield* repository.lockByLocator(locator);
+						if (!managed) {
+							return "missing" as const;
+						}
+						if (managed.ownerUserId !== user.id) {
+							return yield* new UploadBadRequest({ reason: { code: "asset-forbidden" } });
+						}
+						if (managed.retiredAt !== null) {
+							return "retired" as const;
+						}
+						if (yield* references.hasReference(locator)) {
+							return "referenced" as const;
+						}
+						if (!(yield* repository.retireOwned(user.id, locator))) {
+							return yield* new UploadBadRequest({ reason: { code: "asset-forbidden" } });
+						}
+						return "retired" as const;
+					}),
+				);
+				if (retirement !== "retired") {
+					return { status: retirement } satisfies CleanupManagedAssetOutput;
+				}
+				yield* objectStorage.deleteObject(locator);
+				return { status: "deleted" } satisfies CleanupManagedAssetOutput;
 			});
 
 			const stageContentAddressedPermanentAsset = Effect.fn(
@@ -220,7 +255,8 @@ export class ManagedAssetsService extends Context.Service<ManagedAssetsService>(
 				if (!staged.created) {
 					return;
 				}
-				if (yield* repository.getByLocator(staged.locator)) {
+				const managed = yield* repository.getByLocator(staged.locator);
+				if (managed?.retiredAt === null) {
 					return;
 				}
 				yield* objectStorage.deleteObject(staged.locator);
@@ -270,6 +306,7 @@ export class ManagedAssetsService extends Context.Service<ManagedAssetsService>(
 
 			return {
 				resolveDownloads,
+				cleanupManagedAsset,
 				registerManagedAsset,
 				listManagedAssetsForOwner,
 				verifyManagedAssetOwnership,

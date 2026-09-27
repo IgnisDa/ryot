@@ -14,6 +14,7 @@ import {
 import type { EntityId, UserId } from "@ryot-app/contract/schema/brands";
 import { Effect, Schema } from "effect";
 
+import { makeManagedAssetReferenceLocker } from "#lib/domain/managed-asset-writes";
 import { lifecycleTrigger } from "#modules/automations/lifecycle/command";
 import {
 	toLifecycleDispatchPlan,
@@ -111,6 +112,7 @@ export const makeRelationshipMutationPrimitives = ({
 	repository,
 	definitions,
 }: RelationshipMutationDependencies) => {
+	const lockAssetReferences = makeManagedAssetReferenceLocker(session);
 	const assertActiveTransaction = session.requireTransaction.pipe(
 		Effect.mapError(
 			() =>
@@ -421,11 +423,31 @@ export const makeRelationshipMutationPrimitives = ({
 					current &&
 					equal(current.properties, request.draft.properties))
 			) {
-				decisions.push({ key, row, request: null, input: mutation.input });
+				decisions.push({
+					key,
+					row,
+					request: null,
+					input: mutation.input,
+					propertiesSchema: validated.active.propertiesSchema,
+				});
 				continue;
 			}
 			written.add(key);
-			decisions.push({ key, row, request, input: mutation.input });
+			decisions.push({
+				key,
+				row,
+				request,
+				input: mutation.input,
+				propertiesSchema: validated.active.propertiesSchema,
+			});
+		}
+		const assetRecords = decisions.flatMap(({ request, propertiesSchema }) =>
+			request && request.operation !== "delete"
+				? [{ propertiesSchema, properties: request.draft.properties }]
+				: [],
+		);
+		if (yield* lockAssetReferences(assetRecords)) {
+			return yield* concurrentChange();
 		}
 		const deleted = yield* repository.deleteRelationshipsById(
 			decisions.flatMap(({ row, request }) =>
@@ -481,6 +503,17 @@ export const makeRelationshipMutationPrimitives = ({
 	) {
 		yield* assertActiveTransaction;
 		yield* assertStableSource(mutation, validated, before);
+		if (
+			request.operation !== "delete" &&
+			(yield* lockAssetReferences([
+				{
+					properties: request.draft.properties,
+					propertiesSchema: validated.active.propertiesSchema,
+				},
+			]))
+		) {
+			return yield* concurrentChange();
+		}
 		if (request.operation === "create") {
 			const saved = yield* repository.createRelationship({
 				...mutation.input,
