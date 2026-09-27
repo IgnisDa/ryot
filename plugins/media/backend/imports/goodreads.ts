@@ -1,5 +1,6 @@
 import { DateTime, Option } from "@ryot-app/sandbox-sdk/effect";
 
+import { isValidIsbn, normalizeIsbn } from "../lib/isbn";
 import { parseCsvText } from "./csv";
 import { nowIso, parseDateWithFormat } from "./dates";
 import { getOrCreateMediaEntityGroup, type ImportMediaEntityGroupBuilder } from "./groups";
@@ -14,8 +15,6 @@ import {
 	createReviewEvent,
 	finalizeEntityGroups,
 	isLifecycleAlias,
-	isValidIsbn,
-	normalizeIsbn,
 	normalizeLifecycleStatus,
 	normalizeRating,
 	normalizeReadCount,
