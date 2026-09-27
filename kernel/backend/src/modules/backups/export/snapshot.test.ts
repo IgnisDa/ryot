@@ -9,8 +9,10 @@ import {
 	UserId,
 } from "@ryot-app/contract/schema/brands";
 import type { AppSchema } from "@ryot-app/contract/schema/property-schema";
+import { sql } from "drizzle-orm";
 import { Context, Effect, FileSystem, Layer, Ref } from "effect";
 
+import { DatabaseSession } from "#lib/infrastructure/db/session";
 import { assertExitFails } from "#lib/test-utils/assertions";
 import { databaseLayer } from "#lib/test-utils/effect";
 import { AuthRepository } from "#modules/auth/repository";
@@ -131,6 +133,7 @@ const installationRow = (input: {
 	config: {},
 	sortOrder: 0,
 	isHidden: false,
+	userSettings: {},
 	healthReason: null,
 	uninstalledAt: null,
 	homeSavedViewSlug: null,
@@ -187,6 +190,22 @@ const withExportReads = <A, E, R>(
 			),
 		),
 	);
+
+const ensureInstallationUserSettingsColumn = Effect.fn(
+	"BackupExportSnapshotTest.ensureInstallationUserSettingsColumn",
+)(function* () {
+	const database = yield* DatabaseSession;
+	yield* database.run((db) =>
+		db.execute(
+			sql`create table if not exists plugin_installation (id text primary key, user_id text not null)`,
+		),
+	);
+	yield* database.run((db) =>
+		db.execute(
+			sql`alter table plugin_installation add column if not exists user_settings jsonb not null default '{}'::jsonb`,
+		),
+	);
+});
 
 const privateRecordsEventsPath = `${tmpdir()}/backup-export-installations-${crypto.randomUUID()}.ndjson`;
 const systemInstallation = installationRow({
@@ -591,6 +610,7 @@ layer(privateRecordsExportLayer)((test) => {
 		"exports private records from their persisted package when effective ownership differs",
 		() =>
 			Effect.gen(function* () {
+				yield* ensureInstallationUserSettingsColumn();
 				const snapshot = yield* BackupExportSnapshot;
 				const prepared = yield* snapshot.prepareExportSnapshot(userId, privateRecordsEventsPath);
 				const reads = yield* FakeExportReads;
@@ -851,6 +871,7 @@ const eventPagesExportLayer = withExportReads((reads) =>
 layer(eventPagesExportLayer)((test) => {
 	test.effect("reuses one export context across every event page", () =>
 		Effect.gen(function* () {
+			yield* ensureInstallationUserSettingsColumn();
 			const snapshot = yield* BackupExportSnapshot;
 			const prepared = yield* snapshot.prepareExportSnapshot(userId, eventPagesPath);
 			const reads = yield* FakeExportReads;

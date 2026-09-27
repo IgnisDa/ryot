@@ -7,6 +7,7 @@ import { DatabaseSession } from "@ryot-app/kernel-backend/lib/infrastructure/db/
 import { DefinitionRepository } from "@ryot-app/kernel-backend/modules/definition-registry/repository";
 import type { DefinitionSnapshot } from "@ryot-app/kernel-backend/modules/definition-registry/snapshot";
 import { PluginRepository } from "@ryot-app/kernel-backend/modules/plugins/repository";
+import { resolvePluginUserSettings } from "@ryot-app/kernel-backend/modules/plugins/user-settings";
 import { and, eq, inArray, isNull } from "drizzle-orm";
 import { Effect } from "effect";
 
@@ -161,6 +162,22 @@ export const buildLegacyPackageResolution = Effect.fn("buildLegacyPackageResolut
 	const activeFitness = activePackages.get(fitness.id);
 	if (!activeMedia || !activeFitness) {
 		throw new Error("Expected active persisted revisions for the media and fitness plugins");
+	}
+	if (!activeMedia.manifest.userSettingsSchema) {
+		throw new Error(
+			"Legacy bootstrap: the active Media revision has no user settings schema, so NSFW preferences cannot migrate. Use a build with the Media user settings schema, then start again.",
+		);
+	}
+	for (const allowNsfw of [false, true]) {
+		yield* resolvePluginUserSettings(activeMedia.manifest.userSettingsSchema, { allowNsfw }).pipe(
+			Effect.catch((error) =>
+				Effect.die(
+					new Error(
+						`Legacy bootstrap: the active Media user settings schema rejects NSFW preferences (${String(error)}). Use a build with the supported Media user settings schema, then start again.`,
+					),
+				),
+			),
+		);
 	}
 
 	const resolvedEnvironmentConfigs = [activeMedia, activeFitness].map((plugin) => {
