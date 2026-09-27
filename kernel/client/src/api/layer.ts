@@ -12,6 +12,7 @@ import { GodModeApi } from "#/api/god-mode";
 import { ImportsApi } from "#/api/imports";
 import { IntegrationsApi } from "#/api/integrations";
 import { NotificationsApi } from "#/api/notifications";
+import { OAuthConnectionsApi } from "#/api/oauth-connections";
 import { PluginInstallationsApi } from "#/api/plugin-installations";
 import { PluginsApi } from "#/api/plugins";
 import { ProviderEntitiesApi } from "#/api/provider-entities";
@@ -45,6 +46,7 @@ export const ApiLive = Layer.mergeAll(
 	UserSettingsApi.layer,
 	IntegrationsApi.layer,
 	NotificationsApi.layer,
+	OAuthConnectionsApi.layer,
 	ProviderEntitiesApi.layer,
 	PluginInstallationsApi.layer,
 ).pipe(Layer.provide(TransportLive));
