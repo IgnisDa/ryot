@@ -80,20 +80,6 @@ export const workoutSetPropertiesSchema: AppSchema = {
 			validation: { minimum: 0 },
 			description: "Rest time after this set in seconds",
 		},
-		weight: {
-			type: "number",
-			label: "Weight",
-			validation: { minimum: 0 },
-			normalize: { round: { scale: workoutSetScales.weight } },
-			description: "Weight used in this set in kilograms (kg)",
-		},
-		distance: {
-			type: "number",
-			label: "Distance",
-			validation: { minimum: 0 },
-			normalize: { round: { scale: workoutSetScales.distance } },
-			description: "Distance covered in this set in kilometers (km)",
-		},
 		restTimerStartedAt: {
 			type: "datetime",
 			label: "Rest Timer Started At",
@@ -117,18 +103,25 @@ export const workoutSetPropertiesSchema: AppSchema = {
 			validation: { minimum: 0 },
 			description: "Zero-based position of this exercise within the workout",
 		},
-		duration: {
-			type: "number",
-			label: "Duration",
-			validation: { minimum: 0 },
-			normalize: { round: { scale: workoutSetScales.duration } },
-			description: "Duration of this set in seconds",
-		},
 		rpe: {
 			label: "Rpe",
 			type: "integer",
 			validation: { minimum: 0, maximum: 10 },
 			description: "Rate of perceived exertion from 0 (no effort) to 10 (maximal effort)",
+		},
+		duration: {
+			type: "number",
+			label: "Duration",
+			validation: { minimum: 0 },
+			description: "Duration of this set in seconds",
+			normalize: { round: { scale: workoutSetScales.duration } },
+		},
+		weight: {
+			type: "number",
+			label: "Weight",
+			validation: { minimum: 0 },
+			normalize: { round: { scale: workoutSetScales.weight } },
+			description: "Weight used in this set in kilograms (kg)",
 		},
 		oneRm: {
 			type: "number",
@@ -136,6 +129,13 @@ export const workoutSetPropertiesSchema: AppSchema = {
 			validation: { minimum: 0 },
 			normalize: { round: { scale: workoutSetScales.oneRm } },
 			description: "One-rep max calculated for this set in kilograms (kg)",
+		},
+		distance: {
+			type: "number",
+			label: "Distance",
+			validation: { minimum: 0 },
+			normalize: { round: { scale: workoutSetScales.distance } },
+			description: "Distance covered in this set in kilometers (km)",
 		},
 		volume: {
 			type: "number",
@@ -276,12 +276,11 @@ const workoutTemplateSetProperties: Readonly<Record<string, AppPropertyDefinitio
 		validation: { minimum: 0, required: true },
 		description: "Zero-based position of this set within the exercise",
 	},
-	duration: {
-		type: "number",
-		label: "Duration",
-		validation: { minimum: 0 },
-		normalize: { round: { scale: workoutSetScales.duration } },
-		description: "Duration planned for this set in seconds",
+	rpe: {
+		label: "Rpe",
+		type: "integer",
+		validation: { minimum: 0, maximum: 10 },
+		description: "Planned rate of perceived exertion from 0 (no effort) to 10 (maximal effort)",
 	},
 	weight: {
 		type: "number",
@@ -290,11 +289,12 @@ const workoutTemplateSetProperties: Readonly<Record<string, AppPropertyDefinitio
 		normalize: { round: { scale: workoutSetScales.weight } },
 		description: "Weight planned for this set in kilograms (kg)",
 	},
-	rpe: {
-		label: "Rpe",
-		type: "integer",
-		validation: { minimum: 0, maximum: 10 },
-		description: "Planned rate of perceived exertion from 0 (no effort) to 10 (maximal effort)",
+	duration: {
+		type: "number",
+		label: "Duration",
+		validation: { minimum: 0 },
+		description: "Duration planned for this set in seconds",
+		normalize: { round: { scale: workoutSetScales.duration } },
 	},
 	distance: {
 		type: "number",

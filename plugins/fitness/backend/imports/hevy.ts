@@ -147,8 +147,8 @@ const toWorkoutSet = (row: HevyRow): WorkoutImportSet => {
 		reps: row.reps,
 		weight: row.weight,
 		duration: row.durationSeconds,
-		distance: row.distanceMeters !== undefined ? row.distanceMeters / 1000 : undefined,
 		setLot: setLots[row.setType] ?? "normal",
+		distance: row.distanceMeters !== undefined ? row.distanceMeters / 1000 : undefined,
 	};
 	if (row.exerciseNotes) {
 		set.note = row.exerciseNotes;
