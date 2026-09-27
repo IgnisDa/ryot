@@ -46,6 +46,7 @@ import {
 	AutomationRunWorkflow,
 	type AutomationRunWorkflowPayload,
 	type AutomationRunWorkflowResult,
+	settledAutomationRunResult,
 } from "./run-workflow";
 import { AutomationTriggerRepository } from "./trigger-repository";
 
@@ -366,15 +367,7 @@ export const runAutomationRunWorkflow = Effect.fn("AutomationRunWorkflow")(funct
 		return { attempt: null, policyOutput: null };
 	}
 	if (attempt.status !== "running") {
-		const policyOutput =
-			stage === "before" && attempt.status === "succeeded"
-				? yield* Schema.decodeUnknownEffect(AutomationPolicyOutput)(attempt.returnedValue).pipe(
-						Effect.mapError(
-							() => new DbError({ message: "Automation policy outcome is unavailable" }),
-						),
-					)
-				: null;
-		return completion(attempt, policyOutput);
+		return yield* settledAutomationRunResult(stage, attempt);
 	}
 	const prepared = yield* makeActivity({
 		success: PreparedAutomationRun,

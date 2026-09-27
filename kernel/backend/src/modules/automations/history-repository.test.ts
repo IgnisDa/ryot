@@ -74,7 +74,7 @@ const recordingExecutionLayer = (submit: SubmitBehavior = () => Effect.void) =>
 			return Context.make(
 				AutomationExecutionOperations,
 				AutomationExecutionOperations.of({
-					poll: () => Effect.die("unused"),
+					settle: () => Effect.die("unused"),
 					skipQueuedPolicies: () => Effect.void,
 					submit: (submission) =>
 						Ref.update(submissions, (all) => [
