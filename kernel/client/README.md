@@ -156,6 +156,13 @@ Web `/auth` redirects to the hosted login immediately. Native `/auth` waits for 
 or change server, so dismissing the browser or completing logout returns to that choice instead of
 reopening the hosted login.
 
+God Mode impersonation uses dedicated web/native OAuth clients and replaces the current login. The
+initiating client retains its PKCE verifier while `/oauth/impersonate` redeems a one-use handoff in the
+hosted browser. The callback restarts the application document to discard the previous runtime. A
+kernel banner shows the target and fixed expiry; stop and expiry return to locked God Mode without
+restoring the previous login. Web tabs reload on session identity changes, but not token rotation;
+authenticated requests reject stale user scopes.
+
 ## Assets
 
 `assets/icon-only.png` drives app and web icons, `assets/logo.png` drives adaptive foregrounds and
