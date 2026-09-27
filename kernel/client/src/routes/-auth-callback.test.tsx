@@ -65,8 +65,10 @@ const mountCallback = (
 ) => {
 	const exchanges: Exchange[] = [];
 	const rejected: string[] = [];
+	const cleared: string[] = [];
 	const oauth = makeOAuthRouteStubs(
 		{
+			clear: (origin) => Effect.sync(() => cleared.push(origin)),
 			rejectAuthorization: (_origin, state) =>
 				Effect.sync(() => rejected.push(state)).pipe(
 					Effect.andThen(Effect.fail(new OAuthTokenError({ reason: "authorization-rejected" }))),
@@ -124,7 +126,7 @@ const mountCallback = (
 		}),
 	);
 	render(<RouterProvider router={router} />);
-	return { router, rejected, exchanges };
+	return { router, cleared, rejected, exchanges };
 };
 
 const settledPath = (router: ReturnType<typeof mountCallback>["router"]) =>
@@ -149,8 +151,8 @@ describe("OAuth callback", () => {
 					code: "code-1",
 					state: "state",
 					origin: window.location.origin,
-					clientIds: ["ryot-web", "ryot-demo-web"],
 					redirectUri: `${window.location.origin}/auth/callback`,
+					clientIds: ["ryot-web", "ryot-demo-web", "ryot-impersonation-web"],
 				},
 			]);
 			expect(location.pathname).toBe("/settings");
@@ -177,8 +179,8 @@ describe("OAuth callback", () => {
 					code: "code-1",
 					state: "state",
 					origin: server,
-					clientIds: ["ryot-native"],
 					redirectUri: "io.ryot.app:/auth/callback",
+					clientIds: ["ryot-native", "ryot-impersonation-native"],
 				},
 			]);
 		}),
@@ -197,6 +199,14 @@ describe("OAuth callback", () => {
 			const { router } = mountCallback(["/settings", "/auth/callback?code=code-1&state=state"]);
 			yield* Effect.promise(() => settledPath(router));
 			expect(router.history.length).toBe(2);
+		}),
+	);
+
+	it.live("clears local OAuth tokens after a marked impersonation logout callback", () =>
+		Effect.gen(function* () {
+			const { cleared } = mountCallback("/auth/logout/callback?state=impersonation");
+			yield* Effect.promise(() => waitFor(() => expect(cleared).toEqual([window.location.origin])));
+			expect(cleared).toEqual([window.location.origin]);
 		}),
 	);
 });

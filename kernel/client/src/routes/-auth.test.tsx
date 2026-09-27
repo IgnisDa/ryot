@@ -44,6 +44,7 @@ const makePlan = (nativeApplicationId: OAuthLaunchPlan["client"]["nativeApplicat
 		: `${server}/auth/callback`;
 	const clientId = nativeApplicationId ? "ryot-native" : "ryot-web";
 	return {
+		codeChallenge: "challenge",
 		authorizationUrl: `${server}/api/auth/oauth2/authorize`,
 		client: {
 			clientId,

@@ -26,6 +26,7 @@ import { AuthService, type SettledAuthSession } from "#/modules/auth/service";
 import { OAuthTokenService } from "#/modules/auth/token-service";
 import { ClientPageFreshness } from "#/modules/client-pages/freshness";
 import { EntitiesService } from "#/modules/entities/service";
+import { GodModeImpersonationService } from "#/modules/god-mode/impersonation";
 import { GodModeService } from "#/modules/god-mode/service";
 import { GodModeSessionService, makeGodModeSessionService } from "#/modules/god-mode/session";
 import { ImportsService } from "#/modules/imports/service";
@@ -138,6 +139,7 @@ export const makeAuthStub = (
 ) =>
 	Layer.succeed(AuthService, {
 		changeServer: () => Effect.void,
+		clearSession: () => Effect.void,
 		signOut: () => Effect.succeed(false),
 		settledSession: () => Effect.succeed(session),
 		session: () => ({ getSnapshot: () => session, subscribe: () => () => undefined }),
@@ -173,6 +175,7 @@ export const makeOAuthRouteStubs = (
 			enableTwoFactor: () => Effect.die("not used"),
 			disableTwoFactor: () => Effect.die("not used"),
 			confirmTwoFactor: () => Effect.die("not used"),
+			redeemImpersonation: () => Effect.die("not used"),
 			regenerateBackupCodes: () => Effect.die("not used"),
 			openTwoFactorManagement: () => Effect.die("not used"),
 			signInDemo: Effect.succeed({ mode: "demo" } as const),
@@ -199,6 +202,13 @@ export const makeOAuthRouteStubs = (
 					callbackUri: `${origin}/auth/callback`,
 					logoutUri: `${origin}/auth/logout/callback`,
 				}),
+			forImpersonation: (origin) =>
+				Effect.succeed({
+					nativeApplicationId: null,
+					clientId: "ryot-impersonation-web",
+					callbackUri: `${origin}/auth/callback`,
+					logoutUri: `${origin}/auth/logout/callback`,
+				}),
 			...runtimeOverrides,
 		}),
 		Layer.succeed(OAuthTokenService, {
@@ -212,10 +222,32 @@ export const makeOAuthRouteStubs = (
 		}),
 		Layer.succeed(OAuthLauncher, {
 			launch: () => Effect.void,
+			prepareImpersonation: () =>
+				Effect.succeed({
+					codeChallenge: "challenge",
+					authorizationUrl: `${server}/api/auth/oauth2/authorize`,
+					client: {
+						nativeApplicationId: null,
+						clientId: "ryot-impersonation-web",
+						callbackUri: `${server}/auth/callback`,
+						logoutUri: `${server}/auth/logout/callback`,
+					},
+					pending: {
+						createdAt: 1,
+						state: "state",
+						nonce: "nonce",
+						destination: "/",
+						serverOrigin: server,
+						codeVerifier: "verifier",
+						clientId: "ryot-impersonation-web",
+						redirectUri: `${server}/auth/callback`,
+					},
+				}),
 			prepare: () =>
 				Effect.succeed({
 					_tag: "Ready",
 					plan: {
+						codeChallenge: "challenge",
 						authorizationUrl: `${server}/api/auth/oauth2/authorize`,
 						client: {
 							clientId: "ryot-web",
@@ -251,6 +283,7 @@ export const GodModeRouteStubs = Layer.mergeAll(
 	GodModeSessionStub,
 	GodModeApiStub,
 	GodModeService.layer.pipe(Layer.provide(GodModeSessionStub), Layer.provide(GodModeApiStub)),
+	Layer.succeed(GodModeImpersonationService, { start: () => Effect.void }),
 );
 
 export const makeEntityRouteStub = (

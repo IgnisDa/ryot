@@ -13,6 +13,8 @@ import type { OAuthTokenService } from "#/modules/auth/token-service";
 
 const scope = { userId: "user-1", serverUrl: decodeServerOrigin("https://ryot.example") };
 const unusedHttp = HttpClient.make(() => Effect.die("not used"));
+const bearerToken = (sub: string) =>
+	`header.${btoa(JSON.stringify({ sub })).replace(/=/g, "").replace(/\+/g, "-").replace(/\//g, "_")}.signature`;
 const tokens = (
 	accessToken: OAuthTokenService["Service"]["accessToken"],
 ): OAuthTokenService["Service"] => ({
@@ -32,7 +34,7 @@ describe("authenticated API", () => {
 			const api = makeAuthenticatedApi(
 				tokens((_origin, force = false) => {
 					forceRefresh.push(force);
-					return Effect.succeed(force ? "fresh" : "stale");
+					return Effect.succeed(bearerToken("user-1"));
 				}),
 				unusedHttp,
 			);
@@ -53,7 +55,7 @@ describe("authenticated API", () => {
 	it.live("does not retry a non-authentication failure", () =>
 		Effect.gen(function* () {
 			const api = makeAuthenticatedApi(
-				tokens(() => Effect.succeed("token")),
+				tokens(() => Effect.succeed(bearerToken("user-1"))),
 				unusedHttp,
 			);
 			let attempts = 0;
@@ -80,7 +82,7 @@ describe("authenticated API", () => {
 			const api = makeAuthenticatedApi(
 				tokens((_origin, force = false) => {
 					forceRefresh.push(force);
-					return Effect.succeed("token");
+					return Effect.succeed(bearerToken("user-1"));
 				}),
 				unusedHttp,
 			);
@@ -107,13 +109,33 @@ describe("authenticated API", () => {
 			const api = makeAuthenticatedApi(
 				tokens((_origin, _clientId, force = false) => {
 					calls.push(force);
-					return Effect.succeed("token");
+					return Effect.succeed(bearerToken("user-1"));
 				}),
 				unusedHttp,
 			);
 
 			yield* api.run(scope, () => Effect.succeed("completed"));
 			expect(calls).toEqual([false]);
+		}),
+	);
+
+	it.live("refuses a token for a different user scope before running the API program", () =>
+		Effect.gen(function* () {
+			let attempts = 0;
+			const api = makeAuthenticatedApi(
+				tokens(() => Effect.succeed(bearerToken("user-2"))),
+				unusedHttp,
+			);
+
+			const failure = yield* Effect.flip(
+				api.run(scope, () => {
+					attempts += 1;
+					return Effect.succeed("completed");
+				}),
+			);
+
+			expect(failure).toMatchObject({ _tag: "AuthenticatedApiError" });
+			expect(attempts).toBe(0);
 		}),
 	);
 });

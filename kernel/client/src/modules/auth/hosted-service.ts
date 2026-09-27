@@ -24,6 +24,8 @@ const DemoSignInResponse = strictStruct({ mode: Schema.Literals(["demo", "standa
 const InitializationStatusResponse = strictStruct({
 	status: Schema.Literals(["initializing", "ready"]),
 });
+const ImpersonationRedeemRequest = strictStruct({ ticket: Schema.String });
+const ImpersonationRedeemResponse = strictStruct({ authorizationUrl: Schema.String });
 
 export const requestDemoSignIn = (fetcher: typeof fetch, baseURL: string) =>
 	Effect.gen(function* () {
@@ -44,8 +46,8 @@ export const requestDemoSignIn = (fetcher: typeof fetch, baseURL: string) =>
 		if (!response.ok) {
 			return yield* new HostedAuthError({ message: "Could not open the shared demo." });
 		}
-		const payload = yield* Effect.tryPromise({
-			try: () => response.json() as Promise<unknown>,
+		const payload: unknown = yield* Effect.tryPromise({
+			try: () => response.json(),
 			catch: () => new HostedAuthError({ message: "Could not read the shared demo response." }),
 		});
 		return yield* Schema.decodeUnknownEffect(DemoSignInResponse)(payload).pipe(
@@ -89,6 +91,53 @@ export const requestInitializationStatus = (fetcher: typeof fetch, baseURL: stri
 			),
 		);
 	});
+
+export const requestImpersonationRedeem = (
+	fetcher: typeof fetch,
+	baseURL: string,
+	ticket: string,
+) =>
+	Effect.gen(function* () {
+		const body = yield* Schema.encodeEffect(Schema.fromJsonString(ImpersonationRedeemRequest))({
+			ticket,
+		}).pipe(
+			Effect.mapError(
+				() => new HostedAuthError({ message: "Could not prepare the impersonation request." }),
+			),
+		);
+		const response = yield* Effect.tryPromise({
+			catch: (cause) =>
+				new HostedAuthError({
+					message: cause instanceof Error ? cause.message : "Could not continue impersonation.",
+				}),
+			try: () =>
+				fetcher(new URL("/api/auth/impersonation/redeem", baseURL), {
+					body,
+					method: "POST",
+					cache: "no-store",
+					credentials: "same-origin",
+					headers: { "content-type": "application/json" },
+				}),
+		});
+		if (!response.ok) {
+			return yield* new HostedAuthError({ message: "Could not continue impersonation." });
+		}
+		const payload: unknown = yield* Effect.tryPromise({
+			try: () => response.json(),
+			catch: () => new HostedAuthError({ message: "Could not read the impersonation response." }),
+		});
+		return yield* Schema.decodeUnknownEffect(ImpersonationRedeemResponse)(payload).pipe(
+			Effect.mapError(
+				() =>
+					new HostedAuthError({
+						message: "The server returned an invalid impersonation response.",
+					}),
+			),
+		);
+	});
+
+const redeemImpersonation = (ticket: string) =>
+	requestImpersonationRedeem(globalThis.fetch, window.location.origin, ticket);
 
 // The URI becomes a link target and QR payload, so only a TOTP provisioning URI with a secret passes.
 export const parseTotpEnrollment = (totpURI: string) => {
@@ -263,6 +312,7 @@ export class HostedAuthService extends Context.Service<HostedAuthService>()("Hos
 			twoFactorSession,
 			confirmTwoFactor,
 			submitCredentials,
+			redeemImpersonation,
 			initializationStatus,
 			regenerateBackupCodes,
 			openTwoFactorManagement,
