@@ -707,12 +707,13 @@ it("declares the complete media-owned source", () => {
 		slug: "media-monitoring-targets",
 	});
 	expect(
-		mediaPlugin.savedViews.map(({ name, settings }) => ({
-			name,
-			entitySchemaSlug: Schema.decodeUnknownSync(AuthoredEntityBrowserAddAction)(
+		mediaPlugin.savedViews.map(({ name, settings }) => {
+			const addAction = Schema.decodeUnknownSync(AuthoredEntityBrowserAddAction)(
 				settings["addAction"],
-			).schema.slug,
-		})),
+			);
+			assert(addAction.type === "provider-search");
+			return { name, entitySchemaSlug: addAction.schema.slug };
+		}),
 	).toEqual([
 		{ name: "All Persons", entitySchemaSlug: "person" },
 		{ name: "All Companies", entitySchemaSlug: "company" },
