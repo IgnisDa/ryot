@@ -20,7 +20,11 @@ import { makeActivity } from "#lib/infrastructure/workflow-scope";
 import { parseAppSchemaProperties } from "#lib/property-schema/property-schema-runtime";
 
 import { EventCreateWorkflowError, type EventCreateWorkflowPayload } from "./event-create-workflow";
-import { resolveEventCreateItemScopes } from "./event-creation";
+import {
+	CapturedEventReferences,
+	capturedEventReferences,
+	resolveEventCreateItemScopes,
+} from "./event-creation";
 
 export type EventRequest = Extract<
 	AutomationEventRequestPayload,
@@ -28,6 +32,7 @@ export type EventRequest = Extract<
 >;
 const EventPolicyOutcome = Schema.Union([
 	Schema.TaggedStruct("Accepted", {
+		capturedReferences: CapturedEventReferences,
 		request: AutomationEventCreateRequestPayload,
 		processed: Schema.Array(AutomationHookIdentity),
 	}),
@@ -47,6 +52,7 @@ export const runEventCreatePolicies = Effect.fn("runEventCreatePolicies")(functi
 	plan: LifecyclePlan,
 	propertiesSchema: AppSchema,
 	processed: AutomationHookIdentity[],
+	capturedReferences: CapturedEventReferences,
 ) {
 	const execution = yield* LifecycleExecution;
 	const source = plan.trigger.payload;
@@ -60,6 +66,7 @@ export const runEventCreatePolicies = Effect.fn("runEventCreatePolicies")(functi
 	const skipQueuedPolicies = execution.skipQueuedPolicies({ triggerId: plan.trigger.id });
 	const reached: AutomationHookIdentity[] = [];
 	let request: EventRequest = source;
+	let captured = capturedReferences;
 	const acceptedPatches: AutomationPolicyPatch[] = [];
 	const outcome = yield* Effect.gen(function* () {
 		if (plan.trigger.blockedReason) {
@@ -131,6 +138,7 @@ export const runEventCreatePolicies = Effect.fn("runEventCreatePolicies")(functi
 					),
 				);
 				const successor = { ...patched.request, draft };
+				captured = yield* capturedEventReferences(payload.userId, draft, captured);
 				const acceptedPatch = canonicalLifecyclePolicyPatch(request, successor);
 				request = successor;
 				if (acceptedPatch) {
@@ -138,7 +146,7 @@ export const runEventCreatePolicies = Effect.fn("runEventCreatePolicies")(functi
 				}
 			}
 		}
-		return { request, processed: reached, _tag: "Accepted" as const };
+		return { request, processed: reached, _tag: "Accepted" as const, capturedReferences: captured };
 	}).pipe(
 		Effect.catchTag("EventCreateItemError", (error) =>
 			Effect.succeed({ error, processed: reached, _tag: "Failed" as const }),
@@ -188,6 +196,6 @@ export const runEventCreatePolicies = Effect.fn("runEventCreatePolicies")(functi
 				);
 			}),
 		});
-		return { draft, kind: "ready" as const };
+		return { draft, kind: "ready" as const, capturedReferences: recorded.capturedReferences };
 	}).pipe(Effect.tapError(() => skipQueuedPolicies));
 });

@@ -1,14 +1,10 @@
-import type {
-	SignalAudiencePolicy,
-	SignalCatalogState,
-} from "@ryot-app/contract/modules/automations/schemas";
 import {
-	RelationshipSchemaSlug,
-	SignalSchemaSlug,
-	type UserId,
-} from "@ryot-app/contract/schema/brands";
+	SignalAudiencePolicy,
+	type SignalCatalogState,
+} from "@ryot-app/contract/modules/automations/schemas";
+import { SignalSchemaSlug, type UserId } from "@ryot-app/contract/schema/brands";
 import type { AppSchema } from "@ryot-app/contract/schema/property-schema";
-import { Context, Effect, Layer } from "effect";
+import { Context, Effect, Layer, Schema } from "effect";
 
 import { DefinitionRepository } from "#modules/definition-registry/repository";
 import type { SignalSchemaDefinition } from "#modules/definition-registry/snapshot";
@@ -33,15 +29,7 @@ const toScope = (definition: SignalSchemaDefinition): SignalSchemaScope => ({
 	...definition,
 	userId: null,
 	id: SignalSchemaSlug.make(definition.slug),
-	audiencePolicy:
-		definition.audiencePolicy.kind === "actor"
-			? definition.audiencePolicy
-			: {
-					...definition.audiencePolicy,
-					relationshipSchemaSlug: RelationshipSchemaSlug.make(
-						definition.audiencePolicy.relationshipSchemaSlug,
-					),
-				},
+	audiencePolicy: Schema.decodeSync(SignalAudiencePolicy)(definition.audiencePolicy),
 });
 
 const toNullableScope = (definition: SignalSchemaDefinition | null) =>

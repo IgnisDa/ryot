@@ -1,5 +1,5 @@
 import { generateId } from "better-auth";
-import { index, jsonb, snakeCase, text, timestamp } from "drizzle-orm/pg-core";
+import { index, integer, jsonb, snakeCase, text, timestamp } from "drizzle-orm/pg-core";
 
 import { user } from "./auth";
 import { plugin } from "./core";
@@ -9,6 +9,7 @@ export const event = snakeCase.table(
 	"event",
 	{
 		eventSchemaSlug: text().notNull(),
+		revision: integer().notNull().default(0),
 		occurredAt: timestamp({ withTimezone: true }).notNull(),
 		createdAt: timestamp({ withTimezone: true }).defaultNow().notNull(),
 		properties: jsonb().$type<Record<string, unknown>>().notNull().default({}),

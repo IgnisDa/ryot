@@ -1,4 +1,7 @@
-import { PluginEntityUserStatePolicy } from "@ryot-app/contract/modules/plugins/manifest";
+import {
+	PluginEntityUserStatePolicy,
+	PluginSignalAudiencePolicy,
+} from "@ryot-app/contract/modules/plugins/manifest";
 import { RyotQLDocument } from "@ryot-app/contract/modules/ryotql/language";
 import {
 	EntityBrowserSavedViewSettings,
@@ -56,24 +59,13 @@ export const RelationshipSchemaDefinition = Schema.Struct({
 
 export type RelationshipSchemaDefinition = typeof RelationshipSchemaDefinition.Type;
 
-export const SignalAudiencePolicy = Schema.Union([
-	Schema.Struct({ kind: Schema.Literal("actor") }),
-	Schema.Struct({
-		kind: Schema.Literal("related_users"),
-		relationshipSchemaSlug: Schema.String,
-		subjectSide: Schema.Literals(["source", "target"]),
-	}),
-]);
-
-export type SignalAudiencePolicy = typeof SignalAudiencePolicy.Type;
-
 export const SignalSchemaDefinition = Schema.Struct({
 	...pluginIdField,
 	name: Schema.String,
 	slug: Schema.String,
 	propertiesSchema: AppSchema,
 	notificationHookSlug: Schema.String,
-	audiencePolicy: SignalAudiencePolicy,
+	audiencePolicy: PluginSignalAudiencePolicy,
 	catalogState: Schema.Literals(["active", "hidden"]),
 });
 
@@ -258,12 +250,28 @@ const validateDefinitionSource = (source: DefinitionSource) => {
 
 	for (const signalSchema of source.signalSchemas) {
 		assertSchemaDefinition("signal", signalSchema.slug, signalSchema.propertiesSchema);
+		const policy = signalSchema.audiencePolicy;
 		if (
 			signalSchema.audiencePolicy.kind === "related_users" &&
 			!relationshipSchemaSlugs.has(signalSchema.audiencePolicy.relationshipSchemaSlug)
 		) {
 			throw new Error(
 				`Signal schema ${signalSchema.slug} references missing relationship schema ${signalSchema.audiencePolicy.relationshipSchemaSlug}`,
+			);
+		}
+		if (
+			policy.kind === "dependent_event_owners" &&
+			!source.entitySchemas.some((entitySchema) =>
+				entitySchema.eventSchemas.some(
+					(eventSchema) =>
+						eventSchema.slug === policy.eventSchemaSlug &&
+						(eventSchema.pluginId ?? entitySchema.pluginId ?? null) ===
+							(signalSchema.pluginId ?? null),
+				),
+			)
+		) {
+			throw new Error(
+				`Signal schema ${signalSchema.slug} references missing event schema ${policy.eventSchemaSlug}`,
 			);
 		}
 	}

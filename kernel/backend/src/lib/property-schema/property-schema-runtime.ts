@@ -1,3 +1,4 @@
+import { roundHalfUp } from "@ryot-app/contract/schema/numeric-normalization";
 import {
 	type AppPropertyDefinition,
 	type AppArrayPropertyValidation,
@@ -86,11 +87,6 @@ const applyUnknownKeysPolicy = <Fields extends Schema.Struct.Fields>(
 		Schema.Record(excessKey, Schema.Never.annotate({ identifier: "no excess property" })),
 	]);
 	return struct.rebuild(strict.ast);
-};
-
-const roundHalfUp = (value: number, scale: number) => {
-	const factor = 10 ** scale;
-	return Math.round((value + Number.EPSILON) * factor) / factor;
 };
 
 const isComparableType = (

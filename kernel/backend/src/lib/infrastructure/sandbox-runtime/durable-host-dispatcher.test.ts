@@ -63,6 +63,8 @@ const unusedStep = {
 	applyPolicies: () => Effect.die("unused"),
 };
 const unusedLifecycle: SandboxHostImplementations["Service"]["lifecycle"] = {
+	updateEvents: unusedStep,
+	deleteEvents: unusedStep,
 	upsertGlobalEntities: unusedStep,
 	changeUserRelationships: unusedStep,
 	upsertGlobalRelationships: unusedStep,
@@ -82,6 +84,8 @@ const implementations: SandboxHostImplementations["Service"] = {
 	},
 	additional: {
 		createEvents: unused,
+		updateEvents: unused,
+		deleteEvents: unused,
 		executeRyotql: unused,
 		getPluginConfig: unused,
 		getUserSettings: unused,
@@ -93,6 +97,7 @@ const implementations: SandboxHostImplementations["Service"] = {
 		getOAuthAccessToken: unused,
 		upsertGlobalEntities: unused,
 		getCurrentIntegration: unused,
+		requestEventStreamWork: unused,
 		changeUserRelationships: unused,
 		upsertGlobalRelationships: unused,
 	},

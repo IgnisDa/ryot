@@ -7,6 +7,7 @@ import type { AutomationReconciliation } from "#modules/automations/reconciliati
 import { automationsFrequentTask } from "#modules/automations/reconciliation";
 import { AutomationRetention } from "#modules/automations/retention";
 import { BackupsService } from "#modules/backups/service";
+import { EventStreamWorkService } from "#modules/events/stream-work";
 import { WorkflowGarbageCollector } from "#modules/garbage-collection/workflows";
 import { ingestionFrequentTask } from "#modules/imports/frequent-task";
 import type { ImportsService } from "#modules/imports/service";
@@ -37,6 +38,7 @@ const frequentCronTasks: ReadonlyArray<
 		| AutomationRetention
 		| BackupsService
 		| DatabaseSession
+		| EventStreamWorkService
 		| OAuthConnectionsService
 		| UploadIntentsService
 		| PluginCatalogInvalidator
@@ -71,6 +73,15 @@ const frequentCronTasks: ReadonlyArray<
 			),
 	},
 	automationsFrequentTask,
+	{
+		name: "event-stream-work-reconcile",
+		run: () =>
+			Effect.flatMap(EventStreamWorkService, (service) => service.reconcile()).pipe(
+				Effect.catchCause(() =>
+					Effect.logWarning("event stream work reconciliation listing failed"),
+				),
+			),
+	},
 	{
 		name: "automations-retention",
 		run: () =>

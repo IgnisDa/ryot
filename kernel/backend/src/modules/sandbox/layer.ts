@@ -13,7 +13,7 @@ import { LifecycleServicesLive, SignalEmissionServiceLive } from "#modules/autom
 import { DefinitionRepository } from "#modules/definition-registry/repository";
 import { EntitiesServiceRuntimeLive } from "#modules/entities/layer";
 import { EntitiesRepositoryLive } from "#modules/entities/repository";
-import { EventsServiceLive } from "#modules/events/layer";
+import { EventsServiceLive, EventStreamWorkServiceLive } from "#modules/events/layer";
 import { ImportSourceStateStore } from "#modules/imports/runtime/source-state-store";
 import { IntegrationsRepository } from "#modules/integrations/repository";
 import { NotificationsServiceLive } from "#modules/notifications/layer";
@@ -25,6 +25,7 @@ import { PluginSandboxScriptResolverLive } from "#modules/plugins/sandbox-plugin
 import { RelationshipMutationPipelineLive } from "#modules/relationships/layer";
 import { RyotQLService } from "#modules/ryotql/service";
 
+import { EventStreamProcessorLive } from "./event-stream-processor";
 import { SandboxRepository } from "./repository";
 import { SandboxWorkflowPinning } from "./sandbox-script-workflow";
 import { SandboxExecutionService } from "./service";
@@ -49,6 +50,10 @@ export const SandboxExecutionServiceLive = SandboxExecutionService.layer.pipe(
 	Layer.provide(Layer.merge(SandboxWorkflowPinningLive, SandboxExecutionRepositoriesLive)),
 );
 
+const EventStreamWorkServiceProvidedLive = EventStreamWorkServiceLive.pipe(
+	Layer.provide(EventStreamProcessorLive.pipe(Layer.provide(SandboxExecutionServiceLive))),
+);
+
 export const SandboxHostImplementationsLive = Layer.effect(
 	SandboxHostImplementations,
 	Effect.all({
@@ -61,6 +66,7 @@ export const SandboxHostImplementationsLive = Layer.effect(
 	Layer.provide(
 		Layer.mergeAll(
 			EventsServiceLive,
+			EventStreamWorkServiceProvidedLive,
 			RyotQLService.layer,
 			RelationshipMutationPipelineLive,
 			SignalEmissionServiceLive,
@@ -75,6 +81,7 @@ export const SandboxHostImplementationsLive = Layer.effect(
 	Layer.provide(PluginRepository.layer),
 	Layer.provide(ImportSourceStateStore.layer),
 	Layer.provide(PluginInstallationRepository.layer),
+	Layer.provide(SandboxRepository.layer),
 	Layer.provide(DefinitionRepository.layer),
 	Layer.provide(IntegrationsRepository.layer),
 	Layer.provide(AuthRepository.layer),

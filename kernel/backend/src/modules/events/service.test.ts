@@ -16,6 +16,8 @@ import { rootLifecycleCommand } from "#lib/domain/lifecycle-command";
 import { LifecycleExecution } from "#lib/domain/lifecycle-execution";
 import { makeAppConfigLayer, makeWorkflowEngine } from "#lib/test-utils/effect";
 import { mutationAdmissionTestLayer } from "#lib/test-utils/mutation-admission";
+import { EntitiesRepository } from "#modules/entities/repository";
+import { EventSchemasRepository } from "#modules/event-schemas/repository";
 
 import { EventsRepository } from "./repository";
 import { EventsService } from "./service";
@@ -48,6 +50,8 @@ const serviceLayer = EventsService.layer.pipe(
 			Layer.mock(EventsRepository)({
 				getCreateProgress: () => Effect.succeed({ writtenCount: 1, requiredPending: true }),
 			}),
+			Layer.mock(EntitiesRepository)({}),
+			Layer.mock(EventSchemasRepository)({}),
 			mutationAdmissionTestLayer,
 			Layer.mock(LifecyclePlanner)({}),
 			Layer.mock(LifecycleExecution)({}),

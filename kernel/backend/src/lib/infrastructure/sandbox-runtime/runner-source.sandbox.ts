@@ -454,6 +454,23 @@ const hostFailure = (error: string, data?: unknown) => ({
 	...(data === undefined ? {} : { data }),
 });
 
+const transportArguments = (fnName: string, args: ReadonlyArray<unknown>) => {
+	if (fnName !== "requestEventStreamWork") {
+		return args;
+	}
+	const reference = args[1];
+	if (
+		args.length !== 2 ||
+		!isRecord(reference) ||
+		reference.referenceKind !== "script" ||
+		typeof reference.scriptSlug !== "string" ||
+		reference.scriptSlug.length === 0
+	) {
+		return null;
+	}
+	return [args[0], { scriptSlug: reference.scriptSlug, referenceKind: "script" }];
+};
+
 const missingArtifactGrant = (message: string, operation: string) =>
 	Object.assign(new nativeError(message), { data: { code: "missing-artifact-grant", operation } });
 
@@ -497,7 +514,11 @@ const transportHostCall =
 
 		let requestBody: string;
 		try {
-			requestBody = jsonStringify({ args });
+			const transport = transportArguments(fnName, args);
+			if (!transport) {
+				return hostFailure("requestEventStreamWork requires a script reference");
+			}
+			requestBody = jsonStringify({ args: transport });
 		} catch {
 			return hostFailure("Sandbox bridge request is not valid JSON");
 		}
@@ -797,13 +818,17 @@ const createDurableHost = async (payload: SandboxRunnerPayload) => {
 			if (budgetError) {
 				return Effect.fail({ message: budgetError.message, data: budgetError.reason });
 			}
+			const transport = transportArguments(capability, args);
+			if (!transport) {
+				return Effect.fail({ message: "requestEventStreamWork requires a script reference" });
+			}
 			const index = requests.length;
 			const call = register(
 				{
 					index,
 					kind: "host",
 					name: capability,
-					args: { capability, args: jsonClone(args, capability + " arguments") },
+					args: { capability, args: jsonClone(transport, capability + " arguments") },
 				},
 				index,
 			);

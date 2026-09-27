@@ -225,6 +225,8 @@ describe("requireSandboxCapabilityInput", () => {
 		expect(isSandboxCapabilityAllowed(input, "emitSignal")).toBe(true);
 		expect(isSandboxCapabilityAllowed(input, "executeRyotql")).toBe(true);
 		expect(isSandboxCapabilityAllowed(input, "createEvents")).toBe(false);
+		expect(isSandboxCapabilityAllowed(input, "updateEvents")).toBe(false);
+		expect(isSandboxCapabilityAllowed(input, "deleteEvents")).toBe(false);
 		expect(isSandboxCapabilityAllowed(input, "upsertGlobalRelationships")).toBe(false);
 	});
 	it("returns input when subject and metadata satisfy capability policy", () => {
@@ -234,6 +236,8 @@ describe("requireSandboxCapabilityInput", () => {
 			accountGeneration: { userId: UserId.make("user_1"), token: "test-account-generation" },
 		});
 		expect(Effect.runSync(requireSandboxCapabilityInput(input, "getUserPreferences"))).toBe(input);
+		expect(Effect.runSync(requireSandboxCapabilityInput(input, "updateEvents"))).toBe(input);
+		expect(Effect.runSync(requireSandboxCapabilityInput(input, "deleteEvents"))).toBe(input);
 	});
 
 	it("rejects direct-user-only capabilities for automation runs", () => {

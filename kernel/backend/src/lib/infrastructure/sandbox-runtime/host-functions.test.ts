@@ -9,6 +9,7 @@ import {
 	AutomationTriggerId,
 	EntityId,
 	EntitySchemaSlug,
+	EventSchemaSlug,
 	ImportRunId,
 	IntegrationId,
 	PluginConfigRevisionId,
@@ -46,6 +47,7 @@ import {
 import { EntitiesRepository } from "#modules/entities/repository";
 import { EntitiesService } from "#modules/entities/service";
 import { EventsService } from "#modules/events/service";
+import { EventStreamWorkService } from "#modules/events/stream-work";
 import {
 	ingestionTestRevision,
 	ingestionTestSource,
@@ -61,6 +63,7 @@ import { fixtureManifest } from "#modules/plugins/test-support";
 import { RelationshipMutationPipeline } from "#modules/relationships/mutation-pipeline";
 import { RelationshipsRepository } from "#modules/relationships/repository";
 import { RyotQLService } from "#modules/ryotql/service";
+import { SandboxRepository } from "#modules/sandbox/repository";
 
 import { makeAdditionalSandboxApiFunctions, toSandboxCreateEventsResult } from "./host-functions";
 
@@ -284,6 +287,7 @@ class HostFunctionCalls extends Context.Service<
 	HostFunctionCalls,
 	{
 		readonly ensuredEntities: Effect.Effect<ReadonlyArray<unknown>>;
+		readonly eventMutations: Effect.Effect<ReadonlyArray<unknown>>;
 		readonly ryotqlUserCalls: Effect.Effect<ReadonlyArray<unknown>>;
 		readonly ryotqlPluginCalls: Effect.Effect<ReadonlyArray<unknown>>;
 		readonly pluginConfigLookups: Effect.Effect<ReadonlyArray<unknown>>;
@@ -301,6 +305,19 @@ class HostFunctionCalls extends Context.Service<
 const append = <A>(ref: Ref.Ref<ReadonlyArray<A>>, value: A) =>
 	Ref.update(ref, (all) => [...all, value]);
 
+const eventStreamWorkServiceLayer = (request: EventStreamWorkService["Service"]["request"]) =>
+	Layer.succeed(
+		EventStreamWorkService,
+		EventStreamWorkService.of({
+			request,
+			fail: () => Effect.die("Unexpected EventStreamWorkService.fail"),
+			claim: () => Effect.die("Unexpected EventStreamWorkService.claim"),
+			process: () => Effect.die("Unexpected EventStreamWorkService.process"),
+			dispatch: () => Effect.die("Unexpected EventStreamWorkService.dispatch"),
+			reconcile: () => Effect.die("Unexpected EventStreamWorkService.reconcile"),
+		}),
+	);
+
 const hostFunctionsLayer = (
 	options: {
 		readonly definitions?: DefinitionSource;
@@ -314,6 +331,8 @@ const hostFunctionsLayer = (
 		readonly sourceStateUnavailable?: boolean;
 		readonly sourceStateRunId?: string;
 		readonly installationUnavailable?: boolean;
+		readonly eventStreamRequest?: EventStreamWorkService["Service"]["request"];
+		readonly resolveWorkflowCallScript?: SandboxRepository["Service"]["resolveWorkflowCallScript"];
 	} = {},
 ) =>
 	Layer.unwrap(
@@ -327,6 +346,7 @@ const hostFunctionsLayer = (
 			const integrationLookups = yield* Ref.make<ReadonlyArray<GetForUserInput>>([]);
 			const sourceStateLookups = yield* Ref.make<ReadonlyArray<unknown>>([]);
 			const installationLookups = yield* Ref.make<ReadonlyArray<unknown>>([]);
+			const eventMutations = yield* Ref.make<ReadonlyArray<unknown>>([]);
 			const lookupOrder = yield* Ref.make<ReadonlyArray<string>>([]);
 			const oauthTokenRequests = yield* Ref.make<ReadonlyArray<unknown>>([]);
 			const snapshot = yield* Ref.make(
@@ -337,9 +357,27 @@ const hostFunctionsLayer = (
 				AuthRepository.layer.pipe(Layer.provide(hostDatabaseLayer)),
 				makeAppConfigLayer(),
 				Layer.succeed(RedisService, makeRedisService()),
-				Layer.mock(EventsService)({}),
+				Layer.mock(EventsService)({
+					updateBatch: (items, userId, command) =>
+						append(eventMutations, { items, userId, command, kind: "update" }).pipe(
+							Effect.as({ warnings: [], count: items.length }),
+						),
+					deleteBatch: (eventIds, userId, command) =>
+						append(eventMutations, { userId, command, eventIds, kind: "delete" }).pipe(
+							Effect.as({ warnings: [], count: eventIds.length }),
+						),
+				}),
+				eventStreamWorkServiceLayer(
+					options.eventStreamRequest ??
+						(() => Effect.die("Unexpected EventStreamWorkService.request")),
+				),
+				Layer.mock(SandboxRepository)({
+					resolveWorkflowCallScript:
+						options.resolveWorkflowCallScript ?? (() => Effect.succeed(null)),
+				}),
 				Layer.succeed(HostFunctionCalls, {
 					lookupOrder: Ref.get(lookupOrder),
+					eventMutations: Ref.get(eventMutations),
 					ensuredEntities: Ref.get(ensuredEntities),
 					ryotqlUserCalls: Ref.get(ryotqlUserCalls),
 					ryotqlPluginCalls: Ref.get(ryotqlPluginCalls),
@@ -497,6 +535,138 @@ const runGetCurrentIntegration = (subject: SandboxExecutionSubject) =>
 			Effect.result(functions.getCurrentIntegration(runInput(subject))),
 		),
 	);
+
+describe("event mutation capabilities", () => {
+	layer(hostFunctionsLayer())((test) => {
+		test.effect("binds update and delete batches to the trusted execution user", () =>
+			Effect.gen(function* () {
+				const functions = yield* makeAdditionalSandboxApiFunctions;
+				const trustedUser = UserId.make("trusted-user");
+				const updateItems = [{ eventId: "event-1", patch: { entityId: "entity-1" } }];
+				expect(
+					yield* functions.updateEvents(
+						runInput(
+							{
+								type: "user",
+								userId: trustedUser,
+								accountGeneration: { userId: trustedUser, token: "test-account-generation" },
+							},
+							["updateEvents"],
+						),
+						updateItems,
+					),
+				).toEqual({ count: 1 });
+				expect(
+					yield* functions.deleteEvents(
+						runInput(automationSubject({ kind: "api" }), ["deleteEvents"]),
+						["event-2"],
+					),
+				).toEqual({ count: 1 });
+				expect(yield* (yield* HostFunctionCalls).eventMutations).toMatchObject([
+					{
+						kind: "update",
+						items: updateItems,
+						userId: trustedUser,
+						command: {
+							itemIdentity: "updateEvents",
+							causation: { source: "api", initiator: { kind: "user", id: trustedUser } },
+						},
+					},
+					{
+						kind: "delete",
+						eventIds: ["event-2"],
+						userId: UserId.make("user-1"),
+						command: {
+							itemIdentity: "deleteEvents",
+							causation: {
+								source: "automation",
+								initiator: { kind: "user", id: UserId.make("user-1") },
+							},
+						},
+					},
+				]);
+			}),
+		);
+	});
+});
+
+describe("requestEventStreamWork", () => {
+	const resolvedTargets: Array<unknown> = [];
+	const requests: Array<unknown> = [];
+	layer(
+		hostFunctionsLayer({
+			eventStreamRequest: (input) =>
+				Effect.sync(() => requests.push(input)).pipe(Effect.as("event-stream-work-id")),
+			resolveWorkflowCallScript: (pluginPin, request) =>
+				Effect.sync(() => resolvedTargets.push({ request, pluginPin })).pipe(
+					Effect.as({ kind: "script", scriptId: SandboxScriptId.make("processor-script") }),
+				),
+		}),
+	)((test) => {
+		test.effect("resolves and registers only the declared script under the trusted account", () =>
+			Effect.gen(function* () {
+				const functions = yield* makeAdditionalSandboxApiFunctions;
+				const userId = UserId.make("user-1");
+				const accountGeneration = { userId, token: "test-account-generation" };
+				const subject = {
+					userId,
+					type: "user",
+					accountGeneration,
+				} satisfies SandboxExecutionSubject;
+				const input = runInput(subject, ["requestEventStreamWork"], {
+					pluginRevision: systemPluginRevision,
+					metadata: {
+						kind: "automation",
+						capabilities: ["requestEventStreamWork"],
+						executableDependencies: [{ kind: "script", slug: "stream-processor" }],
+					},
+				});
+				const request = {
+					outputProperties: ["value"],
+					entityId: EntityId.make("entity-1"),
+					eventSchemaSlug: EventSchemaSlug.make("event-stream"),
+				};
+				const reference = {
+					referenceKind: "script",
+					scriptSlug: "stream-processor",
+				} satisfies Parameters<typeof functions.requestEventStreamWork>[2];
+
+				expect(yield* functions.requestEventStreamWork(input, request, reference)).toEqual({
+					workId: "event-stream-work-id",
+				});
+				expect(resolvedTargets).toEqual([
+					{
+						pluginPin: systemPluginRevision,
+						request: {
+							index: 0,
+							kind: "activity",
+							name: "event-stream-processor",
+							args: { input: null, scriptSlug: "stream-processor" },
+						},
+					},
+				]);
+				expect(requests).toEqual([
+					{
+						request,
+						accountGeneration,
+						pluginPin: systemPluginRevision,
+						processorScriptId: SandboxScriptId.make("processor-script"),
+					},
+				]);
+
+				const undeclared = runInput(subject, ["requestEventStreamWork"], {
+					pluginRevision: systemPluginRevision,
+					metadata: { executableDependencies: [], capabilities: ["requestEventStreamWork"] },
+				});
+				const failure = yield* Effect.flip(
+					functions.requestEventStreamWork(undeclared, request, reference),
+				);
+				expect(failure.message).toContain("not a declared script dependency");
+				expect(requests).toHaveLength(1);
+			}),
+		);
+	});
+});
 
 const executeRyotql = () => Effect.void;
 

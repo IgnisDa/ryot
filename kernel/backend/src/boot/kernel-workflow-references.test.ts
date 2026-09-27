@@ -3,12 +3,16 @@ import { expect, layer } from "@effect/vitest";
 import { SandboxRunError } from "@ryot-app/contract/errors";
 import {
 	KERNEL_EVENT_CREATE_WORKFLOW,
+	KERNEL_EVENT_STREAM_WORKFLOW,
 	KERNEL_ENTITY_IMPORT_WORKFLOW,
 	KERNEL_PROCESS_IMPORT_CHUNKS_WORKFLOW,
 	KERNEL_PROVIDER_ENTITY_POPULATION_WORKFLOW,
 } from "@ryot-app/contract/modules/plugins/execution";
+import type { SandboxExecutionSubject } from "@ryot-app/contract/modules/sandbox/schemas";
 import {
+	EntityId,
 	EntitySchemaSlug,
+	EventSchemaSlug,
 	ImportRunId,
 	IntegrationId,
 	SandboxProviderId,
@@ -21,6 +25,7 @@ import { WorkflowEngine } from "effect/workflow/WorkflowEngine";
 import { SandboxArtifactStore } from "#lib/infrastructure/sandbox-runtime/artifacts";
 import { makeWorkflowEngine } from "#lib/test-utils/effect";
 import { mutationAdmissionTestLayer } from "#lib/test-utils/mutation-admission";
+import { EventStreamRepository } from "#modules/events/stream-repository";
 import { IngestionCaptures } from "#modules/imports/capture-service";
 import { ingestionTestRun } from "#modules/imports/ingestion.test-support";
 import { ImportsRepository } from "#modules/imports/repository";
@@ -31,6 +36,24 @@ import { KernelWorkflowReferences } from "#modules/sandbox/kernel-workflow-refer
 import { KernelWorkflowReferencesLive } from "./kernel-workflow-references";
 
 const mockImportsRepository = Layer.mock(ImportsRepository);
+const eventStreamRepositoryLayer = (get: EventStreamRepository["Service"]["get"]) =>
+	Layer.succeed(
+		EventStreamRepository,
+		EventStreamRepository.of({
+			get,
+			fail: () => Effect.die("Unexpected EventStreamRepository.fail"),
+			lock: () => Effect.die("Unexpected EventStreamRepository.lock"),
+			claim: () => Effect.die("Unexpected EventStreamRepository.claim"),
+			touch: () => Effect.die("Unexpected EventStreamRepository.touch"),
+			finish: () => Effect.die("Unexpected EventStreamRepository.finish"),
+			request: () => Effect.die("Unexpected EventStreamRepository.request"),
+			currentClaim: () => Effect.die("Unexpected EventStreamRepository.currentClaim"),
+			lockForEvents: () => Effect.die("Unexpected EventStreamRepository.lockForEvents"),
+			listCandidates: () => Effect.die("Unexpected EventStreamRepository.listCandidates"),
+			invalidateEntity: () => Effect.die("Unexpected EventStreamRepository.invalidateEntity"),
+		}),
+	);
+const eventStreamRepository = eventStreamRepositoryLayer(() => Effect.succeed(null));
 const captureDependencies = Layer.mergeAll(
 	Layer.mock(IngestionCaptures)({}),
 	Layer.mock(SandboxArtifactStore)({}),
@@ -51,6 +74,7 @@ const referencesLayer = (repositories: Layer.Layer<ImportsRepository | Integrati
 		Layer.mergeAll(
 			mutationAdmissionTestLayer,
 			captureDependencies,
+			eventStreamRepository,
 			repositories,
 			Layer.mock(PluginRuntimeResolver)({}),
 		),
@@ -64,6 +88,7 @@ const populationReferencesLayer = (
 		Layer.mergeAll(
 			mutationAdmissionTestLayer,
 			captureDependencies,
+			eventStreamRepository,
 			unownedRepositories,
 			Layer.mock(PluginRuntimeResolver)({
 				findAuthorizedSchemaProviderById: ({ providerId }) =>
@@ -156,12 +181,98 @@ const recordingEngineLayer = (
 
 const unusedEngineLayer = Layer.succeed(WorkflowEngine, makeWorkflowEngine());
 
+const eventStreamWork = (
+	userId: UserId,
+): NonNullable<Effect.Success<ReturnType<EventStreamRepository["Service"]["get"]>>> => ({
+	attempt: 0,
+	error: null,
+	pluginPin: null,
+	dirtyFrom: null,
+	status: "queued",
+	checkpoint: null,
+	streamRevision: 0,
+	claimedRevision: null,
+	updatedAt: new Date(0),
+	id: "event-stream-work-id",
+	outputProperties: ["value"],
+	pluginRevisionId: "plugin-revision",
+	accountToken: "test-account-generation",
+	processorScriptId: SandboxScriptId.make("processor-script"),
+	key: {
+		userId,
+		eventSchemaPluginId: null,
+		entityId: EntityId.make("entity-1"),
+		eventSchemaSlug: EventSchemaSlug.make("event-stream"),
+	},
+});
+
+layer(
+	KernelWorkflowReferencesLive.pipe(
+		Layer.provideMerge(
+			Layer.mergeAll(
+				mutationAdmissionTestLayer,
+				captureDependencies,
+				unownedRepositories,
+				eventStreamRepositoryLayer((id) => {
+					if (id === "owned-work") {
+						return Effect.succeed(eventStreamWork(UserId.make("trusted-user")));
+					}
+					if (id === "foreign-work") {
+						return Effect.succeed(eventStreamWork(UserId.make("other-user")));
+					}
+					return Effect.succeed(null);
+				}),
+				Layer.mock(PluginRuntimeResolver)({}),
+				recordingEngineLayer(() => Effect.succeed(null)),
+			),
+		),
+	),
+)((test) => {
+	test.effect("dispatches only work owned by the trusted user with a trusted request id", () =>
+		Effect.gen(function* () {
+			const references = yield* KernelWorkflowReferences;
+			const userId = UserId.make("trusted-user");
+			const subject = {
+				userId,
+				type: "user",
+				accountGeneration: { userId, token: "test-account-generation" },
+			} satisfies SandboxExecutionSubject;
+			const dispatched = yield* references.execute(
+				KERNEL_EVENT_STREAM_WORKFLOW,
+				{ id: "owned-work" },
+				subject,
+				"trusted-child-execution",
+				"parent-execution",
+				SandboxScriptId.make("caller-script"),
+			);
+			expect(dispatched).toBeNull();
+			expect(yield* (yield* RecordedWorkflowDispatches).payloads).toEqual([
+				{ id: "owned-work", requestId: "trusted-child-execution" },
+			]);
+
+			const failure = yield* Effect.flip(
+				references.execute(
+					KERNEL_EVENT_STREAM_WORKFLOW,
+					{ id: "foreign-work" },
+					subject,
+					"foreign-child-execution",
+					"parent-execution",
+					SandboxScriptId.make("caller-script"),
+				),
+			);
+			expect(failure.message).toContain("does not belong to the executing user");
+			expect(yield* (yield* RecordedWorkflowDispatches).payloads).toHaveLength(1);
+		}),
+	);
+});
+
 layer(
 	KernelWorkflowReferencesLive.pipe(
 		Layer.provideMerge(
 			Layer.mergeAll(
 				mutationAdmissionTestLayer,
 				BunFileSystem.layer,
+				eventStreamRepository,
 				unusedEngineLayer,
 				Layer.mock(PluginRuntimeResolver)({}),
 				mockIntegrationsRepository({}),
@@ -280,6 +391,7 @@ const slugResolvingReferencesLayer = Layer.provide(
 	Layer.mergeAll(
 		mutationAdmissionTestLayer,
 		captureDependencies,
+		eventStreamRepository,
 		unownedRepositories,
 		Layer.mock(PluginRuntimeResolver)({
 			findSchemaProviderBySlug: () =>

@@ -51,6 +51,31 @@ describe("AutomationTriggerRepository", () => {
 					});
 				}),
 			);
+			test.effect("preserves event-stream work attribution across inserts and reads", () =>
+				Effect.gen(function* () {
+					const repo = yield* AutomationTriggerRepository;
+					const fixture = triggerFixture("event-stream-work-trigger");
+					const trigger = {
+						...fixture,
+						causation: { ...fixture.causation, eventStreamWorkId: "stream-work" },
+					};
+
+					expect(yield* repo.insert(trigger)).toEqual(trigger);
+					expect(yield* repo.insert(trigger)).toEqual(trigger);
+					expect(
+						yield* repo
+							.insert({
+								...trigger,
+								causation: { ...trigger.causation, eventStreamWorkId: "different-stream-work" },
+							})
+							.pipe(Effect.flip),
+					).toMatchObject({
+						_tag: "DbError",
+						message: `Automation trigger identity conflict: ${trigger.id}`,
+					});
+					expect(yield* repo.findById(trigger.id)).toEqual(trigger);
+				}),
+			);
 		},
 	);
 	layer(AutomationTriggerRepository.layer.pipe(Layer.provideMerge(revisionDatabaseLayer)))(

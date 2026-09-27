@@ -74,11 +74,14 @@ export const SANDBOX_DURABLE_HOST_DISPATCH = {
 	listIntegrations: "activity",
 	getPersistentValue: "activity",
 	createEvents: "event-workflow",
-	emitSignal: "service-workflow",
 	getUserPreferences: "activity",
+	emitSignal: "service-workflow",
 	getOAuthAccessToken: "activity",
 	claimPersistentValue: "activity",
 	getCurrentIntegration: "activity",
+	requestEventStreamWork: "activity",
+	deleteEvents: "lifecycle-workflow",
+	updateEvents: "lifecycle-workflow",
 	ensureUserEntities: "service-workflow",
 	sendNotification: "notification-workflow",
 	upsertGlobalEntities: "lifecycle-workflow",
@@ -271,6 +274,20 @@ export const prepareSandboxLifecycleHostInput = Effect.fn("prepareSandboxLifecyc
 					sandboxHostContracts[capability],
 				)(request.args.args);
 				return yield* lifecycle.upsertGlobalRelationships.validate(input, groups);
+			}
+			if (capability === "updateEvents") {
+				const [items] = yield* decodeSandboxHostArguments(
+					capability,
+					sandboxHostContracts[capability],
+				)(request.args.args);
+				return yield* lifecycle.updateEvents.validate(input, items);
+			}
+			if (capability === "deleteEvents") {
+				const [eventIds] = yield* decodeSandboxHostArguments(
+					capability,
+					sandboxHostContracts[capability],
+				)(request.args.args);
+				return yield* lifecycle.deleteEvents.validate(input, eventIds);
 			}
 			return yield* new SandboxRunError({
 				kind: "script-failure",

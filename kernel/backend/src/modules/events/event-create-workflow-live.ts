@@ -45,7 +45,12 @@ import {
 	EventCreateWorkflowError,
 	type EventCreateWorkflowPayload,
 } from "./event-create-workflow";
-import { resolveEventCreateItemScopes } from "./event-creation";
+import {
+	CapturedEventReferences,
+	capturedEventReferences,
+	resolveEventCreateItemScopes,
+	validateCapturedEventReferences,
+} from "./event-creation";
 import { runEventCreatePolicies } from "./event-policy-engine";
 import {
 	EventCreateReceiptResult,
@@ -79,6 +84,7 @@ const PreparedItem = Schema.Union([
 		draft: AutomationEventDraft,
 		propertiesSchema: AppSchema,
 		eventSchemaName: Schema.String,
+		capturedReferences: CapturedEventReferences,
 		eventSchemaPluginId: Schema.NullOr(Schema.String),
 		eventSchemaFingerprint: CatalogDefinitionFingerprint,
 	}),
@@ -138,6 +144,7 @@ const prepareItem = Effect.fn("prepareEventCreateItem")(function* (
 						() => new EventCreateItemError({ reason: { code: "invalid-properties" } }),
 					),
 				);
+				const capturedReferences = yield* capturedEventReferences(payload.userId, draft);
 				const plan = yield* planner.plan({
 					excludedOncePerSubjectPolicies: excluded,
 					trigger: lifecycleTrigger(
@@ -148,6 +155,7 @@ const prepareItem = Effect.fn("prepareEventCreateItem")(function* (
 				});
 				const pending = {
 					draft,
+					capturedReferences,
 					_tag: "Pending" as const,
 					eventSchemaName: scope.eventSchemaScope.name,
 					propertiesSchema: scope.eventSchemaScope.propertiesSchema,
@@ -242,10 +250,14 @@ const writeEvent = Effect.fn("writeEventCreateItem")(function* (
 			`event_${sha256Base64Url(stableStringify([command.causation.executionId, command.itemIdentity]))}`,
 		);
 		yield* eventSchemas.lockCatalog();
-		yield* entities.lockEntityReferencesByIds([
-			draft.entityId,
-			...(draft.sessionEntityId === null ? [] : [draft.sessionEntityId]),
-		]);
+		yield* entities.lockEntityReferencesByIds(
+			[
+				...new Set([
+					draft.entityId,
+					...(draft.sessionEntityId === null ? [] : [draft.sessionEntityId]),
+				]),
+			].sort(),
+		);
 		const currentScope = yield* resolveEventCreateItemScopes({
 			userId: payload.userId,
 			item: { ...draft, sessionEntityId: draft.sessionEntityId ?? undefined },
@@ -258,6 +270,7 @@ const writeEvent = Effect.fn("writeEventCreateItem")(function* (
 				reason: { code: "event-schema-not-found", eventSchemaSlug: draft.eventSchemaSlug },
 			});
 		}
+		yield* validateCapturedEventReferences(payload.userId, draft, prepared.capturedReferences);
 		const event = yield* repository.createEvent({
 			...draft,
 			id: eventId,
@@ -397,20 +410,31 @@ export const runEventCreateWorkflow = Effect.fn("EventCreateWorkflow")(function*
 			}
 			const policy =
 				prepared.plan === null
-					? { draft: prepared.draft, kind: "ready" as const }
+					? {
+							draft: prepared.draft,
+							kind: "ready" as const,
+							capturedReferences: prepared.capturedReferences,
+						}
 					: yield* runEventCreatePolicies(
 							payload,
 							index,
 							prepared.plan,
 							prepared.propertiesSchema,
 							processed,
+							prepared.capturedReferences,
 						);
 			if (policy.kind === "skipped") {
 				return policy;
 			}
 			return {
 				kind: "written" as const,
-				committed: yield* writeEvent(payload, index, prepared, policy.draft, processed),
+				committed: yield* writeEvent(
+					payload,
+					index,
+					{ ...prepared, capturedReferences: policy.capturedReferences },
+					policy.draft,
+					processed,
+				),
 			};
 		}).pipe(
 			Effect.catchTag("EventCreateItemError", (error) =>

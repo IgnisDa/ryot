@@ -1,19 +1,27 @@
-import { expect, layer } from "@effect/vitest";
+import { assert, expect, layer } from "@effect/vitest";
 import {
 	EntityId,
 	EntitySchemaSlug,
+	EventId,
+	EventSchemaSlug,
 	SandboxProviderId,
 	SandboxScriptId,
 	UserId,
 } from "@ryot-app/contract/schema/brands";
+import { sql } from "drizzle-orm";
 import { PgDialect } from "drizzle-orm/pg-core";
-import { Context, Effect, Layer, Ref } from "effect";
+import { Context, DateTime, Effect, Layer, Ref } from "effect";
 
+import * as tables from "#lib/infrastructure/db/schema/tables/combined";
+import { DatabaseSession } from "#lib/infrastructure/db/session";
 import { fakeDatabaseSession } from "#lib/test-utils/effect";
 import type { MockOverrides } from "#lib/test-utils/effect";
+import { isolatedDatabaseLayer } from "#lib/test-utils/isolated-database";
 import { BackupRestorePersistence } from "#modules/backups/restore/persistence";
 import { restorePersistenceWithDatabase } from "#modules/backups/restore/persistence.test-support";
 import { DefinitionRepository } from "#modules/definition-registry/repository";
+import { EventsRepository } from "#modules/events/repository";
+import { EventStreamRepository } from "#modules/events/stream-repository";
 import { PluginRuntimeResolver } from "#modules/plugins/runtime-resolver";
 
 import { EntitiesRepository } from "./repository";
@@ -358,6 +366,159 @@ layer(
 			expect(yield* recordedEntries).toEqual([input]);
 		});
 	});
+});
+
+const eventStreamRepositoriesLayer = Layer.mergeAll(
+	EntitiesRepository.layer.pipe(
+		Layer.provide(Layer.mergeAll(Layer.mock(DefinitionRepository)({}), makePluginRuntime())),
+	),
+	EventsRepository.layer,
+	EventStreamRepository.layer,
+).pipe(Layer.provideMerge(isolatedDatabaseLayer("entities_repository_stream_invalidation")));
+
+layer(eventStreamRepositoriesLayer)((test) => {
+	test.effect("lists distinct event schema and reference-role dependencies", () =>
+		Effect.gen(function* () {
+			const session = yield* DatabaseSession;
+			const repository = yield* EntitiesRepository;
+			const userId = UserId.make("dependency-owner");
+			const entityId = EntityId.make("dependency-entity");
+			const occurredAt = DateTime.toDateUtc(DateTime.makeUnsafe("2026-10-01T00:00:00.000Z"));
+			yield* session.run((db) =>
+				db
+					.insert(tables.user)
+					.values({ id: userId, name: "Dependency owner", email: "dependency@example.test" }),
+			);
+			yield* session.run((db) =>
+				db
+					.insert(tables.entity)
+					.values({ id: entityId, name: "Entity", entitySchemaSlug: "record" }),
+			);
+			yield* session.run((db) =>
+				db.execute(sql`
+					insert into event (
+						id,
+						user_id,
+						entity_id,
+						session_entity_id,
+						event_schema_slug,
+						event_schema_plugin_id,
+						occurred_at
+					) values
+						('dependency-entity-1', ${userId}, ${entityId}, ${entityId}, 'workout-set', null, ${occurredAt}),
+						('dependency-entity-2', ${userId}, ${entityId}, null, 'workout-set', null, ${occurredAt})
+				`),
+			);
+
+			expect(yield* repository.listEventDependencies(entityId)).toEqual([
+				{
+					role: "entity",
+					eventSchemaPluginId: null,
+					eventSchemaSlug: EventSchemaSlug.make("workout-set"),
+				},
+				{
+					role: "session",
+					eventSchemaPluginId: null,
+					eventSchemaSlug: EventSchemaSlug.make("workout-set"),
+				},
+			]);
+		}),
+	);
+
+	test.effect("invalidates event streams only after entity stream data changes", () =>
+		Effect.gen(function* () {
+			const session = yield* DatabaseSession;
+			const repository = yield* EntitiesRepository;
+			const events = yield* EventsRepository;
+			const streams = yield* EventStreamRepository;
+			const userId = UserId.make("stream-owner");
+			const entityId = EntityId.make("stream-entity");
+			const key = {
+				userId,
+				entityId,
+				eventSchemaPluginId: null,
+				eventSchemaSlug: EventSchemaSlug.make("progress"),
+			};
+			const occurredAt = DateTime.toDateUtc(DateTime.makeUnsafe("2026-10-01T00:00:00.000Z"));
+			yield* session.run((db) =>
+				db
+					.insert(tables.user)
+					.values({ id: userId, name: "Stream owner", email: "stream-owner@example.test" }),
+			);
+			yield* session.run((db) =>
+				db
+					.insert(tables.entity)
+					.values({ id: entityId, name: "Before", entitySchemaSlug: "record" }),
+			);
+
+			const event = {
+				userId,
+				entityId,
+				occurredAt,
+				properties: { value: 1 },
+				eventSchemaPluginId: null,
+				eventSchemaName: "Progress",
+				id: EventId.make("stream-event"),
+				eventSchemaSlug: key.eventSchemaSlug,
+			};
+			expect(yield* session.isTransactionActive).toBe(false);
+			expect(yield* Effect.flip(events.createEvent(event))).toMatchObject({
+				_tag: "DbError",
+				message: "Event writes require an active transaction",
+			});
+			const created = yield* session.transaction(
+				Effect.gen(function* () {
+					expect(yield* session.isTransactionActive).toBe(true);
+					return yield* events.createEvent(event);
+				}),
+			);
+			expect(created.id).toBe(event.id);
+			const streamId = yield* session.transaction(
+				streams.request({
+					key,
+					outputProperties: ["value"],
+					accountToken: "stream-account",
+					pluginRevisionId: "stream-revision",
+					processorScriptId: "stream-processor",
+					pluginPin: { revisionId: "stream-revision" },
+				}),
+			);
+			const beforeUpdate = yield* streams.get(streamId);
+			assert(beforeUpdate);
+			expect(beforeUpdate.streamRevision).toBe(1);
+			yield* session.transaction(events.createEvent(event));
+			expect((yield* streams.get(streamId))?.streamRevision).toBe(beforeUpdate.streamRevision);
+
+			const claim = yield* session.transaction(streams.claim(streamId, 0));
+			assert(claim);
+			yield* session.transaction(streams.finish(streamId, claim.attempt, { cursor: "done" }, true));
+			yield* session.transaction(
+				Effect.gen(function* () {
+					expect(yield* session.isTransactionActive).toBe(true);
+					yield* repository.updateEntity({
+						entityId,
+						name: "After",
+						populatedAt: null,
+						properties: { value: 2 },
+					});
+				}),
+			);
+			const invalidated = yield* streams.get(streamId);
+			assert(invalidated);
+			expect(invalidated.streamRevision).toBe(beforeUpdate.streamRevision + 1);
+			expect(invalidated.status).toBe("queued");
+
+			yield* session.transaction(
+				repository.updateEntity({
+					entityId,
+					name: "After",
+					populatedAt: occurredAt,
+					properties: { value: 2 },
+				}),
+			);
+			expect((yield* streams.get(streamId))?.streamRevision).toBe(invalidated.streamRevision);
+		}),
+	);
 });
 
 const portableRow = {

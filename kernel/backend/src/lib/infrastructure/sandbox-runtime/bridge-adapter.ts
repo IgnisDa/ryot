@@ -137,6 +137,16 @@ export const bindSandboxHostFunctions = (
 		(...args) => implementations.createEvents(input, ...args),
 		defaultFailure("createEvents"),
 	),
+	updateEvents: bindHostFunction(
+		domainSandboxHostContracts.updateEvents,
+		(...args) => implementations.updateEvents(input, ...args),
+		defaultFailure("updateEvents"),
+	),
+	deleteEvents: bindHostFunction(
+		domainSandboxHostContracts.deleteEvents,
+		(...args) => implementations.deleteEvents(input, ...args),
+		defaultFailure("deleteEvents"),
+	),
 	getCachedValue: bindHostFunction(
 		coreSandboxHostContracts.getCachedValue,
 		(...args) => implementations.getCachedValue(input, ...args),
@@ -206,6 +216,11 @@ export const bindSandboxHostFunctions = (
 		domainSandboxHostContracts.getCurrentIntegration,
 		(...args) => implementations.getCurrentIntegration(input, ...args),
 		defaultFailure("getCurrentIntegration"),
+	),
+	requestEventStreamWork: bindHostFunction(
+		domainSandboxHostContracts.requestEventStreamWork,
+		(...args) => implementations.requestEventStreamWork(input, ...args),
+		defaultFailure("requestEventStreamWork"),
 	),
 	changeUserRelationships: bindHostFunction(
 		domainSandboxHostContracts.changeUserRelationships,

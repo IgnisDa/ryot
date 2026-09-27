@@ -50,8 +50,11 @@ import { TranslationsServiceLive } from "#modules/entity-translation/layer";
 import { TranslateEntityWorkflowOperationsLive } from "#modules/entity-translation/operations-workflow";
 import {
 	EventCreateWorkflowDefinitionsProvidedLive,
+	EventStreamWorkServiceLive,
 	EventsServiceLive,
 } from "#modules/events/layer";
+import { EventStreamRepository } from "#modules/events/stream-repository";
+import { EventStreamWorkflowDefinitionsLive } from "#modules/events/stream-work";
 import { WorkflowGarbageCollector } from "#modules/garbage-collection/workflows";
 import { GodModeServiceLive } from "#modules/god-mode/layer";
 import { CancelImportRunWorkflowDefinitionsLive } from "#modules/imports/cancel-workflow";
@@ -105,6 +108,7 @@ import {
 } from "#modules/provider-entities/layer";
 import { RelationshipsServiceLive } from "#modules/relationships/layer";
 import { RyotQLService } from "#modules/ryotql/service";
+import { EventStreamProcessorLive } from "#modules/sandbox/event-stream-processor";
 import {
 	RuntimeSandboxServiceLive,
 	SandboxExecutionServiceLive,
@@ -185,6 +189,9 @@ const ServicesLive = Layer.mergeAll(
 	EntitiesServiceRuntimeLive,
 	EntityImportServiceLive,
 	EventsServiceLive,
+	EventStreamWorkServiceLive.pipe(
+		Layer.provide(EventStreamProcessorLive.pipe(Layer.provide(SandboxExecutionServiceLive))),
+	),
 	GodModeServiceLive,
 	ImportsServiceLive,
 	ImportRunCancellationService.layer.pipe(Layer.provide(ImportsRepository.layer)),
@@ -242,6 +249,7 @@ const RuntimeWorkflowDefinitionsLive = Layer.mergeAll(
 	ProviderEntityPopulationWorkflowDefinitionsProvidedLive,
 	EntityImportWorkflowDefinitionsLive,
 	EventCreateWorkflowDefinitionsProvidedLive,
+	EventStreamWorkflowDefinitionsLive,
 	NotificationDeliveryWorkflowDefinitionsProvidedLive,
 	IntegrationSyncWorkflowDefinitionsProvidedLive,
 	ImportWorkflowDefinitionsLive,
@@ -275,6 +283,7 @@ const RuntimeWorkflowDefinitionsLive = Layer.mergeAll(
 					Layer.mergeAll(
 						ImportsRepository.layer,
 						IngestionCaptures.layer,
+						EventStreamRepository.layer,
 						IntegrationsRepository.layer,
 						PluginRuntimeResolverLive,
 					),

@@ -5,17 +5,22 @@ import type {
 	AutomationPolicyOutput,
 	AutomationWarning,
 } from "@ryot-app/contract/modules/automations/lifecycle";
+import type { EntityId } from "@ryot-app/contract/schema/brands";
 import {
 	AutomationExecutionId,
 	AutomationHookSlug,
 	AutomationRunId,
 	EntitySchemaSlug,
+	EventId,
+	EventSchemaSlug,
 	SandboxProviderId,
 	UserId,
 } from "@ryot-app/contract/schema/brands";
 import { IsoUtcString } from "@ryot-app/contract/schema/utils";
 import { eq, sql } from "drizzle-orm";
 import { Context, DateTime, Effect, Layer, Redacted, Ref } from "effect";
+import { Workflow } from "effect/workflow";
+import { WorkflowEngine } from "effect/workflow/WorkflowEngine";
 import { assert, describe } from "vitest";
 
 import { LifecyclePlanner } from "#lib/domain/lifecycle";
@@ -31,7 +36,11 @@ import {
 	baselineMigrationStatements,
 } from "#lib/test-utils/baseline-migration";
 import { testDatabaseUrl } from "#lib/test-utils/database";
-import { makeAppConfigLayer, makeConfigProviderLayer } from "#lib/test-utils/effect";
+import {
+	makeAppConfigLayer,
+	makeConfigProviderLayer,
+	makeWorkflowEngine,
+} from "#lib/test-utils/effect";
 import {
 	withLifecycleBatchPlanning,
 	withLifecycleDispatch,
@@ -42,6 +51,9 @@ import {
 	buildDefinitionSnapshot,
 	type DefinitionSource,
 } from "#modules/definition-registry/snapshot";
+import { EventSchemasRepository } from "#modules/event-schemas/repository";
+import { EventsRepository } from "#modules/events/repository";
+import { EventsService } from "#modules/events/service";
 import { PluginConfigEncryptionKey } from "#modules/plugins/config-encryption-key";
 import { PluginConfigRevisions } from "#modules/plugins/config-revisions";
 import { PluginInstallationRepository } from "#modules/plugins/installation-repository";
@@ -62,6 +74,15 @@ const command = (id: string) =>
 		occurredAt: IsoUtcString.make("2026-09-15T00:00:00.000Z"),
 		accountGeneration: { userId: owner, token: "test-account-generation" },
 	});
+const systemCommand = (id: string) =>
+	rootLifecycleCommand({
+		source: "api",
+		itemIdentity: "entity",
+		accountGeneration: null,
+		initiator: { id: null, kind: "system" },
+		executionId: AutomationExecutionId.make(id),
+		occurredAt: IsoUtcString.make("2026-09-15T00:00:00.000Z"),
+	});
 const createInput = (id: string) => ({
 	userId: owner,
 	name: " Original ",
@@ -70,6 +91,24 @@ const createInput = (id: string) => ({
 	scope: "user" as const,
 	properties: { title: "original" },
 });
+const createEvent = (id: EventId, userId: UserId, entityId: EntityId, sessionEntityId?: EntityId) =>
+	Effect.gen(function* () {
+		const repository = yield* EventsRepository;
+		const session = yield* DatabaseSession;
+		return yield* session.transaction(
+			repository.createEvent({
+				id,
+				userId,
+				entityId,
+				properties: {},
+				eventSchemaPluginId: null,
+				eventSchemaName: "Progress",
+				eventSchemaSlug: EventSchemaSlug.make("progress"),
+				occurredAt: DateTime.toDateUtc(DateTime.makeUnsafe("2026-09-15T00:00:00.000Z")),
+				...(sessionEntityId === undefined ? {} : { sessionEntityId }),
+			}),
+		);
+	});
 const warning: AutomationWarning = {
 	code: "required-hook-failed",
 	runId: AutomationRunId.make("after-run"),
@@ -81,6 +120,8 @@ type TestOptions = {
 	blockedRequiredChange?: boolean;
 	activateSchemaOnWrite?: boolean;
 	deadlockOnce?: boolean;
+	lateEventOnDelete?: boolean;
+	lateEventOnUpdate?: boolean;
 	failChange?: boolean | number;
 	warnings?: ReadonlyArray<AutomationWarning>;
 	policies?: ReadonlyArray<AutomationPolicyOutput | "fail">;
@@ -112,7 +153,9 @@ const entitiesLayer = (options: TestOptions = {}) =>
 						name: "Record",
 						icon: "record",
 						pluginSlug: null,
-						eventSchemas: [],
+						eventSchemas: [
+							{ name: "Progress", slug: "progress", propertiesSchema: { fields: {} } },
+						],
 						propertiesSchema: {
 							fields: {
 								title: { type: "string", label: "Title", description: "Title" },
@@ -168,6 +211,8 @@ const entitiesLayer = (options: TestOptions = {}) =>
 					);
 			const repositories = Layer.mergeAll(
 				EntitiesRepository.layer.pipe(Layer.provide(Layer.merge(base, runtime))),
+				EventsRepository.layer,
+				EventSchemasRepository.layer.pipe(Layer.provide(runtime)),
 				AutomationTriggerRepository.layer,
 			);
 			const ports = Layer.effect(
@@ -175,6 +220,7 @@ const entitiesLayer = (options: TestOptions = {}) =>
 				Effect.gen(function* () {
 					const triggers = yield* AutomationTriggerRepository;
 					const session = yield* DatabaseSession;
+					const eventRepository = yield* EventsRepository;
 					return LifecyclePlanner.of(
 						withLifecycleBatchPlanning(
 							{
@@ -208,6 +254,28 @@ const entitiesLayer = (options: TestOptions = {}) =>
 											};
 										}
 										const persisted = yield* triggers.insert({ ...trigger, blockedReason });
+										if (
+											options.lateEventOnDelete &&
+											trigger.scopeUserId !== null &&
+											trigger.payload?.resource === "event" &&
+											trigger.payload.category === "request" &&
+											trigger.payload.operation === "delete"
+										) {
+											const before = trigger.payload.draft;
+											yield* eventRepository.createEvent({
+												entityId: before.entityId,
+												eventSchemaPluginId: null,
+												userId: trigger.scopeUserId,
+												eventSchemaName: "Progress",
+												properties: before.properties,
+												id: EventId.make("late-cascade-event"),
+												eventSchemaSlug: before.eventSchemaSlug,
+												occurredAt: DateTime.toDateUtc(DateTime.makeUnsafe(before.occurredAt)),
+												...(before.sessionEntityId === null
+													? {}
+													: { sessionEntityId: before.sessionEntityId }),
+											});
+										}
 										const changePlanCount =
 											trigger.kind.category === "change"
 												? yield* Ref.updateAndGet(changePlans, (count) => count + 1)
@@ -284,6 +352,40 @@ const entitiesLayer = (options: TestOptions = {}) =>
 										)
 										.pipe(Effect.orDie);
 									expect(requests.length).toBeGreaterThan(0);
+									if (options.lateEventOnUpdate) {
+										const updateRequest = requests.find(
+											({ operation, resourceKind }) =>
+												operation === "update" && resourceKind === "entity",
+										);
+										const payload = updateRequest?.payload;
+										if (
+											payload?.category === "request" &&
+											payload.resource === "entity" &&
+											payload.operation === "update"
+										) {
+											yield* session.transaction(
+												session.run((db) =>
+													db.execute(sql`
+										insert into event (
+											id,
+											user_id,
+											entity_id,
+											event_schema_slug,
+											event_schema_plugin_id,
+											occurred_at
+										) values (
+											'late-update-event',
+											${owner},
+											${payload.before.id},
+											'progress',
+											null,
+											${DateTime.toDateUtc(DateTime.makeUnsafe("2026-09-15T00:00:00.000Z"))}
+										)
+									`),
+												),
+											);
+										}
+									}
 									const index = Number(runId.split("-")[1]);
 									if (index === 1) {
 										expect(acceptedPatches).toEqual([
@@ -311,9 +413,30 @@ const entitiesLayer = (options: TestOptions = {}) =>
 					);
 				}),
 			);
+			const eventsService = EventsService.layer.pipe(
+				Layer.provide(
+					Layer.mergeAll(
+						repositories,
+						ports,
+						execution,
+						Layer.succeed(
+							WorkflowEngine,
+							makeWorkflowEngine({
+								activityExecute: (activity) =>
+									Effect.map(
+										Effect.exit(activity.execute),
+										(exit) => new Workflow.Complete({ exit }),
+									),
+							}),
+						),
+					),
+				),
+			);
 			const services = Layer.mergeAll(
 				repositories,
-				EntitiesService.layer.pipe(Layer.provide(Layer.mergeAll(repositories, ports, execution))),
+				EntitiesService.layer.pipe(
+					Layer.provide(Layer.mergeAll(repositories, ports, execution, eventsService)),
+				),
 			).pipe(
 				Layer.provideMerge(DatabaseSession.layer),
 				Layer.provide(
@@ -460,9 +583,9 @@ describe("EntitiesService committed lifecycle", () => {
 					assert(created._tag === "Committed");
 					const input = {
 						userId: owner,
-						scope: "user",
 						name: "Updated",
 						populatedAt: null,
+						scope: "user" as const,
 						properties: { title: "updated" },
 						entityId: created.result.entity.id,
 						lifecycle: command("snapshot-update"),
@@ -670,6 +793,212 @@ describe("EntitiesService committed lifecycle", () => {
 			}),
 		);
 	});
+
+	layer(entitiesLayer())((test) => {
+		test.effect("deletes workout-session events with item and batch lifecycle plans", () =>
+			Effect.gen(function* () {
+				const service = yield* EntitiesService;
+				const events = yield* EventsRepository;
+				const session = yield* DatabaseSession;
+				const workoutSession = yield* service.create({
+					...createInput("workout-session-cascade"),
+					name: "Workout Session",
+				});
+				const workout = yield* service.create({
+					...createInput("workout-set-cascade"),
+					name: "Workout Set",
+				});
+				const eventIds = [EventId.make("workout-event-1"), EventId.make("workout-event-2")];
+				for (const eventId of eventIds) {
+					yield* createEvent(eventId, owner, workout.entity.id, workoutSession.entity.id);
+				}
+				const lifecycle = command("workout-session-delete");
+				const deleted = yield* service.deleteByIds([workoutSession.entity.id], lifecycle);
+				expect(deleted.deletedCount).toBe(1);
+				expect(yield* session.run((db) => db.select().from(tables.event))).toEqual([]);
+				const triggers = yield* session.run((db) =>
+					db
+						.select()
+						.from(tables.automationTrigger)
+						.where(eq(tables.automationTrigger.executionId, lifecycle.causation.executionId)),
+				);
+				const eventDeletes = triggers.filter(
+					({ category, operation, resourceKind }) =>
+						category === "change" && resourceKind === "event" && operation === "delete",
+				);
+				const eventBatches = triggers.filter(
+					({ category, operation, resourceKind }) =>
+						category === "change" && resourceKind === "event" && operation === "batch",
+				);
+				expect(
+					eventDeletes.map(({ payload }) =>
+						payload?.category === "change" &&
+						payload.resource === "event" &&
+						payload.operation === "delete"
+							? payload.before.id
+							: null,
+					),
+				).toEqual(eventIds);
+				expect(eventBatches).toHaveLength(1);
+				assert(eventBatches[0]?.payload?.operation === "batch");
+				expect(eventBatches[0].payload.items).toHaveLength(2);
+				const [batchReceipt] = yield* session.run((db) =>
+					db
+						.select()
+						.from(tables.mutationReceipt)
+						.where(eq(tables.mutationReceipt.commandKind, "entity:delete-batch")),
+				);
+				assert(batchReceipt);
+				for (const trigger of [...eventDeletes, ...eventBatches]) {
+					expect(batchReceipt.dispatch).toContainEqual(
+						expect.objectContaining({ triggerId: trigger.id }),
+					);
+				}
+				const receiptCount = yield* session.run((db) => db.select().from(tables.mutationReceipt));
+				expect(yield* service.deleteByIds([workoutSession.entity.id], lifecycle)).toEqual(deleted);
+				expect(yield* session.run((db) => db.select().from(tables.mutationReceipt))).toEqual(
+					receiptCount,
+				);
+				expect(yield* events.listEventIdentitiesForEntities([workoutSession.entity.id])).toEqual(
+					[],
+				);
+			}),
+		);
+	});
+
+	layer(entitiesLayer({ lateEventOnDelete: true }))((test) => {
+		test.effect("rolls back a cascade when an event appears after deletion preparation", () =>
+			Effect.gen(function* () {
+				const service = yield* EntitiesService;
+				const events = yield* EventsRepository;
+				const session = yield* DatabaseSession;
+				const workoutSession = yield* service.create(createInput("late-event-session"));
+				const workout = yield* service.create(createInput("late-event-workout"));
+				yield* createEvent(
+					EventId.make("initial-cascade-event"),
+					owner,
+					workout.entity.id,
+					workoutSession.entity.id,
+				);
+				const failure = yield* service
+					.deleteByIds([workoutSession.entity.id], command("late-event-delete"))
+					.pipe(Effect.flip);
+				expect(failure).toMatchObject({
+					_tag: "DbError",
+					message: "Entity event references changed while deletion policies ran",
+				});
+				expect(yield* service.getByIdAnyScope(workoutSession.entity.id)).toEqual(
+					workoutSession.entity,
+				);
+				expect(
+					yield* events.listEventIdentitiesForEntities([workoutSession.entity.id]),
+				).toHaveLength(2);
+				expect(
+					(yield* session.run((db) => db.select().from(tables.automationTrigger))).filter(
+						({ category, operation, resourceKind }) =>
+							category === "change" &&
+							resourceKind === "event" &&
+							(operation === "delete" || operation === "batch"),
+					),
+				).toEqual([]);
+			}),
+		);
+	});
+
+	layer(entitiesLayer())((test) => {
+		test.effect("deletes an event once when both entity reference roles match the batch", () =>
+			Effect.gen(function* () {
+				const service = yield* EntitiesService;
+				const session = yield* DatabaseSession;
+				const primary = yield* service.create(createInput("overlap-primary"));
+				const sessionEntity = yield* service.create(createInput("overlap-session"));
+				const eventId = EventId.make("overlapping-event");
+				yield* createEvent(eventId, owner, primary.entity.id, sessionEntity.entity.id);
+				const lifecycle = command("overlap-cascade-delete");
+				expect(
+					(yield* service.deleteByIds([primary.entity.id, sessionEntity.entity.id], lifecycle))
+						.deletedCount,
+				).toBe(2);
+				const eventDeletes = (yield* session.run((db) =>
+					db.select().from(tables.automationTrigger),
+				))
+					.filter(
+						({ category, operation, resourceKind }) =>
+							category === "change" && resourceKind === "event" && operation === "delete",
+					)
+					.map(({ payload }) =>
+						payload?.category === "change" &&
+						payload.resource === "event" &&
+						payload.operation === "delete"
+							? payload.before.id
+							: null,
+					);
+				expect(eventDeletes).toEqual([eventId]);
+			}),
+		);
+	});
+
+	layer(entitiesLayer())((test) => {
+		test.effect("deletes events for every user of a global entity", () =>
+			Effect.gen(function* () {
+				const service = yield* EntitiesService;
+				const session = yield* DatabaseSession;
+				const secondUser = UserId.make("second-owner");
+				yield* session.run((db) =>
+					db
+						.insert(tables.user)
+						.values({
+							id: secondUser,
+							name: "Second owner",
+							email: "second@example.test",
+							accountGeneration: "second-account-generation",
+						}),
+				);
+				const globalEntity = yield* service.createGlobal({
+					name: "Global",
+					entitySchemaSlug: slug,
+					properties: { title: "global" },
+					lifecycle: systemCommand("global-create"),
+				});
+				const eventIds: [EventId, EventId] = [
+					EventId.make("global-event-owner"),
+					EventId.make("global-event-second"),
+				];
+				yield* createEvent(eventIds[0], owner, globalEntity.entity.id);
+				yield* createEvent(eventIds[1], secondUser, globalEntity.entity.id);
+				const lifecycle = systemCommand("global-cascade-delete");
+				yield* service.deleteByIds([globalEntity.entity.id], lifecycle);
+				expect(yield* session.run((db) => db.select().from(tables.event))).toEqual([]);
+				const eventChanges = (yield* session.run((db) =>
+					db.select().from(tables.automationTrigger),
+				))
+					.filter(
+						({ category, operation, resourceKind }) =>
+							category === "change" && resourceKind === "event" && operation === "delete",
+					)
+					.map(({ payload }) =>
+						payload?.category === "change" &&
+						payload.resource === "event" &&
+						payload.operation === "delete"
+							? payload.before.id
+							: null,
+					);
+				expect(eventChanges).toEqual(eventIds);
+				const eventBatches = (yield* session.run((db) =>
+					db.select().from(tables.automationTrigger),
+				)).filter(
+					({ category, operation, resourceKind }) =>
+						category === "change" && resourceKind === "event" && operation === "batch",
+				);
+				expect(
+					eventBatches
+						.map(({ scopeUserId }) => scopeUserId)
+						.sort((left, right) => (left ?? "").localeCompare(right ?? "")),
+				).toEqual([owner, secondUser]);
+			}),
+		);
+	});
+
 	const providerId = SandboxProviderId.make("fixture-provider");
 	const seedProvider = Effect.gen(function* () {
 		const session = yield* DatabaseSession;
@@ -909,6 +1238,125 @@ describe("EntitiesService committed lifecycle", () => {
 						before: updated.entity,
 					});
 					expect(yield* session.run((db) => db.select().from(tables.entity))).toEqual([]);
+				}),
+		);
+	});
+
+	layer(entitiesLayer())((test) => {
+		test.effect(
+			"captures distinct dependent event schemas and roles in entity update requests",
+			() =>
+				Effect.gen(function* () {
+					const service = yield* EntitiesService;
+					const session = yield* DatabaseSession;
+					const created = yield* service.create(createInput("dependent-summary"));
+					yield* session.run((db) =>
+						db.execute(sql`
+						insert into event (
+							id,
+						user_id,
+						entity_id,
+						session_entity_id,
+						event_schema_slug,
+						event_schema_plugin_id,
+						occurred_at
+						) values
+						('dependent-summary-both-roles', ${owner}, ${created.entity.id}, ${created.entity.id}, 'progress', null, ${DateTime.toDateUtc(DateTime.makeUnsafe("2026-09-15T00:00:00.000Z"))}),
+						('dependent-summary-entity-duplicate', ${owner}, ${created.entity.id}, null, 'progress', null, ${DateTime.toDateUtc(DateTime.makeUnsafe("2026-09-15T00:00:00.000Z"))})
+						`),
+					);
+					const input = {
+						userId: owner,
+						scope: "user",
+						populatedAt: null,
+						name: created.entity.name,
+						entityId: created.entity.id,
+						properties: created.entity.properties,
+						lifecycle: command("dependent-summary-update"),
+					} satisfies UpdateEntityInput;
+					const updated = yield* service.update(input);
+					const [request] = yield* session.run((db) =>
+						db
+							.select()
+							.from(tables.automationTrigger)
+							.where(
+								eq(tables.automationTrigger.executionId, input.lifecycle.causation.executionId),
+							),
+					);
+					assert(request?.payload?.category === "request");
+					assert(request.payload.resource === "entity" && request.payload.operation === "update");
+					expect(request.payload.dependentEvents).toEqual([
+						{
+							role: "entity",
+							eventSchemaPluginId: null,
+							eventSchemaSlug: EventSchemaSlug.make("progress"),
+						},
+						{
+							role: "session",
+							eventSchemaPluginId: null,
+							eventSchemaSlug: EventSchemaSlug.make("progress"),
+						},
+					]);
+
+					yield* session.run((db) =>
+						db.execute(sql`
+						insert into event (
+							id,
+						user_id,
+						entity_id,
+						event_schema_slug,
+						event_schema_plugin_id,
+						occurred_at
+						) values (
+							'dependent-summary-after-commit',
+							${owner},
+							${created.entity.id},
+							'progress',
+							null,
+							${DateTime.toDateUtc(DateTime.makeUnsafe("2026-09-15T00:00:00.000Z"))}
+						)
+						`),
+					);
+					expect(yield* service.update(input)).toEqual(updated);
+				}),
+		);
+	});
+
+	layer(entitiesLayer({ lateEventOnUpdate: true, policies: [{ action: "allow" }] }))((test) => {
+		test.effect(
+			"rejects an entity update when a dependent event appears after policy capture",
+			() =>
+				Effect.gen(function* () {
+					const service = yield* EntitiesService;
+					const session = yield* DatabaseSession;
+					const created = yield* service.create(createInput("late-update-event"));
+					const input = {
+						userId: owner,
+						scope: "user",
+						name: "Updated",
+						populatedAt: null,
+						entityId: created.entity.id,
+						properties: { title: "updated" },
+						lifecycle: command("late-update-check"),
+					} satisfies UpdateEntityInput;
+					const error = yield* service.update(input).pipe(Effect.flip);
+					expect(error).toMatchObject({
+						_tag: "EntityBadRequest",
+						reason: {
+							code: "mutation-conflict",
+							message: "Entity event dependencies changed while policies ran; resubmit",
+						},
+					});
+					expect(yield* service.getByIdAnyScope(created.entity.id)).toEqual(created.entity);
+					expect(
+						yield* session.run((db) => db.select({ id: tables.event.id }).from(tables.event)),
+					).toHaveLength(1);
+					expect(
+						(yield* session.run((db) => db.select().from(tables.automationTrigger))).filter(
+							({ category, operation, resourceKind }) =>
+								category === "change" && resourceKind === "entity" && operation === "update",
+						),
+					).toEqual([]);
 				}),
 		);
 	});

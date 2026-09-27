@@ -1,16 +1,21 @@
 import { DbError } from "@ryot-app/contract/errors";
+import type { AutomationEntityEventDependency } from "@ryot-app/contract/modules/automations/lifecycle";
 import {
 	EntityId,
 	EntitySchemaSlug,
+	EventSchemaSlug,
+	PluginId,
 	type SandboxProviderId,
 	UserId,
 } from "@ryot-app/contract/schema/brands";
+import { stableStringify } from "@ryot-app/ts-utils/json";
 import { and, asc, count, eq, exists, inArray, isNull, or, sql } from "drizzle-orm";
 import { Context, Effect, Layer } from "effect";
 
 import * as schema from "#lib/infrastructure/db/schema/tables/combined";
 import { DatabaseSession } from "#lib/infrastructure/db/session";
 import { DefinitionRepository } from "#modules/definition-registry/repository";
+import { EventStreamRepository } from "#modules/events/stream-repository";
 import {
 	PluginRuntimeResolver,
 	PluginRuntimeResolverLive,
@@ -136,6 +141,14 @@ const entitySchemaPluginWhere = (pluginId: string | null | undefined) =>
 const providerWhere = (providerId: SandboxProviderId | null | undefined) =>
 	providerId == null ? isNull(schema.entity.providerId) : eq(schema.entity.providerId, providerId);
 
+const compareEventDependencies = (
+	left: AutomationEntityEventDependency,
+	right: AutomationEntityEventDependency,
+) =>
+	(left.eventSchemaPluginId ?? "").localeCompare(right.eventSchemaPluginId ?? "") ||
+	left.eventSchemaSlug.localeCompare(right.eventSchemaSlug) ||
+	left.role.localeCompare(right.role);
+
 type FindEntityByExternalIdInput = {
 	externalId: string;
 	providerId: SandboxProviderId;
@@ -174,6 +187,7 @@ export class EntitiesRepository extends Context.Service<EntitiesRepository>()(
 	{
 		make: Effect.gen(function* () {
 			const session = yield* DatabaseSession;
+			const eventStreams = yield* EventStreamRepository.make;
 			const pluginRuntime = yield* PluginRuntimeResolver;
 			const definitions = yield* DefinitionRepository;
 			const lockSchemaCatalog = pluginRuntime.lockCatalog;
@@ -258,6 +272,45 @@ export class EntitiesRepository extends Context.Service<EntitiesRepository>()(
 						id: EntityId.make(row.id),
 						entitySchemaSlug: row.entitySchemaSlug,
 					}));
+				},
+			);
+			const listEventDependencies = Effect.fn("EntitiesRepository.listEventDependencies")(
+				function* (entityId: EntityId) {
+					const [entityRows, sessionRows] = yield* Effect.all([
+						session.run((db) =>
+							db
+								.selectDistinct({
+									eventSchemaSlug: schema.event.eventSchemaSlug,
+									eventSchemaPluginId: schema.event.eventSchemaPluginId,
+								})
+								.from(schema.event)
+								.where(eq(schema.event.entityId, entityId)),
+						),
+						session.run((db) =>
+							db
+								.selectDistinct({
+									eventSchemaSlug: schema.event.eventSchemaSlug,
+									eventSchemaPluginId: schema.event.eventSchemaPluginId,
+								})
+								.from(schema.event)
+								.where(eq(schema.event.sessionEntityId, entityId)),
+						),
+					]);
+					const toDependencies = (
+						rows: typeof entityRows,
+						role: AutomationEntityEventDependency["role"],
+					) =>
+						rows.map((row) => ({
+							role,
+							eventSchemaSlug: EventSchemaSlug.make(row.eventSchemaSlug),
+							eventSchemaPluginId:
+								row.eventSchemaPluginId === null ? null : PluginId.make(row.eventSchemaPluginId),
+						}));
+
+					return [
+						...toDependencies(entityRows, "entity"),
+						...toDependencies(sessionRows, "session"),
+					].sort(compareEventDependencies);
 				},
 			);
 
@@ -794,6 +847,21 @@ export class EntitiesRepository extends Context.Service<EntitiesRepository>()(
 			const updateEntity = Effect.fn("EntitiesRepository.updateEntity")(function* (
 				input: UpdateEntityInput,
 			) {
+				yield* session.requireTransaction;
+				const [current] = yield* session.run((db) =>
+					db
+						.select({ name: schema.entity.name, properties: schema.entity.properties })
+						.from(schema.entity)
+						.where(eq(schema.entity.id, input.entityId))
+						.limit(1)
+						.for("update"),
+				);
+				if (!current) {
+					return yield* new DbError({ message: "Entity update returned no row" });
+				}
+				const streamDataChanged =
+					current.name !== input.name ||
+					stableStringify(current.properties) !== stableStringify(input.properties);
 				const [updated] = yield* session.run((db) =>
 					db
 						.update(schema.entity)
@@ -804,6 +872,9 @@ export class EntitiesRepository extends Context.Service<EntitiesRepository>()(
 
 				if (!updated) {
 					return yield* new DbError({ message: "Entity update returned no row" });
+				}
+				if (streamDataChanged) {
+					yield* eventStreams.invalidateEntity(input.entityId);
 				}
 
 				return toListedEntity(updated);
@@ -863,6 +934,7 @@ export class EntitiesRepository extends Context.Service<EntitiesRepository>()(
 				lockSchemaCatalog,
 				findGlobalEntityById,
 				getEntityScopeForUser,
+				listEventDependencies,
 				findEntityByExternalId,
 				findEntitySchemaForUser,
 				listEntityReferencesByIds,

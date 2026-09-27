@@ -119,12 +119,18 @@ it("projects policy updates and computes sorted JSON changes", () => {
 		operation: "update",
 		before: snapshot({ a: 1, b: 1, hidden: true }),
 		draft: entityDraft({ a: 2, b: 2, hidden: false }),
+		dependentEvents: [
+			{ role: "entity", eventSchemaSlug: "progress", eventSchemaPluginId: "fitness" },
+		],
 	});
 	const projected = projectAutomationPolicyInput(request, { entity: { properties: ["b", "a"] } });
 	expect(projected).toMatchObject({
 		changedProperties: ["a", "b"],
 		draft: { properties: { a: 2, b: 2 } },
 		before: { properties: { a: 1, b: 1 } },
+		dependentEvents: [
+			{ role: "entity", eventSchemaSlug: "progress", eventSchemaPluginId: "fitness" },
+		],
 	});
 });
 
