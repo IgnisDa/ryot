@@ -2,7 +2,7 @@ import type { AutomationWarning } from "@ryot-app/contract/modules/automations/l
 import { CollectionBadRequest } from "@ryot-app/contract/modules/collections/schemas";
 import type { RelationshipId } from "@ryot-app/contract/schema/brands";
 import { Context, Effect, Layer } from "effect";
-import { WorkflowEngine } from "effect/unstable/workflow/WorkflowEngine";
+import { WorkflowEngine } from "effect/workflow/WorkflowEngine";
 
 import { childLifecycleCommand } from "#lib/domain/lifecycle-command";
 import { runLifecycleWriteStep } from "#lib/infrastructure/lifecycle-workflow-step";

@@ -3,7 +3,7 @@ import { AppContract } from "@ryot-app/contract/contract";
 import { DbError } from "@ryot-app/contract/errors";
 import { ProviderEntityInternalError } from "@ryot-app/contract/modules/provider-entities/schemas";
 import { Effect } from "effect";
-import { HttpApiBuilder } from "effect/unstable/httpapi";
+import { HttpApiBuilder } from "effect/http-api";
 
 import { DatabaseSessionStateError } from "#lib/infrastructure/db/session";
 

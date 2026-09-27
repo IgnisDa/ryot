@@ -1,7 +1,7 @@
 import { DbError } from "@ryot-app/contract/errors";
 import type { AutomationWarning } from "@ryot-app/contract/modules/automations/lifecycle";
 import { Cause, Clock, Context, Effect, Layer, Option } from "effect";
-import { WorkflowEngine, WorkflowInstance } from "effect/unstable/workflow/WorkflowEngine";
+import { WorkflowEngine, WorkflowInstance } from "effect/workflow/WorkflowEngine";
 
 import { LifecyclePersistenceError } from "#lib/domain/lifecycle";
 import {

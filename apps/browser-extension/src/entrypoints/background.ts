@@ -1,6 +1,6 @@
 import { isFiniteNumber } from "@ryot-app/ts-utils/lodash";
 import { Cause, Effect } from "effect";
-import { FetchHttpClient, type HttpClient } from "effect/unstable/http";
+import { FetchHttpClient, type HttpClient } from "effect/http";
 
 import { storage } from "#imports";
 

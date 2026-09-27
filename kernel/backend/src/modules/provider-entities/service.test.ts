@@ -7,7 +7,7 @@ import {
 } from "@ryot-app/contract/modules/provider-entities/schemas";
 import { EntitySchemaSlug, SandboxProviderId, UserId } from "@ryot-app/contract/schema/brands";
 import { Cause, Context, Effect, Exit, Layer, Option, Ref } from "effect";
-import { WorkflowEngine } from "effect/unstable/workflow/WorkflowEngine";
+import { WorkflowEngine } from "effect/workflow/WorkflowEngine";
 
 import { createWorkflowJobId, deriveJobIdSecret } from "#lib/shared/job-id";
 import {

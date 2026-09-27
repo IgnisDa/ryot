@@ -1,5 +1,5 @@
 import { DateTime, Effect } from "effect";
-import type { WorkflowEngine } from "effect/unstable/workflow/WorkflowEngine";
+import type { WorkflowEngine } from "effect/workflow/WorkflowEngine";
 
 import type { DatabaseSession } from "#lib/infrastructure/db/session";
 import { implementWorkflow } from "#lib/infrastructure/workflow-scope";

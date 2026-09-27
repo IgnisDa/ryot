@@ -7,7 +7,7 @@ import {
 } from "@ryot-app/contract/modules/integrations/schemas";
 import { IntegrationWebhookToken, SandboxScriptId, UserId } from "@ryot-app/contract/schema/brands";
 import { Context, Effect, Layer, Ref } from "effect";
-import { WorkflowEngine } from "effect/unstable/workflow/WorkflowEngine";
+import { WorkflowEngine } from "effect/workflow/WorkflowEngine";
 
 import { ProKeyService } from "#lib/infrastructure/pro-key";
 import { assertExitFails } from "#lib/test-utils/assertions";

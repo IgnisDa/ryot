@@ -1,6 +1,6 @@
 import type { NotificationChannelSpecifics } from "@ryot-app/contract/modules/notifications/schemas";
 import { Context, Data, Duration, Effect, Layer, Match, Option, Redacted } from "effect";
-import { HttpClient, HttpClientRequest } from "effect/unstable/http";
+import { HttpClient, HttpClientRequest } from "effect/http";
 
 import { AppConfig, getSmtpCredentials } from "#lib/infrastructure/config/service";
 

@@ -33,7 +33,7 @@ import { defineSandboxTestHost, runSandboxTestScript } from "@ryot-app/sandbox-s
 import { jsonValueSchema } from "@ryot-app/sandbox-sdk/wire";
 import { Layer } from "effect";
 import { TestClock } from "effect/testing";
-import { WorkflowEngine } from "effect/unstable/workflow/WorkflowEngine";
+import { WorkflowEngine } from "effect/workflow/WorkflowEngine";
 
 import {
 	execution,

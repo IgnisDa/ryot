@@ -5,7 +5,7 @@ import {
 } from "@ryot-app/contract/modules/imports/schemas";
 import type { ImportRunId } from "@ryot-app/contract/schema/brands";
 import { Context, Effect, Layer } from "effect";
-import { WorkflowEngine } from "effect/unstable/workflow/WorkflowEngine";
+import { WorkflowEngine } from "effect/workflow/WorkflowEngine";
 
 import { CancelImportRunWorkflow } from "./cancel-workflow";
 import { ImportsRepository } from "./repository";

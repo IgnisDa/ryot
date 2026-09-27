@@ -8,8 +8,8 @@ import {
 	Sharding,
 	ShardingConfig,
 	SqlRunnerStorage,
-} from "effect/unstable/cluster";
-import { PersistedQueue } from "effect/unstable/persistence";
+} from "effect/cluster";
+import { PersistedQueue } from "effect/persistence";
 
 import { WorkflowGarbageCollectionStorageLive } from "#modules/garbage-collection/workflow-storage";
 

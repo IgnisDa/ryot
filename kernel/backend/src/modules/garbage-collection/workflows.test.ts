@@ -2,7 +2,6 @@ import { BunServices } from "@effect/platform-bun";
 import { assert, expect, layer } from "@effect/vitest";
 import { and, eq, sql } from "drizzle-orm";
 import { Cause, Context, Effect, Exit, Layer, Option, Redacted, Ref, Result, Schema } from "effect";
-import { TestClock } from "effect/testing";
 import {
 	EntityAddress,
 	EntityId,
@@ -14,10 +13,11 @@ import {
 	ShardId,
 	ShardingConfig,
 	Snowflake,
-} from "effect/unstable/cluster";
-import { Headers } from "effect/unstable/http";
-import { Rpc } from "effect/unstable/rpc";
-import { Workflow } from "effect/unstable/workflow";
+} from "effect/cluster";
+import { Headers } from "effect/http";
+import { Rpc } from "effect/rpc";
+import { TestClock } from "effect/testing";
+import { Workflow } from "effect/workflow";
 
 import { PgClientLive } from "#lib/infrastructure/db/postgres";
 import { workflowExecution } from "#lib/infrastructure/db/schema/tables/workflow-executions";

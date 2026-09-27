@@ -1,6 +1,6 @@
 import { Effect, Option, Schema } from "effect";
-import { Workflow } from "effect/unstable/workflow";
-import { WorkflowEngine } from "effect/unstable/workflow/WorkflowEngine";
+import { Workflow } from "effect/workflow";
+import { WorkflowEngine } from "effect/workflow/WorkflowEngine";
 
 export const interruptWorkflowAndWait = Effect.fn("workflow.interruptAndWait")(function* (
 	workflow: Workflow.Any,

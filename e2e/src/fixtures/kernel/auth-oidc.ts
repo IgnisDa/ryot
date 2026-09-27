@@ -1,5 +1,5 @@
 import { Data, Effect, Schema } from "effect";
-import type { HttpClient } from "effect/unstable/http";
+import type { HttpClient } from "effect/http";
 import { Events, OAuth2Server } from "oauth2-mock-server";
 
 import { requirePresent } from "~/support/assertions";

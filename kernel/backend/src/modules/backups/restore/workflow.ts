@@ -7,7 +7,7 @@ import {
 import type { AssetLocator } from "@ryot-app/contract/modules/uploads/schemas";
 import { BackupRunId, UserId } from "@ryot-app/contract/schema/brands";
 import { Context, Effect, FileSystem, Layer, Result, Schedule, Schema } from "effect";
-import { Workflow } from "effect/unstable/workflow";
+import { Workflow } from "effect/workflow";
 
 import { AppConfig } from "#lib/infrastructure/config/service";
 import { DatabaseSession } from "#lib/infrastructure/db/session";

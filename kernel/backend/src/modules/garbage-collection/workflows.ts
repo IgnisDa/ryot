@@ -1,11 +1,5 @@
 import { Context, DateTime, Effect, Layer } from "effect";
-import {
-	EntityAddress,
-	EntityId,
-	EntityType,
-	MessageStorage,
-	ShardId,
-} from "effect/unstable/cluster";
+import { EntityAddress, EntityId, EntityType, MessageStorage, ShardId } from "effect/cluster";
 
 import { DatabaseSession } from "#lib/infrastructure/db/session";
 

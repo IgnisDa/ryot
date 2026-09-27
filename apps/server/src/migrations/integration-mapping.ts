@@ -1,5 +1,5 @@
 import { Effect, Schema } from "effect";
-import type * as SqlConnection from "effect/unstable/sql/SqlConnection";
+import type * as SqlConnection from "effect/sql/SqlConnection";
 
 import { buildRequireLegacyTableSql, buildReportSql, quoteSqlString } from "./shared";
 

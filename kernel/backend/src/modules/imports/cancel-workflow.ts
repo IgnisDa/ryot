@@ -1,7 +1,7 @@
 import { AccountGeneration } from "@ryot-app/contract/schema/account-generation";
 import { ImportRunId, UserId } from "@ryot-app/contract/schema/brands";
 import { Effect, Schema } from "effect";
-import { Workflow } from "effect/unstable/workflow";
+import { Workflow } from "effect/workflow";
 
 import type { DurableSchema } from "#lib/infrastructure/workflow";
 import { implementWorkflow, makeActivity } from "#lib/infrastructure/workflow-scope";

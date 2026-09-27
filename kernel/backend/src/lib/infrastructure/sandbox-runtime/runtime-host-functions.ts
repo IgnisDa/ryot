@@ -7,7 +7,7 @@ import {
 	HttpClientRequest,
 	HttpMethod,
 	type HttpClientResponse,
-} from "effect/unstable/http";
+} from "effect/http";
 
 import { redisKeys, RedisService } from "../redis";
 import { ServerRun } from "../server-run";

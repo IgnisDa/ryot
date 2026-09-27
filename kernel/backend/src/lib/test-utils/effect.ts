@@ -1,11 +1,11 @@
 import { PgClient } from "@effect/sql-pg";
 import { ConfigProvider, Context, Effect, Layer, Option, Redacted } from "effect";
-import { Workflow } from "effect/unstable/workflow";
+import { Workflow } from "effect/workflow";
 import {
 	layerMemory as workflowEngineMemoryLayer,
 	WorkflowEngine,
 	WorkflowInstance,
-} from "effect/unstable/workflow/WorkflowEngine";
+} from "effect/workflow/WorkflowEngine";
 
 import { AppConfig, type AppConfigValue } from "#lib/infrastructure/config/service";
 import { mapDatabaseErrors } from "#lib/infrastructure/db/errors";
@@ -30,7 +30,7 @@ export const databaseLayer = Layer.effect(DatabaseSession, DatabaseSession.make)
 export const fakeDatabaseSession = (
 	database: object,
 	overrides: Partial<DatabaseSession["Service"]> = {},
-) => {
+): Layer.Layer<DatabaseSession> => {
 	const executor = Object.assign(Object.create(null), database);
 	const active = Context.Reference<boolean>("test/FakeDatabaseSessionTransaction", {
 		defaultValue: () => false,

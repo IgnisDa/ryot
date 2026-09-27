@@ -4,7 +4,7 @@ import PurchaseCompleteEmail, {
 } from "@ryot-app/transactional/emails/purchase-complete";
 import { and, eq, type InferSelectModel, isNull } from "drizzle-orm";
 import { Effect } from "effect";
-import type { HttpClient } from "effect/unstable/http";
+import type { HttpClient } from "effect/http";
 
 import * as schema from "~/drizzle/schema.server";
 import type { TPaymentProviders, TPlanTypes, TProductTypes } from "~/drizzle/schema.server";

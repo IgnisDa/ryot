@@ -3,7 +3,7 @@ import { clientPluginCompilerPlatformLayer } from "@ryot-app/client-plugin-compi
 import { sandboxCompilerPlatformLayer } from "@ryot-app/sandbox-compiler/platform";
 import { Effect, Layer } from "effect";
 import { chromium, PlaywrightSpawner } from "effect-playwright";
-import { FetchHttpClient } from "effect/unstable/http";
+import { FetchHttpClient } from "effect/http";
 
 const e2eLayer = Layer.mergeAll(
 	BunPath.layer,

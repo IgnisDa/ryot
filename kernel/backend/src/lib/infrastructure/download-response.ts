@@ -1,5 +1,5 @@
 import type { Stream } from "effect";
-import { HttpServerResponse } from "effect/unstable/http";
+import { HttpServerResponse } from "effect/http";
 
 const encodedFileName = (fileName: string) =>
 	encodeURIComponent(fileName).replace(

@@ -28,7 +28,7 @@
 		"check": "tsc && oxfmt . --write && oxlint . --fix"
 	},
 	"dependencies": {
-		"effect": "4.0.0-rc.117",
+		"effect": "4.0.0",
 		"vitest": "4.1.9"
 	},
 	"devDependencies": {

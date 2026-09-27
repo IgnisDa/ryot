@@ -2,8 +2,8 @@ import { expect, layer } from "@effect/vitest";
 import { DbError } from "@ryot-app/contract/errors";
 import { AutomationRunId } from "@ryot-app/contract/schema/brands";
 import { Cause, Context, Deferred, Effect, Exit, Layer, Ref, Schema } from "effect";
-import { Workflow } from "effect/unstable/workflow";
-import { WorkflowEngine, WorkflowInstance } from "effect/unstable/workflow/WorkflowEngine";
+import { Workflow } from "effect/workflow";
+import { WorkflowEngine, WorkflowInstance } from "effect/workflow/WorkflowEngine";
 
 import {
 	LifecycleDispatchRun,

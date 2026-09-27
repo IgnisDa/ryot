@@ -9,8 +9,8 @@ import {
 } from "@ryot-app/contract/schema/brands";
 import { jsonByteLength } from "@ryot-app/sandbox-compiler/limits";
 import { Context, Effect, Exit, Layer, Ref, Schema } from "effect";
-import { Workflow } from "effect/unstable/workflow";
-import { WorkflowEngine, WorkflowInstance } from "effect/unstable/workflow/WorkflowEngine";
+import { Workflow } from "effect/workflow";
+import { WorkflowEngine, WorkflowInstance } from "effect/workflow/WorkflowEngine";
 
 import { assertExitFails } from "#lib/test-utils/assertions";
 import {

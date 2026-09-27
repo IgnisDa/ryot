@@ -1,5 +1,5 @@
 import { Effect, Layer } from "effect";
-import { WorkflowEngine } from "effect/unstable/workflow/WorkflowEngine";
+import { WorkflowEngine } from "effect/workflow/WorkflowEngine";
 
 import {
 	EntityPopulationTrigger,

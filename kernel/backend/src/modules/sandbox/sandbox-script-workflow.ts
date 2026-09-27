@@ -28,8 +28,8 @@ import {
 	Option,
 	Schema,
 } from "effect";
-import { DurableClock, DurableDeferred, Workflow } from "effect/unstable/workflow";
-import { WorkflowEngine, WorkflowInstance } from "effect/unstable/workflow/WorkflowEngine";
+import { DurableClock, DurableDeferred, Workflow } from "effect/workflow";
+import { WorkflowEngine, WorkflowInstance } from "effect/workflow/WorkflowEngine";
 
 import { DatabaseSession } from "#lib/infrastructure/db/session";
 import {

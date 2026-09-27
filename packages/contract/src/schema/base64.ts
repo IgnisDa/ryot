@@ -1,4 +1,5 @@
-import { Encoding, Result, Schema } from "effect";
+import { Result, Schema } from "effect";
+import { Base64 } from "effect/encoding";
 
 export const CanonicalBase64 = Schema.String.pipe(
 	Schema.check(
@@ -9,8 +10,8 @@ export const CanonicalBase64 = Schema.String.pipe(
 			) {
 				return "Expected canonical padded Base64";
 			}
-			const decoded = Encoding.decodeBase64(value);
-			return Result.isSuccess(decoded) && Encoding.encodeBase64(decoded.success) === value
+			const decoded = Base64.decode(value);
+			return Result.isSuccess(decoded) && Base64.encode(decoded.success) === value
 				? true
 				: "Expected canonical padded Base64";
 		}),

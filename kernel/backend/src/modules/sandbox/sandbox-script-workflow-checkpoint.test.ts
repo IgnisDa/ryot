@@ -17,16 +17,16 @@ import {
 	Schema,
 	type Scope,
 } from "effect";
-import { ClusterWorkflowEngine, SingleRunner } from "effect/unstable/cluster";
-import { PersistedQueue } from "effect/unstable/persistence";
-import { Reactivity } from "effect/unstable/reactivity";
-import { DurableDeferred, Workflow } from "effect/unstable/workflow";
+import { ClusterWorkflowEngine, SingleRunner } from "effect/cluster";
+import { PersistedQueue } from "effect/persistence";
+import { Reactivity } from "effect/reactivity";
+import { DurableDeferred, Workflow } from "effect/workflow";
 import {
 	type Encoded,
 	makeUnsafe,
 	WorkflowEngine,
 	WorkflowInstance,
-} from "effect/unstable/workflow/WorkflowEngine";
+} from "effect/workflow/WorkflowEngine";
 
 import { user } from "#lib/infrastructure/db/schema/tables/auth";
 import { RedisService } from "#lib/infrastructure/redis";

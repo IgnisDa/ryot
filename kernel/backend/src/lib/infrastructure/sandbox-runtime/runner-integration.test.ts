@@ -11,14 +11,8 @@ import { stableStringify } from "@ryot-app/ts-utils/json";
 import { isObjectRecord } from "@ryot-app/ts-utils/predicates";
 import type { Cause } from "effect";
 import { Clock, Context, Effect, FileSystem, Layer, Path, Queue, Schema, Stream } from "effect";
-import {
-	FetchHttpClient,
-	HttpBody,
-	HttpClient,
-	HttpEffect,
-	HttpServer,
-} from "effect/unstable/http";
-import { ChildProcess } from "effect/unstable/process";
+import { FetchHttpClient, HttpBody, HttpClient, HttpEffect, HttpServer } from "effect/http";
+import { ChildProcess } from "effect/process";
 
 import { materializeSandboxCompiledModule } from "#lib/infrastructure/sandbox-runtime/compiled-modules";
 import {

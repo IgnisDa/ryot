@@ -1,6 +1,6 @@
 import type { UserId } from "@ryot-app/contract/schema/brands";
 import { Context, Duration, Effect, Layer, Option, Queue, Schema } from "effect";
-import { WorkflowEngine } from "effect/unstable/workflow/WorkflowEngine";
+import { WorkflowEngine } from "effect/workflow/WorkflowEngine";
 
 import { AppConfig } from "#lib/infrastructure/config/service";
 import { DatabaseSession } from "#lib/infrastructure/db/session";

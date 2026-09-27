@@ -5,7 +5,7 @@ import {
 } from "@ryot-app/contract/modules/system/contract";
 import { sql } from "drizzle-orm";
 import { Effect, Option } from "effect";
-import { HttpApiBuilder } from "effect/unstable/httpapi";
+import { HttpApiBuilder } from "effect/http-api";
 
 import { RYOT_VERSION } from "#lib/infrastructure/build-info";
 import {

@@ -8,8 +8,8 @@ import {
 } from "@ryot-app/contract/schema/brands";
 import { IsoUtcString } from "@ryot-app/contract/schema/utils";
 import { Context, Effect, Exit, Layer, Option, Ref } from "effect";
-import { Workflow } from "effect/unstable/workflow";
-import { WorkflowEngine } from "effect/unstable/workflow/WorkflowEngine";
+import { Workflow } from "effect/workflow";
+import { WorkflowEngine } from "effect/workflow/WorkflowEngine";
 import { describe } from "vitest";
 
 import { rootLifecycleCommand } from "#lib/domain/lifecycle-command";

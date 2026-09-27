@@ -6,8 +6,8 @@ import {
 } from "@ryot-app/contract/modules/entity-interest/messages";
 import { EntityId, UserId } from "@ryot-app/contract/schema/brands";
 import { Clock, Context, Deferred, Effect, Fiber, Layer, Option, Queue, Ref, Result } from "effect";
+import * as Socket from "effect/socket/Socket";
 import { TestClock } from "effect/testing";
-import * as Socket from "effect/unstable/socket/Socket";
 
 import { ImpersonationSessions } from "#modules/auth/impersonation-sessions";
 

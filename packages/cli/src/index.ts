@@ -26,8 +26,8 @@ import {
 	pluginScriptCompileMismatchIssue,
 } from "@ryot-app/sandbox-compiler/plugin-manifest";
 import { Clock, Data, Effect, FileSystem, Layer, Option, Path, Schema, Stream } from "effect";
-import { Command, Flag } from "effect/unstable/cli";
-import { ChildProcess, ChildProcessSpawner } from "effect/unstable/process";
+import { Command, Flag } from "effect/cli";
+import { ChildProcess, ChildProcessSpawner } from "effect/process";
 
 class BuildError extends Data.TaggedError("BuildError")<{ readonly message: string }> {}
 

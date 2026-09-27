@@ -2,8 +2,8 @@ import { expect, it } from "@effect/vitest";
 import { AuthMiddleware } from "@ryot-app/contract/auth-middleware";
 import { OAuthConnectionsGroup } from "@ryot-app/contract/modules/oauth-connections/contract";
 import { Effect, Layer, Ref } from "effect";
-import { HttpRouter, HttpServer } from "effect/unstable/http";
-import { HttpApi, HttpApiBuilder } from "effect/unstable/httpapi";
+import { HttpRouter, HttpServer } from "effect/http";
+import { HttpApi, HttpApiBuilder } from "effect/http-api";
 
 import { OAuthConnectionsRoutesLive } from "./routes";
 import { OAuthConnectionsService } from "./service";

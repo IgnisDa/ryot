@@ -4,7 +4,7 @@ import { BunRuntime, BunServices } from "@effect/platform-bun";
 import { clientPluginCompilerPlatformLayer } from "@ryot-app/client-plugin-compiler";
 import dotenv from "dotenv";
 import { Effect, FileSystem, Layer, Path, Stream } from "effect";
-import { ChildProcess } from "effect/unstable/process";
+import { ChildProcess } from "effect/process";
 
 import { assemble, readShippedSlugs } from "./tooling/assemble";
 import { resolveVersion } from "./tooling/version";

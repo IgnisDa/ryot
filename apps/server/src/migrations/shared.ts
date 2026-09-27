@@ -8,7 +8,7 @@ import { mapDatabaseErrors } from "@ryot-app/kernel-backend/lib/infrastructure/d
 import { DatabaseSession } from "@ryot-app/kernel-backend/lib/infrastructure/db/session";
 import { sql } from "drizzle-orm";
 import { Data, Effect, Match, Schema } from "effect";
-import type * as SqlConnection from "effect/unstable/sql/SqlConnection";
+import type * as SqlConnection from "effect/sql/SqlConnection";
 
 export type EntityMigrationTarget = {
 	source: string;

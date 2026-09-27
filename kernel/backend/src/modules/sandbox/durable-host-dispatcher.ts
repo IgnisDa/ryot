@@ -10,8 +10,8 @@ import {
 	workflowHostRequestSchema,
 } from "@ryot-app/sandbox-sdk/workflow";
 import { Context, Effect, Option, Schema } from "effect";
-import { Workflow } from "effect/unstable/workflow";
-import type { WorkflowEngine, WorkflowInstance } from "effect/unstable/workflow/WorkflowEngine";
+import { Workflow } from "effect/workflow";
+import type { WorkflowEngine, WorkflowInstance } from "effect/workflow/WorkflowEngine";
 
 import {
 	bindSandboxHostFunctions,

@@ -1,5 +1,5 @@
 import { Effect, Stream } from "effect";
-import { Cookies, FetchHttpClient, HttpClient, HttpClientRequest } from "effect/unstable/http";
+import { Cookies, FetchHttpClient, HttpClient, HttpClientRequest } from "effect/http";
 
 /** Send raw protocol-test requests with Effect while retaining Web Response assertions. */
 export const webRequest = (url: string | URL, init?: RequestInit, options?: { stream?: boolean }) =>

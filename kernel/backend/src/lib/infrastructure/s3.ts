@@ -1,7 +1,7 @@
 import { BadRequest, badRequest } from "@ryot-app/contract/errors";
 import { S3Client } from "bun";
 import { Context, Effect, Layer, Option, Redacted, Stream } from "effect";
-import { FetchHttpClient, HttpBody, HttpClient, HttpClientRequest } from "effect/unstable/http";
+import { FetchHttpClient, HttpBody, HttpClient, HttpClientRequest } from "effect/http";
 
 import { AppConfig, isS3Configured } from "./config/service";
 

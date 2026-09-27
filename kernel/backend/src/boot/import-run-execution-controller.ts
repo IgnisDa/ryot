@@ -1,5 +1,5 @@
 import { Effect, Layer } from "effect";
-import { WorkflowEngine } from "effect/unstable/workflow/WorkflowEngine";
+import { WorkflowEngine } from "effect/workflow/WorkflowEngine";
 
 import { ImportRunExecutionController } from "#modules/imports/execution-controller";
 import { ProcessImportRunWorkflow } from "#modules/imports/import-run-workflow";

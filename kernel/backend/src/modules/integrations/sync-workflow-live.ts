@@ -1,5 +1,5 @@
 import { DateTime, Effect, Schema } from "effect";
-import { WorkflowEngine } from "effect/unstable/workflow/WorkflowEngine";
+import { WorkflowEngine } from "effect/workflow/WorkflowEngine";
 
 import { implementWorkflow, makeActivity } from "#lib/infrastructure/workflow-scope";
 import type { IngestionRecoveryCursor } from "#modules/imports/runtime/recovery-cursor";

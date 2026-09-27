@@ -2,8 +2,8 @@ import { expect, layer } from "@effect/vitest";
 import { ClientAssetsGroup } from "@ryot-app/contract/modules/client-pages/contract";
 import { UserId } from "@ryot-app/contract/schema/brands";
 import { Context, Effect, Layer, Ref, Result } from "effect";
-import { HttpRouter, HttpServer } from "effect/unstable/http";
-import { HttpApi, HttpApiBuilder } from "effect/unstable/httpapi";
+import { HttpRouter, HttpServer } from "effect/http";
+import { HttpApi, HttpApiBuilder } from "effect/http-api";
 
 import { ClientArtifactGrantService } from "./grant-service";
 import { ClientAssetsRoutesLive, serveClientAsset } from "./routes";

@@ -1,6 +1,6 @@
 import { expect, layer } from "@effect/vitest";
 import { Context, Effect, Layer, Option, Redacted, Ref } from "effect";
-import { FetchHttpClient } from "effect/unstable/http";
+import { FetchHttpClient } from "effect/http";
 
 import { makeAppConfigLayer } from "#lib/test-utils/effect";
 

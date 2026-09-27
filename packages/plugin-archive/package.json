@@ -15,11 +15,11 @@
 		"@ryot-app/client-plugin-contract": "workspace:*",
 		"@ryot-app/contract": "workspace:*",
 		"@ryot-app/ts-utils": "workspace:*",
-		"effect": "4.0.0-rc.117",
+		"effect": "4.0.0",
 		"fflate": "0.8.3"
 	},
 	"devDependencies": {
-		"@effect/vitest": "4.0.0-rc.117",
+		"@effect/vitest": "4.0.0",
 		"@ryot-app/testing": "workspace:*",
 		"bun-types": "1.4.2",
 		"vitest": "4.1.9"

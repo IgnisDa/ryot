@@ -1,5 +1,5 @@
 import { Effect, Layer } from "effect";
-import { HttpClient, HttpClientResponse } from "effect/unstable/http";
+import { HttpClient, HttpClientResponse } from "effect/http";
 
 export type StubHttpResponse = {
 	body?: unknown;

@@ -2,7 +2,7 @@ import { BunServices } from "@effect/platform-bun";
 import { assert, expect, layer } from "@effect/vitest";
 import { CompilerWorkerRequest, CompilerWorkerResponse } from "@ryot-app/sandbox-compiler/protocol";
 import { Effect, Schema, Stream, FileSystem, Path } from "effect";
-import { ChildProcess, ChildProcessSpawner } from "effect/unstable/process";
+import { ChildProcess, ChildProcessSpawner } from "effect/process";
 
 import { makeSandboxCompiler } from "./sandbox-compiler";
 import { validSandboxSource } from "./sandbox-compiler-test-support";

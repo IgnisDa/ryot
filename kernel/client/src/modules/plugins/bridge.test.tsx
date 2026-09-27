@@ -1906,7 +1906,7 @@ describe("plugin bridge", () => {
 	it.live.each([
 		["untagged", { search: "", path: "/details/1" }],
 		["entity-shaped", { kind: "entity", entityId: "entity-1", entitySchemaSlug: "show" }],
-	] as const)("fails an %s plugin navigation message", (_label, target) =>
+	] as const)("fails an %s plugin navigation message", ([_label, target]) =>
 		Effect.gen(function* () {
 			const { init, received, failures, pluginPort, navigations } = connect();
 			pluginPort.postMessage(readyFor(init));

@@ -7,7 +7,7 @@ import {
 	type UserId,
 } from "@ryot-app/contract/schema/brands";
 import { Context, Effect, Layer, Schema } from "effect";
-import type { WorkflowEngine, WorkflowInstance } from "effect/unstable/workflow/WorkflowEngine";
+import type { WorkflowEngine, WorkflowInstance } from "effect/workflow/WorkflowEngine";
 
 import {
 	LifecycleDispatchPlan,

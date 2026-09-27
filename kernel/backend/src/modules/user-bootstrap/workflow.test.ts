@@ -3,7 +3,7 @@ import { internalError } from "@ryot-app/contract/errors";
 import { UserId } from "@ryot-app/contract/schema/brands";
 import { Context, Effect, Fiber, Layer, Ref } from "effect";
 import { TestClock } from "effect/testing";
-import { WorkflowEngine, WorkflowInstance } from "effect/unstable/workflow/WorkflowEngine";
+import { WorkflowEngine, WorkflowInstance } from "effect/workflow/WorkflowEngine";
 
 import { makeWorkflowActivityEngine } from "#lib/test-utils/effect";
 

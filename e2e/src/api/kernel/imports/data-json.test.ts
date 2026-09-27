@@ -12,7 +12,8 @@ import {
 	table,
 } from "@ryot-app/ryotql";
 import { importSourcesRecipe } from "@ryot-app/ryotql-recipes/import-sources";
-import { Effect, Encoding, Result } from "effect";
+import { Effect, Result } from "effect";
+import { Base64 } from "effect/encoding";
 
 import {
 	collectRyotQLRecipeItems,
@@ -540,7 +541,7 @@ describe("Native data JSON imports", () => {
 				},
 			});
 			const content = Result.getOrThrow(
-				Encoding.decodeBase64(
+				Base64.decode(
 					"iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mP8/x8AAwMCAO+a7XcAAAAASUVORK5CYII=",
 				),
 			);

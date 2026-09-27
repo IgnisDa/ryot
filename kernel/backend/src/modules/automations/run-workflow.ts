@@ -6,7 +6,7 @@ import {
 } from "@ryot-app/contract/modules/automations/lifecycle";
 import { AutomationRunId } from "@ryot-app/contract/schema/brands";
 import { Schema } from "effect";
-import { Workflow } from "effect/unstable/workflow";
+import { Workflow } from "effect/workflow";
 
 import type { DurableSchema } from "#lib/infrastructure/workflow";
 

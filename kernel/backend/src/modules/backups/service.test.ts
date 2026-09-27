@@ -2,7 +2,7 @@ import { expect, layer } from "@effect/vitest";
 import type { CurrentUserValue } from "@ryot-app/contract/auth-middleware";
 import { BackupRunId, UserId } from "@ryot-app/contract/schema/brands";
 import { Context, Effect, Layer, Ref, Stream } from "effect";
-import { WorkflowEngine } from "effect/unstable/workflow/WorkflowEngine";
+import { WorkflowEngine } from "effect/workflow/WorkflowEngine";
 
 import { DownloadTickets } from "#lib/infrastructure/download-tickets";
 import { databaseLayer, makeWorkflowEngine, type MockOverrides } from "#lib/test-utils/effect";

@@ -3,7 +3,7 @@ import type { CurrentUserValue } from "@ryot-app/contract/auth-middleware";
 import { SandboxRunError } from "@ryot-app/contract/errors";
 import { SandboxScriptId } from "@ryot-app/contract/schema/brands";
 import { Effect, Layer } from "effect";
-import { WorkflowEngine } from "effect/unstable/workflow/WorkflowEngine";
+import { WorkflowEngine } from "effect/workflow/WorkflowEngine";
 
 import { DownloadTickets } from "#lib/infrastructure/download-tickets";
 import { makeWorkflowEngine } from "#lib/test-utils/effect";

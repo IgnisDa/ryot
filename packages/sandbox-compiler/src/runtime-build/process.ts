@@ -1,5 +1,5 @@
 import { Effect, Stream } from "effect";
-import { ChildProcess } from "effect/unstable/process";
+import { ChildProcess } from "effect/process";
 
 const collectText = <E, R>(stream: Stream.Stream<Uint8Array, E, R>) =>
 	stream.pipe(

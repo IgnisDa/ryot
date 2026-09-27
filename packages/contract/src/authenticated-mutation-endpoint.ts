@@ -1,4 +1,4 @@
-import { HttpApiEndpoint } from "effect/unstable/httpapi";
+import { HttpApiEndpoint } from "effect/http-api";
 
 import { DemoAccessPolicy } from "./http-annotations";
 

@@ -1,7 +1,7 @@
 import { DbError, unknownToDbError } from "@ryot-app/contract/errors";
 import { EffectDrizzleQueryError } from "drizzle-orm/effect-core";
 import { Cause, Effect } from "effect";
-import { SqlError } from "effect/unstable/sql/SqlError";
+import { SqlError } from "effect/sql/SqlError";
 
 const unwrapDatabaseFailure = (failure: unknown): unknown => {
 	if (Cause.isCause(failure)) {

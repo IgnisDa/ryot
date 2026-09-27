@@ -1,7 +1,7 @@
 import { expect, it } from "@effect/vitest";
 import { Context, Effect, Fiber, Option, Ref } from "effect";
+import { FetchHttpClient, HttpClient, HttpClientResponse } from "effect/http";
 import { TestClock } from "effect/testing";
-import { FetchHttpClient, HttpClient, HttpClientResponse } from "effect/unstable/http";
 
 import { OAUTH_TOKEN_RESPONSE_MAX_BYTES, OAuthTokenClient } from "./token-client";
 

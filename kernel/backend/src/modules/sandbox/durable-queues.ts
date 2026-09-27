@@ -3,7 +3,7 @@ import { SandboxExecutionGrants } from "@ryot-app/contract/modules/sandbox/schem
 import { workflowReplayJournalEntrySchema } from "@ryot-app/sandbox-sdk/workflow";
 import { isObjectRecord } from "@ryot-app/ts-utils/predicates";
 import { Effect, Layer, Schema } from "effect";
-import { DurableQueue } from "effect/unstable/workflow";
+import { DurableQueue } from "effect/workflow";
 
 import { AppConfig } from "#lib/infrastructure/config/service";
 import { RedisService } from "#lib/infrastructure/redis";

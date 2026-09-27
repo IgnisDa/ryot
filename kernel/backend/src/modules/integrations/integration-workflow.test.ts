@@ -6,8 +6,8 @@ import type { ImportRunFailureReason } from "@ryot-app/contract/modules/imports/
 import { ImportRunId, IntegrationId } from "@ryot-app/contract/schema/brands";
 import { Deferred, Effect, Fiber, Layer } from "effect";
 import { TestClock } from "effect/testing";
-import { Workflow } from "effect/unstable/workflow";
-import { WorkflowEngine, WorkflowInstance } from "effect/unstable/workflow/WorkflowEngine";
+import { Workflow } from "effect/workflow";
+import { WorkflowEngine, WorkflowInstance } from "effect/workflow/WorkflowEngine";
 
 import { SandboxArtifactStore } from "#lib/infrastructure/sandbox-runtime/artifacts";
 import { makeAppConfigLayer, makeWorkflowEngine } from "#lib/test-utils/effect";

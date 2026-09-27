@@ -4,7 +4,7 @@ import { DbError } from "@ryot-app/contract/errors";
 import type { IngestionCapture, IngestionRun } from "@ryot-app/contract/modules/imports/ingestion";
 import { Deferred, Effect, Fiber, Layer } from "effect";
 import { TestClock } from "effect/testing";
-import { layerMemory } from "effect/unstable/workflow/WorkflowEngine";
+import { layerMemory } from "effect/workflow/WorkflowEngine";
 
 import type { importPayloadReservation } from "#lib/infrastructure/db/schema/tables/imports";
 import { assertExitFails } from "#lib/test-utils/assertions";

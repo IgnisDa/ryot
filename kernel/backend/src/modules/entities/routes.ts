@@ -5,7 +5,7 @@ import { AutomationExecutionId } from "@ryot-app/contract/schema/brands";
 import { IsoUtcString } from "@ryot-app/contract/schema/utils";
 import { generateId } from "better-auth";
 import { DateTime, Effect } from "effect";
-import { HttpApiBuilder } from "effect/unstable/httpapi";
+import { HttpApiBuilder } from "effect/http-api";
 
 import { rootLifecycleCommand } from "#lib/domain/lifecycle-command";
 

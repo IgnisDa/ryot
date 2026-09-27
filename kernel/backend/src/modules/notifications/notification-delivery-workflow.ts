@@ -3,7 +3,7 @@ import { NotificationChannelKind } from "@ryot-app/contract/modules/notification
 import { NotificationChannelId, UserId } from "@ryot-app/contract/schema/brands";
 import { generateId } from "better-auth";
 import { Schema } from "effect";
-import { Workflow } from "effect/unstable/workflow";
+import { Workflow } from "effect/workflow";
 
 import type { DurableSchema } from "#lib/infrastructure/workflow";
 

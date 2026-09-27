@@ -18,12 +18,12 @@
 	},
 	"dependencies": {
 		"@oxc-project/types": "0.132.0",
-		"effect": "4.0.0-rc.117",
+		"effect": "4.0.0",
 		"rolldown": "1.0.2",
 		"typescript": "7.0.2"
 	},
 	"devDependencies": {
-		"@effect/vitest": "4.0.0-rc.117",
+		"@effect/vitest": "4.0.0",
 		"@ryot-app/testing": "workspace:*",
 		"bun-types": "1.4.2",
 		"vitest": "4.1.9"

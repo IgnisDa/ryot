@@ -19,9 +19,9 @@ import {
 	workflowReplayEnvelopeSchema,
 } from "@ryot-app/sandbox-sdk/workflow";
 import { Context, Deferred, Effect, Layer, Metric, Ref, Schema, Stream, type Exit } from "effect";
-import { ChildProcess, ChildProcessSpawner } from "effect/unstable/process";
-import { Workflow } from "effect/unstable/workflow";
-import { WorkflowEngine, WorkflowInstance } from "effect/unstable/workflow/WorkflowEngine";
+import { ChildProcess, ChildProcessSpawner } from "effect/process";
+import { Workflow } from "effect/workflow";
+import { WorkflowEngine, WorkflowInstance } from "effect/workflow/WorkflowEngine";
 
 import { RedisService } from "#lib/infrastructure/redis";
 import { SandboxArtifactStore } from "#lib/infrastructure/sandbox-runtime/artifacts";

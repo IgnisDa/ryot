@@ -25,7 +25,7 @@ import {
 	Redacted,
 	Schema,
 } from "effect";
-import { WorkflowEngine } from "effect/unstable/workflow/WorkflowEngine";
+import { WorkflowEngine } from "effect/workflow/WorkflowEngine";
 
 import {
 	type CommittedLifecycleWork,

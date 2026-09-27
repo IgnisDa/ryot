@@ -8,7 +8,7 @@ import {
 } from "@ryot-app/contract/modules/entity-interest/messages";
 import { OAUTH_ACCESS_TOKEN_TTL_SECONDS } from "@ryot-app/contract/oauth";
 import { Clock, Deferred, Duration, Effect, Fiber, Option, Queue, Result, Schedule } from "effect";
-import * as Socket from "effect/unstable/socket/Socket";
+import * as Socket from "effect/socket/Socket";
 
 import { ENTITY_INTEREST_SESSION_RENEWAL_INTERVAL_SECONDS } from "#lib/infrastructure/redis";
 import { ImpersonationSessions } from "#modules/auth/impersonation-sessions";

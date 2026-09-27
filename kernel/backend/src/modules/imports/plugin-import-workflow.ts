@@ -4,8 +4,8 @@ import { jsonValueSchema } from "@ryot-app/contract/modules/sandbox/wire";
 import { genericImportWorkflowInputSchema } from "@ryot-app/sandbox-sdk/imports";
 import { stableStringify } from "@ryot-app/ts-utils/json";
 import { Cause, DateTime, Effect, Schema } from "effect";
-import { Workflow } from "effect/unstable/workflow";
-import { WorkflowInstance } from "effect/unstable/workflow/WorkflowEngine";
+import { Workflow } from "effect/workflow";
+import { WorkflowInstance } from "effect/workflow/WorkflowEngine";
 
 import { SandboxArtifactStore } from "#lib/infrastructure/sandbox-runtime/artifacts";
 import { makeActivity } from "#lib/infrastructure/workflow-scope";

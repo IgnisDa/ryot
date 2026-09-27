@@ -1,6 +1,6 @@
 import { webhooks } from "@polar-sh/sdk/2026-04";
 import { Effect } from "effect";
-import type { HttpClient } from "effect/unstable/http";
+import type { HttpClient } from "effect/http";
 import { data } from "react-router";
 import { match } from "ts-pattern";
 
