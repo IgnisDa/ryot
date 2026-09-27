@@ -5,7 +5,11 @@ import { exerciseKindSchema } from "./exercise-kinds";
 import { WorkoutSetMeasurementsSchema } from "./workout-records";
 import { WorkoutEditorMediaSchema, WorkoutSetLotSchema } from "./workout-set";
 
-const nonEmptyString = Schema.String.pipe(Schema.check(Schema.isMinLength(1)));
+const nonEmptyString = Schema.String.pipe(
+	Schema.check(
+		Schema.makeFilter((value) => value.trim().length > 0 || "Expected a nonblank value"),
+	),
+);
 const nonEmptyEntityId = EntityId.pipe(Schema.check(Schema.isMinLength(1)));
 const nonEmptyEventId = EventId.pipe(Schema.check(Schema.isMinLength(1)));
 const nonNegativeInteger = Schema.Int.pipe(Schema.check(Schema.isGreaterThanOrEqualTo(0)));
@@ -68,9 +72,18 @@ const WorkoutEditorSupersetSaveSchema = Schema.Struct({
 });
 
 const WorkoutEditorWorkoutTargetSchema = Schema.Union([
-	Schema.Struct({ kind: Schema.Literal("create") }),
-	Schema.Struct({ templateId: nonEmptyEntityId, kind: Schema.Literal("create") }),
-	Schema.Struct({ kind: Schema.Literal("create"), repeatedFromId: nonEmptyEntityId }),
+	Schema.Struct({
+		kind: Schema.Literal("create"),
+		templateId: Schema.optional(nonEmptyEntityId),
+		repeatedFromId: Schema.optional(nonEmptyEntityId),
+	}).check(
+		Schema.makeFilter(
+			(target) =>
+				target.templateId === undefined ||
+				target.repeatedFromId === undefined ||
+				"Choose one workout source",
+		),
+	),
 	Schema.Struct({
 		entityId: nonEmptyEntityId,
 		conflictToken: nonEmptyString,
@@ -114,6 +127,7 @@ const WorkoutEditorWorkoutDataSchema = Schema.Struct({
 			exerciseId: nonEmptyEntityId,
 			notes: Schema.Array(Schema.String),
 			sets: Schema.Array(WorkoutEditorSaveSetSchema),
+			sourceExerciseOrder: Schema.optional(nonNegativeInteger),
 		}),
 	),
 });
@@ -134,13 +148,14 @@ const WorkoutEditorTemplateDataSchema = Schema.Struct({
 			videos: WorkoutEditorMediaSchema,
 			notes: Schema.Array(Schema.String),
 			sets: Schema.Array(WorkoutEditorTemplateSetSchema),
+			sourceExerciseOrder: Schema.optional(nonNegativeInteger),
 		}),
 	),
 });
 
 export const WorkoutEditorSaveInputSchema = Schema.Struct({
 	submittedAt: timestamp,
-	submissionId: nonEmptyString.pipe(Schema.check(Schema.isMaxLength(128))),
+	submissionId: nonEmptyString.pipe(Schema.check(Schema.isMaxLength(96))),
 	data: Schema.Union([WorkoutEditorWorkoutDataSchema, WorkoutEditorTemplateDataSchema]),
 });
 
@@ -161,6 +176,12 @@ export const WorkoutEditorSaveOutputSchema = Schema.Union([
 		setId: Schema.optional(nonEmptyString),
 		occurrenceId: Schema.optional(nonEmptyString),
 		code: Schema.Literals([
+			"duplicate-id",
+			"invalid-source",
+			"invalid-time",
+			"missing-measurement",
+			"unconfirmed-set",
+			"unrelated-event",
 			"invalid-measurement",
 			"invalid-exercise-kind",
 			"invalid-superset",

@@ -20,6 +20,7 @@ import {
 	type WorkoutRestSettings,
 } from "./workout-editor-preferences";
 import { normalizeWorkoutMeasurements } from "./workout-records";
+import { requiredWorkoutMeasurementsByKind } from "./workout-set";
 import { milesToKilometers, poundsToKilograms } from "./workout-units";
 
 export type WorkoutEditorValidationIssue = {
@@ -38,16 +39,6 @@ export type WorkoutEditorValidationIssue = {
 };
 
 const inputFields = ["reps", "weight", "duration", "distance"] as const;
-type WorkoutMeasurementField = (typeof inputFields)[number];
-
-const requiredMeasurementsByKind: Record<ExerciseKind, ReadonlyArray<WorkoutMeasurementField>> = {
-	reps: ["reps"],
-	duration: ["duration"],
-	reps_and_weight: ["reps", "weight"],
-	reps_and_duration: ["reps", "duration"],
-	distance_and_duration: ["distance", "duration"],
-	reps_and_duration_and_distance: ["reps", "duration", "distance"],
-};
 
 const parseInput = (value: string | undefined, integer: boolean) => {
 	if (value === undefined || value.trim() === "") {
@@ -153,7 +144,7 @@ export const validateWorkoutDraft = (
 				addIssue(issues, "invalid-rest", occurrence.clientId, set.clientId);
 			}
 			if (!isTemplateMode(draft.mode) && set.eventId === undefined) {
-				for (const field of requiredMeasurementsByKind[occurrence.exerciseKind]) {
+				for (const field of requiredWorkoutMeasurementsByKind[occurrence.exerciseKind]) {
 					if (parseInput(set[field], field === "reps").kind !== "value") {
 						addIssue(issues, "missing-measurement", occurrence.clientId, set.clientId);
 					}
@@ -245,6 +236,7 @@ export const cloneWorkoutForRepeat = (
 			images: [],
 			videos: [],
 			isCollapsed: false,
+			sourceExerciseOrder: undefined,
 			sets: occurrence.sets.map((set) => ({
 				...set,
 				images: [],
@@ -347,6 +339,9 @@ export const buildWorkoutEditorSaveInput = (
 	readonly issues: ReadonlyArray<WorkoutEditorValidationIssue>;
 	readonly input?: WorkoutEditorSaveInput;
 } => {
+	if (draft.submission !== undefined) {
+		return { issues: [], input: draft.submission };
+	}
 	const issues = validateWorkoutDraft(draft);
 	if (issues.length > 0) {
 		return { issues };
@@ -386,6 +381,7 @@ export const buildWorkoutEditorSaveInput = (
 					images: occurrence.images,
 					clientId: occurrence.clientId,
 					exerciseId: occurrence.exerciseId,
+					sourceExerciseOrder: occurrence.sourceExerciseOrder,
 					sets: sets.map((set) => {
 						const measurements = canonicalMeasurements(set, displayForOccurrence(occurrence));
 						const restTime =
@@ -435,6 +431,7 @@ export const buildWorkoutEditorSaveInput = (
 					notes: occurrence.notes,
 					clientId: occurrence.clientId,
 					exerciseId: occurrence.exerciseId,
+					sourceExerciseOrder: occurrence.sourceExerciseOrder,
 					sets: sets.map((set) => {
 						const measurements = canonicalMeasurements(set, displayForOccurrence(occurrence));
 						const rest = resolveWorkoutRestTime({
@@ -465,11 +462,13 @@ export const buildWorkoutEditorSaveInput = (
 					}),
 				})),
 			};
-	const decoded = Schema.decodeUnknownResult(WorkoutEditorSaveInputSchema)({
-		data: { ...data },
-		submittedAt: input.submittedAt,
-		submissionId: input.submissionId,
-	});
+	const decoded = Schema.decodeResult(Schema.fromJsonString(WorkoutEditorSaveInputSchema))(
+		JSON.stringify({
+			data: { ...data },
+			submittedAt: input.submittedAt,
+			submissionId: input.submissionId,
+		}),
+	);
 	if (decoded._tag === "Success") {
 		return { issues: [], input: decoded.success };
 	}
