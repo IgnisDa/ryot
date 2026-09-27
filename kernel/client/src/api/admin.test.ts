@@ -1,67 +1,56 @@
-import { assert, describe, expect, it } from "@effect/vitest";
+import { describe, expect, it } from "@effect/vitest";
 import { AuthUnauthorized } from "@ryot-app/contract/auth-middleware";
 import { Effect } from "effect";
 import { HttpClient, HttpClientError, HttpClientResponse } from "effect/unstable/http";
 
 import { makeAdminApi } from "#/api/admin";
 import { decodeServerOrigin } from "#/api/origin";
-import { FileDownloadError } from "#/modules/downloads/file";
+import { FileDownloadError, type FileDownloadRequest } from "#/modules/downloads/file";
 
 const origin = decodeServerOrigin("https://ryot.example");
 
 describe("admin API", () => {
-	it.live("downloads file bytes with the admin header and no credentials in the URL", () =>
+	it.live("starts a download from its short-lived URL", () =>
 		Effect.gen(function* () {
-			const requests: Array<{ readonly url: string; readonly headers: Record<string, string> }> =
-				[];
-			const bytes = new Uint8Array([1, 2, 3]);
+			const downloads: Array<FileDownloadRequest> = [];
 			const api = makeAdminApi(
-				HttpClient.make((request, url) => {
-					requests.push({ url: url.toString(), headers: request.headers });
-					return Effect.succeed(
-						HttpClientResponse.fromWeb(
-							request,
-							new Response(bytes, { headers: { "content-type": "application/gzip" } }),
-						),
-					);
-				}),
+				HttpClient.make(() => Effect.die("not used")),
+				{ download: (request) => Effect.sync(() => downloads.push(request)) },
 			);
-			const blob = yield* api.download(
-				origin,
-				"admin-secret",
-				"god-mode/logs/files/file-id/download",
-				"ryot.log.gz",
+			yield* api.download(
+				"https://ryot.example/api/god-mode/logs/download?ticket=short",
+				"logs.zip",
 			);
-			assert.isDefined(blob);
-			expect(blob.type).toBe("application/gzip");
-			expect(new Uint8Array(yield* Effect.promise(() => blob.arrayBuffer()))).toEqual(bytes);
-			expect(requests).toHaveLength(1);
-			expect(requests[0]?.url).toBe(
-				"https://ryot.example/api/god-mode/logs/files/file-id/download",
-			);
-			expect(requests[0]?.headers).toMatchObject({ "admin-access-token": "admin-secret" });
-			expect(requests[0]?.headers).not.toHaveProperty("authorization");
+
+			expect(downloads).toEqual([
+				{
+					fileName: "logs.zip",
+					url: "https://ryot.example/api/god-mode/logs/download?ticket=short",
+				},
+			]);
 		}),
 	);
 
-	it.live("preserves unauthorized and missing-file download failures", () =>
+	it.live("maps native unauthorized and transport failures", () =>
 		Effect.gen(function* () {
-			for (const status of [401, 404]) {
-				const api = makeAdminApi(
-					HttpClient.make((request) =>
-						Effect.succeed(HttpClientResponse.fromWeb(request, new Response(null, { status }))),
-					),
-				);
-				const error = yield* Effect.flip(
-					api.download(origin, "admin-secret", "god-mode/logs/download", "logs.zip"),
-				);
-				if (status === 401) {
-					expect(error.cause).toBeInstanceOf(AuthUnauthorized);
-				} else {
-					assert.instanceOf(error.cause, FileDownloadError);
-					expect(error.cause.status).toBe(404);
-				}
-			}
+			const api = makeAdminApi(
+				HttpClient.make(() => Effect.die("not used")),
+				{
+					download: (request) =>
+						Effect.fail(
+							request.fileName === "unauthorized.zip"
+								? new FileDownloadError({ cause: 401, status: 401 })
+								: new FileDownloadError({ cause: "offline" }),
+						),
+				},
+			);
+			const unauthorized = yield* Effect.flip(
+				api.download("https://download.test/a", "unauthorized.zip"),
+			);
+			const transport = yield* Effect.flip(api.download("https://download.test/b", "logs.zip"));
+
+			expect(unauthorized.cause).toBeInstanceOf(AuthUnauthorized);
+			expect(transport.cause).toBeInstanceOf(FileDownloadError);
 		}),
 	);
 
@@ -83,6 +72,7 @@ describe("admin API", () => {
 							),
 						);
 					}),
+					{ download: () => Effect.void },
 				);
 
 				expect(yield* api.run(origin, "admin-secret", (client) => client.system.health())).toEqual({
@@ -105,6 +95,7 @@ describe("admin API", () => {
 						}),
 					),
 				),
+				{ download: () => Effect.void },
 			);
 			const error = yield* Effect.flip(
 				api.run(origin, "admin-secret", (client) => client.system.health()),
