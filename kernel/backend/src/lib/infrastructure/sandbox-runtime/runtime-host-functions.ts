@@ -12,6 +12,7 @@ import {
 	type HttpClientResponse,
 } from "effect/http";
 
+import { EgressDenied } from "../egress/http-client";
 import { redisKeys, RedisService } from "../redis";
 import { ServerRun } from "../server-run";
 import {
@@ -55,6 +56,12 @@ const decodePersistentClaimEnvelope = Schema.decodeUnknownEffect(
 const CERTAIN_HTTP_FAILURE_REASONS = new Set(["EncodeError", "InvalidUrlError"]);
 
 const httpRequestFailure = (error: unknown) => {
+	if (
+		error instanceof HttpClientError.HttpClientError &&
+		error.reason.cause instanceof EgressDenied
+	) {
+		return { data: { code: "destination-denied" }, message: "httpCall destination is not allowed" };
+	}
 	const certain =
 		error instanceof HttpClientError.HttpClientError &&
 		CERTAIN_HTTP_FAILURE_REASONS.has(error.reason._tag);
