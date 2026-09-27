@@ -634,7 +634,6 @@ const privateRecordsExportLayer = withExportReads((reads) =>
 						]),
 				}),
 				Layer.mock(PluginInstallationRepository, {
-					listSystemForUser: () => Effect.succeed([configuredSystemInstallation]),
 					listHydratedForUser: () =>
 						Effect.succeed([
 							configuredSystemInstallation,

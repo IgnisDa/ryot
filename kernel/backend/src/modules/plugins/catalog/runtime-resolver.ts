@@ -510,6 +510,59 @@ export class PluginRuntimeResolver extends Context.Service<PluginRuntimeResolver
 					userId: UserId.make(state.userId),
 				};
 			});
+			const resolveUserInstallationBootstraps = Effect.fn(
+				"PluginRuntimeResolver.resolveUserInstallationBootstraps",
+			)(function* (userId: UserId) {
+				const rows = yield* database.run((db) =>
+					db
+						.select({
+							activationId: schema.plugin.activationId,
+							health: schema.pluginInstallation.health,
+							pluginId: schema.pluginInstallation.pluginId,
+							isHidden: schema.pluginInstallation.isHidden,
+							installationId: schema.pluginInstallation.id,
+							userBootstrap: schema.pluginRevision.userBootstrap,
+							scriptIds: sql<
+								Record<string, string>
+							>`coalesce((select jsonb_object_agg(s.slug, s.id) from ${schema.sandboxScript} s where s.plugin_revision_id = ${schema.pluginRevision.id} and s.slug in (select entry->>'scriptSlug' from jsonb_array_elements(${schema.pluginRevision.userBootstrap}) entry)), '{}'::jsonb)`,
+						})
+						.from(schema.pluginInstallation)
+						.innerJoin(schema.plugin, eq(schema.plugin.id, schema.pluginInstallation.pluginId))
+						.innerJoin(
+							schema.pluginRevision,
+							eq(schema.pluginRevision.id, schema.plugin.activeRevisionId),
+						)
+						.where(
+							and(
+								activeSystemPlugin,
+								isNull(schema.pluginInstallation.uninstalledAt),
+								eq(schema.pluginInstallation.userId, userId),
+							),
+						)
+						.orderBy(asc(schema.pluginInstallation.sortOrder), asc(schema.plugin.packageId)),
+				);
+				return rows.map(
+					({
+						health,
+						isHidden,
+						pluginId,
+						scriptIds,
+						activationId,
+						userBootstrap,
+						installationId,
+					}) => ({
+						health,
+						isHidden,
+						pluginId,
+						activationId,
+						installationId,
+						entries: userBootstrap.map(({ slug, scriptSlug }) => {
+							const scriptId = scriptIds[scriptSlug];
+							return { slug, scriptId: scriptId ? SandboxScriptId.make(scriptId) : null };
+						}),
+					}),
+				);
+			});
 			const querySchemaProviders = Effect.fn(function* (userId: UserId, predicate?: SQL) {
 				const rows = yield* database.run((db) =>
 					db
@@ -731,6 +784,7 @@ export class PluginRuntimeResolver extends Context.Service<PluginRuntimeResolver
 				resolveActivePluginUserBootstrap,
 				findAuthorizedSchemaProviderById,
 				findWorkflowScriptAvailableToUser,
+				resolveUserInstallationBootstraps,
 				findWorkflowScriptInAvailablePlugin,
 				findProviderAvailableToUserByReference,
 				resolvePluginConfigContext: configs.read,
