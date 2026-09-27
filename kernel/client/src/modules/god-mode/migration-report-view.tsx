@@ -8,6 +8,7 @@ import { isUnauthorizedCause } from "#/modules/god-mode/errors";
 import {
 	buildMigrationReportClipboardText,
 	formatMigrationReportElapsed,
+	migrationReportDetailKey,
 	migrationReportDetailLabel,
 	migrationReportDetailProvenance,
 	migrationReportDetailSentence,
@@ -49,15 +50,7 @@ function DetailList(props: { readonly entry: MigrationReportEntry }) {
 	return (
 		<div className="flex flex-col gap-3 px-2 pb-3">
 			{details.map((detail) => (
-				<div
-					className="flex flex-col gap-1"
-					key={
-						detail.code === "integration-cache-provider-unmapped" ||
-						detail.code === "integration-cache-entity-unresolved"
-							? detail.legacyCacheId
-							: detail.legacyRecordId
-					}
-				>
+				<div className="flex flex-col gap-1" key={migrationReportDetailKey(detail)}>
 					<span className="text-xs font-medium text-text">
 						{migrationReportDetailLabel(detail)}
 					</span>

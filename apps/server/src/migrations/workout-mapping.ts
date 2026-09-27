@@ -1,6 +1,7 @@
 import { buildLegacyImagesSql, buildLegacyVideosSql } from "./asset-mapping";
 import type { QualifiedSchema } from "./migration-resolution";
 import {
+	buildAbortOnRowsSql,
 	buildRequireLegacyTableSql,
 	buildReportSql,
 	quoteNullableSqlString,
@@ -11,9 +12,6 @@ import {
 const buildDecimalStatField = (statAlias: string, field: string) =>
 	`NULLIF(${statAlias} -> 'statistic' ->> '${field}', '')::float8`;
 
-// Workout templates use the same set structure as workouts but a simplified per-set shape: the
-// per-set statistics/totals/timers/personal_bests and per-exercise lot/unit_system/total are
-// dropped while per-exercise media is preserved.
 export const buildWorkoutTemplateMigrationSql = (schema: QualifiedSchema) => `
 DO $$
 DECLARE
@@ -113,9 +111,6 @@ BEGIN
 END $$;
 `;
 
-// Dropped fields: workout.duration (derivable from endedAt - startedAt), workout.summary
-// (computed aggregate, not stored in V2).
-// Timestamps are converted to ISO 8601 UTC strings via to_char(...AT TIME ZONE 'UTC', ...).
 export const buildWorkoutMigrationSql = (schema: QualifiedSchema) => `
 DO $$
 DECLARE
@@ -157,8 +152,8 @@ BEGIN
 			${quoteSqlString(schema.slug)},
 			${quoteNullableSqlString(schema.pluginId)},
 			jsonb_strip_nulls(jsonb_build_object(
-				'startedAt',     to_char(w.start_time AT TIME ZONE 'UTC', 'YYYY-MM-DD"T"HH24:MI:SS"Z"'),
-				'endedAt',       to_char(w.end_time   AT TIME ZONE 'UTC', 'YYYY-MM-DD"T"HH24:MI:SS"Z"'),
+				'startedAt',     to_char(w.start_time AT TIME ZONE 'UTC', 'YYYY-MM-DD"T"HH24:MI:SS.MS"Z"'),
+				'endedAt',       to_char(w.end_time   AT TIME ZONE 'UTC', 'YYYY-MM-DD"T"HH24:MI:SS.MS"Z"'),
 				'comment',       NULLIF(w.information ->> 'comment', ''),
 				'caloriesBurnt', w.calories_burnt,
 				'images',        ${buildLegacyImagesSql("w.information -> 'assets'")},
@@ -200,9 +195,6 @@ BEGIN
 END $$;
 `;
 
-// Each V1 set becomes one event: entity_id = exercise id, session_entity_id = workout id, with a
-// deterministic id md5(workout_id ':' exercise_idx ':' set_idx) for restart-safety (the event table
-// has no unique constraint beyond the PK). unit_system is lowercased to V2 values.
 export const buildWorkoutSetEventMigrationSql = (schema: QualifiedSchema) => `
 DO $$
 DECLARE
@@ -211,9 +203,27 @@ DECLARE
 	cursor_id text := '';
 	next_cursor_id text;
 	rows_inserted int := 0;
+	invalid_confirmed_at_count int;
+	invalid_confirmed_at_sample text;
 	started_at timestamptz := clock_timestamp();
 BEGIN
 	${buildRequireLegacyTableSql("workout -> entity", "workout")}
+	${buildAbortOnRowsSql({
+		countVariable: "invalid_confirmed_at_count",
+		sampleVariable: "invalid_confirmed_at_sample",
+		message:
+			"workout -> event: % set(s) have a non-empty confirmed_at value that is not a valid timestamp: %. The event time cannot be determined without changing the recorded completion time. Fix or delete those set values in the V1 database, then start the server again.",
+		source: `
+			SELECT w.id || ':' || (ex.ordinality - 1)::text || ':' || (s.ordinality - 1)::text AS label
+			FROM "workout" w
+			CROSS JOIN LATERAL jsonb_array_elements(COALESCE(w.information -> 'exercises', '[]'::jsonb))
+				WITH ORDINALITY AS ex(value, ordinality)
+			CROSS JOIN LATERAL jsonb_array_elements(COALESCE(ex.value -> 'sets', '[]'::jsonb))
+				WITH ORDINALITY AS s(value, ordinality)
+			WHERE NULLIF(s.value ->> 'confirmed_at', '') IS NOT NULL
+				AND NOT pg_input_is_valid(s.value ->> 'confirmed_at', 'timestamp with time zone')
+		`,
+	})}
 
 	LOOP
 		WITH batch AS (
@@ -254,20 +264,24 @@ BEGIN
 				'restTime',           s.value -> 'rest_time',
 				'confirmedAt',        s.value ->> 'confirmed_at',
 				'restTimerStartedAt', s.value ->> 'rest_timer_started_at',
-				'personalBests',      s.value -> 'personal_bests',
-				'unitSystem',         lower(ex.value ->> 'unit_system'),
+				'unitSystem',         'metric',
 				'images',              ${buildLegacyImagesSql("ex.value -> 'assets'")},
 				'videos',              ${buildLegacyVideosSql("ex.value -> 'assets'")},
 				'reps',               ${buildDecimalStatField("s.value", "reps")},
-				'pace',               ${buildDecimalStatField("s.value", "pace")} / 60,
-				'weight',             ${buildDecimalStatField("s.value", "weight")},
-				'oneRm',              ${buildDecimalStatField("s.value", "one_rm")},
-				'volume',             ${buildDecimalStatField("s.value", "volume")},
+				'weight',             CASE
+					WHEN lower(ex.value ->> 'unit_system') = 'imperial'
+					THEN ${buildDecimalStatField("s.value", "weight")} * 0.45359237
+					ELSE ${buildDecimalStatField("s.value", "weight")}
+				END,
 				'duration',           ${buildDecimalStatField("s.value", "duration")} * 60,
-				'distance',           ${buildDecimalStatField("s.value", "distance")}
+				'distance',           CASE
+					WHEN lower(ex.value ->> 'unit_system') = 'imperial'
+					THEN ${buildDecimalStatField("s.value", "distance")} * 1.609344
+					ELSE ${buildDecimalStatField("s.value", "distance")}
+				END
 			)),
 			w.start_time,
-			w.start_time
+			COALESCE(NULLIF(s.value ->> 'confirmed_at', '')::timestamptz, w.start_time)
 		FROM "workout" w
 		CROSS JOIN LATERAL jsonb_array_elements(COALESCE(w.information -> 'exercises', '[]'::jsonb))
 			WITH ORDINALITY AS ex(value, ordinality)
@@ -286,7 +300,6 @@ BEGIN
 END $$;
 `;
 
-// Deterministic relationship id md5(workout_id ':workout-to-workout-template') for restart-safety.
 export const buildWorkoutToTemplateRelationshipMigrationSql = (schema: QualifiedSchema) => `
 DO $$
 DECLARE
@@ -321,7 +334,6 @@ BEGIN
 END $$;
 `;
 
-// Deterministic relationship id md5(workout_id ':workout-repeated-from') for restart-safety.
 export const buildWorkoutRepeatedFromRelationshipMigrationSql = (schema: QualifiedSchema) => `
 DO $$
 DECLARE

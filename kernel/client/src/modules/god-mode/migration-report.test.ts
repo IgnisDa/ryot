@@ -24,6 +24,17 @@ const blackMirror = {
 	availableSummary: "seasons 1, 2, 3, 4, 5, 6, 7",
 } as const satisfies MigrationReportDetail;
 
+const outsideSession = {
+	endedAt: null,
+	setOrder: null,
+	userId: "usr_1",
+	exerciseOrder: 2,
+	workoutId: "wkt_1",
+	startedAt: "2026-08-12T10:00:00.000Z",
+	confirmedAt: "2026-08-12T10:20:00.000Z",
+	code: "workout-set-completion-outside-session",
+} as const satisfies MigrationReportDetail;
+
 describe("migration report presentation", () => {
 	it("presents warning and information levels", () => {
 		expect(migrationReportLevelPresentation("warning")).toEqual({
@@ -108,6 +119,22 @@ describe("migration report presentation", () => {
 		).toBe(
 			'The legacy row stored season null and episode "x", which is not a usable episode number.',
 		);
+	});
+
+	it("explains a workout set completed outside its recorded session", () => {
+		expect(migrationReportDetailLabel(outsideSession)).toBe(
+			"Workout wkt_1 — exercise 2, set unknown",
+		);
+		expect(migrationReportDetailSentence(outsideSession)).toBe(
+			"This set's completion timestamp falls outside the recorded workout interval. Its original completion time was kept unchanged.",
+		);
+		expect(migrationReportDetailProvenance(outsideSession)).toEqual([
+			{ key: "Workout", value: "wkt_1" },
+			{ key: "User", value: "usr_1" },
+			{ value: "2", key: "Exercise order" },
+			{ key: "Confirmed at", value: "2026-08-12T10:20:00.000Z" },
+			{ key: "Started at", value: "2026-08-12T10:00:00.000Z" },
+		]);
 	});
 
 	it("explains dropped integration cache markers", () => {
