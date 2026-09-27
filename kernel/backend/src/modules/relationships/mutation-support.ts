@@ -255,16 +255,17 @@ export const itemCommand = (
 	itemIdentity: `${command.itemIdentity}:${suffix}:${relationshipMutationLockKey(input)}`,
 });
 
+export type UserEntityScopes = Effect.Success<
+	ReturnType<EntitiesRepository["Service"]["getEntityScopesForUser"]>
+>;
+
 export const validateUserRelationshipEntities = Effect.fnUntraced(function* (
-	entities: EntitiesRepository["Service"],
-	userId: UserId,
+	scopes: UserEntityScopes,
 	input: Pick<UserRelationshipIdentity, "sourceEntityId" | "targetEntityId">,
 	definition: RelationshipSchemaDefinition,
 ) {
-	const [source, target] = yield* Effect.all([
-		entities.getEntityScopeForUser({ userId, entityId: input.sourceEntityId }),
-		entities.getEntityScopeForUser({ userId, entityId: input.targetEntityId }),
-	]);
+	const source = scopes.get(input.sourceEntityId);
+	const target = scopes.get(input.targetEntityId);
 	if (!source || !target) {
 		return yield* new RelationshipNotFound({
 			reason: { code: "entity-not-found", entityIds: [input.sourceEntityId, input.targetEntityId] },

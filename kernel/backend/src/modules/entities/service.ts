@@ -21,7 +21,6 @@ import {
 import { sha256Base64Url } from "@ryot-app/ts-utils/crypto";
 import { stableStringify } from "@ryot-app/ts-utils/json";
 import { Context, Effect, Layer, Schema } from "effect";
-import { chunksOf } from "effect/Array";
 
 import { lifecycleTrigger } from "#modules/automations/lifecycle/command";
 import { LifecycleExecution } from "#modules/automations/lifecycle/execution";
@@ -62,6 +61,7 @@ import { EntityDeleteResult, EntityEnsureResult, EntitySnapshotResult } from "./
 import {
 	draftOf,
 	makePersistMutation,
+	makeReceiptBatches,
 	type MutationReceiptRecord,
 	type PersistItem,
 	PreparedEntityMutation,
@@ -72,7 +72,6 @@ import {
 import {
 	EntitiesRepository,
 	ensureScopeKey,
-	STATEMENT_CHUNK_SIZE,
 	providerEntityMutationLockKey,
 	provenanceScopeKey,
 } from "./repository";
@@ -254,16 +253,6 @@ const ensureScopeOf = (item: EnsureUserEntityItem) => ({
 	entitySchemaSlug: item.entitySchema.slug,
 	entitySchemaPluginId: definitionOwnerPluginId(item.entitySchema.owner),
 });
-// Above one statement's bind budget, chunks follow id order so receipt locks stay globally sorted.
-const receiptChunks = <T>(items: ReadonlyArray<T>, idOf: (item: T) => string) => {
-	const indexed = items.map((item, index) => ({ item, index, id: idOf(item) }));
-	return items.length <= STATEMENT_CHUNK_SIZE
-		? [indexed]
-		: chunksOf(
-				indexed.sort((left, right) => (left.id < right.id ? -1 : Number(left.id > right.id))),
-				STATEMENT_CHUNK_SIZE,
-			);
-};
 const batchRepresentatives = Effect.fnUntraced(function* <T>(
 	items: ReadonlyArray<T>,
 	identityKey: (item: T) => string,
@@ -313,29 +302,7 @@ export class EntitiesService extends Context.Service<EntitiesService>()("Entitie
 			receipts.lookup(identity, EntitySnapshotResult).pipe(Effect.mapError(receiptConflict));
 		const peekEntityReceipt = (identity: ReturnType<typeof mutationReceiptIdentity>) =>
 			receipts.peek(identity, EntitySnapshotResult).pipe(Effect.mapError(receiptConflict));
-		const lookupReceipts = Effect.fnUntraced(function* <Result>(
-			identities: ReadonlyArray<MutationReceiptIdentity>,
-			codec: Schema.Codec<Result, unknown>,
-		) {
-			const results: Array<CommittedLifecycleWork<Result> | null> = identities.map(() => null);
-			for (const chunk of receiptChunks(identities, ({ id }) => id)) {
-				const found = yield* receipts.lookupMany(
-					chunk.map(({ item }) => item),
-					codec,
-				);
-				for (const [position, { index }] of chunk.entries()) {
-					results[index] = found[position] ?? null;
-				}
-			}
-			return results;
-		});
-		const insertReceipts = Effect.fnUntraced(function* (
-			records: ReadonlyArray<MutationReceiptRecord>,
-		) {
-			for (const chunk of receiptChunks(records, ({ identity }) => identity.id)) {
-				yield* receipts.insertMany(chunk.map(({ item }) => item));
-			}
-		});
+		const { lookupReceipts, insertReceipts } = makeReceiptBatches(receipts);
 		const execution = yield* LifecycleExecution;
 		const replayCreateStep = Effect.fn("EntitiesService.replayCreateStep")(function* (
 			input: CreateEntityInput,
@@ -1015,7 +982,7 @@ export class EntitiesService extends Context.Service<EntitiesService>()("Entitie
 				(entry) => foundIdOf(entry) ?? commandEntityId(entry.lifecycle),
 			);
 			yield* repository.lockMutationKeys(entityIds);
-			const rows = yield* repository.getMutationEntities(entityIds);
+			const rows = yield* repository.getMutationEntities(entityIds, true);
 			const settled = new Map<number, CommittedLifecycleWork<EntitySnapshotResult>>();
 			for (const [position, entry] of unique.entries()) {
 				const replay = recorded[position];
@@ -1409,7 +1376,7 @@ export class EntitiesService extends Context.Service<EntitiesService>()("Entitie
 						),
 					);
 					yield* repository.lockMutationKeys(orderedIds);
-					const rows = yield* repository.getMutationEntities(orderedIds);
+					const rows = yield* repository.getMutationEntities(orderedIds, true);
 					const currentEventIdentities =
 						yield* eventsRepository.listEventIdentitiesForEntities(orderedIds);
 					if (!same(eventIdentities, currentEventIdentities)) {
@@ -1815,7 +1782,7 @@ export class EntitiesService extends Context.Service<EntitiesService>()("Entitie
 						return id ? [id] : [];
 					});
 					yield* repository.lockMutationKeys(entityIds);
-					const rows = yield* repository.getMutationEntities(entityIds);
+					const rows = yield* repository.getMutationEntities(entityIds, true);
 					const creating = pending.filter((item) => existingIdOf(item) === null);
 					const totals =
 						options?.maximumTotal === undefined

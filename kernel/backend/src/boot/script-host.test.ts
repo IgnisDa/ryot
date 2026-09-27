@@ -62,7 +62,10 @@ import { PluginRuntimeResolver } from "#modules/plugins/catalog/runtime-resolver
 import { PluginInstallationRepository } from "#modules/plugins/installations/repository";
 import { fixtureManifest } from "#modules/plugins/test-support";
 import { RelationshipMutationPipeline } from "#modules/relationships/mutation-pipeline";
-import { RelationshipsRepository } from "#modules/relationships/repository";
+import {
+	relationshipMutationLockKey,
+	RelationshipsRepository,
+} from "#modules/relationships/repository";
 import { RyotQLService } from "#modules/ryotql/service";
 import type { ScriptRunInput } from "#modules/scripts/authorization/capabilities";
 import type { ScriptExecutionPrincipal } from "#modules/scripts/authorization/principal";
@@ -552,7 +555,17 @@ const hostFunctionsLayer = (
 				}),
 				Layer.mock(EntitiesRepository)({
 					lockEntityReferencesByIds: () => Effect.void,
+					getMutationEntities: () => Effect.succeed(new Map()),
 					getEntityScopeForUser: options.entityScope ?? builtinEntityScope,
+					getEntityScopesForUser: (entityIds, userId) =>
+						Effect.forEach(entityIds, (entityId) =>
+							(options.entityScope ?? builtinEntityScope)({ userId, entityId }),
+						).pipe(
+							Effect.map(
+								(scopes) =>
+									new Map(scopes.flatMap((scope) => (scope ? [[scope.entityId, scope]] : []))),
+							),
+						),
 				}),
 				Layer.mock(EntitiesService)({
 					ensureUserEntities: (userId, items, lifecycle) =>
@@ -586,30 +599,33 @@ const hostFunctionsLayer = (
 				Layer.mock(RelationshipsRepository)({
 					findRelationship: () => Effect.succeed(null),
 					lockRelationshipMutations: () => Effect.void,
-					createRelationship: (input) =>
-						append(createdRelationships, input).pipe(
-							Effect.andThen(
-								options.forbidRelationshipWrites
-									? Effect.die("must not write")
-									: Effect.succeed({
-											...input,
-											wasInserted: true,
-											createdAt: "2026-07-28T00:00:00.000Z",
-											updatedAt: "2026-07-28T00:00:00.000Z",
-											id: RelationshipId.make("relationship-1"),
-											relationshipSchemaPluginId:
-												input.relationshipSchemaPluginId === null
-													? null
-													: PluginId.make(input.relationshipSchemaPluginId),
-										}),
-							),
+					findRelationships: () => Effect.succeed(new Map()),
+					updateRelationshipsById: () => Effect.succeed(new Map()),
+					deleteRelationshipsById: (ids) =>
+						Effect.forEach(ids, (id) => append(deletedRelationships, id), { discard: true }).pipe(
+							Effect.as(new Map()),
 						),
-					...(options.forbidRelationshipWrites
-						? {}
-						: {
-								deleteRelationship: (input: unknown) =>
-									append(deletedRelationships, input).pipe(Effect.as(null)),
-							}),
+					createRelationships: (inputs) =>
+						options.forbidRelationshipWrites && inputs.length > 0
+							? Effect.die("must not write")
+							: Effect.forEach(inputs, (input) =>
+									append(createdRelationships, input).pipe(
+										Effect.as([
+											relationshipMutationLockKey(input),
+											{
+												...input,
+												wasInserted: true,
+												createdAt: "2026-07-28T00:00:00.000Z",
+												updatedAt: "2026-07-28T00:00:00.000Z",
+												id: RelationshipId.make("relationship-1"),
+												relationshipSchemaPluginId:
+													input.relationshipSchemaPluginId === null
+														? null
+														: PluginId.make(input.relationshipSchemaPluginId),
+											},
+										] as const),
+									),
+								).pipe(Effect.map((saved) => new Map(saved))),
 				}),
 			);
 			return RelationshipMutationPipeline.layer.pipe(Layer.provideMerge(dependencies));

@@ -48,8 +48,8 @@ mutates rows:
 7. Entity rows `FOR UPDATE`, ordered by id.
 
 Population transactions then lock relationship identities, sorted by scope, user, relationship
-schema provenance, source entity, and target entity, and mutate entity rows before relationship
-rows in the same identity order.
+schema provenance, source entity, and target entity, in one statement of the same shape, and
+mutate entity rows before relationship rows.
 
 Steps 3 to 6 are transaction-scoped PostgreSQL advisory locks. Each step is one statement: keys are
 deduplicated, sorted in TypeScript by UTF-16 code unit, and locked through

@@ -15,6 +15,10 @@ import {
 	type CommittedLifecycleWork,
 	type LifecycleDispatchPlan,
 } from "#modules/automations/lifecycle/planning";
+import {
+	makeReceiptBatches,
+	type MutationReceiptRecord,
+} from "#modules/entities/mutation-persistence";
 import type { DomainLifecycleCommand } from "#modules/entities/write-context";
 import { mutationReceiptIdentity, mutationReceiptOwner } from "#modules/mutations/receipts";
 import { catalogDefinitionFingerprint } from "#modules/plugins/catalog/runtime-resolver";
@@ -23,6 +27,8 @@ import {
 	classifyRelationshipReceiptConflict,
 	makeRelationshipMutationPrimitives,
 	relationshipPopulation,
+	relationshipReceiptRecord,
+	type ValidatedMutation,
 } from "./mutation-primitives";
 import {
 	activeTransactionGuard,
@@ -37,7 +43,6 @@ import {
 	type ReconcileGlobalRelationshipGroup,
 	type RelationshipMutationDependencies,
 	type RelationshipReconciliationScope,
-	relationshipWriteFailure,
 } from "./mutation-support";
 import {
 	relationshipMutationLockKey,
@@ -49,9 +54,9 @@ import {
 export const makePlannedRelationshipReconciliation = (
 	dependencies: RelationshipMutationDependencies,
 ) => {
-	const { writes, session, planner, runtime, entities, receipts, repository, definitions } =
-		dependencies;
+	const { session, planner, runtime, entities, receipts, repository, definitions } = dependencies;
 	const primitives = makeRelationshipMutationPrimitives(dependencies);
+	const { lookupReceipts, insertReceipts } = makeReceiptBatches(receipts);
 	const GroupResult = Schema.Struct({
 		created: Schema.Finite,
 		updated: Schema.Finite,
@@ -68,11 +73,9 @@ export const makePlannedRelationshipReconciliation = (
 	) {
 		yield* assertActiveTransaction;
 		const scopeUserId = scope.scope === "user" ? scope.userId : null;
-		for (const group of groups) {
-			yield* writes
-				.check(command, group.relationshipSchema.owner, scopeUserId, true)
-				.pipe(Effect.mapError(relationshipWriteFailure));
-		}
+		const pinOf = yield* primitives.verifyWrites(
+			groups.map((group) => ({ command, scopeUserId, owner: group.relationshipSchema.owner })),
+		);
 		const groupReceipts = groups.map((_, groupIndex) =>
 			mutationReceiptIdentity({
 				scopeUserId,
@@ -82,10 +85,8 @@ export const makePlannedRelationshipReconciliation = (
 				command: { ...command, itemIdentity: `${command.itemIdentity}:group:${groupIndex}` },
 			}),
 		);
-		const recorded = yield* Effect.forEach(groupReceipts, (identity) =>
-			receipts
-				.lookup(identity, GroupResult)
-				.pipe(Effect.mapError(classifyRelationshipReceiptConflict)),
+		const recorded = yield* lookupReceipts(groupReceipts, GroupResult).pipe(
+			Effect.mapError(classifyRelationshipReceiptConflict),
 		);
 		if (recorded.every((entry) => entry !== null)) {
 			return {
@@ -100,6 +101,7 @@ export const makePlannedRelationshipReconciliation = (
 				? yield* definitions.findUserRelationshipSchemas(scope.userId, references)
 				: yield* definitions.findGlobalRelationshipSchemas(references);
 		const dispatch: LifecycleDispatchPlan[] = [];
+		const groupRecords: MutationReceiptRecord[] = [];
 		const result: Array<PlannedRelationshipReconciliationResult[number]> = [];
 		for (const [groupIndex, group] of groups.entries()) {
 			const groupReceipt = groupReceipts[groupIndex];
@@ -125,6 +127,16 @@ export const makePlannedRelationshipReconciliation = (
 				relationshipSchemaSlug: group.relationshipSchema.slug,
 				relationshipSchemaPluginId: definition.pluginId ?? null,
 			} satisfies RelationshipReconciliationListInput;
+			const scopes =
+				scope.scope === "user"
+					? yield* entities.getEntityScopesForUser(
+							group.relationships.flatMap(({ sourceEntityId, targetEntityId }) => [
+								sourceEntityId,
+								targetEntityId,
+							]),
+							scope.userId,
+						)
+					: new Map();
 			const seen = new Set<string>();
 			const desired: Array<
 				ReconcileGlobalRelationshipGroup["relationships"][number] & {
@@ -152,7 +164,7 @@ export const makePlannedRelationshipReconciliation = (
 				}
 				seen.add(key);
 				if (scope.scope === "user") {
-					yield* validateUserRelationshipEntities(entities, scope.userId, relationship, definition);
+					yield* validateUserRelationshipEntities(scopes, relationship, definition);
 				}
 				desired.push({
 					...relationship,
@@ -203,33 +215,43 @@ export const makePlannedRelationshipReconciliation = (
 			};
 			const decision = yield* planner.prepareBatch({ ...batchScope, scopes: [scopeUserId] });
 			const itemReceipts = mutations.map(relationshipReceiptIdentity);
-			const itemReplays = yield* Effect.forEach(itemReceipts, (identity) =>
-				receipts
-					.lookup(identity, RelationshipRecordedResult)
-					.pipe(Effect.mapError(classifyRelationshipReceiptConflict)),
+			const itemReplays = yield* lookupReceipts(itemReceipts, RelationshipRecordedResult).pipe(
+				Effect.mapError(classifyRelationshipReceiptConflict),
 			);
 			yield* primitives.lockMutations(mutations);
+			const unrecorded = mutations.filter((_, index) => itemReplays[index] === null);
+			const reads = yield* primitives.readEntities(unrecorded);
+			const rows = yield* repository.findRelationships(unrecorded.map(({ input }) => input));
 			const prepared: Array<{
 				input: RelationshipIdentityInput;
 				mode: "upsert" | "delete";
 				command: DomainLifecycleCommand;
+				validated: ValidatedMutation | null;
 				before: AutomationRelationshipSnapshot | null;
 				request: AutomationRelationshipRequestPayload | null;
 				requestId: DomainLifecycleCommand["causation"]["parentTriggerId"];
 			}> = [];
 			for (const [index, mutation] of mutations.entries()) {
 				if (itemReplays[index]) {
-					prepared.push({ ...mutation, before: null, request: null, requestId: null });
+					prepared.push({
+						...mutation,
+						before: null,
+						request: null,
+						requestId: null,
+						validated: null,
+					});
 					continue;
 				}
-				const row = yield* repository.findRelationship(mutation.input);
+				const row = rows.get(relationshipMutationLockKey(mutation.input));
 				const before = row ? yield* snapshot(row) : null;
+				const validated = yield* primitives.validateMutation(mutation, reads, pinOf(mutation));
 				const request = yield* primitives.prepareRequest(
 					{ ...mutation, propertiesSchema: definition.propertiesSchema },
 					before,
+					validated,
 				);
 				if (!request) {
-					prepared.push({ ...mutation, before, request: null, requestId: null });
+					prepared.push({ ...mutation, before, validated, request: null, requestId: null });
 					continue;
 				}
 				const requestPlan = yield* planner.plan({
@@ -243,7 +265,13 @@ export const makePlannedRelationshipReconciliation = (
 				if (requestPlan.policies.length > 0) {
 					return yield* new LifecyclePersistenceError({ code: "before-policy-requires-owner" });
 				}
-				prepared.push({ ...mutation, before, request, requestId: requestPlan.trigger?.id ?? null });
+				prepared.push({
+					...mutation,
+					before,
+					request,
+					validated,
+					requestId: requestPlan.trigger?.id ?? null,
+				});
 			}
 			const counts = {
 				createdCount: prepared.filter(({ request }) => request?.operation === "create").length,
@@ -252,6 +280,26 @@ export const makePlannedRelationshipReconciliation = (
 			};
 			let changedIndex = 0;
 			const groupDispatch: LifecycleDispatchPlan[] = [];
+			const itemRecords: MutationReceiptRecord[] = [];
+			const unreplayed = prepared.flatMap((item, index) =>
+				item.validated === null
+					? []
+					: [
+							{
+								index,
+								mutation: item,
+								before: item.before,
+								request: item.request,
+								validated: item.validated,
+							},
+						],
+			);
+			const persisted = new Map(
+				(yield* primitives.persistSources(unreplayed)).map((source, position) => [
+					unreplayed[position]?.index,
+					source,
+				]),
+			);
 			for (const [index, item] of prepared.entries()) {
 				const receipt = itemReceipts[index];
 				if (!receipt) {
@@ -262,19 +310,21 @@ export const makePlannedRelationshipReconciliation = (
 					groupDispatch.push(...replay.dispatch);
 					continue;
 				}
-				const { payload, ...itemResult } = yield* primitives.persistSource(
-					item,
-					item.request,
-					item.before,
-				);
+				const source = persisted.get(index);
+				if (!source) {
+					return yield* Effect.die("Missing persisted relationship reconciliation source");
+				}
+				const { payload, ...itemResult } = source;
 				if (!payload) {
-					yield* primitives.recordResult({
-						index,
-						dispatch: [],
-						batch: decision,
-						identity: receipt,
-						result: itemResult,
-					});
+					itemRecords.push(
+						relationshipReceiptRecord({
+							index,
+							dispatch: [],
+							batch: decision,
+							identity: receipt,
+							result: itemResult,
+						}),
+					);
 					continue;
 				}
 				const population = relationshipPopulation(
@@ -290,16 +340,19 @@ export const makePlannedRelationshipReconciliation = (
 					mutation: item,
 					requestId: item.requestId,
 				});
-				yield* primitives.recordResult({
-					index,
-					batch: decision,
-					evidence: change,
-					identity: receipt,
-					result: itemResult,
-					dispatch: itemDispatch,
-				});
+				itemRecords.push(
+					relationshipReceiptRecord({
+						index,
+						batch: decision,
+						evidence: change,
+						identity: receipt,
+						result: itemResult,
+						dispatch: itemDispatch,
+					}),
+				);
 				groupDispatch.push(...itemDispatch);
 			}
+			yield* insertReceipts(itemRecords);
 			groupDispatch.push(...(yield* planner.planBatch(batchScope)));
 			const groupResult = {
 				upserted: desired.length,
@@ -307,14 +360,11 @@ export const makePlannedRelationshipReconciliation = (
 				updated: counts.updatedCount,
 				deleted: counts.deletedCount,
 			};
-			yield* receipts.insert({
-				result: groupResult,
-				identity: groupReceipt,
-				dispatch: groupDispatch,
-			});
+			groupRecords.push({ result: groupResult, identity: groupReceipt, dispatch: groupDispatch });
 			result.push(groupResult);
 			dispatch.push(...groupDispatch);
 		}
+		yield* insertReceipts(groupRecords);
 		return {
 			result,
 			dispatch,
