@@ -290,7 +290,10 @@ JsonValue> }`: names are unique, set/remove cannot overlap, removal runs before 
 patch is invalid. The kernel applies accepted patches in hook order, projects that updated request for
 the next policy, keeps operation, scope, and target identity fixed, and validates the final draft with
 its AppSchema before writing.
-Numeric `AppSchema.normalize` remains schema decoding behavior; do not move rounding into hooks.
+Numeric `AppSchema.normalize` remains schema decoding behavior; hooks must not round the properties
+they receive or pass through. A hook that derives values may round its computation inputs and results
+to the declared property scales so that derived values and comparisons match what the schema stores;
+share those scales with the property definitions instead of repeating literals.
 
 Only before-event hooks may set `batchFrequency: "item" | "once-per-subject"`; omission means `item`.
 For event-create batches, `once-per-subject` runs on the first eligible item for each deterministic

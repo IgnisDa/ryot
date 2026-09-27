@@ -11,7 +11,6 @@ import type { ExerciseKind } from "../../shared/exercise-kinds";
 import { workoutSetContextRecipe } from "../../shared/workout-record-recipes";
 import {
 	calculateWorkoutSetStatistics,
-	normalizeWorkoutMeasurements,
 	WorkoutSetMeasurementsSchema,
 } from "../../shared/workout-records";
 
@@ -103,12 +102,12 @@ const transformSet = (properties: Readonly<Record<string, unknown>>, kind: Exerc
 		return reject("workout_set_measurements_invalid");
 	}
 	const source = measurementsResult.success;
-	const metric = normalizeWorkoutMeasurements({
+	const metric = {
 		reps: source.reps,
 		duration: source.duration,
 		weight: metricMeasurement(source.weight, unitSystem, 0.45359237),
 		distance: metricMeasurement(source.distance, unitSystem, 1.609344),
-	});
+	};
 	const statistics = calculateWorkoutSetStatistics(kind, metric);
 	const set: Record<string, number | string> = {};
 	const remove: string[] = [];

@@ -2,6 +2,7 @@ import { imagesField, videosField } from "@ryot-app/contract/schema/core";
 import type { AppPropertyDefinition, AppSchema } from "@ryot-app/contract/schema/property-schema";
 
 import { exerciseKinds } from "../../shared/exercise-kinds";
+import { workoutSetScales } from "../../shared/workout-records";
 
 const workoutSupersetItemProperties: Readonly<Record<string, AppPropertyDefinition>> = {
 	color: {
@@ -83,12 +84,14 @@ export const workoutSetPropertiesSchema: AppSchema = {
 			type: "number",
 			label: "Weight",
 			validation: { minimum: 0 },
+			normalize: { round: { scale: workoutSetScales.weight } },
 			description: "Weight used in this set in kilograms (kg)",
 		},
 		distance: {
 			type: "number",
 			label: "Distance",
 			validation: { minimum: 0 },
+			normalize: { round: { scale: workoutSetScales.distance } },
 			description: "Distance covered in this set in kilometers (km)",
 		},
 		restTimerStartedAt: {
@@ -118,7 +121,7 @@ export const workoutSetPropertiesSchema: AppSchema = {
 			type: "number",
 			label: "Duration",
 			validation: { minimum: 0 },
-			normalize: { round: { scale: 3 } },
+			normalize: { round: { scale: workoutSetScales.duration } },
 			description: "Duration of this set in seconds",
 		},
 		rpe: {
@@ -131,21 +134,21 @@ export const workoutSetPropertiesSchema: AppSchema = {
 			type: "number",
 			label: "One Rm",
 			validation: { minimum: 0 },
-			normalize: { round: { scale: 6 } },
+			normalize: { round: { scale: workoutSetScales.oneRm } },
 			description: "One-rep max calculated for this set in kilograms (kg)",
 		},
 		volume: {
 			type: "number",
 			label: "Volume",
 			validation: { minimum: 0 },
-			normalize: { round: { scale: 6 } },
+			normalize: { round: { scale: workoutSetScales.volume } },
 			description: "Volume (kilograms × repetitions) calculated for this set",
 		},
 		pace: {
 			label: "Pace",
 			type: "number",
 			validation: { minimum: 0 },
-			normalize: { round: { scale: 12 } },
+			normalize: { round: { scale: workoutSetScales.pace } },
 			description: "Speed calculated as kilometers per second from canonical metric measurements",
 		},
 		unitSystem: {
@@ -277,14 +280,14 @@ const workoutTemplateSetProperties: Readonly<Record<string, AppPropertyDefinitio
 		type: "number",
 		label: "Duration",
 		validation: { minimum: 0 },
-		normalize: { round: { scale: 3 } },
+		normalize: { round: { scale: workoutSetScales.duration } },
 		description: "Duration planned for this set in seconds",
 	},
 	weight: {
 		type: "number",
 		label: "Weight",
 		validation: { minimum: 0 },
-		normalize: { round: { scale: 6 } },
+		normalize: { round: { scale: workoutSetScales.weight } },
 		description: "Weight planned for this set in kilograms (kg)",
 	},
 	rpe: {
@@ -297,7 +300,7 @@ const workoutTemplateSetProperties: Readonly<Record<string, AppPropertyDefinitio
 		type: "number",
 		label: "Distance",
 		validation: { minimum: 0 },
-		normalize: { round: { scale: 9 } },
+		normalize: { round: { scale: workoutSetScales.distance } },
 		description: "Distance planned for this set in kilometers (km)",
 	},
 	setLot: {
