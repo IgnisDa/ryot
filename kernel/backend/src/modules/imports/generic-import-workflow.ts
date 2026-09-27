@@ -142,10 +142,13 @@ const GenericImportProvider = Schema.Struct({
 	pluginScope: Schema.Literals(["system", "user"]),
 });
 
-export class GenericImportProviderError extends Schema.TaggedError<GenericImportProviderError>()(
-	"GenericImportProviderError",
-	{ message: Schema.String, stage: Schema.Literals(["provider_resolution", "provider_details"]) },
-) {}
+export class GenericImportProviderError extends Schema.TaggedError<
+	GenericImportProviderError,
+	{ readonly brand: unique symbol }
+>()("GenericImportProviderError", {
+	message: Schema.String,
+	stage: Schema.Literals(["provider_resolution", "provider_details"]),
+}) {}
 
 const valuesMatch = (properties: Record<string, unknown>, expected: Record<string, unknown>) =>
 	Object.entries(expected).every(

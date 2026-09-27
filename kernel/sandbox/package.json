@@ -42,17 +42,17 @@
 		"check": "oxfmt . --write && oxlint . --fix && bun tooling/protocol-fixtures.ts --check && cd native && cargo fmt --check && cargo clippy --all-targets -- -D warnings"
 	},
 	"dependencies": {
-		"@effect/platform-bun": "4.0.0",
+		"@effect/platform-bun": "4.0.5",
 		"@ryot-app/contract": "workspace:*",
 		"@ryot-app/plugin-backend-compiler": "workspace:*",
 		"@ryot-app/plugin-backend-sdk": "workspace:*",
 		"@ryot-app/ts-utils": "workspace:*",
 		"@ryot-app/vite-compiler": "workspace:*",
-		"effect": "4.0.0",
+		"effect": "4.0.5",
 		"ioredis": "5.11.1"
 	},
 	"devDependencies": {
-		"@effect/vitest": "4.0.0",
+		"@effect/vitest": "4.0.5",
 		"@ryot-app/testing": "workspace:*",
 		"@types/ioredis": "5.0.0",
 		"bun-types": "1.4.3",

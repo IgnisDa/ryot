@@ -130,10 +130,13 @@ export const ProcessDataImportSegmentWorkflow = Workflow.make("ProcessDataImport
 
 const DATA_IMPORT_SEGMENT_SIZE = 50;
 
-class DataImportRecordError extends Schema.TaggedError<DataImportRecordError>()(
-	"DataImportRecordError",
-	{ message: Schema.String, stage: Schema.Literals(importRunFailureStages) },
-) {}
+class DataImportRecordError extends Schema.TaggedError<
+	DataImportRecordError,
+	{ readonly brand: unique symbol }
+>()("DataImportRecordError", {
+	message: Schema.String,
+	stage: Schema.Literals(importRunFailureStages),
+}) {}
 
 const mapObject = (values: ReadonlyMap<string, string>) => Object.fromEntries(values);
 

@@ -6,13 +6,16 @@ import { SANDBOX_FAILURE_KINDS } from "./modules/scripts/wire";
 export const SandboxFailureKind = Schema.Literals([...SANDBOX_FAILURE_KINDS]);
 export type SandboxFailureKind = typeof SandboxFailureKind.Type;
 
-export class DbError extends Schema.TaggedError<DbError>()("DbError", {
-	message: Schema.String,
-	code: Schema.optional(Schema.String),
-	table: Schema.optional(Schema.String),
-	column: Schema.optional(Schema.String),
-	constraint: Schema.optional(Schema.String),
-}) {}
+export class DbError extends Schema.TaggedError<DbError, { readonly brand: unique symbol }>()(
+	"DbError",
+	{
+		message: Schema.String,
+		code: Schema.optional(Schema.String),
+		table: Schema.optional(Schema.String),
+		column: Schema.optional(Schema.String),
+		constraint: Schema.optional(Schema.String),
+	},
+) {}
 
 type PgErrorLike = {
 	readonly code?: unknown;
@@ -43,31 +46,40 @@ export const unknownToDbError = (cause: unknown) =>
 			: {}),
 	});
 
-export class BadRequest extends Schema.TaggedError<BadRequest>()("BadRequest", {
-	message: Schema.String,
-}) {}
+export class BadRequest extends Schema.TaggedError<BadRequest, { readonly brand: unique symbol }>()(
+	"BadRequest",
+	{ message: Schema.String },
+) {}
 
-export class Conflict extends Schema.TaggedError<Conflict>()("Conflict", {
-	message: Schema.String,
-}) {}
+export class Conflict extends Schema.TaggedError<Conflict, { readonly brand: unique symbol }>()(
+	"Conflict",
+	{ message: Schema.String },
+) {}
 
-export class NotFound extends Schema.TaggedError<NotFound>()("NotFound", {
-	message: Schema.String,
-}) {}
+export class NotFound extends Schema.TaggedError<NotFound, { readonly brand: unique symbol }>()(
+	"NotFound",
+	{ message: Schema.String },
+) {}
 
-export class Unauthorized extends Schema.TaggedError<Unauthorized>()("Unauthorized", {
-	message: Schema.String,
-}) {}
+export class Unauthorized extends Schema.TaggedError<
+	Unauthorized,
+	{ readonly brand: unique symbol }
+>()("Unauthorized", { message: Schema.String }) {}
 
-export class RateLimited extends Schema.TaggedError<RateLimited>()("RateLimited", {
-	message: Schema.String,
-}) {}
+export class RateLimited extends Schema.TaggedError<
+	RateLimited,
+	{ readonly brand: unique symbol }
+>()("RateLimited", { message: Schema.String }) {}
 
-export class InternalError extends Schema.TaggedError<InternalError>()("InternalError", {
-	message: Schema.String,
-}) {}
+export class InternalError extends Schema.TaggedError<
+	InternalError,
+	{ readonly brand: unique symbol }
+>()("InternalError", { message: Schema.String }) {}
 
-export class SandboxRunError extends Schema.TaggedError<SandboxRunError>()("SandboxRunError", {
+export class SandboxRunError extends Schema.TaggedError<
+	SandboxRunError,
+	{ readonly brand: unique symbol }
+>()("SandboxRunError", {
 	message: Schema.String,
 	kind: SandboxFailureKind,
 	data: Schema.optional(SandboxBoundaryReason),
@@ -78,14 +90,15 @@ export const toSandboxRunError = (cause: unknown, kind: SandboxFailureKind): San
 		? cause
 		: new SandboxRunError({ kind, message: unknownToMessage(cause) });
 
-export class TimeoutError extends Schema.TaggedError<TimeoutError>()("TimeoutError", {
-	message: Schema.String,
-}) {}
+export class TimeoutError extends Schema.TaggedError<
+	TimeoutError,
+	{ readonly brand: unique symbol }
+>()("TimeoutError", { message: Schema.String }) {}
 
-export class HealthCheckFailedError extends Schema.TaggedError<HealthCheckFailedError>()(
-	"HealthCheckFailedError",
-	{ message: Schema.String },
-) {}
+export class HealthCheckFailedError extends Schema.TaggedError<
+	HealthCheckFailedError,
+	{ readonly brand: unique symbol }
+>()("HealthCheckFailedError", { message: Schema.String }) {}
 
 export const conflict = (message: string) => new Conflict({ message });
 export const notFound = (message: string) => new NotFound({ message });

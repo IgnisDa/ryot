@@ -70,12 +70,14 @@ const OAuthConnectionRequestFailureReason = Schema.Union([
 
 type OAuthConnectionRequestFailureReason = typeof OAuthConnectionRequestFailureReason.Type;
 
-export class OAuthConnectionRequestError extends Schema.TaggedError<OAuthConnectionRequestError>()(
-	"OAuthConnectionRequestError",
-	{ reason: OAuthConnectionRequestFailureReason },
-) {}
+export class OAuthConnectionRequestError extends Schema.TaggedError<
+	OAuthConnectionRequestError,
+	{ readonly brand: unique symbol }
+>()("OAuthConnectionRequestError", { reason: OAuthConnectionRequestFailureReason }) {}
 
-export class OAuthConnectionNotFoundError extends Schema.TaggedError<OAuthConnectionNotFoundError>()(
-	"OAuthConnectionNotFoundError",
-	{ reason: Schema.Struct({ code: Schema.Literal("oauth-connection-not-found") }) },
-) {}
+export class OAuthConnectionNotFoundError extends Schema.TaggedError<
+	OAuthConnectionNotFoundError,
+	{ readonly brand: unique symbol }
+>()("OAuthConnectionNotFoundError", {
+	reason: Schema.Struct({ code: Schema.Literal("oauth-connection-not-found") }),
+}) {}

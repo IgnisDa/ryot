@@ -6,10 +6,10 @@ const SystemHealthFailureReason = Schema.Union([
 	Schema.Struct({ code: Schema.Literal("redis-unavailable") }),
 ]);
 
-export class SystemHealthFailure extends Schema.TaggedError<SystemHealthFailure>()(
-	"SystemHealthFailure",
-	{ reason: SystemHealthFailureReason },
-) {}
+export class SystemHealthFailure extends Schema.TaggedError<
+	SystemHealthFailure,
+	{ readonly brand: unique symbol }
+>()("SystemHealthFailure", { reason: SystemHealthFailureReason }) {}
 
 const HealthResponse = Schema.Struct({ status: Schema.Literal("healthy") });
 

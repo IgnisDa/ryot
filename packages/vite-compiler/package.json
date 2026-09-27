@@ -15,12 +15,12 @@
 	"dependencies": {
 		"@ryot-app/ts-utils": "workspace:*",
 		"@ryot-app/typescript-compiler": "workspace:*",
-		"effect": "4.0.0",
+		"effect": "4.0.5",
 		"vite": "8.0.14"
 	},
 	"devDependencies": {
-		"@effect/platform-bun": "4.0.0",
-		"@effect/vitest": "4.0.0",
+		"@effect/platform-bun": "4.0.5",
+		"@effect/vitest": "4.0.5",
 		"@ryot-app/testing": "workspace:*",
 		"bun-types": "1.4.3",
 		"vitest": "4.1.9"

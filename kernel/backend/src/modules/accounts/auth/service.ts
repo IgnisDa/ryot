@@ -1,5 +1,3 @@
-import { AsyncLocalStorage } from "node:async_hooks";
-
 import { apiKey } from "@better-auth/api-key";
 import { createOAuthAccountIssuer } from "@better-auth/core/db";
 import { oauthProvider } from "@better-auth/oauth-provider";
@@ -68,16 +66,6 @@ const RESET_LINK_TIMEOUT_MS = 10_000;
 const RESET_PASSWORD_TOKEN_TTL_SECONDS = 30 * 60;
 
 const TrackedResetReply = Schema.Union([Schema.Literals([0, 1]), Schema.String]);
-
-// Better Auth reads its current adapter from AsyncLocalStorage, and Effect resumes a fiber in the
-// async context that woke it, so a store set during one request's Better Auth transaction reaches
-// fibers of unrelated requests. Captured before any store exists, this starts every call into
-// Better Auth with empty stores.
-// TODO: https://github.com/Effect-TS/effect/issues/8581 — once an Effect release resumes woken
-// fibers in their own async context, upgrade `effect`, delete `withoutAsyncContext` and the
-// `node:async_hooks` import, and call `auth.api.verifyApiKey`, `auth.api.requestPasswordReset`,
-// `operation(context)` in `withInternalAdapter`, and `auth.handler` directly.
-const withoutAsyncContext = AsyncLocalStorage.snapshot();
 
 const lifecycleProtectedAuthPaths = new Set([
 	"/api-key/create",
@@ -233,10 +221,10 @@ export class AuthUserBootstrapScheduler extends Context.Service<
 	{ schedule: (userId: string) => Effect.Effect<void, AuthBootstrapScheduleError> }
 >()("AuthUserBootstrapScheduler") {}
 
-export class AuthBootstrapScheduleError extends Schema.TaggedError<AuthBootstrapScheduleError>()(
-	"AuthBootstrapScheduleError",
-	{ message: Schema.String },
-) {}
+export class AuthBootstrapScheduleError extends Schema.TaggedError<
+	AuthBootstrapScheduleError,
+	{ readonly brand: unique symbol }
+>()("AuthBootstrapScheduleError", { message: Schema.String }) {}
 
 const makeOAuthProviderPlugin = (
 	frontendUrl: string,
@@ -786,7 +774,7 @@ export class AuthService extends Context.Service<AuthService>()("AuthService", {
 			resolveCredential(
 				credential,
 				(token) => verifyBearerToken(token, getOAuthVerificationOptions(config.frontendUrl)),
-				(key) => withoutAsyncContext(() => auth.api.verifyApiKey({ body: { key } })),
+				(key) => auth.api.verifyApiKey({ body: { key } }),
 				repository.findUserById,
 				Option.getOrNull(config.users.demoAccountId),
 				impersonationSessions,
@@ -794,10 +782,7 @@ export class AuthService extends Context.Service<AuthService>()("AuthService", {
 		const withInternalAdapter = <A>(operation: (context: AuthContextValue) => Promise<A>) =>
 			Effect.tryPromise({ catch: unknownToDbError, try: () => auth.$context }).pipe(
 				Effect.flatMap((context) =>
-					Effect.tryPromise({
-						catch: unknownToDbError,
-						try: () => withoutAsyncContext(() => operation(context)),
-					}),
+					Effect.tryPromise({ catch: unknownToDbError, try: () => operation(context) }),
 				),
 			);
 		// The api-key plugin caches keys in secondary storage but has no admin/server-side API to
@@ -870,7 +855,7 @@ export class AuthService extends Context.Service<AuthService>()("AuthService", {
 				transport: resetTransport,
 				frontendUrl: config.frontendUrl,
 				timeoutMs: RESET_LINK_TIMEOUT_MS,
-				initiate: (request) => withoutAsyncContext(() => auth.handler(request)),
+				initiate: (request) => auth.handler(request),
 			});
 		});
 
@@ -879,9 +864,9 @@ export class AuthService extends Context.Service<AuthService>()("AuthService", {
 			requestPasswordResetLink,
 			revokePasswordResetLinks,
 			startUserImpersonation: handoffs.create,
+			handler: (request: Request) => auth.handler(request),
 			apiKeyUser: (key: string) => authenticate({ key, kind: "api-key" }),
 			oauthUser: (token: string) => authenticate({ token, kind: "oauth" }),
-			handler: (request: Request) => withoutAsyncContext(() => auth.handler(request)),
 			revokeUserOAuthTokens: (userId: UserId) =>
 				repository.revokeUserOAuthTokens(userId).pipe(Effect.orDie),
 			updateUserPreferences: (userId: UserId, patch: UserPreferencesPatch) =>

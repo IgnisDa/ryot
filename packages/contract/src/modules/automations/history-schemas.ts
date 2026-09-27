@@ -85,22 +85,26 @@ export const AutomationHistoryRetryResult = strictStruct({
 
 export type AutomationHistoryRetryResult = typeof AutomationHistoryRetryResult.Type;
 
-export class AutomationHistoryNotFound extends Schema.TaggedError<AutomationHistoryNotFound>()(
-	"AutomationHistoryNotFound",
-	{ reason: strictStruct({ runId: AutomationRunId, code: Schema.Literal("run-not-found") }) },
-) {}
+export class AutomationHistoryNotFound extends Schema.TaggedError<
+	AutomationHistoryNotFound,
+	{ readonly brand: unique symbol }
+>()("AutomationHistoryNotFound", {
+	reason: strictStruct({ runId: AutomationRunId, code: Schema.Literal("run-not-found") }),
+}) {}
 
-export class AutomationHistoryRetryConflict extends Schema.TaggedError<AutomationHistoryRetryConflict>()(
-	"AutomationHistoryRetryConflict",
-	{
-		reason: strictStruct({
-			runId: AutomationRunId,
-			code: Schema.Union([AutomationRetryUnavailableReason, Schema.Literal("retry-conflict")]),
-		}),
-	},
-) {}
+export class AutomationHistoryRetryConflict extends Schema.TaggedError<
+	AutomationHistoryRetryConflict,
+	{ readonly brand: unique symbol }
+>()("AutomationHistoryRetryConflict", {
+	reason: strictStruct({
+		runId: AutomationRunId,
+		code: Schema.Union([AutomationRetryUnavailableReason, Schema.Literal("retry-conflict")]),
+	}),
+}) {}
 
-export class AutomationHistoryInternalError extends Schema.TaggedError<AutomationHistoryInternalError>()(
-	"AutomationHistoryInternalError",
-	{ reason: strictStruct({ code: Schema.Literal("history-unavailable") }) },
-) {}
+export class AutomationHistoryInternalError extends Schema.TaggedError<
+	AutomationHistoryInternalError,
+	{ readonly brand: unique symbol }
+>()("AutomationHistoryInternalError", {
+	reason: strictStruct({ code: Schema.Literal("history-unavailable") }),
+}) {}

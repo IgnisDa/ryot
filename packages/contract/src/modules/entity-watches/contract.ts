@@ -10,10 +10,10 @@ export const EntityWatchTicketFailureReason = Schema.Struct({
 });
 export type EntityWatchTicketFailureReason = typeof EntityWatchTicketFailureReason.Type;
 
-export class EntityWatchTicketFailure extends Schema.TaggedError<EntityWatchTicketFailure>()(
-	"EntityWatchTicketFailure",
-	{ reason: EntityWatchTicketFailureReason },
-) {}
+export class EntityWatchTicketFailure extends Schema.TaggedError<
+	EntityWatchTicketFailure,
+	{ readonly brand: unique symbol }
+>()("EntityWatchTicketFailure", { reason: EntityWatchTicketFailureReason }) {}
 
 export const EntityWatchesGroup = HttpApiGroup.make("entity-watches")
 	.annotate(OpenApi.Description, "Creates authenticated entity-watches socket sessions.")

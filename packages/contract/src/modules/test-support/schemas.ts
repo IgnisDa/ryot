@@ -23,22 +23,22 @@ const TestSupportDiagnosticReason = Schema.Union([
 	Schema.Struct({ diagnostic: Schema.String, code: Schema.Literal("resource-not-found") }),
 ]);
 
-export class TestSupportBadRequest extends Schema.TaggedError<TestSupportBadRequest>()(
-	"TestSupportBadRequest",
-	{ reason: TestSupportDiagnosticReason },
-) {}
-export class TestSupportNotFound extends Schema.TaggedError<TestSupportNotFound>()(
-	"TestSupportNotFound",
-	{ reason: TestSupportDiagnosticReason },
-) {}
-export class TestSupportConflict extends Schema.TaggedError<TestSupportConflict>()(
-	"TestSupportConflict",
-	{ reason: TestSupportDiagnosticReason },
-) {}
-export class TestSupportOperationFailure extends Schema.TaggedError<TestSupportOperationFailure>()(
-	"TestSupportOperationFailure",
-	{ reason: TestSupportDiagnosticReason },
-) {}
+export class TestSupportBadRequest extends Schema.TaggedError<
+	TestSupportBadRequest,
+	{ readonly brand: unique symbol }
+>()("TestSupportBadRequest", { reason: TestSupportDiagnosticReason }) {}
+export class TestSupportNotFound extends Schema.TaggedError<
+	TestSupportNotFound,
+	{ readonly brand: unique symbol }
+>()("TestSupportNotFound", { reason: TestSupportDiagnosticReason }) {}
+export class TestSupportConflict extends Schema.TaggedError<
+	TestSupportConflict,
+	{ readonly brand: unique symbol }
+>()("TestSupportConflict", { reason: TestSupportDiagnosticReason }) {}
+export class TestSupportOperationFailure extends Schema.TaggedError<
+	TestSupportOperationFailure,
+	{ readonly brand: unique symbol }
+>()("TestSupportOperationFailure", { reason: TestSupportDiagnosticReason }) {}
 
 export const TestSupportPluginCompiledScript = strictStruct({
 	entry: Schema.String,

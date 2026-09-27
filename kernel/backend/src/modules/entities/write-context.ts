@@ -40,20 +40,20 @@ export const kernelCollectionLifecycleCommand = (
 	command: DomainLifecycleCommand,
 ): DomainLifecycleCommand => ({ ...command, kernelCollection: true });
 
-export class DomainWriteConflict extends Schema.TaggedError<DomainWriteConflict>()(
-	"DomainWriteConflict",
-	{
-		message: Schema.String,
-		reason: Schema.Union([
-			Schema.Struct({
-				actual: DefinitionOwner,
-				expected: DefinitionOwner,
-				code: Schema.Literal("owner-mismatch"),
-			}),
-			Schema.Struct({ code: Schema.Literal("global-scope-forbidden") }),
-		]),
-	},
-) {}
+export class DomainWriteConflict extends Schema.TaggedError<
+	DomainWriteConflict,
+	{ readonly brand: unique symbol }
+>()("DomainWriteConflict", {
+	message: Schema.String,
+	reason: Schema.Union([
+		Schema.Struct({
+			actual: DefinitionOwner,
+			expected: DefinitionOwner,
+			code: Schema.Literal("owner-mismatch"),
+		}),
+		Schema.Struct({ code: Schema.Literal("global-scope-forbidden") }),
+	]),
+}) {}
 
 const writerProperty = (property: AppPropertyDefinition): AppPropertyDefinition => {
 	if (property.type === "object") {

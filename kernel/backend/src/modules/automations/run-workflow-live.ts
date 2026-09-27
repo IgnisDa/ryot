@@ -66,14 +66,14 @@ const PreparedAutomationRun = Schema.Struct({
 });
 type PreparedAutomationRun = typeof PreparedAutomationRun.Type;
 
-class AutomationPreparationError extends Schema.TaggedError<AutomationPreparationError>()(
-	"AutomationPreparationError",
-	{
-		message: Schema.String,
-		data: Schema.optional(SandboxBoundaryReason),
-		kind: Schema.Literals(["missing-artifact", "invalid-input", "business-failure"]),
-	},
-) {}
+class AutomationPreparationError extends Schema.TaggedError<
+	AutomationPreparationError,
+	{ readonly brand: unique symbol }
+>()("AutomationPreparationError", {
+	message: Schema.String,
+	data: Schema.optional(SandboxBoundaryReason),
+	kind: Schema.Literals(["missing-artifact", "invalid-input", "business-failure"]),
+}) {}
 
 const ClaimedAutomationAttempt = Schema.Struct({
 	stage: Schema.Literals(["before", "after"]),

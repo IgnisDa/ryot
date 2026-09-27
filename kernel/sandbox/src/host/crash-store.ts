@@ -2,10 +2,10 @@ import { Context, Effect, Layer, Schema } from "effect";
 
 import { SandboxRedis, sandboxRedisKeys } from "./redis";
 
-export class SandboxCrashStoreError extends Schema.TaggedError<SandboxCrashStoreError>()(
-	"SandboxCrashStoreError",
-	{ message: Schema.String },
-) {}
+export class SandboxCrashStoreError extends Schema.TaggedError<
+	SandboxCrashStoreError,
+	{ readonly brand: unique symbol }
+>()("SandboxCrashStoreError", { message: Schema.String }) {}
 
 const responseSchema = Schema.Literals(["allowed", "probation", "blocked", "recorded", "stale"]);
 const decodeResponse = Schema.decodeUnknownEffect(responseSchema);

@@ -19,10 +19,13 @@ import { EntityImportWorkflowOperations } from "./operations-workflow";
 import { ProviderEntityPopulationWorkflow } from "./provider-entity-population-workflow";
 import { ProviderEntityImportWorkflowPayload } from "./schemas";
 
-export class EntityImportError extends Schema.TaggedError<EntityImportError>()(
-	"EntityImportError",
-	{ message: Schema.String, stage: Schema.Literals(["population", "provider-import-automation"]) },
-) {}
+export class EntityImportError extends Schema.TaggedError<
+	EntityImportError,
+	{ readonly brand: unique symbol }
+>()("EntityImportError", {
+	message: Schema.String,
+	stage: Schema.Literals(["population", "provider-import-automation"]),
+}) {}
 
 export const EntityImportWorkflow = Workflow.make("EntityImportWorkflow", {
 	success: ListedEntity satisfies DurableSchema,

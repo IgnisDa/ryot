@@ -41,10 +41,10 @@ const ClaimedArchive = Schema.Struct({
 });
 type ClaimedArchive = typeof ClaimedArchive.Type;
 
-export class BackupWorkflowError extends Schema.TaggedError<BackupWorkflowError>()(
-	"BackupWorkflowError",
-	{ failure: BackupRunFailure },
-) {}
+export class BackupWorkflowError extends Schema.TaggedError<
+	BackupWorkflowError,
+	{ readonly brand: unique symbol }
+>()("BackupWorkflowError", { failure: BackupRunFailure }) {}
 
 export const RestoreBackupWorkflow = Workflow.make("RestoreBackupWorkflow", {
 	idempotencyKey: ({ runId }) => runId,

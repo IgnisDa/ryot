@@ -18,7 +18,7 @@ export const StoredWorkflowResult = Schema.Union([
 	}),
 ]);
 
-export class WorkflowExecutionExpired extends Schema.TaggedError<WorkflowExecutionExpired>()(
-	"WorkflowExecutionExpired",
-	WorkflowIdentity.fields,
-) {}
+export class WorkflowExecutionExpired extends Schema.TaggedError<
+	WorkflowExecutionExpired,
+	{ readonly brand: unique symbol }
+>()("WorkflowExecutionExpired", WorkflowIdentity.fields) {}

@@ -1,9 +1,3 @@
-// TODO: Use FileSystem.open once it supports O_NOFOLLOW (https://github.com/Effect-TS/effect/issues/8898).
-// oxlint-disable-next-line effecttsgo/node-builtin-import
-import { constants } from "node:fs";
-// oxlint-disable-next-line effecttsgo/node-builtin-import
-import { open as openDescriptor } from "node:fs/promises";
-
 import { SandboxRunError, unknownToMessage } from "@ryot-app/contract/errors";
 import { POLICY_SAFE_SANDBOX_CAPABILITIES } from "@ryot-app/contract/modules/scripts/wire";
 import type { SandboxHostError } from "@ryot-app/plugin-backend-sdk/wire";
@@ -48,15 +42,12 @@ const sandboxFailure = (
 
 type PathSnapshot = {
 	readonly path: string;
-	readonly dev: number;
-	readonly ino: number;
+	readonly dev: bigint;
+	readonly ino: bigint;
 	readonly type: string;
 };
 
-type PinnedFile = {
-	readonly handle: Awaited<ReturnType<typeof openDescriptor>>;
-	readonly size: number;
-};
+type PinnedFile = { readonly handle: FileSystem.File; readonly size: number };
 
 type ScratchUpload = {
 	readonly name: string;
@@ -181,25 +172,18 @@ export class ExecutionFiles extends Context.Service<ExecutionFiles>()("Execution
 					message: `${label} is invalid`,
 				});
 			}
-			const handle = yield* Effect.acquireRelease(
-				Effect.tryPromise({
-					catch: (error) => sandboxFailure(error, "invalid-input"),
-					try: () => openDescriptor(candidate, constants.O_RDONLY | constants.O_NOFOLLOW),
-				}),
-				(file) =>
-					Effect.tryPromise({ catch: () => undefined, try: () => file.close() }).pipe(
-						Effect.ignore,
-					),
+			const handle = yield* fs
+				.open(candidate, { flag: "r", noFollow: true })
+				.pipe(Effect.mapError((error) => sandboxFailure(error, "invalid-input")));
+			const descriptorInfo = yield* handle.stat.pipe(
+				Effect.mapError((error) => sandboxFailure(error, "invalid-input")),
 			);
-			const descriptorInfo = yield* Effect.tryPromise({
-				try: () => handle.stat(),
-				catch: (error) => sandboxFailure(error, "invalid-input"),
-			});
+			const size = Number(descriptorInfo.size);
 			const after = yield* inspectPath(candidate, label, "File");
 			if (
-				!descriptorInfo.isFile() ||
+				descriptorInfo.type !== "File" ||
 				descriptorInfo.dev !== expected.dev ||
-				descriptorInfo.ino !== expected.ino ||
+				Option.getOrNull(descriptorInfo.ino) !== expected.ino ||
 				!samePathIdentity(before, after)
 			) {
 				return yield* new SandboxRunError({
@@ -207,13 +191,13 @@ export class ExecutionFiles extends Context.Service<ExecutionFiles>()("Execution
 					message: `${label} changed while its descriptor was pinned`,
 				});
 			}
-			if (!Number.isSafeInteger(descriptorInfo.size) || descriptorInfo.size < 0) {
+			if (!Number.isSafeInteger(size) || size < 0) {
 				return yield* new SandboxRunError({
 					kind: "invalid-input",
 					message: `${label} has an unsupported size`,
 				});
 			}
-			return { handle, size: descriptorInfo.size } satisfies PinnedFile;
+			return { size, handle } satisfies PinnedFile;
 		});
 
 		const readPinnedFile = (candidate: string, label: string, expectedSize?: number) =>
@@ -230,18 +214,16 @@ export class ExecutionFiles extends Context.Service<ExecutionFiles>()("Execution
 					const bytes = new Uint8Array(size);
 					let offset = 0;
 					while (offset < size) {
-						const read = yield* Effect.tryPromise({
-							try: () => pinned.handle.read(bytes, offset, size - offset, offset),
-							catch: (error) =>
-								new SandboxRunError({ kind: "infrastructure", message: unknownToMessage(error) }),
-						});
-						if (read.bytesRead === 0) {
+						const read = yield* pinned.handle
+							.read(bytes.subarray(offset), { position: BigInt(offset) })
+							.pipe(Effect.mapError((error) => sandboxFailure(error, "infrastructure")));
+						if (read === 0) {
 							return yield* new SandboxRunError({
 								kind: "script-failure",
 								message: `${label} ended before its pinned size`,
 							});
 						}
-						offset += read.bytesRead;
+						offset += read;
 					}
 					return bytes;
 				}),
@@ -343,27 +325,24 @@ export class ExecutionFiles extends Context.Service<ExecutionFiles>()("Execution
 						),
 					);
 				}
-				const info = yield* Effect.tryPromise({
-					catch: toSandboxHostError,
-					try: () => pinned.handle.stat(),
-				});
-				if (!info.isFile() || !Number.isSafeInteger(info.size) || info.size < 0) {
+				const info = yield* pinned.handle.stat.pipe(Effect.mapError(toSandboxHostError));
+				const size = Number(info.size);
+				if (info.type !== "File" || !Number.isSafeInteger(size) || size < 0) {
 					return yield* Effect.fail(failedHostRequest("Pinned artifact has an unsupported size"));
 				}
 				const bytes = new Uint8Array(args.length);
-				const read = yield* Effect.tryPromise({
-					catch: toSandboxHostError,
-					try: () => pinned.handle.read(bytes, 0, args.length, args.offset),
-				});
-				if (read.bytesRead < 0 || read.bytesRead > args.length) {
+				const read = yield* pinned.handle
+					.read(bytes, { position: BigInt(args.offset) })
+					.pipe(Effect.mapError(toSandboxHostError));
+				if (read < 0 || read > args.length) {
 					return yield* Effect.fail(
 						failedHostRequest("Pinned artifact returned an invalid range length"),
 					);
 				}
 				return {
-					size: info.size,
+					size,
 					offset: args.offset,
-					data: Base64.encode(bytes.subarray(0, read.bytesRead)),
+					data: Base64.encode(bytes.subarray(0, read)),
 				} satisfies typeof artifactReadRangeResultSchema.Type;
 			});
 

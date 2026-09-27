@@ -10,10 +10,13 @@ import { AppConfig } from "#platform/config/service";
 
 import { ObjectStorageService } from "./object-storage";
 
-export class IngestionPayloadError extends Schema.TaggedError<IngestionPayloadError>()(
-	"IngestionPayloadError",
-	{ message: Schema.String, kind: Schema.Literals(["unavailable", "corrupt"]) },
-) {}
+export class IngestionPayloadError extends Schema.TaggedError<
+	IngestionPayloadError,
+	{ readonly brand: unique symbol }
+>()("IngestionPayloadError", {
+	message: Schema.String,
+	kind: Schema.Literals(["unavailable", "corrupt"]),
+}) {}
 
 export const ingestionPayloadDigest = (bytes: Uint8Array | string) =>
 	new Bun.CryptoHasher("sha256").update(bytes).digest("hex");
