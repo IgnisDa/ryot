@@ -18,7 +18,7 @@ import { eq } from "drizzle-orm";
 import { Cause, DateTime, Effect, Exit } from "effect";
 import { assert, describe } from "vitest";
 
-import { insertManagedAsset } from "#modules/assets/storage/managed-assets.test-support";
+import { insertManagedAsset } from "#lib/domain/managed-asset-writes.test-support";
 import { AutomationAttemptRepository } from "#modules/automations/attempt-repository";
 import {
 	withLifecycleBatchPlanning,

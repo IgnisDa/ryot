@@ -33,7 +33,7 @@ import { assert, describe } from "vitest";
 import {
 	insertManagedAsset,
 	managedAssetProperty,
-} from "#modules/assets/storage/managed-assets.test-support";
+} from "#lib/domain/managed-asset-writes.test-support";
 import {
 	withLifecycleBatchPlanning,
 	withLifecycleDispatch,
@@ -2131,27 +2131,25 @@ describe("EntitiesService committed lifecycle", () => {
 		);
 	});
 	layer(entitiesLayer({ noHooks: true }))((test) => {
-		test.effect(
-			"commits a provider batch larger than one statement's bind parameter budget",
-			() =>
-				Effect.gen(function* () {
-					yield* seedProvider;
-					const service = yield* EntitiesService;
-					const session = yield* DatabaseSession;
-					const lifecycle = command("bind-budget");
-					const input = {
-						batch: { command: lifecycle, identity: ["children"] },
-						items: Array.from({ length: 4_200 }, (_, index) =>
-							providerItem(`bulk-${index}`, lifecycle),
-						),
-					};
-					const first = yield* session.transaction(service.persistPlannedProviderUpserts(input));
-					expect(new Set(first.results.map(({ entity }) => entity.id)).size).toBe(4_200);
-					expect(yield* session.transaction(service.persistPlannedProviderUpserts(input))).toEqual(
-						first,
-					);
-					expect(yield* session.run((db) => db.select().from(tables.entity))).toHaveLength(4_200);
-				}),
+		test.effect("commits a provider batch larger than one statement's bind parameter budget", () =>
+			Effect.gen(function* () {
+				yield* seedProvider;
+				const service = yield* EntitiesService;
+				const session = yield* DatabaseSession;
+				const lifecycle = command("bind-budget");
+				const input = {
+					batch: { command: lifecycle, identity: ["children"] },
+					items: Array.from({ length: 4_200 }, (_, index) =>
+						providerItem(`bulk-${index}`, lifecycle),
+					),
+				};
+				const first = yield* session.transaction(service.persistPlannedProviderUpserts(input));
+				expect(new Set(first.results.map(({ entity }) => entity.id)).size).toBe(4_200);
+				expect(yield* session.transaction(service.persistPlannedProviderUpserts(input))).toEqual(
+					first,
+				);
+				expect(yield* session.run((db) => db.select().from(tables.entity))).toHaveLength(4_200);
+			}),
 		);
 	});
 	layer(entitiesLayer({ noHooks: true }))((test) => {
