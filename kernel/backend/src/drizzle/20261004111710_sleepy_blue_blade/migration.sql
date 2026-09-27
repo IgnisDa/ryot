@@ -395,8 +395,8 @@ CREATE TABLE "import_run" (
 	"collection_sealed" boolean DEFAULT false NOT NULL,
 	"expiry_reason" text,
 	"failure_reason" jsonb,
-	"prepared_release" jsonb,
 	"created_at" timestamp with time zone DEFAULT now() NOT NULL,
+	"prepared_release" jsonb,
 	"status" text DEFAULT 'pending' NOT NULL,
 	"input_summary" jsonb DEFAULT '{}' NOT NULL,
 	"integration_id" text,
@@ -771,13 +771,6 @@ CREATE TABLE "plugin_revision" (
 	"plugin_id" text NOT NULL,
 	CONSTRAINT "plugin_revision_plugin_source_unique" UNIQUE("plugin_id","source_hash"),
 	CONSTRAINT "plugin_revision_id_plugin_unique" UNIQUE("id","plugin_id")
-);
---> statement-breakpoint
-CREATE TABLE "plugin_revision_source_file" (
-	"path" text,
-	"contents" bytea NOT NULL,
-	"plugin_revision_id" text,
-	CONSTRAINT "plugin_revision_source_file_pkey" PRIMARY KEY("plugin_revision_id","path")
 );
 --> statement-breakpoint
 CREATE TABLE "plugin_uninstall_receipt" (
@@ -1178,7 +1171,6 @@ ALTER TABLE "plugin_installation" ADD CONSTRAINT "plugin_installation_Y0qNbD8s1J
 ALTER TABLE "plugin_installation" ADD CONSTRAINT "plugin_installation_plugin_id_plugin_id_fkey" FOREIGN KEY ("plugin_id") REFERENCES "plugin"("id") ON DELETE CASCADE;--> statement-breakpoint
 ALTER TABLE "plugin_revision" ADD CONSTRAINT "plugin_revision_plugin_id_plugin_id_fkey" FOREIGN KEY ("plugin_id") REFERENCES "plugin"("id") ON DELETE CASCADE;--> statement-breakpoint
 ALTER TABLE "plugin_revision" ADD CONSTRAINT "plugin_revision_client_artifact_hash_fk" FOREIGN KEY ("client_artifact_hash") REFERENCES "client_artifact"("hash");--> statement-breakpoint
-ALTER TABLE "plugin_revision_source_file" ADD CONSTRAINT "plugin_revision_source_file_jXWqpu8aM8FE_fkey" FOREIGN KEY ("plugin_revision_id") REFERENCES "plugin_revision"("id") ON DELETE CASCADE;--> statement-breakpoint
 ALTER TABLE "plugin_uninstall_receipt" ADD CONSTRAINT "plugin_uninstall_receipt_owner_user_id_user_id_fkey" FOREIGN KEY ("owner_user_id") REFERENCES "user"("id") ON DELETE CASCADE;--> statement-breakpoint
 ALTER TABLE "provider_import_admission" ADD CONSTRAINT "provider_import_admission_user_id_user_id_fkey" FOREIGN KEY ("user_id") REFERENCES "user"("id") ON DELETE CASCADE;--> statement-breakpoint
 ALTER TABLE "relationship" ADD CONSTRAINT "relationship_user_id_user_id_fkey" FOREIGN KEY ("user_id") REFERENCES "user"("id") ON DELETE CASCADE;--> statement-breakpoint
