@@ -26,6 +26,12 @@ export default defineAutomation({
 					new FitnessNotificationError("Signal notification requires a signal source"),
 				);
 			}
+			if (
+				signal.signalSchemaSlug === "exercise.context-changed" ||
+				signal.signalSchemaSlug === "workout.context-changed"
+			) {
+				return null;
+			}
 			if (signal.signalSchemaSlug !== "workout.created") {
 				return yield* Effect.fail(
 					new FitnessNotificationError(`Unsupported signal schema: ${signal.signalSchemaSlug}`),
