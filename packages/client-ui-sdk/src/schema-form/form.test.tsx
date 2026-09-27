@@ -138,6 +138,18 @@ const multiSelectSchema = {
 	},
 } satisfies AppSchema;
 
+const timezoneSchema = {
+	fields: {
+		timezone: {
+			type: "string",
+			label: "Timezone",
+			description: "Timezone",
+			format: { kind: "timezone" },
+			defaultValue: "Asia/Calcutta",
+		},
+	},
+} satisfies AppSchema;
+
 const dateSchema = {
 	fields: {
 		startAt: { type: "datetime", label: "Start at", description: "Start at" },
@@ -388,6 +400,33 @@ describe("SchemaForm", () => {
 
 		expect(screen.getByRole("button", { name: "Tags" })).toBeTruthy();
 	});
+
+	it.live("renders a timezone as a searchable picker and stores the chosen zone", () =>
+		Effect.gen(function* () {
+			const submitted: SchemaFormValues[] = [];
+			render(
+				<SchemaFormHarness schema={timezoneSchema} onSubmit={(values) => submitted.push(values)} />,
+			);
+
+			fireEvent.click(
+				yield* Effect.promise(() =>
+					screen.findByRole("button", { name: "Timezone: Asia/Calcutta" }),
+				),
+			);
+			fireEvent.change(screen.getByRole("textbox", { name: "Search Timezone" }), {
+				target: { value: "tokyo" },
+			});
+			yield* Effect.promise(() =>
+				waitFor(() => expect(screen.queryByRole("radio", { name: "Europe/Paris" })).toBeNull()),
+			);
+			fireEvent.click(screen.getByRole("radio", { name: "Asia/Tokyo" }));
+			fireEvent.click(screen.getByRole("button", { name: "Search" }));
+
+			yield* Effect.promise(() =>
+				waitFor(() => expect(submitted).toEqual([{ timezone: "Asia/Tokyo" }])),
+			);
+		}),
+	);
 
 	it("renders date and datetime properties as text fields", () => {
 		render(<SchemaFormHarness schema={dateSchema} onSubmit={() => undefined} />);

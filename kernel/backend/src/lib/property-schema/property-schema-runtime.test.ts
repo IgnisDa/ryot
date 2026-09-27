@@ -304,6 +304,13 @@ describe("parseAppSchemaPropertiesSafe - string property", () => {
 		);
 	});
 
+	it("validates timezone format as a named IANA zone", () => {
+		const field = str({ format: { kind: "timezone" } });
+		expect(parse({ value: field }, { value: "Asia/Kolkata" }).success).toBe(true);
+		expect(parse({ value: field }, { value: "Not/AZone" }).success).toBe(false);
+		expect(parse({ value: field }, { value: "+05:30" }).success).toBe(false);
+	});
+
 	it("accepts a bare temporary upload token string", () => {
 		const field = str({ format: { kind: "upload", allowedFileExtensions: ["pdf"] } });
 		const result = parse({ attachment: field }, { attachment: "temporary-token" });
