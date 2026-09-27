@@ -42,8 +42,9 @@ URL. It looks like `https://<instance_url>/_i/<slug>`.
 
 - Only `Movie` and `Episode` items are processed, everything else is ignored.
 - A TMDb ID is required by default (or a TVDB ID if `TVDB` is selected as the
-  metadata provider in the integration settings). Items with only an IMDb ID are
-  skipped.
+  metadata provider in the integration settings). Supported playback
+  notifications lacking the configured ID fail webhook processing rather than
+  being skipped; this includes items with only an IMDb ID.
 - If `PlayedToCompletion`/`Played` is set, progress is recorded as 100%.
 - `MarkPlayed` events record 100% progress, `MarkUnplayed` events are ignored.
 - If you configured a username in the integration settings, only payloads for that
