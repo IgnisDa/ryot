@@ -12,27 +12,18 @@ Do not redesign the lifecycle policy path, change receipt identities, change adv
 
 The perf harness runs the 146-test e2e subset in `tmp/perf-audit/files.txt` with OpenTelemetry span metrics and `pg_stat_statements`. The YouTube Music import trace is separate.
 
-| Measure                                     | Program start | Current        |
-| ------------------------------------------- | ------------- | -------------- |
-| Harness database time                       | 384 s         | 119 s          |
-| Harness statements                          | 940k          | 622k           |
-| `user_sandbox_provider_operation` view time | 11.8 s        | 0.82 s         |
-| Event-create workflow activities per run    | 112           | 80             |
-| YouTube Music import statements             | 8,785         | 3,344          |
-| Import application statements               | —             | 1,324 of 3,344 |
+| Measure                           | Program start (`head2`) | Effect 4.0.0 (`preup`) | Effect 4.0.5 (`base`) | Current (`cand1`) |
+| --------------------------------- | ----------------------- | ---------------------- | --------------------- | ----------------- |
+| Harness database time             | 384 s                   | 116 s                  | 120 s                 | 106 s             |
+| Harness statements                | 940k                    | 670k                   | 1,126k                | 1,013k            |
+| Harness wall time                 | 646 s                   | 433 s                  | 596 s                 | 530 s             |
+| `cluster_messages` inserts        | 85k                     | 71k                    | 134k                  | 134k              |
+| GC admissions per message insert  | 1.00                    | 1.00                   | 1.00                  | 0.18              |
+| `user_sandbox_provider` view time | 11.8 s                  | 0.90 s                 | 0.88 s                | 0.59 s            |
 
-The current import total is made up of:
+The upgrade to Effect 4.0.5 (`5ac0325c8f`) roughly doubles workflow replays. New messages and replies are unchanged (about 19.8k and 24k). Re-sent activity requests rose from 51k to 114k, and app statements from workflow bodies that run again rose from 258k to 471k. See `tmp/perf-audit/pf4/report.md`.
 
-- 1,324 application statements;
-- 1,179 workflow-cluster statements (`cluster_messages`, `cluster_replies`, `workflow_execution`);
-- 632 Postgres foreign-key checks;
-- 171 transaction and lock statements.
-
-Per statement, the client spends about 1.5 ms against about 0.2 ms of server execution time.
-
-The workflow engine and its garbage-collection layer are the largest statement source. In the harness (`runs/p2h`) they issue 53% of statements and take 57% of database time (67 s of 119 s). Application queries take 22%, and transaction and lock statements take 20%.
-
-Part of that cost is app-owned. `WorkflowGarbageCollectionStorageLive` (`modules/garbage-collection/workflow-storage.ts`) wraps every saved envelope in a transaction that calls `WorkflowGarbageCollectionRepository.admit`. `admit` locks the execution and its root row with `lockExecution` to fence the message against tree expiry. Every reply runs `prepareReply` and `complete` in a second transaction. In the harness, `admit` and `lockExecution` each run about 62–64k times at about 1.2 ms per call, about 150 s of span time combined.
+Per statement, almost all of the cost is the round trip to Postgres. In PF-1's benchmark, client-side layers add 30–90 µs on top of a 210–330 µs raw round trip, and a transaction adds two more round trips.
 
 ## Measurement rules
 
@@ -43,6 +34,8 @@ Part of that cost is app-owned. `WorkflowGarbageCollectionStorageLive` (`modules
 ## Slices
 
 ### PF-1: attribute per-statement client overhead
+
+**Status.** Done. Client-side overhead is 30–90 µs per statement against a 210–330 µs raw round trip, under the 0.5 ms stop threshold (`tmp/perf-audit/pf1/report.md`).
 
 **Outcome.** A measured breakdown of the roughly 1.3 ms of client-side time per statement, covering:
 
@@ -69,6 +62,8 @@ Part of that cost is app-owned. `WorkflowGarbageCollectionStorageLive` (`modules
 
 ### PF-2: remove the dominant per-statement client cost
 
+**Status.** Closed by PF-1's stop clause. No client layer has a cost worth removing.
+
 **Outcome.** Client time per statement falls by at least 50% against PF-1's measurement, and harness database plus client wall time falls by a corresponding amount.
 
 **Scope.** Decided by PF-1. Likely candidates, in order of preference:
@@ -88,6 +83,8 @@ Part of that cost is app-owned. `WorkflowGarbageCollectionStorageLive` (`modules
 **Rollback.** Revert the slice commit.
 
 ### PF-3: workflow garbage-collection admission cost
+
+**Status.** Done (`fb52fd4284`). Re-sent non-`run` envelopes skip admission: 0.18 admissions per message insert, down from 1.00. A trigger-based fence that also removes the transaction is proposed in `tmp/perf-audit/pf3/report.md`.
 
 **Outcome.** The garbage-collection layer's statements per cluster message fall by at least half, with the same fencing against tree expiry.
 
@@ -110,6 +107,8 @@ Part of that cost is app-owned. `WorkflowGarbageCollectionStorageLive` (`modules
 
 ### PF-4: workflow engine statement volume (investigation)
 
+**Status.** Done (`tmp/perf-audit/pf4/report.md`). The largest lever is the Effect 4.0.5 replay increase, which needs a decision.
+
 **Outcome.** A decision, backed by numbers, on whether engine bookkeeping per activity can be reduced. In the import trace it is 1,179 statements, close to the application's own 1,324.
 
 **Scope.** Read-only analysis of statements per activity:
@@ -124,6 +123,8 @@ Count activities per workflow type, and look for workflows whose activities coul
 **Stop.** Changing the cluster storage contract or the engine's delivery guarantees is a separate, explicitly approved project.
 
 ### PF-5: RyotQL entity-schema catalog query
+
+**Status.** Done (`4039f68c7a`). Includes over flagged small catalogs read one materialized source: 0.59 s view time, identical rows (`tmp/perf-audit/pf5/report.md`).
 
 **Outcome.** `user_sandbox_provider_operation` time in the harness is at most 5% of the program-start time.
 
@@ -140,6 +141,8 @@ Count activities per workflow type, and look for workflows whose activities coul
 - The harness view metric is at most 5% of program start.
 
 ### PF-6: bounded statement inputs
+
+**Status.** Done (`e5e53d497d`).
 
 **Outcome.** No repository statement can exceed the driver's 32,767 bind limit.
 
