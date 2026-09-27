@@ -67,9 +67,8 @@ const hostDatabaseLayer = Layer.mergeAll(
 
 describe("normalizePreferences", () => {
 	it("normalizes missing and non-boolean preference values", () => {
-		expect(normalizePreferences(null)).toEqual({ allowNsfw: false, disableIntegrations: false });
-		expect(normalizePreferences({ allowNsfw: 1, disableIntegrations: true })).toEqual({
-			allowNsfw: false,
+		expect(normalizePreferences(null)).toEqual({ disableIntegrations: false });
+		expect(normalizePreferences({ disableIntegrations: true })).toEqual({
 			disableIntegrations: true,
 		});
 	});

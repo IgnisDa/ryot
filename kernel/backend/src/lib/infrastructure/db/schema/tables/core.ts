@@ -143,6 +143,7 @@ export const pluginInstallation = snakeCase.table(
 		configuredSecretPaths: text().array().notNull().default([]),
 		createdAt: timestamp({ withTimezone: true }).defaultNow().notNull(),
 		clientConfig: jsonb().$type<Record<string, JsonValue>>().notNull().default({}),
+		userSettings: jsonb().$type<Record<string, JsonValue>>().notNull().default({}),
 		userId: text()
 			.notNull()
 			.references(() => user.id, { onDelete: "cascade" }),

@@ -1,7 +1,7 @@
 {
 	"version": "8",
 	"dialect": "postgres",
-	"id": "14e816ca-d75c-4334-8abb-9a6ce798daf3",
+	"id": "034e898e-ce8d-43d9-9844-66827f3a7e3a",
 	"prevIds": ["00000000-0000-0000-0000-000000000000"],
 	"ddl": [
 		{ "isRlsEnabled": false, "name": "account", "entityType": "tables", "schema": "public" },
@@ -6315,6 +6315,19 @@
 			"generated": null,
 			"identity": null,
 			"name": "client_config",
+			"entityType": "columns",
+			"schema": "public",
+			"table": "plugin_installation"
+		},
+		{
+			"type": "jsonb",
+			"typeSchema": null,
+			"notNull": true,
+			"dimensions": 0,
+			"default": "'{}'",
+			"generated": null,
+			"identity": null,
+			"name": "user_settings",
 			"entityType": "columns",
 			"schema": "public",
 			"table": "plugin_installation"
