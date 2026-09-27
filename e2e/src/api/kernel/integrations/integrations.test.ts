@@ -108,6 +108,10 @@ describe("Integration CRUD", () => {
 				providers.find(({ slug }) => slug === "spotify"),
 				"Expected Spotify provider",
 			);
+			const anilist = requirePresent(
+				providers.find(({ slug }) => slug === "anilist"),
+				"Expected AniList provider",
+			);
 
 			expect(radarr.lot).toBe("push");
 			expect(radarr.hasScript).toBe(true);
@@ -126,6 +130,10 @@ describe("Integration CRUD", () => {
 			expect(komga.commonSchema.fields).toHaveProperty("syncOwnership");
 			expect(spotify.supportsOwnershipSync).toBe(false);
 			expect(spotify.commonSchema.fields).not.toHaveProperty("syncOwnership");
+			expect(anilist.lot).toBe("yank");
+			expect(anilist.hasScript).toBe(true);
+			expect(anilist.requiresProKey).toBe(true);
+			expect(anilist.supportsOwnershipSync).toBe(false);
 		}),
 	);
 

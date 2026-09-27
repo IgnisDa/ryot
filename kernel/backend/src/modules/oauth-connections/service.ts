@@ -21,6 +21,7 @@ import { Context, Data, DateTime, Duration, Effect, Layer, Option, Result, Schem
 import type { SubkeyCiphertext } from "#lib/infrastructure/config/plugin-config-encryption";
 import { AppConfig } from "#lib/infrastructure/config/service";
 import { DatabaseSession } from "#lib/infrastructure/db/session";
+import { ProKeyService } from "#lib/infrastructure/pro-key";
 import { resolveContextConfig } from "#lib/infrastructure/sandbox-runtime/app-config";
 import { PluginConfigEncryptionKey } from "#modules/plugins/config-encryption-key";
 import { PluginConfigRevisions } from "#modules/plugins/config-revisions";
@@ -101,6 +102,7 @@ export class OAuthConnectionsService extends Context.Service<OAuthConnectionsSer
 	{
 		make: Effect.gen(function* () {
 			const database = yield* DatabaseSession;
+			const proKey = yield* ProKeyService;
 			const repository = yield* OAuthConnectionsRepository;
 			const catalog = yield* IntegrationProviderCatalog;
 			const configs = yield* PluginConfigRevisions;
@@ -223,6 +225,9 @@ export class OAuthConnectionsService extends Context.Service<OAuthConnectionsSer
 				if (!registered) {
 					return yield* providerNotFound;
 				}
+				if (registered.requiresProKey && !(yield* proKey.isValidated)) {
+					return yield* new OAuthConnectionRequestError({ reason: { code: "pro-key-required" } });
+				}
 				const oauthProviderSlug = oauthConnectionFieldProvider(
 					registered.settingsSchema,
 					body.field,
@@ -253,7 +258,7 @@ export class OAuthConnectionsService extends Context.Service<OAuthConnectionsSer
 				}
 				const id = OAuthConnectionId.make(randomToken());
 				const state = randomToken();
-				const verifier = randomToken();
+				const verifier = provider.pkce === "S256" ? randomToken() : null;
 				yield* repository.insertPending({
 					id,
 					userId: user.id,
@@ -266,19 +271,25 @@ export class OAuthConnectionsService extends Context.Service<OAuthConnectionsSer
 					pluginInstallationId: registered.installationId,
 					tokenUrlOrigin: new URL(provider.tokenUrl).origin,
 					expiresAt: plus(createdAt, PENDING_CONNECTION_TTL),
-					codeVerifier: yield* seal({ id, userId: user.id }, "codeVerifier", verifier).pipe(
-						Effect.orDie,
-					),
+					...(verifier === null
+						? {}
+						: {
+								codeVerifier: yield* seal({ id, userId: user.id }, "codeVerifier", verifier).pipe(
+									Effect.orDie,
+								),
+							}),
 				});
 				const authorizeUrl = new URL(provider.authorizeUrl);
 				const parameters: Record<string, string> = {
 					state,
 					response_type: "code",
-					code_challenge_method: "S256",
 					client_id: credentials.clientId,
-					code_challenge: sha256(verifier).toString("base64url"),
 					redirect_uri: redirectUri(registered.pluginSlug, provider.slug),
 				};
+				if (verifier !== null) {
+					parameters["code_challenge_method"] = "S256";
+					parameters["code_challenge"] = sha256(verifier).toString("base64url");
+				}
 				if (provider.scopes.length > 0) {
 					parameters["scope"] = provider.scopes.join(" ");
 				}
@@ -387,7 +398,6 @@ export class OAuthConnectionsService extends Context.Service<OAuthConnectionsSer
 					!registered ||
 					!provider ||
 					claimed.code === null ||
-					claimed.codeVerifier === null ||
 					new URL(provider.tokenUrl).origin !== claimed.tokenUrlOrigin
 				) {
 					return yield* exchangeFailed;
@@ -397,13 +407,19 @@ export class OAuthConnectionsService extends Context.Service<OAuthConnectionsSer
 					return yield* exchangeFailed;
 				}
 				const code = yield* unseal(claimed, "code", claimed.code).pipe(Effect.orDie);
-				const codeVerifier = yield* unseal(claimed, "codeVerifier", claimed.codeVerifier).pipe(
-					Effect.orDie,
-				);
+				let codeVerifier: string | undefined;
+				if (provider.pkce === "S256") {
+					if (claimed.codeVerifier === null) {
+						return yield* exchangeFailed;
+					}
+					codeVerifier = yield* unseal(claimed, "codeVerifier", claimed.codeVerifier).pipe(
+						Effect.orDie,
+					);
+				}
 				const token = yield* tokenClient
 					.requestToken(provider, credentials, {
 						code,
-						codeVerifier,
+						...(codeVerifier === undefined ? {} : { codeVerifier }),
 						grantType: "authorization_code",
 						redirectUri: redirectUri(claimed.pluginSlug, claimed.oauthProviderSlug),
 					})
@@ -480,10 +496,58 @@ export class OAuthConnectionsService extends Context.Service<OAuthConnectionsSer
 			);
 
 			type ConnectionRow = NonNullable<Effect.Success<ReturnType<typeof repository.findById>>>;
+			type IntegrationRunInput = {
+				readonly field: string;
+				readonly connectionId: OAuthConnectionId;
+				readonly userId: UserId;
+				readonly pluginId: string;
+				readonly integrationId: IntegrationId;
+				readonly integrationRunId: ImportRunId;
+			};
+			const unavailable = accessTokenError(OAUTH_ACCESS_TOKEN_MESSAGES.unavailable);
+
+			const findIntegrationRunBinding = Effect.fn(
+				"OAuthConnectionsService.findIntegrationRunBinding",
+			)(function* (input: IntegrationRunInput) {
+				yield* requireNoTransaction;
+				const bound = yield* repository.findForIntegrationRun(input);
+				if (
+					!bound?.pins ||
+					bound.id !== input.connectionId ||
+					bound.pins.pluginRevisionId === null ||
+					bound.pluginId !== input.pluginId ||
+					(bound.pluginOwnerId !== null && bound.pluginOwnerId !== input.userId)
+				) {
+					return yield* unavailable;
+				}
+				const provider = bound.manifest.integrationProviders.find(
+					({ slug }) => slug === bound.integrationProviderSlug,
+				);
+				if (
+					!provider ||
+					bound.installationPluginSlug !== bound.pluginSlug ||
+					oauthConnectionFieldProvider(provider.settingsSchema, input.field) !==
+						bound.oauthProviderSlug
+				) {
+					return yield* unavailable;
+				}
+				const registered: OAuthConfigAuthority = {
+					installationId: bound.pluginInstallationId,
+					configContext: {
+						kind: "revision",
+						configSchema: bound.manifest.configSchema,
+						pluginRevisionId: bound.pins.pluginRevisionId,
+						pluginConfigRevisionId: bound.pins.pluginConfigRevisionId,
+						ownerUserId: bound.pluginOwnerId === null ? null : UserId.make(bound.pluginOwnerId),
+					},
+				};
+				return { bound, registered };
+			});
 
 			const refreshAccessToken = Effect.fn("OAuthConnectionsService.refreshAccessToken")(function* (
 				connection: ConnectionRow,
 				registered: OAuthConfigAuthority,
+				integrationId: IntegrationId,
 			) {
 				const lease = {
 					tokenVersion: connection.tokenVersion,
@@ -494,7 +558,7 @@ export class OAuthConnectionsService extends Context.Service<OAuthConnectionsSer
 						.releaseRefreshLease(lease)
 						.pipe(Effect.andThen(Effect.fail(accessTokenError(message))));
 				const expire = repository
-					.markExpired(lease)
+					.markExpired({ ...lease, integrationId })
 					.pipe(Effect.andThen(Effect.fail(accessTokenError(OAUTH_ACCESS_TOKEN_MESSAGES.expired))));
 				if (connection.refreshToken === null) {
 					return yield* expire;
@@ -541,45 +605,8 @@ export class OAuthConnectionsService extends Context.Service<OAuthConnectionsSer
 			const accessTokenForIntegrationRun = Effect.fn(
 				"OAuthConnectionsService.accessTokenForIntegrationRun",
 			)(
-				function* (input: {
-					readonly field: string;
-					readonly userId: UserId;
-					readonly pluginId: string;
-					readonly integrationId: IntegrationId;
-					readonly integrationRunId: ImportRunId;
-				}) {
-					yield* requireNoTransaction;
-					const unavailable = accessTokenError(OAUTH_ACCESS_TOKEN_MESSAGES.unavailable);
-					const bound = yield* repository.findForIntegrationRun(input);
-					if (
-						!bound?.pins ||
-						bound.pins.pluginRevisionId === null ||
-						bound.pluginId !== input.pluginId ||
-						(bound.pluginOwnerId !== null && bound.pluginOwnerId !== input.userId)
-					) {
-						return yield* unavailable;
-					}
-					const provider = bound.manifest.integrationProviders.find(
-						({ slug }) => slug === bound.integrationProviderSlug,
-					);
-					if (
-						!provider ||
-						bound.installationPluginSlug !== bound.pluginSlug ||
-						oauthConnectionFieldProvider(provider.settingsSchema, input.field) !==
-							bound.oauthProviderSlug
-					) {
-						return yield* unavailable;
-					}
-					const registered: OAuthConfigAuthority = {
-						installationId: bound.pluginInstallationId,
-						configContext: {
-							kind: "revision",
-							configSchema: bound.manifest.configSchema,
-							pluginRevisionId: bound.pins.pluginRevisionId,
-							pluginConfigRevisionId: bound.pins.pluginConfigRevisionId,
-							ownerUserId: bound.pluginOwnerId === null ? null : UserId.make(bound.pluginOwnerId),
-						},
-					};
+				function* (input: IntegrationRunInput) {
+					const { bound, registered } = yield* findIntegrationRunBinding(input);
 					let connection: ConnectionRow = bound;
 					for (let attempt = 0; attempt <= REFRESH_POLL_ATTEMPTS; attempt += 1) {
 						if (attempt > 0) {
@@ -618,7 +645,11 @@ export class OAuthConnectionsService extends Context.Service<OAuthConnectionsSer
 							leaseUntil: plus(checkedAt, TOKEN_REQUEST_LEASE),
 						});
 						if (leased) {
-							const refreshed = yield* refreshAccessToken(connection, registered);
+							const refreshed = yield* refreshAccessToken(
+								connection,
+								registered,
+								input.integrationId,
+							);
 							if (refreshed) {
 								return refreshed;
 							}
@@ -632,6 +663,41 @@ export class OAuthConnectionsService extends Context.Service<OAuthConnectionsSer
 							(error) => !(error instanceof OAuthAccessTokenError),
 							(error) =>
 								Effect.logError("OAuth access token resolution failed", error).pipe(
+									Effect.andThen(Effect.fail(accessTokenError(OAUTH_ACCESS_TOKEN_MESSAGES.failed))),
+								),
+						),
+					),
+			);
+
+			const invalidateAccessTokenForIntegrationRun = Effect.fn(
+				"OAuthConnectionsService.invalidateAccessTokenForIntegrationRun",
+			)(
+				function* (input: IntegrationRunInput & { readonly accessToken: string }) {
+					const { bound } = yield* findIntegrationRunBinding(input);
+					if (
+						bound.status !== "connected" ||
+						bound.integrationId !== input.integrationId ||
+						bound.accessToken === null
+					) {
+						return null;
+					}
+					const currentAccessToken = yield* unseal(bound, "accessToken", bound.accessToken);
+					if (currentAccessToken !== input.accessToken) {
+						return null;
+					}
+					yield* repository.markExpired({
+						tokenVersion: bound.tokenVersion,
+						integrationId: input.integrationId,
+						id: OAuthConnectionId.make(bound.id),
+					});
+					return null;
+				},
+				(effect) =>
+					effect.pipe(
+						Effect.catchIf(
+							(error) => !(error instanceof OAuthAccessTokenError),
+							() =>
+								Effect.logError("OAuth access token invalidation failed").pipe(
 									Effect.andThen(Effect.fail(accessTokenError(OAUTH_ACCESS_TOKEN_MESSAGES.failed))),
 								),
 						),
@@ -652,6 +718,7 @@ export class OAuthConnectionsService extends Context.Service<OAuthConnectionsSer
 				deleteExpired,
 				bindIntegrationSettings,
 				accessTokenForIntegrationRun,
+				invalidateAccessTokenForIntegrationRun,
 			};
 		}),
 	},

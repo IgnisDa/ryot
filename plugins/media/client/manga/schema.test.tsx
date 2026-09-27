@@ -16,6 +16,7 @@ import { readyQueryResult, rowsResult } from "../../tests/client/query-result-fi
 import { renderMediaScreenBody } from "../../tests/client/screen-fixture";
 import { mountRyotClient } from "../../tests/client/test-support";
 import {
+	mangaListStateDetail,
 	mangaPresentationFacts,
 	mangaProgressLabel,
 	mangaSchema,
@@ -31,6 +32,7 @@ const PROGRESS_EVENT = {
 	timeSpent: null,
 	startedOn: null,
 	isSpoiler: null,
+	listState: null,
 	mangaChapter: 45,
 	completedOn: null,
 	progressPercent: 62,
@@ -92,6 +94,23 @@ describe("manga schema", () => {
 		expect(mangaProgressLabel(undefined, { mangaVolume: null, mangaChapter: null })).toBe(
 			"Part-way through the manga",
 		);
+	});
+
+	it("shows the AniList observation state, snapshot positions, and repeat metadata", () => {
+		expect(
+			mangaListStateDetail({
+				listState: {
+					mangaVolume: 0,
+					repeatCount: 2,
+					mangaChapter: 0,
+					source: "anilist",
+					state: "in_progress",
+					sourceEntryId: "entry-1",
+					sourceAccountId: "account-1",
+					sourceUpdatedAt: "2026-05-01T10:00:00.000Z",
+				},
+			}),
+		).toBe("In progress · Volume 0 · Chapter 0 · Repeat count 2");
 	});
 
 	it("labels each imported chapter on its own activity row", () => {

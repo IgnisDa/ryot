@@ -54,6 +54,7 @@ const MESSAGES = {
 	busy: "Too many connections are in progress. Try again later.",
 	tokenExchange: "The service didn't accept the connection. Try again.",
 	notConfigured: "This service isn't set up for connecting on this server.",
+	proKeyRequired: "A validated Pro key is required to connect this service.",
 } as const;
 
 export type OAuthPopup = { opener: unknown; close: () => void; location: { href: string } };
@@ -144,6 +145,7 @@ const requestFailureMessage = (error: unknown): OAuthConnectFailed["message"] =>
 	return Match.value(cause.reason).pipe(
 		Match.when({ code: "oauth-client-not-configured" }, () => MESSAGES.notConfigured),
 		Match.when({ code: "oauth-token-exchange-failed" }, () => MESSAGES.tokenExchange),
+		Match.when({ code: "pro-key-required" }, () => MESSAGES.proKeyRequired),
 		Match.when({ code: "too-many-pending-oauth-connections" }, () => MESSAGES.busy),
 		Match.when({ code: "oauth-field-not-found" }, () => MESSAGES.unavailable),
 		Match.when({ code: "provider-not-found" }, () => MESSAGES.unavailable),

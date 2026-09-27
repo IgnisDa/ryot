@@ -364,6 +364,35 @@ const integrationProviders = [
 	},
 	{
 		lot: "yank",
+		slug: "anilist",
+		name: "AniList",
+		requiresProKey: true,
+		scriptSlug: "integration.anilist",
+		description: "Import anime and manga list state from AniList",
+		settingsSchema: providerSettings("anilist", {
+			syncAnime: {
+				type: "boolean",
+				defaultValue: true,
+				label: "Sync anime",
+				description: "Read anime list state from AniList",
+			},
+			syncManga: {
+				type: "boolean",
+				defaultValue: true,
+				label: "Sync manga",
+				description: "Read manga list state from AniList",
+			},
+			account: {
+				type: "string",
+				label: "AniList account",
+				validation: { required: true },
+				format: { provider: "anilist", kind: "oauth-connection" },
+				description: "AniList account to read anime and manga list state from",
+			},
+		}),
+	},
+	{
+		lot: "yank",
 		slug: "komga",
 		name: "Komga",
 		supportsOwnershipSync: true,
@@ -591,7 +620,7 @@ export const mediaPlugin = definePlugin({
 		},
 	},
 	httpRateLimits: [
-		{ requests: 90, key: "anilist", intervalMs: 60_000, origins: ["https://graphql.anilist.co"] },
+		{ requests: 30, key: "anilist", intervalMs: 60_000, origins: ["https://graphql.anilist.co"] },
 		{ requests: 90, key: "spotify", intervalMs: 60_000, origins: ["https://api.spotify.com"] },
 		{ requests: 1, intervalMs: 1_000, key: "musicbrainz", origins: ["https://musicbrainz.org"] },
 	],
@@ -621,6 +650,19 @@ export const mediaPlugin = definePlugin({
 	],
 	oauthProviders: [
 		{
+			scopes: [],
+			pkce: "none",
+			slug: "anilist",
+			name: "AniList",
+			clientIdConfigKey: "anilistClientId",
+			accessTokenLifetimeSeconds: 31_536_000,
+			tokenEndpointAuth: "client_secret_post",
+			clientSecretConfigKey: "anilistClientSecret",
+			tokenUrl: "https://anilist.co/api/v2/oauth/token",
+			authorizeUrl: "https://anilist.co/api/v2/oauth/authorize",
+		},
+		{
+			pkce: "S256",
 			slug: "spotify",
 			name: "Spotify",
 			clientIdConfigKey: "spotifyClientId",

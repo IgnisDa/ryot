@@ -82,6 +82,7 @@ export const SANDBOX_DURABLE_HOST_DISPATCH = {
 	requestEventStreamWork: "activity",
 	deleteEvents: "lifecycle-workflow",
 	updateEvents: "lifecycle-workflow",
+	invalidateOAuthAccessToken: "activity",
 	ensureUserEntities: "service-workflow",
 	sendNotification: "notification-workflow",
 	upsertGlobalEntities: "lifecycle-workflow",

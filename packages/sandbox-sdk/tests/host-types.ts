@@ -125,7 +125,12 @@ defineScript({
 			const integration = yield* host.getCurrentIntegration();
 			const token: { readonly accessToken: string; readonly expiresAt: string } =
 				yield* host.getOAuthAccessToken({ field: "account" });
+			const invalidated: null = yield* host.invalidateOAuthAccessToken({
+				field: "account",
+				accessToken: token.accessToken,
+			});
 			void token;
+			void invalidated;
 			const [entitySchema] = yield* host.getEntitySchemas(["schema-1"]);
 			if (!entitySchema) {
 				return false;
