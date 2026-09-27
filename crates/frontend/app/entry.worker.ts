@@ -53,6 +53,9 @@ self.addEventListener("notificationclick", (event) => {
 });
 
 self.addEventListener("message", (event) => {
+	if (event.origin !== self.location.origin) {
+		return;
+	}
 	const data = event.data as AppServiceWorkerMessageData;
 	logger.debug("Received message", data);
 	match(data.event)

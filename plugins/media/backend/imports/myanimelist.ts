@@ -42,10 +42,15 @@ const isXmlItem = (value: unknown): value is MyanimelistXmlItem =>
 
 const assertWellFormedXml = (xml: string) => {
 	const stack: string[] = [];
-	const withoutOpaqueBlocks = xml.replace(
-		/<!\[CDATA\[[\s\S]*?\]\]>|<!--[\s\S]*?-->|<\?[\s\S]*?\?>/g,
-		"",
-	);
+	let withoutOpaqueBlocks = xml;
+	let previous: string;
+	do {
+		previous = withoutOpaqueBlocks;
+		withoutOpaqueBlocks = previous.replace(
+			/<!\[CDATA\[[\s\S]*?\]\]>|<!--[\s\S]*?-->|<\?[\s\S]*?\?>/g,
+			"",
+		);
+	} while (withoutOpaqueBlocks !== previous);
 	for (const match of withoutOpaqueBlocks.matchAll(
 		/<\s*(\/?)\s*([\w:.-]+)(?:\s[^<>]*?)?(\/?)\s*>/g,
 	)) {
