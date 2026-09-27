@@ -31,11 +31,13 @@ describe("Vite output", () => {
 
 	it("collects result arrays as copied bytes in deterministic path order", () => {
 		const imageBytes = new Uint8Array([0x89, 0x50, 0x4e, 0x47]);
+		const audioBytes = new Uint8Array([0xff, 0x00, 0x49, 0x44]);
 		const collected = collectViteOutputs([
 			{
 				output: [
 					{ type: "asset", source: "<svg/>", fileName: "assets/icon.svg" },
 					{ type: "asset", source: imageBytes, fileName: "assets/icon.png" },
+					{ type: "asset", source: audioBytes, fileName: "assets/add-set.mp3" },
 				],
 			},
 			{ output: [{ type: "chunk", code: "export {};", fileName: "assets/app.js" }] },
@@ -48,11 +50,13 @@ describe("Vite output", () => {
 		expect(
 			collected.success.map(({ contentType, path: filePath }) => [filePath, contentType]),
 		).toEqual([
+			["assets/add-set.mp3", "audio/mpeg"],
 			["assets/app.js", "text/javascript; charset=utf-8"],
 			["assets/icon.png", "image/png"],
 			["assets/icon.svg", "image/svg+xml"],
 		]);
-		expect(collected.success[1]?.bytes).toEqual(new Uint8Array([0x89, 0x50, 0x4e, 0x47]));
+		expect(collected.success[0]?.bytes).toEqual(audioBytes);
+		expect(collected.success[2]?.bytes).toEqual(new Uint8Array([0x89, 0x50, 0x4e, 0x47]));
 	});
 
 	it("returns tagged failures for escaping and duplicate output paths", () => {
