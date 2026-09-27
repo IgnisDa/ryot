@@ -46,8 +46,6 @@ export const newWorkoutSet = (
 	kind: ExerciseKind,
 	previous?: WorkoutEditorSet,
 ): WorkoutEditorSet => ({
-	images: [],
-	videos: [],
 	clientId: id,
 	included: false,
 	setLot: "normal",

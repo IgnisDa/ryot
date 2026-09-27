@@ -92,8 +92,6 @@ const workoutData = (overrides: Partial<WorkoutData> = {}): WorkoutData => ({
 });
 
 const workoutSet = (overrides: Partial<WorkoutSetInput> = {}): WorkoutSetInput => ({
-	images: [],
-	videos: [],
 	setLot: "normal",
 	occurredAt: occurredAt,
 	confirmedAt: occurredAt,
@@ -110,6 +108,8 @@ const workoutOccurrence = (
 ): WorkoutData["occurrences"][number] => ({
 	sets,
 	notes: [],
+	images: [],
+	videos: [],
 	exerciseId,
 	clientId: `occurrence-${crypto.randomUUID()}`,
 	...overrides,
@@ -404,7 +404,14 @@ describe("Workout editor with a valid Pro key", () => {
 			const created = yield* saveWorkoutEditor(
 				client,
 				operationInput(
-					workoutData({ occurrences: [workoutOccurrence(originalExerciseId, [workoutSet()])] }),
+					workoutData({
+						occurrences: [
+							workoutOccurrence(originalExerciseId, [workoutSet()], {
+								images: [{ type: "remote", url: "https://example.com/replacement.jpg" }],
+								videos: [{ type: "remote", url: "https://example.com/replacement.mp4" }],
+							}),
+						],
+					}),
 				),
 			);
 			assertCondition(created.kind === "saved", "Expected the source workout save");
@@ -428,7 +435,11 @@ describe("Workout editor with a valid Pro key", () => {
 									measurements: { reps: 0, weight: 0 },
 								}),
 							],
-							{ sourceExerciseOrder: 0 },
+							{
+								sourceExerciseOrder: 0,
+								images: [{ type: "remote", url: "https://example.com/replacement.jpg" }],
+								videos: [{ type: "remote", url: "https://example.com/replacement.mp4" }],
+							},
 						),
 					],
 				});
@@ -451,6 +462,13 @@ describe("Workout editor with a valid Pro key", () => {
 				occurredAt: originalSet.occurredAt,
 			});
 			expect(replacedSet.properties).toMatchObject({ confirmedAt: occurredAt });
+			expect(replacedBaseline.baseline.entity.properties["exerciseMedia"]).toMatchObject([
+				{
+					exerciseOrder: 0,
+					images: [{ type: "remote", url: "https://example.com/replacement.jpg" }],
+					videos: [{ type: "remote", url: "https://example.com/replacement.mp4" }],
+				},
+			]);
 
 			const incompatible = yield* saveWorkoutEditor(
 				client,
@@ -489,7 +507,7 @@ describe("Workout editor with a valid Pro key", () => {
 			const unownedImage: WorkoutData["images"] = [
 				{ type: "s3", key: `workouts/unowned-${crypto.randomUUID()}.jpg` },
 			];
-			const unownedVideo: WorkoutSetInput["videos"] = [
+			const unownedVideo: WorkoutData["occurrences"][number]["videos"] = [
 				{ type: "local", key: `permanent/unowned-${crypto.randomUUID()}.mp4` },
 			];
 			const refused = yield* saveWorkoutEditor(
@@ -497,7 +515,7 @@ describe("Workout editor with a valid Pro key", () => {
 				operationInput(
 					workoutData({
 						images: unownedImage,
-						occurrences: [workoutOccurrence(exerciseId, [workoutSet({ videos: unownedVideo })])],
+						occurrences: [workoutOccurrence(exerciseId, [workoutSet()], { videos: unownedVideo })],
 					}),
 				),
 			);

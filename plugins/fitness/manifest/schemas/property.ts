@@ -68,8 +68,6 @@ export const exercisePropertiesSchema: AppSchema = {
 export const workoutSetPropertiesSchema: AppSchema = {
 	unknownKeys: "strict",
 	fields: {
-		images: imagesField("Images attached to this exercise in the workout"),
-		videos: videosField("Videos attached to this exercise in the workout"),
 		note: { label: "Note", type: "string", description: "Optional note specific to this set" },
 		confirmedAt: {
 			type: "datetime",
@@ -232,6 +230,27 @@ export const workoutPropertiesSchema: AppSchema = {
 				unknownKeys: "strict",
 				properties: workoutSupersetItemProperties,
 				description: "Superset grouping within a workout or template",
+			},
+		},
+		exerciseMedia: {
+			type: "array",
+			label: "Exercise Media",
+			description: "Images and videos for each exercise occurrence in this workout",
+			items: {
+				label: "Item",
+				type: "object",
+				unknownKeys: "strict",
+				description: "Media for an exercise occurrence",
+				properties: {
+					images: imagesField("Images attached to this exercise occurrence in the workout"),
+					videos: videosField("Videos attached to this exercise occurrence in the workout"),
+					exerciseOrder: {
+						type: "integer",
+						label: "Exercise Order",
+						validation: { minimum: 0, required: true },
+						description: "Zero-based position of this exercise within the workout",
+					},
+				},
 			},
 		},
 		exerciseNotes: {

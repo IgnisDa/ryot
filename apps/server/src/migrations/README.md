@@ -56,6 +56,10 @@ preference aborts because V1 recorded no per-workout unit: the operator must con
 source values to kcal, not simply relabel unknown history. Workout/template entity completion reports
 guard their phases against repeat writes and duplicate duration/energy anomaly reports.
 
+Workout exercise attachments are stored once in `exerciseMedia`, keyed by zero-based `exerciseOrder`,
+not on set events. Templates retain attachments on their exercise entries. Workout-level attachments
+remain in the workout's `images` and `videos` fields.
+
 Fitness settings flatten V1 display units, four set-type rest durations, sound mute, rest prompting,
 duration countdown, and energy unit onto the exact installation. Missing preference blocks use V1
 defaults; unset rests in an existing rest-settings object become zero. Null non-rest choices and

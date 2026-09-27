@@ -15,7 +15,7 @@ it.each([
 	expect(selectWorkoutSetMeasurements(kind, measurements)).toEqual(expected);
 });
 
-it("builds workout-set properties with zero values, RPE, media, and canonical statistics", () => {
+it("builds workout-set properties with zero values, RPE, and canonical statistics", () => {
 	expect(
 		buildWorkoutSetEventProperties({
 			rpe: 8,
@@ -28,8 +28,6 @@ it("builds workout-set properties with zero values, RPE, media, and canonical st
 			exerciseOrder: 2,
 			exerciseKind: "reps_and_weight",
 			confirmedAt: "2026-10-15T10:00:00.000Z",
-			images: [{ type: "s3", key: "workout/set/image.jpg" }],
-			videos: [{ type: "local", key: "workout/set/video.mp4" }],
 		}),
 	).toEqual({
 		rpe: 8,
@@ -44,7 +42,5 @@ it("builds workout-set properties with zero values, RPE, media, and canonical st
 		setLot: "normal",
 		exerciseKind: "reps_and_weight",
 		confirmedAt: "2026-10-15T10:00:00.000Z",
-		images: [{ type: "s3", key: "workout/set/image.jpg" }],
-		videos: [{ type: "local", key: "workout/set/video.mp4" }],
 	});
 });

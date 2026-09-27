@@ -1,5 +1,5 @@
 import { Schema } from "@ryot-app/plugin-kit/effect";
-import { EntityId, EventId } from "@ryot-app/plugin-kit/schema";
+import { EntityId, EventId, LocalAssetLocator, S3AssetLocator } from "@ryot-app/plugin-kit/schema";
 
 import { exerciseKindSchema } from "./exercise-kinds";
 import { decodeWorkoutEditorJson, encodeWorkoutEditorJson } from "./workout-editor-codec";
@@ -66,8 +66,6 @@ export const WorkoutEditorSetSchema = Schema.Struct({
 	included: Schema.Boolean,
 	setLot: WorkoutSetLotSchema,
 	exerciseKind: exerciseKindSchema,
-	images: WorkoutEditorMediaSchema,
-	videos: WorkoutEditorMediaSchema,
 	rpe: Schema.optional(Schema.String),
 	note: Schema.optional(Schema.String),
 	reps: Schema.optional(Schema.String),
@@ -135,6 +133,7 @@ export const WorkoutEditorDraftSchema = Schema.Struct({
 	executionCountdown: Schema.optional(WorkoutEditorCountdownSchema),
 	activeDurationIntent: Schema.Literals(["preserve", "set", "clear"]),
 	localPreferences: Schema.optional(WorkoutEditorLocalPreferencesSchema),
+	uploadedAssets: Schema.optional(Schema.Array(Schema.Union([LocalAssetLocator, S3AssetLocator]))),
 	pendingRest: Schema.optional(
 		Schema.Struct({
 			setId: nonEmptyString,
