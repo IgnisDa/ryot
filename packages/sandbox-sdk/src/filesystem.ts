@@ -4,6 +4,11 @@ const encoder = new TextEncoder();
 const SANDBOX_FILESYSTEM_KEY = Symbol.for("@ryot-app/sandbox-sdk/filesystem");
 
 type SandboxFilesystemBinding = {
+	readonly readArtifactRange: (
+		offset: number,
+		length: number,
+		key?: string,
+	) => Promise<{ bytes: Uint8Array; size: number }>;
 	readonly readArtifact: () => Promise<Uint8Array>;
 	readonly readNamedArtifact: (key: string) => Promise<Uint8Array>;
 	readonly writeScratchChunks: (
@@ -33,6 +38,28 @@ const binding = () =>
 	(globalThis as typeof globalThis & { [SANDBOX_FILESYSTEM_KEY]?: SandboxFilesystemBinding })[
 		SANDBOX_FILESYSTEM_KEY
 	];
+
+export const readArtifactRange = (offset: number, length: number, key?: string) =>
+	Effect.suspend(() => {
+		if (
+			!Number.isSafeInteger(offset) ||
+			offset < 0 ||
+			!Number.isSafeInteger(length) ||
+			length < 1 ||
+			length > 1024 * 1024
+		) {
+			return Effect.fail(
+				filesystemError("Artifact range requires a nonnegative offset and 1..1048576 bytes"),
+			);
+		}
+		const filesystem = binding();
+		return filesystem
+			? Effect.tryPromise({
+					catch: filesystemError,
+					try: () => filesystem.readArtifactRange(offset, length, key),
+				})
+			: Effect.fail(filesystemError("Sandbox artifact grant is unavailable"));
+	});
 
 export const readArtifact = Effect.suspend(() => {
 	const filesystem = binding();

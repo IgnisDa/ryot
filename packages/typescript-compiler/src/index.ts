@@ -1,6 +1,12 @@
 import { Data, Effect, Schema } from "effect";
 import type * as ts from "typescript/unstable/ast";
-import { API, DiagnosticCategory, type Diagnostic } from "typescript/unstable/async";
+import {
+	API,
+	type Checker,
+	type Diagnostic,
+	DiagnosticCategory,
+	type Program,
+} from "typescript/unstable/async";
 import { createVirtualFileSystem, type FileSystem } from "typescript/unstable/fs";
 
 export const TypeScriptCompilerDiagnostic = Schema.Struct({
@@ -78,7 +84,18 @@ export const resolveTypeScriptCompilerPath = (from: string) => {
 	return `${nativeDirectory}/lib/tsc${process.platform === "win32" ? ".exe" : ""}`;
 };
 
-export const createTypeScriptProject = (options: TypeScriptProjectOptions) => {
+export type TypeScriptProjectAccess = {
+	readonly checker: Checker;
+	readonly program: Program;
+	readonly entrySourceFiles: Readonly<Record<string, ts.SourceFile>>;
+	readonly sourceFiles: readonly ts.SourceFile[];
+	readonly diagnostics: readonly Diagnostic[];
+};
+
+export const withTypeScriptProject = <A, E, R>(
+	options: TypeScriptProjectOptions,
+	use: (project: TypeScriptProjectAccess) => Effect.Effect<A, E, R>,
+) => {
 	const virtualConfigFile = `${options.virtualRoot}/tsconfig.json`;
 	const virtualPath = (path: string) => `${options.virtualRoot}/${path}`;
 	const isVirtualPath = (path: string) =>
@@ -152,12 +169,19 @@ export const createTypeScriptProject = (options: TypeScriptProjectOptions) => {
 					),
 				);
 
-				return {
+				return yield* use({
+					program,
 					entrySourceFiles,
 					sourceFiles: files,
+					checker: project.checker,
 					diagnostics: [...projectDiagnostics.flat(), ...fileDiagnostics.flat(2)],
-				};
+				});
 			}),
 		(api) => Effect.promise(() => api.close()),
 	);
 };
+
+export const createTypeScriptProject = (options: TypeScriptProjectOptions) =>
+	withTypeScriptProject(options, ({ diagnostics, sourceFiles, entrySourceFiles }) =>
+		Effect.succeed({ diagnostics, sourceFiles, entrySourceFiles }),
+	);

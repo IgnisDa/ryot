@@ -302,10 +302,50 @@ attribution, set source to `automation`, and increment depth. Plugin input canno
 Depth and shared run budgets are kernel-enforced. Blocked policy planning rejects the write;
 blocked post-write planning retains the source mutation.
 
-`getPluginConfig` reads only the pinned configuration revision and declared keys. Configuration is
+`getPluginConfig({ required: ["token"], optional: ["threshold"] })` reads the pinned configuration
+revision. Missing required values fail; missing optional values are omitted. Keys must be literals or
+finite typed values. The compiler generates access metadata from the used helpers; manifests do not
+author config requirement lists. Configuration is
 never copied into automation input or history. `emitSignal` returns `{ triggerId, wasCreated }`.
 Notification subscriptions remain portable user configuration; triggers, runs, attempts, retry
 state, logs, mutation receipts, pending batch evidence, and encryption keys are not account-backup data.
+
+Create executable references with `defineScriptReference` and `defineWorkflowReference` from
+`@ryot-app/sandbox-sdk/workflow`. `defineExecutableAlternatives({ id, stage, references })` and
+`selectExecutable(alternatives, key)` constrain selection to registered targets. Use `stage: "settings"`
+for setup choices and `stage: "record"` for choices refined from collected records. Configuration and
+executable SDK methods must be called directly; method aliases are unsupported.
+
+An import source can declare `plan.selections`: each selection has a fixed `value`, or a top-level
+settings `field` and finite `cases` mapping setting values to alternative keys. These selections are
+validated against compiled dependencies. Plan selection is pure and returns an ingestion operation
+and selection map; it performs no source requests or writes.
+
+Ingestion setup uses `importSourcesRecipe({ selected: { slug, settings }, limit })` and
+`integrationProvidersRecipe({ selected: { slug, settings, integrationId? }, limit })` from
+`@ryot-app/ryotql-recipes`. Their structured `readiness` contains `ready`, the selected `plan`, and
+`blockReasons`; installation metadata scopes configuration to the exact system or private plugin.
+Picker readiness covers unconditional requirements. Selected settings refine branch and account
+connection requirements; backend admission rechecks them. Presence does not validate remote credentials.
+
+Run reports use the schemas in `@ryot-app/contract/modules/imports/ingestion`. Give every activity
+its real `unit`, `completed`, optional `exactTotal`, `lastAdvancedAt`, and known `wait`. Concurrent
+activities keep distinct IDs. Batch summaries use `recordKind`, `unit`, and committed counts for
+`created`, `updated`, `unchanged`, `skipped`, and `unsuccessful`. Provider preparation is supporting
+work, not saved history. Issues carry a structured reason and source-record attribution; expected
+skips remain separate from errors.
+
+`manualImportRunsRecipe`, `integrationImportRunsRecipe`, and `importRunRecipe` select activities,
+semantic batch summaries, setup block reasons, the fixed block deadline, and expiry reason. They do
+not infer committed counts from requests or transport partitions. `importIssuesRecipe` pages
+client-safe issues by run and issue identity. Downloaded reports contain `runId`, `source`,
+`failureReason`, and canonical `issues`, including operation IDs and source attribution. Do not put
+credentials, capture locators, raw source bodies, or execution pins in issue fields.
+
+Independent manual imports append history and can duplicate earlier activity. Stable run-local
+identities protect replay of the same run. Active recovery retains captured inputs and execution
+pins; terminal cleanup releases them while preserving reports. Blocked webhook deliveries expire
+seven days after acceptance if setup remains unavailable; readiness checks do not extend that deadline.
 
 Commands with no matching hooks still commit and replay from a mutation receipt; they do not create
 automation trigger history. Batch hooks pin their script and configuration before the first item
