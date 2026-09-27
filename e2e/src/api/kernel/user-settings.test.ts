@@ -20,18 +20,13 @@ describe("user settings", () => {
 			expect(initial.id).toBe(userId);
 			expect(initial.email).toBe(email);
 			expect(initial.name).toBe("Test User");
-			expect(initial.preferences).toEqual({
-				language: null,
-				allowNsfw: false,
-				disableIntegrations: false,
-			});
+			expect(initial.preferences).toEqual({ language: null, disableIntegrations: false });
 
-			yield* updateUserSettingsPreferences(client, { language: "es", allowNsfw: true });
+			yield* updateUserSettingsPreferences(client, { language: "es", disableIntegrations: true });
 
 			expect((yield* getUserSettings(client)).preferences).toEqual({
 				language: "es",
-				allowNsfw: true,
-				disableIntegrations: false,
+				disableIntegrations: true,
 			});
 		}),
 	);
