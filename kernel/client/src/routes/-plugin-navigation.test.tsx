@@ -692,10 +692,8 @@ describe("client page routes", () => {
 				schema: { slug: "book", owner: { kind: "plugin", pluginId: "plugin-1" } },
 			});
 			yield* Effect.promise(() => screen.findByRole("dialog", { name: "Add from a provider" }));
-			yield* Effect.promise(() =>
-				screen.findByRole("button", { name: "Add Dune to media library" }),
-			);
-			fireEvent.click(screen.getByRole("button", { name: "Add Dune to media library" }));
+			yield* Effect.promise(() => screen.findByRole("button", { name: "Add Dune" }));
+			fireEvent.click(screen.getByRole("button", { name: "Add Dune" }));
 
 			yield* Effect.promise(() =>
 				waitFor(() =>
