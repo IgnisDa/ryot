@@ -51,7 +51,7 @@ const mapLogLevel = (config: SystemConfigValue) => {
 			);
 };
 
-const configError = (message: string) =>
+export const configError = (message: string) =>
 	new Config.ConfigError(new Schema.SchemaError(new SchemaIssue.InvalidValue({ message })));
 
 const isNonEmpty = (opt: Option.Option<string>): opt is Option.Some<string> =>
@@ -252,7 +252,7 @@ export const validateSystemConfig = (config: AppConfigValue) =>
 		const socketDir = config.server.runnerSocketDir;
 		if (config.server.lanes === "all" && Option.isSome(socketDir)) {
 			return yield* Effect.fail(
-				configError("SERVER_RUNNER_SOCKET_DIR is only valid when SERVER_LANES is set to a role."),
+				configError("SERVER_RUNNER_SOCKET_DIR is only valid when SERVER_LANES is a role or split."),
 			);
 		}
 		if (
