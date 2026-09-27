@@ -10,7 +10,7 @@
 		"test": "bun --bun run vitest run",
 		"build": "bun run tooling/sandbox-runtime.ts",
 		"db:generate": "bun --bun drizzle-kit generate",
-		"check": "tsc && oxfmt . --write && oxlint . --fix"
+		"check": "bun --check && oxfmt . --write && oxlint . --fix"
 	},
 	"dependencies": {
 		"@better-auth/api-key": "1.7.2",

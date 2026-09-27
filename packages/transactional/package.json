@@ -3,7 +3,7 @@
 	"private": true,
 	"scripts": {
 		"dev": "email dev --port 6200",
-		"check": "tsc && oxfmt . --write && oxlint . --fix"
+		"check": "bun --check && oxfmt . --write && oxlint . --fix"
 	},
 	"dependencies": {
 		"@react-email/components": "1.0.7",
