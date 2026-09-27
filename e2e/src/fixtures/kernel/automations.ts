@@ -115,15 +115,17 @@ type SignalPayload = Extract<
 >;
 type SignalTrigger = AutomationTrigger & { readonly payload: SignalPayload };
 
-export type SignalTriggerFilter = { signalSchema: SignalSchemaReference } & Partial<
-	Pick<SignalPayload, "actorUserId" | "subjectEntityId">
->;
+export type SignalTriggerFilter = { signalSchema: SignalSchemaReference } & Pick<
+	SignalPayload,
+	"actorUserId"
+> &
+	Partial<Pick<SignalPayload, "subjectEntityId">>;
 
 const isSignalTrigger = (trigger: AutomationTrigger): trigger is SignalTrigger =>
 	trigger.payload?.category === "signal";
 
 export const listSignalTriggers = (filter: SignalTriggerFilter) =>
-	listAutomationTriggers({}).pipe(
+	listAutomationTriggers({ actorUserId: filter.actorUserId }).pipe(
 		Effect.map((triggers) =>
 			triggers.filter(
 				(trigger): trigger is SignalTrigger =>
@@ -133,8 +135,7 @@ export const listSignalTriggers = (filter: SignalTriggerFilter) =>
 						(filter.signalSchema.owner.kind === "kernel"
 							? null
 							: filter.signalSchema.owner.pluginId) &&
-					(filter.actorUserId === undefined ||
-						trigger.payload.actorUserId === filter.actorUserId) &&
+					trigger.payload.actorUserId === filter.actorUserId &&
 					(filter.subjectEntityId === undefined ||
 						trigger.payload.subjectEntityId === filter.subjectEntityId),
 			),

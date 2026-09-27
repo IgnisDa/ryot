@@ -6,6 +6,7 @@ import {
 	EntitySchemaSlug,
 	EventSchemaSlug,
 	RelationshipSchemaSlug,
+	UserId,
 } from "@ryot-app/contract/schema/brands";
 import { Clock, Effect, Schema } from "effect";
 
@@ -1072,7 +1073,7 @@ describe("automation lifecycle triggers", () => {
 				context: { entityId: entity.id, eventSchemaSlug: EventSchemaSlug.make(slugs.replayEvent) },
 			});
 			const initialRuns = yield* pollAutomationRuns({
-				executionUserId: client.userId,
+				executionUserId: UserId.make(userId),
 				hookSlug: AutomationHookSlug.make(slugs.replayHook),
 			});
 			expect(initialRuns).toHaveLength(1);
@@ -1089,7 +1090,7 @@ describe("automation lifecycle triggers", () => {
 			);
 
 			const replayRuns = yield* pollTerminalAutomationRuns({
-				executionUserId: client.userId,
+				executionUserId: UserId.make(userId),
 				hookSlug: AutomationHookSlug.make(slugs.replayHook),
 			});
 			expect(replayRuns).toHaveLength(1);

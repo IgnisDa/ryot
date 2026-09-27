@@ -4,6 +4,7 @@ import {
 	AutomationTrigger as AutomationTriggerSchema,
 	AutomationTriggerRecipient,
 	type AutomationEntitySnapshot,
+	type AutomationSignalPayload,
 	type AutomationEventSnapshot,
 	type AutomationRelationshipSnapshot,
 	type AutomationTrigger,
@@ -34,11 +35,12 @@ const run = table("automationRun", "run");
 const attempt = table("automationRunAttempt", "attempt");
 const recipient = table("automationTriggerRecipient", "recipient");
 
-export type AutomationTriggerFilter = {
-	readonly triggerId?: AutomationTrigger["id"];
-	readonly payload?: NonNullable<AutomationTrigger["payload"]>;
-	readonly rootExecutionId?: AutomationTrigger["causation"]["rootExecutionId"];
-	readonly sourceRecord?:
+type AutomationTriggerFields = {
+	readonly triggerId: AutomationTrigger["id"];
+	readonly payload: NonNullable<AutomationTrigger["payload"]>;
+	readonly actorUserId: AutomationSignalPayload["actorUserId"];
+	readonly rootExecutionId: AutomationTrigger["causation"]["rootExecutionId"];
+	readonly sourceRecord:
 		| { readonly id: AutomationEntitySnapshot["id"]; readonly resource: "entity" }
 		| { readonly id: AutomationEventSnapshot["id"]; readonly resource: "event" }
 		| { readonly id: AutomationRelationshipSnapshot["id"]; readonly resource: "relationship" }
@@ -51,10 +53,18 @@ export type AutomationTriggerFilter = {
 		  };
 };
 
-export type AutomationRunFilter = AutomationTriggerFilter & {
+type AtLeastOneOf<Fields, Keys extends keyof Fields = keyof Fields> = Partial<Fields> &
+	{ [Key in Keys]: Pick<Fields, Key> }[Keys];
+
+export type AutomationTriggerFilter = AtLeastOneOf<AutomationTriggerFields>;
+
+type AutomationRunFields = AutomationTriggerFields & {
+	readonly executionUserId: typeof AutomationRunSchema.Type.executionUserId;
+};
+
+export type AutomationRunFilter = AtLeastOneOf<AutomationRunFields> & {
 	readonly status?: typeof AutomationRunSchema.Type.status;
 	readonly hookSlug?: typeof AutomationRunSchema.Type.hookSlug;
-	readonly executionUserId?: typeof AutomationRunSchema.Type.executionUserId;
 };
 
 export type AutomationRunAttemptFilter = {
@@ -67,7 +77,7 @@ export type AutomationTriggerRecipientFilter = {
 	readonly userId?: typeof AutomationTriggerRecipient.Type.userId;
 };
 
-const triggerFilters = (input: AutomationTriggerFilter) => {
+const triggerFilters = (input: Partial<AutomationTriggerFields>) => {
 	const sourceId =
 		input.sourceRecord?.resource === "provider-entity-import"
 			? castText(jsonPath(column(trigger, "payload"), "entityId"))
@@ -77,6 +87,16 @@ const triggerFilters = (input: AutomationTriggerFilter) => {
 				);
 	return [
 		...(input.triggerId === undefined ? [] : [eq(column(trigger, "id"), literal(input.triggerId))]),
+		...(input.actorUserId === undefined
+			? []
+			: [
+					input.actorUserId === null
+						? isNull(castText(jsonPath(column(trigger, "payload"), "actorUserId")))
+						: eq(
+								castText(jsonPath(column(trigger, "payload"), "actorUserId")),
+								literal(input.actorUserId),
+							),
+				]),
 		...(input.rootExecutionId === undefined
 			? []
 			: [eq(column(trigger, "rootExecutionId"), literal(input.rootExecutionId))]),
@@ -105,7 +125,7 @@ export const adminAutomationTriggersRecipe = defineRecipe(
 				triggers: selectedRows(trigger, {
 					limit: 100,
 					after: input.after,
-					where: filters.length ? and(...filters) : undefined,
+					where: and(...filters),
 					orderBy: [descending(column(trigger, "createdAt")), descending(column(trigger, "id"))],
 					selection: selected(trigger, [
 						"id",
