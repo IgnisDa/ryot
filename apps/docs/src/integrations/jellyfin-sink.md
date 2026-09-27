@@ -26,35 +26,8 @@ URL. It looks like `https://<instance_url>/_i/<slug>`.
       is optional, for finer-grained progress)
     - Item types => Enable `Movies` and `Episodes`
     - User filter => Optionally restrict to your user
-3. Configure the payload using one of the two options below.
-
-### Option A: Send all properties (no template needed)
-
-Enable the `Send all properties` option on the destination.
-
-### Option B: Custom template (movies only)
-
-Disable `Send all properties` and paste the following template into the
-`Custom message template` field. This option supports movie notifications only
-and should not be used for episode notifications because it omits the series
-provider ID.
-
-```json
-{
-  "Event": "{{#if_equals NotificationType 'PlaybackStart'}}Play{{/if_equals}}{{#if_equals NotificationType 'PlaybackStop'}}Stop{{/if_equals}}",
-  "User": { "Name": "{{NotificationUsername}}" },
-  "Item": {
-    "Type": "{{ItemType}}",
-    "RunTimeTicks": {{RunTimeTicks}},
-    "ProviderIds": { "Tmdb": "{{Provider_tmdb}}", "Imdb": "{{Provider_imdb}}", "Tvdb": "{{Provider_tvdb}}" },
-    "UserData": { "Played": {{#if_equals PlayedToCompletion 'True'}}true{{else}}false{{/if_equals}} }{{#if_equals ItemType 'Episode'}},
-    "SeriesName": "{{SeriesName}}",
-    "ParentIndexNumber": {{SeasonNumber}},
-    "IndexNumber": {{EpisodeNumber}}{{/if_equals}}
-  },
-  "Session": { "PlayState": { "PositionTicks": {{PlaybackPositionTicks}} } }
-}
-```
+3. Enable the `Send all properties` option on the destination. Ryot reads the flat
+   payload (`NotificationType`, `ItemType`, `Provider_tmdb`, ticks, ...) directly.
 
 ## Unofficial plugin
 
