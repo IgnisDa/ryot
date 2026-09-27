@@ -1,6 +1,7 @@
 import { BunFileSystem } from "@effect/platform-bun";
 import { expect, layer } from "@effect/vitest";
 import { BadRequest, DbError } from "@ryot-app/contract/errors";
+import { BackupBadRequest } from "@ryot-app/contract/modules/backups/schemas";
 import { BackupRunId, UserId } from "@ryot-app/contract/schema/brands";
 import { CryptoHasher } from "bun";
 import { sql } from "drizzle-orm";
@@ -415,6 +416,42 @@ layer(
 		Effect.gen(function* () {
 			yield* (yield* RestoreBackupWorkflowOperations).restore(payload, archiveLocator);
 			expect(yield* (yield* FakeRestoreDependencies).calls).toEqual(["restore", "restore"]);
+		}),
+	);
+});
+
+layer(
+	makeLayer(() => ({
+		repository: { getRunById: () => Effect.succeed(runningRun) },
+		cleanliness: { assertAccountIsClean: () => Effect.void.pipe(Effect.as(undefined)) },
+		writer: {
+			assertRequiredPlugins: () => Effect.succeed(new Map()),
+			restoreRecords: () =>
+				Effect.fail(new BackupBadRequest({ reason: { code: "asset-forbidden" } })),
+		},
+		objectStorage: {
+			selectStorageProvider: () => Effect.succeed("local" as const),
+			openObject: openArchive(
+				createArchiveStream({
+					assets: [],
+					redactions: [],
+					requiredPlugins: [],
+					records: emptyRecords,
+					archiveId: "archive-id",
+					appVersion: "backend-v1",
+					createdAt: "2026-08-23T12:00:00.000Z",
+					events: { count: 0, bytes: 0, chunks: [], sha256: EMPTY_SHA256 },
+				}),
+			),
+		},
+	})),
+)((test) => {
+	test.effect("records a forbidden restored asset reference as an invalid archive entry", () =>
+		Effect.gen(function* () {
+			const error = yield* (yield* RestoreBackupWorkflowOperations)
+				.restore(payload, archiveLocator)
+				.pipe(Effect.flip);
+			expect(error.failure).toEqual({ issue: "invalid-entry", code: "archive-invalid" });
 		}),
 	);
 });

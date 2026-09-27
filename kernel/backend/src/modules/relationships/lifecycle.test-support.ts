@@ -12,6 +12,7 @@ import { WorkflowEngine } from "effect/workflow/WorkflowEngine";
 import { Client } from "pg";
 import { assert } from "vitest";
 
+import { managedAssetProperty } from "#modules/assets/storage/managed-assets.test-support";
 import { LifecyclePlannerServiceLive } from "#modules/automations/layer";
 import { withLifecycleDispatch } from "#modules/automations/lifecycle.test-support";
 import { rootLifecycleCommand } from "#modules/automations/lifecycle/command";
@@ -53,6 +54,7 @@ export const targetEntityId = EntityId.make("relationship-target");
 export const relationshipSchemaSlug = RelationshipSchemaSlug.make("relationship-link");
 export const propertiesSchema = {
 	fields: {
+		image: managedAssetProperty,
 		rank: { label: "Rank", type: "number", description: "Rank" },
 		labels: {
 			type: "array",

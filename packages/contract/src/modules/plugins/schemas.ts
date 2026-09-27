@@ -67,6 +67,7 @@ const PluginPackageArchiveIssue = Schema.Literals([
 ]);
 
 const PluginRequestFailureReason = Schema.Union([
+	Schema.Struct({ code: Schema.Literal("asset-forbidden") }),
 	Schema.Struct({ code: Schema.Literal("upload-unavailable") }),
 	Schema.Struct({ packageId: PluginPackageId, code: Schema.Literal("reserved-system-identity") }),
 	Schema.Struct({ reference: SavedViewReference, code: Schema.Literal("home-view-hidden") }),

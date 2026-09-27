@@ -1,6 +1,7 @@
 import { BadRequest, DbError, internalError } from "@ryot-app/contract/errors";
 import type { AssetLocator } from "@ryot-app/contract/modules/assets/schemas";
 import {
+	BackupBadRequest,
 	BackupConflict,
 	BackupRunFailure,
 	type BackupRunFailure as BackupRunFailureValue,
@@ -100,7 +101,10 @@ const restoreFailure = (error: unknown): BackupRunFailureValue => {
 	if (error instanceof BackupConflict && error.reason.code === "account-not-clean") {
 		return error.reason;
 	}
-	if (error instanceof BadRequest) {
+	if (
+		error instanceof BadRequest ||
+		(error instanceof BackupBadRequest && error.reason.code === "asset-forbidden")
+	) {
 		return { issue: "invalid-entry", code: "archive-invalid" };
 	}
 	return { operation: "restore", code: "unexpected-failure" };

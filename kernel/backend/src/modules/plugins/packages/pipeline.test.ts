@@ -1,4 +1,5 @@
 import { assert, expect, it } from "@effect/vitest";
+import { PluginRequestError } from "@ryot-app/contract/modules/plugins/schemas";
 import {
 	CLIENT_API_VERSION,
 	CLIENT_ARTIFACT_FORMAT,
@@ -8,8 +9,10 @@ import {
 } from "@ryot-app/plugin-client-contract";
 import { Effect } from "effect";
 
+import { ManagedAssetReferenceRejected } from "#lib/domain/managed-asset-writes";
+
 import { fixtureManifest } from "../test-support";
-import { normalizePluginSource, pluginContentHash } from "./pipeline";
+import { normalizePluginSource, pluginContentHash, structurePluginFailure } from "./pipeline";
 
 const encoder = new TextEncoder();
 
@@ -279,5 +282,16 @@ it.effect("validates integration and import schemas before normalizing a package
 		expect(normalized.manifest.integrationProviders[0]?.settingsSchema.fields).toHaveProperty(
 			"marker",
 		);
+	}),
+);
+
+it.effect("maps a rejected managed-asset reference to the asset-forbidden request error", () =>
+	Effect.gen(function* () {
+		expect(
+			yield* Effect.fail(new ManagedAssetReferenceRejected()).pipe(
+				structurePluginFailure,
+				Effect.flip,
+			),
+		).toEqual(new PluginRequestError({ reason: { code: "asset-forbidden" } }));
 	}),
 );

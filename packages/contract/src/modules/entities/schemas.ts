@@ -16,6 +16,7 @@ const EntityBadRequestReason = Schema.Union([
 		expected: DefinitionOwner,
 		code: Schema.Literal("owner-mismatch"),
 	}),
+	Schema.Struct({ code: Schema.Literal("asset-forbidden") }),
 	Schema.Struct({ code: Schema.Literal("global-scope-forbidden") }),
 	Schema.Struct({
 		message: Schema.String,

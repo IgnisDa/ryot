@@ -17,6 +17,7 @@ import {
 	listEventsForEntity,
 	listSignalTriggers,
 	pollSignalTrigger,
+	uploadPermanentAsset,
 	waitForCreateEvents,
 } from "~/fixtures/kernel";
 import type { Client } from "~/fixtures/kernel/auth";
@@ -204,6 +205,14 @@ afterAll(() =>
 
 const createImportedWorkout = (client: Client, exerciseId: EntityId) =>
 	Effect.gen(function* () {
+		const upload = (fileName: string, contentType: string) =>
+			uploadPermanentAsset(client, { fileName, contentType, baseUrl: apiUrl });
+		const media = {
+			videos: [yield* upload("imported-workout.mp4", "video/mp4")],
+			images: [yield* upload("imported-workout.jpg", "image/jpeg")],
+			occurrenceVideos: [yield* upload("imported-exercise.mp4", "video/mp4")],
+			occurrenceImages: [yield* upload("imported-exercise.jpg", "image/jpeg")],
+		};
 		const { schema } = yield* findFitnessEntitySchema(client, "workout");
 		const workout = yield* createEntity(client, {
 			entitySchema: schema.reference,
@@ -212,15 +221,11 @@ const createImportedWorkout = (client: Client, exerciseId: EntityId) =>
 				endedAt,
 				startedAt,
 				activeDuration: 2400,
-				videos: [{ type: "s3", key: "workouts/imported-workout.mp4" }],
-				images: [{ type: "local", key: "permanent/imported-workout.jpg" }],
+				images: media.images,
+				videos: media.videos,
 				exerciseNotes: [{ exerciseOrder: 0, notes: ["Imported exercise note"] }],
 				exerciseMedia: [
-					{
-						exerciseOrder: 0,
-						videos: [{ type: "s3", key: "workouts/imported-exercise.mp4" }],
-						images: [{ type: "local", key: "permanent/imported-exercise.jpg" }],
-					},
+					{ exerciseOrder: 0, images: media.occurrenceImages, videos: media.occurrenceVideos },
 				],
 			},
 		});
@@ -248,21 +253,8 @@ const createImportedWorkout = (client: Client, exerciseId: EntityId) =>
 			}),
 		);
 		yield* waitForCreateEvents(client, response);
-		return { workoutId: workout.id };
+		return { media, workoutId: workout.id };
 	});
-
-const importedWorkoutImages: WorkoutData["images"] = [
-	{ type: "local", key: "permanent/imported-workout.jpg" },
-];
-const importedWorkoutVideos: WorkoutData["videos"] = [
-	{ type: "s3", key: "workouts/imported-workout.mp4" },
-];
-const importedOccurrenceImages: WorkoutData["occurrences"][number]["images"] = [
-	{ type: "local", key: "permanent/imported-exercise.jpg" },
-];
-const importedOccurrenceVideos: WorkoutData["occurrences"][number]["videos"] = [
-	{ type: "s3", key: "workouts/imported-exercise.mp4" },
-];
 
 const updateImportedWorkoutData = (input: {
 	readonly baseline: WorkoutEditorBaseline;
@@ -417,19 +409,16 @@ describe("Workout editor E2E", () => {
 			Effect.gen(function* () {
 				const { client } = yield* createAuthenticatedClient(apiUrl);
 				const { exerciseId } = yield* createExerciseEntityFixture(client);
-				const { workoutId } = yield* createImportedWorkout(client, exerciseId);
+				const { media, workoutId } = yield* createImportedWorkout(client, exerciseId);
 				const original = yield* loadWorkoutBaseline(client, workoutId);
 				const originalSet = requirePresent(original.baseline.sets[0], "Expected imported set");
 				const editData = updateImportedWorkoutData({
+					...media,
 					reps: 12,
 					exerciseId,
 					note: "Imported set note",
 					baseline: original.baseline,
-					images: importedWorkoutImages,
-					videos: importedWorkoutVideos,
 					conflictToken: original.conflictToken,
-					occurrenceImages: importedOccurrenceImages,
-					occurrenceVideos: importedOccurrenceVideos,
 				});
 				const editInput = operationInput(editData);
 				const saved = yield* saveWorkoutEditor(client, editInput);
@@ -449,14 +438,10 @@ describe("Workout editor E2E", () => {
 				const editedSet = requirePresent(edited.baseline.sets[0], "Expected edited workout set");
 				expect(edited.baseline.entity.properties).toMatchObject({
 					activeDuration: 2400,
-					images: importedWorkoutImages,
-					videos: importedWorkoutVideos,
+					images: media.images,
+					videos: media.videos,
 					exerciseMedia: [
-						{
-							exerciseOrder: 0,
-							images: importedOccurrenceImages,
-							videos: importedOccurrenceVideos,
-						},
+						{ exerciseOrder: 0, images: media.occurrenceImages, videos: media.occurrenceVideos },
 					],
 				});
 				expect(editedSet).toMatchObject({ id: originalSet.id, occurredAt: originalSet.occurredAt });

@@ -24,6 +24,10 @@ const presentReason = (reason: IntegrationRequestFailureReason): IntegrationSave
 			step: "configure" as const,
 			detail: "Some of these details could not be used. Check them and try again.",
 		})),
+		Match.when({ code: "asset-forbidden" }, () => ({
+			step: "configure" as const,
+			detail: "A file in these details is not available to you. Upload it again.",
+		})),
 		Match.when({ code: "invalid-progress-range" }, () => ({
 			step: "configure" as const,
 			detail: "The lowest progress must not be higher than the highest progress.",

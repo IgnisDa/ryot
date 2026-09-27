@@ -2,10 +2,14 @@ import { expect, layer } from "@effect/vitest";
 import type { ManagedAssetLocator } from "@ryot-app/contract/modules/assets/schemas";
 import { UserId } from "@ryot-app/contract/schema/brands";
 import type { AppSchema } from "@ryot-app/contract/schema/property-schema";
+import { assertExitFails } from "@ryot-app/testing/effect-assertions";
 import { and, eq } from "drizzle-orm";
 import { Deferred, Effect, Fiber, Layer } from "effect";
 
-import { makeManagedAssetReferenceLocker } from "#lib/domain/managed-asset-writes";
+import {
+	makeManagedAssetReferenceLocker,
+	ManagedAssetReferenceRejected,
+} from "#lib/domain/managed-asset-writes";
 import { DatabaseSession } from "#platform/db/session";
 import * as tables from "#schema/tables/combined";
 import { isolatedDatabaseLayer } from "#testing/isolated-database";
@@ -63,74 +67,7 @@ layer(testLayer)((test) => {
 		}),
 	);
 
-	test.effect("a reference writer commits before cleanup scans after its shared row lock", () =>
-		Effect.gen(function* () {
-			const session = yield* DatabaseSession;
-			const lockAssetReferences = makeManagedAssetReferenceLocker(session);
-			const repository = yield* ManagedAssetsRepository;
-			const ownerUserId = UserId.make(crypto.randomUUID());
-			const locator: ManagedAssetLocator = { type: "s3", key: `permanent/${ownerUserId}.png` };
-			const email = `${ownerUserId}@example.test`;
-			yield* session.run((db) =>
-				db.insert(tables.user).values({ email, id: ownerUserId, name: "Asset owner" }),
-			);
-			yield* session.run((db) =>
-				db
-					.insert(tables.managedAsset)
-					.values({
-						size: 1,
-						ownerUserId,
-						key: locator.key,
-						provider: locator.type,
-						sha256: "a".repeat(64),
-						contentType: "image/png",
-					}),
-			);
-			const locked = yield* Deferred.make<void>();
-			const releaseWriter = yield* Deferred.make<void>();
-			const cleanupStarted = yield* Deferred.make<void>();
-			const writer = yield* Effect.forkScoped(
-				session.transaction(
-					Effect.gen(function* () {
-						const retired = yield* lockAssetReferences([
-							{ propertiesSchema: assetSchema, properties: { image: locator } },
-						]);
-						expect(retired).toBe(false);
-						yield* session.run((db) =>
-							db.insert(tables.pluginCatalogChange).values({ userId: ownerUserId }),
-						);
-						yield* Deferred.succeed(locked, undefined);
-						yield* Deferred.await(releaseWriter);
-					}),
-				),
-			);
-			yield* Deferred.await(locked);
-			const cleanup = yield* Effect.forkScoped(
-				session.transaction(
-					Effect.gen(function* () {
-						yield* Deferred.succeed(cleanupStarted, undefined);
-						const row = yield* repository.lockByLocator(locator);
-						const rows = yield* session.run((db) =>
-							db
-								.select({ id: tables.pluginCatalogChange.id })
-								.from(tables.pluginCatalogChange)
-								.where(eq(tables.pluginCatalogChange.userId, ownerUserId)),
-						);
-						return { asset: row, referenceCount: rows.length };
-					}),
-				),
-			);
-			yield* Deferred.await(cleanupStarted);
-			yield* Effect.yieldNow;
-			yield* Deferred.succeed(releaseWriter, undefined);
-			yield* Fiber.join(writer);
-			const result = yield* Fiber.join(cleanup);
-			expect(result.asset?.retiredAt).toBeNull();
-			expect(result.referenceCount).toBe(1);
-		}),
-	);
-
-	test.effect("a writer rejects a locator after cleanup commits its tombstone", () =>
+	test.effect("a writer is rejected after cleanup commits its tombstone", () =>
 		Effect.gen(function* () {
 			const session = yield* DatabaseSession;
 			const lockAssetReferences = makeManagedAssetReferenceLocker(session);
@@ -170,20 +107,22 @@ layer(testLayer)((test) => {
 			);
 			yield* Deferred.await(locked);
 			const writer = yield* Effect.forkScoped(
-				session.transaction(
-					Effect.gen(function* () {
-						yield* Deferred.succeed(writerStarted, undefined);
-						return yield* lockAssetReferences([
-							{ propertiesSchema: assetSchema, properties: { image: locator } },
-						]);
-					}),
-				),
+				session
+					.transaction(
+						Effect.gen(function* () {
+							yield* Deferred.succeed(writerStarted, undefined);
+							return yield* lockAssetReferences([
+								{ ownerUserId, propertiesSchema: assetSchema, properties: { image: locator } },
+							]);
+						}),
+					)
+					.pipe(Effect.exit),
 			);
 			yield* Deferred.await(writerStarted);
 			yield* Effect.yieldNow;
 			yield* Deferred.succeed(releaseCleanup, undefined);
 			yield* Fiber.join(cleanup);
-			expect(yield* Fiber.join(writer)).toBe(true);
+			assertExitFails(yield* Fiber.join(writer), new ManagedAssetReferenceRejected());
 			const tombstone = yield* session.run((db) =>
 				db
 					.select({ retiredAt: tables.managedAsset.retiredAt })
@@ -201,6 +140,91 @@ layer(testLayer)((test) => {
 });
 
 layer(referenceTestLayer)((test) => {
+	test.effect("cleanup reports referenced when the reference writer commits first", () =>
+		Effect.gen(function* () {
+			const session = yield* DatabaseSession;
+			const lockAssetReferences = makeManagedAssetReferenceLocker(session);
+			const repository = yield* ManagedAssetsRepository;
+			const references = yield* ManagedAssetReferencesRepository;
+			const ownerUserId = UserId.make(crypto.randomUUID());
+			const locator: ManagedAssetLocator = { type: "s3", key: `permanent/${ownerUserId}.png` };
+			const entitySchemaSlug = `owned-asset-${ownerUserId}`;
+			yield* session.run((db) =>
+				db
+					.insert(tables.user)
+					.values({ id: ownerUserId, name: "Asset owner", email: `${ownerUserId}@example.test` }),
+			);
+			yield* session.run((db) =>
+				db
+					.insert(tables.managedAsset)
+					.values({
+						size: 1,
+						ownerUserId,
+						key: locator.key,
+						provider: locator.type,
+						sha256: "a".repeat(64),
+						contentType: "image/png",
+					}),
+			);
+			yield* session.run((db) =>
+				db
+					.insert(tables.definitionEntitySchema)
+					.values({
+						position: 0,
+						icon: "box",
+						name: "Owned entity",
+						pluginRevisionId: null,
+						slug: entitySchemaSlug,
+						mergeIdentityProperties: [],
+						propertiesSchema: assetSchema,
+					}),
+			);
+			const locked = yield* Deferred.make<void>();
+			const releaseWriter = yield* Deferred.make<void>();
+			const cleanupStarted = yield* Deferred.make<void>();
+			const writer = yield* Effect.forkScoped(
+				session.transaction(
+					Effect.gen(function* () {
+						yield* lockAssetReferences([
+							{ ownerUserId, propertiesSchema: assetSchema, properties: { image: locator } },
+						]);
+						yield* session.run((db) =>
+							db
+								.insert(tables.entity)
+								.values({
+									entitySchemaSlug,
+									userId: ownerUserId,
+									name: "Owned entity",
+									entitySchemaPluginId: null,
+									id: `owned-${ownerUserId}`,
+									properties: { image: locator },
+								}),
+						);
+						yield* Deferred.succeed(locked, undefined);
+						yield* Deferred.await(releaseWriter);
+					}),
+				),
+			);
+			yield* Deferred.await(locked);
+			const cleanup = yield* Effect.forkScoped(
+				session.transaction(
+					Effect.gen(function* () {
+						yield* Deferred.succeed(cleanupStarted, undefined);
+						const asset = yield* repository.lockByLocator(locator);
+						return { asset, referenced: yield* references.hasReference(locator) };
+					}),
+				),
+			);
+			yield* Deferred.await(cleanupStarted);
+			yield* Effect.yieldNow;
+			yield* Deferred.succeed(releaseWriter, undefined);
+			yield* Fiber.join(writer);
+			const result = yield* Fiber.join(cleanup);
+			expect(result.asset?.retiredAt).toBeNull();
+			expect(result.referenced).toBe(true);
+		}),
+	);
+
 	test.effect("retains an owned asset referenced by a shared entity", () =>
 		Effect.gen(function* () {
 			const session = yield* DatabaseSession;

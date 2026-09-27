@@ -34,6 +34,7 @@ export * from "./sandbox-provider";
 export * from "./sandbox-source";
 export * from "./test-plugin";
 export * from "./temporary-archive";
+export * from "./permanent-asset";
 export * from "./saved-views";
 export * from "./server-logs";
 export * from "./plugins";

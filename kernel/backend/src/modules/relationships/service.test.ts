@@ -18,6 +18,7 @@ import { eq } from "drizzle-orm";
 import { Cause, DateTime, Effect, Exit } from "effect";
 import { assert, describe } from "vitest";
 
+import { insertManagedAsset } from "#modules/assets/storage/managed-assets.test-support";
 import { AutomationAttemptRepository } from "#modules/automations/attempt-repository";
 import {
 	withLifecycleBatchPlanning,
@@ -1898,6 +1899,70 @@ describe("Relationships lifecycle owner", () => {
 					expect(policyCalls).toBe(1);
 					expect(yield* repository.findRelationship(input)).toBeNull();
 				}),
+		);
+	});
+
+	layer(relationshipDatabaseLayer())((test) => {
+		test.effect(
+			"rejects another user's managed asset on single and batch relationship writes",
+			() =>
+				Effect.gen(function* () {
+					const service = yield* RelationshipsService;
+					const foreign = yield* insertManagedAsset(UserId.make("relationship-asset-foreign"));
+					const session = yield* DatabaseSession;
+					const forbidden = new RelationshipBadRequest({ reason: { code: "asset-forbidden" } });
+					const prepared = yield* service.prepareUserCreate(
+						{ ...baseInput, properties: { rank: 1, image: foreign } },
+						command("foreign-asset-single"),
+					);
+					assert(prepared);
+					assertExitFails(
+						yield* Effect.exit(session.transaction(service.persistPreparedUserCreate(prepared))),
+						forbidden,
+					);
+					assertExitFails(
+						yield* Effect.exit(
+							service.changeUser(
+								userId,
+								relationshipChangeBatch({ rank: 1, image: foreign }, "replace"),
+								command("foreign-asset-batch"),
+							),
+						),
+						forbidden,
+					);
+				}),
+		);
+
+		test.effect("rejects the owner's own managed asset on a global relationship", () =>
+			Effect.gen(function* () {
+				const service = yield* RelationshipsService;
+				const session = yield* DatabaseSession;
+				const own = yield* insertManagedAsset(userId);
+				assertExitFails(
+					yield* Effect.exit(
+						session.transaction(
+							service.persistPlannedReconciliation(
+								[
+									{
+										selector: { type: "self" },
+										relationshipSchema: baseInput.relationshipSchema,
+										relationships: [
+											{
+												sourceEntityId,
+												targetEntityId: sourceEntityId,
+												properties: { rank: 1, image: own },
+											},
+										],
+									},
+								],
+								command("global-own-asset"),
+								{ scope: "global" },
+							),
+						),
+					),
+					new RelationshipBadRequest({ reason: { code: "asset-forbidden" } }),
+				);
+			}),
 		);
 	});
 });

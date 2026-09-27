@@ -15,8 +15,10 @@ import { stableStringify } from "@ryot-app/ts-utils/json";
 import { DateTime, Effect, Schema } from "effect";
 import { chunksOf } from "effect/Array";
 
-import type { ManagedAssetPropertyRecord } from "#lib/domain/managed-asset-locators";
-import type { ManagedAssetReferenceLocker } from "#lib/domain/managed-asset-writes";
+import type {
+	ManagedAssetReferenceLocker,
+	OwnedManagedAssetPropertyRecord,
+} from "#lib/domain/managed-asset-writes";
 import { lifecycleTrigger } from "#modules/automations/lifecycle/command";
 import {
 	type CommittedLifecycleWork,
@@ -175,7 +177,7 @@ export const makePersistMutation = <E, R, Result>({
 		batch?: PersistBatch,
 		locked?: ReadonlyMap<EntityId, MutationEntity>,
 	) {
-		const assetRecords: ManagedAssetPropertyRecord[] = [];
+		const assetRecords: OwnedManagedAssetPropertyRecord[] = [];
 		for (const { pin, input } of items) {
 			const currentSchema = yield* validateDraft(
 				input.draft,
@@ -190,14 +192,18 @@ export const makePersistMutation = <E, R, Result>({
 			}
 			if (input.operation !== "delete") {
 				assetRecords.push({
+					ownerUserId: input.scopeUserId,
 					properties: input.draft.properties,
 					propertiesSchema: currentSchema.propertiesSchema,
 				});
 			}
 		}
-		if (yield* lockAssetReferences(assetRecords)) {
-			return yield* conflict("Entity references a retired managed asset");
-		}
+		yield* lockAssetReferences(assetRecords).pipe(
+			Effect.catchTag(
+				"ManagedAssetReferenceRejected",
+				() => new EntityBadRequest({ reason: { code: "asset-forbidden" } }),
+			),
+		);
 		const rows = locked ?? (yield* lockRows(items.map(({ input }) => input)));
 		const writes: Array<{ item: PersistItem; before: AutomationEntitySnapshot | null }> = [];
 		for (const item of items) {
