@@ -83,7 +83,11 @@ describe("media entity presentation preparation", () => {
 				documents.push(document);
 				return Effect.succeed({
 					data: {
-						presentation: { type: "rows", items: [source("one", managed), source("two", managed)] },
+						presentation: {
+							type: "rows",
+							pageInfo: { limit: 100, hasMore: false, nextCursor: null },
+							items: [source("one", managed), source("two", managed)],
+						},
 					},
 				});
 			},
