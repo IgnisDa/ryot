@@ -34,7 +34,7 @@ The PostgreSQL container enables lock-wait and failed-statement logging with PID
 prefixes. Setup prints the retained log path. A deadlock entry contains PostgreSQL's process graph and
 the conflicting statements; inspect that file before the test teardown process exits.
 
-Up to six files share the backend concurrently. Tests and hooks time out after 180 seconds. The hanging-process reporter identifies leaked handles. Each spawned API writes a unique `SERVER_LOG_FILE` under the OS temp directory, captures its console output beside it as `.stdout` and `.stderr`, and prints those paths. Health checks fail as soon as the API process exits.
+Up to six files share the backend concurrently. Tests and hooks time out after 180 seconds. The 101-set workout-record test uses a 10-minute budget for sequential production policy workflows and record processing. The hanging-process reporter identifies leaked handles. Each spawned API writes a unique `SERVER_LOG_FILE` under the OS temp directory, captures its console output beside it as `.stdout` and `.stderr`, and prints those paths. Health checks fail as soon as the API process exits.
 
 Fixtures mirror ownership: generic platform fixtures live under `src/fixtures/kernel`, plugin-owned domain fixtures under `src/fixtures/plugins/<plugin>`, and cross-cutting harness code under `src/support`. There is no aggregate fixture barrel. Kernel suites that need plugin-owned schemas import that plugin fixture explicitly.
 

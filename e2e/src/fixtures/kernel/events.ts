@@ -43,6 +43,7 @@ export const waitForEventCount = (client: Client, entityId: string, expectedCoun
 export const waitForCreateEvents = (
 	client: Client,
 	response: CreateEventsResponse | typeof EventCreatePending.Type,
+	timeoutMs?: number,
 ) =>
 	"count" in response
 		? Effect.succeed(response)
@@ -60,6 +61,7 @@ export const waitForCreateEvents = (
 							return result.status === "completed" ? result.result : null;
 						}),
 					),
+				timeoutMs,
 			);
 
 export const createEventTestFixture = (client: Client) =>
