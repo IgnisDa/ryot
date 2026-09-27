@@ -6,6 +6,8 @@ import { createFileRoute, notFound, useRouter } from "@tanstack/react-router";
 import { Effect } from "effect";
 import { useEffect, useRef, useState, type ReactNode } from "react";
 
+import { importRunFailuresFileName, ImportsApi } from "#/api/imports";
+import { saveDownloadedFile } from "#/modules/downloads/file";
 import { ImportRunView, type ImportRunDetailState } from "#/modules/imports/import-run-view";
 import {
 	canDeleteImportRun,
@@ -92,12 +94,17 @@ function ImportRunRoute() {
 	const router = useRouter();
 	const navigate = Route.useNavigate();
 	const { runId } = Route.useLoaderData();
-	const { backInterceptors } = Route.useRouteContext();
+	const { scope, runtime, backInterceptors } = Route.useRouteContext();
 	const menuTrigger = useRef<HTMLButtonElement>(null);
 	const [menuOpen, setMenuOpen] = useState(false);
 	const [activeIndex, setActiveIndex] = useState(0);
 	const [confirmation, setConfirmation] = useState<"cancel" | "delete" | null>(null);
 	const [failureLimit, setFailureLimit] = useState(IMPORT_FAILURES_PAGE_SIZE);
+	const [failureDownload, setFailureDownload] = useState<{
+		readonly runId: string;
+		readonly status: "downloading" | "failed";
+	}>();
+	const failureDownloadController = useRef<AbortController | undefined>(undefined);
 	const detail = useRyotQuery(importRunQuery, { runId, failureLimit });
 	const sources = useRyotQuery(importSourcesQuery);
 	const deletion = useRyotMutation(deleteImportRunMutation);
@@ -141,6 +148,8 @@ function ImportRunRoute() {
 		});
 	}, [backInterceptors, cancellation.isPending, confirmation, deletion.isPending, menuOpen]);
 
+	useEffect(() => () => failureDownloadController.current?.abort(), []);
+
 	const confirmDelete = () => {
 		deletion.reset();
 		return Effect.runPromise(
@@ -179,6 +188,27 @@ function ImportRunRoute() {
 			),
 		);
 	};
+	const downloadFailures = () => {
+		failureDownloadController.current?.abort();
+		failureDownloadController.current = new AbortController();
+		setFailureDownload({ runId, status: "downloading" });
+		runtime.runFork(
+			Effect.flatMap(ImportsApi, (api) => api.downloadFailures(scope, runId)).pipe(
+				Effect.tap((blob) =>
+					Effect.sync(() => {
+						if (blob !== undefined) {
+							saveDownloadedFile(blob, importRunFailuresFileName(runId));
+						}
+					}),
+				),
+				Effect.match({
+					onSuccess: () => setFailureDownload(undefined),
+					onFailure: () => setFailureDownload({ runId, status: "failed" }),
+				}),
+			),
+			{ signal: failureDownloadController.current.signal },
+		);
+	};
 
 	const menuItems: readonly MenuItem[] =
 		run !== undefined && canCancelImportRun(run.status)
@@ -212,10 +242,15 @@ function ImportRunRoute() {
 			<ImportRunView
 				state={state}
 				onRetry={detail.refetch}
-				sourceNames={sourceNames}
 				isLoadingMore={detail.isFetching}
-				onCopy={(value) => void navigator.clipboard.writeText(value)}
+				onDownloadFailures={downloadFailures}
 				onShowMore={() => setFailureLimit((current) => current + IMPORT_FAILURES_PAGE_SIZE)}
+				downloadFailuresFailed={
+					failureDownload?.runId === runId && failureDownload.status === "failed"
+				}
+				isDownloadingFailures={
+					failureDownload?.runId === runId && failureDownload.status === "downloading"
+				}
 			/>
 		);
 	} else if (detail.isPending) {
