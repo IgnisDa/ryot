@@ -18,13 +18,17 @@ export function Switch({ label, checked, disabled, onChange, className }: Switch
 			aria-checked={checked}
 			onClick={() => onChange(!checked)}
 			className={clsx(
-				"flex h-6 w-10 items-center rounded-pill border border-border p-0.5",
-				checked ? "bg-accent-deep" : "bg-surface-2",
-				disabled === true && "opacity-50",
+				"inline-flex h-5 w-8.5 shrink-0 items-center rounded-pill p-0.5 transition-colors duration-150 disabled:cursor-not-allowed disabled:opacity-50 motion-reduce:transition-none pointer-coarse:h-6.5 pointer-coarse:w-11",
+				checked ? "bg-accent-deep" : "bg-border-strong",
 				className,
 			)}
 		>
-			<span className={clsx("h-5 w-5 rounded-pill bg-raised", checked && "ml-auto")} />
+			<span
+				className={clsx(
+					"size-4 rounded-pill bg-white shadow-sm transition-transform duration-150 motion-reduce:transition-none pointer-coarse:size-5.5",
+					checked && "translate-x-3.5 pointer-coarse:translate-x-4.5",
+				)}
+			/>
 		</button>
 	);
 }

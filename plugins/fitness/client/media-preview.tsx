@@ -51,7 +51,7 @@ export function MediaPreview(props: {
 				/>
 			) : (
 				<Button
-					variant="text"
+					variant="ghost"
 					onClick={() => setExpanded(true)}
 					aria-label={`Preview ${props.label}`}
 				>

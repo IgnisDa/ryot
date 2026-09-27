@@ -6,10 +6,10 @@ export function Chip({ label, checked, className }: ChipProps) {
 	return (
 		<span
 			className={clsx(
-				"flex h-7 items-center justify-center rounded-pill border px-3 text-xs font-medium",
+				"flex h-7 items-center justify-center rounded-pill border px-3 text-xs font-medium pointer-coarse:h-9",
 				checked
 					? "border-accent-border bg-accent-soft text-accent-text"
-					: "border-border-strong text-text-muted",
+					: "border-border-emphasis text-text-muted",
 				className,
 			)}
 		>

@@ -76,7 +76,7 @@ export function MultiSelect({
 					aria-label={label}
 					aria-expanded={open}
 					onClick={() => setOpen(true)}
-					className="flex min-h-10 min-w-0 flex-1 items-center justify-between rounded-lg border border-border bg-raised px-3"
+					className="flex h-9 min-w-0 flex-1 items-center justify-between rounded-md border border-border-strong bg-surface px-3 transition-colors duration-100 hover:border-text-subtle motion-reduce:transition-none pointer-coarse:h-11"
 				>
 					<span
 						className={clsx(
@@ -109,7 +109,7 @@ export function MultiSelect({
 					closeLabel="Close options"
 					onInterceptBack={onInterceptBack ?? (() => false)}
 					containerClassName="items-center justify-center p-4"
-					className="flex h-[80%] max-h-[80%] w-full max-w-xl flex-col rounded-xl border border-border bg-surface p-4 shadow-card md:h-auto"
+					className="flex h-[80%] max-h-[80%] w-full max-w-xl animate-dialog-in flex-col rounded-xl bg-raised p-4 shadow-modal motion-reduce:animate-none md:h-auto"
 				>
 					<div className="mb-3 flex items-center justify-between">
 						<span className="text-base font-semibold text-text">{label}</span>
@@ -122,7 +122,7 @@ export function MultiSelect({
 							{closeIcon}
 						</button>
 					</div>
-					<div className="mb-3 flex h-10 items-center gap-2 rounded-lg border border-border bg-raised px-3 focus-within:ring-2 focus-within:ring-focus">
+					<div className="mb-3 flex h-9 items-center gap-2 rounded-md bg-surface-2 px-3 focus-within:ring-2 focus-within:ring-focus">
 						<span aria-hidden="true" className="text-text-subtle">
 							{searchIcon}
 						</span>
@@ -157,7 +157,7 @@ export function MultiSelect({
 									aria-checked={checked}
 									aria-label={choiceLabel(choice)}
 									onClick={() => toggle(choice.value)}
-									className="flex min-h-10 w-full items-center gap-3 rounded-lg px-2 py-2"
+									className="flex min-h-9 w-full items-center gap-3 rounded-sm px-2 py-1.5 hover:bg-hover pointer-coarse:min-h-11"
 								>
 									<span
 										className={clsx(

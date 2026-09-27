@@ -127,7 +127,7 @@ export function EditorClocks(props: {
 							+30 seconds
 						</Button>
 						<Button
-							variant="text"
+							variant="ghost"
 							disabled={props.disabled}
 							onClick={() => onChange((draft) => ({ ...draft, [key]: undefined }))}
 						>
@@ -156,7 +156,7 @@ export function EditorClocks(props: {
 					{editorDraft.stopwatchStartedAt === undefined ? "Start stopwatch" : "Pause stopwatch"}
 				</Button>
 				<Button
-					variant="text"
+					variant="ghost"
 					disabled={props.disabled}
 					onClick={() => onChange((draft) => resetStopwatch(draft).draft)}
 				>

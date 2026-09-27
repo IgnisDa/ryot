@@ -141,7 +141,7 @@ const ResultsTable = ({ input }: { readonly input: typeof ResultsTablePageInput.
 					{initial && result.isError && (
 						<StatusMessage tone="error">
 							Results unavailable.{" "}
-							<Button variant="text" onClick={result.refetch}>
+							<Button variant="ghost" onClick={result.refetch}>
 								Retry
 							</Button>
 						</StatusMessage>
@@ -167,7 +167,7 @@ const ResultsTable = ({ input }: { readonly input: typeof ResultsTablePageInput.
 							className="flex items-center justify-center gap-3 text-sm text-danger"
 						>
 							<span>More results could not be loaded.</span>
-							<Button variant="text" className="text-sm" onClick={result.refetch}>
+							<Button variant="ghost" className="text-sm" onClick={result.refetch}>
 								Retry
 							</Button>
 						</div>

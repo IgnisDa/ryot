@@ -143,7 +143,7 @@ export function Menu({
 				onKeyDown={onKeyDown}
 				style={{ top: position.top, left: position.left }}
 				className={clsx(
-					"fixed z-50 flex max-h-[calc(100vh-1rem)] w-56 max-w-[calc(100vw-1rem)] flex-col overflow-y-auto rounded-xl border border-border bg-surface p-1.5 shadow-card",
+					"fixed z-50 flex max-h-[calc(100vh-1rem)] w-56 max-w-[calc(100vw-1rem)] flex-col overflow-y-auto rounded-lg border border-border bg-raised p-1 shadow-card",
 					className,
 				)}
 				onBlur={(event) => {
@@ -170,16 +170,18 @@ export function Menu({
 							menuItems.current[index] = element;
 						}}
 						className={clsx(
-							"flex min-h-10 w-full items-center rounded-lg px-3 py-2 text-left text-sm font-semibold hover:bg-surface-2 focus-visible:bg-surface-2",
+							"flex min-h-8 w-full items-center rounded-sm px-2.5 py-1.5 text-left text-sm hover:bg-hover focus-visible:bg-hover focus-visible:outline-none pointer-coarse:min-h-11",
 							item.destructive === true ? "text-danger" : "text-text",
-							"disabled:text-text-subtle",
+							"disabled:text-text-subtle disabled:hover:bg-transparent",
 						)}
 					>
 						{item.label}
 					</button>
 				))}
 				{note !== undefined && (
-					<p className="border-t border-border px-3 pt-2 pb-1 text-xs text-text-subtle">{note}</p>
+					<p className="mt-1 border-t border-border px-2.5 pt-2 pb-1 text-xs text-text-subtle">
+						{note}
+					</p>
 				)}
 			</div>
 		</OverlayScope>,
