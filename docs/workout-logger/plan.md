@@ -154,6 +154,7 @@ Reusing the pure property builder does not mean trusting client-derived personal
 Implement a Fitness-owned controller/service and small React adapters under `plugins/fitness/client/workout-editor/`.
 
 - [ ] Read the draft once, decode it, and expose loading, recoverable error, and ready states.
+- [ ] Use `encodeWorkoutEditorDraft` and `decodeWorkoutEditorDraft` for the single stored JSON value. The bounded, lossless codec retains the complete frozen submission and its edit baseline; do not rebuild a pending submission from refreshed preferences.
 - [ ] Keep input state current immediately. Do not let an older write overwrite a newer one.
 - [ ] Treat a malformed or inaccessible draft as an explicit recovery choice, not permission to overwrite it.
 - [ ] Flush local persistence before navigating away. If persistence fails, retain in-memory work and show retry. Do not discard while a save is in flight.
@@ -249,17 +250,19 @@ The subsequent phases reuse this slice's contracts, helpers, submission handling
 
 ### Phase 3 — Fitness operations and complete editor reads
 
+**Status:** complete. Workout/template saves, scoped context and override operations, complete editor reads, time correction, and completion notifications are available. Editor screens and device persistence remain in later phases.
+
 **Files:** new focused `plugins/fitness/shared/*-operations.ts` and `*-recipes.ts`; `backend/operations/*.sandbox.ts`; `backend/contracts/operation-recipes.ts`; `manifest/plugin.ts`.
 
-- [ ] Add create/update workout and create/update template operations using Phase 2. Add an explicit time-correction operation; preserve active duration unless deliberately corrected/cleared.
-- [ ] Add the editor-context operation for defaulted own settings and trusted Pro availability. Global settings editing remains kernel-owned; per-exercise override edits use the user's membership relationship and support removing a field to restore inheritance.
-- [ ] Add full workout/template loading, source cloning, exercise selection/replacement, paged inline session history, and Previous-value recipes. Colocate result schemas/decoders/types with recipes.
-- [ ] Page sets as top-level rows with cursors; presentation include limits must never truncate an editable record. Do not silently drop a deleted/unavailable referenced exercise: retain the draft and identify the blocker.
-- [ ] Load exercise kind, taxonomy, instructions, demonstration images, own override relationship, and source event identity/times. Retain recorded `exerciseKind` for historical sets even if the provider's current exercise kind changed.
-- [ ] Validate same-kind replacement at write time for changed existing occurrences. Gate local-only convenience actions in the UI; do not pretend a free generic history query becomes a Pro-only data permission just because inline history is gated.
-- [ ] Enforce meaningful protected changes server-side: new/changed template data, set notes, and workout media. Preserve unchanged imported/protected values on ordinary non-Pro edits.
-- [ ] Add typed operation outputs for saved, stale/conflict, validation, and Pro-required outcomes so the editor does not infer business failures from diagnostic English.
-- [ ] Finalize `workout.created` only after complete new saves and retain existing bounded event-stream recalculation. Tests distinguish saving from pending record recalculation.
+- [x] Add create/update workout and create/update template operations using Phase 2. Add an explicit time-correction operation; preserve active duration unless deliberately corrected/cleared.
+- [x] Add the editor-context operation for defaulted own settings and trusted Pro availability. Global settings editing remains kernel-owned; per-exercise override edits use the user's membership relationship and support removing a field to restore inheritance.
+- [x] Add full workout/template loading, source cloning, exercise selection/replacement, paged inline session history, and Previous-value recipes. Colocate result schemas/decoders/types with recipes.
+- [x] Page sets as top-level rows with cursors; presentation include limits must never truncate an editable record. Do not silently drop a deleted/unavailable referenced exercise: retain the draft and identify the blocker.
+- [x] Load exercise kind, taxonomy, instructions, demonstration images, own override relationship, and source event identity/times. Retain recorded `exerciseKind` for historical sets even if the provider's current exercise kind changed.
+- [x] Validate same-kind replacement at write time for changed existing occurrences. Expose availability for the later UI's local-only convenience gates; do not make generic history queries Pro-only data permissions.
+- [x] Enforce meaningful protected changes server-side: new/changed template data, set notes, and workout media. Preserve unchanged imported/protected values on ordinary non-Pro edits.
+- [x] Add typed operation outputs for saved, stale/conflict, validation, and Pro-required outcomes so the editor does not infer business failures from diagnostic English.
+- [x] Finalize `workout.created` only after complete new saves and retain existing bounded event-stream recalculation. Tests distinguish saving from pending record recalculation.
 
 **Exit:** API tests cover all modes, owner boundaries, existing data preservation, same-kind identity changes, time rules, templates with partial plans, and new-save notifications.
 
@@ -343,6 +346,9 @@ The product and ownership decisions in this plan are settled:
 - Template sets are meaningful when they contain any measurement, nonblank note or RPE, or explicit rest (including zero); set type alone is not enough.
 - Repeats retain exercise and set notes, but clear RPE.
 - Zero is valid for manual set confirmation. Execution countdowns require a positive duration.
+- Time correction changes workout start/end only. Existing set, confirmation, and rest-start times remain unchanged; active duration changes only through explicit set/clear intent.
+- Non-Pro users may remove existing set notes and workout media. Adding or changing their content requires Pro, and meaningful template changes remain gated.
+- Generic field-scoped event preconditions distinguish editable fields from background-derived output. Repreparation must recheck the declared fields and run fresh policies, never bypass revision checks or overwrite a competing edit.
 
 Implementation may refine module names, bounded payloads, and generic capability signatures. Those details must not silently change the settled UX, make the kernel Fitness-aware, or expand into unrequested frameworks.
 

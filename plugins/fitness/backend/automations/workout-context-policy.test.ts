@@ -80,23 +80,27 @@ const run = (input: ReturnType<typeof policyInput>, response: unknown, calls: un
 	);
 
 describe("workout context policy", () => {
-	it("sets unconfirmed event time to the session start without changing other properties", () => {
-		const input = policyInput({
+	it("preserves supplied times for unconfirmed creates and updates", () => {
+		const create = policyInput({
 			resource: "event",
 			category: "request",
 			operation: "create",
-			draft: eventDraft({ restTime: 90, note: "Keep note" }),
+			draft: eventDraft({}, { occurredAt: "2026-01-01T07:30:00.000Z" }),
+		});
+		const update = policyInput({
+			resource: "event",
+			category: "request",
+			operation: "update",
+			changedProperties: [],
+			draft: eventDraft({}, { occurredAt: "2026-01-01T07:45:00.000Z" }),
+			before: { ...eventDraft({}), id: "event-1", createdAt: timestamp, updatedAt: timestamp },
 		});
 
 		return Effect.runPromise(
-			run(input, contextResponse()).pipe(
-				Effect.map((result) => {
-					expect(result).toEqual({
-						action: "transform",
-						patch: { resource: "event", draft: { occurredAt: timestamp } },
-					});
-				}),
-			),
+			Effect.gen(function* () {
+				expect(yield* run(create, contextResponse())).toEqual({ action: "allow" });
+				expect(yield* run(update, contextResponse())).toEqual({ action: "allow" });
+			}),
 		);
 	});
 
@@ -135,6 +139,23 @@ describe("workout context policy", () => {
 					reason: "workout_set_context_missing",
 				});
 			}),
+		);
+	});
+
+	it("rejects an invalid confirmed time", () => {
+		const input = policyInput({
+			resource: "event",
+			category: "request",
+			operation: "create",
+			draft: eventDraft({ confirmedAt: "not-a-date" }),
+		});
+
+		return Effect.runPromise(
+			run(input, contextResponse()).pipe(
+				Effect.map((result) => {
+					expect(result).toEqual({ action: "reject", reason: "workout_set_confirmed_at_invalid" });
+				}),
+			),
 		);
 	});
 });
